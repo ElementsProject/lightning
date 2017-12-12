@@ -42,6 +42,24 @@ bool hex_decode(const char *str, size_t slen, void *buf, size_t bufsize);
 bool hex_encode(const void *buf, size_t bufsize, char *dest, size_t destsize);
 
 /**
+ * hex_encode_reversed - Create a nul-terminated reversed hex string
+ * @buf: the buffer to read the data from
+ * @bufsize: the length of @buf
+ * @dest: the string to fill
+ * @destsize: the max size of the string
+ *
+ * Returns true if the string, including terminator, fit in @destsize;
+ *
+ * Example:
+ *	unsigned char buf[] = { 0x1F, 0x2F };
+ *	char str[5];
+ *
+ *	if (!hex_encode(buf, sizeof(buf), str, sizeof(str)))
+ *		abort();
+ */
+bool hex_encode_reversed(const void *buf, size_t bufsize, char *dest, size_t destsize);
+
+/**
  * hex_str_size - Calculate how big a nul-terminated hex string is
  * @bytes: bytes of data to represent
  *
