@@ -2097,6 +2097,50 @@ class LightningDTests(BaseLightningDTests):
         c.execute('SELECT COUNT(*) FROM outputs WHERE status=2')
         assert(c.fetchone()[0] == 4)
 
+        # Simple test for withdrawal to P2WPKH
+        # Address from: https://bc-2.jp/tools/bech32demo/index.html
+        waddr = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx'
+        self.assertRaises(ValueError, l1.rpc.withdraw, 'xx1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx', 2*amount)
+        self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1pw508d6qejxtdg4y5r3zarvary0c5xw7kdl9fad', 2*amount)
+        self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxxxxxx', 2*amount)
+        out = l1.rpc.withdraw(waddr, 2*amount)
+        l1.bitcoin.rpc.generate(1)
+        # Now make sure additional two of them were marked as spent
+        c = db.cursor()
+        c.execute('SELECT COUNT(*) FROM outputs WHERE status=2')
+        assert(c.fetchone()[0] == 6)
+
+        # Simple test for withdrawal to P2WSH
+        # Address from: https://bc-2.jp/tools/bech32demo/index.html
+        waddr = 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7'
+        self.assertRaises(ValueError, l1.rpc.withdraw, 'xx1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7', 2*amount)
+        self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1prp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qsm03tq', 2*amount)
+        self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qxxxxxx', 2*amount)
+        out = l1.rpc.withdraw(waddr, 2*amount)
+        l1.bitcoin.rpc.generate(1)
+        # Now make sure additional two of them were marked as spent
+        c = db.cursor()
+        c.execute('SELECT COUNT(*) FROM outputs WHERE status=2')
+        assert(c.fetchone()[0] == 8)
+
+        # failure testing for invalid SegWit addresses, from BIP173
+        # HRP character out of range
+        self.assertRaises(ValueError, l1.rpc.withdraw, ' 1nwldj5', 2*amount)
+        # overall max length exceeded
+        self.assertRaises(ValueError, l1.rpc.withdraw, 'an84characterslonghumanreadablepartthatcontainsthenumber1andtheexcludedcharactersbio1569pvx', 2*amount)
+        # No separator character
+        self.assertRaises(ValueError, l1.rpc.withdraw, 'pzry9x0s0muk', 2*amount)
+        # Empty HRP
+        self.assertRaises(ValueError, l1.rpc.withdraw, '1pzry9x0s0muk', 2*amount)
+        # Invalid witness version
+        self.assertRaises(ValueError, l1.rpc.withdraw, 'BC13W508D6QEJXTDG4Y5R3ZARVARY0C5XW7KN40WF2', 2*amount)
+        # Invalid program length for witness version 0 (per BIP141)
+        self.assertRaises(ValueError, l1.rpc.withdraw, 'BC1QR508D6QEJXTDG4Y5R3ZARVARYV98GJ9P', 2*amount)
+        # Mixed case
+        self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sL5k7', 2*amount)
+        # Non-zero padding in 8-to-5 conversion
+        self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3pjxtptv', 2*amount)
+
     def test_funding_change(self):
         """Add some funds, fund a channel, and make sure we remember the change
         """
