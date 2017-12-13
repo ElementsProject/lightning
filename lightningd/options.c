@@ -523,7 +523,7 @@ void register_opts(struct lightningd *ld)
 				 "Print this message.");
 	opt_register_arg("--port", opt_set_u16, opt_show_u16, &ld->portnum,
 			 "Port to bind to (0 means don't listen)");
-	opt_register_arg("--bitcoin-datadir", opt_set_charp, NULL,
+	opt_register_arg("--bitcoin-datadir", opt_set_talstr, NULL,
 			 &ld->topology->bitcoind->datadir,
 			 "-datadir arg for bitcoin-cli");
 	opt_register_arg("--rgb", opt_set_rgb, NULL, ld,
