@@ -755,6 +755,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 			return -1;
 		}
 		*total_satoshi += utxo->amount;
+		tal_free(utxo);
 		num_utxos++;
 	}
 	return num_utxos;
