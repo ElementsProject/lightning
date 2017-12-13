@@ -154,6 +154,7 @@ static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
 	db_begin_transaction(bitcoind->ld->wallet->db);
 	bcli->process(bcli);
 	db_commit_transaction(bitcoind->ld->wallet->db);
+	tal_free(bcli);
 
 	next_bcli(bitcoind);
 }
