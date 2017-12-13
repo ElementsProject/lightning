@@ -223,6 +223,7 @@ sqlite3_stmt *PRINTF_FMT(3, 4)
 
 	/* Sets stmt to NULL if not SQLITE_OK */
 	sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
+	tal_free(query);
 	return stmt;
 }
 
