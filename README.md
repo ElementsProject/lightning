@@ -120,6 +120,7 @@ JSON-RPC interface is documented in the following manual pages:
 * [invoice](doc/lightning-invoice.7.txt)
 * [listinvoice](doc/lightning-listinvoice.7.txt)
 * [waitinvoice](doc/lightning-waitinvoice.7.txt)
+* [waitanyinvoice](doc/lightning-waitanyinvoice.7.txt)
 * [delinvoice](doc/lightning-delinvoice.7.txt)
 * [getroute](doc/lightning-getroute.7.txt)
 * [sendpay](doc/lightning-sendpay.7.txt)
