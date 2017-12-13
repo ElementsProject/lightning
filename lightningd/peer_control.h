@@ -133,6 +133,11 @@ static inline bool peer_on_chain(const struct peer *peer)
 	return peer_state_on_chain(peer->state);
 }
 
+static inline bool peer_has_error(const struct peer *peer)
+{
+  return !(peer->error == NULL || peer->error[0] == '\0');
+}
+
 static inline bool peer_wants_reconnect(const struct peer *peer)
 {
 	return peer->state >= CHANNELD_AWAITING_LOCKIN

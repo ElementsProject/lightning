@@ -1419,7 +1419,7 @@ void notify_new_block(struct lightningd *ld, u32 height)
 				continue;
 
 			/* Peer already failed, or we hit it? */
-			if (hout->key.peer->error)
+			if (peer_has_error(hout->key.peer))
 				continue;
 
 			peer_fail_permanent_str(hout->key.peer,
@@ -1464,7 +1464,7 @@ void notify_new_block(struct lightningd *ld, u32 height)
 				continue;
 
 			/* Peer already failed, or we hit it? */
-			if (hin->key.peer->error)
+			if (peer_has_error(hin->key.peer))
 				continue;
 
 			peer_fail_permanent_str(hin->key.peer,
