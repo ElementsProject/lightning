@@ -622,27 +622,27 @@ void wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 	wallet_channel_config_save(w, &p->our_config);
 
 	/* Now do the real update */
-	stmt = db_prepare(w->db, tal_fmt(w, "UPDATE channels SET"
-					 "  shachain_remote_id=?,"
-					 "  short_channel_id=?,"
-					 "  state=?,"
-					 "  funder=?,"
-					 "  channel_flags=?,"
-					 "  minimum_depth=?,"
-					 "  next_index_local=?,"
-					 "  next_index_remote=?,"
-					 "  next_htlc_id=?,"
-					 "  funding_tx_id=?,"
-					 "  funding_tx_outnum=?,"
-					 "  funding_satoshi=?,"
-					 "  funding_locked_remote=?,"
-					 "  push_msatoshi=?,"
-					 "  msatoshi_local=?,"
-					 "  shutdown_scriptpubkey_remote=?,"
-					 "  shutdown_keyidx_local=?,"
-					 "  channel_config_local=?,"
-					 "  last_tx=?, last_sig=?"
-					 " WHERE id=?"));
+	stmt = db_prepare(w->db, "UPDATE channels SET"
+			  "  shachain_remote_id=?,"
+			  "  short_channel_id=?,"
+			  "  state=?,"
+			  "  funder=?,"
+			  "  channel_flags=?,"
+			  "  minimum_depth=?,"
+			  "  next_index_local=?,"
+			  "  next_index_remote=?,"
+			  "  next_htlc_id=?,"
+			  "  funding_tx_id=?,"
+			  "  funding_tx_outnum=?,"
+			  "  funding_satoshi=?,"
+			  "  funding_locked_remote=?,"
+			  "  push_msatoshi=?,"
+			  "  msatoshi_local=?,"
+			  "  shutdown_scriptpubkey_remote=?,"
+			  "  shutdown_keyidx_local=?,"
+			  "  channel_config_local=?,"
+			  "  last_tx=?, last_sig=?"
+			  " WHERE id=?");
 	sqlite3_bind_int64(stmt, 1, p->their_shachain.id);
 	if (p->scid)
 		sqlite3_bind_short_channel_id(stmt, 2, p->scid);
