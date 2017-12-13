@@ -79,8 +79,8 @@ class TailableProc(object):
         self.proc.wait()
         self.thread.join()
 
-        if failed:
-            raise(ValueError("Process '{}' did not cleanly shutdown".format(self.proc.pid)))
+        if self.proc.returncode:
+            raise ValueError("Process '{}' did not cleanly shutdown: return code {}".format(self.proc.pid, rc))
 
         return self.proc.returncode
 
@@ -364,3 +364,17 @@ class LightningNode(object):
             raise ValueError("Node did not exit cleanly, rc={}".format(rc))
         else:
             return rc
+
+    def restart(self, timeout=10, clean=True):
+        """Stop and restart the lightning node.
+
+        Keyword arguments:
+        timeout: number of seconds to wait for a shutdown
+        clean: whether to issue a `stop` RPC command before killing
+        """
+        if clean:
+            self.stop(timeout)
+        else:
+            self.daemon.stop()
+
+        self.daemon.start()

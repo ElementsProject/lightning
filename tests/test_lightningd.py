@@ -2124,52 +2124,36 @@ class LightningDTests(BaseLightningDTests):
         l2 = self.node_factory.get_node(options=['--locktime-blocks={}'.format(max_locktime + 1)])
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
+        funds = 1000000
+
         addr = l1.rpc.newaddr()['address']
-        txid = l1.bitcoin.rpc.sendtoaddress(addr, 0.01)
+        txid = l1.bitcoin.rpc.sendtoaddress(addr, funds / 10**8)
         bitcoind.generate_block(1)
 
         # Wait for it to arrive.
         wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
 
         # Fail because l1 dislikes l2's huge locktime.
-        try:
-            l1.rpc.fundchannel(l2.info['id'], 100000)
-        except ValueError as verr:
-            str(verr).index('to_self_delay {} larger than {}'
-                            .format(max_locktime+1, max_locktime))
-        except Exception as err:
-            self.fail("Unexpected exception {}".format(err))
-        else:
-            self.fail("huge locktime ignored?")
+        self.assertRaisesRegex(ValueError, r'to_self_delay \d+ larger than \d+',
+                               l1.rpc.fundchannel, l2.info['id'], int(funds/10))
+        assert l1.rpc.getpeers()['peers'][0]['connected']
+        assert l2.rpc.getpeers()['peers'][0]['connected']
+
+        # Restart l2 without ridiculous locktime.
+        l2.daemon.cmd_line.remove('--locktime-blocks={}'.format(max_locktime + 1))
+        l2.restart()
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         # We don't have enough left to cover fees if we try to spend it all.
-        try:
-            l1.rpc.fundchannel(l2.info['id'], 1000000)
-        except ValueError as verr:
-            str(verr).index('Cannot afford funding transaction')
-        except Exception as err:
-            self.fail("Unexpected exception {}".format(err))
-        else:
-            self.fail("We somehow covered fees?")
+        self.assertRaisesRegex(ValueError, r'Cannot afford funding transaction',
+                               l1.rpc.fundchannel, l2.info['id'], funds)
 
         # Should still be connected.
         assert l1.rpc.getpeers()['peers'][0]['connected']
         assert l2.rpc.getpeers()['peers'][0]['connected']
 
-        # Restart l2 without ridiculous locktime.
-        l2.daemon.proc.terminate()
-
-        l2.daemon.cmd_line.remove('--locktime-blocks={}'.format(max_locktime + 1))
-
-        # Wait for l1 to notice
-        wait_for(lambda: len(l1.rpc.getpeers()['peers']) == 0)
-
-        # Now restart l2, reconnect.
-        l2.daemon.start()
-        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
-
         # This works.
-        l1.rpc.fundchannel(l2.info['id'], int(0.01 * 10**8 / 2))
+        l1.rpc.fundchannel(l2.info['id'], int(funds/10))
 
     def test_addfunds_from_block(self):
         """Send funds to the daemon without telling it explicitly
