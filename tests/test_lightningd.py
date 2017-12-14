@@ -2347,6 +2347,35 @@ class LightningDTests(BaseLightningDTests):
         assert not l2.daemon.is_in_log('signature verification failed')
         assert not l3.daemon.is_in_log('signature verification failed')
 
+    def test_waitinvoice(self):
+        """Test waiting for one invoice will not return if another invoice
+        is paid.
+        """
+        # Setup
+        l1, l2 = self.connect()
+        self.fund_channel(l1, l2, 10**6)
+        l1.bitcoin.generate_block(6)
+        l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l2.info['id']))
+
+        # Create invoices
+        inv1 = l2.rpc.invoice(1000, 'inv1', 'inv1')
+        inv2 = l2.rpc.invoice(1000, 'inv2', 'inv2')
+
+        # Start waiting on invoice 1, should block
+        f = self.executor.submit(l2.rpc.waitinvoice, 'inv1')
+        time.sleep(1)
+        assert not f.done()
+        # Pay invoice 2
+        l1.rpc.pay(inv2['bolt11'])
+        # Waiter should stil be blocked
+        time.sleep(1)
+        assert not f.done()
+        # Pay invoice 1
+        l1.rpc.pay(inv1['bolt11'])
+        # Waiter should now finish
+        r = f.result(timeout=5)
+        assert r['label'] == 'inv1'
+
     def test_waitanyinvoice(self):
         """Test various variants of waiting for the next invoice to complete.
         """
