@@ -2388,6 +2388,32 @@ class LightningDTests(BaseLightningDTests):
         self.assertRaises(ValueError, l2.rpc.waitanyinvoice, 'doesntexist')
 
 
+    def test_waitanyinvoice_reversed(self):
+        """Test waiting for invoices, where they are paid in reverse order
+        to when they are created.
+        """
+        # Setup
+        l1, l2 = self.connect()
+        self.fund_channel(l1, l2, 10**6)
+        l1.bitcoin.generate_block(6)
+        l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l2.info['id']))
+
+        # Create invoices
+        inv1 = l2.rpc.invoice(1000, 'inv1', 'inv1')
+        inv2 = l2.rpc.invoice(1000, 'inv2', 'inv2')
+
+        # Pay inv2, wait, pay inv1, wait
+        # Pay inv2
+        l1.rpc.pay(inv2['bolt11'])
+        # Wait - should not block, should return inv2
+        r = self.executor.submit(l2.rpc.waitanyinvoice).result(timeout=5)
+        assert r['label'] == 'inv2'
+        # Pay inv1
+        l1.rpc.pay(inv1['bolt11'])
+        # Wait inv2 - should not blok, should return inv1
+        r = self.executor.submit(l2.rpc.waitanyinvoice, 'inv2').result(timeout=5)
+        assert r['label'] == 'inv1'
+
     def test_channel_reenable(self):
         l1, l2 = self.line_graph(n=2)
 
