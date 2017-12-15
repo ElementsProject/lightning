@@ -83,6 +83,10 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
 		break;
+	/* These are inter-daemon messages, not received by us */
+	case WIRE_GOSSIP_LOCAL_ADD_CHANNEL:
+		break;
+
 	case WIRE_GOSSIP_PEER_CONNECTED:
 		if (tal_count(fds) != 2)
 			return 2;
