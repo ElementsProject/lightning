@@ -374,7 +374,7 @@ bool wallet_invoice_remove(struct wallet *wallet, struct invoice *inv);
  * @wallet: Wallet to load from
  * @chan: Channel to fetch stubs for
  */
-struct htlc_stub *wallet_htlc_stubs(tal_t *ctx, struct wallet *wallet,
+struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 				    struct wallet_channel *chan);
 
 /**

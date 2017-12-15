@@ -1160,7 +1160,7 @@ bool wallet_invoice_remove(struct wallet *wallet, struct invoice *inv)
 	return sqlite3_changes(wallet->db->sql) == 1;
 }
 
-struct htlc_stub *wallet_htlc_stubs(tal_t *ctx, struct wallet *wallet,
+struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 				    struct wallet_channel *chan)
 {
 	struct htlc_stub *stubs;
