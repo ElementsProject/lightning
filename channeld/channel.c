@@ -199,6 +199,34 @@ static void gossip_in(struct peer *peer, const u8 *msg)
 			      wire_type_name(type), tal_hex(msg, msg));
 }
 
+/* Send a temporary `channel_announcement` and `channel_update`. These
+ * are unsigned and mainly used to tell gossip about the channel
+ * before we have reached the `announcement_depth`, not being signed
+ * means they will not be relayed, but we can already rely on them for
+ * our own outgoing payments */
+static void send_temporary_announcement(struct peer *peer)
+{
+	tal_t *tmpctx;
+	u8 *msg;
+
+	/* If we are supposed to send a real announcement, don't do a
+	 * dummy one here, hence the check for announce_depth. */
+	if (peer->announce_depth_reached || !peer->funding_locked[LOCAL] ||
+	    !peer->funding_locked[REMOTE])
+		return;
+
+	tmpctx = tal_tmpctx(peer);
+
+	msg = towire_gossip_local_add_channel(
+	    tmpctx, &peer->short_channel_ids[LOCAL], &peer->chain_hash,
+	    &peer->node_ids[REMOTE], 0 /* flags */, peer->cltv_delta,
+	    peer->conf[REMOTE].htlc_minimum_msat, peer->fee_base,
+	    peer->fee_per_satoshi);
+	wire_sync_write(GOSSIP_FD, take(msg));
+
+	tal_free(tmpctx);
+}
+
 static void send_announcement_signatures(struct peer *peer)
 {
 	/* First 2 + 256 byte are the signatures and msg type, skip them */
@@ -363,6 +391,8 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 				take(towire_channel_normal_operation(peer)));
 	}
 
+	/* Send temporary or final announcements */
+	send_temporary_announcement(peer);
 	send_announcement_signatures(peer);
 }
 
@@ -1808,12 +1838,14 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 	msg_enqueue(&peer->peer_out, take(msg));
 	peer->funding_locked[LOCAL] = true;
 
-	send_announcement_signatures(peer);
-
 	if (peer->funding_locked[REMOTE]) {
 		wire_sync_write(MASTER_FD,
 				take(towire_channel_normal_operation(peer)));
 	}
+
+	/* Send temporary or final announcements */
+	send_temporary_announcement(peer);
+	send_announcement_signatures(peer);
 }
 
 static void handle_funding_announce_depth(struct peer *peer, const u8 *msg)
