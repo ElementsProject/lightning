@@ -132,17 +132,30 @@ class NodeFactory(object):
         node.info = node.rpc.getinfo()
         return node
 
-    def killall(self):
-        rcs = []
-        failed = False
-        for n in self.nodes:
-            try:
-                n.stop()
-            except:
-                failed = True
-            rcs.append(n.daemon.proc.returncode)
-        return rcs
+    def killall(self, expected_successes):
+        """Returns true if every node we expected to succeed actually succeeded"""
+        unexpected_fail = False
+        for i in range(len(self.nodes)):
+            leaks = None
+            # leak detection upsets VALGRIND by reading uninitialized mem.
+            # If it's dead, we'll catch it below.
+            if not VALGRIND:
+                try:
+                    # This also puts leaks in log.
+                    leaks = self.nodes[i].rpc.dev_memleak()['leaks']
+                except:
+                    pass
 
+            try:
+                self.nodes[i].stop()
+            except:
+                if expected_successes[i]:
+                    unexpected_fail = True
+
+            if leaks is not None and len(leaks) != 0:
+                raise Exception("Node {} has memory leaks: {}"
+                                .format(self.nodes[i].daemon.lightning_dir, leaks))
+        return not unexpected_fail
 
 
 class BaseLightningDTests(unittest.TestCase):
@@ -191,7 +204,7 @@ class BaseLightningDTests(unittest.TestCase):
         return 1 if errors else 0
 
     def tearDown(self):
-        rcs = self.node_factory.killall()
+        ok = self.node_factory.killall([not n.may_fail for n in self.node_factory.nodes])
         self.executor.shutdown(wait=False)
 
         err_count = 0
@@ -207,11 +220,8 @@ class BaseLightningDTests(unittest.TestCase):
             if err_count:
                 raise ValueError("{} nodes had crash.log files".format(err_count))
 
-        # Which nodes may fail? Mask away the ones that we know will fail
-        failmask = [not n.may_fail for n in self.node_factory.nodes]
-        unexpected = [(failmask[i] * rcs[i]) for i in range(len(rcs))]
-        if len([u for u in unexpected if u > 0]) > 0:
-            raise Exception("At least one lightning exited with unexpected non-zero return code: {}".format(unexpected))
+        if not ok:
+            raise Exception("At least one lightning exited with unexpected non-zero return code")
 
 class LightningDTests(BaseLightningDTests):
     def connect(self):
@@ -298,7 +308,13 @@ class LightningDTests(BaseLightningDTests):
             lsrc.rpc.sendpay(to_json([routestep]), rhash, async=False)
 
     def test_shutdown(self):
-        l1 = self.node_factory.get_node()
+        # Fail, in that it will exit before cleanup.
+        l1 = self.node_factory.get_node(may_fail=True)
+        if not VALGRIND:
+            leaks = l1.rpc.dev_memleak()['leaks']
+            if len(leaks):
+                raise Exception("Node {} has memory leaks: {}"
+                                .format(l1.daemon.lightning_dir, leaks))
         l1.rpc.stop()
 
     def test_invoice(self):
