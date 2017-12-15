@@ -9,6 +9,7 @@
 #if DEVELOPER
 static struct backtrace_state *backtrace_state;
 static const void **notleaks;
+static bool *notleak_children;
 
 static size_t find_notleak(const tal_t *ptr)
 {
@@ -30,14 +31,18 @@ static void notleak_change(tal_t *ctx,
 		i = find_notleak(ctx);
 		memmove(notleaks + i, notleaks + i + 1,
 			sizeof(*notleaks) * (tal_count(notleaks) - i - 1));
+		memmove(notleak_children + i, notleak_children + i + 1,
+			sizeof(*notleak_children)
+			* (tal_count(notleak_children) - i - 1));
 		tal_resize(&notleaks, tal_count(notleaks) - 1);
+		tal_resize(&notleak_children, tal_count(notleak_children) - 1);
 	} else if (type == TAL_NOTIFY_MOVE) {
 		i = find_notleak(info);
 		notleaks[i] = ctx;
 	}
 }
 
-void *notleak_(const void *ptr)
+void *notleak_(const void *ptr, bool plus_children)
 {
 	size_t nleaks;
 
@@ -47,7 +52,9 @@ void *notleak_(const void *ptr)
 
 	nleaks = tal_count(notleaks);
 	tal_resize(&notleaks, nleaks+1);
+	tal_resize(&notleak_children, nleaks+1);
 	notleaks[nleaks] = ptr;
+	notleak_children[nleaks] = plus_children;
 
 	tal_add_notifier(ptr, TAL_NOTIFY_FREE|TAL_NOTIFY_MOVE, notleak_change);
 	return cast_const(void *, ptr);
@@ -130,16 +137,6 @@ void memleak_scan_region(struct htable *memtable, const void *ptr)
 	scan_for_pointers(memtable, ptr);
 }
 
-void memleak_remove_referenced(struct htable *memtable, const void *root)
-{
-	/* Now delete the ones which are referenced. */
-	memleak_scan_region(memtable, root);
-	memleak_scan_region(memtable, notleaks);
-
-	/* Remove memtable itself */
-	pointer_referenced(memtable, memtable);
-}
-
 static void remove_with_children(struct htable *memtable, const tal_t *p)
 {
 	const tal_t *i;
@@ -147,6 +144,26 @@ static void remove_with_children(struct htable *memtable, const tal_t *p)
 	pointer_referenced(memtable, p);
 	for (i = tal_first(p); i; i = tal_next(i))
 		remove_with_children(memtable, i);
+}
+
+void memleak_remove_referenced(struct htable *memtable, const void *root)
+{
+	size_t i;
+
+	/* Now delete the ones which are referenced. */
+	memleak_scan_region(memtable, root);
+	memleak_scan_region(memtable, notleaks);
+
+	/* Those who asked tal children to be removed, do so. */
+	for (i = 0; i < tal_count(notleaks); i++)
+		if (notleak_children[i])
+			remove_with_children(memtable, notleaks[i]);
+
+	/* notleak_children array is not a leak */
+	pointer_referenced(memtable, notleak_children);
+
+	/* Remove memtable itself */
+	pointer_referenced(memtable, memtable);
 }
 
 static bool ptr_match(const void *candidate, void *ptr)
@@ -214,6 +231,7 @@ void memleak_init(const tal_t *root, struct backtrace_state *bstate)
 	assert(!notleaks);
 	backtrace_state = bstate;
 	notleaks = tal_arr(NULL, const void *, 0);
+	notleak_children = tal_arr(notleaks, bool, 0);
 
 	if (backtrace_state)
 		tal_add_notifier(root, TAL_NOTIFY_ADD_CHILD, add_backtrace);
