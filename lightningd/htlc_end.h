@@ -127,7 +127,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    const struct secret *shared_secret,
 			    const u8 *onion_routing_packet);
 
-/* You need to set the ID, then connect_htlc_out this! */
+/* You need to set the ID, then connect_htlc_out this!  Steals @payment. */
 struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      struct peer *peer,
 			      u64 msatoshi, u32 cltv_expiry,

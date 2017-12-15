@@ -157,9 +157,11 @@ static bool send_payment(struct command *cmd,
 	struct onionpacket *packet;
 	struct secret *path_secrets;
 	enum onion_type failcode;
+	/* Freed automatically on cmd completion: only manually at end. */
+	const tal_t *tmpctx = tal_tmpctx(cmd);
 	size_t i, n_hops = tal_count(route);
-	struct hop_data *hop_data = tal_arr(cmd, struct hop_data, n_hops);
-	struct pubkey *ids = tal_arr(cmd, struct pubkey, n_hops);
+	struct hop_data *hop_data = tal_arr(tmpctx, struct hop_data, n_hops);
+	struct pubkey *ids = tal_arr(tmpctx, struct pubkey, n_hops);
 	struct wallet_payment *payment = NULL;
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
@@ -239,7 +241,7 @@ static bool send_payment(struct command *cmd,
 		list_add_tail(&cmd->ld->pay_commands, &pc->list);
 		tal_add_destructor(pc, pay_command_destroyed);
 
-		payment = tal(pc, struct wallet_payment);
+		payment = tal(tmpctx, struct wallet_payment);
 		payment->id = 0;
 		payment->incoming = false;
 		payment->payment_hash = *rhash;
@@ -275,6 +277,7 @@ static bool send_payment(struct command *cmd,
 			     onion_type_name(failcode));
 		return false;
 	}
+	tal_free(tmpctx);
 	return true;
 }
 
