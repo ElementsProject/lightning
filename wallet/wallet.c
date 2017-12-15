@@ -1105,6 +1105,8 @@ bool wallet_invoices_load(struct wallet *wallet, struct invoices *invs)
 		i = tal(invs, struct invoice);
 		if (!wallet_stmt2invoice(stmt, i)) {
 			log_broken(wallet->log, "Error deserializing invoice");
+			tal_free(i);
+			sqlite3_finalize(stmt);
 			return false;
 		}
 		invoice_add(invs, i);
@@ -1112,6 +1114,7 @@ bool wallet_invoices_load(struct wallet *wallet, struct invoices *invs)
 	}
 
 	log_debug(wallet->log, "Loaded %d invoices from DB", count);
+	sqlite3_finalize(stmt);
 	return true;
 }
 
