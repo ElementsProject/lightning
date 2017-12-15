@@ -56,6 +56,7 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/initial_commit_tx.o		\
 	common/keyset.o				\
 	common/key_derive.o			\
+	common/memleak.o			\
 	common/msg_queue.o			\
 	common/permute_tx.o			\
 	common/status.o				\

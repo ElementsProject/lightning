@@ -2,6 +2,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <common/htlc_wire.h>
+#include <common/memleak.h>
 #include <wire/wire.h>
 
 /* FIXME: We could adapt tools/generate-wire.py to generate structures
@@ -147,6 +148,9 @@ void fromwire_bitcoin_tx(const u8 **cursor, size_t *max, struct bitcoin_tx *tx)
 	 * for the sake of simple structures, we don't write the
 	 * generator that way. */
 	struct bitcoin_tx *tx2 = pull_bitcoin_tx(tx, cursor, max);
-	if (tx2)
+	if (tx2) {
 		*tx = *tx2;
+		/* This hangs around with tx until freed */
+		notleak(tx2);
+	}
 }

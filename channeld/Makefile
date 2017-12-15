@@ -49,6 +49,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/io_debug.o			\
 	common/keyset.o				\
 	common/key_derive.o			\
+	common/memleak.o			\
 	common/msg_queue.o			\
 	common/ping.o				\
 	common/peer_failed.o			\
