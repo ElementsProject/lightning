@@ -307,6 +307,7 @@ class LightningDTests(BaseLightningDTests):
         else:
             lsrc.rpc.sendpay(to_json([routestep]), rhash, async=False)
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_shutdown(self):
         # Fail, in that it will exit before cleanup.
         l1 = self.node_factory.get_node(may_fail=True)
