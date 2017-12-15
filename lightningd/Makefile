@@ -66,6 +66,7 @@ LIGHTNINGD_SRC :=				\
 # Source files without corresponding headers
 LIGHTNINGD_SRC_NOHDR :=				\
 	lightningd/dev_ping.c			\
+	lightningd/memdump.c
 
 LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o) $(LIGHTNINGD_SRC_NOHDR:.c=.o)
 
