@@ -171,4 +171,11 @@ void derive_peer_seed(struct lightningd *ld, struct privkey *peer_seed,
 		      const struct pubkey *peer_id, const u64 channel_id);
 
 struct chainparams *get_chainparams(const struct lightningd *ld);
+
+/* State for performing backtraces. */
+struct backtrace_state *backtrace_state;
+
+#if DEVELOPER
+extern bool dev_no_backtrace;
+#endif
 #endif /* LIGHTNING_LIGHTNINGD_LIGHTNINGD_H */

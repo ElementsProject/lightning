@@ -2,6 +2,7 @@
 #define LIGHTNING_COMMON_MEMLEAK_H
 #include "config.h"
 #include <ccan/tal/tal.h>
+#include <inttypes.h>
 
 #if HAVE_TYPEOF
 #define memleak_typeof(var) typeof(var)
@@ -16,9 +17,10 @@
 void *notleak_(const void *ptr);
 
 struct htable;
+struct backtrace_state;
 
 /* Initialize memleak detection, with this as the root */
-void memleak_init(const tal_t *root);
+void memleak_init(const tal_t *root, struct backtrace_state *bstate);
 
 /* Free memleak detection. */
 void memleak_cleanup(void);
@@ -33,7 +35,7 @@ void memleak_remove_referenced(struct htable *memtable, const void *root);
 void memleak_scan_region(struct htable *memtable, const void *p);
 
 /* Get (and remove) a leak from memtable, or NULL */
-const void *memleak_get(struct htable *memtable);
+const void *memleak_get(struct htable *memtable, const uintptr_t **backtrace);
 
 #else /* ... !DEVELOPER */
 static inline void *notleak_(const void *ptr)

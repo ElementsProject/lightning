@@ -1,5 +1,7 @@
 /* Only possible if we're in developer mode. */
 #ifdef DEVELOPER
+#include <backtrace.h>
+#include <ccan/tal/str/str.h>
 #include <common/memleak.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
@@ -65,12 +67,44 @@ static const struct json_command dev_memdump_command = {
 };
 AUTODATA(json_command, &dev_memdump_command);
 
+static int json_add_syminfo(void *data, uintptr_t pc,
+			    const char *filename, int lineno,
+			    const char *function)
+{
+	struct json_result *response = data;
+	char *str;
+
+	str = tal_fmt(response, "%s:%u (%s)", filename, lineno, function);
+	json_add_string(response, NULL, str);
+	tal_free(str);
+	return 0;
+}
+
+static void json_add_backtrace(struct json_result *response,
+			       const uintptr_t *bt)
+{
+	size_t i;
+
+	if (!bt)
+		return;
+
+	json_array_start(response, "backtrace");
+	/* First one serves as counter. */
+	for (i = 1; i < bt[0]; i++) {
+		backtrace_pcinfo(backtrace_state,
+				 bt[i], json_add_syminfo,
+				 NULL, response);
+	}
+	json_array_end(response);
+}
+
 static void scan_mem(struct command *cmd,
 		     struct json_result *response,
 		     struct lightningd *ld)
 {
 	struct htable *memtable;
 	const tal_t *i;
+	const uintptr_t *backtrace;
 
 	/* Enter everything, except this cmd. */
 	memtable = memleak_enter_allocations(cmd, cmd);
@@ -84,7 +118,7 @@ static void scan_mem(struct command *cmd,
 	memleak_remove_referenced(memtable, ld);
 
 	json_array_start(response, "leaks");
-	while ((i = memleak_get(memtable)) != NULL) {
+	while ((i = memleak_get(memtable, &backtrace)) != NULL) {
 		const tal_t *p;
 
 		json_object_start(response, NULL);
@@ -92,6 +126,7 @@ static void scan_mem(struct command *cmd,
 		if (tal_name(i))
 			json_add_string(response, "label", tal_name(i));
 
+		json_add_backtrace(response, backtrace);
 		json_array_start(response, "parents");
 		for (p = tal_parent(i); p; p = tal_parent(p)) {
 			json_add_string(response, NULL, tal_name(p));
@@ -109,7 +144,9 @@ static void json_memleak(struct command *cmd,
 {
 	struct json_result *response = new_json_result(cmd);
 
+	json_object_start(response, NULL);
 	scan_mem(cmd, response, cmd->ld);
+	json_object_end(response);
 
 	command_success(cmd, response);
 }
