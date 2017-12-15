@@ -99,7 +99,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		log_info(hout->key.peer->log,
 			 "htlc %"PRIu64" failed with bad reply (%s)",
 			 hout->key.id,
-			 tal_hex(pc, hout->failuremsg));
+			 tal_hex(ltmp, hout->failuremsg));
 		failcode = WIRE_PERMANENT_NODE_FAILURE;
 	} else {
 		failcode = fromwire_peektype(reply->msg);
