@@ -106,8 +106,8 @@ static void scan_mem(struct command *cmd,
 	const tal_t *i;
 	const uintptr_t *backtrace;
 
-	/* Enter everything, except this cmd. */
-	memtable = memleak_enter_allocations(cmd, cmd);
+	/* Enter everything, except this cmd and its jcon */
+	memtable = memleak_enter_allocations(cmd, cmd, cmd->jcon);
 
 	/* First delete known false positives. */
 	chaintopology_mark_pointers_used(memtable, ld->topology);
