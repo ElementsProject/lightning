@@ -16,6 +16,7 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <common/json.h>
+#include <common/memleak.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -176,7 +177,8 @@ static void next_bcli(struct bitcoind *bitcoind)
 		fatal("%s exec failed: %s", bcli->args[0], strerror(errno));
 
 	bitcoind->req_running = true;
-	conn = io_new_conn(bitcoind, bcli->fd, output_init, bcli);
+	/* This lifetime is attached to bitcoind command fd */
+	conn = notleak(io_new_conn(bitcoind, bcli->fd, output_init, bcli));
 	io_set_finish(conn, bcli_finished, bcli);
 }
 

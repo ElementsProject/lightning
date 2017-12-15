@@ -25,8 +25,9 @@ static void next_topology_timer(struct chain_topology *topo)
 		topo->startup = false;
 		io_break(topo);
 	}
-	new_reltimer(topo->timers, topo, topo->poll_time,
-		     start_poll_chaintip, topo);
+	/* This takes care of its own lifetime. */
+	notleak(new_reltimer(topo->timers, topo, topo->poll_time,
+			     start_poll_chaintip, topo));
 }
 
 /* FIXME: Remove tx from block when peer done. */
