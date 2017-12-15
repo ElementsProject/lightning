@@ -60,9 +60,7 @@ static struct invoice *find_invoice_by_label(const struct invoices *invs,
 void invoice_add(struct invoices *invs,
 		 struct invoice *inv)
 {
-	tal_steal(invs, inv);
-	struct invoice *invoice = tal(invs, struct invoice);
-	sha256(&invoice->rhash, invoice->r.r, sizeof(invoice->r.r));
+	sha256(&inv->rhash, inv->r.r, sizeof(inv->r.r));
 	list_add(&invs->invlist, &inv->list);
 }
 
