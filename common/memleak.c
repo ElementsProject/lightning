@@ -10,6 +10,33 @@
 static struct backtrace_state *backtrace_state;
 static const void **notleaks;
 
+static size_t find_notleak(const tal_t *ptr)
+{
+	size_t i, nleaks = tal_count(notleaks);
+
+	for (i = 0; i < nleaks; i++)
+		if (notleaks[i] == ptr)
+			return i;
+	abort();
+}
+
+static void notleak_change(tal_t *ctx,
+			   enum tal_notify_type type,
+			   void *info)
+{
+	size_t i;
+
+	if (type == TAL_NOTIFY_FREE) {
+		i = find_notleak(ctx);
+		memmove(notleaks + i, notleaks + i + 1,
+			sizeof(*notleaks) * (tal_count(notleaks) - i - 1));
+		tal_resize(&notleaks, tal_count(notleaks) - 1);
+	} else if (type == TAL_NOTIFY_MOVE) {
+		i = find_notleak(info);
+		notleaks[i] = ctx;
+	}
+}
+
 void *notleak_(const void *ptr)
 {
 	size_t nleaks;
@@ -18,10 +45,11 @@ void *notleak_(const void *ptr)
 	if (!notleaks)
 		return cast_const(void *, ptr);
 
-	/* FIXME: Doesn't work with reallocs, but tal_steal breaks lifetimes */
 	nleaks = tal_count(notleaks);
 	tal_resize(&notleaks, nleaks+1);
 	notleaks[nleaks] = ptr;
+
+	tal_add_notifier(ptr, TAL_NOTIFY_FREE|TAL_NOTIFY_MOVE, notleak_change);
 	return cast_const(void *, ptr);
 }
 
