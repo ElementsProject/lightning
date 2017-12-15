@@ -5,6 +5,7 @@ WALLET_TEST_PROGRAMS := $(WALLET_TEST_OBJS:.o=)
 WALLET_TEST_COMMON_OBJS :=				\
 	common/htlc_state.o			\
 	common/type_to_string.o			\
+	common/memleak.o			\
 	common/pseudorand.o			\
 	common/utils.o				\
 	lightningd/htlc_end.o			\

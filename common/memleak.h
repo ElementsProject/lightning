@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_MEMLEAK_H
 #define LIGHTNING_COMMON_MEMLEAK_H
 #include "config.h"
+#include <ccan/cast/cast.h>
 #include <ccan/tal/tal.h>
 #include <inttypes.h>
 
@@ -43,9 +44,9 @@ void memleak_scan_region(struct htable *memtable, const void *p);
 const void *memleak_get(struct htable *memtable, const uintptr_t **backtrace);
 
 #else /* ... !DEVELOPER */
-static inline void *notleak_(const void *ptr)
+static inline void *notleak_(const void *ptr, bool plus_children UNNEEDED)
 {
-	return ptr;
+	return cast_const(void *, ptr);
 }
 #endif /* !DEVELOPER */
 

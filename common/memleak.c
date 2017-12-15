@@ -1,6 +1,5 @@
 #include <assert.h>
 #include <backtrace.h>
-#include <ccan/cast/cast.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable.h>
 #include <ccan/tal/tal.h>

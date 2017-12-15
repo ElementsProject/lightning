@@ -11,6 +11,7 @@ LIGHTNINGD_TEST_COMMON_OBJS :=			\
 	common/daemon_conn.o			\
 	common/htlc_state.o			\
 	common/pseudorand.o			\
+	common/memleak.o			\
 	common/msg_queue.o			\
 	common/utils.o				\
 	common/type_to_string.o			\
