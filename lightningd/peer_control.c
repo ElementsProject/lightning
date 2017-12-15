@@ -1374,6 +1374,7 @@ static enum watch_result funding_spent(struct peer *peer,
 	s64 keyindex;
 	struct pubkey ourkey;
 	struct htlc_stub *stubs;
+	const tal_t *tmpctx = tal_tmpctx(peer);
 
 	peer_fail_permanent_str(peer, "Funding transaction spent");
 
@@ -1389,12 +1390,14 @@ static enum watch_result funding_spent(struct peer *peer,
 	if (!peer->owner) {
 		log_broken(peer->log, "Could not subdaemon onchain: %s",
 			   strerror(errno));
+		tal_free(tmpctx);
 		return KEEP_WATCHING;
 	}
 
-	stubs = wallet_htlc_stubs(peer, peer->ld->wallet, peer->channel);
+	stubs = wallet_htlc_stubs(tmpctx, peer->ld->wallet, peer->channel);
 	if (!stubs) {
 		log_broken(peer->log, "Could not load htlc_stubs");
+		tal_free(tmpctx);
 		return KEEP_WATCHING;
 	}
 
@@ -1406,14 +1409,16 @@ static enum watch_result funding_spent(struct peer *peer,
 		keyindex = wallet_get_newindex(peer->ld);
 		if (keyindex < 0) {
 			log_broken(peer->log, "Could not get keyindex");
+			tal_free(tmpctx);
 			return KEEP_WATCHING;
 		}
 	}
-	scriptpubkey = p2wpkh_for_keyidx(peer, peer->ld, keyindex);
+	scriptpubkey = p2wpkh_for_keyidx(tmpctx, peer->ld, keyindex);
 	if (!scriptpubkey) {
 		peer_internal_error(peer,
 				    "Can't get shutdown script %"PRIu64,
 				    keyindex);
+		tal_free(tmpctx);
 		return DELETE_WATCH;
 	}
 
@@ -1421,6 +1426,7 @@ static enum watch_result funding_spent(struct peer *peer,
 		peer_internal_error(peer,
 				    "Can't get shutdown key %"PRIu64,
 				    keyindex);
+		tal_free(tmpctx);
 		return DELETE_WATCH;
 	}
 
@@ -1470,6 +1476,7 @@ static enum watch_result funding_spent(struct peer *peer,
 
 	watch_tx_and_outputs(peer, tx);
 
+	tal_free(tmpctx);
 	/* We keep watching until peer finally deleted, for reorgs. */
 	return KEEP_WATCHING;
 }
