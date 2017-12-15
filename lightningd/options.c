@@ -7,6 +7,7 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
+#include <common/memleak.h>
 #include <common/version.h>
 #include <common/wireaddr.h>
 #include <errno.h>
@@ -38,8 +39,15 @@ static void *opt_allocfn(size_t size)
 
 static void *tal_reallocfn(void *ptr, size_t size)
 {
-	if (!ptr)
+	if (!ptr) {
+		/* realloc(NULL) call is to allocate opt_table */
+		static bool opt_table_alloced = false;
+		if (!opt_table_alloced) {
+			opt_table_alloced = true;
+			return notleak(opt_allocfn(size));
+		}
 		return opt_allocfn(size);
+	}
 	tal_resize_(&ptr, 1, size, false);
 	return ptr;
 }
