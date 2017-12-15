@@ -11,10 +11,13 @@
 #endif /* !HAVE_TYPEOF */
 
 /* Mark a pointer as not being leaked. */
-#define notleak(p) ((memleak_typeof(p))notleak_(p))
+#define notleak(p) ((memleak_typeof(p))notleak_((p), false))
+
+/* Mark a pointer and all its tal children as not being leaked. */
+#define notleak_with_children(p) ((memleak_typeof(p))notleak_((p), true))
 
 #if DEVELOPER
-void *notleak_(const void *ptr);
+void *notleak_(const void *ptr, bool plus_children);
 
 struct htable;
 struct backtrace_state;
