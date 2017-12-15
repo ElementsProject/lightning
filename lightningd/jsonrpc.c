@@ -7,6 +7,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/json.h>
+#include <common/memleak.h>
 #include <common/version.h>
 #include <common/wireaddr.h>
 #include <errno.h>
@@ -633,7 +634,9 @@ static struct io_plan *incoming_jcon_connected(struct io_conn *conn,
 					       struct lightningd *ld)
 {
 	log_info(ld->log, "Connected json input");
-	return jcon_connected(conn, ld);
+
+	/* Lifetime of JSON conn is limited to fd connect time. */
+	return jcon_connected(notleak(conn), ld);
 }
 
 void setup_jsonrpc(struct lightningd *ld, const char *rpc_filename)
@@ -648,7 +651,8 @@ void setup_jsonrpc(struct lightningd *ld, const char *rpc_filename)
 		fd = open(rpc_filename, O_RDWR);
 		if (fd == -1)
 			err(1, "Opening %s", rpc_filename);
-		io_new_conn(ld, fd, jcon_connected, ld);
+		/* Technically this is a leak, but there's only one */
+		notleak(io_new_conn(ld, fd, jcon_connected, ld));
 		return;
 	}
 
@@ -673,5 +677,6 @@ void setup_jsonrpc(struct lightningd *ld, const char *rpc_filename)
 		err(1, "Listening on '%s'", rpc_filename);
 
 	log_debug(ld->log, "Listening on '%s'", rpc_filename);
-	io_new_listener(ld, fd, incoming_jcon_connected, ld);
+	/* Technically this is a leak, but there's only one */
+	notleak(io_new_listener(ld, fd, incoming_jcon_connected, ld));
 }
