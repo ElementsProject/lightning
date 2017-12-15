@@ -18,6 +18,10 @@
 struct crypto_state;
 
 struct peer {
+	/* Inside ld->peers. */
+	struct list_node list;
+
+	/* Master context */
 	struct lightningd *ld;
 
 	/* Database ID of the peer */
@@ -41,9 +45,6 @@ struct peer {
 	/* Command which ordered us to open channel, if any. */
 	struct command *opening_cmd;
 	
-	/* Inside ld->peers. */
-	struct list_node list;
-
 	/* Is there a single subdaemon responsible for us? */
 	struct subd *owner;
 
