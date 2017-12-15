@@ -51,6 +51,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/dev_disconnect.o			\
 	common/derive_basepoints.o		\
 	common/htlc_wire.o			\
+	common/memleak.o			\
 	common/msg_queue.o			\
 	common/peer_failed.o			\
 	common/permute_tx.o			\
