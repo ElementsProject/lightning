@@ -1,5 +1,5 @@
 /* Only possible if we're in developer mode. */
-#ifdef DEVELOPER
+#if DEVELOPER
 #include <backtrace.h>
 #include <ccan/tal/str/str.h>
 #include <common/memleak.h>
