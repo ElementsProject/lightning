@@ -170,5 +170,8 @@ void notify_feerate_change(struct lightningd *ld);
 void json_dev_broadcast(struct command *cmd,
 			struct chain_topology *topo,
 			const char *buffer, const jsmntok_t *params);
+
+void chaintopology_mark_pointers_used(struct htable *memtable,
+				      const struct chain_topology *topo);
 #endif
 #endif /* LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H */

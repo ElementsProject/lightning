@@ -3,6 +3,7 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <common/htlc.h>
+#include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/log.h>
@@ -166,3 +167,31 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 
 	return htlc_out_check(hout, "new_htlc_out");
 }
+
+#if DEVELOPER
+void htlc_inmap_mark_pointers_used(struct htable *memtable,
+				   const struct htlc_in_map *map)
+{
+	struct htlc_in *hin;
+	struct htlc_in_map_iter it;
+
+	/* memleak can't see inside hash tables, so do them manually */
+	for (hin = htlc_in_map_first(map, &it);
+	     hin;
+	     hin = htlc_in_map_next(map, &it))
+		memleak_scan_region(memtable, hin);
+}
+
+void htlc_outmap_mark_pointers_used(struct htable *memtable,
+				   const struct htlc_out_map *map)
+{
+	struct htlc_out *hout;
+	struct htlc_out_map_iter it;
+
+	/* memleak can't see inside hash tables, so do them manually */
+	for (hout = htlc_out_map_first(map, &it);
+	     hout;
+	     hout = htlc_out_map_next(map, &it))
+		memleak_scan_region(memtable, hout);
+}
+#endif /* DEVELOPER */

@@ -23,6 +23,7 @@ COMMON_SRC :=					\
 	common/json.c				\
 	common/key_derive.c			\
 	common/keyset.c				\
+	common/memleak.c			\
 	common/msg_queue.c			\
 	common/peer_failed.c			\
 	common/permute_tx.c			\

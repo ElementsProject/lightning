@@ -44,6 +44,12 @@ struct invoices *invoices_init(const tal_t *ctx UNNEEDED)
 void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED, const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "log_ called!\n"); abort(); }
+/* Generated stub for memleak_cleanup */
+void memleak_cleanup(void)
+{ fprintf(stderr, "memleak_cleanup called!\n"); abort(); }
+/* Generated stub for memleak_init */
+void memleak_init(const tal_t *root UNNEEDED)
+{ fprintf(stderr, "memleak_init called!\n"); abort(); }
 /* Generated stub for new_log */
 struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "new_log called!\n"); abort(); }

@@ -12,6 +12,7 @@
 #include <ccan/io/io.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
+#include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <inttypes.h>
@@ -675,6 +676,26 @@ static const struct json_command dev_setfees_command = {
 	"Allows testing of feerate changes"
 };
 AUTODATA(json_command, &dev_setfees_command);
+
+void chaintopology_mark_pointers_used(struct htable *memtable,
+				      const struct chain_topology *topo)
+{
+	struct txwatch_hash_iter wit;
+	struct txwatch *w;
+	struct txowatch_hash_iter owit;
+	struct txowatch *ow;
+
+	/* memleak can't see inside hash tables, so do them manually */
+	for (w = txwatch_hash_first(&topo->txwatches, &wit);
+	     w;
+	     w = txwatch_hash_next(&topo->txwatches, &wit))
+		memleak_scan_region(memtable, w);
+
+	for (ow = txowatch_hash_first(&topo->txowatches, &owit);
+	     ow;
+	     ow = txowatch_hash_next(&topo->txowatches, &owit))
+		memleak_scan_region(memtable, ow);
+}
 #endif /* DEVELOPER */
 
 /* On shutdown, peers get deleted last.  That frees from our list, so

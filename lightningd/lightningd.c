@@ -16,6 +16,7 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/io_debug.h>
+#include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <common/version.h>
@@ -65,6 +66,14 @@ static struct lightningd *new_lightningd(const tal_t *ctx,
 {
 	struct lightningd *ld = tal(ctx, struct lightningd);
 
+#if DEVELOPER
+	ld->dev_debug_subdaemon = NULL;
+	ld->dev_disconnect_fd = -1;
+	ld->dev_hsm_seed = NULL;
+	ld->dev_subdaemon_fail = false;
+	memleak_init(ld);
+#endif
+
 	list_head_init(&ld->peers);
 	htlc_in_map_init(&ld->htlcs_in);
 	htlc_out_map_init(&ld->htlcs_out);
@@ -81,13 +90,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx,
 
 	/* FIXME: Move into invoice daemon. */
 	ld->invoices = invoices_init(ld);
-
-#if DEVELOPER
-	ld->dev_debug_subdaemon = NULL;
-	ld->dev_disconnect_fd = -1;
-	ld->dev_hsm_seed = NULL;
-	ld->dev_subdaemon_fail = false;
-#endif
 
 	return ld;
 }
@@ -349,5 +351,9 @@ int main(int argc, char *argv[])
 	tal_free(ld);
 	opt_free_table();
 	tal_free(log_book);
+
+#if DEVELOPER
+	memleak_cleanup();
+#endif
 	return 0;
 }
