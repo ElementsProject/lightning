@@ -355,8 +355,11 @@ struct onionpacket *create_onionpacket(
 	struct hop_params *params = generate_hop_params(ctx, sessionkey, path);
 	struct secret *secrets = tal_arr(ctx, struct secret, num_hops);
 
-	if (!params)
+	if (!params) {
+		tal_free(packet);
+		tal_free(secrets);
 		return NULL;
+	}
 	packet->version = 0;
 	memset(nexthmac, 0, SECURITY_PARAMETER);
 	memset(packet->routinginfo, 0, ROUTING_INFO_SIZE);
