@@ -16,6 +16,8 @@ struct command {
 	const char *id;
 	/* The connection, or NULL if it closed. */
 	struct json_connection *jcon;
+	/* Have we been marked by command_still_pending?  For debugging... */
+	bool pending;
 };
 
 struct json_connection {
@@ -55,6 +57,9 @@ struct json_command {
 struct json_result *null_response(const tal_t *ctx);
 void command_success(struct command *cmd, struct json_result *response);
 void PRINTF_FMT(2, 3) command_fail(struct command *cmd, const char *fmt, ...);
+
+/* Mainly for documentation, that we plan to close this later. */
+void command_still_pending(struct command *cmd);
 
 /* '"fieldname" : "0289abcdef..."' or "0289abcdef..." if fieldname is NULL */
 void json_add_pubkey(struct json_result *response,

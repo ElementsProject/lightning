@@ -394,6 +394,7 @@ static void json_waitanyinvoice(struct command *cmd,
 	w = tal(cmd, struct invoice_waiter);
 	w->cmd = cmd;
 	list_add_tail(&invs->invoice_waiters, &w->list);
+	command_still_pending(cmd);
 }
 
 static const struct json_command waitanyinvoice_command = {
@@ -439,6 +440,7 @@ static void json_waitinvoice(struct command *cmd,
 		w = tal(cmd, struct invoice_waiter);
 		w->cmd = cmd;
 		list_add_tail(&invs->invoice_waiters, &w->list);
+		command_still_pending(cmd);
 	}
 }
 
