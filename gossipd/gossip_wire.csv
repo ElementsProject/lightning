@@ -144,3 +144,16 @@ gossip_send_gossip,3016
 gossip_send_gossip,,gossip_index,u64
 gossip_send_gossip,,len,u16
 gossip_send_gossip,,gossip,len*u8
+
+# Both sides have seen the funding tx being locked, but we have not
+# yet reached the announcement depth. So we add the channel locally so
+# we can use it already.
+gossip_local_add_channel,3017
+gossip_local_add_channel,,short_channel_id,struct short_channel_id
+gossip_local_add_channel,,chain_hash,struct sha256_double
+gossip_local_add_channel,,remote_node_id,struct pubkey
+gossip_local_add_channel,,flags,u16
+gossip_local_add_channel,,cltv_expiry_delta,u16
+gossip_local_add_channel,,htlc_minimum_msat,u64
+gossip_local_add_channel,,fee_base_msat,u32
+gossip_local_add_channel,,fee_proportional_millionths,u32
