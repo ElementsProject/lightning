@@ -22,8 +22,6 @@
 #include <unistd.h>
 #include <wire/wire.h>
 
-#define HSM_FD 3
-
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)
 #endif

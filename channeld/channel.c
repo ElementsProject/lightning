@@ -164,6 +164,8 @@ struct peer {
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
 static void start_commit_timer(struct peer *peer);
+static u8 *create_channel_update(const tal_t *ctx, struct peer *peer,
+				 bool disabled, bool public);
 
 /* Returns a pointer to the new end */
 static void *tal_arr_append_(void **p, size_t size)
@@ -185,6 +187,36 @@ static void gossip_in(struct peer *peer, const u8 *msg)
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Got bad message from gossipd: %s",
 			      tal_hex(msg, msg));
+}
+
+/* Send a temporary `channel_announcement` and `channel_update`. These
+ * are unsigned and mainly used to tell gossip about the channel
+ * before we have reached the `announcement_depth`, not being signed
+ * means they will not be relayed, but we can already rely on them for
+ * our own outgoing payments */
+static void send_temporary_announcement(struct peer *peer)
+{
+	tal_t *tmpctx;
+	u8 *cannounce, *cupdate;
+
+	/* If we are supposed to send a real announcement, don't do a
+	 * dummy one here, hence the check for announce_depth. */
+	if (peer->announce_depth_reached || !peer->funding_locked[LOCAL] ||
+	    !peer->funding_locked[REMOTE])
+		return;
+
+	tmpctx = tal_tmpctx(peer);
+
+	cannounce = create_channel_announcement(tmpctx, peer);
+	cupdate = create_channel_update(tmpctx, peer, false, false);
+
+	msg_enqueue(&peer->peer_out, cannounce);
+	msg_enqueue(&peer->peer_out, cupdate);
+
+	wire_sync_write(GOSSIP_FD, take(cannounce));
+	wire_sync_write(GOSSIP_FD, take(cupdate));
+
+	tal_free(tmpctx);
 }
 
 static void send_announcement_signatures(struct peer *peer)
@@ -252,10 +284,10 @@ static void send_announcement_signatures(struct peer *peer)
 }
 
 static u8 *create_channel_update(const tal_t *ctx,
-				 struct peer *peer, bool disabled)
+				 struct peer *peer, bool disabled, bool public)
 {
 	tal_t *tmpctx = tal_tmpctx(ctx);
-	u32 timestamp = time_now().ts.tv_sec;
+	u32 timestamp = public ? time_now().ts.tv_sec : 0;
 	u16 flags;
 	u8 *cupdate, *msg;
 
@@ -265,23 +297,24 @@ static u8 *create_channel_update(const tal_t *ctx,
 
 	flags = peer->channel_direction | (disabled << 1);
 	cupdate = towire_channel_update(
-	    tmpctx, sig, &peer->chain_hash,
+	    ctx, sig, &peer->chain_hash,
 	    &peer->short_channel_ids[LOCAL], timestamp, flags,
 	    peer->cltv_delta, peer->conf[REMOTE].htlc_minimum_msat,
 	    peer->fee_base, peer->fee_per_satoshi);
+	if (public) {
+		msg = towire_hsm_cupdate_sig_req(tmpctx, cupdate);
 
-	msg = towire_hsm_cupdate_sig_req(tmpctx, cupdate);
-
-	if (!wire_sync_write(HSM_FD, msg))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Writing cupdate_sig_req: %s",
-			      strerror(errno));
-
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_cupdate_sig_reply(ctx, msg, NULL, &cupdate))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Reading cupdate_sig_req: %s",
-			      strerror(errno));
+		if (!wire_sync_write(HSM_FD, msg))
+			status_failed(STATUS_FAIL_HSM_IO,
+				      "Writing cupdate_sig_req: %s",
+				      strerror(errno));
+		tal_free(cupdate);
+		msg = wire_sync_read(tmpctx, HSM_FD);
+		if (!msg || !fromwire_hsm_cupdate_sig_reply(ctx, msg, NULL, &cupdate))
+			status_failed(STATUS_FAIL_HSM_IO,
+				      "Reading cupdate_sig_req: %s",
+				      strerror(errno));
+	}
 	tal_free(tmpctx);
 	return cupdate;
 }
@@ -351,6 +384,8 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 				take(towire_channel_normal_operation(peer)));
 	}
 
+	/* Send temporary or final announcements */
+	send_temporary_announcement(peer);
 	send_announcement_signatures(peer);
 }
 
@@ -359,7 +394,7 @@ static void announce_channel(struct peer *peer)
 	u8 *cannounce, *cupdate;
 
 	cannounce = create_channel_announcement(peer, peer);
-	cupdate = create_channel_update(cannounce, peer, false);
+	cupdate = create_channel_update(cannounce, peer, false, true);
 
 	/* Tell the master that we to announce channel (it does node) */
 	wire_sync_write(MASTER_FD, take(towire_channel_announce(peer,
@@ -1482,7 +1517,7 @@ static void peer_conn_broken(struct peer *peer)
 
 	/* If we have signatures, send an update to say we're disabled. */
 	if (peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE]) {
-		u8 *cupdate = create_channel_update(peer, peer, true);
+		u8 *cupdate = create_channel_update(peer, peer, true, true);
 
 		wire_sync_write(GOSSIP_FD, take(cupdate));
 	}
@@ -1757,7 +1792,7 @@ again:
 
 	/* Reenable channel by sending a channel_update without the
 	 * disable flag */
-	cupdate = create_channel_update(peer, peer, false);
+	cupdate = create_channel_update(peer, peer, false, true);
 	wire_sync_write(GOSSIP_FD, cupdate);
 	msg_enqueue(&peer->peer_out, take(cupdate));
 
@@ -1790,6 +1825,7 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 	msg_enqueue(&peer->peer_out, take(msg));
 	peer->funding_locked[LOCAL] = true;
 
+	send_temporary_announcement(peer);
 	send_announcement_signatures(peer);
 
 	if (peer->funding_locked[REMOTE]) {

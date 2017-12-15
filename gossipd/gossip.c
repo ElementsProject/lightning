@@ -31,6 +31,7 @@
 #include <gossipd/handshake.h>
 #include <gossipd/routing.h>
 #include <hsmd/client.h>
+#include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/gossip_msg.h>
 #include <netdb.h>
@@ -43,6 +44,7 @@
 #include <unistd.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_io.h>
+#include <wire/wire_sync.h>
 
 #define HSM_FD 3
 
@@ -71,6 +73,10 @@ struct daemon {
 
 	/* Local and global features to offer to peers. */
 	u8 *localfeatures, *globalfeatures;
+
+	u8 alias[33];
+	u8 rgb[3];
+	struct wireaddr *wireaddrs;
 };
 
 /* Peers we're trying to reach. */
@@ -367,12 +373,69 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 static struct io_plan *nonlocal_dump_gossip(struct io_conn *conn,
 					    struct daemon_conn *dc);
 
-static void handle_gossip_msg(struct routing_state *rstate, u8 *msg)
+/* Create a node_announcement with the given signature. It may be NULL
+ * in the case we need to create a provisional announcement for the
+ * HSM to sign. This is typically called twice: once with the dummy
+ * signature to get it signed and a second time to build the full
+ * packet with the signature. The timestamp is handed in since that is
+ * the only thing that may change between the dummy creation and the
+ * call with a signature.*/
+static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
+				    secp256k1_ecdsa_signature *sig,
+				    u32 timestamp)
 {
+	u8 *features = NULL;
+	u8 *addresses = tal_arr(ctx, u8, 0);
+	u8 *announcement;
+	size_t i;
+	if (!sig) {
+		sig = tal(ctx, secp256k1_ecdsa_signature);
+		memset(sig, 0, sizeof(*sig));
+	}
+	for (i = 0; i < tal_count(daemon->wireaddrs); i++)
+		towire_wireaddr(&addresses, daemon->wireaddrs+i);
+
+	announcement =
+	    towire_node_announcement(ctx, sig, features, timestamp,
+				     &daemon->id, daemon->rgb, daemon->alias,
+				     addresses);
+	return announcement;
+}
+
+static void send_node_announcement(struct daemon *daemon)
+{
+	tal_t *tmpctx = tal_tmpctx(daemon);
+	u32 timestamp = time_now().ts.tv_sec;
+	secp256k1_ecdsa_signature sig;
+	u8 *msg, *nannounce = create_node_announcement(tmpctx, daemon, NULL, timestamp);
+
+	if (!wire_sync_write(HSM_FD, take(towire_hsm_node_announcement_sig_req(tmpctx, nannounce))))
+		status_failed(STATUS_FAIL_MASTER_IO, "Could not write to HSM: %s", strerror(errno));
+
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsm_node_announcement_sig_reply(msg, NULL, &sig))
+		status_failed(STATUS_FAIL_MASTER_IO, "HSM returned an invalid node_announcement sig");
+
+	/* We got the signature for out provisional node_announcement back
+	 * from the HSM, create the real announcement and forward it to
+	 * gossipd so it can take care of forwarding it. */
+	nannounce = create_node_announcement(tmpctx, daemon, &sig, timestamp);
+	handle_node_announcement(daemon->rstate, take(nannounce), tal_len(nannounce));
+	tal_free(tmpctx);
+}
+
+static void handle_gossip_msg(struct daemon *daemon, u8 *msg)
+{
+	struct routing_state *rstate = daemon->rstate;
 	int t = fromwire_peektype(msg);
 	switch(t) {
 	case WIRE_CHANNEL_ANNOUNCEMENT:
-		handle_channel_announcement(rstate, msg, tal_count(msg));
+		/* Add the channel_announcement to the routing state,
+		 * it'll tell us whether this is local and signed, so
+		 * we can hand in a node_announcement as well. */
+		if(handle_channel_announcement(rstate, msg, tal_count(msg))) {
+			send_node_announcement(daemon);
+		}
 		break;
 
 	case WIRE_NODE_ANNOUNCEMENT:
@@ -485,7 +548,7 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_NODE_ANNOUNCEMENT:
 	case WIRE_CHANNEL_UPDATE:
-		handle_gossip_msg(peer->daemon->rstate, msg);
+		handle_gossip_msg(peer->daemon, msg);
 		return peer_next_in(conn, peer);
 
 	case WIRE_PING:
@@ -657,7 +720,7 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 	int type = fromwire_peektype(msg);
 	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
 	    type == WIRE_NODE_ANNOUNCEMENT) {
-		handle_gossip_msg(peer->daemon->rstate, dc->msg_in);
+		handle_gossip_msg(peer->daemon, dc->msg_in);
 	} else if (type == WIRE_GOSSIP_GET_UPDATE) {
 		handle_get_update(peer, dc->msg_in);
 	}
@@ -1111,10 +1174,12 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 				     &daemon->broadcast_interval,
 				     &chain_hash, &daemon->id, &port,
 				     &daemon->globalfeatures,
-				     &daemon->localfeatures)) {
+				     &daemon->localfeatures,
+				     &daemon->wireaddrs,
+				     daemon->rgb, daemon->alias)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
-	daemon->rstate = new_routing_state(daemon, &chain_hash);
+	daemon->rstate = new_routing_state(daemon, &chain_hash, &daemon->id);
 
 	setup_listeners(daemon, port);
 	return daemon_conn_read_next(master->conn, master);
@@ -1155,7 +1220,7 @@ static void handle_forwarded_msg(struct io_conn *conn, struct daemon *daemon, co
 	if (!fromwire_gossip_forwarded_msg(msg, msg, NULL, &payload))
 		master_badmsg(WIRE_GOSSIP_FORWARDED_MSG, msg);
 
-	handle_gossip_msg(daemon->rstate, payload);
+	handle_gossip_msg(daemon, payload);
 }
 
 static struct io_plan *handshake_out_success(struct io_conn *conn,

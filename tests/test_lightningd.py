@@ -323,9 +323,9 @@ class LightningDTests(BaseLightningDTests):
 
         # Wait for route propagation.
         bitcoind.generate_block(5)
-        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
+        l1.daemon.wait_for_logs(['Received public channel_update for channel {}\(0\)'
                                  .format(chanid),
-                                'Received channel_update for channel {}\(1\)'
+                                'Received public channel_update for channel {}\(1\)'
                                  .format(chanid)])
 
         inv = l2.rpc.invoice(123000, 'test_pay', 'description', 1)['bolt11']
@@ -692,9 +692,9 @@ class LightningDTests(BaseLightningDTests):
 
         # Wait for route propagation.
         bitcoind.generate_block(5)
-        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
+        l1.daemon.wait_for_logs(['Received public channel_update for channel {}\(0\)'
                                  .format(chanid),
-                                'Received channel_update for channel {}\(1\)'
+                                'Received public channel_update for channel {}\(1\)'
                                  .format(chanid)])
 
         inv = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
@@ -1266,13 +1266,22 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     def test_gossip_jsonrpc(self):
-        l1,l2 = self.connect()
+        l1, l2 = self.line_graph(n=2)
 
-        self.fund_channel(l1,l2,10**5)
+        # Add another node that listens for gossip
+        l3 = self.node_factory.get_node()
+        l3.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         # Shouldn't send announce signatures until 6 deep.
         assert not l1.daemon.is_in_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
 
+        # Channels should be activated locally
+        wait_for(lambda: [c['active'] for c in l1.rpc.getchannels()['channels']] == [True, True]);
+
+        # L3 shouldn't see them just yet
+        assert len(l3.rpc.getchannels()['channels']) == 0
+
+        # Now proceed to funding-depth and do a full gossip round
         l1.bitcoin.generate_block(5)
         # Could happen in either order.
         l1.daemon.wait_for_logs(['peer_out WIRE_ANNOUNCEMENT_SIGNATURES',
@@ -1330,7 +1339,7 @@ class LightningDTests(BaseLightningDTests):
     def test_routing_gossip_reconnect(self):
         # Connect two peers, reconnect and then see if we resume the
         # gossip.
-        disconnects = ['-WIRE_CHANNEL_ANNOUNCEMENT']
+        disconnects = ['-WIRE_NODE_ANNOUNCEMENT']
         l1 = self.node_factory.get_node(disconnect=disconnects)
         l2 = self.node_factory.get_node()
         l3 = self.node_factory.get_node()
@@ -1514,10 +1523,10 @@ class LightningDTests(BaseLightningDTests):
 
         # Make sure l1 has seen announce for all channels.
         l1.daemon.wait_for_logs([
-            'Received channel_update for channel {}\\(0\\)'.format(c1),
-            'Received channel_update for channel {}\\(1\\)'.format(c1),
-            'Received channel_update for channel {}\\(0\\)'.format(c2),
-            'Received channel_update for channel {}\\(1\\)'.format(c2)])
+            'Received public channel_update for channel {}\\(0\\)'.format(c1),
+            'Received public channel_update for channel {}\\(1\\)'.format(c1),
+            'Received public channel_update for channel {}\\(0\\)'.format(c2),
+            'Received public channel_update for channel {}\\(1\\)'.format(c2)])
 
         # BOLT #7:
         #
@@ -1613,10 +1622,10 @@ class LightningDTests(BaseLightningDTests):
 
         # Make sure l1 has seen announce for all channels.
         l1.daemon.wait_for_logs([
-            'Received channel_update for channel {}\\(0\\)'.format(c1),
-            'Received channel_update for channel {}\\(1\\)'.format(c1),
-            'Received channel_update for channel {}\\(0\\)'.format(c2),
-            'Received channel_update for channel {}\\(1\\)'.format(c2)])
+            'Received public channel_update for channel {}\\(0\\)'.format(c1),
+            'Received public channel_update for channel {}\\(1\\)'.format(c1),
+            'Received public channel_update for channel {}\\(0\\)'.format(c2),
+            'Received public channel_update for channel {}\\(1\\)'.format(c2)])
 
         route = l1.rpc.getroute(l3.info['id'], 4999999, 1)["route"]
         assert len(route) == 2
@@ -1652,9 +1661,9 @@ class LightningDTests(BaseLightningDTests):
 
         # Wait for route propagation.
         bitcoind.generate_block(5)
-        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
+        l1.daemon.wait_for_logs(['Received public channel_update for channel {}\(0\)'
                                  .format(chanid),
-                                'Received channel_update for channel {}\(1\)'
+                                'Received public channel_update for channel {}\(1\)'
                                  .format(chanid)])
 
         amt = 200000000
@@ -1692,9 +1701,9 @@ class LightningDTests(BaseLightningDTests):
 
         # Wait for route propagation.
         bitcoind.generate_block(5)
-        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
+        l1.daemon.wait_for_logs(['Received public channel_update for channel {}\(0\)'
                                  .format(chanid),
-                                'Received channel_update for channel {}\(1\)'
+                                'Received public channel_update for channel {}\(1\)'
                                  .format(chanid)])
 
         amt = 200000000
@@ -2334,9 +2343,9 @@ class LightningDTests(BaseLightningDTests):
         # Now make sure an HTLC works.
         # (First wait for route propagation.)
         bitcoind.generate_block(6)
-        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
+        l1.daemon.wait_for_logs(['Received public channel_update for channel {}\(0\)'
                                  .format(chanid),
-                                'Received channel_update for channel {}\(1\)'
+                                'Received public channel_update for channel {}\(1\)'
                                  .format(chanid)])
 
         # Make payments.

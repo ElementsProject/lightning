@@ -89,7 +89,7 @@ struct lightningd {
 	struct pubkey id;
 
 	/* My name is... my favorite color is... */
-	char *alias; /* At least 32 bytes (zero-filled) */
+	u8 *alias; /* At least 32 bytes (zero-filled) */
 	u8 *rgb; /* tal_len() == 3. */
 
 	/* Any pending timers. */

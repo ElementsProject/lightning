@@ -26,12 +26,14 @@ static struct node_map *empty_node_map(const tal_t *ctx)
 }
 
 struct routing_state *new_routing_state(const tal_t *ctx,
-					const struct sha256_double *chain_hash)
+					const struct sha256_double *chain_hash,
+					const struct pubkey *local_id)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->nodes = empty_node_map(rstate);
 	rstate->broadcasts = new_broadcast_state(rstate);
 	rstate->chain_hash = *chain_hash;
+	rstate->local_id = *local_id;
 	return rstate;
 }
 
@@ -191,6 +193,7 @@ get_or_make_connection(struct routing_state *rstate,
 	nc->dst = to;
 	nc->channel_announcement = NULL;
 	nc->channel_update = NULL;
+	nc->announced = false;
 
 	/* Hook it into in/out arrays. */
 	i = tal_count(to->in);
@@ -422,9 +425,11 @@ static bool add_channel_direction(struct routing_state *rstate,
 	c = half_add_connection(rstate, from, to, short_channel_id, direction);
 
 	/* Remember the announcement so we can forward it to new peers */
-	tal_free(c->channel_announcement);
-	c->channel_announcement = tal_dup_arr(c, u8, announcement,
-					      tal_count(announcement), 0);
+	if (announcement) {
+		tal_free(c->channel_announcement);
+		c->channel_announcement = tal_dup_arr(c, u8, announcement,
+						      tal_count(announcement), 0);
+	}
 	return true;
 }
 
@@ -461,12 +466,12 @@ static bool check_channel_announcement(
 	       check_signed_hash(&hash, bitcoin2_sig, bitcoin2_key);
 }
 
-void handle_channel_announcement(
+bool handle_channel_announcement(
 	struct routing_state *rstate,
 	const u8 *announce, size_t len)
 {
 	u8 *serialized;
-	bool forward = false;
+	bool forward = false, local, sigfail;
 	secp256k1_ecdsa_signature node_signature_1;
 	secp256k1_ecdsa_signature node_signature_2;
 	struct short_channel_id short_channel_id;
@@ -477,6 +482,7 @@ void handle_channel_announcement(
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
 	struct sha256_double chain_hash;
+	struct node_connection *c0, *c1;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	u8 *features;
 
@@ -491,7 +497,7 @@ void handle_channel_announcement(
 					   &node_id_1, &node_id_2,
 					   &bitcoin_key_1, &bitcoin_key_2)) {
 		tal_free(tmpctx);
-		return;
+		return false;
 	}
 
 	/* BOLT #7:
@@ -505,34 +511,49 @@ void handle_channel_announcement(
 			     type_to_string(tmpctx, struct sha256_double,
 					    &chain_hash));
 		tal_free(tmpctx);
-		return;
+		return false;
 	}
 
 	// FIXME: Check features!
 	//FIXME(cdecker) Check chain topology for the anchor TX
 
-	status_trace("Received channel_announcement for channel %s",
+
+	local = pubkey_eq(&node_id_1, &rstate->local_id) ||
+		pubkey_eq(&node_id_2, &rstate->local_id);
+	sigfail = !check_channel_announcement(
+	    &node_id_1, &node_id_2, &bitcoin_key_1, &bitcoin_key_2,
+	    &node_signature_1, &node_signature_2, &bitcoin_signature_1,
+	    &bitcoin_signature_2, serialized);
+
+	if (sigfail && !local) {
+		status_trace(
+		    "Signature verification of non-local channel announcement failed");
+		tal_free(tmpctx);
+		return false;
+	}
+
+	status_trace("Received %s channel_announcement for channel %s",
+		     local&&sigfail?"local":"public",
 		     type_to_string(trc, struct short_channel_id,
 				    &short_channel_id));
 
-	if (!check_channel_announcement(&node_id_1, &node_id_2, &bitcoin_key_1,
-					&bitcoin_key_2, &node_signature_1,
-					&node_signature_2, &bitcoin_signature_1,
-					&bitcoin_signature_2, serialized)) {
-		status_trace(
-		    "Signature verification of channel announcement failed");
-		tal_free(tmpctx);
-		return;
-	}
 
-	forward |= add_channel_direction(rstate, &node_id_1, &node_id_2,
-					 &short_channel_id, serialized);
-	forward |= add_channel_direction(rstate, &node_id_2, &node_id_1,
-					 &short_channel_id, serialized);
-	if (!forward) {
-		status_trace("Not forwarding channel_announcement");
+	/* Is this a new connection? */
+	c0 = get_connection_by_scid(rstate, &short_channel_id, 0);
+	c1 = get_connection_by_scid(rstate, &short_channel_id, 1);
+	forward = !c0 || !c1 || !c0->announced || !c1->announced;
+
+	add_channel_direction(rstate, &node_id_1, &node_id_2, &short_channel_id,
+			      sigfail ? NULL : serialized);
+	add_channel_direction(rstate, &node_id_2, &node_id_1, &short_channel_id,
+			      sigfail ? NULL : serialized);
+
+	if (!forward || sigfail) {
+		status_trace("Not forwarding channel_announcement, forward=%d, sigfail=%d", forward, sigfail);
 		tal_free(tmpctx);
-		return;
+		/* This will not be forwarded so we do not want to
+		 * announce the node either, others might drop it. */
+		return false;
 	}
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
@@ -541,6 +562,10 @@ void handle_channel_announcement(
 			tag, serialized);
 
 	tal_free(tmpctx);
+	c0 = get_connection_by_scid(rstate, &short_channel_id, 0);
+	c1 = get_connection_by_scid(rstate, &short_channel_id, 1);
+	c0->announced = c1->announced = true;
+	return local;
 }
 
 void handle_channel_update(struct routing_state *rstate, const u8 *update, size_t len)
@@ -549,6 +574,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 	struct node_connection *c;
 	secp256k1_ecdsa_signature signature;
 	struct short_channel_id short_channel_id;
+	bool local, sigfail;
 	u32 timestamp;
 	u16 flags;
 	u16 expiry;
@@ -581,11 +607,6 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 		return;
 	}
 
-	status_trace("Received channel_update for channel %s(%d)",
-		     type_to_string(trc, struct short_channel_id,
-				    &short_channel_id),
-		     flags & 0x01);
-
 	c = get_connection_by_scid(rstate, &short_channel_id, flags & 0x1);
 
 	if (!c) {
@@ -594,18 +615,29 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 					    &short_channel_id));
 		tal_free(tmpctx);
 		return;
-	} else if (c->last_timestamp >= timestamp) {
+	}
+
+	sigfail = !check_channel_update(&c->src->id, &signature, serialized);
+	local = pubkey_eq(&c->src->id, &rstate->local_id) || pubkey_eq(&c->dst->id, &rstate->local_id);
+
+	status_trace("Received %s channel_update for channel %s(%d)",
+		     sigfail?"local":"public",
+		     type_to_string(trc, struct short_channel_id,
+				    &short_channel_id),
+		     flags & 0x01);
+
+	if (c->last_timestamp >= timestamp) {
 		status_trace("Ignoring outdated update.");
 		tal_free(tmpctx);
 		return;
-	} else if (!check_channel_update(&c->src->id, &signature, serialized)) {
-		status_trace("Signature verification failed.");
+	} else if (sigfail && !local) {
+		status_trace("Signature verification of non-local channel_update failed.");
 		tal_free(tmpctx);
 		return;
 	}
 
-	//FIXME(cdecker) Check signatures
-	c->last_timestamp = timestamp;
+	/* Do not allow an unsigned update to block future updates */
+	c->last_timestamp = sigfail?0:timestamp;
 	c->delay = expiry;
 	c->htlc_minimum_msat = htlc_minimum_msat;
 	c->base_fee = fee_base_msat;
@@ -616,16 +648,19 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 				    &short_channel_id),
 		     flags);
 
-	u8 *tag = tal_arr(tmpctx, u8, 0);
-	towire_short_channel_id(&tag, &short_channel_id);
-	towire_u16(&tag, flags & 0x1);
-	queue_broadcast(rstate->broadcasts,
-			WIRE_CHANNEL_UPDATE,
-			tag,
-			serialized);
+	if (!sigfail) {
+		u8 *tag = tal_arr(tmpctx, u8, 0);
+		towire_short_channel_id(&tag, &short_channel_id);
+		towire_u16(&tag, flags & 0x1);
+		queue_broadcast(rstate->broadcasts,
+				WIRE_CHANNEL_UPDATE,
+				tag,
+				serialized);
 
-	tal_free(c->channel_update);
-	c->channel_update = tal_steal(c, serialized);
+		tal_free(c->channel_update);
+		c->channel_update = tal_steal(c, serialized);
+	}
+
 	tal_free(tmpctx);
 }
 
