@@ -12,17 +12,12 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <lightningd/lightningd.h>
 #include <signal.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-
-#if DEVELOPER
-bool dev_no_backtrace;
-#endif
-
-static struct backtrace_state *backtrace_state;
 
 struct log_entry {
 	struct list_node list;
@@ -475,10 +470,6 @@ void crashlog_activate(const char *argv0, struct log *log)
 	struct sigaction sa;
 	crashlog = log;
 
-#if DEVELOPER
-	if (!dev_no_backtrace)
-#endif
-	backtrace_state = backtrace_create_state(argv0, 0, NULL, NULL);
 	sa.sa_handler = log_crash;
 	sigemptyset(&sa.sa_mask);
 	/* We want to fall through to default handler */

@@ -48,7 +48,7 @@ void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED, const char *f
 void memleak_cleanup(void)
 { fprintf(stderr, "memleak_cleanup called!\n"); abort(); }
 /* Generated stub for memleak_init */
-void memleak_init(const tal_t *root UNNEEDED)
+void memleak_init(const tal_t *root UNNEEDED, struct backtrace_state *bstate UNNEEDED)
 { fprintf(stderr, "memleak_init called!\n"); abort(); }
 /* Generated stub for new_log */
 struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)

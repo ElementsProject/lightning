@@ -1,3 +1,5 @@
+#include <assert.h>
+#include <backtrace.h>
 #include <ccan/cast/cast.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable.h>
@@ -5,6 +7,7 @@
 #include <common/memleak.h>
 
 #if DEVELOPER
+static struct backtrace_state *backtrace_state;
 static const void **notleaks;
 
 void *notleak_(const void *ptr)
@@ -46,6 +49,11 @@ static void children_into_htable(const void *exclude,
 	for (i = tal_first(p); i; i = tal_next(i)) {
 		if (p == exclude)
 			continue;
+
+		/* Don't add backtrace objects. */
+		if (tal_name(i) && streq(tal_name(i), "backtrace"))
+			continue;
+
 		htable_add(memtable, hash_ptr(i, NULL), i);
 		children_into_htable(exclude, memtable, i);
 	}
@@ -108,7 +116,7 @@ static bool ptr_match(const void *candidate, void *ptr)
 	return candidate == ptr;
 }
 
-const void *memleak_get(struct htable *memtable)
+const void *memleak_get(struct htable *memtable, const uintptr_t **backtrace)
 {
 	struct htable_iter it;
 	const tal_t *i, *p;
@@ -128,12 +136,49 @@ const void *memleak_get(struct htable *memtable)
 	/* Delete all children */
 	remove_with_children(memtable, i);
 
+	/* Does it have a child called "backtrace"? */
+	for (*backtrace = tal_first(i);
+	     *backtrace;
+	     *backtrace = tal_next(*backtrace)) {
+		if (tal_name(*backtrace)
+		    && streq(tal_name(*backtrace), "backtrace"))
+			break;
+	}
+
 	return i;
 }
 
-void memleak_init(const tal_t *root)
+static int append_bt(void *data, uintptr_t pc)
 {
+	uintptr_t *bt = data;
+
+	if (bt[0] == 32)
+		return 1;
+
+	bt[bt[0]++] = pc;
+	return 0;
+}
+
+static void add_backtrace(tal_t *parent, enum tal_notify_type type UNNEEDED,
+			  void *child)
+{
+	uintptr_t *bt = tal_alloc_arr_(child, sizeof(uintptr_t), 32, true, true,
+				       "backtrace");
+
+	/* First serves as counter. */
+	bt[0] = 1;
+	backtrace_simple(backtrace_state, 2, append_bt, NULL, bt);
+	tal_add_notifier(child, TAL_NOTIFY_ADD_CHILD, add_backtrace);
+}
+
+void memleak_init(const tal_t *root, struct backtrace_state *bstate)
+{
+	assert(!notleaks);
+	backtrace_state = bstate;
 	notleaks = tal_arr(NULL, const void *, 0);
+
+	if (backtrace_state)
+		tal_add_notifier(root, TAL_NOTIFY_ADD_CHILD, add_backtrace);
 }
 
 void memleak_cleanup(void)

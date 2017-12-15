@@ -3,6 +3,7 @@
 #include "lightningd.h"
 #include "peer_control.h"
 #include "subd.h"
+#include <backtrace.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
@@ -32,6 +33,12 @@
 #include <unistd.h>
 
 char *bitcoin_datadir;
+
+#if DEVELOPER
+bool dev_no_backtrace;
+#endif
+
+struct backtrace_state *backtrace_state;
 
 void db_resolve_invoice(struct lightningd *ld,
 			const char *label);
@@ -71,7 +78,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx,
 	ld->dev_disconnect_fd = -1;
 	ld->dev_hsm_seed = NULL;
 	ld->dev_subdaemon_fail = false;
-	memleak_init(ld);
+	memleak_init(ld, backtrace_state);
 #endif
 
 	list_head_init(&ld->peers);
@@ -236,6 +243,11 @@ int main(int argc, char *argv[])
 	bool newdir;
 
 	err_set_progname(argv[0]);
+
+#if DEVELOPER
+	if (!dev_no_backtrace)
+#endif
+	backtrace_state = backtrace_create_state(argv[0], 0, NULL, NULL);
 
 	/* Things log on shutdown, so we need this to outlive lightningd */
 	log_book = new_log_book(NULL, 20*1024*1024, LOG_INFORM);
