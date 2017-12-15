@@ -17,9 +17,9 @@ enum invoice_status {
 };
 
 struct invoice {
+	struct list_node list;
 	u64 id;
 	enum invoice_status state;
-	struct list_node list;
 	const char *label;
 	u64 msatoshi;
 	struct preimage r;
