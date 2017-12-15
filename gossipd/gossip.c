@@ -9,6 +9,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
+#include <ccan/structeq/structeq.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/timer/timer.h>
@@ -737,6 +738,48 @@ reply:
 	daemon_conn_send(peer->remote, take(msg));
 }
 
+static void handle_local_add_channel(struct peer *peer, u8 *msg)
+{
+	struct routing_state *rstate = peer->daemon->rstate;
+	struct short_channel_id scid;
+	struct sha256_double chain_hash;
+	struct pubkey remote_node_id;
+	u16 flags, cltv_expiry_delta, direction;
+	u32 fee_base_msat, fee_proportional_millionths;
+	u64 htlc_minimum_msat;
+	struct node_connection *c;
+
+	if (!fromwire_gossip_local_add_channel(
+		msg, NULL, &scid, &chain_hash, &remote_node_id, &flags,
+		&cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
+		&fee_proportional_millionths)) {
+		status_trace("Unable to parse local_add_channel message: %s", tal_hex(msg, msg));
+		return;
+	}
+
+	if (!structeq(&chain_hash, &rstate->chain_hash)) {
+		status_trace("Received channel_announcement for unknown chain %s",
+			     type_to_string(msg, struct sha256_double,&chain_hash));
+		return;
+	}
+
+	if (get_connection_by_scid(rstate, &scid, 0) || get_connection_by_scid(rstate, &scid, 0)) {
+		status_trace("Attempted to local_add_channel a know channel");
+		return;
+	}
+
+	direction = get_channel_direction(&rstate->local_id, &remote_node_id);
+	c = half_add_connection(rstate, &rstate->local_id, &remote_node_id, &scid, direction);
+
+	c->active = true;
+	c->last_timestamp = 0;
+	c->delay = cltv_expiry_delta;
+	c->htlc_minimum_msat = htlc_minimum_msat;
+	c->base_fee = fee_base_msat;
+	c->proportional_fee = fee_proportional_millionths;
+	status_trace("Added and updated local channel %s/%d", type_to_string(msg, struct short_channel_id, &scid), direction);
+}
+
 /**
  * owner_msg_in - Called by the `peer->owner_conn` upon receiving a
  * message
@@ -753,7 +796,15 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 		handle_gossip_msg(peer->daemon, dc->msg_in);
 	} else if (type == WIRE_GOSSIP_GET_UPDATE) {
 		handle_get_update(peer, dc->msg_in);
+	} else if (type == WIRE_GOSSIP_LOCAL_ADD_CHANNEL) {
+		handle_local_add_channel(peer, dc->msg_in);
+	} else {
+		status_failed(
+		    STATUS_FAIL_INTERNAL_ERROR,
+		    "Gossip received unknown message of type %s from owner",
+		    gossip_wire_type_name(type));
 	}
+
 	return daemon_conn_read_next(conn, dc);
 }
 
