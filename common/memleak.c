@@ -47,13 +47,21 @@ static void children_into_htable(const void *exclude,
 	const tal_t *i;
 
 	for (i = tal_first(p); i; i = tal_next(i)) {
+		const char *name = tal_name(i);
+
 		if (p == exclude)
 			continue;
 
-		/* Don't add backtrace objects. */
-		if (tal_name(i) && streq(tal_name(i), "backtrace"))
-			continue;
+		if (name) {
+			/* Don't add backtrace objects. */
+			if (streq(name, "backtrace"))
+				continue;
 
+			/* ccan/io allocates pollfd array. */
+			if (streq(name,
+				  "ccan/ccan/io/poll.c:40:struct pollfd[]"))
+				continue;
+		}
 		htable_add(memtable, hash_ptr(i, NULL), i);
 		children_into_htable(exclude, memtable, i);
 	}
