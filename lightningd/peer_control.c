@@ -146,6 +146,8 @@ static void sign_last_tx(struct peer *peer)
 	struct secrets secrets;
 	secp256k1_ecdsa_signature sig;
 
+	assert(!peer->last_tx->input[0].witness);
+
 	derive_basepoints(peer->seed, &local_funding_pubkey, NULL, &secrets,
 			  NULL);
 
@@ -170,6 +172,12 @@ static void sign_last_tx(struct peer *peer)
 	tal_free(tmpctx);
 }
 
+static void remove_sig(struct bitcoin_tx *signed_tx)
+{
+	signed_tx->input[0].amount = tal_free(signed_tx->input[0].amount);
+	signed_tx->input[0].witness = tal_free(signed_tx->input[0].witness);
+}
+
 static void drop_to_chain(struct peer *peer)
 {
 	sign_last_tx(peer);
@@ -177,6 +185,7 @@ static void drop_to_chain(struct peer *peer)
 	/* Keep broadcasting until we say stop (can fail due to dup,
 	 * if they beat us to the broadcast). */
 	broadcast_tx(peer->ld->topology, peer, peer->last_tx, NULL);
+	remove_sig(peer->last_tx);
 }
 
 /* This lets us give a more detailed error than just a destructor. */
@@ -2745,6 +2754,7 @@ static void json_sign_last_tx(struct command *cmd,
 		  tal_count(peer->last_tx->output));
 	sign_last_tx(peer);
 	linear = linearize_tx(cmd, peer->last_tx);
+	remove_sig(peer->last_tx);
 
 	json_object_start(response, NULL);
 	json_add_hex(response, "tx", linear, tal_len(linear));
