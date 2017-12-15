@@ -41,7 +41,7 @@ static bool pointer_referenced(struct htable *memtable, const void *p)
 	return htable_del(memtable, hash_ptr(p, NULL), p);
 }
 
-static void children_into_htable(const void *exclude,
+static void children_into_htable(const void *exclude1, const void *exclude2,
 				 struct htable *memtable, const tal_t *p)
 {
 	const tal_t *i;
@@ -49,7 +49,7 @@ static void children_into_htable(const void *exclude,
 	for (i = tal_first(p); i; i = tal_next(i)) {
 		const char *name = tal_name(i);
 
-		if (p == exclude)
+		if (p == exclude1 || p == exclude2)
 			continue;
 
 		if (name) {
@@ -63,17 +63,19 @@ static void children_into_htable(const void *exclude,
 				continue;
 		}
 		htable_add(memtable, hash_ptr(i, NULL), i);
-		children_into_htable(exclude, memtable, i);
+		children_into_htable(exclude1, exclude2, memtable, i);
 	}
 }
 
-struct htable *memleak_enter_allocations(const tal_t *ctx, const void *exclude)
+struct htable *memleak_enter_allocations(const tal_t *ctx,
+					 const void *exclude1,
+					 const void *exclude2)
 {
 	struct htable *memtable = tal(ctx, struct htable);
 	htable_init(memtable, hash_ptr, NULL);
 
 	/* First, add all pointers off NULL to table. */
-	children_into_htable(exclude, memtable, NULL);
+	children_into_htable(exclude1, exclude2, memtable, NULL);
 
 	tal_add_destructor(memtable, htable_clear);
 	return memtable;

@@ -26,7 +26,9 @@ void memleak_init(const tal_t *root, struct backtrace_state *bstate);
 void memleak_cleanup(void);
 
 /* Allocate a htable with all the memory we've allocated. */
-struct htable *memleak_enter_allocations(const tal_t *ctx, const void *exclude);
+struct htable *memleak_enter_allocations(const tal_t *ctx,
+					 const void *exclude1,
+					 const void *exclude2);
 
 /* Remove any pointers to memory under root */
 void memleak_remove_referenced(struct htable *memtable, const void *root);
