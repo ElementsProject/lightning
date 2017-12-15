@@ -28,6 +28,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/io_debug.o			\
 	common/key_derive.o			\
 	common/json.o				\
+	common/memleak.o			\
 	common/msg_queue.o			\
 	common/permute_tx.o			\
 	common/pseudorand.o			\

@@ -1,6 +1,10 @@
 /* Only possible if we're in developer mode. */
 #ifdef DEVELOPER
+#include <common/memleak.h>
+#include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/lightningd.h>
+#include <lightningd/log.h>
 #include <stdio.h>
 
 static void json_add_ptr(struct json_result *response, const char *name,
@@ -60,4 +64,61 @@ static const struct json_command dev_memdump_command = {
 	"Debugging tool for memory leaks"
 };
 AUTODATA(json_command, &dev_memdump_command);
+
+static void scan_mem(struct command *cmd,
+		     struct json_result *response,
+		     struct lightningd *ld)
+{
+	struct htable *memtable;
+	const tal_t *i;
+
+	/* Enter everything, except this cmd. */
+	memtable = memleak_enter_allocations(cmd, cmd);
+
+	/* First delete known false positives. */
+	chaintopology_mark_pointers_used(memtable, ld->topology);
+	htlc_inmap_mark_pointers_used(memtable, &ld->htlcs_in);
+	htlc_outmap_mark_pointers_used(memtable, &ld->htlcs_out);
+
+	/* Now delete ld and those which it has pointers to. */
+	memleak_remove_referenced(memtable, ld);
+
+	json_array_start(response, "leaks");
+	while ((i = memleak_get(memtable)) != NULL) {
+		const tal_t *p;
+
+		json_object_start(response, NULL);
+		json_add_ptr(response, "value", i);
+		if (tal_name(i))
+			json_add_string(response, "label", tal_name(i));
+
+		json_array_start(response, "parents");
+		for (p = tal_parent(i); p; p = tal_parent(p)) {
+			json_add_string(response, NULL, tal_name(p));
+			p = tal_parent(p);
+		}
+		json_array_end(response);
+		json_object_end(response);
+	}
+	json_array_end(response);
+}
+
+static void json_memleak(struct command *cmd,
+			 const char *buffer UNNEEDED,
+			 const jsmntok_t *params UNNEEDED)
+{
+	struct json_result *response = new_json_result(cmd);
+
+	scan_mem(cmd, response, cmd->ld);
+
+	command_success(cmd, response);
+}
+
+static const struct json_command dev_memleak_command = {
+	"dev-memleak",
+	json_memleak,
+	"Dump the memory objects unreferenced",
+	"Debugging tool for memory leaks"
+};
+AUTODATA(json_command, &dev_memleak_command);
 #endif /* DEVELOPER */
