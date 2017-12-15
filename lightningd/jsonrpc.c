@@ -441,6 +441,8 @@ void command_fail(struct command *cmd, const char *fmt, ...)
 
 void command_still_pending(struct command *cmd)
 {
+	notleak_with_children(cmd);
+	notleak(cmd->jcon);
 	cmd->pending = true;
 }
 
