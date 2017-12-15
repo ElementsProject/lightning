@@ -153,7 +153,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	hout->msatoshi = msatoshi;
 	hout->cltv_expiry = cltv_expiry;
 	hout->payment_hash = *payment_hash;
-	hout->payment = payment;
+	hout->payment = tal_steal(hout, payment);
 	memcpy(hout->onion_routing_packet, onion_routing_packet,
 	       sizeof(hout->onion_routing_packet));
 
