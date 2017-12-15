@@ -438,6 +438,11 @@ void command_fail(struct command *cmd, const char *fmt, ...)
 	jcon->current = tal_free(cmd);
 }
 
+void command_still_pending(struct command *cmd)
+{
+	cmd->pending = true;
+}
+
 static void json_command_malformed(struct json_connection *jcon,
 				   const char *id,
 				   const char *error)
@@ -476,6 +481,7 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	jcon->current = tal(jcon->ld, struct command);
 	jcon->current->jcon = jcon;
 	jcon->current->ld = jcon->ld;
+	jcon->current->pending = false;
 	jcon->current->id = tal_strndup(jcon->current,
 					json_tok_contents(jcon->buffer, id),
 					json_tok_len(id));
@@ -509,6 +515,10 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	db_begin_transaction(jcon->ld->wallet->db);
 	cmd->dispatch(jcon->current, jcon->buffer, params);
 	db_commit_transaction(jcon->ld->wallet->db);
+
+	/* If they didn't complete it, they must call command_still_pending */
+	if (jcon->current)
+		assert(jcon->current->pending);
 }
 
 static struct io_plan *write_json(struct io_conn *conn,

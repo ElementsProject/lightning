@@ -823,6 +823,7 @@ static void json_connect(struct command *cmd,
 
 	/* Leave this here for gossip_peer_connected */
 	new_connect(cmd->ld, &id, cmd);
+	command_still_pending(cmd);
 }
 
 static const struct json_command connect_command = {
@@ -966,6 +967,7 @@ static void json_getpeers(struct command *cmd,
 	subd_req(cmd, cmd->ld->gossip,
 		 take(towire_gossip_getpeers_request(cmd)),
 		 -1, 0, gossipd_getpeers_complete, gpa);
+	command_still_pending(cmd);
 }
 
 static const struct json_command getpeers_command = {
@@ -2616,6 +2618,7 @@ static void json_fund_channel(struct command *cmd,
 
 	msg = towire_gossipctl_release_peer(cmd, &fc->peerid);
 	subd_req(fc, cmd->ld->gossip, msg, -1, 2, gossip_peer_released, fc);
+	command_still_pending(cmd);
 }
 
 static const struct json_command fund_channel_command = {
@@ -2818,6 +2821,7 @@ static void json_dev_reenable_commit(struct command *cmd,
 	msg = towire_channel_dev_reenable_commit(peer);
 	subd_req(peer, peer->owner, take(msg), -1, 0,
 		 dev_reenable_commit_finished, cmd);
+	command_still_pending(cmd);
 }
 
 static const struct json_command dev_reenable_commit = {

@@ -144,7 +144,8 @@ static void pay_command_destroyed(struct pay_command *pc)
 	list_del(&pc->list);
 }
 
-static void send_payment(struct command *cmd,
+/* Returns true if it's still pending. */
+static bool send_payment(struct command *cmd,
 			 const struct sha256 *rhash,
 			 const struct route_hop *route)
 {
@@ -189,7 +190,7 @@ static void send_payment(struct command *cmd,
 		if (pc->out) {
 			log_add(cmd->ld->log, "... still in progress");
 			command_fail(cmd, "still in progress");
-			return;
+			return false;
 		}
 		if (pc->rval) {
 			size_t old_nhops = tal_count(pc->ids);
@@ -199,7 +200,7 @@ static void send_payment(struct command *cmd,
 				command_fail(cmd,
 					     "already succeeded with amount %"
 					     PRIu64, pc->msatoshi);
-				return;
+				return false;
 			}
 			if (!structeq(&pc->ids[old_nhops-1], &ids[n_hops-1])) {
 				char *previd;
@@ -208,10 +209,10 @@ static void send_payment(struct command *cmd,
 				command_fail(cmd,
 					     "already succeeded to %s",
 					     previd);
-				return;
+				return false;
 			}
 			json_pay_success(cmd, pc->rval);
-			return;
+			return false;
 		}
 		/* FIXME: We can free failed ones... */
 		log_add(cmd->ld->log, "... retrying");
@@ -220,7 +221,7 @@ static void send_payment(struct command *cmd,
 	peer = peer_by_id(cmd->ld, &ids[0]);
 	if (!peer) {
 		command_fail(cmd, "no connection to first peer found");
-		return;
+		return false;
 	}
 
 	randombytes_buf(&sessionkey, sizeof(sessionkey));
@@ -271,8 +272,9 @@ static void send_payment(struct command *cmd,
 	if (failcode) {
 		command_fail(cmd, "first peer not ready: %s",
 			     onion_type_name(failcode));
-		return;
+		return false;
 	}
+	return true;
 }
 
 static void json_sendpay(struct command *cmd,
@@ -363,7 +365,8 @@ static void json_sendpay(struct command *cmd,
 		return;
 	}
 
-	send_payment(cmd, &rhash, route);
+	if (send_payment(cmd, &rhash, route))
+		command_still_pending(cmd);
 }
 
 static const struct json_command sendpay_command = {
@@ -467,6 +470,7 @@ static void json_pay(struct command *cmd,
 					     msatoshi, riskfactor*1000,
 					     b11->min_final_cltv_expiry);
 	subd_req(pay, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
+	command_still_pending(cmd);
 }
 
 static const struct json_command pay_command = {

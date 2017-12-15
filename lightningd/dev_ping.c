@@ -96,6 +96,7 @@ static void json_dev_ping(struct command *cmd,
 	}
 
 	subd_req(owner, owner, take(msg), -1, 0, ping_reply, cmd);
+	command_still_pending(cmd);
 }
 
 static const struct json_command dev_ping_command = {

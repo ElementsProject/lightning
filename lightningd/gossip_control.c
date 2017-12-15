@@ -170,6 +170,7 @@ static void json_getnodes(struct command *cmd, const char *buffer,
 {
 	u8 *req = towire_gossip_getnodes_request(cmd);
 	subd_req(cmd, cmd->ld->gossip, req, -1, 0, json_getnodes_reply, cmd);
+	command_still_pending(cmd);
 }
 
 static const struct json_command getnodes_command = {
@@ -252,6 +253,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	}
 	u8 *req = towire_gossip_getroute_request(cmd, &ld->id, &id, msatoshi, riskfactor*1000, cltv);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
+	command_still_pending(cmd);
 }
 
 static const struct json_command getroute_command = {
@@ -311,6 +313,7 @@ static void json_getchannels(struct command *cmd, const char *buffer,
 	u8 *req = towire_gossip_getchannels_request(cmd);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
 		 req, -1, 0, json_getchannels_reply, cmd);
+	command_still_pending(cmd);
 }
 
 static const struct json_command getchannels_command = {

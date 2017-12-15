@@ -309,6 +309,7 @@ static void json_withdraw(struct command *cmd,
 	withdraw->hextx = tal_hex(withdraw, linearize_tx(cmd, tx));
 	bitcoind_sendrawtx(cmd->ld->topology->bitcoind, withdraw->hextx,
 			   wallet_withdrawal_broadcast, withdraw);
+	command_still_pending(cmd);
 }
 
 static const struct json_command withdraw_command = {
