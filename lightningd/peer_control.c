@@ -2264,6 +2264,7 @@ static void opening_fundee_finished(struct subd *opening,
 	u64 gossip_index;
 	secp256k1_ecdsa_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
+	const tal_t *tmpctx = tal_tmpctx(peer);
 
 	log_debug(peer->log, "Got opening_fundee_finish_response");
 	assert(tal_count(fds) == 2);
@@ -2276,7 +2277,7 @@ static void opening_fundee_finished(struct subd *opening,
 	peer->channel_info->their_config.id = 0;
 
 	peer->funding_txid = tal(peer, struct sha256_double);
-	if (!fromwire_opening_fundee_reply(peer, reply, NULL,
+	if (!fromwire_opening_fundee_reply(tmpctx, reply, NULL,
 					   &channel_info->their_config,
 					   remote_commit,
 					   &remote_commit_sig,
@@ -2297,6 +2298,7 @@ static void opening_fundee_finished(struct subd *opening,
 					   &funding_signed)) {
 		peer_internal_error(peer, "bad OPENING_FUNDEE_REPLY %s",
 				    tal_hex(reply, reply));
+		tal_free(tmpctx);
 		return;
 	}
 
@@ -2310,8 +2312,10 @@ static void opening_fundee_finished(struct subd *opening,
 	/* Now, keep the initial commit as our last-tx-to-broadcast. */
 	peer_last_tx(peer, remote_commit, &remote_commit_sig);
 
-	if (!peer_commit_initial(peer))
+	if (!peer_commit_initial(peer)) {
+		tal_free(tmpctx);
 		return;
+	}
 
 	log_debug(peer->log, "Watching funding tx %s",
 		     type_to_string(reply, struct sha256_double,
@@ -2330,6 +2334,7 @@ static void opening_fundee_finished(struct subd *opening,
 	peer_start_channeld(peer, &cs, gossip_index,
 			    fds[0], fds[1], funding_signed, false);
 	peer_set_condition(peer, OPENINGD, CHANNELD_AWAITING_LOCKIN);
+	tal_free(tmpctx);
 }
 
 /* Negotiation failed, but we can keep gossipping */
