@@ -348,6 +348,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 		} else
 			local_fail_htlc(hout->in, failure_code,
 					hout->key.peer->scid);
+		tal_free(hout);
 		return;
 	}
 
