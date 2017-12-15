@@ -231,9 +231,10 @@ static bool send_payment(struct command *cmd,
 				    sizeof(struct sha256), &path_secrets);
 	onion = serialize_onionpacket(cmd, packet);
 
-	if (pc)
+	if (pc) {
 		pc->ids = tal_free(pc->ids);
-	else {
+		pc->path_secrets = tal_free(pc->path_secrets);
+	} else {
 		pc = tal(cmd->ld, struct pay_command);
 		list_add_tail(&cmd->ld->pay_commands, &pc->list);
 		tal_add_destructor(pc, pay_command_destroyed);
