@@ -756,7 +756,7 @@ class LightningDTests(BaseLightningDTests):
         l1,l2 = self.connect()
 
         self.fund_channel(l1, l2, 10**6)
-        self.pay(l1,l2,200000000)
+        self.pay(l1, l2, 200000000)
 
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
 
@@ -771,7 +771,22 @@ class LightningDTests(BaseLightningDTests):
         # And should put closing into mempool.
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l2.daemon.wait_for_log('sendrawtx exit 0')
+
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
+
+        # Now grab the close transaction
+        closetxid = l1.bitcoin.rpc.getrawmempool(False)[0]
+
+        l1.bitcoin.rpc.generate(10)
+
+        l1.daemon.wait_for_log(r'Owning output .* txid %s' % closetxid)
+        l2.daemon.wait_for_log(r'Owning output .* txid %s' % closetxid)
+
+        print(l1.rpc.listfunds())
+
+        # Make sure both nodes have grabbed their close tx funds
+        assert closetxid in set([o['txid'] for o in l1.rpc.listfunds()['outputs']])
+        assert closetxid in set([o['txid'] for o in l2.rpc.listfunds()['outputs']])
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail(self):

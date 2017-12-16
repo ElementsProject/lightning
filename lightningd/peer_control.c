@@ -1699,6 +1699,8 @@ static void peer_got_shutdown(struct peer *peer, const u8 *msg)
 			return;
 		}
 
+		txfilter_add_scriptpubkey(peer->ld->owned_txfilter, scriptpubkey);
+
 		/* BOLT #2:
 		 *
 		 * A receiving node MUST reply to a `shutdown` message with a
@@ -2687,6 +2689,8 @@ static void json_close(struct command *cmd,
 		}
 
 		peer_set_condition(peer, CHANNELD_NORMAL, CHANNELD_SHUTTING_DOWN);
+
+		txfilter_add_scriptpubkey(peer->ld->owned_txfilter, shutdown_scriptpubkey);
 
 		if (peer->owner)
 			subd_send_msg(peer->owner,
