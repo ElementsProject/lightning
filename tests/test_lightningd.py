@@ -108,6 +108,7 @@ class NodeFactory(object):
             daemon.cmd_line.append("--dev-disconnect=dev_disconnect")
         if DEVELOPER:
             daemon.cmd_line.append("--dev-fail-on-subdaemon-fail")
+            daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
             if VALGRIND:
                 daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
         opts = [] if options is None else options
