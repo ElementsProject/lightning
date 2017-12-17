@@ -34,10 +34,6 @@
 
 char *bitcoin_datadir;
 
-#if DEVELOPER
-bool dev_no_backtrace;
-#endif
-
 struct backtrace_state *backtrace_state;
 
 void db_resolve_invoice(struct lightningd *ld,
@@ -245,7 +241,8 @@ int main(int argc, char *argv[])
 	err_set_progname(argv[0]);
 
 #if DEVELOPER
-	if (!dev_no_backtrace)
+	/* Suppresses backtrace (breaks valgrind) */
+	if (!getenv("LIGHTNINGD_DEV_NO_BACKTRACE"))
 #endif
 	backtrace_state = backtrace_create_state(argv[0], 0, NULL, NULL);
 

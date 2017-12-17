@@ -298,9 +298,6 @@ static void dev_register_opts(struct lightningd *ld)
 			 NULL, ld, "File containing disconnection points");
 	opt_register_arg("--dev-hsm-seed=<seed>", opt_set_hsm_seed,
 			 NULL, ld, "Hex-encoded seed for HSM");
-	opt_register_noarg("--dev-no-backtrace", opt_set_bool,
-			   &dev_no_backtrace,
-			   "Disable backtrace (crashes under valgrind)");
 }
 #endif
 

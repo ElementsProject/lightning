@@ -44,6 +44,7 @@ class TailableProc(object):
         self.logs = []
         self.logs_cond = threading.Condition(threading.RLock())
         self.cmd_line = None
+        self.env = os.environ
         self.running = False
         self.proc = None
         self.outputDir = outputDir
@@ -53,7 +54,7 @@ class TailableProc(object):
         """Start the underlying process and start monitoring it.
         """
         logging.debug("Starting '%s'", " ".join(self.cmd_line))
-        self.proc = subprocess.Popen(self.cmd_line, stdout=subprocess.PIPE)
+        self.proc = subprocess.Popen(self.cmd_line, stdout=subprocess.PIPE, env=self.env)
         self.thread = threading.Thread(target=self.tail)
         self.thread.daemon = True
         self.thread.start()

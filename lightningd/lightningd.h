@@ -175,7 +175,4 @@ struct chainparams *get_chainparams(const struct lightningd *ld);
 /* State for performing backtraces. */
 struct backtrace_state *backtrace_state;
 
-#if DEVELOPER
-extern bool dev_no_backtrace;
-#endif
 #endif /* LIGHTNING_LIGHTNINGD_LIGHTNINGD_H */

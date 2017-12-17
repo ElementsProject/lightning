@@ -109,7 +109,7 @@ class NodeFactory(object):
         if DEVELOPER:
             daemon.cmd_line.append("--dev-fail-on-subdaemon-fail")
             if VALGRIND:
-                daemon.cmd_line.append("--dev-no-backtrace")
+                daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
         opts = [] if options is None else options
         for opt in opts:
             daemon.cmd_line.append(opt)
