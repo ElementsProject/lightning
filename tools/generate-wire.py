@@ -19,6 +19,7 @@ type2size = {
     'struct pubkey': 33,
     'struct sha256': 32,
     'struct sha256_double': 32,
+    'struct bitcoin_txid': 32,
     'u64': 8,
     'u32': 4,
     'u16': 2,
@@ -78,6 +79,7 @@ partialtypemap = {
     'features': FieldType('u8'),
     'channel_id': FieldType('struct channel_id'),
     'chain_hash': FieldType('struct sha256_double'),
+    'funding_txid': FieldType('struct bitcoin_txid'),
     'pad': FieldType('pad'),
 }
 

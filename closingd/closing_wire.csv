@@ -5,7 +5,7 @@ closing_init,2001
 closing_init,,crypto_state,struct crypto_state
 closing_init,,gossip_index,u64
 closing_init,,seed,struct privkey
-closing_init,,funding_txid,struct sha256_double
+closing_init,,funding_txid,struct bitcoin_txid
 closing_init,,funding_txout,u16
 closing_init,,funding_satoshi,u64
 closing_init,,remote_fundingkey,struct pubkey

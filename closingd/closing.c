@@ -27,7 +27,7 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 				   struct crypto_state *cs,
 				   const struct channel_id *channel_id,
 				   u8 *scriptpubkey[NUM_SIDES],
-				   const struct sha256_double *funding_txid,
+				   const struct bitcoin_txid *funding_txid,
 				   unsigned int funding_txout,
 				   u64 funding_satoshi,
 				   const u64 satoshi_out[NUM_SIDES],
@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
 	u8 *msg;
 	struct privkey seed;
 	struct pubkey funding_pubkey[NUM_SIDES];
-	struct sha256_double funding_txid;
+	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
 	u64 funding_satoshi, satoshi_out[NUM_SIDES];
 	u64 our_dust_limit;

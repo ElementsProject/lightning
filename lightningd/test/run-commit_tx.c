@@ -20,26 +20,14 @@ static bool print_superverbose;
 /* Turn this on to brute-force fee values */
 /*#define DEBUG */
 
-static struct sha256 sha256_from_hex(const char *hex)
-{
-	struct sha256 sha256;
-	if (strstarts(hex, "0x"))
-		hex += 2;
-	if (!hex_decode(hex, strlen(hex), &sha256, sizeof(sha256)))
-		abort();
-	return sha256;
-}
-
 /* bitcoind loves its backwards txids! */
-static struct sha256_double txid_from_hex(const char *hex)
+static struct bitcoin_txid txid_from_hex(const char *hex)
 {
-	struct sha256_double sha256;
-	struct sha256 rev = sha256_from_hex(hex);
-	size_t i;
+	struct bitcoin_txid txid;
 
-	for (i = 0; i < sizeof(rev); i++)
-		sha256.sha.u.u8[sizeof(sha256) - 1 - i] = rev.u.u8[i];
-	return sha256;
+	if (!bitcoin_txid_from_hex(hex, strlen(hex), &txid))
+		abort();
+	return txid;
 }
 
 static struct secret secret_from_hex(const char *hex)
@@ -204,7 +192,7 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 {
 	tal_t *tmpctx = tal_tmpctx(NULL);
 	size_t i, n;
-	struct sha256_double txid;
+	struct bitcoin_txid txid;
 	struct bitcoin_tx **htlc_tx;
 	secp256k1_ecdsa_signature *remotehtlcsig;
 	struct keyset keyset;
@@ -439,7 +427,7 @@ static const struct htlc **invert_htlcs(const struct htlc **htlcs)
 int main(void)
 {
 	tal_t *tmpctx = tal_tmpctx(NULL);
-	struct sha256_double funding_txid;
+	struct bitcoin_txid funding_txid;
 	u64 funding_amount_satoshi, dust_limit_satoshi;
 	u32 feerate_per_kw;
 	u16 to_self_delay;

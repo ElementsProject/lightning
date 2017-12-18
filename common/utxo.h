@@ -1,13 +1,13 @@
 #ifndef LIGHTNING_COMMON_UTXO_H
 #define LIGHTNING_COMMON_UTXO_H
 #include "config.h"
-#include <bitcoin/shadouble.h>
+#include <bitcoin/tx.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <stdbool.h>
 
 struct utxo {
-	struct sha256_double txid;
+	struct bitcoin_txid txid;
 	u32 outnum;
 	u64 amount;
 	u32 keyindex;

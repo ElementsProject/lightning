@@ -47,7 +47,7 @@ struct state {
 	/* Funding and feerate: set by opening peer. */
 	u64 funding_satoshis, push_msat;
 	u32 feerate_per_kw;
-	struct sha256_double funding_txid;
+	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
 
 	/* Secret keys and basepoint secrets. */
@@ -436,7 +436,7 @@ static u8 *funder_channel(struct state *state,
 		     type_to_string(trc, struct pubkey, our_funding_pubkey));
 
 	msg = towire_funding_created(state, &state->channel_id,
-				     &state->funding_txid.sha,
+				     &state->funding_txid,
 				     state->funding_txout,
 				     &sig);
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
@@ -643,7 +643,7 @@ static u8 *fundee_channel(struct state *state,
 			      "Reading funding_created: %s", strerror(errno));
 
 	if (!fromwire_funding_created(msg, NULL, &id_in,
-				      &state->funding_txid.sha,
+				      &state->funding_txid,
 				      &state->funding_txout,
 				      &theirsig))
 		peer_failed(PEER_FD, &state->cs, &state->channel_id,

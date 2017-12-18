@@ -1108,7 +1108,7 @@ static enum watch_result onchain_tx_watched(struct peer *peer,
 					    void *unused)
 {
 	u8 *msg;
-	struct sha256_double txid;
+	struct bitcoin_txid txid;
 
 	if (depth == 0) {
 		log_unusual(peer->log, "Chain reorganization!");
@@ -1154,7 +1154,7 @@ static enum watch_result onchain_txo_watched(struct peer *peer,
 static void watch_tx_and_outputs(struct peer *peer,
 				 const struct bitcoin_tx *tx)
 {
-	struct sha256_double txid;
+	struct bitcoin_txid txid;
 	struct txwatch *txw;
 
 	bitcoin_txid(tx, &txid);
@@ -1379,7 +1379,7 @@ static enum watch_result funding_spent(struct peer *peer,
 				       void *unused)
 {
 	u8 *msg, *scriptpubkey;
-	struct sha256_double our_last_txid;
+	struct bitcoin_txid our_last_txid;
 	s64 keyindex;
 	struct pubkey ourkey;
 	struct htlc_stub *stubs;
@@ -1495,13 +1495,13 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 					   unsigned int depth,
 					   void *unused)
 {
-	struct sha256_double txid;
+	struct bitcoin_txid txid;
 	const char *txidstr;
 	struct txlocator *loc;
 	bool peer_ready;
 
 	bitcoin_txid(tx, &txid);
-	txidstr = type_to_string(peer, struct sha256_double, &txid);
+	txidstr = type_to_string(peer, struct bitcoin_txid, &txid);
 	log_debug(peer->log, "Funding tx %s depth %u of %u",
 		  txidstr, depth, peer->minimum_depth);
 	tal_free(txidstr);
@@ -2153,7 +2153,7 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 	u8 *msg;
 	struct channel_info *channel_info;
 	struct utxo *utxos;
-	struct sha256_double funding_txid;
+	struct bitcoin_txid funding_txid;
 	struct pubkey changekey;
 	struct pubkey local_fundingkey;
 	struct crypto_state cs;
@@ -2221,11 +2221,11 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 		log_debug(fc->peer->log, "%zi: %"PRIu64" satoshi (%s) %s\n",
 			  i, fc->utxomap[i]->amount,
 			  fc->utxomap[i]->is_p2sh ? "P2SH" : "SEGWIT",
-			  type_to_string(ltmp, struct sha256_double,
+			  type_to_string(ltmp, struct bitcoin_txid,
 					 &fc->funding_tx->input[i].txid));
 	}
 
-	fc->peer->funding_txid = tal(fc->peer, struct sha256_double);
+	fc->peer->funding_txid = tal(fc->peer, struct bitcoin_txid);
 	bitcoin_txid(fc->funding_tx, fc->peer->funding_txid);
 
 	if (!structeq(fc->peer->funding_txid, &funding_txid)) {
@@ -2292,7 +2292,7 @@ static void opening_fundee_finished(struct subd *opening,
 	/* This is a new channel_info->their_config, set its ID to 0 */
 	peer->channel_info->their_config.id = 0;
 
-	peer->funding_txid = tal(peer, struct sha256_double);
+	peer->funding_txid = tal(peer, struct bitcoin_txid);
 	if (!fromwire_opening_fundee_reply(tmpctx, reply, NULL,
 					   &channel_info->their_config,
 					   remote_commit,
@@ -2334,7 +2334,7 @@ static void opening_fundee_finished(struct subd *opening,
 	}
 
 	log_debug(peer->log, "Watching funding tx %s",
-		     type_to_string(reply, struct sha256_double,
+		     type_to_string(reply, struct bitcoin_txid,
 				    peer->funding_txid));
 	watch_txid(peer, peer->ld->topology, peer, peer->funding_txid,
 		   funding_lockin_cb, NULL);

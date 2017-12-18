@@ -55,7 +55,7 @@ static bool wallet_stmt2output(sqlite3_stmt *stmt, struct utxo *utxo)
 }
 
 bool wallet_update_output_status(struct wallet *w,
-				 const struct sha256_double *txid,
+				 const struct bitcoin_txid *txid,
 				 const u32 outnum, enum output_status oldstatus,
 				 enum output_status newstatus)
 {
@@ -475,7 +475,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 
 	if (sqlite3_column_type(stmt, 12) != SQLITE_NULL) {
 		assert(sqlite3_column_bytes(stmt, 12) == 32);
-		chan->peer->funding_txid = tal(chan->peer, struct sha256_double);
+		chan->peer->funding_txid = tal(chan->peer, struct bitcoin_txid);
 		memcpy(chan->peer->funding_txid, sqlite3_column_blob(stmt, 12), 32);
 	} else {
 		chan->peer->funding_txid = NULL;
@@ -829,7 +829,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 		log_debug(w->log, "Owning output %zu %"PRIu64" (%s) txid %s",
 			  output, tx->output[output].amount,
 			  is_p2sh ? "P2SH" : "SEGWIT",
-			  type_to_string(ltmp, struct sha256_double,
+			  type_to_string(ltmp, struct bitcoin_txid,
 					 &utxo->txid));
 
 		if (!wallet_add_utxo(w, utxo, is_p2sh ? p2sh_wpkh : our_change)) {

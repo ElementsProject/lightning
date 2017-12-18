@@ -276,13 +276,13 @@ size_t measure_tx_cost(const struct bitcoin_tx *tx)
 	return non_witness_len * 4 + witness_len;
 }
 
-void bitcoin_txid(const struct bitcoin_tx *tx, struct sha256_double *txid)
+void bitcoin_txid(const struct bitcoin_tx *tx, struct bitcoin_txid *txid)
 {
 	struct sha256_ctx ctx = SHA256_INIT;
 
 	/* For TXID, we never use extended form. */
 	push_tx(tx, push_sha, &ctx, false);
-	sha256_double_done(&ctx, txid);
+	sha256_double_done(&ctx, &txid->shad);
 }
 
 struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
@@ -336,7 +336,7 @@ static void pull_input(const tal_t *ctx, const u8 **cursor, size_t *max,
 		       struct bitcoin_tx_input *input)
 {
 	u64 script_len;
-	pull_sha256_double(cursor, max, &input->txid);
+	pull_sha256_double(cursor, max, &input->txid.shad);
 	input->index = pull_le32(cursor, max);
 	script_len = pull_length(cursor, max);
 	if (script_len)
@@ -460,9 +460,7 @@ fail:
 	return NULL;
 }
 
-/* <sigh>.  Bitcoind represents hashes as little-endian for RPC.  This didn't
- * stick for blockids (everyone else uses big-endian, eg. block explorers),
- * but it did stick for txids. */
+/* <sigh>.  Bitcoind represents hashes as little-endian for RPC. */
 static void reverse_bytes(u8 *arr, size_t len)
 {
 	unsigned int i;
@@ -475,18 +473,18 @@ static void reverse_bytes(u8 *arr, size_t len)
 }
 
 bool bitcoin_txid_from_hex(const char *hexstr, size_t hexstr_len,
-			   struct sha256_double *txid)
+			   struct bitcoin_txid *txid)
 {
 	if (!hex_decode(hexstr, hexstr_len, txid, sizeof(*txid)))
 		return false;
-	reverse_bytes(txid->sha.u.u8, sizeof(txid->sha.u.u8));
+	reverse_bytes(txid->shad.sha.u.u8, sizeof(txid->shad.sha.u.u8));
 	return true;
 }
 
-bool bitcoin_txid_to_hex(const struct sha256_double *txid,
+bool bitcoin_txid_to_hex(const struct bitcoin_txid *txid,
 			 char *hexstr, size_t hexstr_len)
 {
-	struct sha256_double rev = *txid;
+	struct sha256_double rev = txid->shad;
 	reverse_bytes(rev.sha.u.u8, sizeof(rev.sha.u.u8));
 	return hex_encode(&rev, sizeof(rev), hexstr, hexstr_len);
 }
@@ -499,4 +497,13 @@ static char *fmt_bitcoin_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
 	return s;
 }
 
+static char *fmt_bitcoin_txid(const tal_t *ctx, const struct bitcoin_txid *txid)
+{
+	char *hexstr = tal_arr(ctx, char, hex_str_size(sizeof(*txid)));
+
+	bitcoin_txid_to_hex(txid, hexstr, hex_str_size(sizeof(*txid)));
+	return hexstr;
+}
+
 REGISTER_TYPE_TO_STRING(bitcoin_tx, fmt_bitcoin_tx);
+REGISTER_TYPE_TO_STRING(bitcoin_txid, fmt_bitcoin_txid);

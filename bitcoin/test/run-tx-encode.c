@@ -38,7 +38,8 @@ int main(void)
 	assert(tal_count(tx->input) == 1);
 	assert(tal_count(tx->output) == 1);
 
-	reverse_bytes(tx->input[0].txid.sha.u.u8, sizeof(tx->input[0].txid));
+	reverse_bytes(tx->input[0].txid.shad.sha.u.u8,
+		      sizeof(tx->input[0].txid));
 	hexeq(&tx->input[0].txid, sizeof(tx->input[0].txid),
 	      "1db36e1306dfc810ea63f0cf866d475cce4e9261a5e8d1581f0d1dc485f4beb5");
 	assert(tx->input[0].index == 0);

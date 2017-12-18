@@ -8,7 +8,7 @@
 #include <inttypes.h>
 
 struct channel *new_initial_channel(const tal_t *ctx,
-				    const struct sha256_double *funding_txid,
+				    const struct bitcoin_txid *funding_txid,
 				    unsigned int funding_txout,
 				    u64 funding_satoshis,
 				    u64 local_msatoshi,

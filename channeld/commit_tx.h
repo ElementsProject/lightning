@@ -7,7 +7,6 @@
 #include <common/initial_commit_tx.h>
 
 struct keyset;
-struct sha256_double;
 
 /**
  * commit_tx_num_untrimmed: how many of these htlc outputs will commit tx have?
@@ -43,7 +42,7 @@ size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
  * transaction, so we carefully use the terms "self" and "other" here.
  */
 struct bitcoin_tx *commit_tx(const tal_t *ctx,
-			     const struct sha256_double *funding_txid,
+			     const struct bitcoin_txid *funding_txid,
 			     unsigned int funding_txout,
 			     u64 funding_satoshis,
 			     enum side funder,

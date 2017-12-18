@@ -55,7 +55,7 @@ u8 *to_self_wscript(const tal_t *ctx,
 }
 
 struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
-				     const struct sha256_double *funding_txid,
+				     const struct bitcoin_txid *funding_txid,
 				     unsigned int funding_txout,
 				     u64 funding_satoshis,
 				     enum side funder,

@@ -5,7 +5,7 @@
 #include <ccan/list/list.h>
 #include <common/json.h>
 
-struct sha256_double;
+struct bitcoin_txid;
 struct wireaddr;
 
 /* Context for a command (from JSON, but might outlive the connection!)
@@ -69,7 +69,7 @@ void json_add_pubkey(struct json_result *response,
 
 /* '"fieldname" : <hexrev>' or "<hexrev>" if fieldname is NULL */
 void json_add_txid(struct json_result *result, const char *fieldname,
-		   const struct sha256_double *txid);
+		   const struct bitcoin_txid *txid);
 
 /* Extract a pubkey from this */
 bool json_tok_pubkey(const char *buffer, const jsmntok_t *tok,

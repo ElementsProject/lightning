@@ -7,6 +7,10 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
+struct bitcoin_txid {
+	struct sha256_double shad;
+};
+
 struct bitcoin_tx {
 	u32 version;
 	struct bitcoin_tx_input *input;
@@ -20,7 +24,7 @@ struct bitcoin_tx_output {
 };
 
 struct bitcoin_tx_input {
-	struct sha256_double txid;
+	struct bitcoin_txid txid;
 	u32 index; /* output number referred to by above */
 	u8 *script;
 	u32 sequence_number;
@@ -34,7 +38,7 @@ struct bitcoin_tx_input {
 
 
 /* SHA256^2 the tx: simpler than sha256_tx */
-void bitcoin_txid(const struct bitcoin_tx *tx, struct sha256_double *txid);
+void bitcoin_txid(const struct bitcoin_tx *tx, struct bitcoin_txid *txid);
 
 /* Useful for signature code. */
 void sha256_tx_for_sig(struct sha256_double *h, const struct bitcoin_tx *tx,
@@ -57,10 +61,10 @@ struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex,
 
 /* Parse hex string to get txid (reversed, a-la bitcoind). */
 bool bitcoin_txid_from_hex(const char *hexstr, size_t hexstr_len,
-			   struct sha256_double *txid);
+			   struct bitcoin_txid *txid);
 
 /* Get hex string of txid (reversed, a-la bitcoind). */
-bool bitcoin_txid_to_hex(const struct sha256_double *txid,
+bool bitcoin_txid_to_hex(const struct bitcoin_txid *txid,
 			 char *hexstr, size_t hexstr_len);
 
 /* Internal de-linearization functions. */
