@@ -742,7 +742,7 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 {
 	struct routing_state *rstate = peer->daemon->rstate;
 	struct short_channel_id scid;
-	struct sha256_double chain_hash;
+	struct bitcoin_blkid chain_hash;
 	struct pubkey remote_node_id;
 	u16 flags, cltv_expiry_delta, direction;
 	u32 fee_base_msat, fee_proportional_millionths;
@@ -759,7 +759,8 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 
 	if (!structeq(&chain_hash, &rstate->chain_hash)) {
 		status_trace("Received channel_announcement for unknown chain %s",
-			     type_to_string(msg, struct sha256_double,&chain_hash));
+			     type_to_string(msg, struct bitcoin_blkid,
+					    &chain_hash));
 		return;
 	}
 
@@ -1288,7 +1289,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 				   struct daemon *daemon,
 				   const u8 *msg)
 {
-	struct sha256_double chain_hash;
+	struct bitcoin_blkid chain_hash;
 	u16 port;
 
 	if (!fromwire_gossipctl_init(daemon, msg, NULL,

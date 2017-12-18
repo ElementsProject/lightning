@@ -16,7 +16,6 @@ struct bitcoind;
 struct command;
 struct lightningd;
 struct peer;
-struct sha256_double;
 struct txwatch;
 
 enum feerate {
@@ -50,7 +49,7 @@ struct block {
 	struct block *next;
 
 	/* Key for hash table */
-	struct sha256_double blkid;
+	struct bitcoin_blkid blkid;
 
 	/* Transactions in this block we care about */
 	const struct bitcoin_tx **txs;
@@ -66,12 +65,12 @@ struct block {
 };
 
 /* Hash blocks by sha */
-static inline const struct sha256_double *keyof_block_map(const struct block *b)
+static inline const struct bitcoin_blkid *keyof_block_map(const struct block *b)
 {
 	return &b->blkid;
 }
 
-static inline size_t hash_sha(const struct sha256_double *key)
+static inline size_t hash_sha(const struct bitcoin_blkid *key)
 {
 	size_t ret;
 
@@ -79,7 +78,7 @@ static inline size_t hash_sha(const struct sha256_double *key)
 	return ret;
 }
 
-static inline bool block_eq(const struct block *b, const struct sha256_double *key)
+static inline bool block_eq(const struct block *b, const struct bitcoin_blkid *key)
 {
 	return structeq(&b->blkid, key);
 }

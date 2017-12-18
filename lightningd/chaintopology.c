@@ -381,9 +381,9 @@ static struct block *new_block(struct chain_topology *topo,
 {
 	struct block *b = tal(topo, struct block);
 
-	sha256_double(&b->blkid, &blk->hdr, sizeof(blk->hdr));
+	sha256_double(&b->blkid.shad, &blk->hdr, sizeof(blk->hdr));
 	log_debug(topo->log, "Adding block %s",
-		  type_to_string(ltmp, struct sha256_double, &b->blkid));
+		  type_to_string(ltmp, struct bitcoin_blkid, &b->blkid));
 	assert(!block_map_get(&topo->block_map, &b->blkid));
 	b->next = next;
 	b->topo = topo;
@@ -443,7 +443,7 @@ static void rawblock_tip(struct bitcoind *bitcoind,
 }
 
 static void check_chaintip(struct bitcoind *bitcoind,
-			   const struct sha256_double *tipid,
+			   const struct bitcoin_blkid *tipid,
 			   struct chain_topology *topo)
 {
 	/* 0 is the main tip. */
@@ -478,7 +478,7 @@ static void init_topo(struct bitcoind *bitcoind,
 }
 
 static void get_init_block(struct bitcoind *bitcoind,
-			   const struct sha256_double *blkid,
+			   const struct bitcoin_blkid *blkid,
 			   struct chain_topology *topo)
 {
 	bitcoind_getrawblock(bitcoind, blkid, init_topo, topo);

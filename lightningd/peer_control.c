@@ -461,12 +461,12 @@ static bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 	u16 ignored_u16;
 	u8 ignored_u8;
 	struct pubkey ignored_pubkey;
-	struct sha256_double ignored_shadouble;
+	struct bitcoin_blkid ignored_chainhash;
 
 	if (fromwire_channel_reestablish(in_pkt, NULL, channel_id,
 					 &ignored_u64, &ignored_u64))
 		return true;
-	if (fromwire_open_channel(in_pkt, NULL, &ignored_shadouble,
+	if (fromwire_open_channel(in_pkt, NULL, &ignored_chainhash,
 				  channel_id, &ignored_u64,
 				  &ignored_u64, &ignored_u64,
 				  &ignored_u64, &ignored_u64,

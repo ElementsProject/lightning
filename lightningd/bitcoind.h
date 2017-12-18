@@ -9,7 +9,7 @@
 #include <ccan/typesafe_cb/typesafe_cb.h>
 #include <stdbool.h>
 
-struct sha256_double;
+struct bitcoin_blkid;
 struct lightningd;
 struct ripemd160;
 struct bitcoin_tx;
@@ -86,7 +86,7 @@ void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
 
 void bitcoind_get_chaintip_(struct bitcoind *bitcoind,
 			    void (*cb)(struct bitcoind *bitcoind,
-				       const struct sha256_double *tipid,
+				       const struct bitcoin_blkid *tipid,
 				       void *arg),
 			    void *arg);
 
@@ -95,7 +95,7 @@ void bitcoind_get_chaintip_(struct bitcoind *bitcoind,
 			       typesafe_cb_preargs(void, void *,	\
 						   (cb), (arg),		\
 						   struct bitcoind *,	\
-						   const struct sha256_double *), \
+						   const struct bitcoin_blkid *), \
 			       (arg))
 
 void bitcoind_getblockcount_(struct bitcoind *bitcoind,
@@ -115,7 +115,7 @@ void bitcoind_getblockcount_(struct bitcoind *bitcoind,
 void bitcoind_getblockhash_(struct bitcoind *bitcoind,
 			    u32 height,
 			    void (*cb)(struct bitcoind *bitcoind,
-				       const struct sha256_double *blkid,
+				       const struct bitcoin_blkid *blkid,
 				       void *arg),
 			    void *arg);
 #define bitcoind_getblockhash(bitcoind_, height, cb, arg)		\
@@ -124,11 +124,11 @@ void bitcoind_getblockhash_(struct bitcoind *bitcoind,
 			       typesafe_cb_preargs(void, void *,	\
 						   (cb), (arg),		\
 						   struct bitcoind *,	\
-						   const struct sha256_double *), \
+						   const struct bitcoin_blkid *), \
 			       (arg))
 
 void bitcoind_getrawblock_(struct bitcoind *bitcoind,
-			   const struct sha256_double *blockid,
+			   const struct bitcoin_blkid *blockid,
 			   void (*cb)(struct bitcoind *bitcoind,
 				      struct bitcoin_block *blk,
 				      void *arg),

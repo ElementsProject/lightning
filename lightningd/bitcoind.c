@@ -360,9 +360,9 @@ static void process_chaintips(struct bitcoin_cli *bcli)
 	const jsmntok_t *tokens, *t, *end;
 	bool valid;
 	size_t i;
-	struct sha256_double tip;
+	struct bitcoin_blkid tip;
 	void (*cb)(struct bitcoind *bitcoind,
-		   struct sha256_double *tipid,
+		   struct bitcoin_blkid *tipid,
 		   void *arg) = bcli->cb;
 
 	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
@@ -418,7 +418,7 @@ static void process_chaintips(struct bitcoin_cli *bcli)
 
 void bitcoind_get_chaintip_(struct bitcoind *bitcoind,
 			    void (*cb)(struct bitcoind *bitcoind,
-				       const struct sha256_double *tipid,
+				       const struct bitcoin_blkid *tipid,
 				       void *arg),
 			    void *arg)
 {
@@ -444,7 +444,7 @@ static void process_rawblock(struct bitcoin_cli *bcli)
 }
 
 void bitcoind_getrawblock_(struct bitcoind *bitcoind,
-			   const struct sha256_double *blockid,
+			   const struct bitcoin_blkid *blockid,
 			   void (*cb)(struct bitcoind *bitcoind,
 				      struct bitcoin_block *blk,
 				      void *arg),
@@ -486,9 +486,9 @@ void bitcoind_getblockcount_(struct bitcoind *bitcoind,
 
 static void process_getblockhash(struct bitcoin_cli *bcli)
 {
-	struct sha256_double blkid;
+	struct bitcoin_blkid blkid;
 	void (*cb)(struct bitcoind *bitcoind,
-		   const struct sha256_double *blkid,
+		   const struct bitcoin_blkid *blkid,
 		   void *arg) = bcli->cb;
 
 	if (bcli->output_bytes == 0
@@ -504,7 +504,7 @@ static void process_getblockhash(struct bitcoin_cli *bcli)
 void bitcoind_getblockhash_(struct bitcoind *bitcoind,
 			    u32 height,
 			    void (*cb)(struct bitcoind *bitcoind,
-				       const struct sha256_double *blkid,
+				       const struct bitcoin_blkid *blkid,
 				       void *arg),
 			    void *arg)
 {

@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_WIRE_WIRE_H
 #define LIGHTNING_WIRE_WIRE_H
 #include "config.h"
+#include <bitcoin/block.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/shadouble.h>
@@ -15,6 +16,7 @@ struct channel_id {
 	u8 id[32];
 };
 
+struct bitcoin_blkid;
 struct bitcoin_txid;
 struct preimage;
 struct ripemd160;
@@ -40,6 +42,7 @@ void towire_short_channel_id(u8 **pptr,
 void towire_sha256(u8 **pptr, const struct sha256 *sha256);
 void towire_sha256_double(u8 **pptr, const struct sha256_double *sha256d);
 void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid);
+void towire_bitcoin_blkid(u8 **pptr, const struct bitcoin_blkid *blkid);
 void towire_preimage(u8 **pptr, const struct preimage *preimage);
 void towire_ripemd160(u8 **pptr, const struct ripemd160 *ripemd);
 void towire_u8(u8 **pptr, u8 v);
@@ -74,6 +77,8 @@ void fromwire_sha256_double(const u8 **cursor, size_t *max,
 			    struct sha256_double *sha256d);
 void fromwire_bitcoin_txid(const u8 **cursor, size_t *max,
 			   struct bitcoin_txid *txid);
+void fromwire_bitcoin_blkid(const u8 **cursor, size_t *max,
+			   struct bitcoin_blkid *blkid);
 void fromwire_preimage(const u8 **cursor, size_t *max, struct preimage *preimage);
 void fromwire_ripemd160(const u8 **cursor, size_t *max, struct ripemd160 *ripemd);
 void fromwire_pad(const u8 **cursor, size_t *max, size_t num);

@@ -183,6 +183,12 @@ void fromwire_bitcoin_txid(const u8 **cursor, size_t *max,
 	fromwire_sha256_double(cursor, max, &txid->shad);
 }
 
+void fromwire_bitcoin_blkid(const u8 **cursor, size_t *max,
+			    struct bitcoin_blkid *blkid)
+{
+	fromwire_sha256_double(cursor, max, &blkid->shad);
+}
+
 void fromwire_preimage(const u8 **cursor, size_t *max, struct preimage *preimage)
 {
 	fromwire(cursor, max, preimage, sizeof(*preimage));

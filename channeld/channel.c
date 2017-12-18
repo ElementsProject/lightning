@@ -101,7 +101,7 @@ struct peer {
 	 */
 	u64 htlc_id;
 
-	struct sha256_double chain_hash;
+	struct bitcoin_blkid chain_hash;
 	struct channel_id channel_id;
 	struct channel *channel;
 
