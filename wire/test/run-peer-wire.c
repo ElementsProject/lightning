@@ -128,7 +128,7 @@ struct msg_channel_update {
 	u64 htlc_minimum_msat;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
-	struct sha256_double chain_hash;
+	struct bitcoin_blkid chain_hash;
 	struct short_channel_id short_channel_id;
 };
 struct msg_funding_locked {
@@ -156,7 +156,7 @@ struct msg_node_announcement {
 	u8 *addresses;
 };
 struct msg_open_channel {
-	struct sha256_double chain_hash;
+	struct bitcoin_blkid chain_hash;
 	struct channel_id temporary_channel_id;
 	u64 funding_satoshis;
 	u64 push_msat;
@@ -186,7 +186,7 @@ struct msg_channel_announcement {
 	secp256k1_ecdsa_signature bitcoin_signature_1;
 	secp256k1_ecdsa_signature bitcoin_signature_2;
 	u8 *features;
-	struct sha256_double chain_hash;
+	struct bitcoin_blkid chain_hash;
 	struct short_channel_id short_channel_id;
 	struct pubkey node_id_1;
 	struct pubkey node_id_2;

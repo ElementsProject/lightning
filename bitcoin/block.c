@@ -2,6 +2,7 @@
 #include "bitcoin/pullpush.h"
 #include "bitcoin/tx.h"
 #include <ccan/str/hex/hex.h>
+#include <common/type_to_string.h>
 
 /* Encoding is <blockhdr> <varint-num-txs> <tx>... */
 struct bitcoin_block *bitcoin_block_from_hex(const tal_t *ctx,
@@ -38,20 +39,21 @@ struct bitcoin_block *bitcoin_block_from_hex(const tal_t *ctx,
 	return b;
 }
 
+/* We do the same hex-reversing crud as txids. */
 bool bitcoin_blkid_from_hex(const char *hexstr, size_t hexstr_len,
-			    struct sha256_double *blockid)
+			    struct bitcoin_blkid *blockid)
 {
 	struct bitcoin_txid fake_txid;
 	if (!bitcoin_txid_from_hex(hexstr, hexstr_len, &fake_txid))
 		return false;
-	*blockid = fake_txid.shad;
+	blockid->shad = fake_txid.shad;
 	return true;
 }
 
-bool bitcoin_blkid_to_hex(const struct sha256_double *blockid,
+bool bitcoin_blkid_to_hex(const struct bitcoin_blkid *blockid,
 			  char *hexstr, size_t hexstr_len)
 {
 	struct bitcoin_txid fake_txid;
-	fake_txid.shad = *blockid;
+	fake_txid.shad = blockid->shad;
 	return bitcoin_txid_to_hex(&fake_txid, hexstr, hexstr_len);
 }

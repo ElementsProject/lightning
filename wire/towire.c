@@ -125,6 +125,11 @@ void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid)
 	towire_sha256_double(pptr, &txid->shad);
 }
 
+void towire_bitcoin_blkid(u8 **pptr, const struct bitcoin_blkid *blkid)
+{
+	towire_sha256_double(pptr, &blkid->shad);
+}
+
 void towire_preimage(u8 **pptr, const struct preimage *preimage)
 {
 	towire(pptr, preimage, sizeof(*preimage));

@@ -35,7 +35,7 @@ static struct node_map *empty_node_map(const tal_t *ctx)
 }
 
 struct routing_state *new_routing_state(const tal_t *ctx,
-					const struct sha256_double *chain_hash,
+					const struct bitcoin_blkid *chain_hash,
 					const struct pubkey *local_id)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
@@ -503,7 +503,7 @@ bool handle_channel_announcement(
 	struct pubkey node_id_2;
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
-	struct sha256_double chain_hash;
+	struct bitcoin_blkid chain_hash;
 	struct node_connection *c0, *c1;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	u8 *features;
@@ -531,7 +531,7 @@ bool handle_channel_announcement(
 	if (!structeq(&chain_hash, &rstate->chain_hash)) {
 		status_trace("Received channel_announcement for unknown chain"
 			     " %s",
-			     type_to_string(tmpctx, struct sha256_double,
+			     type_to_string(tmpctx, struct bitcoin_blkid,
 					    &chain_hash));
 		tal_free(tmpctx);
 		return false;
@@ -600,7 +600,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
-	struct sha256_double chain_hash;
+	struct bitcoin_blkid chain_hash;
 	size_t len = tal_len(update);
 
 	serialized = tal_dup_arr(tmpctx, u8, update, len, 0);
@@ -620,7 +620,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	 * specified chain. */
 	if (!structeq(&chain_hash, &rstate->chain_hash)) {
 		status_trace("Received channel_update for unknown chain %s",
-			     type_to_string(tmpctx, struct sha256_double,
+			     type_to_string(tmpctx, struct bitcoin_blkid,
 					    &chain_hash));
 		tal_free(tmpctx);
 		return;

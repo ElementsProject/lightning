@@ -529,7 +529,7 @@ static u8 *fundee_channel(struct state *state,
 	struct pubkey their_funding_pubkey;
 	secp256k1_ecdsa_signature theirsig, sig;
 	struct bitcoin_tx *their_commit, *our_commit;
-	struct sha256_double chain_hash;
+	struct bitcoin_blkid chain_hash;
 	u8 *msg;
 	const u8 *wscript;
 	u8 channel_flags;
@@ -574,7 +574,7 @@ static u8 *fundee_channel(struct state *state,
 		negotiation_failed(state, true,
 				   "Unknown chain-hash %s",
 				   type_to_string(peer_msg,
-						  struct sha256_double,
+						  struct bitcoin_blkid,
 						  &chain_hash));
 	}
 

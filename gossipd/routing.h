@@ -82,7 +82,7 @@ struct routing_state {
 
 	struct broadcast_state *broadcasts;
 
-	struct sha256_double chain_hash;
+	struct bitcoin_blkid chain_hash;
 
 	/* Our own ID so we can identify local channels */
 	struct pubkey local_id;
@@ -96,7 +96,7 @@ struct route_hop {
 };
 
 struct routing_state *new_routing_state(const tal_t *ctx,
-					const struct sha256_double *chain_hash,
+					const struct bitcoin_blkid *chain_hash,
 					const struct pubkey *local_id);
 
 /* Add a connection to the routing table, but do not mark it as usable

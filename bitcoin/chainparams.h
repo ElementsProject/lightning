@@ -2,7 +2,7 @@
 #define LIGHTNING_BITCOIN_CHAINPARAMS_H
 
 #include "config.h"
-#include <bitcoin/shadouble.h>
+#include <bitcoin/block.h>
 #include <ccan/short_types/short_types.h>
 #include <stdbool.h>
 
@@ -10,7 +10,7 @@ struct chainparams {
 	const int index;
 	const char *network_name;
 	const char *bip173_name;
-	const struct sha256_double genesis_blockhash;
+	const struct bitcoin_blkid genesis_blockhash;
 	const int rpc_port;
 	const char *cli;
 	const char *cli_args;
