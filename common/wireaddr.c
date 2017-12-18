@@ -38,7 +38,7 @@ void towire_wireaddr(u8 **pptr, const struct wireaddr *addr)
 	towire_u16(pptr, addr->port);
 }
 
-static char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a)
+char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a)
 {
 	char addrstr[INET6_ADDRSTRLEN];
 	char *ret, *hex;
@@ -51,7 +51,7 @@ static char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a)
 	case ADDR_TYPE_IPV6:
 		if (!inet_ntop(AF_INET6, a->addr, addrstr, INET6_ADDRSTRLEN))
 			return "Unprintable-ipv6-address";
-		return tal_fmt(ctx, "%s:%u", addrstr, a->port);
+		return tal_fmt(ctx, "[%s]:%u", addrstr, a->port);
 	case ADDR_TYPE_PADDING:
 		break;
 	}
