@@ -14,6 +14,10 @@
 #include <inttypes.h>
 #include <wire/gen_peer_wire.h>
 
+#ifndef SUPERVERBOSE
+#define SUPERVERBOSE(...)
+#endif
+
 /* 365.25 * 24 * 60 / 10 */
 #define BLOCKS_PER_YEAR 52596
 
@@ -285,7 +289,7 @@ static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor)
 						    c->delay, riskfactor);
 		if (node->bfg[h].total + (s64)fee + (s64)risk
 		    < c->src->bfg[h+1].total + (s64)c->src->bfg[h+1].risk) {
-			status_trace("...%s can reach here in hoplen %zu total %"PRIu64,
+			SUPERVERBOSE("...%s can reach here in hoplen %zu total %"PRIu64,
 				     type_to_string(trc, struct pubkey,
 						    &c->src->id),
 				     h, node->bfg[h].total + fee);
@@ -334,23 +338,23 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	src->bfg[0].risk = 0;
 
 	for (runs = 0; runs < ROUTING_MAX_HOPS; runs++) {
-		status_trace("Run %i", runs);
+		SUPERVERBOSE("Run %i", runs);
 		/* Run through every edge. */
 		for (n = node_map_first(rstate->nodes, &it);
 		     n;
 		     n = node_map_next(rstate->nodes, &it)) {
 			size_t num_edges = tal_count(n->in);
 			for (i = 0; i < num_edges; i++) {
-				status_trace("Node %s edge %i/%zu",
+				SUPERVERBOSE("Node %s edge %i/%zu",
 					     type_to_string(trc, struct pubkey,
 							    &n->id),
 					     i, num_edges);
 				if (!n->in[i]->active) {
-					status_trace("...inactive");
+					SUPERVERBOSE("...inactive");
 					continue;
 				}
 				bfg_one_edge(n, i, riskfactor);
-				status_trace("...done");
+				SUPERVERBOSE("...done");
 			}
 		}
 	}
