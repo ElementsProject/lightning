@@ -2,6 +2,7 @@
 #define LIGHTNING_COMMON_WIREADDR_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <ccan/tal/tal.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
@@ -39,4 +40,8 @@ struct wireaddr {
 /* Inserts a single ADDR_TYPE_PADDING if addr is NULL */
 void towire_wireaddr(u8 **pptr, const struct wireaddr *addr);
 bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr);
+
+bool parse_ip_port(tal_t *ctx, const char *arg, char **ip, u16 *port);
+bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 port);
+
 #endif /* LIGHTNING_COMMON_WIREADDR_H */

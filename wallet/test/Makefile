@@ -8,6 +8,9 @@ WALLET_TEST_COMMON_OBJS :=				\
 	common/memleak.o			\
 	common/pseudorand.o			\
 	common/utils.o				\
+	common/wireaddr.o				\
+	wire/towire.o				\
+	wire/fromwire.o				\
 	lightningd/htlc_end.o			\
 	lightningd/log.o
 
