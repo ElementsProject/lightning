@@ -1,10 +1,15 @@
 #include <assert.h>
 #include <bitcoin/pubkey.h>
+#include <ccan/err/err.h>
+#include <ccan/opt/opt.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include <stdio.h>
 #define status_trace(fmt, ...) \
@@ -126,6 +131,23 @@ static void populate_random_node(struct routing_state *rstate, u64 n)
 	}
 }
 
+static void run(const char *name)
+{
+	int status;
+
+	switch (fork()) {
+	case 0:
+		execlp(name, name, NULL);
+		exit(127);
+	case -1:
+		err(1, "forking %s", name);
+	default:
+		wait(&status);
+		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+			errx(1, "%s failed", name);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	static const struct sha256_double zerohash;
@@ -135,21 +157,31 @@ int main(int argc, char *argv[])
 	struct timemono start, end;
 	size_t num_success;
 	struct pubkey me = nodeid(0);
+	bool perfme = false;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
 	rstate = new_routing_state(ctx, &zerohash, &me);
+	opt_register_noarg("--perfme", opt_set_bool, &perfme,
+			   "Run perfme-start and perfme-stop around benchmark");
+
+	opt_parse(&argc, argv, opt_log_stderr_exit);
 
 	if (argc > 1)
 		num_nodes = atoi(argv[1]);
 	if (argc > 2)
 		num_runs = atoi(argv[2]);
-	
+	if (argc > 3)
+		opt_usage_and_exit("[num_nodes [num_runs]]");
+
 	for (size_t i = 0; i < num_nodes; i++)
 		populate_random_node(rstate, i);
 
 	in_bench = true;
+	if (perfme)
+		run("perfme-start");
+
 	start = time_mono();
 	num_success = 0;
 	for (size_t i = 0; i < num_runs; i++) {
@@ -167,6 +199,9 @@ int main(int argc, char *argv[])
 	}
 	end = time_mono();
 
+	if (perfme)
+		run("perfme-stop");
+
 	printf("%zu (%zu succeeded) routes in %zu nodes in %"PRIu64" msec (%"PRIu64" nanoseconds per route)",
 	       num_runs, num_success, num_nodes,
 	       time_to_msec(timemono_between(end, start)),
@@ -174,5 +209,6 @@ int main(int argc, char *argv[])
 
 	tal_free(ctx);
 	secp256k1_context_destroy(secp256k1_ctx);
+	opt_free_table();
 	return 0;
 }
