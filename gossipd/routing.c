@@ -206,7 +206,8 @@ get_or_make_connection(struct routing_state *rstate,
 	return nc;
 }
 
-struct node_connection *half_add_connection(struct routing_state *rstate,
+static struct node_connection *half_add_connection(
+					    struct routing_state *rstate,
 					    const struct pubkey *from,
 					    const struct pubkey *to,
 					    const struct short_channel_id *schanid,
@@ -241,7 +242,7 @@ static void clear_bfg(struct node_map *nodes)
 	}
 }
 
-s64 connection_fee(const struct node_connection *c, u64 msatoshi)
+static s64 connection_fee(const struct node_connection *c, u64 msatoshi)
 {
 	s64 fee;
 
