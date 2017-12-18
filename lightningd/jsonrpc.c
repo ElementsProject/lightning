@@ -358,6 +358,15 @@ void json_add_pubkey(struct json_result *response,
 	json_add_hex(response, fieldname, der, sizeof(der));
 }
 
+void json_add_txid(struct json_result *result, const char *fieldname,
+		   const struct sha256_double *txid)
+{
+	char hex[hex_str_size(sizeof(*txid))];
+
+	bitcoin_txid_to_hex(txid, hex, sizeof(hex));
+	json_add_string(result, fieldname, hex);
+}
+
 bool json_tok_pubkey(const char *buffer, const jsmntok_t *tok,
 		     struct pubkey *pubkey)
 {
