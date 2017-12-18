@@ -30,8 +30,6 @@ incorrect_cltv_expiry,6,channel_update,len
 expiry_too_soon,UPDATE|14
 expiry_too_soon,0,len,2
 expiry_too_soon,2,channel_update,len
-expiry_too_far,21
-channel_disabled,UPDATE|20
 unknown_payment_hash,PERM|15
 incorrect_payment_amount,PERM|16
 final_expiry_too_soon,17
@@ -39,3 +37,5 @@ final_incorrect_cltv_expiry,18
 final_incorrect_cltv_expiry,0,cltv_expiry,4
 final_incorrect_htlc_amount,19
 final_incorrect_htlc_amount,0,incoming_htlc_amt,4
+channel_disabled,UPDATE|20
+expiry_too_far,21

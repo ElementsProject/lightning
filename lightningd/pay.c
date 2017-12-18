@@ -252,6 +252,7 @@ static void send_payment(struct command *cmd,
 	pc->ids = tal_steal(pc, ids);
 	pc->msatoshi = route[n_hops-1].amount;
 	pc->path_secrets = tal_steal(pc, path_secrets);
+	pc->out = NULL;
 
 	log_info(cmd->ld->log, "Sending %u over %zu hops to deliver %"PRIu64,
 		 route[0].amount, n_hops, pc->msatoshi);

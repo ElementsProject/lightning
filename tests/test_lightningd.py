@@ -2442,5 +2442,44 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_pay_disconnect(self):
+        """If the remote node has disconnected, we fail payment, but can try again when it reconnects"""
+        l1,l2 = self.connect()
+
+        chanid = self.fund_channel(l1, l2, 10**6)
+
+        # Wait for route propagation.
+        bitcoind.generate_block(5)
+        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
+                                 .format(chanid),
+                                'Received channel_update for channel {}\(1\)'
+                                 .format(chanid)])
+
+        inv = l2.rpc.invoice(123000, 'test_pay_disconnect', 'description')['bolt11']
+
+        # Make l2 upset by asking for crazy fee.
+        l1.rpc.dev_setfees('150000')
+
+        # Wait for l1 notice
+        l1.daemon.wait_for_log('STATUS_FAIL_PEER_BAD')
+
+        # Can't pay while its offline.
+        self.assertRaises(ValueError, l1.rpc.pay, inv)
+        l1.daemon.wait_for_log('Failing: first peer not ready: WIRE_TEMPORARY_CHANNEL_FAILURE')
+
+        # Should fail due to temporary channel fail
+        self.assertRaises(ValueError, l1.rpc.pay, inv)
+        l1.daemon.wait_for_log('Failing: first peer not ready: WIRE_TEMPORARY_CHANNEL_FAILURE')
+        assert not l1.daemon.is_in_log('... still in progress')
+
+        # After it sees block, someone should close channel.
+        bitcoind.generate_block(1)
+        l1.daemon.wait_for_log('ONCHAIND_.*_UNILATERAL')
+
+        self.assertRaises(ValueError, l1.rpc.pay, inv)
+        # Could fail with almost anything, but should fail with WIRE_PERMANENT_CHANNEL_FAILURE or unknown route.  FIXME
+        #l1.daemon.wait_for_log('Could not find a route')
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
