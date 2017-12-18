@@ -82,7 +82,7 @@ struct msg_closing_signed {
 };
 struct msg_funding_created {
 	struct channel_id temporary_channel_id;
-	struct sha256 txid;
+	struct bitcoin_txid txid;
 	u16 output_index;
 	secp256k1_ecdsa_signature signature;
 };

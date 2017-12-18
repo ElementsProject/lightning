@@ -359,7 +359,7 @@ void json_add_pubkey(struct json_result *response,
 }
 
 void json_add_txid(struct json_result *result, const char *fieldname,
-		   const struct sha256_double *txid)
+		   const struct bitcoin_txid *txid)
 {
 	char hex[hex_str_size(sizeof(*txid))];
 

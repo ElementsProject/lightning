@@ -9,6 +9,7 @@
 union printable_types {
 	const struct pubkey *pubkey;
 	const struct sha256_double *sha256_double;
+	const struct bitcoin_txid *bitcoin_txid;
 	const struct sha256 *sha256;
 	const struct ripemd160 *ripemd160;
 	const struct rel_locktime *rel_locktime;

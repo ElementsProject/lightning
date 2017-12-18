@@ -118,7 +118,7 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
  * `output_state_any` as @oldstatus.
  */
 bool wallet_update_output_status(struct wallet *w,
-				 const struct sha256_double *txid,
+				 const struct bitcoin_txid *txid,
 				 const u32 outnum, enum output_status oldstatus,
 				 enum output_status newstatus);
 

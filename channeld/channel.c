@@ -2278,7 +2278,7 @@ static void init_channel(struct peer *peer)
 	u16 funding_txout;
 	u64 local_msatoshi;
 	struct pubkey funding_pubkey[NUM_SIDES];
-	struct sha256_double funding_txid;
+	struct bitcoin_txid funding_txid;
 	enum side funder;
 	enum htlc_state *hstates;
 	struct fulfilled_htlc *fulfilled;

@@ -69,7 +69,7 @@ struct peer {
 	u64 next_htlc_id;
 
 	/* Funding txid and amounts (once known) */
-	struct sha256_double *funding_txid;
+	struct bitcoin_txid *funding_txid;
 	u16 funding_outnum;
 	u64 funding_satoshi, push_msat;
 	bool remote_funding_locked;

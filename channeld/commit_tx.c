@@ -86,7 +86,7 @@ static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 }
 
 struct bitcoin_tx *commit_tx(const tal_t *ctx,
-			     const struct sha256_double *funding_txid,
+			     const struct bitcoin_txid *funding_txid,
 			     unsigned int funding_txout,
 			     u64 funding_satoshis,
 			     enum side funder,

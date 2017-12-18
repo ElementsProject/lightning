@@ -43,7 +43,7 @@ opening_funder_reply,,delayed_payment_basepoint,struct pubkey
 opening_funder_reply,,their_per_commit_point,struct pubkey
 opening_funder_reply,,minimum_depth,u32
 opening_funder_reply,,remote_fundingkey,struct pubkey
-opening_funder_reply,,funding_txid,struct sha256_double
+opening_funder_reply,,funding_txid,struct bitcoin_txid
 opening_funder_reply,,feerate_per_kw,u32
 
 # This means they offer the open (contains their offer packet)
@@ -67,7 +67,7 @@ opening_fundee_reply,,htlc_basepoint,struct pubkey
 opening_fundee_reply,,delayed_payment_basepoint,struct pubkey
 opening_fundee_reply,,their_per_commit_point,struct pubkey
 opening_fundee_reply,,remote_fundingkey,struct pubkey
-opening_fundee_reply,,funding_txid,struct sha256_double
+opening_fundee_reply,,funding_txid,struct bitcoin_txid
 opening_fundee_reply,,funding_txout,u16
 opening_fundee_reply,,funding_satoshis,u64
 opening_fundee_reply,,push_msat,u64

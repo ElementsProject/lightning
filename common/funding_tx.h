@@ -8,7 +8,6 @@ struct bitcoin_tx;
 struct ext_key;
 struct privkey;
 struct pubkey;
-struct sha256_double;
 struct utxo;
 
 /**

@@ -5,7 +5,7 @@
 #include <common/keyset.h>
 
 static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
-				  const struct sha256_double *commit_txid,
+				  const struct bitcoin_txid *commit_txid,
 				  unsigned int commit_output_number,
 				  u64 msatoshi,
 				  u16 to_self_delay,
@@ -72,7 +72,7 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 }
 
 struct bitcoin_tx *htlc_success_tx(const tal_t *ctx,
-				   const struct sha256_double *commit_txid,
+				   const struct bitcoin_txid *commit_txid,
 				   unsigned int commit_output_number,
 				   u64 htlc_msatoshi,
 				   u16 to_self_delay,
@@ -117,7 +117,7 @@ void htlc_success_tx_add_witness(struct bitcoin_tx *htlc_success,
 }
 
 struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
-				   const struct sha256_double *commit_txid,
+				   const struct bitcoin_txid *commit_txid,
 				   unsigned int commit_output_number,
 				   u64 htlc_msatoshi,
 				   u32 cltv_expiry,

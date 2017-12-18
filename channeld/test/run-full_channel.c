@@ -20,26 +20,14 @@
 
 const void *trc;
 
-static struct sha256 sha256_from_hex(const char *hex)
-{
-	struct sha256 sha256;
-	if (strstarts(hex, "0x"))
-		hex += 2;
-	if (!hex_decode(hex, strlen(hex), &sha256, sizeof(sha256)))
-		abort();
-	return sha256;
-}
-
 /* bitcoind loves its backwards txids! */
-static struct sha256_double txid_from_hex(const char *hex)
+static struct bitcoin_txid txid_from_hex(const char *hex)
 {
-	struct sha256_double sha256;
-	struct sha256 rev = sha256_from_hex(hex);
-	size_t i;
+	struct bitcoin_txid txid;
 
-	for (i = 0; i < sizeof(rev); i++)
-		sha256.sha.u.u8[sizeof(sha256) - 1 - i] = rev.u.u8[i];
-	return sha256;
+	if (!bitcoin_txid_from_hex(hex, strlen(hex), &txid))
+		abort();
+	return txid;
 }
 
 static struct bitcoin_tx *tx_from_hex(const tal_t *ctx, const char *hex)
@@ -326,7 +314,7 @@ static void update_feerate(struct channel *channel, u32 feerate)
 int main(void)
 {
 	tal_t *tmpctx = tal_tmpctx(NULL);
-	struct sha256_double funding_txid;
+	struct bitcoin_txid funding_txid;
 	/* We test from both sides. */
 	struct channel *lchannel, *rchannel;
 	u64 funding_amount_satoshi;

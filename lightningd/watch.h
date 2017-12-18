@@ -1,7 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_WATCH_H
 #define LIGHTNING_LIGHTNINGD_WATCH_H
 #include "config.h"
-#include "bitcoin/shadouble.h"
+#include <bitcoin/tx.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/list/list.h>
@@ -17,7 +17,7 @@ enum watch_result {
 };
 
 struct txwatch_output {
-	struct sha256_double txid;
+	struct bitcoin_txid txid;
 	unsigned int index;
 };
 
@@ -55,7 +55,7 @@ struct txwatch {
 	struct peer *peer;
 
 	/* Transaction to watch. */
-	struct sha256_double txid;
+	struct bitcoin_txid txid;
 	unsigned int depth;
 
 	/* A new depth (0 if kicked out, otherwise 1 = tip, etc.) */
@@ -67,9 +67,9 @@ struct txwatch {
 	void *cbdata;
 };
 
-const struct sha256_double *txwatch_keyof(const struct txwatch *w);
-size_t txid_hash(const struct sha256_double *txid);
-bool txwatch_eq(const struct txwatch *w, const struct sha256_double *txid);
+const struct bitcoin_txid *txwatch_keyof(const struct txwatch *w);
+size_t txid_hash(const struct bitcoin_txid *txid);
+bool txwatch_eq(const struct txwatch *w, const struct bitcoin_txid *txid);
 HTABLE_DEFINE_TYPE(struct txwatch, txwatch_keyof, txid_hash, txwatch_eq,
 		   txwatch_hash);
 
@@ -77,7 +77,7 @@ HTABLE_DEFINE_TYPE(struct txwatch, txwatch_keyof, txid_hash, txwatch_eq,
 struct txwatch *watch_txid_(const tal_t *ctx,
 			    struct chain_topology *topo,
 			    struct peer *peer,
-			    const struct sha256_double *txid,
+			    const struct bitcoin_txid *txid,
 			    enum watch_result (*cb)(struct peer *peer,
 						    const struct bitcoin_tx *,
 						    unsigned int depth,
@@ -115,7 +115,7 @@ struct txwatch *watch_tx_(const tal_t *ctx,
 struct txowatch *watch_txo_(const tal_t *ctx,
 			    struct chain_topology *topo,
 			    struct peer *peer,
-			    const struct sha256_double *txid,
+			    const struct bitcoin_txid *txid,
 			    unsigned int output,
 			    enum watch_result (*cb)(struct peer *peer,
 						    const struct bitcoin_tx *tx,
@@ -144,7 +144,7 @@ void txowatch_fire(struct chain_topology *topo,
 		   const struct block *block);
 
 bool watching_txid(const struct chain_topology *topo,
-		   const struct sha256_double *txid);
+		   const struct bitcoin_txid *txid);
 
 void watch_topology_changed(struct chain_topology *topo);
 #endif /* LIGHTNING_LIGHTNINGD_WATCH_H */

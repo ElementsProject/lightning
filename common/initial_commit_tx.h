@@ -6,7 +6,6 @@
 #include <common/htlc.h>
 
 struct keyset;
-struct sha256_double;
 
 /* BOLT #3:
  *
@@ -67,7 +66,7 @@ static inline u64 commit_tx_base_fee(u32 feerate_per_kw,
  * transaction, so we carefully use the terms "self" and "other" here.
  */
 struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
-				     const struct sha256_double *funding_txid,
+				     const struct bitcoin_txid *funding_txid,
 				     unsigned int funding_txout,
 				     u64 funding_satoshis,
 				     enum side funder,

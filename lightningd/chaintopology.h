@@ -2,7 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H
 #include "config.h"
 #include <bitcoin/block.h>
-#include <bitcoin/shadouble.h>
+#include <bitcoin/tx.h>
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/structeq/structeq.h>
@@ -31,7 +31,7 @@ struct outgoing_tx {
 	struct list_node list;
 	struct peer *peer;
 	const char *hextx;
-	struct sha256_double txid;
+	struct bitcoin_txid txid;
 	void (*failed)(struct peer *peer, int exitstatus, const char *err);
 	/* FIXME: Remove this. */
 	struct chain_topology *topo;
@@ -139,7 +139,7 @@ struct txlocator {
 /* This is the number of blocks which would have to be mined to invalidate
  * the tx (optional tx is filled in if return is non-zero). */
 size_t get_tx_depth(const struct chain_topology *topo,
-		    const struct sha256_double *txid,
+		    const struct bitcoin_txid *txid,
 		    const struct bitcoin_tx **tx);
 
 /* Get highest block number. */
@@ -161,7 +161,7 @@ void setup_topology(struct chain_topology *topology,
 		    struct timers *timers,
 		    struct timerel poll_time, u32 first_peer_block);
 
-struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo, const struct sha256_double *txid);
+struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo, const struct bitcoin_txid *txid);
 
 void notify_new_block(struct lightningd *ld, unsigned int height);
 void notify_feerate_change(struct lightningd *ld);

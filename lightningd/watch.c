@@ -65,17 +65,18 @@ static void destroy_txowatch(struct txowatch *w)
 	txowatch_hash_del(&w->topo->txowatches, w);
 }
 
-const struct sha256_double *txwatch_keyof(const struct txwatch *w)
+const struct bitcoin_txid *txwatch_keyof(const struct txwatch *w)
 {
 	return &w->txid;
 }
 
-size_t txid_hash(const struct sha256_double *txid)
+size_t txid_hash(const struct bitcoin_txid *txid)
 {
-	return siphash24(siphash_seed(), txid->sha.u.u8, sizeof(txid->sha.u.u8));
+	return siphash24(siphash_seed(),
+			 txid->shad.sha.u.u8, sizeof(txid->shad.sha.u.u8));
 }
 
-bool txwatch_eq(const struct txwatch *w, const struct sha256_double *txid)
+bool txwatch_eq(const struct txwatch *w, const struct bitcoin_txid *txid)
 {
 	return structeq(&w->txid, txid);
 }
@@ -88,7 +89,7 @@ static void destroy_txwatch(struct txwatch *w)
 struct txwatch *watch_txid_(const tal_t *ctx,
 			    struct chain_topology *topo,
 			    struct peer *peer,
-			    const struct sha256_double *txid,
+			    const struct bitcoin_txid *txid,
 			    enum watch_result (*cb)(struct peer *peer,
 						    const struct bitcoin_tx *,
 						    unsigned int depth,
@@ -112,7 +113,7 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 }
 
 bool watching_txid(const struct chain_topology *topo,
-		   const struct sha256_double *txid)
+		   const struct bitcoin_txid *txid)
 {
 	return txwatch_hash_get(&topo->txwatches, txid) != NULL;
 }
@@ -127,7 +128,7 @@ struct txwatch *watch_tx_(const tal_t *ctx,
 						  void *arg),
 			  void *cb_arg)
 {
-	struct sha256_double txid;
+	struct bitcoin_txid txid;
 
 	bitcoin_txid(tx, &txid);
 	return watch_txid(ctx, topo, peer, &txid, cb, cb_arg);
@@ -136,7 +137,7 @@ struct txwatch *watch_tx_(const tal_t *ctx,
 struct txowatch *watch_txo_(const tal_t *ctx,
 			    struct chain_topology *topo,
 			    struct peer *peer,
-			    const struct sha256_double *txid,
+			    const struct bitcoin_txid *txid,
 			    unsigned int output,
 			    enum watch_result (*cb)(struct peer *peer,
 						    const struct bitcoin_tx *tx,
@@ -173,7 +174,7 @@ static bool txw_fire(struct chain_topology *topo,
 	log_debug(txw->peer->log,
 		  "Got depth change %u->%u for %s",
 		  txw->depth, depth,
-		  type_to_string(ltmp, struct sha256_double, &txw->txid));
+		  type_to_string(ltmp, struct bitcoin_txid, &txw->txid));
 	txw->depth = depth;
 	r = txw->cb(txw->peer, tx, txw->depth, txw->cbdata);
 	switch (r) {
@@ -190,7 +191,7 @@ void txwatch_fire(struct chain_topology *topo,
 		  const struct bitcoin_tx *tx,
 		  unsigned int depth)
 {
-	struct sha256_double txid;
+	struct bitcoin_txid txid;
 	struct txwatch *txw;
 
 	bitcoin_txid(tx, &txid);
@@ -206,15 +207,15 @@ void txowatch_fire(struct chain_topology *topo,
 		   size_t input_num,
 		   const struct block *block)
 {
-	struct sha256_double txid;
+	struct bitcoin_txid txid;
 	enum watch_result r;
 
 	bitcoin_txid(tx, &txid);
 	log_debug(txow->peer->log,
 		  "Got UTXO spend for %s:%u: %s",
-		  type_to_string(ltmp, struct sha256_double, &txow->out.txid),
+		  type_to_string(ltmp, struct bitcoin_txid, &txow->out.txid),
 		  txow->out.index,
-		  type_to_string(ltmp, struct sha256_double, &txid));
+		  type_to_string(ltmp, struct bitcoin_txid, &txid));
 
 	r = txow->cb(txow->peer, tx, input_num, block, txow->cbdata);
 	switch (r) {

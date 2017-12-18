@@ -28,7 +28,7 @@ struct channel_view {
 
 struct channel {
 	/* Funding txid and output. */
-	struct sha256_double funding_txid;
+	struct bitcoin_txid funding_txid;
 	unsigned int funding_txout;
 
 	/* Keys used to spend funding tx. */
@@ -142,7 +142,7 @@ static inline u16 to_self_delay(const struct channel *channel, enum side side)
  * Returns channel, or NULL if malformed.
  */
 struct channel *new_initial_channel(const tal_t *ctx,
-				    const struct sha256_double *funding_txid,
+				    const struct bitcoin_txid *funding_txid,
 				    unsigned int funding_txout,
 				    u64 funding_satoshis,
 				    u64 local_msatoshi,

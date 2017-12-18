@@ -14,7 +14,7 @@ onchain_init,,feerate_per_kw,u32
 onchain_init,,local_dust_limit_satoshi,u64
 onchain_init,,remote_revocation_basepoint,struct pubkey
 # Gives an easy way to tell if it's our unilateral close or theirs...
-onchain_init,,our_broadcast_txid,struct sha256_double
+onchain_init,,our_broadcast_txid,struct bitcoin_txid
 onchain_init,,local_scriptpubkey_len,u16
 onchain_init,,local_scriptpubkey,local_scriptpubkey_len*u8
 onchain_init,,remote_scriptpubkey_len,u16
@@ -56,12 +56,12 @@ onchain_spent,,blockheight,u32
 
 # master->onchaind: We will receive more than one of these, as depth changes.
 onchain_depth,5005
-onchain_depth,,txid,struct sha256_double
+onchain_depth,,txid,struct bitcoin_txid
 onchain_depth,,depth,u32
 
 # onchaind->master: We don't want to watch this tx, or its outputs
 onchain_unwatch_tx,5006
-onchain_unwatch_tx,,txid,struct sha256_double
+onchain_unwatch_tx,,txid,struct bitcoin_txid
 onchain_unwatch_tx,,num_outputs,u32
 
 # master->onchaind: We know HTLC preimage

@@ -41,11 +41,17 @@ struct bitcoin_block *bitcoin_block_from_hex(const tal_t *ctx,
 bool bitcoin_blkid_from_hex(const char *hexstr, size_t hexstr_len,
 			    struct sha256_double *blockid)
 {
-	return bitcoin_txid_from_hex(hexstr, hexstr_len, blockid);
+	struct bitcoin_txid fake_txid;
+	if (!bitcoin_txid_from_hex(hexstr, hexstr_len, &fake_txid))
+		return false;
+	*blockid = fake_txid.shad;
+	return true;
 }
 
 bool bitcoin_blkid_to_hex(const struct sha256_double *blockid,
 			  char *hexstr, size_t hexstr_len)
 {
-	return bitcoin_txid_to_hex(blockid, hexstr, hexstr_len);
+	struct bitcoin_txid fake_txid;
+	fake_txid.shad = *blockid;
+	return bitcoin_txid_to_hex(&fake_txid, hexstr, hexstr_len);
 }

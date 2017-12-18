@@ -255,7 +255,7 @@ static bool test_channel_crud(const tal_t *ctx)
 	struct wallet_channel c1, *c2 = tal(w, struct wallet_channel);
 	struct peer p;
 	struct channel_info ci;
-	struct sha256_double *hash = tal(w, struct sha256_double);
+	struct bitcoin_txid *hash = tal(w, struct bitcoin_txid);
 	struct pubkey pk;
 	struct changed_htlc last_commit;
 	secp256k1_ecdsa_signature *sig = tal(w, secp256k1_ecdsa_signature);

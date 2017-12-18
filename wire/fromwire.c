@@ -2,6 +2,7 @@
 #include <bitcoin/preimage.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/shadouble.h>
+#include <bitcoin/tx.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
@@ -176,6 +177,12 @@ void fromwire_sha256_double(const u8 **cursor, size_t *max,
 	fromwire_sha256(cursor, max, &sha256d->sha);
 }
 
+void fromwire_bitcoin_txid(const u8 **cursor, size_t *max,
+			   struct bitcoin_txid *txid)
+{
+	fromwire_sha256_double(cursor, max, &txid->shad);
+}
+
 void fromwire_preimage(const u8 **cursor, size_t *max, struct preimage *preimage)
 {
 	fromwire(cursor, max, preimage, sizeof(*preimage));
@@ -207,7 +214,7 @@ REGISTER_TYPE_TO_HEXSTR(channel_id);
  * (ie. `funding_output_index` alters the last two bytes).
  */
 void derive_channel_id(struct channel_id *channel_id,
-		       struct sha256_double *txid, u16 txout)
+		       struct bitcoin_txid *txid, u16 txout)
 {
 	BUILD_ASSERT(sizeof(*channel_id) == sizeof(*txid));
 	memcpy(channel_id, txid, sizeof(*channel_id));
