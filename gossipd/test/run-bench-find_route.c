@@ -153,7 +153,7 @@ int main(int argc, char *argv[])
 	static const struct sha256_double zerohash;
 	const tal_t *ctx = trc = tal_tmpctx(NULL);
 	struct routing_state *rstate;
-	size_t num_nodes = 10000, num_runs = 100;
+	size_t num_nodes = 100, num_runs = 1;
 	struct timemono start, end;
 	size_t num_success;
 	struct pubkey me = nodeid(0);
