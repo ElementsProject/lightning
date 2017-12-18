@@ -61,7 +61,7 @@ int main(void)
 	struct node_connection *nc;
 	struct routing_state *rstate;
 	struct pubkey a, b, c;
-	s64 fee;
+	u64 fee;
 	struct node_connection **route;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY

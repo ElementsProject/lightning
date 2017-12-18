@@ -187,7 +187,7 @@ int main(int argc, char *argv[])
 	for (size_t i = 0; i < num_runs; i++) {
 		struct pubkey from = nodeid(pseudorand(num_nodes));
 		struct pubkey to = nodeid(pseudorand(num_nodes));
-		s64 fee;
+		u64 fee;
 		struct node_connection **route, *nc;
 
 		nc = find_route(ctx, rstate, &from, &to,
