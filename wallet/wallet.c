@@ -4,6 +4,7 @@
 #include <ccan/tal/str/str.h>
 #include <inttypes.h>
 #include <lightningd/lightningd.h>
+#include <common/wireaddr.h>
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
@@ -386,14 +387,25 @@ bool wallet_shachain_load(struct wallet *wallet, u64 id,
 static bool wallet_peer_load(struct wallet *w, const u64 id, struct peer *peer)
 {
 	bool ok = true;
-	sqlite3_stmt *stmt = db_query(__func__, w->db, "SELECT id, node_id FROM peers WHERE id=%"PRIu64";", id);
+	const unsigned char *addrstr;
+
+	sqlite3_stmt *stmt =
+		db_query(__func__, w->db,
+			 "SELECT id, node_id, address FROM peers WHERE id=%"PRIu64";", id);
+
 	if (!stmt || sqlite3_step(stmt) != SQLITE_ROW) {
 		sqlite3_finalize(stmt);
 		return false;
 	}
 	peer->dbid = sqlite3_column_int64(stmt, 0);
 	ok &= sqlite3_column_pubkey(stmt, 1, &peer->id);
+	addrstr = sqlite3_column_text(stmt, 2);
+
+	if (addrstr)
+		parse_wireaddr((const char*)addrstr, &peer->addr, DEFAULT_PORT);
+
 	sqlite3_finalize(stmt);
+
 	return ok;
 }
 
@@ -662,8 +674,11 @@ void wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 
 	if (p->dbid == 0) {
 		/* Need to store the peer first */
-		stmt = db_prepare(w->db, "INSERT INTO peers (node_id) VALUES (?);");
+		stmt = db_prepare(w->db, "INSERT INTO peers (node_id, address) VALUES (?, ?);");
 		sqlite3_bind_pubkey(stmt, 1, &chan->peer->id);
+		sqlite3_bind_text(stmt, 2,
+				  type_to_string(tmpctx, struct wireaddr, &chan->peer->addr),
+				  -1, SQLITE_TRANSIENT);
 		db_exec_prepared(w->db, stmt);
 		p->dbid = sqlite3_last_insert_rowid(w->db->sql);
 	}
