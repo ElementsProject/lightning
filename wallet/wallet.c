@@ -565,6 +565,8 @@ bool wallet_channels_load_active(struct wallet *w, struct list_head *peers)
 		struct wallet_channel *c = talz(w, struct wallet_channel);
 		ok &= wallet_stmt2channel(w, stmt, c);
 		list_add(peers, &c->peer->list);
+		/* Peer owns channel. FIXME delete from db if peer freed! */
+		tal_steal(c->peer, c);
 		count++;
 	}
 	log_debug(w->log, "Loaded %d channels from DB", count);
