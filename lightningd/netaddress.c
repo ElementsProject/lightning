@@ -296,31 +296,3 @@ void guess_addresses(struct lightningd *ld)
     if (!guess_one_address(ld, &ld->wireaddrs[n], ld->portnum, ADDR_TYPE_IPV6))
         tal_resize(&ld->wireaddrs, n);
 }
-
-bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 port)
-{
-	struct in6_addr v6;
-	struct in_addr v4;
-
-	/* FIXME: change arg to addr[:port] and use getaddrinfo? */
-	if (streq(arg, "localhost"))
-		arg = "127.0.0.1";
-	else if (streq(arg, "ip6-localhost"))
-		arg = "::1";
-
-	memset(&addr->addr, 0, sizeof(addr->addr));
-	if (inet_pton(AF_INET, arg, &v4) == 1) {
-		addr->type = ADDR_TYPE_IPV4;
-		addr->addrlen = 4;
-		addr->port = port;
-		memcpy(&addr->addr, &v4, addr->addrlen);
-		return true;
-	} else if (inet_pton(AF_INET6, arg, &v6) == 1) {
-		addr->type = ADDR_TYPE_IPV6;
-		addr->addrlen = 16;
-		addr->port = port;
-		memcpy(&addr->addr, &v6, addr->addrlen);
-		return true;
-	}
-	return false;
-}
