@@ -246,11 +246,11 @@ static void clear_bfg(struct node_map *nodes)
 	}
 }
 
-static s64 connection_fee(const struct node_connection *c, u64 msatoshi)
+static u64 connection_fee(const struct node_connection *c, u64 msatoshi)
 {
-	s64 fee;
+	u64 fee;
 
-	if (mul_overflows_s64(c->proportional_fee, msatoshi))
+	if (mul_overflows_u64(c->proportional_fee, msatoshi))
 		return INFINITE;
 	fee = (c->proportional_fee * msatoshi) / 1000000;
 	/* This can't overflow: c->base_fee is a u32 */
@@ -259,12 +259,8 @@ static s64 connection_fee(const struct node_connection *c, u64 msatoshi)
 
 /* Risk of passing through this channel.  We insert a tiny constant here
  * in order to prefer shorter routes, all things equal. */
-static u64 risk_fee(s64 amount, u32 delay, double riskfactor)
+static u64 risk_fee(u64 amount, u32 delay, double riskfactor)
 {
-	/* If fees are so negative we're making money, ignore risk. */
-	if (amount < 0)
-		return 1;
-
 	return 1 + amount * delay * riskfactor / BLOCKS_PER_YEAR / 10000;
 }
 
@@ -278,7 +274,7 @@ static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor)
 	assert(c->dst == node);
 	for (h = 0; h < ROUTING_MAX_HOPS; h++) {
 		/* FIXME: Bias against smaller channels. */
-		s64 fee;
+		u64 fee;
 		u64 risk;
 
 		if (node->bfg[h].total == INFINITE)
@@ -287,8 +283,8 @@ static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor)
 		fee = connection_fee(c, node->bfg[h].total);
 		risk = node->bfg[h].risk + risk_fee(node->bfg[h].total + fee,
 						    c->delay, riskfactor);
-		if (node->bfg[h].total + (s64)fee + (s64)risk
-		    < c->src->bfg[h+1].total + (s64)c->src->bfg[h+1].risk) {
+		if (node->bfg[h].total + fee + risk
+		    < c->src->bfg[h+1].total + c->src->bfg[h+1].risk) {
 			SUPERVERBOSE("...%s can reach here in hoplen %zu total %"PRIu64,
 				     type_to_string(trc, struct pubkey,
 						    &c->src->id),
@@ -303,7 +299,7 @@ static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor)
 static struct node_connection *
 find_route(const tal_t *ctx, struct routing_state *rstate,
 	   const struct pubkey *from, const struct pubkey *to, u64 msatoshi,
-	   double riskfactor, s64 *fee, struct node_connection ***route)
+	   double riskfactor, u64 *fee, struct node_connection ***route)
 {
 	struct node *n, *src, *dst;
 	struct node_map_iter it;
@@ -770,7 +766,7 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 	struct node_connection **route;
 	u64 total_amount;
 	unsigned int total_delay;
-	s64 fee;
+	u64 fee;
 	struct route_hop *hops;
 	int i;
 	struct node_connection *first_conn;

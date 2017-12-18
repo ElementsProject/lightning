@@ -14,7 +14,7 @@ struct node_connection {
 	/* millisatoshi. */
 	u32 base_fee;
 	/* millionths */
-	s32 proportional_fee;
+	u32 proportional_fee;
 
 	/* Delay for HTLC in blocks.*/
 	u32 delay;
@@ -54,7 +54,7 @@ struct node {
 	/* Temporary data for routefinding. */
 	struct {
 		/* Total to get to here from target. */
-		s64 total;
+		u64 total;
 		/* Total risk premium of this route. */
 		u64 risk;
 		/* Where that came from. */
