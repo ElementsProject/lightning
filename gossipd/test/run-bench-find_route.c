@@ -158,6 +158,7 @@ int main(int argc, char *argv[])
 	size_t num_success;
 	struct pubkey me = nodeid(0);
 	bool perfme = false;
+	const double riskfactor = 0.01 / BLOCKS_PER_YEAR / 10000;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
@@ -192,7 +193,7 @@ int main(int argc, char *argv[])
 
 		nc = find_route(ctx, rstate, &from, &to,
 				pseudorand(100000),
-				0.01,
+				riskfactor,
 				&fee, &route);
 		num_success += (nc != NULL);
 		tal_free(route);

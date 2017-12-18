@@ -267,7 +267,7 @@ static u64 connection_fee(const struct node_connection *c, u64 msatoshi)
  * in order to prefer shorter routes, all things equal. */
 static u64 risk_fee(u64 amount, u32 delay, double riskfactor)
 {
-	return 1 + amount * delay * riskfactor / BLOCKS_PER_YEAR / 10000;
+	return 1 + amount * delay * riskfactor;
 }
 
 /* We track totals, rather than costs.  That's because the fee depends
@@ -311,6 +311,7 @@ static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor)
 	}
 }
 
+/* riskfactor is already scaled to per-block amount */
 static struct node_connection *
 find_route(const tal_t *ctx, struct routing_state *rstate,
 	   const struct pubkey *from, const struct pubkey *to, u64 msatoshi,
@@ -803,7 +804,8 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 	struct node_connection *first_conn;
 
 	first_conn = find_route(ctx, rstate, source, destination, msatoshi,
-				riskfactor, &fee, &route);
+				riskfactor / BLOCKS_PER_YEAR / 10000,
+				&fee, &route);
 
 	if (!first_conn) {
 		return NULL;
