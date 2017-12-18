@@ -6,7 +6,6 @@
 #include <ccan/endian/endian.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
-#include <common/overflows.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
@@ -20,6 +19,12 @@
 
 /* 365.25 * 24 * 60 / 10 */
 #define BLOCKS_PER_YEAR 52596
+
+/* For overflow avoidance, we never deal with msatoshi > 40 bits. */
+#define MAX_MSATOSHI (1ULL << 40)
+
+/* Proportional fee must be less than 24 bits, so never overflows. */
+#define MAX_PROPORTIONAL_FEE (1 << 24)
 
 static struct node_map *empty_node_map(const tal_t *ctx)
 {
@@ -250,8 +255,9 @@ static u64 connection_fee(const struct node_connection *c, u64 msatoshi)
 {
 	u64 fee;
 
-	if (mul_overflows_u64(c->proportional_fee, msatoshi))
-		return INFINITE;
+	assert(msatoshi < MAX_MSATOSHI);
+	assert(c->proportional_fee < MAX_PROPORTIONAL_FEE);
+
 	fee = (c->proportional_fee * msatoshi) / 1000000;
 	/* This can't overflow: c->base_fee is a u32 */
 	return c->base_fee + fee;
@@ -283,6 +289,15 @@ static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor)
 		fee = connection_fee(c, node->bfg[h].total);
 		risk = node->bfg[h].risk + risk_fee(node->bfg[h].total + fee,
 						    c->delay, riskfactor);
+
+		if (node->bfg[h].total + fee + risk >= MAX_MSATOSHI) {
+			SUPERVERBOSE("...extreme %"PRIu64
+				     " + fee %"PRIu64
+				     " + risk %"PRIu64" ignored",
+				     node->bfg[h].total, fee, risk);
+			continue;
+		}
+
 		if (node->bfg[h].total + fee + risk
 		    < c->src->bfg[h+1].total + c->src->bfg[h+1].risk) {
 			SUPERVERBOSE("...%s can reach here in hoplen %zu total %"PRIu64,
@@ -325,6 +340,12 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 		return NULL;
 	}
 
+	if (msatoshi >= MAX_MSATOSHI) {
+		status_trace("find_route: can't route huge amount %"PRIu64,
+			     msatoshi);
+		return NULL;
+	}
+	
 	/* Reset all the information. */
 	clear_bfg(rstate->nodes);
 
@@ -638,6 +659,16 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 		     type_to_string(trc, struct short_channel_id,
 				    &short_channel_id),
 		     flags);
+
+	if (c->proportional_fee >= MAX_PROPORTIONAL_FEE) {
+		status_trace("Channel %s(%d) massive proportional fee %u:"
+			     " disabling.",
+			     type_to_string(trc, struct short_channel_id,
+					    &short_channel_id),
+			     flags,
+			     fee_proportional_millionths);
+		c->active = false;
+	}
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_short_channel_id(&tag, &short_channel_id);
