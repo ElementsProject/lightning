@@ -23,6 +23,7 @@ lightningd/test/run-commit_tx
 lightningd/test/run-find_my_path
 lightningd/test/run-funding_tx
 lightningd/test/run-key_derive
+common/test/run-ip_port_parsing
 wire/test/run-peer-wire
 bitcoin/test/run-tx-encode
 channeld/test/run-full_channel
