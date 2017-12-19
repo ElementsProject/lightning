@@ -3,6 +3,7 @@
 #include <bitcoin/script.h>
 #include <ccan/tal/str/str.h>
 #include <inttypes.h>
+#include <lightningd/invoice.h>
 #include <lightningd/lightningd.h>
 #include <common/wireaddr.h>
 #include <lightningd/log.h>
@@ -1124,15 +1125,51 @@ bool wallet_htlcs_reconnect(struct wallet *wallet,
 	return true;
 }
 
+/* Acquire the next pay_index. */
+static s64 wallet_invoice_next_pay_index(struct db *db)
+{
+	/* Equivalent to (next_pay_index++) */
+	s64 next_pay_index;
+	next_pay_index = db_get_intvar(db, "next_pay_index", 0);
+	/* Variable should exist. */
+	assert(next_pay_index > 0);
+	db_set_intvar(db, "next_pay_index", next_pay_index + 1);
+	return next_pay_index;
+}
+/* Determine the on-database state of an invoice. */
+static enum invoice_status wallet_invoice_db_state(
+		struct db *db, const struct invoice *inv)
+{
+	sqlite3_stmt *stmt;
+	int res;
+	int state;
+
+	stmt = db_prepare(db, "SELECT state FROM invoices WHERE id=?;");
+
+	sqlite3_bind_int64(stmt, 1, inv->id);
+
+	res = sqlite3_step(stmt);
+	assert(res == SQLITE_ROW);
+	state = sqlite3_column_int(stmt, 0);
+	res = sqlite3_step(stmt);
+	assert(res == SQLITE_DONE);
+
+	sqlite3_finalize(stmt);
+	return (enum invoice_status) state;
+}
+
 void wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
 {
+	sqlite3_stmt *stmt;
+	s64 pay_index;
+	bool unpaid_to_paid = false;
+
 	/* Need to use the lower level API of sqlite3 to bind
 	 * label. Otherwise we'd need to implement sanitization of
 	 * that string for sql injections... */
-	sqlite3_stmt *stmt;
 	if (!inv->id) {
 		stmt = db_prepare(wallet->db,
-			"INSERT INTO invoices (payment_hash, payment_key, state, msatoshi, label, expiry_time) VALUES (?, ?, ?, ?, ?, ?);");
+			"INSERT INTO invoices (payment_hash, payment_key, state, msatoshi, label, expiry_time, pay_index) VALUES (?, ?, ?, ?, ?, ?, ?);");
 
 		sqlite3_bind_blob(stmt, 1, &inv->rhash, sizeof(inv->rhash), SQLITE_TRANSIENT);
 		sqlite3_bind_blob(stmt, 2, &inv->r, sizeof(inv->r), SQLITE_TRANSIENT);
@@ -1140,17 +1177,39 @@ void wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
 		sqlite3_bind_int64(stmt, 4, inv->msatoshi);
 		sqlite3_bind_text(stmt, 5, inv->label, strlen(inv->label), SQLITE_TRANSIENT);
 		sqlite3_bind_int64(stmt, 6, inv->expiry_time);
+		if (inv->state == PAID) {
+			pay_index = wallet_invoice_next_pay_index(wallet->db);
+			sqlite3_bind_int64(stmt, 7, pay_index);
+		} else {
+			sqlite3_bind_null(stmt, 7);
+		}
 
 		db_exec_prepared(wallet->db, stmt);
 
 		inv->id = sqlite3_last_insert_rowid(wallet->db->sql);
 	} else {
-		stmt = db_prepare(wallet->db, "UPDATE invoices SET state=? WHERE id=?;");
+		if (inv->state == PAID) {
+			if (wallet_invoice_db_state(wallet->db, inv) == UNPAID) {
+				unpaid_to_paid = true;
+			}
+		}
+		if (unpaid_to_paid) {
+			stmt = db_prepare(wallet->db, "UPDATE invoices SET state=?, pay_index=? WHERE id=?;");
 
-		sqlite3_bind_int(stmt, 1, inv->state);
-		sqlite3_bind_int64(stmt, 2, inv->id);
+			sqlite3_bind_int(stmt, 1, inv->state);
+			pay_index = wallet_invoice_next_pay_index(wallet->db);
+			sqlite3_bind_int64(stmt, 2, pay_index);
+			sqlite3_bind_int64(stmt, 3, inv->id);
 
-		db_exec_prepared(wallet->db, stmt);
+			db_exec_prepared(wallet->db, stmt);
+		} else {
+			stmt = db_prepare(wallet->db, "UPDATE invoices SET state=? WHERE id=?;");
+
+			sqlite3_bind_int(stmt, 1, inv->state);
+			sqlite3_bind_int64(stmt, 2, inv->id);
+
+			db_exec_prepared(wallet->db, stmt);
+		}
 	}
 }
 

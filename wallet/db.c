@@ -135,6 +135,16 @@ char *dbmigrations[] = {
     /* Add expiry field to invoices (effectively infinite). */
     "ALTER TABLE invoices ADD expiry_time INTEGER;",
     "UPDATE invoices SET expiry_time=9223372036854775807;",
+    /* Add pay_index field to paid invoices (initially, same order as id). */
+    "ALTER TABLE invoices ADD pay_index INTEGER;",
+    "CREATE UNIQUE INDEX invoices_pay_index"
+    "  ON invoices(pay_index);",
+    "UPDATE invoices SET pay_index=id WHERE state=1;", /* only paid invoice */
+    /* Create next_pay_index variable (highest pay_index). */
+    "INSERT OR REPLACE INTO vars(name, val)"
+    "  VALUES('next_pay_index', "
+    "    COALESCE((SELECT MAX(pay_index) FROM invoices WHERE state=1), 0) + 1"
+    "  );",
     NULL,
 };
 
