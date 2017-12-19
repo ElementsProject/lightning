@@ -131,19 +131,21 @@ void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos)
 	}
 }
 
-const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
-					const u64 value,
-					const u32 feerate_per_kw,
-					u64 *fee_estimate, u64 *changesatoshi)
+static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
+					 const u64 value,
+					 const u32 feerate_per_kw,
+					 u64 *satoshi_in,
+					 u64 *fee_estimate)
 {
 	size_t i = 0;
 	struct utxo **available;
 	const struct utxo **utxos = tal_arr(ctx, const struct utxo *, 0);
-	*fee_estimate = 0;
-
 	/* We assume two outputs for the weight. */
-	u64 satoshi_in = 0, weight = (4 + (8 + 22) * 2 + 4) * 4;
+	u64 weight = (4 + (8 + 22) * 2 + 4) * 4;
 	tal_add_destructor2(utxos, destroy_utxos, w);
+
+	*fee_estimate = 0;
+	*satoshi_in = 0;
 
 	available = wallet_get_utxos(ctx, w, output_state_available);
 
@@ -163,20 +165,52 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 		/* Account for witness (1 byte count + sig + key */
 		weight += 1 + (1 + 73 + 1 + 33);
 		*fee_estimate = weight * feerate_per_kw / 1000;
-		satoshi_in += utxos[i]->amount;
-		if (satoshi_in >= *fee_estimate + value)
+		*satoshi_in += utxos[i]->amount;
+		if (*satoshi_in >= *fee_estimate + value)
 			break;
 	}
 	tal_free(available);
 
-	if (satoshi_in < *fee_estimate + value) {
-		/* Could not collect enough inputs, cleanup and bail */
-		utxos = tal_free(utxos);
-	} else {
-		*changesatoshi = satoshi_in - value - *fee_estimate;
-
-	}
 	return utxos;
+}
+
+const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
+					const u64 value,
+					const u32 feerate_per_kw,
+					u64 *fee_estimate, u64 *changesatoshi)
+{
+	u64 satoshi_in;
+	const struct utxo **utxo;
+
+	utxo = wallet_select(ctx, w, value, feerate_per_kw,
+			     &satoshi_in, fee_estimate);
+
+	/* Couldn't afford it? */
+	if (satoshi_in < *fee_estimate + value)
+		return tal_free(utxo);
+
+	*changesatoshi = satoshi_in - value - *fee_estimate;
+	return utxo;
+}
+		
+const struct utxo **wallet_select_all(const tal_t *ctx, struct wallet *w,
+					const u32 feerate_per_kw,
+					u64 *value,
+					u64 *fee_estimate)
+{
+	u64 satoshi_in;
+	const struct utxo **utxo;
+
+	/* Huge value, but won't overflow on addition */
+	utxo = wallet_select(ctx, w, (1ULL << 56), feerate_per_kw,
+			     &satoshi_in, fee_estimate);
+
+	/* Can't afford fees? */
+	if (*fee_estimate > satoshi_in)
+		return tal_free(utxo);
+
+	*value = satoshi_in - *fee_estimate;
+	return utxo;
 }
 
 bool wallet_can_spend(struct wallet *w, const u8 *script,
