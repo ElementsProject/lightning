@@ -41,6 +41,7 @@
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <common/version.h>
+#include <common/wire_error.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gen_gossip_wire.h>
@@ -1469,8 +1470,14 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		handle_peer_shutdown(peer, msg);
 		return;
 
-	case WIRE_INIT:
 	case WIRE_ERROR:
+		peer_failed(PEER_FD,
+			    &peer->cs,
+			    &peer->channel_id,
+			    "Peer sent error %s",
+			    sanitize_error(peer, msg, NULL));
+
+	case WIRE_INIT:
 	case WIRE_OPEN_CHANNEL:
 	case WIRE_ACCEPT_CHANNEL:
 	case WIRE_FUNDING_CREATED:
