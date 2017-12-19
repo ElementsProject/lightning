@@ -1434,6 +1434,7 @@ static enum watch_result funding_spent(struct peer *peer,
 		tal_free(tmpctx);
 		return DELETE_WATCH;
 	}
+	txfilter_add_scriptpubkey(peer->ld->owned_txfilter, scriptpubkey);
 
 	if (!bip32_pubkey(peer->ld->wallet->bip32_base, &ourkey, keyindex)) {
 		peer_internal_error(peer,
