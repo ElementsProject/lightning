@@ -82,3 +82,10 @@ onchain_htlc_timeout,,htlc,struct htlc_stub
 
 # onchaind->master: this peer can be forgotten
 onchain_all_irrevocably_resolved,5011
+
+# onchaind->master: hey, I identified a UTXO you'll want to track
+onchain_add_utxo,5012
+onchain_add_utxo,,prev_out_tx,struct bitcoin_txid
+onchain_add_utxo,,prev_out_index,u32
+onchain_add_utxo,,per_commit_point,struct pubkey
+onchain_add_utxo,,value,u64
