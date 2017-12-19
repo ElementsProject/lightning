@@ -334,6 +334,10 @@ class LightningDTests(BaseLightningDTests):
         assert b11['expiry'] == 3600
         assert b11['payee'] == l1.info['id']
 
+        # Check pay_index is null
+        outputs = l1.db_query('SELECT pay_index IS NULL AS q FROM invoices WHERE label="label";')
+        assert len(outputs) == 1 and outputs[0]['q'] != 0
+
     def test_invoice_expiry(self):
         l1,l2 = self.connect()
 
@@ -718,6 +722,10 @@ class LightningDTests(BaseLightningDTests):
         inv = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
         l1.rpc.pay(inv)
         assert l2.rpc.listinvoice('test_pay')[0]['complete'] == True
+
+        # Check pay_index is not null
+        outputs = l2.db_query('SELECT pay_index IS NOT NULL AS q FROM invoices WHERE label="label";')
+        assert len(outputs) == 1 and outputs[0]['q'] != 0
 
     def test_bad_opening(self):
         # l1 asks for a too-long locktime
