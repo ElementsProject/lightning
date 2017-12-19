@@ -1276,6 +1276,14 @@ static void handle_irrevocably_resolved(struct peer *peer, const u8 *msg)
 	free_peer(peer, "onchaind complete, forgetting peer");
 }
 
+/**
+ * onchain_add_utxo -- onchaind is telling us about a UTXO we own
+ */
+static void onchain_add_utxo(struct peer *peer, const u8 *msg)
+{
+	/* FIXME(cdecker) Implement */
+}
+
 static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum onchain_wire_type t = fromwire_peektype(msg);
@@ -1307,6 +1315,10 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds)
 
 	case WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED:
 		handle_irrevocably_resolved(sd->peer, msg);
+		break;
+
+	case WIRE_ONCHAIN_ADD_UTXO:
+		onchain_add_utxo(sd->peer, msg);
 		break;
 
 	/* We send these, not receive them */
