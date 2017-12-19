@@ -599,7 +599,8 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	const tal_t *tmpctx = tal_tmpctx(master);
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
-	struct utxo *utxos;
+	struct utxo *inutxos;
+	const struct utxo **utxos;
 	secp256k1_ecdsa_signature *sigs;
 	u8 *wscript;
 	struct bitcoin_tx *tx;
@@ -609,7 +610,7 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 
 	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg, NULL, &satoshi_out,
 					  &change_out, &change_keyindex,
-					  &scriptpubkey, &utxos)) {
+					  &scriptpubkey, &inutxos)) {
 		status_trace("Failed to parse sign_withdrawal: %s",
 			     tal_hex(trc, msg));
 		return;
@@ -622,9 +623,11 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 		return;
 	}
 
+	/* We need an array of pointers, since withdraw_tx permutes them */
+	utxos = to_utxoptr_arr(tmpctx, inutxos);
 	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
 	tx = withdraw_tx(
-		tmpctx, to_utxoptr_arr(tmpctx, utxos), scriptpubkey, satoshi_out,
+		tmpctx, utxos, scriptpubkey, satoshi_out,
 		&changekey, change_out, NULL);
 
 	/* Now generate signatures. */
@@ -632,12 +635,14 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		struct pubkey inkey;
 		struct privkey inprivkey;
-		const struct utxo *in = &utxos[i];
+		const struct utxo *in = utxos[i];
 		u8 *subscript;
 
 		bitcoin_keypair(&inprivkey, &inkey, in->keyindex);
-		/* We know these are p2sh since that's the only kind we handle */
-		subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
+		if (utxos[i]->is_p2sh)
+			subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
+		else
+			subscript = NULL;
 		wscript = p2wpkh_scriptcode(tmpctx, &inkey);
 
 		sign_tx_input(tx, i, subscript, wscript,
