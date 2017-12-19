@@ -2141,6 +2141,21 @@ class LightningDTests(BaseLightningDTests):
         # Non-zero padding in 8-to-5 conversion
         self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3pjxtptv', 2*amount)
 
+        # Should have 6 outputs available.
+        c = db.cursor()
+        c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
+        assert(c.fetchone()[0] == 6)
+
+        out = l1.rpc.withdraw(waddr, 'all')
+        c = db.cursor()
+        c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
+        assert(c.fetchone()[0] == 0)
+
+        # This should fail, can't even afford fee.
+        self.assertRaises(ValueError, l1.rpc.withdraw, waddr, 'all')
+        l1.daemon.wait_for_log('Cannot afford fee')
+
+
     def test_funding_change(self):
         """Add some funds, fund a channel, and make sure we remember the change
         """

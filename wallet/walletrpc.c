@@ -9,6 +9,7 @@
 #include <common/withdraw_tx.h>
 #include <errno.h>
 #include <hsmd/gen_hsm_client_wire.h>
+#include <inttypes.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/hsm_control.h>
@@ -199,6 +200,7 @@ static void json_withdraw(struct command *cmd,
 	struct pubkey changekey;
 	secp256k1_ecdsa_signature *sigs;
 	struct bitcoin_tx *tx;
+	bool withdraw_all = false;
 
 	if (!json_get_params(buffer, params,
 			     "destination", &desttok,
@@ -211,7 +213,9 @@ static void json_withdraw(struct command *cmd,
 	withdraw = tal(cmd, struct withdrawal);
 	withdraw->cmd = cmd;
 
-	if (!json_tok_u64(buffer, sattok, &withdraw->amount)) {
+	if (json_tok_streq(buffer, sattok, "all"))
+		withdraw_all = true;
+	else if (!json_tok_u64(buffer, sattok, &withdraw->amount)) {
 		command_fail(cmd, "Invalid satoshis");
 		return;
 	}
@@ -241,13 +245,28 @@ static void json_withdraw(struct command *cmd,
 	}
 
 	/* Select the coins */
-	withdraw->utxos = wallet_select_coins(cmd, cmd->ld->wallet,
-					      withdraw->amount,
-					      feerate_per_kw, &fee_estimate,
-					      &withdraw->changesatoshi);
-	if (!withdraw->utxos) {
-		command_fail(cmd, "Not enough funds available");
-		return;
+	if (withdraw_all) {
+		withdraw->utxos = wallet_select_all(cmd, cmd->ld->wallet,
+						    feerate_per_kw,
+						    &withdraw->amount,
+						    &fee_estimate);
+		/* FIXME Pull dust amount from the daemon config */
+		if (!withdraw->utxos || withdraw->amount < 546) {
+			command_fail(cmd, "Cannot afford fee %"PRIu64,
+				     fee_estimate);
+			return;
+		}
+		withdraw->changesatoshi = 0;
+	} else {
+		withdraw->utxos = wallet_select_coins(cmd, cmd->ld->wallet,
+						      withdraw->amount,
+						      feerate_per_kw,
+						      &fee_estimate,
+						      &withdraw->changesatoshi);
+		if (!withdraw->utxos) {
+			command_fail(cmd, "Not enough funds available");
+			return;
+		}
 	}
 
 	/* FIXME(cdecker) Pull this from the daemon config */
@@ -314,7 +333,7 @@ static void json_withdraw(struct command *cmd,
 static const struct json_command withdraw_command = {
 	"withdraw",
 	json_withdraw,
-	"Send {satoshi} to the {destination} address via Bitcoin transaction",
+	"Send {satoshi} (or 'all') to the {destination} address via Bitcoin transaction",
 	"Returns the withdrawal transaction ID"
 };
 AUTODATA(json_command, &withdraw_command);
