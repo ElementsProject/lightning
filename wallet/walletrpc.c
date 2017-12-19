@@ -191,9 +191,7 @@ static void json_withdraw(struct command *cmd,
 	jsmntok_t *desttok, *sattok;
 	struct withdrawal *withdraw;
 	bool testnet;
-	/* FIXME: Read feerate and dustlimit */
-	u32 feerate_per_kw = 15000;
-	//u64 dust_limit = 600;
+	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
 	u64 fee_estimate;
 	struct utxo *utxos;
 	struct ext_key ext;
