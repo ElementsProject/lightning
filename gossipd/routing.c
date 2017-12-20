@@ -215,7 +215,7 @@ get_or_make_connection(struct routing_state *rstate,
 	return nc;
 }
 
-static struct node_connection *half_add_connection(
+struct node_connection *half_add_connection(
 					    struct routing_state *rstate,
 					    const struct pubkey *from,
 					    const struct pubkey *to,
