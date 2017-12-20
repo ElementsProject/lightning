@@ -2043,7 +2043,8 @@ class LightningDTests(BaseLightningDTests):
 
     def test_withdraw(self):
         amount = 1000000
-        l1 = self.node_factory.get_node()
+        # Don't get any funds from previous runs.
+        l1 = self.node_factory.get_node(random_hsm=True)
         l2 = self.node_factory.get_node(random_hsm=True)
         addr = l1.rpc.newaddr()['address']
 
