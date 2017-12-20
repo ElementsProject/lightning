@@ -271,7 +271,10 @@ static void json_withdraw(struct command *cmd,
 	if (withdraw->changesatoshi <= 546)
 		withdraw->changesatoshi = 0;
 
-	withdraw->change_key_index = wallet_get_newindex(cmd->ld);
+	if (withdraw->changesatoshi)
+		withdraw->change_key_index = wallet_get_newindex(cmd->ld);
+	else
+		withdraw->change_key_index = 0;
 
 	utxos = from_utxoptr_arr(withdraw, withdraw->utxos);
 	u8 *msg = towire_hsm_sign_withdrawal(cmd,
@@ -292,14 +295,17 @@ static void json_withdraw(struct command *cmd,
 		fatal("HSM gave bad sign_withdrawal_reply %s",
 		      tal_hex(withdraw, msg));
 
-	if (bip32_key_from_parent(cmd->ld->wallet->bip32_base,
-				  withdraw->change_key_index,
-                               BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
-             command_fail(cmd, "Changekey generation failure");
-             return;
-	}
+	if (withdraw->changesatoshi) {
+		if (bip32_key_from_parent(cmd->ld->wallet->bip32_base,
+					  withdraw->change_key_index,
+					  BIP32_FLAG_KEY_PUBLIC, &ext)
+		    != WALLY_OK) {
+			command_fail(cmd, "Changekey generation failure");
+			return;
+		}
 
-	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
+		pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
+	}
 	tx = withdraw_tx(withdraw, withdraw->utxos, withdraw->destination,
 			 withdraw->amount, &changekey, withdraw->changesatoshi,
 			 cmd->ld->wallet->bip32_base);
