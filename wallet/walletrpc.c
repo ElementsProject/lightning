@@ -246,6 +246,7 @@ static void json_withdraw(struct command *cmd,
 	if (withdraw_all) {
 		withdraw->utxos = wallet_select_all(cmd, cmd->ld->wallet,
 						    feerate_per_kw,
+						    tal_len(withdraw->destination),
 						    &withdraw->amount,
 						    &fee_estimate);
 		/* FIXME Pull dust amount from the daemon config */
@@ -259,6 +260,7 @@ static void json_withdraw(struct command *cmd,
 		withdraw->utxos = wallet_select_coins(cmd, cmd->ld->wallet,
 						      withdraw->amount,
 						      feerate_per_kw,
+						      tal_len(withdraw->destination),
 						      &fee_estimate,
 						      &withdraw->changesatoshi);
 		if (!withdraw->utxos) {

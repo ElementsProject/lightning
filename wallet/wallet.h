@@ -134,11 +134,13 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w,
 const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 					const u64 value,
 					const u32 feerate_per_kw,
+					size_t outscriptlen,
 					u64 *fee_estimate,
 					u64 *change_satoshi);
 
 const struct utxo **wallet_select_all(const tal_t *ctx, struct wallet *w,
 					const u32 feerate_per_kw,
+					size_t outscriptlen,
 					u64 *value,
 					u64 *fee_estimate);
 
