@@ -44,7 +44,8 @@ enum wallet_output_type {
 	to_local = 1,
 	htlc_offer = 3,
 	htlc_recv = 4,
-	our_change = 5
+	our_change = 5,
+	p2wpkh = 6
 };
 
 /* A database backed shachain struct. The datastructure is
