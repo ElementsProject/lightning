@@ -17,7 +17,7 @@ struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       const struct ext_key *bip32_base)
 {
 	struct bitcoin_tx *tx =
-	    bitcoin_tx(ctx, tal_count(utxos), changekey ? 2 : 1);
+	    bitcoin_tx(ctx, tal_count(utxos), changesat ? 2 : 1);
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		tx->input[i].txid = utxos[i]->txid;
 		tx->input[i].index = utxos[i]->outnum;
