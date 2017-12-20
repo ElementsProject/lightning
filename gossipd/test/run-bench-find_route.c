@@ -113,7 +113,7 @@ static void populate_random_node(struct routing_state *rstate, u64 n)
 {
 	struct pubkey id = nodeid(n);
 
-	/* Create up to 2 random channels. */
+	/* Create 2 random channels. */
 	if (n < 1)
 		return;
 
@@ -189,7 +189,7 @@ int main(int argc, char *argv[])
 		struct pubkey from = nodeid(pseudorand(num_nodes));
 		struct pubkey to = nodeid(pseudorand(num_nodes));
 		u64 fee;
-		struct node_connection **route, *nc;
+		struct node_connection **route = NULL, *nc;
 
 		nc = find_route(ctx, rstate, &from, &to,
 				pseudorand(100000),
