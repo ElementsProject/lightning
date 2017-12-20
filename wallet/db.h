@@ -132,4 +132,7 @@ bool sqlite3_bind_preimage(sqlite3_stmt *stmt, int col, const struct preimage *p
 bool sqlite3_column_sha256(sqlite3_stmt *stmt, int col,  struct sha256 *dest);
 bool sqlite3_bind_sha256(sqlite3_stmt *stmt, int col, const struct sha256 *p);
 
+bool sqlite3_column_sha256_double(sqlite3_stmt *stmt, int col,  struct sha256_double *dest);
+bool sqlite3_bind_sha256_double(sqlite3_stmt *stmt, int col, const struct sha256_double *p);
+
 #endif /* WALLET_DB_H */

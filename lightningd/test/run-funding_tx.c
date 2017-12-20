@@ -99,6 +99,7 @@ int main(void)
 	utxo.outnum = 0;
 	utxo.amount = 5000000000;
 	utxo.is_p2sh = false;
+	utxo.close_info = NULL;
 	funding_satoshis = 10000000;
 	fee = 13920;
 

@@ -29,13 +29,22 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 {
 	sqlite3_stmt *stmt;
 
-	stmt = db_prepare(w->db, "INSERT INTO outputs (prev_out_tx, prev_out_index, value, type, status, keyindex) VALUES (?, ?, ?, ?, ?, ?);");
+	stmt = db_prepare(w->db, "INSERT INTO outputs (prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);");
 	sqlite3_bind_blob(stmt, 1, &utxo->txid, sizeof(utxo->txid), SQLITE_TRANSIENT);
 	sqlite3_bind_int(stmt, 2, utxo->outnum);
 	sqlite3_bind_int64(stmt, 3, utxo->amount);
 	sqlite3_bind_int(stmt, 4, type);
 	sqlite3_bind_int(stmt, 5, output_state_available);
 	sqlite3_bind_int(stmt, 6, utxo->keyindex);
+	if (utxo->close_info) {
+		sqlite3_bind_int64(stmt, 7, utxo->close_info->channel_id);
+		sqlite3_bind_pubkey(stmt, 8, &utxo->close_info->peer_id);
+		sqlite3_bind_pubkey(stmt, 9, &utxo->close_info->commitment_point);
+	} else {
+		sqlite3_bind_null(stmt, 7);
+		sqlite3_bind_null(stmt, 8);
+		sqlite3_bind_null(stmt, 9);
+	}
 	return db_exec_prepared_mayfail(w->db, stmt);
 }
 
@@ -46,12 +55,21 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
  */
 static bool wallet_stmt2output(sqlite3_stmt *stmt, struct utxo *utxo)
 {
-	memcpy(&utxo->txid, sqlite3_column_blob(stmt, 0), sqlite3_column_bytes(stmt, 0));
+	sqlite3_column_sha256_double(stmt, 0, &utxo->txid.shad);
 	utxo->outnum = sqlite3_column_int(stmt, 1);
 	utxo->amount = sqlite3_column_int(stmt, 2);
 	utxo->is_p2sh = sqlite3_column_int(stmt, 3) == p2sh_wpkh;
 	utxo->status = sqlite3_column_int(stmt, 4);
 	utxo->keyindex = sqlite3_column_int(stmt, 5);
+	if (sqlite3_column_type(stmt, 6) != SQLITE_NULL) {
+		utxo->close_info = tal(utxo, struct unilateral_close_info);
+		utxo->close_info->channel_id = sqlite3_column_int64(stmt, 6);
+		sqlite3_column_pubkey(stmt, 7, &utxo->close_info->peer_id);
+		sqlite3_column_pubkey(stmt, 8, &utxo->close_info->commitment_point);
+	} else {
+		utxo->close_info = NULL;
+	}
+
 	return true;
 }
 
@@ -85,7 +103,8 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 	int i;
 
 	sqlite3_stmt *stmt = db_prepare(
-		w->db, "SELECT prev_out_tx, prev_out_index, value, type, status, keyindex "
+		w->db, "SELECT prev_out_tx, prev_out_index, value, type, status, keyindex, "
+		"channel_id, peer_id, commitment_point "
 		"FROM outputs WHERE status=?1 OR ?1=255");
 	sqlite3_bind_int(stmt, 1, state);
 
@@ -829,6 +848,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 		utxo->status = output_state_available;
 		bitcoin_txid(tx, &utxo->txid);
 		utxo->outnum = output;
+		utxo->close_info = NULL;
 		log_debug(w->log, "Owning output %zu %"PRIu64" (%s) txid %s",
 			  output, tx->output[output].amount,
 			  is_p2sh ? "P2SH" : "SEGWIT",

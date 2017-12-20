@@ -17,6 +17,7 @@ static void db_log_(struct log *log, enum log_level level, const char *fmt, ...)
 #include <ccan/tal/str/str.h>
 #include <common/memleak.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -87,9 +88,13 @@ static bool test_wallet_outputs(void)
 	char filename[] = "/tmp/ldb-XXXXXX";
 	struct utxo u;
 	int fd = mkstemp(filename);
-	struct wallet *w = tal(NULL, struct wallet);
 	CHECK_MSG(fd != -1, "Unable to generate temp filename");
 	close(fd);
+
+	struct wallet *w = tal(NULL, struct wallet);
+	struct pubkey pk;
+	u64 fee_estimate, change_satoshis;
+	const struct utxo **utxos;
 
 	w->db = db_open(w, filename);
 	CHECK_MSG(w->db, "Failed opening the db");
@@ -97,6 +102,8 @@ static bool test_wallet_outputs(void)
 	CHECK_MSG(!wallet_err, "DB migration failed");
 
 	memset(&u, 0, sizeof(u));
+	u.amount = 1;
+	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
 
 	db_begin_transaction(w->db);
 
@@ -107,6 +114,27 @@ static bool test_wallet_outputs(void)
 	/* Should fail, we already have that UTXO */
 	CHECK_MSG(!wallet_add_utxo(w, &u, p2sh_wpkh),
 		  "wallet_add_utxo succeeded on second add");
+
+	/* Attempt to save a utxo with close_info set */
+	memset(&u.txid, 1, sizeof(u.txid));
+	u.close_info = tal(w, struct unilateral_close_info);
+	u.close_info->channel_id = 42;
+	u.close_info->peer_id = pk;
+	u.close_info->commitment_point = pk;
+	CHECK_MSG(wallet_add_utxo(w, &u, p2sh_wpkh),
+		  "wallet_add_utxo with close_info");
+
+	/* Now select them */
+	utxos = wallet_select_coins(w, w, 2, 0, 21, &fee_estimate, &change_satoshis);
+	CHECK(utxos && tal_count(utxos) == 2);
+
+	u = *utxos[1];
+	CHECK(u.close_info->channel_id == 42 &&
+	      pubkey_eq(&u.close_info->commitment_point, &pk) &&
+	      pubkey_eq(&u.close_info->peer_id, &pk));
+	/* Now un-reserve them for the tests below */
+	tal_free(utxos);
+
 
 	/* Attempt to reserve the utxo */
 	CHECK_MSG(wallet_update_output_status(w, &u.txid, u.outnum,
@@ -133,6 +161,7 @@ static bool test_wallet_outputs(void)
 		  "could not change output state ignoring oldstate");
 
 	db_commit_transaction(w->db);
+
 	tal_free(w);
 	return true;
 }

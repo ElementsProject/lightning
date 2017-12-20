@@ -150,6 +150,9 @@ char *dbmigrations[] = {
      * pre-release software, so it's forgivable. */
     "ALTER TABLE channels ADD first_blocknum INTEGER;",
     "UPDATE channels SET first_blocknum=CAST(short_channel_id AS INTEGER) WHERE short_channel_id IS NOT NULL;",
+    "ALTER TABLE outputs ADD COLUMN channel_id INTEGER;",
+    "ALTER TABLE outputs ADD COLUMN peer_id BLOB;",
+    "ALTER TABLE outputs ADD COLUMN commitment_point BLOB;",
     NULL,
 };
 
@@ -491,5 +494,17 @@ bool sqlite3_column_sha256(sqlite3_stmt *stmt, int col,  struct sha256 *dest)
 bool sqlite3_bind_sha256(sqlite3_stmt *stmt, int col, const struct sha256 *p)
 {
 	sqlite3_bind_blob(stmt, col, p, sizeof(struct sha256), SQLITE_TRANSIENT);
+	return true;
+}
+
+bool sqlite3_column_sha256_double(sqlite3_stmt *stmt, int col,  struct sha256_double *dest)
+{
+	assert(sqlite3_column_bytes(stmt, col) == sizeof(struct sha256_double));
+	return memcpy(dest, sqlite3_column_blob(stmt, col), sizeof(struct sha256_double));
+}
+
+bool sqlite3_bind_sha256_double(sqlite3_stmt *stmt, int col, const struct sha256_double *p)
+{
+	sqlite3_bind_blob(stmt, col, p, sizeof(struct sha256_double), SQLITE_TRANSIENT);
 	return true;
 }
