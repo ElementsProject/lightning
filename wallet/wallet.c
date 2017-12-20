@@ -134,15 +134,26 @@ void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos)
 static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 					 const u64 value,
 					 const u32 feerate_per_kw,
+					 size_t outscriptlen,
+					 bool may_have_change,
 					 u64 *satoshi_in,
 					 u64 *fee_estimate)
 {
 	size_t i = 0;
 	struct utxo **available;
+	u64 weight;
 	const struct utxo **utxos = tal_arr(ctx, const struct utxo *, 0);
-	/* We assume two outputs for the weight. */
-	u64 weight = (4 + (8 + 22) * 2 + 4) * 4;
 	tal_add_destructor2(utxos, destroy_utxos, w);
+
+	/* version, input count, output count, locktime */
+	weight = (4 + 1 + 1 + 4) * 4;
+
+	/* The main output: amount, len, scriptpubkey */
+	weight += (8 + 1 + outscriptlen) * 4;
+
+	/* Change output will be P2WPKH */
+	if (may_have_change)
+		weight += (8 + 1 + BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN) * 4;
 
 	*fee_estimate = 0;
 	*satoshi_in = 0;
@@ -150,6 +161,8 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 	available = wallet_get_utxos(ctx, w, output_state_available);
 
 	for (i = 0; i < tal_count(available); i++) {
+		size_t input_weight;
+
 		tal_resize(&utxos, i + 1);
 		utxos[i] = tal_steal(utxos, available[i]);
 
@@ -157,13 +170,22 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 			w, &available[i]->txid, available[i]->outnum,
 			output_state_available, output_state_reserved))
 			fatal("Unable to reserve output");
+		
+		/* Input weight: txid + index + sequence */
+		input_weight = (32 + 4 + 4) * 4;
 
-		weight += (32 + 4 + 4) * 4;
+		/* We always encode the length of the script, even if empty */
+		input_weight += 1 * 4;
+
+		/* P2SH variants include push of <0 <20-byte-key-hash>> */
 		if (utxos[i]->is_p2sh)
-			weight += 22 * 4;
+			input_weight += 23 * 4;
 
-		/* Account for witness (1 byte count + sig + key */
-		weight += 1 + (1 + 73 + 1 + 33);
+		/* Account for witness (1 byte count + sig + key) */
+		input_weight += 1 + (1 + 73 + 1 + 33);
+
+		weight += input_weight;
+
 		*fee_estimate = weight * feerate_per_kw / 1000;
 		*satoshi_in += utxos[i]->amount;
 		if (*satoshi_in >= *fee_estimate + value)
@@ -177,12 +199,14 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 					const u64 value,
 					const u32 feerate_per_kw,
+					size_t outscriptlen,
 					u64 *fee_estimate, u64 *changesatoshi)
 {
 	u64 satoshi_in;
 	const struct utxo **utxo;
 
 	utxo = wallet_select(ctx, w, value, feerate_per_kw,
+			     outscriptlen, true,
 			     &satoshi_in, fee_estimate);
 
 	/* Couldn't afford it? */
@@ -194,15 +218,17 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 }
 		
 const struct utxo **wallet_select_all(const tal_t *ctx, struct wallet *w,
-					const u32 feerate_per_kw,
-					u64 *value,
-					u64 *fee_estimate)
+				      const u32 feerate_per_kw,
+				      size_t outscriptlen,
+				      u64 *value,
+				      u64 *fee_estimate)
 {
 	u64 satoshi_in;
 	const struct utxo **utxo;
 
 	/* Huge value, but won't overflow on addition */
 	utxo = wallet_select(ctx, w, (1ULL << 56), feerate_per_kw,
+			     outscriptlen, false,
 			     &satoshi_in, fee_estimate);
 
 	/* Can't afford fees? */
