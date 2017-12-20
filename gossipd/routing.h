@@ -99,6 +99,15 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct sha256_double *chain_hash,
 					const struct pubkey *local_id);
 
+/* Add a connection to the routing table, but do not mark it as usable
+ * yet. Used by channel_announcements before the channel_update comes
+ * in. */
+struct node_connection *half_add_connection(struct routing_state *rstate,
+					    const struct pubkey *from,
+					    const struct pubkey *to,
+					    const struct short_channel_id *schanid,
+					    const u16 flags);
+
 /* Given a short_channel_id, retrieve the matching connection, or NULL if it is
  * unknown. */
 struct node_connection *get_connection_by_scid(const struct routing_state *rstate,
