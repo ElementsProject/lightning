@@ -144,4 +144,16 @@ bool is_p2wpkh(const u8 *script, struct bitcoin_address *addr);
 /* Are these two scripts equal? */
 bool scripteq(const tal_t *s1, const tal_t *s2);
 
+/* OP_DUP + OP_HASH160 + PUSH(20-byte-hash) + OP_EQUALVERIFY + OP_CHECKSIG */
+#define BITCOIN_SCRIPTPUBKEY_P2PKH_LEN (1 + 1 + 1 + 20 + 1 + 1)
+
+/* OP_HASH160 + PUSH(20-byte-hash) + OP_EQUAL */
+#define BITCOIN_SCRIPTPUBKEY_P2SH_LEN (1 + 1 + 20 + 1)
+
+/* OP_0 + PUSH(20-byte-hash) */
+#define BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN (1 + 1 + 20)
+
+/* OP_0 + PUSH(32-byte-hash) */
+#define BITCOIN_SCRIPTPUBKEY_P2WSH_LEN (1 + 1 + 32)
+
 #endif /* LIGHTNING_BITCOIN_SCRIPT_H */

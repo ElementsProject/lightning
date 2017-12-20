@@ -374,7 +374,7 @@ bool is_p2pkh(const u8 *script, struct bitcoin_address *addr)
 {
 	size_t script_len = tal_len(script);
 
-	if (script_len != 25)
+	if (script_len != BITCOIN_SCRIPTPUBKEY_P2PKH_LEN)
 		return false;
 	if (script[0] != OP_DUP)
 		return false;
@@ -395,7 +395,7 @@ bool is_p2sh(const u8 *script, struct ripemd160 *addr)
 {
 	size_t script_len = tal_len(script);
 
-	if (script_len != 23)
+	if (script_len != BITCOIN_SCRIPTPUBKEY_P2SH_LEN)
 		return false;
 	if (script[0] != OP_HASH160)
 		return false;
@@ -412,7 +412,7 @@ bool is_p2wsh(const u8 *script, struct sha256 *addr)
 {
 	size_t script_len = tal_len(script);
 
-	if (script_len != 1 + 1 + sizeof(struct sha256))
+	if (script_len != BITCOIN_SCRIPTPUBKEY_P2WSH_LEN)
 		return false;
 	if (script[0] != OP_0)
 		return false;
@@ -427,7 +427,7 @@ bool is_p2wpkh(const u8 *script, struct bitcoin_address *addr)
 {
 	size_t script_len = tal_len(script);
 
-	if (script_len != 1 + 1 + sizeof(struct ripemd160))
+	if (script_len != BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN)
 		return false;
 	if (script[0] != OP_0)
 		return false;
