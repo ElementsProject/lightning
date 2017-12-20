@@ -413,14 +413,19 @@ bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
 			   struct peer *peer)
 {
 	bool ok;
+	const unsigned char *addrstr;
 	tal_t *tmpctx = tal_tmpctx(w);
-	sqlite3_stmt *stmt = db_prepare(w->db, "SELECT id, node_id FROM peers WHERE node_id=?;");
+	sqlite3_stmt *stmt = db_prepare(w->db, "SELECT id, node_id, address FROM peers WHERE node_id=?;");
 	sqlite3_bind_pubkey(stmt, 1, nodeid);
 
 	ok = stmt != NULL && sqlite3_step(stmt) == SQLITE_ROW;
 	if (ok) {
 		peer->dbid = sqlite3_column_int64(stmt, 0);
 		ok &= sqlite3_column_pubkey(stmt, 1, &peer->id);
+		addrstr = sqlite3_column_text(stmt, 2);
+
+		if (addrstr)
+			parse_wireaddr((const char*)addrstr, &peer->addr, DEFAULT_PORT);
 	} else {
 		/* Make sure we mark this as a new peer */
 		peer->dbid = 0;
