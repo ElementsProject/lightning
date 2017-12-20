@@ -1281,7 +1281,23 @@ static void handle_irrevocably_resolved(struct peer *peer, const u8 *msg)
  */
 static void onchain_add_utxo(struct peer *peer, const u8 *msg)
 {
-	/* FIXME(cdecker) Implement */
+	struct utxo *u = tal(msg, struct utxo);
+	u->close_info = tal(u, struct unilateral_close_info);
+
+	u->is_p2sh = true;
+	u->keyindex = 0;
+	u->status = output_state_available;
+	u->close_info->channel_id = peer->channel->id;
+	u->close_info->peer_id = peer->id;
+
+	if (!fromwire_onchain_add_utxo(msg, NULL, &u->txid, &u->outnum,
+				       &u->close_info->commitment_point,
+				       &u->amount)) {
+		fatal("onchaind gave invalid add_utxo message: %s", tal_hex(msg, msg));
+	}
+
+
+	wallet_add_utxo(peer->ld->wallet, u, p2wpkh);
 }
 
 static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds)
