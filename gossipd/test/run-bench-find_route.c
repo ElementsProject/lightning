@@ -67,8 +67,7 @@ bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct 
 void queue_broadcast(struct broadcast_state *bstate UNNEEDED,
 			     const int type UNNEEDED,
 			     const u8 *tag UNNEEDED,
-			     const u8 *payload UNNEEDED,
-			     bool replace_inplace UNNEEDED)
+			     const u8 *payload UNNEEDED)
 { fprintf(stderr, "queue_broadcast called!\n"); abort(); }
 /* Generated stub for towire_pubkey */
 void towire_pubkey(u8 **pptr UNNEEDED, const struct pubkey *pubkey UNNEEDED)
