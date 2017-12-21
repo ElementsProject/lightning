@@ -346,7 +346,7 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 			     msatoshi);
 		return NULL;
 	}
-	
+
 	/* Reset all the information. */
 	clear_bfg(rstate->nodes);
 

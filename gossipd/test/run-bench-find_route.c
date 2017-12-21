@@ -21,7 +21,7 @@ static bool in_bench = 0;
 static char *fake_type_to_string_(const tal_t *ctx, const char *typename,
 				  union printable_types u)
 {
-	/* We *do* call this at end of route setup. */ 
+	/* We *do* call this at end of route setup. */
 	if (streq(typename, "struct pubkey")) {
 		size_t n;
 		memcpy(&n, u.pubkey, sizeof(n));

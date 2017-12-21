@@ -171,7 +171,7 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 			w, &available[i]->txid, available[i]->outnum,
 			output_state_available, output_state_reserved))
 			fatal("Unable to reserve output");
-		
+
 		/* Input weight: txid + index + sequence */
 		input_weight = (32 + 4 + 4) * 4;
 
@@ -217,7 +217,7 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 	*changesatoshi = satoshi_in - value - *fee_estimate;
 	return utxo;
 }
-		
+
 const struct utxo **wallet_select_all(const tal_t *ctx, struct wallet *w,
 				      const u32 feerate_per_kw,
 				      size_t outscriptlen,
