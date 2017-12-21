@@ -565,9 +565,6 @@ bool handle_channel_announcement(
 	c1 = get_connection_by_scid(rstate, &short_channel_id, 1);
 	forward = !c0 || !c1 || !c0->channel_announcement || !c1->channel_announcement;
 
-	/* FIXME: What should we do if this channel_announce is completely
-	 * different from previous?  eg. different nodes?  We would have to
-	 * clear out the old announce and all updates... */
 	add_channel_direction(rstate, &node_id_1, &node_id_2, &short_channel_id,
 			      sigfail ? NULL : serialized);
 	add_channel_direction(rstate, &node_id_2, &node_id_1, &short_channel_id,
@@ -584,7 +581,7 @@ bool handle_channel_announcement(
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_short_channel_id(&tag, &short_channel_id);
 	queue_broadcast(rstate->broadcasts, WIRE_CHANNEL_ANNOUNCEMENT,
-			tag, serialized, true);
+			tag, serialized);
 
 	tal_free(tmpctx);
 	return local;
@@ -680,7 +677,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	queue_broadcast(rstate->broadcasts,
 			WIRE_CHANNEL_UPDATE,
 			tag,
-			serialized, false);
+			serialized);
 
 	tal_free(c->channel_update);
 	c->channel_update = tal_steal(c, serialized);
@@ -786,8 +783,7 @@ void handle_node_announcement(
 	queue_broadcast(rstate->broadcasts,
 			WIRE_NODE_ANNOUNCEMENT,
 			tag,
-			serialized,
-			false);
+			serialized);
 	tal_free(node->node_announcement);
 	node->node_announcement = tal_steal(node, serialized);
 	tal_free(tmpctx);

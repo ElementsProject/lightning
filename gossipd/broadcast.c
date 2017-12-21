@@ -1,4 +1,3 @@
-#include <ccan/mem/mem.h>
 #include <gossipd/broadcast.h>
 
 struct broadcast_state *new_broadcast_state(tal_t *ctx)
@@ -22,48 +21,28 @@ static struct queued_message *new_queued_message(tal_t *ctx,
 	return msg;
 }
 
-/* Returns 0 for not-found */
-static u64 find_broadcast(const struct broadcast_state *bstate,
-			  const int type, const u8 *tag)
-{
-	struct queued_message *msg;
-	u64 index;
-
-	/* FIXME: Use a hash */
-	for (msg = uintmap_first(&bstate->broadcasts, &index);
-	     msg;
-	     msg = uintmap_after(&bstate->broadcasts, &index)) {
-		if (msg->type == type
-		    && memeq(msg->tag, tal_len(msg->tag), tag, tal_len(tag)))
-			return index;
-	}
-	return 0;
-}
-
 void queue_broadcast(struct broadcast_state *bstate,
 		     const int type,
 		     const u8 *tag,
-		     const u8 *payload,
-		     bool replace_inplace)
+		     const u8 *payload)
 {
 	struct queued_message *msg;
 	u64 index;
 
 	/* Remove any tag&type collisions */
-	index = find_broadcast(bstate, type, tag);
-	if (index == 0)
-		replace_inplace = false;
-	else
-		tal_free(uintmap_del(&bstate->broadcasts, index));
+	for (msg = uintmap_first(&bstate->broadcasts, &index);
+	     msg;
+	     msg = uintmap_after(&bstate->broadcasts, &index)) {
+		if (msg->type == type && memcmp(msg->tag, tag, tal_count(tag)) == 0) {
+			uintmap_del(&bstate->broadcasts, index);
+			tal_free(msg);
+		}
+	}
 
 	/* Now add the message to the queue */
 	msg = new_queued_message(bstate, type, tag, payload);
-	if (replace_inplace) {
-		uintmap_add(&bstate->broadcasts, index, msg);
-	} else {
-		uintmap_add(&bstate->broadcasts, bstate->next_index, msg);
-		bstate->next_index += 1;
-	}
+	uintmap_add(&bstate->broadcasts, bstate->next_index, msg);
+	bstate->next_index += 1;
 }
 
 struct queued_message *next_broadcast_message(struct broadcast_state *bstate, u64 last_index)
