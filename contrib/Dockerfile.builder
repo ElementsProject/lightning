@@ -24,6 +24,7 @@ RUN apt-get -qq update && \
 	valgrind \
 	net-tools \
 	python3-pip \
+	python3-setuptools \
 	python-pkg-resources \
 	wget && \
 	rm -rf /var/lib/apt/lists/*
@@ -34,4 +35,4 @@ RUN cd /tmp/ && \
     mv /tmp/bitcoin-0.15.0/bin/bitcoin* /usr/local/bin/ && \
     rm -rf bitcoin.tar.gz /tmp/bitcoin-0.15.0
 
-RUN pip3 install python-bitcoinlib==0.7.0 pytest==3.0.5 setuptools==36.6.0
+RUN pip3 install python-bitcoinlib==0.7.0 pytest==3.0.5 setuptools==36.6.0 pytest-test-groups==1.0.3
