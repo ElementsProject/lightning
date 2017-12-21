@@ -17,7 +17,8 @@
 #include <common/utils.h>
 #include <inttypes.h>
 
-static void start_poll_chaintip(struct chain_topology *topo);
+/* Mutual recursion via timer. */
+static void try_extend_tip(struct chain_topology *topo);
 
 static void next_topology_timer(struct chain_topology *topo)
 {
@@ -27,7 +28,7 @@ static void next_topology_timer(struct chain_topology *topo)
 	}
 	/* This takes care of its own lifetime. */
 	notleak(new_reltimer(topo->timers, topo, topo->poll_time,
-			     start_poll_chaintip, topo));
+			     try_extend_tip, topo));
 }
 
 /* FIXME: Remove tx from block when peer done. */
@@ -54,22 +55,10 @@ static bool we_broadcast(const struct chain_topology *topo,
 	return false;
 }
 
-/* Fills in prev, height, mediantime. */
-static void connect_block(struct chain_topology *topo,
-			  struct block *prev,
-			  struct block *b)
+static void filter_block_txs(struct chain_topology *topo, struct block *b)
 {
 	size_t i;
 	u64 satoshi_owned;
-
-	assert(b->height == -1);
-	assert(b->prev == NULL);
-	assert(prev->next == b);
-
-	b->prev = prev;
-	b->height = b->prev->height + 1;
-
-	block_map_add(&topo->block_map, b);
 
 	/* Now we see if any of those txs are interesting. */
 	for (i = 0; i < tal_count(b->full_txs); i++) {
@@ -102,9 +91,6 @@ static void connect_block(struct chain_topology *topo,
 			add_tx_to_block(b, tx, i);
 	}
 	b->full_txs = tal_free(b->full_txs);
-
-	/* Tell lightningd about new block. */
-	notify_new_block(topo->bitcoind->ld, b->height);
 }
 
 static const struct bitcoin_tx *tx_in_block(const struct block *b,
@@ -285,23 +271,6 @@ void broadcast_tx(struct chain_topology *topo,
 	bitcoind_sendrawtx(topo->bitcoind, otx->hextx, broadcast_done, otx);
 }
 
-static void free_blocks(struct chain_topology *topo, struct block *b)
-{
-	struct block *next;
-
-	while (b) {
-		size_t i, n = tal_count(b->txs);
-
-		/* Notify that txs are kicked out. */
-		for (i = 0; i < n; i++)
-			txwatch_fire(topo, b->txs[i], 0);
-
-		next = b->next;
-		tal_free(b);
-		b = next;
-	}
-}
-
 static const char *feerate_name(enum feerate feerate)
 {
 	return feerate == FEERATE_IMMEDIATE ? "Immediate"
@@ -367,21 +336,21 @@ static void next_updatefee_timer(struct chain_topology *topo)
 			     start_fee_estimate, topo));
 }
 
-/* B is the new chain (linked by ->next); update topology */
-static void topology_changed(struct chain_topology *topo,
-			     struct block *prev,
-			     struct block *b)
+static void add_tip(struct chain_topology *topo, struct block *b)
 {
-	/* Eliminate any old chain. */
-	if (prev->next)
-		free_blocks(topo, prev->next);
+	/* Only keep the transactions we care about. */
+	filter_block_txs(topo, b);
 
-	prev->next = b;
-	do {
-		connect_block(topo, prev, b);
-		topo->tip = prev = b;
-		b = b->next;
-	} while (b);
+	block_map_add(&topo->block_map, b);
+
+	/* Attach to tip; b is now the tip. */
+	assert(b->height == topo->tip->height + 1);
+	b->prev = topo->tip;
+	topo->tip->next = b;
+	topo->tip = b;
+
+	/* Tell lightningd about new block. */
+	notify_new_block(topo->bitcoind->ld, b->height);
 
 	/* Tell watch code to re-evaluate all txs. */
 	watch_topology_changed(topo);
@@ -392,7 +361,7 @@ static void topology_changed(struct chain_topology *topo,
 
 static struct block *new_block(struct chain_topology *topo,
 			       struct bitcoin_block *blk,
-			       struct block *next)
+			       unsigned int height)
 {
 	struct block *b = tal(topo, struct block);
 
@@ -400,12 +369,11 @@ static struct block *new_block(struct chain_topology *topo,
 	log_debug(topo->log, "Adding block %s",
 		  type_to_string(ltmp, struct bitcoin_blkid, &b->blkid));
 	assert(!block_map_get(&topo->block_map, &b->blkid));
-	b->next = next;
+	b->next = NULL;
+	b->prev = NULL;
 	b->topo = topo;
 
-	/* We fill these out in topology_changed */
-	b->height = -1;
-	b->prev = NULL;
+	b->height = height;
 
 	b->hdr = blk->hdr;
 
@@ -416,80 +384,66 @@ static struct block *new_block(struct chain_topology *topo,
 	return b;
 }
 
-static void add_block(struct bitcoind *bitcoind,
-		      struct chain_topology *topo,
-		      struct bitcoin_block *blk,
-		      struct block *next);
-
-static void gather_previous_blocks(struct bitcoind *bitcoind,
-				   struct bitcoin_block *blk,
-				   struct block *next)
+static void remove_tip(struct chain_topology *topo)
 {
-	add_block(bitcoind, next->topo, blk, next);
+	struct block *b = topo->tip;
+	size_t i, n = tal_count(b->txs);
+
+	/* Move tip back one. */
+	topo->tip = b->prev;
+	if (!topo->tip)
+		fatal("Initial block %u (%s) reorganized out!",
+		      b->height,
+		      type_to_string(ltmp, struct bitcoin_blkid, &b->blkid));
+
+	/* Notify that txs are kicked out. */
+	for (i = 0; i < n; i++)
+		txwatch_fire(topo, b->txs[i], 0);
+
+	tal_free(b);
 }
 
-static void add_block(struct bitcoind *bitcoind,
-		      struct chain_topology *topo,
-		      struct bitcoin_block *blk,
-		      struct block *next)
-{
-	struct block *b, *prev;
-
-	b = new_block(topo, blk, next);
-
-	/* Recurse if we need prev. */
-	prev = block_map_get(&topo->block_map, &blk->hdr.prev_hash);
-	if (!prev) {
-		bitcoind_getrawblock(bitcoind, &blk->hdr.prev_hash,
-				     gather_previous_blocks, b);
-		return;
-	}
-
-	/* All done. */
-	topology_changed(topo, prev, b);
-	next_topology_timer(topo);
-}
-
-static void rawblock_tip(struct bitcoind *bitcoind,
-			 struct bitcoin_block *blk,
-			 struct chain_topology *topo)
-{
-	add_block(bitcoind, topo, blk, NULL);
-}
-
-static void check_chaintip(struct bitcoind *bitcoind,
-			   const struct bitcoin_blkid *tipid,
+static void have_new_block(struct bitcoind *bitcoind,
+			   struct bitcoin_block *blk,
 			   struct chain_topology *topo)
 {
-	/* 0 is the main tip. */
-	if (!structeq(tipid, &topo->tip->blkid))
-		bitcoind_getrawblock(bitcoind, tipid, rawblock_tip, topo);
+	/* Unexpected precessor?  Free predecessor, refetch it. */
+	if (!structeq(&topo->tip->blkid, &blk->hdr.prev_hash))
+		remove_tip(topo);
 	else
-		/* Next! */
-		next_topology_timer(topo);
+		add_tip(topo, new_block(topo, blk, topo->tip->height + 1));
+
+	/* Try for next one. */
+	try_extend_tip(topo);
 }
 
-static void start_poll_chaintip(struct chain_topology *topo)
+static void get_new_block(struct bitcoind *bitcoind,
+			  const struct bitcoin_blkid *blkid,
+			  struct chain_topology *topo)
 {
-	if (!list_empty(&topo->bitcoind->pending)) {
-		log_unusual(topo->log,
-			    "Delaying start poll: commands in progress");
+	if (!blkid) {
+		/* No such block, poll. */
 		next_topology_timer(topo);
-	} else
-		bitcoind_get_chaintip(topo->bitcoind, check_chaintip, topo);
+		return;
+	}
+	bitcoind_getrawblock(bitcoind, blkid, have_new_block, topo);
+}
+
+static void try_extend_tip(struct chain_topology *topo)
+{
+	bitcoind_getblockhash(topo->bitcoind, topo->tip->height + 1,
+			      get_new_block, topo);
 }
 
 static void init_topo(struct bitcoind *bitcoind,
 		      struct bitcoin_block *blk,
 		      struct chain_topology *topo)
 {
-	topo->root = new_block(topo, blk, NULL);
-	topo->root->height = topo->first_blocknum;
+	topo->root = new_block(topo, blk, topo->first_blocknum);
 	block_map_add(&topo->block_map, topo->root);
 	topo->tip = topo->root;
 
-	/* Now grab chaintip immediately. */
-	bitcoind_get_chaintip(bitcoind, check_chaintip, topo);
+	try_extend_tip(topo);
 }
 
 static void get_init_block(struct bitcoind *bitcoind,
