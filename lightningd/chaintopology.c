@@ -336,6 +336,26 @@ static void next_updatefee_timer(struct chain_topology *topo)
 			     start_fee_estimate, topo));
 }
 
+/* Once we're run out of new blocks to add, call this. */
+static void updates_complete(struct chain_topology *topo)
+{
+	if (topo->tip != topo->prev_tip) {
+		/* Tell lightningd about new block. */
+		notify_new_block(topo->bitcoind->ld, topo->tip->height);
+
+		/* Tell watch code to re-evaluate all txs. */
+		watch_topology_changed(topo);
+
+		/* Maybe need to rebroadcast. */
+		rebroadcast_txs(topo, NULL);
+
+		topo->prev_tip = topo->tip;
+	}
+
+	/* Try again soon. */
+	next_topology_timer(topo);
+}
+
 static void add_tip(struct chain_topology *topo, struct block *b)
 {
 	/* Only keep the transactions we care about. */
@@ -348,15 +368,6 @@ static void add_tip(struct chain_topology *topo, struct block *b)
 	b->prev = topo->tip;
 	topo->tip->next = b;
 	topo->tip = b;
-
-	/* Tell lightningd about new block. */
-	notify_new_block(topo->bitcoind->ld, b->height);
-
-	/* Tell watch code to re-evaluate all txs. */
-	watch_topology_changed(topo);
-
-	/* Maybe need to rebroadcast. */
-	rebroadcast_txs(topo, NULL);
 }
 
 static struct block *new_block(struct chain_topology *topo,
@@ -422,8 +433,8 @@ static void get_new_block(struct bitcoind *bitcoind,
 			  struct chain_topology *topo)
 {
 	if (!blkid) {
-		/* No such block, poll. */
-		next_topology_timer(topo);
+		/* No such block, we're done. */
+		updates_complete(topo);
 		return;
 	}
 	bitcoind_getrawblock(bitcoind, blkid, have_new_block, topo);
@@ -441,7 +452,7 @@ static void init_topo(struct bitcoind *bitcoind,
 {
 	topo->root = new_block(topo, blk, topo->first_blocknum);
 	block_map_add(&topo->block_map, topo->root);
-	topo->tip = topo->root;
+	topo->tip = topo->prev_tip = topo->root;
 
 	try_extend_tip(topo);
 }
