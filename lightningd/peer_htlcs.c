@@ -352,7 +352,8 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 		return;
 	}
 
-	if (find_htlc_out(&subd->ld->htlcs_out, hout->key.peer, hout->key.id)) {
+	if (find_htlc_out(&subd->ld->htlcs_out, hout->key.peer, hout->key.id)
+	    || hout->key.id == HTLC_INVALID_ID) {
 		peer_internal_error(subd->peer,
 				    "Bad offer_htlc_reply HTLC id %"PRIu64
 				    " is a duplicate",

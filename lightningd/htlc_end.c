@@ -150,6 +150,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	hout->dbid = 0;
 
 	hout->key.peer = peer;
+	hout->key.id = HTLC_INVALID_ID;
 	hout->msatoshi = msatoshi;
 	hout->cltv_expiry = cltv_expiry;
 	hout->payment_hash = *payment_hash;
