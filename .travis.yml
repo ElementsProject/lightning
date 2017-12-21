@@ -15,8 +15,9 @@ env:
 # Trusty (aka 14.04) is way way too old, so run in docker...
 script:
   - docker pull cdecker/lightning-ci:${ARCH}bit | tee
+  - env | grep -E '^[A-Z_]+\=' | tee /tmp/envlist
   - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make -j3 CC=${COMPILER} DEVELOPER=${DEVELOPER}
-  - docker run --rm=true -e NO_VALGRIND=${NO_VALGRIND:-0} -e TEST_DEBUG=${TEST_DEBUG:-0} -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make CC=${COMPILER} check DEVELOPER=${DEVELOPER}
+  - docker run --rm=true --env-file=/tmp/envlist -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make CC=${COMPILER} check DEVELOPER=${DEVELOPER}
 #  - git clone https://github.com/lightningnetwork/lightning-rfc.git
 #  - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check-source BOLTDIR=lightning-rfc
   - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check-source BOLTDIR=none
