@@ -84,20 +84,6 @@ void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
 						int, const char *),	\
 			    (arg))
 
-void bitcoind_get_chaintip_(struct bitcoind *bitcoind,
-			    void (*cb)(struct bitcoind *bitcoind,
-				       const struct bitcoin_blkid *tipid,
-				       void *arg),
-			    void *arg);
-
-#define bitcoind_get_chaintip(bitcoind_, cb, arg)			\
-	bitcoind_get_chaintip_((bitcoind_),				\
-			       typesafe_cb_preargs(void, void *,	\
-						   (cb), (arg),		\
-						   struct bitcoind *,	\
-						   const struct bitcoin_blkid *), \
-			       (arg))
-
 void bitcoind_getblockcount_(struct bitcoind *bitcoind,
 			     void (*cb)(struct bitcoind *bitcoind,
 					u32 blockcount,
