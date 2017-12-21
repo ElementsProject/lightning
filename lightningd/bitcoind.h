@@ -112,6 +112,7 @@ void bitcoind_getblockcount_(struct bitcoind *bitcoind,
 						    u32 blockcount),	\
 				(arg))
 
+/* blkid is NULL if call fails. */
 void bitcoind_getblockhash_(struct bitcoind *bitcoind,
 			    u32 height,
 			    void (*cb)(struct bitcoind *bitcoind,

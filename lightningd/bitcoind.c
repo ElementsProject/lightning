@@ -491,6 +491,12 @@ static void process_getblockhash(struct bitcoin_cli *bcli)
 		   const struct bitcoin_blkid *blkid,
 		   void *arg) = bcli->cb;
 
+	/* If it failed, call with NULL block. */
+	if (*bcli->exitstatus != 0) {
+		cb(bcli->bitcoind, NULL, bcli->cb_arg);
+		return;
+	}
+
 	if (bcli->output_bytes == 0
 	    || !bitcoin_blkid_from_hex(bcli->output, bcli->output_bytes-1,
 				       &blkid)) {
@@ -511,7 +517,7 @@ void bitcoind_getblockhash_(struct bitcoind *bitcoind,
 	char str[STR_MAX_CHARS(height)];
 	sprintf(str, "%u", height);
 
-	start_bitcoin_cli(bitcoind, NULL, process_getblockhash, false, cb, arg,
+	start_bitcoin_cli(bitcoind, NULL, process_getblockhash, true, cb, arg,
 			  "getblockhash", str, NULL);
 }
 
