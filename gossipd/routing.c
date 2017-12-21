@@ -580,8 +580,8 @@ bool handle_channel_announcement(
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_short_channel_id(&tag, &short_channel_id);
-	queue_broadcast(rstate->broadcasts, WIRE_CHANNEL_ANNOUNCEMENT,
-			tag, serialized);
+	assert(!queue_broadcast(rstate->broadcasts, WIRE_CHANNEL_ANNOUNCEMENT,
+				tag, serialized));
 
 	tal_free(tmpctx);
 	return local;
