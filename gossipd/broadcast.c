@@ -21,13 +21,14 @@ static struct queued_message *new_queued_message(tal_t *ctx,
 	return msg;
 }
 
-void queue_broadcast(struct broadcast_state *bstate,
+bool queue_broadcast(struct broadcast_state *bstate,
 		     const int type,
 		     const u8 *tag,
 		     const u8 *payload)
 {
 	struct queued_message *msg;
 	u64 index;
+	bool evicted = false;
 
 	/* Remove any tag&type collisions */
 	for (msg = uintmap_first(&bstate->broadcasts, &index);
@@ -36,6 +37,8 @@ void queue_broadcast(struct broadcast_state *bstate,
 		if (msg->type == type && memcmp(msg->tag, tag, tal_count(tag)) == 0) {
 			uintmap_del(&bstate->broadcasts, index);
 			tal_free(msg);
+			evicted = true;
+			break;
 		}
 	}
 
@@ -43,6 +46,7 @@ void queue_broadcast(struct broadcast_state *bstate,
 	msg = new_queued_message(bstate, type, tag, payload);
 	uintmap_add(&bstate->broadcasts, bstate->next_index, msg);
 	bstate->next_index += 1;
+	return evicted;
 }
 
 struct queued_message *next_broadcast_message(struct broadcast_state *bstate, u64 last_index)

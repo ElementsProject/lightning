@@ -64,7 +64,7 @@ u8 fromwire_u8(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct wireaddr *addr UNNEEDED)
 { fprintf(stderr, "fromwire_wireaddr called!\n"); abort(); }
 /* Generated stub for queue_broadcast */
-void queue_broadcast(struct broadcast_state *bstate UNNEEDED,
+bool queue_broadcast(struct broadcast_state *bstate UNNEEDED,
 			     const int type UNNEEDED,
 			     const u8 *tag UNNEEDED,
 			     const u8 *payload UNNEEDED)
