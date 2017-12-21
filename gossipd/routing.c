@@ -426,25 +426,32 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	return first_conn;
 }
 
-static bool add_channel_direction(struct routing_state *rstate,
-				  const struct pubkey *from,
-				  const struct pubkey *to,
-				  const struct short_channel_id *short_channel_id,
-				  const u8 *announcement)
+static struct node_connection *
+add_channel_direction(struct routing_state *rstate, const struct pubkey *from,
+		      const struct pubkey *to,
+		      const struct short_channel_id *short_channel_id,
+		      const u8 *announcement)
 {
-	struct node_connection *c = get_connection(rstate, from, to);
+	struct node_connection *c1, *c2, *c;
 	u16 direction = get_channel_direction(from, to);
-	if (c){
-		/* Do not clobber connections added otherwise */
-		memcpy(&c->short_channel_id, short_channel_id,
-		       sizeof(c->short_channel_id));
-		c->flags = direction;
-		return false;
-	}else if(get_connection_by_scid(rstate, short_channel_id, direction)) {
-		return false;
-	}
 
-	c = half_add_connection(rstate, from, to, short_channel_id, direction);
+	c1 = get_connection(rstate, from, to);
+	c2 = get_connection_by_scid(rstate, short_channel_id, direction);
+	if(c2) {
+		/* We already know the channel by its scid, just
+		 * update the announcement below */
+		c = c2;
+	} else if (c2) {
+		/* We found the channel by its endpoints, not by scid,
+		 * so update its scid */
+		memcpy(&c1->short_channel_id, short_channel_id,
+		       sizeof(c->short_channel_id));
+		c1->flags = direction;
+		c = c1;
+	} else {
+		/* We don't know this channel at all, create it */
+		c = half_add_connection(rstate, from, to, short_channel_id, direction);
+	}
 
 	/* Remember the announcement so we can forward it to new peers */
 	if (announcement) {
@@ -452,7 +459,8 @@ static bool add_channel_direction(struct routing_state *rstate,
 		c->channel_announcement = tal_dup_arr(c, u8, announcement,
 						      tal_count(announcement), 0);
 	}
-	return true;
+
+	return c;
 }
 
 /* Verify the signature of a channel_update message */
@@ -507,6 +515,7 @@ bool handle_channel_announcement(
 	struct node_connection *c0, *c1;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	u8 *features;
+	char *tag;
 	size_t len = tal_len(announce);
 
 	serialized = tal_dup_arr(tmpctx, u8, announce, len, 0);
@@ -523,16 +532,19 @@ bool handle_channel_announcement(
 		return false;
 	}
 
+	tag = type_to_string(tmpctx, struct short_channel_id,
+			     &short_channel_id);
+
 	/* BOLT #7:
 	 *
 	 * The receiving node MUST ignore the message if the specified
 	 * `chain_hash` is unknown to the receiver.
 	 */
 	if (!structeq(&chain_hash, &rstate->chain_hash)) {
-		status_trace("Received channel_announcement for unknown chain"
-			     " %s",
-			     type_to_string(tmpctx, struct bitcoin_blkid,
-					    &chain_hash));
+		status_trace(
+		    "Received channel_announcement %s for unknown chain %s",
+		    tag,
+		    type_to_string(tmpctx, struct bitcoin_blkid, &chain_hash));
 		tal_free(tmpctx);
 		return false;
 	}
@@ -540,51 +552,43 @@ bool handle_channel_announcement(
 	// FIXME: Check features!
 	//FIXME(cdecker) Check chain topology for the anchor TX
 
-
 	local = pubkey_eq(&node_id_1, &rstate->local_id) ||
 		pubkey_eq(&node_id_2, &rstate->local_id);
+
 	sigfail = !check_channel_announcement(
 	    &node_id_1, &node_id_2, &bitcoin_key_1, &bitcoin_key_2,
 	    &node_signature_1, &node_signature_2, &bitcoin_signature_1,
 	    &bitcoin_signature_2, serialized);
 
 	status_trace("Received channel_announcement for channel %s, local=%d, sigfail=%d",
-		     type_to_string(trc, struct short_channel_id,
-				    &short_channel_id), local, sigfail);
+		     tag, local, sigfail);
 
-
-	if (sigfail && !local) {
+	if (sigfail) {
 		status_trace(
-		    "Signature verification of non-local channel announcement failed");
+			"Signature verification of channel_announcement for %s failed", tag);
 		tal_free(tmpctx);
 		return false;
 	}
 
-	/* Is this a new connection? */
+	/* Is this a new connection? It is if we don't know the
+	 * channel yet, or do not have a matching announcement in the
+	 * case of side-loaded channels*/
 	c0 = get_connection_by_scid(rstate, &short_channel_id, 0);
 	c1 = get_connection_by_scid(rstate, &short_channel_id, 1);
 	forward = !c0 || !c1 || !c0->channel_announcement || !c1->channel_announcement;
 
 	add_channel_direction(rstate, &node_id_1, &node_id_2, &short_channel_id,
-			      sigfail ? NULL : serialized);
+			      serialized);
 	add_channel_direction(rstate, &node_id_2, &node_id_1, &short_channel_id,
-			      sigfail ? NULL : serialized);
+			      serialized);
 
-	if (!forward || sigfail) {
-		status_trace("Not forwarding channel_announcement, forward=%d, sigfail=%d", forward, sigfail);
-		tal_free(tmpctx);
-		/* This will not be forwarded so we do not want to
-		 * announce the node either, others might drop it. */
-		return false;
+	if (forward) {
+		assert(!queue_broadcast(rstate->broadcasts, WIRE_CHANNEL_ANNOUNCEMENT,
+					(u8*)tag, serialized));
 	}
 
-	u8 *tag = tal_arr(tmpctx, u8, 0);
-	towire_short_channel_id(&tag, &short_channel_id);
-	assert(!queue_broadcast(rstate->broadcasts, WIRE_CHANNEL_ANNOUNCEMENT,
-				tag, serialized));
-
 	tal_free(tmpctx);
-	return local;
+	return local && forward;
 }
 
 void handle_channel_update(struct routing_state *rstate, const u8 *update)
