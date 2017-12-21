@@ -308,6 +308,9 @@ static const char *feerate_name(enum feerate feerate)
 		: feerate == FEERATE_NORMAL ? "Normal" : "Slow";
 }
 
+/* Mutual recursion via timer. */
+static void next_updatefee_timer(struct chain_topology *topo);
+
 /* We sanitize feerates if necessary to put them in descending order. */
 static void update_feerates(struct bitcoind *bitcoind,
 			    const u32 *satoshi_per_kw,
@@ -340,12 +343,11 @@ static void update_feerates(struct bitcoind *bitcoind,
 
 	if (changed)
 		notify_feerate_change(bitcoind->ld);
+
+	next_updatefee_timer(topo);
 }
 
-/* B is the new chain (linked by ->next); update topology */
-static void topology_changed(struct chain_topology *topo,
-			     struct block *prev,
-			     struct block *b)
+static void start_fee_estimate(struct chain_topology *topo)
 {
 	/* FEERATE_IMMEDIATE, FEERATE_NORMAL, FEERATE_SLOW */
 	const char *estmodes[] = { "CONSERVATIVE", "ECONOMICAL", "ECONOMICAL" };
@@ -353,6 +355,23 @@ static void topology_changed(struct chain_topology *topo,
 
 	BUILD_ASSERT(ARRAY_SIZE(blocks) == NUM_FEERATES);
 
+	/* Once per new block head, update fee estimates. */
+	bitcoind_estimate_fees(topo->bitcoind, blocks, estmodes, NUM_FEERATES,
+			       update_feerates, topo);
+}
+
+static void next_updatefee_timer(struct chain_topology *topo)
+{
+	/* This takes care of its own lifetime. */
+	notleak(new_reltimer(topo->timers, topo, topo->poll_time,
+			     start_fee_estimate, topo));
+}
+
+/* B is the new chain (linked by ->next); update topology */
+static void topology_changed(struct chain_topology *topo,
+			     struct block *prev,
+			     struct block *b)
+{
 	/* Eliminate any old chain. */
 	if (prev->next)
 		free_blocks(topo, prev->next);
@@ -369,10 +388,6 @@ static void topology_changed(struct chain_topology *topo,
 
 	/* Maybe need to rebroadcast. */
 	rebroadcast_txs(topo, NULL);
-
-	/* Once per new block head, update fee estimates. */
-	bitcoind_estimate_fees(topo->bitcoind, blocks, estmodes, NUM_FEERATES,
-			       update_feerates, topo);
 }
 
 static struct block *new_block(struct chain_topology *topo,
@@ -744,6 +759,9 @@ void setup_topology(struct chain_topology *topo,
 	bitcoind_getblockcount(topo->bitcoind, get_init_blockhash, topo);
 
 	tal_add_destructor(topo, destroy_outgoing_txs);
+
+	/* Begin fee estimation. */
+	start_fee_estimate(topo);
 
 	/* Once it gets topology, it calls io_break() and we return. */
 	io_loop(NULL, NULL);
