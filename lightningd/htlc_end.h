@@ -13,6 +13,8 @@ struct htlc_key {
 	u64 id;
 };
 
+#define HTLC_INVALID_ID (-1ULL)
+
 /* Incoming HTLC */
 struct htlc_in {
 	/* The database primary key for this htlc. Must be 0 until it
