@@ -169,6 +169,11 @@ include devtools/Makefile
 # Git doesn't maintain timestamps, so we only regen if git says we should.
 CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o x"`git diff $<`" != x"" ]
 
+ifeq ($(TEST_GROUP_COUNT),)
+TEST_GROUP=1
+TEST_GROUP_COUNT=1
+endif
+
 check:
 	$(MAKE) pytest
 
@@ -176,7 +181,7 @@ pytest: $(ALL_PROGRAMS)
 ifndef PYTEST
 	PYTHONPATH=contrib/pylightning DEVELOPER=$(DEVELOPER) python3 tests/test_lightningd.py -f
 else
-	PYTHONPATH=contrib/pylightning TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) $(PYTEST) -vx tests/test_lightningd.py
+	PYTHONPATH=contrib/pylightning TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) $(PYTEST) -vx tests/test_lightningd.py --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT)
 endif
 
 # Keep includes in alpha order.
