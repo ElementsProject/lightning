@@ -5,8 +5,8 @@
 #include <common/key_derive.h>
 #include <common/permute_tx.h>
 #include <common/utxo.h>
-#include <wally_bip32.h>
 #include <string.h>
+#include <wally_bip32.h>
 
 struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       const struct utxo **utxos,

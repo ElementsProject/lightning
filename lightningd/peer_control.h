@@ -44,7 +44,7 @@ struct peer {
 
 	/* Command which ordered us to open channel, if any. */
 	struct command *opening_cmd;
-	
+
 	/* Is there a single subdaemon responsible for us? */
 	struct subd *owner;
 

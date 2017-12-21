@@ -401,7 +401,7 @@ static void towire_route_info(u8 **pptr, const struct route_info *route_info)
  *
  *   * `pubkey` (264 bits)
  *   * `short_channel_id` (64 bits)
- *   * `fee_base_msat` (32 bits, big-endian) 
+ *   * `fee_base_msat` (32 bits, big-endian)
  *   * `fee_proportional_millionths` (32 bits, big-endian)
  *   * `cltv_expiry_delta` (16 bits, big-endian)
  */
