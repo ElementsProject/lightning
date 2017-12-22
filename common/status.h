@@ -54,7 +54,7 @@ void status_trace(const char *fmt, ...) PRINTF_FMT(1,2);
 /* vprintf-style */
 void status_tracev(const char *fmt, va_list ap);
 /* Send a failure status code with printf-style msg, and exit. */
-void status_failed(enum status_fail, const char *fmt, ...) PRINTF_FMT(2,3) NORETURN;
+void status_failed(enum status_fail code, const char *fmt, ...) PRINTF_FMT(2,3) NORETURN;
 
 /* Helper for master failures: sends STATUS_FAIL_MASTER_IO.
  * msg NULL == read failure. */

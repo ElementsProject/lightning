@@ -583,8 +583,12 @@ bool handle_channel_announcement(
 			      serialized);
 
 	if (forward) {
-		assert(!queue_broadcast(rstate->broadcasts, WIRE_CHANNEL_ANNOUNCEMENT,
-					(u8*)tag, serialized));
+		if (queue_broadcast(rstate->broadcasts,
+				    WIRE_CHANNEL_ANNOUNCEMENT,
+				    (u8*)tag, serialized))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Announcemnet %s was replaced?",
+				      tal_hex(trc, serialized));
 	}
 
 	tal_free(tmpctx);
