@@ -1876,7 +1876,7 @@ class LightningDTests(BaseLightningDTests):
         # Just to be sure, second openingd hand over to channeld.
         l2.daemon.wait_for_log('lightning_openingd.*REPLY WIRE_OPENING_FUNDEE_REPLY with 2 fds')
 
-    @unittest.skipIf(os.getenv("ARCH", "64") == "32" , "temporarily disabled due to flaky behavior, issue #468")
+    @unittest.skip("temporarily disabled due to flaky behavior, issue #468")
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_reconnect_normal(self):
         # Should reconnect fine even if locked message gets lost.
