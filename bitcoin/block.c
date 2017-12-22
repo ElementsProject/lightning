@@ -57,3 +57,13 @@ bool bitcoin_blkid_to_hex(const struct bitcoin_blkid *blockid,
 	fake_txid.shad = blockid->shad;
 	return bitcoin_txid_to_hex(&fake_txid, hexstr, hexstr_len);
 }
+
+static char *fmt_bitcoin_blkid(const tal_t *ctx,
+			       const struct bitcoin_blkid *blkid)
+{
+	char *hexstr = tal_arr(ctx, char, hex_str_size(sizeof(*blkid)));
+
+	bitcoin_blkid_to_hex(blkid, hexstr, hex_str_size(sizeof(*blkid)));
+	return hexstr;
+}
+REGISTER_TYPE_TO_STRING(bitcoin_blkid, fmt_bitcoin_blkid);
