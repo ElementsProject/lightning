@@ -2347,8 +2347,6 @@ class LightningDTests(BaseLightningDTests):
         inv2 = l2.rpc.invoice(1000, 'inv2', 'inv2')
         inv3 = l2.rpc.invoice(1000, 'inv3', 'inv3')
 
-        print("AAAA", l2.rpc.listinvoice())
-
         self.fund_channel(l1, l2, 10**6)
 
         l1.bitcoin.generate_block(6)
