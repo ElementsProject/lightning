@@ -346,11 +346,16 @@ AUTODATA(json_command, &delinvoice_command);
 static void json_waitanyinvoice(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
 {
-	struct invoice *i;
 	jsmntok_t *labeltok;
 	const char *label = NULL;
 	struct invoice_waiter *w;
 	struct invoices *invs = cmd->ld->invoices;
+	int res;
+	struct wallet *wallet = cmd->ld->wallet;
+	char* outlabel;
+	struct sha256 outrhash;
+	u64 outmsatoshi;
+	struct json_result *response;
 
 	if (!json_get_params(buffer, params,
 			     "?label", &labeltok,
@@ -360,30 +365,38 @@ static void json_waitanyinvoice(struct command *cmd,
 	}
 
 	if (!labeltok) {
-		i = list_top(&invs->invlist, struct invoice, list);
-
-		/* Advance until we find a PAID one */
-		while (i && i->state == UNPAID) {
-			i = list_next(&invs->invlist, i, list);
-		}
+		label = NULL;
 	} else {
 		label = tal_strndup(cmd, buffer + labeltok->start,
 				    labeltok->end - labeltok->start);
-		i = find_invoice_by_label(invs, label);
-		if (!i) {
-			command_fail(cmd, "Label not found");
-			return;
-		}
-		/* Skip this particular invoice */
-		i = list_next(&invs->invlist, i, list);
-		while (i && i->state == UNPAID) {
-			i = list_next(&invs->invlist, i, list);
-		}
+	}
+
+	/* Find next paid invoice. */
+	res = wallet_invoice_nextpaid(cmd, wallet, label,
+				      &outlabel, &outrhash, &outmsatoshi);
+	label = tal_free(label);
+
+	/* If we failed to find label, error it. */
+	if (res == -1) {
+		command_fail(cmd, "Label not found");
+		return;
 	}
 
 	/* If we found one, return it. */
-	if (i) {
-		tell_waiter(cmd, i);
+	if (res == 1) {
+		response = new_json_result(cmd);
+
+		json_object_start(response, NULL);
+		json_add_string(response, "label", outlabel);
+		json_add_hex(response, "rhash", &outrhash, sizeof(outrhash));
+		json_add_u64(response, "msatoshi", outmsatoshi);
+		json_add_bool(response, "complete", true);
+		json_object_end(response);
+
+		command_success(cmd, response);
+
+		/* outlabel is freed when cmd is freed, and command_success
+		 * also frees cmd. */
 		return;
 	}
 
