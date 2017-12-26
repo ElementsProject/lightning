@@ -1220,7 +1220,6 @@ static enum invoice_status wallet_invoice_db_state(
 void wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
 {
 	sqlite3_stmt *stmt;
-	s64 pay_index;
 	bool unpaid_to_paid = false;
 
 	/* Need to use the lower level API of sqlite3 to bind
@@ -1237,8 +1236,8 @@ void wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
 		sqlite3_bind_text(stmt, 5, inv->label, strlen(inv->label), SQLITE_TRANSIENT);
 		sqlite3_bind_int64(stmt, 6, inv->expiry_time);
 		if (inv->state == PAID) {
-			pay_index = wallet_invoice_next_pay_index(wallet->db);
-			sqlite3_bind_int64(stmt, 7, pay_index);
+			inv->pay_index = wallet_invoice_next_pay_index(wallet->db);
+			sqlite3_bind_int64(stmt, 7, inv->pay_index);
 		} else {
 			sqlite3_bind_null(stmt, 7);
 		}
@@ -1256,8 +1255,8 @@ void wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
 			stmt = db_prepare(wallet->db, "UPDATE invoices SET state=?, pay_index=? WHERE id=?;");
 
 			sqlite3_bind_int(stmt, 1, inv->state);
-			pay_index = wallet_invoice_next_pay_index(wallet->db);
-			sqlite3_bind_int64(stmt, 2, pay_index);
+			inv->pay_index = wallet_invoice_next_pay_index(wallet->db);
+			sqlite3_bind_int64(stmt, 2, inv->pay_index);
 			sqlite3_bind_int64(stmt, 3, inv->id);
 
 			db_exec_prepared(wallet->db, stmt);
@@ -1286,6 +1285,8 @@ static bool wallet_stmt2invoice(sqlite3_stmt *stmt, struct invoice *inv)
 	inv->label = tal_strndup(inv, sqlite3_column_blob(stmt, 4), sqlite3_column_bytes(stmt, 4));
 	inv->msatoshi = sqlite3_column_int64(stmt, 5);
 	inv->expiry_time = sqlite3_column_int64(stmt, 6);
+	/* Correctly 0 if pay_index is NULL. */
+	inv->pay_index = sqlite3_column_int64(stmt, 7);
 
 	list_head_init(&inv->invoice_waiters);
 	return true;
@@ -1297,7 +1298,8 @@ bool wallet_invoices_load(struct wallet *wallet, struct invoices *invs)
 	int count = 0;
 	sqlite3_stmt *stmt = db_query(__func__, wallet->db,
 				"SELECT id, state, payment_key, payment_hash, "
-				"label, msatoshi, expiry_time FROM invoices;");
+				"label, msatoshi, expiry_time, pay_index "
+				"FROM invoices;");
 	if (!stmt) {
 		log_broken(wallet->log, "Could not load invoices");
 		return false;

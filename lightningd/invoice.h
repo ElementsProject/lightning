@@ -25,6 +25,7 @@ struct invoice {
 	struct preimage r;
 	u64 expiry_time;
 	struct sha256 rhash;
+	u64 pay_index;
 	struct list_head invoice_waiters;
 };
 
