@@ -184,6 +184,7 @@ static void json_invoice(struct command *cmd,
 	invoice = tal(cmd, struct invoice);
 	invoice->id = 0;
 	invoice->state = UNPAID;
+	invoice->pay_index = 0;
 	list_head_init(&invoice->invoice_waiters);
 	randombytes_buf(invoice->r.r, sizeof(invoice->r.r));
 
