@@ -8,21 +8,27 @@ lightning-waitanyinvoice - Protocol for waiting for payments.
 
 SYNOPSIS
 --------
-*waitanyinvoice* ['lastlabel']
+*waitanyinvoice* ['lastpay_index']
 
 DESCRIPTION
 -----------
 The *waitanyinvoice* RPC command waits until an invoice is paid, then
 returns a single entry as per *listinvoice*.  It will not return for
-any invoices paid prior to or including 'lastlabel'.
+any invoices paid prior to or including the 'lastpay_index'.
 
 This is usually called iteratively: once with no arguments, then
-repeatedly with the returned 'label' entry.  This ensures that no paid
+repeatedly with the returned 'pay_index' entry.  This ensures that no paid
 invoice is missed.
+
+The 'pay_index' is a monotonically-increasing number assigned to an
+invoice when it gets paid. The first valid 'pay_index' is 1; specifying
+'lastpay_index' of 0 equivalent to not specifying a 'lastpay_index'.
+Negative 'lastpay_index' is invalid.
+
 
 RETURN VALUE
 ------------
-On success, the 'rhash', 'label', and 'msatoshi' will be returned.
+On success, the 'rhash', 'label', 'pay_index', and 'msatoshi' will be returned.
 
 //FIXME:Enumerate errors
 

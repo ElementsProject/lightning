@@ -2,12 +2,12 @@
 .\"     Title: lightning-waitanyinvoice
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 01/23/2017
+.\"      Date: 12/26/2017
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-WAITANYIN" "7" "01/23/2017" "\ \&" "\ \&"
+.TH "LIGHTNING\-WAITANYIN" "7" "12/26/2017" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,15 +31,17 @@
 lightning-waitanyinvoice \- Protocol for waiting for payments\&.
 .SH "SYNOPSIS"
 .sp
-\fBwaitanyinvoice\fR [\fIlastlabel\fR]
+\fBwaitanyinvoice\fR [\fIlastpay_index\fR]
 .SH "DESCRIPTION"
 .sp
-The \fBwaitanyinvoice\fR RPC command waits until an invoice is paid, then returns a single entry as per \fBlistinvoice\fR\&. It will not return for any invoices paid prior to or including \fIlastlabel\fR\&.
+The \fBwaitanyinvoice\fR RPC command waits until an invoice is paid, then returns a single entry as per \fBlistinvoice\fR\&. It will not return for any invoices paid prior to or including the \fIlastpay_index\fR\&.
 .sp
-This is usually called iteratively: once with no arguments, then repeatedly with the returned \fIlabel\fR entry\&. This ensures that no paid invoice is missed\&.
+This is usually called iteratively: once with no arguments, then repeatedly with the returned \fIpay_index\fR entry\&. This ensures that no paid invoice is missed\&.
+.sp
+The \fIpay_index\fR is a monotonically\-increasing number assigned to an invoice when it gets paid\&. The first valid \fIpay_index\fR is 1; specifying \fIlastpay_index\fR of 0 equivalent to not specifying a \fIlastpay_index\fR\&. Negative \fIlastpay_index\fR is invalid\&.
 .SH "RETURN VALUE"
 .sp
-On success, the \fIrhash\fR, \fIlabel\fR, and \fImsatoshi\fR will be returned\&.
+On success, the \fIrhash\fR, \fIlabel\fR, \fIpay_index\fR, and \fImsatoshi\fR will be returned\&.
 .SH "AUTHOR"
 .sp
 Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.
