@@ -2435,20 +2435,22 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.pay(inv2['bolt11'])
         r = f.result(timeout=5)
         assert r['label'] == 'inv1'
+        pay_index = r['pay_index']
 
         # This one should return immediately with inv2
-        r = self.executor.submit(l2.rpc.waitanyinvoice, 'inv1').result(timeout=5)
+        r = self.executor.submit(l2.rpc.waitanyinvoice, pay_index).result(timeout=5)
         assert r['label'] == 'inv2'
+        pay_index = r['pay_index']
 
         # Now spawn the next waiter
-        f = self.executor.submit(l2.rpc.waitanyinvoice, 'inv2')
+        f = self.executor.submit(l2.rpc.waitanyinvoice, pay_index)
         time.sleep(1)
         assert not f.done()
         l1.rpc.pay(inv3['bolt11'])
         r = f.result(timeout=5)
         assert r['label'] == 'inv3'
 
-        self.assertRaises(ValueError, l2.rpc.waitanyinvoice, 'doesntexist')
+        self.assertRaises(ValueError, l2.rpc.waitanyinvoice, 'non-number')
 
 
     def test_waitanyinvoice_reversed(self):
@@ -2471,10 +2473,11 @@ class LightningDTests(BaseLightningDTests):
         # Wait - should not block, should return inv2
         r = self.executor.submit(l2.rpc.waitanyinvoice).result(timeout=5)
         assert r['label'] == 'inv2'
+        pay_index = r['pay_index']
         # Pay inv1
         l1.rpc.pay(inv1['bolt11'])
         # Wait inv2 - should not block, should return inv1
-        r = self.executor.submit(l2.rpc.waitanyinvoice, 'inv2').result(timeout=5)
+        r = self.executor.submit(l2.rpc.waitanyinvoice, pay_index).result(timeout=5)
         assert r['label'] == 'inv1'
 
     def test_channel_reenable(self):

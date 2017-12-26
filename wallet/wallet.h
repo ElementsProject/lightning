@@ -333,28 +333,29 @@ bool wallet_htlcs_reconnect(struct wallet *wallet,
 /**
  * wallet_invoice_nextpaid -- Find a paid invoice.
  *
- * Get the details (label, rhash, msatoshi) of the next paid
- * invoice after the invoice with the given label. If label is
- * `NULL`, get the details of the first paid invoice. Return -1
- * if label is non-`NULL` and is not found, 0 if no more paid
- * invoices after specified invoice (or no paid invoices if label
- * is `NULL`), 1 if the next paid invoice was found.
+ * Get the details (label, rhash, msatoshi, pay_index) of the first paid
+ * invoice greater than the given pay_index. Return false if no paid
+ * invoice found, return true if found. The first ever paid invoice will
+ * have a pay_index of 1 or greater, so giving a pay_index of 0 will get
+ * the first ever paid invoice if there is one.
  *
  * @ctx: Context to create the returned label.
  * @wallet: Wallet to query
- * @labelz: The label to be queried (zero-terminated), or
- * `NULL` if first invoice is to be queried.
+ * @pay_index: The paid invoice returned will have pay_index greater
+ * than this argument.
  * @outlabel: Pointer to label of found paid invoice. Caller
- * must free if this function returns 1.
+ * must free if this function returns true.
  * @outrhash: Pointer to struct rhash to be filled.
  * @outmsatoshi: Pointer to number of millisatoshis value to pay.
+ * @outpay_index: Pointer to pay_index of found paid invoice.
  */
-int wallet_invoice_nextpaid(const tal_t *cxt,
-			    const struct wallet *wallet,
-			    const char *labelz,
-			    char **outlabel,
-			    struct sha256 *outrhash,
-			    u64 *outmsatoshi);
+bool wallet_invoice_nextpaid(const tal_t *cxt,
+			     const struct wallet *wallet,
+			     u64 pay_index,
+			     char **outlabel,
+			     struct sha256 *outrhash,
+			     u64 *outmsatoshi,
+			     u64 *outpay_index);
 
 /**
  * wallet_invoice_save -- Save/update an invoice to the wallet

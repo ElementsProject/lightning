@@ -83,6 +83,8 @@ static void tell_waiter(struct command *cmd, const struct invoice *paid)
 	json_add_hex(response, "rhash", &paid->rhash, sizeof(paid->rhash));
 	json_add_u64(response, "msatoshi", paid->msatoshi);
 	json_add_bool(response, "complete", paid->state == PAID);
+	if (paid->state == PAID)
+		json_add_u64(response, "pay_index", paid->pay_index);
 	json_object_end(response);
 	command_success(cmd, response);
 }
@@ -98,7 +100,11 @@ void resolve_invoice(struct lightningd *ld, struct invoice *invoice)
 
 	invoice->state = PAID;
 
-	/* Tell all the waitanyinvoice waiters about the new paid invoice */
+	/* wallet_invoice_save updates pay_index member,
+	 * which tell_waiter needs. */
+	wallet_invoice_save(ld->wallet, invoice);
+
+	/* Tell all the waiters about the new paid invoice */
 	while ((w = list_pop(&invs->invoice_waiters,
 			     struct invoice_waiter,
 			     list)) != NULL)
@@ -108,8 +114,6 @@ void resolve_invoice(struct lightningd *ld, struct invoice *invoice)
 			     struct invoice_waiter,
 			     list)) != NULL)
 		tell_waiter(w->cmd, invoice);
-
-	wallet_invoice_save(ld->wallet, invoice);
 
 	/* Also mark the payment in the history table as complete */
 	wallet_payment_set_status(ld->wallet, &invoice->rhash, PAYMENT_COMPLETE);
@@ -389,44 +393,43 @@ AUTODATA(json_command, &delinvoice_command);
 static void json_waitanyinvoice(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *labeltok;
-	const char *label = NULL;
+	jsmntok_t *pay_indextok;
+	u64 pay_index;
 	struct invoice_waiter *w;
 	struct invoices *invs = cmd->ld->invoices;
-	int res;
+	bool res;
 	struct wallet *wallet = cmd->ld->wallet;
 	char* outlabel;
 	struct sha256 outrhash;
 	u64 outmsatoshi;
+	u64 outpay_index;
 	struct json_result *response;
 
 	if (!json_get_params(buffer, params,
-			     "?label", &labeltok,
+			     "?lastpay_index", &pay_indextok,
 			     NULL)) {
 		command_fail(cmd, "Invalid arguments");
 		return;
 	}
 
-	if (!labeltok) {
-		label = NULL;
+	if (!pay_indextok) {
+		pay_index = 0;
 	} else {
-		label = tal_strndup(cmd, buffer + labeltok->start,
-				    labeltok->end - labeltok->start);
+		if (!json_tok_u64(buffer, pay_indextok, &pay_index)) {
+			command_fail(cmd, "'%.*s' is not a valid number",
+				     pay_indextok->end - pay_indextok->start,
+				     buffer + pay_indextok->start);
+			return;
+		}
 	}
 
 	/* Find next paid invoice. */
-	res = wallet_invoice_nextpaid(cmd, wallet, label,
-				      &outlabel, &outrhash, &outmsatoshi);
-	label = tal_free(label);
-
-	/* If we failed to find label, error it. */
-	if (res == -1) {
-		command_fail(cmd, "Label not found");
-		return;
-	}
+	res = wallet_invoice_nextpaid(cmd, wallet, pay_index,
+				      &outlabel, &outrhash,
+				      &outmsatoshi, &outpay_index);
 
 	/* If we found one, return it. */
-	if (res == 1) {
+	if (res) {
 		response = new_json_result(cmd);
 
 		json_object_start(response, NULL);
@@ -434,6 +437,7 @@ static void json_waitanyinvoice(struct command *cmd,
 		json_add_hex(response, "rhash", &outrhash, sizeof(outrhash));
 		json_add_u64(response, "msatoshi", outmsatoshi);
 		json_add_bool(response, "complete", true);
+		json_add_u64(response, "pay_index", outpay_index);
 		json_object_end(response);
 
 		command_success(cmd, response);
@@ -454,8 +458,8 @@ static void json_waitanyinvoice(struct command *cmd,
 static const struct json_command waitanyinvoice_command = {
 	"waitanyinvoice",
 	json_waitanyinvoice,
-	"Wait for the next invoice to be paid, after {label} (if supplied)))",
-	"Returns {label}, {rhash} and {msatoshi} on success. "
+	"Wait for the next invoice to be paid, after {lastpay_index} (if supplied)))",
+	"Returns {label}, {rhash}, {msatoshi}, and {pay_index} on success. "
 };
 AUTODATA(json_command, &waitanyinvoice_command);
 

@@ -1125,49 +1125,31 @@ bool wallet_htlcs_reconnect(struct wallet *wallet,
 	return true;
 }
 
-int wallet_invoice_nextpaid(const tal_t *cxt,
-			    const struct wallet *wallet,
-			    const char *labelz,
-			    char **outlabel,
-			    struct sha256 *outrhash,
-			    u64 *outmsatoshi)
+bool wallet_invoice_nextpaid(const tal_t *cxt,
+			     const struct wallet *wallet,
+			     u64 pay_index,
+			     char **outlabel,
+			     struct sha256 *outrhash,
+			     u64 *outmsatoshi,
+			     u64 *outpay_index)
 {
 	sqlite3_stmt *stmt;
 	int res;
-	u64 pay_index;
 
 	/* Generate query. */
-	if (labelz) {
-		/* Find label. */
-		stmt = db_prepare(wallet->db,
-				"SELECT pay_index FROM invoices WHERE label=?;");
-		sqlite3_bind_text(stmt, 1, labelz, strlen(labelz), SQLITE_TRANSIENT);
-		res = sqlite3_step(stmt);
-		if (res != SQLITE_ROW) {
-			sqlite3_finalize(stmt);
-			return -1;
-		}
-		pay_index = sqlite3_column_int64(stmt, 0);
-		sqlite3_finalize(stmt);
-
-		stmt = db_prepare(wallet->db,
-				"SELECT label, payment_hash, msatoshi FROM invoices"
-				" WHERE pay_index NOT NULL"
-				"   AND pay_index > ?"
-				" ORDER BY pay_index ASC LIMIT 1;");
-		sqlite3_bind_int64(stmt, 1, pay_index);
-	} else {
-		stmt = db_prepare(wallet->db,
-				"SELECT label, payment_hash, msatoshi FROM invoices"
-				" WHERE pay_index NOT NULL"
-				" ORDER BY pay_index ASC LIMIT 1;");
-	}
+	stmt = db_prepare(wallet->db,
+			"SELECT label, payment_hash, msatoshi, pay_index"
+			"  FROM invoices"
+			" WHERE pay_index NOT NULL"
+			"   AND pay_index > ?"
+			" ORDER BY pay_index ASC LIMIT 1;");
+	sqlite3_bind_int64(stmt, 1, pay_index);
 
 	res = sqlite3_step(stmt);
 	if (res != SQLITE_ROW) {
 		/* No paid invoice found. */
 		sqlite3_finalize(stmt);
-		return 0;
+		return false;
 	} else {
 		/* Paid invoice found, return data. */
 		*outlabel = tal_strndup(cxt, sqlite3_column_blob(stmt, 0), sqlite3_column_bytes(stmt, 0));
@@ -1177,11 +1159,11 @@ int wallet_invoice_nextpaid(const tal_t *cxt,
 
 		*outmsatoshi = sqlite3_column_int64(stmt, 2);
 
-		sqlite3_finalize(stmt);
-		return 1;
-	}
+		*outpay_index = sqlite3_column_int64(stmt, 3);
 
-	return -1;
+		sqlite3_finalize(stmt);
+		return true;
+	}
 }
 
 /* Acquire the next pay_index. */
