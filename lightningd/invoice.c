@@ -125,6 +125,21 @@ static bool hsm_sign_b11(const u5 *u5bytes,
 	return true;
 }
 
+/* Return NULL if no error, or an error string otherwise. */
+static char *delete_invoice(const tal_t *cxt,
+			    struct wallet *wallet,
+			    struct invoices *invs,
+			    struct invoice *i)
+{
+	if (!wallet_invoice_remove(wallet, i)) {
+		return tal_strdup(cxt, "Database error");
+	}
+	list_del_from(&invs->invlist, &i->list);
+
+	tal_free(i);
+	return NULL;
+}
+
 static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
@@ -302,6 +317,7 @@ static void json_delinvoice(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 	const char *label;
 	struct invoices *invs = cmd->ld->invoices;
+	char *error;
 
 	if (!json_get_params(buffer, params,
 			     "label", &labeltok,
@@ -318,21 +334,27 @@ static void json_delinvoice(struct command *cmd,
 		return;
 	}
 
-	if (!wallet_invoice_remove(cmd->ld->wallet, i)) {
-		log_broken(cmd->ld->log, "Error attempting to remove invoice %"PRIu64,
-			   i->id);
-		command_fail(cmd, "Database error");
-		return;
-	}
-	list_del_from(&invs->invlist, &i->list);
-
+	/* Get invoice details before attempting to delete, as
+	 * otherwise the invoice will be freed. */
 	json_object_start(response, NULL);
 	json_add_string(response, "label", i->label);
 	json_add_hex(response, "rhash", &i->rhash, sizeof(i->rhash));
 	json_add_u64(response, "msatoshi", i->msatoshi);
 	json_object_end(response);
+
+	error = delete_invoice(cmd, cmd->ld->wallet, invs, i);
+
+	if (error) {
+		log_broken(cmd->ld->log, "Error attempting to remove invoice %"PRIu64,
+			   i->id);
+		command_fail(cmd, "%s", error);
+		/* Both error and response are sub-objects of cmd,
+		 * and command_fail will free cmd (and also error
+		 * and response). */
+		return;
+	}
+
 	command_success(cmd, response);
-	tal_free(i);
 }
 
 static const struct json_command delinvoice_command = {
