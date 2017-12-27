@@ -1286,6 +1286,8 @@ static bool wallet_stmt2invoice(sqlite3_stmt *stmt, struct invoice *inv)
 	inv->label = tal_strndup(inv, sqlite3_column_blob(stmt, 4), sqlite3_column_bytes(stmt, 4));
 	inv->msatoshi = sqlite3_column_int64(stmt, 5);
 	inv->expiry_time = sqlite3_column_int64(stmt, 6);
+
+	list_head_init(&inv->invoice_waiters);
 	return true;
 }
 

@@ -86,6 +86,10 @@ static void tell_waiter(struct command *cmd, const struct invoice *paid)
 	json_object_end(response);
 	command_success(cmd, response);
 }
+static void tell_waiter_deleted(struct command *cmd, const struct invoice *paid)
+{
+	command_fail(cmd, "invoice deleted during wait");
+}
 
 void resolve_invoice(struct lightningd *ld, struct invoice *invoice)
 {
@@ -94,8 +98,13 @@ void resolve_invoice(struct lightningd *ld, struct invoice *invoice)
 
 	invoice->state = PAID;
 
-	/* Tell all the waiters about the new paid invoice */
+	/* Tell all the waitanyinvoice waiters about the new paid invoice */
 	while ((w = list_pop(&invs->invoice_waiters,
+			     struct invoice_waiter,
+			     list)) != NULL)
+		tell_waiter(w->cmd, invoice);
+	/* Tell any waitinvoice waiters about the invoice getting paid. */
+	while ((w = list_pop(&invoice->invoice_waiters,
 			     struct invoice_waiter,
 			     list)) != NULL)
 		tell_waiter(w->cmd, invoice);
@@ -131,10 +140,20 @@ static char *delete_invoice(const tal_t *cxt,
 			    struct invoices *invs,
 			    struct invoice *i)
 {
+	struct invoice_waiter *w;
 	if (!wallet_invoice_remove(wallet, i)) {
 		return tal_strdup(cxt, "Database error");
 	}
 	list_del_from(&invs->invlist, &i->list);
+
+	/* Tell all the waiters about the fact that it was deleted. */
+	while ((w = list_pop(&i->invoice_waiters,
+			     struct invoice_waiter,
+			     list)) != NULL) {
+		tell_waiter_deleted(w->cmd, i);
+		/* No need to free w: w is a sub-object of cmd,
+		 * and tell_waiter_deleted also deletes the cmd. */
+	}
 
 	tal_free(i);
 	return NULL;
@@ -165,6 +184,7 @@ static void json_invoice(struct command *cmd,
 	invoice = tal(cmd, struct invoice);
 	invoice->id = 0;
 	invoice->state = UNPAID;
+	list_head_init(&invoice->invoice_waiters);
 	randombytes_buf(invoice->r.r, sizeof(invoice->r.r));
 
 	sha256(&invoice->rhash, invoice->r.r, sizeof(invoice->r.r));
@@ -472,7 +492,7 @@ static void json_waitinvoice(struct command *cmd,
 		/* There is an unpaid one matching, let's wait... */
 		w = tal(cmd, struct invoice_waiter);
 		w->cmd = cmd;
-		list_add_tail(&invs->invoice_waiters, &w->list);
+		list_add_tail(&i->invoice_waiters, &w->list);
 		command_still_pending(cmd);
 	}
 }
