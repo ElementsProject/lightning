@@ -223,6 +223,7 @@ int main(void)
 	e_priv = privkey("1212121212121212121212121212121212121212121212121212121212121212");
 	e_pub = pubkey("036360e856310ce5d294e8be33fc807077dc56ac80d95d9cd4ddbd21325eff73f7");
 
+	dummy.addrlen = 0;
 	initiator_handshake(ctx, &ls_pub, &rs_pub, &dummy, success, ctx);
 	/* Should not exit! */
 	abort();
