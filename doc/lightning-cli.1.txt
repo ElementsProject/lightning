@@ -21,7 +21,7 @@ OPTIONS
   Set the directory for the lightning daemon we're talking to; defaults to
   '$HOME/.lightning'.
 *--rpc-file*='FILE'::
-  Named pipe to use to to talk to lightning daemon: default is 'lightning-rpc'
+  Named pipe to use to talk to lightning daemon: default is 'lightning-rpc'
   in the lightning directory.
 *--help*/*-h*::
   Print summary of options to standard output and exit.

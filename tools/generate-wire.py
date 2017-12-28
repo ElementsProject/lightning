@@ -412,7 +412,7 @@ def find_message_with_option(messages, optional_messages, name, option):
         optional_messages.append(m)
     return m
 
-parser = argparse.ArgumentParser(description='Generate C from from CSV')
+parser = argparse.ArgumentParser(description='Generate C from CSV')
 parser.add_argument('--header', action='store_true', help="Create wire header")
 parser.add_argument('--bolt', action='store_true', help="Generate wire-format for BOLT")
 parser.add_argument('headerfilename', help='The filename of the header')
