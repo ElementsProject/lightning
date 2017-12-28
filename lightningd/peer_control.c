@@ -2552,7 +2552,7 @@ static void peer_offer_channel(struct lightningd *ld,
 
 	msg = towire_opening_funder(fc, fc->peer->funding_satoshi,
 				    fc->peer->push_msat,
-				    get_feerate(ld->topology, FEERATE_IMMEDIATE),
+				    get_feerate(ld->topology, FEERATE_NORMAL),
 				    max_minimum_depth,
 				    fc->change, fc->change_keyindex,
 				    fc->peer->channel_flags,

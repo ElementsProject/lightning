@@ -705,7 +705,7 @@ class LightningDTests(BaseLightningDTests):
         self.assertRaises(ValueError, self.pay, l1, l2, 10**9 + 1)
 
         # This is the fee, which needs to be taken into account for l1.
-        available = 10**9 - 13440
+        available = 10**9 - 6720
         # Reserve is 1%.
         reserve = 10**7
 
