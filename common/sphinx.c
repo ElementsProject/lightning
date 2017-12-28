@@ -398,7 +398,7 @@ struct onionpacket *create_onionpacket(
 }
 
 /*
- * Given a onionpacket msg extract the information for the current
+ * Given an onionpacket msg extract the information for the current
  * node and unwrap the remainder so that the node can forward it.
  */
 struct route_step *process_onionpacket(
