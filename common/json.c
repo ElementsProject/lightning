@@ -264,8 +264,10 @@ bool json_get_params(const char *buffer, const jsmntok_t param[], ...)
 		    && buffer[(*tokptr)->start] == 'n') {
 			*tokptr = NULL;
 		}
-		if (compulsory && !*tokptr)
+		if (compulsory && !*tokptr) {
+			va_end(ap);
 			return false;
+		}
 	}
 
 	va_end(ap);
