@@ -529,8 +529,7 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	db_commit_transaction(jcon->ld->wallet->db);
 
 	/* If they didn't complete it, they must call command_still_pending */
-	if (jcon->current)
-		assert(jcon->current->pending);
+	assert(jcon->current && jcon->current->pending);
 }
 
 static struct io_plan *write_json(struct io_conn *conn,
