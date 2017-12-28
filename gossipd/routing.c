@@ -441,7 +441,7 @@ add_channel_direction(struct routing_state *rstate, const struct pubkey *from,
 		/* We already know the channel by its scid, just
 		 * update the announcement below */
 		c = c2;
-	} else if (c2) {
+	} else if (c1) {
 		/* We found the channel by its endpoints, not by scid,
 		 * so update its scid */
 		memcpy(&c1->short_channel_id, short_channel_id,
