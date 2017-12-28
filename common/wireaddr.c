@@ -107,18 +107,12 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport)
 
 // NOTE: arg is assumed to be an ipv4/6 addr string with optional port
 bool parse_ip_port(tal_t *ctx, const char *arg, char **ip, u16 *port) {
-	bool ipv6, has_brackets, has_colon;
-
 	*port = 0;
-	ipv6 = true;
-	has_brackets = false;
-	has_colon = false;
-
 	*ip = tal_strdup(ctx, arg);
 
-	ipv6 = strchr(*ip, '.') == NULL;
-	has_brackets = strchr(*ip, '[');
-	has_colon = strchr(*ip, ':');
+	bool ipv6 = strchr(*ip, '.') == NULL;
+	bool has_brackets = strchr(*ip, '[');
+	bool has_colon = strchr(*ip, ':');
 
 	// we have an ip addr with no port
 	if ((ipv6 && !has_brackets) || (!ipv6 && !has_colon))
