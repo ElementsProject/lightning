@@ -25,8 +25,6 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <wire/wire.h>

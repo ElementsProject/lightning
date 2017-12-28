@@ -15,7 +15,6 @@ static bool print_superverbose;
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
-#include <common/type_to_string.h>
 
 /* Turn this on to brute-force fee values */
 /*#define DEBUG */
