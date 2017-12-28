@@ -1,11 +1,8 @@
 from concurrent import futures
 
-import io
 import json
 import logging
 import socket
-import sys
-import threading
 
 class UnixDomainSocketRpc(object):
     def __init__(self, socket_path, executor=None):
