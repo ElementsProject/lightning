@@ -936,7 +936,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 					type_to_string(response, struct wireaddr,
 						       addrs + i));
 		json_array_end(response);
-		json_add_bool(response, "connected", "true");
+		json_add_bool(response, "connected", true);
 		json_add_string(response, "owner", gossip->name);
 		json_object_end(response);
 	}
