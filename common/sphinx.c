@@ -369,6 +369,7 @@ struct onionpacket *create_onionpacket(
 
 	for (i = num_hops - 1; i >= 0; i--) {
 		memcpy(hops_data[i].hmac, nexthmac, SECURITY_PARAMETER);
+		hops_data[i].realm = 0;
 		generate_key_set(params[i].secret, &keys);
 		generate_cipher_stream(stream, keys.rho, ROUTING_INFO_SIZE);
 
