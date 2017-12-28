@@ -455,7 +455,7 @@ for line in fileinput.input(options.files):
             #    commit_sig,0,channel-id,u64
             m = find_message(messages, parts[0])
             if m is None:
-                raise ValueError('Unknown message {}'.format(name))
+                raise ValueError('Unknown message {}'.format(parts[0]))
         elif len(parts) == 5:
             # eg.
             # channel_reestablish,48,your_last_per_commitment_secret,32,option209
