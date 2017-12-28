@@ -169,7 +169,7 @@ class BaseLightningDTests(unittest.TestCase):
     def getValgrindErrors(self, node):
         for error_file in os.listdir(node.daemon.lightning_dir):
             if not re.fullmatch("valgrind-errors.\d+", error_file):
-                continue;
+                continue
             with open(os.path.join(node.daemon.lightning_dir, error_file), 'r') as f:
                 errors = f.read().strip()
                 if errors:
@@ -716,7 +716,7 @@ class LightningDTests(BaseLightningDTests):
                                  .format(chanid)])
 
         inv = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
-        l1.rpc.pay(inv);
+        l1.rpc.pay(inv)
         assert l2.rpc.listinvoice('test_pay')[0]['complete'] == True
 
     def test_bad_opening(self):
@@ -748,7 +748,7 @@ class LightningDTests(BaseLightningDTests):
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
 
         # This should return, then close.
-        l1.rpc.close(l2.info['id']);
+        l1.rpc.close(l2.info['id'])
         l1.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
         l2.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
 
@@ -775,7 +775,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
 
         # We fail l2, so l1 will reconnect to it.
-        l2.rpc.dev_fail(l1.info['id']);
+        l2.rpc.dev_fail(l1.info['id'])
         l2.daemon.wait_for_log('Failing due to dev-fail command')
         l2.daemon.wait_for_log('sendrawtx exit 0')
 
@@ -1684,7 +1684,7 @@ class LightningDTests(BaseLightningDTests):
         inv = l2.rpc.invoice(amt, 'test_htlc_out_timeout', 'desc')['bolt11']
         assert l2.rpc.listinvoice('test_htlc_out_timeout')[0]['complete'] == False
 
-        payfuture = self.executor.submit(l1.rpc.pay, inv);
+        payfuture = self.executor.submit(l1.rpc.pay, inv)
 
         # l1 will drop to chain, not reconnect.
         l1.daemon.wait_for_log('dev_disconnect: @WIRE_REVOKE_AND_ACK')
@@ -1724,7 +1724,7 @@ class LightningDTests(BaseLightningDTests):
         inv = l2.rpc.invoice(amt, 'test_htlc_in_timeout', 'desc')['bolt11']
         assert l2.rpc.listinvoice('test_htlc_in_timeout')[0]['complete'] == False
 
-        payfuture = self.executor.submit(l1.rpc.pay, inv);
+        payfuture = self.executor.submit(l1.rpc.pay, inv)
 
         # l1 will drop to chain, not reconnect.
         l1.daemon.wait_for_log('dev_disconnect: -WIRE_REVOKE_AND_ACK')
@@ -1839,7 +1839,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('sendrawtx exit 0')
 
         # Wait for reconnect, awaiting lockin..
-        l1.daemon.wait_for_log('Peer has reconnected, state CHANNELD_AWAITING_LOCKIN');
+        l1.daemon.wait_for_log('Peer has reconnected, state CHANNELD_AWAITING_LOCKIN')
 
         l1.bitcoin.generate_block(6)
 
@@ -2011,7 +2011,7 @@ class LightningDTests(BaseLightningDTests):
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
 
         # This should return, then close.
-        l1.rpc.close(l2.info['id']);
+        l1.rpc.close(l2.info['id'])
         l1.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
         l2.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
 
@@ -2039,7 +2039,7 @@ class LightningDTests(BaseLightningDTests):
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
 
         # This should return, then close.
-        l1.rpc.close(l2.info['id']);
+        l1.rpc.close(l2.info['id'])
         l1.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
         l2.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
 
@@ -2421,7 +2421,7 @@ class LightningDTests(BaseLightningDTests):
         self.pay(l2,l1,100000000)
 
         # Now shutdown cleanly.
-        l1.rpc.close(l2.info['id']);
+        l1.rpc.close(l2.info['id'])
         l1.daemon.wait_for_log('-> CLOSINGD_COMPLETE')
         l2.daemon.wait_for_log('-> CLOSINGD_COMPLETE')
 
@@ -2464,7 +2464,7 @@ class LightningDTests(BaseLightningDTests):
         assert l2.daemon.is_in_log('got commitsig [0-9]*: feerate 14000')
 
         # Now shutdown cleanly.
-        l1.rpc.close(l2.info['id']);
+        l1.rpc.close(l2.info['id'])
         l1.daemon.wait_for_log('-> CLOSINGD_COMPLETE')
         l2.daemon.wait_for_log('-> CLOSINGD_COMPLETE')
 
