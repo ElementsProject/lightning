@@ -639,7 +639,6 @@ static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer);
 static struct io_plan *local_gossip_broadcast_done(struct io_conn *conn,
 						   struct peer *peer)
 {
-	status_trace("%s", __func__);
 	peer->broadcast_index++;
 	return peer_pkt_out(conn, peer);
 }
