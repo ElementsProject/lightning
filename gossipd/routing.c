@@ -573,8 +573,8 @@ bool handle_channel_announcement(
 	/* Is this a new connection? It is if we don't know the
 	 * channel yet, or do not have a matching announcement in the
 	 * case of side-loaded channels*/
-	c0 = get_connection_by_scid(rstate, &short_channel_id, 0);
-	c1 = get_connection_by_scid(rstate, &short_channel_id, 1);
+	c0 = get_connection(rstate, &node_id_2, &node_id_1);
+	c1 = get_connection(rstate, &node_id_1, &node_id_2);
 	forward = !c0 || !c1 || !c0->channel_announcement || !c1->channel_announcement;
 
 	add_channel_direction(rstate, &node_id_1, &node_id_2, &short_channel_id,
