@@ -365,5 +365,7 @@ int main(int argc, char *argv[])
 #if DEVELOPER
 	memleak_cleanup();
 #endif
+	take_cleanup();
+	secp256k1_context_destroy(secp256k1_ctx);
 	return 0;
 }
