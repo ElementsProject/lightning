@@ -178,6 +178,7 @@ TEST_GROUP_COUNT=1
 endif
 
 check:
+	$(MAKE) installcheck
 	$(MAKE) pytest
 
 pytest: $(ALL_PROGRAMS)
@@ -393,7 +394,19 @@ uninstall:
 	  rm -f $(DESTDIR)$(docdir)/`basename $$f`; \
 	done
 
-.PHONY: installdirs install-program install-data install uninstall
+installcheck:
+	@rm -rf testinstall || true
+	$(MAKE) DESTDIR=testinstall install
+	testinstall$(bindir)/lightningd --test-daemons-only --lightning-dir=testinstall
+	$(MAKE) DESTDIR=testinstall uninstall
+	@if test `find testinstall '!' -type d | wc -l` -ne 0; then \
+		echo 'make uninstall left some files in testinstall directory!'; \
+		exit 1; \
+	fi
+	@rm -rf testinstall || true
+
+.PHONY: installdirs install-program install-data install uninstall \
+	installcheck
 
 ccan-breakpoint.o: $(CCANDIR)/ccan/breakpoint/breakpoint.c
 	$(CC) $(CFLAGS) -c -o $@ $<
