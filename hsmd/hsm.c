@@ -15,9 +15,11 @@
 #include <ccan/take/take.h>
 #include <common/daemon_conn.h>
 #include <common/debug.h>
+#include <common/derive_basepoints.h>
 #include <common/funding_tx.h>
 #include <common/hash_u5.h>
 #include <common/io_debug.h>
+#include <common/key_derive.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
@@ -344,16 +346,27 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	return io_close(conn);
 }
 
+/**
+ * hsm_peer_secret_base -- Derive the base secret seed for per-peer seeds
+ *
+ * This secret is shared by all channels/peers for the client. The
+ * per-peer seeds will be generated from it by mixing in the
+ * channel_id and the peer node_id.
+ */
+static void hsm_peer_secret_base(struct secret *peer_seed_base)
+{
+	hkdf_sha256(peer_seed_base, sizeof(struct secret), NULL, 0,
+		    &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret),
+		    "peer seed", strlen("peer seed"));
+}
+
 static void send_init_response(struct daemon_conn *master)
 {
 	struct pubkey node_id;
 	struct secret peer_seed;
 	u8 *msg;
 
-	hkdf_sha256(&peer_seed, sizeof(peer_seed), NULL, 0,
-		    &secretstuff.hsm_secret,
-		    sizeof(secretstuff.hsm_secret),
-		    "peer seed", strlen("peer seed"));
+	hsm_peer_secret_base(&peer_seed);
 	node_key(NULL, &node_id);
 
 	msg = towire_hsm_init_reply(master, &node_id, &peer_seed,
@@ -533,6 +546,55 @@ static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg)
 	daemon_conn_send_fd(master, fds[1]);
 }
 
+
+static void derive_peer_seed(struct privkey *peer_seed, struct privkey *peer_seed_base,
+		      const struct pubkey *peer_id, const u64 channel_id)
+{
+	u8 input[PUBKEY_DER_LEN + sizeof(channel_id)];
+	char *info = "per-peer seed";
+	pubkey_to_der(input, peer_id);
+	memcpy(input + PUBKEY_DER_LEN, &channel_id, sizeof(channel_id));
+
+	hkdf_sha256(peer_seed, sizeof(*peer_seed),
+		    input, sizeof(input),
+		    peer_seed_base, sizeof(*peer_seed_base),
+		    info, strlen(info));
+}
+
+static void hsm_unilateral_close_privkey(struct privkey *dst,
+					 struct unilateral_close_info *info)
+{
+	struct privkey peer_seed, peer_seed_base;
+	struct basepoints basepoints;
+	struct secrets secrets;
+	hsm_peer_secret_base(&peer_seed_base.secret);
+	derive_peer_seed(&peer_seed, &peer_seed_base, &info->peer_id, info->channel_id);
+	derive_basepoints(&peer_seed, NULL, &basepoints, &secrets, NULL);
+
+	derive_simple_privkey(&secrets.payment_basepoint_secret,
+			      &basepoints.payment, &info->commitment_point,
+			      dst);
+}
+
+/**
+ * hsm_key_for_utxo - generate the keypair matching the utxo
+ */
+static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
+			     const struct utxo *utxo)
+{
+	if (utxo->close_info != NULL) {
+		/* This is a their_unilateral_close/to-us output, so
+		 * we need to derive the secret the long way */
+		status_trace("Unilateral close output, deriving secrets");
+		hsm_unilateral_close_privkey(privkey, utxo->close_info);
+		pubkey_from_privkey(privkey, pubkey);
+		status_trace("Derived public key %s from unilateral close", type_to_string(trc, struct pubkey, pubkey));
+	} else {
+		/* Simple case: just get derive via HD-derivation */
+		bitcoin_keypair(privkey, pubkey, utxo->keyindex);
+	}
+}
+
 /* Note that it's the main daemon that asks for the funding signature so it
  * can broadcast it. */
 static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
@@ -575,7 +637,8 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 		u8 *subscript;
 		secp256k1_ecdsa_signature sig;
 
-		bitcoin_keypair(&inprivkey, &inkey, in->keyindex);
+		hsm_key_for_utxo(&inprivkey, &inkey, in);
+
 		if (in->is_p2sh)
 			subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
 		else
@@ -649,8 +712,9 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 		u8 *subscript;
 		secp256k1_ecdsa_signature sig;
 
-		bitcoin_keypair(&inprivkey, &inkey, in->keyindex);
-		if (utxos[i]->is_p2sh)
+		hsm_key_for_utxo(&inprivkey, &inkey, in);
+
+		if (in->is_p2sh || in->close_info != NULL)
 			subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
 		else
 			subscript = NULL;
