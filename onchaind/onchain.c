@@ -1053,7 +1053,7 @@ static void resolve_our_htlc_ourcommit(struct tracked_output *out)
 						  out->wscript);
 
 	propose_resolution_at_block(out, tx, out->htlc->cltv_expiry,
-				    OUR_HTLC_TIMEOUT_TO_US);
+				    OUR_HTLC_TIMEOUT_TX);
 }
 
 static void resolve_our_htlc_theircommit(struct tracked_output *out)
