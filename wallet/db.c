@@ -332,7 +332,7 @@ static int db_migration_count(void)
 /**
  * db_migrate - Apply all remaining migrations from the current version
  */
-static void db_migrate(struct db *db)
+static void db_migrate(struct db *db, struct log *log)
 {
 	/* Attempt to read the version from the database */
 	int current, available;
@@ -341,6 +341,12 @@ static void db_migrate(struct db *db)
 
 	current = db_get_version(db);
 	available = db_migration_count();
+
+	if (current == -1)
+		log_info(log, "Creating database");
+	else if (current != available)
+		log_info(log, "Updating database from version %u to %u",
+			 current, available);
 
 	while (++current <= available)
 		db_exec(__func__, db, "%s", dbmigrations[current]);
@@ -351,11 +357,11 @@ static void db_migrate(struct db *db)
 	db_commit_transaction(db);
 }
 
-struct db *db_setup(const tal_t *ctx)
+struct db *db_setup(const tal_t *ctx, struct log *log)
 {
 	struct db *db = db_open(ctx, DB_FILE);
 
-	db_migrate(db);
+	db_migrate(db, log);
 	return db;
 }
 

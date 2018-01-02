@@ -17,7 +17,7 @@
 struct wallet *wallet_new(const tal_t *ctx, struct log *log)
 {
 	struct wallet *wallet = tal(ctx, struct wallet);
-	wallet->db = db_setup(wallet);
+	wallet->db = db_setup(wallet, log);
 	wallet->log = log;
 	wallet->bip32_base = NULL;
 	return wallet;

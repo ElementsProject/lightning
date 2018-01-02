@@ -3,6 +3,11 @@
 static void db_fatal(const char *fmt, ...);
 #define fatal db_fatal
 
+static void db_log_(struct log *log, enum log_level level, const char *fmt, ...)
+{
+}
+#define log_ db_log_
+
 #include "wallet/db.c"
 
 #include "test_utils.h"
@@ -48,7 +53,7 @@ static bool test_empty_db_migrate(void)
 	db_begin_transaction(db);
 	CHECK(db_get_version(db) == -1);
 	db_commit_transaction(db);
-	db_migrate(db);
+	db_migrate(db, NULL);
 	db_begin_transaction(db);
 	CHECK(db_get_version(db) == db_migration_count());
 	db_commit_transaction(db);
@@ -86,7 +91,7 @@ static bool test_vars(void)
 	struct db *db = create_test_db(__func__);
 	char *varname = "testvar";
 	CHECK(db);
-	db_migrate(db);
+	db_migrate(db, NULL);
 
 	db_begin_transaction(db);
 	/* Check default behavior */
