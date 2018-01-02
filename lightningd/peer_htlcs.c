@@ -651,6 +651,7 @@ out:
 static void fulfill_our_htlc_out(struct peer *peer, struct htlc_out *hout,
 				 const struct preimage *preimage)
 {
+	assert(!hout->preimage);
 	hout->preimage = tal_dup(hout, struct preimage, preimage);
 	htlc_out_check(hout, __func__);
 
@@ -700,7 +701,11 @@ void onchain_fulfilled_htlc(struct peer *peer, const struct preimage *preimage)
 		if (!structeq(&hout->payment_hash, &payment_hash))
 			continue;
 
-		fulfill_our_htlc_out(peer, hout, preimage);
+		/* We may have already fulfilled before going onchain, or
+		 * we can fulfill onchain multiple times. */
+		if (!hout->preimage)
+			fulfill_our_htlc_out(peer, hout, preimage);
+
 		/* We keep going: this is something of a leak, but onchain
 		 * we have no real way of distinguishing HTLCs anyway */
 	}
