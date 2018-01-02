@@ -763,7 +763,7 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 		return;
 	}
 
-	if (get_connection_by_scid(rstate, &scid, 0) || get_connection_by_scid(rstate, &scid, 0)) {
+	if (get_connection_by_scid(rstate, &scid, 0)) {
 		status_trace("Attempted to local_add_channel a know channel");
 		return;
 	}
