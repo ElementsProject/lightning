@@ -40,6 +40,9 @@ static void swap_inputs(struct bitcoin_tx_input *inputs,
 	struct bitcoin_tx_input tmpinput;
 	const void *tmp;
 
+	if (i1 == i2)
+		return;
+
 	tmpinput = inputs[i1];
 	inputs[i1] = inputs[i2];
 	inputs[i2] = tmpinput;
@@ -57,7 +60,7 @@ void permute_inputs(struct bitcoin_tx_input *inputs, size_t num_inputs,
 	size_t i;
 
 	/* Now do a dumb sort (num_inputs is small). */
-	for (i = 0; i < num_inputs; i++) {
+	for (i = 0; i < num_inputs-1; i++) {
 		/* Swap best into first place. */
 		swap_inputs(inputs, map,
 			    i, i + find_best_in(inputs + i, num_inputs - i));
@@ -70,6 +73,9 @@ static void swap_outputs(struct bitcoin_tx_output *outputs,
 {
 	struct bitcoin_tx_output tmpoutput;
 	const void *tmp;
+
+	if (i1 == i2)
+		return;
 
 	tmpoutput = outputs[i1];
 	outputs[i1] = outputs[i2];
@@ -121,7 +127,7 @@ void permute_outputs(struct bitcoin_tx_output *outputs, size_t num_outputs,
 	size_t i;
 
 	/* Now do a dumb sort (num_outputs is small). */
-	for (i = 0; i < num_outputs; i++) {
+	for (i = 0; i < num_outputs-1; i++) {
 		/* Swap best into first place. */
 		swap_outputs(outputs, map,
 			     i, i + find_best_out(outputs + i, num_outputs - i));
