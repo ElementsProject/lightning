@@ -23,6 +23,7 @@ HSMD_COMMON_OBJS :=				\
 	common/bip32.o				\
 	common/daemon_conn.o			\
 	common/debug.o				\
+	common/derive_basepoints.o		\
 	common/funding_tx.o			\
 	common/hash_u5.o			\
 	common/io_debug.o			\
