@@ -2473,7 +2473,7 @@ class LightningDTests(BaseLightningDTests):
         assert r['label'] == 'inv2'
         # Pay inv1
         l1.rpc.pay(inv1['bolt11'])
-        # Wait inv2 - should not blok, should return inv1
+        # Wait inv2 - should not block, should return inv1
         r = self.executor.submit(l2.rpc.waitanyinvoice, 'inv2').result(timeout=5)
         assert r['label'] == 'inv1'
 
