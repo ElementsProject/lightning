@@ -4,6 +4,11 @@ static void wallet_fatal(const char *fmt, ...);
 #define fatal wallet_fatal
 #include "test_utils.h"
 
+static void db_log_(struct log *log, enum log_level level, const char *fmt, ...)
+{
+}
+#define log_ db_log_
+
 #include "wallet/wallet.c"
 
 #include "wallet/db.c"
@@ -65,13 +70,14 @@ static struct wallet *create_test_wallet(const tal_t *ctx)
 
 	w->db = db_open(w, filename);
 
-	CHECK_MSG(w->db, "Failed opening the db");
-	db_migrate(w->db);
-	CHECK_MSG(!wallet_err, "DB migration failed");
-
 	ltmp = tal_tmpctx(ctx);
 	log_book = new_log_book(w, 20*1024*1024, LOG_DBG);
 	w->log = new_log(w, log_book, "wallet_tests(%u):", (int)getpid());
+
+	CHECK_MSG(w->db, "Failed opening the db");
+	db_migrate(w->db, w->log);
+	CHECK_MSG(!wallet_err, "DB migration failed");
+
 
 	return w;
 }
@@ -87,7 +93,7 @@ static bool test_wallet_outputs(void)
 
 	w->db = db_open(w, filename);
 	CHECK_MSG(w->db, "Failed opening the db");
-	db_migrate(w->db);
+	db_migrate(w->db, NULL);
 	CHECK_MSG(!wallet_err, "DB migration failed");
 
 	memset(&u, 0, sizeof(u));
@@ -142,7 +148,7 @@ static bool test_shachain_crud(void)
 
 	w->db = db_open(w, filename);
 	CHECK_MSG(w->db, "Failed opening the db");
-	db_migrate(w->db);
+	db_migrate(w->db, NULL);
 	CHECK_MSG(!wallet_err, "DB migration failed");
 
 	CHECK_MSG(fd != -1, "Unable to generate temp filename");

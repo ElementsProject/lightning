@@ -13,6 +13,8 @@
 #include <sqlite3.h>
 #include <stdbool.h>
 
+struct log;
+
 struct db {
 	char *filename;
 	const char *in_transaction;
@@ -30,7 +32,7 @@ struct db {
  *  @ctx: the tal_t context to allocate from
  *  @log: where to log messages to
  */
-struct db *db_setup(const tal_t *ctx);
+struct db *db_setup(const tal_t *ctx, struct log *log);
 
 /**
  * db_query - Prepare and execute a query, and return the result (or NULL)
