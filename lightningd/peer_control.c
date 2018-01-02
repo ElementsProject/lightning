@@ -2439,7 +2439,6 @@ static void peer_accept_channel(struct lightningd *ld,
 	/* Store the channel in the database in order to get a channel
 	 * ID that is unique and which we can base the peer_seed on */
 	peer->channel = peer_channel_new(ld->wallet, peer);
-	wallet_channel_save(peer->ld->wallet, peer->channel);
 	peer->seed = tal(peer, struct privkey);
 	derive_peer_seed(ld, peer->seed, &peer->id, peer->channel->id);
 
@@ -2510,7 +2509,6 @@ static void peer_offer_channel(struct lightningd *ld,
 	/* Store the channel in the database in order to get a channel
 	 * ID that is unique and which we can base the peer_seed on */
 	fc->peer->channel = peer_channel_new(ld->wallet, fc->peer);
-	wallet_channel_save(fc->peer->ld->wallet, fc->peer->channel);
 	fc->peer->seed = tal(fc->peer, struct privkey);
 	derive_peer_seed(ld, fc->peer->seed, &fc->peer->id,
 			 fc->peer->channel->id);
