@@ -396,7 +396,7 @@ static u64 increase(u32 feerate_per_kw)
 	const u64 rates[] = { 0, 648, 2070, 2195, 3703, 4915, 9651181 };
 	size_t i;
 
-	for (i = 0; i < ARRAY_SIZE(rates); i++)
+	for (i = 0; i < ARRAY_SIZE(rates) - 1; i++)
 		if (rates[i] == feerate_per_kw)
 			return rates[i+1];
 
