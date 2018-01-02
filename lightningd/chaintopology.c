@@ -418,7 +418,7 @@ static void have_new_block(struct bitcoind *bitcoind,
 			   struct bitcoin_block *blk,
 			   struct chain_topology *topo)
 {
-	/* Unexpected precessor?  Free predecessor, refetch it. */
+	/* Unexpected predecessor?  Free predecessor, refetch it. */
 	if (!structeq(&topo->tip->blkid, &blk->hdr.prev_hash))
 		remove_tip(topo);
 	else

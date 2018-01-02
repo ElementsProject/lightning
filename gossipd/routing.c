@@ -587,7 +587,7 @@ bool handle_channel_announcement(
 				    WIRE_CHANNEL_ANNOUNCEMENT,
 				    (u8*)tag, serialized))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "Announcemnet %s was replaced?",
+				      "Announcement %s was replaced?",
 				      tal_hex(trc, serialized));
 	}
 
