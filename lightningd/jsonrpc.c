@@ -130,6 +130,7 @@ static void log_to_json(unsigned int skipped,
 	json_add_time(info->response, "time", diff.ts);
 	json_add_string(info->response, "source", prefix);
 	if (level == LOG_IO) {
+		assert(tal_count(log) > 0);
 		if (log[0])
 			json_add_string(info->response, "direction", "IN");
 		else
