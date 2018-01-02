@@ -68,7 +68,8 @@ static void set_pubkey(struct pubkey *key)
 		sizeof((p1)->field)) == 0)
 
 #define eq_var(p1, p2, field)			\
-	(tal_count((p1)->field) == tal_count((p2)->field) && memcmp((p1)->field, (p2)->field, tal_count((p1)->field) * sizeof(*(p1)->field)) == 0)
+	(tal_count((p1)->field) == tal_count((p2)->field) \
+	 && (tal_count((p1)->field) == 0 || memcmp((p1)->field, (p2)->field, tal_len((p1)->field)) == 0))
 
 /* Convenience structs for everyone! */
 struct msg_error {
