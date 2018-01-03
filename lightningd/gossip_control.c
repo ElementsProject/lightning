@@ -274,7 +274,6 @@ static void json_getchannels_reply(struct subd *gossip, const u8 *reply,
 	size_t i;
 	struct gossip_getchannels_entry *entries;
 	struct json_result *response = new_json_result(cmd);
-	struct short_channel_id *scid;
 
 	if (!fromwire_gossip_getchannels_reply(reply, reply, NULL, &entries)) {
 		command_fail(cmd, "Invalid reply from gossipd");
@@ -284,15 +283,13 @@ static void json_getchannels_reply(struct subd *gossip, const u8 *reply,
 	json_object_start(response, NULL);
 	json_array_start(response, "channels");
 	for (i = 0; i < tal_count(entries); i++) {
-		scid = &entries[i].short_channel_id;
 		json_object_start(response, NULL);
 		json_add_pubkey(response, "source", &entries[i].source);
 		json_add_pubkey(response, "destination",
 				&entries[i].destination);
-		json_add_string(response, "short_id",
-				tal_fmt(reply, "%d:%d:%d/%d", scid->blocknum,
-					scid->txnum, scid->outnum,
-					entries[i].flags & 0x1));
+		json_add_string(response, "short_channel_id",
+				type_to_string(reply, struct short_channel_id,
+					       &entries[i].short_channel_id));
 		json_add_num(response, "flags", entries[i].flags);
 		json_add_bool(response, "active", entries[i].active);
 		if (entries[i].last_update_timestamp >= 0) {
