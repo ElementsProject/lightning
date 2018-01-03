@@ -2362,6 +2362,15 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.start()
         assert l1.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 99980000
 
+        # Now make sure l1 is watching for unilateral closes
+        l2.rpc.dev_fail(l1.info['id']);
+        l2.daemon.wait_for_log('Failing due to dev-fail command')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+        bitcoind.generate_block(1)
+
+        # L1 must notice.
+        l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
+
     def test_gossip_badsig(self):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node()
