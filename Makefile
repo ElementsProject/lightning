@@ -179,9 +179,9 @@ check:
 
 pytest: $(ALL_PROGRAMS)
 ifndef PYTEST
-	PYTHONPATH=contrib/pylightning DEVELOPER=$(DEVELOPER) python3 tests/test_lightningd.py -f
+	PYTHONPATH=contrib/pylightning:$$PYTHONPATH DEVELOPER=$(DEVELOPER) python3 tests/test_lightningd.py -f
 else
-	PYTHONPATH=contrib/pylightning TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) $(PYTEST) -vx tests/test_lightningd.py --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT)
+	PYTHONPATH=contrib/pylightning:$$PYTHONPATH TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) $(PYTEST) -vx tests/test_lightningd.py --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT)
 endif
 
 # Keep includes in alpha order.
