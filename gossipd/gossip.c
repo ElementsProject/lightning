@@ -1059,6 +1059,7 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 			entries[num_chans].destination = n->out[j]->dst->id;
 			entries[num_chans].active = n->out[j]->active;
 			entries[num_chans].flags = n->out[j]->flags;
+			entries[num_chans].public = (n->out[j]->channel_update != NULL);
 			entries[num_chans].short_channel_id = n->out[j]->short_channel_id;
 			entries[num_chans].last_update_timestamp = n->out[j]->last_timestamp;
 			if (entries[num_chans].last_update_timestamp >= 0) {

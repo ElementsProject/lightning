@@ -1342,6 +1342,17 @@ class LightningDTests(BaseLightningDTests):
         # Make sure we can route through the channel, will raise on failure
         l1.rpc.getroute(l2.info['id'], 100, 1)
 
+        # Outgoing should be active, but not public.
+        channels = l1.rpc.getchannels()['channels']
+        assert len(channels) == 1
+        assert channels[0]['active'] == True
+        assert channels[0]['public'] == False
+
+        channels = l2.rpc.getchannels()['channels']
+        assert len(channels) == 1
+        assert channels[0]['active'] == True
+        assert channels[0]['public'] == False
+
         # Now proceed to funding-depth and do a full gossip round
         l1.bitcoin.generate_block(5)
         # Could happen in either order.
@@ -1358,9 +1369,16 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('peer_in WIRE_CHANNEL_UPDATE')
         l2.daemon.wait_for_log('peer_in WIRE_CHANNEL_UPDATE')
 
+        # Now should be active and public.
         channels = l1.rpc.getchannels()['channels']
         assert len(channels) == 2
-        wait_for(lambda: [c['active'] for c in channels] == [True, True])
+        assert [c['active'] for c in channels] == [True, True]
+        assert [c['public'] for c in channels] == [True, True]
+
+        channels = l2.rpc.getchannels()['channels']
+        assert len(channels) == 2
+        assert [c['active'] for c in channels] == [True, True]
+        assert [c['public'] for c in channels] == [True, True]
 
     def ping_tests(self, l1, l2):
         # 0-byte pong gives just type + length field.

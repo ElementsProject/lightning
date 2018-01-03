@@ -87,9 +87,8 @@ cli/lightning-cli fundchannel <node_id> <amount>
 ```
 
 This opens a connection and, on top of that connection, then opens a channel.
-The funding transaction needs 6 confirmations in order for the channel to be usable.
-You can check the status of the channel using `cli/lightning-cli getpeers`, which after 1 confirmation should say that the status is in _Normal operation_.
-After 6 confirmations you can use `cli/lightning-cli getchannels` to verify that the channel shows up in the list of open channels.
+The funding transaction needs 1 confirmations in order for the channel to be usable, and 6 to be broadcast for others to use.
+You can check the status of the channel using `cli/lightning-cli getpeers`, which after 1 confirmation should say that `state` is `CHANNELD_NORMAL`; after 6 confirmations you can use `cli/lightning-cli getchannels` to verify that the `public` field is now `true`.
 
 ### Receiving and receiving payments
 
