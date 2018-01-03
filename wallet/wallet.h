@@ -197,8 +197,6 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 bool wallet_shachain_load(struct wallet *wallet, u64 id,
 			  struct wallet_shachain *chain);
 
-bool wallet_channel_load(struct wallet *w, const u64 id,
-			 struct wallet_channel *chan);
 
 /**
  * wallet_channel_save -- Upsert the channel into the database
