@@ -559,7 +559,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 
 /* List of fields to retrieve from the channels DB table, in the order
  * that wallet_stmt2channel understands and will parse correctly */
-const char *channel_fields =
+static const char *channel_fields =
     "id, peer_id, short_channel_id, channel_config_local, "
     "channel_config_remote, state, funder, channel_flags, "
     "minimum_depth, "
@@ -573,27 +573,6 @@ const char *channel_fields =
     "shutdown_scriptpubkey_remote, shutdown_keyidx_local, "
     "last_sent_commit_state, last_sent_commit_id, "
     "last_tx, last_sig";
-
-bool wallet_channel_load(struct wallet *w, const u64 id,
-			 struct wallet_channel *chan)
-{
-	bool ok;
-	/* The explicit query that matches the columns and their order in
-	 * wallet_stmt2channel. */
-	sqlite3_stmt *stmt = db_query(
-	    __func__, w->db, "SELECT %s FROM channels WHERE id=%" PRIu64 ";",
-	    channel_fields, id);
-
-	if (!stmt || sqlite3_step(stmt) != SQLITE_ROW) {
-		sqlite3_finalize(stmt);
-		return false;
-	}
-
-	ok = wallet_stmt2channel(w, stmt, chan);
-
-	sqlite3_finalize(stmt);
-	return ok;
-}
 
 bool wallet_channels_load_active(struct wallet *w, struct list_head *peers)
 {

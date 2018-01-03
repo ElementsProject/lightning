@@ -255,6 +255,22 @@ static bool channelseq(struct wallet_channel *c1, struct wallet_channel *c2)
 	return true;
 }
 
+static struct wallet_channel *wallet_channel_load(struct wallet *w, const u64 id)
+{
+	struct list_head peers;
+	struct peer *peer;
+
+	list_head_init(&peers);
+
+	/* We expect only one peer, but reuse same code */
+	if (!wallet_channels_load_active(w, &peers))
+		return NULL;
+	peer = list_top(&peers, struct peer, list);
+	CHECK(peer);
+	CHECK(peer->channel->id == id);
+	return peer->channel;
+}
+
 static bool test_channel_crud(const tal_t *ctx)
 {
 	struct wallet *w = create_test_wallet(ctx);
@@ -284,6 +300,7 @@ static bool test_channel_crud(const tal_t *ctx)
 	p.id = pk;
 	p.our_msatoshi = NULL;
 	p.last_tx = NULL;
+	p.state = CHANNELD_NORMAL;
 	memset(&ci.their_config, 0, sizeof(struct channel_config));
 	ci.remote_fundingkey = pk;
 	ci.theirbase.revocation = pk;
@@ -300,7 +317,7 @@ static bool test_channel_crud(const tal_t *ctx)
 	wallet_channel_save(w, &c1);
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
-	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB"));
+	CHECK_MSG(c2 = wallet_channel_load(w, c1.id), tal_fmt(w, "Load from DB"));
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Load from DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v1)");
@@ -315,7 +332,7 @@ static bool test_channel_crud(const tal_t *ctx)
 	wallet_channel_save(w, &c1);
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
-	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB"));
+	CHECK_MSG(c2 = wallet_channel_load(w, c1.id), tal_fmt(w, "Load from DB"));
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v2)");
@@ -330,7 +347,7 @@ static bool test_channel_crud(const tal_t *ctx)
 
 	wallet_channel_save(w, &c1);
 	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
-	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB"));
+	CHECK_MSG(c2 = wallet_channel_load(w, c1.id), tal_fmt(w, "Load from DB"));
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v3)");
@@ -339,7 +356,7 @@ static bool test_channel_crud(const tal_t *ctx)
 	c1.peer->funding_txid = hash;
 	wallet_channel_save(w, &c1);
 	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
-	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB"));
+	CHECK_MSG(c2 = wallet_channel_load(w, c1.id), tal_fmt(w, "Load from DB"));
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v4)");
@@ -348,7 +365,7 @@ static bool test_channel_crud(const tal_t *ctx)
 	p.channel_info = &ci;
 	wallet_channel_save(w, &c1);
 	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
-	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB"));
+	CHECK_MSG(c2 = wallet_channel_load(w, c1.id), tal_fmt(w, "Load from DB"));
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v5)");
@@ -357,7 +374,7 @@ static bool test_channel_crud(const tal_t *ctx)
 	p.last_sent_commit = &last_commit;
 	wallet_channel_save(w, &c1);
 	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
-	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB"));
+	CHECK_MSG(c2 = wallet_channel_load(w, c1.id), tal_fmt(w, "Load from DB"));
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v6)");
@@ -367,7 +384,7 @@ static bool test_channel_crud(const tal_t *ctx)
 	p.last_sig = sig;
 	wallet_channel_save(w, &c1);
 	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
-	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB"));
+	CHECK_MSG(c2 = wallet_channel_load(w, c1.id), tal_fmt(w, "Load from DB"));
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v7)");
@@ -377,7 +394,7 @@ static bool test_channel_crud(const tal_t *ctx)
 	p.local_shutdown_idx = 1337;
 	wallet_channel_save(w, &c1);
 	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
-	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB"));
+	CHECK_MSG(c2 = wallet_channel_load(w, c1.id), tal_fmt(w, "Load from DB"));
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v8)");
