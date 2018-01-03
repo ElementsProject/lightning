@@ -597,6 +597,25 @@ bool wallet_channels_load_active(struct wallet *w, struct list_head *peers)
 	return ok;
 }
 
+u32 wallet_channels_first_blocknum(struct wallet *w)
+{
+	int err;
+	u32 first_blocknum;
+	sqlite3_stmt *stmt =
+	    db_query(__func__, w->db,
+		     "SELECT MIN(first_blocknum) FROM channels WHERE state >= %d AND state != %d;",
+		     OPENINGD, CLOSINGD_COMPLETE);
+
+	err = sqlite3_step(stmt);
+	if (err == SQLITE_ROW && sqlite3_column_type(stmt, 1) != SQLITE_NULL)
+		first_blocknum = sqlite3_column_int(stmt, 1);
+	else
+		first_blocknum = UINT32_MAX;
+
+	sqlite3_finalize(stmt);
+	return first_blocknum;
+}
+
 void wallet_channel_config_save(struct wallet *w, struct channel_config *cc)
 {
 	sqlite3_stmt *stmt;

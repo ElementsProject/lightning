@@ -145,6 +145,11 @@ char *dbmigrations[] = {
     "  VALUES('next_pay_index', "
     "    COALESCE((SELECT MAX(pay_index) FROM invoices WHERE state=1), 0) + 1"
     "  );",
+    /* Create first_block field; initialize from channel id if any.
+     * This fails for channels still awaiting lockin, but that only applies to
+     * pre-release software, so it's forgivable. */
+    "ALTER TABLE channels ADD first_blocknum INTEGER;",
+    "UPDATE channels SET first_blocknum=CAST(short_channel_id AS INTEGER) WHERE short_channel_id IS NOT NULL;",
     NULL,
 };
 
