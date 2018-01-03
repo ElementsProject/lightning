@@ -337,23 +337,18 @@ POST_UNINSTALL = :
 installdirs:
 	@$(NORMAL_INSTALL)
 	$(MKDIR_P) $(DESTDIR)$(bindir)
+	$(MKDIR_P) $(DESTDIR)$(pkglibexecdir)
 	$(MKDIR_P) $(DESTDIR)$(man1dir)
 	$(MKDIR_P) $(DESTDIR)$(man7dir)
 	$(MKDIR_P) $(DESTDIR)$(docdir)
 
-# Programs to install in bindir.
-# FIXME: Note that subdaemons should properly be put in libexecdir,
-# but current lightningd expects them to be in the same
-# directory as itself.
-# This could be a problem later, if lightningd changes its
-# search path for subdaemons; it might pick up older versions
-# of the subdaemons, if a newer version is installed, without
-# uninstalling the previous version.
+# Programs to install in bindir and pkglibexecdir.
 # TODO: $(EXEEXT) support for Windows?  Needs more coding for
 # the individual Makefiles, however.
 BIN_PROGRAMS = \
 	       cli/lightning-cli \
-	       lightningd/lightningd \
+	       lightningd/lightningd
+PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_channeld \
 	       lightningd/lightning_closingd \
 	       lightningd/lightning_gossipd \
@@ -361,9 +356,10 @@ BIN_PROGRAMS = \
 	       lightningd/lightning_onchaind \
 	       lightningd/lightning_openingd
 
-install-program: installdirs $(BIN_PROGRAMS)
+install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS)
 	@$(NORMAL_INSTALL)
 	$(INSTALL_PROGRAM) $(BIN_PROGRAMS) $(DESTDIR)$(bindir)
+	$(INSTALL_PROGRAM) $(PKGLIBEXEC_PROGRAMS) $(DESTDIR)$(pkglibexecdir)
 
 MAN1PAGES = $(filter %.1,$(MANPAGES))
 MAN7PAGES = $(filter %.7,$(MANPAGES))
@@ -382,6 +378,10 @@ uninstall:
 	@for f in $(BIN_PROGRAMS); do \
 	  echo rm -f $(DESTDIR)$(bindir)/`basename $$f`; \
 	  rm -f $(DESTDIR)$(bindir)/`basename $$f`; \
+	done
+	@for f in $(PKGLIBEXEC_PROGRAMS); do \
+	  echo rm -f $(DESTDIR)$(pkglibexecdir)/`basename $$f`; \
+	  rm -f $(DESTDIR)$(pkglibexecdir)/`basename $$f`; \
 	done
 	@for f in $(MAN1PAGES); do \
 	  echo rm -f $(DESTDIR)$(man1dir)/`basename $$f`; \
