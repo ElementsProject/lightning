@@ -206,11 +206,13 @@ void peer_fail_permanent(struct peer *peer, const u8 *msg TAKES)
 	 * zero (ie. all bytes zero), in which case it refers to all
 	 * channels. */
 	static const struct channel_id all_channels;
-	char *why;
+	char *why = NULL;
 
 	/* Subtle: we don't want tal_strndup here, it will take() msg! */
-	why = tal_arrz(NULL, char, tal_len(msg) + 1);
-	memcpy(why, msg, tal_len(msg));
+	if (msg) {
+		why = tal_arrz(NULL, char, tal_len(msg) + 1);
+		memcpy(why, msg, tal_len(msg));
+	}
 
 	log_unusual(peer->log, "Peer permanent failure in %s: %s",
 		    peer_state_name(peer->state), why);
