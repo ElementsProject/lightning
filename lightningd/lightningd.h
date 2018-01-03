@@ -175,4 +175,7 @@ struct chainparams *get_chainparams(const struct lightningd *ld);
 /* State for performing backtraces. */
 struct backtrace_state *backtrace_state;
 
+/* Check we can run subdaemons, and check their versions */
+void test_daemons(const struct lightningd *ld);
+
 #endif /* LIGHTNING_LIGHTNINGD_LIGHTNINGD_H */

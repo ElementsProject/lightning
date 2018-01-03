@@ -516,6 +516,13 @@ static void opt_parse_from_config(struct lightningd *ld)
 	tal_free(contents);
 }
 
+static char *test_daemons_and_exit(struct lightningd *ld)
+{
+	test_daemons(ld);
+	exit(0);
+	return NULL;
+}
+
 void register_opts(struct lightningd *ld)
 {
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
@@ -524,6 +531,9 @@ void register_opts(struct lightningd *ld)
 				 "\n"
 				 "A bitcoin lightning daemon.",
 				 "Print this message.");
+	opt_register_early_noarg("--test-daemons-only",
+				 test_daemons_and_exit,
+				 ld, opt_hidden);
 	opt_register_arg("--port", opt_set_u16, opt_show_u16, &ld->portnum,
 			 "Port to bind to (0 means don't listen)");
 	opt_register_arg("--bitcoin-datadir", opt_set_talstr, NULL,
