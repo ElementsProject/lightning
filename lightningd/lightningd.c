@@ -81,7 +81,7 @@ static const char *daemons[] = {
 };
 
 /* Check we can run them, and check their versions */
-static void test_daemons(const struct lightningd *ld)
+void test_daemons(const struct lightningd *ld)
 {
 	size_t i;
 	const tal_t *ctx = tal_tmpctx(ld);
