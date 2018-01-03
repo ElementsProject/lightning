@@ -459,10 +459,7 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 			struct peer *peer = sd->peer;
 			sd->peer = NULL;
 
-			peer_fail_permanent(peer,
-					    take(tal_dup_arr(peer, u8,
-							     (u8 *)str, str_len,
-							     0)));
+			peer_fail_permanent(peer, "%s: %.*s", sd->name, str_len, str);
 		}
 		goto close;
 	}
