@@ -189,55 +189,46 @@ static void drop_to_chain(struct peer *peer)
 }
 
 /* This lets us give a more detailed error than just a destructor. */
-static void free_peer(struct peer *peer, const char *msg)
+static void free_peer(struct peer *peer, const char *why)
 {
 	if (peer->opening_cmd) {
-		command_fail(peer->opening_cmd, "%s", msg);
+		command_fail(peer->opening_cmd, "%s", why);
 		peer->opening_cmd = NULL;
 	}
 	tal_free(peer);
 }
 
-void peer_fail_permanent(struct peer *peer, const u8 *msg TAKES)
+void peer_fail_permanent(struct peer *peer, const char *fmt, ...)
 {
-	/* BOLT #1:
-	 *
-	 * The channel is referred to by `channel_id` unless `channel_id` is
-	 * zero (ie. all bytes zero), in which case it refers to all
-	 * channels. */
-	static const struct channel_id all_channels;
+	va_list ap;
 	char *why;
 
-	/* Subtle: we don't want tal_strndup here, it will take() msg! */
-	why = tal_arrz(NULL, char, tal_len(msg) + 1);
-	memcpy(why, msg, tal_len(msg));
+	va_start(ap, fmt);
+	why = tal_vfmt(peer, fmt, ap);
+	va_end(ap);
 
 	log_unusual(peer->log, "Peer permanent failure in %s: %s",
 		    peer_state_name(peer->state), why);
 
 	/* We can have multiple errors, eg. onchaind failures. */
-	if (!peer->error)
+	if (!peer->error) {
+		/* BOLT #1:
+		 *
+		 * The channel is referred to by `channel_id` unless `channel_id` is
+		 * zero (ie. all bytes zero), in which case it refers to all
+		 * channels. */
+		static const struct channel_id all_channels;
+		u8 *msg = tal_dup_arr(peer, u8, (const u8 *)why, strlen(why), 0);
 		peer->error = towire_error(peer, &all_channels, msg);
+		tal_free(msg);
+	}
 
 	peer_set_owner(peer, NULL);
-	if (taken(msg))
-		tal_free(msg);
-
 	if (peer_persists(peer))
 		drop_to_chain(peer);
 	else
 		free_peer(peer, why);
 	tal_free(why);
-	return;
-}
-
-void peer_fail_permanent_str(struct peer *peer, const char *str TAKES)
-{
-	/* Don't use tal_strdup, since we need tal_len */
-	u8 *msg = tal_dup_arr(peer, u8, (const u8 *)str, strlen(str) + 1, 0);
-	if (taken(str))
-		tal_free(str);
-	peer_fail_permanent(peer, take(msg));
 }
 
 void peer_internal_error(struct peer *peer, const char *fmt, ...)
@@ -250,7 +241,7 @@ void peer_internal_error(struct peer *peer, const char *fmt, ...)
 	logv_add(peer->log, fmt, ap);
 	va_end(ap);
 
-	peer_fail_permanent_str(peer, "Internal error");
+	peer_fail_permanent(peer, "Internal error");
 }
 
 void peer_fail_transient(struct peer *peer, const char *fmt, ...)
@@ -1385,7 +1376,7 @@ static enum watch_result funding_spent(struct peer *peer,
 	struct htlc_stub *stubs;
 	const tal_t *tmpctx = tal_tmpctx(peer);
 
-	peer_fail_permanent_str(peer, "Funding transaction spent");
+	peer_fail_permanent(peer, "Funding transaction spent");
 
 	/* We could come from almost any state. */
 	peer_set_condition(peer, peer->state, FUNDING_SPEND_SEEN);
@@ -1671,9 +1662,8 @@ static void peer_got_shutdown(struct peer *peer, const u8 *msg)
 	 * is not one of those forms. */
 	if (!is_p2pkh(scriptpubkey, NULL) && !is_p2sh(scriptpubkey, NULL)
 	    && !is_p2wpkh(scriptpubkey, NULL) && !is_p2wsh(scriptpubkey, NULL)) {
-		char *str = tal_fmt(peer, "Bad shutdown scriptpubkey %s",
+		peer_fail_permanent(peer, "Bad shutdown scriptpubkey %s",
 				    tal_hex(peer, scriptpubkey));
-		peer_fail_permanent_str(peer, take(str));
 		return;
 	}
 
@@ -2670,7 +2660,8 @@ static void json_close(struct command *cmd,
 
 	/* Easy case: peer can simply be forgotten. */
 	if (!peer_persists(peer)) {
-		peer_fail_permanent(peer, NULL);
+		peer_fail_permanent(peer, "Peer closed in state %s",
+				    peer_state_name(peer->state));
 		command_success(cmd, null_response(cmd));
 		return;
 	}

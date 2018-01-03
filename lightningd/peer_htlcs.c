@@ -1213,12 +1213,11 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 	if (!wallet_shachain_add_hash(peer->ld->wallet, &peer->their_shachain,
 				      shachain_index(revokenum),
 				      &per_commitment_secret)) {
-		char *err = tal_fmt(peer,
+		peer_fail_permanent(peer,
 				    "Bad per_commitment_secret %s for %"PRIu64,
 				    type_to_string(msg, struct sha256,
 						   &per_commitment_secret),
 				    revokenum);
-		peer_fail_permanent(peer, take((u8 *)err));
 		return;
 	}
 
@@ -1429,13 +1428,12 @@ void notify_new_block(struct lightningd *ld, u32 height)
 			if (hout->key.peer->error)
 				continue;
 
-			peer_fail_permanent_str(hout->key.peer,
-						take(tal_fmt(hout,
-						     "Offered HTLC %"PRIu64
-						     " %s cltv %u hit deadline",
-						     hout->key.id,
-						     htlc_state_name(hout->hstate),
-						     hout->cltv_expiry)));
+			peer_fail_permanent(hout->key.peer,
+					    "Offered HTLC %"PRIu64
+					    " %s cltv %u hit deadline",
+					    hout->key.id,
+					    htlc_state_name(hout->hstate),
+					    hout->cltv_expiry);
 			removed = true;
 		}
 	/* Iteration while removing is safe, but can skip entries! */
@@ -1474,13 +1472,12 @@ void notify_new_block(struct lightningd *ld, u32 height)
 			if (hin->key.peer->error)
 				continue;
 
-			peer_fail_permanent_str(hin->key.peer,
-						take(tal_fmt(hin,
-						     "Fulfilled HTLC %"PRIu64
-						     " %s cltv %u hit deadline",
-						     hin->key.id,
-						     htlc_state_name(hin->hstate),
-						     hin->cltv_expiry)));
+			peer_fail_permanent(hin->key.peer,
+					    "Fulfilled HTLC %"PRIu64
+					    " %s cltv %u hit deadline",
+					    hin->key.id,
+					    htlc_state_name(hin->hstate),
+					    hin->cltv_expiry);
 			removed = true;
 		}
 	/* Iteration while removing is safe, but can skip entries! */
