@@ -275,7 +275,7 @@ int main(int argc, char *argv[])
 	gossip_init(ld);
 
 	/* Load peers from database */
-	wallet_channels_load_active(ld->wallet, &ld->peers);
+	wallet_channels_load_active(ld, ld->wallet, &ld->peers);
 
 	/* TODO(cdecker) Move this into common location for initialization */
 	struct peer *peer;

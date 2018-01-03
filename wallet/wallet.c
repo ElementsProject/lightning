@@ -441,7 +441,7 @@ bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
  *
  * Returns true on success.
  */
-static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
+static bool wallet_stmt2channel(const tal_t *ctx, struct wallet *w, sqlite3_stmt *stmt,
 				struct wallet_channel *chan)
 {
 	bool ok = true;
@@ -449,7 +449,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 	u64 remote_config_id;
 
 	if (!chan->peer) {
-		chan->peer = talz(chan, struct peer);
+		chan->peer = talz(ctx, struct peer);
 	}
 	chan->id = sqlite3_column_int64(stmt, 0);
 	chan->peer->dbid = sqlite3_column_int64(stmt, 1);
@@ -574,7 +574,7 @@ static const char *channel_fields =
     "last_sent_commit_state, last_sent_commit_id, "
     "last_tx, last_sig";
 
-bool wallet_channels_load_active(struct wallet *w, struct list_head *peers)
+bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w, struct list_head *peers)
 {
 	bool ok = true;
 	/* Channels are active if they have reached at least the
@@ -586,7 +586,7 @@ bool wallet_channels_load_active(struct wallet *w, struct list_head *peers)
 	int count = 0;
 	while (ok && stmt && sqlite3_step(stmt) == SQLITE_ROW) {
 		struct wallet_channel *c = talz(w, struct wallet_channel);
-		ok &= wallet_stmt2channel(w, stmt, c);
+		ok &= wallet_stmt2channel(ctx, w, stmt, c);
 		list_add(peers, &c->peer->list);
 		/* Peer owns channel. FIXME delete from db if peer freed! */
 		tal_steal(c->peer, c);

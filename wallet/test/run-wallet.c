@@ -263,7 +263,7 @@ static struct wallet_channel *wallet_channel_load(struct wallet *w, const u64 id
 	list_head_init(&peers);
 
 	/* We expect only one peer, but reuse same code */
-	if (!wallet_channels_load_active(w, &peers))
+	if (!wallet_channels_load_active(w, w, &peers))
 		return NULL;
 	peer = list_top(&peers, struct peer, list);
 	CHECK(peer);
