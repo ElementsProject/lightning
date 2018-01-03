@@ -467,13 +467,11 @@ static void get_init_block(struct bitcoind *bitcoind,
 static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 			       struct chain_topology *topo)
 {
-	/* Start back before any reasonable forks. */
-	if (blockcount < 100)
-		topo->first_blocknum = 0;
-	else if (!topo->first_blocknum || blockcount - 100 < topo->first_blocknum)
-		topo->first_blocknum = blockcount - 100;
+	/* This happens if first_blocknum is UINTMAX-1 */
+	if (blockcount < topo->first_blocknum)
+		topo->first_blocknum = blockcount;
 
-	/* Start topology from 100 blocks back. */
+	/* Get up to speed with topology. */
 	bitcoind_getblockhash(bitcoind, topo->first_blocknum,
 			      get_init_block, topo);
 }
@@ -716,7 +714,9 @@ void setup_topology(struct chain_topology *topo,
 	memset(&topo->feerate, 0, sizeof(topo->feerate));
 	topo->timers = timers;
 	topo->poll_time = poll_time;
-	topo->first_blocknum = first_peer_block;
+	/* Start one before the block we are interested in (as we won't
+	 * get notifications on txs in that block). */
+	topo->first_blocknum = first_peer_block - 1;
 
 	/* Make sure bitcoind is started, and ready */
 	wait_for_bitcoind(topo->bitcoind);

@@ -87,6 +87,9 @@ struct txfilter *txfilter_new(const tal_t *ctx UNNEEDED)
 /* Generated stub for version */
 const char *version(void)
 { fprintf(stderr, "version called!\n"); abort(); }
+/* Generated stub for wallet_channels_first_blocknum */
+u32 wallet_channels_first_blocknum(struct wallet *w UNNEEDED)
+{ fprintf(stderr, "wallet_channels_first_blocknum called!\n"); abort(); }
 /* Generated stub for wallet_channels_load_active */
 bool wallet_channels_load_active(struct wallet *w UNNEEDED, struct list_head *peers UNNEEDED)
 { fprintf(stderr, "wallet_channels_load_active called!\n"); abort(); }
