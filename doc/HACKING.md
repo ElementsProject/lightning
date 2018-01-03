@@ -22,8 +22,11 @@ to an array of `struct bitcoin_tx_input`; they are allocated off the
 all.  Tal also supports destructors, which are usually used to remove
 things from lists, etc.
 
-Some routines use take() to indicate whether they should take ownership
-of a pointer.  Use this sparingly, as it can be very confusing.
+Some routines use take(): take() marks a pointer as to be consumed
+(e.g. freed automatically before return) by a called function.  It can
+safely accept NULL pointers.  Functions whose prototype in headers has
+the macro TAKES can have the specific argument as a take() call.  Use
+this sparingly, as it can be very confusing.
 
 The more complex daemons use async io (ccan/io): you register callbacks and they
 happen once I/O is available, then you return what to do next.  This
