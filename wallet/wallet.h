@@ -237,13 +237,15 @@ bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
 /**
  * wlalet_channels_load_active -- Load persisted active channels into the peers
  *
+ * @ctx: context to allocate peers from
  * @w: wallet to load from
  * @peers: list_head to load channels/peers into
  *
  * Be sure to call this only once on startup since it'll append peers
  * loaded from the database to the list without checking.
  */
-bool wallet_channels_load_active(struct wallet *w, struct list_head *peers);
+bool wallet_channels_load_active(const tal_t *ctx,
+				 struct wallet *w, struct list_head *peers);
 
 /**
  * wallet_channels_first_blocknum - get first block we're interested in.
