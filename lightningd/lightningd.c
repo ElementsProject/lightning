@@ -36,34 +36,6 @@ char *bitcoin_datadir;
 
 struct backtrace_state *backtrace_state;
 
-void db_resolve_invoice(struct lightningd *ld,
-			const char *label);
-void db_resolve_invoice(struct lightningd *ld,
-			const char *label)
-{
-	/* FIXME */
-}
-
-bool db_new_invoice(struct lightningd *ld,
-		    u64 msatoshi,
-		    const char *label,
-		    const struct preimage *r);
-bool db_new_invoice(struct lightningd *ld,
-		    u64 msatoshi,
-		    const char *label,
-		    const struct preimage *r)
-{
-	/* FIXME */
-	return true;
-}
-
-bool db_remove_invoice(struct lightningd *ld, const char *label);
-bool db_remove_invoice(struct lightningd *ld, const char *label)
-{
-	/* FIXME */
-	return true;
-}
-
 static struct lightningd *new_lightningd(const tal_t *ctx,
 					 struct log_book *log_book)
 {
@@ -335,11 +307,6 @@ int main(int argc, char *argv[])
 	log_info(ld->log, "Hello world from %s aka %s #%s (version %s)!",
 		 type_to_string(ltmp, struct pubkey, &ld->id),
 		 ld->alias, tal_hex(ltmp, ld->rgb), version());
-
-#if 0
-	/* Load peers from database. */
-	db_load_peers(dstate);
-#endif
 
 	for (;;) {
 		struct timer *expired;
