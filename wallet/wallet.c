@@ -671,7 +671,9 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 	return ok;
 }
 
-void wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
+void wallet_channel_save(struct wallet *w, struct wallet_channel *chan,
+			 u32 current_block_height)
+{
 	struct peer *p = chan->peer;
 	tal_t *tmpctx = tal_tmpctx(w);
 	sqlite3_stmt *stmt;
@@ -689,8 +691,10 @@ void wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 
 	/* Insert a stub, that we can update, unifies INSERT and UPDATE paths */
 	if (chan->id == 0) {
-		stmt = db_prepare(w->db, "INSERT INTO channels (peer_id) VALUES (?);");
+		assert(current_block_height);
+		stmt = db_prepare(w->db, "INSERT INTO channels (peer_id,first_blocknum) VALUES (?,?);");
 		sqlite3_bind_int64(stmt, 1, p->dbid);
+		sqlite3_bind_int(stmt, 2, current_block_height);
 		db_exec_prepared(w->db, stmt);
 		chan->id = sqlite3_last_insert_rowid(w->db->sql);
 	}

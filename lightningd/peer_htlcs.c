@@ -914,7 +914,7 @@ static bool peer_save_commitsig_received(struct peer *peer, u64 commitnum)
 	peer->next_index[LOCAL]++;
 
 	/* FIXME: Save to database, with sig and HTLCs. */
-	wallet_channel_save(peer->ld->wallet, peer->channel);
+	wallet_channel_save(peer->ld->wallet, peer->channel, 0);
 	return true;
 }
 
@@ -931,7 +931,7 @@ static bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum)
 	peer->next_index[REMOTE]++;
 
 	/* FIXME: Save to database, with sig and HTLCs. */
-	wallet_channel_save(peer->ld->wallet, peer->channel);
+	wallet_channel_save(peer->ld->wallet, peer->channel, 0);
 	return true;
 }
 
@@ -1243,7 +1243,7 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 		hin = find_htlc_in(&peer->ld->htlcs_in, peer, changed[i].id);
 		local_fail_htlc(hin, failcodes[i], NULL);
 	}
-	wallet_channel_save(peer->ld->wallet, peer->channel);
+	wallet_channel_save(peer->ld->wallet, peer->channel, 0);
 }
 
 static void *tal_arr_append_(void **p, size_t size)

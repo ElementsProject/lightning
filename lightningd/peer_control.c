@@ -300,7 +300,7 @@ void peer_set_condition(struct peer *peer, enum peer_state old_state,
 	if (peer_persists(peer)) {
 		assert(peer->channel != NULL);
 		/* TODO(cdecker) Selectively save updated fields to DB */
-		wallet_channel_save(peer->ld->wallet, peer->channel);
+		wallet_channel_save(peer->ld->wallet, peer->channel, 0);
 	}
 }
 
@@ -494,7 +494,7 @@ static struct wallet_channel *peer_channel_new(struct wallet *w,
 	wallet_peer_by_nodeid(w, &peer->id, peer);
 	wc->id = 0;
 
-	wallet_channel_save(w, wc);
+	wallet_channel_save(w, wc, get_block_height(peer->ld->topology));
 
 	return wc;
 }
@@ -1707,7 +1707,7 @@ static void peer_got_shutdown(struct peer *peer, const u8 *msg)
 	}
 
 	/* TODO(cdecker) Selectively save updated fields to DB */
-	wallet_channel_save(peer->ld->wallet, peer->channel);
+	wallet_channel_save(peer->ld->wallet, peer->channel, 0);
 }
 
 void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
@@ -1767,7 +1767,7 @@ static void peer_received_closing_signature(struct peer *peer, const u8 *msg)
 	/* FIXME: Make sure signature is correct! */
 	if (better_closing_fee(peer, tx)) {
 		/* TODO(cdecker) Selectively save updated fields to DB */
-		wallet_channel_save(peer->ld->wallet, peer->channel);
+		wallet_channel_save(peer->ld->wallet, peer->channel, 0);
 		peer_last_tx(peer, tx, &sig);
 	}
 
