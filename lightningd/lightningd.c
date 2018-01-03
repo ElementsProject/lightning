@@ -310,6 +310,12 @@ int main(int argc, char *argv[])
 		 type_to_string(ltmp, struct pubkey, &ld->id),
 		 ld->alias, tal_hex(ltmp, ld->rgb), version());
 
+	/* Start the peers. */
+	activate_peers(ld);
+
+	/* Now kick off topology update, now peers have watches. */
+	begin_topology(ld->topology);
+
 	for (;;) {
 		struct timer *expired;
 		void *v = io_loop(&ld->timers, &expired);

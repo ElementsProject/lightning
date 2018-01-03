@@ -220,5 +220,8 @@ void peer_set_condition(struct peer *peer, enum peer_state oldstate,
 			enum peer_state state);
 void setup_listeners(struct lightningd *ld);
 
+/* We've loaded peers from database, set them going. */
+void activate_peers(struct lightningd *ld);
+
 void free_htlcs(struct lightningd *ld, const struct peer *peer);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_CONTROL_H */
