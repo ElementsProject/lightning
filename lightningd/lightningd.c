@@ -105,6 +105,23 @@ void test_daemons(const struct lightningd *ld)
 	}
 	tal_free(ctx);
 }
+/* Check if all daemons exist in specified directory. */
+static bool has_all_daemons(const char* daemon_dir)
+{
+	size_t i;
+	bool missing_daemon = false;
+	const tal_t *tmpctx = tal_tmpctx(NULL);
+
+	for (i = 0; i < ARRAY_SIZE(daemons); ++i) {
+		if (!path_is_file(path_join(tmpctx, daemon_dir, daemons[i]))) {
+			missing_daemon = true;
+			break;
+		}
+	}
+
+	tal_free(tmpctx);
+	return !missing_daemon;
+}
 
 static const char *find_my_path(const tal_t *ctx, const char *argv0)
 {
@@ -153,6 +170,21 @@ static const char *find_my_path(const tal_t *ctx, const char *argv0)
 
 	tal_free(tmpctx);
 	return path_dirname(ctx, take(me));
+}
+static const char *find_my_pkglibexec_path(const tal_t *ctx,
+					   const char *my_path TAKES)
+{
+	const char *pkglibexecdir;
+	pkglibexecdir = path_join(ctx, my_path, BINTOPKGLIBEXECDIR);
+	return path_simplify(ctx, take(pkglibexecdir));
+}
+/* Determine the correct daemon dir. */
+static const char *find_daemon_dir(const tal_t *ctx, const char *argv0)
+{
+	const char *my_path = find_my_path(ctx, argv0);
+	if (has_all_daemons(my_path))
+		return my_path;
+	return find_my_pkglibexec_path(ctx, take(my_path));
 }
 
 void derive_peer_seed(struct lightningd *ld, struct privkey *peer_seed,
@@ -229,8 +261,10 @@ int main(int argc, char *argv[])
 
 	io_poll_override(debug_poll);
 
-	/* Figure out where we are first. */
-	ld->daemon_dir = find_my_path(ld, argv[0]);
+	/* Figure out where our daemons are first. */
+	ld->daemon_dir = find_daemon_dir(ld, argv[0]);
+	if (!ld->daemon_dir)
+		errx(1, "Could not find daemons");
 
 	register_opts(ld);
 
