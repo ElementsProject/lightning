@@ -2723,6 +2723,38 @@ const char *peer_state_name(enum peer_state state)
 	return "unknown";
 }
 
+static void activate_peer(struct peer *peer)
+{
+	assert(!peer->owner);
+
+	switch (peer->state) {
+	case UNINITIALIZED:
+		abort();
+
+	case OPENINGD:
+	case CHANNELD_AWAITING_LOCKIN:
+	case CHANNELD_NORMAL:
+	case CHANNELD_SHUTTING_DOWN:
+	case CLOSINGD_SIGEXCHANGE:
+	case CLOSINGD_COMPLETE:
+	case FUNDING_SPEND_SEEN:
+	case ONCHAIND_CHEATED:
+	case ONCHAIND_THEIR_UNILATERAL:
+	case ONCHAIND_OUR_UNILATERAL:
+	case ONCHAIND_MUTUAL:
+		log_broken(peer->log, "FIXME: Implement activate_peer(%s)",
+			   peer_state_name(peer->state));
+	}
+}
+
+void activate_peers(struct lightningd *ld)
+{
+	struct peer *p;
+
+	list_for_each(&ld->peers, p, list)
+		activate_peer(p);
+}
+
 #if DEVELOPER
 static void json_sign_last_tx(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)

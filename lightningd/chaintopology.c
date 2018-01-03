@@ -22,10 +22,6 @@ static void try_extend_tip(struct chain_topology *topo);
 
 static void next_topology_timer(struct chain_topology *topo)
 {
-	if (topo->startup) {
-		topo->startup = false;
-		io_break(topo);
-	}
 	/* This takes care of its own lifetime. */
 	notleak(new_reltimer(topo->timers, topo, topo->poll_time,
 			     try_extend_tip, topo));
@@ -216,7 +212,8 @@ static void destroy_outgoing_tx(struct outgoing_tx *otx)
 
 static void clear_otx_peer(struct peer *peer, struct outgoing_tx *otx)
 {
-	assert(otx->peer == peer);
+	if (otx->peer != peer)
+		fatal("peer %p, otx %p has peer %p", peer, otx, otx->peer);
 	otx->peer = NULL;
 }
 
@@ -454,7 +451,7 @@ static void init_topo(struct bitcoind *bitcoind,
 	block_map_add(&topo->block_map, topo->root);
 	topo->tip = topo->prev_tip = topo->root;
 
-	try_extend_tip(topo);
+	io_break(topo);
 }
 
 static void get_init_block(struct bitcoind *bitcoind,
@@ -710,7 +707,6 @@ void setup_topology(struct chain_topology *topo,
 		    struct timers *timers,
 		    struct timerel poll_time, u32 first_peer_block)
 {
-	topo->startup = true;
 	memset(&topo->feerate, 0, sizeof(topo->feerate));
 	topo->timers = timers;
 	topo->poll_time = poll_time;
@@ -728,7 +724,11 @@ void setup_topology(struct chain_topology *topo,
 	/* Begin fee estimation. */
 	start_fee_estimate(topo);
 
-	/* Once it gets topology, it calls io_break() and we return. */
+	/* Once it gets initial block, it calls io_break() and we return. */
 	io_loop(NULL, NULL);
-	assert(!topo->startup);
+}
+
+void begin_topology(struct chain_topology *topo)
+{
+	try_extend_tip(topo);
 }
