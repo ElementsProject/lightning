@@ -51,6 +51,7 @@ void fromwire_gossip_getchannels_entry(const u8 **pptr, size_t *max,
 	fromwire_pubkey(pptr, max, &entry->destination);
 	entry->active = fromwire_bool(pptr, max);
 	entry->flags = fromwire_u16(pptr, max);
+	entry->public = fromwire_bool(pptr, max);
 	entry->last_update_timestamp = fromwire_u64(pptr, max);
 	if (entry->last_update_timestamp >= 0) {
 		entry->base_fee_msat = fromwire_u32(pptr, max);
@@ -67,6 +68,7 @@ void towire_gossip_getchannels_entry(
 	towire_pubkey(pptr, &entry->destination);
 	towire_bool(pptr, entry->active);
 	towire_u16(pptr, entry->flags);
+	towire_bool(pptr, entry->public);
 	towire_u64(pptr, entry->last_update_timestamp);
 	if (entry->last_update_timestamp >= 0) {
 		towire_u32(pptr, entry->base_fee_msat);

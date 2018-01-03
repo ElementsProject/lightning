@@ -292,6 +292,7 @@ static void json_getchannels_reply(struct subd *gossip, const u8 *reply,
 					       &entries[i].short_channel_id));
 		json_add_num(response, "flags", entries[i].flags);
 		json_add_bool(response, "active", entries[i].active);
+		json_add_bool(response, "public", entries[i].public);
 		if (entries[i].last_update_timestamp >= 0) {
 			json_add_num(response, "last_update",
 				     entries[i].last_update_timestamp);
