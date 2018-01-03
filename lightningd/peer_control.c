@@ -2718,23 +2718,23 @@ static void activate_peer(struct peer *peer)
 {
 	assert(!peer->owner);
 
-	switch (peer->state) {
-	case UNINITIALIZED:
-		abort();
-
-	case OPENINGD:
-	case CHANNELD_AWAITING_LOCKIN:
-	case CHANNELD_NORMAL:
-	case CHANNELD_SHUTTING_DOWN:
-	case CLOSINGD_SIGEXCHANGE:
-	case CLOSINGD_COMPLETE:
-	case FUNDING_SPEND_SEEN:
-	case ONCHAIND_CHEATED:
-	case ONCHAIND_THEIR_UNILATERAL:
-	case ONCHAIND_OUR_UNILATERAL:
-	case ONCHAIND_MUTUAL:
-		log_broken(peer->log, "FIXME: Implement activate_peer(%s)",
+	/* FIXME: We should never have these in the database! */
+	if (!peer->funding_txid) {
+		log_broken(peer->log, "activate_peer(%s) with no funding txid?",
 			   peer_state_name(peer->state));
+		return;
+	}
+
+	/* This may be unnecessary, but it's harmless. */
+	watch_txid(peer, peer->ld->topology, peer, peer->funding_txid,
+		   funding_lockin_cb, NULL);
+
+	watch_txo(peer, peer->ld->topology, peer, peer->funding_txid, peer->funding_outnum,
+		  funding_spent, NULL);
+
+	if (peer_wants_reconnect(peer)) {
+		u8 *msg = towire_gossipctl_reach_peer(peer, &peer->id);
+		subd_send_msg(peer->ld->gossip, take(msg));
 	}
 }
 
