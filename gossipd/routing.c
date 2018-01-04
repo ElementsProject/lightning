@@ -41,6 +41,9 @@ struct pending_cannouncement {
 
 	/* The raw bits */
 	const u8 *announce;
+
+	/* A deferred update, if we received one while waiting for this */
+	const u8 *update;
 };
 
 static struct node_map *empty_node_map(const tal_t *ctx)
@@ -526,6 +529,7 @@ const struct short_channel_id *handle_channel_announcement(
 	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
 
 	pending = tal(rstate, struct pending_cannouncement);
+	pending->update = NULL;
 	pending->announce = tal_dup_arr(pending, u8,
 					announce, tal_len(announce), 0);
 
@@ -581,6 +585,7 @@ const struct short_channel_id *handle_channel_announcement(
 	status_trace("Received channel_announcement for channel %s", tag);
 	tal_free(tag);
 
+	/* FIXME: Handle duplicates as per BOLT #7 */
 	list_add_tail(&rstate->pending_cannouncement, &pending->list);
 	return &pending->short_channel_id;
 }
@@ -670,8 +675,29 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	local = pubkey_eq(&pending->node_id_1, &rstate->local_id) ||
 		pubkey_eq(&pending->node_id_2, &rstate->local_id);
 
+	/* Did we have an update waiting?  If so, apply now. */
+	if (pending->update)
+		handle_channel_update(rstate, pending->update);
+
 	tal_free(pending);
 	return local && forward;
+}
+
+/* Return true if this is an update to a pending announcement (and queue it) */
+static bool update_to_pending(struct routing_state *rstate,
+			      const struct short_channel_id *scid,
+			      const u8 *update)
+{
+	struct pending_cannouncement *pending;
+
+	pending = find_pending_cannouncement(rstate, scid);
+	if (!pending)
+		return false;
+
+	/* FIXME: should compare timestamps! */
+	tal_free(pending->update);
+	pending->update = tal_dup_arr(pending, u8, update, tal_len(update), 0);
+	return true;
 }
 
 void handle_channel_update(struct routing_state *rstate, const u8 *update)
@@ -721,9 +747,15 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	c = get_connection_by_scid(rstate, &short_channel_id, flags & 0x1);
 
 	if (!c) {
-		status_trace("Ignoring update for unknown channel %s",
-			     type_to_string(trc, struct short_channel_id,
-					    &short_channel_id));
+		if (update_to_pending(rstate, &short_channel_id, serialized)) {
+			status_trace("Deferring update for pending channel %s",
+				     type_to_string(trc, struct short_channel_id,
+						    &short_channel_id));
+		} else {
+			status_trace("Ignoring update for unknown channel %s",
+				     type_to_string(trc, struct short_channel_id,
+						    &short_channel_id));
+		}
 		tal_free(tmpctx);
 		return;
 	} else if (c->last_timestamp >= timestamp) {
