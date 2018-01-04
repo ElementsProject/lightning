@@ -157,3 +157,14 @@ gossip_local_add_channel,,cltv_expiry_delta,u16
 gossip_local_add_channel,,htlc_minimum_msat,u64
 gossip_local_add_channel,,fee_base_msat,u32
 gossip_local_add_channel,,fee_proportional_millionths,u32
+
+# Gossipd->master get this tx output please.
+gossip_get_txout,3018
+gossip_get_txout,,short_channel_id,struct short_channel_id
+
+# master->gossipd here is the output, or empty if none.
+gossip_get_txout_reply,3118
+gossip_get_txout_reply,,short_channel_id,struct short_channel_id
+gossip_get_txout_reply,,len,u16
+gossip_get_txout_reply,,outscript,len*u8
+

@@ -1,3 +1,5 @@
+#include "bitcoind.h"
+#include "chaintopology.h"
 #include "gossip_control.h"
 #include "lightningd.h"
 #include "peer_control.h"
@@ -53,6 +55,31 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 			    peer_fd, gossip_fd, in_pkt);
 }
 
+static void got_txout(struct bitcoind *bitcoind,
+		      const struct bitcoin_tx_output *output,
+		      struct short_channel_id *scid)
+{
+	/* output will be NULL if it wasn't found */
+	subd_send_msg(bitcoind->ld->gossip,
+		      towire_gossip_get_txout_reply(scid, scid, output->script));
+	tal_free(scid);
+}
+
+static void get_txout(struct subd *gossip, const u8 *msg)
+{
+	struct short_channel_id *scid = tal(gossip, struct short_channel_id);
+
+	if (!fromwire_gossip_get_txout(msg, NULL, scid))
+		fatal("Gossip gave bad GOSSIP_GET_TXOUT message %s",
+		      tal_hex(msg, msg));
+
+	/* FIXME: Block less than 6 deep? */
+
+	bitcoind_getoutput(gossip->ld->topology->bitcoind,
+			   scid->blocknum, scid->txnum, scid->outnum,
+			   got_txout, scid);
+}
+
 static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 {
 	enum gossip_wire_type t = fromwire_peektype(msg);
@@ -72,6 +99,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPCTL_PEER_ADDRHINT:
 	case WIRE_GOSSIP_GET_UPDATE:
 	case WIRE_GOSSIP_SEND_GOSSIP:
+	case WIRE_GOSSIP_GET_TXOUT_REPLY:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
@@ -96,6 +124,9 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 		if (tal_count(fds) != 2)
 			return 2;
 		peer_nongossip(gossip, msg, fds[0], fds[1]);
+		break;
+	case WIRE_GOSSIP_GET_TXOUT:
+		get_txout(gossip, msg);
 		break;
 	}
 	return 0;
