@@ -383,10 +383,9 @@ static void pull_witness(struct bitcoin_tx_input *inputs, size_t i,
 	}
 }
 
-struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
-				   const u8 **cursor, size_t *max)
+struct bitcoin_tx *pull_bitcoin_tx_onto(const tal_t *ctx, const u8 **cursor,
+					size_t *max, struct bitcoin_tx *tx)
 {
-	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
 	size_t i;
 	u64 count;
 	u8 flag = 0;
@@ -423,6 +422,13 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 	if (!*cursor)
 		tx = tal_free(tx);
 	return tx;
+}
+
+struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
+				   const u8 **cursor, size_t *max)
+{
+	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
+	return pull_bitcoin_tx_onto(ctx, cursor, max, tx);
 }
 
 struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex,
