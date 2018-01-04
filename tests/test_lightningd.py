@@ -1356,16 +1356,10 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('peer_in WIRE_CHANNEL_UPDATE')
         l2.daemon.wait_for_log('peer_in WIRE_CHANNEL_UPDATE')
 
-        # Now should be active and public.
-        channels = l1.rpc.getchannels()['channels']
-        assert len(channels) == 2
-        assert [c['active'] for c in channels] == [True, True]
-        assert [c['public'] for c in channels] == [True, True]
-
-        channels = l2.rpc.getchannels()['channels']
-        assert len(channels) == 2
-        assert [c['active'] for c in channels] == [True, True]
-        assert [c['public'] for c in channels] == [True, True]
+        wait_for(lambda: [c['active'] for c in l1.rpc.getchannels()['channels']] == [True, True])
+        wait_for(lambda: [c['public'] for c in l1.rpc.getchannels()['channels']] == [True, True])
+        wait_for(lambda: [c['active'] for c in l2.rpc.getchannels()['channels']] == [True, True])
+        wait_for(lambda: [c['public'] for c in l2.rpc.getchannels()['channels']] == [True, True])
 
     def ping_tests(self, l1, l2):
         # 0-byte pong gives just type + length field.
