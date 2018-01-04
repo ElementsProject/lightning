@@ -194,9 +194,6 @@ static void json_withdraw(struct command *cmd,
 	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
 	u64 fee_estimate;
 	struct utxo *utxos;
-	struct ext_key ext;
-	struct pubkey changekey;
-	secp256k1_ecdsa_signature *sigs;
 	struct bitcoin_tx *tx;
 	bool withdraw_all = false;
 
@@ -293,42 +290,11 @@ static void json_withdraw(struct command *cmd,
 
 	msg = hsm_sync_read(cmd, cmd->ld);
 
-	if (!fromwire_hsm_sign_withdrawal_reply(withdraw, msg, NULL, &sigs))
+	tx = tal(withdraw, struct bitcoin_tx);
+
+	if (!fromwire_hsm_sign_withdrawal_reply(msg, NULL, tx))
 		fatal("HSM gave bad sign_withdrawal_reply %s",
 		      tal_hex(withdraw, msg));
-
-	if (withdraw->changesatoshi) {
-		if (bip32_key_from_parent(cmd->ld->wallet->bip32_base,
-					  withdraw->change_key_index,
-					  BIP32_FLAG_KEY_PUBLIC, &ext)
-		    != WALLY_OK) {
-			command_fail(cmd, "Changekey generation failure");
-			return;
-		}
-
-		pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
-	}
-	tx = withdraw_tx(withdraw, withdraw->utxos, withdraw->destination,
-			 withdraw->amount, &changekey, withdraw->changesatoshi,
-			 cmd->ld->wallet->bip32_base);
-
-	if (tal_count(sigs) != tal_count(tx->input))
-		fatal("HSM gave %zu sigs, needed %zu",
-		      tal_count(sigs), tal_count(tx->input));
-
-	/* Create input parts from signatures. */
-	for (size_t i = 0; i < tal_count(tx->input); i++) {
-		struct pubkey key;
-
-		if (!bip32_pubkey(cmd->ld->wallet->bip32_base,
-				  &key, withdraw->utxos[i]->keyindex))
-			fatal("Cannot generate BIP32 key for UTXO %u",
-			      withdraw->utxos[i]->keyindex);
-
-		/* P2SH inputs have same witness. */
-		tx->input[i].witness
-			= bitcoin_witness_p2wpkh(tx, &sigs[i], &key);
-	}
 
 	/* Now broadcast the transaction */
 	withdraw->hextx = tal_hex(withdraw, linearize_tx(cmd, tx));
