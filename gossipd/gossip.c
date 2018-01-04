@@ -78,6 +78,9 @@ struct daemon {
 	u8 alias[33];
 	u8 rgb[3];
 	struct wireaddr *wireaddrs;
+
+	/* To make sure our node_announcement timestamps increase */
+	u32 last_announce_timestamp;
 };
 
 /* Peers we're trying to reach. */
@@ -421,7 +424,14 @@ static void send_node_announcement(struct daemon *daemon)
 	tal_t *tmpctx = tal_tmpctx(daemon);
 	u32 timestamp = time_now().ts.tv_sec;
 	secp256k1_ecdsa_signature sig;
-	u8 *msg, *nannounce = create_node_announcement(tmpctx, daemon, NULL, timestamp);
+	u8 *msg, *nannounce;
+
+	/* Timestamps must move forward, or announce will be ignored! */
+	if (timestamp <= daemon->last_announce_timestamp)
+		timestamp = daemon->last_announce_timestamp + 1;
+	daemon->last_announce_timestamp = timestamp;
+
+	nannounce = create_node_announcement(tmpctx, daemon, NULL, timestamp);
 
 	if (!wire_sync_write(HSM_FD, take(towire_hsm_node_announcement_sig_req(tmpctx, nannounce))))
 		status_failed(STATUS_FAIL_MASTER_IO, "Could not write to HSM: %s", strerror(errno));
@@ -1634,6 +1644,7 @@ int main(int argc, char *argv[])
 	list_head_init(&daemon->addrhints);
 	timers_init(&daemon->timers, time_mono());
 	daemon->broadcast_interval = 30000;
+	daemon->last_announce_timestamp = 0;
 
 	/* stdin == control */
 	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req,
