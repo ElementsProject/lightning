@@ -1601,6 +1601,9 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_GETPEERS_REQUEST:
 		return get_peers(conn, daemon, master->msg_in);
 
+	case WIRE_GOSSIP_GET_TXOUT_REPLY:
+		/* FIXME */
+
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
@@ -1616,6 +1619,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
 	case WIRE_GOSSIP_SEND_GOSSIP:
 	case WIRE_GOSSIP_LOCAL_ADD_CHANNEL:
+	case WIRE_GOSSIP_GET_TXOUT:
 		break;
 	}
 
