@@ -57,8 +57,7 @@ hsm_sign_withdrawal,,num_inputs,u16
 hsm_sign_withdrawal,,inputs,num_inputs*struct utxo
 
 hsm_sign_withdrawal_reply,107
-hsm_sign_withdrawal_reply,,num_sigs,u16
-hsm_sign_withdrawal_reply,,sig,num_sigs*secp256k1_ecdsa_signature
+hsm_sign_withdrawal_reply,,tx,struct bitcoin_tx
 
 # Sign an invoice
 hsm_sign_invoice,8

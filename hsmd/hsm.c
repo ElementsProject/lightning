@@ -601,8 +601,8 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	u32 change_keyindex;
 	struct utxo *inutxos;
 	const struct utxo **utxos;
-	secp256k1_ecdsa_signature *sigs;
 	u8 *wscript;
+	u8 **scriptSigs;
 	struct bitcoin_tx *tx;
 	struct ext_key ext;
 	struct pubkey changekey;
@@ -630,13 +630,13 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 		tmpctx, utxos, scriptpubkey, satoshi_out,
 		&changekey, change_out, NULL);
 
-	/* Now generate signatures. */
-	sigs = tal_arr(tmpctx, secp256k1_ecdsa_signature, tal_count(utxos));
+	scriptSigs = tal_arr(tmpctx, u8*, tal_count(utxos));
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		struct pubkey inkey;
 		struct privkey inprivkey;
 		const struct utxo *in = utxos[i];
 		u8 *subscript;
+		secp256k1_ecdsa_signature sig;
 
 		bitcoin_keypair(&inprivkey, &inkey, in->keyindex);
 		if (utxos[i]->is_p2sh)
@@ -645,12 +645,23 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 			subscript = NULL;
 		wscript = p2wpkh_scriptcode(tmpctx, &inkey);
 
-		sign_tx_input(tx, i, subscript, wscript,
-			      &inprivkey, &inkey, &sigs[i]);
+		sign_tx_input(tx, i, subscript, wscript, &inprivkey, &inkey,
+			      &sig);
+
+		tx->input[i].witness = bitcoin_witness_p2wpkh(tx, &sig, &inkey);
+
+		if (utxos[i]->is_p2sh)
+			scriptSigs[i] = bitcoin_scriptsig_p2sh_p2wpkh(tx, &inkey);
+		else
+			scriptSigs[i] = NULL;
 	}
 
+	/* Now complete the transaction by attaching the scriptSigs where necessary */
+	for (size_t i=0; i<tal_count(utxos); i++)
+		tx->input[i].script = scriptSigs[i];
+
 	daemon_conn_send(master,
-			 take(towire_hsm_sign_withdrawal_reply(tmpctx, sigs)));
+			 take(towire_hsm_sign_withdrawal_reply(tmpctx, tx)));
 	tal_free(tmpctx);
 }
 
