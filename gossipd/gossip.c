@@ -452,15 +452,18 @@ static void handle_gossip_msg(struct daemon *daemon, u8 *msg)
 {
 	struct routing_state *rstate = daemon->rstate;
 	int t = fromwire_peektype(msg);
+
 	switch(t) {
-	case WIRE_CHANNEL_ANNOUNCEMENT:
-		/* Add the channel_announcement to the routing state,
-		 * it'll tell us whether this is local and signed, so
-		 * we can hand in a node_announcement as well. */
-		if(handle_channel_announcement(rstate, msg)) {
-			send_node_announcement(daemon);
-		}
+	case WIRE_CHANNEL_ANNOUNCEMENT: {
+		const struct short_channel_id *scid;
+		/* If it's OK, tells us the short_channel_id to lookup */
+		scid = handle_channel_announcement(rstate, msg);
+		if (scid)
+			daemon_conn_send(&daemon->master,
+					 take(towire_gossip_get_txout(daemon,
+								      scid)));
 		break;
+	}
 
 	case WIRE_NODE_ANNOUNCEMENT:
 		handle_node_announcement(rstate, msg);
@@ -1559,6 +1562,21 @@ static struct io_plan *get_peers(struct io_conn *conn,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+static struct io_plan *handle_txout_reply(struct io_conn *conn,
+					  struct daemon *daemon, const u8 *msg)
+{
+	struct short_channel_id scid;
+	u8 *outscript;
+
+	if (!fromwire_gossip_get_txout_reply(msg, msg, NULL, &scid, &outscript))
+		master_badmsg(WIRE_GOSSIP_GET_TXOUT_REPLY, msg);
+
+	if (handle_pending_cannouncement(daemon->rstate, &scid, outscript))
+		send_node_announcement(daemon);
+
+	return daemon_conn_read_next(conn, &daemon->master);
+}
+
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct daemon *daemon = container_of(master, struct daemon, master);
@@ -1602,7 +1620,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		return get_peers(conn, daemon, master->msg_in);
 
 	case WIRE_GOSSIP_GET_TXOUT_REPLY:
-		/* FIXME */
+		return handle_txout_reply(conn, daemon, master->msg_in);
 
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:

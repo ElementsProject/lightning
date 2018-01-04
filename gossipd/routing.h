@@ -80,6 +80,9 @@ struct routing_state {
 	/* All known nodes. */
 	struct node_map *nodes;
 
+	/* channel_announcement which are pending short_channel_id lookup */
+	struct list_head pending_cannouncement;
+
 	struct broadcast_state *broadcasts;
 
 	struct bitcoin_blkid chain_hash;
@@ -117,13 +120,25 @@ struct node_connection *get_connection_by_scid(const struct routing_state *rstat
 /* Handlers for incoming messages */
 
 /**
- * handle_channel_announcement -- Add channel announcement to state
+ * handle_channel_announcement -- Check channel announcement is valid
  *
- * Returns true if the channel was fully signed and is local. This
- * means that if we haven't sent a node_announcement just yet, now
- * would be a good time.
+ * Returns a short_channel_id to look up if signatures pass.
  */
-bool handle_channel_announcement(struct routing_state *rstate, const u8 *announce);
+const struct short_channel_id *
+handle_channel_announcement(struct routing_state *rstate,
+			    const u8 *announce TAKES);
+
+/**
+ * handle_pending_cannouncement -- handle channel_announce once we've
+ * completed short_channel_id lookup.
+ *
+ * Returns true if the channel was new and is local. This means that
+ * if we haven't sent a node_announcement just yet, now would be a
+ * good time.
+ */
+bool handle_pending_cannouncement(struct routing_state *rstate,
+				  const struct short_channel_id *scid,
+				  const u8 *txscript);
 void handle_channel_update(struct routing_state *rstate, const u8 *update);
 void handle_node_announcement(struct routing_state *rstate, const u8 *node);
 

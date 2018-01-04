@@ -1,6 +1,7 @@
 #include "routing.h"
 #include <arpa/inet.h>
 #include <bitcoin/block.h>
+#include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
@@ -26,6 +27,22 @@
 /* Proportional fee must be less than 24 bits, so never overflows. */
 #define MAX_PROPORTIONAL_FEE (1 << 24)
 
+/* We've unpacked and checked its signatures, now we wait for master to tell
+ * us the txout to check */
+struct pending_cannouncement {
+	struct list_node list;
+
+	/* Unpacked fields here */
+	struct short_channel_id short_channel_id;
+	struct pubkey node_id_1;
+	struct pubkey node_id_2;
+	struct pubkey bitcoin_key_1;
+	struct pubkey bitcoin_key_2;
+
+	/* The raw bits */
+	const u8 *announce;
+};
+
 static struct node_map *empty_node_map(const tal_t *ctx)
 {
 	struct node_map *map = tal(ctx, struct node_map);
@@ -43,6 +60,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->broadcasts = new_broadcast_state(rstate);
 	rstate->chain_hash = *chain_hash;
 	rstate->local_id = *local_id;
+	list_head_init(&rstate->pending_cannouncement);
 	return rstate;
 }
 
@@ -496,44 +514,39 @@ static bool check_channel_announcement(
 	       check_signed_hash(&hash, bitcoin2_sig, bitcoin2_key);
 }
 
-bool handle_channel_announcement(
+const struct short_channel_id *handle_channel_announcement(
 	struct routing_state *rstate,
-	const u8 *announce)
+	const u8 *announce TAKES)
 {
-	u8 *serialized;
-	bool forward = false, local, sigfail;
-	secp256k1_ecdsa_signature node_signature_1;
-	secp256k1_ecdsa_signature node_signature_2;
-	struct short_channel_id short_channel_id;
-	secp256k1_ecdsa_signature bitcoin_signature_1;
-	secp256k1_ecdsa_signature bitcoin_signature_2;
-	struct pubkey node_id_1;
-	struct pubkey node_id_2;
-	struct pubkey bitcoin_key_1;
-	struct pubkey bitcoin_key_2;
+	struct pending_cannouncement *pending;
 	struct bitcoin_blkid chain_hash;
-	struct node_connection *c0, *c1;
-	const tal_t *tmpctx = tal_tmpctx(rstate);
 	u8 *features;
-	char *tag;
-	size_t len = tal_len(announce);
+	const char *tag;
+	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
+	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
 
-	serialized = tal_dup_arr(tmpctx, u8, announce, len, 0);
-	if (!fromwire_channel_announcement(tmpctx, serialized, NULL,
-					   &node_signature_1, &node_signature_2,
+	pending = tal(rstate, struct pending_cannouncement);
+	pending->announce = tal_dup_arr(pending, u8,
+					announce, tal_len(announce), 0);
+
+	if (!fromwire_channel_announcement(pending, pending->announce, NULL,
+					   &node_signature_1,
+					   &node_signature_2,
 					   &bitcoin_signature_1,
 					   &bitcoin_signature_2,
 					   &features,
 					   &chain_hash,
-					   &short_channel_id,
-					   &node_id_1, &node_id_2,
-					   &bitcoin_key_1, &bitcoin_key_2)) {
-		tal_free(tmpctx);
-		return false;
+					   &pending->short_channel_id,
+					   &pending->node_id_1,
+					   &pending->node_id_2,
+					   &pending->bitcoin_key_1,
+					   &pending->bitcoin_key_2)) {
+		tal_free(pending);
+		return NULL;
 	}
 
-	tag = type_to_string(tmpctx, struct short_channel_id,
-			     &short_channel_id);
+	tag = type_to_string(pending, struct short_channel_id,
+			     &pending->short_channel_id);
 
 	/* BOLT #7:
 	 *
@@ -544,54 +557,120 @@ bool handle_channel_announcement(
 		status_trace(
 		    "Received channel_announcement %s for unknown chain %s",
 		    tag,
-		    type_to_string(tmpctx, struct bitcoin_blkid, &chain_hash));
-		tal_free(tmpctx);
-		return false;
+		    type_to_string(pending, struct bitcoin_blkid, &chain_hash));
+		tal_free(pending);
+		return NULL;
 	}
 
 	// FIXME: Check features!
-	//FIXME(cdecker) Check chain topology for the anchor TX
 
-	local = pubkey_eq(&node_id_1, &rstate->local_id) ||
-		pubkey_eq(&node_id_2, &rstate->local_id);
+	if (!check_channel_announcement(&pending->node_id_1, &pending->node_id_2,
+					&pending->bitcoin_key_1,
+					&pending->bitcoin_key_2,
+					&node_signature_1,
+					&node_signature_2,
+					&bitcoin_signature_1,
+					&bitcoin_signature_2,
+					pending->announce)) {
+		status_trace("Signature verification of channel_announcement"
+			     " for %s failed", tag);
+		tal_free(pending);
+		return NULL;
+	}
 
-	sigfail = !check_channel_announcement(
-	    &node_id_1, &node_id_2, &bitcoin_key_1, &bitcoin_key_2,
-	    &node_signature_1, &node_signature_2, &bitcoin_signature_1,
-	    &bitcoin_signature_2, serialized);
+	status_trace("Received channel_announcement for channel %s", tag);
+	tal_free(tag);
 
-	status_trace("Received channel_announcement for channel %s, local=%d, sigfail=%d",
-		     tag, local, sigfail);
+	list_add_tail(&rstate->pending_cannouncement, &pending->list);
+	return &pending->short_channel_id;
+}
 
-	if (sigfail) {
-		status_trace(
-			"Signature verification of channel_announcement for %s failed", tag);
-		tal_free(tmpctx);
+/* While master always processes in order, bitcoind is async, so they could
+ * theoretically return out of order. */
+static struct pending_cannouncement *
+find_pending_cannouncement(struct routing_state *rstate,
+			   const struct short_channel_id *scid)
+{
+	struct pending_cannouncement *i;
+
+	list_for_each(&rstate->pending_cannouncement, i, list) {
+		if (short_channel_id_eq(scid, &i->short_channel_id))
+			return i;
+	}
+	return NULL;
+}
+
+bool handle_pending_cannouncement(struct routing_state *rstate,
+				  const struct short_channel_id *scid,
+				  const u8 *outscript)
+{
+	bool forward, local;
+	struct node_connection *c0, *c1;
+	const char *tag;
+	const u8 *s;
+	struct pending_cannouncement *pending;
+
+	pending = find_pending_cannouncement(rstate, scid);
+	assert(pending);
+	list_del_from(&rstate->pending_cannouncement, &pending->list);
+
+	tag = type_to_string(pending, struct short_channel_id, scid);
+
+	/* BOLT #7:
+	 *
+	 * The receiving node MUST ignore the message if this output is spent.
+	 */
+	if (tal_len(outscript) == 0) {
+		status_trace("channel_announcement: no unspent txout %s", tag);
+		tal_free(pending);
+		return false;
+	}
+
+	/* BOLT #7:
+	 *
+	 * The receiving node MUST ignore the message if the output
+	 * specified by `short_channel_id` does not correspond to a
+	 * P2WSH using `bitcoin_key_1` and `bitcoin_key_2` as
+	 * specified in [BOLT
+	 * #3](03-transactions.md#funding-transaction-output).
+	 */
+	s = scriptpubkey_p2wsh(pending,
+			       bitcoin_redeem_2of2(pending,
+						   &pending->bitcoin_key_1,
+						   &pending->bitcoin_key_2));
+
+	if (!scripteq(s, outscript)) {
+		status_trace("channel_announcement: txout %s expectes %s, got %s",
+			     tag, tal_hex(trc, s), tal_hex(trc, outscript));
+		tal_free(pending);
 		return false;
 	}
 
 	/* Is this a new connection? It is if we don't know the
 	 * channel yet, or do not have a matching announcement in the
 	 * case of side-loaded channels*/
-	c0 = get_connection(rstate, &node_id_2, &node_id_1);
-	c1 = get_connection(rstate, &node_id_1, &node_id_2);
+	c0 = get_connection(rstate, &pending->node_id_2, &pending->node_id_1);
+	c1 = get_connection(rstate, &pending->node_id_1, &pending->node_id_2);
 	forward = !c0 || !c1 || !c0->channel_announcement || !c1->channel_announcement;
 
-	add_channel_direction(rstate, &node_id_1, &node_id_2, &short_channel_id,
-			      serialized);
-	add_channel_direction(rstate, &node_id_2, &node_id_1, &short_channel_id,
-			      serialized);
+	add_channel_direction(rstate, &pending->node_id_1, &pending->node_id_2,
+			      &pending->short_channel_id, pending->announce);
+	add_channel_direction(rstate, &pending->node_id_2, &pending->node_id_1,
+			      &pending->short_channel_id, pending->announce);
 
 	if (forward) {
 		if (queue_broadcast(rstate->broadcasts,
 				    WIRE_CHANNEL_ANNOUNCEMENT,
-				    (u8*)tag, serialized))
+				    (u8*)tag, pending->announce))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Announcement %s was replaced?",
-				      tal_hex(trc, serialized));
+				      tal_hex(trc, pending->announce));
 	}
 
-	tal_free(tmpctx);
+	local = pubkey_eq(&pending->node_id_1, &rstate->local_id) ||
+		pubkey_eq(&pending->node_id_2, &rstate->local_id);
+
+	tal_free(pending);
 	return local && forward;
 }
 
