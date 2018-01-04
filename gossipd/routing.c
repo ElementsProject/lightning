@@ -744,18 +744,20 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 				    &short_channel_id),
 		     flags & 0x01);
 
+	if (update_to_pending(rstate, &short_channel_id, serialized)) {
+		status_trace("Deferring update for pending channel %s",
+			     type_to_string(trc, struct short_channel_id,
+					    &short_channel_id));
+		tal_free(tmpctx);
+		return;
+	}
+
 	c = get_connection_by_scid(rstate, &short_channel_id, flags & 0x1);
 
 	if (!c) {
-		if (update_to_pending(rstate, &short_channel_id, serialized)) {
-			status_trace("Deferring update for pending channel %s",
-				     type_to_string(trc, struct short_channel_id,
-						    &short_channel_id));
-		} else {
-			status_trace("Ignoring update for unknown channel %s",
-				     type_to_string(trc, struct short_channel_id,
-						    &short_channel_id));
-		}
+		status_trace("Ignoring update for unknown channel %s",
+			     type_to_string(trc, struct short_channel_id,
+					    &short_channel_id));
 		tal_free(tmpctx);
 		return;
 	} else if (c->last_timestamp >= timestamp) {
