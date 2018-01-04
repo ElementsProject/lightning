@@ -960,12 +960,19 @@ class LightningDTests(BaseLightningDTests):
 
         l1.daemon.wait_for_log('WIRE_PERMANENT_CHANNEL_FAILURE: timed out')
 
-        # 91 later, l2 is done.
-        bitcoind.generate_block(91)
+        # 2 later, l1 spends HTLC (5 blocks total).
+        bitcoind.generate_block(2)
+        l1.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US')
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+
+        # 89 later, l2 is done.
+        bitcoind.generate_block(89)
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
         # Now, 100 blocks and l1 should be done.
-        bitcoind.generate_block(6)
+        bitcoind.generate_block(10)
+        assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')
+        bitcoind.generate_block(1)
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
 
         # Payment failed, BTW

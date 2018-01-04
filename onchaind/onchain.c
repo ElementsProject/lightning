@@ -496,7 +496,7 @@ static bool all_irrevocably_resolved(struct tracked_output **outs)
 	size_t i;
 
 	for (i = 0; i < tal_count(outs); i++) {
-		if (outs[i]->resolved && outs[i]->resolved->depth < 100)
+		if (!outs[i]->resolved || outs[i]->resolved->depth < 100)
 			return false;
 	}
 	return true;
@@ -721,6 +721,17 @@ static void output_spent(struct tracked_output ***outs,
 			handle_htlc_onchain_fulfill(out, tx);
 			if (out->tx_type == THEIR_REVOKED_UNILATERAL)
 				steal_htlc_tx(out);
+			else {
+				/* BOLT #5:
+				 *
+				 * If the HTLC output is spent using the
+				 * payment preimage, the HTLC output is
+				 * considered *irrevocably resolved*, and the
+				 * node MUST extract the payment preimage from
+				 * the transaction input witness.
+				 */
+				ignore_output(out);
+			}
 			break;
 
 		case FUNDING_OUTPUT:
