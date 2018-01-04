@@ -158,6 +158,9 @@ struct peer {
 
 	/* Where we got up to in gossip broadcasts. */
 	u64 gossip_index;
+
+	/* Make sure timestamps move forward. */
+	u32 last_update_timestamp;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -370,6 +373,11 @@ static u8 *create_channel_update(const tal_t *ctx,
 	u32 timestamp = time_now().ts.tv_sec;
 	u16 flags;
 	u8 *cupdate, *msg;
+
+	/* Identical timestamps will be ignored. */
+	if (timestamp <= peer->last_update_timestamp)
+		timestamp = peer->last_update_timestamp + 1;
+	peer->last_update_timestamp = timestamp;
 
 	/* Set the signature to empty so that valgrind doesn't complain */
 	secp256k1_ecdsa_signature *sig =
@@ -2529,6 +2537,7 @@ int main(int argc, char *argv[])
 	peer->peer_outoff = 0;
 	peer->next_commit_sigs = NULL;
 	peer->shutdown_sent[LOCAL] = false;
+	peer->last_update_timestamp = 0;
 
 	/* We send these to HSM to get real signatures; don't have valgrind
 	 * complain. */
