@@ -100,7 +100,7 @@ bool json_tok_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 		return false;
 	if (end != buffer + tok->end) {
 		/* Expect always 8 decimal places. */
-		if (*end != '.' || buffer + tok->start - end != 9)
+		if (*end != '.' || buffer + tok->end - end != 9)
 			return false;
 		sat = strtoul(end+1, &end, 0);
 		if (sat == ULONG_MAX && errno == ERANGE)
