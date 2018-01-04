@@ -153,3 +153,11 @@ void towire_pad(u8 **pptr, size_t num)
 	tal_resize(pptr, oldsize + num);
 	memset(*pptr + oldsize, 0, num);
 }
+
+void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
+{
+	tal_t *tmpctx = tal_tmpctx(NULL);
+	u8 *lin = linearize_tx(tmpctx, tx);
+	towire_u8_array(pptr, lin, tal_len(lin));
+	tal_free(tmpctx);
+}
