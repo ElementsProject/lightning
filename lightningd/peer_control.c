@@ -266,6 +266,7 @@ void peer_fail_transient(struct peer *peer, const char *fmt, ...)
 
 #if DEVELOPER
 	if (dev_disconnect_permanent(peer->ld)) {
+		tal_free(why);
 		peer_internal_error(peer, "dev_disconnect permfail");
 		return;
 	}
