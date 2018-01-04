@@ -20,6 +20,7 @@
 #include <common/utils.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <lightningd/chaintopology.h>
 
 #define BITCOIN_CLI "bitcoin-cli"
 
@@ -411,6 +412,172 @@ void bitcoind_getblockcount_(struct bitcoind *bitcoind,
 {
 	start_bitcoin_cli(bitcoind, NULL, process_getblockcount, false, cb, arg,
 			  "getblockcount", NULL);
+}
+
+struct get_output {
+	unsigned int blocknum, txnum, outnum;
+
+	/* The real callback arg */
+	void *cbarg;
+};
+
+static void process_gettxout(struct bitcoin_cli *bcli)
+{
+	void (*cb)(struct bitcoind *bitcoind,
+		   const struct bitcoin_tx_output *output,
+		   void *arg) = bcli->cb;
+	const struct get_output *go = bcli->cb_arg;
+	void *cbarg = go->cbarg;
+	const jsmntok_t *tokens, *valuetok, *scriptpubkeytok, *hextok;
+	struct bitcoin_tx_output out;
+	bool valid;
+
+	if (*bcli->exitstatus != 0) {
+		log_debug(bcli->bitcoind->log, "%s: not unspent output?",
+			  bcli_args(bcli));
+		tal_free(go);
+		cb(bcli->bitcoind, NULL, cbarg);
+		return;
+	}
+
+	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
+	if (!tokens)
+		fatal("%s: %s response",
+		      bcli_args(bcli), valid ? "partial" : "invalid");
+
+	if (tokens[0].type != JSMN_OBJECT)
+		fatal("%s: gave non-object (%.*s)?",
+		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
+
+	valuetok = json_get_member(bcli->output, tokens, "value");
+	if (!valuetok)
+		fatal("%s: had no value member (%.*s)?",
+		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
+
+	if (!json_tok_bitcoin_amount(bcli->output, valuetok, &out.amount))
+		fatal("%s: had bad value (%.*s)?",
+		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
+
+	scriptpubkeytok = json_get_member(bcli->output, tokens, "scriptPubKey");
+	if (!scriptpubkeytok)
+		fatal("%s: had no scriptPubKey member (%.*s)?",
+		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
+	hextok = json_get_member(bcli->output, scriptpubkeytok, "hex");
+	if (!hextok)
+		fatal("%s: had no scriptPubKey->hex member (%.*s)?",
+		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
+
+	out.script = tal_hexdata(bcli, bcli->output + hextok->start,
+				 hextok->end - hextok->start);
+	if (!out.script)
+		fatal("%s: scriptPubKey->hex invalid hex (%.*s)?",
+		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
+
+	tal_free(go);
+	cb(bcli->bitcoind, &out, cbarg);
+}
+
+static void process_getblock(struct bitcoin_cli *bcli)
+{
+	void (*cb)(struct bitcoind *bitcoind,
+		   const struct bitcoin_tx_output *output,
+		   void *arg) = bcli->cb;
+	struct get_output *go = bcli->cb_arg;
+	const jsmntok_t *tokens, *txstok, *txidtok;
+	struct bitcoin_txid txid;
+	bool valid;
+
+	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
+	if (!tokens)
+		fatal("%s: %s response",
+		      bcli_args(bcli), valid ? "partial" : "invalid");
+
+	if (tokens[0].type != JSMN_OBJECT)
+		fatal("%s: gave non-object (%.*s)?",
+		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
+
+	/*  "tx": [
+	    "1a7bb0f58a5d235d232deb61d9e2208dabe69848883677abe78e9291a00638e8",
+	    "56a7e3468c16a4e21a4722370b41f522ad9dd8006c0e4e73c7d1c47f80eced94",
+	    ...
+	*/
+	txstok = json_get_member(bcli->output, tokens, "tx");
+	if (!txstok)
+		fatal("%s: had no tx member (%.*s)?",
+		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
+
+	/* Now, this can certainly happen, if txnum too large. */
+	txidtok = json_get_arr(txstok, go->txnum);
+	if (!txidtok) {
+		void *cbarg = go->cbarg;
+		log_debug(bcli->bitcoind->log, "%s: no txnum %u",
+			  bcli_args(bcli), go->txnum);
+		tal_free(go);
+		cb(bcli->bitcoind, NULL, cbarg);
+		return;
+	}
+
+	if (!bitcoin_txid_from_hex(bcli->output + txidtok->start,
+				   txidtok->end - txidtok->start,
+				   &txid))
+		fatal("%s: had bad txid (%.*s)?",
+		      bcli_args(bcli),
+		      txidtok->end - txidtok->start,
+		      bcli->output + txidtok->start);
+
+	/* Now get the raw tx output. */
+	start_bitcoin_cli(bcli->bitcoind, NULL,
+			  process_gettxout, true, cb, go,
+			  "gettxout",
+			  take(type_to_string(go, struct bitcoin_txid, &txid)),
+			  take(tal_fmt(go, "%u", go->outnum)),
+			  NULL);
+}
+
+static void process_getblockhash_for_txout(struct bitcoin_cli *bcli)
+{
+	void (*cb)(struct bitcoind *bitcoind,
+		   const struct bitcoin_tx_output *output,
+		   void *arg) = bcli->cb;
+	struct get_output *go = bcli->cb_arg;
+
+	if (*bcli->exitstatus != 0) {
+		void *cbarg = go->cbarg;
+		log_debug(bcli->bitcoind->log, "%s: invalid blocknum?",
+			  bcli_args(bcli));
+		tal_free(go);
+		cb(bcli->bitcoind, NULL, cbarg);
+		return;
+	}
+
+	start_bitcoin_cli(bcli->bitcoind, NULL, process_getblock, false, cb, go,
+			  "getblock",
+			  take(tal_strndup(go, bcli->output,bcli->output_bytes)),
+			  NULL);
+}
+
+void bitcoind_getoutput_(struct bitcoind *bitcoind,
+			 unsigned int blocknum, unsigned int txnum,
+			 unsigned int outnum,
+			 void (*cb)(struct bitcoind *bitcoind,
+				    const struct bitcoin_tx_output *output,
+				    void *arg),
+			 void *arg)
+{
+	struct get_output *go = tal(bitcoind, struct get_output);
+	go->blocknum = blocknum;
+	go->txnum = txnum;
+	go->outnum = outnum;
+	go->cbarg = arg;
+
+	/* We may not have topology ourselves that far back, so ask bitcoind */
+	start_bitcoin_cli(bitcoind, NULL, process_getblockhash_for_txout,
+			  true, cb, go,
+			  "getblockhash", take(tal_fmt(go, "%u", blocknum)),
+			  NULL);
+
+	/* Looks like a leak, but we free it in process_getblock */
+	notleak(go);
 }
 
 static void process_getblockhash(struct bitcoin_cli *bcli)
