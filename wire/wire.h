@@ -54,6 +54,8 @@ void towire_bool(u8 **pptr, bool v);
 
 void towire_u8_array(u8 **pptr, const u8 *arr, size_t num);
 
+void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx);
+
 const u8 *fromwire(const u8 **cursor, size_t *max, void *copy, size_t n);
 u8 fromwire_u8(const u8 **cursor, size_t *max);
 u16 fromwire_u16(const u8 **cursor, size_t *max);
@@ -84,4 +86,6 @@ void fromwire_ripemd160(const u8 **cursor, size_t *max, struct ripemd160 *ripemd
 void fromwire_pad(const u8 **cursor, size_t *max, size_t num);
 
 void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num);
+
+void fromwire_bitcoin_tx(const u8 **cursor, size_t *max, struct bitcoin_tx *tx);
 #endif /* LIGHTNING_WIRE_WIRE_H */
