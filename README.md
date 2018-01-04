@@ -48,6 +48,9 @@ bitcoind -daemon -testnet
 
 Wait until `bitcoind` has synchronized with the testnet network. In case you use regtest, make sure you generate at least 432 blocks to activate SegWit.
 
+Make sure that you do not have `walletbroadcast=0` in your
+`~/.bitcoin/bitcoin.conf`, or you may run into trouble.
+
 You can start `lightningd` with the following command:
 
 ```
