@@ -71,4 +71,18 @@ bool bitcoin_txid_to_hex(const struct bitcoin_txid *txid,
 struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 				   const u8 **cursor, size_t *max);
 
+/**
+ * pull_bitcoin_tx_onto - De-serialize a bitcoin tx into tx
+ *
+ * Like pull_bitcoin_tx, but skips the allocation of tx. Used by the
+ * wire implementation where the caller allocates, and the callee only
+ * fills in values.
+ *
+ * @ctx: Allocation context
+ * @cursor: buffer to read from
+ * @max: Buffer size left to read
+ * @tx (out): Destination transaction
+ */
+struct bitcoin_tx *pull_bitcoin_tx_onto(const tal_t *ctx, const u8 **cursor,
+					size_t *max, struct bitcoin_tx *tx);
 #endif /* LIGHTNING_BITCOIN_TX_H */
