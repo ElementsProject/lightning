@@ -23,7 +23,7 @@ Please refer to the [installation documentation](doc/INSTALL.md) for detailed in
 For the impatient here's the gist of it for Ubuntu and Debian:
 
 ```
-sudo apt-get install -y autoconf git build-essential libtool libgmp-dev libsqlite3-dev python python3
+sudo apt-get install -y autoconf build-essential git libtool libgmp-dev libsqlite3-dev python3 net-tools
 git clone https://github.com/ElementsProject/lightning.git
 cd lightning
 make
