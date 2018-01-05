@@ -1511,10 +1511,13 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 
 	loc = locate_tx(peer, peer->ld->topology, &txid);
 
-	peer->scid = tal(peer, struct short_channel_id);
-	peer->scid->blocknum = loc->blkheight;
-	peer->scid->txnum = loc->index;
-	peer->scid->outnum = peer->funding_outnum;
+	/* If we restart, we could already have peer->scid from database */
+	if (!peer->scid) {
+		peer->scid = tal(peer, struct short_channel_id);
+		peer->scid->blocknum = loc->blkheight;
+		peer->scid->txnum = loc->index;
+		peer->scid->outnum = peer->funding_outnum;
+	}
 	tal_free(loc);
 
 	/* In theory, it could have been buried before we got back
