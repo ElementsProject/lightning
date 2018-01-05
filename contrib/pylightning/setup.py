@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='pylightning',
-      version='0.0.1',
+      version='0.0.2',
       description='Client library for lightningd',
       url='http://github.com/ElementsProject/lightning',
       author='Christian Decker',
