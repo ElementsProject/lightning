@@ -35,9 +35,9 @@ logging.info("Tests running in '%s'", TEST_DIR)
 def to_json(arg):
     return json.loads(json.dumps(arg))
 
-def setupBitcoind():
+def setupBitcoind(directory):
     global bitcoind
-    bitcoind = utils.BitcoinD(rpcport=28332)
+    bitcoind = utils.BitcoinD(bitcoin_dir=directory, rpcport=28332)
     bitcoind.start()
     info = bitcoind.rpc.getblockchaininfo()
     # Make sure we have segwit and some funds
@@ -69,14 +69,6 @@ def tearDownBitcoind():
     except:
         bitcoind.proc.kill()
     bitcoind.proc.wait()
-
-
-def setUpModule():
-    setupBitcoind()
-
-
-def tearDownModule():
-    tearDownBitcoind()
 
 def breakpoint():
     import pdb; pdb.set_trace()
@@ -161,6 +153,8 @@ class NodeFactory(object):
 
 class BaseLightningDTests(unittest.TestCase):
     def setUp(self):
+        bitcoin_dir = os.path.join(TEST_DIR, self._testMethodName, "bitcoind")
+        setupBitcoind(bitcoin_dir)
         # Most of the executor threads will be waiting for IO, so
         # let's have a few of them
         self.executor = futures.ThreadPoolExecutor(max_workers=20)
@@ -208,6 +202,7 @@ class BaseLightningDTests(unittest.TestCase):
         ok = self.node_factory.killall([not n.may_fail for n in self.node_factory.nodes])
         self.executor.shutdown(wait=False)
 
+        tearDownBitcoind()
         err_count = 0
         # Do not check for valgrind error files if it is disabled
         if VALGRIND:
@@ -223,11 +218,6 @@ class BaseLightningDTests(unittest.TestCase):
 
         if not ok:
             raise Exception("At least one lightning exited with unexpected non-zero return code")
-
-    @classmethod
-    def tearDownClass(cls):
-        """We need 100 blocks between runs, since otherwise they might see the txs from a previous run, and get very confused!"""
-        bitcoind.generate_block(100)
 
 class LightningDTests(BaseLightningDTests):
     def connect(self):
