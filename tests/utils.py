@@ -1,6 +1,7 @@
 from bitcoin.rpc import RawProxy as BitcoinProxy
 from lightning import LightningRpc
 
+import atexit
 import logging
 import os
 import re
@@ -55,6 +56,7 @@ class TailableProc(object):
         """
         logging.debug("Starting '%s'", " ".join(self.cmd_line))
         self.proc = subprocess.Popen(self.cmd_line, stdout=subprocess.PIPE, env=self.env)
+        atexit.register(self.proc.stdout.close)
         self.thread = threading.Thread(target=self.tail)
         self.thread.daemon = True
         self.thread.start()
