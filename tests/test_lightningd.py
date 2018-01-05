@@ -224,6 +224,11 @@ class BaseLightningDTests(unittest.TestCase):
         if not ok:
             raise Exception("At least one lightning exited with unexpected non-zero return code")
 
+    @classmethod
+    def tearDownClass(cls):
+        """We need 100 blocks between runs, since otherwise they might see the txs from a previous run, and get very confused!"""
+        bitcoind.generate_block(100)
+
 class LightningDTests(BaseLightningDTests):
     def connect(self):
         l1 = self.node_factory.get_node()
