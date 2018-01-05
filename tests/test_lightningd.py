@@ -782,8 +782,6 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log(r'Owning output .* txid %s' % closetxid)
         l2.daemon.wait_for_log(r'Owning output .* txid %s' % closetxid)
 
-        print(l1.rpc.listfunds())
-
         # Make sure both nodes have grabbed their close tx funds
         assert closetxid in set([o['txid'] for o in l1.rpc.listfunds()['outputs']])
         assert closetxid in set([o['txid'] for o in l2.rpc.listfunds()['outputs']])
@@ -806,6 +804,11 @@ class LightningDTests(BaseLightningDTests):
         l2.rpc.dev_fail(l1.info['id'])
         l2.daemon.wait_for_log('Failing due to dev-fail command')
         l2.daemon.wait_for_log('sendrawtx exit 0')
+
+        assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
+
+        # Now grab the close transaction
+        closetxid = l1.bitcoin.rpc.getrawmempool(False)[0]
 
         # "Internal error" in hex
         l1.daemon.wait_for_log('WIRE_ERROR.*496e7465726e616c206572726f72')
@@ -832,6 +835,15 @@ class LightningDTests(BaseLightningDTests):
         # Now, 100 blocks l2 should be done.
         bitcoind.generate_block(5)
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+        # Only l1 has a direct output since all of l2's outputs are respent (it failed)
+        assert closetxid in set([o['txid'] for o in l1.rpc.listfunds()['outputs']])
+
+        #import pdb; pdb.set_trace()
+
+        addr = l1.bitcoin.rpc.getnewaddress()
+        print(addr)
+        l1.rpc.withdraw(addr, "all")
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_onchain_first_commit(self):
