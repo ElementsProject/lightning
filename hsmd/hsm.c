@@ -545,10 +545,10 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	const struct utxo **utxomap;
 	struct bitcoin_tx *tx;
 	u8 *wscript;
-	secp256k1_ecdsa_signature *sig;
 	u16 outnum;
 	size_t i;
 	struct pubkey changekey;
+	u8 **scriptSigs;
 
 	/* FIXME: Check fee is "reasonable" */
 	if (!fromwire_hsm_sign_funding(tmpctx, msg, NULL,
@@ -567,13 +567,13 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 			change_out, &changekey,
 			NULL);
 
-	/* Now generate signatures. */
-	sig = tal_arr(tmpctx, secp256k1_ecdsa_signature, tal_count(inputs));
+	scriptSigs = tal_arr(tmpctx, u8*, tal_count(inputs));
 	for (i = 0; i < tal_count(inputs); i++) {
 		struct pubkey inkey;
 		struct privkey inprivkey;
 		const struct utxo *in = utxomap[i];
 		u8 *subscript;
+		secp256k1_ecdsa_signature sig;
 
 		bitcoin_keypair(&inprivkey, &inkey, in->keyindex);
 		if (in->is_p2sh)
@@ -582,12 +582,23 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 			subscript = NULL;
 		wscript = p2wpkh_scriptcode(tmpctx, &inkey);
 
-		sign_tx_input(tx, i, subscript, wscript,
-			      &inprivkey, &inkey, &sig[i]);
+		sign_tx_input(tx, i, subscript, wscript, &inprivkey, &inkey,
+			      &sig);
+
+		tx->input[i].witness = bitcoin_witness_p2wpkh(tx, &sig, &inkey);
+
+		if (inputs[i].is_p2sh)
+			scriptSigs[i] = bitcoin_scriptsig_p2sh_p2wpkh(tx, &inkey);
+		else
+			scriptSigs[i] = NULL;
 	}
 
+	/* Now complete the transaction by attaching the scriptSigs where necessary */
+	for (size_t i=0; i<tal_count(inputs); i++)
+		tx->input[i].script = scriptSigs[i];
+
 	daemon_conn_send(master,
-			 take(towire_hsm_sign_funding_reply(tmpctx, sig)));
+			 take(towire_hsm_sign_funding_reply(tmpctx, tx)));
 	tal_free(tmpctx);
 }
 

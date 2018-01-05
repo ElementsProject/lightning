@@ -1005,9 +1005,6 @@ struct funding_channel {
 
 	/* Peer, once we have one. */
 	struct peer *peer;
-
-	/* Funding tx once we're ready to sign and send. */
-	struct bitcoin_tx *funding_tx;
 };
 
 static void funding_broadcast_failed(struct peer *peer,
@@ -1583,34 +1580,14 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 					const struct crypto_state *cs,
 					u64 gossip_index)
 {
-	secp256k1_ecdsa_signature *sigs;
-	struct bitcoin_tx *tx = fc->funding_tx;
+	struct bitcoin_tx *tx = tal(fc, struct bitcoin_tx);
 	u8 *linear;
 	u64 change_satoshi;
 	struct json_result *response = new_json_result(fc->cmd);
-	size_t i;
 
-	if (!fromwire_hsm_sign_funding_reply(fc, resp, NULL, &sigs))
+	if (!fromwire_hsm_sign_funding_reply(resp, NULL, tx))
 		fatal("HSM gave bad sign_funding_reply %s",
 		      tal_hex(fc, resp));
-
-	if (tal_count(sigs) != tal_count(tx->input))
-		fatal("HSM gave %zu sigs, needed %zu",
-		      tal_count(sigs), tal_count(tx->input));
-
-	/* Create input parts from signatures. */
-	for (i = 0; i < tal_count(tx->input); i++) {
-		struct pubkey key;
-
-		if (!bip32_pubkey(fc->peer->ld->wallet->bip32_base,
-				  &key, fc->utxomap[i]->keyindex))
-			fatal("Cannot generate BIP32 key for UTXO %u",
-			      fc->utxomap[i]->keyindex);
-
-		/* P2SH inputs have same witness. */
-		tx->input[i].witness
-			= bitcoin_witness_p2wpkh(tx, &sigs[i], &key);
-	}
 
 	/* Send it out and watch for confirms. */
 	broadcast_tx(fc->peer->ld->topology, fc->peer, tx, funding_broadcast_failed);
@@ -2175,9 +2152,11 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 				    const int *fds,
 				    struct funding_channel *fc)
 {
+	tal_t *tmpctx = tal_tmpctx(fc);
 	u8 *msg;
 	struct channel_info *channel_info;
 	struct utxo *utxos;
+	struct bitcoin_tx *fundingtx;
 	struct bitcoin_txid funding_txid;
 	struct pubkey changekey;
 	struct pubkey local_fundingkey;
@@ -2233,25 +2212,27 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 
 	derive_basepoints(fc->peer->seed, &local_fundingkey, NULL, NULL, NULL);
 
-	fc->funding_tx = funding_tx(fc, &fc->peer->funding_outnum,
-				    fc->utxomap, fc->peer->funding_satoshi,
-				    &local_fundingkey,
-				    &channel_info->remote_fundingkey,
-				    fc->change, &changekey,
-				    fc->peer->ld->wallet->bip32_base);
+	fundingtx = funding_tx(tmpctx, &fc->peer->funding_outnum,
+			       fc->utxomap, fc->peer->funding_satoshi,
+			       &local_fundingkey,
+			       &channel_info->remote_fundingkey,
+			       fc->change, &changekey,
+			       fc->peer->ld->wallet->bip32_base);
+
 	log_debug(fc->peer->log, "Funding tx has %zi inputs, %zu outputs:",
-		  tal_count(fc->funding_tx->input),
-		  tal_count(fc->funding_tx->output));
-	for (size_t i = 0; i < tal_count(fc->funding_tx->input); i++) {
+		  tal_count(fundingtx->input),
+		  tal_count(fundingtx->output));
+
+	for (size_t i = 0; i < tal_count(fundingtx->input); i++) {
 		log_debug(fc->peer->log, "%zi: %"PRIu64" satoshi (%s) %s\n",
 			  i, fc->utxomap[i]->amount,
 			  fc->utxomap[i]->is_p2sh ? "P2SH" : "SEGWIT",
 			  type_to_string(ltmp, struct bitcoin_txid,
-					 &fc->funding_tx->input[i].txid));
+					 &fundingtx->input[i].txid));
 	}
 
 	fc->peer->funding_txid = tal(fc->peer, struct bitcoin_txid);
-	bitcoin_txid(fc->funding_tx, fc->peer->funding_txid);
+	bitcoin_txid(fundingtx, fc->peer->funding_txid);
 
 	if (!structeq(fc->peer->funding_txid, &funding_txid)) {
 		peer_internal_error(fc->peer,
@@ -2276,19 +2257,19 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 	/* Get HSM to sign the funding tx. */
 	log_debug(fc->peer->log, "Getting HSM to sign funding tx");
 
-	utxos = from_utxoptr_arr(fc, fc->utxomap);
-	msg = towire_hsm_sign_funding(fc, fc->peer->funding_satoshi,
-					 fc->change, fc->change_keyindex,
-					 &local_fundingkey,
-					 &channel_info->remote_fundingkey,
-					 utxos);
-	tal_free(utxos);
-
+	utxos = from_utxoptr_arr(tmpctx, fc->utxomap);
+	msg = towire_hsm_sign_funding(tmpctx, fc->peer->funding_satoshi,
+				      fc->change, fc->change_keyindex,
+				      &local_fundingkey,
+				      &channel_info->remote_fundingkey,
+				      utxos);
 	/* Unowned (will free openingd). */
 	peer_set_owner(fc->peer, NULL);
 
 	if (!wire_sync_write(fc->peer->ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
+
+	tal_free(tmpctx);
 
 	msg = hsm_sync_read(fc, fc->peer->ld);
 	opening_got_hsm_funding_sig(fc, fds[0], fds[1], msg, &cs, gossip_index);

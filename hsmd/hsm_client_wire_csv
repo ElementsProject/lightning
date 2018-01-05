@@ -35,8 +35,7 @@ hsm_sign_funding,,num_inputs,u16
 hsm_sign_funding,,inputs,num_inputs*struct utxo
 
 hsm_sign_funding_reply,104
-hsm_sign_funding_reply,,num_sigs,u16
-hsm_sign_funding_reply,,sig,num_sigs*secp256k1_ecdsa_signature
+hsm_sign_funding_reply,,tx,struct bitcoin_tx
 
 # Master asks the HSM to sign a node_announcement
 hsm_node_announcement_sig_req,6
