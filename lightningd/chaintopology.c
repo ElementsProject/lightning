@@ -468,6 +468,13 @@ static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 	if (blockcount < topo->first_blocknum)
 		topo->first_blocknum = blockcount;
 
+	/* FIXME: Because we don't handle our root disappearing, we go
+	 * 100 blocks back */
+	if (topo->first_blocknum < 100)
+		topo->first_blocknum = 0;
+	else
+		topo->first_blocknum -= 100;
+
 	/* Get up to speed with topology. */
 	bitcoind_getblockhash(bitcoind, topo->first_blocknum,
 			      get_init_block, topo);
