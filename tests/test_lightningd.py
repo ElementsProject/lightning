@@ -1766,7 +1766,7 @@ class LightningDTests(BaseLightningDTests):
 
         payfuture = self.executor.submit(l1.rpc.pay, inv)
 
-        # l1 will disonnect and not reconnect.
+        # l1 will disconnect and not reconnect.
         l1.daemon.wait_for_log('dev_disconnect: -WIRE_REVOKE_AND_ACK')
 
         # Deadline HTLC expiry minus 1/2 cltv-expiry delta (rounded up) (== cltv - 3).  ctlv is 5+1.
