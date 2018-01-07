@@ -386,6 +386,10 @@ void json_add_short_channel_id(struct json_result *response,
 void json_add_address(struct json_result *response, const char *fieldname,
 		      const struct wireaddr *addr)
 {
+	/* No need to print padding */
+	if (addr->type == ADDR_TYPE_PADDING)
+		return;
+
 	json_object_start(response, fieldname);
 	char *addrstr = tal_arr(response, char, INET6_ADDRSTRLEN);
 	if (addr->type == ADDR_TYPE_IPV4) {
