@@ -100,6 +100,7 @@ class TailableProc(object):
                 logging.debug("%s: %s", self.prefix, line.decode().rstrip())
                 self.logs_cond.notifyAll()
         self.running = False
+        self.proc.stdout.close()
 
     def is_in_log(self, regex):
         """Look for `regex` in the logs."""
