@@ -121,7 +121,6 @@ class TailableProc(object):
         starting from last of the previous waited-for log entries (if any).  We
         fail if the timeout is exceeded or if the underlying process
         exits before all the `regexs` were found.
-
         """
         logging.debug("Waiting for {} in the logs".format(regexs))
         exs = [re.compile(r) for r in regexs]
@@ -131,9 +130,6 @@ class TailableProc(object):
         while True:
             if time.time() > start_time + timeout:
                 print("Can't find {} in logs".format(exs))
-                with self.logs_cond:
-                    for i in range(initial_pos, len(self.logs)):
-                        print("  " + self.logs[i])
                 for r in exs:
                     if self.is_in_log(r):
                         print("({} was previously in logs!)".format(r))
