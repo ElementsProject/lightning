@@ -489,6 +489,10 @@ static void create_new_hsm(struct daemon_conn *master)
 			      "closing: %s", strerror(errno));
 	}
 	fd = open(".", O_RDONLY);
+	if (fd < 0) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "opening: %s", strerror(errno));
+	}
 	if (fsync(fd) != 0) {
 		unlink_noerr("hsm_secret");
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
