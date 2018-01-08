@@ -2,17 +2,16 @@
 #include <closingd/gen_closing_wire.h>
 #include <common/close_tx.h>
 #include <common/crypto_sync.h>
-#include <common/debug.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc.h>
 #include <common/peer_failed.h>
 #include <common/status.h>
+#include <common/subdaemon.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/version.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <wire/peer_wire.h>
@@ -170,17 +169,8 @@ int main(int argc, char *argv[])
 	u64 next_index[NUM_SIDES], revocations_received;
 	u64 gossip_index;
 
-	if (argc == 2 && streq(argv[1], "--version")) {
-		printf("%s\n", version());
-		exit(0);
-	}
+	subdaemon_setup(argc, argv);
 
-	subdaemon_debug(argc, argv);
-
-	/* We handle write returning errors! */
-	signal(SIGCHLD, SIG_IGN);
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
 	status_setup_sync(REQ_FD);
 
 	msg = wire_sync_read(ctx, REQ_FD);

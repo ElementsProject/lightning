@@ -7,7 +7,6 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/crypto_sync.h>
-#include <common/debug.h>
 #include <common/derive_basepoints.h>
 #include <common/funding_tx.h>
 #include <common/initial_channel.h>
@@ -16,6 +15,7 @@
 #include <common/ping.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
+#include <common/subdaemon.h>
 #include <common/type_to_string.h>
 #include <common/version.h>
 #include <common/wire_error.h>
@@ -23,7 +23,6 @@
 #include <inttypes.h>
 #include <openingd/gen_opening_wire.h>
 #include <secp256k1.h>
-#include <signal.h>
 #include <stdio.h>
 #include <wally_bip32.h>
 #include <wire/gen_peer_wire.h>
@@ -761,17 +760,8 @@ int main(int argc, char *argv[])
 	struct ext_key bip32_base;
 	u32 network_index;
 
-	if (argc == 2 && streq(argv[1], "--version")) {
-		printf("%s\n", version());
-		exit(0);
-	}
+	subdaemon_setup(argc, argv);
 
-	subdaemon_debug(argc, argv);
-
-	/* We handle write returning errors! */
-	signal(SIGCHLD, SIG_IGN);
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
 	status_setup_sync(REQ_FD);
 
 	msg = wire_sync_read(state, REQ_FD);

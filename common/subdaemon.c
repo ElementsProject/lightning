@@ -1,9 +1,11 @@
 #include <backtrace.h>
 #include <ccan/err/err.h>
 #include <ccan/str/str.h>
-#include <common/debug.h>
 #include <common/dev_disconnect.h>
 #include <common/status.h>
+#include <common/subdaemon.h>
+#include <common/utils.h>
+#include <common/version.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,16 +50,26 @@ static void crashlog_activate(void)
 	sigaction(SIGBUS, &sa, NULL);
 }
 
-void subdaemon_debug(int argc, char *argv[])
+void subdaemon_setup(int argc, char *argv[])
 {
 #if DEVELOPER
 	int i;
 	bool printed = false;
 #endif
 
+	if (argc == 2 && streq(argv[1], "--version")) {
+		printf("%s\n", version());
+		exit(0);
+	}
+
 	err_set_progname(argv[0]);
 	backtrace_state = backtrace_create_state(argv[0], 0, NULL, NULL);
 	crashlog_activate();
+
+	/* We handle write returning errors! */
+	signal(SIGPIPE, SIG_IGN);
+	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+						 | SECP256K1_CONTEXT_SIGN);
 
 #if DEVELOPER
 	for (i = 1; i < argc; i++) {

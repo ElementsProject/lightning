@@ -15,10 +15,10 @@
 #include <ccan/timer/timer.h>
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
-#include <common/debug.h>
 #include <common/io_debug.h>
 #include <common/ping.h>
 #include <common/status.h>
+#include <common/subdaemon.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
@@ -1625,16 +1625,8 @@ int main(int argc, char *argv[])
 {
 	struct daemon *daemon;
 
-	subdaemon_debug(argc, argv);
+	subdaemon_setup(argc, argv);
 	io_poll_override(debug_poll);
-
-	if (argc == 2 && streq(argv[1], "--version")) {
-		printf("%s\n", version());
-		exit(0);
-	}
-
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY |
-						 SECP256K1_CONTEXT_SIGN);
 
 	daemon = tal(NULL, struct daemon);
 	list_head_init(&daemon->peers);

@@ -9,7 +9,6 @@ COMMON_SRC :=					\
 	common/crypto_sync.c			\
 	common/cryptomsg.c			\
 	common/daemon_conn.c			\
-	common/debug.c				\
 	common/derive_basepoints.c		\
 	common/dev_disconnect.c			\
 	common/funding_tx.c			\
@@ -31,6 +30,7 @@ COMMON_SRC :=					\
 	common/pseudorand.c			\
 	common/sphinx.c				\
 	common/status.c				\
+	common/subdaemon.c			\
 	common/timeout.c			\
 	common/type_to_string.c			\
 	common/utils.c				\

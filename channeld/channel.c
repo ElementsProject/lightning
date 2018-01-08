@@ -27,7 +27,6 @@
 #include <channeld/full_channel.h>
 #include <channeld/gen_channel_wire.h>
 #include <common/crypto_sync.h>
-#include <common/debug.h>
 #include <common/derive_basepoints.h>
 #include <common/dev_disconnect.h>
 #include <common/htlc_tx.h>
@@ -38,6 +37,7 @@
 #include <common/ping.h>
 #include <common/sphinx.h>
 #include <common/status.h>
+#include <common/subdaemon.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <common/version.h>
@@ -49,7 +49,6 @@
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <secp256k1.h>
-#include <signal.h>
 #include <stdio.h>
 #include <wire/gen_onion_wire.h>
 #include <wire/peer_wire.h>
@@ -2499,17 +2498,7 @@ int main(int argc, char *argv[])
 	fd_set fds_in, fds_out;
 	struct peer *peer;
 
-	if (argc == 2 && streq(argv[1], "--version")) {
-		printf("%s\n", version());
-		exit(0);
-	}
-
-	subdaemon_debug(argc, argv);
-
-	/* We handle write returning errors! */
-	signal(SIGCHLD, SIG_IGN);
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
+	subdaemon_setup(argc, argv);
 
 	peer = tal(NULL, struct peer);
 	peer->num_pings_outstanding = 0;
