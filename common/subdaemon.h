@@ -1,0 +1,7 @@
+#ifndef LIGHTNING_COMMON_SUBDAEMON_H
+#define LIGHTNING_COMMON_SUBDAEMON_H
+#include "config.h"
+
+void subdaemon_setup(int argc, char *argv[]);
+
+#endif /* LIGHTNING_COMMON_SUBDAEMON_H */

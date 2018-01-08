@@ -14,13 +14,13 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/take/take.h>
 #include <common/daemon_conn.h>
-#include <common/debug.h>
 #include <common/derive_basepoints.h>
 #include <common/funding_tx.h>
 #include <common/hash_u5.h>
 #include <common/io_debug.h>
 #include <common/key_derive.h>
 #include <common/status.h>
+#include <common/subdaemon.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/version.h>
@@ -833,16 +833,8 @@ int main(int argc, char *argv[])
 {
 	struct client *client;
 
-	if (argc == 2 && streq(argv[1], "--version")) {
-		printf("%s\n", version());
-		exit(0);
-	}
-
-	subdaemon_debug(argc, argv);
+	subdaemon_setup(argc, argv);
 	io_poll_override(debug_poll);
-
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
 
 	client = new_client(NULL, NULL, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP, handle_client, STDIN_FILENO);
 

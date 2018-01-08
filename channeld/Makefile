@@ -38,7 +38,6 @@ CHANNELD_COMMON_OBJS :=				\
 	common/crypto_sync.o			\
 	common/cryptomsg.o			\
 	common/daemon_conn.o			\
-	common/debug.o				\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
 	common/htlc_state.o			\
@@ -57,6 +56,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/pseudorand.o			\
 	common/sphinx.o				\
 	common/status.o				\
+	common/subdaemon.o			\
 	common/timeout.o			\
 	common/type_to_string.o			\
 	common/utils.o				\

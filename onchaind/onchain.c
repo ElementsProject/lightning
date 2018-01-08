@@ -3,13 +3,13 @@
 #include <ccan/mem/mem.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
-#include <common/debug.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc_tx.h>
 #include <common/initial_commit_tx.h>
 #include <common/key_derive.h>
 #include <common/keyset.h>
 #include <common/status.h>
+#include <common/subdaemon.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/version.h>
@@ -18,7 +18,6 @@
 #include <lightningd/peer_state.h>
 #include <onchaind/gen_onchain_wire.h>
 #include <onchaind/onchain_types.h>
-#include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <wire/wire_sync.h>
@@ -1976,17 +1975,8 @@ int main(int argc, char *argv[])
 	bool *tell_if_missing, *tell_immediately;
 	u32 tx_blockheight;
 
-	if (argc == 2 && streq(argv[1], "--version")) {
-		printf("%s\n", version());
-		exit(0);
-	}
+	subdaemon_setup(argc, argv);
 
-	subdaemon_debug(argc, argv);
-
-	/* We handle write returning errors! */
-	signal(SIGCHLD, SIG_IGN);
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
 	status_setup_sync(REQ_FD);
 
 	missing_htlc_msgs = tal_arr(ctx, u8 *, 0);

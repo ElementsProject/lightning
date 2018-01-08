@@ -41,7 +41,6 @@ OPENINGD_COMMON_OBJS :=				\
 	common/crypto_sync.o			\
 	common/cryptomsg.o			\
 	common/daemon_conn.o			\
-	common/debug.o				\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
 	common/funding_tx.o			\
@@ -57,6 +56,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/permute_tx.o			\
 	common/pseudorand.o			\
 	common/status.o				\
+	common/subdaemon.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/utxo.o				\
