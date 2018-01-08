@@ -70,9 +70,6 @@ def tearDownBitcoind():
         bitcoind.proc.kill()
     bitcoind.proc.wait()
 
-def breakpoint():
-    import pdb; pdb.set_trace()
-
 class NodeFactory(object):
     """A factory to setup and start `lightningd` daemons.
     """
