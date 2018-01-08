@@ -673,6 +673,9 @@ void setup_jsonrpc(struct lightningd *ld, const char *rpc_filename)
 	}
 
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (fd < 0) {
+		errx(1, "domain socket creation failed");
+	}
 	if (strlen(rpc_filename) + 1 > sizeof(addr.sun_path))
 		errx(1, "rpc filename '%s' too long", rpc_filename);
 	strcpy(addr.sun_path, rpc_filename);

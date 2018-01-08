@@ -121,7 +121,7 @@ static void close_taken_fds(va_list *ap)
 	int *fd;
 
 	while ((fd = va_arg(*ap, int *)) != NULL) {
-		if (taken(fd)) {
+		if (taken(fd) && *fd >= 0) {
 			close(*fd);
 			*fd = -1;
 		}
