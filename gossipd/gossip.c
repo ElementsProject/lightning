@@ -1197,6 +1197,14 @@ fail:
 	return -1;
 }
 
+static void gossip_prune_network(struct daemon *daemon)
+{
+	/* Schedule next run now */
+	new_reltimer(&daemon->timers, daemon,
+		     time_from_sec(daemon->update_channel_interval/2),
+		     gossip_prune_network, daemon);
+
+}
 static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon)
 {
 	struct wireaddr addr;
@@ -1319,6 +1327,11 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	daemon->rstate = new_routing_state(daemon, &chain_hash, &daemon->id);
 
 	setup_listeners(daemon, port);
+
+	new_reltimer(&daemon->timers, daemon,
+		     time_from_sec(daemon->update_channel_interval/2),
+		     gossip_prune_network, daemon);
+
 	return daemon_conn_read_next(master->conn, master);
 }
 
