@@ -1197,14 +1197,97 @@ fail:
 	return -1;
 }
 
+static void gossip_send_keepalive_update(struct routing_state *rstate,
+					 struct node_connection *nc)
+{
+	tal_t *tmpctx = tal_tmpctx(nc);
+	size_t plen = tal_len(nc->channel_update);
+	secp256k1_ecdsa_signature sig;
+	struct bitcoin_blkid chain_hash;
+	struct short_channel_id scid;
+	u32 timestamp, fee_base_msat, fee_proportional_millionths;
+	u64 htlc_minimum_msat;
+	u16 flags, cltv_expiry_delta;
+	u8 *update, *msg;
+
+	/* Parse old update */
+	if (!fromwire_channel_update(
+		nc->channel_update, &plen, &sig, &chain_hash, &scid, &timestamp,
+		&flags, &cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
+		&fee_proportional_millionths)) {
+		status_failed(
+		    STATUS_FAIL_INTERNAL_ERROR,
+		    "Unable to parse previously accepted channel_update");
+	}
+
+	/* Now generate a new update, with up to date timestamp */
+	timestamp = time_now().ts.tv_sec;
+	update =
+	    towire_channel_update(tmpctx, &sig, &chain_hash, &scid, timestamp,
+				  flags, cltv_expiry_delta, htlc_minimum_msat,
+				  fee_base_msat, fee_proportional_millionths);
+
+	if (!wire_sync_write(HSM_FD,
+			     towire_hsm_cupdate_sig_req(tmpctx, update))) {
+		status_failed(STATUS_FAIL_HSM_IO, "Writing cupdate_sig_req: %s",
+			      strerror(errno));
+	}
+
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!msg || !fromwire_hsm_cupdate_sig_reply(tmpctx, msg, NULL, &update)) {
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading cupdate_sig_req: %s",
+			      strerror(errno));
+	}
+
+	status_trace("Sending keepalive channel_update for %s",
+		     type_to_string(tmpctx, struct short_channel_id, &scid));
+
+	handle_channel_update(rstate, update);
+	tal_free(tmpctx);
+
+}
+
 static void gossip_prune_network(struct daemon *daemon)
 {
+	u64 now = time_now().ts.tv_sec;
 	/* Schedule next run now */
 	new_reltimer(&daemon->timers, daemon,
 		     time_from_sec(daemon->update_channel_interval/2),
 		     gossip_prune_network, daemon);
 
+	/* Find myself in the network */
+	struct node *n = node_map_get(daemon->rstate->nodes, &daemon->id.pubkey);
+	if (!n) {
+		status_trace("Could not find myself in the nodemap, do we have a channel yet?");
+		return;
+	}
+
+	/* Iterate through all outgoing connection and check whether
+	 * it's time to re-announce */
+	for (size_t i=0; i<tal_count(n->out); i++) {
+		struct node_connection *nc = n->out[i];
+
+		if (!nc->channel_update) {
+			/* Connection is not public yet, so don't even
+			 * try to re-announce it */
+			continue;
+		}
+
+		if (now - nc->last_timestamp < daemon->update_channel_interval) {
+			/* No need to send a keepalive update message */
+			continue;
+		}
+
+		if (!nc->active) {
+			/* Only send keepalives for active connections */
+			continue;
+		}
+
+		gossip_send_keepalive_update(daemon->rstate, nc);
+	}
 }
+
 static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon)
 {
 	struct wireaddr addr;
