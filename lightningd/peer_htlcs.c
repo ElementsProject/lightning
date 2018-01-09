@@ -269,10 +269,10 @@ static void handle_localpay(struct htlc_in *hin,
 	 *
 	 * 1. type: PERM|16 (`incorrect_payment_amount`)
 	 */
-	if (hin->msatoshi < invoice->msatoshi) {
+	if (invoice->msatoshi != NULL && hin->msatoshi < *invoice->msatoshi) {
 		failcode = WIRE_INCORRECT_PAYMENT_AMOUNT;
 		goto fail;
-	} else if (hin->msatoshi > invoice->msatoshi * 2) {
+	} else if (invoice->msatoshi != NULL && hin->msatoshi > *invoice->msatoshi * 2) {
 		failcode = WIRE_INCORRECT_PAYMENT_AMOUNT;
 		goto fail;
 	}

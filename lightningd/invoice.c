@@ -81,7 +81,8 @@ static void tell_waiter(struct command *cmd, const struct invoice *paid)
 	json_object_start(response, NULL);
 	json_add_string(response, "label", paid->label);
 	json_add_hex(response, "rhash", &paid->rhash, sizeof(paid->rhash));
-	json_add_u64(response, "msatoshi", paid->msatoshi);
+	if (paid->msatoshi)
+		json_add_u64(response, "msatoshi", *paid->msatoshi);
 	json_add_bool(response, "complete", paid->state == PAID);
 	if (paid->state == PAID)
 		json_add_u64(response, "pay_index", paid->pay_index);
@@ -196,8 +197,9 @@ static void json_invoice(struct command *cmd,
 
 	sha256(&invoice->rhash, invoice->r.r, sizeof(invoice->r.r));
 
-	if (!json_tok_u64(buffer, msatoshi, &invoice->msatoshi)
-	    || invoice->msatoshi == 0) {
+	invoice->msatoshi = tal(invoice, u64);
+	if (!json_tok_u64(buffer, msatoshi, invoice->msatoshi)
+	    || *invoice->msatoshi == 0) {
 		command_fail(cmd, "'%.*s' is not a valid positive number",
 			     msatoshi->end - msatoshi->start,
 			     buffer + msatoshi->start);
@@ -229,7 +231,7 @@ static void json_invoice(struct command *cmd,
 	wallet_invoice_save(cmd->ld->wallet, invoice);
 
 	/* Construct bolt11 string. */
-	b11 = new_bolt11(cmd, &invoice->msatoshi);
+	b11 = new_bolt11(cmd, invoice->msatoshi);
 	b11->chain = get_chainparams(cmd->ld);
 	b11->timestamp = time_now().ts.tv_sec;
 	b11->payment_hash = invoice->rhash;
@@ -257,7 +259,7 @@ static void json_invoice(struct command *cmd,
 	payment.payment_hash = invoice->rhash;
 	payment.destination = NULL;
 	payment.status = PAYMENT_PENDING;
-	payment.msatoshi = invoice->msatoshi;
+	payment.msatoshi = *invoice->msatoshi;
 	payment.timestamp = b11->timestamp;
 
 	if (!wallet_payment_add(cmd->ld->wallet, &payment)) {
@@ -300,7 +302,8 @@ static void json_add_invoices(struct json_result *response,
 		json_object_start(response, NULL);
 		json_add_string(response, "label", i->label);
 		json_add_hex(response, "rhash", &i->rhash, sizeof(i->rhash));
-		json_add_u64(response, "msatoshi", i->msatoshi);
+		if (i->msatoshi)
+			json_add_u64(response, "msatoshi", *i->msatoshi);
 		json_add_bool(response, "complete", i->state == PAID);
 		json_add_u64(response, "expiry_time", i->expiry_time);
 		json_object_end(response);
@@ -366,7 +369,8 @@ static void json_delinvoice(struct command *cmd,
 	json_object_start(response, NULL);
 	json_add_string(response, "label", i->label);
 	json_add_hex(response, "rhash", &i->rhash, sizeof(i->rhash));
-	json_add_u64(response, "msatoshi", i->msatoshi);
+	if (i->msatoshi)
+		json_add_u64(response, "msatoshi", *i->msatoshi);
 	json_object_end(response);
 
 	error = delete_invoice(cmd, cmd->ld->wallet, invs, i);
