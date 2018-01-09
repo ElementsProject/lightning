@@ -81,6 +81,8 @@ struct daemon {
 
 	/* To make sure our node_announcement timestamps increase */
 	u32 last_announce_timestamp;
+
+	u32 update_channel_interval;
 };
 
 /* Peers we're trying to reach. */
@@ -1307,13 +1309,11 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	struct bitcoin_blkid chain_hash;
 	u16 port;
 
-	if (!fromwire_gossipctl_init(daemon, msg, NULL,
-				     &daemon->broadcast_interval,
-				     &chain_hash, &daemon->id, &port,
-				     &daemon->globalfeatures,
-				     &daemon->localfeatures,
-				     &daemon->wireaddrs,
-				     daemon->rgb, daemon->alias)) {
+	if (!fromwire_gossipctl_init(
+		daemon, msg, NULL, &daemon->broadcast_interval, &chain_hash,
+		&daemon->id, &port, &daemon->globalfeatures,
+		&daemon->localfeatures, &daemon->wireaddrs, daemon->rgb,
+		daemon->alias, &daemon->update_channel_interval)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
 	daemon->rstate = new_routing_state(daemon, &chain_hash, &daemon->id);

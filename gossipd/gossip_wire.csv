@@ -16,6 +16,7 @@ gossipctl_init,,num_wireaddrs,u16
 gossipctl_init,,wireaddrs,num_wireaddrs*struct wireaddr
 gossipctl_init,,rgb,3*u8
 gossipctl_init,,alias,32*u8
+gossipctl_init,,update_channel_interval,u32
 
 # Master -> gossipd: Optional hint for where to find peer.
 gossipctl_peer_addrhint,3014
