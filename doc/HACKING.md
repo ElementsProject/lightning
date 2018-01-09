@@ -10,8 +10,19 @@ It is designed to implement the lightning protocol as specified in
 
 Getting Started
 ---------------
-It's in C, to encourage alternate implementations.  It uses the [Linux
-coding style](https://www.kernel.org/doc/html/v4.10/process/coding-style.html). 
+It's in C, to encourage alternate implementations. It uses the [Linux coding
+style](https://www.kernel.org/doc/html/v4.10/process/coding-style.html). To
+configure this coding style for emacs, add this to .dir-locals.el in the
+root project directory:
+
+    ((c-mode . ((c-file-style . "linux")
+                (indent-tabs-mode . t)
+                (show-trailing-whitespace . t)
+                (c-basic-offset . 8)
+                (tab-width . 8)
+                ))
+    )
+
 Patches are welcome!
 
 To read the code, you'll probably need to understand ccan/tal: it's a
