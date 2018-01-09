@@ -68,6 +68,9 @@ struct config {
 
 	/* Disable automatic reconnects */
 	bool no_reconnect;
+
+	/* Channel update interval */
+	u32 channel_update_interval;
 };
 
 struct lightningd {
