@@ -1251,6 +1251,10 @@ static void gossip_send_keepalive_update(struct routing_state *rstate,
 static void gossip_prune_network(struct daemon *daemon)
 {
 	u64 now = time_now().ts.tv_sec;
+	struct node_map_iter it;
+	/* Anything below this highwater mark ought to be pruned */
+	s64 highwater = now - 2*daemon->update_channel_interval;
+
 	/* Schedule next run now */
 	new_reltimer(&daemon->timers, daemon,
 		     time_from_sec(daemon->update_channel_interval/2),
@@ -1285,6 +1289,34 @@ static void gossip_prune_network(struct daemon *daemon)
 		}
 
 		gossip_send_keepalive_update(daemon->rstate, nc);
+	}
+
+	/* Now iterate through all channels and see if it is still alive */
+	for (n = node_map_first(daemon->rstate->nodes, &it); n;
+	     n = node_map_next(daemon->rstate->nodes, &it)) {
+		for (size_t i = 0; i < tal_count(n->out); i++) {
+			struct node_connection *nc = n->out[i];
+
+			if (!nc->channel_update) {
+				/* Not even announced yet */
+				continue;
+			}
+
+			if (nc->last_timestamp > highwater) {
+				/* Still alive */
+				continue;
+			}
+
+			status_trace(
+			    "Pruning channel %s/%d from network view (age %"PRIu64"s)",
+			    type_to_string(trc, struct short_channel_id,
+					   &nc->short_channel_id),
+			    get_channel_direction(&nc->src->id, &nc->dst->id),
+			    now - nc->last_timestamp);
+			/* Calls remove_conn_from_array internally, removes on
+			 * both src and dst side. */
+			tal_free(nc);
+		}
 	}
 }
 
