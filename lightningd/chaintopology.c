@@ -227,13 +227,15 @@ static void broadcast_done(struct bitcoind *bitcoind,
 		return;
 	}
 
+	/* No longer needs to be disconnected if peer dies. */
+	tal_del_destructor2(otx->peer, clear_otx_peer, otx);
+
 	if (otx->failed && exitstatus != 0) {
 		otx->failed(otx->peer, exitstatus, msg);
 		tal_free(otx);
 	} else {
 		/* For continual rebroadcasting, until peer freed. */
 		tal_steal(otx->peer, otx);
-		tal_del_destructor2(otx->peer, clear_otx_peer, otx);
 		list_add_tail(&otx->topo->outgoing_txs, &otx->list);
 		tal_add_destructor(otx, destroy_outgoing_tx);
 	}
