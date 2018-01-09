@@ -1236,7 +1236,11 @@ void wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
 		sqlite3_bind_blob(stmt, 1, &inv->rhash, sizeof(inv->rhash), SQLITE_TRANSIENT);
 		sqlite3_bind_blob(stmt, 2, &inv->r, sizeof(inv->r), SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 3, inv->state);
-		sqlite3_bind_int64(stmt, 4, inv->msatoshi);
+		if (inv->msatoshi) {
+			sqlite3_bind_int64(stmt, 4, *inv->msatoshi);
+		} else {
+			sqlite3_bind_null(stmt, 4);
+		}
 		sqlite3_bind_text(stmt, 5, inv->label, strlen(inv->label), SQLITE_TRANSIENT);
 		sqlite3_bind_int64(stmt, 6, inv->expiry_time);
 		if (inv->state == PAID) {
@@ -1287,7 +1291,14 @@ static bool wallet_stmt2invoice(sqlite3_stmt *stmt, struct invoice *inv)
 	memcpy(&inv->rhash, sqlite3_column_blob(stmt, 3), sqlite3_column_bytes(stmt, 3));
 
 	inv->label = tal_strndup(inv, sqlite3_column_blob(stmt, 4), sqlite3_column_bytes(stmt, 4));
-	inv->msatoshi = sqlite3_column_int64(stmt, 5);
+
+	if (sqlite3_column_type(stmt, 5) != SQLITE_NULL) {
+		inv->msatoshi = tal(inv, u64);
+		*inv->msatoshi = sqlite3_column_int64(stmt, 5);
+	} else {
+		inv->msatoshi = NULL;
+	}
+
 	inv->expiry_time = sqlite3_column_int64(stmt, 6);
 	/* Correctly 0 if pay_index is NULL. */
 	inv->pay_index = sqlite3_column_int64(stmt, 7);

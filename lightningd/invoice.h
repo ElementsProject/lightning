@@ -21,7 +21,7 @@ struct invoice {
 	u64 id;
 	enum invoice_status state;
 	const char *label;
-	u64 msatoshi;
+	u64 *msatoshi;
 	struct preimage r;
 	u64 expiry_time;
 	struct sha256 rhash;
