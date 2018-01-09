@@ -981,7 +981,9 @@ static void do_cmd(struct peer *peer)
 	} else if (streq(cmd, "restore")) {
 		write_all(peer->cmddonefd, "", 1);
 		/* Ack, then read in blob */
-		read_all(peer->cmdfd, &peer->db, sizeof(peer->db));
+		if (!read_all(peer->cmdfd, &peer->db, sizeof(peer->db))) {
+			errx(1, "Read failed for command \"restore\"");
+		}
 		restore_state(peer);
 	} else if (streq(cmd, "checksync")) {
 		struct commit_tx ours, theirs;
