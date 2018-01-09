@@ -1400,6 +1400,33 @@ class LightningDTests(BaseLightningDTests):
         assert [c['active'] for c in l2.rpc.getchannels()['channels']] == [True, True]
         assert [c['public'] for c in l2.rpc.getchannels()['channels']] == [True, True]
 
+    def test_gossip_pruning(self):
+        """ Create channel and see it being updated in time before pruning
+        """
+        opts = ['--channel-update-interval=5']
+        l1 = self.node_factory.get_node(options=opts)
+        l2 = self.node_factory.get_node(options=opts)
+        l3 = self.node_factory.get_node(options=opts)
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        l2.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
+
+        scid1 = self.fund_channel(l1, l2, 10**6)
+        scid2 = self.fund_channel(l2, l3, 10**6)
+
+        # Channels should be activated locally
+        wait_for(lambda: [c['active'] for c in l1.rpc.getchannels()['channels']] == [True])
+        wait_for(lambda: [c['active'] for c in l2.rpc.getchannels()['channels']] == [True, True])
+        wait_for(lambda: [c['active'] for c in l3.rpc.getchannels()['channels']] == [True])
+
+        l1.bitcoin.rpc.generate(6)
+
+        # All of them should send a keepalive message
+        l1.daemon.wait_for_log('Sending keepalive channel_update for {}'.format(scid1))
+        l2.daemon.wait_for_log('Sending keepalive channel_update for {}'.format(scid1))
+        l2.daemon.wait_for_log('Sending keepalive channel_update for {}'.format(scid2))
+        l3.daemon.wait_for_log('Sending keepalive channel_update for {}'.format(scid2))
+
     def ping_tests(self, l1, l2):
         # 0-byte pong gives just type + length field.
         ret = l1.rpc.dev_ping(l2.info['id'], 0, 0)
