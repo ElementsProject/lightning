@@ -575,9 +575,12 @@ static void hsm_unilateral_close_privkey(struct privkey *dst,
 	derive_peer_seed(&peer_seed, &peer_seed_base, &info->peer_id, info->channel_id);
 	derive_basepoints(&peer_seed, NULL, &basepoints, &secrets, NULL);
 
-	derive_simple_privkey(&secrets.payment_basepoint_secret,
-			      &basepoints.payment, &info->commitment_point,
-			      dst);
+	if (!derive_simple_privkey(&secrets.payment_basepoint_secret,
+				   &basepoints.payment, &info->commitment_point,
+				   dst)) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Deriving unilateral_close_privkey");
+	}
 }
 
 /**
