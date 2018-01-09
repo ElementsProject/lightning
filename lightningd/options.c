@@ -343,6 +343,9 @@ static const struct config testnet_config = {
 
 	/* Automatically reconnect */
 	.no_reconnect = false,
+
+	/* Send a keepalive update at least every week, prune every twice that */
+	.channel_update_interval = 1209600/2,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -401,6 +404,9 @@ static const struct config mainnet_config = {
 
 	/* Automatically reconnect */
 	.no_reconnect = false,
+
+	/* Send a keepalive update at least every week, prune every twice that */
+	.channel_update_interval = 1209600/2,
 };
 
 static void check_config(struct lightningd *ld)
@@ -521,6 +527,12 @@ void register_opts(struct lightningd *ld)
 			 "RRGGBB hex color for node");
 	opt_register_arg("--alias", opt_set_alias, NULL, ld,
 			 "Up to 32-byte alias for node");
+
+	opt_register_arg(
+	    "--channel-update-interval=<s>", opt_set_u32, opt_show_u32,
+	    &ld->config.channel_update_interval,
+	    "Time in seconds between channel updates for our own channels.");
+
 	opt_register_logging(ld->log);
 	opt_register_version();
 
