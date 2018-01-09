@@ -1400,6 +1400,7 @@ class LightningDTests(BaseLightningDTests):
         assert [c['active'] for c in l2.rpc.getchannels()['channels']] == [True, True]
         assert [c['public'] for c in l2.rpc.getchannels()['channels']] == [True, True]
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_gossip_pruning(self):
         """ Create channel and see it being updated in time before pruning
         """
@@ -1414,18 +1415,41 @@ class LightningDTests(BaseLightningDTests):
         scid1 = self.fund_channel(l1, l2, 10**6)
         scid2 = self.fund_channel(l2, l3, 10**6)
 
-        # Channels should be activated locally
-        wait_for(lambda: [c['active'] for c in l1.rpc.getchannels()['channels']] == [True])
-        wait_for(lambda: [c['active'] for c in l2.rpc.getchannels()['channels']] == [True, True])
-        wait_for(lambda: [c['active'] for c in l3.rpc.getchannels()['channels']] == [True])
-
         l1.bitcoin.rpc.generate(6)
 
+        # Channels should be activated locally
+        wait_for(lambda: [c['active'] for c in l1.rpc.getchannels()['channels']] == [True]*4)
+        wait_for(lambda: [c['active'] for c in l2.rpc.getchannels()['channels']] == [True]*4)
+        wait_for(lambda: [c['active'] for c in l3.rpc.getchannels()['channels']] == [True]*4)
+
         # All of them should send a keepalive message
-        l1.daemon.wait_for_log('Sending keepalive channel_update for {}'.format(scid1))
-        l2.daemon.wait_for_log('Sending keepalive channel_update for {}'.format(scid1))
-        l2.daemon.wait_for_log('Sending keepalive channel_update for {}'.format(scid2))
-        l3.daemon.wait_for_log('Sending keepalive channel_update for {}'.format(scid2))
+        l1.daemon.wait_for_logs([
+            'Sending keepalive channel_update for {}'.format(scid1),
+        ])
+        l2.daemon.wait_for_logs([
+            'Sending keepalive channel_update for {}'.format(scid1),
+            'Sending keepalive channel_update for {}'.format(scid2),
+        ])
+        l3.daemon.wait_for_logs([
+            'Sending keepalive channel_update for {}'.format(scid2),
+        ])
+
+        # Now kill l3, so that l2 and l1 can prune it from their view after 10 seconds
+        time.sleep(1)
+        l3.stop()
+
+        l1.daemon.wait_for_logs([
+            "Pruning channel {}/{} from network view".format(scid2, 0),
+            "Pruning channel {}/{} from network view".format(scid2, 1),
+        ])
+
+        l2.daemon.wait_for_logs([
+            "Pruning channel {}/{} from network view".format(scid2, 0),
+            "Pruning channel {}/{} from network view".format(scid2, 1),
+        ])
+
+        assert scid2 not in [c['short_channel_id'] for c in l1.rpc.getchannels()['channels']]
+        assert scid2 not in [c['short_channel_id'] for c in l2.rpc.getchannels()['channels']]
 
     def ping_tests(self, l1, l2):
         # 0-byte pong gives just type + length field.
