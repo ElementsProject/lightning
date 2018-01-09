@@ -776,7 +776,9 @@ bool dev_disconnect_permanent(struct lightningd *ld)
 		return true;
 
 	/* Nope, restore. */
-	lseek(ld->dev_disconnect_fd, -r, SEEK_CUR);
+	if (lseek(ld->dev_disconnect_fd, -r, SEEK_CUR) < 0) {
+		fatal("lseek failure");
+	}
 	return false;
 }
 #endif /* DEVELOPER */

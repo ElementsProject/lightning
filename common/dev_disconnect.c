@@ -29,7 +29,9 @@ static void next_dev_disconnect(void)
 		 dev_disconnect_line, sizeof(dev_disconnect_line)-1);
 	if (r < 0)
 		err(1, "Reading dev_disconnect file");
-	lseek(dev_disconnect_fd, -r, SEEK_CUR);
+	if (lseek(dev_disconnect_fd, -r, SEEK_CUR) < 0) {
+		err(1, "lseek failure");
+	}
 
 	/* Get first line */
 	dev_disconnect_line[r] = '\n';
@@ -74,7 +76,9 @@ enum dev_disconnect dev_disconnect(int pkt_type)
 		return DEV_DISCONNECT_NORMAL;
 	}
 
-	lseek(dev_disconnect_fd, dev_disconnect_len+1, SEEK_CUR);
+	if (lseek(dev_disconnect_fd, dev_disconnect_len+1, SEEK_CUR) < 0) {
+		err(1, "lseek failure");
+	}
 
 	status_trace("dev_disconnect: %s%s", dev_disconnect_line,
 		     dev_disconnect_nocommit ? "-nocommit" : "");
