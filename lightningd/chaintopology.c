@@ -236,7 +236,7 @@ static void broadcast_done(struct bitcoind *bitcoind,
 	} else {
 		/* For continual rebroadcasting, until peer freed. */
 		tal_steal(otx->peer, otx);
-		list_add_tail(&otx->topo->outgoing_txs, &otx->list);
+		list_add_tail(&bitcoind->ld->topology->outgoing_txs, &otx->list);
 		tal_add_destructor(otx, destroy_outgoing_tx);
 	}
 }
@@ -254,7 +254,6 @@ void broadcast_tx(struct chain_topology *topo,
 	bitcoin_txid(tx, &otx->txid);
 	otx->hextx = tal_hex(otx, rawtx);
 	otx->failed = failed;
-	otx->topo = topo;
 	tal_free(rawtx);
 	tal_add_destructor2(peer, clear_otx_peer, otx);
 
