@@ -667,6 +667,19 @@ send_error:
 	subd_send_fd(ld->gossip, gossip_fd);
 }
 
+/* Gossipd tells us peer was already connected. */
+void peer_already_connected(struct lightningd *ld, const u8 *msg)
+{
+	struct pubkey id;
+
+	if (!fromwire_gossip_peer_already_connected(msg, NULL, &id))
+		fatal("Gossip gave bad GOSSIP_PEER_ALREADY_CONNECTED message %s",
+		      tal_hex(msg, msg));
+
+	/* If we were waiting for connection, we succeeded. */
+	connect_succeeded(ld, &id);
+}
+
 void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
 			 const struct wireaddr *addr,

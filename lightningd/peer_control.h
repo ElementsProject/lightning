@@ -173,6 +173,9 @@ void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
 void peer_connected(struct lightningd *ld, const u8 *msg,
 		    int peer_fd, int gossip_fd);
 
+/* This simply means we asked to reach a peer, but we already have it */
+void peer_already_connected(struct lightningd *ld, const u8 *msg);
+
 void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
 			 const struct wireaddr *addr,
