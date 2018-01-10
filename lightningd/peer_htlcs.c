@@ -901,7 +901,9 @@ static bool changed_htlc(struct peer *peer,
 		return update_in_htlc(peer, changed->id, changed->newstate);
 }
 
-static bool peer_save_commitsig_received(struct peer *peer, u64 commitnum)
+static bool peer_save_commitsig_received(struct peer *peer, u64 commitnum,
+					 struct bitcoin_tx *tx,
+					 const secp256k1_ecdsa_signature *commit_sig)
 {
 	if (commitnum != peer->next_index[LOCAL]) {
 		peer_internal_error(peer,
@@ -913,7 +915,9 @@ static bool peer_save_commitsig_received(struct peer *peer, u64 commitnum)
 
 	peer->next_index[LOCAL]++;
 
-	/* FIXME: Save to database, with sig and HTLCs. */
+	/* Update peer->last_sig and peer->last_tx before saving to db */
+	peer_last_tx(peer, tx, commit_sig);
+
 	wallet_channel_save(peer->ld->wallet, peer->channel, 0);
 	return true;
 }
@@ -989,7 +993,7 @@ void peer_sending_commitsig(struct peer *peer, const u8 *msg)
 	if (!peer_save_commitsig_sent(peer, commitnum))
 		return;
 
-	/* Last was commit. */
+	/* Last was commit.  FIXME: Save to db. */
 	peer->last_was_revoke = false;
 	tal_free(peer->last_sent_commit);
 	peer->last_sent_commit = tal_steal(peer, changed_htlcs);
@@ -1131,10 +1135,9 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 	if (!peer_sending_revocation(peer, added, fulfilled, failed, changed))
 		return;
 
-	if (!peer_save_commitsig_received(peer, commitnum))
+	if (!peer_save_commitsig_received(peer, commitnum, tx, &commit_sig))
 		return;
 
-	peer_last_tx(peer, tx, &commit_sig);
 	/* FIXME: Put these straight in the db! */
 	tal_free(peer->last_htlc_sigs);
 	peer->last_htlc_sigs = tal_steal(peer, htlc_sigs);
