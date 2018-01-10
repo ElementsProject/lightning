@@ -247,7 +247,8 @@ static bool send_payment(struct command *cmd,
 		payment->payment_hash = *rhash;
 		payment->destination = &ids[n_hops - 1];
 		payment->status = PAYMENT_PENDING;
-		payment->msatoshi = route[n_hops-1].amount;
+		payment->msatoshi = tal(payment, u64);
+		*payment->msatoshi = route[n_hops-1].amount;
 		payment->timestamp = time_now().ts.tv_sec;
 	}
 	pc->cmd = cmd;
@@ -503,7 +504,8 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 		json_add_hex(response, "payment_hash", &t->payment_hash, sizeof(t->payment_hash));
 		if (!t->incoming)
 			json_add_pubkey(response, "destination", t->destination);
-		json_add_u64(response, "msatoshi", t->msatoshi);
+		if (t->msatoshi)
+			json_add_u64(response, "msatoshi", *t->msatoshi);
 		json_add_u64(response, "timestamp", t->timestamp);
 
 		switch (t->status) {
