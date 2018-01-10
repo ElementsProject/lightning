@@ -983,7 +983,6 @@ void peer_sending_commitsig(struct peer *peer, const u8 *msg)
 				   num_local_added, maxid, peer->next_htlc_id);
 			return;
 		}
-		/* FIXME: Save to db */
 		peer->next_htlc_id += num_local_added;
 	}
 
@@ -1099,8 +1098,6 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 		  ": feerate %u, %zu added, %zu fulfilled, %zu failed, %zu changed",
 		  commitnum, feerate, tal_count(added), tal_count(fulfilled),
 		  tal_count(failed), tal_count(changed));
-
-	/* FIXME: store commit & htlc signature information. */
 
 	/* New HTLCs */
 	for (i = 0; i < tal_count(added); i++)
@@ -1226,8 +1223,6 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 
 	/* FIXME: Check per_commitment_secret -> per_commit_point */
 	update_per_commit_point(peer, &next_per_commitment_point);
-
-	/* FIXME: Commit shachain and next_per_commit_point to db */
 
 	/* Tell it we've committed, and to go ahead with revoke. */
 	msg = towire_channel_got_revoke_reply(msg);

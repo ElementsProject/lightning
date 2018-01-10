@@ -1446,7 +1446,6 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 		fail = tal_arr(htlc, u8, 0);
 		towire_u16(&fail, failure_code);
 		towire_sha256(&fail, &sha256_of_onion);
-		/* FIXME: Make htlc->fail a u8 *! */
 		htlc->fail = fail;
 		start_commit_timer(peer);
 		return;
