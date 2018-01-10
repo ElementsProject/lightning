@@ -359,6 +359,17 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('hand_back_peer {}: now local again'.format(l2.info['id']))
         l2.daemon.wait_for_log('hand_back_peer {}: now local again'.format(l1.info['id']))
 
+        # Reconnect should be a noop
+        ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        assert ret['id'] == l2.info['id']
+
+        ret = l2.rpc.connect(l1.info['id'], 'localhost', l1.info['port'])
+        assert ret['id'] == l1.info['id']
+
+        # Should still only have one peer!
+        assert len(l1.rpc.getpeers()) == 1
+        assert len(l2.rpc.getpeers()) == 1
+
     def test_balance(self):
         l1,l2 = self.connect()
 
@@ -1836,6 +1847,10 @@ class LightningDTests(BaseLightningDTests):
             l1.daemon.wait_for_log('Failed connected out for {}, will try again'
                                    .format(l2.info['id']))
 
+        # Should still only have one peer!
+        assert len(l1.rpc.getpeers()) == 1
+        assert len(l2.rpc.getpeers()) == 1
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_disconnect_funder(self):
         # Now error on funder side duringchannel open.
@@ -1857,6 +1872,14 @@ class LightningDTests(BaseLightningDTests):
             self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
             assert l1.rpc.getpeer(l2.info['id']) == None
 
+        # This one will succeed.
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        l1.rpc.fundchannel(l2.info['id'], 20000)
+
+        # Should still only have one peer!
+        assert len(l1.rpc.getpeers()) == 1
+        assert len(l2.rpc.getpeers()) == 1
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_disconnect_fundee(self):
         # Now error on fundee side during channel open.
@@ -1875,6 +1898,14 @@ class LightningDTests(BaseLightningDTests):
             l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
             self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
             assert l1.rpc.getpeer(l2.info['id']) == None
+
+        # This one will succeed.
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        l1.rpc.fundchannel(l2.info['id'], 20000)
+
+        # Should still only have one peer!
+        assert len(l1.rpc.getpeers()) == 1
+        assert len(l2.rpc.getpeers()) == 1
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_disconnect_half_signed(self):
