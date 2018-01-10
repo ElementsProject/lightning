@@ -66,6 +66,9 @@ struct config {
 	/* How long between changing commit and sending COMMIT message. */
 	struct timerel commit_time;
 
+	/* How often to broadcast gossip (msec) */
+	u32 broadcast_interval;
+
 	/* Disable automatic reconnects */
 	bool no_reconnect;
 };
@@ -121,8 +124,6 @@ struct lightningd {
 	/* HTLCs in flight. */
 	struct htlc_in_map htlcs_in;
 	struct htlc_out_map htlcs_out;
-
-	u32 broadcast_interval;
 
 	struct wallet *wallet;
 
