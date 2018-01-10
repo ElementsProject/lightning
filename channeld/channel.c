@@ -468,10 +468,29 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 	send_announcement_signatures(peer);
 }
 
+/* Once we have both, we'd better make sure we agree what they are! */
+static void check_short_ids_match(struct peer *peer)
+{
+	assert(peer->have_sigs[LOCAL]);
+	assert(peer->have_sigs[REMOTE]);
+
+	if (!short_channel_id_eq(&peer->short_channel_ids[LOCAL],
+				 &peer->short_channel_ids[REMOTE]))
+		peer_failed(PEER_FD, &peer->cs, &peer->channel_id,
+			    "We disagree on short_channel_ids:"
+			    " I have %s, you say %s",
+			    type_to_string(peer, struct short_channel_id,
+					   &peer->short_channel_ids[LOCAL]),
+			    type_to_string(peer, struct short_channel_id,
+					   &peer->short_channel_ids[REMOTE]));
+}
+
 static void announce_channel(struct peer *peer)
 {
 	tal_t *tmpctx = tal_tmpctx(peer);
 	u8 *cannounce, *cupdate;
+
+	check_short_ids_match(peer);
 
 	cannounce = create_channel_announcement(tmpctx, peer);
 	cupdate = create_channel_update(tmpctx, peer, false);
@@ -496,13 +515,12 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 			    tal_hex(msg, msg));
 
 	/* Make sure we agree on the channel ids */
-	/* FIXME: Check short_channel_id */
 	if (!structeq(&chanid, &peer->channel_id)) {
 		peer_failed(PEER_FD, &peer->cs, &peer->channel_id,
-			    "Wrong channel_id or short_channel_id in %s or %s",
-			    tal_hexstr(trc, &chanid, sizeof(struct channel_id)),
-			    tal_hexstr(trc, &peer->short_channel_ids[REMOTE],
-				       sizeof(struct short_channel_id)));
+			    "Wrong channel_id: expected %s, got %s",
+			    type_to_string(trc, struct channel_id,
+					   &peer->channel_id),
+			    type_to_string(trc, struct channel_id, &chanid));
 	}
 
 	peer->have_sigs[REMOTE] = true;
