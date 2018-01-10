@@ -445,33 +445,6 @@ bool unsupported_features(const u8 *gfeatures, const u8 *lfeatures)
 						 sizeof(supported_local_features));
 }
 
-/* Extract channel_id from various packets, return true if possible. */
-static bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
-{
-	u64 ignored_u64;
-	u32 ignored_u32;
-	u16 ignored_u16;
-	u8 ignored_u8;
-	struct pubkey ignored_pubkey;
-	struct bitcoin_blkid ignored_chainhash;
-
-	if (fromwire_channel_reestablish(in_pkt, NULL, channel_id,
-					 &ignored_u64, &ignored_u64))
-		return true;
-	if (fromwire_open_channel(in_pkt, NULL, &ignored_chainhash,
-				  channel_id, &ignored_u64,
-				  &ignored_u64, &ignored_u64,
-				  &ignored_u64, &ignored_u64,
-				  &ignored_u64, &ignored_u32,
-				  &ignored_u16, &ignored_u16,
-				  &ignored_pubkey, &ignored_pubkey,
-				  &ignored_pubkey, &ignored_pubkey,
-				  &ignored_pubkey, &ignored_pubkey,
-				  &ignored_u8))
-		return true;
-	return false;
-}
-
 /**
  * peer_channel_new -- Instantiate a new channel for the given peer and save it
  *
