@@ -35,9 +35,6 @@ struct config {
 	/* How long will we accept them waiting? */
 	u32 anchor_confirms_max;
 
-	/* How many blocks until we stop watching a close commit? */
-	u32 forever_confirms;
-
 	/* Maximum percent of fee rate we'll accept. */
 	u32 commitment_fee_max_percent;
 
