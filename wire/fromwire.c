@@ -100,10 +100,7 @@ void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey)
 	if (!fromwire(cursor, max, der, sizeof(der)))
 		return;
 
-	/* FIXME: Handing dummy keys through here is dumb.
-	 * See towire_gossip_resolve_channel_reply --RR */
-	if (!memeqzero(der, sizeof(der))
-	    && !pubkey_from_der(der, sizeof(der), pubkey))
+	if (!pubkey_from_der(der, sizeof(der), pubkey))
 		fromwire_fail(cursor, max);
 }
 
