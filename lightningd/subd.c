@@ -347,9 +347,7 @@ static void subdaemon_malformed_msg(struct subd *sd, const u8 *msg)
 {
 	log_broken(sd->log, "%i: malformed string '%.s'",
 		   fromwire_peektype(msg),
-		   tal_hexstr(msg,
-			      msg + sizeof(be16),
-			      tal_count(msg) - sizeof(be16)));
+		   tal_hex(msg, msg));
 
 #if DEVELOPER
 	if (sd->ld->dev_subdaemon_fail)
