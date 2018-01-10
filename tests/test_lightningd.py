@@ -330,6 +330,18 @@ class LightningDTests(BaseLightningDTests):
         outputs = l1.db_query('SELECT pay_index IS NULL AS q FROM invoices WHERE label="label";')
         assert len(outputs) == 1 and outputs[0]['q'] != 0
 
+        # Check any-amount invoice
+        inv = l1.rpc.invoice("any", 'label2', 'description2');
+        b11 = inv['bolt11']
+        # Amount usually comes after currency (tb in our case),
+        # but an any-amount invoices will have no amount
+        assert b11.startswith("lntb1")
+        # By bech32 rules, the last '1' digit is the separator
+        # between the human-readable and data parts. We want
+        # to match the "lntb1" above with the '1' digit as the
+        # separator, and not for example "lntb1m1....".
+        assert b11.count('1') == 1
+
     def test_invoice_expiry(self):
         l1,l2 = self.connect()
 
@@ -729,6 +741,12 @@ class LightningDTests(BaseLightningDTests):
         # Check pay_index is not null
         outputs = l2.db_query('SELECT pay_index IS NOT NULL AS q FROM invoices WHERE label="label";')
         assert len(outputs) == 1 and outputs[0]['q'] != 0
+
+        # Check payment of any-amount invoice.
+        for i in range(5):
+            label = "any{}".format(i)
+            inv = l2.rpc.invoice("any", label, 'description')['bolt11']
+            l1.rpc.pay(inv, random.randint(1000, 999999))
 
     def test_bad_opening(self):
         # l1 asks for a too-long locktime
