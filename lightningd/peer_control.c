@@ -1728,8 +1728,6 @@ static void peer_got_shutdown(struct peer *peer, const u8 *msg)
 void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
 		  const secp256k1_ecdsa_signature *sig)
 {
-	/* FIXME: save to db. */
-
 	tal_free(peer->last_sig);
 	peer->last_sig = tal_dup(peer, secp256k1_ecdsa_signature, sig);
 	tal_free(peer->last_tx);
@@ -1781,9 +1779,9 @@ static void peer_received_closing_signature(struct peer *peer, const u8 *msg)
 
 	/* FIXME: Make sure signature is correct! */
 	if (better_closing_fee(peer, tx)) {
+		peer_last_tx(peer, tx, &sig);
 		/* TODO(cdecker) Selectively save updated fields to DB */
 		wallet_channel_save(peer->ld->wallet, peer->channel, 0);
-		peer_last_tx(peer, tx, &sig);
 	}
 
 	/* OK, you can continue now. */
