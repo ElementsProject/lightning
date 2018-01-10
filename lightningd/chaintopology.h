@@ -57,9 +57,6 @@ struct block {
 
 	/* Full copy of txs (trimmed to txs list in connect_block) */
 	struct bitcoin_tx **full_txs;
-
-	/* FIXME: Remove this. */
-	struct chain_topology *topo;
 };
 
 /* Hash blocks by sha */
