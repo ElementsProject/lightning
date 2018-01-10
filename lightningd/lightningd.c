@@ -267,10 +267,6 @@ int main(int argc, char *argv[])
 
 	register_opts(ld);
 
-	/* FIXME: move to option initialization once we drop the
-	 * legacy daemon */
-	ld->broadcast_interval = 30000;
-
 	/* Handle options and config; move to .lightningd */
 	newdir = handle_opts(ld, argc, argv);
 

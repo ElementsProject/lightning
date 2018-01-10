@@ -2415,6 +2415,7 @@ class LightningDTests(BaseLightningDTests):
         # L1 must notice.
         l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_gossip_badsig(self):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node()
@@ -2533,6 +2534,7 @@ class LightningDTests(BaseLightningDTests):
         r = self.executor.submit(l2.rpc.waitanyinvoice, pay_index).result(timeout=5)
         assert r['label'] == 'inv1'
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_channel_reenable(self):
         l1, l2 = self.line_graph(n=2)
 

@@ -290,8 +290,8 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_arg("--dev-debugger=<subdaemon>", opt_subd_debug, NULL,
 			 ld, "Wait for gdb attach at start of <subdaemon>");
 	opt_register_arg("--dev-broadcast-interval=<ms>", opt_set_uintval,
-			 opt_show_uintval, &ld->broadcast_interval,
-			 "Time between gossip broadcasts in milliseconds (default: 30000)");
+			 opt_show_uintval, &ld->config.broadcast_interval,
+			 "Time between gossip broadcasts in milliseconds");
 	opt_register_arg("--dev-disconnect=<filename>", opt_subd_dev_disconnect,
 			 NULL, ld, "File containing disconnection points");
 	opt_register_arg("--dev-hsm-seed=<seed>", opt_set_hsm_seed,
@@ -350,6 +350,10 @@ static const struct config testnet_config = {
 	.fee_base = 1,
 	/* Take 0.001% */
 	.fee_per_satoshi = 10,
+
+	/* BOLT #7:
+	 * Each node SHOULD flush outgoing announcements once every 60 seconds */
+	.broadcast_interval = 60000,
 
 	/* Automatically reconnect */
 	.no_reconnect = false,
@@ -415,6 +419,10 @@ static const struct config mainnet_config = {
 	.fee_base = 546000,
 	/* Take 0.001% */
 	.fee_per_satoshi = 10,
+
+	/* BOLT #7:
+	 * Each node SHOULD flush outgoing announcements once every 60 seconds */
+	.broadcast_interval = 60000,
 
 	/* Automatically reconnect */
 	.no_reconnect = false,
