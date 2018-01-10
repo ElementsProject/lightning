@@ -1966,7 +1966,6 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 					     &payment_hash, cltv_expiry,
 					     onion_routing_packet);
 		enqueue_peer_msg(peer, take(msg));
-		peer->funding_locked[LOCAL] = true;
 		start_commit_timer(peer);
 		/* Tell the master. */
 		msg = towire_channel_offer_htlc_reply(inmsg, peer->htlc_id,
