@@ -16,6 +16,9 @@ The *invoice* RPC command creates the expectation of a payment of a
 given amount of milli-satoshi: it returns a unique token which another
 lightning daemon can use to pay this invoice.
 
+The 'msatoshi' can be the string "any", which creates an invoice
+that can be paid with any amount.
+
 The 'label' must be unique; it is never revealed to other nodes on
 the lightning network, but it can be used to query the status of this
 invoice.
@@ -24,6 +27,8 @@ RETURN VALUE
 ------------
 
 On success, a hash is returned as 'rhash' to be given to the payer.
+It also returns a BOLT11 invoice as 'bolt11' to be given to the
+payer.
 On failure, an error is returned and no invoice is created.  If the
 lightning process fails before responding, the caller should use
 getinvoice(7) to query whether this invoice was created or not.
