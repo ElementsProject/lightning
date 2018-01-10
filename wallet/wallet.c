@@ -1292,7 +1292,7 @@ static bool wallet_stmt2invoice(sqlite3_stmt *stmt, struct invoice *inv)
 	/* Correctly 0 if pay_index is NULL. */
 	inv->pay_index = sqlite3_column_int64(stmt, 7);
 
-	list_head_init(&inv->invoice_waiters);
+	list_head_init(&inv->waitone_waiters);
 	return true;
 }
 

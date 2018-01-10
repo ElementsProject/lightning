@@ -26,7 +26,7 @@ struct invoice {
 	u64 expiry_time;
 	struct sha256 rhash;
 	u64 pay_index;
-	struct list_head invoice_waiters;
+	struct list_head waitone_waiters;
 };
 
 #define INVOICE_MAX_LABEL_LEN 128
