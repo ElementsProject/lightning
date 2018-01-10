@@ -197,13 +197,18 @@ static void json_invoice(struct command *cmd,
 
 	sha256(&invoice->rhash, invoice->r.r, sizeof(invoice->r.r));
 
-	invoice->msatoshi = tal(invoice, u64);
-	if (!json_tok_u64(buffer, msatoshi, invoice->msatoshi)
-	    || *invoice->msatoshi == 0) {
-		command_fail(cmd, "'%.*s' is not a valid positive number",
-			     msatoshi->end - msatoshi->start,
-			     buffer + msatoshi->start);
-		return;
+	if (json_tok_streq(buffer, msatoshi, "any"))
+		invoice->msatoshi = NULL;
+	else {
+		invoice->msatoshi = tal(invoice, u64);
+		if (!json_tok_u64(buffer, msatoshi, invoice->msatoshi)
+		    || *invoice->msatoshi == 0) {
+			command_fail(cmd,
+				     "'%.*s' is not a valid positive number",
+				     msatoshi->end - msatoshi->start,
+				     buffer + msatoshi->start);
+			return;
+		}
 	}
 
 	invoice->label = tal_strndup(invoice, buffer + label->start,
