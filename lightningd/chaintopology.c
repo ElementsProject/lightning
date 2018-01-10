@@ -288,9 +288,10 @@ static void update_feerates(struct bitcoind *bitcoind,
 	bool changed = false;
 
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
-		log_debug(topo->log, "%s feerate %u (was %u)",
-			  feerate_name(i),
-			  satoshi_per_kw[i], topo->feerate[i]);
+		if (satoshi_per_kw[i] != topo->feerate[i])
+			log_debug(topo->log, "%s feerate %u (was %u)",
+				  feerate_name(i),
+				  satoshi_per_kw[i], topo->feerate[i]);
 		old_feerates[i] = topo->feerate[i];
 		topo->feerate[i] = satoshi_per_kw[i];
 	}
