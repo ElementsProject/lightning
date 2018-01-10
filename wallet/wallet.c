@@ -1403,7 +1403,10 @@ bool wallet_payment_add(struct wallet *wallet,
 	else
 		sqlite3_bind_null(stmt, 4);
 
-	sqlite3_bind_int64(stmt, 5, payment->msatoshi);
+	if (payment->msatoshi)
+		sqlite3_bind_int64(stmt, 5, *payment->msatoshi);
+	else
+		sqlite3_bind_null(stmt, 5);
 
 	sqlite3_bind_int(stmt, 6, payment->timestamp);
 
@@ -1427,7 +1430,12 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 		payment->destination = NULL;
 	}
 
-	payment->msatoshi = sqlite3_column_int64(stmt, 4);
+	if (sqlite3_column_type(stmt, 4) != SQLITE_NULL) {
+		payment->msatoshi = tal(payment, u64);
+		*payment->msatoshi = sqlite3_column_int64(stmt, 4);
+	} else {
+		payment->msatoshi = NULL;
+	}
 	sqlite3_column_sha256(stmt, 5, &payment->payment_hash);
 
 	payment->timestamp = sqlite3_column_int(stmt, 6);

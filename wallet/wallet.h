@@ -89,7 +89,7 @@ struct wallet_payment {
 	struct sha256 payment_hash;
 	enum wallet_payment_status status;
 	struct pubkey *destination;
-	u64 msatoshi;
+	u64 *msatoshi;
 };
 
 /**

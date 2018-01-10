@@ -557,6 +557,7 @@ static bool test_payment_crud(const tal_t *ctx)
 
 	t.id = 0;
 	t.destination = NULL;
+	t.msatoshi = NULL;
 
 	db_begin_transaction(w->db);
 	CHECK(wallet_payment_add(w, &t));

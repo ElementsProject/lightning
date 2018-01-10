@@ -259,7 +259,10 @@ static void json_invoice(struct command *cmd,
 	payment.payment_hash = invoice->rhash;
 	payment.destination = NULL;
 	payment.status = PAYMENT_PENDING;
-	payment.msatoshi = *invoice->msatoshi;
+	if (invoice->msatoshi)
+		payment.msatoshi = tal_dup(cmd, u64, invoice->msatoshi);
+	else
+		payment.msatoshi = NULL;
 	payment.timestamp = b11->timestamp;
 
 	if (!wallet_payment_add(cmd->ld->wallet, &payment)) {
