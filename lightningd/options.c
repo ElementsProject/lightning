@@ -219,9 +219,6 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--max-anchor-confirms", opt_set_u32, opt_show_u32,
 			 &ld->config.anchor_confirms_max,
 			 "Maximum confirmations other side can wait for anchor transaction");
-	opt_register_arg("--forever-confirms", opt_set_u32, opt_show_u32,
-			 &ld->config.forever_confirms,
-			 "Confirmations after which we consider a reorg impossible");
 	opt_register_arg("--commit-fee-min=<percent>", opt_set_u32, opt_show_u32,
 			 &ld->config.commitment_fee_min_percent,
 			 "Minimum percentage of fee to accept for commitment");
@@ -315,17 +312,6 @@ static const struct config testnet_config = {
 	/* More than 10 confirms seems overkill. */
 	.anchor_confirms_max = 10,
 
-	/* At some point, you've got to let it go... */
-	/* FIXME-OLD #onchain:
-	 *
-	 * Outputs... are considered *irrevocably resolved* once they
-	 * are included in a block at least 100 deep on the most-work
-	 * blockchain.  100 blocks is far greater than the longest
-	 * known bitcoin fork, and the same value used to wait for
-	 * confirmations of miner's rewards[1].
-	 */
-	.forever_confirms = 10,
-
 	/* Testnet fees are crazy, allow infinite feerange. */
 	.commitment_fee_min_percent = 0,
 	.commitment_fee_max_percent = 0,
@@ -375,17 +361,6 @@ static const struct config mainnet_config = {
 
 	/* More than 10 confirms seems overkill. */
 	.anchor_confirms_max = 10,
-
-	/* At some point, you've got to let it go... */
-	/* FIXME-OLD #onchain:
-	 *
-	 * Outputs... are considered *irrevocably resolved* once they
-	 * are included in a block at least 100 deep on the most-work
-	 * blockchain.  100 blocks is far greater than the longest
-	 * known bitcoin fork, and the same value used to wait for
-	 * confirmations of miner's rewards[1].
-	 */
-	.forever_confirms = 100,
 
 	/* Insist between 2 and 20 times the 2-block fee. */
 	.commitment_fee_min_percent = 200,
@@ -437,11 +412,6 @@ static void check_config(struct lightningd *ld)
 		fatal("Commitment fee invalid min-max %u-%u",
 		      ld->config.commitment_fee_min_percent,
 		      ld->config.commitment_fee_max_percent);
-
-	if (ld->config.forever_confirms < 100 && !get_chainparams(ld)->testnet)
-		log_unusual(ld->log,
-			    "Warning: forever-confirms of %u is less than 100!",
-			    ld->config.forever_confirms);
 
 	if (ld->config.anchor_confirms == 0)
 		fatal("anchor-confirms must be greater than zero");
