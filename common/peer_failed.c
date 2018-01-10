@@ -3,6 +3,7 @@
 #include <common/crypto_sync.h>
 #include <common/peer_failed.h>
 #include <common/status.h>
+#include <common/wire_error.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <unistd.h>
@@ -31,9 +32,10 @@ void peer_failed(int peer_fd, struct crypto_state *cs,
 	va_start(ap, fmt);
 	errmsg = tal_vfmt(NULL, fmt, ap);
 	va_end(ap);
-	/* Make sure it's correct length for error. */
-	tal_resize(&errmsg, strlen(errmsg)+1);
-	msg = towire_error(errmsg, channel_id, (const u8 *)errmsg);
+
+	va_start(ap, fmt);
+	msg = towire_errorfmtv(errmsg, channel_id, fmt, ap);
+	va_end(ap);
 
 	/* This is only best-effort; don't block. */
 	io_fd_block(peer_fd, false);
