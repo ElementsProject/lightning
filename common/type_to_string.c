@@ -18,10 +18,8 @@ char *type_to_string_(const tal_t *ctx,  const char *typename,
 	char *s = NULL;
 	size_t i;
 	static size_t num_p;
-	static struct type_to_string **t = NULL;
-
-	if (!t)
-		t = autodata_get(type_to_string, &num_p);
+	static struct type_to_string **t;
+	t = autodata_get(type_to_string, &num_p);
 
 	/* Typenames in registrations don't include "struct " */
 	if (strstarts(typename, "struct "))
