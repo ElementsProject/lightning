@@ -32,8 +32,6 @@ struct outgoing_tx {
 	const char *hextx;
 	struct bitcoin_txid txid;
 	void (*failed)(struct peer *peer, int exitstatus, const char *err);
-	/* FIXME: Remove this. */
-	struct chain_topology *topo;
 };
 
 struct block {
