@@ -167,7 +167,7 @@ static struct io_plan *peer_start_gossip(struct io_conn *conn,
 					 struct peer *peer);
 static bool send_peer_with_fds(struct peer *peer, const u8 *msg);
 static void wake_pkt_out(struct peer *peer);
-static void try_reach_peer(struct daemon *daemon, const struct pubkey *id);
+static bool try_reach_peer(struct daemon *daemon, const struct pubkey *id);
 
 static void destroy_peer(struct peer *peer)
 {
@@ -1474,16 +1474,17 @@ static void try_connect(struct reaching *reach)
 	io_new_conn(reach, fd, conn_init, reach);
 }
 
-static void try_reach_peer(struct daemon *daemon, const struct pubkey *id)
+/* Returns true if we're already connected. */
+static bool try_reach_peer(struct daemon *daemon, const struct pubkey *id)
 {
 	struct reaching *reach;
 	struct peer *peer;
 
 	if (find_reaching(daemon, id)) {
 		/* FIXME: Perhaps kick timer in this case? */
-		status_trace("try_reach_peer: already reaching %s",
+		status_trace("try_reach_peer: already trying to reach %s",
 			     type_to_string(trc, struct pubkey, id));
-		return;
+		return false;
 	}
 
 	/* Master might find out before we do that a peer is dead; if we
@@ -1493,7 +1494,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id)
 		status_trace("reach_peer: have %s, will retry if it dies",
 			     type_to_string(trc, struct pubkey, id));
 		peer->reach_again = true;
-		return;
+		return true;
 	}
 
 	reach = tal(daemon, struct reaching);
@@ -1504,6 +1505,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id)
 	tal_add_destructor(reach, destroy_reaching);
 
 	try_connect(reach);
+	return false;
 }
 
 /* This catches all kinds of failures, like network errors. */
@@ -1515,7 +1517,12 @@ static struct io_plan *reach_peer(struct io_conn *conn,
 	if (!fromwire_gossipctl_reach_peer(msg, NULL, &id))
 		master_badmsg(WIRE_GOSSIPCTL_REACH_PEER, msg);
 
-	try_reach_peer(daemon, &id);
+	/* Master can't check this itself, because that's racy. */
+	if (try_reach_peer(daemon, &id)) {
+		daemon_conn_send(&daemon->master,
+				 take(towire_gossip_peer_already_connected(conn,
+									  &id)));
+	}
 
 	return daemon_conn_read_next(conn, &daemon->master);
 }
@@ -1632,6 +1639,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_PING_REPLY:
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REPLY:
 	case WIRE_GOSSIP_PEER_CONNECTED:
+	case WIRE_GOSSIP_PEER_ALREADY_CONNECTED:
 	case WIRE_GOSSIP_PEER_NONGOSSIP:
 	case WIRE_GOSSIP_GET_UPDATE:
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:

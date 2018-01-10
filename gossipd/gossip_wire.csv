@@ -22,7 +22,8 @@ gossipctl_peer_addrhint,3014
 gossipctl_peer_addrhint,,id,struct pubkey
 gossipctl_peer_addrhint,,addr,struct wireaddr
 
-# Master -> gossipd: connect to a peer.  We may get a peer_connected.
+# Master -> gossipd: connect to a peer.  We may get a peer_connected or
+# peer_already_connected
 gossipctl_reach_peer,3001
 gossipctl_reach_peer,,id,struct pubkey
 
@@ -36,6 +37,10 @@ gossip_peer_connected,,gflen,u16
 gossip_peer_connected,,gfeatures,gflen*u8
 gossip_peer_connected,,lflen,u16
 gossip_peer_connected,,lfeatures,lflen*u8
+
+# Gossipd -> master: you asked to reach a peer, we already had.
+gossip_peer_already_connected,3015
+gossip_peer_already_connected,,id,struct pubkey
 
 # Gossipd -> master: peer sent non-gossip packet. Two fds: peer and gossip
 gossip_peer_nongossip,3003
