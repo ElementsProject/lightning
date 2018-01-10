@@ -1434,7 +1434,6 @@ static enum watch_result funding_spent(struct peer *peer,
 	if (peer->local_shutdown_idx >= 0)
 		keyindex = peer->local_shutdown_idx;
 	else {
-		/* FIXME: Save to db */
 		keyindex = wallet_get_newindex(peer->ld);
 		if (keyindex < 0) {
 			log_broken(peer->log, "Could not get keyindex");
