@@ -28,7 +28,7 @@ struct invoices {
 	/* Payments for r values we know about. */
 	struct list_head invlist;
 	/* Waiting for new invoices to be paid. */
-	struct list_head invoice_waiters;
+	struct list_head waitany_waiters;
 };
 
 struct invoice *find_unpaid(struct invoices *invs, const struct sha256 *rhash)
@@ -69,7 +69,7 @@ struct invoices *invoices_init(const tal_t *ctx)
 	struct invoices *invs = tal(ctx, struct invoices);
 
 	list_head_init(&invs->invlist);
-	list_head_init(&invs->invoice_waiters);
+	list_head_init(&invs->waitany_waiters);
 
 	return invs;
 }
@@ -104,13 +104,15 @@ void resolve_invoice(struct lightningd *ld, struct invoice *invoice)
 	 * which tell_waiter needs. */
 	wallet_invoice_save(ld->wallet, invoice);
 
-	/* Tell all the waiters about the new paid invoice */
-	while ((w = list_pop(&invs->invoice_waiters,
+	/* Yes, there are two loops: the first is for wait*any*invoice,
+	 * the second is for waitinvoice (without any). */
+	/* Tell all the waitanyinvoice waiters about the new paid invoice */
+	while ((w = list_pop(&invs->waitany_waiters,
 			     struct invoice_waiter,
 			     list)) != NULL)
 		tell_waiter(w->cmd, invoice);
 	/* Tell any waitinvoice waiters about the invoice getting paid. */
-	while ((w = list_pop(&invoice->invoice_waiters,
+	while ((w = list_pop(&invoice->waitone_waiters,
 			     struct invoice_waiter,
 			     list)) != NULL)
 		tell_waiter(w->cmd, invoice);
@@ -151,7 +153,7 @@ static char *delete_invoice(const tal_t *cxt,
 	list_del_from(&invs->invlist, &i->list);
 
 	/* Tell all the waiters about the fact that it was deleted. */
-	while ((w = list_pop(&i->invoice_waiters,
+	while ((w = list_pop(&i->waitone_waiters,
 			     struct invoice_waiter,
 			     list)) != NULL) {
 		tell_waiter_deleted(w->cmd, i);
@@ -189,7 +191,7 @@ static void json_invoice(struct command *cmd,
 	invoice->id = 0;
 	invoice->state = UNPAID;
 	invoice->pay_index = 0;
-	list_head_init(&invoice->invoice_waiters);
+	list_head_init(&invoice->waitone_waiters);
 	randombytes_buf(invoice->r.r, sizeof(invoice->r.r));
 
 	sha256(&invoice->rhash, invoice->r.r, sizeof(invoice->r.r));
@@ -451,7 +453,7 @@ static void json_waitanyinvoice(struct command *cmd,
 	/* FIXME: Better to use io_wait directly? */
 	w = tal(cmd, struct invoice_waiter);
 	w->cmd = cmd;
-	list_add_tail(&invs->invoice_waiters, &w->list);
+	list_add_tail(&invs->waitany_waiters, &w->list);
 	command_still_pending(cmd);
 }
 
@@ -497,7 +499,7 @@ static void json_waitinvoice(struct command *cmd,
 		/* There is an unpaid one matching, let's wait... */
 		w = tal(cmd, struct invoice_waiter);
 		w->cmd = cmd;
-		list_add_tail(&i->invoice_waiters, &w->list);
+		list_add_tail(&i->waitone_waiters, &w->list);
 		command_still_pending(cmd);
 	}
 }
