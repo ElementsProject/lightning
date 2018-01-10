@@ -150,7 +150,10 @@ static void json_getlog(struct command *cmd,
 	struct log_book *lr = cmd->ld->log_book;
 	jsmntok_t *level;
 
-	json_get_params(buffer, params, "?level", &level, NULL);
+	if (!json_get_params(buffer, params, "?level", &level, NULL)) {
+		command_fail(cmd, "Invalid arguments");
+		return;
+	}
 
 	info.num_skipped = 0;
 

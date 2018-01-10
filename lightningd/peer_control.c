@@ -945,7 +945,10 @@ static void json_getpeers(struct command *cmd,
 	struct getpeers_args *gpa = tal(cmd, struct getpeers_args);
 
 	gpa->cmd = cmd;
-	json_get_params(buffer, params, "?level", &leveltok, NULL);
+	if (!json_get_params(buffer, params, "?level", &leveltok, NULL)) {
+		command_fail(cmd, "Invalid arguments");
+		return;
+	}
 
 	if (leveltok) {
 		gpa->ll = tal(gpa, enum log_level);
