@@ -1534,6 +1534,21 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	enum wire_type type = fromwire_peektype(msg);
 	status_trace("peer_in %s", wire_type_name(type));
 
+	/* FIXME: We don't support concurrent channels with same peer. */
+	if (type == WIRE_OPEN_CHANNEL) {
+		struct channel_id channel_id;
+
+		if (extract_channel_id(msg, &channel_id)) {
+			u8 *reply;
+
+			reply = towire_errorfmt(msg, &channel_id,
+						"Opening multiple channels"
+						" unsupported");
+			enqueue_peer_msg(peer, take(reply));
+			return;
+		}
+	}
+
 	/* Must get funding_locked before almost anything. */
 	if (!peer->funding_locked[REMOTE]) {
 		/* We can get gossip before funding, too */
