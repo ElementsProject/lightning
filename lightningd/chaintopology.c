@@ -380,7 +380,6 @@ static struct block *new_block(struct chain_topology *topo,
 	assert(!block_map_get(&topo->block_map, &b->blkid));
 	b->next = NULL;
 	b->prev = NULL;
-	b->topo = topo;
 
 	b->height = height;
 
