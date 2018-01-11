@@ -442,11 +442,31 @@ static void json_pay(struct command *cmd,
 	pay->payment_hash = b11->payment_hash;
 
 	if (b11->msatoshi) {
-		msatoshi = *b11->msatoshi;
 		if (msatoshitok) {
-			command_fail(cmd, "msatoshi parameter unnecessary");
-			return;
-		}
+			if (!json_tok_u64(buffer, msatoshitok, &msatoshi)) {
+				command_fail(cmd,
+					     "msatoshi '%.*s' is not a valid number",
+					     (int)(msatoshitok->end-msatoshitok->start),
+					     buffer + msatoshitok->start);
+				return;
+			}
+			if (msatoshi < *b11->msatoshi) {
+				command_fail(cmd,
+					     "msatoshi '%"PRIu64"' is less "
+					     "than bolt11 amount '%"PRIu64"'",
+					     msatoshi, *bb11->msatoshi
+				return;
+			}
+			if (msatoshi > *b11->msatoshi * 2) {
+				command_fail(cmd,
+					     "msatoshi '%"PRIu64"' is more "
+					     "than twice bolt11 amount "
+					     "'%"PRIu64"'",
+					     msatoshi, *bb11->msatoshi
+				return;
+			}
+		} else
+			msatoshi = *b11->msatoshi;
 	} else {
 		if (!msatoshitok) {
 			command_fail(cmd, "msatoshi parameter required");
