@@ -1375,20 +1375,22 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_logs(['peer_out WIRE_ANNOUNCEMENT_SIGNATURES',
                                  'peer_in WIRE_ANNOUNCEMENT_SIGNATURES'])
 
-        # Could happen in either order.
+        channel_id = channels[0]['short_channel_id']
+        # Could happen in any order.
         l1.daemon.wait_for_logs(['peer_out WIRE_CHANNEL_ANNOUNCEMENT',
-                                 'peer_in WIRE_CHANNEL_ANNOUNCEMENT'])
+                                 'peer_in WIRE_CHANNEL_ANNOUNCEMENT',
+                                 'Channel {}\\(0\\) was updated.'
+                                 .format(channel_id),
+                                 'Channel {}\\(1\\) was updated.'
+                                 .format(channel_id)])
 
         nodes = l1.rpc.getnodes()['nodes']
         assert set([n['nodeid'] for n in nodes]) == set([l1.info['id'], l2.info['id']])
 
-        l1.daemon.wait_for_log('peer_in WIRE_CHANNEL_UPDATE')
-        l2.daemon.wait_for_log('peer_in WIRE_CHANNEL_UPDATE')
-
-        wait_for(lambda: [c['active'] for c in l1.rpc.getchannels()['channels']] == [True, True])
-        wait_for(lambda: [c['public'] for c in l1.rpc.getchannels()['channels']] == [True, True])
-        wait_for(lambda: [c['active'] for c in l2.rpc.getchannels()['channels']] == [True, True])
-        wait_for(lambda: [c['public'] for c in l2.rpc.getchannels()['channels']] == [True, True])
+        assert [c['active'] for c in l1.rpc.getchannels()['channels']] == [True, True]
+        assert [c['public'] for c in l1.rpc.getchannels()['channels']] == [True, True]
+        assert [c['active'] for c in l2.rpc.getchannels()['channels']] == [True, True]
+        assert [c['public'] for c in l2.rpc.getchannels()['channels']] == [True, True]
 
     def ping_tests(self, l1, l2):
         # 0-byte pong gives just type + length field.
