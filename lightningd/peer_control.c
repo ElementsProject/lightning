@@ -2720,7 +2720,13 @@ const char *peer_state_name(enum peer_state state)
 
 static void activate_peer(struct peer *peer)
 {
+	u8 *msg;
+
 	assert(!peer->owner);
+
+	/* Pass gossipd any addrhints we currently have */
+	msg = towire_gossipctl_peer_addrhint(peer, &peer->id, &peer->addr);
+	subd_send_msg(peer->ld->gossip, take(msg));
 
 	/* FIXME: We should never have these in the database! */
 	if (!peer->funding_txid) {
@@ -2737,7 +2743,7 @@ static void activate_peer(struct peer *peer)
 		  funding_spent, NULL);
 
 	if (peer_wants_reconnect(peer)) {
-		u8 *msg = towire_gossipctl_reach_peer(peer, &peer->id);
+		msg = towire_gossipctl_reach_peer(peer, &peer->id);
 		subd_send_msg(peer->ld->gossip, take(msg));
 	}
 }
