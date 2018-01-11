@@ -563,6 +563,9 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_NODE_ANNOUNCEMENT:
 	case WIRE_CHANNEL_UPDATE:
+		status_trace("%s direct from peer %s",
+			     wire_type_name(t),
+			     type_to_string(trc, struct pubkey, &peer->id));
 		handle_gossip_msg(peer->daemon, msg);
 		return peer_next_in(conn, peer);
 
@@ -793,6 +796,9 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 	int type = fromwire_peektype(msg);
 	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
 	    type == WIRE_NODE_ANNOUNCEMENT) {
+		status_trace("%s via other daemon from peer %s",
+			     wire_type_name(type),
+			     type_to_string(trc, struct pubkey, &peer->id));
 		handle_gossip_msg(peer->daemon, dc->msg_in);
 	} else if (type == WIRE_GOSSIP_GET_UPDATE) {
 		handle_get_update(peer, dc->msg_in);

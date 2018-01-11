@@ -1353,8 +1353,9 @@ class LightningDTests(BaseLightningDTests):
         nodes = l1.rpc.getnodes()['nodes']
         assert set([n['nodeid'] for n in nodes]) == set([l1.info['id'], l2.info['id']])
 
-        l1.daemon.wait_for_log('peer_in WIRE_CHANNEL_UPDATE')
-        l2.daemon.wait_for_log('peer_in WIRE_CHANNEL_UPDATE')
+        # channeld should pass update to gossipd (both directions)
+        l1.daemon.wait_for_logs(['WIRE_CHANNEL_UPDATE via other daemon']*2)
+        l2.daemon.wait_for_logs(['WIRE_CHANNEL_UPDATE via other daemon']*2)
 
         # Now should be active and public.
         channels = l1.rpc.getchannels()['channels']
