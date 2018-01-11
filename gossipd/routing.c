@@ -553,6 +553,7 @@ const struct short_channel_id *handle_channel_announcement(
 
 	tag = type_to_string(pending, struct short_channel_id,
 			     &pending->short_channel_id);
+	tal_resize(&tag, strlen(tag));
 
 	/* BOLT #7:
 	 *
@@ -622,6 +623,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	list_del_from(&rstate->pending_cannouncement, &pending->list);
 
 	tag = type_to_string(pending, struct short_channel_id, scid);
+	tal_resize(&tag, strlen(tag));
 
 	/* BOLT #7:
 	 *
