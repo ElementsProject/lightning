@@ -57,7 +57,7 @@ static bool wallet_stmt2output(sqlite3_stmt *stmt, struct utxo *utxo)
 {
 	sqlite3_column_sha256_double(stmt, 0, &utxo->txid.shad);
 	utxo->outnum = sqlite3_column_int(stmt, 1);
-	utxo->amount = sqlite3_column_int(stmt, 2);
+	utxo->amount = sqlite3_column_int64(stmt, 2);
 	utxo->is_p2sh = sqlite3_column_int(stmt, 3) == p2sh_wpkh;
 	utxo->status = sqlite3_column_int(stmt, 4);
 	utxo->keyindex = sqlite3_column_int(stmt, 5);
