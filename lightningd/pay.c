@@ -530,6 +530,6 @@ static const struct json_command listpayments_command = {
 	"listpayments",
 	json_listpayments,
 	"Get a list of incoming and outgoing payments",
-	"Returns a list of payments with {direction}, {payment_hash}, {destination} if outgoing and {amount}"
+	"Returns a list of payments with {direction}, {payment_hash}, {destination} if outgoing and {msatoshi}"
 };
 AUTODATA(json_command, &listpayments_command);
