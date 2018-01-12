@@ -300,6 +300,16 @@ class LightningDTests(BaseLightningDTests):
         else:
             lsrc.rpc.sendpay(to_json([routestep]), rhash, async=False)
 
+    # This waits until gossipd sees channel_update in both directions
+    # (or for local channels, at least a local announcment)
+    def wait_for_routes(self, l1, channel_ids):
+        bitcoind.generate_block(5)
+        # Could happen in any order...
+        l1.daemon.wait_for_logs(['Channel {}\\(0\\) was updated'.format(c)
+                                 for c in channel_ids]
+                                + ['Channel {}\\(1\\) was updated'.format(c)
+                                 for c in channel_ids])
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_shutdown(self):
         # Fail, in that it will exit before cleanup.
@@ -1032,18 +1042,17 @@ class LightningDTests(BaseLightningDTests):
         # l2 connects to both, so l1 can't reconnect and thus l2 drops to chain
         l2.rpc.connect(l1.info['id'], 'localhost', l1.info['port'])
         l2.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
-        self.fund_channel(l2, l1, 10**6)
-        self.fund_channel(l2, l3, 10**6)
+        c12 = self.fund_channel(l2, l1, 10**6)
+        c23 = self.fund_channel(l2, l3, 10**6)
+
+        # Make sure routes finalized.
+        self.wait_for_routes(l1, [c23])
 
         # Give l1 some money to play with.
         self.pay(l2, l1, 2 * 10**8)
 
         # Must be bigger than dust!
         rhash = l3.rpc.invoice(10**8, 'middleman', 'desc')['rhash']
-        # Wait for route propagation.
-        l1.bitcoin.generate_block(5)
-        l1.daemon.wait_for_log('Received node_announcement for node {}'
-                               .format(l3.info['id']))
 
         route = l1.rpc.getroute(l3.info['id'], 10**8, 1)["route"]
         assert len(route) == 2
