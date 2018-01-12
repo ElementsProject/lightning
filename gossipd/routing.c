@@ -42,8 +42,9 @@ struct pending_cannouncement {
 	/* The raw bits */
 	const u8 *announce;
 
-	/* A deferred update, if we received one while waiting for this */
-	const u8 *update;
+	/* Deferred updates, if we received them while waiting for
+	 * this (one for each direction) */
+	const u8 *updates[2];
 };
 
 static struct node_map *empty_node_map(const tal_t *ctx)
@@ -529,7 +530,8 @@ const struct short_channel_id *handle_channel_announcement(
 	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
 
 	pending = tal(rstate, struct pending_cannouncement);
-	pending->update = NULL;
+	pending->updates[0] = NULL;
+	pending->updates[1] = NULL;
 	pending->announce = tal_dup_arr(pending, u8,
 					announce, tal_len(announce), 0);
 
@@ -676,8 +678,10 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 		pubkey_eq(&pending->node_id_2, &rstate->local_id);
 
 	/* Did we have an update waiting?  If so, apply now. */
-	if (pending->update)
-		handle_channel_update(rstate, pending->update);
+	if (pending->updates[0])
+		handle_channel_update(rstate, pending->updates[0]);
+	if (pending->updates[1])
+		handle_channel_update(rstate, pending->updates[1]);
 
 	tal_free(pending);
 	return local && forward;
@@ -686,7 +690,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 /* Return true if this is an update to a pending announcement (and queue it) */
 static bool update_to_pending(struct routing_state *rstate,
 			      const struct short_channel_id *scid,
-			      const u8 *update)
+			      const u8 *update, const u8 direction)
 {
 	struct pending_cannouncement *pending;
 
@@ -695,8 +699,11 @@ static bool update_to_pending(struct routing_state *rstate,
 		return false;
 
 	/* FIXME: should compare timestamps! */
-	tal_free(pending->update);
-	pending->update = tal_dup_arr(pending, u8, update, tal_len(update), 0);
+	if (pending->updates[direction]) {
+		status_trace("Replacing existing update");
+		tal_free(pending->updates[direction]);
+	}
+	pending->updates[direction] = tal_dup_arr(pending, u8, update, tal_len(update), 0);
 	return true;
 }
 
@@ -714,6 +721,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	u32 fee_proportional_millionths;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	struct bitcoin_blkid chain_hash;
+	u8 direction;
 	size_t len = tal_len(update);
 
 	serialized = tal_dup_arr(tmpctx, u8, update, len, 0);
@@ -725,6 +733,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 		tal_free(tmpctx);
 		return;
 	}
+	direction = flags & 0x1;
 
 	/* BOLT #7:
 	 *
@@ -744,15 +753,15 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 				    &short_channel_id),
 		     flags & 0x01);
 
-	if (update_to_pending(rstate, &short_channel_id, serialized)) {
-		status_trace("Deferring update for pending channel %s",
+	if (update_to_pending(rstate, &short_channel_id, serialized, direction)) {
+		status_trace("Deferring update for pending channel %s(%d)",
 			     type_to_string(trc, struct short_channel_id,
-					    &short_channel_id));
+					    &short_channel_id), direction);
 		tal_free(tmpctx);
 		return;
 	}
 
-	c = get_connection_by_scid(rstate, &short_channel_id, flags & 0x1);
+	c = get_connection_by_scid(rstate, &short_channel_id, direction);
 
 	if (!c) {
 		status_trace("Ignoring update for unknown channel %s",
@@ -780,21 +789,21 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	status_trace("Channel %s(%d) was updated.",
 		     type_to_string(trc, struct short_channel_id,
 				    &short_channel_id),
-		     flags);
+		     direction);
 
 	if (c->proportional_fee >= MAX_PROPORTIONAL_FEE) {
 		status_trace("Channel %s(%d) massive proportional fee %u:"
 			     " disabling.",
 			     type_to_string(trc, struct short_channel_id,
 					    &short_channel_id),
-			     flags,
+			     direction,
 			     fee_proportional_millionths);
 		c->active = false;
 	}
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_short_channel_id(&tag, &short_channel_id);
-	towire_u16(&tag, flags & 0x1);
+	towire_u16(&tag, direction);
 	queue_broadcast(rstate->broadcasts,
 			WIRE_CHANNEL_UPDATE,
 			tag,
