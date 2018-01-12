@@ -1614,8 +1614,9 @@ class LightningDTests(BaseLightningDTests):
 
         # Make sure l1 has seen announce for all channels.
         l1.daemon.wait_for_logs([
-            'Channel {}\\(0\\) was updated.'.format(c1),
-            'Channel {}\\(1\\) was updated.'.format(c1),
+            # One of the first two is LOCAL (has (LOCAL) at end of msg)
+            'Channel {}\\(0\\) was updated'.format(c1),
+            'Channel {}\\(1\\) was updated'.format(c1),
             'Channel {}\\(0\\) was updated.'.format(c2),
             'Channel {}\\(1\\) was updated.'.format(c2)])
 
