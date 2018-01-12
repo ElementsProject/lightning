@@ -1384,6 +1384,13 @@ class LightningDTests(BaseLightningDTests):
                                  'Channel {}\\(1\\) was updated.'
                                  .format(channel_id)])
 
+        l2.daemon.wait_for_logs(['peer_out WIRE_CHANNEL_ANNOUNCEMENT',
+                                 'peer_in WIRE_CHANNEL_ANNOUNCEMENT',
+                                 'Channel {}\\(0\\) was updated.'
+                                 .format(channel_id),
+                                 'Channel {}\\(1\\) was updated.'
+                                 .format(channel_id)])
+
         nodes = l1.rpc.getnodes()['nodes']
         assert set([n['nodeid'] for n in nodes]) == set([l1.info['id'], l2.info['id']])
 
