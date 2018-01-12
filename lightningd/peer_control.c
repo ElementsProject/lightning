@@ -2559,6 +2559,11 @@ static void json_fund_channel(struct command *cmd,
 		return;
 	}
 
+	if (fc->funding_satoshi >= MAX_FUNDING_MSATOSHI) {
+		command_fail(cmd, "Funding msatoshi must be < %d", MAX_FUNDING_MSATOSHI);
+		return;
+	}
+
 	/* FIXME: Support push_msat? */
 	fc->push_msat = 0;
 
