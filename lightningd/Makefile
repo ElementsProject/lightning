@@ -21,6 +21,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/configdir.o			\
 	common/crypto_state.o			\
 	common/derive_basepoints.o		\
+	common/features.o			\
 	common/funding_tx.o			\
 	common/hash_u5.o			\
 	common/htlc_state.o			\

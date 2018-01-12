@@ -198,13 +198,6 @@ void peer_sent_nongossip(struct lightningd *ld,
  */
 void populate_peer(struct lightningd *ld, struct peer *peer);
 
-/* Returns true if these contain any unsupported features. */
-bool unsupported_features(const u8 *gfeatures, const u8 *lfeatures);
-
-/* For sending our features: tal_len() returns length. */
-u8 *get_supported_global_features(const tal_t *ctx);
-u8 *get_supported_local_features(const tal_t *ctx);
-
 /* Could be configurable. */
 #define OUR_CHANNEL_FLAGS CHANNEL_FLAGS_ANNOUNCE_CHANNEL
 

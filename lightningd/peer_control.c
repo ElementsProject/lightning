@@ -14,6 +14,7 @@
 #include <closingd/gen_closing_wire.h>
 #include <common/close_tx.h>
 #include <common/dev_disconnect.h>
+#include <common/features.h>
 #include <common/funding_tx.h>
 #include <common/initial_commit_tx.h>
 #include <common/key_derive.h>
@@ -43,11 +44,6 @@
 #include <wire/gen_onion_wire.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
-
-static const u8 supported_local_features[]
-= {LOCALFEATURES_INITIAL_ROUTING_SYNC};
-static const u8 supported_global_features[]
-= {};
 
 struct connect {
 	struct list_node list;
@@ -124,18 +120,6 @@ static void destroy_peer(struct peer *peer)
 	/* Free any old owner still hanging around. */
 	peer_set_owner(peer, NULL);
 	list_del_from(&peer->ld->peers, &peer->list);
-}
-
-u8 *get_supported_global_features(const tal_t *ctx)
-{
-	return tal_dup_arr(ctx, u8, supported_global_features,
-			   sizeof(supported_global_features), 0);
-}
-
-u8 *get_supported_local_features(const tal_t *ctx)
-{
-	return tal_dup_arr(ctx, u8, supported_local_features,
-			   sizeof(supported_local_features), 0);
 }
 
 static void sign_last_tx(struct peer *peer)
@@ -403,49 +387,6 @@ static struct peer *new_peer(struct lightningd *ld,
 }
 
 /**
- * requires_unsupported_features - Check if we support what's being asked
- *
- * Given the features vector that the remote connection is expecting
- * from us, we check to see if we support all even bit features, i.e.,
- * the required features. We do so by subtracting our own features in
- * the provided positions and see if even bits remain.
- *
- * @bitmap: the features bitmap the peer is asking for
- * @supportmap: what do we support
- * @smlen: how long is our supportmap
- */
-static bool requires_unsupported_features(const u8 *bitmap,
-					  const u8 *supportmap,
-					  size_t smlen)
-{
-	size_t len = tal_count(bitmap);
-	u8 support;
-	for (size_t i=0; i<len; i++) {
-		/* Find matching bitmap byte in supportmap, 0x00 if none */
-		if (len > smlen) {
-			support = 0x00;
-		} else {
-			support = supportmap[smlen-1];
-		}
-
-		/* Cancel out supported bits, check for even bits */
-		if ((~support & bitmap[i]) & 0x55)
-			return true;
-	}
-	return false;
-}
-
-bool unsupported_features(const u8 *gfeatures, const u8 *lfeatures)
-{
-	return requires_unsupported_features(gfeatures,
-					     supported_global_features,
-					     sizeof(supported_global_features))
-		|| requires_unsupported_features(lfeatures,
-						 supported_local_features,
-						 sizeof(supported_local_features));
-}
-
-/**
  * peer_channel_new -- Instantiate a new channel for the given peer and save it
  *
  * We are about to open a channel with the peer, either due to a
@@ -524,6 +465,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	struct crypto_state cs;
 	u8 *gfeatures, *lfeatures;
 	u8 *error;
+	u8 *supported_global_features;
+	u8 *supported_local_features;
 	struct peer *peer;
 	struct wireaddr addr;
 	u64 gossip_index;
@@ -539,15 +482,17 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			    type_to_string(msg, struct pubkey, &id),
 			    tal_hex(msg, gfeatures),
 			    tal_hex(msg, lfeatures));
+		supported_global_features = get_supported_global_features(msg);
+		supported_local_features = get_supported_local_features(msg);
 		error = towire_errorfmt(msg, NULL,
 					"We only support globalfeatures %s"
 					" and localfeatures %s",
 					tal_hexstr(msg,
 						   supported_global_features,
-						   sizeof(supported_global_features)),
+						   tal_len(supported_global_features)),
 					tal_hexstr(msg,
 						   supported_local_features,
-						   sizeof(supported_local_features)));
+						   tal_len(supported_local_features)));
 		goto send_error;
 	}
 

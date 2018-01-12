@@ -11,6 +11,7 @@ COMMON_SRC :=					\
 	common/daemon_conn.c			\
 	common/derive_basepoints.c		\
 	common/dev_disconnect.c			\
+	common/features.c			\
 	common/funding_tx.c			\
 	common/hash_u5.c			\
 	common/htlc_state.c			\
