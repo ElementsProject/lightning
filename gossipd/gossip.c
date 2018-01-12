@@ -790,7 +790,9 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 	c->htlc_minimum_msat = htlc_minimum_msat;
 	c->base_fee = fee_base_msat;
 	c->proportional_fee = fee_proportional_millionths;
-	status_trace("Added and updated local channel %s/%d", type_to_string(msg, struct short_channel_id, &scid), direction);
+	status_trace("Channel %s(%d) was updated (LOCAL)",
+		     type_to_string(msg, struct short_channel_id, &scid),
+		     direction);
 }
 
 /**
