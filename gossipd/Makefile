@@ -40,6 +40,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/cryptomsg.o			\
 	common/daemon_conn.o			\
 	common/dev_disconnect.o			\
+	common/features.o			\
 	common/io_debug.o			\
 	common/msg_queue.o			\
 	common/ping.o				\

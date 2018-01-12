@@ -7,6 +7,7 @@
 #include <ccan/endian/endian.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
+#include <common/features.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
@@ -554,6 +555,20 @@ const struct short_channel_id *handle_channel_announcement(
 
 	/* BOLT #7:
 	 *
+	 * If there is an unknown even bit in the `features` field the
+	 * receiving node MUST NOT parse the remainder of the message
+	 * and MUST NOT add the channel to its local network view, and
+	 * SHOULD NOT forward the announcement.
+	 */
+	if (unsupported_features(features, NULL)) {
+		status_trace("Ignoring channel announcement, unsupported features %s.",
+			     tal_hex(pending, features));
+		tal_free(pending);
+		return NULL;
+	}
+
+	/* BOLT #7:
+	 *
 	 * The receiving node MUST ignore the message if the specified
 	 * `chain_hash` is unknown to the receiver.
 	 */
@@ -565,8 +580,6 @@ const struct short_channel_id *handle_channel_announcement(
 		tal_free(pending);
 		return NULL;
 	}
-
-	// FIXME: Check features!
 
 	if (!check_channel_announcement(&pending->node_id_1, &pending->node_id_2,
 					&pending->bitcoin_key_1,
@@ -864,7 +877,19 @@ void handle_node_announcement(
 		return;
 	}
 
-	// FIXME: Check features!
+	/* BOLT #7:
+	 *
+	 * If the `features` field contains unknown even bits the
+	 * receiving node MUST NOT parse the remainder of the message
+	 * and MAY discard the message altogether.
+	 */
+	if (unsupported_features(features, NULL)) {
+		status_trace("Ignoring node announcement, unsupported features %s.",
+			     tal_hex(tmpctx, features));
+		tal_free(tmpctx);
+		return;
+	}
+
 	status_trace("Received node_announcement for node %s",
 		     type_to_string(trc, struct pubkey, &node_id));
 
