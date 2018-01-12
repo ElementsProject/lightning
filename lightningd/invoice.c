@@ -179,12 +179,12 @@ static void json_invoice(struct command *cmd,
 	u64 expiry = 3600;
 
 	if (!json_get_params(buffer, params,
-			     "amount", &msatoshi,
+			     "msatoshi", &msatoshi,
 			     "label", &label,
 			     "description", &desc,
 			     "?expiry", &exp,
 			     NULL)) {
-		command_fail(cmd, "Need {amount}, {label} and {description}");
+		command_fail(cmd, "Need {msatoshi}, {label} and {description}");
 		return;
 	}
 
