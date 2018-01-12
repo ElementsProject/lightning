@@ -95,14 +95,14 @@ bool json_tok_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 	char *end;
 	unsigned long btc, sat;
 
-	btc = strtoul(buffer + tok->start, &end, 0);
+	btc = strtoul(buffer + tok->start, &end, 10);
 	if (btc == ULONG_MAX && errno == ERANGE)
 		return false;
 	if (end != buffer + tok->end) {
 		/* Expect always 8 decimal places. */
 		if (*end != '.' || buffer + tok->end - end != 9)
 			return false;
-		sat = strtoul(end+1, &end, 0);
+		sat = strtoul(end+1, &end, 10);
 		if (sat == ULONG_MAX && errno == ERANGE)
 			return false;
 		if (end != buffer + tok->end)
