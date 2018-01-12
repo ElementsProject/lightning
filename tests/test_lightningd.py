@@ -1964,11 +1964,9 @@ class LightningDTests(BaseLightningDTests):
         assert l1.rpc.getpeer(l2.info['id'])['peerid'] == l2.info['id']
         assert l2.rpc.getpeer(l1.info['id'])['peerid'] == l1.info['id']
 
-        # Technically, this is async to fundchannel.
-        l1.daemon.wait_for_log('sendrawtx exit 0')
-
-        # Wait for reconnect, awaiting lockin..
-        l1.daemon.wait_for_log('Peer has reconnected, state CHANNELD_AWAITING_LOCKIN')
+        # Technically, this is async to fundchannel (and could reconnect first)
+        l1.daemon.wait_for_logs(['sendrawtx exit 0',
+                                 'Peer has reconnected, state CHANNELD_AWAITING_LOCKIN'])
 
         l1.bitcoin.generate_block(6)
 
