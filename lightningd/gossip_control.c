@@ -8,6 +8,7 @@
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
+#include <common/features.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <errno.h>
