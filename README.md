@@ -67,19 +67,28 @@ cli/lightning-cli newaddr
 
 # Returns a transaction id <txid>
 bitcoin-cli -testnet sendtoaddress <address> <amount>
-
-# Retrieves the raw transaction <rawtx>
-bitcoin-cli -testnet getrawtransaction <txid>
-
-# Notifies `lightningd` that there are now funds available:
-cli/lightning-cli addfunds <rawtx>
 ```
 
-Eventually `lightningd` will include its own wallet making this transfer easier, but for now this is how it gets its funds.
-If you don't have any testcoins you can get a few from a faucet such as [TPs' testnet faucet](http://tpfaucet.appspot.com/) or [Kiwi's testnet faucet](https://testnet.manu.backend.hamburg/faucet).
+`lightningd` will register the funds once the transaction is
+confirmed.
 
-Once `lightningd` has funds, we can connect to a node and open a channel.
-Let's assume the remote node is accepting connections at `<ip>` (and optional `<port>`, if not 9735) and has the node ID `<node_id>`:
+If you don't have any testcoins you can get a few from a faucet
+such as [TPs' testnet faucet](http://tpfaucet.appspot.com/) or
+[Kiwi's testnet faucet](https://testnet.manu.backend.hamburg/faucet).
+You can send it directly to the `lightningd` address.
+
+Confirm `lightningd` got funds by:
+
+```
+# Returns an array of on-chain funds.
+cli/lightning-cli listfunds
+```
+
+Once `lightningd` has funds, we can connect to a node and open a
+channel.
+Let's assume the **remote** node is accepting connections at
+`<ip>` (and optional `<port>`, if not 9735) and has the node ID
+`<node_id>`:
 
 ```
 cli/lightning-cli connect <node_id> <ip> [<port>]
