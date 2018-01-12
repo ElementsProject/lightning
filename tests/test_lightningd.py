@@ -358,11 +358,7 @@ class LightningDTests(BaseLightningDTests):
         chanid = self.fund_channel(l1, l2, 10**6)
 
         # Wait for route propagation.
-        bitcoind.generate_block(5)
-        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
-                                 .format(chanid),
-                                'Received channel_update for channel {}\(1\)'
-                                 .format(chanid)])
+        self.wait_for_routes(l1, [chanid])
 
         inv = l2.rpc.invoice(123000, 'test_pay', 'description', 1)['bolt11']
         time.sleep(2)
@@ -738,11 +734,7 @@ class LightningDTests(BaseLightningDTests):
         chanid = self.fund_channel(l1, l2, 10**6)
 
         # Wait for route propagation.
-        bitcoind.generate_block(5)
-        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
-                                 .format(chanid),
-                                'Received channel_update for channel {}\(1\)'
-                                 .format(chanid)])
+        self.wait_for_routes(l1, [chanid])
 
         inv = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
         l1.rpc.pay(inv)
@@ -1625,16 +1617,8 @@ class LightningDTests(BaseLightningDTests):
         c1 = self.fund_channel(l1, l2, 10**6)
         c2 = self.fund_channel(l2, l3, 10**6)
 
-        # Allow announce messages.
-        l1.bitcoin.generate_block(5)
-
         # Make sure l1 has seen announce for all channels.
-        l1.daemon.wait_for_logs([
-            # One of the first two is LOCAL (has (LOCAL) at end of msg)
-            'Channel {}\\(0\\) was updated'.format(c1),
-            'Channel {}\\(1\\) was updated'.format(c1),
-            'Channel {}\\(0\\) was updated.'.format(c2),
-            'Channel {}\\(1\\) was updated.'.format(c2)])
+        self.wait_for_routes(l1, [c1, c2])
 
         # BOLT #7:
         #
@@ -1725,15 +1709,8 @@ class LightningDTests(BaseLightningDTests):
         c1 = self.fund_channel(l1, l2, 10**6)
         c2 = self.fund_channel(l2, l3, 10**6)
 
-        # Allow announce messages.
-        l1.bitcoin.generate_block(5)
-
         # Make sure l1 has seen announce for all channels.
-        l1.daemon.wait_for_logs([
-            'Received channel_update for channel {}\\(0\\)'.format(c1),
-            'Received channel_update for channel {}\\(1\\)'.format(c1),
-            'Received channel_update for channel {}\\(0\\)'.format(c2),
-            'Received channel_update for channel {}\\(1\\)'.format(c2)])
+        self.wait_for_routes(l1, [c1, c2])
 
         route = l1.rpc.getroute(l3.info['id'], 4999999, 1)["route"]
         assert len(route) == 2
@@ -1768,11 +1745,7 @@ class LightningDTests(BaseLightningDTests):
         chanid = self.fund_channel(l1, l2, 10**6)
 
         # Wait for route propagation.
-        bitcoind.generate_block(5)
-        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
-                                 .format(chanid),
-                                'Received channel_update for channel {}\(1\)'
-                                 .format(chanid)])
+        self.wait_for_routes(l1, [chanid])
 
         amt = 200000000
         inv = l2.rpc.invoice(amt, 'test_htlc_out_timeout', 'desc')['bolt11']
@@ -1827,12 +1800,7 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         chanid = self.fund_channel(l1, l2, 10**6)
 
-        # Wait for route propagation.
-        bitcoind.generate_block(5)
-        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
-                                 .format(chanid),
-                                'Received channel_update for channel {}\(1\)'
-                                 .format(chanid)])
+        self.wait_for_routes(l1, [chanid])
 
         amt = 200000000
         inv = l2.rpc.invoice(amt, 'test_htlc_in_timeout', 'desc')['bolt11']
@@ -2625,11 +2593,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Now make sure an HTLC works.
         # (First wait for route propagation.)
-        bitcoind.generate_block(6)
-        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
-                                 .format(chanid),
-                                'Received channel_update for channel {}\(1\)'
-                                 .format(chanid)])
+        self.wait_for_routes(l1, [chanid])
 
         # Make payments.
         self.pay(l1,l2,200000000)
@@ -2703,11 +2667,7 @@ class LightningDTests(BaseLightningDTests):
         chanid = self.fund_channel(l1, l2, 10**6)
 
         # Wait for route propagation.
-        bitcoind.generate_block(5)
-        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
-                                 .format(chanid),
-                                'Received channel_update for channel {}\(1\)'
-                                 .format(chanid)])
+        self.wait_for_routes(l1, [chanid])
 
         inv = l2.rpc.invoice(123000, 'test_pay_disconnect', 'description')['bolt11']
 
