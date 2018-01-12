@@ -454,7 +454,7 @@ static void json_pay(struct command *cmd,
 				command_fail(cmd,
 					     "msatoshi '%"PRIu64"' is less "
 					     "than bolt11 amount '%"PRIu64"'",
-					     msatoshi, *bb11->msatoshi
+					     msatoshi, *b11->msatoshi
 				return;
 			}
 			if (msatoshi > *b11->msatoshi * 2) {
@@ -462,7 +462,7 @@ static void json_pay(struct command *cmd,
 					     "msatoshi '%"PRIu64"' is more "
 					     "than twice bolt11 amount "
 					     "'%"PRIu64"'",
-					     msatoshi, *bb11->msatoshi
+					     msatoshi, *b11->msatoshi
 				return;
 			}
 		} else
