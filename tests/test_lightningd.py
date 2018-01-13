@@ -744,6 +744,12 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.pay(inv)
         assert l2.rpc.listinvoice('test_pay')[0]['complete'] == True
 
+        # Repeat payments are NOPs (if valid): we can hand null.
+        l1.rpc.pay(inv, None)
+        # This won't work: can't provide an amount (even if correct!)
+        self.assertRaises(ValueError, l1.rpc.pay, inv, 123000)
+        self.assertRaises(ValueError, l1.rpc.pay, inv, 122000)
+
         # Check pay_index is not null
         outputs = l2.db_query('SELECT pay_index IS NOT NULL AS q FROM invoices WHERE label="label";')
         assert len(outputs) == 1 and outputs[0]['q'] != 0
@@ -752,6 +758,9 @@ class LightningDTests(BaseLightningDTests):
         for i in range(5):
             label = "any{}".format(i)
             inv = l2.rpc.invoice("any", label, 'description')['bolt11']
+            # Must provide an amount!
+            self.assertRaises(ValueError, l1.rpc.pay, inv)
+            self.assertRaises(ValueError, l1.rpc.pay, inv, None)
             l1.rpc.pay(inv, random.randint(1000, 999999))
 
     def test_bad_opening(self):
