@@ -678,6 +678,8 @@ class LightningDTests(BaseLightningDTests):
         # This works.
         l1.rpc.sendpay(to_json([routestep]), rhash)
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
+        assert l2.rpc.listinvoice('testpayment2')[0]['pay_index'] == 1
+        assert l2.rpc.listinvoice('testpayment2')[0]['msatoshi_received'] == rs['msatoshi']
 
         # Balances should reflect it.
         time.sleep(1)
@@ -693,6 +695,7 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.sendpay(to_json([routestep]), rhash)
         l1.daemon.wait_for_log('... succeeded')
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
+        assert l2.rpc.listinvoice('testpayment2')[0]['msatoshi_received'] == rs['msatoshi']
 
         # Overpaying by "only" a factor of 2 succeeds.
         rhash = l2.rpc.invoice(amt, 'testpayment3', 'desc')['payment_hash']
@@ -700,6 +703,7 @@ class LightningDTests(BaseLightningDTests):
         routestep = { 'msatoshi' : amt * 2, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'}
         l1.rpc.sendpay(to_json([routestep]), rhash)
         assert l2.rpc.listinvoice('testpayment3')[0]['complete'] == True
+        assert l2.rpc.listinvoice('testpayment3')[0]['msatoshi_received'] == amt*2
 
     def test_sendpay_cant_afford(self):
         l1,l2 = self.connect()

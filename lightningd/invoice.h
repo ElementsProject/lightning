@@ -17,15 +17,22 @@ enum invoice_status {
 };
 
 struct invoice {
+	/* List off ld->invoices->invlist */
 	struct list_node list;
+	/* Database ID */
 	u64 id;
 	enum invoice_status state;
 	const char *label;
+	/* NULL if they specified "any" */
 	u64 *msatoshi;
+	/* Set if state == PAID */
+	u64 msatoshi_received;
 	struct preimage r;
 	u64 expiry_time;
 	struct sha256 rhash;
+	/* Non-zero if state == PAID */
 	u64 pay_index;
+	/* Any JSON waitinvoice calls waiting for this to be paid. */
 	struct list_head waitone_waiters;
 };
 
@@ -35,7 +42,8 @@ struct invoice {
 void invoice_add(struct invoices *invs,
 		 struct invoice *inv);
 
-void resolve_invoice(struct lightningd *ld, struct invoice *invoice);
+void resolve_invoice(struct lightningd *ld, struct invoice *invoice,
+		     u64 msatoshi_received);
 
 struct invoice *find_unpaid(struct invoices *i,
 			    const struct sha256 *rhash);
