@@ -1264,33 +1264,30 @@ static void gossip_prune_network(struct daemon *daemon)
 
 	/* Find myself in the network */
 	n = node_map_get(daemon->rstate->nodes, &daemon->id.pubkey);
-	if (!n) {
-		status_trace("Could not find myself in the nodemap, do we have a channel yet?");
-		return;
-	}
+	if (n) {
+		/* Iterate through all outgoing connection and check whether
+		 * it's time to re-announce */
+		for (size_t i = 0; i < tal_count(n->out); i++) {
+			struct node_connection *nc = n->out[i];
 
-	/* Iterate through all outgoing connection and check whether
-	 * it's time to re-announce */
-	for (size_t i=0; i<tal_count(n->out); i++) {
-		struct node_connection *nc = n->out[i];
+			if (!nc->channel_update) {
+				/* Connection is not public yet, so don't even
+				 * try to re-announce it */
+				continue;
+			}
 
-		if (!nc->channel_update) {
-			/* Connection is not public yet, so don't even
-			 * try to re-announce it */
-			continue;
+			if (now - nc->last_timestamp < daemon->update_channel_interval) {
+				/* No need to send a keepalive update message */
+				continue;
+			}
+
+			if (!nc->active) {
+				/* Only send keepalives for active connections */
+				continue;
+			}
+
+			gossip_send_keepalive_update(daemon->rstate, nc);
 		}
-
-		if (now - nc->last_timestamp < daemon->update_channel_interval) {
-			/* No need to send a keepalive update message */
-			continue;
-		}
-
-		if (!nc->active) {
-			/* Only send keepalives for active connections */
-			continue;
-		}
-
-		gossip_send_keepalive_update(daemon->rstate, nc);
 	}
 
 	/* Now iterate through all channels and see if it is still alive */
