@@ -2,12 +2,12 @@
 .\"     Title: lightning-invoice
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 01/10/2018
+.\"      Date: 01/13/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-INVOICE" "7" "01/10/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-INVOICE" "7" "01/13/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ The \fImsatoshi\fR can be the string "any", which creates an invoice that can be
 The \fIlabel\fR must be unique; it is never revealed to other nodes on the lightning network, but it can be used to query the status of this invoice\&.
 .SH "RETURN VALUE"
 .sp
-On success, a hash is returned as \fIrhash\fR to be given to the payer\&. It also returns a BOLT11 invoice as \fIbolt11\fR to be given to the payer\&. On failure, an error is returned and no invoice is created\&. If the lightning process fails before responding, the caller should use getinvoice(7) to query whether this invoice was created or not\&.
+On success, a hash is returned as \fIrhash\fR to be given to the payer, and the \fIexpiry_time\fR as a UNIX timestamp\&. It also returns a BOLT11 invoice as \fIbolt11\fR to be given to the payer\&. On failure, an error is returned and no invoice is created\&. If the lightning process fails before responding, the caller should use lightning\-listinvoice(7) to query whether this invoice was created or not\&.
 .SH "AUTHOR"
 .sp
 Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.

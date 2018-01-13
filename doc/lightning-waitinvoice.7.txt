@@ -17,7 +17,7 @@ returns that single entry as per *listinvoice*.
 
 RETURN VALUE
 ------------
-On success, the 'rhash', 'label', and 'msatoshi' will be returned.
+On success, an invoice description will be returned as per lightning-listinvoice(7): 'complete' will always be 'true'.
 
 //FIXME:Enumerate errors
 
