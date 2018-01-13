@@ -281,6 +281,8 @@ static bool channelseq(struct wallet_channel *c1, struct wallet_channel *c2)
 		CHECK(p1->local_shutdown_idx == p2->local_shutdown_idx);
 	}
 
+	CHECK(p1->last_was_revoke == p2->last_was_revoke);
+
 	return true;
 }
 
@@ -373,6 +375,7 @@ static bool test_channel_crud(const tal_t *ctx)
 
 	/* Variant 3: update with our_satoshi set */
 	c1.peer->our_msatoshi = &msat;
+	c1.peer->last_was_revoke = !c1.peer->last_was_revoke;
 
 	wallet_channel_save(w, &c1, 0);
 	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));

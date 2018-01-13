@@ -571,6 +571,8 @@ static bool wallet_stmt2channel(const tal_t *ctx, struct wallet *w, sqlite3_stmt
 		chan->peer->last_sig = tal_free(chan->peer->last_sig);
 	}
 
+	chan->peer->last_was_revoke = sqlite3_column_int(stmt, 34) != 0;
+
 	chan->peer->channel = chan;
 
 	return ok;
@@ -591,7 +593,7 @@ static const char *channel_fields =
     "old_per_commit_remote, local_feerate_per_kw, remote_feerate_per_kw, shachain_remote_id, "
     "shutdown_scriptpubkey_remote, shutdown_keyidx_local, "
     "last_sent_commit_state, last_sent_commit_id, "
-    "last_tx, last_sig";
+    "last_tx, last_sig, last_was_revoke";
 
 bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w, struct list_head *peers)
 {
@@ -745,7 +747,8 @@ void wallet_channel_save(struct wallet *w, struct wallet_channel *chan,
 			  "  shutdown_scriptpubkey_remote=?,"
 			  "  shutdown_keyidx_local=?,"
 			  "  channel_config_local=?,"
-			  "  last_tx=?, last_sig=?"
+			  "  last_tx=?, last_sig=?,"
+			  "  last_was_revoke=?"
 			  " WHERE id=?");
 	sqlite3_bind_int64(stmt, 1, p->their_shachain.id);
 	if (p->scid)
@@ -781,7 +784,8 @@ void wallet_channel_save(struct wallet *w, struct wallet_channel *chan,
 		sqlite3_bind_tx(stmt, 19, p->last_tx);
 	if (p->last_sig)
 		sqlite3_bind_signature(stmt, 20, p->last_sig);
-	sqlite3_bind_int64(stmt, 21, chan->id);
+	sqlite3_bind_int(stmt, 21, p->last_was_revoke);
+	sqlite3_bind_int64(stmt, 22, chan->id);
 	db_exec_prepared(w->db, stmt);
 
 	if (chan->peer->channel_info) {

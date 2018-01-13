@@ -156,6 +156,7 @@ char *dbmigrations[] = {
     "ALTER TABLE invoices ADD COLUMN msatoshi_received INTEGER;",
     /* Normally impossible, so at least we'll know if databases are ancient. */
     "UPDATE invoices SET msatoshi_received=0 WHERE state=1;",
+    "ALTER TABLE channels ADD COLUMN last_was_revoke INTEGER;",
     NULL,
 };
 
