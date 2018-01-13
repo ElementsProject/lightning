@@ -102,27 +102,21 @@ You can check the status of the channel using `cli/lightning-cli getpeers`, whic
 ### Receiving and receiving payments
 
 Payments in Lightning are invoice based.
-The recipient creates an invoice with the expected `<amount>` in millisatoshi, a `<label>` and a `<description>`:
+The recipient creates an invoice with the expected `<amount>` in millisatoshi (or `"any"` for a donation), a unique `<label>` and a `<description>` the payer will see:
 
 ```
 cli/lightning-cli invoice <amount> <label> <description>
 ```
 
-This returns a random value called `rhash` that is part of the invoice.
-The recipient needs to communicate its ID `<recipient_id>`, `<rhash>` and the desired `<amount>` to the sender.
+This returns some internal details, and a standard invoice string called `bolt11` (named after the [BOLT #11 lightning spec](https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md).
 
-The sender needs to compute a route to the recipient, and use that route to actually send the payment.
-The route contains the path that the payment will take through the Lightning Network and the respective funds that each node will forward.
+The sender can feed this `bolt11` string to the `decodepay` command to see what it is, and pay it simply using the `pay` command:
 
 ```
-route=$(cli/lightning-cli getroute <recipient_id> <amount> 1 | jq --raw-output .route -)
-cli/lightning-cli sendpay "$route" <rhash>
+cli/lightning-cli pay <bolt11>
 ```
 
-Notice that in the first step we stored the route in a variable and reused it in the second step.
-`lightning-cli` should return a preimage that serves as a receipt, confirming that the payment was successful.
-
-This low-level interface is still experimental and will eventually be complemented with a higher level interface that is easier to use.
+Note that there are lower-level interfaces (and more options to these interfaces) for more sophisticated use.
 
 ## Further information
 
