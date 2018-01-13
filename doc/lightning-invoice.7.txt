@@ -26,7 +26,7 @@ invoice.
 RETURN VALUE
 ------------
 
-On success, a hash is returned as 'rhash' to be given to the payer,
+On success, a hash is returned as 'payment_hash' to be given to the payer,
 and the 'expiry_time' as a UNIX timestamp.
 It also returns a BOLT11 invoice as 'bolt11' to be given to the
 payer.

@@ -59,7 +59,7 @@ def test_single_hop(node_factory, executor):
     fs = []
     invoices = []
     for i in tqdm(range(num_payments)):
-        invoices.append(l2.rpc.invoice(1000, 'invoice-%d' % (i), 'desc')['rhash'])
+        invoices.append(l2.rpc.invoice(1000, 'invoice-%d' % (i), 'desc')['payment_hash'])
 
     route = l1.rpc.getroute(l2.rpc.getinfo()['id'], 1000, 1)['route']
     print("Sending payments")
