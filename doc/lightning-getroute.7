@@ -2,12 +2,12 @@
 .\"     Title: lightning-getroute
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 02/27/2017
+.\"      Date: 01/13/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-GETROUTE" "7" "02/27/2017" "\ \&" "\ \&"
+.TH "LIGHTNING\-GETROUTE" "7" "01/13/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,7 +28,7 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-lightning-getroute \- Protocol for routing a payment\&.
+lightning-getroute \- Protocol for routing a payment (low\-level)\&.
 .SH "SYNOPSIS"
 .sp
 \fBgetroute\fR \fIid\fR \fImsatoshi\fR \fIriskfactor\fR
@@ -261,7 +261,7 @@ timeout for the payment failure, in blocks\&.
 Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.
 .SH "SEE ALSO"
 .sp
-lightning\-listinvoice(7), lightning\-delinvoice(7), lightning\-getroute(7), lightning\-sendpay(7)\&.
+lightning\-pay(7), lightning\-sendpay(7)\&.
 .SH "RESOURCES"
 .sp
 Main web site: https://github\&.com/ElementsProject/lightning

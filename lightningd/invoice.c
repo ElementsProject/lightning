@@ -656,7 +656,7 @@ static void json_decodepay(struct command *cmd,
 static const struct json_command decodepay_command = {
 	"decodepay",
 	json_decodepay,
-	"Parse and decode {bolt11} if possible",
+	"Parse and decode {bolt11} if possible, using {description} if necessary",
 	"Returns a verbose description on success"
 };
 AUTODATA(json_command, &decodepay_command);

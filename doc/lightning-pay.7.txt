@@ -1,0 +1,47 @@
+LIGHTNING-PAY(7)
+================
+:doctype: manpage
+
+NAME
+----
+lightning-pay - Protocol for sending a payment to a BOLT11 invoice
+
+SYNOPSIS
+--------
+*pay* 'bolt11' ['msatoshi'] ['description'] ['riskfactor']
+
+DESCRIPTION
+-----------
+
+The *pay* RPC command attempts to find a route to the given destination,
+and send the funds it asks for.  If the 'bolt11' does not contain an amount,
+'msatoshi' is required, otherwise if it is specified it must be 'null'.  If
+'bolt11' contains a description hash ('h' field) 'description' is
+required, otherwise it is unused.  The 'riskfactor' is described in detail
+in lightning-getroute(7), and defaults to 1.0.
+
+The response will occur when the payment fails or succeeds.  Once a
+payment has succeeded, calls to *pay* with the same 'bolt11' will
+succeed immediately.
+
+RETURN VALUE
+------------
+
+On success, this returns the payment 'preimage' which hashes to the
+'payment_hash' to prove that the payment was successful.
+
+//FIXME:Enumerate errors
+
+AUTHOR
+------
+Rusty Russell <rusty@rustcorp.com.au> is mainly responsible.
+
+SEE ALSO
+--------
+lightning-listpayments(7), lightning-decodepay(7),
+lightning-listinvoice(7), lightning-delinvoice(7),
+lightning-getroute(7), lightning-invoice(7).
+
+RESOURCES
+---------
+Main web site: https://github.com/ElementsProject/lightning
