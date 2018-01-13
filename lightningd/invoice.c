@@ -74,19 +74,26 @@ struct invoices *invoices_init(const tal_t *ctx)
 	return invs;
 }
 
+static void json_add_invoice(struct json_result *response,
+			     const struct invoice *inv)
+{
+	json_object_start(response, NULL);
+	json_add_string(response, "label", inv->label);
+	json_add_hex(response, "rhash", &inv->rhash, sizeof(inv->rhash));
+	if (inv->msatoshi)
+		json_add_u64(response, "msatoshi", *inv->msatoshi);
+	json_add_bool(response, "complete", inv->state == PAID);
+	if (inv->state == PAID)
+		json_add_u64(response, "pay_index", inv->pay_index);
+	json_add_u64(response, "expiry_time", inv->expiry_time);
+	json_object_end(response);
+}
+
 static void tell_waiter(struct command *cmd, const struct invoice *paid)
 {
 	struct json_result *response = new_json_result(cmd);
 
-	json_object_start(response, NULL);
-	json_add_string(response, "label", paid->label);
-	json_add_hex(response, "rhash", &paid->rhash, sizeof(paid->rhash));
-	if (paid->msatoshi)
-		json_add_u64(response, "msatoshi", *paid->msatoshi);
-	json_add_bool(response, "complete", paid->state == PAID);
-	if (paid->state == PAID)
-		json_add_u64(response, "pay_index", paid->pay_index);
-	json_object_end(response);
+	json_add_invoice(response, paid);
 	command_success(cmd, response);
 }
 static void tell_waiter_deleted(struct command *cmd, const struct invoice *paid)
@@ -291,7 +298,7 @@ static const struct json_command invoice_command = {
 	"invoice",
 	json_invoice,
 	"Create invoice for {msatoshi} with {label} and {description} with optional {expiry} seconds (default 1 hour)",
-	"Returns the {rhash}, {expiry_time} and {bolt11} on success, and {description} if too alrge for {bolt11}. "
+	"Returns the {rhash}, {expiry_time} and {bolt11} on success, and {description} if too large for {bolt11}. "
 };
 AUTODATA(json_command, &invoice_command);
 
@@ -307,14 +314,7 @@ static void json_add_invoices(struct json_result *response,
 	list_for_each(list, i, list) {
 		if (lbl && !streq(i->label, lbl))
 			continue;
-		json_object_start(response, NULL);
-		json_add_string(response, "label", i->label);
-		json_add_hex(response, "rhash", &i->rhash, sizeof(i->rhash));
-		if (i->msatoshi)
-			json_add_u64(response, "msatoshi", *i->msatoshi);
-		json_add_bool(response, "complete", i->state == PAID);
-		json_add_u64(response, "expiry_time", i->expiry_time);
-		json_object_end(response);
+		json_add_invoice(response, i);
 	}
 }
 
@@ -343,7 +343,7 @@ static const struct json_command listinvoice_command = {
 	"listinvoice",
 	json_listinvoice,
 	"Show invoice {label} (or all, if no {label}))",
-	"Returns an array of {label}, {rhash}, {msatoshi} and {complete} on success. "
+	"Returns an array of {label}, {rhash}, {msatoshi} (if set), {complete}, {pay_index} (if paid) and {expiry_time} on success. "
 };
 AUTODATA(json_command, &listinvoice_command);
 
@@ -374,12 +374,7 @@ static void json_delinvoice(struct command *cmd,
 
 	/* Get invoice details before attempting to delete, as
 	 * otherwise the invoice will be freed. */
-	json_object_start(response, NULL);
-	json_add_string(response, "label", i->label);
-	json_add_hex(response, "rhash", &i->rhash, sizeof(i->rhash));
-	if (i->msatoshi)
-		json_add_u64(response, "msatoshi", *i->msatoshi);
-	json_object_end(response);
+	json_add_invoice(response, i);
 
 	error = delete_invoice(cmd, cmd->ld->wallet, invs, i);
 
@@ -400,7 +395,7 @@ static const struct json_command delinvoice_command = {
 	"delinvoice",
 	json_delinvoice,
 	"Delete unpaid invoice {label}))",
-	"Returns {label}, {rhash} and {msatoshi} on success. "
+	"Returns {label}, {rhash}, {msatoshi} (if set), {complete}, {pay_index} (if paid) and {expiry_time} on success. "
 };
 AUTODATA(json_command, &delinvoice_command);
 
@@ -440,15 +435,7 @@ static void json_waitanyinvoice(struct command *cmd,
 	if (inv) {
 		response = new_json_result(cmd);
 
-		json_object_start(response, NULL);
-		json_add_string(response, "label", inv->label);
-		json_add_hex(response, "rhash", &inv->rhash, sizeof(inv->rhash));
-		if (inv->msatoshi)
-			json_add_u64(response, "msatoshi", *inv->msatoshi);
-		json_add_bool(response, "complete", true);
-		json_add_u64(response, "pay_index", inv->pay_index);
-		json_object_end(response);
-
+		json_add_invoice(response, inv);
 		command_success(cmd, response);
 
 		/* inv is freed when cmd is freed, and command_success
@@ -468,7 +455,7 @@ static const struct json_command waitanyinvoice_command = {
 	"waitanyinvoice",
 	json_waitanyinvoice,
 	"Wait for the next invoice to be paid, after {lastpay_index} (if supplied)))",
-	"Returns {label}, {rhash}, {msatoshi}, and {pay_index} on success. "
+	"Returns {label}, {rhash}, {msatoshi} (if set), {complete}, {pay_index} and {expiry_time} on success. "
 };
 AUTODATA(json_command, &waitanyinvoice_command);
 
@@ -515,7 +502,7 @@ static const struct json_command waitinvoice_command = {
 	"waitinvoice",
 	json_waitinvoice,
 	"Wait for an incoming payment matching the invoice with {label}",
-	"Returns {label}, {rhash} and {msatoshi} on success"
+	"Returns {label}, {rhash}, {msatoshi} (if set), {complete}, {pay_index} and {expiry_time} on success"
 };
 AUTODATA(json_command, &waitinvoice_command);
 
