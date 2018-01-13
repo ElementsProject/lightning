@@ -1174,20 +1174,18 @@ static void wallet_stmt2invoice(sqlite3_stmt *stmt, struct invoice *inv)
 	list_head_init(&inv->waitone_waiters);
 }
 
-bool wallet_invoice_nextpaid(const tal_t *cxt,
-			     const struct wallet *wallet,
-			     u64 pay_index,
-			     char **outlabel,
-			     struct sha256 *outrhash,
-			     u64 *outmsatoshi,
-			     u64 *outpay_index)
+struct invoice *wallet_invoice_nextpaid(const tal_t *ctx,
+					const struct wallet *wallet,
+					u64 pay_index)
 {
 	sqlite3_stmt *stmt;
 	int res;
+	struct invoice *inv = tal(ctx, struct invoice);
 
 	/* Generate query. */
 	stmt = db_prepare(wallet->db,
-			"SELECT label, payment_hash, msatoshi, pay_index"
+			"SELECT id, state, payment_key, payment_hash,"
+			" label, msatoshi, expiry_time, pay_index "
 			"  FROM invoices"
 			" WHERE pay_index NOT NULL"
 			"   AND pay_index > ?"
@@ -1198,20 +1196,12 @@ bool wallet_invoice_nextpaid(const tal_t *cxt,
 	if (res != SQLITE_ROW) {
 		/* No paid invoice found. */
 		sqlite3_finalize(stmt);
-		return false;
+		return tal_free(inv);
 	} else {
-		/* Paid invoice found, return data. */
-		*outlabel = tal_strndup(cxt, sqlite3_column_blob(stmt, 0), sqlite3_column_bytes(stmt, 0));
-
-		assert(sqlite3_column_bytes(stmt, 1) == sizeof(struct sha256));
-		memcpy(outrhash, sqlite3_column_blob(stmt, 1), sqlite3_column_bytes(stmt, 1));
-
-		*outmsatoshi = sqlite3_column_int64(stmt, 2);
-
-		*outpay_index = sqlite3_column_int64(stmt, 3);
+		wallet_stmt2invoice(stmt, inv);
 
 		sqlite3_finalize(stmt);
-		return true;
+		return inv;
 	}
 }
 

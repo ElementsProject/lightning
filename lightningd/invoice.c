@@ -411,12 +411,8 @@ static void json_waitanyinvoice(struct command *cmd,
 	u64 pay_index;
 	struct invoice_waiter *w;
 	struct invoices *invs = cmd->ld->invoices;
-	bool res;
 	struct wallet *wallet = cmd->ld->wallet;
-	char* outlabel;
-	struct sha256 outrhash;
-	u64 outmsatoshi;
-	u64 outpay_index;
+	struct invoice *inv;
 	struct json_result *response;
 
 	if (!json_get_params(buffer, params,
@@ -438,25 +434,24 @@ static void json_waitanyinvoice(struct command *cmd,
 	}
 
 	/* Find next paid invoice. */
-	res = wallet_invoice_nextpaid(cmd, wallet, pay_index,
-				      &outlabel, &outrhash,
-				      &outmsatoshi, &outpay_index);
+	inv = wallet_invoice_nextpaid(cmd, wallet, pay_index);
 
 	/* If we found one, return it. */
-	if (res) {
+	if (inv) {
 		response = new_json_result(cmd);
 
 		json_object_start(response, NULL);
-		json_add_string(response, "label", outlabel);
-		json_add_hex(response, "rhash", &outrhash, sizeof(outrhash));
-		json_add_u64(response, "msatoshi", outmsatoshi);
+		json_add_string(response, "label", inv->label);
+		json_add_hex(response, "rhash", &inv->rhash, sizeof(inv->rhash));
+		if (inv->msatoshi)
+			json_add_u64(response, "msatoshi", *inv->msatoshi);
 		json_add_bool(response, "complete", true);
-		json_add_u64(response, "pay_index", outpay_index);
+		json_add_u64(response, "pay_index", inv->pay_index);
 		json_object_end(response);
 
 		command_success(cmd, response);
 
-		/* outlabel is freed when cmd is freed, and command_success
+		/* inv is freed when cmd is freed, and command_success
 		 * also frees cmd. */
 		return;
 	}
