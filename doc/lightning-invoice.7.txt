@@ -26,12 +26,13 @@ invoice.
 RETURN VALUE
 ------------
 
-On success, a hash is returned as 'rhash' to be given to the payer.
+On success, a hash is returned as 'rhash' to be given to the payer,
+and the 'expiry_time' as a UNIX timestamp.
 It also returns a BOLT11 invoice as 'bolt11' to be given to the
 payer.
 On failure, an error is returned and no invoice is created.  If the
 lightning process fails before responding, the caller should use
-getinvoice(7) to query whether this invoice was created or not.
+lightning-listinvoice(7) to query whether this invoice was created or not.
 
 //FIXME:Enumerate errors
 

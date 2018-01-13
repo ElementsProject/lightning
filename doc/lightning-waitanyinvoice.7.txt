@@ -28,7 +28,7 @@ Negative 'lastpay_index' is invalid.
 
 RETURN VALUE
 ------------
-On success, the 'rhash', 'label', 'pay_index', and 'msatoshi' will be returned.
+On success, an invoice description will be returned as per lightning-listinvoice(7): 'complete' will always be 'true'.
 
 //FIXME:Enumerate errors
 

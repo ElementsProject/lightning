@@ -17,9 +17,7 @@ it exists, or the status of all invoices if given no argument.
 
 RETURN VALUE
 ------------
-On success, an array 'invoices' of objects containing 'label',
-'rhash', 'msatoshi' and 'complete' will be returned.  'complete' is a
-boolean.
+On success, an array 'invoices' of objects is returned.  Each object contains 'label', 'rhash', 'complete' (a boolean), and 'expiry_time' (a UNIX timestamp).  If the 'msatoshi' argument to lightning-invoice(7) was not "any", there will be an 'msatoshi' field. If the invoice has been paid, there will be a 'pay_index' field. 
 
 //FIXME:Enumerate errors
 

@@ -2,12 +2,12 @@
 .\"     Title: lightning-waitinvoice
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 01/23/2017
+.\"      Date: 01/13/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-WAITINVOI" "7" "01/23/2017" "\ \&" "\ \&"
+.TH "LIGHTNING\-WAITINVOI" "7" "01/13/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -37,7 +37,7 @@ lightning-waitinvoice \- Protocol for waiting for specific payment\&.
 The \fBwaitinvoice\fR RPC command waits until a specific invoice is paid, then returns that single entry as per \fBlistinvoice\fR\&.
 .SH "RETURN VALUE"
 .sp
-On success, the \fIrhash\fR, \fIlabel\fR, and \fImsatoshi\fR will be returned\&.
+On success, an invoice description will be returned as per lightning\-listinvoice(7): \fIcomplete\fR will always be \fItrue\fR\&.
 .SH "AUTHOR"
 .sp
 Christian Decker <decker\&.christian@gmail\&.com> is mainly responsible\&.

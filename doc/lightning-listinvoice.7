@@ -2,12 +2,12 @@
 .\"     Title: lightning-listinvoice
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 09/06/2016
+.\"      Date: 01/13/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-LISTINVOI" "7" "09/06/2016" "\ \&" "\ \&"
+.TH "LIGHTNING\-LISTINVOI" "7" "01/13/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -37,7 +37,7 @@ lightning-listinvoice \- Protocol for querying invoice status
 The \fBlistinvoice\fR RPC command gets the status of a specific invoice, if it exists, or the status of all invoices if given no argument\&.
 .SH "RETURN VALUE"
 .sp
-On success, an array \fIinvoices\fR of objects containing \fIlabel\fR, \fIrhash\fR, \fImsatoshi\fR and \fIcomplete\fR will be returned\&. \fIcomplete\fR is a boolean\&.
+On success, an array \fIinvoices\fR of objects containing \fIlabel\fR, \fIrhash\fR, \fImsatoshi\fR (if not "any"), \fIcomplete\fR, \fIpay_index\fR (if paid) and \fIexpiry_time\fR} will be returned\&. \fIcomplete\fR is a boolean, and \fIexpiry_time\fR is the number of seconds since UNIX epoch\&.
 .SH "AUTHOR"
 .sp
 Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.

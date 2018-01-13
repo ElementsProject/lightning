@@ -18,7 +18,7 @@ just before this command is invoked!
 
 RETURN VALUE
 ------------
-On success, the 'rhash', 'label' and 'msatoshi' will be returned.
+On success, an invoice description will be returned as per lightning-listinvoice(7).
 
 //FIXME:Enumerate errors
 
