@@ -37,7 +37,7 @@ lightning-listinvoice \- Protocol for querying invoice status
 The \fBlistinvoice\fR RPC command gets the status of a specific invoice, if it exists, or the status of all invoices if given no argument\&.
 .SH "RETURN VALUE"
 .sp
-On success, an array \fIinvoices\fR of objects containing \fIlabel\fR, \fIpayment_hash, \*(Aqmsatoshi\fR (if not "any"), \fIcomplete\fR, \fIpay_index\fR (if paid) and \fIexpiry_time\fR} will be returned\&. \fIcomplete\fR is a boolean, and \fIexpiry_time\fR is the number of seconds since UNIX epoch\&.
+On success, an array \fIinvoices\fR of objects is returned\&. Each object contains \fIlabel\fR, \fIpayment_hash, \*(Aqcomplete\fR (a boolean), and \fIexpiry_time\fR (a UNIX timestamp)\&. If the \fImsatoshi\fR argument to lightning\-invoice(7) was not "any", there will be an \fImsatoshi\fR field\&. If the invoice has been paid, there will be a \fIpay_index\fR field and an \fImsatoshi_received\fR field (which may be slightly greater than \fImsatoshi\fR as some overpaying is permitted to allow clients to obscure payment paths)\&.
 .SH "AUTHOR"
 .sp
 Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.

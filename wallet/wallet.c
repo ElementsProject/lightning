@@ -1171,6 +1171,8 @@ static void wallet_stmt2invoice(sqlite3_stmt *stmt, struct invoice *inv)
 	/* Correctly 0 if pay_index is NULL. */
 	inv->pay_index = sqlite3_column_int64(stmt, 7);
 
+	if (inv->state == PAID)
+		inv->msatoshi_received = sqlite3_column_int64(stmt, 8);
 	list_head_init(&inv->waitone_waiters);
 }
 
@@ -1185,7 +1187,8 @@ struct invoice *wallet_invoice_nextpaid(const tal_t *ctx,
 	/* Generate query. */
 	stmt = db_prepare(wallet->db,
 			"SELECT id, state, payment_key, payment_hash,"
-			" label, msatoshi, expiry_time, pay_index "
+			" label, msatoshi, expiry_time, pay_index,"
+			" msatoshi_received "
 			"  FROM invoices"
 			" WHERE pay_index NOT NULL"
 			"   AND pay_index > ?"
@@ -1302,7 +1305,8 @@ bool wallet_invoices_load(struct wallet *wallet, struct invoices *invs)
 	int count = 0;
 	sqlite3_stmt *stmt = db_query(__func__, wallet->db,
 				"SELECT id, state, payment_key, payment_hash, "
-				"label, msatoshi, expiry_time, pay_index "
+				"label, msatoshi, expiry_time, pay_index, "
+				"msatoshi_received "
 				"FROM invoices;");
 	if (!stmt) {
 		log_broken(wallet->log, "Could not load invoices");

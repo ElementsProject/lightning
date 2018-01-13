@@ -297,7 +297,7 @@ static void handle_localpay(struct htlc_in *hin,
 	log_debug(ld->log, "%s: Actual amount %"PRIu64"msat, HTLC expiry %u",
 		  invoice->label, hin->msatoshi, cltv_expiry);
 	fulfill_htlc(hin, &invoice->r);
-	resolve_invoice(ld, invoice);
+	resolve_invoice(ld, invoice, hin->msatoshi);
 	return;
 
 fail:

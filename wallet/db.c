@@ -153,6 +153,9 @@ char *dbmigrations[] = {
     "ALTER TABLE outputs ADD COLUMN channel_id INTEGER;",
     "ALTER TABLE outputs ADD COLUMN peer_id BLOB;",
     "ALTER TABLE outputs ADD COLUMN commitment_point BLOB;",
+    "ALTER TABLE invoices ADD COLUMN msatoshi_received INTEGER;",
+    /* Normally impossible, so at least we'll know if databases are ancient. */
+    "UPDATE invoices SET msatoshi_received=0 WHERE state=1;",
     NULL,
 };
 

@@ -83,8 +83,11 @@ static void json_add_invoice(struct json_result *response,
 	if (inv->msatoshi)
 		json_add_u64(response, "msatoshi", *inv->msatoshi);
 	json_add_bool(response, "complete", inv->state == PAID);
-	if (inv->state == PAID)
+	if (inv->state == PAID) {
 		json_add_u64(response, "pay_index", inv->pay_index);
+		json_add_u64(response, "msatoshi_received",
+			     inv->msatoshi_received);
+	}
 	json_add_u64(response, "expiry_time", inv->expiry_time);
 	json_object_end(response);
 }
@@ -101,12 +104,14 @@ static void tell_waiter_deleted(struct command *cmd, const struct invoice *paid)
 	command_fail(cmd, "invoice deleted during wait");
 }
 
-void resolve_invoice(struct lightningd *ld, struct invoice *invoice)
+void resolve_invoice(struct lightningd *ld, struct invoice *invoice,
+		     u64 msatoshi_received)
 {
 	struct invoice_waiter *w;
 	struct invoices *invs = ld->invoices;
 
 	invoice->state = PAID;
+	invoice->msatoshi_received = msatoshi_received;
 
 	/* wallet_invoice_save updates pay_index member,
 	 * which tell_waiter needs. */
