@@ -1147,6 +1147,33 @@ bool wallet_htlcs_reconnect(struct wallet *wallet,
 	return true;
 }
 
+static void wallet_stmt2invoice(sqlite3_stmt *stmt, struct invoice *inv)
+{
+	inv->id = sqlite3_column_int64(stmt, 0);
+	inv->state = sqlite3_column_int(stmt, 1);
+
+	assert(sqlite3_column_bytes(stmt, 2) == sizeof(struct preimage));
+	memcpy(&inv->r, sqlite3_column_blob(stmt, 2), sqlite3_column_bytes(stmt, 2));
+
+	assert(sqlite3_column_bytes(stmt, 3) == sizeof(struct sha256));
+	memcpy(&inv->rhash, sqlite3_column_blob(stmt, 3), sqlite3_column_bytes(stmt, 3));
+
+	inv->label = tal_strndup(inv, sqlite3_column_blob(stmt, 4), sqlite3_column_bytes(stmt, 4));
+
+	if (sqlite3_column_type(stmt, 5) != SQLITE_NULL) {
+		inv->msatoshi = tal(inv, u64);
+		*inv->msatoshi = sqlite3_column_int64(stmt, 5);
+	} else {
+		inv->msatoshi = NULL;
+	}
+
+	inv->expiry_time = sqlite3_column_int64(stmt, 6);
+	/* Correctly 0 if pay_index is NULL. */
+	inv->pay_index = sqlite3_column_int64(stmt, 7);
+
+	list_head_init(&inv->waitone_waiters);
+}
+
 bool wallet_invoice_nextpaid(const tal_t *cxt,
 			     const struct wallet *wallet,
 			     u64 pay_index,
@@ -1279,34 +1306,6 @@ void wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
 	}
 }
 
-static bool wallet_stmt2invoice(sqlite3_stmt *stmt, struct invoice *inv)
-{
-	inv->id = sqlite3_column_int64(stmt, 0);
-	inv->state = sqlite3_column_int(stmt, 1);
-
-	assert(sqlite3_column_bytes(stmt, 2) == sizeof(struct preimage));
-	memcpy(&inv->r, sqlite3_column_blob(stmt, 2), sqlite3_column_bytes(stmt, 2));
-
-	assert(sqlite3_column_bytes(stmt, 3) == sizeof(struct sha256));
-	memcpy(&inv->rhash, sqlite3_column_blob(stmt, 3), sqlite3_column_bytes(stmt, 3));
-
-	inv->label = tal_strndup(inv, sqlite3_column_blob(stmt, 4), sqlite3_column_bytes(stmt, 4));
-
-	if (sqlite3_column_type(stmt, 5) != SQLITE_NULL) {
-		inv->msatoshi = tal(inv, u64);
-		*inv->msatoshi = sqlite3_column_int64(stmt, 5);
-	} else {
-		inv->msatoshi = NULL;
-	}
-
-	inv->expiry_time = sqlite3_column_int64(stmt, 6);
-	/* Correctly 0 if pay_index is NULL. */
-	inv->pay_index = sqlite3_column_int64(stmt, 7);
-
-	list_head_init(&inv->waitone_waiters);
-	return true;
-}
-
 bool wallet_invoices_load(struct wallet *wallet, struct invoices *invs)
 {
 	struct invoice *i;
@@ -1322,12 +1321,7 @@ bool wallet_invoices_load(struct wallet *wallet, struct invoices *invs)
 
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
 		i = tal(invs, struct invoice);
-		if (!wallet_stmt2invoice(stmt, i)) {
-			log_broken(wallet->log, "Error deserializing invoice");
-			tal_free(i);
-			sqlite3_finalize(stmt);
-			return false;
-		}
+		wallet_stmt2invoice(stmt, i);
 		invoice_add(invs, i);
 		count++;
 	}
