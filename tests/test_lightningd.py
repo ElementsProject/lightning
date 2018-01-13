@@ -1463,6 +1463,8 @@ class LightningDTests(BaseLightningDTests):
 
         assert scid2 not in [c['short_channel_id'] for c in l1.rpc.getchannels()['channels']]
         assert scid2 not in [c['short_channel_id'] for c in l2.rpc.getchannels()['channels']]
+        assert l3.info['id'] not in [n['nodeid'] for n in l1.rpc.getnodes()['nodes']]
+        assert l3.info['id'] not in [n['nodeid'] for n in l2.rpc.getnodes()['nodes']]
 
     def ping_tests(self, l1, l2):
         # 0-byte pong gives just type + length field.
