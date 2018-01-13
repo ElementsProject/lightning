@@ -276,7 +276,7 @@ class LightningDTests(BaseLightningDTests):
         if not label:
             label = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
 
-        rhash = ldst.rpc.invoice(amt, label, label)['rhash']
+        rhash = ldst.rpc.invoice(amt, label, label)['payment_hash']
         assert ldst.rpc.listinvoice(label)[0]['complete'] == False
 
         routestep = {
@@ -331,7 +331,7 @@ class LightningDTests(BaseLightningDTests):
         assert b11['currency'] == 'tb'
         assert b11['timestamp'] >= before
         assert b11['timestamp'] <= after
-        assert b11['payment_hash'] == inv['rhash']
+        assert b11['payment_hash'] == inv['payment_hash']
         assert b11['description'] == 'description'
         assert b11['expiry'] == 3600
         assert b11['payee'] == l1.info['id']
@@ -633,7 +633,7 @@ class LightningDTests(BaseLightningDTests):
         self.fund_channel(l1, l2, 10**6)
 
         amt = 200000000
-        rhash = l2.rpc.invoice(amt, 'testpayment2', 'desc')['rhash']
+        rhash = l2.rpc.invoice(amt, 'testpayment2', 'desc')['payment_hash']
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
 
         routestep = {
@@ -695,7 +695,7 @@ class LightningDTests(BaseLightningDTests):
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
 
         # Overpaying by "only" a factor of 2 succeeds.
-        rhash = l2.rpc.invoice(amt, 'testpayment3', 'desc')['rhash']
+        rhash = l2.rpc.invoice(amt, 'testpayment3', 'desc')['payment_hash']
         assert l2.rpc.listinvoice('testpayment3')[0]['complete'] == False
         routestep = { 'msatoshi' : amt * 2, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'}
         l1.rpc.sendpay(to_json([routestep]), rhash)
@@ -919,7 +919,7 @@ class LightningDTests(BaseLightningDTests):
         self.fund_channel(l1, l2, 10**6)
 
         # Must be dust!
-        rhash = l2.rpc.invoice(1, 'onchain_dust_out', 'desc')['rhash']
+        rhash = l2.rpc.invoice(1, 'onchain_dust_out', 'desc')['payment_hash']
         routestep = {
             'msatoshi' : 1,
             'id' : l2.info['id'],
@@ -971,7 +971,7 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         self.fund_channel(l1, l2, 10**6)
 
-        rhash = l2.rpc.invoice(10**8, 'onchain_timeout', 'desc')['rhash']
+        rhash = l2.rpc.invoice(10**8, 'onchain_timeout', 'desc')['payment_hash']
         # We underpay, so it fails.
         routestep = {
             'msatoshi' : 10**8 - 1,
@@ -1044,7 +1044,7 @@ class LightningDTests(BaseLightningDTests):
         self.pay(l2, l1, 2 * 10**8)
 
         # Must be bigger than dust!
-        rhash = l3.rpc.invoice(10**8, 'middleman', 'desc')['rhash']
+        rhash = l3.rpc.invoice(10**8, 'middleman', 'desc')['payment_hash']
 
         route = l1.rpc.getroute(l3.info['id'], 10**8, 1)["route"]
         assert len(route) == 2
@@ -1529,7 +1529,7 @@ class LightningDTests(BaseLightningDTests):
         assert l2.rpc.getpeer(l1.info['id'])['channel'] == chanid1
         assert l3.rpc.getpeer(l2.info['id'])['channel'] == chanid2
 
-        rhash = l3.rpc.invoice(100000000, 'testpayment1', 'desc')['rhash']
+        rhash = l3.rpc.invoice(100000000, 'testpayment1', 'desc')['payment_hash']
         assert l3.rpc.listinvoice('testpayment1')[0]['complete'] == False
 
         # Fee for node2 is 10 millionths, plus 1.
@@ -1670,7 +1670,7 @@ class LightningDTests(BaseLightningDTests):
         assert route[1]['msatoshi'] == 4999999
         assert route[1]['delay'] == 9 + shadow_route
 
-        rhash = l3.rpc.invoice(4999999, 'test_forward_different_fees_and_cltv', 'desc')['rhash']
+        rhash = l3.rpc.invoice(4999999, 'test_forward_different_fees_and_cltv', 'desc')['payment_hash']
         assert l3.rpc.listinvoice('test_forward_different_fees_and_cltv')[0]['complete'] == False
 
         # This should work.
@@ -1727,7 +1727,7 @@ class LightningDTests(BaseLightningDTests):
         route[1]['delay'] += 10
 
         # This should work.
-        rhash = l3.rpc.invoice(4999999, 'test_forward_pad_fees_and_cltv', 'desc')['rhash']
+        rhash = l3.rpc.invoice(4999999, 'test_forward_pad_fees_and_cltv', 'desc')['payment_hash']
         l1.rpc.sendpay(to_json(route), rhash)
         assert l3.rpc.listinvoice('test_forward_pad_fees_and_cltv')[0]['complete'] == True
 
@@ -2017,7 +2017,7 @@ class LightningDTests(BaseLightningDTests):
         self.fund_channel(l1, l2, 10**6)
 
         amt = 200000000
-        rhash = l2.rpc.invoice(amt, 'test_reconnect_sender_add1', 'desc')['rhash']
+        rhash = l2.rpc.invoice(amt, 'test_reconnect_sender_add1', 'desc')['payment_hash']
         assert l2.rpc.listinvoice('test_reconnect_sender_add1')[0]['complete'] == False
 
         route = [ { 'msatoshi' : amt, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'} ]
@@ -2045,7 +2045,7 @@ class LightningDTests(BaseLightningDTests):
         self.fund_channel(l1, l2, 10**6)
 
         amt = 200000000
-        rhash = l2.rpc.invoice(amt, 'testpayment', 'desc')['rhash']
+        rhash = l2.rpc.invoice(amt, 'testpayment', 'desc')['payment_hash']
         assert l2.rpc.listinvoice('testpayment')[0]['complete'] == False
 
         route = [ { 'msatoshi' : amt, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'} ]
@@ -2071,7 +2071,7 @@ class LightningDTests(BaseLightningDTests):
         self.fund_channel(l1, l2, 10**6)
 
         amt = 200000000
-        rhash = l2.rpc.invoice(amt, 'testpayment2', 'desc')['rhash']
+        rhash = l2.rpc.invoice(amt, 'testpayment2', 'desc')['payment_hash']
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
 
         route = [ { 'msatoshi' : amt, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'} ]
@@ -2101,7 +2101,7 @@ class LightningDTests(BaseLightningDTests):
         self.fund_channel(l1, l2, 10**6)
 
         amt = 200000000
-        rhash = l2.rpc.invoice(amt, 'testpayment2', 'desc')['rhash']
+        rhash = l2.rpc.invoice(amt, 'testpayment2', 'desc')['payment_hash']
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
 
         route = [ { 'msatoshi' : amt, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'} ]

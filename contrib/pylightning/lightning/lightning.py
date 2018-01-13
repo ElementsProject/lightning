@@ -115,4 +115,4 @@ if __name__ == "__main__":
     print(invoice)
     route = l1.getroute(info5['id'], 100, 1)
     print(route)
-    print(l1.sendpay(route['route'], invoice['rhash']))
+    print(l1.sendpay(route['route'], invoice['payment_hash']))
