@@ -11,7 +11,6 @@
 #include <gossipd/gen_gossip_wire.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/htlc_end.h>
-#include <lightningd/invoice.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/pay.h>
@@ -20,6 +19,7 @@
 #include <lightningd/subd.h>
 #include <onchaind/gen_onchain_wire.h>
 #include <onchaind/onchain_wire.h>
+#include <wallet/wallet.h>
 #include <wire/gen_onion_wire.h>
 
 static bool state_update_ok(struct peer *peer,
@@ -222,7 +222,7 @@ static void handle_localpay(struct htlc_in *hin,
 			    u32 outgoing_cltv_value)
 {
 	enum onion_type failcode;
-	struct invoice *invoice;
+	const struct invoice *invoice;
 	struct lightningd *ld = hin->key.peer->ld;
 
 	/* BOLT #4:
@@ -253,7 +253,7 @@ static void handle_localpay(struct htlc_in *hin,
 		goto fail;
 	}
 
-	invoice = find_unpaid(ld->invoices, payment_hash);
+	invoice = wallet_invoice_find_unpaid(ld->wallet, payment_hash);
 	if (!invoice) {
 		failcode = WIRE_UNKNOWN_PAYMENT_HASH;
 		goto fail;
@@ -297,7 +297,7 @@ static void handle_localpay(struct htlc_in *hin,
 	log_debug(ld->log, "%s: Actual amount %"PRIu64"msat, HTLC expiry %u",
 		  invoice->label, hin->msatoshi, cltv_expiry);
 	fulfill_htlc(hin, &invoice->r);
-	resolve_invoice(ld, invoice, hin->msatoshi);
+	wallet_invoice_resolve(ld->wallet, invoice, hin->msatoshi);
 	return;
 
 fail:

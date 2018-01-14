@@ -64,9 +64,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx,
 	timers_init(&ld->timers, time_mono());
 	ld->topology = new_topology(ld, ld->log);
 
-	/* FIXME: Move into invoice daemon. */
-	ld->invoices = invoices_init(ld);
-
 	return ld;
 }
 
@@ -295,8 +292,8 @@ int main(int argc, char *argv[])
 	/* Initialize the transaction filter with our pubkeys. */
 	init_txfilter(ld->wallet, ld->owned_txfilter);
 
-        /* Load invoices from the database */
-	if (!wallet_invoices_load(ld->wallet, ld->invoices)) {
+        /* Check invoices loaded from the database */
+	if (!wallet_invoice_load(ld->wallet)) {
 		fatal("Could not load invoices from the database");
 	}
 

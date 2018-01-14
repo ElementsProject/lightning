@@ -9,6 +9,7 @@ WALLET_TEST_COMMON_OBJS :=				\
 	common/pseudorand.o			\
 	common/utils.o				\
 	common/wireaddr.o				\
+	wallet/invoices.o			\
 	wire/towire.o				\
 	wire/fromwire.o				\
 	lightningd/htlc_end.o			\

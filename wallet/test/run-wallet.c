@@ -43,9 +43,6 @@ static void wallet_fatal(const char *fmt, ...)
 #define transaction_wrap(db, ...)					\
 	(db_begin_transaction(db), __VA_ARGS__, db_commit_transaction(db), wallet_err == NULL)
 
-void invoice_add(struct invoices *invs,
-		 struct invoice *inv){}
-
 /**
  * mempat -- Set the memory to a pattern
  *
