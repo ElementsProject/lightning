@@ -144,9 +144,11 @@ static void json_memleak(struct command *cmd,
 {
 	struct json_result *response = new_json_result(cmd);
 
-	if (!getenv("LIGHTNINGD_DEV_MEMLEAK"))
+	if (!getenv("LIGHTNINGD_DEV_MEMLEAK")) {
 		command_fail(cmd,
 			     "Leak detection needs $LIGHTNINGD_DEV_MEMLEAK");
+		return;
+	}
 
 	json_object_start(response, NULL);
 	scan_mem(cmd, response, cmd->ld);
