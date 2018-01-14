@@ -241,7 +241,7 @@ static void json_crash(struct command *cmd,
 static const struct json_command dev_crash_command = {
 	"dev-crash",
 	json_crash,
-	"Call fatal().",
+	"Call fatal()",
 	"Simple crash test for developers"
 };
 AUTODATA(json_command, &dev_crash_command);
