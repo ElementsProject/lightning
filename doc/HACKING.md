@@ -86,6 +86,18 @@ Here's a list of parts, with notes:
 
 * onchaind/ - daemon to hand a single channel which has had its funding transaction spent.
 
+Debugging
+---------
+
+You can debug crashing subdaemons with the argument
+`--dev-debugger=lightning_channeld`, where `channeld` is the subdaemon name. It
+will print out a command such as:
+
+    gdb -ex 'attach 22398' lightning_channeld -ex return
+
+Run this command to start debugging. You may need to type `return` one more time
+to exit the infinite while loop, otherwise you can type `continue` to begin.
+
 Testing
 -------
 
