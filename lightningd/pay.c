@@ -444,7 +444,7 @@ static void json_pay(struct command *cmd,
 
 	if (b11->msatoshi) {
 		msatoshi = *b11->msatoshi;
-		if (msatoshitok && !json_tok_is_null(buffer, msatoshitok)) {
+		if (msatoshitok) {
 			command_fail(cmd, "msatoshi parameter unnecessary");
 			return;
 		}
