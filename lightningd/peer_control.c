@@ -208,11 +208,11 @@ void peer_fail_permanent(struct peer *peer, const char *fmt, ...)
 	}
 
 	peer_set_owner(peer, NULL);
-	if (peer_persists(peer))
+	if (peer_persists(peer)) {
 		drop_to_chain(peer);
-	else
+		tal_free(why);
+	} else
 		free_peer(peer, why);
-	tal_free(why);
 }
 
 void peer_internal_error(struct peer *peer, const char *fmt, ...)
