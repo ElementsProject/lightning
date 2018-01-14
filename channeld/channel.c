@@ -1785,6 +1785,11 @@ again:
 		goto again;
 	}
 
+	if (fromwire_peektype(msg) == WIRE_PING) {
+		handle_ping(peer, msg);
+		goto again;
+	}
+
 	if (!fromwire_channel_reestablish(msg, NULL, &channel_id,
 					  &next_local_commitment_number,
 					  &next_remote_revocation_number)) {
