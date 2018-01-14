@@ -51,8 +51,8 @@ static void json_help(struct command *cmd,
 static const struct json_command help_command = {
 	"help",
 	json_help,
-	"describe commands",
-	"[<command>] if specified gives details about a single command."
+	"List available commands",
+	"Returns an array of available commands",
 };
 AUTODATA(json_command, &help_command);
 
