@@ -59,6 +59,10 @@ void permute_inputs(struct bitcoin_tx_input *inputs, size_t num_inputs,
 {
 	size_t i;
 
+	/* We can't permute nothing! */
+	if (num_inputs == 0)
+		return;
+
 	/* Now do a dumb sort (num_inputs is small). */
 	for (i = 0; i < num_inputs-1; i++) {
 		/* Swap best into first place. */
@@ -125,6 +129,10 @@ void permute_outputs(struct bitcoin_tx_output *outputs, size_t num_outputs,
 		     const void **map)
 {
 	size_t i;
+
+	/* We can't permute nothing! */
+	if (num_outputs == 0)
+		return;
 
 	/* Now do a dumb sort (num_outputs is small). */
 	for (i = 0; i < num_outputs-1; i++) {
