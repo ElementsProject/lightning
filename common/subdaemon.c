@@ -83,7 +83,7 @@ void subdaemon_setup(int argc, char *argv[])
 	for (i = 1; i < argc; i++) {
 		while (streq(argv[i], "--debugger")) {
 			if (!printed)
-				fprintf(stderr, "gdb -ex 'attach %u' %s\n",
+				fprintf(stderr, "gdb -ex 'attach %u' %s -ex return\n",
 					getpid(), argv[0]);
 			printed = true;
 		}
