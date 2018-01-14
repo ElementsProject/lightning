@@ -1251,7 +1251,16 @@ void wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
 	 * that string for sql injections... */
 	if (!inv->id) {
 		stmt = db_prepare(wallet->db,
-			"INSERT INTO invoices (payment_hash, payment_key, state, msatoshi, label, expiry_time, pay_index) VALUES (?, ?, ?, ?, ?, ?, ?);");
+				  "INSERT INTO invoices ("
+				  " payment_hash,"
+				  " payment_key,"
+				  " state,"
+				  " msatoshi,"
+				  " label,"
+				  " expiry_time,"
+				  " pay_index,"
+				  " msatoshi_received"
+				  ") VALUES (?, ?, ?, ?, ?, ?, ?, ?);");
 
 		sqlite3_bind_blob(stmt, 1, &inv->rhash, sizeof(inv->rhash), SQLITE_TRANSIENT);
 		sqlite3_bind_blob(stmt, 2, &inv->r, sizeof(inv->r), SQLITE_TRANSIENT);
@@ -1266,8 +1275,10 @@ void wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
 		if (inv->state == PAID) {
 			inv->pay_index = wallet_invoice_next_pay_index(wallet->db);
 			sqlite3_bind_int64(stmt, 7, inv->pay_index);
+			sqlite3_bind_int64(stmt, 8, inv->msatoshi_received);
 		} else {
 			sqlite3_bind_null(stmt, 7);
+			sqlite3_bind_null(stmt, 8);
 		}
 
 		db_exec_prepared(wallet->db, stmt);
@@ -1280,12 +1291,13 @@ void wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
 			}
 		}
 		if (unpaid_to_paid) {
-			stmt = db_prepare(wallet->db, "UPDATE invoices SET state=?, pay_index=? WHERE id=?;");
+			stmt = db_prepare(wallet->db, "UPDATE invoices SET state=?, pay_index=?, msatoshi_received=? WHERE id=?;");
 
 			sqlite3_bind_int(stmt, 1, inv->state);
 			inv->pay_index = wallet_invoice_next_pay_index(wallet->db);
 			sqlite3_bind_int64(stmt, 2, inv->pay_index);
-			sqlite3_bind_int64(stmt, 3, inv->id);
+			sqlite3_bind_int64(stmt, 3, inv->msatoshi_received);
+			sqlite3_bind_int64(stmt, 4, inv->id);
 
 			db_exec_prepared(wallet->db, stmt);
 		} else {
