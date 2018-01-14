@@ -6,6 +6,7 @@ wallet-wrongdir:
 
 WALLET_LIB_SRC :=		\
 	wallet/db.c		\
+	wallet/invoices.c	\
 	wallet/wallet.c		\
 	wallet/walletrpc.c
 

@@ -1,3 +1,4 @@
+#include "invoices.h"
 #include "wallet.h"
 
 #include <bitcoin/script.h>
@@ -20,6 +21,7 @@ struct wallet *wallet_new(const tal_t *ctx, struct log *log)
 	wallet->db = db_setup(wallet, log);
 	wallet->log = log;
 	wallet->bip32_base = NULL;
+	wallet->invoices = invoices_new(wallet, wallet->db, log);
 	return wallet;
 }
 
@@ -1151,203 +1153,64 @@ bool wallet_htlcs_reconnect(struct wallet *wallet,
 	return true;
 }
 
-static void wallet_stmt2invoice(sqlite3_stmt *stmt, struct invoice *inv)
+/* Almost all wallet_invoice_* functions delegate to the
+ * appropriate invoices_* function. */
+bool wallet_invoice_load(struct wallet *wallet)
 {
-	inv->id = sqlite3_column_int64(stmt, 0);
-	inv->state = sqlite3_column_int(stmt, 1);
-
-	assert(sqlite3_column_bytes(stmt, 2) == sizeof(struct preimage));
-	memcpy(&inv->r, sqlite3_column_blob(stmt, 2), sqlite3_column_bytes(stmt, 2));
-
-	assert(sqlite3_column_bytes(stmt, 3) == sizeof(struct sha256));
-	memcpy(&inv->rhash, sqlite3_column_blob(stmt, 3), sqlite3_column_bytes(stmt, 3));
-
-	inv->label = tal_strndup(inv, sqlite3_column_blob(stmt, 4), sqlite3_column_bytes(stmt, 4));
-
-	if (sqlite3_column_type(stmt, 5) != SQLITE_NULL) {
-		inv->msatoshi = tal(inv, u64);
-		*inv->msatoshi = sqlite3_column_int64(stmt, 5);
-	} else {
-		inv->msatoshi = NULL;
-	}
-
-	inv->expiry_time = sqlite3_column_int64(stmt, 6);
-	/* Correctly 0 if pay_index is NULL. */
-	inv->pay_index = sqlite3_column_int64(stmt, 7);
-
-	if (inv->state == PAID)
-		inv->msatoshi_received = sqlite3_column_int64(stmt, 8);
-	list_head_init(&inv->waitone_waiters);
+	return invoices_load(wallet->invoices);
+}
+const struct invoice *wallet_invoice_create(struct wallet *wallet,
+					    u64 *msatoshi TAKES,
+					    const char *label TAKES,
+					    u64 expiry) {
+	return invoices_create(wallet->invoices, msatoshi, label, expiry);
+}
+const struct invoice *wallet_invoice_find_by_label(struct wallet *wallet,
+						   const char *label)
+{
+	return invoices_find_by_label(wallet->invoices, label);
+}
+const struct invoice *wallet_invoice_find_unpaid(struct wallet *wallet,
+						 const struct sha256 *rhash)
+{
+	return invoices_find_unpaid(wallet->invoices, rhash);
+}
+bool wallet_invoice_delete(struct wallet *wallet,
+			   const struct invoice *invoice)
+{
+	return invoices_delete(wallet->invoices, invoice);
+}
+const struct invoice *wallet_invoice_iterate(struct wallet *wallet,
+					     const struct invoice *invoice)
+{
+	return invoices_iterate(wallet->invoices, invoice);
+}
+void wallet_invoice_resolve(struct wallet *wallet,
+			    const struct invoice *invoice,
+			    u64 msatoshi_received)
+{
+	invoices_resolve(wallet->invoices, invoice, msatoshi_received);
+	/* FIXME: consider payment recording. */
+	wallet_payment_set_status(wallet, &invoice->rhash, PAYMENT_COMPLETE);
+}
+void wallet_invoice_waitany(const tal_t *ctx,
+			    struct wallet *wallet,
+			    u64 lastpay_index,
+			    void (*cb)(const struct invoice *, void*),
+			    void *cbarg)
+{
+	invoices_waitany(ctx, wallet->invoices, lastpay_index, cb, cbarg);
+}
+void wallet_invoice_waitone(const tal_t *ctx,
+			    struct wallet *wallet,
+			    struct invoice const *invoice,
+			    void (*cb)(const struct invoice *, void*),
+			    void *cbarg)
+{
+	invoices_waitone(ctx, wallet->invoices, invoice, cb, cbarg);
 }
 
-struct invoice *wallet_invoice_nextpaid(const tal_t *ctx,
-					const struct wallet *wallet,
-					u64 pay_index)
-{
-	sqlite3_stmt *stmt;
-	int res;
-	struct invoice *inv = tal(ctx, struct invoice);
 
-	/* Generate query. */
-	stmt = db_prepare(wallet->db,
-			"SELECT id, state, payment_key, payment_hash,"
-			" label, msatoshi, expiry_time, pay_index,"
-			" msatoshi_received "
-			"  FROM invoices"
-			" WHERE pay_index NOT NULL"
-			"   AND pay_index > ?"
-			" ORDER BY pay_index ASC LIMIT 1;");
-	sqlite3_bind_int64(stmt, 1, pay_index);
-
-	res = sqlite3_step(stmt);
-	if (res != SQLITE_ROW) {
-		/* No paid invoice found. */
-		sqlite3_finalize(stmt);
-		return tal_free(inv);
-	} else {
-		wallet_stmt2invoice(stmt, inv);
-
-		sqlite3_finalize(stmt);
-		return inv;
-	}
-}
-
-/* Acquire the next pay_index. */
-static s64 wallet_invoice_next_pay_index(struct db *db)
-{
-	/* Equivalent to (next_pay_index++) */
-	s64 next_pay_index;
-	next_pay_index = db_get_intvar(db, "next_pay_index", 0);
-	/* Variable should exist. */
-	assert(next_pay_index > 0);
-	db_set_intvar(db, "next_pay_index", next_pay_index + 1);
-	return next_pay_index;
-}
-/* Determine the on-database state of an invoice. */
-static enum invoice_status wallet_invoice_db_state(
-		struct db *db, const struct invoice *inv)
-{
-	sqlite3_stmt *stmt;
-	int res;
-	int state;
-
-	stmt = db_prepare(db, "SELECT state FROM invoices WHERE id=?;");
-
-	sqlite3_bind_int64(stmt, 1, inv->id);
-
-	res = sqlite3_step(stmt);
-	assert(res == SQLITE_ROW);
-	state = sqlite3_column_int(stmt, 0);
-	res = sqlite3_step(stmt);
-	assert(res == SQLITE_DONE);
-
-	sqlite3_finalize(stmt);
-	return (enum invoice_status) state;
-}
-
-void wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
-{
-	sqlite3_stmt *stmt;
-	bool unpaid_to_paid = false;
-
-	/* Need to use the lower level API of sqlite3 to bind
-	 * label. Otherwise we'd need to implement sanitization of
-	 * that string for sql injections... */
-	if (!inv->id) {
-		stmt = db_prepare(wallet->db,
-				  "INSERT INTO invoices ("
-				  " payment_hash,"
-				  " payment_key,"
-				  " state,"
-				  " msatoshi,"
-				  " label,"
-				  " expiry_time,"
-				  " pay_index,"
-				  " msatoshi_received"
-				  ") VALUES (?, ?, ?, ?, ?, ?, ?, ?);");
-
-		sqlite3_bind_blob(stmt, 1, &inv->rhash, sizeof(inv->rhash), SQLITE_TRANSIENT);
-		sqlite3_bind_blob(stmt, 2, &inv->r, sizeof(inv->r), SQLITE_TRANSIENT);
-		sqlite3_bind_int(stmt, 3, inv->state);
-		if (inv->msatoshi) {
-			sqlite3_bind_int64(stmt, 4, *inv->msatoshi);
-		} else {
-			sqlite3_bind_null(stmt, 4);
-		}
-		sqlite3_bind_text(stmt, 5, inv->label, strlen(inv->label), SQLITE_TRANSIENT);
-		sqlite3_bind_int64(stmt, 6, inv->expiry_time);
-		if (inv->state == PAID) {
-			inv->pay_index = wallet_invoice_next_pay_index(wallet->db);
-			sqlite3_bind_int64(stmt, 7, inv->pay_index);
-			sqlite3_bind_int64(stmt, 8, inv->msatoshi_received);
-		} else {
-			sqlite3_bind_null(stmt, 7);
-			sqlite3_bind_null(stmt, 8);
-		}
-
-		db_exec_prepared(wallet->db, stmt);
-
-		inv->id = sqlite3_last_insert_rowid(wallet->db->sql);
-	} else {
-		if (inv->state == PAID) {
-			if (wallet_invoice_db_state(wallet->db, inv) == UNPAID) {
-				unpaid_to_paid = true;
-			}
-		}
-		if (unpaid_to_paid) {
-			stmt = db_prepare(wallet->db, "UPDATE invoices SET state=?, pay_index=?, msatoshi_received=? WHERE id=?;");
-
-			sqlite3_bind_int(stmt, 1, inv->state);
-			inv->pay_index = wallet_invoice_next_pay_index(wallet->db);
-			sqlite3_bind_int64(stmt, 2, inv->pay_index);
-			sqlite3_bind_int64(stmt, 3, inv->msatoshi_received);
-			sqlite3_bind_int64(stmt, 4, inv->id);
-
-			db_exec_prepared(wallet->db, stmt);
-		} else {
-			stmt = db_prepare(wallet->db, "UPDATE invoices SET state=? WHERE id=?;");
-
-			sqlite3_bind_int(stmt, 1, inv->state);
-			sqlite3_bind_int64(stmt, 2, inv->id);
-
-			db_exec_prepared(wallet->db, stmt);
-		}
-	}
-}
-
-bool wallet_invoices_load(struct wallet *wallet, struct invoices *invs)
-{
-	struct invoice *i;
-	int count = 0;
-	sqlite3_stmt *stmt = db_query(__func__, wallet->db,
-				"SELECT id, state, payment_key, payment_hash, "
-				"label, msatoshi, expiry_time, pay_index, "
-				"msatoshi_received "
-				"FROM invoices;");
-	if (!stmt) {
-		log_broken(wallet->log, "Could not load invoices");
-		return false;
-	}
-
-	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		i = tal(invs, struct invoice);
-		wallet_stmt2invoice(stmt, i);
-		invoice_add(invs, i);
-		count++;
-	}
-
-	log_debug(wallet->log, "Loaded %d invoices from DB", count);
-	sqlite3_finalize(stmt);
-	return true;
-}
-
-bool wallet_invoice_remove(struct wallet *wallet, struct invoice *inv)
-{
-	sqlite3_stmt *stmt = db_prepare(wallet->db, "DELETE FROM invoices WHERE id=?");
-	sqlite3_bind_int64(stmt, 1, inv->id);
-	db_exec_prepared(wallet->db, stmt);
-	return sqlite3_changes(wallet->db->sql) == 1;
-}
 
 struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 				    struct wallet_channel *chan)

@@ -43,9 +43,6 @@ size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)
 /* Generated stub for hsm_init */
 void hsm_init(struct lightningd *ld UNNEEDED, bool newdir UNNEEDED)
 { fprintf(stderr, "hsm_init called!\n"); abort(); }
-/* Generated stub for invoices_init */
-struct invoices *invoices_init(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "invoices_init called!\n"); abort(); }
 /* Generated stub for log_ */
 void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED, const char *fmt UNNEEDED, ...)
 
@@ -111,9 +108,9 @@ bool wallet_htlcs_reconnect(struct wallet *wallet UNNEEDED,
 			    struct htlc_in_map *htlcs_in UNNEEDED,
 			    struct htlc_out_map *htlcs_out UNNEEDED)
 { fprintf(stderr, "wallet_htlcs_reconnect called!\n"); abort(); }
-/* Generated stub for wallet_invoices_load */
-bool wallet_invoices_load(struct wallet *wallet UNNEEDED, struct invoices *invs UNNEEDED)
-{ fprintf(stderr, "wallet_invoices_load called!\n"); abort(); }
+/* Generated stub for wallet_invoice_load */
+bool wallet_invoice_load(struct wallet *wallet UNNEEDED)
+{ fprintf(stderr, "wallet_invoice_load called!\n"); abort(); }
 /* Generated stub for wallet_new */
 struct wallet *wallet_new(const tal_t *ctx UNNEEDED, struct log *log UNNEEDED)
 { fprintf(stderr, "wallet_new called!\n"); abort(); }

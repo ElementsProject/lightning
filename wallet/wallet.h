@@ -14,6 +14,7 @@
 #include <onchaind/onchain_wire.h>
 #include <wally_bip32.h>
 
+struct invoices;
 struct lightningd;
 struct pubkey;
 
@@ -21,6 +22,7 @@ struct wallet {
 	struct db *db;
 	struct log *log;
 	struct ext_key *bip32_base;
+	struct invoices *invoices;
 };
 
 /* Possible states for tracked outputs in the database. Not sure yet
@@ -343,57 +345,176 @@ bool wallet_htlcs_reconnect(struct wallet *wallet,
 			    struct htlc_in_map *htlcs_in,
 			    struct htlc_out_map *htlcs_out);
 
-/**
- * wallet_invoice_nextpaid -- Find a paid invoice.
- *
- * Get the first paid invoice greater than the given pay_index. Return NULL
- * if no paid invoice found. The first ever paid invoice will
- * have a pay_index of 1 or greater, so giving a pay_index of 0 will get
- * the first ever paid invoice if there is one.
- *
- * @ctx: Context to create the returned label.
- * @wallet: Wallet to query
- * @pay_index: The paid invoice returned will have pay_index greater
- * than this argument.
- */
-struct invoice *wallet_invoice_nextpaid(const tal_t *ctx,
-					const struct wallet *wallet,
-					u64 pay_index);
+/* /!\ This is a DB ENUM, please do not change the numbering of any
+ * already defined elements (adding is ok) /!\ */
+enum invoice_status {
+	UNPAID,
+	PAID,
+};
+
+struct invoice {
+	/* List off ld->wallet->invoices */
+	struct list_node list;
+	/* Database ID */
+	u64 id;
+	enum invoice_status state;
+	const char *label;
+	/* NULL if they specified "any" */
+	u64 *msatoshi;
+	/* Set if state == PAID */
+	u64 msatoshi_received;
+	struct preimage r;
+	u64 expiry_time;
+	struct sha256 rhash;
+	/* Non-zero if state == PAID */
+	u64 pay_index;
+	/* Any JSON waitinvoice calls waiting for this to be paid */
+	struct list_head waitone_waiters;
+};
+
+#define INVOICE_MAX_LABEL_LEN 128
 
 /**
- * wallet_invoice_save -- Save/update an invoice to the wallet
+ * wallet_invoice_load - Load the invoices from the database
  *
- * Save or update the invoice in the wallet. If `inv->id` is 0 this
- * invoice will be considered a new invoice and result in an intert
- * into the database, otherwise it'll be updated.
+ * @wallet - the wallet whose invoices are to be loaded.
  *
- * @wallet: Wallet to store in
- * @inv: Invoice to save
+ * All other wallet_invoice_* functions cannot be called
+ * until this function is called.
+ * As a databse operation it must be called within
+ * db_begin_transaction .. db_commit_transaction
+ * (all other invoice functions also have this requirement).
+ * Returns true if loaded successfully.
  */
-void wallet_invoice_save(struct wallet *wallet, struct invoice *inv);
+bool wallet_invoice_load(struct wallet *wallet);
 
 /**
- * wallet_invoices_load -- Load all invoices into memory
+ * wallet_invoice_create - Create a new invoice.
  *
- * Load all invoices into the given `invoices` struct.
+ * @wallet - the wallet to create the invoice in.
+ * @msatoshi - the amount the invoice should have, or
+ * NULL for any-amount invoices.
+ * @label - the unique label for this invoice. Must be
+ * non-NULL. Must be null-terminated.
+ * @expiry - the number of seconds before the invoice
+ * expires
  *
- * @wallet: Wallet to load invoices from
- * @invs: invoices container to load into
+ * Returns NULL if label already exists or expiry is 0.
+ * FIXME: Fallback addresses
  */
-bool wallet_invoices_load(struct wallet *wallet, struct invoices *invs);
+const struct invoice *wallet_invoice_create(struct wallet *wallet,
+					    u64 *msatoshi TAKES,
+					    const char *label TAKES,
+					    u64 expiry);
 
 /**
- * wallet_invoice_remove -- Remove the specified invoice from the wallet
+ * wallet_invoice_find_by_label - Search for an invoice by label
  *
- * Remove the invoice from the underlying database. The invoice is
- * identified by `inv->id` so if the caller does not have the full
- * invoice, it may just instantiate a new one and set the `id` to
- * match the desired invoice.
+ * @wallet - the wallet to search.
+ * @label - the label to search for. Must be null-terminated.
  *
- * @wallet: Wallet to remove from
- * @inv: Invoice to remove.
+ * Returns NULL if no invoice with that label exists.
  */
-bool wallet_invoice_remove(struct wallet *wallet, struct invoice *inv);
+const struct invoice *wallet_invoice_find_by_label(struct wallet *wallet,
+						   const char *label);
+
+/**
+ * wallet_invoice_find_unpaid - Search for an unpaid, unexpired invoice by
+ * payment_hash
+ *
+ * @wallet - the wallet to search.
+ * @rhash - the payment_hash to search for.
+ *
+ * Rerturns NULL if no invoice with that payment hash exists.
+ */
+const struct invoice *wallet_invoice_find_unpaid(struct wallet *wallet,
+						 const struct sha256 *rhash);
+
+/**
+ * wallet_invoice_delete - Delete an invoice
+ *
+ * @wallet - the wallet to delete the invoice from.
+ * @invoice - the invoice to delete.
+ *
+ * Return false on failure.
+ */
+bool wallet_invoice_delete(struct wallet *wallet,
+			   const struct invoice *invoice);
+
+/**
+ * wallet_invoice_iterate - Iterate over all existing invoices
+ *
+ * @wallet - the wallet whose invoices are to beiterated over.
+ * @invoice - the previous invoice you iterated over.
+ *
+ * Return NULL at end-of-sequence. Usage:
+ *
+ *   const struct invoice *i;
+ *   i = NULL;
+ *   while ((i = wallet_invoice_iterate(wallet, i))) {
+ *       ...
+ *   }
+ */
+const struct invoice *wallet_invoice_iterate(struct wallet *wallet,
+					     const struct invoice *invoice);
+
+/**
+ * wallet_invoice_resolve - Mark an invoice as paid
+ *
+ * @wallet - the wallet containing the invoice.
+ * @invoice - the invoice to mark as paid.
+ * @msatoshi_received - the actual amount received.
+ *
+ * Precondition: the invoice must not yet be expired (wallet
+ * does not check).
+ */
+void wallet_invoice_resolve(struct wallet *wallet,
+			    const struct invoice *invoice,
+			    u64 msatoshi_received);
+
+/**
+ * wallet_invoice_waitany - Wait for any invoice to be paid.
+ *
+ * @ctx - the owner of the callback. If the owner is freed,
+ * the callback is cancelled.
+ * @wallet - the wallet to query.
+ * @lastpay_index - wait for invoices after the specified
+ * pay_index. Use 0 to wait for the first invoice.
+ * @cb - the callback to invoke. If an invoice is already
+ * paid with pay_index greater than lastpay_index, this
+ * is called immediately, otherwise it is called during
+ * an invoices_resolve call.
+ * @cbarg - the callback data.
+ */
+void wallet_invoice_waitany(const tal_t *ctx,
+			    struct wallet *wallet,
+			    u64 lastpay_index,
+			    void (*cb)(const struct invoice *, void*),
+			    void *cbarg);
+
+/**
+ * wallet_invoice_waitone - Wait for a specific invoice to be paid,
+ * deleted, or expired.
+ *
+ * @ctx - the owner of the callback. If the owner is freed,
+ * the callback is cancelled.
+ * @wallet - the wallet to query.
+ * @invoice - the invoice to wait on.
+ * @cb - the callback to invoice. If invoice is already paid
+ * or expired, this is called immediately, otherwise it is
+ * called during an invoices_resolve or invoices_delete call.
+ * If the invoice was deleted, the callback is given a NULL
+ * invoice.
+ * @cbarg - the callback data.
+ *
+ * FIXME: actually trigger on expired invoices.
+ */
+void wallet_invoice_waitone(const tal_t *ctx,
+			    struct wallet *wallet,
+			    struct invoice const *invoice,
+			    void (*cb)(const struct invoice *, void*),
+			    void *cbarg);
+
 
 /**
  * wallet_htlc_stubs - Retrieve HTLC stubs for the given channel

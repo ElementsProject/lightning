@@ -18,62 +18,6 @@
 #include <sodium/randombytes.h>
 #include <wire/wire_sync.h>
 
-struct invoice_waiter {
-	struct list_node list;
-	struct command *cmd;
-};
-
-/* FIXME: remove this, just use database ops. */
-struct invoices {
-	/* Payments for r values we know about. */
-	struct list_head invlist;
-	/* Waiting for new invoices to be paid. */
-	struct list_head waitany_waiters;
-};
-
-struct invoice *find_unpaid(struct invoices *invs, const struct sha256 *rhash)
-{
-	struct invoice *i;
-
-	list_for_each(&invs->invlist, i, list) {
-		if (structeq(rhash, &i->rhash) && i->state == UNPAID) {
-			if (time_now().ts.tv_sec > i->expiry_time)
-				break;
-			return i;
-		}
-	}
-	return NULL;
-}
-
-static struct invoice *find_invoice_by_label(const struct invoices *invs,
-					     const char *label)
-{
-	struct invoice *i;
-
-	list_for_each(&invs->invlist, i, list) {
-		if (streq(i->label, label))
-			return i;
-	}
-	return NULL;
-}
-
-void invoice_add(struct invoices *invs,
-		 struct invoice *inv)
-{
-	sha256(&inv->rhash, inv->r.r, sizeof(inv->r.r));
-	list_add(&invs->invlist, &inv->list);
-}
-
-struct invoices *invoices_init(const tal_t *ctx)
-{
-	struct invoices *invs = tal(ctx, struct invoices);
-
-	list_head_init(&invs->invlist);
-	list_head_init(&invs->waitany_waiters);
-
-	return invs;
-}
-
 static void json_add_invoice(struct json_result *response,
 			     const struct invoice *inv)
 {
@@ -99,39 +43,16 @@ static void tell_waiter(struct command *cmd, const struct invoice *paid)
 	json_add_invoice(response, paid);
 	command_success(cmd, response);
 }
-static void tell_waiter_deleted(struct command *cmd, const struct invoice *paid)
+static void tell_waiter_deleted(struct command *cmd)
 {
 	command_fail(cmd, "invoice deleted during wait");
 }
-
-void resolve_invoice(struct lightningd *ld, struct invoice *invoice,
-		     u64 msatoshi_received)
+static void wait_on_invoice(const struct invoice *invoice, void *cmd)
 {
-	struct invoice_waiter *w;
-	struct invoices *invs = ld->invoices;
-
-	invoice->state = PAID;
-	invoice->msatoshi_received = msatoshi_received;
-
-	/* wallet_invoice_save updates pay_index member,
-	 * which tell_waiter needs. */
-	wallet_invoice_save(ld->wallet, invoice);
-
-	/* Yes, there are two loops: the first is for wait*any*invoice,
-	 * the second is for waitinvoice (without any). */
-	/* Tell all the waitanyinvoice waiters about the new paid invoice */
-	while ((w = list_pop(&invs->waitany_waiters,
-			     struct invoice_waiter,
-			     list)) != NULL)
-		tell_waiter(w->cmd, invoice);
-	/* Tell any waitinvoice waiters about the invoice getting paid. */
-	while ((w = list_pop(&invoice->waitone_waiters,
-			     struct invoice_waiter,
-			     list)) != NULL)
-		tell_waiter(w->cmd, invoice);
-
-	/* Also mark the payment in the history table as complete */
-	wallet_payment_set_status(ld->wallet, &invoice->rhash, PAYMENT_COMPLETE);
+	if (invoice)
+		tell_waiter((struct command *) cmd, invoice);
+	else
+		tell_waiter_deleted((struct command *) cmd);
 }
 
 static bool hsm_sign_b11(const u5 *u5bytes,
@@ -153,38 +74,15 @@ static bool hsm_sign_b11(const u5 *u5bytes,
 	return true;
 }
 
-/* Return NULL if no error, or an error string otherwise. */
-static char *delete_invoice(const tal_t *cxt,
-			    struct wallet *wallet,
-			    struct invoices *invs,
-			    struct invoice *i)
-{
-	struct invoice_waiter *w;
-	if (!wallet_invoice_remove(wallet, i)) {
-		return tal_strdup(cxt, "Database error");
-	}
-	list_del_from(&invs->invlist, &i->list);
-
-	/* Tell all the waiters about the fact that it was deleted. */
-	while ((w = list_pop(&i->waitone_waiters,
-			     struct invoice_waiter,
-			     list)) != NULL) {
-		tell_waiter_deleted(w->cmd, i);
-		/* No need to free w: w is a sub-object of cmd,
-		 * and tell_waiter_deleted also deletes the cmd. */
-	}
-
-	tal_free(i);
-	return NULL;
-}
-
 static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
-	struct invoice *invoice;
+	const struct invoice *invoice;
 	jsmntok_t *msatoshi, *label, *desc, *exp;
+	u64 *msatoshi_val;
+	const char *label_val;
 	struct json_result *response = new_json_result(cmd);
-	struct invoices *invs = cmd->ld->invoices;
+	struct wallet *wallet = cmd->ld->wallet;
 	struct bolt11 *b11;
 	char *b11enc;
 	struct wallet_payment payment;
@@ -200,21 +98,14 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 
-	invoice = tal(cmd, struct invoice);
-	invoice->id = 0;
-	invoice->state = UNPAID;
-	invoice->pay_index = 0;
-	list_head_init(&invoice->waitone_waiters);
-	randombytes_buf(invoice->r.r, sizeof(invoice->r.r));
-
-	sha256(&invoice->rhash, invoice->r.r, sizeof(invoice->r.r));
-
+	/* Get arguments. */
+	/* msatoshi */
 	if (json_tok_streq(buffer, msatoshi, "any"))
-		invoice->msatoshi = NULL;
+		msatoshi_val = NULL;
 	else {
-		invoice->msatoshi = tal(invoice, u64);
-		if (!json_tok_u64(buffer, msatoshi, invoice->msatoshi)
-		    || *invoice->msatoshi == 0) {
+		msatoshi_val = tal(cmd, u64);
+		if (!json_tok_u64(buffer, msatoshi, msatoshi_val)
+		    || *msatoshi_val == 0) {
 			command_fail(cmd,
 				     "'%.*s' is not a valid positive number",
 				     msatoshi->end - msatoshi->start,
@@ -222,19 +113,18 @@ static void json_invoice(struct command *cmd,
 			return;
 		}
 	}
-
-	invoice->label = tal_strndup(invoice, buffer + label->start,
-				     label->end - label->start);
-	if (find_invoice_by_label(invs, invoice->label)) {
-		command_fail(cmd, "Duplicate label '%s'", invoice->label);
+	/* label */
+	label_val = tal_strndup(cmd, buffer + label->start,
+				label->end - label->start);
+	if (wallet_invoice_find_by_label(wallet, label_val)) {
+		command_fail(cmd, "Duplicate label '%s'", label_val);
 		return;
 	}
-	if (strlen(invoice->label) > INVOICE_MAX_LABEL_LEN) {
-		command_fail(cmd, "label '%s' over %u bytes", invoice->label,
+	if (strlen(label_val) > INVOICE_MAX_LABEL_LEN) {
+		command_fail(cmd, "label '%s' over %u bytes", label_val,
 			     INVOICE_MAX_LABEL_LEN);
 		return;
 	}
-
 	if (exp && !json_tok_u64(buffer, exp, &expiry)) {
 		command_fail(cmd, "expiry '%.*s' invalid seconds",
 			     exp->end - exp->start,
@@ -242,10 +132,14 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 
-	/* Expires at this absolute time. */
-	invoice->expiry_time = time_now().ts.tv_sec + expiry;
-
-	wallet_invoice_save(cmd->ld->wallet, invoice);
+	invoice = wallet_invoice_create(cmd->ld->wallet,
+					take(msatoshi_val),
+					take(label_val),
+					expiry);
+	if (!invoice) {
+		command_fail(cmd, "Failed to create invoice on database");
+		return;
+	}
 
 	/* Construct bolt11 string. */
 	b11 = new_bolt11(cmd, invoice->msatoshi);
@@ -265,10 +159,6 @@ static void json_invoice(struct command *cmd,
 
 	/* FIXME: add private routes if necessary! */
 	b11enc = bolt11_encode(cmd, b11, false, hsm_sign_b11, cmd->ld);
-
-	/* OK, connect it to main state, respond with hash */
-	tal_steal(invs, invoice);
-	list_add_tail(&invs->invlist, &invoice->list);
 
 	/* Store the payment so we can later show it in the history */
 	payment.id = 0;
@@ -308,15 +198,16 @@ static const struct json_command invoice_command = {
 AUTODATA(json_command, &invoice_command);
 
 static void json_add_invoices(struct json_result *response,
-			      const struct list_head *list,
+			      struct wallet *wallet,
 			      const char *buffer, const jsmntok_t *label)
 {
-	struct invoice *i;
+	const struct invoice *i;
 	char *lbl = NULL;
 	if (label)
 		lbl = tal_strndup(response, &buffer[label->start], label->end - label->start);
 
-	list_for_each(list, i, list) {
+	i = NULL;
+	while ((i = wallet_invoice_iterate(wallet, i)) != NULL) {
 		if (lbl && !streq(i->label, lbl))
 			continue;
 		json_add_invoice(response, i);
@@ -328,7 +219,7 @@ static void json_listinvoice(struct command *cmd,
 {
 	jsmntok_t *label = NULL;
 	struct json_result *response = new_json_result(cmd);
-	struct invoices *invs = cmd->ld->invoices;
+	struct wallet *wallet = cmd->ld->wallet;
 
 	if (!json_get_params(buffer, params,
 			     "?label", &label,
@@ -339,7 +230,7 @@ static void json_listinvoice(struct command *cmd,
 
 
 	json_array_start(response, NULL);
-	json_add_invoices(response, &invs->invlist, buffer, label);
+	json_add_invoices(response, wallet, buffer, label);
 	json_array_end(response);
 	command_success(cmd, response);
 }
@@ -355,12 +246,12 @@ AUTODATA(json_command, &listinvoice_command);
 static void json_delinvoice(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
 {
-	struct invoice *i;
+	const struct invoice *i;
 	jsmntok_t *labeltok;
 	struct json_result *response = new_json_result(cmd);
 	const char *label;
-	struct invoices *invs = cmd->ld->invoices;
-	char *error;
+	struct wallet *wallet = cmd->ld->wallet;
+	bool error;
 
 	if (!json_get_params(buffer, params,
 			     "label", &labeltok,
@@ -371,7 +262,7 @@ static void json_delinvoice(struct command *cmd,
 
 	label = tal_strndup(cmd, buffer + labeltok->start,
 			    labeltok->end - labeltok->start);
-	i = find_invoice_by_label(invs, label);
+	i = wallet_invoice_find_by_label(wallet, label);
 	if (!i) {
 		command_fail(cmd, "Unknown invoice");
 		return;
@@ -381,15 +272,12 @@ static void json_delinvoice(struct command *cmd,
 	 * otherwise the invoice will be freed. */
 	json_add_invoice(response, i);
 
-	error = delete_invoice(cmd, cmd->ld->wallet, invs, i);
+	error = wallet_invoice_delete(wallet, i);
 
 	if (error) {
 		log_broken(cmd->ld->log, "Error attempting to remove invoice %"PRIu64,
 			   i->id);
-		command_fail(cmd, "%s", error);
-		/* Both error and response are sub-objects of cmd,
-		 * and command_fail will free cmd (and also error
-		 * and response). */
+		command_fail(cmd, "Database error");
 		return;
 	}
 
@@ -409,11 +297,7 @@ static void json_waitanyinvoice(struct command *cmd,
 {
 	jsmntok_t *pay_indextok;
 	u64 pay_index;
-	struct invoice_waiter *w;
-	struct invoices *invs = cmd->ld->invoices;
 	struct wallet *wallet = cmd->ld->wallet;
-	struct invoice *inv;
-	struct json_result *response;
 
 	if (!json_get_params(buffer, params,
 			     "?lastpay_index", &pay_indextok,
@@ -433,27 +317,14 @@ static void json_waitanyinvoice(struct command *cmd,
 		}
 	}
 
-	/* Find next paid invoice. */
-	inv = wallet_invoice_nextpaid(cmd, wallet, pay_index);
-
-	/* If we found one, return it. */
-	if (inv) {
-		response = new_json_result(cmd);
-
-		json_add_invoice(response, inv);
-		command_success(cmd, response);
-
-		/* inv is freed when cmd is freed, and command_success
-		 * also frees cmd. */
-		return;
-	}
-
-	/* Otherwise, wait. */
-	/* FIXME: Better to use io_wait directly? */
-	w = tal(cmd, struct invoice_waiter);
-	w->cmd = cmd;
-	list_add_tail(&invs->waitany_waiters, &w->list);
+	/* Set command as pending. We do not know if
+	 * wallet_invoice_waitany will return immediately
+	 * or not, so indicating pending is safest.  */
 	command_still_pending(cmd);
+
+	/* Find next paid invoice. */
+	wallet_invoice_waitany(cmd, wallet, pay_index,
+			       &wait_on_invoice, (void*) cmd);
 }
 
 static const struct json_command waitanyinvoice_command = {
@@ -473,11 +344,10 @@ AUTODATA(json_command, &waitanyinvoice_command);
 static void json_waitinvoice(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
-	struct invoice *i;
+	const struct invoice *i;
+	struct wallet *wallet = cmd->ld->wallet;
 	jsmntok_t *labeltok;
 	const char *label = NULL;
-	struct invoice_waiter *w;
-	struct invoices *invs = cmd->ld->invoices;
 
 	if (!json_get_params(buffer, params, "label", &labeltok, NULL)) {
 		command_fail(cmd, "Missing {label}");
@@ -486,7 +356,7 @@ static void json_waitinvoice(struct command *cmd,
 
 	/* Search in paid invoices, if found return immediately */
 	label = tal_strndup(cmd, buffer + labeltok->start, labeltok->end - labeltok->start);
-	i = find_invoice_by_label(invs, label);
+	i = wallet_invoice_find_by_label(wallet, label);
 
 	if (!i) {
 		command_fail(cmd, "Label not found");
@@ -496,10 +366,9 @@ static void json_waitinvoice(struct command *cmd,
 		return;
 	} else {
 		/* There is an unpaid one matching, let's wait... */
-		w = tal(cmd, struct invoice_waiter);
-		w->cmd = cmd;
-		list_add_tail(&i->waitone_waiters, &w->list);
 		command_still_pending(cmd);
+		wallet_invoice_waitone(cmd, wallet, i,
+				       &wait_on_invoice, (void *) cmd);
 	}
 }
 
