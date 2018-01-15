@@ -14,7 +14,6 @@
 #include <wire/peer_wire.h>
 
 #define ANNOUNCE_MIN_DEPTH 6
-#define MAX_FUNDING_MSATOSHI (1 << 24)
 
 struct crypto_state;
 

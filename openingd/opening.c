@@ -284,10 +284,7 @@ static u8 *funder_channel(struct state *state,
 
 	temporary_channel_id(&state->channel_id);
 
-	/* BOLT #2:
-	 *
-	 * The sender MUST set `funding_satoshis` to less than 2^24 satoshi. */
-	if (state->funding_satoshis >= 1 << 24)
+	if (state->funding_satoshis > MAX_FUNDING_SATOSHI)
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "funding_satoshis must be < 2^24, not %"PRIu64,
 			      state->funding_satoshis);
@@ -581,7 +578,7 @@ static u8 *fundee_channel(struct state *state,
 	 *
 	 * The receiving node ... MUST fail the channel if `funding-satoshis`
 	 * is greater than or equal to 2^24 */
-	if (state->funding_satoshis >= 1 << 24)
+	if (state->funding_satoshis > MAX_FUNDING_SATOSHI)
 		peer_failed(PEER_FD, &state->cs, &state->channel_id,
 			    "funding_satoshis %"PRIu64" too large",
 			    state->funding_satoshis);
