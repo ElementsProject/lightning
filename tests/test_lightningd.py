@@ -2419,6 +2419,31 @@ class LightningDTests(BaseLightningDTests):
         # This works.
         l1.rpc.fundchannel(l2.info['id'], int(funds/10))
 
+    def test_funding_toolarge(self):
+        """Try to create a giant channel"""
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+
+        # Send funds.
+        amount = 2**24
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['address'], amount / 10**8 + 0.01)
+        bitcoind.generate_block(1)
+
+        # Wait for it to arrive.
+        wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+        # Fail to open (too large)
+        try:
+            l1.rpc.fundchannel(l2.info['id'], amount)
+            self.fail('Expected fundchannel to fail!')
+        except ValueError as err:
+            assert 'Funding satoshi must be <= 16777215' in str(err)
+
+        # This should work.
+        amount = amount-1
+        l1.rpc.fundchannel(l2.info['id'], amount)
+
     def test_addfunds_from_block(self):
         """Send funds to the daemon without telling it explicitly
         """
