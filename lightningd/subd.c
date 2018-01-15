@@ -154,6 +154,7 @@ static int subd(const char *dir, const char *name, const char *debug_subdaemon,
 		int fdnum = 3, i;
 		long max;
 		const char *debug_arg[2] = { NULL, NULL };
+		const char *path;
 
 		close(childmsg[0]);
 		close(execfail[0]);
@@ -194,7 +195,8 @@ static int subd(const char *dir, const char *name, const char *debug_subdaemon,
 		if (debug_subdaemon && strends(name, debug_subdaemon))
 			debug_arg[debug_arg[0] ? 1 : 0] = "--debugger";
 #endif
-		execl(path_join(NULL, dir, name), name, debug_arg[0], debug_arg[1], NULL);
+		path = path_join(NULL, dir, name);
+		execl(path, path, debug_arg[0], debug_arg[1], NULL);
 
 	child_errno_fail:
 		err = errno;
