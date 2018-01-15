@@ -60,9 +60,16 @@ static void got_txout(struct bitcoind *bitcoind,
 		      const struct bitcoin_tx_output *output,
 		      struct short_channel_id *scid)
 {
+	const u8 *script;
+
 	/* output will be NULL if it wasn't found */
+	if (output)
+		script = output->script;
+	else
+		script = NULL;
+
 	subd_send_msg(bitcoind->ld->gossip,
-		      towire_gossip_get_txout_reply(scid, scid, output->script));
+		      towire_gossip_get_txout_reply(scid, scid, script));
 	tal_free(scid);
 }
 
