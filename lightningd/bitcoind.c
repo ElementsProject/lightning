@@ -479,20 +479,34 @@ static void process_gettxout(struct bitcoin_cli *bcli)
 	cb(bcli->bitcoind, &out, cbarg);
 }
 
+/**
+ * process_getblock -- Retrieve a block from bitcoind
+ *
+ * Used to resolve a `txoutput` after identifying the blockhash, and
+ * before extracting the outpoint from the UTXO.
+ */
 static void process_getblock(struct bitcoin_cli *bcli)
 {
 	void (*cb)(struct bitcoind *bitcoind,
 		   const struct bitcoin_tx_output *output,
 		   void *arg) = bcli->cb;
 	struct get_output *go = bcli->cb_arg;
+	void *cbarg = go->cbarg;
 	const jsmntok_t *tokens, *txstok, *txidtok;
 	struct bitcoin_txid txid;
 	bool valid;
 
 	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
-	if (!tokens)
-		fatal("%s: %s response",
-		      bcli_args(bcli), valid ? "partial" : "invalid");
+	if (!tokens) {
+		/* Most likely we are running on a pruned node, call
+		 * the callback with NULL to indicate failure */
+		log_debug(bcli->bitcoind->log,
+			  "%s: returned invalid block, is this a pruned node?",
+			  bcli_args(bcli));
+		cb(bcli->bitcoind, NULL, cbarg);
+		tal_free(go);
+		return;
+	}
 
 	if (tokens[0].type != JSMN_OBJECT)
 		fatal("%s: gave non-object (%.*s)?",
@@ -511,11 +525,10 @@ static void process_getblock(struct bitcoin_cli *bcli)
 	/* Now, this can certainly happen, if txnum too large. */
 	txidtok = json_get_arr(txstok, go->txnum);
 	if (!txidtok) {
-		void *cbarg = go->cbarg;
 		log_debug(bcli->bitcoind->log, "%s: no txnum %u",
 			  bcli_args(bcli), go->txnum);
-		tal_free(go);
 		cb(bcli->bitcoind, NULL, cbarg);
+		tal_free(go);
 		return;
 	}
 
