@@ -274,8 +274,8 @@ static struct io_plan *sd_msg_reply(struct io_conn *conn, struct subd *sd,
 	const tal_t *tmpctx = tal_tmpctx(conn);
 	int *fds_in;
 
-	log_info(sd->log, "REPLY %s with %zu fds",
-		 sd->msgname(type), tal_count(sd->fds_in));
+	log_debug(sd->log, "REPLY %s with %zu fds",
+		  sd->msgname(type), tal_count(sd->fds_in));
 
 	/* Callback could free sd!  Make sure destroy_subd() won't free conn */
 	sd->conn = NULL;
@@ -464,7 +464,7 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 		goto close;
 	}
 
-	log_info(sd->log, "UPDATE %s", sd->msgname(type));
+	log_debug(sd->log, "UPDATE %s", sd->msgname(type));
 	if (sd->msgcb) {
 		unsigned int i;
 		bool freed = false;
@@ -639,7 +639,7 @@ static struct subd *new_subd(struct lightningd *ld,
 	sd->conn = io_new_conn(ld, msg_fd, msg_setup, sd);
 	tal_steal(sd->conn, sd);
 
-	log_info(sd->log, "pid %u, msgfd %i", sd->pid, msg_fd);
+	log_debug(sd->log, "pid %u, msgfd %i", sd->pid, msg_fd);
 
 	return sd;
 }
