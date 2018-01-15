@@ -91,9 +91,9 @@ Debugging
 
 You can debug crashing subdaemons with the argument
 `--dev-debugger=lightning_channeld`, where `channeld` is the subdaemon name. It
-will print out a command such as:
+will print out (to stderr) a command such as:
 
-    gdb -ex 'attach 22398' lightning_channeld -ex return
+    gdb -ex 'attach 22398' -ex 'p debugger_connected=1' lightningd/lightning_hsmd
 
 Run this command to start debugging. You may need to type `return` one more time
 to exit the infinite while loop, otherwise you can type `continue` to begin.
