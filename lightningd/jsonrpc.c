@@ -652,7 +652,7 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 static struct io_plan *incoming_jcon_connected(struct io_conn *conn,
 					       struct lightningd *ld)
 {
-	log_info(ld->log, "Connected json input");
+	log_debug(ld->log, "Connected json input");
 
 	/* Lifetime of JSON conn is limited to fd connect time. */
 	return jcon_connected(notleak(conn), ld);
