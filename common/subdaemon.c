@@ -50,13 +50,13 @@ static void crashlog_activate(void)
 	sigaction(SIGBUS, &sa, NULL);
 }
 
-void subdaemon_setup(int argc, char *argv[])
-{
 #if DEVELOPER
-	int i;
-	bool printed = false;
+extern volatile bool debugger_connected;
+volatile bool debugger_connected;
 #endif
 
+void subdaemon_setup(int argc, char *argv[])
+{
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
 		exit(0);
@@ -72,20 +72,20 @@ void subdaemon_setup(int argc, char *argv[])
 						 | SECP256K1_CONTEXT_SIGN);
 
 #if DEVELOPER
-	for (i = 1; i < argc; i++) {
+	for (int i = 1; i < argc; i++) {
 		if (strstarts(argv[i], "--dev-disconnect=")) {
 			dev_disconnect_init(atoi(argv[i]
 						 + strlen("--dev-disconnect=")));
 		}
 	}
 
-	/* From debugger, tell gdb "return". */
-	for (i = 1; i < argc; i++) {
-		while (streq(argv[i], "--debugger")) {
-			if (!printed)
-				fprintf(stderr, "gdb -ex 'attach %u' %s -ex return\n",
-					getpid(), argv[0]);
-			printed = true;
+	/* From debugger, set debugger_spin to 0. */
+	for (int i = 1; i < argc; i++) {
+		if (streq(argv[i], "--debugger")) {
+			fprintf(stderr, "gdb -ex 'attach %u' -ex 'p debugger_connected=1' %s\n",
+				getpid(), argv[0]);
+			while (!debugger_connected)
+				usleep(10000);
 		}
 	}
 #endif
