@@ -627,6 +627,8 @@ class LightningDTests(BaseLightningDTests):
         assert b11['fallback']['type'] == 'P2WSH'
         assert b11['fallback']['addr'] == 'bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3'
 
+        self.assertRaises(ValueError, l1.rpc.decodepay, '1111111')
+
     def test_sendpay(self):
         l1,l2 = self.connect()
 
