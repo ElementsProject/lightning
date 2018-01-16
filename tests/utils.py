@@ -244,7 +244,8 @@ class LightningD(TailableProc):
             '--lightning-dir={}'.format(lightning_dir),
             '--port={}'.format(port),
             '--override-fee-rates=15000/7500/1000',
-            '--network=regtest'
+            '--network=regtest',
+            '--ignore-fee-limits=false'
         ]
         if DEVELOPER:
             self.cmd_line += ['--dev-broadcast-interval=1000']

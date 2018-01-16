@@ -2709,6 +2709,36 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
+    def test_fee_limits(self):
+        # FIXME: Test case where opening denied.
+        l1, l2 = self.connect()
+        self.fund_channel(l1, l2, 10**6)
+
+        # L1 asks for stupid low fees
+        l1.rpc.dev_setfees(15)
+
+        l1.daemon.wait_for_log('STATUS_FAIL_PEER_BAD')
+
+        # Restore to normal.
+        l1.rpc.dev_setfees(15000)
+
+        # Try with node which sets --ignore-fee-limits
+        l3 = self.node_factory.get_node(options=['--ignore-fee-limits=true'])
+        l1.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
+
+        self.fund_channel(l1, l3, 10**6)
+
+        # Try stupid high fees
+        l1.rpc.dev_setfees(15000 * 10)
+
+        l3.daemon.wait_for_log('peer_in WIRE_UPDATE_FEE')
+        l3.daemon.wait_for_log('peer_in WIRE_COMMITMENT_SIGNED')
+
+        # Now shutdown cleanly.
+        l1.rpc.close(l3.info['id'])
+        l1.daemon.wait_for_log('-> CLOSINGD_COMPLETE')
+        l3.daemon.wait_for_log('-> CLOSINGD_COMPLETE')
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_update_fee_reconnect(self):
         # Disconnect after first commitsig.

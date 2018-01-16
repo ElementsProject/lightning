@@ -71,6 +71,9 @@ struct config {
 
 	/* Channel update interval */
 	u32 channel_update_interval;
+
+	/* Do we let the funder set any fee rate they want */
+	bool ignore_fee_limits;
 };
 
 struct lightningd {

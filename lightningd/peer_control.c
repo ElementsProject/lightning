@@ -1938,6 +1938,29 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	return 0;
 }
 
+u32 feerate_min(struct lightningd *ld)
+{
+	if (ld->config.ignore_fee_limits)
+		return 1;
+
+	/* Set this to average of slow and normal.*/
+	return (get_feerate(ld->topology, FEERATE_SLOW)
+		+ get_feerate(ld->topology, FEERATE_NORMAL)) / 2;
+}
+
+/* BOLT #2:
+ *
+ * Given the variance in fees, and the fact that the transaction may
+ * be spent in the future, it's a good idea for the fee payer to keep
+ * a good margin, say 5x the expected fee requirement */
+u32 feerate_max(struct lightningd *ld)
+{
+	if (ld->config.ignore_fee_limits)
+		return UINT_MAX;
+
+	return get_feerate(ld->topology, FEERATE_IMMEDIATE) * 5;
+}
+
 static bool peer_start_channeld(struct peer *peer,
 				const struct crypto_state *cs,
 				u64 gossip_index,
@@ -2019,6 +2042,10 @@ static bool peer_start_channeld(struct peer *peer,
 
 	num_revocations = revocations_received(&peer->their_shachain.chain);
 
+	/* Warn once. */
+	if (peer->ld->config.ignore_fee_limits)
+		log_unusual(peer->log, "Ignoring fee limits!");
+
 	initmsg = towire_channel_init(tmpctx,
 				      &get_chainparams(peer->ld)
 				      ->genesis_blockhash,
@@ -2028,8 +2055,8 @@ static bool peer_start_channeld(struct peer *peer,
 				      &peer->our_config,
 				      &peer->channel_info->their_config,
 				      peer->channel_info->feerate_per_kw,
-				      get_feerate(peer->ld->topology, FEERATE_NORMAL),
-				      get_feerate(peer->ld->topology, FEERATE_IMMEDIATE) * 5,
+				      feerate_min(peer->ld),
+				      feerate_max(peer->ld),
 				      peer->last_sig,
 				      cs, gossip_index,
 				      &peer->channel_info->remote_fundingkey,

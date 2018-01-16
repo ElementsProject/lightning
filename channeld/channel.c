@@ -624,6 +624,9 @@ static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 			    &peer->channel_id,
 			    "update_fee from non-funder?");
 
+	status_trace("update_fee %u, range %u-%u",
+		     feerate, peer->feerate_min, peer->feerate_max);
+
 	/* BOLT #2:
 	 *
 	 * A receiving node SHOULD fail the channel if the `update_fee` is too
