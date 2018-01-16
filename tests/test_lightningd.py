@@ -1421,6 +1421,16 @@ class LightningDTests(BaseLightningDTests):
         assert n1['nodeid'] == l1.info['id']
         assert n2['nodeid'] == l2.info['id']
 
+        # Might not have seen other node-announce yet.
+        assert n1['alias'] == 'JUNIORBEAM'
+        assert n1['color'] == '0266e4'
+        if not 'alias' in n2:
+            assert not 'color' in n2
+            assert not 'addresses' in n2
+        else:
+            assert n2['alias'] == 'SILENTARTIST'
+            assert n2['color'] == '022d22'
+
         assert [c['active'] for c in l1.rpc.getchannels()['channels']] == [True, True]
         assert [c['public'] for c in l1.rpc.getchannels()['channels']] == [True, True]
         assert [c['active'] for c in l2.rpc.getchannels()['channels']] == [True, True]

@@ -4,6 +4,7 @@
 #include "lightningd.h"
 #include "peer_control.h"
 #include "subd.h"
+#include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/take/take.h>
@@ -199,6 +200,17 @@ static void json_getnodes_reply(struct subd *gossip, const u8 *reply,
 	for (i = 0; i < tal_count(nodes); i++) {
 		json_object_start(response, NULL);
 		json_add_pubkey(response, "nodeid", &nodes[i].nodeid);
+		if (nodes[i].last_timestamp < 0) {
+			json_object_end(response);
+			continue;
+		}
+		json_add_string(response, "alias",
+				tal_strndup(response, (char *)nodes[i].alias,
+					    tal_len(nodes[i].alias)));
+		json_add_hex(response, "color",
+			     nodes[i].color, ARRAY_SIZE(nodes[i].color));
+		json_add_u64(response, "last_timestamp",
+			     nodes[i].last_timestamp);
 		json_array_start(response, "addresses");
 		for (j=0; j<tal_count(nodes[i].addresses); j++) {
 			json_add_address(response, NULL, &nodes[i].addresses[j]);
