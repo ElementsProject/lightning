@@ -707,13 +707,24 @@ class LightningDTests(BaseLightningDTests):
         preimage3 = l1.rpc.sendpay(to_json([routestep]), rhash)
         assert l2.rpc.listinvoice('testpayment3')[0]['complete'] == True
         assert l2.rpc.listinvoice('testpayment3')[0]['msatoshi_received'] == amt*2
+
         # Test listpayments
-        assert len(l1.rpc.listpayments()) == 2
-        assert len(l1.rpc.listpayments(None, l2.rpc.listinvoice('testpayment2')[0]['payment_hash'])) == 1
-        assert l1.rpc.listpayments(None, l2.rpc.listinvoice('testpayment2')[0]['payment_hash'])[0]['status'] == 'complete'
-        assert l1.rpc.listpayments(None, l2.rpc.listinvoice('testpayment2')[0]['payment_hash'])[0]['payment_preimage'] == preimage2['preimage']
-        assert l1.rpc.listpayments(None, l2.rpc.listinvoice('testpayment3')[0]['payment_hash'])[0]['status'] == 'complete'
-        assert l1.rpc.listpayments(None, l2.rpc.listinvoice('testpayment3')[0]['payment_hash'])[0]['payment_preimage'] == preimage3['preimage']
+        payments = l1.rpc.listpayments()['payments']
+        assert len(payments) == 2
+
+        invoice2 = l2.rpc.listinvoice('testpayment2')[0]
+        payments = l1.rpc.listpayments(None, invoice2['payment_hash'])['payments']
+        assert len(payments) == 1
+        print(payments)
+        assert payments[0]['status'] == 'complete'
+        assert payments[0]['payment_preimage'] == preimage2['preimage']
+
+        invoice3 = l2.rpc.listinvoice('testpayment3')[0]
+        payments = l1.rpc.listpayments(None, invoice3['payment_hash'])['payments']
+        assert len(payments) == 1
+        print(payments)
+        assert payments[0]['status'] == 'complete'
+        assert payments[0]['payment_preimage'] == preimage3['preimage']
 
     def test_sendpay_cant_afford(self):
         l1,l2 = self.connect()
@@ -779,11 +790,11 @@ class LightningDTests(BaseLightningDTests):
             l1.rpc.pay(inv2, random.randint(1000, 999999))
 
         # Should see 6 completed payments
-        assert len(l1.rpc.listpayments()) == 6
+        assert len(l1.rpc.listpayments()['payments']) == 6
 
         # Test listpayments indexed by bolt11.
-        assert len(l1.rpc.listpayments(inv)) == 1
-        assert l1.rpc.listpayments(inv)[0]['payment_preimage'] == preimage['preimage']
+        assert len(l1.rpc.listpayments(inv)['payments']) == 1
+        assert l1.rpc.listpayments(inv)['payments'][0]['payment_preimage'] == preimage['preimage']
 
     def test_bad_opening(self):
         # l1 asks for a too-long locktime
@@ -2610,9 +2621,9 @@ class LightningDTests(BaseLightningDTests):
         # Should reconnect, and sort the payment out.
         l1.daemon.start()
 
-        wait_for(lambda: l1.rpc.listpayments()[0]['status'] != 'pending')
+        wait_for(lambda: l1.rpc.listpayments()['payments'][0]['status'] != 'pending')
 
-        assert l1.rpc.listpayments()[0]['status'] == 'complete'
+        assert l1.rpc.listpayments()['payments'][0]['status'] == 'complete'
         assert l2.rpc.listinvoice('inv1')[0]['complete'] == True
 
         # FIXME: We should re-add pre-announced routes on startup!
@@ -2654,10 +2665,10 @@ class LightningDTests(BaseLightningDTests):
         # Should reconnect, and fail the payment
         l1.daemon.start()
 
-        wait_for(lambda: l1.rpc.listpayments()[0]['status'] != 'pending')
+        wait_for(lambda: l1.rpc.listpayments()['payments'][0]['status'] != 'pending')
 
         assert l2.rpc.listinvoice('inv1')[0]['complete'] == False
-        assert l1.rpc.listpayments()[0]['status'] == 'failed'
+        assert l1.rpc.listpayments()['payments'][0]['status'] == 'failed'
 
         # Another attempt should also fail.
         self.assertRaises(ValueError, l1.rpc.pay, inv1['bolt11'])
@@ -2681,8 +2692,8 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('dev_disconnect: =WIRE_UPDATE_ADD_HTLC-nocommit')
 
         # We should see it in listpayments
-        assert l1.rpc.listpayments()[0]['status'] == 'pending'
-        assert l1.rpc.listpayments()[0]['payment_hash'] == inv1['payment_hash']
+        assert l1.rpc.listpayments()['payments'][0]['status'] == 'pending'
+        assert l1.rpc.listpayments()['payments'][0]['payment_hash'] == inv1['payment_hash']
 
         # Second one should fail.
         self.assertRaises(ValueError, l1.rpc.pay, inv1['bolt11'])
