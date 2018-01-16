@@ -299,8 +299,7 @@ static void json_sendpay(struct command *cmd,
 			return;
 		}
 
-		if (!short_channel_id_from_str(buffer + chantok->start,
-					       chantok->end - chantok->start,
+		if (!json_tok_short_channel_id(buffer, chantok,
 					       &route[n_hops].channel_id)) {
 			command_fail(cmd, "route %zu invalid channel_id", n_hops);
 			return;

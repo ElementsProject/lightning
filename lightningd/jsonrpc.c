@@ -387,6 +387,14 @@ void json_add_short_channel_id(struct json_result *response,
 			type_to_string(response, struct short_channel_id, id));
 }
 
+bool json_tok_short_channel_id(const char *buffer, const jsmntok_t *tok,
+			       struct short_channel_id *scid)
+{
+	return short_channel_id_from_str(buffer + tok->start,
+					 tok->end - tok->start,
+					 scid);
+}
+
 void json_add_address(struct json_result *response, const char *fieldname,
 		      const struct wireaddr *addr)
 {
