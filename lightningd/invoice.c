@@ -198,8 +198,10 @@ static void json_add_invoices(struct json_result *response,
 	}
 }
 
-static void json_listinvoice(struct command *cmd,
-			     const char *buffer, const jsmntok_t *params)
+static void json_listinvoice_internal(struct command *cmd,
+				      const char *buffer,
+				      const jsmntok_t *params,
+				      bool modern)
 {
 	jsmntok_t *label = NULL;
 	struct json_result *response = new_json_result(cmd);
@@ -212,11 +214,23 @@ static void json_listinvoice(struct command *cmd,
 		return;
 	}
 
-
-	json_array_start(response, NULL);
+	if (modern) {
+		json_object_start(response, NULL);
+		json_array_start(response, "invoices");
+	} else
+		json_array_start(response, NULL);
 	json_add_invoices(response, wallet, buffer, label);
 	json_array_end(response);
+	if (modern)
+		json_object_end(response);
 	command_success(cmd, response);
+}
+
+/* FIXME: Deprecated! */
+static void json_listinvoice(struct command *cmd,
+			     const char *buffer, const jsmntok_t *params)
+{
+	return json_listinvoice_internal(cmd, buffer, params, false);
 }
 
 static const struct json_command listinvoice_command = {
@@ -228,7 +242,13 @@ static const struct json_command listinvoice_command = {
 };
 AUTODATA(json_command, &listinvoice_command);
 
-static const struct json_command listinvoice_command = {
+static void json_listinvoices(struct command *cmd,
+			     const char *buffer, const jsmntok_t *params)
+{
+	return json_listinvoice_internal(cmd, buffer, params, true);
+}
+
+static const struct json_command listinvoices_command = {
 	"listinvoices",
 	json_listinvoices,
 	"Show invoice {label} (or all, if no {label}))",
