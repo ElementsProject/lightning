@@ -1775,6 +1775,17 @@ class LightningDTests(BaseLightningDTests):
                                .format(bitcoind.rpc.getblockcount() + 9 + shadow_route))
         assert l3.rpc.listinvoice('test_forward_different_fees_and_cltv')[0]['complete'] == True
 
+        # Check that we see all the channels
+        shortids = set(c['short_channel_id'] for c in l2.rpc.listchannels()['channels'])
+        for scid in shortids:
+            c = l1.rpc.listchannels(scid)['channels']
+            # We get one entry for each direction.
+            assert len(c) == 2
+            assert c[0]['short_channel_id'] == scid
+            assert c[1]['short_channel_id'] == scid
+            assert c[0]['source'] == c[1]['destination']
+            assert c[1]['source'] == c[0]['destination']
+        
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_forward_pad_fees_and_cltv(self):
         """Test that we are allowed extra locktime delta, and fees"""
