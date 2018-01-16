@@ -743,8 +743,13 @@ class LightningDTests(BaseLightningDTests):
         self.wait_for_routes(l1, [chanid])
 
         inv = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
+        before = int(time.time())
         l1.rpc.pay(inv)
-        assert l2.rpc.listinvoice('test_pay')[0]['complete'] == True
+        after = int(time.time())
+        invoice = l2.rpc.listinvoice('test_pay')[0]
+        assert invoice['complete'] == True
+        assert invoice['paid_timestamp'] >= before
+        assert invoice['paid_timestamp'] <= after
 
         # Repeat payments are NOPs (if valid): we can hand null.
         l1.rpc.pay(inv, None)

@@ -31,6 +31,8 @@ static void json_add_invoice(struct json_result *response,
 		json_add_u64(response, "pay_index", inv->pay_index);
 		json_add_u64(response, "msatoshi_received",
 			     inv->msatoshi_received);
+		json_add_u64(response, "paid_timestamp",
+			     inv->paid_timestamp);
 	}
 	json_add_u64(response, "expiry_time", inv->expiry_time);
 	json_object_end(response);

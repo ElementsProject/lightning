@@ -365,6 +365,8 @@ struct invoice {
 	u64 *msatoshi;
 	/* Set if state == PAID */
 	u64 msatoshi_received;
+	/* Set if state == PAID */
+	u64 paid_timestamp;
 	struct preimage r;
 	u64 expiry_time;
 	struct sha256 rhash;

@@ -61,8 +61,10 @@ static bool wallet_stmt2invoice(sqlite3_stmt *stmt, struct invoice *inv)
 	/* Correctly 0 if pay_index is NULL. */
 	inv->pay_index = sqlite3_column_int64(stmt, 7);
 
-	if (inv->state == PAID)
+	if (inv->state == PAID) {
 		inv->msatoshi_received = sqlite3_column_int64(stmt, 8);
+		inv->paid_timestamp = sqlite3_column_int64(stmt, 9);
+	}
 
 	list_head_init(&inv->waitone_waiters);
 	return true;
@@ -94,7 +96,7 @@ bool invoices_load(struct invoices *invoices)
 	stmt = db_query(__func__, invoices->db,
 			"SELECT id, state, payment_key, payment_hash"
 			"     , label, msatoshi, expiry_time, pay_index"
-			"     , msatoshi_received"
+			"     , msatoshi_received, paid_timestamp"
 			"  FROM invoices;");
 	if (!stmt) {
 		log_broken(invoices->log, "Could not load invoices");
@@ -148,8 +150,14 @@ const struct invoice *invoices_create(struct invoices *invoices,
 	 * that string for sql injections... */
 	stmt = db_prepare(invoices->db,
 			  "INSERT INTO invoices"
-			  "            (payment_hash, payment_key, state, msatoshi, label, expiry_time, pay_index, msatoshi_received)"
-			  "     VALUES (?, ?, ?, ?, ?, ?, NULL, NULL);");
+			  "            ( payment_hash, payment_key, state"
+			  "            , msatoshi, label, expiry_time"
+			  "            , pay_index, msatoshi_received"
+			  "            , paid_timestamp)"
+			  "     VALUES ( ?, ?, ?"
+			  "            , ?, ?, ?"
+			  "            , NULL, NULL"
+			  "            , NULL);");
 
 	sqlite3_bind_blob(stmt, 1, &rhash, sizeof(rhash), SQLITE_TRANSIENT);
 	sqlite3_bind_blob(stmt, 2, &r, sizeof(r), SQLITE_TRANSIENT);
@@ -274,11 +282,12 @@ void invoices_resolve(struct invoices *invoices,
 	struct invoice_waiter *w;
 	struct invoice *invoice = (struct invoice *)cinvoice;
 	s64 pay_index;
+	u64 paid_timestamp;
 	const tal_t *tmpctx = tal_tmpctx(NULL);
 
 	/* Assign a pay-index. */
 	pay_index = get_next_pay_index(invoices->db);
-	/* FIXME: Save time of payment. */
+	paid_timestamp = time_now().ts.tv_sec;
 
 	/* Update database. */
 	stmt = db_prepare(invoices->db,
@@ -286,17 +295,20 @@ void invoices_resolve(struct invoices *invoices,
 			  "   SET state=?"
 			  "     , pay_index=?"
 			  "     , msatoshi_received=?"
+			  "     , paid_timestamp=?"
 			  " WHERE id=?;");
 	sqlite3_bind_int(stmt, 1, PAID);
 	sqlite3_bind_int64(stmt, 2, pay_index);
 	sqlite3_bind_int64(stmt, 3, msatoshi_received);
-	sqlite3_bind_int64(stmt, 4, invoice->id);
+	sqlite3_bind_int64(stmt, 4, paid_timestamp);
+	sqlite3_bind_int64(stmt, 5, invoice->id);
 	db_exec_prepared(invoices->db, stmt);
 
 	/* Update in-memory structure. */
 	invoice->state = PAID;
 	invoice->pay_index = pay_index;
 	invoice->msatoshi_received = msatoshi_received;
+	invoice->paid_timestamp = paid_timestamp;
 
 	/* Tell all the waitany waiters about the new paid invoice. */
 	while ((w = list_pop(&invoices->waitany_waiters,
