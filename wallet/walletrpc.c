@@ -306,7 +306,7 @@ static void json_withdraw(struct command *cmd,
 static const struct json_command withdraw_command = {
 	"withdraw",
 	json_withdraw,
-	"Send {satoshi} (or 'all') to the {destination} address via Bitcoin transaction",
+	"Send to {destination} address {satoshi} (or 'all') amount via Bitcoin transaction",
 	"Returns the withdrawal transaction ID"
 };
 AUTODATA(json_command, &withdraw_command);
