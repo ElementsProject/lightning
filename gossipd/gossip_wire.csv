@@ -83,6 +83,9 @@ gossipctl_hand_back_peer,,msg,len*u8
 
 # Pass JSON-RPC getnodes call through
 gossip_getnodes_request,3005
+# Can be 0 or 1 currently
+gossip_getnodes_request,,num,u16
+gossip_getnodes_request,,id,num*struct pubkey
 
 #include <lightningd/gossip_msg.h>
 gossip_getnodes_reply,3105

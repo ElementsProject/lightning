@@ -1095,23 +1095,40 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
-static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon)
+static void append_node(struct gossip_getnodes_entry **nodes,
+			const struct node *n)
+{
+	size_t num_nodes = tal_count(*nodes);
+	tal_resize(nodes, num_nodes + 1);
+	(*nodes)[num_nodes].nodeid = n->id;
+	(*nodes)[num_nodes].addresses = n->addresses;
+}
+
+static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
+				const u8 *msg)
 {
 	tal_t *tmpctx = tal_tmpctx(daemon);
 	u8 *out;
 	struct node *n;
-	struct node_map_iter i;
 	struct gossip_getnodes_entry *nodes;
-	size_t node_count = 0;
+	struct pubkey *ids;
 
-	nodes = tal_arr(tmpctx, struct gossip_getnodes_entry, node_count);
-	n = node_map_first(daemon->rstate->nodes, &i);
-	while (n != NULL) {
-		tal_resize(&nodes, node_count + 1);
-		nodes[node_count].nodeid = n->id;
-		nodes[node_count].addresses = n->addresses;
-		node_count++;
-		n = node_map_next(daemon->rstate->nodes, &i);
+	fromwire_gossip_getnodes_request(tmpctx, msg, NULL, &ids);
+
+	nodes = tal_arr(tmpctx, struct gossip_getnodes_entry, 0);
+	if (ids) {
+		for (size_t i = 0; i < tal_count(ids); i++) {
+			n = node_map_get(daemon->rstate->nodes, &ids[i].pubkey);
+			if (n)
+				append_node(&nodes, n);
+		}
+	} else {
+		struct node_map_iter i;
+		n = node_map_first(daemon->rstate->nodes, &i);
+		while (n != NULL) {
+			append_node(&nodes, n);
+			n = node_map_next(daemon->rstate->nodes, &i);
+		}
 	}
 	out = towire_gossip_getnodes_reply(daemon, nodes);
 	daemon_conn_send(&daemon->master, take(out));
@@ -1749,7 +1766,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		return release_peer(conn, daemon, master->msg_in);
 
 	case WIRE_GOSSIP_GETNODES_REQUEST:
-		return getnodes(conn, daemon);
+		return getnodes(conn, daemon, daemon->master.msg_in);
 
 	case WIRE_GOSSIP_GETROUTE_REQUEST:
 		return getroute_req(conn, daemon, daemon->master.msg_in);

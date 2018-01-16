@@ -211,18 +211,38 @@ static void json_getnodes_reply(struct subd *gossip, const u8 *reply,
 	command_success(cmd, response);
 }
 
-static void json_getnodes(struct command *cmd, const char *buffer,
+static void json_listnodes(struct command *cmd, const char *buffer,
 			  const jsmntok_t *params)
 {
-	u8 *req = towire_gossip_getnodes_request(cmd);
+	u8 *req;
+	jsmntok_t *idtok = NULL;
+	struct pubkey *id = NULL;
+
+	if (!json_get_params(buffer, params,
+			     "?id", &idtok,
+			     NULL)) {
+		command_fail(cmd, "Invalid arguments");
+		return;
+	}
+
+	if (idtok) {
+		id = tal_arr(cmd, struct pubkey, 1);
+		if (!json_tok_pubkey(buffer, idtok, id)) {
+			command_fail(cmd, "Invalid id");
+			return;
+		}
+	}
+
+	req = towire_gossip_getnodes_request(cmd, id);
 	subd_req(cmd, cmd->ld->gossip, req, -1, 0, json_getnodes_reply, cmd);
 	command_still_pending(cmd);
 }
 
-static const struct json_command getnodes_command = {
-    "getnodes", json_getnodes, "Retrieve all nodes in our local network view",
+static const struct json_command listnodes_command = {
+    "listnodes", json_listnodes,
+    "List a nodes in our local network view (or all, if no {id})",
     "Returns a list of all nodes that we know about"};
-AUTODATA(json_command, &getnodes_command);
+AUTODATA(json_command, &listnodes_command);
 
 static void json_getroute_reply(struct subd *gossip, const u8 *reply, const int *fds,
 				struct command *cmd)

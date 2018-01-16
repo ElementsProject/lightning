@@ -1412,8 +1412,14 @@ class LightningDTests(BaseLightningDTests):
                                  'Channel {}\\(1\\) was updated.'
                                  .format(channel_id)])
 
-        nodes = l1.rpc.getnodes()['nodes']
+        nodes = l1.rpc.listnodes()['nodes']
         assert set([n['nodeid'] for n in nodes]) == set([l1.info['id'], l2.info['id']])
+
+        # Test listnodes with an arg, while we're here.
+        n1 = l1.rpc.listnodes(l1.info['id'])['nodes'][0]
+        n2 = l1.rpc.listnodes(l2.info['id'])['nodes'][0]
+        assert n1['nodeid'] == l1.info['id']
+        assert n2['nodeid'] == l2.info['id']
 
         assert [c['active'] for c in l1.rpc.getchannels()['channels']] == [True, True]
         assert [c['public'] for c in l1.rpc.getchannels()['channels']] == [True, True]
@@ -1470,8 +1476,8 @@ class LightningDTests(BaseLightningDTests):
 
         assert scid2 not in [c['short_channel_id'] for c in l1.rpc.getchannels()['channels']]
         assert scid2 not in [c['short_channel_id'] for c in l2.rpc.getchannels()['channels']]
-        assert l3.info['id'] not in [n['nodeid'] for n in l1.rpc.getnodes()['nodes']]
-        assert l3.info['id'] not in [n['nodeid'] for n in l2.rpc.getnodes()['nodes']]
+        assert l3.info['id'] not in [n['nodeid'] for n in l1.rpc.listnodes()['nodes']]
+        assert l3.info['id'] not in [n['nodeid'] for n in l2.rpc.listnodes()['nodes']]
 
     def ping_tests(self, l1, l2):
         # 0-byte pong gives just type + length field.
