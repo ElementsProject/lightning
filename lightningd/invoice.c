@@ -411,6 +411,8 @@ static void json_decodepay(struct command *cmd,
                 json_add_hex(response, "description_hash",
                              b11->description_hash,
                              sizeof(*b11->description_hash));
+	json_add_num(response, "min_final_cltv_expiry",
+		     b11->min_final_cltv_expiry);
         if (tal_len(b11->fallback)) {
                 struct bitcoin_address pkh;
                 struct ripemd160 sh;
