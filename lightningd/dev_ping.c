@@ -40,17 +40,17 @@ static void json_dev_ping(struct command *cmd,
 {
 	struct peer *peer;
 	u8 *msg;
-	jsmntok_t *peeridtok, *lentok, *pongbytestok;
+	jsmntok_t *idtok, *lentok, *pongbytestok;
 	unsigned int len, pongbytes;
 	struct pubkey id;
 	struct subd *owner;
 
 	if (!json_get_params(buffer, params,
-			     "peerid", &peeridtok,
+			     "id", &idtok,
 			     "len", &lentok,
 			     "pongbytes", &pongbytestok,
 			     NULL)) {
-		command_fail(cmd, "Need peerid, len and pongbytes");
+		command_fail(cmd, "Need id, len and pongbytes");
 		return;
 	}
 
@@ -70,10 +70,10 @@ static void json_dev_ping(struct command *cmd,
 		return;
 	}
 
-	if (!json_tok_pubkey(buffer, peeridtok, &id)) {
+	if (!json_tok_pubkey(buffer, idtok, &id)) {
 		command_fail(cmd, "'%.*s' is not a valid pubkey",
-			     (int)(peeridtok->end - peeridtok->start),
-			     buffer + peeridtok->start);
+			     (int)(idtok->end - idtok->start),
+			     buffer + idtok->start);
 		return;
 	}
 
@@ -102,7 +102,7 @@ static void json_dev_ping(struct command *cmd,
 static const struct json_command dev_ping_command = {
 	"dev-ping",
 	json_dev_ping,
-	"Offer {peerid} a ping of length {len} asking for {pongbytes}",
+	"Offer {id} a ping of length {len} asking for {pongbytes}",
 	"Returns { totlen: u32 } on success"
 };
 AUTODATA(json_command, &dev_ping_command);
