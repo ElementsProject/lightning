@@ -1,18 +1,18 @@
-LIGHTNING-LISTINVOICE(7)
-========================
+LIGHTNING-LISTINVOICES(7)
+=========================
 :doctype: manpage
 
 NAME
 ----
-lightning-listinvoice - Protocol for querying invoice status
+lightning-listinvoices - Protocol for querying invoice status
 
 SYNOPSIS
 --------
-*listinvoice* ['label']
+*listinvoices* ['label']
 
 DESCRIPTION
 -----------
-The *listinvoice* RPC command gets the status of a specific invoice, if
+The *listinvoices* RPC command gets the status of a specific invoice, if
 it exists, or the status of all invoices if given no argument.
 
 RETURN VALUE

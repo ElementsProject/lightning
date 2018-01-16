@@ -222,10 +222,19 @@ static void json_listinvoice(struct command *cmd,
 static const struct json_command listinvoice_command = {
 	"listinvoice",
 	json_listinvoice,
-	"Show invoice {label} (or all, if no {label}))",
-	"Returns an array of {label}, {payment_hash}, {msatoshi} (if set), {complete}, {pay_index} (if paid) and {expiry_time} on success. "
+	"(DEPRECATED) Show invoice {label} (or all, if no {label}))",
+	"Returns an array of {label}, {payment_hash}, {msatoshi} (if set), {complete}, {pay_index} (if paid) and {expiry_time} on success. ",
+	.deprecated = true
 };
 AUTODATA(json_command, &listinvoice_command);
+
+static const struct json_command listinvoice_command = {
+	"listinvoices",
+	json_listinvoices,
+	"Show invoice {label} (or all, if no {label}))",
+	"Returns an array of {label}, {payment_hash}, {msatoshi} (if set), {complete}, {pay_index} (if paid) and {expiry_time} on success. ",
+};
+AUTODATA(json_command, &listinvoices_command);
 
 static void json_delinvoice(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
