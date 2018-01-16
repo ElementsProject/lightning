@@ -869,7 +869,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 	command_success(gpa->cmd, response);
 }
 
-static void json_getpeers(struct command *cmd,
+static void json_listpeers(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
 	jsmntok_t *leveltok;
@@ -905,13 +905,13 @@ static void json_getpeers(struct command *cmd,
 	command_still_pending(cmd);
 }
 
-static const struct json_command getpeers_command = {
-	"getpeers",
-	json_getpeers,
+static const struct json_command listpeers_command = {
+	"listpeers",
+	json_listpeers,
 	"List the current peers, if {level} is set, include {log}s",
 	"Returns a 'peers' array"
 };
-AUTODATA(json_command, &getpeers_command);
+AUTODATA(json_command, &listpeers_command);
 
 struct peer *peer_from_json(struct lightningd *ld,
 			    const char *buffer,
