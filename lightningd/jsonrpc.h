@@ -76,6 +76,10 @@ void json_add_txid(struct json_result *result, const char *fieldname,
 bool json_tok_pubkey(const char *buffer, const jsmntok_t *tok,
 		     struct pubkey *pubkey);
 
+/* Extract a short_channel_id from this */
+bool json_tok_short_channel_id(const char *buffer, const jsmntok_t *tok,
+			       struct short_channel_id *scid);
+
 /* '"fieldname" : "1234:5:6"' */
 void json_add_short_channel_id(struct json_result *response,
 			       const char *fieldname,
