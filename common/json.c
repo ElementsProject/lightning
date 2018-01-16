@@ -12,7 +12,9 @@
 #include <string.h>
 
 struct json_result {
-	unsigned int indent;
+	/* tal_arr of types we're enclosed in. */
+	jsmntype_t *wrapping;
+
 	/* tal_count() of this is strlen() + 1 */
 	char *s;
 };
@@ -365,6 +367,21 @@ static bool result_ends_with(struct json_result *res, const char *str)
 	return streq(res->s + len - strlen(str), str);
 }
 
+static void check_fieldname(const struct json_result *result,
+			    const char *fieldname)
+{
+	size_t n = tal_count(result->wrapping);
+	if (n == 0)
+		/* Can't have a fieldname if not in anything! */
+		assert(!fieldname);
+	else if (result->wrapping[n-1] == JSMN_ARRAY)
+		/* No fieldnames in arrays. */
+		assert(!fieldname);
+	else
+		/* Must have fieldnames in objects. */
+		assert(fieldname);
+}
+
 static void json_start_member(struct json_result *result, const char *fieldname)
 {
 	/* Prepend comma if required. */
@@ -372,48 +389,67 @@ static void json_start_member(struct json_result *result, const char *fieldname)
 	    && !result_ends_with(result, "{ ")
 	    && !result_ends_with(result, "[ "))
 		result_append(result, ", ");
+
+	check_fieldname(result, fieldname);
 	if (fieldname)
 		result_append_fmt(result, "\"%s\" : ", fieldname);
+}
+
+static void result_add_indent(struct json_result *result)
+{
+	size_t i, indent = tal_count(result->wrapping);
+
+	if (!indent)
+		return;
+
+	result_append(result, "\n");
+	for (i = 0; i < indent; i++)
+		result_append(result, "\t");
+}
+
+static void result_add_wrap(struct json_result *result, jsmntype_t type)
+{
+	size_t indent = tal_count(result->wrapping);
+
+	tal_resize(&result->wrapping, indent+1);
+	result->wrapping[indent] = type;
+}
+
+static void result_pop_wrap(struct json_result *result, jsmntype_t type)
+{
+	size_t indent = tal_count(result->wrapping);
+
+	assert(indent);
+	assert(result->wrapping[indent-1] == type);
+	tal_resize(&result->wrapping, indent-1);
 }
 
 void json_array_start(struct json_result *result, const char *fieldname)
 {
 	json_start_member(result, fieldname);
-	if (result->indent) {
-		unsigned int i;
-		result_append(result, "\n");
-		for (i = 0; i < result->indent; i++)
-			result_append(result, "\t");
-	}
+	result_add_indent(result);
 	result_append(result, "[ ");
-	result->indent++;
+	result_add_wrap(result, JSMN_ARRAY);
 }
 
 void json_array_end(struct json_result *result)
 {
-	assert(result->indent);
-	result->indent--;
 	result_append(result, " ]");
+	result_pop_wrap(result, JSMN_ARRAY);
 }
 
 void json_object_start(struct json_result *result, const char *fieldname)
 {
 	json_start_member(result, fieldname);
-	if (result->indent) {
-		unsigned int i;
-		result_append(result, "\n");
-		for (i = 0; i < result->indent; i++)
-			result_append(result, "\t");
-	}
+	result_add_indent(result);
 	result_append(result, "{ ");
-	result->indent++;
+	result_add_wrap(result, JSMN_OBJECT);
 }
 
 void json_object_end(struct json_result *result)
 {
-	assert(result->indent);
-	result->indent--;
 	result_append(result, " }");
+	result_pop_wrap(result, JSMN_OBJECT);
 }
 
 void json_add_num(struct json_result *result, const char *fieldname, unsigned int value)
@@ -498,13 +534,13 @@ struct json_result *new_json_result(const tal_t *ctx)
 
 	/* Using tal_arr means that it has a valid count. */
 	r->s = tal_arrz(r, char, 1);
-	r->indent = 0;
+	r->wrapping = tal_arr(r, jsmntype_t, 0);
 	return r;
 }
 
 const char *json_result_string(const struct json_result *result)
 {
-	assert(!result->indent);
+	assert(tal_count(result->wrapping) == 0);
 	assert(tal_count(result->s) == strlen(result->s) + 1);
 	return result->s;
 }
