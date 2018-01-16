@@ -342,7 +342,7 @@ static const struct json_command getroute_command = {
 AUTODATA(json_command, &getroute_command);
 
 /* Called upon receiving a getchannels_reply from `gossipd` */
-static void json_getchannels_reply(struct subd *gossip, const u8 *reply,
+static void json_listchannels_reply(struct subd *gossip, const u8 *reply,
 				   const int *fds, struct command *cmd)
 {
 	size_t i;
@@ -383,16 +383,16 @@ static void json_getchannels_reply(struct subd *gossip, const u8 *reply,
 	command_success(cmd, response);
 }
 
-static void json_getchannels(struct command *cmd, const char *buffer,
+static void json_listchannels(struct command *cmd, const char *buffer,
 			     const jsmntok_t *params)
 {
 	u8 *req = towire_gossip_getchannels_request(cmd);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
-		 req, -1, 0, json_getchannels_reply, cmd);
+		 req, -1, 0, json_listchannels_reply, cmd);
 	command_still_pending(cmd);
 }
 
-static const struct json_command getchannels_command = {
-    "getchannels", json_getchannels, "List all known channels.",
+static const struct json_command listchannels_command = {
+    "listchannels", json_listchannels, "List all known channels.",
     "Returns a 'channels' array with all known channels including their fees."};
-AUTODATA(json_command, &getchannels_command);
+AUTODATA(json_command, &listchannels_command);

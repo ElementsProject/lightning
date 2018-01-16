@@ -1374,18 +1374,18 @@ class LightningDTests(BaseLightningDTests):
         assert not l1.daemon.is_in_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
 
         # Channels should be activated locally
-        wait_for(lambda: [c['active'] for c in l1.rpc.getchannels()['channels']] == [True])
+        wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True])
 
         # Make sure we can route through the channel, will raise on failure
         l1.rpc.getroute(l2.info['id'], 100, 1)
 
         # Outgoing should be active, but not public.
-        channels = l1.rpc.getchannels()['channels']
+        channels = l1.rpc.listchannels()['channels']
         assert len(channels) == 1
         assert channels[0]['active'] == True
         assert channels[0]['public'] == False
 
-        channels = l2.rpc.getchannels()['channels']
+        channels = l2.rpc.listchannels()['channels']
         assert len(channels) == 1
         assert channels[0]['active'] == True
         assert channels[0]['public'] == False
@@ -1431,10 +1431,10 @@ class LightningDTests(BaseLightningDTests):
             assert n2['alias'] == 'SILENTARTIST'
             assert n2['color'] == '022d22'
 
-        assert [c['active'] for c in l1.rpc.getchannels()['channels']] == [True, True]
-        assert [c['public'] for c in l1.rpc.getchannels()['channels']] == [True, True]
-        assert [c['active'] for c in l2.rpc.getchannels()['channels']] == [True, True]
-        assert [c['public'] for c in l2.rpc.getchannels()['channels']] == [True, True]
+        assert [c['active'] for c in l1.rpc.listchannels()['channels']] == [True, True]
+        assert [c['public'] for c in l1.rpc.listchannels()['channels']] == [True, True]
+        assert [c['active'] for c in l2.rpc.listchannels()['channels']] == [True, True]
+        assert [c['public'] for c in l2.rpc.listchannels()['channels']] == [True, True]
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_gossip_pruning(self):
@@ -1454,9 +1454,9 @@ class LightningDTests(BaseLightningDTests):
         l1.bitcoin.rpc.generate(6)
 
         # Channels should be activated locally
-        wait_for(lambda: [c['active'] for c in l1.rpc.getchannels()['channels']] == [True]*4)
-        wait_for(lambda: [c['active'] for c in l2.rpc.getchannels()['channels']] == [True]*4)
-        wait_for(lambda: [c['active'] for c in l3.rpc.getchannels()['channels']] == [True]*4)
+        wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True]*4)
+        wait_for(lambda: [c['active'] for c in l2.rpc.listchannels()['channels']] == [True]*4)
+        wait_for(lambda: [c['active'] for c in l3.rpc.listchannels()['channels']] == [True]*4)
 
         # All of them should send a keepalive message
         l1.daemon.wait_for_logs([
@@ -1484,8 +1484,8 @@ class LightningDTests(BaseLightningDTests):
             "Pruning channel {}/{} from network view".format(scid2, 1),
         ])
 
-        assert scid2 not in [c['short_channel_id'] for c in l1.rpc.getchannels()['channels']]
-        assert scid2 not in [c['short_channel_id'] for c in l2.rpc.getchannels()['channels']]
+        assert scid2 not in [c['short_channel_id'] for c in l1.rpc.listchannels()['channels']]
+        assert scid2 not in [c['short_channel_id'] for c in l2.rpc.listchannels()['channels']]
         assert l3.info['id'] not in [n['nodeid'] for n in l1.rpc.listnodes()['nodes']]
         assert l3.info['id'] not in [n['nodeid'] for n in l2.rpc.listnodes()['nodes']]
 
@@ -1540,7 +1540,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Settle the gossip
         for n in [l1, l2, l3]:
-            wait_for(lambda: len(n.rpc.getchannels()['channels']) == 4)
+            wait_for(lambda: len(n.rpc.listchannels()['channels']) == 4)
 
     def test_second_channel(self):
         l1 = self.node_factory.get_node()
@@ -1573,7 +1573,7 @@ class LightningDTests(BaseLightningDTests):
             start_time = time.time()
             # Wait at most 10 seconds, broadcast interval is 1 second
             while time.time() - start_time < 10:
-                channels = n.rpc.getchannels()['channels']
+                channels = n.rpc.listchannels()['channels']
                 if len(channels) == expected_connections:
                     break
                 else:
@@ -1590,7 +1590,7 @@ class LightningDTests(BaseLightningDTests):
 
         for n in nodes:
             seen = []
-            channels = n.rpc.getchannels()['channels']
+            channels = n.rpc.listchannels()['channels']
             for c in channels:
                 seen.append((c['source'],c['destination']))
             assert set(seen) == set(comb)
@@ -2795,7 +2795,7 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('Received node_announcement for node {}'.format(l1.info['id']))
 
         # Both directions should be active before the restart
-        wait_for(lambda: [c['active'] for c in l1.rpc.getchannels()['channels']] == [True, True])
+        wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True, True])
 
         # Restart l2, will cause l1 to reconnect
         l2.stop()
@@ -2804,7 +2804,7 @@ class LightningDTests(BaseLightningDTests):
         # Now they should sync and re-establish again
         l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l2.info['id']))
         l2.daemon.wait_for_log('Received node_announcement for node {}'.format(l1.info['id']))
-        wait_for(lambda: [c['active'] for c in l1.rpc.getchannels()['channels']] == [True, True])
+        wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True, True])
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_update_fee(self):
