@@ -385,8 +385,8 @@ class LightningDTests(BaseLightningDTests):
         assert ret['id'] == l1.info['id']
 
         # Should still only have one peer!
-        assert len(l1.rpc.getpeers()) == 1
-        assert len(l2.rpc.getpeers()) == 1
+        assert len(l1.rpc.listpeers()) == 1
+        assert len(l2.rpc.listpeers()) == 1
 
     def test_balance(self):
         l1,l2 = self.connect()
@@ -1979,8 +1979,8 @@ class LightningDTests(BaseLightningDTests):
                                    .format(l2.info['id']))
 
         # Should still only have one peer!
-        assert len(l1.rpc.getpeers()) == 1
-        assert len(l2.rpc.getpeers()) == 1
+        assert len(l1.rpc.listpeers()) == 1
+        assert len(l2.rpc.listpeers()) == 1
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_disconnect_funder(self):
@@ -2008,8 +2008,8 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.fundchannel(l2.info['id'], 20000)
 
         # Should still only have one peer!
-        assert len(l1.rpc.getpeers()) == 1
-        assert len(l2.rpc.getpeers()) == 1
+        assert len(l1.rpc.listpeers()) == 1
+        assert len(l2.rpc.listpeers()) == 1
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_disconnect_fundee(self):
@@ -2035,8 +2035,8 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.fundchannel(l2.info['id'], 20000)
 
         # Should still only have one peer!
-        assert len(l1.rpc.getpeers()) == 1
-        assert len(l2.rpc.getpeers()) == 1
+        assert len(l1.rpc.listpeers()) == 1
+        assert len(l2.rpc.listpeers()) == 1
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_disconnect_half_signed(self):
@@ -2460,8 +2460,8 @@ class LightningDTests(BaseLightningDTests):
         # Fail because l1 dislikes l2's huge locktime.
         self.assertRaisesRegex(ValueError, r'to_self_delay \d+ larger than \d+',
                                l1.rpc.fundchannel, l2.info['id'], int(funds/10))
-        assert l1.rpc.getpeers()['peers'][0]['connected']
-        assert l2.rpc.getpeers()['peers'][0]['connected']
+        assert l1.rpc.listpeers()['peers'][0]['connected']
+        assert l2.rpc.listpeers()['peers'][0]['connected']
 
         # Restart l2 without ridiculous locktime.
         l2.daemon.cmd_line.remove('--locktime-blocks={}'.format(max_locktime + 1))
@@ -2473,8 +2473,8 @@ class LightningDTests(BaseLightningDTests):
                                l1.rpc.fundchannel, l2.info['id'], funds)
 
         # Should still be connected.
-        assert l1.rpc.getpeers()['peers'][0]['connected']
-        assert l2.rpc.getpeers()['peers'][0]['connected']
+        assert l1.rpc.listpeers()['peers'][0]['connected']
+        assert l2.rpc.listpeers()['peers'][0]['connected']
 
         # This works.
         l1.rpc.fundchannel(l2.info['id'], int(funds/10))
@@ -2541,7 +2541,7 @@ class LightningDTests(BaseLightningDTests):
 
         self.fund_channel(l1, l2, 100000)
 
-        peers = l1.rpc.getpeers()['peers']
+        peers = l1.rpc.listpeers()['peers']
         assert(len(peers) == 1 and peers[0]['state'] == 'CHANNELD_NORMAL')
 
         # Both nodes should now have exactly one channel in the database
@@ -2562,28 +2562,28 @@ class LightningDTests(BaseLightningDTests):
         print(" ".join(l2.daemon.cmd_line + ['--dev-debugger=channeld']))
 
         # Wait for l1 to notice
-        wait_for(lambda: not l1.rpc.getpeers()['peers'][0]['connected'])
+        wait_for(lambda: not l1.rpc.listpeers()['peers'][0]['connected'])
 
         # Now restart l1 and it should reload peers/channels from the DB
         l2.daemon.start()
-        wait_for(lambda: len(l2.rpc.getpeers()['peers']) == 1)
+        wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 1)
 
         # Wait for the restored HTLC to finish
-        wait_for(lambda: l1.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 99990000, interval=1)
+        wait_for(lambda: l1.rpc.listpeers()['peers'][0]['msatoshi_to_us'] == 99990000, interval=1)
 
-        wait_for(lambda: len([p for p in l1.rpc.getpeers()['peers'] if p['connected']]), interval=1)
-        wait_for(lambda: len([p for p in l2.rpc.getpeers()['peers'] if p['connected']]), interval=1)
+        wait_for(lambda: len([p for p in l1.rpc.listpeers()['peers'] if p['connected']]), interval=1)
+        wait_for(lambda: len([p for p in l2.rpc.listpeers()['peers'] if p['connected']]), interval=1)
 
         # Now make sure this is really functional by sending a payment
         self.pay(l1, l2, 10000)
         time.sleep(1)
-        assert l1.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 99980000
-        assert l2.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 20000
+        assert l1.rpc.listpeers()['peers'][0]['msatoshi_to_us'] == 99980000
+        assert l2.rpc.listpeers()['peers'][0]['msatoshi_to_us'] == 20000
 
         # Finally restart l1, and make sure it remembers
         l1.stop()
         l1.daemon.start()
-        assert l1.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 99980000
+        assert l1.rpc.listpeers()['peers'][0]['msatoshi_to_us'] == 99980000
 
         # Now make sure l1 is watching for unilateral closes
         l2.rpc.dev_fail(l1.info['id']);
