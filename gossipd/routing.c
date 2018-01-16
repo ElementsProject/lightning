@@ -934,6 +934,8 @@ void handle_node_announcement(
 	node->last_timestamp = timestamp;
 
 	memcpy(node->rgb_color, rgb_color, 3);
+	tal_free(node->alias);
+	node->alias = tal_dup_arr(node, u8, alias, 32, 0);
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_pubkey(&tag, &node_id);
