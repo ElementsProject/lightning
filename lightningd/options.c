@@ -29,6 +29,8 @@
 #include <unistd.h>
 #include <wire/wire.h>
 
+bool deprecated_apis = true;
+
 /* Tal wrappers for opt. */
 static void *opt_allocfn(size_t size)
 {
@@ -269,6 +271,9 @@ static void config_register_opts(struct lightningd *ld)
 			       ld,
 			       "Select the network parameters (bitcoin, testnet,"
 			       " regtest, or litecoin)");
+	opt_register_arg("--deprecated-apis", opt_set_bool_arg, opt_show_bool,
+			 &deprecated_apis,
+			 "Enable deprecated options, JSONRPC commands, fields, etc.");
 }
 
 #if DEVELOPER

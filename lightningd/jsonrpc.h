@@ -53,6 +53,7 @@ struct json_command {
 			 const char *buffer, const jsmntok_t *params);
 	const char *description;
 	const char *help;
+	bool deprecated;
 };
 
 struct json_result *null_response(const tal_t *ctx);

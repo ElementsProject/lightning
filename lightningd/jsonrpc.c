@@ -16,6 +16,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/options.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -522,6 +523,13 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	if (!cmd) {
 		command_fail(jcon->current,
 			     "Unknown command '%.*s'",
+			     (int)(method->end - method->start),
+			     jcon->buffer + method->start);
+		return;
+	}
+	if (cmd->deprecated && !deprecated_apis) {
+		command_fail(jcon->current,
+			     "command '%.*s' is deprecated",
 			     (int)(method->end - method->start),
 			     jcon->buffer + method->start);
 		return;
