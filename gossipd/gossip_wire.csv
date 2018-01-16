@@ -135,6 +135,9 @@ gossip_resolve_channel_reply,,keys,num_keys*struct pubkey
 
 # The main daemon asks for peers
 gossip_getpeers_request,3011
+# 0 or 1
+gossip_getpeers_request,,num,u16
+gossip_getpeers_request,,id,num*struct pubkey
 
 gossip_getpeers_reply,3111
 gossip_getpeers_reply,,num,u16

@@ -1733,11 +1733,14 @@ static struct io_plan *get_peers(struct io_conn *conn,
 	size_t n = 0;
 	struct pubkey *id = tal_arr(conn, struct pubkey, n);
 	struct wireaddr *wireaddr = tal_arr(conn, struct wireaddr, n);
+	struct pubkey *specific_id = NULL;
 
-	if (!fromwire_gossip_getpeers_request(msg, NULL))
+	if (!fromwire_gossip_getpeers_request(msg, msg, NULL, &specific_id))
 		master_badmsg(WIRE_GOSSIPCTL_PEER_ADDRHINT, msg);
 
 	list_for_each(&daemon->peers, peer, list) {
+		if (specific_id && !pubkey_eq(specific_id, &peer->id))
+			continue;
 		tal_resize(&id, n+1);
 		tal_resize(&wireaddr, n+1);
 
