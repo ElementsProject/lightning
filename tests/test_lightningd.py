@@ -678,7 +678,7 @@ class LightningDTests(BaseLightningDTests):
         assert p2['msatoshi_total'] == 10**6 * 1000
 
         # This works.
-        l1.rpc.sendpay(to_json([routestep]), rhash)
+        preimage2 = l1.rpc.sendpay(to_json([routestep]), rhash)
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
         assert l2.rpc.listinvoice('testpayment2')[0]['pay_index'] == 1
         assert l2.rpc.listinvoice('testpayment2')[0]['msatoshi_received'] == rs['msatoshi']
@@ -694,7 +694,8 @@ class LightningDTests(BaseLightningDTests):
 
         # Repeat will "succeed", but won't actually send anything (duplicate)
         assert not l1.daemon.is_in_log('... succeeded')
-        l1.rpc.sendpay(to_json([routestep]), rhash)
+        preimage = l1.rpc.sendpay(to_json([routestep]), rhash)
+        assert preimage == preimage2
         l1.daemon.wait_for_log('... succeeded')
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
         assert l2.rpc.listinvoice('testpayment2')[0]['msatoshi_received'] == rs['msatoshi']
@@ -703,9 +704,16 @@ class LightningDTests(BaseLightningDTests):
         rhash = l2.rpc.invoice(amt, 'testpayment3', 'desc')['payment_hash']
         assert l2.rpc.listinvoice('testpayment3')[0]['complete'] == False
         routestep = { 'msatoshi' : amt * 2, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'}
-        l1.rpc.sendpay(to_json([routestep]), rhash)
+        preimage3 = l1.rpc.sendpay(to_json([routestep]), rhash)
         assert l2.rpc.listinvoice('testpayment3')[0]['complete'] == True
         assert l2.rpc.listinvoice('testpayment3')[0]['msatoshi_received'] == amt*2
+        # Test listpayments
+        assert len(l1.rpc.listpayments()) == 2
+        assert len(l1.rpc.listpayments(None, l2.rpc.listinvoice('testpayment2')[0]['payment_hash'])) == 1
+        assert l1.rpc.listpayments(None, l2.rpc.listinvoice('testpayment2')[0]['payment_hash'])[0]['status'] == 'complete'
+        assert l1.rpc.listpayments(None, l2.rpc.listinvoice('testpayment2')[0]['payment_hash'])[0]['payment_preimage'] == preimage2['preimage']
+        assert l1.rpc.listpayments(None, l2.rpc.listinvoice('testpayment3')[0]['payment_hash'])[0]['status'] == 'complete'
+        assert l1.rpc.listpayments(None, l2.rpc.listinvoice('testpayment3')[0]['payment_hash'])[0]['payment_preimage'] == preimage3['preimage']
 
     def test_sendpay_cant_afford(self):
         l1,l2 = self.connect()
@@ -744,7 +752,7 @@ class LightningDTests(BaseLightningDTests):
 
         inv = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
         before = int(time.time())
-        l1.rpc.pay(inv)
+        preimage = l1.rpc.pay(inv)
         after = int(time.time())
         invoice = l2.rpc.listinvoice('test_pay')[0]
         assert invoice['complete'] == True
@@ -764,11 +772,18 @@ class LightningDTests(BaseLightningDTests):
         # Check payment of any-amount invoice.
         for i in range(5):
             label = "any{}".format(i)
-            inv = l2.rpc.invoice("any", label, 'description')['bolt11']
+            inv2 = l2.rpc.invoice("any", label, 'description')['bolt11']
             # Must provide an amount!
-            self.assertRaises(ValueError, l1.rpc.pay, inv)
-            self.assertRaises(ValueError, l1.rpc.pay, inv, None)
-            l1.rpc.pay(inv, random.randint(1000, 999999))
+            self.assertRaises(ValueError, l1.rpc.pay, inv2)
+            self.assertRaises(ValueError, l1.rpc.pay, inv2, None)
+            l1.rpc.pay(inv2, random.randint(1000, 999999))
+
+        # Should see 6 completed payments
+        assert len(l1.rpc.listpayments()) == 6
+
+        # Test listpayments indexed by bolt11.
+        assert len(l1.rpc.listpayments(inv)) == 1
+        assert l1.rpc.listpayments(inv)[0]['payment_preimage'] == preimage['preimage']
 
     def test_bad_opening(self):
         # l1 asks for a too-long locktime
@@ -1785,7 +1800,7 @@ class LightningDTests(BaseLightningDTests):
             assert c[1]['short_channel_id'] == scid
             assert c[0]['source'] == c[1]['destination']
             assert c[1]['source'] == c[0]['destination']
-        
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_forward_pad_fees_and_cltv(self):
         """Test that we are allowed extra locktime delta, and fees"""
@@ -2602,7 +2617,7 @@ class LightningDTests(BaseLightningDTests):
 
         # FIXME: We should re-add pre-announced routes on startup!
         self.wait_for_routes(l1, [chanid])
-        
+
         # A duplicate should succeed immediately (nop) and return correct preimage.
         preimage = l1.rpc.pay(inv1['bolt11'])['preimage']
         assert l1.rpc.dev_rhash(preimage)['rhash'] == inv1['payment_hash']
@@ -2646,7 +2661,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Another attempt should also fail.
         self.assertRaises(ValueError, l1.rpc.pay, inv1['bolt11'])
-        
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_payment_duplicate_uncommitted(self):
         # We want to test two payments at the same time, before we send commit

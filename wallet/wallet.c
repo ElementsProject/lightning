@@ -1431,8 +1431,10 @@ void wallet_payment_set_status(struct wallet *wallet,
 	}
 }
 
-const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
-						  struct wallet *wallet)
+const struct wallet_payment **
+wallet_payment_list(const tal_t *ctx,
+		    struct wallet *wallet,
+		    const struct sha256 *payment_hash)
 {
 	const struct wallet_payment **payments;
 	sqlite3_stmt *stmt;
@@ -1440,12 +1442,23 @@ const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
 	size_t i;
 
 	payments = tal_arr(ctx, const struct wallet_payment *, 0);
-	stmt = db_prepare(
-		wallet->db,
-		"SELECT id, status, destination, "
-		"msatoshi, payment_hash, timestamp, payment_preimage, "
-		"path_secrets "
-		"FROM payments;");
+	if (payment_hash) {
+		stmt = db_prepare(
+			wallet->db,
+			"SELECT id, status, destination, "
+			"msatoshi, payment_hash, timestamp, payment_preimage, "
+			"path_secrets "
+			"FROM payments "
+			"WHERE payment_hash = ?;");
+		sqlite3_bind_sha256(stmt, 1, payment_hash);
+	} else {
+		stmt = db_prepare(
+			wallet->db,
+			"SELECT id, status, destination, "
+			"msatoshi, payment_hash, timestamp, payment_preimage, "
+			"path_secrets "
+			"FROM payments;");
+	}
 
 	for (i = 0; sqlite3_step(stmt) == SQLITE_ROW; i++) {
 		tal_resize(&payments, i+1);
@@ -1456,6 +1469,8 @@ const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
 
 	/* Now attach payments not yet in db. */
 	list_for_each(&wallet->unstored_payments, p, list) {
+		if (payment_hash && !structeq(&p->payment_hash, payment_hash))
+			continue;
 		tal_resize(&payments, i+1);
 		payments[i++] = p;
 	}

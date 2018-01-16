@@ -592,8 +592,11 @@ struct secret *wallet_payment_get_secrets(const tal_t *ctx,
 
 /**
  * wallet_payment_list - Retrieve a list of payments
+ *
+ * payment_hash: optional filter for only this payment hash.
  */
 const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
-						    struct wallet *wallet);
+						  struct wallet *wallet,
+						  const struct sha256 *payment_hash);
 
 #endif /* WALLET_WALLET_H */

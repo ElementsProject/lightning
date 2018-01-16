@@ -441,8 +441,49 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 {
 	const struct wallet_payment **payments;
 	struct json_result *response = new_json_result(cmd);
+	jsmntok_t *bolt11tok, *rhashtok;
+	struct sha256 *rhash = NULL;
 
-	payments = wallet_payment_list(cmd, cmd->ld->wallet);
+	if (!json_get_params(buffer, params,
+			     "?bolt11", &bolt11tok,
+			     "?payment_hash", &rhashtok,
+			     NULL)) {
+		command_fail(cmd, "Invalid parameters");
+		return;
+	}
+
+	if (bolt11tok) {
+		struct bolt11 *b11;
+		char *b11str, *fail;
+
+		if (rhashtok) {
+			command_fail(cmd, "Can only specify one of"
+				     " {bolt11} or {payment_hash}");
+			return;
+		}
+
+		b11str = tal_strndup(cmd, buffer + bolt11tok->start,
+				     bolt11tok->end - bolt11tok->start);
+
+		b11 = bolt11_decode(cmd, b11str, NULL, &fail);
+		if (!b11) {
+			command_fail(cmd, "Invalid bolt11: %s", fail);
+			return;
+		}
+		rhash = &b11->payment_hash;
+	} else if (rhashtok) {
+		rhash = tal(cmd, struct sha256);
+		if (!hex_decode(buffer + rhashtok->start,
+				rhashtok->end - rhashtok->start,
+				rhash, sizeof(*rhash))) {
+			command_fail(cmd, "'%.*s' is not a valid sha256 hash",
+				     (int)(rhashtok->end - rhashtok->start),
+				     buffer + rhashtok->start);
+			return;
+		}
+	}
+
+	payments = wallet_payment_list(cmd, cmd->ld->wallet, rhash);
 
 	json_array_start(response, NULL);
 	for (int i=0; i<tal_count(payments); i++) {
@@ -479,7 +520,7 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 static const struct json_command listpayments_command = {
 	"listpayments",
 	json_listpayments,
-	"Get a list of incoming and outgoing payments",
-	"Returns a list of payments with {payment_hash}, {destination}, {msatoshi}, {timestamp} and {status}"
+	"Get a list of outgoing payments",
+	"Returns a list of payments with {payment_hash}, {destination}, {msatoshi}, {timestamp} and {status} (and {payment_preimage} if {status} is 'complete')"
 };
 AUTODATA(json_command, &listpayments_command);
