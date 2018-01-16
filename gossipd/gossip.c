@@ -1101,7 +1101,15 @@ static void append_node(struct gossip_getnodes_entry **nodes,
 	size_t num_nodes = tal_count(*nodes);
 	tal_resize(nodes, num_nodes + 1);
 	(*nodes)[num_nodes].nodeid = n->id;
+	(*nodes)[num_nodes].last_timestamp = n->last_timestamp;
+	if (n->last_timestamp < 0) {
+		(*nodes)[num_nodes].addresses = NULL;
+		return;
+	}
+
 	(*nodes)[num_nodes].addresses = n->addresses;
+	(*nodes)[num_nodes].alias = n->alias;
+	memcpy((*nodes)[num_nodes].color, n->rgb_color, 3);
 }
 
 static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
