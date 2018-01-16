@@ -1501,15 +1501,11 @@ void notify_feerate_change(struct lightningd *ld)
 		if (!peer->owner)
 			continue;
 
-		/* FIXME: low bound is probably too low. */
 		msg = towire_channel_feerates(peer,
 					      get_feerate(ld->topology,
 							  FEERATE_IMMEDIATE),
-					      get_feerate(ld->topology,
-							  FEERATE_NORMAL) / 2,
-					      get_feerate(ld->topology,
-							  FEERATE_IMMEDIATE)
-					      * 5);
+					      feerate_min(ld),
+					      feerate_max(ld));
 		subd_send_msg(peer->owner, take(msg));
 	}
 }

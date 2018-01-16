@@ -204,6 +204,9 @@ static char *opt_set_fee_rates(const char *arg, struct chain_topology *topo)
 
 static void config_register_opts(struct lightningd *ld)
 {
+	opt_register_arg("--ignore-fee-limits", opt_set_bool_arg, opt_show_bool,
+			 &ld->config.ignore_fee_limits,
+			 "(DANGEROUS) allow peer to set any feerate");
 	opt_register_arg("--locktime-blocks", opt_set_u32, opt_show_u32,
 			 &ld->config.locktime_blocks,
 			 "Blocks before peer can unilaterally spend funds");
@@ -346,6 +349,9 @@ static const struct config testnet_config = {
 
 	/* Send a keepalive update at least every week, prune every twice that */
 	.channel_update_interval = 1209600/2,
+
+	/* Testnet sucks */
+	.ignore_fee_limits = true,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -407,6 +413,9 @@ static const struct config mainnet_config = {
 
 	/* Send a keepalive update at least every week, prune every twice that */
 	.channel_update_interval = 1209600/2,
+
+	/* Mainnet should have more stable fees */
+	.ignore_fee_limits = false,
 };
 
 static void check_config(struct lightningd *ld)

@@ -220,4 +220,9 @@ void setup_listeners(struct lightningd *ld);
 void activate_peers(struct lightningd *ld);
 
 void free_htlcs(struct lightningd *ld, const struct peer *peer);
+
+/* Get range of feerates to insist other side abide by for normal channels. */
+u32 feerate_min(struct lightningd *ld);
+u32 feerate_max(struct lightningd *ld);
+
 #endif /* LIGHTNING_LIGHTNINGD_PEER_CONTROL_H */
