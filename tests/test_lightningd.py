@@ -2056,7 +2056,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Fundee remembers, funder doesn't.
         assert l1.rpc.getpeer(l2.info['id']) == None
-        assert l2.rpc.getpeer(l1.info['id'])['peerid'] == l1.info['id']
+        assert l2.rpc.getpeer(l1.info['id'])['id'] == l1.info['id']
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_reconnect_signed(self):
@@ -2074,8 +2074,8 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.fundchannel(l2.info['id'], 20000)
 
         # They haven't forgotten each other.
-        assert l1.rpc.getpeer(l2.info['id'])['peerid'] == l2.info['id']
-        assert l2.rpc.getpeer(l1.info['id'])['peerid'] == l1.info['id']
+        assert l1.rpc.getpeer(l2.info['id'])['id'] == l2.info['id']
+        assert l2.rpc.getpeer(l1.info['id'])['id'] == l1.info['id']
 
         # Technically, this is async to fundchannel (and could reconnect first)
         l1.daemon.wait_for_logs(['sendrawtx exit 0',

@@ -824,7 +824,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 					type_to_string(response, struct wireaddr,
 						       &p->addr));
 		json_array_end(response);
-		json_add_pubkey(response, "peerid", &p->id);
+		json_add_pubkey(response, "id", &p->id);
 		json_add_bool(response, "connected", p->owner != NULL);
 		if (p->owner)
 			json_add_string(response, "owner", p->owner->name);
@@ -857,7 +857,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 		json_object_start(response, NULL);
 		/* Fake state. */
 		json_add_string(response, "state", "GOSSIPING");
-		json_add_pubkey(response, "peerid", ids+i);
+		json_add_pubkey(response, "id", ids+i);
 		json_array_start(response, "netaddr");
 		if (addrs[i].type != ADDR_TYPE_PADDING)
 			json_add_string(response, NULL,
