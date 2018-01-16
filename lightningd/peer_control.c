@@ -790,6 +790,8 @@ struct getpeers_args {
 	struct command *cmd;
 	/* If non-NULL, they want logs too */
 	enum log_level *ll;
+	/* If set, only report on a specific id. */
+	struct pubkey *specific_id;
 };
 
 static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
@@ -811,6 +813,9 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 	json_object_start(response, NULL);
 	json_array_start(response, "peers");
 	list_for_each(&gpa->cmd->ld->peers, p, list) {
+		if (gpa->specific_id && !pubkey_eq(gpa->specific_id, &p->id))
+			continue;
+
 		json_object_start(response, NULL);
 		json_add_string(response, "state", peer_state_name(p->state));
 		json_array_start(response, "netaddr");
@@ -874,13 +879,27 @@ static void json_listpeers(struct command *cmd,
 {
 	jsmntok_t *leveltok;
 	struct getpeers_args *gpa = tal(cmd, struct getpeers_args);
+	jsmntok_t *idtok;
 
 	gpa->cmd = cmd;
-	if (!json_get_params(buffer, params, "?level", &leveltok, NULL)) {
+	gpa->specific_id = NULL;
+	if (!json_get_params(buffer, params,
+			     "?id", &idtok,
+			     "?level", &leveltok,
+			     NULL)) {
 		command_fail(cmd, "Invalid arguments");
 		return;
 	}
 
+	if (idtok) {
+		gpa->specific_id = tal_arr(cmd, struct pubkey, 1);
+		if (!json_tok_pubkey(buffer, idtok, gpa->specific_id)) {
+			command_fail(cmd, "id %.*s not valid",
+				     idtok->end - idtok->start,
+				     buffer + idtok->start);
+			return;
+		}
+	}
 	if (leveltok) {
 		gpa->ll = tal(gpa, enum log_level);
 		if (json_tok_streq(buffer, leveltok, "debug"))
@@ -900,7 +919,7 @@ static void json_listpeers(struct command *cmd,
 
 	/* Get peers from gossipd. */
 	subd_req(cmd, cmd->ld->gossip,
-		 take(towire_gossip_getpeers_request(cmd)),
+		 take(towire_gossip_getpeers_request(cmd, gpa->specific_id)),
 		 -1, 0, gossipd_getpeers_complete, gpa);
 	command_still_pending(cmd);
 }

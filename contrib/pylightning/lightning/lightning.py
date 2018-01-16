@@ -79,13 +79,12 @@ class LightningRpc(UnixDomainSocketRpc):
         """Get info about a specific peer, optionally with its log.
         """
         if log_level:
-            peers = self.listpeers(log_level)['peers']
+            peers = self.listpeers(peer_id, log_level)['peers']
         else:
-            peers = self.listpeers()['peers']
-        for p in peers:
-            if p['peerid'] == peer_id:
-                return p
-        return None
+            peers = self.listpeers(peer_id)['peers']
+        if len(peers) == 0:
+            return None
+        return peers[0]
 
     def getlog(self, level=None):
         args = []
