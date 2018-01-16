@@ -177,6 +177,12 @@ char *dbmigrations[] = {
     "ALTER TABLE payments ADD COLUMN payment_preimage BLOB;",
     /* We need to keep the shared secrets to decode error returns. */
     "ALTER TABLE payments ADD COLUMN path_secrets BLOB;",
+    /* Create time-of-payment of invoice, default already-paid
+     * invoices to current time. */
+    "ALTER TABLE invoices ADD paid_timestamp INTEGER;",
+    "UPDATE invoices"
+    "   SET paid_timestamp = strftime('%s', 'now')"
+    " WHERE state = 1;",
     NULL,
 };
 
