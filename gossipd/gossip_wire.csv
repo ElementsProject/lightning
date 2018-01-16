@@ -105,6 +105,9 @@ gossip_getroute_reply,,num_hops,u16
 gossip_getroute_reply,,hops,num_hops*struct route_hop
 
 gossip_getchannels_request,3007
+# In practice, 0 or 1.
+gossip_getchannels_request,,num,u16
+gossip_getchannels_request,,short_channel_id,num*struct short_channel_id
 
 gossip_getchannels_reply,3107
 gossip_getchannels_reply,,num_channels,u16

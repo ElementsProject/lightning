@@ -1066,11 +1066,19 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 	struct gossip_getchannels_entry *entries;
 	struct node *n;
 	struct node_map_iter i;
+	struct short_channel_id *scid;
+
+	fromwire_gossip_getchannels_request(msg, msg, NULL, &scid);
 
 	entries = tal_arr(tmpctx, struct gossip_getchannels_entry, num_chans);
 	n = node_map_first(daemon->rstate->nodes, &i);
 	while (n != NULL) {
 		for (j=0; j<tal_count(n->out); j++){
+			if (scid &&
+			    !short_channel_id_eq(scid,
+						 &n->out[j]->short_channel_id)) {
+				continue;
+			}
 			tal_resize(&entries, num_chans + 1);
 			entries[num_chans].source = n->out[j]->src->id;
 			entries[num_chans].destination = n->out[j]->dst->id;

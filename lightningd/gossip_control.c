@@ -386,7 +386,26 @@ static void json_listchannels_reply(struct subd *gossip, const u8 *reply,
 static void json_listchannels(struct command *cmd, const char *buffer,
 			     const jsmntok_t *params)
 {
-	u8 *req = towire_gossip_getchannels_request(cmd);
+	u8 *req;
+	jsmntok_t *idtok;
+	struct short_channel_id *id = NULL;
+
+	if (!json_get_params(buffer, params,
+			     "?short_channel_id", &idtok,
+			     NULL)) {
+		command_fail(cmd, "Invalid arguments");
+		return;
+	}
+
+	if (idtok) {
+		id = tal_arr(cmd, struct short_channel_id, 1);
+		if (!json_tok_short_channel_id(buffer, idtok, id)) {
+			command_fail(cmd, "Invalid short_channel_id");
+			return;
+		}
+	}
+
+	req = towire_gossip_getchannels_request(cmd, id);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
 		 req, -1, 0, json_listchannels_reply, cmd);
 	command_still_pending(cmd);
