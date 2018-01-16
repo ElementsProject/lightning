@@ -53,7 +53,7 @@ static const struct json_command help_command = {
 	"help",
 	json_help,
 	"List available commands",
-	"Returns an array of available commands",
+	"Returns an array {help} of available commands",
 };
 AUTODATA(json_command, &help_command);
 
@@ -295,7 +295,8 @@ static void json_help(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 	struct json_command **cmdlist = get_cmdlist();
 
-	json_array_start(response, NULL);
+	json_object_start(response, NULL);
+	json_array_start(response, "help");
 	for (i = 0; i < num_cmdlist; i++) {
 		json_add_object(response,
 				"command", JSMN_STRING,
@@ -305,6 +306,7 @@ static void json_help(struct command *cmd,
 				NULL);
 	}
 	json_array_end(response);
+	json_object_end(response);
 	command_success(cmd, response);
 }
 
