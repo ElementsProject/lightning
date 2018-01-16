@@ -2,12 +2,12 @@
 .\"     Title: lightning-getroute
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 01/13/2018
+.\"      Date: 01/16/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-GETROUTE" "7" "01/13/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-GETROUTE" "7" "01/16/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,10 +31,10 @@
 lightning-getroute \- Protocol for routing a payment (low\-level)\&.
 .SH "SYNOPSIS"
 .sp
-\fBgetroute\fR \fIid\fR \fImsatoshi\fR \fIriskfactor\fR
+\fBgetroute\fR \fIid\fR \fImsatoshi\fR \fIriskfactor\fR [\fIcltv\fR]
 .SH "DESCRIPTION"
 .sp
-The \fBgetroute\fR RPC command attempts to find the best route for the payment of \fImsatoshi\fR to lightning node \fIid\fR\&.
+The \fBgetroute\fR RPC command attempts to find the best route for the payment of \fImsatoshi\fR to lightning node \fIid\fR, such that the payment will arrive at \fIid\fR with \fIcltv\fR\-blocks to spare (default 9)\&.
 .sp
 There are two considerations for how good a route is: how low the fees are, and how long your payment will get stuck if a node goes down during the process\&. The \fIriskfactor\fR floating\-point field controls this tradeoff; it is the annual cost of your funds being stuck (as a percentage), multiplied by the percentage chance of each node failing\&.
 .sp

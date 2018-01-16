@@ -9,12 +9,13 @@ lightning-getroute - Protocol for routing a payment (low-level).
 
 SYNOPSIS
 --------
-*getroute* 'id' 'msatoshi' 'riskfactor'
+*getroute* 'id' 'msatoshi' 'riskfactor' ['cltv']
 
 DESCRIPTION
 -----------
 The *getroute* RPC command attempts to find the best route for the payment
-of 'msatoshi' to lightning node 'id'.
+of 'msatoshi' to lightning node 'id', such that the payment will arrive
+at 'id' with 'cltv'-blocks to spare (default 9).
 
 There are two considerations for how good a route is: how low the
 fees are, and how long your payment will get stuck if a node goes down
