@@ -485,7 +485,8 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 
 	payments = wallet_payment_list(cmd, cmd->ld->wallet, rhash);
 
-	json_array_start(response, NULL);
+	json_object_start(response, NULL);
+	json_array_start(response, "payments");
 	for (int i=0; i<tal_count(payments); i++) {
 		const struct wallet_payment *t = payments[i];
 		json_object_start(response, NULL);
@@ -514,6 +515,7 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 		json_object_end(response);
 	}
 	json_array_end(response);
+	json_object_end(response);
 	command_success(cmd, response);
 }
 
