@@ -538,7 +538,7 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 		announce_channel(peer);
 }
 
-static void get_shared_secret(const struct htlc *htlc,
+static bool get_shared_secret(const struct htlc *htlc,
 			      struct secret *shared_secret)
 {
 	tal_t *tmpctx = tal_tmpctx(htlc);
@@ -552,7 +552,7 @@ static void get_shared_secret(const struct htlc *htlc,
 		/* Return an invalid shared secret. */
 		memset(shared_secret, 0, sizeof(*shared_secret));
 		tal_free(tmpctx);
-		return;
+		return false;
 	}
 
 	/* Because wire takes struct pubkey. */
@@ -565,6 +565,8 @@ static void get_shared_secret(const struct htlc *htlc,
 	if (!msg || !fromwire_hsm_ecdh_resp(msg, NULL, shared_secret))
 		status_failed(STATUS_FAIL_HSM_IO, "Reading ecdh response");
 	tal_free(tmpctx);
+
+	return !memeqzero(shared_secret, sizeof(*shared_secret));
 }
 
 static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
@@ -2388,6 +2390,23 @@ static void req_in(struct peer *peer, const u8 *msg)
 	master_badmsg(-1, msg);
 }
 
+static void init_shared_secrets(struct channel *channel,
+				const struct added_htlc *htlcs,
+				const enum htlc_state *hstates)
+{
+	for (size_t i = 0; i < tal_count(htlcs); i++) {
+		struct htlc *htlc;
+
+		/* We only derive this for HTLCs *they* added. */
+		if (htlc_state_owner(hstates[i]) != REMOTE)
+			continue;
+
+		htlc = channel_get_htlc(channel, REMOTE, htlcs[i].id);
+		htlc->shared_secret = tal(htlc, struct secret);
+		get_shared_secret(htlc, htlc->shared_secret);
+	}
+}
+
 /* We do this synchronously. */
 static void init_channel(struct peer *peer)
 {
@@ -2505,6 +2524,10 @@ static void init_channel(struct peer *peer)
 				 failed, failed_sides))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not restore HTLCs");
+
+	/* We derive shared secrets for each remote HTLC, so we can
+	 * create error packet if necessary. */
+	init_shared_secrets(peer->channel, htlcs, hstates);
 
 	peer->channel_direction = get_channel_direction(
 	    &peer->node_ids[LOCAL], &peer->node_ids[REMOTE]);
