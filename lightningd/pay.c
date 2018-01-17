@@ -17,18 +17,6 @@
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 
-/* Outstanding "pay" commands. */
-struct pay_command {
-	struct list_node list;
-	struct sha256 rhash;
-	u64 msatoshi;
-	const struct pubkey *ids;
-	/* Set if this is in progress. */
-	struct htlc_out *out;
-	/* Preimage if this succeeded. */
-	const struct preimage *rval;
-};
-
 static void json_pay_success(struct command *cmd, const struct preimage *rval)
 {
 	struct json_result *response;
@@ -60,21 +48,17 @@ static void json_pay_failed(struct command *cmd,
 void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 		       const struct preimage *rval)
 {
-	assert(!hout->pay_command->rval);
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 				  PAYMENT_COMPLETE, rval);
-	hout->pay_command->rval = tal_dup(hout->pay_command,
-					  struct preimage, rval);
 	/* Can be NULL if JSON RPC goes away. */
 	if (hout->cmd)
 		json_pay_success(hout->cmd, rval);
-	hout->pay_command->out = NULL;
+	hout->cmd = NULL;
 }
 
 void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		    const char *localfail)
 {
-	struct pay_command *pc = hout->pay_command;
 	struct onionreply *reply;
 	enum onion_type failcode;
 	struct secret *path_secrets;
@@ -82,7 +66,6 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 				  PAYMENT_FAILED, NULL);
-	pc->out = NULL;
 
 	/* This gives more details than a generic failure message */
 	if (localfail) {
@@ -95,7 +78,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	assert(!hout->failcode);
 	path_secrets = wallet_payment_get_secrets(tmpctx, ld->wallet,
 						  &hout->payment_hash);
-	reply = unwrap_onionreply(pc, path_secrets, tal_count(path_secrets),
+	reply = unwrap_onionreply(tmpctx, path_secrets, tal_count(path_secrets),
 				  hout->failuremsg);
 	if (!reply) {
 		log_info(hout->key.peer->log,
@@ -128,29 +111,11 @@ static void remove_cmd_from_hout(struct command *cmd, struct htlc_out *hout)
 	hout->cmd = NULL;
 }
 
-static struct pay_command *find_pay_command(struct lightningd *ld,
-					    const struct sha256 *rhash)
-{
-	struct pay_command *pc;
-
-	list_for_each(&ld->pay_commands, pc, list) {
-		if (structeq(rhash, &pc->rhash))
-			return pc;
-	}
-	return NULL;
-}
-
-static void pay_command_destroyed(struct pay_command *pc)
-{
-	list_del(&pc->list);
-}
-
 /* Returns true if it's still pending. */
 static bool send_payment(struct command *cmd,
 			 const struct sha256 *rhash,
 			 const struct route_hop *route)
 {
-	struct pay_command *pc;
 	struct peer *peer;
 	const u8 *onion;
 	u8 sessionkey[32];
@@ -164,6 +129,7 @@ static bool send_payment(struct command *cmd,
 	struct hop_data *hop_data = tal_arr(tmpctx, struct hop_data, n_hops);
 	struct pubkey *ids = tal_arr(tmpctx, struct pubkey, n_hops);
 	struct wallet_payment *payment = NULL;
+	struct htlc_out *hout;
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
 	base_expiry = get_block_height(cmd->ld->topology) + 1;
@@ -187,37 +153,35 @@ static bool send_payment(struct command *cmd,
 	memset(&hop_data[i].channel_id, 0, sizeof(struct short_channel_id));
 	hop_data[i].amt_forward = route[i].amount;
 
-	pc = find_pay_command(cmd->ld, rhash);
-	if (pc) {
+	/* Now, do we already have a payment? */
+	payment = wallet_payment_by_hash(tmpctx, cmd->ld->wallet, rhash);
+	if (payment) {
 		log_debug(cmd->ld->log, "json_sendpay: found previous");
-		if (pc->out) {
+		if (payment->status == PAYMENT_PENDING) {
 			log_add(cmd->ld->log, "... still in progress");
 			command_fail(cmd, "still in progress");
 			return false;
 		}
-		if (pc->rval) {
-			size_t old_nhops = tal_count(pc->ids);
+		if (payment->status == PAYMENT_COMPLETE) {
 			log_add(cmd->ld->log, "... succeeded");
 			/* Must match successful payment parameters. */
-			if (pc->msatoshi != hop_data[n_hops-1].amt_forward) {
+			if (payment->msatoshi != hop_data[n_hops-1].amt_forward) {
 				command_fail(cmd,
 					     "already succeeded with amount %"
-					     PRIu64, pc->msatoshi);
+					     PRIu64, payment->msatoshi);
 				return false;
 			}
-			if (!structeq(&pc->ids[old_nhops-1], &ids[n_hops-1])) {
-				char *previd;
-				previd = pubkey_to_hexstr(cmd,
-							  &pc->ids[old_nhops-1]);
+			if (!structeq(&payment->destination, &ids[n_hops-1])) {
 				command_fail(cmd,
 					     "already succeeded to %s",
-					     previd);
+					     type_to_string(cmd, struct pubkey,
+							    &payment->destination));
 				return false;
 			}
-			json_pay_success(cmd, pc->rval);
+			json_pay_success(cmd, payment->payment_preimage);
 			return false;
 		}
-		/* FIXME: We can free failed ones... */
+		wallet_payment_delete(cmd->ld->wallet, rhash);
 		log_add(cmd->ld->log, "... retrying");
 	}
 
@@ -234,41 +198,25 @@ static bool send_payment(struct command *cmd,
 				    sizeof(struct sha256), &path_secrets);
 	onion = serialize_onionpacket(cmd, packet);
 
-	if (pc) {
-		pc->ids = tal_free(pc->ids);
-	} else {
-		pc = tal(cmd->ld, struct pay_command);
-		list_add_tail(&cmd->ld->pay_commands, &pc->list);
-		tal_add_destructor(pc, pay_command_destroyed);
+	/* We write this into db when HTLC is actually sent. */
+	payment = tal(tmpctx, struct wallet_payment);
+	payment->id = 0;
+	payment->payment_hash = *rhash;
+	payment->destination = ids[n_hops - 1];
+	payment->status = PAYMENT_PENDING;
+	payment->msatoshi = route[n_hops-1].amount;
+	payment->timestamp = time_now().ts.tv_sec;
+	payment->payment_preimage = NULL;
+	payment->path_secrets = tal_steal(payment, path_secrets);
 
-		payment = tal(tmpctx, struct wallet_payment);
-		payment->id = 0;
-		payment->payment_hash = *rhash;
-		payment->destination = ids[n_hops - 1];
-		payment->status = PAYMENT_PENDING;
-		payment->msatoshi = route[n_hops-1].amount;
-		payment->timestamp = time_now().ts.tv_sec;
-		payment->payment_preimage = NULL;
-		payment->path_secrets = tal_steal(payment, path_secrets);
-	}
-	pc->rhash = *rhash;
-	pc->rval = NULL;
-	pc->ids = tal_steal(pc, ids);
-	pc->msatoshi = route[n_hops-1].amount;
-	pc->out = NULL;
+	log_info(cmd->ld->log, "Sending %u over %zu hops to deliver %u",
+		 route[0].amount, n_hops, route[n_hops-1].amount);
 
-	log_info(cmd->ld->log, "Sending %u over %zu hops to deliver %"PRIu64,
-		 route[0].amount, n_hops, pc->msatoshi);
-
-	/* They're both children of ld, but on shutdown make sure we
-	 * destroy the command before the pc, otherwise the
-	 * remove_cmd_from_pc destructor causes a use-after-free */
-	tal_steal(pc, cmd);
-
+	/* Steals payment into hout */
 	failcode = send_htlc_out(peer, route[0].amount,
 				 base_expiry + route[0].delay,
-				 rhash, onion, NULL, payment, pc, cmd,
-				 &pc->out);
+				 rhash, onion, NULL, payment, cmd,
+				 &hout);
 	if (failcode) {
 		command_fail(cmd, "first peer not ready: %s",
 			     onion_type_name(failcode));
@@ -276,7 +224,7 @@ static bool send_payment(struct command *cmd,
 	}
 
 	/* If we fail, remove cmd ptr from htlc_out. */
-	tal_add_destructor2(cmd, remove_cmd_from_hout, pc->out);
+	tal_add_destructor2(cmd, remove_cmd_from_hout, hout);
 
 	tal_free(tmpctx);
 	return true;

@@ -79,9 +79,6 @@ struct htlc_out {
 	/* Otherwise, this MAY be non-null if there's a pay command waiting */
 	struct command *cmd;
 
-	/* Otherwise, payment command which created it. */
-	struct pay_command *pay_command;
-
 	/* Temporary payment store, so we can save everything in one go */
 	struct wallet_payment *payment;
 };
@@ -139,7 +136,6 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
 			      struct htlc_in *in,
-			      struct pay_command *pc,
 			      struct wallet_payment *payment,
 			      struct command *cmd);
 
