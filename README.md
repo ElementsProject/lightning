@@ -108,7 +108,7 @@ The recipient creates an invoice with the expected `<amount>` in millisatoshi (o
 cli/lightning-cli invoice <amount> <label> <description>
 ```
 
-This returns some internal details, and a standard invoice string called `bolt11` (named after the [BOLT #11 lightning spec](https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md).
+This returns some internal details, and a standard invoice string called `bolt11` (named after the [BOLT #11 lightning spec](https://github.com/lightningnetwork/lightning-rfc/blob/master/11-payment-encoding.md)).
 
 The sender can feed this `bolt11` string to the `decodepay` command to see what it is, and pay it simply using the `pay` command:
 

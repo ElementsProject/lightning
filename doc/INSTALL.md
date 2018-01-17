@@ -17,7 +17,7 @@ To Build on Ubuntu 15.10 or above
 
 Get dependencies:
 ```
-sudo apt-get install -y autoconf build-essential git libtool libgmp-dev libsqlite3-dev python3 net-tools
+sudo apt-get install -y autoconf automake build-essential git libtool libgmp-dev libsqlite3-dev python3 net-tools
 ```
 
 If you don't have Bitcoin installed locally you'll need to install that as well:
