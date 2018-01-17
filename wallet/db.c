@@ -126,7 +126,6 @@ char *dbmigrations[] = {
     "  timestamp INTEGER,"
     "  status INTEGER,"
     "  payment_hash BLOB,"
-    /* FIXME: Direction is now always 1 (OUTGOING), can be removed */
     "  direction INTEGER,"
     "  destination BLOB,"
     "  msatoshi INTEGER,"
@@ -158,6 +157,22 @@ char *dbmigrations[] = {
     /* Normally impossible, so at least we'll know if databases are ancient. */
     "UPDATE invoices SET msatoshi_received=0 WHERE state=1;",
     "ALTER TABLE channels ADD COLUMN last_was_revoke INTEGER;",
+    /* We no longer record incoming payments: invoices cover that.
+     * Without ALTER_TABLE DROP COLUMN support we need to do this by
+     * rename & copy, which works because there are no triggers etc. */
+    "ALTER TABLE payments RENAME TO temp_payments;",
+    "CREATE TABLE payments ("
+    "  id INTEGER,"
+    "  timestamp INTEGER,"
+    "  status INTEGER,"
+    "  payment_hash BLOB,"
+    "  destination BLOB,"
+    "  msatoshi INTEGER,"
+    "  PRIMARY KEY (id),"
+    "  UNIQUE (payment_hash)"
+    ");",
+    "INSERT INTO payments SELECT id, timestamp, status, payment_hash, destination, msatoshi FROM temp_payments WHERE direction=1;",
+    "DROP TABLE temp_payments;",
     NULL,
 };
 
