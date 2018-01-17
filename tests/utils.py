@@ -249,6 +249,7 @@ class LightningD(TailableProc):
             '--bitcoin-datadir={}'.format(bitcoin_dir),
             '--lightning-dir={}'.format(lightning_dir),
             '--port={}'.format(port),
+            '--deprecated-apis=false',
             '--override-fee-rates=15000/7500/1000',
             '--network=regtest',
             '--ignore-fee-limits=false'

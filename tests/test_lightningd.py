@@ -675,10 +675,10 @@ class LightningDTests(BaseLightningDTests):
         # FIXME: test paying via another node, should fail to pay twice.
         p1 = l1.rpc.getpeer(l2.info['id'], 'info')
         p2 = l2.rpc.getpeer(l1.info['id'], 'info')
-        assert p1['msatoshi_to_us'] == 10**6 * 1000
-        assert p1['msatoshi_total'] == 10**6 * 1000
-        assert p2['msatoshi_to_us'] == 0
-        assert p2['msatoshi_total'] == 10**6 * 1000
+        assert p1['channels'][0]['msatoshi_to_us'] == 10**6 * 1000
+        assert p1['channels'][0]['msatoshi_total'] == 10**6 * 1000
+        assert p2['channels'][0]['msatoshi_to_us'] == 0
+        assert p2['channels'][0]['msatoshi_total'] == 10**6 * 1000
 
         # This works.
         preimage2 = l1.rpc.sendpay(to_json([routestep]), rhash)
@@ -690,10 +690,10 @@ class LightningDTests(BaseLightningDTests):
         time.sleep(1)
         p1 = l1.rpc.getpeer(l2.info['id'], 'info')
         p2 = l2.rpc.getpeer(l1.info['id'], 'info')
-        assert p1['msatoshi_to_us'] == 10**6 * 1000 - amt
-        assert p1['msatoshi_total'] == 10**6 * 1000
-        assert p2['msatoshi_to_us'] == amt
-        assert p2['msatoshi_total'] == 10**6 * 1000
+        assert p1['channels'][0]['msatoshi_to_us'] == 10**6 * 1000 - amt
+        assert p1['channels'][0]['msatoshi_total'] == 10**6 * 1000
+        assert p2['channels'][0]['msatoshi_to_us'] == amt
+        assert p2['channels'][0]['msatoshi_total'] == 10**6 * 1000
 
         # Repeat will "succeed", but won't actually send anything (duplicate)
         assert not l1.daemon.is_in_log('... succeeded')
