@@ -2615,6 +2615,37 @@ class LightningDTests(BaseLightningDTests):
         # Another attempt should also fail.
         self.assertRaises(ValueError, l1.rpc.pay, inv1['bolt11'])
         
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_payment_duplicate_uncommitted(self):
+        # We want to test two payments at the same time, before we send commit
+        l1 = self.node_factory.get_node(disconnect=['=WIRE_UPDATE_ADD_HTLC-nocommit'])
+        l2 = self.node_factory.get_node()
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+
+        self.fund_channel(l1, l2, 100000)
+
+        inv1 = l2.rpc.invoice(1000, 'inv1', 'inv1')
+
+        # Start first payment, but not yet in db.
+        fut = self.executor.submit(l1.rpc.pay, inv1['bolt11'])
+
+        # Make sure that's started...
+        l1.daemon.wait_for_log('dev_disconnect: =WIRE_UPDATE_ADD_HTLC-nocommit')
+
+        # We should see it in listpayments
+        assert l1.rpc.listpayments()[0]['status'] == 'pending'
+        assert l1.rpc.listpayments()[0]['payment_hash'] == inv1['payment_hash']
+
+        # Second one should fail.
+        self.assertRaises(ValueError, l1.rpc.pay, inv1['bolt11'])
+
+        # Now, let it commit.
+        l1.rpc.dev_reenable_commit(l2.info['id'])
+
+        # This should succeed.
+        fut.result(10)
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_gossip_badsig(self):
         l1 = self.node_factory.get_node()
