@@ -85,6 +85,12 @@ class TailableProc(object):
 
         return self.proc.returncode
 
+    def kill(self):
+        """Kill process without giving it warning."""
+        self.proc.kill()
+        self.proc.wait()
+        self.thread.join()
+    
     def tail(self):
         """Tail the stdout of the process and remember it.
 
