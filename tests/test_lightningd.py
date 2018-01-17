@@ -2497,7 +2497,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Stop l2, l1 will reattempt to connect
         print("Killing l2 in mid HTLC")
-        l2.daemon.proc.terminate()
+        l2.daemon.kill()
 
         # Clear the disconnect and timer stop so we can proceed normally
         l2.daemon.cmd_line = [e for e in l2.daemon.cmd_line if 'disconnect' not in e]
@@ -2554,7 +2554,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
 
         print("Killing l1 in mid HTLC")
-        l1.daemon.proc.terminate()
+        l1.daemon.kill()
 
         # Restart l1, without disconnect stuff.
         l1.daemon.cmd_line.remove('--no-reconnect')
@@ -2595,7 +2595,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
 
         print("Killing l1 in mid HTLC")
-        l1.daemon.proc.terminate()
+        l1.daemon.kill()
 
         # Restart l1, without disconnect stuff.
         l1.daemon.cmd_line.remove('--no-reconnect')
