@@ -268,7 +268,7 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_early_arg("--network", opt_set_network, opt_show_network,
 			       ld,
 			       "Select the network parameters (bitcoin, testnet,"
-			       " regtest, or litecoin)");
+			       " regtest, litecoin, litecoin-regtest or litecoin-testnet)");
 }
 
 #if DEVELOPER
