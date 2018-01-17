@@ -28,9 +28,6 @@ struct pay_command {
 	/* Preimage if this succeeded. */
 	const struct preimage *rval;
 	struct command *cmd;
-
-	/* Remember all shared secrets, so we can unwrap an eventual failure */
-	struct secret *path_secrets;
 };
 
 static void json_pay_success(struct command *cmd, const struct preimage *rval)
@@ -82,6 +79,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	struct pay_command *pc = hout->pay_command;
 	struct onionreply *reply;
 	enum onion_type failcode;
+	struct secret *path_secrets;
+	const tal_t *tmpctx = tal_tmpctx(ld);
 
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 				  PAYMENT_FAILED, NULL);
@@ -89,13 +88,15 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	/* This gives more details than a generic failure message */
 	if (localfail) {
 		json_pay_failed(pc, NULL, hout->failcode, localfail);
+		tal_free(tmpctx);
 		return;
 	}
 
 	/* Must be remote fail. */
 	assert(!hout->failcode);
-	reply = unwrap_onionreply(pc, pc->path_secrets,
-				  tal_count(pc->path_secrets),
+	path_secrets = wallet_payment_get_secrets(tmpctx, ld->wallet,
+						  &hout->payment_hash);
+	reply = unwrap_onionreply(pc, path_secrets, tal_count(path_secrets),
 				  hout->failuremsg);
 	if (!reply) {
 		log_info(hout->key.peer->log,
@@ -118,6 +119,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	/* check_for_routing_failure(i, sender, failure_code); */
 
 	json_pay_failed(pc, NULL, failcode, "reply from remote");
+	tal_free(tmpctx);
 }
 
 /* When JSON RPC goes away, cmd is freed: detach from any running paycommand */
@@ -237,7 +239,6 @@ static bool send_payment(struct command *cmd,
 
 	if (pc) {
 		pc->ids = tal_free(pc->ids);
-		pc->path_secrets = tal_free(pc->path_secrets);
 	} else {
 		pc = tal(cmd->ld, struct pay_command);
 		list_add_tail(&cmd->ld->pay_commands, &pc->list);
@@ -251,13 +252,13 @@ static bool send_payment(struct command *cmd,
 		payment->msatoshi = route[n_hops-1].amount;
 		payment->timestamp = time_now().ts.tv_sec;
 		payment->payment_preimage = NULL;
+		payment->path_secrets = tal_steal(payment, path_secrets);
 	}
 	pc->cmd = cmd;
 	pc->rhash = *rhash;
 	pc->rval = NULL;
 	pc->ids = tal_steal(pc, ids);
 	pc->msatoshi = route[n_hops-1].amount;
-	pc->path_secrets = tal_steal(pc, path_secrets);
 	pc->out = NULL;
 
 	log_info(cmd->ld->log, "Sending %u over %zu hops to deliver %"PRIu64,

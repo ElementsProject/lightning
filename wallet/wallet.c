@@ -1289,6 +1289,9 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 		sqlite3_column_preimage(stmt, 6, payment->payment_preimage);
 	} else
 		payment->payment_preimage = NULL;
+
+	/* Can be NULL for old db! */
+	payment->path_secrets = sqlite3_column_secrets(payment, stmt, 7);
 	return payment;
 }
 
@@ -1301,7 +1304,8 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 
 	stmt = db_prepare(wallet->db,
 			  "SELECT id, status, destination,"
-			  "msatoshi, payment_hash, timestamp, payment_preimage "
+			  "msatoshi, payment_hash, timestamp, payment_preimage, "
+			  "path_secrets "
 			  "FROM payments "
 			  "WHERE payment_hash = ?");
 
@@ -1311,6 +1315,26 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 	}
 	sqlite3_finalize(stmt);
 	return payment;
+}
+
+struct secret *wallet_payment_get_secrets(const tal_t *ctx,
+					  struct wallet *wallet,
+					  const struct sha256 *payment_hash)
+{
+	sqlite3_stmt *stmt;
+	struct secret *path_secrets = NULL;
+
+	stmt = db_prepare(wallet->db,
+			  "SELECT path_secrets "
+			  "FROM payments "
+			  "WHERE payment_hash = ?");
+
+	sqlite3_bind_sha256(stmt, 1, payment_hash);
+	if (sqlite3_step(stmt) == SQLITE_ROW) {
+		path_secrets = sqlite3_column_secrets(ctx, stmt, 0);
+	}
+	sqlite3_finalize(stmt);
+	return path_secrets;
 }
 
 void wallet_payment_set_status(struct wallet *wallet,
@@ -1349,7 +1373,8 @@ const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
 	stmt = db_prepare(
 		wallet->db,
 		"SELECT id, status, destination, "
-		"msatoshi , payment_hash, timestamp, payment_preimage "
+		"msatoshi, payment_hash, timestamp, payment_preimage, "
+		"path_secrets "
 		"FROM payments;");
 
 	for (int i = 0; sqlite3_step(stmt) == SQLITE_ROW; i++) {
