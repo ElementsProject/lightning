@@ -1190,8 +1190,6 @@ void wallet_invoice_resolve(struct wallet *wallet,
 			    u64 msatoshi_received)
 {
 	invoices_resolve(wallet->invoices, invoice, msatoshi_received);
-	/* FIXME: consider payment recording. */
-	wallet_payment_set_status(wallet, &invoice->rhash, PAYMENT_COMPLETE);
 }
 void wallet_invoice_waitany(const tal_t *ctx,
 			    struct wallet *wallet,
@@ -1263,18 +1261,9 @@ bool wallet_payment_add(struct wallet *wallet,
 
 	sqlite3_bind_int(stmt, 1, payment->status);
 	sqlite3_bind_sha256(stmt, 2, &payment->payment_hash);
-	sqlite3_bind_int(stmt, 3, payment->incoming?DIRECTION_INCOMING:DIRECTION_OUTGOING);
-
-	if (payment->destination)
-		sqlite3_bind_pubkey(stmt, 4, payment->destination);
-	else
-		sqlite3_bind_null(stmt, 4);
-
-	if (payment->msatoshi)
-		sqlite3_bind_int64(stmt, 5, *payment->msatoshi);
-	else
-		sqlite3_bind_null(stmt, 5);
-
+	sqlite3_bind_int(stmt, 3, DIRECTION_OUTGOING);
+	sqlite3_bind_pubkey(stmt, 4, &payment->destination);
+	sqlite3_bind_int64(stmt, 5, payment->msatoshi);
 	sqlite3_bind_int(stmt, 6, payment->timestamp);
 
 	db_exec_prepared(wallet->db, stmt);
@@ -1288,21 +1277,9 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	struct wallet_payment *payment = tal(ctx, struct wallet_payment);
 	payment->id = sqlite3_column_int64(stmt, 0);
 	payment->status = sqlite3_column_int(stmt, 1);
-	payment->incoming = sqlite3_column_int(stmt, 2) == DIRECTION_INCOMING;
 
-	if (sqlite3_column_type(stmt, 3) != SQLITE_NULL) {
-		payment->destination = tal(payment, struct pubkey);
-		sqlite3_column_pubkey(stmt, 3, payment->destination);
-	} else {
-		payment->destination = NULL;
-	}
-
-	if (sqlite3_column_type(stmt, 4) != SQLITE_NULL) {
-		payment->msatoshi = tal(payment, u64);
-		*payment->msatoshi = sqlite3_column_int64(stmt, 4);
-	} else {
-		payment->msatoshi = NULL;
-	}
+	sqlite3_column_pubkey(stmt, 3, &payment->destination);
+	payment->msatoshi = sqlite3_column_int64(stmt, 4);
 	sqlite3_column_sha256(stmt, 5, &payment->payment_hash);
 
 	payment->timestamp = sqlite3_column_int(stmt, 6);
@@ -1320,7 +1297,7 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 			  "SELECT id, status, direction, destination,"
 			  "msatoshi , payment_hash, timestamp "
 			  "FROM payments "
-			  "WHERE payment_hash = ?");
+			  "WHERE payment_hash = ? AND direction = 1");
 
 	sqlite3_bind_sha256(stmt, 1, payment_hash);
 	if (sqlite3_step(stmt) == SQLITE_ROW) {
