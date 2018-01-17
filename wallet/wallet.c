@@ -1397,9 +1397,15 @@ void wallet_payment_set_status(struct wallet *wallet,
 			       const struct preimage *preimage)
 {
 	sqlite3_stmt *stmt;
+	struct wallet_payment *payment;
 
-	/* We should never try this on an unstored payment! */
-	assert(!find_unstored_payment(wallet, payment_hash));
+	/* We can only fail an unstored payment! */
+	payment = find_unstored_payment(wallet, payment_hash);
+	if (payment) {
+		assert(newstatus == PAYMENT_FAILED);
+		tal_free(payment);
+		return;
+	}
 
 	stmt = db_prepare(wallet->db,
 			  "UPDATE payments SET status=? "
