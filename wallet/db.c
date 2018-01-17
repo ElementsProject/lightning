@@ -175,6 +175,8 @@ char *dbmigrations[] = {
     "DROP TABLE temp_payments;",
     /* We need to keep the preimage in case they ask to pay again. */
     "ALTER TABLE payments ADD COLUMN payment_preimage BLOB;",
+    /* We need to keep the shared secrets to decode error returns. */
+    "ALTER TABLE payments ADD COLUMN path_secrets BLOB;",
     NULL,
 };
 
@@ -533,6 +535,8 @@ struct secret *sqlite3_column_secrets(const tal_t *ctx,
 
 	/* Must fit exactly */
 	assert(n * sizeof(struct secret) == sqlite3_column_bytes(stmt, col));
+	if (n == 0)
+		return NULL;
 	secrets = tal_arr(ctx, struct secret, n);
 	return memcpy(secrets, sqlite3_column_blob(stmt, col), tal_len(secrets));
 }

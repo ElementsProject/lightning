@@ -90,6 +90,7 @@ struct wallet_payment {
 	u64 msatoshi;
 	/* Iff PAYMENT_COMPLETE */
 	struct preimage *payment_preimage;
+	struct secret *path_secrets;
 };
 
 /**
@@ -555,6 +556,15 @@ void wallet_payment_set_status(struct wallet *wallet,
 				const struct sha256 *payment_hash,
 			        const enum wallet_payment_status newstatus,
 			        const struct preimage *preimage);
+
+/**
+ * wallet_payment_get_secrets - Get the secrets array for a given `payment_hash`
+ *
+ * Returns a tal_array: can return NULL for old dbs.
+ */
+struct secret *wallet_payment_get_secrets(const tal_t *ctx,
+					  struct wallet *wallet,
+					  const struct sha256 *payment_hash);
 
 /**
  * wallet_payment_list - Retrieve a list of payments
