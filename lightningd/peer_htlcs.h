@@ -41,6 +41,7 @@ enum onion_type send_htlc_out(struct peer *out, u64 amount, u32 cltv,
 			      struct htlc_in *in,
 			      struct wallet_payment *payment,
 			      struct pay_command *pc,
+			      struct command *cmd,
 			      struct htlc_out **houtp);
 
 struct htlc_out *find_htlc_out_by_ripemd(const struct peer *peer,

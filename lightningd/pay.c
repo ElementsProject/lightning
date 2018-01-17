@@ -27,7 +27,6 @@ struct pay_command {
 	struct htlc_out *out;
 	/* Preimage if this succeeded. */
 	const struct preimage *rval;
-	struct command *cmd;
 };
 
 static void json_pay_success(struct command *cmd, const struct preimage *rval)
@@ -45,20 +44,17 @@ static void json_pay_success(struct command *cmd, const struct preimage *rval)
 	command_success(cmd, response);
 }
 
-static void json_pay_failed(struct pay_command *pc,
+static void json_pay_failed(struct command *cmd,
 			    const struct pubkey *sender,
 			    enum onion_type failure_code,
 			    const char *details)
 {
 	/* Can be NULL if JSON RPC goes away. */
-	if (!pc->cmd)
-		return;
-
-	/* FIXME: Report sender! */
-	command_fail(pc->cmd, "failed: %s (%s)",
-		     onion_type_name(failure_code), details);
-
-	pc->out = NULL;
+	if (cmd) {
+		/* FIXME: Report sender! */
+		command_fail(cmd, "failed: %s (%s)",
+			     onion_type_name(failure_code), details);
+	}
 }
 
 void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
@@ -69,7 +65,9 @@ void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 				  PAYMENT_COMPLETE, rval);
 	hout->pay_command->rval = tal_dup(hout->pay_command,
 					  struct preimage, rval);
-	json_pay_success(hout->pay_command->cmd, rval);
+	/* Can be NULL if JSON RPC goes away. */
+	if (hout->cmd)
+		json_pay_success(hout->cmd, rval);
 	hout->pay_command->out = NULL;
 }
 
@@ -84,10 +82,11 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 				  PAYMENT_FAILED, NULL);
+	pc->out = NULL;
 
 	/* This gives more details than a generic failure message */
 	if (localfail) {
-		json_pay_failed(pc, NULL, hout->failcode, localfail);
+		json_pay_failed(hout->cmd, NULL, hout->failcode, localfail);
 		tal_free(tmpctx);
 		return;
 	}
@@ -118,17 +117,15 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	/* FIXME: check for routing failure / perm fail. */
 	/* check_for_routing_failure(i, sender, failure_code); */
 
-	json_pay_failed(pc, NULL, failcode, "reply from remote");
+	json_pay_failed(hout->cmd, NULL, failcode, "reply from remote");
 	tal_free(tmpctx);
 }
 
-/* When JSON RPC goes away, cmd is freed: detach from any running paycommand */
-static void remove_cmd_from_pc(struct command *cmd, struct pay_command *pc)
+/* When JSON RPC goes away, cmd is freed: detach from the hout */
+static void remove_cmd_from_hout(struct command *cmd, struct htlc_out *hout)
 {
-	/* This can be false, in the case where another pay command
-	 * re-uses the pc->cmd before we get around to cleaning up. */
-	if (pc->cmd == cmd)
-		pc->cmd = NULL;
+	assert(hout->cmd == cmd);
+	hout->cmd = NULL;
 }
 
 static struct pay_command *find_pay_command(struct lightningd *ld,
@@ -254,7 +251,6 @@ static bool send_payment(struct command *cmd,
 		payment->payment_preimage = NULL;
 		payment->path_secrets = tal_steal(payment, path_secrets);
 	}
-	pc->cmd = cmd;
 	pc->rhash = *rhash;
 	pc->rval = NULL;
 	pc->ids = tal_steal(pc, ids);
@@ -264,9 +260,6 @@ static bool send_payment(struct command *cmd,
 	log_info(cmd->ld->log, "Sending %u over %zu hops to deliver %"PRIu64,
 		 route[0].amount, n_hops, pc->msatoshi);
 
-	/* Wait until we get response. */
-	tal_add_destructor2(cmd, remove_cmd_from_pc, pc);
-
 	/* They're both children of ld, but on shutdown make sure we
 	 * destroy the command before the pc, otherwise the
 	 * remove_cmd_from_pc destructor causes a use-after-free */
@@ -274,13 +267,17 @@ static bool send_payment(struct command *cmd,
 
 	failcode = send_htlc_out(peer, route[0].amount,
 				 base_expiry + route[0].delay,
-				 rhash, onion, NULL, payment, pc,
+				 rhash, onion, NULL, payment, pc, cmd,
 				 &pc->out);
 	if (failcode) {
 		command_fail(cmd, "first peer not ready: %s",
 			     onion_type_name(failcode));
 		return false;
 	}
+
+	/* If we fail, remove cmd ptr from htlc_out. */
+	tal_add_destructor2(cmd, remove_cmd_from_hout, pc->out);
+
 	tal_free(tmpctx);
 	return true;
 }
