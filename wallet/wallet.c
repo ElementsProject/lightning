@@ -1284,6 +1284,11 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	sqlite3_column_sha256(stmt, 4, &payment->payment_hash);
 
 	payment->timestamp = sqlite3_column_int(stmt, 5);
+	if (sqlite3_column_type(stmt, 6) != SQLITE_NULL) {
+		payment->payment_preimage = tal(payment, struct preimage);
+		sqlite3_column_preimage(stmt, 6, payment->payment_preimage);
+	} else
+		payment->payment_preimage = NULL;
 	return payment;
 }
 
@@ -1296,7 +1301,7 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 
 	stmt = db_prepare(wallet->db,
 			  "SELECT id, status, destination,"
-			  "msatoshi, payment_hash, timestamp "
+			  "msatoshi, payment_hash, timestamp, payment_preimage "
 			  "FROM payments "
 			  "WHERE payment_hash = ?");
 
@@ -1310,7 +1315,8 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 
 void wallet_payment_set_status(struct wallet *wallet,
 			       const struct sha256 *payment_hash,
-			       const enum wallet_payment_status newstatus)
+			       const enum wallet_payment_status newstatus,
+			       const struct preimage *preimage)
 {
 	sqlite3_stmt *stmt;
 
@@ -1321,6 +1327,16 @@ void wallet_payment_set_status(struct wallet *wallet,
 	sqlite3_bind_int(stmt, 1, newstatus);
 	sqlite3_bind_sha256(stmt, 2, payment_hash);
 	db_exec_prepared(wallet->db, stmt);
+
+	if (preimage) {
+		stmt = db_prepare(wallet->db,
+				  "UPDATE payments SET payment_preimage=? "
+				  "WHERE payment_hash=?");
+
+		sqlite3_bind_preimage(stmt, 1, preimage);
+		sqlite3_bind_sha256(stmt, 2, payment_hash);
+		db_exec_prepared(wallet->db, stmt);
+	}
 }
 
 const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
@@ -1333,7 +1349,7 @@ const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
 	stmt = db_prepare(
 		wallet->db,
 		"SELECT id, status, destination, "
-		"msatoshi , payment_hash, timestamp "
+		"msatoshi , payment_hash, timestamp, payment_preimage "
 		"FROM payments;");
 
 	for (int i = 0; sqlite3_step(stmt) == SQLITE_ROW; i++) {

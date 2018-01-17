@@ -88,6 +88,8 @@ struct wallet_payment {
 	enum wallet_payment_status status;
 	struct pubkey destination;
 	u64 msatoshi;
+	/* Iff PAYMENT_COMPLETE */
+	struct preimage *payment_preimage;
 };
 
 /**
@@ -551,7 +553,8 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
  */
 void wallet_payment_set_status(struct wallet *wallet,
 				const struct sha256 *payment_hash,
-				const enum wallet_payment_status newstatus);
+			        const enum wallet_payment_status newstatus,
+			        const struct preimage *preimage);
 
 /**
  * wallet_payment_list - Retrieve a list of payments

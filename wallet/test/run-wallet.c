@@ -15,6 +15,7 @@ static void db_log_(struct log *log, enum log_level level, const char *fmt, ...)
 
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/structeq/structeq.h>
 #include <common/memleak.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -557,6 +558,7 @@ static bool test_payment_crud(const tal_t *ctx)
 	t.id = 0;
 	t.msatoshi = 100;
 	t.status = PAYMENT_PENDING;
+	t.payment_preimage = NULL;
 	memset(&t.payment_hash, 1, sizeof(t.payment_hash));
 
 	db_begin_transaction(w->db);
@@ -568,15 +570,20 @@ static bool test_payment_crud(const tal_t *ctx)
 	CHECK(t2->status == t.status);
 	CHECK(pubkey_cmp(&t2->destination, &t.destination) == 0);
 	CHECK(t2->msatoshi == t.msatoshi);
+	CHECK(!t2->payment_preimage);
 
 	t.status = PAYMENT_COMPLETE;
-	wallet_payment_set_status(w, &t.payment_hash, t.status);
+	t.payment_preimage = tal(w, struct preimage);
+	memset(t.payment_preimage, 2, sizeof(*t.payment_preimage));
+	wallet_payment_set_status(w, &t.payment_hash, t.status,
+				  t.payment_preimage);
 	t2 = wallet_payment_by_hash(ctx, w, &t.payment_hash);
 	CHECK(t2 != NULL);
 	CHECK(t2->id == t.id);
 	CHECK(t2->status == t.status);
 	CHECK(pubkey_cmp(&t2->destination, &t.destination) == 0);
 	CHECK(t2->msatoshi == t.msatoshi);
+	CHECK(structeq(t.payment_preimage, t2->payment_preimage));
 
 	db_commit_transaction(w->db);
 	return true;
