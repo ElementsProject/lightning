@@ -15,18 +15,32 @@
 #include <inttypes.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/log.h>
+#include <lightningd/options.h>
 #include <sodium/randombytes.h>
 #include <wire/wire_sync.h>
 
+static const char *invoice_status_str(const struct invoice *inv)
+{
+	if (inv->state == PAID)
+		return "paid";
+	if (time_now().ts.tv_sec > inv->expiry_time)
+		return "expired";
+	return "unpaid";
+}
+
 static void json_add_invoice(struct json_result *response,
-			     const struct invoice *inv)
+			     const struct invoice *inv,
+			     bool modern)
 {
 	json_object_start(response, NULL);
 	json_add_string(response, "label", inv->label);
 	json_add_hex(response, "payment_hash", &inv->rhash, sizeof(inv->rhash));
 	if (inv->msatoshi)
 		json_add_u64(response, "msatoshi", *inv->msatoshi);
-	json_add_bool(response, "complete", inv->state == PAID);
+	if (modern)
+		json_add_string(response, "status", invoice_status_str(inv));
+	else if (deprecated_apis && !modern)
+		json_add_bool(response, "complete", inv->state == PAID);
 	if (inv->state == PAID) {
 		json_add_u64(response, "pay_index", inv->pay_index);
 		json_add_u64(response, "msatoshi_received",
@@ -42,7 +56,7 @@ static void tell_waiter(struct command *cmd, const struct invoice *paid)
 {
 	struct json_result *response = new_json_result(cmd);
 
-	json_add_invoice(response, paid);
+	json_add_invoice(response, paid, true);
 	command_success(cmd, response);
 }
 static void tell_waiter_deleted(struct command *cmd)
@@ -183,7 +197,8 @@ AUTODATA(json_command, &invoice_command);
 
 static void json_add_invoices(struct json_result *response,
 			      struct wallet *wallet,
-			      const char *buffer, const jsmntok_t *label)
+			      const char *buffer, const jsmntok_t *label,
+			      bool modern)
 {
 	const struct invoice *i;
 	char *lbl = NULL;
@@ -194,7 +209,7 @@ static void json_add_invoices(struct json_result *response,
 	while ((i = wallet_invoice_iterate(wallet, i)) != NULL) {
 		if (lbl && !streq(i->label, lbl))
 			continue;
-		json_add_invoice(response, i);
+		json_add_invoice(response, i, modern);
 	}
 }
 
@@ -219,7 +234,7 @@ static void json_listinvoice_internal(struct command *cmd,
 		json_array_start(response, "invoices");
 	} else
 		json_array_start(response, NULL);
-	json_add_invoices(response, wallet, buffer, label);
+	json_add_invoices(response, wallet, buffer, label, modern);
 	json_array_end(response);
 	if (modern)
 		json_object_end(response);
@@ -283,7 +298,7 @@ static void json_delinvoice(struct command *cmd,
 
 	/* Get invoice details before attempting to delete, as
 	 * otherwise the invoice will be freed. */
-	json_add_invoice(response, i);
+	json_add_invoice(response, i, true);
 
 	error = wallet_invoice_delete(wallet, i);
 
