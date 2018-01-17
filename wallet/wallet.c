@@ -1253,18 +1253,16 @@ bool wallet_payment_add(struct wallet *wallet,
 		"INSERT INTO payments ("
 		"  status,"
 		"  payment_hash,"
-		"  direction,"
 		"  destination,"
 		"  msatoshi,"
 		"  timestamp"
-		") VALUES (?, ?, ?, ?, ?, ?);");
+		") VALUES (?, ?, ?, ?, ?);");
 
 	sqlite3_bind_int(stmt, 1, payment->status);
 	sqlite3_bind_sha256(stmt, 2, &payment->payment_hash);
-	sqlite3_bind_int(stmt, 3, DIRECTION_OUTGOING);
-	sqlite3_bind_pubkey(stmt, 4, &payment->destination);
-	sqlite3_bind_int64(stmt, 5, payment->msatoshi);
-	sqlite3_bind_int(stmt, 6, payment->timestamp);
+	sqlite3_bind_pubkey(stmt, 3, &payment->destination);
+	sqlite3_bind_int64(stmt, 4, payment->msatoshi);
+	sqlite3_bind_int(stmt, 5, payment->timestamp);
 
 	db_exec_prepared(wallet->db, stmt);
 	payment->id = sqlite3_last_insert_rowid(wallet->db->sql);
@@ -1278,11 +1276,11 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	payment->id = sqlite3_column_int64(stmt, 0);
 	payment->status = sqlite3_column_int(stmt, 1);
 
-	sqlite3_column_pubkey(stmt, 3, &payment->destination);
-	payment->msatoshi = sqlite3_column_int64(stmt, 4);
-	sqlite3_column_sha256(stmt, 5, &payment->payment_hash);
+	sqlite3_column_pubkey(stmt, 2, &payment->destination);
+	payment->msatoshi = sqlite3_column_int64(stmt, 3);
+	sqlite3_column_sha256(stmt, 4, &payment->payment_hash);
 
-	payment->timestamp = sqlite3_column_int(stmt, 6);
+	payment->timestamp = sqlite3_column_int(stmt, 5);
 	return payment;
 }
 
@@ -1294,10 +1292,10 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 	struct wallet_payment *payment = NULL;
 
 	stmt = db_prepare(wallet->db,
-			  "SELECT id, status, direction, destination,"
-			  "msatoshi , payment_hash, timestamp "
+			  "SELECT id, status, destination,"
+			  "msatoshi, payment_hash, timestamp "
 			  "FROM payments "
-			  "WHERE payment_hash = ? AND direction = 1");
+			  "WHERE payment_hash = ?");
 
 	sqlite3_bind_sha256(stmt, 1, payment_hash);
 	if (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -1331,7 +1329,7 @@ const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
 	payments = tal_arr(ctx, const struct wallet_payment *, 0);
 	stmt = db_prepare(
 		wallet->db,
-		"SELECT id, status, direction, destination, "
+		"SELECT id, status, destination, "
 		"msatoshi , payment_hash, timestamp "
 		"FROM payments;");
 
