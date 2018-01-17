@@ -85,7 +85,6 @@ static void json_invoice(struct command *cmd,
 	struct wallet *wallet = cmd->ld->wallet;
 	struct bolt11 *b11;
 	char *b11enc;
-	struct wallet_payment payment;
 	u64 expiry = 3600;
 
 	if (!json_get_params(buffer, params,
@@ -159,23 +158,6 @@ static void json_invoice(struct command *cmd,
 
 	/* FIXME: add private routes if necessary! */
 	b11enc = bolt11_encode(cmd, b11, false, hsm_sign_b11, cmd->ld);
-
-	/* Store the payment so we can later show it in the history */
-	payment.id = 0;
-	payment.incoming = true;
-	payment.payment_hash = invoice->rhash;
-	payment.destination = NULL;
-	payment.status = PAYMENT_PENDING;
-	if (invoice->msatoshi)
-		payment.msatoshi = tal_dup(cmd, u64, invoice->msatoshi);
-	else
-		payment.msatoshi = NULL;
-	payment.timestamp = b11->timestamp;
-
-	if (!wallet_payment_add(cmd->ld->wallet, &payment)) {
-		command_fail(cmd, "Unable to record payment in the database.");
-		return;
-	}
 
 	json_object_start(response, NULL);
 	json_add_hex(response, "payment_hash",

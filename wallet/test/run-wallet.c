@@ -550,29 +550,33 @@ static bool test_payment_crud(const tal_t *ctx)
 {
 	struct wallet_payment t, *t2;
 	struct wallet *w = create_test_wallet(ctx);
-	struct pubkey destination;
 
 	mempat(&t, sizeof(t));
-	memset(&destination, 1, sizeof(destination));
+	memset(&t.destination, 1, sizeof(t.destination));
 
 	t.id = 0;
-	t.destination = NULL;
-	t.msatoshi = NULL;
+	t.msatoshi = 100;
+	t.status = PAYMENT_PENDING;
+	memset(&t.payment_hash, 1, sizeof(t.payment_hash));
 
 	db_begin_transaction(w->db);
 	CHECK(wallet_payment_add(w, &t));
 	CHECK(t.id != 0);
 	t2 = wallet_payment_by_hash(ctx, w, &t.payment_hash);
 	CHECK(t2 != NULL);
-	CHECK(t2->id == t.id && t2->destination == NULL);
+	CHECK(t2->id == t.id);
+	CHECK(t2->status == t.status);
+	CHECK(pubkey_cmp(&t2->destination, &t.destination) == 0);
+	CHECK(t2->msatoshi == t.msatoshi);
 
-	t.destination = &destination;
-	t.id = 0;
-	memset(&t.payment_hash, 1, sizeof(t.payment_hash));
-
-	CHECK(wallet_payment_add(w, &t));
+	t.status = PAYMENT_COMPLETE;
+	wallet_payment_set_status(w, &t.payment_hash, t.status);
 	t2 = wallet_payment_by_hash(ctx, w, &t.payment_hash);
-	CHECK(t2->destination && pubkey_cmp(t2->destination, &destination) == 0);
+	CHECK(t2 != NULL);
+	CHECK(t2->id == t.id);
+	CHECK(t2->status == t.status);
+	CHECK(pubkey_cmp(&t2->destination, &t.destination) == 0);
+	CHECK(t2->msatoshi == t.msatoshi);
 
 	db_commit_transaction(w->db);
 	return true;

@@ -126,6 +126,7 @@ char *dbmigrations[] = {
     "  timestamp INTEGER,"
     "  status INTEGER,"
     "  payment_hash BLOB,"
+    /* FIXME: Direction is now always 1 (OUTGOING), can be removed */
     "  direction INTEGER,"
     "  destination BLOB,"
     "  msatoshi INTEGER,"

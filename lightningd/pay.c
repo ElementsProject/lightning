@@ -243,12 +243,10 @@ static bool send_payment(struct command *cmd,
 
 		payment = tal(tmpctx, struct wallet_payment);
 		payment->id = 0;
-		payment->incoming = false;
 		payment->payment_hash = *rhash;
-		payment->destination = &ids[n_hops - 1];
+		payment->destination = ids[n_hops - 1];
 		payment->status = PAYMENT_PENDING;
-		payment->msatoshi = tal(payment, u64);
-		*payment->msatoshi = route[n_hops-1].amount;
+		payment->msatoshi = route[n_hops-1].amount;
 		payment->timestamp = time_now().ts.tv_sec;
 	}
 	pc->cmd = cmd;
@@ -500,12 +498,9 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 		const struct wallet_payment *t = payments[i];
 		json_object_start(response, NULL);
 		json_add_u64(response, "id", t->id);
-		json_add_bool(response, "incoming", t->incoming);
 		json_add_hex(response, "payment_hash", &t->payment_hash, sizeof(t->payment_hash));
-		if (!t->incoming)
-			json_add_pubkey(response, "destination", t->destination);
-		if (t->msatoshi)
-			json_add_u64(response, "msatoshi", *t->msatoshi);
+		json_add_pubkey(response, "destination", &t->destination);
+		json_add_u64(response, "msatoshi", t->msatoshi);
 		json_add_u64(response, "timestamp", t->timestamp);
 
 		switch (t->status) {
@@ -530,6 +525,6 @@ static const struct json_command listpayments_command = {
 	"listpayments",
 	json_listpayments,
 	"Get a list of incoming and outgoing payments",
-	"Returns a list of payments with {direction}, {payment_hash}, {destination} if outgoing and {msatoshi}"
+	"Returns a list of payments with {payment_hash}, {destination}, {msatoshi}, {timestamp} and {status}"
 };
 AUTODATA(json_command, &listpayments_command);
