@@ -173,6 +173,8 @@ char *dbmigrations[] = {
     ");",
     "INSERT INTO payments SELECT id, timestamp, status, payment_hash, destination, msatoshi FROM temp_payments WHERE direction=1;",
     "DROP TABLE temp_payments;",
+    /* We need to keep the preimage in case they ask to pay again. */
+    "ALTER TABLE payments ADD COLUMN payment_preimage BLOB;",
     NULL,
 };
 

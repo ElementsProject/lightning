@@ -68,7 +68,8 @@ void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 		       const struct preimage *rval)
 {
 	assert(!hout->pay_command->rval);
-	wallet_payment_set_status(ld->wallet, &hout->payment_hash, PAYMENT_COMPLETE);
+	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
+				  PAYMENT_COMPLETE, rval);
 	hout->pay_command->rval = tal_dup(hout->pay_command,
 					  struct preimage, rval);
 	json_pay_success(hout->pay_command->cmd, rval);
@@ -82,7 +83,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	struct onionreply *reply;
 	enum onion_type failcode;
 
-	wallet_payment_set_status(ld->wallet, &hout->payment_hash, PAYMENT_FAILED);
+	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
+				  PAYMENT_FAILED, NULL);
 
 	/* This gives more details than a generic failure message */
 	if (localfail) {
@@ -248,6 +250,7 @@ static bool send_payment(struct command *cmd,
 		payment->status = PAYMENT_PENDING;
 		payment->msatoshi = route[n_hops-1].amount;
 		payment->timestamp = time_now().ts.tv_sec;
+		payment->payment_preimage = NULL;
 	}
 	pc->cmd = cmd;
 	pc->rhash = *rhash;
@@ -514,6 +517,10 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 			json_add_string(response, "status", "failed");
 			break;
 		}
+		if (t->payment_preimage)
+			json_add_hex(response, "payment_preimage",
+				     t->payment_preimage,
+				     sizeof(*t->payment_preimage));
 
 		json_object_end(response);
 	}
