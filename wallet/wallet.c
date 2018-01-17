@@ -1273,6 +1273,20 @@ bool wallet_payment_add(struct wallet *wallet,
 	return true;
 }
 
+void wallet_payment_delete(struct wallet *wallet,
+			   const struct sha256 *payment_hash)
+{
+	sqlite3_stmt *stmt;
+
+	stmt = db_prepare(
+		wallet->db,
+		"DELETE FROM payments WHERE payment_hash = ?");
+
+	sqlite3_bind_sha256(stmt, 1, payment_hash);
+
+	db_exec_prepared(wallet->db, stmt);
+}
+
 static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 						  sqlite3_stmt *stmt)
 {
