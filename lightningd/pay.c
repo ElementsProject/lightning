@@ -199,8 +199,21 @@ static bool send_payment(struct command *cmd,
 				    sizeof(struct sha256), &path_secrets);
 	onion = serialize_onionpacket(cmd, packet);
 
-	/* We write this into db when HTLC is actually sent. */
-	payment = tal(tmpctx, struct wallet_payment);
+	log_info(cmd->ld->log, "Sending %u over %zu hops to deliver %u",
+		 route[0].amount, n_hops, route[n_hops-1].amount);
+
+	failcode = send_htlc_out(peer, route[0].amount,
+				 base_expiry + route[0].delay,
+				 rhash, onion, NULL, cmd,
+				 &hout);
+	if (failcode) {
+		command_fail(cmd, "first peer not ready: %s",
+			     onion_type_name(failcode));
+		return false;
+	}
+
+	/* If hout fails, payment should be freed too. */
+	payment = tal(hout, struct wallet_payment);
 	payment->id = 0;
 	payment->payment_hash = *rhash;
 	payment->destination = ids[n_hops - 1];
@@ -210,19 +223,8 @@ static bool send_payment(struct command *cmd,
 	payment->payment_preimage = NULL;
 	payment->path_secrets = tal_steal(payment, path_secrets);
 
-	log_info(cmd->ld->log, "Sending %u over %zu hops to deliver %u",
-		 route[0].amount, n_hops, route[n_hops-1].amount);
-
-	/* Steals payment into hout */
-	failcode = send_htlc_out(peer, route[0].amount,
-				 base_expiry + route[0].delay,
-				 rhash, onion, NULL, payment, cmd,
-				 &hout);
-	if (failcode) {
-		command_fail(cmd, "first peer not ready: %s",
-			     onion_type_name(failcode));
-		return false;
-	}
+	/* We write this into db when HTLC is actually sent. */
+	wallet_payment_setup(cmd->ld->wallet, payment);
 
 	/* If we fail, remove cmd ptr from htlc_out. */
 	tal_add_destructor2(cmd, remove_cmd_from_hout, hout);

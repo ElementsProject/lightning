@@ -23,6 +23,7 @@ struct wallet {
 	struct log *log;
 	struct ext_key *bip32_base;
 	struct invoices *invoices;
+	struct list_head unstored_payments;
 };
 
 /* Possible states for tracked outputs in the database. Not sure yet
@@ -82,6 +83,8 @@ enum wallet_payment_status {
  * a UI (alongside invoices) to display the balance history.
  */
 struct wallet_payment {
+	/* If it's in unstored_payments */
+	struct list_node list;
 	u64 id;
 	u32 timestamp;
 	struct sha256 payment_hash;
@@ -530,12 +533,23 @@ struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 				    struct wallet_channel *chan);
 
 /**
- * wallet_payment_add - Record a new incoming/outgoing payment
+ * wallet_payment_setup - Remember this payment for later committing.
+ *
+ * Either wallet_payment_store() gets called to put in db once hout
+ * is ready to go (and frees @payment), or @payment is tal_free'd.
+ *
+ * @wallet: wallet we're going to store it in.
+ * @payment: the payment for later committing.
+ */
+void wallet_payment_setup(struct wallet *wallet, struct wallet_payment *payment);
+
+/**
+ * wallet_payment_store - Record a new incoming/outgoing payment
  *
  * Stores the payment in the database.
  */
-bool wallet_payment_add(struct wallet *wallet,
-			 struct wallet_payment *payment);
+void wallet_payment_store(struct wallet *wallet,
+			  const struct sha256 *payment_hash);
 
 /**
  * wallet_payment_delete - Remove a payment

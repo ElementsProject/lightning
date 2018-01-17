@@ -372,7 +372,6 @@ enum onion_type send_htlc_out(struct peer *out, u64 amount, u32 cltv,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
 			      struct htlc_in *in,
-			      struct wallet_payment *payment,
 			      struct command *cmd,
 			      struct htlc_out **houtp)
 {
@@ -394,7 +393,7 @@ enum onion_type send_htlc_out(struct peer *out, u64 amount, u32 cltv,
 	/* Make peer's daemon own it, catch if it dies. */
 	hout = new_htlc_out(out->owner, out, amount, cltv,
 			    payment_hash, onion_routing_packet, in,
-			    payment, cmd);
+			    cmd);
 	tal_add_destructor(hout, hout_subd_died);
 
 	msg = towire_channel_offer_htlc(out, amount, cltv, payment_hash,
@@ -486,7 +485,7 @@ static void forward_htlc(struct htlc_in *hin,
 
 	failcode = send_htlc_out(next, amt_to_forward,
 				 outgoing_cltv_value, &hin->payment_hash,
-				 next_onion, hin, NULL, NULL, NULL);
+				 next_onion, hin, NULL, NULL);
 	if (!failcode)
 		return;
 
@@ -864,18 +863,11 @@ static bool update_out_htlc(struct peer *peer, u64 id, enum htlc_state newstate)
 
 	if (!hout->dbid) {
 		wallet_htlc_save_out(peer->ld->wallet, peer->channel, hout);
-	}
 
-	/* We only have a payment if we initiated the payment. */
-	if (hout->payment) {
-		/* Now that we are committed, and inside the
-		 * transaction context of the update, add the payment
-		 * to the history. */
-		wallet_payment_add(peer->ld->wallet, hout->payment);
-
-		/* No need to carry the payment info around anymore,
-		 * we'll update in the database directly */
-		hout->payment = tal_free(hout->payment);
+		/* For our own HTLCs, we commit payment to db lazily */
+		if (hout->origin_htlc_id == 0)
+			wallet_payment_store(peer->ld->wallet,
+					     &hout->payment_hash);
 	}
 
 	if (!htlc_out_update_state(peer, hout, newstate))
