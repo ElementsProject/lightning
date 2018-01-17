@@ -56,7 +56,8 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/wire_error.o			\
 	hsmd/client.o				\
 	hsmd/gen_hsm_client_wire.o		\
-	lightningd/gossip_msg.o
+	lightningd/gossip_msg.o			\
+	wire/gen_onion_wire.o
 
 $(LIGHTNINGD_GOSSIP_OBJS) $(LIGHTNINGD_GOSSIP_CLIENT_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_GOSSIP_HEADERS)
 
