@@ -2,12 +2,12 @@
 .\"     Title: lightning-listinvoices
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 01/16/2018
+.\"      Date: 01/18/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-LISTINVOI" "7" "01/16/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-LISTINVOI" "7" "01/18/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -37,7 +37,7 @@ lightning-listinvoices \- Protocol for querying invoice status
 The \fBlistinvoices\fR RPC command gets the status of a specific invoice, if it exists, or the status of all invoices if given no argument\&.
 .SH "RETURN VALUE"
 .sp
-On success, an array \fIinvoices\fR of objects is returned\&. Each object contains \fIlabel\fR, \fIpayment_hash, \*(Aqcomplete\fR (a boolean), and \fIexpiry_time\fR (a UNIX timestamp)\&. If the \fImsatoshi\fR argument to lightning\-invoice(7) was not "any", there will be an \fImsatoshi\fR field\&. If the invoice has been paid, there will be a \fIpay_index\fR field and an \fImsatoshi_received\fR field (which may be slightly greater than \fImsatoshi\fR as some overpaying is permitted to allow clients to obscure payment paths)\&.
+On success, an array \fIinvoices\fR of objects is returned\&. Each object contains \fIlabel\fR, \fIpayment_hash\fR, \fIstatus\fR (one of \fIunpaid\fR, \fIpaid\fR or \fIexpired\fR), and \fIexpiry_time\fR (a UNIX timestamp)\&. If the \fImsatoshi\fR argument to lightning\-invoice(7) was not "any", there will be an \fImsatoshi\fR field\&. If the invoice \fIstatus\fR is \fIpaid\fR, there will be a \fIpay_index\fR field and an \fImsatoshi_received\fR field (which may be slightly greater than \fImsatoshi\fR as some overpaying is permitted to allow clients to obscure payment paths)\&.
 .SH "AUTHOR"
 .sp
 Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.

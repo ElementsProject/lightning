@@ -280,7 +280,7 @@ class LightningDTests(BaseLightningDTests):
             label = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
 
         rhash = ldst.rpc.invoice(amt, label, label)['payment_hash']
-        assert ldst.rpc.listinvoices(label)['invoices'][0]['complete'] == False
+        assert ldst.rpc.listinvoices(label)['invoices'][0]['status'] == 'unpaid'
 
         routestep = {
             'msatoshi' : amt,
@@ -292,7 +292,7 @@ class LightningDTests(BaseLightningDTests):
         def wait_pay():
             # Up to 10 seconds for payment to succeed.
             start_time = time.time()
-            while not ldst.rpc.listinvoices(label)['invoices'][0]['complete']:
+            while ldst.rpc.listinvoices(label)['invoices'][0]['status'] != 'paid':
                 if time.time() > start_time + 10:
                     raise TimeoutError('Payment timed out')
                 time.sleep(0.1)
@@ -366,7 +366,7 @@ class LightningDTests(BaseLightningDTests):
         inv = l2.rpc.invoice(123000, 'test_pay', 'description', 1)['bolt11']
         time.sleep(2)
         self.assertRaises(ValueError, l1.rpc.pay, inv)
-        assert l2.rpc.listinvoices('test_pay')['invoices'][0]['complete'] == False
+        assert l2.rpc.listinvoices('test_pay')['invoices'][0]['status'] == 'expired'
         assert l2.rpc.listinvoices('test_pay')['invoices'][0]['expiry_time'] < time.time()
 
     def test_connect(self):
@@ -639,7 +639,7 @@ class LightningDTests(BaseLightningDTests):
 
         amt = 200000000
         rhash = l2.rpc.invoice(amt, 'testpayment2', 'desc')['payment_hash']
-        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['complete'] == False
+        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         routestep = {
             'msatoshi' : amt,
@@ -652,25 +652,25 @@ class LightningDTests(BaseLightningDTests):
         rs = copy.deepcopy(routestep)
         rs['msatoshi'] = rs['msatoshi'] - 1
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
-        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['complete'] == False
+        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         # Gross overpayment (more than factor of 2)
         rs = copy.deepcopy(routestep)
         rs['msatoshi'] = rs['msatoshi'] * 2 + 1
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
-        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['complete'] == False
+        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         # Insufficient delay.
         rs = copy.deepcopy(routestep)
         rs['delay'] = rs['delay'] - 2
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
-        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['complete'] == False
+        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         # Bad ID.
         rs = copy.deepcopy(routestep)
         rs['id'] = '00000000000000000000000000000000'
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
-        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['complete'] == False
+        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         # FIXME: test paying via another node, should fail to pay twice.
         p1 = l1.rpc.getpeer(l2.info['id'], 'info')
@@ -682,7 +682,7 @@ class LightningDTests(BaseLightningDTests):
 
         # This works.
         preimage2 = l1.rpc.sendpay(to_json([routestep]), rhash)
-        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['complete'] == True
+        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'paid'
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['pay_index'] == 1
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['msatoshi_received'] == rs['msatoshi']
 
@@ -700,15 +700,15 @@ class LightningDTests(BaseLightningDTests):
         preimage = l1.rpc.sendpay(to_json([routestep]), rhash)
         assert preimage == preimage2
         l1.daemon.wait_for_log('... succeeded')
-        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['complete'] == True
+        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'paid'
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['msatoshi_received'] == rs['msatoshi']
 
         # Overpaying by "only" a factor of 2 succeeds.
         rhash = l2.rpc.invoice(amt, 'testpayment3', 'desc')['payment_hash']
-        assert l2.rpc.listinvoices('testpayment3')['invoices'][0]['complete'] == False
+        assert l2.rpc.listinvoices('testpayment3')['invoices'][0]['status'] == 'unpaid'
         routestep = { 'msatoshi' : amt * 2, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'}
         preimage3 = l1.rpc.sendpay(to_json([routestep]), rhash)
-        assert l2.rpc.listinvoices('testpayment3')['invoices'][0]['complete'] == True
+        assert l2.rpc.listinvoices('testpayment3')['invoices'][0]['status'] == 'paid'
         assert l2.rpc.listinvoices('testpayment3')['invoices'][0]['msatoshi_received'] == amt*2
 
         # Test listpayments
@@ -769,7 +769,8 @@ class LightningDTests(BaseLightningDTests):
         preimage = l1.rpc.pay(inv)
         after = int(time.time())
         invoice = l2.rpc.listinvoices('test_pay')['invoices'][0]
-        assert invoice['complete'] == True
+        print(invoice)
+        assert invoice['status'] == 'paid'
         assert invoice['paid_timestamp'] >= before
         assert invoice['paid_timestamp'] <= after
 
@@ -1001,7 +1002,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
 
         # Payment failed, BTW
-        assert l2.rpc.listinvoices('onchain_dust_out')['invoices'][0]['complete'] == False
+        assert l2.rpc.listinvoices('onchain_dust_out')['invoices'][0]['status'] == 'unpaid'
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_onchain_timeout(self):
@@ -1064,7 +1065,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
 
         # Payment failed, BTW
-        assert l2.rpc.listinvoices('onchain_timeout')['invoices'][0]['complete'] == False
+        assert l2.rpc.listinvoices('onchain_timeout')['invoices'][0]['status'] == 'unpaid'
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_onchain_middleman(self):
@@ -1642,7 +1643,7 @@ class LightningDTests(BaseLightningDTests):
         assert l3.rpc.getpeer(l2.info['id'])['channel'] == chanid2
 
         rhash = l3.rpc.invoice(100000000, 'testpayment1', 'desc')['payment_hash']
-        assert l3.rpc.listinvoices('testpayment1')['invoices'][0]['complete'] == False
+        assert l3.rpc.listinvoices('testpayment1')['invoices'][0]['status'] == 'unpaid'
 
         # Fee for node2 is 10 millionths, plus 1.
         amt = 100000000
@@ -1783,7 +1784,7 @@ class LightningDTests(BaseLightningDTests):
         assert route[1]['delay'] == 9 + shadow_route
 
         rhash = l3.rpc.invoice(4999999, 'test_forward_different_fees_and_cltv', 'desc')['payment_hash']
-        assert l3.rpc.listinvoices('test_forward_different_fees_and_cltv')['invoices'][0]['complete'] == False
+        assert l3.rpc.listinvoices('test_forward_different_fees_and_cltv')['invoices'][0]['status'] == 'unpaid'
 
         # This should work.
         l1.rpc.sendpay(to_json(route), rhash)
@@ -1796,7 +1797,7 @@ class LightningDTests(BaseLightningDTests):
                                .format(bitcoind.rpc.getblockcount() + 9 + shadow_route))
         l3.daemon.wait_for_log("test_forward_different_fees_and_cltv: Actual amount 4999999msat, HTLC expiry {}"
                                .format(bitcoind.rpc.getblockcount() + 9 + shadow_route))
-        assert l3.rpc.listinvoices('test_forward_different_fees_and_cltv')['invoices'][0]['complete'] == True
+        assert l3.rpc.listinvoices('test_forward_different_fees_and_cltv')['invoices'][0]['status'] == 'paid'
 
         # Check that we see all the channels
         shortids = set(c['short_channel_id'] for c in l2.rpc.listchannels()['channels'])
@@ -1852,7 +1853,7 @@ class LightningDTests(BaseLightningDTests):
         # This should work.
         rhash = l3.rpc.invoice(4999999, 'test_forward_pad_fees_and_cltv', 'desc')['payment_hash']
         l1.rpc.sendpay(to_json(route), rhash)
-        assert l3.rpc.listinvoices('test_forward_pad_fees_and_cltv')['invoices'][0]['complete'] == True
+        assert l3.rpc.listinvoices('test_forward_pad_fees_and_cltv')['invoices'][0]['status'] == 'paid'
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_htlc_out_timeout(self):
@@ -1872,7 +1873,7 @@ class LightningDTests(BaseLightningDTests):
 
         amt = 200000000
         inv = l2.rpc.invoice(amt, 'test_htlc_out_timeout', 'desc')['bolt11']
-        assert l2.rpc.listinvoices('test_htlc_out_timeout')['invoices'][0]['complete'] == False
+        assert l2.rpc.listinvoices('test_htlc_out_timeout')['invoices'][0]['status'] == 'unpaid'
 
         payfuture = self.executor.submit(l1.rpc.pay, inv)
 
@@ -1927,7 +1928,7 @@ class LightningDTests(BaseLightningDTests):
 
         amt = 200000000
         inv = l2.rpc.invoice(amt, 'test_htlc_in_timeout', 'desc')['bolt11']
-        assert l2.rpc.listinvoices('test_htlc_in_timeout')['invoices'][0]['complete'] == False
+        assert l2.rpc.listinvoices('test_htlc_in_timeout')['invoices'][0]['status'] == 'unpaid'
 
         payfuture = self.executor.submit(l1.rpc.pay, inv)
 
@@ -2126,7 +2127,7 @@ class LightningDTests(BaseLightningDTests):
 
         amt = 200000000
         rhash = l2.rpc.invoice(amt, 'test_reconnect_sender_add1', 'desc')['payment_hash']
-        assert l2.rpc.listinvoices('test_reconnect_sender_add1')['invoices'][0]['complete'] == False
+        assert l2.rpc.listinvoices('test_reconnect_sender_add1')['invoices'][0]['status'] == 'unpaid'
 
         route = [ { 'msatoshi' : amt, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'} ]
 
@@ -2154,7 +2155,7 @@ class LightningDTests(BaseLightningDTests):
 
         amt = 200000000
         rhash = l2.rpc.invoice(amt, 'testpayment', 'desc')['payment_hash']
-        assert l2.rpc.listinvoices('testpayment')['invoices'][0]['complete'] == False
+        assert l2.rpc.listinvoices('testpayment')['invoices'][0]['status'] == 'unpaid'
 
         route = [ { 'msatoshi' : amt, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'} ]
 
@@ -2180,13 +2181,13 @@ class LightningDTests(BaseLightningDTests):
 
         amt = 200000000
         rhash = l2.rpc.invoice(amt, 'testpayment2', 'desc')['payment_hash']
-        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['complete'] == False
+        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         route = [ { 'msatoshi' : amt, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'} ]
         l1.rpc.sendpay(to_json(route), rhash)
         for i in range(len(disconnects)):
             l1.daemon.wait_for_log('Already have funding locked in')
-        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['complete'] == True
+        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'paid'
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_reconnect_receiver_fulfill(self):
@@ -2210,13 +2211,13 @@ class LightningDTests(BaseLightningDTests):
 
         amt = 200000000
         rhash = l2.rpc.invoice(amt, 'testpayment2', 'desc')['payment_hash']
-        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['complete'] == False
+        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         route = [ { 'msatoshi' : amt, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'} ]
         l1.rpc.sendpay(to_json(route), rhash)
         for i in range(len(disconnects)):
             l1.daemon.wait_for_log('Already have funding locked in')
-        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['complete'] == True
+        assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'paid'
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_shutdown_reconnect(self):
@@ -2586,7 +2587,7 @@ class LightningDTests(BaseLightningDTests):
         wait_for(lambda: l1.rpc.listpayments()['payments'][0]['status'] != 'pending')
 
         assert l1.rpc.listpayments()['payments'][0]['status'] == 'complete'
-        assert l2.rpc.listinvoices('inv1')['invoices'][0]['complete'] == True
+        assert l2.rpc.listinvoices('inv1')['invoices'][0]['status'] == 'paid'
 
         # FIXME: We should re-add pre-announced routes on startup!
         self.wait_for_routes(l1, [chanid])
@@ -2629,7 +2630,7 @@ class LightningDTests(BaseLightningDTests):
 
         wait_for(lambda: l1.rpc.listpayments()['payments'][0]['status'] != 'pending')
 
-        assert l2.rpc.listinvoices('inv1')['invoices'][0]['complete'] == False
+        assert l2.rpc.listinvoices('inv1')['invoices'][0]['status'] == 'expired'
         assert l1.rpc.listpayments()['payments'][0]['status'] == 'failed'
 
         # Another attempt should also fail.
