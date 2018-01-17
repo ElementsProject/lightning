@@ -1538,6 +1538,7 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 	json_object_start(response, NULL);
 	linear = linearize_tx(response, tx);
 	json_add_hex(response, "tx", linear, tal_len(linear));
+	json_add_txid(response, "txid", fc->peer->funding_txid);
 	json_object_end(response);
 	command_success(fc->peer->opening_cmd, response);
 	fc->peer->opening_cmd = NULL;
