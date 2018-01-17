@@ -228,16 +228,19 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
         return l1,l2
 
+    # Waits until l1 notices funds
+    def give_funds(self, l1, satoshi):
+        addr = l1.rpc.newaddr()['address']
+        bitcoind.rpc.sendtoaddress(addr, satoshi / 10**8)
+
+        numfunds = len(l1.rpc.listfunds()['outputs'])
+        bitcoind.generate_block(1)
+        wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > numfunds)
+    
     # Returns the short channel-id: <blocknum>:<txnum>:<outnum>
     def fund_channel(self, l1, l2, amount):
-        addr = l1.rpc.newaddr()['address']
-
-        txid = l1.bitcoin.rpc.sendtoaddress(addr, amount / 10**8 + 0.01)
-        tx = l1.bitcoin.rpc.getrawtransaction(txid)
-
-        l1.rpc.addfunds(tx)
-        # Generate a block, so we know next tx will be first in block.
-        l1.bitcoin.generate_block(1)
+        # Generates a block, so we know next tx will be first in block.
+        self.give_funds(l1, amount + 1000000)
 
         tx = l1.rpc.fundchannel(l2.info['id'], amount)['tx']
         # Technically, this is async to fundchannel.
@@ -807,11 +810,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
         l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
 
-        addr = l1.rpc.newaddr()['address']
-        txid = l1.bitcoin.rpc.sendtoaddress(addr, 10**6 / 10**8 + 0.01)
-        tx = l1.bitcoin.rpc.getrawtransaction(txid)
-
-        l1.rpc.addfunds(tx)
+        self.give_funds(l1, 10**6 + 1000000)
         self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 10**6)
 
         l2.daemon.wait_for_log('to_self_delay 100 larger than 99')
@@ -924,10 +923,8 @@ class LightningDTests(BaseLightningDTests):
         # Like fundchannel, but we'll probably fail before CHANNELD_NORMAL.
         addr = l1.rpc.newaddr()['address']
 
-        txid = l1.bitcoin.rpc.sendtoaddress(addr, 10**6 / 10**8 + 0.01)
-        tx = l1.bitcoin.rpc.getrawtransaction(txid)
+        self.give_funds(l1, 10**6 + 1000000)
 
-        l1.rpc.addfunds(tx)
         l1.rpc.fundchannel(l2.info['id'], 10**6)
         l1.daemon.wait_for_log('sendrawtx exit 0')
 
@@ -1993,10 +1990,7 @@ class LightningDTests(BaseLightningDTests):
         l1 = self.node_factory.get_node(disconnect=disconnects)
         l2 = self.node_factory.get_node()
 
-        addr = l1.rpc.newaddr()['address']
-        txid = l1.bitcoin.rpc.sendtoaddress(addr, 20000 / 10**6)
-        tx = l1.bitcoin.rpc.getrawtransaction(txid)
-        l1.rpc.addfunds(tx)
+        self.give_funds(l1, 2000000)
 
         for d in disconnects:
             l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
@@ -2020,10 +2014,7 @@ class LightningDTests(BaseLightningDTests):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node(disconnect=disconnects)
 
-        addr = l1.rpc.newaddr()['address']
-        txid = l1.bitcoin.rpc.sendtoaddress(addr, 20000 / 10**6)
-        tx = l1.bitcoin.rpc.getrawtransaction(txid)
-        l1.rpc.addfunds(tx)
+        self.give_funds(l1, 2000000)
 
         for d in disconnects:
             l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
@@ -2046,10 +2037,7 @@ class LightningDTests(BaseLightningDTests):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node(disconnect=disconnects)
 
-        addr = l1.rpc.newaddr()['address']
-        txid = l1.bitcoin.rpc.sendtoaddress(addr, 20000 / 10**6)
-        tx = l1.bitcoin.rpc.getrawtransaction(txid)
-        l1.rpc.addfunds(tx)
+        self.give_funds(l1, 2000000)
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
@@ -2065,10 +2053,7 @@ class LightningDTests(BaseLightningDTests):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node(disconnect=disconnects)
 
-        addr = l1.rpc.newaddr()['address']
-        txid = l1.bitcoin.rpc.sendtoaddress(addr, 20000 / 10**6)
-        tx = l1.bitcoin.rpc.getrawtransaction(txid)
-        l1.rpc.addfunds(tx)
+        self.give_funds(l1, 2000000)
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         l1.rpc.fundchannel(l2.info['id'], 20000)
@@ -2094,10 +2079,7 @@ class LightningDTests(BaseLightningDTests):
         l2 = self.node_factory.get_node(disconnect=disconnects)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
-        addr = l1.rpc.newaddr()['address']
-        txid = l1.bitcoin.rpc.sendtoaddress(addr, 20000 / 10**6)
-        tx = l1.bitcoin.rpc.getrawtransaction(txid)
-        l1.rpc.addfunds(tx)
+        self.give_funds(l1, 2000000)
 
         # l2 closes on l1, l1 forgets.
         self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
@@ -2292,19 +2274,6 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_logs(['sendrawtx exit 0', '-> CLOSINGD_COMPLETE'])
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
 
-    def test_json_addfunds(self):
-        sat = 10**6
-        l1 = self.node_factory.get_node()
-        addr = l1.rpc.newaddr()['address']
-        txid = l1.bitcoin.rpc.sendtoaddress(addr, 0.01)
-        tx = l1.bitcoin.rpc.getrawtransaction(txid)
-
-        # The first time should succeed
-        assert l1.rpc.addfunds(tx) == { "outputs" : 1, "satoshis" : sat }
-
-        # Second time should fail, we already have those funds
-        self.assertRaises(ValueError, l1.rpc.addfunds, tx)
-
     def test_withdraw(self):
         amount = 1000000
         # Don't get any funds from previous runs.
@@ -2312,12 +2281,13 @@ class LightningDTests(BaseLightningDTests):
         l2 = self.node_factory.get_node(random_hsm=True)
         addr = l1.rpc.newaddr()['address']
 
-
         # Add some funds to withdraw later
         for i in range(10):
             txid = l1.bitcoin.rpc.sendtoaddress(addr, amount / 10**8 + 0.01)
             tx = l1.bitcoin.rpc.getrawtransaction(txid)
-            l1.rpc.addfunds(tx)
+
+        bitcoind.generate_block(1)
+        wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
 
         # Reach around into the db to check that outputs were added
         db = sqlite3.connect(os.path.join(l1.daemon.lightning_dir, "lightningd.sqlite3"))
@@ -2425,10 +2395,9 @@ class LightningDTests(BaseLightningDTests):
         """Add some funds, fund a channel, and make sure we remember the change
         """
         l1, l2 = self.connect()
-        addr = l1.rpc.newaddr()['address']
-        txid = l1.bitcoin.rpc.sendtoaddress(addr, 0.1)
-        tx = l1.bitcoin.rpc.getrawtransaction(txid)
-        l1.rpc.addfunds(tx)
+
+        self.give_funds(l1, 0.1 * 10**8)
+
         outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
         assert len(outputs) == 1 and outputs[0]['value'] == 10000000
 
@@ -2518,13 +2487,6 @@ class LightningDTests(BaseLightningDTests):
 
         outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
         assert len(outputs) == 1 and outputs[0]['value'] == 10000000
-
-        # Now the same, but create a conflict between addfunds and from block
-        txid = l1.bitcoin.rpc.sendtoaddress(addr, 0.1)
-        tx = l1.bitcoin.rpc.getrawtransaction(txid)
-        l1.rpc.addfunds(tx)
-        l1.bitcoin.rpc.generate(1)
-        time.sleep(5)
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_channel_persistence(self):

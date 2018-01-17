@@ -326,11 +326,10 @@ class LightningNode(object):
     def openchannel(self, remote_node, capacity):
         addr = self.rpc.newaddr()['address']
         txid = self.bitcoin.rpc.sendtoaddress(addr, capacity / 10**6)
-        tx = self.bitcoin.rpc.getrawtransaction(txid)
-        self.rpc.addfunds(tx)
+        self.bitcoin.generate_block(1)
+        self.daemon.wait_for_log('Owning output .* txid {}'.format(txid))
         self.rpc.fundchannel(remote_node.info['id'], capacity)
         self.daemon.wait_for_log('sendrawtx exit 0, gave')
-        time.sleep(1)
         self.bitcoin.generate_block(6)
         self.daemon.wait_for_log('-> CHANNELD_NORMAL|STATE_NORMAL')
 
