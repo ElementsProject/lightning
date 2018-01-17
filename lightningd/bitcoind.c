@@ -140,6 +140,8 @@ static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
 				      (int)bcli->output_bytes,
 				      bcli->output);
 			bitcoind->error_count++;
+
+			goto done;
 		}
 	} else
 		*bcli->exitstatus = WEXITSTATUS(status);
@@ -156,6 +158,8 @@ static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
 	db_begin_transaction(bitcoind->ld->wallet->db);
 	bcli->process(bcli);
 	db_commit_transaction(bitcoind->ld->wallet->db);
+
+done:
 	tal_free(bcli);
 
 	next_bcli(bitcoind);
