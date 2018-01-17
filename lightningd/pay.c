@@ -156,6 +156,7 @@ static bool send_payment(struct command *cmd,
 	/* Now, do we already have a payment? */
 	payment = wallet_payment_by_hash(tmpctx, cmd->ld->wallet, rhash);
 	if (payment) {
+		/* FIXME: We should really do something smarter here! */
 		log_debug(cmd->ld->log, "json_sendpay: found previous");
 		if (payment->status == PAYMENT_PENDING) {
 			log_add(cmd->ld->log, "... still in progress");
