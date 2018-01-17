@@ -72,6 +72,7 @@ static struct wallet *create_test_wallet(const tal_t *ctx)
 	ltmp = tal_tmpctx(ctx);
 	log_book = new_log_book(w, 20*1024*1024, LOG_DBG);
 	w->log = new_log(w, log_book, "wallet_tests(%u):", (int)getpid());
+	list_head_init(&w->unstored_payments);
 
 	CHECK_MSG(w->db, "Failed opening the db");
 	db_migrate(w->db, w->log);
@@ -549,41 +550,39 @@ static bool test_htlc_crud(const tal_t *ctx)
 
 static bool test_payment_crud(const tal_t *ctx)
 {
-	struct wallet_payment t, *t2;
+	struct wallet_payment *t = tal(ctx, struct wallet_payment), *t2;
 	struct wallet *w = create_test_wallet(ctx);
 
-	mempat(&t, sizeof(t));
-	memset(&t.destination, 1, sizeof(t.destination));
+	mempat(t, sizeof(*t));
+	memset(&t->destination, 1, sizeof(t->destination));
 
-	t.id = 0;
-	t.msatoshi = 100;
-	t.status = PAYMENT_PENDING;
-	t.payment_preimage = NULL;
-	memset(&t.payment_hash, 1, sizeof(t.payment_hash));
+	t->id = 0;
+	t->msatoshi = 100;
+	t->status = PAYMENT_PENDING;
+	t->payment_preimage = NULL;
+	memset(&t->payment_hash, 1, sizeof(t->payment_hash));
 
 	db_begin_transaction(w->db);
-	CHECK(wallet_payment_add(w, &t));
-	CHECK(t.id != 0);
-	t2 = wallet_payment_by_hash(ctx, w, &t.payment_hash);
+	wallet_payment_setup(w, tal_dup(NULL, struct wallet_payment, t));
+	wallet_payment_store(w, &t->payment_hash);
+	t2 = wallet_payment_by_hash(ctx, w, &t->payment_hash);
 	CHECK(t2 != NULL);
-	CHECK(t2->id == t.id);
-	CHECK(t2->status == t.status);
-	CHECK(pubkey_cmp(&t2->destination, &t.destination) == 0);
-	CHECK(t2->msatoshi == t.msatoshi);
+	CHECK(t2->status == t->status);
+	CHECK(pubkey_cmp(&t2->destination, &t->destination) == 0);
+	CHECK(t2->msatoshi == t->msatoshi);
 	CHECK(!t2->payment_preimage);
 
-	t.status = PAYMENT_COMPLETE;
-	t.payment_preimage = tal(w, struct preimage);
-	memset(t.payment_preimage, 2, sizeof(*t.payment_preimage));
-	wallet_payment_set_status(w, &t.payment_hash, t.status,
-				  t.payment_preimage);
-	t2 = wallet_payment_by_hash(ctx, w, &t.payment_hash);
+	t->status = PAYMENT_COMPLETE;
+	t->payment_preimage = tal(w, struct preimage);
+	memset(t->payment_preimage, 2, sizeof(*t->payment_preimage));
+	wallet_payment_set_status(w, &t->payment_hash, t->status,
+				  t->payment_preimage);
+	t2 = wallet_payment_by_hash(ctx, w, &t->payment_hash);
 	CHECK(t2 != NULL);
-	CHECK(t2->id == t.id);
-	CHECK(t2->status == t.status);
-	CHECK(pubkey_cmp(&t2->destination, &t.destination) == 0);
-	CHECK(t2->msatoshi == t.msatoshi);
-	CHECK(structeq(t.payment_preimage, t2->payment_preimage));
+	CHECK(t2->status == t->status);
+	CHECK(pubkey_cmp(&t2->destination, &t->destination) == 0);
+	CHECK(t2->msatoshi == t->msatoshi);
+	CHECK(structeq(t->payment_preimage, t2->payment_preimage));
 
 	db_commit_transaction(w->db);
 	return true;

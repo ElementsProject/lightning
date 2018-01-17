@@ -78,9 +78,6 @@ struct htlc_out {
 
 	/* Otherwise, this MAY be non-null if there's a pay command waiting */
 	struct command *cmd;
-
-	/* Temporary payment store, so we can save everything in one go */
-	struct wallet_payment *payment;
 };
 
 static inline const struct htlc_key *keyof_htlc_in(const struct htlc_in *in)
@@ -129,14 +126,13 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    const struct secret *shared_secret,
 			    const u8 *onion_routing_packet);
 
-/* You need to set the ID, then connect_htlc_out this!  Steals @payment. */
+/* You need to set the ID, then connect_htlc_out this! */
 struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      struct peer *peer,
 			      u64 msatoshi, u32 cltv_expiry,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
 			      struct htlc_in *in,
-			      struct wallet_payment *payment,
 			      struct command *cmd);
 
 void connect_htlc_in(struct htlc_in_map *map, struct htlc_in *hin);
