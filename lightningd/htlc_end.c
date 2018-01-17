@@ -127,6 +127,8 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 			       htlc_state_name(hout->hstate));
 	else if (hout->failuremsg && hout->preimage)
 		return corrupt(hout, abortstr, "Both failed and succeeded");
+	else if (hout->cmd && hout->in)
+		return corrupt(hout, abortstr, "Both local and forwarded");
 	else if (!hout->in && !hout->pay_command)
 		return corrupt(hout, abortstr,
 			       "Neither hout->in nor paycommand");
@@ -142,7 +144,8 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      const u8 *onion_routing_packet,
 			      struct htlc_in *in,
 			      struct pay_command *pc,
-			      struct wallet_payment *payment)
+			      struct wallet_payment *payment,
+			      struct command *cmd)
 {
 	struct htlc_out *hout = tal(ctx, struct htlc_out);
 
@@ -155,6 +158,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	hout->cltv_expiry = cltv_expiry;
 	hout->payment_hash = *payment_hash;
 	hout->payment = tal_steal(hout, payment);
+	hout->cmd = cmd;
 	memcpy(hout->onion_routing_packet, onion_routing_packet,
 	       sizeof(hout->onion_routing_packet));
 
