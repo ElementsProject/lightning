@@ -57,7 +57,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx,
 	ld->log = new_log(log_book, log_book, "lightningd(%u):", (int)getpid());
 	ld->alias = NULL;
 	ld->rgb = NULL;
-	list_head_init(&ld->pay_commands);
 	list_head_init(&ld->connects);
 	ld->wireaddrs = tal_arr(ld, struct wireaddr, 0);
 	ld->portnum = DEFAULT_PORT;

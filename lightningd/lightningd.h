@@ -133,9 +133,6 @@ struct lightningd {
 	/* Maintained by invoices.c */
 	struct invoices *invoices;
 
-	/* Any outstanding "pay" commands. */
-	struct list_head pay_commands;
-
 	/* Transaction filter matching what we're interested in */
 	struct txfilter *owned_txfilter;
 

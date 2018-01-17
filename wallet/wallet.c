@@ -1056,7 +1056,6 @@ static bool wallet_stmt2htlc_out(const struct wallet_channel *channel,
 	 * htlcs, will wire using origin_htlc_id */
 	out->in = NULL;
 
-	out->pay_command = NULL;
 	out->payment = NULL;
 
 	return ok;

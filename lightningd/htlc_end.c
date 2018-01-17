@@ -129,9 +129,6 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 		return corrupt(hout, abortstr, "Both failed and succeeded");
 	else if (hout->cmd && hout->in)
 		return corrupt(hout, abortstr, "Both local and forwarded");
-	else if (!hout->in && !hout->pay_command)
-		return corrupt(hout, abortstr,
-			       "Neither hout->in nor paycommand");
 
 	return cast_const(struct htlc_out *, hout);
 }
@@ -143,7 +140,6 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
 			      struct htlc_in *in,
-			      struct pay_command *pc,
 			      struct wallet_payment *payment,
 			      struct command *cmd)
 {
@@ -168,7 +164,6 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	hout->preimage = NULL;
 
 	hout->in = in;
-	hout->pay_command = pc;
 
 	return htlc_out_check(hout, "new_htlc_out");
 }
