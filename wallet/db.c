@@ -525,6 +525,18 @@ bool sqlite3_column_sha256_double(sqlite3_stmt *stmt, int col,  struct sha256_do
 	return memcpy(dest, sqlite3_column_blob(stmt, col), sizeof(struct sha256_double));
 }
 
+struct secret *sqlite3_column_secrets(const tal_t *ctx,
+				      sqlite3_stmt *stmt, int col)
+{
+	struct secret *secrets;
+	size_t n = sqlite3_column_bytes(stmt, col) / sizeof(*secrets);
+
+	/* Must fit exactly */
+	assert(n * sizeof(struct secret) == sqlite3_column_bytes(stmt, col));
+	secrets = tal_arr(ctx, struct secret, n);
+	return memcpy(secrets, sqlite3_column_blob(stmt, col), tal_len(secrets));
+}
+
 bool sqlite3_bind_sha256_double(sqlite3_stmt *stmt, int col, const struct sha256_double *p)
 {
 	sqlite3_bind_blob(stmt, col, p, sizeof(struct sha256_double), SQLITE_TRANSIENT);
