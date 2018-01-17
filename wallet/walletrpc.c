@@ -362,56 +362,6 @@ static const struct json_command newaddr_command = {
 };
 AUTODATA(json_command, &newaddr_command);
 
-static void json_addfunds(struct command *cmd,
-			  const char *buffer, const jsmntok_t *params)
-{
-	struct json_result *response = new_json_result(cmd);
-	jsmntok_t *txtok;
-	struct bitcoin_tx *tx;
-	size_t txhexlen;
-	int num_utxos = 0;
-	u64 total_satoshi = 0;
-
-	if (!json_get_params(buffer, params, "tx", &txtok, NULL)) {
-		command_fail(cmd, "Need tx sending to address from newaddr");
-		return;
-	}
-
-	txhexlen = txtok->end - txtok->start;
-	tx = bitcoin_tx_from_hex(cmd, buffer + txtok->start, txhexlen);
-	if (!tx) {
-		command_fail(cmd, "'%.*s' is not a valid transaction",
-			     txtok->end - txtok->start,
-			     buffer + txtok->start);
-		return;
-	}
-
-	/* Find an output we know how to spend. */
-	num_utxos =
-	    wallet_extract_owned_outputs(cmd->ld->wallet, tx, &total_satoshi);
-	if (num_utxos < 0) {
-		command_fail(cmd, "Could not add outputs to wallet");
-		return;
-	} else if (!num_utxos) {
-		command_fail(cmd, "No usable outputs");
-		return;
-	}
-
-	json_object_start(response, NULL);
-	json_add_num(response, "outputs", num_utxos);
-	json_add_u64(response, "satoshis", total_satoshi);
-	json_object_end(response);
-	command_success(cmd, response);
-}
-
-static const struct json_command addfunds_command = {
-	"addfunds",
-	json_addfunds,
-	"Add funds for lightningd to spend to create channels, using {tx}",
-	"Returns how many {outputs} it can use and total {satoshis}"
-};
-AUTODATA(json_command, &addfunds_command);
-
 static void json_listfunds(struct command *cmd, const char *buffer,
 			   const jsmntok_t *params)
 {
