@@ -13,6 +13,7 @@
 #include <common/type_to_string.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
+#include <wire/gen_onion_wire.h>
 #include <wire/gen_peer_wire.h>
 
 #ifndef SUPERVERBOSE
@@ -236,6 +237,12 @@ get_or_make_connection(struct routing_state *rstate,
 
 	tal_add_destructor(nc, destroy_connection);
 	return nc;
+}
+
+static void delete_connection(struct routing_state *rstate,
+			      const struct node_connection *connection)
+{
+	tal_free(connection);
 }
 
 struct node_connection *half_add_connection(
@@ -1006,4 +1013,100 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 
 	/* FIXME: Shadow route! */
 	return hops;
+}
+
+/* Get the struct node_connection matching the short_channel_id,
+ * which must be an out connection of the given node. */
+static struct node_connection *
+get_out_node_connection_of(struct routing_state *rstate,
+			   const struct node *node,
+			   const struct short_channel_id *short_channel_id)
+{
+	int i;
+
+	for (i = 0; i < tal_count(node->out); ++i) {
+		if (short_channel_id_eq(&node->out[i]->short_channel_id, short_channel_id))
+			return node->out[i];
+	}
+
+	return NULL;
+}
+
+/**
+ * routing_failure_on_nc - Handle routing failure on a specific
+ * node_connection.
+ */
+static void routing_failure_on_nc(struct routing_state *rstate,
+				  enum onion_type failcode,
+				  struct node_connection *nc)
+{
+	/* BOLT #4:
+	 *
+	 * - if the PERM bit is NOT set:
+	 *   - SHOULD restore the channels as it receives new `channel_update`s.
+	 */
+	if (failcode & PERM)
+		nc->active = false;
+	else
+		delete_connection(rstate, nc);
+}
+
+void routing_failure(struct routing_state *rstate,
+		     const struct pubkey *erring_node_pubkey,
+		     const struct short_channel_id *scid,
+		     enum onion_type failcode)
+{
+	const tal_t *tmpctx = tal_tmpctx(rstate);
+	struct node *node;
+	struct node_connection *nc;
+	int i;
+
+	status_trace("Received routing failure 0x%04x (%s), "
+		     "erring node %s, "
+		     "channel %s",
+		     (int) failcode, onion_type_name(failcode),
+		     type_to_string(tmpctx, struct pubkey, erring_node_pubkey),
+		     type_to_string(tmpctx, struct short_channel_id, scid));
+
+	node = get_node(rstate, erring_node_pubkey);
+	if (!node) {
+		status_trace("UNUSUAL routing_failure: "
+			     "Erring node %s not in map",
+			     type_to_string(tmpctx, struct pubkey,
+					    erring_node_pubkey));
+		/* No node, so no channel, so any channel_update
+		 * can also be ignored. */
+		goto out;
+	}
+
+	/* BOLT #4:
+	 *
+	 * - if the NODE bit is set:
+	 *   - SHOULD remove all channels connected with the erring node from
+	 *   consideration.
+	 *
+	 */
+	if (failcode & NODE) {
+		for (i = 0; i < tal_count(node->in); ++i)
+			routing_failure_on_nc(rstate, failcode, node->in[i]);
+		for (i = 0; i < tal_count(node->out); ++i)
+			routing_failure_on_nc(rstate, failcode, node->out[i]);
+	} else {
+		nc = get_out_node_connection_of(rstate, node, scid);
+		if (nc)
+			routing_failure_on_nc(rstate, failcode, nc);
+		else
+			status_trace("UNUSUAL routing_failure: "
+				     "Channel %s not an out channel "
+				     "of node %s",
+				     type_to_string(tmpctx,
+						    struct short_channel_id,
+						    scid),
+				     type_to_string(tmpctx, struct pubkey,
+						    erring_node_pubkey));
+	}
+
+	/* FIXME: if UPDATE is set, apply the channel update. */
+out:
+	tal_free(tmpctx);
 }

@@ -4,6 +4,7 @@
 #include <bitcoin/pubkey.h>
 #include <ccan/htable/htable_type.h>
 #include <gossipd/broadcast.h>
+#include <wire/gen_onion_wire.h>
 #include <wire/wire.h>
 
 #define ROUTING_MAX_HOPS 20
@@ -148,6 +149,11 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 			    const struct pubkey *destination,
 			    const u32 msatoshi, double riskfactor,
 			    u32 final_cltv);
+/* Disable channel(s) based on the given routing failure. */
+void routing_failure(struct routing_state *rstate,
+		     const struct pubkey *erring_node,
+		     const struct short_channel_id *erring_channel,
+		     enum onion_type failcode);
 
 /* Utility function that, given a source and a destination, gives us
  * the direction bit the matching channel should get */

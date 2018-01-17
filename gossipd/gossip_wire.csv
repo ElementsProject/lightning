@@ -1,5 +1,6 @@
 #include <common/cryptomsg.h>
 #include <common/wireaddr.h>
+#include <wire/gen_onion_wire.h>
 
 # Initialize the gossip daemon.
 gossipctl_init,3000
@@ -195,3 +196,9 @@ gossip_disable_channel,3019
 gossip_disable_channel,,short_channel_id,struct short_channel_id
 gossip_disable_channel,,direction,u8
 gossip_disable_channel,,active,bool
+
+# master->gossipd a routing failure occurred
+gossip_routing_failure,3021
+gossip_routing_failure,,erring_node,struct pubkey
+gossip_routing_failure,,erring_channel,struct short_channel_id
+gossip_routing_failure,,failcode,u16

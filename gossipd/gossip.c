@@ -1883,6 +1883,27 @@ fail:
 	tal_free(tmpctx);
 	return daemon_conn_read_next(conn, &daemon->master);
 }
+static struct io_plan *handle_routing_failure(struct io_conn *conn,
+					      struct daemon *daemon,
+					      const u8 *msg)
+{
+	struct pubkey erring_node;
+	struct short_channel_id erring_channel;
+	u16 failcode;
+
+	if (!fromwire_gossip_routing_failure(msg, NULL,
+					     &erring_node,
+					     &erring_channel,
+					     &failcode))
+		master_badmsg(WIRE_GOSSIP_ROUTING_FAILURE, msg);
+
+	routing_failure(daemon->rstate,
+			&erring_node,
+			&erring_channel,
+			(enum onion_type) failcode);
+
+	return daemon_conn_read_next(conn, &daemon->master);
+}
 
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
@@ -1931,6 +1952,9 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 
 	case WIRE_GOSSIP_DISABLE_CHANNEL:
 		return handle_disable_channel(conn, daemon, master->msg_in);
+
+	case WIRE_GOSSIP_ROUTING_FAILURE:
+		return handle_routing_failure(conn, daemon, master->msg_in);
 
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
