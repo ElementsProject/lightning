@@ -369,6 +369,21 @@ class LightningDTests(BaseLightningDTests):
         assert l2.rpc.listinvoices('test_pay')['invoices'][0]['status'] == 'expired'
         assert l2.rpc.listinvoices('test_pay')['invoices'][0]['expiry_time'] < time.time()
 
+        # Try deleting it.
+        self.assertRaisesRegex(ValueError,
+                               'Invoice status is expired not unpaid',
+                               l2.rpc.delinvoice,
+                               'test_pay', 'unpaid')
+        self.assertRaisesRegex(ValueError,
+                               'Invoice status is expired not paid',
+                               l2.rpc.delinvoice,
+                               'test_pay', 'paid')
+        l2.rpc.delinvoice('test_pay', 'expired')
+
+        self.assertRaisesRegex(ValueError,
+                               'Unknown invoice',
+                               l2.rpc.delinvoice,
+                               'test_pay', 'expired')
     def test_connect(self):
         l1,l2 = self.connect()
 

@@ -275,13 +275,14 @@ static void json_delinvoice(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
 {
 	const struct invoice *i;
-	jsmntok_t *labeltok;
+	jsmntok_t *labeltok, *statustok;
 	struct json_result *response = new_json_result(cmd);
-	const char *label;
+	const char *label, *status, *actual_status;
 	struct wallet *wallet = cmd->ld->wallet;
 
 	if (!json_get_params(buffer, params,
 			     "label", &labeltok,
+			     "status", &statustok,
 			     NULL)) {
 		command_fail(cmd, "Invalid arguments");
 		return;
@@ -292,6 +293,17 @@ static void json_delinvoice(struct command *cmd,
 	i = wallet_invoice_find_by_label(wallet, label);
 	if (!i) {
 		command_fail(cmd, "Unknown invoice");
+		return;
+	}
+
+	status = tal_strndup(cmd, buffer + statustok->start,
+			     statustok->end - statustok->start);
+	/* This is time-sensitive, so only call once; otherwise error msg
+	 * might not make sense if it changed! */
+	actual_status = invoice_status_str(i);
+	if (!streq(actual_status, status)) {
+		command_fail(cmd, "Invoice status is %s not %s",
+			     actual_status, status);
 		return;
 	}
 
@@ -313,7 +325,7 @@ static void json_delinvoice(struct command *cmd,
 static const struct json_command delinvoice_command = {
 	"delinvoice",
 	json_delinvoice,
-	"Delete unpaid invoice {label}))",
+	"Delete unpaid invoice {label} with {status}",
 	"Returns {label}, {payment_hash}, {msatoshi} (if set), {complete}, {pay_index} (if paid) and {expiry_time} on success. "
 };
 AUTODATA(json_command, &delinvoice_command);

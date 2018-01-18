@@ -2,12 +2,12 @@
 .\"     Title: lightning-delinvoice
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 01/13/2018
+.\"      Date: 01/18/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-DELINVOIC" "7" "01/13/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-DELINVOIC" "7" "01/18/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,13 +28,15 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-lightning-delinvoice \- Protocol for removing an unpaid invoice\&.
+lightning-delinvoice \- Protocol for removing an invoice\&.
 .SH "SYNOPSIS"
 .sp
-\fBdelinvoice\fR \fIlabel\fR
+\fBdelinvoice\fR \fIlabel\fR \fIstatus\fR
 .SH "DESCRIPTION"
 .sp
-The \fBdelinvoice\fR RPC command removes an unpaid invoice\&. The caller should be particularly aware of the error case caused by a payment just before this command is invoked!
+The \fBdelinvoice\fR RPC command removes an invoice with \fIstatus\fR as given in \fBlistinvoices\fR\&.
+.sp
+The caller should be particularly aware of the error case caused by the \fIstatus\fR chaning just before this command is invoked!
 .SH "RETURN VALUE"
 .sp
 On success, an invoice description will be returned as per lightning\-listinvoice(7)\&.
