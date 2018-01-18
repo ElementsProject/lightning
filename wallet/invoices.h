@@ -67,7 +67,7 @@ const struct invoice *invoices_find_by_label(struct invoices *invoices,
  * @invoices - the invoice handler.
  * @rhash - the payment_hash to search for.
  *
- * Rerturns NULL if no invoice with that payment hash exists.
+ * Returns NULL if no invoice with that payment hash exists.
  */
 const struct invoice *invoices_find_unpaid(struct invoices *invoices,
 					   const struct sha256 *rhash);

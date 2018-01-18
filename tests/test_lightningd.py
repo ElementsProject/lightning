@@ -301,7 +301,7 @@ class LightningDTests(BaseLightningDTests):
             lsrc.rpc.sendpay(to_json([routestep]), rhash, async=False)
 
     # This waits until gossipd sees channel_update in both directions
-    # (or for local channels, at least a local announcment)
+    # (or for local channels, at least a local announcement)
     def wait_for_routes(self, l1, channel_ids):
         bitcoind.generate_block(5)
         # Could happen in any order...

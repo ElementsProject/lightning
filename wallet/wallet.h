@@ -383,7 +383,7 @@ struct invoice {
  *
  * All other wallet_invoice_* functions cannot be called
  * until this function is called.
- * As a databse operation it must be called within
+ * As a database operation it must be called within
  * db_begin_transaction .. db_commit_transaction
  * (all other invoice functions also have this requirement).
  * Returns true if loaded successfully.
@@ -427,7 +427,7 @@ const struct invoice *wallet_invoice_find_by_label(struct wallet *wallet,
  * @wallet - the wallet to search.
  * @rhash - the payment_hash to search for.
  *
- * Rerturns NULL if no invoice with that payment hash exists.
+ * Returns NULL if no invoice with that payment hash exists.
  */
 const struct invoice *wallet_invoice_find_unpaid(struct wallet *wallet,
 						 const struct sha256 *rhash);
@@ -446,7 +446,7 @@ bool wallet_invoice_delete(struct wallet *wallet,
 /**
  * wallet_invoice_iterate - Iterate over all existing invoices
  *
- * @wallet - the wallet whose invoices are to beiterated over.
+ * @wallet - the wallet whose invoices are to be iterated over.
  * @invoice - the previous invoice you iterated over.
  *
  * Return NULL at end-of-sequence. Usage:
