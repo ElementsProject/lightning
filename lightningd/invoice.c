@@ -279,7 +279,6 @@ static void json_delinvoice(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 	const char *label;
 	struct wallet *wallet = cmd->ld->wallet;
-	bool error;
 
 	if (!json_get_params(buffer, params,
 			     "label", &labeltok,
@@ -300,10 +299,9 @@ static void json_delinvoice(struct command *cmd,
 	 * otherwise the invoice will be freed. */
 	json_add_invoice(response, i, true);
 
-	error = wallet_invoice_delete(wallet, i);
-
-	if (error) {
-		log_broken(cmd->ld->log, "Error attempting to remove invoice %"PRIu64,
+	if (!wallet_invoice_delete(wallet, i)) {
+		log_broken(cmd->ld->log,
+			   "Error attempting to remove invoice %"PRIu64,
 			   i->id);
 		command_fail(cmd, "Database error");
 		return;
