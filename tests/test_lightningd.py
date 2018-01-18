@@ -733,14 +733,14 @@ class LightningDTests(BaseLightningDTests):
         invoice2 = l2.rpc.listinvoices('testpayment2')['invoices'][0]
         payments = l1.rpc.listpayments(None, invoice2['payment_hash'])['payments']
         assert len(payments) == 1
-        print(payments)
+
         assert payments[0]['status'] == 'complete'
         assert payments[0]['payment_preimage'] == preimage2['preimage']
 
         invoice3 = l2.rpc.listinvoices('testpayment3')['invoices'][0]
         payments = l1.rpc.listpayments(None, invoice3['payment_hash'])['payments']
         assert len(payments) == 1
-        print(payments)
+
         assert payments[0]['status'] == 'complete'
         assert payments[0]['payment_preimage'] == preimage3['preimage']
 
@@ -784,7 +784,7 @@ class LightningDTests(BaseLightningDTests):
         preimage = l1.rpc.pay(inv)
         after = int(time.time())
         invoice = l2.rpc.listinvoices('test_pay')['invoices'][0]
-        print(invoice)
+
         assert invoice['status'] == 'paid'
         assert invoice['paid_timestamp'] >= before
         assert invoice['paid_timestamp'] <= after
@@ -918,10 +918,7 @@ class LightningDTests(BaseLightningDTests):
         # Only l1 has a direct output since all of l2's outputs are respent (it failed)
         assert closetxid in set([o['txid'] for o in l1.rpc.listfunds()['outputs']])
 
-        #import pdb; pdb.set_trace()
-
         addr = l1.bitcoin.rpc.getnewaddress()
-        print(addr)
         l1.rpc.withdraw(addr, "all")
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
