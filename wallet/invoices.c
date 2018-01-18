@@ -230,8 +230,10 @@ bool invoices_delete(struct invoices *invoices,
 	sqlite3_bind_int64(stmt, 1, invoice->id);
 	db_exec_prepared(invoices->db, stmt);
 
-	if (sqlite3_changes(invoices->db->sql) != 1)
+	if (sqlite3_changes(invoices->db->sql) != 1) {
+		tal_free(tmpctx);
 		return false;
+	}
 
 	/* Delete from invoices object. */
 	list_del_from(&invoices->invlist, &invoice->list);
