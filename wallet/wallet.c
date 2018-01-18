@@ -1275,6 +1275,7 @@ void wallet_payment_store(struct wallet *wallet,
 	struct wallet_payment *payment;
 
 	payment = find_unstored_payment(wallet, payment_hash);
+	assert(payment);
 
         /* Don't attempt to add the same payment twice */
 	assert(!payment->id);
