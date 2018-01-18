@@ -220,7 +220,10 @@ check-whitespace/%: %
 
 check-whitespace: check-whitespace/Makefile check-whitespace/tools/check-bolt.c $(ALL_TEST_PROGRAMS:%=check-whitespace/%.c)
 
-check-source: check-makefile check-source-bolt check-whitespace
+check-markdown:
+	@tools/check-markdown.sh
+
+check-source: check-makefile check-source-bolt check-whitespace check-markdown
 
 full-check: check check-source
 
