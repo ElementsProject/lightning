@@ -263,6 +263,7 @@ static void json_getinfo(struct command *cmd,
 	}
 	json_add_string(response, "version", version());
 	json_add_num(response, "blockheight", get_block_height(cmd->ld->topology));
+	json_add_string(response, "network", get_chainparams(cmd->ld)->network_name);
 	json_object_end(response);
 	command_success(cmd, response);
 }
