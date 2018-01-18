@@ -58,10 +58,9 @@ static bool wallet_stmt2invoice(sqlite3_stmt *stmt, struct invoice *inv)
 	}
 
 	inv->expiry_time = sqlite3_column_int64(stmt, 6);
-	/* Correctly 0 if pay_index is NULL. */
-	inv->pay_index = sqlite3_column_int64(stmt, 7);
 
 	if (inv->state == PAID) {
+		inv->pay_index = sqlite3_column_int64(stmt, 7);
 		inv->msatoshi_received = sqlite3_column_int64(stmt, 8);
 		inv->paid_timestamp = sqlite3_column_int64(stmt, 9);
 	}
@@ -181,7 +180,6 @@ const struct invoice *invoices_create(struct invoices *invoices,
 	memcpy(&invoice->r, &r, sizeof(invoice->r));
 	memcpy(&invoice->rhash, &rhash, sizeof(invoice->rhash));
 	invoice->expiry_time = expiry_time;
-	invoice->pay_index = 0;
 	list_head_init(&invoice->waitone_waiters);
 
 	/* Add to invoices object. */
