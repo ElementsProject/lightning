@@ -396,8 +396,8 @@ class LightningDTests(BaseLightningDTests):
 
         self.fund_channel(l1, l2, 10**6)
 
-        p1 = l1.rpc.getpeer(l2.info['id'], 'info')
-        p2 = l2.rpc.getpeer(l1.info['id'], 'info')
+        p1 = l1.rpc.getpeer(l2.info['id'], 'info')['channels'][0]
+        p2 = l2.rpc.getpeer(l1.info['id'], 'info')['channels'][0]
         assert p1['msatoshi_to_us'] == 10**6 * 1000
         assert p1['msatoshi_total'] == 10**6 * 1000
         assert p2['msatoshi_to_us'] == 0
@@ -1637,10 +1637,10 @@ class LightningDTests(BaseLightningDTests):
         # If they're at different block heights we can get spurious errors.
         sync_blockheight([l1, l2, l3])
 
-        chanid1 = l1.rpc.getpeer(l2.info['id'])['channel']
-        chanid2 = l2.rpc.getpeer(l3.info['id'])['channel']
-        assert l2.rpc.getpeer(l1.info['id'])['channel'] == chanid1
-        assert l3.rpc.getpeer(l2.info['id'])['channel'] == chanid2
+        chanid1 = l1.rpc.getpeer(l2.info['id'])['channels'][0]['short_channel_id']
+        chanid2 = l2.rpc.getpeer(l3.info['id'])['channels'][0]['short_channel_id']
+        assert l2.rpc.getpeer(l1.info['id'])['channels'][0]['short_channel_id'] == chanid1
+        assert l3.rpc.getpeer(l2.info['id'])['channels'][0]['short_channel_id'] == chanid2
 
         rhash = l3.rpc.invoice(100000000, 'testpayment1', 'desc')['payment_hash']
         assert l3.rpc.listinvoices('testpayment1')['invoices'][0]['status'] == 'unpaid'
@@ -2505,7 +2505,7 @@ class LightningDTests(BaseLightningDTests):
         self.fund_channel(l1, l2, 100000)
 
         peers = l1.rpc.listpeers()['peers']
-        assert(len(peers) == 1 and peers[0]['state'] == 'CHANNELD_NORMAL')
+        assert(len(peers) == 1 and peers[0]['channels'][0]['state'] == 'CHANNELD_NORMAL')
 
         # Both nodes should now have exactly one channel in the database
         for n in (l1, l2):
@@ -2525,14 +2525,14 @@ class LightningDTests(BaseLightningDTests):
         print(" ".join(l2.daemon.cmd_line + ['--dev-debugger=channeld']))
 
         # Wait for l1 to notice
-        wait_for(lambda: not l1.rpc.listpeers()['peers'][0]['connected'])
+        wait_for(lambda: not 'connected' in l1.rpc.listpeers()['peers'][0]['channels'][0])
 
         # Now restart l1 and it should reload peers/channels from the DB
         l2.daemon.start()
         wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 1)
 
         # Wait for the restored HTLC to finish
-        wait_for(lambda: l1.rpc.listpeers()['peers'][0]['msatoshi_to_us'] == 99990000, interval=1)
+        wait_for(lambda: l1.rpc.listpeers()['peers'][0]['channels'][0]['msatoshi_to_us'] == 99990000, interval=1)
 
         wait_for(lambda: len([p for p in l1.rpc.listpeers()['peers'] if p['connected']]), interval=1)
         wait_for(lambda: len([p for p in l2.rpc.listpeers()['peers'] if p['connected']]), interval=1)
@@ -2540,13 +2540,13 @@ class LightningDTests(BaseLightningDTests):
         # Now make sure this is really functional by sending a payment
         self.pay(l1, l2, 10000)
         time.sleep(1)
-        assert l1.rpc.listpeers()['peers'][0]['msatoshi_to_us'] == 99980000
-        assert l2.rpc.listpeers()['peers'][0]['msatoshi_to_us'] == 20000
+        assert l1.rpc.listpeers()['peers'][0]['channels'][0]['msatoshi_to_us'] == 99980000
+        assert l2.rpc.listpeers()['peers'][0]['channels'][0]['msatoshi_to_us'] == 20000
 
         # Finally restart l1, and make sure it remembers
         l1.stop()
         l1.daemon.start()
-        assert l1.rpc.listpeers()['peers'][0]['msatoshi_to_us'] == 99980000
+        assert l1.rpc.listpeers()['peers'][0]['channels'][0]['msatoshi_to_us'] == 99980000
 
         # Now make sure l1 is watching for unilateral closes
         l2.rpc.dev_fail(l1.info['id']);
