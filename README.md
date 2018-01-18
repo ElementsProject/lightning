@@ -1,14 +1,14 @@
 # c-lightning: A specification compliant Lightning Network implementation in C
 
 c-lightning is a [standard compliant](https://github.com/lightningnetwork/lightning-rfc) implementation of the Lightning Network protocol.
-The Lightning Network is a scalability solution for Bitcoin, enabling secure and instant transfer of funds between any two party for any amount.
+The Lightning Network is a scalability solution for Bitcoin, enabling secure and instant transfer of funds between any two parties for any amount.
 
 For more information about the Lightning Network please refer to http://lightning.network.
 
 ## Project Status
 
-This implementation is still very much work in progress, and, although it can be used for testing, __it should not be used for real funds__.
-We do our best to identify and fix problems, and implement missing feature.
+This implementation is still very much a work in progress. It can be used for testing, but __it should not be used for real funds__.
+We do our best to identify and fix problems, and implement missing features.
 
 Any help testing the implementation, reporting bugs, or helping with outstanding issues is very welcome.
 Don't hesitate to reach out to us on IRC at [#lightning-dev @ freenode.net](http://webchat.freenode.net/?channels=%23lightning-dev), [#c-lightning @ freenode.net](http://webchat.freenode.net/?channels=%23c-lightning), or on the mailing list [lightning-dev@lists.linuxfoundation.org](https://lists.linuxfoundation.org/mailman/listinfo/lightning-dev).
