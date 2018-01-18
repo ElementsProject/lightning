@@ -271,7 +271,8 @@ static void config_register_opts(struct lightningd *ld)
 			       ld,
 			       "Select the network parameters (bitcoin, testnet,"
 			       " regtest, or litecoin)");
-	opt_register_arg("--deprecated-apis", opt_set_bool_arg, opt_show_bool,
+	opt_register_arg("--allow-deprecated-apis",
+			 opt_set_bool_arg, opt_show_bool,
 			 &deprecated_apis,
 			 "Enable deprecated options, JSONRPC commands, fields, etc.");
 }
