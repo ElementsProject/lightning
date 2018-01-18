@@ -1461,14 +1461,16 @@ class LightningDTests(BaseLightningDTests):
         assert n2['nodeid'] == l2.info['id']
 
         # Might not have seen other node-announce yet.
-        assert n1['alias'] == 'JUNIORBEAM'
-        assert n1['color'] == '0266e4'
-        if not 'alias' in n2:
-            assert not 'color' in n2
-            assert not 'addresses' in n2
-        else:
-            assert n2['alias'] == 'SILENTARTIST'
-            assert n2['color'] == '022d22'
+        # TODO(cdecker) Can't check these without DEVELOPER=1, re-enable after we get alias and color into getinfo
+        if DEVELOPER:
+            assert n1['alias'] == 'JUNIORBEAM'
+            assert n1['color'] == '0266e4'
+            if not 'alias' in n2:
+                assert not 'color' in n2
+                assert not 'addresses' in n2
+            else:
+                assert n2['alias'] == 'SILENTARTIST'
+                assert n2['color'] == '022d22'
 
         assert [c['active'] for c in l1.rpc.listchannels()['channels']] == [True, True]
         assert [c['public'] for c in l1.rpc.listchannels()['channels']] == [True, True]
