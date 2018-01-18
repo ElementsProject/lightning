@@ -813,29 +813,47 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 	json_object_start(response, NULL);
 	json_array_start(response, "peers");
 	list_for_each(&gpa->cmd->ld->peers, p, list) {
+		bool connected;
+
 		if (gpa->specific_id && !pubkey_eq(gpa->specific_id, &p->id))
 			continue;
 
 		json_object_start(response, NULL);
-		json_add_string(response, "state", peer_state_name(p->state));
-		json_array_start(response, "netaddr");
-		if (p->addr.type != ADDR_TYPE_PADDING)
-			json_add_string(response, NULL,
-					type_to_string(response, struct wireaddr,
-						       &p->addr));
-		json_array_end(response);
 		json_add_pubkey(response, "id", &p->id);
-		json_add_bool(response, "connected", p->owner != NULL);
+		connected = (p->owner != NULL && !peer_state_on_chain(p->state));
+		json_add_bool(response, "connected", connected);
+
+		if (connected) {
+			json_array_start(response, "netaddr");
+			if (p->addr.type != ADDR_TYPE_PADDING)
+				json_add_string(response, NULL,
+						type_to_string(response,
+							       struct wireaddr,
+							       &p->addr));
+			json_array_end(response);
+		}
+
+		/* FIXME: We only support one channel per peer, but API must
+		 * support multiple already! */
+		json_array_start(response, "channels");
+		json_object_start(response, NULL);
+		json_add_string(response, "state", peer_state_name(p->state));
 		if (p->owner)
 			json_add_string(response, "owner", p->owner->name);
 		if (p->scid)
-			json_add_short_channel_id(response, "channel", p->scid);
+			json_add_short_channel_id(response,
+						  "short_channel_id", p->scid);
+		if (p->funding_txid)
+			json_add_txid(response,
+				      "funding_txid", p->funding_txid);
 		if (p->our_msatoshi) {
 			json_add_u64(response, "msatoshi_to_us",
 				     *p->our_msatoshi);
 			json_add_u64(response, "msatoshi_total",
 				     p->funding_satoshi * 1000);
 		}
+		json_object_end(response);
+		json_array_end(response);
 
 		if (gpa->ll) {
 			struct log_info info;
