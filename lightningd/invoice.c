@@ -45,10 +45,15 @@ static void json_add_invoice(struct json_result *response,
 		json_add_u64(response, "pay_index", inv->pay_index);
 		json_add_u64(response, "msatoshi_received",
 			     inv->msatoshi_received);
-		json_add_u64(response, "paid_timestamp",
-			     inv->paid_timestamp);
+		if (deprecated_apis)
+			json_add_u64(response, "paid_timestamp",
+				     inv->paid_timestamp);
+		json_add_u64(response, "paid_at", inv->paid_timestamp);
 	}
-	json_add_u64(response, "expiry_time", inv->expiry_time);
+	if (deprecated_apis)
+		json_add_u64(response, "expiry_time", inv->expiry_time);
+	json_add_u64(response, "expires_at", inv->expiry_time);
+
 	json_object_end(response);
 }
 
@@ -178,7 +183,9 @@ static void json_invoice(struct command *cmd,
 	json_object_start(response, NULL);
 	json_add_hex(response, "payment_hash",
 		     &invoice->rhash, sizeof(invoice->rhash));
-	json_add_u64(response, "expiry_time", invoice->expiry_time);
+	if (deprecated_apis)
+		json_add_u64(response, "expiry_time", invoice->expiry_time);
+	json_add_u64(response, "expires_at", invoice->expiry_time);
 	json_add_string(response, "bolt11", b11enc);
 	if (b11->description_hash)
 		json_add_string(response, "description", b11->description);
@@ -191,7 +198,7 @@ static const struct json_command invoice_command = {
 	"invoice",
 	json_invoice,
 	"Create invoice for {msatoshi} with {label} and {description} with optional {expiry} seconds (default 1 hour)",
-	"Returns the {payment_hash}, {expiry_time} and {bolt11} on success, and {description} if too large for {bolt11}. "
+	"Returns the {payment_hash}, {expires_at} and {bolt11} on success, and {description} if too large for {bolt11}. "
 };
 AUTODATA(json_command, &invoice_command);
 
@@ -252,7 +259,7 @@ static const struct json_command listinvoice_command = {
 	"listinvoice",
 	json_listinvoice,
 	"(DEPRECATED) Show invoice {label} (or all, if no {label}))",
-	"Returns an array of {label}, {payment_hash}, {msatoshi} (if set), {complete}, {pay_index} (if paid) and {expiry_time} on success. ",
+	"Returns an array of {label}, {payment_hash}, {msatoshi} (if set), {complete}, {pay_index} (if paid) and {expires_time} on success. ",
 	.deprecated = true
 };
 AUTODATA(json_command, &listinvoice_command);
@@ -267,7 +274,7 @@ static const struct json_command listinvoices_command = {
 	"listinvoices",
 	json_listinvoices,
 	"Show invoice {label} (or all, if no {label}))",
-	"Returns an array of {label}, {payment_hash}, {msatoshi} (if set), {complete}, {pay_index} (if paid) and {expiry_time} on success. ",
+	"Returns an array of {label}, {payment_hash}, {msatoshi} (if set), {status}, {pay_index} (if paid) and {expires_at} on success. ",
 };
 AUTODATA(json_command, &listinvoices_command);
 
@@ -326,7 +333,7 @@ static const struct json_command delinvoice_command = {
 	"delinvoice",
 	json_delinvoice,
 	"Delete unpaid invoice {label} with {status}",
-	"Returns {label}, {payment_hash}, {msatoshi} (if set), {complete}, {pay_index} (if paid) and {expiry_time} on success. "
+	"Returns {label}, {payment_hash}, {msatoshi} (if set), {status}, {pay_index} (if paid) and {expires_at} on success. "
 };
 AUTODATA(json_command, &delinvoice_command);
 
@@ -369,7 +376,7 @@ static const struct json_command waitanyinvoice_command = {
 	"waitanyinvoice",
 	json_waitanyinvoice,
 	"Wait for the next invoice to be paid, after {lastpay_index} (if supplied)))",
-	"Returns {label}, {payment_hash}, {msatoshi} (if set), {complete}, {pay_index} and {expiry_time} on success. "
+	"Returns {label}, {payment_hash}, {msatoshi} (if set), {status}, {pay_index} and {expires_at} on success. "
 };
 AUTODATA(json_command, &waitanyinvoice_command);
 
@@ -414,7 +421,7 @@ static const struct json_command waitinvoice_command = {
 	"waitinvoice",
 	json_waitinvoice,
 	"Wait for an incoming payment matching the invoice with {label}",
-	"Returns {label}, {payment_hash}, {msatoshi} (if set), {complete}, {pay_index} and {expiry_time} on success"
+	"Returns {label}, {payment_hash}, {msatoshi} (if set), {complete}, {pay_index} and {expires_at} on success"
 };
 AUTODATA(json_command, &waitinvoice_command);
 
@@ -454,7 +461,9 @@ static void json_decodepay(struct command *cmd,
 	json_object_start(response, NULL);
 
 	json_add_string(response, "currency", b11->chain->bip173_name);
-	json_add_u64(response, "timestamp", b11->timestamp);
+	if (deprecated_apis)
+		json_add_u64(response, "timestamp", b11->timestamp);
+	json_add_u64(response, "created_at", b11->timestamp);
 	json_add_u64(response, "expiry", b11->expiry);
 	json_add_pubkey(response, "payee", &b11->receiver_id);
         if (b11->msatoshi)
