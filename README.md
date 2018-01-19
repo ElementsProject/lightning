@@ -57,6 +57,9 @@ You can start `lightningd` with the following command:
 lightningd/lightningd --network=testnet --log-level=debug
 ```
 
+### Listing all commands:
+`cli/lighting-cli help` will print a table of the API and lists the following commands
+
 ### Opening a channel on the Bitcoin testnet
 
 First you need to transfer some funds to `lightningd` so that it can open a channel:
