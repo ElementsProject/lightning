@@ -406,7 +406,7 @@ static const struct config mainnet_config = {
 	.commit_time = TIME_FROM_MSEC(10),
 
 	/* Discourage dust payments */
-	.fee_base = 546000,
+	.fee_base = 1000,
 	/* Take 0.001% */
 	.fee_per_satoshi = 10,
 
