@@ -697,7 +697,10 @@ static bool shutdown_complete(const struct peer *peer)
 {
 	return peer->shutdown_sent[LOCAL]
 		&& peer->shutdown_sent[REMOTE]
-		&& !channel_has_htlcs(peer->channel);
+		&& !channel_has_htlcs(peer->channel)
+		/* We could be awaiting revoke-and-ack for a feechange */
+		&& peer->revocations_received == peer->next_index[REMOTE] - 1;
+
 }
 
 /* BOLT #2:
