@@ -2575,7 +2575,7 @@ class LightningDTests(BaseLightningDTests):
 
         # FIXME: We should re-add pre-announced routes on startup!
         self.wait_for_routes(l1, [chanid])
-        
+
         # A duplicate should succeed immediately (nop) and return correct preimage.
         preimage = l1.rpc.pay(inv1['bolt11'])['preimage']
         assert l1.rpc.dev_rhash(preimage)['rhash'] == inv1['payment_hash']
@@ -2619,7 +2619,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Another attempt should also fail.
         self.assertRaises(ValueError, l1.rpc.pay, inv1['bolt11'])
-        
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_payment_duplicate_uncommitted(self):
         # We want to test two payments at the same time, before we send commit
@@ -2849,6 +2849,11 @@ class LightningDTests(BaseLightningDTests):
 
         l3.daemon.wait_for_log('peer_in WIRE_UPDATE_FEE')
         l3.daemon.wait_for_log('peer_in WIRE_COMMITMENT_SIGNED')
+
+        # We need to wait untill both have committed and revoked the
+        # old state, otherwise we'll still try to commit with the old
+        # 15sat/byte fee
+        l1.daemon.wait_for_log('peer_out WIRE_REVOKE_AND_ACK')
 
         # Now shutdown cleanly.
         l1.rpc.close(l3.info['id'])
