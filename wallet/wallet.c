@@ -1287,14 +1287,18 @@ void wallet_payment_store(struct wallet *wallet,
 		"  payment_hash,"
 		"  destination,"
 		"  msatoshi,"
-		"  timestamp"
-		") VALUES (?, ?, ?, ?, ?);");
+		"  timestamp,"
+		"  path_secrets"
+		") VALUES (?, ?, ?, ?, ?, ?);");
 
 	sqlite3_bind_int(stmt, 1, payment->status);
 	sqlite3_bind_sha256(stmt, 2, &payment->payment_hash);
 	sqlite3_bind_pubkey(stmt, 3, &payment->destination);
 	sqlite3_bind_int64(stmt, 4, payment->msatoshi);
 	sqlite3_bind_int(stmt, 5, payment->timestamp);
+	sqlite3_bind_blob(stmt, 6, payment->path_secrets,
+				   tal_len(payment->path_secrets),
+				   SQLITE_TRANSIENT);
 
 	db_exec_prepared(wallet->db, stmt);
 
