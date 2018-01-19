@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
 	configdir_register_opts(ctx, &lightning_dir, &rpc_filename);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<command> [<params>...]", "Show this message");
+			   "<command> [<params>...]", "Show this message\t use the command help (without hyphen) to get a list of all commands");
 	opt_register_version();
 
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
