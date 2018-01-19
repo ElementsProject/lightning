@@ -12,6 +12,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/options.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/subd.h>
@@ -494,7 +495,9 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 		json_add_hex(response, "payment_hash", &t->payment_hash, sizeof(t->payment_hash));
 		json_add_pubkey(response, "destination", &t->destination);
 		json_add_u64(response, "msatoshi", t->msatoshi);
-		json_add_u64(response, "timestamp", t->timestamp);
+		if (deprecated_apis)
+			json_add_u64(response, "timestamp", t->timestamp);
+		json_add_u64(response, "created_at", t->timestamp);
 
 		switch (t->status) {
 		case PAYMENT_PENDING:
@@ -523,6 +526,6 @@ static const struct json_command listpayments_command = {
 	"listpayments",
 	json_listpayments,
 	"Get a list of outgoing payments",
-	"Returns a list of payments with {payment_hash}, {destination}, {msatoshi}, {timestamp} and {status} (and {payment_preimage} if {status} is 'complete')"
+	"Returns a list of payments with {payment_hash}, {destination}, {msatoshi}, {created_at} and {status} (and {payment_preimage} if {status} is 'complete')"
 };
 AUTODATA(json_command, &listpayments_command);
