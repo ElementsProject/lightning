@@ -102,7 +102,7 @@ This opens a connection and, on top of that connection, then opens a channel.
 The funding transaction needs 1 confirmations in order for the channel to be usable, and 6 to be broadcast for others to use.
 You can check the status of the channel using `cli/lightning-cli getpeers`, which after 1 confirmation should say that `state` is `CHANNELD_NORMAL`; after 6 confirmations you can use `cli/lightning-cli getchannels` to verify that the `public` field is now `true`.
 
-### Receiving and receiving payments
+### Sending and receiving payments
 
 Payments in Lightning are invoice based.
 The recipient creates an invoice with the expected `<amount>` in millisatoshi (or `"any"` for a donation), a unique `<label>` and a `<description>` the payer will see:
