@@ -176,11 +176,13 @@ int main(int argc, char *argv[])
 		       json_tok_len(result),
 		       json_tok_contents(resp, result));
 		tal_free(ctx);
+		opt_free_table();
 		return 0;
 	}
 
 	printf("%.*s\n",
 	       json_tok_len(error), json_tok_contents(resp, error));
 	tal_free(ctx);
+	opt_free_table();
 	return 1;
 }
