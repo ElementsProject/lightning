@@ -183,6 +183,12 @@ char *dbmigrations[] = {
     "UPDATE invoices"
     "   SET paid_timestamp = strftime('%s', 'now')"
     " WHERE state = 1;",
+    /* We need to keep the route node pubkeys and short channel ids to
+     * correctly mark routing failures. We separate short channel ids
+     * because we cannot safely save them as blobs due to byteorder
+     * concerns. */
+    "ALTER TABLE payments ADD COLUMN route_nodes BLOB;",
+    "ALTER TABLE payments ADD COLUMN route_channels TEXT;",
     NULL,
 };
 
@@ -454,6 +460,56 @@ bool sqlite3_column_short_channel_id(sqlite3_stmt *stmt, int col,
 	size_t sourcelen = sqlite3_column_bytes(stmt, col);
 	return short_channel_id_from_str(source, sourcelen, dest);
 }
+bool sqlite3_bind_short_channel_id_array(sqlite3_stmt *stmt, int col,
+					 const struct short_channel_id *id)
+{
+	u8 *ser;
+	size_t num;
+	size_t i;
+
+	/* Handle nulls early. */
+	if (!id) {
+		sqlite3_bind_null(stmt, col);
+		return true;
+	}
+
+	ser = tal_arr(NULL, u8, 0);
+	num = tal_count(id);
+
+	for (i = 0; i < num; ++i)
+		towire_short_channel_id(&ser, &id[i]);
+
+	sqlite3_bind_blob(stmt, col, ser, tal_len(ser), SQLITE_TRANSIENT);
+
+	tal_free(ser);
+	return true;
+}
+struct short_channel_id *
+sqlite3_column_short_channel_id_array(const tal_t *ctx,
+				      sqlite3_stmt *stmt, int col)
+{
+	const u8 *ser;
+	size_t len;
+	struct short_channel_id *ret;
+	size_t n;
+
+	/* Handle nulls early. */
+	if (sqlite3_column_type(stmt, col) == SQLITE_NULL)
+		return NULL;
+
+	ser = sqlite3_column_blob(stmt, col);
+	len = sqlite3_column_bytes(stmt, col);
+	ret = tal_arr(ctx, struct short_channel_id, 0);
+	n = 0;
+
+	while (len != 0) {
+		tal_resize(&ret, n + 1);
+		fromwire_short_channel_id(&ser, &len, &ret[n]);
+		++n;
+	}
+
+	return ret;
+}
 
 bool sqlite3_bind_tx(sqlite3_stmt *stmt, int col, const struct bitcoin_tx *tx)
 {
@@ -501,6 +557,52 @@ bool sqlite3_bind_pubkey(sqlite3_stmt *stmt, int col, const struct pubkey *pk)
 	pubkey_to_der(der, pk);
 	sqlite3_bind_blob(stmt, col, der, sizeof(der), SQLITE_TRANSIENT);
 	return true;
+}
+
+bool sqlite3_bind_pubkey_array(sqlite3_stmt *stmt, int col,
+			       const struct pubkey *pks)
+{
+	size_t n;
+	size_t i;
+	u8 *ders;
+
+	if (!pks) {
+		sqlite3_bind_null(stmt, col);
+		return true;
+	}
+
+	n = tal_count(pks);
+	ders = tal_arr(NULL, u8, n * PUBKEY_DER_LEN);
+
+	for (i = 0; i < n; ++i)
+		pubkey_to_der(&ders[i * PUBKEY_DER_LEN], &pks[i]);
+	sqlite3_bind_blob(stmt, col, ders, tal_len(ders), SQLITE_TRANSIENT);
+
+	tal_free(ders);
+	return true;
+}
+struct pubkey *sqlite3_column_pubkey_array(const tal_t *ctx,
+					   sqlite3_stmt *stmt, int col)
+{
+	size_t i;
+	size_t n;
+	struct pubkey *ret;
+	const u8 *ders;
+
+	if (sqlite3_column_type(stmt, col) == SQLITE_NULL)
+		return NULL;
+
+	n = sqlite3_column_bytes(stmt, col) / PUBKEY_DER_LEN;
+	assert(n * PUBKEY_DER_LEN == sqlite3_column_bytes(stmt, col));
+	ret = tal_arr(ctx, struct pubkey, n);
+	ders = sqlite3_column_blob(stmt, col);
+
+	for (i = 0; i < n; ++i) {
+		if (!pubkey_from_der(&ders[i * PUBKEY_DER_LEN], PUBKEY_DER_LEN, &ret[i]))
+			return tal_free(ret);
+	}
+
+	return ret;
 }
 
 bool sqlite3_column_preimage(sqlite3_stmt *stmt, int col,  struct preimage *dest)

@@ -1295,8 +1295,10 @@ void wallet_payment_store(struct wallet *wallet,
 		"  destination,"
 		"  msatoshi,"
 		"  timestamp,"
-		"  path_secrets"
-		") VALUES (?, ?, ?, ?, ?, ?);");
+		"  path_secrets,"
+		"  route_nodes,"
+		"  route_channels"
+		") VALUES (?, ?, ?, ?, ?, ?, ?, ?);");
 
 	sqlite3_bind_int(stmt, 1, payment->status);
 	sqlite3_bind_sha256(stmt, 2, &payment->payment_hash);
@@ -1306,6 +1308,9 @@ void wallet_payment_store(struct wallet *wallet,
 	sqlite3_bind_blob(stmt, 6, payment->path_secrets,
 				   tal_len(payment->path_secrets),
 				   SQLITE_TRANSIENT);
+	sqlite3_bind_pubkey_array(stmt, 7, payment->route_nodes);
+	sqlite3_bind_short_channel_id_array(stmt, 8,
+					    payment->route_channels);
 
 	db_exec_prepared(wallet->db, stmt);
 
@@ -1353,6 +1358,11 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 
 	/* Can be NULL for old db! */
 	payment->path_secrets = sqlite3_column_secrets(payment, stmt, 7);
+
+	payment->route_nodes = sqlite3_column_pubkey_array(payment, stmt, 8);
+	payment->route_channels
+		= sqlite3_column_short_channel_id_array(payment, stmt, 9);
+
 	return payment;
 }
 
@@ -1371,7 +1381,7 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 	stmt = db_prepare(wallet->db,
 			  "SELECT id, status, destination,"
 			  "msatoshi, payment_hash, timestamp, payment_preimage, "
-			  "path_secrets "
+			  "path_secrets, route_nodes, route_channels "
 			  "FROM payments "
 			  "WHERE payment_hash = ?");
 
@@ -1463,7 +1473,7 @@ wallet_payment_list(const tal_t *ctx,
 			wallet->db,
 			"SELECT id, status, destination, "
 			"msatoshi, payment_hash, timestamp, payment_preimage, "
-			"path_secrets "
+			"path_secrets, route_nodes, route_channels "
 			"FROM payments;");
 	}
 

@@ -131,6 +131,7 @@ static bool send_payment(struct command *cmd,
 	struct pubkey *ids = tal_arr(tmpctx, struct pubkey, n_hops);
 	struct wallet_payment *payment = NULL;
 	struct htlc_out *hout;
+	struct short_channel_id *channels;
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
 	base_expiry = get_block_height(cmd->ld->topology) + 1;
@@ -213,6 +214,11 @@ static bool send_payment(struct command *cmd,
 		return false;
 	}
 
+	/* Copy channels used along the route. */
+	channels = tal_arr(tmpctx, struct short_channel_id, n_hops);
+	for (i = 0; i < n_hops; ++i)
+		channels[i] = route[i].channel_id;
+
 	/* If hout fails, payment should be freed too. */
 	payment = tal(hout, struct wallet_payment);
 	payment->id = 0;
@@ -223,6 +229,8 @@ static bool send_payment(struct command *cmd,
 	payment->timestamp = time_now().ts.tv_sec;
 	payment->payment_preimage = NULL;
 	payment->path_secrets = tal_steal(payment, path_secrets);
+	payment->route_nodes = tal_steal(payment, ids);
+	payment->route_channels = tal_steal(payment, channels);
 
 	/* We write this into db when HTLC is actually sent. */
 	wallet_payment_setup(cmd->ld->wallet, payment);
