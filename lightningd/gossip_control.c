@@ -322,6 +322,10 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 			     buffer + msatoshitok->start);
 		return;
 	}
+	if (msatoshi == 0) {
+		command_fail(cmd, "Cannot pay 0 msatoshi");
+		return;
+	}
 
 	if (!json_tok_double(buffer, riskfactortok, &riskfactor)) {
 		command_fail(cmd, "'%.*s' is not a valid double",

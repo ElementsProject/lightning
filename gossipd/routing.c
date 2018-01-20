@@ -962,6 +962,9 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 	int i;
 	struct node_connection *first_conn;
 
+	if (msatoshi == 0)
+		return NULL;
+
 	first_conn = find_route(ctx, rstate, source, destination, msatoshi,
 				riskfactor / BLOCKS_PER_YEAR / 10000,
 				&fee, &route);
