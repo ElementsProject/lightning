@@ -52,16 +52,16 @@ int main(int argc, char *argv[])
 	int fd, i, off;
 	const char *method;
 	char *cmd, *resp, *idstr, *rpc_filename;
-	char *result_end;
 	struct sockaddr_un addr;
 	jsmntok_t *toks;
 	const jsmntok_t *result, *error, *id;
 	char *lightning_dir;
 	const tal_t *ctx = tal(NULL, char);
-	size_t num_opens, num_closes;
-	bool valid;
+	jsmn_parser parser;
+	jsmnerr_t parserr;
 
 	err_set_progname(argv[0]);
+	jsmn_init(&parser);
 
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 	configdir_register_opts(ctx, &lightning_dir, &rpc_filename);
@@ -117,43 +117,41 @@ int main(int argc, char *argv[])
 	if (!write_all(fd, cmd, strlen(cmd)))
 		err(ERROR_TALKING_TO_LIGHTNINGD, "Writing command");
 
-	resp = tal_arr(cmd, char, 100);
+	/* Start with 1000 characters, 100 tokens. */
+	resp = tal_arr(ctx, char, 1000);
+	toks = tal_arr(ctx, jsmntok_t, 100);
 	off = 0;
-	num_opens = num_closes = 0;
-	while ((i = read(fd, resp + off, tal_count(resp) - 1 - off)) > 0) {
-		resp[off + i] = '\0';
-		num_opens += strcount(resp + off, "{");
-		num_closes += strcount(resp + off, "}");
+	parserr = 0;
+	while (parserr <= 0) {
+		/* Read more if parser says, or we have 0 tokens. */
+		if (parserr == 0 || parserr == JSMN_ERROR_PART) {
+			i = read(fd, resp + off, tal_count(resp) - 1 - off);
+			if (i <= 0)
+				err(ERROR_TALKING_TO_LIGHTNINGD,
+				    "reading response");
+			off += i;
+			/* NUL terminate */
+			resp[off] = '\0';
+		}
 
-		off += i;
-		if (off == tal_count(resp) - 1)
-			tal_resize(&resp, tal_count(resp) * 2);
+		/* (Continue) parsing */
+		parserr = jsmn_parse(&parser, resp, off, toks, tal_count(toks));
 
-		/* parsing huge outputs is slow: do quick check first. */
-		if (num_opens == num_closes)
+		switch (parserr) {
+		case JSMN_ERROR_INVAL:
+			errx(ERROR_TALKING_TO_LIGHTNINGD,
+			     "Malformed response '%s'", resp);
+		case JSMN_ERROR_NOMEM:
+			/* Need more tokens, double it */
+			tal_resize(&toks, tal_count(toks) * 2);
 			break;
+		case JSMN_ERROR_PART:
+			/* Need more data: make room if necessary */
+			if (off == tal_count(resp) - 1)
+				tal_resize(&resp, tal_count(resp) * 2);
+			break;
+		}
 	}
-	if (i < 0)
-		err(ERROR_TALKING_TO_LIGHTNINGD, "reading response");
-
-	resp[off] = '\0';
-
-	/* Parsing huge results is too slow, so hack fastpath common case */
-	result_end = tal_fmt(ctx, ", \"error\" : null, \"id\" : \"%s\" }\n",
-			     idstr);
-
-	if (strstarts(resp, "{ \"result\" : ") && strends(resp, result_end)) {
-		/* Result is OK, so dump it */
-		resp += strlen("{ \"result\" : ");
-		printf("%.*s\n", (int)(strlen(resp) - strlen(result_end)), resp);
-		tal_free(ctx);
-		return 0;
-	}
-
-	toks = json_parse_input(resp, off, &valid);
-	if (!toks || !valid)
-		errx(ERROR_TALKING_TO_LIGHTNINGD,
-		     "Malformed response '%s'", resp);
 
 	if (toks->type != JSMN_OBJECT)
 		errx(ERROR_TALKING_TO_LIGHTNINGD,
