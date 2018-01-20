@@ -243,7 +243,7 @@ ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDU
 
 ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
 # Can't add to ALL_OBJS, as that makes a circular dep.
-ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
+ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS) Makefile
 
 ccan/config.h: ccan/tools/configurator/configurator
 	if $< > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
@@ -265,14 +265,14 @@ $(ALL_TEST_PROGRAMS): %: %.o
 $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS):
 	$(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) -o $@
 
-# Everything depends on the CCAN headers.
-$(CCAN_OBJS) $(CDUMP_OBJS): $(CCAN_HEADERS)
+# Everything depends on the CCAN headers, and Makefile
+$(CCAN_OBJS) $(CDUMP_OBJS): $(CCAN_HEADERS) Makefile
 
-# Except for CCAN, we treat everything else as dependent on external/ bitcoin/ common/ wire/ and all generated headers.
-$(ALL_OBJS): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(WIRE_HEADERS) $(ALL_GEN_HEADERS) $(EXTERNAL_HEADERS)
+# Except for CCAN, we treat everything else as dependent on external/ bitcoin/ common/ wire/ and all generated headers, and Makefile
+$(ALL_OBJS): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(WIRE_HEADERS) $(ALL_GEN_HEADERS) $(EXTERNAL_HEADERS) Makefile
 
-# We generate headers in two ways, so regen when either changes.
-$(ALL_GEN_HEADERS): ccan/ccan/cdump/tools/cdump-enumstr $(WIRE_GEN)
+# We generate headers in two ways, so regen when either changes (or Makefile)
+$(ALL_GEN_HEADERS): ccan/ccan/cdump/tools/cdump-enumstr $(WIRE_GEN) Makefile
 
 update-ccan:
 	mv ccan ccan.old
