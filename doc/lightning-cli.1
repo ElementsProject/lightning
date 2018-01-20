@@ -2,12 +2,12 @@
 .\"     Title: lightning-cli
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 09/06/2016
+.\"      Date: 01/22/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-CLI" "1" "09/06/2016" "\ \&" "\ \&"
+.TH "LIGHTNING\-CLI" "1" "01/22/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -62,6 +62,11 @@ Print version number to standard output and exit\&.
 .SH "COMMANDS"
 .sp
 \fIlightning\-cli\fR simply uses the JSON RPC interface to talk to \fIlightningd\fR, and prints the results\&. Thus the commands available depend entirely on the lightning daemon itself\&.
+.SH "ARGUMENTS"
+.sp
+Arguments are provided positionally after the command name\&. Arguments may be integer numbers (composed entirely of digits), floating\-point numbers (has a radix point but otherwise composed of digits), \fItrue\fR, \fIfalse\fR, or \fInull\fR\&. Other arguments are treated as strings\&.
+.sp
+Some commands have optional arguments\&. You may use \fInull\fR to skip optional arguments to provide later arguments\&.
 .SH "EXAMPLES"
 .PP
 \fBExample\ \&1.\ \&List commands\fR
