@@ -49,7 +49,7 @@ external/jsmn/jsmn.h:
 external/jsmn/jsmn.c: external/jsmn/jsmn.h
 	[ -f $@ ]
 
-external/jsmn.o: external/jsmn/jsmn.c
+external/jsmn.o: external/jsmn/jsmn.c Makefile
 	$(COMPILE.c) -DJSMN_STRICT=1 $(OUTPUT_OPTION) $<
 
 external/libjsmn.a: external/jsmn.o
@@ -64,7 +64,7 @@ $(LIBBASE58_HEADERS):
 	[ -f $@ ] || git submodule update --init external/libbase58/
 
 # Can't be inside submodule, as that makes git think it's dirty.
-external/base58.o: $(LIBBASE58_SRC)
+external/base58.o: $(LIBBASE58_SRC) Makefile
 	$(COMPILE.c) $(OUTPUT_OPTION) $<
 
 external/libbase58.a: external/base58.o
