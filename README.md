@@ -58,7 +58,7 @@ lightningd/lightningd --network=testnet --log-level=debug
 ```
 
 ### Listing all commands:
-`cli/lighting-cli help` will print a table of the API and lists the following commands
+`cli/lightning-cli help` will print a table of the API and lists the following commands
 
 ### Opening a channel on the Bitcoin testnet
 
