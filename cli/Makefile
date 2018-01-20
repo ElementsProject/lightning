@@ -25,3 +25,4 @@ clean: lightning-cli-clean
 lightning-cli-clean:
 	$(RM) $(LIGHTNING-CLI_LIB_OBJS) $(DAEMON_JSMN_OBJS)
 
+include cli/test/Makefile
