@@ -93,7 +93,10 @@ struct wallet_payment {
 	u64 msatoshi;
 	/* If and only if PAYMENT_COMPLETE */
 	struct preimage *payment_preimage;
+	/* Needed for recovering from routing failures. */
 	struct secret *path_secrets;
+	struct pubkey *route_nodes;
+	struct short_channel_id *route_channels;
 };
 
 /**

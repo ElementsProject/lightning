@@ -117,6 +117,11 @@ bool sqlite3_bind_short_channel_id(sqlite3_stmt *stmt, int col,
 				   const struct short_channel_id *id);
 bool sqlite3_column_short_channel_id(sqlite3_stmt *stmt, int col,
 				     struct short_channel_id *dest);
+bool sqlite3_bind_short_channel_id_array(sqlite3_stmt *stmt, int col,
+					 const struct short_channel_id *id);
+struct short_channel_id *
+sqlite3_column_short_channel_id_array(const tal_t *ctx,
+				      sqlite3_stmt *stmt, int col);
 bool sqlite3_bind_tx(sqlite3_stmt *stmt, int col, const struct bitcoin_tx *tx);
 struct bitcoin_tx *sqlite3_column_tx(const tal_t *ctx, sqlite3_stmt *stmt,
 				     int col);
@@ -125,6 +130,11 @@ bool sqlite3_column_signature(sqlite3_stmt *stmt, int col, secp256k1_ecdsa_signa
 
 bool sqlite3_column_pubkey(sqlite3_stmt *stmt, int col,  struct pubkey *dest);
 bool sqlite3_bind_pubkey(sqlite3_stmt *stmt, int col, const struct pubkey *pk);
+
+bool sqlite3_bind_pubkey_array(sqlite3_stmt *stmt, int col,
+			       const struct pubkey *pks);
+struct pubkey *sqlite3_column_pubkey_array(const tal_t *ctx,
+					   sqlite3_stmt *stmt, int col);
 
 bool sqlite3_column_preimage(sqlite3_stmt *stmt, int col,  struct preimage *dest);
 bool sqlite3_bind_preimage(sqlite3_stmt *stmt, int col, const struct preimage *p);
