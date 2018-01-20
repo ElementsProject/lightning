@@ -2813,7 +2813,7 @@ static void json_sign_last_tx(struct command *cmd,
 static const struct json_command dev_sign_last_tx = {
 	"dev-sign-last-tx",
 	json_sign_last_tx,
-	"Sign and return the last commitment transaction",
+	"Sign and return the last commitment transaction with peer {id}",
 	"Sign last transaction with peer @id, return as @tx."
 	"  This should never be called outside testing!"
 };
