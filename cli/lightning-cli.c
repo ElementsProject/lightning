@@ -103,6 +103,7 @@ int main(int argc, char *argv[])
 		if (strspn(argv[i], "0123456789") == strlen(argv[i])
 		    || streq(argv[i], "true")
 		    || streq(argv[i], "false")
+		    || streq(argv[i], "null")
 		    || argv[i][0] == '{'
 		    || argv[i][0] == '['
 		    || argv[i][0] == '"')
