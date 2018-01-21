@@ -716,6 +716,12 @@ static void maybe_send_shutdown(struct peer *peer)
 	if (!peer->unsent_shutdown_scriptpubkey)
 		return;
 
+	/* Send a disable channel_update so others don't try to route
+	 * over us */
+	msg = create_channel_update(peer, peer, true);
+	wire_sync_write(GOSSIP_FD, msg);
+	enqueue_peer_msg(peer, take(msg));
+
 	msg = towire_shutdown(peer, &peer->channel_id,
 			      peer->unsent_shutdown_scriptpubkey);
 	enqueue_peer_msg(peer, take(msg));
