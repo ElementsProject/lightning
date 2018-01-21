@@ -852,6 +852,15 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 			json_add_u64(response, "msatoshi_total",
 				     p->funding_satoshi * 1000);
 		}
+
+		/* channel config */
+		json_add_u64(response, "dust_limit_satoshis", p->our_config.dust_limit_satoshis);
+		json_add_u64(response, "max_htlc_value_in_flight_msat", p->our_config.max_htlc_value_in_flight_msat);
+		json_add_u64(response, "channel_reserve_satoshis", p->our_config.channel_reserve_satoshis);
+		json_add_u64(response, "htlc_minimum_msat", p->our_config.htlc_minimum_msat);
+		json_add_num(response, "to_self_delay", p->our_config.to_self_delay);
+		json_add_num(response, "max_accepted_htlcs", p->our_config.max_accepted_htlcs);
+
 		json_object_end(response);
 		json_array_end(response);
 
