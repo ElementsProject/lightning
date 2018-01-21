@@ -1041,12 +1041,14 @@ static void routing_failure_on_nc(struct routing_state *rstate,
 void routing_failure(struct routing_state *rstate,
 		     const struct pubkey *erring_node_pubkey,
 		     const struct short_channel_id *scid,
-		     enum onion_type failcode)
+		     enum onion_type failcode,
+		     const u8 *channel_update)
 {
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	struct node *node;
 	struct node_connection *nc;
 	int i;
+	enum wire_type t;
 
 	status_trace("Received routing failure 0x%04x (%s), "
 		     "erring node %s, "
@@ -1093,7 +1095,35 @@ void routing_failure(struct routing_state *rstate,
 						    erring_node_pubkey));
 	}
 
-	/* FIXME: if UPDATE is set, apply the channel update. */
+	/* Update the channel if UPDATE failcode. Do
+	 * this after deactivating, so that if the
+	 * channel_update is newer it will be
+	 * reactivated. */
+	if (failcode & UPDATE) {
+		if (tal_len(channel_update) == 0) {
+			status_trace("UNUSUAL routing_failure: "
+				     "UPDATE bit set, no channel_update. "
+				     "failcode: 0x%04x",
+				     (int) failcode);
+			goto out;
+		}
+		t = fromwire_peektype(channel_update);
+		if (t != WIRE_CHANNEL_UPDATE) {
+			status_trace("UNUSUAL routing_failure: "
+				     "not a channel_update. "
+				     "type: %d",
+				     (int) t);
+			goto out;
+		}
+		handle_channel_update(rstate, channel_update);
+	} else {
+		if (tal_len(channel_update) != 0)
+			status_trace("UNUSUAL routing_failure: "
+				     "UPDATE bit clear, channel_update given. "
+				     "failcode: 0x%04x",
+				     (int) failcode);
+	}
+
 out:
 	tal_free(tmpctx);
 }
