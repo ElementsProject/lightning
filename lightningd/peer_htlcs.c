@@ -994,11 +994,26 @@ void peer_sending_commitsig(struct peer *peer, const u8 *msg)
 		      take(towire_channel_sending_commitsig_reply(msg)));
 }
 
-static void added_their_htlc(struct peer *peer,
-			     const struct added_htlc *added,
-			     const struct secret *shared_secret)
+static bool peer_added_their_htlc(struct peer *peer,
+				  const struct added_htlc *added,
+				  const struct secret *shared_secret)
 {
 	struct htlc_in *hin;
+
+	/* BOLT #2:
+	 *
+	 *  - receiving an `amount_msat` equal to 0, OR less than its own `htlc_minimum_msat`:
+	 *    - SHOULD fail the channel.
+	 */
+	if (added->amount_msat == 0
+	    || added->amount_msat < peer->our_config.htlc_minimum_msat) {
+		peer_internal_error(peer,
+				    "trying to add HTLC msat %"PRIu64
+				    " but minimum is %"PRIu64,
+				    added->amount_msat,
+				    peer->our_config.htlc_minimum_msat);
+		return false;
+	}
 
 	/* This stays around even if we fail it immediately: it *is*
 	 * part of the current commitment. */
@@ -1011,7 +1026,7 @@ static void added_their_htlc(struct peer *peer,
 
 	log_debug(peer->log, "Adding their HTLC %"PRIu64, added->id);
 	connect_htlc_in(&peer->ld->htlcs_in, hin);
-
+	return true;
 }
 
 /* The peer doesn't tell us this separately, but logically it's a separate
@@ -1092,8 +1107,10 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 		  tal_count(failed), tal_count(changed));
 
 	/* New HTLCs */
-	for (i = 0; i < tal_count(added); i++)
-		added_their_htlc(peer, &added[i], &shared_secrets[i]);
+	for (i = 0; i < tal_count(added); i++) {
+		if (!peer_added_their_htlc(peer, &added[i], &shared_secrets[i]))
+			return;
+	}
 
 	/* Save information now for fulfilled & failed HTLCs */
 	for (i = 0; i < tal_count(fulfilled); i++) {
