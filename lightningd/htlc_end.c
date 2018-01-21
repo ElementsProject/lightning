@@ -120,9 +120,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 				const char *abortstr)
 {
-	if (hout->msatoshi == 0)
-		return corrupt(hout, abortstr, "zero msatoshi");
-	else if (htlc_state_owner(hout->hstate) != LOCAL)
+	if (htlc_state_owner(hout->hstate) != LOCAL)
 		return corrupt(hout, abortstr, "invalid state %s",
 			       htlc_state_name(hout->hstate));
 	else if (hout->failuremsg && hout->preimage)
