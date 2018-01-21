@@ -1528,7 +1528,10 @@ static void handle_pong(struct peer *peer, const u8 *pong)
 static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 {
 	struct channel_id channel_id;
-	u8 *scriptpubkey;
+	u8 *scriptpubkey, *msg;
+
+	msg = create_channel_update(peer, peer, true);
+	wire_sync_write(GOSSIP_FD, take(msg));
 
 	if (!fromwire_shutdown(peer, shutdown, NULL, &channel_id, &scriptpubkey))
 		peer_failed(PEER_FD,
