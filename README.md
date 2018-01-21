@@ -126,11 +126,14 @@ Note that there are lower-level interfaces (and more options to these interfaces
 JSON-RPC interface is documented in the following manual pages:
 
 * [invoice](doc/lightning-invoice.7.txt)
-* [listinvoice](doc/lightning-listinvoice.7.txt)
+* [listinvoices](doc/lightning-listinvoices.7.txt)
 * [waitinvoice](doc/lightning-waitinvoice.7.txt)
 * [waitanyinvoice](doc/lightning-waitanyinvoice.7.txt)
 * [delinvoice](doc/lightning-delinvoice.7.txt)
 * [getroute](doc/lightning-getroute.7.txt)
 * [sendpay](doc/lightning-sendpay.7.txt)
+* [pay](doc/lightning-pay.7.txt)
+* [listpayments](doc/lightning-listpayments.7.txt)
+* [decodepay](doc/lightning-decodepay.7.txt)
 
 For simple access to the JSON-RPC interface you can use the `cli/lightning-cli` tool, or the [python API client](contrib/pylightning).
