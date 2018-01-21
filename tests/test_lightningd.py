@@ -806,6 +806,9 @@ class LightningDTests(BaseLightningDTests):
             # Must provide an amount!
             self.assertRaises(ValueError, l1.rpc.pay, inv2)
             self.assertRaises(ValueError, l1.rpc.pay, inv2, None)
+            # Amount must be nonzero!
+            self.assertRaisesRegex(ValueError, 'WIRE_AMOUNT_BELOW_MINIMUM',
+                                   l1.rpc.pay, inv2, 0)
             l1.rpc.pay(inv2, random.randint(1000, 999999))
 
         # Should see 6 completed payments
