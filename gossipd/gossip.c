@@ -1890,17 +1890,21 @@ static struct io_plan *handle_routing_failure(struct io_conn *conn,
 	struct pubkey erring_node;
 	struct short_channel_id erring_channel;
 	u16 failcode;
+	u8 *channel_update;
 
-	if (!fromwire_gossip_routing_failure(msg, NULL,
+	if (!fromwire_gossip_routing_failure(msg,
+					     msg, NULL,
 					     &erring_node,
 					     &erring_channel,
-					     &failcode))
+					     &failcode,
+					     &channel_update))
 		master_badmsg(WIRE_GOSSIP_ROUTING_FAILURE, msg);
 
 	routing_failure(daemon->rstate,
 			&erring_node,
 			&erring_channel,
-			(enum onion_type) failcode);
+			(enum onion_type) failcode,
+			channel_update);
 
 	return daemon_conn_read_next(conn, &daemon->master);
 }

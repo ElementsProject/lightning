@@ -202,3 +202,5 @@ gossip_routing_failure,3021
 gossip_routing_failure,,erring_node,struct pubkey
 gossip_routing_failure,,erring_channel,struct short_channel_id
 gossip_routing_failure,,failcode,u16
+gossip_routing_failure,,len,u16
+gossip_routing_failure,,channel_update,len*u8
