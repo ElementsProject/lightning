@@ -2880,7 +2880,7 @@ class LightningDTests(BaseLightningDTests):
         l3.daemon.wait_for_log('peer_in WIRE_UPDATE_FEE')
         l3.daemon.wait_for_log('peer_in WIRE_COMMITMENT_SIGNED')
 
-        # We need to wait untill both have committed and revoked the
+        # We need to wait until both have committed and revoked the
         # old state, otherwise we'll still try to commit with the old
         # 15sat/byte fee
         l1.daemon.wait_for_log('peer_out WIRE_REVOKE_AND_ACK')
