@@ -10,6 +10,7 @@ struct invoice;
 struct invoices;
 struct log;
 struct sha256;
+struct timers;
 
 /**
  * invoices_new - Constructor for a new invoice handler
@@ -17,10 +18,12 @@ struct sha256;
  * @ctx - the owner of the invoice handler.
  * @db - the database connection to use for saving invoice.
  * @log - the log to report to.
+ * @timers - the timers object to use for expirations.
  */
 struct invoices *invoices_new(const tal_t *ctx,
 			      struct db *db,
-			      struct log *log);
+			      struct log *log,
+			      struct timers *timers);
 
 /**
  * invoices_load - Second-stage constructor for invoice handler.

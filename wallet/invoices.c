@@ -6,6 +6,7 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
+#include <ccan/timer/timer.h>
 #include <lightningd/invoice.h>
 #include <lightningd/log.h>
 #include <sodium/randombytes.h>
@@ -24,6 +25,8 @@ struct invoices {
 	struct db *db;
 	/* The log to report to. */
 	struct log *log;
+	/* The timers object to use for expirations. */
+	struct timers *timers;
 	/* The invoice list. */
 	struct list_head invlist;
 	/* Waiters waiting for any new invoice to be paid. */
@@ -71,12 +74,14 @@ static bool wallet_stmt2invoice(sqlite3_stmt *stmt, struct invoice *inv)
 
 struct invoices *invoices_new(const tal_t *ctx,
 			      struct db *db,
-			      struct log *log)
+			      struct log *log,
+			      struct timers *timers)
 {
 	struct invoices *invs = tal(ctx, struct invoices);
 
 	invs->db = db;
 	invs->log = log;
+	invs->timers = timers;
 
 	list_head_init(&invs->invlist);
 	list_head_init(&invs->waitany_waiters);

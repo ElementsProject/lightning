@@ -281,7 +281,7 @@ int main(int argc, char *argv[])
 	test_daemons(ld);
 
 	/* Initialize wallet, now that we are in the correct directory */
-	ld->wallet = wallet_new(ld, ld->log);
+	ld->wallet = wallet_new(ld, ld->log, &ld->timers);
 	ld->owned_txfilter = txfilter_new(ld);
 
 	/* Set up HSM. */

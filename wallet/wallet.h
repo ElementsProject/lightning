@@ -17,6 +17,7 @@
 struct invoices;
 struct lightningd;
 struct pubkey;
+struct timers;
 
 struct wallet {
 	struct db *db;
@@ -105,7 +106,8 @@ struct wallet_payment {
  * This is guaranteed to either return a valid wallet, or abort with
  * `fatal` if it cannot be initialized.
  */
-struct wallet *wallet_new(const tal_t *ctx, struct log *log);
+struct wallet *wallet_new(const tal_t *ctx,
+			  struct log *log, struct timers *timers);
 
 /**
  * wallet_add_utxo - Register a UTXO which we (partially) own
