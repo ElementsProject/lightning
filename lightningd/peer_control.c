@@ -2082,7 +2082,7 @@ static bool peer_start_channeld(struct peer *peer,
 
 	/* Warn once. */
 	if (peer->ld->config.ignore_fee_limits)
-		log_unusual(peer->log, "Ignoring fee limits!");
+		log_debug(peer->log, "Ignoring fee limits!");
 
 	initmsg = towire_channel_init(tmpctx,
 				      &get_chainparams(peer->ld)
