@@ -52,8 +52,7 @@ static void json_help(struct command *cmd,
 static const struct json_command help_command = {
 	"help",
 	json_help,
-	"List available commands",
-	"Returns an array {help} of available commands",
+	"Show available commands"
 };
 AUTODATA(json_command, &help_command);
 
@@ -71,8 +70,7 @@ static void json_stop(struct command *cmd,
 static const struct json_command stop_command = {
 	"stop",
 	json_stop,
-	"Shutdown the lightningd process",
-	"What part of shutdown wasn't clear?"
+	"Shut down the lightningd process"
 };
 AUTODATA(json_command, &stop_command);
 
@@ -190,8 +188,7 @@ static void json_getlog(struct command *cmd,
 static const struct json_command getlog_command = {
 	"getlog",
 	json_getlog,
-	"Get logs, with optional level: [io|debug|info|unusual]",
-	"Returns log array"
+	"Show logs, with optional log {level} (info|unusual|debug|io)"
 };
 AUTODATA(json_command, &getlog_command);
 
@@ -230,8 +227,7 @@ static void json_rhash(struct command *cmd,
 static const struct json_command dev_rhash_command = {
 	"dev-rhash",
 	json_rhash,
-	"SHA256 of {secret}",
-	"Returns a hash value"
+	"Show SHA256 of {secret}"
 };
 AUTODATA(json_command, &dev_rhash_command);
 
@@ -244,8 +240,7 @@ static void json_crash(struct command *cmd,
 static const struct json_command dev_crash_command = {
 	"dev-crash",
 	json_crash,
-	"Call fatal()",
-	"Simple crash test for developers"
+	"Crash lightningd by calling fatal()"
 };
 AUTODATA(json_command, &dev_crash_command);
 #endif /* DEVELOPER */
@@ -274,8 +269,7 @@ static void json_getinfo(struct command *cmd,
 static const struct json_command getinfo_command = {
 	"getinfo",
 	json_getinfo,
-	"Get general information about this node",
-	"Returns {id}, {port}, {testnet}, etc."
+	"Show information about this node"
 };
 AUTODATA(json_command, &getinfo_command);
 

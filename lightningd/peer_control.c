@@ -761,8 +761,7 @@ static void json_connect(struct command *cmd,
 static const struct json_command connect_command = {
 	"connect",
 	json_connect,
-	"Connect to {id} at {host} (which can end in ':port' if not default)",
-	"Returns the {id} on success (once channel established)"
+	"Connect to {id} at {host} (which can end in ':port' if not default)"
 };
 AUTODATA(json_command, &connect_command);
 
@@ -954,8 +953,7 @@ static void json_listpeers(struct command *cmd,
 static const struct json_command listpeers_command = {
 	"listpeers",
 	json_listpeers,
-	"List the current peers, if {level} is set, include {log}s",
-	"Returns a 'peers' array"
+	"Show current peers, if {level} is set, include {log}s"
 };
 AUTODATA(json_command, &listpeers_command);
 
@@ -2661,8 +2659,7 @@ static void json_fund_channel(struct command *cmd,
 static const struct json_command fund_channel_command = {
 	"fundchannel",
 	json_fund_channel,
-	"Fund channel with {id} using {satoshi} satoshis",
-	"Returns {tx} once channel established"
+	"Fund channel with {id} using {satoshi} satoshis"
 };
 AUTODATA(json_command, &fund_channel_command);
 
@@ -2727,8 +2724,7 @@ static void json_close(struct command *cmd,
 static const struct json_command close_command = {
 	"close",
 	json_close,
-	"Close the channel with peer {id}",
-	"Returns an empty result on success"
+	"Close the channel with peer {id}"
 };
 AUTODATA(json_command, &close_command);
 
@@ -2822,9 +2818,7 @@ static void json_sign_last_tx(struct command *cmd,
 static const struct json_command dev_sign_last_tx = {
 	"dev-sign-last-tx",
 	json_sign_last_tx,
-	"Sign and return the last commitment transaction with peer {id}",
-	"Sign last transaction with peer @id, return as @tx."
-	"  This should never be called outside testing!"
+	"Sign and show the last commitment transaction with peer {id}"
 };
 AUTODATA(json_command, &dev_sign_last_tx);
 
@@ -2854,8 +2848,7 @@ static void json_dev_fail(struct command *cmd,
 static const struct json_command dev_fail_command = {
 	"dev-fail",
 	json_dev_fail,
-	"Fail with peer {id}",
-	"Returns {} on success"
+	"Fail with peer {id}"
 };
 AUTODATA(json_command, &dev_fail_command);
 
@@ -2906,8 +2899,7 @@ static void json_dev_reenable_commit(struct command *cmd,
 static const struct json_command dev_reenable_commit = {
 	"dev-reenable-commit",
 	json_dev_reenable_commit,
-	"Reenable the commit timer on peer {id}",
-	"Returns {} on success"
+	"Re-enable the commit timer on peer {id}"
 };
 AUTODATA(json_command, &dev_reenable_commit);
 #endif /* DEVELOPER */

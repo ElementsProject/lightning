@@ -306,8 +306,7 @@ static void json_withdraw(struct command *cmd,
 static const struct json_command withdraw_command = {
 	"withdraw",
 	json_withdraw,
-	"Send to {destination} address {satoshi} (or 'all') amount via Bitcoin transaction",
-	"Returns the withdrawal transaction ID"
+	"Send to {destination} address {satoshi} (or 'all') amount via Bitcoin transaction"
 };
 AUTODATA(json_command, &withdraw_command);
 
@@ -357,8 +356,7 @@ static void json_newaddr(struct command *cmd,
 static const struct json_command newaddr_command = {
 	"newaddr",
 	json_newaddr,
-	"Get a new address to fund a channel",
-	"Returns {address} a p2sh address"
+	"Get a new address to fund a channel"
 };
 AUTODATA(json_command, &newaddr_command);
 
@@ -383,7 +381,8 @@ static void json_listfunds(struct command *cmd, const char *buffer,
 }
 
 static const struct json_command listfunds_command = {
-    "listfunds", json_listfunds,
-    "List funds available to the daemon to open channels",
-    "Returns an array of available outputs"};
+	"listfunds",
+	json_listfunds,
+	"Show funds available for opening channels"
+};
 AUTODATA(json_command, &listfunds_command);

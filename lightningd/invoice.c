@@ -197,8 +197,7 @@ static void json_invoice(struct command *cmd,
 static const struct json_command invoice_command = {
 	"invoice",
 	json_invoice,
-	"Create invoice for {msatoshi} with {label} and {description} with optional {expiry} seconds (default 1 hour)",
-	"Returns the {payment_hash}, {expires_at} and {bolt11} on success, and {description} if too large for {bolt11}. "
+	"Create an invoice for {msatoshi} with {label} and {description} with optional {expiry} seconds (default 1 hour)"
 };
 AUTODATA(json_command, &invoice_command);
 
@@ -259,7 +258,6 @@ static const struct json_command listinvoice_command = {
 	"listinvoice",
 	json_listinvoice,
 	"(DEPRECATED) Show invoice {label} (or all, if no {label}))",
-	"Returns an array of {label}, {payment_hash}, {msatoshi} (if set), {complete}, {pay_index} (if paid) and {expires_time} on success. ",
 	.deprecated = true
 };
 AUTODATA(json_command, &listinvoice_command);
@@ -273,8 +271,7 @@ static void json_listinvoices(struct command *cmd,
 static const struct json_command listinvoices_command = {
 	"listinvoices",
 	json_listinvoices,
-	"Show invoice {label} (or all, if no {label}))",
-	"Returns an array of {label}, {payment_hash}, {msatoshi} (if set), {status}, {pay_index} (if paid) and {expires_at} on success. ",
+	"Show invoice {label} (or all, if no {label})"
 };
 AUTODATA(json_command, &listinvoices_command);
 
@@ -333,7 +330,6 @@ static const struct json_command delinvoice_command = {
 	"delinvoice",
 	json_delinvoice,
 	"Delete unpaid invoice {label} with {status}",
-	"Returns {label}, {payment_hash}, {msatoshi} (if set), {status}, {pay_index} (if paid) and {expires_at} on success. "
 };
 AUTODATA(json_command, &delinvoice_command);
 
@@ -375,8 +371,7 @@ static void json_waitanyinvoice(struct command *cmd,
 static const struct json_command waitanyinvoice_command = {
 	"waitanyinvoice",
 	json_waitanyinvoice,
-	"Wait for the next invoice to be paid, after {lastpay_index} (if supplied)))",
-	"Returns {label}, {payment_hash}, {msatoshi} (if set), {status}, {pay_index} and {expires_at} on success. "
+	"Wait for the next invoice to be paid, after {lastpay_index} (if supplied)"
 };
 AUTODATA(json_command, &waitanyinvoice_command);
 
@@ -420,8 +415,7 @@ static void json_waitinvoice(struct command *cmd,
 static const struct json_command waitinvoice_command = {
 	"waitinvoice",
 	json_waitinvoice,
-	"Wait for an incoming payment matching the invoice with {label}",
-	"Returns {label}, {payment_hash}, {msatoshi} (if set), {complete}, {pay_index} and {expires_at} on success"
+	"Wait for an incoming payment matching the invoice with {label}"
 };
 AUTODATA(json_command, &waitinvoice_command);
 
@@ -574,7 +568,6 @@ static void json_decodepay(struct command *cmd,
 static const struct json_command decodepay_command = {
 	"decodepay",
 	json_decodepay,
-	"Parse and decode {bolt11} if possible, using {description} if necessary",
-	"Returns a verbose description on success"
+	"Decode {bolt11}, using {description} if necessary"
 };
 AUTODATA(json_command, &decodepay_command);

@@ -594,8 +594,7 @@ static void json_dev_blockheight(struct command *cmd,
 static const struct json_command dev_blockheight = {
 	"dev-blockheight",
 	json_dev_blockheight,
-	"Find out what block height we have",
-	"Returns { blockheight: u32 } on success"
+	"Show current block height"
 };
 AUTODATA(json_command, &dev_blockheight);
 
@@ -656,8 +655,7 @@ static void json_dev_setfees(struct command *cmd,
 static const struct json_command dev_setfees_command = {
 	"dev-setfees",
 	json_dev_setfees,
-	"Set feerate in satoshi-per-kw for {immediate}, {normal} and {slow} (each optional).  Returns the value of those three feerates.",
-	"Allows testing of feerate changes"
+	"Set feerate in satoshi-per-kw for {immediate}, {normal} and {slow} (each optional) and show the value of those three feerates"
 };
 AUTODATA(json_command, &dev_setfees_command);
 
