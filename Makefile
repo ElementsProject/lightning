@@ -223,7 +223,10 @@ check-whitespace: check-whitespace/Makefile check-whitespace/tools/check-bolt.c 
 check-markdown:
 	@tools/check-markdown.sh
 
-check-source: check-makefile check-source-bolt check-whitespace check-markdown
+check-spelling:
+	@tools/check-spelling.sh
+
+check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling
 
 full-check: check check-source
 
