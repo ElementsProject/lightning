@@ -53,3 +53,36 @@ bitcoind &
 ```
 **Note**: You may need to include `testnet=1` in `bitcoin.conf`
 
+To Build on FreeBSD 11.1-RELEASE
+---------------------
+
+Get dependencies:
+```
+# pkg install -y autoconf automake git gmake libtool python python3 sqlite3
+```
+
+If you don't have Bitcoin installed locally you'll need to install that as well:
+```
+# pkg install -y bitcoin-daemon bitcoin-utils
+```
+
+Clone lightning:
+```
+$ git clone https://github.com/ElementsProject/lightning.git
+$ cd lightning
+```
+
+Build lightning:
+```
+$ gmake
+```
+
+Running lightning:
+
+**Note**: Edit your `/usr/local/etc/bitcoin.conf` to include `rpcuser=<foo>` and `rpcpassword=<bar>` first, you may also need to include `testnet=1`
+
+```
+# service bitcoind start
+$ ./lightningd/lightningd &
+$ ./cli/lightning-cli help
+```
