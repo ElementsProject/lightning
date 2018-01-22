@@ -86,3 +86,16 @@ Running lightning:
 $ ./lightningd/lightningd &
 $ ./cli/lightning-cli help
 ```
+
+To Build on Nix{,OS}
+--------------------
+
+Untested on MacOS/Windows/Other Linux. Works on NixOS.
+
+Use nix-shell launch a shell with a full clightning dev environment:
+
+```
+$ nix-shell -Q -p gdb sqlite autoconf git clang libtool gmp sqlite autoconf \
+autogen automake 'python3.withPackages (p: [p.bitcoinlib])' \
+valgrind asciidoc --run make
+```
