@@ -16,13 +16,14 @@
 #define DIRECTION_INCOMING 0
 #define DIRECTION_OUTGOING 1
 
-struct wallet *wallet_new(const tal_t *ctx, struct log *log)
+struct wallet *wallet_new(const tal_t *ctx,
+			  struct log *log, struct timers *timers)
 {
 	struct wallet *wallet = tal(ctx, struct wallet);
 	wallet->db = db_setup(wallet, log);
 	wallet->log = log;
 	wallet->bip32_base = NULL;
-	wallet->invoices = invoices_new(wallet, wallet->db, log);
+	wallet->invoices = invoices_new(wallet, wallet->db, log, timers);
 	list_head_init(&wallet->unstored_payments);
 	return wallet;
 }
