@@ -503,10 +503,11 @@ void json_add_null(struct json_result *result, const char *fieldname)
 void json_add_hex(struct json_result *result, const char *fieldname,
 		  const void *data, size_t len)
 {
-	char hex[hex_str_size(len)];
+	char *hex = tal_arr(NULL, char, hex_str_size(len));
 
-	hex_encode(data, len, hex, sizeof(hex));
+	hex_encode(data, len, hex, hex_str_size(len));
 	json_add_string(result, fieldname, hex);
+	tal_free(hex);
 }
 
 void json_add_object(struct json_result *result, ...)
