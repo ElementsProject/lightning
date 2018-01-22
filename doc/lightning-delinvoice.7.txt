@@ -16,7 +16,7 @@ The *delinvoice* RPC command removes an invoice with 'status' as
 given in *listinvoices*.
 
 The caller should be particularly aware of the error case caused by 
-the 'status' chaning just before this command is invoked!
+the 'status' changing just before this command is invoked!
 
 RETURN VALUE
 ------------
