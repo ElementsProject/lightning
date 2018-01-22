@@ -38,7 +38,7 @@ Rusty Russell <rusty@rustcorp.com.au> is mainly responsible.
 
 SEE ALSO
 --------
-lighting-waitinvoice(7), lightning-listinvoice(7), lightning-delinvoice(7), lightning-invoice(7).
+lightning-waitinvoice(7), lightning-listinvoice(7), lightning-delinvoice(7), lightning-invoice(7).
 
 RESOURCES
 ---------
