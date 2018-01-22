@@ -328,8 +328,7 @@ static void json_sendpay(struct command *cmd,
 static const struct json_command sendpay_command = {
 	"sendpay",
 	json_sendpay,
-	"Send along {route} in return for preimage of {rhash}",
-	"Returns the {preimage} on success"
+	"Send along {route} in return for preimage of {rhash}"
 };
 AUTODATA(json_command, &sendpay_command);
 
@@ -432,8 +431,7 @@ static void json_pay(struct command *cmd,
 static const struct json_command pay_command = {
 	"pay",
 	json_pay,
-	"Send payment specified by {bolt11} with optional {msatoshi} (iff {bolt11} does not have amount), {description} (required if {bolt11} uses description hash) and {riskfactor} (default 1.0)",
-	"Returns the {preimage} on success"
+	"Send payment specified by {bolt11} with optional {msatoshi} (if and only if {bolt11} does not have amount), {description} (required if {bolt11} uses description hash) and {riskfactor} (default 1.0)"
 };
 AUTODATA(json_command, &pay_command);
 
@@ -525,7 +523,6 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 static const struct json_command listpayments_command = {
 	"listpayments",
 	json_listpayments,
-	"Get a list of outgoing payments",
-	"Returns a list of payments with {payment_hash}, {destination}, {msatoshi}, {created_at} and {status} (and {payment_preimage} if {status} is 'complete')"
+	"Show outgoing payments"
 };
 AUTODATA(json_command, &listpayments_command);

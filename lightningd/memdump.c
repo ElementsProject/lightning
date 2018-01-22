@@ -62,8 +62,7 @@ static void json_memdump(struct command *cmd,
 static const struct json_command dev_memdump_command = {
 	"dev-memdump",
 	json_memdump,
-	"Dump the memory objects currently used",
-	"Debugging tool for memory leaks"
+	"Show memory objects currently in use"
 };
 AUTODATA(json_command, &dev_memdump_command);
 
@@ -160,8 +159,7 @@ static void json_memleak(struct command *cmd,
 static const struct json_command dev_memleak_command = {
 	"dev-memleak",
 	json_memleak,
-	"Dump the memory objects unreferenced",
-	"Debugging tool for memory leaks"
+	"Show unreferenced memory objects"
 };
 AUTODATA(json_command, &dev_memleak_command);
 #endif /* DEVELOPER */

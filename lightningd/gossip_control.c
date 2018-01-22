@@ -251,9 +251,10 @@ static void json_listnodes(struct command *cmd, const char *buffer,
 }
 
 static const struct json_command listnodes_command = {
-    "listnodes", json_listnodes,
-    "List a nodes in our local network view (or all, if no {id})",
-    "Returns a list of all nodes that we know about"};
+	"listnodes",
+	json_listnodes,
+	"Show all nodes in our local network view"
+};
 AUTODATA(json_command, &listnodes_command);
 
 static void json_getroute_reply(struct subd *gossip, const u8 *reply, const int *fds,
@@ -335,9 +336,9 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 }
 
 static const struct json_command getroute_command = {
-	"getroute", json_getroute,
-	"Return route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9)",
-	"Returns a {route} array of {id} {msatoshi} {delay}: msatoshi and delay (in blocks) is cumulative."
+	"getroute",
+	json_getroute,
+	"Show route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9)"
 };
 AUTODATA(json_command, &getroute_command);
 
@@ -412,6 +413,8 @@ static void json_listchannels(struct command *cmd, const char *buffer,
 }
 
 static const struct json_command listchannels_command = {
-    "listchannels", json_listchannels, "List all known channels.",
-    "Returns a 'channels' array with all known channels including their fees."};
+	"listchannels",
+	json_listchannels,
+	"Show all known channels"
+};
 AUTODATA(json_command, &listchannels_command);

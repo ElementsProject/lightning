@@ -102,7 +102,6 @@ static void json_dev_ping(struct command *cmd,
 static const struct json_command dev_ping_command = {
 	"dev-ping",
 	json_dev_ping,
-	"Offer {id} a ping of length {len} asking for {pongbytes}",
-	"Returns { totlen: u32 } on success"
+	"Send {peerid} a ping of length {len} asking for {pongbytes}"
 };
 AUTODATA(json_command, &dev_ping_command);
