@@ -29,6 +29,7 @@
 #include <lightningd/log.h>
 #include <lightningd/options.h>
 #include <onchaind/onchain_wire.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <unistd.h>
 
