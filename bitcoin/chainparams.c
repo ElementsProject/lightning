@@ -39,7 +39,17 @@ const struct chainparams networks[] = {
      .cli = "litecoin-cli",
      .cli_args = "",
      .dust_limit = 100000,
-     .testnet = false}};
+     .testnet = false},
+    {.index = 4,
+     .network_name = "litecoin-testnet",
+     .bip173_name = "ltt",
+     .genesis_blockhash = {{{.u.u8 = { 0xa0, 0x29, 0x3e, 0x4e, 0xeb, 0x3d, 0xa6, 0xe6, 0xf5, 0x6f, 0x81, 0xed, 0x59, 0x5f, 0x57, 0x88, 0x0d, 0x1a, 0x21, 0x56, 0x9e, 0x13, 0xee, 0xfd, 0xd9, 0x51, 0x28, 0x4b, 0x5a, 0x62, 0x66, 0x49 }}}},
+     .rpc_port = 19335,
+     .cli = "litecoin-cli",
+     .cli_args = "-testnet",
+     .dust_limit = 100000,
+     .testnet = true}
+};
 
 const struct chainparams *chainparams_for_network(const char *network_name)
 {
