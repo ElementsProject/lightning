@@ -14,6 +14,7 @@
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
