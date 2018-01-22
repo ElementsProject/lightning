@@ -65,6 +65,7 @@ CCAN_OBJS :=					\
 	ccan-opt-usage.o			\
 	ccan-opt.o				\
 	ccan-pipecmd.o				\
+	ccan-ptr_valid.o			\
 	ccan-read_write_all.o			\
 	ccan-str-hex.o				\
 	ccan-str.o				\
@@ -430,6 +431,8 @@ ccan-list.o: $(CCANDIR)/ccan/list/list.c
 ccan-asort.o: $(CCANDIR)/ccan/asort/asort.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-autodata.o: $(CCANDIR)/ccan/autodata/autodata.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-ptr_valid.o: $(CCANDIR)/ccan/ptr_valid/ptr_valid.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-read_write_all.o: $(CCANDIR)/ccan/read_write_all/read_write_all.c
 	$(CC) $(CFLAGS) -c -o $@ $<
