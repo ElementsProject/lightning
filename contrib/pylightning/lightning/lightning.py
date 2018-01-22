@@ -99,19 +99,3 @@ class LightningRpc(UnixDomainSocketRpc):
         msatoshi, {delay} blocks delay and {minblocks} minimum timeout
         """
         return self._call("dev-add-route", [src, dst, base, var, delay, minblocks])
-
-
-
-if __name__ == "__main__":
-    l1 = LightningRpc("/tmp/lightning1/lightning-rpc")
-    l5 = LightningRpc("/tmp/lightning5/lightning-rpc")
-
-    import random
-
-    info5 = l5.getinfo()
-    print(info5)
-    invoice = l5.invoice(100, "lbl{}".format(random.random()), "testpayment")
-    print(invoice)
-    route = l1.getroute(info5['id'], 100, 1)
-    print(route)
-    print(l1.sendpay(route['route'], invoice['payment_hash']))
