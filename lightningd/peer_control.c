@@ -536,7 +536,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			 * error then */
 			goto return_to_gossipd;
 
-		case CHANNELD_AWAITING_LOCKIN:
+		case CHANNELD_AWAITING_LOCK_IN:
 		case CHANNELD_NORMAL:
 		case CHANNELD_SHUTTING_DOWN:
 			/* Stop any existing daemon, without triggering error
@@ -1487,10 +1487,10 @@ static enum watch_result funding_spent(struct peer *peer,
 	return KEEP_WATCHING;
 }
 
-static enum watch_result funding_lockin_cb(struct peer *peer,
-					   const struct bitcoin_tx *tx,
-					   unsigned int depth,
-					   void *unused)
+static enum watch_result funding_lock_in_cb(struct peer *peer,
+					    const struct bitcoin_tx *tx,
+					    unsigned int depth,
+					    void *unused)
 {
 	struct bitcoin_txid txid;
 	const char *txidstr;
@@ -1519,7 +1519,7 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 
 	/* In theory, it could have been buried before we got back
 	 * from accepting openingd or disconnected: just wait for next one. */
-	peer_ready = (peer->owner && peer->state == CHANNELD_AWAITING_LOCKIN);
+	peer_ready = (peer->owner && peer->state == CHANNELD_AWAITING_LOCK_IN);
 	if (!peer_ready) {
 		log_unusual(peer->log,
 			    "Funding tx confirmed, but peer state %s %s",
@@ -1571,7 +1571,7 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 	/* Send it out and watch for confirms. */
 	broadcast_tx(fc->peer->ld->topology, fc->peer, tx, funding_broadcast_failed);
 	watch_tx(fc->peer, fc->peer->ld->topology, fc->peer, tx,
-		 funding_lockin_cb, NULL);
+		 funding_lock_in_cb, NULL);
 
 	/* Extract the change output and add it to the DB */
 	wallet_extract_owned_outputs(fc->peer->ld->wallet, tx, &change_satoshi);
@@ -1592,7 +1592,7 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 	/* Start normal channel daemon. */
 	peer_start_channeld(fc->peer, cs, gossip_index,
 			    peer_fd, gossip_fd, NULL, false);
-	peer_set_condition(fc->peer, OPENINGD, CHANNELD_AWAITING_LOCKIN);
+	peer_set_condition(fc->peer, OPENINGD, CHANNELD_AWAITING_LOCK_IN);
 
 	wallet_confirm_utxos(fc->peer->ld->wallet, fc->utxomap);
 	tal_free(fc);
@@ -1937,7 +1937,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	switch (t) {
 	case WIRE_CHANNEL_NORMAL_OPERATION:
 		peer_set_condition(sd->peer,
-				   CHANNELD_AWAITING_LOCKIN, CHANNELD_NORMAL);
+				   CHANNELD_AWAITING_LOCK_IN, CHANNELD_NORMAL);
 		break;
 	case WIRE_CHANNEL_SENDING_COMMITSIG:
 		peer_sending_commitsig(sd->peer, msg);
@@ -2348,7 +2348,7 @@ static void opening_fundee_finished(struct subd *opening,
 		     type_to_string(reply, struct bitcoin_txid,
 				    peer->funding_txid));
 	watch_txid(peer, peer->ld->topology, peer, peer->funding_txid,
-		   funding_lockin_cb, NULL);
+		   funding_lock_in_cb, NULL);
 
 	/* FIXME: Remove arg from cb? */
 	watch_txo(peer, peer->ld->topology, peer, peer->funding_txid,
@@ -2360,7 +2360,7 @@ static void opening_fundee_finished(struct subd *opening,
 	/* On to normal operation! */
 	peer_start_channeld(peer, &cs, gossip_index,
 			    fds[0], fds[1], funding_signed, false);
-	peer_set_condition(peer, OPENINGD, CHANNELD_AWAITING_LOCKIN);
+	peer_set_condition(peer, OPENINGD, CHANNELD_AWAITING_LOCK_IN);
 	tal_free(tmpctx);
 }
 
@@ -2762,7 +2762,7 @@ static void activate_peer(struct peer *peer)
 
 	/* This may be unnecessary, but it's harmless. */
 	watch_txid(peer, peer->ld->topology, peer, peer->funding_txid,
-		   funding_lockin_cb, NULL);
+		   funding_lock_in_cb, NULL);
 
 	watch_txo(peer, peer->ld->topology, peer, peer->funding_txid, peer->funding_outnum,
 		  funding_spent, NULL);

@@ -2079,7 +2079,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Technically, this is async to fundchannel (and could reconnect first)
         l1.daemon.wait_for_logs(['sendrawtx exit 0',
-                                 'Peer has reconnected, state CHANNELD_AWAITING_LOCKIN'])
+                                 'Peer has reconnected, state CHANNELD_AWAITING_LOCK_IN'])
 
         l1.bitcoin.generate_block(6)
 

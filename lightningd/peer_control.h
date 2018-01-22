@@ -136,7 +136,7 @@ static inline bool peer_on_chain(const struct peer *peer)
 
 static inline bool peer_wants_reconnect(const struct peer *peer)
 {
-	return peer->state >= CHANNELD_AWAITING_LOCKIN
+	return peer->state >= CHANNELD_AWAITING_LOCK_IN
 		&& peer->state <= CLOSINGD_COMPLETE;
 }
 
@@ -152,7 +152,7 @@ static inline bool peer_wants_reconnect(const struct peer *peer)
  */
 static inline bool peer_persists(const struct peer *peer)
 {
-	return peer->state >= CHANNELD_AWAITING_LOCKIN;
+	return peer->state >= CHANNELD_AWAITING_LOCK_IN;
 }
 
 struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id);

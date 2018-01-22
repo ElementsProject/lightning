@@ -8,8 +8,8 @@ enum peer_state {
 	/* Negotiating channel opening: in opening daemon */
 	OPENINGD,
 
-	/* In channeld, still waiting for lockin. */
-	CHANNELD_AWAITING_LOCKIN,
+	/* In channeld, still waiting for lock-in. */
+	CHANNELD_AWAITING_LOCK_IN,
 
 	/* Normal operating state. */
 	CHANNELD_NORMAL,
