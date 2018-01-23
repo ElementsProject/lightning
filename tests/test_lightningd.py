@@ -56,6 +56,12 @@ def wait_for(success, timeout=30, interval=0.1):
     if time.time() > start_time + timeout:
         raise ValueError("Error waiting for {}", success)
 
+def wait_forget_channels(node):
+    """This node is closing all of its channels, check we are forgetting them
+    """
+    node.daemon.wait_for_log(r'onchaind complete, forgetting peer')
+    assert node.rpc.listpeers()['peers'] == []
+    assert node.db_query("SELECT * FROM channels") == []
 
 def sync_blockheight(nodes):
     target = bitcoind.rpc.getblockcount()
@@ -865,6 +871,11 @@ class LightningDTests(BaseLightningDTests):
         assert closetxid in set([o['txid'] for o in l1.rpc.listfunds()['outputs']])
         assert closetxid in set([o['txid'] for o in l2.rpc.listfunds()['outputs']])
 
+        # Make sure both have forgotten about it
+        l1.bitcoin.rpc.generate(100)
+        wait_forget_channels(l1)
+        wait_forget_channels(l2)
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail(self):
         l1,l2 = self.connect()
@@ -909,11 +920,11 @@ class LightningDTests(BaseLightningDTests):
 
         # 100 after l1 sees tx, it should be done.
         bitcoind.generate_block(95)
-        l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+        wait_forget_channels(l1)
 
         # Now, 100 blocks l2 should be done.
         bitcoind.generate_block(5)
-        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+        wait_forget_channels(l2)
 
         # Only l1 has a direct output since all of l2's outputs are respent (it failed)
         assert closetxid in set([o['txid'] for o in l1.rpc.listfunds()['outputs']])
@@ -1273,7 +1284,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(100)
 
         # FIXME: Test wallet balance...
-        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+        wait_forget_channels(l2)
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail_new_commit(self):
@@ -1308,8 +1319,8 @@ class LightningDTests(BaseLightningDTests):
 
         # Now, 100 blocks it should be done.
         bitcoind.generate_block(100)
-        l1.daemon.wait_for_log('onchaind complete, forgetting peer')
-        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+        wait_forget_channels(l1)
+        wait_forget_channels(l2)
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail_htlc_in(self):
@@ -1401,7 +1412,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(5)
         assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
         bitcoind.generate_block(1)
-        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+        wait_forget_channels(l2)
 
     def test_gossip_jsonrpc(self):
         l1, l2 = self.line_graph(n=2)
