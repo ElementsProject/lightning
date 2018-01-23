@@ -12,14 +12,20 @@ SYNOPSIS
 
 DESCRIPTION
 -----------
-The *waitinvoice* RPC command waits until a specific invoice is paid, then
-returns that single entry as per *listinvoice*.
+The *waitinvoice* RPC command waits until a specific invoice is paid,
+then returns that single entry as per *listinvoice*.
 
 RETURN VALUE
 ------------
-On success, an invoice description will be returned as per lightning-listinvoice(7): 'complete' will always be 'true'.
+On success, an invoice description will be returned as per lightning-listinvoice(7).
+The 'status' field will be 'paid'.
 
-//FIXME:Enumerate errors
+If the invoice is deleted while unpaid, or the invoice does not exist,
+this command will return with an error with code -1.
+
+If the invoice expires before being pad, or is already expired, this
+command will return with an error with code -2, with the data being
+the invoice data as per *listinvoice*.
 
 AUTHOR
 ------
