@@ -216,6 +216,11 @@ void wallet_channel_save(struct wallet *w, struct wallet_channel *chan,
 			 u32 current_block_height);
 
 /**
+ * wallet_channel_delete -- After resolving a channel, forget about it
+ */
+void wallet_channel_delete(struct wallet *w, u64 wallet_id);
+
+/**
  * wallet_channel_config_save -- Upsert a channel_config into the database
  */
 void wallet_channel_config_save(struct wallet *w, struct channel_config *cc);
