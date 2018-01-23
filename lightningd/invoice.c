@@ -23,7 +23,7 @@ static const char *invoice_status_str(const struct invoice *inv)
 {
 	if (inv->state == PAID)
 		return "paid";
-	if (time_now().ts.tv_sec > inv->expiry_time)
+	if (inv->state == EXPIRED)
 		return "expired";
 	return "unpaid";
 }
@@ -396,7 +396,7 @@ static void json_waitinvoice(struct command *cmd,
 	if (!i) {
 		command_fail(cmd, "Label not found");
 		return;
-	} else if (i->state == PAID) {
+	} else if (i->state == PAID || i->state == EXPIRED) {
 		tell_waiter(cmd, i);
 		return;
 	} else {
@@ -410,7 +410,7 @@ static void json_waitinvoice(struct command *cmd,
 static const struct json_command waitinvoice_command = {
 	"waitinvoice",
 	json_waitinvoice,
-	"Wait for an incoming payment matching the invoice with {label}"
+	"Wait for an incoming payment matching the invoice with {label}, or if the invoice expires"
 };
 AUTODATA(json_command, &waitinvoice_command);
 

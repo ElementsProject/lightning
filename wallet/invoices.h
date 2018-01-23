@@ -152,7 +152,6 @@ void invoices_waitany(const tal_t *ctx,
  * invoice.
  * @cbarg - the callback data.
  *
- * FIXME: actually trigger on expired invoices.
  */
 void invoices_waitone(const tal_t *ctx,
 		      struct invoices *invoices,
