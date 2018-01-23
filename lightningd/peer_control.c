@@ -1244,8 +1244,8 @@ static void handle_irrevocably_resolved(struct peer *peer, const u8 *msg)
 	/* FIXME: Implement check_htlcs to ensure no dangling hout->in ptrs! */
 	free_htlcs(peer->ld, peer);
 
-	/* FIXME: Remove peer from db. */
 	log_info(peer->log, "onchaind complete, forgetting peer");
+	wallet_channel_delete(peer->ld->wallet, peer->channel->id);
 
 	/* This will also free onchaind. */
 	free_peer(peer, "onchaind complete, forgetting peer");

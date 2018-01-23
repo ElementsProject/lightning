@@ -836,6 +836,14 @@ void wallet_channel_save(struct wallet *w, struct wallet_channel *chan,
 	tal_free(tmpctx);
 }
 
+void wallet_channel_delete(struct wallet *w, u64 wallet_id)
+{
+	sqlite3_stmt *stmt;
+	stmt = db_prepare(w->db, "DELETE FROM channels WHERE id=?");
+	sqlite3_bind_int64(stmt, 1, wallet_id);
+	db_exec_prepared(w->db, stmt);
+}
+
 int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 				 u64 *total_satoshi)
 {
