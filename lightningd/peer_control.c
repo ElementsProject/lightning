@@ -2095,6 +2095,8 @@ static bool peer_start_channeld(struct peer *peer,
 	if (peer->ld->config.ignore_fee_limits)
 		log_debug(peer->log, "Ignoring fee limits!");
 
+	peer->direction = pubkey_cmp(&peer->ld->id, &peer->id) > 0;
+
 	initmsg = towire_channel_init(tmpctx,
 				      &get_chainparams(peer->ld)
 				      ->genesis_blockhash,
