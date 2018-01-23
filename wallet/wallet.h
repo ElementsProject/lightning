@@ -16,6 +16,7 @@
 
 struct invoices;
 struct lightningd;
+struct oneshot;
 struct pubkey;
 struct timers;
 
@@ -362,6 +363,7 @@ bool wallet_htlcs_reconnect(struct wallet *wallet,
 enum invoice_status {
 	UNPAID,
 	PAID,
+	EXPIRED,
 };
 
 struct invoice {
@@ -375,6 +377,8 @@ struct invoice {
 	struct list_head waitone_waiters;
 	/* Any expiration timer in effect */
 	struct oneshot *expiration_timer;
+	/* The owning invoices object. */
+	struct invoices *owner;
 
 	/* Publicly-useable fields. */
 	enum invoice_status state;
@@ -527,7 +531,6 @@ void wallet_invoice_waitany(const tal_t *ctx,
  * invoice.
  * @cbarg - the callback data.
  *
- * FIXME: actually trigger on expired invoices.
  */
 void wallet_invoice_waitone(const tal_t *ctx,
 			    struct wallet *wallet,

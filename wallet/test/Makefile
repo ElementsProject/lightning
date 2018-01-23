@@ -7,6 +7,7 @@ WALLET_TEST_COMMON_OBJS :=				\
 	common/type_to_string.o			\
 	common/memleak.o			\
 	common/pseudorand.o			\
+	common/timeout.o			\
 	common/utils.o				\
 	common/wireaddr.o				\
 	wallet/invoices.o			\
