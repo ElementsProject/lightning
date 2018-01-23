@@ -401,6 +401,30 @@ class LightningDTests(BaseLightningDTests):
                                'Unknown invoice',
                                l2.rpc.delinvoice,
                                'test_pay', 'expired')
+
+        # Test expiration waiting.
+        # The second invoice created expires first.
+        l2.rpc.invoice('any', 'inv1', 'description', 5)
+        l2.rpc.invoice('any', 'inv2', 'description', 2)
+        l2.rpc.invoice('any', 'inv3', 'description', 8)
+        # Check waitinvoice correctly waits
+        w1 = self.executor.submit(l2.rpc.waitinvoice, 'inv1')
+        w2 = self.executor.submit(l2.rpc.waitinvoice, 'inv2')
+        w3 = self.executor.submit(l2.rpc.waitinvoice, 'inv3')
+        time.sleep(1) # total 1
+        assert not w1.done()
+        assert not w2.done()
+        assert not w3.done()
+        time.sleep(2) # total 3
+        assert not w1.done()
+        self.assertRaises(ValueError, w2.result)
+        assert not w3.done()
+        time.sleep(3) # total 6
+        self.assertRaises(ValueError, w1.result)
+        assert not w3.done()
+        time.sleep(4) # total 10
+        self.assertRaises(ValueError, w3.result)
+
     def test_connect(self):
         l1,l2 = self.connect()
 
