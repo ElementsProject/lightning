@@ -1772,6 +1772,85 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 static struct io_plan *handle_disable_channel(struct io_conn *conn,
 					      struct daemon *daemon, u8 *msg)
 {
+	tal_t *tmpctx = tal_tmpctx(msg);
+	struct short_channel_id scid;
+	u8 direction;
+	struct node_connection *nc;
+	bool active;
+	u16 flags, cltv_expiry_delta;
+	u32 timestamp, fee_base_msat, fee_proportional_millionths;
+	struct bitcoin_blkid chain_hash;
+	secp256k1_ecdsa_signature sig;
+	u64 htlc_minimum_msat;
+
+	if (!fromwire_gossip_disable_channel(msg, NULL, &scid, &direction, &active) ) {
+		status_trace("Unable to parse %s",
+			     gossip_wire_type_name(fromwire_peektype(msg)));
+		goto fail;
+	}
+
+	nc = get_connection_by_scid(daemon->rstate, &scid, direction);
+
+	if (!nc) {
+		status_trace(
+		    "Unable to find channel %s/%d",
+		    type_to_string(msg, struct short_channel_id, &scid),
+		    direction);
+		goto fail;
+	}
+
+	status_trace("Disabling channel %s/%d, active %d -> %d",
+		     type_to_string(msg, struct short_channel_id, &scid),
+		     direction, nc->active, active);
+
+	nc->active = active;
+
+	if (!nc->channel_update) {
+		status_trace(
+		    "Channel %s/%d doesn't have a channel_update yet, can't "
+		    "disable",
+		    type_to_string(msg, struct short_channel_id, &scid),
+		    direction);
+		goto fail;
+	}
+
+	if (!fromwire_channel_update(
+		nc->channel_update, NULL, &sig, &chain_hash, &scid, &timestamp,
+		&flags, &cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
+		&fee_proportional_millionths)) {
+		status_failed(
+		    STATUS_FAIL_INTERNAL_ERROR,
+		    "Unable to parse previously accepted channel_update");
+	}
+
+	timestamp = time_now().ts.tv_sec;
+	if (timestamp <= nc->last_timestamp)
+		timestamp = nc->last_timestamp + 1;
+
+	/* Active is bit 1 << 1, mask and apply */
+	flags = (0xFFFD & flags) | (!active << 1);
+
+	msg = towire_channel_update(tmpctx, &sig, &chain_hash, &scid, timestamp,
+				    flags, cltv_expiry_delta, htlc_minimum_msat,
+				    fee_base_msat, fee_proportional_millionths);
+
+	if (!wire_sync_write(HSM_FD,
+			     towire_hsm_cupdate_sig_req(tmpctx, msg))) {
+		status_failed(STATUS_FAIL_HSM_IO, "Writing cupdate_sig_req: %s",
+			      strerror(errno));
+	}
+
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!msg || !fromwire_hsm_cupdate_sig_reply(tmpctx, msg, NULL, &msg)) {
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading cupdate_sig_req: %s",
+			      strerror(errno));
+	}
+
+	handle_channel_update(daemon->rstate, msg);
+
+fail:
+	tal_free(tmpctx);
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
