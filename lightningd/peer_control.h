@@ -100,6 +100,9 @@ struct peer {
 	struct changed_htlc *last_sent_commit;
 
 	struct wallet_channel *channel;
+
+	/* If we open a channel our direction will be this */
+	u8 direction;
 };
 
 static inline bool peer_can_add_htlc(const struct peer *peer)
