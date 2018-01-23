@@ -298,10 +298,10 @@ static void update_feerates(struct bitcoind *bitcoind,
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
 		for (size_t j = 0; j < i; j++) {
 			if (topo->feerate[j] < topo->feerate[i]) {
-				log_unusual(topo->log,
-					    "Feerate %s (%u) above %s (%u)",
-					    feerate_name(i), topo->feerate[i],
-					    feerate_name(j), topo->feerate[j]);
+				log_debug(topo->log,
+					  "Feerate %s (%u) above %s (%u)",
+					  feerate_name(i), topo->feerate[i],
+					  feerate_name(j), topo->feerate[j]);
 				topo->feerate[j] = topo->feerate[i];
 			}
 		}
