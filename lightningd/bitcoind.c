@@ -255,10 +255,13 @@ static bool extract_feerate(struct bitcoin_cli *bcli,
 		      bcli_args(bcli),
 		      valid ? "partial" : "invalid");
 
-	if (tokens[0].type != JSMN_OBJECT)
-		fatal("%s: gave non-object (%.*s)?",
-		      bcli_args(bcli),
-		      (int)output_bytes, output);
+	if (tokens[0].type != JSMN_OBJECT) {
+		log_unusual(bcli->bitcoind->log,
+			    "%s: gave non-object (%.*s)?",
+			    bcli_args(bcli),
+			    (int)output_bytes, output);
+		return false;
+	}
 
 	feeratetok = json_get_member(output, tokens, "feerate");
 	if (!feeratetok)
