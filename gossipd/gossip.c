@@ -1769,6 +1769,12 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+static struct io_plan *handle_disable_channel(struct io_conn *conn,
+					      struct daemon *daemon, u8 *msg)
+{
+	return daemon_conn_read_next(conn, &daemon->master);
+}
+
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct daemon *daemon = container_of(master, struct daemon, master);
@@ -1813,6 +1819,9 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 
 	case WIRE_GOSSIP_GET_TXOUT_REPLY:
 		return handle_txout_reply(conn, daemon, master->msg_in);
+
+	case WIRE_GOSSIP_DISABLE_CHANNEL:
+		return handle_disable_channel(conn, daemon, master->msg_in);
 
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:

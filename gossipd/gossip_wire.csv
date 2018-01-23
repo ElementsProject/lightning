@@ -183,3 +183,8 @@ gossip_get_txout_reply,,short_channel_id,struct short_channel_id
 gossip_get_txout_reply,,len,u16
 gossip_get_txout_reply,,outscript,len*u8
 
+# client->gossipd: Disable the channel matching the short_channel_id
+gossip_disable_channel,3019
+gossip_disable_channel,,short_channel_id,struct short_channel_id
+gossip_disable_channel,,direction,u8
+gossip_disable_channel,,active,bool
