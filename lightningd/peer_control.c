@@ -280,7 +280,7 @@ void peer_fail_transient(struct peer *peer, const char *fmt, ...)
 void peer_set_condition(struct peer *peer, enum peer_state old_state,
 			enum peer_state state)
 {
-	log_info(peer->log, "state: %s -> %s",
+	log_info(peer->log, "State changed from %s to %s",
 		 peer_state_name(peer->state), peer_state_name(state));
 	if (peer->state != old_state)
 		fatal("peer state %s should be %s",
@@ -668,9 +668,9 @@ static void copy_to_parent_log(const char *prefix,
 {
 	const char *idstr = type_to_string(peer, struct pubkey, &peer->id);
 	if (continued)
-		log_add(peer->ld->log, "peer %s: ... %s", idstr, str);
+		log_add(peer->ld->log, "Peer %s: ... %s", idstr, str);
 	else
-		log_(peer->ld->log, level, "peer %s: %s", idstr, str);
+		log_(peer->ld->log, level, "Peer %s: %s", idstr, str);
 	tal_free(idstr);
 }
 

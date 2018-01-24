@@ -8,6 +8,6 @@ const char *version(void);
 
 #define opt_register_version()						\
 	opt_register_early_noarg("--version|-V", version_and_exit, NULL, \
-				 "print version to standard output and exit")
+				 "Print version and exit")
 
 #endif /* LIGHTNING_COMMON_VERSION_H */

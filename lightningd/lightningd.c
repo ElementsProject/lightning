@@ -332,7 +332,7 @@ int main(int argc, char *argv[])
 	setup_jsonrpc(ld, ld->rpc_filename);
 
 	/* Mark ourselves live. */
-	log_info(ld->log, "Hello world from %s aka %s #%s (version %s)!",
+	log_info(ld->log, "Server started with public key %s, alias %s (color #%s) and lightningd %s",
 		 type_to_string(ltmp, struct pubkey, &ld->id),
 		 ld->alias, tal_hex(ltmp, ld->rgb), version());
 
