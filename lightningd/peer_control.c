@@ -1519,10 +1519,10 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 	 * from accepting openingd or disconnected: just wait for next one. */
 	peer_ready = (peer->owner && peer->state == CHANNELD_AWAITING_LOCKIN);
 	if (!peer_ready) {
-		log_unusual(peer->log,
-			    "Funding tx confirmed, but peer state %s %s",
-			    peer_state_name(peer->state),
-			    peer->owner ? peer->owner->name : "unowned");
+		log_debug(peer->log,
+			  "Funding tx confirmed, but peer state %s %s",
+			  peer_state_name(peer->state),
+			  peer->owner ? peer->owner->name : "unowned");
 	} else {
 		subd_send_msg(peer->owner,
 			      take(towire_channel_funding_locked(peer,
