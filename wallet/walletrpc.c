@@ -318,10 +318,30 @@ static void json_newaddr(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 	struct ext_key ext;
 	struct sha256 h;
-	struct ripemd160 p2sh;
+	struct ripemd160 h160;
 	struct pubkey pubkey;
+	jsmntok_t *addrtype;
 	u8 *redeemscript;
+	bool is_p2wpkh, ok;
 	s64 keyidx;
+	char *out;
+	const char *hrp;
+
+	if (!json_get_params(cmd, buffer, params,
+			     "?addresstype", &addrtype, NULL)) {
+		return;
+	}
+
+	if (!addrtype || json_tok_streq(buffer, addrtype, "p2sh-segwit"))
+		is_p2wpkh = false;
+	else if (json_tok_streq(buffer, addrtype, "bech32"))
+		is_p2wpkh = true;
+	else {
+		command_fail(cmd,
+			     "Invalid address type "
+			     "(expected bech32 or p2sh-segwit)");
+		return;
+	}
 
 	keyidx = wallet_get_newindex(cmd->ld);
 	if (keyidx < 0) {
@@ -343,14 +363,27 @@ static void json_newaddr(struct command *cmd,
 
 	txfilter_add_derkey(cmd->ld->owned_txfilter, ext.pub_key);
 
-	redeemscript = bitcoin_redeem_p2sh_p2wpkh(cmd, &pubkey);
-	sha256(&h, redeemscript, tal_count(redeemscript));
-	ripemd160(&p2sh, h.u.u8, sizeof(h));
+	if (is_p2wpkh) {
+		hrp = get_chainparams(cmd->ld)->bip173_name;
+		/* out buffer is 73 + strlen(human readable part). see bech32.h */
+		out = tal_arr(cmd, char, 73 + strlen(hrp));
+		pubkey_to_hash160(&pubkey, &h160);
+		ok = segwit_addr_encode(out, hrp, 0, h160.u.u8, sizeof(h160.u.u8));
+		if (!ok) {
+			command_fail(cmd, "p2wpkh address encoding failure.");
+			return;
+		}
+	}
+	else {
+		redeemscript = bitcoin_redeem_p2sh_p2wpkh(cmd, &pubkey);
+		sha256(&h, redeemscript, tal_count(redeemscript));
+		ripemd160(&h160, h.u.u8, sizeof(h));
+		out = p2sh_to_base58(cmd,
+				     get_chainparams(cmd->ld)->testnet, &h160);
+	}
 
 	json_object_start(response, NULL);
-	json_add_string(response, "address",
-			p2sh_to_base58(cmd, get_chainparams(cmd->ld)->testnet,
-				       &p2sh));
+	json_add_string(response, "address", out);
 	json_object_end(response);
 	command_success(cmd, response);
 }
@@ -358,7 +391,7 @@ static void json_newaddr(struct command *cmd,
 static const struct json_command newaddr_command = {
 	"newaddr",
 	json_newaddr,
-	"Get a new address to fund a channel"
+	"Get a new {bech32, p2sh-segwit} address to fund a channel"
 };
 AUTODATA(json_command, &newaddr_command);
 
