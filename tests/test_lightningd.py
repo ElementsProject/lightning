@@ -848,6 +848,15 @@ class LightningDTests(BaseLightningDTests):
 
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
 
+        l1.bitcoin.rpc.generate(5)
+
+        # Only wait for the channels to activate with DEVELOPER=1,
+        # otherwise it's going to take too long because of the missing
+        # --dev-broadcast-interval
+        if DEVELOPER:
+            wait_for(lambda: len(l1.getactivechannels()) == 2)
+            wait_for(lambda: len(l2.getactivechannels()) == 2)
+
         # This should return, then close.
         l1.rpc.close(l2.info['id'])
         l1.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
@@ -859,6 +868,10 @@ class LightningDTests(BaseLightningDTests):
         # And should put closing into mempool.
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l2.daemon.wait_for_log('sendrawtx exit 0')
+
+        # Both nodes should have disabled the channel in their view
+        wait_for(lambda: len(l1.getactivechannels()) == 0)
+        wait_for(lambda: len(l2.getactivechannels()) == 0)
 
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
 
@@ -1180,6 +1193,9 @@ class LightningDTests(BaseLightningDTests):
         # Now, this will get stuck due to l1 commit being disabled..
         t = self.pay(l1,l2,100000000,async=True)
 
+        assert len(l1.getactivechannels()) == 1
+        assert len(l2.getactivechannels()) == 1
+
         # They should both have commitments blocked now.
         l1.daemon.wait_for_log('=WIRE_COMMITMENT_SIGNED-nocommit')
         l2.daemon.wait_for_log('=WIRE_COMMITMENT_SIGNED-nocommit')
@@ -1210,6 +1226,7 @@ class LightningDTests(BaseLightningDTests):
 
         l2.daemon.wait_for_log('-> ONCHAIND_CHEATED')
         # FIXME: l1 should try to stumble along!
+        wait_for(lambda: len(l2.getactivechannels()) == 0)
 
         # l2 should spend all of the outputs (except to-us).
         # Could happen in any order, depending on commitment tx.
