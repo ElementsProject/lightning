@@ -300,6 +300,11 @@ static void json_sendpay(struct command *cmd,
 			return;
 		}
 
+		if (route[n_hops].amount == 0) {
+			command_fail(cmd, "cannot pay 0 msatoshi");
+			return;
+		}
+
 		if (!json_tok_short_channel_id(buffer, chantok,
 					       &route[n_hops].channel_id)) {
 			command_fail(cmd, "route %zu invalid channel_id", n_hops);
@@ -409,6 +414,11 @@ static void json_pay(struct command *cmd,
 				     buffer + msatoshitok->start);
 			return;
 		}
+	}
+
+	if (msatoshi == 0) {
+		command_fail(cmd, "cannot pay 0 msatoshi");
+		return;
 	}
 
 	if (riskfactortok

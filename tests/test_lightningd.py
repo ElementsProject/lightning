@@ -806,6 +806,8 @@ class LightningDTests(BaseLightningDTests):
             # Must provide an amount!
             self.assertRaises(ValueError, l1.rpc.pay, inv2)
             self.assertRaises(ValueError, l1.rpc.pay, inv2, None)
+            # Amount must be nonzero!
+            self.assertRaises(ValueError, l1.rpc.pay, inv2, 0)
             l1.rpc.pay(inv2, random.randint(1000, 999999))
 
         # Should see 6 completed payments
@@ -1414,6 +1416,8 @@ class LightningDTests(BaseLightningDTests):
 
         # Make sure we can route through the channel, will raise on failure
         l1.rpc.getroute(l2.info['id'], 100, 1)
+        # Make sure getroute fail if routing 0 msatoshi
+        self.assertRaises(ValueError, l1.rpc.getroute, l2.info['id'], 0, 1)
 
         # Outgoing should be active, but not public.
         channels = l1.rpc.listchannels()['channels']
