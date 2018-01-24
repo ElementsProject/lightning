@@ -338,7 +338,12 @@ class LightningNode(object):
         return [c for c in self.rpc.listchannels()['channels'] if c['active']]
 
     def db_query(self, query):
-        db = sqlite3.connect(os.path.join(self.daemon.lightning_dir, "lightningd.sqlite3"))
+        from shutil import copyfile
+        orig = os.path.join(self.daemon.lightning_dir, "lightningd.sqlite3")
+        copy = os.path.join(self.daemon.lightning_dir, "lightningd-copy.sqlite3")
+        copyfile(orig, copy)
+
+        db = sqlite3.connect(copy)
         db.row_factory = sqlite3.Row
         c = db.cursor()
         c.execute(query)
