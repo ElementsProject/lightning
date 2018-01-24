@@ -2292,6 +2292,32 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_logs(['sendrawtx exit 0', '-> CLOSINGD_COMPLETE'])
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
 
+    def test_bech32_funding(self):
+        # Don't get any funds from previous runs.
+        l1 = self.node_factory.get_node(random_hsm=True)
+        l2 = self.node_factory.get_node(random_hsm=True)
+
+        # connect
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+
+        # fund a bech32 address and then open a channel with it
+        res = l1.openchannel(l2, 20000, addrtype='bech32')
+        address = res['address']
+        assert address[0:4] == "bcrt"
+
+        # probably overly paranoid checking
+        wallettxid = res['wallettxid']
+
+        wallettx = l1.bitcoin.rpc.getrawtransaction(wallettxid, True)
+        fundingtx = l1.bitcoin.rpc.decoderawtransaction(res['fundingtx']['tx'])
+
+        def is_p2wpkh(output):
+            return output['type'] == 'witness_v0_keyhash' and \
+                   address == output['addresses'][0]
+
+        assert any(is_p2wpkh(output['scriptPubKey']) for output in wallettx['vout'])
+        assert fundingtx['vin'][0]['txid'] == res['wallettxid']
+
     def test_withdraw(self):
         amount = 1000000
         # Don't get any funds from previous runs.
