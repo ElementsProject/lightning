@@ -38,19 +38,6 @@ check-source: $(BITCOIN_SRC:%=check-src-include-order/%)		\
 # Bitcoin objects depends on bitcoin/ external/ and ccan
 $(BITCOIN_OBJS): $(CCAN_HEADERS) $(BITCOIN_HEADERS) $(EXTERNAL_HEADERS)
 
-# Note that these actually #include everything they need, except ccan/.
-# That allows for unit testing of statics, and special effects.
-
-BITCOIN_TEST_SRC := $(wildcard bitcoin/test/run-*.c)
-BITCOIN_TEST_OBJS := $(BITCOIN_TEST_SRC:.c=.o)
-BITCOIN_TEST_PROGRAMS := $(BITCOIN_TEST_OBJS:.o=)
-
-$(BITCOIN_TEST_PROGRAMS): $(CCAN_OBJS)
-
-$(BITCOIN_TEST_OBJS): $(CCAN_HEADERS) $(BITCOIN_HEADERS) $(BITCOIN_SRC)
-
-check: bitcoin-tests
-
 check-source-bolt: $(BITCOIN_SRC:%=bolt-check/%) $(BITCOIN_HEADERS:%=bolt-check/%)
 
 check-makefile: check-bitcoin-makefile
@@ -60,9 +47,9 @@ check-bitcoin-makefile:
 
 check-whitespace: $(BITCOIN_SRC:%=check-whitespace/%) $(BITCOIN_HEADERS:%=check-whitespace/%) check-whitespace/bitcoin/Makefile
 
-bitcoin-tests: $(BITCOIN_TEST_PROGRAMS:%=unittest/%)
-
 clean: bitcoin-clean
 
 bitcoin-clean:
 	$(RM) $(BITCOIN_OBJS) $(BITCOIN_TEST_PROGRAMS) $(BITCOIN_TEST_OBJS)
+
+include bitcoin/test/Makefile
