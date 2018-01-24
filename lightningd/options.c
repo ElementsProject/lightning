@@ -612,7 +612,7 @@ bool handle_opts(struct lightningd *ld, int argc, char *argv[])
 
 	/* Move to config dir, to save ourselves the hassle of path manip. */
 	if (chdir(ld->config_dir) != 0) {
-		log_unusual(ld->log, "Creating lightningd dir %s",
+		log_unusual(ld->log, "Creating configuration directory %s",
 			    ld->config_dir);
 		if (mkdir(ld->config_dir, 0700) != 0)
 			fatal("Could not make directory %s: %s",
