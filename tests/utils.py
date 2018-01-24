@@ -90,7 +90,7 @@ class TailableProc(object):
         self.proc.kill()
         self.proc.wait()
         self.thread.join()
-    
+
     def tail(self):
         """Tail the stdout of the process and remember it.
 
@@ -333,6 +333,9 @@ class LightningNode(object):
         self.daemon.wait_for_log('sendrawtx exit 0, gave')
         self.bitcoin.generate_block(6)
         self.daemon.wait_for_log('-> CHANNELD_NORMAL|STATE_NORMAL')
+
+    def getactivechannels(self):
+        return [c for c in self.rpc.listchannels()['channels'] if c['active']]
 
     def db_query(self, query):
         db = sqlite3.connect(os.path.join(self.daemon.lightning_dir, "lightningd.sqlite3"))
