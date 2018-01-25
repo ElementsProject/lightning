@@ -28,7 +28,7 @@ void configdir_register_opts(const tal_t *ctx,
 	*configdir = default_configdir(ctx);
 	*rpc_filename = "lightning-rpc";
 
-	opt_register_early_arg("--lightning-dir", opt_set_talstr, opt_show_charp,
+	opt_register_early_arg("--lightning-dir=<dir>", opt_set_talstr, opt_show_charp,
 			       configdir,
 			       "Set working directory. All other files are relative to this");
 
