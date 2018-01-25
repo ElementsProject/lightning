@@ -316,8 +316,8 @@ class LightningNode(object):
             #fut.result(timeout=5)
 
             # Now wait for confirmation
-            self.daemon.wait_for_log("-> CHANNELD_NORMAL|STATE_NORMAL")
-            remote_node.daemon.wait_for_log("-> CHANNELD_NORMAL|STATE_NORMAL")
+            self.daemon.wait_for_log(" to CHANNELD_NORMAL|STATE_NORMAL")
+            remote_node.daemon.wait_for_log(" to CHANNELD_NORMAL|STATE_NORMAL")
 
         if async:
             return self.executor.submit(wait_connected)
@@ -332,7 +332,7 @@ class LightningNode(object):
         self.rpc.fundchannel(remote_node.info['id'], capacity)
         self.daemon.wait_for_log('sendrawtx exit 0, gave')
         self.bitcoin.generate_block(6)
-        self.daemon.wait_for_log('-> CHANNELD_NORMAL|STATE_NORMAL')
+        self.daemon.wait_for_log('to CHANNELD_NORMAL|STATE_NORMAL')
 
     def getactivechannels(self):
         return [c for c in self.rpc.listchannels()['channels'] if c['active']]
