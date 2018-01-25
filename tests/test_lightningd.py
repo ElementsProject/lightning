@@ -252,8 +252,8 @@ class LightningDTests(BaseLightningDTests):
         # Technically, this is async to fundchannel.
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l1.bitcoin.generate_block(1)
-        l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
-        l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
+        l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
+        l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
 
         # Hacky way to find our output.
         decoded=bitcoind.rpc.decoderawtransaction(tx)
@@ -859,11 +859,11 @@ class LightningDTests(BaseLightningDTests):
 
         # This should return, then close.
         l1.rpc.close(l2.info['id'])
-        l1.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
-        l2.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
+        l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
+        l2.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
 
-        l1.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
-        l2.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
+        l1.daemon.wait_for_log(' to CLOSINGD_SIGEXCHANGE')
+        l2.daemon.wait_for_log(' to CLOSINGD_SIGEXCHANGE')
 
         # And should put closing into mempool.
         l1.daemon.wait_for_log('sendrawtx exit 0')
@@ -923,8 +923,8 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(1)
 
         l1.daemon.wait_for_log('Their unilateral tx, old commit point')
-        l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
-        l2.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
+        l1.daemon.wait_for_log(' to ONCHAIND_THEIR_UNILATERAL')
+        l2.daemon.wait_for_log(' to ONCHAIND_OUR_UNILATERAL')
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET (.*) in 5 blocks')
 
         # Now, mine 5 blocks so it sends out the spending tx.
@@ -974,8 +974,8 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('permfail')
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l1.bitcoin.generate_block(1)
-        l1.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
-        l2.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
+        l1.daemon.wait_for_log(' to ONCHAIND_OUR_UNILATERAL')
+        l2.daemon.wait_for_log(' to ONCHAIND_THEIR_UNILATERAL')
 
         # 10 later, l1 should collect its to-self payment.
         bitcoind.generate_block(10)
@@ -1016,8 +1016,8 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('permfail')
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l1.bitcoin.generate_block(1)
-        l1.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
-        l2.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
+        l1.daemon.wait_for_log(' to ONCHAIND_OUR_UNILATERAL')
+        l2.daemon.wait_for_log(' to ONCHAIND_THEIR_UNILATERAL')
 
         # We use 3 blocks for "reasonable depth"
         bitcoind.generate_block(3)
@@ -1069,8 +1069,8 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('permfail')
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l1.bitcoin.generate_block(1)
-        l1.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
-        l2.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
+        l1.daemon.wait_for_log(' to ONCHAIND_OUR_UNILATERAL')
+        l2.daemon.wait_for_log(' to ONCHAIND_THEIR_UNILATERAL')
 
         # Wait for timeout.
         l1.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* in 5 blocks')
@@ -1148,8 +1148,8 @@ class LightningDTests(BaseLightningDTests):
         # l2 will drop to chain.
         l2.daemon.wait_for_log('sendrawtx exit 0')
         l1.bitcoin.generate_block(1)
-        l2.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
-        l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
+        l2.daemon.wait_for_log(' to ONCHAIND_OUR_UNILATERAL')
+        l1.daemon.wait_for_log(' to ONCHAIND_THEIR_UNILATERAL')
         l2.daemon.wait_for_log('OUR_UNILATERAL/THEIR_HTLC')
 
         # l2 should fulfill HTLC onchain, and spend to-us (any order)
@@ -1224,7 +1224,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.rpc.sendrawtransaction(tx)
         bitcoind.generate_block(1)
 
-        l2.daemon.wait_for_log('-> ONCHAIND_CHEATED')
+        l2.daemon.wait_for_log(' to ONCHAIND_CHEATED')
         # FIXME: l1 should try to stumble along!
         wait_for(lambda: len(l2.getactivechannels()) == 0)
 
@@ -1287,7 +1287,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.rpc.sendrawtransaction(tx)
         bitcoind.generate_block(1)
 
-        l2.daemon.wait_for_log('-> ONCHAIND_CHEATED')
+        l2.daemon.wait_for_log(' to ONCHAIND_CHEATED')
         # FIXME: l1 should try to stumble along!
 
         # l2 should spend all of the outputs (except to-us).
@@ -1323,8 +1323,8 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('sendrawtx exit 0')
         bitcoind.generate_block(1)
         l1.daemon.wait_for_log('Their unilateral tx, new commit point')
-        l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
-        l2.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
+        l1.daemon.wait_for_log(' to ONCHAIND_THEIR_UNILATERAL')
+        l2.daemon.wait_for_log(' to ONCHAIND_OUR_UNILATERAL')
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 5 blocks')
         l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US (.*) in 5 blocks')
 
@@ -1359,8 +1359,8 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('sendrawtx exit 0')
         bitcoind.generate_block(1)
         l1.daemon.wait_for_log('Their unilateral tx, old commit point')
-        l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
-        l2.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
+        l1.daemon.wait_for_log(' to ONCHAIND_THEIR_UNILATERAL')
+        l2.daemon.wait_for_log(' to ONCHAIND_OUR_UNILATERAL')
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 5 blocks')
         l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US (.*) in 5 blocks')
         # l2 then gets preimage, uses it instead of ignoring
@@ -1401,8 +1401,8 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('sendrawtx exit 0')
         bitcoind.generate_block(1)
         l1.daemon.wait_for_log('Their unilateral tx, old commit point')
-        l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
-        l2.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
+        l1.daemon.wait_for_log(' to ONCHAIND_THEIR_UNILATERAL')
+        l2.daemon.wait_for_log(' to ONCHAIND_OUR_UNILATERAL')
         l2.daemon.wait_for_logs(['Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX \\(.*\\) in 5 blocks',
                                  'Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* in 5 blocks'])
 
@@ -1933,8 +1933,8 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('Offered HTLC 0 SENT_ADD_ACK_REVOCATION cltv .* hit deadline')
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l1.bitcoin.generate_block(1)
-        l1.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
-        l2.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
+        l1.daemon.wait_for_log(' to ONCHAIND_OUR_UNILATERAL')
+        l2.daemon.wait_for_log(' to ONCHAIND_THEIR_UNILATERAL')
 
         # L1 will timeout HTLC immediately
         l1.daemon.wait_for_logs(['Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX .* in 0 blocks',
@@ -1988,8 +1988,8 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('Fulfilled HTLC 0 SENT_REMOVE_COMMIT cltv .* hit deadline')
         l2.daemon.wait_for_log('sendrawtx exit 0')
         l2.bitcoin.generate_block(1)
-        l2.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
-        l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
+        l2.daemon.wait_for_log(' to ONCHAIND_OUR_UNILATERAL')
+        l1.daemon.wait_for_log(' to ONCHAIND_THEIR_UNILATERAL')
 
         # L2 will collect HTLC
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* in 0 blocks')
@@ -2114,8 +2114,8 @@ class LightningDTests(BaseLightningDTests):
 
         l1.bitcoin.generate_block(6)
 
-        l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
-        l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
+        l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
+        l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_reconnect_openingd(self):
@@ -2280,16 +2280,16 @@ class LightningDTests(BaseLightningDTests):
 
         # This should return, then close.
         l1.rpc.close(l2.info['id'])
-        l1.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
-        l2.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
+        l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
+        l2.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
 
-        l1.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
-        l2.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
+        l1.daemon.wait_for_log(' to CLOSINGD_SIGEXCHANGE')
+        l2.daemon.wait_for_log(' to CLOSINGD_SIGEXCHANGE')
 
         # And should put closing into mempool (happens async, so
         # CLOSINGD_COMPLETE may come first).
-        l1.daemon.wait_for_logs(['sendrawtx exit 0', '-> CLOSINGD_COMPLETE'])
-        l2.daemon.wait_for_logs(['sendrawtx exit 0', '-> CLOSINGD_COMPLETE'])
+        l1.daemon.wait_for_logs(['sendrawtx exit 0', ' to CLOSINGD_COMPLETE'])
+        l2.daemon.wait_for_logs(['sendrawtx exit 0', ' to CLOSINGD_COMPLETE'])
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -2308,16 +2308,16 @@ class LightningDTests(BaseLightningDTests):
 
         # This should return, then close.
         l1.rpc.close(l2.info['id'])
-        l1.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
-        l2.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
+        l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
+        l2.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
 
-        l1.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
-        l2.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
+        l1.daemon.wait_for_log(' to CLOSINGD_SIGEXCHANGE')
+        l2.daemon.wait_for_log(' to CLOSINGD_SIGEXCHANGE')
 
         # And should put closing into mempool (happens async, so
         # CLOSINGD_COMPLETE may come first).
-        l1.daemon.wait_for_logs(['sendrawtx exit 0', '-> CLOSINGD_COMPLETE'])
-        l2.daemon.wait_for_logs(['sendrawtx exit 0', '-> CLOSINGD_COMPLETE'])
+        l1.daemon.wait_for_logs(['sendrawtx exit 0', ' to CLOSINGD_COMPLETE'])
+        l2.daemon.wait_for_logs(['sendrawtx exit 0', ' to CLOSINGD_COMPLETE'])
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
 
     def test_withdraw(self):
@@ -2537,8 +2537,8 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.start()
 
         # All should be good.
-        l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
-        l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
+        l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
+        l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
         
     def test_addfunds_from_block(self):
         """Send funds to the daemon without telling it explicitly
@@ -2621,7 +2621,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(1)
 
         # L1 must notice.
-        l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
+        l1.daemon.wait_for_log(' to ONCHAIND_THEIR_UNILATERAL')
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_payment_success_persistence(self):
@@ -2891,16 +2891,16 @@ class LightningDTests(BaseLightningDTests):
 
         # Now shutdown cleanly.
         l1.rpc.close(l2.info['id'])
-        l1.daemon.wait_for_log('-> CLOSINGD_COMPLETE')
-        l2.daemon.wait_for_log('-> CLOSINGD_COMPLETE')
+        l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+        l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
 
         # And should put closing into mempool.
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l2.daemon.wait_for_log('sendrawtx exit 0')
 
         bitcoind.generate_block(1)
-        l1.daemon.wait_for_log('-> ONCHAIND_MUTUAL')
-        l2.daemon.wait_for_log('-> ONCHAIND_MUTUAL')
+        l1.daemon.wait_for_log(' to ONCHAIND_MUTUAL')
+        l2.daemon.wait_for_log(' to ONCHAIND_MUTUAL')
 
         bitcoind.generate_block(99)
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
@@ -2939,8 +2939,8 @@ class LightningDTests(BaseLightningDTests):
 
         # Now shutdown cleanly.
         l1.rpc.close(l3.info['id'])
-        l1.daemon.wait_for_log('-> CLOSINGD_COMPLETE')
-        l3.daemon.wait_for_log('-> CLOSINGD_COMPLETE')
+        l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+        l3.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_update_fee_reconnect(self):
@@ -2970,16 +2970,16 @@ class LightningDTests(BaseLightningDTests):
 
         # Now shutdown cleanly.
         l1.rpc.close(l2.info['id'])
-        l1.daemon.wait_for_log('-> CLOSINGD_COMPLETE')
-        l2.daemon.wait_for_log('-> CLOSINGD_COMPLETE')
+        l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+        l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
 
         # And should put closing into mempool.
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l2.daemon.wait_for_log('sendrawtx exit 0')
 
         bitcoind.generate_block(1)
-        l1.daemon.wait_for_log('-> ONCHAIND_MUTUAL')
-        l2.daemon.wait_for_log('-> ONCHAIND_MUTUAL')
+        l1.daemon.wait_for_log(' to ONCHAIND_MUTUAL')
+        l2.daemon.wait_for_log(' to ONCHAIND_MUTUAL')
 
         bitcoind.generate_block(99)
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
