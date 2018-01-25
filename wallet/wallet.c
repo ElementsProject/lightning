@@ -632,8 +632,8 @@ u32 wallet_channels_first_blocknum(struct wallet *w)
 		     OPENINGD, CLOSINGD_COMPLETE);
 
 	err = sqlite3_step(stmt);
-	if (err == SQLITE_ROW && sqlite3_column_type(stmt, 1) != SQLITE_NULL)
-		first_blocknum = sqlite3_column_int(stmt, 1);
+	if (err == SQLITE_ROW && sqlite3_column_type(stmt, 0) != SQLITE_NULL)
+		first_blocknum = sqlite3_column_int(stmt, 0);
 	else
 		first_blocknum = UINT32_MAX;
 
