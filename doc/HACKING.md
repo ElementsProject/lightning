@@ -98,6 +98,32 @@ will print out (to stderr) a command such as:
 Run this command to start debugging. You may need to type `return` one more time
 to exit the infinite while loop, otherwise you can type `continue` to begin.
 
+Database
+--------
+
+c-lightning state is persisted in `lightning-dir`. It is a sqlite database
+stored in the `lightningd.sqlite3` file, typically under `~/.lightning`. You can
+run queries against this file like so:
+
+    $ sqlite3 ~/.lightning/lightningd.sqlite3 "SELECT HEX(prev_out_tx), prev_out_index, status FROM outputs"
+
+Or you can launch into the sqlite3 repl and check things out from there:
+
+    $ sqlite3 ~/.lightning/lightningd.sqlite3
+    SQLite version 3.21.0 2017-10-24 18:55:49
+    Enter ".help" for usage hints.
+    sqlite> .tables
+    channel_configs  invoices         peers            vars
+    channel_htlcs    outputs          shachain_known   version
+    channels         payments         shachains
+    sqlite> .schema outputs
+    ...
+
+Some data is stored as raw bytes, use `HEX(column)` to pretty print these.
+
+Make sure that clightning is not running when you query the database, as some
+queries may lock the database and cause crashes.
+
 Testing
 -------
 
