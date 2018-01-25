@@ -323,6 +323,7 @@ static void json_newaddr(struct command *cmd,
 	bool is_p2wpkh, ok;
 	s64 keyidx;
 	char *out;
+	const char *hrp;
 
 	if (!json_get_params(buffer, params, "?addresstype", &addrtype, NULL)) {
 		command_fail(cmd, "Invalid arguments");
@@ -335,7 +336,8 @@ static void json_newaddr(struct command *cmd,
 		is_p2wpkh = true;
 	else {
 		command_fail(cmd,
-			     "Invalid address type param (expected segwit/p2wpkh or p2sh)");
+			     "Invalid address type "
+			     "(expected bech32 or p2sh-segwit)");
 		return;
 	}
 
@@ -360,12 +362,11 @@ static void json_newaddr(struct command *cmd,
 	txfilter_add_derkey(cmd->ld->owned_txfilter, ext.pub_key);
 
 	if (is_p2wpkh) {
-		/* segwit_addr_encode's internal buffer size is 65, so just use that */
-		out = tal_arr(cmd, char, 65);
+		hrp = get_chainparams(cmd->ld)->bip173_name;
+		/* out buffer is 73 + strlen(human readable part). see bech32.h */
+		out = tal_arr(cmd, char, 73 + strlen(hrp));
 		pubkey_to_hash160(&pubkey, &h160);
-		ok = segwit_addr_encode(out,
-					get_chainparams(cmd->ld)->bip173_name,
-					0, h160.u.u8, sizeof(h160.u.u8));
+		ok = segwit_addr_encode(out, hrp, 0, h160.u.u8, sizeof(h160.u.u8));
 		if (!ok) {
 			command_fail(cmd, "p2wpkh address encoding failure.");
 			return;
