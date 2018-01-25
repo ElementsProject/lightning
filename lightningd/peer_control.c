@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gen_gossip_wire.h>
+#include <gossipd/routing.h>
 #include <hsmd/capabilities.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
@@ -2097,7 +2098,7 @@ static bool peer_start_channeld(struct peer *peer,
 	if (peer->ld->config.ignore_fee_limits)
 		log_debug(peer->log, "Ignoring fee limits!");
 
-	peer->direction = pubkey_cmp(&peer->ld->id, &peer->id) > 0;
+	peer->direction = get_channel_direction(&peer->ld->id, &peer->id);
 
 	initmsg = towire_channel_init(tmpctx,
 				      &get_chainparams(peer->ld)
