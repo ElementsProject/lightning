@@ -1003,8 +1003,11 @@ static enum watch_result funding_announce_cb(struct peer *peer,
 	}
 
 	if (!peer->owner || !streq(peer->owner->name, "lightning_channeld")) {
-		log_debug(peer->ld->log,
-			  "Funding tx announce ready, but peer is not owned by channeld");
+		log_debug(peer->log,
+			  "Funding tx announce ready, but peer state %s"
+			  " owned by %s",
+			  peer_state_name(peer->state),
+			  peer->owner ? peer->owner->name : "none");
 		return KEEP_WATCHING;
 	}
 
