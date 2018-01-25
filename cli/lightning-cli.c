@@ -67,16 +67,20 @@ int main(int argc, char *argv[])
 	configdir_register_opts(ctx, &lightning_dir, &rpc_filename);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<command> [<params>...]", "Show this message\t use the command help (without hyphen) to get a list of all commands");
+			   "<command> [<params>...]", "Show this message. Use the command help (without hyphens -- \"lightning-cli help\") to get a list of all RPC commands");
 	opt_register_version();
 
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 
 	method = argv[1];
-	if (!method)
-		errx(ERROR_USAGE, "Need at least one argument\n%s",
-		     opt_usage(argv[0], NULL));
+	if (!method) {
+		char *usage = opt_usage(argv[0], NULL);
+		printf("%s\n", usage);
+		tal_free(usage);
+		printf("Querying lightningd for available RPC commands (\"lightning-cli help\"):\n\n");
+		method = "help";
+	}
 
 	if (chdir(lightning_dir) != 0)
 		err(ERROR_TALKING_TO_LIGHTNINGD, "Moving into '%s'",
