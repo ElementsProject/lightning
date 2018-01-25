@@ -2502,6 +2502,27 @@ class LightningDTests(BaseLightningDTests):
         amount = amount-1
         l1.rpc.fundchannel(l2.info['id'], amount)
 
+    def test_lockin_between_restart(self):
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(options=['--anchor-confirms=3'])
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+
+        self.give_funds(l1, 10**6 + 1000000)
+        l1.rpc.fundchannel(l2.info['id'], 10**6)['tx']
+
+        # l1 goes down.
+        l1.stop()
+
+        # Now 120 blocks go by...
+        bitcoind.generate_block(120)
+
+        # Restart
+        l1.daemon.start()
+
+        # All should be good.
+        l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
+        l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
+        
     def test_addfunds_from_block(self):
         """Send funds to the daemon without telling it explicitly
         """
