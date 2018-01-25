@@ -547,7 +547,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			peer_start_channeld(peer, &cs, gossip_index,
 					    peer_fd, gossip_fd, NULL,
 					    true);
-			return;
+			goto connected;
 
 		case CLOSINGD_SIGEXCHANGE:
 		case CLOSINGD_COMPLETE:
@@ -559,7 +559,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			peer_start_closingd(peer, &cs, gossip_index,
 					    peer_fd, gossip_fd,
 					    true);
-			return;
+			goto connected;
 		}
 		abort();
 	}
@@ -571,6 +571,7 @@ return_to_gossipd:
 	subd_send_fd(ld->gossip, peer_fd);
 	subd_send_fd(ld->gossip, gossip_fd);
 
+connected:
 	/* If we were waiting for connection, we succeeded. */
 	connect_succeeded(ld, &id);
 	return;
