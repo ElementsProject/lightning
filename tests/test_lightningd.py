@@ -2993,7 +2993,7 @@ class LightningDTests(BaseLightningDTests):
         # Should fail due to temporary channel fail
         self.assertRaises(ValueError, l1.rpc.pay, inv)
         l1.daemon.wait_for_log('Failing: first peer not ready: WIRE_TEMPORARY_CHANNEL_FAILURE')
-        assert not l1.daemon.is_in_log('... still in progress')
+        assert not l1.daemon.is_in_log('Payment is still in progress')
 
         # After it sees block, someone should close channel.
         bitcoind.generate_block(1)

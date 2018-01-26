@@ -564,7 +564,7 @@ void json_dev_broadcast(struct command *cmd,
 	}
 
 	if (!json_tok_bool(buffer, enabletok, &enable)) {
-		command_fail(cmd, "enable must be true or false");
+		command_fail(cmd, "Enable must be true or false");
 		return;
 	}
 
@@ -627,7 +627,7 @@ static void json_dev_setfees(struct command *cmd,
 			continue;
 		if (!json_tok_number(buffer, ratetok[i],
 				     &topo->override_fee_rate[i])) {
-			command_fail(cmd, "invalid feerate %.*s",
+			command_fail(cmd, "Invalid feerate %.*s",
 				     (int)(ratetok[i]->end - ratetok[i]->start),
 				     buffer + ratetok[i]->start);
 			return;
