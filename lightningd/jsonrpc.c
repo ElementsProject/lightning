@@ -31,7 +31,6 @@ struct json_output {
 /* jcon and cmd have separate lifetimes: we detach them on either destruction */
 static void destroy_jcon(struct json_connection *jcon)
 {
-	log_debug(jcon->log, "Closing (%s)", strerror(errno));
 	if (jcon->current) {
 		log_unusual(jcon->log, "Abandoning current command");
 		jcon->current->jcon = NULL;
