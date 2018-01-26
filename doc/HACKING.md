@@ -137,11 +137,11 @@ Table `vars` contains global variables used by lightning node.
     bip32_max_index|4
     ...
 
-Note:
+Variables:
 * `next_pay_index` last resolved invoice counter.
 * `bip32_max_index` last wallet derivation counter. 
 
-Every times `newaddr` command is called, a new wallet is generated with Bip32 derivation and `bip32_max_index` counter is increased to the last derivation index.
+Note: Every times `newaddr` command is called, a new wallet is generated with Bip32 derivation and `bip32_max_index` counter is increased to the last derivation index.
 Each address generated after `bip32_max_index` is not included as lightning funds.
 
 
