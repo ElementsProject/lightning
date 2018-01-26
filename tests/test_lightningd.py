@@ -337,7 +337,7 @@ class LightningDTests(BaseLightningDTests):
         inv = l1.rpc.invoice(123000, 'label', 'description')
         after = int(time.time())
         b11 = l1.rpc.decodepay(inv['bolt11'])
-        assert b11['currency'] == 'tb'
+        assert b11['currency'] == 'bcrt'
         assert b11['created_at'] >= before
         assert b11['created_at'] <= after
         assert b11['payment_hash'] == inv['payment_hash']
@@ -352,13 +352,13 @@ class LightningDTests(BaseLightningDTests):
         # Check any-amount invoice
         inv = l1.rpc.invoice("any", 'label2', 'description2');
         b11 = inv['bolt11']
-        # Amount usually comes after currency (tb in our case),
+        # Amount usually comes after currency (bcrt in our case),
         # but an any-amount invoices will have no amount
-        assert b11.startswith("lntb1")
+        assert b11.startswith("lnbcrt1")
         # By bech32 rules, the last '1' digit is the separator
         # between the human-readable and data parts. We want
-        # to match the "lntb1" above with the '1' digit as the
-        # separator, and not for example "lntb1m1....".
+        # to match the "lnbcrt1" above with the '1' digit as the
+        # separator, and not for example "lnbcrt1m1....".
         assert b11.count('1') == 1
 
     def test_invoice_expiry(self):
@@ -2319,6 +2319,32 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_logs(['sendrawtx exit 0', '-> CLOSINGD_COMPLETE'])
         l2.daemon.wait_for_logs(['sendrawtx exit 0', '-> CLOSINGD_COMPLETE'])
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
+
+    def test_bech32_funding(self):
+        # Don't get any funds from previous runs.
+        l1 = self.node_factory.get_node(random_hsm=True)
+        l2 = self.node_factory.get_node(random_hsm=True)
+
+        # connect
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+
+        # fund a bech32 address and then open a channel with it
+        res = l1.openchannel(l2, 20000, addrtype='bech32')
+        address = res['address']
+        assert address[0:4] == "bcrt"
+
+        # probably overly paranoid checking
+        wallettxid = res['wallettxid']
+
+        wallettx = l1.bitcoin.rpc.getrawtransaction(wallettxid, True)
+        fundingtx = l1.bitcoin.rpc.decoderawtransaction(res['fundingtx']['tx'])
+
+        def is_p2wpkh(output):
+            return output['type'] == 'witness_v0_keyhash' and \
+                   address == output['addresses'][0]
+
+        assert any(is_p2wpkh(output['scriptPubKey']) for output in wallettx['vout'])
+        assert fundingtx['vin'][0]['txid'] == res['wallettxid']
 
     def test_withdraw(self):
         amount = 1000000

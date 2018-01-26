@@ -324,15 +324,20 @@ class LightningNode(object):
         else:
             return wait_connected()
 
-    def openchannel(self, remote_node, capacity):
-        addr = self.rpc.newaddr()['address']
-        txid = self.bitcoin.rpc.sendtoaddress(addr, capacity / 10**6)
-        self.bitcoin.generate_block(1)
-        self.daemon.wait_for_log('Owning output .* txid {}'.format(txid))
-        self.rpc.fundchannel(remote_node.info['id'], capacity)
+    def openchannel(self, remote_node, capacity, addrtype="p2sh-segwit"):
+        addr, wallettxid = self.fundwallet(capacity, addrtype)
+        fundingtx = self.rpc.fundchannel(remote_node.info['id'], capacity)
         self.daemon.wait_for_log('sendrawtx exit 0, gave')
         self.bitcoin.generate_block(6)
         self.daemon.wait_for_log('-> CHANNELD_NORMAL|STATE_NORMAL')
+        return {'address': addr, 'wallettxid': wallettxid, 'fundingtx': fundingtx}
+
+    def fundwallet(self, sats, addrtype="p2sh-segwit"):
+        addr = self.rpc.newaddr(addrtype)['address']
+        txid = self.bitcoin.rpc.sendtoaddress(addr, sats / 10**6)
+        self.bitcoin.generate_block(1)
+        self.daemon.wait_for_log('Owning output .* txid {}'.format(txid))
+        return addr, txid
 
     def getactivechannels(self):
         return [c for c in self.rpc.listchannels()['channels'] if c['active']]
