@@ -457,6 +457,11 @@ void json_add_num(struct json_result *result, const char *fieldname, unsigned in
 	json_start_member(result, fieldname);
 	result_append_fmt(result, "%u", value);
 }
+void json_add_snum(struct json_result *result, const char *fieldname, int value)
+{
+	json_start_member(result, fieldname);
+	result_append_fmt(result, "%d", value);
+}
 
 void json_add_u64(struct json_result *result, const char *fieldname,
 		  uint64_t value)
