@@ -116,10 +116,12 @@ static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
 
 	tal_resize(&ld->wireaddrs, n+1);
 
-	if (parse_wireaddr(arg, &ld->wireaddrs[n], ld->portnum))
-		return NULL;
+	if (!parse_wireaddr(arg, &ld->wireaddrs[n], ld->portnum)) {
+		return tal_fmt(NULL, "Unable to parse IP address '%s'", arg);
+	}
 
-	return tal_fmt(NULL, "Unable to parse IP address '%s'", arg);
+	return NULL;
+
 }
 
 static void opt_show_u32(char buf[OPT_SHOW_LEN], const u32 *u)
@@ -533,8 +535,11 @@ void register_opts(struct lightningd *ld)
 	opt_register_early_noarg("--test-daemons-only",
 				 test_daemons_and_exit,
 				 ld, opt_hidden);
-	opt_register_arg("--port", opt_set_u16, opt_show_u16, &ld->portnum,
-			 "Port to bind to (0 means don't listen)");
+
+	/* --port needs to be an early arg to force it being parsed
+         * before --ipaddr which may depend on it */
+	opt_register_early_arg("--port", opt_set_u16, opt_show_u16, &ld->portnum,
+			       "Port to bind to (0 means don't listen)");
 	opt_register_arg("--bitcoin-datadir", opt_set_talstr, NULL,
 			 &ld->topology->bitcoind->datadir,
 			 "-datadir arg for bitcoin-cli");
