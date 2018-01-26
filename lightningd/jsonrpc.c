@@ -617,7 +617,7 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	if (cmd->deprecated && !deprecated_apis) {
 		command_fail_detailed(jcon->current,
 				      JSONRPC2_METHOD_NOT_FOUND, NULL,
-				      "command '%.*s' is deprecated",
+				      "Command '%.*s' is deprecated",
 				      (int)(method->end - method->start),
 				      jcon->buffer + method->start);
 		return;
