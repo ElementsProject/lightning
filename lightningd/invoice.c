@@ -66,7 +66,7 @@ static void tell_waiter(struct command *cmd, const struct invoice *paid)
 }
 static void tell_waiter_deleted(struct command *cmd)
 {
-	command_fail(cmd, "invoice deleted during wait");
+	command_fail(cmd, "Invoice deleted during wait");
 }
 static void wait_on_invoice(const struct invoice *invoice, void *cmd)
 {
@@ -141,12 +141,12 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 	if (strlen(label_val) > INVOICE_MAX_LABEL_LEN) {
-		command_fail(cmd, "label '%s' over %u bytes", label_val,
+		command_fail(cmd, "Label '%s' over %u bytes", label_val,
 			     INVOICE_MAX_LABEL_LEN);
 		return;
 	}
 	if (exp && !json_tok_u64(buffer, exp, &expiry)) {
-		command_fail(cmd, "expiry '%.*s' invalid seconds",
+		command_fail(cmd, "Expiry '%.*s' invalid seconds",
 			     exp->end - exp->start,
 			     buffer + exp->start);
 		return;

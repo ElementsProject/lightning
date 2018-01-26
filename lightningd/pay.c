@@ -41,7 +41,7 @@ static void json_pay_failed(struct command *cmd,
 	/* Can be NULL if JSON RPC goes away. */
 	if (cmd) {
 		/* FIXME: Report sender! */
-		command_fail(cmd, "failed: %s (%s)",
+		command_fail(cmd, "Failed: %s (%s)",
 			     onion_type_name(failure_code), details);
 	}
 }
@@ -160,8 +160,8 @@ static bool send_payment(struct command *cmd,
 		/* FIXME: We should really do something smarter here! */
 		log_debug(cmd->ld->log, "json_sendpay: found previous");
 		if (payment->status == PAYMENT_PENDING) {
-			log_add(cmd->ld->log, "... still in progress");
-			command_fail(cmd, "still in progress");
+			log_add(cmd->ld->log, "Payment is still in progress");
+			command_fail(cmd, "Payment is still in progress");
 			return false;
 		}
 		if (payment->status == PAYMENT_COMPLETE) {
@@ -169,13 +169,13 @@ static bool send_payment(struct command *cmd,
 			/* Must match successful payment parameters. */
 			if (payment->msatoshi != hop_data[n_hops-1].amt_forward) {
 				command_fail(cmd,
-					     "already succeeded with amount %"
+					     "Already succeeded with amount %"
 					     PRIu64, payment->msatoshi);
 				return false;
 			}
 			if (!structeq(&payment->destination, &ids[n_hops-1])) {
 				command_fail(cmd,
-					     "already succeeded to %s",
+					     "Already succeeded to %s",
 					     type_to_string(cmd, struct pubkey,
 							    &payment->destination));
 				return false;
@@ -189,7 +189,7 @@ static bool send_payment(struct command *cmd,
 
 	peer = peer_by_id(cmd->ld, &ids[0]);
 	if (!peer) {
-		command_fail(cmd, "no connection to first peer found");
+		command_fail(cmd, "No connection to first peer found");
 		return false;
 	}
 
@@ -208,7 +208,7 @@ static bool send_payment(struct command *cmd,
 				 rhash, onion, NULL, cmd,
 				 &hout);
 	if (failcode) {
-		command_fail(cmd, "first peer not ready: %s",
+		command_fail(cmd, "First peer not ready: %s",
 			     onion_type_name(failcode));
 		return false;
 	}
@@ -275,7 +275,7 @@ static void json_sendpay(struct command *cmd,
 		const jsmntok_t *amttok, *idtok, *delaytok, *chantok;
 
 		if (t->type != JSMN_OBJECT) {
-			command_fail(cmd, "route %zu '%.*s' is not an object",
+			command_fail(cmd, "Route %zu '%.*s' is not an object",
 				     n_hops,
 				     (int)(t->end - t->start),
 				     buffer + t->start);
@@ -286,7 +286,7 @@ static void json_sendpay(struct command *cmd,
 		delaytok = json_get_member(buffer, t, "delay");
 		chantok = json_get_member(buffer, t, "channel");
 		if (!amttok || !idtok || !delaytok || !chantok) {
-			command_fail(cmd, "route %zu needs msatoshi/id/channel/delay",
+			command_fail(cmd, "Route %zu needs msatoshi/id/channel/delay",
 				     n_hops);
 			return;
 		}
@@ -295,22 +295,22 @@ static void json_sendpay(struct command *cmd,
 
 		/* What that hop will forward */
 		if (!json_tok_number(buffer, amttok, &route[n_hops].amount)) {
-			command_fail(cmd, "route %zu invalid msatoshi",
+			command_fail(cmd, "Route %zu invalid msatoshi",
 				     n_hops);
 			return;
 		}
 
 		if (!json_tok_short_channel_id(buffer, chantok,
 					       &route[n_hops].channel_id)) {
-			command_fail(cmd, "route %zu invalid channel_id", n_hops);
+			command_fail(cmd, "Route %zu invalid channel_id", n_hops);
 			return;
 		}
 		if (!json_tok_pubkey(buffer, idtok, &route[n_hops].nodeid)) {
-			command_fail(cmd, "route %zu invalid id", n_hops);
+			command_fail(cmd, "Route %zu invalid id", n_hops);
 			return;
 		}
 		if (!json_tok_number(buffer, delaytok, &route[n_hops].delay)) {
-			command_fail(cmd, "route %zu invalid delay", n_hops);
+			command_fail(cmd, "Route %zu invalid delay", n_hops);
 			return;
 		}
 		n_hops++;

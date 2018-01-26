@@ -730,7 +730,7 @@ static void json_connect(struct command *cmd,
 		if (porttok) {
 			u32 port;
 			if (!json_tok_number(buffer, porttok, &port)) {
-				command_fail(cmd, "port %.*s not valid",
+				command_fail(cmd, "Port %.*s not valid",
 					     porttok->end - porttok->start,
 					     buffer + porttok->start);
 				return;
@@ -740,7 +740,7 @@ static void json_connect(struct command *cmd,
 			addr.port = DEFAULT_PORT;
 		}
 		if (!parse_wireaddr(name, &addr, addr.port) || !addr.port) {
-			command_fail(cmd, "host %s:%u not valid",
+			command_fail(cmd, "Host %s:%u not valid",
 				     name, addr.port);
 			return;
 		}
