@@ -875,7 +875,6 @@ static struct io_plan *nonlocal_gossip_broadcast_done(struct io_conn *conn,
 {
 	struct peer *peer = dc->ctx;
 
-	status_trace("%s", __func__);
 	peer->broadcast_index++;
 	return nonlocal_dump_gossip(conn, dc);
 }
