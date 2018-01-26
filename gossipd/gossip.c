@@ -1194,7 +1194,7 @@ out:
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
-static int make_listen_fd(int domain, void *addr, socklen_t len)
+static int make_listen_fd(int domain, void *addr, socklen_t len, bool reportfail)
 {
 	int fd = socket(domain, SOCK_STREAM, 0);
 	if (fd < 0) {
@@ -1212,8 +1212,9 @@ static int make_listen_fd(int domain, void *addr, socklen_t len)
 				     strerror(errno));
 
 		if (bind(fd, addr, len) != 0) {
-			status_trace("Failed to bind on %u socket: %s",
-				    domain, strerror(errno));
+			if (reportfail)
+				status_trace("Failed to bind on %u socket: %s",
+					     domain, strerror(errno));
 			goto fail;
 		}
 	}
@@ -1431,7 +1432,7 @@ static void setup_listeners(struct daemon *daemon, u16 portnum)
 	addr6.sin6_port = htons(portnum);
 
 	/* IPv6, since on Linux that (usually) binds to IPv4 too. */
-	fd1 = make_listen_fd(AF_INET6, &addr6, sizeof(addr6));
+	fd1 = make_listen_fd(AF_INET6, &addr6, sizeof(addr6), true);
 	if (fd1 >= 0) {
 		struct sockaddr_in6 in6;
 
@@ -1451,7 +1452,7 @@ static void setup_listeners(struct daemon *daemon, u16 portnum)
 	}
 
 	/* Just in case, aim for the same port... */
-	fd2 = make_listen_fd(AF_INET, &addr, sizeof(addr));
+	fd2 = make_listen_fd(AF_INET, &addr, sizeof(addr), false);
 	if (fd2 >= 0) {
 		len = sizeof(addr);
 		if (getsockname(fd2, (void *)&addr, &len) != 0) {
