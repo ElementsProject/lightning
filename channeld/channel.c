@@ -117,6 +117,7 @@ struct peer {
 
 	struct timers timers;
 	struct oneshot *commit_timer;
+	u64 commit_timer_attempts;
 	u32 commit_msec;
 
 	/* Don't accept a pong we didn't ping for. */
@@ -888,7 +889,13 @@ static void send_commit(struct peer *peer)
 	if (peer->revocations_received != peer->next_index[REMOTE] - 1) {
 		assert(peer->revocations_received
 		       == peer->next_index[REMOTE] - 2);
-		status_trace("Can't send commit: waiting for revoke_and_ack");
+		peer->commit_timer_attempts++;
+		/* Only report this in extreme cases */
+		if (peer->commit_timer_attempts % 100 == 0)
+			status_trace("Can't send commit:"
+				     " waiting for revoke_and_ack with %"
+				     PRIu64" attempts",
+				     peer->commit_timer_attempts);
 		/* Mark this as done and try again. */
 		peer->commit_timer = NULL;
 		start_commit_timer(peer);
@@ -972,11 +979,10 @@ static void send_commit(struct peer *peer)
 static void start_commit_timer(struct peer *peer)
 {
 	/* Already armed? */
-	if (peer->commit_timer) {
-		status_trace("Commit timer already running...");
+	if (peer->commit_timer)
 		return;
-	}
 
+	peer->commit_timer_attempts = 0;
 	peer->commit_timer = new_reltimer(&peer->timers, peer,
 					  time_from_msec(peer->commit_msec),
 					  send_commit, peer);
