@@ -96,7 +96,7 @@ channel_fail_htlc,,id,u64
 # If this is non-zero length, you need to wrap this and pass it on.
 channel_fail_htlc,,len,u16
 channel_fail_htlc,,error_pkt,len*u8
-# If it errcode is != 0, it's a local error, otherwise we're passing thru.
+# If it errcode is != 0, it's a local error, otherwise we're passing through.
 channel_fail_htlc,,errcode,u16
 # If errcode & UPDATE, this says which outgoing channel failed.
 channel_fail_htlc,,which_channel,struct short_channel_id
