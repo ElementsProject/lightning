@@ -610,20 +610,32 @@ void peer_connection_failed(struct lightningd *ld, const u8 *msg)
 {
 	struct pubkey id;
 	u32 attempts, timediff;
-		struct connect *i, *next;
-	if (!fromwire_gossip_peer_connection_failed(msg, NULL, &id, &attempts, &timediff))
-		fatal("Gossip gave bad GOSSIP_PEER_CONNECTION_FAILED message %s", tal_hex(msg, msg));
+	struct connect *i, *next;
+	bool addr_unknown;
+	char *error;
+
+	if (!fromwire_gossip_peer_connection_failed(msg, NULL, &id, &attempts,
+						    &timediff, &addr_unknown))
+		fatal(
+		    "Gossip gave bad GOSSIP_PEER_CONNECTION_FAILED message %s",
+		    tal_hex(msg, msg));
+
+	if (addr_unknown) {
+		error = tal_fmt(
+		    msg, "No address known for node %s, please provide one",
+		    type_to_string(msg, struct pubkey, &id));
+	} else {
+		error = tal_fmt(msg, "Could not connect to %s after %d seconds and %d attempts",
+				type_to_string(msg, struct pubkey, &id), timediff,
+				attempts);
+	}
 
 	/* Careful!  Completing command frees connect. */
 	list_for_each_safe(&ld->connects, i, next, list) {
 		if (!pubkey_eq(&i->id, &id))
 			continue;
 
-		command_fail(
-		    i->cmd,
-		    "Could not connect to %s after %d seconds and %d attempts",
-		    type_to_string(msg, struct pubkey, &id), timediff,
-		    attempts);
+		command_fail(i->cmd, "%s", error);
 	}
 }
 
