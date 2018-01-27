@@ -58,6 +58,10 @@ struct json_command {
 struct json_result *null_response(const tal_t *ctx);
 void command_success(struct command *cmd, struct json_result *response);
 void PRINTF_FMT(2, 3) command_fail(struct command *cmd, const char *fmt, ...);
+void PRINTF_FMT(4, 5) command_fail_detailed(struct command *cmd,
+					     int code,
+					     const struct json_result *data,
+					     const char *fmt, ...);
 
 /* Mainly for documentation, that we plan to close this later. */
 void command_still_pending(struct command *cmd);

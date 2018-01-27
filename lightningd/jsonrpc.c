@@ -323,24 +323,38 @@ static void connection_result(struct json_connection *jcon,
 			      const char *id,
 			      const char *res,
 			      const char *err,
-			      int code)
+			      int code,
+			      const struct json_result *data)
 {
 	struct json_output *out = tal(jcon, struct json_output);
+	const tal_t *tmpctx;
+	const char* data_str;
+
 	if (err == NULL)
 		out->json = tal_fmt(out,
 				    "{ \"jsonrpc\": \"2.0\", "
 				    "\"result\" : %s,"
 				    " \"id\" : %s }\n",
 				    res, id);
-	else
+	else {
+		tmpctx = tal_tmpctx(out);
+		if (data)
+			data_str = tal_fmt(tmpctx,
+					   ", \"data\" : %s",
+					   json_result_string(data));
+		else
+			data_str = "";
+
 		out->json = tal_fmt(out,
 				    "{ \"jsonrpc\": \"2.0\", "
 				    " \"error\" : "
 				      "{ \"code\" : %d,"
-				      " \"message\" : %s},"
+				      " \"message\" : %s%s },"
 				    " \"id\" : %s }\n",
-				    code,
-				    err, id);
+				    code, err, data_str,
+				    id);
+		tal_free(tmpctx);
+	}
 
 	/* Queue for writing, and wake writer (and maybe reader). */
 	list_add_tail(&jcon->output, &out->list);
@@ -435,16 +449,19 @@ void command_success(struct command *cmd, struct json_result *result)
 		return;
 	}
 	assert(jcon->current == cmd);
-	connection_result(jcon, cmd->id, json_result_string(result), NULL, 0);
+	connection_result(jcon, cmd->id, json_result_string(result),
+			  NULL, 0, NULL);
 	log_debug(jcon->log, "Success");
 	jcon->current = tal_free(cmd);
 }
 
-void command_fail(struct command *cmd, const char *fmt, ...)
+static void command_fail_v(struct command *cmd,
+			   int code,
+			   const struct json_result *data,
+			   const char *fmt, va_list ap)
 {
 	char *quote, *error;
 	struct json_connection *jcon = cmd->jcon;
-	va_list ap;
 
 	if (!jcon) {
 		log_unusual(cmd->ld->log,
@@ -453,9 +470,7 @@ void command_fail(struct command *cmd, const char *fmt, ...)
 		return;
 	}
 
-	va_start(ap, fmt);
 	error = tal_vfmt(cmd, fmt, ap);
-	va_end(ap);
 
 	log_debug(jcon->log, "Failing: %s", error);
 
@@ -467,8 +482,24 @@ void command_fail(struct command *cmd, const char *fmt, ...)
 	quote = tal_fmt(cmd, "\"%s\"", error);
 
 	assert(jcon->current == cmd);
-	connection_result(jcon, cmd->id, NULL, quote, -1);
+	connection_result(jcon, cmd->id, NULL, quote, -1, data);
 	jcon->current = tal_free(cmd);
+}
+void command_fail(struct command *cmd, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	command_fail_v(cmd, -1, NULL, fmt, ap);
+	va_end(ap);
+}
+void command_fail_detailed(struct command *cmd,
+			   int code, const struct json_result *data,
+			   const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	command_fail_v(cmd, code, data, fmt, ap);
+	va_end(ap);
 }
 
 void command_still_pending(struct command *cmd)
@@ -483,7 +514,8 @@ static void json_command_malformed(struct json_connection *jcon,
 				   const char *error)
 {
 	return connection_result(jcon, id, NULL, error,
-				 JSONRPC2_INVALID_REQUEST);
+				 JSONRPC2_INVALID_REQUEST,
+				 NULL);
 }
 
 static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
