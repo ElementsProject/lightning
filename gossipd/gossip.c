@@ -100,6 +100,15 @@ struct reaching {
 
 	/* Did we succeed? */
 	bool succeeded;
+
+	/* How many times have we attempted to connect? */
+	u32 attempts;
+
+	/* How many timest to attempt */
+	u32 max_attempts;
+
+	/* Timestamp of the first attempt */
+	u32 first_attempt;
 };
 
 /* Things we need when we're talking direct to the peer. */
@@ -1557,13 +1566,24 @@ static void try_connect(struct reaching *reach);
 
 static void connect_failed(struct io_conn *conn, struct reaching *reach)
 {
-	status_trace("Failed connected out for %s, will try again",
-		     type_to_string(trc, struct pubkey, &reach->id));
+	u32 diff = time_now().ts.tv_sec - reach->first_attempt;
+	reach->attempts++;
 
-	/* FIXME: Configurable timer! */
-	new_reltimer(&reach->daemon->timers, reach,
-		     time_from_sec(5),
-		     try_connect, reach);
+	if (reach->attempts >= reach->max_attempts) {
+		status_trace("Failed to connect after %d attempts, giving up "
+			     "after %d seconds",
+			     reach->attempts, diff);
+		daemon_conn_send(&reach->daemon->master,
+				 take(towire_gossip_peer_connection_failed(
+				     conn, &reach->id, diff, reach->attempts)));
+		tal_free(reach);
+	} else {
+		status_trace("Failed connected out for %s, will try again",
+			     type_to_string(trc, struct pubkey, &reach->id));
+		/* FIXME: Configurable timer! */
+		new_reltimer(&reach->daemon->timers, reach, time_from_sec(5),
+			     try_connect, reach);
+	}
 }
 
 static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
@@ -1683,6 +1703,9 @@ static bool try_reach_peer(struct daemon *daemon, const struct pubkey *id)
 	reach->succeeded = false;
 	reach->daemon = daemon;
 	reach->id = *id;
+	reach->first_attempt = time_now().ts.tv_sec;
+	reach->attempts = 0;
+	reach->max_attempts = 10;
 	list_add_tail(&daemon->reaching, &reach->list);
 	tal_add_destructor(reach, destroy_reaching);
 
