@@ -437,7 +437,9 @@ void json_add_address(struct json_result *response, const char *fieldname,
 	json_object_end(response);
 }
 
-#define JSONRPC2_INVALID_REQUEST -32600
+#define JSONRPC2_INVALID_REQUEST	-32600
+#define JSONRPC2_METHOD_NOT_FOUND	-32601
+#define JSONRPC2_INVALID_PARAMS		-32602
 
 void command_success(struct command *cmd, struct json_result *result)
 {
@@ -557,34 +559,41 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	tal_add_destructor(jcon->current, destroy_cmd);
 
 	if (!method || !params) {
-		command_fail(jcon->current, method ? "No params" : "No method");
+		command_fail_detailed(jcon->current,
+				      JSONRPC2_INVALID_REQUEST, NULL,
+				      method ? "No params" : "No method");
 		return;
 	}
 
 	if (method->type != JSMN_STRING) {
-		command_fail(jcon->current, "Expected string for method");
+		command_fail_detailed(jcon->current,
+				      JSONRPC2_INVALID_REQUEST, NULL,
+				      "Expected string for method");
 		return;
 	}
 
 	cmd = find_cmd(jcon->buffer, method);
 	if (!cmd) {
-		command_fail(jcon->current,
-			     "Unknown command '%.*s'",
-			     (int)(method->end - method->start),
-			     jcon->buffer + method->start);
+		command_fail_detailed(jcon->current,
+				      JSONRPC2_METHOD_NOT_FOUND, NULL,
+				      "Unknown command '%.*s'",
+				      (int)(method->end - method->start),
+				      jcon->buffer + method->start);
 		return;
 	}
 	if (cmd->deprecated && !deprecated_apis) {
-		command_fail(jcon->current,
-			     "command '%.*s' is deprecated",
-			     (int)(method->end - method->start),
-			     jcon->buffer + method->start);
+		command_fail_detailed(jcon->current,
+				      JSONRPC2_METHOD_NOT_FOUND, NULL,
+				      "command '%.*s' is deprecated",
+				      (int)(method->end - method->start),
+				      jcon->buffer + method->start);
 		return;
 	}
 
 	if (params->type != JSMN_ARRAY && params->type != JSMN_OBJECT) {
-		command_fail(jcon->current,
-			     "Expected array or object for params");
+		command_fail_detailed(jcon->current,
+				      JSONRPC2_INVALID_PARAMS, NULL,
+				      "Expected array or object for params");
 		return;
 	}
 
