@@ -2,16 +2,22 @@
 
 ### Installation
 
-You need to have the futures python library installed to be able to use pylightning:
+Note: With Python 2 you need to have the futures python library installed to be able to use pylightning:
 
 ```
 pip install futures
 ```
 
+pylightning is available on pip 
+
+```
+pip install pylightning
+```
+
 ### Example
 
 ```py
-from pylightning import LightningRpc
+from lightning import LightningRpc
 import random
 
 # Create two instances of the LightningRpc object using two different c-lightning daemons on your computer
