@@ -606,6 +606,29 @@ void peer_already_connected(struct lightningd *ld, const u8 *msg)
 	connect_succeeded(ld, &id);
 }
 
+void peer_connection_failed(struct lightningd *ld, const u8 *msg)
+{
+	struct pubkey id;
+	u32 attempts, timediff;
+		struct connect *i, *next;
+	if (!fromwire_gossip_peer_connection_failed(msg, NULL, &id, &attempts, &timediff))
+		fatal("Gossip gave bad GOSSIP_PEER_CONNECTION_FAILED message %s", tal_hex(msg, msg));
+
+	/* Careful!  Completing command frees connect. */
+	list_for_each_safe(&ld->connects, i, next, list) {
+		if (!pubkey_eq(&i->id, &id))
+			continue;
+
+		command_fail(
+		    i->cmd,
+		    "Could not connect to %s after %d seconds and %d attempts",
+		    type_to_string(msg, struct pubkey, &id), timediff,
+		    attempts);
+	}
+}
+
+
+
 void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
 			 const struct wireaddr *addr,
