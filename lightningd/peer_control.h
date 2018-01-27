@@ -179,6 +179,9 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 /* This simply means we asked to reach a peer, but we already have it */
 void peer_already_connected(struct lightningd *ld, const u8 *msg);
 
+/* We were unable to connect to the peer */
+void peer_connection_failed(struct lightningd *ld, const u8 *msg);
+
 void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
 			 const struct wireaddr *addr,

@@ -134,7 +134,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 		peer_already_connected(gossip->ld, msg);
 		break;
 	case WIRE_GOSSIP_PEER_CONNECTION_FAILED:
-		/* TODO(cdecker) Implement handler */
+		peer_connection_failed(gossip->ld, msg);
 		break;
 	case WIRE_GOSSIP_PEER_NONGOSSIP:
 		if (tal_count(fds) != 2)
