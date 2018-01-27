@@ -320,8 +320,11 @@ static const struct json_command *find_cmd(const char *buffer,
 	return NULL;
 }
 
-static void json_result(struct json_connection *jcon,
-			const char *id, const char *res, const char *err)
+static void connection_result(struct json_connection *jcon,
+			      const char *id,
+			      const char *res,
+			      const char *err,
+			      int code)
 {
 	struct json_output *out = tal(jcon, struct json_output);
 	if (err == NULL)
@@ -333,8 +336,11 @@ static void json_result(struct json_connection *jcon,
 	else
 		out->json = tal_fmt(out,
 				    "{ \"jsonrpc\": \"2.0\", "
-				    " \"error\" : { \"code\" : -1, \"message\" : %s},"
+				    " \"error\" : "
+				      "{ \"code\" : %d,"
+				      " \"message\" : %s},"
 				    " \"id\" : %s }\n",
+				    code,
 				    err, id);
 
 	/* Queue for writing, and wake writer (and maybe reader). */
@@ -417,6 +423,8 @@ void json_add_address(struct json_result *response, const char *fieldname,
 	json_object_end(response);
 }
 
+#define JSONRPC2_INVALID_REQUEST -32600
+
 void command_success(struct command *cmd, struct json_result *result)
 {
 	struct json_connection *jcon = cmd->jcon;
@@ -428,7 +436,7 @@ void command_success(struct command *cmd, struct json_result *result)
 		return;
 	}
 	assert(jcon->current == cmd);
-	json_result(jcon, cmd->id, json_result_string(result), NULL);
+	connection_result(jcon, cmd->id, json_result_string(result), NULL, 0);
 	log_debug(jcon->log, "Success");
 	jcon->current = tal_free(cmd);
 }
@@ -460,7 +468,7 @@ void command_fail(struct command *cmd, const char *fmt, ...)
 	quote = tal_fmt(cmd, "\"%s\"", error);
 
 	assert(jcon->current == cmd);
-	json_result(jcon, cmd->id, NULL, quote);
+	connection_result(jcon, cmd->id, NULL, quote, -1);
 	jcon->current = tal_free(cmd);
 }
 
@@ -475,7 +483,8 @@ static void json_command_malformed(struct json_connection *jcon,
 				   const char *id,
 				   const char *error)
 {
-	return json_result(jcon, id, NULL, error);
+	return connection_result(jcon, id, NULL, error,
+				 JSONRPC2_INVALID_REQUEST);
 }
 
 static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
