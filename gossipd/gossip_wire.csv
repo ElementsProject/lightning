@@ -43,6 +43,12 @@ gossip_peer_connected,,lfeatures,lflen*u8
 gossip_peer_already_connected,3015
 gossip_peer_already_connected,,id,struct pubkey
 
+# gossipd -> master: attempted to connect, unsuccessful, gave up
+gossip_peer_connection_failed,3020
+gossip_peer_connection_failed,,id,struct pubkey
+gossip_peer_connection_failed,,timeout,u32
+gossip_peer_connection_failed,,attempts,u32
+
 # Gossipd -> master: peer sent non-gossip packet. Two fds: peer and gossip
 gossip_peer_nongossip,3003
 gossip_peer_nongossip,,id,struct pubkey
