@@ -48,6 +48,7 @@ gossip_peer_connection_failed,3020
 gossip_peer_connection_failed,,id,struct pubkey
 gossip_peer_connection_failed,,timeout,u32
 gossip_peer_connection_failed,,attempts,u32
+gossip_peer_connection_failed,,addr_unknown,bool
 
 # Gossipd -> master: peer sent non-gossip packet. Two fds: peer and gossip
 gossip_peer_nongossip,3003

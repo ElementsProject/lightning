@@ -1573,9 +1573,10 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 		status_trace("Failed to connect after %d attempts, giving up "
 			     "after %d seconds",
 			     reach->attempts, diff);
-		daemon_conn_send(&reach->daemon->master,
-				 take(towire_gossip_peer_connection_failed(
-				     conn, &reach->id, diff, reach->attempts)));
+		daemon_conn_send(
+		    &reach->daemon->master,
+		    take(towire_gossip_peer_connection_failed(
+			conn, &reach->id, diff, reach->attempts, false)));
 		tal_free(reach);
 	} else {
 		status_trace("Failed connected out for %s, will try again",
@@ -1645,6 +1646,12 @@ static void try_connect(struct reaching *reach)
 		/* FIXME: add reach_failed message */
 		status_trace("No address known for %s, giving up",
 			     type_to_string(trc, struct pubkey, &reach->id));
+		daemon_conn_send(
+		    &reach->daemon->master,
+		    take(towire_gossip_peer_connection_failed(
+			reach, &reach->id,
+			time_now().ts.tv_sec - reach->first_attempt,
+			reach->attempts, true)));
 		tal_free(reach);
 		return;
 	}
