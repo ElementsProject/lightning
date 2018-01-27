@@ -214,12 +214,13 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self._call("listpayments")
 
-    def connect(self, peer_id, host=None):
+    def connect(self, peer_id, host=None, port=None):
         """
-        Connect to {peer_id} at {host} (which can end in ':port' if not default)
+        Connect to {peer_id} at {host} and {port}
         """
         args = [peer_id]
-        host is not None and args.append(host)
+        host and args.append(host)
+        port and args.append(port)
         return self._call("connect", args=args)
 
     def listpeers(self, peer_id=None, logs=None):
@@ -229,6 +230,15 @@ class LightningRpc(UnixDomainSocketRpc):
         args = peer_id is not None and [peer_id] or []
         logs is not None and args.append(logs)
         return self._call("listpeers", args=args)
+
+    def getpeer(self, peer_id, logs=None):
+        """
+        Show peer with {peer_id}, if {level} is set, include {log}s
+        """
+        args = [peer_id]
+        logs is not None and args.append(logs)
+        res = self.listpeers(peer_id, logs)
+        return res.get('peers') and res['peers'][0]
 
     def fundchannel(self, peer_id, satoshi):
         """
