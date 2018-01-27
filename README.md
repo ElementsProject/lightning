@@ -109,7 +109,7 @@ You can check the status of the channel using `cli/lightning-cli listpeers`, whi
 States starting with `ONCHAIND` mean that the channel has been closed and an onchain transaction exists reflecting the resulting balances
 * `ONCHAIND_OUR_UNILATERAL` > Closed by you without cooperation of the counterparty
 * `ONCHAIND_THEIR_UNILATERAL` > Closed by the counterparty without your cooperation
-* `ONCHAIND_MUTUAL` > Negotiated closing by both sides(edited)
+* `ONCHAIND_MUTUAL` > Negotiated closing by both sides
 
 States starting with `CHANNELD` mean that funds are not available onchain, and from that moment they can only be moved offchain, this is, through the Lightning Network
 * `CHANNELD_AWAITING_LOCKIN` > Waiting for confirmation of the channel funding transaction
