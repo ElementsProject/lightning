@@ -333,7 +333,7 @@ static void json_result(struct json_connection *jcon,
 	else
 		out->json = tal_fmt(out,
 				    "{ \"jsonrpc\": \"2.0\", "
-				    " \"error\" : %s,"
+				    " \"error\" : { \"code\" : -1, \"message\" : %s},"
 				    " \"id\" : %s }\n",
 				    err, id);
 
