@@ -47,11 +47,11 @@ static void set_pubkey(struct pubkey *key)
 #define with_field(p, field)				\
 	(upto_field((p), field) + sizeof((p)->field))
 
-/* Equal upto this field */
+/* Equal up to this field */
 #define eq_upto(p1, p2, field)			\
 	(memcmp((p1), (p2), upto_field(p1, field)) == 0)
 
-/* Equal upto and including this field */
+/* Equal up to and including this field */
 #define eq_with(p1, p2, field)			\
 	(memcmp((p1), (p2), with_field(p1, field)) == 0)
 

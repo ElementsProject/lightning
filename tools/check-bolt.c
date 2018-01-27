@@ -160,7 +160,7 @@ static char *code_to_regex(const char *code, size_t len, bool escape)
 				after_nl = false;
 				continue;
 			}
-			/* Fall thru. */
+			/* Fall through. */
 		case '.':
 		case '$':
 		case '^':
@@ -172,7 +172,7 @@ static char *code_to_regex(const char *code, size_t len, bool escape)
 		case '|':
 			if (escape)
 				*(p++) = '\\';
-			/* Fall thru */
+			/* Fall through */
 		default:
 			*(p++) = code[i];
 		}
