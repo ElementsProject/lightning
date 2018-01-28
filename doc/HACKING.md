@@ -124,6 +124,27 @@ Some data is stored as raw bytes, use `HEX(column)` to pretty print these.
 Make sure that clightning is not running when you query the database, as some
 queries may lock the database and cause crashes.
 
+#### Common variables
+Table `vars` contains global variables used by lightning node.
+
+    $ sqlite3 ~/.lightning/lightningd.sqlite3
+    SQLite version 3.21.0 2017-10-24 18:55:49
+    Enter ".help" for usage hints.
+    sqlite> .headers on
+    sqlite> select * from vars;
+    name|val
+    next_pay_index|2
+    bip32_max_index|4
+    ...
+
+Variables:
+* `next_pay_index` next resolved invoice counter that will get assigned.
+* `bip32_max_index` last wallet derivation counter.
+
+Note: Each time `newaddr` command is called, `bip32_max_index` counter is increased to the last derivation index.
+Each address generated after `bip32_max_index` is not included as lightning funds.
+
+
 Testing
 -------
 
