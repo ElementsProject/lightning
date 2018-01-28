@@ -91,7 +91,7 @@ struct wallet_payment {
 	enum wallet_payment_status status;
 	struct pubkey destination;
 	u64 msatoshi;
-	/* if PAYMENT_COMPLETE */
+	/* If PAYMENT_COMPLETE */
 	struct preimage *payment_preimage;
 	struct secret *path_secrets;
 };
