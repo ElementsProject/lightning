@@ -1135,7 +1135,7 @@ class LightningDTests(BaseLightningDTests):
 
         def try_pay():
             try:
-                l1.rpc.sendpay(to_json(route), rhash, async=False)
+                l1.rpc.sendpay(to_json(route), rhash)
                 q.put(None)
             except Exception as err:
                 q.put(err)
