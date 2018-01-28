@@ -42,7 +42,7 @@ struct bolt11 {
 	struct sha256 payment_hash;
 	struct pubkey receiver_id;
 
-	/* description_hash valid if description is NULL. */
+	/* description_hash valid if and only if description is NULL. */
 	const char *description;
 	struct sha256 *description_hash;
 
