@@ -1579,7 +1579,8 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		    && type != WIRE_CHANNEL_ANNOUNCEMENT
 		    && type != WIRE_CHANNEL_UPDATE
 		    && type != WIRE_NODE_ANNOUNCEMENT
-		    && type != WIRE_PING) {
+		    && type != WIRE_PING
+		    && type != WIRE_PONG) {
 			peer_failed(PEER_FD,
 				    &peer->cs,
 				    &peer->channel_id,
