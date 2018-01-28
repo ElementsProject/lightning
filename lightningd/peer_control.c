@@ -1826,6 +1826,7 @@ static void peer_start_closingd(struct peer *peer,
 	u8 *initmsg, *local_scriptpubkey;
 	u64 minfee, maxfee, startfee, feelimit;
 	u64 num_revocations;
+	u64 funding_msatoshi, our_msatoshi, their_msatoshi;
 
 	if (peer->local_shutdown_idx == -1
 	    || !peer->remote_shutdown_scriptpubkey) {
@@ -1892,6 +1893,11 @@ static void peer_start_closingd(struct peer *peer,
 	 *
 	 * The amounts for each output MUST BE rounded down to whole satoshis.
 	 */
+	/* Convert unit */
+	funding_msatoshi = peer->funding_satoshi * 1000;
+	/* What is not ours is theirs */
+	our_msatoshi = *peer->our_msatoshi;
+	their_msatoshi = funding_msatoshi - our_msatoshi;
 	initmsg = towire_closing_init(tmpctx,
 				      cs,
 				      gossip_index,
@@ -1901,9 +1907,8 @@ static void peer_start_closingd(struct peer *peer,
 				      peer->funding_satoshi,
 				      &peer->channel_info->remote_fundingkey,
 				      peer->funder,
-				      *peer->our_msatoshi / 1000,
-				      peer->funding_satoshi
-				      - *peer->our_msatoshi / 1000,
+				      our_msatoshi / 1000, /* Rounds down */
+				      their_msatoshi / 1000, /* Rounds down */
 				      peer->our_config.dust_limit_satoshis,
 				      minfee, maxfee, startfee,
 				      local_scriptpubkey,
