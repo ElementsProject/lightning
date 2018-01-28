@@ -217,11 +217,15 @@ class LightningRpc(UnixDomainSocketRpc):
         riskfactor is not None and args.append(riskfactor)
         return self._call("pay", args=args)
 
-    def listpayments(self):
+    def listpayments(self, bolt11=None, payment_hash=None):
         """
-        Show outgoing payments
+        Show outgoing payments, regarding {bolt11} or {payment_hash} if set
+        Can only specify one of {bolt11} or {payment_hash}
         """
-        return self._call("listpayments")
+        args = []
+        bolt11 and args.append(bolt11)
+        payment_hash and args.append(payment_hash) if args else args.extend([bolt11, payment_hash])
+        return self._call("listpayments", args=args)
 
     def connect(self, peer_id, host=None, port=None):
         """
