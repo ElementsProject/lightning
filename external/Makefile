@@ -31,6 +31,10 @@ external/libsodium/src/libsodium/include/sodium.h:
 external/libsodium/src/libsodium/libsodium.la: external/libsodium/src/libsodium/include/sodium.h
 	cd external/libsodium && ./autogen.sh && ./configure CC="$(CC)" --enable-static=yes --enable-shared=no --enable-tests=no --libdir=`pwd`/.. && $(MAKE)
 
+$(LIBWALLY_HEADERS) $(LIBSECP_HEADERS):
+	git submodule update external/libwally-core
+	[ -f $@ ] || git submodule update --init external/libwally-core
+
 # libsecp included in libwally.
 # Wildcards here are magic.  See http://stackoverflow.com/questions/2973445/gnu-makefile-rule-generating-a-few-targets-from-a-single-source-file
 external/libsecp256k1.% external/libwallycore.%: external/libwally-core/src/secp256k1/libsecp256k1.la external/libwally-core/src/libwallycore.la
