@@ -270,7 +270,7 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_early_arg("--network", opt_set_network, opt_show_network,
 			       ld,
 			       "Select the network parameters (bitcoin, testnet,"
-			       " regtest, or litecoin)");
+			       " regtest, litecoin or litecoin-testnet)");
 	opt_register_arg("--allow-deprecated-apis",
 			 opt_set_bool_arg, opt_show_bool,
 			 &deprecated_apis,
