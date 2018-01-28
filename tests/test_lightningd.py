@@ -302,12 +302,11 @@ class LightningDTests(BaseLightningDTests):
                 if time.time() > start_time + 10:
                     raise TimeoutError('Payment timed out')
                 time.sleep(0.1)
-
         if async:
-            self.executor.submit(lsrc.rpc.sendpay, to_json([routestep]), rhash, async=False)
+            self.executor.submit(lsrc.rpc.sendpay, to_json([routestep]), rhash)
             return self.executor.submit(wait_pay)
         else:
-            lsrc.rpc.sendpay(to_json([routestep]), rhash, async=False)
+            lsrc.rpc.sendpay(to_json([routestep]), rhash)
 
     # This waits until gossipd sees channel_update in both directions
     # (or for local channels, at least a local announcement)

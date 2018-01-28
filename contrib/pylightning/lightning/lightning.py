@@ -79,6 +79,15 @@ class LightningRpc(UnixDomainSocketRpc):
     between calls, but it does not (yet) support concurrent calls.
     """
 
+    def getpeer(self, peer_id, logs=None):
+        """
+        Show peer with {peer_id}, if {level} is set, include {log}s
+        """
+        args = [peer_id]
+        logs is not None and args.append(logs)
+        res = self.listpeers(peer_id, logs)
+        return res.get('peers') and res['peers'][0] or None
+
     def dev_blockheight(self):
         """
         Show current block height
@@ -95,11 +104,11 @@ class LightningRpc(UnixDomainSocketRpc):
         slow is not None and args.append(slow)
         return self._call("dev-setfees", args=args)
 
-    def listnodes(self):
+    def listnodes(self, node_id=None):
         """
         Show all nodes in our local network view
         """
-        return self._call("listnodes")
+        return self._call("listnodes", args=node_id and [node_id])
 
     def getroute(self, peer_id, msatoshi, riskfactor, cltv=None):
         """
@@ -109,11 +118,11 @@ class LightningRpc(UnixDomainSocketRpc):
         cltv is not None and args.append(cltv)
         return self._call("getroute", args=args)
 
-    def listchannels(self):
+    def listchannels(self, short_channel_id=None):
         """
         Show all known channels
         """
-        return self._call("listchannels")
+        return self._call("listchannels", args=short_channel_id and [short_channel_id])
 
     def invoice(self, msatoshi, label, description, expiry=None):
         """
@@ -183,7 +192,7 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         Crash lightningd by calling fatal()
         """
-        return self._call("dev_crash")
+        return self._call("dev-crash")
 
     def getinfo(self):
         """
@@ -203,9 +212,9 @@ class LightningRpc(UnixDomainSocketRpc):
         {description} (required if {bolt11} uses description hash) and {riskfactor} (default 1.0)
         """
         args = [bolt11]
-        msatoshi and args.append(msatoshi)
-        description and args.append(description)
-        riskfactor and args.append(riskfactor)
+        msatoshi is not None and args.append(msatoshi)
+        description is not None and args.append(description)
+        riskfactor is not None and args.append(riskfactor)
         return self._call("pay", args=args)
 
     def listpayments(self):
@@ -219,8 +228,8 @@ class LightningRpc(UnixDomainSocketRpc):
         Connect to {peer_id} at {host} and {port}
         """
         args = [peer_id]
-        host and args.append(host)
-        port and args.append(port)
+        host is not None and args.append(host)
+        port is not None and args.append(port)
         return self._call("connect", args=args)
 
     def listpeers(self, peer_id=None, logs=None):
@@ -230,15 +239,6 @@ class LightningRpc(UnixDomainSocketRpc):
         args = peer_id is not None and [peer_id] or []
         logs is not None and args.append(logs)
         return self._call("listpeers", args=args)
-
-    def getpeer(self, peer_id, logs=None):
-        """
-        Show peer with {peer_id}, if {level} is set, include {log}s
-        """
-        args = [peer_id]
-        logs is not None and args.append(logs)
-        res = self.listpeers(peer_id, logs)
-        return res.get('peers') and res['peers'][0]
 
     def fundchannel(self, peer_id, satoshi):
         """
