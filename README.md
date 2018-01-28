@@ -103,6 +103,19 @@ cli/lightning-cli fundchannel <node_id> <amount>
 This opens a connection and, on top of that connection, then opens a channel.
 The funding transaction needs 1 confirmations in order for the channel to be usable, and 6 to be broadcast for others to use.
 You can check the status of the channel using `cli/lightning-cli listpeers`, which after 1 confirmation should say that `state` is `CHANNELD_NORMAL`; after 6 confirmations you can use `cli/lightning-cli listchannels` to verify that the `public` field is now `true`.
+ 
+### Different states 
+
+States starting with `ONCHAIND` mean that the channel has been closed and an onchain transaction exists reflecting the resulting balances
+* `ONCHAIND_OUR_UNILATERAL` > Closed by you without cooperation of the counterparty
+* `ONCHAIND_THEIR_UNILATERAL` > Closed by the counterparty without your cooperation
+* `ONCHAIND_MUTUAL` > Negotiated closing by both sides
+
+States starting with `CHANNELD` mean that funds are not available onchain, and from that moment they can only be moved offchain, this is, through the Lightning Network
+* `CHANNELD_AWAITING_LOCKIN` > Waiting for confirmation of the channel funding transaction
+* `CHANNELD_NORMAL` > Channel is active
+
+The `GOSSIPING` state means that you are connected to a peer but there is no payment channel yet.
 
 ### Sending and receiving payments
 
