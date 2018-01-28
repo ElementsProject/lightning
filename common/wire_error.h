@@ -48,7 +48,7 @@ bool channel_id_is_all(const struct channel_id *channel_id);
  *
  * @ctx: context to allocate from
  * @errmsg: the wire_error
- * @channel: (out) channel it's referrring to, or NULL if don't care.
+ * @channel: (out) channel it's referring to, or NULL if don't care.
  */
 char *sanitize_error(const tal_t *ctx, const u8 *errmsg,
 		     struct channel_id *channel_id);

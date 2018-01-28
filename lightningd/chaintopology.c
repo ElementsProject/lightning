@@ -140,7 +140,7 @@ struct txs_to_broadcast {
 	/* These are hex encoded already, for bitcoind_sendrawtx */
 	const char **txs;
 
-	/* Command to complete when we're done, iff dev-broadcast triggered */
+	/* Command to complete when we're done, if dev-broadcast triggered */
 	struct command *cmd;
 };
 

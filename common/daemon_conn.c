@@ -57,7 +57,7 @@ bool daemon_conn_sync_flush(struct daemon_conn *dc)
 	}
 	io_fd_block(daemon_fd, false);
 
-	/* Success iff we flushed them all. */
+	/* Success if we flushed them all. */
 	return msg == NULL;
 }
 
