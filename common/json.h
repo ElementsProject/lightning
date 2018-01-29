@@ -46,15 +46,6 @@ bool json_tok_is_null(const char *buffer, const jsmntok_t *tok);
 /* Returns next token with same parent. */
 const jsmntok_t *json_next(const jsmntok_t *tok);
 
-/* Get the parameters (by position or name).  Followed by triples of
- * of const char *name, const jsmntok_t **ret_ptr, then NULL.
- *
- * If name starts with '?' it is optional (and will be set to NULL
- * if it's a literal 'null' or not present).
- * Otherwise false is returned.
- */
-bool json_get_params(const char *buffer, const jsmntok_t param[], ...);
-
 /* Get top-level member. */
 const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 				 const char *label);

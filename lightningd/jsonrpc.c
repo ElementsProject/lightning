@@ -155,8 +155,7 @@ static void json_getlog(struct command *cmd,
 	struct log_book *lr = cmd->ld->log_book;
 	jsmntok_t *level;
 
-	if (!json_get_params(buffer, params, "?level", &level, NULL)) {
-		command_fail(cmd, "Invalid arguments");
+	if (!json_get_params(cmd, buffer, params, "?level", &level, NULL)) {
 		return;
 	}
 
@@ -206,10 +205,9 @@ static void json_rhash(struct command *cmd,
 	jsmntok_t *secrettok;
 	struct sha256 secret;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "secret", &secrettok,
 			     NULL)) {
-		command_fail(cmd, "Need secret");
 		return;
 	}
 
@@ -298,8 +296,7 @@ static void json_help(struct command *cmd,
 	struct json_command **cmdlist = get_cmdlist();
 	jsmntok_t *cmdtok;
 
-	if (!json_get_params(buffer, params, "?command", &cmdtok, NULL)) {
-		command_fail(cmd, "Invalid arguments");
+	if (!json_get_params(cmd, buffer, params, "?command", &cmdtok, NULL)) {
 		return;
 	}
 
@@ -626,13 +623,6 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		return;
 	}
 
-	if (params->type != JSMN_ARRAY && params->type != JSMN_OBJECT) {
-		command_fail_detailed(jcon->current,
-				      JSONRPC2_INVALID_PARAMS, NULL,
-				      "Expected array or object for params");
-		return;
-	}
-
 	db_begin_transaction(jcon->ld->wallet->db);
 	cmd->dispatch(jcon->current, jcon->buffer, params);
 	db_commit_transaction(jcon->ld->wallet->db);
@@ -640,6 +630,107 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	/* If they didn't complete it, they must call command_still_pending */
 	if (jcon->current)
 		assert(jcon->current->pending);
+}
+
+bool json_get_params(struct command *cmd,
+		     const char *buffer, const jsmntok_t param[], ...)
+{
+	va_list ap;
+	const char **names;
+	size_t num_names;
+	 /* Uninitialized warnings on p and end */
+	const jsmntok_t **tokptr, *p = NULL, *end = NULL;
+
+	if (param->type == JSMN_ARRAY) {
+		if (param->size == 0)
+			p = NULL;
+		else
+			p = param + 1;
+		end = json_next(param);
+	} else if (param->type != JSMN_OBJECT) {
+		command_fail_detailed(cmd, JSONRPC2_INVALID_PARAMS, NULL,
+				      "Expected array or object for params");
+		return false;
+	}
+
+	num_names = 0;
+	names = tal_arr(cmd, const char *, num_names + 1);
+	va_start(ap, param);
+	while ((names[num_names] = va_arg(ap, const char *)) != NULL) {
+		tokptr = va_arg(ap, const jsmntok_t **);
+		bool compulsory = true;
+		if (names[num_names][0] == '?') {
+			names[num_names]++;
+			compulsory = false;
+		}
+		if (param->type == JSMN_ARRAY) {
+			*tokptr = p;
+			if (p) {
+				p = json_next(p);
+				if (p == end)
+					p = NULL;
+			}
+		} else {
+			*tokptr = json_get_member(buffer, param,
+						  names[num_names]);
+		}
+		/* Convert 'null' to NULL */
+		if (*tokptr
+		    && (*tokptr)->type == JSMN_PRIMITIVE
+		    && buffer[(*tokptr)->start] == 'n') {
+			*tokptr = NULL;
+		}
+		if (compulsory && !*tokptr) {
+			va_end(ap);
+			command_fail_detailed(cmd, JSONRPC2_INVALID_PARAMS, NULL,
+					      "Missing '%s' parameter",
+					      names[num_names]);
+			tal_free(names);
+			return false;
+		}
+		num_names++;
+		tal_resize(&names, num_names + 1);
+	}
+
+	va_end(ap);
+
+	/* Now make sure there aren't any params which aren't valid */
+	if (param->type == JSMN_ARRAY) {
+		if (param->size > num_names) {
+			tal_free(names);
+			command_fail_detailed(cmd, JSONRPC2_INVALID_PARAMS, NULL,
+					      "Too many parameters:"
+					      " got %u, expected %zu",
+					      param->size, num_names);
+			return false;
+		}
+	} else {
+		const jsmntok_t *t;
+
+		end = json_next(param);
+
+		/* Find each parameter among the valid names */
+		for (t = param + 1; t < end; t = json_next(t+1)) {
+			bool found = false;
+			for (size_t i = 0; i < num_names; i++) {
+				if (json_tok_streq(buffer, t, names[i]))
+					found = true;
+			}
+			if (!found) {
+				tal_free(names);
+				command_fail_detailed(cmd,
+						      JSONRPC2_INVALID_PARAMS,
+						      NULL,
+						      "Unknown parameter '%.*s'",
+						      t->end - t->start,
+						      buffer + t->start);
+				return false;
+			}
+		}
+	}
+
+	tal_free(names);
+	return true;
 }
 
 static struct io_plan *write_json(struct io_conn *conn,

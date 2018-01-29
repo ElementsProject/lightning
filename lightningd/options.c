@@ -774,8 +774,7 @@ static void json_listconfigs(struct command *cmd,
 	jsmntok_t *configtok;
 	bool found = false;
 
-	if (!json_get_params(buffer, params, "?config", &configtok, NULL)) {
-		command_fail(cmd, "Invalid arguments");
+	if (!json_get_params(cmd, buffer, params, "?config", &configtok, NULL)) {
 		return;
 	}
 

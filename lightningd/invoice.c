@@ -108,13 +108,12 @@ static void json_invoice(struct command *cmd,
 	char *b11enc;
 	u64 expiry = 3600;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "msatoshi", &msatoshi,
 			     "label", &label,
 			     "description", &desc,
 			     "?expiry", &exp,
 			     NULL)) {
-		command_fail(cmd, "Need {msatoshi}, {label} and {description}");
 		return;
 	}
 
@@ -228,10 +227,9 @@ static void json_listinvoice_internal(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 	struct wallet *wallet = cmd->ld->wallet;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "?label", &label,
 			     NULL)) {
-		command_fail(cmd, "Invalid arguments");
 		return;
 	}
 
@@ -284,11 +282,10 @@ static void json_delinvoice(struct command *cmd,
 	const char *label, *status, *actual_status;
 	struct wallet *wallet = cmd->ld->wallet;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "label", &labeltok,
 			     "status", &statustok,
 			     NULL)) {
-		command_fail(cmd, "Invalid arguments");
 		return;
 	}
 
@@ -340,10 +337,9 @@ static void json_waitanyinvoice(struct command *cmd,
 	u64 pay_index;
 	struct wallet *wallet = cmd->ld->wallet;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "?lastpay_index", &pay_indextok,
 			     NULL)) {
-		command_fail(cmd, "Invalid arguments");
 		return;
 	}
 
@@ -389,8 +385,7 @@ static void json_waitinvoice(struct command *cmd,
 	jsmntok_t *labeltok;
 	const char *label = NULL;
 
-	if (!json_get_params(buffer, params, "label", &labeltok, NULL)) {
-		command_fail(cmd, "Missing {label}");
+	if (!json_get_params(cmd, buffer, params, "label", &labeltok, NULL)) {
 		return;
 	}
 
@@ -427,11 +422,10 @@ static void json_decodepay(struct command *cmd,
 	struct json_result *response;
         char *str, *desc, *fail;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "bolt11", &bolt11tok,
 			     "?description", &desctok,
 			     NULL)) {
-		command_fail(cmd, "Need bolt11 string");
 		return;
 	}
 

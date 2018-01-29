@@ -199,11 +199,10 @@ static void json_withdraw(struct command *cmd,
 	struct bitcoin_tx *tx;
 	bool withdraw_all = false;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "destination", &desttok,
 			     "satoshi", &sattok,
 			     NULL)) {
-		command_fail(cmd, "Need destination and satoshi.");
 		return;
 	}
 

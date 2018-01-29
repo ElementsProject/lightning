@@ -432,11 +432,10 @@ static void json_sendpay(struct command *cmd,
 	struct sha256 rhash;
 	struct route_hop *route;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "route", &routetok,
 			     "rhash", &rhashtok,
 			     NULL)) {
-		command_fail(cmd, "Need route and rhash");
 		return;
 	}
 
@@ -553,13 +552,12 @@ static void json_pay(struct command *cmd,
 	char *fail, *b11str, *desc;
 	u8 *req;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "bolt11", &bolt11tok,
 			     "?msatoshi", &msatoshitok,
 			     "?description", &desctok,
 			     "?riskfactor", &riskfactortok,
 			     NULL)) {
-		command_fail(cmd, "Need bolt11 string");
 		return;
 	}
 
@@ -632,11 +630,10 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 	jsmntok_t *bolt11tok, *rhashtok;
 	struct sha256 *rhash = NULL;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "?bolt11", &bolt11tok,
 			     "?payment_hash", &rhashtok,
 			     NULL)) {
-		command_fail(cmd, "Invalid parameters");
 		return;
 	}
 
