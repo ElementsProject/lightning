@@ -51,7 +51,14 @@ static void json_help(struct command *cmd,
 static const struct json_command help_command = {
 	"help",
 	json_help,
-	"Show available commands"
+	"List available commands, or give verbose help on one command.",
+
+	.verbose = "help [command]\n"
+	"Without [command]:\n"
+	"  Outputs an array of objects with 'command' and 'description'\n"
+	"With [command]:\n"
+	"  Give a single object containing 'verbose', which completely describes\n"
+	"  the command inputs and outputs."
 };
 AUTODATA(json_command, &help_command);
 
