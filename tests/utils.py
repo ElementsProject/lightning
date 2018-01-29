@@ -108,11 +108,11 @@ class TailableProc(object):
         self.running = False
         self.proc.stdout.close()
 
-    def is_in_log(self, regex):
+    def is_in_log(self, regex, start = 0):
         """Look for `regex` in the logs."""
 
         ex = re.compile(regex)
-        for l in self.logs:
+        for l in self.logs[start:]:
             if ex.search(l):
                 logging.debug("Found '%s' in logs", regex)
                 return True
