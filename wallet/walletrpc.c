@@ -58,7 +58,9 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind,
 		tx = bitcoin_tx_from_hex(withdraw, withdraw->hextx, strlen(withdraw->hextx));
 		assert(tx != NULL);
 		wallet_extract_owned_outputs(ld->wallet, tx, &change_satoshi);
-		assert(change_satoshi == withdraw->changesatoshi);
+
+		/* Note normally, change_satoshi == withdraw->changesatoshi, but
+		 * not if we're actually making a payment to ourselves! */
 
 		struct json_result *response = new_json_result(cmd);
 		json_object_start(response, NULL);
