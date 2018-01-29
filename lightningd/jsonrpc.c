@@ -289,8 +289,36 @@ static void json_help(struct command *cmd,
 	unsigned int i;
 	struct json_result *response = new_json_result(cmd);
 	struct json_command **cmdlist = get_cmdlist();
+	jsmntok_t *cmdtok;
+
+	if (!json_get_params(buffer, params, "?command", &cmdtok, NULL)) {
+		command_fail(cmd, "Invalid arguments");
+		return;
+	}
 
 	json_object_start(response, NULL);
+	if (cmdtok) {
+		for (i = 0; i < num_cmdlist; i++) {
+			if (json_tok_streq(buffer, cmdtok, cmdlist[i]->name)) {
+				if (!cmdlist[i]->verbose)
+					json_add_string(response,
+							"verbose",
+							"HELP! Please contribute"
+							" a description for this"
+							" command!");
+				else
+					json_add_string_escape(response,
+							       "verbose",
+							       cmdlist[i]->verbose);
+				goto done;
+			}
+		}
+		command_fail(cmd, "Unknown command '%.*s'",
+			     cmdtok->end - cmdtok->start,
+			     buffer + cmdtok->start);
+		return;
+	}
+
 	json_array_start(response, "help");
 	for (i = 0; i < num_cmdlist; i++) {
 		json_add_object(response,
@@ -301,6 +329,8 @@ static void json_help(struct command *cmd,
 				NULL);
 	}
 	json_array_end(response);
+
+done:
 	json_object_end(response);
 	command_success(cmd, response);
 }
