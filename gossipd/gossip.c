@@ -104,7 +104,7 @@ struct reaching {
 	/* How many times have we attempted to connect? */
 	u32 attempts;
 
-	/* How many timest to attempt */
+	/* How many times to attempt */
 	u32 max_attempts;
 
 	/* Timestamp of the first attempt */
