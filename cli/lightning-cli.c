@@ -47,6 +47,68 @@ char *netaddr_name(const tal_t *ctx, const struct netaddr *a)
 	return NULL;
 }
 
+/* Returns number of tokens digested */
+static size_t human_readable(const char *buffer, const jsmntok_t *t, char term)
+{
+	size_t i, n;
+
+	switch (t->type) {
+	case JSMN_PRIMITIVE:
+	case JSMN_STRING:
+		for (i = t->start; i < t->end; i++) {
+			/* We only translate \n and \t. */
+			if (buffer[i] == '\\' && i + 1 < t->end) {
+				if (buffer[i+1] == 'n') {
+					fputc('\n', stdout);
+					i++;
+					continue;
+				} else if (buffer[i+1] == 't') {
+					fputc('\t', stdout);
+					i++;
+					continue;
+				}
+			}
+			fputc(buffer[i], stdout);
+		}
+		fputc(term, stdout);
+		return 1;
+	case JSMN_ARRAY:
+		n = 1;
+		for (i = 0; i < t->size; i++)
+			n += human_readable(buffer, t + n, '\n');
+		return n;
+	case JSMN_OBJECT:
+		/* Elide single-field objects */
+		if (t->size == 1)
+			return human_readable(buffer, t + 2, '\n') + 3;
+		n = 1;
+		for (i = 0; i < t->size; i++) {
+			n += human_readable(buffer, t + n, '=');
+			n += human_readable(buffer, t + n, '\n');
+		}
+		return n;
+	}
+	abort();
+}
+
+enum format {
+	JSON,
+	HUMAN,
+	DEFAULT
+};
+
+static char *opt_set_human(enum format *format)
+{
+	*format = HUMAN;
+	return NULL;
+}
+
+static char *opt_set_json(enum format *format)
+{
+	*format = JSON;
+	return NULL;
+}
+
 int main(int argc, char *argv[])
 {
 	int fd, i, off;
@@ -59,6 +121,7 @@ int main(int argc, char *argv[])
 	const tal_t *ctx = tal(NULL, char);
 	jsmn_parser parser;
 	jsmnerr_t parserr;
+	enum format format = DEFAULT;
 
 	err_set_progname(argv[0]);
 	jsmn_init(&parser);
@@ -68,6 +131,11 @@ int main(int argc, char *argv[])
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "<command> [<params>...]", "Show this message. Use the command help (without hyphens -- \"lightning-cli help\") to get a list of all RPC commands");
+	opt_register_noarg("-H|--human-readable", opt_set_human, &format,
+			   "Human-readable output (default for 'help')");
+	opt_register_noarg("-J|--json", opt_set_json, &format,
+			   "JSON output (default unless 'help')");
+
 	opt_register_version();
 
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
@@ -80,6 +148,13 @@ int main(int argc, char *argv[])
 		tal_free(usage);
 		printf("Querying lightningd for available RPC commands (\"lightning-cli help\"):\n\n");
 		method = "help";
+	}
+
+	if (format == DEFAULT) {
+		if (streq(method, "help"))
+			format = HUMAN;
+		else
+			format = JSON;
 	}
 
 	if (chdir(lightning_dir) != 0)
@@ -177,9 +252,12 @@ int main(int argc, char *argv[])
 		     json_tok_len(id), json_tok_contents(resp, id));
 
 	if (!error || json_tok_is_null(resp, error)) {
-		printf("%.*s\n",
-		       json_tok_len(result),
-		       json_tok_contents(resp, result));
+		if (format == HUMAN)
+			human_readable(resp, result, '\n');
+		else
+			printf("%.*s\n",
+			       json_tok_len(result),
+			       json_tok_contents(resp, result));
 		tal_free(ctx);
 		opt_free_table();
 		return 0;
