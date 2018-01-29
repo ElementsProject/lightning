@@ -56,6 +56,16 @@ struct json_command {
 	const char *verbose;
 };
 
+/* Get the parameters (by position or name).  Followed by triples of
+ * of const char *name, const jsmntok_t **ret_ptr, then NULL.
+ *
+ * If name starts with '?' it is optional (and will be set to NULL
+ * if it's a literal 'null' or not present).
+ * Otherwise false is returned, and command_fail already called.
+ */
+bool json_get_params(struct command *cmd,
+		     const char *buffer, const jsmntok_t param[], ...);
+
 struct json_result *null_response(const tal_t *ctx);
 void command_success(struct command *cmd, struct json_result *response);
 void PRINTF_FMT(2, 3) command_fail(struct command *cmd, const char *fmt, ...);

@@ -235,10 +235,9 @@ static void json_listnodes(struct command *cmd, const char *buffer,
 	jsmntok_t *idtok = NULL;
 	struct pubkey *id = NULL;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "?id", &idtok,
 			     NULL)) {
-		command_fail(cmd, "Invalid arguments");
 		return;
 	}
 
@@ -302,13 +301,12 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	double riskfactor;
 	struct lightningd *ld = cmd->ld;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "id", &idtok,
 			     "msatoshi", &msatoshitok,
 			     "riskfactor", &riskfactortok,
 			     "?cltv", &cltvtok,
 			     NULL)) {
-		command_fail(cmd, "Need id, msatoshi and riskfactor");
 		return;
 	}
 
@@ -396,10 +394,9 @@ static void json_listchannels(struct command *cmd, const char *buffer,
 	jsmntok_t *idtok;
 	struct short_channel_id *id = NULL;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "?short_channel_id", &idtok,
 			     NULL)) {
-		command_fail(cmd, "Invalid arguments");
 		return;
 	}
 

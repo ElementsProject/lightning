@@ -556,10 +556,9 @@ void json_dev_broadcast(struct command *cmd,
 	jsmntok_t *enabletok;
 	bool enable;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "enable", &enabletok,
 			     NULL)) {
-		command_fail(cmd, "Need enable");
 		return;
 	}
 
@@ -606,12 +605,11 @@ static void json_dev_setfees(struct command *cmd,
 	struct chain_topology *topo = cmd->ld->topology;
 	struct json_result *response;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "?immediate", &ratetok[FEERATE_IMMEDIATE],
 			     "?normal", &ratetok[FEERATE_NORMAL],
 			     "?slow", &ratetok[FEERATE_SLOW],
 			     NULL)) {
-		command_fail(cmd, "Bad parameters");
 		return;
 	}
 

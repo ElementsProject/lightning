@@ -45,12 +45,11 @@ static void json_dev_ping(struct command *cmd,
 	struct pubkey id;
 	struct subd *owner;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "id", &idtok,
 			     "len", &lentok,
 			     "pongbytes", &pongbytestok,
 			     NULL)) {
-		command_fail(cmd, "Need id, len and pongbytes");
 		return;
 	}
 

@@ -742,12 +742,11 @@ static void json_connect(struct command *cmd,
 	struct wireaddr addr;
 	u8 *msg;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "id", &idtok,
 			     "?host", &hosttok,
 			     "?port", &porttok,
 			     NULL)) {
-		command_fail(cmd, "Need id to connect");
 		return;
 	}
 
@@ -949,11 +948,10 @@ static void json_listpeers(struct command *cmd,
 
 	gpa->cmd = cmd;
 	gpa->specific_id = NULL;
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "?id", &idtok,
 			     "?level", &leveltok,
 			     NULL)) {
-		command_fail(cmd, "Invalid arguments");
 		return;
 	}
 
@@ -2673,11 +2671,10 @@ static void json_fund_channel(struct command *cmd,
 	struct funding_channel *fc = tal(cmd, struct funding_channel);
 	u8 *msg;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "id", &peertok,
 			     "satoshi", &satoshitok,
 			     NULL)) {
-		command_fail(cmd, "Need id and satoshi");
 		return;
 	}
 
@@ -2732,10 +2729,9 @@ static void json_close(struct command *cmd,
 	jsmntok_t *peertok;
 	struct peer *peer;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "id", &peertok,
 			     NULL)) {
-		command_fail(cmd, "Need id");
 		return;
 	}
 
@@ -2849,10 +2845,9 @@ static void json_sign_last_tx(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 	u8 *linear;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "id", &peertok,
 			     NULL)) {
-		command_fail(cmd, "Need id");
 		return;
 	}
 
@@ -2891,10 +2886,9 @@ static void json_dev_fail(struct command *cmd,
 	jsmntok_t *peertok;
 	struct peer *peer;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "id", &peertok,
 			     NULL)) {
-		command_fail(cmd, "Need id");
 		return;
 	}
 
@@ -2930,10 +2924,9 @@ static void json_dev_reenable_commit(struct command *cmd,
 	struct peer *peer;
 	u8 *msg;
 
-	if (!json_get_params(buffer, params,
+	if (!json_get_params(cmd, buffer, params,
 			     "id", &peertok,
 			     NULL)) {
-		command_fail(cmd, "Need id");
 		return;
 	}
 
