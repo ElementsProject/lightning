@@ -262,9 +262,6 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--fee-per-satoshi", opt_set_s32, opt_show_s32,
 			 &ld->config.fee_per_satoshi,
 			 "Microsatoshi fee for every satoshi in HTLC");
-	opt_register_noarg("--no-reconnect", opt_set_bool,
-			   &ld->config.no_reconnect, "Disable automatic reconnect attempts");
-
 	opt_register_arg("--ipaddr", opt_add_ipaddr, NULL,
 			 ld,
 			 "Set the IP address (v4 or v6) to announce to the network for incoming connections");
@@ -291,6 +288,9 @@ static char *opt_set_hsm_seed(const char *arg, struct lightningd *ld)
 
 static void dev_register_opts(struct lightningd *ld)
 {
+	opt_register_noarg("--dev-no-reconnect", opt_set_bool,
+			   &ld->no_reconnect,
+			   "Disable automatic reconnect attempts");
 	opt_register_noarg("--dev-no-broadcast", opt_set_bool,
 			   &ld->topology->dev_no_broadcast, opt_hidden);
 	opt_register_noarg("--dev-fail-on-subdaemon-fail", opt_set_bool,
@@ -352,9 +352,6 @@ static const struct config testnet_config = {
 	 * Each node SHOULD flush outgoing announcements once every 60 seconds */
 	.broadcast_interval = 60000,
 
-	/* Automatically reconnect */
-	.no_reconnect = false,
-
 	/* Send a keepalive update at least every week, prune every twice that */
 	.channel_update_interval = 1209600/2,
 
@@ -415,9 +412,6 @@ static const struct config mainnet_config = {
 	/* BOLT #7:
 	 * Each node SHOULD flush outgoing announcements once every 60 seconds */
 	.broadcast_interval = 60000,
-
-	/* Automatically reconnect */
-	.no_reconnect = false,
 
 	/* Send a keepalive update at least every week, prune every twice that */
 	.channel_update_interval = 1209600/2,

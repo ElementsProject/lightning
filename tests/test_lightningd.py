@@ -2042,7 +2042,7 @@ class LightningDTests(BaseLightningDTests):
         # HTLC 1->2, 1 fails after it's irrevocably committed, can't reconnect
         disconnects = ['@WIRE_REVOKE_AND_ACK']
         l1 = self.node_factory.get_node(disconnect=disconnects,
-                                        options=['--no-reconnect'])
+                                        options=['--dev-no-reconnect'])
         l2 = self.node_factory.get_node()
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
@@ -2098,7 +2098,7 @@ class LightningDTests(BaseLightningDTests):
         # HTLC 1->2, 1 fails after 2 has sent committed the fulfill
         disconnects = ['-WIRE_REVOKE_AND_ACK*2']
         l1 = self.node_factory.get_node(disconnect=disconnects,
-                                        options=['--no-reconnect'])
+                                        options=['--dev-no-reconnect'])
         l2 = self.node_factory.get_node()
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
@@ -2769,7 +2769,7 @@ class LightningDTests(BaseLightningDTests):
     def test_payment_success_persistence(self):
         # Start two nodes and open a channel.. die during payment.
         l1 = self.node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'],
-                                        options=['--no-reconnect'])
+                                        options=['--dev-no-reconnect'])
         l2 = self.node_factory.get_node()
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
@@ -2786,7 +2786,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.kill()
 
         # Restart l1, without disconnect stuff.
-        l1.daemon.cmd_line.remove('--no-reconnect')
+        l1.daemon.cmd_line.remove('--dev-no-reconnect')
         l1.daemon.cmd_line.remove('--dev-disconnect=dev_disconnect')
 
         # Should reconnect, and sort the payment out.
@@ -2809,7 +2809,7 @@ class LightningDTests(BaseLightningDTests):
     def test_payment_failed_persistence(self):
         # Start two nodes and open a channel.. die during payment.
         l1 = self.node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'],
-                                        options=['--no-reconnect'])
+                                        options=['--dev-no-reconnect'])
         l2 = self.node_factory.get_node()
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
@@ -2827,7 +2827,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.kill()
 
         # Restart l1, without disconnect stuff.
-        l1.daemon.cmd_line.remove('--no-reconnect')
+        l1.daemon.cmd_line.remove('--dev-no-reconnect')
         l1.daemon.cmd_line.remove('--dev-disconnect=dev_disconnect')
 
         # Make sure invoice has expired.

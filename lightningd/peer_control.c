@@ -267,11 +267,12 @@ void peer_fail_transient(struct peer *peer, const char *fmt, ...)
 
 	/* Reconnect unless we've dropped/are dropping to chain. */
 	if (!peer_on_chain(peer) && peer->state != CLOSINGD_COMPLETE) {
+#if DEVELOPER
 		/* Don't schedule an attempt if we disabled reconnections with
-		 * the `--no-reconnect` flag */
-		if (peer->ld->config.no_reconnect)
+		 * the `--dev-no-reconnect` flag */
+		if (peer->ld->no_reconnect)
 			return;
-
+#endif /* DEVELOPER */
 		u8 *msg = towire_gossipctl_reach_peer(peer, &peer->id);
 		subd_send_msg(peer->ld->gossip, take(msg));
 	}
