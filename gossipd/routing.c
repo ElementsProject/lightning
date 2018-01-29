@@ -618,6 +618,11 @@ const struct short_channel_id *handle_channel_announcement(
 	tal_free(tag);
 
 	/* FIXME: Handle duplicates as per BOLT #7 */
+
+	if (find_pending_cannouncement(rstate, &pending->short_channel_id) != NULL) {
+		/* Drop it like it's hot */
+		return tal_free(pending);
+	}
 	list_add_tail(&rstate->pending_cannouncement, &pending->list);
 	return &pending->short_channel_id;
 }
