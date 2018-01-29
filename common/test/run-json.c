@@ -37,8 +37,7 @@ static int test_json_tok_bitcoin_amount(void)
 	return 0;
 }
 
-
-static int test_json_escape(void)
+static int test_json_filter(void)
 {
 	struct json_result *result = new_json_result(NULL);
 	jsmntok_t *toks;
@@ -78,9 +77,41 @@ static int test_json_escape(void)
 	return 0;
 }
 
+static void test_json_escape(void)
+{
+	int i;
+	const char *str;
+
+	for (i = 1; i < 256; i++) {
+		char badstr[2];
+		struct json_result *result = new_json_result(NULL);
+
+		badstr[0] = i;
+		badstr[1] = 0;
+
+		json_object_start(result, NULL);
+		json_add_string_escape(result, "x", badstr);
+		json_object_end(result);
+
+		str = json_result_string(result);
+		if (i == '\\' || i == '"'
+		    || i == '\n' || i == '\r' || i == '\b'
+		    || i == '\t' || i == '\f')
+			assert(strstarts(str, "{ \"x\" : \"\\"));
+		else if (i < 32 || i == 127)
+			assert(strstarts(str, "{ \"x\" : \"\\u00"));
+		else {
+			char expect[] = "{ \"x\" : \"?\" }";
+			expect[9] = i;
+			assert(streq(str, expect));
+		}
+		tal_free(result);
+	}
+}
 
 int main(void)
 {
 	test_json_tok_bitcoin_amount();
+	test_json_filter();
 	test_json_escape();
 }
