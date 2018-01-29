@@ -65,11 +65,10 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	struct secret *path_secrets;
 	const tal_t *tmpctx = tal_tmpctx(ld);
 
-	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
-				  PAYMENT_FAILED, NULL);
-
 	/* This gives more details than a generic failure message */
 	if (localfail) {
+		wallet_payment_set_status(ld->wallet, &hout->payment_hash,
+					  PAYMENT_FAILED, NULL);
 		json_pay_failed(hout->cmd, NULL, hout->failcode, localfail);
 		tal_free(tmpctx);
 		return;
@@ -95,6 +94,12 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 			 reply->origin_index,
 			 failcode, onion_type_name(failcode));
 	}
+
+	/* This may invalidated the payment structure returned, so
+	 * access to payment object should not be done after the
+	 * below call.  */
+	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
+				  PAYMENT_FAILED, NULL);
 
 	/* FIXME: save ids we can turn reply->origin_index into sender. */
 
