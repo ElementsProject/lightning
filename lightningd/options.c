@@ -1,7 +1,9 @@
 #include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
+#include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
+#include <ccan/opt/private.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/grab_file/grab_file.h>
@@ -15,6 +17,7 @@
 #include <inttypes.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/netaddress.h>
@@ -663,3 +666,169 @@ bool handle_opts(struct lightningd *ld, int argc, char *argv[])
 
 	return newdir;
 }
+
+/* FIXME: This is a hack!  Expose somehow in ccan/opt.*/
+/* Returns string after first '-'. */
+static const char *first_name(const char *names, unsigned *len)
+{
+	*len = strcspn(names + 1, "|= ");
+	return names + 1;
+}
+
+static const char *next_name(const char *names, unsigned *len)
+{
+	names += *len;
+	if (names[0] == ' ' || names[0] == '=' || names[0] == '\0')
+		return NULL;
+	return first_name(names + 1, len);
+}
+
+static void add_config(struct lightningd *ld,
+		       struct json_result *response,
+		       const struct opt_table *opt,
+		       const char *name, size_t len)
+{
+	char *name0 = tal_strndup(response, name, len);
+	const char *answer = NULL;
+
+	if (opt->type & OPT_NOARG) {
+		if (opt->cb == (void *)opt_usage_and_exit
+		    || opt->cb == (void *)version_and_exit
+		    || opt->cb == (void *)test_daemons_and_exit) {
+			/* These are not important */
+		} else if (opt->cb == (void *)opt_set_bool) {
+			const bool *b = opt->u.carg;
+			answer = tal_fmt(name0, "%s", *b ? "true" : "false");
+		} else {
+			/* Insert more decodes here! */
+			abort();
+		}
+	} else if (opt->type & OPT_HASARG) {
+		if (opt->show) {
+			char *buf = tal_arr(name0, char, OPT_SHOW_LEN+1);
+			opt->show(buf, opt->u.carg);
+
+			if (streq(buf, "true") || streq(buf, "false")
+			    || strspn(buf, "0123456789.") == strlen(buf)) {
+				/* Let pure numbers and true/false through as
+				 * literals. */
+				json_add_literal(response, name0,
+						 buf, strlen(buf));
+				return;
+			}
+
+			/* opt_show_charp surrounds with "", strip them */
+			if (strstarts(buf, "\"")) {
+				buf[strlen(buf)-1] = '\0';
+				answer = buf + 1;
+			} else
+				answer = buf;
+		} else if (opt->cb_arg == (void *)opt_set_talstr
+			   || opt->cb_arg == (void *)opt_set_charp) {
+			const char *arg = *(char **)opt->u.carg;
+			if (arg)
+				answer = tal_fmt(name0, "%s", arg);
+		} else if (opt->cb_arg == (void *)opt_set_rgb) {
+			if (ld->rgb)
+				answer = tal_hexstr(name0, ld->rgb, 3);
+		} else if (opt->cb_arg == (void *)opt_set_alias) {
+			answer = (const char *)ld->alias;
+		} else if (opt->cb_arg == (void *)arg_log_to_file) {
+			answer = ld->logfile;
+		} else if (opt->cb_arg == (void *)opt_set_fee_rates) {
+			struct chain_topology *topo = ld->topology;
+			if (topo->override_fee_rate)
+				answer = tal_fmt(name0, "%u/%u/%u",
+						 topo->override_fee_rate[0],
+						 topo->override_fee_rate[1],
+						 topo->override_fee_rate[2]);
+		} else if (opt->cb_arg == (void *)opt_add_ipaddr) {
+			/* This is a bit weird, we can have multiple args */
+			for (size_t i = 0; i < tal_count(ld->wireaddrs); i++) {
+				json_add_string(response,
+						name0,
+						fmt_wireaddr(name0,
+							     ld->wireaddrs+i));
+			}
+			return;
+#if DEVELOPER
+		} else if (strstarts(name, "dev-")) {
+			/* Ignore dev settings */
+#endif
+		} else {
+			/* Insert more decodes here! */
+			abort();
+		}
+	}
+
+	if (answer)
+		json_add_string_escape(response, name0, answer);
+	tal_free(name0);
+}
+
+static void json_listconfigs(struct command *cmd,
+			     const char *buffer, const jsmntok_t *params)
+{
+	size_t i;
+	struct json_result *response = new_json_result(cmd);
+	jsmntok_t *configtok;
+	bool found = false;
+
+	if (!json_get_params(buffer, params, "?config", &configtok, NULL)) {
+		command_fail(cmd, "Invalid arguments");
+		return;
+	}
+
+	json_object_start(response, NULL);
+	if (!configtok)
+		json_add_string(response, "# version", version());
+
+	for (i = 0; i < opt_count; i++) {
+		unsigned int len;
+		const char *name;
+
+		/* FIXME: Print out comment somehow? */
+		if (opt_table[i].type == OPT_SUBTABLE)
+			continue;
+
+		for (name = first_name(opt_table[i].names, &len);
+		     name;
+		     name = next_name(name, &len)) {
+			/* Skips over first -, so just need to look for one */
+			if (name[0] != '-')
+				continue;
+
+			if (configtok
+			    && !memeq(buffer + configtok->start,
+				      configtok->end - configtok->start,
+				      name + 1, len - 1))
+				continue;
+
+			found = true;
+			add_config(cmd->ld, response, &opt_table[i],
+				   name+1, len-1);
+		}
+	}
+	json_object_end(response);
+
+	if (configtok && !found) {
+		command_fail(cmd, "Unknown config option '%.*s'",
+			     configtok->end - configtok->start,
+			     buffer + configtok->start);
+		return;
+	}
+	command_success(cmd, response);
+}
+
+static const struct json_command listconfigs_command = {
+	"listconfigs",
+	json_listconfigs,
+	"List all configuration options, or with [config], just that one.",
+
+	.verbose = "listconfigs [config]\n"
+	"Outputs an object, with each field a config options\n"
+	"(Option names which start with # are comments)\n"
+	"With [config], object only has that field"
+};
+AUTODATA(json_command, &listconfigs_command);
+

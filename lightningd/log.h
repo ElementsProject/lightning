@@ -8,6 +8,7 @@
 
 struct lightningd;
 struct timerel;
+struct lightningd;
 
 enum log_level {
 	/* Logging all IO. */
@@ -88,6 +89,8 @@ void log_each_line_(const struct log_book *lr,
 void log_dump_to_file(int fd, const struct log_book *lr);
 void opt_register_logging(struct lightningd *ld);
 void crashlog_activate(const char *argv0, struct log *log);
+
+char *arg_log_to_file(const char *arg, struct lightningd *ld);
 
 /* Convenience parent for temporary allocations (eg. type_to_string)
  * during log calls; freed after every log_*() */
