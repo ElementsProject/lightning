@@ -90,6 +90,7 @@ struct lightningd {
 	/* Log for general stuff. */
 	struct log_book *log_book;
 	struct log *log;
+	const char *logfile;
 
 	/* This is us. */
 	struct pubkey id;

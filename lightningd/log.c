@@ -376,10 +376,28 @@ static char *arg_log_level(const char *arg, struct log *log)
 	return tal_fmt(NULL, "unknown log level");
 }
 
+static void show_log_level(char buf[OPT_SHOW_LEN], const struct log *log)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(log_levels); i++) {
+		if (log->lr->print_level == log_levels[i].level) {
+			strncpy(buf, log_levels[i].name, OPT_SHOW_LEN-1);
+			return;
+		}
+	}
+	abort();
+}
+
 static char *arg_log_prefix(const char *arg, struct log *log)
 {
 	set_log_prefix(log, arg);
 	return NULL;
+}
+
+static void show_log_prefix(char buf[OPT_SHOW_LEN], const struct log *log)
+{
+	strncpy(buf, log->prefix, OPT_SHOW_LEN);
 }
 
 static void log_to_file(const char *prefix,
@@ -396,22 +414,30 @@ static void log_to_file(const char *prefix,
 	fflush(logf);
 }
 
-static char *arg_log_to_file(const char *arg, struct log *log)
+static char *arg_log_to_file(const char *arg, struct lightningd *ld)
 {
-	FILE *logf = fopen(arg, "a");
+	FILE *logf;
+
+	if (ld->logfile) {
+		fclose(ld->log->lr->print_arg);
+		ld->logfile = tal_free(ld->logfile);
+	}
+	ld->logfile = tal_strdup(ld, arg);
+	logf = fopen(arg, "a");
 	if (!logf)
 		return tal_fmt(NULL, "Failed to open: %s", strerror(errno));
-	set_log_outfn(log->lr, log_to_file, logf);
+	set_log_outfn(ld->log->lr, log_to_file, logf);
 	return NULL;
 }
 
-void opt_register_logging(struct log *log)
+void opt_register_logging(struct lightningd *ld)
 {
-	opt_register_arg("--log-level", arg_log_level, NULL, log,
+	opt_register_arg("--log-level", arg_log_level, show_log_level, ld->log,
 			 "log level (debug, info, unusual, broken)");
-	opt_register_arg("--log-prefix", arg_log_prefix, NULL, log,
+	opt_register_arg("--log-prefix", arg_log_prefix, show_log_prefix,
+			 ld->log,
 			 "log prefix");
-	opt_register_arg("--log-file=<file>", arg_log_to_file, NULL, log,
+	opt_register_arg("--log-file=<file>", arg_log_to_file, NULL, ld,
 			 "log to file instead of stdout");
 }
 
