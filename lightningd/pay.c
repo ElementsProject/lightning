@@ -34,13 +34,11 @@ static void json_pay_success(struct command *cmd, const struct preimage *rval)
 }
 
 static void json_pay_failed(struct command *cmd,
-			    const struct pubkey *sender,
 			    enum onion_type failure_code,
 			    const char *details)
 {
 	/* Can be NULL if JSON RPC goes away. */
 	if (cmd) {
-		/* FIXME: Report sender! */
 		command_fail(cmd, "failed: %s (%s)",
 			     onion_type_name(failure_code), details);
 	}
@@ -92,17 +90,47 @@ static u8 *channel_update_from_onion_error(const tal_t *ctx,
 	return channel_update;
 }
 
+struct routing_failure {
+	enum onion_type failcode;
+	struct pubkey erring_node;
+	struct short_channel_id erring_channel;
+	u8 *channel_update;
+};
+
+/* Return a struct routing_failure for a local failure allocated
+ * from the given context. */
+static struct routing_failure*
+local_routing_failure(const tal_t *ctx,
+		      const struct lightningd *ld,
+		      const struct htlc_out *hout,
+		      const struct wallet_payment *payment)
+{
+	struct routing_failure *routing_failure;
+
+	assert(hout->failcode);
+
+	routing_failure = tal(ctx, struct routing_failure);
+	routing_failure->failcode = hout->failcode;
+	routing_failure->erring_node = ld->id;
+	routing_failure->erring_channel = payment->route_channels[0];
+	routing_failure->channel_update = NULL;
+
+	return routing_failure;
+}
+
 /* Return false if permanent failure at the destination, true if
- * retrying is plausible. */
-static bool report_routing_failure(struct subd *gossip,
+ * retrying is plausible. Fill *routing_failure with NULL if
+ * we cannot report the remote failure, or with the routing
+ * failure to report (allocated from ctx) otherwise. */
+static bool remote_routing_failure(const tal_t *ctx,
+				   struct routing_failure **routing_failure,
 				   const struct wallet_payment *payment,
 				   const struct onionreply *failure)
 {
 	enum onion_type failcode = fromwire_peektype(failure->msg);
-	const tal_t *tmpctx;
 	u8 *channel_update;
-	u8 *gossip_msg;
 	const struct pubkey *route_nodes;
+	const struct pubkey *erring_node;
 	const struct short_channel_id *route_channels;
 	const struct short_channel_id *erring_channel;
 	static const struct short_channel_id dummy_channel = { 0, 0, 0 };
@@ -110,12 +138,13 @@ static bool report_routing_failure(struct subd *gossip,
 	bool retry_plausible;
 	bool report_to_gossipd;
 
-	tmpctx = tal_tmpctx(payment);
+	*routing_failure = tal(ctx, struct routing_failure);
 	route_nodes = payment->route_nodes;
 	route_channels = payment->route_channels;
 	origin_index = failure->origin_index;
 	channel_update
-		= channel_update_from_onion_error(tmpctx, failure->msg);
+		= channel_update_from_onion_error(*routing_failure,
+						  failure->msg);
 	retry_plausible = true;
 	report_to_gossipd = true;
 
@@ -145,19 +174,31 @@ static bool report_routing_failure(struct subd *gossip,
 		/* Report the *next* channel as failing. */
 		erring_channel = &route_channels[origin_index + 1];
 
-	/* Report the error to gossipd if appropriate. */
-	if (report_to_gossipd) {
-		gossip_msg
-			= towire_gossip_routing_failure(tmpctx,
-							&route_nodes[origin_index],
-							erring_channel,
-							(u16) failcode,
-							channel_update);
-		subd_send_msg(gossip, gossip_msg);
-	}
+	erring_node = &route_nodes[origin_index];
 
-	tal_free(tmpctx);
+	if (report_to_gossipd) {
+		(*routing_failure)->failcode = failcode;
+		(*routing_failure)->erring_node = *erring_node;
+		(*routing_failure)->erring_channel = *erring_channel;
+		(*routing_failure)->channel_update = channel_update;
+	} else
+		*routing_failure = tal_free(*routing_failure);
+
 	return retry_plausible;
+}
+
+static void report_routing_failure(struct subd *gossip,
+				   struct routing_failure *fail)
+{
+	u8 *gossip_msg
+		= towire_gossip_routing_failure(gossip,
+						&fail->erring_node,
+						&fail->erring_channel,
+						(u16) fail->failcode,
+						fail->channel_update);
+	subd_send_msg(gossip, gossip_msg);
+
+	tal_free(gossip_msg);
 }
 
 void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
@@ -168,39 +209,52 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	struct secret *path_secrets;
 	struct wallet_payment *payment;
 	const tal_t *tmpctx = tal_tmpctx(ld);
+	struct routing_failure* fail = NULL;
+	const char *failmsg;
+	bool retry_plausible;
+
+	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
+					 &hout->payment_hash);
 
 	/* This gives more details than a generic failure message */
 	if (localfail) {
-		wallet_payment_set_status(ld->wallet, &hout->payment_hash,
-					  PAYMENT_FAILED, NULL);
-		json_pay_failed(hout->cmd, NULL, hout->failcode, localfail);
-		tal_free(tmpctx);
-		return;
-	}
-
-	/* Must be remote fail. */
-	assert(!hout->failcode);
-	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
-					 &hout->payment_hash);
-	path_secrets = payment->path_secrets;
-	reply = unwrap_onionreply(tmpctx, path_secrets, tal_count(path_secrets),
-				  hout->failuremsg);
-	if (!reply) {
-		log_info(hout->key.peer->log,
-			 "htlc %"PRIu64" failed with bad reply (%s)",
-			 hout->key.id,
-			 tal_hex(ltmp, hout->failuremsg));
-		failcode = WIRE_PERMANENT_NODE_FAILURE;
+		fail = local_routing_failure(tmpctx, ld, hout, payment);
+		failcode = fail->failcode;
+		failmsg = localfail;
+		retry_plausible = true;
 	} else {
-		failcode = fromwire_peektype(reply->msg);
-		log_info(hout->key.peer->log,
-			 "htlc %"PRIu64" failed from %ith node with code 0x%04x (%s)",
-			 hout->key.id,
-			 reply->origin_index,
-			 failcode, onion_type_name(failcode));
-
-		/* FIXME: Retry if routing failure thinks so. */
-		report_routing_failure(ld->gossip, payment, reply);
+		/* Must be remote fail. */
+		assert(!hout->failcode);
+		failmsg = "reply from remote";
+		/* Try to parse reply. */
+		path_secrets = payment->path_secrets;
+		reply = unwrap_onionreply(tmpctx, path_secrets,
+					  tal_count(path_secrets),
+					  hout->failuremsg);
+		if (!reply) {
+			log_info(hout->key.peer->log,
+				 "htlc %"PRIu64" failed with bad reply (%s)",
+				 hout->key.id,
+				 tal_hex(ltmp, hout->failuremsg));
+			/* Cannot report failure. */
+			fail = NULL;
+			failcode = WIRE_PERMANENT_NODE_FAILURE;
+			/* Not safe to retry, not know what failed. */
+			/* FIXME: some mitigation for this branch. */
+			retry_plausible = false;
+		} else {
+			failcode = fromwire_peektype(reply->msg);
+			log_info(hout->key.peer->log,
+				 "htlc %"PRIu64" "
+				 "failed from %ith node "
+				 "with code 0x%04x (%s)",
+				 hout->key.id,
+				 reply->origin_index,
+				 failcode, onion_type_name(failcode));
+			retry_plausible
+				= remote_routing_failure(tmpctx, &fail,
+							 payment, reply);
+		}
 	}
 
 	/* This may invalidated the payment structure returned, so
@@ -209,12 +263,26 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 				  PAYMENT_FAILED, NULL);
 
-	/* FIXME: save ids we can turn reply->origin_index into sender. */
+	/* Report to gossipd if there is something we can report. */
+	if (fail) {
+		log_debug(ld->log,
+			  "Reporting route failure to gossipd: 0x%04x (%s) "
+			  "node %s channel %s update %s",
+			  fail->failcode, onion_type_name(fail->failcode),
+			  type_to_string(tmpctx, struct pubkey,
+					 &fail->erring_node),
+			  type_to_string(tmpctx, struct short_channel_id,
+				  	 &fail->erring_channel),
+			  tal_hex(tmpctx, fail->channel_update));
+		report_routing_failure(ld->gossip, fail);
+	}
 
-	/* FIXME: check for routing failure / perm fail. */
-	/* check_for_routing_failure(i, sender, failure_code); */
+	/* FIXME(ZmnSCPxj): if retrying is plausible, and we are
+	 * using pay command rather than sendpay, retry routing
+	 * and payment again. */
+	(void) retry_plausible;
 
-	json_pay_failed(hout->cmd, NULL, failcode, "reply from remote");
+	json_pay_failed(hout->cmd, failcode, failmsg);
 	tal_free(tmpctx);
 }
 
