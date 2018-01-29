@@ -134,6 +134,10 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 				       const struct block *block),	\
 		  (cbdata))
 
+struct txwatch *find_txwatch(struct chain_topology *topo,
+			     const struct bitcoin_txid *txid,
+			     const struct peer *peer);
+
 void txwatch_fire(struct chain_topology *topo,
 		  const struct bitcoin_tx *tx,
 		  unsigned int depth);

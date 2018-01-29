@@ -1195,7 +1195,20 @@ static void handle_onchain_broadcast_tx(struct peer *peer, const u8 *msg)
 
 static void handle_onchain_unwatch_tx(struct peer *peer, const u8 *msg)
 {
-	/* FIXME: unwatch tx and children here. */
+	struct bitcoin_txid txid;
+	struct txwatch *txw;
+
+	if (!fromwire_onchain_unwatch_tx(msg, NULL, &txid)) {
+		peer_internal_error(peer, "Invalid onchain_unwatch_tx");
+		return;
+	}
+
+	/* Frees the txo watches, too: see watch_tx_and_outputs() */
+	txw = find_txwatch(peer->ld->topology, &txid, peer);
+	if (!txw)
+		log_unusual(peer->log, "Can't unwatch txid %s",
+			    type_to_string(ltmp, struct bitcoin_txid, &txid));
+	tal_free(txw);
 }
 
 static void handle_extracted_preimage(struct peer *peer, const u8 *msg)

@@ -112,6 +112,24 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 	return w;
 }
 
+struct txwatch *find_txwatch(struct chain_topology *topo,
+			     const struct bitcoin_txid *txid,
+			     const struct peer *peer)
+{
+	struct txwatch_hash_iter i;
+	struct txwatch *w;
+
+	/* We could have more than one peer watching same txid, though we
+	 * don't for onchaind. */
+	for (w = txwatch_hash_getfirst(&topo->txwatches, txid, &i);
+	     w;
+	     w = txwatch_hash_getnext(&topo->txwatches, txid, &i)) {
+		if (w->peer == peer)
+			break;
+	}
+	return w;
+}
+
 bool watching_txid(const struct chain_topology *topo,
 		   const struct bitcoin_txid *txid)
 {
