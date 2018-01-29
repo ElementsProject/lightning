@@ -339,6 +339,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 	}
 
 	if (failure_code) {
+		hout->failcode = (enum onion_type) failure_code;
 		if (!hout->in) {
 			char *localfail = tal_fmt(msg, "%s: %.*s",
 						  onion_type_name(failure_code),
