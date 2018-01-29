@@ -563,7 +563,7 @@ void register_opts(struct lightningd *ld)
 	    &ld->config.channel_update_interval,
 	    "Time in seconds between channel updates for our own channels.");
 
-	opt_register_logging(ld->log);
+	opt_register_logging(ld);
 	opt_register_version();
 
 	configdir_register_opts(ld, &ld->config_dir, &ld->rpc_filename);

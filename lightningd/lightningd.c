@@ -56,6 +56,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx,
 	htlc_out_map_init(&ld->htlcs_out);
 	ld->log_book = log_book;
 	ld->log = new_log(log_book, log_book, "lightningd(%u):", (int)getpid());
+	ld->logfile = NULL;
 	ld->alias = NULL;
 	ld->rgb = NULL;
 	list_head_init(&ld->connects);
