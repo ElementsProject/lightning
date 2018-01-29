@@ -83,8 +83,15 @@ void json_object_end(struct json_result *ptr);
 
 struct json_result *new_json_result(const tal_t *ctx);
 
-/* '"fieldname" : "value"' or '"value"' if fieldname is NULL*/
+/* '"fieldname" : "value"' or '"value"' if fieldname is NULL.  Turns
+ * any unusual chars into ?.
+ */
 void json_add_string(struct json_result *result, const char *fieldname, const char *value);
+
+/* Properly escapes any characters in @value */
+void json_add_string_escape(struct json_result *result, const char *fieldname,
+			    const char *value);
+
 /* '"fieldname" : literal' or 'literal' if fieldname is NULL*/
 void json_add_literal(struct json_result *result, const char *fieldname,
 		      const char *literal, int len);
