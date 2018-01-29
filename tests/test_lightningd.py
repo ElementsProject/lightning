@@ -2427,6 +2427,13 @@ class LightningDTests(BaseLightningDTests):
         c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
         assert(c.fetchone()[0] == 6)
 
+        # Test withdrawal to self.
+        out = l1.rpc.withdraw(l1.rpc.newaddr()['address'], 'all')
+        bitcoind.rpc.generate(1)
+        c = db.cursor()
+        c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
+        assert(c.fetchone()[0] == 1)
+        
         out = l1.rpc.withdraw(waddr, 'all')
         c = db.cursor()
         c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
