@@ -225,11 +225,11 @@ const jsmntok_t *json_delve(const char *buffer,
 	return tok;
 }
 
-/* FIXME: Return false if unknown params specified, too! */
 bool json_get_params(const char *buffer, const jsmntok_t param[], ...)
 {
 	va_list ap;
-	const char *name;
+	const char **names;
+	size_t num_names;
 	 /* Uninitialized warnings on p and end */
 	const jsmntok_t **tokptr, *p = NULL, *end = NULL;
 
@@ -242,12 +242,14 @@ bool json_get_params(const char *buffer, const jsmntok_t param[], ...)
 	} else if (param->type != JSMN_OBJECT)
 		return false;
 
+	num_names = 0;
+	names = tal_arr(NULL, const char *, num_names + 1);
 	va_start(ap, param);
-	while ((name = va_arg(ap, const char *)) != NULL) {
+	while ((names[num_names] = va_arg(ap, const char *)) != NULL) {
 		tokptr = va_arg(ap, const jsmntok_t **);
 		bool compulsory = true;
-		if (name[0] == '?') {
-			name++;
+		if (names[num_names][0] == '?') {
+			names[num_names]++;
 			compulsory = false;
 		}
 		if (param->type == JSMN_ARRAY) {
@@ -258,7 +260,8 @@ bool json_get_params(const char *buffer, const jsmntok_t param[], ...)
 					p = NULL;
 			}
 		} else {
-			*tokptr = json_get_member(buffer, param, name);
+			*tokptr = json_get_member(buffer, param,
+						  names[num_names]);
 		}
 		/* Convert 'null' to NULL */
 		if (*tokptr
@@ -268,11 +271,41 @@ bool json_get_params(const char *buffer, const jsmntok_t param[], ...)
 		}
 		if (compulsory && !*tokptr) {
 			va_end(ap);
+			tal_free(names);
 			return false;
 		}
+		num_names++;
+		tal_resize(&names, num_names + 1);
 	}
 
 	va_end(ap);
+
+	/* Now make sure there aren't any params which aren't valid */
+	if (param->type == JSMN_ARRAY) {
+		if (param->size > num_names) {
+			tal_free(names);
+			return false;
+		}
+	} else {
+		const jsmntok_t *t;
+
+		end = json_next(param);
+
+		/* Find each parameter among the valid names */
+		for (t = param + 1; t < end; t = json_next(t+1)) {
+			bool found = false;
+			for (size_t i = 0; i < num_names; i++) {
+				if (json_tok_streq(buffer, t, names[i]))
+					found = true;
+			}
+			if (!found) {
+				tal_free(names);
+				return false;
+			}
+		}
+	}
+
+	tal_free(names);
 	return true;
 }
 
