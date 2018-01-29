@@ -66,9 +66,6 @@ struct config {
 	/* How often to broadcast gossip (msec) */
 	u32 broadcast_interval;
 
-	/* Disable automatic reconnects */
-	bool no_reconnect;
-
 	/* Channel update interval */
 	u32 channel_update_interval;
 
@@ -152,6 +149,9 @@ struct lightningd {
 
 	/* Things we've marked as not leaking. */
 	const void **notleaks;
+
+	/* Disable automatic reconnects */
+	bool no_reconnect;
 #endif /* DEVELOPER */
 };
 
