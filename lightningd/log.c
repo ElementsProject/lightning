@@ -414,7 +414,7 @@ static void log_to_file(const char *prefix,
 	fflush(logf);
 }
 
-static char *arg_log_to_file(const char *arg, struct lightningd *ld)
+char *arg_log_to_file(const char *arg, struct lightningd *ld)
 {
 	FILE *logf;
 

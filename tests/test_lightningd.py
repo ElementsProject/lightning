@@ -3161,5 +3161,25 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(1)
         l1.daemon.wait_for_log('ONCHAIND_.*_UNILATERAL')
 
+    def test_listconfigs(self):
+        l1 = self.node_factory.get_node()
+
+        configs = l1.rpc.listconfigs()
+        # See utils.py
+        assert configs['bitcoin-datadir'] == bitcoind.bitcoin_dir
+        assert configs['lightning-dir'] == l1.daemon.lightning_dir
+        assert configs['port'] == l1.info['port']
+        assert configs['allow-deprecated-apis'] == False
+        assert configs['override-fee-rates'] == '15000/7500/1000'
+        assert configs['network'] == 'regtest'
+        assert configs['ignore-fee-limits'] == False
+
+        # Test one at a time.
+        for c in configs.keys():
+            if c.startswith('#'):
+                continue
+            oneconfig = l1.rpc.listconfigs(c)
+            assert(oneconfig[c] == configs[c])
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
