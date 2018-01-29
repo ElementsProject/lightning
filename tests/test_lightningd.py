@@ -13,6 +13,7 @@ import random
 import re
 import sqlite3
 import string
+import subprocess
 import sys
 import tempfile
 import threading
@@ -3180,6 +3181,63 @@ class LightningDTests(BaseLightningDTests):
                 continue
             oneconfig = l1.rpc.listconfigs(c)
             assert(oneconfig[c] == configs[c])
+
+    def test_cli(self):
+        l1 = self.node_factory.get_node()
+
+        out = subprocess.check_output(['cli/lightning-cli',
+                                       '--lightning-dir={}'
+                                       .format(l1.daemon.lightning_dir),
+                                       'help']).decode('utf-8')
+        # Test some known output.
+        assert 'command=help' in out
+        assert 'description=List available commands, or give verbose help on one command' in out
+
+        # Test JSON output.
+        out = subprocess.check_output(['cli/lightning-cli',
+                                       '--lightning-dir={}'
+                                       .format(l1.daemon.lightning_dir),
+                                       '-J',
+                                       'help']).decode('utf-8')
+        j, _ = json.JSONDecoder().raw_decode(out)
+        assert j['help'][0]['command'] is not None
+        assert j['help'][0]['description'] is not None
+
+        # Test keyword input (autodetect)
+        out = subprocess.check_output(['cli/lightning-cli',
+                                       '--lightning-dir={}'
+                                       .format(l1.daemon.lightning_dir),
+                                       '-J',
+                                       'help', 'command=help']).decode('utf-8')
+        j, _ = json.JSONDecoder().raw_decode(out)
+        assert 'help [command]' in j['verbose'] 
+
+        # Test keyword input (forced)
+        out = subprocess.check_output(['cli/lightning-cli',
+                                       '--lightning-dir={}'
+                                       .format(l1.daemon.lightning_dir),
+                                       '-J', '-k',
+                                       'help', 'command=help']).decode('utf-8')
+        j, _ = json.JSONDecoder().raw_decode(out)
+        assert 'help [command]' in j['verbose'] 
+
+        # Test ordered input (autodetect)
+        out = subprocess.check_output(['cli/lightning-cli',
+                                       '--lightning-dir={}'
+                                       .format(l1.daemon.lightning_dir),
+                                       '-J',
+                                       'help', 'help']).decode('utf-8')
+        j, _ = json.JSONDecoder().raw_decode(out)
+        assert 'help [command]' in j['verbose'] 
+
+        # Test ordered input (forced)
+        out = subprocess.check_output(['cli/lightning-cli',
+                                       '--lightning-dir={}'
+                                       .format(l1.daemon.lightning_dir),
+                                       '-J', '-o',
+                                       'help', 'help']).decode('utf-8')
+        j, _ = json.JSONDecoder().raw_decode(out)
+        assert 'help [command]' in j['verbose'] 
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
