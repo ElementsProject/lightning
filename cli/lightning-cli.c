@@ -94,7 +94,7 @@ static size_t human_readable(const char *buffer, const jsmntok_t *t, char term)
 enum format {
 	JSON,
 	HUMAN,
-	DEFAULT
+	DEFAULT_FORMAT
 };
 
 static char *opt_set_human(enum format *format)
@@ -109,6 +109,48 @@ static char *opt_set_json(enum format *format)
 	return NULL;
 }
 
+enum input {
+	KEYWORDS,
+	ORDERED,
+	DEFAULT_INPUT
+};
+
+static char *opt_set_keywords(enum input *input)
+{
+	*input = KEYWORDS;
+	return NULL;
+}
+
+static char *opt_set_ordered(enum input *input)
+{
+	*input = ORDERED;
+	return NULL;
+}
+
+static bool is_literal(const char *arg)
+{
+	return strspn(arg, "0123456789") == strlen(arg)
+		|| streq(arg, "true")
+		|| streq(arg, "false")
+		|| streq(arg, "null")
+		|| arg[0] == '{'
+		|| arg[0] == '['
+		|| arg[0] == '"';
+}
+
+static void add_input(char **cmd, const char *input,
+		      int i, int argc)
+{
+	/* Numbers, bools, objects and arrays are left unquoted,
+	 * and quoted things left alone. */
+	if (is_literal(input))
+		tal_append_fmt(cmd, "%s", input);
+	else
+		tal_append_fmt(cmd, "\"%s\"", input);
+	if (i != argc - 1)
+		tal_append_fmt(cmd, ", ");
+}
+
 int main(int argc, char *argv[])
 {
 	int fd, i, off;
@@ -121,7 +163,8 @@ int main(int argc, char *argv[])
 	const tal_t *ctx = tal(NULL, char);
 	jsmn_parser parser;
 	jsmnerr_t parserr;
-	enum format format = DEFAULT;
+	enum format format = DEFAULT_FORMAT;
+	enum input input = DEFAULT_INPUT;
 
 	err_set_progname(argv[0]);
 	jsmn_init(&parser);
@@ -135,6 +178,10 @@ int main(int argc, char *argv[])
 			   "Human-readable output (default for 'help')");
 	opt_register_noarg("-J|--json", opt_set_json, &format,
 			   "JSON output (default unless 'help')");
+	opt_register_noarg("-k|--keywords", opt_set_keywords, &input,
+			   "Use format key=value for <params>");
+	opt_register_noarg("-o|--order", opt_set_ordered, &input,
+			   "Use params in order for <params>");
 
 	opt_register_version();
 
@@ -150,7 +197,7 @@ int main(int argc, char *argv[])
 		method = "help";
 	}
 
-	if (format == DEFAULT) {
+	if (format == DEFAULT_FORMAT) {
 		if (streq(method, "help"))
 			format = HUMAN;
 		else
@@ -173,26 +220,38 @@ int main(int argc, char *argv[])
 
 	idstr = tal_fmt(ctx, "lightning-cli-%i", getpid());
 	cmd = tal_fmt(ctx,
-		      "{ \"method\" : \"%s\", \"id\" : \"%s\", \"params\" : [ ",
+		      "{ \"method\" : \"%s\", \"id\" : \"%s\", \"params\" : ",
 		      method, idstr);
 
-	for (i = 2; i < argc; i++) {
-		/* Numbers, bools, objects and arrays are left unquoted,
-		 * and quoted things left alone. */
-		if (strspn(argv[i], "0123456789") == strlen(argv[i])
-		    || streq(argv[i], "true")
-		    || streq(argv[i], "false")
-		    || streq(argv[i], "null")
-		    || argv[i][0] == '{'
-		    || argv[i][0] == '['
-		    || argv[i][0] == '"')
-			tal_append_fmt(&cmd, "%s", argv[i]);
+	if (input == DEFAULT_INPUT) {
+		/* Hacky autodetect; only matters if more than single arg */
+		if (argc > 2 && strchr(argv[2], '='))
+			input = KEYWORDS;
 		else
-			tal_append_fmt(&cmd, "\"%s\"", argv[i]);
-		if (i != argc - 1)
-			tal_append_fmt(&cmd, ", ");
+			input = ORDERED;
 	}
-	tal_append_fmt(&cmd, "] }");
+
+	if (input == KEYWORDS) {
+		tal_append_fmt(&cmd, "{ ");
+		for (i = 2; i < argc; i++) {
+			const char *eq = strchr(argv[i], '=');
+
+			if (!eq)
+				err(ERROR_USAGE, "Expected key=value in '%s'",
+				    argv[i]);
+
+			tal_append_fmt(&cmd, "\"%.*s\" : ",
+				       (int)(eq - argv[i]), argv[i]);
+
+			add_input(&cmd, eq + 1, i, argc);
+		}
+		tal_append_fmt(&cmd, "} }");
+	} else {
+		tal_append_fmt(&cmd, "[ ");
+		for (i = 2; i < argc; i++)
+			add_input(&cmd, argv[i], i, argc);
+		tal_append_fmt(&cmd, "] }");
+	}
 
 	if (!write_all(fd, cmd, strlen(cmd)))
 		err(ERROR_TALKING_TO_LIGHTNINGD, "Writing command");
