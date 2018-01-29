@@ -991,6 +991,54 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_onchain_unwatch(self):
+        """Onchaind should not watch random spends"""
+        l1,l2 = self.connect()
+
+        self.fund_channel(l1, l2, 10**6)
+        self.pay(l1,l2,200000000)
+
+        l1.rpc.dev_fail(l2.info['id'])
+        l1.daemon.wait_for_log('Failing due to dev-fail command')
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+
+        l1.bitcoin.generate_block(1)
+        l1.daemon.wait_for_log(' to ONCHAIND_OUR_UNILATERAL')
+        l2.daemon.wait_for_log(' to ONCHAIND_THEIR_UNILATERAL')
+
+        # 10 later, l1 should collect its to-self payment.
+        bitcoind.generate_block(10)
+        l1.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+
+        # First time it sees it, onchaind cares.
+        bitcoind.generate_block(1)
+        l1.daemon.wait_for_log('Resolved OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by our proposal OUR_DELAYED_RETURN_TO_WALLET')
+
+        # Now test unrelated onchain churn.
+        # Daemon gets told about wallet; says it doesn't care.
+        l1.rpc.withdraw(l1.rpc.newaddr()['address'], 'all')
+        bitcoind.generate_block(1)
+        l1.daemon.wait_for_log("but we don't care")
+        
+        # And lightningd should respect that!
+        assert not l1.daemon.is_in_log("Can't unwatch txid")
+
+        # So these should not generate further messages
+        for i in range(5):
+            l1.rpc.withdraw(l1.rpc.newaddr()['address'], 'all')
+            bitcoind.generate_block(1)
+            # Make sure it digests the block
+            sync_blockheight([l1])
+
+        # We won't see this again.
+        assert not l1.daemon.is_in_log("but we don't care",
+                                       start=l1.daemon.logsearch_start)
+
+        # Note: for this test we leave onchaind running, so we can detect
+        # any leaks!
+        
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_onchain_dust_out(self):
         """Onchain handling of outgoing dust htlcs (they should fail)"""
         # HTLC 1->2, 1 fails after it's irrevocably committed
