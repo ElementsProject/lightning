@@ -62,7 +62,6 @@ onchain_depth,,depth,u32
 # onchaind->master: We don't want to watch this tx, or its outputs
 onchain_unwatch_tx,5006
 onchain_unwatch_tx,,txid,struct bitcoin_txid
-onchain_unwatch_tx,,num_outputs,u32
 
 # master->onchaind: We know HTLC preimage
 onchain_known_preimage,5007

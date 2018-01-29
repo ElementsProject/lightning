@@ -508,7 +508,7 @@ static void unwatch_tx(const struct bitcoin_tx *tx)
 
 	bitcoin_txid(tx, &txid);
 
-	msg = towire_onchain_unwatch_tx(tx, &txid, tal_count(tx->output));
+	msg = towire_onchain_unwatch_tx(tx, &txid);
 	wire_sync_write(REQ_FD, take(msg));
 }
 
