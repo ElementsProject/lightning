@@ -519,6 +519,22 @@ static bool check_channel_announcement(
 	       check_signed_hash(&hash, bitcoin2_sig, bitcoin2_key);
 }
 
+/* While master always processes in order, bitcoind is async, so they could
+ * theoretically return out of order. */
+static struct pending_cannouncement *
+find_pending_cannouncement(struct routing_state *rstate,
+			   const struct short_channel_id *scid)
+{
+	struct pending_cannouncement *i;
+
+	list_for_each(&rstate->pending_cannouncement, i, list) {
+		if (short_channel_id_eq(scid, &i->short_channel_id))
+			return i;
+	}
+	return NULL;
+}
+
+
 const struct short_channel_id *handle_channel_announcement(
 	struct routing_state *rstate,
 	const u8 *announce TAKES)
@@ -604,21 +620,6 @@ const struct short_channel_id *handle_channel_announcement(
 	/* FIXME: Handle duplicates as per BOLT #7 */
 	list_add_tail(&rstate->pending_cannouncement, &pending->list);
 	return &pending->short_channel_id;
-}
-
-/* While master always processes in order, bitcoind is async, so they could
- * theoretically return out of order. */
-static struct pending_cannouncement *
-find_pending_cannouncement(struct routing_state *rstate,
-			   const struct short_channel_id *scid)
-{
-	struct pending_cannouncement *i;
-
-	list_for_each(&rstate->pending_cannouncement, i, list) {
-		if (short_channel_id_eq(scid, &i->short_channel_id))
-			return i;
-	}
-	return NULL;
 }
 
 bool handle_pending_cannouncement(struct routing_state *rstate,
