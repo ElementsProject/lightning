@@ -614,8 +614,8 @@ void peer_connection_failed(struct lightningd *ld, const u8 *msg)
 	bool addr_unknown;
 	char *error;
 
-	if (!fromwire_gossip_peer_connection_failed(msg, NULL, &id, &attempts,
-						    &timediff, &addr_unknown))
+	if (!fromwire_gossip_peer_connection_failed(msg, NULL, &id, &timediff,
+						    &attempts, &addr_unknown))
 		fatal(
 		    "Gossip gave bad GOSSIP_PEER_CONNECTION_FAILED message %s",
 		    tal_hex(msg, msg));
