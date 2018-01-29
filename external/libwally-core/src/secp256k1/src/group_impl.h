@@ -641,7 +641,7 @@ static int secp256k1_gej_has_quad_y_var(const secp256k1_gej *a) {
     }
 
     /* We rely on the fact that the Jacobi symbol of 1 / a->z^3 is the same as
-     * that of a->z. Thus a->y / a->z^3 is a quadratic residue iff a->y * a->z
+     * that of a->z. Thus a->y / a->z^3 is a quadratic residue if and only if a->y * a->z
        is */
     secp256k1_fe_mul(&yz, &a->y, &a->z);
     return secp256k1_fe_is_quad_var(&yz);

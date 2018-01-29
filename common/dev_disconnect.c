@@ -12,7 +12,7 @@
 #include <wire/gen_peer_wire.h>
 
 #if DEVELOPER
-/* We move the fd IFF we do a disconnect. */
+/* We move the fd if and only if we do a disconnect. */
 static int dev_disconnect_fd = -1;
 static char dev_disconnect_line[200];
 static int dev_disconnect_count, dev_disconnect_len;

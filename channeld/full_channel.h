@@ -105,7 +105,7 @@ enum channel_add_err {
  * @cltv_expiry: block number when HTLC can no longer be redeemed.
  * @payment_hash: hash whose preimage can redeem HTLC.
  * @routing: routing information (copied)
- * @htlcp: optional pointer for resulting htlc: filled in iff CHANNEL_ERR_NONE.
+ * @htlcp: optional pointer for resulting htlc: filled in if and only if CHANNEL_ERR_NONE.
  *
  * If this returns CHANNEL_ERR_NONE, the fee htlc was added and
  * the output amounts adjusted accordingly.  Otherwise nothing
@@ -148,7 +148,7 @@ enum channel_remove_err {
  * @channel: The channel state
  * @owner: the side who offered the HTLC (opposite to that failing it)
  * @id: unique HTLC id.
- * @htlcp: optional pointer for failed htlc: filled in iff CHANNEL_ERR_REMOVE_OK.
+ * @htlcp: optional pointer for failed htlc: filled in if and only if CHANNEL_ERR_REMOVE_OK.
  *
  * This will remove the htlc and credit the value of the HTLC (back)
  * to its offerer.
