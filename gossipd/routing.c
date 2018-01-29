@@ -545,6 +545,7 @@ const struct short_channel_id *handle_channel_announcement(
 	const char *tag;
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
 	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
+	struct node_connection *c0, *c1;
 
 	pending = tal(rstate, struct pending_cannouncement);
 	pending->updates[0] = NULL;
@@ -619,10 +620,16 @@ const struct short_channel_id *handle_channel_announcement(
 
 	/* FIXME: Handle duplicates as per BOLT #7 */
 
-	if (find_pending_cannouncement(rstate, &pending->short_channel_id) != NULL) {
-		/* Drop it like it's hot */
+	c0 = get_connection(rstate, &pending->node_id_2, &pending->node_id_1);
+	c1 = get_connection(rstate, &pending->node_id_1, &pending->node_id_2);
+
+	/* If we know the channels, or we have already a pending check, then skip */
+	if ((c0 != NULL && c1 != NULL) ||
+	    find_pending_cannouncement(rstate, &pending->short_channel_id) !=
+		NULL) {
 		return tal_free(pending);
 	}
+
 	list_add_tail(&rstate->pending_cannouncement, &pending->list);
 	return &pending->short_channel_id;
 }
