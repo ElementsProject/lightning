@@ -38,7 +38,13 @@ def to_json(arg):
 def setupBitcoind(directory):
     global bitcoind
     bitcoind = utils.BitcoinD(bitcoin_dir=directory, rpcport=28332)
-    bitcoind.start()
+
+    try:
+        bitcoind.start()
+    except:
+        tearDownBitcoind()
+        raise
+
     info = bitcoind.rpc.getblockchaininfo()
     # Make sure we have segwit and some funds
     if info['blocks'] < 432:
