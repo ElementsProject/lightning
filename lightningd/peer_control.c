@@ -639,8 +639,6 @@ void peer_connection_failed(struct lightningd *ld, const u8 *msg)
 	}
 }
 
-
-
 void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
 			 const struct wireaddr *addr,
