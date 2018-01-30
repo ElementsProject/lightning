@@ -128,7 +128,8 @@ new_log(const tal_t *ctx, struct log_book *record, const char *fmt, ...)
 	log->lr = record;
 	va_start(ap, fmt);
 	/* log->lr owns this, since its entries keep a pointer to it. */
-	log->prefix = tal_vfmt(log->lr, fmt, ap);
+	/* FIXME: Refcount this! */
+	log->prefix = notleak(tal_vfmt(log->lr, fmt, ap));
 	va_end(ap);
 
 	return log;
