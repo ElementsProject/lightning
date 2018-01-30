@@ -127,6 +127,8 @@ class TailableProc(object):
         starting from last of the previous waited-for log entries (if any).  We
         fail if the timeout is exceeded or if the underlying process
         exits before all the `regexs` were found.
+
+        If timeout is None, no time-out is applied.
         """
         logging.debug("Waiting for {} in the logs".format(regexs))
         exs = [re.compile(r) for r in regexs]
@@ -134,8 +136,8 @@ class TailableProc(object):
         pos = self.logsearch_start
         initial_pos = len(self.logs)
         while True:
-            if time.time() > start_time + timeout:
-                print("Can't find {} in logs".format(exs))
+            if timeout is not None and time.time() > start_time + timeout:
+                print("Time-out: can't find {} in logs".format(exs))
                 for r in exs:
                     if self.is_in_log(r):
                         print("({} was previously in logs!)".format(r))
@@ -223,7 +225,7 @@ class BitcoinD(TailableProc):
 
     def start(self):
         TailableProc.start(self)
-        self.wait_for_log("Done loading", timeout=10)
+        self.wait_for_log("Done loading", timeout=None)
 
         logging.info("BitcoinD started")
 
