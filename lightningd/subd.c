@@ -625,7 +625,16 @@ static struct subd *new_subd(struct lightningd *ld,
 		return tal_free(sd);
 	}
 	sd->ld = ld;
-	sd->log = new_log(sd, ld->log_book, "%s(%u):", name, sd->pid);
+	if (peer) {
+		/* FIXME: Use minimal unique pubkey prefix for logs! */
+		const char *idstr = type_to_string(peer, struct pubkey,
+						   &peer->id);
+		sd->log = new_log(sd, peer->log_book, "%s(%s):", name, idstr);
+		tal_free(idstr);
+	} else {
+		sd->log = new_log(sd, ld->log_book, "%s(%u):", name, sd->pid);
+	}
+
 	sd->name = name;
 	sd->must_not_exit = false;
 	sd->msgname = msgname;
