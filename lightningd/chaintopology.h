@@ -104,10 +104,10 @@ struct chain_topology {
 	/* Bitcoin transactions we're broadcasting */
 	struct list_head outgoing_txs;
 
-	/* Force a particular fee rate regardless of estimatefee (satoshis/kb) */
+	/* Force a particular fee rate regardless of estimatefee (satoshis/kw) */
 	u32 *override_fee_rate;
 
-	/* What fee we use if estimatefee fails (satoshis/kb) */
+	/* What fee we use if estimatefee fails (satoshis/kw) */
 	u32 default_fee_rate;
 
 	/* Transactions/txos we are watching. */
