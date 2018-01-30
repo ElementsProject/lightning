@@ -32,3 +32,9 @@ bool short_channel_id_eq(const struct short_channel_id *a,
 	return a->blocknum == b->blocknum && a->txnum == b->txnum &&
 	       a->outnum == b->outnum;
 }
+
+u64 short_channel_id_to_uint(const struct short_channel_id *scid)
+{
+	return ((u64)scid->blocknum & 0xFFFFFF) << 40 |
+	       ((u64)scid->txnum & 0xFFFFFF) << 16 | (scid->outnum & 0xFFFF);
+}
