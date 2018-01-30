@@ -917,7 +917,7 @@ class LightningDTests(BaseLightningDTests):
         closetxid = l1.bitcoin.rpc.getrawmempool(False)[0]
 
         # "Internal error" in hex
-        l1.daemon.wait_for_log('WIRE_ERROR.*496e7465726e616c206572726f72')
+        l1.daemon.wait_for_log(r'ERROR.*Internal error')
 
         # l2 will send out tx (l1 considers it a transient error)
         bitcoind.generate_block(1)
