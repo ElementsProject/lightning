@@ -555,6 +555,17 @@ find_pending_cannouncement(struct routing_state *rstate,
 	return NULL;
 }
 
+static struct routing_channel *
+routing_channel_new(const tal_t *ctx, struct short_channel_id *scid)
+{
+	struct routing_channel *chan = tal(ctx, struct routing_channel);
+	chan->scid = *scid;
+	chan->connections[0] = chan->connections[1] = NULL;
+	chan->nodes[0] = chan->nodes[1] = NULL;
+	chan->txout_script = NULL;
+	chan->state = TXOUT_FETCHING;
+	return chan;
+}
 
 const struct short_channel_id *handle_channel_announcement(
 	struct routing_state *rstate,
@@ -565,7 +576,8 @@ const struct short_channel_id *handle_channel_announcement(
 	u8 *features;
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
 	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
-	struct node_connection *c0, *c1;
+	u64 scid;
+	struct routing_channel *chan;
 
 	pending = tal(rstate, struct pending_cannouncement);
 	pending->updates[0] = NULL;
@@ -588,6 +600,16 @@ const struct short_channel_id *handle_channel_announcement(
 		tal_free(pending);
 		return NULL;
 	}
+
+	scid = short_channel_id_to_uint(&pending->short_channel_id);
+
+	/* Check if we know the channel already (no matter in what
+	 * state, we stop here if yes). */
+	chan = uintmap_get(&rstate->channels, scid);
+	if (chan != NULL) {
+		return tal_free(pending);
+	}
+        /* FIXME: Handle duplicates as per BOLT #7 */
 
 	/* BOLT #7:
 	 *
@@ -638,17 +660,9 @@ const struct short_channel_id *handle_channel_announcement(
 		     type_to_string(pending, struct short_channel_id,
 				    &pending->short_channel_id));
 
-	/* FIXME: Handle duplicates as per BOLT #7 */
-
-	c0 = get_connection(rstate, &pending->node_id_2, &pending->node_id_1);
-	c1 = get_connection(rstate, &pending->node_id_1, &pending->node_id_2);
-
-	/* If we know the channels, or we have already a pending check, then skip */
-	if ((c0 != NULL && c1 != NULL) ||
-	    find_pending_cannouncement(rstate, &pending->short_channel_id) !=
-		NULL) {
-		return tal_free(pending);
-	}
+	/* So you're new in town, ey? Let's find you a room in the Inn. */
+	chan = routing_channel_new(chan, &pending->short_channel_id);
+	uintmap_add(&rstate->channels, scid, chan);
 
 	list_add_tail(&rstate->pending_cannouncement, &pending->list);
 	return &pending->short_channel_id;
