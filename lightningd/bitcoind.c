@@ -140,7 +140,7 @@ static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
 				      (int)bcli->output_bytes,
 				      bcli->output);
 			bitcoind->error_count++;
-
+			bitcoind->req_running = false;
 			goto done;
 		}
 	} else
