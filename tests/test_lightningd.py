@@ -350,7 +350,7 @@ class LightningDTests(BaseLightningDTests):
         assert len(outputs) == 1 and outputs[0]['q'] != 0
 
         # Check any-amount invoice
-        inv = l1.rpc.invoice("any", 'label2', 'description2');
+        inv = l1.rpc.invoice("any", 'label2', 'description2')
         b11 = inv['bolt11']
         # Amount usually comes after currency (tb in our case),
         # but an any-amount invoices will have no amount
@@ -2615,7 +2615,7 @@ class LightningDTests(BaseLightningDTests):
         assert l1.rpc.listpeers()['peers'][0]['channels'][0]['msatoshi_to_us'] == 99980000
 
         # Now make sure l1 is watching for unilateral closes
-        l2.rpc.dev_fail(l1.info['id']);
+        l2.rpc.dev_fail(l1.info['id'])
         l2.daemon.wait_for_log('Failing due to dev-fail command')
         l2.daemon.wait_for_log('sendrawtx exit 0')
         bitcoind.generate_block(1)
