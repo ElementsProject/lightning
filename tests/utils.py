@@ -8,6 +8,7 @@ import sqlite3
 import subprocess
 import threading
 import time
+import binascii
 
 
 BITCOIND_CONFIG = {
@@ -259,7 +260,7 @@ class LightningD(TailableProc):
         if DEVELOPER:
             self.cmd_line += ['--dev-broadcast-interval=1000']
             if not random_hsm:
-                self.cmd_line += ['--dev-hsm-seed={}'.format(seed.hex())]
+                self.cmd_line += ['--dev-hsm-seed={}'.format(binascii.hexlify(seed).decode('ascii'))]
         self.cmd_line += ["--{}={}".format(k, v) for k, v in sorted(LIGHTNINGD_CONFIG.items())]
         self.prefix = 'lightningd(%d)' % (port)
 
