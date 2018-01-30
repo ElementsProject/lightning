@@ -548,6 +548,16 @@ void register_opts(struct lightningd *ld)
 	opt_register_arg("--alias", opt_set_alias, NULL, ld,
 			 "Up to 32-byte alias for node");
 
+	opt_register_arg("--bitcoin-rpcuser", opt_set_talstr, NULL,
+			 &ld->topology->bitcoind->rpcuser,
+			 "bitcoind RPC username");
+	opt_register_arg("--bitcoin-rpcpassword", opt_set_talstr, NULL,
+			 &ld->topology->bitcoind->rpcpass,
+			 "bitcoind RPC password");
+	opt_register_arg("--bitcoin-rpcconnect", opt_set_talstr, NULL,
+			 &ld->topology->bitcoind->rpcconnect,
+			 "bitcoind RPC host to connect to");
+
 	opt_register_arg(
 	    "--channel-update-interval=<s>", opt_set_u32, opt_show_u32,
 	    &ld->config.channel_update_interval,
