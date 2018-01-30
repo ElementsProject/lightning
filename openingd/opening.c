@@ -203,60 +203,90 @@ static void temporary_channel_id(struct channel_id *channel_id)
 		channel_id->id[i] = pseudorand(256);
 }
 
-/* We have to handle random gossip message and pings. */
-static u8 *read_next_peer_msg(struct state *state, const tal_t *ctx)
+static void handle_ping(const u8 *msg,
+			struct crypto_state *cs,
+			const struct channel_id *our_channel_id)
 {
-	for (;;) {
-		u8 *msg = sync_crypto_read(ctx, &state->cs, PEER_FD);
-		if (!msg)
-			return NULL;
+	u8 *pong;
 
-		if (fromwire_peektype(msg) == WIRE_PING) {
-			u8 *pong;
-			if (!check_ping_make_pong(ctx, msg, &pong)) {
-				status_trace("Bad ping message");
-				return tal_free(msg);
-			}
-			if (pong && !sync_crypto_write(&state->cs, PEER_FD,
-						       take(pong)))
-				status_failed(STATUS_FAIL_PEER_IO,
-					      "Sending pong");
-		} else if (is_gossip_msg(msg)) {
-			/* We relay gossip to gossipd, but don't relay from */
-			if (!wire_sync_write(GOSSIP_FD, take(msg)))
-				status_failed(STATUS_FAIL_PEER_IO,
-					      "Relaying gossip message");
-		} else if (fromwire_peektype(msg) == WIRE_ERROR) {
-			struct channel_id chanid;
-			char *err = sanitize_error(msg, msg, &chanid);
+	if (!check_ping_make_pong(msg, msg, &pong))
+		peer_failed(PEER_FD, cs, our_channel_id, "Bad ping");
 
-			/* BOLT #1:
-			 *
-			 * The channel is referred to by `channel_id`, unless
-			 * `channel_id` is 0 (i.e. all bytes are 0), in which
-			 * case it refers to all channels.
-			 * ...
+	status_trace("Got ping, sending %s", pong ?
+		     wire_type_name(fromwire_peektype(pong))
+		     : "nothing");
 
-			 * The receiving node:
-			 *   - upon receiving `error`:
-			 *    - MUST fail the channel referred to by the error
-			 *       message.
-			 *  - if no existing channel is referred to by the
-			 *    message:
-			 *    - MUST ignore the message.
-			 */
-			if (channel_id_is_all(&chanid))
-				peer_failed(PEER_FD, &state->cs,
-					    &state->channel_id,
-					    "Error packet: %s", err);
+	if (pong && !sync_crypto_write(cs, PEER_FD, take(pong)))
+		status_failed(STATUS_FAIL_PEER_IO,
+			      "Failed writing pong: %s", strerror(errno));
+}
 
-			if (structeq(&chanid, &state->channel_id))
-				negotiation_failed(state, false,
-						   "Error packet: %s", err);
-		} else {
-			return msg;
-		}
+/* Handle random messages we might get, returning NULL if we handled it. */
+static u8 *read_peer_msg(struct state *state)
+{
+	u8 *msg;
+	struct channel_id channel_id;
+
+	msg = sync_crypto_read(state, &state->cs, PEER_FD);
+	if (!msg)
+		status_failed(STATUS_FAIL_PEER_IO,
+			      "Failed reading from peer: %s", strerror(errno));
+
+	if (is_gossip_msg(msg)) {
+		/* Forward to gossip daemon */
+		wire_sync_write(GOSSIP_FD, take(msg));
+		return NULL;
 	}
+
+	if (fromwire_peektype(msg) == WIRE_PING) {
+		handle_ping(msg, &state->cs, &state->channel_id);
+		return tal_free(msg);
+	}
+
+	if (fromwire_peektype(msg) == WIRE_ERROR) {
+		struct channel_id chanid;
+		char *err = sanitize_error(msg, msg, &chanid);
+
+		/* BOLT #1:
+		 *
+		 * The channel is referred to by `channel_id`, unless
+		 * `channel_id` is 0 (i.e. all bytes are 0), in which
+		 * case it refers to all channels.
+		 * ...
+
+		 * The receiving node:
+		 *   - upon receiving `error`:
+		 *    - MUST fail the channel referred to by the error
+		 *       message.
+		 *  - if no existing channel is referred to by the
+		 *    message:
+		 *    - MUST ignore the message.
+		 */
+		if (channel_id_is_all(&chanid))
+			status_failed(STATUS_FAIL_PEER_BAD,
+				      "Received ERROR %s", err);
+		else if (structeq(&chanid, &state->channel_id))
+			negotiation_failed(state, false,
+					   "Error packet: %s", err);
+
+		return tal_free(msg);
+	}
+
+	/* They're talking about a different channel? */
+	if (extract_channel_id(msg, &channel_id)
+	    && !structeq(&channel_id, &state->channel_id)) {
+		status_trace("Rejecting %s for unknown channel_id %s",
+			     wire_type_name(fromwire_peektype(msg)),
+			     type_to_string(msg, struct channel_id,
+					    &channel_id));
+		sync_crypto_write(&state->cs, PEER_FD,
+				  take(towire_errorfmt(msg, &channel_id,
+						       "Multiple channels"
+						       " unsupported")));
+		return tal_free(msg);
+	}
+
+	return msg;
 }
 
 static u8 *funder_channel(struct state *state,
@@ -323,10 +353,7 @@ static u8 *funder_channel(struct state *state,
 
 	state->remoteconf = tal(state, struct channel_config);
 
-	msg = read_next_peer_msg(state, state);
-	if (!msg)
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "Reading accept_channel: %s", strerror(errno));
+	while ((msg = read_peer_msg(state)) == NULL);
 
 	/* BOLT #2:
 	 *
@@ -447,10 +474,7 @@ static u8 *funder_channel(struct state *state,
 	 * commitment transaction, so they can broadcast it knowing they can
 	 * redeem their funds if they need to.
 	 */
-	msg = read_next_peer_msg(state, state);
-	if (!msg)
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "Writing funding_signed: %s", strerror(errno));
+	while ((msg = read_peer_msg(state)) == NULL);
 
 	if (!fromwire_funding_signed(msg, NULL, &id_in, &sig))
 		peer_failed(PEER_FD, &state->cs, &state->channel_id,
@@ -633,10 +657,7 @@ static u8 *fundee_channel(struct state *state,
 		status_failed(STATUS_FAIL_PEER_IO,
 			      "Writing accept_channel: %s", strerror(errno));
 
-	msg = read_next_peer_msg(state, state);
-	if (!msg)
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "Reading funding_created: %s", strerror(errno));
+	while ((msg = read_peer_msg(state)) == NULL);
 
 	if (!fromwire_funding_created(msg, NULL, &id_in,
 				      &state->funding_txid,
