@@ -1555,7 +1555,6 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 static void peer_in(struct peer *peer, const u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
-	status_trace("peer_in %s", wire_type_name(type));
 
 	/* FIXME: We don't support concurrent channels with same peer. */
 	if (type == WIRE_OPEN_CHANNEL) {
@@ -1767,6 +1766,73 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 	assert(peer->revocations_received == peer->next_index[REMOTE] - 2);
 }
 
+/* Handle random messages we might get, returning NULL if we handled it. */
+static u8 *read_peer_msg(struct peer *peer)
+{
+	u8 *msg;
+	struct channel_id channel_id;
+
+	msg = sync_crypto_read(peer, &peer->cs, PEER_FD);
+	if (!msg)
+		peer_conn_broken(peer);
+
+	status_trace("peer_in %s", wire_type_name(fromwire_peektype(msg)));
+
+	if (is_gossip_msg(msg)) {
+		/* Forward to gossip daemon */
+		wire_sync_write(GOSSIP_FD, take(msg));
+		return NULL;
+	}
+
+	if (fromwire_peektype(msg) == WIRE_PING) {
+		handle_ping(peer, msg);
+		return tal_free(msg);
+	}
+
+	if (fromwire_peektype(msg) == WIRE_ERROR) {
+		struct channel_id chanid;
+		char *err = sanitize_error(msg, msg, &chanid);
+
+		/* BOLT #1:
+		 *
+		 * The channel is referred to by `channel_id`, unless
+		 * `channel_id` is 0 (i.e. all bytes are 0), in which
+		 * case it refers to all channels.
+		 * ...
+
+		 * The receiving node:
+		 *   - upon receiving `error`:
+		 *    - MUST fail the channel referred to by the error
+		 *       message.
+		 *  - if no existing channel is referred to by the
+		 *    message:
+		 *    - MUST ignore the message.
+		 */
+		if (channel_id_is_all(&chanid)
+		    || structeq(&chanid, &peer->channel_id)) {
+			status_failed(STATUS_FAIL_PEER_BAD,
+				      "Received ERROR %s", err);
+		}
+		return tal_free(msg);
+	}
+
+	/* They're talking about a different channel? */
+	if (extract_channel_id(msg, &channel_id)
+	    && !structeq(&channel_id, &peer->channel_id)) {
+		status_trace("Rejecting %s for unknown channel_id %s",
+			     wire_type_name(fromwire_peektype(msg)),
+			     type_to_string(msg, struct channel_id,
+					    &channel_id));
+		enqueue_peer_msg(peer,
+				 take(towire_errorfmt(msg, &channel_id,
+						      "Multiple channels"
+						      " unsupported")));
+		return tal_free(msg);
+	}
+
+	return msg;
+}
+
 static void peer_reconnect(struct peer *peer)
 {
 	struct channel_id channel_id;
@@ -1797,22 +1863,8 @@ static void peer_reconnect(struct peer *peer)
 		status_failed(STATUS_FAIL_PEER_IO,
 			      "Failed writing reestablish: %s", strerror(errno));
 
-again:
-	msg = sync_crypto_read(peer, &peer->cs, PEER_FD);
-	if (!msg)
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "Failed reading reestablish: %s", strerror(errno));
-
-	if (is_gossip_msg(msg)) {
-		/* Forward to gossip daemon */
-		wire_sync_write(GOSSIP_FD, take(msg));
-		goto again;
-	}
-
-	if (fromwire_peektype(msg) == WIRE_PING) {
-		handle_ping(peer, msg);
-		goto again;
-	}
+	/* Read until they say something interesting */
+	while ((msg = read_peer_msg(peer)) == NULL);
 
 	if (!fromwire_channel_reestablish(msg, NULL, &channel_id,
 					  &next_local_commitment_number,
@@ -2706,11 +2758,9 @@ int main(int argc, char *argv[])
 			gossip_in(peer, msg);
 		} else if (FD_ISSET(PEER_FD, &rfds)) {
 			/* This could take forever, but who cares? */
-			msg = sync_crypto_read(peer, &peer->cs, PEER_FD);
-
-			if (!msg)
-				peer_conn_broken(peer);
-			peer_in(peer, msg);
+			msg = read_peer_msg(peer);
+			if (msg)
+				peer_in(peer, msg);
 		} else
 			msg = NULL;
 		tal_free(msg);
