@@ -699,12 +699,10 @@ static void copy_to_parent_log(const char *prefix,
 			       const char *str,
 			       struct peer *peer)
 {
-	const char *idstr = type_to_string(peer, struct pubkey, &peer->id);
 	if (continued)
-		log_add(peer->ld->log, "Peer %s: ... %s", idstr, str);
+		log_add(peer->ld->log, "%s ... %s", prefix, str);
 	else
-		log_(peer->ld->log, level, "Peer %s: %s", idstr, str);
-	tal_free(idstr);
+		log_(peer->ld->log, level, "%s %s", prefix, str);
 }
 
 void populate_peer(struct lightningd *ld, struct peer *peer)
