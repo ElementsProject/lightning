@@ -129,7 +129,12 @@ class NodeFactory(object):
                 '--log-file={}/valgrind-errors.%p'.format(node.daemon.lightning_dir)
             ] + node.daemon.cmd_line
 
-        node.daemon.start()
+        try:
+            node.daemon.start()
+        except:
+            node.daemon.stop()
+            raise
+
         # Cache `getinfo`, we'll be using it a lot
         node.info = node.rpc.getinfo()
         return node
