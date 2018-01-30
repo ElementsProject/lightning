@@ -42,6 +42,22 @@ static char **gather_args(const struct bitcoind *bitcoind,
 		args[n++] = tal_fmt(args, "-datadir=%s", bitcoind->datadir);
 		tal_resize(&args, n + 1);
 	}
+
+	if (bitcoind->rpcconnect) {
+		args[n++] = tal_fmt(args, "-rpcconnect=%s", bitcoind->rpcconnect);
+		tal_resize(&args, n + 1);
+	}
+
+	if (bitcoind->rpcuser) {
+		args[n++] = tal_fmt(args, "-rpcuser=%s", bitcoind->rpcuser);
+		tal_resize(&args, n + 1);
+	}
+
+	if (bitcoind->rpcpass) {
+		args[n++] = tal_fmt(args, "-rpcpassword=%s", bitcoind->rpcpass);
+		tal_resize(&args, n + 1);
+	}
+
 	args[n++] = cast_const(char *, cmd);
 	tal_resize(&args, n + 1);
 
@@ -716,6 +732,9 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 	bitcoind->req_running = false;
 	bitcoind->shutdown = false;
 	bitcoind->error_count = 0;
+	bitcoind->rpcuser = NULL;
+	bitcoind->rpcpass = NULL;
+	bitcoind->rpcconnect = NULL;
 	list_head_init(&bitcoind->pending);
 	tal_add_destructor(bitcoind, destroy_bitcoind);
 
