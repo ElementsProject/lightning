@@ -68,6 +68,8 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->chain_hash = *chain_hash;
 	rstate->local_id = *local_id;
 	list_head_init(&rstate->pending_cannouncement);
+	uintmap_init(&rstate->channels);
+
 	return rstate;
 }
 

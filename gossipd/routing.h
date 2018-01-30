@@ -81,6 +81,21 @@ size_t node_map_hash_key(const secp256k1_pubkey *key);
 bool node_map_node_eq(const struct node *n, const secp256k1_pubkey *key);
 HTABLE_DEFINE_TYPE(struct node, node_map_keyof_node, node_map_hash_key, node_map_node_eq, node_map);
 
+enum txout_state {
+	TXOUT_FETCHING,
+	TXOUT_PRESENT,
+	TXOUT_MISSING
+};
+
+struct routing_channel {
+	struct short_channel_id scid;
+	enum txout_state state;
+	u8 *txout_script;
+
+	struct node_connection *connections[2];
+	struct node *nodes[2];
+};
+
 struct routing_state {
 	/* All known nodes. */
 	struct node_map *nodes;
@@ -94,6 +109,9 @@ struct routing_state {
 
 	/* Our own ID so we can identify local channels */
 	struct pubkey local_id;
+
+        /* A map of channels indexed by short_channel_ids */
+	UINTMAP(struct routing_channel*) channels;
 };
 
 struct route_hop {
