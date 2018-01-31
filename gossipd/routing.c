@@ -50,6 +50,16 @@ struct pending_cannouncement {
 	const u8 *updates[2];
 };
 
+/**
+ * routing_channel keeps track of the indices in the broadcast queue
+ * for the corresponding messages. This way we always know exactly
+ * which broadcast to replace, and don't have to search for it */
+enum gossip_msg_indexes {
+	MSG_INDEX_CUPDATE_0,
+	MSG_INDEX_CUPDATE_1,
+	MSG_INDEX_CANNOUNCE
+};
+
 static struct node_map *empty_node_map(const tal_t *ctx)
 {
 	struct node_map *map = tal(ctx, struct node_map);
@@ -564,6 +574,7 @@ routing_channel_new(const tal_t *ctx, struct short_channel_id *scid)
 	chan->nodes[0] = chan->nodes[1] = NULL;
 	chan->txout_script = NULL;
 	chan->state = TXOUT_FETCHING;
+	memset(&chan->msg_indexes, 0, sizeof(chan->msg_indexes));
 	return chan;
 }
 
@@ -677,6 +688,11 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	u8 *tag;
 	const u8 *s;
 	struct pending_cannouncement *pending;
+	struct routing_channel *chan;
+	u64 uscid = short_channel_id_to_uint(scid);
+
+	chan = uintmap_get(&rstate->channels, uscid);
+	assert(chan);
 
 	pending = find_pending_cannouncement(rstate, scid);
 	assert(pending);
@@ -732,9 +748,10 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 			      &pending->short_channel_id, pending->announce);
 
 	if (forward) {
-		if (queue_broadcast(rstate->broadcasts,
-				    WIRE_CHANNEL_ANNOUNCEMENT,
-				    tag, pending->announce))
+		if (replace_broadcast(rstate->broadcasts,
+				      &chan->msg_indexes[MSG_INDEX_CANNOUNCE],
+				      WIRE_CHANNEL_ANNOUNCEMENT,
+				      (u8*)tag, pending->announce))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Announcement %s was replaced?",
 				      tal_hex(trc, pending->announce));

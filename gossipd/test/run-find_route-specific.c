@@ -46,6 +46,13 @@ bool queue_broadcast(struct broadcast_state *bstate UNNEEDED,
 			     const u8 *tag UNNEEDED,
 			     const u8 *payload UNNEEDED)
 { fprintf(stderr, "queue_broadcast called!\n"); abort(); }
+/* Generated stub for replace_broadcast */
+bool replace_broadcast(struct broadcast_state *bstate UNNEEDED,
+		       u64 *index UNNEEDED,
+		       const int type UNNEEDED,
+		       const u8 *tag UNNEEDED,
+		       const u8 *payload UNNEEDED)
+{ fprintf(stderr, "replace_broadcast called!\n"); abort(); }
 /* Generated stub for status_failed */
 void status_failed(enum status_fail code UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "status_failed called!\n"); abort(); }
