@@ -835,6 +835,71 @@ class LightningDTests(BaseLightningDTests):
         assert len(l1.rpc.listpayments(inv)['payments']) == 1
         assert l1.rpc.listpayments(inv)['payments'][0]['payment_preimage'] == preimage['preimage']
 
+    # Long test involving 4 lightningd instances.
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_report_routing_failure(self):
+        """Test routing failure and retrying of routing.
+        """
+        # The setup is as follows:
+        #   l3-->l4
+        #   ^   / |
+        #   |  /  |
+        #   | L   v
+        #   l2<--l1
+        #
+        # l1 wants to pay to l4.
+        # The shortest route is l1-l4, but l1 cannot
+        # afford to pay to l1 because l4 has all the
+        # funds.
+        # This is a local failure.
+        # The next shortest route is l1-l2-l4, but
+        # l2 cannot afford to pay l4 for same reason.
+        # This is a remote failure.
+        # Finally the only possible path is
+        # l1-l2-l3-l4.
+
+        def fund_from_to_payer(lsrc, ldst, lpayer):
+            lsrc.rpc.connect(ldst.info['id'], 'localhost', ldst.info['port'])
+            c = self.fund_channel(lsrc, ldst, 10000000)
+            self.wait_for_routes(lpayer, [c])
+
+        # FIXME: This repeated retrying should get implemented
+        # in lightningd `pay` command directly.
+        def pay(l, inv):
+            start_time = time.time()
+            retry = True
+            err = None
+            while retry:
+                if time.time() > start_time + 10:
+                    raise err
+                try:
+                    l.rpc.pay(inv)
+                    retry = False
+                except Exception as errx:
+                    err = errx
+
+        ## Setup
+        # Construct lightningd
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node()
+        l4 = self.node_factory.get_node()
+
+        # Wire them up
+        # The ordering below matters!
+        # Particularly, l1 is payer and we will
+        # wait for l1 to receive gossip for the
+        # channel being made.
+        fund_from_to_payer(l1, l2, l1)
+        fund_from_to_payer(l2, l3, l1)
+        fund_from_to_payer(l3, l4, l1)
+        fund_from_to_payer(l4, l1, l1)
+        fund_from_to_payer(l4, l2, l1)
+
+        ## Test
+        inv = l4.rpc.invoice(1234567, 'inv', 'for testing')['bolt11']
+        pay(l1, inv)
+
     def test_bad_opening(self):
         # l1 asks for a too-long locktime
         l1 = self.node_factory.get_node(options=['--locktime-blocks=100'])
