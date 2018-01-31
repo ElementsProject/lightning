@@ -26,46 +26,45 @@
 
 char *bitcoin_datadir;
 
-static char **gather_args(const struct bitcoind *bitcoind,
-			  const tal_t *ctx, const char *cmd, va_list ap)
+/* Add the n'th arg to *args, incrementing n and keeping args of size n+1 */
+static void add_arg(const char ***args, const char *arg)
 {
-	size_t n = 0;
-	char **args = tal_arr(ctx, char *, 2);
+	size_t n = tal_count(*args);
+	tal_resize(args, n + 1);
+	(*args)[n] = arg;
+}
 
-	args[n++] = cast_const(char *, bitcoind->chainparams->cli);
-	if (bitcoind->chainparams->cli_args) {
-		args[n++] = cast_const(char *, bitcoind->chainparams->cli_args);
-		tal_resize(&args, n + 1);
-	}
+static const char **gather_args(const struct bitcoind *bitcoind,
+				const tal_t *ctx, const char *cmd, va_list ap)
+{
+	const char **args = tal_arr(ctx, const char *, 1);
+	const char *arg;
 
-	if (bitcoind->datadir) {
-		args[n++] = tal_fmt(args, "-datadir=%s", bitcoind->datadir);
-		tal_resize(&args, n + 1);
-	}
+	args[0] = bitcoind->chainparams->cli;
+	if (bitcoind->chainparams->cli_args)
+		add_arg(&args, bitcoind->chainparams->cli_args);
 
-	if (bitcoind->rpcconnect) {
-		args[n++] = tal_fmt(args, "-rpcconnect=%s", bitcoind->rpcconnect);
-		tal_resize(&args, n + 1);
-	}
+	if (bitcoind->datadir)
+		add_arg(&args, tal_fmt(args, "-datadir=%s", bitcoind->datadir));
 
-	if (bitcoind->rpcuser) {
-		args[n++] = tal_fmt(args, "-rpcuser=%s", bitcoind->rpcuser);
-		tal_resize(&args, n + 1);
-	}
 
-	if (bitcoind->rpcpass) {
-		args[n++] = tal_fmt(args, "-rpcpassword=%s", bitcoind->rpcpass);
-		tal_resize(&args, n + 1);
-	}
+	if (bitcoind->rpcconnect)
+		add_arg(&args,
+			tal_fmt(args, "-rpcconnect=%s", bitcoind->rpcconnect));
 
-	args[n++] = cast_const(char *, cmd);
-	tal_resize(&args, n + 1);
+	if (bitcoind->rpcuser)
+		add_arg(&args, tal_fmt(args, "-rpcuser=%s", bitcoind->rpcuser));
 
-	while ((args[n] = va_arg(ap, char *)) != NULL) {
-		args[n] = tal_strdup(args, args[n]);
-		n++;
-		tal_resize(&args, n + 1);
-	}
+	if (bitcoind->rpcpass)
+		add_arg(&args,
+			tal_fmt(args, "-rpcpassword=%s", bitcoind->rpcpass));
+
+	add_arg(&args, cmd);
+
+	while ((arg = va_arg(ap, const char *)) != NULL)
+		add_arg(&args, tal_strdup(args, arg));
+
+	add_arg(&args, NULL);
 	return args;
 }
 
@@ -75,7 +74,7 @@ struct bitcoin_cli {
 	int fd;
 	int *exitstatus;
 	pid_t pid;
-	char **args;
+	const char **args;
 	char *output;
 	size_t output_bytes;
 	size_t new_output;
@@ -193,7 +192,8 @@ static void next_bcli(struct bitcoind *bitcoind)
 	if (!bcli)
 		return;
 
-	bcli->pid = pipecmdarr(&bcli->fd, NULL, &bcli->fd, bcli->args);
+	bcli->pid = pipecmdarr(&bcli->fd, NULL, &bcli->fd,
+			       cast_const2(char **, bcli->args));
 	if (bcli->pid < 0)
 		fatal("%s exec failed: %s", bcli->args[0], strerror(errno));
 
@@ -661,11 +661,11 @@ static void destroy_bitcoind(struct bitcoind *bitcoind)
 	bitcoind->shutdown = true;
 }
 
-static char **cmdarr(const tal_t *ctx, const struct bitcoind *bitcoind,
-		     const char *cmd, ...)
+static const char **cmdarr(const tal_t *ctx, const struct bitcoind *bitcoind,
+			   const char *cmd, ...)
 {
 	va_list ap;
-	char **args;
+	const char **args;
 
 	va_start(ap, cmd);
 	args = gather_args(bitcoind, ctx, cmd, ap);
@@ -677,12 +677,12 @@ void wait_for_bitcoind(struct bitcoind *bitcoind)
 {
 	int from, ret, status;
 	pid_t child;
-	char **cmd = cmdarr(bitcoind, bitcoind, "echo", NULL);
+	const char **cmd = cmdarr(bitcoind, bitcoind, "echo", NULL);
 	char *output;
 	bool printed = false;
 
 	for (;;) {
-		child = pipecmdarr(&from, NULL, &from, cmd);
+		child = pipecmdarr(&from, NULL, &from, cast_const2(char **,cmd));
 		if (child < 0)
 			fatal("%s exec failed: %s", cmd[0], strerror(errno));
 
