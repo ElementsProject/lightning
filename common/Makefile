@@ -29,6 +29,7 @@ COMMON_SRC :=					\
 	common/permute_tx.c			\
 	common/ping.c				\
 	common/pseudorand.c			\
+	common/read_peer_msg.c			\
 	common/sphinx.c				\
 	common/status.c				\
 	common/subdaemon.c			\
