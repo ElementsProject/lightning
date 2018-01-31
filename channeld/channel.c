@@ -2332,10 +2332,16 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 							failcode);
 		} else {
 			u8 *reply;
+			u8 *failmsg;
 
-			if (failcode)
-				errpkt = make_failmsg(inmsg, peer, h,
-						      failcode, &scid);
+			if (failcode) {
+				failmsg = make_failmsg(inmsg, peer, h,
+						       failcode, &scid);
+				errpkt = create_onionreply(inmsg,
+							   h->shared_secret,
+							   failmsg);
+			}
+
 			reply = wrap_onionreply(inmsg, h->shared_secret,
 						errpkt);
 			msg = towire_update_fail_htlc(peer, &peer->channel_id,
