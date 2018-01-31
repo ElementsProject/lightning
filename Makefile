@@ -150,7 +150,7 @@ CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations 
 CDEBUGFLAGS := -std=gnu11 -g -fstack-protector
 CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I/usr/local/include $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS
 
-LDFLAGS = -L/usr/local/lib
+LDFLAGS = -Lexternal -L/usr/local/lib
 LDLIBS = -lm -lgmp -lsqlite3 $(COVFLAGS)
 
 default: all-programs all-test-programs
