@@ -2,7 +2,6 @@
 #include "bitcoin/base58.h"
 #include "bitcoin/block.h"
 #include "bitcoin/shadouble.h"
-#include "bitcoin/tx.h"
 #include "bitcoind.h"
 #include "lightningd.h"
 #include "log.h"
@@ -440,17 +439,24 @@ void bitcoind_getblockcount_(struct bitcoind *bitcoind,
 struct get_output {
 	unsigned int blocknum, txnum, outnum;
 
+	/* The real callback */
+	void (*cb)(struct bitcoind *bitcoind, const struct bitcoin_tx_output *txout, void *arg);
+
 	/* The real callback arg */
 	void *cbarg;
 };
+
+static void process_get_output(struct bitcoind *bitcoind, const struct bitcoin_tx_output *txout, void *arg)
+{
+	struct get_output *go = arg;
+	go->cb(bitcoind, txout, go->cbarg);
+}
 
 static void process_gettxout(struct bitcoin_cli *bcli)
 {
 	void (*cb)(struct bitcoind *bitcoind,
 		   const struct bitcoin_tx_output *output,
 		   void *arg) = bcli->cb;
-	const struct get_output *go = bcli->cb_arg;
-	void *cbarg = go->cbarg;
 	const jsmntok_t *tokens, *valuetok, *scriptpubkeytok, *hextok;
 	struct bitcoin_tx_output out;
 	bool valid;
@@ -460,8 +466,7 @@ static void process_gettxout(struct bitcoin_cli *bcli)
 	if (*bcli->exitstatus != 0 || bcli->output_bytes == 0) {
 		log_debug(bcli->bitcoind->log, "%s: not unspent output?",
 			  bcli_args(bcli));
-		tal_free(go);
-		cb(bcli->bitcoind, NULL, cbarg);
+		cb(bcli->bitcoind, NULL, bcli->cb_arg);
 		return;
 	}
 
@@ -498,8 +503,7 @@ static void process_gettxout(struct bitcoin_cli *bcli)
 		fatal("%s: scriptPubKey->hex invalid hex (%.*s)?",
 		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
 
-	tal_free(go);
-	cb(bcli->bitcoind, &out, cbarg);
+	cb(bcli->bitcoind, &out, bcli->cb_arg);
 }
 
 /**
@@ -563,13 +567,17 @@ static void process_getblock(struct bitcoin_cli *bcli)
 		      txidtok->end - txidtok->start,
 		      bcli->output + txidtok->start);
 
+	go->cb = cb;
 	/* Now get the raw tx output. */
+	bitcoind_gettxout(bcli->bitcoind, &txid, go->outnum, process_get_output, go);
+/*
 	start_bitcoin_cli(bcli->bitcoind, NULL,
-			  process_gettxout, true, cb, go,
+			  process_gettxout, true, process_get_output, go,
 			  "gettxout",
 			  take(type_to_string(go, struct bitcoin_txid, &txid)),
 			  take(tal_fmt(go, "%u", go->outnum)),
 			  NULL);
+*/
 }
 
 static void process_getblockhash_for_txout(struct bitcoin_cli *bcli)
@@ -653,6 +661,25 @@ void bitcoind_getblockhash_(struct bitcoind *bitcoind,
 
 	start_bitcoin_cli(bitcoind, NULL, process_getblockhash, true, cb, arg,
 			  "getblockhash", str, NULL);
+}
+
+void bitcoind_gettxout(struct bitcoind *bitcoind,
+		       const struct bitcoin_txid *txid, const u32 outnum,
+		       void (*cb)(struct bitcoind *bitcoind,
+				  const struct bitcoin_tx_output *txout,
+				  void *arg),
+		       void *arg)
+{
+	tal_t *tmpctx = tal_tmpctx(bitcoind);
+
+
+	start_bitcoin_cli(bitcoind, NULL,
+			  process_gettxout, true, cb, arg,
+			  "gettxout",
+			  take(type_to_string(tmpctx, struct bitcoin_txid, txid)),
+			  take(tal_fmt(tmpctx, "%u", outnum)),
+			  NULL);
+	tal_free(tmpctx);
 }
 
 static void destroy_bitcoind(struct bitcoind *bitcoind)

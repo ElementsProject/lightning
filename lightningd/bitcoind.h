@@ -2,6 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_BITCOIND_H
 #include "config.h"
 #include <bitcoin/chainparams.h>
+#include <bitcoin/tx.h>
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
@@ -147,5 +148,12 @@ void bitcoind_getoutput_(struct bitcoind *bitcoind,
 						struct bitcoind *,	\
 						const struct bitcoin_tx_output*), \
 			    (arg))
+
+void bitcoind_gettxout(struct bitcoind *bitcoind,
+		       const struct bitcoin_txid *txid, const u32 outnum,
+		       void (*cb)(struct bitcoind *bitcoind,
+				  const struct bitcoin_tx_output *txout,
+				  void *arg),
+		       void *arg);
 
 #endif /* LIGHTNING_LIGHTNINGD_BITCOIND_H */
