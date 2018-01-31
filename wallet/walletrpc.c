@@ -388,3 +388,68 @@ static const struct json_command listfunds_command = {
 	"Show funds available for opening channels"
 };
 AUTODATA(json_command, &listfunds_command);
+
+struct txo_rescan {
+	struct command *cmd;
+	struct utxo **utxos;
+	struct json_result *response;
+};
+
+static void process_utxo_result(struct bitcoind *bitcoind,
+				const struct bitcoin_tx_output *txout,
+				void *arg)
+{
+	struct txo_rescan *rescan = arg;
+	struct json_result *response = rescan->response;
+	struct utxo *u = rescan->utxos[0];
+	enum output_status newstate =
+	    txout == NULL ? output_state_spent : output_state_available;
+
+	json_object_start(rescan->response, NULL);
+	json_add_txid(response, "txid", &u->txid);
+	json_add_num(response, "output", u->outnum);
+	json_add_num(response, "oldstate", u->status);
+	json_add_num(response, "newstate", newstate);
+	json_object_end(rescan->response);
+	wallet_update_output_status(bitcoind->ld->wallet, &u->txid, u->outnum,
+				    u->status, newstate);
+
+	/* Remove the utxo we just resolved */
+	rescan->utxos[0] = rescan->utxos[tal_count(rescan->utxos) - 1];
+	tal_resize(&rescan->utxos, tal_count(rescan->utxos) - 1);
+
+	if (tal_count(rescan->utxos) == 0) {
+		/* Complete the response */
+		json_array_end(rescan->response);
+		json_object_end(rescan->response);
+		command_success(rescan->cmd, rescan->response);
+	} else {
+		bitcoind_gettxout(
+		    bitcoind->ld->topology->bitcoind, &rescan->utxos[0]->txid,
+		    rescan->utxos[0]->outnum, process_utxo_result, rescan);
+	}
+}
+
+static void json_dev_rescan_outputs(struct command *cmd, const char *buffer,
+				    const jsmntok_t *params)
+{
+	struct txo_rescan *rescan = tal(cmd, struct txo_rescan);
+	rescan->response = new_json_result(cmd);
+	rescan->cmd = cmd;
+
+	/* Open the result structure so we can incrementally add results */
+	json_object_start(rescan->response, NULL);
+	json_array_start(rescan->response, "outputs");
+	rescan->utxos =
+	    wallet_get_utxos(rescan, cmd->ld->wallet, output_state_any);
+	bitcoind_gettxout(cmd->ld->topology->bitcoind, &rescan->utxos[0]->txid,
+			  rescan->utxos[0]->outnum, process_utxo_result,
+			  rescan);
+	command_still_pending(cmd);
+}
+
+static const struct json_command dev_rescan_output_command = {
+    "dev-rescan-outputs", json_dev_rescan_outputs,
+    "Synchronize the state of our funds with bitcoind"
+};
+AUTODATA(json_command, &dev_rescan_output_command);
