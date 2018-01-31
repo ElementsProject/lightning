@@ -55,6 +55,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/peer_failed.o			\
 	common/permute_tx.o			\
 	common/pseudorand.o			\
+	common/read_peer_msg.o			\
 	common/status.o				\
 	common/subdaemon.o			\
 	common/type_to_string.o			\
