@@ -776,6 +776,21 @@ class LightningDTests(BaseLightningDTests):
         # But this should work.
         self.pay(l2, l1, available - reserve*2)
 
+    def test_pay0(self):
+        """Test paying 0 amount
+        """
+        l1,l2 = self.connect()
+        # Set up channel.
+        chanid = self.fund_channel(l1, l2, 10**6)
+        self.wait_for_routes(l1, [chanid])
+
+        # Get any-amount invoice
+        inv = l2.rpc.invoice("any", "any", 'description')['bolt11']
+
+        # Amount must be nonzero!
+        self.assertRaisesRegex(ValueError, 'WIRE_AMOUNT_BELOW_MINIMUM',
+                               l1.rpc.pay, inv, 0)
+
     def test_pay(self):
         l1,l2 = self.connect()
 
@@ -811,9 +826,6 @@ class LightningDTests(BaseLightningDTests):
             # Must provide an amount!
             self.assertRaises(ValueError, l1.rpc.pay, inv2)
             self.assertRaises(ValueError, l1.rpc.pay, inv2, None)
-            # Amount must be nonzero!
-            self.assertRaisesRegex(ValueError, 'WIRE_AMOUNT_BELOW_MINIMUM',
-                                   l1.rpc.pay, inv2, 0)
             l1.rpc.pay(inv2, random.randint(1000, 999999))
 
         # Should see 6 completed payments
