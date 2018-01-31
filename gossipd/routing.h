@@ -94,6 +94,8 @@ struct routing_channel {
 
 	struct node_connection *connections[2];
 	struct node *nodes[2];
+
+	u64 msg_indexes[3];
 };
 
 struct routing_state {
