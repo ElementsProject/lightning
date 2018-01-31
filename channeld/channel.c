@@ -1492,24 +1492,6 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 	abort();
 }
 
-static void handle_ping(struct peer *peer, const u8 *msg)
-{
-	u8 *pong;
-
-	if (!check_ping_make_pong(peer, msg, &pong))
-		peer_failed(PEER_FD,
-			    &peer->cs,
-			    &peer->channel_id,
-			    "Bad ping");
-
-	status_trace("Got ping, sending %s", pong ?
-		     wire_type_name(fromwire_peektype(pong))
-		     : "nothing");
-
-	if (pong)
-		enqueue_peer_msg(peer, take(pong));
-}
-
 static void handle_pong(struct peer *peer, const u8 *pong)
 {
 	u8 *ignored;
@@ -1553,34 +1535,15 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 	peer->shutdown_sent[REMOTE] = true;
 }
 
+/* Note: msg came from read_peer_msg() which handles pings, gossip,
+ * wrong channel, errors */
 static void peer_in(struct peer *peer, const u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
 
-	/* FIXME: We don't support concurrent channels with same peer. */
-	if (type == WIRE_OPEN_CHANNEL) {
-		struct channel_id channel_id;
-
-		if (extract_channel_id(msg, &channel_id)) {
-			u8 *reply;
-
-			reply = towire_errorfmt(msg, &channel_id,
-						"Opening multiple channels"
-						" unsupported");
-			enqueue_peer_msg(peer, take(reply));
-			return;
-		}
-	}
-
 	/* Must get funding_locked before almost anything. */
 	if (!peer->funding_locked[REMOTE]) {
-		/* We can get gossip before funding, too */
-		if (type != WIRE_FUNDING_LOCKED
-		    && type != WIRE_CHANNEL_ANNOUNCEMENT
-		    && type != WIRE_CHANNEL_UPDATE
-		    && type != WIRE_NODE_ANNOUNCEMENT
-		    && type != WIRE_PING
-		    && type != WIRE_PONG) {
+		if (type != WIRE_FUNDING_LOCKED && type != WIRE_PONG) {
 			peer_failed(PEER_FD,
 				    &peer->cs,
 				    &peer->channel_id,
@@ -1595,15 +1558,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		return;
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
 		handle_peer_announcement_signatures(peer, msg);
-		return;
-	case WIRE_CHANNEL_ANNOUNCEMENT:
-	case WIRE_CHANNEL_UPDATE:
-	case WIRE_NODE_ANNOUNCEMENT:
-		/* Forward to gossip daemon */
-		if (!wire_sync_write(GOSSIP_FD, msg))
-			status_failed(STATUS_FAIL_GOSSIP_IO,
-				      "Forwarding to gossipd: %s",
-				      strerror(errno));
 		return;
 	case WIRE_UPDATE_ADD_HTLC:
 		handle_peer_add_htlc(peer, msg);
@@ -1626,22 +1580,12 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
 		handle_peer_fail_malformed_htlc(peer, msg);
 		return;
-	case WIRE_PING:
-		handle_ping(peer, msg);
-		return;
 	case WIRE_PONG:
 		handle_pong(peer, msg);
 		return;
 	case WIRE_SHUTDOWN:
 		handle_peer_shutdown(peer, msg);
 		return;
-
-	case WIRE_ERROR:
-		peer_failed(PEER_FD,
-			    &peer->cs,
-			    &peer->channel_id,
-			    "Peer sent error %s",
-			    sanitize_error(peer, msg, NULL));
 
 	case WIRE_INIT:
 	case WIRE_OPEN_CHANNEL:
@@ -1651,6 +1595,14 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_CLOSING_SIGNED:
 		break;
+
+	/* These are all swallowed by read_peer_msg */
+	case WIRE_CHANNEL_ANNOUNCEMENT:
+	case WIRE_CHANNEL_UPDATE:
+	case WIRE_NODE_ANNOUNCEMENT:
+	case WIRE_PING:
+	case WIRE_ERROR:
+		abort();
 	}
 
 	peer_failed(PEER_FD,
