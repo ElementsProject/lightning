@@ -29,7 +29,6 @@ static char *default_rpc_file(const tal_t *ctx)
 	return path;
 }
 
-
 void configdir_register_opts(const tal_t *ctx,
 				 char **configdir, char **rpc_filename)
 {
