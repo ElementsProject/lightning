@@ -57,12 +57,16 @@ static void json_add_invoice(struct json_result *response,
 	json_object_end(response);
 }
 
-static void tell_waiter(struct command *cmd, const struct invoice *paid)
+static void tell_waiter(struct command *cmd, const struct invoice *inv)
 {
 	struct json_result *response = new_json_result(cmd);
 
-	json_add_invoice(response, paid, true);
-	command_success(cmd, response);
+	json_add_invoice(response, inv, true);
+	if (inv->state == PAID)
+		command_success(cmd, response);
+	else
+		command_fail_detailed(cmd, -2, response,
+				      "invoice expired during wait");
 }
 static void tell_waiter_deleted(struct command *cmd)
 {
