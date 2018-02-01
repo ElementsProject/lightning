@@ -25,11 +25,9 @@ static char *default_configdir(const tal_t *ctx)
 static char *default_rpc_file(const tal_t *ctx)
 {
 	char *path;
-	const char *env = getenv("HOME");
-	if (!env)
-		return ".";
+	
+    path = path_basename(ctx, "lightning-rpc");
 
-	path = path_join(ctx, env, "lightning-rpc");
 	return path;
 }
 
