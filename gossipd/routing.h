@@ -96,6 +96,9 @@ struct routing_channel {
 	struct node *nodes[2];
 
 	u64 msg_indexes[3];
+
+	/* Is this a public channel, or was it only added locally? */
+	bool public;
 };
 
 struct routing_state {
@@ -179,6 +182,15 @@ void routing_failure(struct routing_state *rstate,
 		     const struct short_channel_id *erring_channel,
 		     enum onion_type failcode,
 		     const u8 *channel_update);
+
+/* routing_channel constructor */
+struct routing_channel *routing_channel_new(const tal_t *ctx,
+					    struct short_channel_id *scid);
+
+/* Add the connection to the channel */
+void channel_add_connection(struct routing_state *rstate,
+			    struct routing_channel *chan,
+			    struct node_connection *nc);
 
 /* Utility function that, given a source and a destination, gives us
  * the direction bit the matching channel should get */

@@ -771,6 +771,7 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 	u32 fee_base_msat, fee_proportional_millionths;
 	u64 htlc_minimum_msat;
 	struct node_connection *c;
+	struct routing_channel *chan;
 
 	if (!fromwire_gossip_local_add_channel(
 		msg, NULL, &scid, &chain_hash, &remote_node_id, &flags,
@@ -792,8 +793,13 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 		return;
 	}
 
+	chan = routing_channel_new(rstate, &scid);
+	chan->public = false;
+	uintmap_add(&rstate->channels, short_channel_id_to_uint(&scid), chan);
+
 	direction = get_channel_direction(&rstate->local_id, &remote_node_id);
 	c = half_add_connection(rstate, &rstate->local_id, &remote_node_id, &scid, direction);
+	channel_add_connection(rstate, chan, c);
 
 	c->active = true;
 	c->last_timestamp = 0;
