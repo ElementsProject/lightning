@@ -570,14 +570,6 @@ static void process_getblock(struct bitcoin_cli *bcli)
 	go->cb = cb;
 	/* Now get the raw tx output. */
 	bitcoind_gettxout(bcli->bitcoind, &txid, go->outnum, process_get_output, go);
-/*
-	start_bitcoin_cli(bcli->bitcoind, NULL,
-			  process_gettxout, true, process_get_output, go,
-			  "gettxout",
-			  take(type_to_string(go, struct bitcoin_txid, &txid)),
-			  take(tal_fmt(go, "%u", go->outnum)),
-			  NULL);
-*/
 }
 
 static void process_getblockhash_for_txout(struct bitcoin_cli *bcli)
@@ -670,16 +662,12 @@ void bitcoind_gettxout(struct bitcoind *bitcoind,
 				  void *arg),
 		       void *arg)
 {
-	tal_t *tmpctx = tal_tmpctx(bitcoind);
-
-
 	start_bitcoin_cli(bitcoind, NULL,
 			  process_gettxout, true, cb, arg,
 			  "gettxout",
-			  take(type_to_string(tmpctx, struct bitcoin_txid, txid)),
-			  take(tal_fmt(tmpctx, "%u", outnum)),
+			  take(type_to_string(NULL, struct bitcoin_txid, txid)),
+			  take(tal_fmt(NULL, "%u", outnum)),
 			  NULL);
-	tal_free(tmpctx);
 }
 
 static void destroy_bitcoind(struct bitcoind *bitcoind)
