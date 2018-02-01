@@ -26,8 +26,8 @@ static char *default_rpc_file(const tal_t *ctx)
 {
 	char *path;
 	
-    path = path_basename(ctx, "lightning-rpc");
-
+	path = path_basename(ctx, "lightning-rpc");
+	
 	return path;
 }
 
