@@ -8,7 +8,7 @@
 #include <common/status.h>
 
 #include <stdio.h>
-#define status_trace(fmt, ...) \
+#define status_fmt(level, fmt, ...)					\
 	do { printf((fmt) ,##__VA_ARGS__); printf("\n"); } while(0)
 
 #include "../routing.c"

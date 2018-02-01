@@ -32,7 +32,7 @@ static struct io_plan *test_read(struct io_conn *conn,
 				 struct handshake *h);
 
 #define SUPERVERBOSE status_trace
-void status_trace(const char *fmt, ...)
+void status_fmt(enum log_level level, const char *fmt, ...)
 {
 	va_list ap;
 

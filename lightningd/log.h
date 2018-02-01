@@ -3,23 +3,11 @@
 #include "config.h"
 #include <ccan/tal/tal.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
+#include <common/status.h>
 #include <common/type_to_string.h>
 #include <stdarg.h>
 
 struct timerel;
-
-enum log_level {
-	/* Logging all IO. */
-	LOG_IO,
-	/* Gory details which are mainly good for debugging. */
-	LOG_DBG,
-	/* Information about what's going in. */
-	LOG_INFORM,
-	/* That's strange... */
-	LOG_UNUSUAL,
-	/* That's really bad, we're broken. */
-	LOG_BROKEN
-};
 
 /* We can have a single log book, with multiple logs in it. */
 struct log_book *new_log_book(const tal_t *ctx,
