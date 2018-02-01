@@ -549,7 +549,6 @@ const struct short_channel_id *handle_channel_announcement(
 	struct pending_cannouncement *pending;
 	struct bitcoin_blkid chain_hash;
 	u8 *features;
-	const char *tag;
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
 	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
 	struct node_connection *c0, *c1;
@@ -576,10 +575,6 @@ const struct short_channel_id *handle_channel_announcement(
 		return NULL;
 	}
 
-	tag = type_to_string(pending, struct short_channel_id,
-			     &pending->short_channel_id);
-	tal_resize(&tag, strlen(tag));
-
 	/* BOLT #7:
 	 *
 	 * If there is an unknown even bit in the `features` field the
@@ -602,7 +597,8 @@ const struct short_channel_id *handle_channel_announcement(
 	if (!structeq(&chain_hash, &rstate->chain_hash)) {
 		status_trace(
 		    "Received channel_announcement %s for unknown chain %s",
-		    tag,
+		    type_to_string(pending, struct short_channel_id,
+				   &pending->short_channel_id),
 		    type_to_string(pending, struct bitcoin_blkid, &chain_hash));
 		tal_free(pending);
 		return NULL;
@@ -617,13 +613,16 @@ const struct short_channel_id *handle_channel_announcement(
 					&bitcoin_signature_2,
 					pending->announce)) {
 		status_trace("Signature verification of channel_announcement"
-			     " for %s failed", tag);
+			     " for %s failed",
+			     type_to_string(pending, struct short_channel_id,
+					    &pending->short_channel_id));
 		tal_free(pending);
 		return NULL;
 	}
 
-	status_trace("Received channel_announcement for channel %s", tag);
-	tal_free(tag);
+	status_trace("Received channel_announcement for channel %s",
+		     type_to_string(pending, struct short_channel_id,
+				    &pending->short_channel_id));
 
 	/* FIXME: Handle duplicates as per BOLT #7 */
 
@@ -647,7 +646,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 {
 	bool forward, local;
 	struct node_connection *c0, *c1;
-	const char *tag;
+	u8 *tag;
 	const u8 *s;
 	struct pending_cannouncement *pending;
 
@@ -655,15 +654,17 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	assert(pending);
 	list_del_from(&rstate->pending_cannouncement, &pending->list);
 
-	tag = type_to_string(pending, struct short_channel_id, scid);
-	tal_resize(&tag, strlen(tag));
+	tag = tal_arr(pending, u8, 0);
+	towire_short_channel_id(&tag, scid);
 
 	/* BOLT #7:
 	 *
 	 * The receiving node MUST ignore the message if this output is spent.
 	 */
 	if (tal_len(outscript) == 0) {
-		status_trace("channel_announcement: no unspent txout %s", tag);
+		status_trace("channel_announcement: no unspent txout %s",
+			     type_to_string(pending, struct short_channel_id,
+					    scid));
 		tal_free(pending);
 		return false;
 	}
@@ -683,7 +684,9 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 
 	if (!scripteq(s, outscript)) {
 		status_trace("channel_announcement: txout %s expectes %s, got %s",
-			     tag, tal_hex(trc, s), tal_hex(trc, outscript));
+			     type_to_string(pending, struct short_channel_id,
+					    scid),
+			     tal_hex(trc, s), tal_hex(trc, outscript));
 		tal_free(pending);
 		return false;
 	}
@@ -703,7 +706,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	if (forward) {
 		if (queue_broadcast(rstate->broadcasts,
 				    WIRE_CHANNEL_ANNOUNCEMENT,
-				    (u8*)tag, pending->announce))
+				    tag, pending->announce))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Announcement %s was replaced?",
 				      tal_hex(trc, pending->announce));
