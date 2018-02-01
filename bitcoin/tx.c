@@ -80,29 +80,24 @@ static void push_witnesses(const struct bitcoin_tx *tx,
 
 static void push_tx(const struct bitcoin_tx *tx,
 		   void (*push)(const void *, size_t, void *), void *pushp,
-		   bool extended)
+		   bool bip144)
 {
 	varint_t i;
 	u8 flag = 0;
 
 	push_le32(tx->version, push, pushp);
 
-	if (extended) {
-		u8 marker;
+        if (bip144 && uses_witness(tx))
+		flag |= SEGREGATED_WITNESS_FLAG;
+
+	/* BIP 141: The flag MUST be a 1-byte non-zero value. */
+	/* ie. if no flags set, we fallback to pre-BIP144-style */
+	if (flag) {
+		u8 marker = 0;
 		/* BIP 144 */
 		/* marker 	char 	Must be zero */
 		/* flag 	char 	Must be nonzero */
-		marker = 0;
 		push(&marker, 1, pushp);
-		/* BIP 141: The flag MUST be a 1-byte non-zero
-		 * value. Currently, 0x01 MUST be used.
-		 *
-		 * BUT: Current segwit4 branch breaks fundrawtransaction;
-		 * it sees 0 inputs and thinks it's extended format.
-		 * Make it really an extended format, but without
-		 * witness. */
-		if (uses_witness(tx))
-			flag = SEGREGATED_WITNESS_FLAG;
 		push(&flag, 1, pushp);
 	}
 
@@ -256,7 +251,7 @@ static void push_linearize(const void *data, size_t len, void *pptr_)
 u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
 {
 	u8 *arr = tal_arr(ctx, u8, 0);
-	push_tx(tx, push_linearize, &arr, uses_witness(tx));
+	push_tx(tx, push_linearize, &arr, true);
 	return arr;
 }
 
