@@ -226,7 +226,7 @@ class BitcoinD(TailableProc):
 
     def start(self):
         TailableProc.start(self)
-        self.wait_for_log("Done loading", timeout=None)
+        self.wait_for_log("Done loading", timeout=60)
 
         logging.info("BitcoinD started")
 
