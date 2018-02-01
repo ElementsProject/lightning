@@ -183,23 +183,13 @@ struct node_connection *get_connection_by_scid(const struct routing_state *rstat
 					      const struct short_channel_id *schanid,
 					      const u8 direction)
 {
-	struct node *n;
-	int i, num_conn;
-	struct node_map *nodes = rstate->nodes;
-	struct node_connection *c;
-	struct node_map_iter it;
+	u64 scid = short_channel_id_to_uint(schanid);
+	struct routing_channel *chan = uintmap_get(&rstate->channels, scid);
 
-	//FIXME(cdecker) We probably want to speed this up by indexing by chanid.
-	for (n = node_map_first(nodes, &it); n; n = node_map_next(nodes, &it)) {
-	        num_conn = tal_count(n->out);
-		for (i = 0; i < num_conn; i++){
-			c = n->out[i];
-			if (short_channel_id_eq(&c->short_channel_id, schanid) &&
-			    (c->flags&0x1) == direction)
-			    return c;
-		}
-	}
-	return NULL;
+	if (chan == NULL)
+		return NULL;
+	else
+		return chan->connections[direction];
 }
 
 static struct node_connection *
