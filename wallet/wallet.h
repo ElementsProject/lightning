@@ -365,10 +365,18 @@ enum invoice_status {
 };
 
 struct invoice {
-	/* List off ld->wallet->invoices */
+	/* Internal, rest of lightningd should not use */
+	/* List off ld->wallet->invoices. Must be first or else
+	 * dev-memleak is driven insane. */
 	struct list_node list;
 	/* Database ID */
 	u64 id;
+	/* Any JSON waitinvoice calls waiting for this to be paid */
+	struct list_head waitone_waiters;
+	/* Any expiration timer in effect */
+	struct oneshot *expiration_timer;
+
+	/* Publicly-useable fields. */
 	enum invoice_status state;
 	const char *label;
 	/* NULL if they specified "any" */
@@ -380,10 +388,8 @@ struct invoice {
 	struct preimage r;
 	u64 expiry_time;
 	struct sha256 rhash;
-	/* Non-zero if state == PAID */
+	/* Set if state == PAID */
 	u64 pay_index;
-	/* Any JSON waitinvoice calls waiting for this to be paid */
-	struct list_head waitone_waiters;
 };
 
 #define INVOICE_MAX_LABEL_LEN 128
