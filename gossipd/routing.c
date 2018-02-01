@@ -565,8 +565,8 @@ find_pending_cannouncement(struct routing_state *rstate,
 	return NULL;
 }
 
-static struct routing_channel *
-routing_channel_new(const tal_t *ctx, struct short_channel_id *scid)
+struct routing_channel *routing_channel_new(const tal_t *ctx,
+					    struct short_channel_id *scid)
 {
 	struct routing_channel *chan = tal(ctx, struct routing_channel);
 	chan->scid = *scid;
@@ -574,8 +574,32 @@ routing_channel_new(const tal_t *ctx, struct short_channel_id *scid)
 	chan->nodes[0] = chan->nodes[1] = NULL;
 	chan->txout_script = NULL;
 	chan->state = TXOUT_FETCHING;
+	chan->public = false;
 	memset(&chan->msg_indexes, 0, sizeof(chan->msg_indexes));
 	return chan;
+}
+
+static void remove_connection_from_channel(struct node_connection *nc,
+					   struct routing_state *rstate)
+{
+	struct routing_channel *chan = uintmap_get(
+	    &rstate->channels, short_channel_id_to_uint(&nc->short_channel_id));
+	struct node_connection *c = chan->connections[nc->flags & 0x1];
+	if (c == NULL)
+		return;
+	/* If we found a channel it should be the same */
+	assert(nc == c);
+	chan->connections[nc->flags & 0x1] = NULL;
+}
+
+void channel_add_connection(struct routing_state *rstate,
+			    struct routing_channel *chan,
+			    struct node_connection *nc)
+{
+	int direction = get_channel_direction(&nc->src->id, &nc->dst->id);
+	assert(chan != NULL);
+	chan->connections[direction] = nc;
+	tal_add_destructor2(nc, remove_connection_from_channel, rstate);
 }
 
 const struct short_channel_id *handle_channel_announcement(
@@ -617,7 +641,7 @@ const struct short_channel_id *handle_channel_announcement(
 	/* Check if we know the channel already (no matter in what
 	 * state, we stop here if yes). */
 	chan = uintmap_get(&rstate->channels, scid);
-	if (chan != NULL) {
+	if (chan != NULL && chan->public) {
 		return tal_free(pending);
 	}
         /* FIXME: Handle duplicates as per BOLT #7 */
@@ -673,6 +697,9 @@ const struct short_channel_id *handle_channel_announcement(
 
 	/* So you're new in town, ey? Let's find you a room in the Inn. */
 	chan = routing_channel_new(chan, &pending->short_channel_id);
+
+	/* The channel will be public if we complete the verification */
+	chan->public = true;
 	uintmap_add(&rstate->channels, scid, chan);
 
 	list_add_tail(&rstate->pending_cannouncement, &pending->list);
@@ -742,10 +769,13 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	c1 = get_connection(rstate, &pending->node_id_1, &pending->node_id_2);
 	forward = !c0 || !c1 || !c0->channel_announcement || !c1->channel_announcement;
 
-	add_channel_direction(rstate, &pending->node_id_1, &pending->node_id_2,
-			      &pending->short_channel_id, pending->announce);
-	add_channel_direction(rstate, &pending->node_id_2, &pending->node_id_1,
-			      &pending->short_channel_id, pending->announce);
+	c0 = add_channel_direction(rstate, &pending->node_id_1, &pending->node_id_2,
+				   &pending->short_channel_id, pending->announce);
+	c1 = add_channel_direction(rstate, &pending->node_id_2, &pending->node_id_1,
+				   &pending->short_channel_id, pending->announce);
+
+	channel_add_connection(rstate, chan, c0);
+	channel_add_connection(rstate, chan, c1);
 
 	if (forward) {
 		if (replace_broadcast(rstate->broadcasts,
