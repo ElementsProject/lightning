@@ -151,6 +151,11 @@ void towire_pad(u8 **pptr, size_t num)
 	memset(*pptr + oldsize, 0, num);
 }
 
+void towire_wirestring(u8 **pptr, const char *str)
+{
+	towire(pptr, str, strlen(str) + 1);
+}
+
 void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
 {
 	tal_t *tmpctx = tal_tmpctx(NULL);

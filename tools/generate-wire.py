@@ -33,6 +33,7 @@ varlen_structs = [
     'failed_htlc',
     'utxo',
     'bitcoin_tx',
+    'wirestring',
 ]
 
 class FieldType(object):
