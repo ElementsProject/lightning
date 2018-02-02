@@ -18,28 +18,74 @@
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 
-static void json_pay_success(struct command *cmd, const struct preimage *rval)
+/* pay/sendpay command */
+struct pay_command {
+	struct list_node list;
+
+	struct sha256 payment_hash;
+	struct command *cmd;
+};
+
+static void destroy_pay_command(struct pay_command *pc)
+{
+	list_del(&pc->list);
+}
+
+/* Owned by cmd */
+static struct pay_command *new_pay_command(struct command *cmd,
+					   const struct sha256 *payment_hash,
+					   struct lightningd *ld)
+{
+	struct pay_command *pc = tal(cmd, struct pay_command);
+
+	pc->payment_hash = *payment_hash;
+	pc->cmd = cmd;
+	list_add(&ld->pay_commands, &pc->list);
+	tal_add_destructor(pc, destroy_pay_command);
+	return pc;
+}
+
+static void json_pay_command_success(struct command *cmd,
+				     const struct preimage *payment_preimage)
 {
 	struct json_result *response;
 
-	/* Can be NULL if JSON RPC goes away. */
-	if (!cmd)
-		return;
-
 	response = new_json_result(cmd);
 	json_object_start(response, NULL);
-	json_add_hex(response, "preimage", rval, sizeof(*rval));
+	json_add_hex(response, "preimage",
+		     payment_preimage, sizeof(*payment_preimage));
 	json_object_end(response);
 	command_success(cmd, response);
 }
 
-static void json_pay_failed(struct command *cmd,
+static void json_pay_success(struct lightningd *ld,
+			     const struct sha256 *payment_hash,
+			     const struct preimage *payment_preimage)
+{
+	struct pay_command *pc, *next;
+
+	list_for_each_safe(&ld->pay_commands, pc, next, list) {
+		if (!structeq(payment_hash, &pc->payment_hash))
+			continue;
+
+		/* Deletes itself. */
+		json_pay_command_success(pc->cmd, payment_preimage);
+	}
+}
+
+static void json_pay_failed(struct lightningd *ld,
+			    const struct sha256 *payment_hash,
 			    enum onion_type failure_code,
 			    const char *details)
 {
-	/* Can be NULL if JSON RPC goes away. */
-	if (cmd) {
-		command_fail(cmd, "Failed: %s (%s)",
+	struct pay_command *pc, *next;
+
+	list_for_each_safe(&ld->pay_commands, pc, next, list) {
+		if (!structeq(payment_hash, &pc->payment_hash))
+			continue;
+
+		/* Deletes itself. */
+		command_fail(pc->cmd, "failed: %s (%s)",
 			     onion_type_name(failure_code), details);
 	}
 }
@@ -49,10 +95,7 @@ void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 {
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 				  PAYMENT_COMPLETE, rval);
-	/* Can be NULL if JSON RPC goes away. */
-	if (hout->cmd)
-		json_pay_success(hout->cmd, rval);
-	hout->cmd = NULL;
+	json_pay_success(ld, &hout->payment_hash, rval);
 }
 
 /* Return NULL if the wrapped onion error message has no
@@ -282,15 +325,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	 * and payment again. */
 	(void) retry_plausible;
 
-	json_pay_failed(hout->cmd, failcode, failmsg);
+	json_pay_failed(ld, &hout->payment_hash, failcode, failmsg);
 	tal_free(tmpctx);
-}
-
-/* When JSON RPC goes away, cmd is freed: detach from the hout */
-static void remove_cmd_from_hout(struct command *cmd, struct htlc_out *hout)
-{
-	assert(hout->cmd == cmd);
-	hout->cmd = NULL;
 }
 
 /* Returns true if it's still pending. */
@@ -362,7 +398,8 @@ static bool send_payment(struct command *cmd,
 							    &payment->destination));
 				return false;
 			}
-			json_pay_success(cmd, payment->payment_preimage);
+			json_pay_command_success(cmd,
+						 payment->payment_preimage);
 			return false;
 		}
 		wallet_payment_delete(cmd->ld->wallet, rhash);
@@ -387,8 +424,7 @@ static bool send_payment(struct command *cmd,
 
 	failcode = send_htlc_out(peer, route[0].amount,
 				 base_expiry + route[0].delay,
-				 rhash, onion, NULL, cmd,
-				 &hout);
+				 rhash, onion, NULL, &hout);
 	if (failcode) {
 		command_fail(cmd, "First peer not ready: %s",
 			     onion_type_name(failcode));
@@ -416,9 +452,7 @@ static bool send_payment(struct command *cmd,
 	/* We write this into db when HTLC is actually sent. */
 	wallet_payment_setup(cmd->ld->wallet, payment);
 
-	/* If we fail, remove cmd ptr from htlc_out. */
-	tal_add_destructor2(cmd, remove_cmd_from_hout, hout);
-
+	new_pay_command(cmd, rhash, cmd->ld);
 	tal_free(tmpctx);
 	return true;
 }
