@@ -1771,7 +1771,7 @@ static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
 	s64 old_diff, new_diff;
 	size_t i;
 
-	/* Calculate actual fee. */
+	/* Calculate actual fee (adds in eliminated outputs) */
 	fee = peer->funding_satoshi;
 	for (i = 0; i < tal_count(tx->output); i++)
 		fee -= tx->output[i].amount;
@@ -1780,18 +1780,34 @@ static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
 	for (i = 0; i < tal_count(peer->last_tx); i++)
 		last_fee -= peer->last_tx->output[i].amount;
 
+	log_debug(peer->log, "Their actual closing tx fee is %"PRIu64
+		 " vs previous %"PRIu64, fee, last_fee);
+
 	/* Weight once we add in sigs. */
 	weight = measure_tx_cost(tx) + 74 * 2;
 
 	min_fee = get_feerate(peer->ld->topology, FEERATE_SLOW) * weight / 1000;
-	if (fee < min_fee)
+	if (fee < min_fee) {
+		log_debug(peer->log, "... That's below our min %"PRIu64
+			 " for weight %"PRIu64" at feerate %u",
+			 min_fee, weight,
+			 get_feerate(peer->ld->topology, FEERATE_SLOW));
 		return false;
+	}
 
 	ideal_fee = get_feerate(peer->ld->topology, FEERATE_NORMAL) * weight / 1000;
 
 	/* We prefer fee which is closest to our ideal. */
 	old_diff = imaxabs((s64)ideal_fee - (s64)last_fee);
 	new_diff = imaxabs((s64)ideal_fee - (s64)fee);
+
+	log_debug(peer->log, "... That's %s our ideal %"PRIu64,
+		 new_diff < old_diff
+		 ? "closer to"
+		 : new_diff > old_diff
+		 ? "further from"
+		 : "same distance to",
+		 ideal_fee);
 
 	return (new_diff < old_diff);
 }
