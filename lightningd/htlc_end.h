@@ -75,9 +75,6 @@ struct htlc_out {
 
 	/* Where it's from, if not going to us. */
 	struct htlc_in *in;
-
-	/* Otherwise, this MAY be non-null if there's a pay command waiting */
-	struct command *cmd;
 };
 
 static inline const struct htlc_key *keyof_htlc_in(const struct htlc_in *in)
@@ -132,8 +129,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      u64 msatoshi, u32 cltv_expiry,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
-			      struct htlc_in *in,
-			      struct command *cmd);
+			      struct htlc_in *in);
 
 void connect_htlc_in(struct htlc_in_map *map, struct htlc_in *hin);
 void connect_htlc_out(struct htlc_out_map *map, struct htlc_out *hout);

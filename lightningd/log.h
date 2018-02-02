@@ -2,6 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_LOG_H
 #include "config.h"
 #include <ccan/tal/tal.h>
+#include <ccan/time/time.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
 #include <common/type_to_string.h>
 #include <stdarg.h>
@@ -54,12 +55,14 @@ const char *log_prefix(const struct log *log);
 					   const char *,		\
 					   enum log_level,		\
 					   bool,			\
+					   const struct timeabs *,	\
 					   const char *), (arg))
 
 void set_log_outfn_(struct log_book *lr,
 		    void (*print)(const char *prefix,
 				  enum log_level level,
 				  bool continued,
+				  const struct timeabs *time,
 				  const char *str, void *arg),
 		    void *arg);
 

@@ -980,6 +980,54 @@ class LightningDTests(BaseLightningDTests):
         wait_forget_channels(l1)
         wait_forget_channels(l2)
 
+    def test_closing_different_fees(self):
+        l1 = self.node_factory.get_node()
+
+        # Default feerate = 15000/7500/1000
+        # It will start at the second number, accepting anything above the first.
+        feerates=[ [ 20000, 15000, 7400 ],
+                   [ 8000, 1001, 100 ] ]
+        amounts = [ 0, 545999, 546000 ]
+        num_peers = len(feerates) * len(amounts)
+        self.give_funds(l1, (10**6) * num_peers + 10000 * num_peers)
+
+        # Create them in a batch, but only valgrind one in three, for speed!
+        peers = []
+        for feerate in feerates:
+            for amount in amounts:
+                p = self.node_factory.get_node(options=['--override-fee-rates={}/{}/{}'
+                                                        .format(feerate[0],
+                                                                feerate[1],
+                                                                feerate[2])])
+                p.feerate = feerate
+                p.amount = amount
+                l1.rpc.connect(p.info['id'], 'localhost', p.info['port'])
+                peers.append(p)
+
+        for p in peers:
+                l1.rpc.fundchannel(p.info['id'], 10**6)
+
+        bitcoind.generate_block(6)
+
+        # Now wait for them all to hit normal state, do payments
+        for p in peers:
+            p.daemon.wait_for_log('to CHANNELD_NORMAL')
+            if p.amount != 0:
+                self.pay(l1,p,100000000)
+
+        # Now close
+        for p in peers:
+            l1.rpc.close(p.info['id'])
+
+        for p in peers:
+            p.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+
+        bitcoind.generate_block(1)
+        for p in peers:
+            p.daemon.wait_for_log(' to ONCHAIND_MUTUAL')
+
+        l1.daemon.wait_for_logs([' to ONCHAIND_MUTUAL'] * num_peers)
+        
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail(self):
         l1,l2 = self.connect()
@@ -3151,12 +3199,12 @@ class LightningDTests(BaseLightningDTests):
 
         # Can't pay while its offline.
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
-        l1.daemon.wait_for_log('Failing: first peer not ready: WIRE_TEMPORARY_CHANNEL_FAILURE')
+        l1.daemon.wait_for_log('Failing: First peer not ready: WIRE_TEMPORARY_CHANNEL_FAILURE')
 
         # Should fail due to temporary channel fail
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
-        l1.daemon.wait_for_log('Failing: first peer not ready: WIRE_TEMPORARY_CHANNEL_FAILURE')
-        assert not l1.daemon.is_in_log('... still in progress')
+        l1.daemon.wait_for_log('Failing: First peer not ready: WIRE_TEMPORARY_CHANNEL_FAILURE')
+        assert not l1.daemon.is_in_log('Payment is still in progress')
 
         # After it sees block, someone should close channel.
         bitcoind.generate_block(1)

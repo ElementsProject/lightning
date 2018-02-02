@@ -375,7 +375,6 @@ enum onion_type send_htlc_out(struct peer *out, u64 amount, u32 cltv,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
 			      struct htlc_in *in,
-			      struct command *cmd,
 			      struct htlc_out **houtp)
 {
 	struct htlc_out *hout;
@@ -395,8 +394,7 @@ enum onion_type send_htlc_out(struct peer *out, u64 amount, u32 cltv,
 
 	/* Make peer's daemon own it, catch if it dies. */
 	hout = new_htlc_out(out->owner, out, amount, cltv,
-			    payment_hash, onion_routing_packet, in,
-			    cmd);
+			    payment_hash, onion_routing_packet, in);
 	tal_add_destructor(hout, hout_subd_died);
 
 	msg = towire_channel_offer_htlc(out, amount, cltv, payment_hash,
@@ -488,7 +486,7 @@ static void forward_htlc(struct htlc_in *hin,
 
 	failcode = send_htlc_out(next, amt_to_forward,
 				 outgoing_cltv_value, &hin->payment_hash,
-				 next_onion, hin, NULL, NULL);
+				 next_onion, hin, NULL);
 	if (!failcode)
 		return;
 

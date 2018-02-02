@@ -35,6 +35,7 @@ struct log_book {
 	void (*print)(const char *prefix,
 		      enum log_level level,
 		      bool continued,
+		      const struct timeabs *time,
 		      const char *str, void *arg);
 	void *print_arg;
 	enum log_level print_level;
@@ -48,17 +49,32 @@ struct log {
 	const char *prefix;
 };
 
-static void log_default_print(const char *prefix,
-			      enum log_level level,
-			      bool continued,
-			      const char *str, void *arg)
+static void log_to_file(const char *prefix,
+			enum log_level level,
+			bool continued,
+			const struct timeabs *time,
+			const char *str,
+			FILE *logf)
 {
+	char iso8601_msec_fmt[sizeof("YYYY-mm-ddTHH:MM:SS.%03dZ")];
+	strftime(iso8601_msec_fmt, sizeof(iso8601_msec_fmt), "%FT%T.%%03dZ", gmtime(&time->ts.tv_sec));
+	char iso8601_s[sizeof("YYYY-mm-ddTHH:MM:SS.nnnZ")];
+	snprintf(iso8601_s, sizeof(iso8601_s), iso8601_msec_fmt, (int) time->ts.tv_nsec / 1000000);
 	if (!continued) {
-		printf("%s %s\n", prefix, str);
+		fprintf(logf, "%s %s %s\n", iso8601_s, prefix, str);
 	} else {
-		printf("%s \t%s\n", prefix, str);
+		fprintf(logf, "%s %s \t%s\n", iso8601_s, prefix, str);
 	}
-	fflush(stdout);
+	fflush(logf);
+}
+
+static void log_to_stdout(const char *prefix,
+			  enum log_level level,
+			  bool continued,
+			  const struct timeabs *time,
+			  const char *str, void *unused UNUSED)
+{
+	log_to_file(prefix, level, continued, time, str, stdout);
 }
 
 static size_t log_bufsize(const struct log_entry *e)
@@ -106,7 +122,7 @@ struct log_book *new_log_book(const tal_t *ctx,
 	assert(max_mem > sizeof(struct log) * 2);
 	lr->mem_used = 0;
 	lr->max_mem = max_mem;
-	lr->print = log_default_print;
+	lr->print = log_to_stdout;
 	lr->print_level = printlevel;
 	lr->init_time = time_now();
 	list_head_init(&lr->log);
@@ -155,6 +171,7 @@ void set_log_outfn_(struct log_book *lr,
 		    void (*print)(const char *prefix,
 				  enum log_level level,
 				  bool continued,
+				  const struct timeabs *time,
 				  const char *str, void *arg),
 		    void *arg)
 {
@@ -220,7 +237,7 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 	l->log = tal_vfmt(l, fmt, ap);
 
 	if (level >= log->lr->print_level)
-		log->lr->print(log->prefix, level, false, l->log,
+		log->lr->print(log->prefix, level, false, &l->time, l->log,
 			       log->lr->print_arg);
 
 	add_entry(log, l);
@@ -240,7 +257,7 @@ void log_io(struct log *log, bool in, const void *data, size_t len)
 		char *hex = tal_arr(l, char, strlen(dir) + hex_str_size(len));
 		strcpy(hex, dir);
 		hex_encode(data, len, hex + strlen(dir), hex_str_size(len));
-		log->lr->print(log->prefix, LOG_IO, false, l->log,
+		log->lr->print(log->prefix, LOG_IO, false, &l->time, l->log,
 			       log->lr->print_arg);
 		tal_free(hex);
 	}
@@ -262,7 +279,7 @@ void logv_add(struct log *log, const char *fmt, va_list ap)
 	add_entry(log, l);
 
 	if (l->level >= log->lr->print_level)
-		log->lr->print(log->prefix, l->level, true, l->log + oldlen,
+		log->lr->print(log->prefix, l->level, true, &l->time, l->log + oldlen,
 			       log->lr->print_arg);
 }
 
@@ -400,20 +417,6 @@ static void show_log_prefix(char buf[OPT_SHOW_LEN], const struct log *log)
 	strncpy(buf, log->prefix, OPT_SHOW_LEN);
 }
 
-static void log_to_file(const char *prefix,
-			enum log_level level,
-			bool continued,
-			const char *str,
-			FILE *logf)
-{
-	if (!continued) {
-		fprintf(logf, "%s %s\n", prefix, str);
-	} else {
-		fprintf(logf, "%s \t%s\n", prefix, str);
-	}
-	fflush(logf);
-}
-
 char *arg_log_to_file(const char *arg, struct lightningd *ld)
 {
 	FILE *logf;
@@ -464,7 +467,7 @@ static void log_crash(int sig)
 				       crashlog);
 	}
 
-	if (crashlog->lr->print == log_default_print) {
+	if (crashlog->lr->print == log_to_stdout) {
 		int fd;
 
 		/* We expect to be in config dir. */

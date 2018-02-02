@@ -18,28 +18,74 @@
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 
-static void json_pay_success(struct command *cmd, const struct preimage *rval)
+/* pay/sendpay command */
+struct pay_command {
+	struct list_node list;
+
+	struct sha256 payment_hash;
+	struct command *cmd;
+};
+
+static void destroy_pay_command(struct pay_command *pc)
+{
+	list_del(&pc->list);
+}
+
+/* Owned by cmd */
+static struct pay_command *new_pay_command(struct command *cmd,
+					   const struct sha256 *payment_hash,
+					   struct lightningd *ld)
+{
+	struct pay_command *pc = tal(cmd, struct pay_command);
+
+	pc->payment_hash = *payment_hash;
+	pc->cmd = cmd;
+	list_add(&ld->pay_commands, &pc->list);
+	tal_add_destructor(pc, destroy_pay_command);
+	return pc;
+}
+
+static void json_pay_command_success(struct command *cmd,
+				     const struct preimage *payment_preimage)
 {
 	struct json_result *response;
 
-	/* Can be NULL if JSON RPC goes away. */
-	if (!cmd)
-		return;
-
 	response = new_json_result(cmd);
 	json_object_start(response, NULL);
-	json_add_hex(response, "preimage", rval, sizeof(*rval));
+	json_add_hex(response, "preimage",
+		     payment_preimage, sizeof(*payment_preimage));
 	json_object_end(response);
 	command_success(cmd, response);
 }
 
-static void json_pay_failed(struct command *cmd,
+static void json_pay_success(struct lightningd *ld,
+			     const struct sha256 *payment_hash,
+			     const struct preimage *payment_preimage)
+{
+	struct pay_command *pc, *next;
+
+	list_for_each_safe(&ld->pay_commands, pc, next, list) {
+		if (!structeq(payment_hash, &pc->payment_hash))
+			continue;
+
+		/* Deletes itself. */
+		json_pay_command_success(pc->cmd, payment_preimage);
+	}
+}
+
+static void json_pay_failed(struct lightningd *ld,
+			    const struct sha256 *payment_hash,
 			    enum onion_type failure_code,
 			    const char *details)
 {
-	/* Can be NULL if JSON RPC goes away. */
-	if (cmd) {
-		command_fail(cmd, "failed: %s (%s)",
+	struct pay_command *pc, *next;
+
+	list_for_each_safe(&ld->pay_commands, pc, next, list) {
+		if (!structeq(payment_hash, &pc->payment_hash))
+			continue;
+
+		/* Deletes itself. */
+		command_fail(pc->cmd, "failed: %s (%s)",
 			     onion_type_name(failure_code), details);
 	}
 }
@@ -49,10 +95,7 @@ void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 {
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 				  PAYMENT_COMPLETE, rval);
-	/* Can be NULL if JSON RPC goes away. */
-	if (hout->cmd)
-		json_pay_success(hout->cmd, rval);
-	hout->cmd = NULL;
+	json_pay_success(ld, &hout->payment_hash, rval);
 }
 
 /* Return NULL if the wrapped onion error message has no
@@ -282,15 +325,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	 * and payment again. */
 	(void) retry_plausible;
 
-	json_pay_failed(hout->cmd, failcode, failmsg);
+	json_pay_failed(ld, &hout->payment_hash, failcode, failmsg);
 	tal_free(tmpctx);
-}
-
-/* When JSON RPC goes away, cmd is freed: detach from the hout */
-static void remove_cmd_from_hout(struct command *cmd, struct htlc_out *hout)
-{
-	assert(hout->cmd == cmd);
-	hout->cmd = NULL;
 }
 
 /* Returns true if it's still pending. */
@@ -342,8 +378,8 @@ static bool send_payment(struct command *cmd,
 		/* FIXME: We should really do something smarter here! */
 		log_debug(cmd->ld->log, "json_sendpay: found previous");
 		if (payment->status == PAYMENT_PENDING) {
-			log_add(cmd->ld->log, "... still in progress");
-			command_fail(cmd, "still in progress");
+			log_add(cmd->ld->log, "Payment is still in progress");
+			command_fail(cmd, "Payment is still in progress");
 			return false;
 		}
 		if (payment->status == PAYMENT_COMPLETE) {
@@ -351,18 +387,19 @@ static bool send_payment(struct command *cmd,
 			/* Must match successful payment parameters. */
 			if (payment->msatoshi != hop_data[n_hops-1].amt_forward) {
 				command_fail(cmd,
-					     "already succeeded with amount %"
+					     "Already succeeded with amount %"
 					     PRIu64, payment->msatoshi);
 				return false;
 			}
 			if (!structeq(&payment->destination, &ids[n_hops-1])) {
 				command_fail(cmd,
-					     "already succeeded to %s",
+					     "Already succeeded to %s",
 					     type_to_string(cmd, struct pubkey,
 							    &payment->destination));
 				return false;
 			}
-			json_pay_success(cmd, payment->payment_preimage);
+			json_pay_command_success(cmd,
+						 payment->payment_preimage);
 			return false;
 		}
 		wallet_payment_delete(cmd->ld->wallet, rhash);
@@ -371,7 +408,7 @@ static bool send_payment(struct command *cmd,
 
 	peer = peer_by_id(cmd->ld, &ids[0]);
 	if (!peer) {
-		command_fail(cmd, "no connection to first peer found");
+		command_fail(cmd, "No connection to first peer found");
 		return false;
 	}
 
@@ -387,10 +424,9 @@ static bool send_payment(struct command *cmd,
 
 	failcode = send_htlc_out(peer, route[0].amount,
 				 base_expiry + route[0].delay,
-				 rhash, onion, NULL, cmd,
-				 &hout);
+				 rhash, onion, NULL, &hout);
 	if (failcode) {
-		command_fail(cmd, "first peer not ready: %s",
+		command_fail(cmd, "First peer not ready: %s",
 			     onion_type_name(failcode));
 		return false;
 	}
@@ -416,9 +452,7 @@ static bool send_payment(struct command *cmd,
 	/* We write this into db when HTLC is actually sent. */
 	wallet_payment_setup(cmd->ld->wallet, payment);
 
-	/* If we fail, remove cmd ptr from htlc_out. */
-	tal_add_destructor2(cmd, remove_cmd_from_hout, hout);
-
+	new_pay_command(cmd, rhash, cmd->ld);
 	tal_free(tmpctx);
 	return true;
 }
@@ -463,7 +497,7 @@ static void json_sendpay(struct command *cmd,
 		const jsmntok_t *amttok, *idtok, *delaytok, *chantok;
 
 		if (t->type != JSMN_OBJECT) {
-			command_fail(cmd, "route %zu '%.*s' is not an object",
+			command_fail(cmd, "Route %zu '%.*s' is not an object",
 				     n_hops,
 				     (int)(t->end - t->start),
 				     buffer + t->start);
@@ -474,7 +508,7 @@ static void json_sendpay(struct command *cmd,
 		delaytok = json_get_member(buffer, t, "delay");
 		chantok = json_get_member(buffer, t, "channel");
 		if (!amttok || !idtok || !delaytok || !chantok) {
-			command_fail(cmd, "route %zu needs msatoshi/id/channel/delay",
+			command_fail(cmd, "Route %zu needs msatoshi/id/channel/delay",
 				     n_hops);
 			return;
 		}
@@ -483,22 +517,22 @@ static void json_sendpay(struct command *cmd,
 
 		/* What that hop will forward */
 		if (!json_tok_number(buffer, amttok, &route[n_hops].amount)) {
-			command_fail(cmd, "route %zu invalid msatoshi",
+			command_fail(cmd, "Route %zu invalid msatoshi",
 				     n_hops);
 			return;
 		}
 
 		if (!json_tok_short_channel_id(buffer, chantok,
 					       &route[n_hops].channel_id)) {
-			command_fail(cmd, "route %zu invalid channel_id", n_hops);
+			command_fail(cmd, "Route %zu invalid channel_id", n_hops);
 			return;
 		}
 		if (!json_tok_pubkey(buffer, idtok, &route[n_hops].nodeid)) {
-			command_fail(cmd, "route %zu invalid id", n_hops);
+			command_fail(cmd, "Route %zu invalid id", n_hops);
 			return;
 		}
 		if (!json_tok_number(buffer, delaytok, &route[n_hops].delay)) {
-			command_fail(cmd, "route %zu invalid delay", n_hops);
+			command_fail(cmd, "Route %zu invalid delay", n_hops);
 			return;
 		}
 		n_hops++;

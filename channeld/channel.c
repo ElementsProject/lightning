@@ -904,6 +904,19 @@ static void send_commit(struct peer *peer)
 		return;
 	}
 
+	/* BOLT #2:
+	 *
+	 *   - if no HTLCs remain in either commitment transaction:
+	 *	- MUST NOT send any `update` message after a `shutdown`.
+	 */
+	if (peer->shutdown_sent[LOCAL] && !channel_has_htlcs(peer->channel)) {
+		status_trace("Can't send commit: final shutdown phase");
+
+		peer->commit_timer = NULL;
+		tal_free(tmpctx);
+		return;
+	}
+
 	/* If we wanted to update fees, do it now. */
 	if (peer->channel->funder == LOCAL
 	    && peer->desired_feerate != channel_feerate(peer->channel, REMOTE)) {

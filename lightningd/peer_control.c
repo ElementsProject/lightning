@@ -697,6 +697,7 @@ send_error:
 static void copy_to_parent_log(const char *prefix,
 			       enum log_level level,
 			       bool continued,
+			       const struct timeabs *time,
 			       const char *str,
 			       struct peer *peer)
 {
@@ -768,7 +769,7 @@ static void json_connect(struct command *cmd,
 		if (porttok) {
 			u32 port;
 			if (!json_tok_number(buffer, porttok, &port)) {
-				command_fail(cmd, "port %.*s not valid",
+				command_fail(cmd, "Port %.*s not valid",
 					     porttok->end - porttok->start,
 					     buffer + porttok->start);
 				return;
@@ -778,7 +779,7 @@ static void json_connect(struct command *cmd,
 			addr.port = DEFAULT_PORT;
 		}
 		if (!parse_wireaddr(name, &addr, addr.port) || !addr.port) {
-			command_fail(cmd, "host %s:%u not valid",
+			command_fail(cmd, "Host %s:%u not valid",
 				     name, addr.port);
 			return;
 		}
@@ -1763,14 +1764,16 @@ void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
 	peer->last_tx = tal_steal(peer, tx);
 }
 
-/* Is this better than the last tx we were holding? */
+/* Is this better than the last tx we were holding?  This can happen
+ * even without closingd misbehaving, if we have multiple,
+ * interrupted, rounds of negotiation. */
 static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
 {
 	u64 weight, fee, last_fee, ideal_fee, min_fee;
 	s64 old_diff, new_diff;
 	size_t i;
 
-	/* Calculate actual fee. */
+	/* Calculate actual fee (adds in eliminated outputs) */
 	fee = peer->funding_satoshi;
 	for (i = 0; i < tal_count(tx->output); i++)
 		fee -= tx->output[i].amount;
@@ -1779,12 +1782,20 @@ static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
 	for (i = 0; i < tal_count(peer->last_tx); i++)
 		last_fee -= peer->last_tx->output[i].amount;
 
+	log_debug(peer->log, "Their actual closing tx fee is %"PRIu64
+		 " vs previous %"PRIu64, fee, last_fee);
+
 	/* Weight once we add in sigs. */
 	weight = measure_tx_cost(tx) + 74 * 2;
 
 	min_fee = get_feerate(peer->ld->topology, FEERATE_SLOW) * weight / 1000;
-	if (fee < min_fee)
+	if (fee < min_fee) {
+		log_debug(peer->log, "... That's below our min %"PRIu64
+			 " for weight %"PRIu64" at feerate %u",
+			 min_fee, weight,
+			 get_feerate(peer->ld->topology, FEERATE_SLOW));
 		return false;
+	}
 
 	ideal_fee = get_feerate(peer->ld->topology, FEERATE_NORMAL) * weight / 1000;
 
@@ -1792,7 +1803,17 @@ static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
 	old_diff = imaxabs((s64)ideal_fee - (s64)last_fee);
 	new_diff = imaxabs((s64)ideal_fee - (s64)fee);
 
-	return (new_diff < old_diff);
+	/* In case of a tie, prefer new over old: this covers the preference
+	 * for a mutual close over a unilateral one. */
+	log_debug(peer->log, "... That's %s our ideal %"PRIu64,
+		 new_diff < old_diff
+		 ? "closer to"
+		 : new_diff > old_diff
+		 ? "further from"
+		 : "same distance to",
+		 ideal_fee);
+
+	return new_diff <= old_diff;
 }
 
 static void peer_received_closing_signature(struct peer *peer, const u8 *msg)
@@ -1867,7 +1888,7 @@ static void peer_start_closingd(struct peer *peer,
 {
 	const tal_t *tmpctx = tal_tmpctx(peer);
 	u8 *initmsg, *local_scriptpubkey;
-	u64 minfee, maxfee, startfee, feelimit;
+	u64 minfee, startfee, feelimit;
 	u64 num_revocations;
 	u64 funding_msatoshi, our_msatoshi, their_msatoshi;
 
@@ -1915,15 +1936,11 @@ static void peer_start_closingd(struct peer *peer,
 	feelimit = commit_tx_base_fee(peer->channel_info->feerate_per_kw[LOCAL],
 				      0);
 
-	maxfee = commit_tx_base_fee(get_feerate(peer->ld->topology,
-						FEERATE_IMMEDIATE), 0);
 	minfee = commit_tx_base_fee(get_feerate(peer->ld->topology,
 						FEERATE_SLOW), 0);
 	startfee = commit_tx_base_fee(get_feerate(peer->ld->topology,
 						  FEERATE_NORMAL), 0);
 
-	if (maxfee > feelimit)
-		maxfee = feelimit;
 	if (startfee > feelimit)
 		startfee = feelimit;
 	if (minfee > feelimit)
@@ -1953,13 +1970,14 @@ static void peer_start_closingd(struct peer *peer,
 				      our_msatoshi / 1000, /* Rounds down */
 				      their_msatoshi / 1000, /* Rounds down */
 				      peer->our_config.dust_limit_satoshis,
-				      minfee, maxfee, startfee,
+				      minfee, feelimit, startfee,
 				      local_scriptpubkey,
 				      peer->remote_shutdown_scriptpubkey,
 				      reconnected,
 				      peer->next_index[LOCAL],
 				      peer->next_index[REMOTE],
-				      num_revocations);
+				      num_revocations,
+				      deprecated_apis);
 
 	/* We don't expect a response: it will give us feedback on
 	 * signatures sent and received, then closing_complete. */

@@ -14,7 +14,7 @@ closing_init,,local_msatoshi,u64
 closing_init,,remote_msatoshi,u64
 closing_init,,our_dust_limit,u64
 closing_init,,min_fee_satoshi,u64
-closing_init,,max_fee_satoshi,u64
+closing_init,,fee_limit_satoshi,u64
 closing_init,,initial_fee_satoshi,u64
 closing_init,,local_scriptpubkey_len,u16
 closing_init,,local_scriptpubkey,local_scriptpubkey_len*u8
@@ -24,6 +24,8 @@ closing_init,,reconnected,bool
 closing_init,,next_index_local,u64
 closing_init,,next_index_remote,u64
 closing_init,,revocations_received,u64
+# This means we allow closing negotiations out of bounds.
+closing_init,,deprecated_api,bool
 
 # We received an offer, save signature.
 closing_received_signature,2002
