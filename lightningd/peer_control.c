@@ -1976,7 +1976,8 @@ static void peer_start_closingd(struct peer *peer,
 				      reconnected,
 				      peer->next_index[LOCAL],
 				      peer->next_index[REMOTE],
-				      num_revocations);
+				      num_revocations,
+				      deprecated_apis);
 
 	/* We don't expect a response: it will give us feedback on
 	 * signatures sent and received, then closing_complete. */

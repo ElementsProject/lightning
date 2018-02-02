@@ -343,11 +343,14 @@ static uint64_t receive_offer(struct crypto_state *cs,
 struct feerange {
 	enum side higher_side;
 	u64 min, max;
+
+	bool allow_mistakes;
 };
 
 static void init_feerange(struct feerange *feerange,
 			  u64 commitment_fee,
-			  const u64 offer[NUM_SIDES])
+			  const u64 offer[NUM_SIDES],
+			  bool allow_mistakes)
 {
 	feerange->min = 0;
 
@@ -374,13 +377,17 @@ static void adjust_feerange(struct crypto_state *cs,
 			    struct feerange *feerange,
 			    u64 offer, enum side side)
 {
-	if (offer < feerange->min || offer > feerange->max)
-		peer_failed(PEER_FD, cs, channel_id,
-			    "%s offer %"PRIu64
-			    " not between %"PRIu64" and %"PRIu64,
-			    side == LOCAL ? "local" : "remote",
-			    offer, feerange->min, feerange->max);
+	if (offer < feerange->min || offer > feerange->max) {
+		if (!feerange->allow_mistakes || side != REMOTE)
+			peer_failed(PEER_FD, cs, channel_id,
+				    "%s offer %"PRIu64
+				    " not between %"PRIu64" and %"PRIu64,
+				    side == LOCAL ? "local" : "remote",
+				    offer, feerange->min, feerange->max);
 
+		status_trace("Allowing deprecated out-of-range fee");
+		return;
+	}
 
 	/* BOLT #2:
 	 *
@@ -444,6 +451,7 @@ int main(int argc, char *argv[])
 	u64 next_index[NUM_SIDES], revocations_received;
 	u64 gossip_index;
 	enum side whose_turn;
+	bool deprecated_api;
 
 	subdaemon_setup(argc, argv);
 
@@ -466,7 +474,8 @@ int main(int argc, char *argv[])
 				   &reconnected,
 				   &next_index[LOCAL],
 				   &next_index[REMOTE],
-				   &revocations_received))
+				   &revocations_received,
+				   &deprecated_api))
 		master_badmsg(WIRE_CLOSING_INIT, msg);
 
 	status_trace("satoshi_out = %"PRIu64"/%"PRIu64,
@@ -512,7 +521,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Now we have first two points, we can init fee range. */
-	init_feerange(&feerange, commitment_fee, offer);
+	init_feerange(&feerange, commitment_fee, offer, deprecated_api);
 
 	/* Now apply the one constraint from above (other is inside loop). */
 	adjust_feerange(&cs, &channel_id, &feerange,
