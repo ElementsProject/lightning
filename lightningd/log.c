@@ -68,11 +68,11 @@ static void log_to_file(const char *prefix,
 	fflush(logf);
 }
 
-static void log_default_print(const char *prefix,
-			      enum log_level level,
-			      bool continued,
-			      const struct timeabs *time,
-			      const char *str, void *arg)
+static void log_to_stdout(const char *prefix,
+			  enum log_level level,
+			  bool continued,
+			  const struct timeabs *time,
+			  const char *str, void *arg)
 {
 	log_to_file(prefix, level, continued, time, str, stdout);
 }
@@ -122,7 +122,7 @@ struct log_book *new_log_book(const tal_t *ctx,
 	assert(max_mem > sizeof(struct log) * 2);
 	lr->mem_used = 0;
 	lr->max_mem = max_mem;
-	lr->print = log_default_print;
+	lr->print = log_to_stdout;
 	lr->print_level = printlevel;
 	lr->init_time = time_now();
 	list_head_init(&lr->log);
@@ -467,7 +467,7 @@ static void log_crash(int sig)
 				       crashlog);
 	}
 
-	if (crashlog->lr->print == log_default_print) {
+	if (crashlog->lr->print == log_to_stdout) {
 		int fd;
 
 		/* We expect to be in config dir. */
