@@ -3239,5 +3239,18 @@ class LightningDTests(BaseLightningDTests):
         j, _ = json.JSONDecoder().raw_decode(out)
         assert 'help [command]' in j['verbose'] 
 
+        # Test missing parameters.
+        try:
+            # This will error due to missing parameters.
+            # We want to check if lightningd will crash.
+            out = subprocess.check_output(['cli/lightning-cli',
+                                           '--lightning-dir={}'
+                                           .format(l1.daemon.lightning_dir),
+                                           '-J', '-o',
+                                           'sendpay']).decode('utf-8')
+        except:
+            pass
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
