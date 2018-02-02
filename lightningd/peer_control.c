@@ -1764,7 +1764,9 @@ void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
 	peer->last_tx = tal_steal(peer, tx);
 }
 
-/* Is this better than the last tx we were holding? */
+/* Is this better than the last tx we were holding?  This can happen
+ * even without closingd misbehaving, if we have multiple,
+ * interrupted, rounds of negotiation. */
 static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
 {
 	u64 weight, fee, last_fee, ideal_fee, min_fee;
@@ -1801,6 +1803,8 @@ static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
 	old_diff = imaxabs((s64)ideal_fee - (s64)last_fee);
 	new_diff = imaxabs((s64)ideal_fee - (s64)fee);
 
+	/* In case of a tie, prefer new over old: this covers the preference
+	 * for a mutual close over a unilateral one. */
 	log_debug(peer->log, "... That's %s our ideal %"PRIu64,
 		 new_diff < old_diff
 		 ? "closer to"
@@ -1809,7 +1813,7 @@ static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
 		 : "same distance to",
 		 ideal_fee);
 
-	return (new_diff < old_diff);
+	return new_diff <= old_diff;
 }
 
 static void peer_received_closing_signature(struct peer *peer, const u8 *msg)
