@@ -137,6 +137,9 @@ struct lightningd {
 	/* Transaction filter matching what we're interested in */
 	struct txfilter *owned_txfilter;
 
+	/* May be useful for non-developers debugging in the field */
+	char *debug_subdaemon_io;
+
 #if DEVELOPER
 	/* If we want to debug a subdaemon. */
 	const char *dev_debug_subdaemon;

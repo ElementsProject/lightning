@@ -71,14 +71,12 @@ void subdaemon_setup(int argc, char *argv[])
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
-#if DEVELOPER
 	for (int i = 1; i < argc; i++) {
-		if (strstarts(argv[i], "--dev-disconnect=")) {
-			dev_disconnect_init(atoi(argv[i]
-						 + strlen("--dev-disconnect=")));
-		}
+		if (streq(argv[i], "--log-io"))
+			logging_io = true;
 	}
 
+#if DEVELOPER
 	/* From debugger, set debugger_spin to 0. */
 	for (int i = 1; i < argc; i++) {
 		if (streq(argv[i], "--debugger")) {
@@ -86,6 +84,10 @@ void subdaemon_setup(int argc, char *argv[])
 				getpid(), argv[0]);
 			while (!debugger_connected)
 				usleep(10000);
+		}
+		if (strstarts(argv[i], "--dev-disconnect=")) {
+			dev_disconnect_init(atoi(argv[i]
+						 + strlen("--dev-disconnect=")));
 		}
 	}
 #endif
