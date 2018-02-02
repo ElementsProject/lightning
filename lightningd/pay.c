@@ -230,18 +230,31 @@ static bool remote_routing_failure(const tal_t *ctx,
 	return retry_plausible;
 }
 
-static void report_routing_failure(struct subd *gossip,
+static void report_routing_failure(struct log *log,
+				   struct subd *gossip,
 				   struct routing_failure *fail)
 {
-	u8 *gossip_msg
-		= towire_gossip_routing_failure(gossip,
-						&fail->erring_node,
-						&fail->erring_channel,
-						(u16) fail->failcode,
-						fail->channel_update);
+	const tal_t *tmpctx = tal_tmpctx(gossip);
+	u8 *gossip_msg;
+	assert(fail);
+
+	log_debug(log,
+		  "Reporting route failure to gossipd: 0x%04x (%s) "
+		  "node %s channel %s update %s",
+		  fail->failcode, onion_type_name(fail->failcode),
+		  type_to_string(tmpctx, struct pubkey,
+				 &fail->erring_node),
+		  type_to_string(tmpctx, struct short_channel_id,
+			  	 &fail->erring_channel),
+		  tal_hex(tmpctx, fail->channel_update));
+	gossip_msg = towire_gossip_routing_failure(tmpctx,
+						   &fail->erring_node,
+						   &fail->erring_channel,
+						   (u16) fail->failcode,
+						   fail->channel_update);
 	subd_send_msg(gossip, gossip_msg);
 
-	tal_free(gossip_msg);
+	tal_free(tmpctx);
 }
 
 void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
@@ -307,18 +320,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 				  PAYMENT_FAILED, NULL);
 
 	/* Report to gossipd if there is something we can report. */
-	if (fail) {
-		log_debug(ld->log,
-			  "Reporting route failure to gossipd: 0x%04x (%s) "
-			  "node %s channel %s update %s",
-			  fail->failcode, onion_type_name(fail->failcode),
-			  type_to_string(tmpctx, struct pubkey,
-					 &fail->erring_node),
-			  type_to_string(tmpctx, struct short_channel_id,
-				  	 &fail->erring_channel),
-			  tal_hex(tmpctx, fail->channel_update));
-		report_routing_failure(ld->gossip, fail);
-	}
+	if (fail)
+		report_routing_failure(ld->log, ld->gossip, fail);
 
 	/* FIXME(ZmnSCPxj): if retrying is plausible, and we are
 	 * using pay command rather than sendpay, retry routing
