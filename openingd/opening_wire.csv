@@ -81,7 +81,5 @@ opening_fundee_reply,,funding_signed_msg,msglen*u8
 opening_negotiation_failed,6010
 opening_negotiation_failed,,crypto_state,struct crypto_state
 opening_negotiation_failed,,gossip_index,u64
-opening_negotiation_failed,,len,u16
-# FIXME: string support!
-opening_negotiation_failed,,msg,len*u8
+opening_negotiation_failed,,msg,wirestring
 
