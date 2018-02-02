@@ -15,8 +15,11 @@ bool sync_crypto_write(struct crypto_state *cs, int fd, const void *msg TAKES)
 	bool post_sabotage = false;
 	int type = fromwire_peektype(msg);
 #endif
-	u8 *enc = cryptomsg_encrypt_msg(NULL, cs, msg);
+	u8 *enc;
 	bool ret;
+
+	status_io(LOCAL, msg);
+	enc = cryptomsg_encrypt_msg(NULL, cs, msg);
 
 #if DEVELOPER
 	switch (dev_disconnect(type)) {
@@ -71,6 +74,7 @@ u8 *sync_crypto_read(const tal_t *ctx, struct crypto_state *cs, int fd)
 	if (!dec)
 		status_trace("Failed body decrypt with rn=%"PRIu64, cs->rn-2);
 	else
-		status_trace("Read decrypt %s", tal_hex(trc, dec));
+		status_io(REMOTE, dec);
+
 	return dec;
 }
