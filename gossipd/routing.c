@@ -53,6 +53,28 @@ struct pending_cannouncement {
 	u32 update_timestamps[2];
 };
 
+struct pending_node_announce {
+	struct pubkey nodeid;
+	u8 *node_announcement;
+	u32 timestamp;
+};
+
+static const secp256k1_pubkey *
+pending_node_announce_keyof(const struct pending_node_announce *a)
+{
+	return &a->nodeid.pubkey;
+}
+
+static bool pending_node_announce_eq(const struct pending_node_announce *pna,
+				     const secp256k1_pubkey *key)
+{
+	return structeq(&pna->nodeid.pubkey, key);
+}
+
+HTABLE_DEFINE_TYPE(struct pending_node_announce, pending_node_announce_keyof,
+		   node_map_hash_key, pending_node_announce_eq,
+		   pending_node_map);
+
 /**
  * routing_channel keeps track of the indices in the broadcast queue
  * for the corresponding messages. This way we always know exactly
@@ -82,6 +104,9 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->local_id = *local_id;
 	list_head_init(&rstate->pending_cannouncement);
 	uintmap_init(&rstate->channels);
+
+	rstate->pending_node_map = tal(ctx, struct pending_node_map);
+	pending_node_map_init(rstate->pending_node_map);
 
 	return rstate;
 }
@@ -596,6 +621,30 @@ void channel_add_connection(struct routing_state *rstate,
 	tal_add_destructor2(nc, remove_connection_from_channel, rstate);
 }
 
+static void add_pending_node_announcement(struct routing_state *rstate, struct pubkey *nodeid)
+{
+	struct pending_node_announce *pna = tal(rstate, struct pending_node_announce);
+	pna->nodeid = *nodeid;
+	pna->node_announcement = NULL;
+	pna->timestamp = 0;
+	pending_node_map_add(rstate->pending_node_map, pna);
+}
+
+static void process_pending_node_announcement(struct routing_state *rstate,
+					      struct pubkey *nodeid)
+{
+	struct pending_node_announce *pna = pending_node_map_get(rstate->pending_node_map, &nodeid->pubkey);
+	if (!pna)
+		return;
+
+	if (pna->node_announcement) {
+		status_trace("Processing deferred node_announcement for node %s", type_to_string(pna, struct pubkey, nodeid));
+		handle_node_announcement(rstate, pna->node_announcement);
+	}
+	pending_node_map_del(rstate->pending_node_map, pna);
+	tal_free(pna);
+}
+
 const struct short_channel_id *handle_channel_announcement(
 	struct routing_state *rstate,
 	const u8 *announce TAKES)
@@ -697,6 +746,11 @@ const struct short_channel_id *handle_channel_announcement(
 	chan->public = true;
 	uintmap_add(&rstate->channels, scid, chan);
 
+	/* Add both endpoints to the pending_node_map so we can stash
+	 * node_announcements while we wait for the txout check */
+	add_pending_node_announcement(rstate, &pending->node_id_1);
+	add_pending_node_announcement(rstate, &pending->node_id_2);
+
 	list_add_tail(&rstate->pending_cannouncement, &pending->list);
 	return &pending->short_channel_id;
 }
@@ -790,6 +844,9 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 		handle_channel_update(rstate, pending->updates[0]);
 	if (pending->updates[1])
 		handle_channel_update(rstate, pending->updates[1]);
+
+	process_pending_node_announcement(rstate, &pending->node_id_1);
+	process_pending_node_announcement(rstate, &pending->node_id_2);
 
 	tal_free(pending);
 	return local && forward;
@@ -1004,7 +1061,22 @@ void handle_node_announcement(
 		tal_free(tmpctx);
 		return;
 	}
+
 	node = get_node(rstate, &node_id);
+
+	/* Check if we are currently verifying the txout for a
+	 * matching channel */
+	struct pending_node_announce *pna = pending_node_map_get(rstate->pending_node_map, &node_id.pubkey);
+	if (!node && pna) {
+		if (pna->timestamp < timestamp) {
+			status_trace("Deferring node_announcement for node %s", type_to_string(tmpctx, struct pubkey, &node_id));
+			pna->timestamp = timestamp;
+			tal_free(pna->node_announcement);
+			pna->node_announcement = tal_dup_arr(pna, u8, node_ann, tal_len(node_ann), 0);
+		}
+		tal_free(tmpctx);
+		return;
+	}
 
 	if (!node) {
 		SUPERVERBOSE("Node not found, was the node_announcement for "
