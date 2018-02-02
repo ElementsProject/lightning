@@ -980,6 +980,41 @@ class LightningDTests(BaseLightningDTests):
         wait_forget_channels(l1)
         wait_forget_channels(l2)
 
+    def test_closing_different_fees(self):
+        l1 = self.node_factory.get_node()
+        self.give_funds(l1, (10**6) * 5 + 1000000)
+
+        # Default feerate = 15000/7500/1000
+        # It will accept between upper and lower feerate, starting at normal.
+        for feerates in [ [ 20000, 15000, 7400 ],
+                          [ 15000, 8000, 1000 ],
+                          [ 15000, 6000, 1000 ],
+                          [ 8000, 7500, 1000 ],
+                          [ 8000, 1200, 100 ] ]:
+            # With and without dust
+            for pamount in [ 0, 545999, 546000, 546001, 10**6 // 2 ]:
+                l2 = self.node_factory.get_node(options=['--override-fee-rates={}/{}/{}'
+                                                         .format(feerates[0],
+                                                                 feerates[1],
+                                                                 feerates[2])])
+
+                l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+
+                self.fund_channel(l1, l2, 10**6)
+                if pamount > 0:
+                    self.pay(l1, l2, pamount)
+
+                l1.rpc.close(l2.info['id'])
+                l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
+                l2.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
+
+                l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+                l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+
+                bitcoind.generate_block(1)
+                l1.daemon.wait_for_log(' to ONCHAIND_MUTUAL')
+                l2.daemon.wait_for_log(' to ONCHAIND_MUTUAL')
+        
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail(self):
         l1,l2 = self.connect()
