@@ -130,6 +130,7 @@ static struct node *new_node(struct routing_state *rstate,
 	n->out = tal_arr(n, struct node_connection *, 0);
 	n->alias = NULL;
 	n->node_announcement = NULL;
+	n->announcement_idx = 0;
 	n->last_timestamp = -1;
 	n->addresses = tal_arr(n, struct wireaddr, 0);
 	node_map_add(rstate->nodes, n);
@@ -1038,10 +1039,11 @@ void handle_node_announcement(
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_pubkey(&tag, &node_id);
-	queue_broadcast(rstate->broadcasts,
-			WIRE_NODE_ANNOUNCEMENT,
-			tag,
-			serialized);
+	replace_broadcast(rstate->broadcasts,
+			  &node->announcement_idx,
+			  WIRE_NODE_ANNOUNCEMENT,
+			  tag,
+			  serialized);
 	tal_free(node->node_announcement);
 	node->node_announcement = tal_steal(node, serialized);
 	tal_free(tmpctx);
