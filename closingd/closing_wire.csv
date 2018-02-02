@@ -14,7 +14,7 @@ closing_init,,local_msatoshi,u64
 closing_init,,remote_msatoshi,u64
 closing_init,,our_dust_limit,u64
 closing_init,,min_fee_satoshi,u64
-closing_init,,max_fee_satoshi,u64
+closing_init,,fee_limit_satoshi,u64
 closing_init,,initial_fee_satoshi,u64
 closing_init,,local_scriptpubkey_len,u16
 closing_init,,local_scriptpubkey,local_scriptpubkey_len*u8
