@@ -48,6 +48,9 @@ struct pending_cannouncement {
 	/* Deferred updates, if we received them while waiting for
 	 * this (one for each direction) */
 	const u8 *updates[2];
+
+	/* Only ever replace with newer updates */
+	u32 update_timestamps[2];
 };
 
 /**
@@ -609,6 +612,7 @@ const struct short_channel_id *handle_channel_announcement(
 	pending->updates[1] = NULL;
 	pending->announce = tal_dup_arr(pending, u8,
 					announce, tal_len(announce), 0);
+	pending->update_timestamps[0] = pending->update_timestamps[1] = 0;
 
 	if (!fromwire_channel_announcement(pending, pending->announce, NULL,
 					   &node_signature_1,
@@ -793,7 +797,8 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 /* Return true if this is an update to a pending announcement (and queue it) */
 static bool update_to_pending(struct routing_state *rstate,
 			      const struct short_channel_id *scid,
-			      const u8 *update, const u8 direction)
+			      u32 timestamp, const u8 *update,
+			      const u8 direction)
 {
 	struct pending_cannouncement *pending;
 
@@ -801,12 +806,14 @@ static bool update_to_pending(struct routing_state *rstate,
 	if (!pending)
 		return false;
 
-	/* FIXME: should compare timestamps! */
-	if (pending->updates[direction]) {
-		status_trace("Replacing existing update");
-		tal_free(pending->updates[direction]);
+	if (pending->update_timestamps[direction] < timestamp) {
+		if (pending->updates[direction]) {
+			status_trace("Replacing existing update");
+			tal_free(pending->updates[direction]);
+		}
+		pending->updates[direction] = tal_dup_arr(pending, u8, update, tal_len(update), 0);
+		pending->update_timestamps[direction] = timestamp;
 	}
-	pending->updates[direction] = tal_dup_arr(pending, u8, update, tal_len(update), 0);
 	return true;
 }
 
@@ -851,7 +858,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 		return;
 	}
 
-	if (update_to_pending(rstate, &short_channel_id, serialized, direction)) {
+	if (update_to_pending(rstate, &short_channel_id, timestamp,serialized, direction)) {
 		SUPERVERBOSE("Deferring update for pending channel %s(%d)",
 			     type_to_string(trc, struct short_channel_id,
 					    &short_channel_id), direction);
