@@ -1051,7 +1051,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 	const tal_t *tmpctx = tal_tmpctx(ctx);
 	struct changed_htlc *changed;
 	struct fulfilled_htlc *fulfilled;
-	struct failed_htlc *failed;
+	const struct failed_htlc **failed;
 	struct added_htlc *added;
 	struct secret *shared_secret;
 	u8 *msg;
@@ -1059,7 +1059,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 	changed = tal_arr(tmpctx, struct changed_htlc, 0);
 	added = tal_arr(tmpctx, struct added_htlc, 0);
 	shared_secret = tal_arr(tmpctx, struct secret, 0);
-	failed = tal_arr(tmpctx, struct failed_htlc, 0);
+	failed = tal_arr(tmpctx, const struct failed_htlc *, 0);
 	fulfilled = tal_arr(tmpctx, struct fulfilled_htlc, 0);
 
 	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
@@ -1083,12 +1083,13 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 				f->id = htlc->id;
 				f->payment_preimage = *htlc->r;
 			} else {
-				struct failed_htlc *f;
+				struct failed_htlc **f;
 				assert(htlc->fail);
 				f = tal_arr_append(&failed);
-				f->id = htlc->id;
-				f->malformed = htlc->malformed;
-				f->failreason = cast_const(u8 *, htlc->fail);
+				*f = tal(failed, struct failed_htlc);
+				(*f)->id = htlc->id;
+				(*f)->malformed = htlc->malformed;
+				(*f)->failreason = cast_const(u8 *, htlc->fail);
 			}
 		} else {
 			struct changed_htlc *c = tal_arr_append(&changed);
@@ -2408,7 +2409,7 @@ static void init_channel(struct peer *peer)
 	enum htlc_state *hstates;
 	struct fulfilled_htlc *fulfilled;
 	enum side *fulfilled_sides;
-	struct failed_htlc *failed;
+	struct failed_htlc **failed;
 	enum side *failed_sides;
 	struct added_htlc *htlcs;
 	bool reconnected;
@@ -2508,7 +2509,9 @@ static void init_channel(struct peer *peer)
 
 	if (!channel_force_htlcs(peer->channel, htlcs, hstates,
 				 fulfilled, fulfilled_sides,
-				 failed, failed_sides))
+				 cast_const2(const struct failed_htlc **,
+					     failed),
+				 failed_sides))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not restore HTLCs");
 

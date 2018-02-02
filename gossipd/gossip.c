@@ -1,4 +1,5 @@
 #include <ccan/build_assert/build_assert.h>
+#include <ccan/cast/cast.h>
 #include <ccan/container_of/container_of.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/endian/endian.h>
@@ -1111,21 +1112,24 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
-static void append_node(struct gossip_getnodes_entry **nodes,
+static void append_node(const struct gossip_getnodes_entry ***nodes,
 			const struct node *n)
 {
+	struct gossip_getnodes_entry *new;
 	size_t num_nodes = tal_count(*nodes);
-	tal_resize(nodes, num_nodes + 1);
-	(*nodes)[num_nodes].nodeid = n->id;
-	(*nodes)[num_nodes].last_timestamp = n->last_timestamp;
-	if (n->last_timestamp < 0) {
-		(*nodes)[num_nodes].addresses = NULL;
-		return;
-	}
 
-	(*nodes)[num_nodes].addresses = n->addresses;
-	(*nodes)[num_nodes].alias = n->alias;
-	memcpy((*nodes)[num_nodes].color, n->rgb_color, 3);
+	new = tal(*nodes, struct gossip_getnodes_entry);
+	new->nodeid = n->id;
+	new->last_timestamp = n->last_timestamp;
+	if (n->last_timestamp < 0) {
+		new->addresses = NULL;
+	} else {
+		new->addresses = n->addresses;
+		new->alias = n->alias;
+		memcpy(new->color, n->rgb_color, 3);
+	}
+	tal_resize(nodes, num_nodes + 1);
+	(*nodes)[num_nodes] = new;
 }
 
 static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
@@ -1134,12 +1138,12 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 	tal_t *tmpctx = tal_tmpctx(daemon);
 	u8 *out;
 	struct node *n;
-	struct gossip_getnodes_entry *nodes;
+	const struct gossip_getnodes_entry **nodes;
 	struct pubkey *ids;
 
 	fromwire_gossip_getnodes_request(tmpctx, msg, NULL, &ids);
 
-	nodes = tal_arr(tmpctx, struct gossip_getnodes_entry, 0);
+	nodes = tal_arr(tmpctx, const struct gossip_getnodes_entry *, 0);
 	if (ids) {
 		for (size_t i = 0; i < tal_count(ids); i++) {
 			n = node_map_get(daemon->rstate->nodes, &ids[i].pubkey);

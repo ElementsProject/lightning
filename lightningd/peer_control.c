@@ -2081,7 +2081,7 @@ static bool peer_start_channeld(struct peer *peer,
 	enum htlc_state *htlc_states;
 	struct fulfilled_htlc *fulfilled_htlcs;
 	enum side *fulfilled_sides;
-	struct failed_htlc *failed_htlcs;
+	const struct failed_htlc **failed_htlcs;
 	enum side *failed_sides;
 	struct short_channel_id funding_channel_id;
 	const u8 *shutdown_scriptpubkey;
@@ -2220,7 +2220,6 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 	tal_t *tmpctx = tal_tmpctx(fc);
 	u8 *msg;
 	struct channel_info *channel_info;
-	struct utxo *utxos;
 	struct bitcoin_tx *fundingtx;
 	struct bitcoin_txid funding_txid;
 	struct pubkey changekey;
@@ -2322,12 +2321,11 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 	/* Get HSM to sign the funding tx. */
 	log_debug(fc->peer->log, "Getting HSM to sign funding tx");
 
-	utxos = from_utxoptr_arr(tmpctx, fc->utxomap);
 	msg = towire_hsm_sign_funding(tmpctx, fc->peer->funding_satoshi,
 				      fc->change, fc->change_keyindex,
 				      &local_fundingkey,
 				      &channel_info->remote_fundingkey,
-				      utxos);
+				      fc->utxomap);
 	/* Unowned (will free openingd). */
 	peer_set_owner(fc->peer, NULL);
 
@@ -2547,7 +2545,6 @@ static void peer_offer_channel(struct lightningd *ld,
 	u8 *msg;
 	u32 max_to_self_delay, max_minimum_depth;
 	u64 min_effective_htlc_capacity_msat;
-	struct utxo *utxos;
 
 	/* We make a new peer. */
 	fc->peer = new_peer(ld, &fc->peerid, addr,
@@ -2600,15 +2597,14 @@ static void peer_offer_channel(struct lightningd *ld,
 				  cs, gossip_index, fc->peer->seed);
 	subd_send_msg(fc->peer->owner, take(msg));
 
-	utxos = from_utxoptr_arr(fc, fc->utxomap);
-
 	msg = towire_opening_funder(fc, fc->peer->funding_satoshi,
 				    fc->peer->push_msat,
 				    get_feerate(ld->topology, FEERATE_NORMAL),
 				    max_minimum_depth,
 				    fc->change, fc->change_keyindex,
 				    fc->peer->channel_flags,
-				    utxos, fc->peer->ld->wallet->bip32_base);
+				    fc->utxomap,
+				    fc->peer->ld->wallet->bip32_base);
 
 	/* Peer now owns fc; if it dies, we fail fc. */
 	tal_steal(fc->peer, fc);

@@ -195,7 +195,6 @@ static void json_withdraw(struct command *cmd,
 	bool testnet;
 	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
 	u64 fee_estimate;
-	struct utxo *utxos;
 	struct bitcoin_tx *tx;
 	bool withdraw_all = false;
 
@@ -277,14 +276,12 @@ static void json_withdraw(struct command *cmd,
 	else
 		withdraw->change_key_index = 0;
 
-	utxos = from_utxoptr_arr(withdraw, withdraw->utxos);
 	u8 *msg = towire_hsm_sign_withdrawal(cmd,
 					     withdraw->amount,
 					     withdraw->changesatoshi,
 					     withdraw->change_key_index,
 					     withdraw->destination,
-					     utxos);
-	tal_free(utxos);
+					     withdraw->utxos);
 
 	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
 		fatal("Could not write sign_withdrawal to HSM: %s",
