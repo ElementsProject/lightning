@@ -27,7 +27,7 @@ void configdir_register_opts(const tal_t *ctx,
 				 char **configdir, char **rpc_filename)
 {
 	*configdir = default_configdir(ctx);
-	*rpc_filename = tal_strdup(ctx,"lightning-rpc");
+	*rpc_filename =	tal_strdup(ctx, "lightning-rpc");
 
 	opt_register_early_arg("--lightning-dir=<dir>", opt_set_talstr, opt_show_charp,
 			       configdir,
