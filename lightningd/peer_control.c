@@ -697,6 +697,7 @@ send_error:
 static void copy_to_parent_log(const char *prefix,
 			       enum log_level level,
 			       bool continued,
+			       const struct timeabs *time,
 			       const char *str,
 			       struct peer *peer)
 {

@@ -35,6 +35,7 @@ struct log_book {
 	void (*print)(const char *prefix,
 		      enum log_level level,
 		      bool continued,
+		      const struct timeabs *time,
 		      const char *str, void *arg);
 	void *print_arg;
 	enum log_level print_level;
@@ -51,14 +52,13 @@ struct log {
 static void log_default_print(const char *prefix,
 			      enum log_level level,
 			      bool continued,
+			      const struct timeabs *time,
 			      const char *str, void *arg)
 {
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
 	char iso8601_msec_fmt[sizeof("YYYY-mm-ddTHH:MM:SS.%03dZ")];
-	strftime(iso8601_msec_fmt, sizeof(iso8601_msec_fmt), "%FT%T.%%03dZ", gmtime(&tv.tv_sec));
+	strftime(iso8601_msec_fmt, sizeof(iso8601_msec_fmt), "%FT%T.%%03dZ", gmtime(&time->ts.tv_sec));
 	char iso8601_s[sizeof("YYYY-mm-ddTHH:MM:SS.nnnZ")];
-	snprintf(iso8601_s, sizeof(iso8601_s), iso8601_msec_fmt, (int) tv.tv_usec / 1000);
+	snprintf(iso8601_s, sizeof(iso8601_s), iso8601_msec_fmt, (int) time->ts.tv_nsec / 1000000);
 
 	if (!continued) {
 		printf("%s %s %s\n", iso8601_s, prefix, str);
@@ -162,6 +162,7 @@ void set_log_outfn_(struct log_book *lr,
 		    void (*print)(const char *prefix,
 				  enum log_level level,
 				  bool continued,
+				  const struct timeabs *time,
 				  const char *str, void *arg),
 		    void *arg)
 {
@@ -227,7 +228,7 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 	l->log = tal_vfmt(l, fmt, ap);
 
 	if (level >= log->lr->print_level)
-		log->lr->print(log->prefix, level, false, l->log,
+		log->lr->print(log->prefix, level, false, &l->time, l->log,
 			       log->lr->print_arg);
 
 	add_entry(log, l);
@@ -247,7 +248,7 @@ void log_io(struct log *log, bool in, const void *data, size_t len)
 		char *hex = tal_arr(l, char, strlen(dir) + hex_str_size(len));
 		strcpy(hex, dir);
 		hex_encode(data, len, hex + strlen(dir), hex_str_size(len));
-		log->lr->print(log->prefix, LOG_IO, false, l->log,
+		log->lr->print(log->prefix, LOG_IO, false, &l->time, l->log,
 			       log->lr->print_arg);
 		tal_free(hex);
 	}
@@ -269,7 +270,7 @@ void logv_add(struct log *log, const char *fmt, va_list ap)
 	add_entry(log, l);
 
 	if (l->level >= log->lr->print_level)
-		log->lr->print(log->prefix, l->level, true, l->log + oldlen,
+		log->lr->print(log->prefix, l->level, true, &l->time, l->log + oldlen,
 			       log->lr->print_arg);
 }
 
@@ -410,6 +411,7 @@ static void show_log_prefix(char buf[OPT_SHOW_LEN], const struct log *log)
 static void log_to_file(const char *prefix,
 			enum log_level level,
 			bool continued,
+			const struct timeabs *time,
 			const char *str,
 			FILE *logf)
 {
