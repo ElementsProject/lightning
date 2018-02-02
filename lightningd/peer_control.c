@@ -1181,8 +1181,7 @@ static void handle_onchain_broadcast_tx(struct peer *peer, const u8 *msg)
 {
 	struct bitcoin_tx *tx;
 
-	tx = tal(msg, struct bitcoin_tx);
-	if (!fromwire_onchain_broadcast_tx(msg, NULL, tx)) {
+	if (!fromwire_onchain_broadcast_tx(msg, msg, NULL, &tx)) {
 		peer_internal_error(peer, "Invalid onchain_broadcast_tx");
 		return;
 	}
@@ -1612,12 +1611,12 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 					const struct crypto_state *cs,
 					u64 gossip_index)
 {
-	struct bitcoin_tx *tx = tal(fc, struct bitcoin_tx);
+	struct bitcoin_tx *tx;
 	u8 *linear;
 	u64 change_satoshi;
 	struct json_result *response = new_json_result(fc->cmd);
 
-	if (!fromwire_hsm_sign_funding_reply(resp, NULL, tx))
+	if (!fromwire_hsm_sign_funding_reply(fc, resp, NULL, &tx))
 		fatal("HSM gave bad sign_funding_reply %s",
 		      tal_hex(fc, resp));
 
@@ -1799,9 +1798,9 @@ static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
 static void peer_received_closing_signature(struct peer *peer, const u8 *msg)
 {
 	secp256k1_ecdsa_signature sig;
-	struct bitcoin_tx *tx = tal(msg, struct bitcoin_tx);
+	struct bitcoin_tx *tx;
 
-	if (!fromwire_closing_received_signature(msg, NULL, &sig, tx)) {
+	if (!fromwire_closing_received_signature(msg, msg, NULL, &sig, &tx)) {
 		peer_internal_error(peer, "Bad closing_received_signature %s",
 				    tal_hex(peer, msg));
 		return;
@@ -2234,14 +2233,13 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 	/* At this point, we care about peer */
 	fc->peer->channel_info = channel_info
 		= tal(fc->peer, struct channel_info);
-	remote_commit = tal(resp, struct bitcoin_tx);
 
 	/* This is a new channel_info->their_config so set its ID to 0 */
 	fc->peer->channel_info->their_config.id = 0;
 
-	if (!fromwire_opening_funder_reply(resp, NULL,
+	if (!fromwire_opening_funder_reply(resp, resp, NULL,
 					   &channel_info->their_config,
-					   remote_commit,
+					   &remote_commit,
 					   &remote_commit_sig,
 					   &cs,
 					   &gossip_index,
@@ -2354,8 +2352,6 @@ static void opening_fundee_finished(struct subd *opening,
 	log_debug(peer->log, "Got opening_fundee_finish_response");
 	assert(tal_count(fds) == 2);
 
-	remote_commit = tal(reply, struct bitcoin_tx);
-
 	/* At this point, we care about peer */
 	peer->channel_info = channel_info = tal(peer, struct channel_info);
 	/* This is a new channel_info->their_config, set its ID to 0 */
@@ -2364,7 +2360,7 @@ static void opening_fundee_finished(struct subd *opening,
 	peer->funding_txid = tal(peer, struct bitcoin_txid);
 	if (!fromwire_opening_fundee_reply(tmpctx, reply, NULL,
 					   &channel_info->their_config,
-					   remote_commit,
+					   &remote_commit,
 					   &remote_commit_sig,
 					   &cs,
 					   &gossip_index,

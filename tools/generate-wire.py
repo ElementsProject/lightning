@@ -32,6 +32,7 @@ varlen_structs = [
     'gossip_getnodes_entry',
     'failed_htlc',
     'utxo',
+    'bitcoin_tx',
 ]
 
 class FieldType(object):
