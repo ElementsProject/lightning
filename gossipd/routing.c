@@ -1048,7 +1048,7 @@ static void routing_failure_on_nc(struct routing_state *rstate,
 	 * - if the PERM bit is NOT set:
 	 *   - SHOULD restore the channels as it receives new `channel_update`s.
 	 */
-	if (failcode & PERM)
+	if (!(failcode & PERM))
 		nc->active = false;
 	else
 		delete_connection(rstate, nc);
