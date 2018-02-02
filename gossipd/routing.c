@@ -341,6 +341,12 @@ static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor)
 	}
 }
 
+/* Determine if the given node_connection is routable */
+static bool nc_is_routable(const struct node_connection *nc)
+{
+	return nc->active;
+}
+
 /* riskfactor is already scaled to per-block amount */
 static struct node_connection *
 find_route(const tal_t *ctx, struct routing_state *rstate,
@@ -397,8 +403,8 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 					     type_to_string(trc, struct pubkey,
 							    &n->id),
 					     i, num_edges);
-				if (!n->in[i]->active) {
-					SUPERVERBOSE("...inactive");
+				if (!nc_is_routable(n->in[i])) {
+					SUPERVERBOSE("...unroutable");
 					continue;
 				}
 				bfg_one_edge(n, i, riskfactor);
