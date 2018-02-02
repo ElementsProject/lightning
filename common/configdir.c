@@ -22,11 +22,12 @@ static char *default_configdir(const tal_t *ctx)
 	return path;
 }
 
+
 void configdir_register_opts(const tal_t *ctx,
-			     char **configdir, char **rpc_filename)
+				 char **configdir, char **rpc_filename)
 {
 	*configdir = default_configdir(ctx);
-	*rpc_filename = "lightning-rpc";
+	*rpc_filename =	tal_strdup(ctx, "lightning-rpc");
 
 	opt_register_early_arg("--lightning-dir=<dir>", opt_set_talstr, opt_show_charp,
 			       configdir,
