@@ -15,31 +15,19 @@ void peer_failed(int peer_fd, struct crypto_state *cs,
 		 const char *fmt, ...)
 {
 	va_list ap;
-	const char *errmsg;
-	struct channel_id all_channels;
+	const char *desc;
 	u8 *msg;
 
-	/* BOLT #1:
-	 *
-	 * The channel is referred to by `channel_id` unless `channel_id` is
-	 * zero (ie. all bytes zero), in which case it refers to all channels.
-	 */
-	if (!channel_id) {
-		memset(&all_channels, 0, sizeof(all_channels));
-		channel_id = &all_channels;
-	}
-
-	va_start(ap, fmt);
-	errmsg = tal_vfmt(NULL, fmt, ap);
+ 	va_start(ap, fmt);
+	desc = tal_vfmt(NULL, fmt, ap);
 	va_end(ap);
 
-	va_start(ap, fmt);
-	msg = towire_errorfmtv(errmsg, channel_id, fmt, ap);
-	va_end(ap);
+	status_broken("SENT ERROR:%s", desc);
+	msg = towire_errorfmt(desc, channel_id, "%s", desc);
 
 	/* This is only best-effort; don't block. */
 	io_fd_block(peer_fd, false);
-	sync_crypto_write(cs, peer_fd, take(msg));
+	sync_crypto_write(cs, peer_fd, msg);
 
-	status_failed(STATUS_FAIL_PEER_BAD, "%s", errmsg);
+	status_fatal_sent_errmsg(take(msg), desc, channel_id);
 }

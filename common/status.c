@@ -112,6 +112,17 @@ void status_fmt(enum log_level level, const char *fmt, ...)
 	va_end(ap);
 }
 
+static NORETURN void flush_and_exit(int reason)
+{
+	/* Don't let it take forever. */
+	alarm(10);
+	if (status_conn)
+		daemon_conn_sync_flush(status_conn);
+
+	exit(0x80 | (reason & 0xFF));
+}
+
+/* FIXME: rename to status_fatal, s/fail/fatal/ in status_failreason enums */
 void status_failed(enum status_failreason reason, const char *fmt, ...)
 {
 	va_list ap;
@@ -123,21 +134,46 @@ void status_failed(enum status_failreason reason, const char *fmt, ...)
 	status_send(take(towire_status_fail(NULL, reason, str)));
 	va_end(ap);
 
-	/* Don't let it take forever. */
-	alarm(10);
-	if (status_conn)
-		daemon_conn_sync_flush(status_conn);
-
-	exit(0x80 | (reason & 0xFF));
+	flush_and_exit(reason);
 }
 
 void master_badmsg(u32 type_expected, const u8 *msg)
 {
 	if (!msg)
 		status_failed(STATUS_FAIL_MASTER_IO,
-			      "failed reading msg %u: %s",
-			      type_expected, strerror(errno));
+			     "failed reading msg %u: %s",
+			     type_expected, strerror(errno));
 	status_failed(STATUS_FAIL_MASTER_IO,
-		      "Error parsing %u: %s",
-		      type_expected, tal_hex(trc, msg));
+		     "Error parsing %u: %s",
+		     type_expected, tal_hex(trc, msg));
+}
+
+void status_fatal_connection_lost(void)
+{
+	status_send(take(towire_status_peer_connection_lost(NULL)));
+	flush_and_exit(WIRE_STATUS_PEER_CONNECTION_LOST);
+}
+
+/* Got an error for one or all channels */
+void status_fatal_received_errmsg(const char *desc, const struct channel_id *c)
+{
+	static const struct channel_id all_channels;
+
+	if (!c)
+		c = &all_channels;
+	status_send(take(towire_status_received_errmsg(NULL, c, desc)));
+	flush_and_exit(WIRE_STATUS_RECEIVED_ERRMSG);
+}
+
+/* Sent an error for one or all channels */
+void status_fatal_sent_errmsg(const u8 *errmsg,
+			      const char *desc, const struct channel_id *c)
+{
+	static const struct channel_id all_channels;
+
+	if (!c)
+		c = &all_channels;
+
+	status_send(take(towire_status_sent_errmsg(NULL, c, desc, errmsg)));
+	flush_and_exit(WIRE_STATUS_SENT_ERRMSG);
 }

@@ -16,10 +16,10 @@ enum log_level {
 };
 #define LOG_LEVEL_MAX LOG_BROKEN
 
+/*
+ * These errors shouldn't happen:
+ */
 enum status_failreason {
-	/*
-	 * These errors shouldn't happen:
-	 */
 	/* Master daemon sent unknown/malformed command, or fd failed */
 	STATUS_FAIL_MASTER_IO,
 
@@ -31,16 +31,7 @@ enum status_failreason {
 
 	/* Other internal error. */
 	STATUS_FAIL_INTERNAL_ERROR,
-
-	/*
-	 * These errors happen when the other peer misbehaves:
-	 */
-	/* I/O failure (probably they closed the socket) */
-	STATUS_FAIL_PEER_IO,
-
-	/* Peer did something else wrong */
-	STATUS_FAIL_PEER_BAD
 };
-#define STATUS_FAIL_MAX STATUS_FAIL_PEER_BAD
+#define STATUS_FAIL_MAX STATUS_FAIL_INTERNAL_ERROR
 
 #endif /* LIGHTNING_COMMON_STATUS_LEVELS_H */
