@@ -74,6 +74,9 @@ struct node {
 
 	/* Cached `node_announcement` we might forward to new peers. */
 	u8 *node_announcement;
+
+	/* What index does the announcement broadcast have? */
+	u64 announcement_idx;
 };
 
 const secp256k1_pubkey *node_map_keyof_node(const struct node *n);
