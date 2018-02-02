@@ -325,9 +325,9 @@ class LightningDTests(BaseLightningDTests):
     def wait_for_routes(self, l1, channel_ids):
         bitcoind.generate_block(5)
         # Could happen in any order...
-        l1.daemon.wait_for_logs(['Channel {}\\(0\\) was updated'.format(c)
+        l1.daemon.wait_for_logs(['Received channel_update for channel {}\\(0\\)'.format(c)
                                  for c in channel_ids]
-                                + ['Channel {}\\(1\\) was updated'.format(c)
+                                + ['Received channel_update for channel {}\\(1\\)'.format(c)
                                  for c in channel_ids])
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -1180,7 +1180,7 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.withdraw(l1.rpc.newaddr()['address'], 'all')
         bitcoind.generate_block(1)
         l1.daemon.wait_for_log("but we don't care")
-        
+
         # And lightningd should respect that!
         assert not l1.daemon.is_in_log("Can't unwatch txid")
 
@@ -1197,7 +1197,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Note: for this test we leave onchaind running, so we can detect
         # any leaks!
-        
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_onchain_dust_out(self):
         """Onchain handling of outgoing dust htlcs (they should fail)"""
@@ -1672,20 +1672,12 @@ class LightningDTests(BaseLightningDTests):
                                  'peer_in WIRE_ANNOUNCEMENT_SIGNATURES'])
 
         channel_id = channels[0]['short_channel_id']
-        # Could happen in any order.
-        l1.daemon.wait_for_logs(['peer_out WIRE_CHANNEL_ANNOUNCEMENT',
-                                 'peer_in WIRE_CHANNEL_ANNOUNCEMENT',
-                                 'Channel {}\\(0\\) was updated.'
-                                 .format(channel_id),
-                                 'Channel {}\\(1\\) was updated.'
-                                 .format(channel_id)])
 
-        l2.daemon.wait_for_logs(['peer_out WIRE_CHANNEL_ANNOUNCEMENT',
-                                 'peer_in WIRE_CHANNEL_ANNOUNCEMENT',
-                                 'Channel {}\\(0\\) was updated.'
-                                 .format(channel_id),
-                                 'Channel {}\\(1\\) was updated.'
-                                 .format(channel_id)])
+        # Just wait for the update to kick off and then check the effect
+        needle = "Received channel_update for channel"
+        l1.daemon.wait_for_log(needle)
+        l2.daemon.wait_for_log(needle)
+        wait_for(lambda: len(l1.getactivechannels()) == 2)
 
         nodes = l1.rpc.listnodes()['nodes']
         assert set([n['nodeid'] for n in nodes]) == set([l1.info['id'], l2.info['id']])
@@ -2641,7 +2633,7 @@ class LightningDTests(BaseLightningDTests):
         c = db.cursor()
         c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
         assert(c.fetchone()[0] == 1)
-        
+
         out = l1.rpc.withdraw(waddr, 'all')
         c = db.cursor()
         c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
@@ -2754,7 +2746,7 @@ class LightningDTests(BaseLightningDTests):
         # All should be good.
         l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
         l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
-        
+
     def test_addfunds_from_block(self):
         """Send funds to the daemon without telling it explicitly
         """
@@ -3083,8 +3075,10 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.start()
 
         # Now they should sync and re-establish again
-        l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l2.info['id']))
-        l2.daemon.wait_for_log('Received node_announcement for node {}'.format(l1.info['id']))
+        l1.daemon.wait_for_logs(['Received channel_update for channel 434:1:1.1.',
+                                 'Received channel_update for channel 434:1:1.0.'])
+        l2.daemon.wait_for_logs(['Received channel_update for channel 434:1:1.1.',
+                                 'Received channel_update for channel 434:1:1.0.'])
         wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True, True])
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
