@@ -128,6 +128,9 @@ struct lightningd {
 
 	struct wallet *wallet;
 
+	/* Outstanding sendpay/pay commands. */
+	struct list_head pay_commands;
+
 	/* Maintained by invoices.c */
 	struct invoices *invoices;
 
