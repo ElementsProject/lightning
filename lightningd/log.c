@@ -53,10 +53,17 @@ static void log_default_print(const char *prefix,
 			      bool continued,
 			      const char *str, void *arg)
 {
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	char iso8601_msec_fmt[sizeof("YYYY-mm-ddTHH:MM:SS.%03dZ")];
+	strftime(iso8601_msec_fmt, sizeof(iso8601_msec_fmt), "%FT%T.%%03dZ", gmtime(&tv.tv_sec));
+	char iso8601_s[sizeof("YYYY-mm-ddTHH:MM:SS.nnnZ")];
+	snprintf(iso8601_s, sizeof(iso8601_s), iso8601_msec_fmt, (int) tv.tv_usec / 1000);
+
 	if (!continued) {
-		printf("%s %s\n", prefix, str);
+		printf("%s %s %s\n", iso8601_s, prefix, str);
 	} else {
-		printf("%s \t%s\n", prefix, str);
+		printf("%s %s \t%s\n", iso8601_s, prefix, str);
 	}
 	fflush(stdout);
 }
