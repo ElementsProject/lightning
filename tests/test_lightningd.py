@@ -982,38 +982,51 @@ class LightningDTests(BaseLightningDTests):
 
     def test_closing_different_fees(self):
         l1 = self.node_factory.get_node()
-        self.give_funds(l1, (10**6) * 5 + 1000000)
 
         # Default feerate = 15000/7500/1000
-        # It will accept between upper and lower feerate, starting at normal.
-        for feerates in [ [ 20000, 15000, 7400 ],
-                          [ 15000, 8000, 1000 ],
-                          [ 15000, 6000, 1000 ],
-                          [ 8000, 7500, 1000 ],
-                          [ 8000, 1200, 100 ] ]:
-            # With and without dust
-            for pamount in [ 0, 545999, 546000, 546001, 10**6 // 2 ]:
-                l2 = self.node_factory.get_node(options=['--override-fee-rates={}/{}/{}'
-                                                         .format(feerates[0],
-                                                                 feerates[1],
-                                                                 feerates[2])])
+        # It will start at the second number, accepting anything above the first.
+        feerates=[ [ 20000, 15000, 7400 ],
+                   [ 8000, 1001, 100 ] ]
+        amounts = [ 0, 545999, 546000 ]
+        num_peers = len(feerates) * len(amounts)
+        self.give_funds(l1, (10**6) * num_peers + 10000 * num_peers)
 
-                l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        # Create them in a batch, but only valgrind one in three, for speed!
+        peers = []
+        for feerate in feerates:
+            for amount in amounts:
+                p = self.node_factory.get_node(options=['--override-fee-rates={}/{}/{}'
+                                                        .format(feerate[0],
+                                                                feerate[1],
+                                                                feerate[2])])
+                p.feerate = feerate
+                p.amount = amount
+                l1.rpc.connect(p.info['id'], 'localhost', p.info['port'])
+                peers.append(p)
 
-                self.fund_channel(l1, l2, 10**6)
-                if pamount > 0:
-                    self.pay(l1, l2, pamount)
+        for p in peers:
+                l1.rpc.fundchannel(p.info['id'], 10**6)
 
-                l1.rpc.close(l2.info['id'])
-                l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
-                l2.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
+        bitcoind.generate_block(6)
 
-                l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
-                l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+        # Now wait for them all to hit normal state, do payments
+        for p in peers:
+            p.daemon.wait_for_log('to CHANNELD_NORMAL')
+            if p.amount != 0:
+                self.pay(l1,p,100000000)
 
-                bitcoind.generate_block(1)
-                l1.daemon.wait_for_log(' to ONCHAIND_MUTUAL')
-                l2.daemon.wait_for_log(' to ONCHAIND_MUTUAL')
+        # Now close
+        for p in peers:
+            l1.rpc.close(p.info['id'])
+
+        for p in peers:
+            p.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+
+        bitcoind.generate_block(1)
+        for p in peers:
+            p.daemon.wait_for_log(' to ONCHAIND_MUTUAL')
+
+        l1.daemon.wait_for_logs([' to ONCHAIND_MUTUAL'] * num_peers)
         
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail(self):
