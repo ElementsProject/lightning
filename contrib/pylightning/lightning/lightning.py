@@ -1,35 +1,34 @@
-from concurrent import futures
-
 import json
 import logging
 import socket
 
 
 class UnixDomainSocketRpc(object):
-    def __init__(self, socket_path, executor=None):
+    def __init__(self, socket_path, executor=None, logger=logging):
         self.socket_path = socket_path
         self.decoder = json.JSONDecoder()
         self.executor = executor
+        self.logger = logger
 
     @staticmethod
     def _writeobj(sock, obj):
         s = json.dumps(obj)
-        sock.sendall(bytearray(s, 'UTF-8'))
+        sock.sendall(bytearray(s, "UTF-8"))
 
     def _readobj(self, sock):
-        buff = b''
+        buff = b""
         while True:
             try:
                 b = sock.recv(1024)
                 buff += b
                 if len(b) == 0:
-                    return {'error': 'Connection to RPC server lost.'}
+                    return {"error": "Connection to RPC server lost."}
                 # Convert late to UTF-8 so glyphs split across recvs do not
                 # impact us
                 objs, _ = self.decoder.raw_decode(buff.decode("UTF-8"))
                 return objs
             except ValueError:
-                # Probably didn't read enough
+                # Probably didn"t read enough
                 pass
 
     def __getattr__(self, name):
@@ -38,14 +37,14 @@ class UnixDomainSocketRpc(object):
         We might still want to define the actual methods in the subclasses for
         documentation purposes.
         """
-        name = name.replace('_', '-')
+        name = name.replace("_", "-")
 
         def wrapper(*args, **_):
             return self._call(name, args)
         return wrapper
 
     def _call(self, method, args=None):
-        logging.debug("Calling %s with arguments %r", method, args)
+        self.logger.debug("Calling %s with arguments %r", method, args)
 
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.connect(self.socket_path)
@@ -57,12 +56,17 @@ class UnixDomainSocketRpc(object):
         resp = self._readobj(sock)
         sock.close()
 
-        logging.debug("Received response for %s call: %r", method, resp)
-        if 'error' in resp:
-            raise ValueError("RPC call failed: {}".format(resp['error']))
-        elif 'result' not in resp:
-            raise ValueError("Malformed response, 'result' missing.")
-        return resp['result']
+        self.logger.debug("Received response for %s call: %r", method, resp)
+        if "error" in resp:
+               raise ValueError(
+                "RPC call failed: {}, method: {}, args: {}".format(
+                    resp["error"],
+                    method,
+                    args
+                ))
+        elif "result" not in resp:
+            raise ValueError("Malformed response, \"result\" missing.")
+        return resp["result"]
 
 
 class LightningRpc(UnixDomainSocketRpc):
@@ -72,21 +76,46 @@ class LightningRpc(UnixDomainSocketRpc):
     This RPC client connects to the `lightningd` daemon through a unix
     domain socket and passes calls through. Since some of the calls
     are blocking, the corresponding python methods include an `async`
-    keyword argument. If `async` is set to true then the method
+    keyword argument. If `async` is set to true then the met hod
     returns a future immediately, instead of blocking indefinitely.
 
     This implementation is thread safe in that it locks the socket
     between calls, but it does not (yet) support concurrent calls.
+
+    Methods accept both keyword \ positional arguments or a json payload.
+    i.e.
+        client.getpeer("a_peer_id", level="debug")
+        client.getpeer(id="a_peer_id", level="debug")
+        client.getpeer("a_peer_id, "debug")
+        client.getpeer({"peer_id": "a_peer_id, "logs": "debug"})
     """
 
-    def getpeer(self, peer_id, logs=None):
+    @staticmethod
+    def _get_payload(args, kwargs, *required, optionals=()):
+        if len(args) == 1 and isinstance(args[0], dict):
+            return args[0]
+        try:
+            payload = {required[i]: args[i] for i in range(0, len(required))}
+            if len(args) > len(required):
+                for i, optional in enumerate(optionals[:len(args)-len(required)]):
+                    payload.update({optional: args[len(required):][i]})
+            payload.update(kwargs)
+        except (IndexError, KeyError) as e:
+            raise ValueError(
+                "Wrong arguments, required args: [ {} ] , optionals: [ {} ].".format(
+                    ", ".join(required), ", ".join(optionals),
+                )
+            ) from e
+        return payload
+
+    def getpeer(self, *args, **kwargs):
         """
-        Show peer with {peer_id}, if {level} is set, include {log}s
+        Show peer with {id}, if {level} is set, include {log}s
         """
-        args = [peer_id]
-        logs is not None and args.append(logs)
-        res = self.listpeers(peer_id, logs)
-        return res.get('peers') and res['peers'][0] or None
+        res = self.listpeers(
+            self._get_payload(args, kwargs, "id", optionals=("level",))
+        )
+        return res.get("peers") and res["peers"][0] or None
 
     def dev_blockheight(self):
         """
@@ -94,75 +123,96 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self._call("dev-blockheight")
 
-    def dev_setfees(self, immediate, normal=None, slow=None):
+    def dev_setfees(self, *args, **kwargs):
         """
         Set feerate in satoshi-per-kw for {immediate}, {normal} and {slow}
         (each is optional, when set, separate by spaces) and show the value of those three feerates
         """
-        args = [immediate]
-        normal is not None and args.append(normal)
-        slow is not None and args.append(slow)
-        return self._call("dev-setfees", args=args)
+        return self._call(
+            "dev-setfees",
+            args=self._get_payload(args, kwargs, "immediate", optionals=("normal", "slow"))
+        )
 
-    def listnodes(self, node_id=None):
+    def listnodes(self, *args, **kwargs):
         """
-        Show all nodes in our local network view
+        Show all nodes in our local network view, filter on node {id} if provided
         """
-        return self._call("listnodes", args=node_id and [node_id])
+        return self._call(
+            "listnodes",
+            args=self._get_payload(args, kwargs, optionals=("id",))
+        )
 
-    def getroute(self, peer_id, msatoshi, riskfactor, cltv=None):
+    def getroute(self, *args, **kwargs):
         """
-        Show route to {peer_id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9)
+        Show route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9)
         """
-        args = [peer_id, msatoshi, riskfactor]
-        cltv is not None and args.append(cltv)
-        return self._call("getroute", args=args)
+        return self._call(
+            "getroute",
+            args=self._get_payload(args, kwargs, "id", "msatoshi", "riskfactor", optionals=("cltv",))
+        )
 
-    def listchannels(self, short_channel_id=None):
+    def listchannels(self, *args, **kwargs):
         """
-        Show all known channels
+        Show all known channels, accept optional {short_channel_id}
         """
-        return self._call("listchannels", args=short_channel_id and [short_channel_id])
+        return self._call(
+            "listchannels",
+            args=self._get_payload(args, kwargs, optionals=("short_channel_id",))
+        )
 
-    def invoice(self, msatoshi, label, description, expiry=None):
+    def invoice(self, *args, **kwargs):
         """
         Create an invoice for {msatoshi} with {label} and {description} with optional {expiry} seconds (default 1 hour)
         """
-        args = [msatoshi, label, description]
-        expiry is not None and args.append(expiry)
-        return self._call("invoice", args=args)
+        return self._call(
+            "invoice",
+            self._get_payload(args, kwargs, "msatoshi", "label", "description", optionals=("expiry",))
+        )
 
-    def listinvoices(self, label=None):
+    def listinvoices(self, *args, **kwargs):
         """
-        Show invoice {label} (or all, if no {label})
+        Show invoice {label} (or all, if no {label))
         """
-        return self._call("listinvoices", args=label and [label])
+        return self._call(
+            "listinvoices",
+            self._get_payload(args, kwargs, optionals=("label",))
+        )
 
-    def delinvoice(self, label, status):
+    def delinvoice(self, *args, **kwargs):
         """
         Delete unpaid invoice {label} with {status}
         """
-        return self._call("delinvoice", args=[label, status])
+        return self._call(
+            "delinvoice",
+            self._get_payload(args, kwargs, "label", "status")
+        )
 
-    def waitanyinvoice(self, lastpay_index=None):
+    def waitanyinvoice(self, *args, **kwargs):
         """
         Wait for the next invoice to be paid, after {lastpay_index} (if supplied)
         """
-        return self._call("waitanyinvoice", args=lastpay_index and [lastpay_index])
+        return self._call(
+            "waitanyinvoice",
+            args=self._get_payload(args, kwargs, optionals=("lastpay_index",))
+        )
 
-    def waitinvoice(self, label):
+    def waitinvoice(self, *args, **kwargs):
         """
         Wait for an incoming payment matching the invoice with {label}
         """
-        return self._call("waitinvoice", args=[label])
+        return self._call(
+            "waitinvoice",
+            args=self._get_payload(args, kwargs, "label")
+        )
 
-    def decodepay(self, bolt11, description=None):
+    def decodepay(self, *args, **kwargs):
         """
         Decode {bolt11}, using {description} if necessary
         """
-        args = [bolt11]
-        description is not None and args.append(description)
-        return self._call("decodepay", args=args)
+        return self._call(
+            "decodepay",
+            args=self._get_payload(args, kwargs, "bolt11", optionals=("description",))
+        )
 
     def help(self):
         """
@@ -176,17 +226,23 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self._call("stop")
 
-    def getlog(self, level=None):
+    def getlog(self, *args, **kwargs):
         """
         Show logs, with optional log {level} (info|unusual|debug|io)
         """
-        return self._call("getlog", args=level and [level])
+        return self._call(
+            "getlog",
+            args=self._get_payload(args, kwargs, optionals=("level",))
+        )
 
-    def dev_rhash(self, secret):
+    def dev_rhash(self, *args, **kwargs):
         """
         Show SHA256 of {secret}
         """
-        return self._call("dev-rhash", [secret])
+        return self._call(
+            "dev-rhash",
+            args=self._get_payload(args, kwargs, "secret")
+        )
 
     def dev_crash(self):
         """
@@ -200,85 +256,106 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self._call("getinfo")
 
-    def sendpay(self, route, rhash):
+    def sendpay(self, *args, **kwargs):
         """
         Send along {route} in return for preimage of {rhash}
         """
-        return self._call("sendpay", args=[route, rhash])
+        return self._call(
+            "sendpay",
+            args=self._get_payload(args, kwargs, "route", "rhash")
+        )
 
-    def pay(self, bolt11, msatoshi=None, description=None, riskfactor=None):
+    def pay(self, *args, **kwargs):
         """
         Send payment specified by {bolt11} with optional {msatoshi} (if and only if {bolt11} does not have amount),
         {description} (required if {bolt11} uses description hash) and {riskfactor} (default 1.0)
         """
-        args = [bolt11]
-        msatoshi is not None and args.append(msatoshi)
-        description is not None and args.append(description)
-        riskfactor is not None and args.append(riskfactor)
-        return self._call("pay", args=args)
+        return self._call(
+            "pay",
+            args=self._get_payload(args, kwargs, "bolt11", optionals=("msatoshi", "description", "riskfactor"))
+        )
 
-    def listpayments(self, bolt11=None, payment_hash=None):
+    def listpayments(self, *args, **kwargs):
         """
         Show outgoing payments, regarding {bolt11} or {payment_hash} if set
         Can only specify one of {bolt11} or {payment_hash}
         """
-        args = []
-        bolt11 and args.append(bolt11)
-        payment_hash and args.append(payment_hash) if args else args.extend([bolt11, payment_hash])
-        return self._call("listpayments", args=args)
+        return self._call(
+            "listpayments",
+            args=self._get_payload(args, kwargs, optionals=("bolt11", "payment_hash"))
+        )
 
-    def connect(self, peer_id, host=None, port=None):
+    def connect(self, *args, **kwargs):
         """
         Connect to {peer_id} at {host} and {port}
         """
-        args = [peer_id]
-        host is not None and args.append(host)
-        port is not None and args.append(port)
-        return self._call("connect", args=args)
+        return self._call(
+            "connect",
+            args=self._get_payload(args, kwargs, "id", optionals=("host", "port"))
+        )
 
-    def listpeers(self, peer_id=None, logs=None):
+    def listpeers(self, *args, **kwargs):
         """
         Show current peers, if {level} is set, include {log}s"
         """
-        args = peer_id is not None and [peer_id] or []
-        logs is not None and args.append(logs)
-        return self._call("listpeers", args=args)
+        return self._call(
+            "listpeers",
+            args=self._get_payload(args, kwargs, optionals=("id", "level"))
+        )
 
-    def fundchannel(self, peer_id, satoshi):
+    def fundchannel(self, *args, **kwargs):
         """
         Fund channel with {id} using {satoshi} satoshis"
         """
-        return self._call("fundchannel", args=[peer_id, satoshi])
+        return self._call(
+            "fundchannel",
+            args=self._get_payload(args, kwargs, "id", "satoshi")
+        )
 
-    def close(self, peer_id):
+    def close(self, *args, **kwargs):
         """
-        Close the channel with peer {peer_id}
+        Close the channel with peer {id}
         """
-        return self._call("close", args=[peer_id])
+        return self._call(
+            "close",
+            args=self._get_payload(args, kwargs, "id")
+        )
 
-    def dev_sign_last_tx(self, peer_id):
+    def dev_sign_last_tx(self, *args, **kwargs):
         """
         Sign and show the last commitment transaction with peer {id}
         """
-        return self._call("dev-sign-last-tx", args=[peer_id])
+        return self._call(
+            "dev-sign-last-tx",
+            args=self._get_payload(args, kwargs, "id")
+        )
 
-    def dev_fail(self, peer_id):
+    def dev_fail(self, *args, **kwargs):
         """
         Fail with peer {peer_id}
         """
-        return self._call("dev-fail", args=[peer_id])
+        return self._call(
+            "dev-fail",
+            args=self._get_payload(args, kwargs, "id")
+        )
 
-    def dev_reenable_commit(self, peer_id):
+    def dev_reenable_commit(self, *args, **kwargs):
         """
-        Re-enable the commit timer on peer {peer_id}
+        Re-enable the commit timer on peer {id}
         """
-        return self._call("dev-reenable-commit", args=[peer_id])
+        return self._call(
+            "dev-reenable-commit",
+            args=self._get_payload(args, kwargs, "id")
+        )
 
-    def dev_ping(self, peer_id, length, pongbytes):
+    def dev_ping(self, *args, **kwargs):
         """
-        Send {peer_id} a ping of length {length} asking for {pongbytes}"
+        Send {peer_id} a ping of length {len} asking for {pongbytes}"
         """
-        return self._call("dev-ping", args=[peer_id, length, pongbytes])
+        return self._call(
+            "dev-ping",
+            args=self._get_payload(args, kwargs, "id", "len", "pongbytes")
+        )
 
     def dev_memdump(self):
         """
@@ -292,11 +369,14 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self._call("dev-memleak")
 
-    def withdraw(self, destination, satoshi):
+    def withdraw(self, *args, **kwargs):
         """
-        Send to {destination} address {satoshi} (or 'all') amount via Bitcoin transaction
+        Send to {destination} address {satoshi} (or "all") amount via Bitcoin transaction
         """
-        return self._call("withdraw", args=[destination, satoshi])
+        return self._call(
+            "withdraw",
+            args=self._get_payload(args, kwargs, "destination", "satoshi")
+        )
 
     def newaddr(self):
         """
@@ -309,3 +389,9 @@ class LightningRpc(UnixDomainSocketRpc):
         Show funds available for opening channels
         """
         return self._call("listfunds")
+
+    def dev_rescan_outputs(self):
+        """
+        Synchronize the state of our funds with bitcoind
+        """
+        return self._call("dev-rescan-outputs")
