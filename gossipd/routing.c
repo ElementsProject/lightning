@@ -220,7 +220,7 @@ get_or_make_connection(struct routing_state *rstate,
 		}
 	}
 
-	status_trace("Creating new route from %s to %s",
+	SUPERVERBOSE("Creating new route from %s to %s",
 		     type_to_string(trc, struct pubkey, &from->id),
 		     type_to_string(trc, struct pubkey, &to->id));
 
@@ -851,13 +851,8 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 		return;
 	}
 
-	status_trace("Received channel_update for channel %s(%d)",
-		     type_to_string(trc, struct short_channel_id,
-				    &short_channel_id),
-		     flags & 0x01);
-
 	if (update_to_pending(rstate, &short_channel_id, serialized, direction)) {
-		status_trace("Deferring update for pending channel %s(%d)",
+		SUPERVERBOSE("Deferring update for pending channel %s(%d)",
 			     type_to_string(trc, struct short_channel_id,
 					    &short_channel_id), direction);
 		tal_free(tmpctx);
@@ -867,13 +862,13 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	c = get_connection_by_scid(rstate, &short_channel_id, direction);
 
 	if (!c) {
-		status_trace("Ignoring update for unknown channel %s",
+		SUPERVERBOSE("Ignoring update for unknown channel %s",
 			     type_to_string(trc, struct short_channel_id,
 					    &short_channel_id));
 		tal_free(tmpctx);
 		return;
 	} else if (c->last_timestamp >= timestamp) {
-		status_trace("Ignoring outdated update.");
+		SUPERVERBOSE("Ignoring outdated update.");
 		tal_free(tmpctx);
 		return;
 	} else if (!check_channel_update(&c->src->id, &signature, serialized)) {
@@ -882,7 +877,11 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 		return;
 	}
 
-	//FIXME(cdecker) Check signatures
+	status_trace("Received channel_update for channel %s(%d)",
+		     type_to_string(trc, struct short_channel_id,
+				    &short_channel_id),
+		     flags & 0x01);
+
 	c->last_timestamp = timestamp;
 	c->delay = expiry;
 	c->htlc_minimum_msat = htlc_minimum_msat;
@@ -890,7 +889,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	c->proportional_fee = fee_proportional_millionths;
 	c->active = (flags & ROUTING_FLAGS_DISABLED) == 0;
 	c->unroutable_until = 0;
-	status_trace("Channel %s(%d) was updated.",
+	SUPERVERBOSE("Channel %s(%d) was updated.",
 		     type_to_string(trc, struct short_channel_id,
 				    &short_channel_id),
 		     direction);
@@ -984,14 +983,12 @@ void handle_node_announcement(
 	 * and MAY discard the message altogether.
 	 */
 	if (unsupported_features(features, NULL)) {
-		status_trace("Ignoring node announcement, unsupported features %s.",
+		status_trace("Ignoring node announcement for node %s, unsupported features %s.",
+			     type_to_string(tmpctx, struct pubkey, &node_id),
 			     tal_hex(tmpctx, features));
 		tal_free(tmpctx);
 		return;
 	}
-
-	status_trace("Received node_announcement for node %s",
-		     type_to_string(trc, struct pubkey, &node_id));
 
 	sha256_double(&hash, serialized + 66, tal_count(serialized) - 66);
 	if (!check_signed_hash(&hash, &signature, &node_id)) {
@@ -1002,14 +999,20 @@ void handle_node_announcement(
 	node = get_node(rstate, &node_id);
 
 	if (!node) {
-		status_trace("Node not found, was the node_announcement preceded by at least channel_announcement?");
+		SUPERVERBOSE("Node not found, was the node_announcement for "
+			     "node %s preceded by at least "
+			     "channel_announcement?",
+			     type_to_string(tmpctx, struct pubkey, &node_id));
 		tal_free(tmpctx);
 		return;
 	} else if (node->last_timestamp >= timestamp) {
-		status_trace("Ignoring node announcement, it's outdated.");
+		SUPERVERBOSE("Ignoring node announcement, it's outdated.");
 		tal_free(tmpctx);
 		return;
 	}
+
+	status_trace("Received node_announcement for node %s",
+		     type_to_string(tmpctx, struct pubkey, &node_id));
 
 	wireaddrs = read_addresses(tmpctx, addresses);
 	if (!wireaddrs) {
