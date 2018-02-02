@@ -1,8 +1,3 @@
- #include <common/status.h>
- #include <stdio.h>
-#define status_trace(fmt , ...) \
-	printf(fmt "\n" , ## __VA_ARGS__)
-
 #include "../../common/key_derive.c"
 #include "../../common/keyset.c"
 #include "../../common/initial_channel.c"
@@ -17,6 +12,17 @@
 #include <ccan/str/hex/hex.h>
 #include <common/sphinx.h>
 #include <common/type_to_string.h>
+#include <stdio.h>
+
+void status_fmt(enum log_level level, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vprintf(fmt, ap);
+	printf("\n");
+	va_end(ap);
+}
 
 const void *trc;
 

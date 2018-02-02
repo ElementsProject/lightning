@@ -138,6 +138,8 @@ static struct io_plan *peer_decrypt_body(struct io_conn *conn,
 	if (!decrypted)
 		return io_close(conn);
 
+	status_io(REMOTE, decrypted);
+
 	/* BOLT #1:
 	 *
 	 * A node MUST ignore a received message of unknown type, if that type
@@ -349,6 +351,8 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 
 	assert(!pcs->out);
 
+	/* Important: this doesn't take msg! */
+	status_io(LOCAL, msg);
 	pcs->out = cryptomsg_encrypt_msg(conn, &pcs->cs, msg);
 	pcs->next_out = next;
 

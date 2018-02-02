@@ -3,6 +3,7 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
+#include <ccan/cast/cast.h>
 #include <ccan/container_of/container_of.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/endian/endian.h>
@@ -133,8 +134,8 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 	node_key(&privkey, NULL);
 	if (secp256k1_ecdh(secp256k1_ctx, ss.data, &point.pubkey,
 			   privkey.secret.data) != 1) {
-		status_trace("secp256k1_ecdh fail for client %s",
-			     type_to_string(trc, struct pubkey, &c->id));
+		status_broken("secp256k1_ecdh fail for client %s",
+			      type_to_string(trc, struct pubkey, &c->id));
 		daemon_conn_send(c->master,
 				 take(towire_hsmstatus_client_bad_request(c,
 								&c->id,
@@ -161,13 +162,13 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 
 	if (!fromwire_hsm_cannouncement_sig_req(ctx, dc->msg_in, NULL,
 						&bitcoin_id, &ca)) {
-		status_trace("Failed to parse cannouncement_sig_req: %s",
-			     tal_hex(trc, dc->msg_in));
+		status_broken("Failed to parse cannouncement_sig_req: %s",
+			      tal_hex(trc, dc->msg_in));
 		return io_close(conn);
 	}
 
 	if (tal_len(ca) < offset) {
-		status_trace("bad cannounce length %zu", tal_len(ca));
+		status_broken("bad cannounce length %zu", tal_len(ca));
 		return io_close(conn);
 	}
 
@@ -202,9 +203,9 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 	u8 *cu;
 
 	if (!fromwire_hsm_cupdate_sig_req(tmpctx, dc->msg_in, NULL, &cu)) {
-		status_trace("Failed to parse %s: %s",
-			     hsm_client_wire_type_name(fromwire_peektype(dc->msg_in)),
-			     tal_hex(trc, dc->msg_in));
+		status_broken("Failed to parse %s: %s",
+			      hsm_client_wire_type_name(fromwire_peektype(dc->msg_in)),
+			      tal_hex(trc, dc->msg_in));
 		return io_close(conn);
 	}
 
@@ -212,13 +213,13 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 				     &scid, &timestamp, &flags,
 				     &cltv_expiry_delta, &htlc_minimum_msat,
 				     &fee_base_msat, &fee_proportional_mill)) {
-		status_trace("Failed to parse inner channel_update: %s",
-			     tal_hex(trc, dc->msg_in));
+		status_broken("Failed to parse inner channel_update: %s",
+			      tal_hex(trc, dc->msg_in));
 		return io_close(conn);
 	}
 	if (tal_len(cu) < offset) {
-		status_trace("inner channel_update too short: %s",
-			     tal_hex(trc, dc->msg_in));
+		status_broken("inner channel_update too short: %s",
+			      tal_hex(trc, dc->msg_in));
 		return io_close(conn);
 	}
 
@@ -279,12 +280,12 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	struct client *c = container_of(dc, struct client, dc);
 	enum hsm_client_wire_type t = fromwire_peektype(dc->msg_in);
 
-	status_trace("Client: Received message %d from client", t);
+	status_debug("Client: Received message %d from client", t);
 
 	/* Before we do anything else, is this client allowed to do
 	 * what he asks for? */
 	if (!check_client_capabilities(c, t)) {
-		status_trace("Client does not have the required capability to run %d", t);
+		status_broken("Client does not have the required capability to run %d", t);
 		daemon_conn_send(c->master,
 				 take(towire_hsmstatus_client_bad_request(
 				     c, &c->id, dc->msg_in)));
@@ -592,10 +593,10 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
 	if (utxo->close_info != NULL) {
 		/* This is a their_unilateral_close/to-us output, so
 		 * we need to derive the secret the long way */
-		status_trace("Unilateral close output, deriving secrets");
+		status_debug("Unilateral close output, deriving secrets");
 		hsm_unilateral_close_privkey(privkey, utxo->close_info);
 		pubkey_from_privkey(privkey, pubkey);
-		status_trace("Derived public key %s from unilateral close", type_to_string(trc, struct pubkey, pubkey));
+		status_debug("Derived public key %s from unilateral close", type_to_string(trc, struct pubkey, pubkey));
 	} else {
 		/* Simple case: just get derive via HD-derivation */
 		bitcoin_keypair(privkey, pubkey, utxo->keyindex);
@@ -610,8 +611,7 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
 	struct pubkey local_pubkey, remote_pubkey;
-	struct utxo *inputs;
-	const struct utxo **utxomap;
+	struct utxo **utxomap;
 	struct bitcoin_tx *tx;
 	u8 *wscript;
 	u16 outnum;
@@ -623,21 +623,20 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	if (!fromwire_hsm_sign_funding(tmpctx, msg, NULL,
 				       &satoshi_out, &change_out,
 				       &change_keyindex, &local_pubkey,
-				       &remote_pubkey, &inputs))
+				       &remote_pubkey, &utxomap))
 		master_badmsg(WIRE_HSM_SIGN_FUNDING, msg);
-
-	utxomap = to_utxoptr_arr(tmpctx, inputs);
 
 	if (change_out)
 		bitcoin_pubkey(&changekey, change_keyindex);
 
-	tx = funding_tx(tmpctx, &outnum, utxomap,
+	tx = funding_tx(tmpctx, &outnum,
+			cast_const2(const struct utxo **, utxomap),
 			satoshi_out, &local_pubkey, &remote_pubkey,
 			change_out, &changekey,
 			NULL);
 
-	scriptSigs = tal_arr(tmpctx, u8*, tal_count(inputs));
-	for (i = 0; i < tal_count(inputs); i++) {
+	scriptSigs = tal_arr(tmpctx, u8*, tal_count(utxomap));
+	for (i = 0; i < tal_count(utxomap); i++) {
 		struct pubkey inkey;
 		struct privkey inprivkey;
 		const struct utxo *in = utxomap[i];
@@ -657,14 +656,14 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 
 		tx->input[i].witness = bitcoin_witness_p2wpkh(tx, &sig, &inkey);
 
-		if (inputs[i].is_p2sh)
+		if (utxomap[i]->is_p2sh)
 			scriptSigs[i] = bitcoin_scriptsig_p2sh_p2wpkh(tx, &inkey);
 		else
 			scriptSigs[i] = NULL;
 	}
 
 	/* Now complete the transaction by attaching the scriptSigs where necessary */
-	for (size_t i=0; i<tal_count(inputs); i++)
+	for (size_t i=0; i<tal_count(utxomap); i++)
 		tx->input[i].script = scriptSigs[i];
 
 	daemon_conn_send(master,
@@ -680,8 +679,7 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	const tal_t *tmpctx = tal_tmpctx(master);
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
-	struct utxo *inutxos;
-	const struct utxo **utxos;
+	struct utxo **utxos;
 	u8 *wscript;
 	u8 **scriptSigs;
 	struct bitcoin_tx *tx;
@@ -691,24 +689,23 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 
 	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg, NULL, &satoshi_out,
 					  &change_out, &change_keyindex,
-					  &scriptpubkey, &inutxos)) {
-		status_trace("Failed to parse sign_withdrawal: %s",
-			     tal_hex(trc, msg));
+					  &scriptpubkey, &utxos)) {
+		status_broken("Failed to parse sign_withdrawal: %s",
+			      tal_hex(trc, msg));
 		return;
 	}
 
 	if (bip32_key_from_parent(&secretstuff.bip32, change_keyindex,
 				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
-		status_trace("Failed to parse sign_withdrawal: %s",
-			     tal_hex(trc, msg));
+		status_broken("Failed to parse sign_withdrawal: %s",
+			      tal_hex(trc, msg));
 		return;
 	}
 
-	/* We need an array of pointers, since withdraw_tx permutes them */
-	utxos = to_utxoptr_arr(tmpctx, inutxos);
 	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
 	tx = withdraw_tx(
-		tmpctx, utxos, scriptpubkey, satoshi_out,
+		tmpctx, cast_const2(const struct utxo **, utxos),
+		scriptpubkey, satoshi_out,
 		&changekey, change_out, NULL);
 
 	scriptSigs = tal_arr(tmpctx, u8*, tal_count(utxos));
@@ -762,8 +759,8 @@ static void sign_invoice(struct daemon_conn *master, const u8 *msg)
 	struct privkey node_pkey;
 
 	if (!fromwire_hsm_sign_invoice(tmpctx, msg, NULL, &u5bytes, &hrpu8)) {
-		status_trace("Failed to parse sign_invoice: %s",
-			     tal_hex(trc, msg));
+		status_broken("Failed to parse sign_invoice: %s",
+			      tal_hex(trc, msg));
 		return;
 	}
 
@@ -781,10 +778,9 @@ static void sign_invoice(struct daemon_conn *master, const u8 *msg)
                                               (const u8 *)&sha,
                                               node_pkey.secret.data,
                                               NULL, NULL)) {
-		/* FIXME: Now master will freeze... */
-		status_trace("Failed to sign invoice: %s",
-			     tal_hex(trc, msg));
-		return;
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed to sign invoice: %s",
+			      tal_hex(trc, msg));
 	}
 
 	daemon_conn_send(master,
@@ -803,14 +799,15 @@ static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 	u8 *ann;
 
 	if (!fromwire_hsm_node_announcement_sig_req(msg, msg, NULL, &ann)) {
-		status_trace("Failed to parse node_announcement_sig_req: %s",
+		status_failed(STATUS_FAIL_GOSSIP_IO,
+			      "Failed to parse node_announcement_sig_req: %s",
 			     tal_hex(trc, msg));
-		return;
 	}
 
 	if (tal_len(ann) < offset) {
-		status_trace("Node announcement too short: %s", tal_hex(trc, msg));
-		return;
+		status_failed(STATUS_FAIL_GOSSIP_IO,
+			      "Node announcement too short: %s",
+			      tal_hex(trc, msg));
 	}
 
 	/* FIXME(cdecker) Check the node announcement's content */

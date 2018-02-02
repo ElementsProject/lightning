@@ -50,6 +50,7 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
+	common/gen_status_wire.o		\
 	common/htlc_tx.o			\
 	common/htlc_wire.o			\
 	common/initial_commit_tx.o		\
@@ -59,6 +60,7 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/msg_queue.o			\
 	common/permute_tx.o			\
 	common/status.o				\
+	common/status_wire.o			\
 	common/subdaemon.o			\
 	common/type_to_string.o			\
 	common/utils.o				\

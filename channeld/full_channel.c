@@ -918,7 +918,7 @@ bool channel_force_htlcs(struct channel *channel,
 			 const enum htlc_state *hstates,
 			 const struct fulfilled_htlc *fulfilled,
 			 const enum side *fulfilled_sides,
-			 const struct failed_htlc *failed,
+			 const struct failed_htlc **failed,
 			 const enum side *failed_sides)
 {
 	size_t i;
@@ -1002,29 +1002,29 @@ bool channel_force_htlcs(struct channel *channel,
 	for (i = 0; i < tal_count(failed); i++) {
 		struct htlc *htlc;
 		htlc = channel_get_htlc(channel, failed_sides[i],
-					failed[i].id);
+					failed[i]->id);
 		if (!htlc) {
 			status_trace("Fail %s HTLC %"PRIu64" not found",
 				     failed_sides[i] == LOCAL ? "out" : "in",
-				     failed[i].id);
+				     failed[i]->id);
 			return false;
 		}
 		if (htlc->r) {
 			status_trace("Fail %s HTLC %"PRIu64" already fulfilled",
 				     failed_sides[i] == LOCAL ? "out" : "in",
-				     failed[i].id);
+				     failed[i]->id);
 			return false;
 		}
 		if (htlc->fail) {
 			status_trace("Fail %s HTLC %"PRIu64" already failed",
 				     failed_sides[i] == LOCAL ? "out" : "in",
-				     failed[i].id);
+				     failed[i]->id);
 			return false;
 		}
 		if (htlc->malformed) {
 			status_trace("Fail %s HTLC %"PRIu64" already malformed",
 				     failed_sides[i] == LOCAL ? "out" : "in",
-				     failed[i].id);
+				     failed[i]->id);
 			return false;
 		}
 		if (!htlc_has(htlc, HTLC_REMOVING)) {
@@ -1034,11 +1034,12 @@ bool channel_force_htlcs(struct channel *channel,
 				     htlc_state_name(htlc->state));
 			return false;
 		}
-		if (failed[i].malformed)
-			htlc->malformed = failed[i].malformed;
+		if (failed[i]->malformed)
+			htlc->malformed = failed[i]->malformed;
 		else
-			htlc->fail = tal_dup_arr(htlc, u8, failed[i].failreason,
-						 tal_len(failed[i].failreason),
+			htlc->fail = tal_dup_arr(htlc, u8,
+						 failed[i]->failreason,
+						 tal_len(failed[i]->failreason),
 						 0);
 	}
 

@@ -185,8 +185,7 @@ static void do_peer_write(struct peer *peer)
 	r = write(PEER_FD, peer->peer_outmsg + peer->peer_outoff,
 		  len - peer->peer_outoff);
 	if (r < 0)
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "Peer write failed: %s", strerror(errno));
+		status_fatal_connection_lost();
 
 	peer->peer_outoff += r;
 	if (peer->peer_outoff == len)
@@ -204,7 +203,7 @@ static bool peer_write_pending(struct peer *peer)
 	if (!msg)
 		return false;
 
-	status_trace("peer_out %s", wire_type_name(fromwire_peektype(msg)));
+	status_io(LOCAL, msg);
 	peer->peer_outmsg = cryptomsg_encrypt_msg(peer, &peer->cs, take(msg));
 	peer->peer_outoff = 0;
 	return true;
@@ -1051,7 +1050,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 	const tal_t *tmpctx = tal_tmpctx(ctx);
 	struct changed_htlc *changed;
 	struct fulfilled_htlc *fulfilled;
-	struct failed_htlc *failed;
+	const struct failed_htlc **failed;
 	struct added_htlc *added;
 	struct secret *shared_secret;
 	u8 *msg;
@@ -1059,7 +1058,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 	changed = tal_arr(tmpctx, struct changed_htlc, 0);
 	added = tal_arr(tmpctx, struct added_htlc, 0);
 	shared_secret = tal_arr(tmpctx, struct secret, 0);
-	failed = tal_arr(tmpctx, struct failed_htlc, 0);
+	failed = tal_arr(tmpctx, const struct failed_htlc *, 0);
 	fulfilled = tal_arr(tmpctx, struct fulfilled_htlc, 0);
 
 	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
@@ -1083,12 +1082,13 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 				f->id = htlc->id;
 				f->payment_preimage = *htlc->r;
 			} else {
-				struct failed_htlc *f;
+				struct failed_htlc **f;
 				assert(htlc->fail);
 				f = tal_arr_append(&failed);
-				f->id = htlc->id;
-				f->malformed = htlc->malformed;
-				f->failreason = cast_const(u8 *, htlc->fail);
+				*f = tal(failed, struct failed_htlc);
+				(*f)->id = htlc->id;
+				(*f)->malformed = htlc->malformed;
+				(*f)->failreason = cast_const(u8 *, htlc->fail);
 			}
 		} else {
 			struct changed_htlc *c = tal_arr_append(&changed);
@@ -1614,15 +1614,13 @@ static void peer_in(struct peer *peer, const u8 *msg)
 
 static void peer_conn_broken(struct peer *peer)
 {
-	const char *e = strerror(errno);
-
 	/* If we have signatures, send an update to say we're disabled. */
 	if (peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE]) {
 		u8 *cupdate = create_channel_update(peer, peer, true);
 
 		wire_sync_write(GOSSIP_FD, take(cupdate));
 	}
-	status_failed(STATUS_FAIL_PEER_IO, "peer read failed: %s", e);
+	status_fatal_connection_lost();
 }
 
 static void resend_revoke(struct peer *peer)
@@ -1770,8 +1768,7 @@ static void peer_reconnect(struct peer *peer)
 					 peer->next_index[LOCAL],
 					 peer->revocations_received);
 	if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "Failed writing reestablish: %s", strerror(errno));
+		status_fatal_connection_lost();
 
 	/* Read until they say something interesting */
 	while ((msg = channeld_read_peer_msg(peer)) == NULL);
@@ -1779,10 +1776,12 @@ static void peer_reconnect(struct peer *peer)
 	if (!fromwire_channel_reestablish(msg, NULL, &channel_id,
 					  &next_local_commitment_number,
 					  &next_remote_revocation_number)) {
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "bad reestablish msg: %s %s",
-			      wire_type_name(fromwire_peektype(msg)),
-			      tal_hex(msg, msg));
+		peer_failed(PEER_FD,
+			    &peer->cs,
+			    &peer->channel_id,
+			    "bad reestablish msg: %s %s",
+			    wire_type_name(fromwire_peektype(msg)),
+			    tal_hex(msg, msg));
 	}
 
 	status_trace("Got reestablish commit=%"PRIu64" revoke=%"PRIu64,
@@ -1826,18 +1825,22 @@ static void peer_reconnect(struct peer *peer)
 	if (next_remote_revocation_number == peer->next_index[LOCAL] - 2) {
 		/* Don't try to retransmit revocation index -1! */
 		if (peer->next_index[LOCAL] < 2) {
-			status_failed(STATUS_FAIL_PEER_IO,
-				      "bad reestablish revocation_number: %"
-				      PRIu64,
-				      next_remote_revocation_number);
+			peer_failed(PEER_FD,
+				    &peer->cs,
+				    &peer->channel_id,
+				    "bad reestablish revocation_number: %"
+				    PRIu64,
+				    next_remote_revocation_number);
 		}
 		retransmit_revoke_and_ack = true;
 	} else if (next_remote_revocation_number != peer->next_index[LOCAL] - 1) {
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "bad reestablish revocation_number: %"PRIu64
-			      " vs %"PRIu64,
-			      next_remote_revocation_number,
-			      peer->next_index[LOCAL]);
+		peer_failed(PEER_FD,
+			    &peer->cs,
+			    &peer->channel_id,
+			    "bad reestablish revocation_number: %"PRIu64
+			    " vs %"PRIu64,
+			    next_remote_revocation_number,
+			    peer->next_index[LOCAL]);
 	} else
 		retransmit_revoke_and_ack = false;
 
@@ -1856,10 +1859,12 @@ static void peer_reconnect(struct peer *peer)
 	if (next_local_commitment_number == peer->next_index[REMOTE] - 1) {
 		/* We completed opening, we don't re-transmit that one! */
 		if (next_local_commitment_number == 0)
-			status_failed(STATUS_FAIL_PEER_IO,
-				      "bad reestablish commitment_number: %"
-				      PRIu64,
-				      next_local_commitment_number);
+			peer_failed(PEER_FD,
+				    &peer->cs,
+				    &peer->channel_id,
+				    "bad reestablish commitment_number: %"
+				    PRIu64,
+				    next_local_commitment_number);
 
 		resend_commitment(peer, peer->last_sent_commit);
 
@@ -2408,7 +2413,7 @@ static void init_channel(struct peer *peer)
 	enum htlc_state *hstates;
 	struct fulfilled_htlc *fulfilled;
 	enum side *fulfilled_sides;
-	struct failed_htlc *failed;
+	struct failed_htlc **failed;
 	enum side *failed_sides;
 	struct added_htlc *htlcs;
 	bool reconnected;
@@ -2508,7 +2513,9 @@ static void init_channel(struct peer *peer)
 
 	if (!channel_force_htlcs(peer->channel, htlcs, hstates,
 				 fulfilled, fulfilled_sides,
-				 failed, failed_sides))
+				 cast_const2(const struct failed_htlc **,
+					     failed),
+				 failed_sides))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not restore HTLCs");
 

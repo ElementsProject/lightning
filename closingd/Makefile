@@ -49,6 +49,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/daemon_conn.o			\
 	common/dev_disconnect.o			\
 	common/derive_basepoints.o		\
+	common/gen_status_wire.o		\
 	common/htlc_wire.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
@@ -57,6 +58,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/ping.o				\
 	common/read_peer_msg.o			\
 	common/status.o				\
+	common/status_wire.o			\
 	common/subdaemon.o			\
 	common/type_to_string.o			\
 	common/utils.o				\

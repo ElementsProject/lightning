@@ -1181,8 +1181,7 @@ static void handle_onchain_broadcast_tx(struct peer *peer, const u8 *msg)
 {
 	struct bitcoin_tx *tx;
 
-	tx = tal(msg, struct bitcoin_tx);
-	if (!fromwire_onchain_broadcast_tx(msg, NULL, tx)) {
+	if (!fromwire_onchain_broadcast_tx(msg, msg, NULL, &tx)) {
 		peer_internal_error(peer, "Invalid onchain_broadcast_tx");
 		return;
 	}
@@ -1612,12 +1611,12 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 					const struct crypto_state *cs,
 					u64 gossip_index)
 {
-	struct bitcoin_tx *tx = tal(fc, struct bitcoin_tx);
+	struct bitcoin_tx *tx;
 	u8 *linear;
 	u64 change_satoshi;
 	struct json_result *response = new_json_result(fc->cmd);
 
-	if (!fromwire_hsm_sign_funding_reply(resp, NULL, tx))
+	if (!fromwire_hsm_sign_funding_reply(fc, resp, NULL, &tx))
 		fatal("HSM gave bad sign_funding_reply %s",
 		      tal_hex(fc, resp));
 
@@ -1799,9 +1798,9 @@ static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
 static void peer_received_closing_signature(struct peer *peer, const u8 *msg)
 {
 	secp256k1_ecdsa_signature sig;
-	struct bitcoin_tx *tx = tal(msg, struct bitcoin_tx);
+	struct bitcoin_tx *tx;
 
-	if (!fromwire_closing_received_signature(msg, NULL, &sig, tx)) {
+	if (!fromwire_closing_received_signature(msg, msg, NULL, &sig, &tx)) {
 		peer_internal_error(peer, "Bad closing_received_signature %s",
 				    tal_hex(peer, msg));
 		return;
@@ -2081,7 +2080,7 @@ static bool peer_start_channeld(struct peer *peer,
 	enum htlc_state *htlc_states;
 	struct fulfilled_htlc *fulfilled_htlcs;
 	enum side *fulfilled_sides;
-	struct failed_htlc *failed_htlcs;
+	const struct failed_htlc **failed_htlcs;
 	enum side *failed_sides;
 	struct short_channel_id funding_channel_id;
 	const u8 *shutdown_scriptpubkey;
@@ -2220,7 +2219,6 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 	tal_t *tmpctx = tal_tmpctx(fc);
 	u8 *msg;
 	struct channel_info *channel_info;
-	struct utxo *utxos;
 	struct bitcoin_tx *fundingtx;
 	struct bitcoin_txid funding_txid;
 	struct pubkey changekey;
@@ -2235,14 +2233,13 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 	/* At this point, we care about peer */
 	fc->peer->channel_info = channel_info
 		= tal(fc->peer, struct channel_info);
-	remote_commit = tal(resp, struct bitcoin_tx);
 
 	/* This is a new channel_info->their_config so set its ID to 0 */
 	fc->peer->channel_info->their_config.id = 0;
 
-	if (!fromwire_opening_funder_reply(resp, NULL,
+	if (!fromwire_opening_funder_reply(resp, resp, NULL,
 					   &channel_info->their_config,
-					   remote_commit,
+					   &remote_commit,
 					   &remote_commit_sig,
 					   &cs,
 					   &gossip_index,
@@ -2322,12 +2319,11 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 	/* Get HSM to sign the funding tx. */
 	log_debug(fc->peer->log, "Getting HSM to sign funding tx");
 
-	utxos = from_utxoptr_arr(tmpctx, fc->utxomap);
 	msg = towire_hsm_sign_funding(tmpctx, fc->peer->funding_satoshi,
 				      fc->change, fc->change_keyindex,
 				      &local_fundingkey,
 				      &channel_info->remote_fundingkey,
-				      utxos);
+				      fc->utxomap);
 	/* Unowned (will free openingd). */
 	peer_set_owner(fc->peer, NULL);
 
@@ -2356,8 +2352,6 @@ static void opening_fundee_finished(struct subd *opening,
 	log_debug(peer->log, "Got opening_fundee_finish_response");
 	assert(tal_count(fds) == 2);
 
-	remote_commit = tal(reply, struct bitcoin_tx);
-
 	/* At this point, we care about peer */
 	peer->channel_info = channel_info = tal(peer, struct channel_info);
 	/* This is a new channel_info->their_config, set its ID to 0 */
@@ -2366,7 +2360,7 @@ static void opening_fundee_finished(struct subd *opening,
 	peer->funding_txid = tal(peer, struct bitcoin_txid);
 	if (!fromwire_opening_fundee_reply(tmpctx, reply, NULL,
 					   &channel_info->their_config,
-					   remote_commit,
+					   &remote_commit,
 					   &remote_commit_sig,
 					   &cs,
 					   &gossip_index,
@@ -2432,15 +2426,14 @@ static unsigned int opening_negotiation_failed(struct subd *openingd,
 	struct crypto_state cs;
 	u64 gossip_index;
 	struct peer *peer = openingd->peer;
-	u8 *err;
-	const char *why;
+	char *why;
 
 	/* We need the peer fd and gossip fd. */
 	if (tal_count(fds) == 0)
 		return 2;
 
 	if (!fromwire_opening_negotiation_failed(msg, msg, NULL,
-						 &cs, &gossip_index, &err)) {
+						 &cs, &gossip_index, &why)) {
 		peer_internal_error(peer,
 				    "bad OPENING_NEGOTIATION_FAILED %s",
 				    tal_hex(msg, msg));
@@ -2453,7 +2446,6 @@ static unsigned int opening_negotiation_failed(struct subd *openingd,
 	subd_send_fd(openingd->ld->gossip, fds[0]);
 	subd_send_fd(openingd->ld->gossip, fds[1]);
 
-	why = tal_strndup(peer, (const char *)err, tal_len(err));
 	log_unusual(peer->log, "Opening negotiation failed: %s", why);
 
 	/* This will free openingd, since that's peer->owner */
@@ -2547,7 +2539,6 @@ static void peer_offer_channel(struct lightningd *ld,
 	u8 *msg;
 	u32 max_to_self_delay, max_minimum_depth;
 	u64 min_effective_htlc_capacity_msat;
-	struct utxo *utxos;
 
 	/* We make a new peer. */
 	fc->peer = new_peer(ld, &fc->peerid, addr,
@@ -2600,15 +2591,14 @@ static void peer_offer_channel(struct lightningd *ld,
 				  cs, gossip_index, fc->peer->seed);
 	subd_send_msg(fc->peer->owner, take(msg));
 
-	utxos = from_utxoptr_arr(fc, fc->utxomap);
-
 	msg = towire_opening_funder(fc, fc->peer->funding_satoshi,
 				    fc->peer->push_msat,
 				    get_feerate(ld->topology, FEERATE_NORMAL),
 				    max_minimum_depth,
 				    fc->change, fc->change_keyindex,
 				    fc->peer->channel_flags,
-				    utxos, fc->peer->ld->wallet->bip32_base);
+				    fc->utxomap,
+				    fc->peer->ld->wallet->bip32_base);
 
 	/* Peer now owns fc; if it dies, we fail fc. */
 	tal_steal(fc->peer, fc);

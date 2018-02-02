@@ -943,7 +943,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 	while (!all_irrevocably_resolved(outs)) {
 		u8 *msg = wire_sync_read(outs, REQ_FD);
 		struct bitcoin_txid txid;
-		struct bitcoin_tx *tx = tal(msg, struct bitcoin_tx);
+		struct bitcoin_tx *tx;
 		u32 input_num, depth, tx_blockheight;
 		struct preimage preimage;
 
@@ -952,7 +952,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 
 		if (fromwire_onchain_depth(msg, NULL, &txid, &depth))
 			tx_new_depth(outs, &txid, depth);
-		else if (fromwire_onchain_spent(msg, NULL, tx, &input_num,
+		else if (fromwire_onchain_spent(msg, msg, NULL, &tx, &input_num,
 						&tx_blockheight))
 			output_spent(&outs, tx, input_num, tx_blockheight);
 		else if (fromwire_onchain_known_preimage(msg, NULL, &preimage))
@@ -1982,7 +1982,6 @@ int main(int argc, char *argv[])
 	missing_htlc_msgs = tal_arr(ctx, u8 *, 0);
 
 	msg = wire_sync_read(ctx, REQ_FD);
-	tx = tal(ctx, struct bitcoin_tx);
 	if (!fromwire_onchain_init(ctx, msg, NULL,
 				   &seed, &shachain,
 				   &funding_amount_satoshi,
@@ -2001,7 +2000,7 @@ int main(int argc, char *argv[])
 				   &remote_payment_basepoint,
 				   &remote_htlc_basepoint,
 				   &remote_delayed_payment_basepoint,
-				   tx,
+				   &tx,
 				   &tx_blockheight,
 				   &reasonable_depth,
 				   &remote_htlc_sigs,

@@ -40,6 +40,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
+	common/gen_status_wire.o		\
 	common/htlc_state.o			\
 	common/htlc_tx.o			\
 	common/htlc_wire.o			\
@@ -57,6 +58,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/read_peer_msg.o			\
 	common/sphinx.o				\
 	common/status.o				\
+	common/status_wire.o			\
 	common/subdaemon.o			\
 	common/timeout.o			\
 	common/type_to_string.o			\
