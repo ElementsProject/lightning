@@ -72,7 +72,7 @@ static void log_to_stdout(const char *prefix,
 			  enum log_level level,
 			  bool continued,
 			  const struct timeabs *time,
-			  const char *str, void *arg)
+			  const char *str, void *unused UNUSED)
 {
 	log_to_file(prefix, level, continued, time, str, stdout);
 }
