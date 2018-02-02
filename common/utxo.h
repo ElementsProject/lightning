@@ -29,7 +29,7 @@ struct utxo {
 };
 
 void towire_utxo(u8 **pptr, const struct utxo *utxo);
-void fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max, struct utxo *utxo);
+struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max);
 
 /* build_utxos/funding_tx use array of pointers, but marshall code
  * wants arr of structs */

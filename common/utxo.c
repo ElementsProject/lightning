@@ -20,21 +20,24 @@ void towire_utxo(u8 **pptr, const struct utxo *utxo)
 	}
 }
 
-void fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max, struct utxo *utxo)
+struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 {
+	struct utxo *utxo = tal(ctx, struct utxo);
+
 	fromwire_bitcoin_txid(ptr, max, &utxo->txid);
 	utxo->outnum = fromwire_u32(ptr, max);
 	utxo->amount = fromwire_u64(ptr, max);
 	utxo->keyindex = fromwire_u32(ptr, max);
 	utxo->is_p2sh = fromwire_bool(ptr, max);
 	if (fromwire_bool(ptr, max)) {
-		utxo->close_info = tal(ctx, struct unilateral_close_info);
+		utxo->close_info = tal(utxo, struct unilateral_close_info);
 		utxo->close_info->channel_id = fromwire_u64(ptr, max);
 		fromwire_pubkey(ptr, max, &utxo->close_info->peer_id);
 		fromwire_pubkey(ptr, max, &utxo->close_info->commitment_point);
 	} else {
 		utxo->close_info = NULL;
 	}
+	return utxo;
 }
 
 

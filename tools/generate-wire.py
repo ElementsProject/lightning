@@ -261,10 +261,12 @@ class Message(object):
             if f.fieldtype.is_assignable():
                 subcalls.append('\t\t({})[i] = fromwire_{}(&cursor, plen);'
                                 .format(name, basetype))
+            elif basetype in varlen_structs:
+                subcalls.append('\t\t{}[i] = fromwire_{}(ctx, &cursor, plen);'
+                                .format(f.name, basetype))
             else:
-                ctx = "ctx, " if basetype in varlen_structs else ""
-                subcalls.append('\t\tfromwire_{}({}&cursor, plen, {} + i);'
-                                .format(basetype, ctx, name))
+                subcalls.append('\t\tfromwire_{}(&cursor, plen, {} + i);'
+                                .format(basetype, name))
 
     def print_fromwire(self,is_header):
         ctx_arg = 'const tal_t *ctx, ' if self.has_variable_fields else ''
@@ -277,6 +279,8 @@ class Message(object):
             elif f.is_array():
                 args.append(', {} {}[{}]'.format(f.fieldtype.name, f.name, f.num_elems))
             elif f.is_variable_size():
+                args.append(', {} **{}'.format(f.fieldtype.name, f.name))
+            elif f.basetype() in varlen_structs:
                 args.append(', {} **{}'.format(f.fieldtype.name, f.name))
             else:
                 args.append(', {} *{}'.format(f.fieldtype.name, f.name))
@@ -312,11 +316,12 @@ class Message(object):
                 else:
                     subcalls.append('\t*{} = fromwire_{}(&cursor, plen);'
                                     .format(f.name, basetype))
+            elif basetype in varlen_structs:
+                subcalls.append('\t*{} = fromwire_{}(ctx, &cursor, plen);'
+                                .format(f.name, basetype))
             else:
-                subcalls.append("\t//4th case {name}".format(name=f.name))
-                ctx = "ctx, " if basetype in varlen_structs else ""
-                subcalls.append('\tfromwire_{}({}&cursor, plen, {});'
-                                .format(basetype, ctx, f.name))
+                subcalls.append('\tfromwire_{}(&cursor, plen, {});'
+                                .format(basetype, f.name))
 
         return template.format(
             name=self.name,

@@ -2,31 +2,36 @@
 #include <lightningd/gossip_msg.h>
 #include <wire/wire.h>
 
-void fromwire_gossip_getnodes_entry(const tal_t *ctx, const u8 **pptr, size_t *max, struct gossip_getnodes_entry *entry)
+struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx, const u8 **pptr, size_t *max)
 {
 	u8 numaddresses, i;
+	struct gossip_getnodes_entry *entry;
+
+	entry = tal(ctx, struct gossip_getnodes_entry);
 	fromwire_pubkey(pptr, max, &entry->nodeid);
 	entry->last_timestamp = fromwire_u64(pptr, max);
 
 	if (entry->last_timestamp < 0) {
 		entry->addresses = NULL;
 		entry->alias = NULL;
-		return;
+		return entry;
 	}
 	numaddresses = fromwire_u8(pptr, max);
 
-	entry->addresses = tal_arr(ctx, struct wireaddr, numaddresses);
+	entry->addresses = tal_arr(entry, struct wireaddr, numaddresses);
 	for (i=0; i<numaddresses; i++) {
 		/* Gossipd doesn't hand us addresses we can't understand. */
 		if (!fromwire_wireaddr(pptr, max, entry->addresses)) {
 			fromwire_fail(pptr, max);
-			return;
+			return NULL;
 		}
 	}
-	entry->alias = tal_arr(ctx, u8, fromwire_u8(pptr, max));
+	entry->alias = tal_arr(entry, u8, fromwire_u8(pptr, max));
 	fromwire(pptr, max, entry->alias, tal_len(entry->alias));
 	fromwire(pptr, max, entry->color, sizeof(entry->color));
+	return entry;
 }
+
 void towire_gossip_getnodes_entry(u8 **pptr, const struct gossip_getnodes_entry *entry)
 {
 	u8 i, numaddresses = tal_count(entry->addresses);
