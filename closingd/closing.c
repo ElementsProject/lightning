@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
 	u16 funding_txout;
 	u64 funding_satoshi, satoshi_out[NUM_SIDES];
 	u64 our_dust_limit;
-	u64 minfee, maxfee, sent_fee;
+	u64 minfee, feelimit, maxfee, sent_fee;
 	s64 last_received_fee = -1;
 	enum side funder;
 	u8 *scriptpubkey[NUM_SIDES], *funding_wscript;

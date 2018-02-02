@@ -1888,7 +1888,7 @@ static void peer_start_closingd(struct peer *peer,
 {
 	const tal_t *tmpctx = tal_tmpctx(peer);
 	u8 *initmsg, *local_scriptpubkey;
-	u64 minfee, maxfee, startfee, feelimit;
+	u64 minfee, startfee, feelimit;
 	u64 num_revocations;
 	u64 funding_msatoshi, our_msatoshi, their_msatoshi;
 
@@ -1936,15 +1936,11 @@ static void peer_start_closingd(struct peer *peer,
 	feelimit = commit_tx_base_fee(peer->channel_info->feerate_per_kw[LOCAL],
 				      0);
 
-	maxfee = commit_tx_base_fee(get_feerate(peer->ld->topology,
-						FEERATE_IMMEDIATE), 0);
 	minfee = commit_tx_base_fee(get_feerate(peer->ld->topology,
 						FEERATE_SLOW), 0);
 	startfee = commit_tx_base_fee(get_feerate(peer->ld->topology,
 						  FEERATE_NORMAL), 0);
 
-	if (maxfee > feelimit)
-		maxfee = feelimit;
 	if (startfee > feelimit)
 		startfee = feelimit;
 	if (minfee > feelimit)
@@ -1974,7 +1970,7 @@ static void peer_start_closingd(struct peer *peer,
 				      our_msatoshi / 1000, /* Rounds down */
 				      their_msatoshi / 1000, /* Rounds down */
 				      peer->our_config.dust_limit_satoshis,
-				      minfee, maxfee, startfee,
+				      minfee, feelimit, startfee,
 				      local_scriptpubkey,
 				      peer->remote_shutdown_scriptpubkey,
 				      reconnected,
