@@ -49,23 +49,32 @@ struct log {
 	const char *prefix;
 };
 
+static void log_to_file(const char *prefix,
+			enum log_level level,
+			bool continued,
+			const struct timeabs *time,
+			const char *str,
+			FILE *logf)
+{
+	char iso8601_msec_fmt[sizeof("YYYY-mm-ddTHH:MM:SS.%03dZ")];
+	strftime(iso8601_msec_fmt, sizeof(iso8601_msec_fmt), "%FT%T.%%03dZ", gmtime(&time->ts.tv_sec));
+	char iso8601_s[sizeof("YYYY-mm-ddTHH:MM:SS.nnnZ")];
+	snprintf(iso8601_s, sizeof(iso8601_s), iso8601_msec_fmt, (int) time->ts.tv_nsec / 1000000);
+	if (!continued) {
+		fprintf(logf, "%s %s %s\n", iso8601_s, prefix, str);
+	} else {
+		fprintf(logf, "%s %s \t%s\n", iso8601_s, prefix, str);
+	}
+	fflush(logf);
+}
+
 static void log_default_print(const char *prefix,
 			      enum log_level level,
 			      bool continued,
 			      const struct timeabs *time,
 			      const char *str, void *arg)
 {
-	char iso8601_msec_fmt[sizeof("YYYY-mm-ddTHH:MM:SS.%03dZ")];
-	strftime(iso8601_msec_fmt, sizeof(iso8601_msec_fmt), "%FT%T.%%03dZ", gmtime(&time->ts.tv_sec));
-	char iso8601_s[sizeof("YYYY-mm-ddTHH:MM:SS.nnnZ")];
-	snprintf(iso8601_s, sizeof(iso8601_s), iso8601_msec_fmt, (int) time->ts.tv_nsec / 1000000);
-
-	if (!continued) {
-		printf("%s %s %s\n", iso8601_s, prefix, str);
-	} else {
-		printf("%s %s \t%s\n", iso8601_s, prefix, str);
-	}
-	fflush(stdout);
+	log_to_file(prefix, level, continued, time, str, stdout);
 }
 
 static size_t log_bufsize(const struct log_entry *e)
@@ -406,21 +415,6 @@ static char *arg_log_prefix(const char *arg, struct log *log)
 static void show_log_prefix(char buf[OPT_SHOW_LEN], const struct log *log)
 {
 	strncpy(buf, log->prefix, OPT_SHOW_LEN);
-}
-
-static void log_to_file(const char *prefix,
-			enum log_level level,
-			bool continued,
-			const struct timeabs *time,
-			const char *str,
-			FILE *logf)
-{
-	if (!continued) {
-		fprintf(logf, "%s %s\n", prefix, str);
-	} else {
-		fprintf(logf, "%s \t%s\n", prefix, str);
-	}
-	fflush(logf);
 }
 
 char *arg_log_to_file(const char *arg, struct lightningd *ld)
