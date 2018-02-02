@@ -889,6 +889,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	u32 fee_proportional_millionths;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	struct bitcoin_blkid chain_hash;
+	struct routing_channel *chan;
 	u8 direction;
 	size_t len = tal_len(update);
 
@@ -925,6 +926,8 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	}
 
 	c = get_connection_by_scid(rstate, &short_channel_id, direction);
+	chan = uintmap_get(&rstate->channels,
+			   short_channel_id_to_uint(&short_channel_id));
 
 	if (!c) {
 		SUPERVERBOSE("Ignoring update for unknown channel %s",
@@ -972,7 +975,8 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_short_channel_id(&tag, &short_channel_id);
 	towire_u16(&tag, direction);
-	queue_broadcast(rstate->broadcasts,
+	replace_broadcast(rstate->broadcasts,
+			&chan->msg_indexes[MSG_INDEX_CUPDATE_0 | direction],
 			WIRE_CHANNEL_UPDATE,
 			tag,
 			serialized);
