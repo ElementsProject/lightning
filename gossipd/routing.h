@@ -38,6 +38,10 @@ struct node_connection {
 	/* Cached `channel_announcement` and `channel_update` we might forward to new peers*/
 	u8 *channel_announcement;
 	u8 *channel_update;
+
+	/* If greater than current time, this connection should not
+	 * be used for routing. */
+	time_t unroutable_until;
 };
 
 struct node {

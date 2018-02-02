@@ -7,6 +7,7 @@
 #include <ccan/endian/endian.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/time/time.h>
 #include <common/features.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
@@ -226,6 +227,7 @@ get_or_make_connection(struct routing_state *rstate,
 	nc->dst = to;
 	nc->channel_announcement = NULL;
 	nc->channel_update = NULL;
+	nc->unroutable_until = 0;
 
 	/* Hook it into in/out arrays. */
 	i = tal_count(to->in);
@@ -342,9 +344,9 @@ static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor)
 }
 
 /* Determine if the given node_connection is routable */
-static bool nc_is_routable(const struct node_connection *nc)
+static bool nc_is_routable(const struct node_connection *nc, time_t now)
 {
-	return nc->active;
+	return nc->active && nc->unroutable_until < now;
 }
 
 /* riskfactor is already scaled to per-block amount */
@@ -357,6 +359,10 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	struct node_map_iter it;
 	struct node_connection *first_conn;
 	int runs, i, best;
+	/* Call time_now() once at the start, so that our tight loop
+	 * does not keep calling into operating system for the
+	 * current time */
+	time_t now = time_now().ts.tv_sec;
 
 	/* Note: we map backwards, since we know the amount of satoshi we want
 	 * at the end, and need to derive how much we need to send. */
@@ -403,7 +409,7 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 					     type_to_string(trc, struct pubkey,
 							    &n->id),
 					     i, num_edges);
-				if (!nc_is_routable(n->in[i])) {
+				if (!nc_is_routable(n->in[i], now)) {
 					SUPERVERBOSE("...unroutable");
 					continue;
 				}
@@ -830,6 +836,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	c->base_fee = fee_base_msat;
 	c->proportional_fee = fee_proportional_millionths;
 	c->active = (flags & ROUTING_FLAGS_DISABLED) == 0;
+	c->unroutable_until = 0;
 	status_trace("Channel %s(%d) was updated.",
 		     type_to_string(trc, struct short_channel_id,
 				    &short_channel_id),
@@ -1047,7 +1054,8 @@ get_out_node_connection_of(struct routing_state *rstate,
  */
 static void routing_failure_on_nc(struct routing_state *rstate,
 				  enum onion_type failcode,
-				  struct node_connection *nc)
+				  struct node_connection *nc,
+				  time_t now)
 {
 	/* BOLT #4:
 	 *
@@ -1055,7 +1063,8 @@ static void routing_failure_on_nc(struct routing_state *rstate,
 	 *   - SHOULD restore the channels as it receives new `channel_update`s.
 	 */
 	if (!(failcode & PERM))
-		nc->active = false;
+		/* Prevent it for 20 seconds. */
+		nc->unroutable_until = now + 20;
 	else
 		delete_connection(rstate, nc);
 }
@@ -1071,6 +1080,7 @@ void routing_failure(struct routing_state *rstate,
 	struct node_connection *nc;
 	int i;
 	enum wire_type t;
+	time_t now = time_now().ts.tv_sec;
 
 	status_trace("Received routing failure 0x%04x (%s), "
 		     "erring node %s, "
@@ -1099,13 +1109,13 @@ void routing_failure(struct routing_state *rstate,
 	 */
 	if (failcode & NODE) {
 		for (i = 0; i < tal_count(node->in); ++i)
-			routing_failure_on_nc(rstate, failcode, node->in[i]);
+			routing_failure_on_nc(rstate, failcode, node->in[i], now);
 		for (i = 0; i < tal_count(node->out); ++i)
-			routing_failure_on_nc(rstate, failcode, node->out[i]);
+			routing_failure_on_nc(rstate, failcode, node->out[i], now);
 	} else {
 		nc = get_out_node_connection_of(rstate, node, scid);
 		if (nc)
-			routing_failure_on_nc(rstate, failcode, nc);
+			routing_failure_on_nc(rstate, failcode, nc, now);
 		else
 			status_trace("UNUSUAL routing_failure: "
 				     "Channel %s not an out channel "
