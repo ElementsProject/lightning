@@ -7,6 +7,7 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
+#include <common/gen_status_wire.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/lightningd.h>
@@ -337,24 +338,9 @@ static struct io_plan *sd_collect_fds(struct io_conn *conn, struct subd *sd,
 	return read_fds(conn, sd);
 }
 
-/* Don't trust, verify.  Returns NULL if contains weird stuff. */
-static const char *string_from_msg(const u8 *msg, int *str_len)
-{
-	size_t len = tal_count(msg) - sizeof(be16), i;
-
-	for (i = 0; i < len; i++) {
-		if (!cisprint((char)msg[sizeof(be16) + i])) {
-			*str_len = 0;
-			return NULL;
-		}
-	}
-	*str_len = len;
-	return (const char *)(msg + sizeof(be16));
-}
-
 static void subdaemon_malformed_msg(struct subd *sd, const u8 *msg)
 {
-	log_broken(sd->log, "%i: malformed string '%.s'",
+	log_broken(sd->log, "%i: malformed message '%.s'",
 		   fromwire_peektype(msg),
 		   tal_hex(msg, msg));
 
@@ -364,9 +350,8 @@ static void subdaemon_malformed_msg(struct subd *sd, const u8 *msg)
 #endif
 }
 
-/* Returns true if logged, false if malformed. */
-static bool log_status_fail(struct subd *sd,
-			    enum status_fail type, const char *str, int str_len)
+static void log_status_fail(struct subd *sd,
+			    enum status_failreason type, const char *str)
 {
 	const char *name;
 
@@ -394,23 +379,24 @@ static bool log_status_fail(struct subd *sd,
 		name = "STATUS_FAIL_PEER_BAD";
 		goto log_str_peer;
 	}
-	return false;
+	/* fromwire_status_fail() guarantees it's one of those... */
+	abort();
 
 	/* Peers misbehaving is expected. */
 log_str_peer:
-	log_info(sd->log, "%s: %.*s", name, str_len, str);
-	return true;
+	log_info(sd->log, "%s: %s", name, str);
+	return;
 
 /* Shouldn't happen. */
 log_str_broken:
-	log_broken(sd->log, "%s: %.*s", name, str_len, str);
+	log_broken(sd->log, "%s: %s", name, str);
 
 #if DEVELOPER
 	if (sd->ld->dev_subdaemon_fail)
 		fatal("Subdaemon %s hit error", sd->name);
 #endif
 
-	return true;
+	return;
 }
 
 static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
@@ -447,22 +433,22 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 	if (log_status_msg(sd->log, sd->msg_in))
 		goto next;
 
-	if (type & STATUS_FAIL) {
-		int str_len;
-		const char *str = string_from_msg(sd->msg_in, &str_len);
-		if (!str)
+	if (type == WIRE_STATUS_FAIL) {
+		enum status_failreason failreason;
+		char *desc;
+		if (!fromwire_status_fail(sd->msg_in, sd->msg_in, NULL,
+					  &failreason, &desc))
 			goto malformed;
 
-		if (!log_status_fail(sd, type, str, str_len))
-			goto malformed;
+		log_status_fail(sd, failreason, desc);
 
 		/* If they care, tell them about invalid peer behavior */
-		if (sd->peer && type == STATUS_FAIL_PEER_BAD) {
+		if (sd->peer && failreason == STATUS_FAIL_PEER_BAD) {
 			/* Don't free ourselves; we're about to do that. */
 			struct peer *peer = sd->peer;
 			sd->peer = NULL;
 
-			peer_fail_permanent(peer, "%s: %.*s", sd->name, str_len, str);
+			peer_fail_permanent(peer, "%s: %s", sd->name, desc);
 		}
 		goto close;
 	}

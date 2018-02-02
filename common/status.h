@@ -43,7 +43,8 @@ void status_io(enum side sender, const u8 *msg);
 #define status_trace(...) status_debug(__VA_ARGS__)
 
 /* Send a failure status code with printf-style msg, and exit. */
-void status_failed(enum status_fail code, const char *fmt, ...) PRINTF_FMT(2,3) NORETURN;
+void status_failed(enum status_failreason code,
+		   const char *fmt, ...) PRINTF_FMT(2,3) NORETURN;
 
 /* Helper for master failures: sends STATUS_FAIL_MASTER_IO.
  * msg NULL == read failure. */

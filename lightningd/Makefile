@@ -23,6 +23,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/derive_basepoints.o		\
 	common/features.o			\
 	common/funding_tx.o			\
+	common/gen_status_wire.o		\
 	common/hash_u5.o			\
 	common/htlc_state.o			\
 	common/htlc_wire.o			\
@@ -34,6 +35,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/permute_tx.o			\
 	common/pseudorand.o			\
 	common/sphinx.o				\
+	common/status_wire.o			\
 	common/timeout.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
