@@ -144,7 +144,7 @@ To use a configuration file, create a file named "config" within your ".lightnin
 Configuration options are set using a key=value pair on each line of the file, for example:
 ```
 alias=SLEEPYDRAGON
-rbg=008000
+rgb=008000
 port=9735
 network=testnet
 ```
