@@ -236,7 +236,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 						   &our_wallet_pubkey);
 
 	/* Worst-case sig is 73 bytes */
-	fee = feerate_per_kw * (measure_tx_cost(tx)
+	fee = feerate_per_kw * (measure_tx_weight(tx)
 			 + 1 + 3 + 73 + 0 + tal_len(wscript))
 		/ 1000;
 

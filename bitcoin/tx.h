@@ -47,8 +47,8 @@ void sha256_tx_for_sig(struct sha256_double *h, const struct bitcoin_tx *tx,
 /* Linear bytes of tx. */
 u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx);
 
-/* Get cost of tx in (x4 of non-witness bytecount). */
-size_t measure_tx_cost(const struct bitcoin_tx *tx);
+/* Get weight of tx in Sipa. */
+size_t measure_tx_weight(const struct bitcoin_tx *tx);
 
 /* Allocate a tx: you just need to fill in inputs and outputs (they're
  * zeroed with inputs' sequence_number set to FFFFFFFF) */
