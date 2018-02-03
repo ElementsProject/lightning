@@ -142,7 +142,6 @@ lightningd can be configured either by passing options via the command line, or 
 To use a configuration file, create a file named "config" within your ".lightning" directory. Usually this will be ~/.lightning/config
 
 Configuration options are set using a key=value pair on each line of the file, for example:
-
 ```
 alias=SLEEPYDRAGON
 rbg=008000
@@ -151,14 +150,9 @@ network=testnet
 ```
 
 For a full list of possible lightningd configuration options, run:
-
 ```bash
 lightningd/lightningd --help
 ```
-
-
-
-
 
 ## Further information
 
