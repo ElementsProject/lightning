@@ -797,6 +797,7 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 	chan->public = false;
 	uintmap_add(&rstate->channels, short_channel_id_to_uint(&scid), chan);
 
+	chan->pending = NULL;
 	direction = get_channel_direction(&rstate->local_id, &remote_node_id);
 	c = half_add_connection(rstate, &rstate->local_id, &remote_node_id, &scid, direction);
 	channel_add_connection(rstate, chan, c);

@@ -33,8 +33,6 @@
 /* We've unpacked and checked its signatures, now we wait for master to tell
  * us the txout to check */
 struct pending_cannouncement {
-	struct list_node list;
-
 	/* Unpacked fields here */
 	struct short_channel_id short_channel_id;
 	struct pubkey node_id_1;
@@ -569,21 +567,6 @@ static bool check_channel_announcement(
 	       check_signed_hash(&hash, bitcoin2_sig, bitcoin2_key);
 }
 
-/* While master always processes in order, bitcoind is async, so they could
- * theoretically return out of order. */
-static struct pending_cannouncement *
-find_pending_cannouncement(struct routing_state *rstate,
-			   const struct short_channel_id *scid)
-{
-	struct pending_cannouncement *i;
-
-	list_for_each(&rstate->pending_cannouncement, i, list) {
-		if (short_channel_id_eq(scid, &i->short_channel_id))
-			return i;
-	}
-	return NULL;
-}
-
 struct routing_channel *routing_channel_new(const tal_t *ctx,
 					    struct short_channel_id *scid)
 {
@@ -740,7 +723,9 @@ const struct short_channel_id *handle_channel_announcement(
 				    &pending->short_channel_id));
 
 	/* So you're new in town, ey? Let's find you a room in the Inn. */
-	chan = routing_channel_new(chan, &pending->short_channel_id);
+	if (chan == NULL)
+		chan = routing_channel_new(rstate, &pending->short_channel_id);
+	chan->pending = tal_steal(chan, pending);
 
 	/* The channel will be public if we complete the verification */
 	chan->public = true;
@@ -751,7 +736,6 @@ const struct short_channel_id *handle_channel_announcement(
 	add_pending_node_announcement(rstate, &pending->node_id_1);
 	add_pending_node_announcement(rstate, &pending->node_id_2);
 
-	list_add_tail(&rstate->pending_cannouncement, &pending->list);
 	return &pending->short_channel_id;
 }
 
@@ -770,9 +754,9 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	chan = uintmap_get(&rstate->channels, uscid);
 	assert(chan);
 
-	pending = find_pending_cannouncement(rstate, scid);
+	pending = chan->pending;
 	assert(pending);
-	list_del_from(&rstate->pending_cannouncement, &pending->list);
+	chan->pending = NULL;
 
 	tag = tal_arr(pending, u8, 0);
 	towire_short_channel_id(&tag, scid);
@@ -858,9 +842,10 @@ static bool update_to_pending(struct routing_state *rstate,
 			      u32 timestamp, const u8 *update,
 			      const u8 direction)
 {
-	struct pending_cannouncement *pending;
+	u64 uscid = short_channel_id_to_uint(scid);
+	struct routing_channel *chan = uintmap_get(&rstate->channels, uscid);
+	struct pending_cannouncement *pending = chan?chan->pending:NULL;
 
-	pending = find_pending_cannouncement(rstate, scid);
 	if (!pending)
 		return false;
 
