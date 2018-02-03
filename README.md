@@ -7,6 +7,10 @@ For more information about the Lightning Network please refer to http://lightnin
 
 ## Project Status
 
+[![Build Status](https://travis-ci.org/ElementsProject/lightning.svg?branch=master)](https://travis-ci.org/ElementsProject/lightning)
+[![Pull Requests Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](http://makeapullrequest.com)
+[![Irc](https://img.shields.io/badge/chat-on%20freenode-brightgreen.svg)](https://webchat.freenode.net/?channels=c-lightning)
+
 This implementation is still very much a work in progress. It can be used for testing, but __it should not be used for real funds__.
 We do our best to identify and fix problems, and implement missing features.
 
