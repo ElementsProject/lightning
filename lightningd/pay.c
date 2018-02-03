@@ -434,6 +434,13 @@ static bool send_payment(struct command *cmd,
 
 	peer = peer_by_id(cmd->ld, &ids[0]);
 	if (!peer) {
+		/* Report routing failure to gossipd */
+		fail = immediate_routing_failure(cmd, cmd->ld,
+						 WIRE_UNKNOWN_NEXT_PEER,
+						 &route[0].channel_id);
+		report_routing_failure(cmd->ld->log, cmd->ld->gossip, fail);
+
+		/* Report routing failure to user */
 		command_fail(cmd, "No connection to first peer found");
 		return false;
 	}
@@ -458,7 +465,7 @@ static bool send_payment(struct command *cmd,
 						 &route[0].channel_id);
 		report_routing_failure(cmd->ld->log, cmd->ld->gossip, fail);
 
-		/* Repor routing failure to user */
+		/* Report routing failure to user */
 		command_fail(cmd, "First peer not ready: %s",
 			     onion_type_name(failcode));
 		return false;
