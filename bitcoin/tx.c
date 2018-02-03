@@ -260,14 +260,17 @@ static void push_measure(const void *data, size_t len, void *lenp)
 	*(size_t *)lenp += len;
 }
 
-size_t measure_tx_cost(const struct bitcoin_tx *tx)
+size_t measure_tx_weight(const struct bitcoin_tx *tx)
 {
 	size_t non_witness_len = 0, witness_len = 0;
 	push_tx(tx, push_measure, &non_witness_len, false);
-	if (uses_witness(tx))
+	if (uses_witness(tx)) {
 		push_witnesses(tx, push_measure, &witness_len);
+		/* Include BIP 144 marker and flag bytes in witness length */
+		witness_len += 2;
+	}
 
-	/* Witness bytes only push 1/4 of normal bytes, for cost. */
+	/* Normal bytes weigh 4 times more than Witness bytes */
 	return non_witness_len * 4 + witness_len;
 }
 

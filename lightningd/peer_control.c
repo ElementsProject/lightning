@@ -1786,7 +1786,7 @@ static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
 		 " vs previous %"PRIu64, fee, last_fee);
 
 	/* Weight once we add in sigs. */
-	weight = measure_tx_cost(tx) + 74 * 2;
+	weight = measure_tx_weight(tx) + 74 * 2;
 
 	min_fee = get_feerate(peer->ld->topology, FEERATE_SLOW) * weight / 1000;
 	if (fee < min_fee) {
