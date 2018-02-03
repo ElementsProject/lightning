@@ -2,12 +2,12 @@
 .\"     Title: lightning-pay
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 01/13/2018
+.\"      Date: 02/05/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-PAY" "7" "01/13/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-PAY" "7" "02/05/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -40,6 +40,164 @@ The response will occur when the payment fails or succeeds\&. Once a payment has
 .SH "RETURN VALUE"
 .sp
 On success, this returns the payment \fIpreimage\fR which hashes to the \fIpayment_hash\fR to prove that the payment was successful\&.
+.sp
+On error, if the error occurred from a node other than the final destination, the route table will be updated so that getroute(7) should return an alternate route (if any)\&. An error from the final destination implies the payment should not be retried\&.
+.sp
+The following error codes may occur:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\-1\&. Catchall nonspecific error\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+200\&. A previous
+\fBsendpay\fR
+or
+\fBpay\fR
+is in progress\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+201\&. Already paid with this
+\fIhash\fR
+using different amount or destination\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+202\&. Unparseable onion reply\&. The
+\fIdata\fR
+field of the error will have a
+\fIonionreply\fR
+field, a hex string representation of the raw onion reply\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+203\&. Permanent failure at destination\&. The
+\fIdata\fR
+field of the error will be routing failure object\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+204\&. Failure along route; retry a different route\&. The
+\fIdata\fR
+field of the error will be routing failure object\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+205\&. Unable to find a route\&.
+.RE
+.sp
+A routing failure object has the fields below:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIorigin_index\fR\&. The index of the node along the route that reported the error\&. 0 for the first hop node, \-1 if the local node reported the error\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIerring_node\fR\&. The hex string of the pubkey id of the node that reported the error\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIerring_channel\fR\&. The short channel ID of the channel that has the error, or
+\fI0:0:0\fR
+if the destination node raised the error\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIfailcode\fR\&. The failure code, as per BOLT #4\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIchannel_update\fR\&. The hex string of the
+\fIchannel_update\fR
+message received from the remote node\&. Only present if error is from the remote node and the
+\fIfailcode\fR
+has the UPDATE bit set, as per BOLT #4\&.
+.RE
 .SH "AUTHOR"
 .sp
 Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.
