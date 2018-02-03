@@ -621,7 +621,9 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 		return;
 
 	if (pna->node_announcement) {
-		status_trace("Processing deferred node_announcement for node %s", type_to_string(pna, struct pubkey, nodeid));
+		SUPERVERBOSE(
+		    "Processing deferred node_announcement for node %s",
+		    type_to_string(pna, struct pubkey, nodeid));
 		handle_node_announcement(rstate, pna->node_announcement);
 	}
 	pending_node_map_del(rstate->pending_node_map, pna);
@@ -1019,6 +1021,7 @@ void handle_node_announcement(
 	u8 *features, *addresses;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	struct wireaddr *wireaddrs;
+	struct pending_node_announce *pna;
 	size_t len = tal_len(node_ann);
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
@@ -1055,10 +1058,12 @@ void handle_node_announcement(
 
 	/* Check if we are currently verifying the txout for a
 	 * matching channel */
-	struct pending_node_announce *pna = pending_node_map_get(rstate->pending_node_map, &node_id.pubkey);
+	pna = pending_node_map_get(rstate->pending_node_map, &node_id.pubkey);
 	if (!node && pna) {
 		if (pna->timestamp < timestamp) {
-			status_trace("Deferring node_announcement for node %s", type_to_string(tmpctx, struct pubkey, &node_id));
+			SUPERVERBOSE(
+			    "Deferring node_announcement for node %s",
+			    type_to_string(tmpctx, struct pubkey, &node_id));
 			pna->timestamp = timestamp;
 			tal_free(pna->node_announcement);
 			pna->node_announcement = tal_dup_arr(pna, u8, node_ann, tal_len(node_ann), 0);
