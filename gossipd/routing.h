@@ -85,6 +85,7 @@ bool node_map_node_eq(const struct node *n, const secp256k1_pubkey *key);
 HTABLE_DEFINE_TYPE(struct node, node_map_keyof_node, node_map_hash_key, node_map_node_eq, node_map);
 
 struct pending_node_map;
+struct pending_cannouncement;
 
 enum txout_state {
 	TXOUT_FETCHING,
@@ -104,6 +105,8 @@ struct routing_channel {
 
 	/* Is this a public channel, or was it only added locally? */
 	bool public;
+
+	struct pending_cannouncement *pending;
 };
 
 struct routing_state {
