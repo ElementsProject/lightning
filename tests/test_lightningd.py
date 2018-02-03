@@ -1,4 +1,3 @@
-from binascii import hexlify, unhexlify
 from concurrent import futures
 from decimal import Decimal
 from hashlib import sha256
@@ -43,7 +42,7 @@ def setupBitcoind(directory):
     try:
         bitcoind.start()
     except:
-        tearDownBitcoind()
+        teardown_bitcoind()
         raise
 
     info = bitcoind.rpc.getblockchaininfo()
@@ -63,6 +62,7 @@ def wait_for(success, timeout=30, interval=0.1):
     if time.time() > start_time + timeout:
         raise ValueError("Error waiting for {}", success)
 
+
 def wait_forget_channels(node):
     """This node is closing all of its channels, check we are forgetting them
     """
@@ -70,18 +70,21 @@ def wait_forget_channels(node):
     assert node.rpc.listpeers()['peers'] == []
     assert node.db_query("SELECT * FROM channels") == []
 
+
 def sync_blockheight(nodes):
     target = bitcoind.rpc.getblockcount()
     for n in nodes:
         wait_for(lambda: n.rpc.getinfo()['blockheight'] == target)
 
-def tearDownBitcoind():
+
+def teardown_bitcoind():
     global bitcoind
     try:
         bitcoind.rpc.stop()
     except:
         bitcoind.proc.kill()
     bitcoind.proc.wait()
+
 
 class NodeFactory(object):
     """A factory to setup and start `lightningd` daemons.
@@ -217,7 +220,7 @@ class BaseLightningDTests(unittest.TestCase):
         ok = self.node_factory.killall([not n.may_fail for n in self.node_factory.nodes])
         self.executor.shutdown(wait=False)
 
-        tearDownBitcoind()
+        teardown_bitcoind()
         err_count = 0
         # Do not check for valgrind error files if it is disabled
         if VALGRIND:
@@ -233,6 +236,7 @@ class BaseLightningDTests(unittest.TestCase):
 
         if not ok:
             raise Exception("At least one lightning exited with unexpected non-zero return code")
+
 
 class LightningDTests(BaseLightningDTests):
     def connect(self):
@@ -259,8 +263,11 @@ class LightningDTests(BaseLightningDTests):
     def fund_channel(self, l1, l2, amount):
         # Generates a block, so we know next tx will be first in block.
         self.give_funds(l1, amount + 1000000)
-
-        tx = l1.rpc.fundchannel(l2.info['id'], amount)['tx']
+        payload = {
+            'id': l2.info['id'],
+            'satoshi': amount
+        }
+        tx = l1.rpc.fundchannel(payload)['tx']
         # Technically, this is async to fundchannel.
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l1.bitcoin.generate_block(1)
@@ -268,14 +275,14 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
 
         # Hacky way to find our output.
-        decoded=bitcoind.rpc.decoderawtransaction(tx)
+        decoded = bitcoind.rpc.decoderawtransaction(tx)
         for out in decoded['vout']:
             # Sometimes a float?  Sometimes a decimal?  WTF Python?!
             if out['scriptPubKey']['type'] == 'witness_v0_scripthash':
                 if out['value'] == Decimal(amount) / 10**8 or out['value'] * 10**8 == amount:
                     return "{}:1:{}".format(bitcoind.rpc.getblockcount(), out['n'])
         # Intermittent decoding failure.  See if it decodes badly twice?
-        decoded2=bitcoind.rpc.decoderawtransaction(tx)
+        decoded2 = bitcoind.rpc.decoderawtransaction(tx)
         raise ValueError("Can't find {} payment in {} (1={} 2={})".format(amount, tx, decoded, decoded2))
 
     def line_graph(self, n=2):
@@ -380,7 +387,7 @@ class LightningDTests(BaseLightningDTests):
         # Wait for route propagation.
         self.wait_for_routes(l1, [chanid])
 
-        inv = l2.rpc.invoice(123000, 'test_pay', 'description', 1)['bolt11']
+        inv = l2.rpc.invoice(msatoshi=123000, label='test_pay', description='description', expiry=1)['bolt11']
         time.sleep(2)
         self.assertRaises(ValueError, l1.rpc.pay, inv)
         assert l2.rpc.listinvoices('test_pay')['invoices'][0]['status'] == 'expired'
@@ -401,6 +408,7 @@ class LightningDTests(BaseLightningDTests):
                                'Unknown invoice',
                                l2.rpc.delinvoice,
                                'test_pay', 'expired')
+
     def test_connect(self):
         l1,l2 = self.connect()
 
@@ -413,10 +421,10 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('hand_back_peer {}: now local again'.format(l1.info['id']))
 
         # Reconnect should be a noop
-        ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        ret = l1.rpc.connect(l2.info['id'], 'localhost', port=l2.info['port'])
         assert ret['id'] == l2.info['id']
 
-        ret = l2.rpc.connect(l1.info['id'], 'localhost', l1.info['port'])
+        ret = l2.rpc.connect(l1.info['id'], host='localhost', port=l1.info['port'])
         assert ret['id'] == l1.info['id']
 
         # Should still only have one peer!
@@ -424,11 +432,11 @@ class LightningDTests(BaseLightningDTests):
         assert len(l2.rpc.listpeers()) == 1
 
     def test_balance(self):
-        l1,l2 = self.connect()
+        l1, l2 = self.connect()
 
         self.fund_channel(l1, l2, 10**6)
-
-        p1 = l1.rpc.getpeer(l2.info['id'], 'info')['channels'][0]
+        payload = {'id': l2.info['id'], 'level': 'info'}
+        p1 = l1.rpc.getpeer(payload)['channels'][0]
         p2 = l2.rpc.getpeer(l1.info['id'], 'info')['channels'][0]
         assert p1['msatoshi_to_us'] == 10**6 * 1000
         assert p1['msatoshi_total'] == 10**6 * 1000
@@ -627,7 +635,11 @@ class LightningDTests(BaseLightningDTests):
         # * `h`: tagged field: hash of description...
         # * `gw6tk8z0p0qdy9ulggx65lvfsg3nxxhqjxuf2fvmkhl9f4jc74gy44d5ua9us509prqz3e7vjxrftn3jnk7nrglvahxf7arye5llphgq`: signature
         # * `qdtpa4`: Bech32 checksum
-        b11 = l1.rpc.decodepay('lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfppqw508d6qejxtdg4y5r3zarvary0c5xw7kepvrhrm9s57hejg0p662ur5j5cr03890fa7k2pypgttmh4897d3raaq85a293e9jpuqwl0rnfuwzam7yr8e690nd2ypcq9hlkdwdvycqa0qza8', 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon')
+        payload = {
+            'bolt11': 'lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfppqw508d6qejxtdg4y5r3zarvary0c5xw7kepvrhrm9s57hejg0p662ur5j5cr03890fa7k2pypgttmh4897d3raaq85a293e9jpuqwl0rnfuwzam7yr8e690nd2ypcq9hlkdwdvycqa0qza8',
+            'description': 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon'
+        }
+        b11 = l1.rpc.decodepay(payload)
         assert b11['currency'] == 'bc'
         assert b11['msatoshi'] == 20 * 10**11 // 1000
         assert b11['created_at'] == 1496314658
@@ -1013,7 +1025,7 @@ class LightningDTests(BaseLightningDTests):
         for p in peers:
             p.daemon.wait_for_log('to CHANNELD_NORMAL')
             if p.amount != 0:
-                self.pay(l1,p,100000000)
+                self.pay(l1, p, 100000000)
 
         # Now close
         for p in peers:
@@ -1027,7 +1039,7 @@ class LightningDTests(BaseLightningDTests):
             p.daemon.wait_for_log(' to ONCHAIND_MUTUAL')
 
         l1.daemon.wait_for_logs([' to ONCHAIND_MUTUAL'] * num_peers)
-        
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail(self):
         l1,l2 = self.connect()
@@ -1156,7 +1168,7 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.withdraw(l1.rpc.newaddr()['address'], 'all')
         bitcoind.generate_block(1)
         l1.daemon.wait_for_log("but we don't care")
-        
+
         # And lightningd should respect that!
         assert not l1.daemon.is_in_log("Can't unwatch txid")
 
@@ -1173,7 +1185,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Note: for this test we leave onchaind running, so we can detect
         # any leaks!
-        
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_onchain_dust_out(self):
         """Onchain handling of outgoing dust htlcs (they should fail)"""
@@ -1343,7 +1355,7 @@ class LightningDTests(BaseLightningDTests):
         # Payment should succeed.
         l1.bitcoin.generate_block(1)
         l1.daemon.wait_for_log('THEIR_UNILATERAL/OUR_HTLC gave us preimage')
-        err = q.get(timeout = 10)
+        err = q.get(timeout=10)
         if err:
             print("Got err from sendpay thread")
             raise err
@@ -1438,13 +1450,13 @@ class LightningDTests(BaseLightningDTests):
         self.fund_channel(l1, l2, 10**6)
 
         # Move some across to l2.
-        self.pay(l1,l2,200000000)
+        self.pay(l1, l2, 200000000)
 
         assert not l1.daemon.is_in_log('=WIRE_COMMITMENT_SIGNED')
         assert not l2.daemon.is_in_log('=WIRE_COMMITMENT_SIGNED')
 
         # Now, this will get stuck due to l1 commit being disabled..
-        t = self.pay(l2,l1,100000000,async=True)
+        t = self.pay(l2, l1, 100000000, async=True)
         # Make sure we get signature from them.
         l1.daemon.wait_for_log('peer_in WIRE_UPDATE_ADD_HTLC')
         l1.daemon.wait_for_log('peer_in WIRE_COMMITMENT_SIGNED')
@@ -1501,7 +1513,7 @@ class LightningDTests(BaseLightningDTests):
         self.fund_channel(l1, l2, 10**6)
 
         # This will fail at l2's end.
-        t=self.pay(l1,l2,200000000,async=True)
+        t = self.pay(l1, l2, 200000000, async=True)
 
         l2.daemon.wait_for_log('dev_disconnect permfail')
         l2.daemon.wait_for_log('sendrawtx exit 0')
@@ -2617,7 +2629,7 @@ class LightningDTests(BaseLightningDTests):
         c = db.cursor()
         c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
         assert(c.fetchone()[0] == 1)
-        
+
         out = l1.rpc.withdraw(waddr, 'all')
         c = db.cursor()
         c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
@@ -2730,7 +2742,7 @@ class LightningDTests(BaseLightningDTests):
         # All should be good.
         l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
         l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
-        
+
     def test_addfunds_from_block(self):
         """Send funds to the daemon without telling it explicitly
         """
@@ -2852,7 +2864,6 @@ class LightningDTests(BaseLightningDTests):
         # A duplicate should succeed immediately (nop) and return correct preimage.
         preimage = l1.rpc.pay(inv1['bolt11'])['preimage']
         assert l1.rpc.dev_rhash(preimage)['rhash'] == inv1['payment_hash']
-
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_payment_failed_persistence(self):
@@ -3258,7 +3269,7 @@ class LightningDTests(BaseLightningDTests):
                                        '-J',
                                        'help', 'command=help']).decode('utf-8')
         j, _ = json.JSONDecoder().raw_decode(out)
-        assert 'help [command]' in j['verbose'] 
+        assert 'help [command]' in j['verbose']
 
         # Test keyword input (forced)
         out = subprocess.check_output(['cli/lightning-cli',
@@ -3267,7 +3278,7 @@ class LightningDTests(BaseLightningDTests):
                                        '-J', '-k',
                                        'help', 'command=help']).decode('utf-8')
         j, _ = json.JSONDecoder().raw_decode(out)
-        assert 'help [command]' in j['verbose'] 
+        assert 'help [command]' in j['verbose']
 
         # Test ordered input (autodetect)
         out = subprocess.check_output(['cli/lightning-cli',
@@ -3276,7 +3287,7 @@ class LightningDTests(BaseLightningDTests):
                                        '-J',
                                        'help', 'help']).decode('utf-8')
         j, _ = json.JSONDecoder().raw_decode(out)
-        assert 'help [command]' in j['verbose'] 
+        assert 'help [command]' in j['verbose']
 
         # Test ordered input (forced)
         out = subprocess.check_output(['cli/lightning-cli',
@@ -3285,7 +3296,8 @@ class LightningDTests(BaseLightningDTests):
                                        '-J', '-o',
                                        'help', 'help']).decode('utf-8')
         j, _ = json.JSONDecoder().raw_decode(out)
-        assert 'help [command]' in j['verbose'] 
+        assert 'help [command]' in j['verbose']
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

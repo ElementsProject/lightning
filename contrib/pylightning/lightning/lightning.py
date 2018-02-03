@@ -76,7 +76,7 @@ class LightningRpc(UnixDomainSocketRpc):
     This RPC client connects to the `lightningd` daemon through a unix
     domain socket and passes calls through. Since some of the calls
     are blocking, the corresponding python methods include an `async`
-    keyword argument. If `async` is set to true then the met hod
+    keyword argument. If `async` is set to true then the method
     returns a future immediately, instead of blocking indefinitely.
 
     This implementation is thread safe in that it locks the socket
@@ -86,8 +86,8 @@ class LightningRpc(UnixDomainSocketRpc):
     i.e.
         client.getpeer("a_peer_id", level="debug")
         client.getpeer(id="a_peer_id", level="debug")
-        client.getpeer("a_peer_id, "debug")
-        client.getpeer({"peer_id": "a_peer_id, "logs": "debug"})
+        client.getpeer("a_peer_id", "debug")
+        client.getpeer({"id": "a_peer_id, "logs": "debug"})
     """
 
     @staticmethod
@@ -95,7 +95,7 @@ class LightningRpc(UnixDomainSocketRpc):
         if len(args) == 1 and isinstance(args[0], dict):
             return args[0]
         try:
-            payload = {required[i]: args[i] for i in range(0, len(required))}
+            payload = {required[i]: args[i] for i in range(0, len(required)) if i < len(args)}
             if len(args) > len(required):
                 for i, optional in enumerate(optionals[:len(args)-len(required)]):
                     payload.update({optional: args[len(required):][i]})
