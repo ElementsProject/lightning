@@ -136,6 +136,24 @@ cli/lightning-cli pay <bolt11>
 
 Note that there are lower-level interfaces (and more options to these interfaces) for more sophisticated use.
 
+## Configuration File
+lightningd can be configured either by passing options via the command line, or via a configuration file. Command line options will always override the values in the configuration file.
+
+To use a configuration file, create a file named "config" within your ".lightning" directory. Usually this will be ~/.lightning/config
+
+Configuration options are set using a key=value pair on each line of the file, for example:
+```
+alias=SLEEPYDRAGON
+rgb=008000
+port=9735
+network=testnet
+```
+
+For a full list of possible lightningd configuration options, run:
+```bash
+lightningd/lightningd --help
+```
+
 ## Further information
 
 JSON-RPC interface is documented in the following manual pages:
