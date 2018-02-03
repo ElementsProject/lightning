@@ -134,6 +134,7 @@ static u8 *channel_update_from_onion_error(const tal_t *ctx,
 }
 
 struct routing_failure {
+	int origin_index;
 	enum onion_type failcode;
 	struct pubkey erring_node;
 	struct short_channel_id erring_channel;
@@ -154,6 +155,7 @@ immediate_routing_failure(const tal_t *ctx,
 	assert(failcode);
 
 	routing_failure = tal(ctx, struct routing_failure);
+	routing_failure->origin_index = -1;
 	routing_failure->failcode = failcode;
 	routing_failure->erring_node = ld->id;
 	routing_failure->erring_channel = *channel0;
@@ -175,6 +177,7 @@ local_routing_failure(const tal_t *ctx,
 	assert(hout->failcode);
 
 	routing_failure = tal(ctx, struct routing_failure);
+	routing_failure->origin_index = -1;
 	routing_failure->failcode = hout->failcode;
 	routing_failure->erring_node = ld->id;
 	routing_failure->erring_channel = payment->route_channels[0];
@@ -242,6 +245,7 @@ static bool remote_routing_failure(const tal_t *ctx,
 	erring_node = &route_nodes[origin_index];
 
 	if (report_to_gossipd) {
+		(*routing_failure)->origin_index = origin_index;
 		(*routing_failure)->failcode = failcode;
 		(*routing_failure)->erring_node = *erring_node;
 		(*routing_failure)->erring_channel = *erring_channel;
