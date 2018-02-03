@@ -10,6 +10,7 @@
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
@@ -73,9 +74,61 @@ static void json_pay_success(struct lightningd *ld,
 	}
 }
 
+struct routing_failure {
+	int origin_index;
+	enum onion_type failcode;
+	struct pubkey erring_node;
+	struct short_channel_id erring_channel;
+	u8 *channel_update;
+};
+
+static void
+json_pay_command_routing_failed(struct command *cmd,
+				bool retry_plausible,
+				const struct routing_failure *fail,
+				const u8 *onionreply,
+				const char *details)
+{
+	int code =
+		(!fail) ?		PAY_UNPARSEABLE_ONION :
+		(!retry_plausible) ?	PAY_DESTINATION_PERM_FAIL :
+		/*otherwise*/		PAY_TRY_OTHER_ROUTE ;
+	struct json_result *data = new_json_result(cmd);
+	enum onion_type failure_code;
+
+	/* Prepare data. */
+	json_object_start(data, NULL);
+	if (fail) {
+		failure_code = fail->failcode;
+		json_add_snum(data, "origin_index", fail->origin_index);
+		json_add_num(data, "failcode", (unsigned) fail->failcode);
+		json_add_hex(data, "erring_node",
+			     &fail->erring_node, sizeof(fail->erring_node));
+		json_add_short_channel_id(data, "erring_channel",
+					  &fail->erring_channel);
+		if (fail->channel_update)
+			json_add_hex(data, "channel_update",
+				     fail->channel_update,
+				     tal_len(fail->channel_update));
+	} else {
+		assert(onionreply);
+		failure_code = WIRE_PERMANENT_NODE_FAILURE;
+		json_add_hex(data, "onionreply",
+			     onionreply, tal_len(onionreply));
+	}
+	json_object_end(data);
+
+	/* Deletes cmd. */
+	command_fail_detailed(cmd, code, data, "failed: %s (%s)",
+			      onion_type_name(failure_code),
+			      details);
+}
+
 static void json_pay_failed(struct lightningd *ld,
 			    const struct sha256 *payment_hash,
-			    enum onion_type failure_code,
+			    bool retry_plausible,
+			    const struct routing_failure *fail,
+			    const u8 *onionreply,
 			    const char *details)
 {
 	struct pay_command *pc, *next;
@@ -84,9 +137,12 @@ static void json_pay_failed(struct lightningd *ld,
 		if (!structeq(payment_hash, &pc->payment_hash))
 			continue;
 
-		/* Deletes itself. */
-		command_fail(pc->cmd, "failed: %s (%s)",
-			     onion_type_name(failure_code), details);
+		/* Deletes cmd. */
+		json_pay_command_routing_failed(pc->cmd,
+						retry_plausible,
+						fail,
+						onionreply,
+						details);
 	}
 }
 
@@ -132,14 +188,6 @@ static u8 *channel_update_from_onion_error(const tal_t *ctx,
 
 	return channel_update;
 }
-
-struct routing_failure {
-	int origin_index;
-	enum onion_type failcode;
-	struct pubkey erring_node;
-	struct short_channel_id erring_channel;
-	u8 *channel_update;
-};
 
 /* Return a struct routing_failure for an immediate failure
  * (returned directly from send_htlc_out). The returned
@@ -361,7 +409,10 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	 * and payment again. */
 	(void) retry_plausible;
 
-	json_pay_failed(ld, &hout->payment_hash, failcode, failmsg);
+	/* Report to RPC. */
+	json_pay_failed(ld, &hout->payment_hash,
+			retry_plausible, fail, hout->failuremsg,
+			failmsg);
 	tal_free(tmpctx);
 }
 
@@ -416,23 +467,29 @@ static bool send_payment(struct command *cmd,
 		log_debug(cmd->ld->log, "json_sendpay: found previous");
 		if (payment->status == PAYMENT_PENDING) {
 			log_add(cmd->ld->log, "Payment is still in progress");
-			command_fail(cmd, "Payment is still in progress");
+			command_fail_detailed(cmd, PAY_IN_PROGRESS, NULL,
+					      "Payment is still in progress");
 			return false;
 		}
 		if (payment->status == PAYMENT_COMPLETE) {
 			log_add(cmd->ld->log, "... succeeded");
 			/* Must match successful payment parameters. */
 			if (payment->msatoshi != hop_data[n_hops-1].amt_forward) {
-				command_fail(cmd,
-					     "Already succeeded with amount %"
-					     PRIu64, payment->msatoshi);
+				command_fail_detailed(cmd,
+						      PAY_RHASH_ALREADY_USED,
+						      NULL,
+						      "Already succeeded "
+						      "with amount %"PRIu64,
+						      payment->msatoshi);
 				return false;
 			}
 			if (!structeq(&payment->destination, &ids[n_hops-1])) {
-				command_fail(cmd,
-					     "Already succeeded to %s",
-					     type_to_string(cmd, struct pubkey,
-							    &payment->destination));
+				command_fail_detailed(cmd,
+						      PAY_RHASH_ALREADY_USED,
+						      NULL,
+						      "Already succeeded to %s",
+						      type_to_string(cmd, struct pubkey,
+								     &payment->destination));
 				return false;
 			}
 			json_pay_command_success(cmd,
@@ -452,7 +509,9 @@ static bool send_payment(struct command *cmd,
 		report_routing_failure(cmd->ld->log, cmd->ld->gossip, fail);
 
 		/* Report routing failure to user */
-		command_fail(cmd, "No connection to first peer found");
+		json_pay_command_routing_failed(cmd, true, fail, NULL,
+						"No connection to first "
+						"peer found");
 		return false;
 	}
 
@@ -477,8 +536,8 @@ static bool send_payment(struct command *cmd,
 		report_routing_failure(cmd->ld->log, cmd->ld->gossip, fail);
 
 		/* Report routing failure to user */
-		command_fail(cmd, "First peer not ready: %s",
-			     onion_type_name(failcode));
+		json_pay_command_routing_failed(cmd, true, fail, NULL,
+						"First peer not ready");
 		return false;
 	}
 
@@ -619,7 +678,8 @@ static void json_pay_getroute_reply(struct subd *gossip,
 	fromwire_gossip_getroute_reply(reply, reply, NULL, &route);
 
 	if (tal_count(route) == 0) {
-		command_fail(pay->cmd, "Could not find a route");
+		command_fail_detailed(pay->cmd, PAY_ROUTE_NOT_FOUND, NULL,
+				      "Could not find a route");
 		return;
 	}
 
