@@ -518,7 +518,7 @@ static void command_fail_v(struct command *cmd,
 	quote = tal_fmt(cmd, "\"%s\"", error);
 
 	assert(jcon->current == cmd);
-	connection_result(jcon, cmd->id, NULL, quote, -1, data);
+	connection_result(jcon, cmd->id, NULL, quote, code, data);
 	jcon->current = tal_free(cmd);
 }
 void command_fail(struct command *cmd, const char *fmt, ...)
@@ -685,7 +685,6 @@ bool json_get_params(struct command *cmd,
 			command_fail_detailed(cmd, JSONRPC2_INVALID_PARAMS, NULL,
 					      "Missing '%s' parameter",
 					      names[num_names]);
-			tal_free(names);
 			return false;
 		}
 		num_names++;
