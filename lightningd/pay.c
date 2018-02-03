@@ -140,6 +140,28 @@ struct routing_failure {
 	u8 *channel_update;
 };
 
+/* Return a struct routing_failure for an immediate failure
+ * (returned directly from send_htlc_out). The returned
+ * failure is allocated from the given context. */
+static struct routing_failure*
+immediate_routing_failure(const tal_t *ctx,
+			  const struct lightningd *ld,
+			  enum onion_type failcode,
+			  const struct short_channel_id *channel0)
+{
+	struct routing_failure *routing_failure;
+
+	assert(failcode);
+
+	routing_failure = tal(ctx, struct routing_failure);
+	routing_failure->failcode = failcode;
+	routing_failure->erring_node = ld->id;
+	routing_failure->erring_channel = *channel0;
+	routing_failure->channel_update = NULL;
+
+	return routing_failure;
+}
+
 /* Return a struct routing_failure for a local failure allocated
  * from the given context. */
 static struct routing_failure*
@@ -352,6 +374,7 @@ static bool send_payment(struct command *cmd,
 	struct wallet_payment *payment = NULL;
 	struct htlc_out *hout;
 	struct short_channel_id *channels;
+	struct routing_failure *fail;
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
 	base_expiry = get_block_height(cmd->ld->topology) + 1;
@@ -429,6 +452,13 @@ static bool send_payment(struct command *cmd,
 				 base_expiry + route[0].delay,
 				 rhash, onion, NULL, &hout);
 	if (failcode) {
+		/* Report routing failure to gossipd */
+		fail = immediate_routing_failure(cmd, cmd->ld,
+						 failcode,
+						 &route[0].channel_id);
+		report_routing_failure(cmd->ld->log, cmd->ld->gossip, fail);
+
+		/* Repor routing failure to user */
 		command_fail(cmd, "First peer not ready: %s",
 			     onion_type_name(failcode));
 		return false;
