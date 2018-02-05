@@ -944,15 +944,7 @@ static void json_listpeers(struct command *cmd,
 	}
 	if (leveltok) {
 		gpa->ll = tal(gpa, enum log_level);
-		if (json_tok_streq(buffer, leveltok, "debug"))
-			*gpa->ll = LOG_DBG;
-		else if (json_tok_streq(buffer, leveltok, "info"))
-			*gpa->ll = LOG_INFORM;
-		else if (json_tok_streq(buffer, leveltok, "unusual"))
-			*gpa->ll = LOG_UNUSUAL;
-		else if (json_tok_streq(buffer, leveltok, "broken"))
-			*gpa->ll = LOG_BROKEN;
-		else {
+		if (!json_tok_loglevel(buffer, leveltok, gpa->ll)) {
 			command_fail(cmd, "Invalid level param");
 			return;
 		}
