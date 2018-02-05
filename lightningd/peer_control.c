@@ -699,9 +699,12 @@ static void copy_to_parent_log(const char *prefix,
 			       bool continued,
 			       const struct timeabs *time,
 			       const char *str,
+			       const u8 *io,
 			       struct peer *peer)
 {
-	if (continued)
+	if (level == LOG_IO_IN || level == LOG_IO_OUT)
+		log_io(peer->ld->log, level, prefix, io, tal_len(io));
+	else if (continued)
 		log_add(peer->ld->log, "%s ... %s", prefix, str);
 	else
 		log_(peer->ld->log, level, "%s %s", prefix, str);

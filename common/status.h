@@ -27,7 +27,7 @@ void status_fmt(enum log_level level, const char *fmt, ...)
 /* vprintf-style */
 void status_vfmt(enum log_level level, const char *fmt, va_list ap);
 
-void status_io(enum side sender, const u8 *msg);
+void status_io(enum log_level iodir, const u8 *p);
 
 /* Helpers */
 #define status_debug(...)			\

@@ -25,7 +25,8 @@ struct log *new_log(const tal_t *ctx, struct log_book *record, const char *fmt, 
 #define log_unusual(log, ...) log_((log), LOG_UNUSUAL, __VA_ARGS__)
 #define log_broken(log, ...) log_((log), LOG_BROKEN, __VA_ARGS__)
 
-void log_io(struct log *log, bool in, const void *data, size_t len);
+void log_io(struct log *log, enum log_level dir, const char *comment,
+	    const void *data, size_t len);
 
 void log_(struct log *log, enum log_level level, const char *fmt, ...)
 	PRINTF_FMT(3,4);
@@ -44,14 +45,18 @@ const char *log_prefix(const struct log *log);
 					   enum log_level,		\
 					   bool,			\
 					   const struct timeabs *,	\
-					   const char *), (arg))
+					   const char *,		\
+					   const u8 *), (arg))
 
+/* If level == LOG_IO_IN/LOG_IO_OUT, then io contains data */
 void set_log_outfn_(struct log_book *lr,
 		    void (*print)(const char *prefix,
 				  enum log_level level,
 				  bool continued,
 				  const struct timeabs *time,
-				  const char *str, void *arg),
+				  const char *str,
+				  const u8 *io,
+				  void *arg),
 		    void *arg);
 
 size_t log_max_mem(const struct log_book *lr);
@@ -65,7 +70,8 @@ const struct timeabs *log_init_time(const struct log_book *lr);
 					   struct timerel,		\
 					   enum log_level,		\
 					   const char *,		\
-					   const char *), (arg))
+					   const char *,		\
+					   const u8 *), (arg))
 
 void log_each_line_(const struct log_book *lr,
 		    void (*func)(unsigned int skipped,
@@ -73,6 +79,7 @@ void log_each_line_(const struct log_book *lr,
 				 enum log_level level,
 				 const char *prefix,
 				 const char *log,
+				 const u8 *io,
 				 void *arg),
 		    void *arg);
 

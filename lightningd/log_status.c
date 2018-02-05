@@ -11,10 +11,8 @@ bool log_status_msg(struct log *log, const u8 *msg)
 		return false;
 
 	level = type - STATUS_LOG_MIN;
-	if (level == LOG_IO) {
-		/* First byte is direction */
-		bool dir = fromwire_bool(&msg, &max);
-		log_io(log, dir, msg, max);
+	if (level == LOG_IO_IN || level == LOG_IO_OUT) {
+		log_io(log, level, "", msg, max);
 	} else {
 		int i;
 		/* Truncate if unprintable */
