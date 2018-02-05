@@ -87,6 +87,8 @@ static size_t human_readable(const char *buffer, const jsmntok_t *t, char term)
 			n += human_readable(buffer, t + n, '\n');
 		}
 		return n;
+	case JSMN_UNDEFINED:
+		break;
 	}
 	abort();
 }
@@ -162,7 +164,7 @@ int main(int argc, char *argv[])
 	char *lightning_dir;
 	const tal_t *ctx = tal(NULL, char);
 	jsmn_parser parser;
-	jsmnerr_t parserr;
+	int parserr;
 	enum format format = DEFAULT_FORMAT;
 	enum input input = DEFAULT_INPUT;
 
