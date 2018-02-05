@@ -453,6 +453,13 @@ static int log_backtrace(void *log, uintptr_t pc,
 	return 0;
 }
 
+static void log_backtrace_error(void *log, const char *msg,
+				int errnum)
+{
+	log_broken(log, "error getting backtrace: %s (%d)",
+		   msg, errnum);
+}
+
 static struct log *crashlog;
 
 /* FIXME: Dump peer logs! */
@@ -463,7 +470,7 @@ static void log_crash(int sig)
 	if (sig) {
 		log_broken(crashlog, "FATAL SIGNAL %i RECEIVED", sig);
 		if (backtrace_state)
-			backtrace_full(backtrace_state, 0, log_backtrace, NULL,
+			backtrace_full(backtrace_state, 0, log_backtrace, log_backtrace_error,
 				       crashlog);
 	}
 
