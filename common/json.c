@@ -239,7 +239,7 @@ jsmntok_t *json_parse_input(const char *input, int len, bool *valid)
 {
 	jsmn_parser parser;
 	jsmntok_t *toks;
-	jsmnerr_t ret;
+	int ret;
 	size_t i;
 
 	toks = tal_arr(input, jsmntok_t, 10);
