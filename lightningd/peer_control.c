@@ -805,26 +805,6 @@ static const struct json_command connect_command = {
 };
 AUTODATA(json_command, &connect_command);
 
-struct log_info {
-	enum log_level level;
-	struct json_result *response;
-};
-
-/* FIXME: Share this with jsonrpc.c's code! */
-static void log_to_json(unsigned int skipped,
-			struct timerel diff,
-			enum log_level level,
-			const char *prefix,
-			const char *log,
-			struct log_info *info)
-{
-	if (level < info->level)
-		return;
-
-	if (level != LOG_IO)
-		json_add_string(info->response, NULL, log);
-}
-
 struct getpeers_args {
 	struct command *cmd;
 	/* If non-NULL, they want logs too */
@@ -903,14 +883,8 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 		json_object_end(response);
 		json_array_end(response);
 
-		if (gpa->ll) {
-			struct log_info info;
-			info.level = *gpa->ll;
-			info.response = response;
-			json_array_start(response, "log");
-			log_each_line(p->log_book, log_to_json, &info);
-			json_array_end(response);
-		}
+		if (gpa->ll)
+			json_add_log(response, "log", p->log_book, *gpa->ll);
 		json_object_end(response);
 	}
 
