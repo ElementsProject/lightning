@@ -646,6 +646,22 @@ void json_add_log(struct json_result *response, const char *fieldname,
 	json_array_end(info.response);
 }
 
+bool json_tok_loglevel(const char *buffer, const jsmntok_t *tok,
+		       enum log_level *level)
+{
+	if (json_tok_streq(buffer, tok, "io"))
+		*level = LOG_IO_OUT;
+	else if (json_tok_streq(buffer, tok, "debug"))
+		*level = LOG_DBG;
+	else if (json_tok_streq(buffer, tok, "info"))
+		*level = LOG_INFORM;
+	else if (json_tok_streq(buffer, tok, "unusual"))
+		*level = LOG_UNUSUAL;
+	else
+		return false;
+	return true;
+}
+
 static void json_getlog(struct command *cmd,
 			const char *buffer, const jsmntok_t *params)
 {
@@ -660,15 +676,7 @@ static void json_getlog(struct command *cmd,
 
 	if (!level)
 		minlevel = LOG_INFORM;
-	else if (json_tok_streq(buffer, level, "io"))
-		minlevel = LOG_IO_OUT;
-	else if (json_tok_streq(buffer, level, "debug"))
-		minlevel = LOG_DBG;
-	else if (json_tok_streq(buffer, level, "info"))
-		minlevel = LOG_INFORM;
-	else if (json_tok_streq(buffer, level, "unusual"))
-		minlevel = LOG_UNUSUAL;
-	else {
+	else if (!json_tok_loglevel(buffer, level, &minlevel)) {
 		command_fail(cmd, "Invalid level param");
 		return;
 	}

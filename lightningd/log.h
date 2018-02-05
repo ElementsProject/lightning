@@ -6,6 +6,7 @@
 #include <ccan/typesafe_cb/typesafe_cb.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
+#include <jsmn.h>
 #include <stdarg.h>
 
 struct json_result;
@@ -100,5 +101,8 @@ void NORETURN PRINTF_FMT(1,2) fatal(const char *fmt, ...);
 /* Adds an array showing log entries */
 void json_add_log(struct json_result *result, const char *fieldname,
 		  const struct log_book *lr, enum log_level minlevel);
+
+bool json_tok_loglevel(const char *buffer, const jsmntok_t *tok,
+		       enum log_level *level);
 
 #endif /* LIGHTNING_LIGHTNINGD_LOG_H */
