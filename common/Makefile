@@ -42,7 +42,7 @@ COMMON_SRC :=					\
 	common/wire_error.c			\
 	common/withdraw_tx.c
 
-COMMON_HEADERS_NOGEN := $(COMMON_SRC:.c=.h) common/overflows.h common/htlc.h
+COMMON_HEADERS_NOGEN := $(COMMON_SRC:.c=.h) common/overflows.h common/htlc.h common/status_levels.h
 COMMON_HEADERS_GEN := common/gen_htlc_state_names.h
 
 COMMON_HEADERS := $(COMMON_HEADERS_GEN) $(COMMON_HEADERS_NOGEN)

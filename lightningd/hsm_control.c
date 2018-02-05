@@ -11,6 +11,7 @@
 #include <inttypes.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/log.h>
+#include <lightningd/log_status.h>
 #include <string.h>
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
@@ -19,15 +20,13 @@ u8 *hsm_sync_read(const tal_t *ctx, struct lightningd *ld)
 {
 	for (;;) {
 		u8 *msg = wire_sync_read(ctx, ld->hsm_fd);
+
 		if (!msg)
 			fatal("Could not read from HSM: %s", strerror(errno));
-		if (fromwire_peektype(msg) != STATUS_TRACE)
+		if (log_status_msg(ld->log, msg))
+			tal_free(msg);
+		else
 			return msg;
-
-		log_debug(ld->log, "HSM TRACE: %.*s",
-			  (int)(tal_len(msg) - sizeof(be16)),
-			  (char *)msg + sizeof(be16));
-		tal_free(msg);
 	}
 }
 

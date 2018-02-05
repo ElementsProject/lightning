@@ -75,12 +75,32 @@ static void status_send_with_hdr(u16 type, const void *p, size_t len)
 	}
 }
 
-void status_tracev(const char *fmt, va_list ap)
+void status_io(enum side sender, const u8 *p)
+{
+	u16 type = STATUS_LOG_MIN + LOG_IO;
+	u8 *msg = tal_arr(NULL, u8, 0);
+
+	towire_u16(&msg, type);
+	towire_bool(&msg, sender == REMOTE);
+	towire(&msg, p, tal_len(p));
+	if (too_large(tal_len(msg), type))
+		tal_resize(&msg, 65535);
+
+	if (status_fd >= 0) {
+		if (!wire_sync_write(status_fd, take(msg)))
+			err(1, "Writing out status %u len %zu",
+			    type, tal_len(p));
+	} else {
+		daemon_conn_send(status_conn, take(msg));
+	}
+}
+
+void status_vfmt(enum log_level level, const char *fmt, va_list ap)
 {
 	char *str;
 
 	str = tal_vfmt(NULL, fmt, ap);
-	status_send_with_hdr(STATUS_TRACE, str, strlen(str));
+	status_send_with_hdr(STATUS_LOG_MIN + level, str, strlen(str));
 	tal_free(str);
 
 	/* Free up any temporary children. */
@@ -90,12 +110,12 @@ void status_tracev(const char *fmt, va_list ap)
 	}
 }
 
-void status_trace(const char *fmt, ...)
+void status_fmt(enum log_level level, const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	status_tracev(fmt, ap);
+	status_vfmt(level, fmt, ap);
 	va_end(ap);
 }
 
