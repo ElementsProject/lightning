@@ -29,7 +29,7 @@ static void handle_ping(const u8 *msg,
 		io_error("Bad ping received", arg);
 	}
 
-	status_trace("Got ping, sending %s", pong ?
+	status_debug("Got ping, sending %s", pong ?
 		     wire_type_name(fromwire_peektype(pong))
 		     : "nothing");
 
@@ -54,8 +54,6 @@ u8 *read_peer_msg_(const tal_t *ctx,
 	msg = sync_crypto_read(ctx, cs, peer_fd);
 	if (!msg)
 		io_error("reading from peer", arg);
-
-	status_trace("peer_in %s", wire_type_name(fromwire_peektype(msg)));
 
 	if (is_gossip_msg(msg)) {
 		/* Forward to gossip daemon */
