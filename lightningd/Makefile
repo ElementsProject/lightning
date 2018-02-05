@@ -78,7 +78,8 @@ ALL_OBJS += $(LIGHTNINGD_OBJS)
 # We accumulate all lightningd/ headers in these three:
 LIGHTNINGD_HEADERS_NOGEN =			\
 	$(LIGHTNINGD_SRC:.c=.h)			\
-	lightningd/peer_state.h
+	lightningd/peer_state.h			\
+	lightningd/jsonrpc_errors.h
 
 # Generated headers
 LIGHTNINGD_HEADERS_GEN =			\
