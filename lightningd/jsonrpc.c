@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
@@ -469,10 +470,6 @@ void json_add_address(struct json_result *response, const char *fieldname,
 	}
 	json_object_end(response);
 }
-
-#define JSONRPC2_INVALID_REQUEST	-32600
-#define JSONRPC2_METHOD_NOT_FOUND	-32601
-#define JSONRPC2_INVALID_PARAMS		-32602
 
 void command_success(struct command *cmd, struct json_result *result)
 {
