@@ -634,7 +634,7 @@ static struct io_plan *write_json(struct io_conn *conn,
 	jcon->outbuf = tal_steal(jcon, out->json);
 	tal_free(out);
 
-	log_io(jcon->log, false, jcon->outbuf, strlen(jcon->outbuf));
+	log_io(jcon->log, LOG_IO_OUT, "", jcon->outbuf, strlen(jcon->outbuf));
 	return io_write(conn,
 			jcon->outbuf, strlen(jcon->outbuf), write_json, jcon);
 }
@@ -645,7 +645,8 @@ static struct io_plan *read_json(struct io_conn *conn,
 	jsmntok_t *toks;
 	bool valid;
 
-	log_io(jcon->log, true, jcon->buffer + jcon->used, jcon->len_read);
+	log_io(jcon->log, LOG_IO_IN, "",
+	       jcon->buffer + jcon->used, jcon->len_read);
 
 	/* Resize larger if we're full. */
 	jcon->used += jcon->len_read;

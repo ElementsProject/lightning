@@ -75,13 +75,13 @@ static void status_send_with_hdr(u16 type, const void *p, size_t len)
 	}
 }
 
-void status_io(enum side sender, const u8 *p)
+void status_io(enum log_level iodir, const u8 *p)
 {
-	u16 type = STATUS_LOG_MIN + LOG_IO;
+	u16 type = STATUS_LOG_MIN + iodir;
 	u8 *msg = tal_arr(NULL, u8, 0);
 
+	assert(iodir == LOG_IO_IN || iodir == LOG_IO_OUT);
 	towire_u16(&msg, type);
-	towire_bool(&msg, sender == REMOTE);
 	towire(&msg, p, tal_len(p));
 	if (too_large(tal_len(msg), type))
 		tal_resize(&msg, 65535);
