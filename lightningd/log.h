@@ -8,9 +8,9 @@
 #include <common/type_to_string.h>
 #include <stdarg.h>
 
+struct json_result;
 struct lightningd;
 struct timerel;
-struct lightningd;
 
 /* We can have a single log book, with multiple logs in it. */
 struct log_book *new_log_book(const tal_t *ctx,
@@ -89,5 +89,9 @@ const tal_t *ltmp;
 
 /* Before the crashlog is activated, just prints to stderr. */
 void NORETURN PRINTF_FMT(1,2) fatal(const char *fmt, ...);
+
+/* Adds an array showing log entries */
+void json_add_log(struct json_result *result, const char *fieldname,
+		  const struct log_book *lr, enum log_level minlevel);
 
 #endif /* LIGHTNING_LIGHTNINGD_LOG_H */

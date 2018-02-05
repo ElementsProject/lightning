@@ -13,7 +13,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/options.h>
 #include <signal.h>
 #include <stdio.h>
 #include <sys/stat.h>
@@ -556,3 +558,131 @@ void fatal(const char *fmt, ...)
 	}
 	abort();
 }
+
+struct log_info {
+	enum log_level level;
+	struct json_result *response;
+	unsigned int num_skipped;
+};
+
+static void add_skipped(struct log_info *info)
+{
+	if (info->num_skipped) {
+		json_object_start(info->response, NULL);
+		json_add_string(info->response, "type", "SKIPPED");
+		json_add_num(info->response, "num_skipped", info->num_skipped);
+		json_object_end(info->response);
+		info->num_skipped = 0;
+	}
+}
+
+static void json_add_time(struct json_result *result, const char *fieldname,
+			  struct timespec ts)
+{
+	char timebuf[100];
+
+	sprintf(timebuf, "%lu.%09u",
+		(unsigned long)ts.tv_sec,
+		(unsigned)ts.tv_nsec);
+	json_add_string(result, fieldname, timebuf);
+}
+
+static void log_to_json(unsigned int skipped,
+			struct timerel diff,
+			enum log_level level,
+			const char *prefix,
+			const char *log,
+			struct log_info *info)
+{
+	info->num_skipped += skipped;
+
+	if (level < info->level) {
+		info->num_skipped++;
+		return;
+	}
+
+	add_skipped(info);
+
+	json_object_start(info->response, NULL);
+	json_add_string(info->response, "type",
+			level == LOG_BROKEN ? "BROKEN"
+			: level == LOG_UNUSUAL ? "UNUSUAL"
+			: level == LOG_INFORM ? "INFO"
+			: level == LOG_DBG ? "DEBUG"
+			: level == LOG_IO ? "IO"
+			: "UNKNOWN");
+	json_add_time(info->response, "time", diff.ts);
+	json_add_string(info->response, "source", prefix);
+	if (level == LOG_IO) {
+		assert(tal_count(log) > 0);
+		if (log[0])
+			json_add_string(info->response, "direction", "IN");
+		else
+			json_add_string(info->response, "direction", "OUT");
+
+		json_add_hex(info->response, "data", log+1, tal_count(log)-1);
+	} else
+		json_add_string(info->response, "log", log);
+
+	json_object_end(info->response);
+}
+
+void json_add_log(struct json_result *response, const char *fieldname,
+		  const struct log_book *lr, enum log_level minlevel)
+{
+	struct log_info info;
+
+	info.level = minlevel;
+	info.response = response;
+	info.num_skipped = 0;
+
+	json_array_start(info.response, "log");
+	log_each_line(lr, log_to_json, &info);
+	add_skipped(&info);
+	json_array_end(info.response);
+}
+
+static void json_getlog(struct command *cmd,
+			const char *buffer, const jsmntok_t *params)
+{
+	struct json_result *response = new_json_result(cmd);
+	enum log_level minlevel;
+	struct log_book *lr = cmd->ld->log_book;
+	jsmntok_t *level;
+
+	if (!json_get_params(cmd, buffer, params, "?level", &level, NULL)) {
+		return;
+	}
+
+	if (!level)
+		minlevel = LOG_INFORM;
+	else if (json_tok_streq(buffer, level, "io"))
+		minlevel = LOG_IO;
+	else if (json_tok_streq(buffer, level, "debug"))
+		minlevel = LOG_DBG;
+	else if (json_tok_streq(buffer, level, "info"))
+		minlevel = LOG_INFORM;
+	else if (json_tok_streq(buffer, level, "unusual"))
+		minlevel = LOG_UNUSUAL;
+	else {
+		command_fail(cmd, "Invalid level param");
+		return;
+	}
+
+	json_object_start(response, NULL);
+	if (deprecated_apis)
+		json_add_time(response, "creation_time", log_init_time(lr)->ts);
+	json_add_time(response, "created_at", log_init_time(lr)->ts);
+	json_add_num(response, "bytes_used", (unsigned int)log_used(lr));
+	json_add_num(response, "bytes_max", (unsigned int)log_max_mem(lr));
+	json_add_log(response, "log", lr, minlevel);
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+static const struct json_command getlog_command = {
+	"getlog",
+	json_getlog,
+	"Show logs, with optional log {level} (info|unusual|debug|io)"
+};
+AUTODATA(json_command, &getlog_command);
