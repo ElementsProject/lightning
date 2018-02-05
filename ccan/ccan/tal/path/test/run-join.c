@@ -6,7 +6,7 @@ int main(void)
 {
 	char *path, *ctx = tal_strdup(NULL, "ctx");
 
-	plan_tests(34);
+	plan_tests(36);
 
 	path = path_join(ctx, "foo", "bar");
 	ok1(streq(path, "foo/bar"));
@@ -84,6 +84,11 @@ int main(void)
 	path = path_join(ctx, take(NULL), take(NULL));
 	ok1(!path);
 	ok1(!tal_first(ctx));
+
+	path = path_join(ctx, "", "bar");
+	ok1(streq(path, "bar"));
+	ok1(tal_parent(path) == ctx);
+	tal_free(path);
 
 	tal_free(ctx);
 

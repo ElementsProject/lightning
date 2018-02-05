@@ -4,7 +4,9 @@
 #include <sys/ioctl.h>
 #include <sys/termios.h> /* Required on Solaris for struct winsize */
 #endif
+#if HAVE_SYS_UNISTD_H
 #include <sys/unistd.h> /* Required on Solaris for ioctl */
+#endif
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>

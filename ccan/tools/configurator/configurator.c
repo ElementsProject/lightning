@@ -315,6 +315,8 @@ static struct test tests[] = {
 	  "#include <sys/filio.h>\n" },
 	{ "HAVE_SYS_TERMIOS_H", OUTSIDE_MAIN, NULL, NULL,
 	  "#include <sys/termios.h>\n" },
+	{ "HAVE_SYS_UNISTD_H", OUTSIDE_MAIN, NULL, NULL,
+	  "#include <sys/unistd.h>\n" },
 	{ "HAVE_TYPEOF", INSIDE_MAIN, NULL, NULL,
 	  "__typeof__(argc) i; i = argc; return i == argc ? 0 : 1;" },
 	{ "HAVE_UNALIGNED_ACCESS", DEFINES_EVERYTHING|EXECUTE, NULL, NULL,

@@ -280,8 +280,13 @@ void *io_loop(struct timers *timers, struct timer **expired)
 		}
 
 		r = pollfn(pollfds, num_fds, ms_timeout);
-		if (r < 0)
+		if (r < 0) {
+			/* Signals shouldn't break us, unless they set
+			 * io_loop_return. */
+			if (errno == EINTR)
+				continue;
 			break;
+		}
 
 		for (i = 0; i < num_fds && !io_loop_return; i++) {
 			struct io_conn *c = (void *)fds[i];
