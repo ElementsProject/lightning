@@ -298,11 +298,11 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self._call("withdraw", args=[destination, satoshi])
 
-    def newaddr(self):
+    def newaddr(self, addrtype='p2sh-segwit'):
         """
         Get a new address to fund a channel
         """
-        return self._call("newaddr")
+        return self._call("newaddr", [addrtype])
 
     def listfunds(self):
         """
