@@ -27,6 +27,8 @@ void status_fmt(enum log_level level, const char *fmt, ...)
 /* vprintf-style */
 void status_vfmt(enum log_level level, const char *fmt, va_list ap);
 
+/* Usually we only log the packet names, not contents. */
+extern volatile bool logging_io;
 void status_io(enum log_level iodir, const u8 *p);
 
 /* Helpers */
