@@ -40,6 +40,7 @@ void hsm_init(struct lightningd *ld, bool newdir)
 	if (ld->hsm_fd < 0)
 		err(1, "Could not subd hsm");
 
+	ld->hsm_log = new_log(ld, ld->log_book, "hsmd:");
 	if (newdir)
 		create = true;
 	else
