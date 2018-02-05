@@ -52,7 +52,7 @@ char *path_join(const tal_t *ctx, const char *base, const char *a)
 	ret = tal_dup_arr(ctx, char, base, len, 1 + strlen(a) + 1);
 	if (!ret)
 		goto out;
-	if (ret[len-1] != PATH_SEP)
+	if (len != 0 && ret[len-1] != PATH_SEP)
 		ret[len++] = PATH_SEP;
 	strcpy(ret + len, a);
 
