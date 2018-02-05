@@ -3,6 +3,7 @@
 #include "config.h"
 #include <bitcoin/pubkey.h>
 #include <ccan/htable/htable_type.h>
+#include <ccan/time/time.h>
 #include <gossipd/broadcast.h>
 #include <wire/gen_onion_wire.h>
 #include <wire/wire.h>

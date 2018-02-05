@@ -7,7 +7,6 @@
 #include <ccan/endian/endian.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
 #include <common/features.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
