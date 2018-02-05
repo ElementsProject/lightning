@@ -133,8 +133,8 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 	node_key(&privkey, NULL);
 	if (secp256k1_ecdh(secp256k1_ctx, ss.data, &point.pubkey,
 			   privkey.secret.data) != 1) {
-		status_trace("secp256k1_ecdh fail for client %s",
-			     type_to_string(trc, struct pubkey, &c->id));
+		status_broken("secp256k1_ecdh fail for client %s",
+			      type_to_string(trc, struct pubkey, &c->id));
 		daemon_conn_send(c->master,
 				 take(towire_hsmstatus_client_bad_request(c,
 								&c->id,
@@ -161,13 +161,13 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 
 	if (!fromwire_hsm_cannouncement_sig_req(ctx, dc->msg_in, NULL,
 						&bitcoin_id, &ca)) {
-		status_trace("Failed to parse cannouncement_sig_req: %s",
-			     tal_hex(trc, dc->msg_in));
+		status_broken("Failed to parse cannouncement_sig_req: %s",
+			      tal_hex(trc, dc->msg_in));
 		return io_close(conn);
 	}
 
 	if (tal_len(ca) < offset) {
-		status_trace("bad cannounce length %zu", tal_len(ca));
+		status_broken("bad cannounce length %zu", tal_len(ca));
 		return io_close(conn);
 	}
 
@@ -202,9 +202,9 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 	u8 *cu;
 
 	if (!fromwire_hsm_cupdate_sig_req(tmpctx, dc->msg_in, NULL, &cu)) {
-		status_trace("Failed to parse %s: %s",
-			     hsm_client_wire_type_name(fromwire_peektype(dc->msg_in)),
-			     tal_hex(trc, dc->msg_in));
+		status_broken("Failed to parse %s: %s",
+			      hsm_client_wire_type_name(fromwire_peektype(dc->msg_in)),
+			      tal_hex(trc, dc->msg_in));
 		return io_close(conn);
 	}
 
@@ -212,13 +212,13 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 				     &scid, &timestamp, &flags,
 				     &cltv_expiry_delta, &htlc_minimum_msat,
 				     &fee_base_msat, &fee_proportional_mill)) {
-		status_trace("Failed to parse inner channel_update: %s",
-			     tal_hex(trc, dc->msg_in));
+		status_broken("Failed to parse inner channel_update: %s",
+			      tal_hex(trc, dc->msg_in));
 		return io_close(conn);
 	}
 	if (tal_len(cu) < offset) {
-		status_trace("inner channel_update too short: %s",
-			     tal_hex(trc, dc->msg_in));
+		status_broken("inner channel_update too short: %s",
+			      tal_hex(trc, dc->msg_in));
 		return io_close(conn);
 	}
 
@@ -279,12 +279,12 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	struct client *c = container_of(dc, struct client, dc);
 	enum hsm_client_wire_type t = fromwire_peektype(dc->msg_in);
 
-	status_trace("Client: Received message %d from client", t);
+	status_debug("Client: Received message %d from client", t);
 
 	/* Before we do anything else, is this client allowed to do
 	 * what he asks for? */
 	if (!check_client_capabilities(c, t)) {
-		status_trace("Client does not have the required capability to run %d", t);
+		status_broken("Client does not have the required capability to run %d", t);
 		daemon_conn_send(c->master,
 				 take(towire_hsmstatus_client_bad_request(
 				     c, &c->id, dc->msg_in)));
@@ -592,10 +592,10 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
 	if (utxo->close_info != NULL) {
 		/* This is a their_unilateral_close/to-us output, so
 		 * we need to derive the secret the long way */
-		status_trace("Unilateral close output, deriving secrets");
+		status_debug("Unilateral close output, deriving secrets");
 		hsm_unilateral_close_privkey(privkey, utxo->close_info);
 		pubkey_from_privkey(privkey, pubkey);
-		status_trace("Derived public key %s from unilateral close", type_to_string(trc, struct pubkey, pubkey));
+		status_debug("Derived public key %s from unilateral close", type_to_string(trc, struct pubkey, pubkey));
 	} else {
 		/* Simple case: just get derive via HD-derivation */
 		bitcoin_keypair(privkey, pubkey, utxo->keyindex);
@@ -692,15 +692,15 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg, NULL, &satoshi_out,
 					  &change_out, &change_keyindex,
 					  &scriptpubkey, &inutxos)) {
-		status_trace("Failed to parse sign_withdrawal: %s",
-			     tal_hex(trc, msg));
+		status_broken("Failed to parse sign_withdrawal: %s",
+			      tal_hex(trc, msg));
 		return;
 	}
 
 	if (bip32_key_from_parent(&secretstuff.bip32, change_keyindex,
 				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
-		status_trace("Failed to parse sign_withdrawal: %s",
-			     tal_hex(trc, msg));
+		status_broken("Failed to parse sign_withdrawal: %s",
+			      tal_hex(trc, msg));
 		return;
 	}
 
@@ -762,8 +762,8 @@ static void sign_invoice(struct daemon_conn *master, const u8 *msg)
 	struct privkey node_pkey;
 
 	if (!fromwire_hsm_sign_invoice(tmpctx, msg, NULL, &u5bytes, &hrpu8)) {
-		status_trace("Failed to parse sign_invoice: %s",
-			     tal_hex(trc, msg));
+		status_broken("Failed to parse sign_invoice: %s",
+			      tal_hex(trc, msg));
 		return;
 	}
 
@@ -781,10 +781,9 @@ static void sign_invoice(struct daemon_conn *master, const u8 *msg)
                                               (const u8 *)&sha,
                                               node_pkey.secret.data,
                                               NULL, NULL)) {
-		/* FIXME: Now master will freeze... */
-		status_trace("Failed to sign invoice: %s",
-			     tal_hex(trc, msg));
-		return;
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed to sign invoice: %s",
+			      tal_hex(trc, msg));
 	}
 
 	daemon_conn_send(master,
@@ -803,14 +802,15 @@ static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 	u8 *ann;
 
 	if (!fromwire_hsm_node_announcement_sig_req(msg, msg, NULL, &ann)) {
-		status_trace("Failed to parse node_announcement_sig_req: %s",
+		status_failed(STATUS_FAIL_GOSSIP_IO,
+			      "Failed to parse node_announcement_sig_req: %s",
 			     tal_hex(trc, msg));
-		return;
 	}
 
 	if (tal_len(ann) < offset) {
-		status_trace("Node announcement too short: %s", tal_hex(trc, msg));
-		return;
+		status_failed(STATUS_FAIL_GOSSIP_IO,
+			      "Node announcement too short: %s",
+			      tal_hex(trc, msg));
 	}
 
 	/* FIXME(cdecker) Check the node announcement's content */
