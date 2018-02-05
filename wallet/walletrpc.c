@@ -61,6 +61,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind,
 
 		/* Note normally, change_satoshi == withdraw->changesatoshi, but
 		 * not if we're actually making a payment to ourselves! */
+		assert(change_satoshi >= withdraw->changesatoshi);
 
 		struct json_result *response = new_json_result(cmd);
 		json_object_start(response, NULL);
