@@ -3228,6 +3228,60 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
+    def test_io_logging(self):
+        disconnects = ['+WIRE_COMMITMENT_SIGNED']
+        l1 = self.node_factory.get_node(options=['--debug-subdaemon-io=channeld',
+                                                 '--log-level=io'])
+        l2 = self.node_factory.get_node()
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+
+        # Fundchannel manually so we get channeld pid.
+        self.give_funds(l1, 10**6 + 1000000)
+        l1.rpc.fundchannel(l2.info['id'], 10**6)['tx']
+        # Get pid of channeld, eg 'lightning_channeld(...): pid 13933, msgfd 12'
+        pidline = l1.daemon.wait_for_log(r'lightning_channeld.*: pid [0-9]*,')
+        pid1 = re.search(r'pid ([0-9]*),', pidline).group(1)
+
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+        l1.bitcoin.generate_block(1)
+        l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
+
+        pidline = l2.daemon.wait_for_log(r'lightning_channeld.*: pid [0-9]*,')
+        pid2 = re.search(r'pid ([0-9]*),', pidline).group(1)
+        l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
+
+        fut = self.pay(l1,l2,200000000,async=True)
+
+        # WIRE_UPDATE_ADD_HTLC = 128 = 0x0080
+        l1.daemon.wait_for_log(r'channeld.*:\[OUT\] 0080')
+        # WIRE_UPDATE_FULFILL_HTLC = 130 = 0x0082
+        l1.daemon.wait_for_log(r'channeld.*:\[IN\] 0082')
+        fut.result(10)
+
+        # Send it sigusr1: should turn off logging.
+        subprocess.run(['kill', '-USR1', pid1])
+
+        self.pay(l1,l2,200000000)
+
+        assert not l1.daemon.is_in_log(r'channeld.*:\[OUT\] 0080',
+                                       start=l1.daemon.logsearch_start)
+        assert not l1.daemon.is_in_log(r'channeld.*:\[IN\] 0082',
+                                       start=l1.daemon.logsearch_start)
+
+        # IO logs should appear in peer logs.
+        peerlog = l2.rpc.listpeers(l1.info['id'], "io")['peers'][0]['log']
+        assert not any(l['type'] == 'IO_OUT' or l['type'] == 'IO_IN'
+                       for l in peerlog)
+
+        # Turn on in l2 channel logging.
+        subprocess.run(['kill', '-USR1', pid2])
+        self.pay(l1,l2,200000000)
+
+        # Now it should find it.
+        peerlog = l2.rpc.listpeers(l1.info['id'], "io")['peers'][0]['log']
+        assert any(l['type'] == 'IO_OUT' for l in peerlog)
+        assert any(l['type'] == 'IO_IN' for l in peerlog)
+        
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_pay_disconnect(self):
         """If the remote node has disconnected, we fail payment, but can try again when it reconnects"""
