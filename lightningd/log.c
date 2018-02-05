@@ -232,6 +232,7 @@ static struct log_entry *new_log_entry(struct log *log, enum log_level level)
 
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 {
+	int save_errno = errno;
 	struct log_entry *l = new_log_entry(log, level);
 
 	l->log = tal_vfmt(l, fmt, ap);
@@ -241,6 +242,7 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 			       log->lr->print_arg);
 
 	add_entry(log, l);
+	errno = save_errno;
 }
 
 void log_io(struct log *log, bool in, const void *data, size_t len)
