@@ -992,7 +992,7 @@ static void json_listpeers(struct command *cmd,
 static const struct json_command listpeers_command = {
 	"listpeers",
 	json_listpeers,
-	"Show current peers, if {level} is set, include {log}s"
+	"Show current peers, if {level} is set, include logs for {id}"
 };
 AUTODATA(json_command, &listpeers_command);
 
