@@ -67,6 +67,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx,
 	ld->portnum = DEFAULT_PORT;
 	timers_init(&ld->timers, time_mono());
 	ld->topology = new_topology(ld, ld->log);
+	ld->debug_subdaemon_io = NULL;
 
 	return ld;
 }

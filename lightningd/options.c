@@ -277,6 +277,9 @@ static void config_register_opts(struct lightningd *ld)
 			 opt_set_bool_arg, opt_show_bool,
 			 &deprecated_apis,
 			 "Enable deprecated options, JSONRPC commands, fields, etc.");
+	opt_register_arg("--debug-subdaemon-io",
+			 opt_set_charp, NULL, &ld->debug_subdaemon_io,
+			 "Enable full peer IO logging in subdaemons ending in this string (can also send SIGUSR1 to toggle)");
 }
 
 #if DEVELOPER

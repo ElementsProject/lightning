@@ -130,7 +130,9 @@ static void close_taken_fds(va_list *ap)
 }
 
 /* We use sockets, not pipes, because fds are bidir. */
-static int subd(const char *dir, const char *name, const char *debug_subdaemon,
+static int subd(const char *dir, const char *name,
+		const char *debug_subdaemon,
+		const char *debug_subdaemon_io,
 		int *msgfd, int dev_disconnect_fd, va_list *ap)
 {
 	int childmsg[2], execfail[2];
@@ -154,8 +156,8 @@ static int subd(const char *dir, const char *name, const char *debug_subdaemon,
 	if (childpid == 0) {
 		int fdnum = 3, i;
 		long max;
-		const char *debug_arg[2] = { NULL, NULL };
-		const char *path;
+		size_t num_args;
+		char *args[] = { NULL, NULL, NULL, NULL, NULL };
 
 		close(childmsg[0]);
 		close(execfail[0]);
@@ -190,14 +192,17 @@ static int subd(const char *dir, const char *name, const char *debug_subdaemon,
 			if (i != dev_disconnect_fd)
 				close(i);
 
+		num_args = 0;
+		args[num_args++] = path_join(NULL, dir, name);
 #if DEVELOPER
 		if (dev_disconnect_fd != -1)
-			debug_arg[0] = tal_fmt(NULL, "--dev-disconnect=%i", dev_disconnect_fd);
+			args[num_args++] = tal_fmt(NULL, "--dev-disconnect=%i", dev_disconnect_fd);
 		if (debug_subdaemon && strends(name, debug_subdaemon))
-			debug_arg[debug_arg[0] ? 1 : 0] = "--debugger";
+			args[num_args++] = "--debugger";
 #endif
-		path = path_join(NULL, dir, name);
-		execl(path, path, debug_arg[0], debug_arg[1], NULL);
+		if (debug_subdaemon_io && strends(name, debug_subdaemon_io))
+			args[num_args++] = "--log-io";
+		execv(args[0], args);
 
 	child_errno_fail:
 		err = errno;
@@ -249,7 +254,8 @@ int subd_raw(struct lightningd *ld, const char *name)
 	disconnect_fd = ld->dev_disconnect_fd;
 #endif /* DEVELOPER */
 
-	pid = subd(ld->daemon_dir, name, debug_subd, &msg_fd, disconnect_fd,
+	pid = subd(ld->daemon_dir, name, debug_subd, ld->debug_subdaemon_io,
+		   &msg_fd, disconnect_fd,
 		   NULL);
 	if (pid == (pid_t)-1) {
 		log_unusual(ld->log, "subd %s failed: %s",
@@ -613,8 +619,8 @@ static struct subd *new_subd(struct lightningd *ld,
 	disconnect_fd = ld->dev_disconnect_fd;
 #endif /* DEVELOPER */
 
-	sd->pid = subd(ld->daemon_dir, name, debug_subd, &msg_fd, disconnect_fd,
-		       ap);
+	sd->pid = subd(ld->daemon_dir, name, debug_subd, ld->debug_subdaemon_io,
+		       &msg_fd, disconnect_fd, ap);
 	if (sd->pid == (pid_t)-1) {
 		log_unusual(ld->log, "subd %s failed: %s",
 			    name, strerror(errno));
