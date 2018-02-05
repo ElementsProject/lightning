@@ -55,6 +55,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/jsonrpc.c			\
 	lightningd/lightningd.c			\
 	lightningd/log.c			\
+	lightningd/log_status.c			\
 	lightningd/netaddress.c			\
 	lightningd/opt_time.c			\
 	lightningd/options.c			\

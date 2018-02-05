@@ -7,11 +7,11 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
-#include <common/status.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/log_status.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <signal.h>
@@ -438,14 +438,10 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 	tmpctx = tal_tmpctx(sd);
 	tal_steal(tmpctx, sd->msg_in);
 
-	if (type == STATUS_TRACE) {
-		int str_len;
-		const char *str = string_from_msg(sd->msg_in, &str_len);
-		if (!str)
-			goto malformed;
-		log_debug(sd->log, "TRACE: %.*s", str_len, str);
+	if (log_status_msg(sd->log, sd->msg_in))
 		goto next;
-	} else if (type & STATUS_FAIL) {
+
+	if (type & STATUS_FAIL) {
 		int str_len;
 		const char *str = string_from_msg(sd->msg_in, &str_len);
 		if (!str)

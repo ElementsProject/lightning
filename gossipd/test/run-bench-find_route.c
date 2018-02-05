@@ -7,13 +7,20 @@
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <stdio.h>
-#define status_trace(fmt, ...) \
-	do { printf((fmt) ,##__VA_ARGS__); printf("\n"); } while(0)
+void status_fmt(enum log_level level, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vprintf(fmt, ap);
+	printf("\n");
+	va_end(ap);
+}
 
 static bool in_bench = 0;
 
