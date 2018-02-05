@@ -2653,9 +2653,13 @@ int main(int argc, char *argv[])
 		} else
 			wptr = NULL;
 
-		if (select(nfds, &rfds, wptr, NULL, tptr) < 0)
+		if (select(nfds, &rfds, wptr, NULL, tptr) < 0) {
+			/* Signals OK, eg. SIGUSR1 */
+			if (errno == EINTR)
+				continue;
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "select failed: %s", strerror(errno));
+		}
 
 		/* Try writing out encrypted packet if any (don't block!) */
 		if (wptr && FD_ISSET(PEER_FD, wptr)) {
