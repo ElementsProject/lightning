@@ -75,7 +75,7 @@ static void json_pay_success(struct lightningd *ld,
 }
 
 struct routing_failure {
-	int origin_index;
+	unsigned int erring_index;
 	enum onion_type failcode;
 	struct pubkey erring_node;
 	struct short_channel_id erring_channel;
@@ -100,7 +100,7 @@ json_pay_command_routing_failed(struct command *cmd,
 	json_object_start(data, NULL);
 	if (fail) {
 		failure_code = fail->failcode;
-		json_add_snum(data, "origin_index", fail->origin_index);
+		json_add_num(data, "erring_index", fail->erring_index);
 		json_add_num(data, "failcode", (unsigned) fail->failcode);
 		json_add_hex(data, "erring_node",
 			     &fail->erring_node, sizeof(fail->erring_node));
@@ -203,7 +203,7 @@ immediate_routing_failure(const tal_t *ctx,
 	assert(failcode);
 
 	routing_failure = tal(ctx, struct routing_failure);
-	routing_failure->origin_index = -1;
+	routing_failure->erring_index = 0;
 	routing_failure->failcode = failcode;
 	routing_failure->erring_node = ld->id;
 	routing_failure->erring_channel = *channel0;
@@ -225,7 +225,7 @@ local_routing_failure(const tal_t *ctx,
 	assert(hout->failcode);
 
 	routing_failure = tal(ctx, struct routing_failure);
-	routing_failure->origin_index = -1;
+	routing_failure->erring_index = 0;
 	routing_failure->failcode = hout->failcode;
 	routing_failure->erring_node = ld->id;
 	routing_failure->erring_channel = payment->route_channels[0];
@@ -295,7 +295,7 @@ remote_routing_failure(const tal_t *ctx,
 
 	erring_node = &route_nodes[origin_index];
 
-	routing_failure->origin_index = origin_index;
+	routing_failure->erring_index = (unsigned int) (origin_index + 1);
 	routing_failure->failcode = failcode;
 	routing_failure->erring_node = *erring_node;
 	routing_failure->erring_channel = *erring_channel;

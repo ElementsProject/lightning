@@ -2,12 +2,12 @@
 .\"     Title: lightning-sendpay
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 02/05/2018
+.\"      Date: 02/06/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-SENDPAY" "7" "02/05/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-SENDPAY" "7" "02/06/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -137,7 +137,7 @@ A routing failure object has the fields below:
 .sp -1
 .IP \(bu 2.3
 .\}
-\fIorigin_index\fR\&. The index of the node along the route that reported the error\&. 0 for the first hop node, \-1 if the local node reported the error\&.
+\fIerring_index\fR\&. The index of the node along the route that reported the error\&. 0 for the local node, 1 for the first hop, and so on\&.
 .RE
 .sp
 .RS 4
