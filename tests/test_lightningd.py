@@ -1053,7 +1053,7 @@ class LightningDTests(BaseLightningDTests):
             p.daemon.wait_for_log(' to ONCHAIND_MUTUAL')
 
         l1.daemon.wait_for_logs([' to ONCHAIND_MUTUAL'] * num_peers)
-        
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail(self):
         l1,l2 = self.connect()
@@ -3364,7 +3364,7 @@ class LightningDTests(BaseLightningDTests):
                                        '-J',
                                        'help', 'command=help']).decode('utf-8')
         j, _ = json.JSONDecoder().raw_decode(out)
-        assert 'help [command]' in j['verbose'] 
+        assert 'help [command]' in j['verbose']
 
         # Test keyword input (forced)
         out = subprocess.check_output(['cli/lightning-cli',
@@ -3373,7 +3373,7 @@ class LightningDTests(BaseLightningDTests):
                                        '-J', '-k',
                                        'help', 'command=help']).decode('utf-8')
         j, _ = json.JSONDecoder().raw_decode(out)
-        assert 'help [command]' in j['verbose'] 
+        assert 'help [command]' in j['verbose']
 
         # Test ordered input (autodetect)
         out = subprocess.check_output(['cli/lightning-cli',
@@ -3382,7 +3382,7 @@ class LightningDTests(BaseLightningDTests):
                                        '-J',
                                        'help', 'help']).decode('utf-8')
         j, _ = json.JSONDecoder().raw_decode(out)
-        assert 'help [command]' in j['verbose'] 
+        assert 'help [command]' in j['verbose']
 
         # Test ordered input (forced)
         out = subprocess.check_output(['cli/lightning-cli',
@@ -3391,7 +3391,7 @@ class LightningDTests(BaseLightningDTests):
                                        '-J', '-o',
                                        'help', 'help']).decode('utf-8')
         j, _ = json.JSONDecoder().raw_decode(out)
-        assert 'help [command]' in j['verbose'] 
+        assert 'help [command]' in j['verbose']
 
         # Test missing parameters.
         try:
@@ -3404,6 +3404,28 @@ class LightningDTests(BaseLightningDTests):
                                            'sendpay']).decode('utf-8')
         except:
             pass
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_forget_channel(self):
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
+        self.give_funds(l1, 10**6)
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        l1.rpc.fundchannel(l2.info['id'], 10**5)
+
+        assert len(l1.rpc.listpeers()['peers']) == 1
+
+        # This should fail, the funding tx is in the mempool and may confirm
+        self.assertRaises(ValueError, l1.rpc.dev_forget_channel, l2.info['id'])
+        assert len(l1.rpc.listpeers()['peers']) == 1
+
+        # Forcing should work
+        l1.rpc.dev_forget_channel(l2.info['id'], True)
+        assert len(l1.rpc.listpeers()['peers']) == 0
+
+        # And restarting should keep that peer forgotten
+        l1.restart()
+        assert len(l1.rpc.listpeers()['peers']) == 0
 
 
 if __name__ == '__main__':
