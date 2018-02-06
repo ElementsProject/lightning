@@ -3127,7 +3127,11 @@ class LightningDTests(BaseLightningDTests):
         # L1 asks for stupid low fees
         l1.rpc.dev_setfees(15)
 
-        l1.daemon.wait_for_log('STATUS_FAIL_PEER_BAD')
+        l1.daemon.wait_for_log('STATUS_FAIL_PEER_BAD:.*update_fee 15 outside range 4250-75000')
+        # Make sure the resolution of this one doesn't interfere with the next!
+        # Note: may succeed, may fail with insufficient fee, depending on how
+        # bitcoind feels!
+        l1.daemon.wait_for_log('sendrawtx exit')
 
         # Restore to normal.
         l1.rpc.dev_setfees(15000)
