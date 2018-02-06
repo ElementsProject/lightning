@@ -1051,7 +1051,7 @@ class LightningDTests(BaseLightningDTests):
             p.daemon.wait_for_log(' to ONCHAIND_MUTUAL')
 
         l1.daemon.wait_for_logs([' to ONCHAIND_MUTUAL'] * num_peers)
-        
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail(self):
         l1,l2 = self.connect()
@@ -1180,7 +1180,7 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.withdraw(l1.rpc.newaddr()['address'], 'all')
         bitcoind.generate_block(1)
         l1.daemon.wait_for_log("but we don't care")
-        
+
         # And lightningd should respect that!
         assert not l1.daemon.is_in_log("Can't unwatch txid")
 
@@ -1197,7 +1197,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Note: for this test we leave onchaind running, so we can detect
         # any leaks!
-        
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_onchain_dust_out(self):
         """Onchain handling of outgoing dust htlcs (they should fail)"""
@@ -2641,7 +2641,7 @@ class LightningDTests(BaseLightningDTests):
         c = db.cursor()
         c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
         assert(c.fetchone()[0] == 1)
-        
+
         out = l1.rpc.withdraw(waddr, 'all')
         c = db.cursor()
         c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
@@ -2754,7 +2754,7 @@ class LightningDTests(BaseLightningDTests):
         # All should be good.
         l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
         l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
-        
+
     def test_addfunds_from_block(self):
         """Send funds to the daemon without telling it explicitly
         """
@@ -3282,7 +3282,7 @@ class LightningDTests(BaseLightningDTests):
                                        '-J',
                                        'help', 'command=help']).decode('utf-8')
         j, _ = json.JSONDecoder().raw_decode(out)
-        assert 'help [command]' in j['verbose'] 
+        assert 'help [command]' in j['verbose']
 
         # Test keyword input (forced)
         out = subprocess.check_output(['cli/lightning-cli',
@@ -3291,7 +3291,7 @@ class LightningDTests(BaseLightningDTests):
                                        '-J', '-k',
                                        'help', 'command=help']).decode('utf-8')
         j, _ = json.JSONDecoder().raw_decode(out)
-        assert 'help [command]' in j['verbose'] 
+        assert 'help [command]' in j['verbose']
 
         # Test ordered input (autodetect)
         out = subprocess.check_output(['cli/lightning-cli',
@@ -3300,7 +3300,7 @@ class LightningDTests(BaseLightningDTests):
                                        '-J',
                                        'help', 'help']).decode('utf-8')
         j, _ = json.JSONDecoder().raw_decode(out)
-        assert 'help [command]' in j['verbose'] 
+        assert 'help [command]' in j['verbose']
 
         # Test ordered input (forced)
         out = subprocess.check_output(['cli/lightning-cli',
@@ -3309,7 +3309,7 @@ class LightningDTests(BaseLightningDTests):
                                        '-J', '-o',
                                        'help', 'help']).decode('utf-8')
         j, _ = json.JSONDecoder().raw_decode(out)
-        assert 'help [command]' in j['verbose'] 
+        assert 'help [command]' in j['verbose']
 
         # Test missing parameters.
         try:
@@ -3322,6 +3322,28 @@ class LightningDTests(BaseLightningDTests):
                                            'sendpay']).decode('utf-8')
         except:
             pass
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_forget_channel(self):
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
+        self.give_funds(l1, 10**6)
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        l1.rpc.fundchannel(l2.info['id'], 10**5)
+
+        assert len(l1.rpc.listpeers()['peers']) == 1
+
+        # This should fail, the funding tx is in the mempool and may confirm
+        self.assertRaises(ValueError, l1.rpc.dev_forget_channel, l2.info['id'])
+        assert len(l1.rpc.listpeers()['peers']) == 1
+
+        # Forcing should work
+        l1.rpc.dev_forget_channel(l2.info['id'], True)
+        assert len(l1.rpc.listpeers()['peers']) == 0
+
+        # And restarting should keep that peer forgotten
+        l1.restart()
+        assert len(l1.rpc.listpeers()['peers']) == 0
 
 
 if __name__ == '__main__':
