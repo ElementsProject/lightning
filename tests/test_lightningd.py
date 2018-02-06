@@ -1015,7 +1015,7 @@ class LightningDTests(BaseLightningDTests):
         num_peers = len(feerates) * len(amounts)
         self.give_funds(l1, (10**6) * num_peers + 10000 * num_peers)
 
-        # Create them in a batch, but only valgrind one in three, for speed!
+        # Create them in a batch, for speed!
         peers = []
         for feerate in feerates:
             for amount in amounts:
@@ -1029,7 +1029,9 @@ class LightningDTests(BaseLightningDTests):
                 peers.append(p)
 
         for p in peers:
-                l1.rpc.fundchannel(p.info['id'], 10**6)
+            l1.rpc.fundchannel(p.info['id'], 10**6)
+            # Technically, this is async to fundchannel returning.
+            l1.daemon.wait_for_log('sendrawtx exit 0')
 
         bitcoind.generate_block(6)
 
