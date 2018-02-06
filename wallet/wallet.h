@@ -66,6 +66,10 @@ struct wallet_shachain {
 struct wallet_channel {
 	u64 id;
 	struct peer *peer;
+
+	/* Blockheight at creation, scans for funding confirmations
+	 * will start here */
+	u64 first_blocknum;
 };
 
 /* Possible states for a wallet_payment. Payments start in
@@ -215,11 +219,8 @@ bool wallet_shachain_load(struct wallet *wallet, u64 id,
  * @wallet: the wallet to save into
  * @chan: the instance to store (not const so we can update the unique_id upon
  *   insert)
- * @current_block_height: current height, minimum block this funding tx could
- *   be in (only used on initial insert).
  */
-void wallet_channel_save(struct wallet *w, struct wallet_channel *chan,
-			 u32 current_block_height);
+void wallet_channel_save(struct wallet *w, struct wallet_channel *chan);
 
 /**
  * wallet_channel_delete -- After resolving a channel, forget about it
