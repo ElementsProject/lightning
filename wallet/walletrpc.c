@@ -38,7 +38,7 @@ struct withdrawal {
  * the used outputs as spent, and add the change output to our pool of
  * available outputs.
  */
-static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind,
+static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 					int exitstatus, const char *msg,
 					struct withdrawal *withdraw)
 {
@@ -303,12 +303,13 @@ static void json_withdraw(struct command *cmd,
 static const struct json_command withdraw_command = {
 	"withdraw",
 	json_withdraw,
-	"Send to {destination} address {satoshi} (or 'all') amount via Bitcoin transaction"
+	"Send to {destination} address {satoshi} (or 'all') amount via Bitcoin transaction",
+	false, "Send funds from the internal wallet to the specified address. Either specify a number of satoshis to send or 'all' to sweep all funds in the internal wallet to the address."
 };
 AUTODATA(json_command, &withdraw_command);
 
-static void json_newaddr(struct command *cmd,
-			 const char *buffer, const jsmntok_t *params)
+static void json_newaddr(struct command *cmd, const char *buffer UNUSED,
+			 const jsmntok_t *params UNUSED)
 {
 	struct json_result *response = new_json_result(cmd);
 	struct ext_key ext;
@@ -390,8 +391,8 @@ static const struct json_command newaddr_command = {
 };
 AUTODATA(json_command, &newaddr_command);
 
-static void json_listfunds(struct command *cmd, const char *buffer,
-			   const jsmntok_t *params)
+static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
+			   const jsmntok_t *params UNUSED)
 {
 	struct json_result *response = new_json_result(cmd);
 	struct utxo **utxos =
@@ -458,8 +459,9 @@ static void process_utxo_result(struct bitcoind *bitcoind,
 	}
 }
 
-static void json_dev_rescan_outputs(struct command *cmd, const char *buffer,
-				    const jsmntok_t *params)
+static void json_dev_rescan_outputs(struct command *cmd,
+				    const char *buffer UNUSED,
+				    const jsmntok_t *params UNUSED)
 {
 	struct txo_rescan *rescan = tal(cmd, struct txo_rescan);
 	rescan->response = new_json_result(cmd);
