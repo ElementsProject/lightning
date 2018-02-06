@@ -28,6 +28,7 @@
 #include <hsmd/capabilities.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
+#include <lightningd/bitcoind.h>
 #include <lightningd/build_utxos.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/gen_peer_state_names.h>
@@ -2944,4 +2945,81 @@ static const struct json_command dev_reenable_commit = {
 	"Re-enable the commit timer on peer {id}"
 };
 AUTODATA(json_command, &dev_reenable_commit);
+
+struct dev_forget_channel_cmd {
+	struct short_channel_id scid;
+	struct peer *peer;
+	bool force;
+	struct command *cmd;
+};
+
+static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
+				       const struct bitcoin_tx_output *txout,
+				       void *arg)
+{
+	struct json_result *response;
+	struct dev_forget_channel_cmd *forget = arg;
+	if (txout != NULL && !forget->force) {
+		command_fail(forget->cmd,
+			     "Cowardly refusing to forget channel with an "
+			     "unspent funding output, if you know what "
+			     "you're doing you can override with "
+			     "`force=true`, otherwise consider `close` or "
+			     "`dev-fail`! If you force and the channel "
+			     "confirms we will not track the funds in the "
+			     "channel");
+		return;
+	}
+	response = new_json_result(forget->cmd);
+	json_object_start(response, NULL);
+	json_add_bool(response, "forced", forget->force);
+	json_add_bool(response, "funding_unspent", txout != NULL);
+	json_add_txid(response, "funding_txid", forget->peer->funding_txid);
+	json_object_end(response);
+
+	if (peer_persists(forget->peer))
+		wallet_channel_delete(forget->cmd->ld->wallet, forget->peer->channel->id);
+	free_peer(forget->peer, "dev-forget-channel called");
+
+	command_success(forget->cmd, response);
+}
+
+static void json_dev_forget_channel(struct command *cmd, const char *buffer,
+				    const jsmntok_t *params)
+{
+	jsmntok_t *nodeidtok, *forcetok;
+	struct dev_forget_channel_cmd *forget = tal(cmd, struct dev_forget_channel_cmd);
+	forget->cmd = cmd;
+	if (!json_get_params(cmd, buffer, params,
+			     "id", &nodeidtok,
+			     "?force", &forcetok,
+			     NULL)) {
+		tal_free(forget);
+		return;
+	}
+
+	forget->force = false;
+	if (forcetok)
+		json_tok_bool(buffer, forcetok, &forget->force);
+
+	forget->peer = peer_from_json(cmd->ld, buffer, nodeidtok);
+	if (!forget->peer)
+		command_fail(cmd, "Could not find channel with that peer");
+	if (!forget->peer->funding_txid) {
+		process_dev_forget_channel(cmd->ld->topology->bitcoind, NULL, forget);
+	} else {
+		bitcoind_gettxout(cmd->ld->topology->bitcoind,
+				  forget->peer->funding_txid,
+				  forget->peer->funding_outnum,
+				  process_dev_forget_channel, forget);
+		command_still_pending(cmd);
+	}
+}
+
+static const struct json_command dev_forget_channel_command = {
+	"dev-forget-channel", json_dev_forget_channel,
+	"Forget the channel with peer {id}, ignore UTXO check with {force}='true'.", false,
+	"Forget the channel with peer {id}. Checks if the channel is still active by checking its funding transaction. Check can be ignored by setting {force} to 'true'"
+};
+AUTODATA(json_command, &dev_forget_channel_command);
 #endif /* DEVELOPER */
