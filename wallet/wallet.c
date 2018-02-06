@@ -607,7 +607,7 @@ bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w, struct list
 	/* Channels are active if they have reached at least the
 	 * opening state and they are not marked as complete */
 	sqlite3_stmt *stmt = db_query(
-	    __func__, w->db, "SELECT %s FROM channels WHERE state >= %d AND state != %d;",
+	    __func__, w->db, "SELECT %s FROM channels WHERE state > %d AND state != %d;",
 	    channel_fields, OPENINGD, CLOSINGD_COMPLETE);
 
 	int count = 0;
