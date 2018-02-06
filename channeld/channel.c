@@ -2621,6 +2621,7 @@ int main(int argc, char *argv[])
 				     channel_wire_type_name(
 					     fromwire_peektype(msg)));
 			req_in(peer, msg);
+			tal_free(msg);
 			continue;
 		}
 
@@ -2635,6 +2636,7 @@ int main(int argc, char *argv[])
 			status_trace("Now dealing with deferred gossip %u",
 				     fromwire_peektype(msg));
 			gossip_in(peer, msg);
+			tal_free(msg);
 			continue;
 		}
 
