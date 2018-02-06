@@ -400,7 +400,7 @@ static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 	    wallet_get_utxos(cmd, cmd->ld->wallet, output_state_available);
 	json_object_start(response, NULL);
 	json_array_start(response, "outputs");
-	for (int i = 0; i < tal_count(utxos); i++) {
+	for (size_t i = 0; i < tal_count(utxos); i++) {
 		json_object_start(response, NULL);
 		json_add_txid(response, "txid", &utxos[i]->txid);
 		json_add_num(response, "output", utxos[i]->outnum);
