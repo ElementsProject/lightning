@@ -6,24 +6,25 @@ notifications:
   email: false
 
 env:
-  - NO_VALGRIND=1 ARCH=32 DEVELOPER=1 COMPILER=gcc
-  - NO_VALGRIND=1 ARCH=64 DEVELOPER=1 COMPILER=gcc
-  - NO_VALGRIND=0 ARCH=64 DEVELOPER=0 COMPILER=gcc TEST_GROUP=1 TEST_GROUP_COUNT=2
-  - NO_VALGRIND=0 ARCH=64 DEVELOPER=0 COMPILER=gcc TEST_GROUP=2 TEST_GROUP_COUNT=2
-  - NO_VALGRIND=1 ARCH=64 DEVELOPER=1 COMPILER=clang
-  - NO_VALGRIND=0 ARCH=64 DEVELOPER=1 COMPILER=gcc TEST_GROUP=1 TEST_GROUP_COUNT=6
-  - NO_VALGRIND=0 ARCH=64 DEVELOPER=1 COMPILER=gcc TEST_GROUP=2 TEST_GROUP_COUNT=6
-  - NO_VALGRIND=0 ARCH=64 DEVELOPER=1 COMPILER=gcc TEST_GROUP=3 TEST_GROUP_COUNT=6
-  - NO_VALGRIND=0 ARCH=64 DEVELOPER=1 COMPILER=gcc TEST_GROUP=4 TEST_GROUP_COUNT=6
-  - NO_VALGRIND=0 ARCH=64 DEVELOPER=1 COMPILER=gcc TEST_GROUP=5 TEST_GROUP_COUNT=6
-  - NO_VALGRIND=0 ARCH=64 DEVELOPER=1 COMPILER=gcc TEST_GROUP=6 TEST_GROUP_COUNT=6
+  - SOURCE_CHECK_ONLY=true
+  - NO_VALGRIND=1 ARCH=32 DEVELOPER=1 COMPILER=gcc SOURCE_CHECK_ONLY=false
+  - NO_VALGRIND=1 ARCH=64 DEVELOPER=1 COMPILER=gcc SOURCE_CHECK_ONLY=false
+  - NO_VALGRIND=0 ARCH=64 DEVELOPER=0 COMPILER=gcc TEST_GROUP=1 TEST_GROUP_COUNT=2 SOURCE_CHECK_ONLY=false
+  - NO_VALGRIND=0 ARCH=64 DEVELOPER=0 COMPILER=gcc TEST_GROUP=2 TEST_GROUP_COUNT=2 SOURCE_CHECK_ONLY=false
+  - NO_VALGRIND=1 ARCH=64 DEVELOPER=1 COMPILER=clang SOURCE_CHECK_ONLY=false
+  - NO_VALGRIND=0 ARCH=64 DEVELOPER=1 COMPILER=gcc TEST_GROUP=1 TEST_GROUP_COUNT=6 SOURCE_CHECK_ONLY=false
+  - NO_VALGRIND=0 ARCH=64 DEVELOPER=1 COMPILER=gcc TEST_GROUP=2 TEST_GROUP_COUNT=6 SOURCE_CHECK_ONLY=false
+  - NO_VALGRIND=0 ARCH=64 DEVELOPER=1 COMPILER=gcc TEST_GROUP=3 TEST_GROUP_COUNT=6 SOURCE_CHECK_ONLY=false
+  - NO_VALGRIND=0 ARCH=64 DEVELOPER=1 COMPILER=gcc TEST_GROUP=4 TEST_GROUP_COUNT=6 SOURCE_CHECK_ONLY=false
+  - NO_VALGRIND=0 ARCH=64 DEVELOPER=1 COMPILER=gcc TEST_GROUP=5 TEST_GROUP_COUNT=6 SOURCE_CHECK_ONLY=false
+  - NO_VALGRIND=0 ARCH=64 DEVELOPER=1 COMPILER=gcc TEST_GROUP=6 TEST_GROUP_COUNT=6 SOURCE_CHECK_ONLY=false
 
 # Trusty (aka 14.04) is way way too old, so run in docker...
 script:
   - docker pull cdecker/lightning-ci:${ARCH}bit | tee
   - env | grep -E '^[A-Z_]+\=' | tee /tmp/envlist
-  - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make -j3 CC=${COMPILER} DEVELOPER=${DEVELOPER}
-  - docker run --rm=true --env-file=/tmp/envlist -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make CC=${COMPILER} check DEVELOPER=${DEVELOPER}
-#  - git clone https://github.com/lightningnetwork/lightning-rfc.git
-#  - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check-source BOLTDIR=lightning-rfc
-  - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check-source BOLTDIR=none
+  - $SOURCE_CHECK_ONLY || docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make -j3 CC=${COMPILER} DEVELOPER=${DEVELOPER}
+  - $SOURCE_CHECK_ONLY || docker run --rm=true --env-file=/tmp/envlist -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make CC=${COMPILER} check DEVELOPER=${DEVELOPER}
+#  - ! $SOURCE_CHECK_ONLY || git clone https://github.com/lightningnetwork/lightning-rfc.git
+#  - ! $SOURCE_CHECK_ONLY || docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check-source BOLTDIR=lightning-rfc
+  - ! $SOURCE_CHECK_ONLY || docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check-source BOLTDIR=none
