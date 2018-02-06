@@ -111,6 +111,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_GET_TXOUT_REPLY:
 	case WIRE_GOSSIP_DISABLE_CHANNEL:
 	case WIRE_GOSSIP_ROUTING_FAILURE:
+	case WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
