@@ -387,7 +387,8 @@ static void json_newaddr(struct command *cmd, const char *buffer UNUSED,
 static const struct json_command newaddr_command = {
 	"newaddr",
 	json_newaddr,
-	"Get a new {bech32, p2sh-segwit} address to fund a channel"
+	"Get a new {bech32, p2sh-segwit} address to fund a channel", false,
+	"Generates a new address that belongs to the internal wallet. Funds sent to these addresses will be managed by lightningd. Use `withdraw` to withdraw funds to an external wallet."
 };
 AUTODATA(json_command, &newaddr_command);
 
@@ -414,7 +415,8 @@ static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 static const struct json_command listfunds_command = {
 	"listfunds",
 	json_listfunds,
-	"Show funds available for opening channels"
+	"Show available funds from the internal wallet", false,
+	"Returns a list of funds (outputs) that can be used by the internal wallet to open new channels or can be withdrawn, using the `withdraw` command, to another wallet."
 };
 AUTODATA(json_command, &listfunds_command);
 
@@ -485,6 +487,7 @@ static void json_dev_rescan_outputs(struct command *cmd,
 
 static const struct json_command dev_rescan_output_command = {
     "dev-rescan-outputs", json_dev_rescan_outputs,
-    "Synchronize the state of our funds with bitcoind"
+    "Synchronize the state of our funds with bitcoind", false,
+    "For each output stored in the internal wallet ask `bitcoind` whether we are in sync with its state (spent vs. unspent)"
 };
 AUTODATA(json_command, &dev_rescan_output_command);
