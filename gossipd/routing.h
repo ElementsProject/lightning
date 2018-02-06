@@ -193,6 +193,9 @@ void routing_failure(struct routing_state *rstate,
 		     const struct short_channel_id *erring_channel,
 		     enum onion_type failcode,
 		     const u8 *channel_update);
+/* Disable specific channel from routing. */
+void mark_channel_unroutable(struct routing_state *rstate,
+			     const struct short_channel_id *channel);
 
 /* routing_channel constructor */
 struct routing_channel *routing_channel_new(const tal_t *ctx,
