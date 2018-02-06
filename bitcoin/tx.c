@@ -317,12 +317,12 @@ static u64 pull_value(const u8 **cursor, size_t *max)
 	return amount;
 }
 
-/* Pulls a varint which specifies a data length: ensures basic sanity to
- * avoid trivial OOM */
-static u64 pull_length(const u8 **cursor, size_t *max)
+/* Pulls a varint which specifies n items of mult size: ensures basic
+ * sanity to avoid trivial OOM */
+static u64 pull_length(const u8 **cursor, size_t *max, size_t mult)
 {
 	u64 v = pull_varint(cursor, max);
-	if (v > *max) {
+	if (v * mult > *max) {
 		*cursor = NULL;
 		*max = 0;
 		return 0;
@@ -336,7 +336,7 @@ static void pull_input(const tal_t *ctx, const u8 **cursor, size_t *max,
 	u64 script_len;
 	pull_sha256_double(cursor, max, &input->txid.shad);
 	input->index = pull_le32(cursor, max);
-	script_len = pull_length(cursor, max);
+	script_len = pull_length(cursor, max, 1);
 	if (script_len)
 		input->script = tal_arr(ctx, u8, script_len);
 	else
@@ -349,13 +349,13 @@ static void pull_output(const tal_t *ctx, const u8 **cursor, size_t *max,
 			struct bitcoin_tx_output *output)
 {
 	output->amount = pull_value(cursor, max);
-	output->script = tal_arr(ctx, u8, pull_length(cursor, max));
+	output->script = tal_arr(ctx, u8, pull_length(cursor, max, 1));
 	pull(cursor, max, output->script, tal_len(output->script));
 }
 
 static u8 *pull_witness_item(const tal_t *ctx, const u8 **cursor, size_t *max)
 {
-	uint64_t len = pull_length(cursor, max);
+	uint64_t len = pull_length(cursor, max, 1);
 	u8 *item;
 
 	item = tal_arr(ctx, u8, len);
@@ -366,7 +366,7 @@ static u8 *pull_witness_item(const tal_t *ctx, const u8 **cursor, size_t *max)
 static void pull_witness(struct bitcoin_tx_input *inputs, size_t i,
 			 const u8 **cursor, size_t *max)
 {
-	uint64_t j, num = pull_length(cursor, max);
+	uint64_t j, num = pull_length(cursor, max, 1);
 
 	/* 0 means not using witness. */
 	if (num == 0) {
@@ -389,20 +389,20 @@ struct bitcoin_tx *pull_bitcoin_tx_onto(const tal_t *ctx, const u8 **cursor,
 	u8 flag = 0;
 
 	tx->version = pull_le32(cursor, max);
-	count = pull_length(cursor, max);
+	count = pull_length(cursor, max, 32 + 4 + 4 + 1);
 	/* BIP 144 marker is 0 (impossible to have tx with 0 inputs) */
 	if (count == 0) {
 		pull(cursor, max, &flag, 1);
 		if (flag != SEGREGATED_WITNESS_FLAG)
 			return tal_free(tx);
-		count = pull_length(cursor, max);
+		count = pull_length(cursor, max, 32 + 4 + 4 + 1);
 	}
 
 	tx->input = tal_arr(tx, struct bitcoin_tx_input, count);
 	for (i = 0; i < tal_count(tx->input); i++)
 		pull_input(tx, cursor, max, tx->input + i);
 
-	count = pull_length(cursor, max);
+	count = pull_length(cursor, max, 8 + 1);
 	tx->output = tal_arr(tx, struct bitcoin_tx_output, count);
 	for (i = 0; i < tal_count(tx->output); i++)
 		pull_output(tx, cursor, max, tx->output + i);
