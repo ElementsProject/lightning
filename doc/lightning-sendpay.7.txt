@@ -52,9 +52,9 @@ The following error codes may occur:
 
 A routing failure object has the fields below:
 
-* 'origin_index'. The index of the node along the route that
-  reported the error. 0 for the first hop node, -1 if the local
-  node reported the error.
+* 'erring_index'. The index of the node along the route that
+  reported the error. 0 for the local node, 1 for the first
+  hop, and so on.
 * 'erring_node'. The hex string of the pubkey id of the node
   that reported the error.
 * 'erring_channel'. The short channel ID of the channel that
