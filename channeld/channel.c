@@ -323,6 +323,18 @@ static void send_announcement_signatures(struct peer *peer)
 	    !peer->funding_locked[REMOTE])
 		return;
 
+	/* BOLT #7:
+	 *
+	 * A node:
+	 *   - if the `open_channel` message has the `announce_channel` bit set AND a `shutdown` message has not been sent:
+	 *     - MUST send the `announcement_signatures` message.
+	 * ...
+	 *   - otherwise:
+	 *     - MUST NOT send the `announcement_signatures` message.
+	 */
+	if (peer->shutdown_sent[LOCAL])
+		return;
+
 	tmpctx = tal_tmpctx(peer);
 	status_trace("Exchanging announcement signatures.");
 	ca = create_channel_announcement(tmpctx, peer);
