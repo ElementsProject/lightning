@@ -927,7 +927,7 @@ static bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum)
 	peer->next_index[REMOTE]++;
 
 	/* FIXME: Save to database, with sig and HTLCs. */
-	wallet_channel_save(peer->ld->wallet, peer->channel, 0);
+	wallet_channel_save(peer->ld->wallet, peer->channel);
 	return true;
 }
 
@@ -988,7 +988,7 @@ void peer_sending_commitsig(struct peer *peer, const u8 *msg)
 	peer->last_was_revoke = false;
 	tal_free(peer->last_sent_commit);
 	peer->last_sent_commit = tal_steal(peer, changed_htlcs);
-	wallet_channel_save(peer->ld->wallet, peer->channel, 0);
+	wallet_channel_save(peer->ld->wallet, peer->channel);
 
 	/* Tell it we've got it, and to go ahead with commitment_signed. */
 	subd_send_msg(peer->owner,
@@ -1145,7 +1145,7 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 	if (!peer_save_commitsig_received(peer, commitnum, tx, &commit_sig))
 		return;
 
-	wallet_channel_save(peer->ld->wallet, peer->channel, 0);
+	wallet_channel_save(peer->ld->wallet, peer->channel);
 
 	/* FIXME: Put these straight in the db! */
 	tal_free(peer->last_htlc_sigs);
@@ -1253,7 +1253,7 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 		hin = find_htlc_in(&peer->ld->htlcs_in, peer, changed[i].id);
 		local_fail_htlc(hin, failcodes[i], NULL);
 	}
-	wallet_channel_save(peer->ld->wallet, peer->channel, 0);
+	wallet_channel_save(peer->ld->wallet, peer->channel);
 }
 
 static void *tal_arr_append_(void **p, size_t size)
