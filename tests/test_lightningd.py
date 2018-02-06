@@ -2528,6 +2528,7 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_logs(['sendrawtx exit 0', ' to CLOSINGD_COMPLETE'])
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
 
+    @unittest.skip("FIXME: needs bitcoind 0.16")
     def test_bech32_funding(self):
         # Don't get any funds from previous runs.
         l1 = self.node_factory.get_node(random_hsm=True)
