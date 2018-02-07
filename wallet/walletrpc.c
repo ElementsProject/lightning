@@ -481,8 +481,8 @@ static void json_dev_rescan_outputs(struct command *cmd, const char *buffer,
 		return;
 	}
 	bitcoind_gettxout(cmd->ld->topology->bitcoind, &rescan->utxos[0]->txid,
-			rescan->utxos[0]->outnum, process_utxo_result,
-			rescan);
+			 rescan->utxos[0]->outnum, process_utxo_result,
+			 rescan);
 	command_still_pending(cmd);
 }
 
