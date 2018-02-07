@@ -19,6 +19,7 @@
 #include <lightningd/subd.h>
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
+#include <ccan/str/hex/hex.h>
 
 struct withdrawal {
 	u64 amount, changesatoshi;
@@ -394,6 +395,84 @@ static const struct json_command newaddr_command = {
 	"Get a new {bech32, p2sh-segwit} address to fund a channel"
 };
 AUTODATA(json_command, &newaddr_command);
+
+static void json_listaddrs(struct command *cmd,
+						   const char *buffer, const jsmntok_t *params)
+{
+	struct json_result *response = new_json_result(cmd);
+	jsmntok_t *bip32tok;
+	u64 bip32_max_index;
+	const tal_t *tmpctx = tal_tmpctx(cmd);
+
+    if (!json_get_params(cmd, buffer, params,
+                         "?bip32_max_index", &bip32tok, NULL)) {
+        return;
+    }
+
+	if (!bip32tok || !json_tok_u64(buffer, bip32tok, &bip32_max_index)) {
+        bip32_max_index = db_get_intvar(cmd->ld->wallet->db, "bip32_max_index", 0);
+	}
+	json_object_start(response, NULL);
+	json_array_start(response, "addresses");
+
+	s64 keyidx;
+	for (keyidx = 0; keyidx < bip32_max_index; keyidx++) {
+
+		struct ext_key ext;
+		struct sha256 h;
+		struct ripemd160 p2sh;
+		struct pubkey pubkey;
+		u8 *redeemscript;
+
+		if(keyidx == BIP32_INITIAL_HARDENED_CHILD){
+			command_fail(cmd, "Keys exhausted ");
+		}
+
+		if (bip32_key_from_parent(cmd->ld->wallet->bip32_base, keyidx,
+								  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
+			command_fail(cmd, "Keys generation failure");
+			return;
+		}
+
+		if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey.pubkey,
+									   ext.pub_key, sizeof(ext.pub_key))) {
+			command_fail(cmd, "Key parsing failure");
+			return;
+		}
+
+		redeemscript = bitcoin_redeem_p2sh_p2wpkh(cmd, &pubkey);
+		sha256(&h, redeemscript, tal_count(redeemscript));
+		ripemd160(&p2sh, h.u.u8, sizeof(h));
+
+		json_object_start(response, NULL);
+		json_add_u64(response, "keyidx", keyidx);
+		json_add_string(response, "address",
+						p2sh_to_base58(cmd, get_chainparams(cmd->ld)->testnet,
+									   &p2sh));
+
+		{
+			char *hex = pubkey_to_hexstr(tmpctx, &pubkey);
+			json_add_string(response, "pubkey", hex);
+		}
+		{
+			int len = sizeof(struct ripemd160) + 1;
+			char *hex = tal_arr(NULL, char, hex_str_size(len));
+			hex_encode(redeemscript, len, hex, hex_str_size(len));
+			json_add_string(response, "redeemscript", hex);
+		}
+		json_object_end(response);
+	}
+	json_array_end(response);
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+static const struct json_command listaddrs_command = {
+		"dev-listaddrs",
+		json_listaddrs,
+		"Get list of generated p2sh addresses"
+};
+AUTODATA(json_command, &listaddrs_command);
 
 static void json_listfunds(struct command *cmd, const char *buffer,
 			   const jsmntok_t *params)
