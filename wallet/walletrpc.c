@@ -402,10 +402,11 @@ static void json_listaddrs(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 	jsmntok_t *bip32tok;
 	u64 bip32_max_index;
-	const tal_t *tmpctx = tal_tmpctx(cmd);
+	const tal_t *tmpctx = tal_tmpctx(NULL);
 
     if (!json_get_params(cmd, buffer, params,
                          "?bip32_max_index", &bip32tok, NULL)) {
+		tal_free(tmpctx);
         return;
     }
 
@@ -426,17 +427,21 @@ static void json_listaddrs(struct command *cmd,
 
 		if(keyidx == BIP32_INITIAL_HARDENED_CHILD){
 			command_fail(cmd, "Keys exhausted ");
+			tal_free(tmpctx);
+			return;
 		}
 
 		if (bip32_key_from_parent(cmd->ld->wallet->bip32_base, keyidx,
 								  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
 			command_fail(cmd, "Keys generation failure");
+			tal_free(tmpctx);
 			return;
 		}
 
 		if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey.pubkey,
 									   ext.pub_key, sizeof(ext.pub_key))) {
 			command_fail(cmd, "Key parsing failure");
+			tal_free(tmpctx);
 			return;
 		}
 
@@ -465,6 +470,7 @@ static void json_listaddrs(struct command *cmd,
 	json_array_end(response);
 	json_object_end(response);
 	command_success(cmd, response);
+	tal_free(tmpctx);
 }
 
 static const struct json_command listaddrs_command = {
