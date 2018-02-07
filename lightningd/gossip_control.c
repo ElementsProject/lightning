@@ -295,7 +295,9 @@ static void json_getroute_reply(struct subd *gossip, const u8 *reply, const int 
 static void json_getroute(struct command *cmd, const char *buffer, const jsmntok_t *params)
 {
 	struct pubkey id;
-	jsmntok_t *idtok, *msatoshitok, *riskfactortok, *cltvtok;
+        struct pubkey from_id;
+        struct pubkey *from_id_to_use;
+	jsmntok_t *idtok, *msatoshitok, *riskfactortok, *cltvtok, *fromidtok;
 	u64 msatoshi;
 	unsigned cltv = 9;
 	double riskfactor;
@@ -306,6 +308,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 			     "msatoshi", &msatoshitok,
 			     "riskfactor", &riskfactortok,
 			     "?cltv", &cltvtok,
+			     "?fromid", &fromidtok,
 			     NULL)) {
 		return;
 	}
@@ -333,7 +336,18 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 			     buffer + riskfactortok->start);
 		return;
 	}
-	u8 *req = towire_gossip_getroute_request(cmd, &ld->id, &id, msatoshi, riskfactor*1000, cltv);
+
+	if (fromidtok) {
+		if (!json_tok_pubkey(buffer, fromidtok, &from_id)) {
+			command_fail(cmd, "Invalid from id");
+			return;
+		}
+		from_id_to_use = &from_id;
+	} else {
+		from_id_to_use = &ld->id;
+	}
+
+	u8 *req = towire_gossip_getroute_request(cmd, from_id_to_use, &id, msatoshi, riskfactor*1000, cltv);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 	command_still_pending(cmd);
 }
