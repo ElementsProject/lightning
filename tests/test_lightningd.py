@@ -264,8 +264,10 @@ class LightningDTests(BaseLightningDTests):
         # Technically, this is async to fundchannel.
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l1.bitcoin.generate_block(1)
-        l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
-        l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
+        # We wait until gossipd sees local update, as well as status NORMAL,
+        # so it can definitely route through.
+        l1.daemon.wait_for_logs(['update for channel .* now ACTIVE', 'to CHANNELD_NORMAL'])
+        l2.daemon.wait_for_logs(['update for channel .* now ACTIVE', 'to CHANNELD_NORMAL'])
 
         # Hacky way to find our output.
         decoded=bitcoind.rpc.decoderawtransaction(tx)
@@ -1036,8 +1038,9 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(6)
 
         # Now wait for them all to hit normal state, do payments
+        l1.daemon.wait_for_logs(['update for channel .* now ACTIVE'] * num_peers
+                                + ['to CHANNELD_NORMAL'] * num_peers)
         for p in peers:
-            p.daemon.wait_for_log('to CHANNELD_NORMAL')
             if p.amount != 0:
                 self.pay(l1,p,100000000)
 
