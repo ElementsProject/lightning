@@ -470,7 +470,7 @@ static void json_listaddrs(struct command *cmd,
 static const struct json_command listaddrs_command = {
 		"dev-listaddrs",
 		json_listaddrs,
-		"Get list of generated p2sh addresses"
+		"Show addresses list up to derivation {index} (default is the last bip32 index)"
 };
 AUTODATA(json_command, &listaddrs_command);
 
