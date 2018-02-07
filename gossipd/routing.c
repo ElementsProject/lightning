@@ -931,10 +931,11 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 		return;
 	}
 
-	status_trace("Received channel_update for channel %s(%d)",
+	status_trace("Received channel_update for channel %s(%d) now %s",
 		     type_to_string(trc, struct short_channel_id,
 				    &short_channel_id),
-		     flags & 0x01);
+		     flags & 0x01,
+		     flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
 
 	c->last_timestamp = timestamp;
 	c->delay = expiry;

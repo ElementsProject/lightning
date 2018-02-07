@@ -808,7 +808,8 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 	c->htlc_minimum_msat = htlc_minimum_msat;
 	c->base_fee = fee_base_msat;
 	c->proportional_fee = fee_proportional_millionths;
-	status_trace("Channel %s(%d) was updated (LOCAL)",
+	/* Designed to match msg in handle_channel_update, for easy testing */
+	status_trace("Received local update for channel %s(%d) now ACTIVE",
 		     type_to_string(msg, struct short_channel_id, &scid),
 		     direction);
 }
