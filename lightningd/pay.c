@@ -667,6 +667,8 @@ AUTODATA(json_command, &sendpay_command);
 struct pay {
 	struct sha256 payment_hash;
 	struct command *cmd;
+	u64 msatoshi;
+	double maxfeepercent;
 };
 
 static void json_pay_getroute_reply(struct subd *gossip,
@@ -674,6 +676,10 @@ static void json_pay_getroute_reply(struct subd *gossip,
 				    struct pay *pay)
 {
 	struct route_hop *route;
+	u64 msatoshi_sent;
+	u64 fee;
+	double feepercent;
+	struct json_result *data;
 
 	fromwire_gossip_getroute_reply(reply, reply, NULL, &route);
 
@@ -683,14 +689,45 @@ static void json_pay_getroute_reply(struct subd *gossip,
 		return;
 	}
 
+	msatoshi_sent = route[0].amount;
+	fee = msatoshi_sent - pay->msatoshi;
+	/* FIXME: IEEE Double-precision floating point has only 53 bits
+	 * of precision. Total satoshis that can ever be created is
+	 * slightly less than 2100000000000000. Total msatoshis that
+	 * can ever be created is 1000 times that or
+	 * 2100000000000000000, requiring 60.865 bits of precision,
+	 * and thus losing precision in the below. Currently, OK, as,
+	 * payments are limited to 4294967295 msatoshi. */
+	feepercent = ((double) fee) * 100.0 / ((double) pay->msatoshi);
+	if (feepercent > pay->maxfeepercent) {
+		data = new_json_result(pay);
+		json_object_start(data, NULL);
+		json_add_u64(data, "fee", fee);
+		json_add_double(data, "feepercent", feepercent);
+		json_add_u64(data, "msatoshi", pay->msatoshi);
+		json_add_double(data, "maxfeepercent", pay->maxfeepercent);
+		json_object_end(data);
+
+		command_fail_detailed(pay->cmd, PAY_ROUTE_TOO_EXPENSIVE,
+				      data,
+				      "Fee %"PRIu64" is %f%% "
+				      "of payment %"PRIu64"; "
+				      "max fee requested is %f%%",
+				      fee, feepercent,
+				      pay->msatoshi,
+				      pay->maxfeepercent);
+		return;
+	}
+
 	send_payment(pay->cmd, &pay->payment_hash, route);
 }
 
 static void json_pay(struct command *cmd,
 		     const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *bolt11tok, *msatoshitok, *desctok, *riskfactortok;
+	jsmntok_t *bolt11tok, *msatoshitok, *desctok, *riskfactortok, *maxfeetok;
 	double riskfactor = 1.0;
+	double maxfeepercent = 0.5;
 	u64 msatoshi;
 	struct pay *pay = tal(cmd, struct pay);
 	struct bolt11 *b11;
@@ -702,6 +739,7 @@ static void json_pay(struct command *cmd,
 			     "?msatoshi", &msatoshitok,
 			     "?description", &desctok,
 			     "?riskfactor", &riskfactortok,
+			     "?maxfeepercent", &maxfeetok,
 			     NULL)) {
 		return;
 	}
@@ -742,6 +780,7 @@ static void json_pay(struct command *cmd,
 			return;
 		}
 	}
+	pay->msatoshi = msatoshi;
 
 	if (riskfactortok
 	    && !json_tok_double(buffer, riskfactortok, &riskfactor)) {
@@ -750,6 +789,26 @@ static void json_pay(struct command *cmd,
 			     buffer + riskfactortok->start);
 		return;
 	}
+
+	if (maxfeetok
+	    && !json_tok_double(buffer, maxfeetok, &maxfeepercent)) {
+		command_fail(cmd, "'%.*s' is not a valid double",
+			     (int)(maxfeetok->end - maxfeetok->start),
+			     buffer + maxfeetok->start);
+		return;
+	}
+	/* Ensure it is in range 0.0 <= maxfeepercent <= 100.0 */
+	if (!(0.0 <= maxfeepercent)) {
+		command_fail(cmd, "%f maxfeepercent must be non-negative",
+			     maxfeepercent);
+		return;
+	}
+	if (!(maxfeepercent <= 100.0)) {
+		command_fail(cmd, "%f maxfeepercent must be <= 100.0",
+			     maxfeepercent);
+		return;
+	}
+	pay->maxfeepercent = maxfeepercent;
 
 	/* FIXME: use b11->routes */
 	req = towire_gossip_getroute_request(cmd, &cmd->ld->id,
@@ -763,7 +822,11 @@ static void json_pay(struct command *cmd,
 static const struct json_command pay_command = {
 	"pay",
 	json_pay,
-	"Send payment specified by {bolt11} with optional {msatoshi} (if and only if {bolt11} does not have amount), {description} (required if {bolt11} uses description hash) and {riskfactor} (default 1.0)"
+	"Send payment specified by {bolt11} with optional {msatoshi} "
+	"(if and only if {bolt11} does not have amount), "
+	"{description} (required if {bolt11} uses description hash), "
+	"{riskfactor} (default 1.0), and "
+	"{maxfeepercent} (default 0.5) the maximum acceptable fee as a percentage (e.g. 0.5 => 0.5%)"
 };
 AUTODATA(json_command, &pay_command);
 
