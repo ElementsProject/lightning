@@ -473,8 +473,13 @@ static void json_dev_rescan_outputs(struct command *cmd, const char *buffer,
 	/* Open the result structure so we can incrementally add results */
 	json_object_start(rescan->response, NULL);
 	json_array_start(rescan->response, "outputs");
-	rescan->utxos =
-	    wallet_get_utxos(rescan, cmd->ld->wallet, output_state_any);
+	rescan->utxos = wallet_get_utxos(rescan, cmd->ld->wallet, output_state_any);
+	if (tal_count(rescan->utxos) == 0) {
+		json_array_end(rescan->response);
+		json_object_end(rescan->response);
+		command_success(cmd, rescan->response);
+		return;
+	}
 	bitcoind_gettxout(cmd->ld->topology->bitcoind, &rescan->utxos[0]->txid,
 			  rescan->utxos[0]->outnum, process_utxo_result,
 			  rescan);
