@@ -185,8 +185,7 @@ static void do_peer_write(struct peer *peer)
 	r = write(PEER_FD, peer->peer_outmsg + peer->peer_outoff,
 		  len - peer->peer_outoff);
 	if (r < 0)
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "Peer write failed: %s", strerror(errno));
+		status_fatal_connection_lost();
 
 	peer->peer_outoff += r;
 	if (peer->peer_outoff == len)
@@ -1628,15 +1627,13 @@ static void peer_in(struct peer *peer, const u8 *msg)
 
 static void peer_conn_broken(struct peer *peer)
 {
-	const char *e = strerror(errno);
-
 	/* If we have signatures, send an update to say we're disabled. */
 	if (peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE]) {
 		u8 *cupdate = create_channel_update(peer, peer, true);
 
 		wire_sync_write(GOSSIP_FD, take(cupdate));
 	}
-	status_failed(STATUS_FAIL_PEER_IO, "peer read failed: %s", e);
+	status_fatal_connection_lost();
 }
 
 static void resend_revoke(struct peer *peer)
@@ -1784,8 +1781,7 @@ static void peer_reconnect(struct peer *peer)
 					 peer->next_index[LOCAL],
 					 peer->revocations_received);
 	if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "Failed writing reestablish: %s", strerror(errno));
+		status_fatal_connection_lost();
 
 	/* Read until they say something interesting */
 	while ((msg = channeld_read_peer_msg(peer)) == NULL);
@@ -1793,10 +1789,12 @@ static void peer_reconnect(struct peer *peer)
 	if (!fromwire_channel_reestablish(msg, NULL, &channel_id,
 					  &next_local_commitment_number,
 					  &next_remote_revocation_number)) {
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "bad reestablish msg: %s %s",
-			      wire_type_name(fromwire_peektype(msg)),
-			      tal_hex(msg, msg));
+		peer_failed(PEER_FD,
+			    &peer->cs,
+			    &peer->channel_id,
+			    "bad reestablish msg: %s %s",
+			    wire_type_name(fromwire_peektype(msg)),
+			    tal_hex(msg, msg));
 	}
 
 	status_trace("Got reestablish commit=%"PRIu64" revoke=%"PRIu64,
@@ -1840,18 +1838,22 @@ static void peer_reconnect(struct peer *peer)
 	if (next_remote_revocation_number == peer->next_index[LOCAL] - 2) {
 		/* Don't try to retransmit revocation index -1! */
 		if (peer->next_index[LOCAL] < 2) {
-			status_failed(STATUS_FAIL_PEER_IO,
-				      "bad reestablish revocation_number: %"
-				      PRIu64,
-				      next_remote_revocation_number);
+			peer_failed(PEER_FD,
+				    &peer->cs,
+				    &peer->channel_id,
+				    "bad reestablish revocation_number: %"
+				    PRIu64,
+				    next_remote_revocation_number);
 		}
 		retransmit_revoke_and_ack = true;
 	} else if (next_remote_revocation_number != peer->next_index[LOCAL] - 1) {
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "bad reestablish revocation_number: %"PRIu64
-			      " vs %"PRIu64,
-			      next_remote_revocation_number,
-			      peer->next_index[LOCAL]);
+		peer_failed(PEER_FD,
+			    &peer->cs,
+			    &peer->channel_id,
+			    "bad reestablish revocation_number: %"PRIu64
+			    " vs %"PRIu64,
+			    next_remote_revocation_number,
+			    peer->next_index[LOCAL]);
 	} else
 		retransmit_revoke_and_ack = false;
 
@@ -1870,10 +1872,12 @@ static void peer_reconnect(struct peer *peer)
 	if (next_local_commitment_number == peer->next_index[REMOTE] - 1) {
 		/* We completed opening, we don't re-transmit that one! */
 		if (next_local_commitment_number == 0)
-			status_failed(STATUS_FAIL_PEER_IO,
-				      "bad reestablish commitment_number: %"
-				      PRIu64,
-				      next_local_commitment_number);
+			peer_failed(PEER_FD,
+				    &peer->cs,
+				    &peer->channel_id,
+				    "bad reestablish commitment_number: %"
+				    PRIu64,
+				    next_local_commitment_number);
 
 		resend_commitment(peer, peer->last_sent_commit);
 

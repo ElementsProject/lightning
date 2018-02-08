@@ -206,13 +206,13 @@ static void temporary_channel_id(struct channel_id *channel_id)
 
 /* This handles the case where there's an error only for this channel */
 static void opening_errpkt(const char *desc,
-			   bool this_channel_only,
+			   const struct channel_id *channel_id,
 			   struct state *state)
 {
-	if (this_channel_only)
+	/* FIXME: Remove negotiation_failed */
+	if (structeq(channel_id, &state->channel_id))
 		negotiation_failed(state, false, "Error packet: %s", desc);
-	else
-		status_failed(STATUS_FAIL_PEER_BAD, "Received ERROR %s", desc);
+	status_fatal_received_errmsg(desc, channel_id);
 }
 
 /* Handle random messages we might get, returning the first non-handled one. */
@@ -287,8 +287,7 @@ static u8 *funder_channel(struct state *state,
 				  &state->next_per_commit[LOCAL],
 				  channel_flags);
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "Writing open_channel: %s", strerror(errno));
+		status_fatal_connection_lost();
 
 	state->remoteconf = tal(state, struct channel_config);
 
@@ -402,8 +401,7 @@ static u8 *funder_channel(struct state *state,
 				     state->funding_txout,
 				     &sig);
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "Writing funding_created: %s", strerror(errno));
+		status_fatal_connection_lost();
 
 	/* BOLT #2:
 	 *
@@ -593,8 +591,7 @@ static u8 *fundee_channel(struct state *state,
 				    &state->next_per_commit[LOCAL]);
 
 	if (!sync_crypto_write(&state->cs, PEER_FD, take(msg)))
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "Writing accept_channel: %s", strerror(errno));
+		status_fatal_connection_lost();
 
 	msg = opening_read_peer_msg(state);
 
