@@ -8,7 +8,7 @@ lightning-pay - Protocol for sending a payment to a BOLT11 invoice
 
 SYNOPSIS
 --------
-*pay* 'bolt11' ['msatoshi'] ['description'] ['riskfactor']
+*pay* 'bolt11' ['msatoshi'] ['description'] ['riskfactor'] ['maxfeepercent']
 
 DESCRIPTION
 -----------
@@ -19,6 +19,9 @@ and send the funds it asks for.  If the 'bolt11' does not contain an amount,
 'bolt11' contains a description hash ('h' field) 'description' is
 required, otherwise it is unused.  The 'riskfactor' is described in detail
 in lightning-getroute(7), and defaults to 1.0.
+The 'maxfeepercent' limits the money paid in fees, and defaults to 0.5.
+The `maxfeepercent' is a percentage of the amount that is to be
+paid.
 
 The response will occur when the payment fails or succeeds.  Once a
 payment has succeeded, calls to *pay* with the same 'bolt11' will
@@ -49,6 +52,10 @@ The following error codes may occur:
 * 204. Failure along route; retry a different route. The 'data'
   field of the error will be routing failure object.
 * 205. Unable to find a route.
+* 206. Route too expensive. The 'data' field of the error will
+  indicate the actual 'fee' as well as the 'feepercent'
+  percentage that the fee has of the destination payment
+  amount.
 
 A routing failure object has the fields below:
 
