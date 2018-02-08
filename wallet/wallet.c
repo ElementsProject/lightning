@@ -54,7 +54,7 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 }
 
 /**
- * wallet_stmt2output - Extract data from stmt and fill a utxo
+ * wallet_stmt2output - Extract data from stmt and fill an UTXO
  *
  * Returns true on success.
  */

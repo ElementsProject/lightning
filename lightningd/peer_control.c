@@ -1275,7 +1275,7 @@ static void handle_irrevocably_resolved(struct peer *peer, const u8 *msg)
 }
 
 /**
- * onchain_add_utxo -- onchaind is telling us about a UTXO we own
+ * onchain_add_utxo -- onchaind is telling us about an UTXO we own
  */
 static void onchain_add_utxo(struct peer *peer, const u8 *msg)
 {

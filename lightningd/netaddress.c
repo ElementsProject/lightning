@@ -228,7 +228,7 @@ static bool get_local_sockname(struct lightningd *ld,
     return true;
 }
 
-/* Return an wireaddr without port filled in */
+/* Return a wireaddr without port filled in */
 static bool guess_one_address(struct lightningd *ld,
                               struct wireaddr *addr, u16 portnum,
                               enum wire_addr_type type)

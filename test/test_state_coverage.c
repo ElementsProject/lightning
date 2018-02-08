@@ -898,7 +898,7 @@ const struct bitcoin_tx *bitcoin_commit(const tal_t *ctx, struct peer *peer)
 	return bitcoin_tx("our commit");
 }
 
-/* Create a HTLC refund collection */
+/* Create an HTLC refund collection */
 const struct bitcoin_tx *bitcoin_htlc_timeout(const tal_t *ctx,
 					      const struct peer *peer,
 					      const struct htlc *htlc)
@@ -906,7 +906,7 @@ const struct bitcoin_tx *bitcoin_htlc_timeout(const tal_t *ctx,
 	return htlc_tx(ctx, "htlc timeout", htlc->id);
 }
 
-/* Create a HTLC collection */
+/* Create an HTLC collection */
 const struct bitcoin_tx *bitcoin_htlc_spend(const tal_t *ctx,
 					    const struct peer *peer,
 					    const struct htlc *htlc)

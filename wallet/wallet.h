@@ -115,9 +115,9 @@ struct wallet *wallet_new(const tal_t *ctx,
 			  struct log *log, struct timers *timers);
 
 /**
- * wallet_add_utxo - Register a UTXO which we (partially) own
+ * wallet_add_utxo - Register an UTXO which we (partially) own
  *
- * Add a UTXO to the set of outputs we care about.
+ * Add an UTXO to the set of outputs we care about.
  */
 bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		     enum wallet_output_type type);
@@ -280,7 +280,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 				 u64 *total_satoshi);
 
 /**
- * wallet_htlc_save_in - store a htlc_in in the database
+ * wallet_htlc_save_in - store an htlc_in in the database
  *
  * @wallet: wallet to store the htlc into
  * @chan: the `wallet_channel` this HTLC is associated with
@@ -298,7 +298,7 @@ void wallet_htlc_save_in(struct wallet *wallet,
 			 const struct wallet_channel *chan, struct htlc_in *in);
 
 /**
- * wallet_htlc_save_out - store a htlc_out in the database
+ * wallet_htlc_save_out - store an htlc_out in the database
  *
  * See comment for wallet_htlc_save_in.
  */
