@@ -52,7 +52,8 @@ bool replace_broadcast(struct broadcast_state *bstate UNNEEDED,
 		       const u8 *payload UNNEEDED)
 { fprintf(stderr, "replace_broadcast called!\n"); abort(); }
 /* Generated stub for status_failed */
-void status_failed(enum status_fail code UNNEEDED, const char *fmt UNNEEDED, ...)
+void status_failed(enum status_failreason code UNNEEDED,
+		   const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "status_failed called!\n"); abort(); }
 /* Generated stub for towire_pubkey */
 void towire_pubkey(u8 **pptr UNNEEDED, const struct pubkey *pubkey UNNEEDED)
