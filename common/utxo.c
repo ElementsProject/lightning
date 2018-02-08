@@ -39,24 +39,3 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 	}
 	return utxo;
 }
-
-
-struct utxo *from_utxoptr_arr(const tal_t *ctx, const struct utxo **utxos)
-{
-	size_t i, n = tal_count(utxos);
-	struct utxo *utxo = tal_arr(ctx, struct utxo, n);
-
-	for (i = 0; i < n; i++)
-		utxo[i] = *utxos[i];
-	return utxo;
-}
-
-const struct utxo **to_utxoptr_arr(const tal_t *ctx, const struct utxo *utxos)
-{
-	size_t i, n = tal_count(utxos);
-	const struct utxo **utxo = tal_arr(ctx, const struct utxo *, n);
-
-	for (i = 0; i < n; i++)
-		utxo[i] = &utxos[i];
-	return utxo;
-}

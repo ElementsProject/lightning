@@ -3,6 +3,7 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
 #include <ccan/breakpoint/breakpoint.h>
+#include <ccan/cast/cast.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
@@ -234,7 +235,7 @@ static u8 *funder_channel(struct state *state,
 			  u32 max_minimum_depth,
 			  u64 change_satoshis, u32 change_keyindex,
 			  u8 channel_flags,
-			  const struct utxo *utxos,
+			  struct utxo **utxos,
 			  const struct ext_key *bip32_base)
 {
 	struct channel_id id_in;
@@ -246,7 +247,6 @@ static u8 *funder_channel(struct state *state,
 	u32 minimum_depth;
 	const u8 *wscript;
 	struct bitcoin_tx *funding;
-	const struct utxo **utxomap;
 
 	set_reserve(&state->localconf.channel_reserve_satoshis,
 		    state->funding_satoshis);
@@ -352,9 +352,9 @@ static u8 *funder_channel(struct state *state,
 				      "Bad change key %u", change_keyindex);
 	}
 
-	utxomap = to_utxoptr_arr(state, utxos);
 	funding = funding_tx(state, &state->funding_txout,
-			     utxomap, state->funding_satoshis,
+			     cast_const2(const struct utxo **, utxos),
+			     state->funding_satoshis,
 			     our_funding_pubkey,
 			     &their_funding_pubkey,
 			     change_satoshis, &changekey,
@@ -713,7 +713,7 @@ int main(int argc, char *argv[])
 	u64 change_satoshis;
 	u32 change_keyindex;
 	u8 channel_flags;
-	struct utxo *utxos;
+	struct utxo **utxos;
 	struct ext_key bip32_base;
 	u32 network_index;
 

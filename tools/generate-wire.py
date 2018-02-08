@@ -281,8 +281,8 @@ class Message(object):
                 subcalls.append('\t\t({})[i] = fromwire_{}(&cursor, plen);'
                                 .format(name, basetype))
             elif basetype in varlen_structs:
-                subcalls.append('\t\t{}[i] = fromwire_{}(ctx, &cursor, plen);'
-                                .format(f.name, basetype))
+                subcalls.append('\t\t({})[i] = fromwire_{}(ctx, &cursor, plen);'
+                                .format(name, basetype))
             else:
                 subcalls.append('\t\tfromwire_{}(&cursor, plen, {} + i);'
                                 .format(basetype, name))
@@ -297,12 +297,16 @@ class Message(object):
                 continue
             elif f.is_array():
                 args.append(', {} {}[{}]'.format(f.fieldtype.name, f.name, f.num_elems))
-            elif f.is_variable_size():
-                args.append(', {} **{}'.format(f.fieldtype.name, f.name))
-            elif f.basetype() in varlen_structs:
-                args.append(', {} **{}'.format(f.fieldtype.name, f.name))
             else:
-                args.append(', {} *{}'.format(f.fieldtype.name, f.name))
+                ptrs='*'
+                # If we're handing a variable array, we need a ptr-to-ptr.
+                if f.is_variable_size():
+                    ptrs += '*'
+                # If each type is a variable length, we need a ptr to that.
+                if f.basetype() in varlen_structs:
+                    ptrs += '*'
+
+                args.append(', {} {}{}'.format(f.fieldtype.name, ptrs, f.name))
 
         template = fromwire_header_templ if is_header else fromwire_impl_templ
         fields = ['\t{} {};\n'.format(f.fieldtype.name, f.name) for f in self.fields if f.is_len_var]
@@ -322,8 +326,12 @@ class Message(object):
                                           f.num_elems)
             elif f.is_variable_size():
                 subcalls.append("\t//2nd case {name}".format(name=f.name))
+                typename = f.fieldtype.name
+                # If structs are varlen, need array of ptrs to them.
+                if basetype in varlen_structs:
+                    typename += ' *'
                 subcalls.append('\t*{} = {} ? tal_arr(ctx, {}, {}) : NULL;'
-                                .format(f.name, f.lenvar, f.fieldtype.name, f.lenvar))
+                                .format(f.name, f.lenvar, typename, f.lenvar))
 
                 self.print_fromwire_array(subcalls, basetype, f, '*'+f.name,
                                           f.lenvar)
@@ -358,7 +366,7 @@ class Message(object):
         else:
             subcalls.append('\tfor (size_t i = 0; i < {}; i++)\n'
                             .format(num_elems))
-            if f.fieldtype.is_assignable():
+            if f.fieldtype.is_assignable() or basetype in varlen_structs:
                 subcalls.append('\t\ttowire_{}(&p, {}[i]);'
                                 .format(basetype, f.name))
             else:
@@ -375,6 +383,8 @@ class Message(object):
                 args.append(', const {} {}[{}]'.format(f.fieldtype.name, f.name, f.num_elems))
             elif f.is_assignable():
                 args.append(', {} {}'.format(f.fieldtype.name, f.name))
+            elif f.is_variable_size() and f.basetype() in varlen_structs:
+                args.append(', const {} **{}'.format(f.fieldtype.name, f.name))
             else:
                 args.append(', const {} *{}'.format(f.fieldtype.name, f.name))
 

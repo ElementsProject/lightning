@@ -1035,7 +1035,7 @@ static bool peer_added_their_htlc(struct peer *peer,
 static bool peer_sending_revocation(struct peer *peer,
 				    struct added_htlc *added,
 				    struct fulfilled_htlc *fulfilled,
-				    struct failed_htlc *failed,
+				    struct failed_htlc **failed,
 				    struct changed_htlc *changed)
 {
 	size_t i;
@@ -1050,7 +1050,7 @@ static bool peer_sending_revocation(struct peer *peer,
 			return false;
 	}
 	for (i = 0; i < tal_count(failed); i++) {
-		if (!update_out_htlc(peer, failed[i].id, SENT_REMOVE_REVOCATION))
+		if (!update_out_htlc(peer, failed[i]->id, SENT_REMOVE_REVOCATION))
 			return false;
 	}
 	for (i = 0; i < tal_count(changed); i++) {
@@ -1079,7 +1079,7 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 	struct added_htlc *added;
 	struct secret *shared_secrets;
 	struct fulfilled_htlc *fulfilled;
-	struct failed_htlc *failed;
+	struct failed_htlc **failed;
 	struct changed_htlc *changed;
 	struct bitcoin_tx *tx = tal(msg, struct bitcoin_tx);
 	size_t i;
@@ -1120,7 +1120,7 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 	}
 
 	for (i = 0; i < tal_count(failed); i++) {
-		if (!peer_failed_our_htlc(peer, &failed[i]))
+		if (!peer_failed_our_htlc(peer, failed[i]))
 			return;
 	}
 
@@ -1305,17 +1305,19 @@ static void add_fulfill(u64 id, enum side side,
 
 static void add_fail(u64 id, enum side side,
 		     const u8 *failuremsg,
-		     struct failed_htlc **failed_htlcs,
+		     const struct failed_htlc ***failed_htlcs,
 		     enum side **failed_sides)
 {
-	struct failed_htlc *f;
+	struct failed_htlc **f;
 	enum side *s;
 
 	f = tal_arr_append(failed_htlcs);
 	s = tal_arr_append(failed_sides);
-	f->id = id;
-	f->failreason = tal_dup_arr(*failed_htlcs, u8,
-				    failuremsg, tal_len(failuremsg), 0);
+
+	*f = tal(*failed_htlcs, struct failed_htlc);
+	(*f)->id = id;
+	(*f)->failreason
+		= tal_dup_arr(*f, u8, failuremsg, tal_len(failuremsg), 0);
 	*s = side;
 }
 
@@ -1326,7 +1328,7 @@ void peer_htlcs(const tal_t *ctx,
 		enum htlc_state **htlc_states,
 		struct fulfilled_htlc **fulfilled_htlcs,
 		enum side **fulfilled_sides,
-		struct failed_htlc **failed_htlcs,
+		const struct failed_htlc ***failed_htlcs,
 		enum side **failed_sides)
 {
 	struct htlc_in_map_iter ini;
@@ -1338,7 +1340,7 @@ void peer_htlcs(const tal_t *ctx,
 	*htlc_states = tal_arr(ctx, enum htlc_state, 0);
 	*fulfilled_htlcs = tal_arr(ctx, struct fulfilled_htlc, 0);
 	*fulfilled_sides = tal_arr(ctx, enum side, 0);
-	*failed_htlcs = tal_arr(ctx, struct failed_htlc, 0);
+	*failed_htlcs = tal_arr(ctx, const struct failed_htlc *, 0);
 	*failed_sides = tal_arr(ctx, enum side, 0);
 
 	for (hin = htlc_in_map_first(&peer->ld->htlcs_in, &ini);

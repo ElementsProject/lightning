@@ -268,7 +268,7 @@ bool channel_force_htlcs(struct channel *channel,
 			 const enum htlc_state *hstates,
 			 const struct fulfilled_htlc *fulfilled,
 			 const enum side *fulfilled_sides,
-			 const struct failed_htlc *failed,
+			 const struct failed_htlc **failed,
 			 const enum side *failed_sides);
 
 /**
