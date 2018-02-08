@@ -33,9 +33,7 @@ struct io_plan *peer_read_message(struct io_conn *conn,
 							  struct peer *,
 							  u8 *msg));
 
-/* Have we already started writing/reading a message? */
-bool peer_out_started(const struct io_conn *conn,
-		      const struct peer_crypto_state *cs);
+/* Have we already started reading a message? */
 bool peer_in_started(const struct io_conn *conn,
 		     const struct peer_crypto_state *cs);
 
