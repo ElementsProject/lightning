@@ -87,5 +87,6 @@ void fromwire_pad(const u8 **cursor, size_t *max, size_t num);
 
 void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num);
 
-void fromwire_bitcoin_tx(const u8 **cursor, size_t *max, struct bitcoin_tx *tx);
+struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
+				       const u8 **cursor, size_t *max);
 #endif /* LIGHTNING_WIRE_WIRE_H */
