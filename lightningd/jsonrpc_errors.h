@@ -5,7 +5,7 @@
 #define LIGHTNING_LIGHTNINGD_JSONRPC_ERRORS_H
 #include "config.h"
 
-/* Standad errors defined by JSON-RPC 2.0 standard */
+/* Standard errors defined by JSON-RPC 2.0 standard */
 #define JSONRPC2_INVALID_REQUEST	-32600
 #define JSONRPC2_METHOD_NOT_FOUND	-32601
 #define JSONRPC2_INVALID_PARAMS		-32602

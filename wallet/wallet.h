@@ -381,7 +381,7 @@ struct invoice {
 	/* The owning invoices object. */
 	struct invoices *owner;
 
-	/* Publicly-useable fields. */
+	/* Publicly-usable fields. */
 	enum invoice_status state;
 	const char *label;
 	/* NULL if they specified "any" */
