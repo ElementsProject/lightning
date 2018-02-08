@@ -2789,8 +2789,6 @@ static void activate_peer(struct peer *peer)
 {
 	u8 *msg;
 
-	assert(!peer->owner);
-
 	/* Pass gossipd any addrhints we currently have */
 	msg = towire_gossipctl_peer_addrhint(peer, &peer->id, &peer->addr);
 	subd_send_msg(peer->ld->gossip, take(msg));
@@ -2809,7 +2807,10 @@ static void activate_peer(struct peer *peer)
 	watch_txo(peer, peer->ld->topology, peer, peer->funding_txid, peer->funding_outnum,
 		  funding_spent, NULL);
 
-	if (peer_wants_reconnect(peer)) {
+	/* If peer->owner then we had a reconnect while loading and
+	 * activating the peers, don't ask gossipd to connect in that
+	 * case */
+	if (!peer->owner && peer_wants_reconnect(peer)) {
 		msg = towire_gossipctl_reach_peer(peer, &peer->id);
 		subd_send_msg(peer->ld->gossip, take(msg));
 	}

@@ -1915,6 +1915,20 @@ static struct io_plan *handle_routing_failure(struct io_conn *conn,
 
 	return daemon_conn_read_next(conn, &daemon->master);
 }
+static struct io_plan *
+handle_mark_channel_unroutable(struct io_conn *conn,
+			       struct daemon *daemon,
+			       const u8 *msg)
+{
+	struct short_channel_id channel;
+
+	if (!fromwire_gossip_mark_channel_unroutable(msg, NULL, &channel))
+		master_badmsg(WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE, msg);
+
+	mark_channel_unroutable(daemon->rstate, &channel);
+
+	return daemon_conn_read_next(conn, &daemon->master);
+}
 
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
@@ -1966,6 +1980,9 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 
 	case WIRE_GOSSIP_ROUTING_FAILURE:
 		return handle_routing_failure(conn, daemon, master->msg_in);
+
+	case WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE:
+		return handle_mark_channel_unroutable(conn, daemon, master->msg_in);
 
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:

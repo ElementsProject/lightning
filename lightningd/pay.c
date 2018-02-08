@@ -307,6 +307,34 @@ remote_routing_failure(const tal_t *ctx,
 	return routing_failure;
 }
 
+static void random_mark_channel_unroutable(struct log *log,
+					   struct subd *gossip,
+					   struct short_channel_id *route_channels)
+{
+	const tal_t *tmpctx = tal_tmpctx(gossip);
+	size_t num_channels = tal_count(route_channels);
+	size_t i;
+	const struct short_channel_id *channel;
+	u8 *msg;
+	assert(tal_len(route_channels) != 0);
+
+	/* Select one channel by random. */
+	randombytes_buf(&i, sizeof(i));
+	i = i % num_channels;
+	channel = &route_channels[i];
+
+	log_debug(log,
+		  "Disable randomly %dth channel (%s) along route "
+		  "(guessing due to bad reply)",
+		  (int) i,
+		  type_to_string(tmpctx, struct short_channel_id,
+				 channel));
+	msg = towire_gossip_mark_channel_unroutable(tmpctx, channel);
+	subd_send_msg(gossip, msg);
+
+	tal_free(tmpctx);
+}
+
 static void report_routing_failure(struct log *log,
 				   struct subd *gossip,
 				   struct routing_failure *fail)
@@ -374,9 +402,15 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 			/* Cannot report failure. */
 			fail = NULL;
 			failcode = WIRE_PERMANENT_NODE_FAILURE;
-			/* Not safe to retry, not know what failed. */
-			/* FIXME: some mitigation for this branch. */
-			retry_plausible = false;
+			/* Select a channel to mark unroutable by random */
+			random_mark_channel_unroutable(hout->key.peer->log,
+						       ld->gossip,
+						       payment->route_channels);
+			/* Can now retry; we selected a channel to mark
+			 * unroutable by random */
+			retry_plausible = true;
+			/* Already reported something to gossipd, do not
+			 * report anything else */
 			report_to_gossipd = false;
 		} else {
 			failcode = fromwire_peektype(reply->msg);

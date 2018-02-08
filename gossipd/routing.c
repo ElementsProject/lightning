@@ -1289,3 +1289,32 @@ void routing_failure(struct routing_state *rstate,
 out:
 	tal_free(tmpctx);
 }
+
+void mark_channel_unroutable(struct routing_state *rstate,
+			     const struct short_channel_id *channel)
+{
+	const tal_t *tmpctx = tal_tmpctx(rstate);
+	struct routing_channel *chan;
+	time_t now = time_now().ts.tv_sec;
+	const char *scid = type_to_string(tmpctx, struct short_channel_id,
+					  channel);
+
+	status_trace("Received mark_channel_unroutable channel %s",
+		     scid);
+
+	chan = uintmap_get(&rstate->channels,
+			   short_channel_id_to_uint(channel));
+
+	if (!chan) {
+		status_trace("UNUSUAL mark_channel_unroutable: "
+			     "channel %s not in routemap",
+			     scid);
+		tal_free(tmpctx);
+		return;
+	}
+	if (chan->connections[0])
+		chan->connections[0]->unroutable_until = now + 20;
+	if (chan->connections[1])
+		chan->connections[1]->unroutable_until = now + 20;
+	tal_free(tmpctx);
+}
