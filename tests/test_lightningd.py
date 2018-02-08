@@ -1681,6 +1681,7 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log(needle)
         # Need to increase timeout, intervals cannot be shortened with DEVELOPER=0
         wait_for(lambda: len(l1.getactivechannels()) == 2, timeout=60)
+        wait_for(lambda: len(l2.getactivechannels()) == 2, timeout=60)
 
         nodes = l1.rpc.listnodes()['nodes']
         assert set([n['nodeid'] for n in nodes]) == set([l1.info['id'], l2.info['id']])
