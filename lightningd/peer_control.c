@@ -2412,15 +2412,14 @@ static unsigned int opening_negotiation_failed(struct subd *openingd,
 	struct crypto_state cs;
 	u64 gossip_index;
 	struct peer *peer = openingd->peer;
-	u8 *err;
-	const char *why;
+	char *why;
 
 	/* We need the peer fd and gossip fd. */
 	if (tal_count(fds) == 0)
 		return 2;
 
 	if (!fromwire_opening_negotiation_failed(msg, msg, NULL,
-						 &cs, &gossip_index, &err)) {
+						 &cs, &gossip_index, &why)) {
 		peer_internal_error(peer,
 				    "bad OPENING_NEGOTIATION_FAILED %s",
 				    tal_hex(msg, msg));
@@ -2433,7 +2432,6 @@ static unsigned int opening_negotiation_failed(struct subd *openingd,
 	subd_send_fd(openingd->ld->gossip, fds[0]);
 	subd_send_fd(openingd->ld->gossip, fds[1]);
 
-	why = tal_strndup(peer, (const char *)err, tal_len(err));
 	log_unusual(peer->log, "Opening negotiation failed: %s", why);
 
 	/* This will free openingd, since that's peer->owner */
