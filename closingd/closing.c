@@ -115,8 +115,8 @@ static void do_reconnect(struct crypto_state *cs,
 					 next_index[LOCAL],
 					 revocations_received);
 	if (!sync_crypto_write(cs, PEER_FD, take(msg)))
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "Failed writing reestablish: %s", strerror(errno));
+		status_fatal_connection_lost();
+;
 
 	/* Wait for them to say something interesting */
 	msg = closing_read_peer_msg(tmpctx, cs, channel_id);
@@ -198,8 +198,7 @@ static void send_offer(struct crypto_state *cs,
 
 	msg = towire_closing_signed(tmpctx, channel_id, fee_to_offer, &our_sig);
 	if (!sync_crypto_write(cs, PEER_FD, take(msg)))
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "Writing closing_signed");
+			status_fatal_connection_lost();
 
 	tal_free(tmpctx);
 }

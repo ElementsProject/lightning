@@ -12,3 +12,19 @@ status_io,,data,len*u8
 status_fail,0xFFF2
 status_fail,,failreason,enum status_failreason
 status_fail,,desc,wirestring
+
+status_peer_connection_lost,0xFFF3
+
+# They sent us this error.
+status_received_errmsg,0xFFF4
+status_received_errmsg,,channel,struct channel_id
+status_received_errmsg,,desc,wirestring
+
+# We sent them this error.
+status_sent_errmsg,0xFFF5
+status_sent_errmsg,,channel,struct channel_id
+status_sent_errmsg,,desc,wirestring
+status_sent_errmsg,,len,u16
+status_sent_errmsg,,errmsg,len*u8
+
+# Note: 0xFFFF is reserved for MSG_PASS_FD!

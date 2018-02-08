@@ -350,53 +350,79 @@ static void subdaemon_malformed_msg(struct subd *sd, const u8 *msg)
 #endif
 }
 
-static void log_status_fail(struct subd *sd,
-			    enum status_failreason type, const char *str)
+static bool log_status_fail(struct subd *sd, const u8 *msg)
 {
-	const char *name;
+	const char *name = NULL;
+	enum status_failreason failreason;
+	char *desc;
+
+	if (!fromwire_status_fail(msg, msg, NULL, &failreason, &desc))
+		return false;
 
 	/* No 'default:' here so gcc gives warning if a new type added */
-	switch (type) {
+	switch (failreason) {
 	case STATUS_FAIL_MASTER_IO:
 		name = "STATUS_FAIL_MASTER_IO";
-		goto log_str_broken;
+		break;
 	case STATUS_FAIL_HSM_IO:
 		name = "STATUS_FAIL_HSM_IO";
-		goto log_str_broken;
+		break;
 	case STATUS_FAIL_GOSSIP_IO:
 		name = "STATUS_FAIL_GOSSIP_IO";
-		goto log_str_broken;
+		break;
 	case STATUS_FAIL_INTERNAL_ERROR:
 		name = "STATUS_FAIL_INTERNAL_ERROR";
-		goto log_str_broken;
-	/*
-	 * These errors happen when the other peer misbehaves:
-	 */
-	case STATUS_FAIL_PEER_IO:
-		name = "STATUS_FAIL_PEER_IO";
-		goto log_str_peer;
-	case STATUS_FAIL_PEER_BAD:
-		name = "STATUS_FAIL_PEER_BAD";
-		goto log_str_peer;
+		break;
 	}
 	/* fromwire_status_fail() guarantees it's one of those... */
-	abort();
+	assert(name);
 
-	/* Peers misbehaving is expected. */
-log_str_peer:
-	log_info(sd->log, "%s: %s", name, str);
-	return;
-
-/* Shouldn't happen. */
-log_str_broken:
-	log_broken(sd->log, "%s: %s", name, str);
+	log_broken(sd->log, "%s: %s", name, desc);
 
 #if DEVELOPER
 	if (sd->ld->dev_subdaemon_fail)
 		fatal("Subdaemon %s hit error", sd->name);
 #endif
+	return true;
+}
 
-	return;
+static bool handle_received_errmsg(struct subd *sd, const u8 *msg)
+{
+	struct peer *peer = sd->peer;
+	struct channel_id channel_id;
+	char *desc;
+
+	if (!fromwire_status_received_errmsg(msg, msg, NULL,
+					     &channel_id, &desc))
+		return false;
+
+	/* FIXME: if not all channels failed, hand back to gossipd! */
+
+	/* Don't free sd; we're may be about to free peer. */
+	sd->peer = NULL;
+	peer_fail_permanent(peer, "%s: received ERROR %s", sd->name, desc);
+	return true;
+}
+
+static bool handle_sent_errmsg(struct subd *sd, const u8 *msg)
+{
+	struct peer *peer = sd->peer;
+	struct channel_id channel_id;
+	char *desc;
+	u8 *errmsg;
+
+	if (!fromwire_status_sent_errmsg(msg, msg, NULL,
+					 &channel_id, &desc, &errmsg))
+		return false;
+
+	/* FIXME: if not all channels failed, hand back to gossipd! */
+	if (!sd->peer->error)
+		sd->peer->error = tal_steal(sd->peer, errmsg);
+
+	/* Don't free sd; we're may be about to free peer. */
+	sd->peer = NULL;
+	peer_fail_permanent(peer, "%s: sent ERROR %s", sd->name, desc);
+	return true;
 }
 
 static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
@@ -430,26 +456,33 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 	tmpctx = tal_tmpctx(sd);
 	tal_steal(tmpctx, sd->msg_in);
 
-	if (log_status_msg(sd->log, sd->msg_in))
-		goto next;
-
-	if (type == WIRE_STATUS_FAIL) {
-		enum status_failreason failreason;
-		char *desc;
-		if (!fromwire_status_fail(sd->msg_in, sd->msg_in, NULL,
-					  &failreason, &desc))
+	/* We handle status messages ourselves. */
+	switch ((enum status)type) {
+	case WIRE_STATUS_LOG:
+	case WIRE_STATUS_IO:
+		if (!log_status_msg(sd->log, sd->msg_in))
 			goto malformed;
-
-		log_status_fail(sd, failreason, desc);
-
-		/* If they care, tell them about invalid peer behavior */
-		if (sd->peer && failreason == STATUS_FAIL_PEER_BAD) {
-			/* Don't free ourselves; we're about to do that. */
-			struct peer *peer = sd->peer;
-			sd->peer = NULL;
-
-			peer_fail_permanent(peer, "%s: %s", sd->name, desc);
-		}
+		goto next;
+	case WIRE_STATUS_FAIL:
+		if (!log_status_fail(sd, sd->msg_in))
+			goto malformed;
+		goto close;
+	case WIRE_STATUS_PEER_CONNECTION_LOST:
+		if (!sd->peer)
+			goto malformed;
+		log_info(sd->log, "Peer connection lost");
+		goto close;
+	case WIRE_STATUS_RECEIVED_ERRMSG:
+		if (!sd->peer)
+			goto malformed;
+		if (!handle_received_errmsg(sd, sd->msg_in))
+			goto malformed;
+		goto close;
+	case WIRE_STATUS_SENT_ERRMSG:
+		if (!sd->peer)
+			goto malformed;
+		if (!handle_sent_errmsg(sd, sd->msg_in))
+			goto malformed;
 		goto close;
 	}
 

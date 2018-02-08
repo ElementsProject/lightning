@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+struct channel_id;
 struct daemon_conn;
 
 /* Simple status reporting API. */
@@ -46,8 +47,20 @@ void status_io(enum log_level iodir, const u8 *p);
 void status_failed(enum status_failreason code,
 		   const char *fmt, ...) PRINTF_FMT(2,3) NORETURN;
 
-/* Helper for master failures: sends STATUS_FAIL_MASTER_IO.
+/* Helper for master failures: sends STATUS_FATAL_MASTER_IO.
  * msg NULL == read failure. */
-void master_badmsg(u32 type_expected, const u8 *msg);
+void master_badmsg(u32 type_expected, const u8 *msg) NORETURN;
+
+/* I/O error */
+void status_fatal_connection_lost(void) NORETURN;
+
+/* Got an error for one or all channels (if c == NULL) */
+void status_fatal_received_errmsg(const char *desc,
+				  const struct channel_id *c) NORETURN;
+
+/* Sent an error for one or all channels (if c == NULL) */
+void status_fatal_sent_errmsg(const u8 *errmsg,
+			      const char *desc,
+			      const struct channel_id *c) NORETURN;
 
 #endif /* LIGHTNING_COMMON_STATUS_H */
