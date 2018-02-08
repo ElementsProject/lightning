@@ -316,7 +316,7 @@ static void random_mark_channel_unroutable(struct log *log,
 	size_t i;
 	const struct short_channel_id *channel;
 	u8 *msg;
-	assert(tal_len(route_channels) != 0);
+	assert(num_channels != 0);
 
 	/* Select one channel by random. */
 	randombytes_buf(&i, sizeof(i));
