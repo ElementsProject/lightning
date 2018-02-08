@@ -18,8 +18,6 @@ void status_setup_async(struct daemon_conn *master);
 /* Convenient context, frees up after every status_update/failed */
 extern const void *trc;
 
-/* Send a message (frees the message). */
-void status_send_sync(const u8 *msg);
 /* Send a printf-style debugging trace. */
 void status_fmt(enum log_level level, const char *fmt, ...)
 	PRINTF_FMT(2,3);
