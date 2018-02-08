@@ -42,7 +42,7 @@ The following error codes may occur:
 * 201. Already paid with this 'hash' using different amount or
   destination.
 * 202. Unparseable onion reply. The 'data' field of the error
-  will have a 'onionreply' field, a hex string representation
+  will have an 'onionreply' field, a hex string representation
   of the raw onion reply.
 * 203. Permanent failure at destination. The 'data' field of
   the error will be routing failure object.

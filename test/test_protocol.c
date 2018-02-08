@@ -88,7 +88,7 @@ enum htlc_state {
 	RECV_ADD_ACK_COMMIT = RECV_ADD_REVOCATION + LOCAL(COMMITTED),
 	SENT_ADD_ACK_REVOCATION = RECV_ADD_ACK_COMMIT + LOCAL(REVOKED) - ADDING,
 
-	/* When they remove an htlc, it goes from SENT_ADD_ACK_REVOCATION: */
+	/* When they remove an HTLC, it goes from SENT_ADD_ACK_REVOCATION: */
 	RECV_REMOVE_HTLC = REMOVING + OURS + LOCAL(PENDING)
 				+ LOCAL(COMMITTED) + REMOTE(COMMITTED),
 	RECV_REMOVE_COMMIT = RECV_REMOVE_HTLC - LOCAL(PENDING) - LOCAL(COMMITTED),
@@ -103,7 +103,7 @@ enum htlc_state {
 	SENT_ADD_ACK_COMMIT = SENT_ADD_REVOCATION + REMOTE(COMMITTED),
 	RECV_ADD_ACK_REVOCATION = SENT_ADD_ACK_COMMIT + REMOTE(REVOKED),
 
-	/* When we remove an htlc, it goes from RECV_ADD_ACK_REVOCATION: */
+	/* When we remove an HTLC, it goes from RECV_ADD_ACK_REVOCATION: */
 	SENT_REMOVE_HTLC = REMOVING + THEIRS + REMOTE(PENDING)
 				+ LOCAL(COMMITTED) + REMOTE(COMMITTED),
 	SENT_REMOVE_COMMIT = SENT_REMOVE_HTLC - REMOTE(PENDING) - REMOTE(COMMITTED),
@@ -168,7 +168,7 @@ static const char *htlc_stateflags(const tal_t *ctx, enum htlc_state state)
 
 struct htlc {
 	enum htlc_state state;
-	/* 0 means this is actually a new fee, not a HTLC. */
+	/* 0 means this is actually a new fee, not an HTLC. */
 	unsigned int id;
 };
 

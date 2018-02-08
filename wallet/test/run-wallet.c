@@ -162,7 +162,7 @@ static bool test_wallet_outputs(void)
 	CHECK_MSG(!wallet_add_utxo(w, &u, p2sh_wpkh),
 		  "wallet_add_utxo succeeded on second add");
 
-	/* Attempt to save a utxo with close_info set */
+	/* Attempt to save an UTXO with close_info set */
 	memset(&u.txid, 1, sizeof(u.txid));
 	u.close_info = tal(w, struct unilateral_close_info);
 	u.close_info->channel_id = 42;

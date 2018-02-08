@@ -520,7 +520,7 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 	struct sha256 sha;
 	struct ripemd160 ripemd;
 
-	/* Our HTLC, they filled (must be a HTLC-success tx). */
+	/* Our HTLC, they filled (must be an HTLC-success tx). */
 	if (out->tx_type == THEIR_UNILATERAL) {
 		/* BOLT #3:
 		 *

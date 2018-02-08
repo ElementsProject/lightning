@@ -2008,7 +2008,7 @@ class LightningDTests(BaseLightningDTests):
         assert route[0]['delay'] == 9 + shadow_route
 
         # BOLT #7:
-        # If A were to send an 4,999,999 millisatoshi to C via B, it needs to
+        # If A were to send 4,999,999 millisatoshi to C via B, it needs to
         # pay B the fee it specified in the B->C `channel_update`, calculated as
         # per [HTLC Fees](#htlc_fees):
         #
