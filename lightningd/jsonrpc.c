@@ -660,7 +660,10 @@ again:
 			log_unusual(jcon->ld->log,
 				    "Invalid token in json input: '%.*s'",
 				    (int)jcon->used, jcon->buffer);
-			return io_close(conn);
+			json_command_malformed(
+			    jcon, NULL,
+			    "Invalid token in json input");
+			return io_halfclose(conn);
 		}
 		/* We need more. */
 		goto read_more;
