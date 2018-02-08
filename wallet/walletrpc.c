@@ -289,9 +289,7 @@ static void json_withdraw(struct command *cmd,
 
 	msg = hsm_sync_read(cmd, cmd->ld);
 
-	tx = tal(withdraw, struct bitcoin_tx);
-
-	if (!fromwire_hsm_sign_withdrawal_reply(msg, NULL, tx))
+	if (!fromwire_hsm_sign_withdrawal_reply(msg, msg, NULL, &tx))
 		fatal("HSM gave bad sign_withdrawal_reply %s",
 		      tal_hex(withdraw, msg));
 

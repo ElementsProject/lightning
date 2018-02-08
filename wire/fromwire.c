@@ -225,7 +225,9 @@ void derive_channel_id(struct channel_id *channel_id,
 	channel_id->id[sizeof(*channel_id)-1] ^= txout;
 }
 
-void fromwire_bitcoin_tx(const u8 **cursor, size_t *max, struct bitcoin_tx *tx)
+/* FIXME: Simply rename pull_bitcoin_tx, remove pull_bitcoin_tx_onto */
+struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
+				       const u8 **cursor, size_t *max)
 {
-	pull_bitcoin_tx_onto(tx, cursor, max, tx);
+	return pull_bitcoin_tx(ctx, cursor, max);
 }

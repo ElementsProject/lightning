@@ -1081,7 +1081,7 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 	struct fulfilled_htlc *fulfilled;
 	struct failed_htlc **failed;
 	struct changed_htlc *changed;
-	struct bitcoin_tx *tx = tal(msg, struct bitcoin_tx);
+	struct bitcoin_tx *tx;
 	size_t i;
 
 	if (!fromwire_channel_got_commitsig(msg, msg, NULL,
@@ -1094,7 +1094,7 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 					    &fulfilled,
 					    &failed,
 					    &changed,
-					    tx)) {
+					    &tx)) {
 		peer_internal_error(peer,
 				    "bad fromwire_channel_got_commitsig %s",
 				    tal_hex(peer, msg));
