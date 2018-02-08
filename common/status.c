@@ -66,19 +66,6 @@ static bool too_large(size_t len, int type)
 	return false;
 }
 
-void status_send_sync(const u8 *p)
-{
-	const u8 *msg = p;
-	assert(status_fd >= 0);
-
-	if (too_large(tal_count(p), fromwire_peektype(p)))
-		msg = tal_dup_arr(p, u8, p, 65535, 0);
-
-	if (!wire_sync_write(status_fd, msg))
-		err(1, "Writing out status len %zu", tal_count(msg));
-	tal_free(p);
-}
-
 static void status_send_with_hdr(u16 type, const void *p, size_t len)
 {
 	u8 *msg = tal_arr(NULL, u8, 0);
