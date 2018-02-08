@@ -91,7 +91,7 @@ static void negotiation_failed(struct state *state, bool send_error,
 	/* Tell master we should return to gossiping. */
 	msg = towire_opening_negotiation_failed(state, &state->cs,
 						state->gossip_index,
-						(const u8 *)errmsg);
+						errmsg);
 	wire_sync_write(REQ_FD, msg);
 	fdpass_send(REQ_FD, PEER_FD);
 	fdpass_send(REQ_FD, GOSSIP_FD);
