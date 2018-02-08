@@ -564,8 +564,8 @@ static struct io_plan *peer_next_in(struct io_conn *conn, struct peer *peer)
 {
 	if (peer->local->return_to_master) {
 		assert(!peer_in_started(conn, &peer->local->pcs));
-		if (!peer_out_started(conn, &peer->local->pcs))
-			return ready_for_master(conn, peer);
+		/* Wake writer. */
+		msg_wake(&peer->local->peer_out);
 		return io_wait(conn, peer, peer_next_in, peer);
 	}
 
@@ -682,14 +682,10 @@ static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer)
 
 	/* Do we want to send this peer to the master daemon? */
 	if (peer->local->return_to_master) {
-		assert(!peer_out_started(conn, &peer->local->pcs));
 		if (!peer_in_started(conn, &peer->local->pcs))
 			return ready_for_master(conn, peer);
-		return io_out_wait(conn, peer, peer_pkt_out, peer);
-	}
-
-	/* If we're supposed to be sending gossip, do so now. */
-	if (peer->gossip_sync) {
+	} else if (peer->gossip_sync) {
+		/* If we're supposed to be sending gossip, do so now. */
 		struct queued_message *next;
 
 		next = next_broadcast_message(peer->daemon->rstate->broadcasts,

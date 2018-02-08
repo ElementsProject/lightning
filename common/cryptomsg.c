@@ -382,13 +382,6 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 	return io_write(conn, pcs->out, tal_count(pcs->out), post, pcs);
 }
 
-/* We write in one op, so it's all or nothing. */
-bool peer_out_started(const struct io_conn *conn,
-		      const struct peer_crypto_state *cs)
-{
-	return io_plan_out_started(conn);
-}
-
 /* We read in two parts, so we might have started body. */
 bool peer_in_started(const struct io_conn *conn,
 		     const struct peer_crypto_state *cs)
