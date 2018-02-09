@@ -619,4 +619,9 @@ const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
 						  struct wallet *wallet,
 						  const struct sha256 *payment_hash);
 
+/**
+ * wallet_htlc_sigs_save - Store the latest HTLC sigs for the channel
+ */
+void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
+			   secp256k1_ecdsa_signature *htlc_sigs);
 #endif /* WALLET_WALLET_H */
