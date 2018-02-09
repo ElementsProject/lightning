@@ -189,6 +189,8 @@ char *dbmigrations[] = {
      * concerns. */
     "ALTER TABLE payments ADD COLUMN route_nodes BLOB;",
     "ALTER TABLE payments ADD COLUMN route_channels TEXT;",
+    "CREATE TABLE htlc_sigs (channelid INTEGER REFERENCES channels(id) ON DELETE CASCADE, signature BLOB);",
+    "CREATE INDEX channel_idx ON htlc_sigs (channelid)",
     NULL,
 };
 
