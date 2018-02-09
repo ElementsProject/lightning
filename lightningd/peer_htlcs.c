@@ -1147,9 +1147,10 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 
 	wallet_channel_save(peer->ld->wallet, peer->channel);
 
-	/* FIXME: Put these straight in the db! */
 	tal_free(peer->last_htlc_sigs);
 	peer->last_htlc_sigs = tal_steal(peer, htlc_sigs);
+	wallet_htlc_sigs_save(peer->ld->wallet, peer->channel->id,
+			      peer->last_htlc_sigs);
 
 	/* Tell it we've committed, and to go ahead with revoke. */
 	msg = towire_channel_got_commitsig_reply(msg);
