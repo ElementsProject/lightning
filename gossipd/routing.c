@@ -1264,6 +1264,10 @@ void routing_failure(struct routing_state *rstate,
 	 * reactivated. */
 	if (failcode & UPDATE) {
 		if (tal_len(channel_update) == 0) {
+			/* Suppress UNUSUAL log if local failure */
+			if (structeq(&erring_node_pubkey->pubkey,
+				     &rstate->local_id.pubkey))
+				goto out;
 			status_trace("UNUSUAL routing_failure: "
 				     "UPDATE bit set, no channel_update. "
 				     "failcode: 0x%04x",
