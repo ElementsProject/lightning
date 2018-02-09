@@ -16,6 +16,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
@@ -396,6 +397,7 @@ static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 			   const jsmntok_t *params UNUSED)
 {
 	struct json_result *response = new_json_result(cmd);
+	struct peer *p;
 	struct utxo **utxos =
 	    wallet_get_utxos(cmd, cmd->ld->wallet, output_state_available);
 	json_object_start(response, NULL);
@@ -408,7 +410,29 @@ static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 		json_object_end(response);
 	}
 	json_array_end(response);
+
+	/* Add funds that are allocated to channels */
+	json_array_start(response, "channels");
+	list_for_each(&cmd->ld->peers, p, list) {
+		if (!p->our_msatoshi || !p->funding_txid)
+			continue;
+
+		json_object_start(response, NULL);
+		json_add_pubkey(response, "peer_id", &p->id);
+		if (p->scid)
+			json_add_short_channel_id(response, "short_channel_id",
+						  p->scid);
+
+		/* Poor man's rounding to satoshis to match the unit for outputs */
+		json_add_u64(response, "channel_sat", (*p->our_msatoshi + 500)/1000);
+		json_add_u64(response, "channel_total_sat",
+			     p->funding_satoshi);
+		json_add_txid(response, "funding_txid", p->funding_txid);
+		json_object_end(response);
+	}
+	json_array_end(response);
 	json_object_end(response);
+
 	command_success(cmd, response);
 }
 
