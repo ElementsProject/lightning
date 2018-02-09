@@ -429,9 +429,8 @@ static void json_command_malformed(struct json_connection *jcon,
 				   const char *id,
 				   const char *error)
 {
-	return connection_result(jcon, id, NULL, error,
-				 JSONRPC2_INVALID_REQUEST,
-				 NULL);
+	return connection_result(jcon, id, NULL, tal_fmt(jcon, "\"%s\"", error),
+				 JSONRPC2_INVALID_REQUEST, NULL);
 }
 
 static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
