@@ -7,11 +7,12 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
-#include <common/status.h>
+#include <common/gen_status_wire.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/log_status.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <signal.h>
@@ -130,7 +131,9 @@ static void close_taken_fds(va_list *ap)
 }
 
 /* We use sockets, not pipes, because fds are bidir. */
-static int subd(const char *dir, const char *name, const char *debug_subdaemon,
+static int subd(const char *dir, const char *name,
+		const char *debug_subdaemon,
+		const char *debug_subdaemon_io,
 		int *msgfd, int dev_disconnect_fd, va_list *ap)
 {
 	int childmsg[2], execfail[2];
@@ -154,8 +157,8 @@ static int subd(const char *dir, const char *name, const char *debug_subdaemon,
 	if (childpid == 0) {
 		int fdnum = 3, i;
 		long max;
-		const char *debug_arg[2] = { NULL, NULL };
-		const char *path;
+		size_t num_args;
+		char *args[] = { NULL, NULL, NULL, NULL, NULL };
 
 		close(childmsg[0]);
 		close(execfail[0]);
@@ -190,14 +193,17 @@ static int subd(const char *dir, const char *name, const char *debug_subdaemon,
 			if (i != dev_disconnect_fd)
 				close(i);
 
+		num_args = 0;
+		args[num_args++] = path_join(NULL, dir, name);
 #if DEVELOPER
 		if (dev_disconnect_fd != -1)
-			debug_arg[0] = tal_fmt(NULL, "--dev-disconnect=%i", dev_disconnect_fd);
+			args[num_args++] = tal_fmt(NULL, "--dev-disconnect=%i", dev_disconnect_fd);
 		if (debug_subdaemon && strends(name, debug_subdaemon))
-			debug_arg[debug_arg[0] ? 1 : 0] = "--debugger";
+			args[num_args++] = "--debugger";
 #endif
-		path = path_join(NULL, dir, name);
-		execl(path, path, debug_arg[0], debug_arg[1], NULL);
+		if (debug_subdaemon_io && strends(name, debug_subdaemon_io))
+			args[num_args++] = "--log-io";
+		execv(args[0], args);
 
 	child_errno_fail:
 		err = errno;
@@ -249,7 +255,8 @@ int subd_raw(struct lightningd *ld, const char *name)
 	disconnect_fd = ld->dev_disconnect_fd;
 #endif /* DEVELOPER */
 
-	pid = subd(ld->daemon_dir, name, debug_subd, &msg_fd, disconnect_fd,
+	pid = subd(ld->daemon_dir, name, debug_subd, ld->debug_subdaemon_io,
+		   &msg_fd, disconnect_fd,
 		   NULL);
 	if (pid == (pid_t)-1) {
 		log_unusual(ld->log, "subd %s failed: %s",
@@ -331,24 +338,9 @@ static struct io_plan *sd_collect_fds(struct io_conn *conn, struct subd *sd,
 	return read_fds(conn, sd);
 }
 
-/* Don't trust, verify.  Returns NULL if contains weird stuff. */
-static const char *string_from_msg(const u8 *msg, int *str_len)
-{
-	size_t len = tal_count(msg) - sizeof(be16), i;
-
-	for (i = 0; i < len; i++) {
-		if (!cisprint((char)msg[sizeof(be16) + i])) {
-			*str_len = 0;
-			return NULL;
-		}
-	}
-	*str_len = len;
-	return (const char *)(msg + sizeof(be16));
-}
-
 static void subdaemon_malformed_msg(struct subd *sd, const u8 *msg)
 {
-	log_broken(sd->log, "%i: malformed string '%.s'",
+	log_broken(sd->log, "%i: malformed message '%.s'",
 		   fromwire_peektype(msg),
 		   tal_hex(msg, msg));
 
@@ -358,52 +350,78 @@ static void subdaemon_malformed_msg(struct subd *sd, const u8 *msg)
 #endif
 }
 
-/* Returns true if logged, false if malformed. */
-static bool log_status_fail(struct subd *sd,
-			    enum status_fail type, const char *str, int str_len)
+static bool log_status_fail(struct subd *sd, const u8 *msg)
 {
-	const char *name;
+	const char *name = NULL;
+	enum status_failreason failreason;
+	char *desc;
+
+	if (!fromwire_status_fail(msg, msg, NULL, &failreason, &desc))
+		return false;
 
 	/* No 'default:' here so gcc gives warning if a new type added */
-	switch (type) {
+	switch (failreason) {
 	case STATUS_FAIL_MASTER_IO:
 		name = "STATUS_FAIL_MASTER_IO";
-		goto log_str_broken;
+		break;
 	case STATUS_FAIL_HSM_IO:
 		name = "STATUS_FAIL_HSM_IO";
-		goto log_str_broken;
+		break;
 	case STATUS_FAIL_GOSSIP_IO:
 		name = "STATUS_FAIL_GOSSIP_IO";
-		goto log_str_broken;
+		break;
 	case STATUS_FAIL_INTERNAL_ERROR:
 		name = "STATUS_FAIL_INTERNAL_ERROR";
-		goto log_str_broken;
-	/*
-	 * These errors happen when the other peer misbehaves:
-	 */
-	case STATUS_FAIL_PEER_IO:
-		name = "STATUS_FAIL_PEER_IO";
-		goto log_str_peer;
-	case STATUS_FAIL_PEER_BAD:
-		name = "STATUS_FAIL_PEER_BAD";
-		goto log_str_peer;
+		break;
 	}
-	return false;
+	/* fromwire_status_fail() guarantees it's one of those... */
+	assert(name);
 
-	/* Peers misbehaving is expected. */
-log_str_peer:
-	log_info(sd->log, "%s: %.*s", name, str_len, str);
-	return true;
-
-/* Shouldn't happen. */
-log_str_broken:
-	log_broken(sd->log, "%s: %.*s", name, str_len, str);
+	log_broken(sd->log, "%s: %s", name, desc);
 
 #if DEVELOPER
 	if (sd->ld->dev_subdaemon_fail)
 		fatal("Subdaemon %s hit error", sd->name);
 #endif
+	return true;
+}
 
+static bool handle_received_errmsg(struct subd *sd, const u8 *msg)
+{
+	struct peer *peer = sd->peer;
+	struct channel_id channel_id;
+	char *desc;
+
+	if (!fromwire_status_received_errmsg(msg, msg, NULL,
+					     &channel_id, &desc))
+		return false;
+
+	/* FIXME: if not all channels failed, hand back to gossipd! */
+
+	/* Don't free sd; we're may be about to free peer. */
+	sd->peer = NULL;
+	peer_fail_permanent(peer, "%s: received ERROR %s", sd->name, desc);
+	return true;
+}
+
+static bool handle_sent_errmsg(struct subd *sd, const u8 *msg)
+{
+	struct peer *peer = sd->peer;
+	struct channel_id channel_id;
+	char *desc;
+	u8 *errmsg;
+
+	if (!fromwire_status_sent_errmsg(msg, msg, NULL,
+					 &channel_id, &desc, &errmsg))
+		return false;
+
+	/* FIXME: if not all channels failed, hand back to gossipd! */
+	if (!sd->peer->error)
+		sd->peer->error = tal_steal(sd->peer, errmsg);
+
+	/* Don't free sd; we're may be about to free peer. */
+	sd->peer = NULL;
+	peer_fail_permanent(peer, "%s: sent ERROR %s", sd->name, desc);
 	return true;
 }
 
@@ -438,30 +456,33 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 	tmpctx = tal_tmpctx(sd);
 	tal_steal(tmpctx, sd->msg_in);
 
-	if (type == STATUS_TRACE) {
-		int str_len;
-		const char *str = string_from_msg(sd->msg_in, &str_len);
-		if (!str)
+	/* We handle status messages ourselves. */
+	switch ((enum status)type) {
+	case WIRE_STATUS_LOG:
+	case WIRE_STATUS_IO:
+		if (!log_status_msg(sd->log, sd->msg_in))
 			goto malformed;
-		log_debug(sd->log, "TRACE: %.*s", str_len, str);
 		goto next;
-	} else if (type & STATUS_FAIL) {
-		int str_len;
-		const char *str = string_from_msg(sd->msg_in, &str_len);
-		if (!str)
+	case WIRE_STATUS_FAIL:
+		if (!log_status_fail(sd, sd->msg_in))
 			goto malformed;
-
-		if (!log_status_fail(sd, type, str, str_len))
+		goto close;
+	case WIRE_STATUS_PEER_CONNECTION_LOST:
+		if (!sd->peer)
 			goto malformed;
-
-		/* If they care, tell them about invalid peer behavior */
-		if (sd->peer && type == STATUS_FAIL_PEER_BAD) {
-			/* Don't free ourselves; we're about to do that. */
-			struct peer *peer = sd->peer;
-			sd->peer = NULL;
-
-			peer_fail_permanent(peer, "%s: %.*s", sd->name, str_len, str);
-		}
+		log_info(sd->log, "Peer connection lost");
+		goto close;
+	case WIRE_STATUS_RECEIVED_ERRMSG:
+		if (!sd->peer)
+			goto malformed;
+		if (!handle_received_errmsg(sd, sd->msg_in))
+			goto malformed;
+		goto close;
+	case WIRE_STATUS_SENT_ERRMSG:
+		if (!sd->peer)
+			goto malformed;
+		if (!handle_sent_errmsg(sd, sd->msg_in))
+			goto malformed;
 		goto close;
 	}
 
@@ -617,8 +638,8 @@ static struct subd *new_subd(struct lightningd *ld,
 	disconnect_fd = ld->dev_disconnect_fd;
 #endif /* DEVELOPER */
 
-	sd->pid = subd(ld->daemon_dir, name, debug_subd, &msg_fd, disconnect_fd,
-		       ap);
+	sd->pid = subd(ld->daemon_dir, name, debug_subd, ld->debug_subdaemon_io,
+		       &msg_fd, disconnect_fd, ap);
 	if (sd->pid == (pid_t)-1) {
 		log_unusual(ld->log, "subd %s failed: %s",
 			    name, strerror(errno));

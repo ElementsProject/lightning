@@ -107,6 +107,7 @@ struct lightningd {
 
 	/* Bearer of all my secrets. */
 	int hsm_fd;
+	struct log *hsm_log;
 
 	/* Daemon looking after peers during init / before channel. */
 	struct subd *gossip;
@@ -136,6 +137,9 @@ struct lightningd {
 
 	/* Transaction filter matching what we're interested in */
 	struct txfilter *owned_txfilter;
+
+	/* May be useful for non-developers debugging in the field */
+	char *debug_subdaemon_io;
 
 #if DEVELOPER
 	/* If we want to debug a subdaemon. */

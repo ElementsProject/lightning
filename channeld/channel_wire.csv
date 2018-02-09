@@ -84,7 +84,7 @@ channel_offer_htlc_reply,,failure_code,u16
 channel_offer_htlc_reply,,failurestrlen,u16
 channel_offer_htlc_reply,,failurestr,failurestrlen*u8
 
-# Main daemon found out the preimage for an htlc
+# Main daemon found out the preimage for an HTLC
 #include <bitcoin/preimage.h>
 channel_fulfill_htlc,1005
 channel_fulfill_htlc,,id,u64

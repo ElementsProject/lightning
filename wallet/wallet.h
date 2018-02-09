@@ -16,7 +16,9 @@
 
 struct invoices;
 struct lightningd;
+struct oneshot;
 struct pubkey;
+struct timers;
 
 struct wallet {
 	struct db *db;
@@ -64,6 +66,10 @@ struct wallet_shachain {
 struct wallet_channel {
 	u64 id;
 	struct peer *peer;
+
+	/* Blockheight at creation, scans for funding confirmations
+	 * will start here */
+	u64 first_blocknum;
 };
 
 /* Possible states for a wallet_payment. Payments start in
@@ -105,12 +111,13 @@ struct wallet_payment {
  * This is guaranteed to either return a valid wallet, or abort with
  * `fatal` if it cannot be initialized.
  */
-struct wallet *wallet_new(const tal_t *ctx, struct log *log);
+struct wallet *wallet_new(const tal_t *ctx,
+			  struct log *log, struct timers *timers);
 
 /**
- * wallet_add_utxo - Register a UTXO which we (partially) own
+ * wallet_add_utxo - Register an UTXO which we (partially) own
  *
- * Add a UTXO to the set of outputs we care about.
+ * Add an UTXO to the set of outputs we care about.
  */
 bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		     enum wallet_output_type type);
@@ -212,11 +219,8 @@ bool wallet_shachain_load(struct wallet *wallet, u64 id,
  * @wallet: the wallet to save into
  * @chan: the instance to store (not const so we can update the unique_id upon
  *   insert)
- * @current_block_height: current height, minimum block this funding tx could
- *   be in (only used on initial insert).
  */
-void wallet_channel_save(struct wallet *w, struct wallet_channel *chan,
-			 u32 current_block_height);
+void wallet_channel_save(struct wallet *w, struct wallet_channel *chan);
 
 /**
  * wallet_channel_delete -- After resolving a channel, forget about it
@@ -276,7 +280,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 				 u64 *total_satoshi);
 
 /**
- * wallet_htlc_save_in - store a htlc_in in the database
+ * wallet_htlc_save_in - store an htlc_in in the database
  *
  * @wallet: wallet to store the htlc into
  * @chan: the `wallet_channel` this HTLC is associated with
@@ -294,7 +298,7 @@ void wallet_htlc_save_in(struct wallet *wallet,
 			 const struct wallet_channel *chan, struct htlc_in *in);
 
 /**
- * wallet_htlc_save_out - store a htlc_out in the database
+ * wallet_htlc_save_out - store an htlc_out in the database
  *
  * See comment for wallet_htlc_save_in.
  */
@@ -360,13 +364,24 @@ bool wallet_htlcs_reconnect(struct wallet *wallet,
 enum invoice_status {
 	UNPAID,
 	PAID,
+	EXPIRED,
 };
 
 struct invoice {
-	/* List off ld->wallet->invoices */
+	/* Internal, rest of lightningd should not use */
+	/* List off ld->wallet->invoices. Must be first or else
+	 * dev-memleak is driven insane. */
 	struct list_node list;
 	/* Database ID */
 	u64 id;
+	/* Any JSON waitinvoice calls waiting for this to be paid */
+	struct list_head waitone_waiters;
+	/* Any expiration timer in effect */
+	struct oneshot *expiration_timer;
+	/* The owning invoices object. */
+	struct invoices *owner;
+
+	/* Publicly-usable fields. */
 	enum invoice_status state;
 	const char *label;
 	/* NULL if they specified "any" */
@@ -378,10 +393,8 @@ struct invoice {
 	struct preimage r;
 	u64 expiry_time;
 	struct sha256 rhash;
-	/* Non-zero if state == PAID */
+	/* Set if state == PAID */
 	u64 pay_index;
-	/* Any JSON waitinvoice calls waiting for this to be paid */
-	struct list_head waitone_waiters;
 };
 
 #define INVOICE_MAX_LABEL_LEN 128
@@ -519,7 +532,6 @@ void wallet_invoice_waitany(const tal_t *ctx,
  * invoice.
  * @cbarg - the callback data.
  *
- * FIXME: actually trigger on expired invoices.
  */
 void wallet_invoice_waitone(const tal_t *ctx,
 			    struct wallet *wallet,

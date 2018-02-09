@@ -3,6 +3,7 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
 #include <ccan/breakpoint/breakpoint.h>
+#include <ccan/cast/cast.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
@@ -90,7 +91,7 @@ static void negotiation_failed(struct state *state, bool send_error,
 	/* Tell master we should return to gossiping. */
 	msg = towire_opening_negotiation_failed(state, &state->cs,
 						state->gossip_index,
-						(const u8 *)errmsg);
+						errmsg);
 	wire_sync_write(REQ_FD, msg);
 	fdpass_send(REQ_FD, PEER_FD);
 	fdpass_send(REQ_FD, GOSSIP_FD);
@@ -205,13 +206,13 @@ static void temporary_channel_id(struct channel_id *channel_id)
 
 /* This handles the case where there's an error only for this channel */
 static void opening_errpkt(const char *desc,
-			   bool this_channel_only,
+			   const struct channel_id *channel_id,
 			   struct state *state)
 {
-	if (this_channel_only)
+	/* FIXME: Remove negotiation_failed */
+	if (structeq(channel_id, &state->channel_id))
 		negotiation_failed(state, false, "Error packet: %s", desc);
-	else
-		status_failed(STATUS_FAIL_PEER_BAD, "Received ERROR %s", desc);
+	status_fatal_received_errmsg(desc, channel_id);
 }
 
 /* Handle random messages we might get, returning the first non-handled one. */
@@ -234,7 +235,7 @@ static u8 *funder_channel(struct state *state,
 			  u32 max_minimum_depth,
 			  u64 change_satoshis, u32 change_keyindex,
 			  u8 channel_flags,
-			  const struct utxo *utxos,
+			  struct utxo **utxos,
 			  const struct ext_key *bip32_base)
 {
 	struct channel_id id_in;
@@ -246,7 +247,6 @@ static u8 *funder_channel(struct state *state,
 	u32 minimum_depth;
 	const u8 *wscript;
 	struct bitcoin_tx *funding;
-	const struct utxo **utxomap;
 
 	set_reserve(&state->localconf.channel_reserve_satoshis,
 		    state->funding_satoshis);
@@ -287,8 +287,7 @@ static u8 *funder_channel(struct state *state,
 				  &state->next_per_commit[LOCAL],
 				  channel_flags);
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "Writing open_channel: %s", strerror(errno));
+		status_fatal_connection_lost();
 
 	state->remoteconf = tal(state, struct channel_config);
 
@@ -352,9 +351,9 @@ static u8 *funder_channel(struct state *state,
 				      "Bad change key %u", change_keyindex);
 	}
 
-	utxomap = to_utxoptr_arr(state, utxos);
 	funding = funding_tx(state, &state->funding_txout,
-			     utxomap, state->funding_satoshis,
+			     cast_const2(const struct utxo **, utxos),
+			     state->funding_satoshis,
 			     our_funding_pubkey,
 			     &their_funding_pubkey,
 			     change_satoshis, &changekey,
@@ -402,8 +401,7 @@ static u8 *funder_channel(struct state *state,
 				     state->funding_txout,
 				     &sig);
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "Writing funding_created: %s", strerror(errno));
+		status_fatal_connection_lost();
 
 	/* BOLT #2:
 	 *
@@ -593,8 +591,7 @@ static u8 *fundee_channel(struct state *state,
 				    &state->next_per_commit[LOCAL]);
 
 	if (!sync_crypto_write(&state->cs, PEER_FD, take(msg)))
-		status_failed(STATUS_FAIL_PEER_IO,
-			      "Writing accept_channel: %s", strerror(errno));
+		status_fatal_connection_lost();
 
 	msg = opening_read_peer_msg(state);
 
@@ -713,7 +710,7 @@ int main(int argc, char *argv[])
 	u64 change_satoshis;
 	u32 change_keyindex;
 	u8 channel_flags;
-	struct utxo *utxos;
+	struct utxo **utxos;
 	struct ext_key bip32_base;
 	u32 network_index;
 

@@ -32,8 +32,6 @@
 /* We've unpacked and checked its signatures, now we wait for master to tell
  * us the txout to check */
 struct pending_cannouncement {
-	struct list_node list;
-
 	/* Unpacked fields here */
 	struct short_channel_id short_channel_id;
 	struct pubkey node_id_1;
@@ -47,6 +45,41 @@ struct pending_cannouncement {
 	/* Deferred updates, if we received them while waiting for
 	 * this (one for each direction) */
 	const u8 *updates[2];
+
+	/* Only ever replace with newer updates */
+	u32 update_timestamps[2];
+};
+
+struct pending_node_announce {
+	struct pubkey nodeid;
+	u8 *node_announcement;
+	u32 timestamp;
+};
+
+static const secp256k1_pubkey *
+pending_node_announce_keyof(const struct pending_node_announce *a)
+{
+	return &a->nodeid.pubkey;
+}
+
+static bool pending_node_announce_eq(const struct pending_node_announce *pna,
+				     const secp256k1_pubkey *key)
+{
+	return structeq(&pna->nodeid.pubkey, key);
+}
+
+HTABLE_DEFINE_TYPE(struct pending_node_announce, pending_node_announce_keyof,
+		   node_map_hash_key, pending_node_announce_eq,
+		   pending_node_map);
+
+/**
+ * routing_channel keeps track of the indices in the broadcast queue
+ * for the corresponding messages. This way we always know exactly
+ * which broadcast to replace, and don't have to search for it */
+enum gossip_msg_indexes {
+	MSG_INDEX_CUPDATE_0,
+	MSG_INDEX_CUPDATE_1,
+	MSG_INDEX_CANNOUNCE
 };
 
 static struct node_map *empty_node_map(const tal_t *ctx)
@@ -67,6 +100,11 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->chain_hash = *chain_hash;
 	rstate->local_id = *local_id;
 	list_head_init(&rstate->pending_cannouncement);
+	uintmap_init(&rstate->channels);
+
+	rstate->pending_node_map = tal(ctx, struct pending_node_map);
+	pending_node_map_init(rstate->pending_node_map);
+
 	return rstate;
 }
 
@@ -114,6 +152,7 @@ static struct node *new_node(struct routing_state *rstate,
 	n->out = tal_arr(n, struct node_connection *, 0);
 	n->alias = NULL;
 	n->node_announcement = NULL;
+	n->announcement_idx = 0;
 	n->last_timestamp = -1;
 	n->addresses = tal_arr(n, struct wireaddr, 0);
 	node_map_add(rstate->nodes, n);
@@ -170,23 +209,13 @@ struct node_connection *get_connection_by_scid(const struct routing_state *rstat
 					      const struct short_channel_id *schanid,
 					      const u8 direction)
 {
-	struct node *n;
-	int i, num_conn;
-	struct node_map *nodes = rstate->nodes;
-	struct node_connection *c;
-	struct node_map_iter it;
+	u64 scid = short_channel_id_to_uint(schanid);
+	struct routing_channel *chan = uintmap_get(&rstate->channels, scid);
 
-	//FIXME(cdecker) We probably want to speed this up by indexing by chanid.
-	for (n = node_map_first(nodes, &it); n; n = node_map_next(nodes, &it)) {
-	        num_conn = tal_count(n->out);
-		for (i = 0; i < num_conn; i++){
-			c = n->out[i];
-			if (short_channel_id_eq(&c->short_channel_id, schanid) &&
-			    (c->flags&0x1) == direction)
-			    return c;
-		}
-	}
-	return NULL;
+	if (chan == NULL)
+		return NULL;
+	else
+		return chan->connections[direction];
 }
 
 static struct node_connection *
@@ -217,7 +246,7 @@ get_or_make_connection(struct routing_state *rstate,
 		}
 	}
 
-	status_trace("Creating new route from %s to %s",
+	SUPERVERBOSE("Creating new route from %s to %s",
 		     type_to_string(trc, struct pubkey, &from->id),
 		     type_to_string(trc, struct pubkey, &to->id));
 
@@ -226,6 +255,7 @@ get_or_make_connection(struct routing_state *rstate,
 	nc->dst = to;
 	nc->channel_announcement = NULL;
 	nc->channel_update = NULL;
+	nc->unroutable_until = 0;
 
 	/* Hook it into in/out arrays. */
 	i = tal_count(to->in);
@@ -341,6 +371,12 @@ static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor)
 	}
 }
 
+/* Determine if the given node_connection is routable */
+static bool nc_is_routable(const struct node_connection *nc, time_t now)
+{
+	return nc->active && nc->unroutable_until < now;
+}
+
 /* riskfactor is already scaled to per-block amount */
 static struct node_connection *
 find_route(const tal_t *ctx, struct routing_state *rstate,
@@ -351,6 +387,10 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	struct node_map_iter it;
 	struct node_connection *first_conn;
 	int runs, i, best;
+	/* Call time_now() once at the start, so that our tight loop
+	 * does not keep calling into operating system for the
+	 * current time */
+	time_t now = time_now().ts.tv_sec;
 
 	/* Note: we map backwards, since we know the amount of satoshi we want
 	 * at the end, and need to derive how much we need to send. */
@@ -397,8 +437,8 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 					     type_to_string(trc, struct pubkey,
 							    &n->id),
 					     i, num_edges);
-				if (!n->in[i]->active) {
-					SUPERVERBOSE("...inactive");
+				if (!nc_is_routable(n->in[i], now)) {
+					SUPERVERBOSE("...unroutable");
 					continue;
 				}
 				bfg_one_edge(n, i, riskfactor);
@@ -526,21 +566,68 @@ static bool check_channel_announcement(
 	       check_signed_hash(&hash, bitcoin2_sig, bitcoin2_key);
 }
 
-/* While master always processes in order, bitcoind is async, so they could
- * theoretically return out of order. */
-static struct pending_cannouncement *
-find_pending_cannouncement(struct routing_state *rstate,
-			   const struct short_channel_id *scid)
+struct routing_channel *routing_channel_new(const tal_t *ctx,
+					    struct short_channel_id *scid)
 {
-	struct pending_cannouncement *i;
-
-	list_for_each(&rstate->pending_cannouncement, i, list) {
-		if (short_channel_id_eq(scid, &i->short_channel_id))
-			return i;
-	}
-	return NULL;
+	struct routing_channel *chan = tal(ctx, struct routing_channel);
+	chan->scid = *scid;
+	chan->connections[0] = chan->connections[1] = NULL;
+	chan->nodes[0] = chan->nodes[1] = NULL;
+	chan->txout_script = NULL;
+	chan->state = TXOUT_FETCHING;
+	chan->public = false;
+	memset(&chan->msg_indexes, 0, sizeof(chan->msg_indexes));
+	return chan;
 }
 
+static void remove_connection_from_channel(struct node_connection *nc,
+					   struct routing_state *rstate)
+{
+	struct routing_channel *chan = uintmap_get(
+	    &rstate->channels, short_channel_id_to_uint(&nc->short_channel_id));
+	struct node_connection *c = chan->connections[nc->flags & 0x1];
+	if (c == NULL)
+		return;
+	/* If we found a channel it should be the same */
+	assert(nc == c);
+	chan->connections[nc->flags & 0x1] = NULL;
+}
+
+void channel_add_connection(struct routing_state *rstate,
+			    struct routing_channel *chan,
+			    struct node_connection *nc)
+{
+	int direction = get_channel_direction(&nc->src->id, &nc->dst->id);
+	assert(chan != NULL);
+	chan->connections[direction] = nc;
+	tal_add_destructor2(nc, remove_connection_from_channel, rstate);
+}
+
+static void add_pending_node_announcement(struct routing_state *rstate, struct pubkey *nodeid)
+{
+	struct pending_node_announce *pna = tal(rstate, struct pending_node_announce);
+	pna->nodeid = *nodeid;
+	pna->node_announcement = NULL;
+	pna->timestamp = 0;
+	pending_node_map_add(rstate->pending_node_map, pna);
+}
+
+static void process_pending_node_announcement(struct routing_state *rstate,
+					      struct pubkey *nodeid)
+{
+	struct pending_node_announce *pna = pending_node_map_get(rstate->pending_node_map, &nodeid->pubkey);
+	if (!pna)
+		return;
+
+	if (pna->node_announcement) {
+		SUPERVERBOSE(
+		    "Processing deferred node_announcement for node %s",
+		    type_to_string(pna, struct pubkey, nodeid));
+		handle_node_announcement(rstate, pna->node_announcement);
+	}
+	pending_node_map_del(rstate->pending_node_map, pna);
+	tal_free(pna);
+}
 
 const struct short_channel_id *handle_channel_announcement(
 	struct routing_state *rstate,
@@ -551,13 +638,15 @@ const struct short_channel_id *handle_channel_announcement(
 	u8 *features;
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
 	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
-	struct node_connection *c0, *c1;
+	u64 scid;
+	struct routing_channel *chan;
 
 	pending = tal(rstate, struct pending_cannouncement);
 	pending->updates[0] = NULL;
 	pending->updates[1] = NULL;
 	pending->announce = tal_dup_arr(pending, u8,
 					announce, tal_len(announce), 0);
+	pending->update_timestamps[0] = pending->update_timestamps[1] = 0;
 
 	if (!fromwire_channel_announcement(pending, pending->announce, NULL,
 					   &node_signature_1,
@@ -574,6 +663,16 @@ const struct short_channel_id *handle_channel_announcement(
 		tal_free(pending);
 		return NULL;
 	}
+
+	scid = short_channel_id_to_uint(&pending->short_channel_id);
+
+	/* Check if we know the channel already (no matter in what
+	 * state, we stop here if yes). */
+	chan = uintmap_get(&rstate->channels, scid);
+	if (chan != NULL && chan->public) {
+		return tal_free(pending);
+	}
+        /* FIXME: Handle duplicates as per BOLT #7 */
 
 	/* BOLT #7:
 	 *
@@ -624,19 +723,20 @@ const struct short_channel_id *handle_channel_announcement(
 		     type_to_string(pending, struct short_channel_id,
 				    &pending->short_channel_id));
 
-	/* FIXME: Handle duplicates as per BOLT #7 */
+	/* So you're new in town, ey? Let's find you a room in the Inn. */
+	if (chan == NULL)
+		chan = routing_channel_new(rstate, &pending->short_channel_id);
+	chan->pending = tal_steal(chan, pending);
 
-	c0 = get_connection(rstate, &pending->node_id_2, &pending->node_id_1);
-	c1 = get_connection(rstate, &pending->node_id_1, &pending->node_id_2);
+	/* The channel will be public if we complete the verification */
+	chan->public = true;
+	uintmap_add(&rstate->channels, scid, chan);
 
-	/* If we know the channels, or we have already a pending check, then skip */
-	if ((c0 != NULL && c1 != NULL) ||
-	    find_pending_cannouncement(rstate, &pending->short_channel_id) !=
-		NULL) {
-		return tal_free(pending);
-	}
+	/* Add both endpoints to the pending_node_map so we can stash
+	 * node_announcements while we wait for the txout check */
+	add_pending_node_announcement(rstate, &pending->node_id_1);
+	add_pending_node_announcement(rstate, &pending->node_id_2);
 
-	list_add_tail(&rstate->pending_cannouncement, &pending->list);
 	return &pending->short_channel_id;
 }
 
@@ -649,10 +749,15 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	u8 *tag;
 	const u8 *s;
 	struct pending_cannouncement *pending;
+	struct routing_channel *chan;
+	u64 uscid = short_channel_id_to_uint(scid);
 
-	pending = find_pending_cannouncement(rstate, scid);
+	chan = uintmap_get(&rstate->channels, uscid);
+	assert(chan);
+
+	pending = chan->pending;
 	assert(pending);
-	list_del_from(&rstate->pending_cannouncement, &pending->list);
+	chan->pending = NULL;
 
 	tag = tal_arr(pending, u8, 0);
 	towire_short_channel_id(&tag, scid);
@@ -698,15 +803,19 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	c1 = get_connection(rstate, &pending->node_id_1, &pending->node_id_2);
 	forward = !c0 || !c1 || !c0->channel_announcement || !c1->channel_announcement;
 
-	add_channel_direction(rstate, &pending->node_id_1, &pending->node_id_2,
-			      &pending->short_channel_id, pending->announce);
-	add_channel_direction(rstate, &pending->node_id_2, &pending->node_id_1,
-			      &pending->short_channel_id, pending->announce);
+	c0 = add_channel_direction(rstate, &pending->node_id_1, &pending->node_id_2,
+				   &pending->short_channel_id, pending->announce);
+	c1 = add_channel_direction(rstate, &pending->node_id_2, &pending->node_id_1,
+				   &pending->short_channel_id, pending->announce);
+
+	channel_add_connection(rstate, chan, c0);
+	channel_add_connection(rstate, chan, c1);
 
 	if (forward) {
-		if (queue_broadcast(rstate->broadcasts,
-				    WIRE_CHANNEL_ANNOUNCEMENT,
-				    tag, pending->announce))
+		if (replace_broadcast(rstate->broadcasts,
+				      &chan->msg_indexes[MSG_INDEX_CANNOUNCE],
+				      WIRE_CHANNEL_ANNOUNCEMENT,
+				      (u8*)tag, pending->announce))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Announcement %s was replaced?",
 				      tal_hex(trc, pending->announce));
@@ -721,6 +830,9 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	if (pending->updates[1])
 		handle_channel_update(rstate, pending->updates[1]);
 
+	process_pending_node_announcement(rstate, &pending->node_id_1);
+	process_pending_node_announcement(rstate, &pending->node_id_2);
+
 	tal_free(pending);
 	return local && forward;
 }
@@ -728,20 +840,24 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 /* Return true if this is an update to a pending announcement (and queue it) */
 static bool update_to_pending(struct routing_state *rstate,
 			      const struct short_channel_id *scid,
-			      const u8 *update, const u8 direction)
+			      u32 timestamp, const u8 *update,
+			      const u8 direction)
 {
-	struct pending_cannouncement *pending;
+	u64 uscid = short_channel_id_to_uint(scid);
+	struct routing_channel *chan = uintmap_get(&rstate->channels, uscid);
+	struct pending_cannouncement *pending = chan?chan->pending:NULL;
 
-	pending = find_pending_cannouncement(rstate, scid);
 	if (!pending)
 		return false;
 
-	/* FIXME: should compare timestamps! */
-	if (pending->updates[direction]) {
-		status_trace("Replacing existing update");
-		tal_free(pending->updates[direction]);
+	if (pending->update_timestamps[direction] < timestamp) {
+		if (pending->updates[direction]) {
+			status_trace("Replacing existing update");
+			tal_free(pending->updates[direction]);
+		}
+		pending->updates[direction] = tal_dup_arr(pending, u8, update, tal_len(update), 0);
+		pending->update_timestamps[direction] = timestamp;
 	}
-	pending->updates[direction] = tal_dup_arr(pending, u8, update, tal_len(update), 0);
 	return true;
 }
 
@@ -759,6 +875,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	u32 fee_proportional_millionths;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	struct bitcoin_blkid chain_hash;
+	struct routing_channel *chan;
 	u8 direction;
 	size_t len = tal_len(update);
 
@@ -786,13 +903,8 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 		return;
 	}
 
-	status_trace("Received channel_update for channel %s(%d)",
-		     type_to_string(trc, struct short_channel_id,
-				    &short_channel_id),
-		     flags & 0x01);
-
-	if (update_to_pending(rstate, &short_channel_id, serialized, direction)) {
-		status_trace("Deferring update for pending channel %s(%d)",
+	if (update_to_pending(rstate, &short_channel_id, timestamp,serialized, direction)) {
+		SUPERVERBOSE("Deferring update for pending channel %s(%d)",
 			     type_to_string(trc, struct short_channel_id,
 					    &short_channel_id), direction);
 		tal_free(tmpctx);
@@ -800,15 +912,17 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	}
 
 	c = get_connection_by_scid(rstate, &short_channel_id, direction);
+	chan = uintmap_get(&rstate->channels,
+			   short_channel_id_to_uint(&short_channel_id));
 
 	if (!c) {
-		status_trace("Ignoring update for unknown channel %s",
+		SUPERVERBOSE("Ignoring update for unknown channel %s",
 			     type_to_string(trc, struct short_channel_id,
 					    &short_channel_id));
 		tal_free(tmpctx);
 		return;
 	} else if (c->last_timestamp >= timestamp) {
-		status_trace("Ignoring outdated update.");
+		SUPERVERBOSE("Ignoring outdated update.");
 		tal_free(tmpctx);
 		return;
 	} else if (!check_channel_update(&c->src->id, &signature, serialized)) {
@@ -817,14 +931,20 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 		return;
 	}
 
-	//FIXME(cdecker) Check signatures
+	status_trace("Received channel_update for channel %s(%d) now %s",
+		     type_to_string(trc, struct short_channel_id,
+				    &short_channel_id),
+		     flags & 0x01,
+		     flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
+
 	c->last_timestamp = timestamp;
 	c->delay = expiry;
 	c->htlc_minimum_msat = htlc_minimum_msat;
 	c->base_fee = fee_base_msat;
 	c->proportional_fee = fee_proportional_millionths;
 	c->active = (flags & ROUTING_FLAGS_DISABLED) == 0;
-	status_trace("Channel %s(%d) was updated.",
+	c->unroutable_until = 0;
+	SUPERVERBOSE("Channel %s(%d) was updated.",
 		     type_to_string(trc, struct short_channel_id,
 				    &short_channel_id),
 		     direction);
@@ -842,7 +962,8 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_short_channel_id(&tag, &short_channel_id);
 	towire_u16(&tag, direction);
-	queue_broadcast(rstate->broadcasts,
+	replace_broadcast(rstate->broadcasts,
+			&chan->msg_indexes[MSG_INDEX_CUPDATE_0 | direction],
 			WIRE_CHANNEL_UPDATE,
 			tag,
 			serialized);
@@ -900,6 +1021,7 @@ void handle_node_announcement(
 	u8 *features, *addresses;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	struct wireaddr *wireaddrs;
+	struct pending_node_announce *pna;
 	size_t len = tal_len(node_ann);
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
@@ -918,14 +1040,12 @@ void handle_node_announcement(
 	 * and MAY discard the message altogether.
 	 */
 	if (unsupported_features(features, NULL)) {
-		status_trace("Ignoring node announcement, unsupported features %s.",
+		status_trace("Ignoring node announcement for node %s, unsupported features %s.",
+			     type_to_string(tmpctx, struct pubkey, &node_id),
 			     tal_hex(tmpctx, features));
 		tal_free(tmpctx);
 		return;
 	}
-
-	status_trace("Received node_announcement for node %s",
-		     type_to_string(trc, struct pubkey, &node_id));
 
 	sha256_double(&hash, serialized + 66, tal_count(serialized) - 66);
 	if (!check_signed_hash(&hash, &signature, &node_id)) {
@@ -933,17 +1053,40 @@ void handle_node_announcement(
 		tal_free(tmpctx);
 		return;
 	}
+
 	node = get_node(rstate, &node_id);
 
-	if (!node) {
-		status_trace("Node not found, was the node_announcement preceded by at least channel_announcement?");
-		tal_free(tmpctx);
-		return;
-	} else if (node->last_timestamp >= timestamp) {
-		status_trace("Ignoring node announcement, it's outdated.");
+	/* Check if we are currently verifying the txout for a
+	 * matching channel */
+	pna = pending_node_map_get(rstate->pending_node_map, &node_id.pubkey);
+	if (!node && pna) {
+		if (pna->timestamp < timestamp) {
+			SUPERVERBOSE(
+			    "Deferring node_announcement for node %s",
+			    type_to_string(tmpctx, struct pubkey, &node_id));
+			pna->timestamp = timestamp;
+			tal_free(pna->node_announcement);
+			pna->node_announcement = tal_dup_arr(pna, u8, node_ann, tal_len(node_ann), 0);
+		}
 		tal_free(tmpctx);
 		return;
 	}
+
+	if (!node) {
+		SUPERVERBOSE("Node not found, was the node_announcement for "
+			     "node %s preceded by at least "
+			     "channel_announcement?",
+			     type_to_string(tmpctx, struct pubkey, &node_id));
+		tal_free(tmpctx);
+		return;
+	} else if (node->last_timestamp >= timestamp) {
+		SUPERVERBOSE("Ignoring node announcement, it's outdated.");
+		tal_free(tmpctx);
+		return;
+	}
+
+	status_trace("Received node_announcement for node %s",
+		     type_to_string(tmpctx, struct pubkey, &node_id));
 
 	wireaddrs = read_addresses(tmpctx, addresses);
 	if (!wireaddrs) {
@@ -962,10 +1105,11 @@ void handle_node_announcement(
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_pubkey(&tag, &node_id);
-	queue_broadcast(rstate->broadcasts,
-			WIRE_NODE_ANNOUNCEMENT,
-			tag,
-			serialized);
+	replace_broadcast(rstate->broadcasts,
+			  &node->announcement_idx,
+			  WIRE_NODE_ANNOUNCEMENT,
+			  tag,
+			  serialized);
 	tal_free(node->node_announcement);
 	node->node_announcement = tal_steal(node, serialized);
 	tal_free(tmpctx);
@@ -1041,7 +1185,8 @@ get_out_node_connection_of(struct routing_state *rstate,
  */
 static void routing_failure_on_nc(struct routing_state *rstate,
 				  enum onion_type failcode,
-				  struct node_connection *nc)
+				  struct node_connection *nc,
+				  time_t now)
 {
 	/* BOLT #4:
 	 *
@@ -1049,7 +1194,8 @@ static void routing_failure_on_nc(struct routing_state *rstate,
 	 *   - SHOULD restore the channels as it receives new `channel_update`s.
 	 */
 	if (!(failcode & PERM))
-		nc->active = false;
+		/* Prevent it for 20 seconds. */
+		nc->unroutable_until = now + 20;
 	else
 		delete_connection(rstate, nc);
 }
@@ -1065,6 +1211,7 @@ void routing_failure(struct routing_state *rstate,
 	struct node_connection *nc;
 	int i;
 	enum wire_type t;
+	time_t now = time_now().ts.tv_sec;
 
 	status_trace("Received routing failure 0x%04x (%s), "
 		     "erring node %s, "
@@ -1093,13 +1240,13 @@ void routing_failure(struct routing_state *rstate,
 	 */
 	if (failcode & NODE) {
 		for (i = 0; i < tal_count(node->in); ++i)
-			routing_failure_on_nc(rstate, failcode, node->in[i]);
+			routing_failure_on_nc(rstate, failcode, node->in[i], now);
 		for (i = 0; i < tal_count(node->out); ++i)
-			routing_failure_on_nc(rstate, failcode, node->out[i]);
+			routing_failure_on_nc(rstate, failcode, node->out[i], now);
 	} else {
 		nc = get_out_node_connection_of(rstate, node, scid);
 		if (nc)
-			routing_failure_on_nc(rstate, failcode, nc);
+			routing_failure_on_nc(rstate, failcode, nc, now);
 		else
 			status_trace("UNUSUAL routing_failure: "
 				     "Channel %s not an out channel "
@@ -1117,6 +1264,10 @@ void routing_failure(struct routing_state *rstate,
 	 * reactivated. */
 	if (failcode & UPDATE) {
 		if (tal_len(channel_update) == 0) {
+			/* Suppress UNUSUAL log if local failure */
+			if (structeq(&erring_node_pubkey->pubkey,
+				     &rstate->local_id.pubkey))
+				goto out;
 			status_trace("UNUSUAL routing_failure: "
 				     "UPDATE bit set, no channel_update. "
 				     "failcode: 0x%04x",
@@ -1141,5 +1292,34 @@ void routing_failure(struct routing_state *rstate,
 	}
 
 out:
+	tal_free(tmpctx);
+}
+
+void mark_channel_unroutable(struct routing_state *rstate,
+			     const struct short_channel_id *channel)
+{
+	const tal_t *tmpctx = tal_tmpctx(rstate);
+	struct routing_channel *chan;
+	time_t now = time_now().ts.tv_sec;
+	const char *scid = type_to_string(tmpctx, struct short_channel_id,
+					  channel);
+
+	status_trace("Received mark_channel_unroutable channel %s",
+		     scid);
+
+	chan = uintmap_get(&rstate->channels,
+			   short_channel_id_to_uint(channel));
+
+	if (!chan) {
+		status_trace("UNUSUAL mark_channel_unroutable: "
+			     "channel %s not in routemap",
+			     scid);
+		tal_free(tmpctx);
+		return;
+	}
+	if (chan->connections[0])
+		chan->connections[0]->unroutable_until = now + 20;
+	if (chan->connections[1])
+		chan->connections[1]->unroutable_until = now + 20;
 	tal_free(tmpctx);
 }

@@ -25,7 +25,7 @@ void peer_htlcs(const tal_t *ctx,
 		enum htlc_state **htlc_states,
 		struct fulfilled_htlc **fulfilled_htlcs,
 		enum side **fulfilled_sides,
-		struct failed_htlc **failed_htlcs,
+		const struct failed_htlc ***failed_htlcs,
 		enum side **failed_sides);
 
 void peer_sending_commitsig(struct peer *peer, const u8 *msg);

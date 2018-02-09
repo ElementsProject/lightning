@@ -1,4 +1,5 @@
 #include <ccan/build_assert/build_assert.h>
+#include <ccan/cast/cast.h>
 #include <ccan/container_of/container_of.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/endian/endian.h>
@@ -771,6 +772,7 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 	u32 fee_base_msat, fee_proportional_millionths;
 	u64 htlc_minimum_msat;
 	struct node_connection *c;
+	struct routing_channel *chan;
 
 	if (!fromwire_gossip_local_add_channel(
 		msg, NULL, &scid, &chain_hash, &remote_node_id, &flags,
@@ -792,8 +794,14 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 		return;
 	}
 
+	chan = routing_channel_new(rstate, &scid);
+	chan->public = false;
+	uintmap_add(&rstate->channels, short_channel_id_to_uint(&scid), chan);
+
+	chan->pending = NULL;
 	direction = get_channel_direction(&rstate->local_id, &remote_node_id);
 	c = half_add_connection(rstate, &rstate->local_id, &remote_node_id, &scid, direction);
+	channel_add_connection(rstate, chan, c);
 
 	c->active = true;
 	c->last_timestamp = 0;
@@ -801,7 +809,8 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 	c->htlc_minimum_msat = htlc_minimum_msat;
 	c->base_fee = fee_base_msat;
 	c->proportional_fee = fee_proportional_millionths;
-	status_trace("Channel %s(%d) was updated (LOCAL)",
+	/* Designed to match msg in handle_channel_update, for easy testing */
+	status_trace("Received local update for channel %s(%d) now ACTIVE",
 		     type_to_string(msg, struct short_channel_id, &scid),
 		     direction);
 }
@@ -1111,21 +1120,24 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
-static void append_node(struct gossip_getnodes_entry **nodes,
+static void append_node(const struct gossip_getnodes_entry ***nodes,
 			const struct node *n)
 {
+	struct gossip_getnodes_entry *new;
 	size_t num_nodes = tal_count(*nodes);
-	tal_resize(nodes, num_nodes + 1);
-	(*nodes)[num_nodes].nodeid = n->id;
-	(*nodes)[num_nodes].last_timestamp = n->last_timestamp;
-	if (n->last_timestamp < 0) {
-		(*nodes)[num_nodes].addresses = NULL;
-		return;
-	}
 
-	(*nodes)[num_nodes].addresses = n->addresses;
-	(*nodes)[num_nodes].alias = n->alias;
-	memcpy((*nodes)[num_nodes].color, n->rgb_color, 3);
+	new = tal(*nodes, struct gossip_getnodes_entry);
+	new->nodeid = n->id;
+	new->last_timestamp = n->last_timestamp;
+	if (n->last_timestamp < 0) {
+		new->addresses = NULL;
+	} else {
+		new->addresses = n->addresses;
+		new->alias = n->alias;
+		memcpy(new->color, n->rgb_color, 3);
+	}
+	tal_resize(nodes, num_nodes + 1);
+	(*nodes)[num_nodes] = new;
 }
 
 static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
@@ -1134,12 +1146,12 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 	tal_t *tmpctx = tal_tmpctx(daemon);
 	u8 *out;
 	struct node *n;
-	struct gossip_getnodes_entry *nodes;
+	const struct gossip_getnodes_entry **nodes;
 	struct pubkey *ids;
 
 	fromwire_gossip_getnodes_request(tmpctx, msg, NULL, &ids);
 
-	nodes = tal_arr(tmpctx, struct gossip_getnodes_entry, 0);
+	nodes = tal_arr(tmpctx, const struct gossip_getnodes_entry *, 0);
 	if (ids) {
 		for (size_t i = 0; i < tal_count(ids); i++) {
 			n = node_map_get(daemon->rstate->nodes, &ids[i].pubkey);
@@ -1908,6 +1920,20 @@ static struct io_plan *handle_routing_failure(struct io_conn *conn,
 
 	return daemon_conn_read_next(conn, &daemon->master);
 }
+static struct io_plan *
+handle_mark_channel_unroutable(struct io_conn *conn,
+			       struct daemon *daemon,
+			       const u8 *msg)
+{
+	struct short_channel_id channel;
+
+	if (!fromwire_gossip_mark_channel_unroutable(msg, NULL, &channel))
+		master_badmsg(WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE, msg);
+
+	mark_channel_unroutable(daemon->rstate, &channel);
+
+	return daemon_conn_read_next(conn, &daemon->master);
+}
 
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
@@ -1959,6 +1985,9 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 
 	case WIRE_GOSSIP_ROUTING_FAILURE:
 		return handle_routing_failure(conn, daemon, master->msg_in);
+
+	case WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE:
+		return handle_mark_channel_unroutable(conn, daemon, master->msg_in);
 
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:

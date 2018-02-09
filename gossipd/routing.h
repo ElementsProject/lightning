@@ -3,6 +3,7 @@
 #include "config.h"
 #include <bitcoin/pubkey.h>
 #include <ccan/htable/htable_type.h>
+#include <ccan/time/time.h>
 #include <gossipd/broadcast.h>
 #include <wire/gen_onion_wire.h>
 #include <wire/wire.h>
@@ -38,6 +39,10 @@ struct node_connection {
 	/* Cached `channel_announcement` and `channel_update` we might forward to new peers*/
 	u8 *channel_announcement;
 	u8 *channel_update;
+
+	/* If greater than current time, this connection should not
+	 * be used for routing. */
+	time_t unroutable_until;
 };
 
 struct node {
@@ -70,6 +75,9 @@ struct node {
 
 	/* Cached `node_announcement` we might forward to new peers. */
 	u8 *node_announcement;
+
+	/* What index does the announcement broadcast have? */
+	u64 announcement_idx;
 };
 
 const secp256k1_pubkey *node_map_keyof_node(const struct node *n);
@@ -77,9 +85,36 @@ size_t node_map_hash_key(const secp256k1_pubkey *key);
 bool node_map_node_eq(const struct node *n, const secp256k1_pubkey *key);
 HTABLE_DEFINE_TYPE(struct node, node_map_keyof_node, node_map_hash_key, node_map_node_eq, node_map);
 
+struct pending_node_map;
+struct pending_cannouncement;
+
+enum txout_state {
+	TXOUT_FETCHING,
+	TXOUT_PRESENT,
+	TXOUT_MISSING
+};
+
+struct routing_channel {
+	struct short_channel_id scid;
+	enum txout_state state;
+	u8 *txout_script;
+
+	struct node_connection *connections[2];
+	struct node *nodes[2];
+
+	u64 msg_indexes[3];
+
+	/* Is this a public channel, or was it only added locally? */
+	bool public;
+
+	struct pending_cannouncement *pending;
+};
+
 struct routing_state {
 	/* All known nodes. */
 	struct node_map *nodes;
+
+	struct pending_node_map *pending_node_map;
 
 	/* channel_announcement which are pending short_channel_id lookup */
 	struct list_head pending_cannouncement;
@@ -90,6 +125,9 @@ struct routing_state {
 
 	/* Our own ID so we can identify local channels */
 	struct pubkey local_id;
+
+        /* A map of channels indexed by short_channel_ids */
+	UINTMAP(struct routing_channel*) channels;
 };
 
 struct route_hop {
@@ -155,6 +193,18 @@ void routing_failure(struct routing_state *rstate,
 		     const struct short_channel_id *erring_channel,
 		     enum onion_type failcode,
 		     const u8 *channel_update);
+/* Disable specific channel from routing. */
+void mark_channel_unroutable(struct routing_state *rstate,
+			     const struct short_channel_id *channel);
+
+/* routing_channel constructor */
+struct routing_channel *routing_channel_new(const tal_t *ctx,
+					    struct short_channel_id *scid);
+
+/* Add the connection to the channel */
+void channel_add_connection(struct routing_state *rstate,
+			    struct routing_channel *chan,
+			    struct node_connection *nc);
 
 /* Utility function that, given a source and a destination, gives us
  * the direction bit the matching channel should get */

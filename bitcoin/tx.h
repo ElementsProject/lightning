@@ -47,8 +47,8 @@ void sha256_tx_for_sig(struct sha256_double *h, const struct bitcoin_tx *tx,
 /* Linear bytes of tx. */
 u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx);
 
-/* Get cost of tx in (x4 of non-witness bytecount). */
-size_t measure_tx_cost(const struct bitcoin_tx *tx);
+/* Get weight of tx in Sipa. */
+size_t measure_tx_weight(const struct bitcoin_tx *tx);
 
 /* Allocate a tx: you just need to fill in inputs and outputs (they're
  * zeroed with inputs' sequence_number set to FFFFFFFF) */
@@ -71,18 +71,4 @@ bool bitcoin_txid_to_hex(const struct bitcoin_txid *txid,
 struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 				   const u8 **cursor, size_t *max);
 
-/**
- * pull_bitcoin_tx_onto - De-serialize a bitcoin tx into tx
- *
- * Like pull_bitcoin_tx, but skips the allocation of tx. Used by the
- * wire implementation where the caller allocates, and the callee only
- * fills in values.
- *
- * @ctx: Allocation context
- * @cursor: buffer to read from
- * @max: Buffer size left to read
- * @tx (out): Destination transaction
- */
-struct bitcoin_tx *pull_bitcoin_tx_onto(const tal_t *ctx, const u8 **cursor,
-					size_t *max, struct bitcoin_tx *tx);
 #endif /* LIGHTNING_BITCOIN_TX_H */

@@ -7,6 +7,10 @@ For more information about the Lightning Network please refer to http://lightnin
 
 ## Project Status
 
+[![Build Status](https://travis-ci.org/ElementsProject/lightning.svg?branch=master)](https://travis-ci.org/ElementsProject/lightning)
+[![Pull Requests Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](http://makeapullrequest.com)
+[![Irc](https://img.shields.io/badge/chat-on%20freenode-brightgreen.svg)](https://webchat.freenode.net/?channels=c-lightning)
+
 This implementation is still very much a work in progress. It can be used for testing, but __it should not be used for real funds__.
 We do our best to identify and fix problems, and implement missing features.
 
@@ -23,7 +27,7 @@ Please refer to the [installation documentation](doc/INSTALL.md) for detailed in
 For the impatient here's the gist of it for Ubuntu and Debian:
 
 ```
-sudo apt-get install -y autoconf automake build-essential git libtool libgmp-dev libsqlite3-dev python python3 net-tools
+sudo apt-get install -y autoconf automake build-essential git libtool libgmp-dev libsqlite3-dev python python3 net-tools libsodium-dev
 git clone https://github.com/ElementsProject/lightning.git
 cd lightning
 make
@@ -135,6 +139,24 @@ cli/lightning-cli pay <bolt11>
 ```
 
 Note that there are lower-level interfaces (and more options to these interfaces) for more sophisticated use.
+
+## Configuration File
+lightningd can be configured either by passing options via the command line, or via a configuration file. Command line options will always override the values in the configuration file.
+
+To use a configuration file, create a file named "config" within your ".lightning" directory. Usually this will be ~/.lightning/config
+
+Configuration options are set using a key=value pair on each line of the file, for example:
+```
+alias=SLEEPYDRAGON
+rgb=008000
+port=9735
+network=testnet
+```
+
+For a full list of possible lightningd configuration options, run:
+```
+lightningd/lightningd --help
+```
 
 ## Further information
 

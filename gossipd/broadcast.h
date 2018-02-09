@@ -20,8 +20,8 @@ struct queued_message {
 };
 
 struct broadcast_state {
-u32 next_index;
-UINTMAP(struct queued_message *) broadcasts;
+	u32 next_index;
+	UINTMAP(struct queued_message *) broadcasts;
 };
 
 struct broadcast_state *new_broadcast_state(tal_t *ctx);
@@ -35,6 +35,17 @@ bool queue_broadcast(struct broadcast_state *bstate,
 			     const int type,
 			     const u8 *tag,
 			     const u8 *payload);
+
+/* Replace a queued message with @index, if it matches the type and
+ * tag for the new message. The new message will be queued with the
+ * next highest index. @index is updated to hold the index of the
+ * newly queued message*/
+bool replace_broadcast(struct broadcast_state *bstate,
+		       u64 *index,
+		       const int type,
+		       const u8 *tag,
+		       const u8 *payload);
+
 
 struct queued_message *next_broadcast_message(struct broadcast_state *bstate, u64 last_index);
 

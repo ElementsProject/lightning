@@ -28,6 +28,7 @@
 #include <hsmd/capabilities.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
+#include <lightningd/bitcoind.h>
 #include <lightningd/build_utxos.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/gen_peer_state_names.h>
@@ -293,7 +294,7 @@ void peer_set_condition(struct peer *peer, enum peer_state old_state,
 	if (peer_persists(peer)) {
 		assert(peer->channel != NULL);
 		/* TODO(cdecker) Selectively save updated fields to DB */
-		wallet_channel_save(peer->ld->wallet, peer->channel, 0);
+		wallet_channel_save(peer->ld->wallet, peer->channel);
 	}
 }
 
@@ -416,9 +417,8 @@ static struct wallet_channel *peer_channel_new(struct wallet *w,
 
 	wallet_peer_by_nodeid(w, &peer->id, peer);
 	wc->id = 0;
-
-	wallet_channel_save(w, wc, get_block_height(peer->ld->topology));
-
+	wc->first_blocknum = get_block_height(peer->ld->topology);
+	wallet_channel_save(w, wc);
 	return wc;
 }
 
@@ -699,9 +699,12 @@ static void copy_to_parent_log(const char *prefix,
 			       bool continued,
 			       const struct timeabs *time,
 			       const char *str,
+			       const u8 *io,
 			       struct peer *peer)
 {
-	if (continued)
+	if (level == LOG_IO_IN || level == LOG_IO_OUT)
+		log_io(peer->ld->log, level, prefix, io, tal_len(io));
+	else if (continued)
 		log_add(peer->ld->log, "%s ... %s", prefix, str);
 	else
 		log_(peer->ld->log, level, "%s %s", prefix, str);
@@ -805,26 +808,6 @@ static const struct json_command connect_command = {
 };
 AUTODATA(json_command, &connect_command);
 
-struct log_info {
-	enum log_level level;
-	struct json_result *response;
-};
-
-/* FIXME: Share this with jsonrpc.c's code! */
-static void log_to_json(unsigned int skipped,
-			struct timerel diff,
-			enum log_level level,
-			const char *prefix,
-			const char *log,
-			struct log_info *info)
-{
-	if (level < info->level)
-		return;
-
-	if (level != LOG_IO)
-		json_add_string(info->response, NULL, log);
-}
-
 struct getpeers_args {
 	struct command *cmd;
 	/* If non-NULL, they want logs too */
@@ -903,14 +886,8 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 		json_object_end(response);
 		json_array_end(response);
 
-		if (gpa->ll) {
-			struct log_info info;
-			info.level = *gpa->ll;
-			info.response = response;
-			json_array_start(response, "log");
-			log_each_line(p->log_book, log_to_json, &info);
-			json_array_end(response);
-		}
+		if (gpa->ll)
+			json_add_log(response, "log", p->log_book, *gpa->ll);
 		json_object_end(response);
 	}
 
@@ -967,15 +944,7 @@ static void json_listpeers(struct command *cmd,
 	}
 	if (leveltok) {
 		gpa->ll = tal(gpa, enum log_level);
-		if (json_tok_streq(buffer, leveltok, "debug"))
-			*gpa->ll = LOG_DBG;
-		else if (json_tok_streq(buffer, leveltok, "info"))
-			*gpa->ll = LOG_INFORM;
-		else if (json_tok_streq(buffer, leveltok, "unusual"))
-			*gpa->ll = LOG_UNUSUAL;
-		else if (json_tok_streq(buffer, leveltok, "broken"))
-			*gpa->ll = LOG_BROKEN;
-		else {
+		if (!json_tok_loglevel(buffer, leveltok, gpa->ll)) {
 			command_fail(cmd, "Invalid level param");
 			return;
 		}
@@ -992,7 +961,7 @@ static void json_listpeers(struct command *cmd,
 static const struct json_command listpeers_command = {
 	"listpeers",
 	json_listpeers,
-	"Show current peers, if {level} is set, include {log}s"
+	"Show current peers, if {level} is set, include logs for {id}"
 };
 AUTODATA(json_command, &listpeers_command);
 
@@ -1181,8 +1150,7 @@ static void handle_onchain_broadcast_tx(struct peer *peer, const u8 *msg)
 {
 	struct bitcoin_tx *tx;
 
-	tx = tal(msg, struct bitcoin_tx);
-	if (!fromwire_onchain_broadcast_tx(msg, NULL, tx)) {
+	if (!fromwire_onchain_broadcast_tx(msg, msg, NULL, &tx)) {
 		peer_internal_error(peer, "Invalid onchain_broadcast_tx");
 		return;
 	}
@@ -1307,7 +1275,7 @@ static void handle_irrevocably_resolved(struct peer *peer, const u8 *msg)
 }
 
 /**
- * onchain_add_utxo -- onchaind is telling us about a UTXO we own
+ * onchain_add_utxo -- onchaind is telling us about an UTXO we own
  */
 static void onchain_add_utxo(struct peer *peer, const u8 *msg)
 {
@@ -1612,12 +1580,12 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 					const struct crypto_state *cs,
 					u64 gossip_index)
 {
-	struct bitcoin_tx *tx = tal(fc, struct bitcoin_tx);
+	struct bitcoin_tx *tx;
 	u8 *linear;
 	u64 change_satoshi;
 	struct json_result *response = new_json_result(fc->cmd);
 
-	if (!fromwire_hsm_sign_funding_reply(resp, NULL, tx))
+	if (!fromwire_hsm_sign_funding_reply(fc, resp, NULL, &tx))
 		fatal("HSM gave bad sign_funding_reply %s",
 		      tal_hex(fc, resp));
 
@@ -1752,7 +1720,7 @@ static void peer_got_shutdown(struct peer *peer, const u8 *msg)
 	}
 
 	/* TODO(cdecker) Selectively save updated fields to DB */
-	wallet_channel_save(peer->ld->wallet, peer->channel, 0);
+	wallet_channel_save(peer->ld->wallet, peer->channel);
 }
 
 void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
@@ -1786,7 +1754,7 @@ static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
 		 " vs previous %"PRIu64, fee, last_fee);
 
 	/* Weight once we add in sigs. */
-	weight = measure_tx_cost(tx) + 74 * 2;
+	weight = measure_tx_weight(tx) + 74 * 2;
 
 	min_fee = get_feerate(peer->ld->topology, FEERATE_SLOW) * weight / 1000;
 	if (fee < min_fee) {
@@ -1819,9 +1787,9 @@ static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
 static void peer_received_closing_signature(struct peer *peer, const u8 *msg)
 {
 	secp256k1_ecdsa_signature sig;
-	struct bitcoin_tx *tx = tal(msg, struct bitcoin_tx);
+	struct bitcoin_tx *tx;
 
-	if (!fromwire_closing_received_signature(msg, NULL, &sig, tx)) {
+	if (!fromwire_closing_received_signature(msg, msg, NULL, &sig, &tx)) {
 		peer_internal_error(peer, "Bad closing_received_signature %s",
 				    tal_hex(peer, msg));
 		return;
@@ -1831,7 +1799,7 @@ static void peer_received_closing_signature(struct peer *peer, const u8 *msg)
 	if (better_closing_fee(peer, tx)) {
 		peer_last_tx(peer, tx, &sig);
 		/* TODO(cdecker) Selectively save updated fields to DB */
-		wallet_channel_save(peer->ld->wallet, peer->channel, 0);
+		wallet_channel_save(peer->ld->wallet, peer->channel);
 	}
 
 	/* OK, you can continue now. */
@@ -2098,7 +2066,7 @@ static bool peer_start_channeld(struct peer *peer,
 	enum htlc_state *htlc_states;
 	struct fulfilled_htlc *fulfilled_htlcs;
 	enum side *fulfilled_sides;
-	struct failed_htlc *failed_htlcs;
+	const struct failed_htlc **failed_htlcs;
 	enum side *failed_sides;
 	struct short_channel_id funding_channel_id;
 	const u8 *shutdown_scriptpubkey;
@@ -2237,7 +2205,6 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 	tal_t *tmpctx = tal_tmpctx(fc);
 	u8 *msg;
 	struct channel_info *channel_info;
-	struct utxo *utxos;
 	struct bitcoin_tx *fundingtx;
 	struct bitcoin_txid funding_txid;
 	struct pubkey changekey;
@@ -2252,14 +2219,13 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 	/* At this point, we care about peer */
 	fc->peer->channel_info = channel_info
 		= tal(fc->peer, struct channel_info);
-	remote_commit = tal(resp, struct bitcoin_tx);
 
 	/* This is a new channel_info->their_config so set its ID to 0 */
 	fc->peer->channel_info->their_config.id = 0;
 
-	if (!fromwire_opening_funder_reply(resp, NULL,
+	if (!fromwire_opening_funder_reply(resp, resp, NULL,
 					   &channel_info->their_config,
-					   remote_commit,
+					   &remote_commit,
 					   &remote_commit_sig,
 					   &cs,
 					   &gossip_index,
@@ -2339,12 +2305,11 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 	/* Get HSM to sign the funding tx. */
 	log_debug(fc->peer->log, "Getting HSM to sign funding tx");
 
-	utxos = from_utxoptr_arr(tmpctx, fc->utxomap);
 	msg = towire_hsm_sign_funding(tmpctx, fc->peer->funding_satoshi,
 				      fc->change, fc->change_keyindex,
 				      &local_fundingkey,
 				      &channel_info->remote_fundingkey,
-				      utxos);
+				      fc->utxomap);
 	/* Unowned (will free openingd). */
 	peer_set_owner(fc->peer, NULL);
 
@@ -2373,8 +2338,6 @@ static void opening_fundee_finished(struct subd *opening,
 	log_debug(peer->log, "Got opening_fundee_finish_response");
 	assert(tal_count(fds) == 2);
 
-	remote_commit = tal(reply, struct bitcoin_tx);
-
 	/* At this point, we care about peer */
 	peer->channel_info = channel_info = tal(peer, struct channel_info);
 	/* This is a new channel_info->their_config, set its ID to 0 */
@@ -2383,7 +2346,7 @@ static void opening_fundee_finished(struct subd *opening,
 	peer->funding_txid = tal(peer, struct bitcoin_txid);
 	if (!fromwire_opening_fundee_reply(tmpctx, reply, NULL,
 					   &channel_info->their_config,
-					   remote_commit,
+					   &remote_commit,
 					   &remote_commit_sig,
 					   &cs,
 					   &gossip_index,
@@ -2449,15 +2412,14 @@ static unsigned int opening_negotiation_failed(struct subd *openingd,
 	struct crypto_state cs;
 	u64 gossip_index;
 	struct peer *peer = openingd->peer;
-	u8 *err;
-	const char *why;
+	char *why;
 
 	/* We need the peer fd and gossip fd. */
 	if (tal_count(fds) == 0)
 		return 2;
 
 	if (!fromwire_opening_negotiation_failed(msg, msg, NULL,
-						 &cs, &gossip_index, &err)) {
+						 &cs, &gossip_index, &why)) {
 		peer_internal_error(peer,
 				    "bad OPENING_NEGOTIATION_FAILED %s",
 				    tal_hex(msg, msg));
@@ -2470,7 +2432,6 @@ static unsigned int opening_negotiation_failed(struct subd *openingd,
 	subd_send_fd(openingd->ld->gossip, fds[0]);
 	subd_send_fd(openingd->ld->gossip, fds[1]);
 
-	why = tal_strndup(peer, (const char *)err, tal_len(err));
 	log_unusual(peer->log, "Opening negotiation failed: %s", why);
 
 	/* This will free openingd, since that's peer->owner */
@@ -2564,7 +2525,6 @@ static void peer_offer_channel(struct lightningd *ld,
 	u8 *msg;
 	u32 max_to_self_delay, max_minimum_depth;
 	u64 min_effective_htlc_capacity_msat;
-	struct utxo *utxos;
 
 	/* We make a new peer. */
 	fc->peer = new_peer(ld, &fc->peerid, addr,
@@ -2617,15 +2577,14 @@ static void peer_offer_channel(struct lightningd *ld,
 				  cs, gossip_index, fc->peer->seed);
 	subd_send_msg(fc->peer->owner, take(msg));
 
-	utxos = from_utxoptr_arr(fc, fc->utxomap);
-
 	msg = towire_opening_funder(fc, fc->peer->funding_satoshi,
 				    fc->peer->push_msat,
 				    get_feerate(ld->topology, FEERATE_NORMAL),
 				    max_minimum_depth,
 				    fc->change, fc->change_keyindex,
 				    fc->peer->channel_flags,
-				    utxos, fc->peer->ld->wallet->bip32_base);
+				    fc->utxomap,
+				    fc->peer->ld->wallet->bip32_base);
 
 	/* Peer now owns fc; if it dies, we fail fc. */
 	tal_steal(fc->peer, fc);
@@ -2820,8 +2779,6 @@ static void activate_peer(struct peer *peer)
 {
 	u8 *msg;
 
-	assert(!peer->owner);
-
 	/* Pass gossipd any addrhints we currently have */
 	msg = towire_gossipctl_peer_addrhint(peer, &peer->id, &peer->addr);
 	subd_send_msg(peer->ld->gossip, take(msg));
@@ -2840,7 +2797,10 @@ static void activate_peer(struct peer *peer)
 	watch_txo(peer, peer->ld->topology, peer, peer->funding_txid, peer->funding_outnum,
 		  funding_spent, NULL);
 
-	if (peer_wants_reconnect(peer)) {
+	/* If peer->owner then we had a reconnect while loading and
+	 * activating the peers, don't ask gossipd to connect in that
+	 * case */
+	if (!peer->owner && peer_wants_reconnect(peer)) {
 		msg = towire_gossipctl_reach_peer(peer, &peer->id);
 		subd_send_msg(peer->ld->gossip, take(msg));
 	}
@@ -2976,4 +2936,81 @@ static const struct json_command dev_reenable_commit = {
 	"Re-enable the commit timer on peer {id}"
 };
 AUTODATA(json_command, &dev_reenable_commit);
+
+struct dev_forget_channel_cmd {
+	struct short_channel_id scid;
+	struct peer *peer;
+	bool force;
+	struct command *cmd;
+};
+
+static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
+				       const struct bitcoin_tx_output *txout,
+				       void *arg)
+{
+	struct json_result *response;
+	struct dev_forget_channel_cmd *forget = arg;
+	if (txout != NULL && !forget->force) {
+		command_fail(forget->cmd,
+			     "Cowardly refusing to forget channel with an "
+			     "unspent funding output, if you know what "
+			     "you're doing you can override with "
+			     "`force=true`, otherwise consider `close` or "
+			     "`dev-fail`! If you force and the channel "
+			     "confirms we will not track the funds in the "
+			     "channel");
+		return;
+	}
+	response = new_json_result(forget->cmd);
+	json_object_start(response, NULL);
+	json_add_bool(response, "forced", forget->force);
+	json_add_bool(response, "funding_unspent", txout != NULL);
+	json_add_txid(response, "funding_txid", forget->peer->funding_txid);
+	json_object_end(response);
+
+	if (peer_persists(forget->peer))
+		wallet_channel_delete(forget->cmd->ld->wallet, forget->peer->channel->id);
+	free_peer(forget->peer, "dev-forget-channel called");
+
+	command_success(forget->cmd, response);
+}
+
+static void json_dev_forget_channel(struct command *cmd, const char *buffer,
+				    const jsmntok_t *params)
+{
+	jsmntok_t *nodeidtok, *forcetok;
+	struct dev_forget_channel_cmd *forget = tal(cmd, struct dev_forget_channel_cmd);
+	forget->cmd = cmd;
+	if (!json_get_params(cmd, buffer, params,
+			     "id", &nodeidtok,
+			     "?force", &forcetok,
+			     NULL)) {
+		tal_free(forget);
+		return;
+	}
+
+	forget->force = false;
+	if (forcetok)
+		json_tok_bool(buffer, forcetok, &forget->force);
+
+	forget->peer = peer_from_json(cmd->ld, buffer, nodeidtok);
+	if (!forget->peer)
+		command_fail(cmd, "Could not find channel with that peer");
+	if (!forget->peer->funding_txid) {
+		process_dev_forget_channel(cmd->ld->topology->bitcoind, NULL, forget);
+	} else {
+		bitcoind_gettxout(cmd->ld->topology->bitcoind,
+				  forget->peer->funding_txid,
+				  forget->peer->funding_outnum,
+				  process_dev_forget_channel, forget);
+		command_still_pending(cmd);
+	}
+}
+
+static const struct json_command dev_forget_channel_command = {
+	"dev-forget-channel", json_dev_forget_channel,
+	"Forget the channel with peer {id}, ignore UTXO check with {force}='true'.", false,
+	"Forget the channel with peer {id}. Checks if the channel is still active by checking its funding transaction. Check can be ignored by setting {force} to 'true'"
+};
+AUTODATA(json_command, &dev_forget_channel_command);
 #endif /* DEVELOPER */

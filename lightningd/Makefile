@@ -23,6 +23,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/derive_basepoints.o		\
 	common/features.o			\
 	common/funding_tx.o			\
+	common/gen_status_wire.o		\
 	common/hash_u5.o			\
 	common/htlc_state.o			\
 	common/htlc_wire.o			\
@@ -34,6 +35,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/permute_tx.o			\
 	common/pseudorand.o			\
 	common/sphinx.o				\
+	common/status_wire.o			\
 	common/timeout.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
@@ -55,6 +57,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/jsonrpc.c			\
 	lightningd/lightningd.c			\
 	lightningd/log.c			\
+	lightningd/log_status.c			\
 	lightningd/netaddress.c			\
 	lightningd/opt_time.c			\
 	lightningd/options.c			\
@@ -78,7 +81,8 @@ ALL_OBJS += $(LIGHTNINGD_OBJS)
 # We accumulate all lightningd/ headers in these three:
 LIGHTNINGD_HEADERS_NOGEN =			\
 	$(LIGHTNINGD_SRC:.c=.h)			\
-	lightningd/peer_state.h
+	lightningd/peer_state.h			\
+	lightningd/jsonrpc_errors.h
 
 # Generated headers
 LIGHTNINGD_HEADERS_GEN =			\

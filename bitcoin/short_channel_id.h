@@ -25,4 +25,7 @@ bool short_channel_id_eq(const struct short_channel_id *a,
 
 char *short_channel_id_to_str(const tal_t *ctx, const struct short_channel_id *scid);
 
+/* Fast, platform dependent, way to convert from a short_channel_id to u64 */
+u64 short_channel_id_to_uint(const struct short_channel_id *scid);
+
 #endif /* LIGHTNING_BITCOIN_SHORT_CHANNEL_ID_H */

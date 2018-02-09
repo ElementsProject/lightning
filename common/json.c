@@ -239,7 +239,7 @@ jsmntok_t *json_parse_input(const char *input, int len, bool *valid)
 {
 	jsmn_parser parser;
 	jsmntok_t *toks;
-	jsmnerr_t ret;
+	int ret;
 	size_t i;
 
 	toks = tal_arr(input, jsmntok_t, 10);
@@ -410,6 +410,11 @@ void json_add_snum(struct json_result *result, const char *fieldname, int value)
 {
 	json_start_member(result, fieldname);
 	result_append_fmt(result, "%d", value);
+}
+void json_add_double(struct json_result *result, const char *fieldname, double value)
+{
+	json_start_member(result, fieldname);
+	result_append_fmt(result, "%f", value);
 }
 
 void json_add_u64(struct json_result *result, const char *fieldname,

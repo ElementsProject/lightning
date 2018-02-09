@@ -1,4 +1,4 @@
-COMMON_SRC :=					\
+COMMON_SRC_NOGEN :=				\
 	common/bech32.c				\
 	common/bip32.c				\
 	common/bolt11.c				\
@@ -32,6 +32,7 @@ COMMON_SRC :=					\
 	common/read_peer_msg.c			\
 	common/sphinx.c				\
 	common/status.c				\
+	common/status_wire.c			\
 	common/subdaemon.c			\
 	common/timeout.c			\
 	common/type_to_string.c			\
@@ -42,10 +43,14 @@ COMMON_SRC :=					\
 	common/wire_error.c			\
 	common/withdraw_tx.c
 
-COMMON_HEADERS_NOGEN := $(COMMON_SRC:.c=.h) common/overflows.h common/htlc.h
-COMMON_HEADERS_GEN := common/gen_htlc_state_names.h
+COMMON_SRC_GEN := common/gen_status_wire.c
+
+COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h) common/overflows.h common/htlc.h common/status_levels.h
+COMMON_HEADERS_GEN := common/gen_htlc_state_names.h common/gen_status_wire.h
 
 COMMON_HEADERS := $(COMMON_HEADERS_GEN) $(COMMON_HEADERS_NOGEN)
+COMMON_SRC := $(COMMON_SRC_NOGEN) $(COMMON_SRC_GEN)
+
 COMMON_OBJS := $(COMMON_SRC:.c=.o)
 
 # Common objects depends on bitcoin/ external/ and ccan
@@ -57,15 +62,21 @@ ALL_OBJS += $(COMMON_OBJS)
 common/gen_htlc_state_names.h: common/htlc_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr common/htlc_state.h > $@
 
+common/gen_status_wire.h: $(WIRE_GEN) common/status_wire.csv
+	$(WIRE_GEN) --header $@ status < common/status_wire.csv > $@
+
+common/gen_status_wire.c: $(WIRE_GEN) common/status_wire.csv
+	$(WIRE_GEN) ${@:.c=.h} status < common/status_wire.csv > $@
+
 check-makefile: check-common-makefile
 
 check-common-makefile:
 	if [ x"`LC_ALL=C ls common/*.h | grep -v ^common/gen_`" != x"`echo $(COMMON_HEADERS_NOGEN) | tr ' ' '\n' | LC_ALL=C sort`" ]; then echo COMMON_HEADERS_NOGEN incorrect; exit 1; fi
 
-check-source-bolt: $(COMMON_SRC:%=bolt-check/%) $(COMMON_HEADERS:%=bolt-check/%)
-check-whitespace: $(COMMON_SRC:%=check-whitespace/%) $(COMMON_HEADERS:%=check-whitespace/%)
+check-source-bolt: $(COMMON_SRC_NOGEN:%=bolt-check/%) $(COMMON_HEADERS:%=bolt-check/%)
+check-whitespace: $(COMMON_SRC_NOGEN:%=check-whitespace/%) $(COMMON_HEADERS:%=check-whitespace/%)
 
-check-source: $(COMMON_SRC:%=check-src-include-order/%)			\
+check-source: $(COMMON_SRC_NOGEN:%=check-src-include-order/%)		\
 	$(COMMON_HEADERS_NOGEN:%=check-hdr-include-order/%)
 
 clean: common-clean

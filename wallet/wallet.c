@@ -16,13 +16,14 @@
 #define DIRECTION_INCOMING 0
 #define DIRECTION_OUTGOING 1
 
-struct wallet *wallet_new(const tal_t *ctx, struct log *log)
+struct wallet *wallet_new(const tal_t *ctx,
+			  struct log *log, struct timers *timers)
 {
 	struct wallet *wallet = tal(ctx, struct wallet);
 	wallet->db = db_setup(wallet, log);
 	wallet->log = log;
 	wallet->bip32_base = NULL;
-	wallet->invoices = invoices_new(wallet, wallet->db, log);
+	wallet->invoices = invoices_new(wallet, wallet->db, log, timers);
 	list_head_init(&wallet->unstored_payments);
 	return wallet;
 }
@@ -53,7 +54,7 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 }
 
 /**
- * wallet_stmt2output - Extract data from stmt and fill a utxo
+ * wallet_stmt2output - Extract data from stmt and fill an UTXO
  *
  * Returns true on success.
  */
@@ -576,6 +577,7 @@ static bool wallet_stmt2channel(const tal_t *ctx, struct wallet *w, sqlite3_stmt
 	}
 
 	chan->peer->last_was_revoke = sqlite3_column_int(stmt, 34) != 0;
+	chan->first_blocknum = sqlite3_column_int64(stmt, 35);
 
 	chan->peer->channel = chan;
 
@@ -597,7 +599,7 @@ static const char *channel_fields =
     "old_per_commit_remote, local_feerate_per_kw, remote_feerate_per_kw, shachain_remote_id, "
     "shutdown_scriptpubkey_remote, shutdown_keyidx_local, "
     "last_sent_commit_state, last_sent_commit_id, "
-    "last_tx, last_sig, last_was_revoke";
+    "last_tx, last_sig, last_was_revoke, first_blocknum";
 
 bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w, struct list_head *peers)
 {
@@ -605,7 +607,7 @@ bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w, struct list
 	/* Channels are active if they have reached at least the
 	 * opening state and they are not marked as complete */
 	sqlite3_stmt *stmt = db_query(
-	    __func__, w->db, "SELECT %s FROM channels WHERE state >= %d AND state != %d;",
+	    __func__, w->db, "SELECT %s FROM channels WHERE state > %d AND state != %d;",
 	    channel_fields, OPENINGD, CLOSINGD_COMPLETE);
 
 	int count = 0;
@@ -695,12 +697,12 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 	return ok;
 }
 
-void wallet_channel_save(struct wallet *w, struct wallet_channel *chan,
-			 u32 current_block_height)
+void wallet_channel_save(struct wallet *w, struct wallet_channel *chan)
 {
 	struct peer *p = chan->peer;
 	tal_t *tmpctx = tal_tmpctx(w);
 	sqlite3_stmt *stmt;
+	assert(chan->first_blocknum);
 
 	if (p->dbid == 0) {
 		/* Need to store the peer first */
@@ -715,10 +717,10 @@ void wallet_channel_save(struct wallet *w, struct wallet_channel *chan,
 
 	/* Insert a stub, that we can update, unifies INSERT and UPDATE paths */
 	if (chan->id == 0) {
-		assert(current_block_height);
-		stmt = db_prepare(w->db, "INSERT INTO channels (peer_id,first_blocknum) VALUES (?,?);");
+		stmt = db_prepare(w->db, "INSERT INTO channels ("
+				  "peer_id, first_blocknum) VALUES (?, ?);");
 		sqlite3_bind_int64(stmt, 1, p->dbid);
-		sqlite3_bind_int(stmt, 2, current_block_height);
+		sqlite3_bind_int(stmt, 2, chan->first_blocknum);
 		db_exec_prepared(w->db, stmt);
 		chan->id = sqlite3_last_insert_rowid(w->db->sql);
 	}

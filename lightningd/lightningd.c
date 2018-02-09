@@ -67,6 +67,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx,
 	ld->portnum = DEFAULT_PORT;
 	timers_init(&ld->timers, time_mono());
 	ld->topology = new_topology(ld, ld->log);
+	ld->debug_subdaemon_io = NULL;
 
 	return ld;
 }
@@ -281,7 +282,7 @@ int main(int argc, char *argv[])
 	test_daemons(ld);
 
 	/* Initialize wallet, now that we are in the correct directory */
-	ld->wallet = wallet_new(ld, ld->log);
+	ld->wallet = wallet_new(ld, ld->log, &ld->timers);
 	ld->owned_txfilter = txfilter_new(ld);
 
 	/* Set up HSM. */

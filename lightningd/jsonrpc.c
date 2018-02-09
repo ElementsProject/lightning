@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
@@ -79,123 +80,6 @@ static const struct json_command stop_command = {
 	"Shut down the lightningd process"
 };
 AUTODATA(json_command, &stop_command);
-
-struct log_info {
-	enum log_level level;
-	struct json_result *response;
-	unsigned int num_skipped;
-};
-
-static void add_skipped(struct log_info *info)
-{
-	if (info->num_skipped) {
-		json_object_start(info->response, NULL);
-		json_add_string(info->response, "type", "SKIPPED");
-		json_add_num(info->response, "num_skipped", info->num_skipped);
-		json_object_end(info->response);
-		info->num_skipped = 0;
-	}
-}
-
-static void json_add_time(struct json_result *result, const char *fieldname,
-			  struct timespec ts)
-{
-	char timebuf[100];
-
-	sprintf(timebuf, "%lu.%09u",
-		(unsigned long)ts.tv_sec,
-		(unsigned)ts.tv_nsec);
-	json_add_string(result, fieldname, timebuf);
-}
-
-static void log_to_json(unsigned int skipped,
-			struct timerel diff,
-			enum log_level level,
-			const char *prefix,
-			const char *log,
-			struct log_info *info)
-{
-	info->num_skipped += skipped;
-
-	if (level < info->level) {
-		info->num_skipped++;
-		return;
-	}
-
-	add_skipped(info);
-
-	json_object_start(info->response, NULL);
-	json_add_string(info->response, "type",
-			level == LOG_BROKEN ? "BROKEN"
-			: level == LOG_UNUSUAL ? "UNUSUAL"
-			: level == LOG_INFORM ? "INFO"
-			: level == LOG_DBG ? "DEBUG"
-			: level == LOG_IO ? "IO"
-			: "UNKNOWN");
-	json_add_time(info->response, "time", diff.ts);
-	json_add_string(info->response, "source", prefix);
-	if (level == LOG_IO) {
-		assert(tal_count(log) > 0);
-		if (log[0])
-			json_add_string(info->response, "direction", "IN");
-		else
-			json_add_string(info->response, "direction", "OUT");
-
-		json_add_hex(info->response, "data", log+1, tal_count(log)-1);
-	} else
-		json_add_string(info->response, "log", log);
-
-	json_object_end(info->response);
-}
-
-static void json_getlog(struct command *cmd,
-			const char *buffer, const jsmntok_t *params)
-{
-	struct log_info info;
-	struct log_book *lr = cmd->ld->log_book;
-	jsmntok_t *level;
-
-	if (!json_get_params(cmd, buffer, params, "?level", &level, NULL)) {
-		return;
-	}
-
-	info.num_skipped = 0;
-
-	if (!level)
-		info.level = LOG_INFORM;
-	else if (json_tok_streq(buffer, level, "io"))
-		info.level = LOG_IO;
-	else if (json_tok_streq(buffer, level, "debug"))
-		info.level = LOG_DBG;
-	else if (json_tok_streq(buffer, level, "info"))
-		info.level = LOG_INFORM;
-	else if (json_tok_streq(buffer, level, "unusual"))
-		info.level = LOG_UNUSUAL;
-	else {
-		command_fail(cmd, "Invalid level param");
-		return;
-	}
-
-	info.response = new_json_result(cmd);
-	json_object_start(info.response, NULL);
-	if (deprecated_apis)
-		json_add_time(info.response, "creation_time", log_init_time(lr)->ts);
-	json_add_time(info.response, "created_at", log_init_time(lr)->ts);
-	json_add_num(info.response, "bytes_used", (unsigned int)log_used(lr));
-	json_add_num(info.response, "bytes_max", (unsigned int)log_max_mem(lr));
-	json_array_start(info.response, "log");
-	log_each_line(lr, log_to_json, &info);
-	json_array_end(info.response);
-	json_object_end(info.response);
-	command_success(cmd, info.response);
-}
-
-static const struct json_command getlog_command = {
-	"getlog",
-	json_getlog,
-	"Show logs, with optional log {level} (info|unusual|debug|io)"
-};
-AUTODATA(json_command, &getlog_command);
 
 #if DEVELOPER
 static void json_rhash(struct command *cmd,
@@ -469,10 +353,6 @@ void json_add_address(struct json_result *response, const char *fieldname,
 	}
 	json_object_end(response);
 }
-
-#define JSONRPC2_INVALID_REQUEST	-32600
-#define JSONRPC2_METHOD_NOT_FOUND	-32601
-#define JSONRPC2_INVALID_PARAMS		-32602
 
 void command_success(struct command *cmd, struct json_result *result)
 {
@@ -754,7 +634,7 @@ static struct io_plan *write_json(struct io_conn *conn,
 	jcon->outbuf = tal_steal(jcon, out->json);
 	tal_free(out);
 
-	log_io(jcon->log, false, jcon->outbuf, strlen(jcon->outbuf));
+	log_io(jcon->log, LOG_IO_OUT, "", jcon->outbuf, strlen(jcon->outbuf));
 	return io_write(conn,
 			jcon->outbuf, strlen(jcon->outbuf), write_json, jcon);
 }
@@ -765,7 +645,8 @@ static struct io_plan *read_json(struct io_conn *conn,
 	jsmntok_t *toks;
 	bool valid;
 
-	log_io(jcon->log, true, jcon->buffer + jcon->used, jcon->len_read);
+	log_io(jcon->log, LOG_IO_IN, "",
+	       jcon->buffer + jcon->used, jcon->len_read);
 
 	/* Resize larger if we're full. */
 	jcon->used += jcon->len_read;

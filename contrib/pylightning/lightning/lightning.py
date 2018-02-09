@@ -378,11 +378,14 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("withdraw", payload)
 
-    def newaddr(self):
+    def newaddr(self, addrtype='p2sh-segwit'):
         """
         Get a new address to fund a channel
         """
-        return self.call("newaddr")
+        payload = {
+            'addrtype': addrtype
+        }
+        return self.call("newaddr", payload)
 
     def listfunds(self):
         """

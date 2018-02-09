@@ -10,6 +10,7 @@
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
@@ -73,9 +74,61 @@ static void json_pay_success(struct lightningd *ld,
 	}
 }
 
+struct routing_failure {
+	unsigned int erring_index;
+	enum onion_type failcode;
+	struct pubkey erring_node;
+	struct short_channel_id erring_channel;
+	u8 *channel_update;
+};
+
+static void
+json_pay_command_routing_failed(struct command *cmd,
+				bool retry_plausible,
+				const struct routing_failure *fail,
+				const u8 *onionreply,
+				const char *details)
+{
+	int code =
+		(!fail) ?		PAY_UNPARSEABLE_ONION :
+		(!retry_plausible) ?	PAY_DESTINATION_PERM_FAIL :
+		/*otherwise*/		PAY_TRY_OTHER_ROUTE ;
+	struct json_result *data = new_json_result(cmd);
+	enum onion_type failure_code;
+
+	/* Prepare data. */
+	json_object_start(data, NULL);
+	if (fail) {
+		failure_code = fail->failcode;
+		json_add_num(data, "erring_index", fail->erring_index);
+		json_add_num(data, "failcode", (unsigned) fail->failcode);
+		json_add_hex(data, "erring_node",
+			     &fail->erring_node, sizeof(fail->erring_node));
+		json_add_short_channel_id(data, "erring_channel",
+					  &fail->erring_channel);
+		if (fail->channel_update)
+			json_add_hex(data, "channel_update",
+				     fail->channel_update,
+				     tal_len(fail->channel_update));
+	} else {
+		assert(onionreply);
+		failure_code = WIRE_PERMANENT_NODE_FAILURE;
+		json_add_hex(data, "onionreply",
+			     onionreply, tal_len(onionreply));
+	}
+	json_object_end(data);
+
+	/* Deletes cmd. */
+	command_fail_detailed(cmd, code, data, "failed: %s (%s)",
+			      onion_type_name(failure_code),
+			      details);
+}
+
 static void json_pay_failed(struct lightningd *ld,
 			    const struct sha256 *payment_hash,
-			    enum onion_type failure_code,
+			    bool retry_plausible,
+			    const struct routing_failure *fail,
+			    const u8 *onionreply,
 			    const char *details)
 {
 	struct pay_command *pc, *next;
@@ -84,9 +137,12 @@ static void json_pay_failed(struct lightningd *ld,
 		if (!structeq(payment_hash, &pc->payment_hash))
 			continue;
 
-		/* Deletes itself. */
-		command_fail(pc->cmd, "failed: %s (%s)",
-			     onion_type_name(failure_code), details);
+		/* Deletes cmd. */
+		json_pay_command_routing_failed(pc->cmd,
+						retry_plausible,
+						fail,
+						onionreply,
+						details);
 	}
 }
 
@@ -133,13 +189,6 @@ static u8 *channel_update_from_onion_error(const tal_t *ctx,
 	return channel_update;
 }
 
-struct routing_failure {
-	enum onion_type failcode;
-	struct pubkey erring_node;
-	struct short_channel_id erring_channel;
-	u8 *channel_update;
-};
-
 /* Return a struct routing_failure for an immediate failure
  * (returned directly from send_htlc_out). The returned
  * failure is allocated from the given context. */
@@ -154,6 +203,7 @@ immediate_routing_failure(const tal_t *ctx,
 	assert(failcode);
 
 	routing_failure = tal(ctx, struct routing_failure);
+	routing_failure->erring_index = 0;
 	routing_failure->failcode = failcode;
 	routing_failure->erring_node = ld->id;
 	routing_failure->erring_channel = *channel0;
@@ -175,6 +225,7 @@ local_routing_failure(const tal_t *ctx,
 	assert(hout->failcode);
 
 	routing_failure = tal(ctx, struct routing_failure);
+	routing_failure->erring_index = 0;
 	routing_failure->failcode = hout->failcode;
 	routing_failure->erring_node = ld->id;
 	routing_failure->erring_channel = payment->route_channels[0];
@@ -187,13 +238,16 @@ local_routing_failure(const tal_t *ctx,
  * retrying is plausible. Fill *routing_failure with NULL if
  * we cannot report the remote failure, or with the routing
  * failure to report (allocated from ctx) otherwise. */
-static bool remote_routing_failure(const tal_t *ctx,
-				   struct routing_failure **routing_failure,
-				   const struct wallet_payment *payment,
-				   const struct onionreply *failure)
+static struct routing_failure*
+remote_routing_failure(const tal_t *ctx,
+		       bool *p_retry_plausible,
+		       bool *p_report_to_gossipd,
+		       const struct wallet_payment *payment,
+		       const struct onionreply *failure)
 {
 	enum onion_type failcode = fromwire_peektype(failure->msg);
 	u8 *channel_update;
+	struct routing_failure *routing_failure;
 	const struct pubkey *route_nodes;
 	const struct pubkey *erring_node;
 	const struct short_channel_id *route_channels;
@@ -203,12 +257,12 @@ static bool remote_routing_failure(const tal_t *ctx,
 	bool retry_plausible;
 	bool report_to_gossipd;
 
-	*routing_failure = tal(ctx, struct routing_failure);
+	routing_failure = tal(ctx, struct routing_failure);
 	route_nodes = payment->route_nodes;
 	route_channels = payment->route_channels;
 	origin_index = failure->origin_index;
 	channel_update
-		= channel_update_from_onion_error(*routing_failure,
+		= channel_update_from_onion_error(routing_failure,
 						  failure->msg);
 	retry_plausible = true;
 	report_to_gossipd = true;
@@ -217,6 +271,7 @@ static bool remote_routing_failure(const tal_t *ctx,
 
 	/* Check if at destination. */
 	if (origin_index == tal_count(route_nodes) - 1) {
+		erring_channel = &dummy_channel;
 		/* BOLT #4:
 		 *
 		 * - if the _final node_ is returning the error:
@@ -230,10 +285,9 @@ static bool remote_routing_failure(const tal_t *ctx,
 		/* Only send message to gossipd if NODE error;
 		 * there is no "next" channel to report as
 		 * failing if this is the last node. */
-		if (failcode & NODE) {
-			erring_channel = &dummy_channel;
+		if (failcode & NODE)
 			report_to_gossipd = true;
-		} else
+		else
 			report_to_gossipd = false;
 	} else
 		/* Report the *next* channel as failing. */
@@ -241,15 +295,44 @@ static bool remote_routing_failure(const tal_t *ctx,
 
 	erring_node = &route_nodes[origin_index];
 
-	if (report_to_gossipd) {
-		(*routing_failure)->failcode = failcode;
-		(*routing_failure)->erring_node = *erring_node;
-		(*routing_failure)->erring_channel = *erring_channel;
-		(*routing_failure)->channel_update = channel_update;
-	} else
-		*routing_failure = tal_free(*routing_failure);
+	routing_failure->erring_index = (unsigned int) (origin_index + 1);
+	routing_failure->failcode = failcode;
+	routing_failure->erring_node = *erring_node;
+	routing_failure->erring_channel = *erring_channel;
+	routing_failure->channel_update = channel_update;
 
-	return retry_plausible;
+	*p_retry_plausible = retry_plausible;
+	*p_report_to_gossipd = report_to_gossipd;
+
+	return routing_failure;
+}
+
+static void random_mark_channel_unroutable(struct log *log,
+					   struct subd *gossip,
+					   struct short_channel_id *route_channels)
+{
+	const tal_t *tmpctx = tal_tmpctx(gossip);
+	size_t num_channels = tal_count(route_channels);
+	size_t i;
+	const struct short_channel_id *channel;
+	u8 *msg;
+	assert(num_channels != 0);
+
+	/* Select one channel by random. */
+	randombytes_buf(&i, sizeof(i));
+	i = i % num_channels;
+	channel = &route_channels[i];
+
+	log_debug(log,
+		  "Disable randomly %dth channel (%s) along route "
+		  "(guessing due to bad reply)",
+		  (int) i,
+		  type_to_string(tmpctx, struct short_channel_id,
+				 channel));
+	msg = towire_gossip_mark_channel_unroutable(tmpctx, channel);
+	subd_send_msg(gossip, msg);
+
+	tal_free(tmpctx);
 }
 
 static void report_routing_failure(struct log *log,
@@ -290,6 +373,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	struct routing_failure* fail = NULL;
 	const char *failmsg;
 	bool retry_plausible;
+	bool report_to_gossipd;
 
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
 					 &hout->payment_hash);
@@ -300,6 +384,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		failcode = fail->failcode;
 		failmsg = localfail;
 		retry_plausible = true;
+		report_to_gossipd = true;
 	} else {
 		/* Must be remote fail. */
 		assert(!hout->failcode);
@@ -317,9 +402,16 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 			/* Cannot report failure. */
 			fail = NULL;
 			failcode = WIRE_PERMANENT_NODE_FAILURE;
-			/* Not safe to retry, not know what failed. */
-			/* FIXME: some mitigation for this branch. */
-			retry_plausible = false;
+			/* Select a channel to mark unroutable by random */
+			random_mark_channel_unroutable(hout->key.peer->log,
+						       ld->gossip,
+						       payment->route_channels);
+			/* Can now retry; we selected a channel to mark
+			 * unroutable by random */
+			retry_plausible = true;
+			/* Already reported something to gossipd, do not
+			 * report anything else */
+			report_to_gossipd = false;
 		} else {
 			failcode = fromwire_peektype(reply->msg);
 			log_info(hout->key.peer->log,
@@ -329,9 +421,10 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 				 hout->key.id,
 				 reply->origin_index,
 				 failcode, onion_type_name(failcode));
-			retry_plausible
-				= remote_routing_failure(tmpctx, &fail,
-							 payment, reply);
+			fail = remote_routing_failure(tmpctx,
+						      &retry_plausible,
+						      &report_to_gossipd,
+						      payment, reply);
 		}
 	}
 
@@ -341,8 +434,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 				  PAYMENT_FAILED, NULL);
 
-	/* Report to gossipd if there is something we can report. */
-	if (fail)
+	/* Report to gossipd if we decided we should. */
+	if (report_to_gossipd)
 		report_routing_failure(ld->log, ld->gossip, fail);
 
 	/* FIXME(ZmnSCPxj): if retrying is plausible, and we are
@@ -350,7 +443,10 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	 * and payment again. */
 	(void) retry_plausible;
 
-	json_pay_failed(ld, &hout->payment_hash, failcode, failmsg);
+	/* Report to RPC. */
+	json_pay_failed(ld, &hout->payment_hash,
+			retry_plausible, fail, hout->failuremsg,
+			failmsg);
 	tal_free(tmpctx);
 }
 
@@ -405,23 +501,29 @@ static bool send_payment(struct command *cmd,
 		log_debug(cmd->ld->log, "json_sendpay: found previous");
 		if (payment->status == PAYMENT_PENDING) {
 			log_add(cmd->ld->log, "Payment is still in progress");
-			command_fail(cmd, "Payment is still in progress");
+			command_fail_detailed(cmd, PAY_IN_PROGRESS, NULL,
+					      "Payment is still in progress");
 			return false;
 		}
 		if (payment->status == PAYMENT_COMPLETE) {
 			log_add(cmd->ld->log, "... succeeded");
 			/* Must match successful payment parameters. */
 			if (payment->msatoshi != hop_data[n_hops-1].amt_forward) {
-				command_fail(cmd,
-					     "Already succeeded with amount %"
-					     PRIu64, payment->msatoshi);
+				command_fail_detailed(cmd,
+						      PAY_RHASH_ALREADY_USED,
+						      NULL,
+						      "Already succeeded "
+						      "with amount %"PRIu64,
+						      payment->msatoshi);
 				return false;
 			}
 			if (!structeq(&payment->destination, &ids[n_hops-1])) {
-				command_fail(cmd,
-					     "Already succeeded to %s",
-					     type_to_string(cmd, struct pubkey,
-							    &payment->destination));
+				command_fail_detailed(cmd,
+						      PAY_RHASH_ALREADY_USED,
+						      NULL,
+						      "Already succeeded to %s",
+						      type_to_string(cmd, struct pubkey,
+								     &payment->destination));
 				return false;
 			}
 			json_pay_command_success(cmd,
@@ -434,7 +536,16 @@ static bool send_payment(struct command *cmd,
 
 	peer = peer_by_id(cmd->ld, &ids[0]);
 	if (!peer) {
-		command_fail(cmd, "No connection to first peer found");
+		/* Report routing failure to gossipd */
+		fail = immediate_routing_failure(cmd, cmd->ld,
+						 WIRE_UNKNOWN_NEXT_PEER,
+						 &route[0].channel_id);
+		report_routing_failure(cmd->ld->log, cmd->ld->gossip, fail);
+
+		/* Report routing failure to user */
+		json_pay_command_routing_failed(cmd, true, fail, NULL,
+						"No connection to first "
+						"peer found");
 		return false;
 	}
 
@@ -458,9 +569,9 @@ static bool send_payment(struct command *cmd,
 						 &route[0].channel_id);
 		report_routing_failure(cmd->ld->log, cmd->ld->gossip, fail);
 
-		/* Repor routing failure to user */
-		command_fail(cmd, "First peer not ready: %s",
-			     onion_type_name(failcode));
+		/* Report routing failure to user */
+		json_pay_command_routing_failed(cmd, true, fail, NULL,
+						"First peer not ready");
 		return false;
 	}
 
@@ -590,6 +701,8 @@ AUTODATA(json_command, &sendpay_command);
 struct pay {
 	struct sha256 payment_hash;
 	struct command *cmd;
+	u64 msatoshi;
+	double maxfeepercent;
 };
 
 static void json_pay_getroute_reply(struct subd *gossip,
@@ -597,11 +710,46 @@ static void json_pay_getroute_reply(struct subd *gossip,
 				    struct pay *pay)
 {
 	struct route_hop *route;
+	u64 msatoshi_sent;
+	u64 fee;
+	double feepercent;
+	struct json_result *data;
 
 	fromwire_gossip_getroute_reply(reply, reply, NULL, &route);
 
 	if (tal_count(route) == 0) {
-		command_fail(pay->cmd, "Could not find a route");
+		command_fail_detailed(pay->cmd, PAY_ROUTE_NOT_FOUND, NULL,
+				      "Could not find a route");
+		return;
+	}
+
+	msatoshi_sent = route[0].amount;
+	fee = msatoshi_sent - pay->msatoshi;
+	/* FIXME: IEEE Double-precision floating point has only 53 bits
+	 * of precision. Total satoshis that can ever be created is
+	 * slightly less than 2100000000000000. Total msatoshis that
+	 * can ever be created is 1000 times that or
+	 * 2100000000000000000, requiring 60.865 bits of precision,
+	 * and thus losing precision in the below. Currently, OK, as,
+	 * payments are limited to 4294967295 msatoshi. */
+	feepercent = ((double) fee) * 100.0 / ((double) pay->msatoshi);
+	if (feepercent > pay->maxfeepercent) {
+		data = new_json_result(pay);
+		json_object_start(data, NULL);
+		json_add_u64(data, "fee", fee);
+		json_add_double(data, "feepercent", feepercent);
+		json_add_u64(data, "msatoshi", pay->msatoshi);
+		json_add_double(data, "maxfeepercent", pay->maxfeepercent);
+		json_object_end(data);
+
+		command_fail_detailed(pay->cmd, PAY_ROUTE_TOO_EXPENSIVE,
+				      data,
+				      "Fee %"PRIu64" is %f%% "
+				      "of payment %"PRIu64"; "
+				      "max fee requested is %f%%",
+				      fee, feepercent,
+				      pay->msatoshi,
+				      pay->maxfeepercent);
 		return;
 	}
 
@@ -611,8 +759,9 @@ static void json_pay_getroute_reply(struct subd *gossip,
 static void json_pay(struct command *cmd,
 		     const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *bolt11tok, *msatoshitok, *desctok, *riskfactortok;
+	jsmntok_t *bolt11tok, *msatoshitok, *desctok, *riskfactortok, *maxfeetok;
 	double riskfactor = 1.0;
+	double maxfeepercent = 0.5;
 	u64 msatoshi;
 	struct pay *pay = tal(cmd, struct pay);
 	struct bolt11 *b11;
@@ -624,6 +773,7 @@ static void json_pay(struct command *cmd,
 			     "?msatoshi", &msatoshitok,
 			     "?description", &desctok,
 			     "?riskfactor", &riskfactortok,
+			     "?maxfeepercent", &maxfeetok,
 			     NULL)) {
 		return;
 	}
@@ -664,6 +814,7 @@ static void json_pay(struct command *cmd,
 			return;
 		}
 	}
+	pay->msatoshi = msatoshi;
 
 	if (riskfactortok
 	    && !json_tok_double(buffer, riskfactortok, &riskfactor)) {
@@ -672,6 +823,26 @@ static void json_pay(struct command *cmd,
 			     buffer + riskfactortok->start);
 		return;
 	}
+
+	if (maxfeetok
+	    && !json_tok_double(buffer, maxfeetok, &maxfeepercent)) {
+		command_fail(cmd, "'%.*s' is not a valid double",
+			     (int)(maxfeetok->end - maxfeetok->start),
+			     buffer + maxfeetok->start);
+		return;
+	}
+	/* Ensure it is in range 0.0 <= maxfeepercent <= 100.0 */
+	if (!(0.0 <= maxfeepercent)) {
+		command_fail(cmd, "%f maxfeepercent must be non-negative",
+			     maxfeepercent);
+		return;
+	}
+	if (!(maxfeepercent <= 100.0)) {
+		command_fail(cmd, "%f maxfeepercent must be <= 100.0",
+			     maxfeepercent);
+		return;
+	}
+	pay->maxfeepercent = maxfeepercent;
 
 	/* FIXME: use b11->routes */
 	req = towire_gossip_getroute_request(cmd, &cmd->ld->id,
@@ -685,7 +856,11 @@ static void json_pay(struct command *cmd,
 static const struct json_command pay_command = {
 	"pay",
 	json_pay,
-	"Send payment specified by {bolt11} with optional {msatoshi} (if and only if {bolt11} does not have amount), {description} (required if {bolt11} uses description hash) and {riskfactor} (default 1.0)"
+	"Send payment specified by {bolt11} with optional {msatoshi} "
+	"(if and only if {bolt11} does not have amount), "
+	"{description} (required if {bolt11} uses description hash), "
+	"{riskfactor} (default 1.0), and "
+	"{maxfeepercent} (default 0.5) the maximum acceptable fee as a percentage (e.g. 0.5 => 0.5%)"
 };
 AUTODATA(json_command, &pay_command);
 

@@ -219,7 +219,7 @@ static void config_register_opts(struct lightningd *ld)
 			 "Blocks before peer can unilaterally spend funds");
 	opt_register_arg("--max-locktime-blocks", opt_set_u32, opt_show_u32,
 			 &ld->config.locktime_max,
-			 "Maximum seconds peer can lock up our funds");
+			 "Maximum blocks a peer can lock up our funds");
 	opt_register_arg("--anchor-onchain", opt_set_u32, opt_show_u32,
 			 &ld->config.anchor_onchain_wait,
 			 "Blocks before we give up on pending anchor transaction");
@@ -277,6 +277,9 @@ static void config_register_opts(struct lightningd *ld)
 			 opt_set_bool_arg, opt_show_bool,
 			 &deprecated_apis,
 			 "Enable deprecated options, JSONRPC commands, fields, etc.");
+	opt_register_arg("--debug-subdaemon-io",
+			 opt_set_charp, NULL, &ld->debug_subdaemon_io,
+			 "Enable full peer IO logging in subdaemons ending in this string (can also send SIGUSR1 to toggle)");
 }
 
 #if DEVELOPER

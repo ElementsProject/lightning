@@ -267,8 +267,10 @@ class LightningDTests(BaseLightningDTests):
         # Technically, this is async to fundchannel.
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l1.bitcoin.generate_block(1)
-        l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
-        l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
+        # We wait until gossipd sees local update, as well as status NORMAL,
+        # so it can definitely route through.
+        l1.daemon.wait_for_logs(['update for channel .* now ACTIVE', 'to CHANNELD_NORMAL'])
+        l2.daemon.wait_for_logs(['update for channel .* now ACTIVE', 'to CHANNELD_NORMAL'])
 
         # Hacky way to find our output.
         decoded = bitcoind.rpc.decoderawtransaction(tx)
@@ -328,9 +330,9 @@ class LightningDTests(BaseLightningDTests):
     def wait_for_routes(self, l1, channel_ids):
         bitcoind.generate_block(5)
         # Could happen in any order...
-        l1.daemon.wait_for_logs(['Channel {}\\(0\\) was updated'.format(c)
+        l1.daemon.wait_for_logs(['Received channel_update for channel {}\\(0\\)'.format(c)
                                  for c in channel_ids]
-                                + ['Channel {}\\(1\\) was updated'.format(c)
+                                + ['Received channel_update for channel {}\\(1\\)'.format(c)
                                  for c in channel_ids])
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -351,7 +353,7 @@ class LightningDTests(BaseLightningDTests):
         inv = l1.rpc.invoice(123000, 'label', 'description')
         after = int(time.time())
         b11 = l1.rpc.decodepay(inv['bolt11'])
-        assert b11['currency'] == 'tb'
+        assert b11['currency'] == 'bcrt'
         assert b11['created_at'] >= before
         assert b11['created_at'] <= after
         assert b11['payment_hash'] == inv['payment_hash']
@@ -366,13 +368,13 @@ class LightningDTests(BaseLightningDTests):
         # Check any-amount invoice
         inv = l1.rpc.invoice("any", 'label2', 'description2')
         b11 = inv['bolt11']
-        # Amount usually comes after currency (tb in our case),
+        # Amount usually comes after currency (bcrt in our case),
         # but an any-amount invoices will have no amount
-        assert b11.startswith("lntb1")
+        assert b11.startswith("lnbcrt1")
         # By bech32 rules, the last '1' digit is the separator
         # between the human-readable and data parts. We want
-        # to match the "lntb1" above with the '1' digit as the
-        # separator, and not for example "lntb1m1....".
+        # to match the "lnbcrt1" above with the '1' digit as the
+        # separator, and not for example "lnbcrt1m1....".
         assert b11.count('1') == 1
 
     def test_invoice_expiry(self):
@@ -994,7 +996,7 @@ class LightningDTests(BaseLightningDTests):
         num_peers = len(feerates) * len(amounts)
         self.give_funds(l1, (10**6) * num_peers + 10000 * num_peers)
 
-        # Create them in a batch, but only valgrind one in three, for speed!
+        # Create them in a batch, for speed!
         peers = []
         for feerate in feerates:
             for amount in amounts:
@@ -1008,13 +1010,16 @@ class LightningDTests(BaseLightningDTests):
                 peers.append(p)
 
         for p in peers:
-                l1.rpc.fundchannel(p.info['id'], 10**6)
+            l1.rpc.fundchannel(p.info['id'], 10**6)
+            # Technically, this is async to fundchannel returning.
+            l1.daemon.wait_for_log('sendrawtx exit 0')
 
         bitcoind.generate_block(6)
 
         # Now wait for them all to hit normal state, do payments
+        l1.daemon.wait_for_logs(['update for channel .* now ACTIVE'] * num_peers
+                                + ['to CHANNELD_NORMAL'] * num_peers)
         for p in peers:
-            p.daemon.wait_for_log('to CHANNELD_NORMAL')
             if p.amount != 0:
                 self.pay(l1, p, 100000000)
 
@@ -1651,20 +1656,14 @@ class LightningDTests(BaseLightningDTests):
                                  'peer_in WIRE_ANNOUNCEMENT_SIGNATURES'])
 
         channel_id = channels[0]['short_channel_id']
-        # Could happen in any order.
-        l1.daemon.wait_for_logs(['peer_out WIRE_CHANNEL_ANNOUNCEMENT',
-                                 'peer_in WIRE_CHANNEL_ANNOUNCEMENT',
-                                 'Channel {}\\(0\\) was updated.'
-                                 .format(channel_id),
-                                 'Channel {}\\(1\\) was updated.'
-                                 .format(channel_id)])
 
-        l2.daemon.wait_for_logs(['peer_out WIRE_CHANNEL_ANNOUNCEMENT',
-                                 'peer_in WIRE_CHANNEL_ANNOUNCEMENT',
-                                 'Channel {}\\(0\\) was updated.'
-                                 .format(channel_id),
-                                 'Channel {}\\(1\\) was updated.'
-                                 .format(channel_id)])
+        # Just wait for the update to kick off and then check the effect
+        needle = "Received channel_update for channel"
+        l1.daemon.wait_for_log(needle)
+        l2.daemon.wait_for_log(needle)
+        # Need to increase timeout, intervals cannot be shortened with DEVELOPER=0
+        wait_for(lambda: len(l1.getactivechannels()) == 2, timeout=60)
+        wait_for(lambda: len(l2.getactivechannels()) == 2, timeout=60)
 
         nodes = l1.rpc.listnodes()['nodes']
         assert set([n['nodeid'] for n in nodes]) == set([l1.info['id'], l2.info['id']])
@@ -1991,7 +1990,7 @@ class LightningDTests(BaseLightningDTests):
         assert route[0]['delay'] == 9 + shadow_route
 
         # BOLT #7:
-        # If A were to send an 4,999,999 millisatoshi to C via B, it needs to
+        # If A were to send 4,999,999 millisatoshi to C via B, it needs to
         # pay B the fee it specified in the B->C `channel_update`, calculated as
         # per [HTLC Fees](#htlc_fees):
         #
@@ -2506,6 +2505,33 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_logs(['sendrawtx exit 0', ' to CLOSINGD_COMPLETE'])
         l2.daemon.wait_for_logs(['sendrawtx exit 0', ' to CLOSINGD_COMPLETE'])
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
+
+    @unittest.skip("FIXME: needs bitcoind 0.16")
+    def test_bech32_funding(self):
+        # Don't get any funds from previous runs.
+        l1 = self.node_factory.get_node(random_hsm=True)
+        l2 = self.node_factory.get_node(random_hsm=True)
+
+        # connect
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+
+        # fund a bech32 address and then open a channel with it
+        res = l1.openchannel(l2, 20000, addrtype='bech32')
+        address = res['address']
+        assert address[0:4] == "bcrt"
+
+        # probably overly paranoid checking
+        wallettxid = res['wallettxid']
+
+        wallettx = l1.bitcoin.rpc.getrawtransaction(wallettxid, True)
+        fundingtx = l1.bitcoin.rpc.decoderawtransaction(res['fundingtx']['tx'])
+
+        def is_p2wpkh(output):
+            return output['type'] == 'witness_v0_keyhash' and \
+                   address == output['addresses'][0]
+
+        assert any(is_p2wpkh(output['scriptPubKey']) for output in wallettx['vout'])
+        assert fundingtx['vin'][0]['txid'] == res['wallettxid']
 
     def test_withdraw(self):
         amount = 1000000
@@ -3061,8 +3087,10 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.start()
 
         # Now they should sync and re-establish again
-        l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l2.info['id']))
-        l2.daemon.wait_for_log('Received node_announcement for node {}'.format(l1.info['id']))
+        l1.daemon.wait_for_logs(['Received channel_update for channel 434:1:1.1.',
+                                 'Received channel_update for channel 434:1:1.0.'])
+        l2.daemon.wait_for_logs(['Received channel_update for channel 434:1:1.1.',
+                                 'Received channel_update for channel 434:1:1.0.'])
         wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True, True])
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -3108,7 +3136,11 @@ class LightningDTests(BaseLightningDTests):
         # L1 asks for stupid low fees
         l1.rpc.dev_setfees(15)
 
-        l1.daemon.wait_for_log('STATUS_FAIL_PEER_BAD')
+        l1.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 15 outside range 4250-75000')
+        # Make sure the resolution of this one doesn't interfere with the next!
+        # Note: may succeed, may fail with insufficient fee, depending on how
+        # bitcoind feels!
+        l1.daemon.wait_for_log('sendrawtx exit')
 
         # Restore to normal.
         l1.rpc.dev_setfees(15000)
@@ -3178,6 +3210,60 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
+    def test_io_logging(self):
+        disconnects = ['+WIRE_COMMITMENT_SIGNED']
+        l1 = self.node_factory.get_node(options=['--debug-subdaemon-io=channeld',
+                                                 '--log-level=io'])
+        l2 = self.node_factory.get_node()
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+
+        # Fundchannel manually so we get channeld pid.
+        self.give_funds(l1, 10**6 + 1000000)
+        l1.rpc.fundchannel(l2.info['id'], 10**6)['tx']
+        # Get pid of channeld, eg 'lightning_channeld(...): pid 13933, msgfd 12'
+        pidline = l1.daemon.wait_for_log(r'lightning_channeld.*: pid [0-9]*,')
+        pid1 = re.search(r'pid ([0-9]*),', pidline).group(1)
+
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+        l1.bitcoin.generate_block(1)
+        l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
+
+        pidline = l2.daemon.wait_for_log(r'lightning_channeld.*: pid [0-9]*,')
+        pid2 = re.search(r'pid ([0-9]*),', pidline).group(1)
+        l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
+
+        fut = self.pay(l1,l2,200000000,async=True)
+
+        # WIRE_UPDATE_ADD_HTLC = 128 = 0x0080
+        l1.daemon.wait_for_log(r'channeld.*:\[OUT\] 0080')
+        # WIRE_UPDATE_FULFILL_HTLC = 130 = 0x0082
+        l1.daemon.wait_for_log(r'channeld.*:\[IN\] 0082')
+        fut.result(10)
+
+        # Send it sigusr1: should turn off logging.
+        subprocess.run(['kill', '-USR1', pid1])
+
+        self.pay(l1,l2,200000000)
+
+        assert not l1.daemon.is_in_log(r'channeld.*:\[OUT\] 0080',
+                                       start=l1.daemon.logsearch_start)
+        assert not l1.daemon.is_in_log(r'channeld.*:\[IN\] 0082',
+                                       start=l1.daemon.logsearch_start)
+
+        # IO logs should appear in peer logs.
+        peerlog = l2.rpc.listpeers(l1.info['id'], "io")['peers'][0]['log']
+        assert not any(l['type'] == 'IO_OUT' or l['type'] == 'IO_IN'
+                       for l in peerlog)
+
+        # Turn on in l2 channel logging.
+        subprocess.run(['kill', '-USR1', pid2])
+        self.pay(l1,l2,200000000)
+
+        # Now it should find it.
+        peerlog = l2.rpc.listpeers(l1.info['id'], "io")['peers'][0]['log']
+        assert any(l['type'] == 'IO_OUT' for l in peerlog)
+        assert any(l['type'] == 'IO_IN' for l in peerlog)
+        
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_pay_disconnect(self):
         """If the remote node has disconnected, we fail payment, but can try again when it reconnects"""
@@ -3197,15 +3283,15 @@ class LightningDTests(BaseLightningDTests):
         # Make l2 upset by asking for crazy fee.
         l1.rpc.dev_setfees('150000')
         # Wait for l1 notice
-        l1.daemon.wait_for_log('STATUS_FAIL_PEER_BAD')
+        l1.daemon.wait_for_log(r'Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 150000 outside range 4250-75000')
 
         # Can't pay while its offline.
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
-        l1.daemon.wait_for_log('Failing: First peer not ready: WIRE_TEMPORARY_CHANNEL_FAILURE')
+        l1.daemon.wait_for_log('failed: WIRE_TEMPORARY_CHANNEL_FAILURE \\(First peer not ready\\)')
 
         # Should fail due to temporary channel fail
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
-        l1.daemon.wait_for_log('Failing: First peer not ready: WIRE_TEMPORARY_CHANNEL_FAILURE')
+        l1.daemon.wait_for_log('failed: WIRE_TEMPORARY_CHANNEL_FAILURE \\(First peer not ready\\)')
         assert not l1.daemon.is_in_log('Payment is still in progress')
 
         # After it sees block, someone should close channel.
@@ -3289,7 +3375,6 @@ class LightningDTests(BaseLightningDTests):
         j, _ = json.JSONDecoder().raw_decode(out)
         assert 'help [command]' in j['verbose']
 
-
         # Test missing parameters.
         try:
             # This will error due to missing parameters.
@@ -3301,6 +3386,28 @@ class LightningDTests(BaseLightningDTests):
                                            'sendpay']).decode('utf-8')
         except:
             pass
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_forget_channel(self):
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
+        self.give_funds(l1, 10**6)
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        l1.rpc.fundchannel(l2.info['id'], 10**5)
+
+        assert len(l1.rpc.listpeers()['peers']) == 1
+
+        # This should fail, the funding tx is in the mempool and may confirm
+        self.assertRaises(ValueError, l1.rpc.dev_forget_channel, l2.info['id'])
+        assert len(l1.rpc.listpeers()['peers']) == 1
+
+        # Forcing should work
+        l1.rpc.dev_forget_channel(l2.info['id'], True)
+        assert len(l1.rpc.listpeers()['peers']) == 0
+
+        # And restarting should keep that peer forgotten
+        l1.restart()
+        assert len(l1.rpc.listpeers()['peers']) == 0
 
 
 if __name__ == '__main__':

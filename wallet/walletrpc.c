@@ -61,6 +61,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind,
 
 		/* Note normally, change_satoshi == withdraw->changesatoshi, but
 		 * not if we're actually making a payment to ourselves! */
+		assert(change_satoshi >= withdraw->changesatoshi);
 
 		struct json_result *response = new_json_result(cmd);
 		json_object_start(response, NULL);
@@ -195,7 +196,6 @@ static void json_withdraw(struct command *cmd,
 	bool testnet;
 	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
 	u64 fee_estimate;
-	struct utxo *utxos;
 	struct bitcoin_tx *tx;
 	bool withdraw_all = false;
 
@@ -276,14 +276,12 @@ static void json_withdraw(struct command *cmd,
 	else
 		withdraw->change_key_index = 0;
 
-	utxos = from_utxoptr_arr(withdraw, withdraw->utxos);
 	u8 *msg = towire_hsm_sign_withdrawal(cmd,
 					     withdraw->amount,
 					     withdraw->changesatoshi,
 					     withdraw->change_key_index,
 					     withdraw->destination,
-					     utxos);
-	tal_free(utxos);
+					     withdraw->utxos);
 
 	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
 		fatal("Could not write sign_withdrawal to HSM: %s",
@@ -291,9 +289,7 @@ static void json_withdraw(struct command *cmd,
 
 	msg = hsm_sync_read(cmd, cmd->ld);
 
-	tx = tal(withdraw, struct bitcoin_tx);
-
-	if (!fromwire_hsm_sign_withdrawal_reply(msg, NULL, tx))
+	if (!fromwire_hsm_sign_withdrawal_reply(msg, msg, NULL, &tx))
 		fatal("HSM gave bad sign_withdrawal_reply %s",
 		      tal_hex(withdraw, msg));
 
@@ -317,10 +313,30 @@ static void json_newaddr(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 	struct ext_key ext;
 	struct sha256 h;
-	struct ripemd160 p2sh;
+	struct ripemd160 h160;
 	struct pubkey pubkey;
+	jsmntok_t *addrtype;
 	u8 *redeemscript;
+	bool is_p2wpkh, ok;
 	s64 keyidx;
+	char *out;
+	const char *hrp;
+
+	if (!json_get_params(cmd, buffer, params,
+			     "?addresstype", &addrtype, NULL)) {
+		return;
+	}
+
+	if (!addrtype || json_tok_streq(buffer, addrtype, "p2sh-segwit"))
+		is_p2wpkh = false;
+	else if (json_tok_streq(buffer, addrtype, "bech32"))
+		is_p2wpkh = true;
+	else {
+		command_fail(cmd,
+			     "Invalid address type "
+			     "(expected bech32 or p2sh-segwit)");
+		return;
+	}
 
 	keyidx = wallet_get_newindex(cmd->ld);
 	if (keyidx < 0) {
@@ -342,14 +358,27 @@ static void json_newaddr(struct command *cmd,
 
 	txfilter_add_derkey(cmd->ld->owned_txfilter, ext.pub_key);
 
-	redeemscript = bitcoin_redeem_p2sh_p2wpkh(cmd, &pubkey);
-	sha256(&h, redeemscript, tal_count(redeemscript));
-	ripemd160(&p2sh, h.u.u8, sizeof(h));
+	if (is_p2wpkh) {
+		hrp = get_chainparams(cmd->ld)->bip173_name;
+		/* out buffer is 73 + strlen(human readable part). see bech32.h */
+		out = tal_arr(cmd, char, 73 + strlen(hrp));
+		pubkey_to_hash160(&pubkey, &h160);
+		ok = segwit_addr_encode(out, hrp, 0, h160.u.u8, sizeof(h160.u.u8));
+		if (!ok) {
+			command_fail(cmd, "p2wpkh address encoding failure.");
+			return;
+		}
+	}
+	else {
+		redeemscript = bitcoin_redeem_p2sh_p2wpkh(cmd, &pubkey);
+		sha256(&h, redeemscript, tal_count(redeemscript));
+		ripemd160(&h160, h.u.u8, sizeof(h));
+		out = p2sh_to_base58(cmd,
+				     get_chainparams(cmd->ld)->testnet, &h160);
+	}
 
 	json_object_start(response, NULL);
-	json_add_string(response, "address",
-			p2sh_to_base58(cmd, get_chainparams(cmd->ld)->testnet,
-				       &p2sh));
+	json_add_string(response, "address", out);
 	json_object_end(response);
 	command_success(cmd, response);
 }
@@ -357,7 +386,7 @@ static void json_newaddr(struct command *cmd,
 static const struct json_command newaddr_command = {
 	"newaddr",
 	json_newaddr,
-	"Get a new address to fund a channel"
+	"Get a new {bech32, p2sh-segwit} address to fund a channel"
 };
 AUTODATA(json_command, &newaddr_command);
 
@@ -439,8 +468,13 @@ static void json_dev_rescan_outputs(struct command *cmd, const char *buffer,
 	/* Open the result structure so we can incrementally add results */
 	json_object_start(rescan->response, NULL);
 	json_array_start(rescan->response, "outputs");
-	rescan->utxos =
-	    wallet_get_utxos(rescan, cmd->ld->wallet, output_state_any);
+	rescan->utxos = wallet_get_utxos(rescan, cmd->ld->wallet, output_state_any);
+	if (tal_count(rescan->utxos) == 0) {
+		json_array_end(rescan->response);
+		json_object_end(rescan->response);
+		command_success(cmd, rescan->response);
+		return;
+	}
 	bitcoind_gettxout(cmd->ld->topology->bitcoind, &rescan->utxos[0]->txid,
 			  rescan->utxos[0]->outnum, process_utxo_result,
 			  rescan);

@@ -236,7 +236,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 						   &our_wallet_pubkey);
 
 	/* Worst-case sig is 73 bytes */
-	fee = feerate_per_kw * (measure_tx_cost(tx)
+	fee = feerate_per_kw * (measure_tx_weight(tx)
 			 + 1 + 3 + 73 + 0 + tal_len(wscript))
 		/ 1000;
 
@@ -520,7 +520,7 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 	struct sha256 sha;
 	struct ripemd160 ripemd;
 
-	/* Our HTLC, they filled (must be a HTLC-success tx). */
+	/* Our HTLC, they filled (must be an HTLC-success tx). */
 	if (out->tx_type == THEIR_UNILATERAL) {
 		/* BOLT #3:
 		 *
@@ -943,7 +943,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 	while (!all_irrevocably_resolved(outs)) {
 		u8 *msg = wire_sync_read(outs, REQ_FD);
 		struct bitcoin_txid txid;
-		struct bitcoin_tx *tx = tal(msg, struct bitcoin_tx);
+		struct bitcoin_tx *tx;
 		u32 input_num, depth, tx_blockheight;
 		struct preimage preimage;
 
@@ -952,7 +952,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 
 		if (fromwire_onchain_depth(msg, NULL, &txid, &depth))
 			tx_new_depth(outs, &txid, depth);
-		else if (fromwire_onchain_spent(msg, NULL, tx, &input_num,
+		else if (fromwire_onchain_spent(msg, msg, NULL, &tx, &input_num,
 						&tx_blockheight))
 			output_spent(&outs, tx, input_num, tx_blockheight);
 		else if (fromwire_onchain_known_preimage(msg, NULL, &preimage))
@@ -1982,7 +1982,6 @@ int main(int argc, char *argv[])
 	missing_htlc_msgs = tal_arr(ctx, u8 *, 0);
 
 	msg = wire_sync_read(ctx, REQ_FD);
-	tx = tal(ctx, struct bitcoin_tx);
 	if (!fromwire_onchain_init(ctx, msg, NULL,
 				   &seed, &shachain,
 				   &funding_amount_satoshi,
@@ -2001,7 +2000,7 @@ int main(int argc, char *argv[])
 				   &remote_payment_basepoint,
 				   &remote_htlc_basepoint,
 				   &remote_delayed_payment_basepoint,
-				   tx,
+				   &tx,
 				   &tx_blockheight,
 				   &reasonable_depth,
 				   &remote_htlc_sigs,
