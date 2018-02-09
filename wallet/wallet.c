@@ -1495,3 +1495,21 @@ wallet_payment_list(const tal_t *ctx,
 
 	return payments;
 }
+
+void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
+			   secp256k1_ecdsa_signature *htlc_sigs)
+{
+	/* Clear any existing HTLC sigs for this channel */
+	sqlite3_stmt *stmt =
+	    db_prepare(w->db, "DELETE FROM htlc_sigs WHERE channelid = ?");
+	sqlite3_bind_int64(stmt, 1, channel_id);
+	db_exec_prepared(w->db, stmt);
+
+	/* Now insert the new ones */
+	for (size_t i=0; i<tal_count(htlc_sigs); i++) {
+		stmt = db_prepare(w->db, "INSERT INTO htlc_sigs (channelid, signature) VALUES (?, ?)");
+		sqlite3_bind_int64(stmt, 1, channel_id);
+		sqlite3_bind_signature(stmt, 2, &htlc_sigs[i]);
+		db_exec_prepared(w->db, stmt);
+	}
+}
