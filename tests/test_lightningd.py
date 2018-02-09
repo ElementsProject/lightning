@@ -263,11 +263,7 @@ class LightningDTests(BaseLightningDTests):
     def fund_channel(self, l1, l2, amount):
         # Generates a block, so we know next tx will be first in block.
         self.give_funds(l1, amount + 1000000)
-        payload = {
-            'id': l2.info['id'],
-            'satoshi': amount
-        }
-        tx = l1.rpc.fundchannel(payload)['tx']
+        tx = l1.rpc.fundchannel(l2.info['id'], amount)['tx']
         # Technically, this is async to fundchannel.
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l1.bitcoin.generate_block(1)
@@ -435,8 +431,7 @@ class LightningDTests(BaseLightningDTests):
         l1, l2 = self.connect()
 
         self.fund_channel(l1, l2, 10**6)
-        payload = {'id': l2.info['id'], 'level': 'info'}
-        p1 = l1.rpc.getpeer(payload)['channels'][0]
+        p1 = l1.rpc.getpeer(peer_id=l2.info['id'], level='info')['channels'][0]
         p2 = l2.rpc.getpeer(l1.info['id'], 'info')['channels'][0]
         assert p1['msatoshi_to_us'] == 10**6 * 1000
         assert p1['msatoshi_total'] == 10**6 * 1000
@@ -635,11 +630,7 @@ class LightningDTests(BaseLightningDTests):
         # * `h`: tagged field: hash of description...
         # * `gw6tk8z0p0qdy9ulggx65lvfsg3nxxhqjxuf2fvmkhl9f4jc74gy44d5ua9us509prqz3e7vjxrftn3jnk7nrglvahxf7arye5llphgq`: signature
         # * `qdtpa4`: Bech32 checksum
-        payload = {
-            'bolt11': 'lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfppqw508d6qejxtdg4y5r3zarvary0c5xw7kepvrhrm9s57hejg0p662ur5j5cr03890fa7k2pypgttmh4897d3raaq85a293e9jpuqwl0rnfuwzam7yr8e690nd2ypcq9hlkdwdvycqa0qza8',
-            'description': 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon'
-        }
-        b11 = l1.rpc.decodepay(payload)
+        b11 = l1.rpc.decodepay('lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfppqw508d6qejxtdg4y5r3zarvary0c5xw7kepvrhrm9s57hejg0p662ur5j5cr03890fa7k2pypgttmh4897d3raaq85a293e9jpuqwl0rnfuwzam7yr8e690nd2ypcq9hlkdwdvycqa0qza8', 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon')
         assert b11['currency'] == 'bc'
         assert b11['msatoshi'] == 20 * 10**11 // 1000
         assert b11['created_at'] == 1496314658
