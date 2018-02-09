@@ -460,6 +460,24 @@ bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
 	return ok;
 }
 
+static secp256k1_ecdsa_signature *
+wallet_htlc_sigs_load(const tal_t *ctx, struct wallet *w, u64 channelid)
+{
+	sqlite3_stmt *stmt = db_prepare(w->db, "SELECT signature FROM htlc_sigs WHERE channelid = ?");
+	secp256k1_ecdsa_signature *htlc_sigs = tal_arr(ctx, secp256k1_ecdsa_signature, 0);
+	sqlite3_bind_int64(stmt, 1, channelid);
+	size_t n = 0;
+
+	while (stmt && sqlite3_step(stmt) == SQLITE_ROW) {
+		tal_resize(&htlc_sigs, n+1);
+		sqlite3_column_signature(stmt, 0, &htlc_sigs[n]);
+		n++;
+	}
+	sqlite3_finalize(stmt);
+	log_debug(w->log, "Loaded %zu HTLC signatures from DB", n);
+	return htlc_sigs;
+}
+
 /**
  * wallet_stmt2channel - Helper to populate a wallet_channel from a sqlite3_stmt
  *
@@ -580,6 +598,9 @@ static bool wallet_stmt2channel(const tal_t *ctx, struct wallet *w, sqlite3_stmt
 	chan->first_blocknum = sqlite3_column_int64(stmt, 35);
 
 	chan->peer->channel = chan;
+
+	/* Load any htlc_sigs */
+	chan->peer->last_htlc_sigs = wallet_htlc_sigs_load(chan->peer, w, chan->id);
 
 	return ok;
 }
