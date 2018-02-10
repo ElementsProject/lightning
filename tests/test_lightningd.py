@@ -2107,6 +2107,48 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.sendpay(to_json(route), rhash)
         assert l3.rpc.listinvoices('test_forward_pad_fees_and_cltv')['invoices'][0]['status'] == 'paid'
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
+    def test_htlc_sig_persistence(self):
+        """Interrupt a payment between two peers, then fail and recover funds using the HTLC sig.
+        """
+        l1 = self.node_factory.get_node(options=['--dev-no-reconnect'])
+        l2 = self.node_factory.get_node()
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        self.fund_channel(l1, l2, 10**6)
+        f = self.executor.submit(self.pay, l1, l2, 31337000)
+        l1.daemon.wait_for_log(r'HTLC out 0 RCVD_ADD_ACK_COMMIT->SENT_ADD_ACK_REVOCATION')
+        l1.stop()
+
+        # `pay` call is lost
+        self.assertRaises(ValueError, f.result)
+
+        # We should have the HTLC sig
+        assert(len(l1.db_query("SELECT * FROM htlc_sigs;")) == 1)
+
+        # This should reload the htlc_sig
+        l2.rpc.dev_fail(l1.info['id'])
+        l2.stop()
+        l1.bitcoin.rpc.generate(1)
+        l1.daemon.start()
+
+        assert l1.daemon.is_in_log(r'Loaded 1 HTLC signatures from DB')
+        l1.daemon.wait_for_logs([
+            r'Peer permanent failure in CHANNELD_NORMAL: Funding transaction spent',
+            r'Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US'
+        ])
+        l1.bitcoin.rpc.generate(5)
+        l1.daemon.wait_for_log("Broadcasting OUR_HTLC_TIMEOUT_TO_US")
+        time.sleep(3)
+        l1.bitcoin.rpc.generate(1)
+        l1.daemon.wait_for_logs([
+            r'Owning output . (\d+) .SEGWIT. txid',
+        ])
+
+        # We should now have a) the change from funding, b) the
+        # unilateral to us, and c) the HTLC respend to us
+        assert len(l1.rpc.listfunds()['outputs']) == 3
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_htlc_out_timeout(self):
         """Test that we drop onchain if the peer doesn't time out HTLC"""
@@ -3285,7 +3327,7 @@ class LightningDTests(BaseLightningDTests):
         peerlog = l2.rpc.listpeers(l1.info['id'], "io")['peers'][0]['log']
         assert any(l['type'] == 'IO_OUT' for l in peerlog)
         assert any(l['type'] == 'IO_IN' for l in peerlog)
-        
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_pay_disconnect(self):
         """If the remote node has disconnected, we fail payment, but can try again when it reconnects"""
