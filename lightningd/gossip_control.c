@@ -295,14 +295,12 @@ static void json_getroute_reply(struct subd *gossip, const u8 *reply, const int 
 
 static void json_getroute(struct command *cmd, const char *buffer, const jsmntok_t *params)
 {
-	struct pubkey id;
-	struct pubkey from_id;
-	struct pubkey *from_id_to_use;
+	struct lightningd *ld = cmd->ld;
+	struct pubkey source = ld->id, destination;
 	jsmntok_t *idtok, *msatoshitok, *riskfactortok, *cltvtok, *fromidtok;
 	u64 msatoshi;
 	unsigned cltv = 9;
 	double riskfactor;
-	struct lightningd *ld = cmd->ld;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "id", &idtok,
@@ -314,7 +312,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 		return;
 	}
 
-	if (!json_tok_pubkey(buffer, idtok, &id)) {
+	if (!json_tok_pubkey(buffer, idtok, &destination)) {
 		command_fail(cmd, "Invalid id");
 		return;
 	}
@@ -338,17 +336,12 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 		return;
 	}
 
-	if (fromidtok) {
-		if (!json_tok_pubkey(buffer, fromidtok, &from_id)) {
-			command_fail(cmd, "Invalid from id");
-			return;
-		}
-		from_id_to_use = &from_id;
-	} else {
-		from_id_to_use = &ld->id;
+	if (fromidtok && !json_tok_pubkey(buffer, fromidtok, &source)) {
+		command_fail(cmd, "Invalid from id");
+		return;
 	}
 
-	u8 *req = towire_gossip_getroute_request(cmd, from_id_to_use, &id, msatoshi, riskfactor*1000, cltv);
+	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination, msatoshi, riskfactor*1000, cltv);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 	command_still_pending(cmd);
 }
@@ -356,7 +349,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 static const struct json_command getroute_command = {
 	"getroute",
 	json_getroute,
-	"Show route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9)"
+	"Show route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9), if specified search from {source} otherwise use this node as source."
 };
 AUTODATA(json_command, &getroute_command);
 
