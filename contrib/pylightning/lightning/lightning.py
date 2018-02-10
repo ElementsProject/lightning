@@ -290,11 +290,12 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("connect", payload)
 
-    def listpeers(self, level=None):
+    def listpeers(self, peer_id=None, level=None):
         """
         Show current peers, if {level} is set, include {log}s"
         """
         payload = {
+            "id": peer_id,
             "level": level
         }
         return self.call("listpeers", payload)
@@ -383,7 +384,7 @@ class LightningRpc(UnixDomainSocketRpc):
         Get a new address to fund a channel
         """
         payload = {
-            'addrtype': addrtype
+            #'type': addrtype
         }
         return self.call("newaddr", payload)
 
