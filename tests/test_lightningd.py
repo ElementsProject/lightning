@@ -2112,7 +2112,7 @@ class LightningDTests(BaseLightningDTests):
         """Interrupt a payment between two peers, then fail and recover funds using the HTLC sig.
         """
         l1 = self.node_factory.get_node(options=['--dev-no-reconnect'])
-        l2 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'])
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         self.fund_channel(l1, l2, 10**6)
