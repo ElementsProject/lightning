@@ -390,6 +390,9 @@ static void db_migrate(struct db *db, struct log *log)
 
 	if (current == -1)
 		log_info(log, "Creating database");
+	else if (available < current)
+		fatal("Refusing to migrate down from version %u to %u",
+		      current, available);
 	else if (current != available)
 		log_info(log, "Updating database from version %u to %u",
 			 current, available);
