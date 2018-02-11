@@ -27,6 +27,10 @@ The response will occur when the payment fails or succeeds.  Once a
 payment has succeeded, calls to *pay* with the same 'bolt11' will
 succeed immediately.
 
+When using 'lightning-cli', you may skip optional parameters by using
+'null'.
+Alternatively, use *-k* option to provide parameters by name.
+
 RETURN VALUE
 ------------
 
