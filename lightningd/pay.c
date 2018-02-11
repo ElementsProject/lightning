@@ -19,35 +19,37 @@
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 
-/* pay/sendpay command */
-struct pay_command {
+/* sendpay command */
+struct sendpay_command {
 	struct list_node list;
 
 	struct sha256 payment_hash;
 	struct command *cmd;
 };
 
-static void destroy_pay_command(struct pay_command *pc)
+static void destroy_sendpay_command(struct sendpay_command *pc)
 {
 	list_del(&pc->list);
 }
 
 /* Owned by cmd */
-static struct pay_command *new_pay_command(struct command *cmd,
-					   const struct sha256 *payment_hash,
-					   struct lightningd *ld)
+static struct sendpay_command *
+new_sendpay_command(struct command *cmd,
+		    const struct sha256 *payment_hash,
+		    struct lightningd *ld)
 {
-	struct pay_command *pc = tal(cmd, struct pay_command);
+	struct sendpay_command *pc = tal(cmd, struct sendpay_command);
 
 	pc->payment_hash = *payment_hash;
 	pc->cmd = cmd;
-	list_add(&ld->pay_commands, &pc->list);
-	tal_add_destructor(pc, destroy_pay_command);
+	list_add(&ld->sendpay_commands, &pc->list);
+	tal_add_destructor(pc, destroy_sendpay_command);
 	return pc;
 }
 
-static void json_pay_command_success(struct command *cmd,
-				     const struct preimage *payment_preimage)
+static void
+json_sendpay_command_success(struct command *cmd,
+			     const struct preimage *payment_preimage)
 {
 	struct json_result *response;
 
@@ -63,14 +65,14 @@ static void json_pay_success(struct lightningd *ld,
 			     const struct sha256 *payment_hash,
 			     const struct preimage *payment_preimage)
 {
-	struct pay_command *pc, *next;
+	struct sendpay_command *pc, *next;
 
-	list_for_each_safe(&ld->pay_commands, pc, next, list) {
+	list_for_each_safe(&ld->sendpay_commands, pc, next, list) {
 		if (!structeq(payment_hash, &pc->payment_hash))
 			continue;
 
 		/* Deletes itself. */
-		json_pay_command_success(pc->cmd, payment_preimage);
+		json_sendpay_command_success(pc->cmd, payment_preimage);
 	}
 }
 
@@ -83,11 +85,11 @@ struct routing_failure {
 };
 
 static void
-json_pay_command_routing_failed(struct command *cmd,
-				bool retry_plausible,
-				const struct routing_failure *fail,
-				const u8 *onionreply,
-				const char *details)
+json_sendpay_command_routing_failed(struct command *cmd,
+				    bool retry_plausible,
+				    const struct routing_failure *fail,
+				    const u8 *onionreply,
+				    const char *details)
 {
 	int code =
 		(!fail) ?		PAY_UNPARSEABLE_ONION :
@@ -131,18 +133,18 @@ static void json_pay_failed(struct lightningd *ld,
 			    const u8 *onionreply,
 			    const char *details)
 {
-	struct pay_command *pc, *next;
+	struct sendpay_command *pc, *next;
 
-	list_for_each_safe(&ld->pay_commands, pc, next, list) {
+	list_for_each_safe(&ld->sendpay_commands, pc, next, list) {
 		if (!structeq(payment_hash, &pc->payment_hash))
 			continue;
 
 		/* Deletes cmd. */
-		json_pay_command_routing_failed(pc->cmd,
-						retry_plausible,
-						fail,
-						onionreply,
-						details);
+		json_sendpay_command_routing_failed(pc->cmd,
+						    retry_plausible,
+						    fail,
+						    onionreply,
+						    details);
 	}
 }
 
@@ -526,8 +528,8 @@ static bool send_payment(struct command *cmd,
 								     &payment->destination));
 				return false;
 			}
-			json_pay_command_success(cmd,
-						 payment->payment_preimage);
+			json_sendpay_command_success(cmd,
+						     payment->payment_preimage);
 			return false;
 		}
 		wallet_payment_delete(cmd->ld->wallet, rhash);
@@ -543,9 +545,9 @@ static bool send_payment(struct command *cmd,
 		report_routing_failure(cmd->ld->log, cmd->ld->gossip, fail);
 
 		/* Report routing failure to user */
-		json_pay_command_routing_failed(cmd, true, fail, NULL,
-						"No connection to first "
-						"peer found");
+		json_sendpay_command_routing_failed(cmd, true, fail, NULL,
+						    "No connection to first "
+						    "peer found");
 		return false;
 	}
 
@@ -570,8 +572,8 @@ static bool send_payment(struct command *cmd,
 		report_routing_failure(cmd->ld->log, cmd->ld->gossip, fail);
 
 		/* Report routing failure to user */
-		json_pay_command_routing_failed(cmd, true, fail, NULL,
-						"First peer not ready");
+		json_sendpay_command_routing_failed(cmd, true, fail, NULL,
+						    "First peer not ready");
 		return false;
 	}
 
@@ -596,7 +598,7 @@ static bool send_payment(struct command *cmd,
 	/* We write this into db when HTLC is actually sent. */
 	wallet_payment_setup(cmd->ld->wallet, payment);
 
-	new_pay_command(cmd, rhash, cmd->ld);
+	new_sendpay_command(cmd, rhash, cmd->ld);
 	tal_free(tmpctx);
 	return true;
 }
