@@ -19,19 +19,19 @@
 #include <inttypes.h>
 #include <string.h>
 
-struct channel *new_channel(const tal_t *ctx,
-			    const struct bitcoin_txid *funding_txid,
-			    unsigned int funding_txout,
-			    u64 funding_satoshis,
-			    u64 local_msatoshi,
-			    const u32 feerate_per_kw[NUM_SIDES],
-			    const struct channel_config *local,
-			    const struct channel_config *remote,
-			    const struct basepoints *local_basepoints,
-			    const struct basepoints *remote_basepoints,
-			    const struct pubkey *local_funding_pubkey,
-			    const struct pubkey *remote_funding_pubkey,
-			    enum side funder)
+struct channel *new_full_channel(const tal_t *ctx,
+				 const struct bitcoin_txid *funding_txid,
+				 unsigned int funding_txout,
+				 u64 funding_satoshis,
+				 u64 local_msatoshi,
+				 const u32 feerate_per_kw[NUM_SIDES],
+				 const struct channel_config *local,
+				 const struct channel_config *remote,
+				 const struct basepoints *local_basepoints,
+				 const struct basepoints *remote_basepoints,
+				 const struct pubkey *local_funding_pubkey,
+				 const struct pubkey *remote_funding_pubkey,
+				 enum side funder)
 {
 	struct channel *channel = new_initial_channel(ctx, funding_txid,
 						      funding_txout,
