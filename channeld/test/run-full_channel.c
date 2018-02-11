@@ -443,22 +443,24 @@ int main(void)
 	to_local_msat = 7000000000;
 	to_remote_msat = 3000000000;
 	feerate_per_kw[LOCAL] = feerate_per_kw[REMOTE] = 15000;
-	lchannel = new_channel(tmpctx, &funding_txid, funding_output_index,
-			       funding_amount_satoshi, to_local_msat,
-			       feerate_per_kw,
-			       local_config,
-			       remote_config,
-			       &localbase, &remotebase,
-			       &local_funding_pubkey, &remote_funding_pubkey,
-			       LOCAL);
-	rchannel = new_channel(tmpctx, &funding_txid, funding_output_index,
-			       funding_amount_satoshi, to_remote_msat,
-			       feerate_per_kw,
-			       remote_config,
-			       local_config,
-			       &remotebase, &localbase,
-			       &remote_funding_pubkey, &local_funding_pubkey,
-			       REMOTE);
+	lchannel = new_full_channel(tmpctx, &funding_txid, funding_output_index,
+				    funding_amount_satoshi, to_local_msat,
+				    feerate_per_kw,
+				    local_config,
+				    remote_config,
+				    &localbase, &remotebase,
+				    &local_funding_pubkey,
+				    &remote_funding_pubkey,
+				    LOCAL);
+	rchannel = new_full_channel(tmpctx, &funding_txid, funding_output_index,
+				    funding_amount_satoshi, to_remote_msat,
+				    feerate_per_kw,
+				    remote_config,
+				    local_config,
+				    &remotebase, &localbase,
+				    &remote_funding_pubkey,
+				    &local_funding_pubkey,
+				    REMOTE);
 
 	/* BOLT #3:
 	 *
