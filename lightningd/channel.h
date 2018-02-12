@@ -97,6 +97,14 @@ void derive_channel_seed(struct lightningd *ld, struct privkey *seed,
 			 const struct pubkey *peer_id,
 			 const u64 dbid);
 
+/* Channel has failed, but can try again. */
+PRINTF_FMT(2,3) void channel_fail_transient(struct channel *channel,
+					    const char *fmt,...);
+/* Channel has failed, give up on it. */
+void channel_fail_permanent(struct channel *channel, const char *fmt, ...);
+/* Permanent error, but due to internal problems, not peer. */
+void channel_internal_error(struct channel *channel, const char *fmt, ...);
+
 /* FIXME: Temporary mapping from peer to channel, while we only have one. */
 struct channel *peer2channel(const struct peer *peer);
 struct peer *channel2peer(const struct channel *channel);

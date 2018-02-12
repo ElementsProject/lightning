@@ -400,7 +400,8 @@ static bool handle_received_errmsg(struct subd *sd, const u8 *msg)
 
 	/* Don't free sd; we're may be about to free peer. */
 	sd->peer = NULL;
-	peer_fail_permanent(peer, "%s: received ERROR %s", sd->name, desc);
+	channel_fail_permanent(peer2channel(peer),
+			       "%s: received ERROR %s", sd->name, desc);
 	return true;
 }
 
@@ -421,7 +422,8 @@ static bool handle_sent_errmsg(struct subd *sd, const u8 *msg)
 
 	/* Don't free sd; we're may be about to free peer. */
 	sd->peer = NULL;
-	peer_fail_permanent(peer, "%s: sent ERROR %s", sd->name, desc);
+	channel_fail_permanent(peer2channel(peer),
+			       "%s: sent ERROR %s", sd->name, desc);
 	return true;
 }
 
@@ -563,7 +565,7 @@ static void destroy_subd(struct subd *sd)
 		fatal("Subdaemon %s killed with signal %i",
 		      sd->name, WTERMSIG(status));
 
-	/* In case we're freed manually, such as peer_fail_permanent */
+	/* In case we're freed manually, such as channel_fail_permanent */
 	if (sd->conn)
 		sd->conn = tal_free(sd->conn);
 
@@ -580,9 +582,9 @@ static void destroy_subd(struct subd *sd)
 		outer_transaction = db->in_transaction;
 		if (!outer_transaction)
 			db_begin_transaction(db);
-		peer_fail_transient(peer,
-				    "Owning subdaemon %s died (%i)",
-				    sd->name, status);
+		channel_fail_transient(peer2channel(peer),
+				       "Owning subdaemon %s died (%i)",
+				       sd->name, status);
 		if (!outer_transaction)
 			db_commit_transaction(db);
 	}
