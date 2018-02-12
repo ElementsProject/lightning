@@ -37,9 +37,6 @@ struct peer {
 	/* History */
 	struct log_book *log_book;
 
-	/* FIXME: Remove in favor of channel->log */
-	struct log *log;
-
 	/* Where we connected to, or it connected from. */
 	struct wireaddr addr;
 

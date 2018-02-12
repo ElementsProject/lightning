@@ -106,7 +106,6 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 {
 	/* We are owned by our channels, and freed manually by destroy_channel */
 	struct peer *peer = tal(NULL, struct peer);
-	const char *idname;
 
 	peer->ld = ld;
 	peer->dbid = dbid;
@@ -121,10 +120,6 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	/* Max 128k per peer. */
 	peer->log_book = new_log_book(peer, 128*1024,
 				      get_log_level(ld->log_book));
-	/* FIXME: Use minimal unique pubkey prefix for logs! */
-	idname = type_to_string(peer, struct pubkey, id);
-	peer->log = new_log(peer, peer->log_book, "peer %s:", idname);
-	tal_free(idname);
 	set_log_outfn(peer->log_book, copy_to_parent_log, peer);
 	list_add_tail(&ld->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);
@@ -327,7 +322,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		/* FIXME: Only consider active channels! */
 		struct channel *channel = peer2channel(peer);
 
-		log_debug(peer->log, "Peer has reconnected, state %s",
+		log_debug(channel->log, "Peer has reconnected, state %s",
 			  channel_state_name(channel));
 
 		/* FIXME: We can have errors for multiple channels. */
