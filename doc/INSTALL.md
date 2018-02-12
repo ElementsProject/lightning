@@ -17,6 +17,7 @@ To Build on Ubuntu 15.10 or above
 
 Get dependencies:
 ```
+sudo apt-get update
 sudo apt-get install -y autoconf automake build-essential git libtool libgmp-dev libsqlite3-dev python python3 net-tools libsodium-dev
 ```
 
