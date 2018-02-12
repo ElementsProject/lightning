@@ -23,6 +23,14 @@ OPTIONS
 *--rpc-file*='FILE'::
   Named pipe to use to talk to lightning daemon: default is 'lightning-rpc'
   in the lightning directory.
+*--keywords*/*-k*::
+  Use format 'key'='value' for parameters in any order
+*--order*/*-o*::
+  Follow strictly the order of parameters for the command
+*--json*/*-J*::
+  Return result in JSON format (default unless 'help' command)
+*--human-readable*/*-H*::
+  Return result in human-readable output (default for 'help' command)
 *--help*/*-h*::
   Print summary of options to standard output and exit.
 *--version*/*-V*::
@@ -36,7 +44,8 @@ lightning daemon itself.
 
 ARGUMENTS
 ---------
-Arguments are provided positionally after the command name.
+Arguments may be provided positionally or using 'key'='value'
+after the command name, based on either *-o* or *-k* option.
 Arguments may be integer numbers (composed entirely of digits),
 floating-point numbers (has a radix point but otherwise composed
 of digits), 'true', 'false', or 'null'.

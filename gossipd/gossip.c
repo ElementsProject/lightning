@@ -630,10 +630,10 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	 * odd-numbered types without ascertaining that the recipient
 	 * understands it. */
 	if (t & 1) {
-		status_trace("Peer %s sent unknown packet %u, ignoring",
+		status_trace("Peer %s sent packet with unknown message type %u, ignoring",
 			     type_to_string(trc, struct pubkey, &peer->id), t);
 	} else
-		peer_error(peer, "Unknown packet %u", t);
+		peer_error(peer, "Packet with unknown message type %u", t);
 
 	return peer_next_in(conn, peer);
 }
