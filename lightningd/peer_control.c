@@ -2979,12 +2979,16 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 			     "channel");
 		return;
 	}
+
 	response = new_json_result(forget->cmd);
 	json_object_start(response, NULL);
 	json_add_bool(response, "forced", forget->force);
 	json_add_bool(response, "funding_unspent", txout != NULL);
 	json_add_txid(response, "funding_txid", forget->peer->funding_txid);
 	json_object_end(response);
+
+	/* Free HTLCs so we don't panic when freeing the peer */
+	free_htlcs(forget->peer->ld, forget->peer);
 
 	if (peer_persists(forget->peer))
 		wallet_channel_delete(forget->cmd->ld->wallet, forget->peer->channel->id);
@@ -3012,8 +3016,17 @@ static void json_dev_forget_channel(struct command *cmd, const char *buffer,
 		json_tok_bool(buffer, forcetok, &forget->force);
 
 	forget->peer = peer_from_json(cmd->ld, buffer, nodeidtok);
-	if (!forget->peer)
+	if (!forget->peer) {
 		command_fail(cmd, "Could not find channel with that peer");
+		return;
+	}
+
+	if (!forget->force && (peer_first_htlc_in(forget->peer) ||
+			       peer_first_htlc_out(forget->peer))) {
+		command_fail(cmd, "Channel has HTLCs attached, use {force} if "
+				  "you are sure about what you're doing.");
+		return;
+	}
 
 	if (!forget->peer->funding_txid) {
 		process_dev_forget_channel(cmd->ld->topology->bitcoind, NULL, forget);
