@@ -83,7 +83,7 @@ Running lightning:
 
 ```
 # service bitcoind start
-$ ./lightningd/lightningd &
+$ nohup ./lightningd/lightningd &
 $ ./cli/lightning-cli help
 ```
 
