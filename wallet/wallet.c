@@ -1053,13 +1053,13 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 	db_exec_prepared(wallet->db, stmt);
 }
 
-static bool wallet_stmt2htlc_in(const struct channel *channel,
+static bool wallet_stmt2htlc_in(struct channel *channel,
 				sqlite3_stmt *stmt, struct htlc_in *in)
 {
 	bool ok = true;
 	in->dbid = sqlite3_column_int64(stmt, 0);
 	in->key.id = sqlite3_column_int64(stmt, 1);
-	in->key.peer = channel2peer(channel);
+	in->key.channel = channel;
 	in->msatoshi = sqlite3_column_int64(stmt, 2);
 	in->cltv_expiry = sqlite3_column_int(stmt, 3);
 	in->hstate = sqlite3_column_int(stmt, 4);
@@ -1087,13 +1087,13 @@ static bool wallet_stmt2htlc_in(const struct channel *channel,
 
 	return ok;
 }
-static bool wallet_stmt2htlc_out(const struct channel *channel,
+static bool wallet_stmt2htlc_out(struct channel *channel,
 				sqlite3_stmt *stmt, struct htlc_out *out)
 {
 	bool ok = true;
 	out->dbid = sqlite3_column_int64(stmt, 0);
 	out->key.id = sqlite3_column_int64(stmt, 1);
-	out->key.peer = channel2peer(channel);
+	out->key.channel = channel;
 	out->msatoshi = sqlite3_column_int64(stmt, 2);
 	out->cltv_expiry = sqlite3_column_int(stmt, 3);
 	out->hstate = sqlite3_column_int(stmt, 4);

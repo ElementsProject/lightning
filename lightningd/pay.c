@@ -395,7 +395,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 					  tal_count(path_secrets),
 					  hout->failuremsg);
 		if (!reply) {
-			log_info(hout->key.peer->log,
+			log_info(hout->key.channel->log,
 				 "htlc %"PRIu64" failed with bad reply (%s)",
 				 hout->key.id,
 				 tal_hex(ltmp, hout->failuremsg));
@@ -403,7 +403,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 			fail = NULL;
 			failcode = WIRE_PERMANENT_NODE_FAILURE;
 			/* Select a channel to mark unroutable by random */
-			random_mark_channel_unroutable(hout->key.peer->log,
+			random_mark_channel_unroutable(hout->key.channel->log,
 						       ld->gossip,
 						       payment->route_channels);
 			/* Can now retry; we selected a channel to mark
@@ -414,7 +414,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 			report_to_gossipd = false;
 		} else {
 			failcode = fromwire_peektype(reply->msg);
-			log_info(hout->key.peer->log,
+			log_info(hout->key.channel->log,
 				 "htlc %"PRIu64" "
 				 "failed from %ith node "
 				 "with code 0x%04x (%s)",
@@ -455,7 +455,6 @@ static bool send_payment(struct command *cmd,
 			 const struct sha256 *rhash,
 			 const struct route_hop *route)
 {
-	struct peer *peer;
 	const u8 *onion;
 	u8 sessionkey[32];
 	unsigned int base_expiry;
@@ -471,6 +470,7 @@ static bool send_payment(struct command *cmd,
 	struct htlc_out *hout;
 	struct short_channel_id *channels;
 	struct routing_failure *fail;
+	struct channel *channel;
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
 	base_expiry = get_block_height(cmd->ld->topology) + 1;
@@ -534,8 +534,8 @@ static bool send_payment(struct command *cmd,
 		log_add(cmd->ld->log, "... retrying");
 	}
 
-	peer = peer_by_id(cmd->ld, &ids[0]);
-	if (!peer) {
+	channel = active_channel_by_id(cmd->ld, &ids[0]);
+	if (!channel) {
 		/* Report routing failure to gossipd */
 		fail = immediate_routing_failure(cmd, cmd->ld,
 						 WIRE_UNKNOWN_NEXT_PEER,
@@ -559,7 +559,7 @@ static bool send_payment(struct command *cmd,
 	log_info(cmd->ld->log, "Sending %u over %zu hops to deliver %u",
 		 route[0].amount, n_hops, route[n_hops-1].amount);
 
-	failcode = send_htlc_out(peer, route[0].amount,
+	failcode = send_htlc_out(channel, route[0].amount,
 				 base_expiry + route[0].delay,
 				 rhash, onion, NULL, &hout);
 	if (failcode) {

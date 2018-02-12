@@ -13,18 +13,18 @@ size_t hash_htlc_key(const struct htlc_key *k)
 {
 	struct siphash24_ctx ctx;
 	siphash24_init(&ctx, siphash_seed());
-	/* peer doesn't move while in this hash, so we just hash pointer. */
-	siphash24_update(&ctx, &k->peer, sizeof(k->peer));
+	/* channel doesn't move while in this hash, so we just hash pointer. */
+	siphash24_update(&ctx, &k->channel, sizeof(k->channel));
 	siphash24_u64(&ctx, k->id);
 
 	return siphash24_done(&ctx);
 }
 
 struct htlc_in *find_htlc_in(const struct htlc_in_map *map,
-			       const struct peer *peer,
+			       const struct channel *channel,
 			       u64 htlc_id)
 {
-	const struct htlc_key key = { (struct peer *)peer, htlc_id };
+	const struct htlc_key key = { (struct channel *)channel, htlc_id };
 	return htlc_in_map_get(map, &key);
 }
 
@@ -40,10 +40,10 @@ void connect_htlc_in(struct htlc_in_map *map, struct htlc_in *hend)
 }
 
 struct htlc_out *find_htlc_out(const struct htlc_out_map *map,
-			       const struct peer *peer,
+			       const struct channel *channel,
 			       u64 htlc_id)
 {
-	const struct htlc_key key = { (struct peer *)peer, htlc_id };
+	const struct htlc_key key = { (struct channel *)channel, htlc_id };
 	return htlc_out_map_get(map, &key);
 }
 
@@ -91,7 +91,7 @@ struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr)
 }
 
 struct htlc_in *new_htlc_in(const tal_t *ctx,
-			    struct peer *peer, u64 id,
+			    struct channel *channel, u64 id,
 			    u64 msatoshi, u32 cltv_expiry,
 			    const struct sha256 *payment_hash,
 			    const struct secret *shared_secret,
@@ -100,7 +100,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	struct htlc_in *hin = tal(ctx, struct htlc_in);
 
 	hin->dbid = 0;
-	hin->key.peer = peer;
+	hin->key.channel = channel;
 	hin->key.id = id;
 	hin->msatoshi = msatoshi;
 	hin->cltv_expiry = cltv_expiry;
@@ -131,7 +131,7 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 
 /* You need to set the ID, then connect_htlc_out this! */
 struct htlc_out *new_htlc_out(const tal_t *ctx,
-			      struct peer *peer,
+			      struct channel *channel,
 			      u64 msatoshi, u32 cltv_expiry,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
@@ -142,7 +142,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
         /* Mark this as an as of now unsaved HTLC */
 	hout->dbid = 0;
 
-	hout->key.peer = peer;
+	hout->key.channel = channel;
 	hout->key.id = HTLC_INVALID_ID;
 	hout->msatoshi = msatoshi;
 	hout->cltv_expiry = cltv_expiry;

@@ -1015,12 +1015,12 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	memset(&out.payment_hash, 'A', sizeof(struct sha256));
 	memset(&payment_key, 'B', sizeof(payment_key));
 	in.key.id = 42;
-	in.key.peer = peer;
+	in.key.channel = chan;
 	in.msatoshi = 42;
 
 	out.in = &in;
 	out.key.id = 1337;
-	out.key.peer = peer;
+	out.key.channel = chan;
 	out.msatoshi = 41;
 
 	/* Store the htlc_in */

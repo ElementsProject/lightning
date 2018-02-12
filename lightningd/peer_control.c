@@ -96,32 +96,6 @@ static void peer_set_owner(struct peer *peer, struct subd *owner)
 
 static void destroy_peer(struct peer *peer)
 {
-	/* Must not have any HTLCs! */
-	struct htlc_out_map_iter outi;
-	struct htlc_out *hout;
-	struct htlc_in_map_iter ini;
-	struct htlc_in *hin;
-
-	for (hout = htlc_out_map_first(&peer->ld->htlcs_out, &outi);
-	     hout;
-	     hout = htlc_out_map_next(&peer->ld->htlcs_out, &outi)) {
-		if (hout->key.peer != peer)
-			continue;
-		fatal("Freeing peer %s has hout %s",
-		      channel_state_name(peer2channel(peer)),
-		      htlc_state_name(hout->hstate));
-	}
-
-	for (hin = htlc_in_map_first(&peer->ld->htlcs_in, &ini);
-	     hin;
-	     hin = htlc_in_map_next(&peer->ld->htlcs_in, &ini)) {
-		if (hin->key.peer != peer)
-			continue;
-		fatal("Freeing peer %s has hin %s",
-		      channel_state_name(peer2channel(peer)),
-		      htlc_state_name(hin->hstate));
-	}
-
 	list_del_from(&peer->ld->peers, &peer->list);
 }
 
@@ -887,7 +861,7 @@ static void onchaind_tell_fulfill(struct channel *channel)
 	for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
 	     hin;
 	     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
-		if (hin->key.peer != channel2peer(channel))
+		if (hin->key.channel != channel)
 			continue;
 
 		/* BOLT #5:
@@ -1098,7 +1072,7 @@ void free_htlcs(struct lightningd *ld, const struct channel *channel)
 		for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
 		     hout;
 		     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
-			if (channel && hout->key.peer != channel2peer(channel))
+			if (channel && hout->key.channel != channel)
 				continue;
 			tal_free(hout);
 			deleted = true;
@@ -1107,7 +1081,7 @@ void free_htlcs(struct lightningd *ld, const struct channel *channel)
 		for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
 		     hin;
 		     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
-			if (channel && hin->key.peer != channel2peer(channel))
+			if (channel && hin->key.channel != channel)
 				continue;
 			tal_free(hin);
 			deleted = true;
