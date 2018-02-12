@@ -89,12 +89,6 @@ static void peer_accept_channel(struct lightningd *ld,
 				int peer_fd, int gossip_fd,
 				const u8 *open_msg);
 
-/* FIXME: This is here until we get multi-channel support */
-static struct channel *peer2channel(const struct peer *peer)
-{
-	return list_top(&peer->channels, struct channel, list);
-}
-
 static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->ld->peers, &peer->list);
@@ -287,7 +281,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	u8 *error;
 	u8 *supported_global_features;
 	u8 *supported_local_features;
-	struct peer *peer;
+	struct channel *channel;
 	struct wireaddr addr;
 	u64 gossip_index;
 
@@ -316,16 +310,15 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		goto send_error;
 	}
 
-	/* Now, do we already know this peer? */
-	peer = peer_by_id(ld, &id);
-	if (peer) {
-		/* FIXME: Only consider active channels! */
-		struct channel *channel = peer2channel(peer);
-
+	/* If we're already dealing with this peer, hand off to correct
+	 * subdaemon.  Otherwise, we'll respond iff they ask about an inactive
+	 * channel. */
+	channel = active_channel_by_id(ld, &id);
+	if (channel) {
 		log_debug(channel->log, "Peer has reconnected, state %s",
 			  channel_state_name(channel));
 
-		/* FIXME: We can have errors for multiple channels. */
+		/* If we have a canned error, deliver it now. */
 		if (channel->error) {
 			error = channel->error;
 			goto send_error;
@@ -355,9 +348,9 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		case ONCHAIND_OUR_UNILATERAL:
 		case FUNDING_SPEND_SEEN:
 		case ONCHAIND_MUTUAL:
-			/* If they try to reestablish channel, we'll send
-			 * error then */
-			goto return_to_gossipd;
+		case CLOSINGD_COMPLETE:
+			/* Channel is active! */
+			abort();
 
 		case CHANNELD_AWAITING_LOCKIN:
 		case CHANNELD_NORMAL:
@@ -366,19 +359,18 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			 * on this peer. */
 			channel_set_owner(channel, NULL);
 
-			peer->addr = addr;
+			channel->peer->addr = addr;
 			peer_start_channeld(channel, &cs, gossip_index,
 					    peer_fd, gossip_fd, NULL,
 					    true);
 			goto connected;
 
 		case CLOSINGD_SIGEXCHANGE:
-		case CLOSINGD_COMPLETE:
 			/* Stop any existing daemon, without triggering error
 			 * on this peer. */
 			channel_set_owner(channel, NULL);
 
-			peer->addr = addr;
+			channel->peer->addr = addr;
 			peer_start_closingd(channel, &cs, gossip_index,
 					    peer_fd, gossip_fd,
 					    true);
@@ -455,6 +447,27 @@ void peer_connection_failed(struct lightningd *ld, const u8 *msg)
 	}
 }
 
+static struct channel *channel_by_channel_id(struct peer *peer,
+					     const struct channel_id *channel_id)
+{
+	struct channel *channel;
+
+	list_for_each(&peer->channels, channel, list) {
+		struct channel_id cid;
+
+		if (!channel->funding_txid)
+			continue;
+
+		derive_channel_id(&cid,
+				  channel->funding_txid,
+				  channel->funding_outnum);
+		if (structeq(&cid, channel_id))
+			return channel;
+	}
+	return NULL;
+}
+
+/* We only get here IF we weren't trying to connect to it. */
 void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
 			 const struct wireaddr *addr,
@@ -474,28 +487,35 @@ void peer_sent_nongossip(struct lightningd *ld,
 	else
 		channel_id = &extracted_channel_id;
 
-	/* FIXME: match state too; we can have multiple onchain
-	 * (ie. dead) channels for the same peer. */
 	peer = peer_by_id(ld, id);
-	if (peer) {
-		error = towire_errorfmt(ld, channel_id,
-					"Unexpected message %i in state %s",
-					fromwire_peektype(in_msg),
-					channel_state_name(peer2channel(peer)));
-		goto send_error;
-	}
 
 	/* Open request? */
 	if (fromwire_peektype(in_msg) == WIRE_OPEN_CHANNEL) {
+		if (peer && peer_active_channel(peer)) {
+			error = towire_errorfmt(in_msg, channel_id,
+						"Multiple channels unsupported");
+			goto send_error;
+		}
 		peer_accept_channel(ld, id, addr, cs, gossip_index,
 				    gfeatures, lfeatures,
 				    peer_fd, gossip_fd, in_msg);
 		return;
 	}
 
+	/* If they are talking about a specific channel id, we may have an
+	 * error for them. */
+	if (peer && channel_id) {
+		struct channel *channel;
+		channel = channel_by_channel_id(peer, channel_id);
+		if (channel && channel->error) {
+			error = channel->error;
+			goto send_error;
+		}
+	}
+
 	/* Weird request. */
 	error = towire_errorfmt(ld, channel_id,
-				"Unexpected message %i for unknown peer",
+				"Unexpected message %i for peer",
 				fromwire_peektype(in_msg));
 
 send_error:

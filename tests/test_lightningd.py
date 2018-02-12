@@ -3382,6 +3382,30 @@ class LightningDTests(BaseLightningDTests):
             oneconfig = l1.rpc.listconfigs(c)
             assert(oneconfig[c] == configs[c])
 
+    def test_multiple_channels(self):
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
+
+        for i in range(3):
+            # FIXME: we shouldn't disconnect on close?
+            ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+            assert ret['id'] == l2.info['id']
+
+            l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+            l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+            chanid = self.fund_channel(l1, l2, 10**6)
+
+            l1.rpc.close(l2.info['id'])
+            l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+            l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+
+        channels = l1.rpc.listpeers()['peers'][0]['channels']
+        assert len(channels) == 3
+        # Most in state ONCHAIND_MUTUAL, last is CLOSINGD_COMPLETE
+        for i in range(len(channels)-1):
+            assert channels[i]['state'] == 'ONCHAIND_MUTUAL'
+        assert channels[-1]['state'] == 'CLOSINGD_COMPLETE'
+
     def test_cli(self):
         l1 = self.node_factory.get_node()
 
