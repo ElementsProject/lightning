@@ -1475,7 +1475,7 @@ static void peer_got_funding_locked(struct channel *channel, const u8 *msg)
 				       "channel_got_funding_locked twice");
 		return;
 	}
-	update_per_commit_point(channel2peer(channel), &next_per_commitment_point);
+	update_per_commit_point(channel, &next_per_commitment_point);
 
 	log_debug(channel->log, "Got funding_locked");
 	channel->remote_funding_locked = true;
@@ -1561,15 +1561,10 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	wallet_channel_save(ld->wallet, channel);
 }
 
-void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
-		  const secp256k1_ecdsa_signature *sig)
+static void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
+			 const secp256k1_ecdsa_signature *sig)
 {
-	struct channel *channel = peer2channel(peer);
-
-	tal_free(channel->last_sig);
-	channel->last_sig = tal_dup(channel, secp256k1_ecdsa_signature, sig);
-	tal_free(channel->last_tx);
-	channel->last_tx = tal_steal(channel, tx);
+	channel_set_last_tx(peer2channel(peer), tx, sig);
 }
 
 /* Is this better than the last tx we were holding?  This can happen
@@ -1959,7 +1954,7 @@ static bool peer_start_channeld(struct peer *peer,
 		return true;
 	}
 
-	peer_htlcs(tmpctx, peer, &htlcs, &htlc_states, &fulfilled_htlcs,
+	peer_htlcs(tmpctx, channel, &htlcs, &htlc_states, &fulfilled_htlcs,
 		   &fulfilled_sides, &failed_htlcs, &failed_sides);
 
 	if (channel->scid) {
