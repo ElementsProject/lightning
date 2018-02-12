@@ -21,6 +21,7 @@ struct pubkey;
 struct timers;
 
 struct wallet {
+	struct lightningd *ld;
 	struct db *db;
 	struct log *log;
 	struct ext_key *bip32_base;
@@ -111,7 +112,7 @@ struct wallet_payment {
  * This is guaranteed to either return a valid wallet, or abort with
  * `fatal` if it cannot be initialized.
  */
-struct wallet *wallet_new(const tal_t *ctx,
+struct wallet *wallet_new(struct lightningd *ld,
 			  struct log *log, struct timers *timers);
 
 /**
