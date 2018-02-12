@@ -3462,11 +3462,13 @@ class LightningDTests(BaseLightningDTests):
         assert len(l1.rpc.listpeers()['peers']) == 1
 
         # This should fail, the funding tx is in the mempool and may confirm
-        self.assertRaises(ValueError, l1.rpc.dev_forget_channel, l2.info['id'])
+        self.assertRaisesRegex(ValueError,
+                               "Cowardly refusing to forget channel",
+                               l1.rpc.dev_forget_channel, l2.info['id'])
         assert len(l1.rpc.listpeers()['peers']) == 1
 
         # Forcing should work
-        l1.rpc.dev_forget_channel(l2.info['id'], True)
+        l1.rpc.dev_forget_channel(l2.info['id'], None, True)
         assert len(l1.rpc.listpeers()['peers']) == 0
 
         # And restarting should keep that peer forgotten

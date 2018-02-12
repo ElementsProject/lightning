@@ -304,6 +304,10 @@ bool json_tok_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 bool json_tok_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		     struct pubkey *pubkey UNNEEDED)
 { fprintf(stderr, "json_tok_pubkey called!\n"); abort(); }
+/* Generated stub for json_tok_short_channel_id */
+bool json_tok_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+			       struct short_channel_id *scid UNNEEDED)
+{ fprintf(stderr, "json_tok_short_channel_id called!\n"); abort(); }
 /* Generated stub for json_tok_u64 */
 bool json_tok_u64(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		  uint64_t *num UNNEEDED)

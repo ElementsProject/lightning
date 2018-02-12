@@ -177,16 +177,6 @@ void channel_set_state(struct channel *channel,
 	}
 }
 
-struct channel *peer2channel(const struct peer *peer)
-{
-	return list_top(&peer->channels, struct channel, list);
-}
-
-struct peer *channel2peer(const struct channel *channel)
-{
-	return channel->peer;
-}
-
 void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 {
 	struct lightningd *ld = channel->peer->ld;

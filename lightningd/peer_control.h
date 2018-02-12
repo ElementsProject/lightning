@@ -91,8 +91,6 @@ void peer_sent_nongossip(struct lightningd *ld,
 void opening_failed(struct peer *peer, const u8 *msg TAKES);
 
 const char *peer_state_name(enum peer_state state);
-void peer_set_condition(struct peer *peer, enum peer_state oldstate,
-			enum peer_state state);
 void setup_listeners(struct lightningd *ld);
 
 /* We've loaded peers from database, set them going. */

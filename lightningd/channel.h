@@ -109,10 +109,6 @@ void channel_set_state(struct channel *channel,
 		       enum peer_state old_state,
 		       enum peer_state state);
 
-/* FIXME: Temporary mapping from peer to channel, while we only have one. */
-struct channel *peer2channel(const struct peer *peer);
-struct peer *channel2peer(const struct channel *channel);
-
 /* Find a channel which is not onchain, if any */
 struct channel *peer_active_channel(struct peer *peer);
 
@@ -181,36 +177,5 @@ static inline bool channel_wants_reconnect(const struct channel *channel)
 static inline bool channel_persists(const struct channel *channel)
 {
 	return channel->state >= CHANNELD_AWAITING_LOCKIN;
-}
-
-/* FIXME: Obsolete */
-static inline bool peer_can_add_htlc(const struct peer *peer)
-{
-	return channel_can_add_htlc(peer2channel(peer));
-}
-
-static inline bool peer_fees_can_change(const struct peer *peer)
-{
-	return channel_fees_can_change(peer2channel(peer));
-}
-
-static inline bool peer_can_remove_htlc(const struct peer *peer)
-{
-	return channel_can_remove_htlc(peer2channel(peer));
-}
-
-static inline bool peer_on_chain(const struct peer *peer)
-{
-	return channel_state_on_chain(peer2channel(peer)->state);
-}
-
-static inline bool peer_wants_reconnect(const struct peer *peer)
-{
-	return channel_wants_reconnect(peer2channel(peer));
-}
-
-static inline bool peer_persists(const struct peer *peer)
-{
-	return channel_persists(peer2channel(peer));
 }
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_H */
