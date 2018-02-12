@@ -265,18 +265,19 @@ static void connection_complete_error(struct json_connection *jcon,
 				      int code,
 				      const struct json_result *data)
 {
+	const tal_t *tmpctx = tal_tmpctx(jcon);
 	/* Use this to escape errmsg. */
-	struct json_result *errorres = new_json_result(jcon);
+	struct json_result *errorres = new_json_result(tmpctx);
 	const char *data_str;
 
 	json_add_string_escape(errorres, NULL, errmsg);
 	if (data)
-		data_str = tal_fmt(errorres, ", \"data\" : %s",
+		data_str = tal_fmt(tmpctx, ", \"data\" : %s",
 				   json_result_string(data));
 	else
 		data_str = "";
 
-	json_done(jcon, take(tal_fmt(errorres,
+	json_done(jcon, take(tal_fmt(tmpctx,
 				     "{ \"jsonrpc\": \"2.0\", "
 				     " \"error\" : "
 				     "{ \"code\" : %d,"
@@ -286,7 +287,7 @@ static void connection_complete_error(struct json_connection *jcon,
 				     json_result_string(errorres),
 				     data_str,
 				     id)));
-	tal_free(errorres);
+	tal_free(tmpctx);
 }
 
 struct json_result *null_response(const tal_t *ctx)
