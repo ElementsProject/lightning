@@ -69,7 +69,7 @@ static void peer_offer_channel(struct lightningd *ld,
 			       u64 gossip_index,
 			       const u8 *gfeatures, const u8 *lfeatures,
 			       int peer_fd, int gossip_fd);
-static bool peer_start_channeld(struct peer *peer,
+static bool peer_start_channeld(struct channel *channel,
 				const struct crypto_state *cs,
 				u64 gossip_index,
 				int peer_fd, int gossip_fd,
@@ -187,7 +187,7 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel)
 
 	/* Keep broadcasting until we say stop (can fail due to dup,
 	 * if they beat us to the broadcast). */
-	broadcast_tx(ld->topology, channel2peer(channel), channel->last_tx, NULL);
+	broadcast_tx(ld->topology, channel, channel->last_tx, NULL);
 	remove_sig(channel->last_tx);
 }
 
@@ -379,7 +379,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			peer_set_owner(peer, NULL);
 
 			peer->addr = addr;
-			peer_start_channeld(peer, &cs, gossip_index,
+			peer_start_channeld(channel, &cs, gossip_index,
 					    peer_fd, gossip_fd, NULL,
 					    true);
 			goto connected;
@@ -816,28 +816,26 @@ struct funding_channel {
 	struct peer *peer;
 };
 
-static void funding_broadcast_failed(struct peer *peer,
+static void funding_broadcast_failed(struct channel *channel,
 				     int exitstatus, const char *err)
 {
-	channel_internal_error(peer2channel(peer),
+	channel_internal_error(channel,
 			       "Funding broadcast exited with %i: %s",
 			       exitstatus, err);
 }
 
-static enum watch_result funding_announce_cb(struct peer *peer,
+static enum watch_result funding_announce_cb(struct channel *channel,
 					     const struct bitcoin_tx *tx,
 					     unsigned int depth,
 					     void *unused)
 {
-	struct channel *channel = peer2channel(peer);
-
 	if (depth < ANNOUNCE_MIN_DEPTH) {
 		return KEEP_WATCHING;
 	}
 
 	if (!channel->owner || !streq(channel->owner->name, "lightning_channeld")) {
-		log_debug(peer->log,
-			  "Funding tx announce ready, but peer state %s"
+		log_debug(channel->log,
+			  "Funding tx announce ready, but channel state %s"
 			  " owned by %s",
 			  channel_state_name(channel),
 			  channel->owner ? channel->owner->name : "none");
@@ -845,7 +843,7 @@ static enum watch_result funding_announce_cb(struct peer *peer,
 	}
 
 	subd_send_msg(channel->owner,
-		      take(towire_channel_funding_announce_depth(peer)));
+		      take(towire_channel_funding_announce_depth(channel)));
 	return DELETE_WATCH;
 }
 
@@ -907,7 +905,7 @@ static void handle_onchain_init_reply(struct channel *channel, const u8 *msg)
 	onchaind_tell_fulfill(channel);
 }
 
-static enum watch_result onchain_tx_watched(struct peer *peer,
+static enum watch_result onchain_tx_watched(struct channel *channel,
 					    const struct bitcoin_tx *tx,
 					    unsigned int depth,
 					    void *unused)
@@ -916,8 +914,8 @@ static enum watch_result onchain_tx_watched(struct peer *peer,
 	struct bitcoin_txid txid;
 
 	if (depth == 0) {
-		log_unusual(peer->log, "Chain reorganization!");
-		peer_set_owner(peer, NULL);
+		log_unusual(channel->log, "Chain reorganization!");
+		channel_set_owner(channel, NULL);
 
 		/* FIXME!
 		topology_rescan(peer->ld->topology, peer->funding_txid);
@@ -928,15 +926,15 @@ static enum watch_result onchain_tx_watched(struct peer *peer,
 	}
 
 	bitcoin_txid(tx, &txid);
-	msg = towire_onchain_depth(peer, &txid, depth);
-	subd_send_msg(peer2channel(peer)->owner, take(msg));
+	msg = towire_onchain_depth(channel, &txid, depth);
+	subd_send_msg(channel->owner, take(msg));
 	return KEEP_WATCHING;
 }
 
-static void watch_tx_and_outputs(struct peer *peer,
+static void watch_tx_and_outputs(struct channel *channel,
 				 const struct bitcoin_tx *tx);
 
-static enum watch_result onchain_txo_watched(struct peer *peer,
+static enum watch_result onchain_txo_watched(struct channel *channel,
 					     const struct bitcoin_tx *tx,
 					     size_t input_num,
 					     const struct block *block,
@@ -944,10 +942,10 @@ static enum watch_result onchain_txo_watched(struct peer *peer,
 {
 	u8 *msg;
 
-	watch_tx_and_outputs(peer, tx);
+	watch_tx_and_outputs(channel, tx);
 
-	msg = towire_onchain_spent(peer, tx, input_num, block->height);
-	subd_send_msg(peer2channel(peer)->owner, take(msg));
+	msg = towire_onchain_spent(channel, tx, input_num, block->height);
+	subd_send_msg(channel->owner, take(msg));
 
 	/* We don't need to keep watching: If this output is double-spent
 	 * (reorg), we'll get a zero depth cb to onchain_tx_watched, and
@@ -956,21 +954,21 @@ static enum watch_result onchain_txo_watched(struct peer *peer,
 }
 
 /* To avoid races, we watch the tx and all outputs. */
-static void watch_tx_and_outputs(struct peer *peer,
+static void watch_tx_and_outputs(struct channel *channel,
 				 const struct bitcoin_tx *tx)
 {
 	struct bitcoin_txid txid;
 	struct txwatch *txw;
-	struct channel *channel = peer2channel(peer);
+	struct lightningd *ld = channel->peer->ld;
 
 	bitcoin_txid(tx, &txid);
 
 	/* Make txwatch a parent of txo watches, so we can unwatch together. */
-	txw = watch_tx(channel->owner, peer->ld->topology, peer, tx,
+	txw = watch_tx(channel->owner, ld->topology, channel, tx,
 		       onchain_tx_watched, NULL);
 
 	for (size_t i = 0; i < tal_count(tx->output); i++)
-		watch_txo(txw, peer->ld->topology, peer, &txid, i,
+		watch_txo(txw, ld->topology, channel, &txid, i,
 			  onchain_txo_watched, NULL);
 }
 
@@ -984,7 +982,7 @@ static void handle_onchain_broadcast_tx(struct channel *channel, const u8 *msg)
 	}
 
 	/* We don't really care if it fails, we'll respond via watch. */
-	broadcast_tx(channel->peer->ld->topology, channel2peer(channel), tx, NULL);
+	broadcast_tx(channel->peer->ld->topology, channel, tx, NULL);
 }
 
 static void handle_onchain_unwatch_tx(struct channel *channel, const u8 *msg)
@@ -998,7 +996,7 @@ static void handle_onchain_unwatch_tx(struct channel *channel, const u8 *msg)
 	}
 
 	/* Frees the txo watches, too: see watch_tx_and_outputs() */
-	txw = find_txwatch(channel->peer->ld->topology, &txid, channel2peer(channel));
+	txw = find_txwatch(channel->peer->ld->topology, &txid, channel);
 	if (!txw)
 		log_unusual(channel->log, "Can't unwatch txid %s",
 			    type_to_string(ltmp, struct bitcoin_txid, &txid));
@@ -1219,7 +1217,7 @@ static bool tell_if_missing(const struct channel *channel,
 
 /* With a reorg, this can get called multiple times; each time we'll kill
  * onchaind (like any other owner), and restart */
-static enum watch_result funding_spent(struct peer *peer,
+static enum watch_result funding_spent(struct channel *channel,
 				       const struct bitcoin_tx *tx,
 				       size_t input_num,
 				       const struct block *block,
@@ -1230,8 +1228,7 @@ static enum watch_result funding_spent(struct peer *peer,
 	s64 keyindex;
 	struct pubkey ourkey;
 	struct htlc_stub *stubs;
-	const tal_t *tmpctx = tal_tmpctx(peer);
-	struct channel *channel = peer2channel(peer);
+	const tal_t *tmpctx = tal_tmpctx(channel);
 	struct lightningd *ld = channel->peer->ld;
 
 	channel_fail_permanent(channel, "Funding transaction spent");
@@ -1333,14 +1330,14 @@ static enum watch_result funding_spent(struct peer *peer,
 		subd_send_msg(channel->owner, take(msg));
 	}
 
-	watch_tx_and_outputs(peer, tx);
+	watch_tx_and_outputs(channel, tx);
 
 	tal_free(tmpctx);
 	/* We keep watching until peer finally deleted, for reorgs. */
 	return KEEP_WATCHING;
 }
 
-static enum watch_result funding_lockin_cb(struct peer *peer,
+static enum watch_result funding_lockin_cb(struct channel *channel,
 					   const struct bitcoin_tx *tx,
 					   unsigned int depth,
 					   void *unused)
@@ -1349,18 +1346,18 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 	const char *txidstr;
 	struct txlocator *loc;
 	bool channel_ready;
-	struct channel *channel = peer2channel(peer);
+	struct lightningd *ld = channel->peer->ld;
 
 	bitcoin_txid(tx, &txid);
-	txidstr = type_to_string(peer, struct bitcoin_txid, &txid);
-	log_debug(peer->log, "Funding tx %s depth %u of %u",
+	txidstr = type_to_string(channel, struct bitcoin_txid, &txid);
+	log_debug(channel->log, "Funding tx %s depth %u of %u",
 		  txidstr, depth, channel->minimum_depth);
 	tal_free(txidstr);
 
 	if (depth < channel->minimum_depth)
 		return KEEP_WATCHING;
 
-	loc = locate_tx(peer, peer->ld->topology, &txid);
+	loc = locate_tx(channel, ld->topology, &txid);
 
 	/* If we restart, we could already have peer->scid from database */
 	if (!channel->scid) {
@@ -1376,7 +1373,7 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 	channel_ready = (channel->owner && channel->state == CHANNELD_AWAITING_LOCKIN);
 	if (!channel_ready) {
 		log_debug(channel->log,
-			  "Funding tx confirmed, but peer state %s %s",
+			  "Funding tx confirmed, but channel state %s %s",
 			  channel_state_name(channel),
 			  channel->owner ? channel->owner->name : "unowned");
 	} else {
@@ -1400,9 +1397,9 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 	 * before. If we are at the right depth, call the callback
 	 * directly, otherwise schedule a callback */
 	if (depth >= ANNOUNCE_MIN_DEPTH)
-		funding_announce_cb(peer, tx, depth, NULL);
+		funding_announce_cb(channel, tx, depth, NULL);
 	else
-		watch_txid(peer, peer->ld->topology, peer, &txid,
+		watch_txid(channel, ld->topology, channel, &txid,
 			   funding_announce_cb, NULL);
 	return DELETE_WATCH;
 }
@@ -1418,21 +1415,21 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 	u64 change_satoshi;
 	struct json_result *response = new_json_result(fc->cmd);
 	struct channel *channel = peer2channel(fc->peer);
+	struct lightningd *ld = channel->peer->ld;
 
 	if (!fromwire_hsm_sign_funding_reply(fc, resp, NULL, &tx))
 		fatal("HSM gave bad sign_funding_reply %s",
 		      tal_hex(fc, resp));
 
 	/* Send it out and watch for confirms. */
-	broadcast_tx(fc->peer->ld->topology, fc->peer, tx, funding_broadcast_failed);
-	watch_tx(fc->peer, fc->peer->ld->topology, fc->peer, tx,
-		 funding_lockin_cb, NULL);
+	broadcast_tx(ld->topology, channel, tx, funding_broadcast_failed);
+	watch_tx(channel, ld->topology, channel, tx, funding_lockin_cb, NULL);
 
 	/* Extract the change output and add it to the DB */
-	wallet_extract_owned_outputs(fc->peer->ld->wallet, tx, &change_satoshi);
+	wallet_extract_owned_outputs(ld->wallet, tx, &change_satoshi);
 
 	/* FIXME: Remove arg from cb? */
-	watch_txo(fc->peer, fc->peer->ld->topology, fc->peer,
+	watch_txo(channel, ld->topology, channel,
 		  channel->funding_txid, channel->funding_outnum,
 		  funding_spent, NULL);
 
@@ -1445,7 +1442,7 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 	channel->opening_cmd = NULL;
 
 	/* Start normal channel daemon. */
-	peer_start_channeld(fc->peer, cs, gossip_index,
+	peer_start_channeld(channel, cs, gossip_index,
 			    peer_fd, gossip_fd, NULL, false);
 	peer_set_condition(fc->peer, OPENINGD, CHANNELD_AWAITING_LOCKIN);
 
@@ -1561,12 +1558,6 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	wallet_channel_save(ld->wallet, channel);
 }
 
-static void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
-			 const secp256k1_ecdsa_signature *sig)
-{
-	channel_set_last_tx(peer2channel(peer), tx, sig);
-}
-
 /* Is this better than the last tx we were holding?  This can happen
  * even without closingd misbehaving, if we have multiple,
  * interrupted, rounds of negotiation. */
@@ -1636,7 +1627,7 @@ static void peer_received_closing_signature(struct channel *channel,
 
 	/* FIXME: Make sure signature is correct! */
 	if (better_closing_fee(ld, channel, tx)) {
-		peer_last_tx(channel2peer(channel), tx, &sig);
+		channel_set_last_tx(channel, tx, &sig);
 		/* TODO(cdecker) Selectively save updated fields to DB */
 		wallet_channel_save(ld->wallet, channel);
 	}
@@ -1891,17 +1882,16 @@ u32 feerate_max(struct lightningd *ld)
 	return get_feerate(ld->topology, FEERATE_IMMEDIATE) * 5;
 }
 
-static bool peer_start_channeld(struct peer *peer,
+static bool peer_start_channeld(struct channel *channel,
 				const struct crypto_state *cs,
 				u64 gossip_index,
 				int peer_fd, int gossip_fd,
 				const u8 *funding_signed,
 				bool reconnected)
 {
-	const tal_t *tmpctx = tal_tmpctx(peer);
+	const tal_t *tmpctx = tal_tmpctx(channel);
 	u8 *msg, *initmsg;
 	int hsmfd;
-	const struct config *cfg = &peer->ld->config;
 	struct added_htlc *htlcs;
 	enum htlc_state *htlc_states;
 	struct fulfilled_htlc *fulfilled_htlcs;
@@ -1911,8 +1901,8 @@ static bool peer_start_channeld(struct peer *peer,
 	struct short_channel_id funding_channel_id;
 	const u8 *shutdown_scriptpubkey;
 	u64 num_revocations;
-	struct channel *channel = peer2channel(peer);
 	struct lightningd *ld = channel->peer->ld;
+	const struct config *cfg = &ld->config;
 
 	/* Now we can consider balance set. */
 	if (!reconnected) {
@@ -1926,15 +1916,15 @@ static bool peer_start_channeld(struct peer *peer,
 	} else
 		assert(channel->our_msatoshi);
 
-	msg = towire_hsm_client_hsmfd(tmpctx, &peer->id, HSM_CAP_SIGN_GOSSIP | HSM_CAP_ECDH);
-	if (!wire_sync_write(peer->ld->hsm_fd, take(msg)))
+	msg = towire_hsm_client_hsmfd(tmpctx, &channel->peer->id, HSM_CAP_SIGN_GOSSIP | HSM_CAP_ECDH);
+	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
-	msg = hsm_sync_read(tmpctx, peer->ld);
+	msg = hsm_sync_read(tmpctx, ld);
 	if (!fromwire_hsm_client_hsmfd_reply(msg, NULL))
 		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
 
-	hsmfd = fdpass_recv(peer->ld->hsm_fd);
+	hsmfd = fdpass_recv(ld->hsm_fd);
 	if (hsmfd < 0)
 		fatal("Could not read fd from HSM: %s", strerror(errno));
 
@@ -1947,7 +1937,7 @@ static bool peer_start_channeld(struct peer *peer,
 					   take(&hsmfd), NULL));
 
 	if (!channel->owner) {
-		log_unusual(peer->log, "Could not subdaemon channel: %s",
+		log_unusual(channel->log, "Could not subdaemon channel: %s",
 			    strerror(errno));
 		channel_fail_transient(channel, "Failed to subdaemon channel");
 		tal_free(tmpctx);
@@ -1959,15 +1949,15 @@ static bool peer_start_channeld(struct peer *peer,
 
 	if (channel->scid) {
 		funding_channel_id = *channel->scid;
-		log_debug(peer->log, "Already have funding locked in");
+		log_debug(channel->log, "Already have funding locked in");
 	} else {
-		log_debug(peer->log, "Waiting for funding confirmations");
+		log_debug(channel->log, "Waiting for funding confirmations");
 		memset(&funding_channel_id, 0, sizeof(funding_channel_id));
 	}
 
 	if (channel->local_shutdown_idx != -1) {
 		shutdown_scriptpubkey
-			= p2wpkh_for_keyidx(tmpctx, peer->ld,
+			= p2wpkh_for_keyidx(tmpctx, ld,
 					    channel->local_shutdown_idx);
 	} else
 		shutdown_scriptpubkey = NULL;
@@ -1975,20 +1965,19 @@ static bool peer_start_channeld(struct peer *peer,
 	num_revocations = revocations_received(&channel->their_shachain.chain);
 
 	/* Warn once. */
-	if (peer->ld->config.ignore_fee_limits)
-		log_debug(peer->log, "Ignoring fee limits!");
+	if (ld->config.ignore_fee_limits)
+		log_debug(channel->log, "Ignoring fee limits!");
 
 	initmsg = towire_channel_init(tmpctx,
-				      &get_chainparams(peer->ld)
-				      ->genesis_blockhash,
+				      &get_chainparams(ld)->genesis_blockhash,
 				      channel->funding_txid,
 				      channel->funding_outnum,
 				      channel->funding_satoshi,
 				      &channel->our_config,
 				      &channel->channel_info->their_config,
 				      channel->channel_info->feerate_per_kw,
-				      feerate_min(peer->ld),
-				      feerate_max(peer->ld),
+				      feerate_min(ld),
+				      feerate_max(ld),
 				      channel->last_sig,
 				      cs, gossip_index,
 				      &channel->channel_info->remote_fundingkey,
@@ -2003,8 +1992,8 @@ static bool peer_start_channeld(struct peer *peer,
 				      cfg->fee_per_satoshi,
 				      *channel->our_msatoshi,
 				      &channel->seed,
-				      &peer->ld->id,
-				      &peer->id,
+				      &ld->id,
+				      &channel->peer->id,
 				      time_to_msec(cfg->commit_time),
 				      cfg->cltv_expiry_delta,
 				      channel->last_was_revoke,
@@ -2032,11 +2021,9 @@ static bool peer_start_channeld(struct peer *peer,
 	return true;
 }
 
-static bool peer_commit_initial(struct peer *peer)
+static void channel_commit_initial(struct channel *channel)
 {
-	struct channel *channel = peer2channel(peer);
 	channel->next_index[LOCAL] = channel->next_index[REMOTE] = 1;
-	return true;
 }
 
 static void opening_funder_finished(struct subd *opening, const u8 *resp,
@@ -2092,7 +2079,7 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
 
 	/* Now, keep the initial commit as our last-tx-to-broadcast. */
-	peer_last_tx(fc->peer, remote_commit, &remote_commit_sig);
+	channel_set_last_tx(channel, remote_commit, &remote_commit_sig);
 
 	/* Generate the funding tx. */
 	if (fc->change
@@ -2139,13 +2126,10 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 		return;
 	}
 
-	if (!peer_commit_initial(fc->peer)) {
-		channel_internal_error(channel, "Initial peer to db failed");
-		return;
-	}
+	channel_commit_initial(channel);
 
 	/* Get HSM to sign the funding tx. */
-	log_debug(fc->peer->log, "Getting HSM to sign funding tx");
+	log_debug(channel->log, "Getting HSM to sign funding tx");
 
 	msg = towire_hsm_sign_funding(tmpctx, channel->funding_satoshi,
 				      fc->change, fc->change_keyindex,
@@ -2167,7 +2151,7 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 static void opening_fundee_finished(struct subd *opening,
 				    const u8 *reply,
 				    const int *fds,
-				    struct peer *peer)
+				    struct channel *channel)
 {
 	u8 *funding_signed;
 	struct channel_info *channel_info;
@@ -2175,14 +2159,14 @@ static void opening_fundee_finished(struct subd *opening,
 	u64 gossip_index;
 	secp256k1_ecdsa_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
-	const tal_t *tmpctx = tal_tmpctx(peer);
-	struct channel *channel = peer2channel(peer);
+	const tal_t *tmpctx = tal_tmpctx(channel);
+	struct lightningd *ld = channel->peer->ld;
 
-	log_debug(peer->log, "Got opening_fundee_finish_response");
+	log_debug(channel->log, "Got opening_fundee_finish_response");
 	assert(tal_count(fds) == 2);
 
 	/* At this point, we care about peer */
-	channel->channel_info = channel_info = tal(peer, struct channel_info);
+	channel->channel_info = channel_info = tal(channel, struct channel_info);
 	/* This is a new channel_info->their_config, set its ID to 0 */
 	channel->channel_info->their_config.id = 0;
 
@@ -2220,30 +2204,27 @@ static void opening_fundee_finished(struct subd *opening,
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
 
 	/* Now, keep the initial commit as our last-tx-to-broadcast. */
-	peer_last_tx(peer, remote_commit, &remote_commit_sig);
+	channel_set_last_tx(channel, remote_commit, &remote_commit_sig);
 
-	if (!peer_commit_initial(peer)) {
-		tal_free(tmpctx);
-		return;
-	}
+	channel_commit_initial(channel);
 
-	log_debug(peer->log, "Watching funding tx %s",
+	log_debug(channel->log, "Watching funding tx %s",
 		     type_to_string(reply, struct bitcoin_txid,
 				    channel->funding_txid));
-	watch_txid(peer, peer->ld->topology, peer, channel->funding_txid,
+	watch_txid(channel, ld->topology, channel, channel->funding_txid,
 		   funding_lockin_cb, NULL);
 
 	/* FIXME: Remove arg from cb? */
-	watch_txo(peer, peer->ld->topology, peer, channel->funding_txid,
+	watch_txo(channel, ld->topology, channel, channel->funding_txid,
 		  channel->funding_outnum, funding_spent, NULL);
 
 	/* Unowned (will free openingd). */
-	peer_set_owner(peer, NULL);
+	channel_set_owner(channel, NULL);
 
 	/* On to normal operation! */
-	peer_start_channeld(peer, &cs, gossip_index,
+	peer_start_channeld(channel, &cs, gossip_index,
 			    fds[0], fds[1], funding_signed, false);
-	peer_set_condition(peer, OPENINGD, CHANNELD_AWAITING_LOCKIN);
+	channel_set_state(channel, OPENINGD, CHANNELD_AWAITING_LOCKIN);
 	tal_free(tmpctx);
 }
 
@@ -2363,8 +2344,8 @@ static void peer_accept_channel(struct lightningd *ld,
 				    * 5,
 				    open_msg);
 
-	subd_req(peer, channel->owner, take(msg), -1, 2,
-		 opening_fundee_finished, peer);
+	subd_req(channel, channel->owner, take(msg), -1, 2,
+		 opening_fundee_finished, channel);
 }
 
 static void peer_offer_channel(struct lightningd *ld,
@@ -2639,6 +2620,7 @@ static void activate_peer(struct peer *peer)
 {
 	u8 *msg;
 	struct channel *channel = peer2channel(peer);
+	struct lightningd *ld = channel->peer->ld;
 
 	/* Pass gossipd any addrhints we currently have */
 	msg = towire_gossipctl_peer_addrhint(peer, &peer->id, &peer->addr);
@@ -2652,10 +2634,10 @@ static void activate_peer(struct peer *peer)
 	}
 
 	/* This may be unnecessary, but it's harmless. */
-	watch_txid(peer, peer->ld->topology, peer, channel->funding_txid,
+	watch_txid(channel, ld->topology, channel, channel->funding_txid,
 		   funding_lockin_cb, NULL);
 
-	watch_txo(peer, peer->ld->topology, peer,
+	watch_txo(channel, ld->topology, channel,
 		  channel->funding_txid, channel->funding_outnum,
 		  funding_spent, NULL);
 
