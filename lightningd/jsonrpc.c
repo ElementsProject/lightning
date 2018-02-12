@@ -237,46 +237,56 @@ static const struct json_command *find_cmd(const char *buffer,
 	return NULL;
 }
 
-static void connection_result(struct json_connection *jcon,
-			      const char *id,
-			      const char *res,
-			      const char *err,
-			      int code,
-			      const struct json_result *data)
+static void json_done(struct json_connection *jcon, const char *json TAKES)
 {
 	struct json_output *out = tal(jcon, struct json_output);
-	const tal_t *tmpctx;
-	const char* data_str;
-
-	if (err == NULL)
-		out->json = tal_fmt(out,
-				    "{ \"jsonrpc\": \"2.0\", "
-				    "\"result\" : %s,"
-				    " \"id\" : %s }\n",
-				    res, id);
-	else {
-		tmpctx = tal_tmpctx(out);
-		if (data)
-			data_str = tal_fmt(tmpctx,
-					   ", \"data\" : %s",
-					   json_result_string(data));
-		else
-			data_str = "";
-
-		out->json = tal_fmt(out,
-				    "{ \"jsonrpc\": \"2.0\", "
-				    " \"error\" : "
-				      "{ \"code\" : %d,"
-				      " \"message\" : %s%s },"
-				    " \"id\" : %s }\n",
-				    code, err, data_str,
-				    id);
-		tal_free(tmpctx);
-	}
+	out->json = tal_strdup(out, json);
 
 	/* Queue for writing, and wake writer (and maybe reader). */
 	list_add_tail(&jcon->output, &out->list);
 	io_wake(jcon);
+}
+
+static void connection_complete_ok(struct json_connection *jcon,
+				   const char *id,
+				   const struct json_result *result)
+{
+	/* This JSON is simple enough that we build manually */
+	json_done(jcon, take(tal_fmt(jcon,
+				     "{ \"jsonrpc\": \"2.0\", "
+				     "\"result\" : %s,"
+				     " \"id\" : %s }\n",
+				     json_result_string(result), id)));
+}
+
+static void connection_complete_error(struct json_connection *jcon,
+				      const char *id,
+				      const char *errmsg,
+				      int code,
+				      const struct json_result *data)
+{
+	/* Use this to escape errmsg. */
+	struct json_result *errorres = new_json_result(jcon);
+	const char *data_str;
+
+	json_add_string_escape(errorres, NULL, errmsg);
+	if (data)
+		data_str = tal_fmt(errorres, ", \"data\" : %s",
+				   json_result_string(data));
+	else
+		data_str = "";
+
+	json_done(jcon, take(tal_fmt(errorres,
+				     "{ \"jsonrpc\": \"2.0\", "
+				     " \"error\" : "
+				     "{ \"code\" : %d,"
+				     " \"message\" : %s%s },"
+				     " \"id\" : %s }\n",
+				     code,
+				     json_result_string(errorres),
+				     data_str,
+				     id)));
+	tal_free(errorres);
 }
 
 struct json_result *null_response(const tal_t *ctx)
@@ -365,8 +375,7 @@ void command_success(struct command *cmd, struct json_result *result)
 		return;
 	}
 	assert(jcon->current == cmd);
-	connection_result(jcon, cmd->id, json_result_string(result),
-			  NULL, 0, NULL);
+	connection_complete_ok(jcon, cmd->id, result);
 	log_debug(jcon->log, "Success");
 	jcon->current = tal_free(cmd);
 }
@@ -376,7 +385,7 @@ static void command_fail_v(struct command *cmd,
 			   const struct json_result *data,
 			   const char *fmt, va_list ap)
 {
-	char *quote, *error;
+	char *error;
 	struct json_connection *jcon = cmd->jcon;
 
 	if (!jcon) {
@@ -390,15 +399,8 @@ static void command_fail_v(struct command *cmd,
 
 	log_debug(jcon->log, "Failing: %s", error);
 
-	/* Remove " */
-	while ((quote = strchr(error, '"')) != NULL)
-		*quote = '\'';
-
-	/* Now surround in quotes. */
-	quote = tal_fmt(cmd, "\"%s\"", error);
-
 	assert(jcon->current == cmd);
-	connection_result(jcon, cmd->id, NULL, quote, code, data);
+	connection_complete_error(jcon, cmd->id, error, code, data);
 	jcon->current = tal_free(cmd);
 }
 void command_fail(struct command *cmd, const char *fmt, ...)
@@ -429,8 +431,8 @@ static void json_command_malformed(struct json_connection *jcon,
 				   const char *id,
 				   const char *error)
 {
-	return connection_result(jcon, id, NULL, tal_fmt(jcon, "\"%s\"", error),
-				 JSONRPC2_INVALID_REQUEST, NULL);
+	return connection_complete_error(jcon, id, error,
+					 JSONRPC2_INVALID_REQUEST, NULL);
 }
 
 static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
