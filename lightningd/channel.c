@@ -9,9 +9,37 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 
+void channel_set_owner(struct channel *channel, struct subd *owner)
+{
+	struct subd *old_owner = channel->owner;
+	channel->owner = owner;
+
+	if (old_owner)
+		subd_release_peer(old_owner, channel2peer(channel));
+}
+
 static void destroy_channel(struct channel *channel)
 {
+	/* Free any old owner still hanging around. */
+	channel_set_owner(channel, NULL);
+
 	list_del_from(&channel->peer->channels, &channel->list);
+
+	/* Last one out frees the peer */
+	if (list_empty(&channel->peer->channels))
+		tal_free(channel->peer);
+}
+
+/* This lets us give a more detailed error than just a destructor. */
+void free_channel(struct channel *channel, const char *why)
+{
+	if (channel->opening_cmd) {
+		command_fail(channel->opening_cmd, "%s", why);
+		channel->opening_cmd = NULL;
+	}
+	wallet_channel_delete(channel->peer->ld->wallet, channel->dbid,
+			      channel->peer->dbid);
+	tal_free(channel);
 }
 
 /* FIXME: We have no business knowing this! */
