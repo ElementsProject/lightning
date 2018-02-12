@@ -28,10 +28,10 @@ enum feerate {
 /* Off topology->outgoing_txs */
 struct outgoing_tx {
 	struct list_node list;
-	struct peer *peer;
+	struct channel *channel;
 	const char *hextx;
 	struct bitcoin_txid txid;
-	void (*failed)(struct peer *peer, int exitstatus, const char *err);
+	void (*failed)(struct channel *channel, int exitstatus, const char *err);
 };
 
 struct block {
@@ -145,15 +145,15 @@ u32 get_feerate(const struct chain_topology *topo, enum feerate feerate);
 /* Broadcast a single tx, and rebroadcast as reqd (copies tx).
  * If failed is non-NULL, call that and don't rebroadcast. */
 void broadcast_tx(struct chain_topology *topo,
-		  struct peer *peer, const struct bitcoin_tx *tx,
-		  void (*failed)(struct peer *peer,
+		  struct channel *channel, const struct bitcoin_tx *tx,
+		  void (*failed)(struct channel *channel,
 				 int exitstatus,
 				 const char *err));
 
 struct chain_topology *new_topology(struct lightningd *ld, struct log *log);
 void setup_topology(struct chain_topology *topology,
 		    struct timers *timers,
-		    struct timerel poll_time, u32 first_peer_block);
+		    struct timerel poll_time, u32 first_channel_block);
 
 void begin_topology(struct chain_topology *topo);
 

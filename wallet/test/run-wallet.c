@@ -42,8 +42,8 @@ void bitcoind_gettxout(struct bitcoind *bitcoind UNNEEDED,
 { fprintf(stderr, "bitcoind_gettxout called!\n"); abort(); }
 /* Generated stub for broadcast_tx */
 void broadcast_tx(struct chain_topology *topo UNNEEDED,
-		  struct peer *peer UNNEEDED, const struct bitcoin_tx *tx UNNEEDED,
-		  void (*failed)(struct peer *peer UNNEEDED,
+		  struct channel *channel UNNEEDED, const struct bitcoin_tx *tx UNNEEDED,
+		  void (*failed)(struct channel *channel UNNEEDED,
 				 int exitstatus UNNEEDED,
 				 const char *err))
 { fprintf(stderr, "broadcast_tx called!\n"); abort(); }
@@ -86,7 +86,7 @@ struct htlc_out *find_htlc_out_by_ripemd(const struct channel *channel UNNEEDED,
 /* Generated stub for find_txwatch */
 struct txwatch *find_txwatch(struct chain_topology *topo UNNEEDED,
 			     const struct bitcoin_txid *txid UNNEEDED,
-			     const struct peer *peer UNNEEDED)
+			     const struct channel *channel UNNEEDED)
 { fprintf(stderr, "find_txwatch called!\n"); abort(); }
 /* Generated stub for fromwire_channel_got_funding_locked */
 bool fromwire_channel_got_funding_locked(const void *p UNNEEDED, size_t *plen UNNEEDED, struct pubkey *next_per_commit_point UNNEEDED)
@@ -481,9 +481,9 @@ void update_per_commit_point(struct channel *channel UNNEEDED,
 /* Generated stub for watch_tx_ */
 struct txwatch *watch_tx_(const tal_t *ctx UNNEEDED,
 			  struct chain_topology *topo UNNEEDED,
-			  struct peer *peer UNNEEDED,
+			  struct channel *channel UNNEEDED,
 			  const struct bitcoin_tx *tx UNNEEDED,
-			  enum watch_result (*cb)(struct peer *peer UNNEEDED,
+			  enum watch_result (*cb)(struct channel *channel UNNEEDED,
 						  const struct bitcoin_tx * UNNEEDED,
 						  unsigned int depth UNNEEDED,
 						  void *) UNNEEDED,
@@ -492,9 +492,9 @@ struct txwatch *watch_tx_(const tal_t *ctx UNNEEDED,
 /* Generated stub for watch_txid_ */
 struct txwatch *watch_txid_(const tal_t *ctx UNNEEDED,
 			    struct chain_topology *topo UNNEEDED,
-			    struct peer *peer UNNEEDED,
+			    struct channel *channel UNNEEDED,
 			    const struct bitcoin_txid *txid UNNEEDED,
-			    enum watch_result (*cb)(struct peer *peer UNNEEDED,
+			    enum watch_result (*cb)(struct channel *channel UNNEEDED,
 						    const struct bitcoin_tx * UNNEEDED,
 						    unsigned int depth UNNEEDED,
 						    void *) UNNEEDED,
@@ -503,10 +503,10 @@ struct txwatch *watch_txid_(const tal_t *ctx UNNEEDED,
 /* Generated stub for watch_txo_ */
 struct txowatch *watch_txo_(const tal_t *ctx UNNEEDED,
 			    struct chain_topology *topo UNNEEDED,
-			    struct peer *peer UNNEEDED,
+			    struct channel *channel UNNEEDED,
 			    const struct bitcoin_txid *txid UNNEEDED,
 			    unsigned int output UNNEEDED,
-			    enum watch_result (*cb)(struct peer *peer UNNEEDED,
+			    enum watch_result (*cb)(struct channel *channel UNNEEDED,
 						    const struct bitcoin_tx *tx UNNEEDED,
 						    size_t input_num UNNEEDED,
 						    const struct block *block UNNEEDED,

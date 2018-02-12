@@ -16,7 +16,6 @@ struct block;
 struct lightningd;
 struct ripemd160;
 struct bitcoin_tx;
-struct peer;
 struct bitcoin_block;
 
 enum bitcoind_mode {
