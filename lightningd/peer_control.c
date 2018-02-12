@@ -181,7 +181,7 @@ static void free_peer(struct peer *peer, const char *why)
 		command_fail(peer->opening_cmd, "%s", why);
 		peer->opening_cmd = NULL;
 	}
-	wallet_channel_delete(peer->ld->wallet, peer->channel->id);
+	wallet_channel_delete(peer->ld->wallet, peer->channel->id, peer->dbid);
 	tal_free(peer);
 }
 
