@@ -90,13 +90,6 @@ void peer_sent_nongossip(struct lightningd *ld,
 /* Could be configurable. */
 #define OUR_CHANNEL_FLAGS CHANNEL_FLAGS_ANNOUNCE_CHANNEL
 
-/* Peer has failed, but try reconnected. */
-PRINTF_FMT(2,3) void peer_fail_transient(struct peer *peer, const char *fmt,...);
-/* Peer has failed, give up on it. */
-void peer_fail_permanent(struct peer *peer, const char *fmt, ...);
-/* Permanent error, but due to internal problems, not peer. */
-void peer_internal_error(struct peer *peer, const char *fmt, ...);
-
 /* Peer has failed to open; return to gossipd. */
 void opening_failed(struct peer *peer, const u8 *msg TAKES);
 
@@ -107,6 +100,8 @@ void setup_listeners(struct lightningd *ld);
 
 /* We've loaded peers from database, set them going. */
 void activate_peers(struct lightningd *ld);
+
+void drop_to_chain(struct lightningd *ld, struct channel *channel);
 
 void free_htlcs(struct lightningd *ld, const struct peer *peer);
 

@@ -27,6 +27,7 @@ static bool state_update_ok(struct peer *peer,
 			    u64 htlc_id, const char *dir)
 {
 	enum htlc_state expected = oldstate + 1;
+	struct channel *channel = peer2channel(peer);
 
 	/* We never get told about RCVD_REMOVE_HTLC, so skip over that
 	 * (we initialize in SENT_ADD_HTLC / RCVD_ADD_COMMIT, so those
@@ -35,11 +36,11 @@ static bool state_update_ok(struct peer *peer,
 		expected = RCVD_REMOVE_COMMIT;
 
 	if (newstate != expected) {
-		peer_internal_error(peer,
-				    "HTLC %s %"PRIu64" invalid update %s->%s",
-				    dir, htlc_id,
-				    htlc_state_name(oldstate),
-				    htlc_state_name(newstate));
+		channel_internal_error(channel,
+				       "HTLC %s %"PRIu64" invalid update %s->%s",
+				       dir, htlc_id,
+				       htlc_state_name(oldstate),
+				       htlc_state_name(newstate));
 		return false;
 	}
 
@@ -333,7 +334,8 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 					       &hout->key.id,
 					       &failure_code,
 					       &failurestr)) {
-		peer_internal_error(subd->peer, "Bad channel_offer_htlc_reply");
+		channel_internal_error(peer2channel(subd->peer),
+				       "Bad channel_offer_htlc_reply");
 		tal_free(hout);
 		return;
 	}
@@ -357,7 +359,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 
 	if (find_htlc_out(&subd->ld->htlcs_out, hout->key.peer, hout->key.id)
 	    || hout->key.id == HTLC_INVALID_ID) {
-		peer_internal_error(subd->peer,
+		channel_internal_error(peer2channel(subd->peer),
 				    "Bad offer_htlc_reply HTLC id %"PRIu64
 				    " is a duplicate",
 				    hout->key.id);
@@ -551,10 +553,11 @@ static bool peer_accepted_htlc(struct peer *peer,
 	struct route_step *rs;
 	struct onionpacket *op;
 	const tal_t *tmpctx = tal_tmpctx(peer);
+	struct channel *channel = peer2channel(peer);
 
 	hin = find_htlc_in(&peer->ld->htlcs_in, peer, id);
 	if (!hin) {
-		peer_internal_error(peer,
+		channel_internal_error(channel,
 				    "peer_got_revoke unknown htlc %"PRIu64, id);
 		return false;
 	}
@@ -566,7 +569,7 @@ static bool peer_accepted_htlc(struct peer *peer,
 	 *
 	 * A sending node SHOULD fail to route any HTLC added after it
 	 * sent `shutdown`. */
-	if (peer2channel(peer)->state == CHANNELD_SHUTTING_DOWN) {
+	if (channel->state == CHANNELD_SHUTTING_DOWN) {
 		*failcode = WIRE_PERMANENT_CHANNEL_FAILURE;
 		goto out;
 	}
@@ -586,9 +589,9 @@ static bool peer_accepted_htlc(struct peer *peer,
 			       sizeof(hin->onion_routing_packet));
 	if (!op) {
 		if (!memeqzero(&hin->shared_secret, sizeof(hin->shared_secret))){
-			peer_internal_error(peer,
+			channel_internal_error(channel,
 				   "bad onion in got_revoke: %s",
-				   tal_hexstr(peer, hin->onion_routing_packet,
+				   tal_hexstr(channel, hin->onion_routing_packet,
 					     sizeof(hin->onion_routing_packet)));
 			tal_free(tmpctx);
 			return false;
@@ -672,7 +675,7 @@ static bool peer_fulfilled_our_htlc(struct channel *channel,
 
 	hout = find_htlc_out(&peer->ld->htlcs_out, peer, fulfilled->id);
 	if (!hout) {
-		peer_internal_error(peer,
+		channel_internal_error(channel,
 				    "fulfilled_our_htlc unknown htlc %"PRIu64,
 				    fulfilled->id);
 		return false;
@@ -721,7 +724,7 @@ static bool peer_failed_our_htlc(struct channel *channel,
 
 	hout = find_htlc_out(&peer->ld->htlcs_out, peer, failed->id);
 	if (!hout) {
-		peer_internal_error(peer,
+		channel_internal_error(channel,
 				    "failed_our_htlc unknown htlc %"PRIu64,
 				    failed->id);
 		return false;
@@ -839,10 +842,11 @@ static void remove_htlc_out(struct peer *peer, struct htlc_out *hout)
 static bool update_in_htlc(struct peer *peer, u64 id, enum htlc_state newstate)
 {
 	struct htlc_in *hin;
+	struct channel *channel = peer2channel(peer);
 
 	hin = find_htlc_in(&peer->ld->htlcs_in, peer, id);
 	if (!hin) {
-		peer_internal_error(peer, "Can't find in HTLC %"PRIu64, id);
+		channel_internal_error(channel, "Can't find in HTLC %"PRIu64, id);
 		return false;
 	}
 
@@ -858,10 +862,11 @@ static bool update_in_htlc(struct peer *peer, u64 id, enum htlc_state newstate)
 static bool update_out_htlc(struct peer *peer, u64 id, enum htlc_state newstate)
 {
 	struct htlc_out *hout;
+	struct channel *channel = peer2channel(peer);
 
 	hout = find_htlc_out(&peer->ld->htlcs_out, peer, id);
 	if (!hout) {
-		peer_internal_error(peer, "Can't find out HTLC %"PRIu64, id);
+		channel_internal_error(channel, "Can't find out HTLC %"PRIu64, id);
 		return false;
 	}
 
@@ -901,8 +906,10 @@ static bool peer_save_commitsig_received(struct peer *peer, u64 commitnum,
 					 struct bitcoin_tx *tx,
 					 const secp256k1_ecdsa_signature *commit_sig)
 {
-	if (commitnum != peer2channel(peer)->next_index[LOCAL]) {
-		peer_internal_error(peer,
+	struct channel *channel = peer2channel(peer);
+
+	if (commitnum != channel->next_index[LOCAL]) {
+		channel_internal_error(channel,
 			   "channel_got_commitsig: expected commitnum %"PRIu64
 			   " got %"PRIu64,
 			   peer2channel(peer)->next_index[LOCAL], commitnum);
@@ -919,8 +926,10 @@ static bool peer_save_commitsig_received(struct peer *peer, u64 commitnum,
 
 static bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum)
 {
-	if (commitnum != peer2channel(peer)->next_index[REMOTE]) {
-		peer_internal_error(peer,
+	struct channel *channel = peer2channel(peer);
+
+	if (commitnum != channel->next_index[REMOTE]) {
+		channel_internal_error(channel,
 			   "channel_sent_commitsig: expected commitnum %"PRIu64
 			   " got %"PRIu64,
 			   peer2channel(peer)->next_index[REMOTE], commitnum);
@@ -942,20 +951,21 @@ void peer_sending_commitsig(struct peer *peer, const u8 *msg)
 	size_t i, maxid = 0, num_local_added = 0;
 	secp256k1_ecdsa_signature commit_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
+	struct channel *channel = peer2channel(peer);
 
 	if (!fromwire_channel_sending_commitsig(msg, msg, NULL,
 						&commitnum,
 						&feerate,
 						&changed_htlcs,
 						&commit_sig, &htlc_sigs)) {
-		peer_internal_error(peer, "bad channel_sending_commitsig %s",
+		channel_internal_error(channel, "bad channel_sending_commitsig %s",
 				    tal_hex(peer, msg));
 		return;
 	}
 
 	for (i = 0; i < tal_count(changed_htlcs); i++) {
 		if (!changed_htlc(peer, changed_htlcs + i)) {
-			peer_internal_error(peer,
+			channel_internal_error(channel,
 				   "channel_sending_commitsig: update failed");
 			return;
 		}
@@ -971,7 +981,7 @@ void peer_sending_commitsig(struct peer *peer, const u8 *msg)
 
 	if (num_local_added != 0) {
 		if (maxid != peer2channel(peer)->next_htlc_id + num_local_added - 1) {
-			peer_internal_error(peer,
+			channel_internal_error(channel,
 				   "channel_sending_commitsig:"
 				   " Added %"PRIu64", maxid now %"PRIu64
 				   " from %"PRIu64,
@@ -1011,7 +1021,7 @@ static bool channel_added_their_htlc(struct channel *channel,
 	 */
 	if (added->amount_msat == 0
 	    || added->amount_msat < channel->our_config.htlc_minimum_msat) {
-		peer_internal_error(channel2peer(channel),
+		channel_internal_error(channel,
 				    "trying to add HTLC msat %"PRIu64
 				    " but minimum is %"PRIu64,
 				    added->amount_msat,
@@ -1100,7 +1110,7 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 					    &failed,
 					    &changed,
 					    &tx)) {
-		peer_internal_error(peer,
+		channel_internal_error(channel,
 				    "bad fromwire_channel_got_commitsig %s",
 				    tal_hex(peer, msg));
 		return;
@@ -1131,7 +1141,7 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 
 	for (i = 0; i < tal_count(changed); i++) {
 		if (!changed_htlc(peer, &changed[i])) {
-			peer_internal_error(peer,
+			channel_internal_error(channel,
 					    "got_commitsig: update failed");
 			return;
 		}
@@ -1185,7 +1195,7 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 					 &revokenum, &per_commitment_secret,
 					 &next_per_commitment_point,
 					 &changed)) {
-		peer_internal_error(peer, "bad fromwire_channel_got_revoke %s",
+		channel_internal_error(channel, "bad fromwire_channel_got_revoke %s",
 				    tal_hex(peer, msg));
 		return;
 	}
@@ -1204,7 +1214,7 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 				return;
 		} else {
 			if (!changed_htlc(peer, &changed[i])) {
-				peer_internal_error(peer,
+				channel_internal_error(channel,
 						    "got_revoke: update failed");
 				return;
 			}
@@ -1212,13 +1222,13 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 	}
 
 	if (revokenum >= (1ULL << 48)) {
-		peer_internal_error(peer, "got_revoke: too many txs %"PRIu64,
+		channel_internal_error(channel, "got_revoke: too many txs %"PRIu64,
 				    revokenum);
 		return;
 	}
 
 	if (revokenum != revocations_received(&channel->their_shachain.chain)) {
-		peer_internal_error(peer, "got_revoke: expected %"PRIu64
+		channel_internal_error(channel, "got_revoke: expected %"PRIu64
 				    " got %"PRIu64,
 				    revocations_received(&channel->their_shachain.chain), revokenum);
 		return;
@@ -1233,7 +1243,7 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 				      &channel->their_shachain,
 				      shachain_index(revokenum),
 				      &per_commitment_secret)) {
-		peer_fail_permanent(peer,
+		channel_fail_permanent(channel,
 				    "Bad per_commitment_secret %s for %"PRIu64,
 				    type_to_string(msg, struct sha256,
 						   &per_commitment_secret),
@@ -1448,7 +1458,7 @@ void notify_new_block(struct lightningd *ld, u32 height)
 			if (peer2channel(hout->key.peer)->error)
 				continue;
 
-			peer_fail_permanent(hout->key.peer,
+			channel_fail_permanent(peer2channel(hout->key.peer),
 					    "Offered HTLC %"PRIu64
 					    " %s cltv %u hit deadline",
 					    hout->key.id,
@@ -1476,6 +1486,8 @@ void notify_new_block(struct lightningd *ld, u32 height)
 		for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
 		     hin;
 		     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
+			struct channel *channel = peer2channel(hin->key.peer);
+
 			/* Not fulfilled?  If overdue, that's their problem... */
 			if (!hin->preimage)
 				continue;
@@ -1485,14 +1497,14 @@ void notify_new_block(struct lightningd *ld, u32 height)
 				continue;
 
 			/* Peer on chain already? */
-			if (peer_on_chain(hin->key.peer))
+			if (channel_on_chain(channel))
 				continue;
 
 			/* Peer already failed, or we hit it? */
-			if (peer2channel(hin->key.peer)->error)
+			if (channel->error)
 				continue;
 
-			peer_fail_permanent(hin->key.peer,
+			channel_fail_permanent(channel,
 					    "Fulfilled HTLC %"PRIu64
 					    " %s cltv %u hit deadline",
 					    hin->key.id,
