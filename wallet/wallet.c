@@ -16,10 +16,11 @@
 #define DIRECTION_INCOMING 0
 #define DIRECTION_OUTGOING 1
 
-struct wallet *wallet_new(const tal_t *ctx,
+struct wallet *wallet_new(struct lightningd *ld,
 			  struct log *log, struct timers *timers)
 {
-	struct wallet *wallet = tal(ctx, struct wallet);
+	struct wallet *wallet = tal(ld, struct wallet);
+	wallet->ld = ld;
 	wallet->db = db_setup(wallet, log);
 	wallet->log = log;
 	wallet->bip32_base = NULL;
