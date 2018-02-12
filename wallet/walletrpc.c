@@ -414,21 +414,26 @@ static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 	/* Add funds that are allocated to channels */
 	json_array_start(response, "channels");
 	list_for_each(&cmd->ld->peers, p, list) {
-		if (!p->our_msatoshi || !p->funding_txid)
-			continue;
+		struct channel *c;
+		list_for_each(&p->channels, c, list) {
+			if (!c->our_msatoshi || !c->funding_txid)
+				continue;
 
-		json_object_start(response, NULL);
-		json_add_pubkey(response, "peer_id", &p->id);
-		if (p->scid)
-			json_add_short_channel_id(response, "short_channel_id",
-						  p->scid);
+			json_object_start(response, NULL);
+			json_add_pubkey(response, "peer_id", &p->id);
+			if (c->scid)
+				json_add_short_channel_id(response,
+							  "short_channel_id",
+							  c->scid);
 
-		/* Poor man's rounding to satoshis to match the unit for outputs */
-		json_add_u64(response, "channel_sat", (*p->our_msatoshi + 500)/1000);
-		json_add_u64(response, "channel_total_sat",
-			     p->funding_satoshi);
-		json_add_txid(response, "funding_txid", p->funding_txid);
-		json_object_end(response);
+			/* Poor man's rounding to satoshis to match the unit for outputs */
+			json_add_u64(response, "channel_sat",
+				     (*c->our_msatoshi + 500)/1000);
+			json_add_u64(response, "channel_total_sat",
+				     c->funding_satoshi);
+			json_add_txid(response, "funding_txid", c->funding_txid);
+			json_object_end(response);
+		}
 	}
 	json_array_end(response);
 	json_object_end(response);

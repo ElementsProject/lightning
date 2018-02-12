@@ -416,8 +416,8 @@ static bool handle_sent_errmsg(struct subd *sd, const u8 *msg)
 		return false;
 
 	/* FIXME: if not all channels failed, hand back to gossipd! */
-	if (!sd->peer->error)
-		sd->peer->error = tal_steal(sd->peer, errmsg);
+	if (!peer2channel(sd->peer)->error)
+		peer2channel(sd->peer)->error = tal_steal(sd->peer, errmsg);
 
 	/* Don't free sd; we're may be about to free peer. */
 	sd->peer = NULL;

@@ -2876,7 +2876,7 @@ class LightningDTests(BaseLightningDTests):
         # Wait for l1 to notice
         wait_for(lambda: not 'connected' in l1.rpc.listpeers()['peers'][0]['channels'][0])
 
-        # Now restart l1 and it should reload peers/channels from the DB
+        # Now restart l2 and it should reload peers/channels from the DB
         l2.daemon.start()
         wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 1)
 
