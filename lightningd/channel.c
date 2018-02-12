@@ -104,6 +104,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid, u32 first_blocknum)
 {
 	/* FIXME: We currently rely on it being all zero/NULL */
 	struct channel *channel = talz(peer->ld, struct channel);
+	char *idname;
 
 	channel->dbid = dbid;
 	channel->peer = peer;
@@ -112,8 +113,11 @@ struct channel *new_channel(struct peer *peer, u64 dbid, u32 first_blocknum)
 	channel->local_shutdown_idx = -1;
 
 	/* FIXME: update log prefix when we get scid */
+	/* FIXME: Use minimal unique pubkey prefix for logs! */
+	idname = type_to_string(peer, struct pubkey, &peer->id);
 	channel->log = new_log(channel, peer->log_book, "%s chan #%"PRIu64":",
-			       log_prefix(peer->log), dbid);
+			       idname, dbid);
+	tal_free(idname);
 	list_add_tail(&peer->channels, &channel->list);
 	tal_add_destructor(channel, destroy_channel);
 	if (channel->dbid != 0)
