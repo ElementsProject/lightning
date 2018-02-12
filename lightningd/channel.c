@@ -15,7 +15,7 @@ void channel_set_owner(struct channel *channel, struct subd *owner)
 	channel->owner = owner;
 
 	if (old_owner)
-		subd_release_peer(old_owner, channel2peer(channel));
+		subd_release_channel(old_owner, channel);
 }
 
 static void destroy_channel(struct channel *channel)
@@ -110,6 +110,25 @@ struct channel *peer_active_channel(struct peer *peer)
 			return channel;
 	}
 	return NULL;
+}
+
+void channel_set_state(struct channel *channel,
+		       enum peer_state old_state,
+		       enum peer_state state)
+{
+	log_info(channel->log, "State changed from %s to %s",
+		 channel_state_name(channel), peer_state_name(state));
+	if (channel->state != old_state)
+		fatal("channel state %s should be %s",
+		      channel_state_name(channel), peer_state_name(old_state));
+
+	channel->state = state;
+
+	/* We only persist channels/peers that have reached the opening state */
+	if (channel_persists(channel)) {
+		/* TODO(cdecker) Selectively save updated fields to DB */
+		wallet_channel_save(channel->peer->ld->wallet, channel);
+	}
 }
 
 struct channel *peer2channel(const struct peer *peer)
