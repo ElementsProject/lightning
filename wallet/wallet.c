@@ -626,9 +626,16 @@ static const char *channel_fields =
 bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w, struct list_head *peers)
 {
 	bool ok = true;
+	sqlite3_stmt *stmt;
+
+	/* Get rid of OPENINGD entries; they don't last across reconnects */
+	stmt = db_prepare(w->db, "DELETE FROM channels WHERE state=?");
+	sqlite3_bind_int64(stmt, 1, OPENINGD);
+	db_exec_prepared(w->db, stmt);
+
 	/* Channels are active if they have reached at least the
 	 * opening state and they are not marked as complete */
-	sqlite3_stmt *stmt = db_query(
+	stmt = db_query(
 	    __func__, w->db, "SELECT %s FROM channels WHERE state > %d AND state != %d;",
 	    channel_fields, OPENINGD, CLOSINGD_COMPLETE);
 
