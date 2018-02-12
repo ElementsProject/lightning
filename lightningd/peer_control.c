@@ -181,6 +181,7 @@ static void free_peer(struct peer *peer, const char *why)
 		command_fail(peer->opening_cmd, "%s", why);
 		peer->opening_cmd = NULL;
 	}
+	wallet_channel_delete(peer->ld->wallet, peer->channel->id);
 	tal_free(peer);
 }
 
@@ -1268,7 +1269,6 @@ static void handle_irrevocably_resolved(struct peer *peer, const u8 *msg)
 	free_htlcs(peer->ld, peer);
 
 	log_info(peer->log, "onchaind complete, forgetting peer");
-	wallet_channel_delete(peer->ld->wallet, peer->channel->id);
 
 	/* This will also free onchaind. */
 	free_peer(peer, "onchaind complete, forgetting peer");
@@ -2968,8 +2968,6 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 	json_add_txid(response, "funding_txid", forget->peer->funding_txid);
 	json_object_end(response);
 
-	if (peer_persists(forget->peer))
-		wallet_channel_delete(forget->cmd->ld->wallet, forget->peer->channel->id);
 	free_peer(forget->peer, "dev-forget-channel called");
 
 	command_success(forget->cmd, response);
