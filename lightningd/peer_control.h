@@ -103,7 +103,7 @@ void activate_peers(struct lightningd *ld);
 
 void drop_to_chain(struct lightningd *ld, struct channel *channel);
 
-void free_htlcs(struct lightningd *ld, const struct peer *peer);
+void free_htlcs(struct lightningd *ld, const struct channel *channel);
 
 /* Get range of feerates to insist other side abide by for normal channels. */
 u32 feerate_min(struct lightningd *ld);

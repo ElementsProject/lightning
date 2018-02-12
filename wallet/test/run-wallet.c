@@ -80,7 +80,7 @@ bool derive_basepoints(const struct privkey *seed UNNEEDED,
 bool extract_channel_id(const u8 *in_pkt UNNEEDED, struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "extract_channel_id called!\n"); abort(); }
 /* Generated stub for find_htlc_out_by_ripemd */
-struct htlc_out *find_htlc_out_by_ripemd(const struct peer *peer UNNEEDED,
+struct htlc_out *find_htlc_out_by_ripemd(const struct channel *channel UNNEEDED,
 					 const struct ripemd160 *ripemd160 UNNEEDED)
 { fprintf(stderr, "find_htlc_out_by_ripemd called!\n"); abort(); }
 /* Generated stub for find_txwatch */
@@ -321,28 +321,29 @@ void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED, const char *c
 /* Generated stub for logv_add */
 void logv_add(struct log *log UNNEEDED, const char *fmt UNNEEDED, va_list ap UNNEEDED)
 { fprintf(stderr, "logv_add called!\n"); abort(); }
+/* Generated stub for new_channel_subd */
+struct subd *new_channel_subd(struct lightningd *ld UNNEEDED,
+			      const char *name UNNEEDED,
+			      struct channel *channel UNNEEDED,
+			      const char *(*msgname)(int msgtype) UNNEEDED,
+			      unsigned int (*msgcb)(struct subd * UNNEEDED, const u8 * UNNEEDED,
+						    const int *fds) UNNEEDED,
+			      ...)
+{ fprintf(stderr, "new_channel_subd called!\n"); abort(); }
 /* Generated stub for new_json_result */
 struct json_result *new_json_result(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "new_json_result called!\n"); abort(); }
-/* Generated stub for new_peer_subd */
-struct subd *new_peer_subd(struct lightningd *ld UNNEEDED,
-			   const char *name UNNEEDED,
-			   struct peer *peer UNNEEDED,
-			   const char *(*msgname)(int msgtype) UNNEEDED,
-			   unsigned int (*msgcb)(struct subd * UNNEEDED, const u8 * UNNEEDED,
-						 const int *fds) UNNEEDED,
-			   ...)
-{ fprintf(stderr, "new_peer_subd called!\n"); abort(); }
 /* Generated stub for null_response */
 struct json_result *null_response(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "null_response called!\n"); abort(); }
 /* Generated stub for onchain_failed_our_htlc */
-void onchain_failed_our_htlc(const struct peer *peer UNNEEDED,
+void onchain_failed_our_htlc(const struct channel *channel UNNEEDED,
 			     const struct htlc_stub *htlc UNNEEDED,
 			     const char *why UNNEEDED)
 { fprintf(stderr, "onchain_failed_our_htlc called!\n"); abort(); }
 /* Generated stub for onchain_fulfilled_htlc */
-void onchain_fulfilled_htlc(struct peer *peer UNNEEDED, const struct preimage *preimage UNNEEDED)
+void onchain_fulfilled_htlc(struct channel *channel UNNEEDED,
+			    const struct preimage *preimage UNNEEDED)
 { fprintf(stderr, "onchain_fulfilled_htlc called!\n"); abort(); }
 /* Generated stub for onchain_wire_type_name */
 const char *onchain_wire_type_name(int e UNNEEDED)
@@ -351,10 +352,10 @@ const char *onchain_wire_type_name(int e UNNEEDED)
 const char *opening_wire_type_name(int e UNNEEDED)
 { fprintf(stderr, "opening_wire_type_name called!\n"); abort(); }
 /* Generated stub for peer_got_commitsig */
-void peer_got_commitsig(struct peer *peer UNNEEDED, const u8 *msg UNNEEDED)
+void peer_got_commitsig(struct channel *channel UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "peer_got_commitsig called!\n"); abort(); }
 /* Generated stub for peer_got_revoke */
-void peer_got_revoke(struct peer *peer UNNEEDED, const u8 *msg UNNEEDED)
+void peer_got_revoke(struct channel *channel UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "peer_got_revoke called!\n"); abort(); }
 /* Generated stub for peer_htlcs */
 void peer_htlcs(const tal_t *ctx UNNEEDED,
@@ -367,15 +368,15 @@ void peer_htlcs(const tal_t *ctx UNNEEDED,
 		enum side **failed_sides UNNEEDED)
 { fprintf(stderr, "peer_htlcs called!\n"); abort(); }
 /* Generated stub for peer_sending_commitsig */
-void peer_sending_commitsig(struct peer *peer UNNEEDED, const u8 *msg UNNEEDED)
+void peer_sending_commitsig(struct channel *channel UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "peer_sending_commitsig called!\n"); abort(); }
 /* Generated stub for sanitize_error */
 char *sanitize_error(const tal_t *ctx UNNEEDED, const u8 *errmsg UNNEEDED,
 		     struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "sanitize_error called!\n"); abort(); }
-/* Generated stub for subd_release_peer */
-void subd_release_peer(struct subd *owner UNNEEDED, struct peer *peer UNNEEDED)
-{ fprintf(stderr, "subd_release_peer called!\n"); abort(); }
+/* Generated stub for subd_release_channel */
+void subd_release_channel(struct subd *owner UNNEEDED, struct channel *channel UNNEEDED)
+{ fprintf(stderr, "subd_release_channel called!\n"); abort(); }
 /* Generated stub for subd_req_ */
 void subd_req_(const tal_t *ctx UNNEEDED,
 	       struct subd *sd UNNEEDED,

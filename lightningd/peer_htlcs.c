@@ -334,7 +334,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 					       &hout->key.id,
 					       &failure_code,
 					       &failurestr)) {
-		channel_internal_error(peer2channel(subd->peer),
+		channel_internal_error(subd->channel,
 				       "Bad channel_offer_htlc_reply");
 		tal_free(hout);
 		return;
@@ -359,7 +359,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 
 	if (find_htlc_out(&subd->ld->htlcs_out, hout->key.peer, hout->key.id)
 	    || hout->key.id == HTLC_INVALID_ID) {
-		channel_internal_error(peer2channel(subd->peer),
+		channel_internal_error(subd->channel,
 				    "Bad offer_htlc_reply HTLC id %"PRIu64
 				    " is a duplicate",
 				    hout->key.id);
@@ -688,19 +688,21 @@ static bool peer_fulfilled_our_htlc(struct channel *channel,
 	return true;
 }
 
-void onchain_fulfilled_htlc(struct peer *peer, const struct preimage *preimage)
+void onchain_fulfilled_htlc(struct channel *channel,
+			    const struct preimage *preimage)
 {
 	struct htlc_out_map_iter outi;
 	struct htlc_out *hout;
 	struct sha256 payment_hash;
+	struct lightningd *ld = channel->peer->ld;
 
 	sha256(&payment_hash, preimage, sizeof(*preimage));
 
 	/* FIXME: use db to look this up! */
-	for (hout = htlc_out_map_first(&peer->ld->htlcs_out, &outi);
+	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
 	     hout;
-	     hout = htlc_out_map_next(&peer->ld->htlcs_out, &outi)) {
-		if (hout->key.peer != peer)
+	     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
+		if (hout->key.peer != channel2peer(channel))
 			continue;
 
 		if (!structeq(&hout->payment_hash, &payment_hash))
@@ -709,7 +711,7 @@ void onchain_fulfilled_htlc(struct peer *peer, const struct preimage *preimage)
 		/* We may have already fulfilled before going onchain, or
 		 * we can fulfill onchain multiple times. */
 		if (!hout->preimage)
-			fulfill_our_htlc_out(peer, hout, preimage);
+			fulfill_our_htlc_out(channel2peer(channel), hout, preimage);
 
 		/* We keep going: this is something of a leak, but onchain
 		 * we have no real way of distinguishing HTLCs anyway */
@@ -748,18 +750,19 @@ static bool peer_failed_our_htlc(struct channel *channel,
 }
 
 /* FIXME: Crazy slow! */
-struct htlc_out *find_htlc_out_by_ripemd(const struct peer *peer,
+struct htlc_out *find_htlc_out_by_ripemd(const struct channel *channel,
 					 const struct ripemd160 *ripemd)
 {
 	struct htlc_out_map_iter outi;
 	struct htlc_out *hout;
+	struct lightningd *ld = channel->peer->ld;
 
-	for (hout = htlc_out_map_first(&peer->ld->htlcs_out, &outi);
+	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
 	     hout;
-	     hout = htlc_out_map_next(&peer->ld->htlcs_out, &outi)) {
+	     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
 		struct ripemd160 hash;
 
-		if (hout->key.peer != peer)
+		if (hout->key.peer != channel2peer(channel))
 			continue;
 
 		ripemd160(&hash,
@@ -770,11 +773,11 @@ struct htlc_out *find_htlc_out_by_ripemd(const struct peer *peer,
 	return NULL;
 }
 
-void onchain_failed_our_htlc(const struct peer *peer,
+void onchain_failed_our_htlc(const struct channel *channel,
 			     const struct htlc_stub *htlc,
 			     const char *why)
 {
-	struct htlc_out *hout = find_htlc_out_by_ripemd(peer, &htlc->ripemd);
+	struct htlc_out *hout = find_htlc_out_by_ripemd(channel, &htlc->ripemd);
 
 	/* Don't fail twice! */
 	if (hout->failuremsg || hout->failcode)
@@ -783,7 +786,7 @@ void onchain_failed_our_htlc(const struct peer *peer,
 	hout->failcode = WIRE_PERMANENT_CHANNEL_FAILURE;
 
 	if (!hout->in) {
-		char *localfail = tal_fmt(peer, "%s: %s",
+		char *localfail = tal_fmt(channel, "%s: %s",
 					  onion_type_name(WIRE_PERMANENT_CHANNEL_FAILURE),
 					  why);
 		payment_failed(hout->key.peer->ld, hout, localfail);
@@ -943,7 +946,7 @@ static bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum)
 	return true;
 }
 
-void peer_sending_commitsig(struct peer *peer, const u8 *msg)
+void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 {
 	u64 commitnum;
 	u32 feerate;
@@ -951,7 +954,7 @@ void peer_sending_commitsig(struct peer *peer, const u8 *msg)
 	size_t i, maxid = 0, num_local_added = 0;
 	secp256k1_ecdsa_signature commit_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
-	struct channel *channel = peer2channel(peer);
+	struct lightningd *ld = channel->peer->ld;
 
 	if (!fromwire_channel_sending_commitsig(msg, msg, NULL,
 						&commitnum,
@@ -959,12 +962,12 @@ void peer_sending_commitsig(struct peer *peer, const u8 *msg)
 						&changed_htlcs,
 						&commit_sig, &htlc_sigs)) {
 		channel_internal_error(channel, "bad channel_sending_commitsig %s",
-				    tal_hex(peer, msg));
+				       tal_hex(channel, msg));
 		return;
 	}
 
 	for (i = 0; i < tal_count(changed_htlcs); i++) {
-		if (!changed_htlc(peer, changed_htlcs + i)) {
+		if (!changed_htlc(channel2peer(channel), changed_htlcs + i)) {
 			channel_internal_error(channel,
 				   "channel_sending_commitsig: update failed");
 			return;
@@ -980,31 +983,31 @@ void peer_sending_commitsig(struct peer *peer, const u8 *msg)
 	}
 
 	if (num_local_added != 0) {
-		if (maxid != peer2channel(peer)->next_htlc_id + num_local_added - 1) {
+		if (maxid != channel->next_htlc_id + num_local_added - 1) {
 			channel_internal_error(channel,
 				   "channel_sending_commitsig:"
 				   " Added %"PRIu64", maxid now %"PRIu64
 				   " from %"PRIu64,
-				   num_local_added, maxid, peer2channel(peer)->next_htlc_id);
+				   num_local_added, maxid, channel->next_htlc_id);
 			return;
 		}
-		peer2channel(peer)->next_htlc_id += num_local_added;
+		channel->next_htlc_id += num_local_added;
 	}
 
 	/* Update their feerate. */
-	peer2channel(peer)->channel_info->feerate_per_kw[REMOTE] = feerate;
+	channel->channel_info->feerate_per_kw[REMOTE] = feerate;
 
-	if (!peer_save_commitsig_sent(peer, commitnum))
+	if (!peer_save_commitsig_sent(channel2peer(channel), commitnum))
 		return;
 
 	/* Last was commit. */
-	peer2channel(peer)->last_was_revoke = false;
-	tal_free(peer2channel(peer)->last_sent_commit);
-	peer2channel(peer)->last_sent_commit = tal_steal(peer, changed_htlcs);
-	wallet_channel_save(peer->ld->wallet, peer2channel(peer));
+	channel->last_was_revoke = false;
+	tal_free(channel->last_sent_commit);
+	channel->last_sent_commit = tal_steal(channel, changed_htlcs);
+	wallet_channel_save(ld->wallet, channel);
 
 	/* Tell it we've got it, and to go ahead with commitment_signed. */
-	subd_send_msg(peer2channel(peer)->owner,
+	subd_send_msg(channel->owner,
 		      take(towire_channel_sending_commitsig_reply(msg)));
 }
 
@@ -1084,7 +1087,7 @@ static bool peer_sending_revocation(struct channel *channel,
 }
 
 /* This also implies we're sending revocation */
-void peer_got_commitsig(struct peer *peer, const u8 *msg)
+void peer_got_commitsig(struct channel *channel, const u8 *msg)
 {
 	u64 commitnum;
 	u32 feerate;
@@ -1097,7 +1100,7 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 	struct changed_htlc *changed;
 	struct bitcoin_tx *tx;
 	size_t i;
-	struct channel *channel = peer2channel(peer);
+	struct lightningd *ld = channel->peer->ld;
 
 	if (!fromwire_channel_got_commitsig(msg, msg, NULL,
 					    &commitnum,
@@ -1112,11 +1115,11 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 					    &tx)) {
 		channel_internal_error(channel,
 				    "bad fromwire_channel_got_commitsig %s",
-				    tal_hex(peer, msg));
+				    tal_hex(channel, msg));
 		return;
 	}
 
-	log_debug(peer->log,
+	log_debug(channel->log,
 		  "got commitsig %"PRIu64
 		  ": feerate %u, %zu added, %zu fulfilled, %zu failed, %zu changed",
 		  commitnum, feerate, tal_count(added), tal_count(fulfilled),
@@ -1140,7 +1143,7 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 	}
 
 	for (i = 0; i < tal_count(changed); i++) {
-		if (!changed_htlc(peer, &changed[i])) {
+		if (!changed_htlc(channel2peer(channel), &changed[i])) {
 			channel_internal_error(channel,
 					    "got_commitsig: update failed");
 			return;
@@ -1157,14 +1160,14 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 	if (!peer_sending_revocation(channel, added, fulfilled, failed, changed))
 		return;
 
-	if (!peer_save_commitsig_received(peer, commitnum, tx, &commit_sig))
+	if (!peer_save_commitsig_received(channel2peer(channel), commitnum, tx, &commit_sig))
 		return;
 
-	wallet_channel_save(peer->ld->wallet, channel);
+	wallet_channel_save(ld->wallet, channel);
 
 	tal_free(channel->last_htlc_sigs);
 	channel->last_htlc_sigs = tal_steal(channel, htlc_sigs);
-	wallet_htlc_sigs_save(peer->ld->wallet, channel->dbid,
+	wallet_htlc_sigs_save(ld->wallet, channel->dbid,
 			      channel->last_htlc_sigs);
 
 	/* Tell it we've committed, and to go ahead with revoke. */
@@ -1181,26 +1184,26 @@ void update_per_commit_point(struct peer *peer,
 	ci->remote_per_commit = *per_commitment_point;
 }
 
-void peer_got_revoke(struct peer *peer, const u8 *msg)
+void peer_got_revoke(struct channel *channel, const u8 *msg)
 {
 	u64 revokenum;
 	struct sha256 per_commitment_secret;
 	struct pubkey next_per_commitment_point;
 	struct changed_htlc *changed;
 	enum onion_type *failcodes;
-	struct channel *channel = peer2channel(peer);
 	size_t i;
+	struct lightningd *ld = channel->peer->ld;
 
 	if (!fromwire_channel_got_revoke(msg, msg, NULL,
 					 &revokenum, &per_commitment_secret,
 					 &next_per_commitment_point,
 					 &changed)) {
 		channel_internal_error(channel, "bad fromwire_channel_got_revoke %s",
-				    tal_hex(peer, msg));
+				    tal_hex(channel, msg));
 		return;
 	}
 
-	log_debug(peer->log,
+	log_debug(channel->log,
 		  "got revoke %"PRIu64": %zu changed",
 		  revokenum, tal_count(changed));
 
@@ -1209,11 +1212,11 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 	for (i = 0; i < tal_count(changed); i++) {
 		/* If we're doing final accept, we need to forward */
 		if (changed[i].newstate == RCVD_ADD_ACK_REVOCATION) {
-			if (!peer_accepted_htlc(peer, changed[i].id,
+			if (!peer_accepted_htlc(channel2peer(channel), changed[i].id,
 						&failcodes[i]))
 				return;
 		} else {
-			if (!changed_htlc(peer, &changed[i])) {
+			if (!changed_htlc(channel2peer(channel), &changed[i])) {
 				channel_internal_error(channel,
 						    "got_revoke: update failed");
 				return;
@@ -1239,7 +1242,7 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 	 * A receiving node MAY fail if the `per_commitment_secret` was not
 	 * generated by the protocol in [BOLT #3]
 	 */
-	if (!wallet_shachain_add_hash(peer->ld->wallet,
+	if (!wallet_shachain_add_hash(ld->wallet,
 				      &channel->their_shachain,
 				      shachain_index(revokenum),
 				      &per_commitment_secret)) {
@@ -1252,7 +1255,7 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 	}
 
 	/* FIXME: Check per_commitment_secret -> per_commit_point */
-	update_per_commit_point(peer, &next_per_commitment_point);
+	update_per_commit_point(channel2peer(channel), &next_per_commitment_point);
 
 	/* Tell it we've committed, and to go ahead with revoke. */
 	msg = towire_channel_got_revoke_reply(msg);
@@ -1268,10 +1271,10 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 		/* These are all errors before finding next hop. */
 		assert(!(failcodes[i] & UPDATE));
 
-		hin = find_htlc_in(&peer->ld->htlcs_in, peer, changed[i].id);
+		hin = find_htlc_in(&ld->htlcs_in, channel2peer(channel), changed[i].id);
 		local_fail_htlc(hin, failcodes[i], NULL);
 	}
-	wallet_channel_save(peer->ld->wallet, channel);
+	wallet_channel_save(ld->wallet, channel);
 }
 
 static void *tal_arr_append_(void **p, size_t size)

@@ -105,6 +105,10 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...);
 /* Permanent error, but due to internal problems, not peer. */
 void channel_internal_error(struct channel *channel, const char *fmt, ...);
 
+void channel_set_state(struct channel *channel,
+		       enum peer_state old_state,
+		       enum peer_state state);
+
 /* FIXME: Temporary mapping from peer to channel, while we only have one. */
 struct channel *peer2channel(const struct peer *peer);
 struct peer *channel2peer(const struct channel *channel);

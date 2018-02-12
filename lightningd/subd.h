@@ -25,8 +25,8 @@ struct subd {
 	/* Connection. */
 	struct io_conn *conn;
 
-	/* If we are associated with a single peer, this points to it. */
-	struct peer *peer;
+	/* If we are associated with a single channel, this points to it. */
+	struct channel *channel;
 
 	/* For logging */
 	struct log *log;
@@ -73,10 +73,10 @@ struct subd *new_global_subd(struct lightningd *ld,
 			     ...);
 
 /**
- * new_peer_subd - create a new subdaemon for a specific peer.
+ * new_channel_subd - create a new subdaemon for a specific channel.
  * @ld: global state
  * @name: basename of daemon
- * @peer: peer to associate.
+ * @channel: channel to associate.
  * @msgname: function to get name from messages
  * @msgcb: function to call (inside db transaction) when non-fatal message received (or NULL)
  * @...: NULL-terminated list of pointers to  fds to hand as fd 3, 4...
@@ -86,13 +86,13 @@ struct subd *new_global_subd(struct lightningd *ld,
  * that many @fds are received before calling again.  If it returns -1, the
  * subdaemon is shutdown.
  */
-struct subd *new_peer_subd(struct lightningd *ld,
-			   const char *name,
-			   struct peer *peer,
-			   const char *(*msgname)(int msgtype),
-			   unsigned int (*msgcb)(struct subd *, const u8 *,
-						 const int *fds),
-			   ...);
+struct subd *new_channel_subd(struct lightningd *ld,
+			      const char *name,
+			      struct channel *channel,
+			      const char *(*msgname)(int msgtype),
+			      unsigned int (*msgcb)(struct subd *, const u8 *,
+						    const int *fds),
+			      ...);
 
 /**
  * subd_raw - raw interface to get a subdaemon on an fd (for HSM)
@@ -144,14 +144,14 @@ void subd_req_(const tal_t *ctx,
 	       void *replycb_data);
 
 /**
- * subd_release_peer - shut down a subdaemon which no longer owns the peer.
- * @owner: subd which owned peer.
- * @peer: peer to release.
+ * subd_release_channel - shut down a subdaemon which no longer owns the channel.
+ * @owner: subd which owned channel.
+ * @channel: channel to release.
  *
- * If the subdaemon is not already shutting down, and it is a per-peer
+ * If the subdaemon is not already shutting down, and it is a per-channel
  * subdaemon, this shuts it down.
  */
-void subd_release_peer(struct subd *owner, struct peer *peer);
+void subd_release_channel(struct subd *owner, struct channel *channel);
 
 /**
  * subd_shutdown - try to politely shut down a subdaemon.
