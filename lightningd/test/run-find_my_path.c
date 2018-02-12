@@ -58,9 +58,6 @@ struct log_book *new_log_book(const tal_t *ctx UNNEEDED,
 /* Generated stub for new_topology */
 struct chain_topology *new_topology(struct lightningd *ld UNNEEDED, struct log *log UNNEEDED)
 { fprintf(stderr, "new_topology called!\n"); abort(); }
-/* Generated stub for populate_peer */
-void populate_peer(struct lightningd *ld UNNEEDED, struct peer *peer UNNEEDED)
-{ fprintf(stderr, "populate_peer called!\n"); abort(); }
 /* Generated stub for register_opts */
 void register_opts(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "register_opts called!\n"); abort(); }
@@ -94,12 +91,11 @@ const char *version(void)
 u32 wallet_channels_first_blocknum(struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_channels_first_blocknum called!\n"); abort(); }
 /* Generated stub for wallet_channels_load_active */
-bool wallet_channels_load_active(const tal_t *ctx UNNEEDED,
-				 struct wallet *w UNNEEDED, struct list_head *peers UNNEEDED)
+bool wallet_channels_load_active(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_channels_load_active called!\n"); abort(); }
 /* Generated stub for wallet_htlcs_load_for_channel */
 bool wallet_htlcs_load_for_channel(struct wallet *wallet UNNEEDED,
-				   struct wallet_channel *chan UNNEEDED,
+				   struct channel *chan UNNEEDED,
 				   struct htlc_in_map *htlcs_in UNNEEDED,
 				   struct htlc_out_map *htlcs_out UNNEEDED)
 { fprintf(stderr, "wallet_htlcs_load_for_channel called!\n"); abort(); }

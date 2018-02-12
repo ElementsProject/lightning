@@ -15,6 +15,7 @@
 #include <wally_bip32.h>
 
 struct invoices;
+struct channel;
 struct lightningd;
 struct oneshot;
 struct pubkey;
@@ -60,17 +61,6 @@ enum wallet_output_type {
 struct wallet_shachain {
 	u64 id;
 	struct shachain chain;
-};
-
-/* A database backed peer struct. Like wallet_shachain, it is writethrough. */
-/* TODO(cdecker) Separate peer from channel */
-struct wallet_channel {
-	u64 id;
-	struct peer *peer;
-
-	/* Blockheight at creation, scans for funding confirmations
-	 * will start here */
-	u64 first_blocknum;
 };
 
 /* Possible states for a wallet_payment. Payments start in
@@ -221,7 +211,7 @@ bool wallet_shachain_load(struct wallet *wallet, u64 id,
  * @chan: the instance to store (not const so we can update the unique_id upon
  *   insert)
  */
-void wallet_channel_save(struct wallet *w, struct wallet_channel *chan);
+void wallet_channel_save(struct wallet *w, struct channel *chan);
 
 /**
  * wallet_channel_delete -- After resolving a channel, forget about it
@@ -259,13 +249,11 @@ bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
  *
  * @ctx: context to allocate peers from
  * @w: wallet to load from
- * @peers: list_head to load channels/peers into
  *
  * Be sure to call this only once on startup since it'll append peers
  * loaded from the database to the list without checking.
  */
-bool wallet_channels_load_active(const tal_t *ctx,
-				 struct wallet *w, struct list_head *peers);
+bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w);
 
 /**
  * wallet_channels_first_blocknum - get first block we're interested in.
@@ -286,7 +274,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
  * wallet_htlc_save_in - store an htlc_in in the database
  *
  * @wallet: wallet to store the htlc into
- * @chan: the `wallet_channel` this HTLC is associated with
+ * @chan: the channel this HTLC is associated with
  * @in: the htlc_in to store
  *
  * This will store the contents of the `struct htlc_in` in the
@@ -298,7 +286,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
  * HTLCs.
  */
 void wallet_htlc_save_in(struct wallet *wallet,
-			 const struct wallet_channel *chan, struct htlc_in *in);
+			 const struct channel *chan, struct htlc_in *in);
 
 /**
  * wallet_htlc_save_out - store an htlc_out in the database
@@ -306,7 +294,7 @@ void wallet_htlc_save_in(struct wallet *wallet,
  * See comment for wallet_htlc_save_in.
  */
 void wallet_htlc_save_out(struct wallet *wallet,
-			  const struct wallet_channel *chan,
+			  const struct channel *chan,
 			  struct htlc_out *out);
 
 /**
@@ -347,7 +335,7 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
  * corresponding htlc_in after loading all channels.
  */
 bool wallet_htlcs_load_for_channel(struct wallet *wallet,
-				   struct wallet_channel *chan,
+				   struct channel *chan,
 				   struct htlc_in_map *htlcs_in,
 				   struct htlc_out_map *htlcs_out);
 
@@ -555,7 +543,7 @@ void wallet_invoice_waitone(const tal_t *ctx,
  * @chan: Channel to fetch stubs for
  */
 struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
-				    struct wallet_channel *chan);
+				    struct channel *chan);
 
 /**
  * wallet_payment_setup - Remember this payment for later committing.

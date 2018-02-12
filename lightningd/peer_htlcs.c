@@ -99,10 +99,10 @@ static void fail_in_htlc(struct htlc_in *hin,
 	htlc_in_update_state(hin->key.peer, hin, SENT_REMOVE_HTLC);
 
 	/* Tell peer, if we can. */
-	if (!hin->key.peer->owner)
+	if (!peer2channel(hin->key.peer)->owner)
 		return;
 
-	subd_send_msg(hin->key.peer->owner,
+	subd_send_msg(peer2channel(hin->key.peer)->owner,
 		      take(towire_channel_fail_htlc(hin,
 						    hin->key.id,
 						    hin->failuremsg,
@@ -127,7 +127,7 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 	assert(hout->failcode || hout->failuremsg);
 	if (hout->in) {
 		fail_in_htlc(hout->in, hout->failcode, hout->failuremsg,
-			     hout->key.peer->scid);
+			     peer2channel(hout->key.peer)->scid);
 	} else {
 		payment_failed(hout->key.peer->ld, hout, localfail);
 	}
@@ -202,17 +202,17 @@ static void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 
 	/* No owner?  We'll either send to channeld in peer_htlcs, or
 	 * onchaind in onchaind_tell_fulfill. */
-	if (!hin->key.peer->owner) {
+	if (!peer2channel(hin->key.peer)->owner) {
 		log_debug(hin->key.peer->log, "HTLC fulfilled, but no owner.");
 		return;
 	}
 
-	if (peer_state_on_chain(hin->key.peer->state)) {
+	if (peer_on_chain(hin->key.peer)) {
 		msg = towire_onchain_known_preimage(hin, preimage);
 	} else {
 		msg = towire_channel_fulfill_htlc(hin, hin->key.id, preimage);
 	}
-	subd_send_msg(hin->key.peer->owner, take(msg));
+	subd_send_msg(peer2channel(hin->key.peer)->owner, take(msg));
 }
 
 static void handle_localpay(struct htlc_in *hin,
@@ -348,7 +348,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 			payment_failed(hout->key.peer->ld, hout, localfail);
 		} else
 			local_fail_htlc(hout->in, failure_code,
-					hout->key.peer->scid);
+					peer2channel(hout->key.peer)->scid);
 		/* Prevent hout from being failed twice. */
 		tal_del_destructor(hout, hout_subd_died);
 		tal_free(hout);
@@ -378,28 +378,29 @@ enum onion_type send_htlc_out(struct peer *out, u64 amount, u32 cltv,
 			      struct htlc_out **houtp)
 {
 	struct htlc_out *hout;
+	struct channel *channel = peer2channel(out);
 	u8 *msg;
 
 	if (!peer_can_add_htlc(out)) {
 		log_info(out->log, "Attempt to send HTLC but not ready (%s)",
-			 peer_state_name(out->state));
+			 peer_state_name(channel->state));
 		return WIRE_UNKNOWN_NEXT_PEER;
 	}
 
-	if (!out->owner) {
+	if (!channel->owner) {
 		log_info(out->log, "Attempt to send HTLC but unowned (%s)",
-			peer_state_name(out->state));
+			peer_state_name(channel->state));
 		return WIRE_TEMPORARY_CHANNEL_FAILURE;
 	}
 
 	/* Make peer's daemon own it, catch if it dies. */
-	hout = new_htlc_out(out->owner, out, amount, cltv,
+	hout = new_htlc_out(channel->owner, out, amount, cltv,
 			    payment_hash, onion_routing_packet, in);
 	tal_add_destructor(hout, hout_subd_died);
 
 	msg = towire_channel_offer_htlc(out, amount, cltv, payment_hash,
 					onion_routing_packet);
-	subd_req(out->ld, out->owner, take(msg), -1, 0, rcvd_htlc_reply, hout);
+	subd_req(out->ld, channel->owner, take(msg), -1, 0, rcvd_htlc_reply, hout);
 
 	if (houtp)
 		*houtp = hout;
@@ -420,7 +421,7 @@ static void forward_htlc(struct htlc_in *hin,
 	struct peer *next = peer_by_id(ld, next_hop);
 
 	/* Unknown peer, or peer not ready. */
-	if (!next || !next->scid) {
+	if (!next || !peer2channel(next)->scid) {
 		local_fail_htlc(hin, WIRE_UNKNOWN_NEXT_PEER, NULL);
 		return;
 	}
@@ -491,7 +492,7 @@ static void forward_htlc(struct htlc_in *hin,
 		return;
 
 fail:
-	local_fail_htlc(hin, failcode, next->scid);
+	local_fail_htlc(hin, failcode, peer2channel(next)->scid);
 }
 
 /* Temporary information, while we resolve the next hop */
@@ -565,7 +566,7 @@ static bool peer_accepted_htlc(struct peer *peer,
 	 *
 	 * A sending node SHOULD fail to route any HTLC added after it
 	 * sent `shutdown`. */
-	if (peer->state == CHANNELD_SHUTTING_DOWN) {
+	if (peer2channel(peer)->state == CHANNELD_SHUTTING_DOWN) {
 		*failcode = WIRE_PERMANENT_CHANNEL_FAILURE;
 		goto out;
 	}
@@ -663,10 +664,11 @@ static void fulfill_our_htlc_out(struct peer *peer, struct htlc_out *hout,
 		payment_succeeded(peer->ld, hout, preimage);
 }
 
-static bool peer_fulfilled_our_htlc(struct peer *peer,
+static bool peer_fulfilled_our_htlc(struct channel *channel,
 				    const struct fulfilled_htlc *fulfilled)
 {
 	struct htlc_out *hout;
+	struct peer *peer = channel2peer(channel);
 
 	hout = find_htlc_out(&peer->ld->htlcs_out, peer, fulfilled->id);
 	if (!hout) {
@@ -711,10 +713,11 @@ void onchain_fulfilled_htlc(struct peer *peer, const struct preimage *preimage)
 	}
 }
 
-static bool peer_failed_our_htlc(struct peer *peer,
+static bool peer_failed_our_htlc(struct channel *channel,
 				 const struct failed_htlc *failed)
 {
 	struct htlc_out *hout;
+	struct peer *peer = channel2peer(channel);
 
 	hout = find_htlc_out(&peer->ld->htlcs_out, peer, failed->id);
 	if (!hout) {
@@ -784,7 +787,7 @@ void onchain_failed_our_htlc(const struct peer *peer,
 		tal_free(localfail);
 	} else
 		local_fail_htlc(hout->in, WIRE_PERMANENT_CHANNEL_FAILURE,
-				hout->key.peer->scid);
+				peer2channel(hout->key.peer)->scid);
 }
 
 static void remove_htlc_in(struct peer *peer, struct htlc_in *hin)
@@ -801,9 +804,9 @@ static void remove_htlc_in(struct peer *peer, struct htlc_in *hin)
 	/* If we fulfilled their HTLC, credit us. */
 	if (hin->preimage) {
 		log_debug(peer->log, "Balance %"PRIu64" -> %"PRIu64,
-			  *peer->our_msatoshi,
-			  *peer->our_msatoshi + hin->msatoshi);
-		*peer->our_msatoshi += hin->msatoshi;
+			  *peer2channel(peer)->our_msatoshi,
+			  *peer2channel(peer)->our_msatoshi + hin->msatoshi);
+		*peer2channel(peer)->our_msatoshi += hin->msatoshi;
 	}
 
 	tal_free(hin);
@@ -825,9 +828,9 @@ static void remove_htlc_out(struct peer *peer, struct htlc_out *hout)
 	} else {
 		/* We paid for this HTLC, so deduct balance. */
 		log_debug(peer->log, "Balance %"PRIu64" -> %"PRIu64,
-			  *peer->our_msatoshi,
-			  *peer->our_msatoshi - hout->msatoshi);
-		*peer->our_msatoshi -= hout->msatoshi;
+			  *peer2channel(peer)->our_msatoshi,
+			  *peer2channel(peer)->our_msatoshi - hout->msatoshi);
+		*peer2channel(peer)->our_msatoshi -= hout->msatoshi;
 	}
 
 	tal_free(hout);
@@ -863,7 +866,7 @@ static bool update_out_htlc(struct peer *peer, u64 id, enum htlc_state newstate)
 	}
 
 	if (!hout->dbid) {
-		wallet_htlc_save_out(peer->ld->wallet, peer->channel, hout);
+		wallet_htlc_save_out(peer->ld->wallet, peer2channel(peer), hout);
 
 		/* For our own HTLCs, we commit payment to db lazily */
 		if (hout->origin_htlc_id == 0)
@@ -898,15 +901,15 @@ static bool peer_save_commitsig_received(struct peer *peer, u64 commitnum,
 					 struct bitcoin_tx *tx,
 					 const secp256k1_ecdsa_signature *commit_sig)
 {
-	if (commitnum != peer->next_index[LOCAL]) {
+	if (commitnum != peer2channel(peer)->next_index[LOCAL]) {
 		peer_internal_error(peer,
 			   "channel_got_commitsig: expected commitnum %"PRIu64
 			   " got %"PRIu64,
-			   peer->next_index[LOCAL], commitnum);
+			   peer2channel(peer)->next_index[LOCAL], commitnum);
 		return false;
 	}
 
-	peer->next_index[LOCAL]++;
+	peer2channel(peer)->next_index[LOCAL]++;
 
 	/* Update peer->last_sig and peer->last_tx before saving to db */
 	peer_last_tx(peer, tx, commit_sig);
@@ -916,18 +919,18 @@ static bool peer_save_commitsig_received(struct peer *peer, u64 commitnum,
 
 static bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum)
 {
-	if (commitnum != peer->next_index[REMOTE]) {
+	if (commitnum != peer2channel(peer)->next_index[REMOTE]) {
 		peer_internal_error(peer,
 			   "channel_sent_commitsig: expected commitnum %"PRIu64
 			   " got %"PRIu64,
-			   peer->next_index[REMOTE], commitnum);
+			   peer2channel(peer)->next_index[REMOTE], commitnum);
 		return false;
 	}
 
-	peer->next_index[REMOTE]++;
+	peer2channel(peer)->next_index[REMOTE]++;
 
 	/* FIXME: Save to database, with sig and HTLCs. */
-	wallet_channel_save(peer->ld->wallet, peer->channel);
+	wallet_channel_save(peer->ld->wallet, peer2channel(peer));
 	return true;
 }
 
@@ -967,37 +970,37 @@ void peer_sending_commitsig(struct peer *peer, const u8 *msg)
 	}
 
 	if (num_local_added != 0) {
-		if (maxid != peer->next_htlc_id + num_local_added - 1) {
+		if (maxid != peer2channel(peer)->next_htlc_id + num_local_added - 1) {
 			peer_internal_error(peer,
 				   "channel_sending_commitsig:"
 				   " Added %"PRIu64", maxid now %"PRIu64
 				   " from %"PRIu64,
-				   num_local_added, maxid, peer->next_htlc_id);
+				   num_local_added, maxid, peer2channel(peer)->next_htlc_id);
 			return;
 		}
-		peer->next_htlc_id += num_local_added;
+		peer2channel(peer)->next_htlc_id += num_local_added;
 	}
 
 	/* Update their feerate. */
-	peer->channel_info->feerate_per_kw[REMOTE] = feerate;
+	peer2channel(peer)->channel_info->feerate_per_kw[REMOTE] = feerate;
 
 	if (!peer_save_commitsig_sent(peer, commitnum))
 		return;
 
 	/* Last was commit. */
-	peer->last_was_revoke = false;
-	tal_free(peer->last_sent_commit);
-	peer->last_sent_commit = tal_steal(peer, changed_htlcs);
-	wallet_channel_save(peer->ld->wallet, peer->channel);
+	peer2channel(peer)->last_was_revoke = false;
+	tal_free(peer2channel(peer)->last_sent_commit);
+	peer2channel(peer)->last_sent_commit = tal_steal(peer, changed_htlcs);
+	wallet_channel_save(peer->ld->wallet, peer2channel(peer));
 
 	/* Tell it we've got it, and to go ahead with commitment_signed. */
-	subd_send_msg(peer->owner,
+	subd_send_msg(peer2channel(peer)->owner,
 		      take(towire_channel_sending_commitsig_reply(msg)));
 }
 
-static bool peer_added_their_htlc(struct peer *peer,
-				  const struct added_htlc *added,
-				  const struct secret *shared_secret)
+static bool channel_added_their_htlc(struct channel *channel,
+				     const struct added_htlc *added,
+				     const struct secret *shared_secret)
 {
 	struct htlc_in *hin;
 
@@ -1007,37 +1010,38 @@ static bool peer_added_their_htlc(struct peer *peer,
 	 *    - SHOULD fail the channel.
 	 */
 	if (added->amount_msat == 0
-	    || added->amount_msat < peer->our_config.htlc_minimum_msat) {
-		peer_internal_error(peer,
+	    || added->amount_msat < channel->our_config.htlc_minimum_msat) {
+		peer_internal_error(channel2peer(channel),
 				    "trying to add HTLC msat %"PRIu64
 				    " but minimum is %"PRIu64,
 				    added->amount_msat,
-				    peer->our_config.htlc_minimum_msat);
+				    channel->our_config.htlc_minimum_msat);
 		return false;
 	}
 
 	/* This stays around even if we fail it immediately: it *is*
 	 * part of the current commitment. */
-	hin = new_htlc_in(peer, peer, added->id, added->amount_msat,
+	hin = new_htlc_in(channel, channel2peer(channel), added->id, added->amount_msat,
 			  added->cltv_expiry, &added->payment_hash,
 			  shared_secret, added->onion_routing_packet);
 
 	/* Save an incoming htlc to the wallet */
-	wallet_htlc_save_in(peer->ld->wallet, peer->channel, hin);
+	wallet_htlc_save_in(channel->peer->ld->wallet, channel, hin);
 
-	log_debug(peer->log, "Adding their HTLC %"PRIu64, added->id);
-	connect_htlc_in(&peer->ld->htlcs_in, hin);
+	log_debug(channel->log, "Adding their HTLC %"PRIu64, added->id);
+	connect_htlc_in(&channel->peer->ld->htlcs_in, hin);
 	return true;
 }
 
 /* The peer doesn't tell us this separately, but logically it's a separate
  * step to receiving commitsig */
-static bool peer_sending_revocation(struct peer *peer,
+static bool peer_sending_revocation(struct channel *channel,
 				    struct added_htlc *added,
 				    struct fulfilled_htlc *fulfilled,
 				    struct failed_htlc **failed,
 				    struct changed_htlc *changed)
 {
+	struct peer *peer = channel2peer(channel);
 	size_t i;
 
 	for (i = 0; i < tal_count(added); i++) {
@@ -1065,7 +1069,7 @@ static bool peer_sending_revocation(struct peer *peer,
 		}
 	}
 
-	peer->last_was_revoke = true;
+	channel->last_was_revoke = true;
 	return true;
 }
 
@@ -1083,6 +1087,7 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 	struct changed_htlc *changed;
 	struct bitcoin_tx *tx;
 	size_t i;
+	struct channel *channel = peer2channel(peer);
 
 	if (!fromwire_channel_got_commitsig(msg, msg, NULL,
 					    &commitnum,
@@ -1109,18 +1114,18 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 
 	/* New HTLCs */
 	for (i = 0; i < tal_count(added); i++) {
-		if (!peer_added_their_htlc(peer, &added[i], &shared_secrets[i]))
+		if (!channel_added_their_htlc(channel, &added[i], &shared_secrets[i]))
 			return;
 	}
 
 	/* Save information now for fulfilled & failed HTLCs */
 	for (i = 0; i < tal_count(fulfilled); i++) {
-		if (!peer_fulfilled_our_htlc(peer, &fulfilled[i]))
+		if (!peer_fulfilled_our_htlc(channel, &fulfilled[i]))
 			return;
 	}
 
 	for (i = 0; i < tal_count(failed); i++) {
-		if (!peer_failed_our_htlc(peer, failed[i]))
+		if (!peer_failed_our_htlc(channel, failed[i]))
 			return;
 	}
 
@@ -1134,34 +1139,34 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 
 	/* Update both feerates: if we're funder, REMOTE should already be
 	 * that feerate, if we're not, we're about to ACK anyway. */
-	peer->channel_info->feerate_per_kw[LOCAL]
-		= peer->channel_info->feerate_per_kw[REMOTE]
+	channel->channel_info->feerate_per_kw[LOCAL]
+		= channel->channel_info->feerate_per_kw[REMOTE]
 		= feerate;
 
 	/* Since we're about to send revoke, bump state again. */
-	if (!peer_sending_revocation(peer, added, fulfilled, failed, changed))
+	if (!peer_sending_revocation(channel, added, fulfilled, failed, changed))
 		return;
 
 	if (!peer_save_commitsig_received(peer, commitnum, tx, &commit_sig))
 		return;
 
-	wallet_channel_save(peer->ld->wallet, peer->channel);
+	wallet_channel_save(peer->ld->wallet, channel);
 
-	tal_free(peer->last_htlc_sigs);
-	peer->last_htlc_sigs = tal_steal(peer, htlc_sigs);
-	wallet_htlc_sigs_save(peer->ld->wallet, peer->channel->id,
-			      peer->last_htlc_sigs);
+	tal_free(channel->last_htlc_sigs);
+	channel->last_htlc_sigs = tal_steal(channel, htlc_sigs);
+	wallet_htlc_sigs_save(peer->ld->wallet, channel->dbid,
+			      channel->last_htlc_sigs);
 
 	/* Tell it we've committed, and to go ahead with revoke. */
 	msg = towire_channel_got_commitsig_reply(msg);
-	subd_send_msg(peer->owner, take(msg));
+	subd_send_msg(channel->owner, take(msg));
 }
 
 /* Shuffle them over, forgetting the ancient one. */
 void update_per_commit_point(struct peer *peer,
 			     const struct pubkey *per_commitment_point)
 {
-	struct channel_info *ci = peer->channel_info;
+	struct channel_info *ci = peer2channel(peer)->channel_info;
 	ci->old_remote_per_commit = ci->remote_per_commit;
 	ci->remote_per_commit = *per_commitment_point;
 }
@@ -1173,6 +1178,7 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 	struct pubkey next_per_commitment_point;
 	struct changed_htlc *changed;
 	enum onion_type *failcodes;
+	struct channel *channel = peer2channel(peer);
 	size_t i;
 
 	if (!fromwire_channel_got_revoke(msg, msg, NULL,
@@ -1211,10 +1217,10 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 		return;
 	}
 
-	if (revokenum != revocations_received(&peer->their_shachain.chain)) {
+	if (revokenum != revocations_received(&channel->their_shachain.chain)) {
 		peer_internal_error(peer, "got_revoke: expected %"PRIu64
 				    " got %"PRIu64,
-				    revocations_received(&peer->their_shachain.chain), revokenum);
+				    revocations_received(&channel->their_shachain.chain), revokenum);
 		return;
 	}
 
@@ -1223,7 +1229,8 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 	 * A receiving node MAY fail if the `per_commitment_secret` was not
 	 * generated by the protocol in [BOLT #3]
 	 */
-	if (!wallet_shachain_add_hash(peer->ld->wallet, &peer->their_shachain,
+	if (!wallet_shachain_add_hash(peer->ld->wallet,
+				      &channel->their_shachain,
 				      shachain_index(revokenum),
 				      &per_commitment_secret)) {
 		peer_fail_permanent(peer,
@@ -1239,7 +1246,7 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 
 	/* Tell it we've committed, and to go ahead with revoke. */
 	msg = towire_channel_got_revoke_reply(msg);
-	subd_send_msg(peer->owner, take(msg));
+	subd_send_msg(channel->owner, take(msg));
 
 	/* Now, any HTLCs we need to immediately fail? */
 	for (i = 0; i < tal_count(changed); i++) {
@@ -1254,7 +1261,7 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 		hin = find_htlc_in(&peer->ld->htlcs_in, peer, changed[i].id);
 		local_fail_htlc(hin, failcodes[i], NULL);
 	}
-	wallet_channel_save(peer->ld->wallet, peer->channel);
+	wallet_channel_save(peer->ld->wallet, channel);
 }
 
 static void *tal_arr_append_(void **p, size_t size)
@@ -1438,7 +1445,7 @@ void notify_new_block(struct lightningd *ld, u32 height)
 				continue;
 
 			/* Peer already failed, or we hit it? */
-			if (hout->key.peer->error)
+			if (peer2channel(hout->key.peer)->error)
 				continue;
 
 			peer_fail_permanent(hout->key.peer,
@@ -1482,7 +1489,7 @@ void notify_new_block(struct lightningd *ld, u32 height)
 				continue;
 
 			/* Peer already failed, or we hit it? */
-			if (hin->key.peer->error)
+			if (peer2channel(hin->key.peer)->error)
 				continue;
 
 			peer_fail_permanent(hin->key.peer,
@@ -1511,7 +1518,7 @@ void notify_feerate_change(struct lightningd *ld)
 
 		/* FIXME: We choose not to drop to chain if we can't contact
 		 * peer.  We *could* do so, however. */
-		if (!peer->owner)
+		if (!peer2channel(peer)->owner)
 			continue;
 
 		msg = towire_channel_feerates(peer,
@@ -1519,6 +1526,6 @@ void notify_feerate_change(struct lightningd *ld)
 							  FEERATE_IMMEDIATE),
 					      feerate_min(ld),
 					      feerate_max(ld));
-		subd_send_msg(peer->owner, take(msg));
+		subd_send_msg(peer2channel(peer)->owner, take(msg));
 	}
 }
