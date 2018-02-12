@@ -91,12 +91,7 @@ static void peer_accept_channel(struct lightningd *ld,
 
 static void peer_set_owner(struct peer *peer, struct subd *owner)
 {
-	struct channel *channel = peer2channel(peer);
-	struct subd *old_owner = channel->owner;
-	channel->owner = owner;
-
-	if (old_owner)
-		subd_release_peer(old_owner, peer);
+	channel_set_owner(peer2channel(peer), owner);
 }
 
 static void destroy_peer(struct peer *peer)
@@ -127,8 +122,6 @@ static void destroy_peer(struct peer *peer)
 		      htlc_state_name(hin->hstate));
 	}
 
-	/* Free any old owner still hanging around. */
-	peer_set_owner(peer, NULL);
 	list_del_from(&peer->ld->peers, &peer->list);
 }
 
@@ -136,7 +129,8 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct pubkey *id,
 		      const struct wireaddr *addr)
 {
-	struct peer *peer = tal(ld, struct peer);
+	/* We are owned by our channels, and freed manually by destroy_channel */
+	struct peer *peer = tal(NULL, struct peer);
 	const char *idname;
 
 	peer->ld = ld;
@@ -222,17 +216,6 @@ static void drop_to_chain(struct peer *peer)
 	remove_sig(peer2channel(peer)->last_tx);
 }
 
-/* This lets us give a more detailed error than just a destructor. */
-static void free_peer(struct peer *peer, const char *why)
-{
-	if (peer2channel(peer)->opening_cmd) {
-		command_fail(peer2channel(peer)->opening_cmd, "%s", why);
-		peer2channel(peer)->opening_cmd = NULL;
-	}
-	wallet_channel_delete(peer->ld->wallet, peer2channel(peer)->dbid, peer->dbid);
-	tal_free(peer);
-}
-
 void peer_fail_permanent(struct peer *peer, const char *fmt, ...)
 {
 	va_list ap;
@@ -272,7 +255,7 @@ void peer_fail_permanent(struct peer *peer, const char *fmt, ...)
 		drop_to_chain(peer);
 		tal_free(why);
 	} else
-		free_peer(peer, why);
+		free_channel(channel, why);
 }
 
 void peer_internal_error(struct peer *peer, const char *fmt, ...)
@@ -313,7 +296,7 @@ void peer_fail_transient(struct peer *peer, const char *fmt, ...)
 	if (!peer_persists(peer)) {
 		log_info(peer->log, "Only reached state %s: forgetting",
 			 channel_state_name(peer2channel(peer)));
-		free_peer(peer, why);
+		free_channel(peer2channel(peer), why);
 		return;
 	}
 	tal_free(why);
@@ -511,7 +494,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 
 			/* Reconnect: discard old one. */
 		case OPENINGD:
-			free_peer(peer, "peer reconnected");
+			free_channel(channel, "peer reconnected");
 			peer = NULL;
 			goto return_to_gossipd;
 
@@ -1250,7 +1233,7 @@ static void handle_irrevocably_resolved(struct peer *peer, const u8 *msg)
 	log_info(peer->log, "onchaind complete, forgetting peer");
 
 	/* This will also free onchaind. */
-	free_peer(peer, "onchaind complete, forgetting peer");
+	free_channel(peer2channel(peer), "onchaind complete, forgetting peer");
 }
 
 /**
@@ -2428,7 +2411,7 @@ static unsigned int opening_negotiation_failed(struct subd *openingd,
 	log_unusual(peer->log, "Opening negotiation failed: %s", why);
 
 	/* This will free openingd, since that's peer->owner */
-	free_peer(peer, why);
+	free_channel(peer2channel(peer), why);
 	return 0;
 }
 
@@ -2979,7 +2962,7 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 	json_add_txid(response, "funding_txid", peer2channel(forget->peer)->funding_txid);
 	json_object_end(response);
 
-	free_peer(forget->peer, "dev-forget-channel called");
+	free_channel(peer2channel(forget->peer), "dev-forget-channel called");
 
 	command_success(forget->cmd, response);
 }

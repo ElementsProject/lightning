@@ -86,8 +86,12 @@ struct channel {
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid, u32 first_blocknum);
+/* This lets us give a more detailed error than just a destructor. */
+void free_channel(struct channel *channel, const char *why);
 
 const char *channel_state_name(const struct channel *channel);
+
+void channel_set_owner(struct channel *channel, struct subd *owner);
 
 void derive_channel_seed(struct lightningd *ld, struct privkey *seed,
 			 const struct pubkey *peer_id,
