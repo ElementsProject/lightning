@@ -116,6 +116,9 @@ struct peer *channel2peer(const struct channel *channel);
 /* Find a channel which is not onchain, if any */
 struct channel *peer_active_channel(struct peer *peer);
 
+struct channel *active_channel_by_id(struct lightningd *ld,
+				     const struct pubkey *id);
+
 static inline bool channel_can_add_htlc(const struct channel *channel)
 {
 	return channel->state == CHANNELD_NORMAL;

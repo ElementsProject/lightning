@@ -18,6 +18,7 @@ struct invoices;
 struct channel;
 struct lightningd;
 struct oneshot;
+struct peer;
 struct pubkey;
 struct timers;
 
