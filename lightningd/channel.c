@@ -148,6 +148,16 @@ struct channel *active_channel_by_id(struct lightningd *ld,
 	return peer_active_channel(peer);
 }
 
+void channel_set_last_tx(struct channel *channel,
+			 struct bitcoin_tx *tx,
+			 const secp256k1_ecdsa_signature *sig)
+{
+	tal_free(channel->last_sig);
+	channel->last_sig = tal_dup(channel, secp256k1_ecdsa_signature, sig);
+	tal_free(channel->last_tx);
+	channel->last_tx = tal_steal(channel, tx);
+}
+
 void channel_set_state(struct channel *channel,
 		       enum peer_state old_state,
 		       enum peer_state state)

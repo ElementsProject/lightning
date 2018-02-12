@@ -58,9 +58,6 @@ struct peer *peer_from_json(struct lightningd *ld,
 			    const char *buffer,
 			    jsmntok_t *peeridtok);
 
-void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
-		  const secp256k1_ecdsa_signature *sig);
-
 /* The three ways peers enter from the network:
  *
  * peer_connected - when it first connects to gossipd (after init exchange).

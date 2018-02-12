@@ -20,7 +20,7 @@ struct channel_info {
 
 /* Get all HTLCs for a peer, to send in init message. */
 void peer_htlcs(const tal_t *ctx,
-		const struct peer *peer,
+		const struct channel *channel,
 		struct added_htlc **htlcs,
 		enum htlc_state **htlc_states,
 		struct fulfilled_htlc **fulfilled_htlcs,
@@ -32,7 +32,7 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg);
 void peer_got_commitsig(struct channel *channel, const u8 *msg);
 void peer_got_revoke(struct channel *channel, const u8 *msg);
 
-void update_per_commit_point(struct peer *peer,
+void update_per_commit_point(struct channel *channel,
 			     const struct pubkey *per_commitment_point);
 
 enum onion_type send_htlc_out(struct channel *out, u64 amount, u32 cltv,

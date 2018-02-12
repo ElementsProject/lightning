@@ -359,7 +359,7 @@ void peer_got_revoke(struct channel *channel UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "peer_got_revoke called!\n"); abort(); }
 /* Generated stub for peer_htlcs */
 void peer_htlcs(const tal_t *ctx UNNEEDED,
-		const struct peer *peer UNNEEDED,
+		const struct channel *channel UNNEEDED,
 		struct added_htlc **htlcs UNNEEDED,
 		enum htlc_state **htlc_states UNNEEDED,
 		struct fulfilled_htlc **fulfilled_htlcs UNNEEDED,
@@ -475,7 +475,7 @@ void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, u8 *script UNNE
 bool unsupported_features(const u8 *gfeatures UNNEEDED, const u8 *lfeatures UNNEEDED)
 { fprintf(stderr, "unsupported_features called!\n"); abort(); }
 /* Generated stub for update_per_commit_point */
-void update_per_commit_point(struct peer *peer UNNEEDED,
+void update_per_commit_point(struct channel *channel UNNEEDED,
 			     const struct pubkey *per_commitment_point UNNEEDED)
 { fprintf(stderr, "update_per_commit_point called!\n"); abort(); }
 /* Generated stub for watch_tx_ */

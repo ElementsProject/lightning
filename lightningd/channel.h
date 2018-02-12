@@ -119,6 +119,10 @@ struct channel *peer_active_channel(struct peer *peer);
 struct channel *active_channel_by_id(struct lightningd *ld,
 				     const struct pubkey *id);
 
+void channel_set_last_tx(struct channel *channel,
+			 struct bitcoin_tx *tx,
+			 const secp256k1_ecdsa_signature *sig);
+
 static inline bool channel_can_add_htlc(const struct channel *channel)
 {
 	return channel->state == CHANNELD_NORMAL;
