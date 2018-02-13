@@ -430,7 +430,7 @@ static u8 *funder_channel(struct state *state,
 
 	if (!structeq(&id_in, &state->channel_id))
 		peer_failed(PEER_FD, &state->cs, &id_in,
-			    "funding_signed ids don't match: expceted %s got %s",
+			    "funding_signed ids don't match: expected %s got %s",
 			    type_to_string(msg, struct channel_id,
 					   &state->channel_id),
 			    type_to_string(msg, struct channel_id, &id_in));
