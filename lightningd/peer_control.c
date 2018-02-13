@@ -91,29 +91,47 @@ static void peer_set_owner(struct peer *peer, struct subd *owner)
 		subd_release_peer(old_owner, peer);
 }
 
-static void destroy_peer(struct peer *peer)
+static struct htlc_out *peer_first_htlc_out(struct peer *peer)
 {
-	/* Must not have any HTLCs! */
 	struct htlc_out_map_iter outi;
 	struct htlc_out *hout;
-	struct htlc_in_map_iter ini;
-	struct htlc_in *hin;
-
 	for (hout = htlc_out_map_first(&peer->ld->htlcs_out, &outi);
 	     hout;
 	     hout = htlc_out_map_next(&peer->ld->htlcs_out, &outi)) {
 		if (hout->key.peer != peer)
 			continue;
-		fatal("Freeing peer %s has hout %s",
-		      peer_state_name(peer->state),
-		      htlc_state_name(hout->hstate));
+		return hout;
 	}
+	return NULL;
+}
 
+static struct htlc_in *peer_first_htlc_in(struct peer *peer)
+{
+	struct htlc_in_map_iter ini;
+	struct htlc_in *hin;
 	for (hin = htlc_in_map_first(&peer->ld->htlcs_in, &ini);
 	     hin;
 	     hin = htlc_in_map_next(&peer->ld->htlcs_in, &ini)) {
 		if (hin->key.peer != peer)
 			continue;
+		return hin;
+	}
+	return NULL;
+}
+
+static void destroy_peer(struct peer *peer)
+{
+	/* Must not have any HTLCs! */
+	struct htlc_out *hout = peer_first_htlc_out(peer);
+	struct htlc_in *hin = peer_first_htlc_in(peer);
+
+	if (hout) {
+		fatal("Freeing peer %s has hout %s",
+		      peer_state_name(peer->state),
+		      htlc_state_name(hout->hstate));
+	}
+
+	if (hin) {
 		fatal("Freeing peer %s has hin %s",
 		      peer_state_name(peer->state),
 		      htlc_state_name(hin->hstate));
@@ -2961,12 +2979,16 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 			     "channel");
 		return;
 	}
+
 	response = new_json_result(forget->cmd);
 	json_object_start(response, NULL);
 	json_add_bool(response, "forced", forget->force);
 	json_add_bool(response, "funding_unspent", txout != NULL);
 	json_add_txid(response, "funding_txid", forget->peer->funding_txid);
 	json_object_end(response);
+
+	/* Free HTLCs so we don't panic when freeing the peer */
+	free_htlcs(forget->peer->ld, forget->peer);
 
 	if (peer_persists(forget->peer))
 		wallet_channel_delete(forget->cmd->ld->wallet, forget->peer->channel->id);
@@ -2994,8 +3016,18 @@ static void json_dev_forget_channel(struct command *cmd, const char *buffer,
 		json_tok_bool(buffer, forcetok, &forget->force);
 
 	forget->peer = peer_from_json(cmd->ld, buffer, nodeidtok);
-	if (!forget->peer)
+	if (!forget->peer) {
 		command_fail(cmd, "Could not find channel with that peer");
+		return;
+	}
+
+	if (!forget->force && (peer_first_htlc_in(forget->peer) ||
+			       peer_first_htlc_out(forget->peer))) {
+		command_fail(cmd, "Channel has HTLCs attached, use {force} if "
+				  "you are sure about what you're doing.");
+		return;
+	}
+
 	if (!forget->peer->funding_txid) {
 		process_dev_forget_channel(cmd->ld->topology->bitcoind, NULL, forget);
 	} else {

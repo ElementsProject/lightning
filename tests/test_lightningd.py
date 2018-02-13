@@ -3453,8 +3453,10 @@ class LightningDTests(BaseLightningDTests):
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_forget_channel(self):
-        l1 = self.node_factory.get_node()
+        disconnects = ['@WIRE_REVOKE_AND_ACK']
+        l1 = self.node_factory.get_node(options=['--dev-no-reconnect'])
         l2 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node(disconnect=disconnects)
         self.give_funds(l1, 10**6)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         l1.rpc.fundchannel(l2.info['id'], 10**5)
@@ -3471,6 +3473,26 @@ class LightningDTests(BaseLightningDTests):
 
         # And restarting should keep that peer forgotten
         l1.restart()
+        assert len(l1.rpc.listpeers()['peers']) == 0
+
+        # Now try again but have an HTLC
+        l1.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
+        l1.rpc.fundchannel(l3.info['id'], 10**5)
+        l1.bitcoin.rpc.generate(2)
+        time.sleep(5)
+        l3.daemon.wait_for_log(r'State changed from CHANNELD_AWAITING_LOCKIN to CHANNELD_NORMAL')
+        self.executor.submit(l1.rpc.pay, l3.rpc.invoice(10**6, "test", "test")['bolt11'])
+        l3.daemon.wait_for_log(r'peer_in WIRE_COMMITMENT_SIGNED')
+
+        # Cause the unilateral close and let l1 notice
+        l3.rpc.dev_fail(l1.info['id'])
+        l1.bitcoin.rpc.generate(1)
+
+        # L1 should refuse to forget if not forced
+        self.assertRaises(ValueError, l1.rpc.dev_forget_channel, l3.info['id'])
+
+        # Forcing should work
+        l1.rpc.dev_forget_channel(l3.info['id'], True)
         assert len(l1.rpc.listpeers()['peers']) == 0
 
 
