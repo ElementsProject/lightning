@@ -58,7 +58,7 @@ static void destroy_channel(struct channel *channel)
 }
 
 /* This lets us give a more detailed error than just a destructor. */
-void free_channel(struct channel *channel, const char *why)
+void delete_channel(struct channel *channel, const char *why)
 {
 	if (channel->opening_cmd) {
 		command_fail(channel->opening_cmd, "%s", why);
@@ -221,7 +221,7 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 		drop_to_chain(ld, channel);
 		tal_free(why);
 	} else
-		free_channel(channel, why);
+		delete_channel(channel, why);
 }
 
 void channel_internal_error(struct channel *channel, const char *fmt, ...)
@@ -262,7 +262,7 @@ void channel_fail_transient(struct channel *channel, const char *fmt, ...)
 	if (!channel_persists(channel)) {
 		log_info(channel->log, "Only reached state %s: forgetting",
 			 channel_state_name(channel));
-		free_channel(channel, why);
+		delete_channel(channel, why);
 		return;
 	}
 	tal_free(why);

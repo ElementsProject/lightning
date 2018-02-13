@@ -339,7 +339,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 
 			/* Reconnect: discard old one. */
 		case OPENINGD:
-			free_channel(channel, "peer reconnected");
+			delete_channel(channel, "peer reconnected");
 			channel = NULL;
 			goto return_to_gossipd;
 
@@ -1104,7 +1104,7 @@ static void handle_irrevocably_resolved(struct channel *channel, const u8 *msg)
 	log_info(channel->log, "onchaind complete, forgetting peer");
 
 	/* This will also free onchaind. */
-	free_channel(channel, "onchaind complete, forgetting peer");
+	delete_channel(channel, "onchaind complete, forgetting peer");
 }
 
 /**
@@ -2270,7 +2270,7 @@ static unsigned int opening_negotiation_failed(struct subd *openingd,
 	log_unusual(channel->log, "Opening negotiation failed: %s", why);
 
 	/* This will free openingd, since that's peer->owner */
-	free_channel(channel, why);
+	delete_channel(channel, why);
 	return 0;
 }
 
@@ -2840,7 +2840,7 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 	json_add_txid(response, "funding_txid", forget->channel->funding_txid);
 	json_object_end(response);
 
-	free_channel(forget->channel, "dev-forget-channel called");
+	delete_channel(forget->channel, "dev-forget-channel called");
 
 	command_success(forget->cmd, response);
 }
