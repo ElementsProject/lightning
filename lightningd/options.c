@@ -323,8 +323,8 @@ static const struct config testnet_config = {
 	/* They can have up to 3 days. */
 	.locktime_max = 3 * 6 * 24,
 
-    /* Default -1 to use default chaintopology strategy. */
-    .from_blockheight = -1,
+	/* Default -1 to use default chaintopology strategy. */
+	.from_blockheight = -1,
 
 	/* Testnet can have long runs of empty blocks. */
 	.anchor_onchain_wait = 100,
@@ -379,8 +379,8 @@ static const struct config mainnet_config = {
 	/* They can have up to 3 days. */
 	.locktime_max = 3 * 6 * 24,
 
-    /* Default -1 to use default chaintopology strategy. */
-    .from_blockheight = -1,
+	/* Default -1 to use default chaintopology strategy. */
+	.from_blockheight = -1,
 
 	/* You should get in within 10 blocks. */
 	.anchor_onchain_wait = 10,
