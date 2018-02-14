@@ -11,6 +11,7 @@ import queue
 import os
 import random
 import re
+import socket
 import sqlite3
 import string
 import subprocess
@@ -3405,6 +3406,24 @@ class LightningDTests(BaseLightningDTests):
         for i in range(len(channels)-1):
             assert channels[i]['state'] == 'ONCHAIND_MUTUAL'
         assert channels[-1]['state'] == 'CLOSINGD_COMPLETE'
+
+    def test_multirpc(self):
+        """Test that we can do multiple RPC without waiting for response"""
+        l1,l2 = self.connect()
+
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.connect(l1.rpc.socket_path)
+        sock.sendall(b'{"id":1,"jsonrpc":"2.0","method":"listpeers","params":[]}\n'
+                     b'{"id":2,"jsonrpc":"2.0","method":"listpeers","params":[]}\n'
+                     b'{"id":3,"jsonrpc":"2.0","method":"listpeers","params":[]}\n'
+                     b'{"id":4,"jsonrpc":"2.0","method":"listpeers","params":[]}\n'
+                     b'{"id":5,"jsonrpc":"2.0","method":"listpeers","params":[]}\n'
+                     b'{"id":6,"jsonrpc":"2.0","method":"listpeers","params":[]}\n')
+
+        # This isn't quite right, as it will read the first object and stop.
+        # But enough to trigger the  crash!
+        l1.rpc._readobj(sock)
+        sock.close()
 
     def test_cli(self):
         l1 = self.node_factory.get_node()

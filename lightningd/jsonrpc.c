@@ -242,8 +242,13 @@ static void json_done(struct json_connection *jcon, const char *json TAKES)
 	struct json_output *out = tal(jcon, struct json_output);
 	out->json = tal_strdup(out, json);
 
-	/* Queue for writing, and wake writer (and maybe reader). */
+	/* Clear existing command (if any: NULL in malformed case) */
+	jcon->current = tal_free(jcon->current);
+
+	/* Queue for writing. */
 	list_add_tail(&jcon->output, &out->list);
+
+	/* Both writer and reader can now continue. */
 	io_wake(jcon);
 }
 
@@ -378,7 +383,6 @@ void command_success(struct command *cmd, struct json_result *result)
 	assert(jcon->current == cmd);
 	connection_complete_ok(jcon, cmd->id, result);
 	log_debug(jcon->log, "Success");
-	jcon->current = tal_free(cmd);
 }
 
 static void command_fail_v(struct command *cmd,
@@ -402,7 +406,6 @@ static void command_fail_v(struct command *cmd,
 
 	assert(jcon->current == cmd);
 	connection_complete_error(jcon, cmd->id, error, code, data);
-	jcon->current = tal_free(cmd);
 }
 void command_fail(struct command *cmd, const char *fmt, ...)
 {
@@ -628,8 +631,7 @@ static struct io_plan *write_json(struct io_conn *conn,
 			return io_close(conn);
 		}
 
-		/* Reader can go again now. */
-		io_wake(jcon);
+		/* Wait for more output. */
 		return io_out_wait(conn, jcon, write_json, jcon);
 	}
 
