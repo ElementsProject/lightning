@@ -1327,7 +1327,7 @@ find_unstored_payment(struct wallet *wallet, const struct sha256 *payment_hash)
 	return NULL;
 }
 
-static void remove_unstored_payment(struct wallet_payment *payment)
+static void destroy_unstored_payment(struct wallet_payment *payment)
 {
 	list_del(&payment->list);
 }
@@ -1337,7 +1337,7 @@ void wallet_payment_setup(struct wallet *wallet, struct wallet_payment *payment)
 	assert(!find_unstored_payment(wallet, &payment->payment_hash));
 
 	list_add_tail(&wallet->unstored_payments, &payment->list);
-	tal_add_destructor(payment, remove_unstored_payment);
+	tal_add_destructor(payment, destroy_unstored_payment);
 }
 
 void wallet_payment_store(struct wallet *wallet,
