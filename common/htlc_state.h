@@ -14,7 +14,7 @@ enum htlc_state {
 	RCVD_ADD_ACK_COMMIT,
 	SENT_ADD_ACK_REVOCATION,
 
-	/* When they remove an htlc, it goes from SENT_ADD_ACK_REVOCATION: */
+	/* When they remove an HTLC, it goes from SENT_ADD_ACK_REVOCATION: */
 	RCVD_REMOVE_HTLC,
 	RCVD_REMOVE_COMMIT,
 	SENT_REMOVE_REVOCATION,
@@ -28,7 +28,7 @@ enum htlc_state {
 	SENT_ADD_ACK_COMMIT,
 	RCVD_ADD_ACK_REVOCATION,
 
-	/* When we remove an htlc, it goes from RCVD_ADD_ACK_REVOCATION: */
+	/* When we remove an HTLC, it goes from RCVD_ADD_ACK_REVOCATION: */
 	SENT_REMOVE_HTLC,
 	SENT_REMOVE_COMMIT,
 	RCVD_REMOVE_REVOCATION,

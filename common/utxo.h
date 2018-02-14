@@ -29,10 +29,5 @@ struct utxo {
 };
 
 void towire_utxo(u8 **pptr, const struct utxo *utxo);
-void fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max, struct utxo *utxo);
-
-/* build_utxos/funding_tx use array of pointers, but marshall code
- * wants arr of structs */
-struct utxo *from_utxoptr_arr(const tal_t *ctx, const struct utxo **utxos);
-const struct utxo **to_utxoptr_arr(const tal_t *ctx, const struct utxo *utxos);
+struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max);
 #endif /* LIGHTNING_COMMON_UTXO_H */

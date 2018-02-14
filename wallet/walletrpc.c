@@ -16,10 +16,10 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
-#include <ccan/str/hex/hex.h>
 
 struct withdrawal {
 	u64 amount, changesatoshi;
@@ -39,7 +39,7 @@ struct withdrawal {
  * the used outputs as spent, and add the change output to our pool of
  * available outputs.
  */
-static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind,
+static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 					int exitstatus, const char *msg,
 					struct withdrawal *withdraw)
 {
@@ -197,7 +197,6 @@ static void json_withdraw(struct command *cmd,
 	bool testnet;
 	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
 	u64 fee_estimate;
-	struct utxo *utxos;
 	struct bitcoin_tx *tx;
 	bool withdraw_all = false;
 
@@ -278,14 +277,12 @@ static void json_withdraw(struct command *cmd,
 	else
 		withdraw->change_key_index = 0;
 
-	utxos = from_utxoptr_arr(withdraw, withdraw->utxos);
 	u8 *msg = towire_hsm_sign_withdrawal(cmd,
 					     withdraw->amount,
 					     withdraw->changesatoshi,
 					     withdraw->change_key_index,
 					     withdraw->destination,
-					     utxos);
-	tal_free(utxos);
+					     withdraw->utxos);
 
 	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
 		fatal("Could not write sign_withdrawal to HSM: %s",
@@ -293,9 +290,7 @@ static void json_withdraw(struct command *cmd,
 
 	msg = hsm_sync_read(cmd, cmd->ld);
 
-	tx = tal(withdraw, struct bitcoin_tx);
-
-	if (!fromwire_hsm_sign_withdrawal_reply(msg, NULL, tx))
+	if (!fromwire_hsm_sign_withdrawal_reply(msg, msg, NULL, &tx))
 		fatal("HSM gave bad sign_withdrawal_reply %s",
 		      tal_hex(withdraw, msg));
 
@@ -309,12 +304,13 @@ static void json_withdraw(struct command *cmd,
 static const struct json_command withdraw_command = {
 	"withdraw",
 	json_withdraw,
-	"Send to {destination} address {satoshi} (or 'all') amount via Bitcoin transaction"
+	"Send to {destination} address {satoshi} (or 'all') amount via Bitcoin transaction",
+	false, "Send funds from the internal wallet to the specified address. Either specify a number of satoshis to send or 'all' to sweep all funds in the internal wallet to the address."
 };
 AUTODATA(json_command, &withdraw_command);
 
-static void json_newaddr(struct command *cmd,
-			 const char *buffer, const jsmntok_t *params)
+static void json_newaddr(struct command *cmd, const char *buffer UNUSED,
+			 const jsmntok_t *params UNUSED)
 {
 	struct json_result *response = new_json_result(cmd);
 	struct ext_key ext;
@@ -392,7 +388,8 @@ static void json_newaddr(struct command *cmd,
 static const struct json_command newaddr_command = {
 	"newaddr",
 	json_newaddr,
-	"Get a new {bech32, p2sh-segwit} address to fund a channel"
+	"Get a new {bech32, p2sh-segwit} address to fund a channel", false,
+	"Generates a new address that belongs to the internal wallet. Funds sent to these addresses will be managed by lightningd. Use `withdraw` to withdraw funds to an external wallet."
 };
 AUTODATA(json_command, &newaddr_command);
 
@@ -474,15 +471,16 @@ static const struct json_command listaddrs_command = {
 };
 AUTODATA(json_command, &listaddrs_command);
 
-static void json_listfunds(struct command *cmd, const char *buffer,
-			   const jsmntok_t *params)
+static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
+						   const jsmntok_t *params UNUSED)
 {
 	struct json_result *response = new_json_result(cmd);
+	struct peer *p;
 	struct utxo **utxos =
 	    wallet_get_utxos(cmd, cmd->ld->wallet, output_state_available);
 	json_object_start(response, NULL);
 	json_array_start(response, "outputs");
-	for (int i = 0; i < tal_count(utxos); i++) {
+	for (size_t i = 0; i < tal_count(utxos); i++) {
 		json_object_start(response, NULL);
 		json_add_txid(response, "txid", &utxos[i]->txid);
 		json_add_num(response, "output", utxos[i]->outnum);
@@ -490,14 +488,42 @@ static void json_listfunds(struct command *cmd, const char *buffer,
 		json_object_end(response);
 	}
 	json_array_end(response);
+
+	/* Add funds that are allocated to channels */
+	json_array_start(response, "channels");
+	list_for_each(&cmd->ld->peers, p, list) {
+		struct channel *c;
+		list_for_each(&p->channels, c, list) {
+			if (!c->our_msatoshi || !c->funding_txid)
+				continue;
+
+			json_object_start(response, NULL);
+			json_add_pubkey(response, "peer_id", &p->id);
+			if (c->scid)
+				json_add_short_channel_id(response,
+							  "short_channel_id",
+							  c->scid);
+
+			/* Poor man's rounding to satoshis to match the unit for outputs */
+			json_add_u64(response, "channel_sat",
+				     (*c->our_msatoshi + 500)/1000);
+			json_add_u64(response, "channel_total_sat",
+				     c->funding_satoshi);
+			json_add_txid(response, "funding_txid", c->funding_txid);
+			json_object_end(response);
+		}
+	}
+	json_array_end(response);
 	json_object_end(response);
+
 	command_success(cmd, response);
 }
 
 static const struct json_command listfunds_command = {
 	"listfunds",
 	json_listfunds,
-	"Show funds available for opening channels"
+	"Show available funds from the internal wallet", false,
+	"Returns a list of funds (outputs) that can be used by the internal wallet to open new channels or can be withdrawn, using the `withdraw` command, to another wallet."
 };
 AUTODATA(json_command, &listfunds_command);
 
@@ -542,8 +568,9 @@ static void process_utxo_result(struct bitcoind *bitcoind,
 	}
 }
 
-static void json_dev_rescan_outputs(struct command *cmd, const char *buffer,
-				    const jsmntok_t *params)
+static void json_dev_rescan_outputs(struct command *cmd,
+				    const char *buffer UNUSED,
+				    const jsmntok_t *params UNUSED)
 {
 	struct txo_rescan *rescan = tal(cmd, struct txo_rescan);
 	rescan->response = new_json_result(cmd);
@@ -552,8 +579,13 @@ static void json_dev_rescan_outputs(struct command *cmd, const char *buffer,
 	/* Open the result structure so we can incrementally add results */
 	json_object_start(rescan->response, NULL);
 	json_array_start(rescan->response, "outputs");
-	rescan->utxos =
-	    wallet_get_utxos(rescan, cmd->ld->wallet, output_state_any);
+	rescan->utxos = wallet_get_utxos(rescan, cmd->ld->wallet, output_state_any);
+	if (tal_count(rescan->utxos) == 0) {
+		json_array_end(rescan->response);
+		json_object_end(rescan->response);
+		command_success(cmd, rescan->response);
+		return;
+	}
 	bitcoind_gettxout(cmd->ld->topology->bitcoind, &rescan->utxos[0]->txid,
 			  rescan->utxos[0]->outnum, process_utxo_result,
 			  rescan);
@@ -562,6 +594,7 @@ static void json_dev_rescan_outputs(struct command *cmd, const char *buffer,
 
 static const struct json_command dev_rescan_output_command = {
     "dev-rescan-outputs", json_dev_rescan_outputs,
-    "Synchronize the state of our funds with bitcoind"
+    "Synchronize the state of our funds with bitcoind", false,
+    "For each output stored in the internal wallet ask `bitcoind` whether we are in sync with its state (spent vs. unspent)"
 };
 AUTODATA(json_command, &dev_rescan_output_command);

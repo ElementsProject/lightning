@@ -65,6 +65,51 @@ char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a)
 }
 REGISTER_TYPE_TO_STRING(wireaddr, fmt_wireaddr);
 
+/* Valid forms:
+ *
+ * [anything]:<number>
+ * anything-without-colons-or-left-brace:<number>
+ * anything-without-colons
+ * string-with-multiple-colons
+ *
+ * Returns false if it wasn't one of these forms.  If it returns true,
+ * it only overwrites *port if it was specified by <number> above.
+ */
+static bool separate_address_and_port(tal_t *ctx, const char *arg,
+				      char **addr, u16 *port)
+{
+	char *portcolon;
+
+	if (strstarts(arg, "[")) {
+		char *end = strchr(arg, ']');
+		if (!end)
+			return false;
+		/* Copy inside [] */
+		*addr = tal_strndup(ctx, arg + 1, end - arg - 1);
+		portcolon = strchr(end+1, ':');
+	} else {
+		portcolon = strchr(arg, ':');
+		if (portcolon) {
+			/* Disregard if there's more than one : or if it's at
+			   the start or end */
+			if (portcolon != strrchr(arg, ':')
+			    || portcolon == arg
+			    || portcolon[1] == '\0')
+				portcolon = NULL;
+		}
+		if (portcolon)
+			*addr = tal_strndup(ctx, arg, portcolon - arg);
+		else
+			*addr = tal_strdup(ctx, arg);
+	}
+
+	if (portcolon) {
+		char *endp;
+		*port = strtol(portcolon + 1, &endp, 10);
+		return *port != 0 && *endp == '\0';
+	}
+	return true;
+}
 
 bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport)
 {
@@ -78,13 +123,15 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport)
 	res = false;
 	port = defport;
 
-	if (!parse_ip_port(tmpctx, arg, &ip, &port))
-		port = defport;
+	if (!separate_address_and_port(tmpctx, arg, &ip, &port)) {
+		tal_free(tmpctx);
+		return false;
+	}
 
 	/* FIXME: change arg to addr[:port] and use getaddrinfo? */
-	if (streq(arg, "localhost"))
+	if (streq(ip, "localhost"))
 		ip = "127.0.0.1";
-	else if (streq(arg, "ip6-localhost"))
+	else if (streq(ip, "ip6-localhost"))
 		ip = "::1";
 
 	memset(&addr->addr, 0, sizeof(addr->addr));
@@ -105,38 +152,4 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport)
 
 	tal_free(tmpctx);
 	return res;
-}
-
-// NOTE: arg is assumed to be an ipv4/6 addr string with optional port
-bool parse_ip_port(tal_t *ctx, const char *arg, char **ip, u16 *port) {
-	*port = 0;
-	*ip = tal_strdup(ctx, arg);
-
-	bool ipv6 = strchr(*ip, '.') == NULL;
-	bool has_brackets = strchr(*ip, '[');
-	bool has_colon = strchr(*ip, ':');
-
-	// we have an ip addr with no port
-	if ((ipv6 && !has_brackets) || (!ipv6 && !has_colon))
-		return false;
-
-	/* IPv6 can have [ ], trim them here */
-	if (ipv6 && strstarts(*ip, "[") && strends(*ip, "]")) {
-		(*ip)++;
-		(*ip)[strlen(*ip)-1] = '\0';
-		return false;
-	}
-
-	// we have a port, let's go to it
-	const char *last_colon = strrchr(*ip, ':');
-	assert(last_colon);
-
-	// chop off port
-	(*ip)[last_colon - *ip - ipv6] = '\0';
-
-	// skip over first [ if ipv6
-	if (ipv6) (*ip)++;
-
-	*port = atoi(last_colon + 1);
-	return *port != 0;
 }

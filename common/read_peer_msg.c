@@ -41,10 +41,10 @@ u8 *read_peer_msg_(const tal_t *ctx,
 		   int peer_fd, int gossip_fd,
 		   struct crypto_state *cs,
 		   const struct channel_id *channel,
-		   bool (*send_reply)(struct crypto_state *, int, const u8 *,
-				      void *),
+		   bool (*send_reply)(struct crypto_state *cs, int fd,
+				      const u8 *TAKES,  void *arg),
 		   void (*io_error)(const char *what_i_was_doing, void *arg),
-		   void (*err_pkt)(const char *desc, bool this_channel_only,
+		   void (*err_pkt)(const char *desc, const struct channel_id *,
 				   void *arg),
 		   void *arg)
 {
@@ -85,10 +85,7 @@ u8 *read_peer_msg_(const tal_t *ctx,
 		 *    message:
 		 *    - MUST ignore the message.
 		 */
-		if (channel_id_is_all(&chanid))
-			err_pkt(err, false, arg);
-		else if (structeq(&chanid, channel))
-			err_pkt(err, true, arg);
+		err_pkt(err, &chanid, arg);
 
 		return tal_free(msg);
 	}
@@ -118,15 +115,15 @@ bool sync_crypto_write_arg(struct crypto_state *cs, int fd, const u8 *msg,
 	return sync_crypto_write(cs, fd, msg);
 }
 
-/* Helper: calls status_failed(STATUS_FAIL_PEER_IO) */
+/* Helper: calls status_fatal_connection_lost. */
 void status_fail_io(const char *what_i_was_doing, void *unused)
 {
-	status_failed(STATUS_FAIL_PEER_IO,
-		      "%s:%s", what_i_was_doing, strerror(errno));
+	status_fatal_connection_lost();
 }
 
-/* Helper: calls status_failed(STATUS_FAIL_PEER_BAD, <error>) */
-void status_fail_errpkt(const char *desc, bool this_channel_only, void *unused)
+/* Helper: calls status_fatal_received_errmsg() */
+void status_fail_errpkt(const char *desc, const struct channel_id *c,
+			void *unused)
 {
-	status_failed(STATUS_FAIL_PEER_BAD, "Peer sent ERROR: %s", desc);
+	status_fatal_received_errmsg(desc, c);
 }

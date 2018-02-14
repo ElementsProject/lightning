@@ -76,12 +76,6 @@ bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct 
 /* Generated stub for onion_type_name */
 const char *onion_type_name(int e UNNEEDED)
 { fprintf(stderr, "onion_type_name called!\n"); abort(); }
-/* Generated stub for queue_broadcast */
-bool queue_broadcast(struct broadcast_state *bstate UNNEEDED,
-			     const int type UNNEEDED,
-			     const u8 *tag UNNEEDED,
-			     const u8 *payload UNNEEDED)
-{ fprintf(stderr, "queue_broadcast called!\n"); abort(); }
 /* Generated stub for replace_broadcast */
 bool replace_broadcast(struct broadcast_state *bstate UNNEEDED,
 		       u64 *index UNNEEDED,
@@ -90,7 +84,8 @@ bool replace_broadcast(struct broadcast_state *bstate UNNEEDED,
 		       const u8 *payload UNNEEDED)
 { fprintf(stderr, "replace_broadcast called!\n"); abort(); }
 /* Generated stub for status_failed */
-void status_failed(enum status_fail code UNNEEDED, const char *fmt UNNEEDED, ...)
+void status_failed(enum status_failreason code UNNEEDED,
+		   const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "status_failed called!\n"); abort(); }
 /* Generated stub for towire_pubkey */
 void towire_pubkey(u8 **pptr UNNEEDED, const struct pubkey *pubkey UNNEEDED)

@@ -7,6 +7,7 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon_conn.h>
+#include <common/gen_status_wire.h>
 #include <common/status.h>
 #include <common/utils.h>
 #include <errno.h>
@@ -56,63 +57,20 @@ void status_setup_async(struct daemon_conn *master)
 	setup_logging_sighandler();
 }
 
-static bool too_large(size_t len, int type)
+static void status_send(const u8 *msg TAKES)
 {
-	if (len > 65535) {
-		status_trace("About to truncate msg %i from %zu bytes",
-			     type, len);
-		return true;
-	}
-	return false;
-}
-
-void status_send_sync(const u8 *p)
-{
-	const u8 *msg = p;
-	assert(status_fd >= 0);
-
-	if (too_large(tal_count(p), fromwire_peektype(p)))
-		msg = tal_dup_arr(p, u8, p, 65535, 0);
-
-	if (!wire_sync_write(status_fd, msg))
-		err(1, "Writing out status len %zu", tal_count(msg));
-	tal_free(p);
-}
-
-static void status_send_with_hdr(u16 type, const void *p, size_t len)
-{
-	u8 *msg = tal_arr(NULL, u8, 0);
-	towire_u16(&msg, type);
-	towire(&msg, p, len);
-	if (too_large(tal_len(msg), type))
-		tal_resize(&msg, 65535);
-
 	if (status_fd >= 0) {
-		if (!wire_sync_write(status_fd, take(msg)))
-			err(1, "Writing out status %u len %zu", type, len);
+		int type =fromwire_peektype(msg);
+		if (!wire_sync_write(status_fd, msg))
+			err(1, "Writing out status %i", type);
 	} else {
-		daemon_conn_send(status_conn, take(msg));
+		daemon_conn_send(status_conn, msg);
 	}
 }
 
 static void status_io_full(enum log_level iodir, const u8 *p)
 {
-	u16 type = STATUS_LOG_MIN + iodir;
-	u8 *msg = tal_arr(NULL, u8, 0);
-
-	assert(iodir == LOG_IO_IN || iodir == LOG_IO_OUT);
-	towire_u16(&msg, type);
-	towire(&msg, p, tal_len(p));
-	if (too_large(tal_len(msg), type))
-		tal_resize(&msg, 65535);
-
-	if (status_fd >= 0) {
-		if (!wire_sync_write(status_fd, take(msg)))
-			err(1, "Writing out status %u len %zu",
-			    type, tal_len(p));
-	} else {
-		daemon_conn_send(status_conn, take(msg));
-	}
+	status_send(take(towire_status_io(NULL, iodir, p)));
 }
 
 static void status_io_short(enum log_level iodir, const u8 *p)
@@ -135,7 +93,7 @@ void status_vfmt(enum log_level level, const char *fmt, va_list ap)
 	char *str;
 
 	str = tal_vfmt(NULL, fmt, ap);
-	status_send_with_hdr(STATUS_LOG_MIN + level, str, strlen(str));
+	status_send(take(towire_status_log(NULL, level, str)));
 	tal_free(str);
 
 	/* Free up any temporary children. */
@@ -154,33 +112,68 @@ void status_fmt(enum log_level level, const char *fmt, ...)
 	va_end(ap);
 }
 
-void status_failed(enum status_fail code, const char *fmt, ...)
+static NORETURN void flush_and_exit(int reason)
 {
-	va_list ap;
-	char *str;
-
-	breakpoint();
-	assert(code & STATUS_FAIL);
-	va_start(ap, fmt);
-	str = tal_vfmt(NULL, fmt, ap);
-	status_send_with_hdr(code, str, strlen(str));
-	va_end(ap);
-
 	/* Don't let it take forever. */
 	alarm(10);
 	if (status_conn)
 		daemon_conn_sync_flush(status_conn);
 
-	exit(0x80 | (code & 0xFF));
+	exit(0x80 | (reason & 0xFF));
+}
+
+/* FIXME: rename to status_fatal, s/fail/fatal/ in status_failreason enums */
+void status_failed(enum status_failreason reason, const char *fmt, ...)
+{
+	va_list ap;
+	char *str;
+
+	breakpoint();
+	va_start(ap, fmt);
+	str = tal_vfmt(NULL, fmt, ap);
+	status_send(take(towire_status_fail(NULL, reason, str)));
+	va_end(ap);
+
+	flush_and_exit(reason);
 }
 
 void master_badmsg(u32 type_expected, const u8 *msg)
 {
 	if (!msg)
 		status_failed(STATUS_FAIL_MASTER_IO,
-			      "failed reading msg %u: %s",
-			      type_expected, strerror(errno));
+			     "failed reading msg %u: %s",
+			     type_expected, strerror(errno));
 	status_failed(STATUS_FAIL_MASTER_IO,
-		      "Error parsing %u: %s",
-		      type_expected, tal_hex(trc, msg));
+		     "Error parsing %u: %s",
+		     type_expected, tal_hex(trc, msg));
+}
+
+void status_fatal_connection_lost(void)
+{
+	status_send(take(towire_status_peer_connection_lost(NULL)));
+	flush_and_exit(WIRE_STATUS_PEER_CONNECTION_LOST);
+}
+
+/* Got an error for one or all channels */
+void status_fatal_received_errmsg(const char *desc, const struct channel_id *c)
+{
+	static const struct channel_id all_channels;
+
+	if (!c)
+		c = &all_channels;
+	status_send(take(towire_status_received_errmsg(NULL, c, desc)));
+	flush_and_exit(WIRE_STATUS_RECEIVED_ERRMSG);
+}
+
+/* Sent an error for one or all channels */
+void status_fatal_sent_errmsg(const u8 *errmsg,
+			      const char *desc, const struct channel_id *c)
+{
+	static const struct channel_id all_channels;
+
+	if (!c)
+		c = &all_channels;
+
+	status_send(take(towire_status_sent_errmsg(NULL, c, desc, errmsg)));
+	flush_and_exit(WIRE_STATUS_SENT_ERRMSG);
 }

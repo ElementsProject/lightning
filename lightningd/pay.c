@@ -307,6 +307,34 @@ remote_routing_failure(const tal_t *ctx,
 	return routing_failure;
 }
 
+static void random_mark_channel_unroutable(struct log *log,
+					   struct subd *gossip,
+					   struct short_channel_id *route_channels)
+{
+	const tal_t *tmpctx = tal_tmpctx(gossip);
+	size_t num_channels = tal_count(route_channels);
+	size_t i;
+	const struct short_channel_id *channel;
+	u8 *msg;
+	assert(num_channels != 0);
+
+	/* Select one channel by random. */
+	randombytes_buf(&i, sizeof(i));
+	i = i % num_channels;
+	channel = &route_channels[i];
+
+	log_debug(log,
+		  "Disable randomly %dth channel (%s) along route "
+		  "(guessing due to bad reply)",
+		  (int) i,
+		  type_to_string(tmpctx, struct short_channel_id,
+				 channel));
+	msg = towire_gossip_mark_channel_unroutable(tmpctx, channel);
+	subd_send_msg(gossip, msg);
+
+	tal_free(tmpctx);
+}
+
 static void report_routing_failure(struct log *log,
 				   struct subd *gossip,
 				   struct routing_failure *fail)
@@ -367,20 +395,26 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 					  tal_count(path_secrets),
 					  hout->failuremsg);
 		if (!reply) {
-			log_info(hout->key.peer->log,
+			log_info(hout->key.channel->log,
 				 "htlc %"PRIu64" failed with bad reply (%s)",
 				 hout->key.id,
 				 tal_hex(ltmp, hout->failuremsg));
 			/* Cannot report failure. */
 			fail = NULL;
 			failcode = WIRE_PERMANENT_NODE_FAILURE;
-			/* Not safe to retry, not know what failed. */
-			/* FIXME: some mitigation for this branch. */
-			retry_plausible = false;
+			/* Select a channel to mark unroutable by random */
+			random_mark_channel_unroutable(hout->key.channel->log,
+						       ld->gossip,
+						       payment->route_channels);
+			/* Can now retry; we selected a channel to mark
+			 * unroutable by random */
+			retry_plausible = true;
+			/* Already reported something to gossipd, do not
+			 * report anything else */
 			report_to_gossipd = false;
 		} else {
 			failcode = fromwire_peektype(reply->msg);
-			log_info(hout->key.peer->log,
+			log_info(hout->key.channel->log,
 				 "htlc %"PRIu64" "
 				 "failed from %ith node "
 				 "with code 0x%04x (%s)",
@@ -421,7 +455,6 @@ static bool send_payment(struct command *cmd,
 			 const struct sha256 *rhash,
 			 const struct route_hop *route)
 {
-	struct peer *peer;
 	const u8 *onion;
 	u8 sessionkey[32];
 	unsigned int base_expiry;
@@ -437,6 +470,7 @@ static bool send_payment(struct command *cmd,
 	struct htlc_out *hout;
 	struct short_channel_id *channels;
 	struct routing_failure *fail;
+	struct channel *channel;
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
 	base_expiry = get_block_height(cmd->ld->topology) + 1;
@@ -500,8 +534,8 @@ static bool send_payment(struct command *cmd,
 		log_add(cmd->ld->log, "... retrying");
 	}
 
-	peer = peer_by_id(cmd->ld, &ids[0]);
-	if (!peer) {
+	channel = active_channel_by_id(cmd->ld, &ids[0]);
+	if (!channel) {
 		/* Report routing failure to gossipd */
 		fail = immediate_routing_failure(cmd, cmd->ld,
 						 WIRE_UNKNOWN_NEXT_PEER,
@@ -525,7 +559,7 @@ static bool send_payment(struct command *cmd,
 	log_info(cmd->ld->log, "Sending %u over %zu hops to deliver %u",
 		 route[0].amount, n_hops, route[n_hops-1].amount);
 
-	failcode = send_htlc_out(peer, route[0].amount,
+	failcode = send_htlc_out(channel, route[0].amount,
 				 base_expiry + route[0].delay,
 				 rhash, onion, NULL, &hout);
 	if (failcode) {
@@ -667,6 +701,8 @@ AUTODATA(json_command, &sendpay_command);
 struct pay {
 	struct sha256 payment_hash;
 	struct command *cmd;
+	u64 msatoshi;
+	double maxfeepercent;
 };
 
 static void json_pay_getroute_reply(struct subd *gossip,
@@ -674,6 +710,10 @@ static void json_pay_getroute_reply(struct subd *gossip,
 				    struct pay *pay)
 {
 	struct route_hop *route;
+	u64 msatoshi_sent;
+	u64 fee;
+	double feepercent;
+	struct json_result *data;
 
 	fromwire_gossip_getroute_reply(reply, reply, NULL, &route);
 
@@ -683,14 +723,45 @@ static void json_pay_getroute_reply(struct subd *gossip,
 		return;
 	}
 
+	msatoshi_sent = route[0].amount;
+	fee = msatoshi_sent - pay->msatoshi;
+	/* FIXME: IEEE Double-precision floating point has only 53 bits
+	 * of precision. Total satoshis that can ever be created is
+	 * slightly less than 2100000000000000. Total msatoshis that
+	 * can ever be created is 1000 times that or
+	 * 2100000000000000000, requiring 60.865 bits of precision,
+	 * and thus losing precision in the below. Currently, OK, as,
+	 * payments are limited to 4294967295 msatoshi. */
+	feepercent = ((double) fee) * 100.0 / ((double) pay->msatoshi);
+	if (feepercent > pay->maxfeepercent) {
+		data = new_json_result(pay);
+		json_object_start(data, NULL);
+		json_add_u64(data, "fee", fee);
+		json_add_double(data, "feepercent", feepercent);
+		json_add_u64(data, "msatoshi", pay->msatoshi);
+		json_add_double(data, "maxfeepercent", pay->maxfeepercent);
+		json_object_end(data);
+
+		command_fail_detailed(pay->cmd, PAY_ROUTE_TOO_EXPENSIVE,
+				      data,
+				      "Fee %"PRIu64" is %f%% "
+				      "of payment %"PRIu64"; "
+				      "max fee requested is %f%%",
+				      fee, feepercent,
+				      pay->msatoshi,
+				      pay->maxfeepercent);
+		return;
+	}
+
 	send_payment(pay->cmd, &pay->payment_hash, route);
 }
 
 static void json_pay(struct command *cmd,
 		     const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *bolt11tok, *msatoshitok, *desctok, *riskfactortok;
+	jsmntok_t *bolt11tok, *msatoshitok, *desctok, *riskfactortok, *maxfeetok;
 	double riskfactor = 1.0;
+	double maxfeepercent = 0.5;
 	u64 msatoshi;
 	struct pay *pay = tal(cmd, struct pay);
 	struct bolt11 *b11;
@@ -702,6 +773,7 @@ static void json_pay(struct command *cmd,
 			     "?msatoshi", &msatoshitok,
 			     "?description", &desctok,
 			     "?riskfactor", &riskfactortok,
+			     "?maxfeepercent", &maxfeetok,
 			     NULL)) {
 		return;
 	}
@@ -742,6 +814,7 @@ static void json_pay(struct command *cmd,
 			return;
 		}
 	}
+	pay->msatoshi = msatoshi;
 
 	if (riskfactortok
 	    && !json_tok_double(buffer, riskfactortok, &riskfactor)) {
@@ -750,6 +823,26 @@ static void json_pay(struct command *cmd,
 			     buffer + riskfactortok->start);
 		return;
 	}
+
+	if (maxfeetok
+	    && !json_tok_double(buffer, maxfeetok, &maxfeepercent)) {
+		command_fail(cmd, "'%.*s' is not a valid double",
+			     (int)(maxfeetok->end - maxfeetok->start),
+			     buffer + maxfeetok->start);
+		return;
+	}
+	/* Ensure it is in range 0.0 <= maxfeepercent <= 100.0 */
+	if (!(0.0 <= maxfeepercent)) {
+		command_fail(cmd, "%f maxfeepercent must be non-negative",
+			     maxfeepercent);
+		return;
+	}
+	if (!(maxfeepercent <= 100.0)) {
+		command_fail(cmd, "%f maxfeepercent must be <= 100.0",
+			     maxfeepercent);
+		return;
+	}
+	pay->maxfeepercent = maxfeepercent;
 
 	/* FIXME: use b11->routes */
 	req = towire_gossip_getroute_request(cmd, &cmd->ld->id,
@@ -763,7 +856,11 @@ static void json_pay(struct command *cmd,
 static const struct json_command pay_command = {
 	"pay",
 	json_pay,
-	"Send payment specified by {bolt11} with optional {msatoshi} (if and only if {bolt11} does not have amount), {description} (required if {bolt11} uses description hash) and {riskfactor} (default 1.0)"
+	"Send payment specified by {bolt11} with optional {msatoshi} "
+	"(if and only if {bolt11} does not have amount), "
+	"{description} (required if {bolt11} uses description hash), "
+	"{riskfactor} (default 1.0), and "
+	"{maxfeepercent} (default 0.5) the maximum acceptable fee as a percentage (e.g. 0.5 => 0.5%)"
 };
 AUTODATA(json_command, &pay_command);
 

@@ -188,20 +188,6 @@ static const char *find_daemon_dir(const tal_t *ctx, const char *argv0)
 	return find_my_pkglibexec_path(ctx, take(my_path));
 }
 
-void derive_peer_seed(struct lightningd *ld, struct privkey *peer_seed,
-		      const struct pubkey *peer_id, const u64 channel_id)
-{
-	u8 input[PUBKEY_DER_LEN + sizeof(channel_id)];
-	char *info = "per-peer seed";
-	pubkey_to_der(input, peer_id);
-	memcpy(input + PUBKEY_DER_LEN, &channel_id, sizeof(channel_id));
-
-	hkdf_sha256(peer_seed, sizeof(*peer_seed),
-		    input, sizeof(input),
-		    &ld->peer_seed, sizeof(ld->peer_seed),
-		    info, strlen(info));
-}
-
 static void shutdown_subdaemons(struct lightningd *ld)
 {
 	struct peer *p;
@@ -213,8 +199,18 @@ static void shutdown_subdaemons(struct lightningd *ld)
 
 	free_htlcs(ld, NULL);
 
-	while ((p = list_top(&ld->peers, struct peer, list)) != NULL)
+	while ((p = list_top(&ld->peers, struct peer, list)) != NULL) {
+		struct channel *c;
+
+		while ((c = list_top(&p->channels, struct channel, list))
+		       != NULL) {
+			/* Removes itself from list as we free it */
+			tal_free(c);
+		}
+
+		/* Removes itself from list as we free it */
 		tal_free(p);
+	}
 	db_commit_transaction(ld->wallet->db);
 }
 
@@ -306,18 +302,21 @@ int main(int argc, char *argv[])
 	gossip_init(ld);
 
 	/* Load peers from database */
-	wallet_channels_load_active(ld, ld->wallet, &ld->peers);
+	if (!wallet_channels_load_active(ld, ld->wallet))
+		fatal("Could not load channels from the database");
 
 	/* TODO(cdecker) Move this into common location for initialization */
 	struct peer *peer;
 	list_for_each(&ld->peers, peer, list) {
-		populate_peer(ld, peer);
-		peer->seed = tal(peer, struct privkey);
-		derive_peer_seed(ld, peer->seed, &peer->id, peer->channel->id);
-		peer->owner = NULL;
-		if (!wallet_htlcs_load_for_channel(ld->wallet, peer->channel,
-						   &ld->htlcs_in, &ld->htlcs_out)) {
-			fatal("could not load htlcs for channel");
+		struct channel *channel;
+
+		list_for_each(&peer->channels, channel, list) {
+			if (!wallet_htlcs_load_for_channel(ld->wallet,
+							   channel,
+							   &ld->htlcs_in,
+							   &ld->htlcs_out)) {
+				fatal("could not load htlcs for channel");
+			}
 		}
 	}
 	if (!wallet_htlcs_reconnect(ld->wallet, &ld->htlcs_in, &ld->htlcs_out))

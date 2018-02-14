@@ -15,21 +15,14 @@ enum log_level {
 	/* That's really bad, we're broken. */
 	LOG_BROKEN
 };
+#define LOG_LEVEL_MAX LOG_BROKEN
 
-/* Special status code for tracing messages (subtract log_level). */
-#define STATUS_LOG_MIN (STATUS_LOG_MAX - LOG_BROKEN)
-#define STATUS_LOG_MAX (0x7FFF)
-
-/* Failure codes always have high bit set. */
-#define STATUS_FAIL 0x8000
-
-/* These are always followed by an ASCII string. */
-enum status_fail {
-	/*
-	 * These errors shouldn't happen:
-	 */
+/*
+ * These errors shouldn't happen:
+ */
+enum status_failreason {
 	/* Master daemon sent unknown/malformed command, or fd failed */
-	STATUS_FAIL_MASTER_IO = STATUS_FAIL,
+	STATUS_FAIL_MASTER_IO,
 
 	/* Hsmd sent unknown/malformed command, or fd failed */
 	STATUS_FAIL_HSM_IO,
@@ -39,15 +32,7 @@ enum status_fail {
 
 	/* Other internal error. */
 	STATUS_FAIL_INTERNAL_ERROR,
-
-	/*
-	 * These errors happen when the other peer misbehaves:
-	 */
-	/* I/O failure (probably they closed the socket) */
-	STATUS_FAIL_PEER_IO,
-
-	/* Peer did something else wrong */
-	STATUS_FAIL_PEER_BAD
 };
+#define STATUS_FAIL_MAX STATUS_FAIL_INTERNAL_ERROR
 
 #endif /* LIGHTNING_COMMON_STATUS_LEVELS_H */

@@ -256,6 +256,12 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 	struct log_entry *l = new_log_entry(log, level);
 
 	l->log = tal_vfmt(l, fmt, ap);
+
+	/* Sanitize any non-printable characters, and replace with '?' */
+	for (size_t i=0; i<strlen(l->log); i++)
+		if (l->log[i] < ' ' || l->log[i] >= 0x7f)
+			l->log[i] = '?';
+
 	maybe_print(log, l, 0);
 
 	add_entry(log, l);
@@ -289,6 +295,12 @@ void logv_add(struct log *log, const char *fmt, va_list ap)
 	list_del_from(&log->lr->log, &l->list);
 
 	tal_append_vfmt(&l->log, fmt, ap);
+
+	/* Sanitize any non-printable characters, and replace with '?' */
+	for (size_t i=oldlen; i<strlen(l->log); i++)
+		if (l->log[i] < ' ' || l->log[i] >= 0x7f)
+			l->log[i] = '?';
+
 	add_entry(log, l);
 
 	maybe_print(log, l, oldlen);

@@ -264,8 +264,10 @@ class LightningDTests(BaseLightningDTests):
         # Technically, this is async to fundchannel.
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l1.bitcoin.generate_block(1)
-        l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
-        l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
+        # We wait until gossipd sees local update, as well as status NORMAL,
+        # so it can definitely route through.
+        l1.daemon.wait_for_logs(['update for channel .* now ACTIVE', 'to CHANNELD_NORMAL'])
+        l2.daemon.wait_for_logs(['update for channel .* now ACTIVE', 'to CHANNELD_NORMAL'])
 
         # Hacky way to find our output.
         decoded=bitcoind.rpc.decoderawtransaction(tx)
@@ -1036,8 +1038,9 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(6)
 
         # Now wait for them all to hit normal state, do payments
+        l1.daemon.wait_for_logs(['update for channel .* now ACTIVE'] * num_peers
+                                + ['to CHANNELD_NORMAL'] * num_peers)
         for p in peers:
-            p.daemon.wait_for_log('to CHANNELD_NORMAL')
             if p.amount != 0:
                 self.pay(l1,p,100000000)
 
@@ -1681,6 +1684,7 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log(needle)
         # Need to increase timeout, intervals cannot be shortened with DEVELOPER=0
         wait_for(lambda: len(l1.getactivechannels()) == 2, timeout=60)
+        wait_for(lambda: len(l2.getactivechannels()) == 2, timeout=60)
 
         nodes = l1.rpc.listnodes()['nodes']
         assert set([n['nodeid'] for n in nodes]) == set([l1.info['id'], l2.info['id']])
@@ -2007,7 +2011,7 @@ class LightningDTests(BaseLightningDTests):
         assert route[0]['delay'] == 9 + shadow_route
 
         # BOLT #7:
-        # If A were to send an 4,999,999 millisatoshi to C via B, it needs to
+        # If A were to send 4,999,999 millisatoshi to C via B, it needs to
         # pay B the fee it specified in the B->C `channel_update`, calculated as
         # per [HTLC Fees](#htlc_fees):
         #
@@ -2102,6 +2106,48 @@ class LightningDTests(BaseLightningDTests):
         rhash = l3.rpc.invoice(4999999, 'test_forward_pad_fees_and_cltv', 'desc')['payment_hash']
         l1.rpc.sendpay(to_json(route), rhash)
         assert l3.rpc.listinvoices('test_forward_pad_fees_and_cltv')['invoices'][0]['status'] == 'paid'
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
+    def test_htlc_sig_persistence(self):
+        """Interrupt a payment between two peers, then fail and recover funds using the HTLC sig.
+        """
+        l1 = self.node_factory.get_node(options=['--dev-no-reconnect'])
+        l2 = self.node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'])
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        self.fund_channel(l1, l2, 10**6)
+        f = self.executor.submit(self.pay, l1, l2, 31337000)
+        l1.daemon.wait_for_log(r'HTLC out 0 RCVD_ADD_ACK_COMMIT->SENT_ADD_ACK_REVOCATION')
+        l1.stop()
+
+        # `pay` call is lost
+        self.assertRaises(ValueError, f.result)
+
+        # We should have the HTLC sig
+        assert(len(l1.db_query("SELECT * FROM htlc_sigs;")) == 1)
+
+        # This should reload the htlc_sig
+        l2.rpc.dev_fail(l1.info['id'])
+        l2.stop()
+        l1.bitcoin.rpc.generate(1)
+        l1.daemon.start()
+
+        assert l1.daemon.is_in_log(r'Loaded 1 HTLC signatures from DB')
+        l1.daemon.wait_for_logs([
+            r'Peer permanent failure in CHANNELD_NORMAL: Funding transaction spent',
+            r'Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US'
+        ])
+        l1.bitcoin.rpc.generate(5)
+        l1.daemon.wait_for_log("Broadcasting OUR_HTLC_TIMEOUT_TO_US")
+        time.sleep(3)
+        l1.bitcoin.rpc.generate(1)
+        l1.daemon.wait_for_logs([
+            r'Owning output . (\d+) .SEGWIT. txid',
+        ])
+
+        # We should now have a) the change from funding, b) the
+        # unilateral to us, and c) the HTLC respend to us
+        assert len(l1.rpc.listfunds()['outputs']) == 3
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_htlc_out_timeout(self):
@@ -2830,7 +2876,7 @@ class LightningDTests(BaseLightningDTests):
         # Wait for l1 to notice
         wait_for(lambda: not 'connected' in l1.rpc.listpeers()['peers'][0]['channels'][0])
 
-        # Now restart l1 and it should reload peers/channels from the DB
+        # Now restart l2 and it should reload peers/channels from the DB
         l2.daemon.start()
         wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 1)
 
@@ -3154,7 +3200,7 @@ class LightningDTests(BaseLightningDTests):
         # L1 asks for stupid low fees
         l1.rpc.dev_setfees(15)
 
-        l1.daemon.wait_for_log('STATUS_FAIL_PEER_BAD:.*update_fee 15 outside range 4250-75000')
+        l1.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 15 outside range 4250-75000')
         # Make sure the resolution of this one doesn't interfere with the next!
         # Note: may succeed, may fail with insufficient fee, depending on how
         # bitcoind feels!
@@ -3281,7 +3327,7 @@ class LightningDTests(BaseLightningDTests):
         peerlog = l2.rpc.listpeers(l1.info['id'], "io")['peers'][0]['log']
         assert any(l['type'] == 'IO_OUT' for l in peerlog)
         assert any(l['type'] == 'IO_IN' for l in peerlog)
-        
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_pay_disconnect(self):
         """If the remote node has disconnected, we fail payment, but can try again when it reconnects"""
@@ -3301,7 +3347,7 @@ class LightningDTests(BaseLightningDTests):
         # Make l2 upset by asking for crazy fee.
         l1.rpc.dev_setfees('150000')
         # Wait for l1 notice
-        l1.daemon.wait_for_log('STATUS_FAIL_PEER_BAD')
+        l1.daemon.wait_for_log(r'Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 150000 outside range 4250-75000')
 
         # Can't pay while its offline.
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
@@ -3335,6 +3381,30 @@ class LightningDTests(BaseLightningDTests):
                 continue
             oneconfig = l1.rpc.listconfigs(c)
             assert(oneconfig[c] == configs[c])
+
+    def test_multiple_channels(self):
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
+
+        for i in range(3):
+            # FIXME: we shouldn't disconnect on close?
+            ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+            assert ret['id'] == l2.info['id']
+
+            l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+            l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+            chanid = self.fund_channel(l1, l2, 10**6)
+
+            l1.rpc.close(l2.info['id'])
+            l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+            l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+
+        channels = l1.rpc.listpeers()['peers'][0]['channels']
+        assert len(channels) == 3
+        # Most in state ONCHAIND_MUTUAL, last is CLOSINGD_COMPLETE
+        for i in range(len(channels)-1):
+            assert channels[i]['state'] == 'ONCHAIND_MUTUAL'
+        assert channels[-1]['state'] == 'CLOSINGD_COMPLETE'
 
     def test_cli(self):
         l1 = self.node_factory.get_node()
@@ -3416,11 +3486,13 @@ class LightningDTests(BaseLightningDTests):
         assert len(l1.rpc.listpeers()['peers']) == 1
 
         # This should fail, the funding tx is in the mempool and may confirm
-        self.assertRaises(ValueError, l1.rpc.dev_forget_channel, l2.info['id'])
+        self.assertRaisesRegex(ValueError,
+                               "Cowardly refusing to forget channel",
+                               l1.rpc.dev_forget_channel, l2.info['id'])
         assert len(l1.rpc.listpeers()['peers']) == 1
 
         # Forcing should work
-        l1.rpc.dev_forget_channel(l2.info['id'], True)
+        l1.rpc.dev_forget_channel(l2.info['id'], None, True)
         assert len(l1.rpc.listpeers()['peers']) == 0
 
         # And restarting should keep that peer forgotten

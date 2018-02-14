@@ -5,7 +5,7 @@
 #include <ccan/tal/tal.h>
 #include <common/htlc.h>
 
-/* The minimal info about an htlc. */
+/* The minimal info about an HTLC. */
 struct htlc_stub {
 	enum side owner;
 	u32 cltv_expiry;

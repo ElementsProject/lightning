@@ -19,19 +19,19 @@
 #include <inttypes.h>
 #include <string.h>
 
-struct channel *new_channel(const tal_t *ctx,
-			    const struct bitcoin_txid *funding_txid,
-			    unsigned int funding_txout,
-			    u64 funding_satoshis,
-			    u64 local_msatoshi,
-			    const u32 feerate_per_kw[NUM_SIDES],
-			    const struct channel_config *local,
-			    const struct channel_config *remote,
-			    const struct basepoints *local_basepoints,
-			    const struct basepoints *remote_basepoints,
-			    const struct pubkey *local_funding_pubkey,
-			    const struct pubkey *remote_funding_pubkey,
-			    enum side funder)
+struct channel *new_full_channel(const tal_t *ctx,
+				 const struct bitcoin_txid *funding_txid,
+				 unsigned int funding_txout,
+				 u64 funding_satoshis,
+				 u64 local_msatoshi,
+				 const u32 feerate_per_kw[NUM_SIDES],
+				 const struct channel_config *local,
+				 const struct channel_config *remote,
+				 const struct basepoints *local_basepoints,
+				 const struct basepoints *remote_basepoints,
+				 const struct pubkey *local_funding_pubkey,
+				 const struct pubkey *remote_funding_pubkey,
+				 enum side funder)
 {
 	struct channel *channel = new_initial_channel(ctx, funding_txid,
 						      funding_txout,
@@ -918,7 +918,7 @@ bool channel_force_htlcs(struct channel *channel,
 			 const enum htlc_state *hstates,
 			 const struct fulfilled_htlc *fulfilled,
 			 const enum side *fulfilled_sides,
-			 const struct failed_htlc *failed,
+			 const struct failed_htlc **failed,
 			 const enum side *failed_sides)
 {
 	size_t i;
@@ -1002,29 +1002,29 @@ bool channel_force_htlcs(struct channel *channel,
 	for (i = 0; i < tal_count(failed); i++) {
 		struct htlc *htlc;
 		htlc = channel_get_htlc(channel, failed_sides[i],
-					failed[i].id);
+					failed[i]->id);
 		if (!htlc) {
 			status_trace("Fail %s HTLC %"PRIu64" not found",
 				     failed_sides[i] == LOCAL ? "out" : "in",
-				     failed[i].id);
+				     failed[i]->id);
 			return false;
 		}
 		if (htlc->r) {
 			status_trace("Fail %s HTLC %"PRIu64" already fulfilled",
 				     failed_sides[i] == LOCAL ? "out" : "in",
-				     failed[i].id);
+				     failed[i]->id);
 			return false;
 		}
 		if (htlc->fail) {
 			status_trace("Fail %s HTLC %"PRIu64" already failed",
 				     failed_sides[i] == LOCAL ? "out" : "in",
-				     failed[i].id);
+				     failed[i]->id);
 			return false;
 		}
 		if (htlc->malformed) {
 			status_trace("Fail %s HTLC %"PRIu64" already malformed",
 				     failed_sides[i] == LOCAL ? "out" : "in",
-				     failed[i].id);
+				     failed[i]->id);
 			return false;
 		}
 		if (!htlc_has(htlc, HTLC_REMOVING)) {
@@ -1034,11 +1034,12 @@ bool channel_force_htlcs(struct channel *channel,
 				     htlc_state_name(htlc->state));
 			return false;
 		}
-		if (failed[i].malformed)
-			htlc->malformed = failed[i].malformed;
+		if (failed[i]->malformed)
+			htlc->malformed = failed[i]->malformed;
 		else
-			htlc->fail = tal_dup_arr(htlc, u8, failed[i].failreason,
-						 tal_len(failed[i].failreason),
+			htlc->fail = tal_dup_arr(htlc, u8,
+						 failed[i]->failreason,
+						 tal_len(failed[i]->failreason),
 						 0);
 	}
 

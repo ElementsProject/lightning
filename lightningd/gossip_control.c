@@ -111,6 +111,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_GET_TXOUT_REPLY:
 	case WIRE_GOSSIP_DISABLE_CHANNEL:
 	case WIRE_GOSSIP_ROUTING_FAILURE:
+	case WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
@@ -190,7 +191,7 @@ static void json_getnodes_reply(struct subd *gossip, const u8 *reply,
 				const int *fds,
 				struct command *cmd)
 {
-	struct gossip_getnodes_entry *nodes;
+	struct gossip_getnodes_entry **nodes;
 	struct json_result *response = new_json_result(cmd);
 	size_t i, j;
 
@@ -204,21 +205,21 @@ static void json_getnodes_reply(struct subd *gossip, const u8 *reply,
 
 	for (i = 0; i < tal_count(nodes); i++) {
 		json_object_start(response, NULL);
-		json_add_pubkey(response, "nodeid", &nodes[i].nodeid);
-		if (nodes[i].last_timestamp < 0) {
+		json_add_pubkey(response, "nodeid", &nodes[i]->nodeid);
+		if (nodes[i]->last_timestamp < 0) {
 			json_object_end(response);
 			continue;
 		}
 		json_add_string(response, "alias",
-				tal_strndup(response, (char *)nodes[i].alias,
-					    tal_len(nodes[i].alias)));
+				tal_strndup(response, (char *)nodes[i]->alias,
+					    tal_len(nodes[i]->alias)));
 		json_add_hex(response, "color",
-			     nodes[i].color, ARRAY_SIZE(nodes[i].color));
+			     nodes[i]->color, ARRAY_SIZE(nodes[i]->color));
 		json_add_u64(response, "last_timestamp",
-			     nodes[i].last_timestamp);
+			     nodes[i]->last_timestamp);
 		json_array_start(response, "addresses");
-		for (j=0; j<tal_count(nodes[i].addresses); j++) {
-			json_add_address(response, NULL, &nodes[i].addresses[j]);
+		for (j=0; j<tal_count(nodes[i]->addresses); j++) {
+			json_add_address(response, NULL, &nodes[i]->addresses[j]);
 		}
 		json_array_end(response);
 		json_object_end(response);
@@ -294,23 +295,24 @@ static void json_getroute_reply(struct subd *gossip, const u8 *reply, const int 
 
 static void json_getroute(struct command *cmd, const char *buffer, const jsmntok_t *params)
 {
-	struct pubkey id;
-	jsmntok_t *idtok, *msatoshitok, *riskfactortok, *cltvtok;
+	struct lightningd *ld = cmd->ld;
+	struct pubkey source = ld->id, destination;
+	jsmntok_t *idtok, *msatoshitok, *riskfactortok, *cltvtok, *fromidtok;
 	u64 msatoshi;
 	unsigned cltv = 9;
 	double riskfactor;
-	struct lightningd *ld = cmd->ld;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "id", &idtok,
 			     "msatoshi", &msatoshitok,
 			     "riskfactor", &riskfactortok,
 			     "?cltv", &cltvtok,
+			     "?fromid", &fromidtok,
 			     NULL)) {
 		return;
 	}
 
-	if (!json_tok_pubkey(buffer, idtok, &id)) {
+	if (!json_tok_pubkey(buffer, idtok, &destination)) {
 		command_fail(cmd, "Invalid id");
 		return;
 	}
@@ -333,7 +335,13 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 			     buffer + riskfactortok->start);
 		return;
 	}
-	u8 *req = towire_gossip_getroute_request(cmd, &ld->id, &id, msatoshi, riskfactor*1000, cltv);
+
+	if (fromidtok && !json_tok_pubkey(buffer, fromidtok, &source)) {
+		command_fail(cmd, "Invalid from id");
+		return;
+	}
+
+	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination, msatoshi, riskfactor*1000, cltv);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 	command_still_pending(cmd);
 }
@@ -341,7 +349,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 static const struct json_command getroute_command = {
 	"getroute",
 	json_getroute,
-	"Show route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9)"
+	"Show route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9), if specified search from {source} otherwise use this node as source."
 };
 AUTODATA(json_command, &getroute_command);
 

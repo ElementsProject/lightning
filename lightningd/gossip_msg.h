@@ -25,9 +25,8 @@ struct gossip_getchannels_entry {
 	u32 fee_per_millionth;
 };
 
-void fromwire_gossip_getnodes_entry(const tal_t *ctx, const u8 **pptr,
-				    size_t *max,
-				    struct gossip_getnodes_entry *entry);
+struct gossip_getnodes_entry *
+fromwire_gossip_getnodes_entry(const tal_t *ctx, const u8 **pptr, size_t *max);
 void towire_gossip_getnodes_entry(u8 **pptr,
 				  const struct gossip_getnodes_entry *entry);
 

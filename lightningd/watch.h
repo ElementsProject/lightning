@@ -25,14 +25,14 @@ struct txwatch_output {
 struct txowatch {
 	struct chain_topology *topo;
 
-	/* Peer who owns us. */
-	struct peer *peer;
+	/* Channel who owns us. */
+	struct channel *channel;
 
 	/* Output to watch. */
 	struct txwatch_output out;
 
 	/* A new tx. */
-	enum watch_result (*cb)(struct peer *peer,
+	enum watch_result (*cb)(struct channel *channel,
 				const struct bitcoin_tx *tx,
 				size_t input_num,
 				const struct block *block,
@@ -51,15 +51,15 @@ HTABLE_DEFINE_TYPE(struct txowatch, txowatch_keyof, txo_hash, txowatch_eq,
 struct txwatch {
 	struct chain_topology *topo;
 
-	/* Peer who owns us. */
-	struct peer *peer;
+	/* Channel who owns us. */
+	struct channel *channel;
 
 	/* Transaction to watch. */
 	struct bitcoin_txid txid;
 	unsigned int depth;
 
 	/* A new depth (0 if kicked out, otherwise 1 = tip, etc.) */
-	enum watch_result (*cb)(struct peer *peer,
+	enum watch_result (*cb)(struct channel *channel,
 				const struct bitcoin_tx *tx,
 				unsigned int depth,
 				void *cbdata);
@@ -76,59 +76,59 @@ HTABLE_DEFINE_TYPE(struct txwatch, txwatch_keyof, txid_hash, txwatch_eq,
 
 struct txwatch *watch_txid_(const tal_t *ctx,
 			    struct chain_topology *topo,
-			    struct peer *peer,
+			    struct channel *channel,
 			    const struct bitcoin_txid *txid,
-			    enum watch_result (*cb)(struct peer *peer,
+			    enum watch_result (*cb)(struct channel *channel,
 						    const struct bitcoin_tx *,
 						    unsigned int depth,
 						    void *),
 			    void *cbdata);
 
-#define watch_txid(ctx, topo, peer_, txid, cb, cbdata)			\
-	watch_txid_((ctx), (topo), (peer_), (txid),			\
+#define watch_txid(ctx, topo, channel_, txid, cb, cbdata)			\
+	watch_txid_((ctx), (topo), (channel_), (txid),			\
 		    typesafe_cb_preargs(enum watch_result, void *,	\
 					(cb), (cbdata),			\
-					struct peer *,			\
+					struct channel *,			\
 					const struct bitcoin_tx *,	\
 					unsigned int depth),		\
 		    (cbdata))
 
 struct txwatch *watch_tx_(const tal_t *ctx,
 			  struct chain_topology *topo,
-			  struct peer *peer,
+			  struct channel *channel,
 			  const struct bitcoin_tx *tx,
-			  enum watch_result (*cb)(struct peer *peer,
+			  enum watch_result (*cb)(struct channel *channel,
 						  const struct bitcoin_tx *,
 						  unsigned int depth,
 						  void *),
 			  void *cbdata);
 
-#define watch_tx(ctx, topo, peer_, tx, cb, cbdata)			\
-	watch_tx_((ctx), (topo), (peer_), (tx),				\
+#define watch_tx(ctx, topo, channel_, tx, cb, cbdata)			\
+	watch_tx_((ctx), (topo), (channel_), (tx),				\
 		  typesafe_cb_preargs(enum watch_result, void *,	\
 				      (cb), (cbdata),			\
-				      struct peer *,			\
+				      struct channel *,			\
 				      const struct bitcoin_tx *,	\
 				      unsigned int depth),		\
 		  (cbdata))
 
 struct txowatch *watch_txo_(const tal_t *ctx,
 			    struct chain_topology *topo,
-			    struct peer *peer,
+			    struct channel *channel,
 			    const struct bitcoin_txid *txid,
 			    unsigned int output,
-			    enum watch_result (*cb)(struct peer *peer,
+			    enum watch_result (*cb)(struct channel *channel,
 						    const struct bitcoin_tx *tx,
 						    size_t input_num,
 						    const struct block *block,
 						    void *),
 			    void *cbdata);
 
-#define watch_txo(ctx, topo, peer_, txid, outnum, cb, cbdata)		\
-	watch_txo_((ctx), (topo), (peer_), (txid), (outnum),		\
+#define watch_txo(ctx, topo, channel_, txid, outnum, cb, cbdata)		\
+	watch_txo_((ctx), (topo), (channel_), (txid), (outnum),		\
 		   typesafe_cb_preargs(enum watch_result, void *,	\
 				      (cb), (cbdata),			\
-				      struct peer *,			\
+				      struct channel *,			\
 				      const struct bitcoin_tx *,	\
 				       size_t,				\
 				       const struct block *block),	\
@@ -136,7 +136,7 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 
 struct txwatch *find_txwatch(struct chain_topology *topo,
 			     const struct bitcoin_txid *txid,
-			     const struct peer *peer);
+			     const struct channel *channel);
 
 void txwatch_fire(struct chain_topology *topo,
 		  const struct bitcoin_tx *tx,

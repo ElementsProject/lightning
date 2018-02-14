@@ -206,6 +206,27 @@ void fromwire_pad(const u8 **cursor, size_t *max, size_t num)
 	fromwire(cursor, max, NULL, num);
 }
 
+/*
+ * Don't allow control chars except spaces: we only use this for stuff
+ * from subdaemons, who shouldn't do that.
+ */
+char *fromwire_wirestring(const tal_t *ctx, const u8 **cursor, size_t *max)
+{
+	size_t i;
+
+	for (i = 0; i < *max; i++) {
+		if ((*cursor)[i] == '\0') {
+			char *str = tal_arr(ctx, char, i + 1);
+			fromwire(cursor, max, str, i + 1);
+			return str;
+		}
+		if ((*cursor)[i] < ' ')
+			break;
+	}
+	fromwire_fail(cursor, max);
+	return NULL;
+}
+
 REGISTER_TYPE_TO_STRING(short_channel_id, short_channel_id_to_str);
 REGISTER_TYPE_TO_HEXSTR(channel_id);
 
@@ -225,7 +246,8 @@ void derive_channel_id(struct channel_id *channel_id,
 	channel_id->id[sizeof(*channel_id)-1] ^= txout;
 }
 
-void fromwire_bitcoin_tx(const u8 **cursor, size_t *max, struct bitcoin_tx *tx)
+struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
+				       const u8 **cursor, size_t *max)
 {
-	pull_bitcoin_tx_onto(tx, cursor, max, tx);
+	return pull_bitcoin_tx(ctx, cursor, max);
 }

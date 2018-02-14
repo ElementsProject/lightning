@@ -90,6 +90,9 @@ void json_add_literal(struct json_result *result, const char *fieldname,
 void json_add_snum(struct json_result *result, const char *fieldname,
 		   int value);
 /* '"fieldname" : value' or 'value' if fieldname is NULL */
+void json_add_double(struct json_result *result, const char *fieldname,
+		     double value);
+/* '"fieldname" : value' or 'value' if fieldname is NULL */
 void json_add_num(struct json_result *result, const char *fieldname,
 		  unsigned int value);
 /* '"fieldname" : value' or 'value' if fieldname is NULL */

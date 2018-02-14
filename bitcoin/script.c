@@ -512,7 +512,7 @@ u8 **bitcoin_to_local_spend_revocation(const tal_t *ctx,
  *
  * #### Offered HTLC Outputs
  *
- * This output sends funds to a HTLC-timeout transaction after the HTLC
+ * This output sends funds to an HTLC-timeout transaction after the HTLC
  * timeout, or to the remote peer using the payment preimage or the revocation
  * key.  The output is a P2WSH, with a witness script:
  *

@@ -41,7 +41,6 @@ struct wireaddr {
 void towire_wireaddr(u8 **pptr, const struct wireaddr *addr);
 bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr);
 
-bool parse_ip_port(tal_t *ctx, const char *arg, char **ip, u16 *port);
 bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 port);
 
 char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a);

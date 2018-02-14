@@ -2,12 +2,12 @@
 .\"     Title: lightning-pay
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 02/06/2018
+.\"      Date: 02/11/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-PAY" "7" "02/06/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-PAY" "7" "02/11/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,12 +31,14 @@
 lightning-pay \- Protocol for sending a payment to a BOLT11 invoice
 .SH "SYNOPSIS"
 .sp
-\fBpay\fR \fIbolt11\fR [\fImsatoshi\fR] [\fIdescription\fR] [\fIriskfactor\fR]
+\fBpay\fR \fIbolt11\fR [\fImsatoshi\fR] [\fIdescription\fR] [\fIriskfactor\fR] [\fImaxfeepercent\fR]
 .SH "DESCRIPTION"
 .sp
-The \fBpay\fR RPC command attempts to find a route to the given destination, and send the funds it asks for\&. If the \fIbolt11\fR does not contain an amount, \fImsatoshi\fR is required, otherwise if it is specified it must be \fInull\fR\&. If \fIbolt11\fR contains a description hash (\fIh\fR field) \fIdescription\fR is required, otherwise it is unused\&. The \fIriskfactor\fR is described in detail in lightning\-getroute(7), and defaults to 1\&.0\&.
+The \fBpay\fR RPC command attempts to find a route to the given destination, and send the funds it asks for\&. If the \fIbolt11\fR does not contain an amount, \fImsatoshi\fR is required, otherwise if it is specified it must be \fInull\fR\&. If \fIbolt11\fR contains a description hash (\fIh\fR field) \fIdescription\fR is required, otherwise it is unused\&. The \fIriskfactor\fR is described in detail in lightning\-getroute(7), and defaults to 1\&.0\&. The \fImaxfeepercent\fR limits the money paid in fees, and defaults to 0\&.5\&. The \(oqmaxfeepercent\(cq is a percentage of the amount that is to be paid\&.
 .sp
 The response will occur when the payment fails or succeeds\&. Once a payment has succeeded, calls to \fBpay\fR with the same \fIbolt11\fR will succeed immediately\&.
+.sp
+When using \fIlightning\-cli\fR, you may skip optional parameters by using \fInull\fR\&. Alternatively, use \fB\-k\fR option to provide parameters by name\&.
 .SH "RETURN VALUE"
 .sp
 On success, this returns the payment \fIpreimage\fR which hashes to the \fIpayment_hash\fR to prove that the payment was successful\&.
@@ -94,7 +96,7 @@ using different amount or destination\&.
 .\}
 202\&. Unparseable onion reply\&. The
 \fIdata\fR
-field of the error will have a
+field of the error will have an
 \fIonionreply\fR
 field, a hex string representation of the raw onion reply\&.
 .RE
@@ -134,6 +136,23 @@ field of the error will be routing failure object\&.
 .IP \(bu 2.3
 .\}
 205\&. Unable to find a route\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+206\&. Route too expensive\&. The
+\fIdata\fR
+field of the error will indicate the actual
+\fIfee\fR
+as well as the
+\fIfeepercent\fR
+percentage that the fee has of the destination payment amount\&.
 .RE
 .sp
 A routing failure object has the fields below:

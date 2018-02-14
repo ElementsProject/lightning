@@ -3,6 +3,7 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
+#include <ccan/cast/cast.h>
 #include <ccan/container_of/container_of.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/endian/endian.h>
@@ -610,8 +611,7 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
 	struct pubkey local_pubkey, remote_pubkey;
-	struct utxo *inputs;
-	const struct utxo **utxomap;
+	struct utxo **utxomap;
 	struct bitcoin_tx *tx;
 	u8 *wscript;
 	u16 outnum;
@@ -623,21 +623,20 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	if (!fromwire_hsm_sign_funding(tmpctx, msg, NULL,
 				       &satoshi_out, &change_out,
 				       &change_keyindex, &local_pubkey,
-				       &remote_pubkey, &inputs))
+				       &remote_pubkey, &utxomap))
 		master_badmsg(WIRE_HSM_SIGN_FUNDING, msg);
-
-	utxomap = to_utxoptr_arr(tmpctx, inputs);
 
 	if (change_out)
 		bitcoin_pubkey(&changekey, change_keyindex);
 
-	tx = funding_tx(tmpctx, &outnum, utxomap,
+	tx = funding_tx(tmpctx, &outnum,
+			cast_const2(const struct utxo **, utxomap),
 			satoshi_out, &local_pubkey, &remote_pubkey,
 			change_out, &changekey,
 			NULL);
 
-	scriptSigs = tal_arr(tmpctx, u8*, tal_count(inputs));
-	for (i = 0; i < tal_count(inputs); i++) {
+	scriptSigs = tal_arr(tmpctx, u8*, tal_count(utxomap));
+	for (i = 0; i < tal_count(utxomap); i++) {
 		struct pubkey inkey;
 		struct privkey inprivkey;
 		const struct utxo *in = utxomap[i];
@@ -657,14 +656,14 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 
 		tx->input[i].witness = bitcoin_witness_p2wpkh(tx, &sig, &inkey);
 
-		if (inputs[i].is_p2sh)
+		if (utxomap[i]->is_p2sh)
 			scriptSigs[i] = bitcoin_scriptsig_p2sh_p2wpkh(tx, &inkey);
 		else
 			scriptSigs[i] = NULL;
 	}
 
 	/* Now complete the transaction by attaching the scriptSigs where necessary */
-	for (size_t i=0; i<tal_count(inputs); i++)
+	for (size_t i=0; i<tal_count(utxomap); i++)
 		tx->input[i].script = scriptSigs[i];
 
 	daemon_conn_send(master,
@@ -680,8 +679,7 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	const tal_t *tmpctx = tal_tmpctx(master);
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
-	struct utxo *inutxos;
-	const struct utxo **utxos;
+	struct utxo **utxos;
 	u8 *wscript;
 	u8 **scriptSigs;
 	struct bitcoin_tx *tx;
@@ -691,7 +689,7 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 
 	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg, NULL, &satoshi_out,
 					  &change_out, &change_keyindex,
-					  &scriptpubkey, &inutxos)) {
+					  &scriptpubkey, &utxos)) {
 		status_broken("Failed to parse sign_withdrawal: %s",
 			      tal_hex(trc, msg));
 		return;
@@ -704,11 +702,10 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 		return;
 	}
 
-	/* We need an array of pointers, since withdraw_tx permutes them */
-	utxos = to_utxoptr_arr(tmpctx, inutxos);
 	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
 	tx = withdraw_tx(
-		tmpctx, utxos, scriptpubkey, satoshi_out,
+		tmpctx, cast_const2(const struct utxo **, utxos),
+		scriptpubkey, satoshi_out,
 		&changekey, change_out, NULL);
 
 	scriptSigs = tal_arr(tmpctx, u8*, tal_count(utxos));

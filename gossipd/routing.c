@@ -580,8 +580,8 @@ struct routing_channel *routing_channel_new(const tal_t *ctx,
 	return chan;
 }
 
-static void remove_connection_from_channel(struct node_connection *nc,
-					   struct routing_state *rstate)
+static void destroy_node_connection(struct node_connection *nc,
+				    struct routing_state *rstate)
 {
 	struct routing_channel *chan = uintmap_get(
 	    &rstate->channels, short_channel_id_to_uint(&nc->short_channel_id));
@@ -600,7 +600,7 @@ void channel_add_connection(struct routing_state *rstate,
 	int direction = get_channel_direction(&nc->src->id, &nc->dst->id);
 	assert(chan != NULL);
 	chan->connections[direction] = nc;
-	tal_add_destructor2(nc, remove_connection_from_channel, rstate);
+	tal_add_destructor2(nc, destroy_node_connection, rstate);
 }
 
 static void add_pending_node_announcement(struct routing_state *rstate, struct pubkey *nodeid)
@@ -931,10 +931,11 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 		return;
 	}
 
-	status_trace("Received channel_update for channel %s(%d)",
+	status_trace("Received channel_update for channel %s(%d) now %s",
 		     type_to_string(trc, struct short_channel_id,
 				    &short_channel_id),
-		     flags & 0x01);
+		     flags & 0x01,
+		     flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
 
 	c->last_timestamp = timestamp;
 	c->delay = expiry;
@@ -1263,6 +1264,10 @@ void routing_failure(struct routing_state *rstate,
 	 * reactivated. */
 	if (failcode & UPDATE) {
 		if (tal_len(channel_update) == 0) {
+			/* Suppress UNUSUAL log if local failure */
+			if (structeq(&erring_node_pubkey->pubkey,
+				     &rstate->local_id.pubkey))
+				goto out;
 			status_trace("UNUSUAL routing_failure: "
 				     "UPDATE bit set, no channel_update. "
 				     "failcode: 0x%04x",
@@ -1287,5 +1292,34 @@ void routing_failure(struct routing_state *rstate,
 	}
 
 out:
+	tal_free(tmpctx);
+}
+
+void mark_channel_unroutable(struct routing_state *rstate,
+			     const struct short_channel_id *channel)
+{
+	const tal_t *tmpctx = tal_tmpctx(rstate);
+	struct routing_channel *chan;
+	time_t now = time_now().ts.tv_sec;
+	const char *scid = type_to_string(tmpctx, struct short_channel_id,
+					  channel);
+
+	status_trace("Received mark_channel_unroutable channel %s",
+		     scid);
+
+	chan = uintmap_get(&rstate->channels,
+			   short_channel_id_to_uint(channel));
+
+	if (!chan) {
+		status_trace("UNUSUAL mark_channel_unroutable: "
+			     "channel %s not in routemap",
+			     scid);
+		tal_free(tmpctx);
+		return;
+	}
+	if (chan->connections[0])
+		chan->connections[0]->unroutable_until = now + 20;
+	if (chan->connections[1])
+		chan->connections[1]->unroutable_until = now + 20;
 	tal_free(tmpctx);
 }

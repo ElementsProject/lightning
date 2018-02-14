@@ -210,52 +210,52 @@ static void destroy_outgoing_tx(struct outgoing_tx *otx)
 	list_del(&otx->list);
 }
 
-static void clear_otx_peer(struct peer *peer, struct outgoing_tx *otx)
+static void clear_otx_channel(struct channel *channel, struct outgoing_tx *otx)
 {
-	if (otx->peer != peer)
-		fatal("peer %p, otx %p has peer %p", peer, otx, otx->peer);
-	otx->peer = NULL;
+	if (otx->channel != channel)
+		fatal("channel %p, otx %p has channel %p", channel, otx, otx->channel);
+	otx->channel = NULL;
 }
 
 static void broadcast_done(struct bitcoind *bitcoind,
 			   int exitstatus, const char *msg,
 			   struct outgoing_tx *otx)
 {
-	/* Peer gone?  Stop. */
-	if (!otx->peer) {
+	/* Channel gone?  Stop. */
+	if (!otx->channel) {
 		tal_free(otx);
 		return;
 	}
 
-	/* No longer needs to be disconnected if peer dies. */
-	tal_del_destructor2(otx->peer, clear_otx_peer, otx);
+	/* No longer needs to be disconnected if channel dies. */
+	tal_del_destructor2(otx->channel, clear_otx_channel, otx);
 
 	if (otx->failed && exitstatus != 0) {
-		otx->failed(otx->peer, exitstatus, msg);
+		otx->failed(otx->channel, exitstatus, msg);
 		tal_free(otx);
 	} else {
-		/* For continual rebroadcasting, until peer freed. */
-		tal_steal(otx->peer, otx);
+		/* For continual rebroadcasting, until channel freed. */
+		tal_steal(otx->channel, otx);
 		list_add_tail(&bitcoind->ld->topology->outgoing_txs, &otx->list);
 		tal_add_destructor(otx, destroy_outgoing_tx);
 	}
 }
 
 void broadcast_tx(struct chain_topology *topo,
-		  struct peer *peer, const struct bitcoin_tx *tx,
-		  void (*failed)(struct peer *peer,
+		  struct channel *channel, const struct bitcoin_tx *tx,
+		  void (*failed)(struct channel *channel,
 				 int exitstatus, const char *err))
 {
-	/* Peer might vanish: topo owns it to start with. */
+	/* Channel might vanish: topo owns it to start with. */
 	struct outgoing_tx *otx = tal(topo, struct outgoing_tx);
 	const u8 *rawtx = linearize_tx(otx, tx);
 
-	otx->peer = peer;
+	otx->channel = channel;
 	bitcoin_txid(tx, &otx->txid);
 	otx->hextx = tal_hex(otx, rawtx);
 	otx->failed = failed;
 	tal_free(rawtx);
-	tal_add_destructor2(peer, clear_otx_peer, otx);
+	tal_add_destructor2(channel, clear_otx_channel, otx);
 
 	log_add(topo->log, " (tx %s)",
 		type_to_string(ltmp, struct bitcoin_txid, &otx->txid));
@@ -679,9 +679,9 @@ void chaintopology_mark_pointers_used(struct htable *memtable,
 }
 #endif /* DEVELOPER */
 
-/* On shutdown, peers get deleted last.  That frees from our list, so
+/* On shutdown, channels get deleted last.  That frees from our list, so
  * do it now instead. */
-static void destroy_outgoing_txs(struct chain_topology *topo)
+static void destroy_chain_topology(struct chain_topology *topo)
 {
 	struct outgoing_tx *otx;
 
@@ -710,21 +710,21 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 
 void setup_topology(struct chain_topology *topo,
 		    struct timers *timers,
-		    struct timerel poll_time, u32 first_peer_block)
+		    struct timerel poll_time, u32 first_channel_block)
 {
 	memset(&topo->feerate, 0, sizeof(topo->feerate));
 	topo->timers = timers;
 	topo->poll_time = poll_time;
 	/* Start one before the block we are interested in (as we won't
 	 * get notifications on txs in that block). */
-	topo->first_blocknum = first_peer_block - 1;
+	topo->first_blocknum = first_channel_block - 1;
 
 	/* Make sure bitcoind is started, and ready */
 	wait_for_bitcoind(topo->bitcoind);
 
 	bitcoind_getblockcount(topo->bitcoind, get_init_blockhash, topo);
 
-	tal_add_destructor(topo, destroy_outgoing_txs);
+	tal_add_destructor(topo, destroy_chain_topology);
 
 	/* Begin fee estimation. */
 	start_fee_estimate(topo);

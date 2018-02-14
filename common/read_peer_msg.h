@@ -12,7 +12,7 @@ struct channel_id;
  * read_peer_msg - read & decode in a peer message, handling common ones.
  * @ctx: context to allocate return packet from.
  * @cs: the cryptostate (updated)
- * @channel_id: the channel id (for identifying errors)
+ * @chanid: the channel id (for identifying errors)
  * @send_reply: the way to send a reply packet (eg. sync_crypto_write_arg)
  * @io_error: what to do if there's an IO error (eg. status_fail_io)
  *            (MUST NOT RETURN!)
@@ -22,26 +22,29 @@ struct channel_id;
  * This returns NULL if it handled the message, so it's normally called in
  * a loop.
  */
-#define read_peer_msg(ctx, cs, channel_id, send_reply, io_error, err_pkt, arg) \
-	read_peer_msg_((ctx), PEER_FD, GOSSIP_FD, (cs), (channel_id),	\
+#define read_peer_msg(ctx, cs, chanid, send_reply, io_error, err_pkt, arg) \
+	read_peer_msg_((ctx), PEER_FD, GOSSIP_FD, (cs), (chanid),	\
 		       typesafe_cb_preargs(bool, void *, (send_reply), (arg), \
 					   struct crypto_state *, int,	\
 					   const u8 *),			\
 		       typesafe_cb_preargs(void, void *, (io_error), (arg), \
 					   const char *),		\
 		       typesafe_cb_preargs(void, void *, (err_pkt), (arg), \
-					   const char *, bool),		\
+					   const char *,		\
+					   const struct channel_id *),	\
 		       arg)
 
 /* Helper: sync_crypto_write, with extra args it ignores */
 bool sync_crypto_write_arg(struct crypto_state *cs, int fd, const u8 *TAKES,
 			   void *unused);
 
-/* Helper: calls status_failed(STATUS_FAIL_PEER_IO) */
+/* Helper: calls status_fatal_connection_lost. */
+/* FIXME: Remove what_i_was_doing arg */
 void status_fail_io(const char *what_i_was_doing, void *unused);
 
-/* Helper: calls status_failed(STATUS_FAIL_PEER_BAD, <error>) */
-void status_fail_errpkt(const char *desc, bool this_channel_only, void *unused);
+/* Helper: calls status_fatal_received_errmsg() */
+void status_fail_errpkt(const char *desc, const struct channel_id *c,
+			void *unused);
 
 u8 *read_peer_msg_(const tal_t *ctx,
 		   int peer_fd, int gossip_fd,
@@ -50,7 +53,7 @@ u8 *read_peer_msg_(const tal_t *ctx,
 		   bool (*send_reply)(struct crypto_state *cs, int fd,
 				      const u8 *TAKES,  void *arg),
 		   void (*io_error)(const char *what_i_was_doing, void *arg),
-		   void (*err_pkt)(const char *desc, bool this_channel_only,
+		   void (*err_pkt)(const char *desc, const struct channel_id *,
 				   void *arg),
 		   void *arg);
 

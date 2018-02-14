@@ -47,8 +47,8 @@ void fromwire_added_htlc(const u8 **cursor, size_t *max,
 			 struct added_htlc *added);
 void fromwire_fulfilled_htlc(const u8 **cursor, size_t *max,
 			     struct fulfilled_htlc *fulfilled);
-void fromwire_failed_htlc(const tal_t *ctx, const u8 **cursor, size_t *max,
-			  struct failed_htlc *failed);
+struct failed_htlc *fromwire_failed_htlc(const tal_t *ctx, const u8 **cursor,
+					 size_t *max);
 void fromwire_changed_htlc(const u8 **cursor, size_t *max,
 			   struct changed_htlc *changed);
 enum htlc_state fromwire_htlc_state(const u8 **cursor, size_t *max);

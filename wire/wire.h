@@ -21,6 +21,9 @@ struct bitcoin_txid;
 struct preimage;
 struct ripemd160;
 
+/* Makes generate-wire.py work */
+typedef char wirestring;
+
 void derive_channel_id(struct channel_id *channel_id,
 		       struct bitcoin_txid *txid, u16 txout);
 
@@ -55,6 +58,7 @@ void towire_bool(u8 **pptr, bool v);
 void towire_u8_array(u8 **pptr, const u8 *arr, size_t num);
 
 void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx);
+void towire_wirestring(u8 **pptr, const char *str);
 
 const u8 *fromwire(const u8 **cursor, size_t *max, void *copy, size_t n);
 u8 fromwire_u8(const u8 **cursor, size_t *max);
@@ -86,6 +90,8 @@ void fromwire_ripemd160(const u8 **cursor, size_t *max, struct ripemd160 *ripemd
 void fromwire_pad(const u8 **cursor, size_t *max, size_t num);
 
 void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num);
+char *fromwire_wirestring(const tal_t *ctx, const u8 **cursor, size_t *max);
 
-void fromwire_bitcoin_tx(const u8 **cursor, size_t *max, struct bitcoin_tx *tx);
+struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
+				       const u8 **cursor, size_t *max);
 #endif /* LIGHTNING_WIRE_WIRE_H */
