@@ -397,71 +397,87 @@ static void json_listaddrs(struct command *cmd,
 						   const char *buffer, const jsmntok_t *params)
 {
 	struct json_result *response = new_json_result(cmd);
+	struct ext_key ext;
+	struct sha256 h;
+	struct ripemd160 h160;
+	struct pubkey pubkey;
 	jsmntok_t *bip32tok;
+	u8 *redeemscript;
+	bool ok;
+	char *out_p2sh;
+	char *out_p2wpkh;
+	const char *hrp;
 	u64 bip32_max_index;
-	const tal_t *tmpctx = tal_tmpctx(cmd);
+	const tal_t *tmpctx = tal_tmpctx(NULL);
 
-    if (!json_get_params(cmd, buffer, params,
-                         "?bip32_max_index", &bip32tok, NULL)) {
-        return;
-    }
+	if (!json_get_params(cmd, buffer, params,
+						 "?bip32_max_index", &bip32tok, NULL)) {
+		tal_free(tmpctx);
+		return;
+	}
 
 	if (!bip32tok || !json_tok_u64(buffer, bip32tok, &bip32_max_index)) {
-        bip32_max_index = db_get_intvar(cmd->ld->wallet->db, "bip32_max_index", 0);
+		bip32_max_index = db_get_intvar(cmd->ld->wallet->db, "bip32_max_index", 0);
 	}
 	json_object_start(response, NULL);
 	json_array_start(response, "addresses");
 
-	s64 keyidx;
-	for (keyidx = 0; keyidx < bip32_max_index; keyidx++) {
-
-		struct ext_key ext;
-		struct sha256 h;
-		struct ripemd160 p2sh;
-		struct pubkey pubkey;
-		u8 *redeemscript;
+	for (s64 keyidx = 0; keyidx < bip32_max_index; keyidx++) {
 
 		if(keyidx == BIP32_INITIAL_HARDENED_CHILD){
 			command_fail(cmd, "Keys exhausted ");
+			tal_free(tmpctx);
+			return;
 		}
 
 		if (bip32_key_from_parent(cmd->ld->wallet->bip32_base, keyidx,
 								  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
 			command_fail(cmd, "Keys generation failure");
+			tal_free(tmpctx);
 			return;
 		}
 
 		if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey.pubkey,
 									   ext.pub_key, sizeof(ext.pub_key))) {
 			command_fail(cmd, "Key parsing failure");
+			tal_free(tmpctx);
 			return;
 		}
 
+		// p2sh
 		redeemscript = bitcoin_redeem_p2sh_p2wpkh(cmd, &pubkey);
 		sha256(&h, redeemscript, tal_count(redeemscript));
-		ripemd160(&p2sh, h.u.u8, sizeof(h));
+		ripemd160(&h160, h.u.u8, sizeof(h));
+		out_p2sh = p2sh_to_base58(cmd,
+								  get_chainparams(cmd->ld)->testnet, &h160);
 
+		// bech32 : p2wpkh
+		hrp = get_chainparams(cmd->ld)->bip173_name;
+		/* out buffer is 73 + strlen(human readable part). see bech32.h */
+		out_p2wpkh = tal_arr(cmd, char, 73 + strlen(hrp));
+		pubkey_to_hash160(&pubkey, &h160);
+		ok = segwit_addr_encode(out_p2wpkh, hrp, 0, h160.u.u8, sizeof(h160.u.u8));
+		if (!ok) {
+			command_fail(cmd, "p2wpkh address encoding failure.");
+			tal_free(tmpctx);
+			return;
+		}
+
+		// outputs
 		json_object_start(response, NULL);
 		json_add_u64(response, "keyidx", keyidx);
-		json_add_string(response, "address",
-						p2sh_to_base58(cmd, get_chainparams(cmd->ld)->testnet,
-									   &p2sh));
+		json_add_pubkey(response, "pubkey", &pubkey);
+		json_add_string(response, "p2sh", out_p2sh);
+		json_add_hex(response, "p2sh_redeemscript", redeemscript, sizeof(struct ripemd160) + 1);
+		json_add_string(response, "bech32", out_p2wpkh);
+		json_add_hex(response, "bech32_redeemscript", &h160.u.u8, sizeof(struct ripemd160));
 
-		{
-			char *hex = pubkey_to_hexstr(tmpctx, &pubkey);
-			json_add_string(response, "pubkey", hex);
-		}
-		{
-			int len = sizeof(struct ripemd160) + 1;
-			char *hex = tal_arr(NULL, char, hex_str_size(len));
-			hex_encode(redeemscript, len, hex, hex_str_size(len));
-			json_add_string(response, "redeemscript", hex);
-		}
 		json_object_end(response);
 	}
 	json_array_end(response);
 	json_object_end(response);
 	command_success(cmd, response);
+	tal_free(tmpctx);
 }
 
 static const struct json_command listaddrs_command = {
