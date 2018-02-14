@@ -2579,7 +2579,7 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         # fund a bech32 address and then open a channel with it
-        res = l1.openchannel(l2, 20000, addrtype='bech32')
+        res = l1.openchannel(l2, 20000, 'bech32')
         address = res['address']
         assert address[0:4] == "bcrt"
 
@@ -3379,7 +3379,7 @@ class LightningDTests(BaseLightningDTests):
         for c in configs.keys():
             if c.startswith('#'):
                 continue
-            oneconfig = l1.rpc.listconfigs(c)
+            oneconfig = l1.rpc.listconfigs(config=c)
             assert(oneconfig[c] == configs[c])
 
     def test_multiple_channels(self):
@@ -3492,7 +3492,7 @@ class LightningDTests(BaseLightningDTests):
         assert len(l1.rpc.listpeers()['peers']) == 1
 
         # Forcing should work
-        l1.rpc.dev_forget_channel(l2.info['id'], None, True)
+        l1.rpc.dev_forget_channel(l2.info['id'], True)
         assert len(l1.rpc.listpeers()['peers']) == 0
 
         # And restarting should keep that peer forgotten
