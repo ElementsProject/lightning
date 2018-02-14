@@ -209,10 +209,8 @@ class LightningRpc(UnixDomainSocketRpc):
         Send payment specified by {bolt11} with optional {msatoshi} (if and only if {bolt11} does not have amount),
         {description} (required if {bolt11} uses description hash) and {riskfactor} (default 1.0)
         """
-        args = [bolt11]
-        msatoshi is not None and args.append(msatoshi)
-        description is not None and args.append(description)
-        riskfactor is not None and args.append(riskfactor)
+        args = {k:v for k,v in (('msatoshi', msatoshi), ('description', description), ('riskfactor', riskfactor)) if v is not None}
+        args['bolt11'] = bolt11
         return self._call("pay", args=args)
 
     def listpayments(self, bolt11=None, payment_hash=None):

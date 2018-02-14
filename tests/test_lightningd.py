@@ -873,6 +873,33 @@ class LightningDTests(BaseLightningDTests):
         assert len(l1.rpc.listpayments(inv)['payments']) == 1
         assert l1.rpc.listpayments(inv)['payments'][0]['payment_preimage'] == preimage['preimage']
 
+    def test_pay_optional_args(self):
+        l1,l2 = self.connect()
+
+        chanid = self.fund_channel(l1, l2, 10**6)
+ 
+        # Wait for route propagation.
+        self.wait_for_routes(l1, [chanid])
+
+        inv1 = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
+        l1.rpc.pay(inv1, description='00000')
+        payment1 = l1.rpc.listpayments(inv1)['payments']
+        assert len(payment1) == 1 and payment1[0]['msatoshi'] == 123000
+
+        inv2 = l2.rpc.invoice(321000, 'test_pay2', 'description')['bolt11']
+        l1.rpc.pay(inv2, riskfactor=5.0)
+        payment2 = l1.rpc.listpayments(inv2)['payments']
+        assert len(payment2) == 1 and payment2[0]['msatoshi'] == 321000
+
+        anyinv = l2.rpc.invoice('any', 'any_pay', 'description')['bolt11']
+        l1.rpc.pay(anyinv, description='1000', msatoshi='500')
+        payment3 = l1.rpc.listpayments(anyinv)['payments']
+        assert len(payment3) == 1 and payment3[0]['msatoshi'] == 500
+
+        transactions = l1.rpc.listpayments()
+        # Should see 3 completed transactions
+        assert len(l1.rpc.listpayments()['payments']) == 3
+
     # Long test involving 4 lightningd instances.
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_report_routing_failure(self):
