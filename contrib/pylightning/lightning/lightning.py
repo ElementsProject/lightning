@@ -1,15 +1,14 @@
-from concurrent import futures
-
 import json
 import logging
 import socket
 
 
 class UnixDomainSocketRpc(object):
-    def __init__(self, socket_path, executor=None):
+    def __init__(self, socket_path, executor=None, logger=logging):
         self.socket_path = socket_path
         self.decoder = json.JSONDecoder()
         self.executor = executor
+        self.logger = logger
 
     @staticmethod
     def _writeobj(sock, obj):
@@ -45,7 +44,7 @@ class UnixDomainSocketRpc(object):
         return wrapper
 
     def _call(self, method, args=None):
-        logging.debug("Calling %s with arguments %r", method, args)
+        self.logger.debug("Calling %s with payload %r", method, payload)
 
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.connect(self.socket_path)
@@ -57,12 +56,12 @@ class UnixDomainSocketRpc(object):
         resp = self._readobj(sock)
         sock.close()
 
-        logging.debug("Received response for %s call: %r", method, resp)
         if 'error' in resp:
             raise ValueError("RPC call failed: {}".format(resp['error']))
         elif 'result' not in resp:
             raise ValueError("Malformed response, 'result' missing.")
         return resp['result']
+        self.logger.debug("Received response for %s call: %r", method, resp)
 
 
 class LightningRpc(UnixDomainSocketRpc):
