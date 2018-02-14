@@ -776,14 +776,14 @@ class LightningDTests(BaseLightningDTests):
         assert len(payments) == 2
 
         invoice2 = l2.rpc.listinvoices('testpayment2')['invoices'][0]
-        payments = l1.rpc.listpayments(None, invoice2['payment_hash'])['payments']
+        payments = l1.rpc.listpayments(payment_hash=invoice2['payment_hash'])['payments']
         assert len(payments) == 1
 
         assert payments[0]['status'] == 'complete'
         assert payments[0]['payment_preimage'] == preimage2['preimage']
 
         invoice3 = l2.rpc.listinvoices('testpayment3')['invoices'][0]
-        payments = l1.rpc.listpayments(None, invoice3['payment_hash'])['payments']
+        payments = l1.rpc.listpayments(payment_hash=invoice3['payment_hash'])['payments']
         assert len(payments) == 1
 
         assert payments[0]['status'] == 'complete'
