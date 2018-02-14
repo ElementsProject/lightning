@@ -3409,20 +3409,29 @@ class LightningDTests(BaseLightningDTests):
 
     def test_multirpc(self):
         """Test that we can do multiple RPC without waiting for response"""
-        l1,l2 = self.connect()
+        l1 = self.node_factory.get_node()
 
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.connect(l1.rpc.socket_path)
-        sock.sendall(b'{"id":1,"jsonrpc":"2.0","method":"listpeers","params":[]}\n'
-                     b'{"id":2,"jsonrpc":"2.0","method":"listpeers","params":[]}\n'
-                     b'{"id":3,"jsonrpc":"2.0","method":"listpeers","params":[]}\n'
-                     b'{"id":4,"jsonrpc":"2.0","method":"listpeers","params":[]}\n'
-                     b'{"id":5,"jsonrpc":"2.0","method":"listpeers","params":[]}\n'
-                     b'{"id":6,"jsonrpc":"2.0","method":"listpeers","params":[]}\n')
 
-        # This isn't quite right, as it will read the first object and stop.
-        # But enough to trigger the  crash!
-        l1.rpc._readobj(sock)
+        commands = [
+            b'{"id":1,"jsonrpc":"2.0","method":"listpeers","params":[]}',
+            b'{"id":2,"jsonrpc":"2.0","method":"listpeers","params":[]}',
+            b'{"id":3,"jsonrpc":"2.0","method":"listpeers","params":[]}',
+            b'{"id":4,"jsonrpc":"2.0","method":"listpeers","params":[]}',
+            b'{"id":5,"jsonrpc":"2.0","method":"listpeers","params":[]}',
+            b'{"id":6,"jsonrpc":"2.0","method":"listpeers","params":[]}',
+            b'{"method": "invoice", "params": [100, "foo", "foo"], "jsonrpc": "2.0", "id": 7 }',
+            b'{"method": "waitinvoice", "params": ["foo"], "jsonrpc" : "2.0", "id": 8 }',
+            b'{"method": "delinvoice", "params": ["foo", "unpaid"], "jsonrpc" : "2.0", "id": 9 }',
+        ]
+
+        sock.sendall(b'\n'.join(commands))
+
+        # We only care to get back enough results, not their content
+        for _ in commands:
+            l1.rpc._readobj(sock)
+        #time.sleep(1)
         sock.close()
 
     def test_cli(self):
