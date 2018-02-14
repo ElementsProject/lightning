@@ -887,6 +887,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Load from DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v1)");
+	tal_free(c2);
 
 	/* We just inserted them into an empty DB so this must be 1 */
 	CHECK(c1.dbid == 1);
@@ -902,6 +903,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v2)");
+	tal_free(c2);
 
 	/* Updates should not result in new ids */
 	CHECK(c1.dbid == 1);
@@ -918,6 +920,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v3)");
+	tal_free(c2);
 
 	/* Variant 4: update with funding_tx_id */
 	c1.funding_txid = hash;
@@ -927,6 +930,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v4)");
+	tal_free(c2);
 
 	/* Variant 5: update with channel_info */
 	c1.channel_info = &ci;
@@ -936,6 +940,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v5)");
+	tal_free(c2);
 
 	/* Variant 6: update with last_commit_sent */
 	c1.last_sent_commit = &last_commit;
@@ -945,6 +950,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v6)");
+	tal_free(c2);
 
 	/* Variant 7: update with last_tx (taken from BOLT #3) */
 	c1.last_tx = bitcoin_tx_from_hex(w, "02000000000101bef67e4e2fb9ddeeb3461973cd4c62abb35050b1add772995b820b584a488489000000000038b02b8003a00f0000000000002200208c48d15160397c9731df9bc3b236656efb6665fbfe92b4a6878e88a499f741c4c0c62d0000000000160014ccf1af2f2aabee14bb40fa3851ab2301de843110ae8f6a00000000002200204adb4e2f00643db396dd120d4e7dc17625f5f2c11a40d857accc862d6b7dd80e040047304402206a2679efa3c7aaffd2a447fd0df7aba8792858b589750f6a1203f9259173198a022008d52a0e77a99ab533c36206cb15ad7aeb2aa72b93d4b571e728cb5ec2f6fe260147304402206d6cb93969d39177a09d5d45b583f34966195b77c7e585cf47ac5cce0c90cefb022031d71ae4e33a4e80df7f981d696fbdee517337806a3c7138b7491e2cbb077a0e01475221023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb21030e9f7b623d2ccc7c9bd44d66d5ce21ce504c0acf6385a132cec6d3c39fa711c152ae3e195220", strlen("02000000000101bef67e4e2fb9ddeeb3461973cd4c62abb35050b1add772995b820b584a488489000000000038b02b8003a00f0000000000002200208c48d15160397c9731df9bc3b236656efb6665fbfe92b4a6878e88a499f741c4c0c62d0000000000160014ccf1af2f2aabee14bb40fa3851ab2301de843110ae8f6a00000000002200204adb4e2f00643db396dd120d4e7dc17625f5f2c11a40d857accc862d6b7dd80e040047304402206a2679efa3c7aaffd2a447fd0df7aba8792858b589750f6a1203f9259173198a022008d52a0e77a99ab533c36206cb15ad7aeb2aa72b93d4b571e728cb5ec2f6fe260147304402206d6cb93969d39177a09d5d45b583f34966195b77c7e585cf47ac5cce0c90cefb022031d71ae4e33a4e80df7f981d696fbdee517337806a3c7138b7491e2cbb077a0e01475221023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb21030e9f7b623d2ccc7c9bd44d66d5ce21ce504c0acf6385a132cec6d3c39fa711c152ae3e195220"));
@@ -955,6 +961,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v7)");
+	tal_free(c2);
 
 	/* Variant 8: update and add remote_shutdown_scriptpubkey */
 	c1.remote_shutdown_scriptpubkey = scriptpubkey;
@@ -965,10 +972,13 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v8)");
+	tal_free(c2);
 
 	db_commit_transaction(w->db);
 	CHECK(!wallet_err);
 	tal_free(w);
+	/* Normally freed by destroy_channel, but we don't call that */
+	tal_free(p);
 	return true;
 }
 

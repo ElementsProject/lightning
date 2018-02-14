@@ -216,10 +216,13 @@ void wallet_channel_save(struct wallet *w, struct channel *chan);
 
 /**
  * wallet_channel_delete -- After resolving a channel, forget about it
- *
- * Deletes peer too if no more channels.
  */
-void wallet_channel_delete(struct wallet *w, u64 wallet_id, u64 peer_dbid);
+void wallet_channel_delete(struct wallet *w, u64 wallet_id);
+
+/**
+ * wallet_peer_delete -- After no more channels in peer, forget about it
+ */
+void wallet_peer_delete(struct wallet *w, u64 peer_dbid);
 
 /**
  * wallet_channel_config_save -- Upsert a channel_config into the database

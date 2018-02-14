@@ -50,6 +50,9 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct pubkey *id,
 		      const struct wireaddr *addr);
 
+/* Also removes from db. */
+void delete_peer(struct peer *peer);
+
 struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id);
 struct peer *peer_from_json(struct lightningd *ld,
 			    const char *buffer,

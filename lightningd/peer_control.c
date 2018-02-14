@@ -120,6 +120,13 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	return peer;
 }
 
+void delete_peer(struct peer *peer)
+{
+	assert(list_empty(&peer->channels));
+	wallet_peer_delete(peer->ld->wallet, peer->dbid);
+	tal_free(peer);
+}
+
 struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid)
 {
 	struct peer *p;
