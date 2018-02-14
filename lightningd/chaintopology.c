@@ -681,7 +681,7 @@ void chaintopology_mark_pointers_used(struct htable *memtable,
 
 /* On shutdown, channels get deleted last.  That frees from our list, so
  * do it now instead. */
-static void destroy_outgoing_txs(struct chain_topology *topo)
+static void destroy_chain_topology(struct chain_topology *topo)
 {
 	struct outgoing_tx *otx;
 
@@ -724,7 +724,7 @@ void setup_topology(struct chain_topology *topo,
 
 	bitcoind_getblockcount(topo->bitcoind, get_init_blockhash, topo);
 
-	tal_add_destructor(topo, destroy_outgoing_txs);
+	tal_add_destructor(topo, destroy_chain_topology);
 
 	/* Begin fee estimation. */
 	start_fee_estimate(topo);

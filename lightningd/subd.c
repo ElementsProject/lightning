@@ -48,7 +48,7 @@ struct subd_req {
 	void *disabler;
 };
 
-static void free_subd_req(struct subd_req *sr)
+static void destroy_subd_req(struct subd_req *sr)
 {
 	list_del(&sr->list);
 	/* Don't disable once we're freed! */
@@ -98,7 +98,7 @@ static void add_req(const tal_t *ctx,
 
 	/* Keep in FIFO order: we sent in order, so replies will be too. */
 	list_add_tail(&sd->reqs, &sr->list);
-	tal_add_destructor(sr, free_subd_req);
+	tal_add_destructor(sr, destroy_subd_req);
 }
 
 /* Caller must free. */

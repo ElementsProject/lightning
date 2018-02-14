@@ -8,7 +8,7 @@ struct oneshot {
 	void *arg;
 };
 
-static void remove_timer(struct oneshot *t)
+static void destroy_timer(struct oneshot *t)
 {
 	timer_del(t->timers, &t->timer);
 }
@@ -25,7 +25,7 @@ struct oneshot *new_reltimer_(struct timers *timers,
 	t->timers = timers;
 	timer_init(&t->timer);
 	timer_addrel(timers, &t->timer, relexpiry);
-	tal_add_destructor(t, remove_timer);
+	tal_add_destructor(t, destroy_timer);
 
 	return t;
 }
