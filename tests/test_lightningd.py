@@ -3193,6 +3193,40 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_update_all_fees(self):
+        l1, l2 = self.connect()
+        chanid = self.fund_channel(l1, l2, 10**6)
+
+        # Set all fees as positional parameters.
+        l1.rpc.dev_setfees('12345', '6789', '123')
+        l1.daemon.wait_for_log('dev-setfees: fees now 12345/6789/123')
+        l2.daemon.wait_for_log('peer updated fee to 12345')
+
+        # Call setfees with fees passed as named parameters in different order.
+        l1.rpc.dev_setfees(slow='123', normal='4567', immediate='8901')
+        l1.daemon.wait_for_log('dev-setfees: fees now 8901/4567/123')
+        l2.daemon.wait_for_log('peer updated fee to 8901')
+
+        # Set one value at a time.
+        l1.rpc.dev_setfees(slow='321')
+        l1.daemon.wait_for_log('dev-setfees: fees now 8901/4567/321')
+        l1.rpc.dev_setfees(normal='7654')
+        l1.daemon.wait_for_log('dev-setfees: fees now 8901/7654/321')
+        l1.rpc.dev_setfees(immediate='21098')
+        l1.daemon.wait_for_log('dev-setfees: fees now 21098/7654/321')
+        l2.daemon.wait_for_log('peer updated fee to 21098')
+
+        # Verify that all fees are indeed optional in setfees call.
+        l1.rpc.dev_setfees()
+        l1.daemon.wait_for_log('dev-setfees: fees now 21098/7654/321')
+
+        # Now shutdown cleanly.
+        l1.rpc.close(l2.info['id'])
+        l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+        l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_fee_limits(self):
         # FIXME: Test case where opening denied.
         l1, l2 = self.connect()
