@@ -86,7 +86,9 @@ struct channel {
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid, u32 first_blocknum);
-/* This lets us give a more detailed error than just a destructor. */
+
+/* This lets us give a more detailed error than just a destructor, and
+ * deletes from db. */
 void delete_channel(struct channel *channel, const char *why);
 
 const char *channel_state_name(const struct channel *channel);

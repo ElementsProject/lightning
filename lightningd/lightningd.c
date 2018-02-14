@@ -200,16 +200,16 @@ static void shutdown_subdaemons(struct lightningd *ld)
 	free_htlcs(ld, NULL);
 
 	while ((p = list_top(&ld->peers, struct peer, list)) != NULL) {
-		struct channel *c, *next;
+		struct channel *c;
 
-		/* Careful: deleting last channel frees p! */
-		do {
-			c = list_top(&p->channels, struct channel, list);
-			next = list_next(&p->channels, c, list);
-
+		while ((c = list_top(&p->channels, struct channel, list))
+		       != NULL) {
+			/* Removes itself from list as we free it */
 			tal_free(c);
-			c = next;
-		} while (c);
+		}
+
+		/* Removes itself from list as we free it */
+		tal_free(p);
 	}
 	db_commit_transaction(ld->wallet->db);
 }

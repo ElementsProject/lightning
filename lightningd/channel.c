@@ -51,22 +51,22 @@ static void destroy_channel(struct channel *channel)
 	channel_set_owner(channel, NULL);
 
 	list_del_from(&channel->peer->channels, &channel->list);
-
-	/* Last one out frees the peer */
-	if (list_empty(&channel->peer->channels))
-		tal_free(channel->peer);
 }
 
 /* This lets us give a more detailed error than just a destructor. */
 void delete_channel(struct channel *channel, const char *why)
 {
+	struct peer *peer = channel->peer;
 	if (channel->opening_cmd) {
 		command_fail(channel->opening_cmd, "%s", why);
 		channel->opening_cmd = NULL;
 	}
-	wallet_channel_delete(channel->peer->ld->wallet, channel->dbid,
-			      channel->peer->dbid);
+	wallet_channel_delete(channel->peer->ld->wallet, channel->dbid);
 	tal_free(channel);
+
+	/* Last one out frees the peer */
+	if (list_empty(&peer->channels))
+		delete_peer(peer);
 }
 
 /* FIXME: We have no business knowing this! */
