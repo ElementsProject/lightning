@@ -94,14 +94,12 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self._call("dev-blockheight")
 
-    def dev_setfees(self, immediate, normal=None, slow=None):
+    def dev_setfees(self, immediate=None, normal=None, slow=None):
         """
         Set feerate in satoshi-per-kw for {immediate}, {normal} and {slow}
         (each is optional, when set, separate by spaces) and show the value of those three feerates
         """
-        args = [immediate]
-        normal is not None and args.append(normal)
-        slow is not None and args.append(slow)
+        args = {k:v for k,v in (('immediate', immediate), ('normal', normal), ('slow', slow)) if v is not None}
         return self._call("dev-setfees", args=args)
 
     def listnodes(self, node_id=None):
