@@ -76,113 +76,6 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 }
 
 /**
- * segwit_addr_net_decode - Try to decode a Bech32 address and detect
- * testnet/mainnet
- *
- * This processes the address and returns true if it is a Bech32
- * address specified by BIP173. If it returns true, then *testnet is
- * set whether it is testnet "tb" address or false if mainnet "bc"
- * address. It does not check, witness version and program size
- * restrictions.
- *
- *  Out: testnet:  Pointer to a bool that will be updated to true if the
- *                 address is testnet, or false if mainnet.
- *       witness_version: Pointer to an int that will be updated to contain
- *                 the witness program version (between 0 and 16 inclusive).
- *       witness_program: Pointer to a buffer of size 40 that will be updated
- *                 to contain the witness program bytes.
- *       witness_program_len: Pointer to a size_t that will be updated to
- *                 contain the length of bytes in witness_program.
- *  In:  addrz:    Pointer to the null-terminated address.
- *  Returns true if successful, false if fail (on fail, none of the out
- *  parameters are modified).
- */
-static bool segwit_addr_net_decode(bool *testnet, int *witness_version,
-				   uint8_t *witness_program,
-				   size_t *witness_program_len,
-				   const char *addrz)
-{
-	/* segwit_addr_decode itself expects a prog buffer (which we pass
-	 * witness_program as) of size 40, so segwit_addr_net_decode
-	 * inherits that requirement. It will not write to that buffer
-	 * if the input address is too long, so no buffer overflow risk. */
-	if (segwit_addr_decode(witness_version,
-			       witness_program, witness_program_len,
-			       "bc", addrz)) {
-		*testnet = false;
-		return true;
-	} else if (segwit_addr_decode(witness_version,
-				      witness_program, witness_program_len,
-				      "tb", addrz)) {
-		*testnet = true;
-		return true;
-	}
-	return false;
-}
-
-/**
- * scriptpubkey_from_address - Determine scriptpubkey from a given address
- *
- * This processes the address and returns the equivalent scriptpubkey
- * for the address. If fail to parse the address, return NULL. If can
- * parse address, also sets the testnet flag if address is a testnet
- * address or clears it if mainnet.
- */
-static u8 *scriptpubkey_from_address(const tal_t *cxt, bool *testnet,
-				     const char *addr, size_t addrlen)
-{
-	struct bitcoin_address p2pkh_destination;
-	struct ripemd160 p2sh_destination;
-	int witness_version;
-	/* segwit_addr_net_decode requires a buffer of size 40, and will
-	 * not write to the buffer if the address is too long, so a buffer
-	 * of fixed size 40 will not overflow. */
-	uint8_t witness_program[40];
-	size_t witness_program_len;
-	bool witness_ok;
-	u8 *script = NULL;
-
-	char *addrz;
-	bool my_testnet;
-
-	if (bitcoin_from_base58(testnet, &p2pkh_destination,
-				addr, addrlen)) {
-		script = scriptpubkey_p2pkh(cxt, &p2pkh_destination);
-	} else if (p2sh_from_base58(testnet, &p2sh_destination,
-				    addr, addrlen)) {
-		script = scriptpubkey_p2sh_hash(cxt, &p2sh_destination);
-	}
-	/* Insert other parsers that accept pointer+len here. */
-
-	if (script) return script;
-
-	/* Generate null-terminated address. */
-	addrz = tal_dup_arr(cxt, char, addr, addrlen, 1);
-	addrz[addrlen] = '\0';
-
-	if (segwit_addr_net_decode(&my_testnet, &witness_version,
-				   witness_program, &witness_program_len,
-				   addrz)) {
-		witness_ok = false;
-		if (witness_version == 0 && (witness_program_len == 20 ||
-					     witness_program_len == 32)) {
-			witness_ok = true;
-		}
-		/* Insert other witness versions here. */
-		if (witness_ok) {
-			*testnet = my_testnet;
-			script = scriptpubkey_witness_raw(cxt, witness_version,
-							  witness_program,
-							  witness_program_len);
-		}
-	}
-	/* Insert other parsers that accept null-terminated string here. */
-
-	tal_free(addrz);
-	return script;
-}
-
-/**
  * json_withdraw - Entrypoint for the withdrawal flow
  *
  * A user has requested a withdrawal over the JSON-RPC, parse the
@@ -194,11 +87,11 @@ static void json_withdraw(struct command *cmd,
 {
 	jsmntok_t *desttok, *sattok;
 	struct withdrawal *withdraw;
-	bool testnet;
 	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
 	u64 fee_estimate;
 	struct bitcoin_tx *tx;
 	bool withdraw_all = false;
+	const char *bip173 = NULL;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "destination", &desttok,
@@ -218,26 +111,21 @@ static void json_withdraw(struct command *cmd,
 	}
 
 	/* Parse address. */
-	withdraw->destination
-		= scriptpubkey_from_address(withdraw, &testnet,
-					    buffer + desttok->start,
-					    desttok->end - desttok->start);
+	bip173 = json_tok_address_scriptpubkey(cmd, buffer,
+					       desttok, (const u8**)(&withdraw->destination));
 
 	/* Check that destination address could be understood. */
-	if (!withdraw->destination) {
+	if (!bip173) {
 		command_fail(cmd, "Could not parse destination address");
 		return;
 	}
 
 	/* Check address given is compatible with the chain we are on. */
-	if (testnet != get_chainparams(cmd->ld)->testnet) {
-		if (testnet) {
-			command_fail(cmd,
-				    "Use of testnet address on mainnet");
-		} else {
-			command_fail(cmd,
-				    "Use of mainnet address on testnet");
-		}
+	if (!streq(bip173, get_chainparams(cmd->ld)->bip173_name)) {
+		command_fail(cmd,
+			    "Use of %s address on %s",
+			    chainparams_by_bip173(bip173)->network_name,
+			    get_chainparams(cmd->ld)->network_name);
 		return;
 	}
 

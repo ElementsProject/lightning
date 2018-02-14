@@ -103,14 +103,16 @@ static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	const struct invoice *invoice;
-	jsmntok_t *msatoshi, *label, *desc, *exp;
+	jsmntok_t *msatoshi, *label, *desc, *exp, *fallback;
 	u64 *msatoshi_val;
 	const char *label_val;
 	const char *desc_val;
+	const char *bip173;
 	struct json_result *response = new_json_result(cmd);
 	struct wallet *wallet = cmd->ld->wallet;
 	struct bolt11 *b11;
 	char *b11enc;
+	const u8 *fallback_script;
 	u64 expiry = 3600;
 
 	if (!json_get_params(cmd, buffer, params,
@@ -118,6 +120,7 @@ static void json_invoice(struct command *cmd,
 			     "label", &label,
 			     "description", &desc,
 			     "?expiry", &exp,
+			     "?fallback", &fallback,
 			     NULL)) {
 		return;
 	}
@@ -169,6 +172,17 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 
+	/* fallback address */
+	if (fallback) {
+		bip173 = json_tok_address_scriptpubkey(cmd, buffer, fallback, &fallback_script);
+		if (!streq(get_chainparams(cmd->ld)->bip173_name, bip173)) {
+			command_fail(cmd, "Invalid fallback address for %s does not match network %s",
+				     get_chainparams(cmd->ld)->network_name, bip173);
+			return;
+		}
+	}
+
+
 	invoice = wallet_invoice_create(cmd->ld->wallet,
 					take(msatoshi_val),
 					take(label_val),
@@ -188,6 +202,8 @@ static void json_invoice(struct command *cmd,
 	b11->expiry = expiry;
 	b11->description = tal_steal(b11, desc_val);
 	b11->description_hash = NULL;
+	if (fallback)
+		b11->fallback = tal_steal(b11, fallback_script);
 
 	/* FIXME: add private routes if necessary! */
 	b11enc = bolt11_encode(cmd, b11, false, hsm_sign_b11, cmd->ld);

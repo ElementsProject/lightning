@@ -109,5 +109,11 @@ void json_add_address(struct json_result *response, const char *fieldname,
 /* For initialization */
 void setup_jsonrpc(struct lightningd *ld, const char *rpc_filename);
 
+/* Returns NULL, or bip173 network name and fills in *scriptpubkey
+ * allocated off ctx
+ */
+const char *json_tok_address_scriptpubkey(const tal_t *ctx, const char *buffer,
+					  const jsmntok_t *tok, const u8 **scriptpubkey);
+
 AUTODATA_TYPE(json_command, struct json_command);
 #endif /* LIGHTNING_LIGHTNINGD_JSONRPC_H */
