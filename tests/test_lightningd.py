@@ -351,9 +351,11 @@ class LightningDTests(BaseLightningDTests):
 
     def test_invoice(self):
         l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
 
+        addr = l2.rpc.newaddr('bech32')['address']
         before = int(time.time())
-        inv = l1.rpc.invoice(123000, 'label', 'description')
+        inv = l1.rpc.invoice(123000, 'label', 'description', '3700', addr)
         after = int(time.time())
         b11 = l1.rpc.decodepay(inv['bolt11'])
         assert b11['currency'] == 'bcrt'
@@ -361,8 +363,10 @@ class LightningDTests(BaseLightningDTests):
         assert b11['created_at'] <= after
         assert b11['payment_hash'] == inv['payment_hash']
         assert b11['description'] == 'description'
-        assert b11['expiry'] == 3600
+        assert b11['expiry'] == 3700
         assert b11['payee'] == l1.info['id']
+        assert b11['fallback']['addr'] == addr
+        assert b11['fallback']['type'] == 'P2WPKH'
 
         # Check pay_index is null
         outputs = l1.db_query('SELECT pay_index IS NULL AS q FROM invoices WHERE label="label";')
@@ -2734,7 +2738,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Now send some money to l2.
         # lightningd uses P2SH-P2WPKH
-        waddr = l2.rpc.newaddr()['address']
+        waddr = l2.rpc.newaddr('bech32')['address']
         out = l1.rpc.withdraw(waddr, 2 * amount)
         l1.bitcoin.rpc.generate(1)
 
@@ -2750,7 +2754,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Simple test for withdrawal to P2WPKH
         # Address from: https://bc-2.jp/tools/bech32demo/index.html
-        waddr = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx'
+        waddr = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
         self.assertRaises(ValueError, l1.rpc.withdraw, 'xx1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx', 2 * amount)
         self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1pw508d6qejxtdg4y5r3zarvary0c5xw7kdl9fad', 2 * amount)
         self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxxxxxx', 2 * amount)
@@ -2763,7 +2767,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Simple test for withdrawal to P2WSH
         # Address from: https://bc-2.jp/tools/bech32demo/index.html
-        waddr = 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7'
+        waddr = 'bcrt1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qzf4jry'
         self.assertRaises(ValueError, l1.rpc.withdraw, 'xx1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7', 2 * amount)
         self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1prp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qsm03tq', 2 * amount)
         self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qxxxxxx', 2 * amount)
@@ -2798,7 +2802,7 @@ class LightningDTests(BaseLightningDTests):
         assert(c.fetchone()[0] == 6)
 
         # Test withdrawal to self.
-        out = l1.rpc.withdraw(l1.rpc.newaddr()['address'], 'all')
+        out = l1.rpc.withdraw(l1.rpc.newaddr('bech32')['address'], 'all')
         bitcoind.rpc.generate(1)
         c = db.cursor()
         c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
