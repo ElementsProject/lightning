@@ -218,26 +218,22 @@ class LightningRpc(UnixDomainSocketRpc):
         Show outgoing payments, regarding {bolt11} or {payment_hash} if set
         Can only specify one of {bolt11} or {payment_hash}
         """
-        args = []
-        bolt11 and args.append(bolt11)
-        payment_hash and args.append(payment_hash) if args else args.extend([bolt11, payment_hash])
+        args = {k:v for k,v in (('bolt11', bolt11), ('payment_hash', payment_hash)) if v is not None}
         return self._call("listpayments", args=args)
 
     def connect(self, peer_id, host=None, port=None):
         """
         Connect to {peer_id} at {host} and {port}
         """
-        args = [peer_id]
-        host is not None and args.append(host)
-        port is not None and args.append(port)
+        args = {k:v for k,v in (('host', host), ('port', port)) if v is not None}
+        args['id'] = peer_id
         return self._call("connect", args=args)
 
     def listpeers(self, peer_id=None, logs=None):
         """
         Show current peers, if {level} is set, include {log}s"
         """
-        args = peer_id is not None and [peer_id] or []
-        logs is not None and args.append(logs)
+        args = {k:v for k,v in (('id', peer_id), ('level', logs)) if v is not None}
         return self._call("listpeers", args=args)
 
     def fundchannel(self, peer_id, satoshi):
