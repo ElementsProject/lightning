@@ -777,6 +777,23 @@ static void push_varlen_field(u5 **data, char type, u64 val)
         abort();
 }
 
+/* BOLT #11:
+ *
+ * The fallback field is of format:
+ *
+ * 1. `type` (5 bits)
+ * 2. `data_length` (10 bits, big-endian)
+ * 3. `version` (5 bits)
+ * 4. `data` (addr_len * 8 bits)
+ */
+static void push_fallback_addr(u5 **data, u5 version, const void *addr, u16 addr_len)
+{
+        push_varlen_uint(data, bech32_charset_rev[(unsigned char)'f'], 5);
+        push_varlen_uint(data, ((5 + addr_len * CHAR_BIT) + 4) / 5, 10);
+        push_varlen_uint(data, version, 5);
+        push_bits(data, addr, addr_len * CHAR_BIT);
+}
+
 static void encode_p(u5 **data, const struct sha256 *hash)
 {
         push_field(data, 'p', hash, 256);
@@ -823,34 +840,19 @@ static void encode_f(u5 **data, const u8 *fallback)
          * or `18` followed by a script hash.
          */
         if (is_p2pkh(fallback, &pkh)) {
-                u8 v17[1 + sizeof(pkh)];
-                v17[0] = 17;
-                memcpy(v17+1, &pkh, sizeof(pkh));
-                push_field(data, 'f', v17, sizeof(v17) * CHAR_BIT);
+                push_fallback_addr(data, 17, &pkh, sizeof(pkh));
         } else if (is_p2sh(fallback, &sh)) {
-                u8 v18[1 + sizeof(sh)];
-                v18[0] = 18;
-                memcpy(v18+1, &sh, sizeof(sh));
-                push_field(data, 'f', v18, sizeof(v18) * CHAR_BIT);
+                push_fallback_addr(data, 18, &sh, sizeof(sh));
         } else if (is_p2wpkh(fallback, &pkh)) {
-                u8 v0[1 + sizeof(pkh)];
-                v0[0] = 0;
-                memcpy(v0+1, &pkh, sizeof(pkh));
-                push_field(data, 'f', v0, sizeof(v0) * CHAR_BIT);
+                push_fallback_addr(data, 0, &pkh, sizeof(pkh));
         } else if (is_p2wsh(fallback, &wsh)) {
-                u8 v0[1 + sizeof(wsh)];
-                v0[0] = 0;
-                memcpy(v0+1, &wsh, sizeof(wsh));
-                push_field(data, 'f', v0, sizeof(v0) * CHAR_BIT);
+                push_fallback_addr(data, 0, &wsh, sizeof(wsh));
         } else if (tal_len(fallback)
                    && fallback[0] >= 0x50
                    && fallback[0] < (0x50+16)) {
                 /* Other (future) witness versions: turn OP_N into N */
-                u8 *f = tal_dup_arr(NULL, u8,
-                                    fallback, tal_len(fallback), 0);
-                f[0] -= 0x50;
-                push_field(data, 'f', f, tal_len(f) * CHAR_BIT);
-                tal_free(f);
+                push_fallback_addr(data, fallback[0] - 0x50, fallback + 1,
+                                   tal_len(fallback) - 1);
         } else {
                 /* Copy raw. */
                 push_field(data, 'f',
