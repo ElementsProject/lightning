@@ -709,6 +709,11 @@ void onchain_fulfilled_htlc(struct channel *channel,
 		if (hout->key.channel != channel)
 			continue;
 
+		/* It's possible that we failed some and succeeded one,
+		 * if we got multiple errors. */
+		if (hout->failcode != 0 || hout->failuremsg)
+			continue;
+
 		if (!structeq(&hout->payment_hash, &payment_hash))
 			continue;
 
