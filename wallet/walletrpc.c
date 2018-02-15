@@ -413,7 +413,6 @@ static void json_listaddrs(struct command *cmd,
 	if (!json_get_params(cmd, buffer, params,
 			     "?bip32_max_index", &bip32tok,
 			     NULL)) {
-		tal_free(tmpctx);
 		return;
 	}
 
@@ -432,14 +431,12 @@ static void json_listaddrs(struct command *cmd,
 		if (bip32_key_from_parent(cmd->ld->wallet->bip32_base, keyidx,
 					  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
 			command_fail(cmd, "Keys generation failure");
-			tal_free(tmpctx);
 			return;
 		}
 
 		if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey.pubkey,
 					       ext.pub_key, sizeof(ext.pub_key))) {
 			command_fail(cmd, "Key parsing failure");
-			tal_free(tmpctx);
 			return;
 		}
 
@@ -458,7 +455,6 @@ static void json_listaddrs(struct command *cmd,
 		ok = segwit_addr_encode(out_p2wpkh, hrp, 0, h160.u.u8, sizeof(h160.u.u8));
 		if (!ok) {
 			command_fail(cmd, "p2wpkh address encoding failure.");
-			tal_free(tmpctx);
 			return;
 		}
 
