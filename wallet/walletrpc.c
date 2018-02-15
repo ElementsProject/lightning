@@ -408,7 +408,6 @@ static void json_listaddrs(struct command *cmd,
 	char *out_p2wpkh;
 	const char *hrp;
 	u64 bip32_max_index;
-	const tal_t *tmpctx = tal_tmpctx(cmd);
 
 	if (!json_get_params(cmd, buffer, params,
 			     "?bip32_max_index", &bip32tok,
