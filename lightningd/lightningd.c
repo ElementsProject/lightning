@@ -324,6 +324,11 @@ int main(int argc, char *argv[])
 
 	peer_first_blocknum = wallet_channels_first_blocknum(ld->wallet);
 
+	if (ld->config.from_blockheight > -1){
+		// Get_init_blockhash() go back of 100 blocks
+		peer_first_blocknum = ld->config.from_blockheight + 100;
+	}
+
 	db_commit_transaction(ld->wallet->db);
 
 	/* Initialize block topology (does its own transaction) */

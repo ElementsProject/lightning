@@ -26,6 +26,9 @@ struct config {
 	/* How long do we let them lock up our funds? (blocks) */
 	u32 locktime_max;
 
+	/* Add block from blockheight (-1 to use default chaintopology strategy). */
+	s32 from_blockheight;
+
 	/* How many blocks before we expect to see anchor?. */
 	u32 anchor_onchain_wait;
 

@@ -220,6 +220,9 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--max-locktime-blocks", opt_set_u32, opt_show_u32,
 			 &ld->config.locktime_max,
 			 "Maximum blocks a peer can lock up our funds");
+	opt_register_arg("--from-blockheight", opt_set_s32, opt_show_s32,
+			 &ld->config.from_blockheight,
+			 "Add blocks from blockchain height");
 	opt_register_arg("--anchor-onchain", opt_set_u32, opt_show_u32,
 			 &ld->config.anchor_onchain_wait,
 			 "Blocks before we give up on pending anchor transaction");
@@ -320,6 +323,9 @@ static const struct config testnet_config = {
 	/* They can have up to 3 days. */
 	.locktime_max = 3 * 6 * 24,
 
+	/* Default -1 to use default chaintopology strategy. */
+	.from_blockheight = -1,
+
 	/* Testnet can have long runs of empty blocks. */
 	.anchor_onchain_wait = 100,
 
@@ -372,6 +378,9 @@ static const struct config mainnet_config = {
 
 	/* They can have up to 3 days. */
 	.locktime_max = 3 * 6 * 24,
+
+	/* Default -1 to use default chaintopology strategy. */
+	.from_blockheight = -1,
 
 	/* You should get in within 10 blocks. */
 	.anchor_onchain_wait = 10,
