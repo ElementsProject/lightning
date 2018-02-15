@@ -667,6 +667,27 @@ bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
 	return ok;
 }
 
+/* Upgrade of db (or initial create): do we have anything to scan for? */
+static bool wallet_ever_used(struct wallet *w)
+{
+	sqlite3_stmt *stmt;
+	bool channel_utxos;
+
+	/* If we ever handed out an address. */
+	if (db_get_intvar(w->db, "bip32_max_index", 0) != 0)
+		return true;
+
+	/* Or we could have had a channel terminate unilaterally,
+	 * providing a UTXO. */
+	stmt = db_query(__func__, w->db,
+			"SELECT COUNT(*) FROM outputs WHERE commitment_point IS NOT NULL;");
+	sqlite3_step(stmt);
+	channel_utxos = (sqlite3_column_int(stmt, 0) != 0);
+	sqlite3_finalize(stmt);
+
+	return channel_utxos;
+}
+
 u32 wallet_first_blocknum(struct wallet *w, u32 first_possible)
 {
 	int err;
@@ -675,6 +696,7 @@ u32 wallet_first_blocknum(struct wallet *w, u32 first_possible)
 	    db_query(__func__, w->db,
 		     "SELECT MIN(first_blocknum) FROM channels;");
 
+	/* If we ever opened a channel, this will give us the first block. */
 	err = sqlite3_step(stmt);
 	if (err == SQLITE_ROW && sqlite3_column_type(stmt, 0) != SQLITE_NULL)
 		first_channel = sqlite3_column_int(stmt, 0);
@@ -682,9 +704,16 @@ u32 wallet_first_blocknum(struct wallet *w, u32 first_possible)
 		first_channel = UINT32_MAX;
 	sqlite3_finalize(stmt);
 
-	/* If it's an old database, go back to before c-lightning was cool */
-	first_utxo = db_get_intvar(w->db, "last_processed_block",
-				   first_possible);
+	first_utxo = db_get_intvar(w->db, "last_processed_block", 0);
+	if (first_utxo == 0) {
+		/* Don't know?  New db, or upgraded. */
+		if (wallet_ever_used(w))
+			/* Be conservative */
+			first_utxo = first_possible;
+		else
+			first_utxo = UINT32_MAX;
+	}
+
 	if (first_utxo < first_channel)
 		return first_utxo;
 	else
