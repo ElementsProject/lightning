@@ -256,7 +256,7 @@ int main(int argc, char *argv[])
 	struct log_book *log_book;
 	struct lightningd *ld;
 	bool newdir;
-	u32 peer_first_blocknum;
+	u32 first_blocknum;
 
 	err_set_progname(argv[0]);
 
@@ -336,7 +336,10 @@ int main(int argc, char *argv[])
 	if (!wallet_htlcs_reconnect(ld->wallet, &ld->htlcs_in, &ld->htlcs_out))
 		fatal("could not reconnect htlcs loaded from wallet, wallet may be inconsistent.");
 
-	peer_first_blocknum = wallet_channels_first_blocknum(ld->wallet);
+	/* Worst case, scan back to the first lightning deployment */
+	first_blocknum = wallet_first_blocknum(ld->wallet,
+					       get_chainparams(ld)
+					       ->when_lightning_became_cool);
 
 	db_commit_transaction(ld->wallet->db);
 
@@ -344,7 +347,7 @@ int main(int argc, char *argv[])
 	setup_topology(ld->topology,
 		       &ld->timers,
 		       ld->config.poll_time,
-		       peer_first_blocknum);
+		       first_blocknum);
 
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(ld, ld->rpc_filename);

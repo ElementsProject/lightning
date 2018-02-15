@@ -87,12 +87,12 @@ struct txfilter *txfilter_new(const tal_t *ctx UNNEEDED)
 /* Generated stub for version */
 const char *version(void)
 { fprintf(stderr, "version called!\n"); abort(); }
-/* Generated stub for wallet_channels_first_blocknum */
-u32 wallet_channels_first_blocknum(struct wallet *w UNNEEDED)
-{ fprintf(stderr, "wallet_channels_first_blocknum called!\n"); abort(); }
 /* Generated stub for wallet_channels_load_active */
 bool wallet_channels_load_active(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_channels_load_active called!\n"); abort(); }
+/* Generated stub for wallet_first_blocknum */
+u32 wallet_first_blocknum(struct wallet *w UNNEEDED, u32 first_possible UNNEEDED)
+{ fprintf(stderr, "wallet_first_blocknum called!\n"); abort(); }
 /* Generated stub for wallet_htlcs_load_for_channel */
 bool wallet_htlcs_load_for_channel(struct wallet *wallet UNNEEDED,
 				   struct channel *chan UNNEEDED,

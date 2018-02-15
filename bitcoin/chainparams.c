@@ -12,6 +12,8 @@ const struct chainparams networks[] = {
      .cli = "bitcoin-cli",
      .cli_args = NULL,
      .dust_limit = 546,
+     /* "Lightning Charge Powers Developers & Blockstream Store" */
+     .when_lightning_became_cool = 504500,
      .testnet = false},
     {.index = 1,
      .network_name = "regtest",
@@ -21,6 +23,7 @@ const struct chainparams networks[] = {
      .cli = "bitcoin-cli",
      .cli_args = "-regtest",
      .dust_limit = 546,
+     .when_lightning_became_cool = 1,
      .testnet = true},
     {.index = 2,
      .network_name = "testnet",
@@ -39,6 +42,7 @@ const struct chainparams networks[] = {
      .cli = "litecoin-cli",
      .cli_args = NULL,
      .dust_limit = 100000,
+     .when_lightning_became_cool = 1,
      .testnet = false},
     {.index = 4,
      .network_name = "litecoin-testnet",
@@ -48,6 +52,7 @@ const struct chainparams networks[] = {
      .cli = "litecoin-cli",
      .cli_args = "-testnet",
      .dust_limit = 100000,
+     .when_lightning_became_cool = 1,
      .testnet = true}
 };
 
