@@ -63,6 +63,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/opt_time.c			\
 	lightningd/options.c			\
 	lightningd/pay.c			\
+	lightningd/payalgo.c			\
 	lightningd/peer_control.c		\
 	lightningd/peer_htlcs.c			\
 	lightningd/subd.c			\
