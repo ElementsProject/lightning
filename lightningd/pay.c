@@ -442,11 +442,6 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	if (report_to_gossipd)
 		report_routing_failure(ld->log, ld->gossip, fail);
 
-	/* FIXME(ZmnSCPxj): if retrying is plausible, and we are
-	 * using pay command rather than sendpay, retry routing
-	 * and payment again. */
-	(void) retry_plausible;
-
 	/* Report to client. */
 	sendpay_route_failure(ld, &hout->payment_hash,
 			      retry_plausible, fail, hout->failuremsg,

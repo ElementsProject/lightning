@@ -1,6 +1,7 @@
 #include "pay.h"
 #include "payalgo.h"
 #include <ccan/tal/str/str.h>
+#include <ccan/time/time.h>
 #include <common/bolt11.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <gossipd/routing.h>
@@ -10,17 +11,31 @@
 #include <lightningd/subd.h>
 
 struct pay {
-	struct sha256 payment_hash;
+	/* Parent command. */
 	struct command *cmd;
+
+	/* Bolt11 details */
+	struct sha256 payment_hash;
+	struct pubkey receiver_id;
+	struct timeabs expiry;
+	u32 min_final_cltv_expiry;
+
+	/* Command details */
 	u64 msatoshi;
+	double riskfactor;
 	double maxfeepercent;
+
+	/* Number of payment tries */
+	unsigned int tries;
+
+	/* Parent of the sendpay object. */
+	char *sendpay_parent;
 };
 
-/* Duplicated here from lightningd/pay.c, but will be modified
- * in a later commit. */
 static void
-json_sendpay_success(struct command *cmd,
-		     const struct preimage *payment_preimage)
+json_pay_success(struct command *cmd,
+		 const struct preimage *payment_preimage,
+		 unsigned int tries)
 {
 	struct json_result *response;
 
@@ -28,76 +43,107 @@ json_sendpay_success(struct command *cmd,
 	json_object_start(response, NULL);
 	json_add_hex(response, "preimage",
 		     payment_preimage, sizeof(*payment_preimage));
+	json_add_num(response, "tries", tries);
 	json_object_end(response);
 	command_success(cmd, response);
 }
 
-/* Duplicated here from lightningd/pay.c, but will be modified
- * in a later commit. */
-static void json_sendpay_on_resolve(const struct sendpay_result *r,
-				    void *vcmd)
+static void json_pay_failure(struct command *cmd,
+			     const struct sendpay_result *r)
 {
-	struct command *cmd = (struct command*) vcmd;
-
 	struct json_result *data;
 	const char *msg;
 	struct routing_failure *fail;
 
-	if (r->succeeded)
-		json_sendpay_success(cmd, &r->preimage);
-	else {
-		switch (r->errorcode) {
-		case PAY_IN_PROGRESS:
-		case PAY_RHASH_ALREADY_USED:
-			data = NULL;
-			msg = r->details;
-			break;
+	assert(!r->succeeded);
 
-		case PAY_UNPARSEABLE_ONION:
-			data = new_json_result(cmd);
-			json_object_start(data, NULL);
-			json_add_hex(data, "onionreply",
-				     r->onionreply, tal_len(r->onionreply));
-			json_object_end(data);
+	/* FIXME: can probably be factored out with similar code
+	 * in lightningd/pay.c */
+	switch (r->errorcode) {
+	case PAY_IN_PROGRESS:
+	case PAY_RHASH_ALREADY_USED:
+		data = NULL;
+		msg = r->details;
+		break;
 
-			msg = tal_fmt(cmd,
-				      "failed: WIRE_PERMANENT_NODE_FAILURE "
-				      "(%s)",
-				      r->details);
+	case PAY_UNPARSEABLE_ONION:
+		data = new_json_result(cmd);
+		json_object_start(data, NULL);
+		json_add_hex(data, "onionreply",
+			     r->onionreply, tal_len(r->onionreply));
+		json_object_end(data);
 
-			break;
+		msg = tal_fmt(cmd,
+			      "failed: WIRE_PERMANENT_NODE_FAILURE "
+			      "(%s)",
+			      r->details);
 
-		case PAY_DESTINATION_PERM_FAIL:
-		case PAY_TRY_OTHER_ROUTE:
-			fail = r->routing_failure;
-			data = new_json_result(cmd);
+		break;
 
-			json_object_start(data, NULL);
-			json_add_num(data, "erring_index",
-				     fail->erring_index);
-			json_add_num(data, "failcode",
-				     (unsigned) fail->failcode);
-			json_add_hex(data, "erring_node",
-				     &fail->erring_node,
-				     sizeof(fail->erring_node));
-			json_add_short_channel_id(data, "erring_channel",
-						  &fail->erring_channel);
-			if (fail->channel_update)
-				json_add_hex(data, "channel_update",
-					     fail->channel_update,
-					     tal_len(fail->channel_update));
-			json_object_end(data);
+	case PAY_DESTINATION_PERM_FAIL:
+	case PAY_TRY_OTHER_ROUTE:
+		fail = r->routing_failure;
+		data = new_json_result(cmd);
 
-			msg = tal_fmt(cmd,
-				      "failed: %s (%s)",
-				      onion_type_name(fail->failcode),
-				      r->details);
+		json_object_start(data, NULL);
+		json_add_num(data, "erring_index",
+			     fail->erring_index);
+		json_add_num(data, "failcode",
+			     (unsigned) fail->failcode);
+		json_add_hex(data, "erring_node",
+			     &fail->erring_node,
+			     sizeof(fail->erring_node));
+		json_add_short_channel_id(data, "erring_channel",
+					  &fail->erring_channel);
+		if (fail->channel_update)
+			json_add_hex(data, "channel_update",
+				     fail->channel_update,
+				     tal_len(fail->channel_update));
+		json_object_end(data);
 
-			break;
-		}
+		msg = tal_fmt(cmd,
+			      "failed: %s (%s)",
+			      onion_type_name(fail->failcode),
+			      r->details);
 
-		command_fail_detailed(cmd, r->errorcode, data, "%s", msg);
+		break;
 	}
+
+	command_fail_detailed(cmd, r->errorcode, data, "%s", msg);
+}
+
+/* Start a payment attempt. */
+static void json_pay_try(struct pay *pay);
+
+/* Call when sendpay returns to us. */
+static void json_pay_sendpay_resolve(const struct sendpay_result *r,
+				     void *vpay)
+{
+	struct pay *pay = (struct pay *) vpay;
+	struct timeabs now = time_now();
+
+	/* If we succeed, hurray */
+	if (r->succeeded) {
+		json_pay_success(pay->cmd, &r->preimage, pay->tries);
+		return;
+	}
+
+	/* We can retry only if it is one of the retryable errors
+	 * below. If it is not, fail now. */
+	if (r->errorcode != PAY_UNPARSEABLE_ONION &&
+	    r->errorcode != PAY_TRY_OTHER_ROUTE) {
+		json_pay_failure(pay->cmd, r);
+		return;
+	}
+
+	/* If too late anyway, fail now. */
+	if (time_after(now, pay->expiry)) {
+		/* FIXME: maybe another error kind? */
+		json_pay_failure(pay->cmd, r);
+		return;
+	}
+
+	json_pay_try(pay);
 }
 
 static void json_pay_getroute_reply(struct subd *gossip,
@@ -148,8 +194,30 @@ static void json_pay_getroute_reply(struct subd *gossip,
 		return;
 	}
 
-	send_payment(pay->cmd, pay->cmd->ld, &pay->payment_hash, route,
-		     &json_sendpay_on_resolve, pay->cmd);
+	send_payment(pay->sendpay_parent,
+		     pay->cmd->ld, &pay->payment_hash, route,
+		     &json_pay_sendpay_resolve, pay);
+}
+
+/* Start a payment attempt */
+static void json_pay_try(struct pay *pay)
+{
+	u8 *req;
+	struct command *cmd = pay->cmd;
+
+	/* Clear previous sendpay. */
+	pay->sendpay_parent = tal_free(pay->sendpay_parent);
+	pay->sendpay_parent = tal(pay, char);
+
+	++pay->tries;
+
+	/* FIXME: use b11->routes */
+	req = towire_gossip_getroute_request(cmd, &cmd->ld->id,
+					     &pay->receiver_id,
+					     pay->msatoshi,
+					     pay->riskfactor,
+					     pay->min_final_cltv_expiry);
+	subd_req(pay, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
 }
 
 static void json_pay(struct command *cmd,
@@ -162,7 +230,6 @@ static void json_pay(struct command *cmd,
 	struct pay *pay = tal(cmd, struct pay);
 	struct bolt11 *b11;
 	char *fail, *b11str, *desc;
-	u8 *req;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "bolt11", &bolt11tok,
@@ -190,6 +257,10 @@ static void json_pay(struct command *cmd,
 
 	pay->cmd = cmd;
 	pay->payment_hash = b11->payment_hash;
+	pay->receiver_id = b11->receiver_id;
+	memset(&pay->expiry, 0, sizeof(pay->expiry));
+	pay->expiry.ts.tv_sec = b11->timestamp + b11->expiry;
+	pay->min_final_cltv_expiry = b11->min_final_cltv_expiry;
 
 	if (b11->msatoshi) {
 		msatoshi = *b11->msatoshi;
@@ -219,6 +290,7 @@ static void json_pay(struct command *cmd,
 			     buffer + riskfactortok->start);
 		return;
 	}
+	pay->riskfactor = riskfactor * 1000;
 
 	if (maxfeetok
 	    && !json_tok_double(buffer, maxfeetok, &maxfeepercent)) {
@@ -240,12 +312,11 @@ static void json_pay(struct command *cmd,
 	}
 	pay->maxfeepercent = maxfeepercent;
 
-	/* FIXME: use b11->routes */
-	req = towire_gossip_getroute_request(cmd, &cmd->ld->id,
-					     &b11->receiver_id,
-					     msatoshi, riskfactor*1000,
-					     b11->min_final_cltv_expiry);
-	subd_req(pay, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
+	pay->tries = 0;
+	pay->sendpay_parent = NULL;
+
+	/* Initiate payment */
+	json_pay_try(pay);
 	command_still_pending(cmd);
 }
 
