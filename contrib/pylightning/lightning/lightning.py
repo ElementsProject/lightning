@@ -46,11 +46,16 @@ class UnixDomainSocketRpc(object):
     def call(self, method, payload=None):
         self.logger.debug("Calling %s with payload %r", method, payload)
 
+        if payload is None:
+            payload = {}
+        # Filter out arguments that are None
+        payload = {k: v for k, v in payload.items() if v is not None}
+
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.connect(self.socket_path)
         self._writeobj(sock, {
             "method": method,
-            "params": payload or {},
+            "params": payload,
             "id": 0
         })
         resp = self._readobj(sock)
@@ -58,7 +63,7 @@ class UnixDomainSocketRpc(object):
 
         self.logger.debug("Received response for %s call: %r", method, resp)
         if "error" in resp:
-               raise ValueError(
+            raise ValueError(
                 "RPC call failed: {}, method: {}, payload: {}".format(
                     resp["error"],
                     method,
