@@ -411,7 +411,8 @@ static void json_listaddrs(struct command *cmd,
 	const tal_t *tmpctx = tal_tmpctx(NULL);
 
 	if (!json_get_params(cmd, buffer, params,
-						 "?bip32_max_index", &bip32tok, NULL)) {
+			     "?bip32_max_index", &bip32tok,
+			     NULL)) {
 		tal_free(tmpctx);
 		return;
 	}
@@ -424,7 +425,6 @@ static void json_listaddrs(struct command *cmd,
 
 	for (s64 keyidx = 0; keyidx < bip32_max_index; keyidx++) {
 
-
 		if(keyidx == BIP32_INITIAL_HARDENED_CHILD){
 			command_fail(cmd, "Keys exhausted ");
 			tal_free(tmpctx);
@@ -432,14 +432,14 @@ static void json_listaddrs(struct command *cmd,
 		}
 
 		if (bip32_key_from_parent(cmd->ld->wallet->bip32_base, keyidx,
-								  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
+					  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
 			command_fail(cmd, "Keys generation failure");
 			tal_free(tmpctx);
 			return;
 		}
 
 		if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey.pubkey,
-									   ext.pub_key, sizeof(ext.pub_key))) {
+					       ext.pub_key, sizeof(ext.pub_key))) {
 			command_fail(cmd, "Key parsing failure");
 			tal_free(tmpctx);
 			return;
@@ -469,10 +469,9 @@ static void json_listaddrs(struct command *cmd,
 		json_add_u64(response, "keyidx", keyidx);
 		json_add_pubkey(response, "pubkey", &pubkey);
 		json_add_string(response, "p2sh", out_p2sh);
-		json_add_hex(response, "p2sh_redeemscript", redeemscript, sizeof(struct ripemd160) + 1);
+		json_add_hex(response, "p2sh_redeemscript", redeemscript, tal_count(redeemscript));
 		json_add_string(response, "bech32", out_p2wpkh);
 		json_add_hex(response, "bech32_redeemscript", &h160.u.u8, sizeof(struct ripemd160));
-
 		json_object_end(response);
 	}
 	json_array_end(response);
