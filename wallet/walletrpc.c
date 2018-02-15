@@ -474,7 +474,6 @@ static void json_listaddrs(struct command *cmd,
 	}
 	json_array_end(response);
 	json_object_end(response);
-	tal_free(tmpctx);
 	command_success(cmd, response);
 }
 
