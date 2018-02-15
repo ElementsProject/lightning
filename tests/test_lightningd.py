@@ -823,11 +823,19 @@ class LightningDTests(BaseLightningDTests):
         self.wait_for_routes(l1, [chanid])
 
         # Get any-amount invoice
-        inv = l2.rpc.invoice("any", "any", 'description')['bolt11']
+        inv = l2.rpc.invoice("any", "any", 'description')
+        rhash = inv['payment_hash']
+
+        routestep = {
+                'msatoshi' : 0,
+                'id' : l2.info['id'],
+                'delay' : 10,
+                'channel' : chanid
+        }
 
         # Amount must be nonzero!
         self.assertRaisesRegex(ValueError, 'WIRE_AMOUNT_BELOW_MINIMUM',
-                               l1.rpc.pay, inv, 0)
+                               l1.rpc.sendpay, to_json([routestep]), rhash)
 
     def test_pay(self):
         l1,l2 = self.connect()
