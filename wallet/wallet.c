@@ -677,8 +677,7 @@ static bool wallet_ever_used(struct wallet *w)
 	if (db_get_intvar(w->db, "bip32_max_index", 0) != 0)
 		return true;
 
-	/* Or we could have had a channel terminate unilaterally,
-	 * providing a UTXO. */
+	/* Or if they do a unilateral close, the output to us provides a UTXO. */
 	stmt = db_query(__func__, w->db,
 			"SELECT COUNT(*) FROM outputs WHERE commitment_point IS NOT NULL;");
 	sqlite3_step(stmt);
@@ -688,6 +687,13 @@ static bool wallet_ever_used(struct wallet *w)
 	return channel_utxos;
 }
 
+/* We want the earlier of either:
+ * 1. The first channel we're still watching (it might have closed),
+ * 2. The last block we scanned for UTXO (might have new incoming payments)
+ *
+ * chaintopology actually subtracts another 100 blocks to make sure we
+ * catch chain forks.
+ */
 u32 wallet_first_blocknum(struct wallet *w, u32 first_possible)
 {
 	int err;
