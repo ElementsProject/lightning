@@ -426,9 +426,7 @@ static void json_listaddrs(struct command *cmd,
 	for (s64 keyidx = 0; keyidx < bip32_max_index; keyidx++) {
 
 		if(keyidx == BIP32_INITIAL_HARDENED_CHILD){
-			command_fail(cmd, "Keys exhausted ");
-			tal_free(tmpctx);
-			return;
+			break;
 		}
 
 		if (bip32_key_from_parent(cmd->ld->wallet->bip32_base, keyidx,
