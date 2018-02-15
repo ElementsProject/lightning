@@ -2823,6 +2823,25 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
         l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
 
+    def test_funding_while_offline(self):
+        l1 = self.node_factory.get_node()
+        addr = l1.rpc.newaddr()['address']
+
+        # l1 goes down.
+        l1.stop()
+
+        # We send funds
+        bitcoind.rpc.sendtoaddress(addr, (10**6 + 1000000) / 10**8)
+
+        # Now 120 blocks go by...
+        bitcoind.generate_block(120)
+
+        # Restart
+        l1.daemon.start()
+        sync_blockheight([l1])
+
+        assert len(l1.rpc.listfunds()['outputs']) == 1
+        
     def test_addfunds_from_block(self):
         """Send funds to the daemon without telling it explicitly
         """
