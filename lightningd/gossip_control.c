@@ -299,9 +299,13 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	struct lightningd *ld = cmd->ld;
 	struct pubkey source = ld->id, destination;
 	jsmntok_t *idtok, *msatoshitok, *riskfactortok, *cltvtok, *fromidtok;
+	jsmntok_t *fuzztok;
+	jsmntok_t *seedtok;
 	u64 msatoshi;
 	unsigned cltv = 9;
 	double riskfactor;
+	double fuzz = 5.0;
+	const char *seed = "default";
 
 	if (!json_get_params(cmd, buffer, params,
 			     "id", &idtok,
@@ -309,6 +313,8 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 			     "riskfactor", &riskfactortok,
 			     "?cltv", &cltvtok,
 			     "?fromid", &fromidtok,
+			     "?fuzzpercent", &fuzztok,
+			     "?seed", &seedtok,
 			     NULL)) {
 		return;
 	}
@@ -342,6 +348,30 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 		return;
 	}
 
+	if (fuzztok &&
+	    !json_tok_double(buffer, fuzztok, &fuzz)) {
+		command_fail(cmd, "'%.*s' is not a valid double",
+			     (int)(fuzztok->end - fuzztok->start),
+			     buffer + fuzztok->start);
+		return;
+	}
+	if (!(0.0 <= fuzz && fuzz <= 100.0)) {
+		command_fail(cmd,
+			     "fuzz must be in range 0.0 <= %f <= 100.0",
+			     fuzz);
+		return;
+	}
+	/* Convert from percentage */
+	fuzz = fuzz / 100.0;
+
+	if (seedtok)
+		seed = tal_strndup(cmd, buffer + seedtok->start,
+				   seedtok->end - seedtok->start);
+
+	/* TODO: include in getroute request */
+	(void) fuzz;
+	(void) seed;
+
 	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination, msatoshi, riskfactor*1000, cltv);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 	command_still_pending(cmd);
@@ -350,7 +380,10 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 static const struct json_command getroute_command = {
 	"getroute",
 	json_getroute,
-	"Show route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9), if specified search from {source} otherwise use this node as source."
+	"Show route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9). "
+	"If specified search from {fromid} otherwise use this node as source. "
+	"Randomize the route with up to {fuzzpercent} (0.0 -> 100.0, default 5.0) "
+	"using {seed} as an arbitrary-size string seed."
 };
 AUTODATA(json_command, &getroute_command);
 
