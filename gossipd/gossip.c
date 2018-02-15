@@ -1047,13 +1047,19 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	u16 riskfactor;
 	u8 *out;
 	struct route_hop *hops;
+	double fuzz;
+	u8 *seed;
 
-	fromwire_gossip_getroute_request(msg, &source, &destination,
-					 &msatoshi, &riskfactor, &final_cltv);
+	fromwire_gossip_getroute_request(tmpctx, msg,
+					 &source, &destination,
+					 &msatoshi, &riskfactor, &final_cltv,
+					 &fuzz, &seed);
 	status_trace("Trying to find a route from %s to %s for %d msatoshi",
 		     pubkey_to_hexstr(tmpctx, &source),
 		     pubkey_to_hexstr(tmpctx, &destination), msatoshi);
 
+	(void) fuzz;
+	(void) seed;
 	hops = get_route(tmpctx, daemon->rstate, &source, &destination,
 			 msatoshi, 1, final_cltv);
 
