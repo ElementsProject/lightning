@@ -202,6 +202,10 @@ char *dbmigrations[] = {
     "UPDATE channels SET STATE = 8 WHERE state > 8;",
     /* Add bolt11 to invoices table*/
     "ALTER TABLE invoices ADD bolt11 TEXT;",
+    /* What do we think the head of the blockchain looks like? Used
+     * primarily to track confirmations across restarts and making
+     * sure we handle reorgs correctly. */
+    "CREATE TABLE blocks (height INT, hash BLOB, prev_hash BLOB, UNIQUE(height));",
     NULL,
 };
 
