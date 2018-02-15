@@ -408,7 +408,7 @@ static void json_listaddrs(struct command *cmd,
 	char *out_p2wpkh;
 	const char *hrp;
 	u64 bip32_max_index;
-	const tal_t *tmpctx = tal_tmpctx(NULL);
+	const tal_t *tmpctx = tal_tmpctx(cmd);
 
 	if (!json_get_params(cmd, buffer, params,
 			     "?bip32_max_index", &bip32tok,
@@ -474,8 +474,8 @@ static void json_listaddrs(struct command *cmd,
 	}
 	json_array_end(response);
 	json_object_end(response);
-	command_success(cmd, response);
 	tal_free(tmpctx);
+	command_success(cmd, response);
 }
 
 static const struct json_command listaddrs_command = {
