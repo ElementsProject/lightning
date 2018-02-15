@@ -224,7 +224,8 @@ static bool json_pay_try(struct pay *pay)
 					     &pay->receiver_id,
 					     pay->msatoshi,
 					     pay->riskfactor,
-					     pay->min_final_cltv_expiry);
+					     pay->min_final_cltv_expiry,
+					     0, tal_arrz(pay, u8, 8));
 	subd_req(pay, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
 
 	return true;

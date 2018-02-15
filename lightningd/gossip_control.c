@@ -7,6 +7,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/fdpass/fdpass.h>
+#include <ccan/isaac/isaac64.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <common/features.h>
@@ -22,6 +23,8 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
+#include <sodium/randombytes.h>
+#include <string.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_sync.h>
 
@@ -305,7 +308,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	unsigned cltv = 9;
 	double riskfactor;
 	double fuzz = 5.0;
-	const char *seed = "default";
+	u8 *seed = tal_arrz(cmd, u8, ISAAC64_SEED_SZ_MAX);
 
 	if (!json_get_params(cmd, buffer, params,
 			     "id", &idtok,
@@ -364,15 +367,14 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	/* Convert from percentage */
 	fuzz = fuzz / 100.0;
 
-	if (seedtok)
-		seed = tal_strndup(cmd, buffer + seedtok->start,
-				   seedtok->end - seedtok->start);
+	if (seedtok) {
+		tal_resize(&seed, seedtok->end - seedtok->start);
+		memcpy(seed, buffer + seedtok->start,
+		       seedtok->end - seedtok->start);
+	} else
+		randombytes_buf(seed, tal_len(seed));
 
-	/* TODO: include in getroute request */
-	(void) fuzz;
-	(void) seed;
-
-	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination, msatoshi, riskfactor*1000, cltv);
+	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination, msatoshi, riskfactor*1000, cltv, &fuzz, seed);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 	command_still_pending(cmd);
 }
