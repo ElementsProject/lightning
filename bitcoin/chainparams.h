@@ -15,6 +15,7 @@ struct chainparams {
 	const char *cli;
 	const char *cli_args;
 	const u64 dust_limit;
+	const u32 when_lightning_became_cool;
 
 	/* Whether this is a test network or not */
 	const bool testnet;

@@ -667,22 +667,28 @@ bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
 	return ok;
 }
 
-u32 wallet_channels_first_blocknum(struct wallet *w)
+u32 wallet_first_blocknum(struct wallet *w, u32 first_possible)
 {
 	int err;
-	u32 first_blocknum;
+	u32 first_channel, first_utxo;
 	sqlite3_stmt *stmt =
 	    db_query(__func__, w->db,
 		     "SELECT MIN(first_blocknum) FROM channels;");
 
 	err = sqlite3_step(stmt);
 	if (err == SQLITE_ROW && sqlite3_column_type(stmt, 0) != SQLITE_NULL)
-		first_blocknum = sqlite3_column_int(stmt, 0);
+		first_channel = sqlite3_column_int(stmt, 0);
 	else
-		first_blocknum = UINT32_MAX;
-
+		first_channel = UINT32_MAX;
 	sqlite3_finalize(stmt);
-	return first_blocknum;
+
+	/* If it's an old database, go back to before c-lightning was cool */
+	first_utxo = db_get_intvar(w->db, "last_processed_block",
+				   first_possible);
+	if (first_utxo < first_channel)
+		return first_utxo;
+	else
+		return first_channel;
 }
 
 void wallet_channel_config_save(struct wallet *w, struct channel_config *cc)

@@ -470,16 +470,16 @@ static void get_init_block(struct bitcoind *bitcoind,
 static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 			       struct chain_topology *topo)
 {
+	/* FIXME: Because we don't handle our root disappearing, we go
+	 * 100 blocks back */
+	if (blockcount < 100)
+		blockcount = 0;
+	else
+		blockcount -= 100;
+
 	/* This happens if first_blocknum is UINTMAX-1 */
 	if (blockcount < topo->first_blocknum)
 		topo->first_blocknum = blockcount;
-
-	/* FIXME: Because we don't handle our root disappearing, we go
-	 * 100 blocks back */
-	if (topo->first_blocknum < 100)
-		topo->first_blocknum = 0;
-	else
-		topo->first_blocknum -= 100;
 
 	/* Get up to speed with topology. */
 	bitcoind_getblockhash(bitcoind, topo->first_blocknum,
@@ -714,14 +714,14 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 
 void setup_topology(struct chain_topology *topo,
 		    struct timers *timers,
-		    struct timerel poll_time, u32 first_channel_block)
+		    struct timerel poll_time, u32 first_blocknum)
 {
 	memset(&topo->feerate, 0, sizeof(topo->feerate));
 	topo->timers = timers;
 	topo->poll_time = poll_time;
 	/* Start one before the block we are interested in (as we won't
 	 * get notifications on txs in that block). */
-	topo->first_blocknum = first_channel_block - 1;
+	topo->first_blocknum = first_blocknum - 1;
 
 	/* Make sure bitcoind is started, and ready */
 	wait_for_bitcoind(topo->bitcoind);

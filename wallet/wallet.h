@@ -260,13 +260,12 @@ bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
 bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w);
 
 /**
- * wallet_channels_first_blocknum - get first block we're interested in.
+ * wallet_first_blocknum - get first block we're interested in.
  *
  * @w: wallet to load from.
- *
- * Returns UINT32_MAX if nothing interesting.
+ * @first_possible: when c-lightning may have been active from
  */
-u32 wallet_channels_first_blocknum(struct wallet *w);
+u32 wallet_first_blocknum(struct wallet *w, u32 first_possible);
 
 /**
  * wallet_extract_owned_outputs - given a tx, extract all of our outputs
