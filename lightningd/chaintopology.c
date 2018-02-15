@@ -348,6 +348,10 @@ static void updates_complete(struct chain_topology *topo)
 		/* Maybe need to rebroadcast. */
 		rebroadcast_txs(topo, NULL);
 
+		/* We've processed these UTXOs */
+		db_set_intvar(topo->bitcoind->ld->wallet->db,
+			      "last_processed_block", topo->tip->height);
+
 		topo->prev_tip = topo->tip;
 	}
 
