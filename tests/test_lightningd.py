@@ -3421,17 +3421,14 @@ class LightningDTests(BaseLightningDTests):
             b'{"id":4,"jsonrpc":"2.0","method":"listpeers","params":[]}',
             b'{"id":5,"jsonrpc":"2.0","method":"listpeers","params":[]}',
             b'{"id":6,"jsonrpc":"2.0","method":"listpeers","params":[]}',
-            b'{"method": "invoice", "params": [100, "foo", "foo"], "jsonrpc": "2.0", "id": 7 }',
+            b'{"method": "invoice", "params": [100, "foo", "foo", 1], "jsonrpc": "2.0", "id": 7 }',
             b'{"method": "waitinvoice", "params": ["foo"], "jsonrpc" : "2.0", "id": 8 }',
             b'{"method": "delinvoice", "params": ["foo", "unpaid"], "jsonrpc" : "2.0", "id": 9 }',
         ]
 
         sock.sendall(b'\n'.join(commands))
 
-        # We only care to get back enough results, not their content
-        for _ in commands:
-            l1.rpc._readobj(sock)
-        #time.sleep(1)
+        l1.rpc._readobj(sock)
         sock.close()
 
     def test_cli(self):
