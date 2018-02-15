@@ -904,21 +904,6 @@ class LightningDTests(BaseLightningDTests):
             c = self.fund_channel(lsrc, ldst, 10000000)
             self.wait_for_routes(lpayer, [c])
 
-        # FIXME: This repeated retrying should get implemented
-        # in lightningd `pay` command directly.
-        def pay(l, inv):
-            start_time = time.time()
-            retry = True
-            err = None
-            while retry:
-                if time.time() > start_time + 10:
-                    raise err
-                try:
-                    l.rpc.pay(inv)
-                    retry = False
-                except Exception as errx:
-                    err = errx
-
         ## Setup
         # Construct lightningd
         l1 = self.node_factory.get_node()
@@ -939,7 +924,7 @@ class LightningDTests(BaseLightningDTests):
 
         ## Test
         inv = l4.rpc.invoice(1234567, 'inv', 'for testing')['bolt11']
-        pay(l1, inv)
+        l1.rpc.pay(inv)
 
     def test_bad_opening(self):
         # l1 asks for a too-long locktime
