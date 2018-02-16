@@ -105,7 +105,7 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self.call("dev-blockheight")
 
-    def dev_setfees(self, immediate, normal=None, slow=None):
+    def dev_setfees(self, immediate=None, normal=None, slow=None):
         """
         Set feerate in satoshi-per-kw for {immediate}, {normal} and {slow}
         (each is optional, when set, separate by spaces) and show the value

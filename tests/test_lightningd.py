@@ -777,14 +777,14 @@ class LightningDTests(BaseLightningDTests):
         assert len(payments) == 2
 
         invoice2 = l2.rpc.listinvoices('testpayment2')['invoices'][0]
-        payments = l1.rpc.listpayments(None, invoice2['payment_hash'])['payments']
+        payments = l1.rpc.listpayments(payment_hash=invoice2['payment_hash'])['payments']
         assert len(payments) == 1
 
         assert payments[0]['status'] == 'complete'
         assert payments[0]['payment_preimage'] == preimage2['preimage']
 
         invoice3 = l2.rpc.listinvoices('testpayment3')['invoices'][0]
-        payments = l1.rpc.listpayments(None, invoice3['payment_hash'])['payments']
+        payments = l1.rpc.listpayments(payment_hash=invoice3['payment_hash'])['payments']
         assert len(payments) == 1
 
         assert payments[0]['status'] == 'complete'
@@ -859,7 +859,7 @@ class LightningDTests(BaseLightningDTests):
         assert invoice['paid_at'] <= after
 
         # Repeat payments are NOPs (if valid): we can hand null.
-        l1.rpc.pay(inv, None)
+        l1.rpc.pay(inv)
         # This won't work: can't provide an amount (even if correct!)
         self.assertRaises(ValueError, l1.rpc.pay, inv, 123000)
         self.assertRaises(ValueError, l1.rpc.pay, inv, 122000)
@@ -874,7 +874,6 @@ class LightningDTests(BaseLightningDTests):
             inv2 = l2.rpc.invoice("any", label, 'description')['bolt11']
             # Must provide an amount!
             self.assertRaises(ValueError, l1.rpc.pay, inv2)
-            self.assertRaises(ValueError, l1.rpc.pay, inv2, None)
             l1.rpc.pay(inv2, random.randint(1000, 999999))
 
         # Should see 6 completed payments
@@ -883,6 +882,33 @@ class LightningDTests(BaseLightningDTests):
         # Test listpayments indexed by bolt11.
         assert len(l1.rpc.listpayments(inv)['payments']) == 1
         assert l1.rpc.listpayments(inv)['payments'][0]['payment_preimage'] == preimage['preimage']
+
+    def test_pay_optional_args(self):
+        l1,l2 = self.connect()
+
+        chanid = self.fund_channel(l1, l2, 10**6)
+ 
+        # Wait for route propagation.
+        self.wait_for_routes(l1, [chanid])
+
+        inv1 = l2.rpc.invoice(123000, 'test_pay', '1000')['bolt11']
+        l1.rpc.pay(inv1, description='1000')
+        payment1 = l1.rpc.listpayments(inv1)['payments']
+        assert len(payment1) == 1 and payment1[0]['msatoshi'] == 123000
+
+        inv2 = l2.rpc.invoice(321000, 'test_pay2', 'description')['bolt11']
+        l1.rpc.pay(inv2, riskfactor=5.0)
+        payment2 = l1.rpc.listpayments(inv2)['payments']
+        assert len(payment2) == 1 and payment2[0]['msatoshi'] == 321000
+
+        anyinv = l2.rpc.invoice('any', 'any_pay', 'description')['bolt11']
+        l1.rpc.pay(anyinv, description='1000', msatoshi='500')
+        payment3 = l1.rpc.listpayments(anyinv)['payments']
+        assert len(payment3) == 1 and payment3[0]['msatoshi'] == 500
+
+        transactions = l1.rpc.listpayments()
+        # Should see 3 completed transactions
+        assert len(l1.rpc.listpayments()['payments']) == 3
 
     # Long test involving 4 lightningd instances.
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -3204,6 +3230,40 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(99)
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_update_all_fees(self):
+        l1, l2 = self.connect()
+        chanid = self.fund_channel(l1, l2, 10**6)
+
+        # Set all fees as positional parameters.
+        l1.rpc.dev_setfees('12345', '6789', '123')
+        l1.daemon.wait_for_log('dev-setfees: fees now 12345/6789/123')
+        l2.daemon.wait_for_log('peer updated fee to 12345')
+
+        # Call setfees with fees passed as named parameters in different order.
+        l1.rpc.dev_setfees(slow='123', normal='4567', immediate='8901')
+        l1.daemon.wait_for_log('dev-setfees: fees now 8901/4567/123')
+        l2.daemon.wait_for_log('peer updated fee to 8901')
+
+        # Set one value at a time.
+        l1.rpc.dev_setfees(slow='321')
+        l1.daemon.wait_for_log('dev-setfees: fees now 8901/4567/321')
+        l1.rpc.dev_setfees(normal='7654')
+        l1.daemon.wait_for_log('dev-setfees: fees now 8901/7654/321')
+        l1.rpc.dev_setfees(immediate='21098')
+        l1.daemon.wait_for_log('dev-setfees: fees now 21098/7654/321')
+        l2.daemon.wait_for_log('peer updated fee to 21098')
+
+        # Verify that all fees are indeed optional in setfees call.
+        l1.rpc.dev_setfees()
+        l1.daemon.wait_for_log('dev-setfees: fees now 21098/7654/321')
+
+        # Now shutdown cleanly.
+        l1.rpc.close(l2.info['id'])
+        l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+        l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_fee_limits(self):
