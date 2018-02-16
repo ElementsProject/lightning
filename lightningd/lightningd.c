@@ -285,9 +285,6 @@ int main(int argc, char *argv[])
 	/* Handle options and config; move to .lightningd */
 	newdir = handle_opts(ld, argc, argv);
 
-	/* Activate crash log now we're in the right place. */
-	crashlog_activate(argv[0], ld->log);
-
 	/* Ignore SIGPIPE: we look at our write return values*/
 	signal(SIGPIPE, SIG_IGN);
 
@@ -366,6 +363,9 @@ int main(int argc, char *argv[])
 
 	/* Now kick off topology update, now peers have watches. */
 	begin_topology(ld->topology);
+
+	/* Activate crash log now we're not reporting startup failures. */
+	crashlog_activate(argv[0], ld->log);
 
 	for (;;) {
 		struct timer *expired;
