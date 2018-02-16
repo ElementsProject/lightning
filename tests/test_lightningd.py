@@ -3434,7 +3434,7 @@ class LightningDTests(BaseLightningDTests):
             b'{"id":4,"jsonrpc":"2.0","method":"listpeers","params":[]}',
             b'{"id":5,"jsonrpc":"2.0","method":"listpeers","params":[]}',
             b'{"id":6,"jsonrpc":"2.0","method":"listpeers","params":[]}',
-            b'{"method": "invoice", "params": [100, "foo", "foo", 1], "jsonrpc": "2.0", "id": 7 }',
+            b'{"method": "invoice", "params": [100, "foo", "foo"], "jsonrpc": "2.0", "id": 7 }',
             b'{"method": "waitinvoice", "params": ["foo"], "jsonrpc" : "2.0", "id": 8 }',
             b'{"method": "delinvoice", "params": ["foo", "unpaid"], "jsonrpc" : "2.0", "id": 9 }',
         ]

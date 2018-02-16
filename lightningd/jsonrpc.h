@@ -11,6 +11,8 @@ struct wireaddr;
 /* Context for a command (from JSON, but might outlive the connection!)
  * You can allocate off this for temporary objects. */
 struct command {
+	/* Off jcon->commands */
+	struct list_node list;
 	/* The global state */
 	struct lightningd *ld;
 	/* The 'id' which we need to include in the response. */
@@ -40,8 +42,8 @@ struct json_connection {
 	/* We've been told to stop. */
 	bool stop;
 
-	/* Current command. */
-	struct command *current;
+	/* Current commands. */
+	struct list_head commands;
 
 	struct list_head output;
 	const char *outbuf;
