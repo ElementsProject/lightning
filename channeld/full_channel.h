@@ -7,7 +7,7 @@
 #include <common/sphinx.h>
 
 /**
- * new_channel: Given initial fees and funding, what is initial state?
+ * new_full_channel: Given initial fees and funding, what is initial state?
  * @ctx: tal context to allocate return value from.
  * @funding_txid: The commitment transaction id.
  * @funding_txout: The commitment transaction output number.
@@ -25,19 +25,19 @@
  *
  * Returns state, or NULL if malformed.
  */
-struct channel *new_channel(const tal_t *ctx,
-			    const struct bitcoin_txid *funding_txid,
-			    unsigned int funding_txout,
-			    u64 funding_satoshis,
-			    u64 local_msatoshi,
-			    const u32 feerate_per_kw[NUM_SIDES],
-			    const struct channel_config *local,
-			    const struct channel_config *remote,
-			    const struct basepoints *local_basepoints,
-			    const struct basepoints *remote_basepoints,
-			    const struct pubkey *local_funding_pubkey,
-			    const struct pubkey *remote_funding_pubkey,
-			    enum side funder);
+struct channel *new_full_channel(const tal_t *ctx,
+				 const struct bitcoin_txid *funding_txid,
+				 unsigned int funding_txout,
+				 u64 funding_satoshis,
+				 u64 local_msatoshi,
+				 const u32 feerate_per_kw[NUM_SIDES],
+				 const struct channel_config *local,
+				 const struct channel_config *remote,
+				 const struct basepoints *local_basepoints,
+				 const struct basepoints *remote_basepoints,
+				 const struct pubkey *local_funding_pubkey,
+				 const struct pubkey *remote_funding_pubkey,
+				 enum side funder);
 
 /**
  * channel_txs: Get the current commitment and htlc txs for the channel.

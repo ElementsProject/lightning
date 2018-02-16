@@ -10,6 +10,7 @@
 #include <common/gen_status_wire.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <lightningd/channel.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/log_status.h>
@@ -47,7 +48,7 @@ struct subd_req {
 	void *disabler;
 };
 
-static void free_subd_req(struct subd_req *sr)
+static void destroy_subd_req(struct subd_req *sr)
 {
 	list_del(&sr->list);
 	/* Don't disable once we're freed! */
@@ -97,7 +98,7 @@ static void add_req(const tal_t *ctx,
 
 	/* Keep in FIFO order: we sent in order, so replies will be too. */
 	list_add_tail(&sd->reqs, &sr->list);
-	tal_add_destructor(sr, free_subd_req);
+	tal_add_destructor(sr, destroy_subd_req);
 }
 
 /* Caller must free. */
@@ -388,7 +389,7 @@ static bool log_status_fail(struct subd *sd, const u8 *msg)
 
 static bool handle_received_errmsg(struct subd *sd, const u8 *msg)
 {
-	struct peer *peer = sd->peer;
+	struct channel *channel = sd->channel;
 	struct channel_id channel_id;
 	char *desc;
 
@@ -398,15 +399,16 @@ static bool handle_received_errmsg(struct subd *sd, const u8 *msg)
 
 	/* FIXME: if not all channels failed, hand back to gossipd! */
 
-	/* Don't free sd; we're may be about to free peer. */
-	sd->peer = NULL;
-	peer_fail_permanent(peer, "%s: received ERROR %s", sd->name, desc);
+	/* Don't free sd; we're may be about to free channel. */
+	sd->channel = NULL;
+	channel_fail_permanent(channel,
+			       "%s: received ERROR %s", sd->name, desc);
 	return true;
 }
 
 static bool handle_sent_errmsg(struct subd *sd, const u8 *msg)
 {
-	struct peer *peer = sd->peer;
+	struct channel *channel = sd->channel;
 	struct channel_id channel_id;
 	char *desc;
 	u8 *errmsg;
@@ -416,12 +418,13 @@ static bool handle_sent_errmsg(struct subd *sd, const u8 *msg)
 		return false;
 
 	/* FIXME: if not all channels failed, hand back to gossipd! */
-	if (!sd->peer->error)
-		sd->peer->error = tal_steal(sd->peer, errmsg);
+	if (!channel->error)
+		channel->error = tal_steal(channel, errmsg);
 
-	/* Don't free sd; we're may be about to free peer. */
-	sd->peer = NULL;
-	peer_fail_permanent(peer, "%s: sent ERROR %s", sd->name, desc);
+	/* Don't free sd; we're may be about to free channel. */
+	sd->channel = NULL;
+	channel_fail_permanent(channel,
+			       "%s: sent ERROR %s", sd->name, desc);
 	return true;
 }
 
@@ -468,18 +471,18 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 			goto malformed;
 		goto close;
 	case WIRE_STATUS_PEER_CONNECTION_LOST:
-		if (!sd->peer)
+		if (!sd->channel)
 			goto malformed;
 		log_info(sd->log, "Peer connection lost");
 		goto close;
 	case WIRE_STATUS_RECEIVED_ERRMSG:
-		if (!sd->peer)
+		if (!sd->channel)
 			goto malformed;
 		if (!handle_received_errmsg(sd, sd->msg_in))
 			goto malformed;
 		goto close;
 	case WIRE_STATUS_SENT_ERRMSG:
-		if (!sd->peer)
+		if (!sd->channel)
 			goto malformed;
 		if (!handle_sent_errmsg(sd, sd->msg_in))
 			goto malformed;
@@ -563,26 +566,26 @@ static void destroy_subd(struct subd *sd)
 		fatal("Subdaemon %s killed with signal %i",
 		      sd->name, WTERMSIG(status));
 
-	/* In case we're freed manually, such as peer_fail_permanent */
+	/* In case we're freed manually, such as channel_fail_permanent */
 	if (sd->conn)
 		sd->conn = tal_free(sd->conn);
 
 	/* Peer still attached? */
-	if (sd->peer) {
+	if (sd->channel) {
 		/* Don't loop back when we fail it. */
-		struct peer *peer = sd->peer;
+		struct channel *channel = sd->channel;
 		struct db *db = sd->ld->wallet->db;
 		bool outer_transaction;
 
-		sd->peer = NULL;
+		sd->channel = NULL;
 
 		/* We can be freed both inside msg handling, or spontaneously. */
 		outer_transaction = db->in_transaction;
 		if (!outer_transaction)
 			db_begin_transaction(db);
-		peer_fail_transient(peer,
-				    "Owning subdaemon %s died (%i)",
-				    sd->name, status);
+		channel_fail_transient(channel,
+				       "Owning subdaemon %s died (%i)",
+				       sd->name, status);
 		if (!outer_transaction)
 			db_commit_transaction(db);
 	}
@@ -622,7 +625,7 @@ static struct io_plan *msg_setup(struct io_conn *conn, struct subd *sd)
 
 static struct subd *new_subd(struct lightningd *ld,
 			     const char *name,
-			     struct peer *peer,
+			     struct channel *channel,
 			     const char *(*msgname)(int msgtype),
 			     unsigned int (*msgcb)(struct subd *,
 						   const u8 *, const int *fds),
@@ -646,12 +649,9 @@ static struct subd *new_subd(struct lightningd *ld,
 		return tal_free(sd);
 	}
 	sd->ld = ld;
-	if (peer) {
-		/* FIXME: Use minimal unique pubkey prefix for logs! */
-		const char *idstr = type_to_string(peer, struct pubkey,
-						   &peer->id);
-		sd->log = new_log(sd, peer->log_book, "%s(%s):", name, idstr);
-		tal_free(idstr);
+	if (channel) {
+		sd->log = new_log(sd, channel->peer->log_book, "%s-%s", name,
+				  log_prefix(channel->log));
 	} else {
 		sd->log = new_log(sd, ld->log_book, "%s(%u):", name, sd->pid);
 	}
@@ -664,7 +664,7 @@ static struct subd *new_subd(struct lightningd *ld,
 	msg_queue_init(&sd->outq, sd);
 	tal_add_destructor(sd, destroy_subd);
 	list_head_init(&sd->reqs);
-	sd->peer = peer;
+	sd->channel = channel;
 
 	/* conn actually owns daemon: we die when it does. */
 	sd->conn = io_new_conn(ld, msg_fd, msg_setup, sd);
@@ -693,9 +693,9 @@ struct subd *new_global_subd(struct lightningd *ld,
 	return sd;
 }
 
-struct subd *new_peer_subd(struct lightningd *ld,
+struct subd *new_channel_subd(struct lightningd *ld,
 			   const char *name,
-			   struct peer *peer,
+			   struct channel *channel,
 			   const char *(*msgname)(int msgtype),
 			   unsigned int (*msgcb)(struct subd *, const u8 *,
 						 const int *fds), ...)
@@ -704,7 +704,7 @@ struct subd *new_peer_subd(struct lightningd *ld,
 	struct subd *sd;
 
 	va_start(ap, msgcb);
-	sd = new_subd(ld, name, peer, msgname, msgcb, &ap);
+	sd = new_subd(ld, name, channel, msgname, msgcb, &ap);
 	va_end(ap);
 	return sd;
 }
@@ -764,12 +764,12 @@ void subd_shutdown(struct subd *sd, unsigned int seconds)
 	tal_free(sd);
 }
 
-void subd_release_peer(struct subd *owner, struct peer *peer)
+void subd_release_channel(struct subd *owner, struct channel *channel)
 {
 	/* If owner is a per-peer-daemon, and not already freeing itself... */
-	if (owner->peer) {
-		assert(owner->peer == peer);
-		owner->peer = NULL;
+	if (owner->channel) {
+		assert(owner->channel == channel);
+		owner->channel = NULL;
 		tal_free(owner);
 	}
 }

@@ -580,8 +580,8 @@ struct routing_channel *routing_channel_new(const tal_t *ctx,
 	return chan;
 }
 
-static void remove_connection_from_channel(struct node_connection *nc,
-					   struct routing_state *rstate)
+static void destroy_node_connection(struct node_connection *nc,
+				    struct routing_state *rstate)
 {
 	struct routing_channel *chan = uintmap_get(
 	    &rstate->channels, short_channel_id_to_uint(&nc->short_channel_id));
@@ -600,7 +600,7 @@ void channel_add_connection(struct routing_state *rstate,
 	int direction = get_channel_direction(&nc->src->id, &nc->dst->id);
 	assert(chan != NULL);
 	chan->connections[direction] = nc;
-	tal_add_destructor2(nc, remove_connection_from_channel, rstate);
+	tal_add_destructor2(nc, destroy_node_connection, rstate);
 }
 
 static void add_pending_node_announcement(struct routing_state *rstate, struct pubkey *nodeid)

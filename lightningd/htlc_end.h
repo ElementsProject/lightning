@@ -7,9 +7,9 @@
 #include <common/sphinx.h>
 #include <wire/gen_onion_wire.h>
 
-/* We look up HTLCs by peer & id */
+/* We look up HTLCs by channel & id */
 struct htlc_key {
-	struct peer *peer;
+	struct channel *channel;
 	u64 id;
 };
 
@@ -91,13 +91,13 @@ size_t hash_htlc_key(const struct htlc_key *htlc_key);
 
 static inline bool htlc_in_eq(const struct htlc_in *in, const struct htlc_key *k)
 {
-	return in->key.peer == k->peer && in->key.id == k->id;
+	return in->key.channel == k->channel && in->key.id == k->id;
 }
 
 static inline bool htlc_out_eq(const struct htlc_out *out,
 			       const struct htlc_key *k)
 {
-	return out->key.peer == k->peer && out->key.id == k->id;
+	return out->key.channel == k->channel && out->key.id == k->id;
 }
 
 
@@ -108,16 +108,16 @@ HTABLE_DEFINE_TYPE(struct htlc_out, keyof_htlc_out, hash_htlc_key, htlc_out_eq,
 		   htlc_out_map);
 
 struct htlc_in *find_htlc_in(const struct htlc_in_map *map,
-			     const struct peer *peer,
+			     const struct channel *channel,
 			     u64 htlc_id);
 
 struct htlc_out *find_htlc_out(const struct htlc_out_map *map,
-			       const struct peer *peer,
+			       const struct channel *channel,
 			       u64 htlc_id);
 
 /* You still need to connect_htlc_in this! */
 struct htlc_in *new_htlc_in(const tal_t *ctx,
-			    struct peer *peer, u64 id,
+			    struct channel *channel, u64 id,
 			    u64 msatoshi, u32 cltv_expiry,
 			    const struct sha256 *payment_hash,
 			    const struct secret *shared_secret,
@@ -125,7 +125,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 
 /* You need to set the ID, then connect_htlc_out this! */
 struct htlc_out *new_htlc_out(const tal_t *ctx,
-			      struct peer *peer,
+			      struct channel *channel,
 			      u64 msatoshi, u32 cltv_expiry,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,

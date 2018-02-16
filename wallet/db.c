@@ -283,7 +283,10 @@ sqlite3_stmt *PRINTF_FMT(3, 4)
 	return stmt;
 }
 
-static void close_db(struct db *db) { sqlite3_close(db->sql); }
+static void destroy_db(struct db *db)
+{
+	sqlite3_close(db->sql);
+}
 
 void db_begin_transaction_(struct db *db, const char *location)
 {
@@ -325,7 +328,7 @@ static struct db *db_open(const tal_t *ctx, char *filename)
 	db = tal(ctx, struct db);
 	db->filename = tal_dup_arr(db, char, filename, strlen(filename), 0);
 	db->sql = sql;
-	tal_add_destructor(db, close_db);
+	tal_add_destructor(db, destroy_db);
 	db->in_transaction = NULL;
 	db_do_exec(__func__, db, "PRAGMA foreign_keys = ON;");
 
@@ -390,6 +393,9 @@ static void db_migrate(struct db *db, struct log *log)
 
 	if (current == -1)
 		log_info(log, "Creating database");
+	else if (available < current)
+		fatal("Refusing to migrate down from version %u to %u",
+		      current, available);
 	else if (current != available)
 		log_info(log, "Updating database from version %u to %u",
 			 current, available);

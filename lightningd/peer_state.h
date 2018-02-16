@@ -2,6 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_PEER_STATE_H
 #include "config.h"
 
+/* FIXME: rename channel_state! */
 enum peer_state {
 	UNINITIALIZED,
 

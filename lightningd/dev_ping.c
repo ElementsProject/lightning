@@ -79,15 +79,19 @@ static void json_dev_ping(struct command *cmd,
 	/* First, see if it's in channeld. */
 	peer = peer_by_id(cmd->ld, &id);
 	if (peer) {
-		if (!peer->owner ||
-		    !streq(peer->owner->name, "lightning_channeld")) {
+		struct channel *channel = peer_active_channel(peer);
+
+		if (!channel
+		    || !channel->owner
+		    || !streq(channel->owner->name, "lightning_channeld")) {
 			command_fail(cmd, "Peer in %s",
-				     peer->owner
-				     ? peer->owner->name : "unattached");
+				     channel && channel->owner
+				     ? channel->owner->name
+				     : "unattached");
 			return;
 		}
 		msg = towire_channel_ping(cmd, pongbytes, len);
-		owner = peer->owner;
+		owner = channel->owner;
 	} else {
 		/* We assume it's in gossipd. */
 		msg = towire_gossip_ping(cmd, &id, pongbytes, len);

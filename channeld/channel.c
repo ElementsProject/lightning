@@ -2514,15 +2514,15 @@ static void init_channel(struct peer *peer)
 	derive_basepoints(&seed, &funding_pubkey[LOCAL], &points[LOCAL],
 			  &peer->our_secrets, &peer->shaseed);
 
-	peer->channel = new_channel(peer, &funding_txid, funding_txout,
-				    funding_satoshi,
-				    local_msatoshi,
-				    feerate_per_kw,
-				    &peer->conf[LOCAL], &peer->conf[REMOTE],
-				    &points[LOCAL], &points[REMOTE],
-				    &funding_pubkey[LOCAL],
-				    &funding_pubkey[REMOTE],
-				    funder);
+	peer->channel = new_full_channel(peer, &funding_txid, funding_txout,
+					 funding_satoshi,
+					 local_msatoshi,
+					 feerate_per_kw,
+					 &peer->conf[LOCAL], &peer->conf[REMOTE],
+					 &points[LOCAL], &points[REMOTE],
+					 &funding_pubkey[LOCAL],
+					 &funding_pubkey[REMOTE],
+					 funder);
 
 	if (!channel_force_htlcs(peer->channel, htlcs, hstates,
 				 fulfilled, fulfilled_sides,
