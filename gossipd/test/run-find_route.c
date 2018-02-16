@@ -108,7 +108,7 @@ int main(void)
 	/* A<->B */
 	add_connection(rstate, &a, &b, 1, 1, 1);
 
-	nc = find_route(ctx, rstate, &a, &b, 1000, riskfactor, &fee, &route);
+	nc = find_route(ctx, rstate, &a, &b, 1000, riskfactor, 0.0, NULL, &fee, &route);
 	assert(nc);
 	assert(tal_count(route) == 0);
 	assert(fee == 0);
@@ -123,7 +123,7 @@ int main(void)
 	status_trace("C = %s", type_to_string(trc, struct pubkey, &c));
 	add_connection(rstate, &b, &c, 1, 1, 1);
 
-	nc = find_route(ctx, rstate, &a, &c, 1000, riskfactor, &fee, &route);
+	nc = find_route(ctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL, &fee, &route);
 	assert(nc);
 	assert(tal_count(route) == 1);
 	assert(fee == 1);
@@ -138,14 +138,14 @@ int main(void)
 	add_connection(rstate, &d, &c, 0, 2, 1);
 
 	/* Will go via D for small amounts. */
-	nc = find_route(ctx, rstate, &a, &c, 1000, riskfactor, &fee, &route);
+	nc = find_route(ctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL, &fee, &route);
 	assert(nc);
 	assert(tal_count(route) == 1);
 	assert(pubkey_eq(&route[0]->src->id, &d));
 	assert(fee == 0);
 
 	/* Will go via B for large amounts. */
-	nc = find_route(ctx, rstate, &a, &c, 3000000, riskfactor, &fee, &route);
+	nc = find_route(ctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL, &fee, &route);
 	assert(nc);
 	assert(tal_count(route) == 1);
 	assert(pubkey_eq(&route[0]->src->id, &b));
@@ -153,7 +153,7 @@ int main(void)
 
 	/* Make B->C inactive, force it back via D */
 	get_connection(rstate, &b, &c)->active = false;
-	nc = find_route(ctx, rstate, &a, &c, 3000000, riskfactor, &fee, &route);
+	nc = find_route(ctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL, &fee, &route);
 	assert(nc);
 	assert(tal_count(route) == 1);
 	assert(pubkey_eq(&route[0]->src->id, &d));
