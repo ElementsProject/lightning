@@ -304,6 +304,9 @@ int main(int argc, char *argv[])
 	/* Everything is within a transaction. */
 	db_begin_transaction(ld->wallet->db);
 
+	if (!wallet_network_check(ld->wallet, get_chainparams(ld)))
+		errx(1, "Wallet network check failed.");
+
 	/* Initialize the transaction filter with our pubkeys. */
 	init_txfilter(ld->wallet, ld->owned_txfilter);
 

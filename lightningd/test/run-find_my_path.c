@@ -107,6 +107,10 @@ bool wallet_htlcs_reconnect(struct wallet *wallet UNNEEDED,
 /* Generated stub for wallet_invoice_load */
 bool wallet_invoice_load(struct wallet *wallet UNNEEDED)
 { fprintf(stderr, "wallet_invoice_load called!\n"); abort(); }
+/* Generated stub for wallet_network_check */
+bool wallet_network_check(struct wallet *w UNNEEDED,
+			  const struct chainparams *chainparams UNNEEDED)
+{ fprintf(stderr, "wallet_network_check called!\n"); abort(); }
 /* Generated stub for wallet_new */
 struct wallet *wallet_new(struct lightningd *ld UNNEEDED,
 			  struct log *log UNNEEDED, struct timers *timers UNNEEDED)
