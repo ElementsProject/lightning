@@ -23,6 +23,9 @@ The 'maxfeepercent' limits the money paid in fees, and defaults to 0.5.
 The `maxfeepercent' is a percentage of the amount that is to be
 paid.
 
+The *pay* RPC command will randomize routes slightly, as long as the
+route achieves the targeted 'maxfeepercent'.
+
 The response will occur when the payment fails or succeeds.  Once a
 payment has succeeded, calls to *pay* with the same 'bolt11' will
 succeed immediately.
@@ -36,6 +39,9 @@ RETURN VALUE
 
 On success, this returns the payment 'preimage' which hashes to the
 'payment_hash' to prove that the payment was successful.
+It will also return, a 'getroute_tries' and a 'sendpay_tries'
+statistics for the number of times it internally called *getroute*
+and *sendpay*.
 
 On error, if the error occurred from a node other than the final
 destination, the route table will be updated so that getroute(7)
