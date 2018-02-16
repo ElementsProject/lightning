@@ -28,8 +28,10 @@ struct pay {
 	/* Number of payment tries */
 	unsigned int tries;
 
-	/* Parent of the sendpay object. */
-	char *sendpay_parent;
+	/* Parent of the current pay attempt. This object is
+	 * freed, then allocated at the start of each pay
+	 * attempt to ensure no leaks across long pay attempts */
+	char *try_parent;
 };
 
 static void
@@ -187,7 +189,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 		return;
 	}
 
-	send_payment(pay->sendpay_parent,
+	send_payment(pay->try_parent,
 		     pay->cmd->ld, &pay->payment_hash, route,
 		     &json_pay_sendpay_resolve, pay);
 }
@@ -214,19 +216,20 @@ static bool json_pay_try(struct pay *pay)
 	}
 
 	/* Clear previous sendpay. */
-	pay->sendpay_parent = tal_free(pay->sendpay_parent);
-	pay->sendpay_parent = tal(pay, char);
+	pay->try_parent = tal_free(pay->try_parent);
+	pay->try_parent = tal(pay, char);
 
 	++pay->tries;
 
 	/* FIXME: use b11->routes */
-	req = towire_gossip_getroute_request(cmd, &cmd->ld->id,
+	req = towire_gossip_getroute_request(pay->try_parent,
+					     &cmd->ld->id,
 					     &pay->receiver_id,
 					     pay->msatoshi,
 					     pay->riskfactor,
 					     pay->min_final_cltv_expiry,
-					     0, tal_arrz(pay, u8, 8));
-	subd_req(pay, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
+					     0, tal_arrz(pay->try_parent, u8, 8));
+	subd_req(pay->try_parent, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
 
 	return true;
 }
@@ -324,7 +327,7 @@ static void json_pay(struct command *cmd,
 	pay->maxfeepercent = maxfeepercent;
 
 	pay->tries = 0;
-	pay->sendpay_parent = NULL;
+	pay->try_parent = NULL;
 
 	/* Initiate payment */
 	if (json_pay_try(pay))
