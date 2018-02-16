@@ -850,7 +850,7 @@ class LightningDTests(BaseLightningDTests):
         assert invoice['paid_at'] <= after
 
         # Repeat payments are NOPs (if valid): we can hand null.
-        l1.rpc.pay(inv, None)
+        l1.rpc.pay(inv)
         # This won't work: can't provide an amount (even if correct!)
         self.assertRaises(ValueError, l1.rpc.pay, inv, 123000)
         self.assertRaises(ValueError, l1.rpc.pay, inv, 122000)
@@ -865,7 +865,6 @@ class LightningDTests(BaseLightningDTests):
             inv2 = l2.rpc.invoice("any", label, 'description')['bolt11']
             # Must provide an amount!
             self.assertRaises(ValueError, l1.rpc.pay, inv2)
-            self.assertRaises(ValueError, l1.rpc.pay, inv2, None)
             l1.rpc.pay(inv2, random.randint(1000, 999999))
 
         # Should see 6 completed payments
