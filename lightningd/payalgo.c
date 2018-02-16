@@ -1,5 +1,6 @@
 #include "pay.h"
 #include "payalgo.h"
+#include <ccan/isaac/isaac64.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/bolt11.h>
@@ -9,6 +10,7 @@
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/subd.h>
+#include <sodium/randombytes.h>
 
 struct pay {
 	/* Parent command. */
@@ -25,8 +27,12 @@ struct pay {
 	double riskfactor;
 	double maxfeepercent;
 
-	/* Number of payment tries */
-	unsigned int tries;
+	/* Number of getroute and sendpay tries */
+	unsigned int getroute_tries;
+	unsigned int sendpay_tries;
+
+	/* Current fuzz we pass into getroute. */
+	double fuzz;
 
 	/* Parent of the current pay attempt. This object is
 	 * freed, then allocated at the start of each pay
@@ -37,7 +43,8 @@ struct pay {
 static void
 json_pay_success(struct command *cmd,
 		 const struct preimage *payment_preimage,
-		 unsigned int tries)
+		 unsigned int getroute_tries,
+		 unsigned int sendpay_tries)
 {
 	struct json_result *response;
 
@@ -45,7 +52,8 @@ json_pay_success(struct command *cmd,
 	json_object_start(response, NULL);
 	json_add_hex(response, "preimage",
 		     payment_preimage, sizeof(*payment_preimage));
-	json_add_num(response, "tries", tries);
+	json_add_num(response, "getroute_tries", getroute_tries);
+	json_add_num(response, "sendpay_tries", sendpay_tries);
 	json_object_end(response);
 	command_success(cmd, response);
 }
@@ -126,7 +134,8 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 
 	/* If we succeed, hurray */
 	if (r->succeeded) {
-		json_pay_success(pay->cmd, &r->preimage, pay->tries);
+		json_pay_success(pay->cmd, &r->preimage,
+				 pay->getroute_tries, pay->sendpay_tries);
 		return;
 	}
 
@@ -149,6 +158,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	u64 msatoshi_sent;
 	u64 fee;
 	double feepercent;
+	bool fee_too_high;
 	struct json_result *data;
 
 	fromwire_gossip_getroute_reply(reply, reply, &route);
@@ -169,7 +179,9 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	 * and thus losing precision in the below. Currently, OK, as,
 	 * payments are limited to 4294967295 msatoshi. */
 	feepercent = ((double) fee) * 100.0 / ((double) pay->msatoshi);
-	if (feepercent > pay->maxfeepercent) {
+	fee_too_high = (feepercent > pay->maxfeepercent);
+	/* compare fuzz to range */
+	if (fee_too_high && pay->fuzz < 0.01) {
 		data = new_json_result(pay);
 		json_object_start(data, NULL);
 		json_add_u64(data, "fee", fee);
@@ -188,6 +200,16 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 				      pay->maxfeepercent);
 		return;
 	}
+	if (fee_too_high) {
+		/* Retry with lower fuzz */
+		pay->fuzz -= 0.15;
+		if (pay->fuzz <= 0.0)
+			pay->fuzz = 0.0;
+		json_pay_try(pay);
+		return;
+	}
+
+	++pay->sendpay_tries;
 
 	send_payment(pay->try_parent,
 		     pay->cmd->ld, &pay->payment_hash, route,
@@ -198,6 +220,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
  * false if resolved now. */
 static bool json_pay_try(struct pay *pay)
 {
+	u8 *seed;
 	u8 *req;
 	struct command *cmd = pay->cmd;
 	struct timeabs now = time_now();
@@ -215,11 +238,15 @@ static bool json_pay_try(struct pay *pay)
 		return false;
 	}
 
-	/* Clear previous sendpay. */
+	/* Clear previous try memory. */
 	pay->try_parent = tal_free(pay->try_parent);
 	pay->try_parent = tal(pay, char);
 
-	++pay->tries;
+	/* Generate random seed */
+	seed = tal_arr(pay->try_parent, u8, ISAAC64_SEED_SZ_MAX);
+	randombytes_buf(seed, tal_len(seed));
+
+	++pay->getroute_tries;
 
 	/* FIXME: use b11->routes */
 	req = towire_gossip_getroute_request(pay->try_parent,
@@ -228,7 +255,8 @@ static bool json_pay_try(struct pay *pay)
 					     pay->msatoshi,
 					     pay->riskfactor,
 					     pay->min_final_cltv_expiry,
-					     0, tal_arrz(pay->try_parent, u8, 8));
+					     &pay->fuzz,
+					     seed);
 	subd_req(pay->try_parent, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
 
 	return true;
@@ -326,7 +354,9 @@ static void json_pay(struct command *cmd,
 	}
 	pay->maxfeepercent = maxfeepercent;
 
-	pay->tries = 0;
+	pay->getroute_tries = 0;
+	pay->sendpay_tries = 0;
+	pay->fuzz = 0.75;
 	pay->try_parent = NULL;
 
 	/* Initiate payment */
