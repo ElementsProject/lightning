@@ -108,7 +108,8 @@ class LightningRpc(UnixDomainSocketRpc):
     def dev_setfees(self, immediate, normal=None, slow=None):
         """
         Set feerate in satoshi-per-kw for {immediate}, {normal} and {slow}
-        (each is optional, when set, separate by spaces) and show the value of those three feerates
+        (each is optional, when set, separate by spaces) and show the value
+        of those three feerates
         """
         payload = {
             "immediate": immediate,
@@ -119,7 +120,8 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def listnodes(self, node_id=None):
         """
-        Show all nodes in our local network view, filter on node {id} if provided
+        Show all nodes in our local network view, filter on node {id}
+        if provided
         """
         payload = {
             "id": node_id
@@ -128,7 +130,8 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def getroute(self, peer_id, msatoshi, riskfactor, cltv=9):
         """
-        Show route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9)
+        Show route to {id} for {msatoshi}, using {riskfactor} and optional
+        {cltv} (default 9)
         """
         payload = {
             "id": peer_id,
@@ -149,7 +152,8 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def invoice(self, msatoshi, label, description, expiry=None):
         """
-        Create an invoice for {msatoshi} with {label} and {description} with optional {expiry} seconds (default 1 hour)
+        Create an invoice for {msatoshi} with {label} and {description} with
+        optional {expiry} seconds (default 1 hour)
         """
         payload = {
             "msatoshi": msatoshi,
@@ -180,7 +184,8 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def waitanyinvoice(self, lastpay_index=None):
         """
-        Wait for the next invoice to be paid, after {lastpay_index} (if supplied)
+        Wait for the next invoice to be paid, after {lastpay_index}
+        (if supplied)
         """
         payload = {
             "lastpay_index": lastpay_index
@@ -260,8 +265,11 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def pay(self, bolt11, msatoshi=None, description=None, riskfactor=None):
         """
-        Send payment specified by {bolt11} with optional {msatoshi} (if and only if {bolt11} does not have amount),
-        {description} (required if {bolt11} uses description hash) and {riskfactor} (default 1.0)
+        Send payment specified by {bolt11} with optional {msatoshi}
+        (if and only if {bolt11} does not have amount),
+
+        {description} (required if {bolt11} uses description hash)
+        and {riskfactor} (default 1.0)
         """
         payload = {
             "bolt11": bolt11,
@@ -375,7 +383,8 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def withdraw(self, destination, satoshi):
         """
-        Send to {destination} address {satoshi} (or "all") amount via Bitcoin transaction
+        Send to {destination} address {satoshi} (or "all")
+        amount via Bitcoin transaction
         """
         payload = {
             "destination": destination,
@@ -403,4 +412,7 @@ class LightningRpc(UnixDomainSocketRpc):
     def dev_forget_channel(self, peerid, force=False):
         """ Forget the channel with id=peerid
         """
-        return self.call("dev-forget-channel", payload={"id": peerid, "force": force})
+        return self.call(
+            "dev-forget-channel",
+            payload={"id": peerid, "force": force}
+        )
