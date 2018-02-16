@@ -7,6 +7,7 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/grab_file/grab_file.h>
+#include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/memleak.h>
@@ -211,6 +212,8 @@ static char *opt_set_fee_rates(const char *arg, struct chain_topology *topo)
 
 static void config_register_opts(struct lightningd *ld)
 {
+	opt_register_noarg("--daemon", opt_set_bool, &ld->daemon,
+			 "Run in the background, suppress stdout/stderr");
 	opt_register_arg("--ignore-fee-limits", opt_set_bool_arg, opt_show_bool,
 			 &ld->config.ignore_fee_limits,
 			 "(DANGEROUS) allow peer to set any feerate");

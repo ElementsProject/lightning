@@ -7,6 +7,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
+#include <ccan/daemonize/daemonize.h>
 #include <ccan/err/err.h>
 #include <ccan/io/fdpass/fdpass.h>
 #include <ccan/io/io.h>
@@ -22,6 +23,7 @@
 #include <common/utils.h>
 #include <common/version.h>
 #include <common/wireaddr.h>
+#include <errno.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/invoice.h>
@@ -68,6 +70,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx,
 	timers_init(&ld->timers, time_mono());
 	ld->topology = new_topology(ld, ld->log);
 	ld->debug_subdaemon_io = NULL;
+	ld->daemon = false;
 
 	return ld;
 }
@@ -230,6 +233,24 @@ static void init_txfilter(struct wallet *w, struct txfilter *filter)
 	}
 }
 
+static void daemonize_but_keep_dir(void)
+{
+	/* daemonize moves us into /, but we want to be here */
+	const char *cwd = path_cwd(NULL);
+
+	if (!cwd)
+		fatal("Could not get current directory: %s", strerror(errno));
+	if (!daemonize())
+		fatal("Could not become a daemon: %s", strerror(errno));
+
+	/* Move back: important, since lightning dir may be relative! */
+	if (chdir(cwd) != 0)
+		fatal("Could not return to directory %s: %s",
+		      cwd, strerror(errno));
+
+	tal_free(cwd);
+}
+
 int main(int argc, char *argv[])
 {
 	struct log_book *log_book;
@@ -330,6 +351,10 @@ int main(int argc, char *argv[])
 
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(ld, ld->rpc_filename);
+
+	/* Now we're about to start, become daemon if desired. */
+	if (ld->daemon)
+		daemonize_but_keep_dir();
 
 	/* Mark ourselves live. */
 	log_info(ld->log, "Server started with public key %s, alias %s (color #%s) and lightningd %s",
