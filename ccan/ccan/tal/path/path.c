@@ -11,9 +11,6 @@
 #include <errno.h>
 #include <assert.h>
 
-#define PATH_SEP_STR "/"
-#define PATH_SEP (PATH_SEP_STR[0])
-
 char *path_cwd(const tal_t *ctx)
 {
 	size_t len = 64;
