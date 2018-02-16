@@ -882,8 +882,8 @@ class LightningDTests(BaseLightningDTests):
         # Wait for route propagation.
         self.wait_for_routes(l1, [chanid])
 
-        inv1 = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
-        l1.rpc.pay(inv1, description='00000')
+        inv1 = l2.rpc.invoice(123000, 'test_pay', '1000')['bolt11']
+        l1.rpc.pay(inv1, description='1000')
         payment1 = l1.rpc.listpayments(inv1)['payments']
         assert len(payment1) == 1 and payment1[0]['msatoshi'] == 123000
 
