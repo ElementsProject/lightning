@@ -77,6 +77,9 @@ struct lightningd {
 	/* The directory to find all the subdaemons. */
 	const char *daemon_dir;
 
+	/* Are we told to run in the background. */
+	bool daemon;
+
 	/* Our config dir, and rpc file */
 	char *config_dir;
 	char *rpc_filename;
