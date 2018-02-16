@@ -3,6 +3,7 @@
 
 #include "config.h"
 #include "db.h"
+#include <bitcoin/chainparams.h>
 #include <bitcoin/tx.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/list/list.h>
@@ -618,4 +619,15 @@ const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
  */
 void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
 			   secp256k1_ecdsa_signature *htlc_sigs);
+
+/**
+ * wallet_network_check - Check that the wallet is setup for this chain
+ *
+ * Ensure that the genesis_hash from the chainparams matches the
+ * genesis_hash with which the DB was initialized. Returns false if
+ * the check failed, i.e., if the genesis hashes do not match.
+ */
+bool wallet_network_check(struct wallet *w,
+			  const struct chainparams *chainparams);
+
 #endif /* WALLET_WALLET_H */

@@ -1618,3 +1618,34 @@ void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
 		db_exec_prepared(w->db, stmt);
 	}
 }
+
+bool wallet_network_check(struct wallet *w,
+			  const struct chainparams *chainparams)
+{
+	sqlite3_stmt *stmt = db_query(__func__, w->db,
+				      "SELECT val FROM vars WHERE name='genesis_hash'");
+	struct bitcoin_blkid chainhash;
+
+	if (stmt && sqlite3_step(stmt) == SQLITE_ROW) {
+		sqlite3_column_sha256_double(stmt, 0, &chainhash.shad);
+		sqlite3_finalize(stmt);
+		if (!structeq(&chainhash, &chainparams->genesis_blockhash)) {
+			log_broken(w->log, "Wallet blockchain hash does not "
+					   "match network blockchain hash: %s "
+					   "!= %s",
+				   type_to_string(w, struct bitcoin_blkid,
+						  &chainhash),
+				   type_to_string(w, struct bitcoin_blkid,
+						  &chainparams->genesis_blockhash));
+			return false;
+		}
+	} else {
+		/* Still a pristine wallet, claim it for the chain
+		 * that we are running */
+		sqlite3_finalize(stmt);
+		stmt = db_prepare(w->db, "INSERT INTO vars (name, val) VALUES ('genesis_hash', ?);");
+		sqlite3_bind_sha256_double(stmt, 1, &chainparams->genesis_blockhash.shad);
+		db_exec_prepared(w->db, stmt);
+	}
+	return true;
+}
