@@ -127,7 +127,7 @@ int main(void)
 	nc->flags = 1;
 	nc->last_timestamp = 1504064344;
 
-	nc = find_route(ctx, rstate, &a, &c, 100000, riskfactor, &fee, &route);
+	nc = find_route(ctx, rstate, &a, &c, 100000, riskfactor, 0.0, NULL, &fee, &route);
 	assert(nc);
 	assert(tal_count(route) == 1);
 	assert(pubkey_eq(&route[0]->src->id, &b));

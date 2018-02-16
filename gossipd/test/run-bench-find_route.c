@@ -212,6 +212,7 @@ int main(int argc, char *argv[])
 		nc = find_route(ctx, rstate, &from, &to,
 				pseudorand(100000),
 				riskfactor,
+				0.0, NULL,
 				&fee, &route);
 		num_success += (nc != NULL);
 		tal_free(route);

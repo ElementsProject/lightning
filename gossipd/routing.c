@@ -5,6 +5,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
+#include <ccan/isaac/isaac64.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/features.h>
@@ -331,10 +332,30 @@ static u64 risk_fee(u64 amount, u32 delay, double riskfactor)
 
 /* We track totals, rather than costs.  That's because the fee depends
  * on the current amount passing through. */
-static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor)
+static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor,
+			 double fuzz, const struct isaac64_ctx *baserng)
 {
 	struct node_connection *c = node->in[edgenum];
 	size_t h;
+	struct isaac64_ctx myrng;
+	double fee_scale = 1.0;
+	u8 *scid;
+
+	if (fuzz != 0.0) {
+		/* Copy RNG state */
+		myrng = *baserng;
+
+		/* Provide the channel short ID, as additional
+		 * entropy. */
+		scid = tal_arr(NULL, u8, 0);
+		towire_short_channel_id(&scid, &c->short_channel_id);
+		isaac64_reseed(&myrng,
+			       (const unsigned char *) scid, tal_len(scid));
+		tal_free(scid);
+
+		/* Scale fees for this channel */
+		fee_scale = 1.0 + fuzz * isaac64_next_signed_double(&myrng);
+	}
 
 	assert(c->dst == node);
 	for (h = 0; h < ROUTING_MAX_HOPS; h++) {
@@ -345,7 +366,7 @@ static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor)
 		if (node->bfg[h].total == INFINITE)
 			continue;
 
-		fee = connection_fee(c, node->bfg[h].total);
+		fee = connection_fee(c, node->bfg[h].total) * fee_scale;
 		risk = node->bfg[h].risk + risk_fee(node->bfg[h].total + fee,
 						    c->delay, riskfactor);
 
@@ -380,7 +401,9 @@ static bool nc_is_routable(const struct node_connection *nc, time_t now)
 static struct node_connection *
 find_route(const tal_t *ctx, struct routing_state *rstate,
 	   const struct pubkey *from, const struct pubkey *to, u64 msatoshi,
-	   double riskfactor, u64 *fee, struct node_connection ***route)
+	   double riskfactor,
+	   double fuzz, struct isaac64_ctx *baserng,
+	   u64 *fee, struct node_connection ***route)
 {
 	struct node *n, *src, *dst;
 	struct node_map_iter it;
@@ -440,7 +463,8 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 					SUPERVERBOSE("...unroutable");
 					continue;
 				}
-				bfg_one_edge(n, i, riskfactor);
+				bfg_one_edge(n, i, riskfactor,
+					     fuzz, baserng);
 				SUPERVERBOSE("...done");
 			}
 		}
@@ -1118,7 +1142,8 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 			    const struct pubkey *source,
 			    const struct pubkey *destination,
 			    const u32 msatoshi, double riskfactor,
-			    u32 final_cltv)
+			    u32 final_cltv,
+			    double fuzz, u8 *seed)
 {
 	struct node_connection **route;
 	u64 total_amount;
@@ -1127,9 +1152,14 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 	struct route_hop *hops;
 	int i;
 	struct node_connection *first_conn;
+	isaac64_ctx baserng;
+
+	/* Load base RNG */
+	isaac64_init(&baserng, (const unsigned char*) seed, tal_count(seed));
 
 	first_conn = find_route(ctx, rstate, source, destination, msatoshi,
 				riskfactor / BLOCKS_PER_YEAR / 10000,
+				fuzz, &baserng,
 				&fee, &route);
 
 	if (!first_conn) {

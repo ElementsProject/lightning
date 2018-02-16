@@ -186,7 +186,8 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 			    const struct pubkey *source,
 			    const struct pubkey *destination,
 			    const u32 msatoshi, double riskfactor,
-			    u32 final_cltv);
+			    u32 final_cltv,
+			    double fuzz, u8 *seed);
 /* Disable channel(s) based on the given routing failure. */
 void routing_failure(struct routing_state *rstate,
 		     const struct pubkey *erring_node,
