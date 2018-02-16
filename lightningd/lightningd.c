@@ -128,10 +128,6 @@ static const char *find_my_path(const tal_t *ctx, const char *argv0)
 {
 	char *me, *tmpctx = tal_tmpctx(ctx);
 
-	/* FIXME: Expose in CCAN! */
-#define PATH_SEP_STR "/"
-#define PATH_SEP (PATH_SEP_STR[0])
-
 	if (strchr(argv0, PATH_SEP)) {
 		const char *path;
 		/* Absolute paths are easy. */

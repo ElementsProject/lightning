@@ -165,4 +165,8 @@ char **path_split(const tal_t *ctx, const char *path TAKES);
  */
 size_t path_ext_off(const char *path);
 
+/* Separator constants */
+#define PATH_SEP_STR "/"
+#define PATH_SEP (PATH_SEP_STR[0])
+
 #endif /* CCAN_PATH_H */
