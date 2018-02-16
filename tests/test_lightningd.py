@@ -883,6 +883,11 @@ class LightningDTests(BaseLightningDTests):
         assert len(l1.rpc.listpayments(inv)['payments']) == 1
         assert l1.rpc.listpayments(inv)['payments'][0]['payment_preimage'] == preimage['preimage']
 
+        # Check long descriptions
+        longdesc = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce tortor massa, sodales sit amet felis eu, tempus ullamcorper ex. Duis fermentum odio finibus, pharetra justo et, faucibus sem. Integer ac iaculis felis. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean euismod lobortis dapibus. Ut tellus neque, posuere non nunc vel, varius hendrerit erat. Sed quis tristique ex. Maecenas rutrum orci at lorem eleifend imperdiet. Cras pretium id nulla a placerat. Sed rutrum nisl vitae mauris elementum, ac dapibus nulla ultrices. Mauris nec odio consequat, ultrices magna euismod, porta urna. Aenean porttitor et enim luctus semper nullam. "
+        longinv = l2.rpc.invoice(12345, "longinv", longdesc)['bolt11']
+        l1.rpc.pay(longinv, description=longdesc)
+
     def test_pay_optional_args(self):
         l1,l2 = self.connect()
 
