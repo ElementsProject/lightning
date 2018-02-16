@@ -726,14 +726,14 @@ void setup_topology(struct chain_topology *topo,
 
 	tal_add_destructor(topo, destroy_chain_topology);
 
-	/* Begin fee estimation. */
-	start_fee_estimate(topo);
-
 	/* Once it gets initial block, it calls io_break() and we return. */
 	io_loop(NULL, NULL);
 }
 
 void begin_topology(struct chain_topology *topo)
 {
+	/* Begin fee estimation. */
+	start_fee_estimate(topo);
+
 	try_extend_tip(topo);
 }
