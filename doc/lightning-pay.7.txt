@@ -60,6 +60,11 @@ The following error codes may occur:
   indicate the actual 'fee' as well as the 'feepercent'
   percentage that the fee has of the destination payment
   amount.
+* 207. Invoice expired. Payment took too long before expiration,
+  or already expired at the time you initiated payment.
+  The 'data' field of the error indicates 'now' (the current time)
+  and 'expiry' (the invoice expiration) as UNIX epoch time in
+  seconds.
 
 A routing failure object has the fields below:
 

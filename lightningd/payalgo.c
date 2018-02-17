@@ -113,14 +113,13 @@ static void json_pay_failure(struct command *cmd,
 }
 
 /* Start a payment attempt. */
-static void json_pay_try(struct pay *pay);
+static bool json_pay_try(struct pay *pay);
 
 /* Call when sendpay returns to us. */
 static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 				     void *vpay)
 {
 	struct pay *pay = (struct pay *) vpay;
-	struct timeabs now = time_now();
 
 	/* If we succeed, hurray */
 	if (r->succeeded) {
@@ -132,13 +131,6 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 	 * below. If it is not, fail now. */
 	if (r->errorcode != PAY_UNPARSEABLE_ONION &&
 	    r->errorcode != PAY_TRY_OTHER_ROUTE) {
-		json_pay_failure(pay->cmd, r);
-		return;
-	}
-
-	/* If too late anyway, fail now. */
-	if (time_after(now, pay->expiry)) {
-		/* FIXME: maybe another error kind? */
 		json_pay_failure(pay->cmd, r);
 		return;
 	}
@@ -199,11 +191,26 @@ static void json_pay_getroute_reply(struct subd *gossip,
 		     &json_pay_sendpay_resolve, pay);
 }
 
-/* Start a payment attempt */
-static void json_pay_try(struct pay *pay)
+/* Start a payment attempt. Return true if deferred,
+ * false if resolved now. */
+static bool json_pay_try(struct pay *pay)
 {
 	u8 *req;
 	struct command *cmd = pay->cmd;
+	struct timeabs now = time_now();
+	struct json_result *data;
+
+	/* If too late anyway, fail now. */
+	if (time_after(now, pay->expiry)) {
+		data = new_json_result(cmd);
+		json_object_start(data, NULL);
+		json_add_num(data, "now", now.ts.tv_sec);
+		json_add_num(data, "expiry", pay->expiry.ts.tv_sec);
+		json_object_end(data);
+		command_fail_detailed(cmd, PAY_INVOICE_EXPIRED, data,
+				      "Invoice expired");
+		return false;
+	}
 
 	/* Clear previous sendpay. */
 	pay->sendpay_parent = tal_free(pay->sendpay_parent);
@@ -218,6 +225,8 @@ static void json_pay_try(struct pay *pay)
 					     pay->riskfactor,
 					     pay->min_final_cltv_expiry);
 	subd_req(pay, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
+
+	return true;
 }
 
 static void json_pay(struct command *cmd,
@@ -316,8 +325,8 @@ static void json_pay(struct command *cmd,
 	pay->sendpay_parent = NULL;
 
 	/* Initiate payment */
-	json_pay_try(pay);
-	command_still_pending(cmd);
+	if (json_pay_try(pay))
+		command_still_pending(cmd);
 }
 
 static const struct json_command pay_command = {

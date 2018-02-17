@@ -2,12 +2,12 @@
 .\"     Title: lightning-pay
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 02/11/2018
+.\"      Date: 02/17/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-PAY" "7" "02/11/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-PAY" "7" "02/17/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -153,6 +153,23 @@ field of the error will indicate the actual
 as well as the
 \fIfeepercent\fR
 percentage that the fee has of the destination payment amount\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+207\&. Invoice expired\&. Payment took too long before expiration, or already expired at the time you initiated payment\&. The
+\fIdata\fR
+field of the error indicates
+\fInow\fR
+(the current time) and
+\fIexpiry\fR
+(the invoice expiration) as UNIX epoch time in seconds\&.
 .RE
 .sp
 A routing failure object has the fields below:
