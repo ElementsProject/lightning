@@ -1660,3 +1660,32 @@ bool wallet_network_check(struct wallet *w,
 	}
 	return true;
 }
+
+void wallet_block_add(struct wallet *w, struct block *b)
+{
+	sqlite3_stmt *stmt = db_prepare(w->db,
+					"INSERT INTO blocks "
+					"(height, hash, prev_hash) "
+					"VALUES (?, ?, ?);");
+	sqlite3_bind_int(stmt, 1, b->height);
+	sqlite3_bind_sha256_double(stmt, 2, &b->blkid.shad);
+	if (b->prev) {
+		sqlite3_bind_sha256_double(stmt, 3, &b->prev->blkid.shad);
+	}else {
+		sqlite3_bind_null(stmt, 3);
+	}
+	db_exec_prepared(w->db, stmt);
+}
+
+void wallet_block_remove(struct wallet *w, struct block *b)
+{
+	sqlite3_stmt *stmt = db_prepare(w->db,
+					"DELETE FROM blocks WHERE hash = ?");
+	sqlite3_bind_sha256_double(stmt, 1, &b->blkid.shad);
+	db_exec_prepared(w->db, stmt);
+
+	stmt = db_prepare(w->db, "SELECT * FROM blocks WHERE height >= ?;");
+	sqlite3_bind_int(stmt, 1, b->height);
+	assert(sqlite3_step(stmt) == SQLITE_DONE);
+	sqlite3_finalize(stmt);
+}
