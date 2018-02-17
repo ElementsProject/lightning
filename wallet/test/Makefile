@@ -10,6 +10,7 @@ WALLET_TEST_COMMON_OBJS :=			\
 	common/timeout.o			\
 	common/utils.o				\
 	common/wireaddr.o			\
+	common/version.o			\
 	wire/towire.o				\
 	wire/fromwire.o
 
