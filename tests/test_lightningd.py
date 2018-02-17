@@ -1028,6 +1028,29 @@ class LightningDTests(BaseLightningDTests):
         wait_forget_channels(l1)
         wait_forget_channels(l2)
 
+    def test_db_upgrade(self):
+        l1 = self.node_factory.get_node()
+        l1.stop()
+
+        version = subprocess.check_output(['lightningd/lightningd',
+                                           '--version']).decode('utf-8').splitlines()[0]
+
+        upgrades = l1.db_query("SELECT * from db_upgrades;")
+        assert len(upgrades) == 1
+        assert(upgrades[0]['upgrade_from'] == -1)
+        assert(upgrades[0]['lightning_version'] == version)
+
+        # Try resetting to earlier db state.
+        os.unlink(os.path.join(l1.daemon.lightning_dir, "lightningd.sqlite3"))
+        l1.db_manip("CREATE TABLE version (version INTEGER);")
+        l1.db_manip("INSERT INTO version VALUES (1);")
+
+        l1.daemon.start()
+        upgrades = l1.db_query("SELECT * from db_upgrades;")
+        assert len(upgrades) == 1
+        assert(upgrades[0]['upgrade_from'] == 1)
+        assert(upgrades[0]['lightning_version'] == version)
+
     def test_closing_different_fees(self):
         l1 = self.node_factory.get_node()
 

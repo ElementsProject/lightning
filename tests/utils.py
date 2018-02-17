@@ -365,6 +365,16 @@ class LightningNode(object):
         db.close()
         return result
 
+    # Assumes node is stopped!
+    def db_manip(self, query):
+        db = sqlite3.connect(os.path.join(self.daemon.lightning_dir, "lightningd.sqlite3"))
+        db.row_factory = sqlite3.Row
+        c = db.cursor()
+        c.execute(query)
+        db.commit()
+        c.close()
+        db.close()
+
     def stop(self, timeout=10):
         """ Attempt to do a clean shutdown, but kill if it hangs
         """

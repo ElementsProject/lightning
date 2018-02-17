@@ -2,6 +2,7 @@
 
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
+#include <common/version.h>
 #include <inttypes.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
@@ -193,6 +194,8 @@ char *dbmigrations[] = {
     "CREATE INDEX channel_idx ON htlc_sigs (channelid)",
     /* Get rid of OPENINGD entries; we don't put them in db any more */
     "DELETE FROM channels WHERE state=1",
+    /* Keep track of db ugprades, for debugging */
+    "CREATE TABLE db_upgrades (upgrade_from INTEGER, lightning_version TEXT);",
     NULL,
 };
 
@@ -386,11 +389,11 @@ static int db_migration_count(void)
 static void db_migrate(struct db *db, struct log *log)
 {
 	/* Attempt to read the version from the database */
-	int current, available;
+	int current, orig, available;
 
 	db_begin_transaction(db);
 
-	current = db_get_version(db);
+	orig = current = db_get_version(db);
 	available = db_migration_count();
 
 	if (current == -1)
@@ -407,6 +410,12 @@ static void db_migrate(struct db *db, struct log *log)
 
 	/* Finally update the version number in the version table */
 	db_exec(__func__, db, "UPDATE version SET version=%d;", available);
+
+	/* Annotate that we did upgrade, if any. */
+	if (current != orig)
+		db_exec(__func__, db,
+			"INSERT INTO db_upgrades VALUES (%i, '%s');",
+			orig, version());
 
 	db_commit_transaction(db);
 }
