@@ -1561,7 +1561,7 @@ wallet_payment_list(const tal_t *ctx,
 			wallet->db,
 			"SELECT id, status, destination, "
 			"msatoshi, payment_hash, timestamp, payment_preimage, "
-			"path_secrets "
+			"path_secrets, route_nodes, route_channels "
 			"FROM payments "
 			"WHERE payment_hash = ?;");
 		sqlite3_bind_sha256(stmt, 1, payment_hash);
