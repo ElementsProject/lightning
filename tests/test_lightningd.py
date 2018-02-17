@@ -453,6 +453,25 @@ class LightningDTests(BaseLightningDTests):
         assert len(l1.rpc.listpeers()) == 1
         assert len(l2.rpc.listpeers()) == 1
 
+    def test_connect_standard_addr(self):
+        """Test standard node@host:port address
+        """
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node()
+
+        # node@host
+        ret = l1.rpc.connect("{}@{}".format(l2.info['id'], 'localhost'), port=l2.info['port'])
+        assert ret['id'] == l2.info['id']
+
+        # node@host:port
+        ret = l1.rpc.connect("{}@localhost:{}".format(l3.info['id'], l3.info['port']))
+        assert ret['id'] == l3.info['id']
+
+        # node@[ipv6]:port --- not supported by our CI
+        # ret = l1.rpc.connect("{}@[::1]:{}".format(l3.info['id'], l3.info['port']))
+        # assert ret['id'] == l3.info['id']
+
     def test_balance(self):
         l1, l2 = self.connect()
 

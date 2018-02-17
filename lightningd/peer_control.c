@@ -705,6 +705,10 @@ static void json_connect(struct command *cmd,
 {
 	jsmntok_t *hosttok, *porttok, *idtok;
 	struct pubkey id;
+	char *id_str;
+	char *atptr;
+	char *ataddr = NULL;
+	int atidx;
 	const char *name;
 	struct wireaddr addr;
 	u8 *msg;
@@ -717,6 +721,17 @@ static void json_connect(struct command *cmd,
 		return;
 	}
 
+	/* Check for id@addrport form */
+	id_str = tal_strndup(cmd, buffer + idtok->start,
+			     idtok->end - idtok->start);
+	atptr = strchr(id_str, '@');
+	if (atptr) {
+		atidx = atptr - id_str;
+		ataddr = tal_strdup(cmd, atptr + 1);
+		/* Cut id. */
+		idtok->end = idtok->start + atidx;
+	}
+
 	if (!json_tok_pubkey(buffer, idtok, &id)) {
 		command_fail(cmd, "id %.*s not valid",
 			     idtok->end - idtok->start,
@@ -724,14 +739,31 @@ static void json_connect(struct command *cmd,
 		return;
 	}
 
-	if (porttok && !hosttok) {
+	if (hosttok && ataddr) {
+		command_fail(cmd,
+			     "Can't specify host as both xxx@yyy "
+			     "and separate argument");
+		return;
+	}
+
+	/* Get parseable host if provided somehow */
+	if (hosttok)
+		name = tal_strndup(cmd, buffer + hosttok->start,
+				   hosttok->end - hosttok->start);
+	else if (ataddr)
+		name = ataddr;
+	else
+		name = NULL;
+
+	/* Port without host name? */
+	if (porttok && !name) {
 		command_fail(cmd, "Can't specify port without host");
 		return;
 	}
 
-	if (hosttok) {
-		name = tal_strndup(cmd, buffer + hosttok->start,
-				   hosttok->end - hosttok->start);
+	/* Was there parseable host name? */
+	if (name) {
+		/* Is there a port? */
 		if (porttok) {
 			u32 port;
 			if (!json_tok_number(buffer, porttok, &port)) {
@@ -767,7 +799,8 @@ static void json_connect(struct command *cmd,
 static const struct json_command connect_command = {
 	"connect",
 	json_connect,
-	"Connect to {id} at {host} (which can end in ':port' if not default)"
+	"Connect to {id} at {host} (which can end in ':port' if not default). "
+	"{id} can also be of the form id@host"
 };
 AUTODATA(json_command, &connect_command);
 
