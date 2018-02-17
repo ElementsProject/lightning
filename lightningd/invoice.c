@@ -106,6 +106,7 @@ static void json_invoice(struct command *cmd,
 	jsmntok_t *msatoshi, *label, *desc, *exp;
 	u64 *msatoshi_val;
 	const char *label_val;
+	const char *desc_val;
 	struct json_result *response = new_json_result(cmd);
 	struct wallet *wallet = cmd->ld->wallet;
 	struct bolt11 *b11;
@@ -148,6 +149,10 @@ static void json_invoice(struct command *cmd,
 			     INVOICE_MAX_LABEL_LEN);
 		return;
 	}
+	/* description */
+	desc_val = tal_strndup(cmd, buffer + desc->start,
+			       desc->end - desc->start);
+	/* expiry */
 	if (exp && !json_tok_u64(buffer, exp, &expiry)) {
 		command_fail(cmd, "Expiry '%.*s' invalid seconds",
 			     exp->end - exp->start,
@@ -177,8 +182,7 @@ static void json_invoice(struct command *cmd,
 		sha256(b11->description_hash, buffer + desc->start,
 		       desc->end - desc->start);
 	} else
-		b11->description = tal_strndup(b11, buffer + desc->start,
-					       desc->end - desc->start);
+		b11->description = tal_strdup(b11, desc_val);
 
 	/* FIXME: add private routes if necessary! */
 	b11enc = bolt11_encode(cmd, b11, false, hsm_sign_b11, cmd->ld);
@@ -191,7 +195,7 @@ static void json_invoice(struct command *cmd,
 	json_add_u64(response, "expires_at", invoice->expiry_time);
 	json_add_string(response, "bolt11", b11enc);
 	if (b11->description_hash)
-		json_add_string(response, "description", b11->description);
+		json_add_string(response, "description", desc_val);
 	json_object_end(response);
 
 	command_success(cmd, response);
