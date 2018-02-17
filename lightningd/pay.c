@@ -382,6 +382,21 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
 					 &hout->payment_hash);
 
+	/* FIXME: Prior to 299b280f7, we didn't put route_nodes and
+	 * route_channels in db.  If this happens, it's an old payment,
+	 * so we can simply mark it failed in db and return. */
+	if (!payment->route_channels) {
+		log_unusual(hout->key.channel->log,
+			    "No route_channels for htlc %s:"
+			    " was this an old database?",
+			    type_to_string(ltmp, struct sha256,
+					   &hout->payment_hash));
+		wallet_payment_set_status(ld->wallet, &hout->payment_hash,
+					  PAYMENT_FAILED, NULL);
+		tal_free(tmpctx);
+		return;
+	}
+
 	/* This gives more details than a generic failure message */
 	if (localfail) {
 		fail = local_routing_failure(tmpctx, ld, hout, payment);
