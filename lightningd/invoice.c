@@ -106,6 +106,7 @@ static void json_invoice(struct command *cmd,
 	jsmntok_t *msatoshi, *label, *desc, *exp;
 	u64 *msatoshi_val;
 	const char *label_val;
+	const char *desc_val;
 	struct json_result *response = new_json_result(cmd);
 	struct wallet *wallet = cmd->ld->wallet;
 	struct bolt11 *b11;
@@ -148,6 +149,19 @@ static void json_invoice(struct command *cmd,
 			     INVOICE_MAX_LABEL_LEN);
 		return;
 	}
+	/* description */
+	if (desc->end - desc->start >= BOLT11_FIELD_BYTE_LIMIT) {
+		command_fail(cmd,
+			     "Descriptions greater than %d bytes "
+			     "not yet supported "
+			     "(description length %d)",
+			     BOLT11_FIELD_BYTE_LIMIT,
+			     desc->end - desc->start);
+		return;
+	}
+	desc_val = tal_strndup(cmd, buffer + desc->start,
+			       desc->end - desc->start);
+	/* expiry */
 	if (exp && !json_tok_u64(buffer, exp, &expiry)) {
 		command_fail(cmd, "Expiry '%.*s' invalid seconds",
 			     exp->end - exp->start,
@@ -172,13 +186,8 @@ static void json_invoice(struct command *cmd,
 	b11->receiver_id = cmd->ld->id;
 	b11->min_final_cltv_expiry = cmd->ld->config.cltv_final;
 	b11->expiry = expiry;
-	if (desc->end - desc->start >= BOLT11_FIELD_BYTE_LIMIT) {
-		b11->description_hash = tal(b11, struct sha256);
-		sha256(b11->description_hash, buffer + desc->start,
-		       desc->end - desc->start);
-	} else
-		b11->description = tal_strndup(b11, buffer + desc->start,
-					       desc->end - desc->start);
+	b11->description = tal_steal(b11, desc_val);
+	b11->description_hash = NULL;
 
 	/* FIXME: add private routes if necessary! */
 	b11enc = bolt11_encode(cmd, b11, false, hsm_sign_b11, cmd->ld);
@@ -190,8 +199,6 @@ static void json_invoice(struct command *cmd,
 		json_add_u64(response, "expiry_time", invoice->expiry_time);
 	json_add_u64(response, "expires_at", invoice->expiry_time);
 	json_add_string(response, "bolt11", b11enc);
-	if (b11->description_hash)
-		json_add_string(response, "description", b11->description);
 	json_object_end(response);
 
 	command_success(cmd, response);
