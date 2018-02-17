@@ -10,6 +10,7 @@
 #include <ccan/tal/tal.h>
 #include <common/channel_config.h>
 #include <common/utxo.h>
+#include <lightningd/chaintopology.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/invoice.h>
 #include <onchaind/onchain_wire.h>
@@ -635,5 +636,16 @@ void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
  */
 bool wallet_network_check(struct wallet *w,
 			  const struct chainparams *chainparams);
+
+/**
+ * wallet_block_add - Add a block to the blockchain tracked by this wallet
+ */
+void wallet_block_add(struct wallet *w, struct block *b);
+
+/**
+ * wallet_block_remove - Remove a block (and all its descendants) from the tracked blockchain
+ */
+void wallet_block_remove(struct wallet *w, struct block *b);
+
 
 #endif /* WALLET_WALLET_H */
