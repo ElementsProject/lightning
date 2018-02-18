@@ -5,6 +5,7 @@
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <ccan/typesafe_cb/typesafe_cb.h>
 #include <common/msg_queue.h>
 
 struct io_conn;
@@ -26,7 +27,7 @@ struct subd {
 	struct io_conn *conn;
 
 	/* If we are associated with a single channel, this points to it. */
-	struct channel *channel;
+	void *channel;
 
 	/* For logging */
 	struct log *log;
@@ -34,6 +35,13 @@ struct subd {
 	/* Callback when non-reply message comes in (inside db transaction) */
 	unsigned (*msgcb)(struct subd *, const u8 *, const int *);
 	const char *(*msgname)(int msgtype);
+
+	/* Callback when an errormsg sent/received, or subd died. */
+	void (*errcb)(void *channel,
+		      enum side sender,
+		      const struct channel_id *channel_id,
+		      const char *desc,
+		      const u8 *errmsg);
 
 	/* Buffer for input. */
 	u8 *msg_in;
@@ -77,6 +85,7 @@ struct subd *new_global_subd(struct lightningd *ld,
  * @ld: global state
  * @name: basename of daemon
  * @channel: channel to associate.
+ * @base_log: log to use (actually makes a copy so it has name in prefix)
  * @msgname: function to get name from messages
  * @msgcb: function to call (inside db transaction) when non-fatal message received (or NULL)
  * @...: NULL-terminated list of pointers to  fds to hand as fd 3, 4...
@@ -86,14 +95,27 @@ struct subd *new_global_subd(struct lightningd *ld,
  * that many @fds are received before calling again.  If it returns -1, the
  * subdaemon is shutdown.
  */
-struct subd *new_channel_subd(struct lightningd *ld,
-			      const char *name,
-			      struct channel *channel,
-			      const char *(*msgname)(int msgtype),
-			      unsigned int (*msgcb)(struct subd *, const u8 *,
-						    const int *fds),
-			      ...);
+struct subd *new_channel_subd_(struct lightningd *ld,
+			       const char *name,
+			       void *channel,
+			       struct log *base_log,
+			       const char *(*msgname)(int msgtype),
+			       unsigned int (*msgcb)(struct subd *, const u8 *,
+						     const int *fds),
+			       void (*errcb)(void *channel,
+					     enum side sender,
+					     const struct channel_id *channel_id,
+					     const char *desc,
+					     const u8 *errmsg),
+			       ...);
 
+#define new_channel_subd(ld, name, channel, log, msgname, msgcb, errcb, ...) \
+	new_channel_subd_((ld), (name), (channel), (log), (msgname), (msgcb), \
+			  typesafe_cb_postargs(void, void *, (errcb),	\
+					       (channel), enum side,	\
+					       const struct channel_id *, \
+					       const char *, const u8 *), \
+			  __VA_ARGS__)
 /**
  * subd_raw - raw interface to get a subdaemon on an fd (for HSM)
  * @ld: global state
@@ -144,14 +166,14 @@ void subd_req_(const tal_t *ctx,
 	       void *replycb_data);
 
 /**
- * subd_release_channel - shut down a subdaemon which no longer owns the channel.
+ * subd_release_channel - shut down a subdaemon which no longer owns the channe;.
  * @owner: subd which owned channel.
  * @channel: channel to release.
  *
  * If the subdaemon is not already shutting down, and it is a per-channel
  * subdaemon, this shuts it down.
  */
-void subd_release_channel(struct subd *owner, struct channel *channel);
+void subd_release_channel(struct subd *owner, void *channel);
 
 /**
  * subd_shutdown - try to politely shut down a subdaemon.

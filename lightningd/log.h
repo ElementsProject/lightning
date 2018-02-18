@@ -39,6 +39,8 @@ enum log_level get_log_level(struct log_book *lr);
 void set_log_level(struct log_book *lr, enum log_level level);
 void set_log_prefix(struct log *log, const char *prefix);
 const char *log_prefix(const struct log *log);
+struct log_book *get_log_book(const struct log *log);
+
 #define set_log_outfn(lr, print, arg)					\
 	set_log_outfn_((lr),						\
 		       typesafe_cb_preargs(void, void *, (print), (arg),\

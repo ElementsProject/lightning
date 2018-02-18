@@ -325,15 +325,21 @@ void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED, const char *c
 /* Generated stub for logv_add */
 void logv_add(struct log *log UNNEEDED, const char *fmt UNNEEDED, va_list ap UNNEEDED)
 { fprintf(stderr, "logv_add called!\n"); abort(); }
-/* Generated stub for new_channel_subd */
-struct subd *new_channel_subd(struct lightningd *ld UNNEEDED,
-			      const char *name UNNEEDED,
-			      struct channel *channel UNNEEDED,
-			      const char *(*msgname)(int msgtype) UNNEEDED,
-			      unsigned int (*msgcb)(struct subd * UNNEEDED, const u8 * UNNEEDED,
-						    const int *fds) UNNEEDED,
-			      ...)
-{ fprintf(stderr, "new_channel_subd called!\n"); abort(); }
+/* Generated stub for new_channel_subd_ */
+struct subd *new_channel_subd_(struct lightningd *ld UNNEEDED,
+			       const char *name UNNEEDED,
+			       void *channel UNNEEDED,
+			       struct log *base_log UNNEEDED,
+			       const char *(*msgname)(int msgtype) UNNEEDED,
+			       unsigned int (*msgcb)(struct subd * UNNEEDED, const u8 * UNNEEDED,
+						     const int *fds) UNNEEDED,
+			       void (*errcb)(void *channel UNNEEDED,
+					     enum side sender UNNEEDED,
+					     const struct channel_id *channel_id UNNEEDED,
+					     const char *desc UNNEEDED,
+					     const u8 *errmsg) UNNEEDED,
+			       ...)
+{ fprintf(stderr, "new_channel_subd_ called!\n"); abort(); }
 /* Generated stub for new_json_result */
 struct json_result *new_json_result(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "new_json_result called!\n"); abort(); }
@@ -379,7 +385,7 @@ char *sanitize_error(const tal_t *ctx UNNEEDED, const u8 *errmsg UNNEEDED,
 		     struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "sanitize_error called!\n"); abort(); }
 /* Generated stub for subd_release_channel */
-void subd_release_channel(struct subd *owner UNNEEDED, struct channel *channel UNNEEDED)
+void subd_release_channel(struct subd *owner UNNEEDED, void *channel UNNEEDED)
 { fprintf(stderr, "subd_release_channel called!\n"); abort(); }
 /* Generated stub for subd_req_ */
 void subd_req_(const tal_t *ctx UNNEEDED,

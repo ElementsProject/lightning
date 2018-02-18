@@ -277,6 +277,29 @@ static void channel_config(struct lightningd *ld,
 	 ours->channel_reserve_satoshis = 0;
 };
 
+static void channel_errmsg(struct channel *channel,
+			   enum side sender,
+			   const struct channel_id *channel_id,
+			   const char *desc,
+			   const u8 *errmsg)
+{
+	if (sender == LOCAL) {
+		/* If this is NULL, it means subd died. */
+		if (!errmsg) {
+			channel_fail_transient(channel, "%s", desc);
+			return;
+		}
+
+		/* Otherwise overwrite any error we have */
+		if (!channel->error)
+			channel->error = tal_dup_arr(channel, u8,
+						     errmsg, tal_len(errmsg), 0);
+	}
+
+	channel_fail_permanent(channel, "%s ERROR %s",
+			       sender == LOCAL ? "sent" : "received", desc);
+}
+
 /* Gossipd tells us a peer has connected */
 void peer_connected(struct lightningd *ld, const u8 *msg,
 		    int peer_fd, int gossip_fd)
@@ -1229,6 +1252,17 @@ static bool tell_if_missing(const struct channel *channel,
 	return true;
 }
 
+/* Only error onchaind can get is if it dies. */
+static void onchain_error(struct channel *channel,
+			  enum side sender,
+			  const struct channel_id *channel_id,
+			  const char *desc,
+			  const u8 *errmsg)
+{
+	/* FIXME: re-launch? */
+	log_broken(channel->log, "%s", desc);
+}
+
 /* With a reorg, this can get called multiple times; each time we'll kill
  * onchaind (like any other owner), and restart */
 static enum watch_result funding_spent(struct channel *channel,
@@ -1253,8 +1287,10 @@ static enum watch_result funding_spent(struct channel *channel,
 	channel_set_owner(channel, new_channel_subd(ld,
 						    "lightning_onchaind",
 						    channel,
+						    channel->log,
 						    onchain_wire_type_name,
 						    onchain_msg,
+						    onchain_error,
 						    NULL));
 
 	if (!channel->owner) {
@@ -1720,8 +1756,10 @@ static void peer_start_closingd(struct channel *channel,
 	}
 
 	channel_set_owner(channel, new_channel_subd(ld,
-					   "lightning_closingd", channel,
+					   "lightning_closingd",
+					   channel, channel->log,
 					   closing_wire_type_name, closing_msg,
+					   channel_errmsg,
 					   take(&peer_fd), take(&gossip_fd),
 					   NULL));
 	if (!channel->owner) {
@@ -1946,8 +1984,10 @@ static bool peer_start_channeld(struct channel *channel,
 
 	channel_set_owner(channel, new_channel_subd(ld,
 					   "lightning_channeld", channel,
+					   channel->log,
 					   channel_wire_type_name,
 					   channel_msg,
+					   channel_errmsg,
 					   take(&peer_fd),
 					   take(&gossip_fd),
 					   take(&hsmfd), NULL));
@@ -2325,8 +2365,10 @@ static void peer_accept_channel(struct lightningd *ld,
 	channel_set_state(channel, UNINITIALIZED, OPENINGD);
 	channel_set_owner(channel,
 			  new_channel_subd(ld, "lightning_openingd", channel,
+					   channel->log,
 					   opening_wire_type_name,
 					   opening_negotiation_failed,
+					   channel_errmsg,
 					   take(&peer_fd), take(&gossip_fd),
 					   NULL));
 	if (!channel->owner) {
@@ -2394,8 +2436,10 @@ static void peer_offer_channel(struct lightningd *ld,
 	channel_set_owner(fc->channel,
 			  new_channel_subd(ld,
 					   "lightning_openingd", fc->channel,
+					   fc->channel->log,
 					   opening_wire_type_name,
 					   opening_negotiation_failed,
+					   channel_errmsg,
 					   take(&peer_fd), take(&gossip_fd),
 					   NULL));
 	if (!fc->channel->owner) {

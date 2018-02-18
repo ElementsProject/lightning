@@ -10,7 +10,6 @@
 #include <common/gen_status_wire.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <lightningd/channel.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/log_status.h>
@@ -389,7 +388,7 @@ static bool log_status_fail(struct subd *sd, const u8 *msg)
 
 static bool handle_received_errmsg(struct subd *sd, const u8 *msg)
 {
-	struct channel *channel = sd->channel;
+	void *channel = sd->channel;
 	struct channel_id channel_id;
 	char *desc;
 
@@ -401,14 +400,14 @@ static bool handle_received_errmsg(struct subd *sd, const u8 *msg)
 
 	/* Don't free sd; we're may be about to free channel. */
 	sd->channel = NULL;
-	channel_fail_permanent(channel,
-			       "%s: received ERROR %s", sd->name, desc);
+	if (sd->errcb)
+		sd->errcb(channel, REMOTE, &channel_id, desc, NULL);
 	return true;
 }
 
 static bool handle_sent_errmsg(struct subd *sd, const u8 *msg)
 {
-	struct channel *channel = sd->channel;
+	void *channel = sd->channel;
 	struct channel_id channel_id;
 	char *desc;
 	u8 *errmsg;
@@ -418,13 +417,11 @@ static bool handle_sent_errmsg(struct subd *sd, const u8 *msg)
 		return false;
 
 	/* FIXME: if not all channels failed, hand back to gossipd! */
-	if (!channel->error)
-		channel->error = tal_steal(channel, errmsg);
 
 	/* Don't free sd; we're may be about to free channel. */
 	sd->channel = NULL;
-	channel_fail_permanent(channel,
-			       "%s: sent ERROR %s", sd->name, desc);
+	if (sd->errcb)
+		sd->errcb(channel, LOCAL, &channel_id, desc, errmsg);
 	return true;
 }
 
@@ -573,7 +570,7 @@ static void destroy_subd(struct subd *sd)
 	/* Peer still attached? */
 	if (sd->channel) {
 		/* Don't loop back when we fail it. */
-		struct channel *channel = sd->channel;
+		void *channel = sd->channel;
 		struct db *db = sd->ld->wallet->db;
 		bool outer_transaction;
 
@@ -583,9 +580,11 @@ static void destroy_subd(struct subd *sd)
 		outer_transaction = db->in_transaction;
 		if (!outer_transaction)
 			db_begin_transaction(db);
-		channel_fail_transient(channel,
-				       "Owning subdaemon %s died (%i)",
-				       sd->name, status);
+		if (sd->errcb)
+			sd->errcb(channel, LOCAL, NULL,
+				  tal_fmt(sd, "Owning subdaemon %s died (%i)",
+					  sd->name, status),
+				  NULL);
 		if (!outer_transaction)
 			db_commit_transaction(db);
 	}
@@ -625,10 +624,16 @@ static struct io_plan *msg_setup(struct io_conn *conn, struct subd *sd)
 
 static struct subd *new_subd(struct lightningd *ld,
 			     const char *name,
-			     struct channel *channel,
+			     void *channel,
+			     struct log *base_log,
 			     const char *(*msgname)(int msgtype),
 			     unsigned int (*msgcb)(struct subd *,
 						   const u8 *, const int *fds),
+			     void (*errcb)(void *channel,
+					   enum side sender,
+					   const struct channel_id *channel_id,
+					   const char *desc,
+					   const u8 *errmsg),
 			     va_list *ap)
 {
 	struct subd *sd = tal(ld, struct subd);
@@ -649,9 +654,9 @@ static struct subd *new_subd(struct lightningd *ld,
 		return tal_free(sd);
 	}
 	sd->ld = ld;
-	if (channel) {
-		sd->log = new_log(sd, channel->peer->log_book, "%s-%s", name,
-				  log_prefix(channel->log));
+	if (base_log) {
+		sd->log = new_log(sd, get_log_book(base_log), "%s-%s", name,
+				  log_prefix(base_log));
 	} else {
 		sd->log = new_log(sd, ld->log_book, "%s(%u):", name, sd->pid);
 	}
@@ -660,6 +665,7 @@ static struct subd *new_subd(struct lightningd *ld,
 	sd->must_not_exit = false;
 	sd->msgname = msgname;
 	sd->msgcb = msgcb;
+	sd->errcb = errcb;
 	sd->fds_in = NULL;
 	msg_queue_init(&sd->outq, sd);
 	tal_add_destructor(sd, destroy_subd);
@@ -686,25 +692,32 @@ struct subd *new_global_subd(struct lightningd *ld,
 	struct subd *sd;
 
 	va_start(ap, msgcb);
-	sd = new_subd(ld, name, NULL, msgname, msgcb, &ap);
+	sd = new_subd(ld, name, NULL, NULL, msgname, msgcb, NULL, &ap);
 	va_end(ap);
 
 	sd->must_not_exit = true;
 	return sd;
 }
 
-struct subd *new_channel_subd(struct lightningd *ld,
-			   const char *name,
-			   struct channel *channel,
-			   const char *(*msgname)(int msgtype),
-			   unsigned int (*msgcb)(struct subd *, const u8 *,
-						 const int *fds), ...)
+struct subd *new_channel_subd_(struct lightningd *ld,
+			       const char *name,
+			       void *channel,
+			       struct log *base_log,
+			       const char *(*msgname)(int msgtype),
+			       unsigned int (*msgcb)(struct subd *, const u8 *,
+						     const int *fds),
+			       void (*errcb)(void *channel,
+					     enum side sender,
+					     const struct channel_id *channel_id,
+					     const char *desc,
+					     const u8 *errmsg),
+			       ...)
 {
 	va_list ap;
 	struct subd *sd;
 
-	va_start(ap, msgcb);
-	sd = new_subd(ld, name, channel, msgname, msgcb, &ap);
+	va_start(ap, errcb);
+	sd = new_subd(ld, name, channel, base_log, msgname, msgcb, errcb, &ap);
 	va_end(ap);
 	return sd;
 }
@@ -764,7 +777,7 @@ void subd_shutdown(struct subd *sd, unsigned int seconds)
 	tal_free(sd);
 }
 
-void subd_release_channel(struct subd *owner, struct channel *channel)
+void subd_release_channel(struct subd *owner, void *channel)
 {
 	/* If owner is a per-peer-daemon, and not already freeing itself... */
 	if (owner->channel) {
