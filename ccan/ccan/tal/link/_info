@@ -1,0 +1,139 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * tal/link - link helper for tal
+ *
+ * Tal does not support talloc-style references.  In the cases where
+ * an object needs multiple parents, all parents need to be aware of
+ * the situation; thus tal/link is a helper where all "parents"
+ * tal_link an object they agree to share ownership of.
+ *
+ * Example:
+ *	// Silly program which keeps a cache of uppercased strings.
+ *	// The cache wants to keep strings around even after they may have
+ *	// been "freed" by the caller.
+ *	// Given "hello" outputs "1 cache hits HELLO \n"
+ *	// Given "hello hello there" outputs "4 cache hits HELLO HELLO THERE \n"
+ *	#include <stdio.h>
+ *	#include <err.h>
+ *	#include <string.h>
+ *	#include <ctype.h>
+ *	#include <ccan/tal/link/link.h>
+ *	#include <ccan/tal/str/str.h>
+ *
+ *	struct upcache {
+ *		const char *str;
+ *		const char *upstr;
+ *	};
+ *
+ *	static struct upcache *cache;
+ *	static unsigned int cache_hits = 0;
+ *	#define CACHE_SIZE 4
+ *	static void init_upcase(void)
+ *	{
+ *		cache = tal_arrz(NULL, struct upcache, CACHE_SIZE);
+ *	}
+ *
+ *	static struct upcache *lookup_upcase(const char *str)
+ *	{
+ *		unsigned int i;
+ *		for (i = 0; i < CACHE_SIZE; i++)
+ *			if (cache[i].str && !strcmp(cache[i].str, str)) {
+ *				cache_hits++;
+ *				return &cache[i];
+ *			}
+ *		return NULL;
+ *	}
+ *
+ *	static struct upcache *new_upcase(const char *str)
+ *	{
+ *		unsigned int i;
+ *		char *upstr;
+ *
+ *		upstr = tal_linkable(tal_strdup(NULL, str));
+ *		i = random() % CACHE_SIZE;
+ *
+ *		// Throw out old: works fine if cache[i].upstr is NULL.
+ *		tal_delink(cache, cache[i].upstr);
+ *
+ *		// Replace with new.
+ *		cache[i].str = str;
+ *		cache[i].upstr = tal_link(cache, upstr);
+ *		while (*upstr) {
+ *			*upstr = toupper(*upstr);
+ *			upstr++;
+ *		}
+ *		return &cache[i];
+ *	}
+ *
+ *	// If you want to keep the result, tal_link it.
+ *	static const char *get_upcase(const char *str)
+ *	{
+ *		struct upcache *uc = lookup_upcase(str);
+ *		if (!uc)
+ *			uc = new_upcase(str);
+ *		if (!uc)
+ *			return NULL;
+ *		return uc->upstr;
+ *	}
+ *
+ *	static void exit_upcase(void)
+ *	{
+ *		tal_free(cache);
+ *		printf("%u cache hits ", cache_hits);
+ *	}
+ *
+ *	int main(int argc, char *argv[])
+ *	{
+ *		int i;
+ *		const char **values;
+ *
+ *		// Initialize cache.
+ *		init_upcase();
+ *
+ *		// Throw values in.
+ *		values = tal_arr(NULL, const char *, argc);
+ *		for (i = 1; i < argc; i++)
+ *			values[i-1] = tal_link(values, get_upcase(argv[i]));
+ *
+ *		// This will free all the values, but cache will still work.
+ *		tal_free(values);
+ *
+ *		// Repeat!
+ *		values = tal_arr(NULL, const char *, argc);
+ *		for (i = 1; i < argc; i++)
+ *			values[i-1] = tal_link(values, get_upcase(argv[i]));
+ *
+ *		// This will remove cache links, but we still have a link.
+ *		exit_upcase();
+ *
+ *		// Show values, so we output something.
+ *		for (i = 0; i < argc - 1; i++)
+ *			printf("%s ", values[i]);
+ *		printf("\n");
+ *
+ *		// This will finally free the upcase strings (last link).
+ *		tal_free(values);
+ *
+ *		return 0;
+ *	}
+ *
+ * License: BSD-MIT
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ */
+int main(int argc, char *argv[])
+{
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/container_of\n");
+		printf("ccan/list\n");
+		printf("ccan/tal\n");
+		return 0;
+	}
+
+	return 1;
+}
