@@ -72,6 +72,7 @@ CCAN_OBJS :=					\
 	ccan-str.o				\
 	ccan-take.o				\
 	ccan-tal-grab_file.o			\
+	ccan-tal-link.o				\
 	ccan-tal-path.o				\
 	ccan-tal-str.o				\
 	ccan-tal.o				\
@@ -131,6 +132,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/structeq/structeq.h		\
 	$(CCANDIR)/ccan/take/take.h			\
 	$(CCANDIR)/ccan/tal/grab_file/grab_file.h	\
+	$(CCANDIR)/ccan/tal/link/link.h			\
 	$(CCANDIR)/ccan/tal/path/path.h			\
 	$(CCANDIR)/ccan/tal/str/str.h			\
 	$(CCANDIR)/ccan/tal/tal.h			\
@@ -425,6 +427,8 @@ ccan-breakpoint.o: $(CCANDIR)/ccan/breakpoint/breakpoint.c
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-tal-str.o: $(CCANDIR)/ccan/tal/str/str.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-tal-link.o: $(CCANDIR)/ccan/tal/link/link.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-tal-path.o: $(CCANDIR)/ccan/tal/path/path.c
 	$(CC) $(CFLAGS) -c -o $@ $<
