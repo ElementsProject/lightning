@@ -61,7 +61,7 @@ static void copy_to_parent_log(const char *prefix,
 			       const struct timeabs *time,
 			       const char *str,
 			       const u8 *io,
-			       struct peer *peer);
+			       struct log *parent_log);
 static void peer_offer_channel(struct lightningd *ld,
 			       struct funding_channel *fc,
 			       const struct wireaddr *addr,
@@ -113,7 +113,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 
 	/* Max 128k per peer. */
 	peer->log_book = new_log_book(128*1024, get_log_level(ld->log_book));
-	set_log_outfn(peer->log_book, copy_to_parent_log, peer);
+	set_log_outfn(peer->log_book, copy_to_parent_log, ld->log);
 	list_add_tail(&ld->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);
 	return peer;
@@ -541,14 +541,14 @@ static void copy_to_parent_log(const char *prefix,
 			       const struct timeabs *time,
 			       const char *str,
 			       const u8 *io,
-			       struct peer *peer)
+			       struct log *parent_log)
 {
 	if (level == LOG_IO_IN || level == LOG_IO_OUT)
-		log_io(peer->ld->log, level, prefix, io, tal_len(io));
+		log_io(parent_log, level, prefix, io, tal_len(io));
 	else if (continued)
-		log_add(peer->ld->log, "%s ... %s", prefix, str);
+		log_add(parent_log, "%s ... %s", prefix, str);
 	else
-		log_(peer->ld->log, level, "%s %s", prefix, str);
+		log_(parent_log, level, "%s %s", prefix, str);
 }
 
 struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id)
