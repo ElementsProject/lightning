@@ -84,9 +84,9 @@ void delete_channel(struct channel *channel, const char *why)
  * reconnection. We use the DB channel ID to guarantee unique secrets
  * per channel.
  */
-void derive_channel_seed(struct lightningd *ld, struct privkey *seed,
-			 const struct pubkey *peer_id,
-			 const u64 dbid)
+static void derive_channel_seed(struct lightningd *ld, struct privkey *seed,
+				const struct pubkey *peer_id,
+				const u64 dbid)
 {
 	u8 input[PUBKEY_DER_LEN + sizeof(dbid)];
 	char *info = "per-peer seed";
@@ -106,6 +106,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid, u32 first_blocknum)
 	struct channel *channel = talz(peer->ld, struct channel);
 	char *idname;
 
+	assert(dbid != 0);
 	channel->dbid = dbid;
 	channel->peer = peer;
 	channel->first_blocknum = first_blocknum;
@@ -120,9 +121,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid, u32 first_blocknum)
 	tal_free(idname);
 	list_add_tail(&peer->channels, &channel->list);
 	tal_add_destructor(channel, destroy_channel);
-	if (channel->dbid != 0)
-		derive_channel_seed(peer->ld, &channel->seed, &peer->id,
-				    channel->dbid);
+	derive_channel_seed(peer->ld, &channel->seed, &peer->id, channel->dbid);
 
 	return channel;
 }

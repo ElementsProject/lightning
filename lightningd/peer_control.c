@@ -1436,6 +1436,8 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 		fatal("HSM gave bad sign_funding_reply %s",
 		      tal_hex(fc, resp));
 
+	wallet_channel_insert(ld->wallet, channel);
+
 	/* Send it out and watch for confirms. */
 	broadcast_tx(ld->topology, channel, tx, funding_broadcast_failed);
 	watch_tx(channel, ld->topology, channel, tx, funding_lockin_cb, NULL);
@@ -2219,10 +2221,13 @@ static void opening_fundee_finished(struct subd *opening,
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
 
+	channel_commit_initial(channel);
+
+	/* Now we finally put it in the database. */
+	wallet_channel_insert(ld->wallet, channel);
+
 	/* Now, keep the initial commit as our last-tx-to-broadcast. */
 	channel_set_last_tx(channel, remote_commit, &remote_commit_sig);
-
-	channel_commit_initial(channel);
 
 	log_debug(channel->log, "Watching funding tx %s",
 		     type_to_string(reply, struct bitcoin_txid,
@@ -2281,6 +2286,24 @@ static unsigned int opening_negotiation_failed(struct subd *openingd,
 	return 0;
 }
 
+static struct channel *new_uncommitted_channel(struct lightningd *ld,
+					       const struct pubkey *peer_id,
+					       const struct wireaddr *addr)
+{
+	struct peer *peer;
+	struct channel *channel;
+
+	/* We make a new peer if necessary. */
+	peer = peer_by_id(ld, peer_id);
+	if (!peer)
+		peer = new_peer(ld, 0, peer_id, addr);
+
+	channel = new_channel(peer, wallet_get_channel_dbid(ld->wallet),
+			      get_block_height(ld->topology));
+	assert(channel->peer == peer);
+	return channel;
+}
+
 /* Peer has spontaneously exited from gossip due to open msg */
 static void peer_accept_channel(struct lightningd *ld,
 				const struct pubkey *peer_id,
@@ -2294,18 +2317,11 @@ static void peer_accept_channel(struct lightningd *ld,
 	u32 max_to_self_delay, max_minimum_depth;
 	u64 min_effective_htlc_capacity_msat;
 	u8 *msg;
-	struct peer *peer;
 	struct channel *channel;
 
 	assert(fromwire_peektype(open_msg) == WIRE_OPEN_CHANNEL);
 
-	/* We make a new peer if necessary. */
-	peer = peer_by_id(ld, peer_id);
-	if (!peer)
-		peer = new_peer(ld, 0, peer_id, addr);
-
-	channel = new_channel(peer, 0, get_block_height(ld->topology));
-	assert(channel->peer == peer);
+	channel = new_uncommitted_channel(ld, peer_id, addr);
 
 	channel_set_state(channel, UNINITIALIZED, OPENINGD);
 	channel_set_owner(channel,
@@ -2335,10 +2351,6 @@ static void peer_accept_channel(struct lightningd *ld,
 	channel_config(ld, &channel->our_config,
 		       &max_to_self_delay, &max_minimum_depth,
 		       &min_effective_htlc_capacity_msat);
-
-	/* Store the channel in the database in order to get a channel
-	 * ID that is unique and which we can base the peer_seed on */
-	wallet_channel_save(ld->wallet, channel);
 
 	msg = towire_opening_init(channel, get_chainparams(ld)->index,
 				  &channel->our_config,
@@ -2374,16 +2386,8 @@ static void peer_offer_channel(struct lightningd *ld,
 	u8 *msg;
 	u32 max_to_self_delay, max_minimum_depth;
 	u64 min_effective_htlc_capacity_msat;
-	struct peer *peer;
 
-	/* We make a new peer if necessary. */
-	peer = peer_by_id(ld, &fc->peerid);
-	if (!peer)
-		peer = new_peer(ld, 0, &fc->peerid, addr);
-
-	fc->channel = new_channel(peer, 0, get_block_height(ld->topology));
-	assert(fc->channel->peer == peer);
-
+	fc->channel = new_uncommitted_channel(ld, &fc->peerid, addr);
 	fc->channel->funding_satoshi = fc->funding_satoshi;
 	fc->channel->push_msat = fc->push_msat;
 
@@ -2402,17 +2406,6 @@ static void peer_offer_channel(struct lightningd *ld,
 			     strerror(errno));
 		return;
 	}
-
-	/* FIXME: This is wrong in several ways.
-	 *
-	 * 1. We should set the temporary channel id *now*, so that's the
-	 *    key.
-	 * 2. We don't need the peer or channel in db until peer_persists().
-	 */
-
-	/* Store the channel in the database in order to get a channel
-	 * ID that is unique and which we can base the peer_seed on */
-	wallet_channel_save(ld->wallet, fc->channel);
 
 	/* We will fund channel */
 	fc->channel->funder = LOCAL;
