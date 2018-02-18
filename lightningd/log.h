@@ -13,9 +13,9 @@ struct json_result;
 struct lightningd;
 struct timerel;
 
-/* We can have a single log book, with multiple logs in it. */
-struct log_book *new_log_book(const tal_t *ctx,
-			      size_t max_mem,
+/* We can have a single log book, with multiple logs in it: it's freed by
+ * the last struct log itself. */
+struct log_book *new_log_book(size_t max_mem,
 			      enum log_level printlevel);
 
 /* With different entry points */
