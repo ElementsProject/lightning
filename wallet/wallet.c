@@ -316,9 +316,13 @@ s64 wallet_get_newindex(struct lightningd *ld)
 	return newidx;
 }
 
-void wallet_shachain_init(struct wallet *wallet, struct wallet_shachain *chain)
+static void wallet_shachain_init(struct wallet *wallet,
+				 struct wallet_shachain *chain)
 {
 	sqlite3_stmt *stmt;
+
+	assert(chain->id == 0);
+
 	/* Create shachain */
 	shachain_init(&chain->chain);
 	stmt = db_prepare(wallet->db, "INSERT INTO shachains (min_index, num_valid) VALUES (?, 0);");
@@ -730,17 +734,24 @@ u32 wallet_first_blocknum(struct wallet *w, u32 first_possible)
 		return first_channel;
 }
 
-void wallet_channel_config_save(struct wallet *w, struct channel_config *cc)
+static void wallet_channel_config_insert(struct wallet *w,
+					 struct channel_config *cc)
 {
 	sqlite3_stmt *stmt;
-	/* Is this an update? If not insert a stub first */
-	if (!cc->id) {
-		stmt = db_prepare(
-			w->db,"INSERT INTO channel_configs DEFAULT VALUES;");
-		db_exec_prepared(w->db, stmt);
-		cc->id = sqlite3_last_insert_rowid(w->db->sql);
-	}
 
+	assert(cc->id == 0);
+
+	stmt = db_prepare(w->db, "INSERT INTO channel_configs DEFAULT VALUES;");
+	db_exec_prepared(w->db, stmt);
+	cc->id = sqlite3_last_insert_rowid(w->db->sql);
+}
+
+static void wallet_channel_config_save(struct wallet *w,
+				       const struct channel_config *cc)
+{
+	sqlite3_stmt *stmt;
+
+	assert(cc->id != 0);
 	stmt = db_prepare(w->db, "UPDATE channel_configs SET"
 			  "  dust_limit_satoshis=?,"
 			  "  max_htlc_value_in_flight_msat=?,"
@@ -795,11 +806,6 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	tal_t *tmpctx = tal_tmpctx(w);
 	sqlite3_stmt *stmt;
 	assert(chan->first_blocknum);
-
-	/* Need to initialize the shachain first so we get an id */
-	if (chan->their_shachain.id == 0) {
-		wallet_shachain_init(w, &chan->their_shachain);
-	}
 
 	wallet_channel_config_save(w, &chan->our_config);
 
@@ -864,6 +870,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_exec_prepared(w->db, stmt);
 
 	if (chan->channel_info) {
+		if (chan->channel_info->their_config.id == 0)
+			wallet_channel_config_insert(w, &chan->channel_info->their_config);
 		wallet_channel_config_save(w, &chan->channel_info->their_config);
 		stmt = db_prepare(w->db, "UPDATE channels SET"
 				  "  fundingkey_remote=?,"
@@ -933,6 +941,11 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan)
 	sqlite3_bind_int(stmt, 2, chan->first_blocknum);
 	sqlite3_bind_int(stmt, 3, chan->dbid);
 	db_exec_prepared(w->db, stmt);
+
+	wallet_channel_config_insert(w, &chan->our_config);
+	if (chan->channel_info)
+		wallet_channel_config_insert(w, &chan->channel_info->their_config);
+	wallet_shachain_init(w, &chan->their_shachain);
 
 	/* Now save path as normal */
 	wallet_channel_save(w, chan);
