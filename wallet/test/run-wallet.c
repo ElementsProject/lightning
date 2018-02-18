@@ -999,10 +999,11 @@ static bool test_channel_config_crud(struct lightningd *ld, const tal_t *ctx)
 	cc1->to_self_delay = 5;
 	cc1->max_accepted_htlcs = 6;
 
-	CHECK(transaction_wrap(w->db, wallet_channel_config_save(w, cc1)));
+	CHECK(transaction_wrap(w->db, wallet_channel_config_insert(w, cc1)));
 	CHECK_MSG(
 	    cc1->id == 1,
 	    tal_fmt(ctx, "channel_config->id != 1; got %" PRIu64, cc1->id));
+	CHECK(transaction_wrap(w->db, wallet_channel_config_save(w, cc1)));
 
 	CHECK(transaction_wrap(w->db, wallet_channel_config_load(w, cc1->id, cc2)));
 	CHECK(memeq(cc1, sizeof(*cc1), cc2, sizeof(*cc2)));

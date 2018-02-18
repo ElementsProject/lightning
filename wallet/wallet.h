@@ -184,11 +184,6 @@ bool wallet_can_spend(struct wallet *w, const u8 *script,
 s64 wallet_get_newindex(struct lightningd *ld);
 
 /**
- * wallet_shachain_init -- wallet wrapper around shachain_init
- */
-void wallet_shachain_init(struct wallet *wallet, struct wallet_shachain *chain);
-
-/**
  * wallet_shachain_add_hash -- wallet wrapper around shachain_add_hash
  */
 bool wallet_shachain_add_hash(struct wallet *wallet,
@@ -240,11 +235,6 @@ void wallet_channel_delete(struct wallet *w, u64 wallet_id);
  * wallet_peer_delete -- After no more channels in peer, forget about it
  */
 void wallet_peer_delete(struct wallet *w, u64 peer_dbid);
-
-/**
- * wallet_channel_config_save -- Upsert a channel_config into the database
- */
-void wallet_channel_config_save(struct wallet *w, struct channel_config *cc);
 
 /**
  * wallet_channel_config_load -- Load channel_config from database into cc
