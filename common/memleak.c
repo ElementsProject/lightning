@@ -91,6 +91,11 @@ static void children_into_htable(const void *exclude1, const void *exclude2,
 			if (streq(name, "backtrace"))
 				continue;
 
+			/* Don't add tal_link objects */
+			if (strends(name, "struct link")
+			    || strends(name, "struct linkable"))
+				continue;
+
 			/* ccan/io allocates pollfd array. */
 			if (streq(name,
 				  "ccan/ccan/io/poll.c:40:struct pollfd[]"))
