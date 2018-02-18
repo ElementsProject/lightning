@@ -5,6 +5,7 @@
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/tal/link/link.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/memleak.h>
@@ -122,11 +123,10 @@ static size_t prune_log(struct log_book *log)
 	return deleted;
 }
 
-struct log_book *new_log_book(const tal_t *ctx,
-			      size_t max_mem,
+struct log_book *new_log_book(size_t max_mem,
 			      enum log_level printlevel)
 {
-	struct log_book *lr = tal(ctx, struct log_book);
+	struct log_book *lr = tal_linkable(tal(NULL, struct log_book));
 
 	/* Give a reasonable size for memory limit! */
 	assert(max_mem > sizeof(struct log) * 2);
@@ -151,7 +151,7 @@ new_log(const tal_t *ctx, struct log_book *record, const char *fmt, ...)
 	struct log *log = tal(ctx, struct log);
 	va_list ap;
 
-	log->lr = record;
+	log->lr = tal_link(log, record);
 	va_start(ap, fmt);
 	/* log->lr owns this, since its entries keep a pointer to it. */
 	/* FIXME: Refcount this! */

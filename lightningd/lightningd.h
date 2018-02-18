@@ -87,8 +87,9 @@ struct lightningd {
 	/* Configuration settings. */
 	struct config config;
 
-	/* Log for general stuff. */
+	/* This log_book is owned by all the struct logs */
 	struct log_book *log_book;
+	/* Log for general stuff. */
 	struct log *log;
 	const char *logfile;
 

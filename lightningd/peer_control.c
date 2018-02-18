@@ -112,8 +112,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->direction = get_channel_direction(&peer->ld->id, &peer->id);
 
 	/* Max 128k per peer. */
-	peer->log_book = new_log_book(peer, 128*1024,
-				      get_log_level(ld->log_book));
+	peer->log_book = new_log_book(128*1024, get_log_level(ld->log_book));
 	set_log_outfn(peer->log_book, copy_to_parent_log, peer);
 	list_add_tail(&ld->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);

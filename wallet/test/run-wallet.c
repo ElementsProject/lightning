@@ -556,8 +556,7 @@ struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
 	return NULL;
 }
 
-struct log_book *new_log_book(const tal_t *ctx UNNEEDED,
-			      size_t max_mem UNNEEDED,
+struct log_book *new_log_book(size_t max_mem UNNEEDED,
 			      enum log_level printlevel UNNEEDED)
 {
 	return NULL;

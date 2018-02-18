@@ -39,8 +39,7 @@ char *bitcoin_datadir;
 
 struct backtrace_state *backtrace_state;
 
-static struct lightningd *new_lightningd(const tal_t *ctx,
-					 struct log_book *log_book)
+static struct lightningd *new_lightningd(const tal_t *ctx)
 {
 	struct lightningd *ld = tal(ctx, struct lightningd);
 
@@ -58,8 +57,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx,
 	list_head_init(&ld->peers);
 	htlc_in_map_init(&ld->htlcs_in);
 	htlc_out_map_init(&ld->htlcs_out);
-	ld->log_book = log_book;
-	ld->log = new_log(log_book, log_book, "lightningd(%u):", (int)getpid());
+	ld->log_book = new_log_book(20*1024*1024, LOG_INFORM);
+	ld->log = new_log(ld, ld->log_book, "lightningd(%u):", (int)getpid());
 	ld->logfile = NULL;
 	ld->alias = NULL;
 	ld->rgb = NULL;
@@ -253,7 +252,6 @@ static void daemonize_but_keep_dir(void)
 
 int main(int argc, char *argv[])
 {
-	struct log_book *log_book;
 	struct lightningd *ld;
 	bool newdir;
 	u32 first_blocknum;
@@ -266,10 +264,7 @@ int main(int argc, char *argv[])
 #endif
 	backtrace_state = backtrace_create_state(argv[0], 0, NULL, NULL);
 
-	/* Things log on shutdown, so we need this to outlive lightningd */
-	log_book = new_log_book(NULL, 20*1024*1024, LOG_INFORM);
-	ld = new_lightningd(NULL, log_book);
-
+	ld = new_lightningd(NULL);
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
@@ -392,7 +387,6 @@ int main(int argc, char *argv[])
 
 	tal_free(ld);
 	opt_free_table();
-	tal_free(log_book);
 
 #if DEVELOPER
 	memleak_cleanup();
