@@ -611,7 +611,7 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	CHECK_MSG(w->db, "Failed opening the db");
 	db_migrate(w->db, w->log);
 	CHECK_MSG(!wallet_err, "DB migration failed");
-
+	w->max_channel_dbid = 0;
 
 	return w;
 }
@@ -864,6 +864,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	c1.first_blocknum = 1;
 	p = new_peer(ld, 0, &pk, NULL);
 	c1.peer = p;
+	c1.dbid = wallet_get_channel_dbid(w);
 	c1.our_msatoshi = NULL;
 	c1.last_tx = NULL;
 	c1.state = CHANNELD_NORMAL;
@@ -878,6 +879,8 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);
+
+	wallet_channel_insert(w, &c1);
 
 	/* Variant 1: insert with null for scid, funding_tx_id, channel_info, last_tx */
 	wallet_channel_save(w, &c1);

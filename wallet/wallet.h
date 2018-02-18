@@ -30,6 +30,7 @@ struct wallet {
 	struct ext_key *bip32_base;
 	struct invoices *invoices;
 	struct list_head unstored_payments;
+	u64 max_channel_dbid;
 };
 
 /* Possible states for tracked outputs in the database. Not sure yet
@@ -207,6 +208,13 @@ bool wallet_shachain_load(struct wallet *wallet, u64 id,
 
 
 /**
+ * wallet_get_uncommitted_channel_dbid -- get a unique channel dbid
+ *
+ * @wallet: the wallet
+ */
+u64 wallet_get_channel_dbid(struct wallet *wallet);
+
+/**
  * wallet_channel_save -- Upsert the channel into the database
  *
  * @wallet: the wallet to save into
@@ -214,6 +222,14 @@ bool wallet_shachain_load(struct wallet *wallet, u64 id,
  *   insert)
  */
 void wallet_channel_save(struct wallet *w, struct channel *chan);
+
+/**
+ * wallet_channel_insert -- Insert the initial channel into the database
+ *
+ * @wallet: the wallet to save into
+ * @chan: the instance to store
+ */
+void wallet_channel_insert(struct wallet *w, struct channel *chan);
 
 /**
  * wallet_channel_delete -- After resolving a channel, forget about it

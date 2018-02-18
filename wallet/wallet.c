@@ -525,6 +525,7 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 	remote_config_id = sqlite3_column_int64(stmt, 4);
 
 	chan->state = sqlite3_column_int(stmt, 5);
+	assert(chan->state > OPENINGD && chan->state <= CHANNEL_STATE_MAX);
 	chan->funder = sqlite3_column_int(stmt, 6);
 	chan->channel_flags = sqlite3_column_int(stmt, 7);
 	chan->minimum_depth = sqlite3_column_int(stmt, 8);
@@ -647,11 +648,12 @@ bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
 	sqlite3_bind_int64(stmt, 1, OPENINGD);
 	db_exec_prepared(w->db, stmt);
 
-	/* Channels are active if they have reached at least the
-	 * opening state and they are not marked as complete */
+	/* We load all channels */
 	stmt = db_query(
-	    __func__, w->db, "SELECT %s FROM channels WHERE state > %d AND state != %d;",
-	    channel_fields, OPENINGD, CLOSINGD_COMPLETE);
+	    __func__, w->db, "SELECT %s FROM channels;",
+	    channel_fields);
+
+	w->max_channel_dbid = 0;
 
 	int count = 0;
 	while (ok && stmt && sqlite3_step(stmt) == SQLITE_ROW) {
@@ -660,6 +662,8 @@ bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
 			ok = false;
 			break;
 		}
+		if (c->dbid > w->max_channel_dbid)
+			w->max_channel_dbid = c->dbid;
 		count++;
 	}
 	log_debug(w->log, "Loaded %d channels from DB", count);
@@ -781,37 +785,16 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 	return ok;
 }
 
+u64 wallet_get_channel_dbid(struct wallet *wallet)
+{
+	return ++wallet->max_channel_dbid;
+}
+
 void wallet_channel_save(struct wallet *w, struct channel *chan)
 {
 	tal_t *tmpctx = tal_tmpctx(w);
 	sqlite3_stmt *stmt;
 	assert(chan->first_blocknum);
-
-	if (chan->peer->dbid == 0) {
-		/* Need to store the peer first */
-		stmt = db_prepare(w->db, "INSERT INTO peers (node_id, address) VALUES (?, ?);");
-		sqlite3_bind_pubkey(stmt, 1, &chan->peer->id);
-		if (chan->peer->addr.type == ADDR_TYPE_PADDING)
-			sqlite3_bind_null(stmt, 2);
-		else
-			sqlite3_bind_text(stmt, 2,
-					  type_to_string(tmpctx, struct wireaddr, &chan->peer->addr),
-					  -1, SQLITE_TRANSIENT);
-		db_exec_prepared(w->db, stmt);
-		chan->peer->dbid = sqlite3_last_insert_rowid(w->db->sql);
-	}
-
-	/* Insert a stub, that we can update, unifies INSERT and UPDATE paths */
-	if (chan->dbid == 0) {
-		stmt = db_prepare(w->db, "INSERT INTO channels ("
-				  "peer_id, first_blocknum) VALUES (?, ?);");
-		sqlite3_bind_int64(stmt, 1, chan->peer->dbid);
-		sqlite3_bind_int(stmt, 2, chan->first_blocknum);
-		db_exec_prepared(w->db, stmt);
-		chan->dbid = sqlite3_last_insert_rowid(w->db->sql);
-		derive_channel_seed(w->ld, &chan->seed, &chan->peer->id,
-				    chan->dbid);
-	}
 
 	/* Need to initialize the shachain first so we get an id */
 	if (chan->their_shachain.id == 0) {
@@ -820,7 +803,6 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 
 	wallet_channel_config_save(w, &chan->our_config);
 
-	/* Now do the real update */
 	stmt = db_prepare(w->db, "UPDATE channels SET"
 			  "  shachain_remote_id=?,"
 			  "  short_channel_id=?,"
@@ -922,6 +904,38 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		db_exec_prepared(w->db, stmt);
 	}
 
+	tal_free(tmpctx);
+}
+
+void wallet_channel_insert(struct wallet *w, struct channel *chan)
+{
+	tal_t *tmpctx = tal_tmpctx(w);
+	sqlite3_stmt *stmt;
+
+	if (chan->peer->dbid == 0) {
+		/* Need to create the peer first */
+		stmt = db_prepare(w->db, "INSERT INTO peers (node_id, address) VALUES (?, ?);");
+		sqlite3_bind_pubkey(stmt, 1, &chan->peer->id);
+		if (chan->peer->addr.type == ADDR_TYPE_PADDING)
+			sqlite3_bind_null(stmt, 2);
+		else
+			sqlite3_bind_text(stmt, 2,
+					  type_to_string(tmpctx, struct wireaddr, &chan->peer->addr),
+					  -1, SQLITE_TRANSIENT);
+		db_exec_prepared(w->db, stmt);
+		chan->peer->dbid = sqlite3_last_insert_rowid(w->db->sql);
+	}
+
+	/* Insert a stub, that we update, unifies INSERT and UPDATE paths */
+	stmt = db_prepare(w->db, "INSERT INTO channels ("
+			  "peer_id, first_blocknum, id) VALUES (?, ?, ?);");
+	sqlite3_bind_int64(stmt, 1, chan->peer->dbid);
+	sqlite3_bind_int(stmt, 2, chan->first_blocknum);
+	sqlite3_bind_int(stmt, 3, chan->dbid);
+	db_exec_prepared(w->db, stmt);
+
+	/* Now save path as normal */
+	wallet_channel_save(w, chan);
 	tal_free(tmpctx);
 }
 
