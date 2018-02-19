@@ -625,11 +625,6 @@ bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
 	bool ok = true;
 	sqlite3_stmt *stmt;
 
-	/* Get rid of OPENINGD entries; they don't last across reconnects */
-	stmt = db_prepare(w->db, "DELETE FROM channels WHERE state=?");
-	sqlite3_bind_int64(stmt, 1, OPENINGD);
-	db_exec_prepared(w->db, stmt);
-
 	/* We load all channels */
 	stmt = db_query(
 	    __func__, w->db, "SELECT %s FROM channels;",

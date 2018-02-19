@@ -191,6 +191,8 @@ char *dbmigrations[] = {
     "ALTER TABLE payments ADD COLUMN route_channels TEXT;",
     "CREATE TABLE htlc_sigs (channelid INTEGER REFERENCES channels(id) ON DELETE CASCADE, signature BLOB);",
     "CREATE INDEX channel_idx ON htlc_sigs (channelid)",
+    /* Get rid of OPENINGD entries; we don't put them in db any more */
+    "DELETE FROM channels WHERE state=1",
     NULL,
 };
 

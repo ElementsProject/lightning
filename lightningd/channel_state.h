@@ -1,16 +1,11 @@
-#ifndef LIGHTNING_LIGHTNINGD_PEER_STATE_H
-#define LIGHTNING_LIGHTNINGD_PEER_STATE_H
+#ifndef LIGHTNING_LIGHTNINGD_CHANNEL_STATE_H
+#define LIGHTNING_LIGHTNINGD_CHANNEL_STATE_H
 #include "config.h"
 
-/* FIXME: rename channel_state! */
-enum peer_state {
-	UNINITIALIZED,
-
-	/* Negotiating channel opening: in opening daemon */
-	OPENINGD,
-
+/* These are in the database, so don't renumber them! */
+enum channel_state {
 	/* In channeld, still waiting for lockin. */
-	CHANNELD_AWAITING_LOCKIN,
+	CHANNELD_AWAITING_LOCKIN = 2,
 
 	/* Normal operating state. */
 	CHANNELD_NORMAL,
@@ -35,4 +30,4 @@ enum peer_state {
 };
 #define CHANNEL_STATE_MAX ONCHAIND_MUTUAL
 
-#endif /* LIGHTNING_LIGHTNINGD_PEER_STATE_H */
+#endif /* LIGHTNING_LIGHTNINGD_CHANNEL_STATE_H */

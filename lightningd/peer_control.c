@@ -31,7 +31,6 @@
 #include <lightningd/bitcoind.h>
 #include <lightningd/build_utxos.h>
 #include <lightningd/chaintopology.h>
-#include <lightningd/gen_peer_state_names.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
@@ -463,16 +462,6 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 #endif
 
 		switch (channel->state) {
-			/* This can't happen. */
-		case UNINITIALIZED:
-			abort();
-
-			/* Reconnect: discard old one. */
-		case OPENINGD:
-			delete_channel(channel, "peer reconnected");
-			channel = NULL;
-			goto return_to_gossipd;
-
 		case ONCHAIND_CHEATED:
 		case ONCHAIND_THEIR_UNILATERAL:
 		case ONCHAIND_OUR_UNILATERAL:
@@ -1029,7 +1018,7 @@ static void handle_onchain_init_reply(struct channel *channel, const u8 *msg)
 	if (!channel_state_on_chain(state)) {
 		channel_internal_error(channel,
 				    "Invalid onchain_init_reply state %u (%s)",
-				    state, peer_state_name(state));
+				    state, channel_state_str(state));
 		return;
 	}
 
@@ -2878,17 +2867,6 @@ static const struct json_command close_command = {
 	"Close the channel with peer {id}"
 };
 AUTODATA(json_command, &close_command);
-
-
-const char *peer_state_name(enum peer_state state)
-{
-	size_t i;
-
-	for (i = 0; enum_peer_state_names[i].name; i++)
-		if (enum_peer_state_names[i].v == state)
-			return enum_peer_state_names[i].name;
-	return "unknown";
-}
 
 static void activate_peer(struct peer *peer)
 {
