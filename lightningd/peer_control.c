@@ -288,19 +288,19 @@ static void connect_failed(struct lightningd *ld, const struct pubkey *id,
 	}
 }
 
-/* Opening failed: hand back to gossipd (with error if we have channel_id) */
+/* Opening failed: hand back to gossipd (sending errpkt if not NULL) */
 static void uncommitted_channel_to_gossipd(struct lightningd *ld,
 					   struct uncommitted_channel *uc,
-					   const struct channel_id *channel_id,
 					   const struct crypto_state *cs,
 					   u64 gossip_index,
 					   int peer_fd, int gossip_fd,
+					   const u8 *errorpkt,
 					   const char *fmt,
 					   ...)
 {
 	va_list ap;
 	char *errstr;
-	u8 *error = NULL, *msg;
+	u8 *msg;
 
 	va_start(ap, fmt);
 	errstr = tal_vfmt(uc, fmt, ap);
@@ -309,12 +309,11 @@ static void uncommitted_channel_to_gossipd(struct lightningd *ld,
 	log_unusual(uc->log, "Opening channel: %s", errstr);
 	if (uc->fc)
 		command_fail(uc->fc->cmd, "%s", errstr);
-	if (channel_id)
-		error = towire_errorfmt(uc, channel_id, "%s", errstr);
-	/* Hand back to gossipd, with an error packet. */
-	msg = towire_gossipctl_hand_back_peer(error, &uc->peer->id, cs,
+
+	/* Hand back to gossipd, (maybe) with an error packet to send. */
+	msg = towire_gossipctl_hand_back_peer(errstr, &uc->peer->id, cs,
 					      gossip_index,
-					      error);
+					      errorpkt);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
 	subd_send_fd(ld->gossip, gossip_fd);
@@ -2472,41 +2471,6 @@ static void opening_fundee_finished(struct subd *openingd,
 	tal_free(uc);
 }
 
-/* Negotiation failed, but we can keep gossipping */
-static unsigned int opening_negotiation_failed(struct subd *openingd,
-					       const u8 *msg,
-					       const int *fds)
-{
-	struct uncommitted_channel *uc = openingd->channel;
-	struct crypto_state cs;
-	u64 gossip_index;
-	char *why;
-	struct lightningd *ld = openingd->ld;
-
-	/* We need the peer fd and gossip fd. */
-	if (tal_count(fds) == 0)
-		return 2;
-
-	if (!fromwire_opening_negotiation_failed(msg, msg, NULL,
-						 &cs, &gossip_index, &why)) {
-		log_broken(uc->log, "bad OPENING_NEGOTIATION_FAILED %s",
-			   tal_hex(msg, msg));
-		tal_free(openingd);
-		return 0;
-	}
-
-	uncommitted_channel_to_gossipd(ld, uc, NULL,
-				       &cs, gossip_index,
-				       fds[0], fds[1],
-				       "%s", why);
-
-	/* Don't call opening_channel_errmsg, just free openingd */
-	subd_release_channel(openingd, uc);
-	tal_free(uc);
-	return 0;
-}
-
-/* peer_fd == -1 for local if daemon died */
 static void opening_channel_errmsg(struct uncommitted_channel *uc,
 				   int peer_fd, int gossip_fd,
 				   const struct crypto_state *cs,
@@ -2515,15 +2479,20 @@ static void opening_channel_errmsg(struct uncommitted_channel *uc,
 				   const char *desc,
 				   const u8 *err_for_them)
 {
-	if (uc->fc)
-		command_fail(uc->fc->cmd, "%sERROR %s",
-			     peer_fd == -1 ? ""
-			     : (err_for_them ? "sent " : "received "),
-			     desc);
+	if (peer_fd == -1) {
+		log_info(uc->log, "%s", desc);
+		if (uc->fc)
+			command_fail(uc->fc->cmd, "%s", desc);
+	} else {
+		/* An error occurred (presumably negotiation fail). */
+		const char *errsrc = err_for_them ? "sent" : "received";
 
-	log_info(uc->log, "%sERROR %s",
-		 peer_fd == -1 ? "" : (err_for_them ? "sent " : "received "),
-		 desc);
+		uncommitted_channel_to_gossipd(uc->peer->ld, uc,
+					       cs, gossip_index,
+					       peer_fd, gossip_fd,
+					       err_for_them,
+					       "%s ERROR %s", errsrc, desc);
+	}
 	tal_free(uc);
 }
 
@@ -2603,17 +2572,23 @@ static u8 *peer_accept_channel(struct lightningd *ld,
 				       "Multiple channels unsupported");
 
 	uc->openingd = new_channel_subd(ld, "lightning_openingd", uc, uc->log,
-					opening_wire_type_name,
-					opening_negotiation_failed,
+					opening_wire_type_name,	NULL,
 					opening_channel_errmsg,
 					take(&peer_fd), take(&gossip_fd),
 					NULL);
 	if (!uc->openingd) {
-		uncommitted_channel_to_gossipd(ld, uc, channel_id,
+		u8 *errpkt;
+		char *errmsg;
+
+		errmsg = tal_fmt(uc, "INTERNAL ERROR:"
+				 " Failed to subdaemon opening: %s",
+				 strerror(errno));
+		errpkt = towire_errorfmt(uc, channel_id, "%s", errmsg);
+
+		uncommitted_channel_to_gossipd(ld, uc,
 					       cs, gossip_index,
 					       peer_fd, gossip_fd,
-					       "Failed to subdaemon opening: %s",
-					       strerror(errno));
+					       errpkt, "%s", errmsg);
 		tal_free(uc);
 		return NULL;
 	}
@@ -2682,15 +2657,17 @@ static void peer_offer_channel(struct lightningd *ld,
 
 	fc->uc->openingd = new_channel_subd(ld,
 				    "lightning_openingd", fc->uc, fc->uc->log,
-				    opening_wire_type_name,
-				    opening_negotiation_failed,
+				    opening_wire_type_name, NULL,
 				    opening_channel_errmsg,
 				    take(&peer_fd), take(&gossip_fd),
 				    NULL);
 	if (!fc->uc->openingd) {
+		/* We don't send them an eror packet: for them, nothing
+		 * happened! */
 		uncommitted_channel_to_gossipd(ld, fc->uc, NULL,
-					       cs, gossip_index,
-					       peer_fd,  gossip_fd,
+					       gossip_index,
+					       peer_fd, gossip_fd,
+					       NULL,
 					       "Failed to launch openingd: %s",
 					       strerror(errno));
 		tal_free(fc->uc);

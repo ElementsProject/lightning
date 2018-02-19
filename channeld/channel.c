@@ -1758,7 +1758,6 @@ static u8 *channeld_read_peer_msg(struct peer *peer)
 			     &peer->channel_id,
 			     channeld_send_reply,
 			     channeld_io_error,
-			     status_fail_errpkt,
 			     peer);
 }
 

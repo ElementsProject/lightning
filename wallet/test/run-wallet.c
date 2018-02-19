@@ -154,9 +154,6 @@ bool fromwire_opening_fundee_reply(const tal_t *ctx UNNEEDED, const void *p UNNE
 /* Generated stub for fromwire_opening_funder_reply */
 bool fromwire_opening_funder_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, size_t *plen UNNEEDED, struct channel_config *their_config UNNEEDED, struct bitcoin_tx **first_commit UNNEEDED, secp256k1_ecdsa_signature *first_commit_sig UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u64 *gossip_index UNNEEDED, struct pubkey *revocation_basepoint UNNEEDED, struct pubkey *payment_basepoint UNNEEDED, struct pubkey *htlc_basepoint UNNEEDED, struct pubkey *delayed_payment_basepoint UNNEEDED, struct pubkey *their_per_commit_point UNNEEDED, u32 *minimum_depth UNNEEDED, struct pubkey *remote_fundingkey UNNEEDED, struct bitcoin_txid *funding_txid UNNEEDED, u32 *feerate_per_kw UNNEEDED)
 { fprintf(stderr, "fromwire_opening_funder_reply called!\n"); abort(); }
-/* Generated stub for fromwire_opening_negotiation_failed */
-bool fromwire_opening_negotiation_failed(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, size_t *plen UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u64 *gossip_index UNNEEDED, wirestring **msg UNNEEDED)
-{ fprintf(stderr, "fromwire_opening_negotiation_failed called!\n"); abort(); }
 /* Generated stub for funding_tx */
 struct bitcoin_tx *funding_tx(const tal_t *ctx UNNEEDED,
 			      u16 *outnum UNNEEDED,

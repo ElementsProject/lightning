@@ -87,7 +87,6 @@ static u8 *closing_read_peer_msg(const tal_t *ctx,
 	while ((msg = read_peer_msg(ctx, cs, gossip_index, channel,
 				    sync_crypto_write_arg,
 				    status_fail_io,
-				    status_fail_errpkt,
 				    NULL)) == NULL);
 
 	return msg;
