@@ -360,6 +360,7 @@ static void add_tip(struct chain_topology *topo, struct block *b)
 	b->prev = topo->tip;
 	topo->tip->next = b;
 	topo->tip = b;
+	wallet_block_add(topo->wallet, b);
 }
 
 static struct block *new_block(struct chain_topology *topo,
@@ -403,6 +404,7 @@ static void remove_tip(struct chain_topology *topo)
 	for (i = 0; i < n; i++)
 		txwatch_fire(topo, b->txs[i], 0);
 
+	wallet_block_remove(topo->wallet, b);
 	tal_free(b);
 }
 
@@ -470,6 +472,10 @@ static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 		topo->first_blocknum = 0;
 	else
 		topo->first_blocknum -= 100;
+
+	/* Rollback to the given blockheight, so we start track
+	 * correctly again */
+	wallet_blocks_rollback(topo->wallet, topo->first_blocknum - 1);
 
 	/* Get up to speed with topology. */
 	bitcoind_getblockhash(bitcoind, topo->first_blocknum,
@@ -666,7 +672,7 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 	topo->default_fee_rate = 40000;
 	topo->override_fee_rate = NULL;
 	topo->bitcoind = new_bitcoind(topo, ld, log);
-
+	topo->wallet = ld->wallet;
 	return topo;
 }
 
