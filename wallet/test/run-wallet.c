@@ -334,10 +334,12 @@ struct subd *new_channel_subd_(struct lightningd *ld UNNEEDED,
 			       unsigned int (*msgcb)(struct subd * UNNEEDED, const u8 * UNNEEDED,
 						     const int *fds) UNNEEDED,
 			       void (*errcb)(void *channel UNNEEDED,
-					     enum side sender UNNEEDED,
+					     int peer_fd UNNEEDED, int gossip_fd UNNEEDED,
+					     const struct crypto_state *cs UNNEEDED,
+					     u64 gossip_index UNNEEDED,
 					     const struct channel_id *channel_id UNNEEDED,
 					     const char *desc UNNEEDED,
-					     const u8 *errmsg) UNNEEDED,
+					     const u8 *err_for_them) UNNEEDED,
 			       ...)
 { fprintf(stderr, "new_channel_subd_ called!\n"); abort(); }
 /* Generated stub for new_json_result */

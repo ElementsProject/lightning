@@ -388,7 +388,7 @@ static bool log_status_fail(struct subd *sd, const u8 *msg)
 	return true;
 }
 
-static bool handle_peer_error(struct subd *sd, const u8 *msg)
+static bool handle_peer_error(struct subd *sd, const u8 *msg, int fds[2])
 {
 	void *channel = sd->channel;
 	struct channel_id channel_id;
@@ -402,11 +402,9 @@ static bool handle_peer_error(struct subd *sd, const u8 *msg)
 					&cs, &gossip_index, &err_for_them))
 		return false;
 
-	/* FIXME: hand back to gossipd! */
-
 	/* Don't free sd; we're may be about to free channel. */
 	sd->channel = NULL;
-	sd->errcb(channel, err_for_them ? LOCAL : REMOTE,
+	sd->errcb(channel, fds[0], fds[1], &cs, gossip_index,
 		  &channel_id, desc, err_for_them);
 	return true;
 }
@@ -463,7 +461,15 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 	if (sd->channel) {
 		switch ((enum peer_status)type) {
 		case WIRE_STATUS_PEER_ERROR:
-			if (!handle_peer_error(sd, sd->msg_in))
+			/* We expect 2 fds after this */
+			if (!sd->fds_in) {
+				/* Don't free msg_in: we go around again. */
+				tal_steal(sd, sd->msg_in);
+				tal_free(tmpctx);
+				plan = sd_collect_fds(conn, sd, 2);
+				goto out;
+			}
+			if (!handle_peer_error(sd, sd->msg_in, sd->fds_in))
 				goto malformed;
 			goto close;
 		}
@@ -564,7 +570,7 @@ static void destroy_subd(struct subd *sd)
 		if (!outer_transaction)
 			db_begin_transaction(db);
 		if (sd->errcb)
-			sd->errcb(channel, LOCAL, NULL,
+			sd->errcb(channel, -1, -1, NULL, 0, NULL,
 				  tal_fmt(sd, "Owning subdaemon %s died (%i)",
 					  sd->name, status),
 				  NULL);
@@ -613,10 +619,12 @@ static struct subd *new_subd(struct lightningd *ld,
 			     unsigned int (*msgcb)(struct subd *,
 						   const u8 *, const int *fds),
 			     void (*errcb)(void *channel,
-					   enum side sender,
+					   int peer_fd, int gossip_fd,
+					   const struct crypto_state *cs,
+					   u64 gossip_index,
 					   const struct channel_id *channel_id,
 					   const char *desc,
-					   const u8 *errmsg),
+					   const u8 *err_for_them),
 			     va_list *ap)
 {
 	struct subd *sd = tal(ld, struct subd);
@@ -690,10 +698,12 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 			       unsigned int (*msgcb)(struct subd *, const u8 *,
 						     const int *fds),
 			       void (*errcb)(void *channel,
-					     enum side sender,
+					     int peer_fd, int gossip_fd,
+					     const struct crypto_state *cs,
+					     u64 gossip_index,
 					     const struct channel_id *channel_id,
 					     const char *desc,
-					     const u8 *errmsg),
+					     const u8 *err_for_them),
 			       ...)
 {
 	va_list ap;
