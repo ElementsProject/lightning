@@ -255,7 +255,7 @@ ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
 ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS) Makefile
 
 ccan/config.h: ccan/tools/configurator/configurator
-	if $< > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
+	if $< $(CC) -static > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
 
 gen_version.h: FORCE
 	@(echo "#define VERSION \"`git describe --always --dirty`\"" && echo "#define VERSION_NAME \"$(NAME)\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
