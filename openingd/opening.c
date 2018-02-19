@@ -67,37 +67,17 @@ struct state {
 };
 
 /* For negotiation failures: we can still gossip with client. */
-static void negotiation_failed(struct state *state, bool send_error,
-			       const char *fmt, ...)
+static void negotiation_failed(struct state *state, const char *fmt, ...)
 {
 	va_list ap;
 	const char *errmsg;
-	u8 *msg;
 
 	va_start(ap, fmt);
 	errmsg = tal_vfmt(state, fmt, ap);
 	va_end(ap);
 
-	/* Make sure it's correct length for towire_. */
-	tal_resize(&errmsg, strlen(errmsg)+1);
-
-	/* We don't send error in response to their error packet. */
-	if (send_error) {
-		/* Tell peer we're bailing on this channel. */
-		msg = towire_errorfmt(errmsg, &state->channel_id, "%s", errmsg);
-		sync_crypto_write(&state->cs, PEER_FD, take(msg));
-	}
-
-	/* Tell master we should return to gossiping. */
-	msg = towire_opening_negotiation_failed(state, &state->cs,
-						state->gossip_index,
-						errmsg);
-	wire_sync_write(REQ_FD, msg);
-	fdpass_send(REQ_FD, PEER_FD);
-	fdpass_send(REQ_FD, GOSSIP_FD);
-
-	tal_free(state);
-	exit(0);
+	peer_failed(&state->cs, state->gossip_index, &state->channel_id,
+		    "%s", errmsg);
 }
 
 static void check_config_bounds(struct state *state,
@@ -112,7 +92,7 @@ static void check_config_bounds(struct state *state,
 	 * unreasonably large.
 	 */
 	if (remoteconf->to_self_delay > state->max_to_self_delay)
-		negotiation_failed(state, true,
+		negotiation_failed(state,
 				   "to_self_delay %u larger than %u",
 				   remoteconf->to_self_delay,
 				   state->max_to_self_delay);
@@ -130,7 +110,7 @@ static void check_config_bounds(struct state *state,
 
 	/* Overflow check before capacity calc. */
 	if (remoteconf->channel_reserve_satoshis > state->funding_satoshis)
-		negotiation_failed(state, true,
+		negotiation_failed(state,
 				   "Invalid channel_reserve_satoshis %"PRIu64
 				   " for funding_satoshis %"PRIu64,
 				   remoteconf->channel_reserve_satoshis,
@@ -147,7 +127,7 @@ static void check_config_bounds(struct state *state,
 		capacity_msat = remoteconf->max_htlc_value_in_flight_msat;
 
 	if (remoteconf->htlc_minimum_msat * (u64)1000 > capacity_msat)
-		negotiation_failed(state, true,
+		negotiation_failed(state,
 				   "Invalid htlc_minimum_msat %"PRIu64
 				   " for funding_satoshis %"PRIu64
 				   " capacity_msat %"PRIu64,
@@ -156,7 +136,7 @@ static void check_config_bounds(struct state *state,
 				   capacity_msat);
 
 	if (capacity_msat < state->min_effective_htlc_capacity_msat)
-		negotiation_failed(state, true,
+		negotiation_failed(state,
 				   "Channel capacity with funding %"PRIu64" msat,"
 				   " reserves %"PRIu64"/%"PRIu64" msat,"
 				   " max_htlc_value_in_flight_msat %"PRIu64
@@ -170,7 +150,7 @@ static void check_config_bounds(struct state *state,
 
 	/* We don't worry about how many HTLCs they accept, as long as > 0! */
 	if (remoteconf->max_accepted_htlcs == 0)
-		negotiation_failed(state, true,
+		negotiation_failed(state,
 				   "max_accepted_htlcs %u invalid",
 				   remoteconf->max_accepted_htlcs);
 
@@ -205,20 +185,6 @@ static void temporary_channel_id(struct channel_id *channel_id)
 		channel_id->id[i] = pseudorand(256);
 }
 
-/* This handles the case where there's an error only for this channel */
-static void opening_errpkt(int peer_fd, int gossip_fd,
-			   struct crypto_state *cs, u64 gossip_index,
-			   const char *desc,
-			   const struct channel_id *channel_id,
-			   struct state *state)
-{
-	/* FIXME: Remove negotiation_failed */
-	if (structeq(channel_id, &state->channel_id))
-		negotiation_failed(state, false, "Error packet: %s", desc);
-	peer_failed_received_errmsg(peer_fd, gossip_fd,
-				    cs, gossip_index, desc, channel_id);
-}
-
 /* Handle random messages we might get, returning the first non-handled one. */
 static u8 *opening_read_peer_msg(struct state *state)
 {
@@ -228,7 +194,6 @@ static u8 *opening_read_peer_msg(struct state *state)
 				    &state->channel_id,
 				    sync_crypto_write_arg,
 				    status_fail_io,
-				    opening_errpkt,
 				    state)) == NULL);
 
 	return msg;
@@ -346,7 +311,7 @@ static u8 *funder_channel(struct state *state,
 	 * `open_channel`.
 	 */
 	if (minimum_depth > max_minimum_depth)
-		negotiation_failed(state, true,
+		negotiation_failed(state,
 				   "minimum_depth %u larger than %u",
 				   minimum_depth, max_minimum_depth);
 	check_config_bounds(state, state->remoteconf);
@@ -538,7 +503,7 @@ static u8 *fundee_channel(struct state *state,
 	 * unknown to the receiver.
 	 */
 	if (!structeq(&chain_hash, &state->chainparams->genesis_blockhash)) {
-		negotiation_failed(state, true,
+		negotiation_failed(state,
 				   "Unknown chain-hash %s",
 				   type_to_string(peer_msg,
 						  struct bitcoin_blkid,
@@ -573,12 +538,12 @@ static u8 *fundee_channel(struct state *state,
 	 * too small for timely processing, or unreasonably large.
 	 */
 	if (state->feerate_per_kw < min_feerate)
-		negotiation_failed(state, true,
+		negotiation_failed(state,
 				   "feerate_per_kw %u below minimum %u",
 				   state->feerate_per_kw, min_feerate);
 
 	if (state->feerate_per_kw > max_feerate)
-		negotiation_failed(state, true,
+		negotiation_failed(state,
 				   "feerate_per_kw %u above maximum %u",
 				   state->feerate_per_kw, max_feerate);
 

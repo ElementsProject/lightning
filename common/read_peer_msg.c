@@ -45,11 +45,6 @@ u8 *read_peer_msg_(const tal_t *ctx,
 		   bool (*send_reply)(struct crypto_state *cs, int fd,
 				      const u8 *TAKES,  void *arg),
 		   void (*io_error)(void *arg),
-		   void (*err_pkt)(int peer_fd, int gossip_fd,
-				   struct crypto_state *cs, u64 gossip_index,
-				   const char *desc,
-				   const struct channel_id *channel_id,
-				   void *arg),
 		   void *arg)
 {
 	u8 *msg;
@@ -90,8 +85,9 @@ u8 *read_peer_msg_(const tal_t *ctx,
 		 *    - MUST ignore the message.
 		 */
 		if (structeq(&chanid, channel) || channel_id_is_all(&chanid))
-			err_pkt(peer_fd, gossip_fd, cs, gossip_index,
-				err, &chanid, arg);
+			peer_failed_received_errmsg(peer_fd, gossip_fd,
+						    cs, gossip_index,
+						    err, &chanid);
 
 		return tal_free(msg);
 	}
@@ -125,15 +121,4 @@ bool sync_crypto_write_arg(struct crypto_state *cs, int fd, const u8 *msg,
 void status_fail_io(void *unused)
 {
 	peer_failed_connection_lost();
-}
-
-/* Helper: calls peer_failed_received_errmsg() */
-void status_fail_errpkt(int peer_fd, int gossip_fd,
-			struct crypto_state *cs, u64 gossip_index,
-			const char *desc,
-			const struct channel_id *channel_id,
-			void *unused)
-{
-	peer_failed_received_errmsg(peer_fd, gossip_fd,
-				    cs, gossip_index, desc, channel_id);
 }
