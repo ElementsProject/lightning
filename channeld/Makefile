@@ -42,6 +42,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
 	common/gen_status_wire.o		\
+	common/gen_peer_status_wire.o		\
 	common/htlc_state.o			\
 	common/htlc_tx.o			\
 	common/htlc_wire.o			\

@@ -22,4 +22,14 @@ void peer_failed_(int peer_fd, int gossip_fd,
 		  const struct channel_id *channel_id,
 		  const char *fmt, ...)
 	PRINTF_FMT(6,7) NORETURN;
+
+/* We're failing because peer sent us an error message */
+void peer_failed_received_errmsg(int peer_fd, int gossip_fd,
+				 struct crypto_state *cs, u64 gossip_index,
+				 const char *desc,
+				 const struct channel_id *channel_id) NORETURN;
+
+/* I/O error */
+void peer_failed_connection_lost(void) NORETURN;
+
 #endif /* LIGHTNING_COMMON_PEER_FAILED_H */

@@ -23,6 +23,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/derive_basepoints.o		\
 	common/features.o			\
 	common/funding_tx.o			\
+	common/gen_peer_status_wire.o		\
 	common/gen_status_wire.o		\
 	common/hash_u5.o			\
 	common/htlc_state.o			\

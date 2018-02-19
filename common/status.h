@@ -3,7 +3,7 @@
 #include "config.h"
 #include <ccan/compiler/compiler.h>
 #include <ccan/short_types/short_types.h>
-#include <common/htlc.h> /* For enum side */
+#include <ccan/take/take.h>
 #include <common/status_levels.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -51,16 +51,5 @@ void status_failed(enum status_failreason code,
  * msg NULL == read failure. */
 void master_badmsg(u32 type_expected, const u8 *msg) NORETURN;
 
-/* I/O error */
-void status_fatal_connection_lost(void) NORETURN;
-
-/* Got an error for one or all channels (if c == NULL) */
-void status_fatal_received_errmsg(const char *desc,
-				  const struct channel_id *c) NORETURN;
-
-/* Sent an error for one or all channels (if c == NULL) */
-void status_fatal_sent_errmsg(const u8 *errmsg,
-			      const char *desc,
-			      const struct channel_id *c) NORETURN;
-
+void status_send_fatal(const u8 *msg TAKES) NORETURN;
 #endif /* LIGHTNING_COMMON_STATUS_H */

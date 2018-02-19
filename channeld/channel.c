@@ -185,7 +185,7 @@ static void do_peer_write(struct peer *peer)
 	r = write(PEER_FD, peer->peer_outmsg + peer->peer_outoff,
 		  len - peer->peer_outoff);
 	if (r < 0)
-		status_fatal_connection_lost();
+		peer_failed_connection_lost();
 
 	peer->peer_outoff += r;
 	if (peer->peer_outoff == len)
@@ -1640,7 +1640,7 @@ static void peer_conn_broken(struct peer *peer)
 
 		wire_sync_write(GOSSIP_FD, take(cupdate));
 	}
-	status_fatal_connection_lost();
+	peer_failed_connection_lost();
 }
 
 static void resend_revoke(struct peer *peer)
@@ -1738,7 +1738,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 }
 
 /* Our local wrapper around read_peer_msg */
-static void channeld_io_error(const char *what_i_was_doing, struct peer *peer)
+static void channeld_io_error(struct peer *peer)
 {
 	peer_conn_broken(peer);
 }
@@ -1754,7 +1754,8 @@ static bool channeld_send_reply(struct crypto_state *cs,
 
 static u8 *channeld_read_peer_msg(struct peer *peer)
 {
-	return read_peer_msg(peer, &peer->cs, &peer->channel_id,
+	return read_peer_msg(peer, &peer->cs, peer->gossip_index,
+			     &peer->channel_id,
 			     channeld_send_reply,
 			     channeld_io_error,
 			     status_fail_errpkt,
@@ -1788,7 +1789,7 @@ static void peer_reconnect(struct peer *peer)
 					 peer->next_index[LOCAL],
 					 peer->revocations_received);
 	if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-		status_fatal_connection_lost();
+		peer_failed_connection_lost();
 
 	/* Read until they say something interesting */
 	while ((msg = channeld_read_peer_msg(peer)) == NULL);

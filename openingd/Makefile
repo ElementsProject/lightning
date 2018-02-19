@@ -45,6 +45,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/dev_disconnect.o			\
 	common/funding_tx.o			\
 	common/gen_status_wire.o		\
+	common/gen_peer_status_wire.o		\
 	common/htlc_wire.o			\
 	common/initial_channel.o		\
 	common/initial_commit_tx.o		\

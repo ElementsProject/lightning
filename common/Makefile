@@ -43,10 +43,10 @@ COMMON_SRC_NOGEN :=				\
 	common/wire_error.c			\
 	common/withdraw_tx.c
 
-COMMON_SRC_GEN := common/gen_status_wire.c
+COMMON_SRC_GEN := common/gen_status_wire.c common/gen_peer_status_wire.c
 
 COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h) common/overflows.h common/htlc.h common/status_levels.h
-COMMON_HEADERS_GEN := common/gen_htlc_state_names.h common/gen_status_wire.h
+COMMON_HEADERS_GEN := common/gen_htlc_state_names.h common/gen_status_wire.h common/gen_peer_status_wire.h
 
 COMMON_HEADERS := $(COMMON_HEADERS_GEN) $(COMMON_HEADERS_NOGEN)
 COMMON_SRC := $(COMMON_SRC_NOGEN) $(COMMON_SRC_GEN)
@@ -67,6 +67,12 @@ common/gen_status_wire.h: $(WIRE_GEN) common/status_wire.csv
 
 common/gen_status_wire.c: $(WIRE_GEN) common/status_wire.csv
 	$(WIRE_GEN) ${@:.c=.h} status < common/status_wire.csv > $@
+
+common/gen_peer_status_wire.h: $(WIRE_GEN) common/peer_status_wire.csv
+	$(WIRE_GEN) --header $@ peer_status < common/peer_status_wire.csv > $@
+
+common/gen_peer_status_wire.c: $(WIRE_GEN) common/peer_status_wire.csv
+	$(WIRE_GEN) ${@:.c=.h} peer_status < common/peer_status_wire.csv > $@
 
 check-makefile: check-common-makefile
 
