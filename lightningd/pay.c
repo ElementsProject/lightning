@@ -636,8 +636,8 @@ static void json_sendpay_on_resolve(const struct sendpay_result *r,
 {
 	struct command *cmd = (struct command*) vcmd;
 
-	struct json_result *data;
-	const char *msg;
+	struct json_result *data = NULL;
+	const char *msg = NULL;
 	struct routing_failure *fail;
 
 	if (r->succeeded)
@@ -693,6 +693,7 @@ static void json_sendpay_on_resolve(const struct sendpay_result *r,
 			break;
 		}
 
+		assert(msg);
 		command_fail_detailed(cmd, r->errorcode, data, "%s", msg);
 	}
 }
