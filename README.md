@@ -76,7 +76,7 @@ First you need to transfer some funds to `lightningd` so that it can open a chan
 cli/lightning-cli newaddr
 
 # Returns a transaction id <txid>
-bitcoin-cli -testnet sendtoaddress <address> <amount>
+bitcoin-cli -testnet sendtoaddress <address> <amount_in_bitcoins>
 ```
 
 `lightningd` will register the funds once the transaction is
@@ -102,7 +102,7 @@ Let's assume the **remote** node is accepting connections at
 
 ```
 cli/lightning-cli connect <node_id> <ip> [<port>]
-cli/lightning-cli fundchannel <node_id> <amount>
+cli/lightning-cli fundchannel <node_id> <amount_in_satoshis>
 ```
 
 This opens a connection and, on top of that connection, then opens a channel.
