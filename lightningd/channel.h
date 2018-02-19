@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/list/list.h>
 #include <lightningd/peer_state.h>
+#include <lightningd/peer_htlcs.h>
 #include <wallet/wallet.h>
 
 struct uncommitted_channel;
@@ -48,8 +49,8 @@ struct channel {
 	u64 next_index[NUM_SIDES];
 	u64 next_htlc_id;
 
-	/* Funding txid and amounts (once known) */
-	struct bitcoin_txid *funding_txid;
+	/* Funding txid and amounts */
+	struct bitcoin_txid funding_txid;
 	u16 funding_outnum;
 	u64 funding_satoshi, push_msat;
 	bool remote_funding_locked;
@@ -57,15 +58,15 @@ struct channel {
 	struct short_channel_id *scid;
 
 	/* Amount going to us, not counting unfinished HTLCs; if we have one. */
-	u64 *our_msatoshi;
+	u64 our_msatoshi;
 
-	/* Last tx they gave us (if any). */
+	/* Last tx they gave us. */
 	struct bitcoin_tx *last_tx;
-	secp256k1_ecdsa_signature *last_sig;
+	secp256k1_ecdsa_signature last_sig;
 	secp256k1_ecdsa_signature *last_htlc_sigs;
 
-	/* Keys for channel. */
-	struct channel_info *channel_info;
+	/* Keys for channel */
+	struct channel_info channel_info;
 
 	/* Secret seed (FIXME: Move to hsm!) */
 	struct privkey seed;

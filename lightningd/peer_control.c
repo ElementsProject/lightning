@@ -206,7 +206,7 @@ static void sign_last_tx(struct channel *channel)
 
 	funding_wscript = bitcoin_redeem_2of2(tmpctx,
 					      &local_funding_pubkey,
-					      &channel->channel_info->remote_fundingkey);
+					      &channel->channel_info.remote_fundingkey);
 	/* Need input amount for signing */
 	channel->last_tx->input[0].amount = tal_dup(channel->last_tx->input, u64,
 						    &channel->funding_satoshi);
@@ -217,9 +217,9 @@ static void sign_last_tx(struct channel *channel)
 
 	channel->last_tx->input[0].witness
 		= bitcoin_witness_2of2(channel->last_tx->input,
-				       channel->last_sig,
+				       &channel->last_sig,
 				       &sig,
-				       &channel->channel_info->remote_fundingkey,
+				       &channel->channel_info.remote_fundingkey,
 				       &local_funding_pubkey);
 
 	tal_free(tmpctx);
@@ -585,11 +585,8 @@ static struct channel *channel_by_channel_id(struct peer *peer,
 	list_for_each(&peer->channels, channel, list) {
 		struct channel_id cid;
 
-		if (!channel->funding_txid)
-			continue;
-
 		derive_channel_id(&cid,
-				  channel->funding_txid,
+				  &channel->funding_txid,
 				  channel->funding_outnum);
 		if (structeq(&cid, channel_id))
 			return channel;
@@ -836,16 +833,13 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 				json_add_short_channel_id(response,
 							  "short_channel_id",
 							  channel->scid);
-			if (channel->funding_txid)
-				json_add_txid(response,
-					      "funding_txid",
-					      channel->funding_txid);
-			if (channel->our_msatoshi) {
-				json_add_u64(response, "msatoshi_to_us",
-					     *channel->our_msatoshi);
-				json_add_u64(response, "msatoshi_total",
-					     channel->funding_satoshi * 1000);
-			}
+			json_add_txid(response,
+				      "funding_txid",
+				      &channel->funding_txid);
+			json_add_u64(response, "msatoshi_to_us",
+				     channel->our_msatoshi);
+			json_add_u64(response, "msatoshi_total",
+				     channel->funding_satoshi * 1000);
 
 			/* channel config */
 			json_add_u64(response, "dust_limit_satoshis",
@@ -1445,27 +1439,27 @@ static enum watch_result funding_spent(struct channel *channel,
 	msg = towire_onchain_init(channel,
 				  &channel->seed, &channel->their_shachain.chain,
 				  channel->funding_satoshi,
-				  &channel->channel_info->old_remote_per_commit,
-				  &channel->channel_info->remote_per_commit,
+				  &channel->channel_info.old_remote_per_commit,
+				  &channel->channel_info.remote_per_commit,
 				   /* BOLT #2:
 				    * `to_self_delay` is the number of blocks
 				    * that the other nodes to-self outputs
 				    * must be delayed */
 				   /* So, these are reversed: they specify ours,
 				    * we specify theirs. */
-				  channel->channel_info->their_config.to_self_delay,
+				  channel->channel_info.their_config.to_self_delay,
 				  channel->our_config.to_self_delay,
 				  get_feerate(ld->topology, FEERATE_NORMAL),
 				  channel->our_config.dust_limit_satoshis,
-				  &channel->channel_info->theirbase.revocation,
+				  &channel->channel_info.theirbase.revocation,
 				  &our_last_txid,
 				  scriptpubkey,
 				  channel->remote_shutdown_scriptpubkey,
 				  &ourkey,
 				  channel->funder,
-				  &channel->channel_info->theirbase.payment,
-				  &channel->channel_info->theirbase.htlc,
-				  &channel->channel_info->theirbase.delayed_payment,
+				  &channel->channel_info.theirbase.payment,
+				  &channel->channel_info.theirbase.htlc,
+				  &channel->channel_info.theirbase.delayed_payment,
 				  tx,
 				  block->height,
 				  /* FIXME: config for 'reasonable depth' */
@@ -1584,13 +1578,13 @@ static void opening_got_hsm_funding_sig(struct channel *channel,
 
 	/* FIXME: Remove arg from cb? */
 	watch_txo(channel, ld->topology, channel,
-		  channel->funding_txid, channel->funding_outnum,
+		  &channel->funding_txid, channel->funding_outnum,
 		  funding_spent, NULL);
 
 	json_object_start(response, NULL);
 	linear = linearize_tx(response, tx);
 	json_add_hex(response, "tx", linear, tal_len(linear));
-	json_add_txid(response, "txid", channel->funding_txid);
+	json_add_txid(response, "txid", &channel->funding_txid);
 	json_object_end(response);
 	command_success(cmd, response);
 
@@ -1885,7 +1879,7 @@ static void peer_start_closingd(struct channel *channel,
 	 * calculated in [BOLT
 	 * #3](03-transactions.md#fee-calculation).
 	 */
-	feelimit = commit_tx_base_fee(channel->channel_info->feerate_per_kw[LOCAL],
+	feelimit = commit_tx_base_fee(channel->channel_info.feerate_per_kw[LOCAL],
 				      0);
 
 	minfee = commit_tx_base_fee(get_feerate(ld->topology, FEERATE_SLOW), 0);
@@ -1907,16 +1901,16 @@ static void peer_start_closingd(struct channel *channel,
 	/* Convert unit */
 	funding_msatoshi = channel->funding_satoshi * 1000;
 	/* What is not ours is theirs */
-	our_msatoshi = *channel->our_msatoshi;
+	our_msatoshi = channel->our_msatoshi;
 	their_msatoshi = funding_msatoshi - our_msatoshi;
 	initmsg = towire_closing_init(tmpctx,
 				      cs,
 				      gossip_index,
 				      &channel->seed,
-				      channel->funding_txid,
+				      &channel->funding_txid,
 				      channel->funding_outnum,
 				      channel->funding_satoshi,
-				      &channel->channel_info->remote_fundingkey,
+				      &channel->channel_info.remote_fundingkey,
 				      channel->funder,
 				      our_msatoshi / 1000, /* Rounds down */
 				      their_msatoshi / 1000, /* Rounds down */
@@ -2057,8 +2051,6 @@ static bool peer_start_channeld(struct channel *channel,
 	struct lightningd *ld = channel->peer->ld;
 	const struct config *cfg = &ld->config;
 
-	assert(channel->our_msatoshi);
-
 	msg = towire_hsm_client_hsmfd(tmpctx, &channel->peer->id, HSM_CAP_SIGN_GOSSIP | HSM_CAP_ECDH);
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
@@ -2115,27 +2107,27 @@ static bool peer_start_channeld(struct channel *channel,
 
 	initmsg = towire_channel_init(tmpctx,
 				      &get_chainparams(ld)->genesis_blockhash,
-				      channel->funding_txid,
+				      &channel->funding_txid,
 				      channel->funding_outnum,
 				      channel->funding_satoshi,
 				      &channel->our_config,
-				      &channel->channel_info->their_config,
-				      channel->channel_info->feerate_per_kw,
+				      &channel->channel_info.their_config,
+				      channel->channel_info.feerate_per_kw,
 				      feerate_min(ld),
 				      feerate_max(ld),
-				      channel->last_sig,
+				      &channel->last_sig,
 				      cs, gossip_index,
-				      &channel->channel_info->remote_fundingkey,
-				      &channel->channel_info->theirbase.revocation,
-				      &channel->channel_info->theirbase.payment,
-				      &channel->channel_info->theirbase.htlc,
-				      &channel->channel_info->theirbase.delayed_payment,
-				      &channel->channel_info->remote_per_commit,
-				      &channel->channel_info->old_remote_per_commit,
+				      &channel->channel_info.remote_fundingkey,
+				      &channel->channel_info.theirbase.revocation,
+				      &channel->channel_info.theirbase.payment,
+				      &channel->channel_info.theirbase.htlc,
+				      &channel->channel_info.theirbase.delayed_payment,
+				      &channel->channel_info.remote_per_commit,
+				      &channel->channel_info.old_remote_per_commit,
 				      channel->funder,
 				      cfg->fee_base,
 				      cfg->fee_per_satoshi,
-				      *channel->our_msatoshi,
+				      channel->our_msatoshi,
 				      &channel->seed,
 				      &ld->id,
 				      &channel->peer->id,
@@ -2192,37 +2184,33 @@ wallet_commit_channel(struct lightningd *ld,
 	channel->minimum_depth = uc->minimum_depth;
 	channel->next_index[LOCAL] = channel->next_index[REMOTE] = 1;
 	channel->next_htlc_id = 0;
-	channel->funding_txid = tal_dup(channel, struct bitcoin_txid,
-					funding_txid);
+	channel->funding_txid = *funding_txid;
 	channel->funding_outnum = funding_outnum;
 	channel->funding_satoshi = funding_satoshi;
 	channel->push_msat = push_msat;
 	channel->remote_funding_locked = false;
 	channel->scid = NULL;
 
-	channel->our_msatoshi = tal(channel, u64);
 	if (channel->funder == LOCAL)
-		*channel->our_msatoshi
+		channel->our_msatoshi
 			= channel->funding_satoshi * 1000 - channel->push_msat;
 	else
-		*channel->our_msatoshi = channel->push_msat;
+		channel->our_msatoshi = channel->push_msat;
 
 	channel->last_tx = tal_steal(channel, remote_commit);
-	channel->last_sig = tal_dup(channel, secp256k1_ecdsa_signature,
-				    remote_commit_sig);
+	channel->last_sig = *remote_commit_sig;
 	channel->last_htlc_sigs = NULL;
 
-	channel->channel_info = tal_dup(channel, struct channel_info,
-					channel_info);
+	channel->channel_info = *channel_info;
 
 	/* Feerates begin identical. */
-	channel->channel_info->feerate_per_kw[LOCAL]
-		= channel->channel_info->feerate_per_kw[REMOTE]
+	channel->channel_info.feerate_per_kw[LOCAL]
+		= channel->channel_info.feerate_per_kw[REMOTE]
 		= feerate;
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
-	channel->channel_info->old_remote_per_commit
-		= channel->channel_info->remote_per_commit;
+	channel->channel_info.old_remote_per_commit
+		= channel->channel_info.remote_per_commit;
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
@@ -2252,7 +2240,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 
 	assert(tal_count(fds) == 2);
 
-	/* This is a new channel_info->their_config so set its ID to 0 */
+	/* This is a new channel_info.their_config so set its ID to 0 */
 	channel_info.their_config.id = 0;
 
 	if (!fromwire_opening_funder_reply(resp, resp, NULL,
@@ -2402,7 +2390,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	log_debug(uc->log, "Got opening_fundee_finish_response");
 	assert(tal_count(fds) == 2);
 
-	/* This is a new channel_info->their_config, set its ID to 0 */
+	/* This is a new channel_info.their_config, set its ID to 0 */
 	channel_info.their_config.id = 0;
 
 	if (!fromwire_opening_fundee_reply(tmpctx, reply, NULL,
@@ -2444,12 +2432,12 @@ static void opening_fundee_finished(struct subd *openingd,
 
 	log_debug(channel->log, "Watching funding tx %s",
 		     type_to_string(reply, struct bitcoin_txid,
-				    channel->funding_txid));
-	watch_txid(channel, ld->topology, channel, channel->funding_txid,
+				    &channel->funding_txid));
+	watch_txid(channel, ld->topology, channel, &channel->funding_txid,
 		   funding_lockin_cb, NULL);
 
 	/* FIXME: Remove arg from cb? */
-	watch_txo(channel, ld->topology, channel, channel->funding_txid,
+	watch_txo(channel, ld->topology, channel, &channel->funding_txid,
 		  channel->funding_outnum, funding_spent, NULL);
 
 	/* On to normal operation! */
@@ -2919,14 +2907,13 @@ static void activate_peer(struct peer *peer)
 	}
 
 	list_for_each(&peer->channels, channel, list) {
-		assert(channel->funding_txid);
-
 		/* This may be unnecessary, but it's harmless. */
-		watch_txid(channel, ld->topology, channel, channel->funding_txid,
+		watch_txid(channel, ld->topology, channel,
+			   &channel->funding_txid,
 			   funding_lockin_cb, NULL);
 
 		watch_txo(channel, ld->topology, channel,
-			  channel->funding_txid, channel->funding_outnum,
+			  &channel->funding_txid, channel->funding_outnum,
 			  funding_spent, NULL);
 	}
 }
@@ -2963,10 +2950,6 @@ static void json_sign_last_tx(struct command *cmd,
 	channel = peer_active_channel(peer);
 	if (!channel) {
 		command_fail(cmd, "Could has not active channel");
-		return;
-	}
-	if (!channel->last_tx) {
-		command_fail(cmd, "Peer has no final transaction");
 		return;
 	}
 
@@ -3109,7 +3092,7 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 	json_object_start(response, NULL);
 	json_add_bool(response, "forced", forget->force);
 	json_add_bool(response, "funding_unspent", txout != NULL);
-	json_add_txid(response, "funding_txid", forget->channel->funding_txid);
+	json_add_txid(response, "funding_txid", &forget->channel->funding_txid);
 	json_object_end(response);
 
 	delete_channel(forget->channel, "dev-forget-channel called");
@@ -3173,15 +3156,11 @@ static void json_dev_forget_channel(struct command *cmd, const char *buffer,
 		return;
 	}
 
-	if (!forget->channel->funding_txid) {
-		process_dev_forget_channel(cmd->ld->topology->bitcoind, NULL, forget);
-	} else {
-		bitcoind_gettxout(cmd->ld->topology->bitcoind,
-				  forget->channel->funding_txid,
-				  forget->channel->funding_outnum,
-				  process_dev_forget_channel, forget);
-		command_still_pending(cmd);
-	}
+	bitcoind_gettxout(cmd->ld->topology->bitcoind,
+			  &forget->channel->funding_txid,
+			  forget->channel->funding_outnum,
+			  process_dev_forget_channel, forget);
+	command_still_pending(cmd);
 }
 
 static const struct json_command dev_forget_channel_command = {

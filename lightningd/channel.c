@@ -158,8 +158,7 @@ void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
 			 const secp256k1_ecdsa_signature *sig)
 {
-	tal_free(channel->last_sig);
-	channel->last_sig = tal_dup(channel, secp256k1_ecdsa_signature, sig);
+	channel->last_sig = *sig;
 	tal_free(channel->last_tx);
 	channel->last_tx = tal_steal(channel, tx);
 }

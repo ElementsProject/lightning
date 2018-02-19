@@ -820,9 +820,9 @@ static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 	/* If we fulfilled their HTLC, credit us. */
 	if (hin->preimage) {
 		log_debug(channel->log, "Balance %"PRIu64" -> %"PRIu64,
-			  *channel->our_msatoshi,
-			  *channel->our_msatoshi + hin->msatoshi);
-		*channel->our_msatoshi += hin->msatoshi;
+			  channel->our_msatoshi,
+			  channel->our_msatoshi + hin->msatoshi);
+		channel->our_msatoshi += hin->msatoshi;
 	}
 
 	tal_free(hin);
@@ -844,9 +844,9 @@ static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 	} else {
 		/* We paid for this HTLC, so deduct balance. */
 		log_debug(channel->log, "Balance %"PRIu64" -> %"PRIu64,
-			  *channel->our_msatoshi,
-			  *channel->our_msatoshi - hout->msatoshi);
-		*channel->our_msatoshi -= hout->msatoshi;
+			  channel->our_msatoshi,
+			  channel->our_msatoshi - hout->msatoshi);
+		channel->our_msatoshi -= hout->msatoshi;
 	}
 
 	tal_free(hout);
@@ -1005,7 +1005,7 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 	}
 
 	/* Update their feerate. */
-	channel->channel_info->feerate_per_kw[REMOTE] = feerate;
+	channel->channel_info.feerate_per_kw[REMOTE] = feerate;
 
 	if (!peer_save_commitsig_sent(channel, commitnum))
 		return;
@@ -1162,8 +1162,8 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 
 	/* Update both feerates: if we're funder, REMOTE should already be
 	 * that feerate, if we're not, we're about to ACK anyway. */
-	channel->channel_info->feerate_per_kw[LOCAL]
-		= channel->channel_info->feerate_per_kw[REMOTE]
+	channel->channel_info.feerate_per_kw[LOCAL]
+		= channel->channel_info.feerate_per_kw[REMOTE]
 		= feerate;
 
 	/* Since we're about to send revoke, bump state again. */
@@ -1189,7 +1189,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 void update_per_commit_point(struct channel *channel,
 			     const struct pubkey *per_commitment_point)
 {
-	struct channel_info *ci = channel->channel_info;
+	struct channel_info *ci = &channel->channel_info;
 	ci->old_remote_per_commit = ci->remote_per_commit;
 	ci->remote_per_commit = *per_commitment_point;
 }
