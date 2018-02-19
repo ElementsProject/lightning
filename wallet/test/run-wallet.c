@@ -766,7 +766,7 @@ static bool bitcoin_tx_eq(const struct bitcoin_tx *tx1,
 static bool channelseq(struct channel *c1, struct channel *c2)
 {
 	struct peer *p1 = c1->peer, *p2 = c2->peer;
-	struct channel_info *ci1 = c1->channel_info, *ci2 = c2->channel_info;
+	struct channel_info *ci1 = &c1->channel_info, *ci2 = &c2->channel_info;
 	struct changed_htlc *lc1 = c1->last_sent_commit, *lc2 = c2->last_sent_commit;
 	CHECK(c1->dbid == c2->dbid);
 	CHECK(c1->first_blocknum == c2->first_blocknum);
@@ -775,29 +775,24 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 	CHECK(c1->their_shachain.id == c2->their_shachain.id);
 	CHECK_MSG(pubkey_eq(&p1->id, &p2->id), "NodeIDs do not match");
 	CHECK((c1->scid == NULL && c2->scid == NULL) || short_channel_id_eq(c1->scid, c2->scid));
-	CHECK((c1->our_msatoshi == NULL) == (c2->our_msatoshi == NULL));
-	if (c1->our_msatoshi)
-		CHECK(*c1->our_msatoshi == *c2->our_msatoshi);
+	CHECK(c1->our_msatoshi == c2->our_msatoshi);
 	CHECK((c1->remote_shutdown_scriptpubkey == NULL && c2->remote_shutdown_scriptpubkey == NULL) || memeq(
 		      c1->remote_shutdown_scriptpubkey,
 		      tal_len(c1->remote_shutdown_scriptpubkey),
 		      c2->remote_shutdown_scriptpubkey,
 		      tal_len(c2->remote_shutdown_scriptpubkey)));
-	CHECK((c1->funding_txid == NULL && c2->funding_txid == NULL) || memeq(
-		      c1->funding_txid,
+	CHECK(memeq(
+		      &c1->funding_txid,
 		      sizeof(struct sha256_double),
-		      c2->funding_txid,
+		      &c2->funding_txid,
 		      sizeof(struct sha256_double)));
-	CHECK((ci1 != NULL) ==  (ci2 != NULL));
-	if(ci1) {
-		CHECK(pubkey_eq(&ci1->remote_fundingkey, &ci2->remote_fundingkey));
-		CHECK(pubkey_eq(&ci1->theirbase.revocation, &ci2->theirbase.revocation));
-		CHECK(pubkey_eq(&ci1->theirbase.payment, &ci2->theirbase.payment));
-		CHECK(pubkey_eq(&ci1->theirbase.delayed_payment, &ci2->theirbase.delayed_payment));
-		CHECK(pubkey_eq(&ci1->remote_per_commit, &ci2->remote_per_commit));
-		CHECK(pubkey_eq(&ci1->old_remote_per_commit, &ci2->old_remote_per_commit));
-		CHECK(ci1->their_config.id != 0 && ci1->their_config.id == ci2->their_config.id);
-	}
+	CHECK(pubkey_eq(&ci1->remote_fundingkey, &ci2->remote_fundingkey));
+	CHECK(pubkey_eq(&ci1->theirbase.revocation, &ci2->theirbase.revocation));
+	CHECK(pubkey_eq(&ci1->theirbase.payment, &ci2->theirbase.payment));
+	CHECK(pubkey_eq(&ci1->theirbase.delayed_payment, &ci2->theirbase.delayed_payment));
+	CHECK(pubkey_eq(&ci1->remote_per_commit, &ci2->remote_per_commit));
+	CHECK(pubkey_eq(&ci1->old_remote_per_commit, &ci2->old_remote_per_commit));
+	CHECK(ci1->their_config.id != 0 && ci1->their_config.id == ci2->their_config.id);
 
 	CHECK(c1->our_config.id != 0 && c1->our_config.id == c2->our_config.id);
 	CHECK((lc1 != NULL) ==  (lc2 != NULL));
@@ -810,11 +805,8 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 	if(c1->last_tx) {
 		CHECK(bitcoin_tx_eq(c1->last_tx, c2->last_tx));
 	}
-	CHECK((c1->last_sig != NULL) ==  (c2->last_sig != NULL));
-	if(c1->last_sig) {
-		CHECK(memeq(c1->last_sig, sizeof(*c1->last_sig),
-			    c2->last_sig, sizeof(*c2->last_sig)));
-	}
+	CHECK(memeq(&c1->last_sig, sizeof(c1->last_sig),
+		    &c2->last_sig, sizeof(c2->last_sig)));
 
 	if (c1->remote_shutdown_scriptpubkey) {
 		CHECK(c2->remote_shutdown_scriptpubkey);
@@ -848,46 +840,45 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	struct wallet *w = create_test_wallet(ld, ctx);
 	struct channel c1, *c2 = tal(w, struct channel);
 	struct peer *p;
-	struct channel_info ci;
+	struct channel_info *ci = &c1.channel_info;
 	struct bitcoin_txid *hash = tal(w, struct bitcoin_txid);
 	struct pubkey pk;
 	struct changed_htlc last_commit;
 	secp256k1_ecdsa_signature *sig = tal(w, secp256k1_ecdsa_signature);
-
-	u64 msat = 12345;
 	u8 *scriptpubkey = tal_arr(ctx, u8, 100);
 
 	memset(&c1, 0, sizeof(c1));
 	memset(c2, 0, sizeof(*c2));
-	memset(&ci, 3, sizeof(ci));
+	memset(ci, 3, sizeof(*ci));
 	mempat(hash, sizeof(*hash));
 	mempat(sig, sizeof(*sig));
 	mempat(&last_commit, sizeof(last_commit));
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
-	ci.feerate_per_kw[LOCAL] = ci.feerate_per_kw[REMOTE] = 31337;
+	ci->feerate_per_kw[LOCAL] = ci->feerate_per_kw[REMOTE] = 31337;
 	mempat(scriptpubkey, tal_len(scriptpubkey));
 	c1.first_blocknum = 1;
 	p = new_peer(ld, 0, &pk, NULL);
 	c1.peer = p;
 	c1.dbid = wallet_get_channel_dbid(w);
-	c1.our_msatoshi = NULL;
-	c1.last_tx = NULL;
 	c1.state = CHANNELD_NORMAL;
-	memset(&ci.their_config, 0, sizeof(struct channel_config));
-	ci.remote_fundingkey = pk;
-	ci.theirbase.revocation = pk;
-	ci.theirbase.payment = pk;
-	ci.theirbase.htlc = pk;
-	ci.theirbase.delayed_payment = pk;
-	ci.remote_per_commit = pk;
-	ci.old_remote_per_commit = pk;
+	memset(&ci->their_config, 0, sizeof(struct channel_config));
+	ci->remote_fundingkey = pk;
+	ci->theirbase.revocation = pk;
+	ci->theirbase.payment = pk;
+	ci->theirbase.htlc = pk;
+	ci->theirbase.delayed_payment = pk;
+	ci->remote_per_commit = pk;
+	ci->old_remote_per_commit = pk;
+	/* last_tx taken from BOLT #3 */
+	c1.last_tx = bitcoin_tx_from_hex(w, "02000000000101bef67e4e2fb9ddeeb3461973cd4c62abb35050b1add772995b820b584a488489000000000038b02b8003a00f0000000000002200208c48d15160397c9731df9bc3b236656efb6665fbfe92b4a6878e88a499f741c4c0c62d0000000000160014ccf1af2f2aabee14bb40fa3851ab2301de843110ae8f6a00000000002200204adb4e2f00643db396dd120d4e7dc17625f5f2c11a40d857accc862d6b7dd80e040047304402206a2679efa3c7aaffd2a447fd0df7aba8792858b589750f6a1203f9259173198a022008d52a0e77a99ab533c36206cb15ad7aeb2aa72b93d4b571e728cb5ec2f6fe260147304402206d6cb93969d39177a09d5d45b583f34966195b77c7e585cf47ac5cce0c90cefb022031d71ae4e33a4e80df7f981d696fbdee517337806a3c7138b7491e2cbb077a0e01475221023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb21030e9f7b623d2ccc7c9bd44d66d5ce21ce504c0acf6385a132cec6d3c39fa711c152ae3e195220", strlen("02000000000101bef67e4e2fb9ddeeb3461973cd4c62abb35050b1add772995b820b584a488489000000000038b02b8003a00f0000000000002200208c48d15160397c9731df9bc3b236656efb6665fbfe92b4a6878e88a499f741c4c0c62d0000000000160014ccf1af2f2aabee14bb40fa3851ab2301de843110ae8f6a00000000002200204adb4e2f00643db396dd120d4e7dc17625f5f2c11a40d857accc862d6b7dd80e040047304402206a2679efa3c7aaffd2a447fd0df7aba8792858b589750f6a1203f9259173198a022008d52a0e77a99ab533c36206cb15ad7aeb2aa72b93d4b571e728cb5ec2f6fe260147304402206d6cb93969d39177a09d5d45b583f34966195b77c7e585cf47ac5cce0c90cefb022031d71ae4e33a4e80df7f981d696fbdee517337806a3c7138b7491e2cbb077a0e01475221023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb21030e9f7b623d2ccc7c9bd44d66d5ce21ce504c0acf6385a132cec6d3c39fa711c152ae3e195220"));
+	c1.last_sig = *sig;
 
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);
 
 	wallet_channel_insert(w, &c1);
 
-	/* Variant 1: insert with null for scid, funding_tx_id, channel_info, last_tx */
+	/* Variant 1: insert with null for scid, last_sent_commit */
 	wallet_channel_save(w, &c1);
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
@@ -904,6 +895,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 
 	/* Variant 2: update with scid set */
 	c1.scid = talz(w, struct short_channel_id);
+	c1.last_was_revoke = !c1.last_was_revoke;
 	wallet_channel_save(w, &c1);
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
@@ -918,39 +910,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK(c1.peer->dbid == 1);
 	CHECK(c1.their_shachain.id == 1);
 
-	/* Variant 3: update with our_satoshi set */
-	c1.our_msatoshi = &msat;
-	c1.last_was_revoke = !c1.last_was_revoke;
-
-	wallet_channel_save(w, &c1);
-	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
-	CHECK_MSG(c2 = wallet_channel_load(w, c1.dbid), tal_fmt(w, "Load from DB"));
-	CHECK_MSG(!wallet_err,
-		  tal_fmt(w, "Insert into DB: %s", wallet_err));
-	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v3)");
-	tal_free(c2);
-
-	/* Variant 4: update with funding_tx_id */
-	c1.funding_txid = hash;
-	wallet_channel_save(w, &c1);
-	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
-	CHECK_MSG(c2 = wallet_channel_load(w, c1.dbid), tal_fmt(w, "Load from DB"));
-	CHECK_MSG(!wallet_err,
-		  tal_fmt(w, "Insert into DB: %s", wallet_err));
-	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v4)");
-	tal_free(c2);
-
-	/* Variant 5: update with channel_info */
-	c1.channel_info = &ci;
-	wallet_channel_save(w, &c1);
-	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
-	CHECK_MSG(c2 = wallet_channel_load(w, c1.dbid), tal_fmt(w, "Load from DB"));
-	CHECK_MSG(!wallet_err,
-		  tal_fmt(w, "Insert into DB: %s", wallet_err));
-	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v5)");
-	tal_free(c2);
-
-	/* Variant 6: update with last_commit_sent */
+	/* Variant 3: update with last_commit_sent */
 	c1.last_sent_commit = &last_commit;
 	wallet_channel_save(w, &c1);
 	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
@@ -960,18 +920,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v6)");
 	tal_free(c2);
 
-	/* Variant 7: update with last_tx (taken from BOLT #3) */
-	c1.last_tx = bitcoin_tx_from_hex(w, "02000000000101bef67e4e2fb9ddeeb3461973cd4c62abb35050b1add772995b820b584a488489000000000038b02b8003a00f0000000000002200208c48d15160397c9731df9bc3b236656efb6665fbfe92b4a6878e88a499f741c4c0c62d0000000000160014ccf1af2f2aabee14bb40fa3851ab2301de843110ae8f6a00000000002200204adb4e2f00643db396dd120d4e7dc17625f5f2c11a40d857accc862d6b7dd80e040047304402206a2679efa3c7aaffd2a447fd0df7aba8792858b589750f6a1203f9259173198a022008d52a0e77a99ab533c36206cb15ad7aeb2aa72b93d4b571e728cb5ec2f6fe260147304402206d6cb93969d39177a09d5d45b583f34966195b77c7e585cf47ac5cce0c90cefb022031d71ae4e33a4e80df7f981d696fbdee517337806a3c7138b7491e2cbb077a0e01475221023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb21030e9f7b623d2ccc7c9bd44d66d5ce21ce504c0acf6385a132cec6d3c39fa711c152ae3e195220", strlen("02000000000101bef67e4e2fb9ddeeb3461973cd4c62abb35050b1add772995b820b584a488489000000000038b02b8003a00f0000000000002200208c48d15160397c9731df9bc3b236656efb6665fbfe92b4a6878e88a499f741c4c0c62d0000000000160014ccf1af2f2aabee14bb40fa3851ab2301de843110ae8f6a00000000002200204adb4e2f00643db396dd120d4e7dc17625f5f2c11a40d857accc862d6b7dd80e040047304402206a2679efa3c7aaffd2a447fd0df7aba8792858b589750f6a1203f9259173198a022008d52a0e77a99ab533c36206cb15ad7aeb2aa72b93d4b571e728cb5ec2f6fe260147304402206d6cb93969d39177a09d5d45b583f34966195b77c7e585cf47ac5cce0c90cefb022031d71ae4e33a4e80df7f981d696fbdee517337806a3c7138b7491e2cbb077a0e01475221023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb21030e9f7b623d2ccc7c9bd44d66d5ce21ce504c0acf6385a132cec6d3c39fa711c152ae3e195220"));
-	c1.last_sig = sig;
-	wallet_channel_save(w, &c1);
-	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
-	CHECK_MSG(c2 = wallet_channel_load(w, c1.dbid), tal_fmt(w, "Load from DB"));
-	CHECK_MSG(!wallet_err,
-		  tal_fmt(w, "Insert into DB: %s", wallet_err));
-	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v7)");
-	tal_free(c2);
-
-	/* Variant 8: update and add remote_shutdown_scriptpubkey */
+	/* Variant 4: update and add remote_shutdown_scriptpubkey */
 	c1.remote_shutdown_scriptpubkey = scriptpubkey;
 	c1.local_shutdown_idx = 1337;
 	wallet_channel_save(w, &c1);

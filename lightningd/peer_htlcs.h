@@ -3,8 +3,14 @@
 #define LIGHTNING_LIGHTNINGD_PEER_HTLCS_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <common/channel_config.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc_wire.h>
+
+struct channel;
+struct htlc_in;
+struct htlc_out;
+struct htlc_stub;
 
 /* FIXME: Define serialization primitive for this? */
 struct channel_info {

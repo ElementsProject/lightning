@@ -503,9 +503,6 @@ static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 	list_for_each(&cmd->ld->peers, p, list) {
 		struct channel *c;
 		list_for_each(&p->channels, c, list) {
-			if (!c->our_msatoshi || !c->funding_txid)
-				continue;
-
 			json_object_start(response, NULL);
 			json_add_pubkey(response, "peer_id", &p->id);
 			if (c->scid)
@@ -515,10 +512,11 @@ static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 
 			/* Poor man's rounding to satoshis to match the unit for outputs */
 			json_add_u64(response, "channel_sat",
-				     (*c->our_msatoshi + 500)/1000);
+				     (c->our_msatoshi + 500)/1000);
 			json_add_u64(response, "channel_total_sat",
 				     c->funding_satoshi);
-			json_add_txid(response, "funding_txid", c->funding_txid);
+			json_add_txid(response, "funding_txid",
+				      &c->funding_txid);
 			json_object_end(response);
 		}
 	}
