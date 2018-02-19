@@ -695,5 +695,9 @@ void wallet_block_add(struct wallet *w, struct block *b);
  */
 void wallet_block_remove(struct wallet *w, struct block *b);
 
+/**
+ * wallet_blocks_rollback - Roll the blockchain back to the given height
+ */
+void wallet_blocks_rollback(struct wallet *w, u32 height);
 
 #endif /* WALLET_WALLET_H */
