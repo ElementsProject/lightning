@@ -2158,7 +2158,7 @@ static bool peer_start_channeld(struct channel *channel,
 	return true;
 }
 
-/* FIXME: Unify with new_channel */
+/* Steals fields from uncommitted_channel */
 static struct channel *
 wallet_commit_channel(struct lightningd *ld,
 		      struct uncommitted_channel *uc,
@@ -2169,48 +2169,49 @@ wallet_commit_channel(struct lightningd *ld,
 		      u64 funding_satoshi,
 		      u64 push_msat,
 		      u8 channel_flags,
-		      const struct channel_info *channel_info,
+		      struct channel_info *channel_info,
 		      u32 feerate)
 {
 	struct channel *channel;
+	u64 our_msatoshi;
 
-	channel = new_channel(uc->peer, uc->dbid, uc->first_blocknum);
-	channel->state = CHANNELD_AWAITING_LOCKIN;
-	channel->funder = uc->fc ? LOCAL : REMOTE;
-	tal_free(channel->log);
-	channel->log = tal_steal(channel, uc->log);
-	channel->channel_flags = channel_flags;
-	channel->our_config = uc->our_config;
-	channel->minimum_depth = uc->minimum_depth;
-	channel->next_index[LOCAL] = channel->next_index[REMOTE] = 1;
-	channel->next_htlc_id = 0;
-	channel->funding_txid = *funding_txid;
-	channel->funding_outnum = funding_outnum;
-	channel->funding_satoshi = funding_satoshi;
-	channel->push_msat = push_msat;
-	channel->remote_funding_locked = false;
-	channel->scid = NULL;
-
-	if (channel->funder == LOCAL)
-		channel->our_msatoshi
-			= channel->funding_satoshi * 1000 - channel->push_msat;
+	if (uc->fc)
+		our_msatoshi = funding_satoshi * 1000 - push_msat;
 	else
-		channel->our_msatoshi = channel->push_msat;
-
-	channel->last_tx = tal_steal(channel, remote_commit);
-	channel->last_sig = *remote_commit_sig;
-	channel->last_htlc_sigs = NULL;
-
-	channel->channel_info = *channel_info;
+		our_msatoshi = push_msat;
 
 	/* Feerates begin identical. */
-	channel->channel_info.feerate_per_kw[LOCAL]
-		= channel->channel_info.feerate_per_kw[REMOTE]
+	channel_info->feerate_per_kw[LOCAL]
+		= channel_info->feerate_per_kw[REMOTE]
 		= feerate;
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
-	channel->channel_info.old_remote_per_commit
-		= channel->channel_info.remote_per_commit;
+	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
+
+	channel = new_channel(uc->peer, uc->dbid,
+			      NULL, /* No shachain yet */
+			      CHANNELD_AWAITING_LOCKIN,
+			      uc->fc ? LOCAL : REMOTE,
+			      uc->log,
+			      channel_flags,
+			      &uc->our_config,
+			      uc->minimum_depth,
+			      1, 1, 0,
+			      funding_txid,
+			      funding_outnum,
+			      funding_satoshi,
+			      push_msat,
+			      false, /* !remote_funding_locked */
+			      NULL, /* no scid yet */
+			      our_msatoshi,
+			      remote_commit,
+			      remote_commit_sig,
+			      NULL, /* No HTLC sigs yet */
+			      channel_info,
+			      NULL, /* No remote_shutdown_scriptpubkey yet */
+			      -1, false,
+			      NULL, /* No commit sent yet */
+			      uc->first_blocknum);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
