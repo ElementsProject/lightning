@@ -5,6 +5,8 @@
 #include <lightningd/peer_state.h>
 #include <wallet/wallet.h>
 
+struct uncommitted_channel;
+
 struct channel {
 	/* Inside peer->channels. */
 	struct list_node list;
@@ -26,9 +28,6 @@ struct channel {
 
 	/* Which side offered channel? */
 	enum side funder;
-
-	/* Command which ordered us to open channel, if any. */
-	struct command *opening_cmd;
 
 	/* Is there a single subdaemon responsible for us? */
 	struct subd *owner;
@@ -110,8 +109,10 @@ void channel_set_state(struct channel *channel,
 /* Find a channel which is not onchain, if any */
 struct channel *peer_active_channel(struct peer *peer);
 
+/* Get active channel for peer, optionally any uncommitted_channel. */
 struct channel *active_channel_by_id(struct lightningd *ld,
-				     const struct pubkey *id);
+				     const struct pubkey *id,
+				     struct uncommitted_channel **uc);
 
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
@@ -176,4 +177,8 @@ static inline bool channel_persists(const struct channel *channel)
 {
 	return channel->state >= CHANNELD_AWAITING_LOCKIN;
 }
+
+void derive_channel_seed(struct lightningd *ld, struct privkey *seed,
+			 const struct pubkey *peer_id,
+			 const u64 dbid);
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_H */
