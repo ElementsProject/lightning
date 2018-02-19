@@ -9,7 +9,7 @@
 #include <common/json.h>
 #include <common/wireaddr.h>
 #include <lightningd/channel.h>
-#include <lightningd/peer_state.h>
+#include <lightningd/channel_state.h>
 #include <stdbool.h>
 #include <wallet/wallet.h>
 #include <wire/peer_wire.h>
@@ -93,7 +93,6 @@ void peer_sent_nongossip(struct lightningd *ld,
 /* Peer has failed to open; return to gossipd. */
 void opening_failed(struct peer *peer, const u8 *msg TAKES);
 
-const char *peer_state_name(enum peer_state state);
 void setup_listeners(struct lightningd *ld);
 
 /* We've loaded peers from database, set them going. */

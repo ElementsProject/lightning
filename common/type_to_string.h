@@ -17,7 +17,6 @@ union printable_types {
 	const struct bitcoin_tx *bitcoin_tx;
 	const struct htlc *htlc;
 	const struct preimage *preimage;
-	const struct channel_state *channel_state;
 	const struct channel_oneside *channel_oneside;
 	const struct wireaddr *wireaddr;
 	const secp256k1_pubkey *secp256k1_pubkey;

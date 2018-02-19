@@ -15,7 +15,7 @@
 #include <common/version.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <lightningd/peer_state.h>
+#include <lightningd/channel_state.h>
 #include <onchaind/gen_onchain_wire.h>
 #include <onchaind/onchain_types.h>
 #include <stdio.h>
@@ -966,7 +966,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 			take(towire_onchain_all_irrevocably_resolved(outs)));
 }
 
-static void set_state(enum peer_state state)
+static void set_state(enum channel_state state)
 {
 	wire_sync_write(REQ_FD, take(towire_onchain_init_reply(NULL, state)));
 }

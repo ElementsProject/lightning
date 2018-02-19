@@ -2,7 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_CHANNEL_H
 #include "config.h"
 #include <ccan/list/list.h>
-#include <lightningd/peer_state.h>
+#include <lightningd/channel_state.h>
 #include <lightningd/peer_htlcs.h>
 #include <wallet/wallet.h>
 
@@ -25,7 +25,7 @@ struct channel {
 	struct wallet_shachain their_shachain;
 
  	/* What's happening. */
- 	enum peer_state state;
+ 	enum channel_state state;
 
 	/* Which side offered channel? */
 	enum side funder;
@@ -88,7 +88,7 @@ struct channel {
 struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct wallet_shachain *their_shachain,
-			    enum peer_state state,
+			    enum channel_state state,
 			    enum side funder,
 			    /* NULL or stolen */
 			    struct log *log,
@@ -126,6 +126,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 void delete_channel(struct channel *channel, const char *why);
 
 const char *channel_state_name(const struct channel *channel);
+const char *channel_state_str(enum channel_state state);
 
 void channel_set_owner(struct channel *channel, struct subd *owner);
 
@@ -138,8 +139,8 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...);
 void channel_internal_error(struct channel *channel, const char *fmt, ...);
 
 void channel_set_state(struct channel *channel,
-		       enum peer_state old_state,
-		       enum peer_state state);
+		       enum channel_state old_state,
+		       enum channel_state state);
 
 /* Find a channel which is not onchain, if any */
 struct channel *peer_active_channel(struct peer *peer);
@@ -172,7 +173,7 @@ static inline bool channel_can_remove_htlc(const struct channel *channel)
 		|| channel->state == ONCHAIND_OUR_UNILATERAL;
 }
 
-static inline bool channel_state_on_chain(enum peer_state state)
+static inline bool channel_state_on_chain(enum channel_state state)
 {
 	return state == ONCHAIND_CHEATED
 		|| state == ONCHAIND_THEIR_UNILATERAL
@@ -194,23 +195,7 @@ static inline bool channel_active(const struct channel *channel)
 
 static inline bool channel_wants_reconnect(const struct channel *channel)
 {
-	return channel->state >= CHANNELD_AWAITING_LOCKIN
-		&& channel->state <= CLOSINGD_COMPLETE;
-}
-
-/* BOLT #2:
- *
- * On disconnection, the funder MUST remember the channel for
- * reconnection if it has broadcast the funding transaction, otherwise it
- * SHOULD NOT.
- *
- * On disconnection, the non-funding node MUST remember the channel for
- * reconnection if it has sent the `funding_signed` message, otherwise
- * it SHOULD NOT.
- */
-static inline bool channel_persists(const struct channel *channel)
-{
-	return channel->state >= CHANNELD_AWAITING_LOCKIN;
+	return channel->state <= CLOSINGD_COMPLETE;
 }
 
 void derive_channel_seed(struct lightningd *ld, struct privkey *seed,

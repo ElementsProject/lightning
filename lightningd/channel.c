@@ -3,6 +3,7 @@
 #include <gossipd/gen_gossip_wire.h>
 #include <inttypes.h>
 #include <lightningd/channel.h>
+#include <lightningd/gen_channel_state_names.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
@@ -99,7 +100,7 @@ void derive_channel_seed(struct lightningd *ld, struct privkey *seed,
 struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct wallet_shachain *their_shachain,
-			    enum peer_state state,
+			    enum channel_state state,
 			    enum side funder,
 			    /* NULL or stolen */
 			    struct log *log,
@@ -190,7 +191,15 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 
 const char *channel_state_name(const struct channel *channel)
 {
-	return peer_state_name(channel->state);
+	return channel_state_str(channel->state);
+}
+
+const char *channel_state_str(enum channel_state state)
+{
+	for (size_t i = 0; enum_channel_state_names[i].name; i++)
+		if (enum_channel_state_names[i].v == state)
+			return enum_channel_state_names[i].name;
+	return "unknown";
 }
 
 struct channel *peer_active_channel(struct peer *peer)
@@ -230,22 +239,19 @@ void channel_set_last_tx(struct channel *channel,
 }
 
 void channel_set_state(struct channel *channel,
-		       enum peer_state old_state,
-		       enum peer_state state)
+		       enum channel_state old_state,
+		       enum channel_state state)
 {
 	log_info(channel->log, "State changed from %s to %s",
-		 channel_state_name(channel), peer_state_name(state));
+		 channel_state_name(channel), channel_state_str(state));
 	if (channel->state != old_state)
 		fatal("channel state %s should be %s",
-		      channel_state_name(channel), peer_state_name(old_state));
+		      channel_state_name(channel), channel_state_str(old_state));
 
 	channel->state = state;
 
-	/* We only persist channels/peers that have reached the opening state */
-	if (channel_persists(channel)) {
-		/* TODO(cdecker) Selectively save updated fields to DB */
-		wallet_channel_save(channel->peer->ld->wallet, channel);
-	}
+	/* TODO(cdecker) Selectively save updated fields to DB */
+	wallet_channel_save(channel->peer->ld->wallet, channel);
 }
 
 void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
@@ -284,11 +290,8 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 	}
 
 	channel_set_owner(channel, NULL);
-	if (channel_persists(channel)) {
-		drop_to_chain(ld, channel);
-		tal_free(why);
-	} else
-		delete_channel(channel, why);
+	drop_to_chain(ld, channel);
+	tal_free(why);
 }
 
 void channel_internal_error(struct channel *channel, const char *fmt, ...)
@@ -314,25 +317,16 @@ void channel_fail_transient(struct channel *channel, const char *fmt, ...)
 	va_end(ap);
 	log_info(channel->log, "Peer transient failure in %s: %s",
 		 channel_state_name(channel), why);
+	tal_free(why);
 
 #if DEVELOPER
 	if (dev_disconnect_permanent(channel->peer->ld)) {
-		tal_free(why);
 		channel_internal_error(channel, "dev_disconnect permfail");
 		return;
 	}
 #endif
 
 	channel_set_owner(channel, NULL);
-
-	/* If we haven't reached awaiting locked, we don't need to reconnect */
-	if (!channel_persists(channel)) {
-		log_info(channel->log, "Only reached state %s: forgetting",
-			 channel_state_name(channel));
-		delete_channel(channel, why);
-		return;
-	}
-	tal_free(why);
 
 	/* Reconnect unless we've dropped/are dropping to chain. */
 	if (channel_active(channel)) {

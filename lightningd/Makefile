@@ -83,12 +83,12 @@ ALL_OBJS += $(LIGHTNINGD_OBJS)
 # We accumulate all lightningd/ headers in these three:
 LIGHTNINGD_HEADERS_NOGEN =			\
 	$(LIGHTNINGD_SRC:.c=.h)			\
-	lightningd/peer_state.h			\
+	lightningd/channel_state.h			\
 	lightningd/jsonrpc_errors.h
 
 # Generated headers
 LIGHTNINGD_HEADERS_GEN =			\
-	lightningd/gen_peer_state_names.h
+	lightningd/gen_channel_state_names.h
 
 ALL_GEN_HEADERS += $(LIGHTNINGD_HEADERS_GEN)
 
@@ -97,8 +97,8 @@ LIGHTNINGD_HEADERS = $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) $(EXT
 
 $(LIGHTNINGD_OBJS): $(LIGHTNINGD_HEADERS)
 
-lightningd/gen_peer_state_names.h: lightningd/peer_state.h ccan/ccan/cdump/tools/cdump-enumstr
-	ccan/ccan/cdump/tools/cdump-enumstr lightningd/peer_state.h > $@
+lightningd/gen_channel_state_names.h: lightningd/channel_state.h ccan/ccan/cdump/tools/cdump-enumstr
+	ccan/ccan/cdump/tools/cdump-enumstr lightningd/channel_state.h > $@
 
 check-source: $(LIGHTNINGD_SRC:%=check-src-include-order/%) $(LIGHTNINGD_SRC_NOHDR:%=check-src-include-order/%)
 check-source: $(LIGHTNINGD_HEADERS_NOGEN:%=check-hdr-include-order/%)
