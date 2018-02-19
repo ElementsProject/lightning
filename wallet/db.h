@@ -113,6 +113,13 @@ bool db_exec_prepared_mayfail_(const char *caller,
 			       struct db *db,
 			       sqlite3_stmt *stmt);
 
+#define sqlite3_column_arr(ctx, stmt, col, type)			\
+	((type *)sqlite3_column_arr_((ctx), (stmt), (col),		\
+				     sizeof(type), TAL_LABEL(type, "[]"), \
+				     __func__))
+void *sqlite3_column_arr_(const tal_t *ctx, sqlite3_stmt *stmt, int col,
+			  size_t bytes, const char *label, const char *caller);
+
 bool sqlite3_bind_short_channel_id(sqlite3_stmt *stmt, int col,
 				   const struct short_channel_id *id);
 bool sqlite3_column_short_channel_id(sqlite3_stmt *stmt, int col,
