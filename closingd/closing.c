@@ -79,11 +79,12 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 /* Handle random messages we might get, returning the first non-handled one. */
 static u8 *closing_read_peer_msg(const tal_t *ctx,
 				 struct crypto_state *cs,
+				 u64 gossip_index,
 				 const struct channel_id *channel)
 {
 	u8 *msg;
 
-	while ((msg = read_peer_msg(ctx, cs, channel,
+	while ((msg = read_peer_msg(ctx, cs, gossip_index, channel,
 				    sync_crypto_write_arg,
 				    status_fail_io,
 				    status_fail_errpkt,
@@ -118,11 +119,10 @@ static void do_reconnect(struct crypto_state *cs,
 					 next_index[LOCAL],
 					 revocations_received);
 	if (!sync_crypto_write(cs, PEER_FD, take(msg)))
-		status_fatal_connection_lost();
-;
+		peer_failed_connection_lost();
 
 	/* Wait for them to say something interesting */
-	msg = closing_read_peer_msg(tmpctx, cs, channel_id);
+	msg = closing_read_peer_msg(tmpctx, cs, gossip_index, channel_id);
 
 	if (!fromwire_channel_reestablish(msg, NULL, &their_channel_id,
 					  &next_local_commitment_number,
@@ -202,7 +202,7 @@ static void send_offer(struct crypto_state *cs,
 
 	msg = towire_closing_signed(tmpctx, channel_id, fee_to_offer, &our_sig);
 	if (!sync_crypto_write(cs, PEER_FD, take(msg)))
-			status_fatal_connection_lost();
+		peer_failed_connection_lost();
 
 	tal_free(tmpctx);
 }
@@ -248,7 +248,7 @@ static uint64_t receive_offer(struct crypto_state *cs,
 
 	/* Wait for them to say something interesting */
 	do {
-		msg = closing_read_peer_msg(tmpctx, cs, channel_id);
+		msg = closing_read_peer_msg(tmpctx, cs, gossip_index, channel_id);
 
 		/* BOLT #2:
 		 *

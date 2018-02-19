@@ -122,19 +122,26 @@ static NORETURN void flush_and_exit(int reason)
 	exit(0x80 | (reason & 0xFF));
 }
 
+void status_send_fatal(const u8 *msg TAKES)
+{
+	int reason = fromwire_peektype(msg);
+	breakpoint();
+	status_send(msg);
+
+	flush_and_exit(reason);
+}
+
 /* FIXME: rename to status_fatal, s/fail/fatal/ in status_failreason enums */
 void status_failed(enum status_failreason reason, const char *fmt, ...)
 {
 	va_list ap;
 	char *str;
 
-	breakpoint();
 	va_start(ap, fmt);
 	str = tal_vfmt(NULL, fmt, ap);
-	status_send(take(towire_status_fail(NULL, reason, str)));
 	va_end(ap);
 
-	flush_and_exit(reason);
+	status_send_fatal(take(towire_status_fail(NULL, reason, str)));
 }
 
 void master_badmsg(u32 type_expected, const u8 *msg)
@@ -146,34 +153,4 @@ void master_badmsg(u32 type_expected, const u8 *msg)
 	status_failed(STATUS_FAIL_MASTER_IO,
 		     "Error parsing %u: %s",
 		     type_expected, tal_hex(trc, msg));
-}
-
-void status_fatal_connection_lost(void)
-{
-	status_send(take(towire_status_peer_connection_lost(NULL)));
-	flush_and_exit(WIRE_STATUS_PEER_CONNECTION_LOST);
-}
-
-/* Got an error for one or all channels */
-void status_fatal_received_errmsg(const char *desc, const struct channel_id *c)
-{
-	static const struct channel_id all_channels;
-
-	if (!c)
-		c = &all_channels;
-	status_send(take(towire_status_received_errmsg(NULL, c, desc)));
-	flush_and_exit(WIRE_STATUS_RECEIVED_ERRMSG);
-}
-
-/* Sent an error for one or all channels */
-void status_fatal_sent_errmsg(const u8 *errmsg,
-			      const char *desc, const struct channel_id *c)
-{
-	static const struct channel_id all_channels;
-
-	if (!c)
-		c = &all_channels;
-
-	status_send(take(towire_status_sent_errmsg(NULL, c, desc, errmsg)));
-	flush_and_exit(WIRE_STATUS_SENT_ERRMSG);
 }

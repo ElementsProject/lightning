@@ -7,6 +7,8 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
+#include <common/crypto_state.h>
+#include <common/gen_peer_status_wire.h>
 #include <common/gen_status_wire.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -386,42 +388,26 @@ static bool log_status_fail(struct subd *sd, const u8 *msg)
 	return true;
 }
 
-static bool handle_received_errmsg(struct subd *sd, const u8 *msg)
+static bool handle_peer_error(struct subd *sd, const u8 *msg)
 {
 	void *channel = sd->channel;
 	struct channel_id channel_id;
 	char *desc;
+	struct crypto_state cs;
+	u64 gossip_index;
+	u8 *err_for_them;
 
-	if (!fromwire_status_received_errmsg(msg, msg, NULL,
-					     &channel_id, &desc))
+	if (!fromwire_status_peer_error(msg, msg, NULL,
+					&channel_id, &desc,
+					&cs, &gossip_index, &err_for_them))
 		return false;
 
-	/* FIXME: if not all channels failed, hand back to gossipd! */
+	/* FIXME: hand back to gossipd! */
 
 	/* Don't free sd; we're may be about to free channel. */
 	sd->channel = NULL;
-	if (sd->errcb)
-		sd->errcb(channel, REMOTE, &channel_id, desc, NULL);
-	return true;
-}
-
-static bool handle_sent_errmsg(struct subd *sd, const u8 *msg)
-{
-	void *channel = sd->channel;
-	struct channel_id channel_id;
-	char *desc;
-	u8 *errmsg;
-
-	if (!fromwire_status_sent_errmsg(msg, msg, NULL,
-					 &channel_id, &desc, &errmsg))
-		return false;
-
-	/* FIXME: if not all channels failed, hand back to gossipd! */
-
-	/* Don't free sd; we're may be about to free channel. */
-	sd->channel = NULL;
-	if (sd->errcb)
-		sd->errcb(channel, LOCAL, &channel_id, desc, errmsg);
+	sd->errcb(channel, err_for_them ? LOCAL : REMOTE,
+		  &channel_id, desc, err_for_them);
 	return true;
 }
 
@@ -472,18 +458,15 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 			goto malformed;
 		log_info(sd->log, "Peer connection lost");
 		goto close;
-	case WIRE_STATUS_RECEIVED_ERRMSG:
-		if (!sd->channel)
-			goto malformed;
-		if (!handle_received_errmsg(sd, sd->msg_in))
-			goto malformed;
-		goto close;
-	case WIRE_STATUS_SENT_ERRMSG:
-		if (!sd->channel)
-			goto malformed;
-		if (!handle_sent_errmsg(sd, sd->msg_in))
-			goto malformed;
-		goto close;
+	}
+
+	if (sd->channel) {
+		switch ((enum peer_status)type) {
+		case WIRE_STATUS_PEER_ERROR:
+			if (!handle_peer_error(sd, sd->msg_in))
+				goto malformed;
+			goto close;
+		}
 	}
 
 	log_debug(sd->log, "UPDATE %s", sd->msgname(type));

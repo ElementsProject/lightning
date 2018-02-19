@@ -49,6 +49,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/daemon_conn.o			\
 	common/dev_disconnect.o			\
 	common/derive_basepoints.o		\
+	common/gen_peer_status_wire.o		\
 	common/gen_status_wire.o		\
 	common/htlc_wire.o			\
 	common/memleak.o			\
