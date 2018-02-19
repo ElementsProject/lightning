@@ -17,7 +17,10 @@
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <inttypes.h>
+#include <stdio.h>
 #include <string.h>
+  /* Needs to be at end, since it doesn't include its own hdrs */
+  #include "gen_full_channel_error_names.h"
 
 struct channel *new_full_channel(const tal_t *ctx,
 				 const struct bitcoin_txid *funding_txid,
@@ -1054,4 +1057,28 @@ bool channel_force_htlcs(struct channel *channel,
 	}
 
 	return true;
+}
+
+const char *channel_add_err_name(enum channel_add_err e)
+{
+	static char invalidbuf[sizeof("INVALID ") + STR_MAX_CHARS(e)];
+
+	for (size_t i = 0; enum_channel_add_err_names[i].name; i++) {
+		if (enum_channel_add_err_names[i].v == e)
+			return enum_channel_add_err_names[i].name;
+	}
+	sprintf(invalidbuf, "INVALID %i", e);
+	return invalidbuf;
+}
+
+const char *channel_remove_err_name(enum channel_remove_err e)
+{
+	static char invalidbuf[sizeof("INVALID ") + STR_MAX_CHARS(e)];
+
+	for (size_t i = 0; enum_channel_remove_err_names[i].name; i++) {
+		if (enum_channel_remove_err_names[i].v == e)
+			return enum_channel_remove_err_names[i].name;
+	}
+	sprintf(invalidbuf, "INVALID %i", e);
+	return invalidbuf;
 }

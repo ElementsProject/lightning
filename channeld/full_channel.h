@@ -3,6 +3,7 @@
 #define LIGHTNING_LIGHTNINGD_CHANNEL_FULL_CHANNEL_H
 #include "config.h"
 #include <channeld/channeld_htlc.h>
+#include <channeld/full_channel_error.h>
 #include <common/initial_channel.h>
 #include <common/sphinx.h>
 
@@ -77,25 +78,6 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 u32 actual_feerate(const struct channel *channel,
 		   const struct signature *theirsig);
 
-enum channel_add_err {
-	/* All OK! */
-	CHANNEL_ERR_ADD_OK,
-	/* Bad expiry value */
-	CHANNEL_ERR_INVALID_EXPIRY,
-	/* Not really a failure, if expected: it's an exact duplicate. */
-	CHANNEL_ERR_DUPLICATE,
-	/* Same ID, but otherwise different. */
-	CHANNEL_ERR_DUPLICATE_ID_DIFFERENT,
-	/* Would exceed the specified max_htlc_value_in_flight_msat */
-	CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED,
-	/* Can't afford it */
-	CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED,
-	/* HTLC is below htlc_minimum_msat */
-	CHANNEL_ERR_HTLC_BELOW_MINIMUM,
-	/* HTLC would push past max_accepted_htlcs */
-	CHANNEL_ERR_TOO_MANY_HTLCS,
-};
-
 /**
  * channel_add_htlc: append an HTLC to channel if it can afford it
  * @channel: The channel
@@ -127,21 +109,6 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
  * @id: unique HTLC id.
  */
 struct htlc *channel_get_htlc(struct channel *channel, enum side sender, u64 id);
-
-enum channel_remove_err {
-	/* All OK! */
-	CHANNEL_ERR_REMOVE_OK,
-	/* No such HTLC. */
-	CHANNEL_ERR_NO_SUCH_ID,
-	/* Already have fulfilled it */
-	CHANNEL_ERR_ALREADY_FULFILLED,
-	/* Preimage doesn't hash to value. */
-	CHANNEL_ERR_BAD_PREIMAGE,
-	/* HTLC is not committed */
-	CHANNEL_ERR_HTLC_UNCOMMITTED,
-	/* HTLC is not committed and prior revoked on both sides */
-	CHANNEL_ERR_HTLC_NOT_IRREVOCABLE
-};
 
 /**
  * channel_fail_htlc: remove an HTLC, funds to the side which offered it.
@@ -279,4 +246,8 @@ bool channel_force_htlcs(struct channel *channel,
  * Uses status_trace() on every HTLC.
  */
 void dump_htlcs(const struct channel *channel, const char *prefix);
+
+const char *channel_add_err_name(enum channel_add_err e);
+const char *channel_remove_err_name(enum channel_remove_err e);
+
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_FULL_CHANNEL_H */
