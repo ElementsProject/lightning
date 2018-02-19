@@ -8,6 +8,7 @@
 #include <ccan/typesafe_cb/typesafe_cb.h>
 #include <common/msg_queue.h>
 
+struct crypto_state;
 struct io_conn;
 
 /* By convention, replies are requests + 100 */
@@ -36,12 +37,16 @@ struct subd {
 	unsigned (*msgcb)(struct subd *, const u8 *, const int *);
 	const char *(*msgname)(int msgtype);
 
-	/* Callback when an errormsg sent/received, or subd died. */
+	/* If peer_fd == -1, it was a disconnect/crash.  Otherwise,
+	 * sufficient information to hand back to gossipd, including the
+	 * error message we sent them if any. */
 	void (*errcb)(void *channel,
-		      enum side sender,
+		      int peer_fd, int gossip_fd,
+		      const struct crypto_state *cs,
+		      u64 gossip_index,
 		      const struct channel_id *channel_id,
 		      const char *desc,
-		      const u8 *errmsg);
+		      const u8 *err_for_them);
 
 	/* Buffer for input. */
 	u8 *msg_in;
@@ -103,16 +108,20 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 			       unsigned int (*msgcb)(struct subd *, const u8 *,
 						     const int *fds),
 			       void (*errcb)(void *channel,
-					     enum side sender,
+					     int peer_fd, int gossip_fd,
+					     const struct crypto_state *cs,
+					     u64 gossip_index,
 					     const struct channel_id *channel_id,
 					     const char *desc,
-					     const u8 *errmsg),
+					     const u8 *err_for_them),
 			       ...);
 
 #define new_channel_subd(ld, name, channel, log, msgname, msgcb, errcb, ...) \
 	new_channel_subd_((ld), (name), (channel), (log), (msgname), (msgcb), \
 			  typesafe_cb_postargs(void, void *, (errcb),	\
-					       (channel), enum side,	\
+					       (channel), int, int,	\
+					       const struct crypto_state *, \
+					       u64,			\
 					       const struct channel_id *, \
 					       const char *, const u8 *), \
 			  __VA_ARGS__)

@@ -33,7 +33,7 @@ void peer_failed_(int peer_fd, int gossip_fd,
 	msg = towire_status_peer_error(NULL, channel_id,
 				       desc, cs, gossip_index, msg);
 	tal_free(desc);
-	status_send_fatal(take(msg));
+	status_send_fatal(take(msg), peer_fd, gossip_fd);
 }
 
 /* We're failing because peer sent us an error message */
@@ -44,10 +44,11 @@ void peer_failed_received_errmsg(int peer_fd, int gossip_fd,
 {
 	u8 *msg = towire_status_peer_error(NULL, channel_id,
 					   desc, cs, gossip_index, NULL);
-	status_send_fatal(take(msg));
+	status_send_fatal(take(msg), peer_fd, gossip_fd);
 }
 
 void peer_failed_connection_lost(void)
 {
-	status_send_fatal(take(towire_status_peer_connection_lost(NULL)));
+	status_send_fatal(take(towire_status_peer_connection_lost(NULL)),
+			  -1, -1);
 }

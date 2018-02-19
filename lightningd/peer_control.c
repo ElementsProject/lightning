@@ -364,28 +364,60 @@ static void channel_config(struct lightningd *ld,
 };
 
 static void channel_errmsg(struct channel *channel,
-			   enum side sender,
-			   const struct channel_id *channel_id,
-			   const char *desc,
-			   const u8 *errmsg)
+		      int peer_fd, int gossip_fd,
+		      const struct crypto_state *cs,
+		      u64 gossip_index,
+		      const struct channel_id *channel_id,
+		      const char *desc,
+		      const u8 *err_for_them)
 {
-	if (sender == LOCAL) {
-		/* If this is NULL, it means subd died. */
-		if (!errmsg) {
-			channel_fail_transient(channel, "%s: %s",
-					       channel->owner->name, desc);
-			return;
-		}
+	struct lightningd *ld = channel->peer->ld;
+	u8 *msg;
 
-		/* Otherwise overwrite any error we have */
-		if (!channel->error)
-			channel->error = tal_dup_arr(channel, u8,
-						     errmsg, tal_len(errmsg), 0);
+	/* No peer fd means a subd crash or disconnection. */
+	if (peer_fd == -1) {
+		channel_fail_transient(channel, "%s: %s",
+				       channel->owner->name, desc);
+		return;
 	}
 
+	/* Do we have an error to send? */
+	if (err_for_them && !channel->error)
+		channel->error = tal_dup_arr(channel, u8,
+					     err_for_them,
+					     tal_len(err_for_them), 0);
+
+	/* BOLT #1:
+	 *
+	 * A sending node:
+	 *...
+	 *   - when `channel_id` is 0:
+	 *    - MUST fail all channels.
+	 *    - MUST close the connection.
+	 */
+	/* FIXME: Gossipd closes connection, but doesn't fail channels. */
+
+	/* BOLT #1:
+	 *
+	 * A sending node:
+	 *  - when sending `error`:
+	 *    - MUST fail the channel referred to by the error message.
+	 *...
+	 * The receiving node:
+	 *  - upon receiving `error`:
+	 *    - MUST fail the channel referred to by the error message.
+	 */
 	channel_fail_permanent(channel, "%s: %s ERROR %s",
 			       channel->owner->name,
-			       sender == LOCAL ? "sent" : "received", desc);
+			       err_for_them ? "sent" : "received", desc);
+
+	/* Hand back to gossipd, with any error packet. */
+	msg = towire_gossipctl_hand_back_peer(NULL, &channel->peer->id,
+					      cs, gossip_index,
+					      err_for_them);
+	subd_send_msg(ld->gossip, take(msg));
+	subd_send_fd(ld->gossip, peer_fd);
+	subd_send_fd(ld->gossip, gossip_fd);
 }
 
 /* Gossipd tells us a peer has connected */
@@ -1340,10 +1372,12 @@ static bool tell_if_missing(const struct channel *channel,
 
 /* Only error onchaind can get is if it dies. */
 static void onchain_error(struct channel *channel,
-			  enum side sender,
+			  int peer_fd, int gossip_fd,
+			  const struct crypto_state *cs,
+			  u64 gossip_index,
 			  const struct channel_id *channel_id,
 			  const char *desc,
-			  const u8 *errmsg)
+			  const u8 *err_for_them)
 {
 	/* FIXME: re-launch? */
 	log_broken(channel->log, "%s", desc);
@@ -2472,21 +2506,23 @@ static unsigned int opening_negotiation_failed(struct subd *openingd,
 	return 0;
 }
 
-/* errmsg == NULL for local if daemon died */
+/* peer_fd == -1 for local if daemon died */
 static void opening_channel_errmsg(struct uncommitted_channel *uc,
-				   enum side sender,
+				   int peer_fd, int gossip_fd,
+				   const struct crypto_state *cs,
+				   u64 gossip_index,
 				   const struct channel_id *channel_id,
 				   const char *desc,
-				   const u8 *errmsg)
+				   const u8 *err_for_them)
 {
 	if (uc->fc)
 		command_fail(uc->fc->cmd, "%sERROR %s",
-			     sender == LOCAL ? (errmsg ? "sent " : "")
-			     : "received ",
+			     peer_fd == -1 ? ""
+			     : (err_for_them ? "sent " : "received "),
 			     desc);
 
 	log_info(uc->log, "%sERROR %s",
-		 sender == LOCAL ? (errmsg ? "sent " : "") : "received ",
+		 peer_fd == -1 ? "" : (err_for_them ? "sent " : "received "),
 		 desc);
 	tal_free(uc);
 }
