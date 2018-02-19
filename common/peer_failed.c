@@ -4,15 +4,15 @@
 #include <common/peer_failed.h>
 #include <common/status.h>
 #include <common/wire_error.h>
-#include <fcntl.h>
 #include <stdarg.h>
 #include <unistd.h>
 #include <wire/gen_peer_wire.h>
 
 /* We only support one channel per peer anyway */
-void peer_failed(int peer_fd, struct crypto_state *cs,
-		 const struct channel_id *channel_id,
-		 const char *fmt, ...)
+void peer_failed_(int peer_fd, int gossip_fd,
+		  struct crypto_state *cs, u64 gossip_index,
+		  const struct channel_id *channel_id,
+		  const char *fmt, ...)
 {
 	va_list ap;
 	const char *desc;

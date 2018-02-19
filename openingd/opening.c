@@ -180,7 +180,8 @@ static void check_config_bounds(struct state *state,
 	 * than 483.
 	 */
 	if (remoteconf->max_accepted_htlcs > 483)
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+		peer_failed(&state->cs, state->gossip_index,
+			    &state->channel_id,
 			    "max_accepted_htlcs %u too large",
 			    remoteconf->max_accepted_htlcs);
 }
@@ -316,7 +317,8 @@ static u8 *funder_channel(struct state *state,
 				     &theirs.delayed_payment,
 				     &theirs.htlc,
 				     &state->next_per_commit[REMOTE]))
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+		peer_failed(&state->cs, state->gossip_index,
+			    &state->channel_id,
 			    "Parsing accept_channel %s", tal_hex(msg, msg));
 
 	/* BOLT #2:
@@ -324,7 +326,8 @@ static u8 *funder_channel(struct state *state,
 	 * The `temporary_channel_id` MUST be the same as the
 	 * `temporary_channel_id` in the `open_channel` message. */
 	if (!structeq(&id_in, &state->channel_id))
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+		peer_failed(&state->cs, state->gossip_index,
+			    &state->channel_id,
 			    "accept_channel ids don't match: sent %s got %s",
 			    type_to_string(msg, struct channel_id, &id_in),
 			    type_to_string(msg, struct channel_id,
@@ -374,7 +377,8 @@ static u8 *funder_channel(struct state *state,
 					     &their_funding_pubkey,
 					     LOCAL);
 	if (!state->channel)
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+		peer_failed(&state->cs, state->gossip_index,
+			    &state->channel_id,
 			    "could not create channel with given config");
 
 	/* BOLT #2:
@@ -414,7 +418,8 @@ static u8 *funder_channel(struct state *state,
 	msg = opening_read_peer_msg(state);
 
 	if (!fromwire_funding_signed(msg, NULL, &id_in, &sig))
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+		peer_failed(&state->cs, state->gossip_index,
+			    &state->channel_id,
 			    "Parsing funding_signed: %s", tal_hex(msg, msg));
 
 	/* BOLT #2:
@@ -429,7 +434,7 @@ static u8 *funder_channel(struct state *state,
 			  &state->funding_txid, state->funding_txout);
 
 	if (!structeq(&id_in, &state->channel_id))
-		peer_failed(PEER_FD, &state->cs, &id_in,
+		peer_failed(&state->cs, state->gossip_index, &id_in,
 			    "funding_signed ids don't match: expected %s got %s",
 			    type_to_string(msg, struct channel_id,
 					   &state->channel_id),
@@ -443,7 +448,8 @@ static u8 *funder_channel(struct state *state,
 				&state->next_per_commit[LOCAL], LOCAL);
 
 	if (!check_tx_sig(tx, 0, NULL, wscript, &their_funding_pubkey, &sig)) {
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+		peer_failed(&state->cs, state->gossip_index,
+			    &state->channel_id,
 			    "Bad signature %s on tx %s using key %s",
 			    type_to_string(trc, secp256k1_ecdsa_signature,
 					   &sig),
@@ -517,7 +523,7 @@ static u8 *fundee_channel(struct state *state,
 				   &theirs.htlc,
 				   &state->next_per_commit[REMOTE],
 				   &channel_flags))
-		peer_failed(PEER_FD, &state->cs, NULL,
+		peer_failed(&state->cs, state->gossip_index, NULL,
 			    "Bad open_channel %s",
 			    tal_hex(peer_msg, peer_msg));
 
@@ -540,7 +546,8 @@ static u8 *fundee_channel(struct state *state,
 	 * The receiving node ... MUST fail the channel if `funding-satoshis`
 	 * is greater than or equal to 2^24 */
 	if (state->funding_satoshis > MAX_FUNDING_SATOSHI)
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+		peer_failed(&state->cs, state->gossip_index,
+			    &state->channel_id,
 			    "funding_satoshis %"PRIu64" too large",
 			    state->funding_satoshis);
 
@@ -550,7 +557,8 @@ static u8 *fundee_channel(struct state *state,
 	 * greater than `funding_satoshis` * 1000.
 	 */
 	if (state->push_msat > state->funding_satoshis * 1000)
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+		peer_failed(&state->cs, state->gossip_index,
+			    &state->channel_id,
 			    "push_msat %"PRIu64
 			    " too large for funding_satoshis %"PRIu64,
 			    state->push_msat, state->funding_satoshis);
@@ -599,7 +607,8 @@ static u8 *fundee_channel(struct state *state,
 				      &state->funding_txid,
 				      &state->funding_txout,
 				      &theirsig))
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+		peer_failed(&state->cs, state->gossip_index,
+			    &state->channel_id,
 			    "Parsing funding_created");
 
 	/* BOLT #2:
@@ -607,7 +616,7 @@ static u8 *fundee_channel(struct state *state,
 	 * The sender MUST set `temporary_channel_id` the same as the
 	 * `temporary_channel_id` in the `open_channel` message. */
 	if (!structeq(&id_in, &state->channel_id))
-		peer_failed(PEER_FD, &state->cs, &id_in,
+		peer_failed(&state->cs, state->gossip_index, &id_in,
 			    "funding_created ids don't match: sent %s got %s",
 			    type_to_string(msg, struct channel_id,
 					   &state->channel_id),
@@ -626,7 +635,8 @@ static u8 *fundee_channel(struct state *state,
 					     &their_funding_pubkey,
 					     REMOTE);
 	if (!state->channel)
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+		peer_failed(&state->cs, state->gossip_index,
+			    &state->channel_id,
 			    "could not create channel with given config");
 
 	/* BOLT #2:
@@ -638,7 +648,8 @@ static u8 *fundee_channel(struct state *state,
 
 	if (!check_tx_sig(their_commit, 0, NULL, wscript, &their_funding_pubkey,
 			  &theirsig)) {
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+		peer_failed(&state->cs, state->gossip_index,
+			    &state->channel_id,
 			    "Bad signature %s on tx %s using key %s",
 			    type_to_string(trc, secp256k1_ecdsa_signature,
 					   &theirsig),
