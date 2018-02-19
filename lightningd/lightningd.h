@@ -142,6 +142,9 @@ struct lightningd {
 	/* Transaction filter matching what we're interested in */
 	struct txfilter *owned_txfilter;
 
+	/* PID file */
+	char *pidfile;
+
 	/* May be useful for non-developers debugging in the field */
 	char *debug_subdaemon_io;
 

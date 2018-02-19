@@ -449,6 +449,10 @@ static void setup_default_config(struct lightningd *ld)
 		ld->config = testnet_config;
 	else
 		ld->config = mainnet_config;
+
+	/* Set default PID file name to be per-network */
+	tal_free(ld->pidfile);
+	ld->pidfile = tal_fmt(ld, "lightningd-%s.pid", get_chainparams(ld)->network_name);
 }
 
 
@@ -560,6 +564,9 @@ void register_opts(struct lightningd *ld)
 	opt_register_arg("--bitcoin-rpcconnect", opt_set_talstr, NULL,
 			 &ld->topology->bitcoind->rpcconnect,
 			 "bitcoind RPC host to connect to");
+	opt_register_arg("--pid-file=<file>", opt_set_talstr, opt_show_charp,
+			 &ld->pidfile,
+			 "Specify pid file");
 
 	opt_register_arg(
 	    "--channel-update-interval=<s>", opt_set_u32, opt_show_u32,
