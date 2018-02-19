@@ -13,6 +13,7 @@
 #include <ccan/io/io.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/pipecmd/pipecmd.h>
+#include <ccan/read_write_all/read_write_all.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
@@ -24,6 +25,7 @@
 #include <common/version.h>
 #include <common/wireaddr.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/invoice.h>
@@ -38,6 +40,8 @@
 char *bitcoin_datadir;
 
 struct backtrace_state *backtrace_state;
+
+int pid_fd;
 
 static struct lightningd *new_lightningd(const tal_t *ctx)
 {
@@ -70,6 +74,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->topology = new_topology(ld, ld->log);
 	ld->debug_subdaemon_io = NULL;
 	ld->daemon = false;
+	ld->pidfile = NULL;
 
 	return ld;
 }
@@ -250,6 +255,28 @@ static void daemonize_but_keep_dir(void)
 	tal_free(cwd);
 }
 
+static void pidfile_create(const struct lightningd *ld)
+{
+	char *pid;
+	const tal_t *tmpctx = tal_tmpctx(NULL);
+
+	/* Create PID file */
+	pid_fd = open(ld->pidfile, O_WRONLY|O_CREAT, 0640);
+	if (pid_fd < 0)
+		err(1, "Failed to open PID file");
+
+	/* Lock PID file */
+	if (lockf(pid_fd, F_TLOCK, 0) < 0)
+		/* Problem locking file */
+		err(1, "lightningd already running? Error locking PID file");
+
+	/* Get current PID and write to PID fie */
+	pid = tal_fmt(tmpctx, "%d\n", getpid());
+	write_all(pid_fd, pid, strlen(pid));
+
+	tal_free(tmpctx);
+}
+
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
@@ -279,6 +306,9 @@ int main(int argc, char *argv[])
 
 	/* Handle options and config; move to .lightningd */
 	newdir = handle_opts(ld, argc, argv);
+
+	/* Create PID file */
+	pidfile_create(ld);
 
 	/* Ignore SIGPIPE: we look at our write return values*/
 	signal(SIGPIPE, SIG_IGN);
@@ -384,6 +414,8 @@ int main(int argc, char *argv[])
 	}
 
 	shutdown_subdaemons(ld);
+	close(pid_fd);
+	remove(ld->pidfile);
 
 	tal_free(ld);
 	opt_free_table();
