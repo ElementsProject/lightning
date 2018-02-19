@@ -51,8 +51,8 @@ json_pay_success(struct command *cmd,
 static void json_pay_failure(struct command *cmd,
 			     const struct sendpay_result *r)
 {
-	struct json_result *data;
-	const char *msg;
+	struct json_result *data = NULL;
+	const char *msg = NULL;
 	struct routing_failure *fail;
 
 	assert(!r->succeeded);
@@ -109,6 +109,7 @@ static void json_pay_failure(struct command *cmd,
 		break;
 	}
 
+	assert(msg);
 	command_fail_detailed(cmd, r->errorcode, data, "%s", msg);
 }
 
