@@ -204,6 +204,15 @@ char *dbmigrations[] = {
      * primarily to track confirmations across restarts and making
      * sure we handle reorgs correctly. */
     "CREATE TABLE blocks (height INT, hash BLOB, prev_hash BLOB, UNIQUE(height));",
+    /* ON DELETE CASCADE would have been nice for confirmation_height,
+     * so that we automatically delete outputs that fall off the
+     * blockchain and then we rediscover them if they are included
+     * again. However, we have the their_unilateral/to_us which we
+     * can't simply recognize from the chain without additional
+     * hints. So we just mark them as unconfirmed should the block
+     * die. */
+    "ALTER TABLE outputs ADD COLUMN confirmation_height INTEGER REFERENCES blocks(height) ON DELETE SET NULL;",
+    "ALTER TABLE outputs ADD COLUMN spend_height INTEGER REFERENCES blocks(height) ON DELETE SET NULL;",
     NULL,
 };
 
