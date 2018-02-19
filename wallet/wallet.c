@@ -661,7 +661,8 @@ static bool wallet_ever_used(struct wallet *w)
 	/* Or if they do a unilateral close, the output to us provides a UTXO. */
 	stmt = db_query(__func__, w->db,
 			"SELECT COUNT(*) FROM outputs WHERE commitment_point IS NOT NULL;");
-	sqlite3_step(stmt);
+	int ret = sqlite3_step(stmt);
+	assert(ret == SQLITE_ROW);
 	channel_utxos = (sqlite3_column_int(stmt, 0) != 0);
 	sqlite3_finalize(stmt);
 
