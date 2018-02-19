@@ -596,7 +596,8 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 		peer_failed(PEER_FD,
 			    &peer->cs,
 			    &peer->channel_id,
-			    "Bad peer_add_htlc: %u", add_err);
+			    "Bad peer_add_htlc: %s",
+			    channel_add_err_name(add_err));
 
 	/* If this is wrong, we don't complain yet; when it's confirmed we'll
 	 * send it to the master which handles all HTLC failures. */
@@ -1389,7 +1390,7 @@ static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
 			    &peer->cs,
 			    &peer->channel_id,
 			    "Bad update_fulfill_htlc: failed to fulfill %"
-			    PRIu64 " error %u", id, e);
+			    PRIu64 " error %s", id, channel_remove_err_name(e));
 	}
 	abort();
 }
@@ -1427,7 +1428,8 @@ static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
 			    &peer->cs,
 			    &peer->channel_id,
 			    "Bad update_fail_htlc: failed to remove %"
-			    PRIu64 " error %u", id, e);
+			    PRIu64 " error %s", id,
+			    channel_remove_err_name(e));
 	}
 	abort();
 }
@@ -1500,7 +1502,7 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 			    &peer->cs,
 			    &peer->channel_id,
 			    "Bad update_fail_malformed_htlc: failed to remove %"
-			    PRIu64 " error %u", id, e);
+			    PRIu64 " error %s", id, channel_remove_err_name(e));
 	}
 	abort();
 }
@@ -2004,8 +2006,9 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
 			     amount_msat, cltv_expiry, &payment_hash,
 			     onion_routing_packet, NULL);
-	status_trace("Adding HTLC %"PRIu64" msat=%"PRIu64" cltv=%u gave %i",
-		     peer->htlc_id, amount_msat, cltv_expiry, e);
+	status_trace("Adding HTLC %"PRIu64" msat=%"PRIu64" cltv=%u gave %s",
+		     peer->htlc_id, amount_msat, cltv_expiry,
+		     channel_add_err_name(e));
 
 	switch (e) {
 	case CHANNEL_ERR_ADD_OK:
@@ -2284,7 +2287,8 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 	case CHANNEL_ERR_HTLC_NOT_IRREVOCABLE:
 	case CHANNEL_ERR_BAD_PREIMAGE:
 		status_failed(STATUS_FAIL_MASTER_IO,
-			      "HTLC %"PRIu64" removal failed: %i", id, e);
+			      "HTLC %"PRIu64" removal failed: %s", id,
+			      channel_remove_err_name(e));
 	}
 	abort();
 }

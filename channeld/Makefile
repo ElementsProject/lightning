@@ -8,21 +8,22 @@ default: channeld-all
 
 channeld-all: lightningd/lightning_channeld
 
-# lightningd/channel needs these:
 LIGHTNINGD_CHANNEL_HEADERS_GEN :=			\
+	channeld/gen_full_channel_error_names.h		\
 	channeld/gen_channel_wire.h
 
 LIGHTNINGD_CHANNEL_HEADERS_NOGEN :=			\
 	channeld/channeld_htlc.h		\
 	channeld/commit_tx.h			\
-	channeld/full_channel.h
+	channeld/full_channel.h			\
+	channeld/full_channel_error.h
 
 LIGHTNINGD_CHANNEL_HEADERS := $(LIGHTNINGD_CHANNEL_HEADERS_GEN) $(LIGHTNINGD_CHANNEL_HEADERS_NOGEN)
 
 LIGHTNINGD_CHANNEL_SRC := channeld/channel.c	\
 	channeld/commit_tx.c			\
 	channeld/full_channel.c		\
-	$(LIGHTNINGD_CHANNEL_HEADERS_GEN:.h=.c)
+	channeld/gen_channel_wire.c
 LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o)
 
 # Make sure these depend on everything.
@@ -72,18 +73,22 @@ CHANNELD_COMMON_OBJS :=				\
 	wire/fromwire.o				\
 	wire/towire.o
 
-# Control daemon uses this:
-LIGHTNINGD_CHANNEL_CONTROL_HEADERS := $(LIGHTNINGD_CHANNEL_HEADERS_GEN)
-LIGHTNINGD_CHANNEL_CONTROL_SRC := $(LIGHTNINGD_CHANNEL_HEADERS_GEN:.h=.c)
-LIGHTNINGD_CHANNEL_CONTROL_OBJS := $(LIGHTNINGD_CHANNEL_CONTROL_SRC:.c=.o)
-
-LIGHTNINGD_CHANNEL_GEN_SRC := $(filter channeld/gen_%, $(LIGHTNINGD_CHANNEL_SRC) $(LIGHTNINGD_CHANNEL_CONTROL_SRC))
+LIGHTNINGD_CHANNEL_SRC_GEN := $(filter channeld/gen_%, $(LIGHTNINGD_CHANNEL_SRC))
 
 LIGHTNINGD_CHANNEL_SRC_NOGEN := $(filter-out channeld/gen_%, $(LIGHTNINGD_CHANNEL_SRC))
+
+# Control daemon uses this:
+LIGHTNINGD_CHANNEL_CONTROL_HEADERS := $(LIGHTNINGD_CHANNEL_HEADERS_GEN)
+LIGHTNINGD_CHANNEL_CONTROL_SRC := $(LIGHTNINGD_CHANNEL_SRC_GEN)
+LIGHTNINGD_CHANNEL_CONTROL_OBJS := $(LIGHTNINGD_CHANNEL_CONTROL_SRC:.c=.o)
 
 # Add to headers which any object might need.
 LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_CHANNEL_HEADERS_GEN)
 LIGHTNINGD_HEADERS_NOGEN += $(LIGHTNINGD_CHANNEL_HEADERS_NOGEN)
+
+channeld/gen_full_channel_error_names.h: channeld/full_channel_error.h ccan/ccan/cdump/tools/cdump-enumstr
+	ccan/ccan/cdump/tools/cdump-enumstr channeld/full_channel_error.h > $@
+
 
 $(LIGHTNINGD_CHANNEL_OBJS): $(LIGHTNINGD_HEADERS)
 
@@ -93,7 +98,7 @@ channeld/gen_channel_wire.h: $(WIRE_GEN) channeld/channel_wire.csv
 channeld/gen_channel_wire.c: $(WIRE_GEN) channeld/channel_wire.csv
 	$(WIRE_GEN) ${@:.c=.h} channel_wire_type < channeld/channel_wire.csv > $@
 
-LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o) $(LIGHTNINGD_CHANNEL_GEN_SRC:.c=.o)
+LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o)
 
 lightningd/lightning_channeld: $(LIGHTNINGD_CHANNEL_OBJS) $(WIRE_ONION_OBJS) $(CHANNELD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
 
