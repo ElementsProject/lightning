@@ -96,28 +96,94 @@ void derive_channel_seed(struct lightningd *ld, struct privkey *seed,
 		    info, strlen(info));
 }
 
-struct channel *new_channel(struct peer *peer, u64 dbid, u32 first_blocknum)
+struct channel *new_channel(struct peer *peer, u64 dbid,
+			    /* NULL or stolen */
+			    struct wallet_shachain *their_shachain,
+			    enum peer_state state,
+			    enum side funder,
+			    /* NULL or stolen */
+			    struct log *log,
+			    u8 channel_flags,
+			    const struct channel_config *our_config,
+			    u32 minimum_depth,
+			    u64 next_index_local,
+			    u64 next_index_remote,
+			    u64 next_htlc_id,
+			    const struct bitcoin_txid *funding_txid,
+			    u16 funding_outnum,
+			    u64 funding_satoshi,
+			    u64 push_msat,
+			    bool remote_funding_locked,
+			    /* NULL or stolen */
+			    struct short_channel_id *scid,
+			    u64 our_msatoshi,
+			    /* Stolen */
+			    struct bitcoin_tx *last_tx,
+			    const secp256k1_ecdsa_signature *last_sig,
+			    /* NULL or stolen */
+			    secp256k1_ecdsa_signature *last_htlc_sigs,
+			    const struct channel_info *channel_info,
+			    /* NULL or stolen */
+			    u8 *remote_shutdown_scriptpubkey,
+			    /* (-1 if not chosen yet) */
+			    s64 local_shutdown_idx,
+			    bool last_was_revoke,
+			    /* NULL or stolen */
+			    struct changed_htlc *last_sent_commit,
+			    u32 first_blocknum)
 {
-	/* FIXME: We currently rely on it being all zero/NULL */
-	struct channel *channel = talz(peer->ld, struct channel);
-	char *idname;
+	struct channel *channel = tal(peer->ld, struct channel);
 
 	assert(dbid != 0);
-	channel->dbid = dbid;
 	channel->peer = peer;
+	channel->dbid = dbid;
+	channel->error = NULL;
+	if (their_shachain)
+		channel->their_shachain = *their_shachain;
+	else {
+		channel->their_shachain.id = 0;
+		shachain_init(&channel->their_shachain.chain);
+	}
+	channel->state = state;
+	channel->funder = funder;
+	channel->owner = NULL;
+	if (!log) {
+		/* FIXME: update log prefix when we get scid */
+		/* FIXME: Use minimal unique pubkey prefix for logs! */
+		char *idname = type_to_string(peer, struct pubkey, &peer->id);
+		channel->log = new_log(channel,
+				       peer->log_book, "%s chan #%"PRIu64":",
+				       idname, dbid);
+		tal_free(idname);
+	} else
+		channel->log = tal_steal(channel, log);
+	channel->channel_flags = channel_flags;
+	channel->our_config = *our_config;
+	channel->minimum_depth = minimum_depth;
+	channel->next_index[LOCAL] = next_index_local;
+	channel->next_index[REMOTE] = next_index_remote;
+	channel->next_htlc_id = next_htlc_id;
+	channel->funding_txid = *funding_txid;
+	channel->funding_outnum = funding_outnum;
+	channel->funding_satoshi = funding_satoshi;
+	channel->push_msat = push_msat;
+	channel->remote_funding_locked = remote_funding_locked;
+	channel->scid = tal_steal(channel, scid);
+	channel->our_msatoshi = our_msatoshi;
+	channel->last_tx = tal_steal(channel, last_tx);
+	channel->last_sig = *last_sig;
+	channel->last_htlc_sigs = tal_steal(channel, last_htlc_sigs);
+	channel->channel_info = *channel_info;
+	channel->remote_shutdown_scriptpubkey
+		= tal_steal(channel, remote_shutdown_scriptpubkey);
+	channel->local_shutdown_idx = local_shutdown_idx;
+	channel->last_was_revoke = last_was_revoke;
+	channel->last_sent_commit = tal_steal(channel, last_sent_commit);
 	channel->first_blocknum = first_blocknum;
-	channel->state = UNINITIALIZED;
-	channel->local_shutdown_idx = -1;
+	derive_channel_seed(peer->ld, &channel->seed, &peer->id, channel->dbid);
 
-	/* FIXME: update log prefix when we get scid */
-	/* FIXME: Use minimal unique pubkey prefix for logs! */
-	idname = type_to_string(peer, struct pubkey, &peer->id);
-	channel->log = new_log(channel, peer->log_book, "%s chan #%"PRIu64":",
-			       idname, dbid);
-	tal_free(idname);
 	list_add_tail(&peer->channels, &channel->list);
 	tal_add_destructor(channel, destroy_channel);
-	derive_channel_seed(peer->ld, &channel->seed, &peer->id, channel->dbid);
 
 	return channel;
 }

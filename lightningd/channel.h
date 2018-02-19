@@ -85,7 +85,41 @@ struct channel {
 	u64 first_blocknum;
 };
 
-struct channel *new_channel(struct peer *peer, u64 dbid, u32 first_blocknum);
+struct channel *new_channel(struct peer *peer, u64 dbid,
+			    /* NULL or stolen */
+			    struct wallet_shachain *their_shachain,
+			    enum peer_state state,
+			    enum side funder,
+			    /* NULL or stolen */
+			    struct log *log,
+			    u8 channel_flags,
+			    const struct channel_config *our_config,
+			    u32 minimum_depth,
+			    u64 next_index_local,
+			    u64 next_index_remote,
+			    u64 next_htlc_id,
+			    const struct bitcoin_txid *funding_txid,
+			    u16 funding_outnum,
+			    u64 funding_satoshi,
+			    u64 push_msat,
+			    bool remote_funding_locked,
+			    /* NULL or stolen */
+			    struct short_channel_id *scid,
+			    u64 our_msatoshi,
+			    /* Stolen */
+			    struct bitcoin_tx *last_tx,
+			    const secp256k1_ecdsa_signature *last_sig,
+			    /* NULL or stolen */
+			    secp256k1_ecdsa_signature *last_htlc_sigs,
+			    const struct channel_info *channel_info,
+			    /* NULL or stolen */
+			    u8 *remote_shutdown_scriptpubkey,
+			    /* (-1 if not chosen yet) */
+			    s64 local_shutdown_idx,
+			    bool last_was_revoke,
+			    /* NULL or stolen */
+			    struct changed_htlc *last_sent_commit,
+			    u32 first_blocknum);
 
 /* This lets us give a more detailed error than just a destructor, and
  * deletes from db. */

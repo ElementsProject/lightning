@@ -501,100 +501,105 @@ wallet_htlc_sigs_load(const tal_t *ctx, struct wallet *w, u64 channelid)
 static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, sqlite3_stmt *stmt)
 {
 	bool ok = true;
-	struct channel_info *channel_info;
-	u64 remote_config_id;
+	struct channel_info channel_info;
+	struct short_channel_id *scid;
 	struct channel *chan;
 	u64 peer_dbid;
 	struct peer *peer;
+	struct wallet_shachain wshachain;
+	struct channel_config our_config;
+	struct bitcoin_txid funding_txid;
+	secp256k1_ecdsa_signature last_sig;
+	u8 *remote_shutdown_scriptpubkey;
+	struct changed_htlc *last_sent_commit;
+	const tal_t *tmpctx = tal_tmpctx(ctx);
 
 	peer_dbid = sqlite3_column_int64(stmt, 1);
 	peer = find_peer_by_dbid(w->ld, peer_dbid);
 	if (!peer) {
 		peer = wallet_peer_load(ctx, w, peer_dbid);
-		if (!peer)
+		if (!peer) {
+			tal_free(tmpctx);
 			return NULL;
+		}
 	}
-	chan = new_channel(peer, sqlite3_column_int64(stmt, 0),
-			   sqlite3_column_int64(stmt, 35));
 
 	if (sqlite3_column_type(stmt, 2) != SQLITE_NULL) {
-		chan->scid = tal(chan->peer, struct short_channel_id);
-		sqlite3_column_short_channel_id(stmt, 2, chan->scid);
+		scid = tal(tmpctx, struct short_channel_id);
+		sqlite3_column_short_channel_id(stmt, 2, scid);
 	} else {
-		chan->scid = NULL;
+		scid = NULL;
 	}
 
-	chan->our_config.id = sqlite3_column_int64(stmt, 3);
-	wallet_channel_config_load(w, chan->our_config.id, &chan->our_config);
-	remote_config_id = sqlite3_column_int64(stmt, 4);
+	ok &= wallet_shachain_load(w, sqlite3_column_int64(stmt, 27),
+				   &wshachain);
 
-	chan->state = sqlite3_column_int(stmt, 5);
-	assert(chan->state > OPENINGD && chan->state <= CHANNEL_STATE_MAX);
-	chan->funder = sqlite3_column_int(stmt, 6);
-	chan->channel_flags = sqlite3_column_int(stmt, 7);
-	chan->minimum_depth = sqlite3_column_int(stmt, 8);
-	chan->next_index[LOCAL] = sqlite3_column_int64(stmt, 9);
-	chan->next_index[REMOTE] = sqlite3_column_int64(stmt, 10);
-	chan->next_htlc_id = sqlite3_column_int64(stmt, 11);
-
-	sqlite3_column_sha256_double(stmt, 12, &chan->funding_txid.shad);
-
-	chan->funding_outnum = sqlite3_column_int(stmt, 13);
-	chan->funding_satoshi = sqlite3_column_int64(stmt, 14);
-	chan->remote_funding_locked =
-	    sqlite3_column_int(stmt, 15) != 0;
-	chan->push_msat = sqlite3_column_int64(stmt, 16);
-	chan->our_msatoshi = sqlite3_column_int64(stmt, 17);
-
-	channel_info = &chan->channel_info;
-
-	/* Populate channel_info */
-	ok &= sqlite3_column_pubkey(stmt, 18, &channel_info->remote_fundingkey);
-	ok &= sqlite3_column_pubkey(stmt, 19, &channel_info->theirbase.revocation);
-	ok &= sqlite3_column_pubkey(stmt, 20, &channel_info->theirbase.payment);
-	ok &= sqlite3_column_pubkey(stmt, 21, &channel_info->theirbase.htlc);
-	ok &= sqlite3_column_pubkey(stmt, 22, &channel_info->theirbase.delayed_payment);
-	ok &= sqlite3_column_pubkey(stmt, 23, &channel_info->remote_per_commit);
-	ok &= sqlite3_column_pubkey(stmt, 24, &channel_info->old_remote_per_commit);
-	channel_info->feerate_per_kw[LOCAL] = sqlite3_column_int(stmt, 25);
-	channel_info->feerate_per_kw[REMOTE] = sqlite3_column_int(stmt, 26);
-	wallet_channel_config_load(w, remote_config_id, &channel_info->their_config);
-
-	/* Load shachain */
-	u64 shachain_id = sqlite3_column_int64(stmt, 27);
-	ok &= wallet_shachain_load(w, shachain_id, &chan->their_shachain);
-
-	/* Do we have a non-null remote_shutdown_scriptpubkey? */
-	if (sqlite3_column_type(stmt, 28) != SQLITE_NULL) {
-		chan->remote_shutdown_scriptpubkey = tal_arr(chan, u8, sqlite3_column_bytes(stmt, 28));
-		memcpy(chan->remote_shutdown_scriptpubkey, sqlite3_column_blob(stmt, 28), sqlite3_column_bytes(stmt, 28));
-		chan->local_shutdown_idx = sqlite3_column_int64(stmt, 29);
-	} else {
-		chan->remote_shutdown_scriptpubkey = tal_free(chan->remote_shutdown_scriptpubkey);
-		chan->local_shutdown_idx = -1;
-	}
+	remote_shutdown_scriptpubkey = sqlite3_column_arr(tmpctx, stmt, 28, u8);
 
 	/* Do we have a last_sent_commit, if yes, populate */
 	if (sqlite3_column_type(stmt, 30) != SQLITE_NULL) {
-		if (!chan->last_sent_commit) {
-			chan->last_sent_commit = tal(chan, struct changed_htlc);
-		}
-		chan->last_sent_commit->newstate = sqlite3_column_int64(stmt, 30);
-		chan->last_sent_commit->id = sqlite3_column_int64(stmt, 31);
+		last_sent_commit = tal(tmpctx, struct changed_htlc);
+		last_sent_commit->newstate = sqlite3_column_int64(stmt, 30);
+		last_sent_commit->id = sqlite3_column_int64(stmt, 31);
 	} else {
-		chan->last_sent_commit = tal_free(chan->last_sent_commit);
+		last_sent_commit = NULL;
 	}
 
-	chan->last_tx = sqlite3_column_tx(chan, stmt, 32);
-	sqlite3_column_signature(stmt, 33, &chan->last_sig);
+	ok &= wallet_channel_config_load(w, sqlite3_column_int64(stmt, 3),
+					 &our_config);
+	ok &= sqlite3_column_sha256_double(stmt, 12, &funding_txid.shad);
 
-	chan->last_was_revoke = sqlite3_column_int(stmt, 34) != 0;
+	ok &= sqlite3_column_signature(stmt, 33, &last_sig);
 
-	/* Load any htlc_sigs */
-	chan->last_htlc_sigs = wallet_htlc_sigs_load(chan, w, chan->dbid);
+	/* Populate channel_info */
+	ok &= sqlite3_column_pubkey(stmt, 18, &channel_info.remote_fundingkey);
+	ok &= sqlite3_column_pubkey(stmt, 19, &channel_info.theirbase.revocation);
+	ok &= sqlite3_column_pubkey(stmt, 20, &channel_info.theirbase.payment);
+	ok &= sqlite3_column_pubkey(stmt, 21, &channel_info.theirbase.htlc);
+	ok &= sqlite3_column_pubkey(stmt, 22, &channel_info.theirbase.delayed_payment);
+	ok &= sqlite3_column_pubkey(stmt, 23, &channel_info.remote_per_commit);
+	ok &= sqlite3_column_pubkey(stmt, 24, &channel_info.old_remote_per_commit);
+	channel_info.feerate_per_kw[LOCAL] = sqlite3_column_int(stmt, 25);
+	channel_info.feerate_per_kw[REMOTE] = sqlite3_column_int(stmt, 26);
+	wallet_channel_config_load(w, sqlite3_column_int64(stmt, 4),
+				   &channel_info.their_config);
 
-	if (!ok)
-		return tal_free(chan);
+	if (!ok) {
+		tal_free(tmpctx);
+		return NULL;
+	}
+
+	chan = new_channel(peer, sqlite3_column_int64(stmt, 0),
+			   &wshachain,
+			   sqlite3_column_int(stmt, 5),
+			   sqlite3_column_int(stmt, 6),
+			   NULL, /* Set up fresh log */
+			   sqlite3_column_int(stmt, 7),
+			   &our_config,
+			   sqlite3_column_int(stmt, 8),
+			   sqlite3_column_int64(stmt, 9),
+			   sqlite3_column_int64(stmt, 10),
+			   sqlite3_column_int64(stmt, 11),
+			   &funding_txid,
+			   sqlite3_column_int(stmt, 13),
+			   sqlite3_column_int64(stmt, 14),
+			   sqlite3_column_int64(stmt, 16),
+			   sqlite3_column_int(stmt, 15) != 0,
+			   scid,
+			   sqlite3_column_int64(stmt, 17),
+			   sqlite3_column_tx(tmpctx, stmt, 32),
+			   &last_sig,
+			   wallet_htlc_sigs_load(tmpctx, w,
+						 sqlite3_column_int64(stmt, 0)),
+			   &channel_info,
+			   remote_shutdown_scriptpubkey,
+			   remote_shutdown_scriptpubkey
+			   ? sqlite3_column_int64(stmt, 29) : -1,
+			   sqlite3_column_int(stmt, 34) != 0,
+			   last_sent_commit,
+			   sqlite3_column_int64(stmt, 35));
+
+	tal_free(tmpctx);
 	return chan;
 }
 
