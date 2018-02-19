@@ -85,7 +85,8 @@ u8 *read_peer_msg_(const tal_t *ctx,
 		 *    message:
 		 *    - MUST ignore the message.
 		 */
-		err_pkt(err, &chanid, arg);
+		if (structeq(&chanid, channel) || channel_id_is_all(&chanid))
+			err_pkt(err, &chanid, arg);
 
 		return tal_free(msg);
 	}
