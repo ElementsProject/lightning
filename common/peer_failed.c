@@ -1,13 +1,10 @@
-#include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
-#include <common/crypto_sync.h>
 #include <common/gen_peer_status_wire.h>
 #include <common/gen_status_wire.h>
 #include <common/peer_failed.h>
 #include <common/status.h>
 #include <common/wire_error.h>
 #include <stdarg.h>
-#include <unistd.h>
 
 /* We only support one channel per peer anyway */
 void peer_failed_(int peer_fd, int gossip_fd,
@@ -23,15 +20,10 @@ void peer_failed_(int peer_fd, int gossip_fd,
 	desc = tal_vfmt(NULL, fmt, ap);
 	va_end(ap);
 
-	status_broken("SENT ERROR:%s", desc);
-	msg = towire_errorfmt(desc, channel_id, "%s", desc);
-
-	/* This is only best-effort; don't block. */
-	io_fd_block(peer_fd, false);
-	sync_crypto_write(cs, peer_fd, msg);
-
 	msg = towire_status_peer_error(NULL, channel_id,
-				       desc, cs, gossip_index, msg);
+				       desc, cs, gossip_index,
+				       towire_errorfmt(desc, channel_id,
+						       "%s", desc));
 	tal_free(desc);
 	status_send_fatal(take(msg), peer_fd, gossip_fd);
 }
