@@ -53,19 +53,15 @@ static void destroy_channel(struct channel *channel)
 	list_del_from(&channel->peer->channels, &channel->list);
 }
 
-/* This lets us give a more detailed error than just a destructor. */
+/* FIXME: remove why */
 void delete_channel(struct channel *channel, const char *why)
 {
 	struct peer *peer = channel->peer;
-	if (channel->opening_cmd) {
-		command_fail(channel->opening_cmd, "%s", why);
-		channel->opening_cmd = NULL;
-	}
 	wallet_channel_delete(channel->peer->ld->wallet, channel->dbid);
 	tal_free(channel);
 
 	/* Last one out frees the peer */
-	if (list_empty(&peer->channels))
+	if (list_empty(&peer->channels) && !peer->uncommitted_channel)
 		delete_peer(peer);
 }
 
@@ -84,9 +80,9 @@ void delete_channel(struct channel *channel, const char *why)
  * reconnection. We use the DB channel ID to guarantee unique secrets
  * per channel.
  */
-static void derive_channel_seed(struct lightningd *ld, struct privkey *seed,
-				const struct pubkey *peer_id,
-				const u64 dbid)
+void derive_channel_seed(struct lightningd *ld, struct privkey *seed,
+			 const struct pubkey *peer_id,
+			 const u64 dbid)
 {
 	u8 input[PUBKEY_DER_LEN + sizeof(dbid)];
 	char *info = "per-peer seed";
@@ -143,11 +139,18 @@ struct channel *peer_active_channel(struct peer *peer)
 }
 
 struct channel *active_channel_by_id(struct lightningd *ld,
-				     const struct pubkey *id)
+				     const struct pubkey *id,
+				     struct uncommitted_channel **uc)
 {
 	struct peer *peer = peer_by_id(ld, id);
-	if (!peer)
+	if (!peer) {
+		if (uc)
+			*uc = NULL;
 		return NULL;
+	}
+
+	if (uc)
+		*uc = peer->uncommitted_channel;
 	return peer_active_channel(peer);
 }
 

@@ -547,7 +547,7 @@ bool send_payment(const tal_t *ctx,
 	 * context, not our temporary context. */
 	new_sendpay_command(ctx, rhash, ld, cb, cbarg);
 
-	channel = active_channel_by_id(ld, &ids[0]);
+	channel = active_channel_by_id(ld, &ids[0], NULL);
 	if (!channel) {
 		/* Report routing failure to gossipd */
 		fail = immediate_routing_failure(tmpctx, ld,

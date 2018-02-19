@@ -422,7 +422,7 @@ static void forward_htlc(struct htlc_in *hin,
 	enum onion_type failcode;
 	u64 fee;
 	struct lightningd *ld = hin->key.channel->peer->ld;
-	struct channel *next = active_channel_by_id(ld, next_hop);
+	struct channel *next = active_channel_by_id(ld, next_hop, NULL);
 
 	/* Unknown peer, or peer not ready. */
 	if (!next || !next->scid) {

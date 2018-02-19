@@ -2406,7 +2406,7 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         # We should get a message about reconnecting.
-        l2.daemon.wait_for_log('Peer has reconnected, state OPENINGD')
+        l2.daemon.wait_for_log('Peer reconnected, killing openingd')
 
         # Should work fine.
         l1.rpc.fundchannel(l2.info['id'], 20000)
