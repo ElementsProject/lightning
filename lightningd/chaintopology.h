@@ -86,6 +86,9 @@ struct chain_topology {
 	u32 feerate[NUM_FEERATES];
 	bool startup;
 
+	/* Where to store blockchain info. */
+	struct wallet *wallet;
+
 	/* Where to log things. */
 	struct log *log;
 
