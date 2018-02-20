@@ -10,6 +10,8 @@
 #include <hsmd/gen_hsm_client_wire.h>
 #include <lightningd/build_utxos.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/channel_control.h>
+#include <lightningd/closing_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>

@@ -51,6 +51,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/build_utxos.c		\
 	lightningd/chaintopology.c		\
 	lightningd/channel.c			\
+	lightningd/channel_control.c		\
 	lightningd/closing_control.c		\
 	lightningd/connect_control.c		\
 	lightningd/gossip_control.c		\
