@@ -117,7 +117,7 @@ static const struct htlc **include_htlcs(struct channel *channel, enum side side
 		struct sha256 hash;
 		enum channel_add_err e;
 		enum side sender;
-		u64 msatoshi;
+		u64 msatoshi = 0;
 
 		switch (i) {
 		case 0:
@@ -141,6 +141,8 @@ static const struct htlc **include_htlcs(struct channel *channel, enum side side
 			msatoshi = 4000000;
 			break;
 		}
+		assert(msatoshi != 0);
+
 		memset(&preimage, i, sizeof(preimage));
 		sha256(&hash, &preimage, sizeof(preimage));
 		e = channel_add_htlc(channel, sender, i, msatoshi, 500+i, &hash,
