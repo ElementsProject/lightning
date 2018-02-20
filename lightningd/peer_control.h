@@ -108,12 +108,5 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel);
 u32 feerate_min(struct lightningd *ld);
 u32 feerate_max(struct lightningd *ld);
 
-bool peer_start_channeld(struct channel *channel,
-			 const struct crypto_state *cs,
-			 u64 gossip_index,
-			 int peer_fd, int gossip_fd,
-			 const u8 *funding_signed,
-			 bool reconnected);
-
 void channel_watch_funding(struct lightningd *ld, struct channel *channel);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_CONTROL_H */

@@ -47,9 +47,6 @@ void broadcast_tx(struct chain_topology *topo UNNEEDED,
 				 int exitstatus UNNEEDED,
 				 const char *err))
 { fprintf(stderr, "broadcast_tx called!\n"); abort(); }
-/* Generated stub for channel_wire_type_name */
-const char *channel_wire_type_name(int e UNNEEDED)
-{ fprintf(stderr, "channel_wire_type_name called!\n"); abort(); }
 /* Generated stub for command_fail */
 void  command_fail(struct command *cmd UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "command_fail called!\n"); abort(); }
@@ -76,27 +73,12 @@ bool derive_basepoints(const struct privkey *seed UNNEEDED,
 /* Generated stub for extract_channel_id */
 bool extract_channel_id(const u8 *in_pkt UNNEEDED, struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "extract_channel_id called!\n"); abort(); }
-/* Generated stub for fromwire_channel_got_funding_locked */
-bool fromwire_channel_got_funding_locked(const void *p UNNEEDED, size_t *plen UNNEEDED, struct pubkey *next_per_commit_point UNNEEDED)
-{ fprintf(stderr, "fromwire_channel_got_funding_locked called!\n"); abort(); }
-/* Generated stub for fromwire_channel_got_shutdown */
-bool fromwire_channel_got_shutdown(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, size_t *plen UNNEEDED, u8 **scriptpubkey UNNEEDED)
-{ fprintf(stderr, "fromwire_channel_got_shutdown called!\n"); abort(); }
-/* Generated stub for fromwire_channel_shutdown_complete */
-bool fromwire_channel_shutdown_complete(const void *p UNNEEDED, size_t *plen UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u64 *gossip_index UNNEEDED)
-{ fprintf(stderr, "fromwire_channel_shutdown_complete called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_getpeers_reply */
 bool fromwire_gossip_getpeers_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, size_t *plen UNNEEDED, struct pubkey **id UNNEEDED, struct wireaddr **addr UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_getpeers_reply called!\n"); abort(); }
-/* Generated stub for fromwire_gossip_peer_already_connected */
-bool fromwire_gossip_peer_already_connected(const void *p UNNEEDED, size_t *plen UNNEEDED, struct pubkey *id UNNEEDED)
-{ fprintf(stderr, "fromwire_gossip_peer_already_connected called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_peer_connected */
 bool fromwire_gossip_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, size_t *plen UNNEEDED, struct pubkey *id UNNEEDED, struct wireaddr *addr UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u64 *gossip_index UNNEEDED, u8 **gfeatures UNNEEDED, u8 **lfeatures UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_peer_connected called!\n"); abort(); }
-/* Generated stub for fromwire_hsm_client_hsmfd_reply */
-bool fromwire_hsm_client_hsmfd_reply(const void *p UNNEEDED, size_t *plen UNNEEDED)
-{ fprintf(stderr, "fromwire_hsm_client_hsmfd_reply called!\n"); abort(); }
 /* Generated stub for funding_spent */
 enum watch_result funding_spent(struct channel *channel UNNEEDED,
 				const struct bitcoin_tx *tx UNNEEDED,
@@ -104,9 +86,6 @@ enum watch_result funding_spent(struct channel *channel UNNEEDED,
 				const struct block *block UNNEEDED,
 				void *unused UNNEEDED)
 { fprintf(stderr, "funding_spent called!\n"); abort(); }
-/* Generated stub for get_chainparams */
-struct chainparams *get_chainparams(const struct lightningd *ld UNNEEDED)
-{ fprintf(stderr, "get_chainparams called!\n"); abort(); }
 /* Generated stub for get_feerate */
 u32 get_feerate(const struct chain_topology *topo UNNEEDED, enum feerate feerate UNNEEDED)
 { fprintf(stderr, "get_feerate called!\n"); abort(); }
@@ -116,9 +95,6 @@ u8 *get_supported_global_features(const tal_t *ctx UNNEEDED)
 /* Generated stub for get_supported_local_features */
 u8 *get_supported_local_features(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "get_supported_local_features called!\n"); abort(); }
-/* Generated stub for hsm_sync_read */
-u8 *hsm_sync_read(const tal_t *ctx UNNEEDED, struct lightningd *ld UNNEEDED)
-{ fprintf(stderr, "hsm_sync_read called!\n"); abort(); }
 /* Generated stub for invoices_create */
 const struct invoice *invoices_create(struct invoices *invoices UNNEEDED,
 				      u64 *msatoshi TAKES UNNEEDED,
@@ -258,23 +234,6 @@ void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED, const char *c
 /* Generated stub for logv_add */
 void logv_add(struct log *log UNNEEDED, const char *fmt UNNEEDED, va_list ap UNNEEDED)
 { fprintf(stderr, "logv_add called!\n"); abort(); }
-/* Generated stub for new_channel_subd_ */
-struct subd *new_channel_subd_(struct lightningd *ld UNNEEDED,
-			       const char *name UNNEEDED,
-			       void *channel UNNEEDED,
-			       struct log *base_log UNNEEDED,
-			       const char *(*msgname)(int msgtype) UNNEEDED,
-			       unsigned int (*msgcb)(struct subd * UNNEEDED, const u8 * UNNEEDED,
-						     const int *fds) UNNEEDED,
-			       void (*errcb)(void *channel UNNEEDED,
-					     int peer_fd UNNEEDED, int gossip_fd UNNEEDED,
-					     const struct crypto_state *cs UNNEEDED,
-					     u64 gossip_index UNNEEDED,
-					     const struct channel_id *channel_id UNNEEDED,
-					     const char *desc UNNEEDED,
-					     const u8 *err_for_them) UNNEEDED,
-			       ...)
-{ fprintf(stderr, "new_channel_subd_ called!\n"); abort(); }
 /* Generated stub for new_json_result */
 struct json_result *new_json_result(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "new_json_result called!\n"); abort(); }
@@ -292,25 +251,14 @@ u8 *peer_accept_channel(struct lightningd *ld UNNEEDED,
 			const struct channel_id *channel_id UNNEEDED,
 			const u8 *open_msg UNNEEDED)
 { fprintf(stderr, "peer_accept_channel called!\n"); abort(); }
-/* Generated stub for peer_got_commitsig */
-void peer_got_commitsig(struct channel *channel UNNEEDED, const u8 *msg UNNEEDED)
-{ fprintf(stderr, "peer_got_commitsig called!\n"); abort(); }
-/* Generated stub for peer_got_revoke */
-void peer_got_revoke(struct channel *channel UNNEEDED, const u8 *msg UNNEEDED)
-{ fprintf(stderr, "peer_got_revoke called!\n"); abort(); }
-/* Generated stub for peer_htlcs */
-void peer_htlcs(const tal_t *ctx UNNEEDED,
-		const struct channel *channel UNNEEDED,
-		struct added_htlc **htlcs UNNEEDED,
-		enum htlc_state **htlc_states UNNEEDED,
-		struct fulfilled_htlc **fulfilled_htlcs UNNEEDED,
-		enum side **fulfilled_sides UNNEEDED,
-		const struct failed_htlc ***failed_htlcs UNNEEDED,
-		enum side **failed_sides UNNEEDED)
-{ fprintf(stderr, "peer_htlcs called!\n"); abort(); }
-/* Generated stub for peer_sending_commitsig */
-void peer_sending_commitsig(struct channel *channel UNNEEDED, const u8 *msg UNNEEDED)
-{ fprintf(stderr, "peer_sending_commitsig called!\n"); abort(); }
+/* Generated stub for peer_start_channeld */
+bool peer_start_channeld(struct channel *channel UNNEEDED,
+			 const struct crypto_state *cs UNNEEDED,
+			 u64 gossip_index UNNEEDED,
+			 int peer_fd UNNEEDED, int gossip_fd UNNEEDED,
+			 const u8 *funding_signed UNNEEDED,
+			 bool reconnected UNNEEDED)
+{ fprintf(stderr, "peer_start_channeld called!\n"); abort(); }
 /* Generated stub for peer_start_closingd */
 void peer_start_closingd(struct channel *channel UNNEEDED,
 			 struct crypto_state *cs UNNEEDED,
@@ -348,9 +296,6 @@ u8 *towire_channel_funding_announce_depth(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_channel_funding_locked */
 u8 *towire_channel_funding_locked(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED)
 { fprintf(stderr, "towire_channel_funding_locked called!\n"); abort(); }
-/* Generated stub for towire_channel_init */
-u8 *towire_channel_init(const tal_t *ctx UNNEEDED, const struct bitcoin_blkid *chain_hash UNNEEDED, const struct bitcoin_txid *funding_txid UNNEEDED, u16 funding_txout UNNEEDED, u64 funding_satoshi UNNEEDED, const struct channel_config *our_config UNNEEDED, const struct channel_config *their_config UNNEEDED, const u32 feerate_per_kw[2] UNNEEDED, u32 feerate_min UNNEEDED, u32 feerate_max UNNEEDED, const secp256k1_ecdsa_signature *first_commit_sig UNNEEDED, const struct crypto_state *crypto_state UNNEEDED, u64 gossip_index UNNEEDED, const struct pubkey *remote_fundingkey UNNEEDED, const struct pubkey *remote_revocation_basepoint UNNEEDED, const struct pubkey *remote_payment_basepoint UNNEEDED, const struct pubkey *remote_htlc_basepoint UNNEEDED, const struct pubkey *remote_delayed_payment_basepoint UNNEEDED, const struct pubkey *remote_per_commit UNNEEDED, const struct pubkey *old_remote_per_commit UNNEEDED, enum side funder UNNEEDED, u32 fee_base UNNEEDED, u32 fee_proportional UNNEEDED, u64 local_msatoshi UNNEEDED, const struct privkey *seed UNNEEDED, const struct pubkey *local_node_id UNNEEDED, const struct pubkey *remote_node_id UNNEEDED, u32 commit_msec UNNEEDED, u16 cltv_delta UNNEEDED, bool last_was_revoke UNNEEDED, const struct changed_htlc *last_sent_commit UNNEEDED, u64 next_index_local UNNEEDED, u64 next_index_remote UNNEEDED, u64 revocations_received UNNEEDED, u64 next_htlc_id UNNEEDED, const struct added_htlc *htlcs UNNEEDED, const enum htlc_state *htlc_states UNNEEDED, const struct fulfilled_htlc *fulfilled UNNEEDED, const enum side *fulfilled_sides UNNEEDED, const struct failed_htlc **failed UNNEEDED, const enum side *failed_sides UNNEEDED, bool local_funding_locked UNNEEDED, bool remote_funding_locked UNNEEDED, const struct short_channel_id *funding_short_id UNNEEDED, bool reestablish UNNEEDED, const u8 *shutdown_scriptpubkey UNNEEDED, bool remote_shutdown_received UNNEEDED, u8 flags UNNEEDED, const u8 *init_peer_pkt UNNEEDED)
-{ fprintf(stderr, "towire_channel_init called!\n"); abort(); }
 /* Generated stub for towire_channel_send_shutdown */
 u8 *towire_channel_send_shutdown(const tal_t *ctx UNNEEDED, const u8 *scriptpubkey UNNEEDED)
 { fprintf(stderr, "towire_channel_send_shutdown called!\n"); abort(); }
@@ -377,19 +322,12 @@ u8 *towire_gossip_disable_channel(const tal_t *ctx UNNEEDED, const struct short_
 /* Generated stub for towire_gossip_getpeers_request */
 u8 *towire_gossip_getpeers_request(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
 { fprintf(stderr, "towire_gossip_getpeers_request called!\n"); abort(); }
-/* Generated stub for towire_hsm_client_hsmfd */
-u8 *towire_hsm_client_hsmfd(const tal_t *ctx UNNEEDED, const struct pubkey  *pubkey UNNEEDED, u64 capabilities UNNEEDED)
-{ fprintf(stderr, "towire_hsm_client_hsmfd called!\n"); abort(); }
 /* Generated stub for txfilter_add_scriptpubkey */
 void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, u8 *script UNNEEDED)
 { fprintf(stderr, "txfilter_add_scriptpubkey called!\n"); abort(); }
 /* Generated stub for unsupported_features */
 bool unsupported_features(const u8 *gfeatures UNNEEDED, const u8 *lfeatures UNNEEDED)
 { fprintf(stderr, "unsupported_features called!\n"); abort(); }
-/* Generated stub for update_per_commit_point */
-void update_per_commit_point(struct channel *channel UNNEEDED,
-			     const struct pubkey *per_commitment_point UNNEEDED)
-{ fprintf(stderr, "update_per_commit_point called!\n"); abort(); }
 /* Generated stub for watch_txid_ */
 struct txwatch *watch_txid_(const tal_t *ctx UNNEEDED,
 			    struct chain_topology *topo UNNEEDED,
@@ -414,9 +352,6 @@ struct txowatch *watch_txo_(const tal_t *ctx UNNEEDED,
 						    void *) UNNEEDED,
 			    void *cbdata UNNEEDED)
 { fprintf(stderr, "watch_txo_ called!\n"); abort(); }
-/* Generated stub for wire_sync_write */
-bool wire_sync_write(int fd UNNEEDED, const void *msg TAKES UNNEEDED)
-{ fprintf(stderr, "wire_sync_write called!\n"); abort(); }
 /* AUTOGENERATED MOCKS END */
 
 #if DEVELOPER
