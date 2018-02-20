@@ -314,7 +314,7 @@ static bool is_all_channel_error(const u8 *msg)
 	struct channel_id channel_id;
 	u8 *data;
 
-	if (!fromwire_error(msg, msg, NULL, &channel_id, &data))
+	if (!fromwire_error(msg, msg, &channel_id, &data))
 		return false;
 	tal_free(data);
 	return channel_id_is_all(&channel_id);
@@ -332,7 +332,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 					  struct peer *peer,
 					  u8 *msg)
 {
-	if (!fromwire_init(peer, msg, NULL, &peer->gfeatures, &peer->lfeatures)){
+	if (!fromwire_init(peer, msg, &peer->gfeatures, &peer->lfeatures)){
 		status_trace("peer %s bad fromwire_init '%s', closing",
 			     type_to_string(trc, struct pubkey, &peer->id),
 			     tal_hex(trc, msg));
@@ -449,7 +449,7 @@ static void send_node_announcement(struct daemon *daemon)
 		status_failed(STATUS_FAIL_MASTER_IO, "Could not write to HSM: %s", strerror(errno));
 
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsm_node_announcement_sig_reply(msg, NULL, &sig))
+	if (!fromwire_hsm_node_announcement_sig_reply(msg, &sig))
 		status_failed(STATUS_FAIL_MASTER_IO, "HSM returned an invalid node_announcement sig");
 
 	/* We got the signature for out provisional node_announcement back
@@ -505,7 +505,7 @@ static void handle_pong(struct peer *peer, const u8 *pong)
 	u8 *ignored;
 
 	status_trace("Got pong!");
-	if (!fromwire_pong(pong, pong, NULL, &ignored)) {
+	if (!fromwire_pong(pong, pong, &ignored)) {
 		peer_error(peer, "Bad pong");
 		return;
 	}
@@ -720,7 +720,7 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 	size_t i;
 	const u8 *update;
 
-	if (!fromwire_gossip_get_update(msg, NULL, &schanid)) {
+	if (!fromwire_gossip_get_update(msg, &schanid)) {
 		status_trace("peer %s sent bad gossip_get_update %s",
 			     type_to_string(trc, struct pubkey, &peer->id),
 			     tal_hex(trc, msg));
@@ -771,7 +771,7 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 	struct routing_channel *chan;
 
 	if (!fromwire_gossip_local_add_channel(
-		msg, NULL, &scid, &chain_hash, &remote_node_id, &flags,
+		msg, &scid, &chain_hash, &remote_node_id, &flags,
 		&cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
 		&fee_proportional_millionths)) {
 		status_trace("Unable to parse local_add_channel message: %s", tal_hex(msg, msg));
@@ -1006,7 +1006,7 @@ static struct io_plan *hand_back_peer(struct io_conn *conn,
 	struct returning_peer *rpeer = tal(daemon, struct returning_peer);
 
 	rpeer->daemon = daemon;
-	if (!fromwire_gossipctl_hand_back_peer(msg, msg, NULL,
+	if (!fromwire_gossipctl_hand_back_peer(msg, msg,
 					       &rpeer->id, &rpeer->cs,
 					       &rpeer->gossip_index,
 					       &rpeer->inner_msg))
@@ -1022,7 +1022,7 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 	struct pubkey id;
  	struct peer *peer;
 
-	if (!fromwire_gossipctl_release_peer(msg, NULL, &id))
+	if (!fromwire_gossipctl_release_peer(msg, &id))
 		master_badmsg(WIRE_GOSSIPCTL_RELEASE_PEER, msg);
 
 	peer = find_peer(daemon, &id);
@@ -1055,7 +1055,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	u8 *out;
 	struct route_hop *hops;
 
-	fromwire_gossip_getroute_request(msg, NULL, &source, &destination,
+	fromwire_gossip_getroute_request(msg, &source, &destination,
 					 &msatoshi, &riskfactor, &final_cltv);
 	status_trace("Trying to find a route from %s to %s for %d msatoshi",
 		     pubkey_to_hexstr(tmpctx, &source),
@@ -1081,7 +1081,7 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 	struct node_map_iter i;
 	struct short_channel_id *scid;
 
-	fromwire_gossip_getchannels_request(msg, msg, NULL, &scid);
+	fromwire_gossip_getchannels_request(msg, msg, &scid);
 
 	entries = tal_arr(tmpctx, struct gossip_getchannels_entry, num_chans);
 	n = node_map_first(daemon->rstate->nodes, &i);
@@ -1145,7 +1145,7 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 	const struct gossip_getnodes_entry **nodes;
 	struct pubkey *ids;
 
-	fromwire_gossip_getnodes_request(tmpctx, msg, NULL, &ids);
+	fromwire_gossip_getnodes_request(tmpctx, msg, &ids);
 
 	nodes = tal_arr(tmpctx, const struct gossip_getnodes_entry *, 0);
 	if (ids) {
@@ -1176,7 +1176,7 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 	struct peer *peer;
 	u8 *ping;
 
-	if (!fromwire_gossip_ping(msg, NULL, &id, &num_pong_bytes, &len))
+	if (!fromwire_gossip_ping(msg, &id, &num_pong_bytes, &len))
 		master_badmsg(WIRE_GOSSIP_PING, msg);
 
 	peer = find_peer(daemon, &id);
@@ -1251,7 +1251,6 @@ static void gossip_send_keepalive_update(struct routing_state *rstate,
 					 struct node_connection *nc)
 {
 	tal_t *tmpctx = tal_tmpctx(nc);
-	size_t plen = tal_len(nc->channel_update);
 	secp256k1_ecdsa_signature sig;
 	struct bitcoin_blkid chain_hash;
 	struct short_channel_id scid;
@@ -1262,7 +1261,7 @@ static void gossip_send_keepalive_update(struct routing_state *rstate,
 
 	/* Parse old update */
 	if (!fromwire_channel_update(
-		nc->channel_update, &plen, &sig, &chain_hash, &scid, &timestamp,
+		nc->channel_update, &sig, &chain_hash, &scid, &timestamp,
 		&flags, &cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
 		&fee_proportional_millionths)) {
 		status_failed(
@@ -1284,7 +1283,7 @@ static void gossip_send_keepalive_update(struct routing_state *rstate,
 	}
 
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_cupdate_sig_reply(tmpctx, msg, NULL, &update)) {
+	if (!msg || !fromwire_hsm_cupdate_sig_reply(tmpctx, msg, &update)) {
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading cupdate_sig_req: %s",
 			      strerror(errno));
@@ -1502,7 +1501,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	u16 port;
 
 	if (!fromwire_gossipctl_init(
-		daemon, msg, NULL, &daemon->broadcast_interval, &chain_hash,
+		daemon, msg, &daemon->broadcast_interval, &chain_hash,
 		&daemon->id, &port, &daemon->globalfeatures,
 		&daemon->localfeatures, &daemon->wireaddrs, daemon->rgb,
 		daemon->alias, &daemon->update_channel_interval)) {
@@ -1526,7 +1525,7 @@ static struct io_plan *resolve_channel_req(struct io_conn *conn,
 	struct node_connection *nc;
 	struct pubkey *keys;
 
-	if (!fromwire_gossip_resolve_channel_request(msg, NULL, &scid))
+	if (!fromwire_gossip_resolve_channel_request(msg, &scid))
 		master_badmsg(WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST, msg);
 
 	nc = get_connection_by_scid(daemon->rstate, &scid, 0);
@@ -1734,7 +1733,7 @@ static struct io_plan *reach_peer(struct io_conn *conn,
 {
 	struct pubkey id;
 
-	if (!fromwire_gossipctl_reach_peer(msg, NULL, &id))
+	if (!fromwire_gossipctl_reach_peer(msg, &id))
 		master_badmsg(WIRE_GOSSIPCTL_REACH_PEER, msg);
 
 	/* Master can't check this itself, because that's racy. */
@@ -1752,7 +1751,7 @@ static struct io_plan *addr_hint(struct io_conn *conn,
 {
 	struct addrhint *a = tal(daemon, struct addrhint);
 
-	if (!fromwire_gossipctl_peer_addrhint(msg, NULL, &a->id, &a->addr))
+	if (!fromwire_gossipctl_peer_addrhint(msg, &a->id, &a->addr))
 		master_badmsg(WIRE_GOSSIPCTL_PEER_ADDRHINT, msg);
 
 	/* Replace any old one. */
@@ -1773,7 +1772,7 @@ static struct io_plan *get_peers(struct io_conn *conn,
 	struct wireaddr *wireaddr = tal_arr(conn, struct wireaddr, n);
 	struct pubkey *specific_id = NULL;
 
-	if (!fromwire_gossip_getpeers_request(msg, msg, NULL, &specific_id))
+	if (!fromwire_gossip_getpeers_request(msg, msg, &specific_id))
 		master_badmsg(WIRE_GOSSIPCTL_PEER_ADDRHINT, msg);
 
 	list_for_each(&daemon->peers, peer, list) {
@@ -1798,7 +1797,7 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 	struct short_channel_id scid;
 	u8 *outscript;
 
-	if (!fromwire_gossip_get_txout_reply(msg, msg, NULL, &scid, &outscript))
+	if (!fromwire_gossip_get_txout_reply(msg, msg, &scid, &outscript))
 		master_badmsg(WIRE_GOSSIP_GET_TXOUT_REPLY, msg);
 
 	if (handle_pending_cannouncement(daemon->rstate, &scid, outscript))
@@ -1821,7 +1820,7 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 	secp256k1_ecdsa_signature sig;
 	u64 htlc_minimum_msat;
 
-	if (!fromwire_gossip_disable_channel(msg, NULL, &scid, &direction, &active) ) {
+	if (!fromwire_gossip_disable_channel(msg, &scid, &direction, &active) ) {
 		status_trace("Unable to parse %s",
 			     gossip_wire_type_name(fromwire_peektype(msg)));
 		goto fail;
@@ -1853,7 +1852,7 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 	}
 
 	if (!fromwire_channel_update(
-		nc->channel_update, NULL, &sig, &chain_hash, &scid, &timestamp,
+		nc->channel_update, &sig, &chain_hash, &scid, &timestamp,
 		&flags, &cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
 		&fee_proportional_millionths)) {
 		status_failed(
@@ -1879,7 +1878,7 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 	}
 
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_cupdate_sig_reply(tmpctx, msg, NULL, &msg)) {
+	if (!msg || !fromwire_hsm_cupdate_sig_reply(tmpctx, msg, &msg)) {
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading cupdate_sig_req: %s",
 			      strerror(errno));
@@ -1901,7 +1900,7 @@ static struct io_plan *handle_routing_failure(struct io_conn *conn,
 	u8 *channel_update;
 
 	if (!fromwire_gossip_routing_failure(msg,
-					     msg, NULL,
+					     msg,
 					     &erring_node,
 					     &erring_channel,
 					     &failcode,
@@ -1923,7 +1922,7 @@ handle_mark_channel_unroutable(struct io_conn *conn,
 {
 	struct short_channel_id channel;
 
-	if (!fromwire_gossip_mark_channel_unroutable(msg, NULL, &channel))
+	if (!fromwire_gossip_mark_channel_unroutable(msg, &channel))
 		master_badmsg(WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE, msg);
 
 	mark_channel_unroutable(daemon->rstate, &channel);

@@ -234,7 +234,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	/* This is a new channel_info.their_config so set its ID to 0 */
 	channel_info.their_config.id = 0;
 
-	if (!fromwire_opening_funder_reply(resp, resp, NULL,
+	if (!fromwire_opening_funder_reply(resp, resp,
 					   &channel_info.their_config,
 					   &remote_commit,
 					   &remote_commit_sig,
@@ -340,7 +340,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = hsm_sync_read(fc, ld);
-	if (!fromwire_hsm_sign_funding_reply(tmpctx, msg, NULL, &fundingtx))
+	if (!fromwire_hsm_sign_funding_reply(tmpctx, msg, &fundingtx))
 		fatal("HSM gave bad sign_funding_reply %s",
 		      tal_hex(msg, resp));
 
@@ -405,7 +405,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	/* This is a new channel_info.their_config, set its ID to 0 */
 	channel_info.their_config.id = 0;
 
-	if (!fromwire_opening_fundee_reply(tmpctx, reply, NULL,
+	if (!fromwire_opening_fundee_reply(tmpctx, reply,
 					   &channel_info.their_config,
 					   &remote_commit,
 					   &remote_commit_sig,
@@ -743,10 +743,10 @@ static void gossip_peer_released(struct subd *gossip,
 
 	c = active_channel_by_id(ld, &fc->peerid, &uc);
 
-	if (!fromwire_gossipctl_release_peer_reply(fc, resp, NULL, &addr, &cs,
+	if (!fromwire_gossipctl_release_peer_reply(fc, resp, &addr, &cs,
 						   &gossip_index,
 						   &gfeatures, &lfeatures)) {
-		if (!fromwire_gossipctl_release_peer_replyfail(resp, NULL)) {
+		if (!fromwire_gossipctl_release_peer_replyfail(resp)) {
 			fatal("Gossip daemon gave invalid reply %s",
 			      tal_hex(gossip, resp));
 		}

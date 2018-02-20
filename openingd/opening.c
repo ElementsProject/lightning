@@ -270,7 +270,7 @@ static u8 *funder_channel(struct state *state,
 	 * `delayed_payment_basepoint` are not valid DER-encoded compressed
 	 * secp256k1 pubkeys.
 	 */
-	if (!fromwire_accept_channel(msg, NULL, &id_in,
+	if (!fromwire_accept_channel(msg, &id_in,
 				     &state->remoteconf->dust_limit_satoshis,
 				     &state->remoteconf
 				     ->max_htlc_value_in_flight_msat,
@@ -386,7 +386,7 @@ static u8 *funder_channel(struct state *state,
 	 */
 	msg = opening_read_peer_msg(state);
 
-	if (!fromwire_funding_signed(msg, NULL, &id_in, &sig))
+	if (!fromwire_funding_signed(msg, &id_in, &sig))
 		peer_failed(&state->cs, state->gossip_index,
 			    &state->channel_id,
 			    "Parsing funding_signed: %s", tal_hex(msg, msg));
@@ -475,7 +475,7 @@ static u8 *fundee_channel(struct state *state,
 	 * `delayed_payment_basepoint` are not valid DER-encoded compressed
 	 * secp256k1 pubkeys.
 	 */
-	if (!fromwire_open_channel(peer_msg, NULL, &chain_hash,
+	if (!fromwire_open_channel(peer_msg, &chain_hash,
 				   &state->channel_id,
 				   &state->funding_satoshis, &state->push_msat,
 				   &state->remoteconf->dust_limit_satoshis,
@@ -572,7 +572,7 @@ static u8 *fundee_channel(struct state *state,
 
 	msg = opening_read_peer_msg(state);
 
-	if (!fromwire_funding_created(msg, NULL, &id_in,
+	if (!fromwire_funding_created(msg, &id_in,
 				      &state->funding_txid,
 				      &state->funding_txout,
 				      &theirsig))
@@ -699,7 +699,7 @@ int main(int argc, char *argv[])
 	status_setup_sync(REQ_FD);
 
 	msg = wire_sync_read(state, REQ_FD);
-	if (!fromwire_opening_init(msg, NULL,
+	if (!fromwire_opening_init(msg,
 				   &network_index,
 				   &state->localconf,
 				   &state->max_to_self_delay,
@@ -732,7 +732,7 @@ int main(int argc, char *argv[])
 		     type_to_string(trc, struct pubkey,
 				    &state->next_per_commit[LOCAL]));
 	msg = wire_sync_read(state, REQ_FD);
-	if (fromwire_opening_funder(state, msg, NULL,
+	if (fromwire_opening_funder(state, msg,
 				    &state->funding_satoshis,
 				    &state->push_msat,
 				    &state->feerate_per_kw, &max_minimum_depth,
@@ -742,7 +742,7 @@ int main(int argc, char *argv[])
 				     max_minimum_depth, change_satoshis,
 				     change_keyindex, channel_flags,
 				     utxos, &bip32_base);
-	else if (fromwire_opening_fundee(state, msg, NULL, &minimum_depth,
+	else if (fromwire_opening_fundee(state, msg, &minimum_depth,
 					 &min_feerate, &max_feerate, &peer_msg))
 		msg = fundee_channel(state, &our_funding_pubkey, &our_points,
 				   minimum_depth, min_feerate, max_feerate,

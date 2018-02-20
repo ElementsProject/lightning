@@ -123,7 +123,7 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 	struct pubkey point;
 	struct secret ss;
 
-	if (!fromwire_hsm_ecdh_req(dc->msg_in, NULL, &point)) {
+	if (!fromwire_hsm_ecdh_req(dc->msg_in, &point)) {
 		daemon_conn_send(c->master,
 				 take(towire_hsmstatus_client_bad_request(c,
 								&c->id,
@@ -160,7 +160,7 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 	u8 *ca;
 	struct pubkey bitcoin_id;
 
-	if (!fromwire_hsm_cannouncement_sig_req(ctx, dc->msg_in, NULL,
+	if (!fromwire_hsm_cannouncement_sig_req(ctx, dc->msg_in,
 						&bitcoin_id, &ca)) {
 		status_broken("Failed to parse cannouncement_sig_req: %s",
 			      tal_hex(trc, dc->msg_in));
@@ -202,14 +202,14 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 	struct bitcoin_blkid chain_hash;
 	u8 *cu;
 
-	if (!fromwire_hsm_cupdate_sig_req(tmpctx, dc->msg_in, NULL, &cu)) {
+	if (!fromwire_hsm_cupdate_sig_req(tmpctx, dc->msg_in, &cu)) {
 		status_broken("Failed to parse %s: %s",
 			      hsm_client_wire_type_name(fromwire_peektype(dc->msg_in)),
 			      tal_hex(trc, dc->msg_in));
 		return io_close(conn);
 	}
 
-	if (!fromwire_channel_update(cu, NULL, &sig, &chain_hash,
+	if (!fromwire_channel_update(cu, &sig, &chain_hash,
 				     &scid, &timestamp, &flags,
 				     &cltv_expiry_delta, &htlc_minimum_msat,
 				     &fee_base_msat, &fee_proportional_mill)) {
@@ -522,7 +522,7 @@ static void init_hsm(struct daemon_conn *master, const u8 *msg)
 {
 	bool new;
 
-	if (!fromwire_hsm_init(msg, NULL, &new))
+	if (!fromwire_hsm_init(msg, &new))
 		master_badmsg(WIRE_HSM_INIT, msg);
 
 	if (new)
@@ -539,7 +539,7 @@ static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg)
 	u64 capabilities;
 	struct pubkey id;
 
-	if (!fromwire_hsm_client_hsmfd(msg, NULL, &id, &capabilities))
+	if (!fromwire_hsm_client_hsmfd(msg, &id, &capabilities))
 		master_badmsg(WIRE_HSM_CLIENT_HSMFD, msg);
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
@@ -620,7 +620,7 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	u8 **scriptSigs;
 
 	/* FIXME: Check fee is "reasonable" */
-	if (!fromwire_hsm_sign_funding(tmpctx, msg, NULL,
+	if (!fromwire_hsm_sign_funding(tmpctx, msg,
 				       &satoshi_out, &change_out,
 				       &change_keyindex, &local_pubkey,
 				       &remote_pubkey, &utxomap))
@@ -687,7 +687,7 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	struct pubkey changekey;
 	u8 *scriptpubkey;
 
-	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg, NULL, &satoshi_out,
+	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg, &satoshi_out,
 					  &change_out, &change_keyindex,
 					  &scriptpubkey, &utxos)) {
 		status_broken("Failed to parse sign_withdrawal: %s",
@@ -758,7 +758,7 @@ static void sign_invoice(struct daemon_conn *master, const u8 *msg)
 	struct hash_u5 hu5;
 	struct privkey node_pkey;
 
-	if (!fromwire_hsm_sign_invoice(tmpctx, msg, NULL, &u5bytes, &hrpu8)) {
+	if (!fromwire_hsm_sign_invoice(tmpctx, msg, &u5bytes, &hrpu8)) {
 		status_broken("Failed to parse sign_invoice: %s",
 			      tal_hex(trc, msg));
 		return;
@@ -798,7 +798,7 @@ static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 	u8 *reply;
 	u8 *ann;
 
-	if (!fromwire_hsm_node_announcement_sig_req(msg, msg, NULL, &ann)) {
+	if (!fromwire_hsm_node_announcement_sig_req(msg, msg, &ann)) {
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Failed to parse node_announcement_sig_req: %s",
 			     tal_hex(trc, msg));

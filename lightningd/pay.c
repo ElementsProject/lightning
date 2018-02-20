@@ -173,19 +173,19 @@ static u8 *channel_update_from_onion_error(const tal_t *ctx,
 	 * TODO > BOLT 1.0: Add new failcodes when updating to a
 	 * new BOLT version. */
 	if (!fromwire_temporary_channel_failure(ctx,
-						onion_message, NULL,
+						onion_message,
 						&channel_update) &&
 	    !fromwire_amount_below_minimum(ctx,
-					   onion_message, NULL, &unused64,
+					   onion_message, &unused64,
 					   &channel_update) &&
 	    !fromwire_fee_insufficient(ctx,
-		    		       onion_message, NULL, &unused64,
+		    		       onion_message, &unused64,
 				       &channel_update) &&
 	    !fromwire_incorrect_cltv_expiry(ctx,
-		    			    onion_message, NULL, &unused32,
+		    			    onion_message, &unused32,
 					    &channel_update) &&
 	    !fromwire_expiry_too_soon(ctx,
-		    		      onion_message, NULL,
+		    		      onion_message,
 				      &channel_update))
 		/* No channel update. */
 		channel_update = NULL;

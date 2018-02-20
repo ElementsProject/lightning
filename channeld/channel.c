@@ -259,7 +259,7 @@ static void gossip_in(struct peer *peer, const u8 *msg)
 	u8 *gossip;
 	u16 type;
 
-	if (!fromwire_gossip_send_gossip(msg, msg, NULL,
+	if (!fromwire_gossip_send_gossip(msg, msg,
 					 &peer->gossip_index, &gossip))
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Got bad message from gossipd: %s",
@@ -335,7 +335,7 @@ static void send_announcement_signatures(struct peer *peer)
 			      strerror(errno));
 
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_cannouncement_sig_reply(msg, NULL,
+	if (!msg || !fromwire_hsm_cannouncement_sig_reply(msg,
 					  &peer->announcement_node_sigs[LOCAL]))
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading cannouncement_sig_resp: %s",
@@ -399,7 +399,7 @@ static u8 *create_channel_update(const tal_t *ctx,
 			      strerror(errno));
 
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_cupdate_sig_reply(ctx, msg, NULL, &cupdate))
+	if (!msg || !fromwire_hsm_cupdate_sig_reply(ctx, msg, &cupdate))
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading cupdate_sig_req: %s",
 			      strerror(errno));
@@ -450,7 +450,7 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 		return;
 
 	peer->old_remote_per_commit = peer->remote_per_commit;
-	if (!fromwire_funding_locked(msg, NULL, &chanid,
+	if (!fromwire_funding_locked(msg, &chanid,
 				     &peer->remote_per_commit))
 		peer_failed(&peer->cs, peer->gossip_index,
 			    &peer->channel_id,
@@ -517,7 +517,7 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 {
 	struct channel_id chanid;
 
-	if (!fromwire_announcement_signatures(msg, NULL,
+	if (!fromwire_announcement_signatures(msg,
 					      &chanid,
 					      &peer->short_channel_ids[REMOTE],
 					      &peer->announcement_node_sigs[REMOTE],
@@ -568,7 +568,7 @@ static bool get_shared_secret(const struct htlc *htlc,
 		status_failed(STATUS_FAIL_HSM_IO, "Writing ecdh req");
 	msg = wire_sync_read(tmpctx, HSM_FD);
 	/* Gives all-zero shares_secret if it was invalid. */
-	if (!msg || !fromwire_hsm_ecdh_resp(msg, NULL, shared_secret))
+	if (!msg || !fromwire_hsm_ecdh_resp(msg, shared_secret))
 		status_failed(STATUS_FAIL_HSM_IO, "Reading ecdh response");
 	tal_free(tmpctx);
 
@@ -586,7 +586,7 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 	enum channel_add_err add_err;
 	struct htlc *htlc;
 
-	if (!fromwire_update_add_htlc(msg, NULL, &channel_id, &id, &amount_msat,
+	if (!fromwire_update_add_htlc(msg, &channel_id, &id, &amount_msat,
 				      &payment_hash, &cltv_expiry,
 				      onion_routing_packet))
 		peer_failed(&peer->cs,
@@ -615,7 +615,7 @@ static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 	struct channel_id channel_id;
 	u32 feerate;
 
-	if (!fromwire_update_fee(msg, NULL, &channel_id, &feerate)) {
+	if (!fromwire_update_fee(msg, &channel_id, &feerate)) {
 		peer_failed(&peer->cs,
 			    peer->gossip_index,
 			    &peer->channel_id,
@@ -1163,7 +1163,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 						 peer->channel->view[LOCAL]
 						 .feerate_per_kw));
 
-	if (!fromwire_commitment_signed(tmpctx, msg, NULL,
+	if (!fromwire_commitment_signed(tmpctx, msg,
 					&channel_id, &commit_sig, &htlc_sigs))
 		peer_failed(&peer->cs,
 			    peer->gossip_index,
@@ -1294,7 +1294,7 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	tal_t *tmpctx = tal_tmpctx(msg);
 	const struct htlc **changed_htlcs = tal_arr(msg, const struct htlc *, 0);
 
-	if (!fromwire_revoke_and_ack(msg, NULL, &channel_id, &old_commit_secret,
+	if (!fromwire_revoke_and_ack(msg, &channel_id, &old_commit_secret,
 				     &next_per_commit)) {
 		peer_failed(&peer->cs,
 			    peer->gossip_index,
@@ -1369,7 +1369,7 @@ static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
 	struct preimage preimage;
 	enum channel_remove_err e;
 
-	if (!fromwire_update_fulfill_htlc(msg, NULL, &channel_id,
+	if (!fromwire_update_fulfill_htlc(msg, &channel_id,
 					  &id, &preimage)) {
 		peer_failed(&peer->cs,
 			    peer->gossip_index,
@@ -1408,7 +1408,7 @@ static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
 	u8 *reason;
 	struct htlc *htlc;
 
-	if (!fromwire_update_fail_htlc(msg, msg, NULL,
+	if (!fromwire_update_fail_htlc(msg, msg,
 				       &channel_id, &id, &reason)) {
 		peer_failed(&peer->cs,
 			    peer->gossip_index,
@@ -1449,7 +1449,7 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 	struct htlc *htlc;
 	u8 *fail;
 
-	if (!fromwire_update_fail_malformed_htlc(msg, NULL, &channel_id, &id,
+	if (!fromwire_update_fail_malformed_htlc(msg, &channel_id, &id,
 						 &sha256_of_onion,
 						 &failure_code)) {
 		peer_failed(&peer->cs,
@@ -1517,7 +1517,7 @@ static void handle_pong(struct peer *peer, const u8 *pong)
 	u8 *ignored;
 
 	status_trace("Got pong!");
-	if (!fromwire_pong(pong, pong, NULL, &ignored))
+	if (!fromwire_pong(pong, pong, &ignored))
 		peer_failed(&peer->cs,
 			    peer->gossip_index,
 			    &peer->channel_id,
@@ -1542,7 +1542,7 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 	msg = create_channel_update(peer, peer, true);
 	wire_sync_write(GOSSIP_FD, take(msg));
 
-	if (!fromwire_shutdown(peer, shutdown, NULL, &channel_id, &scriptpubkey))
+	if (!fromwire_shutdown(peer, shutdown, &channel_id, &scriptpubkey))
 		peer_failed(&peer->cs,
 			    peer->gossip_index,
 			    &peer->channel_id,
@@ -1793,7 +1793,7 @@ static void peer_reconnect(struct peer *peer)
 	/* Read until they say something interesting */
 	while ((msg = channeld_read_peer_msg(peer)) == NULL);
 
-	if (!fromwire_channel_reestablish(msg, NULL, &channel_id,
+	if (!fromwire_channel_reestablish(msg, &channel_id,
 					  &next_local_commitment_number,
 					  &next_remote_revocation_number)) {
 		peer_failed(&peer->cs,
@@ -1951,7 +1951,7 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 {
 	struct pubkey next_per_commit_point;
 
-	if (!fromwire_channel_funding_locked(msg, NULL,
+	if (!fromwire_channel_funding_locked(msg,
 					     &peer->short_channel_ids[LOCAL]))
 		master_badmsg(WIRE_CHANNEL_FUNDING_LOCKED, msg);
 
@@ -2003,7 +2003,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "funding not locked for offer_htlc");
 
-	if (!fromwire_channel_offer_htlc(inmsg, NULL, &amount_msat,
+	if (!fromwire_channel_offer_htlc(inmsg, &amount_msat,
 					 &cltv_expiry, &payment_hash,
 					 onion_routing_packet))
 		master_badmsg(WIRE_CHANNEL_OFFER_HTLC, inmsg);
@@ -2073,7 +2073,7 @@ static void handle_feerates(struct peer *peer, const u8 *inmsg)
 {
 	u32 feerate;
 
-	if (!fromwire_channel_feerates(inmsg, NULL, &feerate,
+	if (!fromwire_channel_feerates(inmsg, &feerate,
 				       &peer->feerate_min,
 				       &peer->feerate_max))
 		master_badmsg(WIRE_CHANNEL_FEERATES, inmsg);
@@ -2104,7 +2104,7 @@ static void handle_preimage(struct peer *peer, const u8 *inmsg)
 	u64 id;
 	struct preimage preimage;
 
-	if (!fromwire_channel_fulfill_htlc(inmsg, NULL, &id, &preimage))
+	if (!fromwire_channel_fulfill_htlc(inmsg, &id, &preimage))
 		master_badmsg(WIRE_CHANNEL_FULFILL_HTLC, inmsg);
 
 	switch (channel_fulfill_htlc(peer->channel, REMOTE, id, &preimage)) {
@@ -2138,7 +2138,7 @@ static u8 *foreign_channel_update(const tal_t *ctx,
 	msg = towire_gossip_get_update(tmpctx, scid);
 	msg = gossipd_wait_sync_reply(tmpctx, peer, take(msg),
 				      WIRE_GOSSIP_GET_UPDATE_REPLY);
-	if (!fromwire_gossip_get_update_reply(ctx, msg, NULL, &update))
+	if (!fromwire_gossip_get_update_reply(ctx, msg, &update))
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Invalid update reply");
 	tal_free(tmpctx);
@@ -2244,7 +2244,7 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 	enum channel_remove_err e;
 	struct htlc *h;
 
-	if (!fromwire_channel_fail_htlc(inmsg, inmsg, NULL, &id, &errpkt,
+	if (!fromwire_channel_fail_htlc(inmsg, inmsg, &id, &errpkt,
 					&failcode, &scid))
 		master_badmsg(WIRE_CHANNEL_FAIL_HTLC, inmsg);
 
@@ -2303,7 +2303,7 @@ static void handle_ping_cmd(struct peer *peer, const u8 *inmsg)
 	u16 num_pong_bytes, ping_len;
 	u8 *ping;
 
-	if (!fromwire_channel_ping(inmsg, NULL, &num_pong_bytes, &ping_len))
+	if (!fromwire_channel_ping(inmsg, &num_pong_bytes, &ping_len))
 		master_badmsg(WIRE_CHANNEL_PING, inmsg);
 
 	ping = make_ping(peer, num_pong_bytes, ping_len);
@@ -2332,7 +2332,7 @@ static void handle_shutdown_cmd(struct peer *peer, const u8 *inmsg)
 {
 	u8 *scriptpubkey;
 
-	if (!fromwire_channel_send_shutdown(peer, inmsg, NULL, &scriptpubkey))
+	if (!fromwire_channel_send_shutdown(peer, inmsg, &scriptpubkey))
 		master_badmsg(WIRE_CHANNEL_SEND_SHUTDOWN, inmsg);
 
 	/* We can't send this until commit (if any) is done, so start timer<. */
@@ -2448,7 +2448,7 @@ static void init_channel(struct peer *peer)
 	status_setup_sync(MASTER_FD);
 
 	msg = wire_sync_read(peer, MASTER_FD);
-	if (!fromwire_channel_init(peer, msg, NULL,
+	if (!fromwire_channel_init(peer, msg,
 				   &peer->chain_hash,
 				   &funding_txid, &funding_txout,
 				   &funding_satoshi,

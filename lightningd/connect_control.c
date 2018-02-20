@@ -70,7 +70,7 @@ void peer_connection_failed(struct lightningd *ld, const u8 *msg)
 	bool addr_unknown;
 	char *error;
 
-	if (!fromwire_gossip_peer_connection_failed(msg, NULL, &id, &timediff,
+	if (!fromwire_gossip_peer_connection_failed(msg, &id, &timediff,
 						    &attempts, &addr_unknown))
 		fatal(
 		    "Gossip gave bad GOSSIP_PEER_CONNECTION_FAILED message %s",
@@ -94,7 +94,7 @@ void peer_already_connected(struct lightningd *ld, const u8 *msg)
 {
 	struct pubkey id;
 
-	if (!fromwire_gossip_peer_already_connected(msg, NULL, &id))
+	if (!fromwire_gossip_peer_already_connected(msg, &id))
 		fatal("Gossip gave bad GOSSIP_PEER_ALREADY_CONNECTED message %s",
 		      tal_hex(msg, msg));
 

@@ -51,7 +51,7 @@ void hsm_init(struct lightningd *ld, bool newdir)
 
 	ld->wallet->bip32_base = tal(ld->wallet, struct ext_key);
 	msg = hsm_sync_read(tmpctx, ld);
-	if (!fromwire_hsm_init_reply(msg, NULL,
+	if (!fromwire_hsm_init_reply(msg,
 					&ld->id,
 					&ld->peer_seed,
 					ld->wallet->bip32_base))

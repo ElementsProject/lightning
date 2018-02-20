@@ -362,7 +362,7 @@ static bool log_status_fail(struct subd *sd, const u8 *msg)
 	enum status_failreason failreason;
 	char *desc;
 
-	if (!fromwire_status_fail(msg, msg, NULL, &failreason, &desc))
+	if (!fromwire_status_fail(msg, msg, &failreason, &desc))
 		return false;
 
 	/* No 'default:' here so gcc gives warning if a new type added */
@@ -401,7 +401,7 @@ static bool handle_peer_error(struct subd *sd, const u8 *msg, int fds[2])
 	u64 gossip_index;
 	u8 *err_for_them;
 
-	if (!fromwire_status_peer_error(msg, msg, NULL,
+	if (!fromwire_status_peer_error(msg, msg,
 					&channel_id, &desc,
 					&cs, &gossip_index, &err_for_them))
 		return false;

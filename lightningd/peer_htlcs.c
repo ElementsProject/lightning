@@ -333,7 +333,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 	u8 *failurestr;
 	struct lightningd *ld = subd->ld;
 
-	if (!fromwire_channel_offer_htlc_reply(msg, msg, NULL,
+	if (!fromwire_channel_offer_htlc_reply(msg, msg,
 					       &hout->key.id,
 					       &failure_code,
 					       &failurestr)) {
@@ -515,7 +515,7 @@ static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
 {
 	struct pubkey *nodes, *peer_id;
 
-	if (!fromwire_gossip_resolve_channel_reply(msg, msg, NULL, &nodes)) {
+	if (!fromwire_gossip_resolve_channel_reply(msg, msg, &nodes)) {
 		log_broken(gossip->log,
 			   "bad fromwire_gossip_resolve_channel_reply %s",
 			   tal_hex(msg, msg));
@@ -966,7 +966,7 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 	secp256k1_ecdsa_signature *htlc_sigs;
 	struct lightningd *ld = channel->peer->ld;
 
-	if (!fromwire_channel_sending_commitsig(msg, msg, NULL,
+	if (!fromwire_channel_sending_commitsig(msg, msg,
 						&commitnum,
 						&feerate,
 						&changed_htlcs,
@@ -1112,7 +1112,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 	size_t i;
 	struct lightningd *ld = channel->peer->ld;
 
-	if (!fromwire_channel_got_commitsig(msg, msg, NULL,
+	if (!fromwire_channel_got_commitsig(msg, msg,
 					    &commitnum,
 					    &feerate,
 					    &commit_sig,
@@ -1204,7 +1204,7 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	size_t i;
 	struct lightningd *ld = channel->peer->ld;
 
-	if (!fromwire_channel_got_revoke(msg, msg, NULL,
+	if (!fromwire_channel_got_revoke(msg, msg,
 					 &revokenum, &per_commitment_secret,
 					 &next_per_commitment_point,
 					 &changed)) {

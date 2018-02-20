@@ -149,7 +149,7 @@ static void json_pay_getroute_reply(struct subd *gossip,
 	double feepercent;
 	struct json_result *data;
 
-	fromwire_gossip_getroute_reply(reply, reply, NULL, &route);
+	fromwire_gossip_getroute_reply(reply, reply, &route);
 
 	if (tal_count(route) == 0) {
 		command_fail_detailed(pay->cmd, PAY_ROUTE_NOT_FOUND, NULL,

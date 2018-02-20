@@ -12,15 +12,13 @@ void hsm_setup(int fd)
 bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point)
 {
 	u8 *req = towire_hsm_ecdh_req(NULL, point), *resp;
-	size_t len;
 
 	if (!wire_sync_write(hsm_fd, req))
 		goto fail;
 	resp = wire_sync_read(req, hsm_fd);
 	if (!resp)
 		goto fail;
-	len = tal_count(resp);
-	if (!fromwire_hsm_ecdh_resp(resp, &len, ss))
+	if (!fromwire_hsm_ecdh_resp(resp, ss))
 		goto fail;
 	tal_free(req);
 	return true;

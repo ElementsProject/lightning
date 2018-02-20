@@ -50,7 +50,7 @@ static void handle_onchain_init_reply(struct channel *channel, const u8 *msg)
 {
 	u8 state;
 
-	if (!fromwire_onchain_init_reply(msg, NULL, &state)) {
+	if (!fromwire_onchain_init_reply(msg, &state)) {
 		channel_internal_error(channel, "Invalid onchain_init_reply");
 		return;
 	}
@@ -137,7 +137,7 @@ static void handle_onchain_broadcast_tx(struct channel *channel, const u8 *msg)
 {
 	struct bitcoin_tx *tx;
 
-	if (!fromwire_onchain_broadcast_tx(msg, msg, NULL, &tx)) {
+	if (!fromwire_onchain_broadcast_tx(msg, msg, &tx)) {
 		channel_internal_error(channel, "Invalid onchain_broadcast_tx");
 		return;
 	}
@@ -151,7 +151,7 @@ static void handle_onchain_unwatch_tx(struct channel *channel, const u8 *msg)
 	struct bitcoin_txid txid;
 	struct txwatch *txw;
 
-	if (!fromwire_onchain_unwatch_tx(msg, NULL, &txid)) {
+	if (!fromwire_onchain_unwatch_tx(msg, &txid)) {
 		channel_internal_error(channel, "Invalid onchain_unwatch_tx");
 		return;
 	}
@@ -168,7 +168,7 @@ static void handle_extracted_preimage(struct channel *channel, const u8 *msg)
 {
 	struct preimage preimage;
 
-	if (!fromwire_onchain_extracted_preimage(msg, NULL, &preimage)) {
+	if (!fromwire_onchain_extracted_preimage(msg, &preimage)) {
 		channel_internal_error(channel, "Invalid extracted_preimage");
 		return;
 	}
@@ -180,7 +180,7 @@ static void handle_missing_htlc_output(struct channel *channel, const u8 *msg)
 {
 	struct htlc_stub htlc;
 
-	if (!fromwire_onchain_missing_htlc_output(msg, NULL, &htlc)) {
+	if (!fromwire_onchain_missing_htlc_output(msg, &htlc)) {
 		channel_internal_error(channel, "Invalid missing_htlc_output");
 		return;
 	}
@@ -200,7 +200,7 @@ static void handle_onchain_htlc_timeout(struct channel *channel, const u8 *msg)
 {
 	struct htlc_stub htlc;
 
-	if (!fromwire_onchain_htlc_timeout(msg, NULL, &htlc)) {
+	if (!fromwire_onchain_htlc_timeout(msg, &htlc)) {
 		channel_internal_error(channel, "Invalid onchain_htlc_timeout");
 		return;
 	}
@@ -240,7 +240,7 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 	u->close_info->channel_id = channel->dbid;
 	u->close_info->peer_id = channel->peer->id;
 
-	if (!fromwire_onchain_add_utxo(msg, NULL, &u->txid, &u->outnum,
+	if (!fromwire_onchain_add_utxo(msg, &u->txid, &u->outnum,
 				       &u->close_info->commitment_point,
 				       &u->amount)) {
 		fatal("onchaind gave invalid add_utxo message: %s", tal_hex(msg, msg));
