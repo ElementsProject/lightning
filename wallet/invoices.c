@@ -16,8 +16,16 @@
 #include <common/utils.h>
 
 struct invoice_waiter {
+	/* Is this waiter already triggered? */
 	bool triggered;
+	/* Is this waiting for any invoice to resolve? */
+	bool any;
+	/* If !any, the specific invoice this is waiting on */
+	u64 id;
+
 	struct list_node list;
+
+	/* The callback to use */
 	void (*cb)(const struct invoice *, void*);
 	void *cbarg;
 };
@@ -31,15 +39,53 @@ struct invoices {
 	struct timers *timers;
 	/* The invoice list. */
 	struct list_head invlist;
-	/* Waiters waiting for any new invoice to be paid. */
-	struct list_head waitany_waiters;
+	/* Waiters waiting for invoices to be paid, expired, or deleted. */
+	struct list_head waiters;
 };
 
 static void trigger_invoice_waiter(struct invoice_waiter *w,
-				   struct invoice *invoice)
+				   const struct invoice *invoice)
 {
 	w->triggered = true;
 	w->cb(invoice, w->cbarg);
+}
+
+static void trigger_invoice_waiter_resolve(struct invoices *invoices,
+					   u64 id,
+					   const struct invoice *invoice)
+{
+	const tal_t *tmpctx = tal_tmpctx(invoices);
+	struct invoice_waiter *w;
+	struct invoice_waiter *n;
+
+	list_for_each_safe(&invoices->waiters, w, n, list) {
+		if (!w->any && w->id != id)
+			continue;
+		list_del_from(&invoices->waiters, &w->list);
+		tal_steal(tmpctx, w);
+		trigger_invoice_waiter(w, invoice);
+	}
+
+	tal_free(tmpctx);
+}
+static void
+trigger_invoice_waiter_expire_or_delete(struct invoices *invoices,
+					u64 id,
+					const struct invoice *invoice)
+{
+	const tal_t *tmpctx = tal_tmpctx(invoices);
+	struct invoice_waiter *w;
+	struct invoice_waiter *n;
+
+	list_for_each_safe(&invoices->waiters, w, n, list) {
+		if (w->any || w->id != id)
+			continue;
+		list_del_from(&invoices->waiters, &w->list);
+		tal_steal(tmpctx, w);
+		trigger_invoice_waiter(w, invoice);
+	}
+
+	tal_free(tmpctx);
 }
 
 static bool wallet_stmt2invoice_details(sqlite3_stmt *stmt,
@@ -72,7 +118,6 @@ static bool wallet_stmt2invoice_details(sqlite3_stmt *stmt,
 		dtl->paid_timestamp = sqlite3_column_int64(stmt, 9);
 	}
 
-	list_head_init(&invoice->waitone_waiters);
 	invoice->expiration_timer = NULL;
 
 	return true;
@@ -90,7 +135,7 @@ struct invoices *invoices_new(const tal_t *ctx,
 	invs->timers = timers;
 
 	list_head_init(&invs->invlist);
-	list_head_init(&invs->waitany_waiters);
+	list_head_init(&invs->waiters);
 
 	return invs;
 }
@@ -102,7 +147,6 @@ static void trigger_expiration(struct invoice *i)
 	struct invoices *invoices = i->owner;
 	u64 now = time_now().ts.tv_sec;
 	sqlite3_stmt *stmt;
-	struct invoice_waiter *w;
 
 	assert(i->details->state == UNPAID);
 
@@ -126,12 +170,7 @@ static void trigger_expiration(struct invoice *i)
 		sqlite3_bind_int64(stmt, 2, i->id);
 		db_exec_prepared(invoices->db, stmt);
 		/* Wake up all waiters. */
-		while ((w = list_pop(&i->waitone_waiters,
-				     struct invoice_waiter,
-				     list)) != NULL) {
-			tal_steal(tmpctx, w);
-			trigger_invoice_waiter(w, i);
-		}
+		trigger_invoice_waiter_expire_or_delete(invoices, i->id, i);
 
 		tal_free(tmpctx);
 	} else
@@ -282,7 +321,6 @@ const struct invoice *invoices_create(struct invoices *invoices,
 	memcpy(&invoice->details->r, &r, sizeof(invoice->details->r));
 	memcpy(&invoice->details->rhash, &rhash, sizeof(invoice->details->rhash));
 	invoice->details->expiry_time = expiry_time;
-	list_head_init(&invoice->waitone_waiters);
 	invoice->expiration_timer = NULL;
 
 	/* Add to invoices object. */
@@ -328,34 +366,24 @@ bool invoices_delete(struct invoices *invoices,
 		     const struct invoice *cinvoice)
 {
 	sqlite3_stmt *stmt;
-	struct invoice_waiter *w;
 	struct invoice *invoice = (struct invoice *) cinvoice;
-	const tal_t *tmpctx = tal_tmpctx(NULL);
 
 	/* Delete from database. */
 	stmt = db_prepare(invoices->db, "DELETE FROM invoices WHERE id=?;");
 	sqlite3_bind_int64(stmt, 1, invoice->id);
 	db_exec_prepared(invoices->db, stmt);
 
-	if (sqlite3_changes(invoices->db->sql) != 1) {
-		tal_free(tmpctx);
+	if (sqlite3_changes(invoices->db->sql) != 1)
 		return false;
-	}
 
 	/* Delete from invoices object. */
 	list_del_from(&invoices->invlist, &invoice->list);
 
 	/* Tell all the waiters about the fact that it was deleted. */
-	while ((w = list_pop(&invoice->waitone_waiters,
-			     struct invoice_waiter,
-			     list)) != NULL) {
-		/* Acquire the watcher for ourself first. */
-		tal_steal(tmpctx, w);
-		trigger_invoice_waiter(w, NULL);
-	}
+	trigger_invoice_waiter_expire_or_delete(invoices,
+						invoice->id, NULL);
 
 	/* Free all watchers and the invoice. */
-	tal_free(tmpctx);
 	tal_free(invoice);
 	return true;
 }
@@ -386,7 +414,6 @@ void invoices_resolve(struct invoices *invoices,
 		      u64 msatoshi_received)
 {
 	sqlite3_stmt *stmt;
-	struct invoice_waiter *w;
 	struct invoice *invoice = (struct invoice *)cinvoice;
 	s64 pay_index;
 	u64 paid_timestamp;
@@ -418,21 +445,8 @@ void invoices_resolve(struct invoices *invoices,
 	invoice->details->paid_timestamp = paid_timestamp;
 	invoice->expiration_timer = tal_free(invoice->expiration_timer);
 
-	/* Tell all the waitany waiters about the new paid invoice. */
-	while ((w = list_pop(&invoices->waitany_waiters,
-			     struct invoice_waiter,
-			     list)) != NULL) {
-		tal_steal(tmpctx, w);
-		trigger_invoice_waiter(w, invoice);
-	}
-	/* Tell any waitinvoice waiters about the specific invoice
-	 * getting paid. */
-	while ((w = list_pop(&invoice->waitone_waiters,
-			     struct invoice_waiter,
-			     list)) != NULL) {
-		tal_steal(tmpctx, w);
-		trigger_invoice_waiter(w, invoice);
-	}
+	/* Tell all the waiters about the paid invoice. */
+	trigger_invoice_waiter_resolve(invoices, invoice->id, invoice);
 
 	/* Free all watchers. */
 	tal_free(tmpctx);
@@ -450,11 +464,15 @@ static void destroy_invoice_waiter(struct invoice_waiter *w)
 /* Add an invoice waiter to the specified list of invoice waiters. */
 static void add_invoice_waiter(const tal_t *ctx,
 			       struct list_head *waiters,
+			       bool any,
+			       u64 id,
 			       void (*cb)(const struct invoice *, void*),
 			       void* cbarg)
 {
 	struct invoice_waiter *w = tal(ctx, struct invoice_waiter);
 	w->triggered = false;
+	w->any = any;
+	w->id = id;
 	list_add_tail(waiters, &w->list);
 	w->cb = cb;
 	w->cbarg = cbarg;
@@ -500,7 +518,8 @@ void invoices_waitany(const tal_t *ctx,
 	sqlite3_finalize(stmt);
 
 	/* None found. */
-	add_invoice_waiter(ctx, &invoices->waitany_waiters, cb, cbarg);
+	add_invoice_waiter(ctx, &invoices->waiters,
+			   true, 0, cb, cbarg);
 }
 
 
@@ -517,7 +536,8 @@ void invoices_waitone(const tal_t *ctx,
 	}
 
 	/* Not yet paid. */
-	add_invoice_waiter(ctx, &invoice->waitone_waiters, cb, cbarg);
+	add_invoice_waiter(ctx, &invoices->waiters,
+			   false, invoice->id, cb, cbarg);
 }
 
 void invoices_get_details(const tal_t *ctx,

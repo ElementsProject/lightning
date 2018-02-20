@@ -397,8 +397,6 @@ struct invoice {
 	struct list_node list;
 	/* Database ID */
 	u64 id;
-	/* Any JSON waitinvoice calls waiting for this to be paid */
-	struct list_head waitone_waiters;
 	/* Any expiration timer in effect */
 	struct oneshot *expiration_timer;
 	/* The owning invoices object. */
