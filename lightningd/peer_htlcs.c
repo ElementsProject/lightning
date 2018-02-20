@@ -230,7 +230,9 @@ static void handle_localpay(struct htlc_in *hin,
 {
 	enum onion_type failcode;
 	const struct invoice *invoice;
+	struct invoice_details details;
 	struct lightningd *ld = hin->key.channel->peer->ld;
+	const tal_t *tmpctx = tal_tmpctx(ld);
 
 	/* BOLT #4:
 	 *
@@ -265,6 +267,7 @@ static void handle_localpay(struct htlc_in *hin,
 		failcode = WIRE_UNKNOWN_PAYMENT_HASH;
 		goto fail;
 	}
+	wallet_invoice_details(tmpctx, ld->wallet, invoice, &details);
 
 	/* BOLT #4:
 	 *
@@ -276,10 +279,10 @@ static void handle_localpay(struct htlc_in *hin,
 	 *
 	 * 1. type: PERM|16 (`incorrect_payment_amount`)
 	 */
-	if (invoice->msatoshi != NULL && hin->msatoshi < *invoice->msatoshi) {
+	if (details.msatoshi != NULL && hin->msatoshi < *details.msatoshi) {
 		failcode = WIRE_INCORRECT_PAYMENT_AMOUNT;
 		goto fail;
-	} else if (invoice->msatoshi != NULL && hin->msatoshi > *invoice->msatoshi * 2) {
+	} else if (details.msatoshi != NULL && hin->msatoshi > *details.msatoshi * 2) {
 		failcode = WIRE_INCORRECT_PAYMENT_AMOUNT;
 		goto fail;
 	}
@@ -300,17 +303,21 @@ static void handle_localpay(struct htlc_in *hin,
 	}
 
 	log_info(ld->log, "Resolving invoice '%s' with HTLC %"PRIu64,
-		 invoice->label, hin->key.id);
+		 details.label, hin->key.id);
 	log_debug(ld->log, "%s: Actual amount %"PRIu64"msat, HTLC expiry %u",
-		  invoice->label, hin->msatoshi, cltv_expiry);
-	fulfill_htlc(hin, &invoice->r);
+		  details.label, hin->msatoshi, cltv_expiry);
+	fulfill_htlc(hin, &details.r);
 	wallet_invoice_resolve(ld->wallet, invoice, hin->msatoshi);
+
+	tal_free(tmpctx);
 	return;
 
 fail:
 	/* Final hop never sends an UPDATE. */
 	assert(!(failcode & UPDATE));
 	local_fail_htlc(hin, failcode, NULL);
+
+	tal_free(tmpctx);
 }
 
 /*

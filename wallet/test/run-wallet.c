@@ -112,6 +112,12 @@ const struct invoice *invoices_find_by_label(struct invoices *invoices UNNEEDED,
 const struct invoice *invoices_find_unpaid(struct invoices *invoices UNNEEDED,
 					   const struct sha256 *rhash UNNEEDED)
 { fprintf(stderr, "invoices_find_unpaid called!\n"); abort(); }
+/* Generated stub for invoices_get_details */
+void invoices_get_details(const tal_t *ctx UNNEEDED,
+			  struct invoices *invoices UNNEEDED,
+			  const struct invoice *invoice UNNEEDED,
+			  struct invoice_details *details UNNEEDED)
+{ fprintf(stderr, "invoices_get_details called!\n"); abort(); }
 /* Generated stub for invoices_iterate */
 const struct invoice *invoices_iterate(struct invoices *invoices UNNEEDED,
 				       const struct invoice *invoice UNNEEDED)

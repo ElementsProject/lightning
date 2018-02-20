@@ -19,7 +19,7 @@
 #include <sodium/randombytes.h>
 #include <wire/wire_sync.h>
 
-static const char *invoice_status_str(const struct invoice *inv)
+static const char *invoice_status_str(const struct invoice_details *inv)
 {
 	if (inv->state == PAID)
 		return "paid";
@@ -29,7 +29,7 @@ static const char *invoice_status_str(const struct invoice *inv)
 }
 
 static void json_add_invoice(struct json_result *response,
-			     const struct invoice *inv,
+			     const struct invoice_details *inv,
 			     bool modern)
 {
 	json_object_start(response, NULL);
@@ -60,9 +60,11 @@ static void json_add_invoice(struct json_result *response,
 static void tell_waiter(struct command *cmd, const struct invoice *inv)
 {
 	struct json_result *response = new_json_result(cmd);
+	struct invoice_details details;
 
-	json_add_invoice(response, inv, true);
-	if (inv->state == PAID)
+	wallet_invoice_details(cmd, cmd->ld->wallet, inv, &details);
+	json_add_invoice(response, &details, true);
+	if (details.state == PAID)
 		command_success(cmd, response);
 	else
 		command_fail_detailed(cmd, -2, response,
@@ -103,6 +105,7 @@ static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	const struct invoice *invoice;
+	struct invoice_details details;
 	jsmntok_t *msatoshi, *label, *desc, *exp, *fallback;
 	u64 *msatoshi_val;
 	const char *label_val;
@@ -199,11 +202,14 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 
+	/* Get details */
+	wallet_invoice_details(cmd, cmd->ld->wallet, invoice, &details);
+
 	/* Construct bolt11 string. */
-	b11 = new_bolt11(cmd, invoice->msatoshi);
+	b11 = new_bolt11(cmd, details.msatoshi);
 	b11->chain = get_chainparams(cmd->ld);
 	b11->timestamp = time_now().ts.tv_sec;
-	b11->payment_hash = invoice->rhash;
+	b11->payment_hash = details.rhash;
 	b11->receiver_id = cmd->ld->id;
 	b11->min_final_cltv_expiry = cmd->ld->config.cltv_final;
 	b11->expiry = expiry;
@@ -217,10 +223,10 @@ static void json_invoice(struct command *cmd,
 
 	json_object_start(response, NULL);
 	json_add_hex(response, "payment_hash",
-		     &invoice->rhash, sizeof(invoice->rhash));
+		     &details.rhash, sizeof(details.rhash));
 	if (deprecated_apis)
-		json_add_u64(response, "expiry_time", invoice->expiry_time);
-	json_add_u64(response, "expires_at", invoice->expiry_time);
+		json_add_u64(response, "expiry_time", details.expiry_time);
+	json_add_u64(response, "expires_at", details.expiry_time);
 	json_add_string(response, "bolt11", b11enc);
 	json_object_end(response);
 
@@ -240,15 +246,17 @@ static void json_add_invoices(struct json_result *response,
 			      bool modern)
 {
 	const struct invoice *i;
+	struct invoice_details details;
 	char *lbl = NULL;
 	if (label)
 		lbl = tal_strndup(response, &buffer[label->start], label->end - label->start);
 
 	i = NULL;
 	while ((i = wallet_invoice_iterate(wallet, i)) != NULL) {
-		if (lbl && !streq(i->label, lbl))
+		wallet_invoice_details(response, wallet, i, &details);
+		if (lbl && !streq(details.label, lbl))
 			continue;
-		json_add_invoice(response, i, modern);
+		json_add_invoice(response, &details, modern);
 	}
 }
 
@@ -311,6 +319,7 @@ static void json_delinvoice(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
 {
 	const struct invoice *i;
+	struct invoice_details details;
 	jsmntok_t *labeltok, *statustok;
 	struct json_result *response = new_json_result(cmd);
 	const char *label, *status, *actual_status;
@@ -330,12 +339,13 @@ static void json_delinvoice(struct command *cmd,
 		command_fail(cmd, "Unknown invoice");
 		return;
 	}
+	wallet_invoice_details(cmd, cmd->ld->wallet, i, &details);
 
 	status = tal_strndup(cmd, buffer + statustok->start,
 			     statustok->end - statustok->start);
 	/* This is time-sensitive, so only call once; otherwise error msg
 	 * might not make sense if it changed! */
-	actual_status = invoice_status_str(i);
+	actual_status = invoice_status_str(&details);
 	if (!streq(actual_status, status)) {
 		command_fail(cmd, "Invoice status is %s not %s",
 			     actual_status, status);
@@ -344,7 +354,7 @@ static void json_delinvoice(struct command *cmd,
 
 	/* Get invoice details before attempting to delete, as
 	 * otherwise the invoice will be freed. */
-	json_add_invoice(response, i, true);
+	json_add_invoice(response, &details, true);
 
 	if (!wallet_invoice_delete(wallet, i)) {
 		log_broken(cmd->ld->log,
@@ -415,6 +425,7 @@ static void json_waitinvoice(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
 	const struct invoice *i;
+	struct invoice_details details;
 	struct wallet *wallet = cmd->ld->wallet;
 	jsmntok_t *labeltok;
 	const char *label = NULL;
@@ -430,7 +441,10 @@ static void json_waitinvoice(struct command *cmd,
 	if (!i) {
 		command_fail(cmd, "Label not found");
 		return;
-	} else if (i->state == PAID || i->state == EXPIRED) {
+	}
+	wallet_invoice_details(cmd, cmd->ld->wallet, i, &details);
+
+	if (details.state == PAID || details.state == EXPIRED) {
 		tell_waiter(cmd, i);
 		return;
 	} else {

@@ -7,6 +7,7 @@
 
 struct db;
 struct invoice;
+struct invoice_details;
 struct invoices;
 struct log;
 struct sha256;
@@ -158,5 +159,18 @@ void invoices_waitone(const tal_t *ctx,
 		      struct invoice const *invoice,
 		      void (*cb)(const struct invoice *, void*),
 		      void *cbarg);
+
+/**
+ * invoices_get_details - Get the invoice_details of an invoice.
+ *
+ * @ctx - the owner of the label and msatoshi fields returned.
+ * @invoices - the invoice handler,
+ * @invoice - the invoice to get details on.
+ * @details - pointer to details object to load.
+ */
+void invoices_get_details(const tal_t *ctx,
+			  struct invoices *invoices,
+			  const struct invoice *invoice,
+			  struct invoice_details *details);
 
 #endif /* LIGHTNING_WALLET_INVOICES_H */
