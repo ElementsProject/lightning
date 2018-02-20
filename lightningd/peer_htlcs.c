@@ -105,6 +105,10 @@ static void fail_in_htlc(struct htlc_in *hin,
 	if (!hin->key.channel->owner)
 		return;
 
+	/* onchaind doesn't care, it can't do anything but wait */
+	if (channel_on_chain(hin->key.channel))
+		return;
+
 	subd_send_msg(hin->key.channel->owner,
 		      take(towire_channel_fail_htlc(hin,
 						    hin->key.id,
