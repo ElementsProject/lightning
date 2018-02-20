@@ -6,7 +6,7 @@ bool check_ping_make_pong(const tal_t *ctx, const u8 *ping, u8 **pong)
 	u16 num_pong_bytes;
 	u8 *ignored;
 
-	if (!fromwire_ping(ctx, ping, NULL, &num_pong_bytes, &ignored))
+	if (!fromwire_ping(ctx, ping, &num_pong_bytes, &ignored))
 		return false;
 	tal_free(ignored);
 

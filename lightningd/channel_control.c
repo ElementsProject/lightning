@@ -23,7 +23,7 @@ static void peer_got_funding_locked(struct channel *channel, const u8 *msg)
 {
 	struct pubkey next_per_commitment_point;
 
-	if (!fromwire_channel_got_funding_locked(msg, NULL,
+	if (!fromwire_channel_got_funding_locked(msg,
 						 &next_per_commitment_point)) {
 		channel_internal_error(channel,
 				       "bad channel_got_funding_locked %s",
@@ -47,7 +47,7 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	u8 *scriptpubkey;
 	struct lightningd *ld = channel->peer->ld;
 
-	if (!fromwire_channel_got_shutdown(channel, msg, NULL, &scriptpubkey)) {
+	if (!fromwire_channel_got_shutdown(channel, msg, &scriptpubkey)) {
 		channel_internal_error(channel, "bad channel_got_shutdown %s",
 				       tal_hex(msg, msg));
 		return;
@@ -132,7 +132,7 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 	/* We expect 2 fds. */
 	assert(tal_count(fds) == 2);
 
-	if (!fromwire_channel_shutdown_complete(msg, NULL, &cs, &gossip_index)) {
+	if (!fromwire_channel_shutdown_complete(msg, &cs, &gossip_index)) {
 		channel_internal_error(channel, "bad shutdown_complete: %s",
 				       tal_hex(msg, msg));
 		return;
@@ -225,7 +225,7 @@ bool peer_start_channeld(struct channel *channel,
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = hsm_sync_read(tmpctx, ld);
-	if (!fromwire_hsm_client_hsmfd_reply(msg, NULL))
+	if (!fromwire_hsm_client_hsmfd_reply(msg))
 		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
 
 	hsmfd = fdpass_recv(ld->hsm_fd);

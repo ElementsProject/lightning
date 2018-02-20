@@ -290,7 +290,7 @@ static void json_withdraw(struct command *cmd,
 
 	msg = hsm_sync_read(cmd, cmd->ld);
 
-	if (!fromwire_hsm_sign_withdrawal_reply(msg, msg, NULL, &tx))
+	if (!fromwire_hsm_sign_withdrawal_reply(msg, msg, &tx))
 		fatal("HSM gave bad sign_withdrawal_reply %s",
 		      tal_hex(withdraw, msg));
 

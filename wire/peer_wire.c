@@ -84,10 +84,10 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 	struct pubkey ignored_pubkey;
 	struct bitcoin_blkid ignored_chainhash;
 
-	if (fromwire_channel_reestablish(in_pkt, NULL, channel_id,
+	if (fromwire_channel_reestablish(in_pkt, channel_id,
 					 &ignored_u64, &ignored_u64))
 		return true;
-	if (fromwire_open_channel(in_pkt, NULL, &ignored_chainhash,
+	if (fromwire_open_channel(in_pkt, &ignored_chainhash,
 				  channel_id, &ignored_u64,
 				  &ignored_u64, &ignored_u64,
 				  &ignored_u64, &ignored_u64,

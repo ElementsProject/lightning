@@ -123,7 +123,7 @@ static void do_reconnect(struct crypto_state *cs,
 	/* Wait for them to say something interesting */
 	msg = closing_read_peer_msg(tmpctx, cs, gossip_index, channel_id);
 
-	if (!fromwire_channel_reestablish(msg, NULL, &their_channel_id,
+	if (!fromwire_channel_reestablish(msg, &their_channel_id,
 					  &next_local_commitment_number,
 					  &next_remote_revocation_number)) {
 		peer_failed(cs, gossip_index, channel_id,
@@ -218,7 +218,7 @@ static void tell_master_their_offer(u64 their_offer,
 
 	/* Wait for master to ack, to make sure it's in db. */
 	msg = wire_sync_read(NULL, REQ_FD);
-	if (!fromwire_closing_received_signature_reply(msg,NULL))
+	if (!fromwire_closing_received_signature_reply(msg))
 		master_badmsg(WIRE_CLOSING_RECEIVED_SIGNATURE_REPLY, msg);
 	tal_free(msg);
 }
@@ -267,7 +267,7 @@ static uint64_t receive_offer(struct crypto_state *cs,
 			msg = tal_free(msg);
 	} while (!msg);
 
-	if (!fromwire_closing_signed(msg, NULL, &their_channel_id,
+	if (!fromwire_closing_signed(msg, &their_channel_id,
 				     &received_fee, &their_sig))
 		peer_failed(cs, gossip_index, channel_id,
 			    "Expected closing_signed: %s",
@@ -463,7 +463,7 @@ int main(int argc, char *argv[])
 	status_setup_sync(REQ_FD);
 
 	msg = wire_sync_read(ctx, REQ_FD);
-	if (!fromwire_closing_init(ctx, msg, NULL,
+	if (!fromwire_closing_init(ctx, msg,
 				   &cs, &gossip_index, &seed,
 				   &funding_txid, &funding_txout,
 				   &funding_satoshi,

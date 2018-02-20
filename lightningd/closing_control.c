@@ -74,7 +74,7 @@ static void peer_received_closing_signature(struct channel *channel,
 	struct bitcoin_tx *tx;
 	struct lightningd *ld = channel->peer->ld;
 
-	if (!fromwire_closing_received_signature(msg, msg, NULL, &sig, &tx)) {
+	if (!fromwire_closing_received_signature(msg, msg, &sig, &tx)) {
 		channel_internal_error(channel, "Bad closing_received_signature %s",
 				       tal_hex(msg, msg));
 		return;
@@ -97,7 +97,7 @@ static void peer_closing_complete(struct channel *channel, const u8 *msg)
 	/* FIXME: We should save this, to return to gossipd */
 	u64 gossip_index;
 
-	if (!fromwire_closing_complete(msg, NULL, &gossip_index)) {
+	if (!fromwire_closing_complete(msg, &gossip_index)) {
 		channel_internal_error(channel, "Bad closing_complete %s",
 				       tal_hex(msg, msg));
 		return;

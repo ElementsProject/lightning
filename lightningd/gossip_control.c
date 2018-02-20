@@ -34,7 +34,7 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 	u8 *gfeatures, *lfeatures, *in_pkt;
 	u64 gossip_index;
 
-	if (!fromwire_gossip_peer_nongossip(msg, msg, NULL,
+	if (!fromwire_gossip_peer_nongossip(msg, msg,
 					    &id, &addr, &cs, &gossip_index,
 					    &gfeatures,
 					    &lfeatures,
@@ -79,7 +79,7 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 {
 	struct short_channel_id *scid = tal(gossip, struct short_channel_id);
 
-	if (!fromwire_gossip_get_txout(msg, NULL, scid))
+	if (!fromwire_gossip_get_txout(msg, scid))
 		fatal("Gossip gave bad GOSSIP_GET_TXOUT message %s",
 		      tal_hex(msg, msg));
 
@@ -165,7 +165,7 @@ void gossip_init(struct lightningd *ld)
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = hsm_sync_read(tmpctx, ld);
-	if (!fromwire_hsm_client_hsmfd_reply(msg, NULL))
+	if (!fromwire_hsm_client_hsmfd_reply(msg))
 		fatal("Malformed hsmfd response: %s", tal_hex(msg, msg));
 
 	hsmfd = fdpass_recv(ld->hsm_fd);
@@ -196,7 +196,7 @@ static void json_getnodes_reply(struct subd *gossip, const u8 *reply,
 	struct json_result *response = new_json_result(cmd);
 	size_t i, j;
 
-	if (!fromwire_gossip_getnodes_reply(reply, reply, NULL, &nodes)) {
+	if (!fromwire_gossip_getnodes_reply(reply, reply, &nodes)) {
 		command_fail(cmd, "Malformed gossip_getnodes response");
 		return;
 	}
@@ -270,7 +270,7 @@ static void json_getroute_reply(struct subd *gossip, const u8 *reply, const int 
 	struct route_hop *hops;
 	size_t i;
 
-	fromwire_gossip_getroute_reply(reply, reply, NULL, &hops);
+	fromwire_gossip_getroute_reply(reply, reply, &hops);
 
 	if (tal_count(hops) == 0) {
 		command_fail(cmd, "Could not find a route");
@@ -362,7 +362,7 @@ static void json_listchannels_reply(struct subd *gossip, const u8 *reply,
 	struct gossip_getchannels_entry *entries;
 	struct json_result *response = new_json_result(cmd);
 
-	if (!fromwire_gossip_getchannels_reply(reply, reply, NULL, &entries)) {
+	if (!fromwire_gossip_getchannels_reply(reply, reply, &entries)) {
 		command_fail(cmd, "Invalid reply from gossipd");
 		return;
 	}

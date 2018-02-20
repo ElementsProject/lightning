@@ -17,9 +17,9 @@ static void ping_reply(struct subd *subd, const u8 *msg, const int *fds,
 
 	log_debug(subd->ld->log, "Got ping reply!");
 	if (streq(subd->name, "lightning_channeld"))
-		ok = fromwire_channel_ping_reply(msg, NULL, &totlen);
+		ok = fromwire_channel_ping_reply(msg, &totlen);
 	else
-		ok = fromwire_gossip_ping_reply(msg, NULL, &sent, &totlen);
+		ok = fromwire_gossip_ping_reply(msg, &sent, &totlen);
 
 	if (!ok)
 		command_fail(cmd, "Bad reply message");

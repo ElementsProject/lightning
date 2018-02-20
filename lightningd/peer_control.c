@@ -288,7 +288,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	u64 gossip_index;
 	struct uncommitted_channel *uc;
 
-	if (!fromwire_gossip_peer_connected(msg, msg, NULL,
+	if (!fromwire_gossip_peer_connected(msg, msg,
 					    &id, &addr, &cs, &gossip_index,
 					    &gfeatures, &lfeatures))
 		fatal("Gossip gave bad GOSSIP_PEER_CONNECTED message %s",
@@ -593,7 +593,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 	struct json_result *response = new_json_result(gpa->cmd);
 	struct peer *p;
 
-	if (!fromwire_gossip_getpeers_reply(msg, msg, NULL, &ids, &addrs)) {
+	if (!fromwire_gossip_getpeers_reply(msg, msg, &ids, &addrs)) {
 		command_fail(gpa->cmd, "Bad response from gossipd");
 		return;
 	}

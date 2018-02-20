@@ -648,7 +648,7 @@ const struct short_channel_id *handle_channel_announcement(
 					announce, tal_len(announce), 0);
 	pending->update_timestamps[0] = pending->update_timestamps[1] = 0;
 
-	if (!fromwire_channel_announcement(pending, pending->announce, NULL,
+	if (!fromwire_channel_announcement(pending, pending->announce,
 					   &node_signature_1,
 					   &node_signature_2,
 					   &bitcoin_signature_1,
@@ -880,7 +880,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	size_t len = tal_len(update);
 
 	serialized = tal_dup_arr(tmpctx, u8, update, len, 0);
-	if (!fromwire_channel_update(serialized, NULL, &signature,
+	if (!fromwire_channel_update(serialized, &signature,
 				     &chain_hash, &short_channel_id,
 				     &timestamp, &flags, &expiry,
 				     &htlc_minimum_msat, &fee_base_msat,
@@ -1025,7 +1025,7 @@ void handle_node_announcement(
 	size_t len = tal_len(node_ann);
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
-	if (!fromwire_node_announcement(tmpctx, serialized, NULL,
+	if (!fromwire_node_announcement(tmpctx, serialized,
 					&signature, &features, &timestamp,
 					&node_id, rgb_color, alias,
 					&addresses)) {

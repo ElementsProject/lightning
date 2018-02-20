@@ -187,24 +187,20 @@ class Field(object):
 
         raise ValueError('Unknown size {} for {}'.format(base_size,fieldname))
 
-fromwire_impl_templ = """bool fromwire_{name}({ctx}const void *p, size_t *plen{args})
+fromwire_impl_templ = """bool fromwire_{name}({ctx}const void *p{args})
 {{
 {fields}
 	const u8 *cursor = p;
-	size_t tmp_len;
+	size_t plen = tal_len(p);
 
-	if (!plen) {{
-		tmp_len = tal_count(p);
-		plen = &tmp_len;
-	}}
-	if (fromwire_u16(&cursor, plen) != {enum.name})
+	if (fromwire_u16(&cursor, &plen) != {enum.name})
 		return false;
 {subcalls}
 	return cursor != NULL;
 }}
 """
 
-fromwire_header_templ = """bool fromwire_{name}({ctx}const void *p, size_t *plen{args});
+fromwire_header_templ = """bool fromwire_{name}({ctx}const void *p{args});
 """
 
 towire_header_templ = """u8 *towire_{name}(const tal_t *ctx{args});
@@ -274,19 +270,19 @@ class Message(object):
 
     def print_fromwire_array(self, subcalls, basetype, f, name, num_elems):
         if f.has_array_helper():
-            subcalls.append('\tfromwire_{}_array(&cursor, plen, {}, {});'
+            subcalls.append('\tfromwire_{}_array(&cursor, &plen, {}, {});'
                             .format(basetype, name, num_elems))
         else:
             subcalls.append('\tfor (size_t i = 0; i < {}; i++)'
                             .format(num_elems))
             if f.fieldtype.is_assignable():
-                subcalls.append('\t\t({})[i] = fromwire_{}(&cursor, plen);'
+                subcalls.append('\t\t({})[i] = fromwire_{}(&cursor, &plen);'
                                 .format(name, basetype))
             elif basetype in varlen_structs:
-                subcalls.append('\t\t({})[i] = fromwire_{}(ctx, &cursor, plen);'
+                subcalls.append('\t\t({})[i] = fromwire_{}(ctx, &cursor, &plen);'
                                 .format(name, basetype))
             else:
-                subcalls.append('\t\tfromwire_{}(&cursor, plen, {} + i);'
+                subcalls.append('\t\tfromwire_{}(&cursor, &plen, {} + i);'
                                 .format(basetype, name))
 
     def print_fromwire(self,is_header):
@@ -321,7 +317,7 @@ class Message(object):
                 subcalls.append('\t/*{} */'.format(c))
 
             if f.is_padding():
-                subcalls.append('\tfromwire_pad(&cursor, plen, {});'
+                subcalls.append('\tfromwire_pad(&cursor, &plen, {});'
                                 .format(f.num_elems))
             elif f.is_array():
                 self.print_fromwire_array(subcalls, basetype, f, f.name,
@@ -340,16 +336,16 @@ class Message(object):
             elif f.is_assignable():
                 subcalls.append("\t//3th case {name}".format(name=f.name))
                 if f.is_len_var:
-                    subcalls.append('\t{} = fromwire_{}(&cursor, plen);'
+                    subcalls.append('\t{} = fromwire_{}(&cursor, &plen);'
                                     .format(f.name, basetype))
                 else:
-                    subcalls.append('\t*{} = fromwire_{}(&cursor, plen);'
+                    subcalls.append('\t*{} = fromwire_{}(&cursor, &plen);'
                                     .format(f.name, basetype))
             elif basetype in varlen_structs:
-                subcalls.append('\t*{} = fromwire_{}(ctx, &cursor, plen);'
+                subcalls.append('\t*{} = fromwire_{}(ctx, &cursor, &plen);'
                                 .format(f.name, basetype))
             else:
-                subcalls.append('\tfromwire_{}(&cursor, plen, {});'
+                subcalls.append('\tfromwire_{}(&cursor, &plen, {});'
                                 .format(basetype, f.name))
 
         return template.format(

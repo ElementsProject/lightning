@@ -91,7 +91,7 @@ static bool hsm_sign_b11(const u5 *u5bytes,
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = hsm_sync_read(ld, ld);
-        if (!fromwire_hsm_sign_invoice_reply(msg, NULL, rsig))
+        if (!fromwire_hsm_sign_invoice_reply(msg, rsig))
 		fatal("HSM gave bad sign_invoice_reply %s",
 		      tal_hex(msg, msg));
 

@@ -950,12 +950,12 @@ static void wait_for_resolved(struct tracked_output **outs)
 		status_trace("Got new message %s",
 			     onchain_wire_type_name(fromwire_peektype(msg)));
 
-		if (fromwire_onchain_depth(msg, NULL, &txid, &depth))
+		if (fromwire_onchain_depth(msg, &txid, &depth))
 			tx_new_depth(outs, &txid, depth);
-		else if (fromwire_onchain_spent(msg, msg, NULL, &tx, &input_num,
+		else if (fromwire_onchain_spent(msg, msg, &tx, &input_num,
 						&tx_blockheight))
 			output_spent(&outs, tx, input_num, tx_blockheight);
-		else if (fromwire_onchain_known_preimage(msg, NULL, &preimage))
+		else if (fromwire_onchain_known_preimage(msg, &preimage))
 			handle_preimage(outs, &preimage);
 		else
 			master_badmsg(-1, msg);
@@ -1982,7 +1982,7 @@ int main(int argc, char *argv[])
 	missing_htlc_msgs = tal_arr(ctx, u8 *, 0);
 
 	msg = wire_sync_read(ctx, REQ_FD);
-	if (!fromwire_onchain_init(ctx, msg, NULL,
+	if (!fromwire_onchain_init(ctx, msg,
 				   &seed, &shachain,
 				   &funding_amount_satoshi,
 				   &old_remote_per_commit_point,
@@ -2021,7 +2021,7 @@ int main(int argc, char *argv[])
 
 	for (u64 i = 0; i < num_htlcs; i++) {
 		msg = wire_sync_read(ctx, REQ_FD);
-		if (!fromwire_onchain_htlc(msg, NULL, &htlcs[i],
+		if (!fromwire_onchain_htlc(msg, &htlcs[i],
 					   &tell_if_missing[i],
 					   &tell_immediately[i]))
 			master_badmsg(WIRE_ONCHAIN_HTLC, msg);
