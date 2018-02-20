@@ -62,6 +62,13 @@ void command_still_pending(struct command *cmd UNNEEDED)
 /* Generated stub for command_success */
 void command_success(struct command *cmd UNNEEDED, struct json_result *response UNNEEDED)
 { fprintf(stderr, "command_success called!\n"); abort(); }
+/* Generated stub for connect_failed */
+void connect_failed(struct lightningd *ld UNNEEDED, const struct pubkey *id UNNEEDED,
+		    const char *error UNNEEDED)
+{ fprintf(stderr, "connect_failed called!\n"); abort(); }
+/* Generated stub for connect_succeeded */
+void connect_succeeded(struct lightningd *ld UNNEEDED, const struct pubkey *id UNNEEDED)
+{ fprintf(stderr, "connect_succeeded called!\n"); abort(); }
 /* Generated stub for derive_basepoints */
 bool derive_basepoints(const struct privkey *seed UNNEEDED,
 		       struct pubkey *funding_pubkey UNNEEDED,
@@ -105,9 +112,6 @@ bool fromwire_gossip_peer_already_connected(const void *p UNNEEDED, size_t *plen
 /* Generated stub for fromwire_gossip_peer_connected */
 bool fromwire_gossip_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, size_t *plen UNNEEDED, struct pubkey *id UNNEEDED, struct wireaddr *addr UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u64 *gossip_index UNNEEDED, u8 **gfeatures UNNEEDED, u8 **lfeatures UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_peer_connected called!\n"); abort(); }
-/* Generated stub for fromwire_gossip_peer_connection_failed */
-bool fromwire_gossip_peer_connection_failed(const void *p UNNEEDED, size_t *plen UNNEEDED, struct pubkey *id UNNEEDED, u32 *timeout UNNEEDED, u32 *attempts UNNEEDED, bool *addr_unknown UNNEEDED)
-{ fprintf(stderr, "fromwire_gossip_peer_connection_failed called!\n"); abort(); }
 /* Generated stub for fromwire_hsm_client_hsmfd_reply */
 bool fromwire_hsm_client_hsmfd_reply(const void *p UNNEEDED, size_t *plen UNNEEDED)
 { fprintf(stderr, "fromwire_hsm_client_hsmfd_reply called!\n"); abort(); }
@@ -261,10 +265,6 @@ bool json_tok_bool(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, b
 bool json_tok_loglevel(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		       enum log_level *level UNNEEDED)
 { fprintf(stderr, "json_tok_loglevel called!\n"); abort(); }
-/* Generated stub for json_tok_number */
-bool json_tok_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		     unsigned int *num UNNEEDED)
-{ fprintf(stderr, "json_tok_number called!\n"); abort(); }
 /* Generated stub for json_tok_pubkey */
 bool json_tok_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		     struct pubkey *pubkey UNNEEDED)
