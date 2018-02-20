@@ -2695,7 +2695,7 @@ static void peer_offer_channel(struct lightningd *ld,
 				    take(&peer_fd), take(&gossip_fd),
 				    NULL);
 	if (!fc->uc->openingd) {
-		/* We don't send them an eror packet: for them, nothing
+		/* We don't send them an error packet: for them, nothing
 		 * happened! */
 		uncommitted_channel_to_gossipd(ld, fc->uc, NULL,
 					       gossip_index,
