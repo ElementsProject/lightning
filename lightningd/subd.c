@@ -157,7 +157,7 @@ static int subd(const char *dir, const char *name,
 		goto close_execfail_fail;
 
 	if (childpid == 0) {
-		int fdnum = 3, i;
+		int fdnum = 3, i, stdin_is_now = STDIN_FILENO;
 		long max;
 		size_t num_args;
 		char *args[] = { NULL, NULL, NULL, NULL, NULL };
@@ -167,6 +167,8 @@ static int subd(const char *dir, const char *name,
 
 		// msg = STDIN
 		if (childmsg[1] != STDIN_FILENO) {
+			/* Do we need to move STDIN out the way? */
+			stdin_is_now = dup(STDIN_FILENO);
 			if (!move_fd(childmsg[1], STDIN_FILENO))
 				goto child_errno_fail;
 		}
@@ -181,9 +183,11 @@ static int subd(const char *dir, const char *name,
 		/* Dup any extra fds up first. */
 		if (ap) {
 			while ((fd = va_arg(*ap, int *)) != NULL) {
-				/* If this were stdin, dup2 closed! */
-				assert(*fd != STDIN_FILENO);
-				if (!move_fd(*fd, fdnum))
+				int actual_fd = *fd;
+				/* If this were stdin, we moved it above! */
+				if (actual_fd == STDIN_FILENO)
+					actual_fd = stdin_is_now;
+				if (!move_fd(actual_fd, fdnum))
 					goto child_errno_fail;
 				fdnum++;
 			}
