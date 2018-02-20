@@ -61,6 +61,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/log.c			\
 	lightningd/log_status.c			\
 	lightningd/netaddress.c			\
+	lightningd/opening_control.c		\
 	lightningd/opt_time.c			\
 	lightningd/options.c			\
 	lightningd/pay.c			\
