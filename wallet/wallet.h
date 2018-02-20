@@ -368,6 +368,28 @@ enum invoice_status {
 	EXPIRED,
 };
 
+/* The information about an invoice */
+struct invoice_details {
+	/* Current invoice state */
+	enum invoice_status state;
+	/* Preimage for this invoice */
+	struct preimage r;
+	/* Hash of preimage r */
+	struct sha256 rhash;
+	/* Label assigned by user */
+	const char *label;
+	/* NULL if they specified "any" */
+	u64 *msatoshi;
+	/* Absolute UNIX epoch time this will expire */
+	u64 expiry_time;
+	/* Set if state == PAID; order to be returned by waitanyinvoice */
+	u64 pay_index;
+	/* Set if state == PAID; amount received */
+	u64 msatoshi_received;
+	/* Set if state == PAID; time paid */
+	u64 paid_timestamp;
+};
+
 struct invoice {
 	/* Internal, rest of lightningd should not use */
 	/* List off ld->wallet->invoices. Must be first or else
@@ -381,21 +403,8 @@ struct invoice {
 	struct oneshot *expiration_timer;
 	/* The owning invoices object. */
 	struct invoices *owner;
-
-	/* Publicly-usable fields. */
-	enum invoice_status state;
-	const char *label;
-	/* NULL if they specified "any" */
-	u64 *msatoshi;
-	/* Set if state == PAID */
-	u64 msatoshi_received;
-	/* Set if state == PAID */
-	u64 paid_timestamp;
-	struct preimage r;
-	u64 expiry_time;
-	struct sha256 rhash;
-	/* Set if state == PAID */
-	u64 pay_index;
+	/* Loaded details. */
+	struct invoice_details *details;
 };
 
 #define INVOICE_MAX_LABEL_LEN 128
@@ -540,6 +549,18 @@ void wallet_invoice_waitone(const tal_t *ctx,
 			    void (*cb)(const struct invoice *, void*),
 			    void *cbarg);
 
+/**
+ * wallet_invoice_details - Get the invoice_details of an invoice.
+ *
+ * @ctx - the owner of the label and msatoshi fields returned.
+ * @wallet - the wallet to query.
+ * @invoice - the invoice to get details on.
+ * @details - pointer to details object to load.
+ */
+void wallet_invoice_details(const tal_t *ctx,
+			    struct wallet *wallet,
+			    const struct invoice *invoice,
+			    struct invoice_details *details);
 
 /**
  * wallet_htlc_stubs - Retrieve HTLC stubs for the given channel

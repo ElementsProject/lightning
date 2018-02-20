@@ -1314,7 +1314,13 @@ void wallet_invoice_waitone(const tal_t *ctx,
 {
 	invoices_waitone(ctx, wallet->invoices, invoice, cb, cbarg);
 }
-
+void wallet_invoice_details(const tal_t *ctx,
+			    struct wallet *wallet,
+			    const struct invoice *invoice,
+			    struct invoice_details *details)
+{
+	invoices_get_details(ctx, wallet->invoices, invoice, details);
+}
 
 
 struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
