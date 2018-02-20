@@ -297,14 +297,15 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 void channel_internal_error(struct channel *channel, const char *fmt, ...)
 {
 	va_list ap;
+	char *why;
 
 	va_start(ap, fmt);
-	log_broken(channel->log, "Peer internal error %s: ",
-		   channel_state_name(channel));
-	logv_add(channel->log, fmt, ap);
+	why = tal_vfmt(channel, fmt, ap);
 	va_end(ap);
 
-	channel_fail_permanent(channel, "Internal error");
+	log_broken(channel->log, "Peer internal error %s: %s",
+		   channel_state_name(channel), why);
+	channel_fail_permanent(channel, "Internal error: %s", why);
 }
 
 void channel_fail_transient(struct channel *channel, const char *fmt, ...)
