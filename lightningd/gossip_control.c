@@ -17,6 +17,7 @@
 #include <hsmd/capabilities.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
+#include <lightningd/connect_control.h>
 #include <lightningd/gossip_msg.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
