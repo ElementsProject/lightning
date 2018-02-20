@@ -11,6 +11,7 @@ struct channel;
 struct htlc_in;
 struct htlc_out;
 struct htlc_stub;
+struct lightningd;
 
 /* FIXME: Define serialization primitive for this? */
 struct channel_info {
@@ -33,6 +34,8 @@ void peer_htlcs(const tal_t *ctx,
 		enum side **fulfilled_sides,
 		const struct failed_htlc ***failed_htlcs,
 		enum side **failed_sides);
+
+void free_htlcs(struct lightningd *ld, const struct channel *channel);
 
 void peer_sending_commitsig(struct channel *channel, const u8 *msg);
 void peer_got_commitsig(struct channel *channel, const u8 *msg);

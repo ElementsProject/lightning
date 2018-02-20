@@ -71,9 +71,6 @@ struct peer *peer_from_json(struct lightningd *ld,
 void peer_connected(struct lightningd *ld, const u8 *msg,
 		    int peer_fd, int gossip_fd);
 
-/* This simply means we asked to reach a peer, but we already have it */
-void peer_already_connected(struct lightningd *ld, const u8 *msg);
-
 void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
 			 const struct wireaddr *addr,
@@ -106,8 +103,6 @@ void setup_listeners(struct lightningd *ld);
 void activate_peers(struct lightningd *ld);
 
 void drop_to_chain(struct lightningd *ld, struct channel *channel);
-
-void free_htlcs(struct lightningd *ld, const struct channel *channel);
 
 /* Get range of feerates to insist other side abide by for normal channels. */
 u32 feerate_min(struct lightningd *ld);

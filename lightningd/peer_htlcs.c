@@ -1414,6 +1414,40 @@ void peer_htlcs(const tal_t *ctx,
 	}
 }
 
+/* If channel is NULL, free them all (for shutdown) */
+void free_htlcs(struct lightningd *ld, const struct channel *channel)
+{
+	struct htlc_out_map_iter outi;
+	struct htlc_out *hout;
+	struct htlc_in_map_iter ini;
+	struct htlc_in *hin;
+	bool deleted;
+
+	/* FIXME: Implement check_htlcs to ensure no dangling hout->in ptrs! */
+
+	do {
+		deleted = false;
+		for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
+		     hout;
+		     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
+			if (channel && hout->key.channel != channel)
+				continue;
+			tal_free(hout);
+			deleted = true;
+		}
+
+		for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
+		     hin;
+		     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
+			if (channel && hin->key.channel != channel)
+				continue;
+			tal_free(hin);
+			deleted = true;
+		}
+		/* Can skip over elements due to iterating while deleting. */
+	} while (deleted);
+}
+
 /* BOLT #2:
  *
  * For HTLCs we offer: the timeout deadline when we have to fail the channel
