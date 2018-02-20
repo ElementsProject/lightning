@@ -137,7 +137,7 @@ struct log_book *new_log_book(size_t max_mem,
 	lr->init_time = time_now();
 	list_head_init(&lr->log);
 
-	/* In case ltmp not initialized, do so now. */
+	/* In case ltmp not initialized, do so now (parent is lightningd log) */
 	if (!ltmp)
 		ltmp = notleak(tal(lr, char));
 
@@ -228,8 +228,9 @@ static void add_entry(struct log *log, struct log_entry *l)
 
 	/* Free up temporaries now if any */
 	if (tal_first(ltmp)) {
+		void *parent = tal_parent(ltmp);
 		tal_free(ltmp);
-		ltmp = notleak(tal(log->lr, char));
+		ltmp = notleak(tal(parent, char));
 	}
 }
 
