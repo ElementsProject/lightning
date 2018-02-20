@@ -479,8 +479,7 @@ send_error:
 
 static enum watch_result funding_announce_cb(struct channel *channel,
 					     const struct bitcoin_tx *tx,
-					     unsigned int depth,
-					     void *unused)
+					     unsigned int depth)
 {
 	if (depth < ANNOUNCE_MIN_DEPTH) {
 		return KEEP_WATCHING;
@@ -502,8 +501,7 @@ static enum watch_result funding_announce_cb(struct channel *channel,
 
 static enum watch_result funding_lockin_cb(struct channel *channel,
 					   const struct bitcoin_tx *tx,
-					   unsigned int depth,
-					   void *unused)
+					   unsigned int depth)
 {
 	struct bitcoin_txid txid;
 	const char *txidstr;
@@ -560,10 +558,10 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 	 * before. If we are at the right depth, call the callback
 	 * directly, otherwise schedule a callback */
 	if (depth >= ANNOUNCE_MIN_DEPTH)
-		funding_announce_cb(channel, tx, depth, NULL);
+		funding_announce_cb(channel, tx, depth);
 	else
 		watch_txid(channel, ld->topology, channel, &txid,
-			   funding_announce_cb, NULL);
+			   funding_announce_cb);
 	return DELETE_WATCH;
 }
 
@@ -571,10 +569,10 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 {
 	/* FIXME: Remove arg from cb? */
 	watch_txid(channel, ld->topology, channel,
-		   &channel->funding_txid, funding_lockin_cb, NULL);
+		   &channel->funding_txid, funding_lockin_cb);
 	watch_txo(channel, ld->topology, channel,
 		  &channel->funding_txid, channel->funding_outnum,
-		  funding_spent, NULL);
+		  funding_spent);
 }
 
 struct getpeers_args {
