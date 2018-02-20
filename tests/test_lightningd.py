@@ -3213,7 +3213,10 @@ class LightningDTests(BaseLightningDTests):
         # Create invoices
         inv1 = l2.rpc.invoice(1000, 'inv1', 'inv1')
         inv2 = l2.rpc.invoice(1000, 'inv2', 'inv2')
+        inv3 = l2.rpc.invoice(1000, 'inv3', 'inv3')
 
+        # Start waiting on invoice 3
+        f3 = self.executor.submit(l2.rpc.waitinvoice, 'inv3')
         # Start waiting on invoice 1, should block
         f = self.executor.submit(l2.rpc.waitinvoice, 'inv1')
         time.sleep(1)
@@ -3223,11 +3226,17 @@ class LightningDTests(BaseLightningDTests):
         # Waiter should stil be blocked
         time.sleep(1)
         assert not f.done()
+        # Waiting on invoice 2 should return immediately
+        r = self.executor.submit(l2.rpc.waitinvoice, 'inv2').result(timeout=5)
+        assert r['label'] == 'inv2'
         # Pay invoice 1
         l1.rpc.pay(inv1['bolt11'])
-        # Waiter should now finish
+        # Waiter for invoice 1 should now finish
         r = f.result(timeout=5)
         assert r['label'] == 'inv1'
+        # Waiter for invoice 3 should still be waiting
+        time.sleep(1)
+        assert not f3.done()
 
     def test_waitanyinvoice(self):
         """Test various variants of waiting for the next invoice to complete.
