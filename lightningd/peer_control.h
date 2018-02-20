@@ -90,6 +90,16 @@ void peer_sent_nongossip(struct lightningd *ld,
 /* Peer has failed to open; return to gossipd. */
 void opening_failed(struct peer *peer, const u8 *msg TAKES);
 
+void channel_errmsg(struct channel *channel,
+		    int peer_fd, int gossip_fd,
+		    const struct crypto_state *cs,
+		    u64 gossip_index,
+		    const struct channel_id *channel_id,
+		    const char *desc,
+		    const u8 *err_for_them);
+
+u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx);
+
 void setup_listeners(struct lightningd *ld);
 
 /* We've loaded peers from database, set them going. */

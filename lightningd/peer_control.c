@@ -11,8 +11,6 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/gen_channel_wire.h>
-#include <closingd/gen_closing_wire.h>
-#include <common/close_tx.h>
 #include <common/dev_disconnect.h>
 #include <common/features.h>
 #include <common/initial_commit_tx.h>
@@ -30,6 +28,7 @@
 #include <lightningd/bitcoind.h>
 #include <lightningd/build_utxos.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/closing_control.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
@@ -54,11 +53,6 @@ static void copy_to_parent_log(const char *prefix,
 			       const char *str,
 			       const u8 *io,
 			       struct log *parent_log);
-static void peer_start_closingd(struct channel *channel,
-				struct crypto_state *cs,
-				u64 gossip_index,
-				int peer_fd, int gossip_fd,
-				bool reconnected);
 
 static void destroy_peer(struct peer *peer)
 {
@@ -162,13 +156,13 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel)
 	remove_sig(channel->last_tx);
 }
 
-static void channel_errmsg(struct channel *channel,
-		      int peer_fd, int gossip_fd,
-		      const struct crypto_state *cs,
-		      u64 gossip_index,
-		      const struct channel_id *channel_id,
-		      const char *desc,
-		      const u8 *err_for_them)
+void channel_errmsg(struct channel *channel,
+		    int peer_fd, int gossip_fd,
+		    const struct crypto_state *cs,
+		    u64 gossip_index,
+		    const struct channel_id *channel_id,
+		    const char *desc,
+		    const u8 *err_for_them)
 {
 	struct lightningd *ld = channel->peer->ld;
 	u8 *msg;
@@ -991,7 +985,7 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds)
 	return 0;
 }
 
-static u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
+u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
 {
 	struct pubkey shutdownkey;
 
@@ -1354,233 +1348,6 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 
 	/* TODO(cdecker) Selectively save updated fields to DB */
 	wallet_channel_save(ld->wallet, channel);
-}
-
-/* Is this better than the last tx we were holding?  This can happen
- * even without closingd misbehaving, if we have multiple,
- * interrupted, rounds of negotiation. */
-static bool better_closing_fee(struct lightningd *ld,
-			       struct channel *channel,
-			       const struct bitcoin_tx *tx)
-{
-	u64 weight, fee, last_fee, ideal_fee, min_fee;
-	s64 old_diff, new_diff;
-	size_t i;
-
-	/* Calculate actual fee (adds in eliminated outputs) */
-	fee = channel->funding_satoshi;
-	for (i = 0; i < tal_count(tx->output); i++)
-		fee -= tx->output[i].amount;
-
-	last_fee = channel->funding_satoshi;
-	for (i = 0; i < tal_count(channel->last_tx); i++)
-		last_fee -= channel->last_tx->output[i].amount;
-
-	log_debug(channel->log, "Their actual closing tx fee is %"PRIu64
-		 " vs previous %"PRIu64, fee, last_fee);
-
-	/* Weight once we add in sigs. */
-	weight = measure_tx_weight(tx) + 74 * 2;
-
-	min_fee = get_feerate(ld->topology, FEERATE_SLOW) * weight / 1000;
-	if (fee < min_fee) {
-		log_debug(channel->log, "... That's below our min %"PRIu64
-			 " for weight %"PRIu64" at feerate %u",
-			 min_fee, weight,
-			 get_feerate(ld->topology, FEERATE_SLOW));
-		return false;
-	}
-
-	ideal_fee = get_feerate(ld->topology, FEERATE_NORMAL) * weight / 1000;
-
-	/* We prefer fee which is closest to our ideal. */
-	old_diff = imaxabs((s64)ideal_fee - (s64)last_fee);
-	new_diff = imaxabs((s64)ideal_fee - (s64)fee);
-
-	/* In case of a tie, prefer new over old: this covers the preference
-	 * for a mutual close over a unilateral one. */
-	log_debug(channel->log, "... That's %s our ideal %"PRIu64,
-		 new_diff < old_diff
-		 ? "closer to"
-		 : new_diff > old_diff
-		 ? "further from"
-		 : "same distance to",
-		 ideal_fee);
-
-	return new_diff <= old_diff;
-}
-
-static void peer_received_closing_signature(struct channel *channel,
-					    const u8 *msg)
-{
-	secp256k1_ecdsa_signature sig;
-	struct bitcoin_tx *tx;
-	struct lightningd *ld = channel->peer->ld;
-
-	if (!fromwire_closing_received_signature(msg, msg, NULL, &sig, &tx)) {
-		channel_internal_error(channel, "Bad closing_received_signature %s",
-				       tal_hex(msg, msg));
-		return;
-	}
-
-	/* FIXME: Make sure signature is correct! */
-	if (better_closing_fee(ld, channel, tx)) {
-		channel_set_last_tx(channel, tx, &sig);
-		/* TODO(cdecker) Selectively save updated fields to DB */
-		wallet_channel_save(ld->wallet, channel);
-	}
-
-	/* OK, you can continue now. */
-	subd_send_msg(channel->owner,
-		      take(towire_closing_received_signature_reply(channel)));
-}
-
-static void peer_closing_complete(struct channel *channel, const u8 *msg)
-{
-	/* FIXME: We should save this, to return to gossipd */
-	u64 gossip_index;
-
-	if (!fromwire_closing_complete(msg, NULL, &gossip_index)) {
-		channel_internal_error(channel, "Bad closing_complete %s",
-				       tal_hex(msg, msg));
-		return;
-	}
-
-	/* Retransmission only, ignore closing. */
-	if (channel->state == CLOSINGD_COMPLETE)
-		return;
-
-	drop_to_chain(channel->peer->ld, channel);
-	channel_set_state(channel, CLOSINGD_SIGEXCHANGE, CLOSINGD_COMPLETE);
-}
-
-static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds)
-{
-	enum closing_wire_type t = fromwire_peektype(msg);
-
-	switch (t) {
-	case WIRE_CLOSING_RECEIVED_SIGNATURE:
-		peer_received_closing_signature(sd->channel, msg);
-		break;
-
-	case WIRE_CLOSING_COMPLETE:
-		peer_closing_complete(sd->channel, msg);
-		break;
-
-	/* We send these, not receive them */
-	case WIRE_CLOSING_INIT:
-	case WIRE_CLOSING_RECEIVED_SIGNATURE_REPLY:
-		break;
-	}
-
-	return 0;
-}
-
-static void peer_start_closingd(struct channel *channel,
-				struct crypto_state *cs,
-				u64 gossip_index,
-				int peer_fd, int gossip_fd,
-				bool reconnected)
-{
-	const tal_t *tmpctx = tal_tmpctx(channel);
-	u8 *initmsg, *local_scriptpubkey;
-	u64 minfee, startfee, feelimit;
-	u64 num_revocations;
-	u64 funding_msatoshi, our_msatoshi, their_msatoshi;
-	struct lightningd *ld = channel->peer->ld;
-
-	if (channel->local_shutdown_idx == -1
-	    || !channel->remote_shutdown_scriptpubkey) {
-		channel_internal_error(channel,
-				    "Can't start closing: local %s remote %s",
-				    channel->local_shutdown_idx == -1
-				    ? "not shutdown" : "shutdown",
-				    channel->remote_shutdown_scriptpubkey
-				    ? "shutdown" : "not shutdown");
-		tal_free(tmpctx);
-		return;
-	}
-
-	channel_set_owner(channel, new_channel_subd(ld,
-					   "lightning_closingd",
-					   channel, channel->log,
-					   closing_wire_type_name, closing_msg,
-					   channel_errmsg,
-					   take(&peer_fd), take(&gossip_fd),
-					   NULL));
-	if (!channel->owner) {
-		log_unusual(channel->log, "Could not subdaemon closing: %s",
-			    strerror(errno));
-		channel_fail_transient(channel, "Failed to subdaemon closing");
-		tal_free(tmpctx);
-		return;
-	}
-
-	local_scriptpubkey = p2wpkh_for_keyidx(tmpctx, ld,
-					       channel->local_shutdown_idx);
-	if (!local_scriptpubkey) {
-		channel_internal_error(channel,
-				    "Can't generate local shutdown scriptpubkey");
-		tal_free(tmpctx);
-		return;
-	}
-
-	/* BOLT #2:
-	 *
-	 * A sending node MUST set `fee_satoshis` lower than or equal
-	 * to the base fee of the final commitment transaction as
-	 * calculated in [BOLT
-	 * #3](03-transactions.md#fee-calculation).
-	 */
-	feelimit = commit_tx_base_fee(channel->channel_info.feerate_per_kw[LOCAL],
-				      0);
-
-	minfee = commit_tx_base_fee(get_feerate(ld->topology, FEERATE_SLOW), 0);
-	startfee = commit_tx_base_fee(get_feerate(ld->topology, FEERATE_NORMAL),
-				      0);
-
-	if (startfee > feelimit)
-		startfee = feelimit;
-	if (minfee > feelimit)
-		minfee = feelimit;
-
-	num_revocations
-		= revocations_received(&channel->their_shachain.chain);
-
-	/* BOLT #3:
-	 *
-	 * The amounts for each output MUST BE rounded down to whole satoshis.
-	 */
-	/* Convert unit */
-	funding_msatoshi = channel->funding_satoshi * 1000;
-	/* What is not ours is theirs */
-	our_msatoshi = channel->our_msatoshi;
-	their_msatoshi = funding_msatoshi - our_msatoshi;
-	initmsg = towire_closing_init(tmpctx,
-				      cs,
-				      gossip_index,
-				      &channel->seed,
-				      &channel->funding_txid,
-				      channel->funding_outnum,
-				      channel->funding_satoshi,
-				      &channel->channel_info.remote_fundingkey,
-				      channel->funder,
-				      our_msatoshi / 1000, /* Rounds down */
-				      their_msatoshi / 1000, /* Rounds down */
-				      channel->our_config.dust_limit_satoshis,
-				      minfee, feelimit, startfee,
-				      local_scriptpubkey,
-				      channel->remote_shutdown_scriptpubkey,
-				      reconnected,
-				      channel->next_index[LOCAL],
-				      channel->next_index[REMOTE],
-				      num_revocations,
-				      deprecated_apis);
-
-	/* We don't expect a response: it will give us feedback on
-	 * signatures sent and received, then closing_complete. */
-	subd_send_msg(channel->owner, take(initmsg));
-	tal_free(tmpctx);
 }
 
 static void peer_start_closingd_after_shutdown(struct channel *channel,

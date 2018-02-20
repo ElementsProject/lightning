@@ -50,9 +50,6 @@ void broadcast_tx(struct chain_topology *topo UNNEEDED,
 /* Generated stub for channel_wire_type_name */
 const char *channel_wire_type_name(int e UNNEEDED)
 { fprintf(stderr, "channel_wire_type_name called!\n"); abort(); }
-/* Generated stub for closing_wire_type_name */
-const char *closing_wire_type_name(int e UNNEEDED)
-{ fprintf(stderr, "closing_wire_type_name called!\n"); abort(); }
 /* Generated stub for command_fail */
 void  command_fail(struct command *cmd UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "command_fail called!\n"); abort(); }
@@ -97,12 +94,6 @@ bool fromwire_channel_got_shutdown(const tal_t *ctx UNNEEDED, const void *p UNNE
 /* Generated stub for fromwire_channel_shutdown_complete */
 bool fromwire_channel_shutdown_complete(const void *p UNNEEDED, size_t *plen UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u64 *gossip_index UNNEEDED)
 { fprintf(stderr, "fromwire_channel_shutdown_complete called!\n"); abort(); }
-/* Generated stub for fromwire_closing_complete */
-bool fromwire_closing_complete(const void *p UNNEEDED, size_t *plen UNNEEDED, u64 *gossip_index UNNEEDED)
-{ fprintf(stderr, "fromwire_closing_complete called!\n"); abort(); }
-/* Generated stub for fromwire_closing_received_signature */
-bool fromwire_closing_received_signature(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, size_t *plen UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED, struct bitcoin_tx **tx UNNEEDED)
-{ fprintf(stderr, "fromwire_closing_received_signature called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_getpeers_reply */
 bool fromwire_gossip_getpeers_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, size_t *plen UNNEEDED, struct pubkey **id UNNEEDED, struct wireaddr **addr UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_getpeers_reply called!\n"); abort(); }
@@ -355,6 +346,13 @@ void peer_htlcs(const tal_t *ctx UNNEEDED,
 /* Generated stub for peer_sending_commitsig */
 void peer_sending_commitsig(struct channel *channel UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "peer_sending_commitsig called!\n"); abort(); }
+/* Generated stub for peer_start_closingd */
+void peer_start_closingd(struct channel *channel UNNEEDED,
+			 struct crypto_state *cs UNNEEDED,
+			 u64 gossip_index UNNEEDED,
+			 int peer_fd UNNEEDED, int gossip_fd UNNEEDED,
+			 bool reconnected UNNEEDED)
+{ fprintf(stderr, "peer_start_closingd called!\n"); abort(); }
 /* Generated stub for sanitize_error */
 char *sanitize_error(const tal_t *ctx UNNEEDED, const u8 *errmsg UNNEEDED,
 		     struct channel_id *channel_id UNNEEDED)
@@ -391,12 +389,6 @@ u8 *towire_channel_init(const tal_t *ctx UNNEEDED, const struct bitcoin_blkid *c
 /* Generated stub for towire_channel_send_shutdown */
 u8 *towire_channel_send_shutdown(const tal_t *ctx UNNEEDED, const u8 *scriptpubkey UNNEEDED)
 { fprintf(stderr, "towire_channel_send_shutdown called!\n"); abort(); }
-/* Generated stub for towire_closing_init */
-u8 *towire_closing_init(const tal_t *ctx UNNEEDED, const struct crypto_state *crypto_state UNNEEDED, u64 gossip_index UNNEEDED, const struct privkey *seed UNNEEDED, const struct bitcoin_txid *funding_txid UNNEEDED, u16 funding_txout UNNEEDED, u64 funding_satoshi UNNEEDED, const struct pubkey *remote_fundingkey UNNEEDED, enum side funder UNNEEDED, u64 local_msatoshi UNNEEDED, u64 remote_msatoshi UNNEEDED, u64 our_dust_limit UNNEEDED, u64 min_fee_satoshi UNNEEDED, u64 fee_limit_satoshi UNNEEDED, u64 initial_fee_satoshi UNNEEDED, const u8 *local_scriptpubkey UNNEEDED, const u8 *remote_scriptpubkey UNNEEDED, bool reconnected UNNEEDED, u64 next_index_local UNNEEDED, u64 next_index_remote UNNEEDED, u64 revocations_received UNNEEDED, bool deprecated_api UNNEEDED)
-{ fprintf(stderr, "towire_closing_init called!\n"); abort(); }
-/* Generated stub for towire_closing_received_signature_reply */
-u8 *towire_closing_received_signature_reply(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_closing_received_signature_reply called!\n"); abort(); }
 /* Generated stub for towire_error */
 u8 *towire_error(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, const u8 *data UNNEEDED)
 { fprintf(stderr, "towire_error called!\n"); abort(); }
