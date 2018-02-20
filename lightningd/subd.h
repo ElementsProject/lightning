@@ -175,7 +175,7 @@ void subd_req_(const tal_t *ctx,
 	       void *replycb_data);
 
 /**
- * subd_release_channel - shut down a subdaemon which no longer owns the channe;.
+ * subd_release_channel - shut down a subdaemon which no longer owns the channel.
  * @owner: subd which owned channel.
  * @channel: channel to release.
  *
