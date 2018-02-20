@@ -40,6 +40,39 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/watch.h>
 
+/* Watching an output */
+struct txowatch {
+	struct chain_topology *topo;
+
+	/* Channel who owns us. */
+	struct channel *channel;
+
+	/* Output to watch. */
+	struct txwatch_output out;
+
+	/* A new tx. */
+	enum watch_result (*cb)(struct channel *channel,
+				const struct bitcoin_tx *tx,
+				size_t input_num,
+				const struct block *block);
+};
+
+struct txwatch {
+	struct chain_topology *topo;
+
+	/* Channel who owns us. */
+	struct channel *channel;
+
+	/* Transaction to watch. */
+	struct bitcoin_txid txid;
+	unsigned int depth;
+
+	/* A new depth (0 if kicked out, otherwise 1 = tip, etc.) */
+	enum watch_result (*cb)(struct channel *channel,
+				const struct bitcoin_tx *tx,
+				unsigned int depth);
+};
+
 const struct txwatch_output *txowatch_keyof(const struct txowatch *w)
 {
 	return &w->out;
@@ -86,15 +119,13 @@ static void destroy_txwatch(struct txwatch *w)
 	txwatch_hash_del(&w->topo->txwatches, w);
 }
 
-struct txwatch *watch_txid_(const tal_t *ctx,
-			    struct chain_topology *topo,
-			    struct channel *channel,
-			    const struct bitcoin_txid *txid,
-			    enum watch_result (*cb)(struct channel *channel,
+struct txwatch *watch_txid(const tal_t *ctx,
+			   struct chain_topology *topo,
+			   struct channel *channel,
+			   const struct bitcoin_txid *txid,
+			   enum watch_result (*cb)(struct channel *channel,
 						    const struct bitcoin_tx *,
-						    unsigned int depth,
-						    void *arg),
-			    void *cb_arg)
+						    unsigned int depth))
 {
 	struct txwatch *w;
 
@@ -104,7 +135,6 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 	w->txid = *txid;
 	w->channel = channel;
 	w->cb = cb;
-	w->cbdata = cb_arg;
 
 	txwatch_hash_add(&w->topo->txwatches, w);
 	tal_add_destructor(w, destroy_txwatch);
@@ -136,33 +166,29 @@ bool watching_txid(const struct chain_topology *topo,
 	return txwatch_hash_get(&topo->txwatches, txid) != NULL;
 }
 
-struct txwatch *watch_tx_(const tal_t *ctx,
-			  struct chain_topology *topo,
-			  struct channel *channel,
-			  const struct bitcoin_tx *tx,
-			  enum watch_result (*cb)(struct channel *channel,
+struct txwatch *watch_tx(const tal_t *ctx,
+			 struct chain_topology *topo,
+			 struct channel *channel,
+			 const struct bitcoin_tx *tx,
+			 enum watch_result (*cb)(struct channel *channel,
 						  const struct bitcoin_tx *,
-						  unsigned int depth,
-						  void *arg),
-			  void *cb_arg)
+						  unsigned int depth))
 {
 	struct bitcoin_txid txid;
 
 	bitcoin_txid(tx, &txid);
-	return watch_txid(ctx, topo, channel, &txid, cb, cb_arg);
+	return watch_txid(ctx, topo, channel, &txid, cb);
 }
 
-struct txowatch *watch_txo_(const tal_t *ctx,
-			    struct chain_topology *topo,
-			    struct channel *channel,
-			    const struct bitcoin_txid *txid,
-			    unsigned int output,
-			    enum watch_result (*cb)(struct channel *channel,
-						    const struct bitcoin_tx *tx,
-						    size_t input_num,
-						    const struct block *block,
-						    void *),
-			    void *cbdata)
+struct txowatch *watch_txo(const tal_t *ctx,
+			   struct chain_topology *topo,
+			   struct channel *channel,
+			   const struct bitcoin_txid *txid,
+			   unsigned int output,
+			   enum watch_result (*cb)(struct channel *channel,
+						   const struct bitcoin_tx *tx,
+						   size_t input_num,
+						   const struct block *block))
 {
 	struct txowatch *w = tal(ctx, struct txowatch);
 
@@ -171,7 +197,6 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 	w->out.index = output;
 	w->channel = channel;
 	w->cb = cb;
-	w->cbdata = cbdata;
 
 	txowatch_hash_add(&w->topo->txowatches, w);
 	tal_add_destructor(w, destroy_txowatch);
@@ -194,7 +219,7 @@ static bool txw_fire(struct chain_topology *topo,
 		  txw->depth, depth,
 		  type_to_string(ltmp, struct bitcoin_txid, &txw->txid));
 	txw->depth = depth;
-	r = txw->cb(txw->channel, tx, txw->depth, txw->cbdata);
+	r = txw->cb(txw->channel, tx, txw->depth);
 	switch (r) {
 	case DELETE_WATCH:
 		tal_free(txw);
@@ -235,7 +260,7 @@ void txowatch_fire(struct chain_topology *topo,
 		  txow->out.index,
 		  type_to_string(ltmp, struct bitcoin_txid, &txid));
 
-	r = txow->cb(txow->channel, tx, input_num, block, txow->cbdata);
+	r = txow->cb(txow->channel, tx, input_num, block);
 	switch (r) {
 	case DELETE_WATCH:
 		tal_free(txow);

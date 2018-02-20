@@ -10,7 +10,6 @@ struct block;
 enum watch_result funding_spent(struct channel *channel,
 				const struct bitcoin_tx *tx,
 				size_t input_num,
-				const struct block *block,
-				void *unused);
+				const struct block *block);
 
 #endif /* LIGHTNING_LIGHTNINGD_ONCHAIN_CONTROL_H */

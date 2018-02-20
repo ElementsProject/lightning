@@ -70,8 +70,7 @@ static void handle_onchain_init_reply(struct channel *channel, const u8 *msg)
 
 static enum watch_result onchain_tx_watched(struct channel *channel,
 					    const struct bitcoin_tx *tx,
-					    unsigned int depth,
-					    void *unused)
+					    unsigned int depth)
 {
 	u8 *msg;
 	struct bitcoin_txid txid;
@@ -100,8 +99,7 @@ static void watch_tx_and_outputs(struct channel *channel,
 static enum watch_result onchain_txo_watched(struct channel *channel,
 					     const struct bitcoin_tx *tx,
 					     size_t input_num,
-					     const struct block *block,
-					     void *unused)
+					     const struct block *block)
 {
 	u8 *msg;
 
@@ -128,11 +126,11 @@ static void watch_tx_and_outputs(struct channel *channel,
 
 	/* Make txwatch a parent of txo watches, so we can unwatch together. */
 	txw = watch_tx(channel->owner, ld->topology, channel, tx,
-		       onchain_tx_watched, NULL);
+		       onchain_tx_watched);
 
 	for (size_t i = 0; i < tal_count(tx->output); i++)
 		watch_txo(txw, ld->topology, channel, &txid, i,
-			  onchain_txo_watched, NULL);
+			  onchain_txo_watched);
 }
 
 static void handle_onchain_broadcast_tx(struct channel *channel, const u8 *msg)
@@ -352,8 +350,7 @@ static void onchain_error(struct channel *channel,
 enum watch_result funding_spent(struct channel *channel,
 				const struct bitcoin_tx *tx,
 				size_t input_num,
-				const struct block *block,
-				void *unused)
+				const struct block *block)
 {
 	u8 *msg, *scriptpubkey;
 	struct bitcoin_txid our_last_txid;
