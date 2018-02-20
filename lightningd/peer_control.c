@@ -44,18 +44,26 @@
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
-/* FIXME: Reorder */
+static void destroy_peer(struct peer *peer)
+{
+	list_del_from(&peer->ld->peers, &peer->list);
+}
+
+/* We copy per-peer entries above --log-level into the main log. */
 static void copy_to_parent_log(const char *prefix,
 			       enum log_level level,
 			       bool continued,
 			       const struct timeabs *time,
 			       const char *str,
 			       const u8 *io,
-			       struct log *parent_log);
-
-static void destroy_peer(struct peer *peer)
+			       struct log *parent_log)
 {
-	list_del_from(&peer->ld->peers, &peer->list);
+	if (level == LOG_IO_IN || level == LOG_IO_OUT)
+		log_io(parent_log, level, prefix, io, tal_len(io));
+	else if (continued)
+		log_add(parent_log, "%s ... %s", prefix, str);
+	else
+		log_(parent_log, level, "%s %s", prefix, str);
 }
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
@@ -103,6 +111,61 @@ struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid)
 		if (p->dbid == dbid)
 			return p;
 	return NULL;
+}
+
+struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id)
+{
+	struct peer *p;
+
+	list_for_each(&ld->peers, p, list)
+		if (pubkey_eq(&p->id, id))
+			return p;
+	return NULL;
+}
+
+struct peer *peer_from_json(struct lightningd *ld,
+			    const char *buffer,
+			    jsmntok_t *peeridtok)
+{
+	struct pubkey peerid;
+
+	if (!json_tok_pubkey(buffer, peeridtok, &peerid))
+		return NULL;
+
+	return peer_by_id(ld, &peerid);
+}
+
+u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
+{
+	struct pubkey shutdownkey;
+
+	if (!bip32_pubkey(ld->wallet->bip32_base, &shutdownkey, keyidx))
+		return NULL;
+
+	return scriptpubkey_p2wpkh(ctx, &shutdownkey);
+}
+
+u32 feerate_min(struct lightningd *ld)
+{
+	if (ld->config.ignore_fee_limits)
+		return 1;
+
+	/* Set this to average of slow and normal.*/
+	return (get_feerate(ld->topology, FEERATE_SLOW)
+		+ get_feerate(ld->topology, FEERATE_NORMAL)) / 2;
+}
+
+/* BOLT #2:
+ *
+ * Given the variance in fees, and the fact that the transaction may
+ * be spent in the future, it's a good idea for the fee payer to keep
+ * a good margin, say 5x the expected fee requirement */
+u32 feerate_max(struct lightningd *ld)
+{
+	if (ld->config.ignore_fee_limits)
+		return UINT_MAX;
+
+	return get_feerate(ld->topology, FEERATE_IMMEDIATE) * 5;
 }
 
 static void sign_last_tx(struct channel *channel)
@@ -340,19 +403,6 @@ send_error:
 	subd_send_fd(ld->gossip, gossip_fd);
 }
 
-/* Gossipd tells us peer was already connected. */
-void peer_already_connected(struct lightningd *ld, const u8 *msg)
-{
-	struct pubkey id;
-
-	if (!fromwire_gossip_peer_already_connected(msg, NULL, &id))
-		fatal("Gossip gave bad GOSSIP_PEER_ALREADY_CONNECTED message %s",
-		      tal_hex(msg, msg));
-
-	/* If we were waiting for connection, we succeeded. */
-	connect_succeeded(ld, &id);
-}
-
 static struct channel *channel_by_channel_id(struct peer *peer,
 					     const struct channel_id *channel_id)
 {
@@ -429,213 +479,6 @@ send_error:
 	tal_free(error);
 }
 
-/* We copy per-peer entries above --log-level into the main log. */
-static void copy_to_parent_log(const char *prefix,
-			       enum log_level level,
-			       bool continued,
-			       const struct timeabs *time,
-			       const char *str,
-			       const u8 *io,
-			       struct log *parent_log)
-{
-	if (level == LOG_IO_IN || level == LOG_IO_OUT)
-		log_io(parent_log, level, prefix, io, tal_len(io));
-	else if (continued)
-		log_add(parent_log, "%s ... %s", prefix, str);
-	else
-		log_(parent_log, level, "%s %s", prefix, str);
-}
-
-struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id)
-{
-	struct peer *p;
-
-	list_for_each(&ld->peers, p, list)
-		if (pubkey_eq(&p->id, id))
-			return p;
-	return NULL;
-}
-
-struct getpeers_args {
-	struct command *cmd;
-	/* If non-NULL, they want logs too */
-	enum log_level *ll;
-	/* If set, only report on a specific id. */
-	struct pubkey *specific_id;
-};
-
-static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
-				      const int *fds,
-				      struct getpeers_args *gpa)
-{
-	/* This is a little sneaky... */
-	struct pubkey *ids;
-	struct wireaddr *addrs;
-	struct json_result *response = new_json_result(gpa->cmd);
-	struct peer *p;
-
-	if (!fromwire_gossip_getpeers_reply(msg, msg, NULL, &ids, &addrs)) {
-		command_fail(gpa->cmd, "Bad response from gossipd");
-		return;
-	}
-
-	/* First the peers not just gossiping. */
-	json_object_start(response, NULL);
-	json_array_start(response, "peers");
-	list_for_each(&gpa->cmd->ld->peers, p, list) {
-		bool connected;
-		struct channel *channel;
-
-		if (gpa->specific_id && !pubkey_eq(gpa->specific_id, &p->id))
-			continue;
-
-		json_object_start(response, NULL);
-		json_add_pubkey(response, "id", &p->id);
-		channel = peer_active_channel(p);
-		connected = (channel && channel->owner != NULL);
-		json_add_bool(response, "connected", connected);
-
-		if (connected) {
-			json_array_start(response, "netaddr");
-			if (p->addr.type != ADDR_TYPE_PADDING)
-				json_add_string(response, NULL,
-						type_to_string(response,
-							       struct wireaddr,
-							       &p->addr));
-			json_array_end(response);
-		}
-
-		json_array_start(response, "channels");
-		json_add_uncommitted_channel(response, p->uncommitted_channel);
-
-		list_for_each(&p->channels, channel, list) {
-			json_object_start(response, NULL);
-			json_add_string(response, "state",
-					channel_state_name(channel));
-			if (channel->owner)
-				json_add_string(response, "owner",
-						channel->owner->name);
-			if (channel->scid)
-				json_add_short_channel_id(response,
-							  "short_channel_id",
-							  channel->scid);
-			json_add_txid(response,
-				      "funding_txid",
-				      &channel->funding_txid);
-			json_add_u64(response, "msatoshi_to_us",
-				     channel->our_msatoshi);
-			json_add_u64(response, "msatoshi_total",
-				     channel->funding_satoshi * 1000);
-
-			/* channel config */
-			json_add_u64(response, "dust_limit_satoshis",
-				     channel->our_config.dust_limit_satoshis);
-			json_add_u64(response, "max_htlc_value_in_flight_msat",
-				     channel->our_config.max_htlc_value_in_flight_msat);
-			json_add_u64(response, "channel_reserve_satoshis",
-				     channel->our_config.channel_reserve_satoshis);
-			json_add_u64(response, "htlc_minimum_msat",
-				     channel->our_config.htlc_minimum_msat);
-			json_add_num(response, "to_self_delay",
-				     channel->our_config.to_self_delay);
-			json_add_num(response, "max_accepted_htlcs",
-				     channel->our_config.max_accepted_htlcs);
-
-			json_object_end(response);
-		}
-		json_array_end(response);
-
-		if (gpa->ll)
-			json_add_log(response, "log", p->log_book, *gpa->ll);
-		json_object_end(response);
-	}
-
-	for (size_t i = 0; i < tal_count(ids); i++) {
-		/* Don't report peers in both, which can happen if they're
-		 * reconnecting */
-		if (peer_by_id(gpa->cmd->ld, ids + i))
-			continue;
-
-		json_object_start(response, NULL);
-		/* Fake state. */
-		json_add_string(response, "state", "GOSSIPING");
-		json_add_pubkey(response, "id", ids+i);
-		json_array_start(response, "netaddr");
-		if (addrs[i].type != ADDR_TYPE_PADDING)
-			json_add_string(response, NULL,
-					type_to_string(response, struct wireaddr,
-						       addrs + i));
-		json_array_end(response);
-		json_add_bool(response, "connected", true);
-		json_add_string(response, "owner", gossip->name);
-		json_object_end(response);
-	}
-
-	json_array_end(response);
-	json_object_end(response);
-	command_success(gpa->cmd, response);
-}
-
-static void json_listpeers(struct command *cmd,
-			  const char *buffer, const jsmntok_t *params)
-{
-	jsmntok_t *leveltok;
-	struct getpeers_args *gpa = tal(cmd, struct getpeers_args);
-	jsmntok_t *idtok;
-
-	gpa->cmd = cmd;
-	gpa->specific_id = NULL;
-	if (!json_get_params(cmd, buffer, params,
-			     "?id", &idtok,
-			     "?level", &leveltok,
-			     NULL)) {
-		return;
-	}
-
-	if (idtok) {
-		gpa->specific_id = tal_arr(cmd, struct pubkey, 1);
-		if (!json_tok_pubkey(buffer, idtok, gpa->specific_id)) {
-			command_fail(cmd, "id %.*s not valid",
-				     idtok->end - idtok->start,
-				     buffer + idtok->start);
-			return;
-		}
-	}
-	if (leveltok) {
-		gpa->ll = tal(gpa, enum log_level);
-		if (!json_tok_loglevel(buffer, leveltok, gpa->ll)) {
-			command_fail(cmd, "Invalid level param");
-			return;
-		}
-	} else
-		gpa->ll = NULL;
-
-	/* Get peers from gossipd. */
-	subd_req(cmd, cmd->ld->gossip,
-		 take(towire_gossip_getpeers_request(cmd, gpa->specific_id)),
-		 -1, 0, gossipd_getpeers_complete, gpa);
-	command_still_pending(cmd);
-}
-
-static const struct json_command listpeers_command = {
-	"listpeers",
-	json_listpeers,
-	"Show current peers, if {level} is set, include logs for {id}"
-};
-AUTODATA(json_command, &listpeers_command);
-
-struct peer *peer_from_json(struct lightningd *ld,
-			    const char *buffer,
-			    jsmntok_t *peeridtok)
-{
-	struct pubkey peerid;
-
-	if (!json_tok_pubkey(buffer, peeridtok, &peerid))
-		return NULL;
-
-	return peer_by_id(ld, &peerid);
-}
-
 static enum watch_result funding_announce_cb(struct channel *channel,
 					     const struct bitcoin_tx *tx,
 					     unsigned int depth,
@@ -657,50 +500,6 @@ static enum watch_result funding_announce_cb(struct channel *channel,
 	subd_send_msg(channel->owner,
 		      take(towire_channel_funding_announce_depth(channel)));
 	return DELETE_WATCH;
-}
-
-/* If channel is NULL, free them all (for shutdown) */
-void free_htlcs(struct lightningd *ld, const struct channel *channel)
-{
-	struct htlc_out_map_iter outi;
-	struct htlc_out *hout;
-	struct htlc_in_map_iter ini;
-	struct htlc_in *hin;
-	bool deleted;
-
-	/* FIXME: Implement check_htlcs to ensure no dangling hout->in ptrs! */
-
-	do {
-		deleted = false;
-		for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
-		     hout;
-		     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
-			if (channel && hout->key.channel != channel)
-				continue;
-			tal_free(hout);
-			deleted = true;
-		}
-
-		for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
-		     hin;
-		     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
-			if (channel && hin->key.channel != channel)
-				continue;
-			tal_free(hin);
-			deleted = true;
-		}
-		/* Can skip over elements due to iterating while deleting. */
-	} while (deleted);
-}
-
-u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
-{
-	struct pubkey shutdownkey;
-
-	if (!bip32_pubkey(ld->wallet->bip32_base, &shutdownkey, keyidx))
-		return NULL;
-
-	return scriptpubkey_p2wpkh(ctx, &shutdownkey);
 }
 
 static enum watch_result funding_lockin_cb(struct channel *channel,
@@ -964,29 +763,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	return 0;
 }
 
-u32 feerate_min(struct lightningd *ld)
-{
-	if (ld->config.ignore_fee_limits)
-		return 1;
-
-	/* Set this to average of slow and normal.*/
-	return (get_feerate(ld->topology, FEERATE_SLOW)
-		+ get_feerate(ld->topology, FEERATE_NORMAL)) / 2;
-}
-
-/* BOLT #2:
- *
- * Given the variance in fees, and the fact that the transaction may
- * be spent in the future, it's a good idea for the fee payer to keep
- * a good margin, say 5x the expected fee requirement */
-u32 feerate_max(struct lightningd *ld)
-{
-	if (ld->config.ignore_fee_limits)
-		return UINT_MAX;
-
-	return get_feerate(ld->topology, FEERATE_IMMEDIATE) * 5;
-}
-
 bool peer_start_channeld(struct channel *channel,
 			 const struct crypto_state *cs,
 			 u64 gossip_index,
@@ -1115,6 +891,174 @@ bool peer_start_channeld(struct channel *channel,
 	tal_free(tmpctx);
 	return true;
 }
+
+struct getpeers_args {
+	struct command *cmd;
+	/* If non-NULL, they want logs too */
+	enum log_level *ll;
+	/* If set, only report on a specific id. */
+	struct pubkey *specific_id;
+};
+
+static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
+				      const int *fds,
+				      struct getpeers_args *gpa)
+{
+	/* This is a little sneaky... */
+	struct pubkey *ids;
+	struct wireaddr *addrs;
+	struct json_result *response = new_json_result(gpa->cmd);
+	struct peer *p;
+
+	if (!fromwire_gossip_getpeers_reply(msg, msg, NULL, &ids, &addrs)) {
+		command_fail(gpa->cmd, "Bad response from gossipd");
+		return;
+	}
+
+	/* First the peers not just gossiping. */
+	json_object_start(response, NULL);
+	json_array_start(response, "peers");
+	list_for_each(&gpa->cmd->ld->peers, p, list) {
+		bool connected;
+		struct channel *channel;
+
+		if (gpa->specific_id && !pubkey_eq(gpa->specific_id, &p->id))
+			continue;
+
+		json_object_start(response, NULL);
+		json_add_pubkey(response, "id", &p->id);
+		channel = peer_active_channel(p);
+		connected = (channel && channel->owner != NULL);
+		json_add_bool(response, "connected", connected);
+
+		if (connected) {
+			json_array_start(response, "netaddr");
+			if (p->addr.type != ADDR_TYPE_PADDING)
+				json_add_string(response, NULL,
+						type_to_string(response,
+							       struct wireaddr,
+							       &p->addr));
+			json_array_end(response);
+		}
+
+		json_array_start(response, "channels");
+		json_add_uncommitted_channel(response, p->uncommitted_channel);
+
+		list_for_each(&p->channels, channel, list) {
+			json_object_start(response, NULL);
+			json_add_string(response, "state",
+					channel_state_name(channel));
+			if (channel->owner)
+				json_add_string(response, "owner",
+						channel->owner->name);
+			if (channel->scid)
+				json_add_short_channel_id(response,
+							  "short_channel_id",
+							  channel->scid);
+			json_add_txid(response,
+				      "funding_txid",
+				      &channel->funding_txid);
+			json_add_u64(response, "msatoshi_to_us",
+				     channel->our_msatoshi);
+			json_add_u64(response, "msatoshi_total",
+				     channel->funding_satoshi * 1000);
+
+			/* channel config */
+			json_add_u64(response, "dust_limit_satoshis",
+				     channel->our_config.dust_limit_satoshis);
+			json_add_u64(response, "max_htlc_value_in_flight_msat",
+				     channel->our_config.max_htlc_value_in_flight_msat);
+			json_add_u64(response, "channel_reserve_satoshis",
+				     channel->our_config.channel_reserve_satoshis);
+			json_add_u64(response, "htlc_minimum_msat",
+				     channel->our_config.htlc_minimum_msat);
+			json_add_num(response, "to_self_delay",
+				     channel->our_config.to_self_delay);
+			json_add_num(response, "max_accepted_htlcs",
+				     channel->our_config.max_accepted_htlcs);
+
+			json_object_end(response);
+		}
+		json_array_end(response);
+
+		if (gpa->ll)
+			json_add_log(response, "log", p->log_book, *gpa->ll);
+		json_object_end(response);
+	}
+
+	for (size_t i = 0; i < tal_count(ids); i++) {
+		/* Don't report peers in both, which can happen if they're
+		 * reconnecting */
+		if (peer_by_id(gpa->cmd->ld, ids + i))
+			continue;
+
+		json_object_start(response, NULL);
+		/* Fake state. */
+		json_add_string(response, "state", "GOSSIPING");
+		json_add_pubkey(response, "id", ids+i);
+		json_array_start(response, "netaddr");
+		if (addrs[i].type != ADDR_TYPE_PADDING)
+			json_add_string(response, NULL,
+					type_to_string(response, struct wireaddr,
+						       addrs + i));
+		json_array_end(response);
+		json_add_bool(response, "connected", true);
+		json_add_string(response, "owner", gossip->name);
+		json_object_end(response);
+	}
+
+	json_array_end(response);
+	json_object_end(response);
+	command_success(gpa->cmd, response);
+}
+
+static void json_listpeers(struct command *cmd,
+			  const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *leveltok;
+	struct getpeers_args *gpa = tal(cmd, struct getpeers_args);
+	jsmntok_t *idtok;
+
+	gpa->cmd = cmd;
+	gpa->specific_id = NULL;
+	if (!json_get_params(cmd, buffer, params,
+			     "?id", &idtok,
+			     "?level", &leveltok,
+			     NULL)) {
+		return;
+	}
+
+	if (idtok) {
+		gpa->specific_id = tal_arr(cmd, struct pubkey, 1);
+		if (!json_tok_pubkey(buffer, idtok, gpa->specific_id)) {
+			command_fail(cmd, "id %.*s not valid",
+				     idtok->end - idtok->start,
+				     buffer + idtok->start);
+			return;
+		}
+	}
+	if (leveltok) {
+		gpa->ll = tal(gpa, enum log_level);
+		if (!json_tok_loglevel(buffer, leveltok, gpa->ll)) {
+			command_fail(cmd, "Invalid level param");
+			return;
+		}
+	} else
+		gpa->ll = NULL;
+
+	/* Get peers from gossipd. */
+	subd_req(cmd, cmd->ld->gossip,
+		 take(towire_gossip_getpeers_request(cmd, gpa->specific_id)),
+		 -1, 0, gossipd_getpeers_complete, gpa);
+	command_still_pending(cmd);
+}
+
+static const struct json_command listpeers_command = {
+	"listpeers",
+	json_listpeers,
+	"Show current peers, if {level} is set, include logs for {id}"
+};
+AUTODATA(json_command, &listpeers_command);
 
 static void json_close(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)

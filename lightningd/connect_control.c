@@ -89,6 +89,19 @@ void peer_connection_failed(struct lightningd *ld, const u8 *msg)
 	connect_failed(ld, &id, error);
 }
 
+/* Gossipd tells us peer was already connected. */
+void peer_already_connected(struct lightningd *ld, const u8 *msg)
+{
+	struct pubkey id;
+
+	if (!fromwire_gossip_peer_already_connected(msg, NULL, &id))
+		fatal("Gossip gave bad GOSSIP_PEER_ALREADY_CONNECTED message %s",
+		      tal_hex(msg, msg));
+
+	/* If we were waiting for connection, we succeeded. */
+	connect_succeeded(ld, &id);
+}
+
 static void json_connect(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
