@@ -62,10 +62,36 @@ static void json_dev_ping(struct command *cmd,
 		return;
 	}
 
+	/* BOLT #1:
+	 *
+	 * 1. `type`: a 2-byte big-endian field indicating the type of message
+	 * 2. `payload`
+	 *...
+	 * The size of the message is required by the transport layer to fit
+	 * into a 2-byte unsigned int; therefore, the maximum possible size is
+	 * 65535 bytes.
+	 *...
+	 * 1. type: 18 (`ping`)
+	 * 2. data:
+	 *    * [`2`:`num_pong_bytes`]
+	 *    * [`2`:`byteslen`]
+	 *    * [`byteslen`:`ignored`]
+	 */
+	if (len > 65535 - 2 - 2 - 2) {
+		command_fail(cmd, "%u would result in oversize ping", len);
+		return;
+	}
+
 	if (!json_tok_number(buffer, pongbytestok, &pongbytes)) {
 		command_fail(cmd, "'%.*s' is not a valid number",
 			     (int)(pongbytestok->end - pongbytestok->start),
 			     buffer + pongbytestok->start);
+		return;
+	}
+
+	/* Note that > 65531 is valid: it means "no pong reply" */
+	if (pongbytes > 65535) {
+		command_fail(cmd, "pongbytes %u > 65535", pongbytes);
 		return;
 	}
 

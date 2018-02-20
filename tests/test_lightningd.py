@@ -1851,6 +1851,11 @@ class LightningDTests(BaseLightningDTests):
             ret = l1.rpc.dev_ping(l2.info['id'], 1000, s)
             assert ret['totlen'] == 0
 
+        # 65535 - type(2 bytes) - num_pong_bytes(2 bytes) - byteslen(2 bytes)
+        # = 65529 max.
+        self.assertRaisesRegex(ValueError, r'oversize ping',
+                               l1.rpc.dev_ping, l2.info['id'], 65530, 1)
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_ping(self):
         l1,l2 = self.connect()
