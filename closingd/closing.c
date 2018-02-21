@@ -206,8 +206,7 @@ static void send_offer(struct crypto_state *cs,
 	tal_free(tmpctx);
 }
 
-static void tell_master_their_offer(u64 their_offer,
-				    const secp256k1_ecdsa_signature *their_sig,
+static void tell_master_their_offer(const secp256k1_ecdsa_signature *their_sig,
 				    const struct bitcoin_tx *tx)
 {
 	u8 *msg = towire_closing_received_signature(NULL, their_sig, tx);
@@ -336,7 +335,7 @@ static uint64_t receive_offer(struct crypto_state *cs,
 	/* Master sorts out what is best offer, we just tell it any above min */
 	if (received_fee >= min_fee_to_accept) {
 		status_trace("...offer is reasonable");
-		tell_master_their_offer(received_fee, &their_sig, tx);
+		tell_master_their_offer(&their_sig, tx);
 	}
 
 	tal_free(tmpctx);
