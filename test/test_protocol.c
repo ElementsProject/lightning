@@ -1069,7 +1069,6 @@ static void add_sent(struct sent **sent, int y, const char *msg)
 }
 
 static void draw_restart(char **str, const char *name,
-			 struct sent **a_sent, struct sent **b_sent,
 			 int *y)
 {
 	*y += STEP_HEIGHT / 2;
@@ -1353,7 +1352,7 @@ int main(int argc, char *argv[])
 
 			if (svg)
 				draw_restart(&svg, "RESTART",
-					     &a_sent, &b_sent, &y);
+					     &y);
 
 			write_to_client("A", acmd[1], "save", strlen("save")+1);
 			write_to_client("B", bcmd[1], "save", strlen("save")+1);
@@ -1387,7 +1386,7 @@ int main(int argc, char *argv[])
 
 			if (svg)
 				draw_restart(&svg, "RESTART END",
-					     &a_sent, &b_sent, &y);
+					     &y);
 			continue;
 		} else if (strstarts(cmd, "#") || streq(cmd, ""))
 			continue;
