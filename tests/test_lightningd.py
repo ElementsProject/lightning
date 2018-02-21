@@ -3718,6 +3718,45 @@ class LightningDTests(BaseLightningDTests):
         l1.restart()
         assert len(l1.rpc.listpeers()['peers']) == 0
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_blockchaintrack(self):
+        """Check that we track the blockchain correctly across reorgs
+        """
+        l1 = self.node_factory.get_node()
+        btc = l1.bitcoin
+        addr = l1.rpc.newaddr()['address']
+
+        ######################################################################
+        # First failure scenario: rollback on startup doesn't work,
+        # and we try to add a block twice when rescanning:
+        l1.restart()
+
+        # At height 442 we receive an incoming payment
+        hashes = btc.rpc.generate(9)
+        btc.rpc.sendtoaddress(addr, 1)
+        time.sleep(1)  # mempool is still unpredictable
+        btc.rpc.generate(1)
+
+        l1.daemon.wait_for_log(r'Owning')
+        outputs = l1.rpc.listfunds()['outputs']
+        assert len(outputs) == 1
+
+        ######################################################################
+        # Second failure scenario: perform a 20 block reorg
+        btc.rpc.generate(10)
+        blockheight = btc.rpc.getblockcount()
+        wait_for(lambda: l1.rpc.dev_blockheight()['blockheight'] == blockheight)
+
+        # Now reorg out with a longer fork of 21 blocks
+        btc.rpc.invalidateblock(hashes[0])
+        hashes = btc.rpc.generate(21)
+
+        blockheight = btc.rpc.getblockcount()
+        wait_for(lambda: l1.rpc.dev_blockheight()['blockheight'] == blockheight)
+
+        # Our funds got reorged out, we should not have any funds that are confirmed
+        assert [o for o in l1.rpc.listfunds()['outputs'] if o['status'] != "unconfirmed"] == []
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
