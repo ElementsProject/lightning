@@ -1164,8 +1164,7 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 /* Get the struct node_connection matching the short_channel_id,
  * which must be an out connection of the given node. */
 static struct node_connection *
-get_out_node_connection_of(struct routing_state *rstate,
-			   const struct node *node,
+get_out_node_connection_of(const struct node *node,
 			   const struct short_channel_id *short_channel_id)
 {
 	int i;
@@ -1243,7 +1242,7 @@ void routing_failure(struct routing_state *rstate,
 		for (i = 0; i < tal_count(node->out); ++i)
 			routing_failure_on_nc(rstate, failcode, node->out[i], now);
 	} else {
-		nc = get_out_node_connection_of(rstate, node, scid);
+		nc = get_out_node_connection_of(node, scid);
 		if (nc)
 			routing_failure_on_nc(rstate, failcode, nc, now);
 		else
