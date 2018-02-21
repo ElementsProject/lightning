@@ -205,8 +205,7 @@ struct txowatch *watch_txo(const tal_t *ctx,
 }
 
 /* Returns true if we fired a callback */
-static bool txw_fire(struct chain_topology *topo,
-		     struct txwatch *txw,
+static bool txw_fire(struct txwatch *txw,
 		     const struct bitcoin_tx *tx,
 		     unsigned int depth)
 {
@@ -287,7 +286,7 @@ again:
 
 		depth = get_tx_depth(topo, &w->txid, &tx);
 		if (depth)
-			needs_rerun |= txw_fire(topo, w, tx, depth);
+			needs_rerun |= txw_fire(w, tx, depth);
 	}
 	if (needs_rerun)
 		goto again;
