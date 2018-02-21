@@ -1,15 +1,12 @@
-from concurrent.futures import ThreadPoolExecutor
-from lightning import LightningRpc
-from test_lightningd import NodeFactory
 import logging
 import pytest
 import random
 import utils
 
 from concurrent import futures
+from test_lightningd import NodeFactory
 from time import time
 from tqdm import tqdm
-
 
 num_workers = 480
 num_payments = 10000
@@ -20,6 +17,7 @@ def executor():
     ex = futures.ThreadPoolExecutor(max_workers=num_workers)
     yield ex
     ex.shutdown(wait=False)
+
 
 @pytest.fixture(scope="module")
 def bitcoind():
@@ -42,11 +40,13 @@ def bitcoind():
         bitcoind.proc.kill()
     bitcoind.proc.wait()
 
+
 @pytest.fixture
 def node_factory(request, bitcoind, executor):
     nf = NodeFactory(request.node.name, bitcoind, executor)
     yield nf
     nf.killall()
+
 
 def test_single_hop(node_factory, executor):
     l1 = node_factory.get_node()
@@ -73,6 +73,7 @@ def test_single_hop(node_factory, executor):
 
     diff = time() - start_time
     print("Done. %d payments performed in %f seconds (%f payments per second)" % (num_payments, diff, num_payments / diff))
+
 
 def test_single_payment(node_factory, benchmark):
     l1 = node_factory.get_node()
