@@ -971,8 +971,7 @@ static void set_state(enum channel_state state)
 	wire_sync_write(REQ_FD, take(towire_onchain_init_reply(NULL, state)));
 }
 
-static void handle_mutual_close(const struct bitcoin_tx *tx,
-				const struct bitcoin_txid *txid,
+static void handle_mutual_close(const struct bitcoin_txid *txid,
 				struct tracked_output **outs)
 {
 	set_state(ONCHAIND_MUTUAL);
@@ -2053,7 +2052,7 @@ int main(int argc, char *argv[])
 	 *    #2: Channel Close](02-peer-protocol.md#channel-close)).
 	 */
 	if (is_mutual_close(tx, scriptpubkey[LOCAL], scriptpubkey[REMOTE]))
-		handle_mutual_close(tx, &txid, outs);
+		handle_mutual_close(&txid, outs);
 	else {
 		/* BOLT #5:
 		 *
