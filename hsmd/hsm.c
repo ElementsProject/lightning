@@ -504,7 +504,7 @@ static void create_new_hsm(void)
 	populate_secretstuff();
 }
 
-static void load_hsm(struct daemon_conn *master)
+static void load_hsm(void)
 {
 	int fd = open("hsm_secret", O_RDONLY);
 	if (fd < 0)
@@ -528,7 +528,7 @@ static void init_hsm(struct daemon_conn *master, const u8 *msg)
 	if (new)
 		create_new_hsm();
 	else
-		load_hsm(master);
+		load_hsm();
 
 	send_init_response(master);
 }
