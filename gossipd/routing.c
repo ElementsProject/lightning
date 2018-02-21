@@ -1181,8 +1181,7 @@ get_out_node_connection_of(const struct node *node,
  * routing_failure_on_nc - Handle routing failure on a specific
  * node_connection.
  */
-static void routing_failure_on_nc(struct routing_state *rstate,
-				  enum onion_type failcode,
+static void routing_failure_on_nc(enum onion_type failcode,
 				  struct node_connection *nc,
 				  time_t now)
 {
@@ -1238,13 +1237,13 @@ void routing_failure(struct routing_state *rstate,
 	 */
 	if (failcode & NODE) {
 		for (i = 0; i < tal_count(node->in); ++i)
-			routing_failure_on_nc(rstate, failcode, node->in[i], now);
+			routing_failure_on_nc(failcode, node->in[i], now);
 		for (i = 0; i < tal_count(node->out); ++i)
-			routing_failure_on_nc(rstate, failcode, node->out[i], now);
+			routing_failure_on_nc(failcode, node->out[i], now);
 	} else {
 		nc = get_out_node_connection_of(node, scid);
 		if (nc)
-			routing_failure_on_nc(rstate, failcode, nc, now);
+			routing_failure_on_nc(failcode, nc, now);
 		else
 			status_trace("UNUSUAL routing_failure: "
 				     "Channel %s not an out channel "
