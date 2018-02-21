@@ -181,11 +181,6 @@ static void rebroadcast_txs(struct chain_topology *topo, struct command *cmd)
 	struct txs_to_broadcast *txs;
 	struct outgoing_tx *otx;
 
-#if DEVELOPER
-	if (topo->dev_no_broadcast)
-		return;
-#endif /* DEVELOPER */
-
 	txs = tal(topo, struct txs_to_broadcast);
 	txs->cmd = cmd;
 
@@ -260,12 +255,6 @@ void broadcast_tx(struct chain_topology *topo,
 	log_add(topo->log, " (tx %s)",
 		type_to_string(ltmp, struct bitcoin_txid, &otx->txid));
 
-#if DEVELOPER
-	if (topo->dev_no_broadcast) {
-		broadcast_done(topo->bitcoind, 0, "dev_no_broadcast", otx);
-		return;
-	}
-#endif
 	bitcoind_sendrawtx(topo->bitcoind, otx->hextx, broadcast_done, otx);
 }
 
@@ -554,35 +543,6 @@ struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo,
 }
 
 #if DEVELOPER
-void json_dev_broadcast(struct command *cmd,
-			struct chain_topology *topo,
-			const char *buffer, const jsmntok_t *params)
-{
-	jsmntok_t *enabletok;
-	bool enable;
-
-	if (!json_get_params(cmd, buffer, params,
-			     "enable", &enabletok,
-			     NULL)) {
-		return;
-	}
-
-	if (!json_tok_bool(buffer, enabletok, &enable)) {
-		command_fail(cmd, "Enable must be true or false");
-		return;
-	}
-
-	log_debug(cmd->ld->log, "dev-broadcast: broadcast %s",
-		  enable ? "enabled" : "disabled");
-	cmd->ld->topology->dev_no_broadcast = !enable;
-
-	/* If enabling, flush and wait. */
-	if (enable)
-		rebroadcast_txs(cmd->ld->topology, cmd);
-	else
-		command_success(cmd, null_response(cmd));
-}
-
 static void json_dev_blockheight(struct command *cmd,
 				 const char *buffer UNUSED, const jsmntok_t *params UNUSED)
 {
@@ -706,9 +666,6 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 	topo->default_fee_rate = 40000;
 	topo->override_fee_rate = NULL;
 	topo->bitcoind = new_bitcoind(topo, ld, log);
-#if DEVELOPER
-	topo->dev_no_broadcast = false;
-#endif
 
 	return topo;
 }
