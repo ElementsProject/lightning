@@ -466,7 +466,7 @@ static void bitcoin_keypair(struct privkey *privkey,
 			      "BIP32 pubkey %u create failed", index);
 }
 
-static void create_new_hsm(struct daemon_conn *master)
+static void create_new_hsm(void)
 {
 	int fd = open("hsm_secret", O_CREAT|O_EXCL|O_WRONLY, 0400);
 	if (fd < 0)
@@ -526,7 +526,7 @@ static void init_hsm(struct daemon_conn *master, const u8 *msg)
 		master_badmsg(WIRE_HSM_INIT, msg);
 
 	if (new)
-		create_new_hsm(master);
+		create_new_hsm();
 	else
 		load_hsm(master);
 
