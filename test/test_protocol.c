@@ -266,10 +266,8 @@ static void db_recv_local_commit(struct database *db,
 	db->local = *ci;
 }
 
-static void db_send_remote_commit(struct peer *peer,
-				  struct database *db,
-				  const struct commit_info *ci,
-				  struct signature sig)
+static void db_send_remote_commit(struct database *db,
+				  const struct commit_info *ci)
 {
 	if (ci->prev)
 		db->remote_prev = *ci->prev;
@@ -666,7 +664,7 @@ static void send_commit(struct peer *peer)
 
 	peer->remote = new_commit_info(peer, peer->remote);
 	peer->remote->counterparty_signed = true;
-	db_send_remote_commit(peer, &peer->db, peer->remote, sig);
+	db_send_remote_commit(&peer->db, peer->remote);
 
 	/* Tell other side about commit and result (it should agree!) */
 	xmit_commit(peer, sig);
