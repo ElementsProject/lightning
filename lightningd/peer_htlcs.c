@@ -417,7 +417,6 @@ enum onion_type send_htlc_out(struct channel *out, u64 amount, u32 cltv,
 
 static void forward_htlc(struct htlc_in *hin,
 			 u32 cltv_expiry,
-			 const struct sha256 *payment_hash,
 			 u64 amt_to_forward,
 			 u32 outgoing_cltv_value,
 			 const struct pubkey *next_hop,
@@ -543,7 +542,7 @@ static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
 		peer_id = &nodes[0];
 	}
 
-	forward_htlc(gr->hin, gr->hin->cltv_expiry, &gr->hin->payment_hash,
+	forward_htlc(gr->hin, gr->hin->cltv_expiry,
 		     gr->amt_to_forward, gr->outgoing_cltv_value, peer_id,
 		     gr->next_onion);
 	tal_free(gr);
