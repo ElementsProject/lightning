@@ -351,8 +351,7 @@ struct feerange {
 
 static void init_feerange(struct feerange *feerange,
 			  u64 commitment_fee,
-			  const u64 offer[NUM_SIDES],
-			  bool allow_mistakes)
+			  const u64 offer[NUM_SIDES])
 {
 	feerange->min = 0;
 
@@ -528,7 +527,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Now we have first two points, we can init fee range. */
-	init_feerange(&feerange, commitment_fee, offer, deprecated_api);
+	init_feerange(&feerange, commitment_fee, offer);
 
 	/* Now apply the one constraint from above (other is inside loop). */
 	adjust_feerange(&cs, gossip_index, &channel_id, &feerange,
