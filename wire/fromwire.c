@@ -82,6 +82,11 @@ u64 fromwire_u64(const u8 **cursor, size_t *max)
 	return be64_to_cpu(ret);
 }
 
+void fromwire_double(const u8 **cursor, size_t *max, double *ret)
+{
+	fromwire(cursor, max, ret, sizeof(*ret));
+}
+
 bool fromwire_bool(const u8 **cursor, size_t *max)
 {
 	u8 ret;

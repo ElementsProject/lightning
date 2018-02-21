@@ -52,6 +52,7 @@ void towire_u8(u8 **pptr, u8 v);
 void towire_u16(u8 **pptr, u16 v);
 void towire_u32(u8 **pptr, u32 v);
 void towire_u64(u8 **pptr, u64 v);
+void towire_double(u8 **pptr, const double *v);
 void towire_pad(u8 **pptr, size_t num);
 void towire_bool(u8 **pptr, bool v);
 
@@ -65,6 +66,7 @@ u8 fromwire_u8(const u8 **cursor, size_t *max);
 u16 fromwire_u16(const u8 **cursor, size_t *max);
 u32 fromwire_u32(const u8 **cursor, size_t *max);
 u64 fromwire_u64(const u8 **cursor, size_t *max);
+void fromwire_double(const u8 **cursor, size_t *max, double *v);
 bool fromwire_bool(const u8 **cursor, size_t *max);
 void fromwire_secret(const u8 **cursor, size_t *max, struct secret *secret);
 void fromwire_privkey(const u8 **cursor, size_t *max, struct privkey *privkey);
