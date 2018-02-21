@@ -383,6 +383,14 @@ static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 		json_add_txid(response, "txid", &utxos[i]->txid);
 		json_add_num(response, "output", utxos[i]->outnum);
 		json_add_u64(response, "value", utxos[i]->amount);
+
+		if (utxos[i]->spendheight)
+			json_add_string(response, "status", "spent");
+		else if (utxos[i]->blockheight)
+			json_add_string(response, "status", "confirmed");
+		else
+			json_add_string(response, "status", "unconfirmed");
+
 		json_object_end(response);
 	}
 	json_array_end(response);
