@@ -102,7 +102,7 @@ static void json_rhash(struct command *cmd,
 			secrettok->end - secrettok->start,
 			&secret, sizeof(secret))) {
 		command_fail(cmd, "'%.*s' is not a valid 32-byte hex value",
-			     (int)(secrettok->end - secrettok->start),
+			     secrettok->end - secrettok->start,
 			     buffer + secrettok->start);
 		return;
 	}
@@ -511,7 +511,7 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		command_fail_detailed(c,
 				      JSONRPC2_METHOD_NOT_FOUND, NULL,
 				      "Unknown command '%.*s'",
-				      (int)(method->end - method->start),
+				      method->end - method->start,
 				      jcon->buffer + method->start);
 		return;
 	}
@@ -519,7 +519,7 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		command_fail_detailed(c,
 				      JSONRPC2_METHOD_NOT_FOUND, NULL,
 				      "Command '%.*s' is deprecated",
-				      (int)(method->end - method->start),
+				      method->end - method->start,
 				      jcon->buffer + method->start);
 		return;
 	}

@@ -286,7 +286,7 @@ static void json_pay(struct command *cmd,
 		if (!json_tok_u64(buffer, msatoshitok, &msatoshi)) {
 			command_fail(cmd,
 				     "msatoshi '%.*s' is not a valid number",
-				     (int)(msatoshitok->end-msatoshitok->start),
+				     msatoshitok->end-msatoshitok->start,
 				     buffer + msatoshitok->start);
 			return;
 		}
@@ -296,7 +296,7 @@ static void json_pay(struct command *cmd,
 	if (riskfactortok
 	    && !json_tok_double(buffer, riskfactortok, &riskfactor)) {
 		command_fail(cmd, "'%.*s' is not a valid double",
-			     (int)(riskfactortok->end - riskfactortok->start),
+			     riskfactortok->end - riskfactortok->start,
 			     buffer + riskfactortok->start);
 		return;
 	}
@@ -305,7 +305,7 @@ static void json_pay(struct command *cmd,
 	if (maxfeetok
 	    && !json_tok_double(buffer, maxfeetok, &maxfeepercent)) {
 		command_fail(cmd, "'%.*s' is not a valid double",
-			     (int)(maxfeetok->end - maxfeetok->start),
+			     maxfeetok->end - maxfeetok->start,
 			     buffer + maxfeetok->start);
 		return;
 	}

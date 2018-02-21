@@ -733,14 +733,14 @@ static void json_sendpay(struct command *cmd,
 			rhashtok->end - rhashtok->start,
 			&rhash, sizeof(rhash))) {
 		command_fail(cmd, "'%.*s' is not a valid sha256 hash",
-			     (int)(rhashtok->end - rhashtok->start),
+			     rhashtok->end - rhashtok->start,
 			     buffer + rhashtok->start);
 		return;
 	}
 
 	if (routetok->type != JSMN_ARRAY) {
 		command_fail(cmd, "'%.*s' is not an array",
-			     (int)(routetok->end - routetok->start),
+			     routetok->end - routetok->start,
 			     buffer + routetok->start);
 		return;
 	}
@@ -755,7 +755,7 @@ static void json_sendpay(struct command *cmd,
 		if (t->type != JSMN_OBJECT) {
 			command_fail(cmd, "Route %zu '%.*s' is not an object",
 				     n_hops,
-				     (int)(t->end - t->start),
+				     t->end - t->start,
 				     buffer + t->start);
 			return;
 		}
@@ -851,7 +851,7 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 				rhashtok->end - rhashtok->start,
 				rhash, sizeof(*rhash))) {
 			command_fail(cmd, "'%.*s' is not a valid sha256 hash",
-				     (int)(rhashtok->end - rhashtok->start),
+				     rhashtok->end - rhashtok->start,
 				     buffer + rhashtok->start);
 			return;
 		}

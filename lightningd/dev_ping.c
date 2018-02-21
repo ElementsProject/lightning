@@ -57,21 +57,21 @@ static void json_dev_ping(struct command *cmd,
 	 * ready to forward! */
 	if (!json_tok_number(buffer, lentok, &len)) {
 		command_fail(cmd, "'%.*s' is not a valid number",
-			     (int)(lentok->end - lentok->start),
+			     lentok->end - lentok->start,
 			     buffer + lentok->start);
 		return;
 	}
 
 	if (!json_tok_number(buffer, pongbytestok, &pongbytes)) {
 		command_fail(cmd, "'%.*s' is not a valid number",
-			     (int)(pongbytestok->end - pongbytestok->start),
+			     pongbytestok->end - pongbytestok->start,
 			     buffer + pongbytestok->start);
 		return;
 	}
 
 	if (!json_tok_pubkey(buffer, idtok, &id)) {
 		command_fail(cmd, "'%.*s' is not a valid pubkey",
-			     (int)(idtok->end - idtok->start),
+			     idtok->end - idtok->start,
 			     buffer + idtok->start);
 		return;
 	}

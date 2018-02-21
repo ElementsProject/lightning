@@ -358,7 +358,7 @@ static void process_sendrawtx(struct bitcoin_cli *bcli)
 {
 	void (*cb)(struct bitcoind *bitcoind,
 		   int, const char *msg, void *) = bcli->cb;
-	const char *msg = tal_strndup(bcli, (char *)bcli->output,
+	const char *msg = tal_strndup(bcli, bcli->output,
 				      bcli->output_bytes);
 
 	log_debug(bcli->bitcoind->log, "sendrawtx exit %u, gave %s",
@@ -390,7 +390,7 @@ static void process_rawblock(struct bitcoin_cli *bcli)
 	if (!blk)
 		fatal("%s: bad block '%.*s'?",
 		      bcli_args(bcli),
-		      (int)bcli->output_bytes, (char *)bcli->output);
+		      (int)bcli->output_bytes, bcli->output);
 
 	cb(bcli->bitcoind, blk, bcli->cb_arg);
 }
