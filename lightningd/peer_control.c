@@ -665,7 +665,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 		json_array_end(response);
 
 		if (gpa->ll)
-			json_add_log(response, "log", p->log_book, *gpa->ll);
+			json_add_log(response, p->log_book, *gpa->ll);
 		json_object_end(response);
 	}
 

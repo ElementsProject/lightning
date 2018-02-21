@@ -101,7 +101,7 @@ const tal_t *ltmp;
 void NORETURN PRINTF_FMT(1,2) fatal(const char *fmt, ...);
 
 /* Adds an array showing log entries */
-void json_add_log(struct json_result *result, const char *fieldname,
+void json_add_log(struct json_result *result,
 		  const struct log_book *lr, enum log_level minlevel);
 
 bool json_tok_loglevel(const char *buffer, const jsmntok_t *tok,
