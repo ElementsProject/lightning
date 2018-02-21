@@ -58,8 +58,8 @@ void connect_htlc_out(struct htlc_out_map *map, struct htlc_out *hend)
 	htlc_out_map_add(map, hend);
 }
 
-static void *PRINTF_FMT(3,4)
-	corrupt(const void *ptr, const char *abortstr, const char *fmt, ...)
+static void *PRINTF_FMT(2,3)
+	corrupt(const char *abortstr, const char *fmt, ...)
 {
 	if (abortstr) {
 		char *p;
@@ -76,16 +76,16 @@ static void *PRINTF_FMT(3,4)
 struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr)
 {
 	if (hin->msatoshi == 0)
-		return corrupt(hin, abortstr, "zero msatoshi");
+		return corrupt(abortstr, "zero msatoshi");
 	else if (htlc_state_owner(hin->hstate) != REMOTE)
-		return corrupt(hin, abortstr, "invalid state %s",
+		return corrupt(abortstr, "invalid state %s",
 			       htlc_state_name(hin->hstate));
 	else if (hin->failuremsg && hin->preimage)
-		return corrupt(hin, abortstr, "Both failuremsg and succeeded");
+		return corrupt(abortstr, "Both failuremsg and succeeded");
 	else if (hin->failcode != 0 && hin->preimage)
-		return corrupt(hin, abortstr, "Both failcode and succeeded");
+		return corrupt(abortstr, "Both failcode and succeeded");
 	else if (hin->failuremsg && (hin->failcode & BADONION))
-		return corrupt(hin, abortstr, "Both failed and malformed");
+		return corrupt(abortstr, "Both failed and malformed");
 
 	return cast_const(struct htlc_in *, hin);
 }
@@ -121,10 +121,10 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 				const char *abortstr)
 {
 	if (htlc_state_owner(hout->hstate) != LOCAL)
-		return corrupt(hout, abortstr, "invalid state %s",
+		return corrupt(abortstr, "invalid state %s",
 			       htlc_state_name(hout->hstate));
 	else if (hout->failuremsg && hout->preimage)
-		return corrupt(hout, abortstr, "Both failed and succeeded");
+		return corrupt(abortstr, "Both failed and succeeded");
 
 	return cast_const(struct htlc_out *, hout);
 }
