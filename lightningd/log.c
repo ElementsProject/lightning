@@ -534,7 +534,7 @@ static void log_crash(int sig)
 	fprintf(stderr, "\n");
 }
 
-void crashlog_activate(const char *argv0, struct log *log)
+void crashlog_activate(const char *argv0 UNUSED, struct log *log)
 {
 	struct sigaction sa;
 	crashlog = log;

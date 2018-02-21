@@ -218,7 +218,7 @@ static int append_bt(void *data, uintptr_t pc)
 	return 0;
 }
 
-static void add_backtrace(tal_t *parent, enum tal_notify_type type UNNEEDED,
+static void add_backtrace(tal_t *parent UNUSED, enum tal_notify_type type UNNEEDED,
 			  void *child)
 {
 	uintptr_t *bt = tal_alloc_arr_(child, sizeof(uintptr_t), 32, true, true,

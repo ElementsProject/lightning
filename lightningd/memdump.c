@@ -66,7 +66,7 @@ static const struct json_command dev_memdump_command = {
 };
 AUTODATA(json_command, &dev_memdump_command);
 
-static int json_add_syminfo(void *data, uintptr_t pc,
+static int json_add_syminfo(void *data, uintptr_t pc UNUSED,
 			    const char *filename, int lineno,
 			    const char *function)
 {

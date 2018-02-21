@@ -839,7 +839,7 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 	return daemon_conn_read_next(conn, dc);
 }
 
-static void forget_peer(struct io_conn *conn, struct daemon_conn *dc)
+static void forget_peer(struct io_conn *conn UNUSED, struct daemon_conn *dc)
 {
 	struct peer *peer = dc->ctx;
 
@@ -2011,7 +2011,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 }
 
 #ifndef TESTING
-static void master_gone(struct io_conn *unused, struct daemon_conn *dc)
+static void master_gone(struct io_conn *unused UNUSED, struct daemon_conn *dc UNUSED)
 {
 	/* Can't tell master, it's gone. */
 	exit(2);

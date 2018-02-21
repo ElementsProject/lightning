@@ -500,7 +500,7 @@ void invoices_waitany(const tal_t *ctx,
 
 
 void invoices_waitone(const tal_t *ctx,
-		      struct invoices *invoices,
+		      struct invoices *invoices UNUSED,
 		      struct invoice const *cinvoice,
 		      void (*cb)(const struct invoice *, void*),
 		      void *cbarg)

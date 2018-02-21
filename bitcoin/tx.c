@@ -255,7 +255,7 @@ u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
 	return arr;
 }
 
-static void push_measure(const void *data, size_t len, void *lenp)
+static void push_measure(const void *data UNUSED, size_t len, void *lenp)
 {
 	*(size_t *)lenp += len;
 }

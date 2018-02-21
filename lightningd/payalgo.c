@@ -139,8 +139,8 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 	json_pay_try(pay);
 }
 
-static void json_pay_getroute_reply(struct subd *gossip,
-				    const u8 *reply, const int *fds,
+static void json_pay_getroute_reply(struct subd *gossip UNUSED,
+				    const u8 *reply, const int *fds UNUSED,
 				    struct pay *pay)
 {
 	struct route_hop *route;

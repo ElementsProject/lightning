@@ -12,7 +12,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-void status_fmt(enum log_level level, const char *fmt, ...)
+void status_fmt(enum log_level level UNUSED, const char *fmt, ...)
 {
 	va_list ap;
 

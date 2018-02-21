@@ -330,7 +330,7 @@ static void destroy_hout_subd_died(struct htlc_out *hout)
 
 /* This is where channeld gives us the HTLC id, and also reports if it
  * failed immediately. */
-static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
+static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNUSED,
 			    struct htlc_out *hout)
 {
 	u16 failure_code;
@@ -515,7 +515,7 @@ struct gossip_resolve {
 /* We received a resolver reply, which gives us the node_ids of the
  * channel we want to forward over */
 static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
-				  const int *fds, struct gossip_resolve *gr)
+				  const int *fds UNUSED, struct gossip_resolve *gr)
 {
 	struct pubkey *nodes, *peer_id;
 

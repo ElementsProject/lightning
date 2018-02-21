@@ -6,7 +6,7 @@ struct broadcast_state *new_broadcast_state(tal_t *ctx UNNEEDED)
 	return NULL;
 }
 
-void status_fmt(enum log_level level, const char *fmt, ...)
+void status_fmt(enum log_level level UNUSED, const char *fmt, ...)
 {
 	va_list ap;
 

@@ -32,7 +32,7 @@ static struct io_plan *test_read(struct io_conn *conn,
 				 struct handshake *h);
 
 #define SUPERVERBOSE status_trace
-void status_fmt(enum log_level level, const char *fmt, ...)
+void status_fmt(enum log_level level UNUSED, const char *fmt, ...)
 {
 	va_list ap;
 
@@ -174,9 +174,9 @@ static struct io_plan *test_read(struct io_conn *conn,
 	return next(conn, h);
 }
 
-static struct io_plan *success(struct io_conn *conn,
+static struct io_plan *success(struct io_conn *conn UNUSED,
 			       const struct pubkey *them,
-			       const struct wireaddr *addr,
+			       const struct wireaddr *addr UNUSED,
 			       const struct crypto_state *cs,
 			       void *ctx)
 {

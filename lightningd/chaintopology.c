@@ -417,7 +417,7 @@ static void remove_tip(struct chain_topology *topo)
 	tal_free(b);
 }
 
-static void have_new_block(struct bitcoind *bitcoind,
+static void have_new_block(struct bitcoind *bitcoind UNUSED,
 			   struct bitcoin_block *blk,
 			   struct chain_topology *topo)
 {
@@ -449,7 +449,7 @@ static void try_extend_tip(struct chain_topology *topo)
 			      get_new_block, topo);
 }
 
-static void init_topo(struct bitcoind *bitcoind,
+static void init_topo(struct bitcoind *bitcoind UNUSED,
 		      struct bitcoin_block *blk,
 		      struct chain_topology *topo)
 {
@@ -584,7 +584,7 @@ void json_dev_broadcast(struct command *cmd,
 }
 
 static void json_dev_blockheight(struct command *cmd,
-				 const char *buffer, const jsmntok_t *params)
+				 const char *buffer UNUSED, const jsmntok_t *params UNUSED)
 {
 	struct chain_topology *topo = cmd->ld->topology;
 	struct json_result *response;

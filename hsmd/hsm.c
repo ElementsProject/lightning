@@ -823,11 +823,11 @@ static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 #ifndef TESTING
 /* FIXME: This is used by debug.c, but doesn't apply to us. */
 extern void dev_disconnect_init(int fd);
-void dev_disconnect_init(int fd)
+void dev_disconnect_init(int fd UNUSED)
 {
 }
 
-static void master_gone(struct io_conn *unused, struct daemon_conn *dc)
+static void master_gone(struct io_conn *unused UNUSED, struct daemon_conn *dc UNUSED)
 {
 	/* Can't tell master, it's gone. */
 	exit(2);

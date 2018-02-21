@@ -254,7 +254,7 @@ static void PRINTF_FMT(3, 4)
 	tal_free(cmd);
 }
 
-bool db_exec_prepared_mayfail_(const char *caller, struct db *db, sqlite3_stmt *stmt)
+bool db_exec_prepared_mayfail_(const char *caller UNUSED, struct db *db, sqlite3_stmt *stmt)
 {
 	assert(db->in_transaction);
 
@@ -270,7 +270,7 @@ fail:
 }
 
 sqlite3_stmt *PRINTF_FMT(3, 4)
-    db_query(const char *caller, struct db *db, const char *fmt, ...)
+    db_query(const char *caller UNUSED, struct db *db, const char *fmt, ...)
 {
 	va_list ap;
 	char *query;

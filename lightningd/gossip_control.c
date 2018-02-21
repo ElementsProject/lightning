@@ -188,8 +188,8 @@ void gossip_init(struct lightningd *ld)
 	tal_free(tmpctx);
 }
 
-static void json_getnodes_reply(struct subd *gossip, const u8 *reply,
-				const int *fds,
+static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
+				const int *fds UNUSED,
 				struct command *cmd)
 {
 	struct gossip_getnodes_entry **nodes;
@@ -263,7 +263,7 @@ static const struct json_command listnodes_command = {
 };
 AUTODATA(json_command, &listnodes_command);
 
-static void json_getroute_reply(struct subd *gossip, const u8 *reply, const int *fds,
+static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, const int *fds UNUSED,
 				struct command *cmd)
 {
 	struct json_result *response;
@@ -355,8 +355,8 @@ static const struct json_command getroute_command = {
 AUTODATA(json_command, &getroute_command);
 
 /* Called upon receiving a getchannels_reply from `gossipd` */
-static void json_listchannels_reply(struct subd *gossip, const u8 *reply,
-				   const int *fds, struct command *cmd)
+static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
+				   const int *fds UNUSED, struct command *cmd)
 {
 	size_t i;
 	struct gossip_getchannels_entry *entries;

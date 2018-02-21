@@ -35,7 +35,7 @@ void free_htlcs(struct lightningd *ld UNNEEDED, const struct channel *channel UN
 void gossip_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "gossip_init called!\n"); abort(); }
 /* Generated stub for handle_opts */
-bool handle_opts(struct lightningd *ld UNNEEDED, int argc UNNEEDED, char *argv[])
+bool handle_opts(struct lightningd *ld UNNEEDED, int argc UNNEEDED, char *argv[] UNUSED)
 { fprintf(stderr, "handle_opts called!\n"); abort(); }
 /* Generated stub for hash_htlc_key */
 size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)
@@ -78,7 +78,7 @@ void subd_shutdown(struct subd *subd UNNEEDED, unsigned int seconds UNNEEDED)
 void timer_expired(tal_t *ctx UNNEEDED, struct timer *timer UNNEEDED)
 { fprintf(stderr, "timer_expired called!\n"); abort(); }
 /* Generated stub for txfilter_add_derkey */
-void txfilter_add_derkey(struct txfilter *filter UNNEEDED, u8 derkey[PUBKEY_DER_LEN])
+void txfilter_add_derkey(struct txfilter *filter UNNEEDED, u8 derkey[PUBKEY_DER_LEN] UNUSED)
 { fprintf(stderr, "txfilter_add_derkey called!\n"); abort(); }
 /* Generated stub for txfilter_new */
 struct txfilter *txfilter_new(const tal_t *ctx UNNEEDED)
@@ -127,7 +127,7 @@ char *opt_subd_dev_disconnect(const char *optarg UNNEEDED, struct lightningd *ld
 #endif
 
 #undef main
-int main(int argc, char *argv[])
+int main(int argc UNUSED, char *argv[] UNUSED)
 {
 	char *tmpctx = tal_tmpctx(NULL);
 	char *argv0;

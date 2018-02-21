@@ -1222,7 +1222,7 @@ static void start_clients(int a_to_b[2],
 	close(a_to_b[1]);
 }
 
-static void do_nothing(int sig)
+static void do_nothing(int sig UNUSED)
 {
 }
 

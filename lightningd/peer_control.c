@@ -51,7 +51,7 @@ static void destroy_peer(struct peer *peer)
 static void copy_to_parent_log(const char *prefix,
 			       enum log_level level,
 			       bool continued,
-			       const struct timeabs *time,
+			       const struct timeabs *time UNUSED,
 			       const char *str,
 			       const u8 *io,
 			       struct log *parent_log)
@@ -220,7 +220,7 @@ void channel_errmsg(struct channel *channel,
 		    int peer_fd, int gossip_fd,
 		    const struct crypto_state *cs,
 		    u64 gossip_index,
-		    const struct channel_id *channel_id,
+		    const struct channel_id *channel_id UNUSED,
 		    const char *desc,
 		    const u8 *err_for_them)
 {
@@ -478,7 +478,7 @@ send_error:
 }
 
 static enum watch_result funding_announce_cb(struct channel *channel,
-					     const struct bitcoin_tx *tx,
+					     const struct bitcoin_tx *tx UNUSED,
 					     unsigned int depth)
 {
 	if (depth < ANNOUNCE_MIN_DEPTH) {
@@ -584,7 +584,7 @@ struct getpeers_args {
 };
 
 static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
-				      const int *fds,
+				      const int *fds UNUSED,
 				      struct getpeers_args *gpa)
 {
 	/* This is a little sneaky... */
@@ -927,9 +927,9 @@ static const struct json_command dev_fail_command = {
 };
 AUTODATA(json_command, &dev_fail_command);
 
-static void dev_reenable_commit_finished(struct subd *channeld,
-					 const u8 *resp,
-					 const int *fds,
+static void dev_reenable_commit_finished(struct subd *channeld UNUSED,
+					 const u8 *resp UNUSED,
+					 const int *fds UNUSED,
 					 struct command *cmd)
 {
 	command_success(cmd, null_response(cmd));

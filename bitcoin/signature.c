@@ -65,11 +65,11 @@ static void dump_tx(const char *msg,
 	}
 }
 #else
-static void dump_tx(const char *msg,
-		    const struct bitcoin_tx *tx, size_t inputnum,
-		    const u8 *script,
-		    const struct pubkey *key,
-		    const struct sha256_double *h)
+static void dump_tx(const char *msg UNUSED,
+		    const struct bitcoin_tx *tx UNUSED, size_t inputnum UNUSED,
+		    const u8 *script UNUSED,
+		    const struct pubkey *key UNUSED,
+		    const struct sha256_double *h UNUSED)
 {
 }
 #endif
