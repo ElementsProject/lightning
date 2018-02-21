@@ -269,8 +269,7 @@ get_or_make_connection(struct routing_state *rstate,
 	return nc;
 }
 
-static void delete_connection(struct routing_state *rstate,
-			      const struct node_connection *connection)
+static void delete_connection(const struct node_connection *connection)
 {
 	tal_free(connection);
 }
@@ -1197,7 +1196,7 @@ static void routing_failure_on_nc(struct routing_state *rstate,
 		/* Prevent it for 20 seconds. */
 		nc->unroutable_until = now + 20;
 	else
-		delete_connection(rstate, nc);
+		delete_connection(nc);
 }
 
 void routing_failure(struct routing_state *rstate,
