@@ -1976,7 +1976,7 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 	send_announcement_signatures(peer);
 }
 
-static void handle_funding_announce_depth(struct peer *peer, const u8 *msg)
+static void handle_funding_announce_depth(struct peer *peer)
 {
 	peer->announce_depth_reached = true;
 	send_announcement_signatures(peer);
@@ -2360,7 +2360,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 		handle_funding_locked(peer, msg);
 		return;
 	case WIRE_CHANNEL_FUNDING_ANNOUNCE_DEPTH:
-		handle_funding_announce_depth(peer, msg);
+		handle_funding_announce_depth(peer);
 		return;
 	case WIRE_CHANNEL_OFFER_HTLC:
 		handle_offer_htlc(peer, msg);
