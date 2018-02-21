@@ -73,8 +73,7 @@ void txwatch_fire(struct chain_topology *topo,
 		  const struct bitcoin_tx *tx,
 		  unsigned int depth);
 
-void txowatch_fire(struct chain_topology *topo,
-		   const struct txowatch *txow,
+void txowatch_fire(const struct txowatch *txow,
 		   const struct bitcoin_tx *tx, size_t input_num,
 		   const struct block *block);
 
