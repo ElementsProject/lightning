@@ -1,7 +1,7 @@
 #include <common/utils.h>
 #include <devtools/gen_print_wire.h>
 
-int main(int argc, char *argv[])
+int main(int argc UNUSED, char *argv[])
 {
 	u8 *m = tal_hexdata(NULL, argv[1], strlen(argv[1]));
 	print_message(m);

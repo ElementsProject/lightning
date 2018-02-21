@@ -67,7 +67,7 @@ static const struct json_command help_command = {
 AUTODATA(json_command, &help_command);
 
 static void json_stop(struct command *cmd,
-		      const char *buffer, const jsmntok_t *params)
+		      const char *buffer UNUSED, const jsmntok_t *params UNUSED)
 {
 	struct json_result *response = new_json_result(cmd);
 
@@ -122,8 +122,8 @@ static const struct json_command dev_rhash_command = {
 };
 AUTODATA(json_command, &dev_rhash_command);
 
-static void json_crash(struct command *cmd,
-		       const char *buffer, const jsmntok_t *params)
+static void json_crash(struct command *cmd UNUSED,
+		       const char *buffer UNUSED, const jsmntok_t *params UNUSED)
 {
 	fatal("Crash at user request");
 }
@@ -137,7 +137,7 @@ AUTODATA(json_command, &dev_crash_command);
 #endif /* DEVELOPER */
 
 static void json_getinfo(struct command *cmd,
-			 const char *buffer, const jsmntok_t *params)
+			 const char *buffer UNUSED, const jsmntok_t *params UNUSED)
 {
 	struct json_result *response = new_json_result(cmd);
 

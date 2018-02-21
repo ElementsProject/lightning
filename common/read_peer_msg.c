@@ -112,13 +112,13 @@ u8 *read_peer_msg_(const tal_t *ctx,
 
 /* Helper: sync_crypto_write, with extra args it ignores */
 bool sync_crypto_write_arg(struct crypto_state *cs, int fd, const u8 *msg,
-			   void *unused)
+			   void *unused UNUSED)
 {
 	return sync_crypto_write(cs, fd, msg);
 }
 
 /* Helper: calls peer_failed_connection_lost. */
-void status_fail_io(void *unused)
+void status_fail_io(void *unused UNUSED)
 {
 	peer_failed_connection_lost();
 }

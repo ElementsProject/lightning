@@ -58,8 +58,8 @@ static void destroy_subd_req(struct subd_req *sr)
 }
 
 /* Called when the callback is disabled because caller was freed. */
-static void ignore_reply(struct subd *sd, const u8 *msg, const int *fds,
-			 void *arg)
+static void ignore_reply(struct subd *sd, const u8 *msg UNUSED, const int *fds,
+			 void *arg UNUSED)
 {
 	size_t i;
 
@@ -68,7 +68,7 @@ static void ignore_reply(struct subd *sd, const u8 *msg, const int *fds,
 		close(fds[i]);
 }
 
-static void disable_cb(void *disabler, struct subd_req *sr)
+static void disable_cb(void *disabler UNUSED, struct subd_req *sr)
 {
 	sr->replycb = ignore_reply;
 	sr->disabler = NULL;
@@ -275,7 +275,7 @@ int subd_raw(struct lightningd *ld, const char *name)
 
 static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd);
 
-static void mark_freed(struct subd *unused, bool *freed)
+static void mark_freed(struct subd *unused UNUSED, bool *freed)
 {
 	*freed = true;
 }

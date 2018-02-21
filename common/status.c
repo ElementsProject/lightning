@@ -21,7 +21,7 @@ static struct daemon_conn *status_conn;
 const void *trc;
 volatile bool logging_io = false;
 
-static void got_sigusr1(int signal)
+static void got_sigusr1(int signal UNUSED)
 {
 	logging_io = !logging_io;
 }

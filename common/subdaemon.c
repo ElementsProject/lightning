@@ -14,7 +14,7 @@
 
 static struct backtrace_state *backtrace_state;
 
-static int backtrace_status(void *unused, uintptr_t pc,
+static int backtrace_status(void *unused UNUSED, uintptr_t pc,
 			    const char *filename, int lineno,
 			    const char *function)
 {

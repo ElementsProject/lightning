@@ -3,7 +3,7 @@
 static void db_fatal(const char *fmt, ...);
 #define fatal db_fatal
 
-static void db_log_(struct log *log, enum log_level level, const char *fmt, ...)
+static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const char *fmt UNUSED, ...)
 {
 }
 #define log_ db_log_

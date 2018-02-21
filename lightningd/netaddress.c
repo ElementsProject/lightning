@@ -138,7 +138,7 @@ static bool IsRFC4843(const struct wireaddr *addr)
     return IsIPv6(addr) && (GetByte(addr, 15) == 0x20 && GetByte(addr, 14) == 0x01 && GetByte(addr, 13) == 0x00 && (GetByte(addr, 12) & 0xF0) == 0x10);
 }
 
-static bool IsTor(const struct wireaddr *addr)
+static bool IsTor(const struct wireaddr *addr UNUSED)
 {
 	/* FIXME */
 	return false;

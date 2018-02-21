@@ -115,7 +115,7 @@ static char *bcli_args(struct bitcoin_cli *bcli)
 	return ret;
 }
 
-static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
+static void bcli_finished(struct io_conn *conn UNUSED, struct bitcoin_cli *bcli)
 {
 	int ret, status;
 	struct bitcoind *bitcoind = bcli->bitcoind;
@@ -202,7 +202,7 @@ static void next_bcli(struct bitcoind *bitcoind)
 	io_set_finish(conn, bcli_finished, bcli);
 }
 
-static void process_donothing(struct bitcoin_cli *bcli)
+static void process_donothing(struct bitcoin_cli *bcli UNUSED)
 {
 }
 

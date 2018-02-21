@@ -40,7 +40,7 @@ static struct privkey privkey;
 static bool test_sign(const u5 *u5bytes,
 		      const u8 *hrpu8,
 		      secp256k1_ecdsa_recoverable_signature *rsig,
-		      void *unused)
+		      void *unused UNUSED)
 {
 	struct hash_u5 hu5;
 	char *hrp;

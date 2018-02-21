@@ -1743,9 +1743,9 @@ static void channeld_io_error(struct peer *peer)
 	peer_conn_broken(peer);
 }
 
-static bool channeld_send_reply(struct crypto_state *cs,
-			    int peer_fd,
-			    const u8 *msg,
+static bool channeld_send_reply(struct crypto_state *cs UNUSED,
+			    int peer_fd UNUSED,
+			    const u8 *msg UNUSED,
 			    struct peer *peer)
 {
 	enqueue_peer_msg(peer, msg);

@@ -9,7 +9,7 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 
-static void ping_reply(struct subd *subd, const u8 *msg, const int *fds,
+static void ping_reply(struct subd *subd, const u8 *msg, const int *fds UNUSED,
 		       struct command *cmd)
 {
 	u16 totlen;

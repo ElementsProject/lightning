@@ -42,7 +42,7 @@ static void tal_freefn(void *ptr)
 
 struct netaddr;
 char *netaddr_name(const tal_t *ctx, const struct netaddr *a);
-char *netaddr_name(const tal_t *ctx, const struct netaddr *a)
+char *netaddr_name(const tal_t *ctx UNUSED, const struct netaddr *a UNUSED)
 {
 	return NULL;
 }
