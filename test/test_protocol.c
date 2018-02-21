@@ -275,8 +275,7 @@ static void db_send_remote_commit(struct database *db,
 	db->remote.order = ++db->last_sent;
 }
 
-static void db_send_local_revoke(struct database *db,
-				 const struct commit_info *ci)
+static void db_send_local_revoke(struct database *db)
 {
 	db->last_sent++;
 }
@@ -770,7 +769,7 @@ static void send_revoke(struct peer *peer, struct commit_info *ci)
 	if (!change_htlcs(peer, changes, true))
 		errx(1, "%s: update_revocation: no changes?", peer->name);
 
-	db_send_local_revoke(&peer->db, ci);
+	db_send_local_revoke(&peer->db);
 	xmit_revoke(peer, ci->number);
 }
 
