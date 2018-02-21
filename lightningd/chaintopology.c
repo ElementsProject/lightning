@@ -71,7 +71,7 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 
 			txo = txowatch_hash_get(&topo->txowatches, &out);
 			if (txo)
-				txowatch_fire(topo, txo, tx, j, b);
+				txowatch_fire(txo, tx, j, b);
 		}
 
 		satoshi_owned = 0;

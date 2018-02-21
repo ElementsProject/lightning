@@ -241,11 +241,10 @@ void txwatch_fire(struct chain_topology *topo,
 	txw = txwatch_hash_get(&topo->txwatches, &txid);
 
 	if (txw)
-		txw_fire(topo, txw, tx, depth);
+		txw_fire(txw, tx, depth);
 }
 
-void txowatch_fire(struct chain_topology *topo,
-		   const struct txowatch *txow,
+void txowatch_fire(const struct txowatch *txow,
 		   const struct bitcoin_tx *tx,
 		   size_t input_num,
 		   const struct block *block)
