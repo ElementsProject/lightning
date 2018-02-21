@@ -656,7 +656,7 @@ static void log_to_json(unsigned int skipped,
 	json_object_end(info->response);
 }
 
-void json_add_log(struct json_result *response, const char *fieldname,
+void json_add_log(struct json_result *response,
 		  const struct log_book *lr, enum log_level minlevel)
 {
 	struct log_info info;
@@ -712,7 +712,7 @@ static void json_getlog(struct command *cmd,
 	json_add_time(response, "created_at", log_init_time(lr)->ts);
 	json_add_num(response, "bytes_used", (unsigned int)log_used(lr));
 	json_add_num(response, "bytes_max", (unsigned int)log_max_mem(lr));
-	json_add_log(response, "log", lr, minlevel);
+	json_add_log(response, lr, minlevel);
 	json_object_end(response);
 	command_success(cmd, response);
 }

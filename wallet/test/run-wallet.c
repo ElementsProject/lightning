@@ -153,7 +153,7 @@ void json_add_hex(struct json_result *result UNNEEDED, const char *fieldname UNN
 		  const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "json_add_hex called!\n"); abort(); }
 /* Generated stub for json_add_log */
-void json_add_log(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
+void json_add_log(struct json_result *result UNNEEDED,
 		  const struct log_book *lr UNNEEDED, enum log_level minlevel UNNEEDED)
 { fprintf(stderr, "json_add_log called!\n"); abort(); }
 /* Generated stub for json_add_num */
