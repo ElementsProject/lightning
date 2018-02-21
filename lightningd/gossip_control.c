@@ -325,14 +325,14 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 
 	if (!json_tok_u64(buffer, msatoshitok, &msatoshi)) {
 		command_fail(cmd, "'%.*s' is not a valid number",
-			     (int)(msatoshitok->end - msatoshitok->start),
+			     msatoshitok->end - msatoshitok->start,
 			     buffer + msatoshitok->start);
 		return;
 	}
 
 	if (!json_tok_double(buffer, riskfactortok, &riskfactor)) {
 		command_fail(cmd, "'%.*s' is not a valid double",
-			     (int)(riskfactortok->end - riskfactortok->start),
+			     riskfactortok->end - riskfactortok->start,
 			     buffer + riskfactortok->start);
 		return;
 	}

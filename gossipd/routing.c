@@ -815,7 +815,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 		if (replace_broadcast(rstate->broadcasts,
 				      &chan->msg_indexes[MSG_INDEX_CANNOUNCE],
 				      WIRE_CHANNEL_ANNOUNCEMENT,
-				      (u8*)tag, pending->announce))
+				      tag, pending->announce))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Announcement %s was replaced?",
 				      tal_hex(trc, pending->announce));

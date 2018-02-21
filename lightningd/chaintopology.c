@@ -631,7 +631,7 @@ static void json_dev_setfees(struct command *cmd,
 		if (!json_tok_number(buffer, ratetok[i],
 				     &topo->override_fee_rate[i])) {
 			command_fail(cmd, "Invalid feerate %.*s",
-				     (int)(ratetok[i]->end - ratetok[i]->start),
+				     ratetok[i]->end - ratetok[i]->start,
 				     buffer + ratetok[i]->start);
 			return;
 		}
