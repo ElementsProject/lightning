@@ -305,7 +305,14 @@ void channel_internal_error(struct channel *channel, const char *fmt, ...)
 
 	log_broken(channel->log, "Peer internal error %s: %s",
 		   channel_state_name(channel), why);
+
+	/* Don't expose internal error causes to remove unless doing dev */
+#if DEVELOPER
 	channel_fail_permanent(channel, "Internal error: %s", why);
+#else
+	channel_fail_permanent(channel, "Internal error");
+#endif
+	tal_free(why);
 }
 
 void channel_fail_transient(struct channel *channel, const char *fmt, ...)
