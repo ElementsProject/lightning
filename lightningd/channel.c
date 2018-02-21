@@ -54,8 +54,7 @@ static void destroy_channel(struct channel *channel)
 	list_del_from(&channel->peer->channels, &channel->list);
 }
 
-/* FIXME: remove why */
-void delete_channel(struct channel *channel, const char *why)
+void delete_channel(struct channel *channel)
 {
 	struct peer *peer = channel->peer;
 	wallet_channel_delete(channel->peer->ld->wallet, channel->dbid);

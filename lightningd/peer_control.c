@@ -1014,7 +1014,7 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 	json_add_txid(response, "funding_txid", &forget->channel->funding_txid);
 	json_object_end(response);
 
-	delete_channel(forget->channel, "dev-forget-channel called");
+	delete_channel(forget->channel);
 
 	command_success(forget->cmd, response);
 }
