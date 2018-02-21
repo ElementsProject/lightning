@@ -414,8 +414,7 @@ bool wallet_shachain_load(struct wallet *wallet, u64 id,
 	return true;
 }
 
-static struct peer *wallet_peer_load(const tal_t *ctx,
-				     struct wallet *w, const u64 dbid)
+static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 {
 	const unsigned char *addrstr;
 	struct peer *peer;
@@ -517,7 +516,7 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 	peer_dbid = sqlite3_column_int64(stmt, 1);
 	peer = find_peer_by_dbid(w->ld, peer_dbid);
 	if (!peer) {
-		peer = wallet_peer_load(ctx, w, peer_dbid);
+		peer = wallet_peer_load(w, peer_dbid);
 		if (!peer) {
 			tal_free(tmpctx);
 			return NULL;
