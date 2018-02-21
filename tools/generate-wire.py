@@ -3,9 +3,10 @@
 
 import argparse
 import copy
-from collections import namedtuple
 import fileinput
 import re
+
+from collections import namedtuple
 
 Enumtype = namedtuple('Enumtype', ['name', 'value'])
 
@@ -36,8 +37,9 @@ varlen_structs = [
     'wirestring',
 ]
 
+
 class FieldType(object):
-    def __init__(self,name):
+    def __init__(self, name):
         self.name = name
 
     def is_assignable(self):
@@ -96,6 +98,7 @@ sizetypemap = {
     1: FieldType('u8')
 }
 
+
 # It would be nicer if we had put '*u8' in spec and disallowed bare lenvar.
 # In practice we only recognize lenvar when it's the previous field.
 
@@ -129,7 +132,7 @@ class Field(object):
         # Bolts use just a number: Guess type based on size.
         if options.bolt:
             base_size = int(size)
-            self.fieldtype = Field._guess_type(message,self.name,base_size)
+            self.fieldtype = Field._guess_type(message, self.name, base_size)
             # There are some arrays which we have to guess, based on sizes.
             tsize = FieldType._typesize(self.fieldtype.name)
             if base_size % tsize != 0:
@@ -144,11 +147,11 @@ class Field(object):
             self.fieldtype = FieldType(size)
 
     def basetype(self):
-        base=self.fieldtype.name
+        base = self.fieldtype.name
         if base.startswith('struct '):
-            base=base[7:]
+            base = base[7:]
         elif base.startswith('enum '):
-            base=base[5:]
+            base = base[5:]
         return base
 
     def is_padding(self):
@@ -185,7 +188,7 @@ class Field(object):
         if base_size in sizetypemap:
             return sizetypemap[base_size]
 
-        raise ValueError('Unknown size {} for {}'.format(base_size,fieldname))
+        raise ValueError('Unknown size {} for {}'.format(base_size, fieldname))
 
 fromwire_impl_templ = """bool fromwire_{name}({ctx}const void *p{args})
 {{
@@ -234,8 +237,9 @@ printwire_impl_templ = """void printwire_{name}(const u8 *cursor)
 }}
 """
 
+
 class Message(object):
-    def __init__(self,name,enum,comments):
+    def __init__(self, name, enum, comments):
         self.name = name
         self.enum = enum
         self.comments = comments
@@ -252,13 +256,13 @@ class Message(object):
                 if f.is_array() or f.is_variable_size():
                     raise ValueError('Field {} has non-simple length variable {}'
                                      .format(field.name, field.lenvar))
-                f.is_len_var = True;
+                f.is_len_var = True
                 f.lenvar_for = field
                 return
         raise ValueError('Field {} unknown length variable {}'
                          .format(field.name, field.lenvar))
 
-    def addField(self,field):
+    def addField(self, field):
         # We assume field lengths are 16 bit, to avoid overflow issues and
         # massive allocations.
         if field.is_variable_size():
@@ -285,7 +289,7 @@ class Message(object):
                 subcalls.append('\t\tfromwire_{}(&cursor, &plen, {} + i);'
                                 .format(basetype, name))
 
-    def print_fromwire(self,is_header):
+    def print_fromwire(self, is_header):
         ctx_arg = 'const tal_t *ctx, ' if self.has_variable_fields else ''
 
         args = []
@@ -296,7 +300,7 @@ class Message(object):
             elif f.is_array():
                 args.append(', {} {}[{}]'.format(f.fieldtype.name, f.name, f.num_elems))
             else:
-                ptrs='*'
+                ptrs = '*'
                 # If we're handing a variable array, we need a ptr-to-ptr.
                 if f.is_variable_size():
                     ptrs += '*'
@@ -311,7 +315,7 @@ class Message(object):
 
         subcalls = []
         for f in self.fields:
-            basetype=f.basetype()
+            basetype = f.basetype()
 
             for c in f.comments:
                 subcalls.append('\t/*{} */'.format(c))
@@ -331,7 +335,7 @@ class Message(object):
                 subcalls.append('\t*{} = {} ? tal_arr(ctx, {}, {}) : NULL;'
                                 .format(f.name, f.lenvar, typename, f.lenvar))
 
-                self.print_fromwire_array(subcalls, basetype, f, '*'+f.name,
+                self.print_fromwire_array(subcalls, basetype, f, '*' + f.name,
                                           f.lenvar)
             elif f.is_assignable():
                 subcalls.append("\t//3th case {name}".format(name=f.name))
@@ -369,9 +373,9 @@ class Message(object):
                                 .format(basetype, f.name))
             else:
                 subcalls.append('\t\ttowire_{}(&p, {} + i);'
-                            .format(basetype, f.name))
+                                .format(basetype, f.name))
 
-    def print_towire(self,is_header):
+    def print_towire(self, is_header):
         template = towire_header_templ if is_header else towire_impl_templ
         args = []
         for f in self.fields:
@@ -391,29 +395,29 @@ class Message(object):
             if f.is_len_var:
                 field_decls.append('\t{0} {1} = tal_count({2});'.format(
                     f.fieldtype.name, f.name, f.lenvar_for.name
-                ));
+                ))
 
         subcalls = []
         for f in self.fields:
-            basetype=f.fieldtype.name
+            basetype = f.fieldtype.name
             if basetype.startswith('struct '):
-                basetype=basetype[7:]
+                basetype = basetype[7:]
             elif basetype.startswith('enum '):
-                basetype=basetype[5:]
+                basetype = basetype[5:]
 
             for c in f.comments:
                 subcalls.append('\t/*{} */'.format(c))
 
             if f.is_padding():
                 subcalls.append('\ttowire_pad(&p, {});'
-                      .format(f.num_elems))
+                                .format(f.num_elems))
             elif f.is_array():
                 self.print_towire_array(subcalls, basetype, f, f.num_elems)
             elif f.is_variable_size():
                 self.print_towire_array(subcalls, basetype, f, f.lenvar)
             else:
                 subcalls.append('\ttowire_{}(&p, {});'
-                      .format(basetype, f.name))
+                                .format(basetype, f.name))
 
         return template.format(
             name=self.name,
@@ -438,13 +442,13 @@ class Message(object):
             subcalls.append('\tprintf("[");')
             subcalls.append('\tfor (size_t i = 0; i < {}; i++) {{'
                             .format(num_elems))
-            subcalls.append('\t\t{} v;'.format(f.fieldtype.name));
+            subcalls.append('\t\t{} v;'.format(f.fieldtype.name))
             if f.fieldtype.is_assignable():
                 subcalls.append('\t\tv = fromwire_{}(&cursor, plen);'
-                                .format(name,basetype))
+                                .format(name, basetype))
             else:
                 # We don't handle this yet!
-                assert not basetype in varlen_structs
+                assert(basetype not in varlen_structs)
 
                 subcalls.append('\t\tfromwire_{}(&cursor, &plen, &v);'
                                 .format(basetype))
@@ -455,13 +459,13 @@ class Message(object):
             subcalls.append('\t}')
             subcalls.append('\tprintf("]");')
 
-    def print_printwire(self,is_header):
+    def print_printwire(self, is_header):
         template = printwire_header_templ if is_header else printwire_impl_templ
         fields = ['\t{} {};\n'.format(f.fieldtype.name, f.name) for f in self.fields if f.is_len_var]
 
         subcalls = []
         for f in self.fields:
-            basetype=f.basetype()
+            basetype = f.basetype()
 
             for c in f.comments:
                 subcalls.append('\t/*{} */'.format(c))
@@ -489,9 +493,9 @@ class Message(object):
                                     .format(f.fieldtype.name, f.name, basetype))
                 else:
                     # Don't handle these yet.
-                    assert not basetype in varlen_structs
+                    assert(basetype not in varlen_structs)
                     subcalls.append('\t{} {};'.
-                                    format(f.fieldtype.name, f.name));
+                                    format(f.fieldtype.name, f.name))
                     subcalls.append('\tfromwire_{}(&cursor, &plen, &{});'
                                     .format(basetype, f.name))
 
@@ -506,12 +510,14 @@ class Message(object):
             subcalls='\n'.join(subcalls)
         )
 
+
 def find_message(messages, name):
     for m in messages:
         if m.name == name:
             return m
 
     return None
+
 
 def find_message_with_option(messages, optional_messages, name, option):
     fullname = name + "_" + option.replace('-', '_')
@@ -563,8 +569,8 @@ for line in fileinput.input(options.files):
 
     if len(parts) == 2:
         # eg commit_sig,132
-        messages.append(Message(parts[0],Enumtype("WIRE_" + parts[0].upper(), parts[1]), comments))
-        comments=[]
+        messages.append(Message(parts[0], Enumtype("WIRE_" + parts[0].upper(), parts[1]), comments))
+        comments = []
         prevfield = None
     else:
         if len(parts) == 4:
@@ -586,7 +592,7 @@ for line in fileinput.input(options.files):
         # time (multiple fields can use the same lenvar).
         if not f.lenvar:
             prevfield = parts[2]
-        comments=[]
+        comments = []
 
 header_template = """/* This file was generated by generate-wire.py */
 /* Do not modify this file! Modify the _csv file it was generated from. */
@@ -678,7 +684,7 @@ for m in messages:
     enums += '\t{} = {},\n'.format(m.enum.name, m.enum.value)
 includes = '\n'.join(includes)
 cases = ['case {enum.name}: return "{enum.name}";'.format(enum=m.enum) for m in messages]
-printcases = ['case {enum.name}: printf("{enum.name}:\\n"); printwire_{name}(msg); return;'.format(enum=m.enum,name=m.name) for m in messages]
+printcases = ['case {enum.name}: printf("{enum.name}:\\n"); printwire_{name}(msg); return;'.format(enum=m.enum, name=m.name) for m in messages]
 
 if options.printwire:
     decls = [m.print_printwire(options.header) for m in messages + messages_with_option]
