@@ -121,9 +121,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct changed_htlc *last_sent_commit,
 			    u32 first_blocknum);
 
-/* This lets us give a more detailed error than just a destructor, and
- * deletes from db. */
-void delete_channel(struct channel *channel, const char *why);
+void delete_channel(struct channel *channel);
 
 const char *channel_state_name(const struct channel *channel);
 const char *channel_state_str(enum channel_state state);

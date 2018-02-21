@@ -223,7 +223,7 @@ static void handle_irrevocably_resolved(struct channel *channel, const u8 *msg)
 	log_info(channel->log, "onchaind complete, forgetting peer");
 
 	/* This will also free onchaind. */
-	delete_channel(channel, "onchaind complete, forgetting peer");
+	delete_channel(channel);
 }
 
 /**
