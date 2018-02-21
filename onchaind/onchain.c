@@ -1725,7 +1725,6 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 				    u32 tx_blockheight,
 				    const struct bitcoin_txid *txid,
 				    const struct secrets *secrets,
-				    const struct sha256 *shaseed,
 				    const struct pubkey *remote_per_commitment_point,
 				    const struct pubkey *local_revocation_basepoint,
 				    const struct pubkey *local_payment_basepoint,
@@ -2121,7 +2120,7 @@ int main(int argc, char *argv[])
 		} else if (commit_num == revocations_received(&shachain)) {
 			status_trace("Their unilateral tx, old commit point");
 			handle_their_unilateral(tx, tx_blockheight,
-						&txid, &secrets, &shaseed,
+						&txid, &secrets,
 						&old_remote_per_commit_point,
 						&basepoints.revocation,
 						&basepoints.payment,
@@ -2137,7 +2136,7 @@ int main(int argc, char *argv[])
 		} else if (commit_num == revocations_received(&shachain) + 1) {
 			status_trace("Their unilateral tx, new commit point");
 			handle_their_unilateral(tx, tx_blockheight,
-						&txid, &secrets, &shaseed,
+						&txid, &secrets,
 						&remote_per_commit_point,
 						&basepoints.revocation,
 						&basepoints.payment,
