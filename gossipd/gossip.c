@@ -502,20 +502,13 @@ static void handle_ping(struct peer *peer, u8 *ping)
 
 static void handle_pong(struct peer *peer, const u8 *pong)
 {
-	u8 *ignored;
+	const char *err = got_pong(pong, &peer->local->num_pings_outstanding);
 
-	status_trace("Got pong!");
-	if (!fromwire_pong(pong, pong, &ignored)) {
-		peer_error(peer, "Bad pong");
+	if (err) {
+		peer_error(peer, "%s", err);
 		return;
 	}
 
-	if (!peer->local->num_pings_outstanding) {
-		peer_error(peer, "Unexpected pong");
-		return;
-	}
-
-	peer->local->num_pings_outstanding--;
 	daemon_conn_send(&peer->daemon->master,
 			 take(towire_gossip_ping_reply(pong, true,
 						       tal_len(pong))));

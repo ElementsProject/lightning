@@ -1862,11 +1862,17 @@ class LightningDTests(BaseLightningDTests):
 
         # Test gossip pinging.
         self.ping_tests(l1, l2)
+        if DEVELOPER:
+            l1.daemon.wait_for_log('Got pong 1000 bytes \({}\.\.\.\)'
+                                   .format(l2.info['version']), timeout=1)
 
         self.fund_channel(l1, l2, 10**5)
 
         # channeld pinging
         self.ping_tests(l1, l2)
+        if DEVELOPER:
+            l1.daemon.wait_for_log('Got pong 1000 bytes \({}\.\.\.\)'
+                                   .format(l2.info['version']))
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_routing_gossip_reconnect(self):
