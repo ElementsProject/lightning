@@ -61,6 +61,7 @@ class FieldType(object):
         else:
             raise ValueError('Unknown typename {}'.format(typename))
 
+
 # Full (message, fieldname)-mappings
 typemap = {
     ('update_fail_htlc', 'reason'): FieldType('u8'),
@@ -72,7 +73,6 @@ typemap = {
     ('node_announcement', 'rgb_color'): FieldType('u8'),
     ('node_announcement', 'addresses'): FieldType('u8'),
     ('node_announcement', 'ipv6'): FieldType('struct ipv6'),
-    ('node_announcement', 'alias'): FieldType('u8'),
     ('announcement_signatures', 'short_channel_id'): FieldType('struct short_channel_id'),
     ('channel_announcement', 'short_channel_id'): FieldType('struct short_channel_id'),
     ('channel_update', 'short_channel_id'): FieldType('struct short_channel_id')
@@ -189,6 +189,7 @@ class Field(object):
             return sizetypemap[base_size]
 
         raise ValueError('Unknown size {} for {}'.format(base_size, fieldname))
+
 
 fromwire_impl_templ = """bool fromwire_{name}({ctx}const void *p{args})
 {{
@@ -534,6 +535,7 @@ def find_message_with_option(messages, optional_messages, name, option):
         optional_messages.append(m)
     return m
 
+
 parser = argparse.ArgumentParser(description='Generate C from CSV')
 parser.add_argument('--header', action='store_true', help="Create wire header")
 parser.add_argument('--bolt', action='store_true', help="Generate wire-format for BOLT")
@@ -701,5 +703,4 @@ print(template.format(
     includes=includes,
     enumname=options.enumname,
     enums=enums,
-    func_decls='\n'.join(decls),
-))
+    func_decls='\n'.join(decls)))
