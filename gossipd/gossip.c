@@ -1502,10 +1502,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	}
 	daemon->rstate = new_routing_state(daemon, &chain_hash, &daemon->id);
 
-	if (port)
-		setup_listeners(daemon, port);
-	else
-		status_trace("Not listeing for incoming connections due to --no-listen");
+	setup_listeners(daemon, port);
 
 	new_reltimer(&daemon->timers, daemon,
 		     time_from_sec(daemon->update_channel_interval/2),
