@@ -210,6 +210,13 @@ static char *opt_set_fee_rates(const char *arg, struct chain_topology *topo)
 	return NULL;
 }
 
+static char *opt_set_offline(struct lightningd *ld)
+{
+	ld->portnum = 0;
+	ld->no_reconnect = true;
+	return NULL;
+}
+
 static void config_register_opts(struct lightningd *ld)
 {
 	opt_register_noarg("--daemon", opt_set_bool, &ld->daemon,
@@ -271,6 +278,8 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--ipaddr", opt_add_ipaddr, NULL,
 			 ld,
 			 "Set the IP address (v4 or v6) to announce to the network for incoming connections");
+	opt_register_noarg("--offline", opt_set_offline, ld,
+			   "Start in offline-mode (do not automatically reconnect and do not accept incoming connections");
 
 	opt_register_early_arg("--network", opt_set_network, opt_show_network,
 			       ld,
@@ -719,6 +728,7 @@ static void add_config(struct lightningd *ld,
 	if (opt->type & OPT_NOARG) {
 		if (opt->cb == (void *)opt_usage_and_exit
 		    || opt->cb == (void *)version_and_exit
+		    || opt->cb == (void *)opt_set_offline /* will show up as port=0 and --no-reconnect */
 		    || opt->cb == (void *)test_daemons_and_exit) {
 			/* These are not important */
 		} else if (opt->cb == (void *)opt_set_bool) {
@@ -855,4 +865,3 @@ static const struct json_command listconfigs_command = {
 	"With [config], object only has that field"
 };
 AUTODATA(json_command, &listconfigs_command);
-

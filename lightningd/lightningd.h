@@ -148,6 +148,9 @@ struct lightningd {
 	/* May be useful for non-developers debugging in the field */
 	char *debug_subdaemon_io;
 
+	/* Disable automatic reconnects */
+	bool no_reconnect;
+
 #if DEVELOPER
 	/* If we want to debug a subdaemon. */
 	const char *dev_debug_subdaemon;
@@ -163,9 +166,6 @@ struct lightningd {
 
 	/* Things we've marked as not leaking. */
 	const void **notleaks;
-
-	/* Disable automatic reconnects */
-	bool no_reconnect;
 #endif /* DEVELOPER */
 };
 
