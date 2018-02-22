@@ -610,16 +610,30 @@ void setup_color_and_alias(struct lightningd *ld)
 
 	if (!ld->alias) {
 		u64 adjective, noun;
+		char *name;
 
 		memcpy(&adjective, der+3, sizeof(adjective));
 		memcpy(&noun, der+3+sizeof(adjective), sizeof(noun));
 		noun %= ARRAY_SIZE(codename_noun);
 		adjective %= ARRAY_SIZE(codename_adjective);
+
+		/* Only use 32 characters */
+		name = tal_fmt(ld, "%s%s-",
+			       codename_adjective[adjective],
+			       codename_noun[noun]);
+#if DEVELOPER
+		assert(strlen(name) < 32);
+		int taillen = 32 - strlen(name);
+		if (taillen > strlen(version()))
+			taillen = strlen(version());
+		/* Fit as much of end of version() as possible */
+		tal_append_fmt(&name, "%s",
+			       version() + strlen(version()) - taillen);
+#endif
+		assert(strlen(name) <= 32);
 		ld->alias = tal_arrz(ld, u8, 33);
-		assert(strlen(codename_adjective[adjective])
-		       + strlen(codename_noun[noun]) < 33);
-		strcpy((char*)ld->alias, codename_adjective[adjective]);
-		strcat((char*)ld->alias, codename_noun[noun]);
+		strcpy((char*)ld->alias, name);
+		tal_free(name);
 	}
 }
 
