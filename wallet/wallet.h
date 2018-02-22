@@ -397,8 +397,6 @@ struct invoice {
 	struct list_node list;
 	/* Database ID */
 	u64 id;
-	/* Any expiration timer in effect */
-	struct oneshot *expiration_timer;
 	/* The owning invoices object. */
 	struct invoices *owner;
 	/* Loaded details. */

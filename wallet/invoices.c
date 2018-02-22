@@ -41,6 +41,10 @@ struct invoices {
 	struct list_head invlist;
 	/* Waiters waiting for invoices to be paid, expired, or deleted. */
 	struct list_head waiters;
+	/* Earliest time for some invoice to expire */
+	u64 min_expiry_time;
+	/* Expiration timer */
+	struct oneshot *expiration_timer;
 };
 
 static void trigger_invoice_waiter(struct invoice_waiter *w,
@@ -118,8 +122,6 @@ static bool wallet_stmt2invoice_details(sqlite3_stmt *stmt,
 		dtl->paid_timestamp = sqlite3_column_int64(stmt, 9);
 	}
 
-	invoice->expiration_timer = NULL;
-
 	return true;
 }
 
@@ -137,83 +139,15 @@ struct invoices *invoices_new(const tal_t *ctx,
 	list_head_init(&invs->invlist);
 	list_head_init(&invs->waiters);
 
+	invs->expiration_timer = NULL;
+
 	return invs;
 }
 
-static void install_expiration_timer(struct invoices *invoices,
-				     struct invoice *i);
-static void trigger_expiration(struct invoice *i)
+/* Update expirations. */
+static void update_db_expirations(struct invoices *invoices, u64 now)
 {
-	struct invoices *invoices = i->owner;
-	u64 now = time_now().ts.tv_sec;
 	sqlite3_stmt *stmt;
-
-	assert(i->details->state == UNPAID);
-
-	/* Timer already triggered, destroy the timer object. */
-	i->expiration_timer = tal_free(i->expiration_timer);
-
-	/* There may be discrepancies between time_mono
-	 * (used by the timer system) and time_now (used
-	 * by the expiry time measurements). So check that
-	 * time_now is reached. */
-	if (i->details->expiry_time <= now) {
-		const tal_t *tmpctx = tal_tmpctx(i);
-
-		/* Update in-memory and db. */
-		i->details->state = EXPIRED;
-		stmt = db_prepare(invoices->db,
-				  "UPDATE invoices"
-				  "   SET state = ?"
-				  " WHERE id = ?;");
-		sqlite3_bind_int(stmt, 1, EXPIRED);
-		sqlite3_bind_int64(stmt, 2, i->id);
-		db_exec_prepared(invoices->db, stmt);
-		/* Wake up all waiters. */
-		trigger_invoice_waiter_expire_or_delete(invoices, i->id, i);
-
-		tal_free(tmpctx);
-	} else
-		install_expiration_timer(invoices, i);
-
-}
-static void install_expiration_timer(struct invoices *invoices,
-				     struct invoice *i)
-{
-	struct timerel rel;
-	struct timeabs expiry;
-	struct timeabs now = time_now();
-
-	assert(i->details->state == UNPAID);
-	assert(!i->expiration_timer);
-
-	memset(&expiry, 0, sizeof(expiry));
-	expiry.ts.tv_sec = i->details->expiry_time;
-
-	/* now > expiry */
-	if (time_after(now, expiry))
-		expiry = now;
-
-	/* rel = expiry - now */
-	rel = time_between(expiry, now);
-
-	/* The oneshot is parented on the invoice. Thus if
-	 * the invoice is deleted, the oneshot is destroyed
-	 * also and this removes the timer. */
-	i->expiration_timer = new_reltimer(invoices->timers,
-					   i,
-					   rel,
-					   &trigger_expiration, i);
-}
-
-bool invoices_load(struct invoices *invoices)
-{
-	int count = 0;
-	u64 now = time_now().ts.tv_sec;
-	struct invoice *i;
-	sqlite3_stmt *stmt;
-
-	/* Update expirations. */
 	stmt = db_prepare(invoices->db,
 			  "UPDATE invoices"
 			  "   SET state = ?"
@@ -223,6 +157,126 @@ bool invoices_load(struct invoices *invoices)
 	sqlite3_bind_int(stmt, 2, UNPAID);
 	sqlite3_bind_int64(stmt, 3, now);
 	db_exec_prepared(invoices->db, stmt);
+}
+
+static struct invoice *invoices_find_by_id(struct invoices *invoices,
+					   u64 id)
+{
+	struct invoice *i;
+
+	/* FIXME: Use something better than a linear scan. */
+	list_for_each(&invoices->invlist, i, list) {
+		if (i->id == id)
+			return i;
+	}
+	return NULL;
+}
+
+struct invoice_id_node {
+	struct list_node list;
+	u64 id;
+};
+
+static void install_expiration_timer(struct invoices *invoices);
+static void trigger_expiration(struct invoices *invoices)
+{
+	const tal_t *tmpctx = tal_tmpctx(invoices);
+	struct list_head idlist;
+	struct invoice_id_node *idn;
+	u64 now = time_now().ts.tv_sec;
+	sqlite3_stmt *stmt;
+	struct invoice *i;
+
+	/* Free current expiration timer */
+	invoices->expiration_timer = tal_free(invoices->expiration_timer);
+
+	/* Acquire all expired invoices and save them in a list */
+	list_head_init(&idlist);
+	stmt = db_prepare(invoices->db,
+			  "SELECT id"
+			  "  FROM invoices"
+			  " WHERE state = ?"
+			  "   AND expiry_time <= ?;");
+	sqlite3_bind_int(stmt, 1, UNPAID);
+	sqlite3_bind_int64(stmt, 2, now);
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		idn = tal(tmpctx, struct invoice_id_node);
+		list_add_tail(&idlist, &idn->list);
+		idn->id = sqlite3_column_int64(stmt, 0);
+	}
+	sqlite3_finalize(stmt);
+
+	/* Expire all those invoices */
+	update_db_expirations(invoices, now);
+
+	/* Trigger expirations */
+	list_for_each(&idlist, idn, list) {
+		/* Update in-memory structure */
+		i = invoices_find_by_id(invoices, idn->id);
+		i->details->state = EXPIRED;
+		/* Trigger expiration */
+		trigger_invoice_waiter_expire_or_delete(invoices,
+							idn->id,
+							i);
+	}
+
+	install_expiration_timer(invoices);
+
+	tal_free(tmpctx);
+}
+
+static void install_expiration_timer(struct invoices *invoices)
+{
+	int res;
+	sqlite3_stmt *stmt;
+	struct timerel rel;
+	struct timeabs expiry;
+	struct timeabs now = time_now();
+
+	assert(!invoices->expiration_timer);
+
+	/* Find unpaid invoice with nearest expiry time */
+	stmt = db_prepare(invoices->db,
+			  "SELECT MIN(expiry_time)"
+			  "  FROM invoices"
+			  " WHERE state = ?;");
+	sqlite3_bind_int(stmt, 1, UNPAID);
+	res = sqlite3_step(stmt);
+	assert(res == SQLITE_ROW);
+	if (sqlite3_column_type(stmt, 0) == SQLITE_NULL) {
+		/* Nothing to install */
+		sqlite3_finalize(stmt);
+		return;
+	} else
+		invoices->min_expiry_time = sqlite3_column_int64(stmt, 0);
+	sqlite3_finalize(stmt);
+
+	memset(&expiry, 0, sizeof(expiry));
+	expiry.ts.tv_sec = invoices->min_expiry_time;
+
+	/* now > expiry */
+	if (time_after(now, expiry))
+		expiry = now;
+
+	/* rel = expiry - now */
+	rel = time_between(expiry, now);
+
+	/* Have it called at indicated timerel. */
+	invoices->expiration_timer = new_reltimer(invoices->timers,
+						  invoices,
+						  rel,
+						  &trigger_expiration,
+						  invoices);
+}
+
+bool invoices_load(struct invoices *invoices)
+{
+	int count = 0;
+	u64 now = time_now().ts.tv_sec;
+	struct invoice *i;
+	sqlite3_stmt *stmt;
+
+	update_db_expirations(invoices, now);
 
 	/* Load invoices from db. */
 	stmt = db_query(__func__, invoices->db,
@@ -244,14 +298,14 @@ bool invoices_load(struct invoices *invoices)
 			sqlite3_finalize(stmt);
 			return false;
 		}
-		if (i->details->state == UNPAID)
-			install_expiration_timer(invoices, i);
 		list_add_tail(&invoices->invlist, &i->list);
 		count++;
 	}
 	log_debug(invoices->log, "Loaded %d invoices from DB", count);
 
 	sqlite3_finalize(stmt);
+
+	install_expiration_timer(invoices);
 
 	return true;
 }
@@ -321,13 +375,17 @@ const struct invoice *invoices_create(struct invoices *invoices,
 	memcpy(&invoice->details->r, &r, sizeof(invoice->details->r));
 	memcpy(&invoice->details->rhash, &rhash, sizeof(invoice->details->rhash));
 	invoice->details->expiry_time = expiry_time;
-	invoice->expiration_timer = NULL;
 
 	/* Add to invoices object. */
 	list_add_tail(&invoices->invlist, &invoice->list);
 
 	/* Install expiration trigger. */
-	install_expiration_timer(invoices, invoice);
+	if (!invoices->expiration_timer ||
+	    expiry_time < invoices->min_expiry_time) {
+		invoices->expiration_timer
+			= tal_free(invoices->expiration_timer);
+		install_expiration_timer(invoices);
+	}
 
 	return invoice;
 }
@@ -443,7 +501,6 @@ void invoices_resolve(struct invoices *invoices,
 	invoice->details->pay_index = pay_index;
 	invoice->details->msatoshi_received = msatoshi_received;
 	invoice->details->paid_timestamp = paid_timestamp;
-	invoice->expiration_timer = tal_free(invoice->expiration_timer);
 
 	/* Tell all the waiters about the paid invoice. */
 	trigger_invoice_waiter_resolve(invoices, invoice->id, invoice);
