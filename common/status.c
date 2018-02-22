@@ -84,7 +84,8 @@ void status_io(enum log_level iodir, const u8 *p)
 {
 	if (logging_io)
 		status_io_full(iodir, p);
-	else
+	/* We get a huge amount of gossip; don't log it */
+	else if (!is_gossip_msg(p))
 		status_io_short(iodir, p);
 }
 
