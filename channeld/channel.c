@@ -1514,22 +1514,13 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 
 static void handle_pong(struct peer *peer, const u8 *pong)
 {
-	u8 *ignored;
-
-	status_trace("Got pong!");
-	if (!fromwire_pong(pong, pong, &ignored))
+	const char *err = got_pong(pong, &peer->num_pings_outstanding);
+	if (err)
 		peer_failed(&peer->cs,
 			    peer->gossip_index,
 			    &peer->channel_id,
-			    "Bad pong %s", tal_hex(pong, pong));
+			    "%s", err);
 
-	if (!peer->num_pings_outstanding)
-		peer_failed(&peer->cs,
-			    peer->gossip_index,
-			    &peer->channel_id,
-			    "Unexpected pong");
-
-	peer->num_pings_outstanding--;
 	wire_sync_write(MASTER_FD,
 			take(towire_channel_ping_reply(pong, tal_len(pong))));
 }
