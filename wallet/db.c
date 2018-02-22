@@ -196,6 +196,8 @@ char *dbmigrations[] = {
     "DELETE FROM channels WHERE state=1",
     /* Keep track of db ugprades, for debugging */
     "CREATE TABLE db_upgrades (upgrade_from INTEGER, lightning_version TEXT);",
+    /* We used not to clean up peers when their channels were gone. */
+    "DELETE FROM peers WHERE id NOT IN (SELECT peer_id FROM channels);",
     NULL,
 };
 
