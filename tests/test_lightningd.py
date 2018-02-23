@@ -8,6 +8,7 @@ import queue
 import os
 import random
 import re
+import shutil
 import socket
 import sqlite3
 import stat
@@ -106,6 +107,9 @@ class NodeFactory(object):
 
         lightning_dir = os.path.join(
             TEST_DIR, self.testname, "lightning-{}/".format(node_id))
+
+        if os.path.exists(lightning_dir):
+            shutil.rmtree(lightning_dir)
 
         socket_path = os.path.join(lightning_dir, "lightning-rpc").format(node_id)
         port = 16330 + node_id
