@@ -36,6 +36,9 @@ struct uncommitted_channel {
 	/* For logging */
 	struct log *log;
 
+	/* Openingd can tell us stuff. */
+	const char *transient_billboard;
+
 	/* If we offered channel, this contains information, otherwise NULL */
 	struct funding_channel *fc;
 
@@ -173,7 +176,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      CHANNELD_AWAITING_LOCKIN,
 			      uc->fc ? LOCAL : REMOTE,
 			      uc->log,
-			      "Eat at Joes!",
+			      take(uc->transient_billboard),
 			      channel_flags,
 			      &uc->our_config,
 			      uc->minimum_depth,
@@ -512,6 +515,7 @@ new_uncommitted_channel(struct lightningd *ld,
 	if (peer_active_channel(uc->peer))
 		return tal_free(uc);
 
+	uc->transient_billboard = NULL;
 	uc->dbid = wallet_get_channel_dbid(ld->wallet);
 
 	idname = type_to_string(uc, struct pubkey, &uc->peer->id);
