@@ -585,6 +585,8 @@ static void destroy_subd(struct subd *sd)
 		struct db *db = sd->ld->wallet->db;
 		bool outer_transaction;
 
+		/* Clear any transient messages in billboard */
+		sd->billboardcb(channel, false, NULL);
 		sd->channel = NULL;
 
 		/* We can be freed both inside msg handling, or spontaneously. */
@@ -695,6 +697,9 @@ static struct subd *new_subd(struct lightningd *ld,
 
 	log_debug(sd->log, "pid %u, msgfd %i", sd->pid, msg_fd);
 
+	/* Clear any old transient message. */
+	if (billboardcb)
+		billboardcb(sd->channel, false, NULL);
 	return sd;
 }
 

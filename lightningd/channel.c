@@ -326,11 +326,13 @@ void channel_set_billboard(struct channel *channel, bool perm, const char *str)
 		p = &channel->billboard.permanent[channel->state];
 	else
 		p = &channel->billboard.transient;
-	tal_free(*p);
+	*p = tal_free(*p);
 
-	*p = tal_fmt(channel, "%s:%s", channel_state_name(channel), str);
-	if (taken(str))
-		tal_free(str);
+	if (str) {
+		*p = tal_fmt(channel, "%s:%s", channel_state_name(channel), str);
+		if (taken(str))
+			tal_free(str);
+	}
 }
 
 void channel_fail_transient(struct channel *channel, const char *fmt, ...)

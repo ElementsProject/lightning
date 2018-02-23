@@ -490,8 +490,9 @@ static void opening_channel_set_billboard(struct uncommitted_channel *uc,
 					  bool perm UNUSED,
 					  const char *happenings TAKES)
 {
-	tal_free(uc->transient_billboard);
-	uc->transient_billboard = tal_strdup(uc, happenings);
+	uc->transient_billboard = tal_free(uc->transient_billboard);
+	if (happenings)
+		uc->transient_billboard = tal_strdup(uc, happenings);
 }
 
 static void destroy_uncommitted_channel(struct uncommitted_channel *uc)
