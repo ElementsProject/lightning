@@ -413,6 +413,18 @@ static bool handle_peer_error(struct subd *sd, const u8 *msg, int fds[2])
 	return true;
 }
 
+static bool handle_set_billboard(struct subd *sd, const u8 *msg)
+{
+	bool perm;
+	char *happenings;
+
+	if (!fromwire_status_peer_billboard(msg, msg, &perm, &happenings))
+		return false;
+
+	sd->billboardcb(sd->channel, perm, happenings);
+	return true;
+}
+
 static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 {
 	int type = fromwire_peektype(sd->msg_in);
@@ -460,6 +472,12 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 			goto malformed;
 		log_info(sd->log, "Peer connection lost");
 		goto close;
+	case WIRE_STATUS_PEER_BILLBOARD:
+		if (!sd->channel)
+			goto malformed;
+		if (!handle_set_billboard(sd, sd->msg_in))
+			goto malformed;
+		goto next;
 	}
 
 	if (sd->channel) {
@@ -629,6 +647,9 @@ static struct subd *new_subd(struct lightningd *ld,
 					   const struct channel_id *channel_id,
 					   const char *desc,
 					   const u8 *err_for_them),
+			     void (*billboardcb)(void *channel,
+						 bool perm,
+						 const char *happenings),
 			     va_list *ap)
 {
 	struct subd *sd = tal(ld, struct subd);
@@ -661,6 +682,7 @@ static struct subd *new_subd(struct lightningd *ld,
 	sd->msgname = msgname;
 	sd->msgcb = msgcb;
 	sd->errcb = errcb;
+	sd->billboardcb = billboardcb;
 	sd->fds_in = NULL;
 	msg_queue_init(&sd->outq, sd);
 	tal_add_destructor(sd, destroy_subd);
@@ -687,7 +709,7 @@ struct subd *new_global_subd(struct lightningd *ld,
 	struct subd *sd;
 
 	va_start(ap, msgcb);
-	sd = new_subd(ld, name, NULL, NULL, msgname, msgcb, NULL, &ap);
+	sd = new_subd(ld, name, NULL, NULL, msgname, msgcb, NULL, NULL, &ap);
 	va_end(ap);
 
 	sd->must_not_exit = true;
@@ -708,13 +730,16 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 					     const struct channel_id *channel_id,
 					     const char *desc,
 					     const u8 *err_for_them),
+			       void (*billboardcb)(void *channel, bool perm,
+						   const char *happenings),
 			       ...)
 {
 	va_list ap;
 	struct subd *sd;
 
-	va_start(ap, errcb);
-	sd = new_subd(ld, name, channel, base_log, msgname, msgcb, errcb, &ap);
+	va_start(ap, billboardcb);
+	sd = new_subd(ld, name, channel, base_log, msgname,
+		      msgcb, errcb, billboardcb, &ap);
 	va_end(ap);
 	return sd;
 }

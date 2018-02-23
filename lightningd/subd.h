@@ -48,6 +48,9 @@ struct subd {
 		      const char *desc,
 		      const u8 *err_for_them);
 
+	/* Callback to display information for listpeers RPC */
+	void (*billboardcb)(void *channel, bool perm, const char *happenings);
+
 	/* Buffer for input. */
 	u8 *msg_in;
 
@@ -93,6 +96,8 @@ struct subd *new_global_subd(struct lightningd *ld,
  * @base_log: log to use (actually makes a copy so it has name in prefix)
  * @msgname: function to get name from messages
  * @msgcb: function to call (inside db transaction) when non-fatal message received (or NULL)
+ * @errcb: function to call on errors.
+ * @billboardcb: function to call for billboard updates.
  * @...: NULL-terminated list of pointers to  fds to hand as fd 3, 4...
  *	(can be take, if so, set to -1)
  *
@@ -114,9 +119,12 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 					     const struct channel_id *channel_id,
 					     const char *desc,
 					     const u8 *err_for_them),
+			       void (*billboardcb)(void *channel, bool perm,
+						   const char *happenings),
 			       ...);
 
-#define new_channel_subd(ld, name, channel, log, msgname, msgcb, errcb, ...) \
+#define new_channel_subd(ld, name, channel, log, msgname, \
+			 msgcb, errcb, billboardcb, ...)		\
 	new_channel_subd_((ld), (name), (channel), (log), (msgname), (msgcb), \
 			  typesafe_cb_postargs(void, void *, (errcb),	\
 					       (channel), int, int,	\
@@ -124,6 +132,9 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 					       u64,			\
 					       const struct channel_id *, \
 					       const char *, const u8 *), \
+			  typesafe_cb_postargs(void, void *, (billboardcb), \
+					       (channel), bool,		\
+					       const char *),		\
 			  __VA_ARGS__)
 /**
  * subd_raw - raw interface to get a subdaemon on an fd (for HSM)

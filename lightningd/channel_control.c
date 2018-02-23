@@ -238,6 +238,7 @@ bool peer_start_channeld(struct channel *channel,
 					   channel_wire_type_name,
 					   channel_msg,
 					   channel_errmsg,
+					   channel_set_billboard,
 					   take(&peer_fd),
 					   take(&gossip_fd),
 					   take(&hsmfd), NULL));

@@ -485,6 +485,15 @@ static void opening_channel_errmsg(struct uncommitted_channel *uc,
 	tal_free(uc);
 }
 
+/* There's nothing permanent in an unconfirmed transaction */
+static void opening_channel_set_billboard(struct uncommitted_channel *uc,
+					  bool perm UNUSED,
+					  const char *happenings TAKES)
+{
+	tal_free(uc->transient_billboard);
+	uc->transient_billboard = tal_strdup(uc, happenings);
+}
+
 static void destroy_uncommitted_channel(struct uncommitted_channel *uc)
 {
 	uc->peer->uncommitted_channel = NULL;
@@ -607,6 +616,7 @@ u8 *peer_accept_channel(struct lightningd *ld,
 	uc->openingd = new_channel_subd(ld, "lightning_openingd", uc, uc->log,
 					opening_wire_type_name,	NULL,
 					opening_channel_errmsg,
+					opening_channel_set_billboard,
 					take(&peer_fd), take(&gossip_fd),
 					NULL);
 	if (!uc->openingd) {
@@ -692,6 +702,7 @@ static void peer_offer_channel(struct lightningd *ld,
 				    "lightning_openingd", fc->uc, fc->uc->log,
 				    opening_wire_type_name, NULL,
 				    opening_channel_errmsg,
+				    opening_channel_set_billboard,
 				    take(&peer_fd), take(&gossip_fd),
 				    NULL);
 	if (!fc->uc->openingd) {
