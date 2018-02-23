@@ -6,6 +6,7 @@
 #include <common/crypto_sync.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc.h>
+#include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/read_peer_msg.h>
 #include <common/status.h>
@@ -497,6 +498,10 @@ int main(int argc, char *argv[])
 		do_reconnect(&cs, gossip_index, &channel_id,
 			     next_index, revocations_received);
 
+	peer_billboard(true, "Negotiating closing fee between %"PRIu64
+		       " and %"PRIu64" satoshi (ideal %"PRIu64")",
+		       min_fee_to_accept, commitment_fee, offer[LOCAL]);
+
 	/* BOLT #2:
 	 *
 	 * The funding node:
@@ -514,6 +519,14 @@ int main(int argc, char *argv[])
 				   funding_satoshi, satoshi_out, funder,
 				   our_dust_limit, &secrets, offer[LOCAL]);
 		} else {
+			if (i == 0)
+				peer_billboard(false, "Waiting for their initial"
+					       " closing fee offer");
+			else
+				peer_billboard(false, "Waiting for their initial"
+					       " closing fee offer:"
+					       " ours was %"PRIu64" satoshi",
+					       offer[LOCAL]);
 			offer[REMOTE]
 				= receive_offer(&cs, gossip_index,
 						&channel_id, funding_pubkey,
@@ -554,6 +567,11 @@ int main(int argc, char *argv[])
 				   funding_satoshi, satoshi_out, funder,
 				   our_dust_limit, &secrets, offer[LOCAL]);
 		} else {
+			peer_billboard(false, "Waiting for another"
+				       " closing fee offer:"
+				       " ours was %"PRIu64" satoshi,"
+				       " theirs was %"PRIu64" satoshi,",
+				       offer[LOCAL], offer[REMOTE]);
 			offer[REMOTE]
 				= receive_offer(&cs, gossip_index, &channel_id,
 						funding_pubkey,
@@ -565,6 +583,9 @@ int main(int argc, char *argv[])
 						min_fee_to_accept);
 		}
 	}
+
+	peer_billboard(true, "We agreed on a closing fee of %"PRIu64" satoshi",
+		       offer[LOCAL]);
 
 	/* We're done! */
 	wire_sync_write(REQ_FD,
