@@ -96,11 +96,9 @@ static void wallet_stmt2invoice_details(const tal_t *ctx,
 {
 	dtl->state = sqlite3_column_int(stmt, 0);
 
-	assert(sqlite3_column_bytes(stmt, 1) == sizeof(struct preimage));
-	memcpy(&dtl->r, sqlite3_column_blob(stmt, 1), sqlite3_column_bytes(stmt, 1));
+	sqlite3_column_preimage(stmt, 1, &dtl->r);
 
-	assert(sqlite3_column_bytes(stmt, 2) == sizeof(struct sha256));
-	memcpy(&dtl->rhash, sqlite3_column_blob(stmt, 2), sqlite3_column_bytes(stmt, 2));
+	sqlite3_column_sha256(stmt, 2, &dtl->rhash);
 
 	dtl->label = tal_strndup(ctx, sqlite3_column_blob(stmt, 3), sqlite3_column_bytes(stmt, 3));
 
