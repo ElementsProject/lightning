@@ -54,6 +54,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/htlc_wire.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
+	common/peer_billboard.o			\
 	common/peer_failed.o			\
 	common/permute_tx.o			\
 	common/ping.o				\
