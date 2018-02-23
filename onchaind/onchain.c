@@ -1053,8 +1053,9 @@ static void wait_for_resolved(struct tracked_output **outs)
 
 static void init_reply(const char *what)
 {
-	peer_billboard(true, what);
+	/* Send init_reply first, so billboard gets credited to ONCHAIND */
 	wire_sync_write(REQ_FD, take(towire_onchain_init_reply(NULL)));
+	peer_billboard(true, what);
 }
 
 static void handle_mutual_close(const struct bitcoin_txid *txid,
