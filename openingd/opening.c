@@ -12,6 +12,7 @@
 #include <common/funding_tx.h>
 #include <common/initial_channel.h>
 #include <common/key_derive.h>
+#include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/pseudorand.h>
 #include <common/read_peer_msg.h>
@@ -261,6 +262,8 @@ static u8 *funder_channel(struct state *state,
 
 	state->remoteconf = tal(state, struct channel_config);
 
+	peer_billboard(false,
+		       "Funding channel: offered, now waiting for accept_channel");
 	msg = opening_read_peer_msg(state);
 
 	/* BOLT #2:
@@ -384,6 +387,9 @@ static u8 *funder_channel(struct state *state,
 	 * commitment transaction, so they can broadcast it knowing they can
 	 * redeem their funds if they need to.
 	 */
+	peer_billboard(false,
+		       "Funding channel: create first tx, now waiting for their signature");
+
 	msg = opening_read_peer_msg(state);
 
 	if (!fromwire_funding_signed(msg, &id_in, &sig))
@@ -570,6 +576,9 @@ static u8 *fundee_channel(struct state *state,
 	if (!sync_crypto_write(&state->cs, PEER_FD, take(msg)))
 		peer_failed_connection_lost();
 
+	peer_billboard(false,
+		       "Incoming channel: accepted, now waiting for them to create funding tx");
+
 	msg = opening_read_peer_msg(state);
 
 	if (!fromwire_funding_created(msg, &id_in,
@@ -737,17 +746,21 @@ int main(int argc, char *argv[])
 				    &state->push_msat,
 				    &state->feerate_per_kw, &max_minimum_depth,
 				    &change_satoshis, &change_keyindex,
-				    &channel_flags, &utxos, &bip32_base))
+				    &channel_flags, &utxos, &bip32_base)) {
 		msg = funder_channel(state, &our_funding_pubkey, &our_points,
 				     max_minimum_depth, change_satoshis,
 				     change_keyindex, channel_flags,
 				     utxos, &bip32_base);
-	else if (fromwire_opening_fundee(state, msg, &minimum_depth,
-					 &min_feerate, &max_feerate, &peer_msg))
+		peer_billboard(false,
+			       "Funding channel: opening negotiation succeeded");
+	} else if (fromwire_opening_fundee(state, msg, &minimum_depth,
+					   &min_feerate, &max_feerate, &peer_msg)) {
 		msg = fundee_channel(state, &our_funding_pubkey, &our_points,
 				   minimum_depth, min_feerate, max_feerate,
 				   peer_msg);
-	else
+		peer_billboard(false,
+			       "Incoming channel: opening negotiation succeeded");
+	} else
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "neither funder nor fundee: %s",
 			      tal_hex(msg, msg));
