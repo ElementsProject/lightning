@@ -1004,6 +1004,11 @@ class LightningDTests(BaseLightningDTests):
 
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
 
+        billboard = l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status']
+        assert billboard == ['CHANNELD_NORMAL:Funding transaction locked.']
+        billboard = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['status']
+        assert billboard == ['CHANNELD_NORMAL:Funding transaction locked.']
+
         l1.bitcoin.rpc.generate(5)
 
         # Only wait for the channels to activate with DEVELOPER=1,
@@ -1012,6 +1017,8 @@ class LightningDTests(BaseLightningDTests):
         if DEVELOPER:
             wait_for(lambda: len(l1.getactivechannels()) == 2)
             wait_for(lambda: len(l2.getactivechannels()) == 2)
+            billboard = l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status']
+            assert billboard == ['CHANNELD_NORMAL:Funding transaction locked. Channel announced.']
 
         # This should return, then close.
         l1.rpc.close(l2.info['id'])
@@ -1034,7 +1041,9 @@ class LightningDTests(BaseLightningDTests):
         # Now grab the close transaction
         closetxid = l1.bitcoin.rpc.getrawmempool(False)[0]
 
-        l1.bitcoin.rpc.generate(10)
+        billboard = l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status']
+        assert billboard == ['CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 5430 satoshi']
+        l1.bitcoin.rpc.generate(1)
 
         l1.daemon.wait_for_log(r'Owning output .* txid %s' % closetxid)
         l2.daemon.wait_for_log(r'Owning output .* txid %s' % closetxid)
@@ -1043,8 +1052,13 @@ class LightningDTests(BaseLightningDTests):
         assert closetxid in set([o['txid'] for o in l1.rpc.listfunds()['outputs']])
         assert closetxid in set([o['txid'] for o in l2.rpc.listfunds()['outputs']])
 
+        wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status'] == ['CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 5430 satoshi', 'ONCHAIND_MUTUAL:Tracking mutual close transaction', 'ONCHAIND_MUTUAL:All outputs resolved: waiting 99 more blocks before forgetting channel'])
+
+        l1.bitcoin.rpc.generate(9)
+        wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status'] == ['CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 5430 satoshi', 'ONCHAIND_MUTUAL:Tracking mutual close transaction', 'ONCHAIND_MUTUAL:All outputs resolved: waiting 90 more blocks before forgetting channel'])
+
         # Make sure both have forgotten about it
-        l1.bitcoin.rpc.generate(100)
+        l1.bitcoin.rpc.generate(90)
         wait_forget_channels(l1)
         wait_forget_channels(l2)
 
@@ -1156,8 +1170,18 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log(' to ONCHAIND_OUR_UNILATERAL')
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET (.*) in 5 blocks')
 
-        # Now, mine 5 blocks so it sends out the spending tx.
-        bitcoind.generate_block(5)
+        wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status']
+                 == ['CHANNELD_NORMAL:Received error from peer: channel ALL: Internal error: Failing due to dev-fail command',
+                     'ONCHAIND_THEIR_UNILATERAL:Tracking their unilateral close',
+                     'ONCHAIND_THEIR_UNILATERAL:All outputs resolved: waiting 99 more blocks before forgetting channel'])
+
+        billboard = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['status']
+        assert len(billboard) == 2
+        assert billboard[0] == 'ONCHAIND_OUR_UNILATERAL:Tracking our own unilateral close'
+        assert re.fullmatch('ONCHAIND_OUR_UNILATERAL:.* outputs unresolved: in 4 blocks will spend DELAYED_OUTPUT_TO_US \(.*:0\) using OUR_DELAYED_RETURN_TO_WALLET', billboard[1])
+        
+        # Now, mine 4 blocks so it sends out the spending tx.
+        bitcoind.generate_block(4)
 
         # It should send the to-wallet tx.
         l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET')
@@ -1166,6 +1190,8 @@ class LightningDTests(BaseLightningDTests):
         # 100 after l1 sees tx, it should be done.
         bitcoind.generate_block(95)
         wait_forget_channels(l1)
+
+        wait_for(lambda: l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['status'] == ['ONCHAIND_OUR_UNILATERAL:Tracking our own unilateral close', 'ONCHAIND_OUR_UNILATERAL:All outputs resolved: waiting 5 more blocks before forgetting channel'], timeout=1)
 
         # Now, 100 blocks l2 should be done.
         bitcoind.generate_block(5)
