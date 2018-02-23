@@ -15,7 +15,9 @@ This implementation is still very much a work in progress. It can be used for te
 We do our best to identify and fix problems, and implement missing features.
 
 Any help testing the implementation, reporting bugs, or helping with outstanding issues is very welcome.
-Don't hesitate to reach out to us on IRC at [#lightning-dev @ freenode.net](http://webchat.freenode.net/?channels=%23lightning-dev), [#c-lightning @ freenode.net](http://webchat.freenode.net/?channels=%23c-lightning), or on the mailing list [lightning-dev@lists.linuxfoundation.org](https://lists.linuxfoundation.org/mailman/listinfo/lightning-dev).
+Don't hesitate to reach out to us on IRC at [#lightning-dev @ freenode.net](http://webchat.freenode.net/?channels=%23lightning-dev), [#c-lightning @ freenode.net](http://webchat.freenode.net/?channels=%23c-lightning),
+or on the implementation-specific mailing list [c-lightning@lists.ozlabs.org](https://lists.ozlabs.org/listinfo/c-lightning),
+or on the Lightning Network-wide mailing list [lightning-dev@lists.linuxfoundation.org](https://lists.linuxfoundation.org/mailman/listinfo/lightning-dev).
 
 ## Getting Started
 
