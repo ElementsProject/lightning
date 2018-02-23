@@ -1052,10 +1052,10 @@ class LightningDTests(BaseLightningDTests):
         assert closetxid in set([o['txid'] for o in l1.rpc.listfunds()['outputs']])
         assert closetxid in set([o['txid'] for o in l2.rpc.listfunds()['outputs']])
 
-        wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status'] == ['CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 5430 satoshi', 'ONCHAIND:Tracking mutual close transaction', 'ONCHAIND_MUTUAL:All outputs resolved: waiting 99 more blocks before forgetting channel'])
+        wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status'] == ['CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 5430 satoshi', 'ONCHAIN:Tracking mutual close transaction', 'ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel'])
 
         l1.bitcoin.rpc.generate(9)
-        wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status'] == ['CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 5430 satoshi', 'ONCHAIND:Tracking mutual close transaction', 'ONCHAIND_MUTUAL:All outputs resolved: waiting 90 more blocks before forgetting channel'])
+        wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status'] == ['CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 5430 satoshi', 'ONCHAIN:Tracking mutual close transaction', 'ONCHAIN:All outputs resolved: waiting 90 more blocks before forgetting channel'])
 
         # Make sure both have forgotten about it
         l1.bitcoin.rpc.generate(90)
@@ -1132,7 +1132,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(1)
         for p in peers:
             p.daemon.wait_for_log(' to ONCHAIN')
-            wait_for(lambda: p.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['status'][1] == 'ONCHAIND:Tracking mutual close transaction')
+            wait_for(lambda: p.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['status'][1] == 'ONCHAIN:Tracking mutual close transaction')
         l1.daemon.wait_for_logs([' to ONCHAIN'] * num_peers)
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -1172,13 +1172,13 @@ class LightningDTests(BaseLightningDTests):
 
         wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status']
                  == ['CHANNELD_NORMAL:Received error from peer: channel ALL: Internal error: Failing due to dev-fail command',
-                     'ONCHAIND:Tracking their unilateral close',
-                     'ONCHAIND:All outputs resolved: waiting 99 more blocks before forgetting channel'])
+                     'ONCHAIN:Tracking their unilateral close',
+                     'ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel'])
 
         billboard = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['status']
         assert len(billboard) == 2
-        assert billboard[0] == 'ONCHAIND:Tracking our own unilateral close'
-        assert re.fullmatch('ONCHAIND:.* outputs unresolved: in 4 blocks will spend DELAYED_OUTPUT_TO_US \(.*:0\) using OUR_DELAYED_RETURN_TO_WALLET', billboard[1])
+        assert billboard[0] == 'ONCHAIN:Tracking our own unilateral close'
+        assert re.fullmatch('ONCHAIN:.* outputs unresolved: in 4 blocks will spend DELAYED_OUTPUT_TO_US \(.*:0\) using OUR_DELAYED_RETURN_TO_WALLET', billboard[1])
         
         # Now, mine 4 blocks so it sends out the spending tx.
         bitcoind.generate_block(4)
@@ -1191,7 +1191,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(95)
         wait_forget_channels(l1)
 
-        wait_for(lambda: l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['status'] == ['ONCHAIND:Tracking our own unilateral close', 'ONCHAIND:All outputs resolved: waiting 5 more blocks before forgetting channel'], timeout=1)
+        wait_for(lambda: l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['status'] == ['ONCHAIN:Tracking our own unilateral close', 'ONCHAIN:All outputs resolved: waiting 5 more blocks before forgetting channel'], timeout=1)
 
         # Now, 100 blocks l2 should be done.
         bitcoind.generate_block(5)
@@ -3502,7 +3502,7 @@ class LightningDTests(BaseLightningDTests):
 
         # After it sees block, someone should close channel.
         bitcoind.generate_block(1)
-        l1.daemon.wait_for_log('ONCHAIND_.*_UNILATERAL')
+        l1.daemon.wait_for_log('ONCHAIN')
 
     def test_listconfigs(self):
         l1 = self.node_factory.get_node()
@@ -3543,9 +3543,9 @@ class LightningDTests(BaseLightningDTests):
 
         channels = l1.rpc.listpeers()['peers'][0]['channels']
         assert len(channels) == 3
-        # Most in state ONCHAIND_MUTUAL, last is CLOSINGD_COMPLETE
+        # Most in state ONCHAIN, last is CLOSINGD_COMPLETE
         for i in range(len(channels) - 1):
-            assert channels[i]['state'] == 'ONCHAIND_MUTUAL'
+            assert channels[i]['state'] == 'ONCHAIN'
         assert channels[-1]['state'] == 'CLOSINGD_COMPLETE'
 
     def test_multirpc(self):
