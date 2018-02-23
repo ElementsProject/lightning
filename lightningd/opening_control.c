@@ -130,6 +130,11 @@ void json_add_uncommitted_channel(struct json_result *response,
 	json_add_string(response, "owner", "lightning_openingd");
 	json_add_string(response, "funder",
 			uc->fc ? "LOCAL" : "REMOTE");
+	if (uc->transient_billboard) {
+		json_array_start(response, "status");
+		json_add_string(response, NULL, uc->transient_billboard);
+		json_array_end(response);
+	}
 	if (uc->fc) {
 		u64 msatoshi_total, our_msatoshi;
 

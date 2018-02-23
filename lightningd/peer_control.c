@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/str/str.h>
@@ -660,6 +661,19 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 			json_add_num(response, "max_accepted_htlcs",
 				     channel->our_config.max_accepted_htlcs);
 
+			json_array_start(response, "status");
+			for (size_t i = 0;
+			     i < ARRAY_SIZE(channel->billboard.permanent);
+			     i++) {
+				if (!channel->billboard.permanent[i])
+					continue;
+				json_add_string(response, NULL,
+						channel->billboard.permanent[i]);
+			}
+			if (channel->billboard.transient)
+				json_add_string(response, NULL,
+						channel->billboard.transient);
+			json_array_end(response);
 			json_object_end(response);
 		}
 		json_array_end(response);
