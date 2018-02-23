@@ -62,7 +62,7 @@ static void tell_waiter(struct command *cmd, const struct invoice *inv)
 	struct json_result *response = new_json_result(cmd);
 	struct invoice_details details;
 
-	wallet_invoice_details(cmd, cmd->ld->wallet, inv, &details);
+	wallet_invoice_details(cmd, cmd->ld->wallet, *inv, &details);
 	json_add_invoice(response, &details, true);
 	if (details.state == PAID)
 		command_success(cmd, response);
@@ -104,7 +104,7 @@ static bool hsm_sign_b11(const u5 *u5bytes,
 static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
-	const struct invoice *invoice;
+	struct invoice invoice;
 	struct invoice_details details;
 	jsmntok_t *msatoshi, *label, *desc, *exp, *fallback;
 	u64 *msatoshi_val;
@@ -117,6 +117,7 @@ static void json_invoice(struct command *cmd,
 	char *b11enc;
 	const u8 *fallback_script;
 	u64 expiry = 3600;
+	bool result;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "msatoshi", &msatoshi,
@@ -146,7 +147,7 @@ static void json_invoice(struct command *cmd,
 	/* label */
 	label_val = tal_strndup(cmd, buffer + label->start,
 				label->end - label->start);
-	if (wallet_invoice_find_by_label(wallet, label_val)) {
+	if (wallet_invoice_find_by_label(wallet, &invoice, label_val)) {
 		command_fail(cmd, "Duplicate label '%s'", label_val);
 		return;
 	}
@@ -193,11 +194,12 @@ static void json_invoice(struct command *cmd,
 	}
 
 
-	invoice = wallet_invoice_create(cmd->ld->wallet,
-					take(msatoshi_val),
-					take(label_val),
-					expiry);
-	if (!invoice) {
+	result = wallet_invoice_create(cmd->ld->wallet,
+				       &invoice,
+				       take(msatoshi_val),
+				       take(label_val),
+				       expiry);
+	if (!result) {
 		command_fail(cmd, "Failed to create invoice on database");
 		return;
 	}
@@ -318,7 +320,7 @@ AUTODATA(json_command, &listinvoices_command);
 static void json_delinvoice(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
 {
-	const struct invoice *i;
+	struct invoice i;
 	struct invoice_details details;
 	jsmntok_t *labeltok, *statustok;
 	struct json_result *response = new_json_result(cmd);
@@ -334,8 +336,7 @@ static void json_delinvoice(struct command *cmd,
 
 	label = tal_strndup(cmd, buffer + labeltok->start,
 			    labeltok->end - labeltok->start);
-	i = wallet_invoice_find_by_label(wallet, label);
-	if (!i) {
+	if (!wallet_invoice_find_by_label(wallet, &i, label)) {
 		command_fail(cmd, "Unknown invoice");
 		return;
 	}
@@ -359,7 +360,7 @@ static void json_delinvoice(struct command *cmd,
 	if (!wallet_invoice_delete(wallet, i)) {
 		log_broken(cmd->ld->log,
 			   "Error attempting to remove invoice %"PRIu64,
-			   i->id);
+			   i.id);
 		command_fail(cmd, "Database error");
 		return;
 	}
@@ -424,7 +425,7 @@ AUTODATA(json_command, &waitanyinvoice_command);
 static void json_waitinvoice(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
-	const struct invoice *i;
+	struct invoice i;
 	struct invoice_details details;
 	struct wallet *wallet = cmd->ld->wallet;
 	jsmntok_t *labeltok;
@@ -434,18 +435,17 @@ static void json_waitinvoice(struct command *cmd,
 		return;
 	}
 
-	/* Search in paid invoices, if found return immediately */
+	/* Search for invoice */
 	label = tal_strndup(cmd, buffer + labeltok->start, labeltok->end - labeltok->start);
-	i = wallet_invoice_find_by_label(wallet, label);
-
-	if (!i) {
+	if (!wallet_invoice_find_by_label(wallet, &i, label)) {
 		command_fail(cmd, "Label not found");
 		return;
 	}
 	wallet_invoice_details(cmd, cmd->ld->wallet, i, &details);
 
+	/* If paid or expired return immediately */
 	if (details.state == PAID || details.state == EXPIRED) {
-		tell_waiter(cmd, i);
+		tell_waiter(cmd, &i);
 		return;
 	} else {
 		/* There is an unpaid one matching, let's wait... */

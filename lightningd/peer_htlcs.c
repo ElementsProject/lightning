@@ -229,7 +229,7 @@ static void handle_localpay(struct htlc_in *hin,
 			    u32 outgoing_cltv_value)
 {
 	enum onion_type failcode;
-	const struct invoice *invoice;
+	struct invoice invoice;
 	struct invoice_details details;
 	struct lightningd *ld = hin->key.channel->peer->ld;
 	const tal_t *tmpctx = tal_tmpctx(ld);
@@ -262,8 +262,7 @@ static void handle_localpay(struct htlc_in *hin,
 		goto fail;
 	}
 
-	invoice = wallet_invoice_find_unpaid(ld->wallet, payment_hash);
-	if (!invoice) {
+	if (!wallet_invoice_find_unpaid(ld->wallet, &invoice, payment_hash)) {
 		failcode = WIRE_UNKNOWN_PAYMENT_HASH;
 		goto fail;
 	}
