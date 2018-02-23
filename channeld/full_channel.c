@@ -864,19 +864,20 @@ bool channel_sending_revoke_and_ack(struct channel *channel)
 	return channel->changes_pending[REMOTE];
 }
 
-bool channel_has_htlcs(const struct channel *channel)
+size_t num_channel_htlcs(const struct channel *channel)
 {
 	struct htlc_map_iter it;
 	const struct htlc *htlc;
+	size_t n = 0;
 
 	for (htlc = htlc_map_first(channel->htlcs, &it);
 	     htlc;
 	     htlc = htlc_map_next(channel->htlcs, &it)) {
 		/* FIXME: Clean these out! */
 		if (!htlc_is_dead(htlc))
-			return true;
+			n++;
 	}
-	return false;
+	return n;
 }
 
 static bool adjust_balance(struct channel *channel, struct htlc *htlc)

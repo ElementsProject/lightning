@@ -213,10 +213,10 @@ bool channel_rcvd_commit(struct channel *channel,
 bool channel_sending_revoke_and_ack(struct channel *channel);
 
 /**
- * channel_has_htlcs: are there any (live) HTLCs at all in channel?
+ * num_channel_htlcs: how many (live) HTLCs at all in channel?
  * @channel: the channel
  */
-bool channel_has_htlcs(const struct channel *channel);
+size_t num_channel_htlcs(const struct channel *channel);
 
 /**
  * channel_force_htlcs: force these htlcs into the (new) channel
