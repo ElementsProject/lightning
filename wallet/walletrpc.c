@@ -421,7 +421,7 @@ static void json_listaddrs(struct command *cmd,
 	json_object_start(response, NULL);
 	json_array_start(response, "addresses");
 
-	for (s64 keyidx = 0; keyidx < bip32_max_index; keyidx++) {
+	for (s64 keyidx = 0; keyidx <= bip32_max_index; keyidx++) {
 
 		if(keyidx == BIP32_INITIAL_HARDENED_CHILD){
 			break;
