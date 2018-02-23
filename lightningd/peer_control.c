@@ -344,11 +344,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 #endif
 
 		switch (channel->state) {
-		case ONCHAIND_CHEATED:
-		case ONCHAIND_THEIR_UNILATERAL:
-		case ONCHAIND_OUR_UNILATERAL:
+		case ONCHAIN:
 		case FUNDING_SPEND_SEEN:
-		case ONCHAIND_MUTUAL:
 		case CLOSINGD_COMPLETE:
 			/* Channel is active! */
 			abort();

@@ -48,21 +48,8 @@ static void onchaind_tell_fulfill(struct channel *channel)
 
 static void handle_onchain_init_reply(struct channel *channel, const u8 *msg)
 {
-	u8 state;
-
-	if (!fromwire_onchain_init_reply(msg, &state)) {
-		channel_internal_error(channel, "Invalid onchain_init_reply");
-		return;
-	}
-
-	if (!channel_state_on_chain(state)) {
-		channel_internal_error(channel,
-				    "Invalid onchain_init_reply state %u (%s)",
-				    state, channel_state_str(state));
-		return;
-	}
-
-	channel_set_state(channel, FUNDING_SPEND_SEEN, state);
+	/* FIXME: We may already be ONCHAIN state when we implement restart! */
+	channel_set_state(channel, FUNDING_SPEND_SEEN, ONCHAIN);
 
 	/* Tell it about any preimages we know. */
 	onchaind_tell_fulfill(channel);

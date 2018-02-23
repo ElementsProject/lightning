@@ -22,12 +22,9 @@ enum channel_state {
 	/* We've seen the funding spent, we're waiting for onchaind. */
 	FUNDING_SPEND_SEEN,
 
-	/* Various onchain states. */
-	ONCHAIND_CHEATED,
-	ONCHAIND_THEIR_UNILATERAL,
-	ONCHAIND_OUR_UNILATERAL,
-	ONCHAIND_MUTUAL
+	/* On chain */
+	ONCHAIN
 };
-#define CHANNEL_STATE_MAX ONCHAIND_MUTUAL
+#define CHANNEL_STATE_MAX ONCHAIN
 
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_STATE_H */

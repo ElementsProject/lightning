@@ -171,20 +171,9 @@ static inline bool channel_fees_can_change(const struct channel *channel)
 		|| channel->state == CHANNELD_SHUTTING_DOWN;
 }
 
-static inline bool channel_can_remove_htlc(const struct channel *channel)
-{
-	return channel->state == CHANNELD_NORMAL
-		|| channel->state == CHANNELD_SHUTTING_DOWN
-		|| channel->state == ONCHAIND_THEIR_UNILATERAL
-		|| channel->state == ONCHAIND_OUR_UNILATERAL;
-}
-
 static inline bool channel_state_on_chain(enum channel_state state)
 {
-	return state == ONCHAIND_CHEATED
-		|| state == ONCHAIND_THEIR_UNILATERAL
-		|| state == ONCHAIND_OUR_UNILATERAL
-		|| state == ONCHAIND_MUTUAL;
+	return state == ONCHAIN;
 }
 
 static inline bool channel_on_chain(const struct channel *channel)

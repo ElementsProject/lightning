@@ -1051,16 +1051,16 @@ static void wait_for_resolved(struct tracked_output **outs)
 			take(towire_onchain_all_irrevocably_resolved(outs)));
 }
 
-static void set_state(enum channel_state state)
+static void init_reply(const char *what)
 {
-	wire_sync_write(REQ_FD, take(towire_onchain_init_reply(NULL, state)));
+	peer_billboard(true, what);
+	wire_sync_write(REQ_FD, take(towire_onchain_init_reply(NULL)));
 }
 
 static void handle_mutual_close(const struct bitcoin_txid *txid,
 				struct tracked_output **outs)
 {
-	set_state(ONCHAIND_MUTUAL);
-	peer_billboard(true, "Tracking mutual close transaction");
+	init_reply("Tracking mutual close transaction");
 
 	/* BOLT #5:
 	 *
@@ -1269,8 +1269,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 	struct keyset *ks;
 	size_t i;
 
-	set_state(ONCHAIND_OUR_UNILATERAL);
-	peer_billboard(true, "Tracking our own unilateral close");
+	init_reply("Tracking our own unilateral close");
 
 	init_feerate_range(outs[0]->satoshi, tx);
 
@@ -1571,8 +1570,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 	struct privkey per_commitment_privkey;
 	struct pubkey per_commitment_point;
 
-	set_state(ONCHAIND_CHEATED);
-	peer_billboard(true, "Tracking their illegal close: taking all funds");
+	init_reply("Tracking their illegal close: taking all funds");
 
 	init_feerate_range(outs[0]->satoshi, tx);
 
@@ -1832,8 +1830,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 	struct keyset *ks;
 	size_t i;
 
-	set_state(ONCHAIND_THEIR_UNILATERAL);
-	peer_billboard(true, "Tracking their unilateral close");
+	init_reply("Tracking their unilateral close");
 
 	init_feerate_range(outs[0]->satoshi, tx);
 

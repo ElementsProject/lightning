@@ -111,16 +111,22 @@ You can check the status of the channel using `cli/lightning-cli listpeers`, whi
  
 ### Different states 
 
-States starting with `ONCHAIND` mean that the channel has been closed and an onchain transaction exists reflecting the resulting balances
-* `ONCHAIND_OUR_UNILATERAL` > Closed by you without cooperation of the counterparty
-* `ONCHAIND_THEIR_UNILATERAL` > Closed by the counterparty without your cooperation
-* `ONCHAIND_MUTUAL` > Negotiated closing by both sides
+* `GOSSIPING` means that you are connected to a peer but there is no
+  payment channel yet.
+* `OPENINGD` means that `lightning_openingd` is negotiating channel opening.
+* `CHANNELD_AWAITING_LOCKIN` means that `lightning_channeld` is waiting until
+  the minimum number of confirmation on the channel funding transaction.
+* `CHANNELD_NORMAL` means your channel is operating normally.
+* `CHANNELD_SHUTTING_DOWN` means one or both sides have asked to shut down the
+  channel, and we're waiting for existing HTLCs to clear.
+* `CLOSINGD_SIGEXCHANGE` means we're trying to negotiate the fee for the mutual close transaction.
+* `CLOSINGD_COMPLETE` means we've broadcast our mutual close
+  transaction (which spends the funding transaction) , but haven't seen it in a block yet.
+* `FUNDING_SPEND_SEEN` means we've seen the funding transaction spent.
+* `ONCHAIN` means that the `lightning_onchaind` is tracking the onchain closing of the channel.
 
-States starting with `CHANNELD` mean that funds are not available onchain, and from that moment they can only be moved offchain, this is, through the Lightning Network
-* `CHANNELD_AWAITING_LOCKIN` > Waiting for confirmation of the channel funding transaction
-* `CHANNELD_NORMAL` > Channel is active
-
-The `GOSSIPING` state means that you are connected to a peer but there is no payment channel yet.
+All these states have more information about what's going on in the
+`status` field in `listpeers`.
 
 ### Sending and receiving payments
 

@@ -198,6 +198,8 @@ char *dbmigrations[] = {
     "CREATE TABLE db_upgrades (upgrade_from INTEGER, lightning_version TEXT);",
     /* We used not to clean up peers when their channels were gone. */
     "DELETE FROM peers WHERE id NOT IN (SELECT peer_id FROM channels);",
+    /* The ONCHAIND_CHEATED/THEIR_UNILATERAL/OUR_UNILATERAL/MUTUAL are now one */
+    "UPDATE channels SET STATE = 8 WHERE state > 8;",
     NULL,
 };
 
