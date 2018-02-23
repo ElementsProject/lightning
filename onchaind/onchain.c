@@ -8,6 +8,7 @@
 #include <common/initial_commit_tx.h>
 #include <common/key_derive.h>
 #include <common/keyset.h>
+#include <common/peer_billboard.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/type_to_string.h>
@@ -509,6 +510,74 @@ static size_t num_not_irrevocably_resolved(struct tracked_output **outs)
 	return num;
 }
 
+static u32 prop_blockheight(const struct tracked_output *out)
+{
+	return out->tx_blockheight + out->proposal->depth_required;
+}
+
+static void billboard_update(struct tracked_output **outs)
+{
+	const struct tracked_output *best = NULL;
+
+	/* Highest priority is to report on proposals we have */
+	for (size_t i = 0; i < tal_count(outs); i++) {
+		if (!outs[i]->proposal)
+			continue;
+		if (!best || prop_blockheight(outs[i]) < prop_blockheight(best))
+			best = outs[i];
+	}
+
+	if (best) {
+		/* If we've broadcast and not seen yet, this happens */
+		if (best->proposal->depth_required <= best->depth) {
+			peer_billboard(false,
+				       "%u outputs unresolved: waiting confirmation that we spent %s (%s:%u) using %s",
+				       num_not_irrevocably_resolved(outs),
+				       output_type_name(best->output_type),
+				       type_to_string(trc, struct bitcoin_txid,
+						      &best->txid),
+				       best->outnum,
+				       tx_type_name(best->proposal->tx_type));
+		} else {
+			peer_billboard(false,
+				       "%u outputs unresolved: in %u blocks will spend %s (%s:%u) using %s",
+				       num_not_irrevocably_resolved(outs),
+				       best->proposal->depth_required - best->depth,
+				       output_type_name(best->output_type),
+				       type_to_string(trc, struct bitcoin_txid,
+						      &best->txid),
+				       best->outnum,
+				       tx_type_name(best->proposal->tx_type));
+		}
+		return;
+	}
+
+	/* Now, just report on the last thing we're waiting out. */
+	for (size_t i = 0; i < tal_count(outs); i++) {
+		/* FIXME: Can this happen?  No proposal, no resolution? */
+		if (!outs[i]->resolved)
+			continue;
+		if (!best || outs[i]->resolved->depth < best->resolved->depth)
+			best = outs[i];
+	}
+
+	if (best) {
+		peer_billboard(false,
+			       "All outputs resolved:"
+			       " waiting %u more blocks before forgetting"
+			       " channel",
+			       best->resolved->depth < 100
+			       ? 100 - best->resolved->depth : 0);
+		return;
+	}
+
+	/* Not sure this can happen, but take last one (there must be one!) */
+	best = outs[tal_count(outs)-1];
+	peer_billboard(false, "%u outputs unresolved: %s is one (depth %u)",
+		       num_not_irrevocably_resolved(outs),
+		       output_type_name(best->output_type), best->depth);
+}
+
 static void unwatch_tx(const struct bitcoin_tx *tx)
 {
 	u8 *msg;
@@ -952,6 +1021,8 @@ static void handle_preimage(struct tracked_output **outs,
  */
 static void wait_for_resolved(struct tracked_output **outs)
 {
+	billboard_update(outs);
+
 	while (num_not_irrevocably_resolved(outs) != 0) {
 		u8 *msg = wire_sync_read(outs, REQ_FD);
 		struct bitcoin_txid txid;
@@ -971,6 +1042,8 @@ static void wait_for_resolved(struct tracked_output **outs)
 			handle_preimage(outs, &preimage);
 		else
 			master_badmsg(-1, msg);
+
+		billboard_update(outs);
 		tal_free(msg);
 	}
 
@@ -987,6 +1060,7 @@ static void handle_mutual_close(const struct bitcoin_txid *txid,
 				struct tracked_output **outs)
 {
 	set_state(ONCHAIND_MUTUAL);
+	peer_billboard(true, "Tracking mutual close transaction");
 
 	/* BOLT #5:
 	 *
@@ -1196,6 +1270,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 	size_t i;
 
 	set_state(ONCHAIND_OUR_UNILATERAL);
+	peer_billboard(true, "Tracking our own unilateral close");
 
 	init_feerate_range(outs[0]->satoshi, tx);
 
@@ -1497,6 +1572,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 	struct pubkey per_commitment_point;
 
 	set_state(ONCHAIND_CHEATED);
+	peer_billboard(true, "Tracking their illegal close: taking all funds");
 
 	init_feerate_range(outs[0]->satoshi, tx);
 
@@ -1757,6 +1833,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 	size_t i;
 
 	set_state(ONCHAIND_THEIR_UNILATERAL);
+	peer_billboard(true, "Tracking their unilateral close");
 
 	init_feerate_range(outs[0]->satoshi, tx);
 
