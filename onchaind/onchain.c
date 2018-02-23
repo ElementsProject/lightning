@@ -380,6 +380,8 @@ static bool resolved_by_proposal(struct tracked_output *out,
 	/* Not the same as what we proposed? */
 	if (!structeq(&out->resolved->txid, txid)) {
 		out->resolved = tal_free(out->resolved);
+		/* Don't need proposal any more */
+		out->proposal = tal_free(out->proposal);
 		return false;
 	}
 
@@ -391,6 +393,9 @@ static bool resolved_by_proposal(struct tracked_output *out,
 
 	out->resolved->depth = 0;
 	out->resolved->tx_type = out->proposal->tx_type;
+
+	/* Don't need proposal any more */
+	out->proposal = tal_free(out->proposal);
 	return true;
 }
 
@@ -493,15 +498,15 @@ static bool is_local_commitment(const struct bitcoin_txid *txid,
  * once their *resolving* transaction is included in a block at least 100
  * deep on the most-work blockchain.
  */
-static bool all_irrevocably_resolved(struct tracked_output **outs)
+static size_t num_not_irrevocably_resolved(struct tracked_output **outs)
 {
-	size_t i;
+	size_t i, num = 0;
 
 	for (i = 0; i < tal_count(outs); i++) {
 		if (!outs[i]->resolved || outs[i]->resolved->depth < 100)
-			return false;
+			num++;
 	}
-	return true;
+	return num;
 }
 
 static void unwatch_tx(const struct bitcoin_tx *tx)
@@ -947,7 +952,7 @@ static void handle_preimage(struct tracked_output **outs,
  */
 static void wait_for_resolved(struct tracked_output **outs)
 {
-	while (!all_irrevocably_resolved(outs)) {
+	while (num_not_irrevocably_resolved(outs) != 0) {
 		u8 *msg = wire_sync_read(outs, REQ_FD);
 		struct bitcoin_txid txid;
 		struct bitcoin_tx *tx;
