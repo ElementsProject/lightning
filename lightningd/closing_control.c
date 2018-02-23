@@ -163,6 +163,7 @@ void peer_start_closingd(struct channel *channel,
 					   channel, channel->log,
 					   closing_wire_type_name, closing_msg,
 					   channel_errmsg,
+					   channel_set_billboard,
 					   take(&peer_fd), take(&gossip_fd),
 					   NULL));
 	if (!channel->owner) {

@@ -372,6 +372,7 @@ enum watch_result funding_spent(struct channel *channel,
 						    onchain_wire_type_name,
 						    onchain_msg,
 						    onchain_error,
+						    channel_set_billboard,
 						    NULL));
 
 	if (!channel->owner) {
