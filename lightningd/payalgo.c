@@ -1,6 +1,6 @@
 #include "pay.h"
 #include "payalgo.h"
-#include <ccan/isaac/isaac64.h>
+#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/bolt11.h>
@@ -243,7 +243,7 @@ static bool json_pay_try(struct pay *pay)
 	pay->try_parent = tal(pay, char);
 
 	/* Generate random seed */
-	seed = tal_arr(pay->try_parent, u8, ISAAC64_SEED_SZ_MAX);
+	seed = tal_arr(pay->try_parent, u8, sizeof(struct siphash_seed));
 	randombytes_buf(seed, tal_len(seed));
 
 	++pay->getroute_tries;

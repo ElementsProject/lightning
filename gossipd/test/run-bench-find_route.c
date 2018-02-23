@@ -177,6 +177,7 @@ int main(int argc, char *argv[])
 	struct pubkey me = nodeid(0);
 	bool perfme = false;
 	const double riskfactor = 0.01 / BLOCKS_PER_YEAR / 10000;
+	struct siphash_seed base_seed;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
@@ -194,6 +195,7 @@ int main(int argc, char *argv[])
 	if (argc > 3)
 		opt_usage_and_exit("[num_nodes [num_runs]]");
 
+	memset(&base_seed, 0, sizeof(base_seed));
 	for (size_t i = 0; i < num_nodes; i++)
 		populate_random_node(rstate, i);
 
@@ -212,7 +214,7 @@ int main(int argc, char *argv[])
 		nc = find_route(ctx, rstate, &from, &to,
 				pseudorand(100000),
 				riskfactor,
-				0.0, NULL,
+				0.75, &base_seed,
 				&fee, &route);
 		num_success += (nc != NULL);
 		tal_free(route);

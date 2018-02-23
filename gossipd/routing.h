@@ -2,6 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_GOSSIP_ROUTING_H
 #include "config.h"
 #include <bitcoin/pubkey.h>
+#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/time/time.h>
 #include <gossipd/broadcast.h>
@@ -187,7 +188,8 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 			    const struct pubkey *destination,
 			    const u32 msatoshi, double riskfactor,
 			    u32 final_cltv,
-			    double fuzz, u8 *seed);
+			    double fuzz,
+			    const struct siphash_seed *base_seed);
 /* Disable channel(s) based on the given routing failure. */
 void routing_failure(struct routing_state *rstate,
 		     const struct pubkey *erring_node,

@@ -2,6 +2,7 @@
 #include <ccan/cast/cast.h>
 #include <ccan/container_of/container_of.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
+#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/io/fdpass/fdpass.h>
@@ -1048,19 +1049,28 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	u8 *out;
 	struct route_hop *hops;
 	double fuzz;
-	u8 *seed;
+	u8 *rawseed;
+	struct siphash_seed seed;
+	size_t seedbytes;
 
 	fromwire_gossip_getroute_request(tmpctx, msg,
 					 &source, &destination,
 					 &msatoshi, &riskfactor, &final_cltv,
-					 &fuzz, &seed);
+					 &fuzz, &rawseed);
 	status_trace("Trying to find a route from %s to %s for %d msatoshi",
 		     pubkey_to_hexstr(tmpctx, &source),
 		     pubkey_to_hexstr(tmpctx, &destination), msatoshi);
 
+	/* Initialize siphash */
+	memset(&seed, 0, sizeof(seed));
+	seedbytes =
+		(tal_len(rawseed) > sizeof(seed)) ?	sizeof(seed) :
+		/*otherwise*/				tal_len(rawseed) ;
+	memcpy(&seed, rawseed, seedbytes);
+
 	hops = get_route(tmpctx, daemon->rstate, &source, &destination,
 			 msatoshi, 1, final_cltv,
-			 fuzz, seed);
+			 fuzz, &seed);
 
 	out = towire_gossip_getroute_reply(msg, hops);
 	tal_free(tmpctx);

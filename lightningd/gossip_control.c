@@ -5,9 +5,9 @@
 #include "peer_control.h"
 #include "subd.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/err/err.h>
 #include <ccan/fdpass/fdpass.h>
-#include <ccan/isaac/isaac64.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <common/features.h>
@@ -308,7 +308,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	unsigned cltv = 9;
 	double riskfactor;
 	double fuzz = 5.0;
-	u8 *seed = tal_arrz(cmd, u8, ISAAC64_SEED_SZ_MAX);
+	u8 *seed = tal_arrz(cmd, u8, sizeof(struct siphash_seed));
 
 	if (!json_get_params(cmd, buffer, params,
 			     "id", &idtok,
