@@ -54,6 +54,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/memleak.o			\
 	common/msg_queue.o			\
 	common/ping.o				\
+	common/peer_billboard.o			\
 	common/peer_failed.o			\
 	common/permute_tx.o			\
 	common/pseudorand.o			\

@@ -1,6 +1,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/gen_peer_status_wire.h>
 #include <common/gen_status_wire.h>
+#include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/status.h>
 #include <common/wire_error.h>
@@ -24,6 +25,7 @@ void peer_failed_(int peer_fd, int gossip_fd,
 				       desc, cs, gossip_index,
 				       towire_errorfmt(desc, channel_id,
 						       "%s", desc));
+	peer_billboard(true, desc);
 	tal_free(desc);
 	status_send_fatal(take(msg), peer_fd, gossip_fd);
 }
@@ -36,6 +38,7 @@ void peer_failed_received_errmsg(int peer_fd, int gossip_fd,
 {
 	u8 *msg = towire_status_peer_error(NULL, channel_id,
 					   desc, cs, gossip_index, NULL);
+	peer_billboard(true, "Received error from peer: %s", desc);
 	status_send_fatal(take(msg), peer_fd, gossip_fd);
 }
 
