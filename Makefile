@@ -38,6 +38,10 @@ PIE_LDFLAGS=-pie
 endif
 
 PYTEST := $(shell command -v pytest 2> /dev/null)
+PYTEST_OPTS := -v -x
+ifeq ($(TRAVIS),true)
+PYTEST_OPTS += --reruns=3
+endif
 
 # This is where we add new features as bitcoin adds them.
 FEATURES :=
@@ -197,7 +201,7 @@ pytest: $(ALL_PROGRAMS)
 ifndef PYTEST
 	PYTHONPATH=contrib/pylightning:$$PYTHONPATH DEVELOPER=$(DEVELOPER) python3 tests/test_lightningd.py -f
 else
-	PYTHONPATH=contrib/pylightning:$$PYTHONPATH TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) $(PYTEST) -vx tests/test_lightningd.py --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT)
+	PYTHONPATH=contrib/pylightning:$$PYTHONPATH TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) $(PYTEST) -vx tests/test_lightningd.py --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT) $(PYTEST_OPTS)
 endif
 
 # Keep includes in alpha order.
