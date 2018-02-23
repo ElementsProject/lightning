@@ -51,5 +51,6 @@ void status_failed(enum status_failreason code,
  * msg NULL == read failure. */
 void master_badmsg(u32 type_expected, const u8 *msg) NORETURN;
 
+void status_send(const u8 *msg TAKES);
 void status_send_fatal(const u8 *msg TAKES, int fd1, int fd2) NORETURN;
 #endif /* LIGHTNING_COMMON_STATUS_H */

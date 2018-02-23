@@ -25,6 +25,7 @@ COMMON_SRC_NOGEN :=				\
 	common/keyset.c				\
 	common/memleak.c			\
 	common/msg_queue.c			\
+	common/peer_billboard.c			\
 	common/peer_failed.c			\
 	common/permute_tx.c			\
 	common/ping.c				\

@@ -57,7 +57,7 @@ void status_setup_async(struct daemon_conn *master)
 	setup_logging_sighandler();
 }
 
-static void status_send(const u8 *msg TAKES)
+void status_send(const u8 *msg TAKES)
 {
 	if (status_fd >= 0) {
 		int type =fromwire_peektype(msg);
