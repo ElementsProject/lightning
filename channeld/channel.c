@@ -33,6 +33,7 @@
 #include <common/io_debug.h>
 #include <common/key_derive.h>
 #include <common/msg_queue.h>
+#include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/ping.h>
 #include <common/read_peer_msg.h>
@@ -167,6 +168,51 @@ struct peer {
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
 static void start_commit_timer(struct peer *peer);
+
+static void billboard_update(const struct peer *peer)
+{
+	const tal_t *tmpctx = tal_tmpctx(peer);
+	const char *funding_status, *announce_status, *shutdown_status;
+
+	if (peer->funding_locked[LOCAL] && peer->funding_locked[REMOTE])
+		funding_status = "Funding transaction locked.";
+	else if (!peer->funding_locked[LOCAL] && !peer->funding_locked[REMOTE])
+		/* FIXME: Say how many blocks to go! */
+		funding_status = "Funding needs more confirmations.";
+	else if (peer->funding_locked[LOCAL] && !peer->funding_locked[REMOTE])
+		funding_status = "We've confirmed funding, they haven't yet.";
+	else if (!peer->funding_locked[LOCAL] && peer->funding_locked[REMOTE])
+		funding_status = "They've confirmed funding, we haven't yet.";
+
+	if (peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE])
+		announce_status = " Channel announced.";
+	else if (peer->have_sigs[LOCAL] && !peer->have_sigs[REMOTE])
+		announce_status = " Waiting for their announcement signatures.";
+	else if (!peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE])
+		announce_status = " They need our announcement signatures.";
+	else if (!peer->have_sigs[LOCAL] && !peer->have_sigs[REMOTE])
+		announce_status = "";
+
+	if (!peer->shutdown_sent[LOCAL] && !peer->shutdown_sent[REMOTE])
+		shutdown_status = "";
+	else if (!peer->shutdown_sent[LOCAL] && peer->shutdown_sent[REMOTE])
+		shutdown_status = " We've send shutdown, waiting for theirs";
+	else if (peer->shutdown_sent[LOCAL] && !peer->shutdown_sent[REMOTE])
+		shutdown_status = " They've sent shutdown, waiting for ours";
+	else if (peer->shutdown_sent[LOCAL] && peer->shutdown_sent[REMOTE]) {
+		size_t num_htlcs = num_channel_htlcs(peer->channel);
+		if (num_htlcs)
+			shutdown_status = tal_fmt(tmpctx,
+						  " Shutdown messages exchanged,"
+						  " waiting for %zu HTLCs to complete.",
+						  num_htlcs);
+		else
+			shutdown_status = tal_fmt(tmpctx,
+						  " Shutdown messages exchanged.");
+	}
+	peer_billboard(false, "%s%s%s", funding_status,
+		       announce_status, shutdown_status);
+}
 
 /* Returns a pointer to the new end */
 static void *tal_arr_append_(void **p, size_t size)
@@ -358,6 +404,7 @@ static void send_announcement_signatures(struct peer *peer)
 		  &peer->announcement_bitcoin_sigs[LOCAL]);
 
 	peer->have_sigs[LOCAL] = true;
+	billboard_update(peer);
 
 	msg = towire_announcement_signatures(
 	    tmpctx, &peer->channel_id, &peer->short_channel_ids[LOCAL],
@@ -473,6 +520,7 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 		wire_sync_write(MASTER_FD,
 				take(towire_channel_normal_operation(peer)));
 	}
+	billboard_update(peer);
 
 	/* Send temporary or final announcements */
 	send_temporary_announcement(peer);
@@ -538,6 +586,7 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 	}
 
 	peer->have_sigs[REMOTE] = true;
+	billboard_update(peer);
 
 	/* We have the remote sigs, do we have the local ones as well? */
 	if (peer->funding_locked[LOCAL] && peer->have_sigs[LOCAL])
@@ -704,7 +753,7 @@ static bool shutdown_complete(const struct peer *peer)
 {
 	return peer->shutdown_sent[LOCAL]
 		&& peer->shutdown_sent[REMOTE]
-		&& !channel_has_htlcs(peer->channel)
+		&& num_channel_htlcs(peer->channel) == 0
 		/* We could be awaiting revoke-and-ack for a feechange */
 		&& peer->revocations_received == peer->next_index[REMOTE] - 1;
 
@@ -735,6 +784,7 @@ static void maybe_send_shutdown(struct peer *peer)
 	peer->unsent_shutdown_scriptpubkey
 		= tal_free(peer->unsent_shutdown_scriptpubkey);
 	peer->shutdown_sent[LOCAL] = true;
+	billboard_update(peer);
 }
 
 /* This queues other traffic from the fd until we get reply. */
@@ -914,7 +964,7 @@ static void send_commit(struct peer *peer)
 	 *   - if no HTLCs remain in either commitment transaction:
 	 *	- MUST NOT send any `update` message after a `shutdown`.
 	 */
-	if (peer->shutdown_sent[LOCAL] && !channel_has_htlcs(peer->channel)) {
+	if (peer->shutdown_sent[LOCAL] && !num_channel_htlcs(peer->channel)) {
 		status_trace("Can't send commit: final shutdown phase");
 
 		peer->commit_timer = NULL;
@@ -1544,6 +1594,7 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 			take(towire_channel_got_shutdown(peer, scriptpubkey)));
 
 	peer->shutdown_sent[REMOTE] = true;
+	billboard_update(peer);
 }
 
 /* Note: msg came from read_peer_msg() which handles pings, gossip,
@@ -1781,6 +1832,8 @@ static void peer_reconnect(struct peer *peer)
 	if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
 		peer_failed_connection_lost();
 
+	peer_billboard(false, "Sent reestablish, waiting for theirs");
+
 	/* Read until they say something interesting */
 	while ((msg = channeld_read_peer_msg(peer)) == NULL);
 
@@ -1936,6 +1989,8 @@ static void peer_reconnect(struct peer *peer)
 	 * feechanges which cancelled out. */
 	if (peer->channel->funder == LOCAL)
 		peer->channel->changes_pending[LOCAL] = true;
+
+	peer_billboard(true, "Reconnected, and reestablished.");
 }
 
 static void handle_funding_locked(struct peer *peer, const u8 *msg)
@@ -1961,6 +2016,7 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 		wire_sync_write(MASTER_FD,
 				take(towire_channel_normal_operation(peer)));
 	}
+	billboard_update(peer);
 
 	/* Send temporary or final announcements */
 	send_temporary_announcement(peer);
@@ -2551,6 +2607,7 @@ static void init_channel(struct peer *peer)
 	if (funding_signed)
 		enqueue_peer_msg(peer, take(funding_signed));
 
+	billboard_update(peer);
 	tal_free(msg);
 }
 
