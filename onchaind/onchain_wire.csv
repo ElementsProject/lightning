@@ -40,9 +40,8 @@ onchain_htlc,,htlc,struct htlc_stub
 onchain_htlc,,tell_if_missing,bool
 onchain_htlc,,tell_immediately,bool
 
-# This sets what the state is, depending on tx.
+# This says we're ready; give us preimages.
 onchain_init_reply,5101
-onchain_init_reply,,state,u8
 
 # onchaind->master: Send out a tx.
 onchain_broadcast_tx,5003
