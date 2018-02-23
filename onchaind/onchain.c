@@ -76,6 +76,8 @@ struct tracked_output {
 	enum tx_type tx_type;
 	struct bitcoin_txid txid;
 	u32 tx_blockheight;
+	/* FIXME: Convert all depths to blocknums, then just get new blk msgs */
+	u32 depth;
 	u32 outnum;
 	u64 satoshi;
 	enum output_type output_type;
@@ -278,6 +280,7 @@ static struct tracked_output *
 	out->tx_type = tx_type;
 	out->txid = *txid;
 	out->tx_blockheight = tx_blockheight;
+	out->depth = 0;
 	out->outnum = outnum;
 	out->satoshi = satoshi;
 	out->output_type = output_type;
@@ -810,6 +813,10 @@ static void tx_new_depth(struct tracked_output **outs,
 	}
 
 	for (i = 0; i < tal_count(outs); i++) {
+		/* Update output depth. */
+		if (structeq(&outs[i]->txid, txid))
+			outs[i]->depth = depth;
+
 		/* Is this tx resolving an output? */
 		if (outs[i]->resolved) {
 			if (structeq(&outs[i]->resolved->txid, txid)) {
