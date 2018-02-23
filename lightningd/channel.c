@@ -103,6 +103,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    enum side funder,
 			    /* NULL or stolen */
 			    struct log *log,
+			    const char *transient_billboard TAKES,
 			    u8 channel_flags,
 			    const struct channel_config *our_config,
 			    u32 minimum_depth,
@@ -147,6 +148,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->state = state;
 	channel->funder = funder;
 	channel->owner = NULL;
+	memset(&channel->billboard, 0, sizeof(channel->billboard));
+	channel->billboard.transient = tal_strdup(channel, transient_billboard);
+
 	if (!log) {
 		/* FIXME: update log prefix when we get scid */
 		/* FIXME: Use minimal unique pubkey prefix for logs! */
@@ -312,6 +316,21 @@ void channel_internal_error(struct channel *channel, const char *fmt, ...)
 	channel_fail_permanent(channel, "Internal error");
 #endif
 	tal_free(why);
+}
+
+void channel_set_billboard(struct channel *channel, bool perm, const char *str)
+{
+	const char **p;
+
+	if (perm)
+		p = &channel->billboard.permanent[channel->state];
+	else
+		p = &channel->billboard.transient;
+	tal_free(*p);
+
+	*p = tal_fmt(channel, "%s:%s", channel_state_name(channel), str);
+	if (taken(str))
+		tal_free(str);
 }
 
 void channel_fail_transient(struct channel *channel, const char *fmt, ...)

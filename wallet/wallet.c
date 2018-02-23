@@ -573,6 +573,7 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 			   sqlite3_column_int(stmt, 5),
 			   sqlite3_column_int(stmt, 6),
 			   NULL, /* Set up fresh log */
+			   "Loaded from database",
 			   sqlite3_column_int(stmt, 7),
 			   &our_config,
 			   sqlite3_column_int(stmt, 8),

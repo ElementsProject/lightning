@@ -8,6 +8,12 @@
 
 struct uncommitted_channel;
 
+struct billboard {
+	/* Status information to display on listpeers */
+	const char *permanent[CHANNEL_STATE_MAX+1];
+	const char *transient;
+};
+
 struct channel {
 	/* Inside peer->channels. */
 	struct list_node list;
@@ -35,6 +41,7 @@ struct channel {
 
 	/* History */
 	struct log *log;
+	struct billboard billboard;
 
 	/* Channel flags from opening message. */
 	u8 channel_flags;
@@ -92,6 +99,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    enum side funder,
 			    /* NULL or stolen */
 			    struct log *log,
+			    const char *transient_billboard TAKES,
 			    u8 channel_flags,
 			    const struct channel_config *our_config,
 			    u32 minimum_depth,
@@ -199,4 +207,7 @@ static inline bool channel_wants_reconnect(const struct channel *channel)
 void derive_channel_seed(struct lightningd *ld, struct privkey *seed,
 			 const struct pubkey *peer_id,
 			 const u64 dbid);
+
+void channel_set_billboard(struct channel *channel, bool perm,
+			   const char *str TAKES);
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_H */
