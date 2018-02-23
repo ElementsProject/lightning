@@ -37,8 +37,6 @@ struct invoices {
 	struct log *log;
 	/* The timers object to use for expirations. */
 	struct timers *timers;
-	/* The invoice list. */
-	struct list_head invlist;
 	/* Waiters waiting for invoices to be paid, expired, or deleted. */
 	struct list_head waiters;
 	/* Earliest time for some invoice to expire */
@@ -92,37 +90,36 @@ trigger_invoice_waiter_expire_or_delete(struct invoices *invoices,
 	tal_free(tmpctx);
 }
 
-static bool wallet_stmt2invoice_details(sqlite3_stmt *stmt,
-					struct invoice *invoice,
+static void wallet_stmt2invoice_details(const tal_t *ctx,
+					sqlite3_stmt *stmt,
 					struct invoice_details *dtl)
 {
-	invoice->id = sqlite3_column_int64(stmt, 0);
-	dtl->state = sqlite3_column_int(stmt, 1);
+	dtl->state = sqlite3_column_int(stmt, 0);
 
-	assert(sqlite3_column_bytes(stmt, 2) == sizeof(struct preimage));
-	memcpy(&dtl->r, sqlite3_column_blob(stmt, 2), sqlite3_column_bytes(stmt, 2));
+	assert(sqlite3_column_bytes(stmt, 1) == sizeof(struct preimage));
+	memcpy(&dtl->r, sqlite3_column_blob(stmt, 1), sqlite3_column_bytes(stmt, 1));
 
-	assert(sqlite3_column_bytes(stmt, 3) == sizeof(struct sha256));
-	memcpy(&dtl->rhash, sqlite3_column_blob(stmt, 3), sqlite3_column_bytes(stmt, 3));
+	assert(sqlite3_column_bytes(stmt, 2) == sizeof(struct sha256));
+	memcpy(&dtl->rhash, sqlite3_column_blob(stmt, 2), sqlite3_column_bytes(stmt, 2));
 
-	dtl->label = tal_strndup(dtl, sqlite3_column_blob(stmt, 4), sqlite3_column_bytes(stmt, 4));
+	dtl->label = tal_strndup(ctx, sqlite3_column_blob(stmt, 3), sqlite3_column_bytes(stmt, 3));
 
-	if (sqlite3_column_type(stmt, 5) != SQLITE_NULL) {
-		dtl->msatoshi = tal(dtl, u64);
-		*dtl->msatoshi = sqlite3_column_int64(stmt, 5);
+	if (sqlite3_column_type(stmt, 4) != SQLITE_NULL) {
+		dtl->msatoshi = tal(ctx, u64);
+		*dtl->msatoshi = sqlite3_column_int64(stmt, 4);
 	} else {
 		dtl->msatoshi = NULL;
 	}
 
-	dtl->expiry_time = sqlite3_column_int64(stmt, 6);
+	dtl->expiry_time = sqlite3_column_int64(stmt, 5);
 
 	if (dtl->state == PAID) {
-		dtl->pay_index = sqlite3_column_int64(stmt, 7);
-		dtl->msatoshi_received = sqlite3_column_int64(stmt, 8);
-		dtl->paid_timestamp = sqlite3_column_int64(stmt, 9);
+		dtl->pay_index = sqlite3_column_int64(stmt, 6);
+		dtl->msatoshi_received = sqlite3_column_int64(stmt, 7);
+		dtl->paid_timestamp = sqlite3_column_int64(stmt, 8);
 	}
 
-	return true;
+	return;
 }
 
 struct invoices *invoices_new(const tal_t *ctx,
@@ -136,7 +133,6 @@ struct invoices *invoices_new(const tal_t *ctx,
 	invs->log = log;
 	invs->timers = timers;
 
-	list_head_init(&invs->invlist);
 	list_head_init(&invs->waiters);
 
 	invs->expiration_timer = NULL;
@@ -159,19 +155,6 @@ static void update_db_expirations(struct invoices *invoices, u64 now)
 	db_exec_prepared(invoices->db, stmt);
 }
 
-static struct invoice *invoices_find_by_id(struct invoices *invoices,
-					   u64 id)
-{
-	struct invoice *i;
-
-	/* FIXME: Use something better than a linear scan. */
-	list_for_each(&invoices->invlist, i, list) {
-		if (i->id == id)
-			return i;
-	}
-	return NULL;
-}
-
 struct invoice_id_node {
 	struct list_node list;
 	u64 id;
@@ -185,7 +168,7 @@ static void trigger_expiration(struct invoices *invoices)
 	struct invoice_id_node *idn;
 	u64 now = time_now().ts.tv_sec;
 	sqlite3_stmt *stmt;
-	struct invoice *i;
+	struct invoice i;
 
 	/* Free current expiration timer */
 	invoices->expiration_timer = tal_free(invoices->expiration_timer);
@@ -211,13 +194,11 @@ static void trigger_expiration(struct invoices *invoices)
 
 	/* Trigger expirations */
 	list_for_each(&idlist, idn, list) {
-		/* Update in-memory structure */
-		i = invoices_find_by_id(invoices, idn->id);
-		i->details->state = EXPIRED;
 		/* Trigger expiration */
+		i.id = idn->id;
 		trigger_invoice_waiter_expire_or_delete(invoices,
 							idn->id,
-							i);
+							&i);
 	}
 
 	install_expiration_timer(invoices);
@@ -271,63 +252,34 @@ static void install_expiration_timer(struct invoices *invoices)
 
 bool invoices_load(struct invoices *invoices)
 {
-	int count = 0;
 	u64 now = time_now().ts.tv_sec;
-	struct invoice *i;
-	sqlite3_stmt *stmt;
 
 	update_db_expirations(invoices, now);
-
-	/* Load invoices from db. */
-	stmt = db_query(__func__, invoices->db,
-			"SELECT id, state, payment_key, payment_hash"
-			"     , label, msatoshi, expiry_time, pay_index"
-			"     , msatoshi_received, paid_timestamp"
-			"  FROM invoices;");
-	if (!stmt) {
-		log_broken(invoices->log, "Could not load invoices");
-		return false;
-	}
-
-	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		i = tal(invoices, struct invoice);
-		i->owner = invoices;
-		i->details = tal(i, struct invoice_details);
-		if (!wallet_stmt2invoice_details(stmt, i, i->details)) {
-			log_broken(invoices->log, "Error deserializing invoice");
-			sqlite3_finalize(stmt);
-			return false;
-		}
-		list_add_tail(&invoices->invlist, &i->list);
-		count++;
-	}
-	log_debug(invoices->log, "Loaded %d invoices from DB", count);
-
-	sqlite3_finalize(stmt);
 
 	install_expiration_timer(invoices);
 
 	return true;
 }
 
-const struct invoice *invoices_create(struct invoices *invoices,
-				      u64 *msatoshi TAKES,
-				      const char *label TAKES,
-				      u64 expiry)
+bool invoices_create(struct invoices *invoices,
+		     struct invoice *pinvoice,
+		     u64 *msatoshi TAKES,
+		     const char *label TAKES,
+		     u64 expiry)
 {
 	sqlite3_stmt *stmt;
-	struct invoice *invoice;
+	struct invoice dummy;
 	struct preimage r;
 	struct sha256 rhash;
 	u64 expiry_time;
 	u64 now = time_now().ts.tv_sec;
 
-	if (invoices_find_by_label(invoices, label)) {
+	if (invoices_find_by_label(invoices, &dummy, label)) {
 		if (taken(msatoshi))
 			tal_free(msatoshi);
 		if (taken(label))
 			tal_free(label);
-		return NULL;
+		return false;
 	}
 
 	/* Compute expiration. */
@@ -363,21 +315,7 @@ const struct invoice *invoices_create(struct invoices *invoices,
 
 	db_exec_prepared(invoices->db, stmt);
 
-	/* Create and load in-memory structure. */
-	invoice	= tal(invoices, struct invoice);
-	invoice->owner = invoices;
-
-	invoice->id = sqlite3_last_insert_rowid(invoices->db->sql);
-	invoice->details = tal(invoice, struct invoice_details);
-	invoice->details->state = UNPAID;
-	invoice->details->label = tal_strdup(invoice->details, label);
-	invoice->details->msatoshi = tal_dup(invoice->details, u64, msatoshi); /* Works even if msatoshi == NULL. */
-	memcpy(&invoice->details->r, &r, sizeof(invoice->details->r));
-	memcpy(&invoice->details->rhash, &rhash, sizeof(invoice->details->rhash));
-	invoice->details->expiry_time = expiry_time;
-
-	/* Add to invoices object. */
-	list_add_tail(&invoices->invlist, &invoice->list);
+	pinvoice->id = sqlite3_last_insert_rowid(invoices->db->sql);
 
 	/* Install expiration trigger. */
 	if (!invoices->expiration_timer ||
@@ -387,80 +325,109 @@ const struct invoice *invoices_create(struct invoices *invoices,
 		install_expiration_timer(invoices);
 	}
 
-	return invoice;
+	if (taken(msatoshi))
+		tal_free(msatoshi);
+	if (taken(label))
+		tal_free(label);
+	return true;
 }
 
 
-const struct invoice *invoices_find_by_label(struct invoices *invoices,
-					     const char *label)
+bool invoices_find_by_label(struct invoices *invoices,
+			    struct invoice *pinvoice,
+			    const char *label)
 {
-	struct invoice *i;
+	sqlite3_stmt *stmt;
 
-	/* FIXME: Use something better than a linear scan. */
-	list_for_each(&invoices->invlist, i, list) {
-		if (streq(i->details->label, label))
-			return i;
+	stmt = db_prepare(invoices->db,
+			  "SELECT id"
+			  "  FROM invoices"
+			  " WHERE label = ?;");
+	sqlite3_bind_text(stmt, 1, label, strlen(label), SQLITE_TRANSIENT);
+	if (sqlite3_step(stmt) == SQLITE_ROW) {
+		pinvoice->id = sqlite3_column_int64(stmt, 0);
+		sqlite3_finalize(stmt);
+		return true;
+	} else {
+		sqlite3_finalize(stmt);
+		return false;
 	}
-	return NULL;
 }
 
-const struct invoice *invoices_find_unpaid(struct invoices *invoices,
-					   const struct sha256 *rhash)
+bool invoices_find_unpaid(struct invoices *invoices,
+			  struct invoice *pinvoice,
+			  const struct sha256 *rhash)
 {
-	struct invoice *i;
+	sqlite3_stmt *stmt;
 
-	list_for_each(&invoices->invlist, i, list) {
-		if (structeq(rhash, &i->details->rhash) &&
-		    i->details->state == UNPAID) {
-			if (time_now().ts.tv_sec > i->details->expiry_time)
-				break;
-			return i;
-		}
+	stmt = db_prepare(invoices->db,
+			  "SELECT id"
+			  "  FROM invoices"
+			  " WHERE payment_hash = ?"
+			  "   AND state = ?;");
+	sqlite3_bind_blob(stmt, 1, rhash, sizeof(*rhash), SQLITE_TRANSIENT);
+	sqlite3_bind_int(stmt, 2, UNPAID);
+	if (sqlite3_step(stmt) == SQLITE_ROW) {
+		pinvoice->id = sqlite3_column_int64(stmt, 0);
+		sqlite3_finalize(stmt);
+		return true;
+	} else {
+		sqlite3_finalize(stmt);
+		return false;
 	}
-	return NULL;
 }
 
 bool invoices_delete(struct invoices *invoices,
-		     const struct invoice *cinvoice)
+		     struct invoice invoice)
 {
 	sqlite3_stmt *stmt;
-	struct invoice *invoice = (struct invoice *) cinvoice;
 
 	/* Delete from database. */
 	stmt = db_prepare(invoices->db, "DELETE FROM invoices WHERE id=?;");
-	sqlite3_bind_int64(stmt, 1, invoice->id);
+	sqlite3_bind_int64(stmt, 1, invoice.id);
 	db_exec_prepared(invoices->db, stmt);
 
 	if (sqlite3_changes(invoices->db->sql) != 1)
 		return false;
 
-	/* Delete from invoices object. */
-	list_del_from(&invoices->invlist, &invoice->list);
-
 	/* Tell all the waiters about the fact that it was deleted. */
 	trigger_invoice_waiter_expire_or_delete(invoices,
-						invoice->id, NULL);
-
-	/* Free all watchers and the invoice. */
-	tal_free(invoice);
+						invoice.id, NULL);
 	return true;
 }
 
 bool invoices_iterate(struct invoices *invoices,
 		      struct invoice_iterator *it)
 {
-	if (it->curr)
-		it->curr = list_next(&invoices->invlist, it->curr, list);
-	else
-		it->curr = list_top(&invoices->invlist, struct invoice, list);
-	return it->curr != NULL;
+	sqlite3_stmt *stmt;
+	int res;
+	if (!it->p) {
+		stmt = db_prepare(invoices->db,
+				  "SELECT state, payment_key, payment_hash"
+				  "     , label, msatoshi, expiry_time, pay_index"
+				  "     , msatoshi_received, paid_timestamp"
+				  "  FROM invoices;");
+		it->p = stmt;
+	} else
+		stmt = it->p;
+
+	res = sqlite3_step(stmt);
+	if (res == SQLITE_DONE) {
+		sqlite3_finalize(stmt);
+		it->p = NULL;
+		return false;
+	} else {
+		assert(res == SQLITE_ROW);
+		return true;
+	}
 }
 void invoices_iterator_deref(const tal_t *ctx,
 			     struct invoices *invoices,
 			     const struct invoice_iterator *it,
 			     struct invoice_details *details)
 {
-	invoices_get_details(ctx, invoices, it->curr, details);
+	assert(it->p);
+	wallet_stmt2invoice_details(ctx, (sqlite3_stmt*) it->p, details);
 }
 
 static s64 get_next_pay_index(struct db *db)
@@ -476,11 +443,10 @@ static s64 get_next_pay_index(struct db *db)
 
 
 void invoices_resolve(struct invoices *invoices,
-		      const struct invoice *cinvoice,
+		      struct invoice invoice,
 		      u64 msatoshi_received)
 {
 	sqlite3_stmt *stmt;
-	struct invoice *invoice = (struct invoice *)cinvoice;
 	s64 pay_index;
 	u64 paid_timestamp;
 	const tal_t *tmpctx = tal_tmpctx(NULL);
@@ -501,17 +467,11 @@ void invoices_resolve(struct invoices *invoices,
 	sqlite3_bind_int64(stmt, 2, pay_index);
 	sqlite3_bind_int64(stmt, 3, msatoshi_received);
 	sqlite3_bind_int64(stmt, 4, paid_timestamp);
-	sqlite3_bind_int64(stmt, 5, invoice->id);
+	sqlite3_bind_int64(stmt, 5, invoice.id);
 	db_exec_prepared(invoices->db, stmt);
 
-	/* Update in-memory structure. */
-	invoice->details->state = PAID;
-	invoice->details->pay_index = pay_index;
-	invoice->details->msatoshi_received = msatoshi_received;
-	invoice->details->paid_timestamp = paid_timestamp;
-
 	/* Tell all the waiters about the paid invoice. */
-	trigger_invoice_waiter_resolve(invoices, invoice->id, invoice);
+	trigger_invoice_waiter_resolve(invoices, invoice.id, &invoice);
 
 	/* Free all watchers. */
 	tal_free(tmpctx);
@@ -552,13 +512,12 @@ void invoices_waitany(const tal_t *ctx,
 		      void *cbarg)
 {
 	sqlite3_stmt *stmt;
-	const struct invoice *invoice;
+	struct invoice invoice;
 	int res;
-	char const* label;
 
 	/* Look for an already-paid invoice. */
 	stmt = db_prepare(invoices->db,
-			  "SELECT label"
+			  "SELECT id"
 			  "  FROM invoices"
 			  " WHERE pay_index NOT NULL"
 			  "   AND pay_index > ?"
@@ -567,16 +526,10 @@ void invoices_waitany(const tal_t *ctx,
 
 	res = sqlite3_step(stmt);
 	if (res == SQLITE_ROW) {
-		/* Invoice found. Look up the invoice object. */
-		label = tal_strndup(ctx, sqlite3_column_blob(stmt, 0), sqlite3_column_bytes(stmt, 0));
+		invoice.id = sqlite3_column_int64(stmt, 0);
 		sqlite3_finalize(stmt);
 
-		/* The invoice should definitely exist in-memory. */
-		invoice = invoices_find_by_label(invoices, label);
-		assert(invoice);
-		tal_free(label);
-
-		cb(invoice, cbarg);
+		cb(&invoice, cbarg);
 		return;
 	}
 
@@ -590,38 +543,53 @@ void invoices_waitany(const tal_t *ctx,
 
 void invoices_waitone(const tal_t *ctx,
 		      struct invoices *invoices UNUSED,
-		      struct invoice const *cinvoice,
+		      struct invoice invoice,
 		      void (*cb)(const struct invoice *, void*),
 		      void *cbarg)
 {
-	struct invoice *invoice = (struct invoice*) cinvoice;
-	if (invoice->details->state == PAID || invoice->details->state == EXPIRED) {
-		cb(invoice, cbarg);
+	sqlite3_stmt *stmt;
+	int res;
+	enum invoice_status state;
+
+	stmt = db_prepare(invoices->db,
+			  "SELECT state"
+			  "  FROM invoices"
+			  " WHERE id = ?;");
+	sqlite3_bind_int64(stmt, 1, invoice.id);
+	res = sqlite3_step(stmt);
+	assert(res == SQLITE_ROW);
+	state = sqlite3_column_int(stmt, 0);
+	sqlite3_finalize(stmt);
+
+	if (state == PAID || state == EXPIRED) {
+		cb(&invoice, cbarg);
 		return;
 	}
 
 	/* Not yet paid. */
 	add_invoice_waiter(ctx, &invoices->waiters,
-			   false, invoice->id, cb, cbarg);
+			   false, invoice.id, cb, cbarg);
 }
 
 void invoices_get_details(const tal_t *ctx,
 			  struct invoices *invoices,
-			  const struct invoice *invoice,
+			  struct invoice invoice,
 			  struct invoice_details *dtl)
 {
-	dtl->state = invoice->details->state;
-	dtl->r = invoice->details->r;
-	dtl->rhash = invoice->details->rhash;
-	dtl->label = tal_strdup(ctx, invoice->details->label);
-	dtl->msatoshi =
-		invoice->details->msatoshi ?
-				tal_dup(ctx, u64, invoice->details->msatoshi) :
-		/*otherwise*/	NULL ;
-	dtl->expiry_time = invoice->details->expiry_time;
-	if (dtl->state == PAID) {
-		dtl->pay_index = invoice->details->pay_index;
-		dtl->msatoshi_received = invoice->details->msatoshi_received;
-		dtl->paid_timestamp = invoice->details->paid_timestamp;
-	}
+	sqlite3_stmt *stmt;
+	int result;
+
+	stmt = db_prepare(invoices->db,
+			  "SELECT state, payment_key, payment_hash"
+			  "     , label, msatoshi, expiry_time, pay_index"
+			  "     , msatoshi_received, paid_timestamp"
+			  "  FROM invoices"
+			  " WHERE id = ?;");
+	sqlite3_bind_int64(stmt, 1, invoice.id);
+	result = sqlite3_step(stmt);
+	assert(result == SQLITE_ROW);
+
+	wallet_stmt2invoice_details(ctx, stmt, dtl);
+
+	sqlite3_finalize(stmt);
 }
