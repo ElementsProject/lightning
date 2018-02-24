@@ -22,10 +22,6 @@
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
 
-#define BITCOIN_CLI "bitcoin-cli"
-
-char *bitcoin_datadir;
-
 /* Add the n'th arg to *args, incrementing n and keeping args of size n+1 */
 static void add_arg(const char ***args, const char *arg)
 {
@@ -40,7 +36,7 @@ static const char **gather_args(const struct bitcoind *bitcoind,
 	const char **args = tal_arr(ctx, const char *, 1);
 	const char *arg;
 
-	args[0] = bitcoind->chainparams->cli;
+	args[0] = bitcoind->cli ? bitcoind->cli : bitcoind->chainparams->cli;
 	if (bitcoind->chainparams->cli_args)
 		add_arg(&args, bitcoind->chainparams->cli_args);
 
@@ -773,6 +769,7 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 
 	/* Use testnet by default, change later if we want another network */
 	bitcoind->chainparams = chainparams_for_network("testnet");
+	bitcoind->cli = NULL;
 	bitcoind->datadir = NULL;
 	bitcoind->ld = ld;
 	bitcoind->log = log;

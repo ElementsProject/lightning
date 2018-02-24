@@ -562,6 +562,9 @@ void register_opts(struct lightningd *ld)
 	opt_register_arg("--alias", opt_set_alias, NULL, ld,
 			 "Up to 32-byte alias for node");
 
+	opt_register_arg("--bitcoin-cli", opt_set_talstr, NULL,
+			 &ld->topology->bitcoind->cli,
+			 "bitcoin-cli pathname");
 	opt_register_arg("--bitcoin-rpcuser", opt_set_talstr, NULL,
 			 &ld->topology->bitcoind->rpcuser,
 			 "bitcoind RPC username");
