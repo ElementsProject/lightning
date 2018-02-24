@@ -307,6 +307,11 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	u64 msatoshi;
 	unsigned cltv = 9;
 	double riskfactor;
+	/* Higher fuzz means that some high-fee paths can be discounted
+	 * for an even larger value, increasing the scope for route
+	 * randomization (the higher-fee paths become more likely to
+	 * be selected) at the cost of increasing the probability of
+	 * selecting the higher-fee paths. */
 	double fuzz = 75.0;
 	u8 *seed = tal_arrz(cmd, u8, sizeof(struct siphash_seed));
 
