@@ -307,7 +307,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	u64 msatoshi;
 	unsigned cltv = 9;
 	double riskfactor;
-	double fuzz = 5.0;
+	double fuzz = 75.0;
 	u8 *seed = tal_arrz(cmd, u8, sizeof(struct siphash_seed));
 
 	if (!json_get_params(cmd, buffer, params,
