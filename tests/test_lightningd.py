@@ -1214,16 +1214,16 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log(' to ONCHAIN')
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET (.*) in 5 blocks')
 
-        wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status']
-                 == ['CHANNELD_NORMAL:Received error from peer: channel ALL: Internal error: Failing due to dev-fail command',
-                     'ONCHAIN:Tracking their unilateral close',
-                     'ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel'])
+        wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status'] ==
+                 ['CHANNELD_NORMAL:Received error from peer: channel ALL: Internal error: Failing due to dev-fail command',
+                  'ONCHAIN:Tracking their unilateral close',
+                  'ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel'])
 
         billboard = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['status']
         assert len(billboard) == 2
         assert billboard[0] == 'ONCHAIN:Tracking our own unilateral close'
         assert re.fullmatch('ONCHAIN:.* outputs unresolved: in 4 blocks will spend DELAYED_OUTPUT_TO_US \(.*:0\) using OUR_DELAYED_RETURN_TO_WALLET', billboard[1])
-        
+
         # Now, mine 4 blocks so it sends out the spending tx.
         bitcoind.generate_block(4)
 
