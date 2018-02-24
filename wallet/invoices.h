@@ -8,6 +8,7 @@
 struct db;
 struct invoice;
 struct invoice_details;
+struct invoice_iterator;
 struct invoices;
 struct log;
 struct sha256;
@@ -91,18 +92,34 @@ bool invoices_delete(struct invoices *invoices,
  * invoices_iterate - Iterate over all existing invoices
  *
  * @invoices - the invoice handler.
- * @invoice - the previous invoice you iterated over.
+ * @iterator - the iterator object to use.
  *
- * Return NULL at end-of-sequence. Usage:
+ * Return false at end-of-sequence, true if still iterating.
+ * Usage:
  *
- *   const struct invoice *i;
- *   i = NULL;
- *   while ((i = invoices_iterate(invoices, i))) {
+ *   struct invoice_iterator it;
+ *   memset(&it, 0, sizeof(it))
+ *   while (invoices_iterate(wallet, &it)) {
  *       ...
  *   }
  */
-const struct invoice *invoices_iterate(struct invoices *invoices,
-				       const struct invoice *invoice);
+bool invoices_iterate(struct invoices *invoices,
+		      struct invoice_iterator *it);
+
+/**
+ * wallet_invoice_iterator_deref - Read the details of the
+ * invoice currently pointed to by the given iterator.
+ *
+ * @ctx - the owner of the label and msatoshi fields returned.
+ * @wallet - the wallet whose invoices are to be iterated over.
+ * @iterator - the iterator object to use.
+ * @details - pointer to details object to load.
+ *
+ */
+void invoices_iterator_deref(const tal_t *ctx,
+			     struct invoices *invoices,
+			     const struct invoice_iterator *it,
+			     struct invoice_details *details);
 
 /**
  * invoices_resolve - Mark an invoice as paid

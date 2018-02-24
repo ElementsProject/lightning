@@ -119,9 +119,15 @@ void invoices_get_details(const tal_t *ctx UNNEEDED,
 			  struct invoice_details *details UNNEEDED)
 { fprintf(stderr, "invoices_get_details called!\n"); abort(); }
 /* Generated stub for invoices_iterate */
-const struct invoice *invoices_iterate(struct invoices *invoices UNNEEDED,
-				       const struct invoice *invoice UNNEEDED)
+bool invoices_iterate(struct invoices *invoices UNNEEDED,
+		      struct invoice_iterator *it UNNEEDED)
 { fprintf(stderr, "invoices_iterate called!\n"); abort(); }
+/* Generated stub for invoices_iterator_deref */
+void invoices_iterator_deref(const tal_t *ctx UNNEEDED,
+			     struct invoices *invoices UNNEEDED,
+			     const struct invoice_iterator *it UNNEEDED,
+			     struct invoice_details *details UNNEEDED)
+{ fprintf(stderr, "invoices_iterator_deref called!\n"); abort(); }
 /* Generated stub for invoices_load */
 bool invoices_load(struct invoices *invoices UNNEEDED)
 { fprintf(stderr, "invoices_load called!\n"); abort(); }

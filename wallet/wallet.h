@@ -390,6 +390,13 @@ struct invoice_details {
 	u64 paid_timestamp;
 };
 
+/* An object that handles iteration over the set of invoices */
+struct invoice_iterator {
+	/* The contents of this object is subject to change
+	 * and should not be depended upon */
+	const struct invoice *curr;
+};
+
 struct invoice {
 	/* Internal, rest of lightningd should not use */
 	/* List off ld->wallet->invoices. Must be first or else
@@ -476,18 +483,34 @@ bool wallet_invoice_delete(struct wallet *wallet,
  * wallet_invoice_iterate - Iterate over all existing invoices
  *
  * @wallet - the wallet whose invoices are to be iterated over.
- * @invoice - the previous invoice you iterated over.
+ * @iterator - the iterator object to use.
  *
- * Return NULL at end-of-sequence. Usage:
+ * Return false at end-of-sequence, true if still iterating.
+ * Usage:
  *
- *   const struct invoice *i;
- *   i = NULL;
- *   while ((i = wallet_invoice_iterate(wallet, i))) {
+ *   struct invoice_iterator it;
+ *   memset(&it, 0, sizeof(it))
+ *   while (wallet_invoice_iterate(wallet, &it)) {
  *       ...
  *   }
  */
-const struct invoice *wallet_invoice_iterate(struct wallet *wallet,
-					     const struct invoice *invoice);
+bool wallet_invoice_iterate(struct wallet *wallet,
+			    struct invoice_iterator *it);
+
+/**
+ * wallet_invoice_iterator_deref - Read the details of the
+ * invoice currently pointed to by the given iterator.
+ *
+ * @ctx - the owner of the label and msatoshi fields returned.
+ * @wallet - the wallet whose invoices are to be iterated over.
+ * @iterator - the iterator object to use.
+ * @details - pointer to details object to load.
+ *
+ */
+void wallet_invoice_iterator_deref(const tal_t *ctx,
+				   struct wallet *wallet,
+				   const struct invoice_iterator *it,
+				   struct invoice_details *details);
 
 /**
  * wallet_invoice_resolve - Mark an invoice as paid

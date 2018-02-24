@@ -1287,10 +1287,17 @@ bool wallet_invoice_delete(struct wallet *wallet,
 {
 	return invoices_delete(wallet->invoices, invoice);
 }
-const struct invoice *wallet_invoice_iterate(struct wallet *wallet,
-					     const struct invoice *invoice)
+bool wallet_invoice_iterate(struct wallet *wallet,
+			    struct invoice_iterator *it)
 {
-	return invoices_iterate(wallet->invoices, invoice);
+	return invoices_iterate(wallet->invoices, it);
+}
+void wallet_invoice_iterator_deref(const tal_t *ctx,
+				   struct wallet *wallet,
+				   const struct invoice_iterator *it,
+				   struct invoice_details *details)
+{
+	return invoices_iterator_deref(ctx, wallet->invoices, it, details);
 }
 void wallet_invoice_resolve(struct wallet *wallet,
 			    const struct invoice *invoice,
