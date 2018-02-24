@@ -46,7 +46,7 @@ def setupBitcoind(directory):
 
     try:
         bitcoind.start()
-    except:
+    except Exception:
         teardown_bitcoind()
         raise
 
@@ -86,7 +86,7 @@ def teardown_bitcoind():
     global bitcoind
     try:
         bitcoind.rpc.stop()
-    except:
+    except Exception:
         bitcoind.proc.kill()
     bitcoind.proc.wait()
 
@@ -126,7 +126,7 @@ class NodeFactory(object):
                 daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
 
         if fake_bitcoin_cli:
-            cli=os.path.join(lightning_dir, "fake-bitcoin-cli")
+            cli = os.path.join(lightning_dir, "fake-bitcoin-cli")
             with open(cli, "w") as text_file:
                 print("""#! /bin/sh
                 ! [ -f bitcoin-cli-fail ] || exit `cat bitcoin-cli-fail`
@@ -154,7 +154,7 @@ class NodeFactory(object):
 
         try:
             node.daemon.start()
-        except:
+        except Exception:
             node.daemon.stop()
             raise
 
@@ -173,12 +173,12 @@ class NodeFactory(object):
                 try:
                     # This also puts leaks in log.
                     leaks = self.nodes[i].rpc.dev_memleak()['leaks']
-                except:
+                except Exception:
                     pass
 
             try:
                 self.nodes[i].stop()
-            except:
+            except Exception:
                 if expected_successes[i]:
                     unexpected_fail = True
 
@@ -223,7 +223,7 @@ class BaseLightningDTests(unittest.TestCase):
             crashlog = os.path.join(node.daemon.lightning_dir, 'crash.log')
             with open(crashlog, 'r') as f:
                 return f.readlines(), crashlog
-        except:
+        except Exception:
             return None, None
 
     def printCrashLog(self, node):
@@ -363,7 +363,7 @@ class LightningDTests(BaseLightningDTests):
 
     def fake_bitcoind_unfail(self, l1):
         os.remove(os.path.join(l1.daemon.lightning_dir, "bitcoin-cli-fail"))
-        
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_shutdown(self):
         # Fail, in that it will exit before cleanup.
@@ -1123,12 +1123,12 @@ class LightningDTests(BaseLightningDTests):
         # And they should retry!
         l1.daemon.wait_for_logs(['estimatesmartfee .* exited with status 1',
                                  'getblockhash .* exited with status 1'])
-        
+
         # Restore, then it should recover and get blockheight.
         self.fake_bitcoind_unfail(l1)
         bitcoind.generate_block(5)
         sync_blockheight([l1])
-        
+
     def test_closing_different_fees(self):
         l1 = self.node_factory.get_node()
 
@@ -3682,7 +3682,7 @@ class LightningDTests(BaseLightningDTests):
                                            .format(l1.daemon.lightning_dir),
                                            '-J', '-o',
                                            'sendpay']).decode('utf-8')
-        except:
+        except Exception:
             pass
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")

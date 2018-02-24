@@ -301,7 +301,7 @@ class LightningNode(object):
         def call_connect():
             try:
                 self.rpc.connect('127.0.0.1', remote_node.daemon.port, tx['hex'], async=False)
-            except:
+            except Exception:
                 pass
         t = threading.Thread(target=call_connect)
         t.daemon = True
@@ -384,7 +384,7 @@ class LightningNode(object):
         try:
             # May fail if the process already died
             self.rpc.stop()
-        except:
+        except Exception:
             pass
 
         rc = self.daemon.wait(timeout)

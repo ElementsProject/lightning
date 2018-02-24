@@ -36,7 +36,7 @@ def bitcoind():
 
     try:
         bitcoind.rpc.stop()
-    except:
+    except Exception:
         bitcoind.proc.kill()
     bitcoind.proc.wait()
 
