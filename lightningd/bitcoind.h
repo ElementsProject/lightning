@@ -25,6 +25,9 @@ enum bitcoind_mode {
 };
 
 struct bitcoind {
+	/* eg. "bitcoin-cli" */
+	char *cli;
+
 	/* -datadir arg for bitcoin-cli. */
 	char *datadir;
 
