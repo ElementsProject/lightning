@@ -16,6 +16,7 @@
 #include <ccan/tal/tal.h>
 #include <common/json.h>
 #include <common/memleak.h>
+#include <common/timeout.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -77,7 +78,7 @@ struct bitcoin_cli {
 	char *output;
 	size_t output_bytes;
 	size_t new_output;
-	void (*process)(struct bitcoin_cli *);
+	bool (*process)(struct bitcoin_cli *);
 	void *cb;
 	void *cb_arg;
 	struct bitcoin_cli **stopper;
@@ -115,10 +116,36 @@ static char *bcli_args(struct bitcoin_cli *bcli)
 	return ret;
 }
 
+/* We allow 60 seconds of spurious errors, eg. reorg. */
+static void bcli_failure(struct bitcoind *bitcoind,
+			 struct bitcoin_cli *bcli,
+			 int exitstatus)
+{
+	struct timerel t;
+
+	if (!bitcoind->error_count)
+		bitcoind->first_error_time = time_mono();
+
+	t = timemono_between(time_mono(), bitcoind->first_error_time);
+	if (time_greater(t, time_from_sec(60)))
+		fatal("%s exited %u (after %u other errors) '%.*s'",
+		      bcli_args(bcli),
+		      exitstatus,
+		      bitcoind->error_count,
+		      (int)bcli->output_bytes,
+		      bcli->output);
+
+	log_unusual(bitcoind->log,
+		    "%s exited with status %u", bcli_args(bcli), exitstatus);
+
+	bitcoind->error_count++;
+}
+
 static void bcli_finished(struct io_conn *conn UNUSED, struct bitcoin_cli *bcli)
 {
 	int ret, status;
 	struct bitcoind *bitcoind = bcli->bitcoind;
+	bool ok;
 
 	/* FIXME: If we waited for SIGCHILD, this could never hang! */
 	ret = waitpid(bcli->pid, &status, 0);
@@ -133,27 +160,7 @@ static void bcli_finished(struct io_conn *conn UNUSED, struct bitcoin_cli *bcli)
 
 	if (!bcli->exitstatus) {
 		if (WEXITSTATUS(status) != 0) {
-			/* Allow 60 seconds of spurious errors, eg. reorg. */
-			struct timerel t;
-
-			log_unusual(bcli->bitcoind->log,
-				    "%s exited with status %u",
-				    bcli_args(bcli),
-				    WEXITSTATUS(status));
-
-			if (!bitcoind->error_count)
-				bitcoind->first_error_time = time_mono();
-
-			t = timemono_between(time_mono(),
-					     bitcoind->first_error_time);
-			if (time_greater(t, time_from_sec(60)))
-				fatal("%s exited %u (after %u other errors) '%.*s'",
-				      bcli_args(bcli),
-				      WEXITSTATUS(status),
-				      bitcoind->error_count,
-				      (int)bcli->output_bytes,
-				      bcli->output);
-			bitcoind->error_count++;
+			bcli_failure(bitcoind, bcli, WEXITSTATUS(status));
 			bitcoind->req_running = false;
 			goto done;
 		}
@@ -170,8 +177,11 @@ static void bcli_finished(struct io_conn *conn UNUSED, struct bitcoin_cli *bcli)
 		return;
 
 	db_begin_transaction(bitcoind->ld->wallet->db);
-	bcli->process(bcli);
+	ok = bcli->process(bcli);
 	db_commit_transaction(bitcoind->ld->wallet->db);
+
+	if (!ok)
+		bcli_failure(bitcoind, bcli, WEXITSTATUS(status));
 
 done:
 	tal_free(bcli);
@@ -202,8 +212,9 @@ static void next_bcli(struct bitcoind *bitcoind)
 	io_set_finish(conn, bcli_finished, bcli);
 }
 
-static void process_donothing(struct bitcoin_cli *bcli UNUSED)
+static bool process_donothing(struct bitcoin_cli *bcli UNUSED)
 {
+	return true;
 }
 
 /* If stopper gets freed first, set process() to a noop. */
@@ -220,11 +231,12 @@ static void remove_stopper(struct bitcoin_cli *bcli)
 	tal_free(bcli->stopper);
 }
 
-/* If ctx is non-NULL, and is freed before we return, we don't call process() */
+/* If ctx is non-NULL, and is freed before we return, we don't call process().
+ * process returns false() if it's a spurious error, and we should retry. */
 static void
 start_bitcoin_cli(struct bitcoind *bitcoind,
 		  const tal_t *ctx,
-		  void (*process)(struct bitcoin_cli *),
+		  bool (*process)(struct bitcoin_cli *),
 		  bool nonzero_exit_ok,
 		  void *cb, void *cb_arg,
 		  char *cmd, ...)
@@ -299,7 +311,7 @@ struct estimatefee {
 static void do_one_estimatefee(struct bitcoind *bitcoind,
 			       struct estimatefee *efee);
 
-static void process_estimatefee(struct bitcoin_cli *bcli)
+static bool process_estimatefee(struct bitcoin_cli *bcli)
 {
 	double feerate;
 	struct estimatefee *efee = bcli->cb_arg;
@@ -321,6 +333,7 @@ static void process_estimatefee(struct bitcoin_cli *bcli)
 		/* Next */
 		do_one_estimatefee(bcli->bitcoind, efee);
 	}
+	return true;
 }
 
 static void do_one_estimatefee(struct bitcoind *bitcoind,
@@ -354,7 +367,7 @@ void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
 	do_one_estimatefee(bitcoind, efee);
 }
 
-static void process_sendrawtx(struct bitcoin_cli *bcli)
+static bool process_sendrawtx(struct bitcoin_cli *bcli)
 {
 	void (*cb)(struct bitcoind *bitcoind,
 		   int, const char *msg, void *) = bcli->cb;
@@ -365,6 +378,7 @@ static void process_sendrawtx(struct bitcoin_cli *bcli)
 		  *bcli->exitstatus, msg);
 
 	cb(bcli->bitcoind, *bcli->exitstatus, msg, bcli->cb_arg);
+	return true;
 }
 
 void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
@@ -378,14 +392,13 @@ void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
 			  "sendrawtransaction", hextx, NULL);
 }
 
-static void process_rawblock(struct bitcoin_cli *bcli)
+static bool process_rawblock(struct bitcoin_cli *bcli)
 {
 	struct bitcoin_block *blk;
 	void (*cb)(struct bitcoind *bitcoind,
 		   struct bitcoin_block *blk,
 		   void *arg) = bcli->cb;
 
-	/* FIXME: Just get header if we can't get full block. */
 	blk = bitcoin_block_from_hex(bcli, bcli->output, bcli->output_bytes);
 	if (!blk)
 		fatal("%s: bad block '%.*s'?",
@@ -393,6 +406,7 @@ static void process_rawblock(struct bitcoin_cli *bcli)
 		      (int)bcli->output_bytes, bcli->output);
 
 	cb(bcli->bitcoind, blk, bcli->cb_arg);
+	return true;
 }
 
 void bitcoind_getrawblock_(struct bitcoind *bitcoind,
@@ -409,7 +423,7 @@ void bitcoind_getrawblock_(struct bitcoind *bitcoind,
 			  "getblock", hex, "false", NULL);
 }
 
-static void process_getblockcount(struct bitcoin_cli *bcli)
+static bool process_getblockcount(struct bitcoin_cli *bcli)
 {
 	u32 blockcount;
 	char *p, *end;
@@ -424,6 +438,7 @@ static void process_getblockcount(struct bitcoin_cli *bcli)
 		      bcli_args(bcli), p);
 
 	cb(bcli->bitcoind, blockcount, bcli->cb_arg);
+	return true;
 }
 
 void bitcoind_getblockcount_(struct bitcoind *bitcoind,
@@ -452,7 +467,7 @@ static void process_get_output(struct bitcoind *bitcoind, const struct bitcoin_t
 	go->cb(bitcoind, txout, go->cbarg);
 }
 
-static void process_gettxout(struct bitcoin_cli *bcli)
+static bool process_gettxout(struct bitcoin_cli *bcli)
 {
 	void (*cb)(struct bitcoind *bitcoind,
 		   const struct bitcoin_tx_output *output,
@@ -467,7 +482,7 @@ static void process_gettxout(struct bitcoin_cli *bcli)
 		log_debug(bcli->bitcoind->log, "%s: not unspent output?",
 			  bcli_args(bcli));
 		cb(bcli->bitcoind, NULL, bcli->cb_arg);
-		return;
+		return true;
 	}
 
 	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
@@ -504,6 +519,7 @@ static void process_gettxout(struct bitcoin_cli *bcli)
 		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
 
 	cb(bcli->bitcoind, &out, bcli->cb_arg);
+	return true;
 }
 
 /**
@@ -512,7 +528,7 @@ static void process_gettxout(struct bitcoin_cli *bcli)
  * Used to resolve a `txoutput` after identifying the blockhash, and
  * before extracting the outpoint from the UTXO.
  */
-static void process_getblock(struct bitcoin_cli *bcli)
+static bool process_getblock(struct bitcoin_cli *bcli)
 {
 	void (*cb)(struct bitcoind *bitcoind,
 		   const struct bitcoin_tx_output *output,
@@ -532,7 +548,7 @@ static void process_getblock(struct bitcoin_cli *bcli)
 			  bcli_args(bcli));
 		cb(bcli->bitcoind, NULL, cbarg);
 		tal_free(go);
-		return;
+		return true;
 	}
 
 	if (tokens[0].type != JSMN_OBJECT)
@@ -556,7 +572,7 @@ static void process_getblock(struct bitcoin_cli *bcli)
 			  bcli_args(bcli), go->txnum);
 		cb(bcli->bitcoind, NULL, cbarg);
 		tal_free(go);
-		return;
+		return true;
 	}
 
 	if (!bitcoin_txid_from_hex(bcli->output + txidtok->start,
@@ -570,9 +586,10 @@ static void process_getblock(struct bitcoin_cli *bcli)
 	go->cb = cb;
 	/* Now get the raw tx output. */
 	bitcoind_gettxout(bcli->bitcoind, &txid, go->outnum, process_get_output, go);
+	return true;
 }
 
-static void process_getblockhash_for_txout(struct bitcoin_cli *bcli)
+static bool process_getblockhash_for_txout(struct bitcoin_cli *bcli)
 {
 	void (*cb)(struct bitcoind *bitcoind,
 		   const struct bitcoin_tx_output *output,
@@ -585,13 +602,14 @@ static void process_getblockhash_for_txout(struct bitcoin_cli *bcli)
 			  bcli_args(bcli));
 		tal_free(go);
 		cb(bcli->bitcoind, NULL, cbarg);
-		return;
+		return true;
 	}
 
 	start_bitcoin_cli(bcli->bitcoind, NULL, process_getblock, false, cb, go,
 			  "getblock",
 			  take(tal_strndup(go, bcli->output,bcli->output_bytes)),
 			  NULL);
+	return true;
 }
 
 void bitcoind_getoutput_(struct bitcoind *bitcoind,
@@ -618,17 +636,20 @@ void bitcoind_getoutput_(struct bitcoind *bitcoind,
 	notleak(go);
 }
 
-static void process_getblockhash(struct bitcoin_cli *bcli)
+static bool process_getblockhash(struct bitcoin_cli *bcli)
 {
 	struct bitcoin_blkid blkid;
 	void (*cb)(struct bitcoind *bitcoind,
 		   const struct bitcoin_blkid *blkid,
 		   void *arg) = bcli->cb;
 
-	/* If it failed, call with NULL block. */
+	/* If it failed with error 8, call with NULL block. */
 	if (*bcli->exitstatus != 0) {
+		/* Other error means we have to retry. */
+		if (*bcli->exitstatus != 8)
+			return false;
 		cb(bcli->bitcoind, NULL, bcli->cb_arg);
-		return;
+		return true;
 	}
 
 	if (bcli->output_bytes == 0
@@ -639,6 +660,7 @@ static void process_getblockhash(struct bitcoin_cli *bcli)
 	}
 
 	cb(bcli->bitcoind, &blkid, bcli->cb_arg);
+	return true;
 }
 
 void bitcoind_getblockhash_(struct bitcoind *bitcoind,
