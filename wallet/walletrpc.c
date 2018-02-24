@@ -91,7 +91,7 @@ static void json_withdraw(struct command *cmd,
 	u64 fee_estimate;
 	struct bitcoin_tx *tx;
 	bool withdraw_all = false;
-	const char *bip173 = NULL;
+	enum address_parse_result addr_parse;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "destination", &desttok,
@@ -111,20 +111,21 @@ static void json_withdraw(struct command *cmd,
 	}
 
 	/* Parse address. */
-	bip173 = json_tok_address_scriptpubkey(cmd, buffer,
-					       desttok, (const u8**)(&withdraw->destination));
+	addr_parse = json_tok_address_scriptpubkey(cmd,
+						   get_chainparams(cmd->ld),
+						   buffer, desttok,
+						   (const u8**)(&withdraw->destination));
 
 	/* Check that destination address could be understood. */
-	if (!bip173) {
+	if (addr_parse == ADDRESS_PARSE_UNRECOGNIZED) {
 		command_fail(cmd, "Could not parse destination address");
 		return;
 	}
 
 	/* Check address given is compatible with the chain we are on. */
-	if (!streq(bip173, get_chainparams(cmd->ld)->bip173_name)) {
+	if (addr_parse == ADDRESS_PARSE_WRONG_NETWORK) {
 		command_fail(cmd,
-			    "Use of %s address on %s",
-			    chainparams_by_bip173(bip173)->network_name,
+			    "Destination address is not on network %s",
 			    get_chainparams(cmd->ld)->network_name);
 		return;
 	}
