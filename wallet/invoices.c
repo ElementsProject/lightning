@@ -446,13 +446,21 @@ bool invoices_delete(struct invoices *invoices,
 	return true;
 }
 
-const struct invoice *invoices_iterate(struct invoices *invoices,
-				       const struct invoice *invoice)
+bool invoices_iterate(struct invoices *invoices,
+		      struct invoice_iterator *it)
 {
-	if (invoice)
-		return list_next(&invoices->invlist, invoice, list);
+	if (it->curr)
+		it->curr = list_next(&invoices->invlist, it->curr, list);
 	else
-		return list_top(&invoices->invlist, struct invoice, list);
+		it->curr = list_top(&invoices->invlist, struct invoice, list);
+	return it->curr != NULL;
+}
+void invoices_iterator_deref(const tal_t *ctx,
+			     struct invoices *invoices,
+			     const struct invoice_iterator *it,
+			     struct invoice_details *details)
+{
+	invoices_get_details(ctx, invoices, it->curr, details);
 }
 
 static s64 get_next_pay_index(struct db *db)

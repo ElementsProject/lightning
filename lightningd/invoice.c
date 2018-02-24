@@ -245,15 +245,15 @@ static void json_add_invoices(struct json_result *response,
 			      const char *buffer, const jsmntok_t *label,
 			      bool modern)
 {
-	const struct invoice *i;
+	struct invoice_iterator it;
 	struct invoice_details details;
 	char *lbl = NULL;
 	if (label)
 		lbl = tal_strndup(response, &buffer[label->start], label->end - label->start);
 
-	i = NULL;
-	while ((i = wallet_invoice_iterate(wallet, i)) != NULL) {
-		wallet_invoice_details(response, wallet, i, &details);
+	memset(&it, 0, sizeof(it));
+	while (wallet_invoice_iterate(wallet, &it)) {
+		wallet_invoice_iterator_deref(response, wallet, &it, &details);
 		if (lbl && !streq(details.label, lbl))
 			continue;
 		json_add_invoice(response, &details, modern);
