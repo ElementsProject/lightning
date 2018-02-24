@@ -7,6 +7,13 @@ PKGNAME = c-lightning
 # We use our own internal ccan copy.
 CCANDIR := ccan
 
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+	CCAN_CFLAGS =
+else
+	CCAN_CFLAGS = -static
+endif
+
 # Where we keep the BOLT RFCs
 BOLTDIR := ../lightning-rfc/
 BOLTVERSION := 4f91f0bb2a9c176dda019f9c0618c10f9fa0acfd
@@ -260,7 +267,7 @@ ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
 ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS) Makefile
 
 ccan/config.h: ccan/tools/configurator/configurator
-	if $< $(CC) -static > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
+	if $< $(CC) $(CCAN_CFLAGS) > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
 
 gen_version.h: FORCE
 	@(echo "#define VERSION \"`git describe --always --dirty`\"" && echo "#define VERSION_NAME \"$(NAME)\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
