@@ -116,6 +116,12 @@ static char *bcli_args(struct bitcoin_cli *bcli)
 	return ret;
 }
 
+static void retry_bcli(struct bitcoin_cli *bcli)
+{
+	list_add_tail(&bcli->bitcoind->pending, &bcli->list);
+	next_bcli(bcli->bitcoind);
+}
+
 /* We allow 60 seconds of spurious errors, eg. reorg. */
 static void bcli_failure(struct bitcoind *bitcoind,
 			 struct bitcoin_cli *bcli,
@@ -139,6 +145,10 @@ static void bcli_failure(struct bitcoind *bitcoind,
 		    "%s exited with status %u", bcli_args(bcli), exitstatus);
 
 	bitcoind->error_count++;
+
+	/* Retry in 1 second */
+	new_reltimer(&bitcoind->ld->timers, bcli, time_from_sec(1),
+		     retry_bcli, bcli);
 }
 
 static void bcli_finished(struct io_conn *conn UNUSED, struct bitcoin_cli *bcli)
@@ -182,10 +192,10 @@ static void bcli_finished(struct io_conn *conn UNUSED, struct bitcoin_cli *bcli)
 
 	if (!ok)
 		bcli_failure(bitcoind, bcli, WEXITSTATUS(status));
+	else
+		tal_free(bcli);
 
 done:
-	tal_free(bcli);
-
 	next_bcli(bitcoind);
 }
 
