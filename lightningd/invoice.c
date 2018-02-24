@@ -107,7 +107,7 @@ static void json_invoice(struct command *cmd,
 	u64 *msatoshi_val;
 	const char *label_val;
 	const char *desc_val;
-	const char *bip173;
+	enum address_parse_result fallback_parse;
 	struct json_result *response = new_json_result(cmd);
 	struct wallet *wallet = cmd->ld->wallet;
 	struct bolt11 *b11;
@@ -174,10 +174,17 @@ static void json_invoice(struct command *cmd,
 
 	/* fallback address */
 	if (fallback) {
-		bip173 = json_tok_address_scriptpubkey(cmd, buffer, fallback, &fallback_script);
-		if (!streq(get_chainparams(cmd->ld)->bip173_name, bip173)) {
-			command_fail(cmd, "Invalid fallback address for %s does not match network %s",
-				     get_chainparams(cmd->ld)->network_name, bip173);
+		fallback_parse
+			= json_tok_address_scriptpubkey(cmd,
+							get_chainparams(cmd->ld),
+							buffer, fallback,
+							&fallback_script);
+		if (fallback_parse == ADDRESS_PARSE_UNRECOGNIZED) {
+			command_fail(cmd, "Fallback address not valid");
+			return;
+		} else if (fallback_parse == ADDRESS_PARSE_WRONG_NETWORK) {
+			command_fail(cmd, "Fallback address does not match our network %s",
+				     get_chainparams(cmd->ld)->network_name);
 			return;
 		}
 	}

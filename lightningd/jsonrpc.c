@@ -831,8 +831,11 @@ static const char* segwit_addr_net_decode(int *witness_version,
 	return NULL;
 }
 
-const char *json_tok_address_scriptpubkey(const tal_t *cxt, const char *buffer,
-					  const jsmntok_t *tok, const u8 **scriptpubkey)
+enum address_parse_result
+json_tok_address_scriptpubkey(const tal_t *cxt,
+			      const struct chainparams *chainparams,
+			      const char *buffer,
+			      const jsmntok_t *tok, const u8 **scriptpubkey)
 {
 	struct bitcoin_address p2pkh_destination;
 	struct ripemd160 p2sh_destination;
@@ -846,21 +849,31 @@ const char *json_tok_address_scriptpubkey(const tal_t *cxt, const char *buffer,
 
 	char *addrz;
 	const char *bip173;
+
+	bool parsed;
+	bool right_network;
 	bool testnet;
 
-	bip173 = NULL;
+	parsed = false;
 	if (bitcoin_from_base58(&testnet, &p2pkh_destination,
 				buffer + tok->start, tok->end - tok->start)) {
 		*scriptpubkey = scriptpubkey_p2pkh(cxt, &p2pkh_destination);
-		bip173 = chainparams_for_network(testnet ? "testnet" : "bitcoin")->bip173_name;
+		parsed = true;
+		right_network = (testnet == chainparams->testnet);
 	} else if (p2sh_from_base58(&testnet, &p2sh_destination,
 				    buffer + tok->start, tok->end - tok->start)) {
 		*scriptpubkey = scriptpubkey_p2sh_hash(cxt, &p2sh_destination);
-		bip173 = chainparams_for_network(testnet ? "testnet" : "bitcoin")->bip173_name;
+		parsed = true;
+		right_network = (testnet == chainparams->testnet);
 	}
 	/* Insert other parsers that accept pointer+len here. */
 
-	if (bip173) return bip173;
+	if (parsed) {
+		if (right_network)
+			return ADDRESS_PARSE_SUCCESS;
+		else
+			return ADDRESS_PARSE_WRONG_NETWORK;
+	}
 
 	/* Generate null-terminated address. */
 	addrz = tal_dup_arr(cxt, char, buffer + tok->start, tok->end - tok->start, 1);
@@ -880,13 +893,20 @@ const char *json_tok_address_scriptpubkey(const tal_t *cxt, const char *buffer,
 		if (witness_ok) {
 			*scriptpubkey = scriptpubkey_witness_raw(cxt, witness_version,
 								 witness_program, witness_program_len);
-		}
-		else {
-			bip173 = NULL;
+			parsed = true;
+			right_network = streq(bip173, chainparams->bip173_name);
 		}
 	}
 	/* Insert other parsers that accept null-terminated string here. */
 
 	tal_free(addrz);
-	return bip173;
+
+	if (parsed) {
+		if (right_network)
+			return ADDRESS_PARSE_SUCCESS;
+		else
+			return ADDRESS_PARSE_WRONG_NETWORK;
+	}
+
+	return ADDRESS_PARSE_UNRECOGNIZED;
 }
