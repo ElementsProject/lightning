@@ -356,6 +356,14 @@ static void json_pay(struct command *cmd,
 
 	pay->getroute_tries = 0;
 	pay->sendpay_tries = 0;
+	/* Higher fuzz increases the potential fees we will pay, since
+	 * higher fuzz makes it more likely that high-fee paths get
+	 * selected. We start with very high fuzz, but if the
+	 * returned route is too expensive for the given
+	 * `maxfeepercent` we reduce the fuzz. Starting with high
+	 * fuzz means, if the user allows high fee, we can take
+	 * advantage of that to increase randomization and
+	 * improve privacy somewhat. */
 	pay->fuzz = 0.75;
 	pay->try_parent = NULL;
 
