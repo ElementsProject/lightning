@@ -10,6 +10,7 @@ import random
 import re
 import socket
 import sqlite3
+import stat
 import string
 import subprocess
 import sys
@@ -99,7 +100,7 @@ class NodeFactory(object):
         self.executor = executor
         self.bitcoind = bitcoind
 
-    def get_node(self, disconnect=None, options=None, may_fail=False, random_hsm=False):
+    def get_node(self, disconnect=None, options=None, may_fail=False, random_hsm=False, fake_bitcoin_cli=False):
         node_id = self.next_id
         self.next_id += 1
 
@@ -119,6 +120,17 @@ class NodeFactory(object):
             daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
             if VALGRIND:
                 daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
+
+        if fake_bitcoin_cli:
+            cli=os.path.join(lightning_dir, "fake-bitcoin-cli")
+            with open(cli, "w") as text_file:
+                print("""#! /bin/sh
+                ! [ -f bitcoin-cli-fail ] || exit `cat bitcoin-cli-fail`
+                exec bitcoin-cli "$@"
+                """, file=text_file)
+            os.chmod(cli, os.stat(cli).st_mode | stat.S_IEXEC)
+            daemon.cmd_line.append('--bitcoin-cli={}'.format(cli))
+
         opts = [] if options is None else options
         for opt in opts:
             daemon.cmd_line.append(opt)
@@ -338,6 +350,16 @@ class LightningDTests(BaseLightningDTests):
                                 ['Received channel_update for channel {}\\(1\\)'.format(c)
                                  for c in channel_ids])
 
+    def fake_bitcoind_fail(self, l1, exitcode):
+        # Create and rename, for atomicity.
+        f = os.path.join(l1.daemon.lightning_dir, "bitcoin-cli-fail.tmp")
+        with open(f, "w") as text_file:
+            print(exitcode, file=text_file)
+        os.rename(f, os.path.join(l1.daemon.lightning_dir, "bitcoin-cli-fail"))
+
+    def fake_bitcoind_unfail(self, l1):
+        os.remove(os.path.join(l1.daemon.lightning_dir, "bitcoin-cli-fail"))
+        
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_shutdown(self):
         # Fail, in that it will exit before cleanup.
@@ -1085,6 +1107,24 @@ class LightningDTests(BaseLightningDTests):
         assert(upgrades[0]['upgrade_from'] == 1)
         assert(upgrades[0]['lightning_version'] == version)
 
+    def test_bitcoin_failure(self):
+        l1 = self.node_factory.get_node(fake_bitcoin_cli=True)
+
+        self.fake_bitcoind_fail(l1, 1)
+
+        # This should cause both estimatefee and getblockhash fail
+        l1.daemon.wait_for_logs(['estimatesmartfee .* exited with status 1',
+                                 'getblockhash .* exited with status 1'])
+
+        # And they should retry!
+        l1.daemon.wait_for_logs(['estimatesmartfee .* exited with status 1',
+                                 'getblockhash .* exited with status 1'])
+        
+        # Restore, then it should recover and get blockheight.
+        self.fake_bitcoind_unfail(l1)
+        bitcoind.generate_block(5)
+        sync_blockheight([l1])
+        
     def test_closing_different_fees(self):
         l1 = self.node_factory.get_node()
 
