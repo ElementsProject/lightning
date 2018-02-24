@@ -446,7 +446,7 @@ class Message(object):
             subcalls.append('\t\t{} v;'.format(f.fieldtype.name))
             if f.fieldtype.is_assignable():
                 subcalls.append('\t\tv = fromwire_{}(&cursor, plen);'
-                                .format(name, basetype))
+                                .format(f.fieldtype.name, basetype))
             else:
                 # We don't handle this yet!
                 assert(basetype not in varlen_structs)
