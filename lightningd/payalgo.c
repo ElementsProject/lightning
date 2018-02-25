@@ -58,7 +58,7 @@ json_pay_success(struct command *cmd,
 	command_success(cmd, response);
 }
 
-static void json_pay_failure(struct command *cmd,
+static void json_pay_failure(struct pay *pay,
 			     const struct sendpay_result *r)
 {
 	struct json_result *data = NULL;
@@ -67,12 +67,15 @@ static void json_pay_failure(struct command *cmd,
 
 	assert(!r->succeeded);
 
-	/* FIXME: can probably be factored out with similar code
-	 * in lightningd/pay.c */
+	data = new_json_result(pay);
+
 	switch (r->errorcode) {
 	case PAY_IN_PROGRESS:
 	case PAY_RHASH_ALREADY_USED:
-		data = NULL;
+		json_object_start(data, NULL);
+		json_add_num(data, "getroute_tries", pay->getroute_tries);
+		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
+		json_object_end(data);
 		msg = r->details;
 		break;
 
@@ -83,7 +86,6 @@ static void json_pay_failure(struct command *cmd,
 
 	case PAY_DESTINATION_PERM_FAIL:
 		fail = r->routing_failure;
-		data = new_json_result(cmd);
 
 		json_object_start(data, NULL);
 		json_add_num(data, "erring_index",
@@ -101,7 +103,7 @@ static void json_pay_failure(struct command *cmd,
 				     tal_len(fail->channel_update));
 		json_object_end(data);
 
-		msg = tal_fmt(cmd,
+		msg = tal_fmt(pay,
 			      "failed: %s (%s)",
 			      onion_type_name(fail->failcode),
 			      r->details);
@@ -115,7 +117,7 @@ static void json_pay_failure(struct command *cmd,
 	}
 
 	assert(msg);
-	command_fail_detailed(cmd, r->errorcode, data, "%s", msg);
+	command_fail_detailed(pay->cmd, r->errorcode, data, "%s", msg);
 }
 
 /* Start a payment attempt. */
@@ -138,7 +140,7 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 	 * below. If it is not, fail now. */
 	if (r->errorcode != PAY_UNPARSEABLE_ONION &&
 	    r->errorcode != PAY_TRY_OTHER_ROUTE) {
-		json_pay_failure(pay->cmd, r);
+		json_pay_failure(pay, r);
 		return;
 	}
 
@@ -159,7 +161,12 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	fromwire_gossip_getroute_reply(reply, reply, &route);
 
 	if (tal_count(route) == 0) {
-		command_fail_detailed(pay->cmd, PAY_ROUTE_NOT_FOUND, NULL,
+		data = new_json_result(pay);
+		json_object_start(data, NULL);
+		json_add_num(data, "getroute_tries", pay->getroute_tries);
+		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
+		json_object_end(data);
+		command_fail_detailed(pay->cmd, PAY_ROUTE_NOT_FOUND, data,
 				      "Could not find a route");
 		return;
 	}
@@ -183,6 +190,8 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 		json_add_double(data, "feepercent", feepercent);
 		json_add_u64(data, "msatoshi", pay->msatoshi);
 		json_add_double(data, "maxfeepercent", pay->maxfeepercent);
+		json_add_num(data, "getroute_tries", pay->getroute_tries);
+		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
 		json_object_end(data);
 
 		command_fail_detailed(pay->cmd, PAY_ROUTE_TOO_EXPENSIVE,
@@ -227,6 +236,8 @@ static bool json_pay_try(struct pay *pay)
 		json_object_start(data, NULL);
 		json_add_num(data, "now", now.ts.tv_sec);
 		json_add_num(data, "expiry", pay->expiry.ts.tv_sec);
+		json_add_num(data, "getroute_tries", pay->getroute_tries);
+		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
 		json_object_end(data);
 		command_fail_detailed(cmd, PAY_INVOICE_EXPIRED, data,
 				      "Invoice expired");
