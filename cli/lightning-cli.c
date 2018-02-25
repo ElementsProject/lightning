@@ -131,13 +131,14 @@ static char *opt_set_ordered(enum input *input)
 
 static bool is_literal(const char *arg)
 {
-	return strspn(arg, "0123456789") == strlen(arg)
+	size_t arglen = strlen(arg);
+	return strspn(arg, "0123456789") == arglen
 		|| streq(arg, "true")
 		|| streq(arg, "false")
 		|| streq(arg, "null")
-		|| arg[0] == '{'
-		|| arg[0] == '['
-		|| arg[0] == '"';
+		|| (arg[0] == '{' && arg[arglen - 1] == '}')
+		|| (arg[0] == '[' && arg[arglen - 1] == ']')
+		|| (arg[0] == '"' && arg[arglen - 1] == '"');
 }
 
 static void add_input(char **cmd, const char *input,
