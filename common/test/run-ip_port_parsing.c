@@ -72,23 +72,23 @@ int main(void)
 	assert(!separate_address_and_port(ctx, "[::1]:http", &ip, &port));
 
 	// localhost hostnames for backward compat
-	parse_wireaddr("localhost", &addr, 200);
+	parse_wireaddr("localhost", &addr, 200, NULL);
 	assert(addr.port == 200);
 
 	// string should win the port battle
-	parse_wireaddr("[::1]:9735", &addr, 500);
+	parse_wireaddr("[::1]:9735", &addr, 500, NULL);
 	assert(addr.port == 9735);
 	ip = fmt_wireaddr(ctx, &addr);
 	assert(streq(ip, "[::1]:9735"));
 
 	// should use argument if we have no port in string
-	parse_wireaddr("2001:db8:85a3::8a2e:370:7334", &addr, 9777);
+	parse_wireaddr("2001:db8:85a3::8a2e:370:7334", &addr, 9777, NULL);
 	assert(addr.port == 9777);
 
 	ip = fmt_wireaddr(ctx, &addr);
 	assert(streq(ip, "[2001:db8:85a3::8a2e:370:7334]:9777"));
 
-	assert(parse_wireaddr("[::ffff:127.0.0.1]:49150", &addr, 1));
+	assert(parse_wireaddr("[::ffff:127.0.0.1]:49150", &addr, 1, NULL));
 	assert(addr.port == 49150);
 	tal_free(ctx);
 	return 0;

@@ -436,7 +436,7 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 	addrstr = sqlite3_column_text(stmt, 2);
 	if (addrstr) {
 		addrp = &addr;
-		if (!parse_wireaddr((const char*)addrstr, addrp, DEFAULT_PORT)) {
+		if (!parse_wireaddr((const char*)addrstr, addrp, DEFAULT_PORT, NULL)) {
 			sqlite3_finalize(stmt);
 			return NULL;
 		}
@@ -466,7 +466,7 @@ bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
 		addrstr = sqlite3_column_text(stmt, 2);
 
 		if (addrstr)
-			parse_wireaddr((const char*)addrstr, &peer->addr, DEFAULT_PORT);
+			parse_wireaddr((const char*)addrstr, &peer->addr, DEFAULT_PORT, NULL);
 	} else {
 		/* Make sure we mark this as a new peer */
 		peer->dbid = 0;

@@ -117,11 +117,12 @@ static char *opt_set_s32(const char *arg, s32 *u)
 static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
 {
 	size_t n = tal_count(ld->wireaddrs);
+	char const *err_msg;
 
 	tal_resize(&ld->wireaddrs, n+1);
 
-	if (!parse_wireaddr(arg, &ld->wireaddrs[n], ld->portnum)) {
-		return tal_fmt(NULL, "Unable to parse IP address '%s'", arg);
+	if (!parse_wireaddr(arg, &ld->wireaddrs[n], ld->portnum, &err_msg)) {
+		return tal_fmt(NULL, "Unable to parse IP address '%s': %s", arg, err_msg);
 	}
 
 	return NULL;

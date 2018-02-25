@@ -114,6 +114,7 @@ static void json_connect(struct command *cmd,
 	const char *name;
 	struct wireaddr addr;
 	u8 *msg;
+	const char *err_msg;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "id", &idtok,
@@ -178,9 +179,9 @@ static void json_connect(struct command *cmd,
 		} else {
 			addr.port = DEFAULT_PORT;
 		}
-		if (!parse_wireaddr(name, &addr, addr.port) || !addr.port) {
-			command_fail(cmd, "Host %s:%u not valid",
-				     name, addr.port);
+		if (!parse_wireaddr(name, &addr, addr.port, &err_msg) || !addr.port) {
+			command_fail(cmd, "Host %s:%u not valid: %s",
+				     name, addr.port, err_msg ? err_msg : "port is 0");
 			return;
 		}
 
