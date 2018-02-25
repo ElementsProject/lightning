@@ -77,21 +77,11 @@ static void json_pay_failure(struct command *cmd,
 		break;
 
 	case PAY_UNPARSEABLE_ONION:
-		data = new_json_result(cmd);
-		json_object_start(data, NULL);
-		json_add_hex(data, "onionreply",
-			     r->onionreply, tal_len(r->onionreply));
-		json_object_end(data);
-
-		msg = tal_fmt(cmd,
-			      "failed: WIRE_PERMANENT_NODE_FAILURE "
-			      "(%s)",
-			      r->details);
-
+		/* Impossible case */
+		abort();
 		break;
 
 	case PAY_DESTINATION_PERM_FAIL:
-	case PAY_TRY_OTHER_ROUTE:
 		fail = r->routing_failure;
 		data = new_json_result(cmd);
 
@@ -116,6 +106,11 @@ static void json_pay_failure(struct command *cmd,
 			      onion_type_name(fail->failcode),
 			      r->details);
 
+		break;
+
+	case PAY_TRY_OTHER_ROUTE:
+		/* Impossible case */
+		abort();
 		break;
 	}
 
