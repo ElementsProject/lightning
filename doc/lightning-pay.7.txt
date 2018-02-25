@@ -54,13 +54,8 @@ The following error codes may occur:
 * 200. A previous *sendpay* or *pay* is in progress.
 * 201. Already paid with this 'hash' using different amount or
   destination.
-* 202. Unparseable onion reply. The 'data' field of the error
-  will have an 'onionreply' field, a hex string representation
-  of the raw onion reply.
 * 203. Permanent failure at destination. The 'data' field of
   the error will be routing failure object.
-* 204. Failure along route; retry a different route. The 'data'
-  field of the error will be routing failure object.
 * 205. Unable to find a route.
 * 206. Route too expensive. The 'data' field of the error will
   indicate the actual 'fee' as well as the 'feepercent'
@@ -71,6 +66,10 @@ The following error codes may occur:
   The 'data' field of the error indicates 'now' (the current time)
   and 'expiry' (the invoice expiration) as UNIX epoch time in
   seconds.
+
+Error codes 202 and 204 will only get reported at *sendpay*;
+in *pay* we will keep retrying if we would have gotten those
+errors.
 
 A routing failure object has the fields below:
 
