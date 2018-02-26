@@ -220,11 +220,11 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
  * false if resolved now. */
 static bool json_pay_try(struct pay *pay)
 {
-	u8 *seed;
 	u8 *req;
 	struct command *cmd = pay->cmd;
 	struct timeabs now = time_now();
 	struct json_result *data;
+	struct siphash_seed seed;
 
 	/* If too late anyway, fail now. */
 	if (time_after(now, pay->expiry)) {
@@ -243,8 +243,7 @@ static bool json_pay_try(struct pay *pay)
 	pay->try_parent = tal(pay, char);
 
 	/* Generate random seed */
-	seed = tal_arr(pay->try_parent, u8, sizeof(struct siphash_seed));
-	randombytes_buf(seed, tal_len(seed));
+	randombytes_buf(&seed, sizeof(seed));
 
 	++pay->getroute_tries;
 
@@ -256,7 +255,7 @@ static bool json_pay_try(struct pay *pay)
 					     pay->riskfactor,
 					     pay->min_final_cltv_expiry,
 					     &pay->fuzz,
-					     seed);
+					     &seed);
 	subd_req(pay->try_parent, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
 
 	return true;

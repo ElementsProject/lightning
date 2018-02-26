@@ -3,6 +3,7 @@
 #include <bitcoin/shadouble.h>
 #include <bitcoin/tx.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
+#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/tal.h>
@@ -167,4 +168,9 @@ void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
 	u8 *lin = linearize_tx(tmpctx, tx);
 	towire_u8_array(pptr, lin, tal_len(lin));
 	tal_free(tmpctx);
+}
+
+void towire_siphash_seed(u8 **pptr, const struct siphash_seed *seed)
+{
+	towire(pptr, seed, sizeof(*seed));
 }
