@@ -279,7 +279,7 @@ u32 wallet_first_blocknum(struct wallet *w, u32 first_possible);
  * wallet_extract_owned_outputs - given a tx, extract all of our outputs
  */
 int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
-				 u64 *total_satoshi);
+				 const struct block *block, u64 *total_satoshi);
 
 /**
  * wallet_htlc_save_in - store an htlc_in in the database
