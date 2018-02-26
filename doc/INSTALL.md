@@ -99,3 +99,32 @@ $ nix-shell -Q -p gdb sqlite autoconf git clang libtool gmp sqlite autoconf \
 autogen automake 'python3.withPackages (p: [p.bitcoinlib])' \
 valgrind asciidoc --run make
 ```
+
+To Cross-compile for Android
+--------------------
+
+Make a standalone toolchain as per https://developer.android.com/ndk/guides/standalone_toolchain.html. For c-lightning you must target an API level of 24 or higher.
+
+Depending on your toolchain location and target arch source env variables such as:
+```
+export PATH=$PATH:/path/to/android/toolchain/bin
+
+# Change depending on target device arch
+target_host=arm-linux-androideabi
+
+export AR=$target_host-ar
+export AS=$target_host-clang
+export CC=$target_host-clang
+export CXX=$target_host-clang++
+export LD=$target_host-ld
+export STRIP=$target_host-strip
+```
+Two makefile targets should not be cross-compiled so we specify a native CC:
+```
+make CC=clang clean ccan/tools/configurator/configurator
+make clean -C ccan/ccan/cdump/tools && make CC=clang -C ccan/ccan/cdump/tools
+```
+Install the `qemu-user` package. This will allow you to properly configure the build for the target device environment. Build with: 
+```
+BUILD=x86_64 HOST=arm-linux-androideabi make PIE=1 DEVELOPER=0 CONFIGURATOR_CC="arm-linux-androideabi-clang -static"
+```
