@@ -4,11 +4,13 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/bolt11.h>
+#include <common/type_to_string.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <gossipd/routing.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/log.h>
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 
@@ -131,6 +133,7 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 
 	/* If we succeed, hurray */
 	if (r->succeeded) {
+		log_info(pay->cmd->ld->log, "pay(%p): Success", pay);
 		json_pay_success(pay->cmd, &r->preimage,
 				 pay->getroute_tries, pay->sendpay_tries);
 		return;
@@ -140,11 +143,37 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 	 * below. If it is not, fail now. */
 	if (r->errorcode != PAY_UNPARSEABLE_ONION &&
 	    r->errorcode != PAY_TRY_OTHER_ROUTE) {
+		log_info(pay->cmd->ld->log, "pay(%p): Failed, reporting to caller", pay);
 		json_pay_failure(pay, r);
 		return;
 	}
 
+	log_info(pay->cmd->ld->log, "pay(%p): Try another route", pay);
 	json_pay_try(pay);
+}
+
+/* Generates a string describing the route. Route should be a
+ * tal_arr */
+static char const *stringify_route(const tal_t *ctx, struct route_hop *route)
+{
+	size_t i;
+	char *rv = tal_strdup(ctx, "us");
+	for (i = 0; i < tal_count(route); ++i)
+		tal_append_fmt(&rv, " -> %s (%"PRIu32"msat, %"PRIu32"blk) -> %s",
+			       type_to_string(ctx, struct short_channel_id, &route[i].channel_id),
+			       route[i].amount, route[i].delay,
+			       type_to_string(ctx, struct pubkey, &route[i].nodeid));
+	return rv;
+}
+
+static void log_route(struct pay *pay, struct route_hop *route)
+{
+	const tal_t *tmpctx = tal_tmpctx(pay->try_parent);
+
+	log_info(pay->cmd->ld->log, "pay(%p): sendpay via route: %s",
+			pay, stringify_route(tmpctx, route));
+
+	tal_free(tmpctx);
 }
 
 static void json_pay_getroute_reply(struct subd *gossip UNUSED,
@@ -215,6 +244,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 
 	++pay->sendpay_tries;
 
+	log_route(pay, route);
 	send_payment(pay->try_parent,
 		     pay->cmd->ld, &pay->payment_hash, route,
 		     &json_pay_sendpay_resolve, pay);
