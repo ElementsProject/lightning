@@ -58,7 +58,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 		 * generated the hex tx, so this should always work */
 		tx = bitcoin_tx_from_hex(withdraw, withdraw->hextx, strlen(withdraw->hextx));
 		assert(tx != NULL);
-		wallet_extract_owned_outputs(ld->wallet, tx, &change_satoshi);
+		wallet_extract_owned_outputs(ld->wallet, tx, NULL, &change_satoshi);
 
 		/* Note normally, change_satoshi == withdraw->changesatoshi, but
 		 * not if we're actually making a payment to ourselves! */

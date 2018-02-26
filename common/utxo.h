@@ -26,6 +26,9 @@ struct utxo {
 	/* Optional unilateral close information, NULL if this is just
 	 * a HD key */
 	struct unilateral_close_info *close_info;
+
+	/* Blockchain height references */
+	const int *confirmation_height, *spend_height;
 };
 
 void towire_utxo(u8 **pptr, const struct utxo *utxo);

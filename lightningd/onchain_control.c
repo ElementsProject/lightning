@@ -226,6 +226,8 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 	u->status = output_state_available;
 	u->close_info->channel_id = channel->dbid;
 	u->close_info->peer_id = channel->peer->id;
+	u->confirmation_height = NULL;
+	u->spend_height = NULL;
 
 	if (!fromwire_onchain_add_utxo(msg, &u->txid, &u->outnum,
 				       &u->close_info->commitment_point,
@@ -455,4 +457,3 @@ enum watch_result funding_spent(struct channel *channel,
 	/* We keep watching until peer finally deleted, for reorgs. */
 	return KEEP_WATCHING;
 }
-
