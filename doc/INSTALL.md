@@ -100,12 +100,12 @@ autogen automake 'python3.withPackages (p: [p.bitcoinlib])' \
 valgrind asciidoc --run make
 ```
 
-To Cross-compile for Android
+To cross-compile for Android
 --------------------
 
 Make a standalone toolchain as per https://developer.android.com/ndk/guides/standalone_toolchain.html. For c-lightning you must target an API level of 24 or higher.
 
-Depending on your toolchain location and target arch source env variables such as:
+Depending on your toolchain location and target arch, source env variables such as:
 ```
 export PATH=$PATH:/path/to/android/toolchain/bin
 
