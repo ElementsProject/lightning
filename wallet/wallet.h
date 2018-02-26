@@ -507,6 +507,16 @@ bool wallet_invoice_delete(struct wallet *wallet,
 			   struct invoice invoice);
 
 /**
+ * wallet_invoice_delete_expired - Delete all expired invoices
+ * with expiration time less than or equal to the given.
+ *
+ * @wallet - the wallet to delete invoices from.
+ * @max_expiry_time - the maximum expiry time to delete.
+ */
+void wallet_invoice_delete_expired(struct wallet *wallet,
+				   u64 max_expiry_time);
+
+/**
  * wallet_invoice_iterate - Iterate over all existing invoices
  *
  * @wallet - the wallet whose invoices are to be iterated over.

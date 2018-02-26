@@ -6,6 +6,7 @@ doc-wrongdir:
 
 MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-decodepay.7 \
+	doc/lightning-delexpiredinvoice.7 \
 	doc/lightning-delinvoice.7 \
 	doc/lightning-getroute.7 \
 	doc/lightning-invoice.7 \
