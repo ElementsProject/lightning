@@ -230,9 +230,6 @@ void log_add(struct log *log UNNEEDED, const char *fmt UNNEEDED, ...)
 void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED, const char *comment UNNEEDED,
 	    const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "log_io called!\n"); abort(); }
-/* Generated stub for logv_add */
-void logv_add(struct log *log UNNEEDED, const char *fmt UNNEEDED, va_list ap UNNEEDED)
-{ fprintf(stderr, "logv_add called!\n"); abort(); }
 /* Generated stub for new_json_result */
 struct json_result *new_json_result(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "new_json_result called!\n"); abort(); }

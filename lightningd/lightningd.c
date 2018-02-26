@@ -237,11 +237,12 @@ static void init_txfilter(struct wallet *w, struct txfilter *filter)
 	}
 }
 
-static void daemonize_but_keep_dir(void)
+static void daemonize_but_keep_dir(struct lightningd *ld)
 {
 	/* daemonize moves us into /, but we want to be here */
 	const char *cwd = path_cwd(NULL);
 
+	db_close_for_fork(ld->wallet->db);
 	if (!cwd)
 		fatal("Could not get current directory: %s", strerror(errno));
 	if (!daemonize())
@@ -252,6 +253,7 @@ static void daemonize_but_keep_dir(void)
 		fatal("Could not return to directory %s: %s",
 		      cwd, strerror(errno));
 
+	db_reopen_after_fork(ld->wallet->db);
 	tal_free(cwd);
 }
 
@@ -382,7 +384,7 @@ int main(int argc, char *argv[])
 
 	/* Now we're about to start, become daemon if desired. */
 	if (ld->daemon)
-		daemonize_but_keep_dir();
+		daemonize_but_keep_dir(ld);
 
 	/* Mark ourselves live. */
 	log_info(ld->log, "Server started with public key %s, alias %s (color #%s) and lightningd %s",

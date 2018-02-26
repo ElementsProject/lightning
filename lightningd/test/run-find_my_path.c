@@ -16,12 +16,18 @@ void crashlog_activate(const char *argv0 UNNEEDED, struct log *log UNNEEDED)
 /* Generated stub for db_begin_transaction_ */
 void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED)
 { fprintf(stderr, "db_begin_transaction_ called!\n"); abort(); }
+/* Generated stub for db_close_for_fork */
+void db_close_for_fork(struct db *db UNNEEDED)
+{ fprintf(stderr, "db_close_for_fork called!\n"); abort(); }
 /* Generated stub for db_commit_transaction */
 void db_commit_transaction(struct db *db UNNEEDED)
 { fprintf(stderr, "db_commit_transaction called!\n"); abort(); }
 /* Generated stub for db_get_intvar */
 s64 db_get_intvar(struct db *db UNNEEDED, char *varname UNNEEDED, s64 defval UNNEEDED)
 { fprintf(stderr, "db_get_intvar called!\n"); abort(); }
+/* Generated stub for db_reopen_after_fork */
+void db_reopen_after_fork(struct db *db UNNEEDED)
+{ fprintf(stderr, "db_reopen_after_fork called!\n"); abort(); }
 /* Generated stub for debug_poll */
 int debug_poll(struct pollfd *fds UNNEEDED, nfds_t nfds UNNEEDED, int timeout UNNEEDED)
 { fprintf(stderr, "debug_poll called!\n"); abort(); }
@@ -35,7 +41,7 @@ void free_htlcs(struct lightningd *ld UNNEEDED, const struct channel *channel UN
 void gossip_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "gossip_init called!\n"); abort(); }
 /* Generated stub for handle_opts */
-bool handle_opts(struct lightningd *ld UNNEEDED, int argc UNNEEDED, char *argv[] UNUSED)
+bool handle_opts(struct lightningd *ld UNNEEDED, int argc UNNEEDED, char *argv[])
 { fprintf(stderr, "handle_opts called!\n"); abort(); }
 /* Generated stub for hash_htlc_key */
 size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)
@@ -78,7 +84,7 @@ void subd_shutdown(struct subd *subd UNNEEDED, unsigned int seconds UNNEEDED)
 void timer_expired(tal_t *ctx UNNEEDED, struct timer *timer UNNEEDED)
 { fprintf(stderr, "timer_expired called!\n"); abort(); }
 /* Generated stub for txfilter_add_derkey */
-void txfilter_add_derkey(struct txfilter *filter UNNEEDED, u8 derkey[PUBKEY_DER_LEN] UNUSED)
+void txfilter_add_derkey(struct txfilter *filter UNNEEDED, u8 derkey[PUBKEY_DER_LEN])
 { fprintf(stderr, "txfilter_add_derkey called!\n"); abort(); }
 /* Generated stub for txfilter_new */
 struct txfilter *txfilter_new(const tal_t *ctx UNNEEDED)
