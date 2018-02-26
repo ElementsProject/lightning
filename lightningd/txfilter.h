@@ -9,6 +9,11 @@
 struct txfilter;
 
 /**
+ * outpointfilter -- Simple filter that keeps track of outpoints
+ */
+struct outpointfilter;
+
+/**
  * txfilter_new -- Construct and initialize a new txfilter
  */
 struct txfilter *txfilter_new(const tal_t *ctx);
@@ -32,5 +37,27 @@ bool txfilter_match(const struct txfilter *filter, const struct bitcoin_tx *tx);
  * txfilter_add_scriptpubkey -- Add a serialized scriptpubkey to the filter
  */
 void txfilter_add_scriptpubkey(struct txfilter *filter, u8 *script);
+
+/**
+ * outpointfilter_new -- Create a new outpointfilter
+ */
+struct outpointfilter *outpointfilter_new(tal_t *ctx);
+
+/**
+ * outpointfilter_add -- Add an outpoint to the filter
+ */
+void outpointfilter_add(struct outpointfilter *of,
+			const struct bitcoin_txid *txid, const u32 outnum);
+
+/**
+ * outpointfilter_matches -- Are we tracking this outpoint?
+ */
+bool outpointfilter_matches(struct outpointfilter *of,
+			    const struct bitcoin_txid *txid, const u32 outnum);
+/**
+ * outpointfilter_remove -- Do not match this outpoint in the future
+ */
+void outpointfilter_remove(struct outpointfilter *of,
+			   const struct bitcoin_txid *txid, const u32 outnum);
 
 #endif /* LIGHTNING_LIGHTNINGD_TXFILTER_H */

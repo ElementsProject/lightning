@@ -1,14 +1,51 @@
 #include "txfilter.h"
 
 #include <bitcoin/script.h>
+#include <ccan/build_assert/build_assert.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
+#include <ccan/mem/mem.h>
+#include <common/memleak.h>
+#include <common/pseudorand.h>
 #include <common/utils.h>
+#include <wallet/wallet.h>
 
 struct txfilter {
 	u8 **scriptpubkeys;
 };
 
+struct outpointfilter_entry {
+	struct bitcoin_txid txid;
+	u32 outnum;
+};
 
+static size_t outpoint_hash(const struct outpointfilter_entry *out)
+{
+	struct siphash24_ctx ctx;
+	siphash24_init(&ctx, siphash_seed());
+	siphash24_update(&ctx, &out->txid, sizeof(out->txid));
+	siphash24_u32(&ctx, out->outnum);
+	return siphash24_done(&ctx);
+}
+
+static bool outpoint_eq(const struct outpointfilter_entry *o1,
+			const struct outpointfilter_entry *o2)
+{
+	return memeq(&o1->txid, sizeof(o1->txid), &o2->txid,
+		     sizeof(o2->txid)) &&
+	       o1->outnum == o2->outnum;
+}
+
+static const struct outpointfilter_entry *outpoint_keyof(const struct outpointfilter_entry *out)
+{
+	return out;
+}
+
+HTABLE_DEFINE_TYPE(struct outpointfilter_entry, outpoint_keyof, outpoint_hash, outpoint_eq,
+		   outpointset);
+
+struct outpointfilter {
+	struct outpointset *set;
+};
 
 struct txfilter *txfilter_new(const tal_t *ctx)
 {
@@ -51,4 +88,38 @@ bool txfilter_match(const struct txfilter *filter, const struct bitcoin_tx *tx)
 		}
 	}
 	return false;
+}
+
+void outpointfilter_add(struct outpointfilter *of, const struct bitcoin_txid *txid, const u32 outnum)
+{
+	struct outpointfilter_entry *op;
+	if (outpointfilter_matches(of, txid, outnum))
+		return;
+	/* Have to mark the entries as notleak since they'll not be
+	 * pointed to by anything other than the htable */
+	op = notleak(tal(of->set, struct outpointfilter_entry));
+	outpointset_add(of->set, op);
+}
+bool outpointfilter_matches(struct outpointfilter *of, const struct bitcoin_txid *txid, const u32 outnum)
+{
+	struct outpointfilter_entry op;
+	op.txid = *txid;
+	op.outnum = outnum;
+	return outpointset_get(of->set, &op) != NULL;
+}
+
+void outpointfilter_remove(struct outpointfilter *of, const struct bitcoin_txid *txid, const u32 outnum)
+{
+	struct outpointfilter_entry op;
+	op.txid = *txid;
+	op.outnum = outnum;
+	outpointset_del(of->set, &op);
+}
+
+struct outpointfilter *outpointfilter_new(tal_t *ctx)
+{
+	struct outpointfilter *opf = tal(ctx, struct outpointfilter);
+	opf->set = tal(opf, struct outpointset);
+	outpointset_init(opf->set);
+	return opf;
 }
