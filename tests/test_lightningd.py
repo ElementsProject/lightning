@@ -2762,7 +2762,7 @@ class LightningDTests(BaseLightningDTests):
         assert(c.fetchone()[0] == 10)
 
         # Renable when the bitcoin wallet can generate a "bcrt1" address
-        #waddr = l1.bitcoin.rpc.getnewaddress()
+        # waddr = l1.bitcoin.rpc.getnewaddress()
         # Instead for now, Use an address from l3
         waddr = l3.rpc.newaddr('bech32')['address']
         # Now attempt to withdraw some (making sure we collect multiple inputs)
@@ -2770,15 +2770,15 @@ class LightningDTests(BaseLightningDTests):
         self.assertRaises(ValueError, l1.rpc.withdraw, waddr, 'not an amount')
         self.assertRaises(ValueError, l1.rpc.withdraw, waddr, -amount)
 
-        out = l1.rpc.withdraw(waddr, 2 * amount)
+        l1.rpc.withdraw(waddr, 2 * amount)
 
         # Make sure bitcoind received the withdrawal
-        unspent = l1.bitcoin.rpc.listunspent(0)
-        withdrawal = [u for u in unspent if u['txid'] == out['txid']]
         # Skip these checks because the withdrawal was made to a lightning wallet
         # Renable when the bitcoin wallet can generate a "bcrt1" address
-        #assert(len(withdrawal) == 1)
-        #assert(withdrawal[0]['amount'] == Decimal('0.02'))
+        # unspent = l1.bitcoin.rpc.listunspent(0)
+        # withdrawal = [u for u in unspent if u['txid'] == out['txid']]
+        # assert(len(withdrawal) == 1)
+        # assert(withdrawal[0]['amount'] == Decimal('0.02'))
 
         # Now make sure two of them were marked as spent
         c = db.cursor()
@@ -2788,7 +2788,7 @@ class LightningDTests(BaseLightningDTests):
         # Now send some money to l2.
         # lightningd uses P2SH-P2WPKH
         waddr = l2.rpc.newaddr('bech32')['address']
-        out = l1.rpc.withdraw(waddr, 2 * amount)
+        l1.rpc.withdraw(waddr, 2 * amount)
         l1.bitcoin.rpc.generate(1)
 
         # Make sure l2 received the withdrawal.
@@ -2807,7 +2807,7 @@ class LightningDTests(BaseLightningDTests):
         self.assertRaises(ValueError, l1.rpc.withdraw, 'xx1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx', 2 * amount)
         self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1pw508d6qejxtdg4y5r3zarvary0c5xw7kdl9fad', 2 * amount)
         self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxxxxxx', 2 * amount)
-        out = l1.rpc.withdraw(waddr, 2 * amount)
+        l1.rpc.withdraw(waddr, 2 * amount)
         l1.bitcoin.rpc.generate(1)
         # Now make sure additional two of them were marked as spent
         c = db.cursor()
@@ -2820,7 +2820,7 @@ class LightningDTests(BaseLightningDTests):
         self.assertRaises(ValueError, l1.rpc.withdraw, 'xx1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7', 2 * amount)
         self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1prp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qsm03tq', 2 * amount)
         self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qxxxxxx', 2 * amount)
-        out = l1.rpc.withdraw(waddr, 2 * amount)
+        l1.rpc.withdraw(waddr, 2 * amount)
         l1.bitcoin.rpc.generate(1)
         # Now make sure additional two of them were marked as spent
         c = db.cursor()
@@ -2851,13 +2851,13 @@ class LightningDTests(BaseLightningDTests):
         assert(c.fetchone()[0] == 6)
 
         # Test withdrawal to self.
-        out = l1.rpc.withdraw(l1.rpc.newaddr('bech32')['address'], 'all')
+        l1.rpc.withdraw(l1.rpc.newaddr('bech32')['address'], 'all')
         bitcoind.rpc.generate(1)
         c = db.cursor()
         c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
         assert(c.fetchone()[0] == 1)
 
-        out = l1.rpc.withdraw(waddr, 'all')
+        l1.rpc.withdraw(waddr, 'all')
         c = db.cursor()
         c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
         assert(c.fetchone()[0] == 0)
