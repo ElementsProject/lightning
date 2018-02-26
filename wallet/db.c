@@ -215,6 +215,8 @@ char *dbmigrations[] = {
      * die. */
     "ALTER TABLE outputs ADD COLUMN confirmation_height INTEGER REFERENCES blocks(height) ON DELETE SET NULL;",
     "ALTER TABLE outputs ADD COLUMN spend_height INTEGER REFERENCES blocks(height) ON DELETE SET NULL;",
+    /* Create a covering index that covers both fields */
+    "CREATE INDEX output_height_idx ON outputs (confirmation_height, spend_height);",
     NULL,
 };
 
