@@ -32,6 +32,8 @@ struct wallet {
 	struct invoices *invoices;
 	struct list_head unstored_payments;
 	u64 max_channel_dbid;
+
+	struct outpointfilter *owned_outpoints;
 };
 
 /* Possible states for tracked outputs in the database. Not sure yet

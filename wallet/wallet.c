@@ -16,6 +16,17 @@
 #define DIRECTION_INCOMING 0
 #define DIRECTION_OUTGOING 1
 
+static void outpointfilters_init(struct wallet *w)
+{
+	struct utxo **utxos = wallet_get_utxos(NULL, w, output_state_any);
+
+	w->owned_outpoints = outpointfilter_new(w);
+	for (size_t i = 0; i < tal_count(utxos); i++)
+		outpointfilter_add(w->owned_outpoints, &utxos[i]->txid, utxos[i]->outnum);
+
+	tal_free(utxos);
+}
+
 struct wallet *wallet_new(struct lightningd *ld,
 			  struct log *log, struct timers *timers)
 {
@@ -26,6 +37,10 @@ struct wallet *wallet_new(struct lightningd *ld,
 	wallet->bip32_base = NULL;
 	wallet->invoices = invoices_new(wallet, wallet->db, log, timers);
 	list_head_init(&wallet->unstored_payments);
+
+	db_begin_transaction(wallet->db);
+	outpointfilters_init(wallet);
+	db_commit_transaction(wallet->db);
 	return wallet;
 }
 
@@ -1016,6 +1031,8 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 			tal_free(utxo);
 			return -1;
 		}
+		outpointfilter_add(w->owned_outpoints, &utxo->txid, utxo->outnum);
+
 		*total_satoshi += utxo->amount;
 		tal_free(utxo);
 		num_utxos++;

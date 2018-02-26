@@ -236,6 +236,13 @@ struct json_result *new_json_result(const tal_t *ctx UNNEEDED)
 /* Generated stub for null_response */
 struct json_result *null_response(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "null_response called!\n"); abort(); }
+/* Generated stub for outpointfilter_add */
+void outpointfilter_add(struct outpointfilter *of UNNEEDED,
+			const struct bitcoin_txid *txid UNNEEDED, const u32 outnum UNNEEDED)
+{ fprintf(stderr, "outpointfilter_add called!\n"); abort(); }
+/* Generated stub for outpointfilter_new */
+struct outpointfilter *outpointfilter_new(tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "outpointfilter_new called!\n"); abort(); }
 /* Generated stub for peer_accept_channel */
 u8 *peer_accept_channel(struct lightningd *ld UNNEEDED,
 			const struct pubkey *peer_id UNNEEDED,
