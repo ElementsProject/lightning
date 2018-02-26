@@ -4,6 +4,7 @@
 #include <bitcoin/shadouble.h>
 #include <bitcoin/tx.h>
 #include <ccan/build_assert/build_assert.h>
+#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
@@ -255,4 +256,10 @@ struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
 				       const u8 **cursor, size_t *max)
 {
 	return pull_bitcoin_tx(ctx, cursor, max);
+}
+
+void fromwire_siphash_seed(const u8 **cursor, size_t *max,
+			   struct siphash_seed *seed)
+{
+	fromwire(cursor, max, seed, sizeof(*seed));
 }

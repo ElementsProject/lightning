@@ -313,7 +313,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	 * be selected) at the cost of increasing the probability of
 	 * selecting the higher-fee paths. */
 	double fuzz = 75.0;
-	u8 *seed = tal_arrz(cmd, u8, sizeof(struct siphash_seed));
+	struct siphash_seed seed;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "id", &idtok,
@@ -373,13 +373,17 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	fuzz = fuzz / 100.0;
 
 	if (seedtok) {
-		tal_resize(&seed, seedtok->end - seedtok->start);
-		memcpy(seed, buffer + seedtok->start,
+		if (seedtok->end - seedtok->start > sizeof(seed))
+			command_fail(cmd,
+				     "seed must be < %zu bytes", sizeof(seed));
+
+		memset(&seed, 0, sizeof(seed));
+		memcpy(&seed, buffer + seedtok->start,
 		       seedtok->end - seedtok->start);
 	} else
-		randombytes_buf(seed, tal_len(seed));
+		randombytes_buf(&seed, sizeof(seed));
 
-	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination, msatoshi, riskfactor*1000, cltv, &fuzz, seed);
+	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination, msatoshi, riskfactor*1000, cltv, &fuzz, &seed);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 	command_still_pending(cmd);
 }
