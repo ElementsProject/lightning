@@ -113,6 +113,10 @@ bool invoices_create(struct invoices *invoices UNNEEDED,
 bool invoices_delete(struct invoices *invoices UNNEEDED,
 		     struct invoice invoice UNNEEDED)
 { fprintf(stderr, "invoices_delete called!\n"); abort(); }
+/* Generated stub for invoices_delete_expired */
+void invoices_delete_expired(struct invoices *invoices UNNEEDED,
+			     u64 max_expiry_time UNNEEDED)
+{ fprintf(stderr, "invoices_delete_expired called!\n"); abort(); }
 /* Generated stub for invoices_find_by_label */
 bool invoices_find_by_label(struct invoices *invoices UNNEEDED,
 			    struct invoice *pinvoice UNNEEDED,

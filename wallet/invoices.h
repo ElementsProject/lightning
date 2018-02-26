@@ -102,6 +102,16 @@ bool invoices_delete(struct invoices *invoices,
 		     struct invoice invoice);
 
 /**
+ * invoices_delete_expired - Delete all expired invoices
+ * with expiration time less than or equal to the given.
+ *
+ * @invoices - the invoice handler.
+ * @max_expiry_time - the maximum expiry time to delete.
+ */
+void invoices_delete_expired(struct invoices *invoices,
+			     u64 max_expiry_time);
+
+/**
  * invoices_iterate - Iterate over all existing invoices
  *
  * @invoices - the invoice handler.

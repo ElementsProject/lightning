@@ -387,6 +387,42 @@ static const struct json_command delinvoice_command = {
 };
 AUTODATA(json_command, &delinvoice_command);
 
+static void json_delexpiredinvoice(struct command *cmd, const char *buffer,
+				   const jsmntok_t *params)
+{
+	jsmntok_t *maxexpirytimetok;
+	u64 maxexpirytime = time_now().ts.tv_sec;
+	struct json_result *result;
+
+	if (!json_get_params(cmd, buffer, params,
+			     "?maxexpirytime", &maxexpirytimetok,
+			     NULL)) {
+		return;
+	}
+
+	if (maxexpirytimetok) {
+		if (!json_tok_u64(buffer, maxexpirytimetok, &maxexpirytime)) {
+			command_fail(cmd, "'%.*s' is not a valid number",
+				     maxexpirytimetok->end - maxexpirytimetok->start,
+				     buffer + maxexpirytimetok->start);
+			return;
+		}
+	}
+
+	wallet_invoice_delete_expired(cmd->ld->wallet, maxexpirytime);
+
+	result = new_json_result(cmd);
+	json_object_start(result, NULL);
+	json_object_end(result);
+	command_success(cmd, result);
+}
+static const struct json_command delexpiredinvoice_command = {
+	"delexpiredinvoice",
+	json_delexpiredinvoice,
+	"Delete all expired invoices that expired as of given {maxexpirytime} (a UNIX epoch time), or all expired invoices if not specified"
+};
+AUTODATA(json_command, &delexpiredinvoice_command);
+
 static void json_waitanyinvoice(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
 {

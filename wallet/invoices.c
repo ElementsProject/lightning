@@ -384,6 +384,19 @@ bool invoices_delete(struct invoices *invoices,
 	return true;
 }
 
+void invoices_delete_expired(struct invoices *invoices,
+			     u64 max_expiry_time)
+{
+	sqlite3_stmt *stmt;
+	stmt = db_prepare(invoices->db,
+			  "DELETE FROM invoices"
+			  " WHERE state = ?"
+			  "   AND expiry_time <= ?;");
+	sqlite3_bind_int(stmt, 1, EXPIRED);
+	sqlite3_bind_int64(stmt, 2, max_expiry_time);
+	db_exec_prepared(invoices->db, stmt);
+}
+
 bool invoices_iterate(struct invoices *invoices,
 		      struct invoice_iterator *it)
 {

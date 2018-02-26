@@ -1395,6 +1395,10 @@ bool wallet_invoice_delete(struct wallet *wallet,
 {
 	return invoices_delete(wallet->invoices, invoice);
 }
+void wallet_invoice_delete_expired(struct wallet *wallet, u64 e)
+{
+	invoices_delete_expired(wallet->invoices, e);
+}
 bool wallet_invoice_iterate(struct wallet *wallet,
 			    struct invoice_iterator *it)
 {
