@@ -98,8 +98,11 @@ void outpointfilter_add(struct outpointfilter *of, const struct bitcoin_txid *tx
 	/* Have to mark the entries as notleak since they'll not be
 	 * pointed to by anything other than the htable */
 	op = notleak(tal(of->set, struct outpointfilter_entry));
+	op->txid = *txid;
+	op->outnum = outnum;
 	outpointset_add(of->set, op);
 }
+
 bool outpointfilter_matches(struct outpointfilter *of, const struct bitcoin_txid *txid, const u32 outnum)
 {
 	struct outpointfilter_entry op;
