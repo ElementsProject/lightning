@@ -670,13 +670,15 @@ int main(int argc, const char *argv[])
 	const char *default_args[]
 		= { "", DEFAULT_COMPILER, DEFAULT_FLAGS, NULL };
 	const char *outflag = DEFAULT_OUTPUT_EXE_FLAG;
+	const char *configurator_cc = NULL;
+	const char *orig_cc;
 
 	if (argc > 0)
 		progname = argv[0];
 
 	while (argc > 1) {
 		if (strcmp(argv[1], "--help") == 0) {
-			printf("Usage: configurator [-v] [-O<outflag>] [<compiler> <flags>...]\n"
+			printf("Usage: configurator [-v] [-O<outflag>] [--configurator-cc=<compiler-for-tests>] [<compiler> <flags>...]\n"
 			       "  <compiler> <flags> will have \"<outflag> <outfile> <infile.c>\" appended\n"
 			       "Default: %s %s %s\n",
 			       DEFAULT_COMPILER, DEFAULT_FLAGS,
@@ -701,6 +703,10 @@ int main(int argc, const char *argv[])
 			argc--;
 			argv++;
 			verbose += 2;
+		} else if (strncmp(argv[1], "--configurator-cc=", 18) == 0) {
+			configurator_cc = argv[1] + 18;
+			argc--;
+			argv++;
 		} else {
 			break;
 		}
@@ -708,6 +714,10 @@ int main(int argc, const char *argv[])
 
 	if (argc == 1)
 		argv = default_args;
+
+	orig_cc = argv[1];
+	if (configurator_cc)
+		argv[1] = configurator_cc;
 
 	cmd = connect_args(argv, outflag, OUTPUT_FILE " " INPUT_FILE);
 	for (i = 0; i < sizeof(tests)/sizeof(tests[0]); i++)
@@ -723,7 +733,7 @@ int main(int argc, const char *argv[])
 	printf("#ifndef _GNU_SOURCE\n");
 	printf("#define _GNU_SOURCE /* Always use GNU extensions. */\n");
 	printf("#endif\n");
-	printf("#define CCAN_COMPILER \"%s\"\n", argv[1]);
+	printf("#define CCAN_COMPILER \"%s\"\n", orig_cc);
 	cmd = connect_args(argv + 1, "", "");
 	printf("#define CCAN_CFLAGS \"%s\"\n", cmd);
 	free(cmd);
