@@ -432,6 +432,28 @@ struct db *db_setup(const tal_t *ctx, struct log *log)
 	return db;
 }
 
+void db_close_for_fork(struct db *db)
+{
+	/* https://www.sqlite.org/faq.html#q6
+	 *
+	 * Under Unix, you should not carry an open SQLite database across a
+	 * fork() system call into the child process. */
+	if (sqlite3_close(db->sql) != SQLITE_OK)
+		fatal("sqlite3_close: %s", sqlite3_errmsg(db->sql));
+	db->sql = NULL;
+}
+
+void db_reopen_after_fork(struct db *db)
+{
+	int err = sqlite3_open_v2(db->filename, &db->sql,
+				  SQLITE_OPEN_READWRITE, NULL);
+
+	if (err != SQLITE_OK) {
+		fatal("failed to re-open database %s: %s", db->filename,
+		      sqlite3_errstr(err));
+	}
+}
+
 s64 db_get_intvar(struct db *db, char *varname, s64 defval)
 {
 	int err;
