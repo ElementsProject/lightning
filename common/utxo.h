@@ -26,6 +26,12 @@ struct utxo {
 	/* Optional unilateral close information, NULL if this is just
 	 * a HD key */
 	struct unilateral_close_info *close_info;
+
+	/* NULL if we haven't seen it in a block, otherwise the block it's in */
+	const int *blockheight;
+
+	/* NULL if not spent yet, otherwise, the block the spending transaction is in */
+	const int *spendheight;
 };
 
 void towire_utxo(u8 **pptr, const struct utxo *utxo);

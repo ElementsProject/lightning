@@ -354,7 +354,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		      tal_hex(msg, resp));
 
 	/* Extract the change output and add it to the DB */
-	wallet_extract_owned_outputs(ld->wallet, fundingtx, &change_satoshi);
+	wallet_extract_owned_outputs(ld->wallet, fundingtx, NULL, &change_satoshi);
 
 	/* Send it out and watch for confirms. */
 	broadcast_tx(ld->topology, channel, fundingtx, funding_broadcast_failed);

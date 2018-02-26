@@ -77,7 +77,7 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		satoshi_owned = 0;
 		if (txfilter_match(topo->bitcoind->ld->owned_txfilter, tx)) {
 			wallet_extract_owned_outputs(topo->bitcoind->ld->wallet,
-						     tx, &satoshi_owned);
+						     tx, b, &satoshi_owned);
 		}
 
 		/* We did spends first, in case that tells us to watch tx. */
@@ -350,17 +350,17 @@ static void updates_complete(struct chain_topology *topo)
 
 static void add_tip(struct chain_topology *topo, struct block *b)
 {
-	/* Only keep the transactions we care about. */
-	filter_block_txs(topo, b);
-
-	block_map_add(&topo->block_map, b);
-
 	/* Attach to tip; b is now the tip. */
 	assert(b->height == topo->tip->height + 1);
 	b->prev = topo->tip;
 	topo->tip->next = b;
 	topo->tip = b;
 	wallet_block_add(topo->wallet, b);
+
+	/* Only keep the transactions we care about. */
+	filter_block_txs(topo, b);
+
+	block_map_add(&topo->block_map, b);
 }
 
 static struct block *new_block(struct chain_topology *topo,
