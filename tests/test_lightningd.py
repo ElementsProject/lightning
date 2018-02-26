@@ -453,6 +453,7 @@ class LightningDTests(BaseLightningDTests):
         l2.rpc.invoice('any', 'inv1', 'description', 10)
         l2.rpc.invoice('any', 'inv2', 'description', 4)
         l2.rpc.invoice('any', 'inv3', 'description', 16)
+        creation = int(time.time())
         # Check waitinvoice correctly waits
         w1 = self.executor.submit(l2.rpc.waitinvoice, 'inv1')
         w2 = self.executor.submit(l2.rpc.waitinvoice, 'inv2')
@@ -470,6 +471,16 @@ class LightningDTests(BaseLightningDTests):
         assert not w3.done()
         time.sleep(8)  # total 20
         self.assertRaises(ValueError, w3.result)
+
+        # Test delexpiredinvoice
+        l2.rpc.delexpiredinvoice(maxexpirytime=creation + 8)
+        # only inv2 should have been deleted
+        assert len(l2.rpc.listinvoices()['invoices']) == 2
+        assert len(l2.rpc.listinvoices('inv2')['invoices']) == 0
+        # Test delexpiredinvoice all
+        l2.rpc.delexpiredinvoice()
+        # all invoices are expired and should be deleted
+        assert len(l2.rpc.listinvoices()['invoices']) == 0
 
     def test_connect(self):
         l1, l2 = self.connect()
