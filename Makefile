@@ -163,6 +163,9 @@ CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations 
 CDEBUGFLAGS := -std=gnu11 -g -fstack-protector
 CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I/usr/local/include $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS)
 
+# We can get configurator to run a different compile cmd to cross-configure.
+CONFIGURATOR_CC := $(CC)
+
 LDFLAGS = $(PIE_LDFLAGS)
 LDLIBS = -L/usr/local/lib -lm -lgmp -lsqlite3 $(COVFLAGS)
 
@@ -264,7 +267,7 @@ ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
 ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS) Makefile
 
 ccan/config.h: ccan/tools/configurator/configurator
-	if $< $(CC) -static > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
+	if $< --configurator-cc="$(CONFIGURATOR_CC)" $(CC) $(CFLAGS) > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
 
 gen_version.h: FORCE
 	@(echo "#define VERSION \"`git describe --always --dirty`\"" && echo "#define VERSION_NAME \"$(NAME)\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
