@@ -1118,6 +1118,9 @@ class LightningDTests(BaseLightningDTests):
     def test_bitcoin_failure(self):
         l1 = self.node_factory.get_node(fake_bitcoin_cli=True)
 
+        # Make sure we're not failing it between getblockhash and getblock.
+        sync_blockheight([l1])
+
         self.fake_bitcoind_fail(l1, 1)
 
         # This should cause both estimatefee and getblockhash fail
