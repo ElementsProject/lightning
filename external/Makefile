@@ -26,22 +26,22 @@ submodcheck-%: FORCE
 
 # We build libsodium, since Ubuntu xenial has one too old.
 external/libsodium.a: external/libsodium/src/libsodium/libsodium.la
-	$(MAKE) -C external/libsodium install-exec
+	$(MAKE) -C external/libsodium DESTDIR=$$(pwd)/external install-exec
 
 external/libsodium/src/libsodium/include/sodium.h: submodcheck-libsodium
 
 external/libsodium/src/libsodium/libsodium.la: external/libsodium/src/libsodium/include/sodium.h
-	cd external/libsodium && ./autogen.sh && ./configure CC="$(CC)" --enable-static=yes --host="$(HOST)" --build="$(BUILD)" --enable-shared=no --enable-tests=no --libdir=`pwd`/.. && $(MAKE)
+	cd external/libsodium && ./autogen.sh && ./configure CC="$(CC)" --enable-static=yes --host="$(HOST)" --build="$(BUILD)" --enable-shared=no --enable-tests=no --prefix=/ --libdir=/ && $(MAKE)
 
 $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS): submodcheck-libwally-core
 
 # libsecp included in libwally.
 # Wildcards here are magic.  See http://stackoverflow.com/questions/2973445/gnu-makefile-rule-generating-a-few-targets-from-a-single-source-file
 external/libsecp256k1.% external/libwallycore.%: external/libwally-core/src/secp256k1/libsecp256k1.la external/libwally-core/src/libwallycore.la
-	$(MAKE) -C external/libwally-core install-exec
+	$(MAKE) -C external/libwally-core DESTDIR=$$(pwd)/external install-exec
 
 external/libwally-core/src/libwallycore.% external/libwally-core/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
-	cd external/libwally-core && ./tools/autogen.sh && ./configure CC="$(CC)" --enable-static=yes --host="$(HOST)" --build="$(BUILD)" --enable-module-recovery --enable-shared=no --libdir=`pwd`/.. && $(MAKE)
+	cd external/libwally-core && ./tools/autogen.sh && ./configure CC="$(CC)" --enable-static=yes --host="$(HOST)" --build="$(BUILD)" --enable-module-recovery --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
 
 external/jsmn/jsmn.h: submodcheck-jsmn
 
@@ -74,8 +74,8 @@ external/libbacktrace/backtrace.h: submodcheck-libbacktrace
 # Need separate build dir: changes inside submodule make git think it's dirty.
 external/libbacktrace.a: external/libbacktrace/backtrace.h
 	@mkdir external/libbacktrace-build 2>/dev/null || true
-	cd external/libbacktrace-build && ../libbacktrace/configure CC="$(CC)" --enable-static=yes --host="$(HOST)" --build="$(BUILD)" --enable-shared=no --libdir=`pwd`/.. && $(MAKE)
-	$(MAKE) -C external/libbacktrace-build install-exec
+	cd external/libbacktrace-build && ../libbacktrace/configure CC="$(CC)" --enable-static=yes --host="$(HOST)" --build="$(BUILD)" --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
+	$(MAKE) -C external/libbacktrace-build DESTDIR=$$(pwd)/external install-exec
 
 distclean: external-distclean
 clean: external-clean

@@ -427,9 +427,9 @@ uninstall:
 
 installcheck:
 	@rm -rf testinstall || true
-	$(MAKE) DESTDIR=testinstall install
+	$(MAKE) DESTDIR=$$(pwd)/testinstall install
 	testinstall$(bindir)/lightningd --test-daemons-only --lightning-dir=testinstall
-	$(MAKE) DESTDIR=testinstall uninstall
+	$(MAKE) DESTDIR=$$(pwd)/testinstall uninstall
 	@if test `find testinstall '!' -type d | wc -l` -ne 0; then \
 		echo 'make uninstall left some files in testinstall directory!'; \
 		exit 1; \
