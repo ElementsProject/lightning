@@ -768,11 +768,15 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	struct routing_channel *chan;
 	u64 uscid = short_channel_id_to_uint(scid);
 
+	/* There may be paths which can clean this up, eg. error processing. */
 	chan = uintmap_get(&rstate->channels, uscid);
-	assert(chan);
+	if (!chan)
+		return false;
 
 	pending = chan->pending;
-	assert(pending);
+	/* We could imagine this being cleaned up, then recreated. */
+	if (!pending)
+		return false;
 	chan->pending = NULL;
 
 	tag = tal_arr(pending, u8, 0);
