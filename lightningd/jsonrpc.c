@@ -290,6 +290,12 @@ static void connection_complete_error(struct json_connection *jcon,
 	else
 		data_str = "";
 
+    /*
+    tal_fmt translates NULL into "(null)", which is not valid JSON.
+    Prevent this by pre-emptively translating NULL into "null".
+    */
+    if(id == NULL) id = "null";
+
 	json_done(jcon, cmd, take(tal_fmt(tmpctx,
 					  "{ \"jsonrpc\": \"2.0\", "
 					  " \"error\" : "
