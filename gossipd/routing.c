@@ -414,22 +414,22 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	src = get_node(rstate, to);
 
 	if (!src) {
-		status_trace("find_route: cannot find %s",
-			     type_to_string(trc, struct pubkey, to));
+		status_info("find_route: cannot find %s",
+			    type_to_string(trc, struct pubkey, to));
 		return NULL;
 	} else if (!dst) {
-		status_trace("find_route: cannot find myself (%s)",
-			     type_to_string(trc, struct pubkey, to));
+		status_info("find_route: cannot find myself (%s)",
+			    type_to_string(trc, struct pubkey, to));
 		return NULL;
 	} else if (dst == src) {
-		status_trace("find_route: this is %s, refusing to create empty route",
-			     type_to_string(trc, struct pubkey, to));
+		status_info("find_route: this is %s, refusing to create empty route",
+			    type_to_string(trc, struct pubkey, to));
 		return NULL;
 	}
 
 	if (msatoshi >= MAX_MSATOSHI) {
-		status_trace("find_route: can't route huge amount %"PRIu64,
-			     msatoshi);
+		status_info("find_route: can't route huge amount %"PRIu64,
+			    msatoshi);
 		return NULL;
 	}
 
@@ -1248,10 +1248,9 @@ void routing_failure(struct routing_state *rstate,
 
 	node = get_node(rstate, erring_node_pubkey);
 	if (!node) {
-		status_trace("UNUSUAL routing_failure: "
-			     "Erring node %s not in map",
-			     type_to_string(tmpctx, struct pubkey,
-					    erring_node_pubkey));
+		status_unusual("routing_failure: Erring node %s not in map",
+			       type_to_string(tmpctx, struct pubkey,
+					      erring_node_pubkey));
 		/* No node, so no channel, so any channel_update
 		 * can also be ignored. */
 		goto out;
@@ -1294,27 +1293,27 @@ void routing_failure(struct routing_state *rstate,
 			if (structeq(&erring_node_pubkey->pubkey,
 				     &rstate->local_id.pubkey))
 				goto out;
-			status_trace("UNUSUAL routing_failure: "
-				     "UPDATE bit set, no channel_update. "
-				     "failcode: 0x%04x",
-				     (int) failcode);
+			status_unusual("routing_failure: "
+				       "UPDATE bit set, no channel_update. "
+				       "failcode: 0x%04x",
+				       (int) failcode);
 			goto out;
 		}
 		t = fromwire_peektype(channel_update);
 		if (t != WIRE_CHANNEL_UPDATE) {
-			status_trace("UNUSUAL routing_failure: "
-				     "not a channel_update. "
-				     "type: %d",
-				     (int) t);
+			status_unusual("routing_failure: "
+				       "not a channel_update. "
+				       "type: %d",
+				       (int) t);
 			goto out;
 		}
 		handle_channel_update(rstate, channel_update);
 	} else {
 		if (tal_len(channel_update) != 0)
-			status_trace("UNUSUAL routing_failure: "
-				     "UPDATE bit clear, channel_update given. "
-				     "failcode: 0x%04x",
-				     (int) failcode);
+			status_unusual("routing_failure: "
+				       "UPDATE bit clear, channel_update given. "
+				       "failcode: 0x%04x",
+				       (int) failcode);
 	}
 
 out:
@@ -1337,9 +1336,9 @@ void mark_channel_unroutable(struct routing_state *rstate,
 			   short_channel_id_to_uint(channel));
 
 	if (!chan) {
-		status_trace("UNUSUAL mark_channel_unroutable: "
-			     "channel %s not in routemap",
-			     scid);
+		status_unusual("mark_channel_unroutable: "
+			       "channel %s not in routemap",
+			       scid);
 		tal_free(tmpctx);
 		return;
 	}

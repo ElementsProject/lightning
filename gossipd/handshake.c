@@ -447,7 +447,7 @@ static struct io_plan *act_three_initiator(struct io_conn *conn,
 	u8 spub[PUBKEY_DER_LEN];
 	size_t len = sizeof(spub);
 
-	status_trace("Initiator: Act 3");
+	SUPERVERBOSE("Initiator: Act 3");
 
 	/* BOLT #8:
 	 *   * `c = encryptWithAD(temp_k2, 1, h, s.pub.serializeCompressed())`
@@ -589,7 +589,7 @@ static struct io_plan *act_two_initiator2(struct io_conn *conn,
 static struct io_plan *act_two_initiator(struct io_conn *conn,
 					 struct handshake *h)
 {
-	status_trace("Initiator: Act 2");
+	SUPERVERBOSE("Initiator: Act 2");
 
 	/* BOLT #8:
 	 *
@@ -609,7 +609,7 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 {
 	size_t len;
 
-	status_trace("Initiator: Act 1");
+	SUPERVERBOSE("Initiator: Act 1");
 
 	/* BOLT #8:
 	 *
@@ -770,7 +770,7 @@ static struct io_plan *act_three_responder2(struct io_conn *conn,
 static struct io_plan *act_three_responder(struct io_conn *conn,
 					   struct handshake *h)
 {
-	status_trace("Responder: Act 3");
+	SUPERVERBOSE("Responder: Act 3");
 
 	/* BOLT #8:
 	 *
@@ -786,7 +786,7 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 {
 	size_t len;
 
-	status_trace("Responder: Act 2");
+	SUPERVERBOSE("Responder: Act 2");
 
 	/* BOLT #8:
 	 *
@@ -946,7 +946,7 @@ static struct io_plan *act_one_responder(struct io_conn *conn,
 					 struct handshake *h)
 {
 
-	status_trace("Responder: Act 1");
+	SUPERVERBOSE("Responder: Act 1");
 
 	/* BOLT #8:
 	 *
