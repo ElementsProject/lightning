@@ -1122,11 +1122,11 @@ class LightningDTests(BaseLightningDTests):
 
         # This should cause both estimatefee and getblockhash fail
         l1.daemon.wait_for_logs(['estimatesmartfee .* exited with status 1',
-                                 'getblockhash .* exited with status 1'])
+                                 'getblock.* exited with status 1'])
 
         # And they should retry!
         l1.daemon.wait_for_logs(['estimatesmartfee .* exited with status 1',
-                                 'getblockhash .* exited with status 1'])
+                                 'getblock.* exited with status 1'])
 
         # Restore, then it should recover and get blockheight.
         self.fake_bitcoind_unfail(l1)
