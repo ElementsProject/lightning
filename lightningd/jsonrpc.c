@@ -39,7 +39,7 @@ static void destroy_jcon(struct json_connection *jcon)
 	struct command *cmd;
 
 	list_for_each(&jcon->commands, cmd, list) {
-		log_unusual(jcon->log, "Abandoning command");
+		log_debug(jcon->log, "Abandoning command");
 		cmd->jcon = NULL;
 	}
 
@@ -394,7 +394,7 @@ void command_success(struct command *cmd, struct json_result *result)
 	struct json_connection *jcon = cmd->jcon;
 
 	if (!jcon) {
-		log_unusual(cmd->ld->log,
+		log_debug(cmd->ld->log,
 			    "Command returned result after jcon close");
 		tal_free(cmd);
 		return;
