@@ -851,18 +851,15 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	return local && forward;
 }
 
-/* Return true if this is an update to a pending announcement (and queue it) */
-static bool update_to_pending(struct routing_state *rstate,
-			      const struct short_channel_id *scid,
-			      u32 timestamp, const u8 *update,
-			      const u8 direction)
+static void update_pending(struct routing_channel *chan,
+			   u32 timestamp, const u8 *update,
+			   const u8 direction)
 {
-	u64 uscid = short_channel_id_to_uint(scid);
-	struct routing_channel *chan = uintmap_get(&rstate->channels, uscid);
-	struct pending_cannouncement *pending = chan?chan->pending:NULL;
+	struct pending_cannouncement *pending = chan->pending;
 
-	if (!pending)
-		return false;
+	SUPERVERBOSE("Deferring update for pending channel %s(%d)",
+		     type_to_string(trc, struct short_channel_id,
+				    &short_channel_id), direction);
 
 	if (pending->update_timestamps[direction] < timestamp) {
 		if (pending->updates[direction]) {
@@ -872,7 +869,6 @@ static bool update_to_pending(struct routing_state *rstate,
 		pending->updates[direction] = tal_dup_arr(pending, u8, update, tal_len(update), 0);
 		pending->update_timestamps[direction] = timestamp;
 	}
-	return true;
 }
 
 void handle_channel_update(struct routing_state *rstate, const u8 *update)
@@ -917,25 +913,35 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 		return;
 	}
 
-	if (update_to_pending(rstate, &short_channel_id, timestamp,serialized, direction)) {
-		SUPERVERBOSE("Deferring update for pending channel %s(%d)",
-			     type_to_string(trc, struct short_channel_id,
-					    &short_channel_id), direction);
-		tal_free(tmpctx);
-		return;
-	}
-
-	c = get_connection_by_scid(rstate, &short_channel_id, direction);
 	chan = uintmap_get(&rstate->channels,
 			   short_channel_id_to_uint(&short_channel_id));
-
-	if (!c) {
+	if (!chan) {
 		SUPERVERBOSE("Ignoring update for unknown channel %s",
 			     type_to_string(trc, struct short_channel_id,
 					    &short_channel_id));
 		tal_free(tmpctx);
 		return;
-	} else if (c->last_timestamp >= timestamp) {
+	}
+
+	if (chan->pending) {
+		update_pending(chan, timestamp, serialized, direction);
+		tal_free(tmpctx);
+		return;
+	}
+
+	c = chan->connections[direction];
+
+	/* When we local_add_channel(), we only half-populate, so this case
+	 * is possible. */
+	if (!c) {
+		SUPERVERBOSE("Ignoring update for unknown half channel %s",
+			     type_to_string(trc, struct short_channel_id,
+					    &short_channel_id));
+		tal_free(tmpctx);
+		return;
+	}
+
+	if (c->last_timestamp >= timestamp) {
 		SUPERVERBOSE("Ignoring outdated update.");
 		tal_free(tmpctx);
 		return;
