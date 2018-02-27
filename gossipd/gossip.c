@@ -901,10 +901,16 @@ static struct io_plan *nonlocal_dump_gossip(struct io_conn *conn, struct daemon_
 	/* Make sure we are not connected directly */
 	assert(!peer->local);
 
+	/* Nothing to do if we're not gossiping */
+	if (!peer->gossip_sync)
+		return msg_queue_wait(conn, &peer->remote->out,
+				      daemon_conn_write_next, dc);
+
 	next = next_broadcast_message(peer->daemon->rstate->broadcasts,
 				      peer->broadcast_index);
 
 	if (!next) {
+		peer->gossip_sync = false;
 		return msg_queue_wait(conn, &peer->remote->out,
 				      daemon_conn_write_next, dc);
 	} else {
