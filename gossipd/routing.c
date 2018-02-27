@@ -134,8 +134,7 @@ static void destroy_node(struct node *node, struct routing_state *rstate)
 		tal_free(node->out[0]);
 }
 
-static struct node *get_node(struct routing_state *rstate,
-		      const struct pubkey *id)
+struct node *get_node(struct routing_state *rstate, const struct pubkey *id)
 {
 	return node_map_get(rstate->nodes, &id->pubkey);
 }
