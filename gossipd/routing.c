@@ -123,8 +123,10 @@ bool node_map_node_eq(const struct node *n, const secp256k1_pubkey *key)
 	return structeq(&n->id.pubkey, key);
 }
 
-static void destroy_node(struct node *node)
+static void destroy_node(struct node *node, struct routing_state *rstate)
 {
+	node_map_del(rstate->nodes, node);
+
 	/* These remove themselves from the array. */
 	while (tal_count(node->in))
 		tal_free(node->in[0]);
@@ -155,7 +157,7 @@ static struct node *new_node(struct routing_state *rstate,
 	n->last_timestamp = -1;
 	n->addresses = tal_arr(n, struct wireaddr, 0);
 	node_map_add(rstate->nodes, n);
-	tal_add_destructor(n, destroy_node);
+	tal_add_destructor2(n, destroy_node, rstate);
 
 	return n;
 }

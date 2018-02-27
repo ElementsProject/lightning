@@ -1303,7 +1303,7 @@ static void gossip_prune_network(struct daemon *daemon)
 	/* Anything below this highwater mark ought to be pruned */
 	s64 highwater = now - 2*daemon->update_channel_interval;
 	struct node *n;
-	struct node **prunednodes;
+	const tal_t *pruned = tal_tmpctx(daemon);
 
 	/* Schedule next run now */
 	new_reltimer(&daemon->timers, daemon,
@@ -1367,24 +1367,16 @@ static void gossip_prune_network(struct daemon *daemon)
 	}
 
 	/* Finally remove all nodes that do not have any edges
-	 * anymore. Accumulate into prunednodes, and delete in the
-	 * second loop. */
-	prunednodes = tal_arr(n, struct node*, 0);
+	 * anymore. Reparent onto pruned, then free them all. */
 	for (n = node_map_first(daemon->rstate->nodes, &it); n;
 	     n = node_map_next(daemon->rstate->nodes, &it)) {
 		if (tal_count(n->in) == 0 && tal_count(n->out) == 0) {
-			size_t count = tal_count(prunednodes);
-			tal_resize(&prunednodes, count + 1);
-			prunednodes[count] = n;
+			tal_steal(pruned, n);
 		}
 	}
 
-	for (size_t i=0; i<tal_count(prunednodes); i++) {
-		node_map_del(daemon->rstate->nodes, prunednodes[i]);
-		tal_free(prunednodes[i]);
-	}
-
-	tal_free(prunednodes);
+	/* This frees all the nodes. */
+	tal_free(pruned);
 }
 
 static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon)
