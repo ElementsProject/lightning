@@ -1223,20 +1223,20 @@ static int make_listen_fd(int domain, void *addr, socklen_t len, bool reportfail
 
 		/* Re-use, please.. */
 		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)))
-			status_trace("Failed setting socket reuse: %s",
-				     strerror(errno));
+			status_unusual("Failed setting socket reuse: %s",
+				       strerror(errno));
 
 		if (bind(fd, addr, len) != 0) {
 			if (reportfail)
-				status_trace("Failed to bind on %u socket: %s",
-					     domain, strerror(errno));
+				status_broken("Failed to bind on %u socket: %s",
+					      domain, strerror(errno));
 			goto fail;
 		}
 	}
 
 	if (listen(fd, 5) != 0) {
-		status_trace("Failed to listen on %u socket: %s",
-			     domain, strerror(errno));
+		status_broken("Failed to listen on %u socket: %s",
+			      domain, strerror(errno));
 		goto fail;
 	}
 	return fd;
@@ -1386,7 +1386,8 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 	socklen_t len = sizeof(s);
 
 	if (getpeername(io_conn_fd(conn), (struct sockaddr *)&s, &len) != 0) {
-		status_trace("Failed to get peername for incoming conn");
+		status_unusual("Failed to get peername for incoming conn: %s",
+			       strerror(errno));
 		return io_close(conn);
 	}
 
@@ -1404,9 +1405,9 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 		BUILD_ASSERT(sizeof(s4->sin_addr) <= sizeof(addr.addr));
 		memcpy(addr.addr, &s4->sin_addr, addr.addrlen);
 		addr.port = ntohs(s4->sin_port);
-	} else  {
-		status_trace("Unknown socket type %i for incoming conn",
-			     s.ss_family);
+	} else {
+		status_broken("Unknown socket type %i for incoming conn",
+			      s.ss_family);
 		return io_close(conn);
 	}
 
@@ -1423,7 +1424,7 @@ static void setup_listeners(struct daemon *daemon, u16 portnum)
 	int fd1, fd2;
 
 	if (!portnum) {
-		status_trace("Zero portnum, not listening for incoming");
+		status_info("Zero portnum, not listening for incoming");
 		return;
 	}
 
@@ -1444,8 +1445,8 @@ static void setup_listeners(struct daemon *daemon, u16 portnum)
 
 		len = sizeof(in6);
 		if (getsockname(fd1, (void *)&in6, &len) != 0) {
-			status_trace("Failed get IPv6 sockname: %s",
-				     strerror(errno));
+			status_broken("Failed get IPv6 sockname: %s",
+				      strerror(errno));
 			close_noerr(fd1);
 			fd1 = -1;
 		} else {
@@ -1462,8 +1463,8 @@ static void setup_listeners(struct daemon *daemon, u16 portnum)
 	if (fd2 >= 0) {
 		len = sizeof(addr);
 		if (getsockname(fd2, (void *)&addr, &len) != 0) {
-			status_trace("Failed get IPv4 sockname: %s",
-				     strerror(errno));
+			status_broken("Failed get IPv4 sockname: %s",
+				      strerror(errno));
 			close_noerr(fd2);
 			fd2 = -1;
 		} else {
@@ -1568,9 +1569,9 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 	reach->attempts++;
 
 	if (reach->attempts >= reach->max_attempts) {
-		status_trace("Failed to connect after %d attempts, giving up "
-			     "after %d seconds",
-			     reach->attempts, diff);
+		status_info("Failed to connect after %d attempts, giving up "
+			    "after %d seconds",
+			    reach->attempts, diff);
 		daemon_conn_send(
 		    &reach->daemon->master,
 		    take(towire_gossip_peer_connection_failed(
@@ -1641,9 +1642,8 @@ static void try_connect(struct reaching *reach)
 	a = find_addrhint(reach->daemon, &reach->id);
 	if (!a) {
 		/* FIXME: now try node table, dns lookups... */
-		/* FIXME: add reach_failed message */
-		status_trace("No address known for %s, giving up",
-			     type_to_string(trc, struct pubkey, &reach->id));
+		status_info("No address known for %s, giving up",
+			    type_to_string(trc, struct pubkey, &reach->id));
 		daemon_conn_send(
 		    &reach->daemon->master,
 		    take(towire_gossip_peer_connection_failed(
@@ -1669,10 +1669,10 @@ static void try_connect(struct reaching *reach)
 	}
 
 	if (fd < 0) {
-		status_trace("Can't open %i socket for %s (%s), giving up",
-			     a->addr.type,
-			     type_to_string(trc, struct pubkey, &reach->id),
-			     strerror(errno));
+		status_broken("Can't open %i socket for %s (%s), giving up",
+			      a->addr.type,
+			      type_to_string(trc, struct pubkey, &reach->id),
+			      strerror(errno));
 		tal_free(reach);
 		return;
 	}
@@ -1812,8 +1812,8 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 	u64 htlc_minimum_msat;
 
 	if (!fromwire_gossip_disable_channel(msg, &scid, &direction, &active) ) {
-		status_trace("Unable to parse %s",
-			     gossip_wire_type_name(fromwire_peektype(msg)));
+		status_unusual("Unable to parse %s",
+			      gossip_wire_type_name(fromwire_peektype(msg)));
 		goto fail;
 	}
 
