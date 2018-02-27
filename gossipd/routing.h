@@ -175,6 +175,9 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 void handle_channel_update(struct routing_state *rstate, const u8 *update);
 void handle_node_announcement(struct routing_state *rstate, const u8 *node);
 
+/* Get a node: use this instead of node_map_get() */
+struct node *get_node(struct routing_state *rstate, const struct pubkey *id);
+
 /* Compute a route to a destination, for a given amount and riskfactor. */
 struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 			    const struct pubkey *source,

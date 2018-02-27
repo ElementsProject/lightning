@@ -722,7 +722,7 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 	}
 
 	/* We want update than comes from our end. */
-	us = node_map_get(peer->daemon->rstate->nodes, &peer->daemon->id.pubkey);
+	us = get_node(peer->daemon->rstate, &peer->daemon->id);
 	if (!us) {
 		status_trace("peer %s schanid %s but can't find ourselves",
 			     type_to_string(trc, struct pubkey, &peer->id),
@@ -1149,7 +1149,7 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 	nodes = tal_arr(tmpctx, const struct gossip_getnodes_entry *, 0);
 	if (ids) {
 		for (size_t i = 0; i < tal_count(ids); i++) {
-			n = node_map_get(daemon->rstate->nodes, &ids[i].pubkey);
+			n = get_node(daemon->rstate, &ids[i]);
 			if (n)
 				append_node(&nodes, n);
 		}
@@ -1311,7 +1311,7 @@ static void gossip_prune_network(struct daemon *daemon)
 		     gossip_prune_network, daemon);
 
 	/* Find myself in the network */
-	n = node_map_get(daemon->rstate->nodes, &daemon->id.pubkey);
+	n = get_node(daemon->rstate, &daemon->id);
 	if (n) {
 		/* Iterate through all outgoing connection and check whether
 		 * it's time to re-announce */
