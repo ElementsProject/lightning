@@ -806,7 +806,7 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 }
 
 /**
- * owner_msg_in - Called by the `peer->owner_conn` upon receiving a
+ * owner_msg_in - Called by the `peer->remote` upon receiving a
  * message
  */
 static struct io_plan *owner_msg_in(struct io_conn *conn,
@@ -890,7 +890,7 @@ static struct io_plan *nonlocal_gossip_broadcast_done(struct io_conn *conn,
 /**
  * nonlocal_dump_gossip - catch the nonlocal peer up with the latest gossip.
  *
- * Registered as `msg_queue_cleared_cb` by the `peer->owner_conn`.
+ * Registered as `msg_queue_cleared_cb` by the `peer->remote`.
  */
 static struct io_plan *nonlocal_dump_gossip(struct io_conn *conn, struct daemon_conn *dc)
 {
