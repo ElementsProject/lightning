@@ -2,6 +2,7 @@ FROM ubuntu:16.04
 MAINTAINER Christian Decker <decker.christian@gmail.com>
 
 ENV DEBIAN_FRONTEND noninteractive
+ENV BITCOIN_VERSION 0.16.0
 WORKDIR /build
 
 RUN apt-get -qq update && \
@@ -30,10 +31,11 @@ RUN apt-get -qq update && \
 	rm -rf /var/lib/apt/lists/*
 
 RUN cd /tmp/ && \
-    wget https://bitcoin.org/bin/bitcoin-core-0.15.1/bitcoin-0.15.1-x86_64-linux-gnu.tar.gz -O bitcoin.tar.gz && \
+    VER=$BITCOIN_VERSION && \
+    wget https://bitcoin.org/bin/bitcoin-core-$VER/bitcoin-$VER-x86_64-linux-gnu.tar.gz -O bitcoin.tar.gz && \
     tar -xvzf bitcoin.tar.gz && \
-    mv /tmp/bitcoin-0.15.1/bin/bitcoin* /usr/local/bin/ && \
-    rm -rf bitcoin.tar.gz /tmp/bitcoin-0.15.1
+    mv /tmp/bitcoin-$VER/bin/bitcoin* /usr/local/bin/ && \
+    rm -rf bitcoin.tar.gz /tmp/bitcoin-$VER
 
 RUN pip3 install --upgrade pip && \
     pip3 install python-bitcoinlib==0.7.0 pytest==3.0.5 setuptools==36.6.0 pytest-test-groups==1.0.3 flake8==3.5.0 pytest-rerunfailures==3.1
