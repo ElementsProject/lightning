@@ -89,15 +89,8 @@ HTABLE_DEFINE_TYPE(struct node, node_map_keyof_node, node_map_hash_key, node_map
 struct pending_node_map;
 struct pending_cannouncement;
 
-enum txout_state {
-	TXOUT_FETCHING,
-	TXOUT_PRESENT,
-	TXOUT_MISSING
-};
-
 struct routing_channel {
 	struct short_channel_id scid;
-	enum txout_state state;
 	u8 *txout_script;
 
 	struct node_connection *connections[2];
