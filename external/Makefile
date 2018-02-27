@@ -82,6 +82,9 @@ clean: external-clean
 
 external-clean:
 	$(RM) $(EXTERNAL_LIBS) external/*.la external/*.o
+	make -C external/libsodium clean
+	make -C external/libwally-core clean
+	make -C external/libwally-core/src clean
 
 external-distclean:
 	make -C external/libsodium distclean || true
