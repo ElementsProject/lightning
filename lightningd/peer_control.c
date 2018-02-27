@@ -588,10 +588,11 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 	/* This is a little sneaky... */
 	struct pubkey *ids;
 	struct wireaddr *addrs;
+	struct gossip_getnodes_entry **nodes;
 	struct json_result *response = new_json_result(gpa->cmd);
 	struct peer *p;
 
-	if (!fromwire_gossip_getpeers_reply(msg, msg, &ids, &addrs)) {
+	if (!fromwire_gossip_getpeers_reply(msg, msg, &ids, &addrs, &nodes)) {
 		command_fail(gpa->cmd, "Bad response from gossipd");
 		return;
 	}
@@ -620,6 +621,17 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 							       struct wireaddr,
 							       &p->addr));
 			json_array_end(response);
+		}
+
+		for (size_t i = 0; i < tal_count(nodes); i++) {
+			/* If no addresses, then this node announcement hasn't been recieved yet
+			 * So no alias information either.
+			 */
+			if (nodes[i]->addresses != NULL && pubkey_eq(&nodes[i]->nodeid, &p->id)) {
+				json_add_string_escape(response, "alias", (char*)nodes[i]->alias);
+				json_add_hex(response, "color", nodes[i]->color, ARRAY_SIZE(nodes[i]->color));
+				break;
+			}
 		}
 
 		json_array_start(response, "channels");
@@ -690,6 +702,13 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 		/* Fake state. */
 		json_add_string(response, "state", "GOSSIPING");
 		json_add_pubkey(response, "id", ids+i);
+		for (size_t j = 0; j < tal_count(nodes); j++) {
+			if (nodes[j]->addresses != NULL && pubkey_eq(&nodes[j]->nodeid, ids+i)) {
+				json_add_string_escape(response, "alias", (char*)nodes[j]->alias);
+				json_add_hex(response, "color", nodes[j]->color, ARRAY_SIZE(nodes[j]->color));
+				break;
+			}
+		}
 		json_array_start(response, "netaddr");
 		if (addrs[i].type != ADDR_TYPE_PADDING)
 			json_add_string(response, NULL,

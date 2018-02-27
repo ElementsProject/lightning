@@ -1769,11 +1769,14 @@ static struct io_plan *get_peers(struct io_conn *conn,
 	size_t n = 0;
 	struct pubkey *id = tal_arr(conn, struct pubkey, n);
 	struct wireaddr *wireaddr = tal_arr(conn, struct wireaddr, n);
+	const struct gossip_getnodes_entry **nodes;
 	struct pubkey *specific_id = NULL;
+	struct node_map_iter it;
 
 	if (!fromwire_gossip_getpeers_request(msg, msg, &specific_id))
 		master_badmsg(WIRE_GOSSIPCTL_PEER_ADDRHINT, msg);
 
+	nodes = tal_arr(conn, const struct gossip_getnodes_entry*, 0);
 	list_for_each(&daemon->peers, peer, list) {
 		if (specific_id && !pubkey_eq(specific_id, &peer->id))
 			continue;
@@ -1782,11 +1785,19 @@ static struct io_plan *get_peers(struct io_conn *conn,
 
 		id[n] = peer->id;
 		wireaddr[n] = peer->addr;
+
+		struct node* nd = NULL;
+		for (nd = node_map_first(daemon->rstate->nodes, &it); nd; nd = node_map_next(daemon->rstate->nodes, &it)) {
+			if (pubkey_eq(&nd->id, &peer->id)) {
+				append_node(&nodes, nd);
+				break;
+			}
+		}
 		n++;
 	}
 
 	daemon_conn_send(&daemon->master,
-			 take(towire_gossip_getpeers_reply(conn, id, wireaddr)));
+			 take(towire_gossip_getpeers_reply(conn, id, wireaddr, nodes)));
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
