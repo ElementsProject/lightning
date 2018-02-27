@@ -589,7 +589,6 @@ struct routing_channel *routing_channel_new(const tal_t *ctx,
 	chan->connections[0] = chan->connections[1] = NULL;
 	chan->nodes[0] = chan->nodes[1] = NULL;
 	chan->txout_script = NULL;
-	chan->state = TXOUT_FETCHING;
 	chan->public = false;
 	memset(&chan->msg_indexes, 0, sizeof(chan->msg_indexes));
 	return chan;
