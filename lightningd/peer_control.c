@@ -1086,6 +1086,15 @@ static void json_dev_forget_channel(struct command *cmd, const char *buffer,
 		return;
 	}
 
+	if (channel_has_htlc_out(forget->channel) ||
+	    channel_has_htlc_in(forget->channel)) {
+		command_fail(cmd, "This channel has HTLCs attached and it is "
+				  "not safe to forget it. Please use `close` "
+				  "or `dev-fail` instead.");
+		return;
+
+	}
+
 	bitcoind_gettxout(cmd->ld->topology->bitcoind,
 			  &forget->channel->funding_txid,
 			  forget->channel->funding_outnum,
