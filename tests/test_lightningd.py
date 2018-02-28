@@ -3213,7 +3213,7 @@ class LightningDTests(BaseLightningDTests):
         # Create invoices
         inv1 = l2.rpc.invoice(1000, 'inv1', 'inv1')
         inv2 = l2.rpc.invoice(1000, 'inv2', 'inv2')
-        inv3 = l2.rpc.invoice(1000, 'inv3', 'inv3')
+        l2.rpc.invoice(1000, 'inv3', 'inv3')
 
         # Start waiting on invoice 3
         f3 = self.executor.submit(l2.rpc.waitinvoice, 'inv3')
