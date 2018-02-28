@@ -263,7 +263,7 @@ static void connection_complete_ok(struct json_connection *jcon,
 				   const char *id,
 				   const struct json_result *result)
 {
-    assert(id != NULL);
+	assert(id != NULL);
 
 	/* This JSON is simple enough that we build manually */
 	json_done(jcon, cmd, take(tal_fmt(jcon,
@@ -292,7 +292,7 @@ static void connection_complete_error(struct json_connection *jcon,
 	else
 		data_str = "";
 
-    assert(id != NULL);
+	assert(id != NULL);
 
 	json_done(jcon, cmd, take(tal_fmt(tmpctx,
 					  "{ \"jsonrpc\": \"2.0\", "
