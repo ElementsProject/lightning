@@ -200,6 +200,8 @@ char *dbmigrations[] = {
     "DELETE FROM peers WHERE id NOT IN (SELECT peer_id FROM channels);",
     /* The ONCHAIND_CHEATED/THEIR_UNILATERAL/OUR_UNILATERAL/MUTUAL are now one */
     "UPDATE channels SET STATE = 8 WHERE state > 8;",
+    /* Add bolt11 to invoices table*/
+    "ALTER TABLE invoices ADD bolt11 TEXT;",
     NULL,
 };
 
