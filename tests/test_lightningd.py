@@ -50,11 +50,18 @@ def setupBitcoind(directory):
         teardown_bitcoind()
         raise
 
+    info = bitcoind.rpc.getnetworkinfo()
+
+    if info['version'] < 160000:
+        bitcoind.rpc.stop()
+        raise ValueError("bitcoind is too old. At least version 16000 (v0.16.0)"
+                         " is needed, current version is {}".format(info['version']))
+
     info = bitcoind.rpc.getblockchaininfo()
     # Make sure we have segwit and some funds
-    if info['blocks'] < 432:
+    if info['blocks'] < 121:
         logging.debug("SegWit not active, generating some more blocks")
-        bitcoind.generate_block(432 - info['blocks'])
+        bitcoind.generate_block(121 - info['blocks'])
     elif bitcoind.rpc.getwalletinfo()['balance'] < 1:
         logging.debug("Insufficient balance, generating 1 block")
         bitcoind.generate_block(1)
@@ -3326,10 +3333,10 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.start()
 
         # Now they should sync and re-establish again
-        l1.daemon.wait_for_logs(['Received channel_update for channel 434:1:1.1.',
-                                 'Received channel_update for channel 434:1:1.0.'])
-        l2.daemon.wait_for_logs(['Received channel_update for channel 434:1:1.1.',
-                                 'Received channel_update for channel 434:1:1.0.'])
+        l1.daemon.wait_for_logs(['Received channel_update for channel \\d+:1:1.1.',
+                                 'Received channel_update for channel \\d+:1:1.0.'])
+        l2.daemon.wait_for_logs(['Received channel_update for channel \\d+:1:1.1.',
+                                 'Received channel_update for channel \\d+:1:1.0.'])
         wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True, True])
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
