@@ -19,34 +19,53 @@ void channel_set_owner(struct channel *channel, struct subd *owner)
 		subd_release_channel(old_owner, channel);
 }
 
-static void destroy_channel(struct channel *channel)
+struct htlc_out *channel_has_htlc_out(struct channel *channel)
 {
-	/* Must not have any HTLCs! */
 	struct htlc_out_map_iter outi;
 	struct htlc_out *hout;
-	struct htlc_in_map_iter ini;
-	struct htlc_in *hin;
 	struct lightningd *ld = channel->peer->ld;
 
 	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
 	     hout;
 	     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
-		if (hout->key.channel != channel)
-			continue;
-		fatal("Freeing channel %s has hout %s",
-		      channel_state_name(channel),
-		      htlc_state_name(hout->hstate));
+		if (hout->key.channel == channel)
+			return hout;
 	}
+
+	return NULL;
+}
+
+struct htlc_in *channel_has_htlc_in(struct channel *channel)
+{
+	struct htlc_in_map_iter ini;
+	struct htlc_in *hin;
+	struct lightningd *ld = channel->peer->ld;
 
 	for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
 	     hin;
 	     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
-		if (hin->key.channel != channel)
-			continue;
+		if (hin->key.channel == channel)
+			return hin;
+	}
+
+	return NULL;
+}
+
+static void destroy_channel(struct channel *channel)
+{
+	/* Must not have any HTLCs! */
+	struct htlc_out *hout = channel_has_htlc_out(channel);
+	struct htlc_in *hin = channel_has_htlc_in(channel);
+
+	if (hout)
+		fatal("Freeing channel %s has hout %s",
+		      channel_state_name(channel),
+		      htlc_state_name(hout->hstate));
+
+	if (hin)
 		fatal("Freeing channel %s has hin %s",
 		      channel_state_name(channel),
 		      htlc_state_name(hin->hstate));
-	}
 
 	/* Free any old owner still hanging around. */
 	channel_set_owner(channel, NULL);
