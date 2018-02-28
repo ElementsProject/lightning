@@ -4,6 +4,7 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/bolt11.h>
+#include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <gossipd/routing.h>
@@ -122,14 +123,49 @@ static void json_pay_failure(struct pay *pay,
 	command_fail_detailed(pay->cmd, r->errorcode, data, "%s", msg);
 }
 
+/* Determine if we should delay before retrying. Return a reason
+ * string, or NULL if we will not retry */
+static const char *should_delay_retry(const tal_t *ctx,
+				      const struct sendpay_result *r)
+{
+	/* The routing failures WIRE_EXPIRY_TOO_FAR, WIRE_EXPIRY_TOO_SOON,
+	 * and WIRE_FINAL_EXPIRY_TOO_SOON may arise due to disagreement
+	 * between the peers about what the block heights are. So
+	 * delay for those before retrying. */
+	if (!r->succeeded && r->errorcode == PAY_TRY_OTHER_ROUTE) {
+		switch (r->routing_failure->failcode) {
+		case WIRE_EXPIRY_TOO_FAR:
+		case WIRE_EXPIRY_TOO_SOON:
+		case WIRE_FINAL_EXPIRY_TOO_SOON:
+			return tal_fmt(ctx,
+				       "Possible blockheight disagreement "
+				       "(%s from peer)",
+				       onion_type_name(r->routing_failure->failcode));
+
+		default:
+			/* Do nothing */ ;
+		}
+	}
+
+	return NULL;
+}
+
 /* Start a payment attempt. */
 static bool json_pay_try(struct pay *pay);
+
+/* Used when delaying. */
+static void do_pay_try(struct pay *pay)
+{
+	log_info(pay->cmd->ld->log, "pay(%p): Try another route", pay);
+	json_pay_try(pay);
+}
 
 /* Call when sendpay returns to us. */
 static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 				     void *vpay)
 {
 	struct pay *pay = (struct pay *) vpay;
+	char const *why;
 
 	/* If we succeed, hurray */
 	if (r->succeeded) {
@@ -148,8 +184,19 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 		return;
 	}
 
-	log_info(pay->cmd->ld->log, "pay(%p): Try another route", pay);
-	json_pay_try(pay);
+	/* Should retry here, question is whether to retry now or later */
+
+	why = should_delay_retry(pay->try_parent, r);
+	if (why) {
+		log_info(pay->cmd->ld->log,
+			 "pay(%p): Delay before retry: %s", pay, why);
+		/* Delay for 3 seconds if needed. FIXME: random
+		 * exponential backoff */
+		new_reltimer(&pay->cmd->ld->timers, pay->try_parent,
+			     time_from_sec(3),
+			     &do_pay_try, pay);
+	} else
+		do_pay_try(pay);
 }
 
 /* Generates a string describing the route. Route should be a
