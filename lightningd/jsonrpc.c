@@ -263,6 +263,8 @@ static void connection_complete_ok(struct json_connection *jcon,
 				   const char *id,
 				   const struct json_result *result)
 {
+    assert(id != NULL);
+
 	/* This JSON is simple enough that we build manually */
 	json_done(jcon, cmd, take(tal_fmt(jcon,
 					  "{ \"jsonrpc\": \"2.0\", "
@@ -290,11 +292,7 @@ static void connection_complete_error(struct json_connection *jcon,
 	else
 		data_str = "";
 
-    /*
-    tal_fmt translates NULL into "(null)", which is not valid JSON.
-    Prevent this by pre-emptively translating NULL into "null".
-    */
-    if(id == NULL) id = "null";
+    assert(id != NULL);
 
 	json_done(jcon, cmd, take(tal_fmt(tmpctx,
 					  "{ \"jsonrpc\": \"2.0\", "
@@ -691,7 +689,7 @@ again:
 				    "Invalid token in json input: '%.*s'",
 				    (int)jcon->used, jcon->buffer);
 			json_command_malformed(
-			    jcon, NULL,
+			    jcon, "null",
 			    "Invalid token in json input");
 			return io_halfclose(conn);
 		}
