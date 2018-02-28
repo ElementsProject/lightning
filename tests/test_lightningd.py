@@ -52,9 +52,9 @@ def setupBitcoind(directory):
 
     info = bitcoind.rpc.getblockchaininfo()
     # Make sure we have segwit and some funds
-    if info['blocks'] < 432:
+    if info['blocks'] < 100:
         logging.debug("SegWit not active, generating some more blocks")
-        bitcoind.generate_block(432 - info['blocks'])
+        bitcoind.generate_block(100 - info['blocks'])
     elif bitcoind.rpc.getwalletinfo()['balance'] < 1:
         logging.debug("Insufficient balance, generating 1 block")
         bitcoind.generate_block(1)
