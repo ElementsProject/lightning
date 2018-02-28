@@ -4,6 +4,7 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <ccan/take/take.h>
+#include <bitcoin/preimage.h>
 
 struct db;
 struct invoice;
@@ -55,7 +56,10 @@ bool invoices_create(struct invoices *invoices,
 		     struct invoice *pinvoice,
 		     u64 *msatoshi TAKES,
 		     const char *label TAKES,
-		     u64 expiry);
+		     u64 expiry,
+		     const char *b11enc,
+		     const struct preimage *r,
+		     const struct sha256 *rhash);
 
 /**
  * invoices_find_by_label - Search for an invoice by label

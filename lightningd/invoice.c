@@ -34,6 +34,7 @@ static void json_add_invoice(struct json_result *response,
 {
 	json_object_start(response, NULL);
 	json_add_string(response, "label", inv->label);
+	json_add_string(response, "bolt11", inv->bolt11);
 	json_add_hex(response, "payment_hash", &inv->rhash, sizeof(inv->rhash));
 	if (inv->msatoshi)
 		json_add_u64(response, "msatoshi", *inv->msatoshi);
@@ -193,25 +194,18 @@ static void json_invoice(struct command *cmd,
 		}
 	}
 
+	struct preimage r;
+	struct sha256 rhash;
 
-	result = wallet_invoice_create(cmd->ld->wallet,
-				       &invoice,
-				       take(msatoshi_val),
-				       take(label_val),
-				       expiry);
-	if (!result) {
-		command_fail(cmd, "Failed to create invoice on database");
-		return;
-	}
-
-	/* Get details */
-	wallet_invoice_details(cmd, cmd->ld->wallet, invoice, &details);
+	/* Generate random secret preimage and hash. */
+	randombytes_buf(r.r, sizeof(r.r));
+	sha256(&rhash, r.r, sizeof(r.r));
 
 	/* Construct bolt11 string. */
-	b11 = new_bolt11(cmd, details.msatoshi);
+	b11 = new_bolt11(cmd, msatoshi_val);
 	b11->chain = get_chainparams(cmd->ld);
 	b11->timestamp = time_now().ts.tv_sec;
-	b11->payment_hash = details.rhash;
+	b11->payment_hash = rhash;
 	b11->receiver_id = cmd->ld->id;
 	b11->min_final_cltv_expiry = cmd->ld->config.cltv_final;
 	b11->expiry = expiry;
@@ -223,13 +217,30 @@ static void json_invoice(struct command *cmd,
 	/* FIXME: add private routes if necessary! */
 	b11enc = bolt11_encode(cmd, b11, false, hsm_sign_b11, cmd->ld);
 
+	result = wallet_invoice_create(cmd->ld->wallet,
+				       &invoice,
+				       take(msatoshi_val),
+				       take(label_val),
+				       expiry,
+				       b11enc,
+				       &r,
+				       &rhash);
+
+	if (!result) {
+		   command_fail(cmd, "Failed to create invoice on database");
+		   return;
+	}
+
+	/* Get details */
+	wallet_invoice_details(cmd, cmd->ld->wallet, invoice, &details);
+
 	json_object_start(response, NULL);
 	json_add_hex(response, "payment_hash",
 		     &details.rhash, sizeof(details.rhash));
 	if (deprecated_apis)
 		json_add_u64(response, "expiry_time", details.expiry_time);
 	json_add_u64(response, "expires_at", details.expiry_time);
-	json_add_string(response, "bolt11", b11enc);
+	json_add_string(response, "bolt11", details.bolt11);
 	json_object_end(response);
 
 	command_success(cmd, response);
