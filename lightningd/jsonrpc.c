@@ -413,8 +413,8 @@ static void command_fail_v(struct command *cmd,
 	struct json_connection *jcon = cmd->jcon;
 
 	if (!jcon) {
-		log_unusual(cmd->ld->log,
-			    "Command failed after jcon close");
+		log_debug(cmd->ld->log,
+			  "Command failed after jcon close");
 		tal_free(cmd);
 		return;
 	}
