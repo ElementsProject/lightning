@@ -199,4 +199,8 @@ void derive_channel_seed(struct lightningd *ld, struct privkey *seed,
 
 void channel_set_billboard(struct channel *channel, bool perm,
 			   const char *str TAKES);
+
+struct htlc_in *channel_has_htlc_in(struct channel *channel);
+struct htlc_out *channel_has_htlc_out(struct channel *channel);
+
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_H */
