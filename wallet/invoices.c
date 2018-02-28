@@ -117,6 +117,7 @@ static void wallet_stmt2invoice_details(const tal_t *ctx,
 		dtl->paid_timestamp = sqlite3_column_int64(stmt, 8);
 	}
 
+	dtl->bolt11 = tal_strndup(ctx, sqlite3_column_blob(stmt, 9), sqlite3_column_bytes(stmt, 9));
 	return;
 }
 
@@ -263,12 +264,13 @@ bool invoices_create(struct invoices *invoices,
 		     struct invoice *pinvoice,
 		     u64 *msatoshi TAKES,
 		     const char *label TAKES,
-		     u64 expiry)
+		     u64 expiry,
+		     const char *b11enc,
+		     const struct preimage *r,
+		     const struct sha256 *rhash)
 {
 	sqlite3_stmt *stmt;
 	struct invoice dummy;
-	struct preimage r;
-	struct sha256 rhash;
 	u64 expiry_time;
 	u64 now = time_now().ts.tv_sec;
 
@@ -282,9 +284,6 @@ bool invoices_create(struct invoices *invoices,
 
 	/* Compute expiration. */
 	expiry_time = now + expiry;
-	/* Generate random secret preimage and hash. */
-	randombytes_buf(r.r, sizeof(r.r));
-	sha256(&rhash, r.r, sizeof(r.r));
 
 	/* Save to database. */
 	/* Need to use the lower level API of sqlite3 to bind
@@ -295,14 +294,14 @@ bool invoices_create(struct invoices *invoices,
 			  "            ( payment_hash, payment_key, state"
 			  "            , msatoshi, label, expiry_time"
 			  "            , pay_index, msatoshi_received"
-			  "            , paid_timestamp)"
+			  "            , paid_timestamp, bolt11)"
 			  "     VALUES ( ?, ?, ?"
 			  "            , ?, ?, ?"
 			  "            , NULL, NULL"
-			  "            , NULL);");
+			  "            , NULL, ?);");
 
-	sqlite3_bind_blob(stmt, 1, &rhash, sizeof(rhash), SQLITE_TRANSIENT);
-	sqlite3_bind_blob(stmt, 2, &r, sizeof(r), SQLITE_TRANSIENT);
+	sqlite3_bind_blob(stmt, 1, rhash, sizeof(struct sha256), SQLITE_TRANSIENT);
+	sqlite3_bind_blob(stmt, 2, r, sizeof(struct preimage), SQLITE_TRANSIENT);
 	sqlite3_bind_int(stmt, 3, UNPAID);
 	if (msatoshi)
 		sqlite3_bind_int64(stmt, 4, *msatoshi);
@@ -310,6 +309,7 @@ bool invoices_create(struct invoices *invoices,
 		sqlite3_bind_null(stmt, 4);
 	sqlite3_bind_text(stmt, 5, label, strlen(label), SQLITE_TRANSIENT);
 	sqlite3_bind_int64(stmt, 6, expiry_time);
+	sqlite3_bind_text(stmt, 7, b11enc, strlen(b11enc), SQLITE_TRANSIENT);
 
 	db_exec_prepared(invoices->db, stmt);
 
@@ -403,7 +403,7 @@ bool invoices_iterate(struct invoices *invoices,
 		stmt = db_prepare(invoices->db,
 				  "SELECT state, payment_key, payment_hash"
 				  "     , label, msatoshi, expiry_time, pay_index"
-				  "     , msatoshi_received, paid_timestamp"
+				  "     , msatoshi_received, paid_timestamp, bolt11"
 				  "  FROM invoices;");
 		it->p = stmt;
 	} else
@@ -580,7 +580,7 @@ void invoices_get_details(const tal_t *ctx,
 	stmt = db_prepare(invoices->db,
 			  "SELECT state, payment_key, payment_hash"
 			  "     , label, msatoshi, expiry_time, pay_index"
-			  "     , msatoshi_received, paid_timestamp"
+			  "     , msatoshi_received, paid_timestamp, bolt11"
 			  "  FROM invoices"
 			  " WHERE id = ?;");
 	sqlite3_bind_int64(stmt, 1, invoice.id);

@@ -1270,8 +1270,12 @@ bool wallet_invoice_create(struct wallet *wallet,
 			   struct invoice *pinvoice,
 			   u64 *msatoshi TAKES,
 			   const char *label TAKES,
-			   u64 expiry) {
-	return invoices_create(wallet->invoices, pinvoice, msatoshi, label, expiry);
+			   u64 expiry,
+			   const char *b11enc,
+			   const struct preimage *r,
+			   const struct sha256 *rhash)
+{
+	return invoices_create(wallet->invoices, pinvoice, msatoshi, label, expiry, b11enc, r, rhash);
 }
 bool wallet_invoice_find_by_label(struct wallet *wallet,
 				  struct invoice *pinvoice,

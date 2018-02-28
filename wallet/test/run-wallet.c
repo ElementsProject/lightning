@@ -99,7 +99,10 @@ bool invoices_create(struct invoices *invoices UNNEEDED,
 		     struct invoice *pinvoice UNNEEDED,
 		     u64 *msatoshi TAKES UNNEEDED,
 		     const char *label TAKES UNNEEDED,
-		     u64 expiry UNNEEDED)
+		     u64 expiry UNNEEDED,
+		     const char *b11enc UNNEEDED,
+		     const struct preimage *r UNNEEDED,
+		     const struct sha256 *rhash UNNEEDED)
 { fprintf(stderr, "invoices_create called!\n"); abort(); }
 /* Generated stub for invoices_delete */
 bool invoices_delete(struct invoices *invoices UNNEEDED,

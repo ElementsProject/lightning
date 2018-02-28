@@ -441,7 +441,10 @@ bool wallet_invoice_create(struct wallet *wallet,
 			   struct invoice *pinvoice,
 			   u64 *msatoshi TAKES,
 			   const char *label TAKES,
-			   u64 expiry);
+			   u64 expiry,
+			   const char *b11enc,
+			   const struct preimage *r,
+			   const struct sha256 *rhash);
 
 /**
  * wallet_invoice_find_by_label - Search for an invoice by label
