@@ -388,6 +388,8 @@ struct invoice_details {
 	u64 msatoshi_received;
 	/* Set if state == PAID; time paid */
 	u64 paid_timestamp;
+	/* BOLT11 encoding for this invoice */
+	const char *bolt11;
 };
 
 /* An object that handles iteration over the set of invoices */
