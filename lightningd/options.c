@@ -71,6 +71,8 @@ static char *opt_set_u32(const char *arg, u32 *u)
 	char *endp;
 	unsigned long l;
 
+	assert(arg != NULL);
+
 	/* This is how the manpage says to do it.  Yech. */
 	errno = 0;
 	l = strtoul(arg, &endp, 0);
@@ -86,6 +88,8 @@ static char *opt_set_u16(const char *arg, u16 *u)
 {
 	char *endp;
 	unsigned long l;
+
+	assert(arg != NULL);
 
 	/* This is how the manpage says to do it.  Yech. */
 	errno = 0;
@@ -103,6 +107,8 @@ static char *opt_set_s32(const char *arg, s32 *u)
 	char *endp;
 	long l;
 
+	assert(arg != NULL);
+
 	/* This is how the manpage says to do it.  Yech. */
 	errno = 0;
 	l = strtol(arg, &endp, 0);
@@ -118,6 +124,8 @@ static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
 {
 	size_t n = tal_count(ld->wireaddrs);
 	char const *err_msg;
+
+	assert(arg != NULL);
 
 	tal_resize(&ld->wireaddrs, n+1);
 
@@ -146,6 +154,8 @@ static void opt_show_u16(char buf[OPT_SHOW_LEN], const u16 *u)
 
 static char *opt_set_network(const char *arg, struct lightningd *ld)
 {
+	assert(arg != NULL);
+
 	ld->topology->bitcoind->chainparams = chainparams_for_network(arg);
 	if (!ld->topology->bitcoind->chainparams)
 		return tal_fmt(NULL, "Unknown network name '%s'", arg);
@@ -160,6 +170,8 @@ static void opt_show_network(char buf[OPT_SHOW_LEN],
 
 static char *opt_set_rgb(const char *arg, struct lightningd *ld)
 {
+	assert(arg != NULL);
+
 	ld->rgb = tal_free(ld->rgb);
 	/* BOLT #7:
 	 *
@@ -173,6 +185,8 @@ static char *opt_set_rgb(const char *arg, struct lightningd *ld)
 
 static char *opt_set_alias(const char *arg, struct lightningd *ld)
 {
+	assert(arg != NULL);
+
 	ld->alias = tal_free(ld->alias);
 	/* BOLT #7:
 	 *
@@ -298,6 +312,8 @@ static void config_register_opts(struct lightningd *ld)
 #if DEVELOPER
 static char *opt_set_hsm_seed(const char *arg, struct lightningd *ld)
 {
+	assert(arg != NULL);
+
 	ld->dev_hsm_seed = tal_hexdata(ld, arg, strlen(arg));
 	if (ld->dev_hsm_seed)
 		return NULL;
@@ -479,6 +495,7 @@ static void config_log_stderr_exit(const char *fmt, ...)
 		const char *arg = va_arg(ap, const char *);
 		const char *problem = va_arg(ap, const char *);
 
+		assert(arg != NULL);
 		msg = tal_fmt(NULL, "%s line %s: %.*s: %s",
 			      argv0, arg+strlen(arg)+1, len-2, arg+2, problem);
 	} else {

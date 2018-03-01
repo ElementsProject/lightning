@@ -105,6 +105,7 @@ static void json_pay_failure(struct pay *pay,
 				     tal_len(fail->channel_update));
 		json_object_end(data);
 
+		assert(r->details != NULL);
 		msg = tal_fmt(pay,
 			      "failed: %s (%s)",
 			      onion_type_name(fail->failcode),

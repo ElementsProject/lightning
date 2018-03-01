@@ -53,6 +53,9 @@ const char *tmpctx_any(void)
 	struct tmpctx *t = list_top(&tmpctxs, struct tmpctx, list);
 
 	if (t)
+	{
+		assert(t->file != NULL);
 		return tal_fmt(t, "%s:%u", t->file, t->line);
+	}
 	return NULL;
 }

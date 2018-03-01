@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <assert.h>
 
 static bool match(const char *str, const char *abbrev, const char *full)
 {
@@ -25,6 +26,8 @@ char *opt_set_time(const char *arg, struct timerel *t)
 {
 	char *endp;
 	unsigned long int l;
+
+	assert(arg != NULL);
 
 	/* This is how the manpage says to do it.  Yech. */
 	errno = 0;
@@ -81,6 +84,8 @@ void opt_show_time(char buf[OPT_SHOW_LEN], const struct timerel *t)
 char *opt_set_timeabs(const char *arg, struct timeabs *t)
 {
 	long double d;
+
+	assert(arg != NULL);
 
 	if (sscanf(arg, "%Lf", &d) != 1)
 		return tal_fmt(NULL, "'%s' is not a time", arg);
