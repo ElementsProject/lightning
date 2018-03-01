@@ -17,7 +17,7 @@ Patches are welcome!
 
 [style]: https://www.kernel.org/doc/html/v4.10/process/coding-style.html
 
-To read the code, you'll probably need to understand ccan/tal: it's a
+To read the code, you'll probably need to understand `ccan/tal`: it's a
 hierarchical memory allocator, where each allocation has a parent, and
 thus lifetimes are grouped.  eg. a `struct bitcoin_tx` has a pointer
 to an array of `struct bitcoin_tx_input`; they are allocated off the
@@ -103,7 +103,8 @@ You can debug crashing subdaemons with the argument
 `--dev-debugger=lightning_channeld`, where `channeld` is the subdaemon name.
 It will print out (to stderr) a command such as:
 
-    gdb -ex 'attach 22398' -ex 'p debugger_connected=1' lightningd/lightning_hsmd
+    gdb -ex 'attach 22398' -ex 'p debugger_connected=1' \
+      lightningd/lightning_hsmd
 
 Run this command to start debugging.
 You may need to type `return` one more time to exit the infinite while
@@ -117,7 +118,8 @@ It is a sqlite database stored in the `lightningd.sqlite3` file, typically
 under `~/.lightning`.
 You can run queries against this file like so:
 
-    $ sqlite3 ~/.lightning/lightningd.sqlite3 "SELECT HEX(prev_out_tx), prev_out_index, status FROM outputs"
+    $ sqlite3 ~/.lightning/lightningd.sqlite3 \
+      "SELECT HEX(prev_out_tx), prev_out_index, status FROM outputs"
 
 Or you can launch into the sqlite3 repl and check things out from there:
 
@@ -210,7 +212,7 @@ Further Information
 -------------------
 
 Feel free to ask questions on the lightning-dev mailing list, or on
-#c-lightning on IRC, or email me at rusty@rustcorp.com.au.
+`#c-lightning` on IRC, or email me at rusty@rustcorp.com.au.
 
 Cheers!<br>
 Rusty.
