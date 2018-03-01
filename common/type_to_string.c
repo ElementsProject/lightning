@@ -5,6 +5,7 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <inttypes.h>
+#include <assert.h>
 
 /* We need at least one, and these are in CCAN so register it here. */
 REGISTER_TYPE_TO_HEXSTR(sha256);
@@ -19,6 +20,8 @@ char *type_to_string_(const tal_t *ctx,  const char *typename,
 	size_t i;
 	static size_t num_p;
 	static struct type_to_string **t = NULL;
+
+	assert(typename != NULL);
 
 	if (!t)
 		t = autodata_get(type_to_string, &num_p);

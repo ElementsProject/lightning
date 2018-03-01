@@ -805,6 +805,7 @@ void onchain_failed_our_htlc(const struct channel *channel,
 	hout->failcode = WIRE_PERMANENT_CHANNEL_FAILURE;
 
 	if (!hout->in) {
+		assert(why != NULL);
 		char *localfail = tal_fmt(channel, "%s: %s",
 					  onion_type_name(WIRE_PERMANENT_CHANNEL_FAILURE),
 					  why);

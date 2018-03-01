@@ -672,6 +672,7 @@ static void json_sendpay_on_resolve(const struct sendpay_result *r,
 				     r->onionreply, tal_len(r->onionreply));
 			json_object_end(data);
 
+			assert(r->details != NULL);
 			msg = tal_fmt(cmd,
 				      "failed: WIRE_PERMANENT_NODE_FAILURE "
 				      "(%s)",
@@ -700,6 +701,7 @@ static void json_sendpay_on_resolve(const struct sendpay_result *r,
 					     tal_len(fail->channel_update));
 			json_object_end(data);
 
+			assert(r->details != NULL);
 			msg = tal_fmt(cmd,
 				      "failed: %s (%s)",
 				      onion_type_name(fail->failcode),
