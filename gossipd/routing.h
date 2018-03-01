@@ -124,6 +124,13 @@ struct routing_state {
 	UINTMAP(struct routing_channel*) channels;
 };
 
+static inline struct routing_channel *
+get_channel(const struct routing_state *rstate,
+	    const struct short_channel_id *scid)
+{
+	return uintmap_get(&rstate->channels, short_channel_id_to_uint(scid));
+}
+
 struct route_hop {
 	struct short_channel_id channel_id;
 	struct pubkey nodeid;

@@ -206,11 +206,10 @@ static struct node_connection * get_connection(struct routing_state *rstate,
 }
 
 struct node_connection *get_connection_by_scid(const struct routing_state *rstate,
-					      const struct short_channel_id *schanid,
+					      const struct short_channel_id *scid,
 					      const u8 direction)
 {
-	u64 scid = short_channel_id_to_uint(schanid);
-	struct routing_channel *chan = uintmap_get(&rstate->channels, scid);
+	struct routing_channel *chan = get_channel(rstate, scid);
 
 	if (chan == NULL)
 		return NULL;
@@ -598,8 +597,7 @@ struct routing_channel *routing_channel_new(const tal_t *ctx,
 static void destroy_node_connection(struct node_connection *nc,
 				    struct routing_state *rstate)
 {
-	struct routing_channel *chan = uintmap_get(
-	    &rstate->channels, short_channel_id_to_uint(&nc->short_channel_id));
+	struct routing_channel *chan = get_channel(rstate,&nc->short_channel_id);
 	struct node_connection *c = chan->connections[nc->flags & 0x1];
 	if (c == NULL)
 		return;
@@ -683,7 +681,7 @@ const struct short_channel_id *handle_channel_announcement(
 
 	/* Check if we know the channel already (no matter in what
 	 * state, we stop here if yes). */
-	chan = uintmap_get(&rstate->channels, scid);
+	chan = get_channel(rstate, &pending->short_channel_id);
 	if (chan != NULL && chan->public) {
 		return tal_free(pending);
 	}
@@ -765,10 +763,9 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	const u8 *s;
 	struct pending_cannouncement *pending;
 	struct routing_channel *chan;
-	u64 uscid = short_channel_id_to_uint(scid);
 
 	/* There may be paths which can clean this up, eg. error processing. */
-	chan = uintmap_get(&rstate->channels, uscid);
+	chan = get_channel(rstate, scid);
 	if (!chan)
 		return false;
 
@@ -918,8 +915,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 		return;
 	}
 
-	chan = uintmap_get(&rstate->channels,
-			   short_channel_id_to_uint(&short_channel_id));
+	chan = get_channel(rstate, &short_channel_id);
 	if (!chan) {
 		SUPERVERBOSE("Ignoring update for unknown channel %s",
 			     type_to_string(trc, struct short_channel_id,
@@ -1331,9 +1327,7 @@ void mark_channel_unroutable(struct routing_state *rstate,
 	status_trace("Received mark_channel_unroutable channel %s",
 		     scid);
 
-	chan = uintmap_get(&rstate->channels,
-			   short_channel_id_to_uint(channel));
-
+	chan = get_channel(rstate, channel);
 	if (!chan) {
 		status_unusual("mark_channel_unroutable: "
 			       "channel %s not in routemap",
