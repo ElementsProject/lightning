@@ -3731,6 +3731,40 @@ class LightningDTests(BaseLightningDTests):
         l1.restart()
         assert len(l1.rpc.listpeers()['peers']) == 0
 
+    def test_peerinfo(self):
+        l1, l2 = self.connect()
+
+        # Gossiping but no node announcement yet
+        assert l1.rpc.getpeer(l2.info['id'])['state'] == "GOSSIPING"
+        assert 'alias' not in l1.rpc.getpeer(l2.info['id'])
+        assert 'color' not in l1.rpc.getpeer(l2.info['id'])
+
+        # Fund a channel to force a node announcement
+        self.fund_channel(l1, l2, 10**6)
+        # Now proceed to funding-depth and do a full gossip round
+        bitcoind.generate_block(5)
+        l1.daemon.wait_for_logs(['Received node_announcement for node ' + l2.info['id']])
+
+        # With the node announcement, ensure we see that information in the peer info
+        assert l1.rpc.getpeer(l2.info['id'])['alias'] == l1.rpc.listnodes(l2.info['id'])['nodes'][0]['alias']
+        assert l1.rpc.getpeer(l2.info['id'])['color'] == l1.rpc.listnodes(l2.info['id'])['nodes'][0]['color']
+
+        # Close the channel to forget the peer
+        l1.rpc.close(l2.info['id'])
+        l1.daemon.wait_for_log('Forgetting remote peer')
+        bitcoind.generate_block(100)
+        l1.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')
+
+        # Reconnect
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        l1.daemon.wait_for_log('WIRE_GOSSIP_PEER_CONNECTED')
+
+        # This time we already know about this node. So the node information appears even in
+        # GOSSIPING state
+        assert l1.rpc.getpeer(l2.info['id'])['state'] == "GOSSIPING"
+        assert l1.rpc.getpeer(l2.info['id'])['alias'] == l1.rpc.listnodes(l2.info['id'])['nodes'][0]['alias']
+        assert l1.rpc.getpeer(l2.info['id'])['color'] == l1.rpc.listnodes(l2.info['id'])['nodes'][0]['color']
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
