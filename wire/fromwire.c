@@ -158,15 +158,7 @@ void fromwire_channel_id(const u8 **cursor, size_t *max,
 void fromwire_short_channel_id(const u8 **cursor, size_t *max,
 			       struct short_channel_id *short_channel_id)
 {
-	be32 txnum = 0, blocknum = 0;
-
-	/* Pulling 3 bytes off wire is tricky; they're big-endian. */
-	fromwire(cursor, max, (char *)&blocknum + 1, 3);
-	short_channel_id->blocknum = be32_to_cpu(blocknum);
-	fromwire(cursor, max, (char *)&txnum + 1, 3);
-	short_channel_id->txnum = be32_to_cpu(txnum);
-
-	short_channel_id->outnum = fromwire_u16 (cursor, max);
+	short_channel_id->u64 = fromwire_u64(cursor, max);
 }
 
 void fromwire_sha256(const u8 **cursor, size_t *max, struct sha256 *sha256)

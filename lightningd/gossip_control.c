@@ -89,7 +89,9 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 	/* FIXME: Block less than 6 deep? */
 
 	bitcoind_getoutput(gossip->ld->topology->bitcoind,
-			   scid->blocknum, scid->txnum, scid->outnum,
+			   short_channel_id_blocknum(scid),
+			   short_channel_id_txnum(scid),
+			   short_channel_id_outnum(scid),
 			   got_txout, scid);
 }
 

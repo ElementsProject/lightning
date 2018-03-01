@@ -521,9 +521,9 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 	/* If we restart, we could already have peer->scid from database */
 	if (!channel->scid) {
 		channel->scid = tal(channel, struct short_channel_id);
-		channel->scid->blocknum = loc->blkheight;
-		channel->scid->txnum = loc->index;
-		channel->scid->outnum = channel->funding_outnum;
+		mk_short_channel_id(channel->scid,
+				    loc->blkheight, loc->index,
+				    channel->funding_outnum);
 	}
 	tal_free(loc);
 

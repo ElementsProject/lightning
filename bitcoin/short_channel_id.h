@@ -12,20 +12,42 @@
  * just memset them and not have to take care about the extra byte for
  * u32 */
 struct short_channel_id {
-	u32 blocknum : 24;
-	u32 txnum : 24;
-	u16 outnum;
+	u64 u64;
 };
+
+static inline u32 short_channel_id_blocknum(const struct short_channel_id *scid)
+{
+	return scid->u64 >> 40;
+}
+
+static inline u32 short_channel_id_txnum(const struct short_channel_id *scid)
+{
+	return (scid->u64 >> 16) & 0x00FFFFFF;
+}
+
+static inline u16 short_channel_id_outnum(const struct short_channel_id *scid)
+{
+	return scid->u64 & 0xFFFF;
+}
+
+void mk_short_channel_id(struct short_channel_id *scid,
+			 u32 blocknum, u32 txnum, u16 outnum);
 
 bool short_channel_id_from_str(const char *str, size_t strlen,
 			       struct short_channel_id *dst);
 
-bool short_channel_id_eq(const struct short_channel_id *a,
-			 const struct short_channel_id *b);
-
-char *short_channel_id_to_str(const tal_t *ctx, const struct short_channel_id *scid);
+static inline bool short_channel_id_eq(const struct short_channel_id *a,
+				       const struct short_channel_id *b)
+{
+	return a->u64 == b->u64;
+}
 
 /* Fast, platform dependent, way to convert from a short_channel_id to u64 */
-u64 short_channel_id_to_uint(const struct short_channel_id *scid);
+static inline u64 short_channel_id_to_uint(const struct short_channel_id *scid)
+{
+	return scid->u64;
+}
+
+char *short_channel_id_to_str(const tal_t *ctx, const struct short_channel_id *scid);
 
 #endif /* LIGHTNING_BITCOIN_SHORT_CHANNEL_ID_H */
