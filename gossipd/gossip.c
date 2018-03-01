@@ -785,7 +785,7 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 
 	chan = routing_channel_new(rstate, &scid);
 	chan->public = false;
-	uintmap_add(&rstate->channels, short_channel_id_to_uint(&scid), chan);
+	uintmap_add(&rstate->channels, scid.u64, chan);
 
 	chan->pending = NULL;
 	direction = get_channel_direction(&rstate->local_id, &remote_node_id);

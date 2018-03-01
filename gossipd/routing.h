@@ -128,7 +128,7 @@ static inline struct routing_channel *
 get_channel(const struct routing_state *rstate,
 	    const struct short_channel_id *scid)
 {
-	return uintmap_get(&rstate->channels, short_channel_id_to_uint(scid));
+	return uintmap_get(&rstate->channels, scid->u64);
 }
 
 struct route_hop {

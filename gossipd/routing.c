@@ -338,8 +338,9 @@ static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor,
 	double fee_scale = 1.0;
 
 	if (fuzz != 0.0) {
-		u64 scid = short_channel_id_to_uint(&c->short_channel_id);
-		u64 h =	siphash24(base_seed, &scid, sizeof(scid));
+		u64 h =	siphash24(base_seed,
+				  &c->short_channel_id,
+				  sizeof(c->short_channel_id));
 
 		/* Scale fees for this channel */
 		/* rand = (h / UINT64_MAX)  random number between 0.0 -> 1.0
@@ -651,7 +652,6 @@ const struct short_channel_id *handle_channel_announcement(
 	u8 *features;
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
 	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
-	u64 scid;
 	struct routing_channel *chan;
 
 	pending = tal(rstate, struct pending_cannouncement);
@@ -676,8 +676,6 @@ const struct short_channel_id *handle_channel_announcement(
 		tal_free(pending);
 		return NULL;
 	}
-
-	scid = short_channel_id_to_uint(&pending->short_channel_id);
 
 	/* Check if we know the channel already (no matter in what
 	 * state, we stop here if yes). */
@@ -743,7 +741,7 @@ const struct short_channel_id *handle_channel_announcement(
 
 	/* The channel will be public if we complete the verification */
 	chan->public = true;
-	uintmap_add(&rstate->channels, scid, chan);
+	uintmap_add(&rstate->channels, pending->short_channel_id.u64, chan);
 
 	/* Add both endpoints to the pending_node_map so we can stash
 	 * node_announcements while we wait for the txout check */
