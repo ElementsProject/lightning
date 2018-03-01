@@ -533,8 +533,8 @@ static void check_short_ids_match(struct peer *peer)
 	assert(peer->have_sigs[LOCAL]);
 	assert(peer->have_sigs[REMOTE]);
 
-	if (!short_channel_id_eq(&peer->short_channel_ids[LOCAL],
-				 &peer->short_channel_ids[REMOTE]))
+	if (!structeq(&peer->short_channel_ids[LOCAL],
+		      &peer->short_channel_ids[REMOTE]))
 		peer_failed(&peer->cs, peer->gossip_index,
 			    &peer->channel_id,
 			    "We disagree on short_channel_ids:"

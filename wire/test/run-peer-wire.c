@@ -704,7 +704,7 @@ static bool channel_announcement_eq(const struct msg_channel_announcement *a,
 	return eq_upto(a, b, features)
 		&& eq_var(a, b, features)
 		&& eq_field(a, b, chain_hash)
-		&& short_channel_id_eq(&a->short_channel_id, &b->short_channel_id)
+		&& structeq(&a->short_channel_id, &b->short_channel_id)
 		&& eq_between(a, b, node_id_1, bitcoin_key_2);
 }
 
@@ -718,7 +718,7 @@ static bool announcement_signatures_eq(const struct msg_announcement_signatures 
 			      const struct msg_announcement_signatures *b)
 {
 	return eq_upto(a, b, short_channel_id) &&
-		short_channel_id_eq(&a->short_channel_id, &b->short_channel_id);
+		structeq(&a->short_channel_id, &b->short_channel_id);
 }
 
 static bool update_fail_htlc_eq(const struct msg_update_fail_htlc *a,
@@ -804,7 +804,7 @@ static bool channel_update_eq(const struct msg_channel_update *a,
 			      const struct msg_channel_update *b)
 {
 	return eq_upto(a, b, short_channel_id) &&
-		short_channel_id_eq(&a->short_channel_id, &b->short_channel_id);
+		structeq(&a->short_channel_id, &b->short_channel_id);
 }
 
 static bool accept_channel_eq(const struct msg_accept_channel *a,

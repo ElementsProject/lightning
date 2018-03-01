@@ -36,12 +36,6 @@ void mk_short_channel_id(struct short_channel_id *scid,
 bool short_channel_id_from_str(const char *str, size_t strlen,
 			       struct short_channel_id *dst);
 
-static inline bool short_channel_id_eq(const struct short_channel_id *a,
-				       const struct short_channel_id *b)
-{
-	return a->u64 == b->u64;
-}
-
 /* Fast, platform dependent, way to convert from a short_channel_id to u64 */
 static inline u64 short_channel_id_to_uint(const struct short_channel_id *scid)
 {
