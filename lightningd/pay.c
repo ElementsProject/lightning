@@ -256,7 +256,7 @@ remote_routing_failure(const tal_t *ctx,
 	const struct pubkey *erring_node;
 	const struct short_channel_id *route_channels;
 	const struct short_channel_id *erring_channel;
-	static const struct short_channel_id dummy_channel = { 0, 0, 0 };
+	static const struct short_channel_id dummy_channel = { 0 };
 	int origin_index;
 	bool retry_plausible;
 	bool report_to_gossipd;
