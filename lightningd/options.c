@@ -481,6 +481,8 @@ static void setup_default_config(struct lightningd *ld)
 
 
 /* FIXME: make this nicer! */
+static int config_parse_line_number = 0;
+
 static void config_log_stderr_exit(const char *fmt, ...)
 {
 	char *msg;
@@ -488,16 +490,19 @@ static void config_log_stderr_exit(const char *fmt, ...)
 
 	va_start(ap, fmt);
 
-	/* This is the format we expect: mangle it to remove '--'. */
+	/* This is the format we expect:*/
 	if (streq(fmt, "%s: %.*s: %s")) {
 		const char *argv0 = va_arg(ap, const char *);
 		unsigned int len = va_arg(ap, unsigned int);
 		const char *arg = va_arg(ap, const char *);
 		const char *problem = va_arg(ap, const char *);
 
+		assert(argv0 != NULL);
 		assert(arg != NULL);
-		msg = tal_fmt(NULL, "%s line %s: %.*s: %s",
-			      argv0, arg+strlen(arg)+1, len-2, arg+2, problem);
+		assert(problem != NULL);
+		/*mangle it to remove '--' and add the line number.*/
+		msg = tal_fmt(NULL, "%s line %d: %.*s: %s",
+			      argv0, config_parse_line_number, len-2, arg+2, problem);
 	} else {
 		msg = tal_vfmt(NULL, fmt, ap);
 	}
@@ -510,7 +515,8 @@ static void config_log_stderr_exit(const char *fmt, ...)
 static void opt_parse_from_config(struct lightningd *ld)
 {
 	char *contents, **lines;
-	char **argv;
+	char **all_args; /*For each line: either argument string or NULL*/
+	char *argv[3];
 	int i, argc;
 
 	contents = grab_file(ld, "config");
@@ -526,26 +532,47 @@ static void opt_parse_from_config(struct lightningd *ld)
 
 	lines = tal_strsplit(contents, contents, "\r\n", STR_NO_EMPTY);
 
-	/* We have to keep argv around, since opt will point into it */
-	argv = tal_arr(ld, char *, argc = 1);
-	argv[0] = "lightning config file";
+	/* We have to keep all_args around, since opt will point into it */
+	all_args = tal_arr(ld, char *, tal_count(lines) - 1);
 
 	for (i = 0; i < tal_count(lines) - 1; i++) {
-		if (strstarts(lines[i], "#"))
-			continue;
-		/* Only valid forms are "foo" and "foo=bar" */
-		tal_resize(&argv, argc+1);
-		/* Stash line number after nul. */
-		argv[argc++] = tal_fmt(argv, "--%s%c%u", lines[i], 0, i+1);
+		if (strstarts(lines[i], "#")) {
+			all_args[i] = NULL;
+		}
+		else {
+			/* Only valid forms are "foo" and "foo=bar" */
+			all_args[i] = tal_fmt(all_args, "--%s", lines[i]);
+		}
 	}
-	tal_resize(&argv, argc+1);
+
+	/*
+	For each line we construct a fake argc,argv commandline.
+	argv[1] is the only element that changes between iterations.
+	*/
+	argc = 2;
+	argv[0] = "lightning config file";
 	argv[argc] = NULL;
 
-	opt_early_parse(argc, argv, config_log_stderr_exit);
+	for (i = 0; i < tal_count(all_args); i++) {
+		if(all_args[i] != NULL) {
+			config_parse_line_number = i + 1;
+			argv[1] = all_args[i];
+			opt_early_parse(argc, argv, config_log_stderr_exit);
+		}
+	}
+
 	/* Now we can set up defaults, depending on whether testnet or not */
 	setup_default_config(ld);
 
-	opt_parse(&argc, argv, config_log_stderr_exit);
+	for (i = 0; i < tal_count(all_args); i++) {
+		if(all_args[i] != NULL) {
+			config_parse_line_number = i + 1;
+			argv[1] = all_args[i];
+			opt_parse(&argc, argv, config_log_stderr_exit);
+			argc = 2; /* opt_parse might have changed it  */
+		}
+	}
+
 	tal_free(contents);
 }
 
