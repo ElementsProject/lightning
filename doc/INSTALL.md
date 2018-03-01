@@ -10,7 +10,8 @@ For actually doing development and running the tests, you will also need:
 * asciidoc: for formatting the man pages (if you change them)
 * valgrind: for extra debugging checks
 
-You will also need a version of bitcoind with segregated witness and estimatesmartfee economical node, such as the 0.15 or above.
+You will also need a version of bitcoind with segregated witness and
+estimatesmartfee economical node, such as the 0.15 or above.
 
 To Build on Ubuntu 15.10 or above
 ---------------------
@@ -20,7 +21,8 @@ Get dependencies:
 sudo apt-get install -y autoconf automake build-essential git libtool libgmp-dev libsqlite3-dev python python3 net-tools libsodium-dev
 ```
 
-If you don't have Bitcoin installed locally you'll need to install that as well:
+If you don't have Bitcoin installed locally you'll need to install that
+as well:
 ```
 sudo apt-get install software-properties-common
 sudo add-apt-repository ppa:bitcoin/bitcoin
@@ -61,7 +63,8 @@ Get dependencies:
 # pkg install -y autoconf automake git gmake libtool python python3 sqlite3
 ```
 
-If you don't have Bitcoin installed locally you'll need to install that as well:
+If you don't have Bitcoin installed locally you'll need to install that
+as well:
 ```
 # pkg install -y bitcoin-daemon bitcoin-utils
 ```
@@ -79,7 +82,9 @@ $ gmake
 
 Running lightning:
 
-**Note**: Edit your `/usr/local/etc/bitcoin.conf` to include `rpcuser=<foo>` and `rpcpassword=<bar>` first, you may also need to include `testnet=1`
+**Note**: Edit your `/usr/local/etc/bitcoin.conf` to include
+`rpcuser=<foo>` and `rpcpassword=<bar>` first, you may also need to
+include `testnet=1`
 
 ```
 # service bitcoind start
@@ -103,9 +108,12 @@ valgrind asciidoc --run make
 To cross-compile for Android
 --------------------
 
-Make a standalone toolchain as per https://developer.android.com/ndk/guides/standalone_toolchain.html. For c-lightning you must target an API level of 24 or higher.
+Make a standalone toolchain as per
+https://developer.android.com/ndk/guides/standalone_toolchain.html.
+For c-lightning you must target an API level of 24 or higher.
 
-Depending on your toolchain location and target arch, source env variables such as:
+Depending on your toolchain location and target arch, source env variables
+such as:
 ```
 export PATH=$PATH:/path/to/android/toolchain/bin
 
@@ -119,12 +127,17 @@ export CXX=$target_host-clang++
 export LD=$target_host-ld
 export STRIP=$target_host-strip
 ```
+
 Two makefile targets should not be cross-compiled so we specify a native CC:
 ```
 make CC=clang clean ccan/tools/configurator/configurator
 make clean -C ccan/ccan/cdump/tools && make CC=clang -C ccan/ccan/cdump/tools
 ```
-Install the `qemu-user` package. This will allow you to properly configure the build for the target device environment. Build with: 
+
+Install the `qemu-user` package.
+This will allow you to properly configure
+the build for the target device environment.
+Build with:
 ```
 BUILD=x86_64 HOST=arm-linux-androideabi make PIE=1 DEVELOPER=0 CONFIGURATOR_CC="arm-linux-androideabi-clang -static"
 ```
