@@ -733,8 +733,7 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 	}
 
 	for (i = 0; i < tal_count(us->out); i++) {
-		if (!short_channel_id_eq(&us->out[i]->short_channel_id,
-					 &schanid))
+		if (!structeq(&us->out[i]->short_channel_id, &schanid))
 			continue;
 
 		update = us->out[i]->channel_update;
@@ -1093,8 +1092,7 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 	while (n != NULL) {
 		for (j=0; j<tal_count(n->out); j++){
 			if (scid &&
-			    !short_channel_id_eq(scid,
-						 &n->out[j]->short_channel_id)) {
+			    !structeq(scid, &n->out[j]->short_channel_id)) {
 				continue;
 			}
 			tal_resize(&entries, num_chans + 1);

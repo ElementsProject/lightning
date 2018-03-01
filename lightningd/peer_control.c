@@ -1069,7 +1069,7 @@ static void json_dev_forget_channel(struct command *cmd, const char *buffer,
 		if (scidtok) {
 			if (!channel->scid)
 				continue;
-			if (!short_channel_id_eq(channel->scid, &scid))
+			if (!structeq(channel->scid, &scid))
 				continue;
 		}
 		if (forget->channel) {

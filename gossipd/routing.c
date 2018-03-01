@@ -1194,7 +1194,7 @@ get_out_node_connection_of(const struct node *node,
 	int i;
 
 	for (i = 0; i < tal_count(node->out); ++i) {
-		if (short_channel_id_eq(&node->out[i]->short_channel_id, short_channel_id))
+		if (structeq(&node->out[i]->short_channel_id, short_channel_id))
 			return node->out[i];
 	}
 
