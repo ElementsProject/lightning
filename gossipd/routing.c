@@ -196,19 +196,6 @@ static void destroy_routing_channel(struct routing_channel *chan,
 		tal_free(chan->nodes[1]);
 }
 
-/* FIXME: All users of this are confused. */
-struct node_connection *get_connection_by_scid(const struct routing_state *rstate,
-					      const struct short_channel_id *scid,
-					      const u8 direction)
-{
-	struct routing_channel *chan = get_channel(rstate, scid);
-
-	if (chan == NULL)
-		return NULL;
-	else
-		return chan->connections[direction];
-}
-
 static void destroy_node_connection(struct node_connection *nc,
 				    struct routing_channel *chan)
 {

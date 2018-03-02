@@ -1810,6 +1810,7 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 	tal_t *tmpctx = tal_tmpctx(msg);
 	struct short_channel_id scid;
 	u8 direction;
+	struct routing_channel *chan;
 	struct node_connection *nc;
 	bool active;
 	u16 flags, cltv_expiry_delta;
@@ -1824,15 +1825,15 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 		goto fail;
 	}
 
-	nc = get_connection_by_scid(daemon->rstate, &scid, direction);
-
-	if (!nc) {
+	chan = get_channel(daemon->rstate, &scid);
+	if (!chan || !chan->connections[direction]) {
 		status_trace(
 		    "Unable to find channel %s/%d",
 		    type_to_string(msg, struct short_channel_id, &scid),
 		    direction);
 		goto fail;
 	}
+	nc = chan->connections[direction];
 
 	status_trace("Disabling channel %s/%d, active %d -> %d",
 		     type_to_string(msg, struct short_channel_id, &scid),

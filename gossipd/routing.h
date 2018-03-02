@@ -188,12 +188,6 @@ struct routing_channel *new_routing_channel(struct routing_state *rstate,
 					    const struct pubkey *id1,
 					    const struct pubkey *id2);
 
-/* Given a short_channel_id, retrieve the matching connection, or NULL if it is
- * unknown. */
-struct node_connection *get_connection_by_scid(const struct routing_state *rstate,
-					       const struct short_channel_id *schanid,
-					      const u8 direction);
-
 /* Handlers for incoming messages */
 
 /**
