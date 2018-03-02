@@ -640,7 +640,7 @@ json_sendpay_success(struct command *cmd,
 
 	response = new_json_result(cmd);
 	json_object_start(response, NULL);
-	json_add_hex(response, "preimage",
+	json_add_hex(response, "payment_preimage",
 		     payment_preimage, sizeof(*payment_preimage));
 	json_object_end(response);
 	command_success(cmd, response);
@@ -724,7 +724,7 @@ static void json_sendpay(struct command *cmd,
 
 	if (!json_get_params(cmd, buffer, params,
 			     "route", &routetok,
-			     "rhash", &rhashtok,
+			     "payment_hash", &rhashtok,
 			     NULL)) {
 		return;
 	}
@@ -807,7 +807,7 @@ static void json_sendpay(struct command *cmd,
 static const struct json_command sendpay_command = {
 	"sendpay",
 	json_sendpay,
-	"Send along {route} in return for preimage of {rhash}"
+	"Send along {route} in return for preimage of {payment_hash}"
 };
 AUTODATA(json_command, &sendpay_command);
 

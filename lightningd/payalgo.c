@@ -52,7 +52,7 @@ json_pay_success(struct command *cmd,
 
 	response = new_json_result(cmd);
 	json_object_start(response, NULL);
-	json_add_hex(response, "preimage",
+	json_add_hex(response, "payment_preimage",
 		     payment_preimage, sizeof(*payment_preimage));
 	json_add_num(response, "getroute_tries", getroute_tries);
 	json_add_num(response, "sendpay_tries", sendpay_tries);
