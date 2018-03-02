@@ -83,8 +83,6 @@ struct daemon {
 
 	/* To make sure our node_announcement timestamps increase */
 	u32 last_announce_timestamp;
-
-	u32 update_channel_interval;
 };
 
 /* Peers we're trying to reach. */
@@ -1331,19 +1329,19 @@ static void gossip_send_keepalive_update(struct routing_state *rstate,
 
 }
 
-static void gossip_prune_network(struct daemon *daemon)
+static void gossip_refresh_network(struct daemon *daemon)
 {
 	u64 now = time_now().ts.tv_sec;
 	struct node_map_iter it;
 	/* Anything below this highwater mark ought to be pruned */
-	s64 highwater = now - 2*daemon->update_channel_interval;
+	s64 highwater = now - daemon->rstate->prune_timeout;
 	struct node *n;
 	const tal_t *pruned = tal_tmpctx(daemon);
 
 	/* Schedule next run now */
 	new_reltimer(&daemon->timers, daemon,
-		     time_from_sec(daemon->update_channel_interval/2),
-		     gossip_prune_network, daemon);
+		     time_from_sec(daemon->rstate->prune_timeout/4),
+		     gossip_refresh_network, daemon);
 
 	/* Find myself in the network */
 	n = get_node(daemon->rstate, &daemon->id);
@@ -1361,7 +1359,7 @@ static void gossip_prune_network(struct daemon *daemon)
 				continue;
 			}
 
-			if (now - nc->last_timestamp < daemon->update_channel_interval) {
+			if (now - nc->last_timestamp < daemon->rstate->prune_timeout / 2) {
 				/* No need to send a keepalive update message */
 				continue;
 			}
@@ -1522,21 +1520,24 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 {
 	struct bitcoin_blkid chain_hash;
 	u16 port;
+	u32 update_channel_interval;
 
 	if (!fromwire_gossipctl_init(
 		daemon, msg, &daemon->broadcast_interval, &chain_hash,
 		&daemon->id, &port, &daemon->globalfeatures,
 		&daemon->localfeatures, &daemon->wireaddrs, daemon->rgb,
-		daemon->alias, &daemon->update_channel_interval)) {
+		daemon->alias, &update_channel_interval)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
-	daemon->rstate = new_routing_state(daemon, &chain_hash, &daemon->id);
+	/* Prune time is twice update time */
+	daemon->rstate = new_routing_state(daemon, &chain_hash, &daemon->id,
+					   update_channel_interval * 2);
 
 	setup_listeners(daemon, port);
 
 	new_reltimer(&daemon->timers, daemon,
-		     time_from_sec(daemon->update_channel_interval/2),
-		     gossip_prune_network, daemon);
+		     time_from_sec(daemon->rstate->prune_timeout/4),
+		     gossip_refresh_network, daemon);
 
 	return daemon_conn_read_next(master->conn, master);
 }
