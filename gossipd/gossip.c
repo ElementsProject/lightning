@@ -764,13 +764,13 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 	struct short_channel_id scid;
 	struct bitcoin_blkid chain_hash;
 	struct pubkey remote_node_id;
-	u16 flags, cltv_expiry_delta, direction;
+	u16 cltv_expiry_delta, direction;
 	u32 fee_base_msat, fee_proportional_millionths;
 	u64 htlc_minimum_msat;
 	struct node_connection *c;
 
 	if (!fromwire_gossip_local_add_channel(
-		msg, &scid, &chain_hash, &remote_node_id, &flags,
+		msg, &scid, &chain_hash, &remote_node_id,
 		&cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
 		&fee_proportional_millionths)) {
 		status_trace("Unable to parse local_add_channel message: %s", tal_hex(msg, msg));
@@ -789,9 +789,6 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 		status_trace("Attempted to local_add_channel a know channel");
 		return;
 	}
-
-	/* FIXME: unused */
-	(void)flags;
 
 	direction = get_channel_direction(&rstate->local_id, &remote_node_id);
 	c = half_add_connection(rstate, &peer->daemon->id, &remote_node_id,
