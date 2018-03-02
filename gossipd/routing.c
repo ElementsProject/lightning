@@ -887,21 +887,19 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 
 	c = chan->connections[direction];
 
-	/* When we local_add_channel(), we only half-populate, so this case
-	 * is possible. */
+	/* Channel could have been pruned: re-add */
 	if (!c) {
-		SUPERVERBOSE("Ignoring update for unknown half channel %s",
-			     type_to_string(trc, struct short_channel_id,
-					    &short_channel_id));
+		c = new_node_connection(rstate, chan,
+					chan->nodes[direction],
+					chan->nodes[!direction],
+					direction);
+	} else if (c->last_timestamp >= timestamp) {
+		SUPERVERBOSE("Ignoring outdated update.");
 		tal_free(tmpctx);
 		return;
 	}
 
-	if (c->last_timestamp >= timestamp) {
-		SUPERVERBOSE("Ignoring outdated update.");
-		tal_free(tmpctx);
-		return;
-	} else if (!check_channel_update(&c->src->id, &signature, serialized)) {
+	if (!check_channel_update(&c->src->id, &signature, serialized)) {
 		status_trace("Signature verification failed.");
 		tal_free(tmpctx);
 		return;
