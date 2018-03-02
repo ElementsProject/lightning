@@ -83,7 +83,7 @@ get_or_make_connection(struct routing_state *rstate,
 	if (!chan)
 		chan = new_routing_channel(rstate, &scid, from_id, to_id);
 
-	return chan->connections[pubkey_idx(from_id, to_id)];
+	return &chan->connections[pubkey_idx(from_id, to_id)];
 }
 
 int main(void)
