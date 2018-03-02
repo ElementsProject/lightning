@@ -39,9 +39,7 @@ struct node_connection {
 	 * things indicated direction wrt the `channel_id` */
 	u16 flags;
 
-	/* Cached `channel_announcement` and `channel_update` we might forward to new peers*/
-	/* FIXME: Remove */
-	u8 *channel_announcement;
+	/* Cached `channel_update` we might forward to new peers*/
 	u8 *channel_update;
 
 	/* If greater than current time, this connection should not
@@ -103,6 +101,9 @@ struct routing_channel {
 	struct node_connection *connections[2];
 	/* nodes[0].id < nodes[1].id */
 	struct node *nodes[2];
+
+	/* Cached `channel_announcement` we might forward to new peers*/
+	const u8 *channel_announcement;
 
 	/* FIXME: Move msg_index[MSG_INDEX_CUPDATE*] into connections[] */
 	u64 msg_indexes[3];
