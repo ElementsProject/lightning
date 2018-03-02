@@ -219,6 +219,16 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 void handle_channel_update(struct routing_state *rstate, const u8 *update);
 void handle_node_announcement(struct routing_state *rstate, const u8 *node);
 
+/* Set values on the struct node_connection */
+void set_connection_values(struct routing_channel *chan,
+			   int idx,
+			   u32 base_fee,
+			   u32 proportional_fee,
+			   u32 delay,
+			   bool active,
+			   u64 timestamp,
+			   u32 htlc_minimum_msat);
+
 /* Get a node: use this instead of node_map_get() */
 struct node *get_node(struct routing_state *rstate, const struct pubkey *id);
 
