@@ -1535,21 +1535,21 @@ static struct io_plan *resolve_channel_req(struct io_conn *conn,
 					   struct daemon *daemon, const u8 *msg)
 {
 	struct short_channel_id scid;
-	struct node_connection *nc;
+	struct routing_channel *chan;
 	struct pubkey *keys;
 
 	if (!fromwire_gossip_resolve_channel_request(msg, &scid))
 		master_badmsg(WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST, msg);
 
-	nc = get_connection_by_scid(daemon->rstate, &scid, 0);
-	if (!nc) {
+	chan = get_channel(daemon->rstate, &scid);
+	if (!chan) {
 		status_trace("Failed to resolve channel %s",
 			     type_to_string(trc, struct short_channel_id, &scid));
 		keys = NULL;
 	} else {
 		keys = tal_arr(msg, struct pubkey, 2);
-		keys[0] = nc->src->id;
-		keys[1] = nc->dst->id;
+		keys[0] = chan->nodes[0]->id;
+		keys[1] = chan->nodes[1]->id;
 		status_trace("Resolved channel %s %s<->%s",
 			     type_to_string(trc, struct short_channel_id, &scid),
 			     type_to_string(trc, struct pubkey, &keys[0]),
