@@ -245,36 +245,6 @@ struct node_connection *get_connection_by_scid(const struct routing_state *rstat
 		return chan->connections[direction];
 }
 
-static struct routing_channel *new_routing_channel(struct routing_state *rstate,
-						   const struct short_channel_id *scid,
-						   struct node *n1,
-						   struct node *n2)
-{
-	struct routing_channel *chan = tal(rstate, struct routing_channel);
-	int n1idx = pubkey_idx(&n1->id, &n2->id);
-	size_t n;
-
-	chan->scid = *scid;
-	chan->connections[0] = chan->connections[1] = NULL;
-	chan->nodes[n1idx] = n1;
-	chan->nodes[!n1idx] = n2;
-	chan->txout_script = NULL;
-	chan->public = false;
-	memset(&chan->msg_indexes, 0, sizeof(chan->msg_indexes));
-
-	n = tal_count(n2->channels);
-	tal_resize(&n2->channels, n+1);
-	n2->channels[n] = chan;
-	n = tal_count(n1->channels);
-	tal_resize(&n1->channels, n+1);
-	n1->channels[n] = chan;
-
-	uintmap_add(&rstate->channels, scid->u64, chan);
-
-	tal_add_destructor2(chan, destroy_routing_channel, rstate);
-	return chan;
-}
-
 static void destroy_node_connection(struct node_connection *nc,
 				    struct routing_channel *chan)
 {
@@ -319,6 +289,36 @@ static struct node_connection *new_node_connection(struct routing_state *rstate,
 
 	tal_add_destructor2(c, destroy_node_connection, chan);
 	return c;
+}
+
+static struct routing_channel *new_routing_channel(struct routing_state *rstate,
+						   const struct short_channel_id *scid,
+						   struct node *n1,
+						   struct node *n2)
+{
+	struct routing_channel *chan = tal(rstate, struct routing_channel);
+	int n1idx = pubkey_idx(&n1->id, &n2->id);
+	size_t n;
+
+	chan->scid = *scid;
+	chan->connections[0] = chan->connections[1] = NULL;
+	chan->nodes[n1idx] = n1;
+	chan->nodes[!n1idx] = n2;
+	chan->txout_script = NULL;
+	chan->public = false;
+	memset(&chan->msg_indexes, 0, sizeof(chan->msg_indexes));
+
+	n = tal_count(n2->channels);
+	tal_resize(&n2->channels, n+1);
+	n2->channels[n] = chan;
+	n = tal_count(n1->channels);
+	tal_resize(&n1->channels, n+1);
+	n1->channels[n] = chan;
+
+	uintmap_add(&rstate->channels, scid->u64, chan);
+
+	tal_add_destructor2(chan, destroy_routing_channel, rstate);
+	return chan;
 }
 
 struct node_connection *half_add_connection(struct routing_state *rstate,
