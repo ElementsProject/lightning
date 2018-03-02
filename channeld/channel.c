@@ -341,7 +341,7 @@ static void send_temporary_announcement(struct peer *peer)
 
 	msg = towire_gossip_local_add_channel(
 	    tmpctx, &peer->short_channel_ids[LOCAL], &peer->chain_hash,
-	    &peer->node_ids[REMOTE], 0 /* flags */, peer->cltv_delta,
+	    &peer->node_ids[REMOTE], peer->cltv_delta,
 	    peer->conf[REMOTE].htlc_minimum_msat, peer->fee_base,
 	    peer->fee_per_satoshi);
 	wire_sync_write(GOSSIP_FD, take(msg));

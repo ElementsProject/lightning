@@ -70,14 +70,64 @@ static struct node_connection *add_connection(struct routing_state *rstate,
 					      u32 base_fee, s32 proportional_fee,
 					      u32 delay)
 {
-	struct node_connection *c = get_or_make_connection(rstate, from, to);
+	struct short_channel_id scid;
+	struct node_connection *c;
+	struct routing_channel *chan;
+
+	/* Make a unique scid. */
+	memcpy(&scid, from, sizeof(scid) / 2);
+	memcpy((char *)&scid + sizeof(scid) / 2, to, sizeof(scid) / 2);
+
+	chan = get_channel(rstate, &scid);
+	if (!chan)
+		chan = new_routing_channel(rstate, &scid, from, to);
+
+	c = &chan->connections[pubkey_idx(from, to)];
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
 	c->active = true;
-	memset(&c->short_channel_id, 0, sizeof(c->short_channel_id));
+	c->short_channel_id = scid;
 	c->flags = get_channel_direction(from, to);
 	return c;
+}
+
+/* Returns routing_channel connecting from and to: *idx set to refer
+ * to connection with src=from, dst=to */
+static struct routing_channel *find_channel(struct routing_state *rstate,
+					    const struct node *from,
+					    const struct node *to,
+					    int *idx)
+{
+	int i, n;
+
+	*idx = pubkey_idx(&from->id, &to->id);
+
+	n = tal_count(to->channels);
+	for (i = 0; i < n; i++) {
+		if (to->channels[i]->nodes[*idx] == from)
+			return to->channels[i];
+	}
+	return NULL;
+}
+
+static struct node_connection *get_connection(struct routing_state *rstate,
+					       const struct pubkey *from_id,
+					       const struct pubkey *to_id)
+{
+	int idx;
+	struct node *from, *to;
+	struct routing_channel *c;
+
+	from = get_node(rstate, from_id);
+	to = get_node(rstate, to_id);
+	if (!from || ! to)
+		return NULL;
+
+	c = find_channel(rstate, from, to, &idx);
+	if (!c)
+		return NULL;
+	return &c->connections[idx];
 }
 
 int main(void)
@@ -96,7 +146,7 @@ int main(void)
 						 | SECP256K1_CONTEXT_SIGN);
 
 	memset(&tmp, 'a', sizeof(tmp));
-	rstate = new_routing_state(ctx, &zerohash, &a);
+	rstate = new_routing_state(ctx, &zerohash, &a, 0);
 
 	pubkey_from_privkey(&tmp, &a);
 	new_node(rstate, &a);

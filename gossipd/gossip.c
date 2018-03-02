@@ -83,8 +83,6 @@ struct daemon {
 
 	/* To make sure our node_announcement timestamps increase */
 	u32 last_announce_timestamp;
-
-	u32 update_channel_interval;
 };
 
 /* Peers we're trying to reach. */
@@ -709,44 +707,45 @@ static struct io_plan *peer_start_gossip(struct io_conn *conn, struct peer *peer
 
 static void handle_get_update(struct peer *peer, const u8 *msg)
 {
-	struct short_channel_id schanid;
-	struct node *us;
-	size_t i;
+	struct short_channel_id scid;
+	struct routing_channel *chan;
 	const u8 *update;
 
-	if (!fromwire_gossip_get_update(msg, &schanid)) {
+	if (!fromwire_gossip_get_update(msg, &scid)) {
 		status_trace("peer %s sent bad gossip_get_update %s",
 			     type_to_string(trc, struct pubkey, &peer->id),
 			     tal_hex(trc, msg));
 		return;
 	}
 
-	/* We want update than comes from our end. */
-	us = get_node(peer->daemon->rstate, &peer->daemon->id);
-	if (!us) {
-		status_trace("peer %s schanid %s but can't find ourselves",
-			     type_to_string(trc, struct pubkey, &peer->id),
-			     type_to_string(trc, struct short_channel_id,
-					    &schanid));
+	chan = get_channel(peer->daemon->rstate, &scid);
+	if (!chan) {
+		status_unusual("peer %s scid %s: unknown channel",
+			       type_to_string(trc, struct pubkey, &peer->id),
+			       type_to_string(trc, struct short_channel_id,
+					      &scid));
 		update = NULL;
-		goto reply;
+	} else {
+		/* We want update that comes from our end. */
+		if (pubkey_eq(&chan->nodes[0]->id, &peer->daemon->id))
+			update = chan->connections[0].channel_update;
+		else if (pubkey_eq(&chan->nodes[1]->id, &peer->daemon->id))
+			update = chan->connections[1].channel_update;
+		else {
+			status_unusual("peer %s scid %s: not our channel?",
+				       type_to_string(trc, struct pubkey,
+						      &peer->id),
+				       type_to_string(trc,
+						      struct short_channel_id,
+						      &scid));
+			update = NULL;
+		}
 	}
+	status_trace("peer %s schanid %s: %s update",
+		     type_to_string(trc, struct pubkey, &peer->id),
+		     type_to_string(trc, struct short_channel_id, &scid),
+		     update ? "got" : "no");
 
-	for (i = 0; i < tal_count(us->out); i++) {
-		if (!structeq(&us->out[i]->short_channel_id, &schanid))
-			continue;
-
-		update = us->out[i]->channel_update;
-		status_trace("peer %s schanid %s: %s update",
-			     type_to_string(trc, struct pubkey, &peer->id),
-			     type_to_string(trc, struct short_channel_id,
-					    &schanid),
-			     update ? "got" : "no");
-		goto reply;
-	}
-	update = NULL;
-
-reply:
 	msg = towire_gossip_get_update_reply(msg, update);
 	daemon_conn_send(peer->remote, take(msg));
 }
@@ -757,51 +756,49 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 	struct short_channel_id scid;
 	struct bitcoin_blkid chain_hash;
 	struct pubkey remote_node_id;
-	u16 flags, cltv_expiry_delta, direction;
+	u16 cltv_expiry_delta;
 	u32 fee_base_msat, fee_proportional_millionths;
 	u64 htlc_minimum_msat;
-	struct node_connection *c;
+	int idx;
 	struct routing_channel *chan;
 
 	if (!fromwire_gossip_local_add_channel(
-		msg, &scid, &chain_hash, &remote_node_id, &flags,
+		msg, &scid, &chain_hash, &remote_node_id,
 		&cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
 		&fee_proportional_millionths)) {
-		status_trace("Unable to parse local_add_channel message: %s", tal_hex(msg, msg));
+		status_broken("Unable to parse local_add_channel message: %s", tal_hex(msg, msg));
 		return;
 	}
 
 	if (!structeq(&chain_hash, &rstate->chain_hash)) {
-		status_trace("Received channel_announcement for unknown chain %s",
+		status_broken("Received local_add_channel for unknown chain %s",
 			     type_to_string(msg, struct bitcoin_blkid,
 					    &chain_hash));
 		return;
 	}
 
-	if (get_connection_by_scid(rstate, &scid, 0) || get_connection_by_scid(rstate, &scid, 1)) {
-		status_trace("Attempted to local_add_channel a know channel");
+	if (get_channel(rstate, &scid)) {
+		status_broken("Attempted to local_add_channel a known channel");
 		return;
 	}
 
-	chan = routing_channel_new(rstate, &scid);
-	chan->public = false;
-	uintmap_add(&rstate->channels, scid.u64, chan);
+	/* Create new routing channel */
+	chan = new_routing_channel(rstate, &scid,
+				   &rstate->local_id, &remote_node_id);
 
-	chan->pending = NULL;
-	direction = get_channel_direction(&rstate->local_id, &remote_node_id);
-	c = half_add_connection(rstate, &rstate->local_id, &remote_node_id, &scid, direction);
-	channel_add_connection(rstate, chan, c);
-
-	c->active = true;
-	c->last_timestamp = 0;
-	c->delay = cltv_expiry_delta;
-	c->htlc_minimum_msat = htlc_minimum_msat;
-	c->base_fee = fee_base_msat;
-	c->proportional_fee = fee_proportional_millionths;
+	idx = pubkey_idx(&rstate->local_id, &remote_node_id),
+	/* Activate the node_connection from us to them. */
+	set_connection_values(chan, idx,
+			      fee_base_msat,
+			      fee_proportional_millionths,
+			      cltv_expiry_delta,
+			      true,
+			      0,
+			      htlc_minimum_msat);
 	/* Designed to match msg in handle_channel_update, for easy testing */
 	status_trace("Received local update for channel %s(%d) now ACTIVE",
 		     type_to_string(msg, struct short_channel_id, &scid),
-		     direction);
+		     idx);
 }
 
 /**
@@ -1074,43 +1071,68 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+static void append_half_channel(struct gossip_getchannels_entry **entries,
+				const struct node_connection *c)
+{
+	struct gossip_getchannels_entry *e;
+	size_t n;
+
+	if (!c)
+		return;
+
+	/* Don't mention non-public inactive channels. */
+	if (!c->active && !c->channel_update)
+		return;
+
+	n = tal_count(*entries);
+	tal_resize(entries, n+1);
+	e = &(*entries)[n];
+
+	e->source = c->src->id;
+	e->destination = c->dst->id;
+	e->active = c->active;
+	e->flags = c->flags;
+	e->public = (c->channel_update != NULL);
+	e->short_channel_id = c->short_channel_id;
+	e->last_update_timestamp = c->channel_update ? c->last_timestamp : -1;
+	if (e->last_update_timestamp >= 0) {
+		e->base_fee_msat = c->base_fee;
+		e->fee_per_millionth = c->proportional_fee;
+		e->delay = c->delay;
+	}
+}
+
+static void append_channel(struct gossip_getchannels_entry **entries,
+			   const struct routing_channel *chan)
+{
+	append_half_channel(entries, &chan->connections[0]);
+	append_half_channel(entries, &chan->connections[1]);
+}
+
 static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daemon,
 				    u8 *msg)
 {
 	tal_t *tmpctx = tal_tmpctx(daemon);
 	u8 *out;
-	size_t j, num_chans = 0;
 	struct gossip_getchannels_entry *entries;
-	struct node *n;
-	struct node_map_iter i;
+	struct routing_channel *chan;
 	struct short_channel_id *scid;
 
 	fromwire_gossip_getchannels_request(msg, msg, &scid);
 
-	entries = tal_arr(tmpctx, struct gossip_getchannels_entry, num_chans);
-	n = node_map_first(daemon->rstate->nodes, &i);
-	while (n != NULL) {
-		for (j=0; j<tal_count(n->out); j++){
-			if (scid &&
-			    !structeq(scid, &n->out[j]->short_channel_id)) {
-				continue;
-			}
-			tal_resize(&entries, num_chans + 1);
-			entries[num_chans].source = n->out[j]->src->id;
-			entries[num_chans].destination = n->out[j]->dst->id;
-			entries[num_chans].active = n->out[j]->active;
-			entries[num_chans].flags = n->out[j]->flags;
-			entries[num_chans].public = (n->out[j]->channel_update != NULL);
-			entries[num_chans].short_channel_id = n->out[j]->short_channel_id;
-			entries[num_chans].last_update_timestamp = n->out[j]->last_timestamp;
-			if (entries[num_chans].last_update_timestamp >= 0) {
-				entries[num_chans].base_fee_msat = n->out[j]->base_fee;
-				entries[num_chans].fee_per_millionth = n->out[j]->proportional_fee;
-				entries[num_chans].delay = n->out[j]->delay;
-			}
-			num_chans++;
+	entries = tal_arr(tmpctx, struct gossip_getchannels_entry, 0);
+	if (scid) {
+		chan = get_channel(daemon->rstate, scid);
+		if (chan)
+			append_channel(&entries, chan);
+	} else {
+		u64 idx;
+
+		for (chan = uintmap_first(&daemon->rstate->channels, &idx);
+		     chan;
+		     chan = uintmap_after(&daemon->rstate->channels, &idx)) {
+			append_channel(&entries, chan);
 		}
-		n = node_map_next(daemon->rstate->nodes, &i);
 	}
 
 	out = towire_gossip_getchannels_reply(daemon, entries);
@@ -1253,7 +1275,7 @@ fail:
 static void gossip_send_keepalive_update(struct routing_state *rstate,
 					 struct node_connection *nc)
 {
-	tal_t *tmpctx = tal_tmpctx(nc);
+	tal_t *tmpctx = tal_tmpctx(rstate);
 	secp256k1_ecdsa_signature sig;
 	struct bitcoin_blkid chain_hash;
 	struct short_channel_id scid;
@@ -1300,27 +1322,27 @@ static void gossip_send_keepalive_update(struct routing_state *rstate,
 
 }
 
-static void gossip_prune_network(struct daemon *daemon)
+static void gossip_refresh_network(struct daemon *daemon)
 {
 	u64 now = time_now().ts.tv_sec;
-	struct node_map_iter it;
-	/* Anything below this highwater mark ought to be pruned */
-	s64 highwater = now - 2*daemon->update_channel_interval;
+	/* Anything below this highwater mark could be pruned if not refreshed */
+	s64 highwater = now - daemon->rstate->prune_timeout / 2;
 	struct node *n;
-	const tal_t *pruned = tal_tmpctx(daemon);
 
 	/* Schedule next run now */
 	new_reltimer(&daemon->timers, daemon,
-		     time_from_sec(daemon->update_channel_interval/2),
-		     gossip_prune_network, daemon);
+		     time_from_sec(daemon->rstate->prune_timeout/4),
+		     gossip_refresh_network, daemon);
 
 	/* Find myself in the network */
 	n = get_node(daemon->rstate, &daemon->id);
 	if (n) {
 		/* Iterate through all outgoing connection and check whether
 		 * it's time to re-announce */
-		for (size_t i = 0; i < tal_count(n->out); i++) {
-			struct node_connection *nc = n->out[i];
+		for (size_t i = 0; i < tal_count(n->channels); i++) {
+			struct node_connection *nc;
+
+			nc = connection_from(n, n->channels[i]);
 
 			if (!nc->channel_update) {
 				/* Connection is not public yet, so don't even
@@ -1328,7 +1350,7 @@ static void gossip_prune_network(struct daemon *daemon)
 				continue;
 			}
 
-			if (now - nc->last_timestamp < daemon->update_channel_interval) {
+			if (nc->last_timestamp > highwater) {
 				/* No need to send a keepalive update message */
 				continue;
 			}
@@ -1342,45 +1364,7 @@ static void gossip_prune_network(struct daemon *daemon)
 		}
 	}
 
-	/* Now iterate through all channels and see if it is still alive */
-	for (n = node_map_first(daemon->rstate->nodes, &it); n;
-	     n = node_map_next(daemon->rstate->nodes, &it)) {
-		for (size_t i = 0; i < tal_count(n->out); i++) {
-			struct node_connection *nc = n->out[i];
-
-			if (!nc->channel_update) {
-				/* Not even announced yet */
-				continue;
-			}
-
-			if (nc->last_timestamp > highwater) {
-				/* Still alive */
-				continue;
-			}
-
-			status_trace(
-			    "Pruning channel %s/%d from network view (age %"PRIu64"s)",
-			    type_to_string(trc, struct short_channel_id,
-					   &nc->short_channel_id),
-			    get_channel_direction(&nc->src->id, &nc->dst->id),
-			    now - nc->last_timestamp);
-			/* Calls remove_conn_from_array internally, removes on
-			 * both src and dst side. */
-			tal_free(nc);
-		}
-	}
-
-	/* Finally remove all nodes that do not have any edges
-	 * anymore. Reparent onto pruned, then free them all. */
-	for (n = node_map_first(daemon->rstate->nodes, &it); n;
-	     n = node_map_next(daemon->rstate->nodes, &it)) {
-		if (tal_count(n->in) == 0 && tal_count(n->out) == 0) {
-			tal_steal(pruned, n);
-		}
-	}
-
-	/* This frees all the nodes. */
-	tal_free(pruned);
+	route_prune(daemon->rstate);
 }
 
 static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon)
@@ -1495,21 +1479,24 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 {
 	struct bitcoin_blkid chain_hash;
 	u16 port;
+	u32 update_channel_interval;
 
 	if (!fromwire_gossipctl_init(
 		daemon, msg, &daemon->broadcast_interval, &chain_hash,
 		&daemon->id, &port, &daemon->globalfeatures,
 		&daemon->localfeatures, &daemon->wireaddrs, daemon->rgb,
-		daemon->alias, &daemon->update_channel_interval)) {
+		daemon->alias, &update_channel_interval)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
-	daemon->rstate = new_routing_state(daemon, &chain_hash, &daemon->id);
+	/* Prune time is twice update time */
+	daemon->rstate = new_routing_state(daemon, &chain_hash, &daemon->id,
+					   update_channel_interval * 2);
 
 	setup_listeners(daemon, port);
 
 	new_reltimer(&daemon->timers, daemon,
-		     time_from_sec(daemon->update_channel_interval/2),
-		     gossip_prune_network, daemon);
+		     time_from_sec(daemon->rstate->prune_timeout/4),
+		     gossip_refresh_network, daemon);
 
 	return daemon_conn_read_next(master->conn, master);
 }
@@ -1518,21 +1505,21 @@ static struct io_plan *resolve_channel_req(struct io_conn *conn,
 					   struct daemon *daemon, const u8 *msg)
 {
 	struct short_channel_id scid;
-	struct node_connection *nc;
+	struct routing_channel *chan;
 	struct pubkey *keys;
 
 	if (!fromwire_gossip_resolve_channel_request(msg, &scid))
 		master_badmsg(WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST, msg);
 
-	nc = get_connection_by_scid(daemon->rstate, &scid, 0);
-	if (!nc) {
+	chan = get_channel(daemon->rstate, &scid);
+	if (!chan) {
 		status_trace("Failed to resolve channel %s",
 			     type_to_string(trc, struct short_channel_id, &scid));
 		keys = NULL;
 	} else {
 		keys = tal_arr(msg, struct pubkey, 2);
-		keys[0] = nc->src->id;
-		keys[1] = nc->dst->id;
+		keys[0] = chan->nodes[0]->id;
+		keys[1] = chan->nodes[1]->id;
 		status_trace("Resolved channel %s %s<->%s",
 			     type_to_string(trc, struct short_channel_id, &scid),
 			     type_to_string(trc, struct pubkey, &keys[0]),
@@ -1818,6 +1805,7 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 	tal_t *tmpctx = tal_tmpctx(msg);
 	struct short_channel_id scid;
 	u8 direction;
+	struct routing_channel *chan;
 	struct node_connection *nc;
 	bool active;
 	u16 flags, cltv_expiry_delta;
@@ -1832,15 +1820,14 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 		goto fail;
 	}
 
-	nc = get_connection_by_scid(daemon->rstate, &scid, direction);
-
-	if (!nc) {
+	chan = get_channel(daemon->rstate, &scid);
+	if (!chan) {
 		status_trace(
-		    "Unable to find channel %s/%d",
-		    type_to_string(msg, struct short_channel_id, &scid),
-		    direction);
+		    "Unable to find channel %s",
+		    type_to_string(msg, struct short_channel_id, &scid));
 		goto fail;
 	}
+	nc = &chan->connections[direction];
 
 	status_trace("Disabling channel %s/%d, active %d -> %d",
 		     type_to_string(msg, struct short_channel_id, &scid),

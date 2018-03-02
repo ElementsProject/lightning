@@ -108,12 +108,21 @@ static struct node_connection *add_connection(struct routing_state *rstate,
 					      u32 base_fee, s32 proportional_fee,
 					      u32 delay)
 {
-	struct node_connection *c = get_or_make_connection(rstate, from, to);
+	struct short_channel_id scid;
+	struct node_connection *c;
+	struct routing_channel *chan;
+
+	memset(&scid, 0, sizeof(scid));
+	chan = get_channel(rstate, &scid);
+	if (!chan)
+		chan = new_routing_channel(rstate, &scid, from, to);
+
+	c = &chan->connections[pubkey_idx(from, to)];
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
 	c->active = true;
-	memset(&c->short_channel_id, 0, sizeof(c->short_channel_id));
+	c->short_channel_id = scid;
 	c->flags = get_channel_direction(from, to);
 	return c;
 }
@@ -182,7 +191,7 @@ int main(int argc, char *argv[])
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
-	rstate = new_routing_state(ctx, &zerohash, &me);
+	rstate = new_routing_state(ctx, &zerohash, &me, 0);
 	opt_register_noarg("--perfme", opt_set_bool, &perfme,
 			   "Run perfme-start and perfme-stop around benchmark");
 

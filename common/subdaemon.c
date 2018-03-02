@@ -18,6 +18,8 @@ static int backtrace_status(void *unused UNUSED, uintptr_t pc,
 			    const char *filename, int lineno,
 			    const char *function)
 {
+	fprintf(stderr, "backtrace: %s:%u (%s) %p\n",
+		filename, lineno, function, (void *)pc);
 	status_trace("backtrace: %s:%u (%s) %p",
 		     filename, lineno, function, (void *)pc);
 	return 0;

@@ -197,6 +197,24 @@ void *intmap_after_(const struct intmap *map, intmap_index_t *indexp)
 	return intmap_first_(&prev->u.n->child[1], indexp);
 }
 
+void *intmap_last_(const struct intmap *map, intmap_index_t *indexp)
+{
+	const struct intmap *n;
+
+	if (intmap_empty_(map)) {
+		errno = ENOENT;
+		return NULL;
+	}
+
+	n = map;
+	/* Anything with NULL value is a node. */
+	while (!n->v)
+		n = &n->u.n->child[1];
+	errno = 0;
+	*indexp = n->u.i;
+	return n->v;
+}
+
 static void clear(struct intmap n)
 {
 	if (!n.v) {

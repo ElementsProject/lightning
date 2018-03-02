@@ -1889,18 +1889,17 @@ class LightningDTests(BaseLightningDTests):
         ])
 
         # Now kill l3, so that l2 and l1 can prune it from their view after 10 seconds
+
+        # FIXME: This sleep() masks a real bug: that channeld sends a
+        # channel_update message (to disable the channel) with same
+        # timestamp as the last keepalive, and thus is ignored.  The minimal
+        # fix is to backdate the keepalives 1 second, but maybe we should
+        # simply have gossipd generate all updates?
         time.sleep(1)
         l3.stop()
 
-        l1.daemon.wait_for_logs([
-            "Pruning channel {}/{} from network view".format(scid2, 0),
-            "Pruning channel {}/{} from network view".format(scid2, 1),
-        ])
-
-        l2.daemon.wait_for_logs([
-            "Pruning channel {}/{} from network view".format(scid2, 0),
-            "Pruning channel {}/{} from network view".format(scid2, 1),
-        ])
+        l1.daemon.wait_for_log("Pruning channel {} from network view".format(scid2))
+        l2.daemon.wait_for_log("Pruning channel {} from network view".format(scid2))
 
         assert scid2 not in [c['short_channel_id'] for c in l1.rpc.listchannels()['channels']]
         assert scid2 not in [c['short_channel_id'] for c in l2.rpc.listchannels()['channels']]

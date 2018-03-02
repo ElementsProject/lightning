@@ -502,6 +502,8 @@ void *tal_free(const tal_t *ctx)
 		struct tal_hdr *t;
 		int saved_errno = errno;
 		t = debug_tal(to_tal_hdr(ctx));
+		if (unlikely(get_destroying_bit(t->parent_child)))
+			return NULL;
 		if (notifiers)
 			notify(ignore_destroying_bit(t->parent_child)->parent,
 			       TAL_NOTIFY_DEL_CHILD, ctx, saved_errno);

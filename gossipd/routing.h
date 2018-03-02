@@ -13,6 +13,7 @@
 #define ROUTING_FLAGS_DISABLED 2
 
 struct node_connection {
+	/* FIXME: Remove */
 	struct node *src, *dst;
 	/* millisatoshi. */
 	u32 base_fee;
@@ -31,14 +32,14 @@ struct node_connection {
 	u32 htlc_minimum_msat;
 
 	/* The channel ID, as determined by the anchor transaction */
+	/* FIXME: Remove */
 	struct short_channel_id short_channel_id;
 
 	/* Flags as specified by the `channel_update`s, among other
 	 * things indicated direction wrt the `channel_id` */
 	u16 flags;
 
-	/* Cached `channel_announcement` and `channel_update` we might forward to new peers*/
-	u8 *channel_announcement;
+	/* Cached `channel_update` we might forward to new peers*/
 	u8 *channel_update;
 
 	/* If greater than current time, this connection should not
@@ -55,8 +56,8 @@ struct node {
 	/* IP/Hostname and port of this node (may be NULL) */
 	struct wireaddr *addresses;
 
-	/* Routes connecting to us, from us. */
-	struct node_connection **in, **out;
+	/* Channels connecting us to other nodes */
+	struct routing_channel **channels;
 
 	/* Temporary data for routefinding. */
 	struct {
@@ -93,23 +94,59 @@ struct routing_channel {
 	struct short_channel_id scid;
 	u8 *txout_script;
 
-	struct node_connection *connections[2];
+	/*
+	 * connections[0]->src == nodes[0] connections[0]->dst == nodes[1]
+	 * connections[1]->src == nodes[1] connections[1]->dst == nodes[0]
+	 */
+	struct node_connection connections[2];
+	/* nodes[0].id < nodes[1].id */
 	struct node *nodes[2];
 
+	/* Cached `channel_announcement` we might forward to new peers*/
+	const u8 *channel_announcement;
+
+	/* FIXME: Move msg_index[MSG_INDEX_CUPDATE*] into connections[] */
 	u64 msg_indexes[3];
 
 	/* Is this a public channel, or was it only added locally? */
 	bool public;
-
-	struct pending_cannouncement *pending;
 };
+
+/* If the two nodes[] are id1 and id2, which index would id1 be? */
+static inline int pubkey_idx(const struct pubkey *id1, const struct pubkey *id2)
+{
+	return pubkey_cmp(id1, id2) > 0;
+}
+
+/* FIXME: We could avoid these by having two channels arrays */
+static inline struct node_connection *connection_from(const struct node *n,
+						      struct routing_channel *chan)
+{
+	int idx = (chan->nodes[1] == n);
+
+	assert(chan->connections[idx].src == n);
+	assert(chan->connections[!idx].dst == n);
+	return &chan->connections[idx];
+}
+
+static inline struct node_connection *connection_to(const struct node *n,
+						    struct routing_channel *chan)
+{
+	int idx = (chan->nodes[1] == n);
+
+	assert(chan->connections[idx].src == n);
+	assert(chan->connections[!idx].dst == n);
+	return &chan->connections[!idx];
+}
 
 struct routing_state {
 	/* All known nodes. */
 	struct node_map *nodes;
 
+	/* node_announcements which are waiting on pending_cannouncement */
 	struct pending_node_map *pending_node_map;
 
+	/* FIXME: Make this a htable! */
 	/* channel_announcement which are pending short_channel_id lookup */
 	struct list_head pending_cannouncement;
 
@@ -119,6 +156,9 @@ struct routing_state {
 
 	/* Our own ID so we can identify local channels */
 	struct pubkey local_id;
+
+	/* How old does a channel have to be before we prune it? */
+	u32 prune_timeout;
 
         /* A map of channels indexed by short_channel_ids */
 	UINTMAP(struct routing_channel*) channels;
@@ -140,22 +180,13 @@ struct route_hop {
 
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct bitcoin_blkid *chain_hash,
-					const struct pubkey *local_id);
+					const struct pubkey *local_id,
+					u32 prune_timeout);
 
-/* Add a connection to the routing table, but do not mark it as usable
- * yet. Used by channel_announcements before the channel_update comes
- * in. */
-struct node_connection *half_add_connection(struct routing_state *rstate,
-					    const struct pubkey *from,
-					    const struct pubkey *to,
-					    const struct short_channel_id *schanid,
-					    const u16 flags);
-
-/* Given a short_channel_id, retrieve the matching connection, or NULL if it is
- * unknown. */
-struct node_connection *get_connection_by_scid(const struct routing_state *rstate,
-					       const struct short_channel_id *schanid,
-					      const u8 direction);
+struct routing_channel *new_routing_channel(struct routing_state *rstate,
+					    const struct short_channel_id *scid,
+					    const struct pubkey *id1,
+					    const struct pubkey *id2);
 
 /* Handlers for incoming messages */
 
@@ -182,6 +213,16 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 void handle_channel_update(struct routing_state *rstate, const u8 *update);
 void handle_node_announcement(struct routing_state *rstate, const u8 *node);
 
+/* Set values on the struct node_connection */
+void set_connection_values(struct routing_channel *chan,
+			   int idx,
+			   u32 base_fee,
+			   u32 proportional_fee,
+			   u32 delay,
+			   bool active,
+			   u64 timestamp,
+			   u32 htlc_minimum_msat);
+
 /* Get a node: use this instead of node_map_get() */
 struct node *get_node(struct routing_state *rstate, const struct pubkey *id);
 
@@ -203,14 +244,7 @@ void routing_failure(struct routing_state *rstate,
 void mark_channel_unroutable(struct routing_state *rstate,
 			     const struct short_channel_id *channel);
 
-/* routing_channel constructor */
-struct routing_channel *routing_channel_new(const tal_t *ctx,
-					    struct short_channel_id *scid);
-
-/* Add the connection to the channel */
-void channel_add_connection(struct routing_state *rstate,
-			    struct routing_channel *chan,
-			    struct node_connection *nc);
+void route_prune(struct routing_state *rstate);
 
 /* Utility function that, given a source and a destination, gives us
  * the direction bit the matching channel should get */
