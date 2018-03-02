@@ -238,7 +238,6 @@ static struct node_connection *new_node_connection(struct routing_state *rstate,
 	c->src = from;
 	c->dst = to;
 	c->short_channel_id = chan->scid;
-	c->channel_announcement = NULL;
 	c->channel_update = NULL;
 	c->unroutable_until = 0;
 	c->active = false;
@@ -274,6 +273,7 @@ struct routing_channel *new_routing_channel(struct routing_state *rstate,
 	chan->nodes[n1idx] = n1;
 	chan->nodes[!n1idx] = n2;
 	chan->txout_script = NULL;
+	chan->channel_announcement = NULL;
 	chan->public = false;
 	memset(&chan->msg_indexes, 0, sizeof(chan->msg_indexes));
 
@@ -776,14 +776,8 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	chan->public = true;
 
 	/* Save channel_announcement. */
-	tal_free(chan->connections[0]->channel_announcement);
-	chan->connections[0]->channel_announcement
-		= tal_dup_arr(chan->connections[0], u8, pending->announce,
-			      tal_len(pending->announce), 0);
-	tal_free(chan->connections[1]->channel_announcement);
-	chan->connections[1]->channel_announcement
-		= tal_dup_arr(chan->connections[1], u8, pending->announce,
-			      tal_len(pending->announce), 0);
+	tal_free(chan->channel_announcement);
+	chan->channel_announcement = tal_steal(chan, pending->announce);
 
 	if (replace_broadcast(rstate->broadcasts,
 			      &chan->msg_indexes[MSG_INDEX_CANNOUNCE],
