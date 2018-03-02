@@ -1155,8 +1155,11 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 
 /**
  * routing_failure_channel_out - Handle routing failure on a specific channel
+ *
+ * If we want to delete the channel, we reparent it to disposal_context.
  */
-static void routing_failure_channel_out(struct node *node,
+static void routing_failure_channel_out(const tal_t *disposal_context,
+					struct node *node,
 					enum onion_type failcode,
 					struct routing_channel *chan,
 					time_t now)
@@ -1176,7 +1179,8 @@ static void routing_failure_channel_out(struct node *node,
 		/* Prevent it for 20 seconds. */
 		nc->unroutable_until = now + 20;
 	else
-		tal_free(nc);
+		/* Set it up to be pruned. */
+		tal_steal(disposal_context, chan);
 }
 
 void routing_failure(struct routing_state *rstate,
@@ -1216,15 +1220,10 @@ void routing_failure(struct routing_state *rstate,
 	 *
 	 */
 	if (failcode & NODE) {
-		/* If permanent, we forget entire node and all its channels.
-		 * If we did this in a loop, we might use-after-free. */
-		if (failcode & PERM) {
-			tal_free(node);
-		} else {
-			for (i = 0; i < tal_count(node->channels); ++i)
-				routing_failure_channel_out(node, failcode,
-							    node->channels[i],
-							    now);
+		for (i = 0; i < tal_count(node->channels); ++i) {
+			routing_failure_channel_out(tmpctx, node, failcode,
+						    node->channels[i],
+						    now);
 		}
 	} else {
 		struct routing_channel *chan = get_channel(rstate, scid);
@@ -1244,7 +1243,8 @@ void routing_failure(struct routing_state *rstate,
 				       type_to_string(tmpctx, struct pubkey,
 						      erring_node_pubkey));
 		else
-			routing_failure_channel_out(node, failcode, chan, now);
+			routing_failure_channel_out(tmpctx,
+						    node, failcode, chan, now);
 	}
 
 	/* Update the channel if UPDATE failcode. Do
