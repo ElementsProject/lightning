@@ -193,7 +193,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("waitanyinvoice", payload)
 
-    def waitinvoice(self, label=None):
+    def waitinvoice(self, label):
         """
         Wait for an incoming payment matching the invoice with {label}
         """
