@@ -55,32 +55,28 @@ Please refer to the [installation documentation](doc/INSTALL.md) for
 detailed instructions.
 For the impatient here's the gist of it for Ubuntu and Debian:
 
-```
-sudo apt-get update
-sudo apt-get install -y autoconf automake build-essential git libtool libgmp-dev libsqlite3-dev python python3 net-tools libsodium-dev
-git clone https://github.com/ElementsProject/lightning.git
-cd lightning
-make
-```
+    sudo apt-get update
+    sudo apt-get install -y \
+      autoconf automake build-essential git libtool libgmp-dev \
+      libsqlite3-dev python python3 net-tools libsodium-dev
+    git clone https://github.com/ElementsProject/lightning.git
+    cd lightning
+    make
 
 Or if you like to throw `docker` into the mix:
 
-```
-sudo docker run \
-	-v $HOME/.lightning:/root/.lightning \
-	-v $HOME/.bitcoin:/root/.bitcoin \
-	-p 9735:9735 \
-	cdecker/lightningd:latest
-```
+    sudo docker run \
+    	-v $HOME/.lightning:/root/.lightning \
+    	-v $HOME/.bitcoin:/root/.bitcoin \
+    	-p 9735:9735 \
+    	cdecker/lightningd:latest
 
 ### Starting `lightningd`
 
 In order to start `lightningd` you will need to have a local `bitcoind`
 node running in either testnet or regtest mode:
 
-```
-bitcoind -daemon -testnet
-```
+    bitcoind -daemon -testnet
 
 Wait until `bitcoind` has synchronized with the testnet network.
 
@@ -91,9 +87,7 @@ Notice that currently pruned nodes are not supported and may result in
 
 You can start `lightningd` with the following command:
 
-```
-lightningd/lightningd --network=testnet --log-level=debug
-```
+    lightningd/lightningd --network=testnet --log-level=debug
 
 ### Listing all commands:
 `cli/lightning-cli help` will print a table of the API and lists the
@@ -104,13 +98,11 @@ following commands
 First you need to transfer some funds to `lightningd` so that it can
 open a channel:
 
-```
-# Returns an address <address>
-cli/lightning-cli newaddr
+    # Returns an address <address>
+    cli/lightning-cli newaddr
 
-# Returns a transaction id <txid>
-bitcoin-cli -testnet sendtoaddress <address> <amount_in_bitcoins>
-```
+    # Returns a transaction id <txid>
+    bitcoin-cli -testnet sendtoaddress <address> <amount_in_bitcoins>
 
 `lightningd` will register the funds once the transaction is confirmed.
 
@@ -123,10 +115,8 @@ You can send it directly to the `lightningd` address.
 
 Confirm `lightningd` got funds by:
 
-```
-# Returns an array of on-chain funds.
-cli/lightning-cli listfunds
-```
+    # Returns an array of on-chain funds.
+    cli/lightning-cli listfunds
 
 Once `lightningd` has funds, we can connect to a node and open a channel.
 Let's assume the **remote** node is accepting connections at `<ip>`
