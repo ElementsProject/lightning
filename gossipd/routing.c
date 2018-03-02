@@ -196,20 +196,6 @@ static void destroy_routing_channel(struct routing_channel *chan,
 		tal_free(chan->nodes[1]);
 }
 
-static void destroy_node_connection(struct node_connection *nc,
-				    struct routing_channel *chan)
-{
-	int dir = nc->flags & 0x1;
-	struct node_connection *c = chan->connections[dir];
-
-	assert(nc == c);
-	chan->connections[dir] = NULL;
-
-	/* Both sides deleted?  Free channel */
-	if (!chan->connections[!dir])
-		tal_free(chan);
-}
-
 static struct node_connection *new_node_connection(struct routing_state *rstate,
 						   struct routing_channel *chan,
 						   struct node *from,
@@ -237,8 +223,6 @@ static struct node_connection *new_node_connection(struct routing_state *rstate,
 
 	/* Hook it into in/out arrays. */
 	chan->connections[idx] = c;
-
-	tal_add_destructor2(c, destroy_node_connection, chan);
 	return c;
 }
 
@@ -380,7 +364,7 @@ static void bfg_one_edge(struct node *node,
 /* Determine if the given node_connection is routable */
 static bool nc_is_routable(const struct node_connection *nc, time_t now)
 {
-	return nc && nc->active && nc->unroutable_until < now;
+	return nc->active && nc->unroutable_until < now;
 }
 
 /* riskfactor is already scaled to per-block amount */
@@ -911,13 +895,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 
 	c = chan->connections[direction];
 
-	/* Channel could have been pruned: re-add */
-	if (!c) {
-		c = new_node_connection(rstate, chan,
-					chan->nodes[direction],
-					chan->nodes[!direction],
-					direction);
-	} else if (c->last_timestamp >= timestamp) {
+	if (c->last_timestamp >= timestamp) {
 		SUPERVERBOSE("Ignoring outdated update.");
 		tal_free(tmpctx);
 		return;
@@ -1159,11 +1137,7 @@ static void routing_failure_channel_out(const tal_t *disposal_context,
 					struct routing_channel *chan,
 					time_t now)
 {
-	struct node_connection *nc;
-
-	nc = connection_from(node, chan);
-	if (!nc)
-		return;
+	struct node_connection *nc = connection_from(node, chan);
 
 	/* BOLT #4:
 	 *
@@ -1299,10 +1273,8 @@ void mark_channel_unroutable(struct routing_state *rstate,
 		tal_free(tmpctx);
 		return;
 	}
-	if (chan->connections[0])
-		chan->connections[0]->unroutable_until = now + 20;
-	if (chan->connections[1])
-		chan->connections[1]->unroutable_until = now + 20;
+	chan->connections[0]->unroutable_until = now + 20;
+	chan->connections[1]->unroutable_until = now + 20;
 	tal_free(tmpctx);
 }
 

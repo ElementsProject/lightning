@@ -94,7 +94,7 @@ struct routing_channel {
 	struct short_channel_id scid;
 	u8 *txout_script;
 
-	/* One of these might be NULL.
+	/*
 	 * connections[0]->src == nodes[0] connections[0]->dst == nodes[1]
 	 * connections[1]->src == nodes[1] connections[1]->dst == nodes[0]
 	 */
@@ -124,8 +124,8 @@ static inline struct node_connection *connection_from(const struct node *n,
 {
 	int idx = (chan->nodes[1] == n);
 
-	assert(!chan->connections[idx] || chan->connections[idx]->src == n);
-	assert(!chan->connections[!idx] || chan->connections[!idx]->dst == n);
+	assert(chan->connections[idx]->src == n);
+	assert(chan->connections[!idx]->dst == n);
 	return chan->connections[idx];
 }
 
@@ -134,8 +134,8 @@ static inline struct node_connection *connection_to(const struct node *n,
 {
 	int idx = (chan->nodes[1] == n);
 
-	assert(!chan->connections[idx] || chan->connections[idx]->src == n);
-	assert(!chan->connections[!idx] || chan->connections[!idx]->dst == n);
+	assert(chan->connections[idx]->src == n);
+	assert(chan->connections[!idx]->dst == n);
 	return chan->connections[!idx];
 }
 
