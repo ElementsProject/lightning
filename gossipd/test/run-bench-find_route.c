@@ -191,7 +191,7 @@ int main(int argc, char *argv[])
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
-	rstate = new_routing_state(ctx, &zerohash, &me);
+	rstate = new_routing_state(ctx, &zerohash, &me, 0);
 	opt_register_noarg("--perfme", opt_set_bool, &perfme,
 			   "Run perfme-start and perfme-stop around benchmark");
 

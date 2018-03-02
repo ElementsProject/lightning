@@ -157,6 +157,9 @@ struct routing_state {
 	/* Our own ID so we can identify local channels */
 	struct pubkey local_id;
 
+	/* How old does a channel have to be before we prune it? */
+	u32 prune_timeout;
+
         /* A map of channels indexed by short_channel_ids */
 	UINTMAP(struct routing_channel*) channels;
 };
@@ -177,7 +180,8 @@ struct route_hop {
 
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct bitcoin_blkid *chain_hash,
-					const struct pubkey *local_id);
+					const struct pubkey *local_id,
+					u32 prune_timeout);
 
 struct routing_channel *new_routing_channel(struct routing_state *rstate,
 					    const struct short_channel_id *scid,
@@ -236,12 +240,7 @@ void routing_failure(struct routing_state *rstate,
 void mark_channel_unroutable(struct routing_state *rstate,
 			     const struct short_channel_id *channel);
 
-/* Add the connection to the channel */
-void channel_add_connection(struct routing_state *rstate,
-			    struct routing_channel *chan,
-			    struct node_connection *nc);
-
-void delete_connection(struct routing_channel *chan, int idx);
+void route_prune(struct routing_state *rstate);
 
 /* Utility function that, given a source and a destination, gives us
  * the direction bit the matching channel should get */

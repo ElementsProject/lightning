@@ -94,13 +94,15 @@ static struct node_map *empty_node_map(const tal_t *ctx)
 
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct bitcoin_blkid *chain_hash,
-					const struct pubkey *local_id)
+					const struct pubkey *local_id,
+					u32 prune_timeout)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->nodes = empty_node_map(rstate);
 	rstate->broadcasts = new_broadcast_state(rstate);
 	rstate->chain_hash = *chain_hash;
 	rstate->local_id = *local_id;
+	rstate->prune_timeout = prune_timeout;
 	list_head_init(&rstate->pending_cannouncement);
 	uintmap_init(&rstate->channels);
 
@@ -242,9 +244,9 @@ static struct node_connection *new_node_connection(struct routing_state *rstate,
 	c->unroutable_until = 0;
 	c->active = false;
 	c->flags = idx;
-	/* We haven't seen channel_update: give it an hour before we prune,
+	/* We haven't seen channel_update: make it halfway to prune time,
 	 * which should be older than any update we'd see. */
-	c->last_timestamp = time_now().ts.tv_sec - (1209600 - 3600);
+	c->last_timestamp = time_now().ts.tv_sec - rstate->prune_timeout/2;
 
 	/* Hook it into in/out arrays. */
 	chan->connections[idx] = c;
