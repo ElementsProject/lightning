@@ -110,9 +110,14 @@ static struct node_connection *add_connection(struct routing_state *rstate,
 {
 	struct short_channel_id scid;
 	struct node_connection *c;
+	struct routing_channel *chan;
 
 	memset(&scid, 0, sizeof(scid));
-	c = half_add_connection(rstate, from, to, &scid);
+	chan = get_channel(rstate, &scid);
+	if (!chan)
+		chan = new_routing_channel(rstate, &scid, from, to);
+
+	c = chan->connections[pubkey_idx(from, to)];
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;

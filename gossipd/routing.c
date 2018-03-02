@@ -194,44 +194,6 @@ static void destroy_routing_channel(struct routing_channel *chan,
 		tal_free(chan->nodes[1]);
 }
 
-/* Returns routing_channel connecting from and to: *idx set to refer
- * to connection with src=from, dst=to */
-static struct routing_channel *find_channel(struct routing_state *rstate,
-					    const struct node *from,
-					    const struct node *to,
-					    int *idx)
-{
-	int i, n;
-
-	*idx = pubkey_idx(&from->id, &to->id);
-
-	n = tal_count(to->channels);
-	for (i = 0; i < n; i++) {
-		if (to->channels[i]->nodes[*idx] == from)
-			return to->channels[i];
-	}
-	return NULL;
-}
-
-static struct node_connection *get_connection(struct routing_state *rstate,
-					       const struct pubkey *from_id,
-					       const struct pubkey *to_id)
-{
-	int idx;
-	struct node *from, *to;
-	struct routing_channel *c;
-
-	from = get_node(rstate, from_id);
-	to = get_node(rstate, to_id);
-	if (!from || ! to)
-		return NULL;
-
-	c = find_channel(rstate, from, to, &idx);
-	if (!c)
-		return NULL;
-	return c->connections[idx];
-}
-
 /* FIXME: All users of this are confused. */
 struct node_connection *get_connection_by_scid(const struct routing_state *rstate,
 					      const struct short_channel_id *scid,
@@ -284,24 +246,31 @@ static struct node_connection *new_node_connection(struct routing_state *rstate,
 	c->last_timestamp = -1;
 
 	/* Hook it into in/out arrays. */
-	assert(!chan->connections[idx]);
 	chan->connections[idx] = c;
 
 	tal_add_destructor2(c, destroy_node_connection, chan);
 	return c;
 }
 
-static struct routing_channel *new_routing_channel(struct routing_state *rstate,
-						   const struct short_channel_id *scid,
-						   struct node *n1,
-						   struct node *n2)
+struct routing_channel *new_routing_channel(struct routing_state *rstate,
+					    const struct short_channel_id *scid,
+					    const struct pubkey *id1,
+					    const struct pubkey *id2)
 {
 	struct routing_channel *chan = tal(rstate, struct routing_channel);
-	int n1idx = pubkey_idx(&n1->id, &n2->id);
+	int n1idx = pubkey_idx(id1, id2);
 	size_t n;
+	struct node *n1, *n2;
+
+	/* Create nodes on demand */
+	n1 = get_node(rstate, id1);
+	if (!n1)
+		n1 = new_node(rstate, id1);
+	n2 = get_node(rstate, id2);
+	if (!n2)
+		n2 = new_node(rstate, id2);
 
 	chan->scid = *scid;
-	chan->connections[0] = chan->connections[1] = NULL;
 	chan->nodes[n1idx] = n1;
 	chan->nodes[!n1idx] = n2;
 	chan->txout_script = NULL;
@@ -315,50 +284,14 @@ static struct routing_channel *new_routing_channel(struct routing_state *rstate,
 	tal_resize(&n1->channels, n+1);
 	n1->channels[n] = chan;
 
+	/* Populate with (inactive) connections */
+	new_node_connection(rstate, chan, n1, n2, n1idx);
+	new_node_connection(rstate, chan, n2, n1, !n1idx);
+
 	uintmap_add(&rstate->channels, scid->u64, chan);
 
 	tal_add_destructor2(chan, destroy_routing_channel, rstate);
 	return chan;
-}
-
-struct node_connection *half_add_connection(struct routing_state *rstate,
-					    const struct pubkey *from_id,
-					    const struct pubkey *to_id,
-					    const struct short_channel_id *scid)
-{
-	int idx;
-	struct node *from, *to;
-	struct routing_channel *chan;
-	struct node_connection *c;
-
-	from = get_node(rstate, from_id);
-	if (!from)
-		from = new_node(rstate, from_id);
-	to = get_node(rstate, to_id);
-	if (!to)
-		to = new_node(rstate, to_id);
-
-	/* FIXME: callers all have no channel? */
-	chan = find_channel(rstate, from, to, &idx);
-	if (!chan)
-		chan = new_routing_channel(rstate, scid, from, to);
-
-	c = chan->connections[idx];
-	if (!c) {
-		SUPERVERBOSE("Creating new route from %s to %s",
-			     type_to_string(trc, struct pubkey, &from->id),
-			     type_to_string(trc, struct pubkey, &to->id));
-		c = chan->connections[idx]
-			= new_node_connection(rstate, chan, from, to, idx);
-	} else {
-		status_trace("Updating existing route from %s to %s",
-			     type_to_string(trc, struct pubkey, &from->id),
-			     type_to_string(trc, struct pubkey, &to->id));
-	}
-	assert(c->src == from);
-	assert(c->dst == to);
-
-	return c;
 }
 
 /* Too big to reach, but don't overflow if added. */
@@ -584,43 +517,6 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	return first_conn;
 }
 
-static struct node_connection *
-add_channel_direction(struct routing_state *rstate, const struct pubkey *from,
-		      const struct pubkey *to,
-		      const struct short_channel_id *short_channel_id,
-		      const u8 *announcement)
-{
-	struct node_connection *c1, *c2, *c;
-	u16 direction = get_channel_direction(from, to);
-
-	c1 = get_connection(rstate, from, to);
-	c2 = get_connection_by_scid(rstate, short_channel_id, direction);
-	if(c2) {
-		/* We already know the channel by its scid, just
-		 * update the announcement below */
-		c = c2;
-	} else if (c1) {
-		/* We found the channel by its endpoints, not by scid,
-		 * so update its scid */
-		memcpy(&c1->short_channel_id, short_channel_id,
-		       sizeof(c->short_channel_id));
-		c1->flags = direction;
-		c = c1;
-	} else {
-		/* We don't know this channel at all, create it */
-		c = half_add_connection(rstate, from, to, short_channel_id);
-	}
-
-	/* Remember the announcement so we can forward it to new peers */
-	if (announcement) {
-		tal_free(c->channel_announcement);
-		c->channel_announcement = tal_dup_arr(c, u8, announcement,
-						      tal_count(announcement), 0);
-	}
-
-	return c;
-}
-
 /* Verify the signature of a channel_update message */
 static bool check_channel_update(const struct pubkey *node_key,
 				 const secp256k1_ecdsa_signature *node_sig,
@@ -820,8 +716,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 				  const struct short_channel_id *scid,
 				  const u8 *outscript)
 {
-	bool forward, local;
-	struct node_connection *c0, *c1;
+	bool local;
 	u8 *tag;
 	const u8 *s;
 	struct pending_cannouncement *pending;
@@ -868,38 +763,35 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 		return false;
 	}
 
-	/* Is this a new connection? It is if we don't know the
-	 * channel yet, or do not have a matching announcement in the
-	 * case of side-loaded channels*/
-	c0 = get_connection(rstate, &pending->node_id_2, &pending->node_id_1);
-	c1 = get_connection(rstate, &pending->node_id_1, &pending->node_id_2);
-	forward = !c0 || !c1 || !c0->channel_announcement || !c1->channel_announcement;
-
-	SUPERVERBOSE("Announce for %s: %s<->%s: forward=%u c0=%p c1=%p c0->channel_announcement=%p c1->channel_announcement=%p",
-		     type_to_string(trc, struct short_channel_id, scid),
-		     type_to_string(trc, struct pubkey, &pending->node_id_1),
-		     type_to_string(trc, struct pubkey, &pending->node_id_2),
-		     forward, c0, c1,
-		     c0 ? c0->channel_announcement : NULL,
-		     c1 ? c1->channel_announcement : NULL);
-	c0 = add_channel_direction(rstate, &pending->node_id_1, &pending->node_id_2,
-				   &pending->short_channel_id, pending->announce);
-	c1 = add_channel_direction(rstate, &pending->node_id_2, &pending->node_id_1,
-				   &pending->short_channel_id, pending->announce);
+	/* The channel may already exist if it was non-public from
+	 * local_add_channel(); normally we don't accept new
+	 * channel_announcements.  See handle_channel_announcement. */
+	chan = get_channel(rstate, scid);
+	if (!chan)
+		chan = new_routing_channel(rstate, scid,
+					   &pending->node_id_1,
+					   &pending->node_id_2);
 
 	/* Channel is now public. */
-	chan = get_channel(rstate, scid);
 	chan->public = true;
 
-	if (forward) {
-		if (replace_broadcast(rstate->broadcasts,
-				      &chan->msg_indexes[MSG_INDEX_CANNOUNCE],
-				      WIRE_CHANNEL_ANNOUNCEMENT,
-				      tag, pending->announce))
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "Announcement %s was replaced?",
-				      tal_hex(trc, pending->announce));
-	}
+	/* Save channel_announcement. */
+	tal_free(chan->connections[0]->channel_announcement);
+	chan->connections[0]->channel_announcement
+		= tal_dup_arr(chan->connections[0], u8, pending->announce,
+			      tal_len(pending->announce), 0);
+	tal_free(chan->connections[1]->channel_announcement);
+	chan->connections[1]->channel_announcement
+		= tal_dup_arr(chan->connections[1], u8, pending->announce,
+			      tal_len(pending->announce), 0);
+
+	if (replace_broadcast(rstate->broadcasts,
+			      &chan->msg_indexes[MSG_INDEX_CANNOUNCE],
+			      WIRE_CHANNEL_ANNOUNCEMENT,
+			      tag, pending->announce))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Announcement %s was replaced?",
+			      tal_hex(trc, pending->announce));
 
 	local = pubkey_eq(&pending->node_id_1, &rstate->local_id) ||
 		pubkey_eq(&pending->node_id_2, &rstate->local_id);
@@ -914,7 +806,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	process_pending_node_announcement(rstate, &pending->node_id_2);
 
 	tal_free(pending);
-	return local && forward;
+	return local;
 }
 
 static void update_pending(struct pending_cannouncement *pending,
