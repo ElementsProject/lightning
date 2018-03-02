@@ -131,10 +131,8 @@ static void destroy_node(struct node *node, struct routing_state *rstate)
 	node_map_del(rstate->nodes, node);
 
 	/* These remove themselves from the array. */
-	while (tal_count(node->in))
-		tal_free(node->in[0]);
-	while (tal_count(node->out))
-		tal_free(node->out[0]);
+	while (tal_count(node->channels))
+		tal_free(node->channels[0]);
 }
 
 struct node *get_node(struct routing_state *rstate, const struct pubkey *id)
@@ -151,8 +149,7 @@ static struct node *new_node(struct routing_state *rstate,
 
 	n = tal(rstate, struct node);
 	n->id = *id;
-	n->in = tal_arr(n, struct node_connection *, 0);
-	n->out = tal_arr(n, struct node_connection *, 0);
+	n->channels = tal_arr(n, struct routing_channel *, 0);
 	n->alias = NULL;
 	n->node_announcement = NULL;
 	n->announcement_idx = 0;
@@ -164,50 +161,78 @@ static struct node *new_node(struct routing_state *rstate,
 	return n;
 }
 
-static bool remove_conn_from_array(struct node_connection ***conns,
-				   struct node_connection *nc)
+static bool remove_channel_from_array(struct routing_channel ***chans,
+				      struct routing_channel *c)
 {
 	size_t i, n;
 
-	n = tal_count(*conns);
+	n = tal_count(*chans);
 	for (i = 0; i < n; i++) {
-		if ((*conns)[i] != nc)
+		if ((*chans)[i] != c)
 			continue;
 		n--;
-		memmove(*conns + i, *conns + i + 1, sizeof(**conns) * (n - i));
-		tal_resize(conns, n);
+		memmove(*chans + i, *chans + i + 1, sizeof(**chans) * (n - i));
+		tal_resize(chans, n);
 		return true;
 	}
 	return false;
 }
 
-static void destroy_connection(struct node_connection *nc)
+static void destroy_routing_channel(struct routing_channel *chan,
+				    struct routing_state *rstate)
 {
-	if (!remove_conn_from_array(&nc->dst->in, nc)
-	    || !remove_conn_from_array(&nc->src->out, nc))
+	if (!remove_channel_from_array(&chan->nodes[0]->channels, chan)
+	    || !remove_channel_from_array(&chan->nodes[1]->channels, chan))
 		/* FIXME! */
 		abort();
+
+	uintmap_del(&rstate->channels, chan->scid.u64);
+
+	if (tal_count(chan->nodes[0]->channels) == 0)
+		tal_free(chan->nodes[0]);
+	if (tal_count(chan->nodes[1]->channels) == 0)
+		tal_free(chan->nodes[1]);
 }
 
-static struct node_connection * get_connection(struct routing_state *rstate,
+/* Returns routing_channel connecting from and to: *idx set to refer
+ * to connection with src=from, dst=to */
+static struct routing_channel *find_channel(struct routing_state *rstate,
+					    const struct node *from,
+					    const struct node *to,
+					    int *idx)
+{
+	int i, n;
+
+	*idx = pubkey_idx(&from->id, &to->id);
+
+	n = tal_count(to->channels);
+	for (i = 0; i < n; i++) {
+		if (to->channels[i]->nodes[*idx] == from)
+			return to->channels[i];
+	}
+	return NULL;
+}
+
+static struct node_connection *get_connection(struct routing_state *rstate,
 					       const struct pubkey *from_id,
 					       const struct pubkey *to_id)
 {
-	int i, n;
+	int idx;
 	struct node *from, *to;
+	struct routing_channel *c;
+
 	from = get_node(rstate, from_id);
 	to = get_node(rstate, to_id);
 	if (!from || ! to)
 		return NULL;
 
-	n = tal_count(to->in);
-	for (i = 0; i < n; i++) {
-		if (to->in[i]->src == from)
-			return to->in[i];
-	}
-	return NULL;
+	c = find_channel(rstate, from, to, &idx);
+	if (!c)
+		return NULL;
+	return c->connections[idx];
 }
 
+/* FIXME: All users of this are confused. */
 struct node_connection *get_connection_by_scid(const struct routing_state *rstate,
 					      const struct short_channel_id *scid,
 					      const u8 direction)
@@ -220,14 +245,91 @@ struct node_connection *get_connection_by_scid(const struct routing_state *rstat
 		return chan->connections[direction];
 }
 
-static struct node_connection *
-get_or_make_connection(struct routing_state *rstate,
-		       const struct pubkey *from_id,
-		       const struct pubkey *to_id)
+static struct routing_channel *new_routing_channel(struct routing_state *rstate,
+						   const struct short_channel_id *scid,
+						   struct node *n1,
+						   struct node *n2)
 {
-	size_t i, n;
+	struct routing_channel *chan = tal(rstate, struct routing_channel);
+	int n1idx = pubkey_idx(&n1->id, &n2->id);
+	size_t n;
+
+	chan->scid = *scid;
+	chan->connections[0] = chan->connections[1] = NULL;
+	chan->nodes[n1idx] = n1;
+	chan->nodes[!n1idx] = n2;
+	chan->txout_script = NULL;
+	chan->public = false;
+	memset(&chan->msg_indexes, 0, sizeof(chan->msg_indexes));
+
+	n = tal_count(n2->channels);
+	tal_resize(&n2->channels, n+1);
+	n2->channels[n] = chan;
+	n = tal_count(n1->channels);
+	tal_resize(&n1->channels, n+1);
+	n1->channels[n] = chan;
+
+	uintmap_add(&rstate->channels, scid->u64, chan);
+
+	tal_add_destructor2(chan, destroy_routing_channel, rstate);
+	return chan;
+}
+
+static void destroy_node_connection(struct node_connection *nc,
+				    struct routing_channel *chan)
+{
+	int dir = nc->flags & 0x1;
+	struct node_connection *c = chan->connections[dir];
+
+	assert(nc == c);
+	chan->connections[dir] = NULL;
+
+	/* Both sides deleted?  Free channel */
+	if (!chan->connections[!dir])
+		tal_free(chan);
+}
+
+static struct node_connection *new_node_connection(struct routing_state *rstate,
+						   struct routing_channel *chan,
+						   struct node *from,
+						   struct node *to,
+						   int idx)
+{
+	struct node_connection *c;
+
+	/* We are going to put this in the right way? */
+	assert(idx == pubkey_idx(&from->id, &to->id));
+	assert(from == chan->nodes[idx]);
+	assert(to == chan->nodes[!idx]);
+
+	c = tal(rstate, struct node_connection);
+	c->src = from;
+	c->dst = to;
+	c->short_channel_id = chan->scid;
+	c->channel_announcement = NULL;
+	c->channel_update = NULL;
+	c->unroutable_until = 0;
+	c->active = false;
+	c->flags = idx;
+	c->last_timestamp = -1;
+
+	/* Hook it into in/out arrays. */
+	assert(!chan->connections[idx]);
+	chan->connections[idx] = c;
+
+	tal_add_destructor2(c, destroy_node_connection, chan);
+	return c;
+}
+
+struct node_connection *half_add_connection(struct routing_state *rstate,
+					    const struct pubkey *from_id,
+					    const struct pubkey *to_id,
+					    const struct short_channel_id *scid)
+{
+	int idx;
 	struct node *from, *to;
-	struct node_connection *nc;
+	struct routing_channel *chan;
+	struct node_connection *c;
 
 	from = get_node(rstate, from_id);
 	if (!from)
@@ -236,64 +338,28 @@ get_or_make_connection(struct routing_state *rstate,
 	if (!to)
 		to = new_node(rstate, to_id);
 
-	n = tal_count(to->in);
-	for (i = 0; i < n; i++) {
-		if (to->in[i]->src == from) {
-			status_trace("Updating existing route from %s to %s",
-				     type_to_string(trc, struct pubkey,
-						    &from->id),
-				     type_to_string(trc, struct pubkey,
-						    &to->id));
-			return to->in[i];
-		}
+	/* FIXME: callers all have no channel? */
+	chan = find_channel(rstate, from, to, &idx);
+	if (!chan)
+		chan = new_routing_channel(rstate, scid, from, to);
+
+	c = chan->connections[idx];
+	if (!c) {
+		SUPERVERBOSE("Creating new route from %s to %s",
+			     type_to_string(trc, struct pubkey, &from->id),
+			     type_to_string(trc, struct pubkey, &to->id));
+		c = chan->connections[idx]
+			= new_node_connection(rstate, chan, from, to, idx);
+	} else {
+		status_trace("Updating existing route from %s to %s",
+			     type_to_string(trc, struct pubkey, &from->id),
+			     type_to_string(trc, struct pubkey, &to->id));
 	}
+	assert(c->src == from);
+	assert(c->dst == to);
 
-	SUPERVERBOSE("Creating new route from %s to %s",
-		     type_to_string(trc, struct pubkey, &from->id),
-		     type_to_string(trc, struct pubkey, &to->id));
-
-	nc = tal(rstate, struct node_connection);
-	nc->src = from;
-	nc->dst = to;
-	nc->channel_announcement = NULL;
-	nc->channel_update = NULL;
-	nc->unroutable_until = 0;
-
-	/* Hook it into in/out arrays. */
-	i = tal_count(to->in);
-	tal_resize(&to->in, i+1);
-	to->in[i] = nc;
-	i = tal_count(from->out);
-	tal_resize(&from->out, i+1);
-	from->out[i] = nc;
-
-	tal_add_destructor(nc, destroy_connection);
-	return nc;
+	return c;
 }
-
-static void delete_connection(const struct node_connection *connection)
-{
-	tal_free(connection);
-}
-
-struct node_connection *half_add_connection(
-					    struct routing_state *rstate,
-					    const struct pubkey *from,
-					    const struct pubkey *to,
-					    const struct short_channel_id *schanid,
-					    const u16 flags
-	)
-{
-	struct node_connection *nc;
-	nc = get_or_make_connection(rstate, from, to);
-	nc->short_channel_id = *schanid;
-	nc->active = false;
-	nc->flags = flags;
-	nc->last_timestamp = -1;
-	return nc;
-}
-
-
 
 /* Too big to reach, but don't overflow if added. */
 #define INFINITE 0x3FFFFFFFFFFFFFFFULL
@@ -333,10 +399,10 @@ static u64 risk_fee(u64 amount, u32 delay, double riskfactor)
 
 /* We track totals, rather than costs.  That's because the fee depends
  * on the current amount passing through. */
-static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor,
+static void bfg_one_edge(struct node *node,
+			 struct node_connection *c, double riskfactor,
 			 double fuzz, const struct siphash_seed *base_seed)
 {
-	struct node_connection *c = node->in[edgenum];
 	size_t h;
 	double fee_scale = 1.0;
 
@@ -390,7 +456,7 @@ static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor,
 /* Determine if the given node_connection is routable */
 static bool nc_is_routable(const struct node_connection *nc, time_t now)
 {
-	return nc->active && nc->unroutable_until < now;
+	return nc && nc->active && nc->unroutable_until < now;
 }
 
 /* riskfactor is already scaled to per-block amount */
@@ -449,18 +515,21 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 		for (n = node_map_first(rstate->nodes, &it);
 		     n;
 		     n = node_map_next(rstate->nodes, &it)) {
-			size_t num_edges = tal_count(n->in);
+			size_t num_edges = tal_count(n->channels);
 			for (i = 0; i < num_edges; i++) {
+				struct node_connection *c;
 				SUPERVERBOSE("Node %s edge %i/%zu",
 					     type_to_string(trc, struct pubkey,
 							    &n->id),
 					     i, num_edges);
-				if (!nc_is_routable(n->in[i], now)) {
+
+				c = connection_to(n, n->channels[i]);
+				if (!nc_is_routable(c, now)) {
 					SUPERVERBOSE("...unroutable");
 					continue;
 				}
-				bfg_one_edge(n, i, riskfactor,
-					     fuzz, base_seed);
+				bfg_one_edge(n, c,
+					     riskfactor, fuzz, base_seed);
 				SUPERVERBOSE("...done");
 			}
 		}
@@ -539,7 +608,7 @@ add_channel_direction(struct routing_state *rstate, const struct pubkey *from,
 		c = c1;
 	} else {
 		/* We don't know this channel at all, create it */
-		c = half_add_connection(rstate, from, to, short_channel_id, direction);
+		c = half_add_connection(rstate, from, to, short_channel_id);
 	}
 
 	/* Remember the announcement so we can forward it to new peers */
@@ -583,41 +652,6 @@ static bool check_channel_announcement(
 	       check_signed_hash(&hash, node2_sig, node2_key) &&
 	       check_signed_hash(&hash, bitcoin1_sig, bitcoin1_key) &&
 	       check_signed_hash(&hash, bitcoin2_sig, bitcoin2_key);
-}
-
-struct routing_channel *routing_channel_new(const tal_t *ctx,
-					    struct short_channel_id *scid)
-{
-	struct routing_channel *chan = tal(ctx, struct routing_channel);
-	chan->scid = *scid;
-	chan->connections[0] = chan->connections[1] = NULL;
-	chan->nodes[0] = chan->nodes[1] = NULL;
-	chan->txout_script = NULL;
-	chan->public = false;
-	memset(&chan->msg_indexes, 0, sizeof(chan->msg_indexes));
-	return chan;
-}
-
-static void destroy_node_connection(struct node_connection *nc,
-				    struct routing_state *rstate)
-{
-	struct routing_channel *chan = get_channel(rstate,&nc->short_channel_id);
-	struct node_connection *c = chan->connections[nc->flags & 0x1];
-	if (c == NULL)
-		return;
-	/* If we found a channel it should be the same */
-	assert(nc == c);
-	chan->connections[nc->flags & 0x1] = NULL;
-}
-
-void channel_add_connection(struct routing_state *rstate,
-			    struct routing_channel *chan,
-			    struct node_connection *nc)
-{
-	int direction = get_channel_direction(&nc->src->id, &nc->dst->id);
-	assert(chan != NULL);
-	chan->connections[direction] = nc;
-	tal_add_destructor2(nc, destroy_node_connection, rstate);
 }
 
 static void add_pending_node_announcement(struct routing_state *rstate, struct pubkey *nodeid)
@@ -834,20 +868,6 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 		return false;
 	}
 
-	chan = get_channel(rstate, &pending->short_channel_id);
-
-	/* So you're new in town, ey? Let's find you a room in the Inn. */
-	if (!chan) {
-		chan = routing_channel_new(rstate, &pending->short_channel_id);
-		uintmap_add(&rstate->channels, pending->short_channel_id.u64, chan);
-	} else {
-		/* See handle_channel_announcement */
-		assert(!chan->public);
-	}
-
-	/* Channel is now public. */
-	chan->public = true;
-
 	/* Is this a new connection? It is if we don't know the
 	 * channel yet, or do not have a matching announcement in the
 	 * case of side-loaded channels*/
@@ -867,8 +887,9 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	c1 = add_channel_direction(rstate, &pending->node_id_2, &pending->node_id_1,
 				   &pending->short_channel_id, pending->announce);
 
-	channel_add_connection(rstate, chan, c0);
-	channel_add_connection(rstate, chan, c1);
+	/* Channel is now public. */
+	chan = get_channel(rstate, scid);
+	chan->public = true;
 
 	if (forward) {
 		if (replace_broadcast(rstate->broadcasts,
@@ -1229,30 +1250,20 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 	return hops;
 }
 
-/* Get the struct node_connection matching the short_channel_id,
- * which must be an out connection of the given node. */
-static struct node_connection *
-get_out_node_connection_of(const struct node *node,
-			   const struct short_channel_id *short_channel_id)
-{
-	int i;
-
-	for (i = 0; i < tal_count(node->out); ++i) {
-		if (structeq(&node->out[i]->short_channel_id, short_channel_id))
-			return node->out[i];
-	}
-
-	return NULL;
-}
-
 /**
- * routing_failure_on_nc - Handle routing failure on a specific
- * node_connection.
+ * routing_failure_channel_out - Handle routing failure on a specific channel
  */
-static void routing_failure_on_nc(enum onion_type failcode,
-				  struct node_connection *nc,
-				  time_t now)
+static void routing_failure_channel_out(struct node *node,
+					enum onion_type failcode,
+					struct routing_channel *chan,
+					time_t now)
 {
+	struct node_connection *nc;
+
+	nc = connection_from(node, chan);
+	if (!nc)
+		return;
+
 	/* BOLT #4:
 	 *
 	 * - if the PERM bit is NOT set:
@@ -1262,7 +1273,7 @@ static void routing_failure_on_nc(enum onion_type failcode,
 		/* Prevent it for 20 seconds. */
 		nc->unroutable_until = now + 20;
 	else
-		delete_connection(nc);
+		tal_free(nc);
 }
 
 void routing_failure(struct routing_state *rstate,
@@ -1273,7 +1284,6 @@ void routing_failure(struct routing_state *rstate,
 {
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	struct node *node;
-	struct node_connection *nc;
 	int i;
 	enum wire_type t;
 	time_t now = time_now().ts.tv_sec;
@@ -1303,23 +1313,35 @@ void routing_failure(struct routing_state *rstate,
 	 *
 	 */
 	if (failcode & NODE) {
-		for (i = 0; i < tal_count(node->in); ++i)
-			routing_failure_on_nc(failcode, node->in[i], now);
-		for (i = 0; i < tal_count(node->out); ++i)
-			routing_failure_on_nc(failcode, node->out[i], now);
+		/* If permanent, we forget entire node and all its channels.
+		 * If we did this in a loop, we might use-after-free. */
+		if (failcode & PERM) {
+			tal_free(node);
+		} else {
+			for (i = 0; i < tal_count(node->channels); ++i)
+				routing_failure_channel_out(node, failcode,
+							    node->channels[i],
+							    now);
+		}
 	} else {
-		nc = get_out_node_connection_of(node, scid);
-		if (nc)
-			routing_failure_on_nc(failcode, nc, now);
+		struct routing_channel *chan = get_channel(rstate, scid);
+
+		if (!chan)
+			status_unusual("routing_failure: "
+				       "Channel %s unknown",
+				       type_to_string(tmpctx,
+						      struct short_channel_id,
+						      scid));
+		else if (chan->nodes[0] != node && chan->nodes[1] != node)
+			status_unusual("routing_failure: "
+				       "Channel %s does not connect to %s",
+				       type_to_string(tmpctx,
+						      struct short_channel_id,
+						      scid),
+				       type_to_string(tmpctx, struct pubkey,
+						      erring_node_pubkey));
 		else
-			status_trace("UNUSUAL routing_failure: "
-				     "Channel %s not an out channel "
-				     "of node %s",
-				     type_to_string(tmpctx,
-						    struct short_channel_id,
-						    scid),
-				     type_to_string(tmpctx, struct pubkey,
-						    erring_node_pubkey));
+			routing_failure_channel_out(node, failcode, chan, now);
 	}
 
 	/* Update the channel if UPDATE failcode. Do
