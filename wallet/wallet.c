@@ -1054,7 +1054,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 			if (block)
 				wallet_output_confirm(w, &utxo->txid, utxo->outnum, block->height);
 			tal_free(utxo);
-			return -1;
+			continue;
 		}
 		outpointfilter_add(w->owned_outpoints, &utxo->txid, utxo->outnum);
 
