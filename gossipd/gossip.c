@@ -1103,7 +1103,7 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 	e->flags = c->flags;
 	e->public = (c->channel_update != NULL);
 	e->short_channel_id = c->short_channel_id;
-	e->last_update_timestamp = c->last_timestamp;
+	e->last_update_timestamp = c->channel_update ? c->last_timestamp : -1;
 	if (e->last_update_timestamp >= 0) {
 		e->base_fee_msat = c->base_fee;
 		e->fee_per_millionth = c->proportional_fee;
@@ -1385,8 +1385,7 @@ static void gossip_prune_network(struct daemon *daemon)
 
 			nc = connection_from(n, n->channels[i]);
 
-			/* FIXME: We still need to prune announced-but-not-updated channels after some time. */
-			if (!nc || !nc->channel_update) {
+			if (!nc || !n->channels[i]->public) {
 				/* Not even announced yet */
 				continue;
 			}

@@ -242,7 +242,9 @@ static struct node_connection *new_node_connection(struct routing_state *rstate,
 	c->unroutable_until = 0;
 	c->active = false;
 	c->flags = idx;
-	c->last_timestamp = -1;
+	/* We haven't seen channel_update: give it an hour before we prune,
+	 * which should be older than any update we'd see. */
+	c->last_timestamp = time_now().ts.tv_sec - (1209600 - 3600);
 
 	/* Hook it into in/out arrays. */
 	chan->connections[idx] = c;
