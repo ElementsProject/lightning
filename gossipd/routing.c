@@ -31,6 +31,9 @@
 /* We've unpacked and checked its signatures, now we wait for master to tell
  * us the txout to check */
 struct pending_cannouncement {
+	/* Off routing_state->pending_cannouncement */
+	struct list_node list;
+
 	/* Unpacked fields here */
 	struct short_channel_id short_channel_id;
 	struct pubkey node_id_1;
@@ -643,6 +646,25 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 	tal_free(pna);
 }
 
+static struct pending_cannouncement *
+find_pending_cannouncement(struct routing_state *rstate,
+			   const struct short_channel_id *scid)
+{
+	struct pending_cannouncement *i;
+
+	list_for_each(&rstate->pending_cannouncement, i, list) {
+		if (structeq(scid, &i->short_channel_id))
+			return i;
+	}
+	return NULL;
+}
+
+static void destroy_pending_cannouncement(struct pending_cannouncement *pending,
+					  struct routing_state *rstate)
+{
+	list_del_from(&rstate->pending_cannouncement, &pending->list);
+}
+
 const struct short_channel_id *handle_channel_announcement(
 	struct routing_state *rstate,
 	const u8 *announce TAKES)
@@ -681,9 +703,24 @@ const struct short_channel_id *handle_channel_announcement(
 	 * state, we stop here if yes). */
 	chan = get_channel(rstate, &pending->short_channel_id);
 	if (chan != NULL && chan->public) {
+		SUPERVERBOSE("%s: %s already has public channel",
+			     __func__,
+			     type_to_string(trc, struct short_channel_id,
+					    &pending->short_channel_id));
 		return tal_free(pending);
 	}
-        /* FIXME: Handle duplicates as per BOLT #7 */
+
+	/* We don't replace previous ones, since we might validate that and
+	 * think this one is OK! */
+	if (find_pending_cannouncement(rstate, &pending->short_channel_id)) {
+		SUPERVERBOSE("%s: %s already has pending cannouncement",
+			     __func__,
+			     type_to_string(trc, struct short_channel_id,
+					    &pending->short_channel_id));
+		return tal_free(pending);
+	}
+
+	/* FIXME: Handle duplicates as per BOLT #7 */
 
 	/* BOLT #7:
 	 *
@@ -734,19 +771,13 @@ const struct short_channel_id *handle_channel_announcement(
 		     type_to_string(pending, struct short_channel_id,
 				    &pending->short_channel_id));
 
-	/* So you're new in town, ey? Let's find you a room in the Inn. */
-	if (chan == NULL)
-		chan = routing_channel_new(rstate, &pending->short_channel_id);
-	chan->pending = tal_steal(chan, pending);
-
-	/* The channel will be public if we complete the verification */
-	chan->public = true;
-	uintmap_add(&rstate->channels, pending->short_channel_id.u64, chan);
-
 	/* Add both endpoints to the pending_node_map so we can stash
 	 * node_announcements while we wait for the txout check */
 	add_pending_node_announcement(rstate, &pending->node_id_1);
 	add_pending_node_announcement(rstate, &pending->node_id_2);
+
+	list_add_tail(&rstate->pending_cannouncement, &pending->list);
+	tal_add_destructor2(pending, destroy_pending_cannouncement, rstate);
 
 	return &pending->short_channel_id;
 }
@@ -762,16 +793,9 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	struct pending_cannouncement *pending;
 	struct routing_channel *chan;
 
-	/* There may be paths which can clean this up, eg. error processing. */
-	chan = get_channel(rstate, scid);
-	if (!chan)
-		return false;
-
-	pending = chan->pending;
-	/* We could imagine this being cleaned up, then recreated. */
+	pending = find_pending_cannouncement(rstate, scid);
 	if (!pending)
 		return false;
-	chan->pending = NULL;
 
 	tag = tal_arr(pending, u8, 0);
 	towire_short_channel_id(&tag, scid);
@@ -810,6 +834,20 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 		return false;
 	}
 
+	chan = get_channel(rstate, &pending->short_channel_id);
+
+	/* So you're new in town, ey? Let's find you a room in the Inn. */
+	if (!chan) {
+		chan = routing_channel_new(rstate, &pending->short_channel_id);
+		uintmap_add(&rstate->channels, pending->short_channel_id.u64, chan);
+	} else {
+		/* See handle_channel_announcement */
+		assert(!chan->public);
+	}
+
+	/* Channel is now public. */
+	chan->public = true;
+
 	/* Is this a new connection? It is if we don't know the
 	 * channel yet, or do not have a matching announcement in the
 	 * case of side-loaded channels*/
@@ -817,6 +855,13 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	c1 = get_connection(rstate, &pending->node_id_1, &pending->node_id_2);
 	forward = !c0 || !c1 || !c0->channel_announcement || !c1->channel_announcement;
 
+	SUPERVERBOSE("Announce for %s: %s<->%s: forward=%u c0=%p c1=%p c0->channel_announcement=%p c1->channel_announcement=%p",
+		     type_to_string(trc, struct short_channel_id, scid),
+		     type_to_string(trc, struct pubkey, &pending->node_id_1),
+		     type_to_string(trc, struct pubkey, &pending->node_id_2),
+		     forward, c0, c1,
+		     c0 ? c0->channel_announcement : NULL,
+		     c1 ? c1->channel_announcement : NULL);
 	c0 = add_channel_direction(rstate, &pending->node_id_1, &pending->node_id_2,
 				   &pending->short_channel_id, pending->announce);
 	c1 = add_channel_direction(rstate, &pending->node_id_2, &pending->node_id_1,
@@ -851,15 +896,13 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	return local && forward;
 }
 
-static void update_pending(struct routing_channel *chan,
+static void update_pending(struct pending_cannouncement *pending,
 			   u32 timestamp, const u8 *update,
 			   const u8 direction)
 {
-	struct pending_cannouncement *pending = chan->pending;
-
 	SUPERVERBOSE("Deferring update for pending channel %s(%d)",
 		     type_to_string(trc, struct short_channel_id,
-				    &short_channel_id), direction);
+				    &pending->short_channel_id), direction);
 
 	if (pending->update_timestamps[direction] < timestamp) {
 		if (pending->updates[direction]) {
@@ -914,16 +957,19 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	}
 
 	chan = get_channel(rstate, &short_channel_id);
-	if (!chan) {
+	if (!chan || !chan->public) {
+		struct pending_cannouncement *pending;
+
+		pending = find_pending_cannouncement(rstate, &short_channel_id);
+		if (pending) {
+			update_pending(pending,
+				       timestamp, serialized, direction);
+			tal_free(tmpctx);
+			return;
+		}
 		SUPERVERBOSE("Ignoring update for unknown channel %s",
 			     type_to_string(trc, struct short_channel_id,
 					    &short_channel_id));
-		tal_free(tmpctx);
-		return;
-	}
-
-	if (chan->pending) {
-		update_pending(chan, timestamp, serialized, direction);
 		tal_free(tmpctx);
 		return;
 	}
