@@ -763,10 +763,12 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 	struct short_channel_id scid;
 	struct bitcoin_blkid chain_hash;
 	struct pubkey remote_node_id;
-	u16 cltv_expiry_delta, direction;
+	u16 cltv_expiry_delta;
 	u32 fee_base_msat, fee_proportional_millionths;
 	u64 htlc_minimum_msat;
+	int idx;
 	struct node_connection *c;
+	struct routing_channel *chan;
 
 	if (!fromwire_gossip_local_add_channel(
 		msg, &scid, &chain_hash, &remote_node_id,
@@ -788,9 +790,13 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 		return;
 	}
 
-	direction = get_channel_direction(&rstate->local_id, &remote_node_id);
-	c = half_add_connection(rstate, &peer->daemon->id, &remote_node_id,
-				&scid);
+	/* Create new routing channel */
+	chan = new_routing_channel(rstate, &scid,
+				   &rstate->local_id, &remote_node_id);
+
+	idx = pubkey_idx(&rstate->local_id, &remote_node_id);
+	c = chan->connections[idx];
+
 	/* FIXME: Deduplicate with code in routing.c */
 	c->active = true;
 	c->last_timestamp = 0;
@@ -801,7 +807,7 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 	/* Designed to match msg in handle_channel_update, for easy testing */
 	status_trace("Received local update for channel %s(%d) now ACTIVE",
 		     type_to_string(msg, struct short_channel_id, &scid),
-		     direction);
+		     idx);
 }
 
 /**
@@ -1081,6 +1087,10 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 	size_t n;
 
 	if (!c)
+		return;
+
+	/* Don't mention non-public inactive channels. */
+	if (!c->active && !c->channel_update)
 		return;
 
 	n = tal_count(*entries);
@@ -1375,6 +1385,7 @@ static void gossip_prune_network(struct daemon *daemon)
 
 			nc = connection_from(n, n->channels[i]);
 
+			/* FIXME: We still need to prune announced-but-not-updated channels after some time. */
 			if (!nc || !nc->channel_update) {
 				/* Not even announced yet */
 				continue;
