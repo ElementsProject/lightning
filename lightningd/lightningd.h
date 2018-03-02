@@ -7,8 +7,8 @@
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
 #include <lightningd/htlc_end.h>
-#include <lightningd/txfilter.h>
 #include <stdio.h>
+#include <wallet/txfilter.h>
 #include <wallet/wallet.h>
 
 /* BOLT #1:
