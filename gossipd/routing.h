@@ -100,16 +100,16 @@ struct routing_channel {
 
 	/* Is this a public channel, or was it only added locally? */
 	bool public;
-
-	struct pending_cannouncement *pending;
 };
 
 struct routing_state {
 	/* All known nodes. */
 	struct node_map *nodes;
 
+	/* node_announcements which are waiting on pending_cannouncement */
 	struct pending_node_map *pending_node_map;
 
+	/* FIXME: Make this a htable! */
 	/* channel_announcement which are pending short_channel_id lookup */
 	struct list_head pending_cannouncement;
 
