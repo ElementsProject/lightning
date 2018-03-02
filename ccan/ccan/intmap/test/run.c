@@ -7,9 +7,10 @@ int main(void)
 	UINTMAP(char *) map;
 	const char val[] = "there";
 	const char none[] = "";
+	uint64_t idx;
 
 	/* This is how many tests you plan to run */
-	plan_tests(28);
+	plan_tests(40);
 
 	uintmap_init(&map);
 
@@ -21,11 +22,19 @@ int main(void)
 	ok1(errno == ENOENT);
 	ok1(!uintmap_del(&map, 0));
 	ok1(errno == ENOENT);
+	ok1(!uintmap_first(&map, &idx));
+	ok1(errno == ENOENT);
+	ok1(!uintmap_last(&map, &idx));
+	ok1(errno == ENOENT);
 
 	ok1(uintmap_add(&map, 1, val));
 	ok1(uintmap_get(&map, 1) == val);
 	ok1(!uintmap_get(&map, 0));
 	ok1(errno == ENOENT);
+	ok1(uintmap_first(&map, &idx) == val);
+	ok1(idx == 1);
+	ok1(uintmap_last(&map, &idx) == val);
+	ok1(idx == 1);
 
 	/* Add a duplicate should fail. */
 	ok1(!uintmap_add(&map, 1, val));
@@ -43,6 +52,10 @@ int main(void)
 	ok1(uintmap_add(&map, 1, val));
 	ok1(uintmap_get(&map, 1) == val);
 	ok1(uintmap_get(&map, 0) == none);
+	ok1(uintmap_first(&map, &idx) == none);
+	ok1(idx == 0);
+	ok1(uintmap_last(&map, &idx) == val);
+	ok1(idx == 1);
 	ok1(!uintmap_del(&map, 2));
 	ok1(uintmap_del(&map, 0) == none);
 	ok1(uintmap_get(&map, 1) == val);

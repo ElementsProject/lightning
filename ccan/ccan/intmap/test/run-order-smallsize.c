@@ -14,8 +14,9 @@ static bool check_umap(const umap *map)
 {
 	/* This is a larger type than unsigned, and allows negative */
 	int64_t prev;
-	intmap_index_t i;
+	intmap_index_t i, last_idx;
 	uint8_t *v;
+	bool last = true;
 
 	/* Must be in order, must contain value. */
 	prev = -1;
@@ -25,16 +26,18 @@ static bool check_umap(const umap *map)
 		if (*v != i)
 			return false;
 		prev = i;
+		last = (uintmap_last(map, &last_idx) == v);
 	}
-	return true;
+	return last;
 }
 
 static bool check_smap(const smap *map)
 {
 	/* This is a larger type than int, and allows negative */
 	int64_t prev;
-	sintmap_index_t i;
+	sintmap_index_t i, last_idx;
 	int8_t *v;
+	bool last = true;
 
 	/* Must be in order, must contain value. */
 	prev = -0x80000001ULL;
@@ -44,8 +47,9 @@ static bool check_smap(const smap *map)
 		if (*v != i)
 			return false;
 		prev = i;
+		last = (sintmap_last(map, &last_idx) == v);
 	}
-	return true;
+	return last;
 }
 
 int main(void)

@@ -309,6 +309,32 @@ void *intmap_after_(const struct intmap *map, intmap_index_t *indexp);
 	tcon_cast((smap), sintmap_canary,				\
 		  sintmap_after_(sintmap_unwrap_(smap), (indexp)))
 
+/**
+ * uintmap_last - get last value in an unsigned intmap
+ * @umap: the typed intmap to iterate through.
+ * @indexp: a pointer to store the index.
+ *
+ * Returns NULL if the map is empty, otherwise populates *@indexp and
+ * returns the highest entry.
+ */
+#define uintmap_last(umap, indexp)					\
+	tcon_cast((umap), uintmap_canary,				\
+		  intmap_last_(uintmap_unwrap_(umap), (indexp)))
+
+void *intmap_last_(const struct intmap *map, intmap_index_t *indexp);
+
+/**
+ * sintmap_last - get last value in a signed intmap
+ * @smap: the typed intmap to iterate through.
+ * @indexp: a pointer to store the index.
+ *
+ * Returns NULL if the map is empty, otherwise populates *@indexp and
+ * returns the highest entry.
+ */
+#define sintmap_last(smap, indexp)					\
+	tcon_cast((smap), sintmap_canary,				\
+		  sintmap_last_(sintmap_unwrap_(smap), (indexp)))
+
 /* TODO: We could implement intmap_prefix. */
 
 /* These make sure it really is a uintmap/sintmap */
@@ -338,5 +364,15 @@ static inline void *sintmap_after_(const struct intmap *map,
 	void *ret = intmap_after_(map, &i);
 	*indexp = SINTMAP_UNOFF(i);
 	return ret;
+}
+
+static inline void *sintmap_last_(const struct intmap *map,
+				  sintmap_index_t *indexp)
+{
+	intmap_index_t i;
+	void *ret = intmap_last_(map, &i);
+	*indexp = SINTMAP_UNOFF(i);
+	return ret;
+
 }
 #endif /* CCAN_INTMAP_H */
