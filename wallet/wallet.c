@@ -996,6 +996,24 @@ void wallet_peer_delete(struct wallet *w, u64 peer_dbid)
 	db_exec_prepared(w->db, stmt);
 }
 
+static void wallet_output_confirm(struct wallet *w,
+				  const struct bitcoin_txid *txid,
+				  const u32 outnum,
+				  const u32 confirmation_height)
+{
+	sqlite3_stmt *stmt;
+	assert(confirmation_height > 0);
+	stmt = db_prepare(w->db,
+			  "UPDATE outputs "
+			  "SET confirmation_height = ? "
+			  "WHERE prev_out_tx = ? AND prev_out_index = ?");
+	sqlite3_bind_int(stmt, 1, confirmation_height);
+	sqlite3_bind_sha256_double(stmt, 2, &txid->shad);
+	sqlite3_bind_int(stmt, 3, outnum);
+
+	db_exec_prepared(w->db, stmt);
+}
+
 int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 				 const struct block *block, u64 *total_satoshi)
 {
@@ -1028,6 +1046,13 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 					 &utxo->txid));
 
 		if (!wallet_add_utxo(w, utxo, is_p2sh ? p2sh_wpkh : our_change)) {
+			/* In case we already know the output, make
+			 * sure we actually track its
+			 * blockheight. This can happen when we grab
+			 * the output from a transaction we created
+			 * outselves. */
+			if (block)
+				wallet_output_confirm(w, &utxo->txid, utxo->outnum, block->height);
 			tal_free(utxo);
 			return -1;
 		}
