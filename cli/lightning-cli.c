@@ -93,6 +93,22 @@ static size_t human_readable(const char *buffer, const jsmntok_t *t, char term)
 	abort();
 }
 
+static void human_help(const char *buffer, const jsmntok_t *result) {
+	int i;
+	const jsmntok_t * help_array = result + 2;
+	/* the first command object */
+	const jsmntok_t * curr = help_array + 1;
+	/* iterate through all commands, printing the name and description */
+	for (i = 0; i<help_array->size; i++) {
+		curr += 2;
+		printf("%.*s\n", curr->end - curr->start, buffer + curr->start);
+		curr += 2;
+		printf("    %.*s\n\n", curr->end - curr->start, buffer + curr->start);
+		/* advance to next command */
+		curr++;
+	}
+}
+
 enum format {
 	JSON,
 	HUMAN,
@@ -315,7 +331,8 @@ int main(int argc, char *argv[])
 
 	if (!error || json_tok_is_null(resp, error)) {
 		if (format == HUMAN)
-			human_readable(resp, result, '\n');
+			if (streq(method, "help")) human_help(resp, result);
+			else human_readable(resp, result, '\n');
 		else
 			printf("%.*s\n",
 			       json_tok_len(result),
