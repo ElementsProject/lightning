@@ -1074,12 +1074,36 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+static void append_half_channel(struct gossip_getchannels_entry **entries,
+				const struct node_connection *c)
+{
+	struct gossip_getchannels_entry *e;
+	size_t n;
+
+	n = tal_count(*entries);
+	tal_resize(entries, n+1);
+	e = &(*entries)[n];
+
+	e->source = c->src->id;
+	e->destination = c->dst->id;
+	e->active = c->active;
+	e->flags = c->flags;
+	e->public = (c->channel_update != NULL);
+	e->short_channel_id = c->short_channel_id;
+	e->last_update_timestamp = c->last_timestamp;
+	if (e->last_update_timestamp >= 0) {
+		e->base_fee_msat = c->base_fee;
+		e->fee_per_millionth = c->proportional_fee;
+		e->delay = c->delay;
+	}
+}
+
 static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daemon,
 				    u8 *msg)
 {
 	tal_t *tmpctx = tal_tmpctx(daemon);
 	u8 *out;
-	size_t j, num_chans = 0;
+	size_t j;
 	struct gossip_getchannels_entry *entries;
 	struct node *n;
 	struct node_map_iter i;
@@ -1087,7 +1111,7 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 
 	fromwire_gossip_getchannels_request(msg, msg, &scid);
 
-	entries = tal_arr(tmpctx, struct gossip_getchannels_entry, num_chans);
+	entries = tal_arr(tmpctx, struct gossip_getchannels_entry, 0);
 	n = node_map_first(daemon->rstate->nodes, &i);
 	while (n != NULL) {
 		for (j=0; j<tal_count(n->out); j++){
@@ -1095,20 +1119,7 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 			    !structeq(scid, &n->out[j]->short_channel_id)) {
 				continue;
 			}
-			tal_resize(&entries, num_chans + 1);
-			entries[num_chans].source = n->out[j]->src->id;
-			entries[num_chans].destination = n->out[j]->dst->id;
-			entries[num_chans].active = n->out[j]->active;
-			entries[num_chans].flags = n->out[j]->flags;
-			entries[num_chans].public = (n->out[j]->channel_update != NULL);
-			entries[num_chans].short_channel_id = n->out[j]->short_channel_id;
-			entries[num_chans].last_update_timestamp = n->out[j]->last_timestamp;
-			if (entries[num_chans].last_update_timestamp >= 0) {
-				entries[num_chans].base_fee_msat = n->out[j]->base_fee;
-				entries[num_chans].fee_per_millionth = n->out[j]->proportional_fee;
-				entries[num_chans].delay = n->out[j]->delay;
-			}
-			num_chans++;
+			append_half_channel(&entries, n->out[j]);
 		}
 		n = node_map_next(daemon->rstate->nodes, &i);
 	}
