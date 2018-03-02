@@ -709,51 +709,50 @@ static struct io_plan *peer_start_gossip(struct io_conn *conn, struct peer *peer
 
 static void handle_get_update(struct peer *peer, const u8 *msg)
 {
-	struct short_channel_id schanid;
-	struct node *us;
-	size_t i;
+	struct short_channel_id scid;
+	struct routing_channel *chan;
 	const u8 *update;
 
-	if (!fromwire_gossip_get_update(msg, &schanid)) {
+	if (!fromwire_gossip_get_update(msg, &scid)) {
 		status_trace("peer %s sent bad gossip_get_update %s",
 			     type_to_string(trc, struct pubkey, &peer->id),
 			     tal_hex(trc, msg));
 		return;
 	}
 
-	/* FIXME: Do direct scid lookup to get channel */
-
-	/* We want update than comes from our end. */
-	us = get_node(peer->daemon->rstate, &peer->daemon->id);
-	if (!us) {
-		status_trace("peer %s schanid %s but can't find ourselves",
-			     type_to_string(trc, struct pubkey, &peer->id),
-			     type_to_string(trc, struct short_channel_id,
-					    &schanid));
+	chan = get_channel(peer->daemon->rstate, &scid);
+	if (!chan) {
+		status_unusual("peer %s scid %s: unknown channel",
+			       type_to_string(trc, struct pubkey, &peer->id),
+			       type_to_string(trc, struct short_channel_id,
+					      &scid));
 		update = NULL;
-		goto reply;
-	}
-
-	for (i = 0; i < tal_count(us->channels); i++) {
+	} else {
 		struct node_connection *c;
-		if (!structeq(&us->channels[i]->scid, &schanid))
-			continue;
 
-		c = connection_from(us, us->channels[i]);
-		if (!c)
-			update = NULL;
-		else
+		/* We want update than comes from our end. */
+		if (pubkey_eq(&chan->nodes[0]->id, &peer->daemon->id))
+			c = chan->connections[0];
+		else if (pubkey_eq(&chan->nodes[1]->id, &peer->daemon->id))
+			c = chan->connections[1];
+		else {
+			status_unusual("peer %s scid %s: not our channel?",
+				       type_to_string(trc, struct pubkey,
+						      &peer->id),
+				       type_to_string(trc,
+						      struct short_channel_id,
+						      &scid));
+			c = NULL;
+		}
+
+		if (c)
 			update = c->channel_update;
-		status_trace("peer %s schanid %s: %s update",
-			     type_to_string(trc, struct pubkey, &peer->id),
-			     type_to_string(trc, struct short_channel_id,
-					    &schanid),
-			     update ? "got" : "no");
-		goto reply;
 	}
-	update = NULL;
+	status_trace("peer %s schanid %s: %s update",
+		     type_to_string(trc, struct pubkey, &peer->id),
+		     type_to_string(trc, struct short_channel_id, &scid),
+		     update ? "got" : "no");
 
-reply:
 	msg = towire_gossip_get_update_reply(msg, update);
 	daemon_conn_send(peer->remote, take(msg));
 }
