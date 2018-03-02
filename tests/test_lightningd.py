@@ -3646,8 +3646,7 @@ class LightningDTests(BaseLightningDTests):
                                        .format(l1.daemon.lightning_dir),
                                        'help']).decode('utf-8')
         # Test some known output.
-        assert 'command=help' in out
-        assert 'description=List available commands, or give verbose help on one command' in out
+        assert 'help\n    List available commands, or give verbose help on one command' in out
 
         # Test JSON output.
         out = subprocess.check_output(['cli/lightning-cli',
