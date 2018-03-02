@@ -82,7 +82,7 @@ static struct node_connection *add_connection(struct routing_state *rstate,
 	if (!chan)
 		chan = new_routing_channel(rstate, &scid, from, to);
 
-	c = chan->connections[pubkey_idx(from, to)];
+	c = &chan->connections[pubkey_idx(from, to)];
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
@@ -127,7 +127,7 @@ static struct node_connection *get_connection(struct routing_state *rstate,
 	c = find_channel(rstate, from, to, &idx);
 	if (!c)
 		return NULL;
-	return c->connections[idx];
+	return &c->connections[idx];
 }
 
 int main(void)

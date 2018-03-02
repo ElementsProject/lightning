@@ -196,20 +196,19 @@ static void destroy_routing_channel(struct routing_channel *chan,
 		tal_free(chan->nodes[1]);
 }
 
-static struct node_connection *new_node_connection(struct routing_state *rstate,
-						   struct routing_channel *chan,
-						   struct node *from,
-						   struct node *to,
-						   int idx)
+static void init_node_connection(struct routing_state *rstate,
+				 struct routing_channel *chan,
+				 struct node *from,
+				 struct node *to,
+				 int idx)
 {
-	struct node_connection *c;
+	struct node_connection *c = &chan->connections[idx];
 
 	/* We are going to put this in the right way? */
 	assert(idx == pubkey_idx(&from->id, &to->id));
 	assert(from == chan->nodes[idx]);
 	assert(to == chan->nodes[!idx]);
 
-	c = tal(rstate, struct node_connection);
 	c->src = from;
 	c->dst = to;
 	c->short_channel_id = chan->scid;
@@ -220,10 +219,6 @@ static struct node_connection *new_node_connection(struct routing_state *rstate,
 	/* We haven't seen channel_update: make it halfway to prune time,
 	 * which should be older than any update we'd see. */
 	c->last_timestamp = time_now().ts.tv_sec - rstate->prune_timeout/2;
-
-	/* Hook it into in/out arrays. */
-	chan->connections[idx] = c;
-	return c;
 }
 
 struct routing_channel *new_routing_channel(struct routing_state *rstate,
@@ -260,8 +255,8 @@ struct routing_channel *new_routing_channel(struct routing_state *rstate,
 	n1->channels[n] = chan;
 
 	/* Populate with (inactive) connections */
-	new_node_connection(rstate, chan, n1, n2, n1idx);
-	new_node_connection(rstate, chan, n2, n1, !n1idx);
+	init_node_connection(rstate, chan, n1, n2, n1idx);
+	init_node_connection(rstate, chan, n2, n1, !n1idx);
 
 	uintmap_add(&rstate->channels, scid->u64, chan);
 
@@ -805,7 +800,7 @@ void set_connection_values(struct routing_channel *chan,
 			   u64 timestamp,
 			   u32 htlc_minimum_msat)
 {
-	struct node_connection *c = chan->connections[idx];
+	struct node_connection *c = &chan->connections[idx];
 
 	c->delay = delay;
 	c->htlc_minimum_msat = htlc_minimum_msat;
@@ -898,7 +893,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 		}
 	}
 
-	c = chan->connections[direction];
+	c = &chan->connections[direction];
 
 	if (c->last_timestamp >= timestamp) {
 		SUPERVERBOSE("Ignoring outdated update.");
@@ -936,7 +931,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 			serialized);
 
 	tal_free(c->channel_update);
-	c->channel_update = tal_steal(c, serialized);
+	c->channel_update = tal_steal(chan, serialized);
 	tal_free(tmpctx);
 }
 
@@ -1278,8 +1273,8 @@ void mark_channel_unroutable(struct routing_state *rstate,
 		tal_free(tmpctx);
 		return;
 	}
-	chan->connections[0]->unroutable_until = now + 20;
-	chan->connections[1]->unroutable_until = now + 20;
+	chan->connections[0].unroutable_until = now + 20;
+	chan->connections[1].unroutable_until = now + 20;
 	tal_free(tmpctx);
 }
 
@@ -1300,14 +1295,14 @@ void route_prune(struct routing_state *rstate)
 		if (!chan->public)
 			continue;
 
-		if (chan->connections[0]->last_timestamp < highwater
-		    && chan->connections[1]->last_timestamp < highwater) {
+		if (chan->connections[0].last_timestamp < highwater
+		    && chan->connections[1].last_timestamp < highwater) {
 			status_trace(
 			    "Pruning channel %s from network view (ages %"PRIu64" and %"PRIu64"s)",
 			    type_to_string(trc, struct short_channel_id,
 					   &chan->scid),
-			    now - chan->connections[0]->last_timestamp,
-			    now - chan->connections[1]->last_timestamp);
+			    now - chan->connections[0].last_timestamp,
+			    now - chan->connections[1].last_timestamp);
 
 			/* This may perturb iteration so do outside loop. */
 			tal_steal(pruned, chan);

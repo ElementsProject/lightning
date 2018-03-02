@@ -726,13 +726,11 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 					      &scid));
 		update = NULL;
 	} else {
-		struct node_connection *c;
-
-		/* We want update than comes from our end. */
+		/* We want update that comes from our end. */
 		if (pubkey_eq(&chan->nodes[0]->id, &peer->daemon->id))
-			c = chan->connections[0];
+			update = chan->connections[0].channel_update;
 		else if (pubkey_eq(&chan->nodes[1]->id, &peer->daemon->id))
-			c = chan->connections[1];
+			update = chan->connections[1].channel_update;
 		else {
 			status_unusual("peer %s scid %s: not our channel?",
 				       type_to_string(trc, struct pubkey,
@@ -740,11 +738,8 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 				       type_to_string(trc,
 						      struct short_channel_id,
 						      &scid));
-			c = NULL;
+			update = NULL;
 		}
-
-		if (c)
-			update = c->channel_update;
 	}
 	status_trace("peer %s schanid %s: %s update",
 		     type_to_string(trc, struct pubkey, &peer->id),
@@ -1110,8 +1105,8 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 static void append_channel(struct gossip_getchannels_entry **entries,
 			   const struct routing_channel *chan)
 {
-	append_half_channel(entries, chan->connections[0]);
-	append_half_channel(entries, chan->connections[1]);
+	append_half_channel(entries, &chan->connections[0]);
+	append_half_channel(entries, &chan->connections[1]);
 }
 
 static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daemon,
@@ -1280,7 +1275,7 @@ fail:
 static void gossip_send_keepalive_update(struct routing_state *rstate,
 					 struct node_connection *nc)
 {
-	tal_t *tmpctx = tal_tmpctx(nc);
+	tal_t *tmpctx = tal_tmpctx(rstate);
 	secp256k1_ecdsa_signature sig;
 	struct bitcoin_blkid chain_hash;
 	struct short_channel_id scid;
@@ -1832,7 +1827,7 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 		    type_to_string(msg, struct short_channel_id, &scid));
 		goto fail;
 	}
-	nc = chan->connections[direction];
+	nc = &chan->connections[direction];
 
 	status_trace("Disabling channel %s/%d, active %d -> %d",
 		     type_to_string(msg, struct short_channel_id, &scid),

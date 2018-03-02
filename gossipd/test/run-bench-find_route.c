@@ -117,7 +117,7 @@ static struct node_connection *add_connection(struct routing_state *rstate,
 	if (!chan)
 		chan = new_routing_channel(rstate, &scid, from, to);
 
-	c = chan->connections[pubkey_idx(from, to)];
+	c = &chan->connections[pubkey_idx(from, to)];
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;

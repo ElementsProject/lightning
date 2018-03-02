@@ -98,7 +98,7 @@ struct routing_channel {
 	 * connections[0]->src == nodes[0] connections[0]->dst == nodes[1]
 	 * connections[1]->src == nodes[1] connections[1]->dst == nodes[0]
 	 */
-	struct node_connection *connections[2];
+	struct node_connection connections[2];
 	/* nodes[0].id < nodes[1].id */
 	struct node *nodes[2];
 
@@ -124,9 +124,9 @@ static inline struct node_connection *connection_from(const struct node *n,
 {
 	int idx = (chan->nodes[1] == n);
 
-	assert(chan->connections[idx]->src == n);
-	assert(chan->connections[!idx]->dst == n);
-	return chan->connections[idx];
+	assert(chan->connections[idx].src == n);
+	assert(chan->connections[!idx].dst == n);
+	return &chan->connections[idx];
 }
 
 static inline struct node_connection *connection_to(const struct node *n,
@@ -134,9 +134,9 @@ static inline struct node_connection *connection_to(const struct node *n,
 {
 	int idx = (chan->nodes[1] == n);
 
-	assert(chan->connections[idx]->src == n);
-	assert(chan->connections[!idx]->dst == n);
-	return chan->connections[!idx];
+	assert(chan->connections[idx].src == n);
+	assert(chan->connections[!idx].dst == n);
+	return &chan->connections[!idx];
 }
 
 struct routing_state {
