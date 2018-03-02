@@ -348,6 +348,22 @@ static void updates_complete(struct chain_topology *topo)
 	next_topology_timer(topo);
 }
 
+/**
+ * topo_update_spends -- Tell the wallet about all spent outpoints
+ */
+static void topo_update_spends(struct chain_topology *topo, struct block *b)
+{
+	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
+		const struct bitcoin_tx *tx = b->full_txs[i];
+		for (size_t j = 0; j < tal_count(tx->input); j++) {
+			const struct bitcoin_tx_input *input = &tx->input[j];
+			wallet_outpoint_spend(topo->wallet, b->height,
+					      &input->txid,
+					      input->index);
+		}
+	}
+}
+
 static void add_tip(struct chain_topology *topo, struct block *b)
 {
 	/* Attach to tip; b is now the tip. */
@@ -356,6 +372,8 @@ static void add_tip(struct chain_topology *topo, struct block *b)
 	topo->tip->next = b;
 	topo->tip = b;
 	wallet_block_add(topo->wallet, b);
+
+	topo_update_spends(topo, b);
 
 	/* Only keep the transactions we care about. */
 	filter_block_txs(topo, b);
