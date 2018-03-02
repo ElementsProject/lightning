@@ -838,14 +838,14 @@ class LightningDTests(BaseLightningDTests):
         assert len(payments) == 1
 
         assert payments[0]['status'] == 'complete'
-        assert payments[0]['payment_preimage'] == preimage2['preimage']
+        assert payments[0]['payment_preimage'] == preimage2['payment_preimage']
 
         invoice3 = l2.rpc.listinvoices('testpayment3')['invoices'][0]
         payments = l1.rpc.listpayments(payment_hash=invoice3['payment_hash'])['payments']
         assert len(payments) == 1
 
         assert payments[0]['status'] == 'complete'
-        assert payments[0]['payment_preimage'] == preimage3['preimage']
+        assert payments[0]['payment_preimage'] == preimage3['payment_preimage']
 
     def test_sendpay_cant_afford(self):
         l1, l2 = self.connect()
@@ -938,7 +938,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Test listpayments indexed by bolt11.
         assert len(l1.rpc.listpayments(inv)['payments']) == 1
-        assert l1.rpc.listpayments(inv)['payments'][0]['payment_preimage'] == preimage['preimage']
+        assert l1.rpc.listpayments(inv)['payments'][0]['payment_preimage'] == preimage['payment_preimage']
 
     def test_pay_optional_args(self):
         l1, l2 = self.connect()
@@ -3110,7 +3110,7 @@ class LightningDTests(BaseLightningDTests):
         self.wait_for_routes(l1, [chanid])
 
         # A duplicate should succeed immediately (nop) and return correct preimage.
-        preimage = l1.rpc.pay(inv1['bolt11'])['preimage']
+        preimage = l1.rpc.pay(inv1['bolt11'])['payment_preimage']
         assert l1.rpc.dev_rhash(preimage)['rhash'] == inv1['payment_hash']
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
