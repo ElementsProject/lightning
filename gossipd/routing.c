@@ -825,6 +825,43 @@ static void update_pending(struct pending_cannouncement *pending,
 	}
 }
 
+void set_connection_values(struct routing_channel *chan,
+			   int idx,
+			   u32 base_fee,
+			   u32 proportional_fee,
+			   u32 delay,
+			   bool active,
+			   u64 timestamp,
+			   u32 htlc_minimum_msat)
+{
+	struct node_connection *c = chan->connections[idx];
+
+	c->delay = delay;
+	c->htlc_minimum_msat = htlc_minimum_msat;
+	c->base_fee = base_fee;
+	c->proportional_fee = proportional_fee;
+	c->active = active;
+	c->last_timestamp = timestamp;
+	assert((c->flags & 0x1) == idx);
+
+	/* If it was temporarily unroutable, re-enable */
+	c->unroutable_until = 0;
+
+	SUPERVERBOSE("Channel %s(%d) was updated.",
+		     type_to_string(trc, struct short_channel_id, &chan->scid),
+		     idx);
+
+	if (c->proportional_fee >= MAX_PROPORTIONAL_FEE) {
+		status_trace("Channel %s(%d) massive proportional fee %u:"
+			     " disabling.",
+			     type_to_string(trc, struct short_channel_id,
+					    &chan->scid),
+			     idx,
+			     c->proportional_fee);
+		c->active = false;
+	}
+}
+
 void handle_channel_update(struct routing_state *rstate, const u8 *update)
 {
 	u8 *serialized;
@@ -911,27 +948,13 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 		     flags & 0x01,
 		     flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
 
-	c->last_timestamp = timestamp;
-	c->delay = expiry;
-	c->htlc_minimum_msat = htlc_minimum_msat;
-	c->base_fee = fee_base_msat;
-	c->proportional_fee = fee_proportional_millionths;
-	c->active = (flags & ROUTING_FLAGS_DISABLED) == 0;
-	c->unroutable_until = 0;
-	SUPERVERBOSE("Channel %s(%d) was updated.",
-		     type_to_string(trc, struct short_channel_id,
-				    &short_channel_id),
-		     direction);
-
-	if (c->proportional_fee >= MAX_PROPORTIONAL_FEE) {
-		status_trace("Channel %s(%d) massive proportional fee %u:"
-			     " disabling.",
-			     type_to_string(trc, struct short_channel_id,
-					    &short_channel_id),
-			     direction,
-			     fee_proportional_millionths);
-		c->active = false;
-	}
+	set_connection_values(chan, direction,
+			      fee_base_msat,
+			      fee_proportional_millionths,
+			      expiry,
+			      (flags & ROUTING_FLAGS_DISABLED) == 0,
+			      timestamp,
+			      htlc_minimum_msat);
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_short_channel_id(&tag, &short_channel_id);
