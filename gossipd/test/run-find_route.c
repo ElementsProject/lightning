@@ -146,7 +146,7 @@ int main(void)
 						 | SECP256K1_CONTEXT_SIGN);
 
 	memset(&tmp, 'a', sizeof(tmp));
-	rstate = new_routing_state(ctx, &zerohash, &a);
+	rstate = new_routing_state(ctx, &zerohash, &a, 0);
 
 	pubkey_from_privkey(&tmp, &a);
 	new_node(rstate, &a);
