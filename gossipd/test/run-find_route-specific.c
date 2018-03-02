@@ -75,9 +75,15 @@ get_or_make_connection(struct routing_state *rstate,
 		       const char *shortid)
 {
 	struct short_channel_id scid;
+	struct routing_channel *chan;
+
 	if (!short_channel_id_from_str(shortid, strlen(shortid), &scid))
 		abort();
-	return half_add_connection(rstate, from_id, to_id, &scid);
+	chan = get_channel(rstate, &scid);
+	if (!chan)
+		chan = new_routing_channel(rstate, &scid, from_id, to_id);
+
+	return chan->connections[pubkey_idx(from_id, to_id)];
 }
 
 int main(void)

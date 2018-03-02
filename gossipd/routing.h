@@ -178,13 +178,10 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct bitcoin_blkid *chain_hash,
 					const struct pubkey *local_id);
 
-/* Add a connection to the routing table, but do not mark it as usable
- * yet. Used by channel_announcements before the channel_update comes
- * in. */
-struct node_connection *half_add_connection(struct routing_state *rstate,
-					    const struct pubkey *from,
-					    const struct pubkey *to,
-					    const struct short_channel_id *scid);
+struct routing_channel *new_routing_channel(struct routing_state *rstate,
+					    const struct short_channel_id *scid,
+					    const struct pubkey *id1,
+					    const struct pubkey *id2);
 
 /* Given a short_channel_id, retrieve the matching connection, or NULL if it is
  * unknown. */
