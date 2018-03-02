@@ -765,7 +765,6 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 	u32 fee_base_msat, fee_proportional_millionths;
 	u64 htlc_minimum_msat;
 	int idx;
-	struct node_connection *c;
 	struct routing_channel *chan;
 
 	if (!fromwire_gossip_local_add_channel(
@@ -792,16 +791,15 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 	chan = new_routing_channel(rstate, &scid,
 				   &rstate->local_id, &remote_node_id);
 
-	idx = pubkey_idx(&rstate->local_id, &remote_node_id);
-	c = chan->connections[idx];
-
-	/* FIXME: Deduplicate with code in routing.c */
-	c->active = true;
-	c->last_timestamp = 0;
-	c->delay = cltv_expiry_delta;
-	c->htlc_minimum_msat = htlc_minimum_msat;
-	c->base_fee = fee_base_msat;
-	c->proportional_fee = fee_proportional_millionths;
+	idx = pubkey_idx(&rstate->local_id, &remote_node_id),
+	/* Activate the node_connection from us to them. */
+	set_connection_values(chan, idx,
+			      fee_base_msat,
+			      fee_proportional_millionths,
+			      cltv_expiry_delta,
+			      true,
+			      0,
+			      htlc_minimum_msat);
 	/* Designed to match msg in handle_channel_update, for easy testing */
 	status_trace("Received local update for channel %s(%d) now ACTIVE",
 		     type_to_string(msg, struct short_channel_id, &scid),
