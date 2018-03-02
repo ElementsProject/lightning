@@ -13,6 +13,7 @@
 #define ROUTING_FLAGS_DISABLED 2
 
 struct node_connection {
+	/* FIXME: Remove */
 	struct node *src, *dst;
 	/* millisatoshi. */
 	u32 base_fee;
@@ -31,6 +32,7 @@ struct node_connection {
 	u32 htlc_minimum_msat;
 
 	/* The channel ID, as determined by the anchor transaction */
+	/* FIXME: Remove */
 	struct short_channel_id short_channel_id;
 
 	/* Flags as specified by the `channel_update`s, among other
@@ -38,6 +40,7 @@ struct node_connection {
 	u16 flags;
 
 	/* Cached `channel_announcement` and `channel_update` we might forward to new peers*/
+	/* FIXME: Remove */
 	u8 *channel_announcement;
 	u8 *channel_update;
 
@@ -55,8 +58,8 @@ struct node {
 	/* IP/Hostname and port of this node (may be NULL) */
 	struct wireaddr *addresses;
 
-	/* Routes connecting to us, from us. */
-	struct node_connection **in, **out;
+	/* Channels connecting us to other nodes */
+	struct routing_channel **channels;
 
 	/* Temporary data for routefinding. */
 	struct {
@@ -93,14 +96,47 @@ struct routing_channel {
 	struct short_channel_id scid;
 	u8 *txout_script;
 
+	/* One of these might be NULL.
+	 * connections[0]->src == nodes[0] connections[0]->dst == nodes[1]
+	 * connections[1]->src == nodes[1] connections[1]->dst == nodes[0]
+	 */
 	struct node_connection *connections[2];
+	/* nodes[0].id < nodes[1].id */
 	struct node *nodes[2];
 
+	/* FIXME: Move msg_index[MSG_INDEX_CUPDATE*] into connections[] */
 	u64 msg_indexes[3];
 
 	/* Is this a public channel, or was it only added locally? */
 	bool public;
 };
+
+/* If the two nodes[] are id1 and id2, which index would id1 be? */
+static inline int pubkey_idx(const struct pubkey *id1, const struct pubkey *id2)
+{
+	return pubkey_cmp(id1, id2) > 0;
+}
+
+/* FIXME: We could avoid these by having two channels arrays */
+static inline struct node_connection *connection_from(const struct node *n,
+						      struct routing_channel *chan)
+{
+	int idx = (chan->nodes[1] == n);
+
+	assert(!chan->connections[idx] || chan->connections[idx]->src == n);
+	assert(!chan->connections[!idx] || chan->connections[!idx]->dst == n);
+	return chan->connections[idx];
+}
+
+static inline struct node_connection *connection_to(const struct node *n,
+						    struct routing_channel *chan)
+{
+	int idx = (chan->nodes[1] == n);
+
+	assert(!chan->connections[idx] || chan->connections[idx]->src == n);
+	assert(!chan->connections[!idx] || chan->connections[!idx]->dst == n);
+	return chan->connections[!idx];
+}
 
 struct routing_state {
 	/* All known nodes. */
@@ -148,8 +184,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 struct node_connection *half_add_connection(struct routing_state *rstate,
 					    const struct pubkey *from,
 					    const struct pubkey *to,
-					    const struct short_channel_id *schanid,
-					    const u16 flags);
+					    const struct short_channel_id *scid);
 
 /* Given a short_channel_id, retrieve the matching connection, or NULL if it is
  * unknown. */
@@ -203,14 +238,12 @@ void routing_failure(struct routing_state *rstate,
 void mark_channel_unroutable(struct routing_state *rstate,
 			     const struct short_channel_id *channel);
 
-/* routing_channel constructor */
-struct routing_channel *routing_channel_new(const tal_t *ctx,
-					    struct short_channel_id *scid);
-
 /* Add the connection to the channel */
 void channel_add_connection(struct routing_state *rstate,
 			    struct routing_channel *chan,
 			    struct node_connection *nc);
+
+void delete_connection(struct routing_channel *chan, int idx);
 
 /* Utility function that, given a source and a destination, gives us
  * the direction bit the matching channel should get */

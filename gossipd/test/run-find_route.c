@@ -70,12 +70,16 @@ static struct node_connection *add_connection(struct routing_state *rstate,
 					      u32 base_fee, s32 proportional_fee,
 					      u32 delay)
 {
-	struct node_connection *c = get_or_make_connection(rstate, from, to);
+	struct short_channel_id scid;
+	struct node_connection *c;
+
+	memset(&scid, 0, sizeof(scid));
+	c = half_add_connection(rstate, from, to, &scid);
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
 	c->active = true;
-	memset(&c->short_channel_id, 0, sizeof(c->short_channel_id));
+	c->short_channel_id = scid;
 	c->flags = get_channel_direction(from, to);
 	return c;
 }
