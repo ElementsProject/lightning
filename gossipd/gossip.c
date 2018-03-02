@@ -772,20 +772,19 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 		msg, &scid, &chain_hash, &remote_node_id,
 		&cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
 		&fee_proportional_millionths)) {
-		status_trace("Unable to parse local_add_channel message: %s", tal_hex(msg, msg));
+		status_broken("Unable to parse local_add_channel message: %s", tal_hex(msg, msg));
 		return;
 	}
 
 	if (!structeq(&chain_hash, &rstate->chain_hash)) {
-		status_trace("Received channel_announcement for unknown chain %s",
+		status_broken("Received local_add_channel for unknown chain %s",
 			     type_to_string(msg, struct bitcoin_blkid,
 					    &chain_hash));
 		return;
 	}
 
-	/* FIXME: use uintmap_get */
-	if (get_connection_by_scid(rstate, &scid, 0) || get_connection_by_scid(rstate, &scid, 1)) {
-		status_trace("Attempted to local_add_channel a know channel");
+	if (get_channel(rstate, &scid)) {
+		status_broken("Attempted to local_add_channel a known channel");
 		return;
 	}
 
