@@ -1103,32 +1103,37 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 	}
 }
 
+static void append_channel(struct gossip_getchannels_entry **entries,
+			   const struct routing_channel *chan)
+{
+	append_half_channel(entries, chan->connections[0]);
+	append_half_channel(entries, chan->connections[1]);
+}
+
 static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daemon,
 				    u8 *msg)
 {
 	tal_t *tmpctx = tal_tmpctx(daemon);
 	u8 *out;
-	size_t j;
 	struct gossip_getchannels_entry *entries;
-	struct node *n;
-	struct node_map_iter i;
+	struct routing_channel *chan;
 	struct short_channel_id *scid;
 
 	fromwire_gossip_getchannels_request(msg, msg, &scid);
 
 	entries = tal_arr(tmpctx, struct gossip_getchannels_entry, 0);
-	n = node_map_first(daemon->rstate->nodes, &i);
-	while (n != NULL) {
-		for (j=0; j<tal_count(n->channels); j++){
-			struct routing_channel *chan = n->channels[j];
-			if (scid && !structeq(scid, &chan->scid)) {
-				continue;
-			}
-			/* FIXME: this avoids printing twice, but better
-			 * to iterate over channels directly */
-			append_half_channel(&entries, connection_from(n, chan));
+	if (scid) {
+		chan = get_channel(daemon->rstate, scid);
+		if (chan)
+			append_channel(&entries, chan);
+	} else {
+		u64 idx;
+
+		for (chan = uintmap_first(&daemon->rstate->channels, &idx);
+		     chan;
+		     chan = uintmap_after(&daemon->rstate->channels, &idx)) {
+			append_channel(&entries, chan);
 		}
-		n = node_map_next(daemon->rstate->nodes, &i);
 	}
 
 	out = towire_gossip_getchannels_reply(daemon, entries);
