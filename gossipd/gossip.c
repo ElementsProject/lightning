@@ -1349,7 +1349,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 
 			nc = connection_from(n, n->channels[i]);
 
-			if (!nc || !nc->channel_update) {
+			if (!nc->channel_update) {
 				/* Connection is not public yet, so don't even
 				 * try to re-announce it */
 				continue;
@@ -1826,11 +1826,10 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 	}
 
 	chan = get_channel(daemon->rstate, &scid);
-	if (!chan || !chan->connections[direction]) {
+	if (!chan) {
 		status_trace(
-		    "Unable to find channel %s/%d",
-		    type_to_string(msg, struct short_channel_id, &scid),
-		    direction);
+		    "Unable to find channel %s",
+		    type_to_string(msg, struct short_channel_id, &scid));
 		goto fail;
 	}
 	nc = chan->connections[direction];
