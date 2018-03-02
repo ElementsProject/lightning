@@ -721,6 +721,8 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 		return;
 	}
 
+	/* FIXME: Do direct scid lookup to get channel */
+
 	/* We want update than comes from our end. */
 	us = get_node(peer->daemon->rstate, &peer->daemon->id);
 	if (!us) {
@@ -732,11 +734,16 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 		goto reply;
 	}
 
-	for (i = 0; i < tal_count(us->out); i++) {
-		if (!structeq(&us->out[i]->short_channel_id, &schanid))
+	for (i = 0; i < tal_count(us->channels); i++) {
+		struct node_connection *c;
+		if (!structeq(&us->channels[i]->scid, &schanid))
 			continue;
 
-		update = us->out[i]->channel_update;
+		c = connection_from(us, us->channels[i]);
+		if (!c)
+			update = NULL;
+		else
+			update = c->channel_update;
 		status_trace("peer %s schanid %s: %s update",
 			     type_to_string(trc, struct pubkey, &peer->id),
 			     type_to_string(trc, struct short_channel_id,
@@ -761,7 +768,6 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 	u32 fee_base_msat, fee_proportional_millionths;
 	u64 htlc_minimum_msat;
 	struct node_connection *c;
-	struct routing_channel *chan;
 
 	if (!fromwire_gossip_local_add_channel(
 		msg, &scid, &chain_hash, &remote_node_id, &flags,
@@ -778,19 +784,19 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 		return;
 	}
 
+	/* FIXME: use uintmap_get */
 	if (get_connection_by_scid(rstate, &scid, 0) || get_connection_by_scid(rstate, &scid, 1)) {
 		status_trace("Attempted to local_add_channel a know channel");
 		return;
 	}
 
-	chan = routing_channel_new(rstate, &scid);
-	chan->public = false;
-	uintmap_add(&rstate->channels, scid.u64, chan);
+	/* FIXME: unused */
+	(void)flags;
 
 	direction = get_channel_direction(&rstate->local_id, &remote_node_id);
-	c = half_add_connection(rstate, &rstate->local_id, &remote_node_id, &scid, direction);
-	channel_add_connection(rstate, chan, c);
-
+	c = half_add_connection(rstate, &peer->daemon->id, &remote_node_id,
+				&scid);
+	/* FIXME: Deduplicate with code in routing.c */
 	c->active = true;
 	c->last_timestamp = 0;
 	c->delay = cltv_expiry_delta;
@@ -1079,6 +1085,9 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 	struct gossip_getchannels_entry *e;
 	size_t n;
 
+	if (!c)
+		return;
+
 	n = tal_count(*entries);
 	tal_resize(entries, n+1);
 	e = &(*entries)[n];
@@ -1113,12 +1122,14 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 	entries = tal_arr(tmpctx, struct gossip_getchannels_entry, 0);
 	n = node_map_first(daemon->rstate->nodes, &i);
 	while (n != NULL) {
-		for (j=0; j<tal_count(n->out); j++){
-			if (scid &&
-			    !structeq(scid, &n->out[j]->short_channel_id)) {
+		for (j=0; j<tal_count(n->channels); j++){
+			struct routing_channel *chan = n->channels[j];
+			if (scid && !structeq(scid, &chan->scid)) {
 				continue;
 			}
-			append_half_channel(&entries, n->out[j]);
+			/* FIXME: this avoids printing twice, but better
+			 * to iterate over channels directly */
+			append_half_channel(&entries, connection_from(n, chan));
 		}
 		n = node_map_next(daemon->rstate->nodes, &i);
 	}
@@ -1329,10 +1340,12 @@ static void gossip_prune_network(struct daemon *daemon)
 	if (n) {
 		/* Iterate through all outgoing connection and check whether
 		 * it's time to re-announce */
-		for (size_t i = 0; i < tal_count(n->out); i++) {
-			struct node_connection *nc = n->out[i];
+		for (size_t i = 0; i < tal_count(n->channels); i++) {
+			struct node_connection *nc;
 
-			if (!nc->channel_update) {
+			nc = connection_from(n, n->channels[i]);
+
+			if (!nc || !nc->channel_update) {
 				/* Connection is not public yet, so don't even
 				 * try to re-announce it */
 				continue;
@@ -1355,10 +1368,14 @@ static void gossip_prune_network(struct daemon *daemon)
 	/* Now iterate through all channels and see if it is still alive */
 	for (n = node_map_first(daemon->rstate->nodes, &it); n;
 	     n = node_map_next(daemon->rstate->nodes, &it)) {
-		for (size_t i = 0; i < tal_count(n->out); i++) {
-			struct node_connection *nc = n->out[i];
+		/* Since we cover all nodes, we would consider each channel twice
+		 * so we only look (arbitrarily) at outgoing */
+		for (size_t i = 0; i < tal_count(n->channels); i++) {
+			struct node_connection *nc;
 
-			if (!nc->channel_update) {
+			nc = connection_from(n, n->channels[i]);
+
+			if (!nc || !nc->channel_update) {
 				/* Not even announced yet */
 				continue;
 			}
@@ -1374,18 +1391,8 @@ static void gossip_prune_network(struct daemon *daemon)
 					   &nc->short_channel_id),
 			    get_channel_direction(&nc->src->id, &nc->dst->id),
 			    now - nc->last_timestamp);
-			/* Calls remove_conn_from_array internally, removes on
-			 * both src and dst side. */
-			tal_free(nc);
-		}
-	}
-
-	/* Finally remove all nodes that do not have any edges
-	 * anymore. Reparent onto pruned, then free them all. */
-	for (n = node_map_first(daemon->rstate->nodes, &it); n;
-	     n = node_map_next(daemon->rstate->nodes, &it)) {
-		if (tal_count(n->in) == 0 && tal_count(n->out) == 0) {
-			tal_steal(pruned, n);
+			/* This may free nodes, so do outside loop. */
+			tal_steal(pruned, nc);
 		}
 	}
 
