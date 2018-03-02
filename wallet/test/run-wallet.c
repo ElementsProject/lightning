@@ -240,6 +240,10 @@ struct json_result *null_response(const tal_t *ctx UNNEEDED)
 void outpointfilter_add(struct outpointfilter *of UNNEEDED,
 			const struct bitcoin_txid *txid UNNEEDED, const u32 outnum UNNEEDED)
 { fprintf(stderr, "outpointfilter_add called!\n"); abort(); }
+/* Generated stub for outpointfilter_matches */
+bool outpointfilter_matches(struct outpointfilter *of UNNEEDED,
+			    const struct bitcoin_txid *txid UNNEEDED, const u32 outnum UNNEEDED)
+{ fprintf(stderr, "outpointfilter_matches called!\n"); abort(); }
 /* Generated stub for outpointfilter_new */
 struct outpointfilter *outpointfilter_new(tal_t *ctx UNNEEDED)
 { fprintf(stderr, "outpointfilter_new called!\n"); abort(); }

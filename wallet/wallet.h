@@ -654,4 +654,7 @@ void wallet_block_remove(struct wallet *w, struct block *b);
  */
 void wallet_blocks_rollback(struct wallet *w, u32 height);
 
+void wallet_outpoint_spend(struct wallet *w, const u32 blockheight,
+			   const struct bitcoin_txid *txid, const u32 outnum);
+
 #endif /* WALLET_WALLET_H */

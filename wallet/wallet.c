@@ -1759,3 +1759,22 @@ void wallet_blocks_rollback(struct wallet *w, u32 height)
 	sqlite3_bind_int(stmt, 1, height);
 	db_exec_prepared(w->db, stmt);
 }
+
+void wallet_outpoint_spend(struct wallet *w, const u32 blockheight,
+			   const struct bitcoin_txid *txid, const u32 outnum)
+{
+	sqlite3_stmt *stmt;
+	if (outpointfilter_matches(w->owned_outpoints, txid, outnum)) {
+		stmt = db_prepare(w->db,
+				  "UPDATE outputs "
+				  "SET spend_height = ? "
+				  "WHERE prev_out_tx = ?"
+				  " AND prev_out_index = ?");
+
+		sqlite3_bind_int(stmt, 1, blockheight);
+		sqlite3_bind_sha256_double(stmt, 2, &txid->shad);
+		sqlite3_bind_int(stmt, 3, outnum);
+
+		db_exec_prepared(w->db, stmt);
+	}
+}
