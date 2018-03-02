@@ -1332,11 +1332,9 @@ static void gossip_send_keepalive_update(struct routing_state *rstate,
 static void gossip_refresh_network(struct daemon *daemon)
 {
 	u64 now = time_now().ts.tv_sec;
-	struct node_map_iter it;
-	/* Anything below this highwater mark ought to be pruned */
-	s64 highwater = now - daemon->rstate->prune_timeout;
+	/* Anything below this highwater mark could be pruned if not refreshed */
+	s64 highwater = now - daemon->rstate->prune_timeout / 2;
 	struct node *n;
-	const tal_t *pruned = tal_tmpctx(daemon);
 
 	/* Schedule next run now */
 	new_reltimer(&daemon->timers, daemon,
@@ -1359,7 +1357,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 				continue;
 			}
 
-			if (now - nc->last_timestamp < daemon->rstate->prune_timeout / 2) {
+			if (nc->last_timestamp > highwater) {
 				/* No need to send a keepalive update message */
 				continue;
 			}
@@ -1373,39 +1371,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 		}
 	}
 
-	/* Now iterate through all channels and see if it is still alive */
-	for (n = node_map_first(daemon->rstate->nodes, &it); n;
-	     n = node_map_next(daemon->rstate->nodes, &it)) {
-		/* Since we cover all nodes, we would consider each channel twice
-		 * so we only look (arbitrarily) at outgoing */
-		for (size_t i = 0; i < tal_count(n->channels); i++) {
-			struct node_connection *nc;
-
-			nc = connection_from(n, n->channels[i]);
-
-			if (!nc || !n->channels[i]->public) {
-				/* Not even announced yet */
-				continue;
-			}
-
-			if (nc->last_timestamp > highwater) {
-				/* Still alive */
-				continue;
-			}
-
-			status_trace(
-			    "Pruning channel %s/%d from network view (age %"PRIu64"s)",
-			    type_to_string(trc, struct short_channel_id,
-					   &nc->short_channel_id),
-			    get_channel_direction(&nc->src->id, &nc->dst->id),
-			    now - nc->last_timestamp);
-			/* This may free nodes, so do outside loop. */
-			tal_steal(pruned, nc);
-		}
-	}
-
-	/* This frees all the nodes. */
-	tal_free(pruned);
+	route_prune(daemon->rstate);
 }
 
 static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon)

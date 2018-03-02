@@ -1302,3 +1302,48 @@ void mark_channel_unroutable(struct routing_state *rstate,
 		chan->connections[1]->unroutable_until = now + 20;
 	tal_free(tmpctx);
 }
+
+void route_prune(struct routing_state *rstate)
+{
+	u64 now = time_now().ts.tv_sec;
+	/* Anything below this highwater mark ought to be pruned */
+	const s64 highwater = now - rstate->prune_timeout;
+	const tal_t *pruned = tal_tmpctx(rstate);
+	struct routing_channel *chan;
+	u64 idx;
+
+	/* Now iterate through all channels and see if it is still alive */
+	for (chan = uintmap_first(&rstate->channels, &idx);
+	     chan;
+	     chan = uintmap_after(&rstate->channels, &idx)) {
+		/* Local-only?  Don't prune. */
+		if (!chan->public)
+			continue;
+
+		for (int i = 0; i < 2; i++) {
+			struct node_connection *nc = chan->connections[i];
+
+			if (!nc)
+				continue;
+
+			if (nc->last_timestamp > highwater) {
+				/* Still alive */
+				continue;
+			}
+
+			status_trace(
+			    "Pruning channel %s/%d from network view (age %"PRIu64"s)",
+			    type_to_string(trc, struct short_channel_id,
+					   &chan->scid),
+			    nc->flags & 0x1,
+			    now - nc->last_timestamp);
+
+			/* This may free nodes, so do outside loop. */
+			tal_steal(pruned, nc);
+		}
+	}
+
+	/* This frees all the node_connections: may free routing_channel and
+	 * even nodes. */
+	tal_free(pruned);
+}
