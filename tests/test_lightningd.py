@@ -1898,15 +1898,8 @@ class LightningDTests(BaseLightningDTests):
         time.sleep(1)
         l3.stop()
 
-        l1.daemon.wait_for_logs([
-            "Pruning channel {}/{} from network view".format(scid2, 0),
-            "Pruning channel {}/{} from network view".format(scid2, 1),
-        ])
-
-        l2.daemon.wait_for_logs([
-            "Pruning channel {}/{} from network view".format(scid2, 0),
-            "Pruning channel {}/{} from network view".format(scid2, 1),
-        ])
+        l1.daemon.wait_for_log("Pruning channel {} from network view".format(scid2))
+        l2.daemon.wait_for_log("Pruning channel {} from network view".format(scid2))
 
         assert scid2 not in [c['short_channel_id'] for c in l1.rpc.listchannels()['channels']]
         assert scid2 not in [c['short_channel_id'] for c in l2.rpc.listchannels()['channels']]

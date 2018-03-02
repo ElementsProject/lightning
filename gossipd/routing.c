@@ -1323,30 +1323,20 @@ void route_prune(struct routing_state *rstate)
 		if (!chan->public)
 			continue;
 
-		for (int i = 0; i < 2; i++) {
-			struct node_connection *nc = chan->connections[i];
-
-			if (!nc)
-				continue;
-
-			if (nc->last_timestamp > highwater) {
-				/* Still alive */
-				continue;
-			}
-
+		if (chan->connections[0]->last_timestamp < highwater
+		    && chan->connections[1]->last_timestamp < highwater) {
 			status_trace(
-			    "Pruning channel %s/%d from network view (age %"PRIu64"s)",
+			    "Pruning channel %s from network view (ages %"PRIu64" and %"PRIu64"s)",
 			    type_to_string(trc, struct short_channel_id,
 					   &chan->scid),
-			    nc->flags & 0x1,
-			    now - nc->last_timestamp);
+			    now - chan->connections[0]->last_timestamp,
+			    now - chan->connections[1]->last_timestamp);
 
-			/* This may free nodes, so do outside loop. */
-			tal_steal(pruned, nc);
+			/* This may perturb iteration so do outside loop. */
+			tal_steal(pruned, chan);
 		}
 	}
 
-	/* This frees all the node_connections: may free routing_channel and
-	 * even nodes. */
+	/* This frees all the routing_channels and maybe even nodes. */
 	tal_free(pruned);
 }
