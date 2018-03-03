@@ -217,6 +217,16 @@ char *dbmigrations[] = {
     "ALTER TABLE outputs ADD COLUMN spend_height INTEGER REFERENCES blocks(height) ON DELETE SET NULL;",
     /* Create a covering index that covers both fields */
     "CREATE INDEX output_height_idx ON outputs (confirmation_height, spend_height);",
+    "CREATE TABLE utxoset ("
+    " txid BLOB,"
+    " outnum INT,"
+    " blockheight INT REFERENCES blocks(height) ON DELETE CASCADE,"
+    " spendheight INT REFERENCES blocks(height) ON DELETE SET NULL,"
+    " txindex INT,"
+    " scriptpubkey BLOB,"
+    " satoshis BIGINT,"
+    " PRIMARY KEY(txid, outnum));",
+    "CREATE INDEX short_channel_id ON utxoset (blockheight, txindex, outnum)",
     NULL,
 };
 
