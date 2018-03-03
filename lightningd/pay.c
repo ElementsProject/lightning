@@ -73,6 +73,16 @@ static void sendpay_resolve(const tal_t *ctx,
 	}
 }
 
+static struct sendpay_result*
+sendpay_result_success(const tal_t *ctx,
+		       const struct preimage *payment_preimage)
+{
+	struct sendpay_result *result = tal(ctx, struct sendpay_result);
+	result->succeeded = true;
+	result->preimage = *payment_preimage;
+	return result;
+}
+
 static void sendpay_success(struct lightningd *ld,
 			    const struct sha256 *payment_hash,
 			    const struct preimage *payment_preimage)
@@ -80,13 +90,30 @@ static void sendpay_success(struct lightningd *ld,
 	const tal_t *tmpctx = tal_tmpctx(ld);
 	struct sendpay_result *result;
 
-	result = tal(tmpctx, struct sendpay_result);
-	result->succeeded = true;
-	result->preimage = *payment_preimage;
+	result = sendpay_result_success(tmpctx, payment_preimage);
 
 	sendpay_resolve(tmpctx, ld, payment_hash, result);
 
 	tal_free(tmpctx);
+}
+
+static struct sendpay_result*
+sendpay_result_route_failure(const tal_t *ctx,
+			     bool retry_plausible,
+			     struct routing_failure *fail,
+			     const u8 *onionreply,
+			     const char *details)
+{
+	struct sendpay_result *result = tal(ctx, struct sendpay_result);
+	result->succeeded = false;
+	result->errorcode =
+		(!fail) ?		PAY_UNPARSEABLE_ONION :
+		(!retry_plausible) ?	PAY_DESTINATION_PERM_FAIL :
+		/*otherwise*/		PAY_TRY_OTHER_ROUTE ;
+	result->onionreply = onionreply;
+	result->routing_failure = fail;
+	result->details = details;
+	return result;
 }
 
 static void sendpay_route_failure(struct lightningd *ld,
@@ -99,19 +126,27 @@ static void sendpay_route_failure(struct lightningd *ld,
 	const tal_t *tmpctx = tal_tmpctx(ld);
 	struct sendpay_result *result;
 
-	result = tal(tmpctx, struct sendpay_result);
-	result->succeeded = false;
-	result->errorcode =
-		(!fail) ?		PAY_UNPARSEABLE_ONION :
-		(!retry_plausible) ?	PAY_DESTINATION_PERM_FAIL :
-		/*otherwise*/		PAY_TRY_OTHER_ROUTE ;
-	result->onionreply = onionreply;
-	result->routing_failure = fail;
-	result->details = details;
+	result = sendpay_result_route_failure(tmpctx,
+					      retry_plausible,
+					      fail,
+					      onionreply,
+					      details);
 
 	sendpay_resolve(tmpctx, ld, payment_hash, result);
 
 	tal_free(tmpctx);
+}
+
+static struct sendpay_result *
+sendpay_result_simple_fail(const tal_t *ctx,
+			   int errorcode,
+			   char const *details)
+{
+	struct sendpay_result *result = tal(ctx, struct sendpay_result);
+	result->succeeded = false;
+	result->errorcode = errorcode;
+	result->details = details;
+	return result;
 }
 
 /* Immediately fail during send_payment call. */
@@ -123,10 +158,7 @@ static void sendpay_fail_now(void (*cb)(const struct sendpay_result *, void*),
 	const tal_t *tmpctx = tal_tmpctx(NULL);
 	struct sendpay_result *result;
 
-	result = tal(tmpctx, struct sendpay_result);
-	result->succeeded = false;
-	result->errorcode = errorcode;
-	result->details = details;
+	result = sendpay_result_simple_fail(tmpctx, errorcode, details);
 
 	cb(result, cbarg);
 
@@ -141,9 +173,7 @@ sendpay_succeed_now(void (*cb)(const struct sendpay_result*, void*),
 	const tal_t *tmpctx = tal_tmpctx(NULL);
 	struct sendpay_result *result;
 
-	result = tal(tmpctx, struct sendpay_result);
-	result->succeeded = true;
-	result->preimage = *payment_preimage;
+	result = sendpay_result_success(tmpctx, payment_preimage);
 
 	cb(result, cbarg);
 
