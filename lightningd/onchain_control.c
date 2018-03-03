@@ -330,6 +330,8 @@ static void onchain_error(struct channel *channel,
 {
 	/* FIXME: re-launch? */
 	log_broken(channel->log, "%s", desc);
+	channel_set_billboard(channel, true, desc);
+	channel_set_owner(channel, NULL);
 }
 
 /* With a reorg, this can get called multiple times; each time we'll kill
