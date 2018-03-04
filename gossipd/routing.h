@@ -31,10 +31,6 @@ struct node_connection {
 	/* Minimum number of msatoshi in an HTLC */
 	u32 htlc_minimum_msat;
 
-	/* The channel ID, as determined by the anchor transaction */
-	/* FIXME: Remove */
-	struct short_channel_id short_channel_id;
-
 	/* Flags as specified by the `channel_update`s, among other
 	 * things indicated direction wrt the `channel_id` */
 	u16 flags;
