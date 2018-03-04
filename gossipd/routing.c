@@ -365,16 +365,16 @@ static bool nc_is_routable(const struct node_connection *nc, time_t now)
 }
 
 /* riskfactor is already scaled to per-block amount */
-static struct routing_channel *
+static struct routing_channel **
 find_route(const tal_t *ctx, struct routing_state *rstate,
 	   const struct pubkey *from, const struct pubkey *to, u64 msatoshi,
 	   double riskfactor,
 	   double fuzz, const struct siphash_seed *base_seed,
-	   u64 *fee, struct routing_channel ***route)
+	   u64 *fee)
 {
+	struct routing_channel **route;
 	struct node *n, *src, *dst;
 	struct node_map_iter it;
-	struct routing_channel *first_chan;
 	int runs, i, best;
 	/* Call time_now() once at the start, so that our tight loop
 	 * does not keep calling into operating system for the
@@ -455,23 +455,20 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 		return NULL;
 	}
 
-	/* Save route from *next* hop (we return first hop as peer).
-	 * Note that we take our own fees into account for routing, even
-	 * though we don't pay them: it presumably effects preference. */
-	first_chan = dst->bfg[best].prev;
-	dst = other_node(dst, dst->bfg[best].prev);
-	best--;
+	/* We (dst) don't charge ourselves fees, so skip first hop */
+	n = other_node(dst, dst->bfg[best].prev);
+	*fee = n->bfg[best-1].total - msatoshi;
 
-	*fee = dst->bfg[best].total - msatoshi;
-	*route = tal_arr(ctx, struct routing_channel *, best);
+	/* Lay out route */
+	route = tal_arr(ctx, struct routing_channel *, best);
 	for (i = 0, n = dst;
 	     i < best;
 	     n = other_node(n, n->bfg[best-i].prev), i++) {
-		(*route)[i] = n->bfg[best-i].prev;
+		route[i] = n->bfg[best-i].prev;
 	}
 	assert(n == src);
 
-	return first_chan;
+	return route;
 }
 
 /* Verify the signature of a channel_update message */
@@ -1077,21 +1074,18 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 	u64 fee;
 	struct route_hop *hops;
 	int i;
-	struct routing_channel *first_chan;
 	struct node *n;
 
-	/* FIXME: make find_route simply return entire route array! */
-	first_chan = find_route(ctx, rstate, source, destination, msatoshi,
-				riskfactor / BLOCKS_PER_YEAR / 10000,
-				fuzz, base_seed,
-				&fee, &route);
+	route = find_route(ctx, rstate, source, destination, msatoshi,
+			   riskfactor / BLOCKS_PER_YEAR / 10000,
+			   fuzz, base_seed, &fee);
 
-	if (!first_chan) {
+	if (!route) {
 		return NULL;
 	}
 
 	/* Fees, delays need to be calculated backwards along route. */
-	hops = tal_arr(ctx, struct route_hop, tal_count(route) + 1);
+	hops = tal_arr(ctx, struct route_hop, tal_count(route));
 	total_amount = msatoshi;
 	total_delay = final_cltv;
 
@@ -1101,21 +1095,15 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 		const struct node_connection *c;
 		int idx = connection_to(n, route[i]);
 		c = &route[i]->connections[idx];
-		hops[i + 1].channel_id = route[i]->scid;
-		hops[i + 1].nodeid = n->id;
-		hops[i + 1].amount = total_amount;
+		hops[i].channel_id = route[i]->scid;
+		hops[i].nodeid = n->id;
+		hops[i].amount = total_amount;
+		hops[i].delay = total_delay;
 		total_amount += connection_fee(c, total_amount);
-
-		hops[i + 1].delay = total_delay;
 		total_delay += c->delay;
-		n = route[i]->nodes[!idx];
+		n = other_node(n, route[i]);
 	}
-	/* Backfill the first hop manually */
-	hops[0].channel_id = first_chan->scid;
-	hops[0].nodeid = n->id;
-	/* We don't charge ourselves any fees, nor require delay */
-	hops[0].amount = total_amount;
-	hops[0].delay = total_delay;
+	assert(pubkey_eq(&n->id, source));
 
 	/* FIXME: Shadow route! */
 	return hops;
