@@ -211,7 +211,6 @@ static void init_node_connection(struct routing_state *rstate,
 
 	c->src = from;
 	c->dst = to;
-	c->short_channel_id = chan->scid;
 	c->channel_update = NULL;
 	c->unroutable_until = 0;
 	c->active = false;

@@ -1072,8 +1072,10 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 }
 
 static void append_half_channel(struct gossip_getchannels_entry **entries,
-				const struct node_connection *c)
+				const struct routing_channel *chan,
+				int idx)
 {
+	const struct node_connection *c = &chan->connections[idx];
 	struct gossip_getchannels_entry *e;
 	size_t n;
 
@@ -1088,12 +1090,12 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 	tal_resize(entries, n+1);
 	e = &(*entries)[n];
 
-	e->source = c->src->id;
-	e->destination = c->dst->id;
+	e->source = chan->nodes[idx]->id;
+	e->destination = chan->nodes[!idx]->id;
 	e->active = c->active;
 	e->flags = c->flags;
 	e->public = (c->channel_update != NULL);
-	e->short_channel_id = c->short_channel_id;
+	e->short_channel_id = chan->scid;
 	e->last_update_timestamp = c->channel_update ? c->last_timestamp : -1;
 	if (e->last_update_timestamp >= 0) {
 		e->base_fee_msat = c->base_fee;
@@ -1105,8 +1107,8 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 static void append_channel(struct gossip_getchannels_entry **entries,
 			   const struct routing_channel *chan)
 {
-	append_half_channel(entries, &chan->connections[0]);
-	append_half_channel(entries, &chan->connections[1]);
+	append_half_channel(entries, chan, 0);
+	append_half_channel(entries, chan, 1);
 }
 
 static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daemon,

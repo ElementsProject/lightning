@@ -87,7 +87,6 @@ static struct node_connection *add_connection(struct routing_state *rstate,
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
 	c->active = true;
-	c->short_channel_id = scid;
 	c->flags = get_channel_direction(from, to);
 	return c;
 }
