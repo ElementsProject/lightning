@@ -1,4 +1,5 @@
 #include "bitcoin/block.h"
+#include "bitcoin/script.h"
 #include "bitcoin/tx.h"
 #include "bitcoind.h"
 #include "chaintopology.h"
@@ -364,6 +365,21 @@ static void topo_update_spends(struct chain_topology *topo, struct block *b)
 	}
 }
 
+static void topo_add_utxos(struct chain_topology *topo, struct block *b)
+{
+	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
+		const struct bitcoin_tx *tx = b->full_txs[i];
+		for (size_t j = 0; j < tal_count(tx->output); j++) {
+			const struct bitcoin_tx_output *output = &tx->output[j];
+			if (is_p2wsh(output->script, NULL)) {
+				wallet_utxoset_add(topo->wallet, tx, j,
+						   b->height, i, output->script,
+						   output->amount);
+			}
+		}
+	}
+}
+
 static void add_tip(struct chain_topology *topo, struct block *b)
 {
 	/* Attach to tip; b is now the tip. */
@@ -373,6 +389,7 @@ static void add_tip(struct chain_topology *topo, struct block *b)
 	topo->tip = b;
 	wallet_block_add(topo->wallet, b);
 
+	topo_add_utxos(topo, b);
 	topo_update_spends(topo, b);
 
 	/* Only keep the transactions we care about. */
