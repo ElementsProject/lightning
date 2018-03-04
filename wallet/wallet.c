@@ -15,6 +15,9 @@
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
 #define DIRECTION_INCOMING 0
 #define DIRECTION_OUTGOING 1
+/* How many blocks must a UTXO entry be buried under to be considered old enough
+ * to prune? */
+#define UTXO_PRUNE_DEPTH 144
 
 static void outpointfilters_init(struct wallet *w)
 {
@@ -1761,6 +1764,17 @@ bool wallet_network_check(struct wallet *w,
 	return true;
 }
 
+/**
+ * wallet_utxoset_prune -- Remove spent UTXO entries that are old
+ */
+static void wallet_utxoset_prune(struct wallet *w, const u32 blockheight)
+{
+	sqlite3_stmt *stmt;
+	stmt = db_prepare(w->db, "DELETE FROM utxoset WHERE spendheight < ?");
+	sqlite3_bind_int(stmt, 1, blockheight - UTXO_PRUNE_DEPTH);
+	db_exec_prepared(w->db, stmt);
+}
+
 void wallet_block_add(struct wallet *w, struct block *b)
 {
 	sqlite3_stmt *stmt = db_prepare(w->db,
@@ -1775,6 +1789,9 @@ void wallet_block_add(struct wallet *w, struct block *b)
 		sqlite3_bind_null(stmt, 3);
 	}
 	db_exec_prepared(w->db, stmt);
+
+	/* Now cleanup UTXOs that we don't care about anymore */
+	wallet_utxoset_prune(w, b->height);
 }
 
 void wallet_block_remove(struct wallet *w, struct block *b)
