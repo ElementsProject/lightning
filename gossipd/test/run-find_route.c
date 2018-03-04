@@ -130,16 +130,30 @@ static struct node_connection *get_connection(struct routing_state *rstate,
 	return &c->connections[idx];
 }
 
+static bool channel_is_between(const struct routing_channel *chan,
+			       const struct pubkey *a, const struct pubkey *b)
+{
+	if (pubkey_eq(&chan->nodes[0]->id, a)
+	    && pubkey_eq(&chan->nodes[1]->id, b))
+		return true;
+
+	if (pubkey_eq(&chan->nodes[0]->id, b)
+	    && pubkey_eq(&chan->nodes[1]->id, a))
+		return true;
+
+	return false;
+}
+
 int main(void)
 {
 	static const struct bitcoin_blkid zerohash;
 	const tal_t *ctx = trc = tal_tmpctx(NULL);
-	struct node_connection *nc;
 	struct routing_state *rstate;
 	struct pubkey a, b, c, d;
 	struct privkey tmp;
 	u64 fee;
-	struct node_connection **route;
+	struct routing_channel **route;
+	struct routing_channel *first;
 	const double riskfactor = 1.0 / BLOCKS_PER_YEAR / 10000;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
@@ -158,8 +172,8 @@ int main(void)
 	/* A<->B */
 	add_connection(rstate, &a, &b, 1, 1, 1);
 
-	nc = find_route(ctx, rstate, &a, &b, 1000, riskfactor, 0.0, NULL, &fee, &route);
-	assert(nc);
+	first = find_route(ctx, rstate, &a, &b, 1000, riskfactor, 0.0, NULL, &fee, &route);
+	assert(first);
 	assert(tal_count(route) == 0);
 	assert(fee == 0);
 
@@ -173,8 +187,8 @@ int main(void)
 	status_trace("C = %s", type_to_string(trc, struct pubkey, &c));
 	add_connection(rstate, &b, &c, 1, 1, 1);
 
-	nc = find_route(ctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL, &fee, &route);
-	assert(nc);
+	first = find_route(ctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL, &fee, &route);
+	assert(first);
 	assert(tal_count(route) == 1);
 	assert(fee == 1);
 
@@ -188,25 +202,25 @@ int main(void)
 	add_connection(rstate, &d, &c, 0, 2, 1);
 
 	/* Will go via D for small amounts. */
-	nc = find_route(ctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL, &fee, &route);
-	assert(nc);
+	first = find_route(ctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL, &fee, &route);
+	assert(first);
 	assert(tal_count(route) == 1);
-	assert(pubkey_eq(&route[0]->src->id, &d));
+	assert(channel_is_between(route[0], &d, &c));
 	assert(fee == 0);
 
 	/* Will go via B for large amounts. */
-	nc = find_route(ctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL, &fee, &route);
-	assert(nc);
+	first = find_route(ctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL, &fee, &route);
+	assert(first);
 	assert(tal_count(route) == 1);
-	assert(pubkey_eq(&route[0]->src->id, &b));
+	assert(channel_is_between(route[0], &b, &c));
 	assert(fee == 1 + 3);
 
 	/* Make B->C inactive, force it back via D */
 	get_connection(rstate, &b, &c)->active = false;
-	nc = find_route(ctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL, &fee, &route);
-	assert(nc);
+	first = find_route(ctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL, &fee, &route);
+	assert(first);
 	assert(tal_count(route) == 1);
-	assert(pubkey_eq(&route[0]->src->id, &d));
+	assert(channel_is_between(route[0], &d, &c));
 	assert(fee == 0 + 6);
 
 	tal_free(ctx);

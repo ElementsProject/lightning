@@ -303,16 +303,16 @@ static u64 risk_fee(u64 amount, u32 delay, double riskfactor)
 /* We track totals, rather than costs.  That's because the fee depends
  * on the current amount passing through. */
 static void bfg_one_edge(struct node *node,
-			 struct node_connection *c, double riskfactor,
+			 struct routing_channel *chan, int idx,
+			 double riskfactor,
 			 double fuzz, const struct siphash_seed *base_seed)
 {
 	size_t h;
 	double fee_scale = 1.0;
+	const struct node_connection *c = &chan->connections[idx];
 
 	if (fuzz != 0.0) {
-		u64 h =	siphash24(base_seed,
-				  &c->short_channel_id,
-				  sizeof(c->short_channel_id));
+		u64 h =	siphash24(base_seed, &chan->scid, sizeof(chan->scid));
 
 		/* Scale fees for this channel */
 		/* rand = (h / UINT64_MAX)  random number between 0.0 -> 1.0
@@ -322,8 +322,8 @@ static void bfg_one_edge(struct node *node,
 		fee_scale = 1.0 + (2.0 * fuzz * h / UINT64_MAX) - fuzz;
 	}
 
-	assert(c->dst == node);
 	for (h = 0; h < ROUTING_MAX_HOPS; h++) {
+		struct node *src;
 		/* FIXME: Bias against smaller channels. */
 		u64 fee;
 		u64 risk;
@@ -343,15 +343,17 @@ static void bfg_one_edge(struct node *node,
 			continue;
 		}
 
+		/* nodes[0] is src for connections[0] */
+		src = chan->nodes[idx];
 		if (node->bfg[h].total + fee + risk
-		    < c->src->bfg[h+1].total + c->src->bfg[h+1].risk) {
+		    < src->bfg[h+1].total + src->bfg[h+1].risk) {
 			SUPERVERBOSE("...%s can reach here in hoplen %zu total %"PRIu64,
 				     type_to_string(trc, struct pubkey,
-						    &c->src->id),
+						    &src->id),
 				     h, node->bfg[h].total + fee);
-			c->src->bfg[h+1].total = node->bfg[h].total + fee;
-			c->src->bfg[h+1].risk = risk;
-			c->src->bfg[h+1].prev = c;
+			src->bfg[h+1].total = node->bfg[h].total + fee;
+			src->bfg[h+1].risk = risk;
+			src->bfg[h+1].prev = chan;
 		}
 	}
 }
@@ -363,16 +365,16 @@ static bool nc_is_routable(const struct node_connection *nc, time_t now)
 }
 
 /* riskfactor is already scaled to per-block amount */
-static struct node_connection *
+static struct routing_channel *
 find_route(const tal_t *ctx, struct routing_state *rstate,
 	   const struct pubkey *from, const struct pubkey *to, u64 msatoshi,
 	   double riskfactor,
 	   double fuzz, const struct siphash_seed *base_seed,
-	   u64 *fee, struct node_connection ***route)
+	   u64 *fee, struct routing_channel ***route)
 {
 	struct node *n, *src, *dst;
 	struct node_map_iter it;
-	struct node_connection *first_conn;
+	struct routing_channel *first_chan;
 	int runs, i, best;
 	/* Call time_now() once at the start, so that our tight loop
 	 * does not keep calling into operating system for the
@@ -420,18 +422,20 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 		     n = node_map_next(rstate->nodes, &it)) {
 			size_t num_edges = tal_count(n->channels);
 			for (i = 0; i < num_edges; i++) {
-				struct node_connection *c;
+				struct routing_channel *chan = n->channels[i];
+				int idx = connection_to(n, chan);
+
 				SUPERVERBOSE("Node %s edge %i/%zu",
 					     type_to_string(trc, struct pubkey,
 							    &n->id),
 					     i, num_edges);
 
-				c = connection_to(n, n->channels[i]);
-				if (!nc_is_routable(c, now)) {
+				if (!nc_is_routable(&chan->connections[idx],
+						    now)) {
 					SUPERVERBOSE("...unroutable");
 					continue;
 				}
-				bfg_one_edge(n, c,
+				bfg_one_edge(n, chan, idx,
 					     riskfactor, fuzz, base_seed);
 				SUPERVERBOSE("...done");
 			}
@@ -454,37 +458,20 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	/* Save route from *next* hop (we return first hop as peer).
 	 * Note that we take our own fees into account for routing, even
 	 * though we don't pay them: it presumably effects preference. */
-	first_conn = dst->bfg[best].prev;
-	dst = dst->bfg[best].prev->dst;
+	first_chan = dst->bfg[best].prev;
+	dst = other_node(dst, dst->bfg[best].prev);
 	best--;
 
 	*fee = dst->bfg[best].total - msatoshi;
-	*route = tal_arr(ctx, struct node_connection *, best);
+	*route = tal_arr(ctx, struct routing_channel *, best);
 	for (i = 0, n = dst;
 	     i < best;
-	     n = n->bfg[best-i].prev->dst, i++) {
+	     n = other_node(n, n->bfg[best-i].prev), i++) {
 		(*route)[i] = n->bfg[best-i].prev;
 	}
 	assert(n == src);
 
-	msatoshi += *fee;
-	status_trace("find_route: via %s",
-		     type_to_string(trc, struct pubkey, &first_conn->dst->id));
-	/* If there are intermediaries, dump them, and total fees. */
-	if (best != 0) {
-		for (i = 0; i < best; i++) {
-			status_trace(" %s (%i+%i=%"PRIu64")",
-				     type_to_string(trc, struct pubkey,
-						    &(*route)[i]->dst->id),
-				     (*route)[i]->base_fee,
-				     (*route)[i]->proportional_fee,
-				     connection_fee((*route)[i], msatoshi));
-			msatoshi -= connection_fee((*route)[i], msatoshi);
-		}
-		status_trace(" =%"PRIi64"(%+"PRIi64")",
-			     (*route)[best-1]->dst->bfg[best-1].total, *fee);
-	}
-	return first_conn;
+	return first_chan;
 }
 
 /* Verify the signature of a channel_update message */
@@ -1084,20 +1071,22 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 			    u32 final_cltv,
 			    double fuzz, const struct siphash_seed *base_seed)
 {
-	struct node_connection **route;
+	struct routing_channel **route;
 	u64 total_amount;
 	unsigned int total_delay;
 	u64 fee;
 	struct route_hop *hops;
 	int i;
-	struct node_connection *first_conn;
+	struct routing_channel *first_chan;
+	struct node *n;
 
-	first_conn = find_route(ctx, rstate, source, destination, msatoshi,
+	/* FIXME: make find_route simply return entire route array! */
+	first_chan = find_route(ctx, rstate, source, destination, msatoshi,
 				riskfactor / BLOCKS_PER_YEAR / 10000,
 				fuzz, base_seed,
 				&fee, &route);
 
-	if (!first_conn) {
+	if (!first_chan) {
 		return NULL;
 	}
 
@@ -1106,18 +1095,24 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 	total_amount = msatoshi;
 	total_delay = final_cltv;
 
+	/* Start at destination node. */
+	n = get_node(rstate, destination);
 	for (i = tal_count(route) - 1; i >= 0; i--) {
-		hops[i + 1].channel_id = route[i]->short_channel_id;
-		hops[i + 1].nodeid = route[i]->dst->id;
+		const struct node_connection *c;
+		int idx = connection_to(n, route[i]);
+		c = &route[i]->connections[idx];
+		hops[i + 1].channel_id = route[i]->scid;
+		hops[i + 1].nodeid = n->id;
 		hops[i + 1].amount = total_amount;
-		total_amount += connection_fee(route[i], total_amount);
+		total_amount += connection_fee(c, total_amount);
 
 		hops[i + 1].delay = total_delay;
-		total_delay += route[i]->delay;
+		total_delay += c->delay;
+		n = route[i]->nodes[!idx];
 	}
 	/* Backfill the first hop manually */
-	hops[0].channel_id = first_conn->short_channel_id;
-	hops[0].nodeid = first_conn->dst->id;
+	hops[0].channel_id = first_chan->scid;
+	hops[0].nodeid = n->id;
 	/* We don't charge ourselves any fees, nor require delay */
 	hops[0].amount = total_amount;
 	hops[0].delay = total_delay;

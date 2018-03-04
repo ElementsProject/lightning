@@ -94,7 +94,8 @@ int main(void)
 	struct routing_state *rstate;
 	struct pubkey a, b, c;
 	u64 fee;
-	struct node_connection **route;
+	struct routing_channel **route;
+	struct routing_channel *first;
 	const double riskfactor = 1.0 / BLOCKS_PER_YEAR / 10000;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
@@ -148,11 +149,17 @@ int main(void)
 	nc->flags = 1;
 	nc->last_timestamp = 1504064344;
 
-	nc = find_route(ctx, rstate, &a, &c, 100000, riskfactor, 0.0, NULL, &fee, &route);
-	assert(nc);
+	first = find_route(ctx, rstate, &a, &c, 100000, riskfactor, 0.0, NULL, &fee, &route);
+	assert(first);
 	assert(tal_count(route) == 1);
-	assert(pubkey_eq(&route[0]->src->id, &b));
-	assert(pubkey_eq(&route[0]->dst->id, &c));
+	assert(pubkey_eq(&first->nodes[0]->id, &a)
+	       || pubkey_eq(&first->nodes[1]->id, &a));
+	assert(pubkey_eq(&first->nodes[0]->id, &b)
+	       || pubkey_eq(&first->nodes[1]->id, &b));
+	assert(pubkey_eq(&route[0]->nodes[0]->id, &b)
+	       || pubkey_eq(&route[0]->nodes[1]->id, &b));
+	assert(pubkey_eq(&route[0]->nodes[0]->id, &c)
+	       || pubkey_eq(&route[0]->nodes[1]->id, &c));
 
 	tal_free(ctx);
 	secp256k1_context_destroy(secp256k1_ctx);
