@@ -1815,6 +1815,20 @@ void wallet_outpoint_spend(struct wallet *w, const u32 blockheight,
 
 		db_exec_prepared(w->db, stmt);
 	}
+
+	if (outpointfilter_matches(w->utxoset_outpoints, txid, outnum)) {
+		stmt = db_prepare(w->db,
+				  "UPDATE utxoset "
+				  "SET spendheight = ? "
+				  "WHERE txid = ?"
+				  " AND outnum = ?");
+
+		sqlite3_bind_int(stmt, 1, blockheight);
+		sqlite3_bind_sha256_double(stmt, 2, &txid->shad);
+		sqlite3_bind_int(stmt, 3, outnum);
+
+		db_exec_prepared(w->db, stmt);
+	}
 }
 
 void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
