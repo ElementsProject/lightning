@@ -234,6 +234,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	double feepercent;
 	bool fee_too_high;
 	struct json_result *data;
+	struct sendpay_result *result;
 
 	fromwire_gossip_getroute_reply(reply, reply, &route);
 
@@ -293,9 +294,18 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	++pay->sendpay_tries;
 
 	log_route(pay, route);
-	send_payment(pay->try_parent,
-		     pay->cmd->ld, &pay->payment_hash, route,
-		     &json_pay_sendpay_resolve, pay);
+
+	result = send_payment(pay->try_parent,
+			      pay->cmd->ld, &pay->payment_hash, route);
+	/* Resolved immediately? */
+	if (result)
+		json_pay_sendpay_resolve(result, pay);
+	/* Wait for resolution */
+	else
+		wait_payment(pay->try_parent,
+			     pay->cmd->ld,
+			     &pay->payment_hash,
+			     &json_pay_sendpay_resolve, pay);
 }
 
 /* Start a payment attempt. Return true if deferred,
