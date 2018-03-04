@@ -36,6 +36,10 @@ struct wallet {
 	/* Filter matching all outpoints corresponding to our owned outputs,
 	 * including all spent ones */
 	struct outpointfilter *owned_outpoints;
+
+	/* Filter matching all outpoints that might be a funding transaction on
+	 * the blockchain. This is currently all P2WSH outputs */
+	struct outpointfilter *utxoset_outpoints;
 };
 
 /* Possible states for tracked outputs in the database. Not sure yet

@@ -18,13 +18,27 @@
 
 static void outpointfilters_init(struct wallet *w)
 {
+	sqlite3_stmt *stmt;
 	struct utxo **utxos = wallet_get_utxos(NULL, w, output_state_any);
+	struct bitcoin_txid txid;
+	u32 outnum;
 
 	w->owned_outpoints = outpointfilter_new(w);
 	for (size_t i = 0; i < tal_count(utxos); i++)
 		outpointfilter_add(w->owned_outpoints, &utxos[i]->txid, utxos[i]->outnum);
 
 	tal_free(utxos);
+
+	w->utxoset_outpoints = outpointfilter_new(w);
+	stmt = db_prepare(w->db, "SELECT txid, outnum FROM utxoset WHERE spendheight is NULL");
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		sqlite3_column_sha256_double(stmt, 0, &txid.shad);
+		outnum = sqlite3_column_int(stmt, 1);
+		outpointfilter_add(w->utxoset_outpoints, &txid, outnum);
+	}
+
+	sqlite3_finalize(stmt);
 }
 
 struct wallet *wallet_new(struct lightningd *ld,
