@@ -153,7 +153,6 @@ int main(void)
 	struct privkey tmp;
 	u64 fee;
 	struct routing_channel **route;
-	struct routing_channel *first;
 	const double riskfactor = 1.0 / BLOCKS_PER_YEAR / 10000;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
@@ -172,9 +171,8 @@ int main(void)
 	/* A<->B */
 	add_connection(rstate, &a, &b, 1, 1, 1);
 
-	first = find_route(ctx, rstate, &a, &b, 1000, riskfactor, 0.0, NULL, &fee, &route);
-	assert(first);
-	assert(tal_count(route) == 0);
+	route = find_route(ctx, rstate, &a, &b, 1000, riskfactor, 0.0, NULL, &fee);
+	assert(tal_count(route) == 1);
 	assert(fee == 0);
 
 	/* A<->B<->C */
@@ -187,9 +185,8 @@ int main(void)
 	status_trace("C = %s", type_to_string(trc, struct pubkey, &c));
 	add_connection(rstate, &b, &c, 1, 1, 1);
 
-	first = find_route(ctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL, &fee, &route);
-	assert(first);
-	assert(tal_count(route) == 1);
+	route = find_route(ctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL, &fee);
+	assert(tal_count(route) == 2);
 	assert(fee == 1);
 
 	/* A<->D<->C: Lower base, higher percentage. */
@@ -202,25 +199,25 @@ int main(void)
 	add_connection(rstate, &d, &c, 0, 2, 1);
 
 	/* Will go via D for small amounts. */
-	first = find_route(ctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL, &fee, &route);
-	assert(first);
-	assert(tal_count(route) == 1);
-	assert(channel_is_between(route[0], &d, &c));
+	route = find_route(ctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL, &fee);
+	assert(tal_count(route) == 2);
+	assert(channel_is_between(route[0], &a, &d));
+	assert(channel_is_between(route[1], &d, &c));
 	assert(fee == 0);
 
 	/* Will go via B for large amounts. */
-	first = find_route(ctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL, &fee, &route);
-	assert(first);
-	assert(tal_count(route) == 1);
-	assert(channel_is_between(route[0], &b, &c));
+	route = find_route(ctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL, &fee);
+	assert(tal_count(route) == 2);
+	assert(channel_is_between(route[0], &a, &b));
+	assert(channel_is_between(route[1], &b, &c));
 	assert(fee == 1 + 3);
 
 	/* Make B->C inactive, force it back via D */
 	get_connection(rstate, &b, &c)->active = false;
-	first = find_route(ctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL, &fee, &route);
-	assert(first);
-	assert(tal_count(route) == 1);
-	assert(channel_is_between(route[0], &d, &c));
+	route = find_route(ctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL, &fee);
+	assert(tal_count(route) == 2);
+	assert(channel_is_between(route[0], &a, &d));
+	assert(channel_is_between(route[1], &d, &c));
 	assert(fee == 0 + 6);
 
 	tal_free(ctx);

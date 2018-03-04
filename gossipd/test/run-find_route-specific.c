@@ -86,6 +86,20 @@ get_or_make_connection(struct routing_state *rstate,
 	return &chan->connections[pubkey_idx(from_id, to_id)];
 }
 
+static bool channel_is_between(const struct routing_channel *chan,
+			       const struct pubkey *a, const struct pubkey *b)
+{
+	if (pubkey_eq(&chan->nodes[0]->id, a)
+	    && pubkey_eq(&chan->nodes[1]->id, b))
+		return true;
+
+	if (pubkey_eq(&chan->nodes[0]->id, b)
+	    && pubkey_eq(&chan->nodes[1]->id, a))
+		return true;
+
+	return false;
+}
+
 int main(void)
 {
 	static const struct bitcoin_blkid zerohash;
@@ -95,7 +109,6 @@ int main(void)
 	struct pubkey a, b, c;
 	u64 fee;
 	struct routing_channel **route;
-	struct routing_channel *first;
 	const double riskfactor = 1.0 / BLOCKS_PER_YEAR / 10000;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
@@ -149,17 +162,11 @@ int main(void)
 	nc->flags = 1;
 	nc->last_timestamp = 1504064344;
 
-	first = find_route(ctx, rstate, &a, &c, 100000, riskfactor, 0.0, NULL, &fee, &route);
-	assert(first);
-	assert(tal_count(route) == 1);
-	assert(pubkey_eq(&first->nodes[0]->id, &a)
-	       || pubkey_eq(&first->nodes[1]->id, &a));
-	assert(pubkey_eq(&first->nodes[0]->id, &b)
-	       || pubkey_eq(&first->nodes[1]->id, &b));
-	assert(pubkey_eq(&route[0]->nodes[0]->id, &b)
-	       || pubkey_eq(&route[0]->nodes[1]->id, &b));
-	assert(pubkey_eq(&route[0]->nodes[0]->id, &c)
-	       || pubkey_eq(&route[0]->nodes[1]->id, &c));
+	route = find_route(ctx, rstate, &a, &c, 100000, riskfactor, 0.0, NULL, &fee);
+	assert(route);
+	assert(tal_count(route) == 2);
+	assert(channel_is_between(route[0], &a, &b));
+	assert(channel_is_between(route[1], &b, &c));
 
 	tal_free(ctx);
 	secp256k1_context_destroy(secp256k1_ctx);

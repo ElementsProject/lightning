@@ -218,14 +218,14 @@ int main(int argc, char *argv[])
 		struct pubkey from = nodeid(pseudorand(num_nodes));
 		struct pubkey to = nodeid(pseudorand(num_nodes));
 		u64 fee;
-		struct routing_channel **route = NULL, *chan;
+		struct routing_channel **route;
 
-		chan = find_route(ctx, rstate, &from, &to,
+		route = find_route(ctx, rstate, &from, &to,
 				  pseudorand(100000),
 				  riskfactor,
 				  0.75, &base_seed,
-				  &fee, &route);
-		num_success += (chan != NULL);
+				  &fee);
+		num_success += (route != NULL);
 		tal_free(route);
 	}
 	end = time_mono();
