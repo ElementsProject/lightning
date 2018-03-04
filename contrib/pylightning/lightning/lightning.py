@@ -264,6 +264,16 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("sendpay", payload)
 
+    def waitsendpay(self, payment_hash, timeout=None):
+        """
+        Wait for payment for preimage of {payment_hash} to complete
+        """
+        payload = {
+            "payment_hash": payment_hash,
+            "timeout": timeout
+        }
+        return self.call("waitsendpay", payload)
+
     def pay(self, bolt11, msatoshi=None, description=None, riskfactor=None):
         """
         Send payment specified by {bolt11} with optional {msatoshi}
