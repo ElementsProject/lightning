@@ -102,22 +102,22 @@ void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
 const void *trc;
 
 /* Updates existing route if required. */
-static struct node_connection *add_connection(struct routing_state *rstate,
-					      const struct pubkey *from,
-					      const struct pubkey *to,
-					      u32 base_fee, s32 proportional_fee,
-					      u32 delay)
+static struct half_chan *add_connection(struct routing_state *rstate,
+					const struct pubkey *from,
+					const struct pubkey *to,
+					u32 base_fee, s32 proportional_fee,
+					u32 delay)
 {
 	struct short_channel_id scid;
-	struct node_connection *c;
-	struct routing_channel *chan;
+	struct half_chan *c;
+	struct chan *chan;
 
 	memset(&scid, 0, sizeof(scid));
 	chan = get_channel(rstate, &scid);
 	if (!chan)
-		chan = new_routing_channel(rstate, &scid, from, to);
+		chan = new_chan(rstate, &scid, from, to);
 
-	c = &chan->connections[pubkey_idx(from, to)];
+	c = &chan->half[pubkey_idx(from, to)];
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
 		struct pubkey from = nodeid(pseudorand(num_nodes));
 		struct pubkey to = nodeid(pseudorand(num_nodes));
 		u64 fee;
-		struct routing_channel **route;
+		struct chan **route;
 
 		route = find_route(ctx, rstate, &from, &to,
 				  pseudorand(100000),

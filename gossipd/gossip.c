@@ -708,7 +708,7 @@ static struct io_plan *peer_start_gossip(struct io_conn *conn, struct peer *peer
 static void handle_get_update(struct peer *peer, const u8 *msg)
 {
 	struct short_channel_id scid;
-	struct routing_channel *chan;
+	struct chan *chan;
 	const u8 *update;
 
 	if (!fromwire_gossip_get_update(msg, &scid)) {
@@ -728,9 +728,9 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 	} else {
 		/* We want update that comes from our end. */
 		if (pubkey_eq(&chan->nodes[0]->id, &peer->daemon->id))
-			update = chan->connections[0].channel_update;
+			update = chan->half[0].channel_update;
 		else if (pubkey_eq(&chan->nodes[1]->id, &peer->daemon->id))
-			update = chan->connections[1].channel_update;
+			update = chan->half[1].channel_update;
 		else {
 			status_unusual("peer %s scid %s: not our channel?",
 				       type_to_string(trc, struct pubkey,
@@ -760,7 +760,7 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 	u32 fee_base_msat, fee_proportional_millionths;
 	u64 htlc_minimum_msat;
 	int idx;
-	struct routing_channel *chan;
+	struct chan *chan;
 
 	if (!fromwire_gossip_local_add_channel(
 		msg, &scid, &chain_hash, &remote_node_id,
@@ -782,12 +782,11 @@ static void handle_local_add_channel(struct peer *peer, u8 *msg)
 		return;
 	}
 
-	/* Create new routing channel */
-	chan = new_routing_channel(rstate, &scid,
-				   &rstate->local_id, &remote_node_id);
+	/* Create new channel */
+	chan = new_chan(rstate, &scid, &rstate->local_id, &remote_node_id);
 
 	idx = pubkey_idx(&rstate->local_id, &remote_node_id),
-	/* Activate the node_connection from us to them. */
+	/* Activate the half_chan from us to them. */
 	set_connection_values(chan, idx,
 			      fee_base_msat,
 			      fee_proportional_millionths,
@@ -1072,10 +1071,10 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 }
 
 static void append_half_channel(struct gossip_getchannels_entry **entries,
-				const struct routing_channel *chan,
+				const struct chan *chan,
 				int idx)
 {
-	const struct node_connection *c = &chan->connections[idx];
+	const struct half_chan *c = &chan->half[idx];
 	struct gossip_getchannels_entry *e;
 	size_t n;
 
@@ -1105,7 +1104,7 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 }
 
 static void append_channel(struct gossip_getchannels_entry **entries,
-			   const struct routing_channel *chan)
+			   const struct chan *chan)
 {
 	append_half_channel(entries, chan, 0);
 	append_half_channel(entries, chan, 1);
@@ -1117,7 +1116,7 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 	tal_t *tmpctx = tal_tmpctx(daemon);
 	u8 *out;
 	struct gossip_getchannels_entry *entries;
-	struct routing_channel *chan;
+	struct chan *chan;
 	struct short_channel_id *scid;
 
 	fromwire_gossip_getchannels_request(msg, msg, &scid);
@@ -1130,9 +1129,9 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 	} else {
 		u64 idx;
 
-		for (chan = uintmap_first(&daemon->rstate->channels, &idx);
+		for (chan = uintmap_first(&daemon->rstate->chanmap, &idx);
 		     chan;
-		     chan = uintmap_after(&daemon->rstate->channels, &idx)) {
+		     chan = uintmap_after(&daemon->rstate->chanmap, &idx)) {
 			append_channel(&entries, chan);
 		}
 	}
@@ -1275,7 +1274,7 @@ fail:
 }
 
 static void gossip_send_keepalive_update(struct routing_state *rstate,
-					 struct node_connection *nc)
+					 struct half_chan *hc)
 {
 	tal_t *tmpctx = tal_tmpctx(rstate);
 	secp256k1_ecdsa_signature sig;
@@ -1288,7 +1287,7 @@ static void gossip_send_keepalive_update(struct routing_state *rstate,
 
 	/* Parse old update */
 	if (!fromwire_channel_update(
-		nc->channel_update, &sig, &chain_hash, &scid, &timestamp,
+		hc->channel_update, &sig, &chain_hash, &scid, &timestamp,
 		&flags, &cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
 		&fee_proportional_millionths)) {
 		status_failed(
@@ -1341,28 +1340,26 @@ static void gossip_refresh_network(struct daemon *daemon)
 	if (n) {
 		/* Iterate through all outgoing connection and check whether
 		 * it's time to re-announce */
-		for (size_t i = 0; i < tal_count(n->channels); i++) {
-			struct node_connection *nc;
+		for (size_t i = 0; i < tal_count(n->chans); i++) {
+			struct half_chan *hc = half_chan_from(n, n->chans[i]);
 
-			nc = connection_from(n, n->channels[i]);
-
-			if (!nc->channel_update) {
+			if (!hc->channel_update) {
 				/* Connection is not public yet, so don't even
 				 * try to re-announce it */
 				continue;
 			}
 
-			if (nc->last_timestamp > highwater) {
+			if (hc->last_timestamp > highwater) {
 				/* No need to send a keepalive update message */
 				continue;
 			}
 
-			if (!nc->active) {
+			if (!hc->active) {
 				/* Only send keepalives for active connections */
 				continue;
 			}
 
-			gossip_send_keepalive_update(daemon->rstate, nc);
+			gossip_send_keepalive_update(daemon->rstate, hc);
 		}
 	}
 
@@ -1507,7 +1504,7 @@ static struct io_plan *resolve_channel_req(struct io_conn *conn,
 					   struct daemon *daemon, const u8 *msg)
 {
 	struct short_channel_id scid;
-	struct routing_channel *chan;
+	struct chan *chan;
 	struct pubkey *keys;
 
 	if (!fromwire_gossip_resolve_channel_request(msg, &scid))
@@ -1807,8 +1804,8 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 	tal_t *tmpctx = tal_tmpctx(msg);
 	struct short_channel_id scid;
 	u8 direction;
-	struct routing_channel *chan;
-	struct node_connection *nc;
+	struct chan *chan;
+	struct half_chan *hc;
 	bool active;
 	u16 flags, cltv_expiry_delta;
 	u32 timestamp, fee_base_msat, fee_proportional_millionths;
@@ -1829,15 +1826,15 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 		    type_to_string(msg, struct short_channel_id, &scid));
 		goto fail;
 	}
-	nc = &chan->connections[direction];
+	hc = &chan->half[direction];
 
 	status_trace("Disabling channel %s/%d, active %d -> %d",
 		     type_to_string(msg, struct short_channel_id, &scid),
-		     direction, nc->active, active);
+		     direction, hc->active, active);
 
-	nc->active = active;
+	hc->active = active;
 
-	if (!nc->channel_update) {
+	if (!hc->channel_update) {
 		status_trace(
 		    "Channel %s/%d doesn't have a channel_update yet, can't "
 		    "disable",
@@ -1847,7 +1844,7 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 	}
 
 	if (!fromwire_channel_update(
-		nc->channel_update, &sig, &chain_hash, &scid, &timestamp,
+		hc->channel_update, &sig, &chain_hash, &scid, &timestamp,
 		&flags, &cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
 		&fee_proportional_millionths)) {
 		status_failed(
@@ -1856,8 +1853,8 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 	}
 
 	timestamp = time_now().ts.tv_sec;
-	if (timestamp <= nc->last_timestamp)
-		timestamp = nc->last_timestamp + 1;
+	if (timestamp <= hc->last_timestamp)
+		timestamp = hc->last_timestamp + 1;
 
 	/* Active is bit 1 << 1, mask and apply */
 	flags = (0xFFFD & flags) | (!active << 1);
