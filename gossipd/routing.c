@@ -74,16 +74,6 @@ HTABLE_DEFINE_TYPE(struct pending_node_announce, pending_node_announce_keyof,
 		   node_map_hash_key, pending_node_announce_eq,
 		   pending_node_map);
 
-/**
- * routing_channel keeps track of the indices in the broadcast queue
- * for the corresponding messages. This way we always know exactly
- * which broadcast to replace, and don't have to search for it */
-enum gossip_msg_indexes {
-	MSG_INDEX_CUPDATE_0,
-	MSG_INDEX_CUPDATE_1,
-	MSG_INDEX_CANNOUNCE
-};
-
 static struct node_map *empty_node_map(const tal_t *ctx)
 {
 	struct node_map *map = tal(ctx, struct node_map);
@@ -198,20 +188,12 @@ static void destroy_routing_channel(struct routing_channel *chan,
 
 static void init_node_connection(struct routing_state *rstate,
 				 struct routing_channel *chan,
-				 struct node *from,
-				 struct node *to,
 				 int idx)
 {
 	struct node_connection *c = &chan->connections[idx];
 
-	/* We are going to put this in the right way? */
-	assert(idx == pubkey_idx(&from->id, &to->id));
-	assert(from == chan->nodes[idx]);
-	assert(to == chan->nodes[!idx]);
-
-	c->src = from;
-	c->dst = to;
 	c->channel_update = NULL;
+	c->channel_update_msgidx = 0;
 	c->unroutable_until = 0;
 	c->active = false;
 	c->flags = idx;
@@ -243,8 +225,8 @@ struct routing_channel *new_routing_channel(struct routing_state *rstate,
 	chan->nodes[!n1idx] = n2;
 	chan->txout_script = NULL;
 	chan->channel_announcement = NULL;
+	chan->channel_announce_msgidx = 0;
 	chan->public = false;
-	memset(&chan->msg_indexes, 0, sizeof(chan->msg_indexes));
 
 	n = tal_count(n2->channels);
 	tal_resize(&n2->channels, n+1);
@@ -254,8 +236,8 @@ struct routing_channel *new_routing_channel(struct routing_state *rstate,
 	n1->channels[n] = chan;
 
 	/* Populate with (inactive) connections */
-	init_node_connection(rstate, chan, n1, n2, n1idx);
-	init_node_connection(rstate, chan, n2, n1, !n1idx);
+	init_node_connection(rstate, chan, n1idx);
+	init_node_connection(rstate, chan, !n1idx);
 
 	uintmap_add(&rstate->channels, scid->u64, chan);
 
@@ -733,7 +715,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	chan->channel_announcement = tal_steal(chan, pending->announce);
 
 	if (replace_broadcast(rstate->broadcasts,
-			      &chan->msg_indexes[MSG_INDEX_CANNOUNCE],
+			      &chan->channel_announce_msgidx,
 			      WIRE_CHANNEL_ANNOUNCEMENT,
 			      tag, pending->announce))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -884,7 +866,8 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 		return;
 	}
 
-	if (!check_channel_update(&c->src->id, &signature, serialized)) {
+	if (!check_channel_update(&chan->nodes[direction]->id,
+				  &signature, serialized)) {
 		status_trace("Signature verification failed.");
 		tal_free(tmpctx);
 		return;
@@ -908,7 +891,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	towire_short_channel_id(&tag, &short_channel_id);
 	towire_u16(&tag, direction);
 	replace_broadcast(rstate->broadcasts,
-			&chan->msg_indexes[MSG_INDEX_CUPDATE_0 | direction],
+			  &chan->connections[direction].channel_update_msgidx,
 			WIRE_CHANNEL_UPDATE,
 			tag,
 			serialized);

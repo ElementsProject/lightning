@@ -13,8 +13,6 @@
 #define ROUTING_FLAGS_DISABLED 2
 
 struct node_connection {
-	/* FIXME: Remove */
-	struct node *src, *dst;
 	/* millisatoshi. */
 	u32 base_fee;
 	/* millionths */
@@ -37,6 +35,7 @@ struct node_connection {
 
 	/* Cached `channel_update` we might forward to new peers*/
 	u8 *channel_update;
+	u64 channel_update_msgidx;
 
 	/* If greater than current time, this connection should not
 	 * be used for routing. */
@@ -101,8 +100,7 @@ struct routing_channel {
 	/* Cached `channel_announcement` we might forward to new peers*/
 	const u8 *channel_announcement;
 
-	/* FIXME: Move msg_index[MSG_INDEX_CUPDATE*] into connections[] */
-	u64 msg_indexes[3];
+	u64 channel_announce_msgidx;
 
 	/* Is this a public channel, or was it only added locally? */
 	bool public;
@@ -114,32 +112,33 @@ static inline int pubkey_idx(const struct pubkey *id1, const struct pubkey *id2)
 	return pubkey_cmp(id1, id2) > 0;
 }
 
+/* Fast versions: if you know n is one end of the channel */
 static inline struct node *other_node(const struct node *n,
 				      struct routing_channel *chan)
 {
 	int idx = (chan->nodes[1] == n);
 
+	assert(chan->nodes[0] == n || chan->nodes[1] == n);
 	return chan->nodes[!idx];
 }
 
-/* FIXME: We could avoid these by having two channels arrays */
+/* If you know n is one end of the channel, get connection src == n */
 static inline struct node_connection *connection_from(const struct node *n,
 						      struct routing_channel *chan)
 {
 	int idx = (chan->nodes[1] == n);
 
-	assert(chan->connections[idx].src == n);
-	assert(chan->connections[!idx].dst == n);
+	assert(chan->nodes[0] == n || chan->nodes[1] == n);
 	return &chan->connections[idx];
 }
 
+/* If you know n is one end of the channel, get index dst == n */
 static inline int connection_to(const struct node *n,
 				struct routing_channel *chan)
 {
 	int idx = (chan->nodes[1] == n);
 
-	assert(chan->connections[idx].src == n);
-	assert(chan->connections[!idx].dst == n);
+	assert(chan->nodes[0] == n || chan->nodes[1] == n);
 	return !idx;
 }
 
