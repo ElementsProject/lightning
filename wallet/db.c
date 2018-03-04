@@ -227,6 +227,9 @@ char *dbmigrations[] = {
     " satoshis BIGINT,"
     " PRIMARY KEY(txid, outnum));",
     "CREATE INDEX short_channel_id ON utxoset (blockheight, txindex, outnum)",
+    /* Necessary index for long rollbacks of the blockchain, otherwise we're
+     * doing table scans for every block removed. */
+    "CREATE INDEX utxoset_spend ON utxoset (spendheight)",
     NULL,
 };
 
