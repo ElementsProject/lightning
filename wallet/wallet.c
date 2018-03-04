@@ -1816,3 +1816,33 @@ void wallet_outpoint_spend(struct wallet *w, const u32 blockheight,
 		db_exec_prepared(w->db, stmt);
 	}
 }
+
+void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
+			const u32 outnum, const u32 blockheight,
+			const u32 txindex, const u8 *scriptpubkey,
+			const u64 satoshis)
+{
+	sqlite3_stmt *stmt;
+	struct bitcoin_txid txid;
+	bitcoin_txid(tx, &txid);
+
+	stmt = db_prepare(w->db, "INSERT INTO utxoset ("
+			  " txid,"
+			  " outnum,"
+			  " blockheight,"
+			  " spendheight,"
+			  " txindex,"
+			  " scriptpubkey,"
+			  " satoshis"
+			  ") VALUES(?, ?, ?, ?, ?, ?, ?);");
+	sqlite3_bind_sha256_double(stmt, 1, &txid.shad);
+	sqlite3_bind_int(stmt, 2, outnum);
+	sqlite3_bind_int(stmt, 3, blockheight);
+	sqlite3_bind_null(stmt, 4);
+	sqlite3_bind_int(stmt, 5, txindex);
+	sqlite3_bind_blob(stmt, 6, scriptpubkey, tal_len(scriptpubkey), SQLITE_TRANSIENT);
+	sqlite3_bind_int64(stmt, 7, satoshis);
+	db_exec_prepared(w->db, stmt);
+
+	outpointfilter_add(w->utxoset_outpoints, &txid, outnum);
+}
