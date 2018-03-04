@@ -711,4 +711,8 @@ void wallet_blocks_rollback(struct wallet *w, u32 height);
 void wallet_outpoint_spend(struct wallet *w, const u32 blockheight,
 			   const struct bitcoin_txid *txid, const u32 outnum);
 
+void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
+			const u32 outnum, const u32 blockheight,
+			const u32 txindex, const u8 *scriptpubkey,
+			const u64 satoshis);
 #endif /* WALLET_WALLET_H */
