@@ -66,7 +66,7 @@ struct node {
 		/* Total risk premium of this route. */
 		u64 risk;
 		/* Where that came from. */
-		struct node_connection *prev;
+		struct routing_channel *prev;
 	} bfg[ROUTING_MAX_HOPS+1];
 
 	/* UTF-8 encoded alias as tal_arr, not zero terminated */
@@ -118,6 +118,14 @@ static inline int pubkey_idx(const struct pubkey *id1, const struct pubkey *id2)
 	return pubkey_cmp(id1, id2) > 0;
 }
 
+static inline struct node *other_node(const struct node *n,
+				      struct routing_channel *chan)
+{
+	int idx = (chan->nodes[1] == n);
+
+	return chan->nodes[!idx];
+}
+
 /* FIXME: We could avoid these by having two channels arrays */
 static inline struct node_connection *connection_from(const struct node *n,
 						      struct routing_channel *chan)
@@ -129,14 +137,14 @@ static inline struct node_connection *connection_from(const struct node *n,
 	return &chan->connections[idx];
 }
 
-static inline struct node_connection *connection_to(const struct node *n,
-						    struct routing_channel *chan)
+static inline int connection_to(const struct node *n,
+				struct routing_channel *chan)
 {
 	int idx = (chan->nodes[1] == n);
 
 	assert(chan->connections[idx].src == n);
 	assert(chan->connections[!idx].dst == n);
-	return &chan->connections[!idx];
+	return !idx;
 }
 
 struct routing_state {
