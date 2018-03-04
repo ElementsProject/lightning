@@ -94,7 +94,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->local_id = *local_id;
 	rstate->prune_timeout = prune_timeout;
 	list_head_init(&rstate->pending_cannouncement);
-	uintmap_init(&rstate->channels);
+	uintmap_init(&rstate->chanmap);
 
 	rstate->pending_node_map = tal(ctx, struct pending_node_map);
 	pending_node_map_init(rstate->pending_node_map);
@@ -123,8 +123,8 @@ static void destroy_node(struct node *node, struct routing_state *rstate)
 	node_map_del(rstate->nodes, node);
 
 	/* These remove themselves from the array. */
-	while (tal_count(node->channels))
-		tal_free(node->channels[0]);
+	while (tal_count(node->chans))
+		tal_free(node->chans[0]);
 }
 
 struct node *get_node(struct routing_state *rstate, const struct pubkey *id)
@@ -141,7 +141,7 @@ static struct node *new_node(struct routing_state *rstate,
 
 	n = tal(rstate, struct node);
 	n->id = *id;
-	n->channels = tal_arr(n, struct routing_channel *, 0);
+	n->chans = tal_arr(n, struct chan *, 0);
 	n->alias = NULL;
 	n->node_announcement = NULL;
 	n->announcement_idx = 0;
@@ -153,8 +153,7 @@ static struct node *new_node(struct routing_state *rstate,
 	return n;
 }
 
-static bool remove_channel_from_array(struct routing_channel ***chans,
-				      struct routing_channel *c)
+static bool remove_channel_from_array(struct chan ***chans, struct chan *c)
 {
 	size_t i, n;
 
@@ -170,27 +169,26 @@ static bool remove_channel_from_array(struct routing_channel ***chans,
 	return false;
 }
 
-static void destroy_routing_channel(struct routing_channel *chan,
-				    struct routing_state *rstate)
+static void destroy_chan(struct chan *chan, struct routing_state *rstate)
 {
-	if (!remove_channel_from_array(&chan->nodes[0]->channels, chan)
-	    || !remove_channel_from_array(&chan->nodes[1]->channels, chan))
+	if (!remove_channel_from_array(&chan->nodes[0]->chans, chan)
+	    || !remove_channel_from_array(&chan->nodes[1]->chans, chan))
 		/* FIXME! */
 		abort();
 
-	uintmap_del(&rstate->channels, chan->scid.u64);
+	uintmap_del(&rstate->chanmap, chan->scid.u64);
 
-	if (tal_count(chan->nodes[0]->channels) == 0)
+	if (tal_count(chan->nodes[0]->chans) == 0)
 		tal_free(chan->nodes[0]);
-	if (tal_count(chan->nodes[1]->channels) == 0)
+	if (tal_count(chan->nodes[1]->chans) == 0)
 		tal_free(chan->nodes[1]);
 }
 
-static void init_node_connection(struct routing_state *rstate,
-				 struct routing_channel *chan,
+static void init_half_chan(struct routing_state *rstate,
+				 struct chan *chan,
 				 int idx)
 {
-	struct node_connection *c = &chan->connections[idx];
+	struct half_chan *c = &chan->half[idx];
 
 	c->channel_update = NULL;
 	c->channel_update_msgidx = 0;
@@ -202,12 +200,12 @@ static void init_node_connection(struct routing_state *rstate,
 	c->last_timestamp = time_now().ts.tv_sec - rstate->prune_timeout/2;
 }
 
-struct routing_channel *new_routing_channel(struct routing_state *rstate,
-					    const struct short_channel_id *scid,
-					    const struct pubkey *id1,
-					    const struct pubkey *id2)
+struct chan *new_chan(struct routing_state *rstate,
+		      const struct short_channel_id *scid,
+		      const struct pubkey *id1,
+		      const struct pubkey *id2)
 {
-	struct routing_channel *chan = tal(rstate, struct routing_channel);
+	struct chan *chan = tal(rstate, struct chan);
 	int n1idx = pubkey_idx(id1, id2);
 	size_t n;
 	struct node *n1, *n2;
@@ -228,20 +226,20 @@ struct routing_channel *new_routing_channel(struct routing_state *rstate,
 	chan->channel_announce_msgidx = 0;
 	chan->public = false;
 
-	n = tal_count(n2->channels);
-	tal_resize(&n2->channels, n+1);
-	n2->channels[n] = chan;
-	n = tal_count(n1->channels);
-	tal_resize(&n1->channels, n+1);
-	n1->channels[n] = chan;
+	n = tal_count(n2->chans);
+	tal_resize(&n2->chans, n+1);
+	n2->chans[n] = chan;
+	n = tal_count(n1->chans);
+	tal_resize(&n1->chans, n+1);
+	n1->chans[n] = chan;
 
 	/* Populate with (inactive) connections */
-	init_node_connection(rstate, chan, n1idx);
-	init_node_connection(rstate, chan, !n1idx);
+	init_half_chan(rstate, chan, n1idx);
+	init_half_chan(rstate, chan, !n1idx);
 
-	uintmap_add(&rstate->channels, scid->u64, chan);
+	uintmap_add(&rstate->chanmap, scid->u64, chan);
 
-	tal_add_destructor2(chan, destroy_routing_channel, rstate);
+	tal_add_destructor2(chan, destroy_chan, rstate);
 	return chan;
 }
 
@@ -262,7 +260,7 @@ static void clear_bfg(struct node_map *nodes)
 	}
 }
 
-static u64 connection_fee(const struct node_connection *c, u64 msatoshi)
+static u64 connection_fee(const struct half_chan *c, u64 msatoshi)
 {
 	u64 fee;
 
@@ -284,13 +282,13 @@ static u64 risk_fee(u64 amount, u32 delay, double riskfactor)
 /* We track totals, rather than costs.  That's because the fee depends
  * on the current amount passing through. */
 static void bfg_one_edge(struct node *node,
-			 struct routing_channel *chan, int idx,
+			 struct chan *chan, int idx,
 			 double riskfactor,
 			 double fuzz, const struct siphash_seed *base_seed)
 {
 	size_t h;
 	double fee_scale = 1.0;
-	const struct node_connection *c = &chan->connections[idx];
+	const struct half_chan *c = &chan->half[idx];
 
 	if (fuzz != 0.0) {
 		u64 h =	siphash24(base_seed, &chan->scid, sizeof(chan->scid));
@@ -339,21 +337,21 @@ static void bfg_one_edge(struct node *node,
 	}
 }
 
-/* Determine if the given node_connection is routable */
-static bool nc_is_routable(const struct node_connection *nc, time_t now)
+/* Determine if the given half_chan is routable */
+static bool hc_is_routable(const struct half_chan *hc, time_t now)
 {
-	return nc->active && nc->unroutable_until < now;
+	return hc->active && hc->unroutable_until < now;
 }
 
 /* riskfactor is already scaled to per-block amount */
-static struct routing_channel **
+static struct chan **
 find_route(const tal_t *ctx, struct routing_state *rstate,
 	   const struct pubkey *from, const struct pubkey *to, u64 msatoshi,
 	   double riskfactor,
 	   double fuzz, const struct siphash_seed *base_seed,
 	   u64 *fee)
 {
-	struct routing_channel **route;
+	struct chan **route;
 	struct node *n, *src, *dst;
 	struct node_map_iter it;
 	int runs, i, best;
@@ -401,18 +399,17 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 		for (n = node_map_first(rstate->nodes, &it);
 		     n;
 		     n = node_map_next(rstate->nodes, &it)) {
-			size_t num_edges = tal_count(n->channels);
+			size_t num_edges = tal_count(n->chans);
 			for (i = 0; i < num_edges; i++) {
-				struct routing_channel *chan = n->channels[i];
-				int idx = connection_to(n, chan);
+				struct chan *chan = n->chans[i];
+				int idx = half_chan_to(n, chan);
 
 				SUPERVERBOSE("Node %s edge %i/%zu",
 					     type_to_string(trc, struct pubkey,
 							    &n->id),
 					     i, num_edges);
 
-				if (!nc_is_routable(&chan->connections[idx],
-						    now)) {
+				if (!hc_is_routable(&chan->half[idx], now)) {
 					SUPERVERBOSE("...unroutable");
 					continue;
 				}
@@ -441,7 +438,7 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	*fee = n->bfg[best-1].total - msatoshi;
 
 	/* Lay out route */
-	route = tal_arr(ctx, struct routing_channel *, best);
+	route = tal_arr(ctx, struct chan *, best);
 	for (i = 0, n = dst;
 	     i < best;
 	     n = other_node(n, n->bfg[best-i].prev), i++) {
@@ -539,7 +536,7 @@ const struct short_channel_id *handle_channel_announcement(
 	u8 *features;
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
 	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
-	struct routing_channel *chan;
+	struct chan *chan;
 
 	pending = tal(rstate, struct pending_cannouncement);
 	pending->updates[0] = NULL;
@@ -655,7 +652,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	u8 *tag;
 	const u8 *s;
 	struct pending_cannouncement *pending;
-	struct routing_channel *chan;
+	struct chan *chan;
 
 	pending = find_pending_cannouncement(rstate, scid);
 	if (!pending)
@@ -703,7 +700,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	 * channel_announcements.  See handle_channel_announcement. */
 	chan = get_channel(rstate, scid);
 	if (!chan)
-		chan = new_routing_channel(rstate, scid,
+		chan = new_chan(rstate, scid,
 					   &pending->node_id_1,
 					   &pending->node_id_2);
 
@@ -756,7 +753,7 @@ static void update_pending(struct pending_cannouncement *pending,
 	}
 }
 
-void set_connection_values(struct routing_channel *chan,
+void set_connection_values(struct chan *chan,
 			   int idx,
 			   u32 base_fee,
 			   u32 proportional_fee,
@@ -765,7 +762,7 @@ void set_connection_values(struct routing_channel *chan,
 			   u64 timestamp,
 			   u32 htlc_minimum_msat)
 {
-	struct node_connection *c = &chan->connections[idx];
+	struct half_chan *c = &chan->half[idx];
 
 	c->delay = delay;
 	c->htlc_minimum_msat = htlc_minimum_msat;
@@ -796,7 +793,7 @@ void set_connection_values(struct routing_channel *chan,
 void handle_channel_update(struct routing_state *rstate, const u8 *update)
 {
 	u8 *serialized;
-	struct node_connection *c;
+	struct half_chan *c;
 	secp256k1_ecdsa_signature signature;
 	struct short_channel_id short_channel_id;
 	u32 timestamp;
@@ -807,7 +804,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	u32 fee_proportional_millionths;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	struct bitcoin_blkid chain_hash;
-	struct routing_channel *chan;
+	struct chan *chan;
 	u8 direction;
 	size_t len = tal_len(update);
 
@@ -858,7 +855,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 		}
 	}
 
-	c = &chan->connections[direction];
+	c = &chan->half[direction];
 
 	if (c->last_timestamp >= timestamp) {
 		SUPERVERBOSE("Ignoring outdated update.");
@@ -891,7 +888,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	towire_short_channel_id(&tag, &short_channel_id);
 	towire_u16(&tag, direction);
 	replace_broadcast(rstate->broadcasts,
-			  &chan->connections[direction].channel_update_msgidx,
+			  &chan->half[direction].channel_update_msgidx,
 			WIRE_CHANNEL_UPDATE,
 			tag,
 			serialized);
@@ -1050,7 +1047,7 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 			    u32 final_cltv,
 			    double fuzz, const struct siphash_seed *base_seed)
 {
-	struct routing_channel **route;
+	struct chan **route;
 	u64 total_amount;
 	unsigned int total_delay;
 	u64 fee;
@@ -1074,9 +1071,9 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 	/* Start at destination node. */
 	n = get_node(rstate, destination);
 	for (i = tal_count(route) - 1; i >= 0; i--) {
-		const struct node_connection *c;
-		int idx = connection_to(n, route[i]);
-		c = &route[i]->connections[idx];
+		const struct half_chan *c;
+		int idx = half_chan_to(n, route[i]);
+		c = &route[i]->half[idx];
 		hops[i].channel_id = route[i]->scid;
 		hops[i].nodeid = n->id;
 		hops[i].amount = total_amount;
@@ -1099,10 +1096,10 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 static void routing_failure_channel_out(const tal_t *disposal_context,
 					struct node *node,
 					enum onion_type failcode,
-					struct routing_channel *chan,
+					struct chan *chan,
 					time_t now)
 {
-	struct node_connection *nc = connection_from(node, chan);
+	struct half_chan *hc = half_chan_from(node, chan);
 
 	/* BOLT #4:
 	 *
@@ -1111,7 +1108,7 @@ static void routing_failure_channel_out(const tal_t *disposal_context,
 	 */
 	if (!(failcode & PERM))
 		/* Prevent it for 20 seconds. */
-		nc->unroutable_until = now + 20;
+		hc->unroutable_until = now + 20;
 	else
 		/* Set it up to be pruned. */
 		tal_steal(disposal_context, chan);
@@ -1154,13 +1151,13 @@ void routing_failure(struct routing_state *rstate,
 	 *
 	 */
 	if (failcode & NODE) {
-		for (i = 0; i < tal_count(node->channels); ++i) {
+		for (i = 0; i < tal_count(node->chans); ++i) {
 			routing_failure_channel_out(tmpctx, node, failcode,
-						    node->channels[i],
+						    node->chans[i],
 						    now);
 		}
 	} else {
-		struct routing_channel *chan = get_channel(rstate, scid);
+		struct chan *chan = get_channel(rstate, scid);
 
 		if (!chan)
 			status_unusual("routing_failure: "
@@ -1222,7 +1219,7 @@ void mark_channel_unroutable(struct routing_state *rstate,
 			     const struct short_channel_id *channel)
 {
 	const tal_t *tmpctx = tal_tmpctx(rstate);
-	struct routing_channel *chan;
+	struct chan *chan;
 	time_t now = time_now().ts.tv_sec;
 	const char *scid = type_to_string(tmpctx, struct short_channel_id,
 					  channel);
@@ -1238,8 +1235,8 @@ void mark_channel_unroutable(struct routing_state *rstate,
 		tal_free(tmpctx);
 		return;
 	}
-	chan->connections[0].unroutable_until = now + 20;
-	chan->connections[1].unroutable_until = now + 20;
+	chan->half[0].unroutable_until = now + 20;
+	chan->half[1].unroutable_until = now + 20;
 	tal_free(tmpctx);
 }
 
@@ -1249,31 +1246,31 @@ void route_prune(struct routing_state *rstate)
 	/* Anything below this highwater mark ought to be pruned */
 	const s64 highwater = now - rstate->prune_timeout;
 	const tal_t *pruned = tal_tmpctx(rstate);
-	struct routing_channel *chan;
+	struct chan *chan;
 	u64 idx;
 
 	/* Now iterate through all channels and see if it is still alive */
-	for (chan = uintmap_first(&rstate->channels, &idx);
+	for (chan = uintmap_first(&rstate->chanmap, &idx);
 	     chan;
-	     chan = uintmap_after(&rstate->channels, &idx)) {
+	     chan = uintmap_after(&rstate->chanmap, &idx)) {
 		/* Local-only?  Don't prune. */
 		if (!chan->public)
 			continue;
 
-		if (chan->connections[0].last_timestamp < highwater
-		    && chan->connections[1].last_timestamp < highwater) {
+		if (chan->half[0].last_timestamp < highwater
+		    && chan->half[1].last_timestamp < highwater) {
 			status_trace(
 			    "Pruning channel %s from network view (ages %"PRIu64" and %"PRIu64"s)",
 			    type_to_string(trc, struct short_channel_id,
 					   &chan->scid),
-			    now - chan->connections[0].last_timestamp,
-			    now - chan->connections[1].last_timestamp);
+			    now - chan->half[0].last_timestamp,
+			    now - chan->half[1].last_timestamp);
 
 			/* This may perturb iteration so do outside loop. */
 			tal_steal(pruned, chan);
 		}
 	}
 
-	/* This frees all the routing_channels and maybe even nodes. */
+	/* This frees all the chans and maybe even nodes. */
 	tal_free(pruned);
 }

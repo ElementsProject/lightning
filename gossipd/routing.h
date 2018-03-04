@@ -12,7 +12,7 @@
 #define ROUTING_MAX_HOPS 20
 #define ROUTING_FLAGS_DISABLED 2
 
-struct node_connection {
+struct half_chan {
 	/* millisatoshi. */
 	u32 base_fee;
 	/* millionths */
@@ -42,6 +42,27 @@ struct node_connection {
 	time_t unroutable_until;
 };
 
+struct chan {
+	struct short_channel_id scid;
+	u8 *txout_script;
+
+	/*
+	 * half[0]->src == nodes[0] half[0]->dst == nodes[1]
+	 * half[1]->src == nodes[1] half[1]->dst == nodes[0]
+	 */
+	struct half_chan half[2];
+	/* node[0].id < node[1].id */
+	struct node *nodes[2];
+
+	/* Cached `channel_announcement` we might forward to new peers*/
+	const u8 *channel_announcement;
+
+	u64 channel_announce_msgidx;
+
+	/* Is this a public channel, or was it only added locally? */
+	bool public;
+};
+
 struct node {
 	struct pubkey id;
 
@@ -52,7 +73,7 @@ struct node {
 	struct wireaddr *addresses;
 
 	/* Channels connecting us to other nodes */
-	struct routing_channel **channels;
+	struct chan **chans;
 
 	/* Temporary data for routefinding. */
 	struct {
@@ -61,7 +82,7 @@ struct node {
 		/* Total risk premium of this route. */
 		u64 risk;
 		/* Where that came from. */
-		struct routing_channel *prev;
+		struct chan *prev;
 	} bfg[ROUTING_MAX_HOPS+1];
 
 	/* UTF-8 encoded alias as tal_arr, not zero terminated */
@@ -85,27 +106,6 @@ HTABLE_DEFINE_TYPE(struct node, node_map_keyof_node, node_map_hash_key, node_map
 struct pending_node_map;
 struct pending_cannouncement;
 
-struct routing_channel {
-	struct short_channel_id scid;
-	u8 *txout_script;
-
-	/*
-	 * connections[0]->src == nodes[0] connections[0]->dst == nodes[1]
-	 * connections[1]->src == nodes[1] connections[1]->dst == nodes[0]
-	 */
-	struct node_connection connections[2];
-	/* nodes[0].id < nodes[1].id */
-	struct node *nodes[2];
-
-	/* Cached `channel_announcement` we might forward to new peers*/
-	const u8 *channel_announcement;
-
-	u64 channel_announce_msgidx;
-
-	/* Is this a public channel, or was it only added locally? */
-	bool public;
-};
-
 /* If the two nodes[] are id1 and id2, which index would id1 be? */
 static inline int pubkey_idx(const struct pubkey *id1, const struct pubkey *id2)
 {
@@ -113,8 +113,7 @@ static inline int pubkey_idx(const struct pubkey *id1, const struct pubkey *id2)
 }
 
 /* Fast versions: if you know n is one end of the channel */
-static inline struct node *other_node(const struct node *n,
-				      struct routing_channel *chan)
+static inline struct node *other_node(const struct node *n, struct chan *chan)
 {
 	int idx = (chan->nodes[1] == n);
 
@@ -123,18 +122,17 @@ static inline struct node *other_node(const struct node *n,
 }
 
 /* If you know n is one end of the channel, get connection src == n */
-static inline struct node_connection *connection_from(const struct node *n,
-						      struct routing_channel *chan)
+static inline struct half_chan *half_chan_from(const struct node *n,
+					       struct chan *chan)
 {
 	int idx = (chan->nodes[1] == n);
 
 	assert(chan->nodes[0] == n || chan->nodes[1] == n);
-	return &chan->connections[idx];
+	return &chan->half[idx];
 }
 
 /* If you know n is one end of the channel, get index dst == n */
-static inline int connection_to(const struct node *n,
-				struct routing_channel *chan)
+static inline int half_chan_to(const struct node *n, struct chan *chan)
 {
 	int idx = (chan->nodes[1] == n);
 
@@ -164,14 +162,14 @@ struct routing_state {
 	u32 prune_timeout;
 
         /* A map of channels indexed by short_channel_ids */
-	UINTMAP(struct routing_channel*) channels;
+	UINTMAP(struct chan *) chanmap;
 };
 
-static inline struct routing_channel *
+static inline struct chan *
 get_channel(const struct routing_state *rstate,
 	    const struct short_channel_id *scid)
 {
-	return uintmap_get(&rstate->channels, scid->u64);
+	return uintmap_get(&rstate->chanmap, scid->u64);
 }
 
 struct route_hop {
@@ -186,10 +184,10 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct pubkey *local_id,
 					u32 prune_timeout);
 
-struct routing_channel *new_routing_channel(struct routing_state *rstate,
-					    const struct short_channel_id *scid,
-					    const struct pubkey *id1,
-					    const struct pubkey *id2);
+struct chan *new_chan(struct routing_state *rstate,
+		      const struct short_channel_id *scid,
+		      const struct pubkey *id1,
+		      const struct pubkey *id2);
 
 /* Handlers for incoming messages */
 
@@ -217,7 +215,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update);
 void handle_node_announcement(struct routing_state *rstate, const u8 *node);
 
 /* Set values on the struct node_connection */
-void set_connection_values(struct routing_channel *chan,
+void set_connection_values(struct chan *chan,
 			   int idx,
 			   u32 base_fee,
 			   u32 proportional_fee,

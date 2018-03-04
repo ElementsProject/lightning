@@ -68,25 +68,25 @@ const void *trc;
 bool short_channel_id_from_str(const char *str, size_t strlen,
 			       struct short_channel_id *dst);
 
-static struct node_connection *
+static struct half_chan *
 get_or_make_connection(struct routing_state *rstate,
 		       const struct pubkey *from_id,
 		       const struct pubkey *to_id,
 		       const char *shortid)
 {
 	struct short_channel_id scid;
-	struct routing_channel *chan;
+	struct chan *chan;
 
 	if (!short_channel_id_from_str(shortid, strlen(shortid), &scid))
 		abort();
 	chan = get_channel(rstate, &scid);
 	if (!chan)
-		chan = new_routing_channel(rstate, &scid, from_id, to_id);
+		chan = new_chan(rstate, &scid, from_id, to_id);
 
-	return &chan->connections[pubkey_idx(from_id, to_id)];
+	return &chan->half[pubkey_idx(from_id, to_id)];
 }
 
-static bool channel_is_between(const struct routing_channel *chan,
+static bool channel_is_between(const struct chan *chan,
 			       const struct pubkey *a, const struct pubkey *b)
 {
 	if (pubkey_eq(&chan->nodes[0]->id, a)
@@ -104,11 +104,11 @@ int main(void)
 {
 	static const struct bitcoin_blkid zerohash;
 	const tal_t *ctx = trc = tal_tmpctx(NULL);
-	struct node_connection *nc;
+	struct half_chan *nc;
 	struct routing_state *rstate;
 	struct pubkey a, b, c;
 	u64 fee;
-	struct routing_channel **route;
+	struct chan **route;
 	const double riskfactor = 1.0 / BLOCKS_PER_YEAR / 10000;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY

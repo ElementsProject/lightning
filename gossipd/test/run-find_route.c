@@ -64,15 +64,15 @@ void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
 const void *trc;
 
 /* Updates existing route if required. */
-static struct node_connection *add_connection(struct routing_state *rstate,
+static struct half_chan *add_connection(struct routing_state *rstate,
 					      const struct pubkey *from,
 					      const struct pubkey *to,
 					      u32 base_fee, s32 proportional_fee,
 					      u32 delay)
 {
 	struct short_channel_id scid;
-	struct node_connection *c;
-	struct routing_channel *chan;
+	struct half_chan *c;
+	struct chan *chan;
 
 	/* Make a unique scid. */
 	memcpy(&scid, from, sizeof(scid) / 2);
@@ -80,9 +80,9 @@ static struct node_connection *add_connection(struct routing_state *rstate,
 
 	chan = get_channel(rstate, &scid);
 	if (!chan)
-		chan = new_routing_channel(rstate, &scid, from, to);
+		chan = new_chan(rstate, &scid, from, to);
 
-	c = &chan->connections[pubkey_idx(from, to)];
+	c = &chan->half[pubkey_idx(from, to)];
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
@@ -91,9 +91,9 @@ static struct node_connection *add_connection(struct routing_state *rstate,
 	return c;
 }
 
-/* Returns routing_channel connecting from and to: *idx set to refer
+/* Returns chan connecting from and to: *idx set to refer
  * to connection with src=from, dst=to */
-static struct routing_channel *find_channel(struct routing_state *rstate,
+static struct chan *find_channel(struct routing_state *rstate,
 					    const struct node *from,
 					    const struct node *to,
 					    int *idx)
@@ -102,21 +102,21 @@ static struct routing_channel *find_channel(struct routing_state *rstate,
 
 	*idx = pubkey_idx(&from->id, &to->id);
 
-	n = tal_count(to->channels);
+	n = tal_count(to->chans);
 	for (i = 0; i < n; i++) {
-		if (to->channels[i]->nodes[*idx] == from)
-			return to->channels[i];
+		if (to->chans[i]->nodes[*idx] == from)
+			return to->chans[i];
 	}
 	return NULL;
 }
 
-static struct node_connection *get_connection(struct routing_state *rstate,
+static struct half_chan *get_connection(struct routing_state *rstate,
 					       const struct pubkey *from_id,
 					       const struct pubkey *to_id)
 {
 	int idx;
 	struct node *from, *to;
-	struct routing_channel *c;
+	struct chan *c;
 
 	from = get_node(rstate, from_id);
 	to = get_node(rstate, to_id);
@@ -126,10 +126,10 @@ static struct node_connection *get_connection(struct routing_state *rstate,
 	c = find_channel(rstate, from, to, &idx);
 	if (!c)
 		return NULL;
-	return &c->connections[idx];
+	return &c->half[idx];
 }
 
-static bool channel_is_between(const struct routing_channel *chan,
+static bool channel_is_between(const struct chan *chan,
 			       const struct pubkey *a, const struct pubkey *b)
 {
 	if (pubkey_eq(&chan->nodes[0]->id, a)
@@ -151,7 +151,7 @@ int main(void)
 	struct pubkey a, b, c, d;
 	struct privkey tmp;
 	u64 fee;
-	struct routing_channel **route;
+	struct chan **route;
 	const double riskfactor = 1.0 / BLOCKS_PER_YEAR / 10000;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
