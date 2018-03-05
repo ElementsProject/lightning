@@ -265,7 +265,15 @@ static bool guess_one_address(struct lightningd *ld,
         memcpy(addr->addr, &sin6.sin6_addr, addr->addrlen);
         break;
     }
-    case ADDR_TYPE_PADDING:
+	case ADDR_TYPE_TOR_V2:
+        log_debug(ld->log, "Tor v2 address, ignoring");
+        return false;
+
+	case ADDR_TYPE_TOR_V3:
+        log_debug(ld->log, "Tor V3 address, ignoring");
+        return false;
+
+	case ADDR_TYPE_PADDING:
         log_debug(ld->log, "Padding address, ignoring");
         return false;
     }
