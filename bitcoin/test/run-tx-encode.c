@@ -12,7 +12,7 @@ static void hexeq(const void *p, size_t len, const char *hex)
 {
 	char *tmphex = tal_hexstr(NULL, p, len);
 
-	if (strcmp(hex, tmphex)) {
+	if (!streq(hex, tmphex)) {
 		fprintf(stderr, "Expected '%s' got '%s'", hex, tmphex);
 		abort();
 	}
