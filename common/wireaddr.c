@@ -17,13 +17,13 @@
 
 static char *b32_encode(char *dst, u8 *src, u8 ver) {
   u16 byte = 0,  
-          poff = 0; 
+		  poff = 0; 
   for(; byte < 	((ver==2)?16:56); poff += 5) {
-    if(poff > 7) {
-      poff -= 8;
-      src++;
-    }
-    dst[byte++] = BASE32DATA[ (htobe16(*(u16*)src) >> (11 -poff)) & (u16)0x001F];
+	if(poff > 7) {
+	  poff -= 8;
+	  src++;
+	}
+	dst[byte++] = BASE32DATA[ (htobe16(*(u16*)src) >> (11 -poff)) & (u16)0x001F];
   }
   dst[byte] = 0;
   return dst;
@@ -45,25 +45,25 @@ static int b32_decode( u8 *dst,u8 *src,u8 ver) {
   
   
   for (i=0; i < ((ver==2)?16:56) ; p++) {
-    ch = *p;
-    buf <<= 5;
+	ch = *p;
+	buf <<= 5;
 
    if ( (ch >= 'a' && ch <= 'z')) {
-      ch = (ch & 0x1F) - 1;
-    } else
+	  ch = (ch & 0x1F) - 1;
+	} else
 
   if (ch >= '2' && ch <= '7') {
-      ch -= '2' - 0x1A ;
-    } else {
-      return -1;
-    }
+	  ch -= '2' - 0x1A ;
+	} else {
+	  return -1;
+	}
   
   buf = buf | ch;
-    rem = rem + 5;
-    if (rem >= 8) {
-      dst[i++] = buf >> (rem - 8);
-      rem -= 8;
-    }
+	rem = rem + 5;
+	if (rem >= 8) {
+	  dst[i++] = buf >> (rem - 8);
+	  rem -= 8;
+	}
   }
  
   return 0;
@@ -151,7 +151,7 @@ REGISTER_TYPE_TO_STRING(wireaddr, fmt_wireaddr);
  * it only overwrites *port if it was specified by <number> above.
  */
 static bool separate_address_and_port(tal_t *ctx, const char *arg,
-				      char **addr, u16 *port)
+					  char **addr, u16 *port)
 {
 	char *portcolon;
 
@@ -168,8 +168,8 @@ static bool separate_address_and_port(tal_t *ctx, const char *arg,
 			/* Disregard if there's more than one : or if it's at
 			   the start or end */
 			if (portcolon != strrchr(arg, ':')
-			    || portcolon == arg
-			    || portcolon[1] == '\0')
+				|| portcolon == arg
+				|| portcolon[1] == '\0')
 				portcolon = NULL;
 		}
 		if (portcolon)
@@ -214,7 +214,7 @@ thats all
 
 
 bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
-		    const char **err_msg)
+			const char **err_msg)
 {
 	struct in6_addr v6;
 	struct in_addr v4;
@@ -231,8 +231,8 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
 	bool res;
 	tal_t *tmpctx = tal_tmpctx(NULL);
 
-          
-    res = false;
+		  
+	res = false;
 	port = defport;
 	if (err_msg)
 		*err_msg = NULL;
@@ -263,10 +263,10 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
 	}
 
 
-    if (strends(ip, ".onion"))
+	if (strends(ip, ".onion"))
 	{
 	 
-      if (strlen(ip)<25) {//FIXME boole is_V2_or_V3_TOR(addr);
+	  if (strlen(ip)<25) {//FIXME boole is_V2_or_V3_TOR(addr);
 		//odpzvneidqdf5hdq.onion
 		addr->type =   ADDR_TYPE_TOR_V2;
 		addr->addrlen = TOR_V2_ADDRLEN;
@@ -283,12 +283,12 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
 		b32_decode((u8 *)tor_dec_bytes,(u8 *)ip,3);
 		memcpy(&addr->addr,tor_dec_bytes, addr->addrlen);
 		res = true;
-	     }
+		 }
 
   goto finish;
 	
 	};
-       
+	   
 	/* Resolve with getaddrinfo */
 	if (!res) {
 		memset(&hints, 0, sizeof(hints));
@@ -298,7 +298,7 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
 		hints.ai_protocol = 0;
 		hints.ai_flags = AI_ADDRCONFIG;
 		gai_err = getaddrinfo(ip, tal_fmt(tmpctx, "%d", port),
-				      &hints, &addrinfo);
+					  &hints, &addrinfo);
 		if (gai_err != 0) {
 			if (err_msg)
 				*err_msg = gai_strerror(gai_err);
