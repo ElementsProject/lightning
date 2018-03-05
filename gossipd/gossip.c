@@ -1011,6 +1011,31 @@ static struct io_plan *hand_back_peer(struct io_conn *conn,
 			  read_returning_gossipfd, rpeer);
 }
 
+static struct io_plan *disconnect_peer(struct io_conn *conn, struct daemon *daemon,
+				       const u8 *msg)
+{
+	struct pubkey id;
+ 	struct peer *peer;
+
+	if (!fromwire_gossipctl_peer_disconnect(msg, &id))
+		master_badmsg(WIRE_GOSSIPCTL_PEER_DISCONNECT, msg);
+
+	peer = find_peer(daemon, &id);
+	if (peer && peer->local) {
+		/* This peer is local to this (gossipd) dameon */
+		io_close(peer->local->conn);
+		msg = towire_gossipctl_peer_disconnect_reply(msg);
+		daemon_conn_send(&daemon->master, take(msg));
+	} else {
+		status_trace("disconnect_peer: peer %s %s",
+			     type_to_string(trc, struct pubkey, &id),
+			     !peer ? "not found" : "not local to this daemon");
+		msg = towire_gossipctl_peer_disconnect_replyfail(msg);
+		daemon_conn_send(&daemon->master, take(msg));
+	}
+	return daemon_conn_read_next(conn, &daemon->master);
+}
+
 static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 				    const u8 *msg)
 {
@@ -1976,6 +2001,9 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE:
 		return handle_mark_channel_unroutable(conn, daemon, master->msg_in);
 
+	case WIRE_GOSSIPCTL_PEER_DISCONNECT:
+		return disconnect_peer(conn, daemon, master->msg_in);
+
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
@@ -1994,6 +2022,8 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_SEND_GOSSIP:
 	case WIRE_GOSSIP_LOCAL_ADD_CHANNEL:
 	case WIRE_GOSSIP_GET_TXOUT:
+	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLY:
+	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLYFAIL:
 		break;
 	}
 
