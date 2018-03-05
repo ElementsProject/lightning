@@ -1,10 +1,10 @@
 #include "opt_time.h"
+#include <assert.h>
 #include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <stdio.h>
-#include <assert.h>
 
 static bool match(const char *str, const char *abbrev, const char *full)
 {
