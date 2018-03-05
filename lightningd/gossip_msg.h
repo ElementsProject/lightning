@@ -14,6 +14,7 @@ struct gossip_getnodes_entry {
 
 struct gossip_getchannels_entry {
 	struct pubkey source, destination;
+	u64 satoshis;
 	bool active;
 	struct short_channel_id short_channel_id;
 	u16 flags;
