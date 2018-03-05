@@ -112,7 +112,6 @@ static void wallet_stmt2invoice_details(const tal_t *ctx,
 	}
 
 	dtl->bolt11 = tal_strndup(ctx, sqlite3_column_blob(stmt, 9), sqlite3_column_bytes(stmt, 9));
-	return;
 }
 
 struct invoices *invoices_new(const tal_t *ctx,
