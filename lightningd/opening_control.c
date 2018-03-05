@@ -787,7 +787,7 @@ static void gossip_peer_released(struct subd *gossip,
 			fatal("Gossip daemon gave invalid reply %s",
 			      tal_hex(gossip, resp));
 		}
- 		if (uc)
+		if (uc)
 			command_fail(fc->cmd, "Peer already OPENING");
 		else if (c)
 			command_fail(fc->cmd, "Peer already %s",
