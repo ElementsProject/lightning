@@ -377,7 +377,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	if (fuzztok &&
 	    !json_tok_double(buffer, fuzztok, &fuzz)) {
 		command_fail(cmd, "'%.*s' is not a valid double",
-			     (int)(fuzztok->end - fuzztok->start),
+			     fuzztok->end - fuzztok->start,
 			     buffer + fuzztok->start);
 		return;
 	}
