@@ -875,6 +875,55 @@ void activate_peers(struct lightningd *ld)
 		activate_peer(p);
 }
 
+/* Peer has been released from gossip. */
+static void gossip_peer_disconnected (struct subd *gossip,
+				 const u8 *resp,
+				 const int *fds,
+				 struct command *cmd) {
+	if (!fromwire_gossipctl_peer_disconnect_reply(resp)) {
+		if (!fromwire_gossipctl_peer_disconnect_replyfail(resp))
+			fatal("Gossip daemon gave invalid reply %s",
+			      tal_hex(gossip, resp));
+		command_fail(cmd, "Peer not connected");
+	} else {
+		/* Successfully disconnected */
+		command_success(cmd, null_response(cmd));
+	}
+	return;
+}
+
+static void json_disconnect(struct command *cmd,
+			 const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *idtok;
+	struct pubkey id;
+	u8 *msg;
+
+	if (!json_get_params(cmd, buffer, params,
+			     "id", &idtok,
+			     NULL)) {
+		return;
+	}
+
+	if (!json_tok_pubkey(buffer, idtok, &id)) {
+		command_fail(cmd, "id %.*s not valid",
+			     idtok->end - idtok->start,
+			     buffer + idtok->start);
+		return;
+	}
+
+	msg = towire_gossipctl_peer_disconnect(cmd, &id);
+	subd_req(cmd, cmd->ld->gossip, msg, -1, 0, gossip_peer_disconnected, cmd);
+	command_still_pending(cmd);
+}
+
+static const struct json_command disconnect_command = {
+	"disconnect",
+	json_disconnect,
+	"Disconnect from {id} that has previously been connected to using connect"
+};
+AUTODATA(json_command, &disconnect_command);
+
 #if DEVELOPER
 static void json_sign_last_tx(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
