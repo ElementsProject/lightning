@@ -22,10 +22,16 @@
  *             where `checksum = sha3(".onion checksum" | pubkey || version)[:2]`
  */
 
+ #define	TOR_V2_ADDRLEN 16 //24
+ #define	TOR_V3_ADDRLEN 42 //64
+ #define	FQDN_ADDRLEN 255
 enum wire_addr_type {
 	ADDR_TYPE_PADDING = 0,
 	ADDR_TYPE_IPV4 = 1,
 	ADDR_TYPE_IPV6 = 2,
+	ADDR_TYPE_TOR_V2 = 3,
+	ADDR_TYPE_TOR_V3 = 4
+	
 };
 
 /* FIXME(cdecker) Extend this once we have defined how TOR addresses
@@ -33,7 +39,7 @@ enum wire_addr_type {
 struct wireaddr {
 	enum wire_addr_type type;
 	u8 addrlen;
-	u8 addr[16];
+	u8 addr[TOR_V3_ADDRLEN]; // or FQDN_ADDRLEN ?
 	u16 port;
 };
 

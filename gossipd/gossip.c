@@ -49,6 +49,168 @@
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
+#define SOCKS_NOAUTH		0
+#define SOCKS_ERROR 	 0xff
+#define SOCKS_CONNECT		1
+#define SOCKS_TYP_IPV4		1
+#define SOCKS_DOMAIN		3
+#define SOCKS_TYP_IPV6		4
+#define SOCKS_V5            5
+
+
+#define MAX_SIZE_OF_SOCKS5_REQ_OR_RESP 255
+#define SIZE_OF_RESPONSE 		4
+#define SIZE_OF_REQUEST 		3
+#define SIZE_OF_IPV4_RESPONSE 	6
+#define SIZE_OF_IPV6_RESPONSE 	18
+#define SOCK_REQ_METH_LEN		3
+#define SOCK_REQ_V5_LEN			5
+#define SOCK_REQ_V5_HEADER_LEN	7
+
+
+struct reaching_socks {
+
+	u8 buffer[ MAX_SIZE_OF_SOCKS5_REQ_OR_RESP ];
+  	size_t hlen;
+	in_port_t  port;
+	char *host;
+	struct reaching *reach;
+};
+
+
+struct reaching_socks reach_tor;
+
+
+
+
+static struct io_plan *connect_finish(struct io_conn *,
+						  struct reaching_socks *
+						  );
+
+static struct io_plan *connect_finish2(struct io_conn *,
+						  struct reaching_socks *
+						  );
+
+
+static struct io_plan *connect_out(struct io_conn *,
+					  struct reaching_socks *);
+
+
+
+// called after we send request
+static struct io_plan *io_tor_connect_after_req_to_connect(struct io_conn *, struct reaching_socks *);
+static struct io_plan *io_tor_connect_after_req_host(struct io_conn *, struct reaching_socks *);
+
+// called when we connect to TOR SOCKS5
+static struct io_plan *io_tor_connect_do_req(struct io_conn *, struct reaching_socks *);
+
+
+
+static struct io_plan *connect_out(struct io_conn *,
+					  struct reaching_socks *);
+
+static struct io_plan *io_tor_connect_do_req(struct io_conn *, struct reaching_socks *);
+
+static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn *conn, struct reaching_socks *);
+
+static struct io_plan *io_tor_connect(struct io_conn *, struct reaching *);
+
+
+
+static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn *conn, struct reaching_socks *reach)
+{
+		if (reach->buffer[1] == SOCKS_ERROR)
+		 {
+			 status_trace("Connected out for %s error",reach->host);
+		   return io_close(conn);
+		 }
+			 //make the V5 request
+		  	 reach->hlen=strlen( reach->host);
+			 reach->buffer[0] = SOCKS_V5;
+			 reach->buffer[1] = SOCKS_CONNECT;
+			 reach->buffer[2] = 0;
+			 reach->buffer[3] = SOCKS_DOMAIN;
+			 reach->buffer[4] = reach->hlen;
+
+			memcpy( reach->buffer + SOCK_REQ_V5_LEN, reach->host,reach->hlen );
+			memcpy( reach->buffer + SOCK_REQ_V5_LEN + strlen( reach->host), &(reach->port), sizeof reach->port);
+
+  return io_write(conn, reach->buffer,  SOCK_REQ_V5_HEADER_LEN + reach->hlen, io_tor_connect_after_req_host, reach);
+}
+
+
+
+static struct io_plan *io_tor_connect_after_req_to_connect(struct io_conn *conn, struct reaching_socks *reach)
+{
+
+	return io_read(conn, reach->buffer, 2, &io_tor_connect_after_resp_to_connect, reach);
+}
+
+
+static struct io_plan *io_tor_connect_do_req(struct io_conn *conn, struct reaching_socks *reach)
+{
+		 // make the init request
+		 reach->buffer[0] = SOCKS_V5;
+		 reach->buffer[1] = 1;
+		 reach->buffer[2] = SOCKS_NOAUTH;
+
+	return io_write(conn, reach->buffer, SOCK_REQ_METH_LEN, &io_tor_connect_after_req_to_connect, reach);
+}
+
+static struct io_plan *connection_out(struct io_conn *conn,
+					  struct reaching *reach);
+
+static struct io_plan *connect_finish2(struct io_conn *conn,
+					   struct reaching_socks *reach)
+{
+	return connection_out(conn,reach->reach);
+}
+
+
+
+static struct io_plan *connect_finish(struct io_conn *conn,
+	  struct reaching_socks *reach)
+{
+
+
+if ((reach->buffer[3]) == SOCKS_TYP_IPV6 )
+{
+	return  io_read(conn, (reach->buffer+SIZE_OF_RESPONSE-SIZE_OF_IPV4_RESPONSE),SIZE_OF_IPV6_RESPONSE-SIZE_OF_RESPONSE-SIZE_OF_IPV4_RESPONSE, &connect_finish2, reach);
+
+}
+else
+if ((reach->buffer[3]) == SOCKS_TYP_IPV4 )
+	{
+		return connection_out(conn,reach->reach);
+	}
+	else {
+		 status_trace("Connected out for %s error ",reach->host);
+		   return io_close(conn);
+          }
+}
+
+
+static struct io_plan *connect_out(struct io_conn *conn,
+					  struct reaching_socks *reach)
+{
+	return  io_read(conn, reach->buffer, SIZE_OF_IPV4_RESPONSE+SIZE_OF_RESPONSE, &connect_finish, reach);
+
+}
+
+
+// called when TOR responds
+static struct io_plan *io_tor_connect_after_req_host(struct io_conn *conn, struct reaching_socks *reach)
+ {
+
+
+  status_trace("Connected out tor new for %s",reach->host);
+
+  if (reach->buffer[0] == '0')  return io_close(conn);
+	return connect_out(conn, reach);
+}
+
+
+
 #define HSM_FD 3
 
 struct daemon {
@@ -179,6 +341,33 @@ static struct io_plan *peer_start_gossip(struct io_conn *conn,
 static bool send_peer_with_fds(struct peer *peer, const u8 *msg);
 static void wake_pkt_out(struct peer *peer);
 static bool try_reach_peer(struct daemon *daemon, const struct pubkey *id);
+
+
+
+
+// called when we want to connect to TOR SOCKS5
+static struct io_plan *io_tor_connect(struct io_conn *conn, struct reaching *reach)
+{
+    static struct addrinfo *ai_tor;
+
+    reach_tor.port=htons(reach->addr.port);
+    //FIXME: SAIBATO set tor_proxy_ip and tor_proxy_port with options
+    //getaddrinfo(reach->daemon->tor_proxy_ip, reach->daemon->tor_proxy_port, NULL,&ai_tor);
+    getaddrinfo(tal_strdup(NULL,"127.0.0.1"),tal_strdup(NULL,"9050"), NULL,&ai_tor);
+    //status_trace("torproyaddr_ip_port: %s %s",reach->daemon->tor_proxy_ip,reach->daemon->tor_proxy_port);
+    reach_tor.host = tal_strdup(NULL,"");
+   
+   if( (reach->addr.type) == ADDR_TYPE_TOR_V3 ) 
+      reach_tor.host = tal_fmt(NULL,"%.56s.onion",fmt_wireaddr(NULL,&reach->addr));
+   if( (reach->addr.type) == ADDR_TYPE_TOR_V2 )  
+       reach_tor.host = tal_fmt(NULL,"%.16s.onion",fmt_wireaddr(NULL,&reach->addr));
+    
+    reach_tor.reach=reach;
+  
+  return io_connect(conn, ai_tor, &io_tor_connect_do_req,  &reach_tor);
+
+}
+
 
 static void destroy_peer(struct peer *peer)
 {
@@ -1597,6 +1786,9 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 		memcpy(&sin.sin_addr, reach->addr.addr, sizeof(sin.sin_addr));
 		ai.ai_addrlen = sizeof(sin);
 		ai.ai_addr = (struct sockaddr *)&sin;
+		io_set_finish(conn, connect_failed, reach);
+	    return io_connect(conn, &ai, connection_out, reach);
+
 		break;
 	case ADDR_TYPE_IPV6:
 		ai.ai_family = AF_INET6;
@@ -1606,14 +1798,28 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 		memcpy(&sin6.sin6_addr, reach->addr.addr, sizeof(sin6.sin6_addr));
 		ai.ai_addrlen = sizeof(sin6);
 		ai.ai_addr = (struct sockaddr *)&sin6;
+		io_set_finish(conn, connect_failed, reach);
+     	return io_connect(conn, &ai, connection_out, reach);
+
 		break;
+		case ADDR_TYPE_TOR_V2:
+
+		return io_tor_connect(conn, reach);
+
+		break;
+		case ADDR_TYPE_TOR_V3:
+
+		return io_tor_connect(conn, reach);
+
+		break;
+
+		
+		
 	case ADDR_TYPE_PADDING:
 		/* Shouldn't happen. */
 		return io_close(conn);
 	}
-
-	io_set_finish(conn, connect_failed, reach);
-	return io_connect(conn, &ai, connection_out, reach);
+return io_close(conn);
 }
 
 static void try_connect(struct reaching *reach)
@@ -1652,6 +1858,12 @@ static void try_connect(struct reaching *reach)
 	case ADDR_TYPE_IPV6:
 		fd = socket(AF_INET6, SOCK_STREAM, 0);
 		break;
+	case ADDR_TYPE_TOR_V2:
+		fd = socket(AF_INET, SOCK_STREAM, 0);
+	break;
+	case ADDR_TYPE_TOR_V3:
+	    fd = socket(AF_INET, SOCK_STREAM, 0);
+	break;
 	default:
 		fd = -1;
 		errno = EPROTONOSUPPORT;
