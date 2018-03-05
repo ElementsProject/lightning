@@ -81,6 +81,7 @@ static void got_txout(struct bitcoind *bitcoind,
 static void get_txout(struct subd *gossip, const u8 *msg)
 {
 	struct short_channel_id *scid = tal(gossip, struct short_channel_id);
+	struct outpoint *op;
 
 	if (!fromwire_gossip_get_txout(msg, scid))
 		fatal("Gossip gave bad GOSSIP_GET_TXOUT message %s",
@@ -88,11 +89,19 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 
 	/* FIXME: Block less than 6 deep? */
 
-	bitcoind_getoutput(gossip->ld->topology->bitcoind,
-			   short_channel_id_blocknum(scid),
-			   short_channel_id_txnum(scid),
-			   short_channel_id_outnum(scid),
-			   got_txout, scid);
+	op = wallet_outpoint_for_scid(gossip->ld->wallet, scid, scid);
+
+	if (op) {
+		subd_send_msg(gossip, towire_gossip_get_txout_reply(
+					  scid, scid, op->scriptpubkey));
+		tal_free(scid);
+	} else {
+		bitcoind_getoutput(gossip->ld->topology->bitcoind,
+				   short_channel_id_blocknum(scid),
+				   short_channel_id_txnum(scid),
+				   short_channel_id_outnum(scid),
+				   got_txout, scid);
+	}
 }
 
 static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
