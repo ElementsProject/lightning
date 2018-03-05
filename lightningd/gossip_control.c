@@ -66,15 +66,19 @@ static void got_txout(struct bitcoind *bitcoind,
 		      struct short_channel_id *scid)
 {
 	const u8 *script;
+	u64 satoshis = 0;
 
 	/* output will be NULL if it wasn't found */
-	if (output)
+	if (output) {
 		script = output->script;
-	else
+		satoshis = output->amount;
+	} else {
 		script = NULL;
+	}
 
-	subd_send_msg(bitcoind->ld->gossip,
-		      towire_gossip_get_txout_reply(scid, scid, script));
+	subd_send_msg(
+	    bitcoind->ld->gossip,
+	    towire_gossip_get_txout_reply(scid, scid, satoshis, script));
 	tal_free(scid);
 }
 
@@ -92,8 +96,9 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 	op = wallet_outpoint_for_scid(gossip->ld->wallet, scid, scid);
 
 	if (op) {
-		subd_send_msg(gossip, towire_gossip_get_txout_reply(
-					  scid, scid, op->scriptpubkey));
+		subd_send_msg(gossip,
+			      towire_gossip_get_txout_reply(
+				  scid, scid, op->satoshis, op->scriptpubkey));
 		tal_free(scid);
 	} else {
 		bitcoind_getoutput(gossip->ld->topology->bitcoind,
