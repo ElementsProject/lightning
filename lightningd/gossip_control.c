@@ -66,7 +66,7 @@ static void got_txout(struct bitcoind *bitcoind,
 		      struct short_channel_id *scid)
 {
 	const u8 *script;
-	u64 satoshis = 0;
+	u64 satoshis;
 
 	/* output will be NULL if it wasn't found */
 	if (output) {
@@ -74,6 +74,7 @@ static void got_txout(struct bitcoind *bitcoind,
 		satoshis = output->amount;
 	} else {
 		script = NULL;
+		satoshis = 0;
 	}
 
 	subd_send_msg(
