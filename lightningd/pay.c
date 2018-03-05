@@ -399,7 +399,6 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		    const char *localfail)
 {
 	struct onionreply *reply;
-	enum onion_type failcode;
 	struct secret *path_secrets;
 	struct wallet_payment *payment;
 	struct routing_failure* fail = NULL;
@@ -429,7 +428,6 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	/* This gives more details than a generic failure message */
 	if (localfail) {
 		fail = local_routing_failure(tmpctx, ld, hout, payment);
-		failcode = fail->failcode;
 		failmsg = localfail;
 		retry_plausible = true;
 		report_to_gossipd = true;
@@ -449,7 +447,6 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 				 tal_hex(tmpctx, hout->failuremsg));
 			/* Cannot report failure. */
 			fail = NULL;
-			failcode = WIRE_PERMANENT_NODE_FAILURE;
 			/* Select a channel to mark unroutable by random */
 			random_mark_channel_unroutable(hout->key.channel->log,
 						       ld->gossip,
@@ -461,7 +458,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 			 * report anything else */
 			report_to_gossipd = false;
 		} else {
-			failcode = fromwire_peektype(reply->msg);
+			enum onion_type failcode = fromwire_peektype(reply->msg);
 			log_info(hout->key.channel->log,
 				 "htlc %"PRIu64" "
 				 "failed from %ith node "
