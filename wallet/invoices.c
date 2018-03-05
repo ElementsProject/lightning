@@ -410,7 +410,7 @@ bool invoices_iterate(struct invoices *invoices,
 	}
 }
 void invoices_iterator_deref(const tal_t *ctx,
-			     struct invoices *invoices,
+			     struct invoices *invoices UNUSED,
 			     const struct invoice_iterator *it,
 			     struct invoice_details *details)
 {
