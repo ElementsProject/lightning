@@ -1813,8 +1813,9 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 {
 	struct short_channel_id scid;
 	u8 *outscript;
+	u64 satoshis;
 
-	if (!fromwire_gossip_get_txout_reply(msg, msg, &scid, &outscript))
+	if (!fromwire_gossip_get_txout_reply(msg, msg, &scid, &satoshis, &outscript))
 		master_badmsg(WIRE_GOSSIP_GET_TXOUT_REPLY, msg);
 
 	if (handle_pending_cannouncement(daemon->rstate, &scid, outscript))
