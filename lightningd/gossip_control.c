@@ -444,6 +444,7 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 		json_add_num(response, "flags", entries[i].flags);
 		json_add_bool(response, "active", entries[i].active);
 		json_add_bool(response, "public", entries[i].public);
+		json_add_u64(response, "satoshis", entries[i].satoshis);
 		if (entries[i].last_update_timestamp >= 0) {
 			json_add_num(response, "last_update",
 				     entries[i].last_update_timestamp);

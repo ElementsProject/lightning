@@ -1116,6 +1116,7 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 
 	e->source = chan->nodes[idx]->id;
 	e->destination = chan->nodes[!idx]->id;
+	e->satoshis = chan->satoshis;
 	e->active = c->active;
 	e->flags = c->flags;
 	e->public = (c->channel_update != NULL);
