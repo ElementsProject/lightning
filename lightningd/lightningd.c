@@ -281,8 +281,10 @@ int main(int argc, char *argv[])
 #if DEVELOPER
 	/* Suppresses backtrace (breaks valgrind) */
 	if (!getenv("LIGHTNINGD_DEV_NO_BACKTRACE"))
-#endif
+		backtrace_state = backtrace_create_state(argv[0], 0, NULL, NULL);
+#else
 	backtrace_state = backtrace_create_state(argv[0], 0, NULL, NULL);
+#endif
 
 	ld = new_lightningd(NULL);
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
