@@ -1818,7 +1818,7 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 	if (!fromwire_gossip_get_txout_reply(msg, msg, &scid, &satoshis, &outscript))
 		master_badmsg(WIRE_GOSSIP_GET_TXOUT_REPLY, msg);
 
-	if (handle_pending_cannouncement(daemon->rstate, &scid, outscript))
+	if (handle_pending_cannouncement(daemon->rstate, &scid, satoshis, outscript))
 		send_node_announcement(daemon);
 
 	return daemon_conn_read_next(conn, &daemon->master);
