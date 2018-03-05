@@ -24,7 +24,6 @@ u8 *towire_errorfmtv(const tal_t *ctx,
 	msg = towire_error(ctx, channel ? channel : &all_channels,
 			   (u8 *)tal_dup_arr(estr, char, estr, strlen(estr), 0));
 	tal_free(estr);
-	va_end(ap);
 
 	return msg;
 }
