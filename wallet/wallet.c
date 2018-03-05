@@ -1877,3 +1877,38 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 
 	outpointfilter_add(w->utxoset_outpoints, &txid, outnum);
 }
+
+struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
+					  const struct short_channel_id *scid)
+{
+	sqlite3_stmt *stmt;
+	struct outpoint *op;
+	stmt = db_prepare(w->db, "SELECT"
+			  " txid,"
+			  " spendheight,"
+			  " scriptpubkey,"
+			  " satoshis "
+			  "FROM utxoset "
+			  "WHERE blockheight = ?"
+			  " AND txindex = ?"
+			  " AND outnum = ?");
+	sqlite3_bind_int(stmt, 1, short_channel_id_blocknum(scid));
+	sqlite3_bind_int(stmt, 2, short_channel_id_txnum(scid));
+	sqlite3_bind_int(stmt, 3, short_channel_id_outnum(scid));
+
+
+	if (sqlite3_step(stmt) != SQLITE_ROW)
+		return NULL;
+
+	op = tal(ctx, struct outpoint);
+	op->blockheight = short_channel_id_blocknum(scid);
+	op->txindex = short_channel_id_txnum(scid);
+	op->outnum = short_channel_id_outnum(scid);
+	sqlite3_column_sha256_double(stmt, 0, &op->txid.shad);
+	op->spendheight = sqlite3_column_int(stmt, 1);
+	op->scriptpubkey = tal_arr(op, u8, sqlite3_column_bytes(stmt, 2));
+	memcpy(op->scriptpubkey, sqlite3_column_blob(stmt, 2), sqlite3_column_bytes(stmt, 2));
+	op->satoshis = sqlite3_column_int64(stmt, 3);
+
+	return op;
+}

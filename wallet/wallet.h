@@ -108,6 +108,16 @@ struct wallet_payment {
 	struct short_channel_id *route_channels;
 };
 
+struct outpoint {
+	struct bitcoin_txid txid;
+	u32 blockheight;
+	u32 txindex;
+	u32 outnum;
+	u64 satoshis;
+	u8 *scriptpubkey;
+	u32 spendheight;
+};
+
 /**
  * wallet_new - Constructor for a new sqlite3 based wallet
  *
@@ -710,6 +720,9 @@ void wallet_blocks_rollback(struct wallet *w, u32 height);
 
 void wallet_outpoint_spend(struct wallet *w, const u32 blockheight,
 			   const struct bitcoin_txid *txid, const u32 outnum);
+
+struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
+					  const struct short_channel_id *scid);
 
 void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 			const u32 outnum, const u32 blockheight,
