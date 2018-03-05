@@ -112,7 +112,7 @@ static void peer_closing_complete(struct channel *channel, const u8 *msg)
 	channel_set_state(channel, CLOSINGD_SIGEXCHANGE, CLOSINGD_COMPLETE);
 }
 
-static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds)
+static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds UNUSED)
 {
 	enum closing_wire_type t = fromwire_peektype(msg);
 

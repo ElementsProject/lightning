@@ -484,7 +484,7 @@ static void opening_channel_errmsg(struct uncommitted_channel *uc,
 				   int peer_fd, int gossip_fd,
 				   const struct crypto_state *cs,
 				   u64 gossip_index,
-				   const struct channel_id *channel_id,
+				   const struct channel_id *channel_id UNUSED,
 				   const char *desc,
 				   const u8 *err_for_them)
 {
@@ -616,7 +616,7 @@ u8 *peer_accept_channel(struct lightningd *ld,
 			const struct wireaddr *addr,
 			const struct crypto_state *cs,
 			u64 gossip_index,
-			const u8 *gfeatures, const u8 *lfeatures,
+			const u8 *gfeatures UNUSED, const u8 *lfeatures UNUSED,
 			int peer_fd, int gossip_fd,
 			const struct channel_id *channel_id,
 			const u8 *open_msg)
@@ -698,7 +698,7 @@ static void peer_offer_channel(struct lightningd *ld,
 			       const struct wireaddr *addr,
 			       const struct crypto_state *cs,
 			       u64 gossip_index,
-			       const u8 *gfeatures, const u8 *lfeatures,
+			       const u8 *gfeatures UNUSED, const u8 *lfeatures UNUSED,
 			       int peer_fd, int gossip_fd)
 {
 	u8 *msg;

@@ -86,7 +86,7 @@ static struct half_chan *add_connection(struct routing_state *rstate,
 
 /* Returns chan connecting from and to: *idx set to refer
  * to connection with src=from, dst=to */
-static struct chan *find_channel(struct routing_state *rstate,
+static struct chan *find_channel(struct routing_state *rstate UNUSED,
 					    const struct node *from,
 					    const struct node *to,
 					    int *idx)
