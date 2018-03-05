@@ -246,7 +246,7 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
 	else if (streq(ip, "ip6-localhost"))
 		ip = "::1";
 
-    memset(&addr->addr, 0, sizeof(addr->addr)); 
+	memset(&addr->addr, 0, sizeof(addr->addr)); 
 	
 	if (inet_pton(AF_INET, ip, &v4) == 1) {
 		addr->type = ADDR_TYPE_IPV4;
@@ -286,8 +286,8 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
 	     }
 
   goto finish;
-
-    };
+	
+	};
        
 	/* Resolve with getaddrinfo */
 	if (!res) {
@@ -319,10 +319,8 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
 			sa6 = (struct sockaddr_in6 *) addrinfo->ai_addr;
 			memcpy(&addr->addr, &sa6->sin6_addr, addr->addrlen);
 			res = true;
-
 		}	 
  
-		
 		/* Clean up */
 		freeaddrinfo(addrinfo);
 	}
