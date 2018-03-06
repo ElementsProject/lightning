@@ -10,6 +10,7 @@ env:
   - NO_VALGRIND=1 ARCH=32 DEVELOPER=1 COMPILER=gcc TEST_GROUP=1 TEST_GROUP_COUNT=2 SOURCE_CHECK_ONLY=false
   - NO_VALGRIND=1 ARCH=32 DEVELOPER=1 COMPILER=gcc TEST_GROUP=2 TEST_GROUP_COUNT=2 SOURCE_CHECK_ONLY=false
   - NO_VALGRIND=1 ARCH=64 DEVELOPER=1 COMPILER=gcc SOURCE_CHECK_ONLY=false
+  - NO_VALGRIND=1 ARCH=64 DEVELOPER=0 COMPILER=gcc NO_COMPAT=1 SOURCE_CHECK_ONLY=false
   - NO_VALGRIND=0 ARCH=64 DEVELOPER=0 COMPILER=gcc TEST_GROUP=1 TEST_GROUP_COUNT=3 SOURCE_CHECK_ONLY=false
   - NO_VALGRIND=0 ARCH=64 DEVELOPER=0 COMPILER=gcc TEST_GROUP=2 TEST_GROUP_COUNT=3 SOURCE_CHECK_ONLY=false
   - NO_VALGRIND=0 ARCH=64 DEVELOPER=0 COMPILER=gcc TEST_GROUP=3 TEST_GROUP_COUNT=3 SOURCE_CHECK_ONLY=false
@@ -25,7 +26,7 @@ env:
 script:
   - docker pull cdecker/lightning-ci:${ARCH}bit | tee
   - env | grep -E '^[A-Z_]+\=' | tee /tmp/envlist
-  - $SOURCE_CHECK_ONLY || docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make -j3 CC=${COMPILER} DEVELOPER=${DEVELOPER}
+  - $SOURCE_CHECK_ONLY || docker run --rm=true --env-file=/tmp/envlist -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make -j3 CC=${COMPILER} DEVELOPER=${DEVELOPER}
   - $SOURCE_CHECK_ONLY || docker run --rm=true --env-file=/tmp/envlist -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make CC=${COMPILER} check DEVELOPER=${DEVELOPER}
 #  - (! $SOURCE_CHECK_ONLY) || git clone https://github.com/lightningnetwork/lightning-rfc.git
 #  - (! $SOURCE_CHECK_ONLY) || docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check-source BOLTDIR=lightning-rfc
