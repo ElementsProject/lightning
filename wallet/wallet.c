@@ -720,6 +720,7 @@ bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
 	return ok;
 }
 
+#ifdef COMPAT_V052
 /* Upgrade of db (or initial create): do we have anything to scan for? */
 static bool wallet_ever_used(struct wallet *w)
 {
@@ -740,6 +741,7 @@ static bool wallet_ever_used(struct wallet *w)
 
 	return channel_utxos;
 }
+#endif
 
 /* We want the earlier of either:
  * 1. The first channel we're still watching (it might have closed),
@@ -764,6 +766,8 @@ u32 wallet_first_blocknum(struct wallet *w, u32 first_possible)
 		first_channel = UINT32_MAX;
 	sqlite3_finalize(stmt);
 
+#ifdef COMPAT_V052
+	/* This field was missing in older databases. */
 	first_utxo = db_get_intvar(w->db, "last_processed_block", 0);
 	if (first_utxo == 0) {
 		/* Don't know?  New db, or upgraded. */
@@ -773,6 +777,9 @@ u32 wallet_first_blocknum(struct wallet *w, u32 first_possible)
 		else
 			first_utxo = UINT32_MAX;
 	}
+#else
+	first_utxo = db_get_intvar(w->db, "last_processed_block", UINT32_MAX);
+#endif
 
 	if (first_utxo < first_channel)
 		return first_utxo;
