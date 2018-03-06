@@ -417,3 +417,12 @@ class LightningRpc(UnixDomainSocketRpc):
             "dev-forget-channel",
             payload={"id": peerid, "force": force}
         )
+
+    def disconnect(self, peer_id):
+        """
+        Show peer with {peer_id}, if {level} is set, include {log}s
+        """
+        payload = {
+            "id": peer_id,
+        }
+        return self.call("disconnect", payload)
