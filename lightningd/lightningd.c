@@ -217,10 +217,9 @@ static void shutdown_subdaemons(struct lightningd *ld)
 	db_commit_transaction(ld->wallet->db);
 }
 
-struct chainparams *get_chainparams(const struct lightningd *ld)
+const struct chainparams *get_chainparams(const struct lightningd *ld)
 {
-	return cast_const(struct chainparams *,
-			  ld->topology->bitcoind->chainparams);
+	return ld->topology->bitcoind->chainparams;
 }
 
 static void init_txfilter(struct wallet *w, struct txfilter *filter)
