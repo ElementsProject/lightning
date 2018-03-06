@@ -382,6 +382,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
 					 &hout->payment_hash);
 
+#ifdef COMPAT_V052
 	/* FIXME: Prior to 299b280f7, we didn't put route_nodes and
 	 * route_channels in db.  If this happens, it's an old payment,
 	 * so we can simply mark it failed in db and return. */
@@ -396,6 +397,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		tal_free(tmpctx);
 		return;
 	}
+#endif
 
 	/* This gives more details than a generic failure message */
 	if (localfail) {
