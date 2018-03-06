@@ -3802,6 +3802,35 @@ class LightningDTests(BaseLightningDTests):
         # Our funds got reorged out, we should not have any funds that are confirmed
         assert [o for o in l1.rpc.listfunds()['outputs'] if o['status'] != "unconfirmed"] == []
 
+    def test_disconnectpeer(self):
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node()
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        l1.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
+
+        # Gossiping
+        assert l1.rpc.getpeer(l2.info['id'])['state'] == "GOSSIPING"
+        assert l1.rpc.getpeer(l3.info['id'])['state'] == "GOSSIPING"
+
+        # Disconnect l2 from l1
+        l1.rpc.disconnect(l2.info['id'])
+
+        # Make sure listpeers no longer returns the disconnected node
+        assert l1.rpc.getpeer(l2.info['id']) is None
+        assert l2.rpc.getpeer(l1.info['id']) is None
+
+        # Make sure you cannot disconnect after disconnecting
+        self.assertRaises(ValueError, l1.rpc.disconnect, l2.info['id'])
+        self.assertRaises(ValueError, l2.rpc.disconnect, l1.info['id'])
+
+        # Fund channel l1 -> l3
+        self.fund_channel(l1, l3, 10**6)
+        bitcoind.generate_block(5)
+
+        # disconnecting a non gossiping peer results in error
+        self.assertRaises(ValueError, l1.rpc.disconnect, l3.info['id'])
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
