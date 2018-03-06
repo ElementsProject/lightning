@@ -169,7 +169,7 @@ struct lightningd {
 #endif /* DEVELOPER */
 };
 
-struct chainparams *get_chainparams(const struct lightningd *ld);
+const struct chainparams *get_chainparams(const struct lightningd *ld);
 
 /* State for performing backtraces. */
 struct backtrace_state *backtrace_state;
