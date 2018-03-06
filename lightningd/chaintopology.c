@@ -483,6 +483,10 @@ static void init_topo(struct bitcoind *bitcoind UNUSED,
 	block_map_add(&topo->block_map, topo->root);
 	topo->tip = topo->prev_tip = topo->root;
 
+	/* In case we don't get all the way to updates_complete */
+	db_set_intvar(topo->bitcoind->ld->wallet->db,
+		      "last_processed_block", topo->tip->height);
+
 	io_break(topo);
 }
 
