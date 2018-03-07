@@ -794,30 +794,38 @@ static void gossip_peer_released(struct subd *gossip,
 			   fds[0], fds[1]);
 }
 
+/**
+ * json_fund_channel - Entrypoint for funding a channel 
+ */
 static void json_fund_channel(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *peertok, *satoshitok;
-	struct funding_channel *fc = tal(cmd, struct funding_channel);
+	jsmntok_t *desttok, *sattok;
+	// bool all_funds = false;
+	struct funding_channel * fc;
+	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
 	u8 *msg;
 
 	if (!json_get_params(cmd, buffer, params,
-			     "id", &peertok,
-			     "satoshi", &satoshitok,
+			     "id", &desttok,
+			     "satoshi", &sattok,
 			     NULL)) {
 		return;
 	}
 
+	fc = tal(cmd, struct funding_channel);
 	fc->cmd = cmd;
 
-	if (!pubkey_from_hexstr(buffer + peertok->start,
-				peertok->end - peertok->start, &fc->peerid)) {
-		command_fail(cmd, "Could not parse id");
+	if (json_tok_streq(buffer, sattok, "all")) {
+		//all_funds = true;
+	} else if (!json_tok_u64(buffer, sattok, &fc->funding_satoshi)) {
+		command_fail(cmd, "Invalid satoshis");
 		return;
 	}
 
-	if (!json_tok_u64(buffer, satoshitok, &fc->funding_satoshi)) {
-		command_fail(cmd, "Invalid satoshis");
+	if (!pubkey_from_hexstr(buffer + desttok->start,
+				desttok->end - desttok->start, &fc->peerid)) {
+		command_fail(cmd, "Could not parse id");
 		return;
 	}
 
@@ -834,7 +842,7 @@ static void json_fund_channel(struct command *cmd,
 	/* Try to do this now, so we know if insufficient funds. */
 	/* FIXME: dustlimit */
 	fc->utxomap = build_utxos(fc, cmd->ld, fc->funding_satoshi,
-				  get_feerate(cmd->ld->topology, FEERATE_NORMAL),
+				  feerate_per_kw,
 				  600, BITCOIN_SCRIPTPUBKEY_P2WSH_LEN,
 				  &fc->change, &fc->change_keyindex);
 	if (!fc->utxomap) {
