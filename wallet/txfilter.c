@@ -11,7 +11,7 @@
 #include <wallet/wallet.h>
 
 struct txfilter {
-	u8 **scriptpubkeys;
+	const u8 **scriptpubkeys;
 };
 
 struct outpointfilter_entry {
@@ -49,18 +49,19 @@ struct outpointfilter {
 struct txfilter *txfilter_new(const tal_t *ctx)
 {
 	struct txfilter *filter = tal(ctx, struct txfilter);
-	filter->scriptpubkeys = tal_arr(filter, u8*, 0);
+	filter->scriptpubkeys = tal_arr(filter, const u8 *, 0);
 	return filter;
 }
 
-void txfilter_add_scriptpubkey(struct txfilter *filter, u8 *script)
+void txfilter_add_scriptpubkey(struct txfilter *filter, const u8 *script TAKES)
 {
 	size_t count = tal_count(filter->scriptpubkeys);
 	tal_resize(&filter->scriptpubkeys, count + 1);
 	filter->scriptpubkeys[count] = tal_dup_arr(filter, u8, script, tal_len(script), 0);
 }
 
-void txfilter_add_derkey(struct txfilter *filter, u8 derkey[PUBKEY_DER_LEN])
+void txfilter_add_derkey(struct txfilter *filter,
+			 const u8 derkey[PUBKEY_DER_LEN])
 {
 	tal_t *tmpctx = tal_tmpctx(filter);
 	u8 *skp, *p2sh;
