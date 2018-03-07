@@ -1,3 +1,4 @@
+#include <bitcoin/script.h>
 #include <common/key_derive.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -343,13 +344,12 @@ enum watch_result funding_spent(struct channel *channel,
 				size_t input_num,
 				const struct block *block)
 {
-	u8 *msg, *scriptpubkey;
+	u8 *msg;
 	struct bitcoin_txid our_last_txid;
-	s64 keyindex;
-	struct pubkey ourkey;
 	struct htlc_stub *stubs;
 	const tal_t *tmpctx = tal_tmpctx(channel);
 	struct lightningd *ld = channel->peer->ld;
+	struct pubkey final_key;
 
 	channel_fail_permanent(channel, "Funding transaction spent");
 
@@ -380,35 +380,13 @@ enum watch_result funding_spent(struct channel *channel,
 		return KEEP_WATCHING;
 	}
 
-	/* We re-use this key to send other outputs to. */
-	if (channel->local_shutdown_idx >= 0)
-		keyindex = channel->local_shutdown_idx;
-	else {
-		keyindex = wallet_get_newindex(ld);
-		if (keyindex < 0) {
-			log_broken(channel->log, "Could not get keyindex");
-			tal_free(tmpctx);
-			return KEEP_WATCHING;
-		}
-	}
-	scriptpubkey = p2wpkh_for_keyidx(tmpctx, ld, keyindex);
-	if (!scriptpubkey) {
-		channel_internal_error(channel,
-				    "Can't get shutdown script %"PRIu64,
-				    keyindex);
+	if (!bip32_pubkey(ld->wallet->bip32_base, &final_key,
+			  channel->final_key_idx)) {
+		log_broken(channel->log, "Could not derive onchain key %"PRIu64,
+			   channel->final_key_idx);
 		tal_free(tmpctx);
-		return DELETE_WATCH;
+		return KEEP_WATCHING;
 	}
-	txfilter_add_scriptpubkey(ld->owned_txfilter, scriptpubkey);
-
-	if (!bip32_pubkey(ld->wallet->bip32_base, &ourkey, keyindex)) {
-		channel_internal_error(channel,
-				    "Can't get shutdown key %"PRIu64,
-				    keyindex);
-		tal_free(tmpctx);
-		return DELETE_WATCH;
-	}
-
 	/* This could be a mutual close, but it doesn't matter. */
 	bitcoin_txid(channel->last_tx, &our_last_txid);
 
@@ -429,9 +407,10 @@ enum watch_result funding_spent(struct channel *channel,
 				  channel->our_config.dust_limit_satoshis,
 				  &channel->channel_info.theirbase.revocation,
 				  &our_last_txid,
-				  scriptpubkey,
+				  p2wpkh_for_keyidx(tmpctx, ld,
+						    channel->final_key_idx),
 				  channel->remote_shutdown_scriptpubkey,
-				  &ourkey,
+				  &final_key,
 				  channel->funder,
 				  &channel->channel_info.theirbase.payment,
 				  &channel->channel_info.theirbase.htlc,

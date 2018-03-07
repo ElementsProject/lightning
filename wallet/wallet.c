@@ -4,6 +4,7 @@
 #include <bitcoin/script.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
+#include <common/key_derive.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
 #include <lightningd/invoice.h>
@@ -584,6 +585,7 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 	u8 *remote_shutdown_scriptpubkey;
 	struct changed_htlc *last_sent_commit;
 	const tal_t *tmpctx = tal_tmpctx(ctx);
+	s64 final_key_idx;
 
 	peer_dbid = sqlite3_column_int64(stmt, 1);
 	peer = find_peer_by_dbid(w->ld, peer_dbid);
@@ -640,6 +642,12 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 		return NULL;
 	}
 
+	final_key_idx = sqlite3_column_int64(stmt, 29);
+	if (final_key_idx < 0) {
+		log_broken(w->log, "%s: Final key < 0", __func__);
+		tal_free(tmpctx);
+		return NULL;
+	}
 	chan = new_channel(peer, sqlite3_column_int64(stmt, 0),
 			   &wshachain,
 			   sqlite3_column_int(stmt, 5),
@@ -665,8 +673,7 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 						 sqlite3_column_int64(stmt, 0)),
 			   &channel_info,
 			   remote_shutdown_scriptpubkey,
-			   remote_shutdown_scriptpubkey
-			   ? sqlite3_column_int64(stmt, 29) : -1,
+			   final_key_idx,
 			   sqlite3_column_int(stmt, 34) != 0,
 			   last_sent_commit,
 			   sqlite3_column_int64(stmt, 35));
@@ -909,7 +916,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 				  tal_len(chan->remote_shutdown_scriptpubkey),
 				  SQLITE_TRANSIENT);
 
-	sqlite3_bind_int64(stmt, 17, chan->local_shutdown_idx);
+	sqlite3_bind_int64(stmt, 17, chan->final_key_idx);
 	sqlite3_bind_int64(stmt, 18, chan->our_config.id);
 	sqlite3_bind_tx(stmt, 19, chan->last_tx);
 	sqlite3_bind_signature(stmt, 20, &chan->last_sig);

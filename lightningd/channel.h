@@ -80,8 +80,8 @@ struct channel {
 
 	/* Their scriptpubkey if they sent shutdown. */
 	u8 *remote_shutdown_scriptpubkey;
-	/* Our key for shutdown (-1 if not chosen yet) */
-	s64 local_shutdown_idx;
+	/* Address for any final outputs */
+	u64 final_key_idx;
 
 	/* Reestablishment stuff: last sent commit and revocation details. */
 	bool last_was_revoke;
@@ -122,8 +122,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const struct channel_info *channel_info,
 			    /* NULL or stolen */
 			    u8 *remote_shutdown_scriptpubkey,
-			    /* (-1 if not chosen yet) */
-			    s64 local_shutdown_idx,
+			    u64 final_key_idx,
 			    bool last_was_revoke,
 			    /* NULL or stolen */
 			    struct changed_htlc *last_sent_commit,
