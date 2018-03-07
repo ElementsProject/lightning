@@ -243,10 +243,11 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 			 + 1 + 3 + 73 + 0 + tal_len(wscript))
 		/ 1000;
 
-	/* Result is trivial?  Just eliminate output. */
-	if (tx->output[0].amount < dust_limit_satoshis + fee)
-		tal_resize(&tx->output, 0);
-	else
+	/* Result is trivial?  Spent to OP_RETURN to avoid leaving dust. */
+	if (tx->output[0].amount < dust_limit_satoshis + fee) {
+		tx->output[0].amount = 0;
+		tx->output[0].script = scriptpubkey_opreturn(tx->output);
+	} else
 		tx->output[0].amount -= fee;
 
 	sign_tx_input(tx, 0, NULL, wscript, privkey, pubkey, &sig);
