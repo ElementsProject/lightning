@@ -122,6 +122,24 @@ volumes:
   clightning_bitcoin_datadir:
 ```
 
+Alternatively you can use `LIGHTNINGD_OPT`:
+
+```
+  clightning_bitcoin:
+    image: elementsproject/lightningd
+    environment:
+      EXPOSE_TCP: "true"
+      LIGHTNINGD_OPT: |
+        bitcoin-rpcconnect=bitcoind
+        bitcoin-rpcuser=rpcuser
+        bitcoin-rpcpassword=rpcpass
+        network=testnet
+        alias=myawesomenode
+        log-level=debug
+```
+
+To select the blockchain you are running LND on, you can alternatively use `LIGHTNINGD_CHAIN` with value `ltc` or `btc` and `LIGHTNINGD_NETWORK` with values `mainnet`, `testnet` or `regtest`).
+
 ### Starting `lightningd`
 
 In order to start `lightningd` you will need to have a local `bitcoind`
