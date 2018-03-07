@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# This file is a hook for dockerhub. It will use a DEVELOPER=1 build if the tagged version end with -dev
+
+DEVELOPER=0
+if [[ "$DOCKER_TAG" == *-dev ]]; then
+    DEVELOPER=1
+fi
+
+docker build --build-arg "DEVELOPER=$DEVELOPER" -t "$IMAGE_NAME" .
