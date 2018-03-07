@@ -1100,6 +1100,7 @@ static void wait_and_check_bitcoind(struct plugin *p)
 	pid_t child;
 	const char **cmd = gather_args(bitcoind, "getnetworkinfo", NULL);
 	bool printed = false;
+	bool isWarmup = false;
 	char *output = NULL;
 
 	for (;;) {
@@ -1135,17 +1136,20 @@ static void wait_and_check_bitcoind(struct plugin *p)
 		/* bitcoin/src/rpc/protocol.h:
 		 *	RPC_IN_WARMUP = -28, //!< Client still warming up
 		 */
-		if (WEXITSTATUS(status) != 28) {
-			if (WEXITSTATUS(status) == 1)
-				bitcoind_failure(p, "Could not connect to bitcoind using"
-						    " bitcoin-cli. Is bitcoind running?");
-			bitcoind_failure(p, tal_fmt(bitcoind, "%s exited with code %i: %s",
-						    cmd[0], WEXITSTATUS(status), output));
-		}
+		isWarmup = WEXITSTATUS(status) == 28;
 
 		if (!printed) {
-			plugin_log(p, LOG_UNUSUAL,
-				   "Waiting for bitcoind to warm up...");
+			if (isWarmup)
+			{
+				plugin_log(p, LOG_UNUSUAL,
+					"Waiting for bitcoind to warm up...");
+			}
+			else
+			{
+				plugin_log(p, LOG_UNUSUAL,
+					tal_fmt(bitcoind, "%s exited with code %i: %s... retrying",
+						    cmd[0], WEXITSTATUS(status), output));
+			}
 			printed = true;
 		}
 		sleep(1);
