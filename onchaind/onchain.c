@@ -367,8 +367,8 @@ static void propose_resolution_at_block(struct tracked_output *out,
 	/* Expiry could be in the past! */
 	if (block_required < out->tx_blockheight)
 		depth = 0;
-	else
-		depth = block_required - out->tx_blockheight;
+	else /* Note that out->tx_blockheight is already at depth 1 */
+		depth = block_required - out->tx_blockheight + 1;
 	propose_resolution(out, tx, depth, tx_type);
 }
 
