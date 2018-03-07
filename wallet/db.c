@@ -230,6 +230,9 @@ char *dbmigrations[] = {
     /* Necessary index for long rollbacks of the blockchain, otherwise we're
      * doing table scans for every block removed. */
     "CREATE INDEX utxoset_spend ON utxoset (spendheight)",
+    /* Assign key 0 to unassigned shutdown_keyidx_local. */
+    "UPDATE channels SET shutdown_keyidx_local=0 WHERE shutdown_keyidx_local = -1;",
+    /* FIXME: We should rename shutdown_keyidx_local to final_key_index */
     NULL,
 };
 
