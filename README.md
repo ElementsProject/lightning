@@ -63,13 +63,81 @@ For the impatient here's the gist of it for Ubuntu and Debian:
     cd lightning
     make
 
-Or if you like to throw `docker` into the mix:
+Or if you like to throw `docker` into the mix, you have the choice with two different docker images:
+
+The first docker image is [cdecker/lightningd](https://hub.docker.com/r/cdecker/lightningd/), it provides c-lightning with a bundled bitcoin core:
 
     sudo docker run \
     	-v $HOME/.lightning:/root/.lightning \
     	-v $HOME/.bitcoin:/root/.bitcoin \
     	-p 9735:9735 \
     	cdecker/lightningd:latest
+
+The second docker image is [elementsproject/lightningd](https://hub.docker.com/r/elementsproject/lightningd/) (from this [Dockerfile](Dockerfile)), it is meant to be used inside docker-compose.
+
+Image tags with `-dev` at the end are images built with `DEVELOPER=1`.
+
+If you build the image yourself, you can use the build arg `DEVELOPER=1` to build c-lightning in developer mode.
+
+It has the following environment variable:
+
+* `EXPOSE_TCP` default to false, if true, use expose c-lightning on port 9835. (Use this only for testing)
+* `LIGHTNINGD_OPT` is the content of the config file of the c-lightning instance.
+
+On top of this, to make configuration easier, if `LIGHTNINGD_OPT` contains the parameter `chain=`, then, the `network=` parameter will be rewritten before starting c-lightning:
+
+| chain= | network= | New network= |
+|---|---|---|
+| btc | mainnet | bitcoin |
+| btc | testnet | testnet |
+| btc | regtest | regtest |
+| ltc | mainnet | litecoin |
+| ltc | testnet | litecoin-testnet |
+
+Here is an example of a docker-compose file with litecoind and c-lightning on `testnet` which expose litecoin's rpc interface on port `32610` and c-lightning API on port `32611`:
+
+```
+version: "3"
+
+  litecoind:
+    image: nicolasdorier/docker-litecoin:0.15.1
+    environment:
+      BITCOIN_EXTRA_ARGS: |
+        testnet=1
+        whitelist=0.0.0.0/0
+        rpcport=43782
+        server=1
+    ports: 
+      - "32610:43782"
+    expose:
+      - "43782"
+    volumes:
+    - "litecoin_datadir:/data"
+
+  clightning_litecoin:
+    image: elementsproject/lightningd
+    environment:
+      EXPOSE_TCP: "true"
+      LIGHTNINGD_OPT: |
+        bitcoin-datadir=/etc/litecoin
+        bitcoin-rpcconnect=litecoind
+        network=testnet
+        alias=myawesomenode
+        chain=ltc
+    ports:
+      - "32611:9835"
+    expose:
+      - "9835"
+    volumes:
+    - "clightning_litecoin_datadir:/root/.lightning"
+    - "litecoin_datadir:/etc/litecoin"
+    links:
+    - litecoind
+
+volumes:
+  litecoin_datadir: 
+  clightning_litecoin_datadir: 
+```
 
 ### Starting `lightningd`
 
