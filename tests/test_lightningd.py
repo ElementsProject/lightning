@@ -1737,6 +1737,64 @@ class LightningDTests(BaseLightningDTests):
         # Payment failed, BTW
         assert l2.rpc.listinvoices('onchain_timeout')['invoices'][0]['status'] == 'unpaid'
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev-set-fees")
+    def test_onchain_all_dust(self):
+        """Onchain handling when we reduce output to all dust"""
+        # HTLC 1->2, 2 fails just after they're both irrevocably committed
+        # We need 2 to drop to chain, because then 1's HTLC timeout tx
+        # is generated on-the-fly, and is thus feerate sensitive.
+        disconnects = ['-WIRE_UPDATE_FAIL_HTLC', 'permfail']
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(disconnect=disconnects)
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        self.fund_channel(l1, l2, 10**6)
+
+        rhash = l2.rpc.invoice(10**8, 'onchain_timeout', 'desc')['payment_hash']
+        # We underpay, so it fails.
+        routestep = {
+            'msatoshi': 10**7 - 1,
+            'id': l2.info['id'],
+            'delay': 5,
+            'channel': '1:1:1'
+        }
+
+        self.executor.submit(l1.rpc.sendpay, to_json([routestep]), rhash)
+
+        # l2 will drop to chain.
+        l2.daemon.wait_for_log('permfail')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+
+        # Make l1's fees really high.
+        l1.rpc.dev_setfees('100000', '100000', '100000')
+
+        bitcoind.generate_block(1)
+        l1.daemon.wait_for_log(' to ONCHAIN')
+        l2.daemon.wait_for_log(' to ONCHAIN')
+
+        # Wait for timeout.
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US .* in 5 blocks')
+        bitcoind.generate_block(5)
+
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+        bitcoind.generate_block(1)
+
+        l1.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TO_US')
+
+        # 100 deep and l2 forgets.
+        bitcoind.generate_block(92)
+        sync_blockheight([l2])
+        assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
+        bitcoind.generate_block(1)
+        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+        # l1 forgets 100 blocks after OUR_HTLC_TIMEOUT_TO_US.
+        bitcoind.generate_block(6)
+        sync_blockheight([l1])
+        assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')
+        bitcoind.generate_block(1)
+        l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail_new_commit(self):
         # Test case where we have two possible commits: it will use new one.
