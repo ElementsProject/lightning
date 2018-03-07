@@ -448,15 +448,26 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		}
 	}
 
+	/* Save to DB */
 	/* This may invalidated the payment structure returned, so
 	 * access to payment object should not be done after the
 	 * below call.  */
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 				  PAYMENT_FAILED, NULL);
+	wallet_payment_set_failinfo(ld->wallet,
+				    &hout->payment_hash,
+				    fail ? NULL : hout->failuremsg,
+				    (fail && !retry_plausible),
+				    fail ? fail->erring_index : -1,
+				    fail ? fail->failcode : 0,
+				    fail ? &fail->erring_node : NULL,
+				    fail ? &fail->erring_channel : NULL,
+				    fail ? fail->channel_update : NULL);
 
 	/* Report to gossipd if we decided we should. */
 	if (report_to_gossipd)
 		report_routing_failure(ld->log, ld->gossip, fail);
+
 
 	/* Report to client. */
 	sendpay_route_failure(ld, &hout->payment_hash,
@@ -480,6 +491,14 @@ bool wait_payment(const tal_t *cxt,
 	struct sendpay_result *result;
 	char const *details;
 	bool cb_not_called;
+	u8 *failonionreply;
+	bool faildestperm;
+	int failindex;
+	enum onion_type failcode;
+	struct pubkey *failnode;
+	struct short_channel_id *failchannel;
+	u8 *failupdate;
+	struct routing_failure *fail;
 
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet, payment_hash);
 	if (!payment) {
@@ -509,12 +528,36 @@ bool wait_payment(const tal_t *cxt,
 		goto end;
 
 	case PAYMENT_FAILED:
-		/* FIXME: store the failure and other failure data
-		 * on the DB so that we can do something other than
-		 * unspecified-error. */
-		result = sendpay_result_simple_fail(tmpctx,
-						    PAY_UNSPECIFIED_ERROR,
-						    "Payment already failed");
+		/* Get error from DB */
+		wallet_payment_get_failinfo(tmpctx, ld->wallet, payment_hash,
+					    &failonionreply,
+					    &faildestperm,
+					    &failindex,
+					    &failcode,
+					    &failnode,
+					    &failchannel,
+					    &failupdate);
+		/* Old DB might not save failure information */
+		if (!failonionreply && !failnode)
+			result = sendpay_result_simple_fail(tmpctx,
+							    PAY_UNSPECIFIED_ERROR,
+							    "Payment failure reason unknown");
+		else if (failonionreply) {
+			/* failed to parse returned onion error */
+			result = sendpay_result_route_failure(tmpctx, true, NULL, failonionreply, "reply from remote");
+		} else {
+			/* Parsed onion error, get its details */
+			assert(failnode);
+			assert(failchannel);
+			fail = tal(tmpctx, struct routing_failure);
+			fail->erring_index = failindex;
+			fail->failcode = failcode;
+			fail->erring_node = *failnode;
+			fail->erring_channel = *failchannel;
+			fail->channel_update = failupdate;
+			result = sendpay_result_route_failure(tmpctx, !faildestperm, fail, NULL, "route failure");
+		}
+
 		cb(result, cbarg);
 		cb_not_called = false;
 		goto end;
