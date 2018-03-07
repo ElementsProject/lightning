@@ -1,10 +1,10 @@
 #ifndef LIGHTNING_WALLET_INVOICES_H
 #define LIGHTNING_WALLET_INVOICES_H
 #include "config.h"
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
-#include <ccan/take/take.h>
 #include <bitcoin/preimage.h>
+#include <ccan/short_types/short_types.h>
+#include <ccan/take/take.h>
+#include <ccan/tal/tal.h>
 
 struct db;
 struct invoice;

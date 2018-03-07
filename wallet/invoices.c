@@ -7,13 +7,13 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
+#include <common/timeout.h>
+#include <common/utils.h>
 #include <lightningd/invoice.h>
 #include <lightningd/log.h>
 #include <sodium/randombytes.h>
 #include <sqlite3.h>
 #include <string.h>
-#include <common/timeout.h>
-#include <common/utils.h>
 
 struct invoice_waiter {
 	/* Is this waiter already triggered? */
