@@ -146,9 +146,12 @@ struct peer {
 	/* We save calculated commit sigs while waiting for master approval */
 	struct commit_sigs *next_commit_sigs;
 
-	/* If master told us to shut down, this contains scriptpubkey until
-	 * we're ready to send it. */
-	u8 *unsent_shutdown_scriptpubkey;
+	/* The scriptpubkey to use for shutting down. */
+	u8 *final_scriptpubkey;
+
+	/* If master told us to shut down */
+	bool send_shutdown;
+	/* Has shutdown been sent by each side? */
 	bool shutdown_sent[NUM_SIDES];
 
 	/* Information used for reestablishment. */
@@ -769,7 +772,7 @@ static void maybe_send_shutdown(struct peer *peer)
 {
 	u8 *msg;
 
-	if (!peer->unsent_shutdown_scriptpubkey)
+	if (!peer->send_shutdown)
 		return;
 
 	/* Send a disable channel_update so others don't try to route
@@ -778,11 +781,9 @@ static void maybe_send_shutdown(struct peer *peer)
 	wire_sync_write(GOSSIP_FD, msg);
 	enqueue_peer_msg(peer, take(msg));
 
-	msg = towire_shutdown(peer, &peer->channel_id,
-			      peer->unsent_shutdown_scriptpubkey);
+	msg = towire_shutdown(peer, &peer->channel_id, peer->final_scriptpubkey);
 	enqueue_peer_msg(peer, take(msg));
-	peer->unsent_shutdown_scriptpubkey
-		= tal_free(peer->unsent_shutdown_scriptpubkey);
+	peer->send_shutdown = false;
 	peer->shutdown_sent[LOCAL] = true;
 	billboard_update(peer);
 }
@@ -1589,11 +1590,24 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 			    &peer->channel_id,
 			    "Bad shutdown %s", tal_hex(peer, shutdown));
 
-	/* Tell master, it will tell us what to send (if any). */
+	/* Tell master: we don't have to wait because on reconnect other end
+	 * will re-send anyway. */
 	wire_sync_write(MASTER_FD,
 			take(towire_channel_got_shutdown(peer, scriptpubkey)));
 
 	peer->shutdown_sent[REMOTE] = true;
+	/* BOLT #2:
+	 *
+	 * A receiving node:
+	 * ...
+	 * - once there are no outstanding updates on the peer, UNLESS
+	 *   it has already sent a `shutdown`:
+	 *    - MUST reply to a `shutdown` message with a `shutdown`
+	 */
+	if (!peer->shutdown_sent[LOCAL]) {
+		peer->send_shutdown = true;
+		start_commit_timer(peer);
+	}
 	billboard_update(peer);
 }
 
@@ -2377,13 +2391,11 @@ static void handle_ping_cmd(struct peer *peer, const u8 *inmsg)
 
 static void handle_shutdown_cmd(struct peer *peer, const u8 *inmsg)
 {
-	u8 *scriptpubkey;
-
-	if (!fromwire_channel_send_shutdown(peer, inmsg, &scriptpubkey))
+	if (!fromwire_channel_send_shutdown(inmsg))
 		master_badmsg(WIRE_CHANNEL_SEND_SHUTDOWN, inmsg);
 
-	/* We can't send this until commit (if any) is done, so start timer<. */
-	peer->unsent_shutdown_scriptpubkey = scriptpubkey;
+	/* We can't send this until commit (if any) is done, so start timer. */
+	peer->send_shutdown = true;
 	start_commit_timer(peer);
 }
 
@@ -2537,8 +2549,9 @@ static void init_channel(struct peer *peer)
 				   &peer->funding_locked[REMOTE],
 				   &peer->short_channel_ids[LOCAL],
 				   &reconnected,
-				   &peer->unsent_shutdown_scriptpubkey,
+				   &peer->send_shutdown,
 				   &peer->shutdown_sent[REMOTE],
+				   &peer->final_scriptpubkey,
 				   &peer->channel_flags,
 				   &funding_signed))
 		master_badmsg(WIRE_CHANNEL_INIT, msg);

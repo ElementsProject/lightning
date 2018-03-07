@@ -808,28 +808,12 @@ static void json_close(struct command *cmd,
 
 	/* Normal case. */
 	if (channel->state == CHANNELD_NORMAL) {
-		u8 *shutdown_scriptpubkey;
-
-		channel->local_shutdown_idx = wallet_get_newindex(cmd->ld);
-		if (channel->local_shutdown_idx == -1) {
-			command_fail(cmd, "Failed to get new key for shutdown");
-			return;
-		}
-		shutdown_scriptpubkey = p2wpkh_for_keyidx(cmd, cmd->ld,
-							  channel->local_shutdown_idx);
-		if (!shutdown_scriptpubkey) {
-			command_fail(cmd, "Failed to get script for shutdown");
-			return;
-		}
-
-		channel_set_state(channel, CHANNELD_NORMAL, CHANNELD_SHUTTING_DOWN);
-
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, shutdown_scriptpubkey);
+		channel_set_state(channel,
+				  CHANNELD_NORMAL, CHANNELD_SHUTTING_DOWN);
 
 		if (channel->owner)
 			subd_send_msg(channel->owner,
-				      take(towire_channel_send_shutdown(channel,
-						   shutdown_scriptpubkey)));
+				      take(towire_channel_send_shutdown(channel)));
 
 		command_success(cmd, null_response(cmd));
 	} else

@@ -1,3 +1,4 @@
+#include <bitcoin/script.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/tal/str/str.h>
 #include <gossipd/gen_gossip_wire.h>
@@ -145,8 +146,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const struct channel_info *channel_info,
 			    /* NULL or stolen */
 			    u8 *remote_shutdown_scriptpubkey,
-			    /* (-1 if not chosen yet) */
-			    s64 local_shutdown_idx,
+			    u64 final_key_idx,
 			    bool last_was_revoke,
 			    /* NULL or stolen */
 			    struct changed_htlc *last_sent_commit,
@@ -199,7 +199,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->channel_info = *channel_info;
 	channel->remote_shutdown_scriptpubkey
 		= tal_steal(channel, remote_shutdown_scriptpubkey);
-	channel->local_shutdown_idx = local_shutdown_idx;
+	channel->final_key_idx = final_key_idx;
 	channel->last_was_revoke = last_was_revoke;
 	channel->last_sent_commit = tal_steal(channel, last_sent_commit);
 	channel->first_blocknum = first_blocknum;
@@ -207,6 +207,11 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 
 	list_add_tail(&peer->channels, &channel->list);
 	tal_add_destructor(channel, destroy_channel);
+
+	/* Make sure we see any spends using this key */
+	txfilter_add_scriptpubkey(peer->ld->owned_txfilter,
+				  take(p2wpkh_for_keyidx(NULL, peer->ld,
+							 channel->final_key_idx)));
 
 	return channel;
 }
