@@ -3821,15 +3821,18 @@ class LightningDTests(BaseLightningDTests):
         assert l2.rpc.getpeer(l1.info['id']) is None
 
         # Make sure you cannot disconnect after disconnecting
-        self.assertRaises(ValueError, l1.rpc.disconnect, l2.info['id'])
-        self.assertRaises(ValueError, l2.rpc.disconnect, l1.info['id'])
+        self.assertRaisesRegex(ValueError, "Peer not connected",
+                               l1.rpc.disconnect, l2.info['id'])
+        self.assertRaisesRegex(ValueError, "Peer not connected",
+                               l2.rpc.disconnect, l1.info['id'])
 
         # Fund channel l1 -> l3
         self.fund_channel(l1, l3, 10**6)
         bitcoind.generate_block(5)
 
         # disconnecting a non gossiping peer results in error
-        self.assertRaises(ValueError, l1.rpc.disconnect, l3.info['id'])
+        self.assertRaisesRegex(ValueError, "Peer is not in gossip mode",
+                               l1.rpc.disconnect, l3.info['id'])
 
 
 if __name__ == '__main__':

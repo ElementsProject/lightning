@@ -1029,8 +1029,8 @@ static struct io_plan *disconnect_peer(struct io_conn *conn, struct daemon *daem
 	} else {
 		status_trace("disconnect_peer: peer %s %s",
 			     type_to_string(trc, struct pubkey, &id),
-			     !peer ? "not found" : "not local to this daemon");
-		msg = towire_gossipctl_peer_disconnect_replyfail(msg);
+			     !peer ? "not connected" : "not gossiping");
+		msg = towire_gossipctl_peer_disconnect_replyfail(msg, peer ? true : false);
 		daemon_conn_send(&daemon->master, take(msg));
 	}
 	return daemon_conn_read_next(conn, &daemon->master);
