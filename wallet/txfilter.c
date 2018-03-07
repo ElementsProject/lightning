@@ -3,8 +3,8 @@
 #include <bitcoin/script.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/mem/mem.h>
+#include <ccan/structeq/structeq.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/utils.h>
