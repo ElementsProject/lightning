@@ -1695,8 +1695,8 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log(' to ONCHAIN')
 
         # Wait for timeout.
-        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US .* in 5 blocks')
-        bitcoind.generate_block(5)
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US .* in 6 blocks')
+        bitcoind.generate_block(6)
 
         l1.daemon.wait_for_log('sendrawtx exit 0')
 
@@ -1720,15 +1720,15 @@ class LightningDTests(BaseLightningDTests):
         # and due to the l1 restart, there is none here.
         l1.daemon.wait_for_log('WIRE_PERMANENT_CHANNEL_FAILURE')
 
-        # 91 later, l2 is done
-        bitcoind.generate_block(90)
+        # 90 later, l2 is done
+        bitcoind.generate_block(89)
         sync_blockheight([l2])
         assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
         bitcoind.generate_block(1)
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
-        # Now, 6 blocks and l1 should be done.
-        bitcoind.generate_block(5)
+        # Now, 7 blocks and l1 should be done.
+        bitcoind.generate_block(6)
         sync_blockheight([l1])
         assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')
         bitcoind.generate_block(1)
@@ -1773,8 +1773,8 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log(' to ONCHAIN')
 
         # Wait for timeout.
-        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by DONATING_TO_MINERS .* in 5 blocks')
-        bitcoind.generate_block(5)
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by DONATING_TO_MINERS .* in 6 blocks')
+        bitcoind.generate_block(6)
 
         l1.daemon.wait_for_log('sendrawtx exit 0')
         bitcoind.generate_block(1)
@@ -1782,7 +1782,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal DONATING_TO_MINERS')
 
         # 100 deep and l2 forgets.
-        bitcoind.generate_block(92)
+        bitcoind.generate_block(91)
         sync_blockheight([l2])
         assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
         bitcoind.generate_block(1)
@@ -1814,8 +1814,8 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('Their unilateral tx, new commit point')
         l1.daemon.wait_for_log(' to ONCHAIN')
         l2.daemon.wait_for_log(' to ONCHAIN')
-        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 5 blocks')
-        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US (.*) in 5 blocks')
+        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 6 blocks')
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US (.*) in 6 blocks')
 
         # OK, time out HTLC.
         bitcoind.generate_block(5)
@@ -1850,8 +1850,8 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('Their unilateral tx, old commit point')
         l1.daemon.wait_for_log(' to ONCHAIN')
         l2.daemon.wait_for_log(' to ONCHAIN')
-        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 5 blocks')
-        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US (.*) in 5 blocks')
+        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 6 blocks')
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US (.*) in 6 blocks')
         # l2 then gets preimage, uses it instead of ignoring
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* in 0 blocks')
         l2.daemon.wait_for_log('sendrawtx exit 0')
@@ -1860,7 +1860,7 @@ class LightningDTests(BaseLightningDTests):
         # OK, l1 sees l2 fulfill htlc.
         l1.daemon.wait_for_log('THEIR_UNILATERAL/OUR_HTLC gave us preimage')
         l2.daemon.wait_for_log('Propose handling OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* in 5 blocks')
-        bitcoind.generate_block(5)
+        bitcoind.generate_block(6)
 
         l2.daemon.wait_for_log('sendrawtx exit 0')
 
@@ -1892,10 +1892,10 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('Their unilateral tx, old commit point')
         l1.daemon.wait_for_log(' to ONCHAIN')
         l2.daemon.wait_for_log(' to ONCHAIN')
-        l2.daemon.wait_for_logs(['Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX \\(.*\\) in 5 blocks',
+        l2.daemon.wait_for_logs(['Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX \\(.*\\) in 6 blocks',
                                  'Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* in 5 blocks'])
 
-        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 5 blocks')
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 6 blocks')
         # l1 then gets preimage, uses it instead of ignoring
         l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_FULFILL_TO_US .* in 0 blocks')
         l1.daemon.wait_for_log('sendrawtx exit 0')
