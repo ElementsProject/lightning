@@ -367,30 +367,80 @@ static void propose_resolution_at_block(struct tracked_output *out,
 	propose_resolution(out, tx, depth, tx_type);
 }
 
+static bool is_valid_sig(const u8 *e)
+{
+	secp256k1_ecdsa_signature sig;
+	size_t len = tal_len(e);
+
+	/* Last byte is sighash flags */
+	if (len < 1)
+		return false;
+
+	return signature_from_der(e, len-1, &sig);
+}
+
+/* We ignore things which look like signatures. */
+static bool input_similar(const struct bitcoin_tx_input *i1,
+			  const struct bitcoin_tx_input *i2)
+{
+	if (!structeq(&i1->txid, &i2->txid))
+		return false;
+
+	if (i1->index != i2->index)
+		return false;
+
+	if (!scripteq(i1->script, i2->script))
+		return false;
+
+	if (i1->sequence_number != i2->sequence_number)
+		return false;
+
+	if (tal_count(i1->witness) != tal_count(i2->witness))
+		return false;
+
+	for (size_t i = 0; i < tal_count(i1->witness); i++) {
+		if (scripteq(i1->witness[i], i2->witness[i]))
+			continue;
+
+		if (is_valid_sig(i1->witness[i]) && is_valid_sig(i2->witness[i]))
+			continue;
+		return false;
+	}
+
+	return true;
+}
+
 /* This simple case: true if this was resolved by our proposal. */
 static bool resolved_by_proposal(struct tracked_output *out,
-				 const struct bitcoin_txid *txid)
+				 const struct bitcoin_tx *tx)
 {
 	/* If there's no TX associated, it's not us. */
 	if (!out->proposal->tx)
 		return false;
 
 	out->resolved = tal(out, struct resolution);
-	bitcoin_txid(out->proposal->tx, &out->resolved->txid);
 
-	/* Not the same as what we proposed? */
-	if (!structeq(&out->resolved->txid, txid)) {
-		out->resolved = tal_free(out->resolved);
-		/* Don't need proposal any more */
-		out->proposal = tal_free(out->proposal);
+	/* Our proposal can change as feerates change.  Input
+	 * comparison (ignoring signatures) works pretty well.
+	 *
+	 * FIXME: Better would be to compare outputs, but they weren't
+	 * saved to db correctly until now. (COMPAT_V052)
+	 */
+	if (tal_count(tx->input) != tal_count(out->proposal->tx->input))
 		return false;
+
+	for (size_t i = 0; i < tal_count(tx->input); i++) {
+		if (!input_similar(tx->input + i, out->proposal->tx->input + i))
+			return false;
 	}
 
+	bitcoin_txid(tx, &out->resolved->txid);
 	status_trace("Resolved %s/%s by our proposal %s (%s)",
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
 		     tx_type_name(out->proposal->tx_type),
-		     type_to_string(trc, struct bitcoin_tx, out->proposal->tx));
+		     type_to_string(trc, struct bitcoin_txid,
+				    &out->resolved->txid));
 
 	out->resolved->depth = 0;
 	out->resolved->tx_type = out->proposal->tx_type;
@@ -761,7 +811,7 @@ static void output_spent(struct tracked_output ***outs,
 			continue;
 
 		/* Was this our resolution? */
-		if (resolved_by_proposal(out, &txid)) {
+		if (resolved_by_proposal(out, tx)) {
 			/* If it's our htlc tx, we need to resolve that, too. */
 			if (out->resolved->tx_type == OUR_HTLC_SUCCESS_TX
 			    || out->resolved->tx_type == OUR_HTLC_TIMEOUT_TX)
