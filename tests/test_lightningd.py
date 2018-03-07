@@ -1664,6 +1664,80 @@ class LightningDTests(BaseLightningDTests):
         wait_forget_channels(l2)
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_onchain_feechange(self):
+        """Onchain handling when we restart with different fees"""
+        # HTLC 1->2, 2 fails just after they're both irrevocably committed
+        # We need 2 to drop to chain, because then 1's HTLC timeout tx
+        # is generated on-the-fly, and is thus feerate sensitive.
+        disconnects = ['-WIRE_UPDATE_FAIL_HTLC', 'permfail']
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(disconnect=disconnects)
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        self.fund_channel(l1, l2, 10**6)
+
+        rhash = l2.rpc.invoice(10**8, 'onchain_timeout', 'desc')['payment_hash']
+        # We underpay, so it fails.
+        routestep = {
+            'msatoshi': 10**8 - 1,
+            'id': l2.info['id'],
+            'delay': 5,
+            'channel': '1:1:1'
+        }
+
+        self.executor.submit(l1.rpc.sendpay, to_json([routestep]), rhash)
+
+        # l2 will drop to chain.
+        l2.daemon.wait_for_log('permfail')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+        bitcoind.generate_block(1)
+        l1.daemon.wait_for_log(' to ONCHAIN')
+        l2.daemon.wait_for_log(' to ONCHAIN')
+
+        # Wait for timeout.
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US .* in 5 blocks')
+        bitcoind.generate_block(5)
+
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+
+        # Make sure that gets included.
+
+        bitcoind.generate_block(1)
+        # Now we restart with different feerates.
+        l1.stop()
+
+        l1.daemon.cmd_line.append('--override-fee-rates=20000/9000/2000')
+        l1.daemon.start()
+
+        # We recognize different proposal as ours.
+        l1.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TO_US')
+
+        # We use 3 blocks for "reasonable depth", so add two more
+        bitcoind.generate_block(2)
+
+        # Note that the very similar test_onchain_timeout looks for a
+        # different string: that's because it sees the JSONRPC response,
+        # and due to the l1 restart, there is none here.
+        l1.daemon.wait_for_log('WIRE_PERMANENT_CHANNEL_FAILURE')
+
+        # 91 later, l2 is done
+        bitcoind.generate_block(90)
+        sync_blockheight([l2])
+        assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
+        bitcoind.generate_block(1)
+        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+        # Now, 6 blocks and l1 should be done.
+        bitcoind.generate_block(5)
+        sync_blockheight([l1])
+        assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')
+        bitcoind.generate_block(1)
+        l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+        # Payment failed, BTW
+        assert l2.rpc.listinvoices('onchain_timeout')['invoices'][0]['status'] == 'unpaid'
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail_new_commit(self):
         # Test case where we have two possible commits: it will use new one.
         disconnects = ['-WIRE_REVOKE_AND_ACK', 'permfail']
