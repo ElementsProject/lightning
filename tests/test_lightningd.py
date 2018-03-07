@@ -1773,13 +1773,13 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log(' to ONCHAIN')
 
         # Wait for timeout.
-        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US .* in 5 blocks')
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by DONATING_TO_MINERS .* in 5 blocks')
         bitcoind.generate_block(5)
 
         l1.daemon.wait_for_log('sendrawtx exit 0')
         bitcoind.generate_block(1)
 
-        l1.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TO_US')
+        l1.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal DONATING_TO_MINERS')
 
         # 100 deep and l2 forgets.
         bitcoind.generate_block(92)
@@ -1788,7 +1788,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(1)
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
-        # l1 forgets 100 blocks after OUR_HTLC_TIMEOUT_TO_US.
+        # l1 forgets 100 blocks after DONATING_TO_MINERS.
         bitcoind.generate_block(6)
         sync_blockheight([l1])
         assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')

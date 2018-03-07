@@ -213,6 +213,8 @@ static const char *output_type_name(enum output_type output_type)
  * 3. the their-commitment, our HTLC redeem case (`<remotehtlcsig> <payment_preimage>`)
  * 4. the their-revoked-commitment, to-local (`<revocation_sig> 1`)
  * 5. the their-revoked-commitment, htlc (`<revocation_sig> <revocationkey>`)
+ *
+ * Overrides *tx_type if it all turns to dust.
  */
 static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 				   struct tracked_output *out,
@@ -221,7 +223,8 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 				   const void *elem, size_t elemsize,
 				   const u8 *wscript,
 				   const struct privkey *privkey,
-				   const struct pubkey *pubkey)
+				   const struct pubkey *pubkey,
+				   enum tx_type *tx_type)
 {
 	struct bitcoin_tx *tx;
 	u64 fee;
@@ -247,6 +250,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 	if (tx->output[0].amount < dust_limit_satoshis + fee) {
 		tx->output[0].amount = 0;
 		tx->output[0].script = scriptpubkey_opreturn(tx->output);
+		*tx_type = DONATING_TO_MINERS;
 	} else
 		tx->output[0].amount -= fee;
 
@@ -723,6 +727,7 @@ static void resolve_htlc_tx(struct tracked_output ***outs,
 {
 	struct tracked_output *out;
 	struct bitcoin_tx *tx;
+	enum tx_type tx_type = OUR_DELAYED_RETURN_TO_WALLET;
 	u8 *wscript = bitcoin_wscript_htlc_tx(htlc_tx, to_self_delay[LOCAL],
 					      &keyset->self_revocation_key,
 					      &keyset->self_delayed_payment_key);
@@ -756,10 +761,10 @@ static void resolve_htlc_tx(struct tracked_output ***outs,
 	tx = tx_to_us(*outs, out, to_self_delay[LOCAL], 0, NULL, 0,
 		      wscript,
 		      &delayed_payment_privkey,
-		      &keyset->self_delayed_payment_key);
+		      &keyset->self_delayed_payment_key,
+		      &tx_type);
 
-	propose_resolution(out, tx, to_self_delay[LOCAL],
-			   OUR_DELAYED_RETURN_TO_WALLET);
+	propose_resolution(out, tx, to_self_delay[LOCAL], tx_type);
 }
 
 /* BOLT #5:
@@ -777,6 +782,7 @@ static void resolve_htlc_tx(struct tracked_output ***outs,
 static void steal_htlc_tx(struct tracked_output *out)
 {
 	struct bitcoin_tx *tx;
+	enum tx_type tx_type = OUR_PENALTY_TX;
 
 	/* BOLT #3:
 	 *
@@ -787,8 +793,9 @@ static void steal_htlc_tx(struct tracked_output *out)
 		      &ONE, sizeof(ONE),
 		      out->wscript,
 		      revocation_privkey,
-		      &keyset->self_revocation_key);
-	propose_resolution(out, tx, 0, OUR_PENALTY_TX);
+		      &keyset->self_revocation_key,
+		      &tx_type);
+	propose_resolution(out, tx, 0, tx_type);
 }
 
 /* An output has been spent: see if it resolves something we care about. */
@@ -1046,6 +1053,8 @@ static void handle_preimage(struct tracked_output **outs,
 								  outs[i]->wscript);
 			propose_resolution(outs[i], tx, 0, OUR_HTLC_SUCCESS_TX);
 		} else {
+			enum tx_type tx_type = THEIR_HTLC_FULFILL_TO_US;
+
 			/* BOLT #5:
 			 *
 			 * otherwise, it MUST spend the output to a convenient
@@ -1055,9 +1064,9 @@ static void handle_preimage(struct tracked_output **outs,
 				      preimage, sizeof(*preimage),
 				      outs[i]->wscript,
 				      &htlc_privkey,
-				      &keyset->other_htlc_key);
-			propose_resolution(outs[i], tx, 0,
-					   THEIR_HTLC_FULFILL_TO_US);
+				      &keyset->other_htlc_key,
+				      &tx_type);
+			propose_resolution(outs[i], tx, 0, tx_type);
 		}
 	}
 }
@@ -1206,6 +1215,7 @@ static void resolve_our_htlc_ourcommit(struct tracked_output *out)
 static void resolve_our_htlc_theircommit(struct tracked_output *out)
 {
 	struct bitcoin_tx *tx;
+	enum tx_type tx_type = OUR_HTLC_TIMEOUT_TO_US;
 
 	/* BOLT #5:
 	 *
@@ -1222,10 +1232,10 @@ static void resolve_our_htlc_theircommit(struct tracked_output *out)
 	tx = tx_to_us(out, out, 0, out->htlc->cltv_expiry, NULL, 0,
 		      out->wscript,
 		      &htlc_privkey,
-		      &keyset->other_htlc_key);
+		      &keyset->other_htlc_key,
+		      &tx_type);
 
-	propose_resolution_at_block(out, tx, out->htlc->cltv_expiry,
-				    OUR_HTLC_TIMEOUT_TO_US);
+	propose_resolution_at_block(out, tx, out->htlc->cltv_expiry, tx_type);
 }
 
 static void resolve_their_htlc(struct tracked_output *out)
@@ -1439,6 +1449,8 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 		if (script[LOCAL]
 		    && scripteq(tx->output[i].script, script[LOCAL])) {
 			struct bitcoin_tx *to_us;
+			enum tx_type tx_type = OUR_DELAYED_RETURN_TO_WALLET;
+
 			/* BOLT #5:
 			 *
 			 * 1. _A's main output_: A node SHOULD spend this
@@ -1461,14 +1473,15 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 					 NULL, 0,
 					 local_wscript,
 					 &delayed_payment_privkey,
-					 &keyset->self_delayed_payment_key);
+					 &keyset->self_delayed_payment_key,
+					 &tx_type);
 
 			/* BOLT #5:
 			 *
 			 * If the output is spent (as recommended), the output
 			 * is *resolved* by the spending transaction */
 			propose_resolution(out, to_us, to_self_delay[LOCAL],
-					   OUR_DELAYED_RETURN_TO_WALLET);
+					   tx_type);
 
 			script[LOCAL] = NULL;
 			continue;
@@ -1547,6 +1560,7 @@ static void steal_to_them_output(struct tracked_output *out)
 	const tal_t *tmpctx = tal_tmpctx(NULL);
 	u8 *wscript;
 	struct bitcoin_tx *tx;
+	enum tx_type tx_type = OUR_PENALTY_TX;
 
 	/* BOLT #3:
 	 *
@@ -1563,15 +1577,17 @@ static void steal_to_them_output(struct tracked_output *out)
 		      &ONE, sizeof(ONE),
 		      wscript,
 		      revocation_privkey,
-		      &keyset->self_revocation_key);
+		      &keyset->self_revocation_key,
+		      &tx_type);
 
-	propose_resolution(out, tx, 0, OUR_PENALTY_TX);
+	propose_resolution(out, tx, 0, tx_type);
 	tal_free(tmpctx);
 }
 
 static void steal_htlc(struct tracked_output *out)
 {
 	struct bitcoin_tx *tx;
+	enum tx_type tx_type = OUR_PENALTY_TX;
 	u8 der[PUBKEY_DER_LEN];
 
 	/* BOLT #3:
@@ -1586,9 +1602,10 @@ static void steal_htlc(struct tracked_output *out)
 		      der, sizeof(der),
 		      out->wscript,
 		      revocation_privkey,
-		      &keyset->self_revocation_key);
+		      &keyset->self_revocation_key,
+		      &tx_type);
 
-	propose_resolution(out, tx, 0, OUR_PENALTY_TX);
+	propose_resolution(out, tx, 0, tx_type);
 }
 
 /* BOLT #5:
