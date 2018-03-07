@@ -880,11 +880,16 @@ static void gossip_peer_disconnected (struct subd *gossip,
 				 const u8 *resp,
 				 const int *fds,
 				 struct command *cmd) {
+	bool isconnected;
+
 	if (!fromwire_gossipctl_peer_disconnect_reply(resp)) {
-		if (!fromwire_gossipctl_peer_disconnect_replyfail(resp))
+		if (!fromwire_gossipctl_peer_disconnect_replyfail(resp, &isconnected))
 			fatal("Gossip daemon gave invalid reply %s",
 			      tal_hex(gossip, resp));
-		command_fail(cmd, "Peer not connected");
+		if (isconnected)
+			command_fail(cmd, "Peer is not in gossip mode");
+		else
+			command_fail(cmd, "Peer not connected");
 	} else {
 		/* Successfully disconnected */
 		command_success(cmd, null_response(cmd));

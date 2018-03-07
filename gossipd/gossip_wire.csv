@@ -222,3 +222,4 @@ gossipctl_peer_disconnect_reply,3123
 
 # Gossipd -> master:  reply to gossip_peer_disconnect if we couldn't find the peer.
 gossipctl_peer_disconnect_replyfail,3223
+gossipctl_peer_disconnect_replyfail,,isconnected,bool
