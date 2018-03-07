@@ -341,7 +341,7 @@ static void propose_resolution(struct tracked_output *out,
 			       unsigned int depth_required,
 			       enum tx_type tx_type)
 {
-	status_trace("Propose handling %s/%s by %s (%s) in %u blocks",
+	status_trace("Propose handling %s/%s by %s (%s) after %u blocks",
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
 		     tx_type_name(tx_type),
