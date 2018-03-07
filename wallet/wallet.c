@@ -4,10 +4,10 @@
 #include <bitcoin/script.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
+#include <common/wireaddr.h>
 #include <inttypes.h>
 #include <lightningd/invoice.h>
 #include <lightningd/lightningd.h>
-#include <common/wireaddr.h>
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
