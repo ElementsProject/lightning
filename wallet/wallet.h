@@ -16,6 +16,7 @@
 #include <onchaind/onchain_wire.h>
 #include <wally_bip32.h>
 
+enum onion_type;
 struct invoices;
 struct channel;
 struct lightningd;
@@ -667,6 +668,37 @@ void wallet_payment_set_status(struct wallet *wallet,
 struct secret *wallet_payment_get_secrets(const tal_t *ctx,
 					  struct wallet *wallet,
 					  const struct sha256 *payment_hash);
+
+/**
+ * wallet_payment_get_failinfo - Get failure information for a given
+ * `payment_hash`.
+ *
+ * Data is allocated as children of the given context.
+ */
+void wallet_payment_get_failinfo(const tal_t *ctx,
+				 struct wallet *wallet,
+				 const struct sha256 *payment_hash,
+				 /* outputs */
+				 u8 **failonionreply,
+				 bool *faildestperm,
+				 int *failindex,
+				 enum onion_type *failcode,
+				 struct pubkey **failnode,
+				 struct short_channel_id **failchannel,
+				 u8 **failupdate);
+/**
+ * wallet_payment_set_failinfo - Set failure information for a given
+ * `payment_hash`.
+ */
+void wallet_payment_set_failinfo(struct wallet *wallet,
+				 const struct sha256 *payment_hash,
+				 const u8 *failonionreply,
+				 bool faildestperm,
+				 int failindex,
+				 enum onion_type failcode,
+				 const struct pubkey *failnode,
+				 const struct short_channel_id *failchannel,
+				 const u8 *failupdate);
 
 /**
  * wallet_payment_list - Retrieve a list of payments

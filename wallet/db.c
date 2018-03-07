@@ -233,6 +233,18 @@ char *dbmigrations[] = {
     /* Assign key 0 to unassigned shutdown_keyidx_local. */
     "UPDATE channels SET shutdown_keyidx_local=0 WHERE shutdown_keyidx_local = -1;",
     /* FIXME: We should rename shutdown_keyidx_local to final_key_index */
+    /* -- Payment routing failure information -- */
+    /* BLOB if failure was due to unparseable onion, NULL otherwise */
+    "ALTER TABLE payments ADD failonionreply BLOB;",
+    /* 0 if we could theoretically retry, 1 if PERM fail at payee */
+    "ALTER TABLE payments ADD faildestperm INTEGER;",
+    /* Contents of routing_failure (only if not unparseable onion) */
+    "ALTER TABLE payments ADD failindex INTEGER;", /* erring_index */
+    "ALTER TABLE payments ADD failcode INTEGER;", /* failcode */
+    "ALTER TABLE payments ADD failnode BLOB;", /* erring_node */
+    "ALTER TABLE payments ADD failchannel BLOB;", /* erring_channel */
+    "ALTER TABLE payments ADD failupdate BLOB;", /* channel_update - can be NULL*/
+    /* -- Payment routing failure information ends -- */
     NULL,
 };
 
