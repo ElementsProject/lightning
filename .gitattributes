@@ -4,3 +4,4 @@
 Makefile text eol=lf
 configure text eol=lf
 .gitmodules text eol=lf
+hooks/build text eol=lf

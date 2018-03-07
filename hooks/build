@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# This file is a hook for dockerhub.
+# If the tag ends with -dev or -bench, make sure to build with DEVELOPER=1
+# If the tag ends with -bench, make sure trace tools (perf, flamegraph and sample.sh are included)
+
+DEVELOPER=0
+TRACE_TOOLS=false
+
+if [[ "$DOCKER_TAG" == *-dev ]] || [[ "$DOCKER_TAG" == *-bench ]]; then
+    DEVELOPER=1
+fi
+
+if [[ "$DOCKER_TAG" == *-bench ]]; then
+    TRACE_TOOLS=true
+fi
+
+docker build --build-arg "DEVELOPER=$DEVELOPER" --build-arg "TRACE_TOOLS=$TRACE_TOOLS" -t "$IMAGE_NAME" .

@@ -117,6 +117,24 @@ volumes:
   clightning_bitcoin_datadir:
 ```
 
+Alternatively you can use `LIGHTNINGD_OPT`:
+
+```
+  clightning_bitcoin:
+    image: elementsproject/lightningd
+    environment:
+      EXPOSE_TCP: "true"
+      LIGHTNINGD_OPT: |
+        bitcoin-rpcconnect=bitcoind
+        bitcoin-rpcuser=rpcuser
+        bitcoin-rpcpassword=rpcpass
+        network=testnet
+        alias=myawesomenode
+        log-level=debug
+```
+
+If you use `LIGHTNINGD_OPT`, you can use the special parameter `chain=ltc|btc` so you can switch the network to `litecoin` or `bitcoin` variant without changing the `network=` parameter.
+
 ### Starting `lightningd`
 
 In order to start `lightningd` you will need to have a local `bitcoind`
