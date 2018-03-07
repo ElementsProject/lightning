@@ -73,8 +73,14 @@ bool derive_basepoints(const struct privkey *seed UNNEEDED,
 /* Generated stub for extract_channel_id */
 bool extract_channel_id(const u8 *in_pkt UNNEEDED, struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "extract_channel_id called!\n"); abort(); }
+/* Generated stub for fromwire_gossipctl_peer_disconnect_reply */
+bool fromwire_gossipctl_peer_disconnect_reply(const void *p UNNEEDED)
+{ fprintf(stderr, "fromwire_gossipctl_peer_disconnect_reply called!\n"); abort(); }
+/* Generated stub for fromwire_gossipctl_peer_disconnect_replyfail */
+bool fromwire_gossipctl_peer_disconnect_replyfail(const void *p UNNEEDED, bool *isconnected UNNEEDED)
+{ fprintf(stderr, "fromwire_gossipctl_peer_disconnect_replyfail called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_getpeers_reply */
-bool fromwire_gossip_getpeers_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey **id UNNEEDED, struct wireaddr **addr UNNEEDED,  struct gossip_getnodes_entry ***nodes UNNEEDED)
+bool fromwire_gossip_getpeers_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey **id UNNEEDED, struct wireaddr **addr UNNEEDED, struct gossip_getnodes_entry ***nodes UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_getpeers_reply called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_peer_connected */
 bool fromwire_gossip_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey *id UNNEEDED, struct wireaddr *addr UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u64 *gossip_index UNNEEDED, u8 **gfeatures UNNEEDED, u8 **lfeatures UNNEEDED)
@@ -191,6 +197,10 @@ void json_add_short_channel_id(struct json_result *response UNNEEDED,
 /* Generated stub for json_add_string */
 void json_add_string(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED, const char *value UNNEEDED)
 { fprintf(stderr, "json_add_string called!\n"); abort(); }
+/* Generated stub for json_add_string_escape */
+void json_add_string_escape(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
+			    const char *value UNNEEDED)
+{ fprintf(stderr, "json_add_string_escape called!\n"); abort(); }
 /* Generated stub for json_add_txid */
 void json_add_txid(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
 		   const struct bitcoin_txid *txid UNNEEDED)
@@ -338,6 +348,9 @@ u8 *towire_gossipctl_hand_back_peer(const tal_t *ctx UNNEEDED, const struct pubk
 /* Generated stub for towire_gossipctl_peer_addrhint */
 u8 *towire_gossipctl_peer_addrhint(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, const struct wireaddr *addr UNNEEDED)
 { fprintf(stderr, "towire_gossipctl_peer_addrhint called!\n"); abort(); }
+/* Generated stub for towire_gossipctl_peer_disconnect */
+u8 *towire_gossipctl_peer_disconnect(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
+{ fprintf(stderr, "towire_gossipctl_peer_disconnect called!\n"); abort(); }
 /* Generated stub for towire_gossipctl_reach_peer */
 u8 *towire_gossipctl_reach_peer(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
 { fprintf(stderr, "towire_gossipctl_reach_peer called!\n"); abort(); }
@@ -348,7 +361,7 @@ u8 *towire_gossip_disable_channel(const tal_t *ctx UNNEEDED, const struct short_
 u8 *towire_gossip_getpeers_request(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
 { fprintf(stderr, "towire_gossip_getpeers_request called!\n"); abort(); }
 /* Generated stub for txfilter_add_scriptpubkey */
-void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, u8 *script UNNEEDED)
+void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *script TAKES UNNEEDED)
 { fprintf(stderr, "txfilter_add_scriptpubkey called!\n"); abort(); }
 /* Generated stub for unsupported_features */
 bool unsupported_features(const u8 *gfeatures UNNEEDED, const u8 *lfeatures UNNEEDED)
@@ -373,18 +386,6 @@ struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
 						   size_t input_num UNNEEDED,
 						   const struct block *block))
 { fprintf(stderr, "watch_txo called!\n"); abort(); }
-/* Generated stub for json_add_string_escape */
-void json_add_string_escape(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED, const char *value UNNEEDED)
-{ fprintf(stderr, "json_add_string_escape called!\n"); abort(); }
-/* Generated stub for towire_gossipctl_peer_disconnect */
-u8 *towire_gossipctl_peer_disconnect(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
-{ fprintf(stderr, "towire_gossipctl_peer_disconnect called!\n"); abort(); }
-/* Generated stub for fromwire_gossipctl_peer_disconnect_reply */
-bool fromwire_gossipctl_peer_disconnect_reply(const void *p UNNEEDED)
-{ fprintf(stderr, "fromwire_gossipctl_peer_disconnect_reply called!\n"); abort(); }
-/* Generated stub for fromwire_gossipctl_peer_disconnect_replyfail*/
-bool fromwire_gossipctl_peer_disconnect_replyfail(const void *p UNNEEDED, bool *isconnected UNNEEDED)
-{ fprintf(stderr, "fromwire_gossipctl_peer_disconnect_replyfail called!\n"); abort(); }
 /* AUTOGENERATED MOCKS END */
 
 #if DEVELOPER

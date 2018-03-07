@@ -26,7 +26,8 @@ struct txfilter *txfilter_new(const tal_t *ctx);
  * scriptpubkey then the transaction is marked as a match. Adds
  * scriptpubkey for both raw p2wpkh and p2wpkh wrapped in p2sh.
  */
-void txfilter_add_derkey(struct txfilter *filter, u8 derkey[PUBKEY_DER_LEN]);
+void txfilter_add_derkey(struct txfilter *filter,
+			 const u8 derkey[PUBKEY_DER_LEN]);
 
 /**
  * txfilter_match -- Check whether the tx matches the filter
@@ -36,7 +37,7 @@ bool txfilter_match(const struct txfilter *filter, const struct bitcoin_tx *tx);
 /**
  * txfilter_add_scriptpubkey -- Add a serialized scriptpubkey to the filter
  */
-void txfilter_add_scriptpubkey(struct txfilter *filter, u8 *script);
+void txfilter_add_scriptpubkey(struct txfilter *filter, const u8 *script TAKES);
 
 /**
  * outpointfilter_new -- Create a new outpointfilter
