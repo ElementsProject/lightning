@@ -795,7 +795,7 @@ static void gossip_peer_released(struct subd *gossip,
 }
 
 /**
- * json_fund_channel - Entrypoint for funding a channel 
+ * json_fund_channel - Entrypoint for funding a channel
  */
 static void json_fund_channel(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
