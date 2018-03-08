@@ -314,7 +314,12 @@ static void gossip_in(struct peer *peer, const u8 *msg)
 
 	if (is_msg_for_gossipd(gossip))
 		enqueue_peer_msg(peer, gossip);
-	else
+	else if (fromwire_peektype(gossip) == WIRE_ERROR) {
+		struct channel_id channel_id;
+		char *what = sanitize_error(msg, msg, &channel_id);
+		peer_failed(&peer->cs, peer->gossip_index, &channel_id,
+			    "gossipd said: %s", what);
+	} else
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Got bad message type %s from gossipd: %s",
 			      wire_type_name(fromwire_peektype(gossip)),
