@@ -506,7 +506,9 @@ static void handle_gossip_msg(struct peer *peer, u8 *msg)
 		break;
 
 	case WIRE_CHANNEL_UPDATE:
-		handle_channel_update(rstate, msg);
+		err = handle_channel_update(rstate, msg);
+		if (err)
+			queue_peer_msg(peer, take(err));
 		break;
 	}
 }
@@ -1334,7 +1336,7 @@ static void gossip_send_keepalive_update(struct routing_state *rstate,
 	u32 timestamp, fee_base_msat, fee_proportional_millionths;
 	u64 htlc_minimum_msat;
 	u16 flags, cltv_expiry_delta;
-	u8 *update, *msg;
+	u8 *update, *msg, *err;
 
 	/* Parse old update */
 	if (!fromwire_channel_update(
@@ -1369,7 +1371,11 @@ static void gossip_send_keepalive_update(struct routing_state *rstate,
 	status_trace("Sending keepalive channel_update for %s",
 		     type_to_string(tmpctx, struct short_channel_id, &scid));
 
-	handle_channel_update(rstate, update);
+	err = handle_channel_update(rstate, update);
+	if (err)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "rejected keepalive channel_update: %s",
+			      tal_hex(trc, err));
 	tal_free(tmpctx);
 
 }
@@ -1863,6 +1869,7 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 	struct bitcoin_blkid chain_hash;
 	secp256k1_ecdsa_signature sig;
 	u64 htlc_minimum_msat;
+	u8 *err;
 
 	if (!fromwire_gossip_disable_channel(msg, &scid, &direction, &active) ) {
 		status_unusual("Unable to parse %s",
@@ -1927,7 +1934,11 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 			      strerror(errno));
 	}
 
-	handle_channel_update(daemon->rstate, msg);
+	err = handle_channel_update(daemon->rstate, msg);
+	if (err)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "rejected disabling channel_update: %s",
+			      tal_hex(trc, err));
 
 fail:
 	tal_free(tmpctx);
