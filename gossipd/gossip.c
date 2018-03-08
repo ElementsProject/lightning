@@ -291,6 +291,22 @@ static void reached_peer(struct daemon *daemon, const struct pubkey *id,
 	tal_free(r);
 }
 
+static void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
+{
+	const u8 *send;
+
+	if (peer->local) {
+		msg_enqueue(&peer->local->peer_out, msg);
+		return;
+	}
+
+	/* Use gossip_index 0 meaning don't update index */
+	send = towire_gossip_send_gossip(NULL, 0, msg);
+	if (taken(msg))
+		tal_free(msg);
+	daemon_conn_send(peer->remote, take(send));
+}
+
 static void peer_error(struct peer *peer, const char *fmt, ...)
 {
 	va_list ap;
@@ -303,8 +319,7 @@ static void peer_error(struct peer *peer, const char *fmt, ...)
 
 	/* Send error: we'll close after writing this. */
 	va_start(ap, fmt);
-	msg_enqueue(&peer->local->peer_out,
-		    take(towire_errorfmtv(peer, NULL, fmt, ap)));
+	queue_peer_msg(peer, take(towire_errorfmtv(peer, NULL, fmt, ap)));
 	va_end(ap);
 }
 
