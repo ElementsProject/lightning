@@ -306,22 +306,19 @@ static void enqueue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 static void gossip_in(struct peer *peer, const u8 *msg)
 {
 	u8 *gossip;
-	u16 type;
 
-	if (!fromwire_gossip_send_gossip(msg, msg,
-					 &peer->gossip_index, &gossip))
+	if (!fromwire_gossip_send_gossip(msg, msg, &peer->gossip_index, &gossip))
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Got bad message from gossipd: %s",
 			      tal_hex(msg, msg));
-	type = fromwire_peektype(gossip);
 
-	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
-	    type == WIRE_NODE_ANNOUNCEMENT)
+	if (is_msg_for_gossipd(gossip))
 		enqueue_peer_msg(peer, gossip);
 	else
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Got bad message type %s from gossipd: %s",
-			      wire_type_name(type), tal_hex(msg, msg));
+			      wire_type_name(fromwire_peektype(gossip)),
+			      tal_hex(msg, msg));
 }
 
 /* Send a temporary `channel_announcement` and `channel_update`. These
