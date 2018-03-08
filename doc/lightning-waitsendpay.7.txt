@@ -1,46 +1,44 @@
-LIGHTNING-SENDPAY(7)
-====================
+LIGHTNING-WAITSENDPAY(7)
+========================
 :doctype: manpage
 
 NAME
 ----
-lightning-sendpay - Protocol for sending a payment via a route.
+lightning-waitsendpay - Protocol for sending a payment via a route.
 
 SYNOPSIS
 --------
-*sendpay* 'route' 'hash'
+*waitsendpay* 'hash' ['timeout']
 
 DESCRIPTION
 -----------
 
-The *sendpay* RPC command attempts to send funds associated with the
-given 'hash', along a route to the final destination in the route.
+The *waitsendpay* RPC command polls or waits for the status of
+an outgoing payment that was initiated by a previous *sendpay*
+invocation.
 
-Generally, a client would call getroute(7) to resolve a route, then
-use *sendpay* to send it.  If it fails, it would call getroute(7)
-again to retry.
+Optionally the client may provide a 'timeout', an integer in
+seconds, for this RPC command to return.
+If the 'timeout' is provided and the given amount of time
+passes without the payment definitely succeeding or definitely
+failing, this command returns with a 200 error code (payment
+still in progress).
+If 'timeout' is not provided this call will wait indefinitely.
 
-The response will occur when the payment is on its way to the
-destination.
-The *sendpay* RPC command does not wait for definite success or
-definite failure of the payment.
-Instead, use the *waitsendpay* RPC command to poll or wait for
-definite success or definite failure.
+Indicating a 'timeout' of 0 effectively makes this call a
+pollable query of the status of the payment.
 
-Once a payment has succeeded, calls to *sendpay* with the same 'hash'
-but a different amount or destination will fail; this prevents
-accidental multiple payments.
-Calls to *sendpay* with the same 'hash', amount, and destination as a
-previous successful payment (even if a different route) will return
-immediately with success.
+If the payment completed with success, this command returns
+with success.
+Otherwise, if the payment completed with failure, this command
+returns an error.
 
 RETURN VALUE
 ------------
 
 On success, an object with field 'completed' is returned.
-Typically this field is 'false', but if the payment has already
-succeeded before to the same destination and amount, the field
-shall be set to 'true' and the 'preimage' will be returned also.
+This field will be 'true' and another field 'preimage' of the
+object will be set to the preimage.
 
 On error, if the error occurred from a node other than the final
 destination, the route table will be updated so that getroute(7)
@@ -50,9 +48,7 @@ destination implies the payment should not be retried.
 The following error codes may occur:
 
 * -1. Catchall nonspecific error.
-* 200. A previous *sendpay* or *pay* is in progress.
-* 201. Already paid with this 'hash' using different amount or
-  destination.
+* 200. Timed out before the payment could complete.
 * 202. Unparseable onion reply. The 'data' field of the error
   will have an 'onionreply' field, a hex string representation
   of the raw onion reply.
@@ -60,6 +56,11 @@ The following error codes may occur:
   the error will be routing failure object.
 * 204. Failure along route; retry a different route. The 'data'
   field of the error will be routing failure object.
+* 208. A payment for 'hash' was never made and there is nothing
+  to wait for.
+* 209. The payment already failed, but the reason for failure
+  was not stored. This should only occur when querying failed
+  payments on very old databases.
 
 A routing failure object has the fields below:
 
@@ -79,13 +80,11 @@ A routing failure object has the fields below:
 
 AUTHOR
 ------
-Rusty Russell <rusty@rustcorp.com.au> is mainly responsible.
+ZmnSCPxj <ZmnSCPxj@protonmail.com> is mainly responsible.
 
 SEE ALSO
 --------
-lightning-listinvoice(7), lightning-delinvoice(7),
-lightning-getroute(7), lightning-invoice(7),
-lightning-pay(7), lightning-waitsendpay(7).
+lightning-sendpay(7), lightning-pay(7).
 
 RESOURCES
 ---------
