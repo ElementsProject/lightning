@@ -500,11 +500,18 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 		return;
 
 	if (pna->node_announcement) {
+		u8 *err;
 		SUPERVERBOSE(
 		    "Processing deferred node_announcement for node %s",
 		    type_to_string(pna, struct pubkey, nodeid));
-		/* FIXME: Do something if this is invalid */
-		handle_node_announcement(rstate, pna->node_announcement);
+
+		/* Should not error, since we processed it before */
+		err = handle_node_announcement(rstate, pna->node_announcement);
+		if (err)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "pending node_announcement %s malformed %s?",
+				      tal_hex(trc, pna->node_announcement),
+				      sanitize_error(trc, err, NULL));
 	}
 	pending_node_map_del(rstate->pending_node_map, pna);
 	tal_free(pna);
@@ -1007,6 +1014,24 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 		return err;
 	}
 
+	wireaddrs = read_addresses(tmpctx, addresses);
+	if (!wireaddrs) {
+		/* BOLT #7:
+		 *
+		 * - if `addrlen` is insufficient to hold the address
+		 *  descriptors of the known types:
+		 *    - SHOULD fail the connection.
+		 */
+		u8 *err = towire_errorfmt(rstate, NULL,
+					  "Malformed wireaddrs %s in %s.",
+					  tal_hex(tmpctx, wireaddrs),
+					  tal_hex(tmpctx, node_ann));
+		tal_free(tmpctx);
+		return err;
+	}
+
+	/* Beyond this point it's not malformed, so safe if we make it
+	 * pending and requeue later. */
 	node = get_node(rstate, &node_id);
 
 	/* Check if we are currently verifying the txout for a
@@ -1048,22 +1073,6 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	status_trace("Received node_announcement for node %s",
 		     type_to_string(tmpctx, struct pubkey, &node_id));
 
-	wireaddrs = read_addresses(tmpctx, addresses);
-	if (!wireaddrs) {
-		/* BOLT #7:
-		 *
-		 * - if `addrlen` is insufficient to hold the address
-		 *  descriptors of the known types:
-		 *    - SHOULD fail the connection.
-		 */
-		u8 *err = towire_errorfmt(rstate, NULL,
-					  "Malformed wireaddrs %s in %s.",
-					  tal_hex(tmpctx, wireaddrs),
-					  tal_hex(tmpctx, node_ann));
-		tal_free(serialized);
-		tal_free(tmpctx);
-		return err;
-	}
 	tal_free(node->addresses);
 	node->addresses = tal_steal(node, wireaddrs);
 

@@ -47,6 +47,10 @@ bool replace_broadcast(struct broadcast_state *bstate UNNEEDED,
 		       const u8 *tag UNNEEDED,
 		       const u8 *payload UNNEEDED)
 { fprintf(stderr, "replace_broadcast called!\n"); abort(); }
+/* Generated stub for sanitize_error */
+char *sanitize_error(const tal_t *ctx UNNEEDED, const u8 *errmsg UNNEEDED,
+		     struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "sanitize_error called!\n"); abort(); }
 /* Generated stub for status_failed */
 void status_failed(enum status_failreason code UNNEEDED,
 		   const char *fmt UNNEEDED, ...)
