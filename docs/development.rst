@@ -95,7 +95,7 @@ Memory Management
   `tal` allocate memory for the given `type` as a child of the given
   `ctx`. That means that a future call to `tal_free(ctx)` or one of
   the parents of `ctx` will cascade and free this allocation. In the
-  rate case of not having a parent context from which to allocate
+  rare case of not having a parent context from which to allocate
   from, you can pass in `NULL` as `ctx` to create a new rooted tree of
   allocations.
 
