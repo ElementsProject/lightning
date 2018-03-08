@@ -31,9 +31,9 @@ static bool unknown_type(enum wire_type t)
 	return true;
 }
 
-bool is_gossip_msg(const u8 *cursor)
+bool is_msg_for_gossipd(const u8 *cursor)
 {
-	switch (fromwire_peektype(cursor)) {
+	switch ((enum wire_type)fromwire_peektype(cursor)) {
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_NODE_ANNOUNCEMENT:
 	case WIRE_CHANNEL_UPDATE:
@@ -56,6 +56,8 @@ bool is_gossip_msg(const u8 *cursor)
 	case WIRE_UPDATE_FEE:
 	case WIRE_PING:
 	case WIRE_PONG:
+	case WIRE_CHANNEL_REESTABLISH:
+	case WIRE_ANNOUNCEMENT_SIGNATURES:
 		break;
 	}
 	return false;
