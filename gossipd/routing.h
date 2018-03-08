@@ -196,11 +196,12 @@ struct chan *new_chan(struct routing_state *rstate,
 /**
  * handle_channel_announcement -- Check channel announcement is valid
  *
- * Returns a short_channel_id to look up if signatures pass.
+ * Returns error message if we should fail channel.  Make *scid non-NULL
+ * (for checking) if we extracted a short_channel_id, otherwise ignore.
  */
-const struct short_channel_id *
-handle_channel_announcement(struct routing_state *rstate,
-			    const u8 *announce TAKES);
+u8 *handle_channel_announcement(struct routing_state *rstate,
+				const u8 *announce TAKES,
+				const struct short_channel_id **scid);
 
 /**
  * handle_pending_cannouncement -- handle channel_announce once we've
