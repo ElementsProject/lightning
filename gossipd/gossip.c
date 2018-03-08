@@ -819,10 +819,11 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 	} else if (type == WIRE_GOSSIP_LOCAL_ADD_CHANNEL) {
 		handle_local_add_channel(peer, dc->msg_in);
 	} else {
-		status_failed(
-		    STATUS_FAIL_INTERNAL_ERROR,
-		    "Gossip received unknown message of type %s from owner",
-		    gossip_wire_type_name(type));
+		status_broken("peer %s: send us unknown msg of type %s",
+			      type_to_string(trc, struct pubkey, &peer->id),
+			      gossip_wire_type_name(type));
+		/* Calls forget_peer */
+		return io_close(conn);
 	}
 
 	return daemon_conn_read_next(conn, dc);
