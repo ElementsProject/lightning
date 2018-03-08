@@ -463,7 +463,7 @@ static bool check_channel_update(const struct pubkey *node_key,
 	return check_signed_hash(&hash, node_sig, node_key);
 }
 
-static bool check_channel_announcement(
+static u8 *check_channel_announcement(const tal_t *ctx,
     const struct pubkey *node1_key, const struct pubkey *node2_key,
     const struct pubkey *bitcoin1_key, const struct pubkey *bitcoin2_key,
     const secp256k1_ecdsa_signature *node1_sig,
@@ -477,10 +477,55 @@ static bool check_channel_announcement(
 	sha256_double(&hash, announcement + offset,
 		      tal_len(announcement) - offset);
 
-	return check_signed_hash(&hash, node1_sig, node1_key) &&
-	       check_signed_hash(&hash, node2_sig, node2_key) &&
-	       check_signed_hash(&hash, bitcoin1_sig, bitcoin1_key) &&
-	       check_signed_hash(&hash, bitcoin2_sig, bitcoin2_key);
+	if (!check_signed_hash(&hash, node1_sig, node1_key)) {
+		return towire_errorfmt(ctx, NULL,
+				       "Bad node_signature_1 %s hash %s"
+				       " on node_announcement %s",
+				       type_to_string(ctx,
+						      secp256k1_ecdsa_signature,
+						      node1_sig),
+				       type_to_string(ctx,
+						      struct sha256_double,
+						      &hash),
+				       tal_hex(ctx, announcement));
+	}
+	if (!check_signed_hash(&hash, node2_sig, node2_key)) {
+		return towire_errorfmt(ctx, NULL,
+				       "Bad node_signature_2 %s hash %s"
+				       " on node_announcement %s",
+				       type_to_string(ctx,
+						      secp256k1_ecdsa_signature,
+						      node2_sig),
+				       type_to_string(ctx,
+						      struct sha256_double,
+						      &hash),
+				       tal_hex(ctx, announcement));
+	}
+	if (!check_signed_hash(&hash, bitcoin1_sig, bitcoin1_key)) {
+		return towire_errorfmt(ctx, NULL,
+				       "Bad bitcoin_signature_1 %s hash %s"
+				       " on node_announcement %s",
+				       type_to_string(ctx,
+						      secp256k1_ecdsa_signature,
+						      bitcoin1_sig),
+				       type_to_string(ctx,
+						      struct sha256_double,
+						      &hash),
+				       tal_hex(ctx, announcement));
+	}
+	if (!check_signed_hash(&hash, bitcoin2_sig, bitcoin2_key)) {
+		return towire_errorfmt(ctx, NULL,
+				       "Bad bitcoin_signature_2 %s hash %s"
+				       " on node_announcement %s",
+				       type_to_string(ctx,
+						      secp256k1_ecdsa_signature,
+						      bitcoin2_sig),
+				       type_to_string(ctx,
+						      struct sha256_double,
+						      &hash),
+				       tal_hex(ctx, announcement));
+	}
+	return NULL;
 }
 
 static void add_pending_node_announcement(struct routing_state *rstate, struct pubkey *nodeid)
@@ -536,13 +581,13 @@ static void destroy_pending_cannouncement(struct pending_cannouncement *pending,
 	list_del_from(&rstate->pending_cannouncement, &pending->list);
 }
 
-const struct short_channel_id *handle_channel_announcement(
-	struct routing_state *rstate,
-	const u8 *announce TAKES)
+u8 *handle_channel_announcement(struct routing_state *rstate,
+				const u8 *announce TAKES,
+				const struct short_channel_id **scid)
 {
 	struct pending_cannouncement *pending;
 	struct bitcoin_blkid chain_hash;
-	u8 *features;
+	u8 *features, *err;
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
 	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
 	struct chan *chan;
@@ -566,8 +611,12 @@ const struct short_channel_id *handle_channel_announcement(
 					   &pending->node_id_2,
 					   &pending->bitcoin_key_1,
 					   &pending->bitcoin_key_2)) {
+		err = towire_errorfmt(rstate, NULL,
+				      "Malformed channel_announcement %s",
+				      tal_hex(pending, pending->announce));
 		tal_free(pending);
-		return NULL;
+		*scid = NULL;
+		return err;
 	}
 
 	/* Check if we know the channel already (no matter in what
@@ -578,7 +627,9 @@ const struct short_channel_id *handle_channel_announcement(
 			     __func__,
 			     type_to_string(trc, struct short_channel_id,
 					    &pending->short_channel_id));
-		return tal_free(pending);
+		tal_free(pending);
+		*scid = NULL;
+		return NULL;
 	}
 
 	/* We don't replace previous ones, since we might validate that and
@@ -588,6 +639,7 @@ const struct short_channel_id *handle_channel_announcement(
 			     __func__,
 			     type_to_string(trc, struct short_channel_id,
 					    &pending->short_channel_id));
+		*scid = NULL;
 		return tal_free(pending);
 	}
 
@@ -604,6 +656,7 @@ const struct short_channel_id *handle_channel_announcement(
 		status_trace("Ignoring channel announcement, unsupported features %s.",
 			     tal_hex(pending, features));
 		tal_free(pending);
+		*scid = NULL;
 		return NULL;
 	}
 
@@ -619,23 +672,30 @@ const struct short_channel_id *handle_channel_announcement(
 				   &pending->short_channel_id),
 		    type_to_string(pending, struct bitcoin_blkid, &chain_hash));
 		tal_free(pending);
+		*scid = NULL;
 		return NULL;
 	}
 
-	if (!check_channel_announcement(&pending->node_id_1, &pending->node_id_2,
-					&pending->bitcoin_key_1,
-					&pending->bitcoin_key_2,
-					&node_signature_1,
-					&node_signature_2,
-					&bitcoin_signature_1,
-					&bitcoin_signature_2,
-					pending->announce)) {
-		status_trace("Signature verification of channel_announcement"
-			     " for %s failed",
-			     type_to_string(pending, struct short_channel_id,
-					    &pending->short_channel_id));
+	err = check_channel_announcement(rstate,
+					 &pending->node_id_1,
+					 &pending->node_id_2,
+					 &pending->bitcoin_key_1,
+					 &pending->bitcoin_key_2,
+					 &node_signature_1,
+					 &node_signature_2,
+					 &bitcoin_signature_1,
+					 &bitcoin_signature_2,
+					 pending->announce);
+	if (err) {
+		/* BOLT #7:
+		 *
+		 * - if `bitcoin_signature_1`, `bitcoin_signature_2`,
+		 *   `node_signature_1` OR `node_signature_2` are invalid OR NOT
+		 *    correct:
+		 *    - SHOULD fail the connection.
+		 */
 		tal_free(pending);
-		return NULL;
+		return err;
 	}
 
 	status_trace("Received channel_announcement for channel %s",
@@ -650,7 +710,8 @@ const struct short_channel_id *handle_channel_announcement(
 	list_add_tail(&rstate->pending_cannouncement, &pending->list);
 	tal_add_destructor2(pending, destroy_pending_cannouncement, rstate);
 
-	return &pending->short_channel_id;
+	*scid = &pending->short_channel_id;
+	return NULL;
 }
 
 bool handle_pending_cannouncement(struct routing_state *rstate,

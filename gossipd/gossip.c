@@ -489,8 +489,10 @@ static void handle_gossip_msg(struct peer *peer, u8 *msg)
 	case WIRE_CHANNEL_ANNOUNCEMENT: {
 		const struct short_channel_id *scid;
 		/* If it's OK, tells us the short_channel_id to lookup */
-		scid = handle_channel_announcement(rstate, msg);
-		if (scid)
+		err = handle_channel_announcement(rstate, msg, &scid);
+		if (err)
+			queue_peer_msg(peer, take(err));
+		else if (scid)
 			daemon_conn_send(&peer->daemon->master,
 					 take(towire_gossip_get_txout(NULL,
 								      scid)));
