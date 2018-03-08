@@ -306,11 +306,16 @@ static void enqueue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 static void gossip_in(struct peer *peer, const u8 *msg)
 {
 	u8 *gossip;
+	u64 gossip_index;
 
-	if (!fromwire_gossip_send_gossip(msg, msg, &peer->gossip_index, &gossip))
+	if (!fromwire_gossip_send_gossip(msg, msg, &gossip_index, &gossip))
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Got bad message from gossipd: %s",
 			      tal_hex(msg, msg));
+
+	/* Zero is a special index meaning this is unindexed gossip. */
+	if (gossip_index != 0)
+		peer->gossip_index = gossip_index;
 
 	if (is_msg_for_gossipd(gossip))
 		enqueue_peer_msg(peer, gossip);
