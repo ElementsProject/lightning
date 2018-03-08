@@ -49,6 +49,11 @@ bool replace_broadcast(struct broadcast_state *bstate UNNEEDED,
 void status_failed(enum status_failreason code UNNEEDED,
 		   const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "status_failed called!\n"); abort(); }
+/* Generated stub for towire_errorfmt */
+u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
+		    const struct channel_id *channel UNNEEDED,
+		    const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
 /* Generated stub for towire_pubkey */
 void towire_pubkey(u8 **pptr UNNEEDED, const struct pubkey *pubkey UNNEEDED)
 { fprintf(stderr, "towire_pubkey called!\n"); abort(); }

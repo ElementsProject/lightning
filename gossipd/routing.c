@@ -10,6 +10,7 @@
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
+#include <common/wire_error.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
 #include <wire/gen_onion_wire.h>
@@ -502,6 +503,7 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 		SUPERVERBOSE(
 		    "Processing deferred node_announcement for node %s",
 		    type_to_string(pna, struct pubkey, nodeid));
+		/* FIXME: Do something if this is invalid */
 		handle_node_announcement(rstate, pna->node_announcement);
 	}
 	pending_node_map_del(rstate->pending_node_map, pna);
@@ -932,8 +934,7 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 	return wireaddrs;
 }
 
-void handle_node_announcement(
-	struct routing_state *rstate, const u8 *node_ann)
+u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 {
 	u8 *serialized;
 	struct sha256_double hash;
@@ -954,8 +955,17 @@ void handle_node_announcement(
 					&signature, &features, &timestamp,
 					&node_id, rgb_color, alias,
 					&addresses)) {
+		/* BOLT #7:
+		 *
+		 *   - if `node_id` is NOT a valid compressed public key:
+		 *    - SHOULD fail the connection.
+		 *    - MUST NOT process the message further.
+		 */
+		u8 *err = towire_errorfmt(rstate, NULL,
+					  "Malformed node_announcement %s",
+					  tal_hex(tmpctx, node_ann));
 		tal_free(tmpctx);
-		return;
+		return err;
 	}
 
 	/* BOLT #7:
@@ -969,14 +979,32 @@ void handle_node_announcement(
 			     type_to_string(tmpctx, struct pubkey, &node_id),
 			     tal_hex(tmpctx, features));
 		tal_free(tmpctx);
-		return;
+		return NULL;
 	}
 
 	sha256_double(&hash, serialized + 66, tal_count(serialized) - 66);
 	if (!check_signed_hash(&hash, &signature, &node_id)) {
-		status_trace("Ignoring node announcement, signature verification failed.");
+		/* BOLT #7:
+		 *
+		 * - if `signature` is NOT a valid signature (using `node_id`
+		 *  of the double-SHA256 of the entire message following the
+		 *  `signature` field, including unknown fields following
+		 *  `alias`):
+		 *    - SHOULD fail the connection.
+		 *    - MUST NOT process the message further.
+		 */
+		u8 *err = towire_errorfmt(rstate, NULL,
+					  "Bad signature for %s hash %s"
+					  " on node_announcement %s",
+					  type_to_string(tmpctx,
+							 secp256k1_ecdsa_signature,
+							 &signature),
+					  type_to_string(tmpctx,
+							 struct sha256_double,
+							 &hash),
+					  tal_hex(tmpctx, node_ann));
 		tal_free(tmpctx);
-		return;
+		return err;
 	}
 
 	node = get_node(rstate, &node_id);
@@ -994,20 +1022,27 @@ void handle_node_announcement(
 			pna->node_announcement = tal_dup_arr(pna, u8, node_ann, tal_len(node_ann), 0);
 		}
 		tal_free(tmpctx);
-		return;
+		return NULL;
 	}
 
+	/* BOLT #7:
+	 *
+	 * - if `node_id` is NOT previously known from a
+	 *   `channel_announcement` message, OR if `timestamp` is NOT greater
+	 *   than the last-received `node_announcement` from this `node_id`:
+	 *    - SHOULD ignore the message.
+	 */
 	if (!node) {
 		SUPERVERBOSE("Node not found, was the node_announcement for "
 			     "node %s preceded by at least "
 			     "channel_announcement?",
 			     type_to_string(tmpctx, struct pubkey, &node_id));
 		tal_free(tmpctx);
-		return;
+		return NULL;
 	} else if (node->last_timestamp >= timestamp) {
 		SUPERVERBOSE("Ignoring node announcement, it's outdated.");
 		tal_free(tmpctx);
-		return;
+		return NULL;
 	}
 
 	status_trace("Received node_announcement for node %s",
@@ -1015,9 +1050,19 @@ void handle_node_announcement(
 
 	wireaddrs = read_addresses(tmpctx, addresses);
 	if (!wireaddrs) {
-		status_trace("Unable to parse addresses.");
+		/* BOLT #7:
+		 *
+		 * - if `addrlen` is insufficient to hold the address
+		 *  descriptors of the known types:
+		 *    - SHOULD fail the connection.
+		 */
+		u8 *err = towire_errorfmt(rstate, NULL,
+					  "Malformed wireaddrs %s in %s.",
+					  tal_hex(tmpctx, wireaddrs),
+					  tal_hex(tmpctx, node_ann));
 		tal_free(serialized);
-		return;
+		tal_free(tmpctx);
+		return err;
 	}
 	tal_free(node->addresses);
 	node->addresses = tal_steal(node, wireaddrs);
@@ -1038,6 +1083,7 @@ void handle_node_announcement(
 	tal_free(node->node_announcement);
 	node->node_announcement = tal_steal(node, serialized);
 	tal_free(tmpctx);
+	return NULL;
 }
 
 struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
