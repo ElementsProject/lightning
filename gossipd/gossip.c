@@ -450,7 +450,7 @@ static void send_node_announcement(struct daemon *daemon)
 	tal_t *tmpctx = tal_tmpctx(daemon);
 	u32 timestamp = time_now().ts.tv_sec;
 	secp256k1_ecdsa_signature sig;
-	u8 *msg, *nannounce;
+	u8 *msg, *nannounce, *err;
 
 	/* Timestamps must move forward, or announce will be ignored! */
 	if (timestamp <= daemon->last_announce_timestamp)
@@ -470,14 +470,20 @@ static void send_node_announcement(struct daemon *daemon)
 	 * from the HSM, create the real announcement and forward it to
 	 * gossipd so it can take care of forwarding it. */
 	nannounce = create_node_announcement(tmpctx, daemon, &sig, timestamp);
-	handle_node_announcement(daemon->rstate, take(nannounce));
+	err = handle_node_announcement(daemon->rstate, take(nannounce));
+	if (err)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "rejected own node announcement: %s",
+			      tal_hex(trc, err));
 	tal_free(tmpctx);
 }
 
-static void handle_gossip_msg(struct daemon *daemon, u8 *msg)
+/* Returns error if we should send an error. */
+static void handle_gossip_msg(struct peer *peer, u8 *msg)
 {
-	struct routing_state *rstate = daemon->rstate;
+	struct routing_state *rstate = peer->daemon->rstate;
 	int t = fromwire_peektype(msg);
+	u8 *err;
 
 	switch(t) {
 	case WIRE_CHANNEL_ANNOUNCEMENT: {
@@ -485,14 +491,16 @@ static void handle_gossip_msg(struct daemon *daemon, u8 *msg)
 		/* If it's OK, tells us the short_channel_id to lookup */
 		scid = handle_channel_announcement(rstate, msg);
 		if (scid)
-			daemon_conn_send(&daemon->master,
-					 take(towire_gossip_get_txout(daemon,
+			daemon_conn_send(&peer->daemon->master,
+					 take(towire_gossip_get_txout(NULL,
 								      scid)));
 		break;
 	}
 
 	case WIRE_NODE_ANNOUNCEMENT:
-		handle_node_announcement(rstate, msg);
+		err = handle_node_announcement(rstate, msg);
+		if (err)
+			queue_peer_msg(peer, take(err));
 		break;
 
 	case WIRE_CHANNEL_UPDATE:
@@ -595,7 +603,7 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_NODE_ANNOUNCEMENT:
 	case WIRE_CHANNEL_UPDATE:
-		handle_gossip_msg(peer->daemon, msg);
+		handle_gossip_msg(peer, msg);
 		return peer_next_in(conn, peer);
 
 	case WIRE_PING:
@@ -828,7 +836,7 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 	int type = fromwire_peektype(msg);
 	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
 	    type == WIRE_NODE_ANNOUNCEMENT) {
-		handle_gossip_msg(peer->daemon, dc->msg_in);
+		handle_gossip_msg(peer, dc->msg_in);
 	} else if (type == WIRE_GOSSIP_GET_UPDATE) {
 		handle_get_update(peer, dc->msg_in);
 	} else if (type == WIRE_GOSSIP_LOCAL_ADD_CHANNEL) {

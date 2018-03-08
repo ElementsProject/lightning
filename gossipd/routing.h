@@ -215,7 +215,9 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 				  const u64 satoshis,
 				  const u8 *txscript);
 void handle_channel_update(struct routing_state *rstate, const u8 *update);
-void handle_node_announcement(struct routing_state *rstate, const u8 *node);
+
+/* Returns NULL if all OK, otherwise an error for the peer which sent. */
+u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node);
 
 /* Set values on the struct node_connection */
 void set_connection_values(struct chan *chan,
