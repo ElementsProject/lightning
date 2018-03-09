@@ -1516,7 +1516,23 @@ void wallet_payment_store(struct wallet *wallet,
 	struct wallet_payment *payment;
 
 	payment = find_unstored_payment(wallet, payment_hash);
-	assert(payment);
+	if (!payment) {
+		/* Already stored on-disk */
+#if DEVELOPER
+		/* Double-check that it is indeed stored to disk
+		 * (catch bug, where we call this on a payment_hash
+		 * we never paid to) */
+		int res;
+		stmt = db_prepare(wallet->db,
+				  "SELECT status FROM payments"
+				  " WHERE payment_hash=?;");
+		sqlite3_bind_sha256(stmt, 1, payment_hash);
+		res = sqlite3_step(stmt);
+		assert(res == SQLITE_ROW);
+		sqlite3_finalize(stmt);
+#endif
+		return;
+	}
 
         /* Don't attempt to add the same payment twice */
 	assert(!payment->id);
