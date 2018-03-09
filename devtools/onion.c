@@ -28,7 +28,7 @@ static void do_generate(int argc, char **argv)
 		if (secp256k1_ec_pubkey_create(secp256k1_ctx, &path[i].pubkey,
 					       privkeys[i]) != 1)
 			errx(1, "Could not decode pubkey");
-		printf("Node %d pubkey %s\n", i, secp256k1_pubkey_to_hexstr(ctx, &path[i].pubkey));
+		fprintf(stderr, "Node %d pubkey %s\n", i, secp256k1_pubkey_to_hexstr(ctx, &path[i].pubkey));
 	}
 
 	for (int i = 0; i < num_hops; i++) {
@@ -38,7 +38,7 @@ static void do_generate(int argc, char **argv)
 		       sizeof(hops_data[i].channel_id));
 		hops_data[i].amt_forward = i;
 		hops_data[i].outgoing_cltv = i;
-		printf("Hopdata %d: %s\n", i, tal_hexstr(NULL, &hops_data[i], sizeof(hops_data[i])));
+		fprintf(stderr, "Hopdata %d: %s\n", i, tal_hexstr(NULL, &hops_data[i], sizeof(hops_data[i])));
 	}
 
 	struct onionpacket *res =
