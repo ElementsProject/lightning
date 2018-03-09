@@ -449,9 +449,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	}
 
 	/* Save to DB */
-	/* This may invalidated the payment structure returned, so
-	 * access to payment object should not be done after the
-	 * below call.  */
+	wallet_payment_store(ld->wallet, &hout->payment_hash);
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 				  PAYMENT_FAILED, NULL);
 	wallet_payment_set_failinfo(ld->wallet,
