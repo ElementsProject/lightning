@@ -3332,14 +3332,15 @@ class LightningDTests(BaseLightningDTests):
         assert l1.rpc.listpayments()['payments'][0]['status'] == 'pending'
         assert l1.rpc.listpayments()['payments'][0]['payment_hash'] == inv1['payment_hash']
 
-        # Second one should fail.
-        self.assertRaises(ValueError, l1.rpc.pay, inv1['bolt11'])
+        # Second one will succeed eventually.
+        fut2 = self.executor.submit(l1.rpc.pay, inv1['bolt11'])
 
         # Now, let it commit.
         l1.rpc.dev_reenable_commit(l2.info['id'])
 
-        # This should succeed.
+        # These should succeed.
         fut.result(10)
+        fut2.result(10)
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_gossip_badsig(self):
