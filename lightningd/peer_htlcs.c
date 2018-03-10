@@ -900,8 +900,8 @@ static bool update_out_htlc(struct channel *channel,
 
 		/* For our own HTLCs, we commit payment to db lazily */
 		if (hout->origin_htlc_id == 0)
-			wallet_payment_store(ld->wallet,
-					     &hout->payment_hash);
+			payment_store(ld,
+				      &hout->payment_hash);
 	}
 
 	if (!htlc_out_update_state(channel, hout, newstate))

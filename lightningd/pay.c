@@ -365,6 +365,12 @@ static void report_routing_failure(struct log *log,
 	tal_free(tmpctx);
 }
 
+void payment_store(struct lightningd *ld,
+		   const struct sha256 *payment_hash)
+{
+	wallet_payment_store(ld->wallet, payment_hash);
+}
+
 void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		    const char *localfail)
 {
@@ -449,7 +455,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	}
 
 	/* Save to DB */
-	wallet_payment_store(ld->wallet, &hout->payment_hash);
+	payment_store(ld, &hout->payment_hash);
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 				  PAYMENT_FAILED, NULL);
 	wallet_payment_set_failinfo(ld->wallet,
