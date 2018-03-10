@@ -67,7 +67,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->alias = NULL;
 	ld->rgb = NULL;
 	list_head_init(&ld->connects);
-	list_head_init(&ld->sendpay_commands);
+	list_head_init(&ld->waitsendpay_commands);
 	ld->wireaddrs = tal_arr(ld, struct wireaddr, 0);
 	ld->portnum = DEFAULT_PORT;
 	timers_init(&ld->timers, time_mono());
