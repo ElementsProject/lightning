@@ -40,15 +40,25 @@ struct sendpay_result {
 	const char *details;
 };
 
-/* Initiate a payment.  Return NULL if the payment will be
- * scheduled for later, or a result if the result is available
- * immediately. If returning an immediate result, the returned
- * object is allocated from the given context. Otherwise, the
- * return context is ignored. */
-struct sendpay_result *send_payment(const tal_t *ctx,
-				    struct lightningd* ld,
-				    const struct sha256 *rhash,
-				    const struct route_hop *route);
+/* Initiate a payment.  Return true if the callback will be
+ * scheduled for later, or false if the callback has already
+ * been called. If the given context is freed before the
+ * callback is called, then the callback will no longer be
+ * called.
+ *
+ * This will call the callback "soon" in 10ms or less.
+ *
+ * Typically the callback will be called with a failed
+ * sendpay_result indicating an error code of PAY_IN_PROGRESS.
+ * It will only call the callback with successful sendpay_result
+ * if the payment has already completed with the same amount
+ * and destination before. */
+bool send_payment(const tal_t *ctx,
+		  struct lightningd* ld,
+		  const struct sha256 *rhash,
+		  const struct route_hop *route,
+		  void (*cb)(const struct sendpay_result *, void*),
+		  void *cbarg);
 /* Wait for a previous send_payment to complete in definite
  * success or failure. If the given context is freed before
  * the callback is called, then the callback will no longer

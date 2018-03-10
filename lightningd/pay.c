@@ -36,14 +36,32 @@ static void destroy_sendpay_command(struct sendpay_command *pc)
 	list_del(&pc->list);
 }
 
-/* Owned by cxt; if cxt is deleted, then cb will
+/* Owned by cxt, if cxt is deleted, then cb will
  * no longer be called. */
 static void
-add_payment_waiter(const tal_t *cxt,
+add_sendpay_waiter(const tal_t *cxt,
 		   const struct sha256 *payment_hash,
 		   struct lightningd *ld,
 		   void (*cb)(const struct sendpay_result *, void*),
 		   void *cbarg)
+{
+	struct sendpay_command *pc = tal(cxt, struct sendpay_command);
+
+	pc->payment_hash = *payment_hash;
+	pc->cb = cb;
+	pc->cbarg = cbarg;
+	list_add(&ld->sendpay_commands, &pc->list);
+	tal_add_destructor(pc, destroy_sendpay_command);
+}
+
+/* Owned by cxt; if cxt is deleted, then cb will
+ * no longer be called. */
+static void
+add_waitsendpay_waiter(const tal_t *cxt,
+		       const struct sha256 *payment_hash,
+		       struct lightningd *ld,
+		       void (*cb)(const struct sendpay_result *, void*),
+		       void *cbarg)
 {
 	struct sendpay_command *pc = tal(cxt, struct sendpay_command);
 
@@ -368,7 +386,28 @@ static void report_routing_failure(struct log *log,
 void payment_store(struct lightningd *ld,
 		   const struct sha256 *payment_hash)
 {
+	const tal_t *tmpctx = tal_tmpctx(ld);
+	struct sendpay_command *pc;
+	struct sendpay_command *next;
+	struct sendpay_result *result;
+
 	wallet_payment_store(ld->wallet, payment_hash);
+
+	/* Invent a sendpay result with PAY_IN_PROGRESS. */
+	result = sendpay_result_simple_fail(tmpctx, PAY_IN_PROGRESS,
+					    "Payment is still in progress");
+
+	/* Trigger any sendpay commands waiting for the store to occur. */
+	list_for_each_safe(&ld->sendpay_commands, pc, next, list) {
+		if (!structeq(payment_hash, &pc->payment_hash))
+			continue;
+
+		/* Delete later if callback did not delete. */
+		tal_steal(tmpctx, pc);
+		pc->cb(result, pc->cbarg);
+	}
+
+	tal_free(tmpctx);
 }
 
 void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
@@ -490,7 +529,7 @@ bool wait_payment(const tal_t *cxt,
 		  void (*cb)(const struct sendpay_result *, void*),
 		  void *cbarg)
 {
-	const tal_t *tmpctx = tal_tmpctx(cxt);
+	const tal_t *tmpctx = tal_tmpctx(NULL);
 	struct wallet_payment *payment;
 	struct sendpay_result *result;
 	char const *details;
@@ -520,7 +559,7 @@ bool wait_payment(const tal_t *cxt,
 
 	switch (payment->status) {
 	case PAYMENT_PENDING:
-		add_payment_waiter(cxt, payment_hash, ld, cb, cbarg);
+		add_waitsendpay_waiter(cxt, payment_hash, ld, cb, cbarg);
 		cb_not_called = true;
 		goto end;
 
@@ -575,13 +614,14 @@ end:
 	return cb_not_called;
 }
 
-/* Returns the result if available now, or NULL if the
- * sendpay was deferred for later. */
-struct sendpay_result *
+/* Returns false if cb was called, true if cb not yet called. */
+bool
 send_payment(const tal_t *ctx,
 	     struct lightningd* ld,
 	     const struct sha256 *rhash,
-	     const struct route_hop *route)
+	     const struct route_hop *route,
+	     void (*cb)(const struct sendpay_result *, void*),
+	     void *cbarg)
 {
 	const u8 *onion;
 	u8 sessionkey[32];
@@ -629,39 +669,42 @@ send_payment(const tal_t *ctx,
 		log_debug(ld->log, "send_payment: found previous");
 		if (payment->status == PAYMENT_PENDING) {
 			log_add(ld->log, "Payment is still in progress");
-			tal_free(tmpctx);
-			return sendpay_result_simple_fail(ctx,
-							  PAY_IN_PROGRESS,
-							  "Payment is still in progress");
+			result = sendpay_result_simple_fail(tmpctx,
+							    PAY_IN_PROGRESS,
+							    "Payment is still in progress");
+			cb(result, cbarg);
+			return false;
 		}
 		if (payment->status == PAYMENT_COMPLETE) {
 			log_add(ld->log, "... succeeded");
 			/* Must match successful payment parameters. */
 			if (payment->msatoshi != hop_data[n_hops-1].amt_forward) {
-				char *msg = tal_fmt(ctx,
+				char *msg = tal_fmt(tmpctx,
 						    "Already succeeded "
 						    "with amount %"PRIu64,
 						    payment->msatoshi);
-				tal_free(tmpctx);
-				return sendpay_result_simple_fail(ctx,
-								  PAY_RHASH_ALREADY_USED,
-								  msg);
+				result = sendpay_result_simple_fail(tmpctx,
+								    PAY_RHASH_ALREADY_USED,
+								    msg);
+				cb(result, cbarg);
+				return false;
 			}
 			if (!structeq(&payment->destination, &ids[n_hops-1])) {
-				char *msg = tal_fmt(ctx,
+				char *msg = tal_fmt(tmpctx,
 						    "Already succeeded to %s",
 						    type_to_string(tmpctx,
 								   struct pubkey,
 								   &payment->destination));
-				tal_free(tmpctx);
-				return sendpay_result_simple_fail(ctx,
-								  PAY_RHASH_ALREADY_USED,
-								  msg);
+				result = sendpay_result_simple_fail(tmpctx,
+								    PAY_RHASH_ALREADY_USED,
+								    msg);
+				cb(result, cbarg);
+				return false;
 			}
-			result = sendpay_result_success(ctx,
+			result = sendpay_result_success(tmpctx,
 							payment->payment_preimage);
-			tal_free(tmpctx);
-			return result;
+			cb(result, cbarg);
+			return false;
 		}
 		wallet_payment_delete(ld->wallet, rhash);
 		log_add(ld->log, "... retrying");
@@ -676,10 +719,11 @@ send_payment(const tal_t *ctx,
 		report_routing_failure(ld->log, ld->gossip, fail);
 
 		/* Report routing failure to caller */
-		tal_free(tmpctx);
-		return sendpay_result_route_failure(ctx, true, fail, NULL,
-						    "No connection to first "
-						    "peer found");
+		result = sendpay_result_route_failure(tmpctx, true, fail, NULL,
+						      "No connection to first "
+						      "peer found");
+		cb(result, cbarg);
+		return false;
 	}
 
 	randombytes_buf(&sessionkey, sizeof(sessionkey));
@@ -703,9 +747,10 @@ send_payment(const tal_t *ctx,
 		report_routing_failure(ld->log, ld->gossip, fail);
 
 		/* Report routing failure to caller */
-		tal_free(tmpctx);
-		return sendpay_result_route_failure(ctx, true, fail, NULL,
-						    "First peer not ready");
+		result = sendpay_result_route_failure(tmpctx, true, fail, NULL,
+						      "First peer not ready");
+		cb(result, cbarg);
+		return false;
 	}
 
 	/* Copy channels used along the route. */
@@ -729,8 +774,10 @@ send_payment(const tal_t *ctx,
 	/* We write this into db when HTLC is actually sent. */
 	wallet_payment_setup(ld->wallet, payment);
 
+	add_sendpay_waiter(ctx, rhash, ld, cb, cbarg);
+
 	tal_free(tmpctx);
-	return NULL;
+	return true;
 }
 
 /*-----------------------------------------------------------------------------
@@ -827,7 +874,19 @@ static void json_sendpay_on_resolve(const struct sendpay_result* r,
 				    void *vcmd)
 {
 	struct command *cmd = (struct command*) vcmd;
-	json_waitsendpay_on_resolve(r, cmd);
+	struct json_result *response;
+
+	if (!r->succeeded && r->errorcode == PAY_IN_PROGRESS) {
+		/* This is normal for sendpay. Succeed. */
+		response = new_json_result(cmd);
+		json_object_start(response, NULL);
+		json_add_string(response, "message",
+				"Monitor status with listpayments or waitsendpay");
+		json_add_bool(response, "completed", false);
+		json_object_end(response);
+		command_success(cmd, response);
+	} else
+		json_waitsendpay_on_resolve(r, cmd);
 }
 
 static void json_sendpay(struct command *cmd,
@@ -838,8 +897,6 @@ static void json_sendpay(struct command *cmd,
 	size_t n_hops;
 	struct sha256 rhash;
 	struct route_hop *route;
-	struct sendpay_result *r;
-	struct json_result *response;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "route", &routetok,
@@ -918,18 +975,9 @@ static void json_sendpay(struct command *cmd,
 		return;
 	}
 
-	r = send_payment(cmd, cmd->ld, &rhash, route);
-	if (r)
-		json_sendpay_on_resolve(r, cmd);
-	else {
-		response = new_json_result(cmd);
-		json_object_start(response, NULL);
-		json_add_string(response, "message",
-				"Monitor status with listpayments or waitsendpay");
-		json_add_bool(response, "completed", false);
-		json_object_end(response);
-		command_success(cmd, response);
-	}
+	if (send_payment(cmd, cmd->ld, &rhash, route,
+			  &json_sendpay_on_resolve, cmd))
+		command_still_pending(cmd);
 }
 
 static const struct json_command sendpay_command = {

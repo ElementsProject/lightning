@@ -135,6 +135,8 @@ struct lightningd {
 
 	/* Outstanding waitsendpay commands. */
 	struct list_head waitsendpay_commands;
+	/* Outstanding sendpay commands. */
+	struct list_head sendpay_commands;
 
 	/* Maintained by invoices.c */
 	struct invoices *invoices;
