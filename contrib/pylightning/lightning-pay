@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import sys
+from lightning import LightningRpc
+
+parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument("bolt11_or_destination_id")
+parser.add_argument("amount_in_milli_satoshi", default=None, type=int, nargs="?")
+parser.add_argument("payment_hash", nargs="?")
+args = parser.parse_args()
+
+
+def default_configdir():
+    home = os.getenv("HOME")
+    if home:
+        return os.path.join(home, ".lightning")
+    return "."
+
+
+rpc_path = os.path.join(default_configdir(), "lightning-rpc")
+ld = LightningRpc(rpc_path)
+
+assert len(args.bolt11_or_destination_id) > 2, "argument bolt11_or_destination_id is invalid"
+prefix = args.bolt11_or_destination_id[:2]
+
+if prefix == "ln":
+    bolt11 = ld.decodepay(args.bolt11_or_destination_id)
+    id_ = bolt11["payee"]
+    payment_hash = bolt11["payment_hash"]
+    if "msatoshi" in bolt11:
+        amount = bolt11["msatoshi"]
+    else:
+        assert args.amount_in_milli_satoshi, "need argument amount_in_milli_satoshi"
+        amount = args.amount_in_milli_satoshi
+else:
+    assert args.amount_in_milli_satoshi, "need argument amount_in_milli_satoshi"
+    assert args.payment_hash, "need argument payment_hash"
+    amount = args.amount_in_milli_satoshi
+    id_ = args.bolt11_or_destination_id
+    payment_hash = args.payment_hash
+
+route = ld.getroute(id_, amount, 1)
+
+fee = route["route"][0]["msatoshi"] - amount
+
+reply = input("Paying fee %s on amount %s (%.3f%%). Send [Y/n]?" % (fee, amount, fee / amount * 100.0))
+
+if reply in ["y", "Y"]:
+    ld.sendpay(route["route"], payment_hash)
+else:
+    print("Not sending.")
+    sys.exit(1)

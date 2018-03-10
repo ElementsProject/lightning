@@ -248,10 +248,12 @@ check-markdown:
 check-spelling:
 	@tools/check-spelling.sh
 
+PYSRC=$(shell git ls-files "*.py") contrib/pylightning/lightning-pay
+
 check-python:
 	@# E501 line too long (N > 79 characters)
 	@# E731 do not assign a lambda expression, use a def
-	@git ls-files "*.py" | xargs flake8 --ignore=E501,E731 --exclude=contrib/pylightning/lightning/__init__.py
+	@flake8 --ignore=E501,E731 --exclude=contrib/pylightning/lightning/__init__.py ${PYSRC}
 
 check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python
 
