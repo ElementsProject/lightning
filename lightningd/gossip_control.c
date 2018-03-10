@@ -267,7 +267,7 @@ static void json_listnodes(struct command *cmd, const char *buffer,
 static const struct json_command listnodes_command = {
 	"listnodes",
 	json_listnodes,
-	"Show all nodes in our local network view"
+	"Show node {id} (or all, if no {id}), in our local network view"
 };
 AUTODATA(json_command, &listnodes_command);
 
@@ -475,6 +475,6 @@ static void json_listchannels(struct command *cmd, const char *buffer,
 static const struct json_command listchannels_command = {
 	"listchannels",
 	json_listchannels,
-	"Show all known channels"
+	"Show channel {short_channel_id} (or all known channels, if no {short_channel_id})"
 };
 AUTODATA(json_command, &listchannels_command);
