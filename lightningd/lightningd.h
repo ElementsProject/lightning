@@ -133,8 +133,8 @@ struct lightningd {
 
 	struct wallet *wallet;
 
-	/* Outstanding sendpay commands. */
-	struct list_head sendpay_commands;
+	/* Outstanding waitsendpay commands. */
+	struct list_head waitsendpay_commands;
 
 	/* Maintained by invoices.c */
 	struct invoices *invoices;
