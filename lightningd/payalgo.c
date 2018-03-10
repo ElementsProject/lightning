@@ -189,6 +189,12 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 
 	why = should_delay_retry(pay->try_parent, r);
 	if (why) {
+		/* We have some reason to delay retrying. */
+
+		/* Clear previous try memory. */
+		pay->try_parent = tal_free(pay->try_parent);
+		pay->try_parent = tal(pay, char);
+
 		log_info(pay->cmd->ld->log,
 			 "pay(%p): Delay before retry: %s", pay, why);
 		/* Delay for 3 seconds if needed. FIXME: random
@@ -224,6 +230,26 @@ static void log_route(struct pay *pay, struct route_hop *route)
 	tal_free(tmpctx);
 }
 
+static void json_pay_sendpay_resume(const struct sendpay_result *r,
+				    void *vpay)
+{
+	struct pay *pay = (struct pay *) vpay;
+	bool completed = r->succeeded || r->errorcode != PAY_IN_PROGRESS;
+
+	if (completed)
+		/* Already completed. */
+		json_pay_sendpay_resolve(r, pay);
+	else {
+		/* Clear previous try memory. */
+		pay->try_parent = tal_free(pay->try_parent);
+		pay->try_parent = tal(pay, char);
+
+		/* Not yet complete? Wait for it. */
+		wait_payment(pay->try_parent, pay->cmd->ld, &pay->payment_hash,
+			     json_pay_sendpay_resolve, pay);
+	}
+}
+
 static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 				    const u8 *reply, const int *fds UNUSED,
 				    struct pay *pay)
@@ -234,7 +260,6 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	double feepercent;
 	bool fee_too_high;
 	struct json_result *data;
-	struct sendpay_result *result;
 
 	fromwire_gossip_getroute_reply(reply, reply, &route);
 
@@ -295,17 +320,9 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 
 	log_route(pay, route);
 
-	result = send_payment(pay->try_parent,
-			      pay->cmd->ld, &pay->payment_hash, route);
-	/* Resolved immediately? */
-	if (result)
-		json_pay_sendpay_resolve(result, pay);
-	/* Wait for resolution */
-	else
-		wait_payment(pay->try_parent,
-			     pay->cmd->ld,
-			     &pay->payment_hash,
-			     &json_pay_sendpay_resolve, pay);
+	send_payment(pay->try_parent,
+		     pay->cmd->ld, &pay->payment_hash, route,
+		     &json_pay_sendpay_resume, pay);
 }
 
 /* Start a payment attempt. Return true if deferred,
