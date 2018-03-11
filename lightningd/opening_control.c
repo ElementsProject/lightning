@@ -801,9 +801,10 @@ static void json_fund_channel(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
 	jsmntok_t *desttok, *sattok;
-	// bool all_funds = false;
+	bool all_funds = false;
 	struct funding_channel * fc;
 	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
+    u64 fee_estimate;
 	u8 *msg;
 
 	if (!json_get_params(cmd, buffer, params,
@@ -817,7 +818,9 @@ static void json_fund_channel(struct command *cmd,
 	fc->cmd = cmd;
 
 	if (json_tok_streq(buffer, sattok, "all")) {
-		//all_funds = true;
+		all_funds = true;
+        fc->funding_satoshi = 0;
+
 	} else if (!json_tok_u64(buffer, sattok, &fc->funding_satoshi)) {
 		command_fail(cmd, "Invalid satoshis");
 		return;
@@ -841,14 +844,28 @@ static void json_fund_channel(struct command *cmd,
 
 	/* Try to do this now, so we know if insufficient funds. */
 	/* FIXME: dustlimit */
-	fc->utxomap = build_utxos(fc, cmd->ld, fc->funding_satoshi,
-				  feerate_per_kw,
-				  600, BITCOIN_SCRIPTPUBKEY_P2WSH_LEN,
-				  &fc->change, &fc->change_keyindex);
-	if (!fc->utxomap) {
-		command_fail(cmd, "Cannot afford funding transaction");
-		return;
-	}
+    if (all_funds) {
+        fc->utxomap = wallet_select_all(cmd, cmd->ld->wallet, 
+                      feerate_per_kw,
+                      BITCOIN_SCRIPTPUBKEY_P2WSH_LEN,
+                      &fc->funding_satoshi, 
+                      &fee_estimate);
+		if (!fc->utxomap || fc->funding_satoshi < 546) {
+			command_fail(cmd, "Cannot afford fee %"PRIu64,
+				     fee_estimate);
+			return;
+		}
+		fc->change = 0;
+    } else {
+        fc->utxomap = build_utxos(fc, cmd->ld, fc->funding_satoshi,
+                      feerate_per_kw,
+                      600, BITCOIN_SCRIPTPUBKEY_P2WSH_LEN,
+                      &fc->change, &fc->change_keyindex);
+        if (!fc->utxomap) {
+            command_fail(cmd, "Cannot afford funding transaction");
+            return;
+        }
+    }
 
 	msg = towire_gossipctl_release_peer(cmd, &fc->peerid);
 	subd_req(fc, cmd->ld->gossip, msg, -1, 2, gossip_peer_released, fc);

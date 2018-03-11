@@ -271,7 +271,9 @@ int main(int argc, char *argv[])
 			add_input(&cmd, argv[i], i, argc);
 		tal_append_fmt(&cmd, "] }");
 	}
-
+#if 0
+    printf("sending:\n%s\n\n", cmd);
+#endif
 	if (!write_all(fd, cmd, strlen(cmd)))
 		err(ERROR_TALKING_TO_LIGHTNINGD, "Writing command");
 
@@ -341,7 +343,6 @@ int main(int argc, char *argv[])
 		opt_free_table();
 		return 0;
 	}
-
 	printf("%.*s\n",
 	       json_tok_len(error), json_tok_contents(resp, error));
 	tal_free(ctx);
