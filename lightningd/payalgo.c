@@ -149,6 +149,9 @@ struct pay {
 
 	/* List of failures to pay. */
 	struct list_head pay_failures;
+
+	/* Whether we are attempting payment or not. */
+	bool in_sendpay;
 };
 
 static struct routing_failure *
@@ -237,6 +240,7 @@ static void json_pay_failure(struct pay *pay,
 	switch (r->errorcode) {
 	case PAY_IN_PROGRESS:
 	case PAY_RHASH_ALREADY_USED:
+	case PAY_STOPPED_RETRYING:
 		json_object_start(data, NULL);
 		json_add_num(data, "getroute_tries", pay->getroute_tries);
 		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
@@ -331,6 +335,8 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 {
 	struct pay *pay = (struct pay *) vpay;
 	char const *why;
+
+	pay->in_sendpay = false;
 
 	/* If we succeed, hurray */
 	if (r->succeeded) {
@@ -486,6 +492,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	pay->route = tal_dup_arr(pay, struct route_hop, route,
 				 tal_count(route), 0);
 
+	pay->in_sendpay = true;
 	send_payment(pay->try_parent,
 		     pay->cmd->ld, &pay->payment_hash, route,
 		     &json_pay_sendpay_resume, pay);
@@ -542,16 +549,37 @@ static bool json_pay_try(struct pay *pay)
 	return true;
 }
 
+static void json_pay_stop_retrying(struct pay *pay)
+{
+	struct sendpay_result *sr;
+	sr = tal(pay, struct sendpay_result);
+	sr->succeeded = false;
+	if (pay->in_sendpay) {
+		/* Still in sendpay. Return with PAY_IN_PROGRESS */
+		sr->errorcode = PAY_IN_PROGRESS;
+		sr->details = "Stopped retrying during payment attempt; "
+			      "continue monitoring with "
+			      "pay or listpayments";
+	} else {
+		/* Outside sendpay, no ongoing payment */
+		sr->errorcode = PAY_STOPPED_RETRYING;
+		sr->details = "Stopped retrying, no ongoing payment";
+	}
+	json_pay_failure(pay, sr);
+}
+
 static void json_pay(struct command *cmd,
 		     const char *buffer, const jsmntok_t *params)
 {
 	jsmntok_t *bolt11tok, *msatoshitok, *desctok, *riskfactortok, *maxfeetok;
+	jsmntok_t *retryfortok;
 	double riskfactor = 1.0;
 	double maxfeepercent = 0.5;
 	u64 msatoshi;
 	struct pay *pay = tal(cmd, struct pay);
 	struct bolt11 *b11;
 	char *fail, *b11str, *desc;
+	unsigned int retryfor = 60;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "bolt11", &bolt11tok,
@@ -559,6 +587,7 @@ static void json_pay(struct command *cmd,
 			     "?description", &desctok,
 			     "?riskfactor", &riskfactortok,
 			     "?maxfeepercent", &maxfeetok,
+			     "?retry_for", &retryfortok,
 			     NULL)) {
 		return;
 	}
@@ -583,6 +612,13 @@ static void json_pay(struct command *cmd,
 	memset(&pay->expiry, 0, sizeof(pay->expiry));
 	pay->expiry.ts.tv_sec = b11->timestamp + b11->expiry;
 	pay->min_final_cltv_expiry = b11->min_final_cltv_expiry;
+
+	if (retryfortok && !json_tok_number(buffer, retryfortok, &retryfor)) {
+		command_fail(cmd, "'%.*s' is not an integer",
+			     retryfortok->end - retryfortok->start,
+			     buffer + retryfortok->start);
+		return;
+	}
 
 	if (b11->msatoshi) {
 		msatoshi = *b11->msatoshi;
@@ -650,10 +686,17 @@ static void json_pay(struct command *cmd,
 	pay->route = NULL;
 	/* Start with no failures */
 	list_head_init(&pay->pay_failures);
+	pay->in_sendpay = false;
 
 	/* Initiate payment */
 	if (json_pay_try(pay))
 		command_still_pending(cmd);
+	else
+		return;
+
+	/* Set up timeout. */
+	new_reltimer(&cmd->ld->timers, pay, time_from_sec(retryfor),
+		     &json_pay_stop_retrying, pay);
 }
 
 static const struct json_command pay_command = {
@@ -662,7 +705,8 @@ static const struct json_command pay_command = {
 	"Send payment specified by {bolt11} with optional {msatoshi} "
 	"(if and only if {bolt11} does not have amount), "
 	"{description} (required if {bolt11} uses description hash), "
-	"{riskfactor} (default 1.0), and "
-	"{maxfeepercent} (default 0.5) the maximum acceptable fee as a percentage (e.g. 0.5 => 0.5%)"
+	"{riskfactor} (default 1.0), "
+	"{maxfeepercent} (default 0.5) the maximum acceptable fee as a percentage (e.g. 0.5 => 0.5%), and "
+	"{retry_for} (default 60) the integer number of seconds before we stop retrying"
 };
 AUTODATA(json_command, &pay_command);
