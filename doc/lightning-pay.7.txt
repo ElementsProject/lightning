@@ -8,7 +8,7 @@ lightning-pay - Protocol for sending a payment to a BOLT11 invoice
 
 SYNOPSIS
 --------
-*pay* 'bolt11' ['msatoshi'] ['description'] ['riskfactor'] ['maxfeepercent']
+*pay* 'bolt11' ['msatoshi'] ['description'] ['riskfactor'] ['maxfeepercent'] ['retry_for']
 
 DESCRIPTION
 -----------
@@ -29,6 +29,12 @@ route achieves the targeted 'maxfeepercent'.
 The response will occur when the payment fails or succeeds.  Once a
 payment has succeeded, calls to *pay* with the same 'bolt11' will
 succeed immediately.
+
+The command will keep finding routes and retrying the payment until
+it succeeds, or the given 'retry_for' seconds passes.
+Note that the command may stop retrying while a pending payment is
+ongoing, which you need to monitor with *listpayments* or *waitsendpay*.
+'retry_for' defaults to 60 seconds and can only be an integer.
 
 When using 'lightning-cli', you may skip optional parameters by using
 'null'.
@@ -51,7 +57,9 @@ destination implies the payment should not be retried.
 The following error codes may occur:
 
 * -1. Catchall nonspecific error.
-* 200. A previous *sendpay* or *pay* is in progress.
+* 200. Payment timed out while a payment is in progress. Monitor
+  the status of that payment with 'listpayments' command, or
+  wait for that payment to complete with 'pay' command.
 * 201. Already paid with this 'hash' using different amount or
   destination.
 * 203. Permanent failure at destination. The 'data' field of
@@ -66,6 +74,7 @@ The following error codes may occur:
   The 'data' field of the error indicates 'now' (the current time)
   and 'expiry' (the invoice expiration) as UNIX epoch time in
   seconds.
+* 210. Payment timed out without a payment in progress.
 
 Error codes 202 and 204 will only get reported at *sendpay*;
 in *pay* we will keep retrying if we would have gotten those
@@ -86,6 +95,11 @@ A routing failure object has the fields below:
   message received from the remote node. Only present if
   error is from the remote node and the 'failcode' has the
   UPDATE bit set, as per BOLT #4.
+
+The 'data' field of errors will include statistics
+'getroute_tries' and 'sendpay_tries'.
+It will also contain a 'failures' field with detailed data
+about routing errors.
 
 
 AUTHOR
