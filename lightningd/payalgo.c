@@ -1,6 +1,7 @@
 #include "pay.h"
 #include "payalgo.h"
 #include <ccan/crypto/siphash24/siphash24.h>
+#include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/bolt11.h>
@@ -15,6 +16,107 @@
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 
+/* Record of failures. */
+enum pay_failure_type {
+	FAIL_UNPARSEABLE_ONION,
+	FAIL_PAYMENT_REPLY
+};
+/* A payment failure. */
+struct pay_failure {
+	/* Part of pay_failures list of struct pay */
+	struct list_node list;
+	/* The type of payment failure */
+	enum pay_failure_type type;
+	/* A tal_arr of route hops, whose parent is
+	 * this struct */
+	struct route_hop *route;
+	/* The raw onion reply, if TYPE_UNPARSEABLE_ONION, a
+	 * tal_arr whose parent is this struct */
+	const u8 *onionreply;
+	/* The routing failure, if TYPE_PAYMENT_REPLY, a tal
+	 * object whose parent is this struct */
+	struct routing_failure *routing_failure;
+};
+
+/* FIXME: move json_add_route_hop and json_add_route to
+ * common/json.c, share code with getroute */
+/* Output a route hop */
+static void
+json_add_route_hop(struct json_result *r, char const *n,
+		   const struct route_hop *h)
+{
+	/* Imitate what getroute/sendpay use */
+	json_object_start(r, n);
+	json_add_pubkey(r, "id", &h->nodeid);
+	json_add_short_channel_id(r, "channel",
+				  &h->channel_id);
+	json_add_u64(r, "msatoshi", h->amount);
+	json_add_num(r, "delay", h->delay);
+	json_object_end(r);
+}
+
+/* Output a route */
+static void
+json_add_route(struct json_result *r, char const *n,
+	       const struct route_hop *hops, size_t hops_len)
+{
+	size_t i;
+	json_array_start(r, n);
+	for (i = 0; i < hops_len; ++i) {
+		json_add_route_hop(r, NULL, &hops[i]);
+	}
+	json_array_end(r);
+}
+
+/* Output a pay failure */
+static void
+json_add_failure(struct json_result *r, char const *n,
+		 const struct pay_failure *f)
+{
+	struct routing_failure *rf;
+	json_object_start(r, n);
+	switch (f->type) {
+	case FAIL_UNPARSEABLE_ONION:
+		json_add_string(r, "type", "FAIL_UNPARSEABLE_ONION");
+		json_add_hex(r, "onionreply", f->onionreply,
+			     tal_len(f->onionreply));
+		json_add_route(r, "route", f->route, tal_count(f->route));
+		break;
+
+	case FAIL_PAYMENT_REPLY:
+		rf = f->routing_failure;
+		json_add_string(r, "type", "FAIL_PAYMENT_REPLY");
+		json_add_num(r, "erring_index", rf->erring_index);
+		json_add_num(r, "failcode", (unsigned) rf->failcode);
+		json_add_hex(r, "erring_node",
+			     &rf->erring_node,
+			     sizeof(rf->erring_node));
+		json_add_short_channel_id(r, "erring_channel",
+					  &rf->erring_channel);
+		if (rf->channel_update)
+			json_add_hex(r, "channel_update",
+				     rf->channel_update,
+				     tal_len(rf->channel_update));
+		json_add_route(r, "route", f->route, tal_count(f->route));
+		break;
+	}
+	json_object_end(r);
+}
+
+/* Output an array of payment failures. */
+static void
+json_add_failures(struct json_result *r, char const *n,
+		  const struct list_head *fs)
+{
+	struct pay_failure *f;
+	json_array_start(r, n);
+	list_for_each(fs, f, list) {
+		json_add_failure(r, NULL, f);
+	}
+	json_array_end(r);
+}
+
+/* Pay command */
 struct pay {
 	/* Parent command. */
 	struct command *cmd;
@@ -41,22 +143,82 @@ struct pay {
 	 * freed, then allocated at the start of each pay
 	 * attempt to ensure no leaks across long pay attempts */
 	char *try_parent;
+
+	/* Current route being attempted. */
+	struct route_hop *route;
+
+	/* List of failures to pay. */
+	struct list_head pay_failures;
 };
 
-static void
-json_pay_success(struct command *cmd,
-		 const struct preimage *payment_preimage,
-		 unsigned int getroute_tries,
-		 unsigned int sendpay_tries)
+static struct routing_failure *
+dup_routing_failure(const tal_t *ctx, const struct routing_failure *fail)
 {
+	struct routing_failure *nobj = tal(ctx, struct routing_failure);
+
+	nobj->erring_index = fail->erring_index;
+	nobj->failcode = fail->failcode;
+	nobj->erring_node = fail->erring_node;
+	nobj->erring_channel = fail->erring_channel;
+	if (fail->channel_update)
+		nobj->channel_update =  tal_dup_arr(nobj, u8,
+						    fail->channel_update,
+						    tal_count(fail->channel_update),
+						    0);
+	else
+		nobj->channel_update = NULL;
+
+	return nobj;
+}
+
+/* Add a pay_failure from a sendpay_result */
+static void
+add_pay_failure(struct pay *pay,
+		const struct sendpay_result *r)
+{
+	struct pay_failure *f = tal(pay, struct pay_failure);
+
+	/* Append to tail */
+	list_add_tail(&pay->pay_failures, &f->list);
+
+	switch (r->errorcode) {
+	case PAY_UNPARSEABLE_ONION:
+		f->type = FAIL_UNPARSEABLE_ONION;
+		f->onionreply = tal_dup_arr(f, u8, r->onionreply,
+					    tal_count(r->onionreply), 0);
+		break;
+
+	case PAY_TRY_OTHER_ROUTE:
+		f->type = FAIL_PAYMENT_REPLY;
+		f->routing_failure = dup_routing_failure(f,
+							 r->routing_failure);
+		break;
+
+		/* All other errors are disallowed */
+	default:
+		abort();
+	}
+	/* Grab the route */
+	f->route = tal_steal(f, pay->route);
+	pay->route = NULL;
+}
+
+static void
+json_pay_success(struct pay *pay,
+		 const struct preimage *payment_preimage)
+{
+	struct command *cmd = pay->cmd;
 	struct json_result *response;
 
 	response = new_json_result(cmd);
 	json_object_start(response, NULL);
 	json_add_hex(response, "payment_preimage",
 		     payment_preimage, sizeof(*payment_preimage));
-	json_add_num(response, "getroute_tries", getroute_tries);
-	json_add_num(response, "sendpay_tries", sendpay_tries);
+	json_add_num(response, "getroute_tries", pay->getroute_tries);
+	json_add_num(response, "sendpay_tries", pay->sendpay_tries);
+	json_add_route(response, "route",
+		       pay->route, tal_count(pay->route));
+	json_add_failures(response, "failures", &pay->pay_failures);
 	json_object_end(response);
 	command_success(cmd, response);
 }
@@ -78,6 +240,7 @@ static void json_pay_failure(struct pay *pay,
 		json_object_start(data, NULL);
 		json_add_num(data, "getroute_tries", pay->getroute_tries);
 		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
+		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
 		msg = r->details;
 		break;
@@ -104,6 +267,7 @@ static void json_pay_failure(struct pay *pay,
 			json_add_hex(data, "channel_update",
 				     fail->channel_update,
 				     tal_len(fail->channel_update));
+		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
 
 		assert(r->details != NULL);
@@ -171,8 +335,7 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 	/* If we succeed, hurray */
 	if (r->succeeded) {
 		log_info(pay->cmd->ld->log, "pay(%p): Success", pay);
-		json_pay_success(pay->cmd, &r->preimage,
-				 pay->getroute_tries, pay->sendpay_tries);
+		json_pay_success(pay, &r->preimage);
 		return;
 	}
 
@@ -184,6 +347,8 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 		json_pay_failure(pay, r);
 		return;
 	}
+
+	add_pay_failure(pay, r);
 
 	/* Should retry here, question is whether to retry now or later */
 
@@ -264,6 +429,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 		json_object_start(data, NULL);
 		json_add_num(data, "getroute_tries", pay->getroute_tries);
 		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
+		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
 		command_fail_detailed(pay->cmd, PAY_ROUTE_NOT_FOUND, data,
 				      "Could not find a route");
@@ -291,6 +457,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 		json_add_double(data, "maxfeepercent", pay->maxfeepercent);
 		json_add_num(data, "getroute_tries", pay->getroute_tries);
 		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
+		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
 
 		command_fail_detailed(pay->cmd, PAY_ROUTE_TOO_EXPENSIVE,
@@ -315,6 +482,9 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	++pay->sendpay_tries;
 
 	log_route(pay, route);
+	assert(!pay->route);
+	pay->route = tal_dup_arr(pay, struct route_hop, route,
+				 tal_count(route), 0);
 
 	send_payment(pay->try_parent,
 		     pay->cmd->ld, &pay->payment_hash, route,
@@ -339,6 +509,7 @@ static bool json_pay_try(struct pay *pay)
 		json_add_num(data, "expiry", pay->expiry.ts.tv_sec);
 		json_add_num(data, "getroute_tries", pay->getroute_tries);
 		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
+		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
 		command_fail_detailed(cmd, PAY_INVOICE_EXPIRED, data,
 				      "Invoice expired");
@@ -348,6 +519,9 @@ static bool json_pay_try(struct pay *pay)
 	/* Clear previous try memory. */
 	pay->try_parent = tal_free(pay->try_parent);
 	pay->try_parent = tal(pay, char);
+
+	/* Clear route */
+	pay->route = tal_free(pay->route);
 
 	/* Generate random seed */
 	randombytes_buf(&seed, sizeof(seed));
@@ -472,6 +646,10 @@ static void json_pay(struct command *cmd,
 	 * improve privacy somewhat. */
 	pay->fuzz = 0.75;
 	pay->try_parent = NULL;
+	/* Start with no route */
+	pay->route = NULL;
+	/* Start with no failures */
+	list_head_init(&pay->pay_failures);
 
 	/* Initiate payment */
 	if (json_pay_try(pay))
