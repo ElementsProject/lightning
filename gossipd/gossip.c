@@ -293,18 +293,15 @@ static void reached_peer(struct daemon *daemon, const struct pubkey *id,
 
 static void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 {
-	const u8 *send;
-
 	if (peer->local) {
 		msg_enqueue(&peer->local->peer_out, msg);
-		return;
+	} else {
+		/* Use gossip_index 0 meaning don't update index */
+		const u8 *send = towire_gossip_send_gossip(NULL, 0, msg);
+		if (taken(msg))
+			tal_free(msg);
+		daemon_conn_send(peer->remote, take(send));
 	}
-
-	/* Use gossip_index 0 meaning don't update index */
-	send = towire_gossip_send_gossip(NULL, 0, msg);
-	if (taken(msg))
-		tal_free(msg);
-	daemon_conn_send(peer->remote, take(send));
 }
 
 static void peer_error(struct peer *peer, const char *fmt, ...)
