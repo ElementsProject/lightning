@@ -665,8 +665,17 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 				     channel->our_config.channel_reserve_satoshis);
 			json_add_u64(response, "htlc_minimum_msat",
 				     channel->our_config.htlc_minimum_msat);
-			json_add_num(response, "to_self_delay",
+			/* The `to_self_delay` is imposed on the *other*
+			 * side, so our configuration `to_self_delay` is
+			 * imposed on their side, while their configuration
+			 * `to_self_delay` is imposed on ours. */
+			json_add_num(response, "their_to_self_delay",
 				     channel->our_config.to_self_delay);
+			json_add_num(response, "our_to_self_delay",
+				     channel->channel_info.their_config.to_self_delay);
+			if (deprecated_apis)
+				json_add_num(response, "to_self_delay",
+					     channel->our_config.to_self_delay);
 			json_add_num(response, "max_accepted_htlcs",
 				     channel->our_config.max_accepted_htlcs);
 
