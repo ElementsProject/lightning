@@ -626,9 +626,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 		err = towire_errorfmt(rstate, NULL,
 				      "Malformed channel_announcement %s",
 				      tal_hex(pending, pending->announce));
-		tal_free(pending);
-		*scid = NULL;
-		return err;
+		goto malformed;
 	}
 
 	/* Check if we know the channel already (no matter in what
@@ -639,9 +637,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 			     __func__,
 			     type_to_string(trc, struct short_channel_id,
 					    &pending->short_channel_id));
-		tal_free(pending);
-		*scid = NULL;
-		return NULL;
+		goto ignored;
 	}
 
 	/* We don't replace previous ones, since we might validate that and
@@ -651,8 +647,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 			     __func__,
 			     type_to_string(trc, struct short_channel_id,
 					    &pending->short_channel_id));
-		*scid = NULL;
-		return tal_free(pending);
+		goto ignored;
 	}
 
 	/* FIXME: Handle duplicates as per BOLT #7 */
@@ -667,9 +662,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	if (unsupported_features(features, NULL)) {
 		status_trace("Ignoring channel announcement, unsupported features %s.",
 			     tal_hex(pending, features));
-		tal_free(pending);
-		*scid = NULL;
-		return NULL;
+		goto ignored;
 	}
 
 	/* BOLT #7:
@@ -683,9 +676,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 		    type_to_string(pending, struct short_channel_id,
 				   &pending->short_channel_id),
 		    type_to_string(pending, struct bitcoin_blkid, &chain_hash));
-		tal_free(pending);
-		*scid = NULL;
-		return NULL;
+		goto ignored;
 	}
 
 	err = check_channel_announcement(rstate,
@@ -706,8 +697,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 		 *    correct:
 		 *    - SHOULD fail the connection.
 		 */
-		tal_free(pending);
-		return err;
+		goto malformed;
 	}
 
 	status_trace("Received channel_announcement for channel %s",
@@ -722,8 +712,38 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	list_add_tail(&rstate->pending_cannouncement, &pending->list);
 	tal_add_destructor2(pending, destroy_pending_cannouncement, rstate);
 
+	/* Success */
 	*scid = &pending->short_channel_id;
 	return NULL;
+
+malformed:
+	tal_free(pending);
+	*scid = NULL;
+	return err;
+
+ignored:
+	tal_free(pending);
+	*scid = NULL;
+	return NULL;
+}
+
+static void process_pending_channel_update(struct routing_state *rstate,
+					   const struct short_channel_id *scid,
+					   const u8 *cupdate)
+{
+	u8 *err;
+
+	if (!cupdate)
+		return;
+
+	/* FIXME: We don't remember who sent us updates, so can't error them */
+	err = handle_channel_update(rstate, cupdate);
+	if (err) {
+		status_trace("Pending channel_update for %s: %s",
+			     type_to_string(trc, struct short_channel_id, scid),
+			     sanitize_error(trc, err, NULL));
+		tal_free(err);
+	}
 }
 
 bool handle_pending_cannouncement(struct routing_state *rstate,
@@ -805,11 +825,8 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 		pubkey_eq(&pending->node_id_2, &rstate->local_id);
 
 	/* Did we have an update waiting?  If so, apply now. */
-	/* FIXME: We don't remember who sent us updates, so we can't error them */
-	if (pending->updates[0])
-		tal_free(handle_channel_update(rstate, pending->updates[0]));
-	if (pending->updates[1])
-		tal_free(handle_channel_update(rstate, pending->updates[1]));
+	process_pending_channel_update(rstate, scid, pending->updates[0]);
+	process_pending_channel_update(rstate, scid, pending->updates[1]);
 
 	process_pending_node_announcement(rstate, &pending->node_id_1);
 	process_pending_node_announcement(rstate, &pending->node_id_2);
