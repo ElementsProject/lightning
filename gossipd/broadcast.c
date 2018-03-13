@@ -10,35 +10,42 @@ struct broadcast_state *new_broadcast_state(tal_t *ctx)
 	return bstate;
 }
 
-static struct queued_message *new_queued_message(tal_t *ctx,
-						 const u8 *tag,
-						 const u8 *payload)
+static void destroy_queued_message(struct queued_message *msg,
+				   struct broadcast_state *bstate)
+{
+	uintmap_del(&bstate->broadcasts, msg->index);
+}
+
+static struct queued_message *new_queued_message(const tal_t *ctx,
+						 struct broadcast_state *bstate,
+						 const u8 *payload,
+						 u64 index)
 {
 	struct queued_message *msg = tal(ctx, struct queued_message);
-	msg->tag = tal_dup_arr(msg, u8, tag, tal_len(tag), 0);
 	msg->payload = tal_dup_arr(msg, u8, payload, tal_len(payload), 0);
+	msg->index = index;
+	uintmap_add(&bstate->broadcasts, index, msg);
+	tal_add_destructor2(msg, destroy_queued_message, bstate);
 	return msg;
 }
 
-bool replace_broadcast(struct broadcast_state *bstate, u64 *index,
-		       const u8 *tag, const u8 *payload)
+bool replace_broadcast(const tal_t *ctx,
+		       struct broadcast_state *bstate,
+		       u64 *index,
+		       const u8 *payload)
 {
 	struct queued_message *msg;
 	bool evicted = false;
 
 	msg = uintmap_get(&bstate->broadcasts, *index);
 	if (msg) {
-		assert(memeq(msg->tag, tal_len(msg->tag), tag, tal_len(tag)));
-		uintmap_del(&bstate->broadcasts, *index);
 		tal_free(msg);
 		evicted = true;
 	}
 
-	*index = bstate->next_index;
 	/* Now add the message to the queue */
-	msg = new_queued_message(bstate, tag, payload);
-	uintmap_add(&bstate->broadcasts, *index, msg);
-	bstate->next_index++;
+	msg = new_queued_message(ctx, bstate, payload, bstate->next_index++);
+	*index = msg->index;
 	return evicted;
 }
 
