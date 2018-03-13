@@ -10,8 +10,6 @@
 /* Common functionality to implement staggered broadcasts with replacement. */
 
 struct queued_message {
-	int type;
-
 	/* Unique tag specifying the msg origin */
 	void *tag;
 
@@ -32,7 +30,6 @@ struct broadcast_state *new_broadcast_state(tal_t *ctx);
  * newly queued message*/
 bool replace_broadcast(struct broadcast_state *bstate,
 		       u64 *index,
-		       const int type,
 		       const u8 *tag,
 		       const u8 *payload);
 

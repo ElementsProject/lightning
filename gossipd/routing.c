@@ -818,7 +818,6 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 
 	if (replace_broadcast(rstate->broadcasts,
 			      &chan->channel_announce_msgidx,
-			      WIRE_CHANNEL_ANNOUNCEMENT,
 			      tag, pending->announce))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Announcement %s was replaced?",
@@ -1005,9 +1004,8 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 	towire_u16(&tag, direction);
 	replace_broadcast(rstate->broadcasts,
 			  &chan->half[direction].channel_update_msgidx,
-			WIRE_CHANNEL_UPDATE,
-			tag,
-			serialized);
+			  tag,
+			  serialized);
 
 	tal_free(c->channel_update);
 	c->channel_update = tal_steal(chan, serialized);
@@ -1194,7 +1192,6 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	towire_pubkey(&tag, &node_id);
 	replace_broadcast(rstate->broadcasts,
 			  &node->announcement_idx,
-			  WIRE_NODE_ANNOUNCEMENT,
 			  tag,
 			  serialized);
 	tal_free(node->node_announcement);

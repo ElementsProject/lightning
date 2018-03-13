@@ -26,9 +26,6 @@ bool fromwire_channel_update(const void *p UNNEEDED, secp256k1_ecdsa_signature *
 /* Generated stub for fromwire_node_announcement */
 bool fromwire_node_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED, u8 **features UNNEEDED, u32 *timestamp UNNEEDED, struct pubkey *node_id UNNEEDED, u8 rgb_color[3] UNNEEDED, u8 alias[32] UNNEEDED, u8 **addresses UNNEEDED)
 { fprintf(stderr, "fromwire_node_announcement called!\n"); abort(); }
-/* Generated stub for fromwire_peektype */
-int fromwire_peektype(const u8 *cursor UNNEEDED)
-{ fprintf(stderr, "fromwire_peektype called!\n"); abort(); }
 /* Generated stub for fromwire_u8 */
 u8 fromwire_u8(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_u8 called!\n"); abort(); }
@@ -41,7 +38,6 @@ const char *onion_type_name(int e UNNEEDED)
 /* Generated stub for replace_broadcast */
 bool replace_broadcast(struct broadcast_state *bstate UNNEEDED,
 		       u64 *index UNNEEDED,
-		       const int type UNNEEDED,
 		       const u8 *tag UNNEEDED,
 		       const u8 *payload UNNEEDED)
 { fprintf(stderr, "replace_broadcast called!\n"); abort(); }
