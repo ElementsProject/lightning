@@ -20,7 +20,7 @@ struct queued_message {
 };
 
 struct broadcast_state {
-	u32 next_index;
+	u64 next_index;
 	UINTMAP(struct queued_message *) broadcasts;
 };
 

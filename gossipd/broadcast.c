@@ -71,7 +71,7 @@ bool queue_broadcast(struct broadcast_state *bstate,
 	/* Now add the message to the queue */
 	msg = new_queued_message(bstate, type, tag, payload);
 	uintmap_add(&bstate->broadcasts, bstate->next_index, msg);
-	bstate->next_index += 1;
+	bstate->next_index++;
 	return evicted;
 }
 
