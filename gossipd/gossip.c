@@ -423,8 +423,7 @@ static struct io_plan *init_new_peer(struct io_conn *conn,
 
 static struct io_plan *owner_msg_in(struct io_conn *conn,
 				    struct daemon_conn *dc);
-static struct io_plan *nonlocal_dump_gossip(struct io_conn *conn,
-					    struct daemon_conn *dc);
+static bool nonlocal_dump_gossip(struct io_conn *conn, struct daemon_conn *dc);
 
 /* Create a node_announcement with the given signature. It may be NULL
  * in the case we need to create a provisional announcement for the
@@ -914,7 +913,7 @@ static bool send_peer_with_fds(struct peer *peer, const u8 *msg)
  *
  * Registered as `msg_queue_cleared_cb` by the `peer->remote`.
  */
-static struct io_plan *nonlocal_dump_gossip(struct io_conn *conn, struct daemon_conn *dc)
+static bool nonlocal_dump_gossip(struct io_conn *conn, struct daemon_conn *dc)
 {
 	struct queued_message *next;
 	struct peer *peer = dc->ctx;
@@ -925,22 +924,20 @@ static struct io_plan *nonlocal_dump_gossip(struct io_conn *conn, struct daemon_
 
 	/* Nothing to do if we're not gossiping */
 	if (!peer->gossip_sync)
-		return msg_queue_wait(conn, &peer->remote->out,
-				      daemon_conn_write_next, dc);
+		return false;
 
 	next = next_broadcast_message(peer->daemon->rstate->broadcasts,
 				      &peer->broadcast_index);
 
 	if (!next) {
 		peer->gossip_sync = false;
-		return msg_queue_wait(conn, &peer->remote->out,
-				      daemon_conn_write_next, dc);
+		return false;
 	} else {
 		u8 *msg = towire_gossip_send_gossip(conn,
 						    peer->broadcast_index,
 						    next->payload);
-		return io_write_wire(conn, take(msg),
-				     nonlocal_dump_gossip, dc);
+		daemon_conn_send(peer->remote, take(msg));
+		return true;
 	}
 }
 
