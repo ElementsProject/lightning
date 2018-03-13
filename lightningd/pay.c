@@ -93,21 +93,26 @@ static void waitsendpay_resolve(const tal_t *ctx,
 
 static struct sendpay_result*
 sendpay_result_success(const tal_t *ctx,
-		       const struct preimage *payment_preimage)
+		       const struct preimage *payment_preimage,
+		       const struct wallet_payment *payment)
 {
 	struct sendpay_result *result = tal(ctx, struct sendpay_result);
 	result->succeeded = true;
 	result->preimage = *payment_preimage;
+	result->payment = payment;
 	return result;
 }
 
 static void payment_trigger_success(struct lightningd *ld,
-				    const struct sha256 *payment_hash,
-				    const struct preimage *payment_preimage)
+				    const struct sha256 *payment_hash)
 {
 	struct sendpay_result *result;
+	struct wallet_payment *payment;
 
-	result = sendpay_result_success(tmpctx, payment_preimage);
+	payment = wallet_payment_by_hash(tmpctx, ld->wallet, payment_hash);
+	assert(payment);
+
+	result = sendpay_result_success(tmpctx, payment->payment_preimage, payment);
 
 	waitsendpay_resolve(tmpctx, ld, payment_hash, result);
 }
@@ -161,12 +166,25 @@ sendpay_result_simple_fail(const tal_t *ctx,
 	return result;
 }
 
+static struct sendpay_result *
+sendpay_result_in_progress(const tal_t *ctx,
+			   const struct wallet_payment* payment,
+			   char const *details)
+{
+	struct sendpay_result *result = tal(ctx, struct sendpay_result);
+	result->succeeded = false;
+	result->errorcode = PAY_IN_PROGRESS;
+	result->payment = payment;
+	result->details = details;
+	return result;
+}
+
 void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 		       const struct preimage *rval)
 {
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 				  PAYMENT_COMPLETE, rval);
-	payment_trigger_success(ld, &hout->payment_hash, rval);
+	payment_trigger_success(ld, &hout->payment_hash);
 }
 
 /* Return NULL if the wrapped onion error message has no
@@ -377,11 +395,14 @@ void payment_store(struct lightningd *ld,
 	struct sendpay_command *pc;
 	struct sendpay_command *next;
 	struct sendpay_result *result;
+	const struct wallet_payment *payment;
 
 	wallet_payment_store(ld->wallet, payment_hash);
+	payment = wallet_payment_by_hash(tmpctx, ld->wallet, payment_hash);
+	assert(payment);
 
 	/* Invent a sendpay result with PAY_IN_PROGRESS. */
-	result = sendpay_result_simple_fail(tmpctx, PAY_IN_PROGRESS,
+	result = sendpay_result_in_progress(tmpctx, payment,
 					    "Payment is still in progress");
 
 	/* Trigger any sendpay commands waiting for the store to occur. */
@@ -543,7 +564,8 @@ bool wait_payment(const tal_t *cxt,
 
 	case PAYMENT_COMPLETE:
 		result = sendpay_result_success(tmpctx,
-						payment->payment_preimage);
+						payment->payment_preimage,
+						payment);
 		cb(result, cbarg);
 		cb_not_called = false;
 		goto end;
@@ -645,8 +667,8 @@ send_payment(const tal_t *ctx,
 		log_debug(ld->log, "send_payment: found previous");
 		if (payment->status == PAYMENT_PENDING) {
 			log_add(ld->log, "Payment is still in progress");
-			result = sendpay_result_simple_fail(tmpctx,
-							    PAY_IN_PROGRESS,
+			result = sendpay_result_in_progress(tmpctx,
+							    payment,
 							    "Payment is still in progress");
 			cb(result, cbarg);
 			return false;
@@ -678,7 +700,8 @@ send_payment(const tal_t *ctx,
 				return false;
 			}
 			result = sendpay_result_success(tmpctx,
-							payment->payment_preimage);
+							payment->payment_preimage,
+							payment);
 			cb(result, cbarg);
 			return false;
 		}
