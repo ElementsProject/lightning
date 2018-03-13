@@ -1,6 +1,14 @@
 #include <ccan/mem/mem.h>
 #include <gossipd/broadcast.h>
 
+struct queued_message {
+	/* Broadcast index. */
+	u64 index;
+
+	/* Serialized payload */
+	const u8 *payload;
+};
+
 struct broadcast_state *new_broadcast_state(tal_t *ctx)
 {
 	struct broadcast_state *bstate = tal(ctx, struct broadcast_state);
@@ -49,10 +57,14 @@ bool replace_broadcast(const tal_t *ctx,
 	return evicted;
 }
 
-struct queued_message *next_broadcast_message(struct broadcast_state *bstate,
-					      u64 *last_index)
+const u8 *next_broadcast(struct broadcast_state *bstate, u64 *last_index)
 {
-	return uintmap_after(&bstate->broadcasts, last_index);
+	struct queued_message *m;
+
+	m = uintmap_after(&bstate->broadcasts, last_index);
+	if (m)
+		return m->payload;
+	return NULL;
 }
 
 const u8 *get_broadcast(struct broadcast_state *bstate, u64 msgidx)
