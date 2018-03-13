@@ -39,7 +39,7 @@ const char *onion_type_name(int e UNNEEDED)
 bool replace_broadcast(const tal_t *ctx UNNEEDED,
 		       struct broadcast_state *bstate UNNEEDED,
 		       u64 *index UNNEEDED,
-		       const u8 *payload UNNEEDED)
+		       const u8 *payload TAKES UNNEEDED)
 { fprintf(stderr, "replace_broadcast called!\n"); abort(); }
 /* Generated stub for sanitize_error */
 char *sanitize_error(const tal_t *ctx UNNEEDED, const u8 *errmsg UNNEEDED,

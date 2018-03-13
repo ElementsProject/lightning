@@ -657,7 +657,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	 * and MUST NOT add the channel to its local network view, and
 	 * SHOULD NOT forward the announcement.
 	 */
-	if (unsupported_features(features, NULL)) {
+	if (!features_supported(features, NULL)) {
 		status_trace("Ignoring channel announcement, unsupported features %s.",
 			     tal_hex(pending, features));
 		goto ignored;
@@ -1070,7 +1070,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	 * receiving node MUST NOT parse the remainder of the message
 	 * and MAY discard the message altogether.
 	 */
-	if (unsupported_features(features, NULL)) {
+	if (!features_supported(features, NULL)) {
 		status_trace("Ignoring node announcement for node %s, unsupported features %s.",
 			     type_to_string(tmpctx, struct pubkey, &node_id),
 			     tal_hex(tmpctx, features));
