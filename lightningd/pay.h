@@ -10,6 +10,7 @@ struct htlc_out;
 struct lightningd;
 struct route_hop;
 struct sha256;
+struct wallet_payment;
 
 /* Routing failure object */
 struct routing_failure {
@@ -29,6 +30,9 @@ struct sendpay_result {
 	/* Error code, one of the PAY_* macro in jsonrpc_errors.h.
 	 * Only loaded if payment failed. */
 	int errorcode;
+	/* Pointer to the payment. Only loaded if payment
+	 * succeeded or if error is PAY_IN_PROGRESS */
+	const struct wallet_payment *payment;
 	/* Unparseable onion reply. Only loaded if payment failed,
 	 * and errorcode == PAY_UNPARSEABLE_ONION. */
 	const u8* onionreply;
