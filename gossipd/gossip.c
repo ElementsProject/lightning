@@ -708,14 +708,14 @@ static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer)
 			return ready_for_master(conn, peer);
 	} else if (peer->gossip_sync) {
 		/* If we're supposed to be sending gossip, do so now. */
-		struct queued_message *next;
+		const u8 *next;
 
-		next = next_broadcast_message(peer->daemon->rstate->broadcasts,
-					      &peer->broadcast_index);
+		next = next_broadcast(peer->daemon->rstate->broadcasts,
+				      &peer->broadcast_index);
 
 		if (next)
 			return peer_write_message(conn, &peer->local->pcs,
-						  next->payload,
+						  next,
 						  peer_pkt_out);
 
 		/* Gossip is drained.  Wait for next timer. */
@@ -915,7 +915,7 @@ static bool send_peer_with_fds(struct peer *peer, const u8 *msg)
  */
 static bool nonlocal_dump_gossip(struct io_conn *conn, struct daemon_conn *dc)
 {
-	struct queued_message *next;
+	const u8 *next;
 	struct peer *peer = dc->ctx;
 
 
@@ -926,8 +926,8 @@ static bool nonlocal_dump_gossip(struct io_conn *conn, struct daemon_conn *dc)
 	if (!peer->gossip_sync)
 		return false;
 
-	next = next_broadcast_message(peer->daemon->rstate->broadcasts,
-				      &peer->broadcast_index);
+	next = next_broadcast(peer->daemon->rstate->broadcasts,
+			      &peer->broadcast_index);
 
 	if (!next) {
 		peer->gossip_sync = false;
@@ -935,7 +935,7 @@ static bool nonlocal_dump_gossip(struct io_conn *conn, struct daemon_conn *dc)
 	} else {
 		u8 *msg = towire_gossip_send_gossip(conn,
 						    peer->broadcast_index,
-						    next->payload);
+						    next);
 		daemon_conn_send(peer->remote, take(msg));
 		return true;
 	}
