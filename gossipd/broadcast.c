@@ -49,9 +49,10 @@ bool replace_broadcast(const tal_t *ctx,
 	return evicted;
 }
 
-struct queued_message *next_broadcast_message(struct broadcast_state *bstate, u64 last_index)
+struct queued_message *next_broadcast_message(struct broadcast_state *bstate,
+					      u64 *last_index)
 {
-	return uintmap_after(&bstate->broadcasts, &last_index);
+	return uintmap_after(&bstate->broadcasts, last_index);
 }
 
 const u8 *get_broadcast(struct broadcast_state *bstate, u64 msgidx)
