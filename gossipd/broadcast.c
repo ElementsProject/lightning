@@ -44,37 +44,6 @@ bool replace_broadcast(struct broadcast_state *bstate, u64 *index,
 	return evicted;
 }
 
-bool queue_broadcast(struct broadcast_state *bstate,
-		     const int type,
-		     const u8 *tag,
-		     const u8 *payload)
-{
-	struct queued_message *msg;
-	u64 index;
-	bool evicted = false;
-
-	memcheck(tag, tal_len(tag));
-
-	/* Remove any tag&type collisions */
-	for (msg = uintmap_first(&bstate->broadcasts, &index);
-	     msg;
-	     msg = uintmap_after(&bstate->broadcasts, &index)) {
-		if (msg->type == type &&
-		    memeq(msg->tag, tal_len(msg->tag), tag, tal_len(tag))) {
-			uintmap_del(&bstate->broadcasts, index);
-			tal_free(msg);
-			evicted = true;
-			break;
-		}
-	}
-
-	/* Now add the message to the queue */
-	msg = new_queued_message(bstate, type, tag, payload);
-	uintmap_add(&bstate->broadcasts, bstate->next_index, msg);
-	bstate->next_index++;
-	return evicted;
-}
-
 struct queued_message *next_broadcast_message(struct broadcast_state *bstate, u64 last_index)
 {
 	return uintmap_after(&bstate->broadcasts, &last_index);

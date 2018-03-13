@@ -26,16 +26,6 @@ struct broadcast_state {
 
 struct broadcast_state *new_broadcast_state(tal_t *ctx);
 
-/* Queue a new message to be broadcast and replace any outdated
- * broadcast. Replacement is done by comparing the `type` and the
- * `tag`, if both match the old message is dropped from the queue. The
- * new message is added to the top of the broadcast queue. Returns
- * true if a previous entry with the same tag has been evicted. */
-bool queue_broadcast(struct broadcast_state *bstate,
-			     const int type,
-			     const u8 *tag,
-			     const u8 *payload);
-
 /* Replace a queued message with @index, if it matches the type and
  * tag for the new message. The new message will be queued with the
  * next highest index. @index is updated to hold the index of the
