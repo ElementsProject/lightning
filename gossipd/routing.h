@@ -61,6 +61,8 @@ struct chan {
 
 	/* Is this a public channel, or was it only added locally? */
 	bool public;
+
+	u64 satoshis;
 };
 
 struct node {
@@ -210,6 +212,7 @@ handle_channel_announcement(struct routing_state *rstate,
  */
 bool handle_pending_cannouncement(struct routing_state *rstate,
 				  const struct short_channel_id *scid,
+				  const u64 satoshis,
 				  const u8 *txscript);
 void handle_channel_update(struct routing_state *rstate, const u8 *update);
 void handle_node_announcement(struct routing_state *rstate, const u8 *node);

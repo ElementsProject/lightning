@@ -225,6 +225,7 @@ struct chan *new_chan(struct routing_state *rstate,
 	chan->channel_announcement = NULL;
 	chan->channel_announce_msgidx = 0;
 	chan->public = false;
+	chan->satoshis = 0;
 
 	n = tal_count(n2->chans);
 	tal_resize(&n2->chans, n+1);
@@ -646,6 +647,7 @@ const struct short_channel_id *handle_channel_announcement(
 
 bool handle_pending_cannouncement(struct routing_state *rstate,
 				  const struct short_channel_id *scid,
+				  const u64 satoshis,
 				  const u8 *outscript)
 {
 	bool local;
@@ -706,6 +708,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 
 	/* Channel is now public. */
 	chan->public = true;
+	chan->satoshis = satoshis;
 
 	/* Save channel_announcement. */
 	tal_free(chan->channel_announcement);

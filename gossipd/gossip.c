@@ -1116,6 +1116,7 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 
 	e->source = chan->nodes[idx]->id;
 	e->destination = chan->nodes[!idx]->id;
+	e->satoshis = chan->satoshis;
 	e->active = c->active;
 	e->flags = c->flags;
 	e->public = (c->channel_update != NULL);
@@ -1813,11 +1814,12 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 {
 	struct short_channel_id scid;
 	u8 *outscript;
+	u64 satoshis;
 
-	if (!fromwire_gossip_get_txout_reply(msg, msg, &scid, &outscript))
+	if (!fromwire_gossip_get_txout_reply(msg, msg, &scid, &satoshis, &outscript))
 		master_badmsg(WIRE_GOSSIP_GET_TXOUT_REPLY, msg);
 
-	if (handle_pending_cannouncement(daemon->rstate, &scid, outscript))
+	if (handle_pending_cannouncement(daemon->rstate, &scid, satoshis, outscript))
 		send_node_announcement(daemon);
 
 	return daemon_conn_read_next(conn, &daemon->master);
