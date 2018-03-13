@@ -144,8 +144,7 @@ static struct node *new_node(struct routing_state *rstate,
 	n->id = *id;
 	n->chans = tal_arr(n, struct chan *, 0);
 	n->alias = NULL;
-	n->node_announcement = NULL;
-	n->announcement_idx = 0;
+	n->node_announce_msgidx = 0;
 	n->last_timestamp = -1;
 	n->addresses = tal_arr(n, struct wireaddr, 0);
 	node_map_add(rstate->nodes, n);
@@ -191,7 +190,6 @@ static void init_half_chan(struct routing_state *rstate,
 {
 	struct half_chan *c = &chan->half[idx];
 
-	c->channel_update = NULL;
 	c->channel_update_msgidx = 0;
 	c->unroutable_until = 0;
 	c->active = false;
@@ -223,7 +221,6 @@ struct chan *new_chan(struct routing_state *rstate,
 	chan->nodes[n1idx] = n1;
 	chan->nodes[!n1idx] = n2;
 	chan->txout_script = NULL;
-	chan->channel_announcement = NULL;
 	chan->channel_announce_msgidx = 0;
 	chan->public = false;
 	chan->satoshis = 0;
@@ -808,13 +805,9 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	chan->public = true;
 	chan->satoshis = satoshis;
 
-	/* Save channel_announcement. */
-	tal_free(chan->channel_announcement);
-	chan->channel_announcement = tal_steal(chan, pending->announce);
-
 	if (replace_broadcast(chan, rstate->broadcasts,
 			      &chan->channel_announce_msgidx,
-			      pending->announce))
+			      take(pending->announce)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Announcement %s was replaced?",
 			      tal_hex(trc, pending->announce));
@@ -997,10 +990,8 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 
 	replace_broadcast(chan, rstate->broadcasts,
 			  &chan->half[direction].channel_update_msgidx,
-			  serialized);
+			  take(serialized));
 
-	tal_free(c->channel_update);
-	c->channel_update = tal_steal(chan, serialized);
 	tal_free(tmpctx);
 	return NULL;
 }
@@ -1181,10 +1172,8 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	node->alias = tal_dup_arr(node, u8, alias, 32, 0);
 
 	replace_broadcast(node, rstate->broadcasts,
-			  &node->announcement_idx,
-			  serialized);
-	tal_free(node->node_announcement);
-	node->node_announcement = tal_steal(node, serialized);
+			  &node->node_announce_msgidx,
+			  take(serialized));
 	tal_free(tmpctx);
 	return NULL;
 }
