@@ -69,6 +69,9 @@ bool derive_basepoints(const struct privkey *seed UNNEEDED,
 /* Generated stub for extract_channel_id */
 bool extract_channel_id(const u8 *in_pkt UNNEEDED, struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "extract_channel_id called!\n"); abort(); }
+/* Generated stub for features_supported */
+bool features_supported(const u8 *gfeatures UNNEEDED, const u8 *lfeatures UNNEEDED)
+{ fprintf(stderr, "features_supported called!\n"); abort(); }
 /* Generated stub for fromwire_gossipctl_peer_disconnect_reply */
 bool fromwire_gossipctl_peer_disconnect_reply(const void *p UNNEEDED)
 { fprintf(stderr, "fromwire_gossipctl_peer_disconnect_reply called!\n"); abort(); }
@@ -90,12 +93,12 @@ enum watch_result funding_spent(struct channel *channel UNNEEDED,
 /* Generated stub for get_feerate */
 u32 get_feerate(const struct chain_topology *topo UNNEEDED, enum feerate feerate UNNEEDED)
 { fprintf(stderr, "get_feerate called!\n"); abort(); }
-/* Generated stub for get_supported_global_features */
-u8 *get_supported_global_features(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "get_supported_global_features called!\n"); abort(); }
-/* Generated stub for get_supported_local_features */
-u8 *get_supported_local_features(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "get_supported_local_features called!\n"); abort(); }
+/* Generated stub for get_offered_global_features */
+u8 *get_offered_global_features(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "get_offered_global_features called!\n"); abort(); }
+/* Generated stub for get_offered_local_features */
+u8 *get_offered_local_features(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "get_offered_local_features called!\n"); abort(); }
 /* Generated stub for invoices_create */
 bool invoices_create(struct invoices *invoices UNNEEDED,
 		     struct invoice *pinvoice UNNEEDED,
@@ -356,9 +359,6 @@ u8 *towire_gossip_disable_channel(const tal_t *ctx UNNEEDED, const struct short_
 /* Generated stub for towire_gossip_getpeers_request */
 u8 *towire_gossip_getpeers_request(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
 { fprintf(stderr, "towire_gossip_getpeers_request called!\n"); abort(); }
-/* Generated stub for unsupported_features */
-bool unsupported_features(const u8 *gfeatures UNNEEDED, const u8 *lfeatures UNNEEDED)
-{ fprintf(stderr, "unsupported_features called!\n"); abort(); }
 /* Generated stub for watch_txid */
 struct txwatch *watch_txid(const tal_t *ctx UNNEEDED,
 			   struct chain_topology *topo UNNEEDED,

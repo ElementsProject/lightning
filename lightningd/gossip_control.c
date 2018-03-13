@@ -46,7 +46,7 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 		      tal_hex(msg, msg));
 
 	/* We already checked the features when it first connected. */
-	if (unsupported_features(gfeatures, lfeatures)) {
+	if (!features_supported(gfeatures, lfeatures)) {
 		log_unusual(gossip->log,
 			    "Gossip gave unsupported features %s/%s",
 			    tal_hex(msg, gfeatures),
@@ -204,8 +204,8 @@ void gossip_init(struct lightningd *ld)
 	msg = towire_gossipctl_init(
 	    tmpctx, ld->config.broadcast_interval,
 	    &get_chainparams(ld)->genesis_blockhash, &ld->id, ld->portnum,
-	    get_supported_global_features(tmpctx),
-	    get_supported_local_features(tmpctx), ld->wireaddrs, ld->rgb,
+	    get_offered_global_features(tmpctx),
+	    get_offered_local_features(tmpctx), ld->wireaddrs, ld->rgb,
 	    ld->alias, ld->config.channel_update_interval);
 	subd_send_msg(ld->gossip, msg);
 	tal_free(tmpctx);

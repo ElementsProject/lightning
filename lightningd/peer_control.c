@@ -282,8 +282,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	struct crypto_state cs;
 	u8 *gfeatures, *lfeatures;
 	u8 *error;
-	u8 *supported_global_features;
-	u8 *supported_local_features;
+	u8 *global_features;
+	u8 *local_features;
 	struct channel *channel;
 	struct wireaddr addr;
 	u64 gossip_index;
@@ -295,22 +295,22 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		fatal("Gossip gave bad GOSSIP_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
 
-	if (unsupported_features(gfeatures, lfeatures)) {
+	if (!features_supported(gfeatures, lfeatures)) {
 		log_unusual(ld->log, "peer %s offers unsupported features %s/%s",
 			    type_to_string(msg, struct pubkey, &id),
 			    tal_hex(msg, gfeatures),
 			    tal_hex(msg, lfeatures));
-		supported_global_features = get_supported_global_features(msg);
-		supported_local_features = get_supported_local_features(msg);
+		global_features = get_offered_global_features(msg);
+		local_features = get_offered_local_features(msg);
 		error = towire_errorfmt(msg, NULL,
-					"We only support globalfeatures %s"
+					"We only offer globalfeatures %s"
 					" and localfeatures %s",
 					tal_hexstr(msg,
-						   supported_global_features,
-						   tal_len(supported_global_features)),
+						   global_features,
+						   tal_len(global_features)),
 					tal_hexstr(msg,
-						   supported_local_features,
-						   tal_len(supported_local_features)));
+						   local_features,
+						   tal_len(local_features)));
 		goto send_error;
 	}
 
