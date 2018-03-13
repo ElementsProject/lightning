@@ -14,7 +14,7 @@ struct queued_message {
 	u64 index;
 
 	/* Serialized payload */
-	u8 *payload;
+	const u8 *payload;
 };
 
 struct broadcast_state {
@@ -31,7 +31,7 @@ struct broadcast_state *new_broadcast_state(tal_t *ctx);
 bool replace_broadcast(const tal_t *ctx,
 		       struct broadcast_state *bstate,
 		       u64 *index,
-		       const u8 *payload);
+		       const u8 *payload TAKES);
 
 
 struct queued_message *next_broadcast_message(struct broadcast_state *bstate, u64 last_index);

@@ -18,7 +18,7 @@ static void destroy_queued_message(struct queued_message *msg,
 
 static struct queued_message *new_queued_message(const tal_t *ctx,
 						 struct broadcast_state *bstate,
-						 const u8 *payload,
+						 const u8 *payload TAKES,
 						 u64 index)
 {
 	struct queued_message *msg = tal(ctx, struct queued_message);
@@ -32,7 +32,7 @@ static struct queued_message *new_queued_message(const tal_t *ctx,
 bool replace_broadcast(const tal_t *ctx,
 		       struct broadcast_state *bstate,
 		       u64 *index,
-		       const u8 *payload)
+		       const u8 *payload TAKES)
 {
 	struct queued_message *msg;
 	bool evicted = false;
