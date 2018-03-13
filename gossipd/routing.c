@@ -753,7 +753,6 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 				  const u8 *outscript)
 {
 	bool local;
-	u8 *tag;
 	const u8 *s;
 	struct pending_cannouncement *pending;
 	struct chan *chan;
@@ -761,9 +760,6 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	pending = find_pending_cannouncement(rstate, scid);
 	if (!pending)
 		return false;
-
-	tag = tal_arr(pending, u8, 0);
-	towire_short_channel_id(&tag, scid);
 
 	/* BOLT #7:
 	 *
@@ -816,9 +812,9 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	tal_free(chan->channel_announcement);
 	chan->channel_announcement = tal_steal(chan, pending->announce);
 
-	if (replace_broadcast(rstate->broadcasts,
+	if (replace_broadcast(chan, rstate->broadcasts,
 			      &chan->channel_announce_msgidx,
-			      tag, pending->announce))
+			      pending->announce))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Announcement %s was replaced?",
 			      tal_hex(trc, pending->announce));
@@ -999,12 +995,8 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 			      timestamp,
 			      htlc_minimum_msat);
 
-	u8 *tag = tal_arr(tmpctx, u8, 0);
-	towire_short_channel_id(&tag, &short_channel_id);
-	towire_u16(&tag, direction);
-	replace_broadcast(rstate->broadcasts,
+	replace_broadcast(chan, rstate->broadcasts,
 			  &chan->half[direction].channel_update_msgidx,
-			  tag,
 			  serialized);
 
 	tal_free(c->channel_update);
@@ -1188,11 +1180,8 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	tal_free(node->alias);
 	node->alias = tal_dup_arr(node, u8, alias, 32, 0);
 
-	u8 *tag = tal_arr(tmpctx, u8, 0);
-	towire_pubkey(&tag, &node_id);
-	replace_broadcast(rstate->broadcasts,
+	replace_broadcast(node, rstate->broadcasts,
 			  &node->announcement_idx,
-			  tag,
 			  serialized);
 	tal_free(node->node_announcement);
 	node->node_announcement = tal_steal(node, serialized);
