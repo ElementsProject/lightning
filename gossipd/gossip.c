@@ -17,6 +17,7 @@
 #include <ccan/timer/timer.h>
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
+#include <common/features.h>
 #include <common/io_debug.h>
 #include <common/ping.h>
 #include <common/status.h>
@@ -242,7 +243,6 @@ static struct peer *new_peer(const tal_t *ctx,
 	peer->local = new_local_peer_state(peer, cs);
 	peer->remote = NULL;
 	peer->reach_again = false;
-	peer->broadcast_index = 0;
 
 	return peer;
 }
@@ -351,6 +351,19 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	}
 
 	reached_peer(peer->daemon, &peer->id, conn);
+
+	/* BOLT #7:
+	 *
+	 * Upon receiving an `init` message with the `initial_routing_sync`
+	 * flag set the node sends `channel_announcement`s, `channel_update`s
+	 * and `node_announcement`s for all known channels and nodes as if
+	 * they were just received.
+	 */
+	if (feature_offered(peer->lfeatures, LOCAL_INITIAL_ROUTING_SYNC))
+		peer->broadcast_index = 0;
+	else
+		peer->broadcast_index
+			= peer->daemon->rstate->broadcasts->next_index;
 
 	/* This is a full peer now; we keep it around until its
 	 * gossipfd closed (forget_peer) or reconnect. */
