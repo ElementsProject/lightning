@@ -36,4 +36,5 @@ bool replace_broadcast(const tal_t *ctx,
 
 struct queued_message *next_broadcast_message(struct broadcast_state *bstate, u64 last_index);
 
+const u8 *get_broadcast(struct broadcast_state *bstate, u64 msgidx);
 #endif /* LIGHTNING_LIGHTNINGD_GOSSIP_BROADCAST_H */

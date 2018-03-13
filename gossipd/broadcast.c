@@ -53,3 +53,13 @@ struct queued_message *next_broadcast_message(struct broadcast_state *bstate, u6
 {
 	return uintmap_after(&bstate->broadcasts, &last_index);
 }
+
+const u8 *get_broadcast(struct broadcast_state *bstate, u64 msgidx)
+{
+	struct queued_message *m;
+
+	m = uintmap_get(&bstate->broadcasts, msgidx);
+	if (m)
+		return m->payload;
+	return NULL;
+}
