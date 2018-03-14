@@ -779,20 +779,55 @@ send_payment(const tal_t *ctx,
 }
 
 /*-----------------------------------------------------------------------------
+Utility
+-----------------------------------------------------------------------------*/
+
+/* Outputs fields, not a separate object*/
+static void
+json_add_payment_fields(struct json_result *response,
+			const struct wallet_payment *t)
+{
+	json_add_u64(response, "id", t->id);
+	json_add_hex(response, "payment_hash", &t->payment_hash, sizeof(t->payment_hash));
+	json_add_pubkey(response, "destination", &t->destination);
+	json_add_u64(response, "msatoshi", t->msatoshi);
+	if (deprecated_apis)
+		json_add_u64(response, "timestamp", t->timestamp);
+	json_add_u64(response, "created_at", t->timestamp);
+
+	switch (t->status) {
+	case PAYMENT_PENDING:
+		json_add_string(response, "status", "pending");
+		break;
+	case PAYMENT_COMPLETE:
+		json_add_string(response, "status", "complete");
+		break;
+	case PAYMENT_FAILED:
+		json_add_string(response, "status", "failed");
+		break;
+	}
+	if (t->payment_preimage)
+		json_add_hex(response, "payment_preimage",
+			     t->payment_preimage,
+			     sizeof(*t->payment_preimage));
+
+}
+
+/*-----------------------------------------------------------------------------
 JSON-RPC sendpay interface
 -----------------------------------------------------------------------------*/
 
 static void
 json_sendpay_success(struct command *cmd,
-		     const struct preimage *payment_preimage)
+		     const struct sendpay_result *r)
 {
 	struct json_result *response;
 
+	assert(r->payment->status == PAYMENT_COMPLETE);
+
 	response = new_json_result(cmd);
 	json_object_start(response, NULL);
-	json_add_bool(response, "completed", true);
-	json_add_hex(response, "payment_preimage",
-		     payment_preimage, sizeof(*payment_preimage));
+	json_add_payment_fields(response, r->payment);
 	json_object_end(response);
 	command_success(cmd, response);
 }
@@ -807,10 +842,13 @@ static void json_waitsendpay_on_resolve(const struct sendpay_result *r,
 	struct routing_failure *fail;
 
 	if (r->succeeded)
-		json_sendpay_success(cmd, &r->preimage);
+		json_sendpay_success(cmd, r);
 	else {
 		switch (r->errorcode) {
+			/* We will never handle this case */
 		case PAY_IN_PROGRESS:
+			abort();
+
 		case PAY_RHASH_ALREADY_USED:
 		case PAY_UNSPECIFIED_ERROR:
 		case PAY_NO_SUCH_PAYMENT:
@@ -880,7 +918,7 @@ static void json_sendpay_on_resolve(const struct sendpay_result* r,
 		json_object_start(response, NULL);
 		json_add_string(response, "message",
 				"Monitor status with listpayments or waitsendpay");
-		json_add_bool(response, "completed", false);
+		json_add_payment_fields(response, r->payment);
 		json_object_end(response);
 		command_success(cmd, response);
 	} else
@@ -1090,32 +1128,8 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 	json_object_start(response, NULL);
 	json_array_start(response, "payments");
 	for (int i=0; i<tal_count(payments); i++) {
-		const struct wallet_payment *t = payments[i];
 		json_object_start(response, NULL);
-		json_add_u64(response, "id", t->id);
-		json_add_hex(response, "payment_hash", &t->payment_hash, sizeof(t->payment_hash));
-		json_add_pubkey(response, "destination", &t->destination);
-		json_add_u64(response, "msatoshi", t->msatoshi);
-		if (deprecated_apis)
-			json_add_u64(response, "timestamp", t->timestamp);
-		json_add_u64(response, "created_at", t->timestamp);
-
-		switch (t->status) {
-		case PAYMENT_PENDING:
-			json_add_string(response, "status", "pending");
-			break;
-		case PAYMENT_COMPLETE:
-			json_add_string(response, "status", "complete");
-			break;
-		case PAYMENT_FAILED:
-			json_add_string(response, "status", "failed");
-			break;
-		}
-		if (t->payment_preimage)
-			json_add_hex(response, "payment_preimage",
-				     t->payment_preimage,
-				     sizeof(*t->payment_preimage));
-
+		json_add_payment_fields(response, payments[i]);
 		json_object_end(response);
 	}
 	json_array_end(response);
