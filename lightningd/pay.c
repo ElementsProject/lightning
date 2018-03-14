@@ -803,7 +803,7 @@ Utility
 -----------------------------------------------------------------------------*/
 
 /* Outputs fields, not a separate object*/
-static void
+void
 json_add_payment_fields(struct json_result *response,
 			const struct wallet_payment *t)
 {

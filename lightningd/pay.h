@@ -7,6 +7,7 @@
 #include <wire/gen_onion_wire.h>
 
 struct htlc_out;
+struct json_result;
 struct lightningd;
 struct route_hop;
 struct sha256;
@@ -85,5 +86,11 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 
 /* Inform payment system to save the payment. */
 void payment_store(struct lightningd *ld, const struct sha256 *payment_hash);
+
+/* Output the fields of a payment. Caller should have put the
+ * response within a JSON object and is responsible for
+ * closing the object. */
+void json_add_payment_fields(struct json_result *response,
+			     const struct wallet_payment *t);
 
 #endif /* LIGHTNING_LIGHTNINGD_PAY_H */
