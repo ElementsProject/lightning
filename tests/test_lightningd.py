@@ -344,11 +344,13 @@ class LightningDTests(BaseLightningDTests):
                 if time.time() > start_time + 10:
                     raise TimeoutError('Payment timed out')
                 time.sleep(0.1)
+        # sendpay is async now
+        lsrc.rpc.sendpay(to_json([routestep]), rhash)
         if async:
-            self.executor.submit(lsrc.rpc.sendpay, to_json([routestep]), rhash)
             return self.executor.submit(wait_pay)
         else:
-            lsrc.rpc.sendpay(to_json([routestep]), rhash)
+            # wait for sendpay to comply
+            lsrc.rpc.waitsendpay(rhash)
 
     # This waits until gossipd sees channel_update in both directions
     # (or for local channels, at least a local announcement)
@@ -769,19 +771,22 @@ class LightningDTests(BaseLightningDTests):
         # Insufficient funds.
         rs = copy.deepcopy(routestep)
         rs['msatoshi'] = rs['msatoshi'] - 1
-        self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
+        l1.rpc.sendpay(to_json([rs]), rhash)
+        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         # Gross overpayment (more than factor of 2)
         rs = copy.deepcopy(routestep)
         rs['msatoshi'] = rs['msatoshi'] * 2 + 1
-        self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
+        l1.rpc.sendpay(to_json([rs]), rhash)
+        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         # Insufficient delay.
         rs = copy.deepcopy(routestep)
         rs['delay'] = rs['delay'] - 2
-        self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
+        l1.rpc.sendpay(to_json([rs]), rhash)
+        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         # Bad ID.
@@ -799,7 +804,8 @@ class LightningDTests(BaseLightningDTests):
         assert p2['channels'][0]['msatoshi_total'] == 10**6 * 1000
 
         # This works.
-        preimage2 = l1.rpc.sendpay(to_json([routestep]), rhash)
+        l1.rpc.sendpay(to_json([routestep]), rhash)
+        preimage2 = l1.rpc.waitsendpay(rhash)
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'paid'
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['pay_index'] == 1
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['msatoshi_received'] == rs['msatoshi']
@@ -825,7 +831,8 @@ class LightningDTests(BaseLightningDTests):
         rhash = l2.rpc.invoice(amt, 'testpayment3', 'desc')['payment_hash']
         assert l2.rpc.listinvoices('testpayment3')['invoices'][0]['status'] == 'unpaid'
         routestep = {'msatoshi': amt * 2, 'id': l2.info['id'], 'delay': 5, 'channel': '1:1:1'}
-        preimage3 = l1.rpc.sendpay(to_json([routestep]), rhash)
+        l1.rpc.sendpay(to_json([routestep]), rhash)
+        preimage3 = l1.rpc.waitsendpay(rhash)
         assert l2.rpc.listinvoices('testpayment3')['invoices'][0]['status'] == 'paid'
         assert l2.rpc.listinvoices('testpayment3')['invoices'][0]['msatoshi_received'] == amt * 2
 
@@ -894,8 +901,9 @@ class LightningDTests(BaseLightningDTests):
         }
 
         # Amount must be nonzero!
+        l1.rpc.sendpay(to_json([routestep]), rhash)
         self.assertRaisesRegex(ValueError, 'WIRE_AMOUNT_BELOW_MINIMUM',
-                               l1.rpc.sendpay, to_json([routestep]), rhash)
+                               l1.rpc.waitsendpay, rhash)
 
     def test_pay(self):
         l1, l2 = self.connect()
@@ -1225,7 +1233,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('Their unilateral tx, old commit point')
         l1.daemon.wait_for_log(' to ONCHAIN')
         l2.daemon.wait_for_log(' to ONCHAIN')
-        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET (.*) in 5 blocks')
+        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET (.*) after 5 blocks')
 
         wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status'] ==
                  ['CHANNELD_NORMAL:Received error from peer: channel ALL: Internal error: Failing due to dev-fail command',
@@ -1367,7 +1375,8 @@ class LightningDTests(BaseLightningDTests):
             'channel': '1:1:1'
         }
 
-        payfuture = self.executor.submit(l1.rpc.sendpay, to_json([routestep]), rhash)
+        l1.rpc.sendpay(to_json([routestep]), rhash)
+        payfuture = self.executor.submit(l1.rpc.waitsendpay, rhash)
 
         # l1 will drop to chain.
         l1.daemon.wait_for_log('permfail')
@@ -1409,6 +1418,9 @@ class LightningDTests(BaseLightningDTests):
         l2 = self.node_factory.get_node()
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        l2 = self.node_factory.get_node()
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         self.fund_channel(l1, l2, 10**6)
 
         rhash = l2.rpc.invoice(10**8, 'onchain_timeout', 'desc')['payment_hash']
@@ -1420,7 +1432,8 @@ class LightningDTests(BaseLightningDTests):
             'channel': '1:1:1'
         }
 
-        payfuture = self.executor.submit(l1.rpc.sendpay, to_json([routestep]), rhash)
+        l1.rpc.sendpay(to_json([routestep]), rhash)
+        payfuture = self.executor.submit(l1.rpc.waitsendpay, rhash)
 
         # l1 will drop to chain.
         l1.daemon.wait_for_log('permfail')
@@ -1430,11 +1443,13 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log(' to ONCHAIN')
 
         # Wait for timeout.
-        l1.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* in 5 blocks')
-        bitcoind.generate_block(5)
+        l1.daemon.wait_for_logs(['Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks',
+                                 'Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX .* after 6 blocks'])
+        bitcoind.generate_block(4)
 
-        # (l1 will also collect its to-self payment.)
         l1.daemon.wait_for_log('sendrawtx exit 0')
+
+        bitcoind.generate_block(1)
         l1.daemon.wait_for_log('sendrawtx exit 0')
 
         # We use 3 blocks for "reasonable depth"
@@ -1456,6 +1471,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Now, 100 blocks and l1 should be done.
         bitcoind.generate_block(10)
+        sync_blockheight([l1])
         assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')
         bitcoind.generate_block(1)
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
@@ -1494,6 +1510,7 @@ class LightningDTests(BaseLightningDTests):
         def try_pay():
             try:
                 l1.rpc.sendpay(to_json(route), rhash)
+                l1.rpc.waitsendpay(rhash)
                 q.put(None)
             except Exception as err:
                 q.put(err)
@@ -1510,7 +1527,7 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('OUR_UNILATERAL/THEIR_HTLC')
 
         # l2 should fulfill HTLC onchain, and spend to-us (any order)
-        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* in 0 blocks')
+        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* after 0 blocks')
         l2.daemon.wait_for_log('sendrawtx exit 0')
 
         # Payment should succeed.
@@ -1587,9 +1604,9 @@ class LightningDTests(BaseLightningDTests):
 
         # l2 should spend all of the outputs (except to-us).
         # Could happen in any order, depending on commitment tx.
-        l2.daemon.wait_for_logs(['Propose handling THEIR_REVOKED_UNILATERAL/DELAYED_OUTPUT_TO_THEM by OUR_PENALTY_TX .* in 0 blocks',
+        l2.daemon.wait_for_logs(['Propose handling THEIR_REVOKED_UNILATERAL/DELAYED_OUTPUT_TO_THEM by OUR_PENALTY_TX .* after 0 blocks',
                                  'sendrawtx exit 0',
-                                 'Propose handling THEIR_REVOKED_UNILATERAL/THEIR_HTLC by OUR_PENALTY_TX .* in 0 blocks',
+                                 'Propose handling THEIR_REVOKED_UNILATERAL/THEIR_HTLC by OUR_PENALTY_TX .* after 0 blocks',
                                  'sendrawtx exit 0'])
 
         # FIXME: test HTLC tx race!
@@ -1650,9 +1667,9 @@ class LightningDTests(BaseLightningDTests):
         # l2 should spend all of the outputs (except to-us).
         # Could happen in any order, depending on commitment tx.
         l2.daemon.wait_for_logs(['Ignoring output.*: THEIR_REVOKED_UNILATERAL/OUTPUT_TO_US',
-                                 'Propose handling THEIR_REVOKED_UNILATERAL/DELAYED_OUTPUT_TO_THEM by OUR_PENALTY_TX .* in 0 blocks',
+                                 'Propose handling THEIR_REVOKED_UNILATERAL/DELAYED_OUTPUT_TO_THEM by OUR_PENALTY_TX .* after 0 blocks',
                                  'sendrawtx exit 0',
-                                 'Propose handling THEIR_REVOKED_UNILATERAL/OUR_HTLC by OUR_PENALTY_TX .* in 0 blocks',
+                                 'Propose handling THEIR_REVOKED_UNILATERAL/OUR_HTLC by OUR_PENALTY_TX .* after 0 blocks',
                                  'sendrawtx exit 0'])
 
         # FIXME: test HTLC tx race!
@@ -1662,6 +1679,138 @@ class LightningDTests(BaseLightningDTests):
 
         # FIXME: Test wallet balance...
         wait_forget_channels(l2)
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_onchain_feechange(self):
+        """Onchain handling when we restart with different fees"""
+        # HTLC 1->2, 2 fails just after they're both irrevocably committed
+        # We need 2 to drop to chain, because then 1's HTLC timeout tx
+        # is generated on-the-fly, and is thus feerate sensitive.
+        disconnects = ['-WIRE_UPDATE_FAIL_HTLC', 'permfail']
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(disconnect=disconnects)
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        self.fund_channel(l1, l2, 10**6)
+
+        rhash = l2.rpc.invoice(10**8, 'onchain_timeout', 'desc')['payment_hash']
+        # We underpay, so it fails.
+        routestep = {
+            'msatoshi': 10**8 - 1,
+            'id': l2.info['id'],
+            'delay': 5,
+            'channel': '1:1:1'
+        }
+
+        self.executor.submit(l1.rpc.sendpay, to_json([routestep]), rhash)
+
+        # l2 will drop to chain.
+        l2.daemon.wait_for_log('permfail')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+        bitcoind.generate_block(1)
+        l1.daemon.wait_for_log(' to ONCHAIN')
+        l2.daemon.wait_for_log(' to ONCHAIN')
+
+        # Wait for timeout.
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US .* after 6 blocks')
+        bitcoind.generate_block(6)
+
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+
+        # Make sure that gets included.
+
+        bitcoind.generate_block(1)
+        # Now we restart with different feerates.
+        l1.stop()
+
+        l1.daemon.cmd_line.append('--override-fee-rates=20000/9000/2000')
+        l1.daemon.start()
+
+        # We recognize different proposal as ours.
+        l1.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TO_US')
+
+        # We use 3 blocks for "reasonable depth", so add two more
+        bitcoind.generate_block(2)
+
+        # Note that the very similar test_onchain_timeout looks for a
+        # different string: that's because it sees the JSONRPC response,
+        # and due to the l1 restart, there is none here.
+        l1.daemon.wait_for_log('WIRE_PERMANENT_CHANNEL_FAILURE')
+
+        # 90 later, l2 is done
+        bitcoind.generate_block(89)
+        sync_blockheight([l2])
+        assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
+        bitcoind.generate_block(1)
+        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+        # Now, 7 blocks and l1 should be done.
+        bitcoind.generate_block(6)
+        sync_blockheight([l1])
+        assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')
+        bitcoind.generate_block(1)
+        l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+        # Payment failed, BTW
+        assert l2.rpc.listinvoices('onchain_timeout')['invoices'][0]['status'] == 'unpaid'
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev-set-fees")
+    def test_onchain_all_dust(self):
+        """Onchain handling when we reduce output to all dust"""
+        # HTLC 1->2, 2 fails just after they're both irrevocably committed
+        # We need 2 to drop to chain, because then 1's HTLC timeout tx
+        # is generated on-the-fly, and is thus feerate sensitive.
+        disconnects = ['-WIRE_UPDATE_FAIL_HTLC', 'permfail']
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(disconnect=disconnects)
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        self.fund_channel(l1, l2, 10**6)
+
+        rhash = l2.rpc.invoice(10**8, 'onchain_timeout', 'desc')['payment_hash']
+        # We underpay, so it fails.
+        routestep = {
+            'msatoshi': 10**7 - 1,
+            'id': l2.info['id'],
+            'delay': 5,
+            'channel': '1:1:1'
+        }
+
+        self.executor.submit(l1.rpc.sendpay, to_json([routestep]), rhash)
+
+        # l2 will drop to chain.
+        l2.daemon.wait_for_log('permfail')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+
+        # Make l1's fees really high.
+        l1.rpc.dev_setfees('100000', '100000', '100000')
+
+        bitcoind.generate_block(1)
+        l1.daemon.wait_for_log(' to ONCHAIN')
+        l2.daemon.wait_for_log(' to ONCHAIN')
+
+        # Wait for timeout.
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by DONATING_TO_MINERS .* after 6 blocks')
+        bitcoind.generate_block(6)
+
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+        bitcoind.generate_block(1)
+
+        l1.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal DONATING_TO_MINERS')
+
+        # 100 deep and l2 forgets.
+        bitcoind.generate_block(91)
+        sync_blockheight([l2])
+        assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
+        bitcoind.generate_block(1)
+        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+        # l1 forgets 100 blocks after DONATING_TO_MINERS.
+        bitcoind.generate_block(6)
+        sync_blockheight([l1])
+        assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')
+        bitcoind.generate_block(1)
+        l1.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail_new_commit(self):
@@ -1682,8 +1831,8 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('Their unilateral tx, new commit point')
         l1.daemon.wait_for_log(' to ONCHAIN')
         l2.daemon.wait_for_log(' to ONCHAIN')
-        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 5 blocks')
-        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US (.*) in 5 blocks')
+        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) after 6 blocks')
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US (.*) after 6 blocks')
 
         # OK, time out HTLC.
         bitcoind.generate_block(5)
@@ -1718,17 +1867,17 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('Their unilateral tx, old commit point')
         l1.daemon.wait_for_log(' to ONCHAIN')
         l2.daemon.wait_for_log(' to ONCHAIN')
-        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 5 blocks')
-        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US (.*) in 5 blocks')
+        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) after 6 blocks')
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US (.*) after 6 blocks')
         # l2 then gets preimage, uses it instead of ignoring
-        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* in 0 blocks')
+        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* after 0 blocks')
         l2.daemon.wait_for_log('sendrawtx exit 0')
         bitcoind.generate_block(1)
 
         # OK, l1 sees l2 fulfill htlc.
         l1.daemon.wait_for_log('THEIR_UNILATERAL/OUR_HTLC gave us preimage')
-        l2.daemon.wait_for_log('Propose handling OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* in 5 blocks')
-        bitcoind.generate_block(5)
+        l2.daemon.wait_for_log('Propose handling OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks')
+        bitcoind.generate_block(6)
 
         l2.daemon.wait_for_log('sendrawtx exit 0')
 
@@ -1760,12 +1909,12 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('Their unilateral tx, old commit point')
         l1.daemon.wait_for_log(' to ONCHAIN')
         l2.daemon.wait_for_log(' to ONCHAIN')
-        l2.daemon.wait_for_logs(['Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX \\(.*\\) in 5 blocks',
-                                 'Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* in 5 blocks'])
+        l2.daemon.wait_for_logs(['Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX \\(.*\\) after 6 blocks',
+                                 'Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks'])
 
-        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 5 blocks')
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) after 6 blocks')
         # l1 then gets preimage, uses it instead of ignoring
-        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_FULFILL_TO_US .* in 0 blocks')
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_FULFILL_TO_US .* after 0 blocks')
         l1.daemon.wait_for_log('sendrawtx exit 0')
 
         # l2 sees l1 fulfill tx.
@@ -1774,19 +1923,22 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('OUR_UNILATERAL/OUR_HTLC gave us preimage')
         t.cancel()
 
-        # l2 can send OUR_DELAYED_RETURN_TO_WALLET after 4 more blocks.
-        bitcoind.generate_block(4)
+        # l2 can send OUR_DELAYED_RETURN_TO_WALLET after 3 more blocks.
+        bitcoind.generate_block(3)
         l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
         l2.daemon.wait_for_log('sendrawtx exit 0')
 
         # Now, 100 blocks they should be done.
-        bitcoind.generate_block(94)
+        bitcoind.generate_block(95)
+        sync_blockheight([l1, l2])
         assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')
         assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
         bitcoind.generate_block(1)
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+        sync_blockheight([l2])
         assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
-        bitcoind.generate_block(5)
+        bitcoind.generate_block(3)
+        sync_blockheight([l2])
         assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
         bitcoind.generate_block(1)
         wait_forget_channels(l2)
@@ -2064,21 +2216,25 @@ class LightningDTests(BaseLightningDTests):
         # Unknown other peer
         route = copy.deepcopy(baseroute)
         route[1]['id'] = '031a8dc444e41bb989653a4501e11175a488a57439b0c4947704fd6e3de5dca607'
-        self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
+        l1.rpc.sendpay(to_json(route), rhash)
+        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
 
         # Delay too short (we always add one internally anyway, so subtract 2 here).
         route = copy.deepcopy(baseroute)
         route[0]['delay'] = 8
-        self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
+        l1.rpc.sendpay(to_json(route), rhash)
+        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
 
         # Final delay too short
         route = copy.deepcopy(baseroute)
         route[1]['delay'] = 3
-        self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
+        l1.rpc.sendpay(to_json(route), rhash)
+        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
 
         # This one works
         route = copy.deepcopy(baseroute)
         l1.rpc.sendpay(to_json(route), rhash)
+        l1.rpc.waitsendpay(rhash)
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_forward_different_fees_and_cltv(self):
@@ -2191,6 +2347,7 @@ class LightningDTests(BaseLightningDTests):
 
         # This should work.
         l1.rpc.sendpay(to_json(route), rhash)
+        l1.rpc.waitsendpay(rhash)
 
         # We add one to the blockcount for a bit of fuzz (FIXME: Shadowroute would fix this!)
         shadow_route = 1
@@ -2256,6 +2413,7 @@ class LightningDTests(BaseLightningDTests):
         # This should work.
         rhash = l3.rpc.invoice(4999999, 'test_forward_pad_fees_and_cltv', 'desc')['payment_hash']
         l1.rpc.sendpay(to_json(route), rhash)
+        l1.rpc.waitsendpay(rhash)
         assert l3.rpc.listinvoices('test_forward_pad_fees_and_cltv')['invoices'][0]['status'] == 'paid'
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
@@ -2337,14 +2495,14 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log(' to ONCHAIN')
 
         # L1 will timeout HTLC immediately
-        l1.daemon.wait_for_logs(['Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX .* in 0 blocks',
-                                 'Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* in 5 blocks'])
+        l1.daemon.wait_for_logs(['Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX .* after 0 blocks',
+                                 'Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks'])
 
         l1.daemon.wait_for_log('sendrawtx exit 0')
         bitcoind.generate_block(1)
 
-        l1.daemon.wait_for_log('Propose handling OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* in 5 blocks')
-        bitcoind.generate_block(5)
+        l1.daemon.wait_for_log('Propose handling OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks')
+        bitcoind.generate_block(4)
         # It should now claim both the to-local and htlc-timeout-tx outputs.
         l1.daemon.wait_for_logs(['Broadcasting OUR_DELAYED_RETURN_TO_WALLET',
                                  'Broadcasting OUR_DELAYED_RETURN_TO_WALLET',
@@ -2392,11 +2550,11 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log(' to ONCHAIN')
 
         # L2 will collect HTLC
-        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* in 0 blocks')
+        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* after 0 blocks')
         l2.daemon.wait_for_log('sendrawtx exit 0')
         bitcoind.generate_block(1)
-        l2.daemon.wait_for_log('Propose handling OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* in 5 blocks')
-        bitcoind.generate_block(5)
+        l2.daemon.wait_for_log('Propose handling OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks')
+        bitcoind.generate_block(4)
         l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET')
         l2.daemon.wait_for_log('sendrawtx exit 0')
 
@@ -2544,7 +2702,6 @@ class LightningDTests(BaseLightningDTests):
         # Just to be sure, second openingd hand over to channeld.
         l2.daemon.wait_for_log('lightning_openingd.*REPLY WIRE_OPENING_FUNDEE_REPLY with 2 fds')
 
-    @unittest.skip("temporarily disabled due to flaky behavior, issue #468")
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_reconnect_normal(self):
         # Should reconnect fine even if locked message gets lost.
@@ -2577,7 +2734,8 @@ class LightningDTests(BaseLightningDTests):
         route = [{'msatoshi': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1:1:1'}]
 
         for i in range(0, len(disconnects)):
-            self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
+            l1.rpc.sendpay(to_json(route), rhash)
+            self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
             # Wait for reconnection.
             l1.daemon.wait_for_log('Already have funding locked in')
 
@@ -3174,14 +3332,15 @@ class LightningDTests(BaseLightningDTests):
         assert l1.rpc.listpayments()['payments'][0]['status'] == 'pending'
         assert l1.rpc.listpayments()['payments'][0]['payment_hash'] == inv1['payment_hash']
 
-        # Second one should fail.
-        self.assertRaises(ValueError, l1.rpc.pay, inv1['bolt11'])
+        # Second one will succeed eventually.
+        fut2 = self.executor.submit(l1.rpc.pay, inv1['bolt11'])
 
         # Now, let it commit.
         l1.rpc.dev_reenable_commit(l2.info['id'])
 
-        # This should succeed.
+        # These should succeed.
         fut.result(10)
+        fut2.result(10)
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_gossip_badsig(self):
@@ -3762,6 +3921,77 @@ class LightningDTests(BaseLightningDTests):
         assert l1.rpc.getpeer(l2.info['id'])['state'] == "GOSSIPING"
         assert l1.rpc.getpeer(l2.info['id'])['alias'] == l1.rpc.listnodes(l2.info['id'])['nodes'][0]['alias']
         assert l1.rpc.getpeer(l2.info['id'])['color'] == l1.rpc.listnodes(l2.info['id'])['nodes'][0]['color']
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_blockchaintrack(self):
+        """Check that we track the blockchain correctly across reorgs
+        """
+        l1 = self.node_factory.get_node()
+        btc = l1.bitcoin
+        addr = l1.rpc.newaddr()['address']
+
+        ######################################################################
+        # First failure scenario: rollback on startup doesn't work,
+        # and we try to add a block twice when rescanning:
+        l1.restart()
+
+        # At height 442 we receive an incoming payment
+        hashes = btc.rpc.generate(9)
+        btc.rpc.sendtoaddress(addr, 1)
+        time.sleep(1)  # mempool is still unpredictable
+        btc.rpc.generate(1)
+
+        l1.daemon.wait_for_log(r'Owning')
+        outputs = l1.rpc.listfunds()['outputs']
+        assert len(outputs) == 1
+
+        ######################################################################
+        # Second failure scenario: perform a 20 block reorg
+        btc.rpc.generate(10)
+        blockheight = btc.rpc.getblockcount()
+        wait_for(lambda: l1.rpc.dev_blockheight()['blockheight'] == blockheight)
+
+        # Now reorg out with a longer fork of 21 blocks
+        btc.rpc.invalidateblock(hashes[0])
+        hashes = btc.rpc.generate(21)
+
+        blockheight = btc.rpc.getblockcount()
+        wait_for(lambda: l1.rpc.dev_blockheight()['blockheight'] == blockheight)
+
+        # Our funds got reorged out, we should not have any funds that are confirmed
+        assert [o for o in l1.rpc.listfunds()['outputs'] if o['status'] != "unconfirmed"] == []
+
+    def test_disconnectpeer(self):
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node()
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        l1.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
+
+        # Gossiping
+        assert l1.rpc.getpeer(l2.info['id'])['state'] == "GOSSIPING"
+        assert l1.rpc.getpeer(l3.info['id'])['state'] == "GOSSIPING"
+
+        # Disconnect l2 from l1
+        l1.rpc.disconnect(l2.info['id'])
+
+        # Make sure listpeers no longer returns the disconnected node
+        assert l1.rpc.getpeer(l2.info['id']) is None
+        assert l2.rpc.getpeer(l1.info['id']) is None
+
+        # Make sure you cannot disconnect after disconnecting
+        self.assertRaisesRegex(ValueError, "Peer not connected",
+                               l1.rpc.disconnect, l2.info['id'])
+        self.assertRaisesRegex(ValueError, "Peer not connected",
+                               l2.rpc.disconnect, l1.info['id'])
+
+        # Fund channel l1 -> l3
+        self.fund_channel(l1, l3, 10**6)
+        bitcoind.generate_block(5)
+
+        # disconnecting a non gossiping peer results in error
+        self.assertRaisesRegex(ValueError, "Peer is not in gossip mode",
+                               l1.rpc.disconnect, l3.info['id'])
 
 
 if __name__ == '__main__':

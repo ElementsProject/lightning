@@ -11,7 +11,7 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/utils.o				\
 	common/version.o
 
-devtools-all: devtools/bolt11-cli devtools/decodemsg
+devtools-all: devtools/bolt11-cli devtools/decodemsg devtools/onion
 
 devtools/gen_print_wire.h: $(WIRE_GEN) wire/gen_peer_wire_csv
 	$(WIRE_GEN) --bolt --printwire --header $@ wire_type < wire/gen_peer_wire_csv > $@
@@ -23,11 +23,15 @@ devtools/bolt11-cli: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCA
 
 devtools/decodemsg: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/decodemsg.o
 
+devtools/onion.c: ccan/config.h
+
+devtools/onion: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/onion.o common/sphinx.o
+
 $(DEVTOOLS_OBJS) $(DEVTOOLS_TOOL_OBJS): wire/wire.h devtools/gen_print_wire.h
 devtools/gen_print_wire.o: devtools/gen_print_wire.h wire/gen_peer_wire.h
 
 # Make sure these depend on everything.
-ALL_PROGRAMS += devtools/bolt11-cli devtools/decodemsg
+ALL_PROGRAMS += devtools/bolt11-cli devtools/decodemsg devtools/onion
 ALL_OBJS += $(DEVTOOLS_OBJS) $(DEVTOOLS_TOOL_OBJS)
 
 check-source: $(DEVTOOLS_SRC:%=check-src-include-order/%) $(DEVTOOLS_TOOLS_SRC:%=check-src-include-order/%)
@@ -36,4 +40,3 @@ clean: devtools-clean
 
 devtools-clean:
 	$(RM) $(DEVTOOLS_CLI_OBJS)
-

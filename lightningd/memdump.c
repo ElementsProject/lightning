@@ -73,6 +73,8 @@ static int json_add_syminfo(void *data, uintptr_t pc UNUSED,
 	struct json_result *response = data;
 	char *str;
 
+	assert(filename != NULL);
+	assert(function != NULL);
 	str = tal_fmt(response, "%s:%u (%s)", filename, lineno, function);
 	json_add_string(response, NULL, str);
 	tal_free(str);

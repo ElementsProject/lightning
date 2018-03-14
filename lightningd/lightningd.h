@@ -7,8 +7,8 @@
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
 #include <lightningd/htlc_end.h>
-#include <lightningd/txfilter.h>
 #include <stdio.h>
+#include <wallet/txfilter.h>
 #include <wallet/wallet.h>
 
 /* BOLT #1:
@@ -133,6 +133,8 @@ struct lightningd {
 
 	struct wallet *wallet;
 
+	/* Outstanding waitsendpay commands. */
+	struct list_head waitsendpay_commands;
 	/* Outstanding sendpay commands. */
 	struct list_head sendpay_commands;
 
@@ -169,7 +171,7 @@ struct lightningd {
 #endif /* DEVELOPER */
 };
 
-struct chainparams *get_chainparams(const struct lightningd *ld);
+const struct chainparams *get_chainparams(const struct lightningd *ld);
 
 /* State for performing backtraces. */
 struct backtrace_state *backtrace_state;

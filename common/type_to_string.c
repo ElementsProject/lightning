@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <bitcoin/preimage.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/sha256/sha256.h>
@@ -19,6 +20,8 @@ char *type_to_string_(const tal_t *ctx,  const char *typename,
 	size_t i;
 	static size_t num_p;
 	static struct type_to_string **t = NULL;
+
+	assert(typename != NULL);
 
 	if (!t)
 		t = autodata_get(type_to_string, &num_p);

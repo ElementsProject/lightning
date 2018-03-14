@@ -33,8 +33,7 @@ struct half_chan {
 	 * things indicated direction wrt the `channel_id` */
 	u16 flags;
 
-	/* Cached `channel_update` we might forward to new peers*/
-	u8 *channel_update;
+	/* Cached `channel_update` we might forward to new peers (or 0) */
 	u64 channel_update_msgidx;
 
 	/* If greater than current time, this connection should not
@@ -54,13 +53,13 @@ struct chan {
 	/* node[0].id < node[1].id */
 	struct node *nodes[2];
 
-	/* Cached `channel_announcement` we might forward to new peers*/
-	const u8 *channel_announcement;
-
+	/* Cached `channel_announcement` we might forward to new peers (or 0) */
 	u64 channel_announce_msgidx;
 
 	/* Is this a public channel, or was it only added locally? */
 	bool public;
+
+	u64 satoshis;
 };
 
 struct node {
@@ -91,11 +90,8 @@ struct node {
 	/* Color to be used when displaying the name */
 	u8 rgb_color[3];
 
-	/* Cached `node_announcement` we might forward to new peers. */
-	u8 *node_announcement;
-
-	/* What index does the announcement broadcast have? */
-	u64 announcement_idx;
+	/* Cached `node_announcement` we might forward to new peers (or 0). */
+	u64 node_announce_msgidx;
 };
 
 const secp256k1_pubkey *node_map_keyof_node(const struct node *n);
@@ -194,11 +190,12 @@ struct chan *new_chan(struct routing_state *rstate,
 /**
  * handle_channel_announcement -- Check channel announcement is valid
  *
- * Returns a short_channel_id to look up if signatures pass.
+ * Returns error message if we should fail channel.  Make *scid non-NULL
+ * (for checking) if we extracted a short_channel_id, otherwise ignore.
  */
-const struct short_channel_id *
-handle_channel_announcement(struct routing_state *rstate,
-			    const u8 *announce TAKES);
+u8 *handle_channel_announcement(struct routing_state *rstate,
+				const u8 *announce TAKES,
+				const struct short_channel_id **scid);
 
 /**
  * handle_pending_cannouncement -- handle channel_announce once we've
@@ -210,9 +207,14 @@ handle_channel_announcement(struct routing_state *rstate,
  */
 bool handle_pending_cannouncement(struct routing_state *rstate,
 				  const struct short_channel_id *scid,
+				  const u64 satoshis,
 				  const u8 *txscript);
-void handle_channel_update(struct routing_state *rstate, const u8 *update);
-void handle_node_announcement(struct routing_state *rstate, const u8 *node);
+
+/* Returns NULL if all OK, otherwise an error for the peer which sent. */
+u8 *handle_channel_update(struct routing_state *rstate, const u8 *update);
+
+/* Returns NULL if all OK, otherwise an error for the peer which sent. */
+u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node);
 
 /* Set values on the struct node_connection */
 void set_connection_values(struct chan *chan,

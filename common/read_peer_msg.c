@@ -54,7 +54,7 @@ u8 *read_peer_msg_(const tal_t *ctx,
 	if (!msg)
 		io_error(arg);
 
-	if (is_gossip_msg(msg)) {
+	if (is_msg_for_gossipd(msg)) {
 		/* Forward to gossip daemon */
 		wire_sync_write(gossip_fd, take(msg));
 		return NULL;

@@ -191,6 +191,7 @@ gossip_get_txout,,short_channel_id,struct short_channel_id
 # master->gossipd here is the output, or empty if none.
 gossip_get_txout_reply,3118
 gossip_get_txout_reply,,short_channel_id,struct short_channel_id
+gossip_get_txout_reply,,satoshis,u64
 gossip_get_txout_reply,,len,u16
 gossip_get_txout_reply,,outscript,len*u8
 
@@ -212,3 +213,14 @@ gossip_routing_failure,,channel_update,len*u8
 # (used in case of unparseable onion reply)
 gossip_mark_channel_unroutable,3022
 gossip_mark_channel_unroutable,,channel,struct short_channel_id
+
+# master->gossipd: Request to disconnect from a peer.
+gossipctl_peer_disconnect,3023
+gossipctl_peer_disconnect,,id,struct pubkey
+
+# Gossipd -> master:  reply to gossip_peer_disconnect with peer id.
+gossipctl_peer_disconnect_reply,3123
+
+# Gossipd -> master:  reply to gossip_peer_disconnect if we couldn't find the peer.
+gossipctl_peer_disconnect_replyfail,3223
+gossipctl_peer_disconnect_replyfail,,isconnected,bool

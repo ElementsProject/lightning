@@ -71,6 +71,8 @@ static char *opt_set_u32(const char *arg, u32 *u)
 	char *endp;
 	unsigned long l;
 
+	assert(arg != NULL);
+
 	/* This is how the manpage says to do it.  Yech. */
 	errno = 0;
 	l = strtoul(arg, &endp, 0);
@@ -86,6 +88,8 @@ static char *opt_set_u16(const char *arg, u16 *u)
 {
 	char *endp;
 	unsigned long l;
+
+	assert(arg != NULL);
 
 	/* This is how the manpage says to do it.  Yech. */
 	errno = 0;
@@ -103,6 +107,8 @@ static char *opt_set_s32(const char *arg, s32 *u)
 	char *endp;
 	long l;
 
+	assert(arg != NULL);
+
 	/* This is how the manpage says to do it.  Yech. */
 	errno = 0;
 	l = strtol(arg, &endp, 0);
@@ -118,6 +124,8 @@ static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
 {
 	size_t n = tal_count(ld->wireaddrs);
 	char const *err_msg;
+
+	assert(arg != NULL);
 
 	tal_resize(&ld->wireaddrs, n+1);
 
@@ -146,6 +154,8 @@ static void opt_show_u16(char buf[OPT_SHOW_LEN], const u16 *u)
 
 static char *opt_set_network(const char *arg, struct lightningd *ld)
 {
+	assert(arg != NULL);
+
 	ld->topology->bitcoind->chainparams = chainparams_for_network(arg);
 	if (!ld->topology->bitcoind->chainparams)
 		return tal_fmt(NULL, "Unknown network name '%s'", arg);
@@ -160,6 +170,8 @@ static void opt_show_network(char buf[OPT_SHOW_LEN],
 
 static char *opt_set_rgb(const char *arg, struct lightningd *ld)
 {
+	assert(arg != NULL);
+
 	ld->rgb = tal_free(ld->rgb);
 	/* BOLT #7:
 	 *
@@ -173,6 +185,8 @@ static char *opt_set_rgb(const char *arg, struct lightningd *ld)
 
 static char *opt_set_alias(const char *arg, struct lightningd *ld)
 {
+	assert(arg != NULL);
+
 	ld->alias = tal_free(ld->alias);
 	/* BOLT #7:
 	 *
@@ -298,6 +312,8 @@ static void config_register_opts(struct lightningd *ld)
 #if DEVELOPER
 static char *opt_set_hsm_seed(const char *arg, struct lightningd *ld)
 {
+	assert(arg != NULL);
+
 	ld->dev_hsm_seed = tal_hexdata(ld, arg, strlen(arg));
 	if (ld->dev_hsm_seed)
 		return NULL;
@@ -465,6 +481,8 @@ static void setup_default_config(struct lightningd *ld)
 
 
 /* FIXME: make this nicer! */
+static int config_parse_line_number = 0;
+
 static void config_log_stderr_exit(const char *fmt, ...)
 {
 	char *msg;
@@ -472,15 +490,19 @@ static void config_log_stderr_exit(const char *fmt, ...)
 
 	va_start(ap, fmt);
 
-	/* This is the format we expect: mangle it to remove '--'. */
+	/* This is the format we expect:*/
 	if (streq(fmt, "%s: %.*s: %s")) {
 		const char *argv0 = va_arg(ap, const char *);
 		unsigned int len = va_arg(ap, unsigned int);
 		const char *arg = va_arg(ap, const char *);
 		const char *problem = va_arg(ap, const char *);
 
-		msg = tal_fmt(NULL, "%s line %s: %.*s: %s",
-			      argv0, arg+strlen(arg)+1, len-2, arg+2, problem);
+		assert(argv0 != NULL);
+		assert(arg != NULL);
+		assert(problem != NULL);
+		/*mangle it to remove '--' and add the line number.*/
+		msg = tal_fmt(NULL, "%s line %d: %.*s: %s",
+			      argv0, config_parse_line_number, len-2, arg+2, problem);
 	} else {
 		msg = tal_vfmt(NULL, fmt, ap);
 	}
@@ -493,7 +515,8 @@ static void config_log_stderr_exit(const char *fmt, ...)
 static void opt_parse_from_config(struct lightningd *ld)
 {
 	char *contents, **lines;
-	char **argv;
+	char **all_args; /*For each line: either argument string or NULL*/
+	char *argv[3];
 	int i, argc;
 
 	contents = grab_file(ld, "config");
@@ -509,26 +532,47 @@ static void opt_parse_from_config(struct lightningd *ld)
 
 	lines = tal_strsplit(contents, contents, "\r\n", STR_NO_EMPTY);
 
-	/* We have to keep argv around, since opt will point into it */
-	argv = tal_arr(ld, char *, argc = 1);
-	argv[0] = "lightning config file";
+	/* We have to keep all_args around, since opt will point into it */
+	all_args = tal_arr(ld, char *, tal_count(lines) - 1);
 
 	for (i = 0; i < tal_count(lines) - 1; i++) {
-		if (strstarts(lines[i], "#"))
-			continue;
-		/* Only valid forms are "foo" and "foo=bar" */
-		tal_resize(&argv, argc+1);
-		/* Stash line number after nul. */
-		argv[argc++] = tal_fmt(argv, "--%s%c%u", lines[i], 0, i+1);
+		if (strstarts(lines[i], "#")) {
+			all_args[i] = NULL;
+		}
+		else {
+			/* Only valid forms are "foo" and "foo=bar" */
+			all_args[i] = tal_fmt(all_args, "--%s", lines[i]);
+		}
 	}
-	tal_resize(&argv, argc+1);
+
+	/*
+	For each line we construct a fake argc,argv commandline.
+	argv[1] is the only element that changes between iterations.
+	*/
+	argc = 2;
+	argv[0] = "lightning config file";
 	argv[argc] = NULL;
 
-	opt_early_parse(argc, argv, config_log_stderr_exit);
+	for (i = 0; i < tal_count(all_args); i++) {
+		if(all_args[i] != NULL) {
+			config_parse_line_number = i + 1;
+			argv[1] = all_args[i];
+			opt_early_parse(argc, argv, config_log_stderr_exit);
+		}
+	}
+
 	/* Now we can set up defaults, depending on whether testnet or not */
 	setup_default_config(ld);
 
-	opt_parse(&argc, argv, config_log_stderr_exit);
+	for (i = 0; i < tal_count(all_args); i++) {
+		if(all_args[i] != NULL) {
+			config_parse_line_number = i + 1;
+			argv[1] = all_args[i];
+			opt_parse(&argc, argv, config_log_stderr_exit);
+			argc = 2; /* opt_parse might have changed it  */
+		}
+	}
+
 	tal_free(contents);
 }
 

@@ -264,6 +264,7 @@ static void connection_complete_ok(struct json_connection *jcon,
 				   const struct json_result *result)
 {
 	assert(id != NULL);
+	assert(result != NULL);
 
 	/* This JSON is simple enough that we build manually */
 	json_done(jcon, cmd, take(tal_fmt(jcon,

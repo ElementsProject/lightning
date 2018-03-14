@@ -76,47 +76,10 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	if (channel->local_shutdown_idx == -1) {
-		u8 *scriptpubkey;
-
-		channel->local_shutdown_idx = wallet_get_newindex(ld);
-		if (channel->local_shutdown_idx == -1) {
-			channel_internal_error(channel,
-					    "Can't get local shutdown index");
-			return;
-		}
-
+	/* If we weren't already shutting down, we are now */
+	if (channel->state == CHANNELD_NORMAL)
 		channel_set_state(channel,
 				  CHANNELD_NORMAL, CHANNELD_SHUTTING_DOWN);
-
-		/* BOLT #2:
-		 *
-		 * A sending node MUST set `scriptpubkey` to one of the
-		 * following forms:
-		 *
-		 * ...3. `OP_0` `20` 20-bytes (version 0 pay to witness pubkey),
-		 */
-		scriptpubkey = p2wpkh_for_keyidx(msg, ld,
-						 channel->local_shutdown_idx);
-		if (!scriptpubkey) {
-			channel_internal_error(channel,
-					    "Can't get shutdown script %"PRIu64,
-					    channel->local_shutdown_idx);
-			return;
-		}
-
-		txfilter_add_scriptpubkey(ld->owned_txfilter, scriptpubkey);
-
-		/* BOLT #2:
-		 *
-		 * A receiving node MUST reply to a `shutdown` message with a
-		 * `shutdown` once there are no outstanding updates on the
-		 * peer, unless it has already sent a `shutdown`.
-		 */
-		subd_send_msg(channel->owner,
-			      take(towire_channel_send_shutdown(channel,
-								scriptpubkey)));
-	}
 
 	/* TODO(cdecker) Selectively save updated fields to DB */
 	wallet_channel_save(ld->wallet, channel);
@@ -215,7 +178,6 @@ bool peer_start_channeld(struct channel *channel,
 	const struct failed_htlc **failed_htlcs;
 	enum side *failed_sides;
 	struct short_channel_id funding_channel_id;
-	const u8 *shutdown_scriptpubkey;
 	u64 num_revocations;
 	struct lightningd *ld = channel->peer->ld;
 	const struct config *cfg = &ld->config;
@@ -261,13 +223,6 @@ bool peer_start_channeld(struct channel *channel,
 		log_debug(channel->log, "Waiting for funding confirmations");
 		memset(&funding_channel_id, 0, sizeof(funding_channel_id));
 	}
-
-	if (channel->local_shutdown_idx != -1) {
-		shutdown_scriptpubkey
-			= p2wpkh_for_keyidx(tmpctx, ld,
-					    channel->local_shutdown_idx);
-	} else
-		shutdown_scriptpubkey = NULL;
 
 	num_revocations = revocations_received(&channel->their_shachain.chain);
 
@@ -316,8 +271,10 @@ bool peer_start_channeld(struct channel *channel,
 				      channel->remote_funding_locked,
 				      &funding_channel_id,
 				      reconnected,
-				      shutdown_scriptpubkey,
+				      channel->state == CHANNELD_SHUTTING_DOWN,
 				      channel->remote_shutdown_scriptpubkey != NULL,
+				      p2wpkh_for_keyidx(tmpctx, ld,
+							channel->final_key_idx),
 				      channel->channel_flags,
 				      funding_signed);
 

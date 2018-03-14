@@ -716,6 +716,23 @@ static const char **cmdarr(const tal_t *ctx, const struct bitcoind *bitcoind,
 	return args;
 }
 
+static void fatal_bitcoind_failure(struct bitcoind *bitcoind, const char *error_message)
+{
+	size_t i;
+	const char **cmd = cmdarr(bitcoind, bitcoind, "echo", NULL);
+
+	fprintf(stderr, "%s\n\n", error_message);
+	fprintf(stderr, "Make sure you have bitcoind running and that bitcoin-cli is able to connect to bitcoind.\n\n");
+	fprintf(stderr, "You can verify that your Bitcoin Core installation is ready for use by running:\n\n");
+	fprintf(stderr, "    $ ");
+	for (i = 0; cmd[i]; i++) {
+		fprintf(stderr, "%s ", cmd[i]);
+	}
+	fprintf(stderr, "'hello world'\n");
+	tal_free(cmd);
+	exit(1);
+}
+
 void wait_for_bitcoind(struct bitcoind *bitcoind)
 {
 	int from, ret, status;
@@ -726,8 +743,12 @@ void wait_for_bitcoind(struct bitcoind *bitcoind)
 
 	for (;;) {
 		child = pipecmdarr(&from, NULL, &from, cast_const2(char **,cmd));
-		if (child < 0)
+		if (child < 0) {
+			if (errno == ENOENT) {
+				fatal_bitcoind_failure(bitcoind, "bitcoin-cli not found. Is bitcoin-cli (part of Bitcoin Core) available in your PATH?");
+			}
 			fatal("%s exec failed: %s", cmd[0], strerror(errno));
+		}
 
 		output = grab_fd(cmd, from);
 		if (!output)
@@ -747,9 +768,13 @@ void wait_for_bitcoind(struct bitcoind *bitcoind)
 		/* bitcoin/src/rpc/protocol.h:
 		 *	RPC_IN_WARMUP = -28, //!< Client still warming up
 		 */
-		if (WEXITSTATUS(status) != 28)
+		if (WEXITSTATUS(status) != 28) {
+			if (WEXITSTATUS(status) == 1) {
+				fatal_bitcoind_failure(bitcoind, "Could not connect to bitcoind using bitcoin-cli. Is bitcoind running?");
+			}
 			fatal("%s exited with code %i: %s",
 			      cmd[0], WEXITSTATUS(status), output);
+		}
 
 		if (!printed) {
 			log_unusual(bitcoind->log,

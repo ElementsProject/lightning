@@ -1,14 +1,13 @@
 #ifndef WALLET_DB_H
 #define WALLET_DB_H
-
 #include "config.h"
-#include <bitcoin/pubkey.h>
+
 #include <bitcoin/preimage.h>
+#include <bitcoin/pubkey.h>
 #include <bitcoin/short_channel_id.h>
 #include <bitcoin/tx.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-
 #include <secp256k1_ecdh.h>
 #include <sqlite3.h>
 #include <stdbool.h>

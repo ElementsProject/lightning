@@ -510,7 +510,7 @@ static void log_crash(int sig)
 
 		/* We expect to be in config dir. */
 		logfile = "crash.log";
-		fd = open(logfile, O_WRONLY|O_CREAT, 0600);
+		fd = open(logfile, O_WRONLY|O_CREAT|O_APPEND, 0600);
 		if (fd < 0) {
 			logfile = "/tmp/lightning-crash.log";
 			fd = open(logfile, O_WRONLY|O_CREAT, 0600);
@@ -554,8 +554,12 @@ void log_dump_to_file(int fd, const struct log_book *lr)
 {
 	const struct log_entry *i;
 	char buf[100];
+	int len;
 	struct log_data data;
 	time_t start;
+
+	write_all(fd, "Start of new crash log\n",
+		  strlen("Start of new crash log\n"));
 
 	i = list_top(&lr->log, const struct log_entry, list);
 	if (!i) {
@@ -564,8 +568,8 @@ void log_dump_to_file(int fd, const struct log_book *lr)
 	}
 
 	start = lr->init_time.ts.tv_sec;
-	sprintf(buf, "%zu bytes, %s", lr->mem_used, ctime(&start));
-	write_all(fd, buf, strlen(buf));
+	len = sprintf(buf, "%zu bytes, %s", lr->mem_used, ctime(&start));
+	write_all(fd, buf, len);
 
 	/* ctime includes \n... WTF? */
 	data.prefix = "";

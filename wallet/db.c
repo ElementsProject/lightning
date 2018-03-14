@@ -202,6 +202,49 @@ char *dbmigrations[] = {
     "UPDATE channels SET STATE = 8 WHERE state > 8;",
     /* Add bolt11 to invoices table*/
     "ALTER TABLE invoices ADD bolt11 TEXT;",
+    /* What do we think the head of the blockchain looks like? Used
+     * primarily to track confirmations across restarts and making
+     * sure we handle reorgs correctly. */
+    "CREATE TABLE blocks (height INT, hash BLOB, prev_hash BLOB, UNIQUE(height));",
+    /* ON DELETE CASCADE would have been nice for confirmation_height,
+     * so that we automatically delete outputs that fall off the
+     * blockchain and then we rediscover them if they are included
+     * again. However, we have the their_unilateral/to_us which we
+     * can't simply recognize from the chain without additional
+     * hints. So we just mark them as unconfirmed should the block
+     * die. */
+    "ALTER TABLE outputs ADD COLUMN confirmation_height INTEGER REFERENCES blocks(height) ON DELETE SET NULL;",
+    "ALTER TABLE outputs ADD COLUMN spend_height INTEGER REFERENCES blocks(height) ON DELETE SET NULL;",
+    /* Create a covering index that covers both fields */
+    "CREATE INDEX output_height_idx ON outputs (confirmation_height, spend_height);",
+    "CREATE TABLE utxoset ("
+    " txid BLOB,"
+    " outnum INT,"
+    " blockheight INT REFERENCES blocks(height) ON DELETE CASCADE,"
+    " spendheight INT REFERENCES blocks(height) ON DELETE SET NULL,"
+    " txindex INT,"
+    " scriptpubkey BLOB,"
+    " satoshis BIGINT,"
+    " PRIMARY KEY(txid, outnum));",
+    "CREATE INDEX short_channel_id ON utxoset (blockheight, txindex, outnum)",
+    /* Necessary index for long rollbacks of the blockchain, otherwise we're
+     * doing table scans for every block removed. */
+    "CREATE INDEX utxoset_spend ON utxoset (spendheight)",
+    /* Assign key 0 to unassigned shutdown_keyidx_local. */
+    "UPDATE channels SET shutdown_keyidx_local=0 WHERE shutdown_keyidx_local = -1;",
+    /* FIXME: We should rename shutdown_keyidx_local to final_key_index */
+    /* -- Payment routing failure information -- */
+    /* BLOB if failure was due to unparseable onion, NULL otherwise */
+    "ALTER TABLE payments ADD failonionreply BLOB;",
+    /* 0 if we could theoretically retry, 1 if PERM fail at payee */
+    "ALTER TABLE payments ADD faildestperm INTEGER;",
+    /* Contents of routing_failure (only if not unparseable onion) */
+    "ALTER TABLE payments ADD failindex INTEGER;", /* erring_index */
+    "ALTER TABLE payments ADD failcode INTEGER;", /* failcode */
+    "ALTER TABLE payments ADD failnode BLOB;", /* erring_node */
+    "ALTER TABLE payments ADD failchannel BLOB;", /* erring_channel */
+    "ALTER TABLE payments ADD failupdate BLOB;", /* channel_update - can be NULL*/
+    /* -- Payment routing failure information ends -- */
     NULL,
 };
 

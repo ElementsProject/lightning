@@ -106,6 +106,7 @@ static void json_pay_failure(struct pay *pay,
 				     tal_len(fail->channel_update));
 		json_object_end(data);
 
+		assert(r->details != NULL);
 		msg = tal_fmt(pay,
 			      "failed: %s (%s)",
 			      onion_type_name(fail->failcode),
@@ -188,6 +189,12 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 
 	why = should_delay_retry(pay->try_parent, r);
 	if (why) {
+		/* We have some reason to delay retrying. */
+
+		/* Clear previous try memory. */
+		pay->try_parent = tal_free(pay->try_parent);
+		pay->try_parent = tal(pay, char);
+
 		log_info(pay->cmd->ld->log,
 			 "pay(%p): Delay before retry: %s", pay, why);
 		/* Delay for 3 seconds if needed. FIXME: random
@@ -221,6 +228,26 @@ static void log_route(struct pay *pay, struct route_hop *route)
 			pay, stringify_route(tmpctx, route));
 
 	tal_free(tmpctx);
+}
+
+static void json_pay_sendpay_resume(const struct sendpay_result *r,
+				    void *vpay)
+{
+	struct pay *pay = (struct pay *) vpay;
+	bool completed = r->succeeded || r->errorcode != PAY_IN_PROGRESS;
+
+	if (completed)
+		/* Already completed. */
+		json_pay_sendpay_resolve(r, pay);
+	else {
+		/* Clear previous try memory. */
+		pay->try_parent = tal_free(pay->try_parent);
+		pay->try_parent = tal(pay, char);
+
+		/* Not yet complete? Wait for it. */
+		wait_payment(pay->try_parent, pay->cmd->ld, &pay->payment_hash,
+			     json_pay_sendpay_resolve, pay);
+	}
 }
 
 static void json_pay_getroute_reply(struct subd *gossip UNUSED,
@@ -292,9 +319,10 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	++pay->sendpay_tries;
 
 	log_route(pay, route);
+
 	send_payment(pay->try_parent,
 		     pay->cmd->ld, &pay->payment_hash, route,
-		     &json_pay_sendpay_resolve, pay);
+		     &json_pay_sendpay_resume, pay);
 }
 
 /* Start a payment attempt. Return true if deferred,

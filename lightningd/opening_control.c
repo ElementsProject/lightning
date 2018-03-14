@@ -146,7 +146,8 @@ void json_add_uncommitted_channel(struct json_result *response,
 	json_object_end(response);
 }
 
-/* Steals fields from uncommitted_channel */
+/* Steals fields from uncommitted_channel: returns NULL if can't generate a
+ * key for this channel (shouldn't happen!). */
 static struct channel *
 wallet_commit_channel(struct lightningd *ld,
 		      struct uncommitted_channel *uc,
@@ -162,6 +163,14 @@ wallet_commit_channel(struct lightningd *ld,
 {
 	struct channel *channel;
 	u64 our_msatoshi;
+	s64 final_key_idx;
+
+	/* Get a key to use for closing outputs from this tx */
+	final_key_idx = wallet_get_newindex(ld);
+	if (final_key_idx == -1) {
+		log_broken(uc->log, "Can't get final key index");
+		return NULL;
+	}
 
 	if (uc->fc)
 		our_msatoshi = funding_satoshi * 1000 - push_msat;
@@ -198,7 +207,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      NULL, /* No HTLC sigs yet */
 			      channel_info,
 			      NULL, /* No remote_shutdown_scriptpubkey yet */
-			      -1, false,
+			      final_key_idx, false,
 			      NULL, /* No commit sent yet */
 			      uc->first_blocknum);
 
@@ -335,6 +344,10 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					fc->channel_flags,
 					&channel_info,
 					feerate);
+	if (!channel) {
+		command_fail(fc->cmd, "Key generation failure");
+		goto failed;
+	}
 
 	/* Get HSM to sign the funding tx. */
 	log_debug(channel->log, "Getting HSM to sign funding tx");
@@ -354,7 +367,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		      tal_hex(msg, resp));
 
 	/* Extract the change output and add it to the DB */
-	wallet_extract_owned_outputs(ld->wallet, fundingtx, &change_satoshi);
+	wallet_extract_owned_outputs(ld->wallet, fundingtx, NULL, &change_satoshi);
 
 	/* Send it out and watch for confirms. */
 	broadcast_tx(ld->topology, channel, fundingtx, funding_broadcast_failed);
@@ -450,6 +463,10 @@ static void opening_fundee_finished(struct subd *openingd,
 					channel_flags,
 					&channel_info,
 					feerate);
+	if (!channel) {
+		tal_free(uc);
+		return;
+	}
 
 	log_debug(channel->log, "Watching funding tx %s",
 		     type_to_string(reply, struct bitcoin_txid,

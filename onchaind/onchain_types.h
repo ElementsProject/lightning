@@ -35,6 +35,9 @@ enum tx_type {
 	/* When we use revocation key to take output. */
 	OUR_PENALTY_TX,
 
+	/* Amount too small, we're just spending it to close UTXO */
+	DONATING_TO_MINERS,
+
 	/* Special type for marking outputs as resolved by self. */
 	SELF,
 

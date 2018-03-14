@@ -282,8 +282,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	struct crypto_state cs;
 	u8 *gfeatures, *lfeatures;
 	u8 *error;
-	u8 *supported_global_features;
-	u8 *supported_local_features;
+	u8 *global_features;
+	u8 *local_features;
 	struct channel *channel;
 	struct wireaddr addr;
 	u64 gossip_index;
@@ -295,22 +295,22 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		fatal("Gossip gave bad GOSSIP_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
 
-	if (unsupported_features(gfeatures, lfeatures)) {
+	if (!features_supported(gfeatures, lfeatures)) {
 		log_unusual(ld->log, "peer %s offers unsupported features %s/%s",
 			    type_to_string(msg, struct pubkey, &id),
 			    tal_hex(msg, gfeatures),
 			    tal_hex(msg, lfeatures));
-		supported_global_features = get_supported_global_features(msg);
-		supported_local_features = get_supported_local_features(msg);
+		global_features = get_offered_global_features(msg);
+		local_features = get_offered_local_features(msg);
 		error = towire_errorfmt(msg, NULL,
-					"We only support globalfeatures %s"
+					"We only offer globalfeatures %s"
 					" and localfeatures %s",
 					tal_hexstr(msg,
-						   supported_global_features,
-						   tal_len(supported_global_features)),
+						   global_features,
+						   tal_len(global_features)),
 					tal_hexstr(msg,
-						   supported_local_features,
-						   tal_len(supported_local_features)));
+						   local_features,
+						   tal_len(local_features)));
 		goto send_error;
 	}
 
@@ -665,8 +665,17 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 				     channel->our_config.channel_reserve_satoshis);
 			json_add_u64(response, "htlc_minimum_msat",
 				     channel->our_config.htlc_minimum_msat);
-			json_add_num(response, "to_self_delay",
+			/* The `to_self_delay` is imposed on the *other*
+			 * side, so our configuration `to_self_delay` is
+			 * imposed on their side, while their configuration
+			 * `to_self_delay` is imposed on ours. */
+			json_add_num(response, "their_to_self_delay",
 				     channel->our_config.to_self_delay);
+			json_add_num(response, "our_to_self_delay",
+				     channel->channel_info.their_config.to_self_delay);
+			if (deprecated_apis)
+				json_add_num(response, "to_self_delay",
+					     channel->our_config.to_self_delay);
 			json_add_num(response, "max_accepted_htlcs",
 				     channel->our_config.max_accepted_htlcs);
 
@@ -808,28 +817,12 @@ static void json_close(struct command *cmd,
 
 	/* Normal case. */
 	if (channel->state == CHANNELD_NORMAL) {
-		u8 *shutdown_scriptpubkey;
-
-		channel->local_shutdown_idx = wallet_get_newindex(cmd->ld);
-		if (channel->local_shutdown_idx == -1) {
-			command_fail(cmd, "Failed to get new key for shutdown");
-			return;
-		}
-		shutdown_scriptpubkey = p2wpkh_for_keyidx(cmd, cmd->ld,
-							  channel->local_shutdown_idx);
-		if (!shutdown_scriptpubkey) {
-			command_fail(cmd, "Failed to get script for shutdown");
-			return;
-		}
-
-		channel_set_state(channel, CHANNELD_NORMAL, CHANNELD_SHUTTING_DOWN);
-
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, shutdown_scriptpubkey);
+		channel_set_state(channel,
+				  CHANNELD_NORMAL, CHANNELD_SHUTTING_DOWN);
 
 		if (channel->owner)
 			subd_send_msg(channel->owner,
-				      take(towire_channel_send_shutdown(channel,
-						   shutdown_scriptpubkey)));
+				      take(towire_channel_send_shutdown(channel)));
 
 		command_success(cmd, null_response(cmd));
 	} else
@@ -874,6 +867,60 @@ void activate_peers(struct lightningd *ld)
 	list_for_each(&ld->peers, p, list)
 		activate_peer(p);
 }
+
+/* Peer has been released from gossip. */
+static void gossip_peer_disconnected (struct subd *gossip,
+				 const u8 *resp,
+				 const int *fds,
+				 struct command *cmd) {
+	bool isconnected;
+
+	if (!fromwire_gossipctl_peer_disconnect_reply(resp)) {
+		if (!fromwire_gossipctl_peer_disconnect_replyfail(resp, &isconnected))
+			fatal("Gossip daemon gave invalid reply %s",
+			      tal_hex(gossip, resp));
+		if (isconnected)
+			command_fail(cmd, "Peer is not in gossip mode");
+		else
+			command_fail(cmd, "Peer not connected");
+	} else {
+		/* Successfully disconnected */
+		command_success(cmd, null_response(cmd));
+	}
+	return;
+}
+
+static void json_disconnect(struct command *cmd,
+			 const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *idtok;
+	struct pubkey id;
+	u8 *msg;
+
+	if (!json_get_params(cmd, buffer, params,
+			     "id", &idtok,
+			     NULL)) {
+		return;
+	}
+
+	if (!json_tok_pubkey(buffer, idtok, &id)) {
+		command_fail(cmd, "id %.*s not valid",
+			     idtok->end - idtok->start,
+			     buffer + idtok->start);
+		return;
+	}
+
+	msg = towire_gossipctl_peer_disconnect(cmd, &id);
+	subd_req(cmd, cmd->ld->gossip, msg, -1, 0, gossip_peer_disconnected, cmd);
+	command_still_pending(cmd);
+}
+
+static const struct json_command disconnect_command = {
+	"disconnect",
+	json_disconnect,
+	"Disconnect from {id} that has previously been connected to using connect"
+};
+AUTODATA(json_command, &disconnect_command);
 
 #if DEVELOPER
 static void json_sign_last_tx(struct command *cmd,

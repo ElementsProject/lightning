@@ -659,6 +659,8 @@ static struct subd *new_subd(struct lightningd *ld,
 	const char *debug_subd = NULL;
 	int disconnect_fd = -1;
 
+	assert(name != NULL);
+
 #if DEVELOPER
 	debug_subd = ld->dev_debug_subdaemon;
 	disconnect_fd = ld->dev_disconnect_fd;

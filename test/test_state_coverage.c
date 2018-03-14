@@ -489,6 +489,7 @@ static unsigned int htlc_id_from_pkt(const Pkt *pkt)
 static Pkt *htlc_pkt(const tal_t *ctx, const char *prefix, unsigned int id)
 {
 	assert(id != -1);
+	assert(prefix != NULL);
 	return (Pkt *)tal_fmt(ctx, "%s: HTLC #%u", prefix, id);
 }
 
@@ -501,6 +502,7 @@ static unsigned int htlc_id_from_tx(const struct bitcoin_tx *tx)
 static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 				  const char *prefix, unsigned int id)
 {
+	assert(prefix != NULL);
 	return (struct bitcoin_tx *)tal_fmt(ctx, "%s HTLC #%u", prefix, id);
 }
 

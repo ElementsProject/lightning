@@ -58,7 +58,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 		 * generated the hex tx, so this should always work */
 		tx = bitcoin_tx_from_hex(withdraw, withdraw->hextx, strlen(withdraw->hextx));
 		assert(tx != NULL);
-		wallet_extract_owned_outputs(ld->wallet, tx, &change_satoshi);
+		wallet_extract_owned_outputs(ld->wallet, tx, NULL, &change_satoshi);
 
 		/* Note normally, change_satoshi == withdraw->changesatoshi, but
 		 * not if we're actually making a payment to ourselves! */
@@ -383,6 +383,14 @@ static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 		json_add_txid(response, "txid", &utxos[i]->txid);
 		json_add_num(response, "output", utxos[i]->outnum);
 		json_add_u64(response, "value", utxos[i]->amount);
+
+		if (utxos[i]->spendheight)
+			json_add_string(response, "status", "spent");
+		else if (utxos[i]->blockheight)
+			json_add_string(response, "status", "confirmed");
+		else
+			json_add_string(response, "status", "unconfirmed");
+
 		json_object_end(response);
 	}
 	json_array_end(response);

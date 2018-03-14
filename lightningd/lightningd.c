@@ -67,6 +67,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->alias = NULL;
 	ld->rgb = NULL;
 	list_head_init(&ld->connects);
+	list_head_init(&ld->waitsendpay_commands);
 	list_head_init(&ld->sendpay_commands);
 	ld->wireaddrs = tal_arr(ld, struct wireaddr, 0);
 	ld->portnum = DEFAULT_PORT;
@@ -217,10 +218,9 @@ static void shutdown_subdaemons(struct lightningd *ld)
 	db_commit_transaction(ld->wallet->db);
 }
 
-struct chainparams *get_chainparams(const struct lightningd *ld)
+const struct chainparams *get_chainparams(const struct lightningd *ld)
 {
-	return cast_const(struct chainparams *,
-			  ld->topology->bitcoind->chainparams);
+	return ld->topology->bitcoind->chainparams;
 }
 
 static void init_txfilter(struct wallet *w, struct txfilter *filter)
@@ -321,6 +321,7 @@ int main(int argc, char *argv[])
 	/* Initialize wallet, now that we are in the correct directory */
 	ld->wallet = wallet_new(ld, ld->log, &ld->timers);
 	ld->owned_txfilter = txfilter_new(ld);
+	ld->topology->wallet = ld->wallet;
 
 	/* Set up HSM. */
 	hsm_init(ld, newdir);
