@@ -15,6 +15,7 @@
 #include <lightningd/log.h>
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
+#include <wallet/wallet.h>
 
 /* Record of failures. */
 enum pay_failure_type {
@@ -208,15 +209,14 @@ add_pay_failure(struct pay *pay,
 
 static void
 json_pay_success(struct pay *pay,
-		 const struct preimage *payment_preimage)
+		 const struct sendpay_result *r)
 {
 	struct command *cmd = pay->cmd;
 	struct json_result *response;
 
 	response = new_json_result(cmd);
 	json_object_start(response, NULL);
-	json_add_hex(response, "payment_preimage",
-		     payment_preimage, sizeof(*payment_preimage));
+	json_add_payment_fields(response, r->payment);
 	json_add_num(response, "getroute_tries", pay->getroute_tries);
 	json_add_num(response, "sendpay_tries", pay->sendpay_tries);
 	json_add_route(response, "route",
@@ -239,6 +239,15 @@ static void json_pay_failure(struct pay *pay,
 
 	switch (r->errorcode) {
 	case PAY_IN_PROGRESS:
+		json_object_start(data, NULL);
+		json_add_num(data, "getroute_tries", pay->getroute_tries);
+		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
+		json_add_payment_fields(data, r->payment);
+		json_add_failures(data, "failures", &pay->pay_failures);
+		json_object_end(data);
+		msg = r->details;
+		break;
+
 	case PAY_RHASH_ALREADY_USED:
 	case PAY_STOPPED_RETRYING:
 		json_object_start(data, NULL);
@@ -341,7 +350,7 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 	/* If we succeed, hurray */
 	if (r->succeeded) {
 		log_info(pay->cmd->ld->log, "pay(%p): Success", pay);
-		json_pay_success(pay, &r->preimage);
+		json_pay_success(pay, r);
 		return;
 	}
 
@@ -552,11 +561,15 @@ static bool json_pay_try(struct pay *pay)
 static void json_pay_stop_retrying(struct pay *pay)
 {
 	struct sendpay_result *sr;
+
 	sr = tal(pay, struct sendpay_result);
 	sr->succeeded = false;
 	if (pay->in_sendpay) {
 		/* Still in sendpay. Return with PAY_IN_PROGRESS */
 		sr->errorcode = PAY_IN_PROGRESS;
+		sr->payment = wallet_payment_by_hash(sr,
+						     pay->cmd->ld->wallet,
+						     &pay->payment_hash);
 		sr->details = "Stopped retrying during payment attempt; "
 			      "continue monitoring with "
 			      "pay or listpayments";
