@@ -306,22 +306,29 @@ static void enqueue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 static void gossip_in(struct peer *peer, const u8 *msg)
 {
 	u8 *gossip;
-	u16 type;
+	u64 gossip_index;
 
-	if (!fromwire_gossip_send_gossip(msg, msg,
-					 &peer->gossip_index, &gossip))
+	if (!fromwire_gossip_send_gossip(msg, msg, &gossip_index, &gossip))
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Got bad message from gossipd: %s",
 			      tal_hex(msg, msg));
-	type = fromwire_peektype(gossip);
 
-	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
-	    type == WIRE_NODE_ANNOUNCEMENT)
+	/* Zero is a special index meaning this is unindexed gossip. */
+	if (gossip_index != 0)
+		peer->gossip_index = gossip_index;
+
+	if (is_msg_for_gossipd(gossip))
 		enqueue_peer_msg(peer, gossip);
-	else
+	else if (fromwire_peektype(gossip) == WIRE_ERROR) {
+		struct channel_id channel_id;
+		char *what = sanitize_error(msg, msg, &channel_id);
+		peer_failed(&peer->cs, peer->gossip_index, &channel_id,
+			    "gossipd said: %s", what);
+	} else
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Got bad message type %s from gossipd: %s",
-			      wire_type_name(type), tal_hex(msg, msg));
+			      wire_type_name(fromwire_peektype(gossip)),
+			      tal_hex(msg, msg));
 }
 
 /* Send a temporary `channel_announcement` and `channel_update`. These

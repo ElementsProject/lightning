@@ -1516,7 +1516,23 @@ void wallet_payment_store(struct wallet *wallet,
 	struct wallet_payment *payment;
 
 	payment = find_unstored_payment(wallet, payment_hash);
-	assert(payment);
+	if (!payment) {
+		/* Already stored on-disk */
+#if DEVELOPER
+		/* Double-check that it is indeed stored to disk
+		 * (catch bug, where we call this on a payment_hash
+		 * we never paid to) */
+		int res;
+		stmt = db_prepare(wallet->db,
+				  "SELECT status FROM payments"
+				  " WHERE payment_hash=?;");
+		sqlite3_bind_sha256(stmt, 1, payment_hash);
+		res = sqlite3_step(stmt);
+		assert(res == SQLITE_ROW);
+		sqlite3_finalize(stmt);
+#endif
+		return;
+	}
 
         /* Don't attempt to add the same payment twice */
 	assert(!payment->id);
@@ -1680,6 +1696,127 @@ void wallet_payment_set_status(struct wallet *wallet,
 		sqlite3_bind_sha256(stmt, 2, payment_hash);
 		db_exec_prepared(wallet->db, stmt);
 	}
+}
+
+void wallet_payment_get_failinfo(const tal_t *ctx,
+				 struct wallet *wallet,
+				 const struct sha256 *payment_hash,
+				 /* outputs */
+				 u8 **failonionreply,
+				 bool *faildestperm,
+				 int *failindex,
+				 enum onion_type *failcode,
+				 struct pubkey **failnode,
+				 struct short_channel_id **failchannel,
+				 u8 **failupdate)
+{
+	sqlite3_stmt *stmt;
+	int res;
+	bool resb;
+	size_t len;
+
+	stmt = db_prepare(wallet->db,
+			  "SELECT failonionreply, faildestperm"
+			  "     , failindex, failcode"
+			  "     , failnode, failchannel"
+			  "     , failupdate"
+			  "  FROM payments"
+			  " WHERE payment_hash=?;");
+	sqlite3_bind_sha256(stmt, 1, payment_hash);
+	res = sqlite3_step(stmt);
+	assert(res == SQLITE_ROW);
+	if (sqlite3_column_type(stmt, 0) == SQLITE_NULL)
+		*failonionreply = NULL;
+	else {
+		len = sqlite3_column_bytes(stmt, 0);
+		*failonionreply = tal_arr(ctx, u8, len);
+		memcpy(*failonionreply, sqlite3_column_blob(stmt, 0), len);
+	}
+	*faildestperm = sqlite3_column_int(stmt, 1) != 0;
+	*failindex = sqlite3_column_int(stmt, 2);
+	*failcode = (enum onion_type) sqlite3_column_int(stmt, 3);
+	if (sqlite3_column_type(stmt, 4) == SQLITE_NULL)
+		*failnode = NULL;
+	else {
+		*failnode = tal(ctx, struct pubkey);
+		resb = sqlite3_column_pubkey(stmt, 4, *failnode);
+		assert(resb);
+	}
+	if (sqlite3_column_type(stmt, 5) == SQLITE_NULL)
+		*failchannel = NULL;
+	else {
+		*failchannel = tal(ctx, struct short_channel_id);
+		resb = sqlite3_column_short_channel_id(stmt, 5, *failchannel);
+		assert(resb);
+	}
+	if (sqlite3_column_type(stmt, 6) == SQLITE_NULL)
+		*failupdate = NULL;
+	else {
+		len = sqlite3_column_bytes(stmt, 6);
+		*failupdate = tal_arr(ctx, u8, len);
+		memcpy(*failupdate, sqlite3_column_blob(stmt, 6), len);
+	}
+
+	sqlite3_finalize(stmt);
+}
+
+void wallet_payment_set_failinfo(struct wallet *wallet,
+				 const struct sha256 *payment_hash,
+				 const u8 *failonionreply /*tal_arr*/,
+				 bool faildestperm,
+				 int failindex,
+				 enum onion_type failcode,
+				 const struct pubkey *failnode,
+				 const struct short_channel_id *failchannel,
+				 const u8 *failupdate /*tal_arr*/)
+{
+	sqlite3_stmt *stmt;
+	const tal_t *tmpctx = tal_tmpctx(wallet);
+	struct short_channel_id *scid;
+
+	stmt = db_prepare(wallet->db,
+			  "UPDATE payments"
+			  "   SET failonionreply=?"
+			  "     , faildestperm=?"
+			  "     , failindex=?"
+			  "     , failcode=?"
+			  "     , failnode=?"
+			  "     , failchannel=?"
+			  "     , failupdate=?"
+			  " WHERE payment_hash=?;");
+	if (failonionreply)
+		sqlite3_bind_blob(stmt, 1,
+				  failonionreply, tal_count(failonionreply),
+				  SQLITE_TRANSIENT);
+	else
+		sqlite3_bind_null(stmt, 1);
+	sqlite3_bind_int(stmt, 2, faildestperm ? 1 : 0);
+	sqlite3_bind_int(stmt, 3, failindex);
+	sqlite3_bind_int(stmt, 4, (int) failcode);
+	if (failnode)
+		sqlite3_bind_pubkey(stmt, 5, failnode);
+	else
+		sqlite3_bind_null(stmt, 5);
+	if (failchannel) {
+		/* sqlite3_bind_short_channel_id requires the input
+		 * channel to be tal-allocated... */
+		scid = tal(tmpctx, struct short_channel_id);
+		*scid = *failchannel;
+		sqlite3_bind_short_channel_id(stmt, 6, scid);
+	} else
+		sqlite3_bind_null(stmt, 6);
+	if (failupdate)
+		sqlite3_bind_blob(stmt, 7,
+				  failupdate, tal_count(failupdate),
+				  SQLITE_TRANSIENT);
+	else
+		sqlite3_bind_null(stmt, 7);
+
+	sqlite3_bind_sha256(stmt, 8, payment_hash);
+
+	db_exec_prepared(wallet->db, stmt);
+
+	tal_free(tmpctx);
 }
 
 const struct wallet_payment **

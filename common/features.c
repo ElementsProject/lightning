@@ -1,62 +1,119 @@
 #include "features.h"
+#include <assert.h>
+#include <ccan/array_size/array_size.h>
 #include <wire/peer_wire.h>
 
-static const u8 supported_local_features[]
-= {LOCALFEATURES_INITIAL_ROUTING_SYNC};
-static const u8 supported_global_features[]
-= {};
+static const u32 local_features[] = {
+	LOCAL_INITIAL_ROUTING_SYNC
+};
 
-u8 *get_supported_global_features(const tal_t *ctx)
+static const u32 global_features[] = {
+};
+
+static void set_bit(u8 **ptr, u32 bit)
 {
-	return tal_dup_arr(ctx, u8, supported_global_features,
-			   sizeof(supported_global_features), 0);
+	if (bit / 8 >= tal_len(*ptr))
+		tal_resizez(ptr, (bit / 8) + 1);
+	(*ptr)[bit / 8] |= (1 << (bit % 8));
 }
 
-u8 *get_supported_local_features(const tal_t *ctx)
+/* We don't insist on anything, it's all optional. */
+static u8 *mkfeatures(const tal_t *ctx, const u32 *arr, size_t n)
 {
-	return tal_dup_arr(ctx, u8, supported_local_features,
-			   sizeof(supported_local_features), 0);
+	u8 *f = tal_arr(ctx, u8, 0);
+
+	for (size_t i = 0; i < n; i++)
+		set_bit(&f, OPTIONAL_FEATURE(arr[i]));
+	return f;
 }
 
-/**
- * requires_unsupported_features - Check if we support what's being asked
- *
- * Given the features vector that the remote connection is expecting
- * from us, we check to see if we support all even bit features, i.e.,
- * the required features. We do so by subtracting our own features in
- * the provided positions and see if even bits remain.
- *
- * @bitmap: the features bitmap the peer is asking for
- * @supportmap: what do we support
- * @smlen: how long is our supportmap
- */
-static bool requires_unsupported_features(const u8 *bitmap,
-					  const u8 *supportmap,
-					  size_t smlen)
+u8 *get_offered_global_features(const tal_t *ctx)
 {
-	size_t len = tal_count(bitmap);
-	u8 support;
-	for (size_t i=0; i<len; i++) {
-		/* Find matching bitmap byte in supportmap, 0x00 if none */
-		if (len > smlen) {
-			support = 0x00;
-		} else {
-			support = supportmap[smlen-1];
-		}
+	return mkfeatures(ctx, global_features, ARRAY_SIZE(global_features));
+}
 
-		/* Cancel out supported bits, check for even bits */
-		if ((~support & bitmap[i]) & 0x55)
+u8 *get_offered_local_features(const tal_t *ctx)
+{
+	return mkfeatures(ctx, local_features, ARRAY_SIZE(local_features));
+}
+
+static bool test_bit(const u8 *features, size_t byte, unsigned int bit)
+{
+	return features[byte] & (1 << (bit % 8));
+}
+
+static bool feature_set(const u8 *features, size_t bit)
+{
+	size_t bytenum = bit / 8;
+
+	if (bytenum >= tal_len(features))
+		return false;
+
+	return test_bit(features, bytenum, bit % 8);
+}
+
+bool feature_offered(const u8 *features, size_t f)
+{
+	assert(f % 2 == 0);
+
+	return feature_set(features, f)
+		|| feature_set(features, OPTIONAL_FEATURE(f));
+}
+
+static bool feature_supported(int feature_bit,
+			      const u32 *supported,
+			      size_t num_supported)
+{
+	for (size_t i = 0; i < num_supported; i++) {
+		if (supported[i] == feature_bit)
 			return true;
 	}
 	return false;
 }
 
-bool unsupported_features(const u8 *gfeatures, const u8 *lfeatures)
+/**
+ * all_supported_features - Check if we support what's being asked
+ *
+ * Given the features vector that the remote connection is expecting
+ * from us, we check to see if we support all even bit features, i.e.,
+ * the required features.
+ *
+ * @bitmap: the features bitmap the peer is asking for
+ * @supported: array of features we support
+ * @num_supported: how many elements in supported
+ */
+static bool all_supported_features(const u8 *bitmap,
+				   const u32 *supported,
+				   size_t num_supported)
 {
-	return requires_unsupported_features(gfeatures,
-					     supported_global_features,
-					     sizeof(supported_global_features))
-		|| requires_unsupported_features(lfeatures,
-						 supported_local_features,
-						 sizeof(supported_local_features));
+	size_t len = tal_count(bitmap);
+
+	/* It's OK to be odd: only check even bits. */
+	for (size_t bitnum = 0; bitnum < len; bitnum += 2) {
+		if (!test_bit(bitmap, bitnum/8, bitnum%8))
+			continue;
+
+		if (feature_supported(bitnum, supported, num_supported))
+			continue;
+
+		return false;
+	}
+	return true;
 }
+
+bool features_supported(const u8 *gfeatures, const u8 *lfeatures)
+{
+	/* BIT 2 would logically be "compulsory initial_routing_sync", but
+	 * that does not exist, so we special case it. */
+	if (feature_set(lfeatures,
+			COMPULSORY_FEATURE(LOCAL_INITIAL_ROUTING_SYNC)))
+		return false;
+
+	return all_supported_features(gfeatures,
+				      global_features,
+				      ARRAY_SIZE(global_features))
+		|| all_supported_features(lfeatures,
+					  local_features,
+					  ARRAY_SIZE(local_features));
+}
+

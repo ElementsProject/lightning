@@ -344,11 +344,13 @@ class LightningDTests(BaseLightningDTests):
                 if time.time() > start_time + 10:
                     raise TimeoutError('Payment timed out')
                 time.sleep(0.1)
+        # sendpay is async now
+        lsrc.rpc.sendpay(to_json([routestep]), rhash)
         if async:
-            self.executor.submit(lsrc.rpc.sendpay, to_json([routestep]), rhash)
             return self.executor.submit(wait_pay)
         else:
-            lsrc.rpc.sendpay(to_json([routestep]), rhash)
+            # wait for sendpay to comply
+            lsrc.rpc.waitsendpay(rhash)
 
     # This waits until gossipd sees channel_update in both directions
     # (or for local channels, at least a local announcement)
@@ -769,19 +771,22 @@ class LightningDTests(BaseLightningDTests):
         # Insufficient funds.
         rs = copy.deepcopy(routestep)
         rs['msatoshi'] = rs['msatoshi'] - 1
-        self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
+        l1.rpc.sendpay(to_json([rs]), rhash)
+        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         # Gross overpayment (more than factor of 2)
         rs = copy.deepcopy(routestep)
         rs['msatoshi'] = rs['msatoshi'] * 2 + 1
-        self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
+        l1.rpc.sendpay(to_json([rs]), rhash)
+        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         # Insufficient delay.
         rs = copy.deepcopy(routestep)
         rs['delay'] = rs['delay'] - 2
-        self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
+        l1.rpc.sendpay(to_json([rs]), rhash)
+        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         # Bad ID.
@@ -799,7 +804,8 @@ class LightningDTests(BaseLightningDTests):
         assert p2['channels'][0]['msatoshi_total'] == 10**6 * 1000
 
         # This works.
-        preimage2 = l1.rpc.sendpay(to_json([routestep]), rhash)
+        l1.rpc.sendpay(to_json([routestep]), rhash)
+        preimage2 = l1.rpc.waitsendpay(rhash)
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'paid'
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['pay_index'] == 1
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['msatoshi_received'] == rs['msatoshi']
@@ -825,7 +831,8 @@ class LightningDTests(BaseLightningDTests):
         rhash = l2.rpc.invoice(amt, 'testpayment3', 'desc')['payment_hash']
         assert l2.rpc.listinvoices('testpayment3')['invoices'][0]['status'] == 'unpaid'
         routestep = {'msatoshi': amt * 2, 'id': l2.info['id'], 'delay': 5, 'channel': '1:1:1'}
-        preimage3 = l1.rpc.sendpay(to_json([routestep]), rhash)
+        l1.rpc.sendpay(to_json([routestep]), rhash)
+        preimage3 = l1.rpc.waitsendpay(rhash)
         assert l2.rpc.listinvoices('testpayment3')['invoices'][0]['status'] == 'paid'
         assert l2.rpc.listinvoices('testpayment3')['invoices'][0]['msatoshi_received'] == amt * 2
 
@@ -894,8 +901,9 @@ class LightningDTests(BaseLightningDTests):
         }
 
         # Amount must be nonzero!
+        l1.rpc.sendpay(to_json([routestep]), rhash)
         self.assertRaisesRegex(ValueError, 'WIRE_AMOUNT_BELOW_MINIMUM',
-                               l1.rpc.sendpay, to_json([routestep]), rhash)
+                               l1.rpc.waitsendpay, rhash)
 
     def test_pay(self):
         l1, l2 = self.connect()
@@ -1367,7 +1375,8 @@ class LightningDTests(BaseLightningDTests):
             'channel': '1:1:1'
         }
 
-        payfuture = self.executor.submit(l1.rpc.sendpay, to_json([routestep]), rhash)
+        l1.rpc.sendpay(to_json([routestep]), rhash)
+        payfuture = self.executor.submit(l1.rpc.waitsendpay, rhash)
 
         # l1 will drop to chain.
         l1.daemon.wait_for_log('permfail')
@@ -1409,6 +1418,9 @@ class LightningDTests(BaseLightningDTests):
         l2 = self.node_factory.get_node()
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        l2 = self.node_factory.get_node()
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         self.fund_channel(l1, l2, 10**6)
 
         rhash = l2.rpc.invoice(10**8, 'onchain_timeout', 'desc')['payment_hash']
@@ -1420,7 +1432,8 @@ class LightningDTests(BaseLightningDTests):
             'channel': '1:1:1'
         }
 
-        payfuture = self.executor.submit(l1.rpc.sendpay, to_json([routestep]), rhash)
+        l1.rpc.sendpay(to_json([routestep]), rhash)
+        payfuture = self.executor.submit(l1.rpc.waitsendpay, rhash)
 
         # l1 will drop to chain.
         l1.daemon.wait_for_log('permfail')
@@ -1497,6 +1510,7 @@ class LightningDTests(BaseLightningDTests):
         def try_pay():
             try:
                 l1.rpc.sendpay(to_json(route), rhash)
+                l1.rpc.waitsendpay(rhash)
                 q.put(None)
             except Exception as err:
                 q.put(err)
@@ -2202,21 +2216,25 @@ class LightningDTests(BaseLightningDTests):
         # Unknown other peer
         route = copy.deepcopy(baseroute)
         route[1]['id'] = '031a8dc444e41bb989653a4501e11175a488a57439b0c4947704fd6e3de5dca607'
-        self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
+        l1.rpc.sendpay(to_json(route), rhash)
+        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
 
         # Delay too short (we always add one internally anyway, so subtract 2 here).
         route = copy.deepcopy(baseroute)
         route[0]['delay'] = 8
-        self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
+        l1.rpc.sendpay(to_json(route), rhash)
+        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
 
         # Final delay too short
         route = copy.deepcopy(baseroute)
         route[1]['delay'] = 3
-        self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
+        l1.rpc.sendpay(to_json(route), rhash)
+        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
 
         # This one works
         route = copy.deepcopy(baseroute)
         l1.rpc.sendpay(to_json(route), rhash)
+        l1.rpc.waitsendpay(rhash)
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_forward_different_fees_and_cltv(self):
@@ -2329,6 +2347,7 @@ class LightningDTests(BaseLightningDTests):
 
         # This should work.
         l1.rpc.sendpay(to_json(route), rhash)
+        l1.rpc.waitsendpay(rhash)
 
         # We add one to the blockcount for a bit of fuzz (FIXME: Shadowroute would fix this!)
         shadow_route = 1
@@ -2394,6 +2413,7 @@ class LightningDTests(BaseLightningDTests):
         # This should work.
         rhash = l3.rpc.invoice(4999999, 'test_forward_pad_fees_and_cltv', 'desc')['payment_hash']
         l1.rpc.sendpay(to_json(route), rhash)
+        l1.rpc.waitsendpay(rhash)
         assert l3.rpc.listinvoices('test_forward_pad_fees_and_cltv')['invoices'][0]['status'] == 'paid'
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
@@ -2714,7 +2734,8 @@ class LightningDTests(BaseLightningDTests):
         route = [{'msatoshi': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1:1:1'}]
 
         for i in range(0, len(disconnects)):
-            self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
+            l1.rpc.sendpay(to_json(route), rhash)
+            self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
             # Wait for reconnection.
             l1.daemon.wait_for_log('Already have funding locked in')
 
@@ -3311,14 +3332,15 @@ class LightningDTests(BaseLightningDTests):
         assert l1.rpc.listpayments()['payments'][0]['status'] == 'pending'
         assert l1.rpc.listpayments()['payments'][0]['payment_hash'] == inv1['payment_hash']
 
-        # Second one should fail.
-        self.assertRaises(ValueError, l1.rpc.pay, inv1['bolt11'])
+        # Second one will succeed eventually.
+        fut2 = self.executor.submit(l1.rpc.pay, inv1['bolt11'])
 
         # Now, let it commit.
         l1.rpc.dev_reenable_commit(l2.info['id'])
 
-        # This should succeed.
+        # These should succeed.
         fut.result(10)
+        fut2.result(10)
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_gossip_badsig(self):

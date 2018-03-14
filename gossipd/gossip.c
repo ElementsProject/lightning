@@ -17,6 +17,7 @@
 #include <ccan/timer/timer.h>
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
+#include <common/features.h>
 #include <common/io_debug.h>
 #include <common/ping.h>
 #include <common/status.h>
@@ -242,7 +243,6 @@ static struct peer *new_peer(const tal_t *ctx,
 	peer->local = new_local_peer_state(peer, cs);
 	peer->remote = NULL;
 	peer->reach_again = false;
-	peer->broadcast_index = 0;
 
 	return peer;
 }
@@ -291,6 +291,19 @@ static void reached_peer(struct daemon *daemon, const struct pubkey *id,
 	tal_free(r);
 }
 
+static void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
+{
+	if (peer->local) {
+		msg_enqueue(&peer->local->peer_out, msg);
+	} else {
+		/* Use gossip_index 0 meaning don't update index */
+		const u8 *send = towire_gossip_send_gossip(NULL, 0, msg);
+		if (taken(msg))
+			tal_free(msg);
+		daemon_conn_send(peer->remote, take(send));
+	}
+}
+
 static void peer_error(struct peer *peer, const char *fmt, ...)
 {
 	va_list ap;
@@ -303,8 +316,7 @@ static void peer_error(struct peer *peer, const char *fmt, ...)
 
 	/* Send error: we'll close after writing this. */
 	va_start(ap, fmt);
-	msg_enqueue(&peer->local->peer_out,
-		    take(towire_errorfmtv(peer, NULL, fmt, ap)));
+	queue_peer_msg(peer, take(towire_errorfmtv(peer, NULL, fmt, ap)));
 	va_end(ap);
 }
 
@@ -339,6 +351,19 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	}
 
 	reached_peer(peer->daemon, &peer->id, conn);
+
+	/* BOLT #7:
+	 *
+	 * Upon receiving an `init` message with the `initial_routing_sync`
+	 * flag set the node sends `channel_announcement`s, `channel_update`s
+	 * and `node_announcement`s for all known channels and nodes as if
+	 * they were just received.
+	 */
+	if (feature_offered(peer->lfeatures, LOCAL_INITIAL_ROUTING_SYNC))
+		peer->broadcast_index = 0;
+	else
+		peer->broadcast_index
+			= peer->daemon->rstate->broadcasts->next_index;
 
 	/* This is a full peer now; we keep it around until its
 	 * gossipfd closed (forget_peer) or reconnect. */
@@ -398,8 +423,7 @@ static struct io_plan *init_new_peer(struct io_conn *conn,
 
 static struct io_plan *owner_msg_in(struct io_conn *conn,
 				    struct daemon_conn *dc);
-static struct io_plan *nonlocal_dump_gossip(struct io_conn *conn,
-					    struct daemon_conn *dc);
+static bool nonlocal_dump_gossip(struct io_conn *conn, struct daemon_conn *dc);
 
 /* Create a node_announcement with the given signature. It may be NULL
  * in the case we need to create a provisional announcement for the
@@ -435,7 +459,7 @@ static void send_node_announcement(struct daemon *daemon)
 	tal_t *tmpctx = tal_tmpctx(daemon);
 	u32 timestamp = time_now().ts.tv_sec;
 	secp256k1_ecdsa_signature sig;
-	u8 *msg, *nannounce;
+	u8 *msg, *nannounce, *err;
 
 	/* Timestamps must move forward, or announce will be ignored! */
 	if (timestamp <= daemon->last_announce_timestamp)
@@ -455,33 +479,45 @@ static void send_node_announcement(struct daemon *daemon)
 	 * from the HSM, create the real announcement and forward it to
 	 * gossipd so it can take care of forwarding it. */
 	nannounce = create_node_announcement(tmpctx, daemon, &sig, timestamp);
-	handle_node_announcement(daemon->rstate, take(nannounce));
+	err = handle_node_announcement(daemon->rstate, take(nannounce));
+	if (err)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "rejected own node announcement: %s",
+			      tal_hex(trc, err));
 	tal_free(tmpctx);
 }
 
-static void handle_gossip_msg(struct daemon *daemon, u8 *msg)
+/* Returns error if we should send an error. */
+static void handle_gossip_msg(struct peer *peer, u8 *msg)
 {
-	struct routing_state *rstate = daemon->rstate;
+	struct routing_state *rstate = peer->daemon->rstate;
 	int t = fromwire_peektype(msg);
+	u8 *err;
 
 	switch(t) {
 	case WIRE_CHANNEL_ANNOUNCEMENT: {
 		const struct short_channel_id *scid;
 		/* If it's OK, tells us the short_channel_id to lookup */
-		scid = handle_channel_announcement(rstate, msg);
-		if (scid)
-			daemon_conn_send(&daemon->master,
-					 take(towire_gossip_get_txout(daemon,
+		err = handle_channel_announcement(rstate, msg, &scid);
+		if (err)
+			queue_peer_msg(peer, take(err));
+		else if (scid)
+			daemon_conn_send(&peer->daemon->master,
+					 take(towire_gossip_get_txout(NULL,
 								      scid)));
 		break;
 	}
 
 	case WIRE_NODE_ANNOUNCEMENT:
-		handle_node_announcement(rstate, msg);
+		err = handle_node_announcement(rstate, msg);
+		if (err)
+			queue_peer_msg(peer, take(err));
 		break;
 
 	case WIRE_CHANNEL_UPDATE:
-		handle_channel_update(rstate, msg);
+		err = handle_channel_update(rstate, msg);
+		if (err)
+			queue_peer_msg(peer, take(err));
 		break;
 	}
 }
@@ -580,7 +616,7 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_NODE_ANNOUNCEMENT:
 	case WIRE_CHANNEL_UPDATE:
-		handle_gossip_msg(peer->daemon, msg);
+		handle_gossip_msg(peer, msg);
 		return peer_next_in(conn, peer);
 
 	case WIRE_PING:
@@ -653,13 +689,6 @@ static void wake_pkt_out(struct peer *peer)
 /* Mutual recursion. */
 static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer);
 
-static struct io_plan *local_gossip_broadcast_done(struct io_conn *conn,
-						   struct peer *peer)
-{
-	peer->broadcast_index++;
-	return peer_pkt_out(conn, peer);
-}
-
 static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer)
 {
 	/* First priority is queued packets, if any */
@@ -679,15 +708,15 @@ static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer)
 			return ready_for_master(conn, peer);
 	} else if (peer->gossip_sync) {
 		/* If we're supposed to be sending gossip, do so now. */
-		struct queued_message *next;
+		const u8 *next;
 
-		next = next_broadcast_message(peer->daemon->rstate->broadcasts,
-					      peer->broadcast_index);
+		next = next_broadcast(peer->daemon->rstate->broadcasts,
+				      &peer->broadcast_index);
 
 		if (next)
 			return peer_write_message(conn, &peer->local->pcs,
-						  next->payload,
-						  local_gossip_broadcast_done);
+						  next,
+						  peer_pkt_out);
 
 		/* Gossip is drained.  Wait for next timer. */
 		peer->gossip_sync = false;
@@ -710,6 +739,7 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 	struct short_channel_id scid;
 	struct chan *chan;
 	const u8 *update;
+	struct routing_state *rstate = peer->daemon->rstate;
 
 	if (!fromwire_gossip_get_update(msg, &scid)) {
 		status_trace("peer %s sent bad gossip_get_update %s",
@@ -718,7 +748,7 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 		return;
 	}
 
-	chan = get_channel(peer->daemon->rstate, &scid);
+	chan = get_channel(rstate, &scid);
 	if (!chan) {
 		status_unusual("peer %s scid %s: unknown channel",
 			       type_to_string(trc, struct pubkey, &peer->id),
@@ -728,9 +758,13 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 	} else {
 		/* We want update that comes from our end. */
 		if (pubkey_eq(&chan->nodes[0]->id, &peer->daemon->id))
-			update = chan->half[0].channel_update;
+			update = get_broadcast(rstate->broadcasts,
+					       chan->half[0]
+					       .channel_update_msgidx);
 		else if (pubkey_eq(&chan->nodes[1]->id, &peer->daemon->id))
-			update = chan->half[1].channel_update;
+			update = get_broadcast(rstate->broadcasts,
+					       chan->half[1]
+					       .channel_update_msgidx);
 		else {
 			status_unusual("peer %s scid %s: not our channel?",
 				       type_to_string(trc, struct pubkey,
@@ -813,16 +847,17 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 	int type = fromwire_peektype(msg);
 	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
 	    type == WIRE_NODE_ANNOUNCEMENT) {
-		handle_gossip_msg(peer->daemon, dc->msg_in);
+		handle_gossip_msg(peer, dc->msg_in);
 	} else if (type == WIRE_GOSSIP_GET_UPDATE) {
 		handle_get_update(peer, dc->msg_in);
 	} else if (type == WIRE_GOSSIP_LOCAL_ADD_CHANNEL) {
 		handle_local_add_channel(peer, dc->msg_in);
 	} else {
-		status_failed(
-		    STATUS_FAIL_INTERNAL_ERROR,
-		    "Gossip received unknown message of type %s from owner",
-		    gossip_wire_type_name(type));
+		status_broken("peer %s: send us unknown msg of type %s",
+			      type_to_string(trc, struct pubkey, &peer->id),
+			      gossip_wire_type_name(type));
+		/* Calls forget_peer */
+		return io_close(conn);
 	}
 
 	return daemon_conn_read_next(conn, dc);
@@ -873,23 +908,14 @@ static bool send_peer_with_fds(struct peer *peer, const u8 *msg)
 	return true;
 }
 
-static struct io_plan *nonlocal_gossip_broadcast_done(struct io_conn *conn,
-						      struct daemon_conn *dc)
-{
-	struct peer *peer = dc->ctx;
-
-	peer->broadcast_index++;
-	return nonlocal_dump_gossip(conn, dc);
-}
-
 /**
  * nonlocal_dump_gossip - catch the nonlocal peer up with the latest gossip.
  *
  * Registered as `msg_queue_cleared_cb` by the `peer->remote`.
  */
-static struct io_plan *nonlocal_dump_gossip(struct io_conn *conn, struct daemon_conn *dc)
+static bool nonlocal_dump_gossip(struct io_conn *conn, struct daemon_conn *dc)
 {
-	struct queued_message *next;
+	const u8 *next;
 	struct peer *peer = dc->ctx;
 
 
@@ -898,22 +924,20 @@ static struct io_plan *nonlocal_dump_gossip(struct io_conn *conn, struct daemon_
 
 	/* Nothing to do if we're not gossiping */
 	if (!peer->gossip_sync)
-		return msg_queue_wait(conn, &peer->remote->out,
-				      daemon_conn_write_next, dc);
+		return false;
 
-	next = next_broadcast_message(peer->daemon->rstate->broadcasts,
-				      peer->broadcast_index);
+	next = next_broadcast(peer->daemon->rstate->broadcasts,
+			      &peer->broadcast_index);
 
 	if (!next) {
 		peer->gossip_sync = false;
-		return msg_queue_wait(conn, &peer->remote->out,
-				      daemon_conn_write_next, dc);
+		return false;
 	} else {
 		u8 *msg = towire_gossip_send_gossip(conn,
 						    peer->broadcast_index,
-						    next->payload);
-		return io_write_wire(conn, take(msg),
-				     nonlocal_gossip_broadcast_done, dc);
+						    next);
+		daemon_conn_send(peer->remote, take(msg));
+		return true;
 	}
 }
 
@@ -1107,7 +1131,7 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 		return;
 
 	/* Don't mention non-public inactive channels. */
-	if (!c->active && !c->channel_update)
+	if (!c->active && !c->channel_update_msgidx)
 		return;
 
 	n = tal_count(*entries);
@@ -1119,9 +1143,9 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 	e->satoshis = chan->satoshis;
 	e->active = c->active;
 	e->flags = c->flags;
-	e->public = (c->channel_update != NULL);
+	e->public = (c->channel_update_msgidx != 0);
 	e->short_channel_id = chan->scid;
-	e->last_update_timestamp = c->channel_update ? c->last_timestamp : -1;
+	e->last_update_timestamp = c->channel_update_msgidx ? c->last_timestamp : -1;
 	if (e->last_update_timestamp >= 0) {
 		e->base_fee_msat = c->base_fee;
 		e->fee_per_millionth = c->proportional_fee;
@@ -1309,11 +1333,15 @@ static void gossip_send_keepalive_update(struct routing_state *rstate,
 	u32 timestamp, fee_base_msat, fee_proportional_millionths;
 	u64 htlc_minimum_msat;
 	u16 flags, cltv_expiry_delta;
-	u8 *update, *msg;
+	u8 *update, *msg, *err;
+	const u8 *old_update;
 
 	/* Parse old update */
+	old_update = get_broadcast(rstate->broadcasts,
+				   hc->channel_update_msgidx);
+
 	if (!fromwire_channel_update(
-		hc->channel_update, &sig, &chain_hash, &scid, &timestamp,
+		old_update, &sig, &chain_hash, &scid, &timestamp,
 		&flags, &cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
 		&fee_proportional_millionths)) {
 		status_failed(
@@ -1344,7 +1372,11 @@ static void gossip_send_keepalive_update(struct routing_state *rstate,
 	status_trace("Sending keepalive channel_update for %s",
 		     type_to_string(tmpctx, struct short_channel_id, &scid));
 
-	handle_channel_update(rstate, update);
+	err = handle_channel_update(rstate, update);
+	if (err)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "rejected keepalive channel_update: %s",
+			      tal_hex(trc, err));
 	tal_free(tmpctx);
 
 }
@@ -1369,7 +1401,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 		for (size_t i = 0; i < tal_count(n->chans); i++) {
 			struct half_chan *hc = half_chan_from(n, n->chans[i]);
 
-			if (!hc->channel_update) {
+			if (!hc->channel_update_msgidx) {
 				/* Connection is not public yet, so don't even
 				 * try to re-announce it */
 				continue;
@@ -1839,6 +1871,8 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 	struct bitcoin_blkid chain_hash;
 	secp256k1_ecdsa_signature sig;
 	u64 htlc_minimum_msat;
+	u8 *err;
+	const u8 *old_update;
 
 	if (!fromwire_gossip_disable_channel(msg, &scid, &direction, &active) ) {
 		status_unusual("Unable to parse %s",
@@ -1861,7 +1895,7 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 
 	hc->active = active;
 
-	if (!hc->channel_update) {
+	if (!hc->channel_update_msgidx) {
 		status_trace(
 		    "Channel %s/%d doesn't have a channel_update yet, can't "
 		    "disable",
@@ -1870,8 +1904,11 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 		goto fail;
 	}
 
+	old_update = get_broadcast(daemon->rstate->broadcasts,
+				   hc->channel_update_msgidx);
+
 	if (!fromwire_channel_update(
-		hc->channel_update, &sig, &chain_hash, &scid, &timestamp,
+		old_update, &sig, &chain_hash, &scid, &timestamp,
 		&flags, &cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
 		&fee_proportional_millionths)) {
 		status_failed(
@@ -1903,7 +1940,11 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 			      strerror(errno));
 	}
 
-	handle_channel_update(daemon->rstate, msg);
+	err = handle_channel_update(daemon->rstate, msg);
+	if (err)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "rejected disabling channel_update: %s",
+			      tal_hex(trc, err));
 
 fail:
 	tal_free(tmpctx);

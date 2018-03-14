@@ -10,7 +10,7 @@
 #define JSONRPC2_METHOD_NOT_FOUND	-32601
 #define JSONRPC2_INVALID_PARAMS		-32602
 
-/* Errors from `pay` and `sendpay` commands */
+/* Errors from `pay`, `sendpay`, or `waitsendpay` commands */
 #define PAY_IN_PROGRESS			200
 #define PAY_RHASH_ALREADY_USED		201
 #define PAY_UNPARSEABLE_ONION		202
@@ -19,5 +19,7 @@
 #define PAY_ROUTE_NOT_FOUND		205
 #define PAY_ROUTE_TOO_EXPENSIVE		206
 #define PAY_INVOICE_EXPIRED             207
+#define PAY_NO_SUCH_PAYMENT		208
+#define PAY_UNSPECIFIED_ERROR		209
 
 #endif /* !defined (LIGHTNING_LIGHTNINGD_JSONRPC_ERRORS_H) */

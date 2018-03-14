@@ -10,6 +10,7 @@
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
+#include <common/wire_error.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
 #include <wire/gen_onion_wire.h>
@@ -143,8 +144,7 @@ static struct node *new_node(struct routing_state *rstate,
 	n->id = *id;
 	n->chans = tal_arr(n, struct chan *, 0);
 	n->alias = NULL;
-	n->node_announcement = NULL;
-	n->announcement_idx = 0;
+	n->node_announce_msgidx = 0;
 	n->last_timestamp = -1;
 	n->addresses = tal_arr(n, struct wireaddr, 0);
 	node_map_add(rstate->nodes, n);
@@ -190,7 +190,6 @@ static void init_half_chan(struct routing_state *rstate,
 {
 	struct half_chan *c = &chan->half[idx];
 
-	c->channel_update = NULL;
 	c->channel_update_msgidx = 0;
 	c->unroutable_until = 0;
 	c->active = false;
@@ -222,7 +221,6 @@ struct chan *new_chan(struct routing_state *rstate,
 	chan->nodes[n1idx] = n1;
 	chan->nodes[!n1idx] = n2;
 	chan->txout_script = NULL;
-	chan->channel_announcement = NULL;
 	chan->channel_announce_msgidx = 0;
 	chan->public = false;
 	chan->satoshis = 0;
@@ -451,19 +449,31 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 }
 
 /* Verify the signature of a channel_update message */
-static bool check_channel_update(const struct pubkey *node_key,
-				 const secp256k1_ecdsa_signature *node_sig,
-				 const u8 *update)
+static u8 *check_channel_update(const tal_t *ctx,
+				const struct pubkey *node_key,
+				const secp256k1_ecdsa_signature *node_sig,
+				const u8 *update)
 {
 	/* 2 byte msg type + 64 byte signatures */
 	int offset = 66;
 	struct sha256_double hash;
 	sha256_double(&hash, update + offset, tal_len(update) - offset);
 
-	return check_signed_hash(&hash, node_sig, node_key);
+	if (!check_signed_hash(&hash, node_sig, node_key))
+		return towire_errorfmt(ctx, NULL,
+				       "Bad signature for %s hash %s"
+				       " on channel_update %s",
+				       type_to_string(ctx,
+						      secp256k1_ecdsa_signature,
+						      node_sig),
+				       type_to_string(ctx,
+						      struct sha256_double,
+						      &hash),
+				       tal_hex(ctx, update));
+	return NULL;
 }
 
-static bool check_channel_announcement(
+static u8 *check_channel_announcement(const tal_t *ctx,
     const struct pubkey *node1_key, const struct pubkey *node2_key,
     const struct pubkey *bitcoin1_key, const struct pubkey *bitcoin2_key,
     const secp256k1_ecdsa_signature *node1_sig,
@@ -477,10 +487,55 @@ static bool check_channel_announcement(
 	sha256_double(&hash, announcement + offset,
 		      tal_len(announcement) - offset);
 
-	return check_signed_hash(&hash, node1_sig, node1_key) &&
-	       check_signed_hash(&hash, node2_sig, node2_key) &&
-	       check_signed_hash(&hash, bitcoin1_sig, bitcoin1_key) &&
-	       check_signed_hash(&hash, bitcoin2_sig, bitcoin2_key);
+	if (!check_signed_hash(&hash, node1_sig, node1_key)) {
+		return towire_errorfmt(ctx, NULL,
+				       "Bad node_signature_1 %s hash %s"
+				       " on node_announcement %s",
+				       type_to_string(ctx,
+						      secp256k1_ecdsa_signature,
+						      node1_sig),
+				       type_to_string(ctx,
+						      struct sha256_double,
+						      &hash),
+				       tal_hex(ctx, announcement));
+	}
+	if (!check_signed_hash(&hash, node2_sig, node2_key)) {
+		return towire_errorfmt(ctx, NULL,
+				       "Bad node_signature_2 %s hash %s"
+				       " on node_announcement %s",
+				       type_to_string(ctx,
+						      secp256k1_ecdsa_signature,
+						      node2_sig),
+				       type_to_string(ctx,
+						      struct sha256_double,
+						      &hash),
+				       tal_hex(ctx, announcement));
+	}
+	if (!check_signed_hash(&hash, bitcoin1_sig, bitcoin1_key)) {
+		return towire_errorfmt(ctx, NULL,
+				       "Bad bitcoin_signature_1 %s hash %s"
+				       " on node_announcement %s",
+				       type_to_string(ctx,
+						      secp256k1_ecdsa_signature,
+						      bitcoin1_sig),
+				       type_to_string(ctx,
+						      struct sha256_double,
+						      &hash),
+				       tal_hex(ctx, announcement));
+	}
+	if (!check_signed_hash(&hash, bitcoin2_sig, bitcoin2_key)) {
+		return towire_errorfmt(ctx, NULL,
+				       "Bad bitcoin_signature_2 %s hash %s"
+				       " on node_announcement %s",
+				       type_to_string(ctx,
+						      secp256k1_ecdsa_signature,
+						      bitcoin2_sig),
+				       type_to_string(ctx,
+						      struct sha256_double,
+						      &hash),
+				       tal_hex(ctx, announcement));
+	}
+	return NULL;
 }
 
 static void add_pending_node_announcement(struct routing_state *rstate, struct pubkey *nodeid)
@@ -500,10 +555,18 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 		return;
 
 	if (pna->node_announcement) {
+		u8 *err;
 		SUPERVERBOSE(
 		    "Processing deferred node_announcement for node %s",
 		    type_to_string(pna, struct pubkey, nodeid));
-		handle_node_announcement(rstate, pna->node_announcement);
+
+		/* Should not error, since we processed it before */
+		err = handle_node_announcement(rstate, pna->node_announcement);
+		if (err)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "pending node_announcement %s malformed %s?",
+				      tal_hex(trc, pna->node_announcement),
+				      sanitize_error(trc, err, NULL));
 	}
 	pending_node_map_del(rstate->pending_node_map, pna);
 	tal_free(pna);
@@ -528,13 +591,13 @@ static void destroy_pending_cannouncement(struct pending_cannouncement *pending,
 	list_del_from(&rstate->pending_cannouncement, &pending->list);
 }
 
-const struct short_channel_id *handle_channel_announcement(
-	struct routing_state *rstate,
-	const u8 *announce TAKES)
+u8 *handle_channel_announcement(struct routing_state *rstate,
+				const u8 *announce TAKES,
+				const struct short_channel_id **scid)
 {
 	struct pending_cannouncement *pending;
 	struct bitcoin_blkid chain_hash;
-	u8 *features;
+	u8 *features, *err;
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
 	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
 	struct chan *chan;
@@ -558,8 +621,10 @@ const struct short_channel_id *handle_channel_announcement(
 					   &pending->node_id_2,
 					   &pending->bitcoin_key_1,
 					   &pending->bitcoin_key_2)) {
-		tal_free(pending);
-		return NULL;
+		err = towire_errorfmt(rstate, NULL,
+				      "Malformed channel_announcement %s",
+				      tal_hex(pending, pending->announce));
+		goto malformed;
 	}
 
 	/* Check if we know the channel already (no matter in what
@@ -570,7 +635,7 @@ const struct short_channel_id *handle_channel_announcement(
 			     __func__,
 			     type_to_string(trc, struct short_channel_id,
 					    &pending->short_channel_id));
-		return tal_free(pending);
+		goto ignored;
 	}
 
 	/* We don't replace previous ones, since we might validate that and
@@ -580,7 +645,7 @@ const struct short_channel_id *handle_channel_announcement(
 			     __func__,
 			     type_to_string(trc, struct short_channel_id,
 					    &pending->short_channel_id));
-		return tal_free(pending);
+		goto ignored;
 	}
 
 	/* FIXME: Handle duplicates as per BOLT #7 */
@@ -592,11 +657,10 @@ const struct short_channel_id *handle_channel_announcement(
 	 * and MUST NOT add the channel to its local network view, and
 	 * SHOULD NOT forward the announcement.
 	 */
-	if (unsupported_features(features, NULL)) {
+	if (!features_supported(features, NULL)) {
 		status_trace("Ignoring channel announcement, unsupported features %s.",
 			     tal_hex(pending, features));
-		tal_free(pending);
-		return NULL;
+		goto ignored;
 	}
 
 	/* BOLT #7:
@@ -610,24 +674,28 @@ const struct short_channel_id *handle_channel_announcement(
 		    type_to_string(pending, struct short_channel_id,
 				   &pending->short_channel_id),
 		    type_to_string(pending, struct bitcoin_blkid, &chain_hash));
-		tal_free(pending);
-		return NULL;
+		goto ignored;
 	}
 
-	if (!check_channel_announcement(&pending->node_id_1, &pending->node_id_2,
-					&pending->bitcoin_key_1,
-					&pending->bitcoin_key_2,
-					&node_signature_1,
-					&node_signature_2,
-					&bitcoin_signature_1,
-					&bitcoin_signature_2,
-					pending->announce)) {
-		status_trace("Signature verification of channel_announcement"
-			     " for %s failed",
-			     type_to_string(pending, struct short_channel_id,
-					    &pending->short_channel_id));
-		tal_free(pending);
-		return NULL;
+	err = check_channel_announcement(rstate,
+					 &pending->node_id_1,
+					 &pending->node_id_2,
+					 &pending->bitcoin_key_1,
+					 &pending->bitcoin_key_2,
+					 &node_signature_1,
+					 &node_signature_2,
+					 &bitcoin_signature_1,
+					 &bitcoin_signature_2,
+					 pending->announce);
+	if (err) {
+		/* BOLT #7:
+		 *
+		 * - if `bitcoin_signature_1`, `bitcoin_signature_2`,
+		 *   `node_signature_1` OR `node_signature_2` are invalid OR NOT
+		 *    correct:
+		 *    - SHOULD fail the connection.
+		 */
+		goto malformed;
 	}
 
 	status_trace("Received channel_announcement for channel %s",
@@ -642,7 +710,38 @@ const struct short_channel_id *handle_channel_announcement(
 	list_add_tail(&rstate->pending_cannouncement, &pending->list);
 	tal_add_destructor2(pending, destroy_pending_cannouncement, rstate);
 
-	return &pending->short_channel_id;
+	/* Success */
+	*scid = &pending->short_channel_id;
+	return NULL;
+
+malformed:
+	tal_free(pending);
+	*scid = NULL;
+	return err;
+
+ignored:
+	tal_free(pending);
+	*scid = NULL;
+	return NULL;
+}
+
+static void process_pending_channel_update(struct routing_state *rstate,
+					   const struct short_channel_id *scid,
+					   const u8 *cupdate)
+{
+	u8 *err;
+
+	if (!cupdate)
+		return;
+
+	/* FIXME: We don't remember who sent us updates, so can't error them */
+	err = handle_channel_update(rstate, cupdate);
+	if (err) {
+		status_trace("Pending channel_update for %s: %s",
+			     type_to_string(trc, struct short_channel_id, scid),
+			     sanitize_error(trc, err, NULL));
+		tal_free(err);
+	}
 }
 
 bool handle_pending_cannouncement(struct routing_state *rstate,
@@ -651,7 +750,6 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 				  const u8 *outscript)
 {
 	bool local;
-	u8 *tag;
 	const u8 *s;
 	struct pending_cannouncement *pending;
 	struct chan *chan;
@@ -659,9 +757,6 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	pending = find_pending_cannouncement(rstate, scid);
 	if (!pending)
 		return false;
-
-	tag = tal_arr(pending, u8, 0);
-	towire_short_channel_id(&tag, scid);
 
 	/* BOLT #7:
 	 *
@@ -710,14 +805,9 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	chan->public = true;
 	chan->satoshis = satoshis;
 
-	/* Save channel_announcement. */
-	tal_free(chan->channel_announcement);
-	chan->channel_announcement = tal_steal(chan, pending->announce);
-
-	if (replace_broadcast(rstate->broadcasts,
+	if (replace_broadcast(chan, rstate->broadcasts,
 			      &chan->channel_announce_msgidx,
-			      WIRE_CHANNEL_ANNOUNCEMENT,
-			      tag, pending->announce))
+			      take(pending->announce)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Announcement %s was replaced?",
 			      tal_hex(trc, pending->announce));
@@ -726,10 +816,8 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 		pubkey_eq(&pending->node_id_2, &rstate->local_id);
 
 	/* Did we have an update waiting?  If so, apply now. */
-	if (pending->updates[0])
-		handle_channel_update(rstate, pending->updates[0]);
-	if (pending->updates[1])
-		handle_channel_update(rstate, pending->updates[1]);
+	process_pending_channel_update(rstate, scid, pending->updates[0]);
+	process_pending_channel_update(rstate, scid, pending->updates[1]);
 
 	process_pending_node_announcement(rstate, &pending->node_id_1);
 	process_pending_node_announcement(rstate, &pending->node_id_2);
@@ -793,7 +881,7 @@ void set_connection_values(struct chan *chan,
 	}
 }
 
-void handle_channel_update(struct routing_state *rstate, const u8 *update)
+u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 {
 	u8 *serialized;
 	struct half_chan *c;
@@ -810,6 +898,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	struct chan *chan;
 	u8 direction;
 	size_t len = tal_len(update);
+	u8 *err;
 
 	serialized = tal_dup_arr(tmpctx, u8, update, len, 0);
 	if (!fromwire_channel_update(serialized, &signature,
@@ -817,8 +906,11 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 				     &timestamp, &flags, &expiry,
 				     &htlc_minimum_msat, &fee_base_msat,
 				     &fee_proportional_millionths)) {
+		err = towire_errorfmt(rstate, NULL,
+				      "Malformed channel_update %s",
+				      tal_hex(tmpctx, serialized));
 		tal_free(tmpctx);
-		return;
+		return err;
 	}
 	direction = flags & 0x1;
 
@@ -832,7 +924,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 			     type_to_string(tmpctx, struct bitcoin_blkid,
 					    &chain_hash));
 		tal_free(tmpctx);
-		return;
+		return NULL;
 	}
 
 	chan = get_channel(rstate, &short_channel_id);
@@ -846,7 +938,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 			update_pending(pending,
 				       timestamp, serialized, direction);
 			tal_free(tmpctx);
-			return;
+			return NULL;
 		}
 
 		if (!chan) {
@@ -854,7 +946,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 				     type_to_string(trc, struct short_channel_id,
 						    &short_channel_id));
 			tal_free(tmpctx);
-			return;
+			return NULL;
 		}
 	}
 
@@ -863,14 +955,23 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 	if (c->last_timestamp >= timestamp) {
 		SUPERVERBOSE("Ignoring outdated update.");
 		tal_free(tmpctx);
-		return;
+		return NULL;
 	}
 
-	if (!check_channel_update(&chan->nodes[direction]->id,
-				  &signature, serialized)) {
-		status_trace("Signature verification failed.");
+	err = check_channel_update(rstate, &chan->nodes[direction]->id,
+				   &signature, serialized);
+	if (err) {
+		/* BOLT #7:
+		 *
+		 * - if `signature` is not a valid signature, using `node_id`
+		 *  of the double-SHA256 of the entire message following the
+		 *  `signature` field (including unknown fields following
+		 *  `fee_proportional_millionths`):
+		 *    - MUST NOT process the message further.
+		 *    - SHOULD fail the connection.
+		 */
 		tal_free(tmpctx);
-		return;
+		return err;
 	}
 
 	status_trace("Received channel_update for channel %s(%d) now %s",
@@ -887,18 +988,12 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update)
 			      timestamp,
 			      htlc_minimum_msat);
 
-	u8 *tag = tal_arr(tmpctx, u8, 0);
-	towire_short_channel_id(&tag, &short_channel_id);
-	towire_u16(&tag, direction);
-	replace_broadcast(rstate->broadcasts,
+	replace_broadcast(chan, rstate->broadcasts,
 			  &chan->half[direction].channel_update_msgidx,
-			WIRE_CHANNEL_UPDATE,
-			tag,
-			serialized);
+			  take(serialized));
 
-	tal_free(c->channel_update);
-	c->channel_update = tal_steal(chan, serialized);
 	tal_free(tmpctx);
+	return NULL;
 }
 
 static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
@@ -935,8 +1030,7 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 	return wireaddrs;
 }
 
-void handle_node_announcement(
-	struct routing_state *rstate, const u8 *node_ann)
+u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 {
 	u8 *serialized;
 	struct sha256_double hash;
@@ -957,8 +1051,17 @@ void handle_node_announcement(
 					&signature, &features, &timestamp,
 					&node_id, rgb_color, alias,
 					&addresses)) {
+		/* BOLT #7:
+		 *
+		 *   - if `node_id` is NOT a valid compressed public key:
+		 *    - SHOULD fail the connection.
+		 *    - MUST NOT process the message further.
+		 */
+		u8 *err = towire_errorfmt(rstate, NULL,
+					  "Malformed node_announcement %s",
+					  tal_hex(tmpctx, node_ann));
 		tal_free(tmpctx);
-		return;
+		return err;
 	}
 
 	/* BOLT #7:
@@ -967,21 +1070,57 @@ void handle_node_announcement(
 	 * receiving node MUST NOT parse the remainder of the message
 	 * and MAY discard the message altogether.
 	 */
-	if (unsupported_features(features, NULL)) {
+	if (!features_supported(features, NULL)) {
 		status_trace("Ignoring node announcement for node %s, unsupported features %s.",
 			     type_to_string(tmpctx, struct pubkey, &node_id),
 			     tal_hex(tmpctx, features));
 		tal_free(tmpctx);
-		return;
+		return NULL;
 	}
 
 	sha256_double(&hash, serialized + 66, tal_count(serialized) - 66);
 	if (!check_signed_hash(&hash, &signature, &node_id)) {
-		status_trace("Ignoring node announcement, signature verification failed.");
+		/* BOLT #7:
+		 *
+		 * - if `signature` is NOT a valid signature (using `node_id`
+		 *  of the double-SHA256 of the entire message following the
+		 *  `signature` field, including unknown fields following
+		 *  `alias`):
+		 *    - SHOULD fail the connection.
+		 *    - MUST NOT process the message further.
+		 */
+		u8 *err = towire_errorfmt(rstate, NULL,
+					  "Bad signature for %s hash %s"
+					  " on node_announcement %s",
+					  type_to_string(tmpctx,
+							 secp256k1_ecdsa_signature,
+							 &signature),
+					  type_to_string(tmpctx,
+							 struct sha256_double,
+							 &hash),
+					  tal_hex(tmpctx, node_ann));
 		tal_free(tmpctx);
-		return;
+		return err;
 	}
 
+	wireaddrs = read_addresses(tmpctx, addresses);
+	if (!wireaddrs) {
+		/* BOLT #7:
+		 *
+		 * - if `addrlen` is insufficient to hold the address
+		 *  descriptors of the known types:
+		 *    - SHOULD fail the connection.
+		 */
+		u8 *err = towire_errorfmt(rstate, NULL,
+					  "Malformed wireaddrs %s in %s.",
+					  tal_hex(tmpctx, wireaddrs),
+					  tal_hex(tmpctx, node_ann));
+		tal_free(tmpctx);
+		return err;
+	}
+
+	/* Beyond this point it's not malformed, so safe if we make it
+	 * pending and requeue later. */
 	node = get_node(rstate, &node_id);
 
 	/* Check if we are currently verifying the txout for a
@@ -997,31 +1136,32 @@ void handle_node_announcement(
 			pna->node_announcement = tal_dup_arr(pna, u8, node_ann, tal_len(node_ann), 0);
 		}
 		tal_free(tmpctx);
-		return;
+		return NULL;
 	}
 
+	/* BOLT #7:
+	 *
+	 * - if `node_id` is NOT previously known from a
+	 *   `channel_announcement` message, OR if `timestamp` is NOT greater
+	 *   than the last-received `node_announcement` from this `node_id`:
+	 *    - SHOULD ignore the message.
+	 */
 	if (!node) {
 		SUPERVERBOSE("Node not found, was the node_announcement for "
 			     "node %s preceded by at least "
 			     "channel_announcement?",
 			     type_to_string(tmpctx, struct pubkey, &node_id));
 		tal_free(tmpctx);
-		return;
+		return NULL;
 	} else if (node->last_timestamp >= timestamp) {
 		SUPERVERBOSE("Ignoring node announcement, it's outdated.");
 		tal_free(tmpctx);
-		return;
+		return NULL;
 	}
 
 	status_trace("Received node_announcement for node %s",
 		     type_to_string(tmpctx, struct pubkey, &node_id));
 
-	wireaddrs = read_addresses(tmpctx, addresses);
-	if (!wireaddrs) {
-		status_trace("Unable to parse addresses.");
-		tal_free(serialized);
-		return;
-	}
 	tal_free(node->addresses);
 	node->addresses = tal_steal(node, wireaddrs);
 
@@ -1031,16 +1171,11 @@ void handle_node_announcement(
 	tal_free(node->alias);
 	node->alias = tal_dup_arr(node, u8, alias, 32, 0);
 
-	u8 *tag = tal_arr(tmpctx, u8, 0);
-	towire_pubkey(&tag, &node_id);
-	replace_broadcast(rstate->broadcasts,
-			  &node->announcement_idx,
-			  WIRE_NODE_ANNOUNCEMENT,
-			  tag,
-			  serialized);
-	tal_free(node->node_announcement);
-	node->node_announcement = tal_steal(node, serialized);
+	replace_broadcast(node, rstate->broadcasts,
+			  &node->node_announce_msgidx,
+			  take(serialized));
 	tal_free(tmpctx);
+	return NULL;
 }
 
 struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
@@ -1126,7 +1261,6 @@ void routing_failure(struct routing_state *rstate,
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	struct node *node;
 	int i;
-	enum wire_type t;
 	time_t now = time_now().ts.tv_sec;
 
 	status_trace("Received routing failure 0x%04x (%s), "
@@ -1186,6 +1320,7 @@ void routing_failure(struct routing_state *rstate,
 	 * channel_update is newer it will be
 	 * reactivated. */
 	if (failcode & UPDATE) {
+		u8 *err;
 		if (tal_len(channel_update) == 0) {
 			/* Suppress UNUSUAL log if local failure */
 			if (structeq(&erring_node_pubkey->pubkey,
@@ -1197,15 +1332,14 @@ void routing_failure(struct routing_state *rstate,
 				       (int) failcode);
 			goto out;
 		}
-		t = fromwire_peektype(channel_update);
-		if (t != WIRE_CHANNEL_UPDATE) {
+		err = handle_channel_update(rstate, channel_update);
+		if (err) {
 			status_unusual("routing_failure: "
-				       "not a channel_update. "
-				       "type: %d",
-				       (int) t);
+				       "bad channel_update %s",
+				       sanitize_error(err, err, NULL));
+			tal_free(err);
 			goto out;
 		}
-		handle_channel_update(rstate, channel_update);
 	} else {
 		if (tal_len(channel_update) != 0)
 			status_unusual("routing_failure: "

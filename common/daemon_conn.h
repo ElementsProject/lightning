@@ -24,10 +24,9 @@ struct daemon_conn {
 	struct io_plan *(*daemon_conn_recv)(struct io_conn *conn,
 					    struct daemon_conn *);
 
-	/* Called whenever we've cleared the msg_out queue. Used to
-	 * inject things into the write loop */
-	struct io_plan *(*msg_queue_cleared_cb)(struct io_conn *conn,
-						struct daemon_conn *);
+	/* Called whenever we've cleared the msg_out queue. If it returns
+	 * true, it has added packets to msg_out queue. */
+	bool (*msg_queue_cleared_cb)(struct io_conn *, struct daemon_conn *);
 };
 
 /**
