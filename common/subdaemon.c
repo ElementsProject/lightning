@@ -73,6 +73,8 @@ void subdaemon_setup(int argc, char *argv[])
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
+	setup_tmpctx();
+
 	for (int i = 1; i < argc; i++) {
 		if (streq(argv[i], "--log-io"))
 			logging_io = true;

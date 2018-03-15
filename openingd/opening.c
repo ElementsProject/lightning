@@ -195,7 +195,8 @@ static u8 *opening_read_peer_msg(struct state *state)
 				    &state->channel_id,
 				    sync_crypto_write_arg,
 				    status_fail_io,
-				    state)) == NULL);
+				    state)) == NULL)
+		clean_tmpctx();
 
 	return msg;
 }
@@ -772,6 +773,7 @@ int main(int argc, char *argv[])
 	status_trace("Sent %s with fd",
 		     opening_wire_type_name(fromwire_peektype(msg)));
 	tal_free(state);
+	tal_free(tmpctx);
 	return 0;
 }
 #endif /* TESTING */

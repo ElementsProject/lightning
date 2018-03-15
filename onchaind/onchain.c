@@ -1105,6 +1105,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 
 		billboard_update(outs);
 		tal_free(msg);
+		clean_tmpctx();
 	}
 
 	wire_sync_write(REQ_FD,
@@ -2315,6 +2316,7 @@ int main(int argc, char *argv[])
 
 	/* We're done! */
 	tal_free(ctx);
+	tal_free(tmpctx);
 
 	return 0;
 }
