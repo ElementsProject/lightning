@@ -125,7 +125,7 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 
 	if (!fromwire_hsm_ecdh_req(dc->msg_in, &point)) {
 		daemon_conn_send(c->master,
-				 take(towire_hsmstatus_client_bad_request(c,
+				 take(towire_hsmstatus_client_bad_request(NULL,
 								&c->id,
 								dc->msg_in)));
 		return io_close(conn);
@@ -137,13 +137,13 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 		status_broken("secp256k1_ecdh fail for client %s",
 			      type_to_string(tmpctx, struct pubkey, &c->id));
 		daemon_conn_send(c->master,
-				 take(towire_hsmstatus_client_bad_request(c,
+				 take(towire_hsmstatus_client_bad_request(NULL,
 								&c->id,
 								dc->msg_in)));
 		return io_close(conn);
 	}
 
-	daemon_conn_send(dc, take(towire_hsm_ecdh_resp(c, &ss)));
+	daemon_conn_send(dc, take(towire_hsm_ecdh_resp(NULL, &ss)));
 	return daemon_conn_read_next(conn, dc);
 }
 
@@ -178,7 +178,7 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 
 	sign_hash(&node_pkey, &hash, &node_sig);
 
-	reply = towire_hsm_cannouncement_sig_reply(ca, &node_sig);
+	reply = towire_hsm_cannouncement_sig_reply(NULL, &node_sig);
 	daemon_conn_send(dc, take(reply));
 
 	return daemon_conn_read_next(conn, dc);
@@ -230,7 +230,7 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 				   cltv_expiry_delta, htlc_minimum_msat,
 				   fee_base_msat, fee_proportional_mill);
 
-	daemon_conn_send(dc, take(towire_hsm_cupdate_sig_reply(tmpctx, cu)));
+	daemon_conn_send(dc, take(towire_hsm_cupdate_sig_reply(NULL, cu)));
 	return daemon_conn_read_next(conn, dc);
 }
 
@@ -284,7 +284,7 @@ static struct io_plan *handle_client(struct io_conn *conn,
 		status_broken("Client does not have the required capability to run %d", t);
 		daemon_conn_send(c->master,
 				 take(towire_hsmstatus_client_bad_request(
-				     c, &c->id, dc->msg_in)));
+				     NULL, &c->id, dc->msg_in)));
 		return io_close(conn);
 	}
 
@@ -337,7 +337,7 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	}
 
 	daemon_conn_send(c->master,
-			 take(towire_hsmstatus_client_bad_request(c,
+			 take(towire_hsmstatus_client_bad_request(NULL,
 								  &c->id,
 								  dc->msg_in)));
 	return io_close(conn);
@@ -366,7 +366,7 @@ static void send_init_response(struct daemon_conn *master)
 	hsm_peer_secret_base(&peer_seed);
 	node_key(NULL, &node_id);
 
-	msg = towire_hsm_init_reply(master, &node_id, &peer_seed,
+	msg = towire_hsm_init_reply(NULL, &node_id, &peer_seed,
 				    &secretstuff.bip32);
 	daemon_conn_send(master, take(msg));
 }
@@ -543,7 +543,7 @@ static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg)
 
 	new_client(master, &id, capabilities, handle_client, fds[0]);
 	daemon_conn_send(master,
-			 take(towire_hsm_client_hsmfd_reply(master)));
+			 take(towire_hsm_client_hsmfd_reply(NULL)));
 	daemon_conn_send_fd(master, fds[1]);
 }
 
@@ -662,7 +662,7 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 		tx->input[i].script = scriptSigs[i];
 
 	daemon_conn_send(master,
-			 take(towire_hsm_sign_funding_reply(tmpctx, tx)));
+			 take(towire_hsm_sign_funding_reply(NULL, tx)));
 }
 
 /**
@@ -733,7 +733,7 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 		tx->input[i].script = scriptSigs[i];
 
 	daemon_conn_send(master,
-			 take(towire_hsm_sign_withdrawal_reply(tmpctx, tx)));
+			 take(towire_hsm_sign_withdrawal_reply(NULL, tx)));
 }
 
 /**
@@ -775,7 +775,7 @@ static void sign_invoice(struct daemon_conn *master, const u8 *msg)
 	}
 
 	daemon_conn_send(master,
-			 take(towire_hsm_sign_invoice_reply(tmpctx, &rsig)));
+			 take(towire_hsm_sign_invoice_reply(NULL, &rsig)));
 }
 
 static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
@@ -806,7 +806,7 @@ static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 
 	sign_hash(&node_pkey, &hash, &sig);
 
-	reply = towire_hsm_node_announcement_sig_reply(msg, &sig);
+	reply = towire_hsm_node_announcement_sig_reply(NULL, &sig);
 	daemon_conn_send(master, take(reply));
 }
 

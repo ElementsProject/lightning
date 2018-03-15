@@ -415,7 +415,7 @@ static struct io_plan *init_new_peer(struct io_conn *conn,
 	 * Each node MUST send `init` as the first lightning message for any
 	 * connection.
 	 */
-	initmsg = towire_init(peer,
+	initmsg = towire_init(NULL,
 			      daemon->globalfeatures, daemon->localfeatures);
 	return peer_write_message(conn, &peer->local->pcs,
 				  take(initmsg), read_init);
@@ -467,7 +467,7 @@ static void send_node_announcement(struct daemon *daemon)
 
 	nannounce = create_node_announcement(tmpctx, daemon, NULL, timestamp);
 
-	if (!wire_sync_write(HSM_FD, take(towire_hsm_node_announcement_sig_req(tmpctx, nannounce))))
+	if (!wire_sync_write(HSM_FD, take(towire_hsm_node_announcement_sig_req(NULL, nannounce))))
 		status_failed(STATUS_FAIL_MASTER_IO, "Could not write to HSM: %s", strerror(errno));
 
 	msg = wire_sync_read(tmpctx, HSM_FD);
@@ -477,7 +477,7 @@ static void send_node_announcement(struct daemon *daemon)
 	/* We got the signature for out provisional node_announcement back
 	 * from the HSM, create the real announcement and forward it to
 	 * gossipd so it can take care of forwarding it. */
-	nannounce = create_node_announcement(tmpctx, daemon, &sig, timestamp);
+	nannounce = create_node_announcement(NULL, daemon, &sig, timestamp);
 	err = handle_node_announcement(daemon->rstate, take(nannounce));
 	if (err)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -543,7 +543,7 @@ static void handle_pong(struct peer *peer, const u8 *pong)
 	}
 
 	daemon_conn_send(&peer->daemon->master,
-			 take(towire_gossip_ping_reply(pong, true,
+			 take(towire_gossip_ping_reply(NULL, true,
 						       tal_len(pong))));
 }
 
@@ -551,7 +551,7 @@ static void handle_pong(struct peer *peer, const u8 *pong)
  * dies while we're waiting for it to finish IO */
 static void fail_release(struct peer *peer)
 {
-	u8 *msg = towire_gossipctl_release_peer_replyfail(peer);
+	u8 *msg = towire_gossipctl_release_peer_replyfail(NULL);
 	daemon_conn_send(&peer->daemon->master, take(msg));
 }
 
@@ -778,7 +778,7 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 		     type_to_string(tmpctx, struct short_channel_id, &scid),
 		     update ? "got" : "no");
 
-	msg = towire_gossip_get_update_reply(msg, update);
+	msg = towire_gossip_get_update_reply(NULL, update);
 	daemon_conn_send(peer->remote, take(msg));
 }
 
@@ -931,7 +931,7 @@ static bool nonlocal_dump_gossip(struct io_conn *conn, struct daemon_conn *dc)
 		peer->gossip_sync = false;
 		return false;
 	} else {
-		u8 *msg = towire_gossip_send_gossip(conn,
+		u8 *msg = towire_gossip_send_gossip(NULL,
 						    peer->broadcast_index,
 						    next);
 		daemon_conn_send(peer->remote, take(msg));
@@ -1046,13 +1046,13 @@ static struct io_plan *disconnect_peer(struct io_conn *conn, struct daemon *daem
 	if (peer && peer->local) {
 		/* This peer is local to this (gossipd) dameon */
 		io_close(peer->local->conn);
-		msg = towire_gossipctl_peer_disconnect_reply(msg);
+		msg = towire_gossipctl_peer_disconnect_reply(NULL);
 		daemon_conn_send(&daemon->master, take(msg));
 	} else {
 		status_trace("disconnect_peer: peer %s %s",
 			     type_to_string(tmpctx, struct pubkey, &id),
 			     !peer ? "not connected" : "not gossiping");
-		msg = towire_gossipctl_peer_disconnect_replyfail(msg, peer ? true : false);
+		msg = towire_gossipctl_peer_disconnect_replyfail(NULL, peer ? true : false);
 		daemon_conn_send(&daemon->master, take(msg));
 	}
 	return daemon_conn_read_next(conn, &daemon->master);
@@ -1075,7 +1075,7 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 			     !peer ? "not found"
 			     : peer->local ? "already releasing"
 			     : "not local");
-		msg = towire_gossipctl_release_peer_replyfail(msg);
+		msg = towire_gossipctl_release_peer_replyfail(NULL);
 		daemon_conn_send(&daemon->master, take(msg));
 	} else {
 		peer->local->return_to_master = true;
@@ -1181,7 +1181,7 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 		}
 	}
 
-	out = towire_gossip_getchannels_reply(daemon, entries);
+	out = towire_gossip_getchannels_reply(NULL, entries);
 	daemon_conn_send(&daemon->master, take(out));
 	return daemon_conn_read_next(conn, &daemon->master);
 }
@@ -1231,7 +1231,7 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 			n = node_map_next(daemon->rstate->nodes, &i);
 		}
 	}
-	out = towire_gossip_getnodes_reply(daemon, nodes);
+	out = towire_gossip_getnodes_reply(NULL, nodes);
 	daemon_conn_send(&daemon->master, take(out));
 	return daemon_conn_read_next(conn, &daemon->master);
 }
@@ -1250,7 +1250,7 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 	peer = find_peer(daemon, &id);
 	if (!peer) {
 		daemon_conn_send(&daemon->master,
-				 take(towire_gossip_ping_reply(peer, false, 0)));
+				 take(towire_gossip_ping_reply(NULL, false, 0)));
 		goto out;
 	}
 
@@ -1270,7 +1270,7 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 	 */
 	if (num_pong_bytes >= 65532)
 		daemon_conn_send(&daemon->master,
-				 take(towire_gossip_ping_reply(peer, true, 0)));
+				 take(towire_gossip_ping_reply(NULL, true, 0)));
 	else
 		peer->local->num_pings_outstanding++;
 
@@ -1572,7 +1572,7 @@ static struct io_plan *resolve_channel_req(struct io_conn *conn,
 			     type_to_string(tmpctx, struct pubkey, &keys[1]));
 	}
 	daemon_conn_send(&daemon->master,
-			 take(towire_gossip_resolve_channel_reply(msg, keys)));
+			 take(towire_gossip_resolve_channel_reply(NULL, keys)));
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
@@ -1612,7 +1612,7 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 		daemon_conn_send(
 		    &reach->daemon->master,
 		    take(towire_gossip_peer_connection_failed(
-			conn, &reach->id, diff, reach->attempts, false)));
+			NULL, &reach->id, diff, reach->attempts, false)));
 		tal_free(reach);
 	} else {
 		status_trace("Failed connected out for %s, will try again",
@@ -1684,7 +1684,7 @@ static void try_connect(struct reaching *reach)
 		daemon_conn_send(
 		    &reach->daemon->master,
 		    take(towire_gossip_peer_connection_failed(
-			reach, &reach->id,
+			NULL, &reach->id,
 			time_now().ts.tv_sec - reach->first_attempt,
 			reach->attempts, true)));
 		tal_free(reach);
@@ -1767,7 +1767,7 @@ static struct io_plan *reach_peer(struct io_conn *conn,
 	/* Master can't check this itself, because that's racy. */
 	if (try_reach_peer(daemon, &id)) {
 		daemon_conn_send(&daemon->master,
-				 take(towire_gossip_peer_already_connected(conn,
+				 take(towire_gossip_peer_already_connected(NULL,
 									  &id)));
 	}
 
@@ -1826,7 +1826,7 @@ static struct io_plan *get_peers(struct io_conn *conn,
 	}
 
 	daemon_conn_send(&daemon->master,
-			 take(towire_gossip_getpeers_reply(conn, id, wireaddr, nodes)));
+			 take(towire_gossip_getpeers_reply(NULL, id, wireaddr, nodes)));
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 

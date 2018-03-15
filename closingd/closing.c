@@ -98,7 +98,7 @@ static void do_reconnect(struct crypto_state *cs,
 	 * `next_remote_revocation_number` to the commitment number of the
 	 * next `revoke_and_ack` message it expects to receive.
 	 */
-	msg = towire_channel_reestablish(tmpctx, channel_id,
+	msg = towire_channel_reestablish(NULL, channel_id,
 					 next_index[LOCAL],
 					 revocations_received);
 	if (!sync_crypto_write(cs, PEER_FD, take(msg)))
@@ -185,7 +185,7 @@ static void send_offer(struct crypto_state *cs,
 
 	status_trace("sending fee offer %"PRIu64, fee_to_offer);
 
-	msg = towire_closing_signed(tmpctx, channel_id, fee_to_offer, &our_sig);
+	msg = towire_closing_signed(NULL, channel_id, fee_to_offer, &our_sig);
 	if (!sync_crypto_write(cs, PEER_FD, take(msg)))
 		peer_failed_connection_lost();
 }
@@ -575,7 +575,7 @@ int main(int argc, char *argv[])
 
 	/* We're done! */
 	wire_sync_write(REQ_FD,
-			take(towire_closing_complete(ctx, gossip_index)));
+			take(towire_closing_complete(NULL, gossip_index)));
 	tal_free(ctx);
 	tal_free(tmpctx);
 
