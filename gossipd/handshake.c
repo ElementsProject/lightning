@@ -239,9 +239,9 @@ static void hkdf_two_keys(struct secret *out1, struct secret *out2,
 	struct secret okm[2];
 
 	SUPERVERBOSE("# HKDF(0x%s,%s%s)",
-		     tal_hexstr(trc, in1, sizeof(*in1)),
+		     tal_hexstr(tmpctx, in1, sizeof(*in1)),
 		     in2_size ? "0x" : "zero",
-		     tal_hexstr(trc, in2, in2_size));
+		     tal_hexstr(tmpctx, in2, in2_size));
 	BUILD_ASSERT(sizeof(okm) == 64);
 	hkdf_sha256(okm, sizeof(okm), in1, sizeof(*in1), in2, in2_size,
 		    NULL, 0);
@@ -285,11 +285,11 @@ static void encrypt_ad(const struct secret *k, u64 nonce,
 	le64_nonce(npub, nonce);
 	BUILD_ASSERT(sizeof(*k) == crypto_aead_chacha20poly1305_ietf_KEYBYTES);
 	SUPERVERBOSE("# encryptWithAD(0x%s, 0x%s, 0x%s, %s%s)",
-		     tal_hexstr(trc, k, sizeof(*k)),
-		     tal_hexstr(trc, npub, sizeof(npub)),
-		     tal_hexstr(trc, additional_data, additional_data_len),
+		     tal_hexstr(tmpctx, k, sizeof(*k)),
+		     tal_hexstr(tmpctx, npub, sizeof(npub)),
+		     tal_hexstr(tmpctx, additional_data, additional_data_len),
 		     plaintext_len ? "0x" : "<empty>",
-		     tal_hexstr(trc, plaintext, plaintext_len));
+		     tal_hexstr(tmpctx, plaintext, plaintext_len));
 
 	ret = crypto_aead_chacha20poly1305_ietf_encrypt(output, &clen,
 						   memcheck(plaintext, plaintext_len),
@@ -319,10 +319,10 @@ static bool decrypt(const struct secret *k, u64 nonce,
 	le64_nonce(npub, nonce);
 	BUILD_ASSERT(sizeof(*k) == crypto_aead_chacha20poly1305_ietf_KEYBYTES);
 	SUPERVERBOSE("# decryptWithAD(0x%s, 0x%s, 0x%s, 0x%s)",
-		     tal_hexstr(trc, k, sizeof(*k)),
-		     tal_hexstr(trc, npub, sizeof(npub)),
-		     tal_hexstr(trc, additional_data, additional_data_len),
-		     tal_hexstr(trc, ciphertext, ciphertext_len));
+		     tal_hexstr(tmpctx, k, sizeof(*k)),
+		     tal_hexstr(tmpctx, npub, sizeof(npub)),
+		     tal_hexstr(tmpctx, additional_data, additional_data_len),
+		     tal_hexstr(tmpctx, ciphertext, ciphertext_len));
 	if (crypto_aead_chacha20poly1305_ietf_decrypt(output, &mlen, NULL,
 						 memcheck(ciphertext, ciphertext_len),
 						 ciphertext_len,
@@ -412,7 +412,7 @@ static struct handshake *new_handshake(const tal_t *ctx,
 	BUILD_ASSERT(sizeof(handshake->h) == sizeof(handshake->ck));
 	memcpy(&handshake->ck, &handshake->h, sizeof(handshake->ck));
 	SUPERVERBOSE("# ck=%s",
-		     tal_hexstr(trc, &handshake->ck, sizeof(handshake->ck)));
+		     tal_hexstr(tmpctx, &handshake->ck, sizeof(handshake->ck)));
 
 	/* BOLT #8:
 	 *
@@ -436,7 +436,7 @@ static struct handshake *new_handshake(const tal_t *ctx,
 	 */
 	sha_mix_in_key(&handshake->h, responder_id);
 	SUPERVERBOSE("# h=%s",
-		     tal_hexstr(trc, &handshake->h, sizeof(handshake->h)));
+		     tal_hexstr(tmpctx, &handshake->h, sizeof(handshake->h)));
 
 	return handshake;
 }
@@ -459,13 +459,14 @@ static struct io_plan *act_three_initiator(struct io_conn *conn,
 	encrypt_ad(&h->temp_k, 1, &h->h, sizeof(h->h), spub, sizeof(spub),
 		   h->act3.ciphertext, sizeof(h->act3.ciphertext));
 	SUPERVERBOSE("# c=0x%s",
-		     tal_hexstr(trc,h->act3.ciphertext,sizeof(h->act3.ciphertext)));
+		     tal_hexstr(tmpctx,
+				h->act3.ciphertext, sizeof(h->act3.ciphertext)));
 
 	/* BOLT #8:
 	 *   * `h = SHA-256(h || c)`
 	 */
 	sha_mix_in(&h->h, h->act3.ciphertext, sizeof(h->act3.ciphertext));
-	SUPERVERBOSE("# h=0x%s", tal_hexstr(trc, &h->h, sizeof(h->h)));
+	SUPERVERBOSE("# h=0x%s", tal_hexstr(tmpctx, &h->h, sizeof(h->h)));
 
 	/* BOLT #8:
 	 *
@@ -476,7 +477,7 @@ static struct io_plan *act_three_initiator(struct io_conn *conn,
 	if (!hsm_do_ecdh(&h->ss, &h->re))
 		return handshake_failed(conn, h);
 
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(trc, &h->ss, sizeof(h->ss)));
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, &h->ss, sizeof(h->ss)));
 
 	/* BOLT #8:
 	 *
@@ -485,8 +486,8 @@ static struct io_plan *act_three_initiator(struct io_conn *conn,
 	 */
 	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
 	SUPERVERBOSE("# ck,temp_k3=0x%s,0x%s",
-		     tal_hexstr(trc, &h->ck, sizeof(h->ck)),
-		     tal_hexstr(trc, &h->temp_k, sizeof(h->temp_k)));
+		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
+		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
 
 	/* BOLT #8:
 	 *
@@ -497,7 +498,7 @@ static struct io_plan *act_three_initiator(struct io_conn *conn,
 	encrypt_ad(&h->temp_k, 0, &h->h, sizeof(h->h), NULL, 0,
 		   h->act3.tag, sizeof(h->act3.tag));
 	SUPERVERBOSE("# t=0x%s",
-		     tal_hexstr(trc, h->act3.tag, sizeof(h->act3.tag)));
+		     tal_hexstr(tmpctx, h->act3.tag, sizeof(h->act3.tag)));
 
 	/* BOLT #8:
 	 *
@@ -506,14 +507,14 @@ static struct io_plan *act_three_initiator(struct io_conn *conn,
 	 */
 	h->act3.v = 0;
 
-	SUPERVERBOSE("output: 0x%s", tal_hexstr(trc, &h->act3, ACT_THREE_SIZE));
+	SUPERVERBOSE("output: 0x%s", tal_hexstr(tmpctx, &h->act3, ACT_THREE_SIZE));
 	return io_write(conn, &h->act3, ACT_THREE_SIZE, handshake_succeeded, h);
 }
 
 static struct io_plan *act_two_initiator2(struct io_conn *conn,
 					 struct handshake *h)
 {
-	SUPERVERBOSE("input: 0x%s", tal_hexstr(trc, &h->act2, ACT_TWO_SIZE));
+	SUPERVERBOSE("input: 0x%s", tal_hexstr(tmpctx, &h->act2, ACT_TWO_SIZE));
 
 	/* BOLT #8:
 	 *
@@ -534,14 +535,14 @@ static struct io_plan *act_two_initiator2(struct io_conn *conn,
 				      h->act2.pubkey, sizeof(h->act2.pubkey)) != 1)
 		return handshake_failed(conn, h);
 
-	SUPERVERBOSE("# re=0x%s", type_to_string(trc, struct pubkey, &h->re));
+	SUPERVERBOSE("# re=0x%s", type_to_string(tmpctx, struct pubkey, &h->re));
 
 	/* BOLT #8:
 	 *
 	 *   * `h = SHA-256(h || re.serializeCompressed())`
 	 */
 	sha_mix_in_key(&h->h, &h->re);
-	SUPERVERBOSE("# h=0x%s", tal_hexstr(trc, &h->h, sizeof(h->h)));
+	SUPERVERBOSE("# h=0x%s", tal_hexstr(tmpctx, &h->h, sizeof(h->h)));
 
 	/* BOLT #8:
 	 *
@@ -551,7 +552,7 @@ static struct io_plan *act_two_initiator2(struct io_conn *conn,
 			    h->e.priv.secret.data))
 		return handshake_failed(conn, h);
 
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(trc, &h->ss, sizeof(h->ss)));
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, &h->ss, sizeof(h->ss)));
 
 	/* BOLT #8:
 	 *
@@ -561,8 +562,8 @@ static struct io_plan *act_two_initiator2(struct io_conn *conn,
 	 */
 	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
 	SUPERVERBOSE("# ck,temp_k2=0x%s,0x%s",
-		     tal_hexstr(trc, &h->ck, sizeof(h->ck)),
-		     tal_hexstr(trc, &h->temp_k, sizeof(h->temp_k)));
+		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
+		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
 
 	/* BOLT #8:
 	 *
@@ -581,7 +582,7 @@ static struct io_plan *act_two_initiator2(struct io_conn *conn,
 	 *        step serves to ensure the payload wasn't modified by a MiTM.
 	 */
 	sha_mix_in(&h->h, h->act2.tag, sizeof(h->act2.tag));
-	SUPERVERBOSE("# h=0x%s", tal_hexstr(trc, &h->h, sizeof(h->h)));
+	SUPERVERBOSE("# h=0x%s", tal_hexstr(tmpctx, &h->h, sizeof(h->h)));
 
 	return act_three_initiator(conn, h);
 }
@@ -619,9 +620,9 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 	 */
 	h->e = generate_key();
 	SUPERVERBOSE("e.priv: 0x%s",
-		     tal_hexstr(trc, &h->e.priv, sizeof(h->e.priv)));
+		     tal_hexstr(tmpctx, &h->e.priv, sizeof(h->e.priv)));
 	SUPERVERBOSE("e.pub: 0x%s",
-		     type_to_string(trc, struct pubkey, &h->e.pub));
+		     type_to_string(tmpctx, struct pubkey, &h->e.pub));
 
 	/* BOLT #8:
 	 *
@@ -630,7 +631,7 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 	 *       running handshake digest.
 	 */
 	sha_mix_in_key(&h->h, &h->e.pub);
-	SUPERVERBOSE("# h=0x%s", tal_hexstr(trc, &h->h, sizeof(h->h)));
+	SUPERVERBOSE("# h=0x%s", tal_hexstr(tmpctx, &h->h, sizeof(h->h)));
 
 	/* BOLT #8:
 	 *
@@ -642,7 +643,7 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 			    &h->their_id.pubkey, h->e.priv.secret.data))
 		return handshake_failed(conn, h);
 
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(trc, h->ss.data, sizeof(h->ss.data)));
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss.data, sizeof(h->ss.data)));
 
 	/* BOLT #8:
 	 *
@@ -652,8 +653,8 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 	 */
 	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
 	SUPERVERBOSE("# ck,temp_k1=0x%s,0x%s",
-		     tal_hexstr(trc, &h->ck, sizeof(h->ck)),
-		     tal_hexstr(trc, &h->temp_k, sizeof(h->temp_k)));
+		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
+		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
 
 	/* BOLT #8:
 	 *
@@ -663,7 +664,7 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 	encrypt_ad(&h->temp_k, 0, &h->h, sizeof(h->h), NULL, 0,
 		   h->act1.tag, sizeof(h->act1.tag));
 	SUPERVERBOSE("# c=%s",
-		     tal_hexstr(trc, h->act1.tag, sizeof(h->act1.tag)));
+		     tal_hexstr(tmpctx, h->act1.tag, sizeof(h->act1.tag)));
 
 	/* BOLT #8:
 	 *
@@ -672,7 +673,7 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 	 *       authenticating handshake digest.
 	 */
 	sha_mix_in(&h->h, h->act1.tag, sizeof(h->act1.tag));
-	SUPERVERBOSE("# h=0x%s", tal_hexstr(trc, &h->h, sizeof(h->h)));
+	SUPERVERBOSE("# h=0x%s", tal_hexstr(tmpctx, &h->h, sizeof(h->h)));
 
 	/* BOLT #8:
 	 *
@@ -683,7 +684,7 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 	secp256k1_ec_pubkey_serialize(secp256k1_ctx, h->act1.pubkey, &len,
 				      &h->e.pub.pubkey,
 				      SECP256K1_EC_COMPRESSED);
-	SUPERVERBOSE("output: 0x%s", tal_hexstr(trc, &h->act1, ACT_ONE_SIZE));
+	SUPERVERBOSE("output: 0x%s", tal_hexstr(tmpctx, &h->act1, ACT_ONE_SIZE));
 
 	check_act_one(&h->act1);
 	return io_write(conn, &h->act1, ACT_ONE_SIZE, act_two_initiator, h);
@@ -694,7 +695,7 @@ static struct io_plan *act_three_responder2(struct io_conn *conn,
 {
 	u8 der[PUBKEY_DER_LEN];
 
-	SUPERVERBOSE("input: 0x%s", tal_hexstr(trc, &h->act3, ACT_THREE_SIZE));
+	SUPERVERBOSE("input: 0x%s", tal_hexstr(tmpctx, &h->act3, ACT_THREE_SIZE));
 
 	/* BOLT #8:
 	 *
@@ -720,7 +721,7 @@ static struct io_plan *act_three_responder2(struct io_conn *conn,
 		     der, sizeof(der)))
 		return handshake_failed(conn, h);
 
-	SUPERVERBOSE("# rs=0x%s", tal_hexstr(trc, der, sizeof(der)));
+	SUPERVERBOSE("# rs=0x%s", tal_hexstr(tmpctx, der, sizeof(der)));
 
 	if (secp256k1_ec_pubkey_parse(secp256k1_ctx, &h->their_id.pubkey,
 				      der, sizeof(der)) != 1)
@@ -732,7 +733,7 @@ static struct io_plan *act_three_responder2(struct io_conn *conn,
 	 *
 	 */
 	sha_mix_in(&h->h, h->act3.ciphertext, sizeof(h->act3.ciphertext));
-	SUPERVERBOSE("# h=0x%s", tal_hexstr(trc, &h->h, sizeof(h->h)));
+	SUPERVERBOSE("# h=0x%s", tal_hexstr(tmpctx, &h->h, sizeof(h->h)));
 
 	/* BOLT #8:
 	 *
@@ -743,15 +744,15 @@ static struct io_plan *act_three_responder2(struct io_conn *conn,
 			    h->e.priv.secret.data))
 		return handshake_failed(conn, h);
 
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(trc, &h->ss, sizeof(h->ss)));
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, &h->ss, sizeof(h->ss)));
 
 	/* BOLT #8:
 	 *   * `ck, temp_k3 = HKDF(ck, ss)`
 	 */
 	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
 	SUPERVERBOSE("# ck,temp_k3=0x%s,0x%s",
-		     tal_hexstr(trc, &h->ck, sizeof(h->ck)),
-		     tal_hexstr(trc, &h->temp_k, sizeof(h->temp_k)));
+		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
+		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
 
 	/* BOLT #8:
 	 *   * `p = decryptWithAD(temp_k3, 0, h, t)`
@@ -796,8 +797,8 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 	 */
 	h->e = generate_key();
 	SUPERVERBOSE("# e.pub=0x%s e.priv=0x%s",
-		     type_to_string(trc, struct pubkey, &h->e.pub),
-		     tal_hexstr(trc, &h->e.priv, sizeof(h->e.priv)));
+		     type_to_string(tmpctx, struct pubkey, &h->e.pub),
+		     tal_hexstr(tmpctx, &h->e.priv, sizeof(h->e.priv)));
 
 	/* BOLT #8:
 	 *
@@ -806,7 +807,7 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 	 *        running handshake digest.
 	 */
 	sha_mix_in_key(&h->h, &h->e.pub);
-	SUPERVERBOSE("# h=0x%s", tal_hexstr(trc, &h->h, sizeof(h->h)));
+	SUPERVERBOSE("# h=0x%s", tal_hexstr(tmpctx, &h->h, sizeof(h->h)));
 
 	/* BOLT #8:
 	 *
@@ -817,7 +818,7 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data, &h->re.pubkey,
 			    h->e.priv.secret.data))
 		return handshake_failed(conn, h);
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(trc, &h->ss, sizeof(h->ss)));
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, &h->ss, sizeof(h->ss)));
 
 	/* BOLT #8:
 	 *
@@ -827,8 +828,8 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 	 */
 	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
 	SUPERVERBOSE("# ck,temp_k2=0x%s,0x%s",
-		     tal_hexstr(trc, &h->ck, sizeof(h->ck)),
-		     tal_hexstr(trc, &h->temp_k, sizeof(h->temp_k)));
+		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
+		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
 
 	/* BOLT #8:
 	 *
@@ -837,7 +838,7 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 	 */
 	encrypt_ad(&h->temp_k, 0, &h->h, sizeof(h->h), NULL, 0,
 		   h->act2.tag, sizeof(h->act2.tag));
-	SUPERVERBOSE("# c=0x%s", tal_hexstr(trc, h->act2.tag, sizeof(h->act2.tag)));
+	SUPERVERBOSE("# c=0x%s", tal_hexstr(tmpctx, h->act2.tag, sizeof(h->act2.tag)));
 
 	/* BOLT #8:
 	 *
@@ -846,7 +847,7 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 	 *        authenticating handshake digest.
 	 */
 	sha_mix_in(&h->h, h->act2.tag, sizeof(h->act2.tag));
-	SUPERVERBOSE("# h=0x%s", tal_hexstr(trc, &h->h, sizeof(h->h)));
+	SUPERVERBOSE("# h=0x%s", tal_hexstr(tmpctx, &h->h, sizeof(h->h)));
 
 	/* BOLT #8:
 	 *
@@ -857,7 +858,7 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 	secp256k1_ec_pubkey_serialize(secp256k1_ctx, h->act2.pubkey, &len,
 				      &h->e.pub.pubkey,
 				      SECP256K1_EC_COMPRESSED);
-	SUPERVERBOSE("output: 0x%s", tal_hexstr(trc, &h->act2, ACT_TWO_SIZE));
+	SUPERVERBOSE("output: 0x%s", tal_hexstr(tmpctx, &h->act2, ACT_TWO_SIZE));
 
 	check_act_two(&h->act2);
 	return io_write(conn, &h->act2, ACT_TWO_SIZE, act_three_responder, h);
@@ -885,7 +886,7 @@ static struct io_plan *act_one_responder2(struct io_conn *conn,
 				      h->act1.pubkey, sizeof(h->act1.pubkey)) != 1)
 		return handshake_failed(conn, h);
 
-	SUPERVERBOSE("# re=0x%s", type_to_string(trc, struct pubkey, &h->re));
+	SUPERVERBOSE("# re=0x%s", type_to_string(tmpctx, struct pubkey, &h->re));
 
 	/* BOLT #8:
 	 *
@@ -894,7 +895,7 @@ static struct io_plan *act_one_responder2(struct io_conn *conn,
 	 *       authenticating handshake digest.
 	 */
 	sha_mix_in_key(&h->h, &h->re);
-	SUPERVERBOSE("# h=0x%s", tal_hexstr(trc, &h->h, sizeof(h->h)));
+	SUPERVERBOSE("# h=0x%s", tal_hexstr(tmpctx, &h->h, sizeof(h->h)));
 
 	/* BOLT #8:
 	 *   * `ss = ECDH(re, s.priv)`
@@ -904,7 +905,7 @@ static struct io_plan *act_one_responder2(struct io_conn *conn,
 	if (!hsm_do_ecdh(&h->ss, &h->re))
 		return handshake_failed(conn, h);
 
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(trc, &h->ss, sizeof(h->ss)));
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, &h->ss, sizeof(h->ss)));
 
 	/* BOLT #8:
 	 *
@@ -915,8 +916,8 @@ static struct io_plan *act_one_responder2(struct io_conn *conn,
 	 */
 	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
 	SUPERVERBOSE("# ck,temp_k1=0x%s,0x%s",
-		     tal_hexstr(trc, &h->ck, sizeof(h->ck)),
-		     tal_hexstr(trc, &h->temp_k, sizeof(h->temp_k)));
+		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
+		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
 
 	/* BOLT #8:
 	 *
@@ -937,7 +938,7 @@ static struct io_plan *act_one_responder2(struct io_conn *conn,
 	 *        step serves to ensure the payload wasn't modified by a MiTM.
 	 */
 	sha_mix_in(&h->h, h->act1.tag, sizeof(h->act1.tag));
-	SUPERVERBOSE("# h=0x%s", tal_hexstr(trc, &h->h, sizeof(h->h)));
+	SUPERVERBOSE("# h=0x%s", tal_hexstr(tmpctx, &h->h, sizeof(h->h)));
 
 	return act_two_responder(conn, h);
 }

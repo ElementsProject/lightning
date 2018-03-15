@@ -279,7 +279,7 @@ static struct tracked_output *
 
 	status_trace("Tracking output %u of %s: %s/%s",
 		     outnum,
-		     type_to_string(trc, struct bitcoin_txid, txid),
+		     type_to_string(tmpctx, struct bitcoin_txid, txid),
 		     tx_type_name(tx_type),
 		     output_type_name(output_type));
 
@@ -306,7 +306,7 @@ static void ignore_output(struct tracked_output *out)
 {
 	status_trace("Ignoring output %u of %s: %s/%s",
 		     out->outnum,
-		     type_to_string(trc, struct bitcoin_txid, &out->txid),
+		     type_to_string(tmpctx, struct bitcoin_txid, &out->txid),
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type));
 
@@ -326,7 +326,7 @@ static void proposal_meets_depth(struct tracked_output *out)
 
 	status_trace("Broadcasting %s (%s) to resolve %s/%s",
 		     tx_type_name(out->proposal->tx_type),
-		     type_to_string(trc, struct bitcoin_tx, out->proposal->tx),
+		     type_to_string(tmpctx, struct bitcoin_tx, out->proposal->tx),
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type));
 
@@ -345,7 +345,7 @@ static void propose_resolution(struct tracked_output *out,
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
 		     tx_type_name(tx_type),
-		     tx ? type_to_string(trc, struct bitcoin_tx, tx):"IGNORING",
+		     tx ? type_to_string(tmpctx, struct bitcoin_tx, tx):"IGNORING",
 		     depth_required);
 
 	out->proposal = tal(out, struct proposed_resolution);
@@ -444,7 +444,7 @@ static bool resolved_by_proposal(struct tracked_output *out,
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
 		     tx_type_name(out->proposal->tx_type),
-		     type_to_string(trc, struct bitcoin_txid,
+		     type_to_string(tmpctx, struct bitcoin_txid,
 				    &out->resolved->txid));
 
 	out->resolved->depth = 0;
@@ -469,7 +469,7 @@ static void resolved_by_other(struct tracked_output *out,
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
 		     tx_type_name(tx_type),
-		     type_to_string(trc, struct bitcoin_txid, txid));
+		     type_to_string(tmpctx, struct bitcoin_txid, txid));
 }
 
 static void unknown_spend(struct tracked_output *out,
@@ -484,7 +484,7 @@ static void unknown_spend(struct tracked_output *out,
 	status_trace("Unknown spend of %s/%s by %s",
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
-		     type_to_string(trc, struct bitcoin_tx, tx));
+		     type_to_string(tmpctx, struct bitcoin_tx, tx));
 }
 
 static u64 unmask_commit_number(const struct bitcoin_tx *tx,
@@ -589,7 +589,7 @@ static void billboard_update(struct tracked_output **outs)
 				       "%u outputs unresolved: waiting confirmation that we spent %s (%s:%u) using %s",
 				       num_not_irrevocably_resolved(outs),
 				       output_type_name(best->output_type),
-				       type_to_string(trc, struct bitcoin_txid,
+				       type_to_string(tmpctx, struct bitcoin_txid,
 						      &best->txid),
 				       best->outnum,
 				       tx_type_name(best->proposal->tx_type));
@@ -599,7 +599,7 @@ static void billboard_update(struct tracked_output **outs)
 				       num_not_irrevocably_resolved(outs),
 				       best->proposal->depth_required - best->depth,
 				       output_type_name(best->output_type),
-				       type_to_string(trc, struct bitcoin_txid,
+				       type_to_string(tmpctx, struct bitcoin_txid,
 						      &best->txid),
 				       best->outnum,
 				       tx_type_name(best->proposal->tx_type));
@@ -705,15 +705,15 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 			      "%s/%s spent with bad preimage %s (ripemd not %s)",
 			      tx_type_name(out->tx_type),
 			      output_type_name(out->output_type),
-			      type_to_string(trc, struct preimage, &preimage),
-			      type_to_string(trc, struct ripemd160,
+			      type_to_string(tmpctx, struct preimage, &preimage),
+			      type_to_string(tmpctx, struct ripemd160,
 					     &out->htlc->ripemd));
 
 	/* Tell master we found a preimage. */
 	status_trace("%s/%s gave us preimage %s",
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
-		     type_to_string(trc, struct preimage, &preimage));
+		     type_to_string(tmpctx, struct preimage, &preimage));
 	wire_sync_write(REQ_FD,
 			take(towire_onchain_extracted_preimage(NULL,
 							       &preimage)));
@@ -887,7 +887,7 @@ static void output_spent(struct tracked_output ***outs,
 
 	/* Not interesting to us, so unwatch the tx and all its outputs */
 	status_trace("Notified about tx %s output %u spend, but we don't care",
-		     type_to_string(trc, struct bitcoin_txid,
+		     type_to_string(tmpctx, struct bitcoin_txid,
 				    &tx->input[input_num].txid),
 		     tx->input[input_num].index);
 	unwatch_tx(tx);
@@ -1374,17 +1374,17 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 		     " self_htlc_key: %s"
 		     " other_htlc_key: %s",
 		     commit_num,
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->self_revocation_key),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->self_delayed_payment_key),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->self_payment_key),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->other_payment_key),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->self_htlc_key),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->other_htlc_key));
 
 	if (!derive_simple_privkey(&secrets->delayed_payment_basepoint_secret,
@@ -1424,14 +1424,14 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 
 	status_trace("Script to-me: %u: %s (%s)",
 		     to_self_delay[LOCAL],
-		     tal_hex(trc, script[LOCAL]),
-		     tal_hex(trc, local_wscript));
+		     tal_hex(tmpctx, script[LOCAL]),
+		     tal_hex(tmpctx, local_wscript));
 	status_trace("Script to-them: %s",
-		     tal_hex(trc, script[REMOTE]));
+		     tal_hex(tmpctx, script[REMOTE]));
 
 	for (i = 0; i < tal_count(tx->output); i++) {
 		status_trace("Output %zu: %s",
-			     i, tal_hex(trc, tx->output[i].script));
+			     i, tal_hex(tmpctx, tx->output[i].script));
 	}
 
 	/* BOLT #5:
@@ -1663,7 +1663,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 	if (!pubkey_from_privkey(&per_commitment_privkey, &per_commitment_point))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed derive from per_commitment_secret %s",
-			      type_to_string(trc, struct privkey,
+			      type_to_string(tmpctx, struct privkey,
 					     &per_commitment_privkey));
 
 	status_trace("Deriving keyset %"PRIu64
@@ -1675,19 +1675,19 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		     " self_delayed_basepoint=%s"
 		     " other_revocation_basepoint=%s",
 		     commit_num,
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &per_commitment_point),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    remote_payment_basepoint),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    local_payment_basepoint),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    remote_htlc_basepoint),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    local_htlc_basepoint),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    remote_delayed_payment_basepoint),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    local_revocation_basepoint));
 
 	/* keyset is const, we need a non-const ptr to set it up */
@@ -1712,17 +1712,17 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		     " self_htlc_key: %s"
 		     " other_htlc_key: %s",
 		     commit_num,
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->self_revocation_key),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->self_delayed_payment_key),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->self_payment_key),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->other_payment_key),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->self_htlc_key),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->other_htlc_key));
 
 	revocation_privkey = tal(tx, struct privkey);
@@ -1748,14 +1748,14 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 
 	status_trace("Script to-them: %u: %s (%s)",
 		     to_self_delay[REMOTE],
-		     tal_hex(trc, script[REMOTE]),
-		     tal_hex(trc, remote_wscript));
+		     tal_hex(tmpctx, script[REMOTE]),
+		     tal_hex(tmpctx, remote_wscript));
 	status_trace("Script to-me: %s",
-		     tal_hex(trc, script[LOCAL]));
+		     tal_hex(tmpctx, script[LOCAL]));
 
 	for (i = 0; i < tal_count(tx->output); i++) {
 		status_trace("Output %zu: %s",
-			     i, tal_hex(trc, tx->output[i].script));
+			     i, tal_hex(tmpctx, tx->output[i].script));
 	}
 
 	/* BOLT #5:
@@ -1923,19 +1923,19 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		     " self_delayed_basepoint=%s"
 		     " other_revocation_basepoint=%s",
 		     commit_num,
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    remote_per_commitment_point),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    remote_payment_basepoint),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    local_payment_basepoint),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    remote_htlc_basepoint),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    local_htlc_basepoint),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    remote_delayed_payment_basepoint),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    local_revocation_basepoint));
 
 	/* keyset is const, we need a non-const ptr to set it up */
@@ -1960,17 +1960,17 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		     " self_htlc_key: %s"
 		     " other_htlc_key: %s",
 		     commit_num,
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->self_revocation_key),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->self_delayed_payment_key),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->self_payment_key),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->other_payment_key),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->self_htlc_key),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->other_htlc_key));
 
 	if (!derive_simple_privkey(&secrets->payment_basepoint_secret,
@@ -2002,14 +2002,14 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 
 	status_trace("Script to-them: %u: %s (%s)",
 		     to_self_delay[REMOTE],
-		     tal_hex(trc, script[REMOTE]),
-		     tal_hex(trc, remote_wscript));
+		     tal_hex(tmpctx, script[REMOTE]),
+		     tal_hex(tmpctx, remote_wscript));
 	status_trace("Script to-me: %s",
-		     tal_hex(trc, script[LOCAL]));
+		     tal_hex(tmpctx, script[LOCAL]));
 
 	for (i = 0; i < tal_count(tx->output); i++) {
 		status_trace("Output %zu: %s",
-			     i, tal_hex(trc, tx->output[i].script));
+			     i, tal_hex(tmpctx, tx->output[i].script));
 	}
 
 	/* BOLT #5:
@@ -2190,10 +2190,10 @@ int main(int argc, char *argv[])
 			   FUNDING_OUTPUT, NULL, NULL, NULL);
 
 	status_trace("Remote per-commit point: %s",
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &remote_per_commit_point));
 	status_trace("Old remote per-commit point: %s",
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &old_remote_per_commit_point));
 
 	/* BOLT #5:

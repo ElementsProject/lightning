@@ -517,7 +517,7 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 		peer_failed(&peer->cs, peer->gossip_index,
 			    &peer->channel_id,
 			    "Wrong channel id in %s (expected %s)",
-			    tal_hex(trc, msg),
+			    tal_hex(tmpctx, msg),
 			    type_to_string(msg, struct channel_id,
 					   &peer->channel_id));
 
@@ -590,9 +590,9 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 		peer_failed(&peer->cs, peer->gossip_index,
 			    &peer->channel_id,
 			    "Wrong channel_id: expected %s, got %s",
-			    type_to_string(trc, struct channel_id,
+			    type_to_string(tmpctx, struct channel_id,
 					   &peer->channel_id),
-			    type_to_string(trc, struct channel_id, &chanid));
+			    type_to_string(tmpctx, struct channel_id, &chanid));
 	}
 
 	peer->have_sigs[REMOTE] = true;
@@ -875,10 +875,10 @@ static struct commit_sigs *calc_commitsigs(const tal_t *ctx,
 			      "Deriving local_htlckey");
 
 	status_trace("Derived key %s from basepoint %s, point %s",
-		     type_to_string(trc, struct pubkey, &local_htlckey),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey, &local_htlckey),
+		     type_to_string(tmpctx, struct pubkey,
 				    &peer->channel->basepoints[LOCAL].htlc),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &peer->remote_per_commit));
 
 	txs = channel_txs(tmpctx, &htlc_map, &wscripts, peer->channel,
@@ -894,11 +894,11 @@ static struct commit_sigs *calc_commitsigs(const tal_t *ctx,
 
 	status_trace("Creating commit_sig signature %"PRIu64" %s for tx %s wscript %s key %s",
 		     commit_index,
-		     type_to_string(trc, secp256k1_ecdsa_signature,
+		     type_to_string(tmpctx, secp256k1_ecdsa_signature,
 				    &commit_sigs->commit_sig),
-		     type_to_string(trc, struct bitcoin_tx, txs[0]),
-		     tal_hex(trc, wscripts[0]),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct bitcoin_tx, txs[0]),
+		     tal_hex(tmpctx, wscripts[0]),
+		     type_to_string(tmpctx, struct pubkey,
 				    &peer->channel->funding_pubkey[LOCAL]));
 	dump_htlcs(peer->channel, "Sending commit_sig");
 
@@ -918,11 +918,11 @@ static struct commit_sigs *calc_commitsigs(const tal_t *ctx,
 			      &local_htlcsecretkey, &local_htlckey,
 			      &commit_sigs->htlc_sigs[i]);
 		status_trace("Creating HTLC signature %s for tx %s wscript %s key %s",
-			     type_to_string(trc, secp256k1_ecdsa_signature,
+			     type_to_string(tmpctx, secp256k1_ecdsa_signature,
 					    &commit_sigs->htlc_sigs[i]),
-			     type_to_string(trc, struct bitcoin_tx, txs[1+i]),
-			     tal_hex(trc, wscripts[1+i]),
-			     type_to_string(trc, struct pubkey,
+			     type_to_string(tmpctx, struct bitcoin_tx, txs[1+i]),
+			     tal_hex(tmpctx, wscripts[1+i]),
+			     type_to_string(tmpctx, struct pubkey,
 					    &local_htlckey));
 		assert(check_tx_sig(txs[1+i], 0, NULL, wscripts[1+i],
 				    &local_htlckey,
@@ -1082,12 +1082,12 @@ static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index)
 
 	status_trace("Sending revocation #%"PRIu64" for %s",
 		     revoke_index,
-		     type_to_string(trc, struct pubkey, &oldpoint));
+		     type_to_string(tmpctx, struct pubkey, &oldpoint));
 
 	if (!pubkey_eq(&point, &oldpoint))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Invalid secret %s for commit_point",
-			      tal_hexstr(trc, &old_commit_secret,
+			      tal_hexstr(tmpctx, &old_commit_secret,
 					 sizeof(old_commit_secret)));
 
 	/* We're revoking N-1th commit, sending N+1th point. */
@@ -1242,10 +1242,10 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving remote_htlckey");
 	status_trace("Derived key %s from basepoint %s, point %s",
-		     type_to_string(trc, struct pubkey, &remote_htlckey),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey, &remote_htlckey),
+		     type_to_string(tmpctx, struct pubkey,
 				    &peer->channel->basepoints[REMOTE].htlc),
-		     type_to_string(trc, struct pubkey, &point));
+		     type_to_string(tmpctx, struct pubkey, &point));
 	/* BOLT #2:
 	 *
 	 * A receiving node MUST fail the channel if `signature` is not valid
@@ -1410,9 +1410,9 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	peer->remote_per_commit = next_per_commit;
 	status_trace("revoke_and_ack %s: remote_per_commit = %s, old_remote_per_commit = %s",
 		     side_to_str(peer->channel->funder),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &peer->remote_per_commit),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &peer->old_remote_per_commit));
 
 	start_commit_timer(peer);
@@ -2028,7 +2028,7 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 
 	status_trace("funding_locked: sending commit index %"PRIu64": %s",
 		     peer->next_index[LOCAL],
-		     type_to_string(trc, struct pubkey, &next_per_commit_point));
+		     type_to_string(tmpctx, struct pubkey, &next_per_commit_point));
 	msg = towire_funding_locked(peer,
 				    &peer->channel_id, &next_per_commit_point);
 	enqueue_peer_msg(peer, take(msg));
@@ -2570,9 +2570,9 @@ static void init_channel(struct peer *peer)
 		     " revocations_received = %"PRIu64
 		     " feerates %u/%u (range %u-%u)",
 		     side_to_str(funder),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &peer->remote_per_commit),
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &peer->old_remote_per_commit),
 		     peer->next_index[LOCAL], peer->next_index[REMOTE],
 		     peer->revocations_received,

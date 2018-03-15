@@ -271,7 +271,7 @@ static uint64_t receive_offer(struct crypto_state *cs,
 				     &received_fee, &their_sig))
 		peer_failed(cs, gossip_index, channel_id,
 			    "Expected closing_signed: %s",
-			    tal_hex(trc, msg));
+			    tal_hex(tmpctx, msg));
 
 	/* BOLT #2:
 	 *
