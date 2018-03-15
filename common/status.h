@@ -16,9 +16,6 @@ struct daemon_conn;
 void status_setup_sync(int fd);
 void status_setup_async(struct daemon_conn *master);
 
-/* Convenient context, frees up after every status_update/failed */
-extern const void *trc;
-
 /* Send a printf-style debugging trace. */
 void status_fmt(enum log_level level, const char *fmt, ...)
 	PRINTF_FMT(2,3);

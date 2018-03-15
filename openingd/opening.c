@@ -369,9 +369,9 @@ static u8 *funder_channel(struct state *state,
 		      &state->our_secrets.funding_privkey,
 		      our_funding_pubkey, &sig);
 	status_trace("signature %s on tx %s using key %s",
-		     type_to_string(trc, secp256k1_ecdsa_signature, &sig),
-		     type_to_string(trc, struct bitcoin_tx, tx),
-		     type_to_string(trc, struct pubkey, our_funding_pubkey));
+		     type_to_string(tmpctx, secp256k1_ecdsa_signature, &sig),
+		     type_to_string(tmpctx, struct bitcoin_tx, tx),
+		     type_to_string(tmpctx, struct pubkey, our_funding_pubkey));
 
 	msg = towire_funding_created(state, &state->channel_id,
 				     &state->funding_txid,
@@ -427,10 +427,10 @@ static u8 *funder_channel(struct state *state,
 		peer_failed(&state->cs, state->gossip_index,
 			    &state->channel_id,
 			    "Bad signature %s on tx %s using key %s",
-			    type_to_string(trc, secp256k1_ecdsa_signature,
+			    type_to_string(tmpctx, secp256k1_ecdsa_signature,
 					   &sig),
-			    type_to_string(trc, struct bitcoin_tx, tx),
-			    type_to_string(trc, struct pubkey,
+			    type_to_string(tmpctx, struct bitcoin_tx, tx),
+			    type_to_string(tmpctx, struct pubkey,
 					   &their_funding_pubkey));
 	}
 
@@ -630,10 +630,10 @@ static u8 *fundee_channel(struct state *state,
 		peer_failed(&state->cs, state->gossip_index,
 			    &state->channel_id,
 			    "Bad signature %s on tx %s using key %s",
-			    type_to_string(trc, secp256k1_ecdsa_signature,
+			    type_to_string(tmpctx, secp256k1_ecdsa_signature,
 					   &theirsig),
-			    type_to_string(trc, struct bitcoin_tx, their_commit),
-			    type_to_string(trc, struct pubkey,
+			    type_to_string(tmpctx, struct bitcoin_tx, their_commit),
+			    type_to_string(tmpctx, struct pubkey,
 					   &their_funding_pubkey));
 	}
 
@@ -729,17 +729,17 @@ int main(int argc, char *argv[])
 			       &state->shaseed))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Secret derivation failed, secret = %s",
-			      type_to_string(trc, struct privkey, &seed));
+			      type_to_string(tmpctx, struct privkey, &seed));
 
 	if (!per_commit_point(&state->shaseed, &state->next_per_commit[LOCAL],
 			      0))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "First per_commitment_point derivation failed,"
 			      " secret = %s",
-			      type_to_string(trc, struct privkey, &seed));
+			      type_to_string(tmpctx, struct privkey, &seed));
 
 	status_trace("First per_commit_point = %s",
-		     type_to_string(trc, struct pubkey,
+		     type_to_string(tmpctx, struct pubkey,
 				    &state->next_per_commit[LOCAL]));
 	msg = wire_sync_read(state, REQ_FD);
 	if (fromwire_opening_funder(state, msg,

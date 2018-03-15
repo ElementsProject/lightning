@@ -366,15 +366,15 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 
 	if (!src) {
 		status_info("find_route: cannot find %s",
-			    type_to_string(trc, struct pubkey, to));
+			    type_to_string(tmpctx, struct pubkey, to));
 		return NULL;
 	} else if (!dst) {
 		status_info("find_route: cannot find myself (%s)",
-			    type_to_string(trc, struct pubkey, to));
+			    type_to_string(tmpctx, struct pubkey, to));
 		return NULL;
 	} else if (dst == src) {
 		status_info("find_route: this is %s, refusing to create empty route",
-			    type_to_string(trc, struct pubkey, to));
+			    type_to_string(tmpctx, struct pubkey, to));
 		return NULL;
 	}
 
@@ -404,7 +404,7 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 				int idx = half_chan_to(n, chan);
 
 				SUPERVERBOSE("Node %s edge %i/%zu",
-					     type_to_string(trc, struct pubkey,
+					     type_to_string(tmpctx, struct pubkey,
 							    &n->id),
 					     i, num_edges);
 
@@ -428,7 +428,7 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	/* No route? */
 	if (dst->bfg[best].total >= INFINITE) {
 		status_trace("find_route: No route to %s",
-			     type_to_string(trc, struct pubkey, to));
+			     type_to_string(tmpctx, struct pubkey, to));
 		return NULL;
 	}
 
@@ -565,8 +565,8 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 		if (err)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "pending node_announcement %s malformed %s?",
-				      tal_hex(trc, pna->node_announcement),
-				      sanitize_error(trc, err, NULL));
+				      tal_hex(tmpctx, pna->node_announcement),
+				      sanitize_error(tmpctx, err, NULL));
 	}
 	pending_node_map_del(rstate->pending_node_map, pna);
 	tal_free(pna);
@@ -633,7 +633,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	if (chan != NULL && chan->public) {
 		SUPERVERBOSE("%s: %s already has public channel",
 			     __func__,
-			     type_to_string(trc, struct short_channel_id,
+			     type_to_string(tmpctx, struct short_channel_id,
 					    &pending->short_channel_id));
 		goto ignored;
 	}
@@ -643,7 +643,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	if (find_pending_cannouncement(rstate, &pending->short_channel_id)) {
 		SUPERVERBOSE("%s: %s already has pending cannouncement",
 			     __func__,
-			     type_to_string(trc, struct short_channel_id,
+			     type_to_string(tmpctx, struct short_channel_id,
 					    &pending->short_channel_id));
 		goto ignored;
 	}
@@ -738,8 +738,8 @@ static void process_pending_channel_update(struct routing_state *rstate,
 	err = handle_channel_update(rstate, cupdate);
 	if (err) {
 		status_trace("Pending channel_update for %s: %s",
-			     type_to_string(trc, struct short_channel_id, scid),
-			     sanitize_error(trc, err, NULL));
+			     type_to_string(tmpctx, struct short_channel_id, scid),
+			     sanitize_error(tmpctx, err, NULL));
 		tal_free(err);
 	}
 }
@@ -787,7 +787,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 		status_trace("channel_announcement: txout %s expectes %s, got %s",
 			     type_to_string(pending, struct short_channel_id,
 					    scid),
-			     tal_hex(trc, s), tal_hex(trc, outscript));
+			     tal_hex(tmpctx, s), tal_hex(tmpctx, outscript));
 		tal_free(pending);
 		return false;
 	}
@@ -810,7 +810,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 			      take(pending->announce)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Announcement %s was replaced?",
-			      tal_hex(trc, pending->announce));
+			      tal_hex(tmpctx, pending->announce));
 
 	local = pubkey_eq(&pending->node_id_1, &rstate->local_id) ||
 		pubkey_eq(&pending->node_id_2, &rstate->local_id);
@@ -831,7 +831,7 @@ static void update_pending(struct pending_cannouncement *pending,
 			   const u8 direction)
 {
 	SUPERVERBOSE("Deferring update for pending channel %s(%d)",
-		     type_to_string(trc, struct short_channel_id,
+		     type_to_string(tmpctx, struct short_channel_id,
 				    &pending->short_channel_id), direction);
 
 	if (pending->update_timestamps[direction] < timestamp) {
@@ -867,13 +867,13 @@ void set_connection_values(struct chan *chan,
 	c->unroutable_until = 0;
 
 	SUPERVERBOSE("Channel %s(%d) was updated.",
-		     type_to_string(trc, struct short_channel_id, &chan->scid),
+		     type_to_string(tmpctx, struct short_channel_id, &chan->scid),
 		     idx);
 
 	if (c->proportional_fee >= MAX_PROPORTIONAL_FEE) {
 		status_trace("Channel %s(%d) massive proportional fee %u:"
 			     " disabling.",
-			     type_to_string(trc, struct short_channel_id,
+			     type_to_string(tmpctx, struct short_channel_id,
 					    &chan->scid),
 			     idx,
 			     c->proportional_fee);
@@ -943,7 +943,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 
 		if (!chan) {
 			SUPERVERBOSE("Ignoring update for unknown channel %s",
-				     type_to_string(trc, struct short_channel_id,
+				     type_to_string(tmpctx, struct short_channel_id,
 						    &short_channel_id));
 			tal_free(tmpctx);
 			return NULL;
@@ -975,7 +975,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 	}
 
 	status_trace("Received channel_update for channel %s(%d) now %s",
-		     type_to_string(trc, struct short_channel_id,
+		     type_to_string(tmpctx, struct short_channel_id,
 				    &short_channel_id),
 		     flags & 0x01,
 		     flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
@@ -1398,7 +1398,7 @@ void route_prune(struct routing_state *rstate)
 		    && chan->half[1].last_timestamp < highwater) {
 			status_trace(
 			    "Pruning channel %s from network view (ages %"PRIu64" and %"PRIu64"s)",
-			    type_to_string(trc, struct short_channel_id,
+			    type_to_string(tmpctx, struct short_channel_id,
 					   &chan->scid),
 			    now - chan->half[0].last_timestamp,
 			    now - chan->half[1].last_timestamp);

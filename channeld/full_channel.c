@@ -954,7 +954,7 @@ bool channel_force_htlcs(struct channel *channel,
 			     i, tal_count(htlcs),
 			     htlcs[i].id, htlcs[i].amount_msat,
 			     htlcs[i].cltv_expiry,
-			     type_to_string(trc, struct sha256,
+			     type_to_string(tmpctx, struct sha256,
 					    &htlcs[i].payment_hash));
 
 		e = add_htlc(channel, hstates[i],
