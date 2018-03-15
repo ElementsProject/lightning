@@ -296,6 +296,7 @@ int main(int argc, char *argv[])
 	ld = new_lightningd(NULL);
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
+	setup_tmpctx();
 
 	io_poll_override(debug_poll);
 

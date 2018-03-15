@@ -1856,7 +1856,8 @@ static void peer_reconnect(struct peer *peer)
 	peer_billboard(false, "Sent reestablish, waiting for theirs");
 
 	/* Read until they say something interesting */
-	while ((msg = channeld_read_peer_msg(peer)) == NULL);
+	while ((msg = channeld_read_peer_msg(peer)) == NULL)
+		clean_tmpctx();
 
 	if (!fromwire_channel_reestablish(msg, &channel_id,
 					  &next_local_commitment_number,
@@ -2698,6 +2699,9 @@ int main(int argc, char *argv[])
 		const u8 *msg;
 		struct timemono now = time_mono();
 
+		/* Free any temporary allocations */
+		clean_tmpctx();
+
 		/* For simplicity, we process one event at a time. */
 		msg = msg_dequeue(&peer->from_master);
 		if (msg) {
@@ -2788,6 +2792,6 @@ int main(int argc, char *argv[])
 	/* We only exit when shutdown is complete. */
 	assert(shutdown_complete(peer));
 	send_shutdown_complete(peer);
-
+	tal_free(tmpctx);
 	return 0;
 }

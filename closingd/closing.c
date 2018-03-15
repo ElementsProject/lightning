@@ -591,6 +591,7 @@ int main(int argc, char *argv[])
 	wire_sync_write(REQ_FD,
 			take(towire_closing_complete(ctx, gossip_index)));
 	tal_free(ctx);
+	tal_free(tmpctx);
 
 	return 0;
 }

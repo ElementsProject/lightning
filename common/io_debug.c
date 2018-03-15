@@ -11,9 +11,7 @@ int debug_poll(struct pollfd *fds, nfds_t nfds, int timeout)
 	if (t)
 		errx(1, "Outstanding taken pointers: %s", t);
 
-	t = tmpctx_any();
-	if (t)
-		errx(1, "Outstanding tmpctx: %s", t);
+	clean_tmpctx();
 
 	return poll(fds, nfds, timeout);
 }
