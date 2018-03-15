@@ -281,7 +281,6 @@ static void connection_complete_error(struct json_connection *jcon,
 				      int code,
 				      const struct json_result *data)
 {
-	const tal_t *tmpctx = tal_tmpctx(jcon);
 	/* Use this to escape errmsg. */
 	struct json_result *errorres = new_json_result(tmpctx);
 	const char *data_str;
@@ -305,7 +304,6 @@ static void connection_complete_error(struct json_connection *jcon,
 					  json_result_string(errorres),
 					  data_str,
 					  id)));
-	tal_free(tmpctx);
 }
 
 struct json_result *null_response(const tal_t *ctx)

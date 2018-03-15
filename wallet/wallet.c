@@ -528,7 +528,6 @@ bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
 {
 	bool ok;
 	const unsigned char *addrstr;
-	tal_t *tmpctx = tal_tmpctx(w);
 	sqlite3_stmt *stmt = db_prepare(w->db, "SELECT id, node_id, address FROM peers WHERE node_id=?;");
 	sqlite3_bind_pubkey(stmt, 1, nodeid);
 
@@ -545,7 +544,6 @@ bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
 		peer->dbid = 0;
 	}
 	sqlite3_finalize(stmt);
-	tal_free(tmpctx);
 	return ok;
 }
 
@@ -584,7 +582,6 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 	secp256k1_ecdsa_signature last_sig;
 	u8 *remote_shutdown_scriptpubkey;
 	struct changed_htlc *last_sent_commit;
-	const tal_t *tmpctx = tal_tmpctx(ctx);
 	s64 final_key_idx;
 
 	peer_dbid = sqlite3_column_int64(stmt, 1);
@@ -592,7 +589,6 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 	if (!peer) {
 		peer = wallet_peer_load(w, peer_dbid);
 		if (!peer) {
-			tal_free(tmpctx);
 			return NULL;
 		}
 	}
@@ -638,14 +634,12 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 				   &channel_info.their_config);
 
 	if (!ok) {
-		tal_free(tmpctx);
 		return NULL;
 	}
 
 	final_key_idx = sqlite3_column_int64(stmt, 29);
 	if (final_key_idx < 0) {
 		log_broken(w->log, "%s: Final key < 0", __func__);
-		tal_free(tmpctx);
 		return NULL;
 	}
 	chan = new_channel(peer, sqlite3_column_int64(stmt, 0),
@@ -678,7 +672,6 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 			   last_sent_commit,
 			   sqlite3_column_int64(stmt, 35));
 
-	tal_free(tmpctx);
 	return chan;
 }
 
@@ -863,7 +856,6 @@ u64 wallet_get_channel_dbid(struct wallet *wallet)
 
 void wallet_channel_save(struct wallet *w, struct channel *chan)
 {
-	tal_t *tmpctx = tal_tmpctx(w);
 	sqlite3_stmt *stmt;
 	assert(chan->first_blocknum);
 
@@ -962,13 +954,10 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		sqlite3_bind_int64(stmt, 3, chan->dbid);
 		db_exec_prepared(w->db, stmt);
 	}
-
-	tal_free(tmpctx);
 }
 
 void wallet_channel_insert(struct wallet *w, struct channel *chan)
 {
-	tal_t *tmpctx = tal_tmpctx(w);
 	sqlite3_stmt *stmt;
 
 	if (chan->peer->dbid == 0) {
@@ -999,7 +988,6 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan)
 
 	/* Now save path as normal */
 	wallet_channel_save(w, chan);
-	tal_free(tmpctx);
 }
 
 void wallet_channel_delete(struct wallet *w, u64 wallet_id)
@@ -1099,7 +1087,6 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 void wallet_htlc_save_in(struct wallet *wallet,
 			 const struct channel *chan, struct htlc_in *in)
 {
-	tal_t *tmpctx = tal_tmpctx(wallet);
 	sqlite3_stmt *stmt;
 
 	stmt = db_prepare(
@@ -1136,14 +1123,12 @@ void wallet_htlc_save_in(struct wallet *wallet,
 
 	db_exec_prepared(wallet->db, stmt);
 	in->dbid = sqlite3_last_insert_rowid(wallet->db->sql);
-	tal_free(tmpctx);
 }
 
 void wallet_htlc_save_out(struct wallet *wallet,
 			  const struct channel *chan,
 			  struct htlc_out *out)
 {
-	tal_t *tmpctx = tal_tmpctx(wallet);
 	sqlite3_stmt *stmt;
 
 	/* We absolutely need the incoming HTLC to be persisted before
@@ -1184,7 +1169,6 @@ void wallet_htlc_save_out(struct wallet *wallet,
 	db_exec_prepared(wallet->db, stmt);
 
 	out->dbid = sqlite3_last_insert_rowid(wallet->db->sql);
-	tal_free(tmpctx);
 }
 
 void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
@@ -1771,7 +1755,6 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 				 const u8 *failupdate /*tal_arr*/)
 {
 	sqlite3_stmt *stmt;
-	const tal_t *tmpctx = tal_tmpctx(wallet);
 	struct short_channel_id *scid;
 
 	stmt = db_prepare(wallet->db,
@@ -1815,8 +1798,6 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 	sqlite3_bind_sha256(stmt, 8, payment_hash);
 
 	db_exec_prepared(wallet->db, stmt);
-
-	tal_free(tmpctx);
 }
 
 const struct wallet_payment **

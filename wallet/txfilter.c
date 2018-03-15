@@ -63,7 +63,6 @@ void txfilter_add_scriptpubkey(struct txfilter *filter, const u8 *script TAKES)
 void txfilter_add_derkey(struct txfilter *filter,
 			 const u8 derkey[PUBKEY_DER_LEN])
 {
-	tal_t *tmpctx = tal_tmpctx(filter);
 	u8 *skp, *p2sh;
 
 	skp = scriptpubkey_p2wpkh_derkey(tmpctx, derkey);
@@ -71,8 +70,6 @@ void txfilter_add_derkey(struct txfilter *filter,
 
 	txfilter_add_scriptpubkey(filter, take(skp));
 	txfilter_add_scriptpubkey(filter, take(p2sh));
-
-	tal_free(tmpctx);
 }
 
 

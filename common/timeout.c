@@ -33,10 +33,8 @@ struct oneshot *new_reltimer_(struct timers *timers,
 void timer_expired(tal_t *ctx, struct timer *timer)
 {
 	struct oneshot *t = container_of(timer, struct oneshot, timer);
-	const tal_t *tmpctx = tal_tmpctx(ctx);
 
 	/* If it doesn't free itself, freeing tmpctx will do it */
 	tal_steal(tmpctx, t);
 	t->cb(t->arg);
-	tal_free(tmpctx);
 }

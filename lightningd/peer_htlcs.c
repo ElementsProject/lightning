@@ -232,7 +232,6 @@ static void handle_localpay(struct htlc_in *hin,
 	struct invoice invoice;
 	struct invoice_details details;
 	struct lightningd *ld = hin->key.channel->peer->ld;
-	const tal_t *tmpctx = tal_tmpctx(ld);
 
 	/* BOLT #4:
 	 *
@@ -308,15 +307,12 @@ static void handle_localpay(struct htlc_in *hin,
 	fulfill_htlc(hin, &details.r);
 	wallet_invoice_resolve(ld->wallet, invoice, hin->msatoshi);
 
-	tal_free(tmpctx);
 	return;
 
 fail:
 	/* Final hop never sends an UPDATE. */
 	assert(!(failcode & UPDATE));
 	local_fail_htlc(hin, failcode, NULL);
-
-	tal_free(tmpctx);
 }
 
 /*
@@ -563,7 +559,6 @@ static bool peer_accepted_htlc(struct channel *channel,
 	u8 *req;
 	struct route_step *rs;
 	struct onionpacket *op;
-	const tal_t *tmpctx = tal_tmpctx(channel);
 	struct lightningd *ld = channel->peer->ld;
 
 	hin = find_htlc_in(&ld->htlcs_in, channel, id);
@@ -604,7 +599,6 @@ static bool peer_accepted_htlc(struct channel *channel,
 				   "bad onion in got_revoke: %s",
 				   tal_hexstr(channel, hin->onion_routing_packet,
 					     sizeof(hin->onion_routing_packet)));
-			tal_free(tmpctx);
 			return false;
 		}
 		/* FIXME: could be bad version, bad key. */
@@ -659,7 +653,6 @@ out:
 	log_debug(channel->log, "their htlc %"PRIu64" %s",
 		  id, *failcode ? onion_type_name(*failcode) : "locked");
 
-	tal_free(tmpctx);
 	return true;
 }
 

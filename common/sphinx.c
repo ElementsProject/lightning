@@ -530,7 +530,6 @@ struct onionreply *unwrap_onionreply(const tal_t *ctx,
 				     const struct secret *shared_secrets,
 				     const int numhops, const u8 *reply)
 {
-	tal_t *tmpctx = tal_tmpctx(ctx);
 	struct onionreply *oreply = tal(tmpctx, struct onionreply);
 	u8 *msg = tal_arr(oreply, u8, tal_len(reply));
 	u8 key[KEY_LEN], hmac[HMAC_SIZE];
@@ -539,7 +538,7 @@ struct onionreply *unwrap_onionreply(const tal_t *ctx,
 	u16 msglen;
 
 	if (tal_len(reply) != ONION_REPLY_SIZE + sizeof(hmac) + 4) {
-		goto fail;
+		return NULL;
 	}
 
 	memcpy(msg, reply, tal_len(reply));
@@ -561,7 +560,7 @@ struct onionreply *unwrap_onionreply(const tal_t *ctx,
 		}
 	}
 	if (oreply->origin_index == -1) {
-		goto fail;
+		return NULL;
 	}
 
 	cursor = msg + sizeof(hmac);
@@ -569,15 +568,13 @@ struct onionreply *unwrap_onionreply(const tal_t *ctx,
 	msglen = fromwire_u16(&cursor, &max);
 
 	if (msglen > ONION_REPLY_SIZE) {
-		goto fail;
+		return NULL;
 	}
 
 	oreply->msg = tal_arr(oreply, u8, msglen);
 	fromwire(&cursor, &max, oreply->msg, msglen);
 
 	tal_steal(ctx, oreply);
-	tal_free(tmpctx);
 	return oreply;
-fail:
-	return tal_free(tmpctx);
+
 }

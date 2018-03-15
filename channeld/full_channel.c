@@ -293,12 +293,10 @@ static enum channel_add_err add_htlc(struct channel *channel,
 				     struct htlc **htlcp,
 				     bool enforce_aggregate_limits)
 {
-	const tal_t *tmpctx = tal_tmpctx(channel);
 	struct htlc *htlc, *old;
 	s64 msat_in_htlcs, fee_msat, balance_msat;
 	enum side sender = htlc_state_owner(state), recipient = !sender;
 	const struct htlc **committed, **adding, **removing;
-	enum channel_add_err e;
 	const struct channel_view *view;
 	size_t i;
 
@@ -317,8 +315,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 * `cltv_expiry` to greater or equal to 500000000.
 	 */
 	if (!blocks_to_abs_locktime(cltv_expiry, &htlc->expiry)) {
-		e = CHANNEL_ERR_INVALID_EXPIRY;
-		goto out;
+		return CHANNEL_ERR_INVALID_EXPIRY;
 	}
 
 	htlc->rhash = *payment_hash;
@@ -333,10 +330,9 @@ static enum channel_add_err add_htlc(struct channel *channel,
 		    || old->msatoshi != htlc->msatoshi
 		    || old->expiry.locktime != htlc->expiry.locktime
 		    || !structeq(&old->rhash, &htlc->rhash))
-			e = CHANNEL_ERR_DUPLICATE_ID_DIFFERENT;
+			return CHANNEL_ERR_DUPLICATE_ID_DIFFERENT;
 		else
-			e = CHANNEL_ERR_DUPLICATE;
-		goto out;
+			return CHANNEL_ERR_DUPLICATE;
 	}
 
 	/* We're always considering the recipient's view of the channel here */
@@ -349,12 +345,10 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 * or...
 	 */
 	if (htlc->msatoshi == 0) {
-		e = CHANNEL_ERR_HTLC_BELOW_MINIMUM;
-		goto out;
+		return CHANNEL_ERR_HTLC_BELOW_MINIMUM;
 	}
 	if (htlc->msatoshi < htlc_minimum_msat(channel, recipient)) {
-		e = CHANNEL_ERR_HTLC_BELOW_MINIMUM;
-		goto out;
+		return CHANNEL_ERR_HTLC_BELOW_MINIMUM;
 	}
 
 	/* BOLT #2:
@@ -364,8 +358,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 * `amount_msat` to zero.
 	 */
 	if (htlc->msatoshi & 0xFFFFFFFF00000000ULL) {
-		e = CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
-		goto out;
+		return CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
 	}
 
 	/* Figure out what receiver will already be committed to. */
@@ -380,8 +373,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	if (enforce_aggregate_limits
 	    && tal_count(committed) - tal_count(removing) + tal_count(adding)
 	    > max_accepted_htlcs(channel, recipient)) {
-		e = CHANNEL_ERR_TOO_MANY_HTLCS;
-		goto out;
+		return CHANNEL_ERR_TOO_MANY_HTLCS;
 	}
 
 	msat_in_htlcs = total_offered_msatoshis(committed, htlc_owner(htlc))
@@ -395,8 +387,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 * HTLCs to its local commitment transaction */
 	if (enforce_aggregate_limits
 	    && msat_in_htlcs > max_htlc_value_in_flight_msat(channel, recipient)) {
-		e = CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
-		goto out;
+		return CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
 	}
 
 	/* BOLT #2:
@@ -446,13 +437,11 @@ static enum channel_add_err add_htlc(struct channel *channel,
 			     ", reserve is %"PRIu64,
 			     balance_msat, fee_msat,
 			     channel_reserve_msat(channel, sender));
-		e = CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
-		goto out;
+		return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
 	}
 
 	dump_htlc(htlc, "NEW:");
 	htlc_map_add(channel->htlcs, tal_steal(channel, htlc));
-	e = CHANNEL_ERR_ADD_OK;
 	if (htlcp)
 		*htlcp = htlc;
 
@@ -463,9 +452,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	if (htlc_state_flags(htlc->state) & HTLC_REMOTE_F_PENDING)
 		channel->changes_pending[REMOTE] = true;
 
-out:
-	tal_free(tmpctx);
-	return e;
+	return CHANNEL_ERR_ADD_OK;
 }
 
 enum channel_add_err channel_add_htlc(struct channel *channel,
@@ -694,14 +681,12 @@ u32 approx_max_feerate(const struct channel *channel)
 	size_t num;
 	u64 weight;
 	const struct htlc **committed, **adding, **removing;
-	const tal_t *tmpctx = tal_tmpctx(channel);
 
 	gather_htlcs(tmpctx, channel, !channel->funder,
 		     &committed, &removing, &adding);
 
 	/* Assume none are trimmed; this gives lower bound on feerate. */
 	num = tal_count(committed) + tal_count(adding) - tal_count(removing);
-	tal_free(tmpctx);
 
 	weight = 724 + 172 * num;
 
@@ -714,8 +699,6 @@ bool can_funder_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 	u64 fee_msat, dust = dust_limit_satoshis(channel, !channel->funder);
 	size_t untrimmed;
 	const struct htlc **committed, **adding, **removing;
-	const tal_t *tmpctx = tal_tmpctx(channel);
-
 	gather_htlcs(tmpctx, channel, !channel->funder,
 		     &committed, &removing, &adding);
 
@@ -727,8 +710,6 @@ bool can_funder_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 						  !channel->funder);
 
 	fee_msat = commit_tx_base_fee(feerate_per_kw, untrimmed);
-
-	tal_free(tmpctx);
 
 	/* BOLT #2:
 	 *

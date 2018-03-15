@@ -41,7 +41,6 @@ static struct privkey privkey_from_hex(const char *hex)
 
 int main(void)
 {
-	tal_t *tmpctx = tal_tmpctx(NULL);
 	struct bitcoin_tx *input, *funding;
 	u64 fee;
 	struct pubkey local_funding_pubkey, remote_funding_pubkey;
@@ -49,7 +48,7 @@ int main(void)
 	struct pubkey inputkey;
 	bool testnet;
 	struct utxo utxo;
-	const struct utxo **utxomap = tal_arr(tmpctx, const struct utxo *, 1);
+	const struct utxo **utxomap;
 	u64 funding_satoshis;
 	u16 funding_outnum;
 	u8 *subscript;
@@ -58,6 +57,7 @@ int main(void)
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
+	setup_tmpctx();
 
 	/* BOLT #3:
 	 *
@@ -109,6 +109,7 @@ int main(void)
 	printf("input[0] satoshis: %"PRIu64"\n", utxo.amount);
 	printf("funding satoshis: %"PRIu64"\n", funding_satoshis);
 
+	utxomap = tal_arr(tmpctx, const struct utxo *, 1);
 	utxomap[0] = &utxo;
 	funding = funding_tx(tmpctx, &funding_outnum, utxomap,
 			     funding_satoshis,

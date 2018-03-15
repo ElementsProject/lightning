@@ -961,8 +961,10 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 int main(void)
 {
 	bool ok = true;
-	tal_t *tmpctx = tal_tmpctx(NULL);
-	struct lightningd *ld = tal(tmpctx, struct lightningd);
+	struct lightningd *ld;
+
+	setup_tmpctx();
+	ld = tal(tmpctx, struct lightningd);
 
 	/* Only elements in ld we should access */
 	list_head_init(&ld->peers);

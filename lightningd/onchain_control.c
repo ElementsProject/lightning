@@ -347,7 +347,6 @@ enum watch_result funding_spent(struct channel *channel,
 	u8 *msg;
 	struct bitcoin_txid our_last_txid;
 	struct htlc_stub *stubs;
-	const tal_t *tmpctx = tal_tmpctx(channel);
 	struct lightningd *ld = channel->peer->ld;
 	struct pubkey final_key;
 
@@ -369,14 +368,12 @@ enum watch_result funding_spent(struct channel *channel,
 	if (!channel->owner) {
 		log_broken(channel->log, "Could not subdaemon onchain: %s",
 			   strerror(errno));
-		tal_free(tmpctx);
 		return KEEP_WATCHING;
 	}
 
 	stubs = wallet_htlc_stubs(tmpctx, ld->wallet, channel);
 	if (!stubs) {
 		log_broken(channel->log, "Could not load htlc_stubs");
-		tal_free(tmpctx);
 		return KEEP_WATCHING;
 	}
 
@@ -384,7 +381,6 @@ enum watch_result funding_spent(struct channel *channel,
 			  channel->final_key_idx)) {
 		log_broken(channel->log, "Could not derive onchain key %"PRIu64,
 			   channel->final_key_idx);
-		tal_free(tmpctx);
 		return KEEP_WATCHING;
 	}
 	/* This could be a mutual close, but it doesn't matter. */
@@ -434,7 +430,6 @@ enum watch_result funding_spent(struct channel *channel,
 
 	watch_tx_and_outputs(channel, tx);
 
-	tal_free(tmpctx);
 	/* We keep watching until peer finally deleted, for reorgs. */
 	return KEEP_WATCHING;
 }

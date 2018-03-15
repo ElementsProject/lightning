@@ -150,7 +150,6 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 						struct daemon_conn *dc)
 {
-	tal_t *ctx = tal_tmpctx(conn);
 	/* First 2 + 256 byte are the signatures and msg type, skip them */
 	size_t offset = 258;
 	struct privkey node_pkey;
@@ -160,7 +159,7 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 	u8 *ca;
 	struct pubkey bitcoin_id;
 
-	if (!fromwire_hsm_cannouncement_sig_req(ctx, dc->msg_in,
+	if (!fromwire_hsm_cannouncement_sig_req(tmpctx, dc->msg_in,
 						&bitcoin_id, &ca)) {
 		status_broken("Failed to parse cannouncement_sig_req: %s",
 			      tal_hex(tmpctx, dc->msg_in));
@@ -182,14 +181,12 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 	reply = towire_hsm_cannouncement_sig_reply(ca, &node_sig);
 	daemon_conn_send(dc, take(reply));
 
-	tal_free(ctx);
 	return daemon_conn_read_next(conn, dc);
 }
 
 static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 						 struct daemon_conn *dc)
 {
-	tal_t *tmpctx = tal_tmpctx(conn);
 	/* 2 bytes msg type + 64 bytes signature */
 	size_t offset = 66;
 	struct privkey node_pkey;
@@ -234,7 +231,6 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 				   fee_base_msat, fee_proportional_mill);
 
 	daemon_conn_send(dc, take(towire_hsm_cupdate_sig_reply(tmpctx, cu)));
-	tal_free(tmpctx);
 	return daemon_conn_read_next(conn, dc);
 }
 
@@ -607,7 +603,6 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
  * can broadcast it. */
 static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 {
-	const tal_t *tmpctx = tal_tmpctx(master);
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
 	struct pubkey local_pubkey, remote_pubkey;
@@ -668,7 +663,6 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 
 	daemon_conn_send(master,
 			 take(towire_hsm_sign_funding_reply(tmpctx, tx)));
-	tal_free(tmpctx);
 }
 
 /**
@@ -676,7 +670,6 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
  */
 static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 {
-	const tal_t *tmpctx = tal_tmpctx(master);
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
 	struct utxo **utxos;
@@ -741,7 +734,6 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 
 	daemon_conn_send(master,
 			 take(towire_hsm_sign_withdrawal_reply(tmpctx, tx)));
-	tal_free(tmpctx);
 }
 
 /**
@@ -749,7 +741,6 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
  */
 static void sign_invoice(struct daemon_conn *master, const u8 *msg)
 {
-	const tal_t *tmpctx = tal_tmpctx(master);
 	u5 *u5bytes;
 	u8 *hrpu8;
 	char *hrp;
@@ -785,7 +776,6 @@ static void sign_invoice(struct daemon_conn *master, const u8 *msg)
 
 	daemon_conn_send(master,
 			 take(towire_hsm_sign_invoice_reply(tmpctx, &rsig)));
-	tal_free(tmpctx);
 }
 
 static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
