@@ -148,7 +148,7 @@ static void handle_onchain_unwatch_tx(struct channel *channel, const u8 *msg)
 	txw = find_txwatch(channel->peer->ld->topology, &txid, channel);
 	if (!txw)
 		log_unusual(channel->log, "Can't unwatch txid %s",
-			    type_to_string(ltmp, struct bitcoin_txid, &txid));
+			    type_to_string(tmpctx, struct bitcoin_txid, &txid));
 	tal_free(txw);
 }
 

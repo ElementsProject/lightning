@@ -272,12 +272,12 @@ static bool guess_one_address(struct lightningd *ld,
 
     if (!IsRoutable(addr)) {
         log_debug(ld->log, "Address %s is not routable",
-                  type_to_string(ltmp, struct wireaddr, addr));
+                  type_to_string(tmpctx, struct wireaddr, addr));
         return false;
     }
 
     log_debug(ld->log, "Public address %s",
-              type_to_string(ltmp, struct wireaddr, addr));
+              type_to_string(tmpctx, struct wireaddr, addr));
     return true;
 }
 

@@ -1073,7 +1073,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 		log_debug(w->log, "Owning output %zu %"PRIu64" (%s) txid %s",
 			  output, tx->output[output].amount,
 			  is_p2sh ? "P2SH" : "SEGWIT",
-			  type_to_string(ltmp, struct bitcoin_txid,
+			  type_to_string(tmpctx, struct bitcoin_txid,
 					 &utxo->txid));
 
 		if (!wallet_add_utxo(w, utxo, is_p2sh ? p2sh_wpkh : our_change)) {

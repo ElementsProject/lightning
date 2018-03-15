@@ -275,7 +275,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		goto failed;
 	}
 	log_debug(ld->log,
-		  "%s", type_to_string(ltmp, struct pubkey,
+		  "%s", type_to_string(tmpctx, struct pubkey,
 				       &channel_info.remote_per_commit));
 
 	/* Generate the funding tx. */
@@ -301,7 +301,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		log_debug(fc->uc->log, "%zi: %"PRIu64" satoshi (%s) %s\n",
 			  i, fc->utxomap[i]->amount,
 			  fc->utxomap[i]->is_p2sh ? "P2SH" : "SEGWIT",
-			  type_to_string(ltmp, struct bitcoin_txid,
+			  type_to_string(tmpctx, struct bitcoin_txid,
 					 &fundingtx->input[i].txid));
 	}
 

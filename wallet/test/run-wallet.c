@@ -469,7 +469,6 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 
 	w->db = db_open(w, filename);
 
-	ltmp = tal_tmpctx(ctx);
 	list_head_init(&w->unstored_payments);
 	w->ld = ld;
 	ld->wallet = w;
