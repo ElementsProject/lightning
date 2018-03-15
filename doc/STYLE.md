@@ -1,7 +1,10 @@
 # Care And Feeding of Your Fellow Coders
 
 Style is an individualistic thing, but working on software is group
-activity, so consistency is important.
+activity, so consistency is important.  Generally our coding style
+is similar to the [Linux coding style][style].
+
+[style]: https://www.kernel.org/doc/html/v4.10/process/coding-style.html
 
 ## Communication
 
