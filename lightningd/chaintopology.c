@@ -440,6 +440,7 @@ static void remove_tip(struct chain_topology *topo)
 		txwatch_fire(topo, b->txs[i], 0);
 
 	wallet_block_remove(topo->wallet, b);
+	block_map_del(&topo->block_map, b);
 	tal_free(b);
 }
 
