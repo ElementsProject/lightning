@@ -254,7 +254,7 @@ void broadcast_tx(struct chain_topology *topo,
 	tal_add_destructor2(channel, clear_otx_channel, otx);
 
 	log_add(topo->log, " (tx %s)",
-		type_to_string(ltmp, struct bitcoin_txid, &otx->txid));
+		type_to_string(tmpctx, struct bitcoin_txid, &otx->txid));
 
 	bitcoind_sendrawtx(topo->bitcoind, otx->hextx, broadcast_done, otx);
 }
@@ -407,7 +407,7 @@ static struct block *new_block(struct chain_topology *topo,
 	sha256_double(&b->blkid.shad, &blk->hdr, sizeof(blk->hdr));
 	log_debug(topo->log, "Adding block %u: %s",
 		  height,
-		  type_to_string(ltmp, struct bitcoin_blkid, &b->blkid));
+		  type_to_string(tmpctx, struct bitcoin_blkid, &b->blkid));
 	assert(!block_map_get(&topo->block_map, &b->blkid));
 	b->next = NULL;
 	b->prev = NULL;
@@ -433,7 +433,7 @@ static void remove_tip(struct chain_topology *topo)
 	if (!topo->tip)
 		fatal("Initial block %u (%s) reorganized out!",
 		      b->height,
-		      type_to_string(ltmp, struct bitcoin_blkid, &b->blkid));
+		      type_to_string(tmpctx, struct bitcoin_blkid, &b->blkid));
 
 	/* Notify that txs are kicked out. */
 	for (i = 0; i < n; i++)

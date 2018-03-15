@@ -434,7 +434,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		log_unusual(hout->key.channel->log,
 			    "No route_channels for htlc %s:"
 			    " was this an old database?",
-			    type_to_string(ltmp, struct sha256,
+			    type_to_string(tmpctx, struct sha256,
 					   &hout->payment_hash));
 		wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 					  PAYMENT_FAILED, NULL);
@@ -463,7 +463,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 			log_info(hout->key.channel->log,
 				 "htlc %"PRIu64" failed with bad reply (%s)",
 				 hout->key.id,
-				 tal_hex(ltmp, hout->failuremsg));
+				 tal_hex(tmpctx, hout->failuremsg));
 			/* Cannot report failure. */
 			fail = NULL;
 			failcode = WIRE_PERMANENT_NODE_FAILURE;
