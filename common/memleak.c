@@ -100,6 +100,10 @@ static void children_into_htable(const void *exclude1, const void *exclude2,
 			if (streq(name,
 				  "ccan/ccan/io/poll.c:40:struct pollfd[]"))
 				continue;
+
+			/* Don't add tmpctx. */
+			if (streq(name, "tmpctx"))
+				continue;
 		}
 		htable_add(memtable, hash_ptr(i, NULL), i);
 		children_into_htable(exclude1, exclude2, memtable, i);

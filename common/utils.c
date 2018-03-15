@@ -31,7 +31,7 @@ u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len)
 /* Initial creation of tmpctx. */
 void setup_tmpctx(void)
 {
-	tmpctx = tal(NULL, char);
+	tmpctx = tal_alloc_(NULL, 0, false, false, "tmpctx");
 }
 
 /* Free any children of tmpctx. */
@@ -40,6 +40,6 @@ void clean_tmpctx(void)
 	/* Minor optimization: don't do anything if tmpctx unused. */
 	if (tal_first(tmpctx)) {
 		tal_free(tmpctx);
-		tmpctx = tal(NULL, char);
+		tmpctx = tal_alloc_(NULL, 0, false, false, "tmpctx");
 	}
 }
