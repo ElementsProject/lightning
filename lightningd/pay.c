@@ -105,14 +105,11 @@ static void payment_trigger_success(struct lightningd *ld,
 				    const struct sha256 *payment_hash,
 				    const struct preimage *payment_preimage)
 {
-	const tal_t *tmpctx = tal_tmpctx(ld);
 	struct sendpay_result *result;
 
 	result = sendpay_result_success(tmpctx, payment_preimage);
 
 	waitsendpay_resolve(tmpctx, ld, payment_hash, result);
-
-	tal_free(tmpctx);
 }
 
 static struct sendpay_result*
@@ -141,7 +138,6 @@ static void payment_route_failure(struct lightningd *ld,
 				  const u8 *onionreply,
 				  const char *details)
 {
-	const tal_t *tmpctx = tal_tmpctx(ld);
 	struct sendpay_result *result;
 
 	result = sendpay_result_route_failure(tmpctx,
@@ -151,8 +147,6 @@ static void payment_route_failure(struct lightningd *ld,
 					      details);
 
 	waitsendpay_resolve(tmpctx, ld, payment_hash, result);
-
-	tal_free(tmpctx);
 }
 
 static struct sendpay_result *
@@ -332,7 +326,6 @@ static void random_mark_channel_unroutable(struct log *log,
 					   struct subd *gossip,
 					   struct short_channel_id *route_channels)
 {
-	const tal_t *tmpctx = tal_tmpctx(gossip);
 	size_t num_channels = tal_count(route_channels);
 	size_t i;
 	const struct short_channel_id *channel;
@@ -352,15 +345,12 @@ static void random_mark_channel_unroutable(struct log *log,
 				 channel));
 	msg = towire_gossip_mark_channel_unroutable(tmpctx, channel);
 	subd_send_msg(gossip, msg);
-
-	tal_free(tmpctx);
 }
 
 static void report_routing_failure(struct log *log,
 				   struct subd *gossip,
 				   struct routing_failure *fail)
 {
-	const tal_t *tmpctx = tal_tmpctx(gossip);
 	u8 *gossip_msg;
 	assert(fail);
 
@@ -379,14 +369,11 @@ static void report_routing_failure(struct log *log,
 						   (u16) fail->failcode,
 						   fail->channel_update);
 	subd_send_msg(gossip, gossip_msg);
-
-	tal_free(tmpctx);
 }
 
 void payment_store(struct lightningd *ld,
 		   const struct sha256 *payment_hash)
 {
-	const tal_t *tmpctx = tal_tmpctx(ld);
 	struct sendpay_command *pc;
 	struct sendpay_command *next;
 	struct sendpay_result *result;
@@ -406,8 +393,6 @@ void payment_store(struct lightningd *ld,
 		tal_steal(tmpctx, pc);
 		pc->cb(result, pc->cbarg);
 	}
-
-	tal_free(tmpctx);
 }
 
 void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
@@ -417,7 +402,6 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	enum onion_type failcode;
 	struct secret *path_secrets;
 	struct wallet_payment *payment;
-	const tal_t *tmpctx = tal_tmpctx(ld);
 	struct routing_failure* fail = NULL;
 	const char *failmsg;
 	bool retry_plausible;
@@ -438,7 +422,6 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 					   &hout->payment_hash));
 		wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 					  PAYMENT_FAILED, NULL);
-		tal_free(tmpctx);
 		return;
 	}
 #endif
@@ -516,7 +499,6 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	payment_route_failure(ld, &hout->payment_hash,
 			      retry_plausible, fail, hout->failuremsg,
 			      failmsg);
-	tal_free(tmpctx);
 }
 
 /* Wait for a payment. If cxt is deleted, then cb will
@@ -529,7 +511,6 @@ bool wait_payment(const tal_t *cxt,
 		  void (*cb)(const struct sendpay_result *, void*),
 		  void *cbarg)
 {
-	const tal_t *tmpctx = tal_tmpctx(NULL);
 	struct wallet_payment *payment;
 	struct sendpay_result *result;
 	char const *details;
@@ -610,7 +591,6 @@ bool wait_payment(const tal_t *cxt,
 	abort();
 
 end:
-	tal_free(tmpctx);
 	return cb_not_called;
 }
 
@@ -629,7 +609,6 @@ send_payment(const tal_t *ctx,
 	struct onionpacket *packet;
 	struct secret *path_secrets;
 	enum onion_type failcode;
-	const tal_t *tmpctx = tal_tmpctx(ctx);
 	size_t i, n_hops = tal_count(route);
 	struct hop_data *hop_data = tal_arr(tmpctx, struct hop_data, n_hops);
 	struct pubkey *ids = tal_arr(tmpctx, struct pubkey, n_hops);
@@ -776,7 +755,6 @@ send_payment(const tal_t *ctx,
 
 	add_sendpay_waiter(ctx, rhash, ld, cb, cbarg);
 
-	tal_free(tmpctx);
 	return true;
 }
 

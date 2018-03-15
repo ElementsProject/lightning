@@ -410,7 +410,6 @@ static char *decode_r(struct bolt11 *b11,
                       u5 **data, size_t *data_len,
                       size_t data_length)
 {
-        tal_t *tmpctx = tal_tmpctx(b11);
         size_t rlen = data_length * 5 / 8;
         u8 *r8 = tal_arr(tmpctx, u8, rlen);
         size_t n = 0;
@@ -423,7 +422,6 @@ static char *decode_r(struct bolt11 *b11,
         do {
                 tal_resize(&r, n+1);
                 if (!fromwire_route_info(&cursor, &rlen, &r[n])) {
-                        tal_free(tmpctx);
                         return tal_fmt(b11, "r: hop %zu truncated", n);
                 }
                 n++;
@@ -434,7 +432,6 @@ static char *decode_r(struct bolt11 *b11,
         tal_resize(&b11->routes, n+1);
         b11->routes[n] = tal_steal(b11, r);
 
-        tal_free(tmpctx);
         return NULL;
 }
 
@@ -464,7 +461,6 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
         u5 *data;
         size_t data_len;
         struct bolt11 *b11 = new_bolt11(ctx, NULL);
-        tal_t *tmpctx = tal_tmpctx(b11);
         u8 sig_and_recid[65];
         secp256k1_ecdsa_recoverable_signature sig;
         struct hash_u5 hu5;
@@ -701,7 +697,6 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
                         return decode_fail(b11, fail, "invalid signature");
         }
 
-        tal_free(tmpctx);
         return b11;
 }
 
@@ -893,7 +888,6 @@ char *bolt11_encode_(const tal_t *ctx,
                                   void *arg),
 		     void *arg)
 {
-        tal_t *tmpctx = tal_tmpctx(ctx);
         u5 *data = tal_arr(tmpctx, u5, 0);
         char *hrp, *output;
         char postfix;
@@ -971,12 +965,12 @@ char *bolt11_encode_(const tal_t *ctx,
 
         /* FIXME: towire_ should check this? */
         if (tal_len(data) > 65535)
-                return tal_free(tmpctx);
+                return NULL;
 
         /* Need exact length here */
         hrpu8 = tal_dup_arr(tmpctx, u8, (const u8 *)hrp, strlen(hrp), 0);
         if (!sign(data, hrpu8, &rsig, arg))
-                return tal_free(tmpctx);
+                return NULL;
 
         secp256k1_ecdsa_recoverable_signature_serialize_compact(
                 secp256k1_ctx,
@@ -991,7 +985,6 @@ char *bolt11_encode_(const tal_t *ctx,
         if (!bech32_encode(output, hrp, data, tal_count(data), (size_t)-1))
                 output = tal_free(output);
 
-        tal_free(tmpctx);
         return output;
 }
 

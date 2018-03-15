@@ -1325,7 +1325,6 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 				  const secp256k1_ecdsa_signature *remote_htlc_sigs,
 				  struct tracked_output **outs)
 {
-	const tal_t *tmpctx = tal_tmpctx(NULL);
 	u8 **htlc_scripts;
 	u8 *local_wscript, *script[NUM_SIDES];
 	struct pubkey local_per_commitment_point;
@@ -1550,7 +1549,6 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 	note_missing_htlcs(htlc_scripts, htlcs,
 			   tell_if_missing, tell_immediately);
 	wait_for_resolved(outs);
-	tal_free(tmpctx);
 }
 
 /* We produce individual penalty txs.  It's less efficient, but avoids them
@@ -1558,7 +1556,6 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
  * delay */
 static void steal_to_them_output(struct tracked_output *out)
 {
-	const tal_t *tmpctx = tal_tmpctx(NULL);
 	u8 *wscript;
 	struct bitcoin_tx *tx;
 	enum tx_type tx_type = OUR_PENALTY_TX;
@@ -1582,7 +1579,6 @@ static void steal_to_them_output(struct tracked_output *out)
 		      &tx_type);
 
 	propose_resolution(out, tx, 0, tx_type);
-	tal_free(tmpctx);
 }
 
 static void steal_htlc(struct tracked_output *out)
@@ -1631,7 +1627,6 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			       const bool *tell_immediately,
 			       struct tracked_output **outs)
 {
-	const tal_t *tmpctx = tal_tmpctx(NULL);
 	u8 **htlc_scripts;
 	u8 *remote_wscript, *script[NUM_SIDES];
 	struct keyset *ks;
@@ -1874,7 +1869,6 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 	note_missing_htlcs(htlc_scripts, htlcs,
 			   tell_if_missing, tell_immediately);
 	wait_for_resolved(outs);
-	tal_free(tmpctx);
 }
 
 static void handle_their_unilateral(const struct bitcoin_tx *tx,
@@ -1894,7 +1888,6 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 				    const bool *tell_immediately,
 				    struct tracked_output **outs)
 {
-	const tal_t *tmpctx = tal_tmpctx(NULL);
 	u8 **htlc_scripts;
 	u8 *remote_wscript, *script[NUM_SIDES];
 	struct keyset *ks;
@@ -2103,12 +2096,11 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 	note_missing_htlcs(htlc_scripts, htlcs,
 			   tell_if_missing, tell_immediately);
 	wait_for_resolved(outs);
-	tal_free(tmpctx);
 }
 
 int main(int argc, char *argv[])
 {
-	const tal_t *ctx = tal_tmpctx(NULL);
+	const tal_t *ctx = tal(NULL, char);
 	u8 *msg;
 	struct privkey seed;
 	struct pubkey remote_payment_basepoint, remote_htlc_basepoint,
@@ -2135,7 +2127,7 @@ int main(int argc, char *argv[])
 
 	missing_htlc_msgs = tal_arr(ctx, u8 *, 0);
 
-	msg = wire_sync_read(ctx, REQ_FD);
+	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_onchain_init(ctx, msg,
 				   &seed, &shachain,
 				   &funding_amount_satoshi,
@@ -2174,7 +2166,7 @@ int main(int argc, char *argv[])
 			      "Can't allocate %"PRIu64" htlcs", num_htlcs);
 
 	for (u64 i = 0; i < num_htlcs; i++) {
-		msg = wire_sync_read(ctx, REQ_FD);
+		msg = wire_sync_read(tmpctx, REQ_FD);
 		if (!fromwire_onchain_htlc(msg, &htlcs[i],
 					   &tell_if_missing[i],
 					   &tell_immediately[i]))
@@ -2310,7 +2302,7 @@ int main(int argc, char *argv[])
 				      "Unknown commitment index %"PRIu64
 				      " for tx %s",
 				      commit_num,
-				      type_to_string(ctx, struct bitcoin_tx,
+				      type_to_string(tmpctx, struct bitcoin_tx,
 						     tx));
 	}
 

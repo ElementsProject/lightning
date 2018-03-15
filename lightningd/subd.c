@@ -285,7 +285,6 @@ static struct io_plan *sd_msg_reply(struct io_conn *conn, struct subd *sd,
 {
 	int type = fromwire_peektype(sd->msg_in);
 	bool freed = false;
-	const tal_t *tmpctx = tal_tmpctx(conn);
 	int *fds_in;
 
 	log_debug(sd->log, "REPLY %s with %zu fds",
@@ -309,7 +308,6 @@ static struct io_plan *sd_msg_reply(struct io_conn *conn, struct subd *sd,
 	/* Find out if they freed it. */
 	tal_add_destructor2(sd, mark_freed, &freed);
 	sr->replycb(sd, sd->msg_in, fds_in, sr->replycb_data);
-	tal_free(tmpctx);
 
 	if (freed)
 		return io_close(conn);
@@ -428,7 +426,6 @@ static bool handle_set_billboard(struct subd *sd, const u8 *msg)
 static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 {
 	int type = fromwire_peektype(sd->msg_in);
-	const tal_t *tmpctx;
 	struct subd_req *sr;
 	struct db *db = sd->ld->wallet->db;
 	struct io_plan *plan;
@@ -452,8 +449,7 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 		goto out;
 	}
 
-	/* If not stolen, we'll free this below. */
-	tmpctx = tal_tmpctx(sd);
+	/* If not stolen, we'll free this later. */
 	tal_steal(tmpctx, sd->msg_in);
 
 	/* We handle status messages ourselves. */
@@ -487,7 +483,6 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 			if (!sd->fds_in) {
 				/* Don't free msg_in: we go around again. */
 				tal_steal(sd, sd->msg_in);
-				tal_free(tmpctx);
 				plan = sd_collect_fds(conn, sd, 2);
 				goto out;
 			}
@@ -518,7 +513,6 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 			assert(!sd->fds_in);
 			/* Don't free msg_in: we go around again. */
 			tal_steal(sd, sd->msg_in);
-			tal_free(tmpctx);
 			plan = sd_collect_fds(conn, sd, i);
 			goto out;
 		}
@@ -527,7 +521,6 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 next:
 	sd->msg_in = NULL;
 	sd->fds_in = tal_free(sd->fds_in);
-	tal_free(tmpctx);
 
 	plan = io_read_wire(conn, sd, &sd->msg_in, sd_msg_read, sd);
 	goto out;

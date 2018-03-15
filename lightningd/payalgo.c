@@ -222,12 +222,8 @@ static char const *stringify_route(const tal_t *ctx, struct route_hop *route)
 
 static void log_route(struct pay *pay, struct route_hop *route)
 {
-	const tal_t *tmpctx = tal_tmpctx(pay->try_parent);
-
 	log_info(pay->cmd->ld->log, "pay(%p): sendpay via route: %s",
 			pay, stringify_route(tmpctx, route));
-
-	tal_free(tmpctx);
 }
 
 static void json_pay_sendpay_resume(const struct sendpay_result *r,

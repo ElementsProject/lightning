@@ -16,9 +16,6 @@ char *tal_hex(const tal_t *ctx, const tal_t *data);
 /* Allocate and fill a buffer with the data of this hex string. */
 u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len);
 
-/* FIXME: Remove in favor of global */
-#define tal_tmpctx(ctx) tal((ctx), char)
-
 /* Global temporary convenience context: freed in io loop core. */
 extern const tal_t *tmpctx;
 

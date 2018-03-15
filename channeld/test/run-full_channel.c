@@ -24,8 +24,6 @@ void status_fmt(enum log_level level UNUSED, const char *fmt, ...)
 	va_end(ap);
 }
 
-const void *trc;
-
 /* bitcoind loves its backwards txids! */
 static struct bitcoin_txid txid_from_hex(const char *hex)
 {
@@ -183,7 +181,6 @@ static struct pubkey pubkey_from_hex(const char *hex)
 static void tx_must_be_eq(const struct bitcoin_tx *a,
 			  const struct bitcoin_tx *b)
 {
-	tal_t *tmpctx = tal_tmpctx(NULL);
 	u8 *lina, *linb;
 	size_t i;
 
@@ -211,7 +208,6 @@ static void tx_must_be_eq(const struct bitcoin_tx *a,
 		     "%s",
 		     tal_hex(tmpctx, lina),
 		     tal_hex(tmpctx, linb));
-	tal_free(tmpctx);
 }
 
 static void txs_must_be_eq(struct bitcoin_tx **a, struct bitcoin_tx **b)
@@ -321,21 +317,19 @@ static void update_feerate(struct channel *channel, u32 feerate)
 
 int main(void)
 {
-	tal_t *tmpctx = tal_tmpctx(NULL);
 	struct bitcoin_txid funding_txid;
 	/* We test from both sides. */
 	struct channel *lchannel, *rchannel;
 	u64 funding_amount_satoshi;
-	u32 *feerate_per_kw = tal_arr(tmpctx, u32, NUM_SIDES);
+	u32 *feerate_per_kw;
 	unsigned int funding_output_index;
 	struct keyset keyset;
 	struct pubkey local_funding_pubkey, remote_funding_pubkey;
 	struct pubkey local_per_commitment_point;
 	struct basepoints localbase, remotebase;
-	struct pubkey *unknown = tal(tmpctx, struct pubkey);
+	struct pubkey *unknown;
 	struct bitcoin_tx *raw_tx, **txs, **txs2;
-	struct channel_config *local_config = tal(tmpctx, struct channel_config);
-	struct channel_config *remote_config = tal(tmpctx, struct channel_config);
+	struct channel_config *local_config, *remote_config;
 	u64 to_local_msat, to_remote_msat;
 	const struct htlc **htlc_map, **htlcs;
 	const u8 *funding_wscript, **wscripts;
@@ -343,8 +337,12 @@ int main(void)
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
+	setup_tmpctx();
 
-	trc = tmpctx;
+	feerate_per_kw = tal_arr(tmpctx, u32, NUM_SIDES);
+	unknown = tal(tmpctx, struct pubkey);
+	local_config = tal(tmpctx, struct channel_config);
+	remote_config = tal(tmpctx, struct channel_config);
 
 	/* BOLT #3:
 	 *

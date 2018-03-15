@@ -229,7 +229,6 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 				    const int *fds,
 				    struct funding_channel *fc)
 {
-	tal_t *tmpctx = tal_tmpctx(fc);
 	u8 *msg, *linear;
 	struct channel_info channel_info;
 	struct bitcoin_tx *fundingtx;
@@ -412,7 +411,6 @@ static void opening_fundee_finished(struct subd *openingd,
 	u64 gossip_index;
 	secp256k1_ecdsa_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
-	const tal_t *tmpctx = tal_tmpctx(uc);
 	struct lightningd *ld = openingd->ld;
 	struct bitcoin_txid funding_txid;
 	u16 funding_outnum;

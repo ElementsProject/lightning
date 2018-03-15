@@ -174,7 +174,6 @@ static void start_commit_timer(struct peer *peer);
 
 static void billboard_update(const struct peer *peer)
 {
-	const tal_t *tmpctx = tal_tmpctx(peer);
 	const char *funding_status, *announce_status, *shutdown_status;
 
 	if (peer->funding_locked[LOCAL] && peer->funding_locked[REMOTE])
@@ -338,7 +337,6 @@ static void gossip_in(struct peer *peer, const u8 *msg)
  * our own outgoing payments */
 static void send_temporary_announcement(struct peer *peer)
 {
-	tal_t *tmpctx;
 	u8 *msg;
 
 	/* If we are supposed to send a real announcement, don't do a
@@ -347,23 +345,18 @@ static void send_temporary_announcement(struct peer *peer)
 	    !peer->funding_locked[REMOTE])
 		return;
 
-	tmpctx = tal_tmpctx(peer);
-
 	msg = towire_gossip_local_add_channel(
 	    tmpctx, &peer->short_channel_ids[LOCAL], &peer->chain_hash,
 	    &peer->node_ids[REMOTE], peer->cltv_delta,
 	    peer->conf[REMOTE].htlc_minimum_msat, peer->fee_base,
 	    peer->fee_per_satoshi);
 	wire_sync_write(GOSSIP_FD, take(msg));
-
-	tal_free(tmpctx);
 }
 
 static void send_announcement_signatures(struct peer *peer)
 {
 	/* First 2 + 256 byte are the signatures and msg type, skip them */
 	size_t offset = 258;
-	const tal_t *tmpctx;
 	struct sha256_double hash;
 	u8 *msg, *ca, *req;
 
@@ -378,7 +371,6 @@ static void send_announcement_signatures(struct peer *peer)
 	    !peer->funding_locked[REMOTE])
 		return;
 
-	tmpctx = tal_tmpctx(peer);
 	status_trace("Exchanging announcement signatures.");
 	ca = create_channel_announcement(tmpctx, peer);
 	req = towire_hsm_cannouncement_sig_req(
@@ -421,13 +413,11 @@ static void send_announcement_signatures(struct peer *peer)
 	    &peer->announcement_node_sigs[LOCAL],
 	    &peer->announcement_bitcoin_sigs[LOCAL]);
 	enqueue_peer_msg(peer, take(msg));
-	tal_free(tmpctx);
 }
 
 static u8 *create_channel_update(const tal_t *ctx,
 				 struct peer *peer, bool disabled)
 {
-	tal_t *tmpctx = tal_tmpctx(ctx);
 	u32 timestamp = time_now().ts.tv_sec;
 	u16 flags;
 	u8 *cupdate, *msg;
@@ -460,7 +450,6 @@ static u8 *create_channel_update(const tal_t *ctx,
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading cupdate_sig_req: %s",
 			      strerror(errno));
-	tal_free(tmpctx);
 	return cupdate;
 }
 
@@ -557,7 +546,6 @@ static void check_short_ids_match(struct peer *peer)
 
 static void announce_channel(struct peer *peer)
 {
-	tal_t *tmpctx = tal_tmpctx(peer);
 	u8 *cannounce, *cupdate;
 
 	check_short_ids_match(peer);
@@ -567,8 +555,6 @@ static void announce_channel(struct peer *peer)
 
 	wire_sync_write(GOSSIP_FD, cannounce);
 	wire_sync_write(GOSSIP_FD, cupdate);
-
-	tal_free(tmpctx);
 }
 
 static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg)
@@ -606,7 +592,6 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 static bool get_shared_secret(const struct htlc *htlc,
 			      struct secret *shared_secret)
 {
-	tal_t *tmpctx = tal_tmpctx(htlc);
 	struct pubkey ephemeral;
 	struct onionpacket *op;
 	u8 *msg;
@@ -616,7 +601,6 @@ static bool get_shared_secret(const struct htlc *htlc,
 	if (!op) {
 		/* Return an invalid shared secret. */
 		memset(shared_secret, 0, sizeof(*shared_secret));
-		tal_free(tmpctx);
 		return false;
 	}
 
@@ -629,7 +613,6 @@ static bool get_shared_secret(const struct htlc *htlc,
 	/* Gives all-zero shares_secret if it was invalid. */
 	if (!msg || !fromwire_hsm_ecdh_resp(msg, shared_secret))
 		status_failed(STATUS_FAIL_HSM_IO, "Reading ecdh response");
-	tal_free(tmpctx);
 
 	return !memeqzero(shared_secret, sizeof(*shared_secret));
 }
@@ -745,7 +728,6 @@ static u8 *sending_commitsig_msg(const tal_t *ctx,
 				 const secp256k1_ecdsa_signature *commit_sig,
 				 const secp256k1_ecdsa_signature *htlc_sigs)
 {
-	const tal_t *tmpctx = tal_tmpctx(ctx);
 	struct changed_htlc *changed;
 	u8 *msg;
 
@@ -755,7 +737,6 @@ static u8 *sending_commitsig_msg(const tal_t *ctx,
 	msg = towire_channel_sending_commitsig(ctx, remote_commit_index,
 					       remote_feerate,
 					       changed, commit_sig, htlc_sigs);
-	tal_free(tmpctx);
 	return msg;
 }
 
@@ -852,7 +833,6 @@ static struct commit_sigs *calc_commitsigs(const tal_t *ctx,
 					   const struct peer *peer,
 					   u64 commit_index)
 {
-	const tal_t *tmpctx = tal_tmpctx(ctx);
 	size_t i;
 	struct bitcoin_tx **txs;
 	const u8 **wscripts;
@@ -929,13 +909,11 @@ static struct commit_sigs *calc_commitsigs(const tal_t *ctx,
 				    &commit_sigs->htlc_sigs[i]));
 	}
 
-	tal_free(tmpctx);
 	return commit_sigs;
 }
 
 static void send_commit(struct peer *peer)
 {
-	tal_t *tmpctx = tal_tmpctx(peer);
 	u8 *msg;
 	const struct htlc **changed_htlcs;
 
@@ -943,7 +921,6 @@ static void send_commit(struct peer *peer)
 	/* Hack to suppress all commit sends if dev_disconnect says to */
 	if (dev_suppress_commit) {
 		peer->commit_timer = NULL;
-		tal_free(tmpctx);
 		return;
 	}
 #endif
@@ -963,7 +940,6 @@ static void send_commit(struct peer *peer)
 		/* Mark this as done and try again. */
 		peer->commit_timer = NULL;
 		start_commit_timer(peer);
-		tal_free(tmpctx);
 		return;
 	}
 
@@ -976,7 +952,6 @@ static void send_commit(struct peer *peer)
 		status_trace("Can't send commit: final shutdown phase");
 
 		peer->commit_timer = NULL;
-		tal_free(tmpctx);
 		return;
 	}
 
@@ -1016,7 +991,6 @@ static void send_commit(struct peer *peer)
 		maybe_send_shutdown(peer);
 
 		peer->commit_timer = NULL;
-		tal_free(tmpctx);
 		return;
 	}
 
@@ -1050,7 +1024,6 @@ static void send_commit(struct peer *peer)
 	/* Timer now considered expired, you can add a new one. */
 	peer->commit_timer = NULL;
 	start_commit_timer(peer);
-	tal_free(tmpctx);
 }
 
 static void start_commit_timer(struct peer *peer)
@@ -1124,7 +1097,6 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 			     const struct htlc **changed_htlcs,
 			     const struct bitcoin_tx *committx)
 {
-	const tal_t *tmpctx = tal_tmpctx(ctx);
 	struct changed_htlc *changed;
 	struct fulfilled_htlc *fulfilled;
 	const struct failed_htlc **failed;
@@ -1187,13 +1159,11 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 					   failed,
 					   changed,
 					   committx);
-	tal_free(tmpctx);
 	return msg;
 }
 
 static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 {
-	const tal_t *tmpctx = tal_tmpctx(peer);
 	struct channel_id channel_id;
 	secp256k1_ecdsa_signature commit_sig, *htlc_sigs;
 	struct pubkey remote_htlckey, point;
@@ -1312,7 +1282,6 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 
 	master_wait_sync_reply(tmpctx, peer, take(msg),
 			       WIRE_CHANNEL_GOT_COMMITSIG_REPLY);
-	tal_free(tmpctx);
 	return send_revocation(peer);
 }
 
@@ -1321,7 +1290,6 @@ static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
 			  const struct pubkey *next_per_commit_point,
 			  const struct htlc **changed_htlcs)
 {
-	tal_t *tmpctx = tal_tmpctx(ctx);
 	u8 *msg;
 	struct changed_htlc *changed = tal_arr(tmpctx, struct changed_htlc, 0);
 
@@ -1339,7 +1307,6 @@ static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
 
 	msg = towire_channel_got_revoke(ctx, revoke_num, per_commitment_secret,
 					next_per_commit_point, changed);
-	tal_free(tmpctx);
 	return msg;
 }
 
@@ -1349,7 +1316,6 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	struct privkey privkey;
 	struct channel_id channel_id;
 	struct pubkey per_commit_point, next_per_commit;
-	tal_t *tmpctx = tal_tmpctx(msg);
 	const struct htlc **changed_htlcs = tal_arr(msg, const struct htlc *, 0);
 
 	if (!fromwire_revoke_and_ack(msg, &channel_id, &old_commit_secret,
@@ -1416,8 +1382,6 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 				    &peer->old_remote_per_commit));
 
 	start_commit_timer(peer);
-
-	tal_free(tmpctx);
 }
 
 static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
@@ -2201,7 +2165,6 @@ static u8 *foreign_channel_update(const tal_t *ctx,
 				  struct peer *peer,
 				  const struct short_channel_id *scid)
 {
-	tal_t *tmpctx = tal_tmpctx(ctx);
 	u8 *msg, *update;
 
 	msg = towire_gossip_get_update(tmpctx, scid);
@@ -2210,7 +2173,6 @@ static u8 *foreign_channel_update(const tal_t *ctx,
 	if (!fromwire_gossip_get_update_reply(ctx, msg, &update))
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Invalid update reply");
-	tal_free(tmpctx);
 	return update;
 }
 

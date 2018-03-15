@@ -456,7 +456,6 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 
 static void send_node_announcement(struct daemon *daemon)
 {
-	tal_t *tmpctx = tal_tmpctx(daemon);
 	u32 timestamp = time_now().ts.tv_sec;
 	secp256k1_ecdsa_signature sig;
 	u8 *msg, *nannounce, *err;
@@ -484,7 +483,6 @@ static void send_node_announcement(struct daemon *daemon)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "rejected own node announcement: %s",
 			      tal_hex(tmpctx, err));
-	tal_free(tmpctx);
 }
 
 /* Returns error if we should send an error. */
@@ -1092,7 +1090,6 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 				    u8 *msg)
 {
-	tal_t *tmpctx = tal_tmpctx(msg);
 	struct pubkey source, destination;
 	u32 msatoshi, final_cltv;
 	u16 riskfactor;
@@ -1114,7 +1111,6 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 			 fuzz, &seed);
 
 	out = towire_gossip_getroute_reply(msg, hops);
-	tal_free(tmpctx);
 	daemon_conn_send(&daemon->master, out);
 	return daemon_conn_read_next(conn, &daemon->master);
 }
@@ -1163,7 +1159,6 @@ static void append_channel(struct gossip_getchannels_entry **entries,
 static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daemon,
 				    u8 *msg)
 {
-	tal_t *tmpctx = tal_tmpctx(daemon);
 	u8 *out;
 	struct gossip_getchannels_entry *entries;
 	struct chan *chan;
@@ -1188,7 +1183,6 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 
 	out = towire_gossip_getchannels_reply(daemon, entries);
 	daemon_conn_send(&daemon->master, take(out));
-	tal_free(tmpctx);
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
@@ -1215,7 +1209,6 @@ static void append_node(const struct gossip_getnodes_entry ***nodes,
 static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 				const u8 *msg)
 {
-	tal_t *tmpctx = tal_tmpctx(daemon);
 	u8 *out;
 	struct node *n;
 	const struct gossip_getnodes_entry **nodes;
@@ -1240,7 +1233,6 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 	}
 	out = towire_gossip_getnodes_reply(daemon, nodes);
 	daemon_conn_send(&daemon->master, take(out));
-	tal_free(tmpctx);
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
@@ -1326,7 +1318,6 @@ fail:
 static void gossip_send_keepalive_update(struct routing_state *rstate,
 					 struct half_chan *hc)
 {
-	tal_t *tmpctx = tal_tmpctx(rstate);
 	secp256k1_ecdsa_signature sig;
 	struct bitcoin_blkid chain_hash;
 	struct short_channel_id scid;
@@ -1377,8 +1368,6 @@ static void gossip_send_keepalive_update(struct routing_state *rstate,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "rejected keepalive channel_update: %s",
 			      tal_hex(tmpctx, err));
-	tal_free(tmpctx);
-
 }
 
 static void gossip_refresh_network(struct daemon *daemon)
@@ -1860,7 +1849,6 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 static struct io_plan *handle_disable_channel(struct io_conn *conn,
 					      struct daemon *daemon, u8 *msg)
 {
-	tal_t *tmpctx = tal_tmpctx(msg);
 	struct short_channel_id scid;
 	u8 direction;
 	struct chan *chan;
@@ -1947,7 +1935,6 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 			      tal_hex(tmpctx, err));
 
 fail:
-	tal_free(tmpctx);
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 static struct io_plan *handle_routing_failure(struct io_conn *conn,
