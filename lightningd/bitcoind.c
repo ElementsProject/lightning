@@ -613,7 +613,7 @@ static bool process_getblockhash_for_txout(struct bitcoin_cli *bcli)
 
 	start_bitcoin_cli(bcli->bitcoind, NULL, process_getblock, false, cb, go,
 			  "getblock",
-			  take(tal_strndup(go, bcli->output,bcli->output_bytes)),
+			  take(tal_strndup(NULL, bcli->output,bcli->output_bytes)),
 			  NULL);
 	return true;
 }
@@ -635,7 +635,7 @@ void bitcoind_getoutput_(struct bitcoind *bitcoind,
 	/* We may not have topology ourselves that far back, so ask bitcoind */
 	start_bitcoin_cli(bitcoind, NULL, process_getblockhash_for_txout,
 			  true, cb, go,
-			  "getblockhash", take(tal_fmt(go, "%u", blocknum)),
+			  "getblockhash", take(tal_fmt(NULL, "%u", blocknum)),
 			  NULL);
 
 	/* Looks like a leak, but we free it in process_getblock */
