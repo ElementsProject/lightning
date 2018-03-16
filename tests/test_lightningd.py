@@ -1246,8 +1246,9 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log(' to ONCHAIN')
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET (.*) after 5 blocks')
 
+        cid = l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['channel_id']
         wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status'] ==
-                 ['CHANNELD_NORMAL:Received error from peer: channel ALL: Internal error: Failing due to dev-fail command',
+                 ['CHANNELD_NORMAL:Received error from peer: channel {}: Internal error: Failing due to dev-fail command'.format(cid),
                   'ONCHAIN:Tracking their unilateral close',
                   'ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel'])
 
