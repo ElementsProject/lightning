@@ -1,6 +1,7 @@
 #include <bitcoin/script.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/tal/str/str.h>
+#include <common/wire_error.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <inttypes.h>
 #include <lightningd/channel.h>
@@ -287,6 +288,7 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 	va_list ap;
 	char *why;
 	u8 *msg;
+	struct channel_id cid;
 
 	va_start(ap, fmt);
 	why = tal_vfmt(channel, fmt, ap);
@@ -305,15 +307,10 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 
 	/* We can have multiple errors, eg. onchaind failures. */
 	if (!channel->error) {
-		/* BOLT #1:
-		 *
-		 * The channel is referred to by `channel_id` unless `channel_id` is
-		 * zero (ie. all bytes zero), in which case it refers to all
-		 * channels. */
-		static const struct channel_id all_channels;
-		u8 *msg = tal_dup_arr(NULL, u8, (const u8 *)why, strlen(why), 0);
-		channel->error = towire_error(channel, &all_channels, msg);
-		tal_free(msg);
+		derive_channel_id(&cid,
+				  &channel->funding_txid,
+				  channel->funding_outnum);
+		channel->error = towire_errorfmt(channel, &cid, "%s", why);
 	}
 
 	channel_set_owner(channel, NULL);
