@@ -169,7 +169,6 @@ u32 feerate_max(struct lightningd *ld)
 
 static void sign_last_tx(struct channel *channel)
 {
-	const tal_t *tmpctx = tal_tmpctx(channel);
 	u8 *funding_wscript;
 	struct pubkey local_funding_pubkey;
 	struct secrets secrets;
@@ -197,8 +196,6 @@ static void sign_last_tx(struct channel *channel)
 				       &sig,
 				       &channel->channel_info.remote_fundingkey,
 				       &local_funding_pubkey);
-
-	tal_free(tmpctx);
 }
 
 static void remove_sig(struct bitcoin_tx *signed_tx)

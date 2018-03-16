@@ -168,7 +168,6 @@ bool peer_start_channeld(struct channel *channel,
 			 const u8 *funding_signed,
 			 bool reconnected)
 {
-	const tal_t *tmpctx = tal_tmpctx(channel);
 	u8 *msg, *initmsg;
 	int hsmfd;
 	struct added_htlc *htlcs;
@@ -209,7 +208,6 @@ bool peer_start_channeld(struct channel *channel,
 		log_unusual(channel->log, "Could not subdaemon channel: %s",
 			    strerror(errno));
 		channel_fail_transient(channel, "Failed to subdaemon channel");
-		tal_free(tmpctx);
 		return true;
 	}
 
@@ -281,6 +279,5 @@ bool peer_start_channeld(struct channel *channel,
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));
 
-	tal_free(tmpctx);
 	return true;
 }

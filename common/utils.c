@@ -4,6 +4,7 @@
 #include <ccan/tal/str/str.h>
 
 secp256k1_context *secp256k1_ctx;
+const tal_t *tmpctx;
 
 char *tal_hexstr(const tal_t *ctx, const void *data, size_t len)
 {
@@ -25,36 +26,20 @@ u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len)
 	return data;
 }
 
-struct tmpctx {
-	struct list_node list;
-	const char *file;
-	unsigned int line;
-};
+/* Global temporary convenience context: freed in io loop core. */
 
-static struct list_head tmpctxs = LIST_HEAD_INIT(tmpctxs);
-
-static void destroy_tmpctx(struct tmpctx *t)
+/* Initial creation of tmpctx. */
+void setup_tmpctx(void)
 {
-	list_del_from(&tmpctxs, &t->list);
+	tmpctx = tal_alloc_(NULL, 0, false, false, "tmpctx");
 }
 
-tal_t *tal_tmpctx_(const tal_t *ctx, const char *file, unsigned int line)
+/* Free any children of tmpctx. */
+void clean_tmpctx(void)
 {
-	struct tmpctx *t = tal(ctx, struct tmpctx);
-	t->file = file;
-	t->line = line;
-	list_add_tail(&tmpctxs, &t->list);
-	tal_add_destructor(t, destroy_tmpctx);
-	return t;
-}
-
-const char *tmpctx_any(void)
-{
-	struct tmpctx *t = list_top(&tmpctxs, struct tmpctx, list);
-
-	if (t) {
-		assert(t->file != NULL);
-		return tal_fmt(t, "%s:%u", t->file, t->line);
+	/* Minor optimization: don't do anything if tmpctx unused. */
+	if (tal_first(tmpctx)) {
+		tal_free(tmpctx);
+		tmpctx = tal_alloc_(NULL, 0, false, false, "tmpctx");
 	}
-	return NULL;
 }

@@ -136,10 +136,12 @@ char *opt_subd_dev_disconnect(const char *optarg UNNEEDED, struct lightningd *ld
 #undef main
 int main(int argc UNUSED, char *argv[] UNUSED)
 {
-	char *tmpctx = tal_tmpctx(NULL);
 	char *argv0;
 	/* We're assuming we're run from top build dir. */
-	const char *answer = path_canon(tmpctx, "lightningd/test");
+	const char *answer;
+
+	setup_tmpctx();
+	answer = path_canon(tmpctx, "lightningd/test");
 
 	/* Various different ways we could find ourselves. */
 	argv0 = path_join(tmpctx,

@@ -60,9 +60,6 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 
 const void *trc;
 
-bool short_channel_id_from_str(const char *str, size_t strlen,
-			       struct short_channel_id *dst);
-
 static struct half_chan *
 get_or_make_connection(struct routing_state *rstate,
 		       const struct pubkey *from_id,
@@ -98,7 +95,6 @@ static bool channel_is_between(const struct chan *chan,
 int main(void)
 {
 	static const struct bitcoin_blkid zerohash;
-	const tal_t *ctx = trc = tal_tmpctx(NULL);
 	struct half_chan *nc;
 	struct routing_state *rstate;
 	struct pubkey a, b, c;
@@ -108,6 +104,7 @@ int main(void)
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
+	setup_tmpctx();
 
 	pubkey_from_hexstr("03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf",
 			   strlen("03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf"),
@@ -119,7 +116,7 @@ int main(void)
 			   strlen("02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06"),
 			   &c);
 
-	rstate = new_routing_state(ctx, &zerohash, &a, 0);
+	rstate = new_routing_state(tmpctx, &zerohash, &a, 0);
 
 	/* [{'active': True, 'short_id': '6990:2:1/1', 'fee_per_kw': 10, 'delay': 5, 'flags': 1, 'destination': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'source': '02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06', 'last_update': 1504064344}, */
 	nc = get_or_make_connection(rstate, &c, &b, "6990:2:1");
@@ -157,13 +154,13 @@ int main(void)
 	nc->flags = 1;
 	nc->last_timestamp = 1504064344;
 
-	route = find_route(ctx, rstate, &a, &c, 100000, riskfactor, 0.0, NULL, &fee);
+	route = find_route(tmpctx, rstate, &a, &c, 100000, riskfactor, 0.0, NULL, &fee);
 	assert(route);
 	assert(tal_count(route) == 2);
 	assert(channel_is_between(route[0], &a, &b));
 	assert(channel_is_between(route[1], &b, &c));
 
-	tal_free(ctx);
+	tal_free(tmpctx);
 	secp256k1_context_destroy(secp256k1_ctx);
 	return 0;
 }

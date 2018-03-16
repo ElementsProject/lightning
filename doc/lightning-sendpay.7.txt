@@ -37,10 +37,11 @@ immediately with success.
 RETURN VALUE
 ------------
 
-On success, an object with field 'completed' is returned.
-Typically this field is 'false', but if the payment has already
-succeeded before to the same destination and amount, the field
-shall be set to 'true' and the 'preimage' will be returned also.
+On success, an object similar to the output of *listpayments* will
+be returned.
+This object will have a 'status' field that is typically the
+string '"pending"', but may be '"complete"' if the payment was
+already performed successfully.
 
 On error, if the error occurred from a node other than the final
 destination, the route table will be updated so that getroute(7)
@@ -50,7 +51,6 @@ destination implies the payment should not be retried.
 The following error codes may occur:
 
 * -1. Catchall nonspecific error.
-* 200. A previous *sendpay* or *pay* is in progress.
 * 201. Already paid with this 'hash' using different amount or
   destination.
 * 202. Unparseable onion reply. The 'data' field of the error

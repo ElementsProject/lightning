@@ -137,10 +137,6 @@ struct log_book *new_log_book(size_t max_mem,
 	lr->init_time = time_now();
 	list_head_init(&lr->log);
 
-	/* In case ltmp not initialized, do so now (parent is lightningd log) */
-	if (!ltmp)
-		ltmp = notleak(tal(lr, char));
-
 	return lr;
 }
 
@@ -224,13 +220,6 @@ static void add_entry(struct log *log, struct log_entry *l)
 		deleted = prune_log(log->lr);
 		log_debug(log, "Log pruned %zu entries (mem %zu -> %zu)",
 			  deleted, old_mem, log->lr->mem_used);
-	}
-
-	/* Free up temporaries now if any */
-	if (tal_first(ltmp)) {
-		void *parent = tal_parent(ltmp);
-		tal_free(ltmp);
-		ltmp = notleak(tal(parent, char));
 	}
 }
 

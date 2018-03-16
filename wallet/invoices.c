@@ -56,7 +56,6 @@ static void trigger_invoice_waiter_resolve(struct invoices *invoices,
 					   u64 id,
 					   const struct invoice *invoice)
 {
-	const tal_t *tmpctx = tal_tmpctx(invoices);
 	struct invoice_waiter *w;
 	struct invoice_waiter *n;
 
@@ -67,15 +66,12 @@ static void trigger_invoice_waiter_resolve(struct invoices *invoices,
 		tal_steal(tmpctx, w);
 		trigger_invoice_waiter(w, invoice);
 	}
-
-	tal_free(tmpctx);
 }
 static void
 trigger_invoice_waiter_expire_or_delete(struct invoices *invoices,
 					u64 id,
 					const struct invoice *invoice)
 {
-	const tal_t *tmpctx = tal_tmpctx(invoices);
 	struct invoice_waiter *w;
 	struct invoice_waiter *n;
 
@@ -86,8 +82,6 @@ trigger_invoice_waiter_expire_or_delete(struct invoices *invoices,
 		tal_steal(tmpctx, w);
 		trigger_invoice_waiter(w, invoice);
 	}
-
-	tal_free(tmpctx);
 }
 
 static void wallet_stmt2invoice_details(const tal_t *ctx,
@@ -118,7 +112,6 @@ static void wallet_stmt2invoice_details(const tal_t *ctx,
 	}
 
 	dtl->bolt11 = tal_strndup(ctx, sqlite3_column_blob(stmt, 9), sqlite3_column_bytes(stmt, 9));
-	return;
 }
 
 struct invoices *invoices_new(const tal_t *ctx,
@@ -162,7 +155,6 @@ struct invoice_id_node {
 static void install_expiration_timer(struct invoices *invoices);
 static void trigger_expiration(struct invoices *invoices)
 {
-	const tal_t *tmpctx = tal_tmpctx(invoices);
 	struct list_head idlist;
 	struct invoice_id_node *idn;
 	u64 now = time_now().ts.tv_sec;
@@ -201,8 +193,6 @@ static void trigger_expiration(struct invoices *invoices)
 	}
 
 	install_expiration_timer(invoices);
-
-	tal_free(tmpctx);
 }
 
 static void install_expiration_timer(struct invoices *invoices)
@@ -420,7 +410,7 @@ bool invoices_iterate(struct invoices *invoices,
 	}
 }
 void invoices_iterator_deref(const tal_t *ctx,
-			     struct invoices *invoices,
+			     struct invoices *invoices UNUSED,
 			     const struct invoice_iterator *it,
 			     struct invoice_details *details)
 {
@@ -447,7 +437,6 @@ void invoices_resolve(struct invoices *invoices,
 	sqlite3_stmt *stmt;
 	s64 pay_index;
 	u64 paid_timestamp;
-	const tal_t *tmpctx = tal_tmpctx(NULL);
 
 	/* Assign a pay-index. */
 	pay_index = get_next_pay_index(invoices->db);
@@ -470,9 +459,6 @@ void invoices_resolve(struct invoices *invoices,
 
 	/* Tell all the waiters about the paid invoice. */
 	trigger_invoice_waiter_resolve(invoices, invoice.id, &invoice);
-
-	/* Free all watchers. */
-	tal_free(tmpctx);
 }
 
 /* Called when an invoice waiter is destructed. */

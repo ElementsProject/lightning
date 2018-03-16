@@ -11,11 +11,8 @@ It is designed to implement the lightning protocol as specified in
 
 Getting Started
 ---------------
-It's in C, to encourage alternate implementations.
-It uses the [Linux coding style][style].
-Patches are welcome!
-
-[style]: https://www.kernel.org/doc/html/v4.10/process/coding-style.html
+It's in C, to encourage alternate implementations.  Patches are welcome!
+You should read our [Style Guide](STYLE.md).
 
 To read the code, you'll probably need to understand `ccan/tal`: it's a
 hierarchical memory allocator, where each allocation has a parent, and

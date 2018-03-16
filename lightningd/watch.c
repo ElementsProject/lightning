@@ -216,7 +216,7 @@ static bool txw_fire(struct txwatch *txw,
 	log_debug(txw->channel->log,
 		  "Got depth change %u->%u for %s",
 		  txw->depth, depth,
-		  type_to_string(ltmp, struct bitcoin_txid, &txw->txid));
+		  type_to_string(tmpctx, struct bitcoin_txid, &txw->txid));
 	txw->depth = depth;
 	r = txw->cb(txw->channel, tx, txw->depth);
 	switch (r) {
@@ -254,9 +254,9 @@ void txowatch_fire(const struct txowatch *txow,
 	bitcoin_txid(tx, &txid);
 	log_debug(txow->channel->log,
 		  "Got UTXO spend for %s:%u: %s",
-		  type_to_string(ltmp, struct bitcoin_txid, &txow->out.txid),
+		  type_to_string(tmpctx, struct bitcoin_txid, &txow->out.txid),
 		  txow->out.index,
-		  type_to_string(ltmp, struct bitcoin_txid, &txid));
+		  type_to_string(tmpctx, struct bitcoin_txid, &txid));
 
 	r = txow->cb(txow->channel, tx, input_num, block);
 	switch (r) {

@@ -8,7 +8,7 @@ lightning-waitsendpay - Protocol for sending a payment via a route.
 
 SYNOPSIS
 --------
-*waitsendpay* 'hash' ['timeout']
+*waitsendpay* 'payment_hash' ['timeout']
 
 DESCRIPTION
 -----------
@@ -36,9 +36,10 @@ returns an error.
 RETURN VALUE
 ------------
 
-On success, an object with field 'completed' is returned.
-This field will be 'true' and another field 'preimage' of the
-object will be set to the preimage.
+On success, an object similar to the output of *listpayments* will
+be returned.
+This object will have a 'status' field that is the
+string '"complete"'.
 
 On error, if the error occurred from a node other than the final
 destination, the route table will be updated so that getroute(7)
@@ -56,8 +57,8 @@ The following error codes may occur:
   the error will be routing failure object.
 * 204. Failure along route; retry a different route. The 'data'
   field of the error will be routing failure object.
-* 208. A payment for 'hash' was never made and there is nothing
-  to wait for.
+* 208. A payment for 'payment_hash' was never made and there is
+  nothing to wait for.
 * 209. The payment already failed, but the reason for failure
   was not stored. This should only occur when querying failed
   payments on very old databases.

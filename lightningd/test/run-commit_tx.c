@@ -60,7 +60,6 @@ static bool pubkey_from_secret(const struct secret *secret,
 static void tx_must_be_eq(const struct bitcoin_tx *a,
 			  const struct bitcoin_tx *b)
 {
-	tal_t *tmpctx = tal_tmpctx(NULL);
 	u8 *lina, *linb;
 	size_t i;
 
@@ -88,8 +87,6 @@ static void tx_must_be_eq(const struct bitcoin_tx *a,
 		     "%s",
 		     tal_hex(tmpctx, lina),
 		     tal_hex(tmpctx, linb));
-
-	tal_free(tmpctx);
 }
 
 /* BOLT #3:
@@ -189,7 +186,6 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 			 const struct pubkey *remote_revocation_key,
 			 u32 feerate_per_kw)
 {
-	tal_t *tmpctx = tal_tmpctx(NULL);
 	size_t i, n;
 	struct bitcoin_txid txid;
 	struct bitcoin_tx **htlc_tx;
@@ -301,7 +297,6 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 		       htlc->id,
 		       tal_hex(tmpctx, linearize_tx(tmpctx, htlc_tx[i])));
 	}
-	tal_free(tmpctx);
 }
 
 static void report(struct bitcoin_tx *tx,
@@ -322,7 +317,6 @@ static void report(struct bitcoin_tx *tx,
 		   u32 feerate_per_kw,
 		   const struct htlc **htlc_map)
 {
-	tal_t *tmpctx = tal_tmpctx(NULL);
 	char *txhex;
 	secp256k1_ecdsa_signature localsig, remotesig;
 
@@ -354,7 +348,6 @@ static void report(struct bitcoin_tx *tx,
 		     remotekey, remote_htlckey,
 		     remote_revocation_key,
 		     feerate_per_kw);
-	tal_free(tmpctx);
 }
 
 #ifdef DEBUG
@@ -425,7 +418,6 @@ static const struct htlc **invert_htlcs(const struct htlc **htlcs)
 
 int main(void)
 {
-	tal_t *tmpctx = tal_tmpctx(NULL);
 	struct bitcoin_txid funding_txid;
 	u64 funding_amount_satoshi, dust_limit_satoshi;
 	u32 feerate_per_kw;
@@ -454,11 +446,14 @@ int main(void)
 	u8 *wscript;
 	unsigned int funding_output_index;
 	u64 commitment_number, cn_obscurer, to_local_msat, to_remote_msat;
-	const struct htlc **htlcs = setup_htlcs(tmpctx), **htlc_map, **htlc_map2,
-		**inv_htlcs = invert_htlcs(htlcs);
+	const struct htlc **htlcs, **htlc_map, **htlc_map2, **inv_htlcs;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
+	setup_tmpctx();
+
+	htlcs = setup_htlcs(tmpctx);
+	inv_htlcs = invert_htlcs(htlcs);
 
 	/* BOLT #3:
 	 *

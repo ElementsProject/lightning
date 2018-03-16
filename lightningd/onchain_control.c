@@ -148,7 +148,7 @@ static void handle_onchain_unwatch_tx(struct channel *channel, const u8 *msg)
 	txw = find_txwatch(channel->peer->ld->topology, &txid, channel);
 	if (!txw)
 		log_unusual(channel->log, "Can't unwatch txid %s",
-			    type_to_string(ltmp, struct bitcoin_txid, &txid));
+			    type_to_string(tmpctx, struct bitcoin_txid, &txid));
 	tal_free(txw);
 }
 
@@ -240,7 +240,7 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 	wallet_add_utxo(channel->peer->ld->wallet, u, p2wpkh);
 }
 
-static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds)
+static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds UNUSED)
 {
 	enum onchain_wire_type t = fromwire_peektype(msg);
 
@@ -324,12 +324,12 @@ static bool tell_if_missing(const struct channel *channel,
 
 /* Only error onchaind can get is if it dies. */
 static void onchain_error(struct channel *channel,
-			  int peer_fd, int gossip_fd,
-			  const struct crypto_state *cs,
-			  u64 gossip_index,
-			  const struct channel_id *channel_id,
+			  int peer_fd UNUSED, int gossip_fd UNUSED,
+			  const struct crypto_state *cs UNUSED,
+			  u64 gossip_index UNUSED,
+			  const struct channel_id *channel_id UNUSED,
 			  const char *desc,
-			  const u8 *err_for_them)
+			  const u8 *err_for_them UNUSED)
 {
 	/* FIXME: re-launch? */
 	log_broken(channel->log, "%s", desc);
@@ -341,13 +341,12 @@ static void onchain_error(struct channel *channel,
  * onchaind (like any other owner), and restart */
 enum watch_result funding_spent(struct channel *channel,
 				const struct bitcoin_tx *tx,
-				size_t input_num,
+				size_t input_num UNUSED,
 				const struct block *block)
 {
 	u8 *msg;
 	struct bitcoin_txid our_last_txid;
 	struct htlc_stub *stubs;
-	const tal_t *tmpctx = tal_tmpctx(channel);
 	struct lightningd *ld = channel->peer->ld;
 	struct pubkey final_key;
 
@@ -369,14 +368,12 @@ enum watch_result funding_spent(struct channel *channel,
 	if (!channel->owner) {
 		log_broken(channel->log, "Could not subdaemon onchain: %s",
 			   strerror(errno));
-		tal_free(tmpctx);
 		return KEEP_WATCHING;
 	}
 
 	stubs = wallet_htlc_stubs(tmpctx, ld->wallet, channel);
 	if (!stubs) {
 		log_broken(channel->log, "Could not load htlc_stubs");
-		tal_free(tmpctx);
 		return KEEP_WATCHING;
 	}
 
@@ -384,7 +381,6 @@ enum watch_result funding_spent(struct channel *channel,
 			  channel->final_key_idx)) {
 		log_broken(channel->log, "Could not derive onchain key %"PRIu64,
 			   channel->final_key_idx);
-		tal_free(tmpctx);
 		return KEEP_WATCHING;
 	}
 	/* This could be a mutual close, but it doesn't matter. */
@@ -434,7 +430,6 @@ enum watch_result funding_spent(struct channel *channel,
 
 	watch_tx_and_outputs(channel, tx);
 
-	tal_free(tmpctx);
 	/* We keep watching until peer finally deleted, for reorgs. */
 	return KEEP_WATCHING;
 }

@@ -68,7 +68,6 @@ static void test_b11(const char *b11str,
 		     const char *hashed_desc)
 {
 	struct bolt11 *b11;
-	const void *tmpctx = tal_tmpctx(NULL);
 	char *fail;
 	char *reproduce;
 
@@ -111,7 +110,6 @@ static void test_b11(const char *b11str,
 			abort();
 	}
 	assert(streq(reproduce, b11str));
-	tal_free(tmpctx);
 }
 
 int main(void)
@@ -119,10 +117,10 @@ int main(void)
 	struct bolt11 *b11;
 	struct pubkey node;
 	u64 msatoshi;
-	const void *ctx = tal_tmpctx(NULL);
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
+	setup_tmpctx();
 
 	/* BOLT #11:
 	 *
@@ -159,7 +157,7 @@ int main(void)
 	 * * `8rkx3yf5tcsyz3d73gafnh3cax9rn449d9p5uxz9ezhhypd0elx87sjle52x86fux2ypatgddc6k63n7erqz25le42c4u4ecky03ylcq`: signature
 	 * * `ca784w`: Bech32 checksum
 	 */
-	b11 = new_bolt11(ctx, NULL);
+	b11 = new_bolt11(tmpctx, NULL);
 	b11->chain = chainparams_for_network("bitcoin");
 	b11->timestamp = 1496314658;
 	if (!hex_decode("0001020304050607080900010203040506070809000102030405060708090102",
@@ -193,7 +191,7 @@ int main(void)
 	 * * `fj9srp`: Bech32 checksum
 	 */
 	msatoshi = 2500 * (1000ULL * 100000000) / 1000000;
-	b11 = new_bolt11(ctx, &msatoshi);
+	b11 = new_bolt11(tmpctx, &msatoshi);
 	b11->chain = chainparams_for_network("bitcoin");
 	b11->timestamp = 1496314658;
 	if (!hex_decode("0001020304050607080900010203040506070809000102030405060708090102",
@@ -225,7 +223,7 @@ int main(void)
 	 * * `2yxxz7`: Bech32 checksum
 	 */
 	msatoshi = 20 * (1000ULL * 100000000) / 1000;
-	b11 = new_bolt11(ctx, &msatoshi);
+	b11 = new_bolt11(tmpctx, &msatoshi);
 	b11->chain = chainparams_for_network("bitcoin");
 	b11->timestamp = 1496314658;
 	if (!hex_decode("0001020304050607080900010203040506070809000102030405060708090102",
@@ -239,6 +237,6 @@ int main(void)
 	/* FIXME: Test the others! */
 
 	secp256k1_context_destroy(secp256k1_ctx);
-	tal_free(ctx);
+	tal_free(tmpctx);
 	return 0;
 }

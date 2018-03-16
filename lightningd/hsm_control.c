@@ -32,7 +32,6 @@ u8 *hsm_sync_read(const tal_t *ctx, struct lightningd *ld)
 
 void hsm_init(struct lightningd *ld, bool newdir)
 {
-	const tal_t *tmpctx = tal_tmpctx(ld);
 	u8 *msg;
 	bool create;
 
@@ -56,6 +55,4 @@ void hsm_init(struct lightningd *ld, bool newdir)
 					&ld->peer_seed,
 					ld->wallet->bip32_base))
 		errx(1, "HSM did not give init reply");
-
-	tal_free(tmpctx);
 }

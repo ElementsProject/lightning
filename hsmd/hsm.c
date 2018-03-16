@@ -125,7 +125,7 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 
 	if (!fromwire_hsm_ecdh_req(dc->msg_in, &point)) {
 		daemon_conn_send(c->master,
-				 take(towire_hsmstatus_client_bad_request(c,
+				 take(towire_hsmstatus_client_bad_request(NULL,
 								&c->id,
 								dc->msg_in)));
 		return io_close(conn);
@@ -135,22 +135,21 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 	if (secp256k1_ecdh(secp256k1_ctx, ss.data, &point.pubkey,
 			   privkey.secret.data) != 1) {
 		status_broken("secp256k1_ecdh fail for client %s",
-			      type_to_string(trc, struct pubkey, &c->id));
+			      type_to_string(tmpctx, struct pubkey, &c->id));
 		daemon_conn_send(c->master,
-				 take(towire_hsmstatus_client_bad_request(c,
+				 take(towire_hsmstatus_client_bad_request(NULL,
 								&c->id,
 								dc->msg_in)));
 		return io_close(conn);
 	}
 
-	daemon_conn_send(dc, take(towire_hsm_ecdh_resp(c, &ss)));
+	daemon_conn_send(dc, take(towire_hsm_ecdh_resp(NULL, &ss)));
 	return daemon_conn_read_next(conn, dc);
 }
 
 static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 						struct daemon_conn *dc)
 {
-	tal_t *ctx = tal_tmpctx(conn);
 	/* First 2 + 256 byte are the signatures and msg type, skip them */
 	size_t offset = 258;
 	struct privkey node_pkey;
@@ -160,10 +159,10 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 	u8 *ca;
 	struct pubkey bitcoin_id;
 
-	if (!fromwire_hsm_cannouncement_sig_req(ctx, dc->msg_in,
+	if (!fromwire_hsm_cannouncement_sig_req(tmpctx, dc->msg_in,
 						&bitcoin_id, &ca)) {
 		status_broken("Failed to parse cannouncement_sig_req: %s",
-			      tal_hex(trc, dc->msg_in));
+			      tal_hex(tmpctx, dc->msg_in));
 		return io_close(conn);
 	}
 
@@ -179,17 +178,15 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 
 	sign_hash(&node_pkey, &hash, &node_sig);
 
-	reply = towire_hsm_cannouncement_sig_reply(ca, &node_sig);
+	reply = towire_hsm_cannouncement_sig_reply(NULL, &node_sig);
 	daemon_conn_send(dc, take(reply));
 
-	tal_free(ctx);
 	return daemon_conn_read_next(conn, dc);
 }
 
 static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 						 struct daemon_conn *dc)
 {
-	tal_t *tmpctx = tal_tmpctx(conn);
 	/* 2 bytes msg type + 64 bytes signature */
 	size_t offset = 66;
 	struct privkey node_pkey;
@@ -205,7 +202,7 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 	if (!fromwire_hsm_cupdate_sig_req(tmpctx, dc->msg_in, &cu)) {
 		status_broken("Failed to parse %s: %s",
 			      hsm_client_wire_type_name(fromwire_peektype(dc->msg_in)),
-			      tal_hex(trc, dc->msg_in));
+			      tal_hex(tmpctx, dc->msg_in));
 		return io_close(conn);
 	}
 
@@ -214,12 +211,12 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 				     &cltv_expiry_delta, &htlc_minimum_msat,
 				     &fee_base_msat, &fee_proportional_mill)) {
 		status_broken("Failed to parse inner channel_update: %s",
-			      tal_hex(trc, dc->msg_in));
+			      tal_hex(tmpctx, dc->msg_in));
 		return io_close(conn);
 	}
 	if (tal_len(cu) < offset) {
 		status_broken("inner channel_update too short: %s",
-			      tal_hex(trc, dc->msg_in));
+			      tal_hex(tmpctx, dc->msg_in));
 		return io_close(conn);
 	}
 
@@ -233,8 +230,7 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 				   cltv_expiry_delta, htlc_minimum_msat,
 				   fee_base_msat, fee_proportional_mill);
 
-	daemon_conn_send(dc, take(towire_hsm_cupdate_sig_reply(tmpctx, cu)));
-	tal_free(tmpctx);
+	daemon_conn_send(dc, take(towire_hsm_cupdate_sig_reply(NULL, cu)));
 	return daemon_conn_read_next(conn, dc);
 }
 
@@ -288,7 +284,7 @@ static struct io_plan *handle_client(struct io_conn *conn,
 		status_broken("Client does not have the required capability to run %d", t);
 		daemon_conn_send(c->master,
 				 take(towire_hsmstatus_client_bad_request(
-				     c, &c->id, dc->msg_in)));
+				     NULL, &c->id, dc->msg_in)));
 		return io_close(conn);
 	}
 
@@ -341,7 +337,7 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	}
 
 	daemon_conn_send(c->master,
-			 take(towire_hsmstatus_client_bad_request(c,
+			 take(towire_hsmstatus_client_bad_request(NULL,
 								  &c->id,
 								  dc->msg_in)));
 	return io_close(conn);
@@ -370,7 +366,7 @@ static void send_init_response(struct daemon_conn *master)
 	hsm_peer_secret_base(&peer_seed);
 	node_key(NULL, &node_id);
 
-	msg = towire_hsm_init_reply(master, &node_id, &peer_seed,
+	msg = towire_hsm_init_reply(NULL, &node_id, &peer_seed,
 				    &secretstuff.bip32);
 	daemon_conn_send(master, take(msg));
 }
@@ -547,7 +543,7 @@ static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg)
 
 	new_client(master, &id, capabilities, handle_client, fds[0]);
 	daemon_conn_send(master,
-			 take(towire_hsm_client_hsmfd_reply(master)));
+			 take(towire_hsm_client_hsmfd_reply(NULL)));
 	daemon_conn_send_fd(master, fds[1]);
 }
 
@@ -596,7 +592,7 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
 		status_debug("Unilateral close output, deriving secrets");
 		hsm_unilateral_close_privkey(privkey, utxo->close_info);
 		pubkey_from_privkey(privkey, pubkey);
-		status_debug("Derived public key %s from unilateral close", type_to_string(trc, struct pubkey, pubkey));
+		status_debug("Derived public key %s from unilateral close", type_to_string(tmpctx, struct pubkey, pubkey));
 	} else {
 		/* Simple case: just get derive via HD-derivation */
 		bitcoin_keypair(privkey, pubkey, utxo->keyindex);
@@ -607,7 +603,6 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
  * can broadcast it. */
 static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 {
-	const tal_t *tmpctx = tal_tmpctx(master);
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
 	struct pubkey local_pubkey, remote_pubkey;
@@ -667,8 +662,7 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 		tx->input[i].script = scriptSigs[i];
 
 	daemon_conn_send(master,
-			 take(towire_hsm_sign_funding_reply(tmpctx, tx)));
-	tal_free(tmpctx);
+			 take(towire_hsm_sign_funding_reply(NULL, tx)));
 }
 
 /**
@@ -676,7 +670,6 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
  */
 static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 {
-	const tal_t *tmpctx = tal_tmpctx(master);
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
 	struct utxo **utxos;
@@ -691,14 +684,14 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 					  &change_out, &change_keyindex,
 					  &scriptpubkey, &utxos)) {
 		status_broken("Failed to parse sign_withdrawal: %s",
-			      tal_hex(trc, msg));
+			      tal_hex(tmpctx, msg));
 		return;
 	}
 
 	if (bip32_key_from_parent(&secretstuff.bip32, change_keyindex,
 				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
 		status_broken("Failed to parse sign_withdrawal: %s",
-			      tal_hex(trc, msg));
+			      tal_hex(tmpctx, msg));
 		return;
 	}
 
@@ -740,8 +733,7 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 		tx->input[i].script = scriptSigs[i];
 
 	daemon_conn_send(master,
-			 take(towire_hsm_sign_withdrawal_reply(tmpctx, tx)));
-	tal_free(tmpctx);
+			 take(towire_hsm_sign_withdrawal_reply(NULL, tx)));
 }
 
 /**
@@ -749,7 +741,6 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
  */
 static void sign_invoice(struct daemon_conn *master, const u8 *msg)
 {
-	const tal_t *tmpctx = tal_tmpctx(master);
 	u5 *u5bytes;
 	u8 *hrpu8;
 	char *hrp;
@@ -760,7 +751,7 @@ static void sign_invoice(struct daemon_conn *master, const u8 *msg)
 
 	if (!fromwire_hsm_sign_invoice(tmpctx, msg, &u5bytes, &hrpu8)) {
 		status_broken("Failed to parse sign_invoice: %s",
-			      tal_hex(trc, msg));
+			      tal_hex(tmpctx, msg));
 		return;
 	}
 
@@ -780,12 +771,11 @@ static void sign_invoice(struct daemon_conn *master, const u8 *msg)
                                               NULL, NULL)) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed to sign invoice: %s",
-			      tal_hex(trc, msg));
+			      tal_hex(tmpctx, msg));
 	}
 
 	daemon_conn_send(master,
-			 take(towire_hsm_sign_invoice_reply(tmpctx, &rsig)));
-	tal_free(tmpctx);
+			 take(towire_hsm_sign_invoice_reply(NULL, &rsig)));
 }
 
 static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
@@ -801,13 +791,13 @@ static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 	if (!fromwire_hsm_node_announcement_sig_req(msg, msg, &ann)) {
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Failed to parse node_announcement_sig_req: %s",
-			     tal_hex(trc, msg));
+			     tal_hex(tmpctx, msg));
 	}
 
 	if (tal_len(ann) < offset) {
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Node announcement too short: %s",
-			      tal_hex(trc, msg));
+			      tal_hex(tmpctx, msg));
 	}
 
 	/* FIXME(cdecker) Check the node announcement's content */
@@ -816,7 +806,7 @@ static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 
 	sign_hash(&node_pkey, &hash, &sig);
 
-	reply = towire_hsm_node_announcement_sig_reply(msg, &sig);
+	reply = towire_hsm_node_announcement_sig_reply(NULL, &sig);
 	daemon_conn_send(master, take(reply));
 }
 

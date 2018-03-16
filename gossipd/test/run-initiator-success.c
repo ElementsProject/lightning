@@ -178,7 +178,7 @@ static struct io_plan *success(struct io_conn *conn UNUSED,
 			       const struct pubkey *them,
 			       const struct wireaddr *addr UNUSED,
 			       const struct crypto_state *cs,
-			       void *ctx)
+			       void *unused UNUSED)
 {
 	assert(pubkey_eq(them, &rs_pub));
 
@@ -187,7 +187,7 @@ static struct io_plan *success(struct io_conn *conn UNUSED,
 
 	/* No memory leaks please */
 	secp256k1_context_destroy(secp256k1_ctx);
-	tal_free(ctx);
+	tal_free(tmpctx);
 	exit(0);
 }
 
@@ -199,13 +199,11 @@ bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point)
 
 int main(void)
 {
-	tal_t *ctx = tal_tmpctx(NULL);
 	struct wireaddr dummy;
-
-	trc = tal_tmpctx(ctx);
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
+	setup_tmpctx();
 
 
 	/* BOLT #8:
@@ -224,7 +222,7 @@ int main(void)
 	e_pub = pubkey("036360e856310ce5d294e8be33fc807077dc56ac80d95d9cd4ddbd21325eff73f7");
 
 	dummy.addrlen = 0;
-	initiator_handshake(ctx, &ls_pub, &rs_pub, &dummy, success, ctx);
+	initiator_handshake((void *)tmpctx, &ls_pub, &rs_pub, &dummy, success, NULL);
 	/* Should not exit! */
 	abort();
 }

@@ -24,7 +24,7 @@ static void handle_ping(const u8 *msg,
 
 	if (!check_ping_make_pong(msg, msg, &pong)) {
 		send_reply(cs, peer_fd,
-			   take(towire_errorfmt(msg, channel,
+			   take(towire_errorfmt(NULL, channel,
 						"Bad ping %s",
 						tal_hex(msg, msg))), arg);
 		io_error(arg);
@@ -97,9 +97,9 @@ u8 *read_peer_msg_(const tal_t *ctx,
 	    && !structeq(&chanid, channel)) {
 		status_trace("Rejecting %s for unknown channel_id %s",
 			     wire_type_name(fromwire_peektype(msg)),
-			     type_to_string(msg, struct channel_id, &chanid));
+			     type_to_string(tmpctx, struct channel_id, &chanid));
 		if (!send_reply(cs, peer_fd,
-				take(towire_errorfmt(msg, &chanid,
+				take(towire_errorfmt(NULL, &chanid,
 						     "Multiple channels"
 						     " unsupported")),
 				arg))

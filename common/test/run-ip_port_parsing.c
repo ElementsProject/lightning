@@ -28,48 +28,49 @@ void towire_u8(u8 **pptr UNNEEDED, u8 v UNNEEDED)
 int main(void)
 {
 	struct wireaddr addr;
-	tal_t *ctx = tal_tmpctx(NULL);
 	char *ip;
 	u16 port;
 
+	setup_tmpctx();
+
 	/* Grossly invalid. */
-	assert(!separate_address_and_port(ctx, "[", &ip, &port));
-	assert(!separate_address_and_port(ctx, "[123", &ip, &port));
-	assert(!separate_address_and_port(ctx, "[::1]:8f", &ip, &port));
-	assert(!separate_address_and_port(ctx, "127.0.0.1:8f", &ip, &port));
-	assert(!separate_address_and_port(ctx, "127.0.0.1:0", &ip, &port));
-	assert(!separate_address_and_port(ctx, "127.0.0.1:ff", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "[", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "[123", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "[::1]:8f", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "127.0.0.1:8f", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "127.0.0.1:0", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "127.0.0.1:ff", &ip, &port));
 
 	/* ret = getaddrinfo("[::1]:80", NULL, NULL, &res); */
-	assert(separate_address_and_port(ctx, "[::1]:80", &ip, &port));
+	assert(separate_address_and_port(tmpctx, "[::1]:80", &ip, &port));
 	assert(streq(ip, "::1"));
 	assert(port == 80);
 
 	port = 0;
-	assert(separate_address_and_port(ctx, "ip6-localhost", &ip, &port));
+	assert(separate_address_and_port(tmpctx, "ip6-localhost", &ip, &port));
 	assert(streq(ip, "ip6-localhost"));
 	assert(port == 0);
 
-	assert(separate_address_and_port(ctx, "::1", &ip, &port));
+	assert(separate_address_and_port(tmpctx, "::1", &ip, &port));
 	assert(streq(ip, "::1"));
 	assert(port == 0);
 
-	assert(separate_address_and_port(ctx, "192.168.1.1:8000", &ip, &port));
+	assert(separate_address_and_port(tmpctx, "192.168.1.1:8000", &ip, &port));
 	assert(streq(ip, "192.168.1.1"));
 	assert(port == 8000);
 
 	port = 0;
-	assert(separate_address_and_port(ctx, "192.168.2.255", &ip, &port));
+	assert(separate_address_and_port(tmpctx, "192.168.2.255", &ip, &port));
 	assert(streq(ip, "192.168.2.255"));
 	assert(port == 0);
 
 	// unusual but possibly valid case
-	assert(separate_address_and_port(ctx, "[::1]", &ip, &port));
+	assert(separate_address_and_port(tmpctx, "[::1]", &ip, &port));
 	assert(streq(ip, "::1"));
 	assert(port == 0);
 
 	// service names not supported yet
-	assert(!separate_address_and_port(ctx, "[::1]:http", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "[::1]:http", &ip, &port));
 
 	// localhost hostnames for backward compat
 	parse_wireaddr("localhost", &addr, 200, NULL);
@@ -78,18 +79,18 @@ int main(void)
 	// string should win the port battle
 	parse_wireaddr("[::1]:9735", &addr, 500, NULL);
 	assert(addr.port == 9735);
-	ip = fmt_wireaddr(ctx, &addr);
+	ip = fmt_wireaddr(tmpctx, &addr);
 	assert(streq(ip, "[::1]:9735"));
 
 	// should use argument if we have no port in string
 	parse_wireaddr("2001:db8:85a3::8a2e:370:7334", &addr, 9777, NULL);
 	assert(addr.port == 9777);
 
-	ip = fmt_wireaddr(ctx, &addr);
+	ip = fmt_wireaddr(tmpctx, &addr);
 	assert(streq(ip, "[2001:db8:85a3::8a2e:370:7334]:9777"));
 
 	assert(parse_wireaddr("[::ffff:127.0.0.1]:49150", &addr, 1, NULL));
 	assert(addr.port == 49150);
-	tal_free(ctx);
+	tal_free(tmpctx);
 	return 0;
 }

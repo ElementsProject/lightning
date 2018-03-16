@@ -81,7 +81,6 @@ static bool secret_eq(const struct secret *s, const char *str)
 }
 
 secp256k1_context *secp256k1_ctx;
-const void *trc;
 static struct pubkey ls_pub, e_pub;
 static struct privkey ls_priv, e_priv;
 
@@ -178,14 +177,14 @@ static struct io_plan *success(struct io_conn *conn UNUSED,
 			       const struct pubkey *them UNUSED,
 			       const struct wireaddr *addr UNUSED,
 			       const struct crypto_state *cs,
-			       void *ctx)
+			       void *unused UNUSED)
 {
 	assert(secret_eq(&cs->sk, expect_sk));
 	assert(secret_eq(&cs->rk, expect_rk));
 
 	/* No memory leaks please */
 	secp256k1_context_destroy(secp256k1_ctx);
-	tal_free(ctx);
+	tal_free(tmpctx);
 	exit(0);
 }
 
@@ -197,13 +196,11 @@ bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point)
 
 int main(void)
 {
-	tal_t *ctx = tal_tmpctx(NULL);
 	struct wireaddr dummy;
-
-	trc = tal_tmpctx(ctx);
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
+	setup_tmpctx();
 
 
 	/* BOLT #8:
@@ -220,7 +217,7 @@ int main(void)
 	e_pub = pubkey("02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27");
 
 	dummy.addrlen = 0;
-	responder_handshake(ctx, &ls_pub, &dummy, success, ctx);
+	responder_handshake((void *)tmpctx, &ls_pub, &dummy, success, NULL);
 	/* Should not exit! */
 	abort();
 }

@@ -229,7 +229,6 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 				    const int *fds,
 				    struct funding_channel *fc)
 {
-	tal_t *tmpctx = tal_tmpctx(fc);
 	u8 *msg, *linear;
 	struct channel_info channel_info;
 	struct bitcoin_tx *fundingtx;
@@ -275,7 +274,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		goto failed;
 	}
 	log_debug(ld->log,
-		  "%s", type_to_string(ltmp, struct pubkey,
+		  "%s", type_to_string(tmpctx, struct pubkey,
 				       &channel_info.remote_per_commit));
 
 	/* Generate the funding tx. */
@@ -301,7 +300,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		log_debug(fc->uc->log, "%zi: %"PRIu64" satoshi (%s) %s\n",
 			  i, fc->utxomap[i]->amount,
 			  fc->utxomap[i]->is_p2sh ? "P2SH" : "SEGWIT",
-			  type_to_string(ltmp, struct bitcoin_txid,
+			  type_to_string(tmpctx, struct bitcoin_txid,
 					 &fundingtx->input[i].txid));
 	}
 
@@ -412,7 +411,6 @@ static void opening_fundee_finished(struct subd *openingd,
 	u64 gossip_index;
 	secp256k1_ecdsa_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
-	const tal_t *tmpctx = tal_tmpctx(uc);
 	struct lightningd *ld = openingd->ld;
 	struct bitcoin_txid funding_txid;
 	u16 funding_outnum;
@@ -486,7 +484,7 @@ static void opening_channel_errmsg(struct uncommitted_channel *uc,
 				   int peer_fd, int gossip_fd,
 				   const struct crypto_state *cs,
 				   u64 gossip_index,
-				   const struct channel_id *channel_id,
+				   const struct channel_id *channel_id UNUSED,
 				   const char *desc,
 				   const u8 *err_for_them)
 {
@@ -618,7 +616,7 @@ u8 *peer_accept_channel(struct lightningd *ld,
 			const struct wireaddr *addr,
 			const struct crypto_state *cs,
 			u64 gossip_index,
-			const u8 *gfeatures, const u8 *lfeatures,
+			const u8 *gfeatures UNUSED, const u8 *lfeatures UNUSED,
 			int peer_fd, int gossip_fd,
 			const struct channel_id *channel_id,
 			const u8 *open_msg)
@@ -700,7 +698,7 @@ static void peer_offer_channel(struct lightningd *ld,
 			       const struct wireaddr *addr,
 			       const struct crypto_state *cs,
 			       u64 gossip_index,
-			       const u8 *gfeatures, const u8 *lfeatures,
+			       const u8 *gfeatures UNUSED, const u8 *lfeatures UNUSED,
 			       int peer_fd, int gossip_fd)
 {
 	u8 *msg;
@@ -789,7 +787,7 @@ static void gossip_peer_released(struct subd *gossip,
 			fatal("Gossip daemon gave invalid reply %s",
 			      tal_hex(gossip, resp));
 		}
- 		if (uc)
+		if (uc)
 			command_fail(fc->cmd, "Peer already OPENING");
 		else if (c)
 			command_fail(fc->cmd, "Peer already %s",

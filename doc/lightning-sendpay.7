@@ -2,12 +2,12 @@
 .\"     Title: lightning-sendpay
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 03/08/2018
+.\"      Date: 03/14/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-SENDPAY" "7" "03/08/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-SENDPAY" "7" "03/14/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -43,7 +43,7 @@ The response will occur when the payment is on its way to the destination\&. The
 Once a payment has succeeded, calls to \fBsendpay\fR with the same \fIhash\fR but a different amount or destination will fail; this prevents accidental multiple payments\&. Calls to \fBsendpay\fR with the same \fIhash\fR, amount, and destination as a previous successful payment (even if a different route) will return immediately with success\&.
 .SH "RETURN VALUE"
 .sp
-On success, an object with field \fIcompleted\fR is returned\&. Typically this field is \fIfalse\fR, but if the payment has already succeeded before to the same destination and amount, the field shall be set to \fItrue\fR and the \fIpreimage\fR will be returned also\&.
+On success, an object similar to the output of \fBlistpayments\fR will be returned\&. This object will have a \fIstatus\fR field that is typically the string \fI"pending"\fR, but may be \fI"complete"\fR if the payment was already performed successfully\&.
 .sp
 On error, if the error occurred from a node other than the final destination, the route table will be updated so that getroute(7) should return an alternate route (if any)\&. An error from the final destination implies the payment should not be retried\&.
 .sp
@@ -58,21 +58,6 @@ The following error codes may occur:
 .IP \(bu 2.3
 .\}
 \-1\&. Catchall nonspecific error\&.
-.RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-200\&. A previous
-\fBsendpay\fR
-or
-\fBpay\fR
-is in progress\&.
 .RE
 .sp
 .RS 4

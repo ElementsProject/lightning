@@ -93,10 +93,6 @@ void crashlog_activate(const char *argv0, struct log *log);
 
 char *arg_log_to_file(const char *arg, struct lightningd *ld);
 
-/* Convenience parent for temporary allocations (eg. type_to_string)
- * during log calls; freed after every log_*() */
-const tal_t *ltmp;
-
 /* Before the crashlog is activated, just prints to stderr. */
 void NORETURN PRINTF_FMT(1,2) fatal(const char *fmt, ...);
 

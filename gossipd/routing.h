@@ -230,7 +230,7 @@ void set_connection_values(struct chan *chan,
 struct node *get_node(struct routing_state *rstate, const struct pubkey *id);
 
 /* Compute a route to a destination, for a given amount and riskfactor. */
-struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
+struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    const struct pubkey *source,
 			    const struct pubkey *destination,
 			    const u32 msatoshi, double riskfactor,

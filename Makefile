@@ -189,7 +189,6 @@ include closingd/Makefile
 include onchaind/Makefile
 include lightningd/Makefile
 include cli/Makefile
-include test/Makefile
 include doc/Makefile
 include devtools/Makefile
 

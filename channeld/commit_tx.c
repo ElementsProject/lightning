@@ -101,7 +101,6 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     u64 obscured_commitment_number,
 			     enum side side)
 {
-	const tal_t *tmpctx = tal_tmpctx(ctx);
 	u64 base_fee_msat;
 	struct bitcoin_tx *tx;
 	size_t i, n, untrimmed;
@@ -287,6 +286,5 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	/* Input amount needed for signature code. */
 	tx->input[0].amount = tal_dup(tx->input, u64, &funding_satoshis);
 
-	tal_free(tmpctx);
 	return tx;
 }

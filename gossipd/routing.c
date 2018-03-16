@@ -366,15 +366,15 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 
 	if (!src) {
 		status_info("find_route: cannot find %s",
-			    type_to_string(trc, struct pubkey, to));
+			    type_to_string(tmpctx, struct pubkey, to));
 		return NULL;
 	} else if (!dst) {
 		status_info("find_route: cannot find myself (%s)",
-			    type_to_string(trc, struct pubkey, to));
+			    type_to_string(tmpctx, struct pubkey, to));
 		return NULL;
 	} else if (dst == src) {
 		status_info("find_route: this is %s, refusing to create empty route",
-			    type_to_string(trc, struct pubkey, to));
+			    type_to_string(tmpctx, struct pubkey, to));
 		return NULL;
 	}
 
@@ -404,7 +404,7 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 				int idx = half_chan_to(n, chan);
 
 				SUPERVERBOSE("Node %s edge %i/%zu",
-					     type_to_string(trc, struct pubkey,
+					     type_to_string(tmpctx, struct pubkey,
 							    &n->id),
 					     i, num_edges);
 
@@ -428,7 +428,7 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	/* No route? */
 	if (dst->bfg[best].total >= INFINITE) {
 		status_trace("find_route: No route to %s",
-			     type_to_string(trc, struct pubkey, to));
+			     type_to_string(tmpctx, struct pubkey, to));
 		return NULL;
 	}
 
@@ -565,8 +565,8 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 		if (err)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "pending node_announcement %s malformed %s?",
-				      tal_hex(trc, pna->node_announcement),
-				      sanitize_error(trc, err, NULL));
+				      tal_hex(tmpctx, pna->node_announcement),
+				      sanitize_error(tmpctx, err, NULL));
 	}
 	pending_node_map_del(rstate->pending_node_map, pna);
 	tal_free(pna);
@@ -633,7 +633,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	if (chan != NULL && chan->public) {
 		SUPERVERBOSE("%s: %s already has public channel",
 			     __func__,
-			     type_to_string(trc, struct short_channel_id,
+			     type_to_string(tmpctx, struct short_channel_id,
 					    &pending->short_channel_id));
 		goto ignored;
 	}
@@ -643,7 +643,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	if (find_pending_cannouncement(rstate, &pending->short_channel_id)) {
 		SUPERVERBOSE("%s: %s already has pending cannouncement",
 			     __func__,
-			     type_to_string(trc, struct short_channel_id,
+			     type_to_string(tmpctx, struct short_channel_id,
 					    &pending->short_channel_id));
 		goto ignored;
 	}
@@ -738,8 +738,8 @@ static void process_pending_channel_update(struct routing_state *rstate,
 	err = handle_channel_update(rstate, cupdate);
 	if (err) {
 		status_trace("Pending channel_update for %s: %s",
-			     type_to_string(trc, struct short_channel_id, scid),
-			     sanitize_error(trc, err, NULL));
+			     type_to_string(tmpctx, struct short_channel_id, scid),
+			     sanitize_error(tmpctx, err, NULL));
 		tal_free(err);
 	}
 }
@@ -787,7 +787,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 		status_trace("channel_announcement: txout %s expectes %s, got %s",
 			     type_to_string(pending, struct short_channel_id,
 					    scid),
-			     tal_hex(trc, s), tal_hex(trc, outscript));
+			     tal_hex(tmpctx, s), tal_hex(tmpctx, outscript));
 		tal_free(pending);
 		return false;
 	}
@@ -810,7 +810,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 			      take(pending->announce)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Announcement %s was replaced?",
-			      tal_hex(trc, pending->announce));
+			      tal_hex(tmpctx, pending->announce));
 
 	local = pubkey_eq(&pending->node_id_1, &rstate->local_id) ||
 		pubkey_eq(&pending->node_id_2, &rstate->local_id);
@@ -831,7 +831,7 @@ static void update_pending(struct pending_cannouncement *pending,
 			   const u8 direction)
 {
 	SUPERVERBOSE("Deferring update for pending channel %s(%d)",
-		     type_to_string(trc, struct short_channel_id,
+		     type_to_string(tmpctx, struct short_channel_id,
 				    &pending->short_channel_id), direction);
 
 	if (pending->update_timestamps[direction] < timestamp) {
@@ -867,13 +867,13 @@ void set_connection_values(struct chan *chan,
 	c->unroutable_until = 0;
 
 	SUPERVERBOSE("Channel %s(%d) was updated.",
-		     type_to_string(trc, struct short_channel_id, &chan->scid),
+		     type_to_string(tmpctx, struct short_channel_id, &chan->scid),
 		     idx);
 
 	if (c->proportional_fee >= MAX_PROPORTIONAL_FEE) {
 		status_trace("Channel %s(%d) massive proportional fee %u:"
 			     " disabling.",
-			     type_to_string(trc, struct short_channel_id,
+			     type_to_string(tmpctx, struct short_channel_id,
 					    &chan->scid),
 			     idx,
 			     c->proportional_fee);
@@ -893,7 +893,6 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 	u64 htlc_minimum_msat;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
-	const tal_t *tmpctx = tal_tmpctx(rstate);
 	struct bitcoin_blkid chain_hash;
 	struct chan *chan;
 	u8 direction;
@@ -909,7 +908,6 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 		err = towire_errorfmt(rstate, NULL,
 				      "Malformed channel_update %s",
 				      tal_hex(tmpctx, serialized));
-		tal_free(tmpctx);
 		return err;
 	}
 	direction = flags & 0x1;
@@ -923,7 +921,6 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 		status_trace("Received channel_update for unknown chain %s",
 			     type_to_string(tmpctx, struct bitcoin_blkid,
 					    &chain_hash));
-		tal_free(tmpctx);
 		return NULL;
 	}
 
@@ -937,15 +934,13 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 		if (pending) {
 			update_pending(pending,
 				       timestamp, serialized, direction);
-			tal_free(tmpctx);
 			return NULL;
 		}
 
 		if (!chan) {
 			SUPERVERBOSE("Ignoring update for unknown channel %s",
-				     type_to_string(trc, struct short_channel_id,
+				     type_to_string(tmpctx, struct short_channel_id,
 						    &short_channel_id));
-			tal_free(tmpctx);
 			return NULL;
 		}
 	}
@@ -954,7 +949,6 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 
 	if (c->last_timestamp >= timestamp) {
 		SUPERVERBOSE("Ignoring outdated update.");
-		tal_free(tmpctx);
 		return NULL;
 	}
 
@@ -970,12 +964,11 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 		 *    - MUST NOT process the message further.
 		 *    - SHOULD fail the connection.
 		 */
-		tal_free(tmpctx);
 		return err;
 	}
 
 	status_trace("Received channel_update for channel %s(%d) now %s",
-		     type_to_string(trc, struct short_channel_id,
+		     type_to_string(tmpctx, struct short_channel_id,
 				    &short_channel_id),
 		     flags & 0x01,
 		     flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
@@ -992,7 +985,6 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 			  &chan->half[direction].channel_update_msgidx,
 			  take(serialized));
 
-	tal_free(tmpctx);
 	return NULL;
 }
 
@@ -1041,7 +1033,6 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	u8 rgb_color[3];
 	u8 alias[32];
 	u8 *features, *addresses;
-	const tal_t *tmpctx = tal_tmpctx(rstate);
 	struct wireaddr *wireaddrs;
 	struct pending_node_announce *pna;
 	size_t len = tal_len(node_ann);
@@ -1060,7 +1051,6 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 		u8 *err = towire_errorfmt(rstate, NULL,
 					  "Malformed node_announcement %s",
 					  tal_hex(tmpctx, node_ann));
-		tal_free(tmpctx);
 		return err;
 	}
 
@@ -1074,7 +1064,6 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 		status_trace("Ignoring node announcement for node %s, unsupported features %s.",
 			     type_to_string(tmpctx, struct pubkey, &node_id),
 			     tal_hex(tmpctx, features));
-		tal_free(tmpctx);
 		return NULL;
 	}
 
@@ -1099,7 +1088,6 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 							 struct sha256_double,
 							 &hash),
 					  tal_hex(tmpctx, node_ann));
-		tal_free(tmpctx);
 		return err;
 	}
 
@@ -1115,7 +1103,6 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 					  "Malformed wireaddrs %s in %s.",
 					  tal_hex(tmpctx, wireaddrs),
 					  tal_hex(tmpctx, node_ann));
-		tal_free(tmpctx);
 		return err;
 	}
 
@@ -1135,7 +1122,6 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 			tal_free(pna->node_announcement);
 			pna->node_announcement = tal_dup_arr(pna, u8, node_ann, tal_len(node_ann), 0);
 		}
-		tal_free(tmpctx);
 		return NULL;
 	}
 
@@ -1151,11 +1137,9 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 			     "node %s preceded by at least "
 			     "channel_announcement?",
 			     type_to_string(tmpctx, struct pubkey, &node_id));
-		tal_free(tmpctx);
 		return NULL;
 	} else if (node->last_timestamp >= timestamp) {
 		SUPERVERBOSE("Ignoring node announcement, it's outdated.");
-		tal_free(tmpctx);
 		return NULL;
 	}
 
@@ -1174,11 +1158,10 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	replace_broadcast(node, rstate->broadcasts,
 			  &node->node_announce_msgidx,
 			  take(serialized));
-	tal_free(tmpctx);
 	return NULL;
 }
 
-struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
+struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    const struct pubkey *source,
 			    const struct pubkey *destination,
 			    const u32 msatoshi, double riskfactor,
@@ -1258,7 +1241,6 @@ void routing_failure(struct routing_state *rstate,
 		     enum onion_type failcode,
 		     const u8 *channel_update)
 {
-	const tal_t *tmpctx = tal_tmpctx(rstate);
 	struct node *node;
 	int i;
 	time_t now = time_now().ts.tv_sec;
@@ -1277,7 +1259,7 @@ void routing_failure(struct routing_state *rstate,
 					      erring_node_pubkey));
 		/* No node, so no channel, so any channel_update
 		 * can also be ignored. */
-		goto out;
+		return;
 	}
 
 	/* BOLT #4:
@@ -1325,12 +1307,12 @@ void routing_failure(struct routing_state *rstate,
 			/* Suppress UNUSUAL log if local failure */
 			if (structeq(&erring_node_pubkey->pubkey,
 				     &rstate->local_id.pubkey))
-				goto out;
+				return;
 			status_unusual("routing_failure: "
 				       "UPDATE bit set, no channel_update. "
 				       "failcode: 0x%04x",
 				       (int) failcode);
-			goto out;
+			return;
 		}
 		err = handle_channel_update(rstate, channel_update);
 		if (err) {
@@ -1338,7 +1320,7 @@ void routing_failure(struct routing_state *rstate,
 				       "bad channel_update %s",
 				       sanitize_error(err, err, NULL));
 			tal_free(err);
-			goto out;
+			return;
 		}
 	} else {
 		if (tal_len(channel_update) != 0)
@@ -1347,15 +1329,11 @@ void routing_failure(struct routing_state *rstate,
 				       "failcode: 0x%04x",
 				       (int) failcode);
 	}
-
-out:
-	tal_free(tmpctx);
 }
 
 void mark_channel_unroutable(struct routing_state *rstate,
 			     const struct short_channel_id *channel)
 {
-	const tal_t *tmpctx = tal_tmpctx(rstate);
 	struct chan *chan;
 	time_t now = time_now().ts.tv_sec;
 	const char *scid = type_to_string(tmpctx, struct short_channel_id,
@@ -1369,12 +1347,10 @@ void mark_channel_unroutable(struct routing_state *rstate,
 		status_unusual("mark_channel_unroutable: "
 			       "channel %s not in routemap",
 			       scid);
-		tal_free(tmpctx);
 		return;
 	}
 	chan->half[0].unroutable_until = now + 20;
 	chan->half[1].unroutable_until = now + 20;
-	tal_free(tmpctx);
 }
 
 void route_prune(struct routing_state *rstate)
@@ -1382,7 +1358,7 @@ void route_prune(struct routing_state *rstate)
 	u64 now = time_now().ts.tv_sec;
 	/* Anything below this highwater mark ought to be pruned */
 	const s64 highwater = now - rstate->prune_timeout;
-	const tal_t *pruned = tal_tmpctx(rstate);
+	const tal_t *pruned = tal(NULL, char);
 	struct chan *chan;
 	u64 idx;
 
@@ -1398,7 +1374,7 @@ void route_prune(struct routing_state *rstate)
 		    && chan->half[1].last_timestamp < highwater) {
 			status_trace(
 			    "Pruning channel %s from network view (ages %"PRIu64" and %"PRIu64"s)",
-			    type_to_string(trc, struct short_channel_id,
+			    type_to_string(tmpctx, struct short_channel_id,
 					   &chan->scid),
 			    now - chan->half[0].last_timestamp,
 			    now - chan->half[1].last_timestamp);

@@ -293,7 +293,7 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 	va_end(ap);
 
 	if (channel->scid) {
-		msg = towire_gossip_disable_channel(channel,
+		msg = towire_gossip_disable_channel(NULL,
 						    channel->scid,
 						    channel->peer->direction,
 						    false);
@@ -390,7 +390,7 @@ void channel_fail_transient(struct channel *channel, const char *fmt, ...)
 		if (ld->no_reconnect)
 			return;
 #endif /* DEVELOPER */
-		u8 *msg = towire_gossipctl_reach_peer(channel,
+		u8 *msg = towire_gossipctl_reach_peer(NULL,
 						      &channel->peer->id);
 		subd_send_msg(ld->gossip, take(msg));
 	}

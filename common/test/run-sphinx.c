@@ -72,7 +72,6 @@ static struct secret secret_from_hex(const char *hex)
  * we match the test vectors and that we can also unwrap it. */
 static void run_unit_tests(void)
 {
-	tal_t *tmpctx = tal_tmpctx(NULL);
 	struct onionreply *oreply;
 	u8 *reply;
 	u8 *raw = tal_hexdata(tmpctx, "2002", 4);
@@ -155,19 +154,17 @@ static void run_unit_tests(void)
 	oreply = unwrap_onionreply(tmpctx, ss, 5, reply);
 	printf("unwrapped %s\n", tal_hex(tmpctx, oreply->msg));
 	assert(memcmp(raw, oreply->msg, tal_len(raw)) == 0);
-
-	tal_free(tmpctx);
 }
 
 int main(int argc, char **argv)
 {
 	bool generate = false, decode = false, unit = false;
-	const tal_t *ctx = talz(NULL, tal_t);
 	u8 assocdata[32];
 	memset(assocdata, 'B', sizeof(assocdata));
 
 	secp256k1_ctx = secp256k1_context_create(
 		SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
+	setup_tmpctx();
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "--generate <pubkey1> <pubkey2>... OR\n"
@@ -194,6 +191,6 @@ int main(int argc, char **argv)
 	}
 	secp256k1_context_destroy(secp256k1_ctx);
 	opt_free_table();
-	tal_free(ctx);
+	tal_free(tmpctx);
 	return 0;
 }

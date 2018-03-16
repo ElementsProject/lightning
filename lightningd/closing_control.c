@@ -112,7 +112,7 @@ static void peer_closing_complete(struct channel *channel, const u8 *msg)
 	channel_set_state(channel, CLOSINGD_SIGEXCHANGE, CLOSINGD_COMPLETE);
 }
 
-static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds)
+static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds UNUSED)
 {
 	enum closing_wire_type t = fromwire_peektype(msg);
 
@@ -140,7 +140,6 @@ void peer_start_closingd(struct channel *channel,
 			 int peer_fd, int gossip_fd,
 			 bool reconnected)
 {
-	const tal_t *tmpctx = tal_tmpctx(channel);
 	u8 *initmsg;
 	u64 minfee, startfee, feelimit;
 	u64 num_revocations;
@@ -150,7 +149,6 @@ void peer_start_closingd(struct channel *channel,
 	if (!channel->remote_shutdown_scriptpubkey) {
 		channel_internal_error(channel,
 				       "Can't start closing: no remote info");
-		tal_free(tmpctx);
 		return;
 	}
 
@@ -166,7 +164,6 @@ void peer_start_closingd(struct channel *channel,
 		log_unusual(channel->log, "Could not subdaemon closing: %s",
 			    strerror(errno));
 		channel_fail_transient(channel, "Failed to subdaemon closing");
-		tal_free(tmpctx);
 		return;
 	}
 
@@ -226,5 +223,4 @@ void peer_start_closingd(struct channel *channel,
 	/* We don't expect a response: it will give us feedback on
 	 * signatures sent and received, then closing_complete. */
 	subd_send_msg(channel->owner, take(initmsg));
-	tal_free(tmpctx);
 }

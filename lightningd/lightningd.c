@@ -93,11 +93,9 @@ static const char *daemons[] = {
 void test_daemons(const struct lightningd *ld)
 {
 	size_t i;
-	const tal_t *ctx = tal_tmpctx(ld);
-
 	for (i = 0; i < ARRAY_SIZE(daemons); i++) {
 		int outfd;
-		const char *dpath = path_join(ctx, ld->daemon_dir, daemons[i]);
+		const char *dpath = path_join(tmpctx, ld->daemon_dir, daemons[i]);
 		const char *verstring;
 		pid_t pid = pipecmd(&outfd, NULL, &outfd,
 				    dpath, "--version", NULL);
@@ -105,21 +103,19 @@ void test_daemons(const struct lightningd *ld)
 		log_debug(ld->log, "testing %s", dpath);
 		if (pid == -1)
 			err(1, "Could not run %s", dpath);
-		verstring = grab_fd(ctx, outfd);
+		verstring = grab_fd(tmpctx, outfd);
 		if (!verstring)
 			err(1, "Could not get output from %s", dpath);
 		if (!strstarts(verstring, version())
 		    || verstring[strlen(version())] != '\n')
 			errx(1, "%s: bad version '%s'", daemons[i], verstring);
 	}
-	tal_free(ctx);
 }
 /* Check if all daemons exist in specified directory. */
 static bool has_all_daemons(const char* daemon_dir)
 {
 	size_t i;
 	bool missing_daemon = false;
-	const tal_t *tmpctx = tal_tmpctx(NULL);
 
 	for (i = 0; i < ARRAY_SIZE(daemons); ++i) {
 		if (!path_is_file(path_join(tmpctx, daemon_dir, daemons[i]))) {
@@ -128,13 +124,12 @@ static bool has_all_daemons(const char* daemon_dir)
 		}
 	}
 
-	tal_free(tmpctx);
 	return !missing_daemon;
 }
 
 static const char *find_my_path(const tal_t *ctx, const char *argv0)
 {
-	char *me, *tmpctx = tal_tmpctx(ctx);
+	char *me;
 
 	if (strchr(argv0, PATH_SEP)) {
 		const char *path;
@@ -173,7 +168,6 @@ static const char *find_my_path(const tal_t *ctx, const char *argv0)
 			errx(1, "Cannot find %s in $PATH", argv0);
 	}
 
-	tal_free(tmpctx);
 	return path_dirname(ctx, take(me));
 }
 static const char *find_my_pkglibexec_path(const tal_t *ctx,
@@ -260,7 +254,6 @@ static void daemonize_but_keep_dir(struct lightningd *ld)
 static void pidfile_create(const struct lightningd *ld)
 {
 	char *pid;
-	const tal_t *tmpctx = tal_tmpctx(NULL);
 
 	/* Create PID file */
 	pid_fd = open(ld->pidfile, O_WRONLY|O_CREAT, 0640);
@@ -275,8 +268,6 @@ static void pidfile_create(const struct lightningd *ld)
 	/* Get current PID and write to PID fie */
 	pid = tal_fmt(tmpctx, "%d\n", getpid());
 	write_all(pid_fd, pid, strlen(pid));
-
-	tal_free(tmpctx);
 }
 
 int main(int argc, char *argv[])
@@ -290,12 +281,15 @@ int main(int argc, char *argv[])
 #if DEVELOPER
 	/* Suppresses backtrace (breaks valgrind) */
 	if (!getenv("LIGHTNINGD_DEV_NO_BACKTRACE"))
-#endif
+		backtrace_state = backtrace_create_state(argv[0], 0, NULL, NULL);
+#else
 	backtrace_state = backtrace_create_state(argv[0], 0, NULL, NULL);
+#endif
 
 	ld = new_lightningd(NULL);
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
+	setup_tmpctx();
 
 	io_poll_override(debug_poll);
 
@@ -389,8 +383,8 @@ int main(int argc, char *argv[])
 
 	/* Mark ourselves live. */
 	log_info(ld->log, "Server started with public key %s, alias %s (color #%s) and lightningd %s",
-		 type_to_string(ltmp, struct pubkey, &ld->id),
-		 ld->alias, tal_hex(ltmp, ld->rgb), version());
+		 type_to_string(tmpctx, struct pubkey, &ld->id),
+		 ld->alias, tal_hex(tmpctx, ld->rgb), version());
 
 	/* Start the peers. */
 	activate_peers(ld);

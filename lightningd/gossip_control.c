@@ -178,7 +178,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
  * message */
 void gossip_init(struct lightningd *ld)
 {
-	tal_t *tmpctx = tal_tmpctx(ld);
 	u8 *msg;
 	int hsmfd;
 	u64 capabilities = HSM_CAP_ECDH | HSM_CAP_SIGN_GOSSIP;
@@ -208,7 +207,6 @@ void gossip_init(struct lightningd *ld)
 	    get_offered_local_features(tmpctx), ld->wireaddrs, ld->rgb,
 	    ld->alias, ld->config.channel_update_interval);
 	subd_send_msg(ld->gossip, msg);
-	tal_free(tmpctx);
 }
 
 static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
@@ -379,7 +377,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	if (fuzztok &&
 	    !json_tok_double(buffer, fuzztok, &fuzz)) {
 		command_fail(cmd, "'%.*s' is not a valid double",
-			     (int)(fuzztok->end - fuzztok->start),
+			     fuzztok->end - fuzztok->start,
 			     buffer + fuzztok->start);
 		return;
 	}

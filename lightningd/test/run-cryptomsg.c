@@ -98,13 +98,13 @@ static struct secret secret_from_hex(const char *hex)
 
 int main(void)
 {
-	tal_t *tmpctx = tal_tmpctx(NULL);
 	struct peer_crypto_state cs_out, cs_in;
 	struct secret sk, rk, ck;
-	const void *msg = tal_dup_arr(tmpctx, char, "hello", 5, 0);
+	const void *msg;
 	size_t i;
 
-	trc = tal_tmpctx(tmpctx);
+	setup_tmpctx();
+	msg = tal_dup_arr(tmpctx, char, "hello", 5, 0);
 
 	/* BOLT #8:
 	 *
@@ -125,8 +125,8 @@ int main(void)
 	cs_out.cs.sk = cs_in.cs.rk = sk;
 	cs_out.cs.rk = cs_in.cs.sk = rk;
 	cs_out.cs.s_ck = cs_out.cs.r_ck = cs_in.cs.s_ck = cs_in.cs.r_ck = ck;
-	init_peer_crypto_state(tmpctx, &cs_in);
-	init_peer_crypto_state(tmpctx, &cs_out);
+	init_peer_crypto_state((void *)tmpctx, &cs_in);
+	init_peer_crypto_state((void *)tmpctx, &cs_out);
 
 	for (i = 0; i < 1002; i++) {
 		write_buf = tal_arr(tmpctx, char, 0);
