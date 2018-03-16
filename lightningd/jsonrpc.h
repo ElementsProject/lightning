@@ -80,32 +80,6 @@ void PRINTF_FMT(4, 5) command_fail_detailed(struct command *cmd,
 /* Mainly for documentation, that we plan to close this later. */
 void command_still_pending(struct command *cmd);
 
-/* '"fieldname" : "0289abcdef..."' or "0289abcdef..." if fieldname is NULL */
-void json_add_pubkey(struct json_result *response,
-		     const char *fieldname,
-		     const struct pubkey *key);
-
-/* '"fieldname" : <hexrev>' or "<hexrev>" if fieldname is NULL */
-void json_add_txid(struct json_result *result, const char *fieldname,
-		   const struct bitcoin_txid *txid);
-
-/* Extract a pubkey from this */
-bool json_tok_pubkey(const char *buffer, const jsmntok_t *tok,
-		     struct pubkey *pubkey);
-
-/* Extract a short_channel_id from this */
-bool json_tok_short_channel_id(const char *buffer, const jsmntok_t *tok,
-			       struct short_channel_id *scid);
-
-/* '"fieldname" : "1234:5:6"' */
-void json_add_short_channel_id(struct json_result *response,
-			       const char *fieldname,
-			       const struct short_channel_id *id);
-
-/* JSON serialize a network address for a node */
-void json_add_address(struct json_result *response, const char *fieldname,
-		      const struct wireaddr *addr);
-
 
 /* For initialization */
 void setup_jsonrpc(struct lightningd *ld, const char *rpc_filename);

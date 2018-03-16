@@ -3,6 +3,7 @@
 #include <common/utils.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <lightningd/htlc_end.h>
+#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
