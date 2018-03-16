@@ -20,6 +20,7 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <openingd/gen_opening_wire.h>
+#include <wire/wire.h>
 #include <wire/wire_sync.h>
 
 /* Channel we're still opening. */
@@ -245,6 +246,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	struct channel *channel;
 	struct json_result *response;
 	struct lightningd *ld = openingd->ld;
+	struct channel_id cid;
 
 	assert(tal_count(fds) == 2);
 
@@ -384,6 +386,9 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	linear = linearize_tx(response, fundingtx);
 	json_add_hex(response, "tx", linear, tal_len(linear));
 	json_add_txid(response, "txid", &channel->funding_txid);
+	derive_channel_id(&cid, &channel->funding_txid, funding_outnum);
+	json_add_string(response, "channel_id",
+			type_to_string(tmpctx, struct channel_id, &cid));
 	json_object_end(response);
 	command_success(fc->cmd, response);
 
