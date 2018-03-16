@@ -31,6 +31,7 @@
 #include <lightningd/closing_control.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
 #include <lightningd/netaddress.h>

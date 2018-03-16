@@ -7,6 +7,7 @@
 #include <common/timeout.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
@@ -776,41 +777,6 @@ send_payment(const tal_t *ctx,
 	add_sendpay_waiter(ctx, rhash, ld, cb, cbarg);
 
 	return true;
-}
-
-/*-----------------------------------------------------------------------------
-Utility
------------------------------------------------------------------------------*/
-
-/* Outputs fields, not a separate object*/
-void
-json_add_payment_fields(struct json_result *response,
-			const struct wallet_payment *t)
-{
-	json_add_u64(response, "id", t->id);
-	json_add_hex(response, "payment_hash", &t->payment_hash, sizeof(t->payment_hash));
-	json_add_pubkey(response, "destination", &t->destination);
-	json_add_u64(response, "msatoshi", t->msatoshi);
-	if (deprecated_apis)
-		json_add_u64(response, "timestamp", t->timestamp);
-	json_add_u64(response, "created_at", t->timestamp);
-
-	switch (t->status) {
-	case PAYMENT_PENDING:
-		json_add_string(response, "status", "pending");
-		break;
-	case PAYMENT_COMPLETE:
-		json_add_string(response, "status", "complete");
-		break;
-	case PAYMENT_FAILED:
-		json_add_string(response, "status", "failed");
-		break;
-	}
-	if (t->payment_preimage)
-		json_add_hex(response, "payment_preimage",
-			     t->payment_preimage,
-			     sizeof(*t->payment_preimage));
-
 }
 
 /*-----------------------------------------------------------------------------

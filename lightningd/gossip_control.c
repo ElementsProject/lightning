@@ -21,6 +21,7 @@
 #include <lightningd/connect_control.h>
 #include <lightningd/gossip_msg.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
 #include <sodium/randombytes.h>
@@ -289,7 +290,6 @@ static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, con
 {
 	struct json_result *response;
 	struct route_hop *hops;
-	size_t i;
 
 	fromwire_gossip_getroute_reply(reply, reply, &hops);
 
@@ -300,17 +300,7 @@ static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, con
 
 	response = new_json_result(cmd);
 	json_object_start(response, NULL);
-	json_array_start(response, "route");
-	for (i = 0; i < tal_count(hops); i++) {
-		json_object_start(response, NULL);
-		json_add_pubkey(response, "id", &hops[i].nodeid);
-		json_add_short_channel_id(response, "channel",
-					  &hops[i].channel_id);
-		json_add_u64(response, "msatoshi", hops[i].amount);
-		json_add_num(response, "delay", hops[i].delay);
-		json_object_end(response);
-	}
-	json_array_end(response);
+	json_add_route(response, "route", hops, tal_count(hops));
 	json_object_end(response);
 	command_success(cmd, response);
 }

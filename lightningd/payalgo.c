@@ -9,6 +9,7 @@
 #include <common/type_to_string.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <gossipd/routing.h>
+#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
@@ -38,36 +39,6 @@ struct pay_failure {
 	 * object whose parent is this struct */
 	struct routing_failure *routing_failure;
 };
-
-/* FIXME: move json_add_route_hop and json_add_route to
- * common/json.c, share code with getroute */
-/* Output a route hop */
-static void
-json_add_route_hop(struct json_result *r, char const *n,
-		   const struct route_hop *h)
-{
-	/* Imitate what getroute/sendpay use */
-	json_object_start(r, n);
-	json_add_pubkey(r, "id", &h->nodeid);
-	json_add_short_channel_id(r, "channel",
-				  &h->channel_id);
-	json_add_u64(r, "msatoshi", h->amount);
-	json_add_num(r, "delay", h->delay);
-	json_object_end(r);
-}
-
-/* Output a route */
-static void
-json_add_route(struct json_result *r, char const *n,
-	       const struct route_hop *hops, size_t hops_len)
-{
-	size_t i;
-	json_array_start(r, n);
-	for (i = 0; i < hops_len; ++i) {
-		json_add_route_hop(r, NULL, &hops[i]);
-	}
-	json_array_end(r);
-}
 
 /* Output a pay failure */
 static void
