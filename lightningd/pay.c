@@ -705,7 +705,6 @@ send_payment(const tal_t *ctx,
 			cb(result, cbarg);
 			return false;
 		}
-		wallet_payment_delete(ld->wallet, rhash);
 		log_add(ld->log, "... retrying");
 	}
 
@@ -756,6 +755,16 @@ send_payment(const tal_t *ctx,
 	channels = tal_arr(tmpctx, struct short_channel_id, n_hops);
 	for (i = 0; i < n_hops; ++i)
 		channels[i] = route[i].channel_id;
+
+	/* If we're retrying, delete all trace of previous one.  We delete
+	 * outgoing HTLC, too, otherwise it gets reported to onchaind as
+	 * a possibility, and we end up in handle_missing_htlc_output->
+	 * onchain_failed_our_htlc->payment_failed with no payment.
+	 */
+	if (payment) {
+		wallet_payment_delete(ld->wallet, rhash);
+		wallet_local_htlc_out_delete(ld->wallet, channel, rhash);
+	}
 
 	/* If hout fails, payment should be freed too. */
 	payment = tal(hout, struct wallet_payment);

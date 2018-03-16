@@ -1468,6 +1468,24 @@ struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 	return stubs;
 }
 
+void wallet_local_htlc_out_delete(struct wallet *wallet,
+				  struct channel *chan,
+				  const struct sha256 *payment_hash)
+{
+	sqlite3_stmt *stmt;
+
+	stmt = db_prepare(wallet->db,
+			  "DELETE FROM channel_htlcs"
+			  " WHERE direction = ?"
+			  " AND origin_htlc = ?"
+			  " AND payment_hash = ?");
+	sqlite3_bind_int(stmt, 1, DIRECTION_OUTGOING);
+	sqlite3_bind_int(stmt, 2, 0);
+	sqlite3_bind_sha256(stmt, 3, payment_hash);
+
+	db_exec_prepared(wallet->db, stmt);
+}
+
 static struct wallet_payment *
 find_unstored_payment(struct wallet *wallet, const struct sha256 *payment_hash)
 {
