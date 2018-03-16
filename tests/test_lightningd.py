@@ -1366,6 +1366,7 @@ class LightningDTests(BaseLightningDTests):
         # Note: for this test we leave onchaind running, so we can detect
         # any leaks!
 
+    @unittest.skip("Expected failure")
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_onchain_dust_out(self):
         """Onchain handling of outgoing dust htlcs (they should fail)"""
@@ -1404,6 +1405,11 @@ class LightningDTests(BaseLightningDTests):
 
         l1.daemon.wait_for_log('WIRE_PERMANENT_CHANNEL_FAILURE: missing in commitment tx')
 
+        # Retry payment, this should fail (and, as a side-effect, tickle a
+        # bug).
+        self.assertRaisesRegex(ValueError, 'WIRE_UNKNOWN_NEXT_PEER',
+                               l1.rpc.sendpay, to_json([routestep]), rhash)
+
         # 6 later, l1 should collect its to-self payment.
         bitcoind.generate_block(6)
         l1.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
@@ -1412,6 +1418,10 @@ class LightningDTests(BaseLightningDTests):
         # 94 later, l2 is done.
         bitcoind.generate_block(94)
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+        # Restart l1, it should not crash!
+        l1.stop()
+        l1.daemon.start()
 
         # Now, 100 blocks and l1 should be done.
         bitcoind.generate_block(6)
