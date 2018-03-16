@@ -431,6 +431,17 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 					 &hout->payment_hash);
 
 #ifdef COMPAT_V052
+	/* Prior to "pay: delete HTLC when we delete payment." we would
+	 * delete a payment on retry, but leave the HTLC. */
+	if (!payment) {
+		log_unusual(hout->key.channel->log,
+			    "No payment for %s:"
+			    " was this an old database?",
+			    type_to_string(tmpctx, struct sha256,
+					   &hout->payment_hash));
+		return;
+	}
+
 	/* FIXME: Prior to 299b280f7, we didn't put route_nodes and
 	 * route_channels in db.  If this happens, it's an old payment,
 	 * so we can simply mark it failed in db and return. */
