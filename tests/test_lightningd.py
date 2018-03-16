@@ -1366,7 +1366,6 @@ class LightningDTests(BaseLightningDTests):
         # Note: for this test we leave onchaind running, so we can detect
         # any leaks!
 
-    @unittest.skip("Expected failure")
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_onchain_dust_out(self):
         """Onchain handling of outgoing dust htlcs (they should fail)"""
