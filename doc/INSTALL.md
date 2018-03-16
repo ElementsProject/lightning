@@ -96,7 +96,43 @@ $ nix-shell -Q -p gdb sqlite autoconf git clang libtool gmp sqlite autoconf \
 autogen automake 'python3.withPackages (p: [p.bitcoinlib])' \
 valgrind asciidoc --run make
 ```
+To Build on Mac
+---------------------
 
+Assume you have Xcode and HomeBrew installed on your Mac.
+Get dependencies:
+
+    $ brew install autoconf automake libtool python3 gmp libsodium gnu-sed
+
+If you don't have bitcoind installed locally you'll need to install that
+as well:
+
+    $ brew install \
+    berkeley-db4 boost miniupnpc openssl pkg-config protobuf qt libevent
+    $ git clone https://github.com/bitcoin/bitcoin
+    $ cd bitcoin
+    $ ./autogen.sh
+    $ ./configure
+    $ make & make install
+
+Clone lightning:
+
+    $ git clone https://github.com/ElementsProject/lightning.git
+    $ cd lightning
+
+Build lightning:
+
+    $ make
+
+Running lightning:
+
+**Note**: Edit your `~/Library/Application\ Support/Bitcoin/bitcoin.conf`
+to include `rpcuser=<foo>` and `rpcpassword=<bar>` first, you may also
+need to include `testnet=1`
+
+    bitcoind &
+    ./lightningd/lightningd &
+    ./cli/lightning-cli help
 To cross-compile for Android
 --------------------
 
