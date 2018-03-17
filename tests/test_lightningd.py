@@ -383,6 +383,44 @@ class LightningDTests(BaseLightningDTests):
                                 .format(l1.daemon.lightning_dir, leaks))
         l1.rpc.stop()
 
+    def test_autocleaninvoice(self):
+        l1 = self.node_factory.get_node()
+
+        l1.rpc.autocleaninvoice(cycle_seconds=8, expired_by=2)
+
+        l1.rpc.invoice(msatoshi=12300, label='inv1', description='1', expiry=4)
+        l1.rpc.invoice(msatoshi=12300, label='inv2', description='2', expiry=12)
+
+        # time 0
+        # Both should still be there.
+        assert len(l1.rpc.listinvoices('inv1')['invoices']) == 1
+        assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
+
+        time.sleep(6)   # total 6
+        # Both should still be there - auto clean cycle not started.
+        # inv1 should be expired
+        assert len(l1.rpc.listinvoices('inv1')['invoices']) == 1
+        assert l1.rpc.listinvoices('inv1')['invoices'][0]['status'] == 'expired'
+        assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
+        assert l1.rpc.listinvoices('inv2')['invoices'][0]['status'] != 'expired'
+
+        time.sleep(4)   # total 10
+        # inv1 should have deleted, inv2 still there and unexpired.
+        assert len(l1.rpc.listinvoices('inv1')['invoices']) == 0
+        assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
+        assert l1.rpc.listinvoices('inv2')['invoices'][0]['status'] != 'expired'
+
+        time.sleep(4)   # total 14
+        # inv2 should still be there, but expired
+        assert len(l1.rpc.listinvoices('inv1')['invoices']) == 0
+        assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
+        assert l1.rpc.listinvoices('inv2')['invoices'][0]['status'] == 'expired'
+
+        time.sleep(4)   # total 18
+        # Everything deleted
+        assert len(l1.rpc.listinvoices('inv1')['invoices']) == 0
+        assert len(l1.rpc.listinvoices('inv2')['invoices']) == 0
+
     def test_invoice(self):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node()
