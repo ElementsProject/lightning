@@ -20,7 +20,7 @@ deleted.
 
 RETURN VALUE
 ------------
-On success, does nothing.
+On success, an empty object is returned.
 
 AUTHOR
 ------
@@ -28,7 +28,7 @@ ZmnSCPxj <ZmnSCPxj@protonmail.com> is mainly responsible.
 
 SEE ALSO
 --------
-lightning-delinvoice(7)
+lightning-delinvoice(7), lightning-autocleaninvoice(7)
 
 RESOURCES
 ---------

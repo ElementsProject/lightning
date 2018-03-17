@@ -517,6 +517,17 @@ void wallet_invoice_delete_expired(struct wallet *wallet,
 				   u64 max_expiry_time);
 
 /**
+ * wallet_invoice_autoclean - Set up a repeating autoclean of
+ * expired invoices.
+ * Cleans (deletes) expired invoices every @cycle_seconds.
+ * Clean only those invoices that have been expired for at
+ * least @expired_by seconds or more.
+ */
+void wallet_invoice_autoclean(struct wallet * wallet,
+			      u64 cycle_seconds,
+			      u64 expired_by);
+
+/**
  * wallet_invoice_iterate - Iterate over all existing invoices
  *
  * @wallet - the wallet whose invoices are to be iterated over.
