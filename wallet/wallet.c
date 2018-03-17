@@ -1399,6 +1399,10 @@ void wallet_invoice_delete_expired(struct wallet *wallet, u64 e)
 {
 	invoices_delete_expired(wallet->invoices, e);
 }
+void wallet_invoice_autoclean(struct wallet *wallet, u64 c, u64 e)
+{
+	invoices_autoclean_set(wallet->invoices, c, e);
+}
 bool wallet_invoice_iterate(struct wallet *wallet,
 			    struct invoice_iterator *it)
 {
