@@ -165,12 +165,40 @@ static void check_config_bounds(struct state *state,
 			    &state->channel_id,
 			    "max_accepted_htlcs %u too large",
 			    remoteconf->max_accepted_htlcs);
+
+	/* BOLT #2:
+	 *
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *  - `dust_limit_satoshis` is greater than `channel_reserve_satoshis`.
+	 */
+	if (remoteconf->dust_limit_satoshis
+	    > remoteconf->channel_reserve_satoshis)
+		peer_failed(&state->cs, state->gossip_index,
+			    &state->channel_id,
+			    "dust_limit_satoshis %"PRIu64
+			    " too large for channel_reserve_satoshis %"PRIu64,
+			    remoteconf->dust_limit_satoshis,
+			    remoteconf->channel_reserve_satoshis);
 }
 
 /* We always set channel_reserve_satoshis to 1%, rounded up. */
-static void set_reserve(u64 *reserve, u64 funding)
+static void set_reserve(struct state *state)
 {
-	*reserve = (funding + 99) / 100;
+	state->localconf.channel_reserve_satoshis
+		= (state->funding_satoshis + 99) / 100;
+
+	/* BOLT #2:
+	 *
+	 * The sending node:
+	 *...
+	 * - MUST set `channel_reserve_satoshis` greater than or equal to
+         *   `dust_limit_satoshis`.
+	 */
+	if (state->localconf.channel_reserve_satoshis
+	    < state->localconf.dust_limit_satoshis)
+		state->localconf.channel_reserve_satoshis
+			= state->localconf.dust_limit_satoshis;
 }
 
 /* BOLT #2:
@@ -221,8 +249,7 @@ static u8 *funder_channel(struct state *state,
 	const u8 *wscript;
 	struct bitcoin_tx *funding;
 
-	set_reserve(&state->localconf.channel_reserve_satoshis,
-		    state->funding_satoshis);
+	set_reserve(state);
 
 	temporary_channel_id(&state->channel_id);
 
@@ -557,8 +584,7 @@ static u8 *fundee_channel(struct state *state,
 				   "feerate_per_kw %u above maximum %u",
 				   state->feerate_per_kw, max_feerate);
 
-	set_reserve(&state->localconf.channel_reserve_satoshis,
-		    state->funding_satoshis);
+	set_reserve(state);
 	check_config_bounds(state, state->remoteconf);
 
 	msg = towire_accept_channel(state, &state->channel_id,
