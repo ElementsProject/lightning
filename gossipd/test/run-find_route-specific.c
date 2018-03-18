@@ -12,6 +12,7 @@
 	do { printf((fmt) ,##__VA_ARGS__); printf("\n"); } while(0)
 
 #include "../routing.c"
+#include "../gossip_store.c"
 
 struct broadcast_state *new_broadcast_state(tal_t *ctx UNNEEDED)
 {
