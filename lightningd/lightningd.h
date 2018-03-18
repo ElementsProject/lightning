@@ -153,6 +153,10 @@ struct lightningd {
 	/* Disable automatic reconnects */
 	bool no_reconnect;
 
+	/* Initial autocleaninvoice settings. */
+	u64 ini_autocleaninvoice_cycle;
+	u64 ini_autocleaninvoice_expiredby;
+
 #if DEVELOPER
 	/* If we want to debug a subdaemon. */
 	const char *dev_debug_subdaemon;
