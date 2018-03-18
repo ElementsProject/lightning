@@ -10,6 +10,7 @@
 #include <common/crypto_sync.h>
 #include <common/derive_basepoints.h>
 #include <common/funding_tx.h>
+#include <common/gen_peer_status_wire.h>
 #include <common/initial_channel.h>
 #include <common/key_derive.h>
 #include <common/peer_billboard.h>
@@ -67,18 +68,29 @@ struct state {
 	const struct chainparams *chainparams;
 };
 
-/* For negotiation failures: we can still gossip with client. */
+/* For negotiation failures: we tell them it's their fault.  Same
+ * as peer_failed, with slightly different local and remote wording. */
 static void negotiation_failed(struct state *state, const char *fmt, ...)
 {
 	va_list ap;
 	const char *errmsg;
+	u8 *msg;
 
 	va_start(ap, fmt);
 	errmsg = tal_vfmt(state, fmt, ap);
 	va_end(ap);
 
+	peer_billboard(true, errmsg);
+	msg = towire_status_peer_error(NULL, &state->channel_id,
+				       errmsg, &state->cs, state->gossip_index,
+				       towire_errorfmt(errmsg,
+						       &state->channel_id,
+						       "You gave bad parameters:%s",
+						       errmsg));
+	tal_free(errmsg);
+	status_send_fatal(take(msg), PEER_FD, GOSSIP_FD);
 	peer_failed(&state->cs, state->gossip_index, &state->channel_id,
-		    "%s", errmsg);
+		    "You gave bad parameters: %s", errmsg);
 }
 
 static void check_config_bounds(struct state *state,
@@ -112,8 +124,8 @@ static void check_config_bounds(struct state *state,
 	/* Overflow check before capacity calc. */
 	if (remoteconf->channel_reserve_satoshis > state->funding_satoshis)
 		negotiation_failed(state,
-				   "Invalid channel_reserve_satoshis %"PRIu64
-				   " for funding_satoshis %"PRIu64,
+				   "channel_reserve_satoshis %"PRIu64
+				   " too large for funding_satoshis %"PRIu64,
 				   remoteconf->channel_reserve_satoshis,
 				   state->funding_satoshis);
 
@@ -129,8 +141,8 @@ static void check_config_bounds(struct state *state,
 
 	if (remoteconf->htlc_minimum_msat * (u64)1000 > capacity_msat)
 		negotiation_failed(state,
-				   "Invalid htlc_minimum_msat %"PRIu64
-				   " for funding_satoshis %"PRIu64
+				   "htlc_minimum_msat %"PRIu64
+				   " too large for funding_satoshis %"PRIu64
 				   " capacity_msat %"PRIu64,
 				   remoteconf->htlc_minimum_msat,
 				   state->funding_satoshis,
@@ -138,7 +150,7 @@ static void check_config_bounds(struct state *state,
 
 	if (capacity_msat < state->min_effective_htlc_capacity_msat)
 		negotiation_failed(state,
-				   "Channel capacity with funding %"PRIu64" msat,"
+				   "channel capacity with funding %"PRIu64" msat,"
 				   " reserves %"PRIu64"/%"PRIu64" msat,"
 				   " max_htlc_value_in_flight_msat %"PRIu64
 				   " is %"PRIu64" msat, which is below %"PRIu64" msat",
@@ -161,10 +173,9 @@ static void check_config_bounds(struct state *state,
 	 * than 483.
 	 */
 	if (remoteconf->max_accepted_htlcs > 483)
-		peer_failed(&state->cs, state->gossip_index,
-			    &state->channel_id,
-			    "max_accepted_htlcs %u too large",
-			    remoteconf->max_accepted_htlcs);
+		negotiation_failed(state,
+				   "max_accepted_htlcs %u too large",
+				   remoteconf->max_accepted_htlcs);
 
 	/* BOLT #2:
 	 *
@@ -174,12 +185,12 @@ static void check_config_bounds(struct state *state,
 	 */
 	if (remoteconf->dust_limit_satoshis
 	    > remoteconf->channel_reserve_satoshis)
-		peer_failed(&state->cs, state->gossip_index,
-			    &state->channel_id,
-			    "dust_limit_satoshis %"PRIu64
-			    " too large for channel_reserve_satoshis %"PRIu64,
-			    remoteconf->dust_limit_satoshis,
-			    remoteconf->channel_reserve_satoshis);
+		negotiation_failed(state,
+				   "dust_limit_satoshis %"PRIu64
+				   " too large for channel_reserve_satoshis %"
+				   PRIu64,
+				   remoteconf->dust_limit_satoshis,
+				   remoteconf->channel_reserve_satoshis);
 }
 
 /* We always set channel_reserve_satoshis to 1%, rounded up. */
@@ -362,14 +373,14 @@ static u8 *funder_channel(struct state *state,
 	if (state->remoteconf->channel_reserve_satoshis
 	    < state->localconf.dust_limit_satoshis)
 		negotiation_failed(state,
-				   "Their channel reserve %"PRIu64
+				   "channel reserve %"PRIu64
 				   " would be below our dust %"PRIu64,
 				   state->remoteconf->channel_reserve_satoshis,
 				   state->localconf.dust_limit_satoshis);
 	if (state->localconf.channel_reserve_satoshis
 	    < state->remoteconf->dust_limit_satoshis)
 		negotiation_failed(state,
-				   "Their dust limit %"PRIu64
+				   "dust limit %"PRIu64
 				   " would be above our reserve %"PRIu64,
 				   state->remoteconf->dust_limit_satoshis,
 				   state->localconf.channel_reserve_satoshis);
@@ -586,10 +597,9 @@ static u8 *fundee_channel(struct state *state,
 	 * The receiving node ... MUST fail the channel if `funding-satoshis`
 	 * is greater than or equal to 2^24 */
 	if (state->funding_satoshis > MAX_FUNDING_SATOSHI)
-		peer_failed(&state->cs, state->gossip_index,
-			    &state->channel_id,
-			    "funding_satoshis %"PRIu64" too large",
-			    state->funding_satoshis);
+		negotiation_failed(state,
+				   "funding_satoshis %"PRIu64" too large",
+				   state->funding_satoshis);
 
 	/* BOLT #2:
 	 *
@@ -599,8 +609,8 @@ static u8 *fundee_channel(struct state *state,
 	if (state->push_msat > state->funding_satoshis * 1000)
 		peer_failed(&state->cs, state->gossip_index,
 			    &state->channel_id,
-			    "push_msat %"PRIu64
-			    " too large for funding_satoshis %"PRIu64,
+			    "Our push_msat %"PRIu64
+			    " would be too large for funding_satoshis %"PRIu64,
 			    state->push_msat, state->funding_satoshis);
 
 	/* BOLT #2:
@@ -704,7 +714,7 @@ static u8 *fundee_channel(struct state *state,
 	if (!state->channel)
 		peer_failed(&state->cs, state->gossip_index,
 			    &state->channel_id,
-			    "could not create channel with given config");
+			    "We could not create channel with given config");
 
 	/* BOLT #2:
 	 *
