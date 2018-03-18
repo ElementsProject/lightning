@@ -1522,6 +1522,23 @@ static void setup_listeners(struct daemon *daemon, u16 portnum)
 			      portnum);
 }
 
+/**
+ * Callback function to be called whenever the master connection is idle
+ */
+static bool master_conn_idle(struct io_conn *conn UNUSED,
+			     struct daemon_conn *dc)
+{
+	const u8 *msg;
+	struct daemon *daemon = container_of(dc, struct daemon, master);
+	msg = gossip_store_read_next(tmpctx, daemon->rstate->store);
+
+	if (msg) {
+		handle_gossip_msg(daemon, msg);
+		return true;
+	} else {
+		return false;
+	}
+}
 
 /* Parse an incoming gossip init message and assign config variables
  * to the daemon.
@@ -1544,6 +1561,8 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	/* Prune time is twice update time */
 	daemon->rstate = new_routing_state(daemon, &chain_hash, &daemon->id,
 					   update_channel_interval * 2);
+
+	master->msg_queue_cleared_cb = master_conn_idle;
 
 	setup_listeners(daemon, port);
 
