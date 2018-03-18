@@ -346,6 +346,34 @@ static u8 *funder_channel(struct state *state,
 		negotiation_failed(state,
 				   "minimum_depth %u larger than %u",
 				   minimum_depth, max_minimum_depth);
+
+	/* BOLT #2:
+	 *
+	 * The receiver:
+	 *...
+	 *  - if `channel_reserve_satoshis` is less than `dust_limit_satoshis`
+	 *    within the `open_channel` message:
+	 *    - MUST reject the channel.
+	 *
+	 *  - if `channel_reserve_satoshis` from the `open_channel` message is
+	 *    less than `dust_limit_satoshis`:
+	 *    - MUST reject the channel.
+	 */
+	if (state->remoteconf->channel_reserve_satoshis
+	    < state->localconf.dust_limit_satoshis)
+		negotiation_failed(state,
+				   "Their channel reserve %"PRIu64
+				   " would be below our dust %"PRIu64,
+				   state->remoteconf->channel_reserve_satoshis,
+				   state->localconf.dust_limit_satoshis);
+	if (state->localconf.channel_reserve_satoshis
+	    < state->remoteconf->dust_limit_satoshis)
+		negotiation_failed(state,
+				   "Their dust limit %"PRIu64
+				   " would be above our reserve %"PRIu64,
+				   state->remoteconf->dust_limit_satoshis,
+				   state->localconf.channel_reserve_satoshis);
+
 	check_config_bounds(state, state->remoteconf);
 
 	/* Now, ask create funding transaction to pay those two addresses. */
@@ -585,6 +613,31 @@ static u8 *fundee_channel(struct state *state,
 				   state->feerate_per_kw, max_feerate);
 
 	set_reserve(state);
+
+	/* BOLT #2:
+	 *
+	 * The sender:
+	 *...
+	 * - MUST set `channel_reserve_satoshis` greater than or equal to
+	 *   `dust_limit_satoshis` from the `open_channel` message.
+	 * - MUST set `dust_limit_satoshis` less than
+         *   `channel_reserve_satoshis` from the `open_channel` message.
+	 */
+	if (state->localconf.channel_reserve_satoshis
+	    < state->remoteconf->dust_limit_satoshis)
+		negotiation_failed(state,
+				   "Our channel reserve %"PRIu64
+				   " would be below their dust %"PRIu64,
+				   state->localconf.channel_reserve_satoshis,
+				   state->remoteconf->dust_limit_satoshis);
+	if (state->localconf.dust_limit_satoshis
+	    >= state->remoteconf->channel_reserve_satoshis)
+		negotiation_failed(state,
+				   "Our dust limit %"PRIu64
+				   " would be above their reserve %"PRIu64,
+				   state->localconf.dust_limit_satoshis,
+				   state->remoteconf->channel_reserve_satoshis);
+
 	check_config_bounds(state, state->remoteconf);
 
 	msg = towire_accept_channel(state, &state->channel_id,
