@@ -52,6 +52,45 @@ Running lightning:
 
 **Note**: You may need to include `testnet=1` in `bitcoin.conf`
 
+
+To Build on Fedora 27 or above
+---------------------
+
+Make sure you have [bitcoind](https://github.com/bitcoin/bitcoin) available to run
+
+Get dependencies:
+```
+$ sudo dnf install -y autoconf automake gcc git libtool gmp-devel libsq3-devel python2-devel python3-devel net-tools libsodium-devel
+```
+
+Clone lightning:
+```
+$ git clone https://github.com/ElementsProject/lightning.git
+$ cd lightning
+```
+
+Build and install lightning:
+```
+$lightning> make
+$lightning> sudo make install
+```
+
+Running lightning (mainnet):
+```
+$ bitcoind &
+$ lightningd --network=bitcoin
+```
+
+Running lightning on testnet:
+```
+$ bitcoind -testnet &
+$ lightningd --network=testnet
+```
+
+Additional steps
+Go to [README](https://github.com/ElementsProject/lightning/blob/master/README.md) for more information how to create an address, add funds, connect to a node, etc.
+
+
 To Build on FreeBSD 11.1-RELEASE
 ---------------------
 
