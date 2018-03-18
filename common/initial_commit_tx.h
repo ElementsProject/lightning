@@ -76,11 +76,12 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     u64 dust_limit_satoshis,
 				     u64 self_pay_msat,
 				     u64 other_pay_msat,
+				     u64 self_reserve_msat,
 				     u64 obscured_commitment_number,
 				     enum side side);
 
-/* try_subtract_fee - take away this fee from the funder, or all if insufficient. */
-void try_subtract_fee(enum side funder, enum side side,
+/* try_subtract_fee - take away this fee from the funder (and return true), or all if insufficient (and return false). */
+bool try_subtract_fee(enum side funder, enum side side,
 		      u64 base_fee_msat, u64 *self_msat, u64 *other_msat);
 
 /* Generate the witness script for the to-self output:

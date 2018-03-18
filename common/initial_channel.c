@@ -98,6 +98,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				 dust_limit_satoshis(channel, side),
 				 channel->view[side].owed_msat[side],
 				 channel->view[side].owed_msat[!side],
+				 channel_reserve_msat(channel, side),
 				 0 ^ channel->commitment_number_obscurer,
 				 side);
 }

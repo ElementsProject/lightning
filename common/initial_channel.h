@@ -164,7 +164,8 @@ struct channel *new_initial_channel(const tal_t *ctx,
  * @per_commitment_point: Per-commitment point to determine keys
  * @side: which side to get the commitment transaction for
  *
- * Returns the unsigned initial commitment transaction for @side.
+ * Returns the unsigned initial commitment transaction for @side, or NULL
+ * if the channel size was insufficient to cover fees or reserves.
  */
 struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				      const u8 **wscript,

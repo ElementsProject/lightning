@@ -422,6 +422,9 @@ static u8 *funder_channel(struct state *state,
 	 */
 	tx = initial_channel_tx(state, &wscript, state->channel,
 				&state->next_per_commit[REMOTE], REMOTE);
+	if (!tx)
+		negotiation_failed(state,
+				   "Could not meet their fees and reserve");
 
 	sign_tx_input(tx, 0, NULL, wscript,
 		      &state->our_secrets.funding_privkey,
@@ -480,6 +483,9 @@ static u8 *funder_channel(struct state *state,
 	 */
 	tx = initial_channel_tx(state, &wscript, state->channel,
 				&state->next_per_commit[LOCAL], LOCAL);
+	if (!tx)
+		negotiation_failed(state,
+				   "Could not meet our fees and reserve");
 
 	if (!check_tx_sig(tx, 0, NULL, wscript, &their_funding_pubkey, &sig)) {
 		peer_failed(&state->cs, state->gossip_index,
@@ -706,6 +712,9 @@ static u8 *fundee_channel(struct state *state,
 	 */
 	their_commit = initial_channel_tx(state, &wscript, state->channel,
 					  &state->next_per_commit[LOCAL], LOCAL);
+	if (!their_commit)
+		negotiation_failed(state,
+				   "Could not meet our fees and reserve");
 
 	if (!check_tx_sig(their_commit, 0, NULL, wscript, &their_funding_pubkey,
 			  &theirsig)) {
@@ -740,6 +749,10 @@ static u8 *fundee_channel(struct state *state,
 	 */
 	our_commit = initial_channel_tx(state, &wscript, state->channel,
 					&state->next_per_commit[REMOTE], REMOTE);
+	if (!our_commit)
+		negotiation_failed(state,
+				   "Could not meet their fees and reserve");
+
 	sign_tx_input(our_commit, 0, NULL, wscript,
 		      &state->our_secrets.funding_privkey,
 		      our_funding_pubkey, &sig);
