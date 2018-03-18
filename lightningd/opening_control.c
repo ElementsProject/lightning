@@ -849,12 +849,6 @@ static void json_fund_channel(struct command *cmd,
 		return;
 	}
 
-	if (fc->funding_satoshi > MAX_FUNDING_SATOSHI) {
-		command_fail(cmd, "Funding satoshi must be <= %d",
-			     MAX_FUNDING_SATOSHI);
-		return;
-	}
-
 	/* FIXME: Support push_msat? */
 	fc->push_msat = 0;
 	fc->channel_flags = OUR_CHANNEL_FLAGS;
@@ -883,6 +877,13 @@ static void json_fund_channel(struct command *cmd,
             return;
         }
     }
+
+	if (fc->funding_satoshi > MAX_FUNDING_SATOSHI) {
+		command_fail(cmd, "Funding satoshi must be <= %d",
+			     MAX_FUNDING_SATOSHI);
+		return;
+	}
+
 
 	msg = towire_gossipctl_release_peer(cmd, &fc->peerid);
 	subd_req(fc, cmd->ld->gossip, msg, -1, 2, gossip_peer_released, fc);
