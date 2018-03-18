@@ -636,8 +636,14 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 
 		json_object_start(response, NULL);
 		json_add_pubkey(response, "id", &p->id);
-		channel = peer_active_channel(p);
-		connected = (channel && channel->owner != NULL);
+
+		/* Channel is also connected if uncommitted channel */
+		if (p->uncommitted_channel)
+			connected = true;
+		else {
+			channel = peer_active_channel(p);
+			connected = channel && channel->owner;
+		}
 		json_add_bool(response, "connected", connected);
 
 		if (connected) {
