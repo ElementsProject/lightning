@@ -620,7 +620,7 @@ static u8 *fundee_channel(struct state *state,
 	 *...
 	 * - MUST set `channel_reserve_satoshis` greater than or equal to
 	 *   `dust_limit_satoshis` from the `open_channel` message.
-	 * - MUST set `dust_limit_satoshis` less than
+	 * - MUST set `dust_limit_satoshis` less than or equal to
          *   `channel_reserve_satoshis` from the `open_channel` message.
 	 */
 	if (state->localconf.channel_reserve_satoshis
@@ -631,7 +631,7 @@ static u8 *fundee_channel(struct state *state,
 				   state->localconf.channel_reserve_satoshis,
 				   state->remoteconf->dust_limit_satoshis);
 	if (state->localconf.dust_limit_satoshis
-	    >= state->remoteconf->channel_reserve_satoshis)
+	    > state->remoteconf->channel_reserve_satoshis)
 		negotiation_failed(state,
 				   "Our dust limit %"PRIu64
 				   " would be above their reserve %"PRIu64,
