@@ -807,10 +807,12 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 
 	if (replace_broadcast(chan, rstate->broadcasts,
 			      &chan->channel_announce_msgidx,
-			      take(pending->announce)))
+			      pending->announce))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Announcement %s was replaced?",
 			      tal_hex(tmpctx, pending->announce));
+
+	gossip_store_append(rstate->store, pending->announce);
 
 	local = pubkey_eq(&pending->node_id_1, &rstate->local_id) ||
 		pubkey_eq(&pending->node_id_2, &rstate->local_id);
@@ -981,6 +983,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 			      timestamp,
 			      htlc_minimum_msat);
 
+	gossip_store_append(rstate->store, serialized);
 	replace_broadcast(chan, rstate->broadcasts,
 			  &chan->half[direction].channel_update_msgidx,
 			  take(serialized));
@@ -1155,6 +1158,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	tal_free(node->alias);
 	node->alias = tal_dup_arr(node, u8, alias, 32, 0);
 
+	gossip_store_append(rstate->store, serialized);
 	replace_broadcast(node, rstate->broadcasts,
 			  &node->node_announce_msgidx,
 			  take(serialized));
