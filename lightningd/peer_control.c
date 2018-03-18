@@ -452,7 +452,13 @@ void peer_sent_nongossip(struct lightningd *ld,
 		struct channel *channel;
 		channel = channel_by_channel_id(peer, channel_id);
 		if (channel && channel->error) {
-			error = channel->error;
+			/* In all other cases, error is a newly-allocated
+			 * error message. So newly-allocate one here too.
+			 */
+			error = tal_dup_arr(ld, u8,
+					    channel->error,
+					    tal_count(channel->error),
+					    0);
 			goto send_error;
 		}
 	}
