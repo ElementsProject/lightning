@@ -52,6 +52,57 @@ Running lightning:
 
 **Note**: You may need to include `testnet=1` in `bitcoin.conf`
 
+To Build on Fedora 27 or above
+---------------------
+
+Get dependencies:
+```
+$ sudo dnf update -y && \
+        dnf groupinstall -y \
+                'C Development Tools and Libraries' \
+                'Development Tools' && \
+        dnf install -y \
+                clang \
+                gmp-devel \
+                libsq3-devel \
+                python2-devel \
+                python3-devel \
+                python3-pip \
+                python3-setuptools \
+                net-tools \
+                libsodium-devel \
+                net-tools \
+                valgrind \
+                wget && \
+        dnf clean all
+```
+
+Make sure you have [bitcoind](https://github.com/bitcoin/bitcoin) available to run
+
+Clone lightning:
+```
+$ git clone https://github.com/ElementsProject/lightning.git
+$ cd lightning
+```
+
+Build and install lightning:
+```
+$lightning> make
+$lightning> sudo make install
+```
+
+Running lightning (mainnet):
+```
+$ bitcoind &
+$ lightningd --network=bitcoin
+```
+
+Running lightning on testnet:
+```
+$ bitcoind -testnet &
+$ lightningd --network=testnet
+```
+
 To Build on FreeBSD 11.1-RELEASE
 ---------------------
 
@@ -131,3 +182,7 @@ Build with:
     BUILD=x86_64 HOST=arm-linux-androideabi \
       make PIE=1 DEVELOPER=0 \
       CONFIGURATOR_CC="arm-linux-androideabi-clang -static"
+
+Additional steps
+--------------------
+Go to [README](https://github.com/ElementsProject/lightning/blob/master/README.md) for more information how to create an address, add funds, connect to a node, etc.
