@@ -1,3 +1,12 @@
+# Table of Contents
+1. [Library Requirements](#Library-Requirements)
+2. [Ubuntu](#To-Build-on-Ubuntu-15.10-or-above)
+3. [Fedora](#To-Build-on-Fedora-27-or-above)
+4. [FreeBSD](#To-Build-on-FreeBSD-11.1-RELEASE)
+5. [NIX{,OS}](#To-Build-on-Nix{,OS})
+6. [Android](#To-cross-compile-for-Android)
+7. [Additional steps](#Additional-steps)
+
 Library Requirements
 --------------------
 
