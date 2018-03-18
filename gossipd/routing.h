@@ -6,6 +6,7 @@
 #include <ccan/htable/htable_type.h>
 #include <ccan/time/time.h>
 #include <gossipd/broadcast.h>
+#include <gossipd/gossip_store.h>
 #include <wire/gen_onion_wire.h>
 #include <wire/wire.h>
 
@@ -156,6 +157,10 @@ struct routing_state {
 
 	/* How old does a channel have to be before we prune it? */
 	u32 prune_timeout;
+
+	/* Store for processed messages that we might want to remember across
+	 * restarts */
+	struct gossip_store *store;
 
         /* A map of channels indexed by short_channel_ids */
 	UINTMAP(struct chan *) chanmap;

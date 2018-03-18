@@ -47,6 +47,7 @@ static int fake_pubkey_cmp(const struct pubkey *a, const struct pubkey *b)
 #define pubkey_cmp fake_pubkey_cmp
 #define type_to_string_ fake_type_to_string_
 #include "../routing.c"
+#include "../gossip_store.c"
 #undef type_to_string_
 
 struct broadcast_state *new_broadcast_state(tal_t *ctx UNNEEDED)

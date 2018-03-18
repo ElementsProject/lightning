@@ -1,4 +1,5 @@
 #include "../routing.c"
+#include "../gossip_store.c"
 #include <stdio.h>
 
 struct broadcast_state *new_broadcast_state(tal_t *ctx UNNEEDED)
