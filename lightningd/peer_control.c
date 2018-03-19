@@ -437,7 +437,8 @@ void peer_sent_nongossip(struct lightningd *ld,
 
 	/* Open request? */
 	if (fromwire_peektype(in_msg) == WIRE_OPEN_CHANNEL) {
-		error = peer_accept_channel(ld, id, addr, cs, gossip_index,
+		error = peer_accept_channel(tmpctx,
+					    ld, id, addr, cs, gossip_index,
 					    gfeatures, lfeatures,
 					    peer_fd, gossip_fd, channel_id,
 					    in_msg);
@@ -452,30 +453,23 @@ void peer_sent_nongossip(struct lightningd *ld,
 		struct channel *channel;
 		channel = channel_by_channel_id(peer, channel_id);
 		if (channel && channel->error) {
-			/* In all other cases, error is a newly-allocated
-			 * error message. So newly-allocate one here too.
-			 */
-			error = tal_dup_arr(ld, u8,
-					    channel->error,
-					    tal_count(channel->error),
-					    0);
+			error = channel->error;
 			goto send_error;
 		}
 	}
 
 	/* Weird request. */
-	error = towire_errorfmt(ld, channel_id,
+	error = towire_errorfmt(tmpctx, channel_id,
 				"Unexpected message %i for peer",
 				fromwire_peektype(in_msg));
 
 send_error:
 	/* Hand back to gossipd, with an error packet. */
-	connect_failed(ld, id, sanitize_error(error, error, NULL));
+	connect_failed(ld, id, sanitize_error(tmpctx, error, NULL));
 	msg = towire_gossipctl_hand_back_peer(ld, id, cs, gossip_index, error);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
 	subd_send_fd(ld->gossip, gossip_fd);
-	tal_free(error);
 }
 
 static enum watch_result funding_announce_cb(struct channel *channel,
