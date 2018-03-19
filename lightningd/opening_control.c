@@ -834,9 +834,9 @@ static void json_fund_channel(struct command *cmd,
 	fc = tal(cmd, struct funding_channel);
 	fc->cmd = cmd;
 
+    fc->funding_satoshi = 0;
 	if (json_tok_streq(buffer, sattok, "all")) {
 		all_funds = true;
-        fc->funding_satoshi = 0;
 
 	} else if (!json_tok_u64(buffer, sattok, &fc->funding_satoshi)) {
 		command_fail(cmd, "Invalid satoshis");
