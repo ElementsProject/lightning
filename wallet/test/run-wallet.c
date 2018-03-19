@@ -275,7 +275,8 @@ bool outpointfilter_matches(struct outpointfilter *of UNNEEDED,
 struct outpointfilter *outpointfilter_new(tal_t *ctx UNNEEDED)
 { fprintf(stderr, "outpointfilter_new called!\n"); abort(); }
 /* Generated stub for peer_accept_channel */
-u8 *peer_accept_channel(struct lightningd *ld UNNEEDED,
+u8 *peer_accept_channel(const tal_t *ctx UNNEEDED,
+			struct lightningd *ld UNNEEDED,
 			const struct pubkey *peer_id UNNEEDED,
 			const struct wireaddr *addr UNNEEDED,
 			const struct crypto_state *cs UNNEEDED,
@@ -333,9 +334,6 @@ u8 *towire_channel_funding_locked(const tal_t *ctx UNNEEDED, const struct short_
 /* Generated stub for towire_channel_send_shutdown */
 u8 *towire_channel_send_shutdown(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_send_shutdown called!\n"); abort(); }
-/* Generated stub for towire_error */
-u8 *towire_error(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, const u8 *data UNNEEDED)
-{ fprintf(stderr, "towire_error called!\n"); abort(); }
 /* Generated stub for towire_errorfmt */
 u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const struct channel_id *channel UNNEEDED,

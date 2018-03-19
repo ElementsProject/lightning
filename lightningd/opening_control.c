@@ -617,7 +617,8 @@ static void channel_config(struct lightningd *ld,
  * NULL if we took over, otherwise hand back to gossipd with this
  * error.
  */
-u8 *peer_accept_channel(struct lightningd *ld,
+u8 *peer_accept_channel(const tal_t *ctx,
+			struct lightningd *ld,
 			const struct pubkey *peer_id,
 			const struct wireaddr *addr,
 			const struct crypto_state *cs,
@@ -637,7 +638,7 @@ u8 *peer_accept_channel(struct lightningd *ld,
 	/* Fails if there's already one */
 	uc = new_uncommitted_channel(ld, NULL, peer_id, addr);
 	if (!uc)
-		return towire_errorfmt(open_msg, channel_id,
+		return towire_errorfmt(ctx, channel_id,
 				       "Multiple channels unsupported");
 
 	uc->openingd = new_channel_subd(ld, "lightning_openingd", uc, uc->log,
