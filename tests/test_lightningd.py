@@ -3045,6 +3045,21 @@ class LightningDTests(BaseLightningDTests):
         assert outputs[0] > 8990000
         assert outputs[2] == 10000000
 
+    def test_funding_all(self):
+        """Add some funds, fund a channel using all funds, make sure no funds remain
+        """
+        l1, l2 = self.connect()
+
+        self.give_funds(l1, 0.1 * 10**8)
+
+        outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
+        assert len(outputs) == 1 and outputs[0]['value'] == 10000000
+
+        l1.rpc.fundchannel(l2.info['id'], "all")
+
+        outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
+        assert len(outputs) == 0 
+
     def test_funding_fail(self):
         """Add some funds, fund a channel without enough funds"""
         # Previous runs with same bitcoind can leave funds!
