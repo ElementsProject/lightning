@@ -3058,7 +3058,7 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.fundchannel(l2.info['id'], "all")
 
         outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
-        assert len(outputs) == 0 
+        assert len(outputs) == 0
 
     def test_funding_fail(self):
         """Add some funds, fund a channel without enough funds"""
