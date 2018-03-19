@@ -16,9 +16,10 @@ void json_add_uncommitted_channel(struct json_result *response,
 
 /* Peer has spontaneously exited from gossip due to open msg.  Return
  * NULL if we took over, otherwise hand back to gossipd with this
- * error.
+ * error (allocated off @ctx).
  */
-u8 *peer_accept_channel(struct lightningd *ld,
+u8 *peer_accept_channel(const tal_t *ctx,
+			struct lightningd *ld,
 			const struct pubkey *peer_id,
 			const struct wireaddr *addr,
 			const struct crypto_state *cs,

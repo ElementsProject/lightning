@@ -1,4 +1,5 @@
 #include "invoice.h"
+#include "json.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include <bitcoin/address.h>

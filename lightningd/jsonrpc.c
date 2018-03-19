@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
@@ -314,71 +315,6 @@ struct json_result *null_response(const tal_t *ctx)
 	json_object_start(response, NULL);
 	json_object_end(response);
 	return response;
-}
-
-void json_add_pubkey(struct json_result *response,
-		     const char *fieldname,
-		     const struct pubkey *key)
-{
-	u8 der[PUBKEY_DER_LEN];
-
-	pubkey_to_der(der, key);
-	json_add_hex(response, fieldname, der, sizeof(der));
-}
-
-void json_add_txid(struct json_result *result, const char *fieldname,
-		   const struct bitcoin_txid *txid)
-{
-	char hex[hex_str_size(sizeof(*txid))];
-
-	bitcoin_txid_to_hex(txid, hex, sizeof(hex));
-	json_add_string(result, fieldname, hex);
-}
-
-bool json_tok_pubkey(const char *buffer, const jsmntok_t *tok,
-		     struct pubkey *pubkey)
-{
-	return pubkey_from_hexstr(buffer + tok->start,
-				  tok->end - tok->start, pubkey);
-}
-
-void json_add_short_channel_id(struct json_result *response,
-			       const char *fieldname,
-			       const struct short_channel_id *id)
-{
-	json_add_string(response, fieldname,
-			type_to_string(response, struct short_channel_id, id));
-}
-
-bool json_tok_short_channel_id(const char *buffer, const jsmntok_t *tok,
-			       struct short_channel_id *scid)
-{
-	return short_channel_id_from_str(buffer + tok->start,
-					 tok->end - tok->start,
-					 scid);
-}
-
-void json_add_address(struct json_result *response, const char *fieldname,
-		      const struct wireaddr *addr)
-{
-	/* No need to print padding */
-	if (addr->type == ADDR_TYPE_PADDING)
-		return;
-
-	json_object_start(response, fieldname);
-	char *addrstr = tal_arr(response, char, INET6_ADDRSTRLEN);
-	if (addr->type == ADDR_TYPE_IPV4) {
-		inet_ntop(AF_INET, addr->addr, addrstr, INET_ADDRSTRLEN);
-		json_add_string(response, "type", "ipv4");
-		json_add_string(response, "address", addrstr);
-		json_add_num(response, "port", addr->port);
-	} else if (addr->type == ADDR_TYPE_IPV6) {
-		inet_ntop(AF_INET6, addr->addr, addrstr, INET6_ADDRSTRLEN);
-		json_add_string(response, "type", "ipv6");
-		json_add_string(response, "address", addrstr);
-		json_add_num(response, "port", addr->port);
-	}
-	json_object_end(response);
 }
 
 static bool cmd_in_jcon(const struct json_connection *jcon,

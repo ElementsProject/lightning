@@ -926,10 +926,16 @@ class LightningDTests(BaseLightningDTests):
 
         inv = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
         before = int(time.time())
-        preimage = l1.rpc.pay(inv)
+        details = l1.rpc.pay(inv)
         after = int(time.time())
-        invoice = l2.rpc.listinvoices('test_pay')['invoices'][0]
+        preimage = details['payment_preimage']
+        assert details['status'] == 'complete'
+        assert details['msatoshi'] == 123000
+        assert details['destination'] == l2.info['id']
+        assert details['created_at'] >= before
+        assert details['created_at'] <= after
 
+        invoice = l2.rpc.listinvoices('test_pay')['invoices'][0]
         assert invoice['status'] == 'paid'
         assert invoice['paid_at'] >= before
         assert invoice['paid_at'] <= after
@@ -957,7 +963,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Test listpayments indexed by bolt11.
         assert len(l1.rpc.listpayments(inv)['payments']) == 1
-        assert l1.rpc.listpayments(inv)['payments'][0]['payment_preimage'] == preimage['payment_preimage']
+        assert l1.rpc.listpayments(inv)['payments'][0]['payment_preimage'] == preimage
 
     def test_pay_optional_args(self):
         l1, l2 = self.connect()
@@ -1246,8 +1252,9 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log(' to ONCHAIN')
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET (.*) after 5 blocks')
 
+        cid = l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['channel_id']
         wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status'] ==
-                 ['CHANNELD_NORMAL:Received error from peer: channel ALL: Internal error: Failing due to dev-fail command',
+                 ['CHANNELD_NORMAL:Received error from peer: channel {}: Internal error: Failing due to dev-fail command'.format(cid),
                   'ONCHAIN:Tracking their unilateral close',
                   'ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel'])
 

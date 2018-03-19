@@ -4,6 +4,7 @@
 #include <common/wireaddr.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <lightningd/connect_control.h>
+#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
