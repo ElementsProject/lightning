@@ -24,7 +24,9 @@ static void do_generate(int argc, char **argv)
 	memset(&assocdata, 'B', sizeof(assocdata));
 
 	for (int i = 0; i < num_hops; i++) {
-		hex_decode(argv[1 + i], 66, privkeys[i], 33);
+		if (!hex_decode(argv[1 + i], 66, privkeys[i], 33)) {
+			errx(1, "Invalid private key hex '%s'", argv[1 + i]);
+		}
 		if (secp256k1_ec_pubkey_create(secp256k1_ctx, &path[i].pubkey,
 					       privkeys[i]) != 1)
 			errx(1, "Could not decode pubkey");
@@ -76,7 +78,9 @@ static void do_decode(int argc, char **argv)
 	if (!read_all(STDIN_FILENO, hextemp, sizeof(hextemp)))
 		errx(1, "Reading in onion");
 
-	hex_decode(hextemp, sizeof(hextemp), serialized, sizeof(serialized));
+	if (!hex_decode(hextemp, sizeof(hextemp), serialized, sizeof(serialized))) {
+		errx(1, "Invalid onion hex '%s'", hextemp);
+	}
 
 	msg = parse_onionpacket(ctx, serialized, sizeof(serialized));
 
