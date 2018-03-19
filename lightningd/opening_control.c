@@ -855,10 +855,10 @@ static void json_fund_channel(struct command *cmd,
 	/* Try to do this now, so we know if insufficient funds. */
 	/* FIXME: dustlimit */
     if (all_funds) {
-		fc->utxomap = wallet_select_all(cmd, cmd->ld->wallet, 
+		fc->utxomap = wallet_select_all(cmd, cmd->ld->wallet,
 			feerate_per_kw,
 			BITCOIN_SCRIPTPUBKEY_P2WSH_LEN,
-			&fc->funding_satoshi, 
+			&fc->funding_satoshi,
 			&fee_estimate);
 		if (!fc->utxomap || fc->funding_satoshi < 546) {
 			command_fail(cmd, "Cannot afford fee %"PRIu64,
