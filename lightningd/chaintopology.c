@@ -324,10 +324,15 @@ static void update_feerates(struct bitcoind *bitcoind,
 		if (feerate < feerate_floor())
 			feerate = feerate_floor();
 
-		if (feerate != topo->feerate[i])
+		if (feerate != topo->feerate[i]) {
 			log_debug(topo->log, "%s feerate %u (was %u)",
 				  feerate_name(i),
 				  feerate, topo->feerate[i]);
+			if (feerate != satoshi_per_kw[i])
+				log_debug(topo->log,
+					  "...feerate %u hit floor %u",
+					  satoshi_per_kw[i], feerate);
+		}
 		old_feerates[i] = topo->feerate[i];
 		topo->feerate[i] = feerate;
 	}
