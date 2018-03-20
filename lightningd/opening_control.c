@@ -833,8 +833,9 @@ static void json_fund_channel(struct command *cmd,
 
 	fc = tal(cmd, struct funding_channel);
 	fc->cmd = cmd;
+	fc->change_keyindex = 0;
+	fc->funding_satoshi = 0;
 
-    fc->funding_satoshi = 0;
 	if (json_tok_streq(buffer, sattok, "all")) {
 		all_funds = true;
 
@@ -866,23 +867,22 @@ static void json_fund_channel(struct command *cmd,
 			return;
 		}
 		fc->change = 0;
-    } else {
-        fc->utxomap = build_utxos(fc, cmd->ld, fc->funding_satoshi,
-                      feerate_per_kw,
-                      600, BITCOIN_SCRIPTPUBKEY_P2WSH_LEN,
-                      &fc->change, &fc->change_keyindex);
-        if (!fc->utxomap) {
-            command_fail(cmd, "Cannot afford funding transaction");
-            return;
-        }
-    }
+	} else {
+		fc->utxomap = build_utxos(fc, cmd->ld, fc->funding_satoshi,
+			feerate_per_kw,
+			600, BITCOIN_SCRIPTPUBKEY_P2WSH_LEN,
+			&fc->change, &fc->change_keyindex);
+		if (!fc->utxomap) {
+			command_fail(cmd, "Cannot afford funding transaction");
+			return;
+		}
+	}
 
 	if (fc->funding_satoshi > MAX_FUNDING_SATOSHI) {
 		command_fail(cmd, "Funding satoshi must be <= %d",
 			     MAX_FUNDING_SATOSHI);
 		return;
 	}
-
 
 	msg = towire_gossipctl_release_peer(cmd, &fc->peerid);
 	subd_req(fc, cmd->ld->gossip, msg, -1, 2, gossip_peer_released, fc);
