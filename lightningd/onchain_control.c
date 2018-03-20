@@ -236,7 +236,7 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 		fatal("onchaind gave invalid add_utxo message: %s", tal_hex(msg, msg));
 	}
 
-
+	outpointfilter_add(channel->peer->ld->wallet->owned_outpoints, &u->txid, u->outnum);
 	wallet_add_utxo(channel->peer->ld->wallet, u, p2wpkh);
 }
 
