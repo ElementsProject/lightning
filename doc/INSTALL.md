@@ -124,7 +124,7 @@ OS version: FreeBSD 11.1-RELEASE or above
 Get dependencies:
 
     # pkg install -y \
-      autoconf automake git gmake libtool python python3 sqlite3
+      autoconf automake git gmp asciidoc gmake libtool python python3 sqlite3
 
 If you don't have Bitcoin installed locally you'll need to install that
 as well:
@@ -139,6 +139,7 @@ Clone lightning:
 Build lightning:
 
     $ gmake
+    $ gmake install
 
 Running lightning:
 
