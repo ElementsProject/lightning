@@ -1,11 +1,11 @@
 # Table of Contents
-1. [Library Requirements](#Library-Requirements)
-2. [Ubuntu](#To-Build-on-Ubuntu-15.10-or-above)
-3. [Fedora](#To-Build-on-Fedora-27-or-above)
-4. [FreeBSD](#To-Build-on-FreeBSD-11.1-RELEASE)
-5. [NIX{,OS}](#To-Build-on-Nix{,OS})
-6. [Android](#To-cross-compile-for-Android)
-7. [Additional steps](#Additional-steps)
+1. [Library Requirements](#library-requirements)
+2. [Ubuntu](#to-build-on-ubuntu)
+3. [Fedora](#to-build-on-fedora)
+4. [FreeBSD](#to-build-on-freebsd)
+5. [NixOS](#to-build-on-nixos)
+6. [Android](#to-cross-compile-for-android)
+7. [Additional steps](#additional-steps)
 
 Library Requirements
 --------------------
@@ -22,8 +22,10 @@ For actually doing development and running the tests, you will also need:
 You will also need a version of bitcoind with segregated witness and
 estimatesmartfee economical node, such as the 0.15 or above.
 
-To Build on Ubuntu 15.10 or above
+To Build on Ubuntu
 ---------------------
+
+OS version: Ubuntu 15.10 or above
 
 Get dependencies:
 
@@ -61,8 +63,10 @@ Running lightning:
 
 **Note**: You may need to include `testnet=1` in `bitcoin.conf`
 
-To Build on Fedora 27 or above
+To Build on Fedora
 ---------------------
+
+OS version: Fedora 27 or above
 
 Get dependencies:
 ```
@@ -112,8 +116,10 @@ $ bitcoind -testnet &
 $ lightningd --network=testnet
 ```
 
-To Build on FreeBSD 11.1-RELEASE
+To Build on FreeBSD
 ---------------------
+
+OS version: FreeBSD 11.1-RELEASE or above
 
 Get dependencies:
 
@@ -144,10 +150,8 @@ include `testnet=1`
     $ ./lightningd/lightningd &
     $ ./cli/lightning-cli help
 
-To Build on Nix{,OS}
+To Build on NixOS
 --------------------
-
-Untested on MacOS/Windows/Other Linux. Works on NixOS.
 
 Use nix-shell launch a shell with a full clightning dev environment:
 
