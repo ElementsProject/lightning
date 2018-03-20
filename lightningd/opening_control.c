@@ -816,51 +816,76 @@ static void gossip_peer_released(struct subd *gossip,
 			   fds[0], fds[1]);
 }
 
+/**
+ * json_fund_channel - Entrypoint for funding a channel
+ */
 static void json_fund_channel(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *peertok, *satoshitok;
-	struct funding_channel *fc = tal(cmd, struct funding_channel);
+	jsmntok_t *desttok, *sattok;
+	bool all_funds = false;
+	struct funding_channel * fc;
+	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
+    u64 fee_estimate;
 	u8 *msg;
 
 	if (!json_get_params(cmd, buffer, params,
-			     "id", &peertok,
-			     "satoshi", &satoshitok,
+			     "id", &desttok,
+			     "satoshi", &sattok,
 			     NULL)) {
 		return;
 	}
 
+	fc = tal(cmd, struct funding_channel);
 	fc->cmd = cmd;
+	fc->change_keyindex = 0;
+	fc->funding_satoshi = 0;
 
-	if (!pubkey_from_hexstr(buffer + peertok->start,
-				peertok->end - peertok->start, &fc->peerid)) {
-		command_fail(cmd, "Could not parse id");
-		return;
-	}
+	if (json_tok_streq(buffer, sattok, "all")) {
+		all_funds = true;
 
-	if (!json_tok_u64(buffer, satoshitok, &fc->funding_satoshi)) {
+	} else if (!json_tok_u64(buffer, sattok, &fc->funding_satoshi)) {
 		command_fail(cmd, "Invalid satoshis");
 		return;
 	}
 
-	if (fc->funding_satoshi > MAX_FUNDING_SATOSHI) {
-		command_fail(cmd, "Funding satoshi must be <= %d",
-			     MAX_FUNDING_SATOSHI);
+	if (!pubkey_from_hexstr(buffer + desttok->start,
+				desttok->end - desttok->start, &fc->peerid)) {
+		command_fail(cmd, "Could not parse id");
 		return;
 	}
-
 	/* FIXME: Support push_msat? */
 	fc->push_msat = 0;
 	fc->channel_flags = OUR_CHANNEL_FLAGS;
 
 	/* Try to do this now, so we know if insufficient funds. */
 	/* FIXME: dustlimit */
-	fc->utxomap = build_utxos(fc, cmd->ld, fc->funding_satoshi,
-				  get_feerate(cmd->ld->topology, FEERATE_NORMAL),
-				  600, BITCOIN_SCRIPTPUBKEY_P2WSH_LEN,
-				  &fc->change, &fc->change_keyindex);
-	if (!fc->utxomap) {
-		command_fail(cmd, "Cannot afford funding transaction");
+    if (all_funds) {
+		fc->utxomap = wallet_select_all(cmd, cmd->ld->wallet,
+			feerate_per_kw,
+			BITCOIN_SCRIPTPUBKEY_P2WSH_LEN,
+			&fc->funding_satoshi,
+			&fee_estimate);
+		if (!fc->utxomap || fc->funding_satoshi < 546) {
+			command_fail(cmd, "Cannot afford fee %"PRIu64,
+				     fee_estimate);
+			return;
+		}
+		fc->change = 0;
+	} else {
+		fc->utxomap = build_utxos(fc, cmd->ld, fc->funding_satoshi,
+			feerate_per_kw,
+			600, BITCOIN_SCRIPTPUBKEY_P2WSH_LEN,
+			&fc->change, &fc->change_keyindex);
+		if (!fc->utxomap) {
+			command_fail(cmd, "Cannot afford funding transaction");
+			return;
+		}
+	}
+
+	if (fc->funding_satoshi > MAX_FUNDING_SATOSHI) {
+		command_fail(cmd, "Funding satoshi must be <= %d",
+			     MAX_FUNDING_SATOSHI);
 		return;
 	}
 
