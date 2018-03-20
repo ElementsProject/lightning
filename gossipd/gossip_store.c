@@ -58,8 +58,16 @@ const u8 *gossip_store_read_next(const tal_t *ctx, struct gossip_store *gs)
 	beint16_t belen;
 	u16 msglen;
 	u8 *msg;
-	if (!read_all(gs->read_fd, &belen, sizeof(belen)))
+
+	/* Did we already reach the end of the gossip_store? */
+	if (gs->read_fd == -1)
 		return NULL;
+
+	/* Can we read one message? */
+	if (!read_all(gs->read_fd, &belen, sizeof(belen))) {
+		gs->read_fd = -1;
+		return NULL;
+	}
 
 	msglen = be16_to_cpu(belen);
 	msg = tal_arr(ctx, u8, msglen);
