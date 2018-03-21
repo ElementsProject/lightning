@@ -220,6 +220,7 @@ static void handle_irrevocably_resolved(struct channel *channel, const u8 *msg)
 static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 {
 	struct utxo *u = tal(msg, struct utxo);
+	u32 blockheight;
 	u->close_info = tal(u, struct unilateral_close_info);
 
 	u->is_p2sh = true;
@@ -227,14 +228,14 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 	u->status = output_state_available;
 	u->close_info->channel_id = channel->dbid;
 	u->close_info->peer_id = channel->peer->id;
-	u->blockheight = NULL;
 	u->spendheight = NULL;
 
 	if (!fromwire_onchain_add_utxo(msg, &u->txid, &u->outnum,
 				       &u->close_info->commitment_point,
-				       &u->amount)) {
+				       &u->amount, &blockheight)) {
 		fatal("onchaind gave invalid add_utxo message: %s", tal_hex(msg, msg));
 	}
+	u->blockheight = blockheight>0?&blockheight:NULL;
 
 	outpointfilter_add(channel->peer->ld->wallet->owned_outpoints, &u->txid, u->outnum);
 	wallet_add_utxo(channel->peer->ld->wallet, u, p2wpkh);
