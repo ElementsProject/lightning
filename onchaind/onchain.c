@@ -2039,7 +2039,8 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			wire_sync_write(REQ_FD, towire_onchain_add_utxo(
 						    tmpctx, txid, i,
 						    remote_per_commitment_point,
-						    tx->output[i].amount));
+						    tx->output[i].amount,
+						    tx_blockheight));
 			continue;
 		}
 		if (script[REMOTE]
