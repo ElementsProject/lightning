@@ -117,7 +117,7 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
  */
 static bool wallet_stmt2output(sqlite3_stmt *stmt, struct utxo *utxo)
 {
-	int *blockheight, *spendheight;
+	u32 *blockheight, *spendheight;
 	sqlite3_column_sha256_double(stmt, 0, &utxo->txid.shad);
 	utxo->outnum = sqlite3_column_int(stmt, 1);
 	utxo->amount = sqlite3_column_int64(stmt, 2);
@@ -137,13 +137,13 @@ static bool wallet_stmt2output(sqlite3_stmt *stmt, struct utxo *utxo)
 	utxo->spendheight = NULL;
 
 	if (sqlite3_column_type(stmt, 9) != SQLITE_NULL) {
-		blockheight = tal(utxo, int);
+		blockheight = tal(utxo, u32);
 		*blockheight = sqlite3_column_int(stmt, 9);
 		utxo->blockheight = blockheight;
 	}
 
 	if (sqlite3_column_type(stmt, 10) != SQLITE_NULL) {
-		spendheight = tal(utxo, int);
+		spendheight = tal(utxo, u32);
 		*spendheight = sqlite3_column_int(stmt, 10);
 		utxo->spendheight = spendheight;
 	}
@@ -1071,7 +1071,7 @@ static void wallet_output_confirm(struct wallet *w,
 }
 
 int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
-				 const struct block *block, u64 *total_satoshi)
+				 const u32 *blockheight, u64 *total_satoshi)
 {
 	int num_utxos = 0;
 	for (size_t output = 0; output < tal_count(tx->output); output++) {
@@ -1092,7 +1092,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 		utxo->outnum = output;
 		utxo->close_info = NULL;
 
-		utxo->blockheight = block?&block->height:NULL;
+		utxo->blockheight = blockheight?blockheight:NULL;
 		utxo->spendheight = NULL;
 
 		log_debug(w->log, "Owning output %zu %"PRIu64" (%s) txid %s",
@@ -1107,8 +1107,8 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 			 * blockheight. This can happen when we grab
 			 * the output from a transaction we created
 			 * ourselves. */
-			if (block)
-				wallet_output_confirm(w, &utxo->txid, utxo->outnum, block->height);
+			if (blockheight)
+				wallet_output_confirm(w, &utxo->txid, utxo->outnum, *blockheight);
 			tal_free(utxo);
 			continue;
 		}
