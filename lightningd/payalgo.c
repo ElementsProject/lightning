@@ -5,6 +5,7 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/bolt11.h>
+#include <common/pseudorand.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <gossipd/gen_gossip_wire.h>
@@ -487,6 +488,8 @@ static bool json_pay_try(struct pay *pay)
 	struct command *cmd = pay->cmd;
 	struct timeabs now = time_now();
 	struct siphash_seed seed;
+	u64 maxoverpayment;
+	u64 overpayment;
 
 	/* If too late anyway, fail now. */
 	if (time_after(now, pay->expiry)) {
@@ -513,13 +516,28 @@ static bool json_pay_try(struct pay *pay)
 	/* Generate random seed */
 	randombytes_buf(&seed, sizeof(seed));
 
+	/* Generate an overpayment, from fuzz * maxfee. */
+	/* Now normally the use of double for money is very bad.
+	 * Note however that a later stage will ensure that
+	 * we do not end up paying more than maxfeepercent
+	 * of the msatoshi we intend to pay. */
+	maxoverpayment = ((double) pay->msatoshi * pay->fuzz * pay->maxfeepercent)
+		/ 100.0;
+	if (maxoverpayment > 0) {
+		/* We will never generate the maximum computed
+		 * overpayment this way. Maybe OK for most
+		 * purposes. */
+		overpayment = pseudorand(maxoverpayment);
+	} else
+		overpayment = 0;
+
 	++pay->getroute_tries;
 
 	/* FIXME: use b11->routes */
 	req = towire_gossip_getroute_request(pay->try_parent,
 					     &cmd->ld->id,
 					     &pay->receiver_id,
-					     pay->msatoshi,
+					     pay->msatoshi + overpayment,
 					     pay->riskfactor,
 					     pay->min_final_cltv_expiry,
 					     &pay->fuzz,
