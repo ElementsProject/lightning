@@ -35,7 +35,7 @@ struct outgoing_tx {
 };
 
 struct block {
-	int height;
+	u32 height;
 
 	/* Actual header. */
 	struct bitcoin_block_hdr hdr;
