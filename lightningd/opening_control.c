@@ -371,6 +371,12 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	/* Extract the change output and add it to the DB */
 	wallet_extract_owned_outputs(ld->wallet, fundingtx, NULL, &change_satoshi);
 
+	/* Make sure we recognize our change output by its scriptpubkey in
+	 * future. This assumes that we have only two outputs, may not be true
+	 * if we add support for multifundchannel */
+	if (tal_count(fundingtx->output) == 2)
+		txfilter_add_scriptpubkey(ld->owned_txfilter, fundingtx->output[!funding_outnum].script);
+
 	/* Send it out and watch for confirms. */
 	broadcast_tx(ld->topology, channel, fundingtx, funding_broadcast_failed);
 
