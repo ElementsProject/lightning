@@ -1290,6 +1290,9 @@ class LightningDTests(BaseLightningDTests):
         l1, l2 = self.connect()
 
         self.fund_channel(l1, l2, 10**6)
+
+        # The funding change should be confirmed and our only output
+        assert [o['status'] for o in l1.rpc.listfunds()['outputs']] == ['confirmed']
         self.pay(l1, l2, 200000000)
 
         # Make sure l2 has received sig with 0 htlcs!
@@ -1348,8 +1351,10 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(5)
         wait_forget_channels(l2)
 
-        # Only l1 has a direct output since all of l2's outputs are respent (it failed)
-        assert closetxid in set([o['txid'] for o in l1.rpc.listfunds()['outputs']])
+        # Only l1 has a direct output since all of l2's outputs are respent (it
+        # failed). Also the output should now be listed as confirmed since we
+        # generated some more blocks.
+        assert (closetxid, "confirmed") in set([(o['txid'], o['status']) for o in l1.rpc.listfunds()['outputs']])
 
         addr = l1.bitcoin.rpc.getnewaddress()
         l1.rpc.withdraw(addr, "all")
