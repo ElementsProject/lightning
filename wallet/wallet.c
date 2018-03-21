@@ -1706,6 +1706,16 @@ void wallet_payment_set_status(struct wallet *wallet,
 		sqlite3_bind_sha256(stmt, 2, payment_hash);
 		db_exec_prepared(wallet->db, stmt);
 	}
+	if (newstatus != PAYMENT_PENDING) {
+		stmt = db_prepare(wallet->db,
+				  "UPDATE payments"
+				  "   SET path_secrets = NULL"
+				  "     , route_nodes = NULL"
+				  "     , route_channels = NULL"
+				  " WHERE payment_hash = ?;");
+		sqlite3_bind_sha256(stmt, 1, payment_hash);
+		db_exec_prepared(wallet->db, stmt);
+	}
 }
 
 void wallet_payment_get_failinfo(const tal_t *ctx,
