@@ -383,6 +383,44 @@ class LightningDTests(BaseLightningDTests):
                                 .format(l1.daemon.lightning_dir, leaks))
         l1.rpc.stop()
 
+    def test_autocleaninvoice(self):
+        l1 = self.node_factory.get_node()
+
+        l1.rpc.autocleaninvoice(cycle_seconds=8, expired_by=2)
+
+        l1.rpc.invoice(msatoshi=12300, label='inv1', description='1', expiry=4)
+        l1.rpc.invoice(msatoshi=12300, label='inv2', description='2', expiry=12)
+
+        # time 0
+        # Both should still be there.
+        assert len(l1.rpc.listinvoices('inv1')['invoices']) == 1
+        assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
+
+        time.sleep(6)   # total 6
+        # Both should still be there - auto clean cycle not started.
+        # inv1 should be expired
+        assert len(l1.rpc.listinvoices('inv1')['invoices']) == 1
+        assert l1.rpc.listinvoices('inv1')['invoices'][0]['status'] == 'expired'
+        assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
+        assert l1.rpc.listinvoices('inv2')['invoices'][0]['status'] != 'expired'
+
+        time.sleep(4)   # total 10
+        # inv1 should have deleted, inv2 still there and unexpired.
+        assert len(l1.rpc.listinvoices('inv1')['invoices']) == 0
+        assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
+        assert l1.rpc.listinvoices('inv2')['invoices'][0]['status'] != 'expired'
+
+        time.sleep(4)   # total 14
+        # inv2 should still be there, but expired
+        assert len(l1.rpc.listinvoices('inv1')['invoices']) == 0
+        assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
+        assert l1.rpc.listinvoices('inv2')['invoices'][0]['status'] == 'expired'
+
+        time.sleep(4)   # total 18
+        # Everything deleted
+        assert len(l1.rpc.listinvoices('inv1')['invoices']) == 0
+        assert len(l1.rpc.listinvoices('inv2')['invoices']) == 0
+
     def test_invoice(self):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node()
@@ -453,6 +491,7 @@ class LightningDTests(BaseLightningDTests):
         l2.rpc.invoice('any', 'inv1', 'description', 10)
         l2.rpc.invoice('any', 'inv2', 'description', 4)
         l2.rpc.invoice('any', 'inv3', 'description', 16)
+        creation = int(time.time())
         # Check waitinvoice correctly waits
         w1 = self.executor.submit(l2.rpc.waitinvoice, 'inv1')
         w2 = self.executor.submit(l2.rpc.waitinvoice, 'inv2')
@@ -470,6 +509,16 @@ class LightningDTests(BaseLightningDTests):
         assert not w3.done()
         time.sleep(8)  # total 20
         self.assertRaises(ValueError, w3.result)
+
+        # Test delexpiredinvoice
+        l2.rpc.delexpiredinvoice(maxexpirytime=creation + 8)
+        # only inv2 should have been deleted
+        assert len(l2.rpc.listinvoices()['invoices']) == 2
+        assert len(l2.rpc.listinvoices('inv2')['invoices']) == 0
+        # Test delexpiredinvoice all
+        l2.rpc.delexpiredinvoice()
+        # all invoices are expired and should be deleted
+        assert len(l2.rpc.listinvoices()['invoices']) == 0
 
     def test_connect(self):
         l1, l2 = self.connect()
@@ -3071,6 +3120,21 @@ class LightningDTests(BaseLightningDTests):
         # The 10m out is spent and we have a change output of 9m-fee
         assert outputs[0] > 8990000
         assert outputs[2] == 10000000
+
+    def test_funding_all(self):
+        """Add some funds, fund a channel using all funds, make sure no funds remain
+        """
+        l1, l2 = self.connect()
+
+        self.give_funds(l1, 0.1 * 10**8)
+
+        outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
+        assert len(outputs) == 1 and outputs[0]['value'] == 10000000
+
+        l1.rpc.fundchannel(l2.info['id'], "all")
+
+        outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
+        assert len(outputs) == 0
 
     def test_funding_fail(self):
         """Add some funds, fund a channel without enough funds"""

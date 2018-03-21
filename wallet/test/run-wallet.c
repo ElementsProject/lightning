@@ -99,6 +99,11 @@ u8 *get_offered_global_features(const tal_t *ctx UNNEEDED)
 /* Generated stub for get_offered_local_features */
 u8 *get_offered_local_features(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "get_offered_local_features called!\n"); abort(); }
+/* Generated stub for invoices_autoclean_set */
+void invoices_autoclean_set(struct invoices *invoices UNNEEDED,
+			    u64 cycle_seconds UNNEEDED,
+			    u64 expired_by UNNEEDED)
+{ fprintf(stderr, "invoices_autoclean_set called!\n"); abort(); }
 /* Generated stub for invoices_create */
 bool invoices_create(struct invoices *invoices UNNEEDED,
 		     struct invoice *pinvoice UNNEEDED,
@@ -113,6 +118,10 @@ bool invoices_create(struct invoices *invoices UNNEEDED,
 bool invoices_delete(struct invoices *invoices UNNEEDED,
 		     struct invoice invoice UNNEEDED)
 { fprintf(stderr, "invoices_delete called!\n"); abort(); }
+/* Generated stub for invoices_delete_expired */
+void invoices_delete_expired(struct invoices *invoices UNNEEDED,
+			     u64 max_expiry_time UNNEEDED)
+{ fprintf(stderr, "invoices_delete_expired called!\n"); abort(); }
 /* Generated stub for invoices_find_by_label */
 bool invoices_find_by_label(struct invoices *invoices UNNEEDED,
 			    struct invoice *pinvoice UNNEEDED,

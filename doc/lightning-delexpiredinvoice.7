@@ -1,5 +1,5 @@
 '\" t
-.\"     Title: lightning-delinvoice
+.\"     Title: lightning-delexpiredinvoice
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
 .\"      Date: 03/17/2018
@@ -7,7 +7,7 @@
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-DELINVOIC" "7" "03/17/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-DELEXPIRE" "7" "03/17/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,24 +28,24 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-lightning-delinvoice \- Protocol for removing an invoice\&.
+lightning-delexpiredinvoice \- Protocol for removing expired invoices\&.
 .SH "SYNOPSIS"
 .sp
-\fBdelinvoice\fR \fIlabel\fR \fIstatus\fR
+\fBdelexpiredinvoice\fR [\fImaxexpirytime\fR]
 .SH "DESCRIPTION"
 .sp
-The \fBdelinvoice\fR RPC command removes an invoice with \fIstatus\fR as given in \fBlistinvoices\fR\&.
+The \fBdelexpiredinvoice\fR RPC command removes all invoices that have expired on or before the given \fImaxexpirytime\fR\&.
 .sp
-The caller should be particularly aware of the error case caused by the \fIstatus\fR changing just before this command is invoked!
+If \fImaxexpirytime\fR is not specified then all expired invoices are deleted\&.
 .SH "RETURN VALUE"
 .sp
-On success, an invoice description will be returned as per lightning\-listinvoice(7)\&.
+On success, an empty object is returned\&.
 .SH "AUTHOR"
 .sp
-Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.
+ZmnSCPxj <ZmnSCPxj@protonmail\&.com> is mainly responsible\&.
 .SH "SEE ALSO"
 .sp
-lightning\-listinvoice(7), lightning\-waitinvoice(7), lightning\-invoice(7), lightning\-delexpiredinvoice(7), lightning\-autocleaninvoice(7)
+lightning\-delinvoice(7), lightning\-autocleaninvoice(7)
 .SH "RESOURCES"
 .sp
 Main web site: https://github\&.com/ElementsProject/lightning

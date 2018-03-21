@@ -76,6 +76,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->debug_subdaemon_io = NULL;
 	ld->daemon = false;
 	ld->pidfile = NULL;
+	ld->ini_autocleaninvoice_cycle = 0;
+	ld->ini_autocleaninvoice_expiredby = 86400;
 
 	return ld;
 }
@@ -336,6 +338,11 @@ int main(int argc, char *argv[])
 	if (!wallet_invoice_load(ld->wallet)) {
 		fatal("Could not load invoices from the database");
 	}
+
+	/* Set up invoice autoclean. */
+	wallet_invoice_autoclean(ld->wallet,
+				 ld->ini_autocleaninvoice_cycle,
+				 ld->ini_autocleaninvoice_expiredby);
 
 	/* Set up gossip daemon. */
 	gossip_init(ld);

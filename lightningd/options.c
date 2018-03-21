@@ -66,6 +66,23 @@ static void tal_freefn(void *ptr)
 #define TIME_FROM_MSEC(msec) \
 	{ { .tv_nsec = ((msec) % 1000) * 1000000, .tv_sec = (msec) / 1000 } }
 
+static char *opt_set_u64(const char *arg, u64 *u)
+{
+	char *endp;
+	unsigned long long l;
+
+	assert(arg != NULL);
+
+	/* This is how the manpage says to do it.  Yech. */
+	errno = 0;
+	l = strtoull(arg, &endp, 0);
+	if (*endp || !arg[0])
+		return tal_fmt(NULL, "'%s' is not a number", arg);
+	*u = l;
+	if (errno || *u != l)
+		return tal_fmt(NULL, "'%s' is out of range", arg);
+	return NULL;
+}
 static char *opt_set_u32(const char *arg, u32 *u)
 {
 	char *endp;
@@ -137,6 +154,10 @@ static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
 
 }
 
+static void opt_show_u64(char buf[OPT_SHOW_LEN], const u64 *u)
+{
+	snprintf(buf, OPT_SHOW_LEN, "%"PRIu64, *u);
+}
 static void opt_show_u32(char buf[OPT_SHOW_LEN], const u32 *u)
 {
 	snprintf(buf, OPT_SHOW_LEN, "%"PRIu32, *u);
@@ -307,6 +328,14 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--debug-subdaemon-io",
 			 opt_set_charp, NULL, &ld->debug_subdaemon_io,
 			 "Enable full peer IO logging in subdaemons ending in this string (can also send SIGUSR1 to toggle)");
+	opt_register_arg("--autocleaninvoice-cycle",
+			 opt_set_u64, opt_show_u64,
+			 &ld->ini_autocleaninvoice_cycle,
+			 "Perform cleanup of expired invoices every given seconds, or do not autoclean if 0");
+	opt_register_arg("--autocleaninvoice-expired-by",
+			 opt_set_u64, opt_show_u64,
+			 &ld->ini_autocleaninvoice_cycle,
+			 "If expired invoice autoclean enabled, invoices that have expired for at least this given seconds are cleaned");
 }
 
 #if DEVELOPER
