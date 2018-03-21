@@ -8,7 +8,7 @@ lightning-pay - Protocol for sending a payment to a BOLT11 invoice
 
 SYNOPSIS
 --------
-*pay* 'bolt11' ['msatoshi'] ['description'] ['riskfactor'] ['maxfeepercent'] ['retry_for']
+*pay* 'bolt11' ['msatoshi'] ['description'] ['riskfactor'] ['maxfeepercent'] ['retry_for'] ['maxdelay']
 
 DESCRIPTION
 -----------
@@ -24,7 +24,7 @@ The `maxfeepercent' is a percentage of the amount that is to be
 paid.
 
 The *pay* RPC command will randomize routes slightly, as long as the
-route achieves the targeted 'maxfeepercent'.
+route achieves the targeted 'maxfeepercent' and 'maxdelay'.
 
 The response will occur when the payment fails or succeeds.  Once a
 payment has succeeded, calls to *pay* with the same 'bolt11' will
@@ -65,10 +65,14 @@ The following error codes may occur:
 * 203. Permanent failure at destination. The 'data' field of
   the error will be routing failure object.
 * 205. Unable to find a route.
-* 206. Route too expensive. The 'data' field of the error will
-  indicate the actual 'fee' as well as the 'feepercent'
-  percentage that the fee has of the destination payment
-  amount.
+* 206. Route too expensive.
+  Either the fee or the needed total locktime for the route
+  exceeds your 'maxfeepercent' or 'maxdelay' settings,
+  respectively.
+  The 'data' field of the error will indicate the actual 'fee'
+  as well as the 'feepercent' percentage that the fee has of the
+  destination payment amount.
+  It will also indicate the actual 'delay' along the route.
 * 207. Invoice expired. Payment took too long before expiration,
   or already expired at the time you initiated payment.
   The 'data' field of the error indicates 'now' (the current time)

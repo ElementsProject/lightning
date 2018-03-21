@@ -104,6 +104,7 @@ struct pay {
 	u64 msatoshi;
 	double riskfactor;
 	double maxfeepercent;
+	u32 maxdelay;
 
 	/* Number of getroute and sendpay tries */
 	unsigned int getroute_tries;
@@ -407,7 +408,9 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	u64 fee;
 	double feepercent;
 	bool fee_too_high;
+	bool delay_too_high;
 	struct json_result *data;
+	char const *err;
 
 	fromwire_gossip_getroute_reply(reply, reply, &route);
 
@@ -434,30 +437,48 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	 * payments are limited to 4294967295 msatoshi. */
 	feepercent = ((double) fee) * 100.0 / ((double) pay->msatoshi);
 	fee_too_high = (feepercent > pay->maxfeepercent);
+	delay_too_high = (route[0].delay > pay->maxdelay);
 	/* compare fuzz to range */
-	if (fee_too_high && pay->fuzz < 0.01) {
+	if ((fee_too_high || delay_too_high) && pay->fuzz < 0.01) {
 		data = new_json_result(pay);
 		json_object_start(data, NULL);
+		json_add_u64(data, "msatoshi", pay->msatoshi);
 		json_add_u64(data, "fee", fee);
 		json_add_double(data, "feepercent", feepercent);
-		json_add_u64(data, "msatoshi", pay->msatoshi);
 		json_add_double(data, "maxfeepercent", pay->maxfeepercent);
+		json_add_u64(data, "delay", (u64) route[0].delay);
+		json_add_num(data, "maxdelay", pay->maxdelay);
 		json_add_num(data, "getroute_tries", pay->getroute_tries);
 		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
+		json_add_route(data, "route",
+			       route, tal_count(route));
 		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
 
-		command_fail_detailed(pay->cmd, PAY_ROUTE_TOO_EXPENSIVE,
-				      data,
+		err = "";
+		if (fee_too_high)
+			err = tal_fmt(pay,
 				      "Fee %"PRIu64" is %f%% "
 				      "of payment %"PRIu64"; "
-				      "max fee requested is %f%%",
+				      "max fee requested is %f%%.",
 				      fee, feepercent,
 				      pay->msatoshi,
 				      pay->maxfeepercent);
+		if (fee_too_high && delay_too_high)
+			err = tal_fmt(pay, "%s ", err);
+		if (delay_too_high)
+			err = tal_fmt(pay,
+				      "%s"
+				      "Delay (locktime) is %"PRIu32" blocks; "
+				      "max delay requested is %u.",
+				      err, route[0].delay, pay->maxdelay);
+
+
+		command_fail_detailed(pay->cmd, PAY_ROUTE_TOO_EXPENSIVE,
+				      data, "%s", err);
 		return;
 	}
-	if (fee_too_high) {
+	if (fee_too_high || delay_too_high) {
 		/* Retry with lower fuzz */
 		pay->fuzz -= 0.15;
 		if (pay->fuzz <= 0.0)
@@ -575,6 +596,7 @@ static void json_pay(struct command *cmd,
 {
 	jsmntok_t *bolt11tok, *msatoshitok, *desctok, *riskfactortok, *maxfeetok;
 	jsmntok_t *retryfortok;
+	jsmntok_t *maxdelaytok;
 	double riskfactor = 1.0;
 	double maxfeepercent = 0.5;
 	u64 msatoshi;
@@ -582,6 +604,7 @@ static void json_pay(struct command *cmd,
 	struct bolt11 *b11;
 	char *fail, *b11str, *desc;
 	unsigned int retryfor = 60;
+	unsigned int maxdelay = 500;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "bolt11", &bolt11tok,
@@ -590,6 +613,7 @@ static void json_pay(struct command *cmd,
 			     "?riskfactor", &riskfactortok,
 			     "?maxfeepercent", &maxfeetok,
 			     "?retry_for", &retryfortok,
+			     "?maxdelay", &maxdelaytok,
 			     NULL)) {
 		return;
 	}
@@ -672,14 +696,32 @@ static void json_pay(struct command *cmd,
 	}
 	pay->maxfeepercent = maxfeepercent;
 
+	if (maxdelaytok
+	    && !json_tok_number(buffer, maxdelaytok, &maxdelay)) {
+		command_fail(cmd, "'%.*s' is not a valid double",
+			     maxdelaytok->end - maxdelaytok->start,
+			     buffer + maxdelaytok->start);
+		return;
+	}
+	if (maxdelay < pay->min_final_cltv_expiry) {
+		command_fail(cmd,
+			     "maxdelay (%u) must be greater than "
+			     "min_final_cltv_expiry (%"PRIu32") of "
+			     "invoice",
+			     maxdelay, pay->min_final_cltv_expiry);
+		return;
+	}
+	pay->maxdelay = maxdelay;
+
 	pay->getroute_tries = 0;
 	pay->sendpay_tries = 0;
 	/* Higher fuzz increases the potential fees we will pay, since
 	 * higher fuzz makes it more likely that high-fee paths get
 	 * selected. We start with very high fuzz, but if the
 	 * returned route is too expensive for the given
-	 * `maxfeepercent` we reduce the fuzz. Starting with high
-	 * fuzz means, if the user allows high fee, we can take
+	 * `maxfeepercent` or `maxdelay` we reduce the fuzz.
+	 * Starting with high
+	 * fuzz means, if the user allows high fee/locktime, we can take
 	 * advantage of that to increase randomization and
 	 * improve privacy somewhat. */
 	pay->fuzz = 0.75;
