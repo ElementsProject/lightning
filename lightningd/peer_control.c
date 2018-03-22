@@ -42,7 +42,6 @@
 #include <unistd.h>
 #include <wally_bip32.h>
 #include <wire/gen_onion_wire.h>
-#include <wire/peer_wire.h>
 
 static void destroy_peer(struct peer *peer)
 {

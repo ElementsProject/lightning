@@ -1,5 +1,4 @@
 #include "pay.h"
-#include <bitcoin/preimage.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>

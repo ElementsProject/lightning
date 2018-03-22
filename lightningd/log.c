@@ -7,7 +7,6 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/link/link.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/utils.h>

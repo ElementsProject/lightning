@@ -27,7 +27,6 @@
  * WE ASSUME NO MALLEABILITY!  This requires segregated witness.
  */
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/ptrint/ptrint.h>
 #include <ccan/structeq/structeq.h>

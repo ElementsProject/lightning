@@ -3,7 +3,6 @@
 #include <assert.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
-#include <ccan/tal/tal.h>
 
 void push_varint(varint_t v,
 		 void (*push)(const void *, size_t, void *), void *pushp)

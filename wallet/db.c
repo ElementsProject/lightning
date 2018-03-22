@@ -1,7 +1,6 @@
 #include "db.h"
 
 #include <ccan/tal/str/str.h>
-#include <ccan/tal/tal.h>
 #include <common/version.h>
 #include <inttypes.h>
 #include <lightningd/lightningd.h>

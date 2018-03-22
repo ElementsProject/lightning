@@ -4,7 +4,6 @@
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
-#include <ccan/short_types/short_types.h>
 #include <ccan/take/take.h>
 #include <common/cryptomsg.h>
 #include <common/dev_disconnect.h>

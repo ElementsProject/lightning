@@ -23,8 +23,6 @@
  */
 #include "bech32.h"
 
-#include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
 
 static uint32_t bech32_polymod_step(uint32_t pre) {

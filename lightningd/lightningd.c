@@ -23,7 +23,6 @@
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <common/version.h>
-#include <common/wireaddr.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/bitcoind.h>

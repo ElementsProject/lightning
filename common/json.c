@@ -4,7 +4,6 @@
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/tal/tal.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <stdarg.h>
