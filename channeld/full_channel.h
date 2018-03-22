@@ -1,6 +1,6 @@
 /* This is the full channel routines, with HTLC support. */
-#ifndef LIGHTNING_LIGHTNINGD_CHANNEL_FULL_CHANNEL_H
-#define LIGHTNING_LIGHTNINGD_CHANNEL_FULL_CHANNEL_H
+#ifndef LIGHTNING_CHANNELD_FULL_CHANNEL_H
+#define LIGHTNING_CHANNELD_FULL_CHANNEL_H
 #include "config.h"
 #include <channeld/channeld_htlc.h>
 #include <channeld/full_channel_error.h>
@@ -250,4 +250,4 @@ void dump_htlcs(const struct channel *channel, const char *prefix);
 const char *channel_add_err_name(enum channel_add_err e);
 const char *channel_remove_err_name(enum channel_remove_err e);
 
-#endif /* LIGHTNING_LIGHTNINGD_CHANNEL_FULL_CHANNEL_H */
+#endif /* LIGHTNING_CHANNELD_FULL_CHANNEL_H */

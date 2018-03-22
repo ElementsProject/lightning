@@ -55,4 +55,4 @@ void json_add_address(struct json_result *response, const char *fieldname,
 		      const struct wireaddr *addr);
 
 
-#endif /* !defined (LIGHTNING_LIGHTNINGD_JSON_H) */
+#endif /* LIGHTNING_LIGHTNINGD_JSON_H */
