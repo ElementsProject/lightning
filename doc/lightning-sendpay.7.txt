@@ -8,7 +8,7 @@ lightning-sendpay - Protocol for sending a payment via a route.
 
 SYNOPSIS
 --------
-*sendpay* 'route' 'hash'
+*sendpay* 'route' 'hash' ['msatoshi']
 
 DESCRIPTION
 -----------
@@ -27,10 +27,21 @@ definite failure of the payment.
 Instead, use the *waitsendpay* RPC command to poll or wait for
 definite success or definite failure.
 
+The 'msatoshi' amount, if provided, is the amount that will be
+recorded as the target payment value.
+If not specified, it will be the final amount to the destination.
+If specified, then the final amount at the destination must be
+from the specified 'msatoshi' to twice the specified 'msatoshi',
+inclusive.
+This is intended to obscure payments by overpaying slightly at
+the destination;
+the actual target payment is what should be specified as the
+'msatoshi' argument.
+
 Once a payment has succeeded, calls to *sendpay* with the same 'hash'
-but a different amount or destination will fail; this prevents
+but a different 'msatoshi' or destination will fail; this prevents
 accidental multiple payments.
-Calls to *sendpay* with the same 'hash', amount, and destination as a
+Calls to *sendpay* with the same 'hash', 'msatoshi', and destination as a
 previous successful payment (even if a different route) will return
 immediately with success.
 

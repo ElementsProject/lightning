@@ -475,6 +475,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	pay->in_sendpay = true;
 	send_payment(pay->try_parent,
 		     pay->cmd->ld, &pay->payment_hash, route,
+		     pay->msatoshi,
 		     &json_pay_sendpay_resume, pay);
 }
 

@@ -57,11 +57,14 @@ struct sendpay_result {
  * sendpay_result indicating an error code of PAY_IN_PROGRESS.
  * It will only call the callback with successful sendpay_result
  * if the payment has already completed with the same amount
- * and destination before. */
+ * and destination before.
+ *
+ * The msatoshi given is what is recorded in the payment. */
 bool send_payment(const tal_t *ctx,
 		  struct lightningd* ld,
 		  const struct sha256 *rhash,
 		  const struct route_hop *route,
+		  u64 msatoshi,
 		  void (*cb)(const struct sendpay_result *, void*),
 		  void *cbarg);
 /* Wait for a previous send_payment to complete in definite
