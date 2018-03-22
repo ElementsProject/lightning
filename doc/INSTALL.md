@@ -96,6 +96,7 @@ $ nix-shell -Q -p gdb sqlite autoconf git clang libtool gmp sqlite autoconf \
 autogen automake 'python3.withPackages (p: [p.bitcoinlib])' \
 valgrind asciidoc --run make
 ```
+
 To Build on Mac
 ---------------------
 
@@ -133,6 +134,7 @@ need to include `testnet=1`
     bitcoind &
     ./lightningd/lightningd &
     ./cli/lightning-cli help
+
 To cross-compile for Android
 --------------------
 
