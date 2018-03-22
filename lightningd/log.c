@@ -1,5 +1,6 @@
 #include "log.h"
 #include <backtrace.h>
+#include <backtrace-supported.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/list/list.h>
 #include <ccan/opt/opt.h>
@@ -463,6 +464,7 @@ void opt_register_logging(struct lightningd *ld)
 			 "log to file instead of stdout");
 }
 
+#if BACKTRACE_SUPPORTED
 static int log_backtrace(void *log, uintptr_t pc,
 			 const char *filename, int lineno,
 			 const char *function)
@@ -521,9 +523,11 @@ static void log_crash(int sig)
 		fprintf(stderr, "Log dumped in %s", logfile);
 	fprintf(stderr, "\n");
 }
+#endif
 
 void crashlog_activate(const char *argv0 UNUSED, struct log *log)
 {
+#if BACKTRACE_SUPPORTED
 	struct sigaction sa;
 	crashlog = log;
 
@@ -536,6 +540,7 @@ void crashlog_activate(const char *argv0 UNUSED, struct log *log)
 	sigaction(SIGFPE, &sa, NULL);
 	sigaction(SIGSEGV, &sa, NULL);
 	sigaction(SIGBUS, &sa, NULL);
+#endif
 }
 
 void log_dump_to_file(int fd, const struct log_book *lr)
@@ -575,6 +580,7 @@ void fatal(const char *fmt, ...)
 	fprintf(stderr, "\n");
 	va_end(ap);
 
+#if BACKTRACE_SUPPORTED
 	/* Early on, we just dump errors to stderr. */
 	if (crashlog) {
 		va_start(ap, fmt);
@@ -582,6 +588,7 @@ void fatal(const char *fmt, ...)
 		va_end(ap);
 		log_crash(0);
 	}
+#endif
 	abort();
 }
 
