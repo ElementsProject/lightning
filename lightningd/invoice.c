@@ -1,4 +1,5 @@
 #include "invoice.h"
+#include "json.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include <bitcoin/address.h>
@@ -385,6 +386,92 @@ static const struct json_command delinvoice_command = {
 	"Delete unpaid invoice {label} with {status}",
 };
 AUTODATA(json_command, &delinvoice_command);
+
+static void json_delexpiredinvoice(struct command *cmd, const char *buffer,
+				   const jsmntok_t *params)
+{
+	jsmntok_t *maxexpirytimetok;
+	u64 maxexpirytime = time_now().ts.tv_sec;
+	struct json_result *result;
+
+	if (!json_get_params(cmd, buffer, params,
+			     "?maxexpirytime", &maxexpirytimetok,
+			     NULL)) {
+		return;
+	}
+
+	if (maxexpirytimetok) {
+		if (!json_tok_u64(buffer, maxexpirytimetok, &maxexpirytime)) {
+			command_fail(cmd, "'%.*s' is not a valid number",
+				     maxexpirytimetok->end - maxexpirytimetok->start,
+				     buffer + maxexpirytimetok->start);
+			return;
+		}
+	}
+
+	wallet_invoice_delete_expired(cmd->ld->wallet, maxexpirytime);
+
+	result = new_json_result(cmd);
+	json_object_start(result, NULL);
+	json_object_end(result);
+	command_success(cmd, result);
+}
+static const struct json_command delexpiredinvoice_command = {
+	"delexpiredinvoice",
+	json_delexpiredinvoice,
+	"Delete all expired invoices that expired as of given {maxexpirytime} (a UNIX epoch time), or all expired invoices if not specified"
+};
+AUTODATA(json_command, &delexpiredinvoice_command);
+
+static void json_autocleaninvoice(struct command *cmd,
+				  const char *buffer,
+				  const jsmntok_t *params)
+{
+	jsmntok_t *cycletok;
+	jsmntok_t *exbytok;
+	u64 cycle = 3600;
+	u64 exby = 86400;
+	struct json_result *result;
+
+	if (!json_get_params(cmd, buffer, params,
+			     "?cycle_seconds", &cycletok,
+			     "?expired_by", &exbytok,
+			     NULL)) {
+		return;
+	}
+
+	if (cycletok) {
+		if (!json_tok_u64(buffer, cycletok, &cycle)) {
+			command_fail(cmd, "'%.*s' is not a valid number",
+				     cycletok->end - cycletok->start,
+				     buffer + cycletok->start);
+			return;
+		}
+	}
+	if (exbytok) {
+		if (!json_tok_u64(buffer, exbytok, &exby)) {
+			command_fail(cmd, "'%.*s' is not a valid number",
+				     exbytok->end - exbytok->start,
+				     buffer + exbytok->start);
+			return;
+		}
+	}
+
+	wallet_invoice_autoclean(cmd->ld->wallet, cycle, exby);
+
+	result = new_json_result(cmd);
+	json_object_start(result, NULL);
+	json_object_end(result);
+	command_success(cmd, result);
+}
+static const struct json_command autocleaninvoice_command = {
+	"autocleaninvoice",
+	json_autocleaninvoice,
+	"Set up autoclean of expired invoices. "
+	"Perform cleanup every {cycle_seconds} (default 3600), or disable autoclean if 0. "
+	"Clean up expired invoices that have expired for {expired_by} seconds (default 86400). "
+};
+AUTODATA(json_command, &autocleaninvoice_command);
 
 static void json_waitanyinvoice(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)

@@ -31,6 +31,7 @@
 #include <lightningd/closing_control.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
 #include <lightningd/netaddress.h>
@@ -437,7 +438,8 @@ void peer_sent_nongossip(struct lightningd *ld,
 
 	/* Open request? */
 	if (fromwire_peektype(in_msg) == WIRE_OPEN_CHANNEL) {
-		error = peer_accept_channel(ld, id, addr, cs, gossip_index,
+		error = peer_accept_channel(tmpctx,
+					    ld, id, addr, cs, gossip_index,
 					    gfeatures, lfeatures,
 					    peer_fd, gossip_fd, channel_id,
 					    in_msg);
@@ -458,18 +460,17 @@ void peer_sent_nongossip(struct lightningd *ld,
 	}
 
 	/* Weird request. */
-	error = towire_errorfmt(ld, channel_id,
+	error = towire_errorfmt(tmpctx, channel_id,
 				"Unexpected message %i for peer",
 				fromwire_peektype(in_msg));
 
 send_error:
 	/* Hand back to gossipd, with an error packet. */
-	connect_failed(ld, id, sanitize_error(error, error, NULL));
+	connect_failed(ld, id, sanitize_error(tmpctx, error, NULL));
 	msg = towire_gossipctl_hand_back_peer(ld, id, cs, gossip_index, error);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
 	subd_send_fd(ld->gossip, gossip_fd);
-	tal_free(error);
 }
 
 static enum watch_result funding_announce_cb(struct channel *channel,
@@ -635,6 +636,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 		json_add_uncommitted_channel(response, p->uncommitted_channel);
 
 		list_for_each(&p->channels, channel, list) {
+			struct channel_id cid;
 			json_object_start(response, NULL);
 			json_add_string(response, "state",
 					channel_state_name(channel));
@@ -645,6 +647,13 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 				json_add_short_channel_id(response,
 							  "short_channel_id",
 							  channel->scid);
+			derive_channel_id(&cid,
+					  &channel->funding_txid,
+					  channel->funding_outnum);
+			json_add_string(response, "channel_id",
+					type_to_string(tmpctx,
+						       struct channel_id,
+						       &cid));
 			json_add_txid(response,
 				      "funding_txid",
 				      &channel->funding_txid);

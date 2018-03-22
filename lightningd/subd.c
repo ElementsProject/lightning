@@ -30,6 +30,7 @@
 
 static bool move_fd(int from, int to)
 {
+	assert(from >= 0);
 	if (dup2(from, to) == -1)
 		return false;
 	close(from);

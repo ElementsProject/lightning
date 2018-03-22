@@ -507,6 +507,27 @@ bool wallet_invoice_delete(struct wallet *wallet,
 			   struct invoice invoice);
 
 /**
+ * wallet_invoice_delete_expired - Delete all expired invoices
+ * with expiration time less than or equal to the given.
+ *
+ * @wallet - the wallet to delete invoices from.
+ * @max_expiry_time - the maximum expiry time to delete.
+ */
+void wallet_invoice_delete_expired(struct wallet *wallet,
+				   u64 max_expiry_time);
+
+/**
+ * wallet_invoice_autoclean - Set up a repeating autoclean of
+ * expired invoices.
+ * Cleans (deletes) expired invoices every @cycle_seconds.
+ * Clean only those invoices that have been expired for at
+ * least @expired_by seconds or more.
+ */
+void wallet_invoice_autoclean(struct wallet * wallet,
+			      u64 cycle_seconds,
+			      u64 expired_by);
+
+/**
  * wallet_invoice_iterate - Iterate over all existing invoices
  *
  * @wallet - the wallet whose invoices are to be iterated over.
@@ -649,6 +670,17 @@ void wallet_payment_store(struct wallet *wallet,
  */
 void wallet_payment_delete(struct wallet *wallet,
 			   const struct sha256 *payment_hash);
+
+/**
+ * wallet_local_htlc_out_delete - Remove a local outgoing failed HTLC
+ *
+ * This is not a generic HTLC cleanup!  This is specifically for the
+ * narrow (and simple!) case of removing the HTLC associated with a
+ * local outgoing payment.
+ */
+void wallet_local_htlc_out_delete(struct wallet *wallet,
+				  struct channel *chan,
+				  const struct sha256 *payment_hash);
 
 /**
  * wallet_payment_by_hash - Retrieve a specific payment

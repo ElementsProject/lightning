@@ -99,6 +99,11 @@ u8 *get_offered_global_features(const tal_t *ctx UNNEEDED)
 /* Generated stub for get_offered_local_features */
 u8 *get_offered_local_features(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "get_offered_local_features called!\n"); abort(); }
+/* Generated stub for invoices_autoclean_set */
+void invoices_autoclean_set(struct invoices *invoices UNNEEDED,
+			    u64 cycle_seconds UNNEEDED,
+			    u64 expired_by UNNEEDED)
+{ fprintf(stderr, "invoices_autoclean_set called!\n"); abort(); }
 /* Generated stub for invoices_create */
 bool invoices_create(struct invoices *invoices UNNEEDED,
 		     struct invoice *pinvoice UNNEEDED,
@@ -113,6 +118,10 @@ bool invoices_create(struct invoices *invoices UNNEEDED,
 bool invoices_delete(struct invoices *invoices UNNEEDED,
 		     struct invoice invoice UNNEEDED)
 { fprintf(stderr, "invoices_delete called!\n"); abort(); }
+/* Generated stub for invoices_delete_expired */
+void invoices_delete_expired(struct invoices *invoices UNNEEDED,
+			     u64 max_expiry_time UNNEEDED)
+{ fprintf(stderr, "invoices_delete_expired called!\n"); abort(); }
 /* Generated stub for invoices_find_by_label */
 bool invoices_find_by_label(struct invoices *invoices UNNEEDED,
 			    struct invoice *pinvoice UNNEEDED,
@@ -275,7 +284,8 @@ bool outpointfilter_matches(struct outpointfilter *of UNNEEDED,
 struct outpointfilter *outpointfilter_new(tal_t *ctx UNNEEDED)
 { fprintf(stderr, "outpointfilter_new called!\n"); abort(); }
 /* Generated stub for peer_accept_channel */
-u8 *peer_accept_channel(struct lightningd *ld UNNEEDED,
+u8 *peer_accept_channel(const tal_t *ctx UNNEEDED,
+			struct lightningd *ld UNNEEDED,
 			const struct pubkey *peer_id UNNEEDED,
 			const struct wireaddr *addr UNNEEDED,
 			const struct crypto_state *cs UNNEEDED,
@@ -333,9 +343,6 @@ u8 *towire_channel_funding_locked(const tal_t *ctx UNNEEDED, const struct short_
 /* Generated stub for towire_channel_send_shutdown */
 u8 *towire_channel_send_shutdown(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_send_shutdown called!\n"); abort(); }
-/* Generated stub for towire_error */
-u8 *towire_error(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, const u8 *data UNNEEDED)
-{ fprintf(stderr, "towire_error called!\n"); abort(); }
 /* Generated stub for towire_errorfmt */
 u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const struct channel_id *channel UNNEEDED,

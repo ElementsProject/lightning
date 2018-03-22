@@ -13,6 +13,7 @@
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
@@ -90,7 +91,7 @@ static void json_withdraw(struct command *cmd,
 	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
 	u64 fee_estimate;
 	struct bitcoin_tx *tx;
-	bool withdraw_all = false;
+	bool all_funds = false;
 	enum address_parse_result addr_parse;
 
 	if (!json_get_params(cmd, buffer, params,
@@ -104,7 +105,7 @@ static void json_withdraw(struct command *cmd,
 	withdraw->cmd = cmd;
 
 	if (json_tok_streq(buffer, sattok, "all"))
-		withdraw_all = true;
+		all_funds = true;
 	else if (!json_tok_u64(buffer, sattok, &withdraw->amount)) {
 		command_fail(cmd, "Invalid satoshis");
 		return;
@@ -131,7 +132,7 @@ static void json_withdraw(struct command *cmd,
 	}
 
 	/* Select the coins */
-	if (withdraw_all) {
+	if (all_funds) {
 		withdraw->utxos = wallet_select_all(cmd, cmd->ld->wallet,
 						    feerate_per_kw,
 						    tal_len(withdraw->destination),

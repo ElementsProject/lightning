@@ -383,6 +383,44 @@ class LightningDTests(BaseLightningDTests):
                                 .format(l1.daemon.lightning_dir, leaks))
         l1.rpc.stop()
 
+    def test_autocleaninvoice(self):
+        l1 = self.node_factory.get_node()
+
+        l1.rpc.autocleaninvoice(cycle_seconds=8, expired_by=2)
+
+        l1.rpc.invoice(msatoshi=12300, label='inv1', description='1', expiry=4)
+        l1.rpc.invoice(msatoshi=12300, label='inv2', description='2', expiry=12)
+
+        # time 0
+        # Both should still be there.
+        assert len(l1.rpc.listinvoices('inv1')['invoices']) == 1
+        assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
+
+        time.sleep(6)   # total 6
+        # Both should still be there - auto clean cycle not started.
+        # inv1 should be expired
+        assert len(l1.rpc.listinvoices('inv1')['invoices']) == 1
+        assert l1.rpc.listinvoices('inv1')['invoices'][0]['status'] == 'expired'
+        assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
+        assert l1.rpc.listinvoices('inv2')['invoices'][0]['status'] != 'expired'
+
+        time.sleep(4)   # total 10
+        # inv1 should have deleted, inv2 still there and unexpired.
+        assert len(l1.rpc.listinvoices('inv1')['invoices']) == 0
+        assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
+        assert l1.rpc.listinvoices('inv2')['invoices'][0]['status'] != 'expired'
+
+        time.sleep(4)   # total 14
+        # inv2 should still be there, but expired
+        assert len(l1.rpc.listinvoices('inv1')['invoices']) == 0
+        assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
+        assert l1.rpc.listinvoices('inv2')['invoices'][0]['status'] == 'expired'
+
+        time.sleep(4)   # total 18
+        # Everything deleted
+        assert len(l1.rpc.listinvoices('inv1')['invoices']) == 0
+        assert len(l1.rpc.listinvoices('inv2')['invoices']) == 0
+
     def test_invoice(self):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node()
@@ -453,6 +491,7 @@ class LightningDTests(BaseLightningDTests):
         l2.rpc.invoice('any', 'inv1', 'description', 10)
         l2.rpc.invoice('any', 'inv2', 'description', 4)
         l2.rpc.invoice('any', 'inv3', 'description', 16)
+        creation = int(time.time())
         # Check waitinvoice correctly waits
         w1 = self.executor.submit(l2.rpc.waitinvoice, 'inv1')
         w2 = self.executor.submit(l2.rpc.waitinvoice, 'inv2')
@@ -470,6 +509,16 @@ class LightningDTests(BaseLightningDTests):
         assert not w3.done()
         time.sleep(8)  # total 20
         self.assertRaises(ValueError, w3.result)
+
+        # Test delexpiredinvoice
+        l2.rpc.delexpiredinvoice(maxexpirytime=creation + 8)
+        # only inv2 should have been deleted
+        assert len(l2.rpc.listinvoices()['invoices']) == 2
+        assert len(l2.rpc.listinvoices('inv2')['invoices']) == 0
+        # Test delexpiredinvoice all
+        l2.rpc.delexpiredinvoice()
+        # all invoices are expired and should be deleted
+        assert len(l2.rpc.listinvoices()['invoices']) == 0
 
     def test_connect(self):
         l1, l2 = self.connect()
@@ -926,10 +975,16 @@ class LightningDTests(BaseLightningDTests):
 
         inv = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
         before = int(time.time())
-        preimage = l1.rpc.pay(inv)
+        details = l1.rpc.pay(inv)
         after = int(time.time())
-        invoice = l2.rpc.listinvoices('test_pay')['invoices'][0]
+        preimage = details['payment_preimage']
+        assert details['status'] == 'complete'
+        assert details['msatoshi'] == 123000
+        assert details['destination'] == l2.info['id']
+        assert details['created_at'] >= before
+        assert details['created_at'] <= after
 
+        invoice = l2.rpc.listinvoices('test_pay')['invoices'][0]
         assert invoice['status'] == 'paid'
         assert invoice['paid_at'] >= before
         assert invoice['paid_at'] <= after
@@ -957,7 +1012,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Test listpayments indexed by bolt11.
         assert len(l1.rpc.listpayments(inv)['payments']) == 1
-        assert l1.rpc.listpayments(inv)['payments'][0]['payment_preimage'] == preimage['payment_preimage']
+        assert l1.rpc.listpayments(inv)['payments'][0]['payment_preimage'] == preimage
 
     def test_pay_optional_args(self):
         l1, l2 = self.connect()
@@ -1246,8 +1301,9 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log(' to ONCHAIN')
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET (.*) after 5 blocks')
 
+        cid = l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['channel_id']
         wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status'] ==
-                 ['CHANNELD_NORMAL:Received error from peer: channel ALL: Internal error: Failing due to dev-fail command',
+                 ['CHANNELD_NORMAL:Received error from peer: channel {}: Internal error: Failing due to dev-fail command'.format(cid),
                   'ONCHAIN:Tracking their unilateral close',
                   'ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel'])
 
@@ -1404,6 +1460,11 @@ class LightningDTests(BaseLightningDTests):
 
         l1.daemon.wait_for_log('WIRE_PERMANENT_CHANNEL_FAILURE: missing in commitment tx')
 
+        # Retry payment, this should fail (and, as a side-effect, tickle a
+        # bug).
+        self.assertRaisesRegex(ValueError, 'WIRE_UNKNOWN_NEXT_PEER',
+                               l1.rpc.sendpay, to_json([routestep]), rhash)
+
         # 6 later, l1 should collect its to-self payment.
         bitcoind.generate_block(6)
         l1.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
@@ -1412,6 +1473,10 @@ class LightningDTests(BaseLightningDTests):
         # 94 later, l2 is done.
         bitcoind.generate_block(94)
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+        # Restart l1, it should not crash!
+        l1.stop()
+        l1.daemon.start()
 
         # Now, 100 blocks and l1 should be done.
         bitcoind.generate_block(6)
@@ -3055,6 +3120,21 @@ class LightningDTests(BaseLightningDTests):
         # The 10m out is spent and we have a change output of 9m-fee
         assert outputs[0] > 8990000
         assert outputs[2] == 10000000
+
+    def test_funding_all(self):
+        """Add some funds, fund a channel using all funds, make sure no funds remain
+        """
+        l1, l2 = self.connect()
+
+        self.give_funds(l1, 0.1 * 10**8)
+
+        outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
+        assert len(outputs) == 1 and outputs[0]['value'] == 10000000
+
+        l1.rpc.fundchannel(l2.info['id'], "all")
+
+        outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
+        assert len(outputs) == 0
 
     def test_funding_fail(self):
         """Add some funds, fund a channel without enough funds"""

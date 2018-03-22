@@ -1395,6 +1395,14 @@ bool wallet_invoice_delete(struct wallet *wallet,
 {
 	return invoices_delete(wallet->invoices, invoice);
 }
+void wallet_invoice_delete_expired(struct wallet *wallet, u64 e)
+{
+	invoices_delete_expired(wallet->invoices, e);
+}
+void wallet_invoice_autoclean(struct wallet *wallet, u64 c, u64 e)
+{
+	invoices_autoclean_set(wallet->invoices, c, e);
+}
 bool wallet_invoice_iterate(struct wallet *wallet,
 			    struct invoice_iterator *it)
 {
@@ -1466,6 +1474,24 @@ struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 	}
 	sqlite3_finalize(stmt);
 	return stubs;
+}
+
+void wallet_local_htlc_out_delete(struct wallet *wallet,
+				  struct channel *chan,
+				  const struct sha256 *payment_hash)
+{
+	sqlite3_stmt *stmt;
+
+	stmt = db_prepare(wallet->db,
+			  "DELETE FROM channel_htlcs"
+			  " WHERE direction = ?"
+			  " AND origin_htlc = ?"
+			  " AND payment_hash = ?");
+	sqlite3_bind_int(stmt, 1, DIRECTION_OUTGOING);
+	sqlite3_bind_int(stmt, 2, 0);
+	sqlite3_bind_sha256(stmt, 3, payment_hash);
+
+	db_exec_prepared(wallet->db, stmt);
 }
 
 static struct wallet_payment *
@@ -1678,6 +1704,16 @@ void wallet_payment_set_status(struct wallet *wallet,
 
 		sqlite3_bind_preimage(stmt, 1, preimage);
 		sqlite3_bind_sha256(stmt, 2, payment_hash);
+		db_exec_prepared(wallet->db, stmt);
+	}
+	if (newstatus != PAYMENT_PENDING) {
+		stmt = db_prepare(wallet->db,
+				  "UPDATE payments"
+				  "   SET path_secrets = NULL"
+				  "     , route_nodes = NULL"
+				  "     , route_channels = NULL"
+				  " WHERE payment_hash = ?;");
+		sqlite3_bind_sha256(stmt, 1, payment_hash);
 		db_exec_prepared(wallet->db, stmt);
 	}
 }

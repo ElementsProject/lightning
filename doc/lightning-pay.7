@@ -2,12 +2,12 @@
 .\"     Title: lightning-pay
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 02/26/2018
+.\"      Date: 03/16/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-PAY" "7" "02/26/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-PAY" "7" "03/16/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,7 +31,7 @@
 lightning-pay \- Protocol for sending a payment to a BOLT11 invoice
 .SH "SYNOPSIS"
 .sp
-\fBpay\fR \fIbolt11\fR [\fImsatoshi\fR] [\fIdescription\fR] [\fIriskfactor\fR] [\fImaxfeepercent\fR]
+\fBpay\fR \fIbolt11\fR [\fImsatoshi\fR] [\fIdescription\fR] [\fIriskfactor\fR] [\fImaxfeepercent\fR] [\fIretry_for\fR]
 .SH "DESCRIPTION"
 .sp
 The \fBpay\fR RPC command attempts to find a route to the given destination, and send the funds it asks for\&. If the \fIbolt11\fR does not contain an amount, \fImsatoshi\fR is required, otherwise if it is specified it must be \fInull\fR\&. If \fIbolt11\fR contains a description hash (\fIh\fR field) \fIdescription\fR is required, otherwise it is unused\&. The \fIriskfactor\fR is described in detail in lightning\-getroute(7), and defaults to 1\&.0\&. The \fImaxfeepercent\fR limits the money paid in fees, and defaults to 0\&.5\&. The \(oqmaxfeepercent\(cq is a percentage of the amount that is to be paid\&.
@@ -39,6 +39,8 @@ The \fBpay\fR RPC command attempts to find a route to the given destination, and
 The \fBpay\fR RPC command will randomize routes slightly, as long as the route achieves the targeted \fImaxfeepercent\fR\&.
 .sp
 The response will occur when the payment fails or succeeds\&. Once a payment has succeeded, calls to \fBpay\fR with the same \fIbolt11\fR will succeed immediately\&.
+.sp
+The command will keep finding routes and retrying the payment until it succeeds, or the given \fIretry_for\fR seconds passes\&. Note that the command may stop retrying while a pending payment is ongoing, which you need to monitor with \fBlistpayments\fR or \fBwaitsendpay\fR\&. \fIretry_for\fR defaults to 60 seconds and can only be an integer\&.
 .sp
 When using \fIlightning\-cli\fR, you may skip optional parameters by using \fInull\fR\&. Alternatively, use \fB\-k\fR option to provide parameters by name\&.
 .SH "RETURN VALUE"
@@ -68,11 +70,11 @@ The following error codes may occur:
 .sp -1
 .IP \(bu 2.3
 .\}
-200\&. A previous
-\fBsendpay\fR
-or
-\fBpay\fR
-is in progress\&.
+200\&. Payment timed out while a payment is in progress\&. Monitor the status of that payment with
+\fIlistpayments\fR
+command, or wait for that payment to complete with
+\fIpay\fR
+command\&.
 .RE
 .sp
 .RS 4
@@ -146,6 +148,17 @@ field of the error indicates
 (the invoice expiration) as UNIX epoch time in seconds\&.
 .RE
 .sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+210\&. Payment timed out without a payment in progress\&.
+.RE
+.sp
 Error codes 202 and 204 will only get reported at \fBsendpay\fR; in \fBpay\fR we will keep retrying if we would have gotten those errors\&.
 .sp
 A routing failure object has the fields below:
@@ -210,6 +223,8 @@ message received from the remote node\&. Only present if error is from the remot
 \fIfailcode\fR
 has the UPDATE bit set, as per BOLT #4\&.
 .RE
+.sp
+The \fIdata\fR field of errors will include statistics \fIgetroute_tries\fR and \fIsendpay_tries\fR\&. It will also contain a \fIfailures\fR field with detailed data about routing errors\&.
 .SH "AUTHOR"
 .sp
 Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.

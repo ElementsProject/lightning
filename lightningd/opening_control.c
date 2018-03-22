@@ -13,6 +13,7 @@
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
@@ -20,6 +21,7 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <openingd/gen_opening_wire.h>
+#include <wire/wire.h>
 #include <wire/wire_sync.h>
 
 /* Channel we're still opening. */
@@ -245,6 +247,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	struct channel *channel;
 	struct json_result *response;
 	struct lightningd *ld = openingd->ld;
+	struct channel_id cid;
 
 	assert(tal_count(fds) == 2);
 
@@ -384,6 +387,9 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	linear = linearize_tx(response, fundingtx);
 	json_add_hex(response, "tx", linear, tal_len(linear));
 	json_add_txid(response, "txid", &channel->funding_txid);
+	derive_channel_id(&cid, &channel->funding_txid, funding_outnum);
+	json_add_string(response, "channel_id",
+			type_to_string(tmpctx, struct channel_id, &cid));
 	json_object_end(response);
 	command_success(fc->cmd, response);
 
@@ -611,7 +617,8 @@ static void channel_config(struct lightningd *ld,
  * NULL if we took over, otherwise hand back to gossipd with this
  * error.
  */
-u8 *peer_accept_channel(struct lightningd *ld,
+u8 *peer_accept_channel(const tal_t *ctx,
+			struct lightningd *ld,
 			const struct pubkey *peer_id,
 			const struct wireaddr *addr,
 			const struct crypto_state *cs,
@@ -631,7 +638,7 @@ u8 *peer_accept_channel(struct lightningd *ld,
 	/* Fails if there's already one */
 	uc = new_uncommitted_channel(ld, NULL, peer_id, addr);
 	if (!uc)
-		return towire_errorfmt(open_msg, channel_id,
+		return towire_errorfmt(ctx, channel_id,
 				       "Multiple channels unsupported");
 
 	uc->openingd = new_channel_subd(ld, "lightning_openingd", uc, uc->log,
@@ -809,51 +816,76 @@ static void gossip_peer_released(struct subd *gossip,
 			   fds[0], fds[1]);
 }
 
+/**
+ * json_fund_channel - Entrypoint for funding a channel
+ */
 static void json_fund_channel(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *peertok, *satoshitok;
-	struct funding_channel *fc = tal(cmd, struct funding_channel);
+	jsmntok_t *desttok, *sattok;
+	bool all_funds = false;
+	struct funding_channel * fc;
+	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
+    u64 fee_estimate;
 	u8 *msg;
 
 	if (!json_get_params(cmd, buffer, params,
-			     "id", &peertok,
-			     "satoshi", &satoshitok,
+			     "id", &desttok,
+			     "satoshi", &sattok,
 			     NULL)) {
 		return;
 	}
 
+	fc = tal(cmd, struct funding_channel);
 	fc->cmd = cmd;
+	fc->change_keyindex = 0;
+	fc->funding_satoshi = 0;
 
-	if (!pubkey_from_hexstr(buffer + peertok->start,
-				peertok->end - peertok->start, &fc->peerid)) {
-		command_fail(cmd, "Could not parse id");
-		return;
-	}
+	if (json_tok_streq(buffer, sattok, "all")) {
+		all_funds = true;
 
-	if (!json_tok_u64(buffer, satoshitok, &fc->funding_satoshi)) {
+	} else if (!json_tok_u64(buffer, sattok, &fc->funding_satoshi)) {
 		command_fail(cmd, "Invalid satoshis");
 		return;
 	}
 
-	if (fc->funding_satoshi > MAX_FUNDING_SATOSHI) {
-		command_fail(cmd, "Funding satoshi must be <= %d",
-			     MAX_FUNDING_SATOSHI);
+	if (!pubkey_from_hexstr(buffer + desttok->start,
+				desttok->end - desttok->start, &fc->peerid)) {
+		command_fail(cmd, "Could not parse id");
 		return;
 	}
-
 	/* FIXME: Support push_msat? */
 	fc->push_msat = 0;
 	fc->channel_flags = OUR_CHANNEL_FLAGS;
 
 	/* Try to do this now, so we know if insufficient funds. */
 	/* FIXME: dustlimit */
-	fc->utxomap = build_utxos(fc, cmd->ld, fc->funding_satoshi,
-				  get_feerate(cmd->ld->topology, FEERATE_NORMAL),
-				  600, BITCOIN_SCRIPTPUBKEY_P2WSH_LEN,
-				  &fc->change, &fc->change_keyindex);
-	if (!fc->utxomap) {
-		command_fail(cmd, "Cannot afford funding transaction");
+    if (all_funds) {
+		fc->utxomap = wallet_select_all(cmd, cmd->ld->wallet,
+			feerate_per_kw,
+			BITCOIN_SCRIPTPUBKEY_P2WSH_LEN,
+			&fc->funding_satoshi,
+			&fee_estimate);
+		if (!fc->utxomap || fc->funding_satoshi < 546) {
+			command_fail(cmd, "Cannot afford fee %"PRIu64,
+				     fee_estimate);
+			return;
+		}
+		fc->change = 0;
+	} else {
+		fc->utxomap = build_utxos(fc, cmd->ld, fc->funding_satoshi,
+			feerate_per_kw,
+			600, BITCOIN_SCRIPTPUBKEY_P2WSH_LEN,
+			&fc->change, &fc->change_keyindex);
+		if (!fc->utxomap) {
+			command_fail(cmd, "Cannot afford funding transaction");
+			return;
+		}
+	}
+
+	if (fc->funding_satoshi > MAX_FUNDING_SATOSHI) {
+		command_fail(cmd, "Funding satoshi must be <= %d",
+			     MAX_FUNDING_SATOSHI);
 		return;
 	}
 

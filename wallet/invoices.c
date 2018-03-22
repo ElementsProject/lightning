@@ -43,6 +43,10 @@ struct invoices {
 	u64 min_expiry_time;
 	/* Expiration timer */
 	struct oneshot *expiration_timer;
+	/* Autoclean timer */
+	struct oneshot *autoclean_timer;
+	u64 autoclean_cycle_seconds;
+	u64 autoclean_expired_by;
 };
 
 static void trigger_invoice_waiter(struct invoice_waiter *w,
@@ -128,6 +132,7 @@ struct invoices *invoices_new(const tal_t *ctx,
 	list_head_init(&invs->waiters);
 
 	invs->expiration_timer = NULL;
+	invs->autoclean_timer = NULL;
 
 	return invs;
 }
@@ -382,6 +387,55 @@ bool invoices_delete(struct invoices *invoices,
 	trigger_invoice_waiter_expire_or_delete(invoices,
 						invoice.id, NULL);
 	return true;
+}
+
+void invoices_delete_expired(struct invoices *invoices,
+			     u64 max_expiry_time)
+{
+	sqlite3_stmt *stmt;
+	stmt = db_prepare(invoices->db,
+			  "DELETE FROM invoices"
+			  " WHERE state = ?"
+			  "   AND expiry_time <= ?;");
+	sqlite3_bind_int(stmt, 1, EXPIRED);
+	sqlite3_bind_int64(stmt, 2, max_expiry_time);
+	db_exec_prepared(invoices->db, stmt);
+}
+
+static void refresh_autoclean(struct invoices *invoices);
+static void trigger_autoclean(struct invoices *invoices)
+{
+	u64 now = time_now().ts.tv_sec;
+
+	invoices_delete_expired(invoices,
+				now - invoices->autoclean_expired_by);
+
+	refresh_autoclean(invoices);
+}
+static void refresh_autoclean(struct invoices *invoices)
+{
+	struct timerel rel = time_from_sec(invoices->autoclean_cycle_seconds);
+	invoices->autoclean_timer = tal_free(invoices->autoclean_timer);
+	invoices->autoclean_timer = new_reltimer(invoices->timers,
+						 invoices,
+						 rel,
+						 &trigger_autoclean,
+						 invoices);
+}
+
+void invoices_autoclean_set(struct invoices *invoices,
+			    u64 cycle_seconds,
+			    u64 expired_by)
+{
+	/* If not perform autoclean, just clear */
+	if (cycle_seconds == 0) {
+		invoices->autoclean_timer = tal_free(invoices->autoclean_timer);
+		return;
+	}
+
+	invoices->autoclean_cycle_seconds = cycle_seconds;
+	invoices->autoclean_expired_by = expired_by;
+	refresh_autoclean(invoices);
 }
 
 bool invoices_iterate(struct invoices *invoices,

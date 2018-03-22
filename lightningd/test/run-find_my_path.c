@@ -110,6 +110,11 @@ bool wallet_htlcs_reconnect(struct wallet *wallet UNNEEDED,
 			    struct htlc_in_map *htlcs_in UNNEEDED,
 			    struct htlc_out_map *htlcs_out UNNEEDED)
 { fprintf(stderr, "wallet_htlcs_reconnect called!\n"); abort(); }
+/* Generated stub for wallet_invoice_autoclean */
+void wallet_invoice_autoclean(struct wallet * wallet UNNEEDED,
+			      u64 cycle_seconds UNNEEDED,
+			      u64 expired_by UNNEEDED)
+{ fprintf(stderr, "wallet_invoice_autoclean called!\n"); abort(); }
 /* Generated stub for wallet_invoice_load */
 bool wallet_invoice_load(struct wallet *wallet UNNEEDED)
 { fprintf(stderr, "wallet_invoice_load called!\n"); abort(); }

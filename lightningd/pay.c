@@ -7,6 +7,7 @@
 #include <common/timeout.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
@@ -431,6 +432,17 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 					 &hout->payment_hash);
 
 #ifdef COMPAT_V052
+	/* Prior to "pay: delete HTLC when we delete payment." we would
+	 * delete a payment on retry, but leave the HTLC. */
+	if (!payment) {
+		log_unusual(hout->key.channel->log,
+			    "No payment for %s:"
+			    " was this an old database?",
+			    type_to_string(tmpctx, struct sha256,
+					   &hout->payment_hash));
+		return;
+	}
+
 	/* FIXME: Prior to 299b280f7, we didn't put route_nodes and
 	 * route_channels in db.  If this happens, it's an old payment,
 	 * so we can simply mark it failed in db and return. */
@@ -705,7 +717,6 @@ send_payment(const tal_t *ctx,
 			cb(result, cbarg);
 			return false;
 		}
-		wallet_payment_delete(ld->wallet, rhash);
 		log_add(ld->log, "... retrying");
 	}
 
@@ -757,6 +768,16 @@ send_payment(const tal_t *ctx,
 	for (i = 0; i < n_hops; ++i)
 		channels[i] = route[i].channel_id;
 
+	/* If we're retrying, delete all trace of previous one.  We delete
+	 * outgoing HTLC, too, otherwise it gets reported to onchaind as
+	 * a possibility, and we end up in handle_missing_htlc_output->
+	 * onchain_failed_our_htlc->payment_failed with no payment.
+	 */
+	if (payment) {
+		wallet_payment_delete(ld->wallet, rhash);
+		wallet_local_htlc_out_delete(ld->wallet, channel, rhash);
+	}
+
 	/* If hout fails, payment should be freed too. */
 	payment = tal(hout, struct wallet_payment);
 	payment->id = 0;
@@ -776,41 +797,6 @@ send_payment(const tal_t *ctx,
 	add_sendpay_waiter(ctx, rhash, ld, cb, cbarg);
 
 	return true;
-}
-
-/*-----------------------------------------------------------------------------
-Utility
------------------------------------------------------------------------------*/
-
-/* Outputs fields, not a separate object*/
-static void
-json_add_payment_fields(struct json_result *response,
-			const struct wallet_payment *t)
-{
-	json_add_u64(response, "id", t->id);
-	json_add_hex(response, "payment_hash", &t->payment_hash, sizeof(t->payment_hash));
-	json_add_pubkey(response, "destination", &t->destination);
-	json_add_u64(response, "msatoshi", t->msatoshi);
-	if (deprecated_apis)
-		json_add_u64(response, "timestamp", t->timestamp);
-	json_add_u64(response, "created_at", t->timestamp);
-
-	switch (t->status) {
-	case PAYMENT_PENDING:
-		json_add_string(response, "status", "pending");
-		break;
-	case PAYMENT_COMPLETE:
-		json_add_string(response, "status", "complete");
-		break;
-	case PAYMENT_FAILED:
-		json_add_string(response, "status", "failed");
-		break;
-	}
-	if (t->payment_preimage)
-		json_add_hex(response, "payment_preimage",
-			     t->payment_preimage,
-			     sizeof(*t->payment_preimage));
-
 }
 
 /*-----------------------------------------------------------------------------
