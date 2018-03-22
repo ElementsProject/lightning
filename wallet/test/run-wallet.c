@@ -943,6 +943,7 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 
 	t->id = 0;
 	t->msatoshi = 100;
+	t->msatoshi_sent = 101;
 	t->status = PAYMENT_PENDING;
 	t->payment_preimage = NULL;
 	memset(&t->payment_hash, 1, sizeof(t->payment_hash));
@@ -955,6 +956,7 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK(t2->status == t->status);
 	CHECK(pubkey_cmp(&t2->destination, &t->destination) == 0);
 	CHECK(t2->msatoshi == t->msatoshi);
+	CHECK(t2->msatoshi_sent == t->msatoshi_sent);
 	CHECK(!t2->payment_preimage);
 
 	t->status = PAYMENT_COMPLETE;
@@ -967,6 +969,7 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK(t2->status == t->status);
 	CHECK(pubkey_cmp(&t2->destination, &t->destination) == 0);
 	CHECK(t2->msatoshi == t->msatoshi);
+	CHECK(t2->msatoshi_sent == t->msatoshi_sent);
 	CHECK(structeq(t->payment_preimage, t2->payment_preimage));
 
 	db_commit_transaction(w->db);
