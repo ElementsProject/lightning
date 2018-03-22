@@ -101,6 +101,7 @@ struct wallet_payment {
 	enum wallet_payment_status status;
 	struct pubkey destination;
 	u64 msatoshi;
+	u64 msatoshi_sent;
 	/* If and only if PAYMENT_COMPLETE */
 	struct preimage *payment_preimage;
 	/* Needed for recovering from routing failures. */

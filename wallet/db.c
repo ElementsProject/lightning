@@ -267,6 +267,9 @@ char *dbmigrations[] = {
     "     , out_msatoshi_offered = 0, out_msatoshi_fulfilled = 0"
     "     ;",
     /* -- Routing statistics ends --*/
+    /* Record the msatoshi actually sent in a payment. */
+    "ALTER TABLE payments ADD msatoshi_sent INTEGER;",
+    "UPDATE payments SET msatoshi_sent = msatoshi;",
     NULL,
 };
 

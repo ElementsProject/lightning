@@ -782,6 +782,7 @@ send_payment(const tal_t *ctx,
 	payment->destination = ids[n_hops - 1];
 	payment->status = PAYMENT_PENDING;
 	payment->msatoshi = route[n_hops-1].amount;
+	payment->msatoshi_sent = route[0].amount;
 	payment->timestamp = time_now().ts.tv_sec;
 	payment->payment_preimage = NULL;
 	payment->path_secrets = tal_steal(payment, path_secrets);
