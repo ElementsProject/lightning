@@ -253,7 +253,10 @@ check-python:
 	@# E731 do not assign a lambda expression, use a def
 	@git ls-files "*.py" | xargs flake8 --ignore=E501,E731 --exclude=contrib/pylightning/lightning/__init__.py
 
-check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python
+check-includes:
+	@tools/check-includes.sh
+
+check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python check-includes
 
 full-check: check check-source
 
