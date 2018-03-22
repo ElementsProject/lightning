@@ -245,6 +245,12 @@ char *dbmigrations[] = {
     "ALTER TABLE payments ADD failchannel BLOB;", /* erring_channel */
     "ALTER TABLE payments ADD failupdate BLOB;", /* channel_update - can be NULL*/
     /* -- Payment routing failure information ends -- */
+    /* Delete route data for already succeeded or failed payments */
+    "UPDATE payments"
+    "   SET path_secrets = NULL"
+    "     , route_nodes = NULL"
+    "     , route_channels = NULL"
+    " WHERE status <> 0;", /* PAYMENT_PENDING */
     NULL,
 };
 

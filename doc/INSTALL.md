@@ -1,3 +1,12 @@
+# Table of Contents
+1. [Library Requirements](#library-requirements)
+2. [Ubuntu](#to-build-on-ubuntu)
+3. [Fedora](#to-build-on-fedora)
+4. [FreeBSD](#to-build-on-freebsd)
+5. [NixOS](#to-build-on-nixos)
+6. [Android](#to-cross-compile-for-android)
+7. [Additional steps](#additional-steps)
+
 Library Requirements
 --------------------
 
@@ -13,8 +22,10 @@ For actually doing development and running the tests, you will also need:
 You will also need a version of bitcoind with segregated witness and
 estimatesmartfee economical node, such as the 0.15 or above.
 
-To Build on Ubuntu 15.10 or above
+To Build on Ubuntu
 ---------------------
+
+OS version: Ubuntu 15.10 or above
 
 Get dependencies:
 
@@ -52,13 +63,68 @@ Running lightning:
 
 **Note**: You may need to include `testnet=1` in `bitcoin.conf`
 
-To Build on FreeBSD 11.1-RELEASE
+To Build on Fedora
 ---------------------
+
+OS version: Fedora 27 or above
+
+Get dependencies:
+```
+$ sudo dnf update -y && \
+        dnf groupinstall -y \
+                'C Development Tools and Libraries' \
+                'Development Tools' && \
+        dnf install -y \
+                clang \
+                gmp-devel \
+                libsq3-devel \
+                python2-devel \
+                python3-devel \
+                python3-pip \
+                python3-setuptools \
+                net-tools \
+                libsodium-devel \
+                net-tools \
+                valgrind \
+                wget && \
+        dnf clean all
+```
+
+Make sure you have [bitcoind](https://github.com/bitcoin/bitcoin) available to run
+
+Clone lightning:
+```
+$ git clone https://github.com/ElementsProject/lightning.git
+$ cd lightning
+```
+
+Build and install lightning:
+```
+$lightning> make
+$lightning> sudo make install
+```
+
+Running lightning (mainnet):
+```
+$ bitcoind &
+$ lightningd --network=bitcoin
+```
+
+Running lightning on testnet:
+```
+$ bitcoind -testnet &
+$ lightningd --network=testnet
+```
+
+To Build on FreeBSD
+---------------------
+
+OS version: FreeBSD 11.1-RELEASE or above
 
 Get dependencies:
 
     # pkg install -y \
-      autoconf automake git gmake libtool python python3 sqlite3
+      autoconf automake git gmp asciidoc gmake libtool python python3 sqlite3
 
 If you don't have Bitcoin installed locally you'll need to install that
 as well:
@@ -73,6 +139,7 @@ Clone lightning:
 Build lightning:
 
     $ gmake
+    $ gmake install
 
 Running lightning:
 
@@ -84,10 +151,8 @@ include `testnet=1`
     $ ./lightningd/lightningd &
     $ ./cli/lightning-cli help
 
-To Build on Nix{,OS}
+To Build on NixOS
 --------------------
-
-Untested on MacOS/Windows/Other Linux. Works on NixOS.
 
 Use nix-shell launch a shell with a full clightning dev environment:
 
@@ -131,3 +196,7 @@ Build with:
     BUILD=x86_64 HOST=arm-linux-androideabi \
       make PIE=1 DEVELOPER=0 \
       CONFIGURATOR_CC="arm-linux-androideabi-clang -static"
+
+Additional steps
+--------------------
+Go to [README](https://github.com/ElementsProject/lightning/blob/master/README.md) for more information how to create an address, add funds, connect to a node, etc.
