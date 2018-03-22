@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_GOSSIP_HANDSHAKE_H
-#define LIGHTNING_LIGHTNINGD_GOSSIP_HANDSHAKE_H
+#ifndef LIGHTNING_GOSSIPD_HANDSHAKE_H
+#define LIGHTNING_GOSSIPD_HANDSHAKE_H
 #include "config.h"
 #include <ccan/typesafe_cb/typesafe_cb.h>
 
@@ -51,4 +51,4 @@ struct io_plan *responder_handshake_(struct io_conn *conn,
 							   void *cbarg),
 				     void *cbarg);
 
-#endif /* LIGHTNING_LIGHTNINGD_GOSSIP_HANDSHAKE_H */
+#endif /* LIGHTNING_GOSSIPD_HANDSHAKE_H */

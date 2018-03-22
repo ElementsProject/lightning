@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_GOSSIP_ROUTING_H
-#define LIGHTNING_LIGHTNINGD_GOSSIP_ROUTING_H
+#ifndef LIGHTNING_GOSSIPD_ROUTING_H
+#define LIGHTNING_GOSSIPD_ROUTING_H
 #include "config.h"
 #include <bitcoin/pubkey.h>
 #include <ccan/crypto/siphash24/siphash24.h>
@@ -253,4 +253,4 @@ void route_prune(struct routing_state *rstate);
  * the direction bit the matching channel should get */
 #define get_channel_direction(from, to) (pubkey_cmp(from, to) > 0)
 
-#endif /* LIGHTNING_LIGHTNINGD_GOSSIP_ROUTING_H */
+#endif /* LIGHTNING_GOSSIPD_ROUTING_H */

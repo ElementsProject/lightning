@@ -1,5 +1,5 @@
-#ifndef WALLET_DB_H
-#define WALLET_DB_H
+#ifndef LIGHTNING_WALLET_DB_H
+#define LIGHTNING_WALLET_DB_H
 #include "config.h"
 
 #include <bitcoin/preimage.h>
@@ -156,4 +156,4 @@ bool sqlite3_column_sha256_double(sqlite3_stmt *stmt, int col,  struct sha256_do
 bool sqlite3_bind_sha256_double(sqlite3_stmt *stmt, int col, const struct sha256_double *p);
 struct secret *sqlite3_column_secrets(const tal_t *ctx,
 				      sqlite3_stmt *stmt, int col);
-#endif /* WALLET_DB_H */
+#endif /* LIGHTNING_WALLET_DB_H */

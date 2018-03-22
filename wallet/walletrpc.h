@@ -1,5 +1,5 @@
-#ifndef WALLET_WALLETRPC_H
-#define WALLET_WALLETRPC_H
+#ifndef LIGHTNING_WALLET_WALLETRPC_H
+#define LIGHTNING_WALLET_WALLETRPC_H
 
 #include "config.h"
 
@@ -8,4 +8,4 @@
  * handlers are registered using AUTODATA.
  */
 
-#endif /* WALLET_WALLETRPC_H */
+#endif /* LIGHTNING_WALLET_WALLETRPC_H */
