@@ -1,4 +1,5 @@
 #include <backtrace.h>
+#include <backtrace-supported.h>
 #include <ccan/err/err.h>
 #include <ccan/str/str.h>
 #include <common/dev_disconnect.h>
@@ -12,6 +13,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#if BACKTRACE_SUPPORTED
 static struct backtrace_state *backtrace_state;
 
 static int backtrace_status(void *unused UNUSED, uintptr_t pc,
@@ -51,6 +53,7 @@ static void crashlog_activate(void)
 	sigaction(SIGSEGV, &sa, NULL);
 	sigaction(SIGBUS, &sa, NULL);
 }
+#endif
 
 #if DEVELOPER
 extern volatile bool debugger_connected;
@@ -65,8 +68,10 @@ void subdaemon_setup(int argc, char *argv[])
 	}
 
 	err_set_progname(argv[0]);
+#if BACKTRACE_SUPPORTED
 	backtrace_state = backtrace_create_state(argv[0], 0, NULL, NULL);
 	crashlog_activate();
+#endif
 
 	/* We handle write returning errors! */
 	signal(SIGPIPE, SIG_IGN);
