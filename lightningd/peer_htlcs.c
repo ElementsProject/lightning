@@ -4,8 +4,6 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/gen_channel_wire.h>
-#include <common/derive_basepoints.h>
-#include <common/htlc_wire.h>
 #include <common/overflows.h>
 #include <common/sphinx.h>
 #include <gossipd/gen_gossip_wire.h>

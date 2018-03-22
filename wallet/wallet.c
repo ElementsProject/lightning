@@ -7,7 +7,6 @@
 #include <common/key_derive.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
-#include <lightningd/invoice.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>

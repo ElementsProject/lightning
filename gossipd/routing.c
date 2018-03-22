@@ -13,7 +13,6 @@
 #include <common/wire_error.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
-#include <wire/gen_onion_wire.h>
 #include <wire/gen_peer_wire.h>
 
 #ifndef SUPERVERBOSE

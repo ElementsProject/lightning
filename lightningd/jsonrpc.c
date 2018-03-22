@@ -10,7 +10,6 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
-#include <common/json.h>
 #include <common/memleak.h>
 #include <common/version.h>
 #include <common/wireaddr.h>
