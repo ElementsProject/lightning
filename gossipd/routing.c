@@ -833,7 +833,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	}
 
 	if (pending->store)
-		gossip_store_append(rstate->store, pending->announce);
+		gossip_store_add_channel_announcement(rstate->store, pending->announce, satoshis);
 	routing_add_channel_announcement(rstate, pending->announce, satoshis);
 
 	local = pubkey_eq(&pending->node_id_1, &rstate->local_id) ||
