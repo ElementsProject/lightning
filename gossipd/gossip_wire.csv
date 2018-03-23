@@ -224,3 +224,18 @@ gossipctl_peer_disconnect_reply,3123
 # Gossipd -> master:  reply to gossip_peer_disconnect if we couldn't find the peer.
 gossipctl_peer_disconnect_replyfail,3223
 gossipctl_peer_disconnect_replyfail,,isconnected,bool
+
+
+# gossip_store messages: messages persisted in the gossip_store
+gossip_store_channel_announcement,4096
+gossip_store_channel_announcement,,len,u16
+gossip_store_channel_announcement,,announcement,len*u8
+gossip_store_channel_announcement,,satoshis,u64
+
+gossip_store_channel_update,4097
+gossip_store_channel_update,,len,u16
+gossip_store_channel_update,,update,len*u8
+
+gossip_store_node_announcement,4098
+gossip_store_node_announcement,,len,u16
+gossip_store_node_announcement,,announcement,len*u8

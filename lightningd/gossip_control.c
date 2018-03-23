@@ -147,6 +147,10 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLY:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLYFAIL:
+	/* gossip_store messages */
+	case WIRE_GOSSIP_STORE_CHANNEL_ANNOUNCEMENT:
+	case WIRE_GOSSIP_STORE_CHANNEL_UPDATE:
+	case WIRE_GOSSIP_STORE_NODE_ANNOUNCEMENT:
 		break;
 	/* These are inter-daemon messages, not received by us */
 	case WIRE_GOSSIP_LOCAL_ADD_CHANNEL:
