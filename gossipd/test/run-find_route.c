@@ -151,9 +151,9 @@ int main(void)
 	setup_tmpctx();
 
 	memset(&tmp, 'a', sizeof(tmp));
+	pubkey_from_privkey(&tmp, &a);
 	rstate = new_routing_state(tmpctx, &zerohash, &a, 0);
 
-	pubkey_from_privkey(&tmp, &a);
 	new_node(rstate, &a);
 
 	memset(&tmp, 'b', sizeof(tmp));
