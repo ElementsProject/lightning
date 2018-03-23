@@ -7,10 +7,12 @@
 #include <unistd.h>
 
 #define GOSSIP_STORE_FILENAME "gossip_store"
+static u8 gossip_store_version = 0x01;
 
 struct gossip_store {
 	int fd;
 	off_t read_pos, write_pos;
+	u8 version;
 };
 
 static void gossip_store_destroy(struct gossip_store *gs)
@@ -22,8 +24,20 @@ struct gossip_store *gossip_store_new(const tal_t *ctx)
 {
 	struct gossip_store *gs = tal(ctx, struct gossip_store);
 	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
-	gs->read_pos = 0;
+	gs->read_pos = 1;
 	gs->write_pos = lseek(gs->fd, 0, SEEK_END);
+
+	/* Try to read the version, write it if this is a new file, or truncate
+	 * if the version doesn't match */
+	if (pread(gs->fd, &gs->version, sizeof(gs->version), 0) != 1 ||
+	    gs->version != gossip_store_version) {
+		status_trace("Truncating gossip_store, either it was empty or "
+			     "the version was not supported.");
+		gs->version = gossip_store_version;
+		gs->write_pos = 1;
+		pwrite(gs->fd, &gossip_store_version, sizeof(gossip_store_version), 0);
+		ftruncate(gs->fd, gs->write_pos);
+	}
 
 	tal_add_destructor(gs, gossip_store_destroy);
 
