@@ -46,20 +46,20 @@ struct gossip_store *gossip_store_new(const tal_t *ctx)
 
 void gossip_store_append(struct gossip_store *gs, const u8 *msg)
 {
-	u16 msglen = tal_len(msg);
-	beint16_t belen = cpu_to_be16(msglen);
+	u32 msglen = tal_len(msg);
+	beint32_t belen = cpu_to_be32(msglen);
 
-	if (pwrite(gs->fd, &belen, sizeof(belen), gs->write_pos) != 2 ||
-	    pwrite(gs->fd, msg, msglen, gs->write_pos + 2) != msglen) {
+	if (pwrite(gs->fd, &belen, sizeof(belen), gs->write_pos) != sizeof(belen) ||
+	    pwrite(gs->fd, msg, msglen, gs->write_pos + sizeof(belen)) != msglen) {
 		return;
 	} else
-		gs->write_pos += 2 + msglen;
+		gs->write_pos += sizeof(belen) + msglen;
 }
 
 const u8 *gossip_store_read_next(const tal_t *ctx, struct gossip_store *gs)
 {
-	beint16_t belen;
-	u16 msglen;
+	beint32_t belen;
+	u32 msglen;
 	u8 *msg;
 
 	/* Did we already reach the end of the gossip_store? */
@@ -67,15 +67,15 @@ const u8 *gossip_store_read_next(const tal_t *ctx, struct gossip_store *gs)
 		return NULL;
 
 	/* Can we read one message? */
-	if (pread(gs->fd, &belen, sizeof(belen), gs->read_pos) != 2) {
+	if (pread(gs->fd, &belen, sizeof(belen), gs->read_pos) != sizeof(belen)) {
 		gs->read_pos = -1;
 		return NULL;
 	}
 
-	msglen = be16_to_cpu(belen);
+	msglen = be32_to_cpu(belen);
 	msg = tal_arr(ctx, u8, msglen);
 
-	if (!pread(gs->fd, msg, msglen, gs->read_pos + 2)) {
+	if (!pread(gs->fd, msg, msglen, gs->read_pos + sizeof(belen))) {
 		status_trace("Short read from gossip-store, expected lenght %d",
 			     msglen);
 
@@ -85,7 +85,7 @@ const u8 *gossip_store_read_next(const tal_t *ctx, struct gossip_store *gs)
 		gs->read_pos = -1;
 		ftruncate(gs->fd, gs->write_pos);
 	} else
-		gs->read_pos += 2 + msglen;
+		gs->read_pos += sizeof(belen) + msglen;
 
 	return msg;
 }
