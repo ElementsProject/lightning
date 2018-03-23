@@ -1,6 +1,6 @@
 #include "log.h"
-#include <backtrace.h>
 #include <backtrace-supported.h>
+#include <backtrace.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/list/list.h>
 #include <ccan/opt/opt.h>
