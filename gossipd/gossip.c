@@ -1044,7 +1044,7 @@ static struct io_plan *disconnect_peer(struct io_conn *conn, struct daemon *daem
 
 	peer = find_peer(daemon, &id);
 	if (peer && peer->local) {
-		/* This peer is local to this (gossipd) dameon */
+		/* This peer is local to this (gossipd) daemon */
 		io_close(peer->local->conn);
 		msg = towire_gossipctl_peer_disconnect_reply(NULL);
 		daemon_conn_send(&daemon->master, take(msg));
