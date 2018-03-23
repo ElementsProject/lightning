@@ -11,10 +11,6 @@
 struct gossip_store {
 	int fd;
 	off_t read_pos, write_pos;
-
-	/* What was the size of the gossip_store when we started replaying
-	 * it? */
-	__off_t replaysize;
 };
 
 static void gossip_store_destroy(struct gossip_store *gs)
@@ -28,7 +24,6 @@ struct gossip_store *gossip_store_new(const tal_t *ctx)
 	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
 	gs->read_pos = 0;
 	gs->write_pos = lseek(gs->fd, 0, SEEK_END);
-	gs->replaysize = gs->write_pos;
 
 	tal_add_destructor(gs, gossip_store_destroy);
 
