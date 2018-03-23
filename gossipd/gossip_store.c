@@ -4,7 +4,10 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <common/status.h>
 #include <fcntl.h>
+#include <gossipd/gen_gossip_wire.h>
 #include <unistd.h>
+#include <wire/gen_peer_wire.h>
+#include <wire/wire.h>
 
 #define GOSSIP_STORE_FILENAME "gossip_store"
 static u8 gossip_store_version = 0x01;
@@ -56,11 +59,21 @@ void gossip_store_append(struct gossip_store *gs, const u8 *msg)
 		gs->write_pos += sizeof(belen) + msglen;
 }
 
-const u8 *gossip_store_read_next(const tal_t *ctx, struct gossip_store *gs)
+void gossip_store_add_channel_announcement(struct gossip_store *gs, const u8 *gossip_msg, u64 satoshis)
+{
+	u8 *msg = towire_gossip_store_channel_announcement(NULL, gossip_msg, satoshis);
+	gossip_store_append(gs, msg);
+	tal_free(msg);
+}
+
+const u8 *gossip_store_read_next(const tal_t *ctx, struct routing_state *rstate,
+				 struct gossip_store *gs)
 {
 	beint32_t belen;
 	u32 msglen;
-	u8 *msg;
+	u8 *msg, *gossip_msg;
+	u64 satoshis;
+	enum gossip_wire_type type;
 
 	/* Did we already reach the end of the gossip_store? */
 	if (gs->read_pos == -1)
@@ -84,8 +97,19 @@ const u8 *gossip_store_read_next(const tal_t *ctx, struct gossip_store *gs)
 		gs->write_pos = gs->read_pos;
 		gs->read_pos = -1;
 		ftruncate(gs->fd, gs->write_pos);
-	} else
-		gs->read_pos += sizeof(belen) + msglen;
+		return NULL;
+	}
+
+	gs->read_pos += sizeof(belen) + msglen;
+	type = fromwire_peektype(msg);
+
+	if (type == WIRE_GOSSIP_STORE_CHANNEL_ANNOUNCEMENT) {
+		fromwire_gossip_store_channel_announcement(msg, msg, &gossip_msg, &satoshis);
+		routing_add_channel_announcement(rstate, gossip_msg, satoshis);
+
+		/* No harm in returning it, it'll get discarded as a duplicate */
+		return gossip_msg;
+	}
 
 	return msg;
 }

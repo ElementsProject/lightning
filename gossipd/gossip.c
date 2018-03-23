@@ -1530,7 +1530,7 @@ static bool master_conn_idle(struct io_conn *conn UNUSED,
 {
 	const u8 *msg;
 	struct daemon *daemon = container_of(dc, struct daemon, master);
-	msg = gossip_store_read_next(tmpctx, daemon->rstate->store);
+	msg = gossip_store_read_next(tmpctx, daemon->rstate, daemon->rstate->store);
 
 	if (msg) {
 		handle_gossip_msg(daemon, msg, false);
