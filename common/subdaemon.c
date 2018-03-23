@@ -1,5 +1,5 @@
-#include <backtrace.h>
 #include <backtrace-supported.h>
+#include <backtrace.h>
 #include <ccan/err/err.h>
 #include <ccan/str/str.h>
 #include <common/dev_disconnect.h>
