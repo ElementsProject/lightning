@@ -622,7 +622,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 		}
 
 		for (size_t i = 0; i < tal_count(nodes); i++) {
-			/* If no addresses, then this node announcement hasn't been recieved yet
+			/* If no addresses, then this node announcement hasn't been received yet
 			 * So no alias information either.
 			 */
 			if (nodes[i]->addresses != NULL && pubkey_eq(&nodes[i]->nodeid, &p->id)) {
