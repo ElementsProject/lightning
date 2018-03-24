@@ -625,6 +625,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 	list_for_each(&gpa->cmd->ld->peers, p, list) {
 		bool connected;
 		struct channel *channel;
+		struct channel_stats channel_stats;
 
 		if (gpa->specific_id && !pubkey_eq(gpa->specific_id, &p->id))
 			continue;
@@ -712,6 +713,28 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 				json_add_string(response, NULL,
 						channel->billboard.transient);
 			json_array_end(response);
+
+			/* Provide channel statistics */
+			wallet_channel_stats_load(gpa->cmd->ld->wallet,
+						  channel->dbid,
+						  &channel_stats);
+			json_add_u64(response, "in_payments_offered",
+				     channel_stats.in_payments_offered);
+			json_add_u64(response, "in_msatoshi_offered",
+				     channel_stats.in_msatoshi_offered);
+			json_add_u64(response, "in_payments_fulfilled",
+				     channel_stats.in_payments_fulfilled);
+			json_add_u64(response, "in_msatoshi_fulfilled",
+				     channel_stats.in_msatoshi_fulfilled);
+			json_add_u64(response, "out_payments_offered",
+				     channel_stats.out_payments_offered);
+			json_add_u64(response, "out_msatoshi_offered",
+				     channel_stats.out_msatoshi_offered);
+			json_add_u64(response, "out_payments_fulfilled",
+				     channel_stats.out_payments_fulfilled);
+			json_add_u64(response, "out_msatoshi_fulfilled",
+				     channel_stats.out_msatoshi_fulfilled);
+
 			json_object_end(response);
 		}
 		json_array_end(response);

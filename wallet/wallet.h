@@ -119,6 +119,14 @@ struct outpoint {
 	u32 spendheight;
 };
 
+/* Statistics for a channel */
+struct channel_stats {
+	u64  in_payments_offered,  in_payments_fulfilled;
+	u64  in_msatoshi_offered,  in_msatoshi_fulfilled;
+	u64 out_payments_offered, out_payments_fulfilled;
+	u64 out_msatoshi_offered, out_msatoshi_fulfilled;
+};
+
 /**
  * wallet_new - Constructor for a new sqlite3 based wallet
  *
@@ -285,6 +293,27 @@ bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
  * loaded from the database to the list without checking.
  */
 bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w);
+
+/**
+ * wallet_channel_stats_incr_* - Increase channel statistics.
+ *
+ * @w: wallet containing the channel
+ * @cdbid: channel database id
+ * @msatoshi: amount in msatoshi being transferred
+ */
+void wallet_channel_stats_incr_in_offered(struct wallet *w, u64 cdbid, u64 msatoshi);
+void wallet_channel_stats_incr_in_fulfilled(struct wallet *w, u64 cdbid, u64 msatoshi);
+void wallet_channel_stats_incr_out_offered(struct wallet *w, u64 cdbid, u64 msatoshi);
+void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 cdbid, u64 msatoshi);
+
+/**
+ * wallet_channel_stats_load - Load channel statistics
+ *
+ * @w: wallet containing the channel
+ * @cdbid: channel database id
+ * @stats: location to load statistics to
+ */
+void wallet_channel_stats_load(struct wallet *w, u64 cdbid, struct channel_stats *stats);
 
 /**
  * wallet_first_blocknum - get first block we're interested in.
