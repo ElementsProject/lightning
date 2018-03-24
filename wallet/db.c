@@ -251,6 +251,22 @@ char *dbmigrations[] = {
     "     , route_nodes = NULL"
     "     , route_channels = NULL"
     " WHERE status <> 0;", /* PAYMENT_PENDING */
+    /* -- Routing statistics -- */
+    "ALTER TABLE channels ADD in_payments_offered INTEGER;",
+    "ALTER TABLE channels ADD in_payments_fulfilled INTEGER;",
+    "ALTER TABLE channels ADD in_msatoshi_offered INTEGER;",
+    "ALTER TABLE channels ADD in_msatoshi_fulfilled INTEGER;",
+    "ALTER TABLE channels ADD out_payments_offered INTEGER;",
+    "ALTER TABLE channels ADD out_payments_fulfilled INTEGER;",
+    "ALTER TABLE channels ADD out_msatoshi_offered INTEGER;",
+    "ALTER TABLE channels ADD out_msatoshi_fulfilled INTEGER;",
+    "UPDATE channels"
+    "   SET  in_payments_offered = 0,  in_payments_fulfilled = 0"
+    "     ,  in_msatoshi_offered = 0,  in_msatoshi_fulfilled = 0"
+    "     , out_payments_offered = 0, out_payments_fulfilled = 0"
+    "     , out_msatoshi_offered = 0, out_msatoshi_fulfilled = 0"
+    "     ;",
+    /* -- Routing statistics ends --*/
     NULL,
 };
 
