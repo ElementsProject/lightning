@@ -74,6 +74,14 @@ void gossip_store_add_channel_update(struct gossip_store *gs,
 	tal_free(msg);
 }
 
+void gossip_store_add_node_announcement(struct gossip_store *gs,
+					const u8 *gossip_msg)
+{
+	u8 *msg = towire_gossip_store_node_announcement(NULL, gossip_msg);
+	gossip_store_append(gs, msg);
+	tal_free(msg);
+}
+
 const u8 *gossip_store_read_next(const tal_t *ctx, struct routing_state *rstate,
 				 struct gossip_store *gs)
 {
@@ -121,7 +129,10 @@ const u8 *gossip_store_read_next(const tal_t *ctx, struct routing_state *rstate,
 		fromwire_gossip_store_channel_update(msg, msg, &gossip_msg);
 		routing_add_channel_update(rstate, gossip_msg);
 		return gossip_msg;
+	} else if(type == WIRE_GOSSIP_STORE_NODE_ANNOUNCEMENT) {
+		fromwire_gossip_store_node_announcement(msg, msg, &gossip_msg);
+		routing_add_node_announcement(rstate, gossip_msg);
+		return gossip_msg;
 	}
-
 	return msg;
 }
