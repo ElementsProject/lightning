@@ -82,8 +82,8 @@ void gossip_store_add_node_announcement(struct gossip_store *gs,
 	tal_free(msg);
 }
 
-const u8 *gossip_store_read_next(const tal_t *ctx, struct routing_state *rstate,
-				 struct gossip_store *gs)
+bool gossip_store_read_next(struct routing_state *rstate,
+			    struct gossip_store *gs)
 {
 	beint32_t belen;
 	u32 msglen;
@@ -98,11 +98,11 @@ const u8 *gossip_store_read_next(const tal_t *ctx, struct routing_state *rstate,
 	/* Can we read one message? */
 	if (pread(gs->fd, &belen, sizeof(belen), gs->read_pos) != sizeof(belen)) {
 		gs->read_pos = -1;
-		return NULL;
+		return false;
 	}
 
 	msglen = be32_to_cpu(belen);
-	msg = tal_arr(ctx, u8, msglen);
+	msg = tal_arr(gs, u8, msglen);
 
 	if (!pread(gs->fd, msg, msglen, gs->read_pos + sizeof(belen))) {
 		status_trace("Short read from gossip-store, expected lenght %d",
@@ -113,7 +113,8 @@ const u8 *gossip_store_read_next(const tal_t *ctx, struct routing_state *rstate,
 		gs->write_pos = gs->read_pos;
 		gs->read_pos = -1;
 		ftruncate(gs->fd, gs->write_pos);
-		return NULL;
+		tal_free(msg);
+		return false;
 	}
 
 	gs->read_pos += sizeof(belen) + msglen;
@@ -122,17 +123,13 @@ const u8 *gossip_store_read_next(const tal_t *ctx, struct routing_state *rstate,
 	if (type == WIRE_GOSSIP_STORE_CHANNEL_ANNOUNCEMENT) {
 		fromwire_gossip_store_channel_announcement(msg, msg, &gossip_msg, &satoshis);
 		routing_add_channel_announcement(rstate, gossip_msg, satoshis);
-
-		/* No harm in returning it, it'll get discarded as a duplicate */
-		return gossip_msg;
 	} else if(type == WIRE_GOSSIP_STORE_CHANNEL_UPDATE) {
 		fromwire_gossip_store_channel_update(msg, msg, &gossip_msg);
 		routing_add_channel_update(rstate, gossip_msg);
-		return gossip_msg;
 	} else if(type == WIRE_GOSSIP_STORE_NODE_ANNOUNCEMENT) {
 		fromwire_gossip_store_node_announcement(msg, msg, &gossip_msg);
 		routing_add_node_announcement(rstate, gossip_msg);
-		return gossip_msg;
 	}
-	return msg;
+	tal_free(msg);
+	return true;
 }
