@@ -200,8 +200,7 @@ struct chan *new_chan(struct routing_state *rstate,
  */
 u8 *handle_channel_announcement(struct routing_state *rstate,
 				const u8 *announce TAKES,
-				const struct short_channel_id **scid,
-				bool store);
+				const struct short_channel_id **scid);
 
 /**
  * handle_pending_cannouncement -- handle channel_announce once we've
@@ -217,12 +216,10 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 				  const u8 *txscript);
 
 /* Returns NULL if all OK, otherwise an error for the peer which sent. */
-u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
-			  bool store);
+u8 *handle_channel_update(struct routing_state *rstate, const u8 *update);
 
 /* Returns NULL if all OK, otherwise an error for the peer which sent. */
-u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node,
-			     bool store);
+u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node);
 
 /* Set values on the struct node_connection */
 void set_connection_values(struct chan *chan,
