@@ -16,15 +16,6 @@ struct routing_state;
 struct gossip_store *gossip_store_new(const tal_t *ctx);
 
 /**
- * Write an incoming message to the `gossip_store`
- *
- * @param gs  The gossip_store to write to
- * @param msg The message to write
- * @return The newly created and initialized `gossip_store`
- */
-void gossip_store_append(struct gossip_store *gs, const u8 *msg);
-
-/**
  * Retrieve the next gossip message if any
  *
  * @param ctx The context to allocate the message from
