@@ -47,4 +47,10 @@ void gossip_store_add_channel_announcement(struct gossip_store *gs,
 void gossip_store_add_channel_update(struct gossip_store *gs,
 				     const u8 *gossip_msg);
 
+/**
+ * Store a node_announcement with its associated data in the gossip_store
+ */
+void gossip_store_add_node_announcement(struct gossip_store *gs,
+					const u8 *gossip_msg);
+
 #endif /* GOSSIPD_GOSSIP_STORE_H */

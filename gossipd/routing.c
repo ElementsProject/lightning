@@ -1227,7 +1227,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 
 	/* FIXME: remove store guard */
 	if (store)
-		gossip_store_append(rstate->store, serialized);
+		gossip_store_add_node_announcement(rstate->store, serialized);
 	routing_add_node_announcement(rstate, serialized);
 	return NULL;
 }
