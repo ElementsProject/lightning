@@ -46,7 +46,6 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 {
 	struct command *cmd = withdraw->cmd;
 	struct lightningd *ld = withdraw->cmd->ld;
-	struct bitcoin_tx *tx;
 	u64 change_satoshi = 0;
 
 	/* Massage output into shape so it doesn't kill the JSON serialization */
@@ -57,7 +56,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 
 		/* Parse the tx and extract the change output. We
 		 * generated the hex tx, so this should always work */
-		tx = bitcoin_tx_from_hex(withdraw, withdraw->hextx, strlen(withdraw->hextx));
+		struct bitcoin_tx *tx = bitcoin_tx_from_hex(withdraw, withdraw->hextx, strlen(withdraw->hextx));
 		assert(tx != NULL);
 		wallet_extract_owned_outputs(ld->wallet, tx, NULL, &change_satoshi);
 
@@ -208,11 +207,9 @@ static void json_newaddr(struct command *cmd, const char *buffer UNUSED,
 	struct ripemd160 h160;
 	struct pubkey pubkey;
 	jsmntok_t *addrtype;
-	u8 *redeemscript;
-	bool is_p2wpkh, ok;
+	bool is_p2wpkh;
 	s64 keyidx;
 	char *out;
-	const char *hrp;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "?addresstype", &addrtype, NULL)) {
@@ -251,18 +248,18 @@ static void json_newaddr(struct command *cmd, const char *buffer UNUSED,
 	txfilter_add_derkey(cmd->ld->owned_txfilter, ext.pub_key);
 
 	if (is_p2wpkh) {
-		hrp = get_chainparams(cmd->ld)->bip173_name;
+		const char *hrp = get_chainparams(cmd->ld)->bip173_name;
 		/* out buffer is 73 + strlen(human readable part). see bech32.h */
 		out = tal_arr(cmd, char, 73 + strlen(hrp));
 		pubkey_to_hash160(&pubkey, &h160);
-		ok = segwit_addr_encode(out, hrp, 0, h160.u.u8, sizeof(h160.u.u8));
+		bool ok = segwit_addr_encode(out, hrp, 0, h160.u.u8, sizeof(h160.u.u8));
 		if (!ok) {
 			command_fail(cmd, "p2wpkh address encoding failure.");
 			return;
 		}
 	}
 	else {
-		redeemscript = bitcoin_redeem_p2sh_p2wpkh(cmd, &pubkey);
+		u8 *redeemscript = bitcoin_redeem_p2sh_p2wpkh(cmd, &pubkey);
 		sha256(&h, redeemscript, tal_count(redeemscript));
 		ripemd160(&h160, h.u.u8, sizeof(h));
 		out = p2sh_to_base58(cmd,
@@ -292,11 +289,6 @@ static void json_listaddrs(struct command *cmd,
 	struct ripemd160 h160;
 	struct pubkey pubkey;
 	jsmntok_t *bip32tok;
-	u8 *redeemscript;
-	bool ok;
-	char *out_p2sh;
-	char *out_p2wpkh;
-	const char *hrp;
 	u64 bip32_max_index;
 
 	if (!json_get_params(cmd, buffer, params,
@@ -330,18 +322,18 @@ static void json_listaddrs(struct command *cmd,
 		}
 
 		// p2sh
-		redeemscript = bitcoin_redeem_p2sh_p2wpkh(cmd, &pubkey);
+		u8 *redeemscript = bitcoin_redeem_p2sh_p2wpkh(cmd, &pubkey);
 		sha256(&h, redeemscript, tal_count(redeemscript));
 		ripemd160(&h160, h.u.u8, sizeof(h));
-		out_p2sh = p2sh_to_base58(cmd,
+		char *out_p2sh = p2sh_to_base58(cmd,
 								  get_chainparams(cmd->ld)->testnet, &h160);
 
 		// bech32 : p2wpkh
-		hrp = get_chainparams(cmd->ld)->bip173_name;
+		const char *hrp = get_chainparams(cmd->ld)->bip173_name;
 		/* out buffer is 73 + strlen(human readable part). see bech32.h */
-		out_p2wpkh = tal_arr(cmd, char, 73 + strlen(hrp));
+		char *out_p2wpkh = tal_arr(cmd, char, 73 + strlen(hrp));
 		pubkey_to_hash160(&pubkey, &h160);
-		ok = segwit_addr_encode(out_p2wpkh, hrp, 0, h160.u.u8, sizeof(h160.u.u8));
+		bool ok = segwit_addr_encode(out_p2wpkh, hrp, 0, h160.u.u8, sizeof(h160.u.u8));
 		if (!ok) {
 			command_fail(cmd, "p2wpkh address encoding failure.");
 			return;

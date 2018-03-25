@@ -75,9 +75,8 @@ void txfilter_add_derkey(struct txfilter *filter,
 
 bool txfilter_match(const struct txfilter *filter, const struct bitcoin_tx *tx)
 {
-	u8 *oscript;
 	for (size_t i = 0; i < tal_count(tx->output); i++) {
-		oscript = tx->output[i].script;
+		u8 *oscript = tx->output[i].script;
 
 		for (size_t j = 0; j < tal_count(filter->scriptpubkeys); j++) {
 			if (scripteq(oscript, filter->scriptpubkeys[j]))

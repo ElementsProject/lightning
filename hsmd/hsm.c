@@ -608,7 +608,6 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	struct pubkey local_pubkey, remote_pubkey;
 	struct utxo **utxomap;
 	struct bitcoin_tx *tx;
-	u8 *wscript;
 	u16 outnum;
 	size_t i;
 	struct pubkey changekey;
@@ -644,7 +643,7 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 			subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
 		else
 			subscript = NULL;
-		wscript = p2wpkh_scriptcode(tmpctx, &inkey);
+		u8 *wscript = p2wpkh_scriptcode(tmpctx, &inkey);
 
 		sign_tx_input(tx, i, subscript, wscript, &inprivkey, &inkey,
 			      &sig);
@@ -673,7 +672,6 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
 	struct utxo **utxos;
-	u8 *wscript;
 	u8 **scriptSigs;
 	struct bitcoin_tx *tx;
 	struct ext_key ext;
@@ -715,7 +713,7 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 			subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
 		else
 			subscript = NULL;
-		wscript = p2wpkh_scriptcode(tmpctx, &inkey);
+		u8 *wscript = p2wpkh_scriptcode(tmpctx, &inkey);
 
 		sign_tx_input(tx, i, subscript, wscript, &inprivkey, &inkey,
 			      &sig);
