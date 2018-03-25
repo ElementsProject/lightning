@@ -46,8 +46,14 @@ struct gossip_store *gossip_store_new(const tal_t *ctx)
 
 	return gs;
 }
-
-void gossip_store_append(struct gossip_store *gs, const u8 *msg)
+/**
+ * Write an incoming message to the `gossip_store`
+ *
+ * @param gs  The gossip_store to write to
+ * @param msg The message to write
+ * @return The newly created and initialized `gossip_store`
+ */
+static void gossip_store_append(struct gossip_store *gs, const u8 *msg)
 {
 	u32 msglen = tal_len(msg);
 	beint32_t belen = cpu_to_be32(msglen);
