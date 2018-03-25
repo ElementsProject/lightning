@@ -525,7 +525,6 @@ s64 db_get_intvar(struct db *db, char *varname, s64 defval)
 {
 	int err;
 	s64 res = defval;
-	const unsigned char *stringvar;
 	sqlite3_stmt *stmt =
 	    db_query(__func__, db,
 		     "SELECT val FROM vars WHERE name='%s' LIMIT 1", varname);
@@ -535,7 +534,7 @@ s64 db_get_intvar(struct db *db, char *varname, s64 defval)
 
 	err = sqlite3_step(stmt);
 	if (err == SQLITE_ROW) {
-		stringvar = sqlite3_column_text(stmt, 0);
+		const unsigned char *stringvar = sqlite3_column_text(stmt, 0);
 		res = atol((const char *)stringvar);
 	}
 	sqlite3_finalize(stmt);

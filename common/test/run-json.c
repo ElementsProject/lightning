@@ -82,7 +82,6 @@ static int test_json_filter(void)
 static void test_json_escape(void)
 {
 	int i;
-	const char *str;
 
 	for (i = 1; i < 256; i++) {
 		char badstr[2];
@@ -97,7 +96,7 @@ static void test_json_escape(void)
 		json_add_escaped_string(result, "x", take(esc));
 		json_object_end(result);
 
-		str = json_result_string(result);
+		const char *str = json_result_string(result);
 		if (i == '\\' || i == '"'
 		    || i == '\n' || i == '\r' || i == '\b'
 		    || i == '\t' || i == '\f')

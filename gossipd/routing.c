@@ -1302,7 +1302,6 @@ void routing_failure(struct routing_state *rstate,
 		     const u8 *channel_update)
 {
 	struct node *node;
-	int i;
 	time_t now = time_now().ts.tv_sec;
 
 	status_trace("Received routing failure 0x%04x (%s), "
@@ -1330,7 +1329,7 @@ void routing_failure(struct routing_state *rstate,
 	 *
 	 */
 	if (failcode & NODE) {
-		for (i = 0; i < tal_count(node->chans); ++i) {
+		for (int i = 0; i < tal_count(node->chans); ++i) {
 			routing_failure_channel_out(tmpctx, node, failcode,
 						    node->chans[i],
 						    now);

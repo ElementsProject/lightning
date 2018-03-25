@@ -738,10 +738,9 @@ static void fatal_bitcoind_failure(struct bitcoind *bitcoind, const char *error_
 
 void wait_for_bitcoind(struct bitcoind *bitcoind)
 {
-	int from, ret, status;
+	int from, status;
 	pid_t child;
 	const char **cmd = cmdarr(bitcoind, bitcoind, "echo", NULL);
-	char *output;
 	bool printed = false;
 
 	for (;;) {
@@ -753,12 +752,12 @@ void wait_for_bitcoind(struct bitcoind *bitcoind)
 			fatal("%s exec failed: %s", cmd[0], strerror(errno));
 		}
 
-		output = grab_fd(cmd, from);
+		char *output = grab_fd(cmd, from);
 		if (!output)
 			fatal("Reading from %s failed: %s",
 			      cmd[0], strerror(errno));
 
-		ret = waitpid(child, &status, 0);
+		int ret = waitpid(child, &status, 0);
 		if (ret != child)
 			fatal("Waiting for %s: %s", cmd[0], strerror(errno));
 		if (!WIFEXITED(status))

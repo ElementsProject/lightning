@@ -526,7 +526,6 @@ bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
 			   struct peer *peer)
 {
 	bool ok;
-	const unsigned char *addrstr;
 	sqlite3_stmt *stmt = db_prepare(w->db, "SELECT id, node_id, address FROM peers WHERE node_id=?;");
 	sqlite3_bind_pubkey(stmt, 1, nodeid);
 
@@ -534,7 +533,7 @@ bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
 	if (ok) {
 		peer->dbid = sqlite3_column_int64(stmt, 0);
 		ok &= sqlite3_column_pubkey(stmt, 1, &peer->id);
-		addrstr = sqlite3_column_text(stmt, 2);
+		const unsigned char *addrstr = sqlite3_column_text(stmt, 2);
 
 		if (addrstr)
 			parse_wireaddr((const char*)addrstr, &peer->addr, DEFAULT_PORT, NULL);
@@ -1852,7 +1851,6 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 				 const u8 *failupdate /*tal_arr*/)
 {
 	sqlite3_stmt *stmt;
-	struct short_channel_id *scid;
 
 	stmt = db_prepare(wallet->db,
 			  "UPDATE payments"
@@ -1880,7 +1878,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 	if (failchannel) {
 		/* sqlite3_bind_short_channel_id requires the input
 		 * channel to be tal-allocated... */
-		scid = tal(tmpctx, struct short_channel_id);
+		struct short_channel_id *scid = tal(tmpctx, struct short_channel_id);
 		*scid = *failchannel;
 		sqlite3_bind_short_channel_id(stmt, 6, scid);
 	} else

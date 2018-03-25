@@ -419,8 +419,6 @@ void payment_store(struct lightningd *ld,
 void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		    const char *localfail)
 {
-	struct onionreply *reply;
-	struct secret *path_secrets;
 	struct wallet_payment *payment;
 	struct routing_failure* fail = NULL;
 	const char *failmsg;
@@ -468,8 +466,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		assert(!hout->failcode);
 		failmsg = "reply from remote";
 		/* Try to parse reply. */
-		path_secrets = payment->path_secrets;
-		reply = unwrap_onionreply(tmpctx, path_secrets,
+		struct secret *path_secrets = payment->path_secrets;
+		struct onionreply *reply = unwrap_onionreply(tmpctx, path_secrets,
 					  tal_count(path_secrets),
 					  hout->failuremsg);
 		if (!reply) {
@@ -895,11 +893,10 @@ static void json_sendpay_on_resolve(const struct sendpay_result* r,
 				    void *vcmd)
 {
 	struct command *cmd = (struct command*) vcmd;
-	struct json_result *response;
 
 	if (!r->succeeded && r->errorcode == PAY_IN_PROGRESS) {
 		/* This is normal for sendpay. Succeed. */
-		response = new_json_result(cmd);
+		struct json_result *response = new_json_result(cmd);
 		json_object_start(response, NULL);
 		json_add_string(response, "message",
 				"Monitor status with listpayments or waitsendpay");

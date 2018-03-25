@@ -200,7 +200,7 @@ json_pay_success(struct pay *pay,
 static void json_pay_failure(struct pay *pay,
 			     const struct sendpay_result *r)
 {
-	struct json_result *data = NULL;
+	struct json_result *data;
 	const char *msg = NULL;
 	struct routing_failure *fail;
 
@@ -485,12 +485,11 @@ static bool json_pay_try(struct pay *pay)
 	u8 *req;
 	struct command *cmd = pay->cmd;
 	struct timeabs now = time_now();
-	struct json_result *data;
 	struct siphash_seed seed;
 
 	/* If too late anyway, fail now. */
 	if (time_after(now, pay->expiry)) {
-		data = new_json_result(cmd);
+		struct json_result *data = new_json_result(cmd);
 		json_object_start(data, NULL);
 		json_add_num(data, "now", now.ts.tv_sec);
 		json_add_num(data, "expiry", pay->expiry.ts.tv_sec);

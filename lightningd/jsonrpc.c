@@ -487,7 +487,7 @@ bool json_get_params(struct command *cmd,
 	const char **names;
 	size_t num_names;
 	 /* Uninitialized warnings on p and end */
-	const jsmntok_t **tokptr, *p = NULL, *end = NULL;
+	const jsmntok_t *p = NULL, *end = NULL;
 
 	if (param->type == JSMN_ARRAY) {
 		if (param->size == 0)
@@ -505,7 +505,7 @@ bool json_get_params(struct command *cmd,
 	names = tal_arr(cmd, const char *, num_names + 1);
 	va_start(ap, param);
 	while ((names[num_names] = va_arg(ap, const char *)) != NULL) {
-		tokptr = va_arg(ap, const jsmntok_t **);
+		const jsmntok_t **tokptr = va_arg(ap, const jsmntok_t **);
 		bool compulsory = true;
 		if (names[num_names][0] == '?') {
 			names[num_names]++;
@@ -788,7 +788,6 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 	 * of fixed size 40 will not overflow. */
 	uint8_t witness_program[40];
 	size_t witness_program_len;
-	bool witness_ok;
 
 	char *addrz;
 	const char *bip173;
@@ -826,7 +825,7 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 					&witness_program_len, addrz);
 
 	if (bip173) {
-		witness_ok = false;
+		bool witness_ok = false;
 		if (witness_version == 0 && (witness_program_len == 20 ||
 					     witness_program_len == 32)) {
 			witness_ok = true;

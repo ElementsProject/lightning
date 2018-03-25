@@ -889,14 +889,12 @@ char *bolt11_encode_(const tal_t *ctx,
 {
         u5 *data = tal_arr(tmpctx, u5, 0);
         char *hrp, *output;
-        char postfix;
         u64 amount;
         struct bolt11_field *extra;
         secp256k1_ecdsa_recoverable_signature rsig;
         u8 sig_and_recid[65];
         u8 *hrpu8;
         int recid;
-        size_t i;
 
         /* BOLT #11:
          *
@@ -905,10 +903,12 @@ char *bolt11_encode_(const tal_t *ctx,
          * representation possible.
          */
         if (b11->msatoshi) {
+                char postfix;
                 if (*b11->msatoshi % MSAT_PER_BTC == 0) {
                         postfix = '\0';
                         amount = *b11->msatoshi / MSAT_PER_BTC;
                 } else {
+                        size_t i;
                         for (i = 0; i < ARRAY_SIZE(multipliers)-1; i++) {
                                 if (!(*b11->msatoshi * 10 % multipliers[i].m10))
                                         break;
