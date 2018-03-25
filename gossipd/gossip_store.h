@@ -29,11 +29,11 @@ void gossip_store_append(struct gossip_store *gs, const u8 *msg);
  *
  * @param ctx The context to allocate the message from
  * @param gs  The `gossip_store` to read from
- * @return The gossip message allocated from `ctx`, `NULL` if no more messages are
- *         available.
+ * @return whether a message was read from the store. False means that all
+ * messages have been processed.
  */
-const u8 *gossip_store_read_next(const tal_t *ctx, struct routing_state *rstate,
-				 struct gossip_store *gs);
+bool gossip_store_read_next(struct routing_state *rstate,
+			    struct gossip_store *gs);
 
 /**
  * Store a channel_announcement with all its extra data
