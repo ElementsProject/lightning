@@ -1069,7 +1069,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 			 * sure we actually track its
 			 * blockheight. This can happen when we grab
 			 * the output from a transaction we created
-			 * outselves. */
+			 * ourselves. */
 			if (block)
 				wallet_output_confirm(w, &utxo->txid, utxo->outnum, block->height);
 			tal_free(utxo);
