@@ -40,4 +40,11 @@ const u8 *gossip_store_read_next(const tal_t *ctx, struct routing_state *rstate,
  */
 void gossip_store_add_channel_announcement(struct gossip_store *gs,
 					   const u8 *gossip_msg, u64 satoshis);
+
+/**
+ * Store a channel_update with its associated data in the gossip_store
+ */
+void gossip_store_add_channel_update(struct gossip_store *gs,
+				     const u8 *gossip_msg);
+
 #endif /* GOSSIPD_GOSSIP_STORE_H */
