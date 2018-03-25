@@ -515,7 +515,7 @@ static void log_crash(int sig)
 	}
 
 	if (sig) {
-		fprintf(stderr, "Fatal signal %u. ", sig);
+		fprintf(stderr, "Fatal signal %d. ", sig);
 		if (backtrace_state)
 			backtrace_print(backtrace_state, 0, stderr);
 	}

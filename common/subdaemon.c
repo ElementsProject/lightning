@@ -20,9 +20,9 @@ static int backtrace_status(void *unused UNUSED, uintptr_t pc,
 			    const char *filename, int lineno,
 			    const char *function)
 {
-	fprintf(stderr, "backtrace: %s:%u (%s) %p\n",
+	fprintf(stderr, "backtrace: %s:%d (%s) %p\n",
 		filename, lineno, function, (void *)pc);
-	status_trace("backtrace: %s:%u (%s) %p",
+	status_trace("backtrace: %s:%d (%s) %p",
 		     filename, lineno, function, (void *)pc);
 	return 0;
 }
@@ -30,12 +30,12 @@ static int backtrace_status(void *unused UNUSED, uintptr_t pc,
 static void crashdump(int sig)
 {
 	/* We do stderr first, since it's most reliable. */
-	warnx("Fatal signal %u", sig);
+	warnx("Fatal signal %d", sig);
 	backtrace_print(backtrace_state, 0, stderr);
 
 	/* Now send to parent. */
 	backtrace_full(backtrace_state, 0, backtrace_status, NULL, NULL);
-	status_failed(STATUS_FAIL_INTERNAL_ERROR, "FATAL SIGNAL %u", sig);
+	status_failed(STATUS_FAIL_INTERNAL_ERROR, "FATAL SIGNAL %d", sig);
 }
 
 static void crashlog_activate(void)
