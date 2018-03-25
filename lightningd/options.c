@@ -648,6 +648,9 @@ void register_opts(struct lightningd *ld)
 	opt_register_arg("--bitcoin-rpcconnect", opt_set_talstr, NULL,
 			 &ld->topology->bitcoind->rpcconnect,
 			 "bitcoind RPC host to connect to");
+	opt_register_arg("--bitcoin-rpcport", opt_set_talstr, NULL,
+			 &ld->topology->bitcoind->rpcport,
+			 "bitcoind RPC port");
 	opt_register_arg("--pid-file=<file>", opt_set_talstr, opt_show_charp,
 			 &ld->pidfile,
 			 "Specify pid file");

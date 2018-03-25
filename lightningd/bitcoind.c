@@ -48,6 +48,10 @@ static const char **gather_args(const struct bitcoind *bitcoind,
 		add_arg(&args,
 			tal_fmt(args, "-rpcconnect=%s", bitcoind->rpcconnect));
 
+	if (bitcoind->rpcport)
+		add_arg(&args,
+			tal_fmt(args, "-rpcport=%s", bitcoind->rpcport));
+
 	if (bitcoind->rpcuser)
 		add_arg(&args, tal_fmt(args, "-rpcuser=%s", bitcoind->rpcuser));
 
@@ -804,6 +808,7 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 	bitcoind->rpcuser = NULL;
 	bitcoind->rpcpass = NULL;
 	bitcoind->rpcconnect = NULL;
+	bitcoind->rpcport = NULL;
 	list_head_init(&bitcoind->pending);
 	tal_add_destructor(bitcoind, destroy_bitcoind);
 
