@@ -1960,6 +1960,17 @@ bool wallet_network_check(struct wallet *w,
 static void wallet_utxoset_prune(struct wallet *w, const u32 blockheight)
 {
 	sqlite3_stmt *stmt;
+	struct bitcoin_txid txid;
+
+	stmt = db_prepare(w->db, "SELECT txid, outnum FROM utxoset WHERE spendheight < ?");
+	sqlite3_bind_int(stmt, 1, blockheight - UTXO_PRUNE_DEPTH);
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		sqlite3_column_sha256_double(stmt, 0, &txid.shad);
+		outpointfilter_remove(w->utxoset_outpoints, &txid, sqlite3_column_int(stmt, 1));
+	}
+	sqlite3_finalize(stmt);
+
 	stmt = db_prepare(w->db, "DELETE FROM utxoset WHERE spendheight < ?");
 	sqlite3_bind_int(stmt, 1, blockheight - UTXO_PRUNE_DEPTH);
 	db_exec_prepared(w->db, stmt);
