@@ -409,18 +409,11 @@ void json_add_literal(struct json_result *result, const char *fieldname,
 
 void json_add_string(struct json_result *result, const char *fieldname, const char *value)
 {
-	char *escaped = tal_strdup(result, value);
-	size_t i;
+	struct json_escaped *esc = json_partial_escape(NULL, value);
 
 	json_start_member(result, fieldname);
-	for (i = 0; escaped[i]; i++) {
-		/* Replace any funny business.  Better safe than accurate! */
-		if (escaped[i] == '\\'
-		    || escaped[i] == '"'
-		    || !cisprint(escaped[i]))
-			escaped[i] = '?';
-	}
-	result_append_fmt(result, "\"%s\"", escaped);
+	result_append_fmt(result, "\"%s\"", esc->s);
+	tal_free(esc);
 }
 
 void json_add_bool(struct json_result *result, const char *fieldname, bool value)

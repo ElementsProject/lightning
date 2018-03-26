@@ -76,7 +76,7 @@ void json_object_end(struct json_result *ptr);
 struct json_result *new_json_result(const tal_t *ctx);
 
 /* '"fieldname" : "value"' or '"value"' if fieldname is NULL.  Turns
- * any unusual chars into ?.
+ * any non-printable chars into JSON escapes, but leaves existing escapes alone.
  */
 void json_add_string(struct json_result *result, const char *fieldname, const char *value);
 

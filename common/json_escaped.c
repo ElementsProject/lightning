@@ -35,7 +35,9 @@ bool json_escaped_eq(const struct json_escaped *a,
 	return streq(a->s, b->s);
 }
 
-struct json_escaped *json_escape(const tal_t *ctx, const char *str TAKES)
+static struct json_escaped *escape(const tal_t *ctx,
+				   const char *str TAKES,
+				   bool partial)
 {
 	struct json_escaped *esc;
 	size_t i, n;
@@ -62,6 +64,31 @@ struct json_escaped *json_escape(const tal_t *ctx, const char *str TAKES)
 			escape = 'r';
 			break;
 		case '\\':
+			if (partial) {
+				/* Don't double-escape standard escapes. */
+				if (str[i+1] == 'n'
+				    || str[i+1] == 'b'
+				    || str[i+1] == 'f'
+				    || str[i+1] == 't'
+				    || str[i+1] == 'r'
+				    || str[i+1] == '/'
+				    || str[i+1] == '\\'
+				    || str[i+1] == '"') {
+					escape = str[i+1];
+					i++;
+					break;
+				}
+				if (str[i+1] == 'u'
+				    && cisxdigit(str[i+2])
+				    && cisxdigit(str[i+3])
+				    && cisxdigit(str[i+4])
+				    && cisxdigit(str[i+5])) {
+					    memcpy(esc->s + n, str + i, 6);
+					    n += 5;
+					    i += 5;
+					    continue;
+				}
+			} /* fall thru */
 		case '"':
 			escape = str[i];
 			break;
@@ -83,6 +110,16 @@ struct json_escaped *json_escape(const tal_t *ctx, const char *str TAKES)
 	if (taken(str))
 		tal_free(str);
 	return esc;
+}
+
+struct json_escaped *json_partial_escape(const tal_t *ctx, const char *str TAKES)
+{
+	return escape(ctx, str, true);
+}
+
+struct json_escaped *json_escape(const tal_t *ctx, const char *str TAKES)
+{
+	return escape(ctx, str, false);
 }
 
 /* By policy, we don't handle \u.  Use UTF-8. */
