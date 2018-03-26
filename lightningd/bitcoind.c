@@ -13,7 +13,6 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/tal/tal.h>
 #include <common/json.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
@@ -47,6 +46,10 @@ static const char **gather_args(const struct bitcoind *bitcoind,
 	if (bitcoind->rpcconnect)
 		add_arg(&args,
 			tal_fmt(args, "-rpcconnect=%s", bitcoind->rpcconnect));
+
+	if (bitcoind->rpcport)
+		add_arg(&args,
+			tal_fmt(args, "-rpcport=%s", bitcoind->rpcport));
 
 	if (bitcoind->rpcuser)
 		add_arg(&args, tal_fmt(args, "-rpcuser=%s", bitcoind->rpcuser));
@@ -735,10 +738,9 @@ static void fatal_bitcoind_failure(struct bitcoind *bitcoind, const char *error_
 
 void wait_for_bitcoind(struct bitcoind *bitcoind)
 {
-	int from, ret, status;
+	int from, status;
 	pid_t child;
 	const char **cmd = cmdarr(bitcoind, bitcoind, "echo", NULL);
-	char *output;
 	bool printed = false;
 
 	for (;;) {
@@ -750,12 +752,12 @@ void wait_for_bitcoind(struct bitcoind *bitcoind)
 			fatal("%s exec failed: %s", cmd[0], strerror(errno));
 		}
 
-		output = grab_fd(cmd, from);
+		char *output = grab_fd(cmd, from);
 		if (!output)
 			fatal("Reading from %s failed: %s",
 			      cmd[0], strerror(errno));
 
-		ret = waitpid(child, &status, 0);
+		int ret = waitpid(child, &status, 0);
 		if (ret != child)
 			fatal("Waiting for %s: %s", cmd[0], strerror(errno));
 		if (!WIFEXITED(status))
@@ -804,6 +806,7 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 	bitcoind->rpcuser = NULL;
 	bitcoind->rpcpass = NULL;
 	bitcoind->rpcconnect = NULL;
+	bitcoind->rpcport = NULL;
 	list_head_init(&bitcoind->pending);
 	tal_add_destructor(bitcoind, destroy_bitcoind);
 

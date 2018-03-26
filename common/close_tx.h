@@ -16,4 +16,4 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 				   u64 anchor_satoshis,
 				   uint64_t to_us, uint64_t to_them,
 				   uint64_t dust_limit);
-#endif
+#endif /* LIGHTNING_COMMON_CLOSE_TX_H */

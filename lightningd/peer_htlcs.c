@@ -4,8 +4,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/gen_channel_wire.h>
-#include <common/derive_basepoints.h>
-#include <common/htlc_wire.h>
+#include <common/json_escaped.h>
 #include <common/overflows.h>
 #include <common/sphinx.h>
 #include <gossipd/gen_gossip_wire.h>
@@ -200,26 +199,32 @@ static bool check_cltv(struct htlc_in *hin,
 static void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 {
 	u8 *msg;
+	struct channel *channel = hin->key.channel;
+	struct wallet *wallet = channel->peer->ld->wallet;
 
 	hin->preimage = tal_dup(hin, struct preimage, preimage);
 	htlc_in_check(hin, __func__);
 
 	/* We update state now to signal it's in progress, for persistence. */
-	htlc_in_update_state(hin->key.channel, hin, SENT_REMOVE_HTLC);
+	htlc_in_update_state(channel, hin, SENT_REMOVE_HTLC);
+	/* Update channel stats */
+	wallet_channel_stats_incr_in_fulfilled(wallet,
+					       channel->dbid,
+					       hin->msatoshi);
 
 	/* No owner?  We'll either send to channeld in peer_htlcs, or
 	 * onchaind in onchaind_tell_fulfill. */
-	if (!hin->key.channel->owner) {
-		log_debug(hin->key.channel->log, "HTLC fulfilled, but no owner.");
+	if (!channel->owner) {
+		log_debug(channel->log, "HTLC fulfilled, but no owner.");
 		return;
 	}
 
-	if (channel_on_chain(hin->key.channel)) {
+	if (channel_on_chain(channel)) {
 		msg = towire_onchain_known_preimage(hin, preimage);
 	} else {
 		msg = towire_channel_fulfill_htlc(hin, hin->key.id, preimage);
 	}
-	subd_send_msg(hin->key.channel->owner, take(msg));
+	subd_send_msg(channel->owner, take(msg));
 }
 
 static void handle_localpay(struct htlc_in *hin,
@@ -301,9 +306,9 @@ static void handle_localpay(struct htlc_in *hin,
 	}
 
 	log_info(ld->log, "Resolving invoice '%s' with HTLC %"PRIu64,
-		 details.label, hin->key.id);
+		 details.label->s, hin->key.id);
 	log_debug(ld->log, "%s: Actual amount %"PRIu64"msat, HTLC expiry %u",
-		  details.label, hin->msatoshi, cltv_expiry);
+		  details.label->s, hin->msatoshi, cltv_expiry);
 	fulfill_htlc(hin, &details.r);
 	wallet_invoice_resolve(ld->wallet, invoice, hin->msatoshi);
 
@@ -666,6 +671,10 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 	htlc_out_check(hout, __func__);
 
 	wallet_htlc_update(ld->wallet, hout->dbid, hout->hstate, preimage);
+	/* Update channel stats */
+	wallet_channel_stats_incr_out_fulfilled(ld->wallet,
+						channel->dbid,
+						hout->msatoshi);
 
 	if (hout->in)
 		fulfill_htlc(hout->in, preimage);
@@ -890,6 +899,10 @@ static bool update_out_htlc(struct channel *channel,
 
 	if (!hout->dbid) {
 		wallet_htlc_save_out(ld->wallet, channel, hout);
+		/* Update channel stats */
+		wallet_channel_stats_incr_out_offered(ld->wallet,
+						      channel->dbid,
+						      hout->msatoshi);
 
 		/* For our own HTLCs, we commit payment to db lazily */
 		if (hout->origin_htlc_id == 0)
@@ -1054,6 +1067,9 @@ static bool channel_added_their_htlc(struct channel *channel,
 
 	/* Save an incoming htlc to the wallet */
 	wallet_htlc_save_in(ld->wallet, channel, hin);
+	/* Update channel stats */
+	wallet_channel_stats_incr_in_offered(ld->wallet, channel->dbid,
+					     added->amount_msat);
 
 	log_debug(channel->log, "Adding their HTLC %"PRIu64, added->id);
 	connect_htlc_in(&channel->peer->ld->htlcs_in, hin);

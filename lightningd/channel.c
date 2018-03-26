@@ -287,7 +287,6 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 	struct lightningd *ld = channel->peer->ld;
 	va_list ap;
 	char *why;
-	u8 *msg;
 	struct channel_id cid;
 
 	va_start(ap, fmt);
@@ -295,7 +294,7 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 	va_end(ap);
 
 	if (channel->scid) {
-		msg = towire_gossip_disable_channel(NULL,
+		u8 *msg = towire_gossip_disable_channel(NULL,
 						    channel->scid,
 						    channel->peer->direction,
 						    false);

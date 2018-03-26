@@ -14,6 +14,7 @@
 #include <common/dev_disconnect.h>
 #include <common/features.h>
 #include <common/initial_commit_tx.h>
+#include <common/json_escaped.h>
 #include <common/key_derive.h>
 #include <common/status.h>
 #include <common/timeout.h>
@@ -42,7 +43,6 @@
 #include <unistd.h>
 #include <wally_bip32.h>
 #include <wire/gen_onion_wire.h>
-#include <wire/peer_wire.h>
 
 static void destroy_peer(struct peer *peer)
 {
@@ -579,6 +579,30 @@ struct getpeers_args {
 	struct pubkey *specific_id;
 };
 
+static void json_add_node_decoration(struct json_result *response,
+				     struct gossip_getnodes_entry **nodes,
+				     const struct pubkey *id)
+{
+	for (size_t i = 0; i < tal_count(nodes); i++) {
+		struct json_escaped *esc;
+
+		/* If no addresses, then this node announcement hasn't been
+		 * received yet So no alias information either.
+		 */
+		if (nodes[i]->addresses == NULL)
+			continue;
+
+		if (!pubkey_eq(&nodes[i]->nodeid, id))
+			continue;
+
+		esc = json_escape(NULL, (const char *)nodes[i]->alias);
+		json_add_escaped_string(response, "alias", take(esc));
+		json_add_hex(response, "color",
+			     nodes[i]->color, ARRAY_SIZE(nodes[i]->color));
+		break;
+	}
+}
+
 static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 				      const int *fds UNUSED,
 				      struct getpeers_args *gpa)
@@ -601,6 +625,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 	list_for_each(&gpa->cmd->ld->peers, p, list) {
 		bool connected;
 		struct channel *channel;
+		struct channel_stats channel_stats;
 
 		if (gpa->specific_id && !pubkey_eq(gpa->specific_id, &p->id))
 			continue;
@@ -621,17 +646,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 			json_array_end(response);
 		}
 
-		for (size_t i = 0; i < tal_count(nodes); i++) {
-			/* If no addresses, then this node announcement hasn't been recieved yet
-			 * So no alias information either.
-			 */
-			if (nodes[i]->addresses != NULL && pubkey_eq(&nodes[i]->nodeid, &p->id)) {
-				json_add_string_escape(response, "alias", (char*)nodes[i]->alias);
-				json_add_hex(response, "color", nodes[i]->color, ARRAY_SIZE(nodes[i]->color));
-				break;
-			}
-		}
-
+		json_add_node_decoration(response, nodes, &p->id);
 		json_array_start(response, "channels");
 		json_add_uncommitted_channel(response, p->uncommitted_channel);
 
@@ -698,6 +713,28 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 				json_add_string(response, NULL,
 						channel->billboard.transient);
 			json_array_end(response);
+
+			/* Provide channel statistics */
+			wallet_channel_stats_load(gpa->cmd->ld->wallet,
+						  channel->dbid,
+						  &channel_stats);
+			json_add_u64(response, "in_payments_offered",
+				     channel_stats.in_payments_offered);
+			json_add_u64(response, "in_msatoshi_offered",
+				     channel_stats.in_msatoshi_offered);
+			json_add_u64(response, "in_payments_fulfilled",
+				     channel_stats.in_payments_fulfilled);
+			json_add_u64(response, "in_msatoshi_fulfilled",
+				     channel_stats.in_msatoshi_fulfilled);
+			json_add_u64(response, "out_payments_offered",
+				     channel_stats.out_payments_offered);
+			json_add_u64(response, "out_msatoshi_offered",
+				     channel_stats.out_msatoshi_offered);
+			json_add_u64(response, "out_payments_fulfilled",
+				     channel_stats.out_payments_fulfilled);
+			json_add_u64(response, "out_msatoshi_fulfilled",
+				     channel_stats.out_msatoshi_fulfilled);
+
 			json_object_end(response);
 		}
 		json_array_end(response);
@@ -717,13 +754,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 		/* Fake state. */
 		json_add_string(response, "state", "GOSSIPING");
 		json_add_pubkey(response, "id", ids+i);
-		for (size_t j = 0; j < tal_count(nodes); j++) {
-			if (nodes[j]->addresses != NULL && pubkey_eq(&nodes[j]->nodeid, ids+i)) {
-				json_add_string_escape(response, "alias", (char*)nodes[j]->alias);
-				json_add_hex(response, "color", nodes[j]->color, ARRAY_SIZE(nodes[j]->color));
-				break;
-			}
-		}
+		json_add_node_decoration(response, nodes, ids+i);
 		json_array_start(response, "netaddr");
 		if (addrs[i].type != ADDR_TYPE_PADDING)
 			json_add_string(response, NULL,

@@ -108,7 +108,7 @@ forget to set it on one path.
 `tal` and `tal_arr` to `talz` and `tal_arrz` for this reason, and
 initialize only the fields you expect to be used.
 
-Similarly, you can use `memcheck(mem, len)` to explicity assert that
+Similarly, you can use `memcheck(mem, len)` to explicitly assert that
 memory should have been initialized, rather than having valgrind
 trigger later.  We use this when placing things on queues, for example.
 

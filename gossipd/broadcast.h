@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_GOSSIP_BROADCAST_H
-#define LIGHTNING_LIGHTNINGD_GOSSIP_BROADCAST_H
+#ifndef LIGHTNING_GOSSIPD_BROADCAST_H
+#define LIGHTNING_GOSSIPD_BROADCAST_H
 #include "config.h"
 
 #include <ccan/intmap/intmap.h>
@@ -29,4 +29,4 @@ bool replace_broadcast(const tal_t *ctx,
 const u8 *next_broadcast(struct broadcast_state *bstate, u64 *last_index);
 
 const u8 *get_broadcast(struct broadcast_state *bstate, u64 msgidx);
-#endif /* LIGHTNING_LIGHTNINGD_GOSSIP_BROADCAST_H */
+#endif /* LIGHTNING_GOSSIPD_BROADCAST_H */

@@ -13,7 +13,6 @@
 #include <ccan/tal/str/str.h>
 #include <common/utils.h>
 #include <libbase58.h>
-#include <secp256k1.h>
 #include <string.h>
 
 static bool my_sha256(void *digest, const void *data, size_t datasz)

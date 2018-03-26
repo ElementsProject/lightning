@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_TXFILTER_H
-#define LIGHTNING_LIGHTNINGD_TXFILTER_H
+#ifndef LIGHTNING_WALLET_TXFILTER_H
+#define LIGHTNING_WALLET_TXFILTER_H
 #include "config.h"
 #include <bitcoin/pubkey.h>
 #include <bitcoin/tx.h>
@@ -61,4 +61,4 @@ bool outpointfilter_matches(struct outpointfilter *of,
 void outpointfilter_remove(struct outpointfilter *of,
 			   const struct bitcoin_txid *txid, const u32 outnum);
 
-#endif /* LIGHTNING_LIGHTNINGD_TXFILTER_H */
+#endif /* LIGHTNING_WALLET_TXFILTER_H */

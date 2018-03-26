@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_WALLET_TEST_UTILS_H
-#define LIGHTNING_WALLET_TEST_UTILS_H
+#ifndef LIGHTNING_WALLET_TEST_TEST_UTILS_H
+#define LIGHTNING_WALLET_TEST_TEST_UTILS_H
 
 /* Definitions "inspired" by libsecp256k1 */
 #define TEST_FAILURE(msg) do { \
@@ -21,4 +21,4 @@
 
 #define CHECK(cond) CHECK_MSG(cond,"test condition failed");
 
-#endif /* LIGHTNING_WALLET_TEST_UTILS_H */
+#endif /* LIGHTNING_WALLET_TEST_TEST_UTILS_H */

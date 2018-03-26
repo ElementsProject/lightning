@@ -98,7 +98,7 @@ static void wallet_stmt2invoice_details(const tal_t *ctx,
 
 	sqlite3_column_sha256(stmt, 2, &dtl->rhash);
 
-	dtl->label = tal_strndup(ctx, sqlite3_column_blob(stmt, 3), sqlite3_column_bytes(stmt, 3));
+	dtl->label = sqlite3_column_json_escaped(ctx, stmt, 3);
 
 	if (sqlite3_column_type(stmt, 4) != SQLITE_NULL) {
 		dtl->msatoshi = tal(ctx, u64);
@@ -258,7 +258,7 @@ bool invoices_load(struct invoices *invoices)
 bool invoices_create(struct invoices *invoices,
 		     struct invoice *pinvoice,
 		     u64 *msatoshi TAKES,
-		     const char *label TAKES,
+		     const struct json_escaped *label TAKES,
 		     u64 expiry,
 		     const char *b11enc,
 		     const struct preimage *r,
@@ -302,7 +302,7 @@ bool invoices_create(struct invoices *invoices,
 		sqlite3_bind_int64(stmt, 4, *msatoshi);
 	else
 		sqlite3_bind_null(stmt, 4);
-	sqlite3_bind_text(stmt, 5, label, strlen(label), SQLITE_TRANSIENT);
+	sqlite3_bind_json_escaped(stmt, 5, label);
 	sqlite3_bind_int64(stmt, 6, expiry_time);
 	sqlite3_bind_text(stmt, 7, b11enc, strlen(b11enc), SQLITE_TRANSIENT);
 
@@ -328,7 +328,7 @@ bool invoices_create(struct invoices *invoices,
 
 bool invoices_find_by_label(struct invoices *invoices,
 			    struct invoice *pinvoice,
-			    const char *label)
+			    const struct json_escaped *label)
 {
 	sqlite3_stmt *stmt;
 
@@ -336,7 +336,7 @@ bool invoices_find_by_label(struct invoices *invoices,
 			  "SELECT id"
 			  "  FROM invoices"
 			  " WHERE label = ?;");
-	sqlite3_bind_text(stmt, 1, label, strlen(label), SQLITE_TRANSIENT);
+	sqlite3_bind_json_escaped(stmt, 1, label);
 	if (sqlite3_step(stmt) == SQLITE_ROW) {
 		pinvoice->id = sqlite3_column_int64(stmt, 0);
 		sqlite3_finalize(stmt);
