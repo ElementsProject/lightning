@@ -225,6 +225,9 @@ gossipctl_peer_disconnect_reply,3123
 gossipctl_peer_disconnect_replyfail,3223
 gossipctl_peer_disconnect_replyfail,,isconnected,bool
 
+# master -> gossipd: a potential funding outpoint was spent, please forget the eventual channel
+gossip_outpoint_spent,3024
+gossip_outpoint_spent,,short_channel_id,struct short_channel_id
 
 # gossip_store messages: messages persisted in the gossip_store
 gossip_store_channel_announcement,4096
