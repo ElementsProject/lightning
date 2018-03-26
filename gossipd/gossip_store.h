@@ -1,5 +1,5 @@
-#ifndef GOSSIPD_GOSSIP_STORE_H
-#define GOSSIPD_GOSSIP_STORE_H
+#ifndef LIGHTNING_GOSSIPD_GOSSIP_STORE_H
+#define LIGHTNING_GOSSIPD_GOSSIP_STORE_H
 
 #include "config.h"
 
@@ -44,4 +44,4 @@ void gossip_store_add_channel_update(struct gossip_store *gs,
 void gossip_store_add_node_announcement(struct gossip_store *gs,
 					const u8 *gossip_msg);
 
-#endif /* GOSSIPD_GOSSIP_STORE_H */
+#endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_H */
