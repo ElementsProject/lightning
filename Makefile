@@ -258,6 +258,13 @@ check-python:
 check-includes:
 	@tools/check-includes.sh
 
+# cppcheck gets confused by list_for_each(head, i, list): thinks i is uninit.
+.cppcheck-suppress:
+	@git ls-files -- "*.c" "*.h" | grep -vE '^ccan/' | xargs grep -n 'list_for_each' | sed 's/\([^:]*:.*\):.*/uninitvar:\1/' > $@
+
+check-cppcheck: .cppcheck-suppress
+	@trap 'rm -f .cppcheck-suppress' 0; git ls-files -- "*.c" "*.h" | grep -vE '^ccan/' | xargs cppcheck -q --language=c --std=c11 --error-exitcode=1 --suppressions-list=.cppcheck-suppress
+
 check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python check-includes
 
 full-check: check check-source
