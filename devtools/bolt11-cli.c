@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
         if (b11->msatoshi)
 		printf("msatoshi: %"PRIu64"\n", *b11->msatoshi);
         if (b11->description)
-                printf("description: %s\n", b11->description);
+                printf("description: '%s'\n", b11->description);
         if (b11->description_hash)
 		printf("description_hash: %s\n",
 		       tal_hexstr(ctx, b11->description_hash,

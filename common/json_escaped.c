@@ -84,3 +84,47 @@ struct json_escaped *json_escape(const tal_t *ctx, const char *str TAKES)
 		tal_free(str);
 	return esc;
 }
+
+/* By policy, we don't handle \u.  Use UTF-8. */
+const char *json_escaped_unescape(const tal_t *ctx,
+				  const struct json_escaped *esc)
+{
+	char *unesc = tal_arr(ctx, char, strlen(esc->s) + 1);
+	size_t i, n;
+
+	for (i = n = 0; esc->s[i]; i++, n++) {
+		if (esc->s[i] != '\\') {
+			unesc[n] = esc->s[i];
+			continue;
+		}
+
+		i++;
+		switch (esc->s[i]) {
+		case 'n':
+			unesc[n] = '\n';
+			break;
+		case 'b':
+			unesc[n] = '\b';
+			break;
+		case 'f':
+			unesc[n] = '\f';
+			break;
+		case 't':
+			unesc[n] = '\t';
+			break;
+		case 'r':
+			unesc[n] = '\r';
+			break;
+		case '/':
+		case '\\':
+		case '"':
+			unesc[n] = esc->s[i];
+			break;
+		default:
+			return tal_free(unesc);
+		}
+	}
+
+	unesc[n] = '\0';
+	return unesc;
+}
