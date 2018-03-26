@@ -11,6 +11,7 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <common/features.h>
+#include <common/json_escaped.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <errno.h>
@@ -231,15 +232,16 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 	json_array_start(response, "nodes");
 
 	for (i = 0; i < tal_count(nodes); i++) {
+		struct json_escaped *esc;
+
 		json_object_start(response, NULL);
 		json_add_pubkey(response, "nodeid", &nodes[i]->nodeid);
 		if (nodes[i]->last_timestamp < 0) {
 			json_object_end(response);
 			continue;
 		}
-		json_add_string(response, "alias",
-				tal_strndup(response, (char *)nodes[i]->alias,
-					    tal_len(nodes[i]->alias)));
+		esc = json_escape(NULL, (const char *)nodes[i]->alias);
+		json_add_escaped_string(response, "alias", take(esc));
 		json_add_hex(response, "color",
 			     nodes[i]->color, ARRAY_SIZE(nodes[i]->color));
 		json_add_u64(response, "last_timestamp",
