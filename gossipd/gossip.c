@@ -1987,6 +1987,13 @@ handle_mark_channel_unroutable(struct io_conn *conn,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
+					     struct daemon *daemon,
+					     const u8 *msg)
+{
+	return daemon_conn_read_next(conn, &daemon->master);
+}
+
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct daemon *daemon = container_of(master, struct daemon, master);
@@ -2043,6 +2050,9 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT:
 		return disconnect_peer(conn, daemon, master->msg_in);
+
+	case WIRE_GOSSIP_OUTPOINT_SPENT:
+		return handle_outpoint_spent(conn, daemon, master->msg_in);
 
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
