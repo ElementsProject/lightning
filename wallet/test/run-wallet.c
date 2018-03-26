@@ -180,6 +180,10 @@ void invoices_waitone(const tal_t *ctx UNNEEDED,
 void json_add_bool(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
 		   bool value UNNEEDED)
 { fprintf(stderr, "json_add_bool called!\n"); abort(); }
+/* Generated stub for json_add_escaped_string */
+void json_add_escaped_string(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
+			     const struct json_escaped *esc TAKES UNNEEDED)
+{ fprintf(stderr, "json_add_escaped_string called!\n"); abort(); }
 /* Generated stub for json_add_hex */
 void json_add_hex(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
 		  const void *data UNNEEDED, size_t len UNNEEDED)
@@ -205,10 +209,6 @@ void json_add_short_channel_id(struct json_result *response UNNEEDED,
 /* Generated stub for json_add_string */
 void json_add_string(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED, const char *value UNNEEDED)
 { fprintf(stderr, "json_add_string called!\n"); abort(); }
-/* Generated stub for json_add_string_escape */
-void json_add_string_escape(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
-			    const char *value UNNEEDED)
-{ fprintf(stderr, "json_add_string_escape called!\n"); abort(); }
 /* Generated stub for json_add_txid */
 void json_add_txid(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
 		   const struct bitcoin_txid *txid UNNEEDED)
@@ -227,6 +227,9 @@ void json_array_end(struct json_result *ptr UNNEEDED)
 /* Generated stub for json_array_start */
 void json_array_start(struct json_result *ptr UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_array_start called!\n"); abort(); }
+/* Generated stub for json_escape */
+struct json_escaped *json_escape(const tal_t *ctx UNNEEDED, const char *str TAKES UNNEEDED)
+{ fprintf(stderr, "json_escape called!\n"); abort(); }
 /* Generated stub for json_get_params */
 bool json_get_params(struct command *cmd UNNEEDED,
 		     const char *buffer UNNEEDED, const jsmntok_t param[] UNNEEDED, ...)
