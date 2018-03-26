@@ -2127,10 +2127,9 @@ class LightningDTests(BaseLightningDTests):
                                .format(l1.info['id']))
 
         node = l1.rpc.listnodes(l1.info['id'])['nodes'][0]
-        # FIXME: We get this wrong!
-        assert not node['alias'] == weird_name
+        assert node['alias'] == weird_name
         node = l2.rpc.listnodes(l1.info['id'])['nodes'][0]
-        assert not node['alias'] == weird_name
+        assert node['alias'] == weird_name
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_gossip_pruning(self):
