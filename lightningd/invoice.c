@@ -109,9 +109,9 @@ static void json_invoice(struct command *cmd,
 {
 	struct invoice invoice;
 	struct invoice_details details;
-	jsmntok_t *msatoshi, *label, *desc, *exp, *fallback;
+	jsmntok_t *msatoshi, *label, *desctok, *exp, *fallback;
 	u64 *msatoshi_val;
-	const struct json_escaped *label_val;
+	const struct json_escaped *label_val, *desc;
 	const char *desc_val;
 	enum address_parse_result fallback_parse;
 	struct json_result *response = new_json_result(cmd);
@@ -125,7 +125,7 @@ static void json_invoice(struct command *cmd,
 	if (!json_get_params(cmd, buffer, params,
 			     "msatoshi", &msatoshi,
 			     "label", &label,
-			     "description", &desc,
+			     "description", &desctok,
 			     "?expiry", &exp,
 			     "?fallback", &fallback,
 			     NULL)) {
@@ -163,18 +163,31 @@ static void json_invoice(struct command *cmd,
 			     INVOICE_MAX_LABEL_LEN);
 		return;
 	}
+
+	desc = json_tok_escaped_string(cmd, buffer, desctok);
+	if (!desc) {
+		command_fail(cmd, "description '%.*s' not a string",
+			     desctok->end - desctok->start,
+			     buffer + desctok->start);
+		return;
+	}
+	desc_val = json_escaped_unescape(cmd, desc);
+	if (!desc_val) {
+		command_fail(cmd, "description '%s' is invalid"
+			     " (note: we don't allow \\u)",
+			     desc->s);
+		return;
+	}
 	/* description */
-	if (desc->end - desc->start >= BOLT11_FIELD_BYTE_LIMIT) {
+	if (strlen(desc_val) >= BOLT11_FIELD_BYTE_LIMIT) {
 		command_fail(cmd,
 			     "Descriptions greater than %d bytes "
 			     "not yet supported "
-			     "(description length %d)",
+			     "(description length %zu)",
 			     BOLT11_FIELD_BYTE_LIMIT,
-			     desc->end - desc->start);
+			     strlen(desc_val));
 		return;
 	}
-	desc_val = tal_strndup(cmd, buffer + desc->start,
-			       desc->end - desc->start);
 	/* expiry */
 	if (exp && !json_tok_u64(buffer, exp, &expiry)) {
 		command_fail(cmd, "Expiry '%.*s' invalid seconds",
@@ -629,8 +642,10 @@ static void json_decodepay(struct command *cmd,
 	json_add_pubkey(response, "payee", &b11->receiver_id);
         if (b11->msatoshi)
                 json_add_u64(response, "msatoshi", *b11->msatoshi);
-        if (b11->description)
-                json_add_string(response, "description", b11->description);
+        if (b11->description) {
+		struct json_escaped *esc = json_escape(NULL, b11->description);
+                json_add_escaped_string(response, "description", take(esc));
+	}
         if (b11->description_hash)
                 json_add_hex(response, "description_hash",
                              b11->description_hash,

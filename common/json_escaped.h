@@ -33,4 +33,7 @@ void json_add_escaped_string(struct json_result *result,
 struct json_escaped *json_escaped_string_(const tal_t *ctx,
 					  const void *bytes, size_t len);
 
+/* Be very careful here!  Can fail!  Doesn't handle \u: use UTF-8 please. */
+const char *json_escaped_unescape(const tal_t *ctx,
+				  const struct json_escaped *esc);
 #endif /* LIGHTNING_COMMON_JSON_ESCAPED_H */
