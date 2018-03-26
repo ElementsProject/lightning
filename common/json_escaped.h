@@ -29,10 +29,6 @@ bool json_escaped_streq(const struct json_escaped *esc, const char *str);
 bool json_escaped_eq(const struct json_escaped *a,
 		     const struct json_escaped *b);
 
-void json_add_escaped_string(struct json_result *result,
-			     const char *fieldname,
-			     const struct json_escaped *esc TAKES);
-
 /* Internal routine for creating json_escaped from bytes. */
 struct json_escaped *json_escaped_string_(const tal_t *ctx,
 					  const void *bytes, size_t len);
