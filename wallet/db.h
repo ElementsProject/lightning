@@ -156,4 +156,9 @@ bool sqlite3_column_sha256_double(sqlite3_stmt *stmt, int col,  struct sha256_do
 bool sqlite3_bind_sha256_double(sqlite3_stmt *stmt, int col, const struct sha256_double *p);
 struct secret *sqlite3_column_secrets(const tal_t *ctx,
 				      sqlite3_stmt *stmt, int col);
+
+struct json_escaped *sqlite3_column_json_escaped(const tal_t *ctx,
+						 sqlite3_stmt *stmt, int col);
+bool sqlite3_bind_json_escaped(sqlite3_stmt *stmt, int col,
+			       const struct json_escaped *esc);
 #endif /* LIGHTNING_WALLET_DB_H */
