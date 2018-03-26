@@ -12,6 +12,10 @@ struct json_escaped {
 /* @str be a valid UTF-8 string */
 struct json_escaped *json_escape(const tal_t *ctx, const char *str TAKES);
 
+/* @str is a valid UTF-8 string which may already contain escapes. */
+struct json_escaped *json_partial_escape(const tal_t *ctx,
+					 const char *str TAKES);
+
 /* Extract a JSON-escaped string. */
 struct json_escaped *json_tok_escaped_string(const tal_t *ctx,
 					     const char *buffer,
