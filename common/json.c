@@ -225,22 +225,11 @@ const jsmntok_t *json_delve(const char *buffer,
 	return tok;
 }
 
-static bool strange_chars(const char *str, size_t len)
-{
-	for (size_t i = 0; i < len; i++) {
-		if (!cisprint(str[i]) || str[i] == '"' || str[i] == '\\')
-			return true;
-	}
-
-	return false;
-}
-
 jsmntok_t *json_parse_input(const char *input, int len, bool *valid)
 {
 	jsmn_parser parser;
 	jsmntok_t *toks;
 	int ret;
-	size_t i;
 
 	toks = tal_arr(input, jsmntok_t, 10);
 
@@ -266,19 +255,6 @@ again:
 	/* Make sure last one is always referenceable. */
 	toks[ret].type = -1;
 	toks[ret].start = toks[ret].end = toks[ret].size = 0;
-
-	/* Don't allow tokens to contain weird characters (outside toks ok). */
-	for (i = 0; i < ret; i++) {
-		if (toks[i].type != JSMN_STRING
-		    && toks[i].type != JSMN_PRIMITIVE)
-			continue;
-
-		if (strange_chars(input + toks[i].start,
-				  toks[i].end - toks[i].start)) {
-			*valid = false;
-			return tal_free(toks);
-		}
-	}
 
 	return toks;
 }
