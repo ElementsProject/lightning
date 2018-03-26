@@ -456,7 +456,6 @@ class LightningDTests(BaseLightningDTests):
         # separator, and not for example "lnbcrt1m1....".
         assert b11.count('1') == 1
 
-    @unittest.expectedFailure
     def test_invoice_weirdstring(self):
         l1 = self.node_factory.get_node()
 
