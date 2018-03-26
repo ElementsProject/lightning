@@ -265,7 +265,7 @@ check-includes:
 check-cppcheck: .cppcheck-suppress
 	@trap 'rm -f .cppcheck-suppress' 0; git ls-files -- "*.c" "*.h" | grep -vE '^ccan/' | xargs cppcheck -q --language=c --std=c11 --error-exitcode=1 --suppressions-list=.cppcheck-suppress
 
-check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python check-includes
+check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python check-includes check-cppcheck
 
 full-check: check check-source
 
