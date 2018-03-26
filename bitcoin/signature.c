@@ -246,16 +246,6 @@ bool signature_from_der(const u8 *der, size_t len, secp256k1_ecdsa_signature *si
 						   sig, der, len);
 }
 
-/* Signature must have low S value. */
-bool sig_valid(const secp256k1_ecdsa_signature *sig)
-{
-	secp256k1_ecdsa_signature tmp;
-
-	if (secp256k1_ecdsa_signature_normalize(secp256k1_ctx, &tmp, sig) == 0)
-		return true;
-	return false;
-}
-
 static char *signature_to_hexstr(const tal_t *ctx,
 				 const secp256k1_ecdsa_signature *sig)
 {

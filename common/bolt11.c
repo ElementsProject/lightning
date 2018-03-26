@@ -699,11 +699,6 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
         return b11;
 }
 
-static size_t num_u5(size_t num_u8)
-{
-        return (num_u8 * 8 + 7) / 5;
-}
-
 static u8 get_bit(const u8 *src, size_t bitoff)
 {
         return ((src[bitoff / 8] >> (7 - (bitoff % 8))) & 1);
@@ -985,59 +980,4 @@ char *bolt11_encode_(const tal_t *ctx,
                 output = tal_free(output);
 
         return output;
-}
-
-static PRINTF_FMT(2,3) void *bad(const char *abortstr, const char *fmt, ...)
-{
-	if (abortstr) {
-                va_list ap;
-
-                va_start(ap, fmt);
-                fprintf(stderr, "%s: ", abortstr);
-                vfprintf(stderr, fmt, ap);
-                fprintf(stderr, "\n");
-		abort();
-	}
-	return NULL;
-}
-
-struct bolt11 *bolt11_out_check(const struct bolt11 *b11, const char *abortstr)
-{
-        struct bolt11_field *extra;
-
-        /* BOLT #2:
-         *
-         * For channels with `chain_hash` identifying the Bitcoin blockchain,
-         * the sending node MUST set the 4 most significant bytes of
-         * `amount_msat` to zero.
-         */
-        if (*b11->msatoshi >= 1ULL << 32)
-                return bad(abortstr, "msatoshi %"PRIu64" too large",
-                           *b11->msatoshi);
-
-        if (!b11->description && !b11->description_hash)
-                return bad(abortstr, "No description or description_hash");
-
-        if (b11->description && b11->description_hash)
-                return bad(abortstr, "Both description or description_hash");
-
-        if (b11->description && num_u5(strlen(b11->description)) > 1024)
-                return bad(abortstr, "Description too long");
-
-        /* FIXME: Check fallback is known type. */
-        if (b11->fallback && tal_count(b11->fallback) == 0)
-                return bad(abortstr, "Empty fallback");
-
-        if (!list_check(&b11->extra_fields, abortstr))
-                return bad(abortstr, "Invalid extras list");
-
-        list_for_each(&b11->extra_fields, extra, list) {
-                if (bech32_charset_rev[(unsigned char)extra->tag] < 0)
-                        return bad(abortstr, "Invalid extra type %c (0x%02x)",
-                                   extra->tag, extra->tag);
-
-                if (tal_len(extra->data) >= 1024)
-                        return bad(abortstr, "Extra %c too long", extra->tag);
-        }
-        return cast_const(struct bolt11 *, b11);
 }

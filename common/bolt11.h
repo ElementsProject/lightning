@@ -89,20 +89,4 @@ char *bolt11_encode_(const tal_t *ctx,
 				secp256k1_ecdsa_recoverable_signature *rsig), \
 		       (arg))
 
-/**
- * bolt11_out_check - check a bolt11 struct for validity and consistency
- * @bolt11: the bolt11
- * @abortstr: the location to print on aborting, or NULL.
- *
- * Note this does not apply to bolt11's we decoded, which may not be spec
- * compliant.
- *
- * If @abortstr is non-NULL, that will be printed in a diagnostic if the bolt11
- * is invalid, and the function will abort.
- *
- * Returns @bolt11 if all OK, NULL if not (it can never return NULL if
- * @abortstr is set).
- */
-struct bolt11 *bolt11_out_check(const struct bolt11 *bolt11,
-				const char *abortstr);
 #endif /* LIGHTNING_COMMON_BOLT11_H */
