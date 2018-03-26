@@ -456,6 +456,26 @@ class LightningDTests(BaseLightningDTests):
         # separator, and not for example "lnbcrt1m1....".
         assert b11.count('1') == 1
 
+    @unittest.expectedFailure
+    def test_invoice_weirdstring(self):
+        l1 = self.node_factory.get_node()
+
+        weird_label = 'label \\ " \t \n'
+        weird_desc = 'description \\ " \t \n'
+        l1.rpc.invoice(123000, weird_label, weird_desc)
+        # FIXME: invoice RPC should return label!
+
+        # Can find by this label.
+        inv = l1.rpc.listinvoices(weird_label)['invoices'][0]
+        assert inv['label'] == weird_label
+
+        # Can find this in list.
+        inv = l1.rpc.listinvoices()['invoices'][0]
+        assert inv['label'] == weird_label
+
+        b11 = l1.rpc.decodepay(inv['bolt11'])
+        assert b11['description'] == weird_desc
+
     def test_invoice_expiry(self):
         l1, l2 = self.connect()
 
