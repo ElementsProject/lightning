@@ -11,6 +11,7 @@
 #define JSMN_STRICT 1
 # include <external/jsmn/jsmn.h>
 
+struct json_escaped;
 struct json_result;
 struct short_channel_id;
 
@@ -79,6 +80,12 @@ struct json_result *new_json_result(const tal_t *ctx);
  * any non-printable chars into JSON escapes, but leaves existing escapes alone.
  */
 void json_add_string(struct json_result *result, const char *fieldname, const char *value);
+
+/* '"fieldname" : "value"' or '"value"' if fieldname is NULL.  String must
+ * already be JSON escaped as necessary. */
+void json_add_escaped_string(struct json_result *result,
+			     const char *fieldname,
+			     const struct json_escaped *esc TAKES);
 
 /* '"fieldname" : literal' or 'literal' if fieldname is NULL*/
 void json_add_literal(struct json_result *result, const char *fieldname,
