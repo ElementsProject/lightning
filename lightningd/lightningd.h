@@ -6,6 +6,7 @@
 #include <ccan/container_of/container_of.h>
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
+#include <common/json_escaped.h>
 #include <lightningd/htlc_end.h>
 #include <stdio.h>
 #include <wallet/txfilter.h>
