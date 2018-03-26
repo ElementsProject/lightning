@@ -2108,8 +2108,7 @@ class LightningDTests(BaseLightningDTests):
                                                  .format(weird_name)])
         weird_name_json = json.encoder.JSONEncoder().encode(weird_name)[1:-1].replace('\\', '\\\\')
         aliasline = l1.daemon.is_in_log('Server started with public key .* alias')
-        # FIXME: alias needs json escaping.
-        assert weird_name_json not in str(aliasline)
+        assert weird_name_json in str(aliasline)
         normal_name = 'Normal name'
         l2 = self.node_factory.get_node(options=['--alias={}'
                                                  .format(normal_name)])
