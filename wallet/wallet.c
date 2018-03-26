@@ -522,29 +522,6 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 	return peer;
 }
 
-bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
-			   struct peer *peer)
-{
-	bool ok;
-	sqlite3_stmt *stmt = db_prepare(w->db, "SELECT id, node_id, address FROM peers WHERE node_id=?;");
-	sqlite3_bind_pubkey(stmt, 1, nodeid);
-
-	ok = stmt != NULL && sqlite3_step(stmt) == SQLITE_ROW;
-	if (ok) {
-		peer->dbid = sqlite3_column_int64(stmt, 0);
-		ok &= sqlite3_column_pubkey(stmt, 1, &peer->id);
-		const unsigned char *addrstr = sqlite3_column_text(stmt, 2);
-
-		if (addrstr)
-			parse_wireaddr((const char*)addrstr, &peer->addr, DEFAULT_PORT, NULL);
-	} else {
-		/* Make sure we mark this as a new peer */
-		peer->dbid = 0;
-	}
-	sqlite3_finalize(stmt);
-	return ok;
-}
-
 static secp256k1_ecdsa_signature *
 wallet_htlc_sigs_load(const tal_t *ctx, struct wallet *w, u64 channelid)
 {
@@ -1716,26 +1693,6 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 	}
 	sqlite3_finalize(stmt);
 	return payment;
-}
-
-struct secret *wallet_payment_get_secrets(const tal_t *ctx,
-					  struct wallet *wallet,
-					  const struct sha256 *payment_hash)
-{
-	sqlite3_stmt *stmt;
-	struct secret *path_secrets = NULL;
-
-	stmt = db_prepare(wallet->db,
-			  "SELECT path_secrets "
-			  "FROM payments "
-			  "WHERE payment_hash = ?");
-
-	sqlite3_bind_sha256(stmt, 1, payment_hash);
-	if (sqlite3_step(stmt) == SQLITE_ROW) {
-		path_secrets = sqlite3_column_secrets(ctx, stmt, 0);
-	}
-	sqlite3_finalize(stmt);
-	return path_secrets;
 }
 
 void wallet_payment_set_status(struct wallet *wallet,

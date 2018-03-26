@@ -101,29 +101,6 @@ bool p2sh_from_base58(bool *test_net,
 	return true;
 }
 
-bool ripemd_from_base58(u8 *version,
-			struct ripemd160 *ripemd160,
-			const char *base58)
-{
-	return from_base58(version, ripemd160, base58, strlen(base58));
-}
-
-char *key_to_base58(const tal_t *ctx, bool test_net, const struct privkey *key)
-{
-	u8 buf[32 + 1];
-	char out[BASE58_KEY_MAX_LEN + 2];
-	u8 version = test_net ? 239 : 128;
-	size_t outlen = sizeof(out);
-
-	memcpy(buf, key->secret.data, sizeof(key->secret.data));
-	/* Mark this as a compressed key. */
-	buf[32] = 1;
-
-	b58_sha256_impl = my_sha256;
-	b58check_enc(out, &outlen, version, buf, sizeof(buf));
-	return tal_strdup(ctx, out);
-}
-
 bool key_from_base58(const char *base58, size_t base58_len,
 		     bool *test_net, struct privkey *priv, struct pubkey *key)
 {

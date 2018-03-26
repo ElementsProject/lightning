@@ -63,12 +63,6 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	return false;
 }
 
-/* Return true if it's an unknown message.  cursor is a tal ptr. */
-bool is_unknown_msg(const u8 *cursor)
-{
-	return unknown_type(fromwire_peektype(cursor));
-}
-
 /* Return true if it's an unknown ODD message.  cursor is a tal ptr. */
 bool is_unknown_msg_discardable(const u8 *cursor)
 {

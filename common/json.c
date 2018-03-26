@@ -187,44 +187,6 @@ const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index)
 	return NULL;
 }
 
-/* Guide is a string with . for members, [] around indexes. */
-const jsmntok_t *json_delve(const char *buffer,
-			    const jsmntok_t *tok,
-			    const char *guide)
-{
-	while (*guide) {
-		const char *key;
-		size_t len = strcspn(guide+1, ".[]");
-
-		key = tal_strndup(NULL, guide+1, len);
-		switch (guide[0]) {
-		case '.':
-			if (tok->type != JSMN_OBJECT)
-				return tal_free(key);
-			tok = json_get_member(buffer, tok, key);
-			if (!tok)
-				return tal_free(key);
-			break;
-		case '[':
-			if (tok->type != JSMN_ARRAY)
-				return tal_free(key);
-			tok = json_get_arr(tok, atol(key));
-			if (!tok)
-				return tal_free(key);
-			/* Must be terminated */
-			assert(guide[1+strlen(key)] == ']');
-			len++;
-			break;
-		default:
-			abort();
-		}
-		tal_free(key);
-		guide += len + 1;
-	}
-
-	return tok;
-}
-
 jsmntok_t *json_parse_input(const char *input, int len, bool *valid)
 {
 	jsmn_parser parser;
@@ -382,11 +344,7 @@ void json_add_num(struct json_result *result, const char *fieldname, unsigned in
 	json_start_member(result, fieldname);
 	result_append_fmt(result, "%u", value);
 }
-void json_add_snum(struct json_result *result, const char *fieldname, int value)
-{
-	json_start_member(result, fieldname);
-	result_append_fmt(result, "%d", value);
-}
+
 void json_add_double(struct json_result *result, const char *fieldname, double value)
 {
 	json_start_member(result, fieldname);
@@ -420,12 +378,6 @@ void json_add_bool(struct json_result *result, const char *fieldname, bool value
 {
 	json_start_member(result, fieldname);
 	result_append(result, value ? "true" : "false");
-}
-
-void json_add_null(struct json_result *result, const char *fieldname)
-{
-	json_start_member(result, fieldname);
-	result_append(result, "null");
 }
 
 void json_add_hex(struct json_result *result, const char *fieldname,

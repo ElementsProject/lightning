@@ -272,19 +272,6 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 				struct channel_config *cc);
 
 /**
- * wallet_peer_by_nodeid -- Given a node_id/pubkey, load the peer from DB
- *
- * @w: the wallet to load from
- * @nodeid: the node_id to search for
- * @peer(out): the destination where to store the peer
- *
- * Returns true on success, or false if we were unable to find a peer
- * with the given node_id.
- */
-bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
-			   struct peer *peer);
-
-/**
  * wlalet_channels_load_active -- Load persisted active channels into the peers
  *
  * @ctx: context to allocate peers from
@@ -731,15 +718,6 @@ void wallet_payment_set_status(struct wallet *wallet,
 				const struct sha256 *payment_hash,
 			        const enum wallet_payment_status newstatus,
 			        const struct preimage *preimage);
-
-/**
- * wallet_payment_get_secrets - Get the secrets array for a given `payment_hash`
- *
- * Returns a tal_array: can return NULL for old dbs.
- */
-struct secret *wallet_payment_get_secrets(const tal_t *ctx,
-					  struct wallet *wallet,
-					  const struct sha256 *payment_hash);
 
 /**
  * wallet_payment_get_failinfo - Get failure information for a given
