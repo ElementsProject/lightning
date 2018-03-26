@@ -16,7 +16,8 @@ EXTERNAL_INCLUDE_FLAGS :=					\
 	-I external/libwally-core/src/secp256k1/include/	\
 	-I external/jsmn/					\
 	-I external/libbase58/					\
-	-I external/libbacktrace
+	-I external/libbacktrace/				\
+	-I external/libbacktrace-build
 
 EXTERNAL_LDLIBS := -Lexternal $(patsubst lib%.a,-l%,$(notdir $(EXTERNAL_LIBS)))
 

@@ -54,7 +54,7 @@ struct bitcoind {
 	bool shutdown;
 
 	/* Passthrough parameters for bitcoin-cli */
-	char *rpcuser, *rpcpass, *rpcconnect;
+	char *rpcuser, *rpcpass, *rpcconnect, *rpcport;
 };
 
 struct bitcoind *new_bitcoind(const tal_t *ctx,

@@ -1,5 +1,5 @@
-#ifndef WALLET_WALLET_H
-#define WALLET_WALLET_H
+#ifndef LIGHTNING_WALLET_WALLET_H
+#define LIGHTNING_WALLET_WALLET_H
 
 #include "config.h"
 #include "db.h"
@@ -117,6 +117,14 @@ struct outpoint {
 	u64 satoshis;
 	u8 *scriptpubkey;
 	u32 spendheight;
+};
+
+/* Statistics for a channel */
+struct channel_stats {
+	u64  in_payments_offered,  in_payments_fulfilled;
+	u64  in_msatoshi_offered,  in_msatoshi_fulfilled;
+	u64 out_payments_offered, out_payments_fulfilled;
+	u64 out_msatoshi_offered, out_msatoshi_fulfilled;
 };
 
 /**
@@ -287,6 +295,27 @@ bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
 bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w);
 
 /**
+ * wallet_channel_stats_incr_* - Increase channel statistics.
+ *
+ * @w: wallet containing the channel
+ * @cdbid: channel database id
+ * @msatoshi: amount in msatoshi being transferred
+ */
+void wallet_channel_stats_incr_in_offered(struct wallet *w, u64 cdbid, u64 msatoshi);
+void wallet_channel_stats_incr_in_fulfilled(struct wallet *w, u64 cdbid, u64 msatoshi);
+void wallet_channel_stats_incr_out_offered(struct wallet *w, u64 cdbid, u64 msatoshi);
+void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 cdbid, u64 msatoshi);
+
+/**
+ * wallet_channel_stats_load - Load channel statistics
+ *
+ * @w: wallet containing the channel
+ * @cdbid: channel database id
+ * @stats: location to load statistics to
+ */
+void wallet_channel_stats_load(struct wallet *w, u64 cdbid, struct channel_stats *stats);
+
+/**
  * wallet_first_blocknum - get first block we're interested in.
  *
  * @w: wallet to load from.
@@ -397,7 +426,7 @@ struct invoice_details {
 	/* Hash of preimage r */
 	struct sha256 rhash;
 	/* Label assigned by user */
-	const char *label;
+	const struct json_escaped *label;
 	/* NULL if they specified "any" */
 	u64 *msatoshi;
 	/* Absolute UNIX epoch time this will expire */
@@ -449,7 +478,7 @@ bool wallet_invoice_load(struct wallet *wallet);
  * @msatoshi - the amount the invoice should have, or
  * NULL for any-amount invoices.
  * @label - the unique label for this invoice. Must be
- * non-NULL. Must be null-terminated.
+ * non-NULL.
  * @expiry - the number of seconds before the invoice
  * expires
  *
@@ -460,7 +489,7 @@ bool wallet_invoice_load(struct wallet *wallet);
 bool wallet_invoice_create(struct wallet *wallet,
 			   struct invoice *pinvoice,
 			   u64 *msatoshi TAKES,
-			   const char *label TAKES,
+			   const struct json_escaped *label TAKES,
 			   u64 expiry,
 			   const char *b11enc,
 			   const struct preimage *r,
@@ -471,14 +500,14 @@ bool wallet_invoice_create(struct wallet *wallet,
  *
  * @wallet - the wallet to search.
  * @pinvoice - pointer to location to load found invoice in.
- * @label - the label to search for. Must be null-terminated.
+ * @label - the label to search for.
  *
  * Returns false if no invoice with that label exists.
  * Returns true if found.
  */
 bool wallet_invoice_find_by_label(struct wallet *wallet,
 				  struct invoice *pinvoice,
-				  const char *label);
+				  const struct json_escaped *label);
 
 /**
  * wallet_invoice_find_unpaid - Search for an unpaid, unexpired invoice by
@@ -792,4 +821,4 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 			const u32 outnum, const u32 blockheight,
 			const u32 txindex, const u8 *scriptpubkey,
 			const u64 satoshis);
-#endif /* WALLET_WALLET_H */
+#endif /* LIGHTNING_WALLET_WALLET_H */

@@ -11,7 +11,6 @@
 #include <ccan/asort/asort.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/io/io.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/memleak.h>
 #include <common/timeout.h>

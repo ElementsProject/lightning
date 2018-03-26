@@ -23,7 +23,6 @@
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <common/version.h>
-#include <common/wireaddr.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/bitcoind.h>
@@ -391,7 +390,8 @@ int main(int argc, char *argv[])
 	/* Mark ourselves live. */
 	log_info(ld->log, "Server started with public key %s, alias %s (color #%s) and lightningd %s",
 		 type_to_string(tmpctx, struct pubkey, &ld->id),
-		 ld->alias, tal_hex(tmpctx, ld->rgb), version());
+		 json_escape(tmpctx, (const char *)ld->alias)->s,
+		 tal_hex(tmpctx, ld->rgb), version());
 
 	/* Start the peers. */
 	activate_peers(ld);

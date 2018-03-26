@@ -25,7 +25,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <wallet/db.h>
-#include <wire/wire.h>
 #include <wire/wire_io.h>
 
 static bool move_fd(int from, int to)

@@ -21,6 +21,7 @@ COMMON_SRC_NOGEN :=				\
 	common/initial_commit_tx.c		\
 	common/io_debug.c			\
 	common/json.c				\
+	common/json_escaped.c			\
 	common/key_derive.c			\
 	common/keyset.c				\
 	common/memleak.c			\

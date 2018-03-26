@@ -13,7 +13,6 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/tal/tal.h>
 #include <common/json.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
@@ -47,6 +46,10 @@ static const char **gather_args(const struct bitcoind *bitcoind,
 	if (bitcoind->rpcconnect)
 		add_arg(&args,
 			tal_fmt(args, "-rpcconnect=%s", bitcoind->rpcconnect));
+
+	if (bitcoind->rpcport)
+		add_arg(&args,
+			tal_fmt(args, "-rpcport=%s", bitcoind->rpcport));
 
 	if (bitcoind->rpcuser)
 		add_arg(&args, tal_fmt(args, "-rpcuser=%s", bitcoind->rpcuser));
@@ -803,6 +806,7 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 	bitcoind->rpcuser = NULL;
 	bitcoind->rpcpass = NULL;
 	bitcoind->rpcconnect = NULL;
+	bitcoind->rpcport = NULL;
 	list_head_init(&bitcoind->pending);
 	tal_add_destructor(bitcoind, destroy_bitcoind);
 

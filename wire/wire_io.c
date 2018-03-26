@@ -2,7 +2,6 @@
  #include <unistd.h>
 #include <ccan/io/io_plan.h>
 #include <ccan/mem/mem.h>
-#include <ccan/short_types/short_types.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/tal.h>
 #include <errno.h>

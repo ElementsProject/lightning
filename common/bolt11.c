@@ -17,7 +17,6 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
-#include <secp256k1_recovery.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <wire/wire.h>

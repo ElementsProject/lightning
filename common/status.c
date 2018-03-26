@@ -4,7 +4,6 @@
 #include <ccan/err/err.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/read_write_all/read_write_all.h>
-#include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon_conn.h>
 #include <common/gen_status_wire.h>
@@ -12,7 +11,6 @@
 #include <common/utils.h>
 #include <errno.h>
 #include <signal.h>
-#include <stdarg.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 

@@ -105,4 +105,4 @@ char *bolt11_encode_(const tal_t *ctx,
  */
 struct bolt11 *bolt11_out_check(const struct bolt11 *bolt11,
 				const char *abortstr);
-#endif /* LIGHTNING_LIGHTNINGD_BOLT11_H */
+#endif /* LIGHTNING_COMMON_BOLT11_H */

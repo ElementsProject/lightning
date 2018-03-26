@@ -3,7 +3,6 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 int test_main(int argc, char *argv[]);

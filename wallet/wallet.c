@@ -7,7 +7,6 @@
 #include <common/key_derive.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
-#include <lightningd/invoice.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
@@ -719,6 +718,68 @@ bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
 	return ok;
 }
 
+static
+void wallet_channel_stats_incr_x(struct wallet *w,
+				 char const *dir,
+				 char const *typ,
+				 u64 cdbid,
+				 u64 msatoshi)
+{
+	char const *payments_stat = tal_fmt(tmpctx, "%s_payments_%s",
+					    dir, typ);
+	char const *msatoshi_stat = tal_fmt(tmpctx, "%s_msatoshi_%s",
+					    dir, typ);
+	char const *qry = tal_fmt(tmpctx,
+				  "UPDATE channels"
+				  "   SET %s = COALESCE(%s, 0) + 1"
+				  "     , %s = COALESCE(%s, 0) + %"PRIu64""
+				  " WHERE id = %"PRIu64";",
+				  payments_stat, payments_stat,
+				  msatoshi_stat, msatoshi_stat, msatoshi,
+				  cdbid);
+	sqlite3_stmt *stmt = db_prepare(w->db, qry);
+	db_exec_prepared(w->db, stmt);
+}
+void wallet_channel_stats_incr_in_offered(struct wallet *w, u64 id, u64 m)
+{
+	wallet_channel_stats_incr_x(w, "in", "offered", id, m);
+}
+void wallet_channel_stats_incr_in_fulfilled(struct wallet *w, u64 id, u64 m)
+{
+	wallet_channel_stats_incr_x(w, "in", "fulfilled", id, m);
+}
+void wallet_channel_stats_incr_out_offered(struct wallet *w, u64 id, u64 m)
+{
+	wallet_channel_stats_incr_x(w, "out", "offered", id, m);
+}
+void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 id, u64 m)
+{
+	wallet_channel_stats_incr_x(w, "out", "fulfilled", id, m);
+}
+
+void wallet_channel_stats_load(struct wallet *w,
+			       u64 id,
+			       struct channel_stats *stats)
+{
+	sqlite3_stmt *stmt;
+	stmt = db_prepare(w->db,
+			  "SELECT  in_payments_offered,  in_payments_fulfilled"
+			  "     ,  in_msatoshi_offered,  in_msatoshi_fulfilled"
+			  "     , out_payments_offered, out_payments_fulfilled"
+			  "     , out_msatoshi_offered, out_msatoshi_fulfilled"
+			  "  FROM channels"
+			  " WHERE id = ?");
+	sqlite3_bind_int64(stmt, 1, id);
+	stats->in_payments_offered = sqlite3_column_int64(stmt, 0);
+	stats->in_payments_fulfilled = sqlite3_column_int64(stmt, 1);
+	stats->in_msatoshi_offered = sqlite3_column_int64(stmt, 2);
+	stats->in_msatoshi_fulfilled = sqlite3_column_int64(stmt, 3);
+	stats->out_payments_offered = sqlite3_column_int64(stmt, 4);
+	stats->out_payments_fulfilled = sqlite3_column_int64(stmt, 5);
+	stats->out_msatoshi_offered = sqlite3_column_int64(stmt, 6);
+	stats->out_msatoshi_fulfilled = sqlite3_column_int64(stmt, 7);
+}
+
 #ifdef COMPAT_V052
 /* Upgrade of db (or initial create): do we have anything to scan for? */
 static bool wallet_ever_used(struct wallet *w)
@@ -1369,7 +1430,7 @@ bool wallet_invoice_load(struct wallet *wallet)
 bool wallet_invoice_create(struct wallet *wallet,
 			   struct invoice *pinvoice,
 			   u64 *msatoshi TAKES,
-			   const char *label TAKES,
+			   const struct json_escaped *label TAKES,
 			   u64 expiry,
 			   const char *b11enc,
 			   const struct preimage *r,
@@ -1379,7 +1440,7 @@ bool wallet_invoice_create(struct wallet *wallet,
 }
 bool wallet_invoice_find_by_label(struct wallet *wallet,
 				  struct invoice *pinvoice,
-				  const char *label)
+				  const struct json_escaped *label)
 {
 	return invoices_find_by_label(wallet->invoices, pinvoice, label);
 }
