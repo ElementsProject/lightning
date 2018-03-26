@@ -10,6 +10,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
+#include <common/json_escaped.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <hsmd/gen_hsm_client_wire.h>
@@ -110,7 +111,7 @@ static void json_invoice(struct command *cmd,
 	struct invoice_details details;
 	jsmntok_t *msatoshi, *label, *desc, *exp, *fallback;
 	u64 *msatoshi_val;
-	const char *label_val;
+	const struct json_escaped *label_val;
 	const char *desc_val;
 	enum address_parse_result fallback_parse;
 	struct json_result *response = new_json_result(cmd);
@@ -147,14 +148,18 @@ static void json_invoice(struct command *cmd,
 		}
 	}
 	/* label */
-	label_val = tal_strndup(cmd, buffer + label->start,
-				label->end - label->start);
-	if (wallet_invoice_find_by_label(wallet, &invoice, label_val)) {
-		command_fail(cmd, "Duplicate label '%s'", label_val);
+	label_val = json_tok_escaped_string(cmd, buffer, label);
+	if (!label_val) {
+		command_fail(cmd, "label '%.*s' not a string",
+			     label->end - label->start, buffer + label->start);
 		return;
 	}
-	if (strlen(label_val) > INVOICE_MAX_LABEL_LEN) {
-		command_fail(cmd, "Label '%s' over %u bytes", label_val,
+	if (wallet_invoice_find_by_label(wallet, &invoice, label_val->s)) {
+		command_fail(cmd, "Duplicate label '%s'", label_val->s);
+		return;
+	}
+	if (strlen(label_val->s) > INVOICE_MAX_LABEL_LEN) {
+		command_fail(cmd, "Label '%s' over %u bytes", label_val->s,
 			     INVOICE_MAX_LABEL_LEN);
 		return;
 	}
@@ -221,7 +226,7 @@ static void json_invoice(struct command *cmd,
 	result = wallet_invoice_create(cmd->ld->wallet,
 				       &invoice,
 				       take(msatoshi_val),
-				       take(label_val),
+				       take((char *)label_val->s),
 				       expiry,
 				       b11enc,
 				       &r,

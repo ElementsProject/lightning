@@ -10,6 +10,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
+#include <common/json_escaped.h>
 #include <common/memleak.h>
 #include <common/version.h>
 #include <common/wireaddr.h>
@@ -201,10 +202,15 @@ static void json_help(struct command *cmd,
 							"HELP! Please contribute"
 							" a description for this"
 							" command!");
-				else
-					json_add_string_escape(response,
-							       "verbose",
-							       cmdlist[i]->verbose);
+				else {
+					struct json_escaped *esc;
+
+					esc = json_escape(NULL,
+							  cmdlist[i]->verbose);
+					json_add_escaped_string(response,
+								"verbose",
+								take(esc));
+				}
 				goto done;
 			}
 		}
@@ -281,11 +287,10 @@ static void connection_complete_error(struct json_connection *jcon,
 				      int code,
 				      const struct json_result *data)
 {
-	/* Use this to escape errmsg. */
-	struct json_result *errorres = new_json_result(tmpctx);
+	struct json_escaped *esc;
 	const char *data_str;
 
-	json_add_string_escape(errorres, NULL, errmsg);
+	esc = json_escape(tmpctx, errmsg);
 	if (data)
 		data_str = tal_fmt(tmpctx, ", \"data\" : %s",
 				   json_result_string(data));
@@ -298,10 +303,10 @@ static void connection_complete_error(struct json_connection *jcon,
 					  "{ \"jsonrpc\": \"2.0\", "
 					  " \"error\" : "
 					  "{ \"code\" : %d,"
-					  " \"message\" : %s%s },"
+					  " \"message\" : \"%s\"%s },"
 					  " \"id\" : %s }\n",
 					  code,
-					  json_result_string(errorres),
+					  esc->s,
 					  data_str,
 					  id)));
 }

@@ -1,5 +1,6 @@
 /* JSON core and helpers */
 #include "json.h"
+#include "json_escaped.h"
 #include <assert.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/str/hex/hex.h>
@@ -446,56 +447,6 @@ void json_add_string(struct json_result *result, const char *fieldname, const ch
 	result_append_fmt(result, "\"%s\"", escaped);
 }
 
-void json_add_string_escape(struct json_result *result, const char *fieldname,
-			    const char *value)
-{
-	/* Worst case: all \uXXXX */
-	char *escaped = tal_arr(result, char, strlen(value) * 6 + 1);
-	size_t i, n;
-
-	json_start_member(result, fieldname);
-	for (i = n = 0; value[i]; i++, n++) {
-		char esc = 0;
-		switch (value[i]) {
-		case '\n':
-			esc = 'n';
-			break;
-		case '\b':
-			esc = 'b';
-			break;
-		case '\f':
-			esc = 'f';
-			break;
-		case '\t':
-			esc = 't';
-			break;
-		case '\r':
-			esc = 'r';
-			break;
-		case '\\':
-		case '"':
-			esc = value[i];
-			break;
-		default:
-			if ((unsigned)value[i] < ' '
-			    || value[i] == 127) {
-				sprintf(escaped + n, "\\u%04X", value[i]);
-				n += 5;
-				continue;
-			}
-		}
-		if (esc) {
-			escaped[n++] = '\\';
-			escaped[n] = esc;
-		} else
-			escaped[n] = value[i];
-	}
-
-	escaped[n] = '\0';
-	result_append_fmt(result, "\"%s\"", escaped);
-	tal_free(escaped);
-}
-
 void json_add_bool(struct json_result *result, const char *fieldname, bool value)
 {
 	json_start_member(result, fieldname);
@@ -535,6 +486,15 @@ void json_add_object(struct json_result *result, ...)
 	}
 	json_object_end(result);
 	va_end(ap);
+}
+
+void json_add_escaped_string(struct json_result *result, const char *fieldname,
+			     const struct json_escaped *esc TAKES)
+{
+	json_start_member(result, fieldname);
+	result_append_fmt(result, "\"%s\"", esc->s);
+	if (taken(esc))
+		tal_free(esc);
 }
 
 struct json_result *new_json_result(const tal_t *ctx)
