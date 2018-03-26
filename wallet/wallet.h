@@ -397,7 +397,7 @@ struct invoice_details {
 	/* Hash of preimage r */
 	struct sha256 rhash;
 	/* Label assigned by user */
-	const char *label;
+	const struct json_escaped *label;
 	/* NULL if they specified "any" */
 	u64 *msatoshi;
 	/* Absolute UNIX epoch time this will expire */
@@ -449,7 +449,7 @@ bool wallet_invoice_load(struct wallet *wallet);
  * @msatoshi - the amount the invoice should have, or
  * NULL for any-amount invoices.
  * @label - the unique label for this invoice. Must be
- * non-NULL. Must be null-terminated.
+ * non-NULL.
  * @expiry - the number of seconds before the invoice
  * expires
  *
@@ -460,7 +460,7 @@ bool wallet_invoice_load(struct wallet *wallet);
 bool wallet_invoice_create(struct wallet *wallet,
 			   struct invoice *pinvoice,
 			   u64 *msatoshi TAKES,
-			   const char *label TAKES,
+			   const struct json_escaped *label TAKES,
 			   u64 expiry,
 			   const char *b11enc,
 			   const struct preimage *r,
@@ -471,14 +471,14 @@ bool wallet_invoice_create(struct wallet *wallet,
  *
  * @wallet - the wallet to search.
  * @pinvoice - pointer to location to load found invoice in.
- * @label - the label to search for. Must be null-terminated.
+ * @label - the label to search for.
  *
  * Returns false if no invoice with that label exists.
  * Returns true if found.
  */
 bool wallet_invoice_find_by_label(struct wallet *wallet,
 				  struct invoice *pinvoice,
-				  const char *label);
+				  const struct json_escaped *label);
 
 /**
  * wallet_invoice_find_unpaid - Search for an unpaid, unexpired invoice by

@@ -35,7 +35,7 @@ static void json_add_invoice(struct json_result *response,
 			     bool modern)
 {
 	json_object_start(response, NULL);
-	json_add_string(response, "label", inv->label);
+	json_add_escaped_string(response, "label", inv->label);
 	json_add_string(response, "bolt11", inv->bolt11);
 	json_add_hex(response, "payment_hash", &inv->rhash, sizeof(inv->rhash));
 	if (inv->msatoshi)
@@ -154,7 +154,7 @@ static void json_invoice(struct command *cmd,
 			     label->end - label->start, buffer + label->start);
 		return;
 	}
-	if (wallet_invoice_find_by_label(wallet, &invoice, label_val->s)) {
+	if (wallet_invoice_find_by_label(wallet, &invoice, label_val)) {
 		command_fail(cmd, "Duplicate label '%s'", label_val->s);
 		return;
 	}
@@ -226,7 +226,7 @@ static void json_invoice(struct command *cmd,
 	result = wallet_invoice_create(cmd->ld->wallet,
 				       &invoice,
 				       take(msatoshi_val),
-				       take((char *)label_val->s),
+				       take(label_val),
 				       expiry,
 				       b11enc,
 				       &r,
@@ -261,19 +261,16 @@ AUTODATA(json_command, &invoice_command);
 
 static void json_add_invoices(struct json_result *response,
 			      struct wallet *wallet,
-			      const char *buffer, const jsmntok_t *label,
+			      const struct json_escaped *label,
 			      bool modern)
 {
 	struct invoice_iterator it;
 	struct invoice_details details;
-	char *lbl = NULL;
-	if (label)
-		lbl = tal_strndup(response, &buffer[label->start], label->end - label->start);
 
 	memset(&it, 0, sizeof(it));
 	while (wallet_invoice_iterate(wallet, &it)) {
 		wallet_invoice_iterator_deref(response, wallet, &it, &details);
-		if (lbl && !streq(details.label, lbl))
+		if (label && !json_escaped_eq(details.label, label))
 			continue;
 		json_add_invoice(response, &details, modern);
 	}
@@ -284,22 +281,34 @@ static void json_listinvoice_internal(struct command *cmd,
 				      const jsmntok_t *params,
 				      bool modern)
 {
-	jsmntok_t *label = NULL;
+	jsmntok_t *labeltok = NULL;
+	struct json_escaped *label;
 	struct json_result *response = new_json_result(cmd);
 	struct wallet *wallet = cmd->ld->wallet;
 
 	if (!json_get_params(cmd, buffer, params,
-			     "?label", &label,
+			     "?label", &labeltok,
 			     NULL)) {
 		return;
 	}
+
+	if (labeltok) {
+		label = json_tok_escaped_string(cmd, buffer, labeltok);
+		if (!label) {
+			command_fail(cmd, "label '%.*s' is not a string",
+				     labeltok->end - labeltok->start,
+				     buffer + labeltok->start);
+			return;
+		}
+	} else
+		label = NULL;
 
 	if (modern) {
 		json_object_start(response, NULL);
 		json_array_start(response, "invoices");
 	} else
 		json_array_start(response, NULL);
-	json_add_invoices(response, wallet, buffer, label, modern);
+	json_add_invoices(response, wallet, label, modern);
 	json_array_end(response);
 	if (modern)
 		json_object_end(response);
@@ -341,7 +350,8 @@ static void json_delinvoice(struct command *cmd,
 	struct invoice_details details;
 	jsmntok_t *labeltok, *statustok;
 	struct json_result *response = new_json_result(cmd);
-	const char *label, *status, *actual_status;
+	const char *status, *actual_status;
+	struct json_escaped *label;
 	struct wallet *wallet = cmd->ld->wallet;
 
 	if (!json_get_params(cmd, buffer, params,
@@ -351,8 +361,13 @@ static void json_delinvoice(struct command *cmd,
 		return;
 	}
 
-	label = tal_strndup(cmd, buffer + labeltok->start,
-			    labeltok->end - labeltok->start);
+	label = json_tok_escaped_string(cmd, buffer, labeltok);
+	if (!label) {
+		command_fail(cmd, "label '%.*s' not a string",
+			     labeltok->end - labeltok->start,
+			     buffer + labeltok->start);
+		return;
+	}
 	if (!wallet_invoice_find_by_label(wallet, &i, label)) {
 		command_fail(cmd, "Unknown invoice");
 		return;
@@ -532,14 +547,21 @@ static void json_waitinvoice(struct command *cmd,
 	struct invoice_details details;
 	struct wallet *wallet = cmd->ld->wallet;
 	jsmntok_t *labeltok;
-	const char *label = NULL;
+	struct json_escaped *label;
 
 	if (!json_get_params(cmd, buffer, params, "label", &labeltok, NULL)) {
 		return;
 	}
 
 	/* Search for invoice */
-	label = tal_strndup(cmd, buffer + labeltok->start, labeltok->end - labeltok->start);
+	label = json_tok_escaped_string(cmd, buffer, labeltok);
+	if (!label) {
+		command_fail(cmd, "label '%.*s' is not a string",
+			     labeltok->end - labeltok->start,
+			     buffer + labeltok->start);
+		return;
+	}
+
 	if (!wallet_invoice_find_by_label(wallet, &i, label)) {
 		command_fail(cmd, "Label not found");
 		return;

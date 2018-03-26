@@ -108,7 +108,7 @@ void invoices_autoclean_set(struct invoices *invoices UNNEEDED,
 bool invoices_create(struct invoices *invoices UNNEEDED,
 		     struct invoice *pinvoice UNNEEDED,
 		     u64 *msatoshi TAKES UNNEEDED,
-		     const char *label TAKES UNNEEDED,
+		     const struct json_escaped *label TAKES UNNEEDED,
 		     u64 expiry UNNEEDED,
 		     const char *b11enc UNNEEDED,
 		     const struct preimage *r UNNEEDED,
@@ -125,7 +125,7 @@ void invoices_delete_expired(struct invoices *invoices UNNEEDED,
 /* Generated stub for invoices_find_by_label */
 bool invoices_find_by_label(struct invoices *invoices UNNEEDED,
 			    struct invoice *pinvoice UNNEEDED,
-			    const char *label UNNEEDED)
+			    const struct json_escaped *label UNNEEDED)
 { fprintf(stderr, "invoices_find_by_label called!\n"); abort(); }
 /* Generated stub for invoices_find_unpaid */
 bool invoices_find_unpaid(struct invoices *invoices UNNEEDED,
@@ -181,7 +181,8 @@ void json_add_bool(struct json_result *result UNNEEDED, const char *fieldname UN
 		   bool value UNNEEDED)
 { fprintf(stderr, "json_add_bool called!\n"); abort(); }
 /* Generated stub for json_add_escaped_string */
-void json_add_escaped_string(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
+void json_add_escaped_string(struct json_result *result UNNEEDED,
+			     const char *fieldname UNNEEDED,
 			     const struct json_escaped *esc TAKES UNNEEDED)
 { fprintf(stderr, "json_add_escaped_string called!\n"); abort(); }
 /* Generated stub for json_add_hex */
@@ -230,6 +231,10 @@ void json_array_start(struct json_result *ptr UNNEEDED, const char *fieldname UN
 /* Generated stub for json_escape */
 struct json_escaped *json_escape(const tal_t *ctx UNNEEDED, const char *str TAKES UNNEEDED)
 { fprintf(stderr, "json_escape called!\n"); abort(); }
+/* Generated stub for json_escaped_string_ */
+struct json_escaped *json_escaped_string_(const tal_t *ctx UNNEEDED,
+					  const void *bytes UNNEEDED, size_t len UNNEEDED)
+{ fprintf(stderr, "json_escaped_string_ called!\n"); abort(); }
 /* Generated stub for json_get_params */
 bool json_get_params(struct command *cmd UNNEEDED,
 		     const char *buffer UNNEEDED, const jsmntok_t param[] UNNEEDED, ...)

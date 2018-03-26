@@ -1369,7 +1369,7 @@ bool wallet_invoice_load(struct wallet *wallet)
 bool wallet_invoice_create(struct wallet *wallet,
 			   struct invoice *pinvoice,
 			   u64 *msatoshi TAKES,
-			   const char *label TAKES,
+			   const struct json_escaped *label TAKES,
 			   u64 expiry,
 			   const char *b11enc,
 			   const struct preimage *r,
@@ -1379,7 +1379,7 @@ bool wallet_invoice_create(struct wallet *wallet,
 }
 bool wallet_invoice_find_by_label(struct wallet *wallet,
 				  struct invoice *pinvoice,
-				  const char *label)
+				  const struct json_escaped *label)
 {
 	return invoices_find_by_label(wallet->invoices, pinvoice, label);
 }

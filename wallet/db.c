@@ -1,6 +1,7 @@
 #include "db.h"
 
 #include <ccan/tal/str/str.h>
+#include <common/json_escaped.h>
 #include <common/version.h>
 #include <inttypes.h>
 #include <lightningd/lightningd.h>
@@ -757,5 +758,20 @@ struct secret *sqlite3_column_secrets(const tal_t *ctx,
 bool sqlite3_bind_sha256_double(sqlite3_stmt *stmt, int col, const struct sha256_double *p)
 {
 	sqlite3_bind_blob(stmt, col, p, sizeof(struct sha256_double), SQLITE_TRANSIENT);
+	return true;
+}
+
+struct json_escaped *sqlite3_column_json_escaped(const tal_t *ctx,
+						 sqlite3_stmt *stmt, int col)
+{
+	return json_escaped_string_(ctx,
+				    sqlite3_column_blob(stmt, col),
+				    sqlite3_column_bytes(stmt, col));
+}
+
+bool sqlite3_bind_json_escaped(sqlite3_stmt *stmt, int col,
+			       const struct json_escaped *esc)
+{
+	sqlite3_bind_text(stmt, col, esc->s, strlen(esc->s), SQLITE_TRANSIENT);
 	return true;
 }

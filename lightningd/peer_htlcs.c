@@ -4,6 +4,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/gen_channel_wire.h>
+#include <common/json_escaped.h>
 #include <common/overflows.h>
 #include <common/sphinx.h>
 #include <gossipd/gen_gossip_wire.h>
@@ -299,9 +300,9 @@ static void handle_localpay(struct htlc_in *hin,
 	}
 
 	log_info(ld->log, "Resolving invoice '%s' with HTLC %"PRIu64,
-		 details.label, hin->key.id);
+		 details.label->s, hin->key.id);
 	log_debug(ld->log, "%s: Actual amount %"PRIu64"msat, HTLC expiry %u",
-		  details.label, hin->msatoshi, cltv_expiry);
+		  details.label->s, hin->msatoshi, cltv_expiry);
 	fulfill_htlc(hin, &details.r);
 	wallet_invoice_resolve(ld->wallet, invoice, hin->msatoshi);
 
