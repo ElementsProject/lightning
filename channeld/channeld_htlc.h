@@ -70,11 +70,6 @@ static inline struct htlc *htlc_get(struct htlc_map *htlcs, u64 id, enum side ow
 	return NULL;
 }
 
-static inline size_t htlc_map_count(const struct htlc_map *htlcs)
-{
-	return htlcs->raw.elems;
-}
-
 /* FIXME: Move these out of the hash! */
 static inline bool htlc_is_dead(const struct htlc *htlc)
 {

@@ -187,11 +187,6 @@ static inline bool channel_active(const struct channel *channel)
 		&& !channel_on_chain(channel);
 }
 
-static inline bool channel_wants_reconnect(const struct channel *channel)
-{
-	return channel->state <= CLOSINGD_COMPLETE;
-}
-
 void derive_channel_seed(struct lightningd *ld, struct privkey *seed,
 			 const struct pubkey *peer_id,
 			 const u64 dbid);
