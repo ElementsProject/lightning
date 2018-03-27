@@ -369,6 +369,9 @@ static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 	struct peer *p;
 	struct utxo **utxos =
 	    wallet_get_utxos(cmd, cmd->ld->wallet, output_state_available);
+	char* out;
+	struct ripemd160 h160;
+	struct pubkey funding_pubkey;
 	json_object_start(response, NULL);
 	json_array_start(response, "outputs");
 	for (size_t i = 0; i < tal_count(utxos); i++) {
@@ -377,6 +380,26 @@ static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 		json_add_num(response, "output", utxos[i]->outnum);
 		json_add_u64(response, "value", utxos[i]->amount);
 
+		// @closed_info is for outputs that are not yet claimable
+		if (utxos[i]->close_info == NULL) {
+			bip32_pubkey(cmd->ld->wallet->bip32_base, &funding_pubkey,
+				     utxos[i]->keyindex);
+			pubkey_to_hash160(&funding_pubkey, &h160);
+			if (utxos[i]->is_p2sh) {
+					out = p2sh_to_base58(cmd,
+					get_chainparams(cmd->ld)->testnet, &h160);
+			} else {
+				const char *hrp = get_chainparams(cmd->ld)->bip173_name;
+				/* out buffer is 73 + strlen(human readable part). see bech32.h */
+				out = tal_arr(cmd, char, 73 + strlen(hrp));
+				bool ok = segwit_addr_encode(out, hrp, 0, h160.u.u8, sizeof(h160.u.u8));
+				if (!ok) {
+					command_fail(cmd, "p2wpkh address encoding failure.");
+					return;
+				}
+			}
+		        json_add_string(response, "address", out);
+		}
 		if (utxos[i]->spendheight)
 			json_add_string(response, "status", "spent");
 		else if (utxos[i]->blockheight)
