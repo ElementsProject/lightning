@@ -10,6 +10,7 @@ RUN apt-get -qq update && \
 	autoconf \
 	automake \
 	clang \
+	cppcheck \
 	eatmydata \
 	software-properties-common \
 	build-essential \
