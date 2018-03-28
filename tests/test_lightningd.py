@@ -475,6 +475,29 @@ class LightningDTests(BaseLightningDTests):
         b11 = l1.rpc.decodepay(inv['bolt11'])
         assert b11['description'] == weird_desc
 
+        # Can delete by weird label.
+        l1.rpc.delinvoice(weird_label, "unpaid")
+
+        # We can also use numbers as labels.
+        weird_label = 25
+        weird_desc = '"'
+        l1.rpc.invoice(123000, weird_label, weird_desc)
+        # FIXME: invoice RPC should return label!
+
+        # Can find by this label.
+        inv = l1.rpc.listinvoices(weird_label)['invoices'][0]
+        assert inv['label'] == str(weird_label)
+
+        # Can find this in list.
+        inv = l1.rpc.listinvoices()['invoices'][0]
+        assert inv['label'] == str(weird_label)
+
+        b11 = l1.rpc.decodepay(inv['bolt11'])
+        assert b11['description'] == weird_desc
+
+        # Can delete by weird label.
+        l1.rpc.delinvoice(weird_label, "unpaid")
+
     def test_invoice_expiry(self):
         l1, l2 = self.connect()
 

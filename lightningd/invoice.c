@@ -104,6 +104,29 @@ static bool hsm_sign_b11(const u5 *u5bytes,
 	return true;
 }
 
+/* We allow a string, or a literal number, for labels */
+static struct json_escaped *json_tok_label(const tal_t *ctx,
+					   const char *buffer,
+					   const jsmntok_t *tok)
+{
+	struct json_escaped *label;
+
+	label = json_tok_escaped_string(ctx, buffer, tok);
+	if (label)
+		return label;
+
+	/* Allow literal numbers */
+	if (tok->type != JSMN_PRIMITIVE)
+		return NULL;
+
+	for (int i = tok->start; i < tok->end; i++)
+		if (!cisdigit(buffer[i]))
+			return NULL;
+
+	return json_escaped_string_(ctx, buffer + tok->start,
+				    tok->end - tok->start);
+}
+
 static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
@@ -148,9 +171,9 @@ static void json_invoice(struct command *cmd,
 		}
 	}
 	/* label */
-	label_val = json_tok_escaped_string(cmd, buffer, label);
+	label_val = json_tok_label(cmd, buffer, label);
 	if (!label_val) {
-		command_fail(cmd, "label '%.*s' not a string",
+		command_fail(cmd, "label '%.*s' not a string or number",
 			     label->end - label->start, buffer + label->start);
 		return;
 	}
@@ -306,9 +329,9 @@ static void json_listinvoice_internal(struct command *cmd,
 	}
 
 	if (labeltok) {
-		label = json_tok_escaped_string(cmd, buffer, labeltok);
+		label = json_tok_label(cmd, buffer, labeltok);
 		if (!label) {
-			command_fail(cmd, "label '%.*s' is not a string",
+			command_fail(cmd, "label '%.*s' is not a string or number",
 				     labeltok->end - labeltok->start,
 				     buffer + labeltok->start);
 			return;
@@ -374,9 +397,9 @@ static void json_delinvoice(struct command *cmd,
 		return;
 	}
 
-	label = json_tok_escaped_string(cmd, buffer, labeltok);
+	label = json_tok_label(cmd, buffer, labeltok);
 	if (!label) {
-		command_fail(cmd, "label '%.*s' not a string",
+		command_fail(cmd, "label '%.*s' is not a string or number",
 			     labeltok->end - labeltok->start,
 			     buffer + labeltok->start);
 		return;
@@ -567,9 +590,9 @@ static void json_waitinvoice(struct command *cmd,
 	}
 
 	/* Search for invoice */
-	label = json_tok_escaped_string(cmd, buffer, labeltok);
+	label = json_tok_label(cmd, buffer, labeltok);
 	if (!label) {
-		command_fail(cmd, "label '%.*s' is not a string",
+		command_fail(cmd, "label '%.*s' is not a string or number",
 			     labeltok->end - labeltok->start,
 			     buffer + labeltok->start);
 		return;
