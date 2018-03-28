@@ -183,6 +183,12 @@ static bool grind_feerate(struct bitcoin_tx *commit_tx,
 		narrow_feerate_range(fee, multiplier);
 		return true;
 	}
+	status_broken("grind_feerate failed from %u - %u"
+		      " for tx %s, signature %s, multiplier %"PRIu64,
+		      feerate_range.min, feerate_range.max,
+		      type_to_string(tmpctx, struct bitcoin_tx, commit_tx),
+		      type_to_string(tmpctx, secp256k1_ecdsa_signature, remotesig),
+		      multiplier);
 	return false;
 }
 
