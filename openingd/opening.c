@@ -776,7 +776,7 @@ int main(int argc, char *argv[])
 	status_trace("Sent %s with fd",
 		     opening_wire_type_name(fromwire_peektype(msg)));
 	tal_free(state);
-	tal_free(tmpctx);
+	subdaemon_shutdown();
 	return 0;
 }
 #endif /* TESTING */

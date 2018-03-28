@@ -101,3 +101,9 @@ void subdaemon_setup(int argc, char *argv[])
 	}
 #endif
 }
+
+void subdaemon_shutdown(void)
+{
+	tal_free(tmpctx);
+	secp256k1_context_destroy(secp256k1_ctx);
+}

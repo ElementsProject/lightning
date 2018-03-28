@@ -4,4 +4,7 @@
 
 void subdaemon_setup(int argc, char *argv[]);
 
+/* Shutdown for a valgrind-clean exit (frees everything) */
+void subdaemon_shutdown(void);
+
 #endif /* LIGHTNING_COMMON_SUBDAEMON_H */
