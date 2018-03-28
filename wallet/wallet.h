@@ -790,8 +790,18 @@ void wallet_block_remove(struct wallet *w, struct block *b);
  */
 void wallet_blocks_rollback(struct wallet *w, u32 height);
 
-void wallet_outpoint_spend(struct wallet *w, const u32 blockheight,
-			   const struct bitcoin_txid *txid, const u32 outnum);
+/**
+ * Mark an outpoint as spent, both in the owned as well as the UTXO set
+ *
+ * Given the outpoint (txid, outnum), and the blockheight, mark the
+ * corresponding DB entries as spent at the blockheight.
+ *
+ * @return scid The short_channel_id corresponding to the spent outpoint, if
+ *         any.
+ */
+const struct short_channel_id *
+wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
+		      const struct bitcoin_txid *txid, const u32 outnum);
 
 struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 					  const struct short_channel_id *scid);

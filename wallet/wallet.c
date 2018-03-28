@@ -2016,10 +2016,13 @@ void wallet_blocks_rollback(struct wallet *w, u32 height)
 	db_exec_prepared(w->db, stmt);
 }
 
-void wallet_outpoint_spend(struct wallet *w, const u32 blockheight,
-			   const struct bitcoin_txid *txid, const u32 outnum)
+const struct short_channel_id *
+wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
+		      const struct bitcoin_txid *txid, const u32 outnum)
 {
+	struct short_channel_id *scid;
 	sqlite3_stmt *stmt;
+	int res;
 	if (outpointfilter_matches(w->owned_outpoints, txid, outnum)) {
 		stmt = db_prepare(w->db,
 				  "UPDATE outputs "
@@ -2046,7 +2049,29 @@ void wallet_outpoint_spend(struct wallet *w, const u32 blockheight,
 		sqlite3_bind_int(stmt, 3, outnum);
 
 		db_exec_prepared(w->db, stmt);
+
+		if (sqlite3_changes(w->db->sql) == 0) {
+			return NULL;
+		}
+
+		/* Now look for the outpoint's short_channel_id */
+		stmt = db_prepare(w->db,
+				  "SELECT blockheight, txindex "
+				  "FROM utxoset "
+				  "WHERE txid = ? AND outnum = ?");
+		sqlite3_bind_sha256_double(stmt, 1, &txid->shad);
+		sqlite3_bind_int(stmt, 2, outnum);
+
+		res = sqlite3_step(stmt);
+		assert(res == SQLITE_ROW);
+
+		scid = tal(ctx, struct short_channel_id);
+		mk_short_channel_id(scid, sqlite3_column_int(stmt, 0),
+				    sqlite3_column_int(stmt, 1), outnum);
+		sqlite3_finalize(stmt);
+		return scid;
 	}
+	return NULL;
 }
 
 void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
