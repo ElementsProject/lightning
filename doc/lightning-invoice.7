@@ -2,12 +2,12 @@
 .\"     Title: lightning-invoice
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 01/16/2018
+.\"      Date: 03/28/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-INVOICE" "7" "01/16/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-INVOICE" "7" "03/28/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -38,9 +38,9 @@ The \fBinvoice\fR RPC command creates the expectation of a payment of a given am
 .sp
 The \fImsatoshi\fR can be the string "any", which creates an invoice that can be paid with any amount\&.
 .sp
-The \fIlabel\fR must be unique; it is never revealed to other nodes on the lightning network, but it can be used to query the status of this invoice\&.
+The \fIlabel\fR must be a unique string or number (which is treated as a string, so "01" is different from "1"); it is never revealed to other nodes on the lightning network, but it can be used to query the status of this invoice\&.
 .sp
-The \fIdescription\fR is a short description of purpose of payment, e\&.g\&. \fI1 cup of coffee\fR\&. This value is encoded into the BOLT11 invoice and is viewable by any node you send this invoice to\&.
+The \fIdescription\fR is a short description of purpose of payment, e\&.g\&. \fI1 cup of coffee\fR\&. This value is encoded into the BOLT11 invoice and is viewable by any node you send this invoice to\&. It must be UTF\-8, and cannot use \fI\eu\fR JSON escape codes\&.
 .sp
 The \fIexpiry\fR is optionally the number of seconds the invoice is valid for\&. If no value is provided the default of 3600 (1 Hour) is used\&.
 .SH "RETURN VALUE"

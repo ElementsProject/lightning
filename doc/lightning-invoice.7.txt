@@ -19,9 +19,10 @@ lightning daemon can use to pay this invoice.
 The 'msatoshi' can be the string "any", which creates an invoice
 that can be paid with any amount.
 
-The 'label' must be a unique string; it is never revealed to other nodes on
-the lightning network, but it can be used to query the status of this
-invoice.
+The 'label' must be a unique string or number (which is treated as a
+string, so "01" is different from "1"); it is never revealed to other
+nodes on the lightning network, but it can be used to query the status
+of this invoice.
 
 The 'description' is a short description of purpose of payment,
 e.g. '1 cup of coffee'. This value is encoded into the BOLT11 invoice
