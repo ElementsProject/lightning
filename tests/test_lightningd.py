@@ -2213,6 +2213,49 @@ class LightningDTests(BaseLightningDTests):
         assert l3.info['id'] not in [n['nodeid'] for n in l1.rpc.listnodes()['nodes']]
         assert l3.info['id'] not in [n['nodeid'] for n in l2.rpc.listnodes()['nodes']]
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-no-reconnect")
+    def test_gossip_persistence(self):
+        """Gossip for a while, restart and it should remember.
+
+        Also tests for funding outpoint spends, and they should be persisted
+        too.
+        """
+        opts = ['--dev-no-reconnect']
+        l1 = self.node_factory.get_node(options=opts)
+        l2 = self.node_factory.get_node(options=opts)
+        l3 = self.node_factory.get_node(options=opts)
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        l2.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
+
+        self.fund_channel(l1, l2, 10**6)
+        self.fund_channel(l2, l3, 10**6)
+
+        l1.bitcoin.rpc.generate(6)
+
+        # Channels should be activated
+        wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True] * 4)
+        wait_for(lambda: [c['active'] for c in l2.rpc.listchannels()['channels']] == [True] * 4)
+        wait_for(lambda: [c['active'] for c in l3.rpc.listchannels()['channels']] == [True] * 4)
+
+        # l1 restarts and doesn't connect, but loads from persisted store
+        l1.restart()
+        assert [c['active'] for c in l1.rpc.listchannels()['channels']] == [True] * 4
+
+        # Now spend the funding tx, generate a block and see others deleting the
+        # channel from their network view
+        l1.rpc.dev_fail(l2.info['id'])
+        time.sleep(1)
+        l1.bitcoin.rpc.generate(1)
+
+        wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True] * 2)
+        wait_for(lambda: [c['active'] for c in l2.rpc.listchannels()['channels']] == [True] * 2)
+        wait_for(lambda: [c['active'] for c in l3.rpc.listchannels()['channels']] == [True] * 2)
+
+        # Finally, it should also remember the deletion after a restart
+        l3.restart()
+        assert [c['active'] for c in l3.rpc.listchannels()['channels']] == [True] * 2
+
     def ping_tests(self, l1, l2):
         # 0-byte pong gives just type + length field.
         ret = l1.rpc.dev_ping(l2.info['id'], 0, 0)
