@@ -77,7 +77,8 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		satoshi_owned = 0;
 		if (txfilter_match(topo->bitcoind->ld->owned_txfilter, tx)) {
 			wallet_extract_owned_outputs(topo->bitcoind->ld->wallet,
-						     tx, b, &satoshi_owned);
+						     tx, &b->height,
+						     &satoshi_owned);
 		}
 
 		/* We did spends first, in case that tells us to watch tx. */

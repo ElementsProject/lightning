@@ -12,16 +12,6 @@ static inline bool add_overflows_u64(uint64_t a, uint64_t b)
 	return (a + b) < a;
 }
 
-static inline bool mul_overflows_s64(int64_t a, int64_t b)
-{
-	int64_t ret;
-
-	if (a == 0)
-		return false;
-	ret = a * b;
-	return (ret / a != b);
-}
-
 static inline bool mul_overflows_u64(uint64_t a, uint64_t b)
 {
 	uint64_t ret;
