@@ -1991,6 +1991,24 @@ static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
 					     struct daemon *daemon,
 					     const u8 *msg)
 {
+	struct short_channel_id scid;
+	struct chan *chan;
+	struct routing_state *rstate = daemon->rstate;
+	if (!fromwire_gossip_outpoint_spent(msg, &scid))
+		master_badmsg(WIRE_GOSSIP_ROUTING_FAILURE, msg);
+
+	chan = get_channel(rstate, &scid);
+	if (chan) {
+		status_trace(
+		    "Deleting channel %s due to the funding outpoint being "
+		    "spent",
+		    type_to_string(msg, struct short_channel_id, &scid));
+		/* Freeing is sufficient since everything else is allocated off
+		 * of the channel and the destructor takes care of unregistering
+		 * the channel */
+		tal_free(chan);
+	}
+
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
