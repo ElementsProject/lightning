@@ -406,13 +406,17 @@ static void updates_complete(struct chain_topology *topo)
  */
 static void topo_update_spends(struct chain_topology *topo, struct block *b)
 {
+	const struct short_channel_id *scid;
 	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
 		const struct bitcoin_tx *tx = b->full_txs[i];
 		for (size_t j = 0; j < tal_count(tx->input); j++) {
 			const struct bitcoin_tx_input *input = &tx->input[j];
-			wallet_outpoint_spend(topo->wallet, b->height,
-					      &input->txid,
-					      input->index);
+			scid = wallet_outpoint_spend(topo->wallet, tmpctx,
+						     b->height, &input->txid,
+						     input->index);
+			if (scid) {
+				tal_free(scid);
+			}
 		}
 	}
 }
