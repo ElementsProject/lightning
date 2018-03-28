@@ -29,6 +29,9 @@ bool fromwire_channel_update(const void *p UNNEEDED, secp256k1_ecdsa_signature *
 /* Generated stub for fromwire_gossip_store_channel_announcement */
 bool fromwire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **announcement UNNEEDED, u64 *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_store_channel_announcement called!\n"); abort(); }
+/* Generated stub for fromwire_gossip_store_channel_delete */
+bool fromwire_gossip_store_channel_delete(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED)
+{ fprintf(stderr, "fromwire_gossip_store_channel_delete called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_store_channel_update */
 bool fromwire_gossip_store_channel_update(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **update UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_store_channel_update called!\n"); abort(); }
@@ -72,6 +75,9 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 /* Generated stub for towire_gossip_store_channel_announcement */
 u8 *towire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED, u64 satoshis UNNEEDED)
 { fprintf(stderr, "towire_gossip_store_channel_announcement called!\n"); abort(); }
+/* Generated stub for towire_gossip_store_channel_delete */
+u8 *towire_gossip_store_channel_delete(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED)
+{ fprintf(stderr, "towire_gossip_store_channel_delete called!\n"); abort(); }
 /* Generated stub for towire_gossip_store_channel_update */
 u8 *towire_gossip_store_channel_update(const tal_t *ctx UNNEEDED, const u8 *update UNNEEDED)
 { fprintf(stderr, "towire_gossip_store_channel_update called!\n"); abort(); }

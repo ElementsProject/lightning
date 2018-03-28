@@ -2007,6 +2007,7 @@ static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
 		 * of the channel and the destructor takes care of unregistering
 		 * the channel */
 		tal_free(chan);
+		gossip_store_add_channel_delete(rstate->store, &scid);
 	}
 
 	return daemon_conn_read_next(conn, &daemon->master);
@@ -2096,6 +2097,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_STORE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_GOSSIP_STORE_CHANNEL_UPDATE:
 	case WIRE_GOSSIP_STORE_NODE_ANNOUNCEMENT:
+	case WIRE_GOSSIP_STORE_CHANNEL_DELETE:
 		break;
 	}
 

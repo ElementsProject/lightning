@@ -3,6 +3,7 @@
 
 #include "config.h"
 
+#include <bitcoin/short_channel_id.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <gossipd/routing.h>
@@ -43,5 +44,11 @@ void gossip_store_add_channel_update(struct gossip_store *gs,
  */
 void gossip_store_add_node_announcement(struct gossip_store *gs,
 					const u8 *gossip_msg);
+
+/**
+ * Remember that we deleted a channel as a result of its outpoint being spent
+ */
+void gossip_store_add_channel_delete(struct gossip_store *gs,
+				     const struct short_channel_id *scid);
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_H */

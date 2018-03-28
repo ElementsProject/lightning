@@ -153,6 +153,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_STORE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_GOSSIP_STORE_CHANNEL_UPDATE:
 	case WIRE_GOSSIP_STORE_NODE_ANNOUNCEMENT:
+	case WIRE_GOSSIP_STORE_CHANNEL_DELETE:
 		break;
 	/* These are inter-daemon messages, not received by us */
 	case WIRE_GOSSIP_LOCAL_ADD_CHANNEL:
