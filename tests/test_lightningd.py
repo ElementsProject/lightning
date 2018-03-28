@@ -4060,7 +4060,6 @@ class LightningDTests(BaseLightningDTests):
 
     def test_peerinfo(self):
         l1, l2 = self.connect()
-
         # Gossiping but no node announcement yet
         assert l1.rpc.getpeer(l2.info['id'])['state'] == "GOSSIPING"
         assert 'alias' not in l1.rpc.getpeer(l2.info['id'])
@@ -4082,15 +4081,9 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(100)
         l1.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')
 
-        # Reconnect
-        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
-        l1.daemon.wait_for_log('WIRE_GOSSIP_PEER_CONNECTED')
-
-        # This time we already know about this node. So the node information appears even in
-        # GOSSIPING state
-        assert l1.rpc.getpeer(l2.info['id'])['state'] == "GOSSIPING"
-        assert l1.rpc.getpeer(l2.info['id'])['alias'] == l1.rpc.listnodes(l2.info['id'])['nodes'][0]['alias']
-        assert l1.rpc.getpeer(l2.info['id'])['color'] == l1.rpc.listnodes(l2.info['id'])['nodes'][0]['color']
+        # The only channel was closed, everybody should have forgotten the nodes
+        assert l1.rpc.listnodes()['nodes'] == []
+        assert l2.rpc.listnodes()['nodes'] == []
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_blockchaintrack(self):
