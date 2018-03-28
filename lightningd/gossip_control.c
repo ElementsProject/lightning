@@ -216,6 +216,13 @@ void gossip_init(struct lightningd *ld)
 	subd_send_msg(ld->gossip, msg);
 }
 
+void gossipd_notify_spend(struct lightningd *ld,
+			  const struct short_channel_id *scid)
+{
+	u8 *msg = towire_gossip_outpoint_spent(tmpctx, scid);
+	subd_send_msg(ld->gossip, msg);
+}
+
 static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 				const int *fds UNUSED,
 				struct command *cmd)

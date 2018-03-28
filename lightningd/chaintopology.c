@@ -16,6 +16,7 @@
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <inttypes.h>
+#include <lightningd/gossip_control.h>
 
 /* Mutual recursion via timer. */
 static void try_extend_tip(struct chain_topology *topo);
@@ -415,6 +416,7 @@ static void topo_update_spends(struct chain_topology *topo, struct block *b)
 						     b->height, &input->txid,
 						     input->index);
 			if (scid) {
+				gossipd_notify_spend(topo->bitcoind->ld, scid);
 				tal_free(scid);
 			}
 		}
