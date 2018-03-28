@@ -2753,6 +2753,6 @@ int main(int argc, char *argv[])
 	/* We only exit when shutdown is complete. */
 	assert(shutdown_complete(peer));
 	send_shutdown_complete(peer);
-	tal_free(tmpctx);
+	subdaemon_shutdown();
 	return 0;
 }

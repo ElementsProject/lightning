@@ -842,6 +842,8 @@ int main(int argc, char *argv[])
 	/* When conn closes, everything is freed. */
 	tal_steal(client->dc.conn, client);
 	io_loop(NULL, NULL);
+	subdaemon_shutdown();
+
 	return 0;
 }
 #endif
