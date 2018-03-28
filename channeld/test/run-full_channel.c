@@ -335,8 +335,7 @@ int main(void)
 	const u8 *funding_wscript, **wscripts;
 	size_t i;
 
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
+	secp256k1_ctx = wally_get_secp_context();
 	setup_tmpctx();
 
 	feerate_per_kw = tal_arr(tmpctx, u32, NUM_SIDES);
@@ -623,7 +622,7 @@ int main(void)
 	}
 
 	/* No memory leaks please */
-	secp256k1_context_destroy(secp256k1_ctx);
+	wally_cleanup(0);
 	tal_free(tmpctx);
 
 	/* FIXME: Do BOLT comparison! */

@@ -288,8 +288,7 @@ int main(int argc, char *argv[])
 #endif
 
 	ld = new_lightningd(NULL);
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
+	secp256k1_ctx = wally_get_secp_context();
 	setup_tmpctx();
 
 	io_poll_override(debug_poll);
@@ -428,6 +427,6 @@ int main(int argc, char *argv[])
 	memleak_cleanup();
 #endif
 	take_cleanup();
-	secp256k1_context_destroy(secp256k1_ctx);
+	wally_cleanup(0);
 	return 0;
 }

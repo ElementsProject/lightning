@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <wally_core.h>
 
 #if BACKTRACE_SUPPORTED
 static struct backtrace_state *backtrace_state;
@@ -75,8 +76,7 @@ void subdaemon_setup(int argc, char *argv[])
 
 	/* We handle write returning errors! */
 	signal(SIGPIPE, SIG_IGN);
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
+	secp256k1_ctx = wally_get_secp_context();
 
 	setup_tmpctx();
 
@@ -105,5 +105,5 @@ void subdaemon_setup(int argc, char *argv[])
 void subdaemon_shutdown(void)
 {
 	tal_free(tmpctx);
-	secp256k1_context_destroy(secp256k1_ctx);
+	wally_cleanup(0);
 }

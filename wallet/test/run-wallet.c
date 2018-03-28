@@ -24,6 +24,7 @@ static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const c
 #include <stddef.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <wally_core.h>
 
 bool deprecated_apis = true;
 
@@ -1004,11 +1005,6 @@ int main(void)
 
 	take_cleanup();
 	tal_free(tmpctx);
-
-	/* FIXME! https://github.com/ElementsProject/libwally-core/issues/26 */
-	{
-		secp256k1_context *secp_ctx(void);
-		secp256k1_context_destroy(secp_ctx());
-	}
+	wally_cleanup(0);
 	return !ok;
 }
