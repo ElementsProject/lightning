@@ -164,6 +164,10 @@ struct routing_state {
 
         /* A map of channels indexed by short_channel_ids */
 	UINTMAP(struct chan *) chanmap;
+
+	/* Nodes waiting to be informed to the lightningd as being
+	 * recently seen alive. */
+	struct pubkey *nodestats_to_mark_seen;
 };
 
 static inline struct chan *
@@ -288,5 +292,15 @@ void routing_add_channel_update(struct routing_state *rstate,
  */
 bool routing_add_node_announcement(struct routing_state *rstate,
                                   const u8 *msg TAKES);
+
+/**
+ * Get public keys that will be informed to the lightningd as
+ * having been seen recently, and hence should be updated as
+ * alive.
+ * Return a tal_arr of public keys owned by the given ctx.
+ * Return NULL if nothing to inform.
+ */
+struct pubkey *routing_get_nodestats_to_mark_seen(struct routing_state *rstate,
+						  const tal_t *ctx);
 
 #endif /* LIGHTNING_GOSSIPD_ROUTING_H */

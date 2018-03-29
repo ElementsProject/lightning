@@ -112,6 +112,21 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 	}
 }
 
+static void
+gossip_nodestats_mark_seen(struct subd *gossip, const u8 *msg)
+{
+	struct pubkey node;
+	if (!fromwire_gossip_nodestats_mark_seen(msg, &node))
+		fatal("Gossip gave bad GOSSIP_NODESTATS_MARK_SEEN message %s",
+		      tal_hex(msg, msg));
+
+	log_debug(gossip->log,
+		  "Processing GOSSIP_NODESTATS_MARK_SEEN %s",
+		  type_to_string(tmpctx, struct pubkey, &node));
+
+	wallet_nodestats_mark_seen(gossip->ld->wallet, &node);
+}
+
 static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 {
 	enum gossip_wire_type t = fromwire_peektype(msg);
@@ -177,6 +192,9 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 		break;
 	case WIRE_GOSSIP_GET_TXOUT:
 		get_txout(gossip, msg);
+		break;
+	case WIRE_GOSSIP_NODESTATS_MARK_SEEN:
+		gossip_nodestats_mark_seen(gossip, msg);
 		break;
 	}
 	return 0;
