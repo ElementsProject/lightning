@@ -73,12 +73,4 @@ static inline const char *side_to_str(enum side side)
 	}
 	abort();
 }
-
-static inline enum side str_to_side(const char *str)
-{
-	if (streq(str, "LOCAL"))
-		return LOCAL;
-	assert(streq(str, "REMOTE"));
-	return REMOTE;
-}
 #endif /* LIGHTNING_COMMON_HTLC_H */

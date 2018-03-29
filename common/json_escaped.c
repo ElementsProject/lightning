@@ -24,11 +24,6 @@ struct json_escaped *json_tok_escaped_string(const tal_t *ctx,
 				    tok->end - tok->start);
 }
 
-bool json_escaped_streq(const struct json_escaped *esc, const char *str)
-{
-	return streq(esc->s, str);
-}
-
 bool json_escaped_eq(const struct json_escaped *a,
 		     const struct json_escaped *b)
 {
