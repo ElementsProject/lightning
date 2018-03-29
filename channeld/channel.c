@@ -30,7 +30,6 @@
 #include <common/derive_basepoints.h>
 #include <common/dev_disconnect.h>
 #include <common/htlc_tx.h>
-#include <common/io_debug.h>
 #include <common/key_derive.h>
 #include <common/msg_queue.h>
 #include <common/peer_billboard.h>
@@ -2753,6 +2752,6 @@ int main(int argc, char *argv[])
 	/* We only exit when shutdown is complete. */
 	assert(shutdown_complete(peer));
 	send_shutdown_complete(peer);
-	subdaemon_shutdown();
+	daemon_shutdown();
 	return 0;
 }

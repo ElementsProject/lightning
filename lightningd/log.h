@@ -87,14 +87,16 @@ void log_each_line_(const struct log_book *lr,
 		    void *arg);
 
 
-void log_dump_to_file(int fd, const struct log_book *lr);
 void opt_register_logging(struct lightningd *ld);
-void crashlog_activate(const char *argv0, struct log *log);
 
 char *arg_log_to_file(const char *arg, struct lightningd *ld);
 
-/* Before the crashlog is activated, just prints to stderr. */
+/* Once this is set, we dump fatal with a backtrace to this log */
+extern struct log *crashlog;
 void NORETURN PRINTF_FMT(1,2) fatal(const char *fmt, ...);
+
+void log_backtrace_print(const char *fmt, ...);
+void log_backtrace_exit(void);
 
 /* Adds an array showing log entries */
 void json_add_log(struct json_result *result,

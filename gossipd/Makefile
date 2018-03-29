@@ -39,11 +39,11 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/crypto_state.o			\
 	common/crypto_sync.o			\
 	common/cryptomsg.o			\
+	common/daemon.o				\
 	common/daemon_conn.o			\
 	common/dev_disconnect.o			\
 	common/features.o			\
 	common/gen_status_wire.o		\
-	common/io_debug.o			\
 	common/msg_queue.o			\
 	common/ping.o				\
 	common/pseudorand.o			\

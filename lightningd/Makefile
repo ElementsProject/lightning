@@ -20,6 +20,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/channel_config.o			\
 	common/configdir.o			\
 	common/crypto_state.o			\
+	common/daemon.o				\
 	common/derive_basepoints.o		\
 	common/features.o			\
 	common/funding_tx.o			\
@@ -28,7 +29,6 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/hash_u5.o			\
 	common/htlc_state.o			\
 	common/htlc_wire.o			\
-	common/io_debug.o			\
 	common/key_derive.o			\
 	common/json.o				\
 	common/json_escaped.o			\

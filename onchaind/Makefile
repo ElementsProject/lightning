@@ -47,6 +47,7 @@ $(LIGHTNINGD_ONCHAIN_OBJS): $(LIGHTNINGD_HEADERS)
 
 # Common source we use.
 ONCHAIND_COMMON_OBJS :=				\
+	common/daemon.o				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\

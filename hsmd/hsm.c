@@ -18,7 +18,6 @@
 #include <common/derive_basepoints.h>
 #include <common/funding_tx.h>
 #include <common/hash_u5.h>
-#include <common/io_debug.h>
 #include <common/key_derive.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
@@ -829,7 +828,6 @@ int main(int argc, char *argv[])
 	struct client *client;
 
 	subdaemon_setup(argc, argv);
-	io_poll_override(debug_poll);
 
 	client = new_client(NULL, NULL, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP, handle_client, STDIN_FILENO);
 
@@ -842,7 +840,7 @@ int main(int argc, char *argv[])
 	/* When conn closes, everything is freed. */
 	tal_steal(client->dc.conn, client);
 	io_loop(NULL, NULL);
-	subdaemon_shutdown();
+	daemon_shutdown();
 
 	return 0;
 }
