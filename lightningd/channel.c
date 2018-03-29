@@ -312,6 +312,10 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 		channel->error = towire_errorfmt(channel, &cid, "%s", why);
 	}
 
+	/* Update channel failures for that node. */
+	wallet_nodestats_incr_channel_failures(channel->peer->ld->wallet,
+					       &channel->peer->id);
+
 	channel_set_owner(channel, NULL);
 	drop_to_chain(ld, channel);
 	tal_free(why);

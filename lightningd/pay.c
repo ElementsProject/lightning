@@ -179,9 +179,36 @@ sendpay_result_in_progress(const tal_t *ctx,
 	return result;
 }
 
+/* Report to wallet nodestats that the specified nodes are
+ * alive. */
+static void
+report_nodestats_alive(struct wallet *wallet,
+		       const struct pubkey *nodes,
+		       int num_nodes)
+{
+	int i;
+	for (i = 0; i < num_nodes; ++i)
+		wallet_nodestats_mark_seen(wallet, &nodes[i]);
+}
+
 void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 		       const struct preimage *rval)
 {
+	struct wallet_payment *payment;
+
+	/* Report all nodes along route as being alive.
+	 * (the payment, would be impossible to succeed, if any
+	 * node on route was down.
+	 * So at this point, we know that very recently, all
+	 * nodes on the route were alive!!) */
+	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
+					 &hout->payment_hash);
+	if (payment)
+		report_nodestats_alive(ld->wallet,
+				       payment->route_nodes,
+				       tal_count(payment->route_nodes));
+
+	/* Set wallet as completed, then trigger any waiters. */
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash,
 				  PAYMENT_COMPLETE, rval);
 	payment_trigger_success(ld, &hout->payment_hash);
@@ -229,7 +256,8 @@ static struct routing_failure*
 immediate_routing_failure(const tal_t *ctx,
 			  const struct lightningd *ld,
 			  enum onion_type failcode,
-			  const struct short_channel_id *channel0)
+			  const struct short_channel_id *channel0,
+			  const struct pubkey *node0)
 {
 	struct routing_failure *routing_failure;
 
@@ -240,6 +268,7 @@ immediate_routing_failure(const tal_t *ctx,
 	routing_failure->failcode = failcode;
 	routing_failure->erring_node = ld->id;
 	routing_failure->erring_channel = *channel0;
+	routing_failure->failing_node = tal_dup(routing_failure, struct pubkey, node0);
 	routing_failure->channel_update = NULL;
 
 	return routing_failure;
@@ -262,6 +291,7 @@ local_routing_failure(const tal_t *ctx,
 	routing_failure->failcode = hout->failcode;
 	routing_failure->erring_node = ld->id;
 	routing_failure->erring_channel = payment->route_channels[0];
+	routing_failure->failing_node = tal_dup(routing_failure, struct pubkey, &payment->route_nodes[0]);
 	routing_failure->channel_update = NULL;
 
 	return routing_failure;
@@ -322,9 +352,16 @@ remote_routing_failure(const tal_t *ctx,
 			report_to_gossipd = true;
 		else
 			report_to_gossipd = false;
-	} else
+		/* Destination is failing, so forwarding failure
+		 * is not exist. */
+		routing_failure->failing_node = NULL;
+	} else {
 		/* Report the *next* channel as failing. */
 		erring_channel = &route_channels[origin_index + 1];
+		/* The node after the erring node is the one
+		 * that failed to accept the payment. */
+		routing_failure->failing_node = tal_dup(routing_failure, struct pubkey, &route_nodes[origin_index + 1]);
+	}
 
 	erring_node = &route_nodes[origin_index];
 
@@ -367,10 +404,15 @@ static void random_mark_channel_unroutable(struct log *log,
 
 static void report_routing_failure(struct log *log,
 				   struct subd *gossip,
-				   struct routing_failure *fail)
+				   struct routing_failure *fail,
+				   struct wallet *wallet)
 {
 	u8 *gossip_msg;
 	assert(fail);
+
+	/* Increment forwarding failure for node that failed */
+	if (fail->failing_node)
+		wallet_nodestats_incr_forwarding_failures(wallet, fail->failing_node);
 
 	log_debug(log,
 		  "Reporting route failure to gossipd: 0x%04x (%s) "
@@ -500,6 +542,12 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 						      &retry_plausible,
 						      &report_to_gossipd,
 						      payment, reply);
+			/* We know at least the nodes from 0 to
+			 * origin are alive, else we would not have
+			 * received the message. */
+			report_nodestats_alive(ld->wallet,
+					       payment->route_nodes,
+					       reply->origin_index + 1);
 		}
 	}
 
@@ -519,7 +567,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 
 	/* Report to gossipd if we decided we should. */
 	if (report_to_gossipd)
-		report_routing_failure(ld->log, ld->gossip, fail);
+		report_routing_failure(ld->log, ld->gossip, fail, ld->wallet);
 
 
 	/* Report to client. */
@@ -606,6 +654,7 @@ bool wait_payment(const tal_t *cxt,
 			fail->failcode = failcode;
 			fail->erring_node = *failnode;
 			fail->erring_channel = *failchannel;
+			fail->failing_node = NULL; /* Benign, only used for node statistics */
 			fail->channel_update = failupdate;
 			result = sendpay_result_route_failure(tmpctx, !faildestperm, fail, NULL, "route failure");
 		}
@@ -723,8 +772,9 @@ send_payment(const tal_t *ctx,
 		/* Report routing failure to gossipd */
 		fail = immediate_routing_failure(ctx, ld,
 						 WIRE_UNKNOWN_NEXT_PEER,
-						 &route[0].channel_id);
-		report_routing_failure(ld->log, ld->gossip, fail);
+						 &route[0].channel_id,
+						 &route[0].nodeid);
+		report_routing_failure(ld->log, ld->gossip, fail, ld->wallet);
 
 		/* Report routing failure to caller */
 		result = sendpay_result_route_failure(tmpctx, true, fail, NULL,
@@ -751,8 +801,9 @@ send_payment(const tal_t *ctx,
 		/* Report routing failure to gossipd */
 		fail = immediate_routing_failure(ctx, ld,
 						 failcode,
-						 &route[0].channel_id);
-		report_routing_failure(ld->log, ld->gossip, fail);
+						 &route[0].channel_id,
+						 &route[0].nodeid);
+		report_routing_failure(ld->log, ld->gossip, fail, ld->wallet);
 
 		/* Report routing failure to caller */
 		result = sendpay_result_route_failure(tmpctx, true, fail, NULL,
