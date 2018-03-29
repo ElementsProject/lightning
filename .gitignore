@@ -42,3 +42,4 @@ gossipd/test/run-responder-success
 test/test_protocol
 test/test_sphinx
 tests/.pytest.restart
+gossip_store
