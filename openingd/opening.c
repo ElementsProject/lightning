@@ -214,7 +214,8 @@ static u8 *funder_channel(struct state *state,
 	u8 *msg;
 	struct bitcoin_tx *tx;
 	struct basepoints theirs;
-	struct pubkey their_funding_pubkey, changekey;
+	struct pubkey their_funding_pubkey;
+	const struct pubkey *changekey;
 	secp256k1_ecdsa_signature sig;
 	u32 minimum_depth;
 	const u8 *wscript;
@@ -322,17 +323,19 @@ static u8 *funder_channel(struct state *state,
 
 	/* Now, ask create funding transaction to pay those two addresses. */
 	if (change_satoshis) {
-		if (!bip32_pubkey(bip32_base, &changekey, change_keyindex))
+		changekey = tal(tmpctx, struct pubkey);
+		if (!bip32_pubkey(bip32_base, changekey, change_keyindex))
 			status_failed(STATUS_FAIL_MASTER_IO,
 				      "Bad change key %u", change_keyindex);
-	}
+	} else
+		changekey = NULL;
 
 	funding = funding_tx(state, &state->funding_txout,
 			     cast_const2(const struct utxo **, utxos),
 			     state->funding_satoshis,
 			     our_funding_pubkey,
 			     &their_funding_pubkey,
-			     change_satoshis, &changekey,
+			     change_satoshis, changekey,
 			     bip32_base);
 	bitcoin_txid(funding, &state->funding_txid);
 
