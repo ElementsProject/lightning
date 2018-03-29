@@ -12,6 +12,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-getroute.7 \
 	doc/lightning-invoice.7 \
 	doc/lightning-listinvoices.7 \
+	doc/lightning-listnodestats.7 \
 	doc/lightning-listpayments.7 \
 	doc/lightning-pay.7 \
 	doc/lightning-sendpay.7 \
