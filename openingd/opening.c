@@ -215,7 +215,7 @@ static u8 *funder_channel(struct state *state,
 	struct bitcoin_tx *tx;
 	struct basepoints theirs;
 	struct pubkey their_funding_pubkey;
-	const struct pubkey *changekey;
+	struct pubkey *changekey;
 	secp256k1_ecdsa_signature sig;
 	u32 minimum_depth;
 	const u8 *wscript;

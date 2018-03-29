@@ -610,7 +610,7 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	struct bitcoin_tx *tx;
 	u16 outnum;
 	size_t i;
-	const struct pubkey *changekey;
+	struct pubkey *changekey;
 	u8 **scriptSigs;
 
 	/* FIXME: Check fee is "reasonable" */
