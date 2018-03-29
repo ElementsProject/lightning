@@ -20,6 +20,7 @@ enum onion_type;
 struct invoices;
 struct channel;
 struct lightningd;
+struct nodestats;
 struct oneshot;
 struct peer;
 struct pubkey;
@@ -31,6 +32,7 @@ struct wallet {
 	struct log *log;
 	struct ext_key *bip32_base;
 	struct invoices *invoices;
+	struct nodestats *nodestats;
 	struct list_head unstored_payments;
 	u64 max_channel_dbid;
 
@@ -126,6 +128,17 @@ struct channel_stats {
 	u64  in_msatoshi_offered,  in_msatoshi_fulfilled;
 	u64 out_payments_offered, out_payments_fulfilled;
 	u64 out_msatoshi_offered, out_msatoshi_fulfilled;
+};
+
+/* Statistics for a node */
+struct nodestats_detail {
+	u64 index;
+	struct pubkey nodeid;
+	u64 time_first_seen;
+	u64 time_last_seen;
+	unsigned int forwarding_failures;
+	unsigned int connect_failures;
+	unsigned int channel_failures;
 };
 
 /**
@@ -810,4 +823,63 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 			const u32 outnum, const u32 blockheight,
 			const u32 txindex, const u8 *scriptpubkey,
 			const u64 satoshis);
+
+/**
+ * wallet_nodestats_mark_seen - Inform wallet that a node was seen.
+ *
+ * @wallet - the wallet
+ * @pubkey - the public key of the node
+ */
+void wallet_nodestats_mark_seen(struct wallet *wallet,
+				const struct pubkey *pubkey);
+
+/**
+ * wallet_nodestats_incr_* - Increment a counter for a node.
+ *
+ * @wallet - the wallet
+ * @pubkey - the public key of the node
+ */
+void wallet_nodestats_incr_forwarding_failures(struct wallet *wallet,
+					       const struct pubkey *pubkey);
+void wallet_nodestats_incr_connect_failures(struct wallet *wallet,
+					    const struct pubkey *pubkey);
+void wallet_nodestats_incr_channel_failures(struct wallet *wallet,
+					    const struct pubkey *pubkey);
+
+/**
+ * wallet_nodestats_iterate - Iterate over node statistics
+ * indices.
+ *
+ * Start iteration by giving 0 to this function.
+ * At each step, give the previous index.
+ * Iteration ends when this function returns 0.
+ *
+ * for (i = wallet_nodestats_iterate(wallet, 0);
+ *      i != 0;
+ *      i = wallet_nodestats_iterate(wallet, i)) {
+ *   ...
+ * }
+ *
+ * @wallet - the wallet
+ * @previndex - the previous index, or 0 to start iteration
+ */
+u64 wallet_nodestats_iterate(struct wallet *wallet, u64 previndex);
+
+/**
+ * wallet_nodestats_get_by_index/pubkey - Get node statistics at
+ * a particular index or node public key.
+ *
+ * @wallet - the wallet
+ * @detail - the nodestats_detail to load with data.
+ * @index/@pubkey - the node statistics entry to load.
+ *
+ * Return false if not found.
+ */
+bool wallet_nodestats_get_by_index(struct wallet *wallet,
+				   struct nodestats_detail *detail,
+				   u64 index);
+bool wallet_nodestats_get_by_pubkey(struct wallet *wallet,
+				    struct nodestats_detail *detail,
+				    const struct pubkey *pubkey);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */

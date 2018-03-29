@@ -276,6 +276,17 @@ char *dbmigrations[] = {
     "  FROM utxoset LEFT OUTER JOIN blocks on (blockheight == blocks.height) "
     "  WHERE blocks.hash IS NULL"
     ");",
+    /* -- Node statistics -- */
+    "CREATE TABLE node_statistics"
+    "     ( id INTEGER PRIMARY KEY AUTOINCREMENT"
+    "     , nodeid BLOB UNIQUE"
+    "     , time_first_seen INTEGER"
+    "     , time_last_seen INTEGER"
+    "     , forwarding_failures INTEGER DEFAULT 0"
+    "     , connect_failures INTEGER DEFAULT 0"
+    "     , channel_failures INTEGER DEFAULT 0"
+    "     );",
+    /* -- Node statistics ends -- */
     NULL,
 };
 

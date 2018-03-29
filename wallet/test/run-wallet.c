@@ -278,6 +278,41 @@ void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED, const char *c
 /* Generated stub for new_json_result */
 struct json_result *new_json_result(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "new_json_result called!\n"); abort(); }
+/* Generated stub for nodestats_get_by_index */
+bool nodestats_get_by_index(struct nodestats *nodestats UNNEEDED,
+			    struct nodestats_detail *detail UNNEEDED,
+			    u64 index UNNEEDED)
+{ fprintf(stderr, "nodestats_get_by_index called!\n"); abort(); }
+/* Generated stub for nodestats_get_by_pubkey */
+bool nodestats_get_by_pubkey(struct nodestats *nodestats UNNEEDED,
+			     struct nodestats_detail *detail UNNEEDED,
+			     const struct pubkey *pubkey UNNEEDED)
+{ fprintf(stderr, "nodestats_get_by_pubkey called!\n"); abort(); }
+/* Generated stub for nodestats_incr_channel_failures */
+void nodestats_incr_channel_failures(struct nodestats *nodestats UNNEEDED,
+				     const struct pubkey *node UNNEEDED)
+{ fprintf(stderr, "nodestats_incr_channel_failures called!\n"); abort(); }
+/* Generated stub for nodestats_incr_connect_failures */
+void nodestats_incr_connect_failures(struct nodestats *nodestats UNNEEDED,
+				     const struct pubkey *node UNNEEDED)
+{ fprintf(stderr, "nodestats_incr_connect_failures called!\n"); abort(); }
+/* Generated stub for nodestats_incr_forwarding_failures */
+void nodestats_incr_forwarding_failures(struct nodestats *nodestats UNNEEDED,
+					const struct pubkey *node UNNEEDED)
+{ fprintf(stderr, "nodestats_incr_forwarding_failures called!\n"); abort(); }
+/* Generated stub for nodestats_iterate */
+u64 nodestats_iterate(struct nodestats *nodestats UNNEEDED,
+		      u64 previndex UNNEEDED)
+{ fprintf(stderr, "nodestats_iterate called!\n"); abort(); }
+/* Generated stub for nodestats_mark_seen */
+void nodestats_mark_seen(struct nodestats *nodestats UNNEEDED,
+			 const struct pubkey *node UNNEEDED)
+{ fprintf(stderr, "nodestats_mark_seen called!\n"); abort(); }
+/* Generated stub for nodestats_new */
+struct nodestats *nodestats_new(const tal_t *ctx UNNEEDED,
+				struct db *db UNNEEDED,
+				struct log *log UNNEEDED)
+{ fprintf(stderr, "nodestats_new called!\n"); abort(); }
 /* Generated stub for null_response */
 struct json_result *null_response(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "null_response called!\n"); abort(); }
