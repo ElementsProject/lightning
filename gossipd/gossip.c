@@ -17,7 +17,6 @@
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
 #include <common/features.h>
-#include <common/io_debug.h>
 #include <common/ping.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
@@ -2118,7 +2117,6 @@ int main(int argc, char *argv[])
 	struct daemon *daemon;
 
 	subdaemon_setup(argc, argv);
-	io_poll_override(debug_poll);
 
 	daemon = tal(NULL, struct daemon);
 	list_head_init(&daemon->peers);
@@ -2147,7 +2145,7 @@ int main(int argc, char *argv[])
 			timer_expired(daemon, expired);
 		}
 	}
-	subdaemon_shutdown();
+	daemon_shutdown();
 	return 0;
 }
 #endif

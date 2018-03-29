@@ -2315,7 +2315,7 @@ int main(int argc, char *argv[])
 
 	/* We're done! */
 	tal_free(ctx);
-	subdaemon_shutdown();
+	daemon_shutdown();
 
 	return 0;
 }
