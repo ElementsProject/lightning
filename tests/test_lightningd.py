@@ -288,9 +288,13 @@ class LightningDTests(BaseLightningDTests):
     def fund_channel(self, l1, l2, amount):
         # Generates a block, so we know next tx will be first in block.
         self.give_funds(l1, amount + 1000000)
+        num_tx = len(l1.bitcoin.rpc.getrawmempool())
+
         tx = l1.rpc.fundchannel(l2.info['id'], amount)['tx']
         # Technically, this is async to fundchannel.
         l1.daemon.wait_for_log('sendrawtx exit 0')
+
+        wait_for(lambda: len(l1.bitcoin.rpc.getrawmempool()) == num_tx + 1)
         l1.bitcoin.generate_block(1)
         # We wait until gossipd sees local update, as well as status NORMAL,
         # so it can definitely route through.
