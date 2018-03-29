@@ -1062,7 +1062,7 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 	return wireaddrs;
 }
 
-void routing_add_node_announcement(struct routing_state *rstate, const u8 *msg TAKES)
+bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg TAKES)
 {
        struct node *node;
        secp256k1_ecdsa_signature signature;
@@ -1078,6 +1078,12 @@ void routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
                                   &addresses);
 
        node = get_node(rstate, &node_id);
+
+       /* May happen if we accepted the node_announcement due to a local
+	* channel, for which we didn't have the announcement hust yet. */
+       if (node == NULL)
+	       return false;
+
        wireaddrs = read_addresses(tmpctx, addresses);
        tal_free(node->addresses);
        node->addresses = tal_steal(node, wireaddrs);
@@ -1090,6 +1096,7 @@ void routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
        replace_broadcast(node, rstate->broadcasts,
                          &node->node_announce_msgidx,
                          take(msg));
+       return true;
 }
 
 u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
@@ -1106,6 +1113,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	struct wireaddr *wireaddrs;
 	struct pending_node_announce *pna;
 	size_t len = tal_len(node_ann);
+	bool applied;
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
 	if (!fromwire_node_announcement(tmpctx, serialized,
@@ -1217,7 +1225,8 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 		     type_to_string(tmpctx, struct pubkey, &node_id));
 
 	gossip_store_add_node_announcement(rstate->store, serialized);
-	routing_add_node_announcement(rstate, serialized);
+	applied = routing_add_node_announcement(rstate, serialized);
+	assert(applied);
 	return NULL;
 }
 
