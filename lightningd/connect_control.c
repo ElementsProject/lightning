@@ -111,7 +111,6 @@ static void json_connect(struct command *cmd,
 	char *id_str;
 	char *atptr;
 	char *ataddr = NULL;
-	int atidx;
 	const char *name;
 	struct wireaddr addr;
 	u8 *msg;
@@ -130,7 +129,7 @@ static void json_connect(struct command *cmd,
 			     idtok->end - idtok->start);
 	atptr = strchr(id_str, '@');
 	if (atptr) {
-		atidx = atptr - id_str;
+		int atidx = atptr - id_str;
 		ataddr = tal_strdup(cmd, atptr + 1);
 		/* Cut id. */
 		idtok->end = idtok->start + atidx;

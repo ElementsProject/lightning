@@ -10,6 +10,7 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
+#include <common/json_escaped.h>
 #include <common/memleak.h>
 #include <common/version.h>
 #include <common/wireaddr.h>
@@ -648,6 +649,9 @@ void register_opts(struct lightningd *ld)
 	opt_register_arg("--bitcoin-rpcconnect", opt_set_talstr, NULL,
 			 &ld->topology->bitcoind->rpcconnect,
 			 "bitcoind RPC host to connect to");
+	opt_register_arg("--bitcoin-rpcport", opt_set_talstr, NULL,
+			 &ld->topology->bitcoind->rpcport,
+			 "bitcoind RPC port");
 	opt_register_arg("--pid-file=<file>", opt_set_talstr, opt_show_charp,
 			 &ld->pidfile,
 			 "Specify pid file");
@@ -873,8 +877,10 @@ static void add_config(struct lightningd *ld,
 		}
 	}
 
-	if (answer)
-		json_add_string_escape(response, name0, answer);
+	if (answer) {
+		struct json_escaped *esc = json_escape(NULL, answer);
+		json_add_escaped_string(response, name0, take(esc));
+	}
 	tal_free(name0);
 }
 

@@ -108,7 +108,7 @@ void invoices_autoclean_set(struct invoices *invoices UNNEEDED,
 bool invoices_create(struct invoices *invoices UNNEEDED,
 		     struct invoice *pinvoice UNNEEDED,
 		     u64 *msatoshi TAKES UNNEEDED,
-		     const char *label TAKES UNNEEDED,
+		     const struct json_escaped *label TAKES UNNEEDED,
 		     u64 expiry UNNEEDED,
 		     const char *b11enc UNNEEDED,
 		     const struct preimage *r UNNEEDED,
@@ -125,7 +125,7 @@ void invoices_delete_expired(struct invoices *invoices UNNEEDED,
 /* Generated stub for invoices_find_by_label */
 bool invoices_find_by_label(struct invoices *invoices UNNEEDED,
 			    struct invoice *pinvoice UNNEEDED,
-			    const char *label UNNEEDED)
+			    const struct json_escaped *label UNNEEDED)
 { fprintf(stderr, "invoices_find_by_label called!\n"); abort(); }
 /* Generated stub for invoices_find_unpaid */
 bool invoices_find_unpaid(struct invoices *invoices UNNEEDED,
@@ -180,6 +180,11 @@ void invoices_waitone(const tal_t *ctx UNNEEDED,
 void json_add_bool(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
 		   bool value UNNEEDED)
 { fprintf(stderr, "json_add_bool called!\n"); abort(); }
+/* Generated stub for json_add_escaped_string */
+void json_add_escaped_string(struct json_result *result UNNEEDED,
+			     const char *fieldname UNNEEDED,
+			     const struct json_escaped *esc TAKES UNNEEDED)
+{ fprintf(stderr, "json_add_escaped_string called!\n"); abort(); }
 /* Generated stub for json_add_hex */
 void json_add_hex(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
 		  const void *data UNNEEDED, size_t len UNNEEDED)
@@ -205,10 +210,6 @@ void json_add_short_channel_id(struct json_result *response UNNEEDED,
 /* Generated stub for json_add_string */
 void json_add_string(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED, const char *value UNNEEDED)
 { fprintf(stderr, "json_add_string called!\n"); abort(); }
-/* Generated stub for json_add_string_escape */
-void json_add_string_escape(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
-			    const char *value UNNEEDED)
-{ fprintf(stderr, "json_add_string_escape called!\n"); abort(); }
 /* Generated stub for json_add_txid */
 void json_add_txid(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
 		   const struct bitcoin_txid *txid UNNEEDED)
@@ -227,6 +228,13 @@ void json_array_end(struct json_result *ptr UNNEEDED)
 /* Generated stub for json_array_start */
 void json_array_start(struct json_result *ptr UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_array_start called!\n"); abort(); }
+/* Generated stub for json_escape */
+struct json_escaped *json_escape(const tal_t *ctx UNNEEDED, const char *str TAKES UNNEEDED)
+{ fprintf(stderr, "json_escape called!\n"); abort(); }
+/* Generated stub for json_escaped_string_ */
+struct json_escaped *json_escaped_string_(const tal_t *ctx UNNEEDED,
+					  const void *bytes UNNEEDED, size_t len UNNEEDED)
+{ fprintf(stderr, "json_escaped_string_ called!\n"); abort(); }
 /* Generated stub for json_get_params */
 bool json_get_params(struct command *cmd UNNEEDED,
 		     const char *buffer UNNEEDED, const jsmntok_t param[] UNNEEDED, ...)
@@ -283,6 +291,10 @@ bool outpointfilter_matches(struct outpointfilter *of UNNEEDED,
 /* Generated stub for outpointfilter_new */
 struct outpointfilter *outpointfilter_new(tal_t *ctx UNNEEDED)
 { fprintf(stderr, "outpointfilter_new called!\n"); abort(); }
+/* Generated stub for outpointfilter_remove */
+void outpointfilter_remove(struct outpointfilter *of UNNEEDED,
+			   const struct bitcoin_txid *txid UNNEEDED, const u32 outnum UNNEEDED)
+{ fprintf(stderr, "outpointfilter_remove called!\n"); abort(); }
 /* Generated stub for peer_accept_channel */
 u8 *peer_accept_channel(const tal_t *ctx UNNEEDED,
 			struct lightningd *ld UNNEEDED,
@@ -935,6 +947,7 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 
 	t->id = 0;
 	t->msatoshi = 100;
+	t->msatoshi_sent = 101;
 	t->status = PAYMENT_PENDING;
 	t->payment_preimage = NULL;
 	memset(&t->payment_hash, 1, sizeof(t->payment_hash));
@@ -947,6 +960,7 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK(t2->status == t->status);
 	CHECK(pubkey_cmp(&t2->destination, &t->destination) == 0);
 	CHECK(t2->msatoshi == t->msatoshi);
+	CHECK(t2->msatoshi_sent == t->msatoshi_sent);
 	CHECK(!t2->payment_preimage);
 
 	t->status = PAYMENT_COMPLETE;
@@ -959,6 +973,7 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK(t2->status == t->status);
 	CHECK(pubkey_cmp(&t2->destination, &t->destination) == 0);
 	CHECK(t2->msatoshi == t->msatoshi);
+	CHECK(t2->msatoshi_sent == t->msatoshi_sent);
 	CHECK(structeq(t->payment_preimage, t2->payment_preimage));
 
 	db_commit_transaction(w->db);

@@ -4,9 +4,10 @@
 3. [Fedora](#to-build-on-fedora)
 4. [FreeBSD](#to-build-on-freebsd)
 5. [NixOS](#to-build-on-nixos)
-6. [Android](#to-cross-compile-for-android)
-7. [Raspberry Pi](#to-cross-compile-for-raspberry-pi)
-8. [Additional steps](#additional-steps)
+6. [macOS](#to-build-on-macos)
+7. [Android](#to-cross-compile-for-android)
+8. [Raspberry Pi](#to-cross-compile-for-raspberry-pi)
+9. [Additional steps](#additional-steps)
 
 Library Requirements
 --------------------
@@ -163,7 +164,7 @@ autogen automake 'python3.withPackages (p: [p.bitcoinlib])' \
 valgrind asciidoc --run make
 ```
 
-To Build on Mac
+To Build on macOS
 ---------------------
 
 Assume you have Xcode and HomeBrew installed on your Mac.

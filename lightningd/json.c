@@ -46,6 +46,7 @@ json_add_payment_fields(struct json_result *response,
 	json_add_hex(response, "payment_hash", &t->payment_hash, sizeof(t->payment_hash));
 	json_add_pubkey(response, "destination", &t->destination);
 	json_add_u64(response, "msatoshi", t->msatoshi);
+	json_add_u64(response, "msatoshi_sent", t->msatoshi_sent);
 	if (deprecated_apis)
 		json_add_u64(response, "timestamp", t->timestamp);
 	json_add_u64(response, "created_at", t->timestamp);

@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_CHANNEL_COMMIT_TX_H
-#define LIGHTNING_LIGHTNINGD_CHANNEL_COMMIT_TX_H
+#ifndef LIGHTNING_CHANNELD_COMMIT_TX_H
+#define LIGHTNING_CHANNELD_COMMIT_TX_H
 #include "config.h"
 #include <bitcoin/pubkey.h>
 #include <channeld/channeld_htlc.h>
@@ -57,4 +57,4 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     u64 obscured_commitment_number,
 			     enum side side);
 
-#endif /* LIGHTNING_LIGHTNINGD_CHANNEL_COMMIT_TX_H */
+#endif /* LIGHTNING_CHANNELD_COMMIT_TX_H */

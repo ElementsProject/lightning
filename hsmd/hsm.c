@@ -608,10 +608,9 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	struct pubkey local_pubkey, remote_pubkey;
 	struct utxo **utxomap;
 	struct bitcoin_tx *tx;
-	u8 *wscript;
 	u16 outnum;
 	size_t i;
-	struct pubkey changekey;
+	struct pubkey *changekey;
 	u8 **scriptSigs;
 
 	/* FIXME: Check fee is "reasonable" */
@@ -621,13 +620,16 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 				       &remote_pubkey, &utxomap))
 		master_badmsg(WIRE_HSM_SIGN_FUNDING, msg);
 
-	if (change_out)
-		bitcoin_pubkey(&changekey, change_keyindex);
+	if (change_out) {
+		changekey = tal(tmpctx, struct pubkey);
+		bitcoin_pubkey(changekey, change_keyindex);
+	} else
+		changekey = NULL;
 
 	tx = funding_tx(tmpctx, &outnum,
 			cast_const2(const struct utxo **, utxomap),
 			satoshi_out, &local_pubkey, &remote_pubkey,
-			change_out, &changekey,
+			change_out, changekey,
 			NULL);
 
 	scriptSigs = tal_arr(tmpctx, u8*, tal_count(utxomap));
@@ -644,7 +646,7 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 			subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
 		else
 			subscript = NULL;
-		wscript = p2wpkh_scriptcode(tmpctx, &inkey);
+		u8 *wscript = p2wpkh_scriptcode(tmpctx, &inkey);
 
 		sign_tx_input(tx, i, subscript, wscript, &inprivkey, &inkey,
 			      &sig);
@@ -673,7 +675,6 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
 	struct utxo **utxos;
-	u8 *wscript;
 	u8 **scriptSigs;
 	struct bitcoin_tx *tx;
 	struct ext_key ext;
@@ -715,7 +716,7 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 			subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
 		else
 			subscript = NULL;
-		wscript = p2wpkh_scriptcode(tmpctx, &inkey);
+		u8 *wscript = p2wpkh_scriptcode(tmpctx, &inkey);
 
 		sign_tx_input(tx, i, subscript, wscript, &inprivkey, &inkey,
 			      &sig);

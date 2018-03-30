@@ -22,8 +22,8 @@
  * THE SOFTWARE.
  */
 
-#ifndef _SEGWIT_ADDR_H_
-#define _SEGWIT_ADDR_H_ 1
+#ifndef LIGHTNING_COMMON_BECH32_H
+#define LIGHTNING_COMMON_BECH32_H
 #include "config.h"
 
 #include <stdint.h>
@@ -119,4 +119,4 @@ int bech32_convert_bits(uint8_t* out, size_t* outlen, int outbits,
 extern const char bech32_charset[32];
 extern const int8_t bech32_charset_rev[128];
 
-#endif /* LIGHTNING_LIGHTNINGD_BECH32_H */
+#endif /* LIGHTNING_COMMON_BECH32_H */

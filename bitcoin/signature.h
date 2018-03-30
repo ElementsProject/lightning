@@ -41,9 +41,6 @@ bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
 		  const struct pubkey *key,
 		  const secp256k1_ecdsa_signature *sig);
 
-/* Signature must have low S value. */
-bool sig_valid(const secp256k1_ecdsa_signature *sig);
-
 /* Give DER encoding of signature: returns length used (<= 72). */
 size_t signature_to_der(u8 der[72], const secp256k1_ecdsa_signature *s);
 

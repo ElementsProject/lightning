@@ -49,6 +49,9 @@ size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)
 /* Generated stub for hsm_init */
 void hsm_init(struct lightningd *ld UNNEEDED, bool newdir UNNEEDED)
 { fprintf(stderr, "hsm_init called!\n"); abort(); }
+/* Generated stub for json_escape */
+struct json_escaped *json_escape(const tal_t *ctx UNNEEDED, const char *str TAKES UNNEEDED)
+{ fprintf(stderr, "json_escape called!\n"); abort(); }
 /* Generated stub for log_ */
 void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED, const char *fmt UNNEEDED, ...)
 

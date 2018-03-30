@@ -2,6 +2,7 @@
 #define LIGHTNING_COMMON_JSON_H
 #include "config.h"
 #include <bitcoin/pubkey.h>
+#include <ccan/take/take.h>
 #include <ccan/tal/tal.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -10,6 +11,7 @@
 #define JSMN_STRICT 1
 # include <external/jsmn/jsmn.h>
 
+struct json_escaped;
 struct json_result;
 struct short_channel_id;
 
@@ -53,11 +55,6 @@ const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 /* Get index'th array member. */
 const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index);
 
-/* Guide is a string with . for members, [] around indexes. */
-const jsmntok_t *json_delve(const char *buffer,
-			    const jsmntok_t *tok,
-			    const char *guide);
-
 /* If input is complete and valid, return tokens. */
 jsmntok_t *json_parse_input(const char *input, int len, bool *valid);
 
@@ -75,20 +72,19 @@ void json_object_end(struct json_result *ptr);
 struct json_result *new_json_result(const tal_t *ctx);
 
 /* '"fieldname" : "value"' or '"value"' if fieldname is NULL.  Turns
- * any unusual chars into ?.
+ * any non-printable chars into JSON escapes, but leaves existing escapes alone.
  */
 void json_add_string(struct json_result *result, const char *fieldname, const char *value);
 
-/* Properly escapes any characters in @value */
-void json_add_string_escape(struct json_result *result, const char *fieldname,
-			    const char *value);
+/* '"fieldname" : "value"' or '"value"' if fieldname is NULL.  String must
+ * already be JSON escaped as necessary. */
+void json_add_escaped_string(struct json_result *result,
+			     const char *fieldname,
+			     const struct json_escaped *esc TAKES);
 
 /* '"fieldname" : literal' or 'literal' if fieldname is NULL*/
 void json_add_literal(struct json_result *result, const char *fieldname,
 		      const char *literal, int len);
-/* '"fieldname" : value' or 'value' if fieldname is NULL */
-void json_add_snum(struct json_result *result, const char *fieldname,
-		   int value);
 /* '"fieldname" : value' or 'value' if fieldname is NULL */
 void json_add_double(struct json_result *result, const char *fieldname,
 		     double value);
@@ -101,8 +97,6 @@ void json_add_u64(struct json_result *result, const char *fieldname,
 /* '"fieldname" : true|false' or 'true|false' if fieldname is NULL */
 void json_add_bool(struct json_result *result, const char *fieldname,
 		   bool value);
-/* '"fieldname" : null' or 'null' if fieldname is NULL */
-void json_add_null(struct json_result *result, const char *fieldname);
 /* '"fieldname" : "0189abcdef..."' or "0189abcdef..." if fieldname is NULL */
 void json_add_hex(struct json_result *result, const char *fieldname,
 		  const void *data, size_t len);

@@ -10,7 +10,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
-#include <common/json.h>
+#include <common/json_escaped.h>
 #include <common/memleak.h>
 #include <common/version.h>
 #include <common/wireaddr.h>
@@ -202,10 +202,15 @@ static void json_help(struct command *cmd,
 							"HELP! Please contribute"
 							" a description for this"
 							" command!");
-				else
-					json_add_string_escape(response,
-							       "verbose",
-							       cmdlist[i]->verbose);
+				else {
+					struct json_escaped *esc;
+
+					esc = json_escape(NULL,
+							  cmdlist[i]->verbose);
+					json_add_escaped_string(response,
+								"verbose",
+								take(esc));
+				}
 				goto done;
 			}
 		}
@@ -282,11 +287,10 @@ static void connection_complete_error(struct json_connection *jcon,
 				      int code,
 				      const struct json_result *data)
 {
-	/* Use this to escape errmsg. */
-	struct json_result *errorres = new_json_result(tmpctx);
+	struct json_escaped *esc;
 	const char *data_str;
 
-	json_add_string_escape(errorres, NULL, errmsg);
+	esc = json_escape(tmpctx, errmsg);
 	if (data)
 		data_str = tal_fmt(tmpctx, ", \"data\" : %s",
 				   json_result_string(data));
@@ -299,10 +303,10 @@ static void connection_complete_error(struct json_connection *jcon,
 					  "{ \"jsonrpc\": \"2.0\", "
 					  " \"error\" : "
 					  "{ \"code\" : %d,"
-					  " \"message\" : %s%s },"
+					  " \"message\" : \"%s\"%s },"
 					  " \"id\" : %s }\n",
 					  code,
-					  json_result_string(errorres),
+					  esc->s,
 					  data_str,
 					  id)));
 }
@@ -483,7 +487,7 @@ bool json_get_params(struct command *cmd,
 	const char **names;
 	size_t num_names;
 	 /* Uninitialized warnings on p and end */
-	const jsmntok_t **tokptr, *p = NULL, *end = NULL;
+	const jsmntok_t *p = NULL, *end = NULL;
 
 	if (param->type == JSMN_ARRAY) {
 		if (param->size == 0)
@@ -501,7 +505,7 @@ bool json_get_params(struct command *cmd,
 	names = tal_arr(cmd, const char *, num_names + 1);
 	va_start(ap, param);
 	while ((names[num_names] = va_arg(ap, const char *)) != NULL) {
-		tokptr = va_arg(ap, const jsmntok_t **);
+		const jsmntok_t **tokptr = va_arg(ap, const jsmntok_t **);
 		bool compulsory = true;
 		if (names[num_names][0] == '?') {
 			names[num_names]++;
@@ -784,7 +788,6 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 	 * of fixed size 40 will not overflow. */
 	uint8_t witness_program[40];
 	size_t witness_program_len;
-	bool witness_ok;
 
 	char *addrz;
 	const char *bip173;
@@ -822,7 +825,7 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 					&witness_program_len, addrz);
 
 	if (bip173) {
-		witness_ok = false;
+		bool witness_ok = false;
 		if (witness_version == 0 && (witness_program_len == 20 ||
 					     witness_program_len == 32)) {
 			witness_ok = true;

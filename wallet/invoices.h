@@ -7,6 +7,7 @@
 #include <ccan/tal/tal.h>
 
 struct db;
+struct json_escaped;
 struct invoice;
 struct invoice_details;
 struct invoice_iterator;
@@ -44,7 +45,7 @@ bool invoices_load(struct invoices *invoices);
  * @msatoshi - the amount the invoice should have, or
  * NULL for any-amount invoices.
  * @label - the unique label for this invoice. Must be
- * non-NULL. Must be null-terminated.
+ * non-NULL.
  * @expiry - the number of seconds before the invoice
  * expires
  *
@@ -55,7 +56,7 @@ bool invoices_load(struct invoices *invoices);
 bool invoices_create(struct invoices *invoices,
 		     struct invoice *pinvoice,
 		     u64 *msatoshi TAKES,
-		     const char *label TAKES,
+		     const struct json_escaped *label TAKES,
 		     u64 expiry,
 		     const char *b11enc,
 		     const struct preimage *r,
@@ -66,14 +67,14 @@ bool invoices_create(struct invoices *invoices,
  *
  * @invoices - the invoice handler.
  * @pinvoice - pointer to location to load found invoice in.
- * @label - the label to search for. Must be null-terminated.
+ * @label - the label to search for.
  *
  * Returns false if no invoice with that label exists.
  * Returns true if found.
  */
 bool invoices_find_by_label(struct invoices *invoices,
 			    struct invoice *pinvoice,
-			    const char *label);
+			    const struct json_escaped *label);
 
 /**
  * invoices_find_unpaid - Search for an unpaid, unexpired invoice by

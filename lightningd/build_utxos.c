@@ -4,7 +4,6 @@
 #include <common/utils.h>
 #include <lightningd/build_utxos.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/lightningd.h>
 #include <wally_bip32.h>
 
 

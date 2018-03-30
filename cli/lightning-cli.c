@@ -41,11 +41,6 @@ static void tal_freefn(void *ptr)
 }
 
 struct netaddr;
-char *netaddr_name(const tal_t *ctx, const struct netaddr *a);
-char *netaddr_name(const tal_t *ctx UNUSED, const struct netaddr *a UNUSED)
-{
-	return NULL;
-}
 
 /* Returns number of tokens digested */
 static size_t human_readable(const char *buffer, const jsmntok_t *t, char term)

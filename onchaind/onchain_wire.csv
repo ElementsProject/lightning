@@ -87,3 +87,4 @@ onchain_add_utxo,,prev_out_tx,struct bitcoin_txid
 onchain_add_utxo,,prev_out_index,u32
 onchain_add_utxo,,per_commit_point,struct pubkey
 onchain_add_utxo,,value,u64
+onchain_add_utxo,,blockheight,u32

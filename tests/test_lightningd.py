@@ -456,6 +456,48 @@ class LightningDTests(BaseLightningDTests):
         # separator, and not for example "lnbcrt1m1....".
         assert b11.count('1') == 1
 
+    def test_invoice_weirdstring(self):
+        l1 = self.node_factory.get_node()
+
+        weird_label = 'label \\ " \t \n'
+        weird_desc = 'description \\ " \t \n'
+        l1.rpc.invoice(123000, weird_label, weird_desc)
+        # FIXME: invoice RPC should return label!
+
+        # Can find by this label.
+        inv = l1.rpc.listinvoices(weird_label)['invoices'][0]
+        assert inv['label'] == weird_label
+
+        # Can find this in list.
+        inv = l1.rpc.listinvoices()['invoices'][0]
+        assert inv['label'] == weird_label
+
+        b11 = l1.rpc.decodepay(inv['bolt11'])
+        assert b11['description'] == weird_desc
+
+        # Can delete by weird label.
+        l1.rpc.delinvoice(weird_label, "unpaid")
+
+        # We can also use numbers as labels.
+        weird_label = 25
+        weird_desc = '"'
+        l1.rpc.invoice(123000, weird_label, weird_desc)
+        # FIXME: invoice RPC should return label!
+
+        # Can find by this label.
+        inv = l1.rpc.listinvoices(weird_label)['invoices'][0]
+        assert inv['label'] == str(weird_label)
+
+        # Can find this in list.
+        inv = l1.rpc.listinvoices()['invoices'][0]
+        assert inv['label'] == str(weird_label)
+
+        b11 = l1.rpc.decodepay(inv['bolt11'])
+        assert b11['description'] == weird_desc
+
+        # Can delete by weird label.
+        l1.rpc.delinvoice(weird_label, "unpaid")
+
     def test_invoice_expiry(self):
         l1, l2 = self.connect()
 
@@ -1271,6 +1313,9 @@ class LightningDTests(BaseLightningDTests):
         l1, l2 = self.connect()
 
         self.fund_channel(l1, l2, 10**6)
+
+        # The funding change should be confirmed and our only output
+        assert [o['status'] for o in l1.rpc.listfunds()['outputs']] == ['confirmed']
         self.pay(l1, l2, 200000000)
 
         # Make sure l2 has received sig with 0 htlcs!
@@ -1329,8 +1374,10 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(5)
         wait_forget_channels(l2)
 
-        # Only l1 has a direct output since all of l2's outputs are respent (it failed)
-        assert closetxid in set([o['txid'] for o in l1.rpc.listfunds()['outputs']])
+        # Only l1 has a direct output since all of l2's outputs are respent (it
+        # failed). Also the output should now be listed as confirmed since we
+        # generated some more blocks.
+        assert (closetxid, "confirmed") in set([(o['txid'], o['status']) for o in l1.rpc.listfunds()['outputs']])
 
         addr = l1.bitcoin.rpc.getnewaddress()
         l1.rpc.withdraw(addr, "all")
@@ -2081,6 +2128,34 @@ class LightningDTests(BaseLightningDTests):
         assert [c['public'] for c in l1.rpc.listchannels()['channels']] == [True, True]
         assert [c['active'] for c in l2.rpc.listchannels()['channels']] == [True, True]
         assert [c['public'] for c in l2.rpc.listchannels()['channels']] == [True, True]
+
+    def test_gossip_weirdalias(self):
+        weird_name = '\t \n \" \n \r \n \\'
+        l1 = self.node_factory.get_node(options=['--alias={}'
+                                                 .format(weird_name)])
+        weird_name_json = json.encoder.JSONEncoder().encode(weird_name)[1:-1].replace('\\', '\\\\')
+        aliasline = l1.daemon.is_in_log('Server started with public key .* alias')
+        assert weird_name_json in str(aliasline)
+        normal_name = 'Normal name'
+        l2 = self.node_factory.get_node(options=['--alias={}'
+                                                 .format(normal_name)])
+        assert l2.daemon.is_in_log('Server started with public key .* alias {}'
+                                   .format(normal_name))
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        self.fund_channel(l2, l1, 10**6)
+        bitcoind.rpc.generate(6)
+
+        # They should gossip together.
+        l1.daemon.wait_for_log('Received node_announcement for node {}'
+                               .format(l2.info['id']))
+        l2.daemon.wait_for_log('Received node_announcement for node {}'
+                               .format(l1.info['id']))
+
+        node = l1.rpc.listnodes(l1.info['id'])['nodes'][0]
+        assert node['alias'] == weird_name
+        node = l2.rpc.listnodes(l1.info['id'])['nodes'][0]
+        assert node['alias'] == weird_name
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_gossip_pruning(self):

@@ -10,6 +10,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
+#include <common/json_escaped.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <hsmd/gen_hsm_client_wire.h>
@@ -34,7 +35,7 @@ static void json_add_invoice(struct json_result *response,
 			     bool modern)
 {
 	json_object_start(response, NULL);
-	json_add_string(response, "label", inv->label);
+	json_add_escaped_string(response, "label", inv->label);
 	json_add_string(response, "bolt11", inv->bolt11);
 	json_add_hex(response, "payment_hash", &inv->rhash, sizeof(inv->rhash));
 	if (inv->msatoshi)
@@ -103,14 +104,37 @@ static bool hsm_sign_b11(const u5 *u5bytes,
 	return true;
 }
 
+/* We allow a string, or a literal number, for labels */
+static struct json_escaped *json_tok_label(const tal_t *ctx,
+					   const char *buffer,
+					   const jsmntok_t *tok)
+{
+	struct json_escaped *label;
+
+	label = json_tok_escaped_string(ctx, buffer, tok);
+	if (label)
+		return label;
+
+	/* Allow literal numbers */
+	if (tok->type != JSMN_PRIMITIVE)
+		return NULL;
+
+	for (int i = tok->start; i < tok->end; i++)
+		if (!cisdigit(buffer[i]))
+			return NULL;
+
+	return json_escaped_string_(ctx, buffer + tok->start,
+				    tok->end - tok->start);
+}
+
 static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	struct invoice invoice;
 	struct invoice_details details;
-	jsmntok_t *msatoshi, *label, *desc, *exp, *fallback;
+	jsmntok_t *msatoshi, *label, *desctok, *exp, *fallback;
 	u64 *msatoshi_val;
-	const char *label_val;
+	const struct json_escaped *label_val, *desc;
 	const char *desc_val;
 	enum address_parse_result fallback_parse;
 	struct json_result *response = new_json_result(cmd);
@@ -124,7 +148,7 @@ static void json_invoice(struct command *cmd,
 	if (!json_get_params(cmd, buffer, params,
 			     "msatoshi", &msatoshi,
 			     "label", &label,
-			     "description", &desc,
+			     "description", &desctok,
 			     "?expiry", &exp,
 			     "?fallback", &fallback,
 			     NULL)) {
@@ -147,29 +171,46 @@ static void json_invoice(struct command *cmd,
 		}
 	}
 	/* label */
-	label_val = tal_strndup(cmd, buffer + label->start,
-				label->end - label->start);
-	if (wallet_invoice_find_by_label(wallet, &invoice, label_val)) {
-		command_fail(cmd, "Duplicate label '%s'", label_val);
+	label_val = json_tok_label(cmd, buffer, label);
+	if (!label_val) {
+		command_fail(cmd, "label '%.*s' not a string or number",
+			     label->end - label->start, buffer + label->start);
 		return;
 	}
-	if (strlen(label_val) > INVOICE_MAX_LABEL_LEN) {
-		command_fail(cmd, "Label '%s' over %u bytes", label_val,
+	if (wallet_invoice_find_by_label(wallet, &invoice, label_val)) {
+		command_fail(cmd, "Duplicate label '%s'", label_val->s);
+		return;
+	}
+	if (strlen(label_val->s) > INVOICE_MAX_LABEL_LEN) {
+		command_fail(cmd, "Label '%s' over %u bytes", label_val->s,
 			     INVOICE_MAX_LABEL_LEN);
 		return;
 	}
+
+	desc = json_tok_escaped_string(cmd, buffer, desctok);
+	if (!desc) {
+		command_fail(cmd, "description '%.*s' not a string",
+			     desctok->end - desctok->start,
+			     buffer + desctok->start);
+		return;
+	}
+	desc_val = json_escaped_unescape(cmd, desc);
+	if (!desc_val) {
+		command_fail(cmd, "description '%s' is invalid"
+			     " (note: we don't allow \\u)",
+			     desc->s);
+		return;
+	}
 	/* description */
-	if (desc->end - desc->start >= BOLT11_FIELD_BYTE_LIMIT) {
+	if (strlen(desc_val) >= BOLT11_FIELD_BYTE_LIMIT) {
 		command_fail(cmd,
 			     "Descriptions greater than %d bytes "
 			     "not yet supported "
-			     "(description length %d)",
+			     "(description length %zu)",
 			     BOLT11_FIELD_BYTE_LIMIT,
-			     desc->end - desc->start);
+			     strlen(desc_val));
 		return;
 	}
-	desc_val = tal_strndup(cmd, buffer + desc->start,
-			       desc->end - desc->start);
 	/* expiry */
 	if (exp && !json_tok_u64(buffer, exp, &expiry)) {
 		command_fail(cmd, "Expiry '%.*s' invalid seconds",
@@ -256,19 +297,16 @@ AUTODATA(json_command, &invoice_command);
 
 static void json_add_invoices(struct json_result *response,
 			      struct wallet *wallet,
-			      const char *buffer, const jsmntok_t *label,
+			      const struct json_escaped *label,
 			      bool modern)
 {
 	struct invoice_iterator it;
 	struct invoice_details details;
-	char *lbl = NULL;
-	if (label)
-		lbl = tal_strndup(response, &buffer[label->start], label->end - label->start);
 
 	memset(&it, 0, sizeof(it));
 	while (wallet_invoice_iterate(wallet, &it)) {
 		wallet_invoice_iterator_deref(response, wallet, &it, &details);
-		if (lbl && !streq(details.label, lbl))
+		if (label && !json_escaped_eq(details.label, label))
 			continue;
 		json_add_invoice(response, &details, modern);
 	}
@@ -279,22 +317,34 @@ static void json_listinvoice_internal(struct command *cmd,
 				      const jsmntok_t *params,
 				      bool modern)
 {
-	jsmntok_t *label = NULL;
+	jsmntok_t *labeltok = NULL;
+	struct json_escaped *label;
 	struct json_result *response = new_json_result(cmd);
 	struct wallet *wallet = cmd->ld->wallet;
 
 	if (!json_get_params(cmd, buffer, params,
-			     "?label", &label,
+			     "?label", &labeltok,
 			     NULL)) {
 		return;
 	}
+
+	if (labeltok) {
+		label = json_tok_label(cmd, buffer, labeltok);
+		if (!label) {
+			command_fail(cmd, "label '%.*s' is not a string or number",
+				     labeltok->end - labeltok->start,
+				     buffer + labeltok->start);
+			return;
+		}
+	} else
+		label = NULL;
 
 	if (modern) {
 		json_object_start(response, NULL);
 		json_array_start(response, "invoices");
 	} else
 		json_array_start(response, NULL);
-	json_add_invoices(response, wallet, buffer, label, modern);
+	json_add_invoices(response, wallet, label, modern);
 	json_array_end(response);
 	if (modern)
 		json_object_end(response);
@@ -336,7 +386,8 @@ static void json_delinvoice(struct command *cmd,
 	struct invoice_details details;
 	jsmntok_t *labeltok, *statustok;
 	struct json_result *response = new_json_result(cmd);
-	const char *label, *status, *actual_status;
+	const char *status, *actual_status;
+	struct json_escaped *label;
 	struct wallet *wallet = cmd->ld->wallet;
 
 	if (!json_get_params(cmd, buffer, params,
@@ -346,8 +397,13 @@ static void json_delinvoice(struct command *cmd,
 		return;
 	}
 
-	label = tal_strndup(cmd, buffer + labeltok->start,
-			    labeltok->end - labeltok->start);
+	label = json_tok_label(cmd, buffer, labeltok);
+	if (!label) {
+		command_fail(cmd, "label '%.*s' is not a string or number",
+			     labeltok->end - labeltok->start,
+			     buffer + labeltok->start);
+		return;
+	}
 	if (!wallet_invoice_find_by_label(wallet, &i, label)) {
 		command_fail(cmd, "Unknown invoice");
 		return;
@@ -527,14 +583,21 @@ static void json_waitinvoice(struct command *cmd,
 	struct invoice_details details;
 	struct wallet *wallet = cmd->ld->wallet;
 	jsmntok_t *labeltok;
-	const char *label = NULL;
+	struct json_escaped *label;
 
 	if (!json_get_params(cmd, buffer, params, "label", &labeltok, NULL)) {
 		return;
 	}
 
 	/* Search for invoice */
-	label = tal_strndup(cmd, buffer + labeltok->start, labeltok->end - labeltok->start);
+	label = json_tok_label(cmd, buffer, labeltok);
+	if (!label) {
+		command_fail(cmd, "label '%.*s' is not a string or number",
+			     labeltok->end - labeltok->start,
+			     buffer + labeltok->start);
+		return;
+	}
+
 	if (!wallet_invoice_find_by_label(wallet, &i, label)) {
 		command_fail(cmd, "Label not found");
 		return;
@@ -602,8 +665,10 @@ static void json_decodepay(struct command *cmd,
 	json_add_pubkey(response, "payee", &b11->receiver_id);
         if (b11->msatoshi)
                 json_add_u64(response, "msatoshi", *b11->msatoshi);
-        if (b11->description)
-                json_add_string(response, "description", b11->description);
+        if (b11->description) {
+		struct json_escaped *esc = json_escape(NULL, b11->description);
+                json_add_escaped_string(response, "description", take(esc));
+	}
         if (b11->description_hash)
                 json_add_hex(response, "description_hash",
                              b11->description_hash,

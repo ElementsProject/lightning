@@ -13,3 +13,4 @@
 [submodule "external/libwally-core"]
 	path = external/libwally-core
 	url = https://github.com/ElementsProject/libwally-core.git
+	ignore = dirty

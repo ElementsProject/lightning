@@ -7,6 +7,7 @@
 #include <ccan/tal/tal.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
 #include <common/msg_queue.h>
+#include <wire/wire.h>
 
 struct crypto_state;
 struct io_conn;
