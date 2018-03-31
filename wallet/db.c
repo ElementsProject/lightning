@@ -282,6 +282,14 @@ char *dbmigrations[] = {
     /* https://bitcoinfees.github.io/#1d says Dec 17 peak was ~1M sat/kb
      * which is 250,000 sat/Sipa */
     "UPDATE channels SET min_possible_feerate=0, max_possible_feerate=250000;",
+    /* -- Min and max msatoshi_to_us -- */
+    "ALTER TABLE channels ADD msatoshi_to_us_min INTEGER;",
+    "ALTER TABLE channels ADD msatoshi_to_us_max INTEGER;",
+    "UPDATE channels"
+    "   SET msatoshi_to_us_min = msatoshi_local"
+    "     , msatoshi_to_us_max = msatoshi_local"
+    "     ;",
+    /* -- Min and max msatoshi_to_us ends -- */
     NULL,
 };
 

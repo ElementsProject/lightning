@@ -636,6 +636,8 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 			   sqlite3_column_int(stmt, 15) != 0,
 			   scid,
 			   sqlite3_column_int64(stmt, 17),
+			   sqlite3_column_int64(stmt, 38), /* msatoshi_to_us_min */
+			   sqlite3_column_int64(stmt, 39), /* msatoshi_to_us_max */
 			   sqlite3_column_tx(tmpctx, stmt, 32),
 			   &last_sig,
 			   wallet_htlc_sigs_load(tmpctx, w,
@@ -654,22 +656,24 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 
 /* List of fields to retrieve from the channels DB table, in the order
  * that wallet_stmt2channel understands and will parse correctly */
+/* Numbers below are sqlite3_column indices for the first field
+ * of that line. */
 static const char *channel_fields =
-    "id, peer_id, short_channel_id, channel_config_local, "
-    "channel_config_remote, state, funder, channel_flags, "
-    "minimum_depth, "
-    "next_index_local, next_index_remote, "
-    "next_htlc_id, funding_tx_id, funding_tx_outnum, funding_satoshi, "
-    "funding_locked_remote, push_msatoshi, msatoshi_local, "
-    "fundingkey_remote, revocation_basepoint_remote, "
-    "payment_basepoint_remote, htlc_basepoint_remote, "
-    "delayed_payment_basepoint_remote, per_commit_remote, "
-    "old_per_commit_remote, local_feerate_per_kw, remote_feerate_per_kw, shachain_remote_id, "
-    "shutdown_scriptpubkey_remote, shutdown_keyidx_local, "
-    "last_sent_commit_state, last_sent_commit_id, "
-    "last_tx, last_sig, last_was_revoke, first_blocknum, "
-    " min_possible_feerate, max_possible_feerate";
-
+    /*0*/ "id, peer_id, short_channel_id, channel_config_local, "
+    /*4*/ "channel_config_remote, state, funder, channel_flags, "
+    /*8*/ "minimum_depth, "
+    /*9*/ "next_index_local, next_index_remote, "
+    /*11*/ "next_htlc_id, funding_tx_id, funding_tx_outnum, funding_satoshi, "
+    /*15*/ "funding_locked_remote, push_msatoshi, msatoshi_local, "
+    /*18*/ "fundingkey_remote, revocation_basepoint_remote, "
+    /*20*/ "payment_basepoint_remote, htlc_basepoint_remote, "
+    /*22*/ "delayed_payment_basepoint_remote, per_commit_remote, "
+    /*24*/ "old_per_commit_remote, local_feerate_per_kw, remote_feerate_per_kw, shachain_remote_id, "
+    /*28*/ "shutdown_scriptpubkey_remote, shutdown_keyidx_local, "
+    /*30*/ "last_sent_commit_state, last_sent_commit_id, "
+    /*32*/ "last_tx, last_sig, last_was_revoke, first_blocknum, "
+    /*36*/ "min_possible_feerate, max_possible_feerate, "
+    /*38*/ "msatoshi_to_us_min, msatoshi_to_us_max ";
 
 bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
 {
@@ -924,7 +928,9 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 			  "  last_tx=?, last_sig=?,"
 			  "  last_was_revoke=?,"
 			  "  min_possible_feerate=?,"
-			  "  max_possible_feerate=?"
+			  "  max_possible_feerate=?,"
+			  "  msatoshi_to_us_min=?,"
+			  "  msatoshi_to_us_max=?"
 			  " WHERE id=?");
 	sqlite3_bind_int64(stmt, 1, chan->their_shachain.id);
 	if (chan->scid)
@@ -958,7 +964,9 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	sqlite3_bind_int(stmt, 21, chan->last_was_revoke);
 	sqlite3_bind_int(stmt, 22, chan->min_possible_feerate);
 	sqlite3_bind_int(stmt, 23, chan->max_possible_feerate);
-	sqlite3_bind_int64(stmt, 24, chan->dbid);
+	sqlite3_bind_int64(stmt, 24, chan->msatoshi_to_us_min);
+	sqlite3_bind_int64(stmt, 25, chan->msatoshi_to_us_max);
+	sqlite3_bind_int64(stmt, 26, chan->dbid);
 	db_exec_prepared(w->db, stmt);
 
 	wallet_channel_config_save(w, &chan->channel_info.their_config);

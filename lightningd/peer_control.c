@@ -678,6 +678,10 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 				      &channel->funding_txid);
 			json_add_u64(response, "msatoshi_to_us",
 				     channel->our_msatoshi);
+			json_add_u64(response, "msatoshi_to_us_min",
+				     channel->msatoshi_to_us_min);
+			json_add_u64(response, "msatoshi_to_us_max",
+				     channel->msatoshi_to_us_max);
 			json_add_u64(response, "msatoshi_total",
 				     channel->funding_satoshi * 1000);
 

@@ -843,6 +843,8 @@ static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 			  channel->our_msatoshi,
 			  channel->our_msatoshi + hin->msatoshi);
 		channel->our_msatoshi += hin->msatoshi;
+		if (channel->our_msatoshi > channel->msatoshi_to_us_max)
+			channel->msatoshi_to_us_max = channel->our_msatoshi;
 	}
 
 	tal_free(hin);
@@ -867,6 +869,8 @@ static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 			  channel->our_msatoshi,
 			  channel->our_msatoshi - hout->msatoshi);
 		channel->our_msatoshi -= hout->msatoshi;
+		if (channel->our_msatoshi < channel->msatoshi_to_us_min)
+			channel->msatoshi_to_us_min = channel->our_msatoshi;
 	}
 
 	tal_free(hout);
