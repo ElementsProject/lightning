@@ -203,7 +203,13 @@ wallet_commit_channel(struct lightningd *ld,
 			      push_msat,
 			      false, /* !remote_funding_locked */
 			      NULL, /* no scid yet */
+			      /* The three arguments below are msatoshi_to_us,
+			       * msatoshi_to_us_min, and msatoshi_to_us_max.
+			       * Because, this is a newly-funded channel,
+			       * all three are same value. */
 			      our_msatoshi,
+			      our_msatoshi, /* msatoshi_to_us_min */
+			      our_msatoshi, /* msatoshi_to_us_max */
 			      remote_commit,
 			      remote_commit_sig,
 			      NULL, /* No HTLC sigs yet */

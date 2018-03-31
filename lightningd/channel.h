@@ -66,6 +66,9 @@ struct channel {
 
 	/* Amount going to us, not counting unfinished HTLCs; if we have one. */
 	u64 our_msatoshi;
+	/* Statistics for min and max our_msatoshi. */
+	u64 msatoshi_to_us_min;
+	u64 msatoshi_to_us_max;
 
 	/* Last tx they gave us. */
 	struct bitcoin_tx *last_tx;
@@ -117,6 +120,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid,
 			    u64 our_msatoshi,
+			    u64 msatoshi_to_us_min,
+			    u64 msatoshi_to_us_max,
 			    /* Stolen */
 			    struct bitcoin_tx *last_tx,
 			    const secp256k1_ecdsa_signature *last_sig,
