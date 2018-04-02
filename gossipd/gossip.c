@@ -1427,8 +1427,8 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 	socklen_t len = sizeof(s);
 
 	if (getpeername(io_conn_fd(conn), (struct sockaddr *)&s, &len) != 0) {
-		status_unusual("Failed to get peername for incoming conn: %s",
-			       strerror(errno));
+		status_trace("Failed to get peername for incoming conn: %s",
+			     strerror(errno));
 		return io_close(conn);
 	}
 
