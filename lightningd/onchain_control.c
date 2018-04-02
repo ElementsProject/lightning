@@ -47,13 +47,10 @@ static void onchaind_tell_fulfill(struct channel *channel)
 	}
 }
 
-static void handle_onchain_init_reply(struct channel *channel, const u8 *msg)
+static void handle_onchain_init_reply(struct channel *channel, const u8 *msg UNUSED)
 {
 	/* FIXME: We may already be ONCHAIN state when we implement restart! */
 	channel_set_state(channel, FUNDING_SPEND_SEEN, ONCHAIN);
-
-	/* Tell it about any preimages we know. */
-	onchaind_tell_fulfill(channel);
 }
 
 static enum watch_result onchain_tx_watched(struct channel *channel,
@@ -201,7 +198,7 @@ static void handle_onchain_htlc_timeout(struct channel *channel, const u8 *msg)
 	onchain_failed_our_htlc(channel, &htlc, "timed out");
 }
 
-static void handle_irrevocably_resolved(struct channel *channel, const u8 *msg)
+static void handle_irrevocably_resolved(struct channel *channel, const u8 *msg UNUSED)
 {
 	/* FIXME: Implement check_htlcs to ensure no dangling hout->in ptrs! */
 	free_htlcs(channel->peer->ld, channel);
@@ -428,6 +425,9 @@ enum watch_result funding_spent(struct channel *channel,
 					  tell, tell_immediate);
 		subd_send_msg(channel->owner, take(msg));
 	}
+
+	/* Tell it about any preimages we know. */
+	onchaind_tell_fulfill(channel);
 
 	watch_tx_and_outputs(channel, tx);
 
