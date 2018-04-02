@@ -270,6 +270,12 @@ char *dbmigrations[] = {
     /* Record the msatoshi actually sent in a payment. */
     "ALTER TABLE payments ADD msatoshi_sent INTEGER;",
     "UPDATE payments SET msatoshi_sent = msatoshi;",
+    /* Delete dangling utxoset entries due to Issue #1280  */
+    "DELETE FROM utxoset WHERE blockheight IN ("
+    "  SELECT DISTINCT(blockheight)"
+    "  FROM utxoset LEFT OUTER JOIN blocks on (blockheight == blocks.height) "
+    "  WHERE blocks.hash IS NULL"
+    ");",
     NULL,
 };
 
