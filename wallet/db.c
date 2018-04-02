@@ -522,6 +522,7 @@ void db_reopen_after_fork(struct db *db)
 		fatal("failed to re-open database %s: %s", db->filename,
 		      sqlite3_errstr(err));
 	}
+	db_do_exec(__func__, db, "PRAGMA foreign_keys = ON;");
 }
 
 s64 db_get_intvar(struct db *db, char *varname, s64 defval)
