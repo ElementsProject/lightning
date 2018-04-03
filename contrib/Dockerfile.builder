@@ -11,6 +11,7 @@ RUN apt-get -qq update && \
 	automake \
 	clang \
 	cppcheck \
+	shellcheck \
 	eatmydata \
 	software-properties-common \
 	build-essential \
