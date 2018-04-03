@@ -110,6 +110,18 @@ static u64 grind_htlc_tx_fee(struct bitcoin_tx *tx,
 	u64 input_amount = *tx->input[0].amount;
 
 	for (u64 i = min_possible_feerate; i <= max_possible_feerate; i++) {
+		/* BOLT #3:
+		 *
+		 * The fee for an HTLC-timeout transaction:
+		 *   - MUST BE calculated to match:
+		 *     1. Multiply `feerate_per_kw` by 663 and divide by 1000
+		 *     (rounding down).
+		 *
+		 * The fee for an HTLC-success transaction:
+		 *   - MUST BE calculated to match:
+		 *     1. Multiply `feerate_per_kw` by 703 and divide by 1000
+		 *     (rounding down).
+		 */
 		u64 fee = i * multiplier / 1000;
 
 		if (fee > input_amount)
