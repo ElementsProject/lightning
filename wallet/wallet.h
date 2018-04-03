@@ -128,6 +128,16 @@ struct channel_stats {
 	u64 out_msatoshi_offered, out_msatoshi_fulfilled;
 };
 
+struct onchaindtx {
+	u32 channel_id;
+	int type;
+	u32 blockheight;
+	struct bitcoin_txid txid;
+	struct bitcoin_tx *tx;
+	u32 input_num;
+	u32 depth;
+};
+
 /**
  * wallet_new - Constructor for a new sqlite3 based wallet
  *
