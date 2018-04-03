@@ -1939,6 +1939,57 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(1)
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_fail")
+    def test_onchain_different_fees(self):
+        """Onchain handling when we've had a range of fees"""
+
+        l1, l2 = self.connect()
+        self.fund_channel(l1, l2, 10**7)
+
+        l2.rpc.dev_ignore_htlcs(id=l1.info['id'], ignore=True)
+        p1 = self.pay(l1, l2, 1000000000, async=True)
+        l1.daemon.wait_for_log('htlc 0: RCVD_ADD_ACK_COMMIT->SENT_ADD_ACK_REVOCATION')
+
+        l1.rpc.dev_setfees('14000')
+        p2 = self.pay(l1, l2, 900000000, async=True)
+        l1.daemon.wait_for_log('htlc 1: RCVD_ADD_ACK_COMMIT->SENT_ADD_ACK_REVOCATION')
+
+        l1.rpc.dev_setfees('5000')
+        p3 = self.pay(l1, l2, 800000000, async=True)
+        l1.daemon.wait_for_log('htlc 2: RCVD_ADD_ACK_COMMIT->SENT_ADD_ACK_REVOCATION')
+
+        # Drop to chain
+        l1.rpc.dev_fail(l2.info['id'])
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+
+        bitcoind.generate_block(1)
+        l1.daemon.wait_for_log(' to ONCHAIN')
+        l2.daemon.wait_for_log(' to ONCHAIN')
+
+        # Both sides should have correct feerate
+        assert l1.db_query('SELECT min_possible_feerate, max_possible_feerate FROM channels;') == [{'min_possible_feerate': 5000, 'max_possible_feerate': 14000}]
+        assert l2.db_query('SELECT min_possible_feerate, max_possible_feerate FROM channels;') == [{'min_possible_feerate': 5000, 'max_possible_feerate': 14000}]
+
+        bitcoind.generate_block(5)
+        # Three HTLCs, and one for the to-us output.
+        l1.daemon.wait_for_logs(['sendrawtx exit 0'] * 4)
+
+        # We use 3 blocks for "reasonable depth"
+        bitcoind.generate_block(3)
+
+        self.assertRaises(TimeoutError, p1.result, 10)
+        self.assertRaises(TimeoutError, p2.result, 10)
+        self.assertRaises(TimeoutError, p3.result, 10)
+
+        # Two more for HTLC timeout tx to be spent.
+        bitcoind.generate_block(2)
+        l1.daemon.wait_for_logs(['sendrawtx exit 0'] * 3)
+
+        # Now, 100 blocks it should be done.
+        bitcoind.generate_block(100)
+        wait_forget_channels(l1)
+        wait_forget_channels(l2)
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail_new_commit(self):
         # Test case where we have two possible commits: it will use new one.

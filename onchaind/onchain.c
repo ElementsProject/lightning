@@ -129,9 +129,10 @@ static u64 grind_htlc_tx_fee(struct bitcoin_tx *tx,
 	}
 	status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		      "grind_fee failed from %u - %u"
-		      " for tx %s, signature %s, wscript %s, multiplier %"PRIu64,
+		      " for tx %s, inputamount %"PRIu64", signature %s, wscript %s, multiplier %"PRIu64,
 		      min_possible_feerate, max_possible_feerate,
 		      type_to_string(tmpctx, struct bitcoin_tx, tx),
+		      input_amount,
 		      type_to_string(tmpctx, secp256k1_ecdsa_signature, remotesig),
 		      tal_hex(tmpctx, wscript),
 		      multiplier);

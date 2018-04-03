@@ -10,6 +10,7 @@
 #include <gossipd/gen_gossip_wire.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/htlc_end.h>
+#include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/pay.h>
@@ -576,6 +577,13 @@ static bool peer_accepted_htlc(struct channel *channel,
 	if (!htlc_in_update_state(channel, hin, RCVD_ADD_ACK_REVOCATION))
 		return false;
 
+#if DEVELOPER
+	if (channel->peer->ignore_htlcs) {
+		log_debug(channel->log, "their htlc %"PRIu64" dev_ignore_htlcs",
+			  id);
+		return true;
+	}
+#endif
 	/* BOLT #2:
 	 *
 	 * A sending node SHOULD fail to route any HTLC added after it
@@ -1618,3 +1626,40 @@ void notify_feerate_change(struct lightningd *ld)
 		subd_send_msg(channel->owner, take(msg));
 	}
 }
+
+#if DEVELOPER
+static void json_dev_ignore_htlcs(struct command *cmd, const char *buffer,
+				  const jsmntok_t *params)
+{
+	jsmntok_t *nodeidtok, *ignoretok;
+	struct peer *peer;
+
+	if (!json_get_params(cmd, buffer, params,
+			     "id", &nodeidtok,
+			     "ignore", &ignoretok,
+			     NULL)) {
+		return;
+	}
+
+	peer = peer_from_json(cmd->ld, buffer, nodeidtok);
+	if (!peer) {
+		command_fail(cmd, "Could not find channel with that peer");
+		return;
+	}
+
+	if (!json_tok_bool(buffer, ignoretok, &peer->ignore_htlcs)) {
+		command_fail(cmd, "Invalid boolean '%.*s'",
+			     ignoretok->end - ignoretok->start,
+			     buffer + ignoretok->start);
+		return;
+	}
+	command_success(cmd, null_response(cmd));
+}
+
+static const struct json_command dev_ignore_htlcs = {
+	"dev-ignore-htlcs", json_dev_ignore_htlcs,
+	"Set ignoring incoming HTLCs for peer {id} to {ignore}", false,
+	"Set/unset ignoring of all incoming HTLCs.  For testing only."
+};
+AUTODATA(json_command, &dev_ignore_htlcs);
+#endif /* DEVELOPER */
