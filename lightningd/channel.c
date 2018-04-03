@@ -151,7 +151,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool last_was_revoke,
 			    /* NULL or stolen */
 			    struct changed_htlc *last_sent_commit,
-			    u32 first_blocknum)
+			    u32 first_blocknum,
+			    u32 min_possible_feerate,
+			    u32 max_possible_feerate)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
 
@@ -204,6 +206,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->last_was_revoke = last_was_revoke;
 	channel->last_sent_commit = tal_steal(channel, last_sent_commit);
 	channel->first_blocknum = first_blocknum;
+	channel->min_possible_feerate = min_possible_feerate;
+	channel->max_possible_feerate = max_possible_feerate;
 	derive_channel_seed(peer->ld, &channel->seed, &peer->id, channel->dbid);
 
 	list_add_tail(&peer->channels, &channel->list);

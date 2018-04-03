@@ -90,6 +90,9 @@ struct channel {
 	/* Blockheight at creation, scans for funding confirmations
 	 * will start here */
 	u64 first_blocknum;
+
+	/* Feerate range */
+	u32 min_possible_feerate, max_possible_feerate;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,
@@ -126,7 +129,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool last_was_revoke,
 			    /* NULL or stolen */
 			    struct changed_htlc *last_sent_commit,
-			    u32 first_blocknum);
+			    u32 first_blocknum,
+			    u32 min_possible_feerate,
+			    u32 max_possible_feerate);
 
 void delete_channel(struct channel *channel);
 

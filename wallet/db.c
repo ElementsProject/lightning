@@ -276,6 +276,12 @@ char *dbmigrations[] = {
     "  FROM utxoset LEFT OUTER JOIN blocks on (blockheight == blocks.height) "
     "  WHERE blocks.hash IS NULL"
     ");",
+    /* Record feerate range, to optimize onchaind grinding actual fees. */
+    "ALTER TABLE channels ADD min_possible_feerate INTEGER;",
+    "ALTER TABLE channels ADD max_possible_feerate INTEGER;",
+    /* https://bitcoinfees.github.io/#1d says Dec 17 peak was ~1M sat/kb
+     * which is 250,000 sat/Sipa */
+    "UPDATE channels SET min_possible_feerate=0, max_possible_feerate=250000;",
     NULL,
 };
 
