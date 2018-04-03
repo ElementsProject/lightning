@@ -211,7 +211,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      NULL, /* No remote_shutdown_scriptpubkey yet */
 			      final_key_idx, false,
 			      NULL, /* No commit sent yet */
-			      uc->first_blocknum);
+			      uc->first_blocknum,
+			      feerate, feerate);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);

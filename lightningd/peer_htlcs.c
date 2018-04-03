@@ -1022,6 +1022,10 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 
 	/* Update their feerate. */
 	channel->channel_info.feerate_per_kw[REMOTE] = feerate;
+	if (feerate > channel->max_possible_feerate)
+		channel->max_possible_feerate = feerate;
+	if (feerate < channel->min_possible_feerate)
+		channel->min_possible_feerate = feerate;
 
 	if (!peer_save_commitsig_sent(channel, commitnum))
 		return;
@@ -1184,6 +1188,11 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 	channel->channel_info.feerate_per_kw[LOCAL]
 		= channel->channel_info.feerate_per_kw[REMOTE]
 		= feerate;
+
+	if (feerate > channel->max_possible_feerate)
+		channel->max_possible_feerate = feerate;
+	if (feerate < channel->min_possible_feerate)
+		channel->min_possible_feerate = feerate;
 
 	/* Since we're about to send revoke, bump state again. */
 	if (!peer_sending_revocation(channel, added, fulfilled, failed, changed))
