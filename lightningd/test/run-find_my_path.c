@@ -10,7 +10,6 @@ void activate_peers(struct lightningd *ld UNNEEDED)
 /* Generated stub for begin_topology */
 void begin_topology(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "begin_topology called!\n"); abort(); }
-/* Could not find declaration for crashlog */
 /* Generated stub for daemon_setup */
 void daemon_setup(const char *argv0 UNNEEDED,
 		  void (*backtrace_print)(const char *fmt UNNEEDED, ...) UNNEEDED,
