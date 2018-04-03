@@ -3048,6 +3048,40 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_logs(['sendrawtx exit 0', ' to CLOSINGD_COMPLETE'])
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
 
+    @unittest.expectedFailure
+    def test_shutdown_awaiting_lockin(self):
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(options=['--anchor-confirms=3'])
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        self.give_funds(l1, 10**6 + 1000000)
+        l1.rpc.fundchannel(l2.info['id'], 10**6)
+
+        # Technically, this is async to fundchannel.
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+        bitcoind.generate_block(1)
+
+        l1.rpc.close(l2.info['id'])
+        l1.daemon.wait_for_log('CHANNELD_AWAITING_LOCKIN to CHANNELD_SHUTTING_DOWN')
+        l2.daemon.wait_for_log('CHANNELD_AWAITING_LOCKIN to CHANNELD_SHUTTING_DOWN')
+
+        l1.daemon.wait_for_log('CHANNELD_SHUTTING_DOWN to CLOSINGD_SIGEXCHANGE')
+        l2.daemon.wait_for_log('CHANNELD_SHUTTING_DOWN to CLOSINGD_SIGEXCHANGE')
+
+        # And should put closing into mempool (happens async, so
+        # CLOSINGD_COMPLETE may come first).
+        l1.daemon.wait_for_logs(['sendrawtx exit 0', ' to CLOSINGD_COMPLETE'])
+        l2.daemon.wait_for_logs(['sendrawtx exit 0', ' to CLOSINGD_COMPLETE'])
+        assert bitcoind.rpc.getmempoolinfo()['size'] == 1
+
+        bitcoind.generate_block(1)
+        l1.daemon.wait_for_log(' to ONCHAIN')
+        l2.daemon.wait_for_log(' to ONCHAIN')
+
+        bitcoind.generate_block(100)
+        wait_forget_channels(l1)
+        wait_forget_channels(l2)
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_closing_negotiation_reconnect(self):
         disconnects = ['-WIRE_CLOSING_SIGNED',
