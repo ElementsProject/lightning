@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/bin/bash
 
 from=${1}
 to=${2}
