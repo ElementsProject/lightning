@@ -45,6 +45,11 @@ struct peer {
 
 	/* If we open a channel our direction will be this */
 	u8 direction;
+
+#if DEVELOPER
+	/* Swallow incoming HTLCs (for testing) */
+	bool ignore_htlcs;
+#endif
 };
 
 struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid);
