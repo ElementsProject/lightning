@@ -33,6 +33,9 @@ static const struct keyset *keyset;
 /* The feerate to use when we generate transactions. */
 static u32 feerate_per_kw;
 
+/* Min and max feerates we ever used */
+static u32 min_possible_feerate = 0, max_possible_feerate = 250000;
+
 /* The dust limit to use when we generate transactions. */
 static u64 dust_limit_satoshis;
 
@@ -97,99 +100,105 @@ struct tracked_output {
 	struct resolution *resolved;
 };
 
-/* We use the same feerate for htlcs and commit transactions; we don't
- * record what it was, so we brute-force it. */
-struct {
-	u32 min, max;
-} feerate_range;
-
-static void init_feerate_range(u64 funding_satoshi,
-			       const struct bitcoin_tx *commit_tx)
-{
-	size_t i, max_untrimmed_htlcs;
-	u64 fee = funding_satoshi;
-
-	for (i = 0; i < tal_count(commit_tx->output); i++)
-		fee -= commit_tx->output[i].amount;
-
-	/* We don't know how many trimmed HTLCs there are, so they could
-	 * be making fee entirely. */
-	feerate_range.min = 0;
-
-	/* But we can estimate the maximum fee rate:
-	 *
-	 * fee = feerate_per_kw * (724 + 172 * num_untrimmed) / 1000;
-	 */
-	if (tal_count(commit_tx->output) < 2)
-		max_untrimmed_htlcs = 0;
-	else
-		max_untrimmed_htlcs = tal_count(commit_tx->output) - 2;
-
-	feerate_range.max = (fee + 999) * 1000
-		/ (724 + 172 * max_untrimmed_htlcs);
-
-	status_trace("Initial feerate %u to %u",
-		     feerate_range.min, feerate_range.max);
-}
-
-static void narrow_feerate_range(u64 fee, u32 multiplier)
-{
-	u32 min, max;
-
-	/* fee = feerate_per_kw * multiplier / 1000; */
-
-	max = (fee + 999) * 1000 / multiplier;
-	if (fee < 999)
-		min = 0;
-	else
-		min = (fee - 999) * 1000 / multiplier;
-
-	status_trace("Fee %"PRIu64" gives feerate min/max %u/%u",
-		     fee, min, max);
-	if (max < feerate_range.max)
- 		feerate_range.max = max;
-	if (min > feerate_range.min)
- 		feerate_range.min = min;
-	status_trace("Feerate now %u to %u",
-		     feerate_range.min, feerate_range.max);
-}
-
-/* We vary feerate until signature they offered matches: we're more
- * likely to be near max. */
-static bool grind_feerate(struct bitcoin_tx *commit_tx,
-			  const secp256k1_ecdsa_signature *remotesig,
-			  const u8 *wscript,
-			  u64 multiplier)
+/* We vary feerate until signature they offered matches. */
+static u64 grind_htlc_tx_fee(struct bitcoin_tx *tx,
+			     const secp256k1_ecdsa_signature *remotesig,
+			     const u8 *wscript,
+			     u64 multiplier)
 {
 	u64 prev_fee = UINT64_MAX;
-	u64 input_amount = *commit_tx->input[0].amount;
+	u64 input_amount = *tx->input[0].amount;
 
-	for (s64 i = feerate_range.max; i >= feerate_range.min; i--) {
+	for (u64 i = min_possible_feerate; i <= max_possible_feerate; i++) {
 		u64 fee = i * multiplier / 1000;
 
 		if (fee > input_amount)
-			continue;
+			break;
 
 		/* Minor optimization: don't check same fee twice */
 		if (fee == prev_fee)
 			continue;
 
 		prev_fee = fee;
-		commit_tx->output[0].amount = input_amount - fee;
-		if (!check_tx_sig(commit_tx, 0, NULL, wscript,
+		tx->output[0].amount = input_amount - fee;
+		if (!check_tx_sig(tx, 0, NULL, wscript,
 				  &keyset->other_htlc_key, remotesig))
 			continue;
 
-		narrow_feerate_range(fee, multiplier);
-		return true;
+		return fee;
 	}
-	status_broken("grind_feerate failed from %u - %u"
-		      " for tx %s, signature %s, multiplier %"PRIu64,
-		      feerate_range.min, feerate_range.max,
-		      type_to_string(tmpctx, struct bitcoin_tx, commit_tx),
+	status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		      "grind_fee failed from %u - %u"
+		      " for tx %s, signature %s, wscript %s, multiplier %"PRIu64,
+		      min_possible_feerate, max_possible_feerate,
+		      type_to_string(tmpctx, struct bitcoin_tx, tx),
 		      type_to_string(tmpctx, secp256k1_ecdsa_signature, remotesig),
+		      tal_hex(tmpctx, wscript),
 		      multiplier);
-	return false;
+}
+
+static void set_htlc_timeout_fee(struct bitcoin_tx *tx,
+				 const secp256k1_ecdsa_signature *remotesig,
+				 const u8 *wscript)
+{
+	static u64 fee = UINT64_MAX;
+
+	/* BOLT #3:
+	 *
+	 * The fee for an HTLC-timeout transaction:
+	 *  - MUST BE calculated to match:
+	 *    1. Multiply `feerate_per_kw` by 663 and divide by 1000 (rounding
+	 *    down).
+	 */
+	if (fee == UINT64_MAX) {
+		fee = grind_htlc_tx_fee(tx, remotesig, wscript, 663);
+		return;
+	}
+
+	tx->output[0].amount = *tx->input[0].amount - fee;
+	if (check_tx_sig(tx, 0, NULL, wscript,
+			 &keyset->other_htlc_key, remotesig))
+		return;
+
+	status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		      "htlc_timeout_fee %"PRIu64" failed sigcheck "
+		      " for tx %s, signature %s, wscript %s",
+		      fee,
+		      type_to_string(tmpctx, struct bitcoin_tx, tx),
+		      type_to_string(tmpctx, secp256k1_ecdsa_signature, remotesig),
+		      tal_hex(tmpctx, wscript));
+}
+
+static void set_htlc_success_fee(struct bitcoin_tx *tx,
+				 const secp256k1_ecdsa_signature *remotesig,
+				 const u8 *wscript)
+{
+	static u64 fee = UINT64_MAX;
+
+	/* BOLT #3:
+	 *
+	 * The fee for an HTLC-success transaction:
+	 *  - MUST BE calculated to match:
+	 *    1. Multiply `feerate_per_kw` by 703 and divide by 1000
+	 *    (rounding down).
+	 */
+	if (fee == UINT64_MAX) {
+		fee = grind_htlc_tx_fee(tx, remotesig, wscript, 703);
+		return;
+	}
+
+	tx->output[0].amount = *tx->input[0].amount - fee;
+	if (check_tx_sig(tx, 0, NULL, wscript,
+			 &keyset->other_htlc_key, remotesig))
+		return;
+
+	status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		      "htlc_success_fee %"PRIu64" failed sigcheck "
+		      " for tx %s, signature %s, wscript %s",
+		      fee,
+		      type_to_string(tmpctx, struct bitcoin_tx, tx),
+		      type_to_string(tmpctx, secp256k1_ecdsa_signature, remotesig),
+		      tal_hex(tmpctx, wscript));
 }
 
 static const char *tx_type_name(enum tx_type tx_type)
@@ -1030,23 +1039,8 @@ static void handle_preimage(struct tracked_output **outs,
 					     to_self_delay[LOCAL],
 					     0,
 					     keyset);
-			/* BOLT #3:
-			 *
-			 * The fee for an HTLC-success transaction MUST BE
-			 * calculated to match:
-			 *
-			 * 1. Multiply `feerate_per_kw` by 703 and divide by
-			 *    1000 (rounding down).
-			 */
-			if (!grind_feerate(tx, outs[i]->remote_htlc_sig,
-					   outs[i]->wscript, 703))
-				status_failed(STATUS_FAIL_INTERNAL_ERROR,
-					      "Could not find feerate for"
-					      " signature on HTLC success"
-					      " between %u and %u",
-					      feerate_range.min,
-					      feerate_range.max);
-
+			set_htlc_success_fee(tx, outs[i]->remote_htlc_sig,
+					     outs[i]->wscript);
 			sign_tx_input(tx, 0, NULL, outs[i]->wscript,
 				      &htlc_privkey,
 				      &keyset->self_htlc_key,
@@ -1192,19 +1186,7 @@ static void resolve_our_htlc_ourcommit(struct tracked_output *out)
 			     out->htlc->cltv_expiry,
 			     to_self_delay[LOCAL], 0, keyset);
 
-	/* BOLT #3:
-	 *
-	 * The fee for an HTLC-timeout transaction MUST BE calculated to
-	 * match:
-	 *
-	 * 1. Multiply `feerate_per_kw` by 663 and divide by 1000 (rounding
-	 *    down).
-	 */
-	if (!grind_feerate(tx, out->remote_htlc_sig, out->wscript, 663))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Could not find feerate for signature on"
-			      " HTLC timeout between %u and %u",
-			      feerate_range.min, feerate_range.max);
+	set_htlc_timeout_fee(tx, out->remote_htlc_sig, out->wscript);
 
 	sign_tx_input(tx, 0, NULL, out->wscript, &htlc_privkey,
 		      &keyset->self_htlc_key, &localsig);
@@ -1338,8 +1320,6 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 	size_t i;
 
 	init_reply("Tracking our own unilateral close");
-
-	init_feerate_range(outs[0]->satoshi, tx);
 
 	/* BOLT #5:
 	 *
@@ -1643,8 +1623,6 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 
 	init_reply("Tracking their illegal close: taking all funds");
 
-	init_feerate_range(outs[0]->satoshi, tx);
-
 	/* BOLT #5:
 	 *
 	 * If a node sees a *commitment transaction* for which it has a
@@ -1900,8 +1878,6 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 	size_t i;
 
 	init_reply("Tracking their unilateral close");
-
-	init_feerate_range(outs[0]->satoshi, tx);
 
 	/* BOLT #5:
 	 *
