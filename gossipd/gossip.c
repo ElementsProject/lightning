@@ -17,7 +17,6 @@
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
 #include <common/features.h>
-#include <common/io_debug.h>
 #include <common/ping.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
@@ -1987,6 +1986,32 @@ handle_mark_channel_unroutable(struct io_conn *conn,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
+					     struct daemon *daemon,
+					     const u8 *msg)
+{
+	struct short_channel_id scid;
+	struct chan *chan;
+	struct routing_state *rstate = daemon->rstate;
+	if (!fromwire_gossip_outpoint_spent(msg, &scid))
+		master_badmsg(WIRE_GOSSIP_ROUTING_FAILURE, msg);
+
+	chan = get_channel(rstate, &scid);
+	if (chan) {
+		status_trace(
+		    "Deleting channel %s due to the funding outpoint being "
+		    "spent",
+		    type_to_string(msg, struct short_channel_id, &scid));
+		/* Freeing is sufficient since everything else is allocated off
+		 * of the channel and the destructor takes care of unregistering
+		 * the channel */
+		tal_free(chan);
+		gossip_store_add_channel_delete(rstate->store, &scid);
+	}
+
+	return daemon_conn_read_next(conn, &daemon->master);
+}
+
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct daemon *daemon = container_of(master, struct daemon, master);
@@ -2044,6 +2069,9 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT:
 		return disconnect_peer(conn, daemon, master->msg_in);
 
+	case WIRE_GOSSIP_OUTPOINT_SPENT:
+		return handle_outpoint_spent(conn, daemon, master->msg_in);
+
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
@@ -2068,6 +2096,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_STORE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_GOSSIP_STORE_CHANNEL_UPDATE:
 	case WIRE_GOSSIP_STORE_NODE_ANNOUNCEMENT:
+	case WIRE_GOSSIP_STORE_CHANNEL_DELETE:
 		break;
 	}
 
@@ -2088,7 +2117,6 @@ int main(int argc, char *argv[])
 	struct daemon *daemon;
 
 	subdaemon_setup(argc, argv);
-	io_poll_override(debug_poll);
 
 	daemon = tal(NULL, struct daemon);
 	list_head_init(&daemon->peers);
@@ -2117,6 +2145,7 @@ int main(int argc, char *argv[])
 			timer_expired(daemon, expired);
 		}
 	}
+	daemon_shutdown();
 	return 0;
 }
 #endif

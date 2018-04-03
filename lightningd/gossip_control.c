@@ -133,6 +133,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_SEND_GOSSIP:
 	case WIRE_GOSSIP_GET_TXOUT_REPLY:
 	case WIRE_GOSSIP_DISABLE_CHANNEL:
+	case WIRE_GOSSIP_OUTPOINT_SPENT:
 	case WIRE_GOSSIP_ROUTING_FAILURE:
 	case WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT:
@@ -152,6 +153,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_STORE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_GOSSIP_STORE_CHANNEL_UPDATE:
 	case WIRE_GOSSIP_STORE_NODE_ANNOUNCEMENT:
+	case WIRE_GOSSIP_STORE_CHANNEL_DELETE:
 		break;
 	/* These are inter-daemon messages, not received by us */
 	case WIRE_GOSSIP_LOCAL_ADD_CHANNEL:
@@ -212,6 +214,13 @@ void gossip_init(struct lightningd *ld)
 	    get_offered_global_features(tmpctx),
 	    get_offered_local_features(tmpctx), ld->wireaddrs, ld->rgb,
 	    ld->alias, ld->config.channel_update_interval);
+	subd_send_msg(ld->gossip, msg);
+}
+
+void gossipd_notify_spend(struct lightningd *ld,
+			  const struct short_channel_id *scid)
+{
+	u8 *msg = towire_gossip_outpoint_spent(tmpctx, scid);
 	subd_send_msg(ld->gossip, msg);
 }
 

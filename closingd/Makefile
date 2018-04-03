@@ -46,6 +46,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/crypto_state.o			\
 	common/crypto_sync.o			\
 	common/cryptomsg.o			\
+	common/daemon.o				\
 	common/daemon_conn.o			\
 	common/dev_disconnect.o			\
 	common/derive_basepoints.o		\

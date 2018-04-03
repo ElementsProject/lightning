@@ -288,9 +288,13 @@ class LightningDTests(BaseLightningDTests):
     def fund_channel(self, l1, l2, amount):
         # Generates a block, so we know next tx will be first in block.
         self.give_funds(l1, amount + 1000000)
+        num_tx = len(l1.bitcoin.rpc.getrawmempool())
+
         tx = l1.rpc.fundchannel(l2.info['id'], amount)['tx']
         # Technically, this is async to fundchannel.
         l1.daemon.wait_for_log('sendrawtx exit 0')
+
+        wait_for(lambda: len(l1.bitcoin.rpc.getrawmempool()) == num_tx + 1)
         l1.bitcoin.generate_block(1)
         # We wait until gossipd sees local update, as well as status NORMAL,
         # so it can definitely route through.
@@ -2209,6 +2213,49 @@ class LightningDTests(BaseLightningDTests):
         assert l3.info['id'] not in [n['nodeid'] for n in l1.rpc.listnodes()['nodes']]
         assert l3.info['id'] not in [n['nodeid'] for n in l2.rpc.listnodes()['nodes']]
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-no-reconnect")
+    def test_gossip_persistence(self):
+        """Gossip for a while, restart and it should remember.
+
+        Also tests for funding outpoint spends, and they should be persisted
+        too.
+        """
+        opts = ['--dev-no-reconnect']
+        l1 = self.node_factory.get_node(options=opts)
+        l2 = self.node_factory.get_node(options=opts)
+        l3 = self.node_factory.get_node(options=opts)
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        l2.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
+
+        self.fund_channel(l1, l2, 10**6)
+        self.fund_channel(l2, l3, 10**6)
+
+        l1.bitcoin.rpc.generate(6)
+
+        # Channels should be activated
+        wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True] * 4)
+        wait_for(lambda: [c['active'] for c in l2.rpc.listchannels()['channels']] == [True] * 4)
+        wait_for(lambda: [c['active'] for c in l3.rpc.listchannels()['channels']] == [True] * 4)
+
+        # l1 restarts and doesn't connect, but loads from persisted store
+        l1.restart()
+        assert [c['active'] for c in l1.rpc.listchannels()['channels']] == [True] * 4
+
+        # Now spend the funding tx, generate a block and see others deleting the
+        # channel from their network view
+        l1.rpc.dev_fail(l2.info['id'])
+        time.sleep(1)
+        l1.bitcoin.rpc.generate(1)
+
+        wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True] * 2)
+        wait_for(lambda: [c['active'] for c in l2.rpc.listchannels()['channels']] == [True] * 2)
+        wait_for(lambda: [c['active'] for c in l3.rpc.listchannels()['channels']] == [True] * 2)
+
+        # Finally, it should also remember the deletion after a restart
+        l3.restart()
+        assert [c['active'] for c in l3.rpc.listchannels()['channels']] == [True] * 2
+
     def ping_tests(self, l1, l2):
         # 0-byte pong gives just type + length field.
         ret = l1.rpc.dev_ping(l2.info['id'], 0, 0)
@@ -4056,7 +4103,6 @@ class LightningDTests(BaseLightningDTests):
 
     def test_peerinfo(self):
         l1, l2 = self.connect()
-
         # Gossiping but no node announcement yet
         assert l1.rpc.getpeer(l2.info['id'])['state'] == "GOSSIPING"
         assert 'alias' not in l1.rpc.getpeer(l2.info['id'])
@@ -4078,15 +4124,9 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(100)
         l1.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')
 
-        # Reconnect
-        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
-        l1.daemon.wait_for_log('WIRE_GOSSIP_PEER_CONNECTED')
-
-        # This time we already know about this node. So the node information appears even in
-        # GOSSIPING state
-        assert l1.rpc.getpeer(l2.info['id'])['state'] == "GOSSIPING"
-        assert l1.rpc.getpeer(l2.info['id'])['alias'] == l1.rpc.listnodes(l2.info['id'])['nodes'][0]['alias']
-        assert l1.rpc.getpeer(l2.info['id'])['color'] == l1.rpc.listnodes(l2.info['id'])['nodes'][0]['color']
+        # The only channel was closed, everybody should have forgotten the nodes
+        assert l1.rpc.listnodes()['nodes'] == []
+        assert l2.rpc.listnodes()['nodes'] == []
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_blockchaintrack(self):

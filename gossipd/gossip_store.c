@@ -88,6 +88,14 @@ void gossip_store_add_node_announcement(struct gossip_store *gs,
 	tal_free(msg);
 }
 
+void gossip_store_add_channel_delete(struct gossip_store *gs,
+				     const struct short_channel_id *scid)
+{
+	u8 *msg = towire_gossip_store_channel_delete(NULL, scid);
+	gossip_store_append(gs, msg);
+	tal_free(msg);
+}
+
 bool gossip_store_read_next(struct routing_state *rstate,
 			    struct gossip_store *gs)
 {
@@ -96,6 +104,7 @@ bool gossip_store_read_next(struct routing_state *rstate,
 	u8 *msg, *gossip_msg;
 	u64 satoshis;
 	enum gossip_wire_type type;
+	struct short_channel_id scid;
 
 	/* Did we already reach the end of the gossip_store? */
 	if (gs->read_pos == -1)
@@ -135,6 +144,9 @@ bool gossip_store_read_next(struct routing_state *rstate,
 	} else if(type == WIRE_GOSSIP_STORE_NODE_ANNOUNCEMENT) {
 		fromwire_gossip_store_node_announcement(msg, msg, &gossip_msg);
 		routing_add_node_announcement(rstate, gossip_msg);
+	} else if(type == WIRE_GOSSIP_STORE_CHANNEL_DELETE) {
+		fromwire_gossip_store_channel_delete(msg, &scid);
+		tal_free(get_channel(rstate, &scid));
 	}
 	tal_free(msg);
 	return true;

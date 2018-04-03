@@ -18,7 +18,7 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
-#include <common/io_debug.h>
+#include <common/daemon.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/utils.h>
@@ -277,22 +277,8 @@ int main(int argc, char *argv[])
 	bool newdir;
 	u32 first_blocknum;
 
-	err_set_progname(argv[0]);
-
-#if DEVELOPER
-	/* Suppresses backtrace (breaks valgrind) */
-	if (!getenv("LIGHTNINGD_DEV_NO_BACKTRACE"))
-		backtrace_state = backtrace_create_state(argv[0], 0, NULL, NULL);
-#else
-	backtrace_state = backtrace_create_state(argv[0], 0, NULL, NULL);
-#endif
-
+	daemon_setup(argv[0], log_backtrace_print, log_backtrace_exit);
 	ld = new_lightningd(NULL);
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
-	setup_tmpctx();
-
-	io_poll_override(debug_poll);
 
 	/* Figure out where our daemons are first. */
 	ld->daemon_dir = find_daemon_dir(ld, argv[0]);
@@ -400,7 +386,7 @@ int main(int argc, char *argv[])
 	begin_topology(ld->topology);
 
 	/* Activate crash log now we're not reporting startup failures. */
-	crashlog_activate(argv[0], ld->log);
+	crashlog = ld->log;
 
 	for (;;) {
 		struct timer *expired;
@@ -427,7 +413,6 @@ int main(int argc, char *argv[])
 #if DEVELOPER
 	memleak_cleanup();
 #endif
-	take_cleanup();
-	secp256k1_context_destroy(secp256k1_ctx);
+	daemon_shutdown();
 	return 0;
 }

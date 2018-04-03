@@ -270,6 +270,12 @@ char *dbmigrations[] = {
     /* Record the msatoshi actually sent in a payment. */
     "ALTER TABLE payments ADD msatoshi_sent INTEGER;",
     "UPDATE payments SET msatoshi_sent = msatoshi;",
+    /* Delete dangling utxoset entries due to Issue #1280  */
+    "DELETE FROM utxoset WHERE blockheight IN ("
+    "  SELECT DISTINCT(blockheight)"
+    "  FROM utxoset LEFT OUTER JOIN blocks on (blockheight == blocks.height) "
+    "  WHERE blocks.hash IS NULL"
+    ");",
     NULL,
 };
 
@@ -522,6 +528,7 @@ void db_reopen_after_fork(struct db *db)
 		fatal("failed to re-open database %s: %s", db->filename,
 		      sqlite3_errstr(err));
 	}
+	db_do_exec(__func__, db, "PRAGMA foreign_keys = ON;");
 }
 
 s64 db_get_intvar(struct db *db, char *varname, s64 defval)
