@@ -1,7 +1,5 @@
 #! /usr/bin/make
-NAME=Bitcoin Savings & Trust Daily Interest II
 
-# TODO: Decide: c-lightning, lightningd, lightning?
 PKGNAME = c-lightning
 
 # We use our own internal ccan copy.
@@ -291,7 +289,7 @@ ccan/config.h: ccan/tools/configurator/configurator Makefile
 	if $< --configurator-cc="$(CONFIGURATOR_CC)" $(CC) $(CFLAGS) > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
 
 gen_version.h: FORCE
-	@(echo "#define VERSION \"`git describe --always --dirty`\"" && echo "#define VERSION_NAME \"$(NAME)\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
+	@(echo "#define VERSION \"`git describe --always --dirty=-with-local-modifications`\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
 	@if cmp $@.new $@ >/dev/null 2>&2; then rm -f $@.new; else mv $@.new $@; echo Version updated; fi
 
 # All binaries require the external libs, ccan
