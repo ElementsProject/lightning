@@ -11,6 +11,7 @@
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
+#include <onchaind/gen_onchain_wire.h>
 #include <string.h>
 
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
@@ -2277,3 +2278,77 @@ struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
 	return txids;
 }
 
+void wallet_channeltxs_add(struct wallet *w, struct channel *chan,
+			   const int type, const struct bitcoin_txid *txid,
+			   const u32 input_num, const u32 blockheight)
+{
+	sqlite3_stmt *stmt;
+	stmt = db_prepare(w->db, "INSERT INTO channeltxs ("
+			  "  channel_id"
+			  ", type"
+			  ", transaction_id"
+			  ", input_num"
+			  ", blockheight"
+			  ") VALUES (?, ?, ?, ?, ?);");
+	sqlite3_bind_int(stmt, 1, chan->dbid);
+	sqlite3_bind_int(stmt, 2, type);
+	sqlite3_bind_sha256(stmt, 3, &txid->shad.sha);
+	sqlite3_bind_int(stmt, 4, input_num);
+	sqlite3_bind_int(stmt, 5, blockheight);
+
+	db_exec_prepared(w->db, stmt);
+}
+
+u32 *wallet_onchaind_channels(struct wallet *w,
+			      const tal_t *ctx)
+{
+	sqlite3_stmt *stmt;
+	size_t count = 0;
+	u32 *channel_ids = tal_arr(ctx, u32, 0);
+	stmt = db_prepare(w->db, "SELECT DISTINCT(channel_id) FROM channeltxs WHERE type = ?;");
+	sqlite3_bind_int(stmt, 1, WIRE_ONCHAIN_INIT);
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		count++;
+		tal_resize(&channel_ids, count);
+			channel_ids[count-1] = sqlite3_column_int64(stmt, 0);
+	}
+
+	return channel_ids;
+}
+
+struct channeltx *wallet_channeltxs_get(struct wallet *w, const tal_t *ctx,
+					u32 channel_id)
+{
+	sqlite3_stmt *stmt;
+	size_t count = 0;
+	struct channeltx *res = tal_arr(ctx, struct channeltx, 0);
+	stmt = db_prepare(w->db,
+			  "SELECT"
+			  "  c.type"
+			  ", c.blockheight"
+			  ", t.rawtx"
+			  ", c.input_num"
+			  ", c.blockheight - t.blockheight + 1 AS depth"
+			  ", t.id as txid "
+			  "FROM channeltxs c "
+			  "JOIN transactions t ON t.id == c.transaction_id "
+			  "WHERE channel_id = ? "
+			  "ORDER BY c.id ASC;");
+	sqlite3_bind_int(stmt, 1, channel_id);
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		count++;
+		tal_resize(&res, count);
+
+		res[count-1].channel_id = channel_id;
+		res[count-1].type = sqlite3_column_int(stmt, 0);
+		res[count-1].blockheight = sqlite3_column_int(stmt, 1);
+		res[count-1].tx = sqlite3_column_tx(ctx, stmt, 2);
+		res[count-1].input_num = sqlite3_column_int(stmt, 3);
+		res[count-1].depth = sqlite3_column_int(stmt, 4);
+		sqlite3_column_sha256(stmt, 5, &res[count-1].txid.shad.sha);
+	}
+
+	return res;
+}

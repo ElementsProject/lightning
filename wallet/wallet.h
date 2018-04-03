@@ -128,7 +128,7 @@ struct channel_stats {
 	u64 out_msatoshi_offered, out_msatoshi_fulfilled;
 };
 
-struct onchaindtx {
+struct channeltx {
 	u32 channel_id;
 	int type;
 	u32 blockheight;
@@ -845,5 +845,24 @@ struct txlocator *wallet_transaction_locate(const tal_t *ctx, struct wallet *w,
 struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
 						   struct wallet *w,
 						   const u32 blockheight);
+
+/**
+ * Store transactions of interest in the database to replay on restart
+ */
+void wallet_channeltxs_add(struct wallet *w, struct channel *chan,
+			    const int type, const struct bitcoin_txid *txid,
+			   const u32 input_num, const u32 blockheight);
+
+/**
+ * List channels for which we had an onchaind running
+ */
+u32 *wallet_onchaind_channels(struct wallet *w,
+			      const tal_t *ctx);
+
+/**
+ * Get transactions that we'd like to replay for a channel.
+ */
+struct channeltx *wallet_channeltxs_get(struct wallet *w, const tal_t *ctx,
+					u32 channel_id);
 
 #endif /* LIGHTNING_WALLET_WALLET_H */
