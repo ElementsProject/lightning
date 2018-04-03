@@ -380,7 +380,7 @@ static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 		json_add_num(response, "output", utxos[i]->outnum);
 		json_add_u64(response, "value", utxos[i]->amount);
 
-		// @closed_info is for outputs that are not yet claimable
+		/* @close_info is for outputs that are not yet claimable */
 		if (utxos[i]->close_info == NULL) {
 			bip32_pubkey(cmd->ld->wallet->bip32_base, &funding_pubkey,
 				     utxos[i]->keyindex);
