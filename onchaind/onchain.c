@@ -34,7 +34,7 @@ static const struct keyset *keyset;
 static u32 feerate_per_kw;
 
 /* Min and max feerates we ever used */
-static u32 min_possible_feerate = 0, max_possible_feerate = 250000;
+static u32 min_possible_feerate, max_possible_feerate;
 
 /* The dust limit to use when we generate transactions. */
 static u64 dust_limit_satoshis;
@@ -2133,7 +2133,9 @@ int main(int argc, char *argv[])
 				   &tx_blockheight,
 				   &reasonable_depth,
 				   &remote_htlc_sigs,
-				   &num_htlcs)) {
+				   &num_htlcs,
+				   &min_possible_feerate,
+				   &max_possible_feerate)) {
 		master_badmsg(WIRE_ONCHAIN_INIT, msg);
 	}
 
