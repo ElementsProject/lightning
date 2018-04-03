@@ -106,7 +106,7 @@ void peer_already_connected(struct lightningd *ld, const u8 *msg)
 static void json_connect(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *hosttok, *porttok, *idtok;
+	jsmntok_t *hosttok, *porttok, *idtok, *triestok, *tryratetok;
 	struct pubkey id;
 	char *id_str;
 	char *atptr;
@@ -115,11 +115,15 @@ static void json_connect(struct command *cmd,
 	struct wireaddr addr;
 	u8 *msg;
 	const char *err_msg;
+	unsigned int tries = 10;
+	unsigned int tryrate = 5;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "id", &idtok,
 			     "?host", &hosttok,
 			     "?port", &porttok,
+			     "?tries", &triestok,
+			     "?tryrate", &tryratetok,
 			     NULL)) {
 		return;
 	}
@@ -164,6 +168,19 @@ static void json_connect(struct command *cmd,
 		return;
 	}
 
+	if (triestok && !json_tok_number(buffer, triestok, &tries)) {
+		command_fail(cmd, "Tries %.*s not a valid number",
+			     triestok->end - triestok->start,
+			     buffer + triestok->start);
+		return;
+	}
+	if (tryratetok && !json_tok_number(buffer, tryratetok, &tryrate)) {
+		command_fail(cmd, "Try rate %.*s not a valid number",
+			     tryratetok->end - tryratetok->start,
+			     buffer + tryratetok->start);
+		return;
+	}
+
 	/* Was there parseable host name? */
 	if (name) {
 		/* Is there a port? */
@@ -191,7 +208,7 @@ static void json_connect(struct command *cmd,
 	}
 
 	/* Now tell it to try reaching it. */
-	msg = towire_gossipctl_reach_peer(cmd, &id);
+	msg = towire_gossipctl_reach_peer(cmd, &id, tries, tryrate);
 	subd_send_msg(cmd->ld->gossip, take(msg));
 
 	/* Leave this here for gossip_peer_connected */

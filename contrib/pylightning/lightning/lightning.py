@@ -302,14 +302,16 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listpayments", payload)
 
-    def connect(self, peer_id, host=None, port=None):
+    def connect(self, peer_id, host=None, port=None, tries=None, tryrate=None):
         """
         Connect to {peer_id} at {host} and {port}
         """
         payload = {
             "id": peer_id,
             "host": host,
-            "port": port
+            "port": port,
+            "tries": tries,
+            "tryrate": tryrate
         }
         return self.call("connect", payload)
 

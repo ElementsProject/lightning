@@ -107,6 +107,9 @@ struct reaching {
 	/* How many times to attempt */
 	u32 max_attempts;
 
+	/* How long to wait between attempts */
+	u32 time_between_attempts;
+
 	/* Timestamp of the first attempt */
 	u32 first_attempt;
 };
@@ -178,13 +181,14 @@ static struct io_plan *peer_start_gossip(struct io_conn *conn,
 					 struct peer *peer);
 static bool send_peer_with_fds(struct peer *peer, const u8 *msg);
 static void wake_pkt_out(struct peer *peer);
-static bool try_reach_peer(struct daemon *daemon, const struct pubkey *id);
+static bool try_reach_peer(struct daemon *daemon, const struct pubkey *id,
+			   u32 tries, u32 tryrate);
 
 static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->daemon->peers, &peer->list);
 	if (peer->reach_again)
-		try_reach_peer(peer->daemon, &peer->id);
+		try_reach_peer(peer->daemon, &peer->id, 10, 5);
 }
 
 static struct peer *find_peer(struct daemon *daemon, const struct pubkey *id)
@@ -1628,7 +1632,8 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 		status_trace("Failed connected out for %s, will try again",
 			     type_to_string(tmpctx, struct pubkey, &reach->id));
 		/* FIXME: Configurable timer! */
-		new_reltimer(&reach->daemon->timers, reach, time_from_sec(5),
+		new_reltimer(&reach->daemon->timers, reach,
+			     time_from_sec(reach->time_between_attempts),
 			     try_connect, reach);
 	}
 }
@@ -1729,7 +1734,8 @@ static void try_connect(struct reaching *reach)
 }
 
 /* Returns true if we're already connected. */
-static bool try_reach_peer(struct daemon *daemon, const struct pubkey *id)
+static bool try_reach_peer(struct daemon *daemon, const struct pubkey *id,
+			   u32 tries, u32 tryrate)
 {
 	struct reaching *reach;
 	struct peer *peer;
@@ -1757,7 +1763,8 @@ static bool try_reach_peer(struct daemon *daemon, const struct pubkey *id)
 	reach->id = *id;
 	reach->first_attempt = time_now().ts.tv_sec;
 	reach->attempts = 0;
-	reach->max_attempts = 10;
+	reach->max_attempts = tries;
+	reach->time_between_attempts = tryrate;
 	list_add_tail(&daemon->reaching, &reach->list);
 	tal_add_destructor(reach, destroy_reaching);
 
@@ -1770,12 +1777,14 @@ static struct io_plan *reach_peer(struct io_conn *conn,
 				  struct daemon *daemon, const u8 *msg)
 {
 	struct pubkey id;
+	u32 tries;
+	u32 tryrate;
 
-	if (!fromwire_gossipctl_reach_peer(msg, &id))
+	if (!fromwire_gossipctl_reach_peer(msg, &id, &tries, &tryrate))
 		master_badmsg(WIRE_GOSSIPCTL_REACH_PEER, msg);
 
 	/* Master can't check this itself, because that's racy. */
-	if (try_reach_peer(daemon, &id)) {
+	if (try_reach_peer(daemon, &id, tries, tryrate)) {
 		daemon_conn_send(&daemon->master,
 				 take(towire_gossip_peer_already_connected(NULL,
 									  &id)));

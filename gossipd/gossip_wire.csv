@@ -28,6 +28,8 @@ gossipctl_peer_addrhint,,addr,struct wireaddr
 # peer_already_connected
 gossipctl_reach_peer,3001
 gossipctl_reach_peer,,id,struct pubkey
+gossipctl_reach_peer,,tries,u32
+gossipctl_reach_peer,,tryrate,u32
 
 # Gossipd -> master: we got a peer. Two fds: peer and gossip
 gossip_peer_connected,3002

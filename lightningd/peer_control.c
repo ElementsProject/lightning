@@ -887,7 +887,7 @@ static void activate_peer(struct peer *peer)
 	/* We can only have one active channel: reconnect if not already. */
 	channel = peer_active_channel(peer);
 	if (channel && !channel->owner) {
-		msg = towire_gossipctl_reach_peer(peer, &peer->id);
+		msg = towire_gossipctl_reach_peer(peer, &peer->id, 10, 5);
 		subd_send_msg(peer->ld->gossip, take(msg));
 	}
 
