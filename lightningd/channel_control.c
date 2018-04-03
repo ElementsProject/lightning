@@ -77,9 +77,9 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	}
 
 	/* If we weren't already shutting down, we are now */
-	if (channel->state == CHANNELD_NORMAL)
+	if (channel->state != CHANNELD_SHUTTING_DOWN)
 		channel_set_state(channel,
-				  CHANNELD_NORMAL, CHANNELD_SHUTTING_DOWN);
+				  channel->state, CHANNELD_SHUTTING_DOWN);
 
 	/* TODO(cdecker) Selectively save updated fields to DB */
 	wallet_channel_save(ld->wallet, channel);

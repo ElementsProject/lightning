@@ -1589,7 +1589,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 
 	/* Must get funding_locked before almost anything. */
 	if (!peer->funding_locked[REMOTE]) {
-		if (type != WIRE_FUNDING_LOCKED && type != WIRE_PONG) {
+		if (type != WIRE_FUNDING_LOCKED
+		    && type != WIRE_PONG
+		    && type != WIRE_SHUTDOWN) {
 			peer_failed(&peer->cs,
 				    peer->gossip_index,
 				    &peer->channel_id,
