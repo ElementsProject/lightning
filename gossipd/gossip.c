@@ -2092,6 +2092,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_GET_TXOUT:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLY:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLYFAIL:
+	case WIRE_GOSSIP_NODESTATS_MARK_SEEN:
 	/* gossip_store messages */
 	case WIRE_GOSSIP_STORE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_GOSSIP_STORE_CHANNEL_UPDATE:
@@ -2103,6 +2104,37 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	/* Master shouldn't give bad requests. */
 	status_failed(STATUS_FAIL_MASTER_IO, "%i: %s",
 		      t, tal_hex(tmpctx, master->msg_in));
+}
+
+/** Periodic wakeup. Runs every second. **/
+static void periodic_start(struct daemon *daemon);
+static void
+periodic_loop(struct daemon *daemon)
+{
+	struct pubkey *to_mark_seen;
+	size_t i;
+
+	/* Grab list of nodes to inform. */
+	to_mark_seen = routing_get_nodestats_to_mark_seen(daemon->rstate, tmpctx);
+	for (i = 0; i < tal_count(to_mark_seen); ++i) {
+		status_debug("Sending to inform nodestats to mark as seen: %s",
+			     type_to_string(tmpctx, struct pubkey,
+					    &to_mark_seen[i]));
+		daemon_conn_send(&daemon->master,
+				 take(towire_gossip_nodestats_mark_seen(NULL,
+									&to_mark_seen[i])));
+	}
+
+	/* Start it again. */
+	periodic_start(daemon);
+}
+static void
+periodic_start(struct daemon *daemon)
+{
+	/* Perform this once a second*/
+	new_reltimer(&daemon->timers, daemon,
+		     time_from_sec(1),
+		     &periodic_loop, daemon);
 }
 
 #ifndef TESTING
@@ -2131,6 +2163,7 @@ int main(int argc, char *argv[])
 			 master_gone);
 	status_setup_async(&daemon->master);
 	hsm_setup(HSM_FD);
+	periodic_start(daemon);
 
 	/* When conn closes, everything is freed. */
 	tal_steal(daemon->master.conn, daemon);

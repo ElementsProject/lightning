@@ -1,4 +1,5 @@
 #include "invoices.h"
+#include "nodestats.h"
 #include "wallet.h"
 
 #include <bitcoin/script.h>
@@ -53,6 +54,7 @@ struct wallet *wallet_new(struct lightningd *ld,
 	wallet->log = log;
 	wallet->bip32_base = NULL;
 	wallet->invoices = invoices_new(wallet, wallet->db, log, timers);
+	wallet->nodestats = nodestats_new(wallet, wallet->db, log);
 	list_head_init(&wallet->unstored_payments);
 
 	db_begin_transaction(wallet->db);
@@ -2137,4 +2139,49 @@ struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 	op->satoshis = sqlite3_column_int64(stmt, 3);
 
 	return op;
+}
+
+/* Node statistics functions just delegate to the appropriate
+ * nodestats function. */
+void
+wallet_nodestats_mark_seen(struct wallet *w, const struct pubkey *n)
+{
+	nodestats_mark_seen(w->nodestats, n);
+}
+void
+wallet_nodestats_incr_forwarding_failures(struct wallet *w,
+					  const struct pubkey *n)
+{
+	nodestats_incr_forwarding_failures(w->nodestats, n);
+}
+void
+wallet_nodestats_incr_connect_failures(struct wallet *w,
+				       const struct pubkey *n)
+{
+	nodestats_incr_connect_failures(w->nodestats, n);
+}
+void
+wallet_nodestats_incr_channel_failures(struct wallet *w,
+				       const struct pubkey *n)
+{
+	nodestats_incr_channel_failures(w->nodestats, n);
+}
+u64
+wallet_nodestats_iterate(struct wallet *w, u64 i)
+{
+	return nodestats_iterate(w->nodestats, i);
+}
+bool
+wallet_nodestats_get_by_index(struct wallet *w,
+			      struct nodestats_detail *d,
+			      u64 i)
+{
+	return nodestats_get_by_index(w->nodestats, d, i);
+}
+bool
+wallet_nodestats_get_by_pubkey(struct wallet *w,
+			       struct nodestats_detail *d,
+			       const struct pubkey *n)
+{
+	return nodestats_get_by_pubkey(w->nodestats, d, n);
 }

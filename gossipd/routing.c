@@ -96,6 +96,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->store = gossip_store_new(rstate);
 	list_head_init(&rstate->pending_cannouncement);
 	uintmap_init(&rstate->chanmap);
+	rstate->nodestats_to_mark_seen = tal_arr(rstate, struct pubkey, 0);
 
 	rstate->pending_node_map = tal(ctx, struct pending_node_map);
 	pending_node_map_init(rstate->pending_node_map);
@@ -103,6 +104,32 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	return rstate;
 }
 
+struct pubkey *
+routing_get_nodestats_to_mark_seen(struct routing_state *rstate,
+				const tal_t *ctx)
+{
+	struct pubkey *retval;
+	if (tal_count(rstate->nodestats_to_mark_seen) == 0)
+		return NULL;
+
+	/* Grab existing array. */
+	retval = tal_steal(ctx, rstate->nodestats_to_mark_seen);
+	/* Reset the one in the structure. */
+	rstate->nodestats_to_mark_seen = tal_arr(rstate, struct pubkey, 0);
+
+	return retval;
+}
+/* Add a pubkey to be informed to the lightningd. */
+static void
+routing_enqueue_nodestats_mark_seen(struct routing_state *rstate,
+				    const struct pubkey *node)
+{
+	size_t i = tal_count(rstate->nodestats_to_mark_seen);
+	tal_resize(&rstate->nodestats_to_mark_seen, i + 1);
+	rstate->nodestats_to_mark_seen[i] = *node;
+	status_debug("Enqueueing to inform nodestats as seen: %s",
+		     type_to_string(tmpctx, struct pubkey, node));
+}
 
 const secp256k1_pubkey *node_map_keyof_node(const struct node *n)
 {
@@ -1224,6 +1251,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	status_trace("Received node_announcement for node %s",
 		     type_to_string(tmpctx, struct pubkey, &node_id));
 
+	routing_enqueue_nodestats_mark_seen(rstate, &node_id);
 	gossip_store_add_node_announcement(rstate->store, serialized);
 	applied = routing_add_node_announcement(rstate, serialized);
 	assert(applied);

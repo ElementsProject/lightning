@@ -229,6 +229,11 @@ gossipctl_peer_disconnect_replyfail,,isconnected,bool
 gossip_outpoint_spent,3024
 gossip_outpoint_spent,,short_channel_id,struct short_channel_id
 
+# Gossipd -> master:  we just received gossip about a node, so probably
+# it is still alive, so update node statistics DB last-time-node-was-seen
+gossip_nodestats_mark_seen,3025
+gossip_nodestats_mark_seen,,id,struct pubkey
+
 # gossip_store messages: messages persisted in the gossip_store
 gossip_store_channel_announcement,4096
 gossip_store_channel_announcement,,len,u16

@@ -150,6 +150,15 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listchannels", payload)
 
+    def listnodestats(self, id=None):
+        """
+        Show statistics for all known nodes, accept optional node pubkey {id}
+        """
+        payload = {
+            "id": id
+        }
+        return self.call("listnodestats", payload)
+
     def invoice(self, msatoshi, label, description, expiry=None, fallback=None):
         """
         Create an invoice for {msatoshi} with {label} and {description} with

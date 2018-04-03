@@ -57,6 +57,9 @@ void connect_failed(struct lightningd *ld, const struct pubkey *id,
 {
 	struct connect *i, *next;
 
+	/* Report failure to wallet node statistics. */
+	wallet_nodestats_incr_connect_failures(ld->wallet, id);
+
 	/* Careful!  Completing command frees connect. */
 	list_for_each_safe(&ld->connects, i, next, list) {
 		if (pubkey_eq(&i->id, id))

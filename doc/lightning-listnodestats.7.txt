@@ -1,0 +1,65 @@
+LIGHTNING-LISTNODESTATS(7)
+==========================
+:doctype: manpage
+
+NAME
+----
+lightning-listnodestats - Protocol for querying node-level statistics
+
+SYNOPSIS
+--------
+*listnodestats* ['id']
+
+DESCRIPTION
+-----------
+
+The *listnodestats* RPC command returns some node statistics and
+counters for nodes known by this node.
+
+If the 'id' is specified, information about the specific node is
+returned; the returned array is an array with a single element.
+If the specified 'id' is not found in the node statistics database,
+an error is returned.
+
+The command is intended, to provide information to automated
+programmable channel managers ("pilots") to help their
+heuristics judge good nodes to fund channels to and judge
+bad nodes to close channels with.
+
+RETURN VALUE
+------------
+
+On success, an object with a field 'nodestats' is returned.
+This field is an array of objects.
+Each object contains:
+
+* 'index' - an arbitrary numeric index unique for each node.
+* 'nodeid' - the public key (id) of the node, as a string.
+* 'time_first_seen' - the earliest time, as a Unix Epoch number,
+  that we saw this node alive.
+  Can be usd 
+* 'time_last_seen' - the latest time, as a Unix Epoch number,
+  that we saw this node alive.
+* 'forwarding_failures' - the number of times, that a payment
+  we made failed to reach the destination because this node
+  caused a failure.
+* 'connect_failures' - the number of times, that we gave up
+  on trying to connect to this node.
+* 'channel_failures' - the number of times, that a channel with
+  this node was closed due to an error on either side.
+
+If an 'id' is specified but is not found in the node statistics
+table, an error is returned.
+
+AUTHOR
+------
+
+ZmnSCPxj <ZmnSCPxj@protonmail.com> is mainly responsible.
+
+SEE ALSO
+--------
+lightning-listinvoices(7), lightning-listpayments(7)
+
+RESOURCES
+---------
+Main web site: https://github.com/ElementsProject/lightning

@@ -1136,6 +1136,17 @@ class LightningDTests(BaseLightningDTests):
         inv = l4.rpc.invoice(1234567, 'inv', 'for testing')['bolt11']
         l1.rpc.pay(inv)
 
+        # At this point, on pay success, all the nodes should be
+        # in the node statistics database (they are known to be
+        # alive due to successfully paying, and in this setup,
+        # the only viable path goes through all of them)
+        # Self will get added to database too due to being in
+        # node announcement.
+        assert len(l1.rpc.listnodestats()['nodestats']) == 4
+        assert len(l1.rpc.listnodestats(l2.info['id'])['nodestats']) == 1
+        assert len(l1.rpc.listnodestats(l3.info['id'])['nodestats']) == 1
+        assert len(l1.rpc.listnodestats(l4.info['id'])['nodestats']) == 1
+
     def test_bad_opening(self):
         # l1 asks for a too-long locktime
         l1 = self.node_factory.get_node(options=['--locktime-blocks=100'])
@@ -2127,6 +2138,13 @@ class LightningDTests(BaseLightningDTests):
             else:
                 assert n2['alias'].startswith('SILENTARTIST')
                 assert n2['color'] == '022d22'
+
+        # Test listnodestats with an arg
+        time.sleep(1)   # Let settle from gossipd
+        ns2 = l1.rpc.listnodestats(l2.info['id'])['nodestats'][0]
+        ns1 = l2.rpc.listnodestats(l1.info['id'])['nodestats'][0]
+        assert ns1['nodeid'] == l1.info['id']
+        assert ns2['nodeid'] == l2.info['id']
 
         assert [c['active'] for c in l1.rpc.listchannels()['channels']] == [True, True]
         assert [c['public'] for c in l1.rpc.listchannels()['channels']] == [True, True]
