@@ -31,6 +31,8 @@ onchain_init,,reasonable_depth,u32
 onchain_init,,num_htlc_sigs,u16
 onchain_init,,htlc_signature,num_htlc_sigs*secp256k1_ecdsa_signature
 onchain_init,,num_htlcs,u64
+onchain_init,,min_possible_feerate,u32
+onchain_init,,max_possible_feerate,u32
 
 #include <onchaind/onchain_wire.h>
 # This is all the HTLCs: one per message
