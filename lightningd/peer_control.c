@@ -853,9 +853,9 @@ static void json_close(struct command *cmd,
 	}
 
 	/* Normal case. */
-	if (channel->state == CHANNELD_NORMAL) {
+	if (channel->state == CHANNELD_NORMAL || channel->state == CHANNELD_AWAITING_LOCKIN) {
 		channel_set_state(channel,
-				  CHANNELD_NORMAL, CHANNELD_SHUTTING_DOWN);
+				  channel->state, CHANNELD_SHUTTING_DOWN);
 
 		if (channel->owner)
 			subd_send_msg(channel->owner,

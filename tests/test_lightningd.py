@@ -3048,7 +3048,6 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_logs(['sendrawtx exit 0', ' to CLOSINGD_COMPLETE'])
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
 
-    @unittest.expectedFailure
     def test_shutdown_awaiting_lockin(self):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node(options=['--anchor-confirms=3'])
