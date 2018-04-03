@@ -33,11 +33,13 @@ static void crashdump(int sig)
 {
 	/* We do stderr first, since it's most reliable. */
 	warnx("Fatal signal %d", sig);
-	backtrace_print(backtrace_state, 0, stderr);
+	if (backtrace_state)
+		backtrace_print(backtrace_state, 0, stderr);
 
 	/* Now send to parent. */
 	bt_print("FATAL SIGNAL %d", sig);
-	backtrace_full(backtrace_state, 0, backtrace_status, NULL, NULL);
+	if (backtrace_state)
+		backtrace_full(backtrace_state, 0, backtrace_status, NULL, NULL);
 
 	/* Probably shouldn't return. */
 	bt_exit();
