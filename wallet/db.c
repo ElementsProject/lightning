@@ -306,6 +306,18 @@ char *dbmigrations[] = {
     "   SET faildetail = 'unspecified payment failure reason'"
     " WHERE status = 2;", /* PAYMENT_FAILED */
     /* -- Detailed payment faiure ends -- */
+    "CREATE TABLE channeltxs ("
+    /* The id serves as insertion order and short ID */
+    "  id INTEGER"
+    ", channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE"
+    ", type INTEGER"
+    ", transaction_id BLOB REFERENCES transactions(id) ON DELETE CASCADE"
+    /* The input_num is only used by the txo_watch, 0 if txwatch */
+    ", input_num INTEGER"
+    /* The height at which we sent the depth notice */
+    ", blockheight INTEGER REFERENCES blocks(height) ON DELETE CASCADE"
+    ", PRIMARY KEY(id)"
+    ");",
     NULL,
 };
 
