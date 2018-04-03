@@ -6,7 +6,8 @@
 5. [NixOS](#to-build-on-nixos)
 6. [macOS](#to-build-on-macos)
 7. [Android](#to-cross-compile-for-android)
-8. [Additional steps](#additional-steps)
+8. [Raspberry Pi](#to-cross-compile-for-raspberry-pi)
+9. [Additional steps](#additional-steps)
 
 Library Requirements
 --------------------
@@ -235,6 +236,34 @@ Build with:
     BUILD=x86_64 HOST=arm-linux-androideabi \
       make PIE=1 DEVELOPER=0 \
       CONFIGURATOR_CC="arm-linux-androideabi-clang -static"
+
+To cross-compile for Raspberry Pi
+--------------------
+
+Obtain the [official Raspberry Pi toolchains](https://github.com/raspberrypi/tools). This document assumes compilation will occur towards the Raspberry Pi 3 (arm-linux-gnueabihf as of Mar. 2018). In addition, obtain and install cross-compiled versions of sqlite 3 and gmp.
+
+Depending on your toolchain location and target arch, source env variables will need to be set. They can be set from the command line as such:
+
+    export PATH=$PATH:/path/to/arm-linux-gnueabihf/bin
+    # Change next line depending on specific Raspberry Pi device
+    target_host=arm-linux-gnueabihf
+    export AR=$target_host-ar
+    export AS=$target_host-as
+    export CC=$target_host-gcc
+    export CXX=$target_host-g++
+    export LD=$target_host-ld
+    export STRIP=$target_host-strip
+
+Install the `qemu-user` package. This will allow you to properly configure the build for the target device environment. Then, build with the following commands. (A 64-bit build system is assumed here.)
+
+    make CC=gcc clean ccan/tools/configurator/configurator
+    BUILD=x86_64 HOST=arm-linux-gnueabihf make PIE=1 DEVELOPER=0 CONFIGURATOR_CC="arm-linux-gnueabihf-gcc -static" LDFLAGS="-L/path/to/gmp-and-sqlite/lib" CFLAGS="-std=gnu11 -I /path/to/gmp-and-sqlite/include -I . -I ccan -I external/libwally-core/src/secp256k1/include -I external/libsodium/src/libsodium/include -I external/jsmn -I external/libwally-core/include -I external/libbacktrace -I external/libbase58"
+
+The compilation will eventually fail due to a compile error in the `cdump` CCAN module. Recompile the module, and then re-run the make system.
+
+    make clean -C ccan/ccan/cdump/tools
+    make CC=gcc -C ccan/ccan/cdump/tools
+    BUILD=x86_64 HOST=arm-linux-gnueabihf make PIE=1 DEVELOPER=0 CONFIGURATOR_CC="arm-linux-gnueabihf-gcc -static" LDFLAGS="-L/path/to/gmp-and-sqlite/lib" CFLAGS="-std=gnu11 -I /path/to/gmp-and-sqlite/include -I . -I ccan -I external/libwally-core/src/secp256k1/include -I external/libsodium/src/libsodium/include -I external/jsmn -I external/libwally-core/include -I external/libbacktrace -I external/libbase58"
 
 Additional steps
 --------------------
