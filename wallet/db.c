@@ -746,7 +746,7 @@ struct pubkey *sqlite3_column_pubkey_array(const tal_t *ctx,
 		return NULL;
 
 	n = sqlite3_column_bytes(stmt, col) / PUBKEY_DER_LEN;
-	assert(n * PUBKEY_DER_LEN == sqlite3_column_bytes(stmt, col));
+	assert(n * PUBKEY_DER_LEN == (size_t)sqlite3_column_bytes(stmt, col));
 	ret = tal_arr(ctx, struct pubkey, n);
 	ders = sqlite3_column_blob(stmt, col);
 
