@@ -866,9 +866,7 @@ static void json_waitsendpay_on_resolve(const struct sendpay_result *r,
 				     fail->erring_index);
 			json_add_num(data, "failcode",
 				     (unsigned) fail->failcode);
-			json_add_hex(data, "erring_node",
-				     &fail->erring_node,
-				     sizeof(fail->erring_node));
+			json_add_pubkey(data, "erring_node", &fail->erring_node);
 			json_add_short_channel_id(data, "erring_channel",
 						  &fail->erring_channel);
 			if (fail->channel_update)
