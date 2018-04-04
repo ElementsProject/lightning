@@ -391,7 +391,8 @@ void channel_fail_transient(struct channel *channel, const char *fmt, ...)
 			return;
 #endif /* DEVELOPER */
 		u8 *msg = towire_gossipctl_reach_peer(NULL,
-						      &channel->peer->id);
+						      &channel->peer->id,
+						      10, 5);
 		subd_send_msg(ld->gossip, take(msg));
 	}
 }

@@ -371,7 +371,7 @@ u8 *towire_gossipctl_peer_addrhint(const tal_t *ctx UNNEEDED, const struct pubke
 u8 *towire_gossipctl_peer_disconnect(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
 { fprintf(stderr, "towire_gossipctl_peer_disconnect called!\n"); abort(); }
 /* Generated stub for towire_gossipctl_reach_peer */
-u8 *towire_gossipctl_reach_peer(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
+u8 *towire_gossipctl_reach_peer(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, u32 tries UNNEEDED, u32 tryrate UNNEEDED)
 { fprintf(stderr, "towire_gossipctl_reach_peer called!\n"); abort(); }
 /* Generated stub for towire_gossip_disable_channel */
 u8 *towire_gossip_disable_channel(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED, u8 direction UNNEEDED, bool active UNNEEDED)

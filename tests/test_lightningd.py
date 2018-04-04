@@ -588,6 +588,19 @@ class LightningDTests(BaseLightningDTests):
         assert len(l1.rpc.listpeers()) == 1
         assert len(l2.rpc.listpeers()) == 1
 
+        # Connect to nonexistent peer normally takes 50 seconds,
+        # see if changing tries and tryrate takes less.
+        l3 = self.node_factory.get_node()
+        l3.stop()
+        before = time.time()
+        self.assertRaises(ValueError, l1.rpc.connect, l3.info['id'], 'localhost', l3.info['port'], 2, 3)
+        after = time.time()
+        deltaTime = after - before
+        # 2 tries with 3 seconds between tries should mean about ~3 seconds.
+        # Give +/- 0.3 seconds, should be enough margin
+        assert 2.7 <= deltaTime
+        assert deltaTime <= 3.3
+
     def test_connect_standard_addr(self):
         """Test standard node@host:port address
         """
