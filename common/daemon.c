@@ -84,10 +84,9 @@ void daemon_setup(const char *argv0,
 {
 	err_set_progname(argv0);
 
+#if BACKTRACE_SUPPORTED
 	bt_print = backtrace_print;
 	bt_exit = backtrace_exit;
-
-#if BACKTRACE_SUPPORTED
 #if DEVELOPER
 	/* Suppresses backtrace (breaks valgrind) */
 	if (!getenv("LIGHTNINGD_DEV_NO_BACKTRACE"))
