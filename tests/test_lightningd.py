@@ -124,9 +124,9 @@ class NodeFactory(object):
         if disconnect:
             with open(os.path.join(lightning_dir, "dev_disconnect"), "w") as f:
                 f.write("\n".join(disconnect))
-            daemon.cmd_line.append("--dev-disconnect=dev_disconnect")
+            daemon.opts["dev-disconnect"] = "dev_disconnect"
         if DEVELOPER:
-            daemon.cmd_line.append("--dev-fail-on-subdaemon-fail")
+            daemon.opts["dev-fail-on-subdaemon-fail"] = None
             daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
             if VALGRIND:
                 daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
@@ -139,24 +139,24 @@ class NodeFactory(object):
                 exec bitcoin-cli "$@"
                 """, file=text_file)
             os.chmod(cli, os.stat(cli).st_mode | stat.S_IEXEC)
-            daemon.cmd_line.append('--bitcoin-cli={}'.format(cli))
+            daemon.opts['bitcoin-cli'] = cli
 
-        opts = [] if options is None else options
-        for opt in opts:
-            daemon.cmd_line.append(opt)
+        if options is not None:
+            daemon.opts.update(options)
+
         rpc = LightningRpc(socket_path, self.executor)
 
         node = utils.LightningNode(daemon, rpc, self.bitcoind, self.executor, may_fail=may_fail)
         self.nodes.append(node)
         if VALGRIND:
-            node.daemon.cmd_line = [
+            node.daemon.cmd_prefix = [
                 'valgrind',
                 '-q',
                 '--trace-children=yes',
                 '--trace-children-skip=*bitcoin-cli*',
                 '--error-exitcode=7',
                 '--log-file={}/valgrind-errors.%p'.format(node.daemon.lightning_dir)
-            ] + node.daemon.cmd_line
+            ]
 
         try:
             node.daemon.start()
@@ -1138,8 +1138,8 @@ class LightningDTests(BaseLightningDTests):
 
     def test_bad_opening(self):
         # l1 asks for a too-long locktime
-        l1 = self.node_factory.get_node(options=['--locktime-blocks=100'])
-        l2 = self.node_factory.get_node(options=['--max-locktime-blocks=99'])
+        l1 = self.node_factory.get_node(options={'locktime-blocks': 100})
+        l2 = self.node_factory.get_node(options={'max-locktime-blocks': 99})
         ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         assert ret['id'] == l2.info['id']
@@ -1276,10 +1276,11 @@ class LightningDTests(BaseLightningDTests):
         peers = []
         for feerate in feerates:
             for amount in amounts:
-                p = self.node_factory.get_node(options=['--override-fee-rates={}/{}/{}'
-                                                        .format(feerate[0],
-                                                                feerate[1],
-                                                                feerate[2])])
+                p = self.node_factory.get_node(options={
+                    'override-fee-rates': '{}/{}/{}'.format(feerate[0],
+                                                            feerate[1],
+                                                            feerate[2])
+                })
                 p.feerate = feerate
                 p.amount = amount
                 l1.rpc.connect(p.info['id'], 'localhost', p.info['port'])
@@ -1394,7 +1395,7 @@ class LightningDTests(BaseLightningDTests):
         disconnects = ['+WIRE_FUNDING_LOCKED', 'permfail']
         l1 = self.node_factory.get_node(disconnect=disconnects)
         # Make locktime different, as we once had them reversed!
-        l2 = self.node_factory.get_node(options=['--locktime-blocks=10'])
+        l2 = self.node_factory.get_node(options={'locktime-blocks': 10})
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
@@ -2186,14 +2187,12 @@ class LightningDTests(BaseLightningDTests):
 
     def test_gossip_weirdalias(self):
         weird_name = '\t \n \" \n \r \n \\'
-        l1 = self.node_factory.get_node(options=['--alias={}'
-                                                 .format(weird_name)])
+        l1 = self.node_factory.get_node(options={'alias': weird_name})
         weird_name_json = json.encoder.JSONEncoder().encode(weird_name)[1:-1].replace('\\', '\\\\')
         aliasline = l1.daemon.is_in_log('Server started with public key .* alias')
         assert weird_name_json in str(aliasline)
         normal_name = 'Normal name'
-        l2 = self.node_factory.get_node(options=['--alias={}'
-                                                 .format(normal_name)])
+        l2 = self.node_factory.get_node(options={'alias': normal_name})
         assert l2.daemon.is_in_log('Server started with public key .* alias {}'
                                    .format(normal_name))
 
@@ -2216,7 +2215,7 @@ class LightningDTests(BaseLightningDTests):
     def test_gossip_pruning(self):
         """ Create channel and see it being updated in time before pruning
         """
-        opts = ['--channel-update-interval=5']
+        opts = {'channel-update-interval': 5}
         l1 = self.node_factory.get_node(options=opts)
         l2 = self.node_factory.get_node(options=opts)
         l3 = self.node_factory.get_node(options=opts)
@@ -2271,7 +2270,7 @@ class LightningDTests(BaseLightningDTests):
         Also tests for funding outpoint spends, and they should be persisted
         too.
         """
-        opts = ['--dev-no-reconnect']
+        opts = {'dev-no-reconnect': None}
         l1 = self.node_factory.get_node(options=opts)
         l2 = self.node_factory.get_node(options=opts)
         l3 = self.node_factory.get_node(options=opts)
@@ -2519,9 +2518,9 @@ class LightningDTests(BaseLightningDTests):
         # 1. D: 400 base + 4000 millionths
 
         # We don't do D yet.
-        l1 = self.node_factory.get_node(options=['--cltv-delta=10', '--fee-base=100', '--fee-per-satoshi=1000'])
-        l2 = self.node_factory.get_node(options=['--cltv-delta=20', '--fee-base=200', '--fee-per-satoshi=2000'])
-        l3 = self.node_factory.get_node(options=['--cltv-delta=30', '--cltv-final=9', '--fee-base=300', '--fee-per-satoshi=3000'])
+        l1 = self.node_factory.get_node(options={'cltv-delta': 10, 'fee-base': 100, 'fee-per-satoshi': 1000})
+        l2 = self.node_factory.get_node(options={'cltv-delta': 20, 'fee-base': 200, 'fee-per-satoshi': 2000})
+        l3 = self.node_factory.get_node(options={'cltv-delta': 30, 'cltv-final': 9, 'fee-base': 300, 'fee-per-satoshi': 3000})
 
         ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         assert ret['id'] == l2.info['id']
@@ -2623,9 +2622,9 @@ class LightningDTests(BaseLightningDTests):
     def test_forward_pad_fees_and_cltv(self):
         """Test that we are allowed extra locktime delta, and fees"""
 
-        l1 = self.node_factory.get_node(options=['--cltv-delta=10', '--fee-base=100', '--fee-per-satoshi=1000'])
-        l2 = self.node_factory.get_node(options=['--cltv-delta=20', '--fee-base=200', '--fee-per-satoshi=2000'])
-        l3 = self.node_factory.get_node(options=['--cltv-delta=30', '--cltv-final=9', '--fee-base=300', '--fee-per-satoshi=3000'])
+        l1 = self.node_factory.get_node(options={'cltv-delta': 10, 'fee-base': 100, 'fee-per-satoshi': 1000})
+        l2 = self.node_factory.get_node(options={'cltv-delta': 20, 'fee-base': 200, 'fee-per-satoshi': 2000})
+        l3 = self.node_factory.get_node(options={'cltv-delta': 30, 'cltv-final': 9, 'fee-base': 300, 'fee-per-satoshi': 3000})
 
         ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         assert ret['id'] == l2.info['id']
@@ -2669,7 +2668,7 @@ class LightningDTests(BaseLightningDTests):
     def test_htlc_sig_persistence(self):
         """Interrupt a payment between two peers, then fail and recover funds using the HTLC sig.
         """
-        l1 = self.node_factory.get_node(options=['--dev-no-reconnect'])
+        l1 = self.node_factory.get_node(options={'dev-no-reconnect': None})
         l2 = self.node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'])
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
@@ -2714,7 +2713,7 @@ class LightningDTests(BaseLightningDTests):
         # HTLC 1->2, 1 fails after it's irrevocably committed, can't reconnect
         disconnects = ['@WIRE_REVOKE_AND_ACK']
         l1 = self.node_factory.get_node(disconnect=disconnects,
-                                        options=['--dev-no-reconnect'])
+                                        options={'dev-no-reconnect': None})
         l2 = self.node_factory.get_node()
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
@@ -2770,7 +2769,7 @@ class LightningDTests(BaseLightningDTests):
         # HTLC 1->2, 1 fails after 2 has sent committed the fulfill
         disconnects = ['-WIRE_REVOKE_AND_ACK*2']
         l1 = self.node_factory.get_node(disconnect=disconnects,
-                                        options=['--dev-no-reconnect'])
+                                        options={'dev-no-reconnect': None})
         l2 = self.node_factory.get_node()
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
@@ -3101,7 +3100,7 @@ class LightningDTests(BaseLightningDTests):
 
     def test_shutdown_awaiting_lockin(self):
         l1 = self.node_factory.get_node()
-        l2 = self.node_factory.get_node(options=['--anchor-confirms=3'])
+        l2 = self.node_factory.get_node(options={'anchor-confirms': 3})
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         self.give_funds(l1, 10**6 + 1000000)
@@ -3347,7 +3346,7 @@ class LightningDTests(BaseLightningDTests):
         # Previous runs with same bitcoind can leave funds!
         l1 = self.node_factory.get_node(random_hsm=True)
         max_locktime = 3 * 6 * 24
-        l2 = self.node_factory.get_node(options=['--locktime-blocks={}'.format(max_locktime + 1)])
+        l2 = self.node_factory.get_node(options={'locktime-blocks': max_locktime + 1})
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         funds = 1000000
@@ -3366,7 +3365,7 @@ class LightningDTests(BaseLightningDTests):
         assert l2.rpc.listpeers()['peers'][0]['connected']
 
         # Restart l2 without ridiculous locktime.
-        l2.daemon.cmd_line.remove('--locktime-blocks={}'.format(max_locktime + 1))
+        del l2.daemon.opts['locktime-blocks']
         l2.restart()
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
@@ -3408,7 +3407,7 @@ class LightningDTests(BaseLightningDTests):
 
     def test_lockin_between_restart(self):
         l1 = self.node_factory.get_node()
-        l2 = self.node_factory.get_node(options=['--anchor-confirms=3'])
+        l2 = self.node_factory.get_node(options={'anchor-confirms': 3})
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         self.give_funds(l1, 10**6 + 1000000)
@@ -3493,8 +3492,7 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.kill()
 
         # Clear the disconnect and timer stop so we can proceed normally
-        l2.daemon.cmd_line = [e for e in l2.daemon.cmd_line if 'disconnect' not in e]
-        print(" ".join(l2.daemon.cmd_line + ['--dev-debugger=channeld']))
+        del l2.daemon.opts['dev-disconnect']
 
         # Wait for l1 to notice
         wait_for(lambda: 'connected' not in l1.rpc.listpeers()['peers'][0]['channels'][0])
@@ -3533,7 +3531,7 @@ class LightningDTests(BaseLightningDTests):
     def test_payment_success_persistence(self):
         # Start two nodes and open a channel.. die during payment.
         l1 = self.node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'],
-                                        options=['--dev-no-reconnect'])
+                                        options={'dev-no-reconnect': None})
         l2 = self.node_factory.get_node()
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
@@ -3550,8 +3548,8 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.kill()
 
         # Restart l1, without disconnect stuff.
-        l1.daemon.cmd_line.remove('--dev-no-reconnect')
-        l1.daemon.cmd_line.remove('--dev-disconnect=dev_disconnect')
+        del l1.daemon.opts['dev-no-reconnect']
+        del l1.daemon.opts['dev-disconnect']
 
         # Should reconnect, and sort the payment out.
         l1.daemon.start()
@@ -3572,7 +3570,7 @@ class LightningDTests(BaseLightningDTests):
     def test_payment_failed_persistence(self):
         # Start two nodes and open a channel.. die during payment.
         l1 = self.node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'],
-                                        options=['--dev-no-reconnect'])
+                                        options={'dev-no-reconnect': None})
         l2 = self.node_factory.get_node()
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
@@ -3590,8 +3588,8 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.kill()
 
         # Restart l1, without disconnect stuff.
-        l1.daemon.cmd_line.remove('--dev-no-reconnect')
-        l1.daemon.cmd_line.remove('--dev-disconnect=dev_disconnect')
+        del l1.daemon.opts['dev-no-reconnect']
+        del l1.daemon.opts['dev-disconnect']
 
         # Make sure invoice has expired.
         time.sleep(3)
@@ -3874,7 +3872,7 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.dev_setfees(15000)
 
         # Try with node which sets --ignore-fee-limits
-        l3 = self.node_factory.get_node(options=['--ignore-fee-limits=true'])
+        l3 = self.node_factory.get_node(options={'ignore-fee-limits': 'true'})
         l1.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
 
         self.fund_channel(l1, l3, 10**6)
@@ -3939,8 +3937,8 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     def test_io_logging(self):
-        l1 = self.node_factory.get_node(options=['--debug-subdaemon-io=channeld',
-                                                 '--log-level=io'])
+        l1 = self.node_factory.get_node(options={'debug-subdaemon-io': 'channeld',
+                                                 'log-level': 'io'})
         l2 = self.node_factory.get_node()
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 

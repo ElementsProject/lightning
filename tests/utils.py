@@ -44,7 +44,6 @@ class TailableProc(object):
     def __init__(self, outputDir=None):
         self.logs = []
         self.logs_cond = threading.Condition(threading.RLock())
-        self.cmd_line = None
         self.env = os.environ
         self.running = False
         self.proc = None
@@ -245,27 +244,44 @@ class LightningD(TailableProc):
         TailableProc.__init__(self, lightning_dir)
         self.lightning_dir = lightning_dir
         self.port = port
+        self.cmd_prefix = []
+
+        self.opts = LIGHTNINGD_CONFIG.copy()
+        opts = {
+            'bitcoin-datadir': bitcoin_dir,
+            'lightning-dir': lightning_dir,
+            'port': port,
+            'allow-deprecated-apis': 'false',
+            'override-fee-rates': '15000/7500/1000',
+            'network': 'regtest',
+            'ignore-fee-limits': 'false',
+        }
+
+        for k, v in opts.items():
+            self.opts[k] = v
+
         # Last 32-bytes of final part of dir -> seed.
         seed = (bytes(re.search('([^/]+)/*$', lightning_dir).group(1), encoding='utf-8') + bytes(32))[:32]
-        self.cmd_line = [
-            'lightningd/lightningd',
-            '--bitcoin-datadir={}'.format(bitcoin_dir),
-            '--lightning-dir={}'.format(lightning_dir),
-            '--port={}'.format(port),
-            '--allow-deprecated-apis=false',
-            '--override-fee-rates=15000/7500/1000',
-            '--network=regtest',
-            '--ignore-fee-limits=false'
-        ]
         if DEVELOPER:
-            self.cmd_line += ['--dev-broadcast-interval=1000']
+            self.opts['dev-broadcast-interval'] = 1000
             if not random_hsm:
-                self.cmd_line += ['--dev-hsm-seed={}'.format(binascii.hexlify(seed).decode('ascii'))]
-        self.cmd_line += ["--{}={}".format(k, v) for k, v in sorted(LIGHTNINGD_CONFIG.items())]
+                self.opts['dev-hsm-seed'] = binascii.hexlify(seed).decode('ascii')
         self.prefix = 'lightningd(%d)' % (port)
 
         if not os.path.exists(lightning_dir):
             os.makedirs(lightning_dir)
+
+    @property
+    def cmd_line(self):
+
+        opts = []
+        for k, v in sorted(self.opts.items()):
+            if v is None:
+                opts.append("--{}".format(k))
+            else:
+                opts.append("--{}={}".format(k, v))
+
+        return self.cmd_prefix + ['lightningd/lightningd'] + opts
 
     def start(self):
         TailableProc.start(self)
