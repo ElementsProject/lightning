@@ -61,9 +61,7 @@ json_add_failure(struct json_result *r, char const *n,
 		json_add_string(r, "type", "FAIL_PAYMENT_REPLY");
 		json_add_num(r, "erring_index", rf->erring_index);
 		json_add_num(r, "failcode", (unsigned) rf->failcode);
-		json_add_hex(r, "erring_node",
-			     &rf->erring_node,
-			     sizeof(rf->erring_node));
+		json_add_pubkey(r, "erring_node", &rf->erring_node);
 		json_add_short_channel_id(r, "erring_channel",
 					  &rf->erring_channel);
 		if (rf->channel_update)
@@ -244,9 +242,7 @@ static void json_pay_failure(struct pay *pay,
 			     fail->erring_index);
 		json_add_num(data, "failcode",
 			     (unsigned) fail->failcode);
-		json_add_hex(data, "erring_node",
-			     &fail->erring_node,
-			     sizeof(fail->erring_node));
+		json_add_pubkey(data, "erring_node", &fail->erring_node);
 		json_add_short_channel_id(data, "erring_channel",
 					  &fail->erring_channel);
 		if (fail->channel_update)
