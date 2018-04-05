@@ -573,7 +573,7 @@ static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 
 	/* Rollback to the given blockheight, so we start track
 	 * correctly again */
-	wallet_blocks_rollback(topo->wallet, topo->first_blocknum - 1);
+	wallet_blocks_rollback(topo->wallet, topo->first_blocknum);
 
 	/* Get up to speed with topology. */
 	bitcoind_getblockhash(bitcoind, topo->first_blocknum,

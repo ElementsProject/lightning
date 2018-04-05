@@ -2027,7 +2027,7 @@ void wallet_block_remove(struct wallet *w, struct block *b)
 void wallet_blocks_rollback(struct wallet *w, u32 height)
 {
 	sqlite3_stmt *stmt = db_prepare(w->db, "DELETE FROM blocks "
-					"WHERE height >= ?");
+					"WHERE height > ?");
 	sqlite3_bind_int(stmt, 1, height);
 	db_exec_prepared(w->db, stmt);
 }
