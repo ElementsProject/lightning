@@ -13,6 +13,7 @@
 #include <common/json_escaped.h>
 #include <common/memleak.h>
 #include <common/version.h>
+#include <common/wallet_tx.h>
 #include <common/wireaddr.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -851,4 +852,16 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 	}
 
 	return ADDRESS_PARSE_UNRECOGNIZED;
+}
+
+bool json_tok_wtx(struct wallet_tx * tx, const char * buffer,
+		  const jsmntok_t *sattok)
+{
+	if (json_tok_streq(buffer, sattok, "all")) {
+		tx->all_funds = true;
+	} else if (!json_tok_u64(buffer, sattok, &tx->amount)) {
+		command_fail(tx->cmd, "Invalid satoshis");
+		return false;
+	}
+	return true;
 }

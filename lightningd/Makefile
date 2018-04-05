@@ -44,13 +44,13 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/utils.o				\
 	common/utxo.o				\
 	common/version.o			\
+	common/wallet_tx.o			\
 	common/wire_error.o			\
 	common/wireaddr.o			\
 	common/withdraw_tx.o
 
 LIGHTNINGD_SRC :=				\
 	lightningd/bitcoind.c			\
-	lightningd/build_utxos.c		\
 	lightningd/chaintopology.c		\
 	lightningd/channel.c			\
 	lightningd/channel_control.c		\
