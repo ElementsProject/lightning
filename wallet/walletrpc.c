@@ -6,6 +6,7 @@
 #include <common/key_derive.h>
 #include <common/status.h>
 #include <common/utxo.h>
+#include <common/wallet_tx.h>
 #include <common/withdraw_tx.h>
 #include <errno.h>
 #include <hsmd/gen_hsm_client_wire.h>
@@ -23,11 +24,9 @@
 #include <wire/wire_sync.h>
 
 struct withdrawal {
-	u64 amount, changesatoshi;
-	u8 *destination;
-	const struct utxo **utxos;
-	u64 change_key_index;
 	struct command *cmd;
+	struct wallet_tx wtx;
+	u8 *destination;
 	const char *hextx;
 };
 
@@ -52,7 +51,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 	char *output = tal_strjoin(cmd, tal_strsplit(cmd, msg, "\n", STR_NO_EMPTY), " ", STR_NO_TRAIL);
 	if (exitstatus == 0) {
 		/* Mark used outputs as spent */
-		wallet_confirm_utxos(ld->wallet, withdraw->utxos);
+		wallet_confirm_utxos(ld->wallet, withdraw->wtx.utxos);
 
 		/* Parse the tx and extract the change output. We
 		 * generated the hex tx, so this should always work */
@@ -60,9 +59,9 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 		assert(tx != NULL);
 		wallet_extract_owned_outputs(ld->wallet, tx, NULL, &change_satoshi);
 
-		/* Note normally, change_satoshi == withdraw->changesatoshi, but
+		/* Note normally, change_satoshi == withdraw->wtx.change, but
 		 * not if we're actually making a payment to ourselves! */
-		assert(change_satoshi >= withdraw->changesatoshi);
+		assert(change_satoshi >= withdraw->wtx.change);
 
 		struct json_result *response = new_json_result(cmd);
 		json_object_start(response, NULL);
@@ -86,29 +85,21 @@ static void json_withdraw(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
 	jsmntok_t *desttok, *sattok;
-	struct withdrawal *withdraw;
+	struct withdrawal *withdraw = tal(cmd, struct withdrawal);
+
 	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
-	u64 fee_estimate;
 	struct bitcoin_tx *tx;
-	bool all_funds = false;
+
 	enum address_parse_result addr_parse;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "destination", &desttok,
-			     "satoshi", &sattok,
-			     NULL)) {
-		return;
-	}
-
-	withdraw = tal(cmd, struct withdrawal);
 	withdraw->cmd = cmd;
-
-	if (json_tok_streq(buffer, sattok, "all"))
-		all_funds = true;
-	else if (!json_tok_u64(buffer, sattok, &withdraw->amount)) {
-		command_fail(cmd, "Invalid satoshis");
+	wtx_init(cmd, &withdraw->wtx);
+	if (!json_get_params(withdraw->cmd, buffer, params,
+			     "destination", &desttok,
+			     "satoshi", &sattok, NULL))
 		return;
-	}
+	if (!json_tok_wtx(&withdraw->wtx, buffer, sattok))
+		return;
 
 	/* Parse address. */
 	addr_parse = json_tok_address_scriptpubkey(cmd,
@@ -125,53 +116,21 @@ static void json_withdraw(struct command *cmd,
 	/* Check address given is compatible with the chain we are on. */
 	if (addr_parse == ADDRESS_PARSE_WRONG_NETWORK) {
 		command_fail(cmd,
-			    "Destination address is not on network %s",
-			    get_chainparams(cmd->ld)->network_name);
+			     "Destination address is not on network %s",
+			     get_chainparams(cmd->ld)->network_name);
 		return;
 	}
 
-	/* Select the coins */
-	if (all_funds) {
-		withdraw->utxos = wallet_select_all(cmd, cmd->ld->wallet,
-						    feerate_per_kw,
-						    tal_len(withdraw->destination),
-						    &withdraw->amount,
-						    &fee_estimate);
-		/* FIXME Pull dust amount from the daemon config */
-		if (!withdraw->utxos || withdraw->amount < 546) {
-			command_fail(cmd, "Cannot afford fee %"PRIu64,
-				     fee_estimate);
-			return;
-		}
-		withdraw->changesatoshi = 0;
-	} else {
-		withdraw->utxos = wallet_select_coins(cmd, cmd->ld->wallet,
-						      withdraw->amount,
-						      feerate_per_kw,
-						      tal_len(withdraw->destination),
-						      &fee_estimate,
-						      &withdraw->changesatoshi);
-		if (!withdraw->utxos) {
-			command_fail(cmd, "Not enough funds available");
-			return;
-		}
-	}
-
-	/* FIXME(cdecker) Pull this from the daemon config */
-	if (withdraw->changesatoshi <= 546)
-		withdraw->changesatoshi = 0;
-
-	if (withdraw->changesatoshi)
-		withdraw->change_key_index = wallet_get_newindex(cmd->ld);
-	else
-		withdraw->change_key_index = 0;
+	if (!wtx_select_utxos(&withdraw->wtx, feerate_per_kw,
+			      tal_len(withdraw->destination)))
+		return;
 
 	u8 *msg = towire_hsm_sign_withdrawal(cmd,
-					     withdraw->amount,
-					     withdraw->changesatoshi,
-					     withdraw->change_key_index,
+					     withdraw->wtx.amount,
+					     withdraw->wtx.change,
+					     withdraw->wtx.change_key_index,
 					     withdraw->destination,
-					     withdraw->utxos);
+					     withdraw->wtx.utxos);
 
 	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
 		fatal("Could not write sign_withdrawal to HSM: %s",
