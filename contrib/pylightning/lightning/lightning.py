@@ -150,7 +150,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listchannels", payload)
 
-    def invoice(self, msatoshi, label, description, expiry=None, fallback=None):
+    def invoice(self, msatoshi, label, description, expiry=None, fallbacks=None):
         """
         Create an invoice for {msatoshi} with {label} and {description} with
         optional {expiry} seconds (default 1 hour)
@@ -160,7 +160,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "label": label,
             "description": description,
             "expiry": expiry,
-            "fallback": fallback
+            "fallbacks": fallbacks
         }
         return self.call("invoice", payload)
 

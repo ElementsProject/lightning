@@ -91,12 +91,11 @@ static void test_b11(const char *b11str,
 	assert(b11->expiry == expect_b11->expiry);
 	assert(b11->min_final_cltv_expiry == expect_b11->min_final_cltv_expiry);
 
-	if (!b11->fallback)
-		assert(!expect_b11->fallback);
-	else
-		assert(memeq(b11->fallback, tal_len(b11->fallback),
-			     expect_b11->fallback,
-			     tal_len(expect_b11->fallback)));
+	assert(tal_count(b11->fallbacks) == tal_count(expect_b11->fallbacks));
+	for (size_t i = 0; i < tal_count(b11->fallbacks); i++)
+		assert(memeq(b11->fallbacks[i], tal_len(b11->fallbacks[i]),
+			     expect_b11->fallbacks[i],
+			     tal_len(expect_b11->fallbacks[i])));
 
 	/* FIXME: compare routes. */
 	assert(tal_count(b11->routes) == tal_count(expect_b11->routes));

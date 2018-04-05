@@ -111,27 +111,27 @@ int main(int argc, char *argv[])
 		       tal_hexstr(ctx, b11->description_hash,
 				  sizeof(*b11->description_hash)));
 
-        if (tal_len(b11->fallback)) {
+	for (i = 0; i < tal_count(b11->fallbacks); i++) {
                 struct bitcoin_address pkh;
                 struct ripemd160 sh;
                 struct sha256 wsh;
 
-		printf("fallback: %s\n", tal_hex(ctx, b11->fallback));
-                if (is_p2pkh(b11->fallback, &pkh)) {
+		printf("fallback: %s\n", tal_hex(ctx, b11->fallbacks[i]));
+                if (is_p2pkh(b11->fallbacks[i], &pkh)) {
 			printf("fallback-P2PKH: %s\n",
 			       bitcoin_to_base58(ctx, b11->chain->testnet,
 						 &pkh));
-                } else if (is_p2sh(b11->fallback, &sh)) {
+                } else if (is_p2sh(b11->fallbacks[i], &sh)) {
 			printf("fallback-P2SH: %s\n",
 			       p2sh_to_base58(ctx,
 					      b11->chain->testnet,
 					      &sh));
-                } else if (is_p2wpkh(b11->fallback, &pkh)) {
+                } else if (is_p2wpkh(b11->fallbacks[i], &pkh)) {
                         char out[73 + strlen(b11->chain->bip173_name)];
                         if (segwit_addr_encode(out, b11->chain->bip173_name, 0,
                                                (const u8 *)&pkh, sizeof(pkh)))
 				printf("fallback-P2WPKH: %s\n", out);
-                } else if (is_p2wsh(b11->fallback, &wsh)) {
+                } else if (is_p2wsh(b11->fallbacks[i], &wsh)) {
                         char out[73 + strlen(b11->chain->bip173_name)];
                         if (segwit_addr_encode(out, b11->chain->bip173_name, 0,
                                                (const u8 *)&wsh, sizeof(wsh)))
