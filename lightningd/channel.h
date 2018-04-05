@@ -165,6 +165,8 @@ struct channel *active_channel_by_id(struct lightningd *ld,
 				     const struct pubkey *id,
 				     struct uncommitted_channel **uc);
 
+struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid);
+
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
 			 const secp256k1_ecdsa_signature *sig);
