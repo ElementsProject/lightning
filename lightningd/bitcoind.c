@@ -157,7 +157,7 @@ static void bcli_finished(struct io_conn *conn UNUSED, struct bitcoin_cli *bcli)
 	bool ok;
 
 	/* FIXME: If we waited for SIGCHILD, this could never hang! */
-	ret = waitpid(bcli->pid, &status, 0);
+	while ((ret = waitpid(bcli->pid, &status, 0)) < 0 && errno == EINTR);
 	if (ret != bcli->pid)
 		fatal("%s %s", bcli_args(bcli),
 		      ret == 0 ? "not exited?" : strerror(errno));
@@ -740,7 +740,7 @@ static void fatal_bitcoind_failure(struct bitcoind *bitcoind, const char *error_
 
 void wait_for_bitcoind(struct bitcoind *bitcoind)
 {
-	int from, status;
+	int from, status, ret;
 	pid_t child;
 	const char **cmd = cmdarr(bitcoind, bitcoind, "echo", NULL);
 	bool printed = false;
@@ -759,7 +759,7 @@ void wait_for_bitcoind(struct bitcoind *bitcoind)
 			fatal("Reading from %s failed: %s",
 			      cmd[0], strerror(errno));
 
-		int ret = waitpid(child, &status, 0);
+		while ((ret = waitpid(child, &status, 0)) < 0 && errno == EINTR);
 		if (ret != child)
 			fatal("Waiting for %s: %s", cmd[0], strerror(errno));
 		if (!WIFEXITED(status))
