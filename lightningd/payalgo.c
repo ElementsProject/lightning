@@ -2,6 +2,8 @@
 #include "payalgo.h"
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/list/list.h>
+#include <ccan/structeq/structeq.h>
+#include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/bolt11.h>
@@ -90,6 +92,125 @@ json_add_failures(struct json_result *r, char const *n,
 	json_array_end(r);
 }
 
+/* A point by which we can contact the payee.
+ * This represents a single 'r' field of the bolt11 invoice. */
+struct contactpoint {
+	/* Part of contact_points list of struct pay. */
+	struct list_node list;
+	/* Destination to search by getroute.
+	 * First node on route, or the actual destination if
+	 * subroute is empty array. */
+	struct pubkey to_find;
+	/* Total additional delay on subroute. */
+	u32 total_cltv_delta;
+	/* Route to use. Non-NULL tal_arr array. */
+	struct route_info *subroute;
+};
+
+/* Add the fees. */
+static void
+add_fee(u64 *amount, u32 base, u32 proportional)
+{
+	(*amount) += (*amount) * proportional / 1000000;
+	(*amount) += base;
+}
+
+/* Append a contactpoint route to the route found by getroute. */
+static void
+contactpoint_append(struct route_hop **route,
+		    const struct contactpoint *cp,
+		    /* Actual destination. */
+		    const struct pubkey *receiver_id,
+		    /* Actual value we will give to destination. */
+		    u64 try_msatoshi,
+		    /* Actual final cltv delay. */
+		    u32 final_cltv)
+{
+	size_t route_end;
+	size_t actual_route_size;
+	int i;
+	u64 amount;
+	u32 delay;
+
+	if (tal_count(cp->subroute) == 0)
+		return;
+
+	route_end = tal_count(*route);
+	actual_route_size = route_end + tal_count(cp->subroute);
+
+	/* Initial route could start empty, if we are the
+	 * contactpoint.
+	 * If there is initial route, it should terminate
+	 * in the contact point to_find node.
+	 */
+	if (route_end != 0)
+		assert(structeq(&(*route)[route_end - 1].nodeid, &cp->to_find));
+
+	tal_resize(route, actual_route_size);
+
+	/* Load in reverse as we need to compute amounts in
+	 * reverse. */
+	/* FIXME: Unify amount-computing code here with amount-computing
+	 * code in gossipd/routing.c */
+	amount = try_msatoshi;
+	delay = final_cltv;
+	for (i = tal_count(cp->subroute) - 1; i >= 0; --i) {
+		(*route)[route_end + i].channel_id = cp->subroute[i].short_channel_id;
+		/* Get next hop, or dest if last on route. */
+		if (i != tal_count(cp->subroute) - 1)
+			(*route)[route_end + i].nodeid = cp->subroute[i + 1].pubkey;
+		else
+			(*route)[route_end + i].nodeid = *receiver_id;
+		(*route)[route_end + i].amount = amount;
+		(*route)[route_end + i].delay = delay;
+
+		add_fee(&amount,
+			cp->subroute[i].fee_base_msat,
+			cp->subroute[i].fee_proportional_millionths);
+		delay += cp->subroute[i].cltv_expiry_delta;
+	}
+	if (route_end != 0)
+		assert(amount == (*route)[route_end - 1].amount);
+}
+/* Compute the payment at the contact point, given a
+ * msatoshi target to be given to the destination. */
+static u64
+msatoshi_at_contactpoint(const struct contactpoint *cp, u64 msatoshi)
+{
+	int i;
+	for (i = tal_count(cp->subroute) - 1; i >= 0; --i)
+		add_fee(&msatoshi,
+			cp->subroute[i].fee_base_msat,
+			cp->subroute[i].fee_proportional_millionths);
+	return msatoshi;
+}
+
+/* Create a gossip_getroute_request message for a given msatoshi
+ * at the destination. */
+static u8 *
+contactpoint_make_getroute(const tal_t *ctx,
+			   const struct pubkey *source,
+			   const struct contactpoint *cp,
+			   u64 msatoshi,
+			   u16 riskfactor,
+			   u32 final_cltv,
+			   double fuzz,
+			   const struct siphash_seed *seed)
+{
+	/* Add the fees of the subroute. */
+	msatoshi = msatoshi_at_contactpoint(cp, msatoshi);
+	/* Add the delta of the subroute. */
+	final_cltv += cp->total_cltv_delta;
+	return towire_gossip_getroute_request(ctx,
+					      source,
+					      &cp->to_find,
+					      msatoshi,
+					      riskfactor,
+					      final_cltv,
+					      &fuzz,
+					      seed);
+}
+
 /* Pay command */
 struct pay {
 	/* Parent command. */
@@ -118,9 +239,23 @@ struct pay {
 	 * freed, then allocated at the start of each pay
 	 * attempt to ensure no leaks across long pay attempts */
 	char *try_parent;
+	/* The msatoshi we will try to send to destination on
+	 * the current pay attempt.
+	 * This is the msatoshi that will actually reach
+	 * the destination. */
+	u64 try_msatoshi;
+
+	/* List of contactpoints to try.
+	 * The top of this list is the contact point we
+	 * are trying to contact.
+	 * When this list becomes empty, we have not found
+	 * a viable route. */
+	struct list_head contactpoints;
 
 	/* Current route being attempted. */
 	struct route_hop *route;
+	/* The length of the public part of the route. */
+	size_t public_length;
 
 	/* List of failures to pay. */
 	struct list_head pay_failures;
@@ -128,6 +263,39 @@ struct pay {
 	/* Whether we are attempting payment or not. */
 	bool in_sendpay;
 };
+
+/* Construct an empty contactpoint for the destination. */
+static void
+create_contactpoint_at_dest(struct pay *pay,
+			    const struct pubkey *dest)
+{
+	struct contactpoint *cp = tal(pay, struct contactpoint);
+	/* Always try destination first. */
+	list_add(&pay->contactpoints, &cp->list);
+	cp->to_find = *dest;
+	cp->total_cltv_delta = 0;
+	cp->subroute = tal_arr(cp, struct route_info, 0);
+}
+/* Construct a contactpoint from a BOLT11 route. */
+static void
+create_contactpoint(struct pay *pay,
+		    const struct route_info *subroute TAKES)
+{
+	struct contactpoint *cp;
+	size_t i;
+
+	assert(tal_count(subroute) > 0);
+
+	cp = tal(pay, struct contactpoint);
+	list_add_tail(&pay->contactpoints, &cp->list);
+	cp->to_find = subroute[0].pubkey;
+	/* tal_dup_arr is TAKES*/
+	cp->subroute = tal_dup_arr(cp, struct route_info, subroute,
+				   tal_count(subroute), 0);
+	cp->total_cltv_delta = 0;
+	for (i = 0; i < tal_count(cp->subroute); ++i)
+		cp->total_cltv_delta += cp->subroute[i].cltv_expiry_delta;
+}
 
 static struct routing_failure *
 dup_routing_failure(const tal_t *ctx, const struct routing_failure *fail)
@@ -317,6 +485,7 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 {
 	struct pay *pay = (struct pay *) vpay;
 	char const *why;
+	unsigned int erring_index;
 
 	pay->in_sendpay = false;
 
@@ -356,8 +525,30 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 		new_reltimer(&pay->cmd->ld->timers, pay->try_parent,
 			     time_from_sec(3),
 			     &do_pay_try, pay);
-	} else
-		do_pay_try(pay);
+		return;
+	}
+
+	/* Determine if payment failure point was on a private
+	 * route, and is not the destination.
+	 * If so, it is a failure on the private route, so
+	 * skip the current contactpoint. */
+	if (r->errorcode == PAY_TRY_OTHER_ROUTE) {
+		erring_index = r->routing_failure->erring_index;
+		if (erring_index >= pay->public_length &&
+		    erring_index != tal_count(pay->route)) {
+			log_info(pay->cmd->ld->log,
+				 "pay(%p): erring_index = %u, which is "
+				 "on the private route (starting at %u); "
+				 "skip to next contactpoint",
+				 pay,
+				 erring_index,
+				 (unsigned int) pay->public_length);
+			tal_free(list_pop(&pay->contactpoints,
+					  struct contactpoint, list));
+		}
+	}
+
+	do_pay_try(pay);
 }
 
 /* Generates a string describing the route. Route should be a
@@ -400,11 +591,9 @@ static void json_pay_sendpay_resume(const struct sendpay_result *r,
 	}
 }
 
-static void json_pay_getroute_reply(struct subd *gossip UNUSED,
-				    const u8 *reply, const int *fds UNUSED,
-				    struct pay *pay)
+static void
+attempt_sendpay(struct pay *pay, struct route_hop *route)
 {
-	struct route_hop *route;
 	u64 msatoshi_sent;
 	u64 fee;
 	double feepercent;
@@ -413,19 +602,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	struct json_result *data;
 	char const *err;
 
-	fromwire_gossip_getroute_reply(reply, reply, &route);
-
-	if (tal_count(route) == 0) {
-		data = new_json_result(pay);
-		json_object_start(data, NULL);
-		json_add_num(data, "getroute_tries", pay->getroute_tries);
-		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
-		json_add_failures(data, "failures", &pay->pay_failures);
-		json_object_end(data);
-		command_fail_detailed(pay->cmd, PAY_ROUTE_NOT_FOUND, data,
-				      "Could not find a route");
-		return;
-	}
+	assert(tal_count(route) != 0);
 
 	msatoshi_sent = route[0].amount;
 	fee = msatoshi_sent - pay->msatoshi;
@@ -499,6 +676,76 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 		     &json_pay_sendpay_resume, pay);
 }
 
+/* For scheduling a deferred sendpay. */
+struct deferred_attempt_sendpay_note {
+	struct pay *pay;
+	struct route_hop *route;
+};
+static void
+resume_attempt_sendpay(struct deferred_attempt_sendpay_note *note)
+{
+	tal_steal(tmpctx, note);
+	attempt_sendpay(note->pay, note->route);
+}
+static void
+deferred_attempt_sendpay(struct pay *pay, struct route_hop *route TAKES)
+{
+	struct deferred_attempt_sendpay_note *note;
+	note = tal(pay->try_parent, struct deferred_attempt_sendpay_note);
+	note->pay = pay;
+	note->route = tal_dup_arr(note, struct route_hop,
+				  route, tal_count(route), 0);
+	new_reltimer(&pay->cmd->ld->timers, note, time_from_sec(0),
+		     &resume_attempt_sendpay, note);
+}
+
+static void json_pay_getroute_reply(struct subd *gossip UNUSED,
+				    const u8 *reply, const int *fds UNUSED,
+				    struct pay *pay)
+{
+	struct route_hop *route;
+
+	fromwire_gossip_getroute_reply(reply, reply, &route);
+
+	if (tal_count(route) == 0) {
+		/* Cannot reach contactpoint, go to next contactpoint. */
+		log_info(pay->cmd->ld->log,
+			 "pay(%p): no route found to contactpoint; "
+			 "skip to next contactpoint",
+			 pay);
+		tal_free(list_pop(&pay->contactpoints,
+				  struct contactpoint, list));
+		json_pay_try(pay);
+		return;
+	}
+	/* Result of getroute is directly the public part of the
+	 * route, prior to appending the contactpoint route. */
+	pay->public_length = tal_count(route);
+	/* Append contactpoint route to found route. */
+	contactpoint_append(&route,
+			    list_top(&pay->contactpoints,
+				     struct contactpoint, list),
+			    &pay->receiver_id,
+			    pay->try_msatoshi,
+			    pay->min_final_cltv_expiry);
+
+	attempt_sendpay(pay, route);
+}
+
+static void
+fail_no_route(struct pay *pay)
+{
+	struct json_result *data;
+	data = new_json_result(pay);
+	json_object_start(data, NULL);
+	json_add_num(data, "getroute_tries", pay->getroute_tries);
+	json_add_num(data, "sendpay_tries", pay->sendpay_tries);
+	json_add_failures(data, "failures", &pay->pay_failures);
+	json_object_end(data);
+	command_fail_detailed(pay->cmd, PAY_ROUTE_NOT_FOUND, data,
+			      "Could not find a route");
+}
+
 /* Start a payment attempt. Return true if deferred,
  * false if resolved now. */
 static bool json_pay_try(struct pay *pay)
@@ -509,6 +756,14 @@ static bool json_pay_try(struct pay *pay)
 	struct siphash_seed seed;
 	u64 maxoverpayment;
 	u64 overpayment;
+	struct contactpoint *cp;
+	struct route_hop *route;
+
+	/* If no more contactpoints to try, fail now. */
+	if (list_empty(&pay->contactpoints)) {
+		fail_no_route(pay);
+		return false;
+	}
 
 	/* If too late anyway, fail now. */
 	if (time_after(now, pay->expiry)) {
@@ -532,9 +787,6 @@ static bool json_pay_try(struct pay *pay)
 	/* Clear route */
 	pay->route = tal_free(pay->route);
 
-	/* Generate random seed */
-	randombytes_buf(&seed, sizeof(seed));
-
 	/* Generate an overpayment, from fuzz * maxfee. */
 	/* Now normally the use of double for money is very bad.
 	 * Note however that a later stage will ensure that
@@ -549,18 +801,48 @@ static bool json_pay_try(struct pay *pay)
 		overpayment = pseudorand(maxoverpayment);
 	} else
 		overpayment = 0;
+	pay->try_msatoshi = pay->msatoshi + overpayment;
+
+	cp = list_top(&pay->contactpoints, struct contactpoint, list);
+
+	/* If we are the contactpoint already, just append to an
+	 * empty route and try it now. */
+	if (structeq(&cp->to_find, &cmd->ld->id)) {
+		route = tal_arr(pay->try_parent, struct route_hop, 0);
+		contactpoint_append(&route, cp,
+				    &pay->receiver_id, pay->try_msatoshi,
+				    pay->min_final_cltv_expiry);
+
+		/* If still a 0-length route, this is, self-pay attempt.
+		 * Refuse and fail with route not found. */
+		if (tal_count(route) == 0) {
+			fail_no_route(pay);
+			return false;
+		}
+
+		/* Defer the sendpay attempt so that we directly
+		 * know that we did things deferred.
+		 * The attempt_sendpay, could handle things immediately,
+		 * but does not return true/false for deferred/resolved.
+		 */
+		deferred_attempt_sendpay(pay, take(route));
+		/* We deferred, so return true. */
+		return true;
+	}
 
 	++pay->getroute_tries;
 
-	/* FIXME: use b11->routes */
-	req = towire_gossip_getroute_request(pay->try_parent,
-					     &cmd->ld->id,
-					     &pay->receiver_id,
-					     pay->msatoshi + overpayment,
-					     pay->riskfactor,
-					     pay->min_final_cltv_expiry,
-					     &pay->fuzz,
-					     &seed);
+	/* Generate random seed */
+	randombytes_buf(&seed, sizeof(seed));
+
+	req = contactpoint_make_getroute(pay->try_parent,
+					 &cmd->ld->id,
+					 cp,
+					 pay->try_msatoshi,
+					 pay->riskfactor,
+					 pay->min_final_cltv_expiry,
+					 pay->fuzz,
+					 &seed);
 	subd_req(pay->try_parent, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
 
 	return true;
@@ -603,6 +885,7 @@ static void json_pay(struct command *cmd,
 	char *fail, *b11str, *desc;
 	unsigned int retryfor = 60;
 	unsigned int maxdelay = 500;
+	size_t i;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "bolt11", &bolt11tok,
@@ -738,6 +1021,13 @@ static void json_pay(struct command *cmd,
 	/* Start with no failures */
 	list_head_init(&pay->pay_failures);
 	pay->in_sendpay = false;
+
+	/* Load contactpoints. */
+	list_head_init(&pay->contactpoints);
+	/* Always add destination as first contactpoint. */
+	create_contactpoint_at_dest(pay, &pay->receiver_id);
+	for (i = 0; i < tal_count(b11->routes); ++i)
+		create_contactpoint(pay, take(b11->routes[i]));
 
 	/* Initiate payment */
 	if (json_pay_try(pay))
