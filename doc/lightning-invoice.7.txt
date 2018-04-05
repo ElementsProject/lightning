@@ -8,7 +8,7 @@ lightning-invoice - Protocol for accepting payments.
 
 SYNOPSIS
 --------
-*invoice* 'msatoshi' 'label' 'description' ['expiry']
+*invoice* 'msatoshi' 'label' 'description' ['expiry'] ['fallbacks']
 
 DESCRIPTION
 -----------
@@ -31,6 +31,10 @@ UTF-8, and cannot use '\u' JSON escape codes.
 
 The 'expiry' is optionally the number of seconds the invoice is valid for.
 If no value is provided the default of 3600 (1 Hour) is used.
+
+The 'fallbacks' array is one or more fallback addresses to include in
+the invoice (in order from most-preferred to least): note that these
+arrays are not currently tracked to fulfill the invoice.
 
 RETURN VALUE
 ------------

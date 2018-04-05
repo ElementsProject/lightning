@@ -429,9 +429,10 @@ class LightningDTests(BaseLightningDTests):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node()
 
-        addr = l2.rpc.newaddr('bech32')['address']
+        addr1 = l2.rpc.newaddr('bech32')['address']
+        addr2 = l2.rpc.newaddr('p2sh-segwit')['address']
         before = int(time.time())
-        inv = l1.rpc.invoice(123000, 'label', 'description', '3700', addr)
+        inv = l1.rpc.invoice(123000, 'label', 'description', '3700', [addr1, addr2])
         after = int(time.time())
         b11 = l1.rpc.decodepay(inv['bolt11'])
         assert b11['currency'] == 'bcrt'
@@ -441,8 +442,11 @@ class LightningDTests(BaseLightningDTests):
         assert b11['description'] == 'description'
         assert b11['expiry'] == 3700
         assert b11['payee'] == l1.info['id']
-        assert b11['fallback']['addr'] == addr
-        assert b11['fallback']['type'] == 'P2WPKH'
+        assert len(b11['fallbacks']) == 2
+        assert b11['fallbacks'][0]['addr'] == addr1
+        assert b11['fallbacks'][0]['type'] == 'P2WPKH'
+        assert b11['fallbacks'][1]['addr'] == addr2
+        assert b11['fallbacks'][1]['type'] == 'P2SH'
 
         # Check pay_index is null
         outputs = l1.db_query('SELECT pay_index IS NULL AS q FROM invoices WHERE label="label";')
@@ -721,8 +725,8 @@ class LightningDTests(BaseLightningDTests):
         assert b11['payment_hash'] == '0001020304050607080900010203040506070809000102030405060708090102'
         assert b11['expiry'] == 3600
         assert b11['payee'] == '03e7156ae33b0a208d0744199163177e909e80176e55d97a2f221ede0f934dd9ad'
-        assert b11['fallback']['type'] == 'P2PKH'
-        assert b11['fallback']['addr'] == 'mk2QpYatsKicvFVuTAQLBryyccRXMUaGHP'
+        assert b11['fallbacks'][0]['type'] == 'P2PKH'
+        assert b11['fallbacks'][0]['addr'] == 'mk2QpYatsKicvFVuTAQLBryyccRXMUaGHP'
 
         # > ### On mainnet, with fallback address 1RustyRX2oai4EYYDpQGWvEL62BBGqN9T with extra routing info to go via nodes 029e03a901b85534ff1e92c43c74431f7ce72046060fcf7a95c37e148f78c77255 then 039e03a901b85534ff1e92c43c74431f7ce72046060fcf7a95c37e148f78c77255
         # > lnbc20m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqsfpp3qjmp7lwpagxun9pygexvgpjdc4jdj85fr9yq20q82gphp2nflc7jtzrcazrra7wwgzxqc8u7754cdlpfrmccae92qgzqvzq2ps8pqqqqqqpqqqqq9qqqvpeuqafqxu92d8lr6fvg0r5gv0heeeqgcrqlnm6jhphu9y00rrhy4grqszsvpcgpy9qqqqqqgqqqqq7qqzqj9n4evl6mr5aj9f58zp6fyjzup6ywn3x6sk8akg5v4tgn2q8g4fhx05wf6juaxu9760yp46454gpg5mtzgerlzezqcqvjnhjh8z3g2qqdhhwkj
@@ -751,8 +755,8 @@ class LightningDTests(BaseLightningDTests):
         assert b11['payment_hash'] == '0001020304050607080900010203040506070809000102030405060708090102'
         assert b11['expiry'] == 3600
         assert b11['payee'] == '03e7156ae33b0a208d0744199163177e909e80176e55d97a2f221ede0f934dd9ad'
-        assert b11['fallback']['type'] == 'P2PKH'
-        assert b11['fallback']['addr'] == '1RustyRX2oai4EYYDpQGWvEL62BBGqN9T'
+        assert b11['fallbacks'][0]['type'] == 'P2PKH'
+        assert b11['fallbacks'][0]['addr'] == '1RustyRX2oai4EYYDpQGWvEL62BBGqN9T'
         assert len(b11['routes']) == 1
         assert len(b11['routes'][0]) == 2
         assert b11['routes'][0][0]['pubkey'] == '029e03a901b85534ff1e92c43c74431f7ce72046060fcf7a95c37e148f78c77255'
@@ -792,8 +796,8 @@ class LightningDTests(BaseLightningDTests):
         assert b11['payment_hash'] == '0001020304050607080900010203040506070809000102030405060708090102'
         assert b11['expiry'] == 3600
         assert b11['payee'] == '03e7156ae33b0a208d0744199163177e909e80176e55d97a2f221ede0f934dd9ad'
-        assert b11['fallback']['type'] == 'P2SH'
-        assert b11['fallback']['addr'] == '3EktnHQD7RiAE6uzMj2ZifT9YgRrkSgzQX'
+        assert b11['fallbacks'][0]['type'] == 'P2SH'
+        assert b11['fallbacks'][0]['addr'] == '3EktnHQD7RiAE6uzMj2ZifT9YgRrkSgzQX'
 
         # > ### On mainnet, with fallback (P2WPKH) address bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4
         # > lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfppqw508d6qejxtdg4y5r3zarvary0c5xw7kepvrhrm9s57hejg0p662ur5j5cr03890fa7k2pypgttmh4897d3raaq85a293e9jpuqwl0rnfuwzam7yr8e690nd2ypcq9hlkdwdvycqa0qza8
@@ -817,8 +821,8 @@ class LightningDTests(BaseLightningDTests):
         assert b11['payment_hash'] == '0001020304050607080900010203040506070809000102030405060708090102'
         assert b11['expiry'] == 3600
         assert b11['payee'] == '03e7156ae33b0a208d0744199163177e909e80176e55d97a2f221ede0f934dd9ad'
-        assert b11['fallback']['type'] == 'P2WPKH'
-        assert b11['fallback']['addr'] == 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4'
+        assert b11['fallbacks'][0]['type'] == 'P2WPKH'
+        assert b11['fallbacks'][0]['addr'] == 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4'
 
         # > ### On mainnet, with fallback (P2WSH) address bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3
         # > lnbc20m1pvjluezhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfp4qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q28j0v3rwgy9pvjnd48ee2pl8xrpxysd5g44td63g6xcjcu003j3qe8878hluqlvl3km8rm92f5stamd3jw763n3hck0ct7p8wwj463cql26ava
@@ -842,8 +846,8 @@ class LightningDTests(BaseLightningDTests):
         assert b11['payment_hash'] == '0001020304050607080900010203040506070809000102030405060708090102'
         assert b11['expiry'] == 3600
         assert b11['payee'] == '03e7156ae33b0a208d0744199163177e909e80176e55d97a2f221ede0f934dd9ad'
-        assert b11['fallback']['type'] == 'P2WSH'
-        assert b11['fallback']['addr'] == 'bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3'
+        assert b11['fallbacks'][0]['type'] == 'P2WSH'
+        assert b11['fallbacks'][0]['addr'] == 'bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3'
 
         self.assertRaises(ValueError, l1.rpc.decodepay, '1111111')
 
