@@ -265,6 +265,19 @@ struct channel *active_channel_by_id(struct lightningd *ld,
 	return peer_active_channel(peer);
 }
 
+struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid)
+{
+	struct peer *p;
+	struct channel *chan;
+	list_for_each(&ld->peers, p, list) {
+		list_for_each(&p->channels, chan, list) {
+			if (chan->dbid == dbid)
+				return chan;
+		}
+	}
+	return NULL;
+}
+
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
 			 const secp256k1_ecdsa_signature *sig)
