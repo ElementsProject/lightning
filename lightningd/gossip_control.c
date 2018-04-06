@@ -227,7 +227,7 @@ static void gossip_activate_done(struct subd *gossip UNUSED,
 
 void gossip_activate(struct lightningd *ld)
 {
-	const u8 *msg = towire_gossipctl_activate(NULL, ld->portnum);
+	const u8 *msg = towire_gossipctl_activate(NULL, ld->portnum, ld->localsocket_filename);
 	subd_req(ld->gossip, ld->gossip, take(msg), -1, 0,
 		 gossip_activate_done, NULL);
 

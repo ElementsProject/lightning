@@ -303,6 +303,9 @@ int main(int argc, char *argv[])
 	if (!ld->daemon_dir)
 		errx(1, "Could not find daemons");
 
+	/* Don't accept local connections by default */
+	ld->localsocket_filename = NULL;
+
 	register_opts(ld);
 
 	/* Handle options and config; move to .lightningd */

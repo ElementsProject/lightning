@@ -89,6 +89,9 @@ struct lightningd {
 	char *config_dir;
 	char *rpc_filename;
 
+	/* Local socket for incoming connections */
+	u8 *localsocket_filename;
+
 	/* Configuration settings. */
 	struct config config;
 

@@ -23,6 +23,8 @@ gossipctl_init,,no_reconnect,bool
 gossipctl_activate,3025
 # If non-zero, port to listen on.
 gossipctl_activate,,port,u16
+gossipctl_activate,,lslen,u16
+gossipctl_activate,,localsocket,lslen*u8
 
 # Gossipd->master, I am ready.
 gossipctl_activate_reply,3125
