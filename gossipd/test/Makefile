@@ -9,6 +9,7 @@ GOSSIPD_TEST_PROGRAMS := $(GOSSIPD_TEST_OBJS:.o=)
 GOSSIPD_TEST_COMMON_OBJS :=			\
 	common/features.o			\
 	common/pseudorand.o			\
+	common/route_builder.o			\
 	common/type_to_string.o			\
 	common/utils.o
 

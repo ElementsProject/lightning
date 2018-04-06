@@ -8,10 +8,10 @@
 #include <ccan/time/time.h>
 #include <common/bolt11.h>
 #include <common/pseudorand.h>
+#include <common/route_builder.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <gossipd/gen_gossip_wire.h>
-#include <gossipd/routing.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/jsonrpc_errors.h>
@@ -107,14 +107,6 @@ struct contactpoint {
 	struct route_info *subroute;
 };
 
-/* Add the fees. */
-static void
-add_fee(u64 *amount, u32 base, u32 proportional)
-{
-	(*amount) += (*amount) * proportional / 1000000;
-	(*amount) += base;
-}
-
 /* Append a contactpoint route to the route found by getroute. */
 static void
 contactpoint_append(struct route_hop **route,
@@ -129,8 +121,7 @@ contactpoint_append(struct route_hop **route,
 	size_t route_end;
 	size_t actual_route_size;
 	int i;
-	u64 amount;
-	u32 delay;
+	struct route_builder builder;
 
 	if (tal_count(cp->subroute) == 0)
 		return;
@@ -148,29 +139,26 @@ contactpoint_append(struct route_hop **route,
 
 	tal_resize(route, actual_route_size);
 
-	/* Load in reverse as we need to compute amounts in
+	/* Start up the route builder. */
+	route_builder_init(&builder,
+			   /* Start from end of existing route. */
+			   *route + route_end,
+			   tal_count(cp->subroute),
+			   receiver_id,
+			   try_msatoshi,
+			   final_cltv);
+	/* Load in reverse as we need to compute amounts and delays in
 	 * reverse. */
-	/* FIXME: Unify amount-computing code here with amount-computing
-	 * code in gossipd/routing.c */
-	amount = try_msatoshi;
-	delay = final_cltv;
 	for (i = tal_count(cp->subroute) - 1; i >= 0; --i) {
-		(*route)[route_end + i].channel_id = cp->subroute[i].short_channel_id;
-		/* Get next hop, or dest if last on route. */
-		if (i != tal_count(cp->subroute) - 1)
-			(*route)[route_end + i].nodeid = cp->subroute[i + 1].pubkey;
-		else
-			(*route)[route_end + i].nodeid = *receiver_id;
-		(*route)[route_end + i].amount = amount;
-		(*route)[route_end + i].delay = delay;
-
-		add_fee(&amount,
-			cp->subroute[i].fee_base_msat,
-			cp->subroute[i].fee_proportional_millionths);
-		delay += cp->subroute[i].cltv_expiry_delta;
+		/* Load the current step. */
+		route_builder_step(&builder,
+				   &cp->subroute[i].pubkey,
+				   &cp->subroute[i].short_channel_id,
+				   cp->subroute[i].fee_base_msat,
+				   cp->subroute[i].fee_proportional_millionths,
+				   cp->subroute[i].cltv_expiry_delta);
 	}
-	if (route_end != 0)
-		assert(amount == (*route)[route_end - 1].amount);
+	route_builder_complete(&builder);
 }
 /* Compute the payment at the contact point, given a
  * msatoshi target to be given to the destination. */
@@ -179,9 +167,9 @@ msatoshi_at_contactpoint(const struct contactpoint *cp, u64 msatoshi)
 {
 	int i;
 	for (i = tal_count(cp->subroute) - 1; i >= 0; --i)
-		add_fee(&msatoshi,
-			cp->subroute[i].fee_base_msat,
-			cp->subroute[i].fee_proportional_millionths);
+		add_fees(&msatoshi,
+			 cp->subroute[i].fee_base_msat,
+			 cp->subroute[i].fee_proportional_millionths);
 	return msatoshi;
 }
 

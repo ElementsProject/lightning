@@ -1309,12 +1309,11 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    double fuzz, const struct siphash_seed *base_seed)
 {
 	struct chan **route;
-	u64 total_amount;
-	unsigned int total_delay;
 	u64 fee;
 	struct route_hop *hops;
 	int i;
 	struct node *n;
+	struct route_builder builder;
 
 	route = find_route(ctx, rstate, source, destination, msatoshi,
 			   riskfactor / BLOCKS_PER_YEAR / 10000,
@@ -1323,26 +1322,35 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 	if (!route) {
 		return NULL;
 	}
+	assert(tal_count(route) != 0);
 
-	/* Fees, delays need to be calculated backwards along route. */
+	/* Start the route builder. */
 	hops = tal_arr(ctx, struct route_hop, tal_count(route));
-	total_amount = msatoshi;
-	total_delay = final_cltv;
-
-	/* Start at destination node. */
 	n = get_node(rstate, destination);
+	route_builder_init(&builder,
+			   hops,
+			   tal_count(route),
+			   &n->id,
+			   msatoshi,
+			   final_cltv);
+	/* Load the route in reverse. */
 	for (i = tal_count(route) - 1; i >= 0; i--) {
 		const struct half_chan *c;
+		/* Get the half-channel that goes to the n, which
+		 * is the payee on this hop. */
 		int idx = half_chan_to(n, route[i]);
 		c = &route[i]->half[idx];
-		hops[i].channel_id = route[i]->scid;
-		hops[i].nodeid = n->id;
-		hops[i].amount = total_amount;
-		hops[i].delay = total_delay;
-		total_amount += connection_fee(c, total_amount);
-		total_delay += c->delay;
+		/* Get the payer on this hop. */
 		n = other_node(n, route[i]);
+		/* Now load this hop in the route. */
+		route_builder_step(&builder,
+				   &n->id,
+				   &route[i]->scid,
+				   c->base_fee,
+				   c->proportional_fee,
+				   c->delay);
 	}
+	route_builder_complete(&builder);
 	assert(pubkey_eq(&n->id, source));
 
 	/* FIXME: Shadow route! */

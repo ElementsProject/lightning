@@ -38,6 +38,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/msg_queue.o			\
 	common/permute_tx.o			\
 	common/pseudorand.o			\
+	common/route_builder.o			\
 	common/sphinx.o				\
 	common/status_wire.o			\
 	common/timeout.o			\

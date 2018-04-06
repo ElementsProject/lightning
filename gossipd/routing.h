@@ -5,6 +5,7 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/time/time.h>
+#include <common/route_builder.h>
 #include <gossipd/broadcast.h>
 #include <gossipd/gossip_constants.h>
 #include <gossipd/gossip_store.h>
@@ -183,13 +184,6 @@ get_channel(const struct routing_state *rstate,
 {
 	return uintmap_get(&rstate->chanmap, scid->u64);
 }
-
-struct route_hop {
-	struct short_channel_id channel_id;
-	struct pubkey nodeid;
-	u64 amount;
-	u32 delay;
-};
 
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct bitcoin_blkid *chain_hash,
