@@ -39,6 +39,7 @@ external/libbacktrace.la
 gossipd/test/run-find_route-specific
 gossipd/test/run-initiator-success
 gossipd/test/run-responder-success
+onchaind/test/run-grind_feerate
 test/test_protocol
 test/test_sphinx
 tests/.pytest.restart
