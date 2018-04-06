@@ -161,7 +161,7 @@ static void finish_child(struct ptr_valid_batch *batch)
 {
 	close(batch->to_child);
 	close(batch->from_child);
-	waitpid(batch->child_pid, NULL, 0);
+	while (waitpid(batch->child_pid, NULL, 0) < 0 && errno == EINTR);
 	batch->child_pid = 0;
 }
 

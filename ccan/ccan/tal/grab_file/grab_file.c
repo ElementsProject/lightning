@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <errno.h>
 #include <fcntl.h>
 
 void *grab_fd(const void *ctx, int fd)
@@ -22,7 +23,12 @@ void *grab_fd(const void *ctx, int fd)
 		max = 16384;
 
 	buffer = tal_arr(ctx, char, max+1);
-	while ((ret = read(fd, buffer + size, max - size)) > 0) {
+	while ((ret = read(fd, buffer + size, max - size)) != 0) {
+		if (ret < 0) {
+			if (errno == EINTR)
+				continue;
+			return tal_free(buffer);
+		}
 		size += ret;
 		if (size == max) {
 			size_t extra = max;
@@ -35,12 +41,8 @@ void *grab_fd(const void *ctx, int fd)
 			max += extra;
 		}
 	}
-	if (ret < 0)
-		buffer = tal_free(buffer);
-	else {
-		buffer[size] = '\0';
-		tal_resize(&buffer, size+1);
-	}
+	buffer[size] = '\0';
+	tal_resize(&buffer, size+1);
 
 	return buffer;
 }

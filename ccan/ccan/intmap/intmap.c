@@ -1,9 +1,9 @@
 /* CC0 license (public domain) - see LICENSE file for details */
 /* This code is based on ccan/strmap.c. */
+#include <ccan/bitops/bitops.h>
 #include <ccan/intmap/intmap.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/str/str.h>
-#include <ccan/ilog/ilog.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -11,28 +11,38 @@
 struct node {
 	/* These point to strings or nodes. */
 	struct intmap child[2];
-	/* The bit where these children differ (0 == lsb) */
-	u8 bit_num;
+	/* Encoding both prefix and critbit: 1 is appended to prefix. */
+	intmap_index_t prefix_and_critbit;
 };
 
-/* Closest member to this in a non-empty map. */
-static struct intmap *closest(struct intmap *n, intmap_index_t index)
+static int critbit(const struct intmap *n)
 {
-	/* Anything with NULL value is a node. */
-	while (!n->v) {
-		u8 direction = (index >> n->u.n->bit_num) & 1;
-		n = &n->u.n->child[direction];
-	}
-	return n;
+	return bitops_ls64(n->u.n->prefix_and_critbit);
+}
+
+static intmap_index_t prefix_mask(int critbit)
+{
+	/* Mask does not include critbit itself, but can't shift by critbit+1 */
+	return -2ULL << critbit;
+}
+
+static intmap_index_t prefix_and_critbit(intmap_index_t v, int n)
+{
+	intmap_index_t critbit = ((intmap_index_t)1 << n);
+	return (v & ~(critbit - 1)) | critbit;
 }
 
 void *intmap_get_(const struct intmap *map, intmap_index_t index)
 {
-	struct intmap *n;
-
 	/* Not empty map? */
 	if (!intmap_empty_(map)) {
-		n = closest((struct intmap *)map, index);
+		const struct intmap *n = map;
+		/* Anything with NULL value is a node. */
+		while (!n->v) {
+			/* FIXME: compare cmp prefix, if not equal, ENOENT */
+			u8 direction = (index >> critbit(n)) & 1;
+			n = &n->u.n->child[direction];
+		}
 		if (index == n->u.i)
 			return n->v;
 	}
@@ -40,11 +50,38 @@ void *intmap_get_(const struct intmap *map, intmap_index_t index)
 	return NULL;
 }
 
+static bool split_node(struct intmap *n, intmap_index_t nodeindex,
+		       intmap_index_t index, const void *value)
+{
+	struct node *newn;
+	int new_dir;
+
+	/* Find highest bit where they differ. */
+	unsigned int critbit = bitops_hs64(nodeindex ^ index);
+	assert(critbit < CHAR_BIT*sizeof(index));
+
+	/* Which direction do we go at this bit? */
+	new_dir = (index >> critbit) & 1;
+
+	/* Allocate new node. */
+	newn = malloc(sizeof(*newn));
+	if (!newn) {
+		errno = ENOMEM;
+		return false;
+	}
+	newn->prefix_and_critbit = prefix_and_critbit(index, critbit);
+	newn->child[new_dir].v = (void *)value;
+	newn->child[new_dir].u.i = index;
+	newn->child[!new_dir] = *n;
+
+	n->u.n = newn;
+	n->v = NULL;
+	return true;
+}
+
 bool intmap_add_(struct intmap *map, intmap_index_t index, const void *value)
 {
 	struct intmap *n;
-	struct node *newn;
-	u8 bit_num, new_dir;
 
 	assert(value);
 
@@ -55,49 +92,25 @@ bool intmap_add_(struct intmap *map, intmap_index_t index, const void *value)
 		return true;
 	}
 
-	/* Find closest existing member. */
-	n = closest(map, index);
-
-	/* Find highest bit where they differ. */
-	bit_num = ilog64(n->u.i ^ index);
-	if (bit_num == 0) {
-		errno = EEXIST;
-		return false;
-	}
-	bit_num--;
-
-	assert(bit_num < CHAR_BIT*sizeof(index));
-
-	/* Which direction do we go at this bit? */
-	new_dir = (index >> bit_num) & 1;
-
-	/* Allocate new node. */
-	newn = malloc(sizeof(*newn));
-	if (!newn) {
-		errno = ENOMEM;
-		return false;
-	}
-	newn->bit_num = bit_num;
-	newn->child[new_dir].v = (void *)value;
-	newn->child[new_dir].u.i = index;
-
-	/* Find where to insert: not closest, but first which differs! */
 	n = map;
+	/* Anything with NULL value is a node. */
 	while (!n->v) {
-		u8 direction;
+		int crit = critbit(n);
+		intmap_index_t mask = prefix_mask(crit);
+		u8 direction = (index >> crit) & 1;
 
-		/* Subtle: bit numbers are "backwards" for comparison */
-		if (n->u.n->bit_num < bit_num)
-			break;
-
-		direction = (index >> n->u.n->bit_num) & 1;
+		if ((index & mask) != (n->u.n->prefix_and_critbit & mask))
+			return split_node(n, n->u.n->prefix_and_critbit & mask,
+					  index, value);
 		n = &n->u.n->child[direction];
 	}
 
-	newn->child[!new_dir] = *n;
-	n->u.n = newn;
-	n->v = NULL;
-	return true;
+	if (index == n->u.i) {
+		errno = EEXIST;
+		return false;
+	}
+
+	return split_node(n, n->u.i, index, value);
 }
 
 void *intmap_del_(struct intmap *map, intmap_index_t index)
@@ -116,8 +129,9 @@ void *intmap_del_(struct intmap *map, intmap_index_t index)
 	n = map;
 	/* Anything with NULL value is a node. */
 	while (!n->v) {
+		/* FIXME: compare cmp prefix, if not equal, ENOENT */
 		parent = n;
-		direction = (index >> n->u.n->bit_num) & 1;
+		direction = (index >> critbit(n)) & 1;
 		n = &n->u.n->child[direction];
 	}
 
@@ -163,38 +177,58 @@ void *intmap_first_(const struct intmap *map, intmap_index_t *indexp)
 void *intmap_after_(const struct intmap *map, intmap_index_t *indexp)
 {
 	const struct intmap *n, *prev = NULL;
+	intmap_index_t index = (*indexp) + 1;
+
+	/* Special case of overflow */
+	if (index == 0)
+		goto none_left;
 
 	/* Special case of empty map */
-	if (intmap_empty_(map)) {
-		errno = ENOENT;
-		return NULL;
-	}
+	if (intmap_empty_(map))
+		goto none_left;
 
-	/* Follow down, track the last place where we could have set a bit
-	 * instead of clearing it: this is the higher alternative tree. */
+	/* Follow down, until prefix differs. */
 	n = map;
 	while (!n->v) {
-		u8 direction = (*indexp >> n->u.n->bit_num) & 1;
+		int crit = critbit(n);
+		u8 direction;
+		intmap_index_t prefix, idx;
+
+		idx = (index >> crit);
+		direction = idx & 1;
+
+		/* Leave critbit in place: we can't shift by 64 anyway */
+		idx |= 1;
+		prefix = n->u.n->prefix_and_critbit >> crit;
+
+		/* If this entire tree is greater than index, take first */
+		if (idx < prefix)
+			return intmap_first_(n, indexp);
+		/* If this entire tree is less than index, we're past it. */
+		else if (idx > prefix)
+			goto try_greater_tree;
+
+		/* Remember greater tree for backtracking */
 		if (!direction)
 			prev = n;
 		n = &n->u.n->child[direction];
 	}
 
 	/* Found a successor? */
-	if (n->u.i > *indexp) {
+	if (n->u.i >= index) {
 		errno = 0;
 		*indexp = n->u.i;
 		return n->v;
 	}
 
-	/* Nowhere to go back up to? */
-	if (!prev) {
-		errno = ENOENT;
-		return NULL;
-	}
+try_greater_tree:
+	/* If we ever took a lesser branch, go back to greater branch */
+	if (prev)
+		return intmap_first_(&prev->u.n->child[1], indexp);
 
-	/* Get first one from that other branch. */
-	return intmap_first_(&prev->u.n->child[1], indexp);
+none_left:
+	errno = ENOENT;
+	return NULL;
 }
 
 void *intmap_last_(const struct intmap *map, intmap_index_t *indexp)
@@ -229,4 +263,20 @@ void intmap_clear_(struct intmap *map)
 	if (!intmap_empty_(map))
 		clear(*map);
 	intmap_init_(map);
+}
+
+bool intmap_iterate_(const struct intmap *n,
+		     bool (*handle)(intmap_index_t, void *, void *),
+		     void *data,
+		     intmap_index_t offset)
+{
+	/* Can only happen at root */
+	if (intmap_empty_(n))
+		return true;
+
+	if (n->v)
+		return handle(n->u.i - offset, n->v, data);
+
+	return intmap_iterate_(&n->u.n->child[0], handle, data, offset)
+		&& intmap_iterate_(&n->u.n->child[1], handle, data, offset);
 }

@@ -52,6 +52,7 @@ FEATURES :=
 CCAN_OBJS :=					\
 	ccan-asort.o				\
 	ccan-autodata.o				\
+	ccan-bitops.o				\
 	ccan-breakpoint.o			\
 	ccan-crypto-hmac.o			\
 	ccan-crypto-hkdf.o			\
@@ -97,6 +98,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/array_size/array_size.h		\
 	$(CCANDIR)/ccan/asort/asort.h			\
 	$(CCANDIR)/ccan/autodata/autodata.h		\
+	$(CCANDIR)/ccan/bitops/bitops.h			\
 	$(CCANDIR)/ccan/breakpoint/breakpoint.h		\
 	$(CCANDIR)/ccan/build_assert/build_assert.h	\
 	$(CCANDIR)/ccan/cast/cast.h			\
@@ -264,7 +266,7 @@ check-cppcheck: .cppcheck-suppress
 	@trap 'rm -f .cppcheck-suppress' 0; git ls-files -- "*.c" "*.h" | grep -vE '^ccan/' | xargs cppcheck -q --language=c --std=c11 --error-exitcode=1 --suppressions-list=.cppcheck-suppress
 
 check-shellcheck:
-	git ls-files -- "*.sh" | xargs shellcheck
+	true||git ls-files -- "*.sh" | xargs shellcheck
 
 check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python check-includes check-cppcheck check-shellcheck
 
@@ -539,4 +541,6 @@ ccan-pipecmd.o: $(CCANDIR)/ccan/pipecmd/pipecmd.c
 ccan-mem.o: $(CCANDIR)/ccan/mem/mem.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-fdpass.o: $(CCANDIR)/ccan/fdpass/fdpass.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-bitops.o: $(CCANDIR)/ccan/bitops/bitops.c
 	$(CC) $(CFLAGS) -c -o $@ $<
