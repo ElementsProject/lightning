@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/un.h>
 #include <wire/wire.h>
 
 /* Returns false if we didn't parse it, and *cursor == NULL if malformed. */
@@ -22,6 +23,9 @@ bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr)
 	case ADDR_TYPE_IPV6:
 		addr->addrlen = 16;
 		break;
+	case ADDR_TYPE_PADDING:
+		addr->addrlen = ((u8)*max) - 2;
+		break;
 	default:
 		return false;
 	}
@@ -33,7 +37,7 @@ bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr)
 
 void towire_wireaddr(u8 **pptr, const struct wireaddr *addr)
 {
-	if (!addr || addr->type == ADDR_TYPE_PADDING) {
+	if (!addr) {
 		towire_u8(pptr, ADDR_TYPE_PADDING);
 		return;
 	}
@@ -180,6 +184,20 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
 		ip = "::1";
 
 	memset(&addr->addr, 0, sizeof(addr->addr));
+
+	/* Addresses starting with '/' are local socket paths */
+	if (ip[0] == '/') {
+		/* Check if the path is too long */
+		if (strlen(ip) > sizeof(addr->addr)) {
+			goto finish;
+		}
+		addr->type = ADDR_TYPE_PADDING;
+		addr->addrlen = strlen(ip);
+		addr->port = 0;
+		memcpy(&addr->addr, ip, addr->addrlen);
+		res = true;
+		goto finish;
+	}
 
 	if (inet_pton(AF_INET, ip, &v4) == 1) {
 		addr->type = ADDR_TYPE_IPV4;

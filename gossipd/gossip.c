@@ -1786,6 +1786,7 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 	struct addrinfo ai;
 	struct sockaddr_in sin;
 	struct sockaddr_in6 sin6;
+	struct sockaddr_un sun;
 
 	/* FIXME: make generic */
 	ai.ai_flags = 0;
@@ -1813,8 +1814,12 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 		ai.ai_addr = (struct sockaddr *)&sin6;
 		break;
 	case ADDR_TYPE_PADDING:
-		/* Shouldn't happen. */
-		return io_close(conn);
+		ai.ai_family = AF_UNIX;
+		sun.sun_family = AF_UNIX;
+		memcpy(&sun.sun_path, reach->addr.addr, sizeof(sun.sun_path));
+		ai.ai_addrlen = sizeof(sun);
+		ai.ai_addr = (struct sockaddr *)&sun;
+		break;
 	}
 
 	io_set_finish(conn, connect_failed, reach);
@@ -1938,6 +1943,9 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 		break;
 	case ADDR_TYPE_IPV6:
 		fd = socket(AF_INET6, SOCK_STREAM, 0);
+		break;
+	case ADDR_TYPE_PADDING:
+		fd = socket(AF_UNIX, SOCK_STREAM, 0);
 		break;
 	default:
 		fd = -1;
