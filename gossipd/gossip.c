@@ -1542,6 +1542,12 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 		BUILD_ASSERT(sizeof(s4->sin_addr) <= sizeof(addr.addr));
 		memcpy(addr.addr, &s4->sin_addr, addr.addrlen);
 		addr.port = ntohs(s4->sin_port);
+	} else if (s.ss_family == AF_UNIX) {
+		struct sockaddr_un *sun = (void *)&s;
+		addr.type = ADDR_TYPE_PADDING;
+		addr.addrlen = sizeof(sun->sun_path);
+		memcpy(addr.addr, &sun->sun_path, addr.addrlen);
+		addr.port = 0;
 	} else {
 		status_broken("Unknown socket type %i for incoming conn",
 			      s.ss_family);
