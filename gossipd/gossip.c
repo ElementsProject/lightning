@@ -1035,6 +1035,9 @@ static struct io_plan *hand_back_peer(struct io_conn *conn,
 					       &rpeer->inner_msg))
 		master_badmsg(WIRE_GOSSIPCTL_HAND_BACK_PEER, msg);
 
+	status_debug("Handing back peer %s to master",
+		     type_to_string(msg, struct pubkey, &rpeer->id));
+
 	return io_recv_fd(conn, &rpeer->peer_fd,
 			  read_returning_gossipfd, rpeer);
 }
