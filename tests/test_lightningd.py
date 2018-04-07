@@ -4227,7 +4227,7 @@ class LightningDTests(BaseLightningDTests):
         # and we try to add a block twice when rescanning:
         l1.restart()
 
-        # At height 442 we receive an incoming payment
+        # At height 111 we receive an incoming payment
         hashes = btc.rpc.generate(9)
         btc.rpc.sendtoaddress(addr, 1)
         time.sleep(1)  # mempool is still unpredictable
@@ -4240,15 +4240,17 @@ class LightningDTests(BaseLightningDTests):
         ######################################################################
         # Second failure scenario: perform a 20 block reorg
         btc.rpc.generate(10)
-        blockheight = btc.rpc.getblockcount()
-        wait_for(lambda: l1.rpc.dev_blockheight()['blockheight'] == blockheight)
+        btc.rpc.getblockcount()
+        l1.daemon.wait_for_log(r'Adding block 121: [a-f0-9]{32}')
 
         # Now reorg out with a longer fork of 21 blocks
         btc.rpc.invalidateblock(hashes[0])
-        hashes = btc.rpc.generate(21)
+        btc.wait_for_log(r'InvalidChainFound: invalid block=.*  height=102')
+        hashes = btc.rpc.generate(30)
+        time.sleep(1)
 
-        blockheight = btc.rpc.getblockcount()
-        wait_for(lambda: l1.rpc.dev_blockheight()['blockheight'] == blockheight)
+        btc.rpc.getblockcount()
+        l1.daemon.wait_for_log(r'Adding block 131: [a-f0-9]{32}')
 
         # Our funds got reorged out, we should not have any funds that are confirmed
         assert [o for o in l1.rpc.listfunds()['outputs'] if o['status'] != "unconfirmed"] == []
