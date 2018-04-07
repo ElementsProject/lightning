@@ -2020,9 +2020,6 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	struct daemon *daemon = container_of(master, struct daemon, master);
 	enum gossip_wire_type t = fromwire_peektype(master->msg_in);
 
-	status_trace("req: type %s len %zu",
-		     gossip_wire_type_name(t), tal_count(master->msg_in));
-
 	switch (t) {
 	case WIRE_GOSSIPCTL_INIT:
 		return gossip_init(master, daemon, master->msg_in);
