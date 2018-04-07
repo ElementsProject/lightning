@@ -662,6 +662,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 
 		list_for_each(&p->channels, channel, list) {
 			struct channel_id cid;
+			u64 our_reserve_msat = channel->channel_info.their_config.channel_reserve_satoshis * 1000;
 			json_object_start(response, NULL);
 			json_add_string(response, "state",
 					channel_state_name(channel));
@@ -696,8 +697,26 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 				     channel->our_config.dust_limit_satoshis);
 			json_add_u64(response, "max_htlc_value_in_flight_msat",
 				     channel->our_config.max_htlc_value_in_flight_msat);
-			json_add_u64(response, "channel_reserve_satoshis",
+			/* The `channel_reserve_satoshis` is imposed on
+			 * the *other* side (see `channel_reserve_msat`
+			 * function in, it uses `!side` to flip sides).
+			 * So our configuration `channel_reserve_satoshis`
+			 * is imposed on their side, while their
+			 * configuration `channel_reserve_satoshis` is
+			 * imposed on ours. */
+			json_add_u64(response, "their_channel_reserve_satoshis",
 				     channel->our_config.channel_reserve_satoshis);
+			json_add_u64(response, "our_channel_reserve_satoshis",
+				     channel->channel_info.their_config.channel_reserve_satoshis);
+			if (deprecated_apis)
+				json_add_u64(response, "channel_reserve_satoshis",
+					     channel->our_config.channel_reserve_satoshis);
+			/* Compute how much we can send via this channel. */
+			if (channel->our_msatoshi <= our_reserve_msat)
+				json_add_u64(response, "spendable_msatoshi", 0);
+			else
+				json_add_u64(response, "spendable_msatoshi",
+					     channel->our_msatoshi - our_reserve_msat);
 			json_add_u64(response, "htlc_minimum_msat",
 				     channel->our_config.htlc_minimum_msat);
 			/* The `to_self_delay` is imposed on the *other*
