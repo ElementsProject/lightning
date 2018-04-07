@@ -2158,3 +2158,46 @@ struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 
 	return op;
 }
+
+void wallet_transaction_add(struct wallet *w, const struct bitcoin_tx *tx,
+			    const u32 blockheight, const u32 txindex)
+{
+	struct bitcoin_txid txid;
+	sqlite3_stmt *stmt = db_prepare(w->db, "SELECT blockheight FROM transactions WHERE id=?");
+	bool known;
+
+	bitcoin_txid(tx, &txid);
+	sqlite3_bind_sha256(stmt, 1, &txid.shad.sha);
+	known = sqlite3_step(stmt) == SQLITE_ROW;
+	sqlite3_finalize(stmt);
+
+	if (!known) {
+		/* This transaction is still unknown, insert */
+		stmt = db_prepare(w->db,
+				  "INSERT INTO transactions ("
+				  "  id"
+				  ", blockheight"
+				  ", txindex"
+				  ", rawtx) VALUES (?, ?, ?, ?);");
+		sqlite3_bind_sha256(stmt, 1, &txid.shad.sha);
+		if (blockheight) {
+			sqlite3_bind_int(stmt, 2, blockheight);
+			sqlite3_bind_int(stmt, 3, txindex);
+		} else {
+			sqlite3_bind_null(stmt, 2);
+			sqlite3_bind_null(stmt, 3);
+		}
+		sqlite3_bind_tx(stmt, 4, tx);
+		db_exec_prepared(w->db, stmt);
+	} else if (blockheight){
+		/* We know about the transaction, update */
+		stmt = db_prepare(w->db,
+				  "UPDATE transactions "
+				  "SET blockheight = ?, txindex = ? "
+				  "WHERE id = ?");
+		sqlite3_bind_int(stmt, 1, blockheight);
+		sqlite3_bind_int(stmt, 2, txindex);
+		sqlite3_bind_sha256(stmt, 3, &txid.shad.sha);
+		db_exec_prepared(w->db, stmt);
+	}
+}

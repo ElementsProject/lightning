@@ -810,4 +810,8 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 			const u32 outnum, const u32 blockheight,
 			const u32 txindex, const u8 *scriptpubkey,
 			const u64 satoshis);
+
+void wallet_transaction_add(struct wallet *w, const struct bitcoin_tx *tx,
+			    const u32 blockheight, const u32 txindex);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */
