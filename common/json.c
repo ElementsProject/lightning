@@ -269,17 +269,23 @@ static void check_fieldname(const struct json_result *result,
 		assert(fieldname);
 }
 
-static void json_start_member(struct json_result *result, const char *fieldname)
+static void result_add_indent(struct json_result *result);
+
+	static void json_start_member(struct json_result *result, const char *fieldname)
 {
 	/* Prepend comma if required. */
 	if (result->s[0]
-	    && !result_ends_with(result, "{ ")
-	    && !result_ends_with(result, "[ "))
-		result_append(result, ", ");
+	    && !result_ends_with(result, "{")
+	    && !result_ends_with(result, "["))
+		result_append(result, ", \n");
+	else
+		result_append(result, "\n");
+
+	result_add_indent(result);
 
 	check_fieldname(result, fieldname);
 	if (fieldname)
-		result_append_fmt(result, "\"%s\" : ", fieldname);
+		result_append_fmt(result, "\"%s\": ", fieldname);
 }
 
 static void result_add_indent(struct json_result *result)
@@ -289,9 +295,8 @@ static void result_add_indent(struct json_result *result)
 	if (!indent)
 		return;
 
-	result_append(result, "\n");
 	for (i = 0; i < indent; i++)
-		result_append(result, "\t");
+		result_append(result, "  ");
 }
 
 static void result_add_wrap(struct json_result *result, jsmntype_t type)
@@ -314,29 +319,31 @@ static void result_pop_wrap(struct json_result *result, jsmntype_t type)
 void json_array_start(struct json_result *result, const char *fieldname)
 {
 	json_start_member(result, fieldname);
-	result_add_indent(result);
-	result_append(result, "[ ");
+	result_append(result, "[");
 	result_add_wrap(result, JSMN_ARRAY);
 }
 
 void json_array_end(struct json_result *result)
 {
-	result_append(result, " ]");
+	result_append(result, "\n");
 	result_pop_wrap(result, JSMN_ARRAY);
+	result_add_indent(result);
+	result_append(result, "]");
 }
 
 void json_object_start(struct json_result *result, const char *fieldname)
 {
 	json_start_member(result, fieldname);
-	result_add_indent(result);
-	result_append(result, "{ ");
+	result_append(result, "{");
 	result_add_wrap(result, JSMN_OBJECT);
 }
 
 void json_object_end(struct json_result *result)
 {
-	result_append(result, " }");
+	result_append(result, "\n");
 	result_pop_wrap(result, JSMN_OBJECT);
+	result_add_indent(result);
+	result_append(result, "}");
 }
 
 void json_add_num(struct json_result *result, const char *fieldname, unsigned int value)
