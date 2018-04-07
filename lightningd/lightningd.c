@@ -290,9 +290,6 @@ int main(int argc, char *argv[])
 	/* Handle options and config; move to .lightningd */
 	newdir = handle_opts(ld, argc, argv);
 
-	/* Create PID file */
-	pidfile_create(ld);
-
 	/* Ignore SIGPIPE: we look at our write return values*/
 	signal(SIGPIPE, SIG_IGN);
 
@@ -372,6 +369,9 @@ int main(int argc, char *argv[])
 	/* Now we're about to start, become daemon if desired. */
 	if (ld->daemon)
 		daemonize_but_keep_dir(ld);
+
+	/* Create PID file */
+	pidfile_create(ld);
 
 	/* Mark ourselves live. */
 	log_info(ld->log, "Server started with public key %s, alias %s (color #%s) and lightningd %s",
