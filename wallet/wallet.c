@@ -826,6 +826,10 @@ u32 wallet_first_blocknum(struct wallet *w, u32 first_possible)
 	first_utxo = db_get_intvar(w->db, "last_processed_block", UINT32_MAX);
 #endif
 
+	/* Never go below the start of the Lightning Network */
+	if (first_utxo < first_possible)
+		first_utxo = first_possible;
+
 	if (first_utxo < first_channel)
 		return first_utxo;
 	else
