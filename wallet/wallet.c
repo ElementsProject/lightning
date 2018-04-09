@@ -2201,3 +2201,20 @@ void wallet_transaction_add(struct wallet *w, const struct bitcoin_tx *tx,
 		db_exec_prepared(w->db, stmt);
 	}
 }
+
+u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid)
+{
+	u32 blockheight;
+	sqlite3_stmt *stmt = db_prepare(
+		w->db, "SELECT blockheight, txindex, rawtx FROM transactions WHERE id=?");
+	sqlite3_bind_sha256(stmt, 1, &txid->shad.sha);
+
+	if (sqlite3_step(stmt) != SQLITE_ROW) {
+		sqlite3_finalize(stmt);
+		return 0;
+	}
+
+	blockheight = sqlite3_column_int(stmt, 0);
+	sqlite3_finalize(stmt);
+	return blockheight;
+}
