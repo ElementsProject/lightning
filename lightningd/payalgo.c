@@ -39,6 +39,9 @@ struct pay_failure {
 	/* The routing failure, if TYPE_PAYMENT_REPLY, a tal
 	 * object whose parent is this struct */
 	struct routing_failure *routing_failure;
+	/* The detail of the routing failure. A tal_arr
+	 * string whose parent is this struct. */
+	char *details;
 };
 
 /* Output a pay failure */
@@ -48,12 +51,12 @@ json_add_failure(struct json_result *r, char const *n,
 {
 	struct routing_failure *rf;
 	json_object_start(r, n);
+	json_add_string(r, "message", f->details);
 	switch (f->type) {
 	case FAIL_UNPARSEABLE_ONION:
 		json_add_string(r, "type", "FAIL_UNPARSEABLE_ONION");
 		json_add_hex(r, "onionreply", f->onionreply,
 			     tal_len(f->onionreply));
-		json_add_route(r, "route", f->route, tal_count(f->route));
 		break;
 
 	case FAIL_PAYMENT_REPLY:
@@ -68,9 +71,9 @@ json_add_failure(struct json_result *r, char const *n,
 			json_add_hex(r, "channel_update",
 				     rf->channel_update,
 				     tal_len(rf->channel_update));
-		json_add_route(r, "route", f->route, tal_count(f->route));
 		break;
 	}
+	json_add_route(r, "route", f->route, tal_count(f->route));
 	json_object_end(r);
 }
 
@@ -173,6 +176,7 @@ add_pay_failure(struct pay *pay,
 	default:
 		abort();
 	}
+	f->details = tal_strdup(f, r->details);
 	/* Grab the route */
 	f->route = tal_steal(f, pay->route);
 	pay->route = NULL;

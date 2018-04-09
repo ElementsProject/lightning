@@ -515,7 +515,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 				    fail ? fail->failcode : 0,
 				    fail ? &fail->erring_node : NULL,
 				    fail ? &fail->erring_channel : NULL,
-				    fail ? fail->channel_update : NULL);
+				    fail ? fail->channel_update : NULL,
+				    failmsg);
 
 	/* Report to gossipd if we decided we should. */
 	if (report_to_gossipd)
@@ -549,6 +550,7 @@ bool wait_payment(const tal_t *cxt,
 	struct pubkey *failnode;
 	struct short_channel_id *failchannel;
 	u8 *failupdate;
+	char *faildetail;
 	struct routing_failure *fail;
 
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet, payment_hash);
@@ -588,7 +590,8 @@ bool wait_payment(const tal_t *cxt,
 					    &failcode,
 					    &failnode,
 					    &failchannel,
-					    &failupdate);
+					    &failupdate,
+					    &faildetail);
 		/* Old DB might not save failure information */
 		if (!failonionreply && !failnode)
 			result = sendpay_result_simple_fail(tmpctx,
@@ -596,7 +599,7 @@ bool wait_payment(const tal_t *cxt,
 							    "Payment failure reason unknown");
 		else if (failonionreply) {
 			/* failed to parse returned onion error */
-			result = sendpay_result_route_failure(tmpctx, true, NULL, failonionreply, "reply from remote");
+			result = sendpay_result_route_failure(tmpctx, true, NULL, failonionreply, faildetail);
 		} else {
 			/* Parsed onion error, get its details */
 			assert(failnode);
@@ -607,7 +610,7 @@ bool wait_payment(const tal_t *cxt,
 			fail->erring_node = *failnode;
 			fail->erring_channel = *failchannel;
 			fail->channel_update = failupdate;
-			result = sendpay_result_route_failure(tmpctx, !faildestperm, fail, NULL, "route failure");
+			result = sendpay_result_route_failure(tmpctx, !faildestperm, fail, NULL, faildetail);
 		}
 
 		cb(result, cbarg);
