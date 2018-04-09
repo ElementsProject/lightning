@@ -281,9 +281,8 @@ again:
 	     w;
 	     w = txwatch_hash_next(&topo->txwatches, &i)) {
 		u32 depth;
-		const struct bitcoin_tx *tx;
 
-		depth = get_tx_depth(topo, &w->txid, &tx);
+		depth = get_tx_depth(topo, &w->txid);
 		if (depth)
 			needs_rerun |= txw_fire(w, &w->txid, depth);
 	}

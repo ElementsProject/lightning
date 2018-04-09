@@ -127,15 +127,13 @@ static struct block *block_for_tx(const struct chain_topology *topo,
 }
 
 size_t get_tx_depth(const struct chain_topology *topo,
-		    const struct bitcoin_txid *txid,
-		    const struct bitcoin_tx **tx)
+		    const struct bitcoin_txid *txid)
 {
-	const struct block *b;
+	u32 blockheight = wallet_transaction_height(topo->wallet, txid);
 
-	b = block_for_tx(topo, txid, tx);
-	if (!b)
+	if (blockheight == 0)
 		return 0;
-	return topo->tip->height - b->height + 1;
+	return topo->tip->height - blockheight + 1;
 }
 
 struct txs_to_broadcast {
