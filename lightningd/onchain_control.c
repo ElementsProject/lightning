@@ -57,11 +57,10 @@ static void handle_onchain_init_reply(struct channel *channel, const u8 *msg)
 }
 
 static enum watch_result onchain_tx_watched(struct channel *channel,
-					    const struct bitcoin_tx *tx,
+					    const struct bitcoin_txid *txid,
 					    unsigned int depth)
 {
 	u8 *msg;
-	struct bitcoin_txid txid;
 
 	if (depth == 0) {
 		log_unusual(channel->log, "Chain reorganization!");
@@ -75,8 +74,7 @@ static enum watch_result onchain_tx_watched(struct channel *channel,
 		return KEEP_WATCHING;
 	}
 
-	bitcoin_txid(tx, &txid);
-	msg = towire_onchain_depth(channel, &txid, depth);
+	msg = towire_onchain_depth(channel, txid, depth);
 	subd_send_msg(channel->owner, take(msg));
 	return KEEP_WATCHING;
 }
