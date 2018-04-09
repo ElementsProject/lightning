@@ -741,7 +741,7 @@ send_payment(const tal_t *ctx,
 				    sizeof(struct sha256), &path_secrets);
 	onion = serialize_onionpacket(tmpctx, packet);
 
-	log_info(ld->log, "Sending %u over %zu hops to deliver %"PRIu64"",
+	log_info(ld->log, "Sending %"PRIu64" over %zu hops to deliver %"PRIu64"",
 		 route[0].amount, n_hops, msatoshi);
 
 	failcode = send_htlc_out(channel, route[0].amount,
@@ -969,7 +969,7 @@ static void json_sendpay(struct command *cmd,
 		tal_resize(&route, n_hops + 1);
 
 		/* What that hop will forward */
-		if (!json_tok_number(buffer, amttok, &route[n_hops].amount)) {
+		if (!json_tok_u64(buffer, amttok, &route[n_hops].amount)) {
 			command_fail(cmd, "Route %zu invalid msatoshi",
 				     n_hops);
 			return;

@@ -104,7 +104,7 @@ gossip_getnodes_reply,,nodes,num_nodes*struct gossip_getnodes_entry
 gossip_getroute_request,3006
 gossip_getroute_request,,source,struct pubkey
 gossip_getroute_request,,destination,struct pubkey
-gossip_getroute_request,,msatoshi,u32
+gossip_getroute_request,,msatoshi,u64
 gossip_getroute_request,,riskfactor,u16
 gossip_getroute_request,,final_cltv,u32
 gossip_getroute_request,,fuzz,double

@@ -362,7 +362,7 @@ static char const *stringify_route(const tal_t *ctx, struct route_hop *route)
 	size_t i;
 	char *rv = tal_strdup(ctx, "us");
 	for (i = 0; i < tal_count(route); ++i)
-		tal_append_fmt(&rv, " -> %s (%"PRIu32"msat, %"PRIu32"blk) -> %s",
+		tal_append_fmt(&rv, " -> %s (%"PRIu64"msat, %"PRIu32"blk) -> %s",
 			       type_to_string(ctx, struct short_channel_id, &route[i].channel_id),
 			       route[i].amount, route[i].delay,
 			       type_to_string(ctx, struct pubkey, &route[i].nodeid));
