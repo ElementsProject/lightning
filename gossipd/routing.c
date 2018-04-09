@@ -621,9 +621,8 @@ void routing_add_channel_announcement(struct routing_state *rstate,
 
 	if (replace_broadcast(chan, rstate->broadcasts,
 			      &chan->channel_announce_msgidx, take(msg)))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Announcement %s was replaced?",
-			      tal_hex(tmpctx, msg));
+    status_unusual("Announcement %s was replaced?",
+                   tal_hex(tmpctx, msg));
 }
 
 u8 *handle_channel_announcement(struct routing_state *rstate,
