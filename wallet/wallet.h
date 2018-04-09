@@ -820,4 +820,11 @@ void wallet_transaction_add(struct wallet *w, const struct bitcoin_tx *tx,
  */
 u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid);
 
+/**
+ * Locate a transaction in the blockchain, returns NULL if the transaction is
+ * not tracked or is not yet confirmed.
+ */
+struct txlocator *wallet_transaction_locate(const tal_t *ctx, struct wallet *w,
+					    const struct bitcoin_txid *txid);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */

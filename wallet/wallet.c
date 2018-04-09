@@ -2206,7 +2206,7 @@ u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid)
 {
 	u32 blockheight;
 	sqlite3_stmt *stmt = db_prepare(
-		w->db, "SELECT blockheight, txindex, rawtx FROM transactions WHERE id=?");
+		w->db, "SELECT blockheight FROM transactions WHERE id=?");
 	sqlite3_bind_sha256(stmt, 1, &txid->shad.sha);
 
 	if (sqlite3_step(stmt) != SQLITE_ROW) {
@@ -2217,4 +2217,32 @@ u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid)
 	blockheight = sqlite3_column_int(stmt, 0);
 	sqlite3_finalize(stmt);
 	return blockheight;
+}
+
+struct txlocator *wallet_transaction_locate(const tal_t *ctx, struct wallet *w,
+					    const struct bitcoin_txid *txid)
+{
+	struct txlocator *loc;
+	sqlite3_stmt *stmt;
+
+	stmt = db_prepare(
+	    w->db, "SELECT blockheight, txindex FROM transactions WHERE id=?");
+	sqlite3_bind_sha256(stmt, 1, &txid->shad.sha);
+
+	if (sqlite3_step(stmt) != SQLITE_ROW) {
+		goto fail;
+
+	}
+	if (sqlite3_column_type(stmt, 0) == SQLITE_NULL)
+		goto fail;
+
+	loc = tal(ctx, struct txlocator);
+	loc->blkheight = sqlite3_column_int(stmt, 0);
+	loc->index = sqlite3_column_int(stmt, 1);
+	sqlite3_finalize(stmt);
+	return loc;
+
+fail:
+	sqlite3_finalize(stmt);
+	return NULL;
 }
