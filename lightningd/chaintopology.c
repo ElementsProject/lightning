@@ -85,8 +85,10 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		/* We did spends first, in case that tells us to watch tx. */
 		bitcoin_txid(tx, &txid);
 		if (watching_txid(topo, &txid) || we_broadcast(topo, &txid) ||
-		    satoshi_owned != 0)
+		    satoshi_owned != 0) {
 			add_tx_to_block(b, tx, i);
+			wallet_transaction_add(topo->wallet, tx, b->height, i);
+		}
 	}
 	b->full_txs = tal_free(b->full_txs);
 }
@@ -257,6 +259,7 @@ void broadcast_tx(struct chain_topology *topo,
 	log_add(topo->log, " (tx %s)",
 		type_to_string(tmpctx, struct bitcoin_txid, &otx->txid));
 
+	wallet_transaction_add(topo->wallet, tx, 0, 0);
 	bitcoind_sendrawtx(topo->bitcoind, otx->hextx, broadcast_done, otx);
 }
 
