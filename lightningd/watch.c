@@ -68,7 +68,7 @@ struct txwatch {
 
 	/* A new depth (0 if kicked out, otherwise 1 = tip, etc.) */
 	enum watch_result (*cb)(struct channel *channel,
-				const struct bitcoin_tx *tx,
+				const struct bitcoin_txid *txid,
 				unsigned int depth);
 };
 
@@ -123,7 +123,7 @@ struct txwatch *watch_txid(const tal_t *ctx,
 			   struct channel *channel,
 			   const struct bitcoin_txid *txid,
 			   enum watch_result (*cb)(struct channel *channel,
-						    const struct bitcoin_tx *,
+						    const struct bitcoin_txid *,
 						    unsigned int depth))
 {
 	struct txwatch *w;
@@ -170,7 +170,7 @@ struct txwatch *watch_tx(const tal_t *ctx,
 			 struct channel *channel,
 			 const struct bitcoin_tx *tx,
 			 enum watch_result (*cb)(struct channel *channel,
-						  const struct bitcoin_tx *,
+						  const struct bitcoin_txid *,
 						  unsigned int depth))
 {
 	struct bitcoin_txid txid;
@@ -205,7 +205,7 @@ struct txowatch *watch_txo(const tal_t *ctx,
 
 /* Returns true if we fired a callback */
 static bool txw_fire(struct txwatch *txw,
-		     const struct bitcoin_tx *tx,
+		     const struct bitcoin_txid *txid,
 		     unsigned int depth)
 {
 	enum watch_result r;
@@ -217,7 +217,7 @@ static bool txw_fire(struct txwatch *txw,
 		  txw->depth, depth,
 		  type_to_string(tmpctx, struct bitcoin_txid, &txw->txid));
 	txw->depth = depth;
-	r = txw->cb(txw->channel, tx, txw->depth);
+	r = txw->cb(txw->channel, txid, txw->depth);
 	switch (r) {
 	case DELETE_WATCH:
 		tal_free(txw);
@@ -239,7 +239,7 @@ void txwatch_fire(struct chain_topology *topo,
 	txw = txwatch_hash_get(&topo->txwatches, &txid);
 
 	if (txw)
-		txw_fire(txw, tx, depth);
+		txw_fire(txw, &txid, depth);
 }
 
 void txowatch_fire(const struct txowatch *txow,
@@ -285,7 +285,7 @@ again:
 
 		depth = get_tx_depth(topo, &w->txid, &tx);
 		if (depth)
-			needs_rerun |= txw_fire(w, tx, depth);
+			needs_rerun |= txw_fire(w, &w->txid, depth);
 	}
 	if (needs_rerun)
 		goto again;

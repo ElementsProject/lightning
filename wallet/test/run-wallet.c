@@ -385,7 +385,7 @@ struct txwatch *watch_txid(const tal_t *ctx UNNEEDED,
 			   struct channel *channel UNNEEDED,
 			   const struct bitcoin_txid *txid UNNEEDED,
 			   enum watch_result (*cb)(struct channel *channel UNNEEDED,
-						    const struct bitcoin_tx * UNNEEDED,
+						    const struct bitcoin_txid * UNNEEDED,
 						   unsigned int depth))
 { fprintf(stderr, "watch_txid called!\n"); abort(); }
 /* Generated stub for watch_txo */

@@ -478,7 +478,7 @@ send_error:
 }
 
 static enum watch_result funding_announce_cb(struct channel *channel,
-					     const struct bitcoin_tx *tx UNUSED,
+					     const struct bitcoin_txid *txid UNUSED,
 					     unsigned int depth)
 {
 	if (depth < ANNOUNCE_MIN_DEPTH) {
@@ -500,17 +500,15 @@ static enum watch_result funding_announce_cb(struct channel *channel,
 }
 
 static enum watch_result funding_lockin_cb(struct channel *channel,
-					   const struct bitcoin_tx *tx,
+					   const struct bitcoin_txid *txid,
 					   unsigned int depth)
 {
-	struct bitcoin_txid txid;
 	const char *txidstr;
 	struct txlocator *loc;
 	bool channel_ready;
 	struct lightningd *ld = channel->peer->ld;
 
-	bitcoin_txid(tx, &txid);
-	txidstr = type_to_string(channel, struct bitcoin_txid, &txid);
+	txidstr = type_to_string(channel, struct bitcoin_txid, txid);
 	log_debug(channel->log, "Funding tx %s depth %u of %u",
 		  txidstr, depth, channel->minimum_depth);
 	tal_free(txidstr);
@@ -518,7 +516,7 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 	if (depth < channel->minimum_depth)
 		return KEEP_WATCHING;
 
-	loc = locate_tx(channel, ld->topology, &txid);
+	loc = locate_tx(channel, ld->topology, txid);
 
 	/* If we restart, we could already have peer->scid from database */
 	if (!channel->scid) {
@@ -558,9 +556,9 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 	 * before. If we are at the right depth, call the callback
 	 * directly, otherwise schedule a callback */
 	if (depth >= ANNOUNCE_MIN_DEPTH)
-		funding_announce_cb(channel, tx, depth);
+		funding_announce_cb(channel, txid, depth);
 	else
-		watch_txid(channel, ld->topology, channel, &txid,
+		watch_txid(channel, ld->topology, channel, txid,
 			   funding_announce_cb);
 	return DELETE_WATCH;
 }
