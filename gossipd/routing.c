@@ -1233,7 +1233,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    const struct pubkey *source,
 			    const struct pubkey *destination,
-			    const u32 msatoshi, double riskfactor,
+			    const u64 msatoshi, double riskfactor,
 			    u32 final_cltv,
 			    double fuzz, const struct siphash_seed *base_seed)
 {
