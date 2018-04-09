@@ -93,39 +93,6 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 	b->full_txs = tal_free(b->full_txs);
 }
 
-static const struct bitcoin_tx *tx_in_block(const struct block *b,
-					    const struct bitcoin_txid *txid)
-{
-	size_t i, n = tal_count(b->txs);
-
-	for (i = 0; i < n; i++) {
-		struct bitcoin_txid this_txid;
-		bitcoin_txid(b->txs[i], &this_txid);
-		if (structeq(&this_txid, txid))
-			return b->txs[i];
-	}
-	return NULL;
-}
-
-/* FIXME: Use hash table. */
-static struct block *block_for_tx(const struct chain_topology *topo,
-				  const struct bitcoin_txid *txid,
-				  const struct bitcoin_tx **tx)
-{
-	struct block *b;
-	const struct bitcoin_tx *dummy_tx;
-
-	if (!tx)
-		tx = &dummy_tx;
-
-	for (b = topo->tip; b; b = b->prev) {
-		*tx = tx_in_block(b, txid);
-		if (*tx)
-			return b;
-	}
-	return NULL;
-}
-
 size_t get_tx_depth(const struct chain_topology *topo,
 		    const struct bitcoin_txid *txid)
 {
@@ -189,7 +156,7 @@ static void rebroadcast_txs(struct chain_topology *topo, struct command *cmd)
 	/* Put any txs we want to broadcast in ->txs. */
 	txs->txs = tal_arr(txs, const char *, 0);
 	list_for_each(&topo->outgoing_txs, otx, list) {
-		if (block_for_tx(topo, &otx->txid, NULL))
+		if (wallet_transaction_height(topo->wallet, &otx->txid))
 			continue;
 
 		tal_resize(&txs->txs, num_txs+1);
@@ -623,28 +590,6 @@ u32 get_feerate(const struct chain_topology *topo, enum feerate feerate)
 		return guess_feerate(topo, feerate);
 	}
 	return topo->feerate[feerate];
-}
-
-struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo,
-			    const struct bitcoin_txid *txid)
-{
-	struct block *block = block_for_tx(topo, txid, NULL);
-	if (block == NULL) {
-		return NULL;
-	}
-
-	struct txlocator *loc = talz(ctx, struct txlocator);
-	loc->blkheight = block->height;
-	size_t i, n = tal_count(block->txs);
-	for (i = 0; i < n; i++) {
-		struct bitcoin_txid this_txid;
-		bitcoin_txid(block->txs[i], &this_txid);
-		if (structeq(&this_txid, txid)){
-			loc->index = block->txnums[i];
-			return loc;
-		}
-	}
-	return tal_free(loc);
 }
 
 #if DEVELOPER

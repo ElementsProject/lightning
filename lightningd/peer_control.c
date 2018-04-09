@@ -516,7 +516,7 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 	if (depth < channel->minimum_depth)
 		return KEEP_WATCHING;
 
-	loc = locate_tx(channel, ld->topology, txid);
+	loc = wallet_transaction_locate(channel, ld->wallet, txid);
 
 	/* If we restart, we could already have peer->scid from database */
 	if (!channel->scid) {
