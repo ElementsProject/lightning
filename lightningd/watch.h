@@ -70,7 +70,7 @@ struct txwatch *find_txwatch(struct chain_topology *topo,
 			     const struct channel *channel);
 
 void txwatch_fire(struct chain_topology *topo,
-		  const struct bitcoin_tx *tx,
+		  const struct bitcoin_txid *txid,
 		  unsigned int depth);
 
 void txowatch_fire(const struct txowatch *txow,

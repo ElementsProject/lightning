@@ -229,17 +229,15 @@ static bool txw_fire(struct txwatch *txw,
 }
 
 void txwatch_fire(struct chain_topology *topo,
-		  const struct bitcoin_tx *tx,
+		  const struct bitcoin_txid *txid,
 		  unsigned int depth)
 {
-	struct bitcoin_txid txid;
 	struct txwatch *txw;
 
-	bitcoin_txid(tx, &txid);
-	txw = txwatch_hash_get(&topo->txwatches, &txid);
+	txw = txwatch_hash_get(&topo->txwatches, txid);
 
 	if (txw)
-		txw_fire(txw, &txid, depth);
+		txw_fire(txw, txid, depth);
 }
 
 void txowatch_fire(const struct txowatch *txow,

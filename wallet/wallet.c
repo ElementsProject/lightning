@@ -2246,3 +2246,25 @@ fail:
 	sqlite3_finalize(stmt);
 	return NULL;
 }
+
+struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
+						   struct wallet *w,
+						   const u32 blockheight)
+{
+	sqlite3_stmt *stmt;
+	struct bitcoin_txid *txids = tal_arr(ctx, struct bitcoin_txid, 0);
+	int count = 0;
+	stmt = db_prepare(
+	    w->db, "SELECT id FROM transactions WHERE blockheight=?");
+	sqlite3_bind_int(stmt, 1, blockheight);
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		count++;
+		tal_resize(&txids, count);
+		sqlite3_column_sha256(stmt, 0, &txids[count-1].shad.sha);
+	}
+	sqlite3_finalize(stmt);
+
+	return txids;
+}
+

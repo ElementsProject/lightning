@@ -827,4 +827,11 @@ u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid)
 struct txlocator *wallet_transaction_locate(const tal_t *ctx, struct wallet *w,
 					    const struct bitcoin_txid *txid);
 
+/**
+ * Get transaction IDs for transactions that we are tracking.
+ */
+struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
+						   struct wallet *w,
+						   const u32 blockheight);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */
