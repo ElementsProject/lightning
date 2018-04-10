@@ -102,7 +102,7 @@ u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx);
 /* We've loaded peers from database, set them going. */
 void activate_peers(struct lightningd *ld);
 
-void drop_to_chain(struct lightningd *ld, struct channel *channel);
+void drop_to_chain(struct lightningd *ld, struct channel *channel, bool cooperative);
 
 /* Get range of feerates to insist other side abide by for normal channels. */
 u32 feerate_min(struct lightningd *ld);
