@@ -1099,6 +1099,14 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
        return true;
 }
 
+static bool node_has_public_channels(struct node *node)
+{
+	for (size_t i = 0; i < tal_count(node->chans); i++)
+		if (node->chans[i]->public)
+			return true;
+	return false;
+}
+
 u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 {
 	u8 *serialized;
@@ -1187,6 +1195,8 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	/* Beyond this point it's not malformed, so safe if we make it
 	 * pending and requeue later. */
 	node = get_node(rstate, &node_id);
+	if (node && !node_has_public_channels(node))
+		node = NULL;
 
 	/* Check if we are currently verifying the txout for a
 	 * matching channel */
