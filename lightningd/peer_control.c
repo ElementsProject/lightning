@@ -44,6 +44,17 @@
 #include <wally_bip32.h>
 #include <wire/gen_onion_wire.h>
 
+struct close_command {
+	/* Inside struct lightningd close_commands. */
+	struct list_node list;
+	/* Command structure. This is the parent of the close command. */
+	struct command *cmd;
+	/* Channel being closed. */
+	struct channel *channel;
+	/* Should we force the close on timeout? */
+	bool force;
+};
+
 static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->ld->peers, &peer->list);
@@ -209,13 +220,126 @@ static void remove_sig(struct bitcoin_tx *signed_tx)
 	signed_tx->input[0].witness = tal_free(signed_tx->input[0].witness);
 }
 
-void drop_to_chain(struct lightningd *ld, struct channel *channel)
+/* Resolve a single close command. */
+static void
+resolve_one_close_command(struct close_command *cc, bool cooperative)
+{
+	struct json_result *result = new_json_result(cc);
+	u8 *tx = linearize_tx(result, cc->channel->last_tx);
+	struct bitcoin_txid txid;
+
+	bitcoin_txid(cc->channel->last_tx, &txid);
+
+	json_object_start(result, NULL);
+	json_add_hex(result, "tx", tx, tal_len(tx));
+	json_add_txid(result, "txid", &txid);
+	if (cooperative)
+		json_add_string(result, "type", "mutual");
+	else
+		json_add_string(result, "type", "unilateral");
+	json_object_end(result);
+
+	command_success(cc->cmd, result);
+}
+
+/* Resolve a close command for a channel that will be closed soon. */
+static void
+resolve_close_command(struct lightningd *ld, struct channel *channel,
+		      bool cooperative)
+{
+	struct close_command *cc;
+	struct close_command *n;
+
+	list_for_each_safe (&ld->close_commands, cc, n, list) {
+		if (cc->channel != channel)
+			continue;
+		resolve_one_close_command(cc, cooperative);
+	}
+}
+
+/* Destroy the close command structure in reaction to the
+ * channel being destroyed. */
+static void
+destroy_close_command_on_channel_destroy(struct channel *_ UNUSED,
+					 struct close_command *cc)
+{
+	/* The cc has the command as parent, so resolving the
+	 * command destroys the cc and triggers destroy_close_command.
+	 * Clear the cc->channel first so that we will not try to
+	 * remove a destructor. */
+	cc->channel = NULL;
+	command_fail(cc->cmd, "Channel forgotten before proper close.");
+}
+
+/* Destroy the close command structure. */
+static void
+destroy_close_command(struct close_command *cc)
+{
+	list_del(&cc->list);
+	/* If destroy_close_command_on_channel_destroy was
+	 * triggered beforehand, it will have cleared
+	 * the channel field, preventing us from removing it
+	 * from an already-destroyed channel. */
+	if (!cc->channel)
+		return;
+	tal_del_destructor2(cc->channel,
+			    &destroy_close_command_on_channel_destroy,
+			    cc);
+}
+
+/* Handle timeout. */
+static void
+close_command_timeout(struct close_command *cc)
+{
+	if (cc->force)
+		/* This will trigger drop_to_chain, which will trigger
+		 * resolution of the command and destruction of the
+		 * close_command. */
+		channel_fail_permanent(cc->channel,
+				       "Forcibly closed by 'close' command timeout");
+	else
+		/* Fail the command directly, which will resolve the
+		 * command and destroy the close_command. */
+		command_fail(cc->cmd,
+			     "Channel close negotiation not finished "
+			     "before timeout");
+}
+
+/* Construct a close command structure and add to ld. */
+static void
+register_close_command(struct lightningd *ld,
+		       struct command *cmd,
+		       struct channel *channel,
+		       unsigned int timeout,
+		       bool force)
+{
+	struct close_command *cc;
+	assert(channel);
+
+	cc = tal(cmd, struct close_command);
+	list_add_tail(&ld->close_commands, &cc->list);
+	cc->cmd = cmd;
+	cc->channel = channel;
+	cc->force = force;
+	tal_add_destructor(cc, &destroy_close_command);
+	tal_add_destructor2(channel,
+			    &destroy_close_command_on_channel_destroy,
+			    cc);
+	new_reltimer(&ld->timers, cc, time_from_sec(timeout),
+		     &close_command_timeout, cc);
+}
+
+void drop_to_chain(struct lightningd *ld, struct channel *channel,
+		   bool cooperative)
 {
 	sign_last_tx(channel);
 
 	/* Keep broadcasting until we say stop (can fail due to dup,
 	 * if they beat us to the broadcast). */
 	broadcast_tx(ld->topology, channel, channel->last_tx, NULL);
+
+	resolve_close_command(ld, channel, cooperative);
+
 	remove_sig(channel->last_tx);
 }
 
@@ -854,11 +978,17 @@ static void json_close(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)
 {
 	jsmntok_t *peertok;
+	jsmntok_t *timeouttok;
+	jsmntok_t *forcetok;
 	struct peer *peer;
 	struct channel *channel;
+	unsigned int timeout = 30;
+	bool force = false;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "id", &peertok,
+			     "?force", &forcetok,
+			     "?timeout", &timeouttok,
 			     NULL)) {
 		return;
 	}
@@ -866,6 +996,18 @@ static void json_close(struct command *cmd,
 	peer = peer_from_json(cmd->ld, buffer, peertok);
 	if (!peer) {
 		command_fail(cmd, "Could not find peer with that id");
+		return;
+	}
+	if (forcetok && !json_tok_bool(buffer, forcetok, &force)) {
+		command_fail(cmd, "Force '%.*s' must be true or false",
+			     forcetok->end - forcetok->start,
+			     buffer + forcetok->start);
+		return;
+	}
+	if (timeouttok && !json_tok_number(buffer, timeouttok, &timeout)) {
+		command_fail(cmd, "Timeout '%.*s' is not a number",
+			     timeouttok->end - timeouttok->start,
+			     buffer + timeouttok->start);
 		return;
 	}
 
@@ -883,7 +1025,22 @@ static void json_close(struct command *cmd,
 		return;
 	}
 
-	/* Normal case. */
+	/* Normal case.
+	 * We allow states shutting down and sigexchange; a previous
+	 * close command may have timed out, and this current command
+	 * will continue waiting for the effects of the previous
+	 * close command. */
+	if (channel->state != CHANNELD_NORMAL &&
+	    channel->state != CHANNELD_AWAITING_LOCKIN &&
+	    channel->state != CHANNELD_SHUTTING_DOWN &&
+	    channel->state != CLOSINGD_SIGEXCHANGE)
+		command_fail(cmd, "Peer is in state %s",
+			     channel_state_name(channel));
+
+	/* If normal or locking in, transition to shutting down
+	 * state.
+	 * (if already shutting down or sigexchange, just keep
+	 * waiting) */
 	if (channel->state == CHANNELD_NORMAL || channel->state == CHANNELD_AWAITING_LOCKIN) {
 		channel_set_state(channel,
 				  channel->state, CHANNELD_SHUTTING_DOWN);
@@ -891,11 +1048,20 @@ static void json_close(struct command *cmd,
 		if (channel->owner)
 			subd_send_msg(channel->owner,
 				      take(towire_channel_send_shutdown(channel)));
+	}
+	/* If channel has no owner, it means the peer is disconnected,
+	 * so make a nominal effort to contact it now.
+	 */
+	if (!channel->owner)
+		subd_send_msg(cmd->ld->gossip,
+			      take(towire_gossipctl_reach_peer(NULL,
+							       &channel->peer->id)));
 
-		command_success(cmd, null_response(cmd));
-	} else
-		command_fail(cmd, "Peer is in state %s",
-			     channel_state_name(channel));
+	/* Register this command for later handling. */
+	register_close_command(cmd->ld, cmd, channel, timeout, force);
+
+	/* Wait until close drops down to chain. */
+	command_still_pending(cmd);
 }
 
 static const struct json_command close_command = {
