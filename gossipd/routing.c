@@ -627,7 +627,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	chan->satoshis = satoshis;
 
 	if (replace_broadcast(chan, rstate->broadcasts,
-			      &chan->channel_announce_msgidx, take(msg))) {
+			      &chan->channel_announce_msgidx, msg)) {
 		status_broken("Announcement %s was replaced: %s, %s, msgidx was %"PRIu64" now %"PRIu64"?",
 			      tal_hex(tmpctx, msg),
 			      old_chan ? "preexisting" : "new channel",
@@ -838,10 +838,10 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 		return false;
 	}
 
-	gossip_store_add_channel_announcement(rstate->store, pending->announce, satoshis);
 	if (!routing_add_channel_announcement(rstate, pending->announce, satoshis))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not add channel_announcement");
+	gossip_store_add_channel_announcement(rstate->store, pending->announce, satoshis);
 
 	local = pubkey_eq(&pending->node_id_1, &rstate->local_id) ||
 		pubkey_eq(&pending->node_id_2, &rstate->local_id);
@@ -944,7 +944,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 
 	replace_broadcast(chan, rstate->broadcasts,
 			  &chan->half[direction].channel_update_msgidx,
-			  take(update));
+			  update);
 	return true;
 }
 
@@ -1040,12 +1040,12 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 		     flags & 0x01,
 		     flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
 
-	/* Only store updates for public channels */
-	if (chan->public)
-		gossip_store_add_channel_update(rstate->store, serialized);
 	if (!routing_add_channel_update(rstate, serialized))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed adding channel_update");
+	/* Only store updates for public channels */
+	if (chan->public)
+		gossip_store_add_channel_update(rstate->store, serialized);
 
 	return NULL;
 }
@@ -1117,7 +1117,7 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 
        replace_broadcast(node, rstate->broadcasts,
                          &node->node_announce_msgidx,
-                         take(msg));
+                         msg);
        return true;
 }
 
@@ -1257,9 +1257,9 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	status_trace("Received node_announcement for node %s",
 		     type_to_string(tmpctx, struct pubkey, &node_id));
 
-	gossip_store_add_node_announcement(rstate->store, serialized);
 	applied = routing_add_node_announcement(rstate, serialized);
 	assert(applied);
+	gossip_store_add_node_announcement(rstate->store, serialized);
 	return NULL;
 }
 
