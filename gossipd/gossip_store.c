@@ -6,7 +6,7 @@
 #include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <gossipd/gen_gossip_wire.h>
+#include <gossipd/gen_gossip_store.h>
 #include <unistd.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire.h>
