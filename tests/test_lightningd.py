@@ -1180,8 +1180,10 @@ class LightningDTests(BaseLightningDTests):
             billboard = l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status']
             assert billboard == ['CHANNELD_NORMAL:Funding transaction locked. Channel announced.']
 
-        # This should return, then close.
-        l1.rpc.close(l2.info['id'])
+        # This should return with an error, then close.
+        self.assertRaisesRegex(ValueError,
+                               "Channel close negotiation not finished",
+                               l1.rpc.close, l2.info['id'], False, 0)
         l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
         l2.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
 
@@ -1306,7 +1308,9 @@ class LightningDTests(BaseLightningDTests):
 
         # Now close
         for p in peers:
-            l1.rpc.close(p.info['id'])
+            self.assertRaisesRegex(ValueError,
+                                   "Channel close negotiation not finished",
+                                   l1.rpc.close, p.info['id'], False, 0)
 
         for p in peers:
             p.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
@@ -3118,8 +3122,10 @@ class LightningDTests(BaseLightningDTests):
 
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
 
-        # This should return, then close.
-        l1.rpc.close(l2.info['id'])
+        # This should return with an error, then close.
+        self.assertRaisesRegex(ValueError,
+                               "Channel close negotiation not finished",
+                               l1.rpc.close, l2.info['id'], False, 0)
         l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
         l2.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
 
@@ -3144,7 +3150,10 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('sendrawtx exit 0')
         bitcoind.generate_block(1)
 
-        l1.rpc.close(l2.info['id'])
+        # This should return with an error, then close.
+        self.assertRaisesRegex(ValueError,
+                               "Channel close negotiation not finished",
+                               l1.rpc.close, l2.info['id'], False, 0)
         l1.daemon.wait_for_log('CHANNELD_AWAITING_LOCKIN to CHANNELD_SHUTTING_DOWN')
         l2.daemon.wait_for_log('CHANNELD_AWAITING_LOCKIN to CHANNELD_SHUTTING_DOWN')
 
@@ -3179,8 +3188,10 @@ class LightningDTests(BaseLightningDTests):
 
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
 
-        # This should return, then close.
-        l1.rpc.close(l2.info['id'])
+        # This should return with an error, then close.
+        self.assertRaisesRegex(ValueError,
+                               "Channel close negotiation not finished",
+                               l1.rpc.close, l2.info['id'], False, 0)
         l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
         l2.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
 
@@ -3852,7 +3863,9 @@ class LightningDTests(BaseLightningDTests):
         self.pay(l2, l1, 100000000)
 
         # Now shutdown cleanly.
-        l1.rpc.close(l2.info['id'])
+        self.assertRaisesRegex(ValueError,
+                               "Channel close negotiation not finished",
+                               l1.rpc.close, l2.info['id'], False, 0)
         l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
         l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
 
@@ -3896,8 +3909,10 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.dev_setfees()
         l1.daemon.wait_for_log('dev-setfees: fees now 21098/7654/321')
 
-        # Now shutdown cleanly.
-        l1.rpc.close(l2.info['id'])
+        # This should return with an error, then close.
+        self.assertRaisesRegex(ValueError,
+                               "Channel close negotiation not finished",
+                               l1.rpc.close, l2.info['id'], False, 0)
         l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
         l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
 
@@ -3936,8 +3951,10 @@ class LightningDTests(BaseLightningDTests):
         # 15sat/byte fee
         l1.daemon.wait_for_log('peer_out WIRE_REVOKE_AND_ACK')
 
-        # Now shutdown cleanly.
-        l1.rpc.close(l3.info['id'])
+        # This should return with an error, then close.
+        self.assertRaisesRegex(ValueError,
+                               "Channel close negotiation not finished",
+                               l1.rpc.close, l3.info['id'], False, 0)
         l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
         l3.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
 
@@ -3968,7 +3985,9 @@ class LightningDTests(BaseLightningDTests):
         assert l2.daemon.is_in_log('got commitsig [0-9]*: feerate 14000')
 
         # Now shutdown cleanly.
-        l1.rpc.close(l2.info['id'])
+        self.assertRaisesRegex(ValueError,
+                               "Channel close negotiation not finished",
+                               l1.rpc.close, l2.info['id'], False, 0)
         l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
         l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
 
@@ -4104,7 +4123,9 @@ class LightningDTests(BaseLightningDTests):
             l2.daemon.wait_for_log('Handing back peer .* to master')
             self.fund_channel(l1, l2, 10**6)
 
-            l1.rpc.close(l2.info['id'])
+            self.assertRaisesRegex(ValueError,
+                                   "Channel close negotiation not finished",
+                                   l1.rpc.close, l2.info['id'], False, 0)
             l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
             l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
 
@@ -4249,7 +4270,9 @@ class LightningDTests(BaseLightningDTests):
         assert l1.rpc.getpeer(l2.info['id'])['color'] == l1.rpc.listnodes(l2.info['id'])['nodes'][0]['color']
 
         # Close the channel to forget the peer
-        l1.rpc.close(l2.info['id'])
+        self.assertRaisesRegex(ValueError,
+                               "Channel close negotiation not finished",
+                               l1.rpc.close, l2.info['id'], False, 0)
         l1.daemon.wait_for_log('Forgetting remote peer')
         bitcoind.generate_block(100)
         l1.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')
