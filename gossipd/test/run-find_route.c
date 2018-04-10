@@ -39,18 +39,12 @@ bool fromwire_gossip_store_node_announcement(const tal_t *ctx UNNEEDED, const vo
 /* Generated stub for fromwire_node_announcement */
 bool fromwire_node_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED, u8 **features UNNEEDED, u32 *timestamp UNNEEDED, struct pubkey *node_id UNNEEDED, u8 rgb_color[3] UNNEEDED, u8 alias[32] UNNEEDED, u8 **addresses UNNEEDED)
 { fprintf(stderr, "fromwire_node_announcement called!\n"); abort(); }
-/* Generated stub for fromwire_peektype */
-int fromwire_peektype(const u8 *cursor UNNEEDED)
-{ fprintf(stderr, "fromwire_peektype called!\n"); abort(); }
 /* Generated stub for fromwire_u8 */
 u8 fromwire_u8(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_u8 called!\n"); abort(); }
 /* Generated stub for fromwire_wireaddr */
 bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct wireaddr *addr UNNEEDED)
 { fprintf(stderr, "fromwire_wireaddr called!\n"); abort(); }
-/* Generated stub for gossip_wire_type_name */
-const char *gossip_wire_type_name(int e UNNEEDED)
-{ fprintf(stderr, "gossip_wire_type_name called!\n"); abort(); }
 /* Generated stub for onion_type_name */
 const char *onion_type_name(int e UNNEEDED)
 { fprintf(stderr, "onion_type_name called!\n"); abort(); }

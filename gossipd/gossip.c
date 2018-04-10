@@ -2092,11 +2092,6 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_GET_TXOUT:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLY:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLYFAIL:
-	/* gossip_store messages */
-	case WIRE_GOSSIP_STORE_CHANNEL_ANNOUNCEMENT:
-	case WIRE_GOSSIP_STORE_CHANNEL_UPDATE:
-	case WIRE_GOSSIP_STORE_NODE_ANNOUNCEMENT:
-	case WIRE_GOSSIP_STORE_CHANNEL_DELETE:
 		break;
 	}
 
