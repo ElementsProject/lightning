@@ -591,7 +591,7 @@ static void destroy_pending_cannouncement(struct pending_cannouncement *pending,
 	list_del_from(&rstate->pending_cannouncement, &pending->list);
 }
 
-void routing_add_channel_announcement(struct routing_state *rstate,
+bool routing_add_channel_announcement(struct routing_state *rstate,
 				      const u8 *msg TAKES, u64 satoshis)
 {
 	struct chan *chan;
@@ -627,13 +627,15 @@ void routing_add_channel_announcement(struct routing_state *rstate,
 	chan->satoshis = satoshis;
 
 	if (replace_broadcast(chan, rstate->broadcasts,
-			      &chan->channel_announce_msgidx, take(msg)))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Announcement %s was replaced: %s, %s, msgidx was %"PRIu64" now %"PRIu64"?",
+			      &chan->channel_announce_msgidx, take(msg))) {
+		status_broken("Announcement %s was replaced: %s, %s, msgidx was %"PRIu64" now %"PRIu64"?",
 			      tal_hex(tmpctx, msg),
 			      old_chan ? "preexisting" : "new channel",
 			      old_public ? "public" : "not public",
 			      old_msgidx, chan->channel_announce_msgidx);
+		return false;
+	}
+	return true;
 }
 
 u8 *handle_channel_announcement(struct routing_state *rstate,
@@ -837,7 +839,9 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	}
 
 	gossip_store_add_channel_announcement(rstate->store, pending->announce, satoshis);
-	routing_add_channel_announcement(rstate, pending->announce, satoshis);
+	if (!routing_add_channel_announcement(rstate, pending->announce, satoshis))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Could not add channel_announcement");
 
 	local = pubkey_eq(&pending->node_id_1, &rstate->local_id) ||
 		pubkey_eq(&pending->node_id_2, &rstate->local_id);
@@ -908,7 +912,7 @@ void set_connection_values(struct chan *chan,
 	}
 }
 
-void routing_add_channel_update(struct routing_state *rstate,
+bool routing_add_channel_update(struct routing_state *rstate,
 				const u8 *update TAKES)
 {
 	secp256k1_ecdsa_signature signature;
@@ -923,11 +927,15 @@ void routing_add_channel_update(struct routing_state *rstate,
 	struct chan *chan;
 	u8 direction;
 
-	fromwire_channel_update(update, &signature, &chain_hash,
-				&short_channel_id, &timestamp, &flags, &expiry,
-				&htlc_minimum_msat, &fee_base_msat,
-				&fee_proportional_millionths);
+	if (!fromwire_channel_update(update, &signature, &chain_hash,
+				     &short_channel_id, &timestamp, &flags,
+				     &expiry, &htlc_minimum_msat, &fee_base_msat,
+				     &fee_proportional_millionths))
+		return false;
 	chan = get_channel(rstate, &short_channel_id);
+	if (!chan)
+		return false;
+
 	direction = flags & 0x1;
 	set_connection_values(chan, direction, fee_base_msat,
 			      fee_proportional_millionths, expiry,
@@ -937,6 +945,7 @@ void routing_add_channel_update(struct routing_state *rstate,
 	replace_broadcast(chan, rstate->broadcasts,
 			  &chan->half[direction].channel_update_msgidx,
 			  take(update));
+	return true;
 }
 
 u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
@@ -1034,7 +1043,10 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 	/* Only store updates for public channels */
 	if (chan->public)
 		gossip_store_add_channel_update(rstate->store, serialized);
-	routing_add_channel_update(rstate, serialized);
+	if (!routing_add_channel_update(rstate, serialized))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed adding channel_update");
+
 	return NULL;
 }
 
