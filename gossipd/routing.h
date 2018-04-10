@@ -265,7 +265,7 @@ void route_prune(struct routing_state *rstate);
  * this only for messages from trusted sources. Untrusted sources should use the
  * @see{handle_channel_announcement} entrypoint to check before adding.
  */
-void routing_add_channel_announcement(struct routing_state *rstate,
+bool routing_add_channel_announcement(struct routing_state *rstate,
 				      const u8 *msg TAKES, u64 satoshis);
 
 /**
@@ -276,7 +276,7 @@ void routing_add_channel_announcement(struct routing_state *rstate,
  * untrusted source, requiring verification please use
  * @see{handle_channel_update}
  */
-void routing_add_channel_update(struct routing_state *rstate,
+bool routing_add_channel_update(struct routing_state *rstate,
 				const u8 *update TAKES);
 
 /**
