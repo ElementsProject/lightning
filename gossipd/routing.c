@@ -604,6 +604,9 @@ void routing_add_channel_announcement(struct routing_state *rstate,
 	struct pubkey node_id_2;
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
+	bool old_chan, old_public;
+	u64 old_msgidx;
+
 	fromwire_channel_announcement(
 	    tmpctx, msg, &node_signature_1, &node_signature_2,
 	    &bitcoin_signature_1, &bitcoin_signature_2, &features, &chain_hash,
@@ -612,8 +615,12 @@ void routing_add_channel_announcement(struct routing_state *rstate,
 	 * local_add_channel(); normally we don't accept new
 	 * channel_announcements.  See handle_channel_announcement. */
 	chan = get_channel(rstate, &scid);
+	old_chan = chan;
 	if (!chan)
 		chan = new_chan(rstate, &scid, &node_id_1, &node_id_2);
+
+	old_public = chan->public;
+	old_msgidx = chan->channel_announce_msgidx;
 
 	/* Channel is now public. */
 	chan->public = true;
@@ -622,8 +629,11 @@ void routing_add_channel_announcement(struct routing_state *rstate,
 	if (replace_broadcast(chan, rstate->broadcasts,
 			      &chan->channel_announce_msgidx, take(msg)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Announcement %s was replaced?",
-			      tal_hex(tmpctx, msg));
+			      "Announcement %s was replaced: %s, %s, msgidx was %"PRIu64" now %"PRIu64"?",
+			      tal_hex(tmpctx, msg),
+			      old_chan ? "preexisting" : "new channel",
+			      old_public ? "public" : "not public",
+			      old_msgidx, chan->channel_announce_msgidx);
 }
 
 u8 *handle_channel_announcement(struct routing_state *rstate,
