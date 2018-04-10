@@ -1195,38 +1195,39 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	/* Beyond this point it's not malformed, so safe if we make it
 	 * pending and requeue later. */
 	node = get_node(rstate, &node_id);
-	if (node && !node_has_public_channels(node))
-		node = NULL;
 
-	/* Check if we are currently verifying the txout for a
-	 * matching channel */
-	pna = pending_node_map_get(rstate->pending_node_map, &node_id.pubkey);
-	if (!node && pna) {
-		if (pna->timestamp < timestamp) {
+	/* BOLT #7:
+	 *
+	 * - if `node_id` is NOT previously known from a `channel_announcement`
+	 *   message, OR if `timestamp` is NOT greater than the last-received
+	 *   `node_announcement` from this `node_id`:
+	 *    - SHOULD ignore the message.
+	 */
+	if (!node || !node_has_public_channels(node)) {
+		/* Check if we are currently verifying the txout for a
+		 * matching channel */
+		pna = pending_node_map_get(rstate->pending_node_map,
+					   &node_id.pubkey);
+		if (!pna) {
+			SUPERVERBOSE("Node not found, was the node_announcement "
+				     "for node %s preceded by at least "
+				     "channel_announcement?",
+				     type_to_string(tmpctx, struct pubkey,
+						    &node_id));
+		} else if (pna->timestamp < timestamp) {
 			SUPERVERBOSE(
 			    "Deferring node_announcement for node %s",
 			    type_to_string(tmpctx, struct pubkey, &node_id));
 			pna->timestamp = timestamp;
 			tal_free(pna->node_announcement);
-			pna->node_announcement = tal_dup_arr(pna, u8, node_ann, tal_len(node_ann), 0);
+			pna->node_announcement = tal_dup_arr(pna, u8, node_ann,
+							     tal_len(node_ann),
+							     0);
 		}
 		return NULL;
 	}
 
-	/* BOLT #7:
-	 *
-	 * - if `node_id` is NOT previously known from a
-	 *   `channel_announcement` message, OR if `timestamp` is NOT greater
-	 *   than the last-received `node_announcement` from this `node_id`:
-	 *    - SHOULD ignore the message.
-	 */
-	if (!node) {
-		SUPERVERBOSE("Node not found, was the node_announcement for "
-			     "node %s preceded by at least "
-			     "channel_announcement?",
-			     type_to_string(tmpctx, struct pubkey, &node_id));
-		return NULL;
-	} else if (node->last_timestamp >= timestamp) {
+	if (node->last_timestamp >= timestamp) {
 		SUPERVERBOSE("Ignoring node announcement, it's outdated.");
 		return NULL;
 	}
