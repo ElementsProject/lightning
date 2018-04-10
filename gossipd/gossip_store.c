@@ -170,10 +170,7 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		known_good += sizeof(belen) + msglen;
 		tal_free(msg);
 	}
-	status_trace("gossip_store: Read %zu/%zu/%zu/%zu cannounce/cupdate/nannounce/cdelete from store in %"PRIu64" bytes",
-		     stats[0], stats[1], stats[2], stats[3],
-		     (u64)known_good);
-	return;
+	goto out;
 
 truncate:
 	status_unusual("gossip_store: %s (%s) truncating to %"PRIu64,
@@ -182,4 +179,8 @@ truncate_nomsg:
 	if (ftruncate(gs->fd, known_good) != 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Truncating store: %s", strerror(errno));
+out:
+	status_trace("gossip_store: Read %zu/%zu/%zu/%zu cannounce/cupdate/nannounce/cdelete from store in %"PRIu64" bytes",
+		     stats[0], stats[1], stats[2], stats[3],
+		     (u64)known_good);
 }
