@@ -28,18 +28,6 @@ static void next_topology_timer(struct chain_topology *topo)
 			     try_extend_tip, topo));
 }
 
-/* FIXME: Remove tx from block when peer done. */
-static void add_tx_to_block(struct block *b,
-			    const struct bitcoin_tx *tx, const u32 txnum)
-{
-	size_t n = tal_count(b->txs);
-
-	tal_resize(&b->txs, n+1);
-	tal_resize(&b->txnums, n+1);
-	b->txs[n] = tal_steal(b->txs, tx);
-	b->txnums[n] = txnum;
-}
-
 static bool we_broadcast(const struct chain_topology *topo,
 			 const struct bitcoin_txid *txid)
 {
@@ -86,7 +74,6 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		bitcoin_txid(tx, &txid);
 		if (watching_txid(topo, &txid) || we_broadcast(topo, &txid) ||
 		    satoshi_owned != 0) {
-			add_tx_to_block(b, tx, i);
 			wallet_transaction_add(topo->wallet, tx, b->height, i);
 		}
 	}
@@ -442,7 +429,6 @@ static struct block *new_block(struct chain_topology *topo,
 
 	b->hdr = blk->hdr;
 
-	b->txs = tal_arr(b, const struct bitcoin_tx *, 0);
 	b->txnums = tal_arr(b, u32, 0);
 	b->full_txs = tal_steal(b, blk->tx);
 
@@ -452,7 +438,8 @@ static struct block *new_block(struct chain_topology *topo,
 static void remove_tip(struct chain_topology *topo)
 {
 	struct block *b = topo->tip;
-	size_t i, n = tal_count(b->txs);
+	struct bitcoin_txid *txs;
+	size_t i, n;
 
 	/* Move tip back one. */
 	topo->tip = b->prev;
@@ -461,9 +448,12 @@ static void remove_tip(struct chain_topology *topo)
 		      b->height,
 		      type_to_string(tmpctx, struct bitcoin_blkid, &b->blkid));
 
+	txs = wallet_transactions_by_height(b, topo->wallet, b->height);
+	n = tal_count(txs);
+
 	/* Notify that txs are kicked out. */
 	for (i = 0; i < n; i++)
-		txwatch_fire(topo, b->txs[i], 0);
+		txwatch_fire(topo, &txs[i], 0);
 
 	wallet_block_remove(topo->wallet, b);
 	block_map_del(&topo->block_map, b);

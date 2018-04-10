@@ -49,9 +49,6 @@ struct block {
 	/* Key for hash table */
 	struct bitcoin_blkid blkid;
 
-	/* Transactions in this block we care about */
-	const struct bitcoin_tx **txs;
-
 	/* And their associated index in the block */
 	u32 *txnums;
 
