@@ -1224,6 +1224,32 @@ class LightningDTests(BaseLightningDTests):
         wait_forget_channels(l1)
         wait_forget_channels(l2)
 
+    def test_closing_while_disconnected(self):
+        l1, l2 = self.connect()
+
+        self.fund_channel(l1, l2, 10**6)
+        self.pay(l1, l2, 200000000)
+
+        l2.stop()
+
+        # The close should still be triggered afterwards.
+        self.assertRaisesRegex(ValueError,
+                               "Channel close negotiation not finished",
+                               l1.rpc.close, l2.info['id'], False, 0)
+        l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
+
+        l2.daemon.start()
+        l1.daemon.wait_for_log(' to CLOSINGD_SIGEXCHANGE')
+        l2.daemon.wait_for_log(' to CLOSINGD_SIGEXCHANGE')
+
+        # And should put closing into mempool.
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+
+        bitcoind.rpc.generate(101)
+        wait_forget_channels(l1)
+        wait_forget_channels(l2)
+
     def test_db_upgrade(self):
         l1 = self.node_factory.get_node()
         l1.stop()
