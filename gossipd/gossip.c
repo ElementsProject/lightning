@@ -1554,8 +1554,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 		     gossip_refresh_network, daemon);
 
 	/* Load stored gossip messages */
-	while (gossip_store_read_next(daemon->rstate, daemon->rstate->store)) {
-	}
+	gossip_store_load(daemon->rstate, daemon->rstate->store);
 
 	return daemon_conn_read_next(master->conn, master);
 }
