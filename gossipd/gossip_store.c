@@ -3,6 +3,8 @@
 #include <ccan/endian/endian.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <common/status.h>
+#include <common/utils.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <unistd.h>
@@ -14,7 +16,7 @@ static u8 gossip_store_version = 0x01;
 
 struct gossip_store {
 	int fd;
-	off_t read_pos, write_pos;
+	off_t write_pos;
 	u8 version;
 };
 
@@ -27,7 +29,6 @@ struct gossip_store *gossip_store_new(const tal_t *ctx)
 {
 	struct gossip_store *gs = tal(ctx, struct gossip_store);
 	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
-	gs->read_pos = 1;
 	gs->write_pos = lseek(gs->fd, 0, SEEK_END);
 
 	/* Try to read the version, write it if this is a new file, or truncate
@@ -96,58 +97,69 @@ void gossip_store_add_channel_delete(struct gossip_store *gs,
 	tal_free(msg);
 }
 
-bool gossip_store_read_next(struct routing_state *rstate,
-			    struct gossip_store *gs)
+void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 {
 	beint32_t belen;
 	u32 msglen;
 	u8 *msg, *gossip_msg;
 	u64 satoshis;
-	enum gossip_wire_type type;
 	struct short_channel_id scid;
+	/* We set/check version byte on creation */
+	off_t known_good = 1;
+	const char *bad;
 
-	/* Did we already reach the end of the gossip_store? */
-	if (gs->read_pos == -1)
-		return NULL;
+	lseek(gs->fd, known_good, SEEK_SET);
+	while (read(gs->fd, &belen, sizeof(belen)) == sizeof(belen)) {
+		msglen = be32_to_cpu(belen);
+		msg = tal_arr(gs, u8, msglen);
 
-	/* Can we read one message? */
-	if (pread(gs->fd, &belen, sizeof(belen), gs->read_pos) != sizeof(belen)) {
-		gs->read_pos = -1;
-		return false;
-	}
+		if (read(gs->fd, msg, msglen) != msglen) {
+			status_unusual("gossip_store: truncated file?");
+			goto truncate_nomsg;
+		}
 
-	msglen = be32_to_cpu(belen);
-	msg = tal_arr(gs, u8, msglen);
-
-	if (!pread(gs->fd, msg, msglen, gs->read_pos + sizeof(belen))) {
-		status_trace("Short read from gossip-store, expected lenght %d",
-			     msglen);
-
-		/* Reset write_pos to truncate this message and disable future
-		 * reads */
-		gs->write_pos = gs->read_pos;
-		gs->read_pos = -1;
-		ftruncate(gs->fd, gs->write_pos);
+		if (fromwire_gossip_store_channel_announcement(msg, msg,
+							       &gossip_msg,
+							       &satoshis)) {
+			if (!routing_add_channel_announcement(rstate,
+							      gossip_msg,
+							      satoshis)) {
+				bad = "Bad channel_announcement";
+				goto truncate;
+			}
+		} else if (fromwire_gossip_store_channel_update(msg, msg,
+								&gossip_msg)) {
+			if (!routing_add_channel_update(rstate, gossip_msg)) {
+				bad = "Bad channel_update";
+				goto truncate;
+			}
+		} else if (fromwire_gossip_store_node_announcement(msg, msg,
+								   &gossip_msg)) {
+			if (!routing_add_node_announcement(rstate, gossip_msg)) {
+				bad = "Bad node_announcement";
+				goto truncate;
+			}
+		} else if (fromwire_gossip_store_channel_delete(msg, &scid)) {
+			struct chan *c = get_channel(rstate, &scid);
+			if (!c) {
+				bad = "Bad channel_delete";
+				goto truncate;
+			}
+			tal_free(c);
+		} else {
+			bad = "Unknown message";
+			goto truncate;
+		}
+		known_good += sizeof(belen) + msglen;
 		tal_free(msg);
-		return false;
 	}
+	return;
 
-	gs->read_pos += sizeof(belen) + msglen;
-	type = fromwire_peektype(msg);
-
-	if (type == WIRE_GOSSIP_STORE_CHANNEL_ANNOUNCEMENT) {
-		fromwire_gossip_store_channel_announcement(msg, msg, &gossip_msg, &satoshis);
-		routing_add_channel_announcement(rstate, gossip_msg, satoshis);
-	} else if(type == WIRE_GOSSIP_STORE_CHANNEL_UPDATE) {
-		fromwire_gossip_store_channel_update(msg, msg, &gossip_msg);
-		routing_add_channel_update(rstate, gossip_msg);
-	} else if(type == WIRE_GOSSIP_STORE_NODE_ANNOUNCEMENT) {
-		fromwire_gossip_store_node_announcement(msg, msg, &gossip_msg);
-		routing_add_node_announcement(rstate, gossip_msg);
-	} else if(type == WIRE_GOSSIP_STORE_CHANNEL_DELETE) {
-		fromwire_gossip_store_channel_delete(msg, &scid);
-		tal_free(get_channel(rstate, &scid));
-	}
-	tal_free(msg);
-	return true;
+truncate:
+	status_unusual("gossip_store: %s (%s) truncating to %"PRIu64,
+		       bad, tal_hex(msg, msg), (u64)known_good);
+truncate_nomsg:
+	if (ftruncate(gs->fd, known_good) != 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Truncating store: %s", strerror(errno));
 }
