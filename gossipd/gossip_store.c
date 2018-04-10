@@ -174,9 +174,13 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 
 truncate:
 	status_unusual("gossip_store: %s (%s) truncating to %"PRIu64,
-		       bad, tal_hex(msg, msg), (u64)known_good);
+		       bad, tal_hex(msg, msg), (u64)1);
 truncate_nomsg:
-	if (ftruncate(gs->fd, known_good) != 0)
+	/* FIXME: We would like to truncate to known_good, except we would
+	 * miss channel_delete msgs.  If we put block numbers into the store
+	 * as we process them, we can know how far we need to roll back if we
+	 * truncate the store */
+	if (ftruncate(gs->fd, 1) != 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Truncating store: %s", strerror(errno));
 out:
