@@ -1521,12 +1521,14 @@ class LightningDTests(BaseLightningDTests):
 
         # 10 later, l1 should collect its to-self payment.
         bitcoind.generate_block(10)
-        l1.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
+        l1.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve '
+                               'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
         l1.daemon.wait_for_log('sendrawtx exit 0')
 
         # First time it sees it, onchaind cares.
         bitcoind.generate_block(1)
-        l1.daemon.wait_for_log('Resolved OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by our proposal OUR_DELAYED_RETURN_TO_WALLET')
+        l1.daemon.wait_for_log('Resolved OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by our proposal '
+                               'OUR_DELAYED_RETURN_TO_WALLET')
 
         # Now test unrelated onchain churn.
         # Daemon gets told about wallet; says it doesn't care.
@@ -1550,6 +1552,57 @@ class LightningDTests(BaseLightningDTests):
 
         # Note: for this test we leave onchaind running, so we can detect
         # any leaks!
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_onchaind_replay(self):
+        disconnects = ['+WIRE_REVOKE_AND_ACK', 'permfail']
+        options = {'locktime-blocks': 201, 'cltv-delta': 101}
+        l1 = self.node_factory.get_node(options=options, disconnect=disconnects)
+        l2 = self.node_factory.get_node(options=options)
+        btc = l1.bitcoin
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        self.fund_channel(l1, l2, 10**6)
+
+        rhash = l2.rpc.invoice(10**8, 'onchaind_replay', 'desc')['payment_hash']
+        routestep = {
+            'msatoshi': 10**8 - 1,
+            'id': l2.info['id'],
+            'delay': 101,
+            'channel': '1:1:1'
+        }
+        l1.rpc.sendpay(to_json([routestep]), rhash)
+        l1.daemon.wait_for_log(r'Disabling channel')
+        btc.rpc.generate(1)
+
+        # Wait for nodes to notice the failure, this seach needle is after the
+        # DB commit so we're sure the tx entries in onchaindtxs have been added
+        l1.daemon.wait_for_log("Deleting channel .* due to the funding outpoint being spent")
+        l2.daemon.wait_for_log("Deleting channel .* due to the funding outpoint being spent")
+
+        # We should at least have the init tx now
+        assert len(l1.db_query("SELECT * FROM channeltxs;")) > 0
+        assert len(l2.db_query("SELECT * FROM channeltxs;")) > 0
+
+        # Generate some blocks so we restart the onchaind from DB (we rescan
+        # last_height - 100)
+        btc.rpc.generate(100)
+        sync_blockheight([l1, l2])
+
+        # l1 should still have a running onchaind
+        assert len(l1.db_query("SELECT * FROM channeltxs;")) > 0
+
+        l2.rpc.stop()
+        l1.restart()
+
+        # Can't wait for it, it's after the "Server started" wait in restart()
+        assert l1.daemon.is_in_log(r'Restarting onchaind for channel')
+
+        # l1 should still notice that the funding was spent and that we should react to it
+        l1.daemon.wait_for_log("Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET")
+        sync_blockheight([l1])
+        btc.rpc.generate(10)
+        sync_blockheight([l1])
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_onchain_dust_out(self):
