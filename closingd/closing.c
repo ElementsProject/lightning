@@ -530,18 +530,12 @@ int main(int argc, char *argv[])
 	/* Now we have first two points, we can init fee range. */
 	init_feerange(&feerange, commitment_fee, offer, deprecated_api);
 
-	/* Now apply the one constraint from above (other is inside loop). */
-	adjust_feerange(&cs, gossip_index, &channel_id, &feerange,
-			offer[!whose_turn], !whose_turn);
-
 	/* Now any extra rounds required. */
 	while (offer[LOCAL] != offer[REMOTE]) {
-		/* If they differ, adjust feerate. */
-		adjust_feerange(&cs, gossip_index, &channel_id, &feerange,
-				offer[whose_turn], whose_turn);
-
-		/* Now its the other side's turn. */
-		whose_turn = !whose_turn;
+		/* Still don't agree: adjust feerange based on previous offer */
+		adjust_feerange(&cs, gossip_index, &channel_id,
+				&feerange,
+				offer[!whose_turn], !whose_turn);
 
 		if (whose_turn == LOCAL) {
 			offer[LOCAL] = adjust_offer(&cs, gossip_index,
@@ -570,6 +564,8 @@ int main(int argc, char *argv[])
 						our_dust_limit,
 						min_fee_to_accept);
 		}
+
+		whose_turn = !whose_turn;
 	}
 
 	peer_billboard(true, "We agreed on a closing fee of %"PRIu64" satoshi",
