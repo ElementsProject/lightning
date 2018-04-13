@@ -338,8 +338,7 @@ struct feerange {
 
 static void init_feerange(struct feerange *feerange,
 			  u64 commitment_fee,
-			  const u64 offer[NUM_SIDES],
-			  bool allow_mistakes)
+			  const u64 offer[NUM_SIDES])
 {
 	feerange->min = 0;
 
@@ -350,7 +349,7 @@ static void init_feerange(struct feerange *feerange,
          *    in [BOLT #3](03-transactions.md#fee-calculation).
 	 */
 	feerange->max = commitment_fee;
-	feerange->allow_mistakes = allow_mistakes;
+	feerange->allow_mistakes = false;
 
 	if (offer[LOCAL] > offer[REMOTE])
 		feerange->higher_side = LOCAL;
@@ -528,11 +527,14 @@ int main(int argc, char *argv[])
 	}
 
 	/* Now we have first two points, we can init fee range. */
-	init_feerange(&feerange, commitment_fee, offer, deprecated_api);
+	init_feerange(&feerange, commitment_fee, offer);
 
 	/* Apply (and check) funder offer now. */
 	adjust_feerange(&cs, gossip_index, &channel_id,
 			&feerange, offer[funder], funder);
+
+	/* Older spec clients would make offers independently, so allow */
+	feerange.allow_mistakes = deprecated_api;
 
 	/* Now any extra rounds required. */
 	while (offer[LOCAL] != offer[REMOTE]) {
