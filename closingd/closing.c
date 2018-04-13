@@ -530,6 +530,10 @@ int main(int argc, char *argv[])
 	/* Now we have first two points, we can init fee range. */
 	init_feerange(&feerange, commitment_fee, offer, deprecated_api);
 
+	/* Apply (and check) funder offer now. */
+	adjust_feerange(&cs, gossip_index, &channel_id,
+			&feerange, offer[funder], funder);
+
 	/* Now any extra rounds required. */
 	while (offer[LOCAL] != offer[REMOTE]) {
 		/* Still don't agree: adjust feerange based on previous offer */
