@@ -23,6 +23,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+/* Once we're up and running, this is set up. */
+struct log *crashlog;
+
 struct log_entry {
 	struct list_node list;
 	struct timeabs time;
@@ -464,86 +467,19 @@ void opt_register_logging(struct lightningd *ld)
 			 "log to file instead of stdout");
 }
 
-#if BACKTRACE_SUPPORTED
-static int log_backtrace(void *log, uintptr_t pc,
-			 const char *filename, int lineno,
-			 const char *function)
+void log_backtrace_print(const char *fmt, ...)
 {
-	log_broken(log, "backtrace: %s:%u (%s) %p",
-		   filename, lineno, function, (void *)pc);
-	return 0;
+	va_list ap;
+
+	if (!crashlog)
+		return;
+
+	va_start(ap, fmt);
+	logv(crashlog, LOG_BROKEN, fmt, ap);
+	va_end(ap);
 }
 
-static void log_backtrace_error(void *log, const char *msg,
-				int errnum)
-{
-	log_broken(log, "error getting backtrace: %s (%d)",
-		   msg, errnum);
-}
-
-static struct log *crashlog;
-
-/* FIXME: Dump peer logs! */
-static void log_crash(int sig)
-{
-	const char *logfile = NULL;
-
-	if (sig) {
-		log_broken(crashlog, "FATAL SIGNAL %i RECEIVED", sig);
-		if (backtrace_state)
-			backtrace_full(backtrace_state, 0, log_backtrace, log_backtrace_error,
-				       crashlog);
-	}
-
-	if (crashlog->lr->print == log_to_stdout) {
-		int fd;
-
-		/* We expect to be in config dir. */
-		logfile = "crash.log";
-		fd = open(logfile, O_WRONLY|O_CREAT|O_APPEND, 0600);
-		if (fd < 0) {
-			logfile = "/tmp/lightning-crash.log";
-			fd = open(logfile, O_WRONLY|O_CREAT, 0600);
-		}
-
-		/* Dump entire log. */
-		if (fd >= 0) {
-			log_dump_to_file(fd, crashlog->lr);
-			close(fd);
-		} else
-			logfile = NULL;
-	}
-
-	if (sig) {
-		fprintf(stderr, "Fatal signal %d. ", sig);
-		if (backtrace_state)
-			backtrace_print(backtrace_state, 0, stderr);
-	}
-	if (logfile)
-		fprintf(stderr, "Log dumped in %s", logfile);
-	fprintf(stderr, "\n");
-}
-#endif
-
-void crashlog_activate(const char *argv0 UNUSED, struct log *log)
-{
-#if BACKTRACE_SUPPORTED
-	struct sigaction sa;
-	crashlog = log;
-
-	sa.sa_handler = log_crash;
-	sigemptyset(&sa.sa_mask);
-	/* We want to fall through to default handler */
-	sa.sa_flags = SA_RESETHAND;
-	sigaction(SIGILL, &sa, NULL);
-	sigaction(SIGABRT, &sa, NULL);
-	sigaction(SIGFPE, &sa, NULL);
-	sigaction(SIGSEGV, &sa, NULL);
-	sigaction(SIGBUS, &sa, NULL);
-#endif
-}
-
-void log_dump_to_file(int fd, const struct log_book *lr)
+static void log_dump_to_file(int fd, const struct log_book *lr)
 {
 	const struct log_entry *i;
 	char buf[100];
@@ -571,6 +507,34 @@ void log_dump_to_file(int fd, const struct log_book *lr)
 	write_all(fd, "\n\n", strlen("\n\n"));
 }
 
+/* FIXME: Dump peer logs! */
+void log_backtrace_exit(void)
+{
+	if (!crashlog)
+		return;
+
+	/* If we're not already pointing at a log file, make one */
+	if (crashlog->lr->print == log_to_stdout) {
+		const char *logfile = NULL;
+		int fd;
+
+		/* We expect to be in config dir. */
+		logfile = "crash.log";
+		fd = open(logfile, O_WRONLY|O_CREAT|O_APPEND, 0600);
+		if (fd < 0) {
+			logfile = "/tmp/lightning-crash.log";
+			fd = open(logfile, O_WRONLY|O_CREAT, 0600);
+		}
+
+		/* Dump entire log. */
+		if (fd >= 0) {
+			log_dump_to_file(fd, crashlog->lr);
+			close(fd);
+			fprintf(stderr, "Log dumped in %s\n", logfile);
+		}
+	}
+}
+
 void fatal(const char *fmt, ...)
 {
 	va_list ap;
@@ -580,15 +544,12 @@ void fatal(const char *fmt, ...)
 	fprintf(stderr, "\n");
 	va_end(ap);
 
-#if BACKTRACE_SUPPORTED
-	/* Early on, we just dump errors to stderr. */
-	if (crashlog) {
-		va_start(ap, fmt);
-		logv(crashlog, LOG_BROKEN, fmt, ap);
-		va_end(ap);
-		log_crash(0);
-	}
-#endif
+	if (!crashlog)
+		exit(1);
+
+	va_start(ap, fmt);
+	logv(crashlog, LOG_BROKEN, fmt, ap);
+	va_end(ap);
 	abort();
 }
 

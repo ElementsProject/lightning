@@ -187,44 +187,6 @@ const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index)
 	return NULL;
 }
 
-/* Guide is a string with . for members, [] around indexes. */
-const jsmntok_t *json_delve(const char *buffer,
-			    const jsmntok_t *tok,
-			    const char *guide)
-{
-	while (*guide) {
-		const char *key;
-		size_t len = strcspn(guide+1, ".[]");
-
-		key = tal_strndup(NULL, guide+1, len);
-		switch (guide[0]) {
-		case '.':
-			if (tok->type != JSMN_OBJECT)
-				return tal_free(key);
-			tok = json_get_member(buffer, tok, key);
-			if (!tok)
-				return tal_free(key);
-			break;
-		case '[':
-			if (tok->type != JSMN_ARRAY)
-				return tal_free(key);
-			tok = json_get_arr(tok, atol(key));
-			if (!tok)
-				return tal_free(key);
-			/* Must be terminated */
-			assert(guide[1+strlen(key)] == ']');
-			len++;
-			break;
-		default:
-			abort();
-		}
-		tal_free(key);
-		guide += len + 1;
-	}
-
-	return tok;
-}
-
 jsmntok_t *json_parse_input(const char *input, int len, bool *valid)
 {
 	jsmn_parser parser;
@@ -307,17 +269,23 @@ static void check_fieldname(const struct json_result *result,
 		assert(fieldname);
 }
 
-static void json_start_member(struct json_result *result, const char *fieldname)
+static void result_add_indent(struct json_result *result);
+
+	static void json_start_member(struct json_result *result, const char *fieldname)
 {
 	/* Prepend comma if required. */
 	if (result->s[0]
-	    && !result_ends_with(result, "{ ")
-	    && !result_ends_with(result, "[ "))
-		result_append(result, ", ");
+	    && !result_ends_with(result, "{")
+	    && !result_ends_with(result, "["))
+		result_append(result, ", \n");
+	else
+		result_append(result, "\n");
+
+	result_add_indent(result);
 
 	check_fieldname(result, fieldname);
 	if (fieldname)
-		result_append_fmt(result, "\"%s\" : ", fieldname);
+		result_append_fmt(result, "\"%s\": ", fieldname);
 }
 
 static void result_add_indent(struct json_result *result)
@@ -327,9 +295,8 @@ static void result_add_indent(struct json_result *result)
 	if (!indent)
 		return;
 
-	result_append(result, "\n");
 	for (i = 0; i < indent; i++)
-		result_append(result, "\t");
+		result_append(result, "  ");
 }
 
 static void result_add_wrap(struct json_result *result, jsmntype_t type)
@@ -352,29 +319,31 @@ static void result_pop_wrap(struct json_result *result, jsmntype_t type)
 void json_array_start(struct json_result *result, const char *fieldname)
 {
 	json_start_member(result, fieldname);
-	result_add_indent(result);
-	result_append(result, "[ ");
+	result_append(result, "[");
 	result_add_wrap(result, JSMN_ARRAY);
 }
 
 void json_array_end(struct json_result *result)
 {
-	result_append(result, " ]");
+	result_append(result, "\n");
 	result_pop_wrap(result, JSMN_ARRAY);
+	result_add_indent(result);
+	result_append(result, "]");
 }
 
 void json_object_start(struct json_result *result, const char *fieldname)
 {
 	json_start_member(result, fieldname);
-	result_add_indent(result);
-	result_append(result, "{ ");
+	result_append(result, "{");
 	result_add_wrap(result, JSMN_OBJECT);
 }
 
 void json_object_end(struct json_result *result)
 {
-	result_append(result, " }");
+	result_append(result, "\n");
 	result_pop_wrap(result, JSMN_OBJECT);
+	result_add_indent(result);
+	result_append(result, "}");
 }
 
 void json_add_num(struct json_result *result, const char *fieldname, unsigned int value)
@@ -382,11 +351,7 @@ void json_add_num(struct json_result *result, const char *fieldname, unsigned in
 	json_start_member(result, fieldname);
 	result_append_fmt(result, "%u", value);
 }
-void json_add_snum(struct json_result *result, const char *fieldname, int value)
-{
-	json_start_member(result, fieldname);
-	result_append_fmt(result, "%d", value);
-}
+
 void json_add_double(struct json_result *result, const char *fieldname, double value)
 {
 	json_start_member(result, fieldname);
@@ -420,12 +385,6 @@ void json_add_bool(struct json_result *result, const char *fieldname, bool value
 {
 	json_start_member(result, fieldname);
 	result_append(result, value ? "true" : "false");
-}
-
-void json_add_null(struct json_result *result, const char *fieldname)
-{
-	json_start_member(result, fieldname);
-	result_append(result, "null");
 }
 
 void json_add_hex(struct json_result *result, const char *fieldname,

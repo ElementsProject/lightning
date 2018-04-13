@@ -104,21 +104,66 @@ static bool hsm_sign_b11(const u5 *u5bytes,
 	return true;
 }
 
+/* We allow a string, or a literal number, for labels */
+static struct json_escaped *json_tok_label(const tal_t *ctx,
+					   const char *buffer,
+					   const jsmntok_t *tok)
+{
+	struct json_escaped *label;
+
+	label = json_tok_escaped_string(ctx, buffer, tok);
+	if (label)
+		return label;
+
+	/* Allow literal numbers */
+	if (tok->type != JSMN_PRIMITIVE)
+		return NULL;
+
+	for (int i = tok->start; i < tok->end; i++)
+		if (!cisdigit(buffer[i]))
+			return NULL;
+
+	return json_escaped_string_(ctx, buffer + tok->start,
+				    tok->end - tok->start);
+}
+
+static bool parse_fallback(struct command *cmd,
+			   const char *buffer, const jsmntok_t *fallback,
+			   const u8 **fallback_script)
+
+{
+	enum address_parse_result fallback_parse;
+
+	fallback_parse
+		= json_tok_address_scriptpubkey(cmd,
+						get_chainparams(cmd->ld),
+						buffer, fallback,
+						fallback_script);
+	if (fallback_parse == ADDRESS_PARSE_UNRECOGNIZED) {
+		command_fail(cmd, "Fallback address not valid");
+		return false;
+	} else if (fallback_parse == ADDRESS_PARSE_WRONG_NETWORK) {
+		command_fail(cmd, "Fallback address does not match our network %s",
+			     get_chainparams(cmd->ld)->network_name);
+		return false;
+	}
+	return true;
+}
+
 static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	struct invoice invoice;
 	struct invoice_details details;
-	jsmntok_t *msatoshi, *label, *desctok, *exp, *fallback;
+	jsmntok_t *msatoshi, *label, *desctok, *exp, *fallback, *fallbacks;
 	u64 *msatoshi_val;
 	const struct json_escaped *label_val, *desc;
 	const char *desc_val;
-	enum address_parse_result fallback_parse;
 	struct json_result *response = new_json_result(cmd);
 	struct wallet *wallet = cmd->ld->wallet;
 	struct bolt11 *b11;
 	char *b11enc;
-	const u8 *fallback_script;
+	const u8 **fallback_scripts = NULL;
 	u64 expiry = 3600;
 	bool result;
 
@@ -128,6 +173,7 @@ static void json_invoice(struct command *cmd,
 			     "description", &desctok,
 			     "?expiry", &exp,
 			     "?fallback", &fallback,
+			     "?fallbacks", &fallbacks,
 			     NULL)) {
 		return;
 	}
@@ -148,9 +194,9 @@ static void json_invoice(struct command *cmd,
 		}
 	}
 	/* label */
-	label_val = json_tok_escaped_string(cmd, buffer, label);
+	label_val = json_tok_label(cmd, buffer, label);
 	if (!label_val) {
-		command_fail(cmd, "label '%.*s' not a string",
+		command_fail(cmd, "label '%.*s' not a string or number",
 			     label->end - label->start, buffer + label->start);
 		return;
 	}
@@ -196,20 +242,39 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 
-	/* fallback address */
+	/* fallback addresses */
 	if (fallback) {
-		fallback_parse
-			= json_tok_address_scriptpubkey(cmd,
-							get_chainparams(cmd->ld),
-							buffer, fallback,
-							&fallback_script);
-		if (fallback_parse == ADDRESS_PARSE_UNRECOGNIZED) {
-			command_fail(cmd, "Fallback address not valid");
+		if (deprecated_apis) {
+			fallback_scripts = tal_arr(cmd, const u8 *, 1);
+			if (!parse_fallback(cmd, buffer, fallback,
+					    &fallback_scripts[0]))
+				return;
+		} else {
+			command_fail(cmd, "fallback is deprecated: use fallbacks");
 			return;
-		} else if (fallback_parse == ADDRESS_PARSE_WRONG_NETWORK) {
-			command_fail(cmd, "Fallback address does not match our network %s",
-				     get_chainparams(cmd->ld)->network_name);
+		}
+	}
+
+	if (fallbacks) {
+		const jsmntok_t *i, *end = json_next(fallbacks);
+		size_t n = 0;
+
+		if (fallback) {
+			command_fail(cmd, "Cannot use fallback and fallbacks");
 			return;
+		}
+
+		if (fallbacks->type != JSMN_ARRAY) {
+			command_fail(cmd, "fallback must be an array");
+			return;
+		}
+		fallback_scripts = tal_arr(cmd, const u8 *, n);
+		for (i = fallbacks + 1; i < end; i = json_next(i)) {
+			tal_resize(&fallback_scripts, n+1);
+			if (!parse_fallback(cmd, buffer, i,
+					    &fallback_scripts[n]))
+				return;
+			n++;
 		}
 	}
 
@@ -230,8 +295,8 @@ static void json_invoice(struct command *cmd,
 	b11->expiry = expiry;
 	b11->description = tal_steal(b11, desc_val);
 	b11->description_hash = NULL;
-	if (fallback)
-		b11->fallback = tal_steal(b11, fallback_script);
+	if (fallback_scripts)
+		b11->fallbacks = tal_steal(b11, fallback_scripts);
 
 	/* FIXME: add private routes if necessary! */
 	b11enc = bolt11_encode(cmd, b11, false, hsm_sign_b11, cmd->ld);
@@ -306,9 +371,9 @@ static void json_listinvoice_internal(struct command *cmd,
 	}
 
 	if (labeltok) {
-		label = json_tok_escaped_string(cmd, buffer, labeltok);
+		label = json_tok_label(cmd, buffer, labeltok);
 		if (!label) {
-			command_fail(cmd, "label '%.*s' is not a string",
+			command_fail(cmd, "label '%.*s' is not a string or number",
 				     labeltok->end - labeltok->start,
 				     buffer + labeltok->start);
 			return;
@@ -374,9 +439,9 @@ static void json_delinvoice(struct command *cmd,
 		return;
 	}
 
-	label = json_tok_escaped_string(cmd, buffer, labeltok);
+	label = json_tok_label(cmd, buffer, labeltok);
 	if (!label) {
-		command_fail(cmd, "label '%.*s' not a string",
+		command_fail(cmd, "label '%.*s' is not a string or number",
 			     labeltok->end - labeltok->start,
 			     buffer + labeltok->start);
 		return;
@@ -567,9 +632,9 @@ static void json_waitinvoice(struct command *cmd,
 	}
 
 	/* Search for invoice */
-	label = json_tok_escaped_string(cmd, buffer, labeltok);
+	label = json_tok_label(cmd, buffer, labeltok);
 	if (!label) {
-		command_fail(cmd, "label '%.*s' is not a string",
+		command_fail(cmd, "label '%.*s' is not a string or number",
 			     labeltok->end - labeltok->start,
 			     buffer + labeltok->start);
 		return;
@@ -599,6 +664,41 @@ static const struct json_command waitinvoice_command = {
 	"Wait for an incoming payment matching the invoice with {label}, or if the invoice expires"
 };
 AUTODATA(json_command, &waitinvoice_command);
+
+static void json_add_fallback(struct json_result *response,
+			      const char *fieldname,
+			      const u8 *fallback,
+			      const struct chainparams *chain)
+{
+	struct bitcoin_address pkh;
+	struct ripemd160 sh;
+	struct sha256 wsh;
+
+	json_object_start(response, fieldname);
+	if (is_p2pkh(fallback, &pkh)) {
+		json_add_string(response, "type", "P2PKH");
+		json_add_string(response, "addr",
+				bitcoin_to_base58(tmpctx, chain->testnet, &pkh));
+	} else if (is_p2sh(fallback, &sh)) {
+		json_add_string(response, "type", "P2SH");
+		json_add_string(response, "addr",
+				p2sh_to_base58(tmpctx, chain->testnet, &sh));
+	} else if (is_p2wpkh(fallback, &pkh)) {
+		char out[73 + strlen(chain->bip173_name)];
+		json_add_string(response, "type", "P2WPKH");
+		if (segwit_addr_encode(out, chain->bip173_name, 0,
+				       (const u8 *)&pkh, sizeof(pkh)))
+			json_add_string(response, "addr", out);
+	} else if (is_p2wsh(fallback, &wsh)) {
+		char out[73 + strlen(chain->bip173_name)];
+		json_add_string(response, "type", "P2WSH");
+		if (segwit_addr_encode(out, chain->bip173_name, 0,
+				       (const u8 *)&wsh, sizeof(wsh)))
+			json_add_string(response, "addr", out);
+	}
+	json_add_hex(response, "hex", fallback, tal_len(fallback));
+	json_object_end(response);
+}
 
 static void json_decodepay(struct command *cmd,
                            const char *buffer, const jsmntok_t *params)
@@ -652,40 +752,15 @@ static void json_decodepay(struct command *cmd,
                              sizeof(*b11->description_hash));
 	json_add_num(response, "min_final_cltv_expiry",
 		     b11->min_final_cltv_expiry);
-        if (tal_len(b11->fallback)) {
-                struct bitcoin_address pkh;
-                struct ripemd160 sh;
-                struct sha256 wsh;
-
-                json_object_start(response, "fallback");
-                if (is_p2pkh(b11->fallback, &pkh)) {
-                        json_add_string(response, "type", "P2PKH");
-                        json_add_string(response, "addr",
-                                        bitcoin_to_base58(cmd,
-                                                          b11->chain->testnet,
-                                                          &pkh));
-                } else if (is_p2sh(b11->fallback, &sh)) {
-                        json_add_string(response, "type", "P2SH");
-                        json_add_string(response, "addr",
-                                        p2sh_to_base58(cmd,
-                                                       b11->chain->testnet,
-                                                       &sh));
-                } else if (is_p2wpkh(b11->fallback, &pkh)) {
-                        char out[73 + strlen(b11->chain->bip173_name)];
-                        json_add_string(response, "type", "P2WPKH");
-                        if (segwit_addr_encode(out, b11->chain->bip173_name, 0,
-                                               (const u8 *)&pkh, sizeof(pkh)))
-                                json_add_string(response, "addr", out);
-                } else if (is_p2wsh(b11->fallback, &wsh)) {
-                        char out[73 + strlen(b11->chain->bip173_name)];
-                        json_add_string(response, "type", "P2WSH");
-                        if (segwit_addr_encode(out, b11->chain->bip173_name, 0,
-                                               (const u8 *)&wsh, sizeof(wsh)))
-                                json_add_string(response, "addr", out);
-                }
-                json_add_hex(response, "hex",
-                             b11->fallback, tal_len(b11->fallback));
-                json_object_end(response);
+        if (tal_count(b11->fallbacks)) {
+		if (deprecated_apis)
+			json_add_fallback(response, "fallback",
+					  b11->fallbacks[0], b11->chain);
+		json_array_start(response, "fallbacks");
+		for (size_t i = 0; i < tal_count(b11->fallbacks); i++)
+			json_add_fallback(response, NULL,
+					  b11->fallbacks[i], b11->chain);
+		json_array_end(response);
         }
 
         if (tal_count(b11->routes)) {

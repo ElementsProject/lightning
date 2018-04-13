@@ -7,6 +7,7 @@
 *.gcda
 *.gcno
 *.dSYM
+.cppcheck-suppress
 TAGS
 ccan/tools/configurator/configurator
 ccan/ccan/cdump/tools/cdump-enumstr
@@ -38,6 +39,8 @@ external/libbacktrace.la
 gossipd/test/run-find_route-specific
 gossipd/test/run-initiator-success
 gossipd/test/run-responder-success
+onchaind/test/run-grind_feerate
 test/test_protocol
 test/test_sphinx
 tests/.pytest.restart
+gossip_store

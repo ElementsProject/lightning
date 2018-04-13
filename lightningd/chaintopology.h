@@ -35,7 +35,7 @@ struct outgoing_tx {
 };
 
 struct block {
-	int height;
+	u32 height;
 
 	/* Actual header. */
 	struct bitcoin_block_hdr hdr;
@@ -48,9 +48,6 @@ struct block {
 
 	/* Key for hash table */
 	struct bitcoin_blkid blkid;
-
-	/* Transactions in this block we care about */
-	const struct bitcoin_tx **txs;
 
 	/* And their associated index in the block */
 	u32 *txnums;
@@ -129,10 +126,9 @@ struct txlocator {
 };
 
 /* This is the number of blocks which would have to be mined to invalidate
- * the tx (optional tx is filled in if return is non-zero). */
+ * the tx */
 size_t get_tx_depth(const struct chain_topology *topo,
-		    const struct bitcoin_txid *txid,
-		    const struct bitcoin_tx **tx);
+		    const struct bitcoin_txid *txid);
 
 /* Get highest block number. */
 u32 get_block_height(const struct chain_topology *topo);

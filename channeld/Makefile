@@ -38,6 +38,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/crypto_state.o			\
 	common/crypto_sync.o			\
 	common/cryptomsg.o			\
+	common/daemon.o				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
@@ -48,7 +49,6 @@ CHANNELD_COMMON_OBJS :=				\
 	common/htlc_wire.o			\
 	common/initial_channel.o		\
 	common/initial_commit_tx.o		\
-	common/io_debug.o			\
 	common/keyset.o				\
 	common/key_derive.o			\
 	common/memleak.o			\

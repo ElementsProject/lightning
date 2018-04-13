@@ -13,6 +13,9 @@
  * tal_count() is the size in bytes plus one: for convenience, the
  * byte after the end of the content will always be NUL.
  *
+ * Note that this does *not* currently exit on EINTR, but continues
+ * reading.
+ *
  * Example:
  *	#include <ccan/tal/str/str.h>
  *	#include <ccan/tal/tal.h>

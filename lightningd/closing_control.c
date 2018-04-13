@@ -31,7 +31,7 @@ static bool better_closing_fee(struct lightningd *ld,
 		fee -= tx->output[i].amount;
 
 	last_fee = channel->funding_satoshi;
-	for (i = 0; i < tal_count(channel->last_tx); i++)
+	for (i = 0; i < tal_count(channel->last_tx->output); i++)
 		last_fee -= channel->last_tx->output[i].amount;
 
 	log_debug(channel->log, "Their actual closing tx fee is %"PRIu64

@@ -1,7 +1,5 @@
 #! /usr/bin/make
-NAME=Bitcoin Savings & Trust Daily Interest II
 
-# TODO: Decide: c-lightning, lightningd, lightning?
 PKGNAME = c-lightning
 
 # We use our own internal ccan copy.
@@ -54,6 +52,7 @@ FEATURES :=
 CCAN_OBJS :=					\
 	ccan-asort.o				\
 	ccan-autodata.o				\
+	ccan-bitops.o				\
 	ccan-breakpoint.o			\
 	ccan-crypto-hmac.o			\
 	ccan-crypto-hkdf.o			\
@@ -99,6 +98,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/array_size/array_size.h		\
 	$(CCANDIR)/ccan/asort/asort.h			\
 	$(CCANDIR)/ccan/autodata/autodata.h		\
+	$(CCANDIR)/ccan/bitops/bitops.h			\
 	$(CCANDIR)/ccan/breakpoint/breakpoint.h		\
 	$(CCANDIR)/ccan/build_assert/build_assert.h	\
 	$(CCANDIR)/ccan/cast/cast.h			\
@@ -258,7 +258,17 @@ check-python:
 check-includes:
 	@tools/check-includes.sh
 
-check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python check-includes
+# cppcheck gets confused by list_for_each(head, i, list): thinks i is uninit.
+.cppcheck-suppress:
+	@git ls-files -- "*.c" "*.h" | grep -vE '^ccan/' | xargs grep -n 'list_for_each' | sed 's/\([^:]*:.*\):.*/uninitvar:\1/' > $@
+
+check-cppcheck: .cppcheck-suppress
+	@trap 'rm -f .cppcheck-suppress' 0; git ls-files -- "*.c" "*.h" | grep -vE '^ccan/' | xargs cppcheck -q --language=c --std=c11 --error-exitcode=1 --suppressions-list=.cppcheck-suppress
+
+check-shellcheck:
+	git ls-files -- "*.sh" | xargs shellcheck
+
+check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python check-includes check-cppcheck check-shellcheck
 
 full-check: check check-source
 
@@ -284,7 +294,7 @@ ccan/config.h: ccan/tools/configurator/configurator Makefile
 	if $< --configurator-cc="$(CONFIGURATOR_CC)" $(CC) $(CFLAGS) > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
 
 gen_version.h: FORCE
-	@(echo "#define VERSION \"`git describe --always --dirty`\"" && echo "#define VERSION_NAME \"$(NAME)\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
+	@(echo "#define VERSION \"`git describe --always --dirty=-with-local-modifications`\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
 	@if cmp $@.new $@ >/dev/null 2>&2; then rm -f $@.new; else mv $@.new $@; echo Version updated; fi
 
 # All binaries require the external libs, ccan
@@ -531,4 +541,6 @@ ccan-pipecmd.o: $(CCANDIR)/ccan/pipecmd/pipecmd.c
 ccan-mem.o: $(CCANDIR)/ccan/mem/mem.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-fdpass.o: $(CCANDIR)/ccan/fdpass/fdpass.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-bitops.o: $(CCANDIR)/ccan/bitops/bitops.c
 	$(CC) $(CFLAGS) -c -o $@ $<

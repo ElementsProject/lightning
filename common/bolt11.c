@@ -313,13 +313,10 @@ static char *decode_n(struct bolt11 *b11,
 static char *decode_f(struct bolt11 *b11,
                       struct hash_u5 *hu5,
                       u5 **data, size_t *data_len,
-                      size_t data_length, bool *have_f)
+                      size_t data_length)
 {
         u64 version;
-
-        if (*have_f)
-                return unknown_field(b11, hu5, data, data_len, 'f',
-                                     data_length);
+	u8 *fallback;
 
         if (!pull_uint(hu5, data, data_len, &version, 5))
                 return tal_fmt(b11, "f: data_length %zu short", data_length);
@@ -339,8 +336,7 @@ static char *decode_f(struct bolt11 *b11,
 
                 pull_bits_certain(hu5, data, data_len, &pkhash, data_length*5,
                                   false);
-                b11->fallback = scriptpubkey_p2pkh(b11, &pkhash);
-                return NULL;
+                fallback = scriptpubkey_p2pkh(b11, &pkhash);
         } else if (version == 18) {
                 /* Pay to pubkey script hash (P2SH) */
                 struct ripemd160 shash;
@@ -350,7 +346,7 @@ static char *decode_f(struct bolt11 *b11,
 
                 pull_bits_certain(hu5, data, data_len, &shash, data_length*5,
                                   false);
-                b11->fallback = scriptpubkey_p2sh_hash(b11, &shash);
+                fallback = scriptpubkey_p2sh_hash(b11, &shash);
         } else if (version < 17) {
                 u8 *f = tal_arr(b11, u8, data_length * 5 / 8);
                 if (version == 0) {
@@ -361,14 +357,20 @@ static char *decode_f(struct bolt11 *b11,
                 }
                 pull_bits_certain(hu5, data, data_len, f, data_length * 5,
                                   false);
-                b11->fallback = scriptpubkey_witness_raw(b11, version,
-                                                         f, tal_len(f));
+                fallback = scriptpubkey_witness_raw(b11, version,
+						    f, tal_len(f));
                 tal_free(f);
         } else
                 return unknown_field(b11, hu5, data, data_len, 'f',
                                      data_length);
 
-        *have_f = true;
+	if (b11->fallbacks == NULL)
+		b11->fallbacks = tal_arr(b11, const u8 *, 1);
+	else
+		tal_resize(&b11->fallbacks, tal_count(b11->fallbacks) + 1);
+
+	b11->fallbacks[tal_count(b11->fallbacks)-1]
+		= tal_steal(b11->fallbacks, fallback);
         return NULL;
 }
 
@@ -441,7 +443,7 @@ struct bolt11 *new_bolt11(const tal_t *ctx, u64 *msatoshi)
         list_head_init(&b11->extra_fields);
         b11->description = NULL;
         b11->description_hash = NULL;
-        b11->fallback = NULL;
+        b11->fallbacks = NULL;
         b11->routes = NULL;
         b11->msatoshi = NULL;
         b11->expiry = DEFAULT_X;
@@ -465,7 +467,7 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
         struct hash_u5 hu5;
         struct sha256 hash;
         bool have_p = false, have_n = false, have_d = false, have_h = false,
-                have_x = false, have_f = false, have_c = false;
+                have_x = false, have_c = false;
 
         b11->routes = tal_arr(b11, struct route_info *, 0);
 
@@ -617,8 +619,7 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 
                 case 'f':
                         problem = decode_f(b11, &hu5, &data,
-                                           &data_len, data_length,
-                                           &have_f);
+                                           &data_len, data_length);
                         break;
                 case 'r':
                         problem = decode_r(b11, &hu5, &data, &data_len,
@@ -697,11 +698,6 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
         }
 
         return b11;
-}
-
-static size_t num_u5(size_t num_u8)
-{
-        return (num_u8 * 8 + 7) / 5;
 }
 
 static u8 get_bit(const u8 *src, size_t bitoff)
@@ -953,8 +949,8 @@ char *bolt11_encode_(const tal_t *ctx,
         if (b11->min_final_cltv_expiry != DEFAULT_C)
                 encode_c(&data, b11->min_final_cltv_expiry);
 
-        if (b11->fallback)
-                encode_f(&data, b11->fallback);
+        for (size_t i = 0; i < tal_count(b11->fallbacks); i++)
+                encode_f(&data, b11->fallbacks[i]);
 
         for (size_t i = 0; i < tal_count(b11->routes); i++)
                 encode_r(&data, b11->routes[i]);
@@ -985,59 +981,4 @@ char *bolt11_encode_(const tal_t *ctx,
                 output = tal_free(output);
 
         return output;
-}
-
-static PRINTF_FMT(2,3) void *bad(const char *abortstr, const char *fmt, ...)
-{
-	if (abortstr) {
-                va_list ap;
-
-                va_start(ap, fmt);
-                fprintf(stderr, "%s: ", abortstr);
-                vfprintf(stderr, fmt, ap);
-                fprintf(stderr, "\n");
-		abort();
-	}
-	return NULL;
-}
-
-struct bolt11 *bolt11_out_check(const struct bolt11 *b11, const char *abortstr)
-{
-        struct bolt11_field *extra;
-
-        /* BOLT #2:
-         *
-         * For channels with `chain_hash` identifying the Bitcoin blockchain,
-         * the sending node MUST set the 4 most significant bytes of
-         * `amount_msat` to zero.
-         */
-        if (*b11->msatoshi >= 1ULL << 32)
-                return bad(abortstr, "msatoshi %"PRIu64" too large",
-                           *b11->msatoshi);
-
-        if (!b11->description && !b11->description_hash)
-                return bad(abortstr, "No description or description_hash");
-
-        if (b11->description && b11->description_hash)
-                return bad(abortstr, "Both description or description_hash");
-
-        if (b11->description && num_u5(strlen(b11->description)) > 1024)
-                return bad(abortstr, "Description too long");
-
-        /* FIXME: Check fallback is known type. */
-        if (b11->fallback && tal_count(b11->fallback) == 0)
-                return bad(abortstr, "Empty fallback");
-
-        if (!list_check(&b11->extra_fields, abortstr))
-                return bad(abortstr, "Invalid extras list");
-
-        list_for_each(&b11->extra_fields, extra, list) {
-                if (bech32_charset_rev[(unsigned char)extra->tag] < 0)
-                        return bad(abortstr, "Invalid extra type %c (0x%02x)",
-                                   extra->tag, extra->tag);
-
-                if (tal_len(extra->data) >= 1024)
-                        return bad(abortstr, "Extra %c too long", extra->tag);
-        }
-        return cast_const(struct bolt11 *, b11);
 }

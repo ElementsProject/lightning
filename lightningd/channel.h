@@ -66,6 +66,9 @@ struct channel {
 
 	/* Amount going to us, not counting unfinished HTLCs; if we have one. */
 	u64 our_msatoshi;
+	/* Statistics for min and max our_msatoshi. */
+	u64 msatoshi_to_us_min;
+	u64 msatoshi_to_us_max;
 
 	/* Last tx they gave us. */
 	struct bitcoin_tx *last_tx;
@@ -90,6 +93,9 @@ struct channel {
 	/* Blockheight at creation, scans for funding confirmations
 	 * will start here */
 	u64 first_blocknum;
+
+	/* Feerate range */
+	u32 min_possible_feerate, max_possible_feerate;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,
@@ -114,6 +120,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid,
 			    u64 our_msatoshi,
+			    u64 msatoshi_to_us_min,
+			    u64 msatoshi_to_us_max,
 			    /* Stolen */
 			    struct bitcoin_tx *last_tx,
 			    const secp256k1_ecdsa_signature *last_sig,
@@ -126,7 +134,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool last_was_revoke,
 			    /* NULL or stolen */
 			    struct changed_htlc *last_sent_commit,
-			    u32 first_blocknum);
+			    u32 first_blocknum,
+			    u32 min_possible_feerate,
+			    u32 max_possible_feerate);
 
 void delete_channel(struct channel *channel);
 
@@ -185,11 +195,6 @@ static inline bool channel_active(const struct channel *channel)
 	return channel->state != FUNDING_SPEND_SEEN
 		&& channel->state != CLOSINGD_COMPLETE
 		&& !channel_on_chain(channel);
-}
-
-static inline bool channel_wants_reconnect(const struct channel *channel)
-{
-	return channel->state <= CLOSINGD_COMPLETE;
 }
 
 void derive_channel_seed(struct lightningd *ld, struct privkey *seed,

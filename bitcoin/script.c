@@ -259,16 +259,6 @@ u8 *bitcoin_scriptsig_p2sh_p2wpkh(const tal_t *ctx, const struct pubkey *key)
 	return script;
 }
 
-/* Create an input which spends the p2sh-p2wpkh. */
-void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
-				 struct bitcoin_tx_input *input,
-				 const secp256k1_ecdsa_signature *sig,
-				 const struct pubkey *key)
-{
-	input->script = bitcoin_scriptsig_p2sh_p2wpkh(ctx, key);
-	input->witness = bitcoin_witness_p2wpkh(ctx, sig, key);
-}
-
 u8 **bitcoin_witness_p2wpkh(const tal_t *ctx,
 			    const secp256k1_ecdsa_signature *sig,
 			    const struct pubkey *key)
@@ -493,26 +483,6 @@ u8 *bitcoin_wscript_to_local(const tal_t *ctx, u16 to_self_delay,
 	add_op(&script, OP_ENDIF);
 	add_op(&script, OP_CHECKSIG);
 	return script;
-}
-
-u8 **bitcoin_to_local_spend_revocation(const tal_t *ctx,
-		const secp256k1_ecdsa_signature *revocation_sig,
-		const u8 *wscript)
-{
-	/* BOLT #3:
-	 *
-	 * If a revoked commitment transaction is published, the other party
-	 * can spend this output immediately with the following witness:
-	 *
-	 *    <revocation_sig> 1
-	 */
-	u8 **witness = tal_arr(ctx, u8 *, 3);
-
-	witness[0] = stack_sig(witness, revocation_sig);
-	witness[1] = stack_number(witness, 1);
-	witness[2] = tal_dup_arr(witness, u8, wscript, tal_len(wscript), 0);
-
-	return witness;
 }
 
 /* BOLT #3:

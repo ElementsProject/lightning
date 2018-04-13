@@ -4,7 +4,9 @@
 #include <common/initial_commit_tx.h>
 #include <common/keyset.h>
 #include <common/permute_tx.h>
+#include <common/status.h>
 #include <common/utils.h>
+#include <inttypes.h>
 
 /* BOLT #3:
  *
@@ -29,7 +31,7 @@ u64 commit_number_obscurer(const struct pubkey *opener_payment_basepoint,
 	return be64_to_cpu(obscurer);
 }
 
-void try_subtract_fee(enum side funder, enum side side,
+bool try_subtract_fee(enum side funder, enum side side,
 		      u64 base_fee_msat, u64 *self_msat, u64 *other_msat)
 {
 	u64 *funder_msat;
@@ -39,10 +41,13 @@ void try_subtract_fee(enum side funder, enum side side,
 	else
 		funder_msat = other_msat;
 
-	if (*funder_msat >= base_fee_msat)
+	if (*funder_msat >= base_fee_msat) {
 		*funder_msat -= base_fee_msat;
-	else
+		return true;
+	} else {
 		*funder_msat = 0;
+		return false;
+	}
 }
 
 u8 *to_self_wscript(const tal_t *ctx,
@@ -65,6 +70,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     u64 dust_limit_satoshis,
 				     u64 self_pay_msat,
 				     u64 other_pay_msat,
+				     u64 self_reserve_msat,
 				     u64 obscured_commitment_number,
 				     enum side side)
 {
@@ -93,8 +99,41 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 * 3. Subtract this base fee from the funder (either `to_local` or
 	 * `to_remote`), with a floor of zero (see [Fee Payment](#fee-payment)).
 	 */
-	try_subtract_fee(funder, side, base_fee_msat,
-			 &self_pay_msat, &other_pay_msat);
+	if (!try_subtract_fee(funder, side, base_fee_msat,
+			      &self_pay_msat, &other_pay_msat)) {
+		/* BOLT #2:
+		 *
+		 * The receiving node MUST fail the channel if:
+		 *...
+		 * - the funder's amount for the initial commitment
+		 *   transaction is not sufficient for full [fee
+		 *   payment](03-transactions.md#fee-payment).
+		 */
+		status_unusual("Funder cannot afford fee"
+			       " on initial commitment transaction");
+		return NULL;
+	}
+
+	/* BOLT #2:
+	 *
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 * - both `to_local` and `to_remote` amounts for the initial
+	 *   commitment transaction are less than or equal to
+	 *   `channel_reserve_satoshis`.
+	 */
+	if (self_pay_msat <= self_reserve_msat
+	    && other_pay_msat <= self_reserve_msat) {
+		status_unusual("Neither self amount %"PRIu64
+			       " nor other amount %"PRIu64
+			       " exceed reserve %"PRIu64
+			       " on initial commitment transaction",
+			       self_pay_msat / 1000,
+			       other_pay_msat / 1000,
+			       self_reserve_msat / 1000);
+		return NULL;
+	}
+
 
 	/* Worst-case sizing: both to-local and to-remote outputs. */
 	tx = bitcoin_tx(ctx, 1, untrimmed + 2);

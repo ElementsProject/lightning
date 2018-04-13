@@ -43,7 +43,7 @@
  *	#define container_of(mbr_ptr, encl_type, mbr)			\
  *		(check_types_match((mbr_ptr), &((encl_type *)0)->mbr),	\
  *		 ((encl_type *)						\
- *		  ((char *)(mbr_ptr) - offsetof(enclosing_type, mbr))))
+ *		  ((char *)(mbr_ptr) - offsetof(encl_type, mbr))))
  */
 #if HAVE_TYPEOF
 #define check_type(expr, type)			\

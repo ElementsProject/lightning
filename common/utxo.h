@@ -28,10 +28,10 @@ struct utxo {
 	struct unilateral_close_info *close_info;
 
 	/* NULL if we haven't seen it in a block, otherwise the block it's in */
-	const int *blockheight;
+	const u32 *blockheight;
 
 	/* NULL if not spent yet, otherwise, the block the spending transaction is in */
-	const int *spendheight;
+	const u32 *spendheight;
 };
 
 void towire_utxo(u8 **pptr, const struct utxo *utxo);

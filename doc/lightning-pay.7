@@ -2,12 +2,12 @@
 .\"     Title: lightning-pay
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 03/16/2018
+.\"      Date: 03/21/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-PAY" "7" "03/16/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-PAY" "7" "03/21/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,12 +31,12 @@
 lightning-pay \- Protocol for sending a payment to a BOLT11 invoice
 .SH "SYNOPSIS"
 .sp
-\fBpay\fR \fIbolt11\fR [\fImsatoshi\fR] [\fIdescription\fR] [\fIriskfactor\fR] [\fImaxfeepercent\fR] [\fIretry_for\fR]
+\fBpay\fR \fIbolt11\fR [\fImsatoshi\fR] [\fIdescription\fR] [\fIriskfactor\fR] [\fImaxfeepercent\fR] [\fIretry_for\fR] [\fImaxdelay\fR]
 .SH "DESCRIPTION"
 .sp
 The \fBpay\fR RPC command attempts to find a route to the given destination, and send the funds it asks for\&. If the \fIbolt11\fR does not contain an amount, \fImsatoshi\fR is required, otherwise if it is specified it must be \fInull\fR\&. If \fIbolt11\fR contains a description hash (\fIh\fR field) \fIdescription\fR is required, otherwise it is unused\&. The \fIriskfactor\fR is described in detail in lightning\-getroute(7), and defaults to 1\&.0\&. The \fImaxfeepercent\fR limits the money paid in fees, and defaults to 0\&.5\&. The \(oqmaxfeepercent\(cq is a percentage of the amount that is to be paid\&.
 .sp
-The \fBpay\fR RPC command will randomize routes slightly, as long as the route achieves the targeted \fImaxfeepercent\fR\&.
+The \fBpay\fR RPC command will randomize routes slightly, as long as the route achieves the targeted \fImaxfeepercent\fR and \fImaxdelay\fR\&.
 .sp
 The response will occur when the payment fails or succeeds\&. Once a payment has succeeded, calls to \fBpay\fR with the same \fIbolt11\fR will succeed immediately\&.
 .sp
@@ -122,13 +122,19 @@ field of the error will be routing failure object\&.
 .sp -1
 .IP \(bu 2.3
 .\}
-206\&. Route too expensive\&. The
+206\&. Route too expensive\&. Either the fee or the needed total locktime for the route exceeds your
+\fImaxfeepercent\fR
+or
+\fImaxdelay\fR
+settings, respectively\&. The
 \fIdata\fR
 field of the error will indicate the actual
 \fIfee\fR
 as well as the
 \fIfeepercent\fR
-percentage that the fee has of the destination payment amount\&.
+percentage that the fee has of the destination payment amount\&. It will also indicate the actual
+\fIdelay\fR
+along the route\&.
 .RE
 .sp
 .RS 4

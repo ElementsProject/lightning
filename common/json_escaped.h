@@ -21,10 +21,6 @@ struct json_escaped *json_tok_escaped_string(const tal_t *ctx,
 					     const char *buffer,
 					     const jsmntok_t *tok);
 
-/* Is @esc equal to @str */
-bool json_escaped_streq(const struct json_escaped *esc, const char *str);
-
-
 /* Are two escaped json strings identical? */
 bool json_escaped_eq(const struct json_escaped *a,
 		     const struct json_escaped *b);

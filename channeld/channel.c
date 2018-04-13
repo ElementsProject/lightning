@@ -30,7 +30,6 @@
 #include <common/derive_basepoints.h>
 #include <common/dev_disconnect.h>
 #include <common/htlc_tx.h>
-#include <common/io_debug.h>
 #include <common/key_derive.h>
 #include <common/msg_queue.h>
 #include <common/peer_billboard.h>
@@ -1590,7 +1589,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 
 	/* Must get funding_locked before almost anything. */
 	if (!peer->funding_locked[REMOTE]) {
-		if (type != WIRE_FUNDING_LOCKED && type != WIRE_PONG) {
+		if (type != WIRE_FUNDING_LOCKED
+		    && type != WIRE_PONG
+		    && type != WIRE_SHUTDOWN) {
 			peer_failed(&peer->cs,
 				    peer->gossip_index,
 				    &peer->channel_id,
@@ -2753,6 +2754,6 @@ int main(int argc, char *argv[])
 	/* We only exit when shutdown is complete. */
 	assert(shutdown_complete(peer));
 	send_shutdown_complete(peer);
-	tal_free(tmpctx);
+	daemon_shutdown();
 	return 0;
 }

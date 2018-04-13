@@ -17,7 +17,6 @@
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
 #include <common/features.h>
-#include <common/io_debug.h>
 #include <common/ping.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
@@ -1036,6 +1035,9 @@ static struct io_plan *hand_back_peer(struct io_conn *conn,
 					       &rpeer->inner_msg))
 		master_badmsg(WIRE_GOSSIPCTL_HAND_BACK_PEER, msg);
 
+	status_debug("Handing back peer %s to master",
+		     type_to_string(msg, struct pubkey, &rpeer->id));
+
 	return io_recv_fd(conn, &rpeer->peer_fd,
 			  read_returning_gossipfd, rpeer);
 }
@@ -1098,7 +1100,8 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 				    u8 *msg)
 {
 	struct pubkey source, destination;
-	u32 msatoshi, final_cltv;
+	u64 msatoshi;
+	u32 final_cltv;
 	u16 riskfactor;
 	u8 *out;
 	struct route_hop *hops;
@@ -1109,7 +1112,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 					 &source, &destination,
 					 &msatoshi, &riskfactor, &final_cltv,
 					 &fuzz, &seed);
-	status_trace("Trying to find a route from %s to %s for %d msatoshi",
+	status_trace("Trying to find a route from %s to %s for %"PRIu64" msatoshi",
 		     pubkey_to_hexstr(tmpctx, &source),
 		     pubkey_to_hexstr(tmpctx, &destination), msatoshi);
 
@@ -1427,8 +1430,8 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 	socklen_t len = sizeof(s);
 
 	if (getpeername(io_conn_fd(conn), (struct sockaddr *)&s, &len) != 0) {
-		status_unusual("Failed to get peername for incoming conn: %s",
-			       strerror(errno));
+		status_trace("Failed to get peername for incoming conn: %s",
+			     strerror(errno));
 		return io_close(conn);
 	}
 
@@ -1551,8 +1554,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 		     gossip_refresh_network, daemon);
 
 	/* Load stored gossip messages */
-	while (gossip_store_read_next(daemon->rstate, daemon->rstate->store)) {
-	}
+	gossip_store_load(daemon->rstate, daemon->rstate->store);
 
 	return daemon_conn_read_next(master->conn, master);
 }
@@ -1987,13 +1989,36 @@ handle_mark_channel_unroutable(struct io_conn *conn,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
+					     struct daemon *daemon,
+					     const u8 *msg)
+{
+	struct short_channel_id scid;
+	struct chan *chan;
+	struct routing_state *rstate = daemon->rstate;
+	if (!fromwire_gossip_outpoint_spent(msg, &scid))
+		master_badmsg(WIRE_GOSSIP_ROUTING_FAILURE, msg);
+
+	chan = get_channel(rstate, &scid);
+	if (chan) {
+		status_trace(
+		    "Deleting channel %s due to the funding outpoint being "
+		    "spent",
+		    type_to_string(msg, struct short_channel_id, &scid));
+		/* Freeing is sufficient since everything else is allocated off
+		 * of the channel and the destructor takes care of unregistering
+		 * the channel */
+		tal_free(chan);
+		gossip_store_add_channel_delete(rstate->store, &scid);
+	}
+
+	return daemon_conn_read_next(conn, &daemon->master);
+}
+
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct daemon *daemon = container_of(master, struct daemon, master);
 	enum gossip_wire_type t = fromwire_peektype(master->msg_in);
-
-	status_trace("req: type %s len %zu",
-		     gossip_wire_type_name(t), tal_count(master->msg_in));
 
 	switch (t) {
 	case WIRE_GOSSIPCTL_INIT:
@@ -2044,6 +2069,9 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT:
 		return disconnect_peer(conn, daemon, master->msg_in);
 
+	case WIRE_GOSSIP_OUTPOINT_SPENT:
+		return handle_outpoint_spent(conn, daemon, master->msg_in);
+
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
@@ -2064,10 +2092,6 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_GET_TXOUT:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLY:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLYFAIL:
-	/* gossip_store messages */
-	case WIRE_GOSSIP_STORE_CHANNEL_ANNOUNCEMENT:
-	case WIRE_GOSSIP_STORE_CHANNEL_UPDATE:
-	case WIRE_GOSSIP_STORE_NODE_ANNOUNCEMENT:
 		break;
 	}
 
@@ -2088,7 +2112,6 @@ int main(int argc, char *argv[])
 	struct daemon *daemon;
 
 	subdaemon_setup(argc, argv);
-	io_poll_override(debug_poll);
 
 	daemon = tal(NULL, struct daemon);
 	list_head_init(&daemon->peers);
@@ -2117,6 +2140,7 @@ int main(int argc, char *argv[])
 			timer_expired(daemon, expired);
 		}
 	}
+	daemon_shutdown();
 	return 0;
 }
 #endif

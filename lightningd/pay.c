@@ -628,6 +628,7 @@ send_payment(const tal_t *ctx,
 	     struct lightningd* ld,
 	     const struct sha256 *rhash,
 	     const struct route_hop *route,
+	     u64 msatoshi,
 	     void (*cb)(const struct sendpay_result *, void*),
 	     void *cbarg)
 {
@@ -685,7 +686,7 @@ send_payment(const tal_t *ctx,
 		if (payment->status == PAYMENT_COMPLETE) {
 			log_add(ld->log, "... succeeded");
 			/* Must match successful payment parameters. */
-			if (payment->msatoshi != hop_data[n_hops-1].amt_forward) {
+			if (payment->msatoshi != msatoshi) {
 				char *msg = tal_fmt(tmpctx,
 						    "Already succeeded "
 						    "with amount %"PRIu64,
@@ -740,8 +741,8 @@ send_payment(const tal_t *ctx,
 				    sizeof(struct sha256), &path_secrets);
 	onion = serialize_onionpacket(tmpctx, packet);
 
-	log_info(ld->log, "Sending %u over %zu hops to deliver %u",
-		 route[0].amount, n_hops, route[n_hops-1].amount);
+	log_info(ld->log, "Sending %"PRIu64" over %zu hops to deliver %"PRIu64"",
+		 route[0].amount, n_hops, msatoshi);
 
 	failcode = send_htlc_out(channel, route[0].amount,
 				 base_expiry + route[0].delay,
@@ -781,7 +782,7 @@ send_payment(const tal_t *ctx,
 	payment->payment_hash = *rhash;
 	payment->destination = ids[n_hops - 1];
 	payment->status = PAYMENT_PENDING;
-	payment->msatoshi = route[n_hops-1].amount;
+	payment->msatoshi = msatoshi;
 	payment->msatoshi_sent = route[0].amount;
 	payment->timestamp = time_now().ts.tv_sec;
 	payment->payment_preimage = NULL;
@@ -865,9 +866,7 @@ static void json_waitsendpay_on_resolve(const struct sendpay_result *r,
 				     fail->erring_index);
 			json_add_num(data, "failcode",
 				     (unsigned) fail->failcode);
-			json_add_hex(data, "erring_node",
-				     &fail->erring_node,
-				     sizeof(fail->erring_node));
+			json_add_pubkey(data, "erring_node", &fail->erring_node);
 			json_add_short_channel_id(data, "erring_channel",
 						  &fail->erring_channel);
 			if (fail->channel_update)
@@ -912,14 +911,17 @@ static void json_sendpay(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	jsmntok_t *routetok, *rhashtok;
+	jsmntok_t *msatoshitok;
 	const jsmntok_t *t, *end;
 	size_t n_hops;
 	struct sha256 rhash;
 	struct route_hop *route;
+	u64 msatoshi;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "route", &routetok,
 			     "payment_hash", &rhashtok,
+			     "?msatoshi", &msatoshitok,
 			     NULL)) {
 		return;
 	}
@@ -967,7 +969,7 @@ static void json_sendpay(struct command *cmd,
 		tal_resize(&route, n_hops + 1);
 
 		/* What that hop will forward */
-		if (!json_tok_number(buffer, amttok, &route[n_hops].amount)) {
+		if (!json_tok_u64(buffer, amttok, &route[n_hops].amount)) {
 			command_fail(cmd, "Route %zu invalid msatoshi",
 				     n_hops);
 			return;
@@ -994,7 +996,29 @@ static void json_sendpay(struct command *cmd,
 		return;
 	}
 
-	if (send_payment(cmd, cmd->ld, &rhash, route,
+	if (msatoshitok) {
+		if (!json_tok_u64(buffer, msatoshitok, &msatoshi)) {
+			command_fail(cmd, "'%.*s' is not a number",
+				     msatoshitok->end - msatoshitok->start,
+				     buffer + msatoshitok->start);
+			return;
+		}
+		/* The given msatoshi is the actual payment that
+		 * the payee is requesting. The final hop amount, is
+		 * what we actually give, which can be from the
+		 * msatoshi to twice msatoshi. */
+		/* if not: msatoshi <= finalhop.amount <= 2 * msatoshi,
+		 * fail. */
+		if (!(msatoshi <= route[n_hops-1].amount &&
+		      route[n_hops-1].amount <= 2 * msatoshi)) {
+			command_fail(cmd, "msatoshi %"PRIu64" out of range",
+				     msatoshi);
+			return;
+		}
+	} else
+		msatoshi = route[n_hops-1].amount;
+
+	if (send_payment(cmd, cmd->ld, &rhash, route, msatoshi,
 			  &json_sendpay_on_resolve, cmd))
 		command_still_pending(cmd);
 }

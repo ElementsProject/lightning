@@ -24,6 +24,7 @@ static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const c
 #include <stddef.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <wally_core.h>
 
 bool deprecated_apis = true;
 
@@ -291,6 +292,10 @@ bool outpointfilter_matches(struct outpointfilter *of UNNEEDED,
 /* Generated stub for outpointfilter_new */
 struct outpointfilter *outpointfilter_new(tal_t *ctx UNNEEDED)
 { fprintf(stderr, "outpointfilter_new called!\n"); abort(); }
+/* Generated stub for outpointfilter_remove */
+void outpointfilter_remove(struct outpointfilter *of UNNEEDED,
+			   const struct bitcoin_txid *txid UNNEEDED, const u32 outnum UNNEEDED)
+{ fprintf(stderr, "outpointfilter_remove called!\n"); abort(); }
 /* Generated stub for peer_accept_channel */
 u8 *peer_accept_channel(const tal_t *ctx UNNEEDED,
 			struct lightningd *ld UNNEEDED,
@@ -380,7 +385,7 @@ struct txwatch *watch_txid(const tal_t *ctx UNNEEDED,
 			   struct channel *channel UNNEEDED,
 			   const struct bitcoin_txid *txid UNNEEDED,
 			   enum watch_result (*cb)(struct channel *channel UNNEEDED,
-						    const struct bitcoin_tx * UNNEEDED,
+						    const struct bitcoin_txid * UNNEEDED,
 						   unsigned int depth))
 { fprintf(stderr, "watch_txid called!\n"); abort(); }
 /* Generated stub for watch_txo */
@@ -1000,11 +1005,6 @@ int main(void)
 
 	take_cleanup();
 	tal_free(tmpctx);
-
-	/* FIXME! https://github.com/ElementsProject/libwally-core/issues/26 */
-	{
-		secp256k1_context *secp_ctx(void);
-		secp256k1_context_destroy(secp_ctx());
-	}
+	wally_cleanup(0);
 	return !ok;
 }

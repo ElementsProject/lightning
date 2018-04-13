@@ -270,6 +270,36 @@ char *dbmigrations[] = {
     /* Record the msatoshi actually sent in a payment. */
     "ALTER TABLE payments ADD msatoshi_sent INTEGER;",
     "UPDATE payments SET msatoshi_sent = msatoshi;",
+    /* Delete dangling utxoset entries due to Issue #1280  */
+    "DELETE FROM utxoset WHERE blockheight IN ("
+    "  SELECT DISTINCT(blockheight)"
+    "  FROM utxoset LEFT OUTER JOIN blocks on (blockheight == blocks.height) "
+    "  WHERE blocks.hash IS NULL"
+    ");",
+    /* Record feerate range, to optimize onchaind grinding actual fees. */
+    "ALTER TABLE channels ADD min_possible_feerate INTEGER;",
+    "ALTER TABLE channels ADD max_possible_feerate INTEGER;",
+    /* https://bitcoinfees.github.io/#1d says Dec 17 peak was ~1M sat/kb
+     * which is 250,000 sat/Sipa */
+    "UPDATE channels SET min_possible_feerate=0, max_possible_feerate=250000;",
+    /* -- Min and max msatoshi_to_us -- */
+    "ALTER TABLE channels ADD msatoshi_to_us_min INTEGER;",
+    "ALTER TABLE channels ADD msatoshi_to_us_max INTEGER;",
+    "UPDATE channels"
+    "   SET msatoshi_to_us_min = msatoshi_local"
+    "     , msatoshi_to_us_max = msatoshi_local"
+    "     ;",
+    /* -- Min and max msatoshi_to_us ends -- */
+    /* Transactions we are interested in. Either we sent them ourselves or we
+     * are watching them. We don't cascade block height deletes so we don't
+     * forget any of them by accident.*/
+    "CREATE TABLE transactions ("
+    "  id BLOB"
+    ", blockheight INTEGER REFERENCES blocks(height) ON DELETE SET NULL"
+    ", txindex INTEGER"
+    ", rawtx BLOB"
+    ", PRIMARY KEY (id)"
+    ");",
     NULL,
 };
 
@@ -522,6 +552,7 @@ void db_reopen_after_fork(struct db *db)
 		fatal("failed to re-open database %s: %s", db->filename,
 		      sqlite3_errstr(err));
 	}
+	db_do_exec(__func__, db, "PRAGMA foreign_keys = ON;");
 }
 
 s64 db_get_intvar(struct db *db, char *varname, s64 defval)
@@ -725,7 +756,7 @@ struct pubkey *sqlite3_column_pubkey_array(const tal_t *ctx,
 		return NULL;
 
 	n = sqlite3_column_bytes(stmt, col) / PUBKEY_DER_LEN;
-	assert(n * PUBKEY_DER_LEN == sqlite3_column_bytes(stmt, col));
+	assert(n * PUBKEY_DER_LEN == (size_t)sqlite3_column_bytes(stmt, col));
 	ret = tal_arr(ctx, struct pubkey, n);
 	ders = sqlite3_column_blob(stmt, col);
 

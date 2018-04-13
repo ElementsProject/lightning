@@ -13,6 +13,7 @@ LIGHTNINGD_GOSSIP_CONTROL_OBJS := $(LIGHTNINGD_GOSSIP_CONTROL_SRC:.c=.o)
 
 # gossipd needs these:
 LIGHTNINGD_GOSSIP_HEADERS := gossipd/gen_gossip_wire.h \
+	gossipd/gen_gossip_store.h			\
 	gossipd/gossip_store.h				\
 	gossipd/handshake.h				\
 	gossipd/routing.h				\
@@ -39,11 +40,11 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/crypto_state.o			\
 	common/crypto_sync.o			\
 	common/cryptomsg.o			\
+	common/daemon.o				\
 	common/daemon_conn.o			\
 	common/dev_disconnect.o			\
 	common/features.o			\
 	common/gen_status_wire.o		\
-	common/io_debug.o			\
 	common/msg_queue.o			\
 	common/ping.o				\
 	common/pseudorand.o			\
@@ -75,6 +76,13 @@ gossipd/gen_gossip_wire.h: $(WIRE_GEN) gossipd/gossip_wire.csv
 
 gossipd/gen_gossip_wire.c: $(WIRE_GEN) gossipd/gossip_wire.csv
 	$(WIRE_GEN) ${@:.c=.h} gossip_wire_type < gossipd/gossip_wire.csv > $@
+
+gossipd/gen_gossip_store.h: $(WIRE_GEN) gossipd/gossip_store.csv
+	$(WIRE_GEN) --header $@ gossip_store_type < gossipd/gossip_store.csv > $@
+
+gossipd/gen_gossip_store.c: $(WIRE_GEN) gossipd/gossip_store.csv
+	$(WIRE_GEN) ${@:.c=.h} gossip_store_type < gossipd/gossip_store.csv > $@
+
 
 check-source: $(LIGHTNINGD_GOSSIP_ALLSRC_NOGEN:%=check-src-include-order/%) $(LIGHTNINGD_GOSSIP_ALLHEADERS_NOGEN:%=check-hdr-include-order/%)
 check-source-bolt: $(LIGHTNINGD_GOSSIP_SRC:%=bolt-check/%) $(LIGHTNINGD_GOSSIP_HEADERS:%=bolt-check/%)

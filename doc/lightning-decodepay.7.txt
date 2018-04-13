@@ -33,7 +33,7 @@ by BOLT11:
 The following fields are optional:
 
 - 'msatoshi': the number of millisatoshi requested (if any).
-- 'fallback': fallback address object containing a 'hex' string, and
+- 'fallbacks': array of fallback address object containing a 'hex' string, and
   both 'type' and 'addr' if it is recognized as one of 'P2PKH', 'P2SH', 'P2WPKH', or 'P2WSH'.
 - 'routes':  an array of routes.  Each route is an arrays of objects, each containing 'pubkey', 'short_channel_id', 'fee_base_msat', 'fee_proportional_millionths' and 'cltv_expiry_delta'.
 - 'extra': an array of objects representing unknown fields, each with one-character 'tag' and a 'data' bech32 string.

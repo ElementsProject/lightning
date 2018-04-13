@@ -57,11 +57,10 @@ static void handle_onchain_init_reply(struct channel *channel, const u8 *msg)
 }
 
 static enum watch_result onchain_tx_watched(struct channel *channel,
-					    const struct bitcoin_tx *tx,
+					    const struct bitcoin_txid *txid,
 					    unsigned int depth)
 {
 	u8 *msg;
-	struct bitcoin_txid txid;
 
 	if (depth == 0) {
 		log_unusual(channel->log, "Chain reorganization!");
@@ -75,8 +74,7 @@ static enum watch_result onchain_tx_watched(struct channel *channel,
 		return KEEP_WATCHING;
 	}
 
-	bitcoin_txid(tx, &txid);
-	msg = towire_onchain_depth(channel, &txid, depth);
+	msg = towire_onchain_depth(channel, txid, depth);
 	subd_send_msg(channel->owner, take(msg));
 	return KEEP_WATCHING;
 }
@@ -220,6 +218,7 @@ static void handle_irrevocably_resolved(struct channel *channel, const u8 *msg)
 static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 {
 	struct utxo *u = tal(msg, struct utxo);
+	u32 blockheight;
 	u->close_info = tal(u, struct unilateral_close_info);
 
 	u->is_p2sh = true;
@@ -227,16 +226,16 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 	u->status = output_state_available;
 	u->close_info->channel_id = channel->dbid;
 	u->close_info->peer_id = channel->peer->id;
-	u->blockheight = NULL;
 	u->spendheight = NULL;
 
 	if (!fromwire_onchain_add_utxo(msg, &u->txid, &u->outnum,
 				       &u->close_info->commitment_point,
-				       &u->amount)) {
+				       &u->amount, &blockheight)) {
 		fatal("onchaind gave invalid add_utxo message: %s", tal_hex(msg, msg));
 	}
+	u->blockheight = blockheight>0?&blockheight:NULL;
 
-
+	outpointfilter_add(channel->peer->ld->wallet->owned_outpoints, &u->txid, u->outnum);
 	wallet_add_utxo(channel->peer->ld->wallet, u, p2wpkh);
 }
 
@@ -416,7 +415,9 @@ enum watch_result funding_spent(struct channel *channel,
 				  /* FIXME: config for 'reasonable depth' */
 				  3,
 				  channel->last_htlc_sigs,
-				  tal_count(stubs));
+				  tal_count(stubs),
+				  channel->min_possible_feerate,
+				  channel->max_possible_feerate);
 	subd_send_msg(channel->owner, take(msg));
 
 	/* FIXME: Don't queue all at once, use an empty cb... */

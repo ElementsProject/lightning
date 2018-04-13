@@ -272,19 +272,6 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 				struct channel_config *cc);
 
 /**
- * wallet_peer_by_nodeid -- Given a node_id/pubkey, load the peer from DB
- *
- * @w: the wallet to load from
- * @nodeid: the node_id to search for
- * @peer(out): the destination where to store the peer
- *
- * Returns true on success, or false if we were unable to find a peer
- * with the given node_id.
- */
-bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
-			   struct peer *peer);
-
-/**
  * wlalet_channels_load_active -- Load persisted active channels into the peers
  *
  * @ctx: context to allocate peers from
@@ -328,7 +315,7 @@ u32 wallet_first_blocknum(struct wallet *w, u32 first_possible);
  * wallet_extract_owned_outputs - given a tx, extract all of our outputs
  */
 int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
-				 const struct block *block, u64 *total_satoshi);
+				 const u32 *blockheight, u64 *total_satoshi);
 
 /**
  * wallet_htlc_save_in - store an htlc_in in the database
@@ -733,15 +720,6 @@ void wallet_payment_set_status(struct wallet *wallet,
 			        const struct preimage *preimage);
 
 /**
- * wallet_payment_get_secrets - Get the secrets array for a given `payment_hash`
- *
- * Returns a tal_array: can return NULL for old dbs.
- */
-struct secret *wallet_payment_get_secrets(const tal_t *ctx,
-					  struct wallet *wallet,
-					  const struct sha256 *payment_hash);
-
-/**
  * wallet_payment_get_failinfo - Get failure information for a given
  * `payment_hash`.
  *
@@ -812,8 +790,18 @@ void wallet_block_remove(struct wallet *w, struct block *b);
  */
 void wallet_blocks_rollback(struct wallet *w, u32 height);
 
-void wallet_outpoint_spend(struct wallet *w, const u32 blockheight,
-			   const struct bitcoin_txid *txid, const u32 outnum);
+/**
+ * Mark an outpoint as spent, both in the owned as well as the UTXO set
+ *
+ * Given the outpoint (txid, outnum), and the blockheight, mark the
+ * corresponding DB entries as spent at the blockheight.
+ *
+ * @return scid The short_channel_id corresponding to the spent outpoint, if
+ *         any.
+ */
+const struct short_channel_id *
+wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
+		      const struct bitcoin_txid *txid, const u32 outnum);
 
 struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 					  const struct short_channel_id *scid);
@@ -822,4 +810,28 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 			const u32 outnum, const u32 blockheight,
 			const u32 txindex, const u8 *scriptpubkey,
 			const u64 satoshis);
+
+void wallet_transaction_add(struct wallet *w, const struct bitcoin_tx *tx,
+			    const u32 blockheight, const u32 txindex);
+
+/**
+ * Get the confirmation height of a transaction we are watching by its
+ * txid. Returns 0 if the transaction was not part of any block.
+ */
+u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid);
+
+/**
+ * Locate a transaction in the blockchain, returns NULL if the transaction is
+ * not tracked or is not yet confirmed.
+ */
+struct txlocator *wallet_transaction_locate(const tal_t *ctx, struct wallet *w,
+					    const struct bitcoin_txid *txid);
+
+/**
+ * Get transaction IDs for transactions that we are tracking.
+ */
+struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
+						   struct wallet *w,
+						   const u32 blockheight);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */

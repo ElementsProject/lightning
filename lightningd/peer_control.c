@@ -84,6 +84,10 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	list_head_init(&peer->channels);
 	peer->direction = get_channel_direction(&peer->ld->id, &peer->id);
 
+#if DEVELOPER
+	peer->ignore_htlcs = false;
+#endif
+
 	/* Max 128k per peer. */
 	peer->log_book = new_log_book(128*1024, get_log_level(ld->log_book));
 	set_log_outfn(peer->log_book, copy_to_parent_log, ld->log);
@@ -474,7 +478,7 @@ send_error:
 }
 
 static enum watch_result funding_announce_cb(struct channel *channel,
-					     const struct bitcoin_tx *tx UNUSED,
+					     const struct bitcoin_txid *txid UNUSED,
 					     unsigned int depth)
 {
 	if (depth < ANNOUNCE_MIN_DEPTH) {
@@ -496,17 +500,15 @@ static enum watch_result funding_announce_cb(struct channel *channel,
 }
 
 static enum watch_result funding_lockin_cb(struct channel *channel,
-					   const struct bitcoin_tx *tx,
+					   const struct bitcoin_txid *txid,
 					   unsigned int depth)
 {
-	struct bitcoin_txid txid;
 	const char *txidstr;
 	struct txlocator *loc;
 	bool channel_ready;
 	struct lightningd *ld = channel->peer->ld;
 
-	bitcoin_txid(tx, &txid);
-	txidstr = type_to_string(channel, struct bitcoin_txid, &txid);
+	txidstr = type_to_string(channel, struct bitcoin_txid, txid);
 	log_debug(channel->log, "Funding tx %s depth %u of %u",
 		  txidstr, depth, channel->minimum_depth);
 	tal_free(txidstr);
@@ -514,7 +516,7 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 	if (depth < channel->minimum_depth)
 		return KEEP_WATCHING;
 
-	loc = locate_tx(channel, ld->topology, &txid);
+	loc = wallet_transaction_locate(channel, ld->wallet, txid);
 
 	/* If we restart, we could already have peer->scid from database */
 	if (!channel->scid) {
@@ -554,9 +556,9 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 	 * before. If we are at the right depth, call the callback
 	 * directly, otherwise schedule a callback */
 	if (depth >= ANNOUNCE_MIN_DEPTH)
-		funding_announce_cb(channel, tx, depth);
+		funding_announce_cb(channel, txid, depth);
 	else
-		watch_txid(channel, ld->topology, channel, &txid,
+		watch_txid(channel, ld->topology, channel, txid,
 			   funding_announce_cb);
 	return DELETE_WATCH;
 }
@@ -632,8 +634,14 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 
 		json_object_start(response, NULL);
 		json_add_pubkey(response, "id", &p->id);
-		channel = peer_active_channel(p);
-		connected = (channel && channel->owner != NULL);
+
+		/* Channel is also connected if uncommitted channel */
+		if (p->uncommitted_channel)
+			connected = true;
+		else {
+			channel = peer_active_channel(p);
+			connected = channel && channel->owner;
+		}
 		json_add_bool(response, "connected", connected);
 
 		if (connected) {
@@ -652,6 +660,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 
 		list_for_each(&p->channels, channel, list) {
 			struct channel_id cid;
+			u64 our_reserve_msat = channel->channel_info.their_config.channel_reserve_satoshis * 1000;
 			json_object_start(response, NULL);
 			json_add_string(response, "state",
 					channel_state_name(channel));
@@ -674,6 +683,10 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 				      &channel->funding_txid);
 			json_add_u64(response, "msatoshi_to_us",
 				     channel->our_msatoshi);
+			json_add_u64(response, "msatoshi_to_us_min",
+				     channel->msatoshi_to_us_min);
+			json_add_u64(response, "msatoshi_to_us_max",
+				     channel->msatoshi_to_us_max);
 			json_add_u64(response, "msatoshi_total",
 				     channel->funding_satoshi * 1000);
 
@@ -682,8 +695,26 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 				     channel->our_config.dust_limit_satoshis);
 			json_add_u64(response, "max_htlc_value_in_flight_msat",
 				     channel->our_config.max_htlc_value_in_flight_msat);
-			json_add_u64(response, "channel_reserve_satoshis",
+			/* The `channel_reserve_satoshis` is imposed on
+			 * the *other* side (see `channel_reserve_msat`
+			 * function in, it uses `!side` to flip sides).
+			 * So our configuration `channel_reserve_satoshis`
+			 * is imposed on their side, while their
+			 * configuration `channel_reserve_satoshis` is
+			 * imposed on ours. */
+			json_add_u64(response, "their_channel_reserve_satoshis",
 				     channel->our_config.channel_reserve_satoshis);
+			json_add_u64(response, "our_channel_reserve_satoshis",
+				     channel->channel_info.their_config.channel_reserve_satoshis);
+			if (deprecated_apis)
+				json_add_u64(response, "channel_reserve_satoshis",
+					     channel->our_config.channel_reserve_satoshis);
+			/* Compute how much we can send via this channel. */
+			if (channel->our_msatoshi <= our_reserve_msat)
+				json_add_u64(response, "spendable_msatoshi", 0);
+			else
+				json_add_u64(response, "spendable_msatoshi",
+					     channel->our_msatoshi - our_reserve_msat);
 			json_add_u64(response, "htlc_minimum_msat",
 				     channel->our_config.htlc_minimum_msat);
 			/* The `to_self_delay` is imposed on the *other*
@@ -853,9 +884,9 @@ static void json_close(struct command *cmd,
 	}
 
 	/* Normal case. */
-	if (channel->state == CHANNELD_NORMAL) {
+	if (channel->state == CHANNELD_NORMAL || channel->state == CHANNELD_AWAITING_LOCKIN) {
 		channel_set_state(channel,
-				  CHANNELD_NORMAL, CHANNELD_SHUTTING_DOWN);
+				  channel->state, CHANNELD_SHUTTING_DOWN);
 
 		if (channel->owner)
 			subd_send_msg(channel->owner,

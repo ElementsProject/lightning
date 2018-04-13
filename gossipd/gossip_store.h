@@ -3,6 +3,7 @@
 
 #include "config.h"
 
+#include <bitcoin/short_channel_id.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <gossipd/routing.h>
@@ -16,15 +17,12 @@ struct routing_state;
 struct gossip_store *gossip_store_new(const tal_t *ctx);
 
 /**
- * Retrieve the next gossip message if any
+ * Load the initial gossip store, if any.
  *
- * @param ctx The context to allocate the message from
+ * @param rstate The routing state to load init.
  * @param gs  The `gossip_store` to read from
- * @return whether a message was read from the store. False means that all
- * messages have been processed.
  */
-bool gossip_store_read_next(struct routing_state *rstate,
-			    struct gossip_store *gs);
+void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs);
 
 /**
  * Store a channel_announcement with all its extra data
@@ -43,5 +41,11 @@ void gossip_store_add_channel_update(struct gossip_store *gs,
  */
 void gossip_store_add_node_announcement(struct gossip_store *gs,
 					const u8 *gossip_msg);
+
+/**
+ * Remember that we deleted a channel as a result of its outpoint being spent
+ */
+void gossip_store_add_channel_delete(struct gossip_store *gs,
+				     const struct short_channel_id *scid);
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_H */

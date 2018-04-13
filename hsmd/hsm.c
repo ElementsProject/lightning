@@ -18,7 +18,6 @@
 #include <common/derive_basepoints.h>
 #include <common/funding_tx.h>
 #include <common/hash_u5.h>
-#include <common/io_debug.h>
 #include <common/key_derive.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
@@ -610,7 +609,7 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	struct bitcoin_tx *tx;
 	u16 outnum;
 	size_t i;
-	struct pubkey changekey;
+	struct pubkey *changekey;
 	u8 **scriptSigs;
 
 	/* FIXME: Check fee is "reasonable" */
@@ -620,13 +619,16 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 				       &remote_pubkey, &utxomap))
 		master_badmsg(WIRE_HSM_SIGN_FUNDING, msg);
 
-	if (change_out)
-		bitcoin_pubkey(&changekey, change_keyindex);
+	if (change_out) {
+		changekey = tal(tmpctx, struct pubkey);
+		bitcoin_pubkey(changekey, change_keyindex);
+	} else
+		changekey = NULL;
 
 	tx = funding_tx(tmpctx, &outnum,
 			cast_const2(const struct utxo **, utxomap),
 			satoshi_out, &local_pubkey, &remote_pubkey,
-			change_out, &changekey,
+			change_out, changekey,
 			NULL);
 
 	scriptSigs = tal_arr(tmpctx, u8*, tal_count(utxomap));
@@ -826,7 +828,6 @@ int main(int argc, char *argv[])
 	struct client *client;
 
 	subdaemon_setup(argc, argv);
-	io_poll_override(debug_poll);
 
 	client = new_client(NULL, NULL, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP, handle_client, STDIN_FILENO);
 
@@ -839,6 +840,8 @@ int main(int argc, char *argv[])
 	/* When conn closes, everything is freed. */
 	tal_steal(client->dc.conn, client);
 	io_loop(NULL, NULL);
+	daemon_shutdown();
+
 	return 0;
 }
 #endif

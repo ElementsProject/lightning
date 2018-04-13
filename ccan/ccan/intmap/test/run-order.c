@@ -7,6 +7,16 @@
 typedef UINTMAP(unsigned int *) umap;
 typedef SINTMAP(int *) smap;
 
+static bool uint_iterate_check(intmap_index_t i, unsigned int *v, int64_t *prev)
+{
+	if ((int64_t)i <= *prev)
+		return false;
+	if (*v != i)
+		return false;
+	*prev = i;
+	return true;
+}
+
 static bool check_umap(const umap *map)
 {
 	/* This is a larger type than unsigned, and allows negative */
@@ -25,7 +35,22 @@ static bool check_umap(const umap *map)
 		prev = i;
 		last = (uintmap_last(map, &last_idx) == v);
 	}
-	return last;
+
+	if (!last)
+		return false;
+
+	prev = -1;
+	return uintmap_iterate(map, uint_iterate_check, &prev);
+}
+
+static bool sint_iterate_check(sintmap_index_t i, int *v, int64_t *prev)
+{
+	if (i <= *prev)
+		return false;
+	if (*v != i)
+		return false;
+	*prev = i;
+	return true;
 }
 
 static bool check_smap(const smap *map)
@@ -45,7 +70,12 @@ static bool check_smap(const smap *map)
 		last = (sintmap_last(map, &last_idx) == v);
 		prev = i;
 	}
-	return last;
+
+	if (!last)
+		return false;
+
+	prev = -1;
+	return sintmap_iterate(map, sint_iterate_check, &prev);
 }
 
 int main(void)

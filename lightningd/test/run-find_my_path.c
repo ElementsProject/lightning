@@ -10,9 +10,14 @@ void activate_peers(struct lightningd *ld UNNEEDED)
 /* Generated stub for begin_topology */
 void begin_topology(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "begin_topology called!\n"); abort(); }
-/* Generated stub for crashlog_activate */
-void crashlog_activate(const char *argv0 UNNEEDED, struct log *log UNNEEDED)
-{ fprintf(stderr, "crashlog_activate called!\n"); abort(); }
+/* Generated stub for daemon_setup */
+void daemon_setup(const char *argv0 UNNEEDED,
+		  void (*backtrace_print)(const char *fmt UNNEEDED, ...) UNNEEDED,
+		  void (*backtrace_exit)(void))
+{ fprintf(stderr, "daemon_setup called!\n"); abort(); }
+/* Generated stub for daemon_shutdown */
+void daemon_shutdown(void)
+{ fprintf(stderr, "daemon_shutdown called!\n"); abort(); }
 /* Generated stub for db_begin_transaction_ */
 void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED)
 { fprintf(stderr, "db_begin_transaction_ called!\n"); abort(); }
@@ -28,9 +33,6 @@ s64 db_get_intvar(struct db *db UNNEEDED, char *varname UNNEEDED, s64 defval UNN
 /* Generated stub for db_reopen_after_fork */
 void db_reopen_after_fork(struct db *db UNNEEDED)
 { fprintf(stderr, "db_reopen_after_fork called!\n"); abort(); }
-/* Generated stub for debug_poll */
-int debug_poll(struct pollfd *fds UNNEEDED, nfds_t nfds UNNEEDED, int timeout UNNEEDED)
-{ fprintf(stderr, "debug_poll called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
@@ -56,6 +58,12 @@ struct json_escaped *json_escape(const tal_t *ctx UNNEEDED, const char *str TAKE
 void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED, const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "log_ called!\n"); abort(); }
+/* Generated stub for log_backtrace_exit */
+void log_backtrace_exit(void)
+{ fprintf(stderr, "log_backtrace_exit called!\n"); abort(); }
+/* Generated stub for log_backtrace_print */
+void log_backtrace_print(const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "log_backtrace_print called!\n"); abort(); }
 /* Generated stub for new_log */
 struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "new_log called!\n"); abort(); }
@@ -140,6 +148,8 @@ char *opt_subd_debug(const char *optarg UNNEEDED, struct lightningd *ld UNNEEDED
 char *opt_subd_dev_disconnect(const char *optarg UNNEEDED, struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "opt_subd_dev_disconnect called!\n"); abort(); }
 #endif
+
+struct log *crashlog;
 
 #undef main
 int main(int argc UNUSED, char *argv[] UNUSED)

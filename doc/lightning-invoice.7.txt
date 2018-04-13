@@ -8,7 +8,7 @@ lightning-invoice - Protocol for accepting payments.
 
 SYNOPSIS
 --------
-*invoice* 'msatoshi' 'label' 'description' ['expiry']
+*invoice* 'msatoshi' 'label' 'description' ['expiry'] ['fallbacks']
 
 DESCRIPTION
 -----------
@@ -19,9 +19,10 @@ lightning daemon can use to pay this invoice.
 The 'msatoshi' can be the string "any", which creates an invoice
 that can be paid with any amount.
 
-The 'label' must be a unique string; it is never revealed to other nodes on
-the lightning network, but it can be used to query the status of this
-invoice.
+The 'label' must be a unique string or number (which is treated as a
+string, so "01" is different from "1"); it is never revealed to other
+nodes on the lightning network, but it can be used to query the status
+of this invoice.
 
 The 'description' is a short description of purpose of payment,
 e.g. '1 cup of coffee'. This value is encoded into the BOLT11 invoice
@@ -30,6 +31,10 @@ UTF-8, and cannot use '\u' JSON escape codes.
 
 The 'expiry' is optionally the number of seconds the invoice is valid for.
 If no value is provided the default of 3600 (1 Hour) is used.
+
+The 'fallbacks' array is one or more fallback addresses to include in
+the invoice (in order from most-preferred to least): note that these
+arrays are not currently tracked to fulfill the invoice.
 
 RETURN VALUE
 ------------

@@ -139,6 +139,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid,
 			    u64 our_msatoshi,
+			    u64 msatoshi_to_us_min,
+			    u64 msatoshi_to_us_max,
 			    /* Stolen */
 			    struct bitcoin_tx *last_tx,
 			    const secp256k1_ecdsa_signature *last_sig,
@@ -151,7 +153,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool last_was_revoke,
 			    /* NULL or stolen */
 			    struct changed_htlc *last_sent_commit,
-			    u32 first_blocknum)
+			    u32 first_blocknum,
+			    u32 min_possible_feerate,
+			    u32 max_possible_feerate)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
 
@@ -194,6 +198,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->remote_funding_locked = remote_funding_locked;
 	channel->scid = tal_steal(channel, scid);
 	channel->our_msatoshi = our_msatoshi;
+	channel->msatoshi_to_us_min = msatoshi_to_us_min;
+	channel->msatoshi_to_us_max = msatoshi_to_us_max;
 	channel->last_tx = tal_steal(channel, last_tx);
 	channel->last_sig = *last_sig;
 	channel->last_htlc_sigs = tal_steal(channel, last_htlc_sigs);
@@ -204,6 +210,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->last_was_revoke = last_was_revoke;
 	channel->last_sent_commit = tal_steal(channel, last_sent_commit);
 	channel->first_blocknum = first_blocknum;
+	channel->min_possible_feerate = min_possible_feerate;
+	channel->max_possible_feerate = max_possible_feerate;
 	derive_channel_seed(peer->ld, &channel->seed, &peer->id, channel->dbid);
 
 	list_add_tail(&peer->channels, &channel->list);

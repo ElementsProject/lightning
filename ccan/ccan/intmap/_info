@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 		return 1;
 
 	if (strcmp(argv[1], "depends") == 0) {
-		printf("ccan/ilog\n"
+		printf("ccan/bitops\n"
 		       "ccan/short_types\n"
 		       "ccan/str\n"
 		       "ccan/tcon\n"

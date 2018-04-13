@@ -16,6 +16,7 @@
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <inttypes.h>
+#include <lightningd/gossip_control.h>
 
 /* Mutual recursion via timer. */
 static void try_extend_tip(struct chain_topology *topo);
@@ -25,18 +26,6 @@ static void next_topology_timer(struct chain_topology *topo)
 	/* This takes care of its own lifetime. */
 	notleak(new_reltimer(topo->timers, topo, topo->poll_time,
 			     try_extend_tip, topo));
-}
-
-/* FIXME: Remove tx from block when peer done. */
-static void add_tx_to_block(struct block *b,
-			    const struct bitcoin_tx *tx, const u32 txnum)
-{
-	size_t n = tal_count(b->txs);
-
-	tal_resize(&b->txs, n+1);
-	tal_resize(&b->txnums, n+1);
-	b->txs[n] = tal_steal(b->txs, tx);
-	b->txnums[n] = txnum;
 }
 
 static bool we_broadcast(const struct chain_topology *topo,
@@ -77,61 +66,28 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		satoshi_owned = 0;
 		if (txfilter_match(topo->bitcoind->ld->owned_txfilter, tx)) {
 			wallet_extract_owned_outputs(topo->bitcoind->ld->wallet,
-						     tx, b, &satoshi_owned);
+						     tx, &b->height,
+						     &satoshi_owned);
 		}
 
 		/* We did spends first, in case that tells us to watch tx. */
 		bitcoin_txid(tx, &txid);
 		if (watching_txid(topo, &txid) || we_broadcast(topo, &txid) ||
-		    satoshi_owned != 0)
-			add_tx_to_block(b, tx, i);
+		    satoshi_owned != 0) {
+			wallet_transaction_add(topo->wallet, tx, b->height, i);
+		}
 	}
 	b->full_txs = tal_free(b->full_txs);
 }
 
-static const struct bitcoin_tx *tx_in_block(const struct block *b,
-					    const struct bitcoin_txid *txid)
-{
-	size_t i, n = tal_count(b->txs);
-
-	for (i = 0; i < n; i++) {
-		struct bitcoin_txid this_txid;
-		bitcoin_txid(b->txs[i], &this_txid);
-		if (structeq(&this_txid, txid))
-			return b->txs[i];
-	}
-	return NULL;
-}
-
-/* FIXME: Use hash table. */
-static struct block *block_for_tx(const struct chain_topology *topo,
-				  const struct bitcoin_txid *txid,
-				  const struct bitcoin_tx **tx)
-{
-	struct block *b;
-	const struct bitcoin_tx *dummy_tx;
-
-	if (!tx)
-		tx = &dummy_tx;
-
-	for (b = topo->tip; b; b = b->prev) {
-		*tx = tx_in_block(b, txid);
-		if (*tx)
-			return b;
-	}
-	return NULL;
-}
-
 size_t get_tx_depth(const struct chain_topology *topo,
-		    const struct bitcoin_txid *txid,
-		    const struct bitcoin_tx **tx)
+		    const struct bitcoin_txid *txid)
 {
-	const struct block *b;
+	u32 blockheight = wallet_transaction_height(topo->wallet, txid);
 
-	b = block_for_tx(topo, txid, tx);
-	if (!b)
+	if (blockheight == 0)
 		return 0;
-	return topo->tip->height - b->height + 1;
+	return topo->tip->height - blockheight + 1;
 }
 
 struct txs_to_broadcast {
@@ -187,7 +143,7 @@ static void rebroadcast_txs(struct chain_topology *topo, struct command *cmd)
 	/* Put any txs we want to broadcast in ->txs. */
 	txs->txs = tal_arr(txs, const char *, 0);
 	list_for_each(&topo->outgoing_txs, otx, list) {
-		if (block_for_tx(topo, &otx->txid, NULL))
+		if (wallet_transaction_height(topo->wallet, &otx->txid))
 			continue;
 
 		tal_resize(&txs->txs, num_txs+1);
@@ -255,6 +211,7 @@ void broadcast_tx(struct chain_topology *topo,
 	log_add(topo->log, " (tx %s)",
 		type_to_string(tmpctx, struct bitcoin_txid, &otx->txid));
 
+	wallet_transaction_add(topo->wallet, tx, 0, 0);
 	bitcoind_sendrawtx(topo->bitcoind, otx->hextx, broadcast_done, otx);
 }
 
@@ -405,13 +362,18 @@ static void updates_complete(struct chain_topology *topo)
  */
 static void topo_update_spends(struct chain_topology *topo, struct block *b)
 {
+	const struct short_channel_id *scid;
 	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
 		const struct bitcoin_tx *tx = b->full_txs[i];
 		for (size_t j = 0; j < tal_count(tx->input); j++) {
 			const struct bitcoin_tx_input *input = &tx->input[j];
-			wallet_outpoint_spend(topo->wallet, b->height,
-					      &input->txid,
-					      input->index);
+			scid = wallet_outpoint_spend(topo->wallet, tmpctx,
+						     b->height, &input->txid,
+						     input->index);
+			if (scid) {
+				gossipd_notify_spend(topo->bitcoind->ld, scid);
+				tal_free(scid);
+			}
 		}
 	}
 }
@@ -467,7 +429,6 @@ static struct block *new_block(struct chain_topology *topo,
 
 	b->hdr = blk->hdr;
 
-	b->txs = tal_arr(b, const struct bitcoin_tx *, 0);
 	b->txnums = tal_arr(b, u32, 0);
 	b->full_txs = tal_steal(b, blk->tx);
 
@@ -477,7 +438,8 @@ static struct block *new_block(struct chain_topology *topo,
 static void remove_tip(struct chain_topology *topo)
 {
 	struct block *b = topo->tip;
-	size_t i, n = tal_count(b->txs);
+	struct bitcoin_txid *txs;
+	size_t i, n;
 
 	/* Move tip back one. */
 	topo->tip = b->prev;
@@ -486,9 +448,12 @@ static void remove_tip(struct chain_topology *topo)
 		      b->height,
 		      type_to_string(tmpctx, struct bitcoin_blkid, &b->blkid));
 
+	txs = wallet_transactions_by_height(b, topo->wallet, b->height);
+	n = tal_count(txs);
+
 	/* Notify that txs are kicked out. */
 	for (i = 0; i < n; i++)
-		txwatch_fire(topo, b->txs[i], 0);
+		txwatch_fire(topo, &txs[i], 0);
 
 	wallet_block_remove(topo->wallet, b);
 	block_map_del(&topo->block_map, b);
@@ -566,7 +531,7 @@ static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 
 	/* Rollback to the given blockheight, so we start track
 	 * correctly again */
-	wallet_blocks_rollback(topo->wallet, topo->first_blocknum - 1);
+	wallet_blocks_rollback(topo->wallet, topo->first_blocknum);
 
 	/* Get up to speed with topology. */
 	bitcoind_getblockhash(bitcoind, topo->first_blocknum,
@@ -615,28 +580,6 @@ u32 get_feerate(const struct chain_topology *topo, enum feerate feerate)
 		return guess_feerate(topo, feerate);
 	}
 	return topo->feerate[feerate];
-}
-
-struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo,
-			    const struct bitcoin_txid *txid)
-{
-	struct block *block = block_for_tx(topo, txid, NULL);
-	if (block == NULL) {
-		return NULL;
-	}
-
-	struct txlocator *loc = talz(ctx, struct txlocator);
-	loc->blkheight = block->height;
-	size_t i, n = tal_count(block->txs);
-	for (i = 0; i < n; i++) {
-		struct bitcoin_txid this_txid;
-		bitcoin_txid(block->txs[i], &this_txid);
-		if (structeq(&this_txid, txid)){
-			loc->index = block->txnums[i];
-			return loc;
-		}
-	}
-	return tal_free(loc);
 }
 
 #if DEVELOPER

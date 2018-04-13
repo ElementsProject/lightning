@@ -604,6 +604,7 @@ static bool process_getblockhash_for_txout(struct bitcoin_cli *bcli)
 		   const struct bitcoin_tx_output *output,
 		   void *arg) = bcli->cb;
 	struct get_output *go = bcli->cb_arg;
+	char *blockhash;
 
 	if (*bcli->exitstatus != 0) {
 		void *cbarg = go->cbarg;
@@ -614,10 +615,11 @@ static bool process_getblockhash_for_txout(struct bitcoin_cli *bcli)
 		return true;
 	}
 
+	/* Strip the newline at the end of the previous output */
+	blockhash = tal_strndup(NULL, bcli->output, bcli->output_bytes-1);
+
 	start_bitcoin_cli(bcli->bitcoind, NULL, process_getblock, false, cb, go,
-			  "getblock",
-			  take(tal_strndup(NULL, bcli->output,bcli->output_bytes)),
-			  NULL);
+			  "getblock", take(blockhash), NULL);
 	return true;
 }
 
