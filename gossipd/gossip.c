@@ -1518,7 +1518,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon)
 {
 	struct wireaddr addr;
-	struct sockaddr_storage s;
+	struct sockaddr_storage s = {};
 	socklen_t len = sizeof(s);
 
 	if (getpeername(io_conn_fd(conn), (struct sockaddr *)&s, &len) != 0) {
@@ -1577,7 +1577,7 @@ static void setup_listeners(struct daemon *daemon, u16 portnum)
 	/* IPv6, since on Linux that (usually) binds to IPv4 too. */
 	fd1 = make_listen_fd(AF_INET6, &addr6, sizeof(addr6), true);
 	if (fd1 >= 0) {
-		struct sockaddr_in6 in6;
+		struct sockaddr_in6 in6 = {};
 
 		len = sizeof(in6);
 		if (getsockname(fd1, (void *)&in6, &len) != 0) {
