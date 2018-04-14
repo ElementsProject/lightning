@@ -341,6 +341,7 @@ static void init_feerange(struct feerange *feerange,
 			  const u64 offer[NUM_SIDES])
 {
 	feerange->min = 0;
+	feerange->allow_mistakes = true;
 
 	/* BOLT #2:
 	 *
