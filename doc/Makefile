@@ -13,6 +13,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-invoice.7 \
 	doc/lightning-listinvoices.7 \
 	doc/lightning-listpayments.7 \
+	doc/lightning-listrevokeinfos.7 \
 	doc/lightning-pay.7 \
 	doc/lightning-sendpay.7 \
 	doc/lightning-waitinvoice.7 \

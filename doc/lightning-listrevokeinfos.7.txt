@@ -1,0 +1,97 @@
+LIGHTNING-LISTREVOKEINFOS(7)
+============================
+:doctype: manpage
+
+NAME
+----
+lightning-listrevokeinfos - List revocation info for channels, for
+giving to *TRUSTED* WatchTowers.
+
+SYNOPSIS
+--------
+*listrevokeinfos* ['channel_id']
+
+DESCRIPTION
+-----------
+The *listrevokeinfos* RPC command returns revocation information for all
+open channels, or for a specific channel.
+The intent is to somehow pass this revocation information to some
+*TRUSTED* WatchTower.
+
+Note that this requires a *TRUSTED* WatchTower: it contains information
+that would let your counterparty steal funds immediately without a delay
+while you are offline.
+You are trusting the WatchTower not to leak this information to channel
+counterparties.
+In other words: your WatchTower and your counterparty can collude such
+that the counterparty publishes a revoked commitment transaction, and
+the WatchTower immediately revokes it in a "justice" transaction
+that actually pays out to itself and the counterparty, splitting up
+the profits 50/50 between them.
+You have to *TRUST* your WatchTower not to do that.
+
+If 'channel_id' is specified, this returns only the revocation information
+for a specific channel.
+
+RETURN VALUE
+------------
+On success, an object with 'revokeinfos' array is returned.
+Each entry of this array is an object containing revocation information.
+Refer to BOLT 3 and BOLT 5 specifications to learn how to use the
+revocation information:
+
+1. 'funding_txid', 'funding_outnum', 'funding_scriptpubkey' -
+   Information to locate the funding outpoint to be monitored.
+   If the funding outpoint is spent, the WatchTower should act to
+   check if it is a revoked commitment transaction.
+2. 'our_revocation_basepoint_secret' -
+   Our side 'revocation_basepoint_secret', as a big-endian 256-bit
+   number in hex.
+   This is the other half of each revocation key.
+   If the counterparty gets this secret, then it can steal funds
+   with impunity without repurcussion if you are offline.
+   This is needed so that a WatchTower can derive any revocation
+   key for any revoked commitment transaction.
+3. 'their_delayed_payment_basepoint' -
+   The counterparty 'delayed_payment_basepoint', as a DER-encoded
+   compressed point in hex.
+   Revocable outputs involve this public key in a timelocked branch of
+   the script, and this public key is thus needed to derive the witness
+   script and hence the P2WSH of the revocable output.
+4. 'our_payment_basepoint', 'their_payment_basepoint' -
+   The inverse of the commitment index (the commitment number) of a
+   commitment transaction is encrypted using our side and the
+   counterparty 'payment_basepoint'.
+   See BOLT 3 for details.
+5. 'our_htlc_basepoint', 'their_payment_basepoint' -
+   HTLCs offered and accepted in a commitment transaction involve these
+   basepoints in the appropriate branch, and thus are needed to derive
+   the witness script.
+6. 'shachain' -
+   The efficient per-commitment secret storage described in BOLT 3.
+   This is an object with a 'known' array containing objects with
+   'hash' and 'index' fields.
+   The WatchTower should apply the 'derive_old_secret' algorithm from
+   BOLT 3, given a particular index.
+   The commitment index inverse can be derived from the commitment
+   transaction, encrypted using the 'payment_basepoint's.
+   The 'shachain' object with a non-empty 'known' array will have a
+   'min_index' field, the smallest commitment index that is stored
+   in the 'shachain' object.
+
+AUTHOR
+------
+ZmnSCPxj <ZmnSCPxj@protonmail.com> is responsible for exposing the
+revocation key secret in this RPC command.
+
+SEE ALSO
+--------
+BOLT 3, BOLT 5
+
+RESOURCES
+---------
+Main web site: https://github.com/ElementsProject/lightning
+
+BOLT 3: https://github.com/lightningnetwork/lightning-rfc/blob/master/03-transactions.md
+
+BOLT 5: https://github.com/lightningnetwork/lightning-rfc/blob/master/05-onchain.md

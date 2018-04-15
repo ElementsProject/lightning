@@ -1,0 +1,152 @@
+'\" t
+.\"     Title: lightning-listrevokeinfos
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 04/15/2018
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LIGHTNING\-LISTREVOK" "7" "04/15/2018" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lightning-listrevokeinfos \- List revocation info for channels, for giving to *TRUSTED* WatchTowers\&.
+.SH "SYNOPSIS"
+.sp
+\fBlistrevokeinfos\fR [\fIchannel_id\fR]
+.SH "DESCRIPTION"
+.sp
+The \fBlistrevokeinfos\fR RPC command returns revocation information for all open channels, or for a specific channel\&. The intent is to somehow pass this revocation information to some \fBTRUSTED\fR WatchTower\&.
+.sp
+Note that this requires a \fBTRUSTED\fR WatchTower: it contains information that would let your counterparty steal funds immediately without a delay while you are offline\&. You are trusting the WatchTower not to leak this information to channel counterparties\&. In other words: your WatchTower and your counterparty can collude such that the counterparty publishes a revoked commitment transaction, and the WatchTower immediately revokes it in a "justice" transaction that actually pays out to itself and the counterparty, splitting up the profits 50/50 between them\&. You have to \fBTRUST\fR your WatchTower not to do that\&.
+.sp
+If \fIchannel_id\fR is specified, this returns only the revocation information for a specific channel\&.
+.SH "RETURN VALUE"
+.sp
+On success, an object with \fIrevokeinfos\fR array is returned\&. Each entry of this array is an object containing revocation information\&. Refer to BOLT 3 and BOLT 5 specifications to learn how to use the revocation information:
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 1.\h'+01'\c
+.\}
+.el \{\
+.sp -1
+.IP "  1." 4.2
+.\}
+\fIfunding_txid\fR,
+\fIfunding_outnum\fR,
+\fIfunding_scriptpubkey\fR
+\- Information to locate the funding outpoint to be monitored\&. If the funding outpoint is spent, the WatchTower should act to check if it is a revoked commitment transaction\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 2.\h'+01'\c
+.\}
+.el \{\
+.sp -1
+.IP "  2." 4.2
+.\}
+\fIour_revocation_basepoint_secret\fR
+\- Our side
+\fIrevocation_basepoint_secret\fR, as a big\-endian 256\-bit number in hex\&. This is the other half of each revocation key\&. If the counterparty gets this secret, then it can steal funds with impunity without repurcussion if you are offline\&. This is needed so that a WatchTower can derive any revocation key for any revoked commitment transaction\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 3.\h'+01'\c
+.\}
+.el \{\
+.sp -1
+.IP "  3." 4.2
+.\}
+\fItheir_delayed_payment_basepoint\fR
+\- The counterparty
+\fIdelayed_payment_basepoint\fR, as a DER\-encoded compressed point in hex\&. Revocable outputs involve this public key in a timelocked branch of the script, and this public key is thus needed to derive the witness script and hence the P2WSH of the revocable output\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 4.\h'+01'\c
+.\}
+.el \{\
+.sp -1
+.IP "  4." 4.2
+.\}
+\fIour_payment_basepoint\fR,
+\fItheir_payment_basepoint\fR
+\- The inverse of the commitment index (the commitment number) of a commitment transaction is encrypted using our side and the counterparty
+\fIpayment_basepoint\fR\&. See BOLT 3 for details\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 5.\h'+01'\c
+.\}
+.el \{\
+.sp -1
+.IP "  5." 4.2
+.\}
+\fIour_htlc_basepoint\fR,
+\fItheir_payment_basepoint\fR
+\- HTLCs offered and accepted in a commitment transaction involve these basepoints in the appropriate branch, and thus are needed to derive the witness script\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 6.\h'+01'\c
+.\}
+.el \{\
+.sp -1
+.IP "  6." 4.2
+.\}
+\fIshachain\fR
+\- The efficient per\-commitment secret storage described in BOLT 3\&. This is an object with a
+\fIknown\fR
+array containing objects with
+\fIhash\fR
+and
+\fIindex\fR
+fields\&. The WatchTower should apply the
+\fIderive_old_secret\fR
+algorithm from BOLT 3, given a particular index\&. The commitment index inverse can be derived from the commitment transaction, encrypted using the
+\fIpayment_basepoint\(cqs\&. The \*(Aqshachain\fR
+object with a non\-empty
+\fIknown\fR
+array will have a
+\fImin_index\fR
+field, the smallest commitment index that is stored in the
+\fIshachain\fR
+object\&.
+.RE
+.SH "AUTHOR"
+.sp
+ZmnSCPxj <ZmnSCPxj@protonmail\&.com> is responsible for exposing the revocation key secret in this RPC command\&.
+.SH "SEE ALSO"
+.sp
+BOLT 3, BOLT 5
+.SH "RESOURCES"
+.sp
+Main web site: https://github\&.com/ElementsProject/lightning
+.sp
+BOLT 3: https://github\&.com/lightningnetwork/lightning\-rfc/blob/master/03\-transactions\&.md
+.sp
+BOLT 5: https://github\&.com/lightningnetwork/lightning\-rfc/blob/master/05\-onchain\&.md
