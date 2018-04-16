@@ -563,6 +563,20 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 	return DELETE_WATCH;
 }
 
+static enum watch_result funding_spent(struct channel *channel,
+				       const struct bitcoin_tx *tx,
+				       size_t inputnum UNUSED,
+				       const struct block *block)
+{
+	struct bitcoin_txid txid;
+	bitcoin_txid(tx, &txid);
+
+	wallet_channeltxs_add(channel->peer->ld->wallet, channel,
+			      WIRE_ONCHAIN_INIT, &txid, 0, block->height);
+
+	return onchaind_funding_spent(channel, tx, block->height);
+}
+
 void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 {
 	/* FIXME: Remove arg from cb? */

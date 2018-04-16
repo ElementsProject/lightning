@@ -85,12 +85,6 @@ bool fromwire_gossip_getpeers_reply(const tal_t *ctx UNNEEDED, const void *p UNN
 /* Generated stub for fromwire_gossip_peer_connected */
 bool fromwire_gossip_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey *id UNNEEDED, struct wireaddr *addr UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u64 *gossip_index UNNEEDED, u8 **gfeatures UNNEEDED, u8 **lfeatures UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_peer_connected called!\n"); abort(); }
-/* Generated stub for funding_spent */
-enum watch_result funding_spent(struct channel *channel UNNEEDED,
-				const struct bitcoin_tx *tx UNNEEDED,
-				size_t input_num UNNEEDED,
-				const struct block *block UNNEEDED)
-{ fprintf(stderr, "funding_spent called!\n"); abort(); }
 /* Generated stub for get_feerate */
 u32 get_feerate(const struct chain_topology *topo UNNEEDED, enum feerate feerate UNNEEDED)
 { fprintf(stderr, "get_feerate called!\n"); abort(); }
@@ -281,6 +275,11 @@ struct json_result *new_json_result(const tal_t *ctx UNNEEDED)
 /* Generated stub for null_response */
 struct json_result *null_response(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "null_response called!\n"); abort(); }
+/* Generated stub for onchaind_funding_spent */
+enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,
+					 const struct bitcoin_tx *tx UNNEEDED,
+					 u32 blockheight UNNEEDED)
+{ fprintf(stderr, "onchaind_funding_spent called!\n"); abort(); }
 /* Generated stub for outpointfilter_add */
 void outpointfilter_add(struct outpointfilter *of UNNEEDED,
 			const struct bitcoin_txid *txid UNNEEDED, const u32 outnum UNNEEDED)
