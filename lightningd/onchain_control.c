@@ -9,7 +9,6 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <lightningd/watch.h>
-#include <onchaind/gen_onchain_wire.h>
 #include <onchaind/onchain_wire.h>
 
 /* We dump all the known preimages when onchaind starts up. */
@@ -53,12 +52,25 @@ static void handle_onchain_init_reply(struct channel *channel, const u8 *msg UNU
 	channel_set_state(channel, FUNDING_SPEND_SEEN, ONCHAIN);
 }
 
+/**
+ * Notify onchaind about the depth change of the watched tx.
+ */
+static void onchain_tx_depth(struct channel *channel,
+			     const struct bitcoin_txid *txid,
+			     unsigned int depth)
+{
+	u8 *msg;
+	msg = towire_onchain_depth(channel, txid, depth);
+	subd_send_msg(channel->owner, take(msg));
+}
+
+/**
+ * Entrypoint for the txwatch callback, calls onchain_tx_depth.
+ */
 static enum watch_result onchain_tx_watched(struct channel *channel,
 					    const struct bitcoin_txid *txid,
 					    unsigned int depth)
 {
-	u8 *msg;
-
 	if (depth == 0) {
 		log_unusual(channel->log, "Chain reorganization!");
 		channel_set_owner(channel, NULL);
@@ -71,25 +83,36 @@ static enum watch_result onchain_tx_watched(struct channel *channel,
 		return KEEP_WATCHING;
 	}
 
-	msg = towire_onchain_depth(channel, txid, depth);
-	subd_send_msg(channel->owner, take(msg));
+	onchain_tx_depth(channel, txid, depth);
 	return KEEP_WATCHING;
 }
 
 static void watch_tx_and_outputs(struct channel *channel,
 				 const struct bitcoin_tx *tx);
 
-static enum watch_result onchain_txo_watched(struct channel *channel,
-					     const struct bitcoin_tx *tx,
-					     size_t input_num,
-					     const struct block *block)
+/**
+ * Notify onchaind that an output was spent and register new watches.
+ */
+static void onchain_txo_spent(struct channel *channel, const struct bitcoin_tx *tx, size_t input_num, u32 blockheight)
 {
 	u8 *msg;
 
 	watch_tx_and_outputs(channel, tx);
 
-	msg = towire_onchain_spent(channel, tx, input_num, block->height);
+	msg = towire_onchain_spent(channel, tx, input_num, blockheight);
 	subd_send_msg(channel->owner, take(msg));
+
+}
+
+/**
+ * Entrypoint for the txowatch callback, stores tx and calls onchain_txo_spent.
+ */
+static enum watch_result onchain_txo_watched(struct channel *channel,
+					     const struct bitcoin_tx *tx,
+					     size_t input_num,
+					     const struct block *block)
+{
+	onchain_txo_spent(channel, tx, input_num, block->height);
 
 	/* We don't need to keep watching: If this output is double-spent
 	 * (reorg), we'll get a zero depth cb to onchain_tx_watched, and
@@ -335,10 +358,9 @@ static void onchain_error(struct channel *channel,
 
 /* With a reorg, this can get called multiple times; each time we'll kill
  * onchaind (like any other owner), and restart */
-enum watch_result funding_spent(struct channel *channel,
-				const struct bitcoin_tx *tx,
-				size_t input_num UNUSED,
-				const struct block *block)
+enum watch_result onchaind_funding_spent(struct channel *channel,
+					 const struct bitcoin_tx *tx,
+					 u32 blockheight)
 {
 	u8 *msg;
 	struct bitcoin_txid our_last_txid;
@@ -408,7 +430,7 @@ enum watch_result funding_spent(struct channel *channel,
 				  &channel->channel_info.theirbase.htlc,
 				  &channel->channel_info.theirbase.delayed_payment,
 				  tx,
-				  block->height,
+				  blockheight,
 				  /* FIXME: config for 'reasonable depth' */
 				  3,
 				  channel->last_htlc_sigs,
