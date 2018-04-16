@@ -750,7 +750,8 @@ static const struct json_command pay_command = {
 	"(if and only if {bolt11} does not have amount), "
 	"{description} (required if {bolt11} uses description hash), "
 	"{riskfactor} (default 1.0), "
-	"{maxfeepercent} (default 0.5) the maximum acceptable fee as a percentage (e.g. 0.5 => 0.5%), and "
-	"{retry_for} (default 60) the integer number of seconds before we stop retrying"
+	"{maxfeepercent} (default 0.5) the maximum acceptable fee as a percentage (e.g. 0.5 => 0.5%), "
+	"{retry_for} (default 60) the integer number of seconds before we stop retrying, and "
+	"{maxdelay} (default 500) the maximum number of blocks we allow the funds to possibly get locked"
 };
 AUTODATA(json_command, &pay_command);
