@@ -7,6 +7,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
 #include <ccan/noerr/noerr.h>
+#include <ccan/str/hex/hex.h>
 #include <ccan/str/str.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
@@ -1243,3 +1244,144 @@ static const struct json_command dev_forget_channel_command = {
 };
 AUTODATA(json_command, &dev_forget_channel_command);
 #endif /* DEVELOPER */
+
+/* Dump revoke information to the given json_result. */
+static void
+json_add_revokeinfo(struct json_result *result,
+		    const char *n,
+		    struct channel *channel)
+{
+	struct pubkey our_fundkey;
+	struct basepoints our_basepoints;
+	struct basepoints *their_basepoints;
+	struct secrets our_secrets;
+	u8 *funding_scriptpubkey;
+	const struct shachain *shachain;
+	size_t i;
+	bool res;
+
+	/* Get our fundingkey, basepoints, and secrets. */
+	res = derive_basepoints(&channel->seed,
+				&our_fundkey,
+				&our_basepoints,
+				&our_secrets,
+				NULL);
+	assert(res);
+	/* Get their basepoints. */
+	their_basepoints = &channel->channel_info.theirbase;
+	/* Get shachain containing remote revocation secrets. */
+	shachain = &channel->their_shachain.chain;
+
+	/* Derive funding outpoint scriptpubkey. */
+	funding_scriptpubkey = bitcoin_redeem_2of2(tmpctx,
+						   &our_fundkey,
+						   &channel->channel_info.remote_fundingkey);
+
+	json_object_start(result, n);
+
+	/* Identify funding output. */
+	json_add_txid(result, "funding_txid", &channel->funding_txid);
+	json_add_num(result, "funding_outnum", (unsigned int) channel->funding_outnum);
+	/* Some interfaces index UTXOs by scriptPubKey. */
+	json_add_hex(result, "funding_scriptpubkey",
+		     funding_scriptpubkey, tal_count(funding_scriptpubkey));
+
+	/* Dump needed secret and basepoints. */
+	json_add_hex(result, "our_revocation_basepoint_secret",
+		     &our_secrets.revocation_basepoint_secret,
+		     sizeof(struct secret));
+	json_add_pubkey(result, "their_delayed_payment_basepoint",
+			&their_basepoints->delayed_payment);
+	/* These basepoints need to be shown in pairs of ours, theirs. */
+	json_add_pubkey(result, "our_payment_basepoint",
+			&our_basepoints.payment);
+	json_add_pubkey(result, "their_payment_basepoint",
+			&their_basepoints->payment);
+	json_add_pubkey(result, "our_htlc_basepoint",
+			&our_basepoints.htlc);
+	json_add_pubkey(result, "their_htlc_basepoint",
+			&their_basepoints->htlc);
+
+	/* Dump shachain as a sub-object. */
+	json_object_start(result, "shachain");
+	if (shachain->num_valid != 0)
+		json_add_u64(result, "min_index",
+			     shachain->min_index);
+	json_array_start(result, "known");
+	for (i = 0; i < shachain->num_valid; ++i) {
+		json_object_start(result, NULL);
+		json_add_u64(result, "index",
+			     shachain->known[i].index);
+		json_add_hex(result, "hash",
+			     &shachain->known[i].hash,
+			     sizeof(struct sha256));
+		json_object_end(result);
+	}
+	json_array_end(result); /* known */
+	json_object_end(result); /* shachain */
+
+	json_object_end(result);
+}
+
+/* List revocation information. */
+static void
+json_listrevokeinfos(struct command *cmd, const char *buffer,
+		     const jsmntok_t *params)
+{
+	struct channel_id cid;
+	const jsmntok_t *cidtok;
+	struct peer *peer;
+	struct channel *channel;
+	struct json_result *result = new_json_result(cmd);
+	bool found = false;
+
+	if (!json_get_params(cmd, buffer, params,
+			     "?channel_id", &cidtok,
+			     NULL))
+		return;
+	if (cidtok &&
+	    !hex_decode(buffer + cidtok->start,
+			cidtok->end - cidtok->start,
+			&cid, sizeof(cid))) {
+		command_fail(cmd, "Not a channel ID hex string '%.*s'",
+			     cidtok->end - cidtok->start,
+			     buffer + cidtok->start);
+		return;
+	}
+
+	json_object_start(result, NULL);
+	json_array_start(result, "revokeinfos");
+	list_for_each(&cmd->ld->peers, peer, list) {
+		list_for_each(&peer->channels, channel, list) {
+			struct channel_id channelcid;
+
+			derive_channel_id(&channelcid,
+					  &channel->funding_txid,
+					  channel->funding_outnum);
+			if (cidtok && !structeq(&cid, &channelcid))
+				continue;
+
+			found = true;
+			json_add_revokeinfo(result, NULL, channel);
+		}
+	}
+	json_array_end(result); /*revokeinfos*/
+	json_object_end(result);
+
+	/* If specific channel but cid not found, error. */
+	if (cidtok && !found) {
+		command_fail(cmd, "Channel id '%.*s' not found",
+			     cidtok->end - cidtok->start,
+			     buffer + cidtok->start);
+		return;
+	}
+
+	command_success(cmd, result);
+}
+static const struct json_command listrevokeinfos_command = {
+	"listrevokeinfos", &json_listrevokeinfos,
+	"Get all information needed, to revoke a remote theft "
+	"attempt, for all channels currently open, or, a "
+	"specific channel selected by {channel_id}"
+};
+AUTODATA(json_command, &listrevokeinfos_command);
