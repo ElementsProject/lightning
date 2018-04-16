@@ -1333,13 +1333,10 @@ class LightningDTests(BaseLightningDTests):
                 self.pay(l1, p, 100000000)
 
         # Now close
-        for p in peers:
-            self.assertRaisesRegex(ValueError,
-                                   "Channel close negotiation not finished",
-                                   l1.rpc.close, p.info['id'], False, 0)
+        closes = [self.executor.submit(l1.rpc.close, p.info['id']) for p in peers]
 
-        for p in peers:
-            p.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+        for c in closes:
+            c.result(30)
 
         bitcoind.generate_block(1)
         for p in peers:
@@ -3891,12 +3888,8 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.dev_setfees()
         l1.daemon.wait_for_log('dev-setfees: fees now 21098/7654/321')
 
-        # This should return with an error, then close.
-        self.assertRaisesRegex(ValueError,
-                               "Channel close negotiation not finished",
-                               l1.rpc.close, l2.info['id'], False, 0)
-        l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
-        l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+        # This should return finish closing.
+        l1.rpc.close(l2.info['id'])
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_fee_limits(self):
@@ -3933,12 +3926,8 @@ class LightningDTests(BaseLightningDTests):
         # 15sat/byte fee
         l1.daemon.wait_for_log('peer_out WIRE_REVOKE_AND_ACK')
 
-        # This should return with an error, then close.
-        self.assertRaisesRegex(ValueError,
-                               "Channel close negotiation not finished",
-                               l1.rpc.close, l3.info['id'], False, 0)
-        l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
-        l3.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+        # This should wait for close to complete
+        l1.rpc.close(l3.info['id'])
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_update_fee_reconnect(self):
@@ -3967,11 +3956,7 @@ class LightningDTests(BaseLightningDTests):
         assert l2.daemon.is_in_log('got commitsig [0-9]*: feerate 14000')
 
         # Now shutdown cleanly.
-        self.assertRaisesRegex(ValueError,
-                               "Channel close negotiation not finished",
-                               l1.rpc.close, l2.info['id'], False, 0)
-        l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
-        l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+        l1.rpc.close(l2.info['id'])
 
         # And should put closing into mempool.
         l1.daemon.wait_for_log('sendrawtx exit 0')
@@ -4105,11 +4090,7 @@ class LightningDTests(BaseLightningDTests):
             l2.daemon.wait_for_log('Handing back peer .* to master')
             self.fund_channel(l1, l2, 10**6)
 
-            self.assertRaisesRegex(ValueError,
-                                   "Channel close negotiation not finished",
-                                   l1.rpc.close, l2.info['id'], False, 0)
-            l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
-            l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
+            l1.rpc.close(l2.info['id'])
 
         channels = l1.rpc.listpeers()['peers'][0]['channels']
         assert len(channels) == 3
