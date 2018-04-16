@@ -300,6 +300,12 @@ char *dbmigrations[] = {
     ", rawtx BLOB"
     ", PRIMARY KEY (id)"
     ");",
+    /* -- Detailed payment failure -- */
+    "ALTER TABLE payments ADD faildetail TEXT;",
+    "UPDATE payments"
+    "   SET faildetail = 'unspecified payment failure reason'"
+    " WHERE status = 2;", /* PAYMENT_FAILED */
+    /* -- Detailed payment faiure ends -- */
     NULL,
 };
 

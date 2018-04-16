@@ -735,7 +735,8 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 				 enum onion_type *failcode,
 				 struct pubkey **failnode,
 				 struct short_channel_id **failchannel,
-				 u8 **failupdate);
+				 u8 **failupdate,
+				 char **faildetail);
 /**
  * wallet_payment_set_failinfo - Set failure information for a given
  * `payment_hash`.
@@ -748,7 +749,8 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 				 enum onion_type failcode,
 				 const struct pubkey *failnode,
 				 const struct short_channel_id *failchannel,
-				 const u8 *failupdate);
+				 const u8 *failupdate,
+				 const char *faildetail);
 
 /**
  * wallet_payment_list - Retrieve a list of payments
