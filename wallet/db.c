@@ -290,6 +290,16 @@ char *dbmigrations[] = {
     "     , msatoshi_to_us_max = msatoshi_local"
     "     ;",
     /* -- Min and max msatoshi_to_us ends -- */
+    /* Transactions we are interested in. Either we sent them ourselves or we
+     * are watching them. We don't cascade block height deletes so we don't
+     * forget any of them by accident.*/
+    "CREATE TABLE transactions ("
+    "  id BLOB"
+    ", blockheight INTEGER REFERENCES blocks(height) ON DELETE SET NULL"
+    ", txindex INTEGER"
+    ", rawtx BLOB"
+    ", PRIMARY KEY (id)"
+    ");",
     /* -- Detailed payment failure -- */
     "ALTER TABLE payments ADD faildetail TEXT;",
     "UPDATE payments"
@@ -752,7 +762,7 @@ struct pubkey *sqlite3_column_pubkey_array(const tal_t *ctx,
 		return NULL;
 
 	n = sqlite3_column_bytes(stmt, col) / PUBKEY_DER_LEN;
-	assert(n * PUBKEY_DER_LEN == sqlite3_column_bytes(stmt, col));
+	assert(n * PUBKEY_DER_LEN == (size_t)sqlite3_column_bytes(stmt, col));
 	ret = tal_arr(ctx, struct pubkey, n);
 	ders = sqlite3_column_blob(stmt, col);
 

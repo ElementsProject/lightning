@@ -812,4 +812,28 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 			const u32 outnum, const u32 blockheight,
 			const u32 txindex, const u8 *scriptpubkey,
 			const u64 satoshis);
+
+void wallet_transaction_add(struct wallet *w, const struct bitcoin_tx *tx,
+			    const u32 blockheight, const u32 txindex);
+
+/**
+ * Get the confirmation height of a transaction we are watching by its
+ * txid. Returns 0 if the transaction was not part of any block.
+ */
+u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid);
+
+/**
+ * Locate a transaction in the blockchain, returns NULL if the transaction is
+ * not tracked or is not yet confirmed.
+ */
+struct txlocator *wallet_transaction_locate(const tal_t *ctx, struct wallet *w,
+					    const struct bitcoin_txid *txid);
+
+/**
+ * Get transaction IDs for transactions that we are tracking.
+ */
+struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
+						   struct wallet *w,
+						   const u32 blockheight);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */

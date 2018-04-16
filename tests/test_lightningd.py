@@ -271,8 +271,8 @@ class LightningDTests(BaseLightningDTests):
 
         assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l1.daemon.wait_for_log('Handing back peer .* to master')
+        l2.daemon.wait_for_log('Handing back peer .* to master')
         return l1, l2
 
     # Waits until l1 notices funds
@@ -1148,8 +1148,8 @@ class LightningDTests(BaseLightningDTests):
 
         assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l1.daemon.wait_for_log('Handing back peer .* to master')
+        l2.daemon.wait_for_log('Handing back peer .* to master')
 
         self.give_funds(l1, 10**6 + 1000000)
         self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 10**6)
@@ -2434,7 +2434,7 @@ class LightningDTests(BaseLightningDTests):
 
         assert ret['id'] == l3.info['id']
 
-        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l3.daemon.wait_for_log('Handing back peer .* to master')
         self.fund_channel(l1, l2, 10**6)
         self.fund_channel(l2, l3, 10**6)
 
@@ -2529,14 +2529,14 @@ class LightningDTests(BaseLightningDTests):
         ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l1.daemon.wait_for_log('Handing back peer .* to master')
+        l2.daemon.wait_for_log('Handing back peer .* to master')
 
         ret = l2.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
         assert ret['id'] == l3.info['id']
 
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
-        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l2.daemon.wait_for_log('Handing back peer .* to master')
+        l3.daemon.wait_for_log('Handing back peer .* to master')
 
         c1 = self.fund_channel(l1, l2, 10**6)
         c2 = self.fund_channel(l2, l3, 10**6)
@@ -2633,14 +2633,14 @@ class LightningDTests(BaseLightningDTests):
         ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l1.daemon.wait_for_log('Handing back peer .* to master')
+        l2.daemon.wait_for_log('Handing back peer .* to master')
 
         ret = l2.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
         assert ret['id'] == l3.info['id']
 
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
-        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l2.daemon.wait_for_log('Handing back peer .* to master')
+        l3.daemon.wait_for_log('Handing back peer .* to master')
 
         c1 = self.fund_channel(l1, l2, 10**6)
         c2 = self.fund_channel(l2, l3, 10**6)
@@ -4056,8 +4056,8 @@ class LightningDTests(BaseLightningDTests):
             ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
             assert ret['id'] == l2.info['id']
 
-            l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
-            l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+            l1.daemon.wait_for_log('Handing back peer .* to master')
+            l2.daemon.wait_for_log('Handing back peer .* to master')
             self.fund_channel(l1, l2, 10**6)
 
             l1.rpc.close(l2.info['id'])
@@ -4227,7 +4227,7 @@ class LightningDTests(BaseLightningDTests):
         # and we try to add a block twice when rescanning:
         l1.restart()
 
-        # At height 442 we receive an incoming payment
+        # At height 111 we receive an incoming payment
         hashes = btc.rpc.generate(9)
         btc.rpc.sendtoaddress(addr, 1)
         time.sleep(1)  # mempool is still unpredictable
@@ -4240,15 +4240,17 @@ class LightningDTests(BaseLightningDTests):
         ######################################################################
         # Second failure scenario: perform a 20 block reorg
         btc.rpc.generate(10)
-        blockheight = btc.rpc.getblockcount()
-        wait_for(lambda: l1.rpc.dev_blockheight()['blockheight'] == blockheight)
+        btc.rpc.getblockcount()
+        l1.daemon.wait_for_log(r'Adding block 121: [a-f0-9]{32}')
 
         # Now reorg out with a longer fork of 21 blocks
         btc.rpc.invalidateblock(hashes[0])
-        hashes = btc.rpc.generate(21)
+        btc.wait_for_log(r'InvalidChainFound: invalid block=.*  height=102')
+        hashes = btc.rpc.generate(30)
+        time.sleep(1)
 
-        blockheight = btc.rpc.getblockcount()
-        wait_for(lambda: l1.rpc.dev_blockheight()['blockheight'] == blockheight)
+        btc.rpc.getblockcount()
+        l1.daemon.wait_for_log(r'Adding block 131: [a-f0-9]{32}')
 
         # Our funds got reorged out, we should not have any funds that are confirmed
         assert [o for o in l1.rpc.listfunds()['outputs'] if o['status'] != "unconfirmed"] == []

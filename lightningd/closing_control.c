@@ -21,8 +21,7 @@ static bool better_closing_fee(struct lightningd *ld,
 			       struct channel *channel,
 			       const struct bitcoin_tx *tx)
 {
-	u64 weight, fee, last_fee, ideal_fee, min_fee;
-	s64 old_diff, new_diff;
+	u64 weight, fee, last_fee, min_fee;
 	size_t i;
 
 	/* Calculate actual fee (adds in eliminated outputs) */
@@ -31,7 +30,7 @@ static bool better_closing_fee(struct lightningd *ld,
 		fee -= tx->output[i].amount;
 
 	last_fee = channel->funding_satoshi;
-	for (i = 0; i < tal_count(channel->last_tx); i++)
+	for (i = 0; i < tal_count(channel->last_tx->output); i++)
 		last_fee -= channel->last_tx->output[i].amount;
 
 	log_debug(channel->log, "Their actual closing tx fee is %"PRIu64
@@ -49,23 +48,9 @@ static bool better_closing_fee(struct lightningd *ld,
 		return false;
 	}
 
-	ideal_fee = get_feerate(ld->topology, FEERATE_NORMAL) * weight / 1000;
-
-	/* We prefer fee which is closest to our ideal. */
-	old_diff = imaxabs((s64)ideal_fee - (s64)last_fee);
-	new_diff = imaxabs((s64)ideal_fee - (s64)fee);
-
-	/* In case of a tie, prefer new over old: this covers the preference
-	 * for a mutual close over a unilateral one. */
-	log_debug(channel->log, "... That's %s our ideal %"PRIu64,
-		 new_diff < old_diff
-		 ? "closer to"
-		 : new_diff > old_diff
-		 ? "further from"
-		 : "same distance to",
-		 ideal_fee);
-
-	return new_diff <= old_diff;
+	/* Prefer lower fee: in case of a tie, prefer new over old: this
+	 * covers the preference for a mutual close over a unilateral one. */
+	return fee <= last_fee;
 }
 
 static void peer_received_closing_signature(struct channel *channel,

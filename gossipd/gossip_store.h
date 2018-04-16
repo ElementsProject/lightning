@@ -17,15 +17,12 @@ struct routing_state;
 struct gossip_store *gossip_store_new(const tal_t *ctx);
 
 /**
- * Retrieve the next gossip message if any
+ * Load the initial gossip store, if any.
  *
- * @param ctx The context to allocate the message from
+ * @param rstate The routing state to load init.
  * @param gs  The `gossip_store` to read from
- * @return whether a message was read from the store. False means that all
- * messages have been processed.
  */
-bool gossip_store_read_next(struct routing_state *rstate,
-			    struct gossip_store *gs);
+void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs);
 
 /**
  * Store a channel_announcement with all its extra data

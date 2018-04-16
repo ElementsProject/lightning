@@ -1035,6 +1035,9 @@ static struct io_plan *hand_back_peer(struct io_conn *conn,
 					       &rpeer->inner_msg))
 		master_badmsg(WIRE_GOSSIPCTL_HAND_BACK_PEER, msg);
 
+	status_debug("Handing back peer %s to master",
+		     type_to_string(msg, struct pubkey, &rpeer->id));
+
 	return io_recv_fd(conn, &rpeer->peer_fd,
 			  read_returning_gossipfd, rpeer);
 }
@@ -1097,7 +1100,8 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 				    u8 *msg)
 {
 	struct pubkey source, destination;
-	u32 msatoshi, final_cltv;
+	u64 msatoshi;
+	u32 final_cltv;
 	u16 riskfactor;
 	u8 *out;
 	struct route_hop *hops;
@@ -1108,7 +1112,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 					 &source, &destination,
 					 &msatoshi, &riskfactor, &final_cltv,
 					 &fuzz, &seed);
-	status_trace("Trying to find a route from %s to %s for %d msatoshi",
+	status_trace("Trying to find a route from %s to %s for %"PRIu64" msatoshi",
 		     pubkey_to_hexstr(tmpctx, &source),
 		     pubkey_to_hexstr(tmpctx, &destination), msatoshi);
 
@@ -1550,8 +1554,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 		     gossip_refresh_network, daemon);
 
 	/* Load stored gossip messages */
-	while (gossip_store_read_next(daemon->rstate, daemon->rstate->store)) {
-	}
+	gossip_store_load(daemon->rstate, daemon->rstate->store);
 
 	return daemon_conn_read_next(master->conn, master);
 }
@@ -2017,9 +2020,6 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	struct daemon *daemon = container_of(master, struct daemon, master);
 	enum gossip_wire_type t = fromwire_peektype(master->msg_in);
 
-	status_trace("req: type %s len %zu",
-		     gossip_wire_type_name(t), tal_count(master->msg_in));
-
 	switch (t) {
 	case WIRE_GOSSIPCTL_INIT:
 		return gossip_init(master, daemon, master->msg_in);
@@ -2092,11 +2092,6 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_GET_TXOUT:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLY:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLYFAIL:
-	/* gossip_store messages */
-	case WIRE_GOSSIP_STORE_CHANNEL_ANNOUNCEMENT:
-	case WIRE_GOSSIP_STORE_CHANNEL_UPDATE:
-	case WIRE_GOSSIP_STORE_NODE_ANNOUNCEMENT:
-	case WIRE_GOSSIP_STORE_CHANNEL_DELETE:
 		break;
 	}
 

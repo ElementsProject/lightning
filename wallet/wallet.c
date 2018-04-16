@@ -827,6 +827,10 @@ u32 wallet_first_blocknum(struct wallet *w, u32 first_possible)
 	first_utxo = db_get_intvar(w->db, "last_processed_block", UINT32_MAX);
 #endif
 
+	/* Never go below the start of the Lightning Network */
+	if (first_utxo < first_possible)
+		first_utxo = first_possible;
+
 	if (first_utxo < first_channel)
 		return first_utxo;
 	else
@@ -2163,3 +2167,113 @@ struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 
 	return op;
 }
+
+void wallet_transaction_add(struct wallet *w, const struct bitcoin_tx *tx,
+			    const u32 blockheight, const u32 txindex)
+{
+	struct bitcoin_txid txid;
+	sqlite3_stmt *stmt = db_prepare(w->db, "SELECT blockheight FROM transactions WHERE id=?");
+	bool known;
+
+	bitcoin_txid(tx, &txid);
+	sqlite3_bind_sha256(stmt, 1, &txid.shad.sha);
+	known = sqlite3_step(stmt) == SQLITE_ROW;
+	sqlite3_finalize(stmt);
+
+	if (!known) {
+		/* This transaction is still unknown, insert */
+		stmt = db_prepare(w->db,
+				  "INSERT INTO transactions ("
+				  "  id"
+				  ", blockheight"
+				  ", txindex"
+				  ", rawtx) VALUES (?, ?, ?, ?);");
+		sqlite3_bind_sha256(stmt, 1, &txid.shad.sha);
+		if (blockheight) {
+			sqlite3_bind_int(stmt, 2, blockheight);
+			sqlite3_bind_int(stmt, 3, txindex);
+		} else {
+			sqlite3_bind_null(stmt, 2);
+			sqlite3_bind_null(stmt, 3);
+		}
+		sqlite3_bind_tx(stmt, 4, tx);
+		db_exec_prepared(w->db, stmt);
+	} else if (blockheight){
+		/* We know about the transaction, update */
+		stmt = db_prepare(w->db,
+				  "UPDATE transactions "
+				  "SET blockheight = ?, txindex = ? "
+				  "WHERE id = ?");
+		sqlite3_bind_int(stmt, 1, blockheight);
+		sqlite3_bind_int(stmt, 2, txindex);
+		sqlite3_bind_sha256(stmt, 3, &txid.shad.sha);
+		db_exec_prepared(w->db, stmt);
+	}
+}
+
+u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid)
+{
+	u32 blockheight;
+	sqlite3_stmt *stmt = db_prepare(
+		w->db, "SELECT blockheight FROM transactions WHERE id=?");
+	sqlite3_bind_sha256(stmt, 1, &txid->shad.sha);
+
+	if (sqlite3_step(stmt) != SQLITE_ROW) {
+		sqlite3_finalize(stmt);
+		return 0;
+	}
+
+	blockheight = sqlite3_column_int(stmt, 0);
+	sqlite3_finalize(stmt);
+	return blockheight;
+}
+
+struct txlocator *wallet_transaction_locate(const tal_t *ctx, struct wallet *w,
+					    const struct bitcoin_txid *txid)
+{
+	struct txlocator *loc;
+	sqlite3_stmt *stmt;
+
+	stmt = db_prepare(
+	    w->db, "SELECT blockheight, txindex FROM transactions WHERE id=?");
+	sqlite3_bind_sha256(stmt, 1, &txid->shad.sha);
+
+	if (sqlite3_step(stmt) != SQLITE_ROW) {
+		goto fail;
+
+	}
+	if (sqlite3_column_type(stmt, 0) == SQLITE_NULL)
+		goto fail;
+
+	loc = tal(ctx, struct txlocator);
+	loc->blkheight = sqlite3_column_int(stmt, 0);
+	loc->index = sqlite3_column_int(stmt, 1);
+	sqlite3_finalize(stmt);
+	return loc;
+
+fail:
+	sqlite3_finalize(stmt);
+	return NULL;
+}
+
+struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
+						   struct wallet *w,
+						   const u32 blockheight)
+{
+	sqlite3_stmt *stmt;
+	struct bitcoin_txid *txids = tal_arr(ctx, struct bitcoin_txid, 0);
+	int count = 0;
+	stmt = db_prepare(
+	    w->db, "SELECT id FROM transactions WHERE blockheight=?");
+	sqlite3_bind_int(stmt, 1, blockheight);
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		count++;
+		tal_resize(&txids, count);
+		sqlite3_column_sha256(stmt, 0, &txids[count-1].shad.sha);
+	}
+	sqlite3_finalize(stmt);
+
+	return txids;
+}
+
