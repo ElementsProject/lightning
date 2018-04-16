@@ -11,6 +11,7 @@
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
+#include <string.h>
 
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
 #define DIRECTION_INCOMING 0
@@ -1770,7 +1771,8 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 				 enum onion_type *failcode,
 				 struct pubkey **failnode,
 				 struct short_channel_id **failchannel,
-				 u8 **failupdate)
+				 u8 **failupdate,
+				 char **faildetail)
 {
 	sqlite3_stmt *stmt;
 	int res;
@@ -1781,7 +1783,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 			  "SELECT failonionreply, faildestperm"
 			  "     , failindex, failcode"
 			  "     , failnode, failchannel"
-			  "     , failupdate"
+			  "     , failupdate, faildetail"
 			  "  FROM payments"
 			  " WHERE payment_hash=?;");
 	sqlite3_bind_sha256(stmt, 1, payment_hash);
@@ -1818,6 +1820,8 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 		*failupdate = tal_arr(ctx, u8, len);
 		memcpy(*failupdate, sqlite3_column_blob(stmt, 6), len);
 	}
+	*faildetail = tal_strndup(ctx, sqlite3_column_blob(stmt, 7),
+				  sqlite3_column_bytes(stmt, 7));
 
 	sqlite3_finalize(stmt);
 }
@@ -1830,7 +1834,8 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 				 enum onion_type failcode,
 				 const struct pubkey *failnode,
 				 const struct short_channel_id *failchannel,
-				 const u8 *failupdate /*tal_arr*/)
+				 const u8 *failupdate /*tal_arr*/,
+				 const char *faildetail)
 {
 	sqlite3_stmt *stmt;
 
@@ -1843,6 +1848,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 			  "     , failnode=?"
 			  "     , failchannel=?"
 			  "     , failupdate=?"
+			  "     , faildetail=?"
 			  " WHERE payment_hash=?;");
 	if (failonionreply)
 		sqlite3_bind_blob(stmt, 1,
@@ -1871,8 +1877,11 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 				  SQLITE_TRANSIENT);
 	else
 		sqlite3_bind_null(stmt, 7);
+	sqlite3_bind_blob(stmt, 8,
+			  faildetail, strlen(faildetail),
+			  SQLITE_TRANSIENT);
 
-	sqlite3_bind_sha256(stmt, 8, payment_hash);
+	sqlite3_bind_sha256(stmt, 9, payment_hash);
 
 	db_exec_prepared(wallet->db, stmt);
 }
