@@ -241,7 +241,7 @@ int main(int argc, char *argv[])
 				  pseudorand(100000),
 				  riskfactor,
 				  0.75, &base_seed,
-				  &fee);
+				  &fee, 1.0, 1.0);
 		num_success += (route != NULL);
 		tal_free(route);
 	}

@@ -507,6 +507,7 @@ static bool json_pay_try(struct pay *pay)
 	struct siphash_seed seed;
 	u64 maxoverpayment;
 	u64 overpayment;
+	double feecostbias = 1.0;
 
 	/* If too late anyway, fail now. */
 	if (time_after(now, pay->expiry)) {
@@ -558,7 +559,8 @@ static bool json_pay_try(struct pay *pay)
 					     pay->riskfactor,
 					     pay->min_final_cltv_expiry,
 					     &pay->fuzz,
-					     &seed);
+					     &seed,
+					     &feecostbias);
 	subd_req(pay->try_parent, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
 
 	return true;

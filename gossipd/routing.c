@@ -273,7 +273,7 @@ static u64 connection_fee(const struct half_chan *c, u64 msatoshi)
 
 /* Risk of passing through this channel.  We insert a tiny constant here
  * in order to prefer shorter routes, all things equal. */
-static u64 risk_fee(u64 amount, u32 delay, double riskfactor)
+static u64 risk_fee(double amount, double delay, double riskfactor)
 {
 	return 1 + amount * delay * riskfactor;
 }
@@ -283,7 +283,8 @@ static u64 risk_fee(u64 amount, u32 delay, double riskfactor)
 static void bfg_one_edge(struct node *node,
 			 struct chan *chan, int idx,
 			 double riskfactor,
-			 double fuzz, const struct siphash_seed *base_seed)
+			 double fuzz, const struct siphash_seed *base_seed,
+			 double feecostfactor, double delaycostfactor)
 {
 	size_t h;
 	double fee_scale = 1.0;
@@ -300,6 +301,8 @@ static void bfg_one_edge(struct node *node,
 		fee_scale = 1.0 + (2.0 * fuzz * h / UINT64_MAX) - fuzz;
 	}
 
+	fee_scale *= feecostfactor;
+
 	for (h = 0; h < ROUTING_MAX_HOPS; h++) {
 		struct node *src;
 		/* FIXME: Bias against smaller channels. */
@@ -311,7 +314,8 @@ static void bfg_one_edge(struct node *node,
 
 		fee = connection_fee(c, node->bfg[h].total) * fee_scale;
 		risk = node->bfg[h].risk + risk_fee(node->bfg[h].total + fee,
-						    c->delay, riskfactor);
+						    c->delay * delaycostfactor,
+						    riskfactor);
 
 		if (node->bfg[h].total + fee + risk >= MAX_MSATOSHI) {
 			SUPERVERBOSE("...extreme %"PRIu64
@@ -348,7 +352,8 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	   const struct pubkey *from, const struct pubkey *to, u64 msatoshi,
 	   double riskfactor,
 	   double fuzz, const struct siphash_seed *base_seed,
-	   u64 *fee)
+	   u64 *fee,
+	   double feecostfactor, double delaycostfactor)
 {
 	struct chan **route;
 	struct node *n, *src, *dst;
@@ -413,7 +418,8 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 					continue;
 				}
 				bfg_one_edge(n, chan, idx,
-					     riskfactor, fuzz, base_seed);
+					     riskfactor, fuzz, base_seed,
+					     feecostfactor, delaycostfactor);
 				SUPERVERBOSE("...done");
 			}
 		}
@@ -1268,7 +1274,8 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    const struct pubkey *destination,
 			    const u64 msatoshi, double riskfactor,
 			    u32 final_cltv,
-			    double fuzz, const struct siphash_seed *base_seed)
+			    double fuzz, const struct siphash_seed *base_seed,
+			    double feecostbias)
 {
 	struct chan **route;
 	u64 total_amount;
@@ -1277,10 +1284,13 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 	struct route_hop *hops;
 	int i;
 	struct node *n;
+	double feecostfactor = feecostbias;
+	double delaycostfactor = 2.0 - feecostbias;
 
 	route = find_route(ctx, rstate, source, destination, msatoshi,
 			   riskfactor / BLOCKS_PER_YEAR / 10000,
-			   fuzz, base_seed, &fee);
+			   fuzz, base_seed, &fee,
+			   feecostfactor, delaycostfactor);
 
 	if (!route) {
 		return NULL;

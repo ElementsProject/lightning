@@ -179,7 +179,7 @@ int main(void)
 	nc->flags = 1;
 	nc->last_timestamp = 1504064344;
 
-	route = find_route(tmpctx, rstate, &a, &c, 100000, riskfactor, 0.0, NULL, &fee);
+	route = find_route(tmpctx, rstate, &a, &c, 100000, riskfactor, 0.0, NULL, &fee, 1.0, 1.0);
 	assert(route);
 	assert(tal_count(route) == 2);
 	assert(channel_is_between(route[0], &a, &b));
