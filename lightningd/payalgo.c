@@ -110,6 +110,8 @@ struct pay {
 
 	/* Current fuzz we pass into getroute. */
 	double fuzz;
+	/* Current feecostbias we pass into getroute. */
+	double feecostbias;
 
 	/* Parent of the current pay attempt. This object is
 	 * freed, then allocated at the start of each pay
@@ -178,6 +180,20 @@ add_pay_failure(struct pay *pay,
 	pay->route = NULL;
 }
 
+/* Must be called within object context! */
+static void
+json_add_pay_info(struct json_result *response, const struct pay *pay)
+{
+	json_add_num(response, "getroute_tries", pay->getroute_tries);
+	json_add_num(response, "sendpay_tries", pay->sendpay_tries);
+	json_add_double(response, "fuzz", pay->fuzz);
+	json_add_double(response, "feecostbias", pay->feecostbias);
+	if (tal_count(pay->route) != 0)
+		json_add_route(response, "route",
+			       pay->route, tal_count(pay->route));
+	json_add_failures(response, "failures", &pay->pay_failures);
+}
+
 static void
 json_pay_success(struct pay *pay,
 		 const struct sendpay_result *r)
@@ -188,11 +204,7 @@ json_pay_success(struct pay *pay,
 	response = new_json_result(cmd);
 	json_object_start(response, NULL);
 	json_add_payment_fields(response, r->payment);
-	json_add_num(response, "getroute_tries", pay->getroute_tries);
-	json_add_num(response, "sendpay_tries", pay->sendpay_tries);
-	json_add_route(response, "route",
-		       pay->route, tal_count(pay->route));
-	json_add_failures(response, "failures", &pay->pay_failures);
+	json_add_pay_info(response, pay);
 	json_object_end(response);
 	command_success(cmd, response);
 }
@@ -211,10 +223,8 @@ static void json_pay_failure(struct pay *pay,
 	switch (r->errorcode) {
 	case PAY_IN_PROGRESS:
 		json_object_start(data, NULL);
-		json_add_num(data, "getroute_tries", pay->getroute_tries);
-		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
 		json_add_payment_fields(data, r->payment);
-		json_add_failures(data, "failures", &pay->pay_failures);
+		json_add_pay_info(data, pay);
 		json_object_end(data);
 		msg = r->details;
 		break;
@@ -222,9 +232,7 @@ static void json_pay_failure(struct pay *pay,
 	case PAY_RHASH_ALREADY_USED:
 	case PAY_STOPPED_RETRYING:
 		json_object_start(data, NULL);
-		json_add_num(data, "getroute_tries", pay->getroute_tries);
-		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
-		json_add_failures(data, "failures", &pay->pay_failures);
+		json_add_pay_info(data, pay);
 		json_object_end(data);
 		msg = r->details;
 		break;
@@ -249,7 +257,7 @@ static void json_pay_failure(struct pay *pay,
 			json_add_hex(data, "channel_update",
 				     fail->channel_update,
 				     tal_len(fail->channel_update));
-		json_add_failures(data, "failures", &pay->pay_failures);
+		json_add_pay_info(data, pay);
 		json_object_end(data);
 
 		assert(r->details != NULL);
@@ -413,9 +421,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	if (tal_count(route) == 0) {
 		data = new_json_result(pay);
 		json_object_start(data, NULL);
-		json_add_num(data, "getroute_tries", pay->getroute_tries);
-		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
-		json_add_failures(data, "failures", &pay->pay_failures);
+		json_add_pay_info(data, pay);
 		json_object_end(data);
 		command_fail_detailed(pay->cmd, PAY_ROUTE_NOT_FOUND, data,
 				      "Could not find a route");
@@ -444,11 +450,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 		json_add_double(data, "maxfeepercent", pay->maxfeepercent);
 		json_add_u64(data, "delay", (u64) route[0].delay);
 		json_add_num(data, "maxdelay", pay->maxdelay);
-		json_add_num(data, "getroute_tries", pay->getroute_tries);
-		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
-		json_add_route(data, "route",
-			       route, tal_count(route));
-		json_add_failures(data, "failures", &pay->pay_failures);
+		json_add_pay_info(data, pay);
 		json_object_end(data);
 
 		err = "";
@@ -476,7 +478,16 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	}
 	if (fee_too_high || delay_too_high) {
 		/* Retry with lower fuzz */
-		pay->fuzz -= 0.15;
+		pay->fuzz -= 0.05;
+		/* Adjust feecostbias if appropriate. */
+		if (fee_too_high && !delay_too_high && pay->feecostbias < 1.8)
+			pay->feecostbias += 0.125;
+		else if (!fee_too_high && delay_too_high && pay->feecostbias > 0.2)
+			pay->feecostbias -= 0.125;
+		else
+			/* Both too high, or already saturated feecostbias. */
+			pay->fuzz -= 0.1;
+
 		if (pay->fuzz <= 0.0)
 			pay->fuzz = 0.0;
 		json_pay_try(pay);
@@ -507,7 +518,6 @@ static bool json_pay_try(struct pay *pay)
 	struct siphash_seed seed;
 	u64 maxoverpayment;
 	u64 overpayment;
-	double feecostbias = 1.0;
 
 	/* If too late anyway, fail now. */
 	if (time_after(now, pay->expiry)) {
@@ -515,9 +525,7 @@ static bool json_pay_try(struct pay *pay)
 		json_object_start(data, NULL);
 		json_add_num(data, "now", now.ts.tv_sec);
 		json_add_num(data, "expiry", pay->expiry.ts.tv_sec);
-		json_add_num(data, "getroute_tries", pay->getroute_tries);
-		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
-		json_add_failures(data, "failures", &pay->pay_failures);
+		json_add_pay_info(data, pay);
 		json_object_end(data);
 		command_fail_detailed(cmd, PAY_INVOICE_EXPIRED, data,
 				      "Invoice expired");
@@ -560,7 +568,7 @@ static bool json_pay_try(struct pay *pay)
 					     pay->min_final_cltv_expiry,
 					     &pay->fuzz,
 					     &seed,
-					     &feecostbias);
+					     &pay->feecostbias);
 	subd_req(pay->try_parent, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
 
 	return true;
@@ -723,6 +731,10 @@ static void json_pay(struct command *cmd,
 	 * advantage of that to increase randomization and
 	 * improve privacy somewhat. */
 	pay->fuzz = 0.75;
+	/* Start with middle feecostbias. We will adjust it upwards, if
+	 * fee is high but delay is not, and adjust it downwards, if
+	 * delay is high but fee is not. */
+	pay->feecostbias = 1.0;
 	pay->try_parent = NULL;
 	/* Start with no route */
 	pay->route = NULL;
