@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
-#include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/peer_control.h>
@@ -468,4 +467,48 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 
 	/* We keep watching until peer finally deleted, for reorgs. */
 	return KEEP_WATCHING;
+}
+
+void onchaind_replay_channels(struct lightningd *ld)
+{
+	u32 *onchaind_ids;
+	struct channeltx *txs;
+	struct channel *chan;
+
+	db_begin_transaction(ld->wallet->db);
+	onchaind_ids = wallet_onchaind_channels(ld->wallet, ld);
+
+	for (size_t i = 0; i < tal_count(onchaind_ids); i++) {
+		log_info(ld->log, "Restarting onchaind for channel %d",
+			 onchaind_ids[i]);
+
+		txs = wallet_channeltxs_get(ld->wallet, onchaind_ids,
+					    onchaind_ids[i]);
+		chan = channel_by_dbid(ld, onchaind_ids[i]);
+
+		for (size_t j = 0; j < tal_count(txs); j++) {
+			if (txs[j].type == WIRE_ONCHAIN_INIT) {
+				onchaind_funding_spent(chan, txs[j].tx,
+						       txs[j].blockheight);
+
+			} else if (txs[j].type == WIRE_ONCHAIN_SPENT) {
+				onchain_txo_spent(chan, txs[j].tx,
+						  txs[j].input_num,
+						  txs[j].blockheight);
+
+			} else if (txs[j].type == WIRE_ONCHAIN_DEPTH) {
+				onchain_tx_depth(chan, &txs[j].txid,
+						 txs[j].depth);
+
+			} else {
+				fatal("unknown message of type %d during "
+				      "onchaind replay",
+				      txs[j].type);
+			}
+		}
+		tal_free(txs);
+	}
+	tal_free(onchaind_ids);
+
+	db_commit_transaction(ld->wallet->db);
 }
