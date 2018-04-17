@@ -767,29 +767,6 @@ void wallet_channel_stats_load(struct wallet *w,
 	stats->out_msatoshi_fulfilled = sqlite3_column_int64(stmt, 7);
 }
 
-#ifdef COMPAT_V052
-/* Upgrade of db (or initial create): do we have anything to scan for? */
-static bool wallet_ever_used(struct wallet *w)
-{
-	sqlite3_stmt *stmt;
-	bool channel_utxos;
-
-	/* If we ever handed out an address. */
-	if (db_get_intvar(w->db, "bip32_max_index", 0) != 0)
-		return true;
-
-	/* Or if they do a unilateral close, the output to us provides a UTXO. */
-	stmt = db_query(__func__, w->db,
-			"SELECT COUNT(*) FROM outputs WHERE commitment_point IS NOT NULL;");
-	int ret = sqlite3_step(stmt);
-	assert(ret == SQLITE_ROW);
-	channel_utxos = (sqlite3_column_int(stmt, 0) != 0);
-	sqlite3_finalize(stmt);
-
-	return channel_utxos;
-}
-#endif
-
 /* We want the earlier of either:
  * 1. The first channel we're still watching (it might have closed),
  * 2. The last block we scanned for UTXO (might have new incoming payments)
@@ -799,43 +776,16 @@ static bool wallet_ever_used(struct wallet *w)
  */
 u32 wallet_first_blocknum(struct wallet *w, u32 first_possible)
 {
-	int err;
-	u32 first_channel, first_utxo;
-	sqlite3_stmt *stmt =
-	    db_query(__func__, w->db,
-		     "SELECT MIN(first_blocknum) FROM channels;");
+	u32 blockheight;
+	sqlite3_stmt *stmt = db_prepare(w->db, "SELECT MAX(height) FROM blocks;");
 
-	/* If we ever opened a channel, this will give us the first block. */
-	err = sqlite3_step(stmt);
-	if (err == SQLITE_ROW && sqlite3_column_type(stmt, 0) != SQLITE_NULL)
-		first_channel = sqlite3_column_int(stmt, 0);
-	else
-		first_channel = UINT32_MAX;
-	sqlite3_finalize(stmt);
-
-#ifdef COMPAT_V052
-	/* This field was missing in older databases. */
-	first_utxo = db_get_intvar(w->db, "last_processed_block", 0);
-	if (first_utxo == 0) {
-		/* Don't know?  New db, or upgraded. */
-		if (wallet_ever_used(w))
-			/* Be conservative */
-			first_utxo = first_possible;
-		else
-			first_utxo = UINT32_MAX;
-	}
-#else
-	first_utxo = db_get_intvar(w->db, "last_processed_block", UINT32_MAX);
-#endif
-
-	/* Never go below the start of the Lightning Network */
-	if (first_utxo < first_possible)
-		first_utxo = first_possible;
-
-	if (first_utxo < first_channel)
-		return first_utxo;
-	else
-		return first_channel;
+	/* If we ever processed a block we'll get the latest block in the chain */
+	if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_type(stmt, 0) != SQLITE_NULL) {
+		blockheight = sqlite3_column_int(stmt, 0);
+		sqlite3_finalize(stmt);
+		return blockheight;
+	} else
+		return first_possible;
 }
 
 static void wallet_channel_config_insert(struct wallet *w,
