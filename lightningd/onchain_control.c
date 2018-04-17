@@ -71,6 +71,7 @@ static enum watch_result onchain_tx_watched(struct channel *channel,
 					    const struct bitcoin_txid *txid,
 					    unsigned int depth)
 {
+	u32 blockheight = channel->peer->ld->topology->tip->height;
 	if (depth == 0) {
 		log_unusual(channel->log, "Chain reorganization!");
 		channel_set_owner(channel, NULL);
@@ -82,6 +83,10 @@ static enum watch_result onchain_tx_watched(struct channel *channel,
 		/* We will most likely be freed, so this is a noop */
 		return KEEP_WATCHING;
 	}
+
+	/* Store the channeltx so we can replay later */
+	wallet_channeltxs_add(channel->peer->ld->wallet, channel,
+			      WIRE_ONCHAIN_DEPTH, txid, 0, blockheight);
 
 	onchain_tx_depth(channel, txid, depth);
 	return KEEP_WATCHING;
@@ -112,6 +117,14 @@ static enum watch_result onchain_txo_watched(struct channel *channel,
 					     size_t input_num,
 					     const struct block *block)
 {
+	struct bitcoin_txid txid;
+	bitcoin_txid(tx, &txid);
+
+	/* Store the channeltx so we can replay later */
+	wallet_channeltxs_add(channel->peer->ld->wallet, channel,
+			      WIRE_ONCHAIN_SPENT, &txid, input_num,
+			      block->height);
+
 	onchain_txo_spent(channel, tx, input_num, block->height);
 
 	/* We don't need to keep watching: If this output is double-spent
