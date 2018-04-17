@@ -59,8 +59,10 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 			out.index = tx->input[j].index;
 
 			txo = txowatch_hash_get(&topo->txowatches, &out);
-			if (txo)
+			if (txo) {
+				wallet_transaction_add(topo->wallet, tx, b->height, i);
 				txowatch_fire(txo, tx, j, b);
+			}
 		}
 
 		satoshi_owned = 0;
