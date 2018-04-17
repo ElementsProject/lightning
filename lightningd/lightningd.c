@@ -30,6 +30,7 @@
 #include <lightningd/invoice.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
+#include <lightningd/onchain_control.h>
 #include <lightningd/options.h>
 #include <onchaind/onchain_wire.h>
 #include <signal.h>
@@ -368,6 +369,9 @@ int main(int argc, char *argv[])
 		       &ld->timers,
 		       ld->config.poll_time,
 		       first_blocknum);
+
+	/* Replay transactions for all running onchainds */
+	onchaind_replay_channels(ld);
 
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(ld, ld->rpc_filename);

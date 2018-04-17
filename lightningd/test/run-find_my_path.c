@@ -74,6 +74,9 @@ struct log_book *new_log_book(size_t max_mem UNNEEDED,
 /* Generated stub for new_topology */
 struct chain_topology *new_topology(struct lightningd *ld UNNEEDED, struct log *log UNNEEDED)
 { fprintf(stderr, "new_topology called!\n"); abort(); }
+/* Generated stub for onchaind_replay_channels */
+void onchaind_replay_channels(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "onchaind_replay_channels called!\n"); abort(); }
 /* Generated stub for register_opts */
 void register_opts(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "register_opts called!\n"); abort(); }
