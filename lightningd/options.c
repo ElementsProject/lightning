@@ -309,6 +309,10 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--fee-base", opt_set_u32, opt_show_u32,
 			 &ld->config.fee_base,
 			 "Millisatoshi minimum to charge for HTLC");
+	opt_register_arg("--rescan", opt_set_s32, opt_show_s32,
+			 &ld->config.rescan,
+			 "Number of blocks to rescan from the current head, or "
+			 "absolute blockheight if negative");
 	opt_register_arg("--fee-per-satoshi", opt_set_s32, opt_show_s32,
 			 &ld->config.fee_per_satoshi,
 			 "Microsatoshi fee for every satoshi in HTLC");
@@ -420,6 +424,9 @@ static const struct config testnet_config = {
 
 	/* Testnet sucks */
 	.ignore_fee_limits = true,
+
+	/* Rescan 5 hours of blocks on testnet, it's reorg happy */
+	.rescan = 30,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -481,6 +488,9 @@ static const struct config mainnet_config = {
 
 	/* Mainnet should have more stable fees */
 	.ignore_fee_limits = false,
+
+	/* Rescan 2.5 hours of blocks on startup, it's not so reorg happy */
+	.rescan = 15,
 };
 
 static void check_config(struct lightningd *ld)
