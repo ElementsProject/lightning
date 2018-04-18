@@ -1333,10 +1333,16 @@ class LightningDTests(BaseLightningDTests):
                 self.pay(l1, p, 100000000)
 
         # Now close
-        closes = [self.executor.submit(l1.rpc.close, p.info['id']) for p in peers]
+        # All closes occur in parallel, and on Travis,
+        # ALL those lightningd are running on a single core,
+        # so increase the timeout so that this test will pass
+        # when valgrind is enabled.
+        # (close timeout defaults to 30 as of this writing, more
+        # than double the default)
+        closes = [self.executor.submit(l1.rpc.close, p.info['id'], False, 72) for p in peers]
 
         for c in closes:
-            c.result(30)
+            c.result(72)
 
         bitcoind.generate_block(1)
         for p in peers:
