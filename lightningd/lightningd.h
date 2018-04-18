@@ -72,6 +72,10 @@ struct config {
 
 	/* Do we let the funder set any fee rate they want */
 	bool ignore_fee_limits;
+
+	/* Number of blocks to rescan from the current head, or absolute
+	 * blockheight if rescan >= 500'000 */
+	s32 rescan;
 };
 
 struct lightningd {
