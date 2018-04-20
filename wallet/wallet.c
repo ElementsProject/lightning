@@ -767,14 +767,7 @@ void wallet_channel_stats_load(struct wallet *w,
 	stats->out_msatoshi_fulfilled = sqlite3_column_int64(stmt, 7);
 }
 
-/* We want the earlier of either:
- * 1. The first channel we're still watching (it might have closed),
- * 2. The last block we scanned for UTXO (might have new incoming payments)
- *
- * chaintopology actually subtracts another 100 blocks to make sure we
- * catch chain forks.
- */
-u32 wallet_first_blocknum(struct wallet *w, u32 first_possible)
+u32 wallet_blocks_height(struct wallet *w, u32 def)
 {
 	u32 blockheight;
 	sqlite3_stmt *stmt = db_prepare(w->db, "SELECT MAX(height) FROM blocks;");
@@ -785,7 +778,7 @@ u32 wallet_first_blocknum(struct wallet *w, u32 first_possible)
 		sqlite3_finalize(stmt);
 		return blockheight;
 	} else
-		return first_possible;
+		return def;
 }
 
 static void wallet_channel_config_insert(struct wallet *w,
