@@ -2735,6 +2735,46 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.sendpay(to_json(route), rhash)
         l1.rpc.waitsendpay(rhash)
 
+    def test_forward_via_private(self):
+        """Test forwarding via private routes.
+        """
+        # Connect 1 -> 2 -> 3.
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node()
+        ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        assert ret['id'] == l2.info['id']
+        ret = l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+        assert ret['id'] == l3.info['id']
+
+        l3.daemon.wait_for_log('Handing back peer .* to master')
+
+        # Give money to l1 and l2 now.
+        self.give_funds(l1, 10**6 + 1000000)
+        self.give_funds(l2, 10**6 + 1000000)
+
+        # Create channel for l1->l2
+        l1.rpc.fundchannel(l2.info['id'], 10**6)
+        # Wait for route propagation to l1 gossipd
+        l1.bitcoin.generate_block(7)
+        time.sleep(1)
+
+        # Initiate channel to l2->l3
+        num_tx = len(l1.bitcoin.rpc.getrawmempool())
+        l2.rpc.fundchannel(l3.info['id'], 10**6)
+        wait_for(lambda: len(l1.bitcoin.rpc.getrawmempool()) == num_tx + 1)
+        # Confirm once for funding_locked but below announce_depth.
+        l3.bitcoin.generate_block(1)
+        # Wait for l3 to log this!
+        l3.daemon.wait_for_log('State changed from CHANNELD_AWAITING_LOCKIN to CHANNELD_NORMAL')
+
+        # Generate an invoice at l3.
+        inv = l3.rpc.invoice(msatoshi=123000, label='inv', description='inv', maxroutes=1)['bolt11']
+        b11 = l3.rpc.decodepay(inv)
+        assert len(b11['routes']) == 1
+        # Pay at l1 must succeed.
+        l1.rpc.pay(inv)
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_forward_different_fees_and_cltv(self):
         # FIXME: Check BOLT quotes here too
