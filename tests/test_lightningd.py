@@ -4476,6 +4476,40 @@ class LightningDTests(BaseLightningDTests):
         self.assertRaisesRegex(ValueError, "Peer is not in gossip mode",
                                l1.rpc.disconnect, l3.info['id'])
 
+    def test_rescan(self):
+        """Test the rescan option
+        """
+        l1 = self.node_factory.get_node()
+        btc = l1.bitcoin
+
+        # The first start should start at current_height - 30 = 71, make sure
+        # it's not earlier
+        l1.daemon.wait_for_log(r'Adding block 101')
+        assert not l1.daemon.is_in_log(r'Adding block 70')
+
+        # Restarting with a higher rescan should go back further
+        l1.daemon.opts['rescan'] = 50
+        l1.restart()
+        l1.daemon.wait_for_log(r'Adding block 101')
+        assert l1.daemon.is_in_log(r'Adding block 51')
+        assert not l1.daemon.is_in_log(r'Adding block 50')
+
+        # Restarting with an absolute rescan should start from there
+        l1.daemon.opts['rescan'] = -31
+        l1.restart()
+        l1.daemon.wait_for_log(r'Adding block 101')
+        assert l1.daemon.is_in_log(r'Adding block 31')
+        assert not l1.daemon.is_in_log(r'Adding block 30')
+
+        # Restarting with a future absolute blockheight should just start with
+        # the current height
+        l1.daemon.opts['rescan'] = -500000
+        l1.stop()
+        btc.rpc.generate(4)
+        l1.daemon.start()
+        l1.daemon.wait_for_log(r'Adding block 105')
+        assert not l1.daemon.is_in_log(r'Adding block 102')
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
