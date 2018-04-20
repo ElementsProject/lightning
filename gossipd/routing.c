@@ -1095,9 +1095,9 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 	u8 *features, *addresses;
 	struct wireaddr *wireaddrs;
 	fromwire_node_announcement(tmpctx, msg,
-	                           &signature, &features, &timestamp,
-	                           &node_id, rgb_color, alias,
-	                           &addresses);
+				   &signature, &features, &timestamp,
+				   &node_id, rgb_color, alias,
+				   &addresses);
 
 	node = get_node(rstate, &node_id);
 
@@ -1116,8 +1116,8 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 	node->alias = tal_dup_arr(node, u8, alias, 32, 0);
 
 	replace_broadcast(node, rstate->broadcasts,
-	                  &node->node_announce_msgidx,
-	                  msg);
+			  &node->node_announce_msgidx,
+			  msg);
 	return true;
 }
 

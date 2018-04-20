@@ -68,7 +68,7 @@ void towire_route_hop(u8 **pptr, const struct route_hop *entry)
 }
 
 void fromwire_gossip_getchannels_entry(const u8 **pptr, size_t *max,
-				      struct gossip_getchannels_entry *entry)
+				       struct gossip_getchannels_entry *entry)
 {
 	fromwire_short_channel_id(pptr, max, &entry->short_channel_id);
 	fromwire_pubkey(pptr, max, &entry->source);
@@ -86,7 +86,7 @@ void fromwire_gossip_getchannels_entry(const u8 **pptr, size_t *max,
 }
 
 void towire_gossip_getchannels_entry(u8 **pptr,
-	const struct gossip_getchannels_entry *entry)
+				     const struct gossip_getchannels_entry *entry)
 {
 	towire_short_channel_id(pptr, &entry->short_channel_id);
 	towire_pubkey(pptr, &entry->source);
