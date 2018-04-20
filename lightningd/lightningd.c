@@ -276,7 +276,7 @@ int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
 	bool newdir;
-	u32 first_blocknum;
+	u32 blockheight;
 
 	daemon_setup(argv[0], log_backtrace_print, log_backtrace_exit);
 	ld = new_lightningd(NULL);
@@ -351,10 +351,20 @@ int main(int argc, char *argv[])
 	if (!wallet_htlcs_reconnect(ld->wallet, &ld->htlcs_in, &ld->htlcs_out))
 		fatal("could not reconnect htlcs loaded from wallet, wallet may be inconsistent.");
 
-	/* Worst case, scan back to the first lightning deployment */
-	first_blocknum = wallet_first_blocknum(ld->wallet,
-					       get_chainparams(ld)
-					       ->when_lightning_became_cool);
+	/* Get the blockheight we are currently at, UINT32_MAX is used to signal
+	 * an unitialized wallet and that we should start off of bitcoind's
+	 * current height */
+	blockheight = wallet_blocks_height(ld->wallet, UINT32_MAX);
+
+	/* If we were asked to rescan from an absolute height (--rescan < 0)
+	 * then just go there. Otherwise take compute the diff to our current
+	 * height, lowerbounded by 0. */
+	if (ld->config.rescan < 0)
+		blockheight = -ld->config.rescan;
+	else if (blockheight < (u32)ld->config.rescan)
+		blockheight = 0;
+	else if (blockheight != UINT32_MAX)
+		blockheight -= ld->config.rescan;
 
 	db_commit_transaction(ld->wallet->db);
 
@@ -362,7 +372,7 @@ int main(int argc, char *argv[])
 	setup_topology(ld->topology,
 		       &ld->timers,
 		       ld->config.poll_time,
-		       first_blocknum);
+		       blockheight);
 
 	/* Replay transactions for all running onchainds */
 	onchaind_replay_channels(ld);

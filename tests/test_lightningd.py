@@ -3486,6 +3486,7 @@ class LightningDTests(BaseLightningDTests):
     def test_funding_while_offline(self):
         l1 = self.node_factory.get_node()
         addr = l1.rpc.newaddr()['address']
+        sync_blockheight([l1])
 
         # l1 goes down.
         l1.stop()

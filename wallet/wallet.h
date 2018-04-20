@@ -314,12 +314,15 @@ void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 cdbid, u64 ms
 void wallet_channel_stats_load(struct wallet *w, u64 cdbid, struct channel_stats *stats);
 
 /**
- * wallet_first_blocknum - get first block we're interested in.
+ * Retrieve the blockheight of the last block processed by lightningd.
+ *
+ * Will return either the maximal blockheight or the default value if the wallet
+ * was never used before.
  *
  * @w: wallet to load from.
- * @first_possible: when c-lightning may have been active from
+ * @def: the default value to return if we've never used the wallet before
  */
-u32 wallet_first_blocknum(struct wallet *w, u32 first_possible);
+u32 wallet_blocks_height(struct wallet *w, u32 def);
 
 /**
  * wallet_extract_owned_outputs - given a tx, extract all of our outputs
