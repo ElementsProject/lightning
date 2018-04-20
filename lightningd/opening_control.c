@@ -839,7 +839,7 @@ static void json_fund_channel(struct command *cmd,
 	bool all_funds = false;
 	struct funding_channel * fc;
 	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
-    u64 fee_estimate;
+	u64 fee_estimate;
 	u8 *msg;
 
 	if (!json_get_params(cmd, buffer, params,
@@ -856,7 +856,6 @@ static void json_fund_channel(struct command *cmd,
 
 	if (json_tok_streq(buffer, sattok, "all")) {
 		all_funds = true;
-
 	} else if (!json_tok_u64(buffer, sattok, &fc->funding_satoshi)) {
 		command_fail(cmd, "Invalid satoshis");
 		return;
@@ -873,7 +872,7 @@ static void json_fund_channel(struct command *cmd,
 
 	/* Try to do this now, so we know if insufficient funds. */
 	/* FIXME: dustlimit */
-    if (all_funds) {
+	if (all_funds) {
 		fc->utxomap = wallet_select_all(cmd, cmd->ld->wallet,
 			feerate_per_kw,
 			BITCOIN_SCRIPTPUBKEY_P2WSH_LEN,

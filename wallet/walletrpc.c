@@ -83,7 +83,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
  * the HSM to generate the signatures.
  */
 static void json_withdraw(struct command *cmd,
-			      const char *buffer, const jsmntok_t *params)
+			  const char *buffer, const jsmntok_t *params)
 {
 	jsmntok_t *desttok, *sattok;
 	struct withdrawal *withdraw;
@@ -281,7 +281,7 @@ static const struct json_command newaddr_command = {
 AUTODATA(json_command, &newaddr_command);
 
 static void json_listaddrs(struct command *cmd,
-						   const char *buffer, const jsmntok_t *params)
+			   const char *buffer, const jsmntok_t *params)
 {
 	struct json_result *response = new_json_result(cmd);
 	struct ext_key ext;
@@ -326,7 +326,7 @@ static void json_listaddrs(struct command *cmd,
 		sha256(&h, redeemscript, tal_count(redeemscript));
 		ripemd160(&h160, h.u.u8, sizeof(h));
 		char *out_p2sh = p2sh_to_base58(cmd,
-								  get_chainparams(cmd->ld)->testnet, &h160);
+						get_chainparams(cmd->ld)->testnet, &h160);
 
 		// bech32 : p2wpkh
 		const char *hrp = get_chainparams(cmd->ld)->bip173_name;
@@ -357,7 +357,8 @@ static void json_listaddrs(struct command *cmd,
 static const struct json_command listaddrs_command = {
 	"dev-listaddrs",
 	json_listaddrs,
-	"Show addresses list up to derivation {index} (default is the last bip32 index)", false,
+	"Show addresses list up to derivation {index} (default is the last bip32 index)",
+	false,
 	"Show addresses of your internal wallet. Use `newaddr` to generate a new address."
 };
 AUTODATA(json_command, &listaddrs_command);
@@ -386,8 +387,9 @@ static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 				     utxos[i]->keyindex);
 			pubkey_to_hash160(&funding_pubkey, &h160);
 			if (utxos[i]->is_p2sh) {
-					out = p2sh_to_base58(cmd,
-					get_chainparams(cmd->ld)->testnet, &h160);
+				out = p2sh_to_base58(cmd,
+						     get_chainparams(cmd->ld)->testnet,
+						     &h160);
 			} else {
 				const char *hrp = get_chainparams(cmd->ld)->bip173_name;
 				/* out buffer is 73 + strlen(human readable part). see bech32.h */
@@ -442,7 +444,8 @@ static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 static const struct json_command listfunds_command = {
 	"listfunds",
 	json_listfunds,
-	"Show available funds from the internal wallet", false,
+	"Show available funds from the internal wallet",
+	false,
 	"Returns a list of funds (outputs) that can be used by the internal wallet to open new channels or can be withdrawn, using the `withdraw` command, to another wallet."
 };
 AUTODATA(json_command, &listfunds_command);
@@ -513,8 +516,10 @@ static void json_dev_rescan_outputs(struct command *cmd,
 }
 
 static const struct json_command dev_rescan_output_command = {
-    "dev-rescan-outputs", json_dev_rescan_outputs,
-    "Synchronize the state of our funds with bitcoind", false,
-    "For each output stored in the internal wallet ask `bitcoind` whether we are in sync with its state (spent vs. unspent)"
+	"dev-rescan-outputs",
+	json_dev_rescan_outputs,
+	"Synchronize the state of our funds with bitcoind",
+	false,
+	"For each output stored in the internal wallet ask `bitcoind` whether we are in sync with its state (spent vs. unspent)"
 };
 AUTODATA(json_command, &dev_rescan_output_command);

@@ -474,12 +474,12 @@ static u8 *check_channel_update(const tal_t *ctx,
 }
 
 static u8 *check_channel_announcement(const tal_t *ctx,
-    const struct pubkey *node1_key, const struct pubkey *node2_key,
-    const struct pubkey *bitcoin1_key, const struct pubkey *bitcoin2_key,
-    const secp256k1_ecdsa_signature *node1_sig,
-    const secp256k1_ecdsa_signature *node2_sig,
-    const secp256k1_ecdsa_signature *bitcoin1_sig,
-    const secp256k1_ecdsa_signature *bitcoin2_sig, const u8 *announcement)
+	const struct pubkey *node1_key, const struct pubkey *node2_key,
+	const struct pubkey *bitcoin1_key, const struct pubkey *bitcoin2_key,
+	const secp256k1_ecdsa_signature *node1_sig,
+	const secp256k1_ecdsa_signature *node2_sig,
+	const secp256k1_ecdsa_signature *bitcoin1_sig,
+	const secp256k1_ecdsa_signature *bitcoin2_sig, const u8 *announcement)
 {
 	/* 2 byte msg type + 256 byte signatures */
 	int offset = 258;
@@ -1086,39 +1086,39 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 
 bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg TAKES)
 {
-       struct node *node;
-       secp256k1_ecdsa_signature signature;
-       u32 timestamp;
-       struct pubkey node_id;
-       u8 rgb_color[3];
-       u8 alias[32];
-       u8 *features, *addresses;
-       struct wireaddr *wireaddrs;
-       fromwire_node_announcement(tmpctx, msg,
-                                  &signature, &features, &timestamp,
-                                  &node_id, rgb_color, alias,
-                                  &addresses);
+	struct node *node;
+	secp256k1_ecdsa_signature signature;
+	u32 timestamp;
+	struct pubkey node_id;
+	u8 rgb_color[3];
+	u8 alias[32];
+	u8 *features, *addresses;
+	struct wireaddr *wireaddrs;
+	fromwire_node_announcement(tmpctx, msg,
+	                           &signature, &features, &timestamp,
+	                           &node_id, rgb_color, alias,
+	                           &addresses);
 
-       node = get_node(rstate, &node_id);
+	node = get_node(rstate, &node_id);
 
-       /* May happen if we accepted the node_announcement due to a local
+	/* May happen if we accepted the node_announcement due to a local
 	* channel, for which we didn't have the announcement hust yet. */
-       if (node == NULL)
-	       return false;
+	if (node == NULL)
+		return false;
 
-       wireaddrs = read_addresses(tmpctx, addresses);
-       tal_free(node->addresses);
-       node->addresses = tal_steal(node, wireaddrs);
+	wireaddrs = read_addresses(tmpctx, addresses);
+	tal_free(node->addresses);
+	node->addresses = tal_steal(node, wireaddrs);
 
-       node->last_timestamp = timestamp;
-       memcpy(node->rgb_color, rgb_color, 3);
-       tal_free(node->alias);
-       node->alias = tal_dup_arr(node, u8, alias, 32, 0);
+	node->last_timestamp = timestamp;
+	memcpy(node->rgb_color, rgb_color, 3);
+	tal_free(node->alias);
+	node->alias = tal_dup_arr(node, u8, alias, 32, 0);
 
-       replace_broadcast(node, rstate->broadcasts,
-                         &node->node_announce_msgidx,
-                         msg);
-       return true;
+	replace_broadcast(node, rstate->broadcasts,
+	                  &node->node_announce_msgidx,
+	                  msg);
+	return true;
 }
 
 static bool node_has_public_channels(struct node *node)
