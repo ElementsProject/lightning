@@ -3479,7 +3479,6 @@ class LightningDTests(BaseLightningDTests):
 
         assert len(l1.rpc.listfunds()['outputs']) == 1
 
-    @unittest.expectedFailure
     def test_addfunds_from_block(self):
         """Send funds to the daemon without telling it explicitly
         """
