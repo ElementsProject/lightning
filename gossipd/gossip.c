@@ -806,6 +806,8 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 	} else if (type == WIRE_GOSSIP_GET_UPDATE) {
 		handle_get_update(peer, dc->msg_in);
 	} else if (type == WIRE_GOSSIP_LOCAL_ADD_CHANNEL) {
+		gossip_store_local_add_channel(peer->daemon->rstate->store,
+					       dc->msg_in);
 		handle_local_add_channel(peer->daemon->rstate, dc->msg_in);
 	} else {
 		status_broken("peer %s: send us unknown msg of type %s",
