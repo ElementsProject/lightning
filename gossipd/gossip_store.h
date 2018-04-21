@@ -31,6 +31,12 @@ void gossip_store_add_channel_announcement(struct gossip_store *gs,
 					   const u8 *gossip_msg, u64 satoshis);
 
 /**
+ * Store a local_add_channel so we remember it when restarting
+ */
+void gossip_store_local_add_channel(struct gossip_store *gs,
+				    const u8 *add_msg);
+
+/**
  * Store a channel_update with its associated data in the gossip_store
  */
 void gossip_store_add_channel_update(struct gossip_store *gs,
