@@ -3468,6 +3468,16 @@ class LightningDTests(BaseLightningDTests):
         output = l1.rpc.listfunds()['outputs'][0]
         assert output['address'] == addr
 
+        # Send all our money to a P2WPKH address this time.
+        addr = l1.rpc.newaddr("bech32")['address']
+        l1.rpc.withdraw(addr, "all")
+        l1.bitcoin.rpc.generate(1)
+        time.sleep(1)
+
+        # The address we detect must match what was paid to.
+        output = l1.rpc.listfunds()['outputs'][0]
+        assert output['address'] == addr
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_channel_persistence(self):
         # Start two nodes and open a channel (to remember). l2 will
