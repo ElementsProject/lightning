@@ -3479,6 +3479,7 @@ class LightningDTests(BaseLightningDTests):
 
         assert len(l1.rpc.listfunds()['outputs']) == 1
 
+    @unittest.expectedFailure
     def test_addfunds_from_block(self):
         """Send funds to the daemon without telling it explicitly
         """
@@ -3493,6 +3494,10 @@ class LightningDTests(BaseLightningDTests):
 
         outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
         assert len(outputs) == 1 and outputs[0]['value'] == 10000000
+
+        # The address we detect must match what was paid to.
+        output = l1.rpc.listfunds()['outputs'][0]
+        assert output['address'] == addr
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_channel_persistence(self):
