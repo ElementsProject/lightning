@@ -23,6 +23,7 @@ LIGHTNINGD_CONFIG = {
     "cltv-delta": 6,
     "cltv-final": 5,
     "locktime-blocks": 5,
+    "rescan": 1,
 }
 
 DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
