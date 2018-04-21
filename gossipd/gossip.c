@@ -786,9 +786,8 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 	daemon_conn_send(peer->remote, take(msg));
 }
 
-static void handle_local_add_channel(struct peer *peer, u8 *msg)
+static void handle_local_add_channel(struct routing_state *rstate, u8 *msg)
 {
-	struct routing_state *rstate = peer->daemon->rstate;
 	struct short_channel_id scid;
 	struct bitcoin_blkid chain_hash;
 	struct pubkey remote_node_id;
@@ -856,7 +855,7 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 	} else if (type == WIRE_GOSSIP_GET_UPDATE) {
 		handle_get_update(peer, dc->msg_in);
 	} else if (type == WIRE_GOSSIP_LOCAL_ADD_CHANNEL) {
-		handle_local_add_channel(peer, dc->msg_in);
+		handle_local_add_channel(peer->daemon->rstate, dc->msg_in);
 	} else {
 		status_broken("peer %s: send us unknown msg of type %s",
 			      type_to_string(tmpctx, struct pubkey, &peer->id),
