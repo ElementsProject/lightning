@@ -786,55 +786,6 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 	daemon_conn_send(peer->remote, take(msg));
 }
 
-static void handle_local_add_channel(struct routing_state *rstate, u8 *msg)
-{
-	struct short_channel_id scid;
-	struct bitcoin_blkid chain_hash;
-	struct pubkey remote_node_id;
-	u16 cltv_expiry_delta;
-	u32 fee_base_msat, fee_proportional_millionths;
-	u64 htlc_minimum_msat;
-	int idx;
-	struct chan *chan;
-
-	if (!fromwire_gossip_local_add_channel(
-		msg, &scid, &chain_hash, &remote_node_id,
-		&cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
-		&fee_proportional_millionths)) {
-		status_broken("Unable to parse local_add_channel message: %s", tal_hex(msg, msg));
-		return;
-	}
-
-	if (!structeq(&chain_hash, &rstate->chain_hash)) {
-		status_broken("Received local_add_channel for unknown chain %s",
-			     type_to_string(msg, struct bitcoin_blkid,
-					    &chain_hash));
-		return;
-	}
-
-	if (get_channel(rstate, &scid)) {
-		status_broken("Attempted to local_add_channel a known channel");
-		return;
-	}
-
-	/* Create new channel */
-	chan = new_chan(rstate, &scid, &rstate->local_id, &remote_node_id);
-
-	idx = pubkey_idx(&rstate->local_id, &remote_node_id),
-	/* Activate the half_chan from us to them. */
-	set_connection_values(chan, idx,
-			      fee_base_msat,
-			      fee_proportional_millionths,
-			      cltv_expiry_delta,
-			      true,
-			      0,
-			      htlc_minimum_msat);
-	/* Designed to match msg in handle_channel_update, for easy testing */
-	status_trace("Received local update for channel %s(%d) now ACTIVE",
-		     type_to_string(msg, struct short_channel_id, &scid),
-		     idx);
-}
-
 /**
  * owner_msg_in - Called by the `peer->remote` upon receiving a
  * message
