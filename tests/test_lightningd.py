@@ -2278,23 +2278,34 @@ class LightningDTests(BaseLightningDTests):
         l1 = self.node_factory.get_node(options=opts)
         l2 = self.node_factory.get_node(options=opts)
         l3 = self.node_factory.get_node(options=opts)
+        l4 = self.node_factory.get_node(options=opts)
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         l2.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
+        l3.rpc.connect(l4.info['id'], 'localhost', l4.info['port'])
 
         self.fund_channel(l1, l2, 10**6)
         self.fund_channel(l2, l3, 10**6)
 
-        l1.bitcoin.rpc.generate(6)
+        # Make channels public, except for l3 -> l4, which is kept local-only for now
+        l1.bitcoin.rpc.generate(5)
+        self.fund_channel(l3, l4, 10**6)
+        l1.bitcoin.rpc.generate(1)
+
+        def count_active(node):
+            chans = node.rpc.listchannels()['channels']
+            active = [c for c in chans if c['active']]
+            print(len(active), active)
+            return len(active)
 
         # Channels should be activated
-        wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True] * 4)
-        wait_for(lambda: [c['active'] for c in l2.rpc.listchannels()['channels']] == [True] * 4)
-        wait_for(lambda: [c['active'] for c in l3.rpc.listchannels()['channels']] == [True] * 4)
+        wait_for(lambda: count_active(l1) == 4)
+        wait_for(lambda: count_active(l2) == 4)
+        wait_for(lambda: count_active(l3) == 5)  # 4 public + 1 local
 
         # l1 restarts and doesn't connect, but loads from persisted store
         l1.restart()
-        assert [c['active'] for c in l1.rpc.listchannels()['channels']] == [True] * 4
+        wait_for(lambda: count_active(l1) == 4)
 
         # Now spend the funding tx, generate a block and see others deleting the
         # channel from their network view
@@ -2302,13 +2313,32 @@ class LightningDTests(BaseLightningDTests):
         time.sleep(1)
         l1.bitcoin.rpc.generate(1)
 
-        wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True] * 2)
-        wait_for(lambda: [c['active'] for c in l2.rpc.listchannels()['channels']] == [True] * 2)
-        wait_for(lambda: [c['active'] for c in l3.rpc.listchannels()['channels']] == [True] * 2)
+        sync_blockheight([l1, l2, l3, l4])
+
+        wait_for(lambda: count_active(l1) == 2)
+        wait_for(lambda: count_active(l2) == 2)
+        wait_for(lambda: count_active(l3) == 3)  # 2 public + 1 local
+
+        # We should have one local-only channel
+        def count_non_public(node):
+            chans = node.rpc.listchannels()['channels']
+            nonpublic = [c for c in chans if not c['public']]
+            return len(nonpublic)
+
+        # The channel l3 -> l4 should be known only to them
+        assert count_non_public(l1) == 0
+        assert count_non_public(l2) == 0
+        wait_for(lambda: count_non_public(l3) == 1)
+        wait_for(lambda: count_non_public(l4) == 1)
 
         # Finally, it should also remember the deletion after a restart
         l3.restart()
-        assert [c['active'] for c in l3.rpc.listchannels()['channels']] == [True] * 2
+        l4.restart()
+        wait_for(lambda: count_active(l3) == 3)  # 2 public + 1 local
+
+        # Both l3 and l4 should remember their local-only channel
+        wait_for(lambda: count_non_public(l3) == 1)
+        wait_for(lambda: count_non_public(l4) == 1)
 
     def ping_tests(self, l1, l2):
         # 0-byte pong gives just type + length field.
