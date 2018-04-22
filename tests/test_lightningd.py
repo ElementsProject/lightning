@@ -425,6 +425,23 @@ class LightningDTests(BaseLightningDTests):
         assert len(l1.rpc.listinvoices('inv1')['invoices']) == 0
         assert len(l1.rpc.listinvoices('inv2')['invoices']) == 0
 
+    def test_invoice_preimage(self):
+        """Test explicit invoice 'preimage'.
+        """
+        l1, l2 = self.connect()
+        self.fund_channel(l1, l2, 10**6)
+
+        # I promise the below number is randomly generated
+        invoice_preimage = "17b08f669513b7379728fc1abcea5eaf3448bc1eba55a68ca2cd1843409cdc04"
+
+        # Make invoice and pay it
+        inv = l2.rpc.invoice(msatoshi=123456, label="inv", description="?", preimage=invoice_preimage)
+        payment = l1.rpc.pay(inv['bolt11'])
+
+        # Check preimage was given.
+        payment_preimage = payment['payment_preimage']
+        assert invoice_preimage == payment_preimage
+
     def test_invoice(self):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node()
