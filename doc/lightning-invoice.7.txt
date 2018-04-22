@@ -8,7 +8,7 @@ lightning-invoice - Protocol for accepting payments.
 
 SYNOPSIS
 --------
-*invoice* 'msatoshi' 'label' 'description' ['expiry'] ['fallbacks']
+*invoice* 'msatoshi' 'label' 'description' ['expiry'] ['fallbacks'] ['preimage']
 
 DESCRIPTION
 -----------
@@ -35,6 +35,18 @@ If no value is provided the default of 3600 (1 Hour) is used.
 The 'fallbacks' array is one or more fallback addresses to include in
 the invoice (in order from most-preferred to least): note that these
 arrays are not currently tracked to fulfill the invoice.
+
+The 'preimage' is a 64-digit hex string to be used as payment preimage
+for the created invoice.
+By default, if unspecified, lightningd will generate a secure
+pseudorandom preimage seeded from an appropriate entropy source on
+your system.
+*IMPORTANT*: if you specify the 'preimage', you are responsible, to
+ensure appropriate care for generating using a secure pseudorandom
+generator seeded with sufficient entropy, and keeping the preimage
+secret.
+This parameter is an advanced feature intended for use with cutting-edge
+cryptographic protocols and should not be used unless explicitly needed.
 
 RETURN VALUE
 ------------
