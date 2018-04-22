@@ -156,6 +156,7 @@ static void json_invoice(struct command *cmd,
 	struct invoice invoice;
 	struct invoice_details details;
 	jsmntok_t *msatoshi, *label, *desctok, *exp, *fallback, *fallbacks;
+	jsmntok_t *preimagetok;
 	u64 *msatoshi_val;
 	const struct json_escaped *label_val, *desc;
 	const char *desc_val;
@@ -174,6 +175,7 @@ static void json_invoice(struct command *cmd,
 			     "?expiry", &exp,
 			     "?fallback", &fallback,
 			     "?fallbacks", &fallbacks,
+			     "?preimage", &preimagetok,
 			     NULL)) {
 		return;
 	}
@@ -281,8 +283,18 @@ static void json_invoice(struct command *cmd,
 	struct preimage r;
 	struct sha256 rhash;
 
-	/* Generate random secret preimage and hash. */
-	randombytes_buf(r.r, sizeof(r.r));
+	if (preimagetok) {
+		/* Get secret preimage from user. */
+		if (!hex_decode(buffer + preimagetok->start,
+				preimagetok->end - preimagetok->start,
+				r.r, sizeof(r.r))) {
+			command_fail(cmd, "preimage must be 64 hex digits");
+			return;
+		}
+	} else
+		/* Generate random secret preimage. */
+		randombytes_buf(r.r, sizeof(r.r));
+	/* Generate preimage hash. */
 	sha256(&rhash, r.r, sizeof(r.r));
 
 	/* Construct bolt11 string. */
