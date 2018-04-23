@@ -318,6 +318,16 @@ char *dbmigrations[] = {
     ", blockheight INTEGER REFERENCES blocks(height) ON DELETE CASCADE"
     ", PRIMARY KEY(id)"
     ");",
+    /* -- Set the correct rescan height for PR #1398 -- */
+    /* Delete blocks that are higher than our initial scan point, this is a
+     * no-op if we don't have a channel. */
+    "DELETE FROM blocks WHERE height > (SELECT MIN(first_blocknum) FROM channels);",
+    /* Now make sure we have the lower bound block with the first_blocknum
+     * height. This may introduce a block with NULL height if we didn't have any
+     * blocks, remove that in the next. */
+    "INSERT OR IGNORE INTO blocks (height) VALUES ((SELECT MIN(first_blocknum) FROM channels));",
+    "DELETE FROM blocks WHERE height IS NULL;",
+    /* -- End of  PR #1398 -- */
     NULL,
 };
 
