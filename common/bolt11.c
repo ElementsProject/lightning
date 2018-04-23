@@ -8,6 +8,7 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
+#include <common/bech32_util.h>
 #include <common/bolt11.h>
 #include <common/utils.h>
 #include <errno.h>
@@ -700,35 +701,11 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
         return b11;
 }
 
-static u8 get_bit(const u8 *src, size_t bitoff)
-{
-        return ((src[bitoff / 8] >> (7 - (bitoff % 8))) & 1);
-}
-
-/* Returns now many u5s were appended. */
-static void push_bits(u5 **data, const void *src, size_t nbits)
-{
-        size_t i, b;
-        size_t data_len = tal_len(*data);
-
-        for (i = 0; i < nbits; i += b) {
-                tal_resize(data, data_len+1);
-                (*data)[data_len] = 0;
-                for (b = 0; b < 5; b++) {
-                        (*data)[data_len] <<= 1;
-                        /* If we need bits we don't have, zero */
-                        if (i+b < nbits)
-                                (*data)[data_len] |= get_bit(src, i+b);
-                }
-                data_len++;
-        }
-}
-
 /* Helper for pushing a variable-length big-endian int. */
 static void push_varlen_uint(u5 **data, u64 val, size_t nbits)
 {
         be64 be_val = cpu_to_be64(val << (64 - nbits));
-        push_bits(data, &be_val, nbits);
+        bech32_push_bits(data, &be_val, nbits);
 }
 
 /* BOLT #11:
@@ -744,7 +721,7 @@ static void push_field(u5 **data, char type, const void *src, size_t nbits)
         assert(bech32_charset_rev[(unsigned char)type] >= 0);
         push_varlen_uint(data, bech32_charset_rev[(unsigned char)type], 5);
         push_varlen_uint(data, (nbits + 4) / 5, 10);
-        push_bits(data, src, nbits);
+        bech32_push_bits(data, src, nbits);
 }
 
 /* BOLT #11:
@@ -781,7 +758,7 @@ static void push_fallback_addr(u5 **data, u5 version, const void *addr, u16 addr
         push_varlen_uint(data, bech32_charset_rev[(unsigned char)'f'], 5);
         push_varlen_uint(data, ((5 + addr_len * CHAR_BIT) + 4) / 5, 10);
         push_varlen_uint(data, version, 5);
-        push_bits(data, addr, addr_len * CHAR_BIT);
+        bech32_push_bits(data, addr, addr_len * CHAR_BIT);
 }
 
 static void encode_p(u5 **data, const struct sha256 *hash)
@@ -974,7 +951,7 @@ char *bolt11_encode_(const tal_t *ctx,
                 &rsig);
         sig_and_recid[64] = recid;
 
-        push_bits(&data, sig_and_recid, sizeof(sig_and_recid) * CHAR_BIT);
+        bech32_push_bits(&data, sig_and_recid, sizeof(sig_and_recid) * CHAR_BIT);
 
         output = tal_arr(ctx, char, strlen(hrp) + tal_count(data) + 8);
         if (!bech32_encode(output, hrp, data, tal_count(data), (size_t)-1))

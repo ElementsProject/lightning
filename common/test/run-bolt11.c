@@ -1,4 +1,5 @@
 #include "../bech32.c"
+#include "../bech32_util.c"
 #include "../bolt11.c"
 #include "../hash_u5.c"
 #include <ccan/err/err.h>

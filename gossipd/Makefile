@@ -36,6 +36,8 @@ LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_GOSSIP_HEADERS)
 
 # Common source we use.
 GOSSIPD_COMMON_OBJS :=				\
+	common/bech32.o				\
+	common/bech32_util.o			\
 	common/bip32.o				\
 	common/crypto_state.o			\
 	common/crypto_sync.o			\
