@@ -628,7 +628,6 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 					   unsigned int depth)
 {
 	const char *txidstr;
-	bool channel_ready;
 	struct lightningd *ld = channel->peer->ld;
 
 	txidstr = type_to_string(channel, struct bitcoin_txid, txid);
@@ -652,19 +651,8 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 		wallet_channel_save(ld->wallet, channel);
 	}
 
-	/* In theory, it could have been buried before we got back
-	 * from accepting openingd or disconnected: just wait for next one. */
-	channel_ready = (channel->owner && channel->state == CHANNELD_AWAITING_LOCKIN);
-	if (!channel_ready) {
-		log_debug(channel->log,
-			  "Funding tx confirmed, but channel state %s %s",
-			  channel_state_name(channel),
-			  channel->owner ? channel->owner->name : "unowned");
-	} else {
-		subd_send_msg(channel->owner,
-			      take(towire_channel_funding_locked(channel,
-								 channel->scid)));
-	}
+	if (!channel_tell_funding_locked(ld, channel, txid))
+		return KEEP_WATCHING;
 
 	/* BOLT #7:
 	 *

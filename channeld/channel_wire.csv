@@ -1,6 +1,3 @@
-# Received and sent funding_locked
-channel_normal_operation,11001
-
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
 

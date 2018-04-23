@@ -44,6 +44,11 @@ void broadcast_tx(struct chain_topology *topo UNNEEDED,
 				 int exitstatus UNNEEDED,
 				 const char *err))
 { fprintf(stderr, "broadcast_tx called!\n"); abort(); }
+/* Generated stub for channel_tell_funding_locked */
+bool channel_tell_funding_locked(struct lightningd *ld UNNEEDED,
+				 struct channel *channel UNNEEDED,
+				 const struct bitcoin_txid *txid UNNEEDED)
+{ fprintf(stderr, "channel_tell_funding_locked called!\n"); abort(); }
 /* Generated stub for command_fail */
 void  command_fail(struct command *cmd UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "command_fail called!\n"); abort(); }
@@ -269,9 +274,6 @@ bool json_tok_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
-/* Generated stub for locate_tx */
-struct txlocator *locate_tx(const void *ctx UNNEEDED, const struct chain_topology *topo UNNEEDED, const struct bitcoin_txid *txid UNNEEDED)
-{ fprintf(stderr, "locate_tx called!\n"); abort(); }
 /* Generated stub for log_add */
 void log_add(struct log *log UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "log_add called!\n"); abort(); }
@@ -354,9 +356,6 @@ u8 *towire_channel_dev_reenable_commit(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_channel_funding_announce_depth */
 u8 *towire_channel_funding_announce_depth(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_funding_announce_depth called!\n"); abort(); }
-/* Generated stub for towire_channel_funding_locked */
-u8 *towire_channel_funding_locked(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED)
-{ fprintf(stderr, "towire_channel_funding_locked called!\n"); abort(); }
 /* Generated stub for towire_channel_send_shutdown */
 u8 *towire_channel_send_shutdown(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_send_shutdown called!\n"); abort(); }

@@ -6,6 +6,7 @@
 
 struct channel;
 struct crypto_state;
+struct lightningd;
 
 bool peer_start_channeld(struct channel *channel,
 			 const struct crypto_state *cs,
@@ -13,5 +14,10 @@ bool peer_start_channeld(struct channel *channel,
 			 int peer_fd, int gossip_fd,
 			 const u8 *funding_signed,
 			 bool reconnected);
+
+/* Returns true if subd told, otherwise false. */
+bool channel_tell_funding_locked(struct lightningd *ld,
+				 struct channel *channel,
+				 const struct bitcoin_txid *txid);
 
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_CONTROL_H */
