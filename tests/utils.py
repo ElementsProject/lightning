@@ -299,12 +299,13 @@ class LightningD(TailableProc):
 
 
 class LightningNode(object):
-    def __init__(self, daemon, rpc, btc, executor, may_fail=False):
+    def __init__(self, daemon, rpc, btc, executor, may_fail=False, may_reconnect=False):
         self.rpc = rpc
         self.daemon = daemon
         self.bitcoin = btc
         self.executor = executor
         self.may_fail = may_fail
+        self.may_reconnect = may_reconnect
 
     # Use batch if you're doing more than one async.
     def connect(self, remote_node, capacity, async=False):
