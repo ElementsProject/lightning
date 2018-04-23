@@ -386,17 +386,6 @@ void channel_fail_transient(struct channel *channel, const char *fmt, ...)
 	channel_set_owner(channel, NULL);
 
 	/* Reconnect unless we've dropped/are dropping to chain. */
-	if (channel_active(channel)) {
-		struct lightningd *ld = channel->peer->ld;
-
-#if DEVELOPER
-		/* Don't schedule an attempt if we disabled reconnections with
-		 * the `--dev-no-reconnect` flag */
-		if (ld->no_reconnect)
-			return;
-#endif /* DEVELOPER */
-		u8 *msg = towire_gossipctl_reach_peer(NULL,
-						      &channel->peer->id);
-		subd_send_msg(ld->gossip, take(msg));
-	}
+	if (channel_active(channel))
+		try_reconnect(channel->peer);
 }
