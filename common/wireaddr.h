@@ -45,4 +45,7 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 port, const char
 
 char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a);
 
+bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
+			    const u16 port, const char **err_msg);
+
 #endif /* LIGHTNING_COMMON_WIREADDR_H */
