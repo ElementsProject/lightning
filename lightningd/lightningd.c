@@ -209,8 +209,12 @@ static void shutdown_subdaemons(struct lightningd *ld)
 			tal_free(c);
 		}
 
-		/* Removes itself from list as we free it */
-		tal_free(p);
+		/* Freeing uncommitted channel will free peer. */
+		if (p->uncommitted_channel)
+			tal_free(p->uncommitted_channel);
+		else
+			/* Removes itself from list as we free it */
+			tal_free(p);
 	}
 	db_commit_transaction(ld->wallet->db);
 }
