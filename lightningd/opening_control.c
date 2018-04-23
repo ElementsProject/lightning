@@ -115,6 +115,7 @@ void kill_uncommitted_channel(struct uncommitted_channel *uc,
 
 	/* Close openingd. */
 	subd_release_channel(uc->openingd, uc);
+	uc->openingd = NULL;
 
 	if (uc->fc)
 		command_fail(uc->fc->cmd, "%s", why);
@@ -407,6 +408,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	command_success(fc->cmd, response);
 
 	subd_release_channel(openingd, fc->uc);
+	fc->uc->openingd = NULL;
+
 	/* Frees fc too, and tmpctx */
 	tal_free(fc->uc);
 	return;
@@ -415,6 +418,7 @@ failed:
 	close(fds[0]);
 	close(fds[1]);
 	subd_release_channel(openingd, fc->uc);
+	fc->uc->openingd = NULL;
 	/* Frees fc too, and tmpctx */
 	tal_free(fc->uc);
 }
@@ -496,6 +500,7 @@ static void opening_fundee_finished(struct subd *openingd,
 			    fds[0], fds[1], funding_signed, false);
 
 	subd_release_channel(openingd, uc);
+	uc->openingd = NULL;
 	tal_free(uc);
 }
 
@@ -536,6 +541,12 @@ static void opening_channel_set_billboard(struct uncommitted_channel *uc,
 
 static void destroy_uncommitted_channel(struct uncommitted_channel *uc)
 {
+	if (uc->openingd) {
+		struct subd *openingd = uc->openingd;
+		uc->openingd = NULL;
+		subd_release_channel(openingd, uc);
+	}
+
 	uc->peer->uncommitted_channel = NULL;
 
 	/* Last one out frees */
