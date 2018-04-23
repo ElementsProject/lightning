@@ -514,10 +514,6 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 			take(towire_channel_got_funding_locked(NULL,
 						&peer->remote_per_commit)));
 
-	if (peer->funding_locked[LOCAL]) {
-		wire_sync_write(MASTER_FD,
-				take(towire_channel_normal_operation(NULL)));
-	}
 	billboard_update(peer);
 
 	/* Send temporary or final announcements */
@@ -1999,10 +1995,6 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 	enqueue_peer_msg(peer, take(msg));
 	peer->funding_locked[LOCAL] = true;
 
-	if (peer->funding_locked[REMOTE]) {
-		wire_sync_write(MASTER_FD,
-				take(towire_channel_normal_operation(NULL)));
-	}
 	billboard_update(peer);
 
 	/* Send temporary or final announcements */
@@ -2414,7 +2406,6 @@ static void req_in(struct peer *peer, const u8 *msg)
 		handle_dev_reenable_commit(peer);
 		return;
 #endif /* DEVELOPER */
-	case WIRE_CHANNEL_NORMAL_OPERATION:
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
 	case WIRE_CHANNEL_PING_REPLY:
