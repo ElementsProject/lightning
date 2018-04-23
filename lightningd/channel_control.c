@@ -14,6 +14,15 @@
 #include <lightningd/subd.h>
 #include <wire/wire_sync.h>
 
+static void lockin_complete(struct channel *channel)
+{
+	/* We set this once we're locked in. */
+	assert(channel->scid);
+	/* We set this once they're locked in. */
+	assert(channel->remote_funding_locked);
+	channel_set_state(channel, CHANNELD_AWAITING_LOCKIN, CHANNELD_NORMAL);
+}
+
 /* We were informed by channeld that it announced the channel and sent
  * an update, so we can now start sending a node_announcement. The
  * first step is to build the provisional announcement and ask the HSM
@@ -40,6 +49,9 @@ static void peer_got_funding_locked(struct channel *channel, const u8 *msg)
 
 	log_debug(channel->log, "Got funding_locked");
 	channel->remote_funding_locked = true;
+
+	if (channel->scid)
+		lockin_complete(channel);
 }
 
 static void peer_got_shutdown(struct channel *channel, const u8 *msg)
@@ -111,10 +123,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	enum channel_wire_type t = fromwire_peektype(msg);
 
 	switch (t) {
-	case WIRE_CHANNEL_NORMAL_OPERATION:
-		channel_set_state(sd->channel,
-				  CHANNELD_AWAITING_LOCKIN, CHANNELD_NORMAL);
-		break;
 	case WIRE_CHANNEL_SENDING_COMMITSIG:
 		peer_sending_commitsig(sd->channel, msg);
 		break;
@@ -279,5 +287,31 @@ bool peer_start_channeld(struct channel *channel,
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));
 
+	return true;
+}
+
+bool channel_tell_funding_locked(struct lightningd *ld,
+				 struct channel *channel,
+				 const struct bitcoin_txid *txid)
+{
+	/* If not awaiting lockin, it doesn't care any more */
+	if (channel->state != CHANNELD_AWAITING_LOCKIN) {
+		log_debug(channel->log,
+			  "Funding tx confirmed, but peer in state %s",
+			  channel_state_name(channel));
+		return true;
+	}
+
+	if (!channel->owner) {
+		log_debug(channel->log,
+			  "Funding tx confirmed, but peer disconnected");
+		return false;
+	}
+
+	subd_send_msg(channel->owner,
+		      take(towire_channel_funding_locked(NULL, channel->scid)));
+
+	if (channel->remote_funding_locked)
+		lockin_complete(channel);
 	return true;
 }
