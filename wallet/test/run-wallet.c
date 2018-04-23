@@ -333,10 +333,11 @@ bool peer_start_channeld(struct channel *channel UNNEEDED,
 { fprintf(stderr, "peer_start_channeld called!\n"); abort(); }
 /* Generated stub for peer_start_closingd */
 void peer_start_closingd(struct channel *channel UNNEEDED,
-			 struct crypto_state *cs UNNEEDED,
+			 const struct crypto_state *cs UNNEEDED,
 			 u64 gossip_index UNNEEDED,
 			 int peer_fd UNNEEDED, int gossip_fd UNNEEDED,
-			 bool reconnected UNNEEDED)
+			 bool reconnected UNNEEDED,
+			 const u8 *channel_reestablish UNNEEDED)
 { fprintf(stderr, "peer_start_closingd called!\n"); abort(); }
 /* Generated stub for sanitize_error */
 char *sanitize_error(const tal_t *ctx UNNEEDED, const u8 *errmsg UNNEEDED,

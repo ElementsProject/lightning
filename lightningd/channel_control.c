@@ -114,7 +114,8 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 	}
 
 	/* This sets channel->owner, closes down channeld. */
-	peer_start_closingd(channel, &cs, gossip_index, fds[0], fds[1], false);
+	peer_start_closingd(channel, &cs, gossip_index, fds[0], fds[1],
+			    false, NULL);
 	channel_set_state(channel, CHANNELD_SHUTTING_DOWN, CLOSINGD_SIGEXCHANGE);
 }
 
