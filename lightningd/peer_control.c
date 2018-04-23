@@ -502,7 +502,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			channel->peer->addr = addr;
 			peer_start_closingd(channel, &cs, gossip_index,
 					    peer_fd, gossip_fd,
-					    true);
+					    true, NULL);
 			goto connected;
 		}
 		abort();
@@ -589,6 +589,17 @@ void peer_sent_nongossip(struct lightningd *ld,
 		if (channel && channel->error) {
 			error = channel->error;
 			goto send_error;
+		}
+
+		/* Reestablish for a now-closed channel?  They might have
+		 * missed final update, so do the closing negotiation dance
+		 * again. */
+		if (fromwire_peektype(in_msg) == WIRE_CHANNEL_REESTABLISH
+		    && channel
+		    && channel->state == CLOSINGD_COMPLETE) {
+			peer_start_closingd(channel, cs, gossip_index,
+					    peer_fd, gossip_fd, true, in_msg);
+			return;
 		}
 	}
 

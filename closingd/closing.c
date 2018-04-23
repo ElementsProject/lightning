@@ -81,7 +81,8 @@ static void do_reconnect(struct crypto_state *cs,
 			 u64 gossip_index,
 			 const struct channel_id *channel_id,
 			 const u64 next_index[NUM_SIDES],
-			 u64 revocations_received)
+			 u64 revocations_received,
+			 const u8 *channel_reestablish)
 {
 	u8 *msg;
 	struct channel_id their_channel_id;
@@ -104,20 +105,25 @@ static void do_reconnect(struct crypto_state *cs,
 	if (!sync_crypto_write(cs, PEER_FD, take(msg)))
 		peer_failed_connection_lost();
 
-	/* Wait for them to say something interesting */
-	while ((msg = read_peer_msg(tmpctx, cs, gossip_index, channel_id,
-				    sync_crypto_write_arg,
-				    status_fail_io,
-				    NULL)) == NULL)
+	/* They might have already send reestablish, which triggered us */
+	while (!channel_reestablish) {
 		clean_tmpctx();
 
-	if (!fromwire_channel_reestablish(msg, &their_channel_id,
+		/* Wait for them to say something interesting */
+		channel_reestablish
+			= read_peer_msg(tmpctx, cs, gossip_index, channel_id,
+					sync_crypto_write_arg,
+					status_fail_io,
+					NULL);
+	}
+
+	if (!fromwire_channel_reestablish(channel_reestablish, &their_channel_id,
 					  &next_local_commitment_number,
 					  &next_remote_revocation_number)) {
 		peer_failed(cs, gossip_index, channel_id,
 			    "bad reestablish msg: %s %s",
-			    wire_type_name(fromwire_peektype(msg)),
-			    tal_hex(tmpctx, msg));
+			    wire_type_name(fromwire_peektype(channel_reestablish)),
+			    tal_hex(tmpctx, channel_reestablish));
 	}
 	status_trace("Got reestablish commit=%"PRIu64" revoke=%"PRIu64,
 		     next_local_commitment_number,
@@ -443,6 +449,7 @@ int main(int argc, char *argv[])
 	u64 gossip_index;
 	enum side whose_turn;
 	bool deprecated_api;
+	u8 *channel_reestablish;
 
 	subdaemon_setup(argc, argv);
 
@@ -466,7 +473,8 @@ int main(int argc, char *argv[])
 				   &next_index[LOCAL],
 				   &next_index[REMOTE],
 				   &revocations_received,
-				   &deprecated_api))
+				   &deprecated_api,
+				   &channel_reestablish))
 		master_badmsg(WIRE_CLOSING_INIT, msg);
 
 	status_trace("satoshi_out = %"PRIu64"/%"PRIu64,
@@ -483,7 +491,8 @@ int main(int argc, char *argv[])
 
 	if (reconnected)
 		do_reconnect(&cs, gossip_index, &channel_id,
-			     next_index, revocations_received);
+			     next_index, revocations_received,
+			     channel_reestablish);
 
 	peer_billboard(true, "Negotiating closing fee between %"PRIu64
 		       " and %"PRIu64" satoshi (ideal %"PRIu64")",

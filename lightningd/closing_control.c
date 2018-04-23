@@ -121,10 +121,11 @@ static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds UNUSE
 }
 
 void peer_start_closingd(struct channel *channel,
-			 struct crypto_state *cs,
+			 const struct crypto_state *cs,
 			 u64 gossip_index,
 			 int peer_fd, int gossip_fd,
-			 bool reconnected)
+			 bool reconnected,
+			 const u8 *channel_reestablish)
 {
 	u8 *initmsg;
 	u64 minfee, startfee, feelimit;
@@ -204,7 +205,8 @@ void peer_start_closingd(struct channel *channel,
 				      channel->next_index[LOCAL],
 				      channel->next_index[REMOTE],
 				      num_revocations,
-				      deprecated_apis);
+				      deprecated_apis,
+				      channel_reestablish);
 
 	/* We don't expect a response: it will give us feedback on
 	 * signatures sent and received, then closing_complete. */
