@@ -515,8 +515,9 @@ static void load_hsm(void)
 static void init_hsm(struct daemon_conn *master, const u8 *msg)
 {
 	bool new;
+	char *network_name;
 
-	if (!fromwire_hsm_init(msg, &new))
+	if (!fromwire_hsm_init(msg, msg, &new, &network_name))
 		master_badmsg(WIRE_HSM_INIT, msg);
 
 	if (new)

@@ -45,7 +45,8 @@ void hsm_init(struct lightningd *ld, bool newdir)
 	else
 		create = (access("hsm_secret", F_OK) != 0);
 
-	if (!wire_sync_write(ld->hsm_fd, towire_hsm_init(tmpctx, create)))
+	if (!wire_sync_write(ld->hsm_fd, towire_hsm_init(tmpctx, create,
+							 get_chainparams(ld)->network_name)))
 		err(1, "Writing init msg to hsm");
 
 	ld->wallet->bip32_base = tal(ld->wallet, struct ext_key);

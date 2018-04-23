@@ -7,6 +7,7 @@ hsmstatus_client_bad_request,,msg,len*u8
 # Start the HSM.
 hsm_init,11
 hsm_init,,new,bool
+hsm_init,,network_name,wirestring
 
 #include <common/bip32.h>
 hsm_init_reply,111
