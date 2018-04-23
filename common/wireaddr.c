@@ -113,16 +113,55 @@ static bool separate_address_and_port(const tal_t *ctx, const char *arg,
 	return true;
 }
 
-bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
-		    const char **err_msg)
+bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
+			    const u16 port, const char **err_msg)
 {
-	struct in6_addr v6;
-	struct in_addr v4;
 	struct sockaddr_in6 *sa6;
 	struct sockaddr_in *sa4;
 	struct addrinfo *addrinfo;
 	struct addrinfo hints;
 	int gai_err;
+	bool res = false;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = 0;
+	hints.ai_flags = AI_ADDRCONFIG;
+	gai_err = getaddrinfo(hostname, tal_fmt(tmpctx, "%d", port),
+			      &hints, &addrinfo);
+	if (gai_err != 0) {
+		if (err_msg)
+			*err_msg = gai_strerror(gai_err);
+		return false;
+	}
+	/* Use only the first found address */
+	if (addrinfo->ai_family == AF_INET) {
+		addr->type = ADDR_TYPE_IPV4;
+		addr->addrlen = 4;
+		addr->port = port;
+		sa4 = (struct sockaddr_in *) addrinfo->ai_addr;
+		memcpy(&addr->addr, &sa4->sin_addr, addr->addrlen);
+		res = true;
+	} else if (addrinfo->ai_family == AF_INET6) {
+		addr->type = ADDR_TYPE_IPV6;
+		addr->addrlen = 16;
+		addr->port = port;
+		sa6 = (struct sockaddr_in6 *) addrinfo->ai_addr;
+		memcpy(&addr->addr, &sa6->sin6_addr, addr->addrlen);
+		res = true;
+	}
+
+	/* Clean up */
+	freeaddrinfo(addrinfo);
+	return res;
+}
+
+bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
+		    const char **err_msg)
+{
+	struct in6_addr v6;
+	struct in_addr v4;
 	u16 port;
 	char *ip;
 	bool res;
@@ -157,39 +196,8 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
 	}
 
 	/* Resolve with getaddrinfo */
-	if (!res) {
-		memset(&hints, 0, sizeof(hints));
-		hints.ai_family = AF_UNSPEC;
-		hints.ai_socktype = SOCK_STREAM;
-		hints.ai_protocol = 0;
-		hints.ai_flags = AI_ADDRCONFIG;
-		gai_err = getaddrinfo(ip, tal_fmt(tmpctx, "%d", port),
-				      &hints, &addrinfo);
-		if (gai_err != 0) {
-			if (err_msg)
-				*err_msg = gai_strerror(gai_err);
-			goto finish;
-		}
-		/* Use only the first found address */
-		if (addrinfo->ai_family == AF_INET) {
-			addr->type = ADDR_TYPE_IPV4;
-			addr->addrlen = 4;
-			addr->port = port;
-			sa4 = (struct sockaddr_in *) addrinfo->ai_addr;
-			memcpy(&addr->addr, &sa4->sin_addr, addr->addrlen);
-			res = true;
-		} else if (addrinfo->ai_family == AF_INET6) {
-			addr->type = ADDR_TYPE_IPV6;
-			addr->addrlen = 16;
-			addr->port = port;
-			sa6 = (struct sockaddr_in6 *) addrinfo->ai_addr;
-			memcpy(&addr->addr, &sa6->sin6_addr, addr->addrlen);
-			res = true;
-		}
-
-		/* Clean up */
-		freeaddrinfo(addrinfo);
-	}
+	if (!res)
+		res = wireaddr_from_hostname(addr, ip, port, err_msg);
 
 finish:
 	if (!res && err_msg && !*err_msg)
