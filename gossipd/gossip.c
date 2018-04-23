@@ -14,6 +14,8 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/timer/timer.h>
+#include <common/bech32.h>
+#include <common/bech32_util.h>
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
 #include <common/features.h>
@@ -1627,6 +1629,32 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 	return io_connect(conn, &ai, connection_out, reach);
 }
 
+static struct addrhint *
+seed_resolve_addr(const tal_t *ctx, const struct pubkey *id, const u16 port)
+{
+	struct addrhint *a;
+	char bech32[100], *addr;
+	u8 der[PUBKEY_DER_LEN];
+	u5 *data = tal_arr(ctx, u5, 0);
+
+	pubkey_to_der(der, id);
+	bech32_push_bits(&data, der, PUBKEY_DER_LEN*8);
+	bech32_encode(bech32, "ln", data, tal_count(data), sizeof(bech32));
+	addr = tal_fmt(ctx, "%s.lseed.bitcoinstats.com", bech32);
+
+	status_trace("Resolving %s", addr);
+
+	a = tal(ctx, struct addrhint);
+	if (!wireaddr_from_hostname(&a->addr, addr, port, NULL)) {
+		status_trace("Could not resolve %s", addr);
+		return tal_free(a);
+	} else {
+		status_trace("Resolved %s to %s", addr,
+			     type_to_string(ctx, struct wireaddr, &a->addr));
+		return a;
+	}
+}
+
 static void try_connect(struct reaching *reach)
 {
 	struct addrhint *a;
@@ -1641,8 +1669,11 @@ static void try_connect(struct reaching *reach)
 	}
 
 	a = find_addrhint(reach->daemon, &reach->id);
+
+	if (!a)
+		a = seed_resolve_addr(reach, &reach->id, 9735);
+
 	if (!a) {
-		/* FIXME: now try node table, dns lookups... */
 		status_info("No address known for %s, giving up",
 			    type_to_string(tmpctx, struct pubkey, &reach->id));
 		daemon_conn_send(
