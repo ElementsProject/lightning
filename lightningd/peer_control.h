@@ -61,6 +61,9 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 /* Also removes from db. */
 void delete_peer(struct peer *peer);
 
+/* Tell gossipd to try to reconnect (unless --dev-no-reconnect) */
+void try_reconnect(struct peer *peer);
+
 struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id);
 struct peer *peer_from_json(struct lightningd *ld,
 			    const char *buffer,
