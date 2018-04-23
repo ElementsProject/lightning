@@ -42,9 +42,6 @@ endif
 
 PYTEST := $(shell command -v pytest 2> /dev/null)
 PYTEST_OPTS := -v -x
-ifeq ($(TRAVIS),true)
-PYTEST_OPTS += --reruns=3
-endif
 
 # This is where we add new features as bitcoin adds them.
 FEATURES :=
