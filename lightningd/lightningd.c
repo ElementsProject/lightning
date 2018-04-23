@@ -66,6 +66,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->alias = NULL;
 	ld->rgb = NULL;
 	list_head_init(&ld->connects);
+	list_head_init(&ld->fundchannels);
 	list_head_init(&ld->waitsendpay_commands);
 	list_head_init(&ld->sendpay_commands);
 	list_head_init(&ld->close_commands);
