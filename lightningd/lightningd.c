@@ -309,6 +309,9 @@ int main(int argc, char *argv[])
 	/* Now we know our ID, we can set our color/alias if not already. */
 	setup_color_and_alias(ld);
 
+	/* Set up gossip daemon. */
+	gossip_init(ld);
+
 	/* Everything is within a transaction. */
 	db_begin_transaction(ld->wallet->db);
 
@@ -327,9 +330,6 @@ int main(int argc, char *argv[])
 	wallet_invoice_autoclean(ld->wallet,
 				 ld->ini_autocleaninvoice_cycle,
 				 ld->ini_autocleaninvoice_expiredby);
-
-	/* Set up gossip daemon. */
-	gossip_init(ld);
 
 	/* Load peers from database */
 	if (!wallet_channels_load_active(ld, ld->wallet))
