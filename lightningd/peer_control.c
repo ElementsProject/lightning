@@ -628,7 +628,6 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 					   unsigned int depth)
 {
 	const char *txidstr;
-	struct txlocator *loc;
 	bool channel_ready;
 	struct lightningd *ld = channel->peer->ld;
 
@@ -640,16 +639,18 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 	if (depth < channel->minimum_depth)
 		return KEEP_WATCHING;
 
-	loc = wallet_transaction_locate(channel, ld->wallet, txid);
-
 	/* If we restart, we could already have peer->scid from database */
 	if (!channel->scid) {
+		struct txlocator *loc;
+
+		loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
 		channel->scid = tal(channel, struct short_channel_id);
 		mk_short_channel_id(channel->scid,
 				    loc->blkheight, loc->index,
 				    channel->funding_outnum);
+		/* We've added scid, update */
+		wallet_channel_save(ld->wallet, channel);
 	}
-	tal_free(loc);
 
 	/* In theory, it could have been buried before we got back
 	 * from accepting openingd or disconnected: just wait for next one. */
