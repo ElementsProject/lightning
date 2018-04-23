@@ -107,7 +107,7 @@ class NodeFactory(object):
         self.executor = executor
         self.bitcoind = bitcoind
 
-    def get_node(self, disconnect=None, options=None, may_fail=False, random_hsm=False, fake_bitcoin_cli=False):
+    def get_node(self, disconnect=None, options=None, may_fail=False, may_reconnect=False, random_hsm=False, fake_bitcoin_cli=False):
         node_id = self.next_id
         self.next_id += 1
 
@@ -146,7 +146,7 @@ class NodeFactory(object):
 
         rpc = LightningRpc(socket_path, self.executor)
 
-        node = utils.LightningNode(daemon, rpc, self.bitcoind, self.executor, may_fail=may_fail)
+        node = utils.LightningNode(daemon, rpc, self.bitcoind, self.executor, may_fail=may_fail, may_reconnect=may_reconnect)
         self.nodes.append(node)
         if VALGRIND:
             node.daemon.cmd_prefix = [
@@ -191,6 +191,7 @@ class NodeFactory(object):
             if leaks is not None and len(leaks) != 0:
                 raise Exception("Node {} has memory leaks: {}"
                                 .format(self.nodes[i].daemon.lightning_dir, leaks))
+
         return not unexpected_fail
 
 
@@ -241,6 +242,13 @@ class BaseLightningDTests(unittest.TestCase):
             print("-" * 80)
         return 1 if errors else 0
 
+    def checkReconnect(self, node):
+        if node.may_reconnect:
+            return 0
+        if node.daemon.is_in_log('Peer has reconnected'):
+            return 1
+        return 0
+
     def tearDown(self):
         ok = self.node_factory.killall([not n.may_fail for n in self.node_factory.nodes])
         self.executor.shutdown(wait=False)
@@ -256,8 +264,13 @@ class BaseLightningDTests(unittest.TestCase):
 
         for node in self.node_factory.nodes:
             err_count += self.printCrashLog(node)
-            if err_count:
-                raise ValueError("{} nodes had crash.log files".format(err_count))
+        if err_count:
+            raise ValueError("{} nodes had crash.log files".format(err_count))
+
+        for node in self.node_factory.nodes:
+            err_count += self.checkReconnect(node)
+        if err_count:
+            raise ValueError("{} nodes had unexpected reconnections".format(err_count))
 
         if not ok:
             raise Exception("At least one lightning exited with unexpected non-zero return code")
@@ -265,8 +278,15 @@ class BaseLightningDTests(unittest.TestCase):
 
 class LightningDTests(BaseLightningDTests):
     def connect(self):
-        l1 = self.node_factory.get_node()
-        l2 = self.node_factory.get_node()
+        # Better to have clear failure because they didn't reconnect, than
+        # catch it at the end that we had an unexpected reconnect.
+        if DEVELOPER:
+            opts = {'dev-no-reconnect': None}
+        else:
+            opts = None
+
+        l1 = self.node_factory.get_node(options=opts)
+        l2 = self.node_factory.get_node(options=opts)
         ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         assert ret['id'] == l2.info['id']
@@ -1225,7 +1245,9 @@ class LightningDTests(BaseLightningDTests):
         wait_forget_channels(l2)
 
     def test_closing_while_disconnected(self):
-        l1, l2 = self.connect()
+        l1 = self.node_factory.get_node(may_reconnect=True)
+        l2 = self.node_factory.get_node(may_reconnect=True)
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         self.fund_channel(l1, l2, 10**6)
         self.pay(l1, l2, 200000000)
@@ -1377,9 +1399,6 @@ class LightningDTests(BaseLightningDTests):
         # Now grab the close transaction
         closetxid = l1.bitcoin.rpc.getrawmempool(False)[0]
 
-        # "Internal error" in hex
-        l1.daemon.wait_for_log(r'ERROR.*Internal error')
-
         # l2 will send out tx (l1 considers it a transient error)
         bitcoind.generate_block(1)
 
@@ -1388,10 +1407,8 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log(' to ONCHAIN')
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET (.*) after 5 blocks')
 
-        cid = l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['channel_id']
         wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status'] ==
-                 ['CHANNELD_NORMAL:Received error from peer: channel {}: Internal error: Failing due to dev-fail command'.format(cid),
-                  'ONCHAIN:Tracking their unilateral close',
+                 ['ONCHAIN:Tracking their unilateral close',
                   'ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel'])
 
         billboard = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['status']
@@ -1852,8 +1869,9 @@ class LightningDTests(BaseLightningDTests):
         # We need 2 to drop to chain, because then 1's HTLC timeout tx
         # is generated on-the-fly, and is thus feerate sensitive.
         disconnects = ['-WIRE_UPDATE_FAIL_HTLC', 'permfail']
-        l1 = self.node_factory.get_node()
-        l2 = self.node_factory.get_node(disconnect=disconnects)
+        l1 = self.node_factory.get_node(may_reconnect=True)
+        l2 = self.node_factory.get_node(disconnect=disconnects,
+                                        may_reconnect=True)
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         self.fund_channel(l1, l2, 10**6)
@@ -1926,7 +1944,7 @@ class LightningDTests(BaseLightningDTests):
         # We need 2 to drop to chain, because then 1's HTLC timeout tx
         # is generated on-the-fly, and is thus feerate sensitive.
         disconnects = ['-WIRE_UPDATE_FAIL_HTLC', 'permfail']
-        l1 = self.node_factory.get_node()
+        l1 = self.node_factory.get_node(options={'dev-no-reconnect': None})
         l2 = self.node_factory.get_node(disconnect=disconnects)
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
@@ -2032,7 +2050,7 @@ class LightningDTests(BaseLightningDTests):
     def test_permfail_new_commit(self):
         # Test case where we have two possible commits: it will use new one.
         disconnects = ['-WIRE_REVOKE_AND_ACK', 'permfail']
-        l1 = self.node_factory.get_node()
+        l1 = self.node_factory.get_node(options={'dev-no-reconnect': None})
         l2 = self.node_factory.get_node(disconnect=disconnects)
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
@@ -2068,7 +2086,7 @@ class LightningDTests(BaseLightningDTests):
     def test_permfail_htlc_in(self):
         # Test case where we fail with unsettled incoming HTLC.
         disconnects = ['-WIRE_UPDATE_FULFILL_HTLC', 'permfail']
-        l1 = self.node_factory.get_node()
+        l1 = self.node_factory.get_node(options={'dev-no-reconnect': None})
         l2 = self.node_factory.get_node(disconnect=disconnects)
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
@@ -2110,7 +2128,7 @@ class LightningDTests(BaseLightningDTests):
     def test_permfail_htlc_out(self):
         # Test case where we fail with unsettled outgoing HTLC.
         disconnects = ['+WIRE_REVOKE_AND_ACK', 'permfail']
-        l1 = self.node_factory.get_node()
+        l1 = self.node_factory.get_node(options={'dev-no-reconnect': None})
         l2 = self.node_factory.get_node(disconnect=disconnects)
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
@@ -2423,8 +2441,9 @@ class LightningDTests(BaseLightningDTests):
         # Connect two peers, reconnect and then see if we resume the
         # gossip.
         disconnects = ['-WIRE_CHANNEL_ANNOUNCEMENT']
-        l1 = self.node_factory.get_node(disconnect=disconnects)
-        l2 = self.node_factory.get_node()
+        l1 = self.node_factory.get_node(disconnect=disconnects,
+                                        may_reconnect=True)
+        l2 = self.node_factory.get_node(may_reconnect=True)
         l3 = self.node_factory.get_node()
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         l1.openchannel(l2, 20000)
@@ -2969,8 +2988,9 @@ class LightningDTests(BaseLightningDTests):
     def test_reconnect_signed(self):
         # This will fail *after* both sides consider channel opening.
         disconnects = ['+WIRE_FUNDING_SIGNED']
-        l1 = self.node_factory.get_node()
-        l2 = self.node_factory.get_node(disconnect=disconnects)
+        l1 = self.node_factory.get_node(may_reconnect=True)
+        l2 = self.node_factory.get_node(disconnect=disconnects,
+                                        may_reconnect=True)
 
         self.give_funds(l1, 2000000)
 
@@ -2994,8 +3014,9 @@ class LightningDTests(BaseLightningDTests):
     def test_reconnect_openingd(self):
         # Openingd thinks we're still opening; funder reconnects..
         disconnects = ['0WIRE_ACCEPT_CHANNEL']
-        l1 = self.node_factory.get_node()
-        l2 = self.node_factory.get_node(disconnect=disconnects)
+        l1 = self.node_factory.get_node(may_reconnect=True)
+        l2 = self.node_factory.get_node(disconnect=disconnects,
+                                        may_reconnect=True)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         self.give_funds(l1, 2000000)
@@ -3023,8 +3044,9 @@ class LightningDTests(BaseLightningDTests):
         disconnects = ['-WIRE_FUNDING_LOCKED',
                        '@WIRE_FUNDING_LOCKED',
                        '+WIRE_FUNDING_LOCKED']
-        l1 = self.node_factory.get_node(disconnect=disconnects)
-        l2 = self.node_factory.get_node()
+        l1 = self.node_factory.get_node(disconnect=disconnects,
+                                        may_reconnect=True)
+        l2 = self.node_factory.get_node(may_reconnect=True)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         self.fund_channel(l1, l2, 10**6)
@@ -3036,8 +3058,9 @@ class LightningDTests(BaseLightningDTests):
                        '+WIRE_UPDATE_ADD_HTLC-nocommit',
                        '@WIRE_UPDATE_ADD_HTLC-nocommit']
 
-        l1 = self.node_factory.get_node(disconnect=disconnects)
-        l2 = self.node_factory.get_node()
+        l1 = self.node_factory.get_node(disconnect=disconnects,
+                                        may_reconnect=True)
+        l2 = self.node_factory.get_node(may_reconnect=True)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         self.fund_channel(l1, l2, 10**6)
@@ -3065,8 +3088,9 @@ class LightningDTests(BaseLightningDTests):
                        '-WIRE_REVOKE_AND_ACK',
                        '@WIRE_REVOKE_AND_ACK',
                        '+WIRE_REVOKE_AND_ACK']
-        l1 = self.node_factory.get_node(disconnect=disconnects)
-        l2 = self.node_factory.get_node()
+        l1 = self.node_factory.get_node(disconnect=disconnects,
+                                        may_reconnect=True)
+        l2 = self.node_factory.get_node(may_reconnect=True)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         self.fund_channel(l1, l2, 10**6)
@@ -3091,8 +3115,9 @@ class LightningDTests(BaseLightningDTests):
                        '-WIRE_REVOKE_AND_ACK',
                        '@WIRE_REVOKE_AND_ACK',
                        '+WIRE_REVOKE_AND_ACK']
-        l1 = self.node_factory.get_node()
-        l2 = self.node_factory.get_node(disconnect=disconnects)
+        l1 = self.node_factory.get_node(may_reconnect=True)
+        l2 = self.node_factory.get_node(disconnect=disconnects,
+                                        may_reconnect=True)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         self.fund_channel(l1, l2, 10**6)
@@ -3121,8 +3146,9 @@ class LightningDTests(BaseLightningDTests):
                        '-WIRE_REVOKE_AND_ACK',
                        '@WIRE_REVOKE_AND_ACK',
                        '+WIRE_REVOKE_AND_ACK']
-        l1 = self.node_factory.get_node()
-        l2 = self.node_factory.get_node(disconnect=disconnects)
+        l1 = self.node_factory.get_node(may_reconnect=True)
+        l2 = self.node_factory.get_node(disconnect=disconnects,
+                                        may_reconnect=True)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         self.fund_channel(l1, l2, 10**6)
@@ -3142,8 +3168,9 @@ class LightningDTests(BaseLightningDTests):
         disconnects = ['-WIRE_SHUTDOWN',
                        '@WIRE_SHUTDOWN',
                        '+WIRE_SHUTDOWN']
-        l1 = self.node_factory.get_node(disconnect=disconnects)
-        l2 = self.node_factory.get_node()
+        l1 = self.node_factory.get_node(disconnect=disconnects,
+                                        may_reconnect=True)
+        l2 = self.node_factory.get_node(may_reconnect=True)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         self.fund_channel(l1, l2, 10**6)
@@ -3208,8 +3235,8 @@ class LightningDTests(BaseLightningDTests):
         disconnects = ['-WIRE_CLOSING_SIGNED',
                        '@WIRE_CLOSING_SIGNED',
                        '+WIRE_CLOSING_SIGNED']
-        l1 = self.node_factory.get_node(disconnect=disconnects)
-        l2 = self.node_factory.get_node()
+        l1 = self.node_factory.get_node(disconnect=disconnects, may_reconnect=True)
+        l2 = self.node_factory.get_node(may_reconnect=True)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         self.fund_channel(l1, l2, 10**6)
@@ -3480,8 +3507,9 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.fundchannel(l2.info['id'], amount)
 
     def test_lockin_between_restart(self):
-        l1 = self.node_factory.get_node()
-        l2 = self.node_factory.get_node(options={'anchor-confirms': 3})
+        l1 = self.node_factory.get_node(may_reconnect=True)
+        l2 = self.node_factory.get_node(options={'anchor-confirms': 3},
+                                        may_reconnect=True)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         self.give_funds(l1, 10**6 + 1000000)
@@ -3553,8 +3581,9 @@ class LightningDTests(BaseLightningDTests):
         # Start two nodes and open a channel (to remember). l2 will
         # mysteriously die while committing the first HTLC so we can
         # check that HTLCs reloaded from the DB work.
-        l1 = self.node_factory.get_node()
-        l2 = self.node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'])
+        l1 = self.node_factory.get_node(may_reconnect=True)
+        l2 = self.node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
+                                        may_reconnect=True)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         # Neither node should have a channel open, they are just connected
@@ -3619,8 +3648,9 @@ class LightningDTests(BaseLightningDTests):
     def test_payment_success_persistence(self):
         # Start two nodes and open a channel.. die during payment.
         l1 = self.node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'],
-                                        options={'dev-no-reconnect': None})
-        l2 = self.node_factory.get_node()
+                                        options={'dev-no-reconnect': None},
+                                        may_reconnect=True)
+        l2 = self.node_factory.get_node(may_reconnect=True)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         chanid = self.fund_channel(l1, l2, 100000)
@@ -3658,8 +3688,9 @@ class LightningDTests(BaseLightningDTests):
     def test_payment_failed_persistence(self):
         # Start two nodes and open a channel.. die during payment.
         l1 = self.node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'],
-                                        options={'dev-no-reconnect': None})
-        l2 = self.node_factory.get_node()
+                                        options={'dev-no-reconnect': None},
+                                        may_reconnect=True)
+        l2 = self.node_factory.get_node(may_reconnect=True)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         self.fund_channel(l1, l2, 100000)
@@ -3855,6 +3886,7 @@ class LightningDTests(BaseLightningDTests):
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_channel_reenable(self):
         l1, l2 = self.line_graph(n=2)
+        l1.may_reconnect = l2.may_reconnect = True
 
         l1.bitcoin.generate_block(6)
         l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l2.info['id']))
@@ -3983,8 +4015,8 @@ class LightningDTests(BaseLightningDTests):
     def test_update_fee_reconnect(self):
         # Disconnect after first commitsig.
         disconnects = ['+WIRE_COMMITMENT_SIGNED']
-        l1 = self.node_factory.get_node(disconnect=disconnects)
-        l2 = self.node_factory.get_node()
+        l1 = self.node_factory.get_node(disconnect=disconnects, may_reconnect=True)
+        l2 = self.node_factory.get_node(may_reconnect=True)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         self.fund_channel(l1, l2, 10**6)
