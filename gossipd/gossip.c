@@ -1508,6 +1508,9 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	/* Load stored gossip messages */
 	gossip_store_load(daemon->rstate, daemon->rstate->store);
 
+	/* OK, we're ready! */
+	daemon_conn_send(&daemon->master,
+			 take(towire_gossipctl_init_reply(NULL)));
 	return daemon_conn_read_next(master->conn, master);
 }
 
@@ -2025,6 +2028,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		return handle_outpoint_spent(conn, daemon, master->msg_in);
 
 	/* We send these, we don't receive them */
+	case WIRE_GOSSIPCTL_INIT_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
 	case WIRE_GOSSIP_GETNODES_REPLY:
