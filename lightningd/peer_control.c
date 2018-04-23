@@ -440,6 +440,11 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		goto send_error;
 	}
 
+	/* Were we trying to open a channel, and we've raced? */
+	if (handle_opening_channel(ld, &id, &addr, &cs, gossip_index,
+				   gfeatures, lfeatures, peer_fd, gossip_fd))
+		return;
+
 	/* If we're already dealing with this peer, hand off to correct
 	 * subdaemon.  Otherwise, we'll respond iff they ask about an inactive
 	 * channel. */
