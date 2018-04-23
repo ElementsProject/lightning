@@ -1366,6 +1366,12 @@ class LightningDTests(BaseLightningDTests):
         for c in closes:
             c.result(72)
 
+        # close does *not* wait for the sendrawtransaction, so do that!
+        # Note that since they disagree on the ideal fee, they may conflict
+        # (first one in will win), so we cannot look at logs, we need to
+        # wait for mempool.
+        wait_for(lambda: bitcoind.rpc.getmempoolinfo()['size'] == num_peers)
+
         bitcoind.generate_block(1)
         for p in peers:
             p.daemon.wait_for_log(' to ONCHAIN')
