@@ -105,6 +105,15 @@ u8 *get_offered_global_features(const tal_t *ctx UNNEEDED)
 /* Generated stub for get_offered_local_features */
 u8 *get_offered_local_features(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "get_offered_local_features called!\n"); abort(); }
+/* Generated stub for handle_opening_channel */
+bool handle_opening_channel(struct lightningd *ld UNNEEDED,
+			    const struct pubkey *id UNNEEDED,
+			    const struct wireaddr *addr UNNEEDED,
+			    const struct crypto_state *cs UNNEEDED,
+			    u64 gossip_index UNNEEDED,
+			    const u8 *gfeatures UNNEEDED, const u8 *lfeatures UNNEEDED,
+			    int peer_fd UNNEEDED, int gossip_fd UNNEEDED)
+{ fprintf(stderr, "handle_opening_channel called!\n"); abort(); }
 /* Generated stub for invoices_autoclean_set */
 void invoices_autoclean_set(struct invoices *invoices UNNEEDED,
 			    u64 cycle_seconds UNNEEDED,

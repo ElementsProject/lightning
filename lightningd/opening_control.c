@@ -61,6 +61,9 @@ struct uncommitted_channel {
 };
 
 struct funding_channel {
+	/* In lightningd->fundchannels while waiting for gossipd reply. */
+	struct list_node list;
+
 	struct command *cmd; /* Which also owns us. */
 
 	/* Peer we're trying to reach. */
@@ -76,6 +79,23 @@ struct funding_channel {
 	/* Channel. */
 	struct uncommitted_channel *uc;
 };
+
+static struct funding_channel *find_funding_channel(struct lightningd *ld,
+						    const struct pubkey *id)
+{
+	struct funding_channel *i;
+
+	list_for_each(&ld->fundchannels, i, list) {
+		if (pubkey_eq(&i->peerid, id))
+			return i;
+	}
+	return NULL;
+}
+
+static void remove_funding_channel_from_list(struct funding_channel *fc)
+{
+	list_del_from(&fc->cmd->ld->fundchannels, &fc->list);
+}
 
 /* Opening failed: hand back to gossipd (sending errpkt if not NULL) */
 static void uncommitted_channel_to_gossipd(struct lightningd *ld,
@@ -736,6 +756,10 @@ static void peer_offer_channel(struct lightningd *ld,
 	u32 max_to_self_delay, max_minimum_depth;
 	u64 min_effective_htlc_capacity_msat;
 
+	/* Remove from list, it's not pending any more. */
+	list_del_from(&ld->fundchannels, &fc->list);
+	tal_del_destructor(fc, remove_funding_channel_from_list);
+
 	fc->uc = new_uncommitted_channel(ld, fc, &fc->peerid, addr);
 
 	/* We asked to release this peer, but another raced in?  Corner case,
@@ -809,6 +833,10 @@ static void gossip_peer_released(struct subd *gossip,
 	struct channel *c;
 	struct uncommitted_channel *uc;
 
+	/* handle_opening_channel might have already taken care of this. */
+	if (fc->uc)
+		return;
+
 	c = active_channel_by_id(ld, &fc->peerid, &uc);
 
 	if (!fromwire_gossipctl_release_peer_reply(fc, resp, &addr, &cs,
@@ -840,6 +868,27 @@ static void gossip_peer_released(struct subd *gossip,
 			   fds[0], fds[1]);
 }
 
+/* We can race: we're trying to get gossipd to release peer just as it
+ * reconnects.  If that's happened, treat it as if it were
+ * released. */
+bool handle_opening_channel(struct lightningd *ld,
+			    const struct pubkey *id,
+			    const struct wireaddr *addr,
+			    const struct crypto_state *cs,
+			    u64 gossip_index,
+			    const u8 *gfeatures, const u8 *lfeatures,
+			    int peer_fd, int gossip_fd)
+{
+	struct funding_channel *fc = find_funding_channel(ld, id);
+
+	if (!fc)
+		return false;
+
+	peer_offer_channel(ld, fc, addr, cs, gossip_index, gfeatures, lfeatures,
+			   peer_fd, gossip_fd);
+	return true;
+}
+
 /**
  * json_fund_channel - Entrypoint for funding a channel
  */
@@ -861,6 +910,7 @@ static void json_fund_channel(struct command *cmd,
 	}
 
 	fc = tal(cmd, struct funding_channel);
+	fc->uc = NULL;
 	fc->cmd = cmd;
 	fc->change_keyindex = 0;
 	fc->funding_satoshi = 0;
@@ -911,6 +961,9 @@ static void json_fund_channel(struct command *cmd,
 			     MAX_FUNDING_SATOSHI);
 		return;
 	}
+
+	list_add(&cmd->ld->fundchannels, &fc->list);
+	tal_add_destructor(fc, remove_funding_channel_from_list);
 
 	msg = towire_gossipctl_release_peer(cmd, &fc->peerid);
 	subd_req(fc, cmd->ld->gossip, msg, -1, 2, gossip_peer_released, fc);
