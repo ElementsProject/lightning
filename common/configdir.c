@@ -8,7 +8,7 @@
 char *opt_set_talstr(const char *arg, char **p)
 {
 	tal_free(*p);
-	return opt_set_charp(arg, p);
+	return opt_set_charp(tal_strdup(NULL, arg), p);
 }
 
 static char *default_configdir(const tal_t *ctx)
