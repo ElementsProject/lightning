@@ -1386,6 +1386,12 @@ bool wallet_invoice_find_by_label(struct wallet *wallet,
 {
 	return invoices_find_by_label(wallet->invoices, pinvoice, label);
 }
+bool wallet_invoice_find_by_rhash(struct wallet *wallet,
+				  struct invoice *pinvoice,
+				  const struct sha256 *rhash)
+{
+	return invoices_find_by_rhash(wallet->invoices, pinvoice, rhash);
+}
 bool wallet_invoice_find_unpaid(struct wallet *wallet,
 				struct invoice *pinvoice,
 				const struct sha256 *rhash)

@@ -511,6 +511,20 @@ bool wallet_invoice_find_by_label(struct wallet *wallet,
 				  const struct json_escaped *label);
 
 /**
+ * wallet_invoice_find_by_rhash - Search for an invoice by payment_hash
+ *
+ * @wallet - the wallet to search.
+ * @pinvoice - pointer to location to load found invoice in.
+ * @rhash - the payment_hash to search for.
+ *
+ * Returns false if no invoice with that rhash exists.
+ * Returns true if found.
+ */
+bool wallet_invoice_find_by_rhash(struct wallet *wallet,
+				  struct invoice *pinvoice,
+				  const struct sha256 *rhash);
+
+/**
  * wallet_invoice_find_unpaid - Search for an unpaid, unexpired invoice by
  * payment_hash
  *

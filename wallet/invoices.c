@@ -347,6 +347,27 @@ bool invoices_find_by_label(struct invoices *invoices,
 	}
 }
 
+bool invoices_find_by_rhash(struct invoices *invoices,
+			    struct invoice *pinvoice,
+			    const struct sha256 *rhash)
+{
+	sqlite3_stmt *stmt;
+
+	stmt = db_prepare(invoices->db,
+			  "SELECT id"
+			  "  FROM invoices"
+			  " WHERE payment_hash = ?;");
+	sqlite3_bind_blob(stmt, 1, rhash, sizeof(*rhash), SQLITE_TRANSIENT);
+	if (sqlite3_step(stmt) == SQLITE_ROW) {
+		pinvoice->id = sqlite3_column_int64(stmt, 0);
+		sqlite3_finalize(stmt);
+		return true;
+	} else {
+		sqlite3_finalize(stmt);
+		return false;
+	}
+}
+
 bool invoices_find_unpaid(struct invoices *invoices,
 			  struct invoice *pinvoice,
 			  const struct sha256 *rhash)

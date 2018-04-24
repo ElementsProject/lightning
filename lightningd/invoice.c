@@ -297,6 +297,16 @@ static void json_invoice(struct command *cmd,
 	/* Generate preimage hash. */
 	sha256(&rhash, r.r, sizeof(r.r));
 
+	/* Check duplicate preimage if explicitly specified.
+	 * We do not check when it is randomly generated, since
+	 * the probability of that matching is very low.
+	 */
+	if (preimagetok &&
+	    wallet_invoice_find_by_rhash(cmd->ld->wallet, &invoice, &rhash)) {
+		command_fail(cmd, "preimage already used");
+		return;
+	}
+
 	/* Construct bolt11 string. */
 	b11 = new_bolt11(cmd, msatoshi_val);
 	b11->chain = get_chainparams(cmd->ld);

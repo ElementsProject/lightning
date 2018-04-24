@@ -462,6 +462,12 @@ class LightningDTests(BaseLightningDTests):
         payment_preimage = payment['payment_preimage']
         assert invoice_preimage == payment_preimage
 
+        # Creating a new invoice with same preimage should error.
+        self.assertRaisesRegex(ValueError,
+                               "preimage already used",
+                               l2.rpc.invoice, 123456, 'inv2', '?',
+                               None, None, invoice_preimage)
+
     def test_invoice(self):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node()
