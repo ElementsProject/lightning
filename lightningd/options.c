@@ -554,31 +554,27 @@ static void config_log_stderr_exit(const char *fmt, ...)
 	fatal("%s", msg);
 }
 
-/* We turn the config file into cmdline arguments. */
-static void opt_parse_from_config(struct lightningd *ld)
+/* For each line: either argument string or NULL */
+static char **args_from_config_file(struct lightningd *ld,
+				    const char *configname)
 {
-	char *contents, **lines;
-	char **all_args; /*For each line: either argument string or NULL*/
-	char *argv[3];
-	int i, argc;
+	char **all_args, **lines;
+	char *contents;
 
-	contents = grab_file(ld, "config");
+	contents = grab_file(tmpctx, configname);
 	/* Doesn't have to exist. */
 	if (!contents) {
 		if (errno != ENOENT)
-			fatal("Opening and reading config: %s",
-			      strerror(errno));
-		/* Now we can set up defaults, since no config file. */
-		setup_default_config(ld);
-		return;
+			fatal("Opening and reading %s: %s",
+			      configname, strerror(errno));
+		return NULL;
 	}
 
-	lines = tal_strsplit(contents, contents, "\r\n", STR_NO_EMPTY);
+	lines = tal_strsplit(tmpctx, contents, "\r\n", STR_NO_EMPTY);
+	/* Args need to persist because we might keep pointers to them. */
+	all_args = notleak(tal_arr(ld, char *, tal_count(lines) - 1));
 
-	/* We have to keep all_args around, since opt will point into it */
-	all_args = tal_arr(ld, char *, tal_count(lines) - 1);
-
-	for (i = 0; i < tal_count(lines) - 1; i++) {
+	for (size_t i = 0; i < tal_count(lines) - 1; i++) {
 		if (strstarts(lines[i], "#")) {
 			all_args[i] = NULL;
 		}
@@ -588,35 +584,37 @@ static void opt_parse_from_config(struct lightningd *ld)
 		}
 	}
 
+	return all_args;
+}
+
+static void parse_config_lines(const char *configname, char **all_args,
+			       int early)
+{
+	char *argv[3];
+	int argc;
+
 	/*
 	For each line we construct a fake argc,argv commandline.
 	argv[1] is the only element that changes between iterations.
 	*/
 	argc = 2;
-	argv[0] = "lightning config file";
+	argv[0] = tal_fmt(tmpctx, "config file '%s'", configname);
 	argv[argc] = NULL;
 
-	for (i = 0; i < tal_count(all_args); i++) {
-		if(all_args[i] != NULL) {
-			config_parse_line_number = i + 1;
-			argv[1] = all_args[i];
+	for (size_t i = 0; i < tal_count(all_args); i++) {
+		if (all_args[i] == NULL)
+			continue;
+
+		config_parse_line_number = i + 1;
+		argv[1] = all_args[i];
+		if (early == OPT_EARLY)
 			opt_early_parse(argc, argv, config_log_stderr_exit);
-		}
-	}
-
-	/* Now we can set up defaults, depending on whether testnet or not */
-	setup_default_config(ld);
-
-	for (i = 0; i < tal_count(all_args); i++) {
-		if(all_args[i] != NULL) {
-			config_parse_line_number = i + 1;
-			argv[1] = all_args[i];
+		else {
+			assert(early == 0);
 			opt_parse(&argc, argv, config_log_stderr_exit);
 			argc = 2; /* opt_parse might have changed it  */
 		}
 	}
-
-	tal_free(contents);
 }
 
 static char *test_daemons_and_exit(struct lightningd *ld)
@@ -739,6 +737,8 @@ void setup_color_and_alias(struct lightningd *ld)
 bool handle_opts(struct lightningd *ld, int argc, char *argv[])
 {
 	bool newdir = false;
+	char **config_args;
+	char *per_net_configfile;
 
 	/* Load defaults first, so that --help (in early options) has something
 	 * to display. The actual values loaded here, will be overwritten later
@@ -761,9 +761,28 @@ bool handle_opts(struct lightningd *ld, int argc, char *argv[])
 		newdir = true;
 	}
 
-	/* Now look for config file */
-	opt_parse_from_config(ld);
+	/* Now get early options from 'config' */
+	config_args = args_from_config_file(ld, "config");
+	parse_config_lines("config", config_args, OPT_EARLY);
 
+	/* Corner case: parse cmdline again, as network here should override
+	 * network in config file! */
+	opt_early_parse(argc, argv, opt_log_stderr_exit);
+
+	/* Now we know network name, we can set proper defaults. */
+	setup_default_config(ld);
+
+	/* Now parse the non-early options from default config. */
+	parse_config_lines("config", config_args, 0);
+
+	/* Now look for per-network config file */
+	per_net_configfile = tal_fmt(tmpctx,
+				     "config-%s",
+				     get_chainparams(ld)->network_name);
+	config_args = args_from_config_file(ld, per_net_configfile);
+	parse_config_lines(per_net_configfile, config_args, 0);
+
+	/* Finally, parse commandline (which overrides config files). */
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc != 1)
 		errx(1, "no arguments accepted");
