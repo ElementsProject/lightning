@@ -365,8 +365,8 @@ class LightningNode(object):
 
     def db_query(self, query):
         from shutil import copyfile
-        orig = os.path.join(self.daemon.lightning_dir, "lightningd.sqlite3")
-        copy = os.path.join(self.daemon.lightning_dir, "lightningd-copy.sqlite3")
+        orig = os.path.join(self.daemon.lightning_dir, "regtest.sqlite3")
+        copy = os.path.join(self.daemon.lightning_dir, "regtest.sqlite3.copy")
         copyfile(orig, copy)
 
         db = sqlite3.connect(copy)
@@ -385,7 +385,7 @@ class LightningNode(object):
 
     # Assumes node is stopped!
     def db_manip(self, query):
-        db = sqlite3.connect(os.path.join(self.daemon.lightning_dir, "lightningd.sqlite3"))
+        db = sqlite3.connect(os.path.join(self.daemon.lightning_dir, "regtest.sqlite3"))
         db.row_factory = sqlite3.Row
         c = db.cursor()
         c.execute(query)

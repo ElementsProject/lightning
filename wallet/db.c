@@ -7,8 +7,6 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 
-#define DB_FILE "lightningd.sqlite3"
-
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
  * string indices */
@@ -422,16 +420,22 @@ void db_commit_transaction(struct db *db)
 /**
  * db_open - Open or create a sqlite3 database
  */
-static struct db *db_open(const tal_t *ctx, char *filename)
+static struct db *db_open(const tal_t *ctx, const char *network_name)
 {
 	int err;
 	struct db *db;
 	sqlite3 *sql;
+	const char *filename;
 
 	if (SQLITE_VERSION_NUMBER != sqlite3_libversion_number())
 		fatal("SQLITE version mismatch: compiled %u, now %u",
 		      SQLITE_VERSION_NUMBER, sqlite3_libversion_number());
 
+	filename = tal_fmt(tmpctx, "%s.sqlite3", network_name);
+#ifdef COMPAT_V052
+	/* Earlier versions didn't include network name */
+	rename("lightningd.sqlite3", filename);
+#endif
 	int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
 	err = sqlite3_open_v2(filename, &sql, flags, NULL);
 
@@ -446,7 +450,6 @@ static struct db *db_open(const tal_t *ctx, char *filename)
 	tal_add_destructor(db, destroy_db);
 	db->in_transaction = NULL;
 	db_do_exec(__func__, db, "PRAGMA foreign_keys = ON;");
-
 	return db;
 }
 
@@ -530,9 +533,9 @@ static void db_migrate(struct db *db, struct log *log)
 	db_commit_transaction(db);
 }
 
-struct db *db_setup(const tal_t *ctx, struct log *log)
+struct db *db_setup(const tal_t *ctx, struct log *log, const char *network_name)
 {
-	struct db *db = db_open(ctx, DB_FILE);
+	struct db *db = db_open(ctx, network_name);
 
 	db_migrate(db, log);
 	return db;

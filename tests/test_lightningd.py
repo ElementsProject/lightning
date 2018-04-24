@@ -1285,7 +1285,7 @@ class LightningDTests(BaseLightningDTests):
         assert(upgrades[0]['lightning_version'] == version)
 
         # Try resetting to earlier db state.
-        os.unlink(os.path.join(l1.daemon.lightning_dir, "lightningd.sqlite3"))
+        os.unlink(os.path.join(l1.daemon.lightning_dir, "regtest.sqlite3"))
         l1.db_manip("CREATE TABLE version (version INTEGER);")
         l1.db_manip("INSERT INTO version VALUES (1);")
 
@@ -3308,7 +3308,7 @@ class LightningDTests(BaseLightningDTests):
         wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
 
         # Reach around into the db to check that outputs were added
-        db = sqlite3.connect(os.path.join(l1.daemon.lightning_dir, "lightningd.sqlite3"))
+        db = sqlite3.connect(os.path.join(l1.daemon.lightning_dir, "regtest.sqlite3"))
 
         c = db.cursor()
         c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')

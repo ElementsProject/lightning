@@ -96,6 +96,9 @@ enum watch_result funding_spent(struct channel *channel UNNEEDED,
 				size_t input_num UNNEEDED,
 				const struct block *block UNNEEDED)
 { fprintf(stderr, "funding_spent called!\n"); abort(); }
+/* Generated stub for get_chainparams */
+const struct chainparams *get_chainparams(const struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "get_chainparams called!\n"); abort(); }
 /* Generated stub for get_feerate */
 u32 get_feerate(const struct chain_topology *topo UNNEEDED, enum feerate feerate UNNEEDED)
 { fprintf(stderr, "get_feerate called!\n"); abort(); }

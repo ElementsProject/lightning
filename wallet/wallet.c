@@ -50,7 +50,7 @@ struct wallet *wallet_new(struct lightningd *ld,
 {
 	struct wallet *wallet = tal(ld, struct wallet);
 	wallet->ld = ld;
-	wallet->db = db_setup(wallet, log);
+	wallet->db = db_setup(wallet, log, get_chainparams(ld)->network_name);
 	wallet->log = log;
 	wallet->bip32_base = NULL;
 	wallet->invoices = invoices_new(wallet, wallet->db, log, timers);

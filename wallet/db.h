@@ -30,8 +30,9 @@ struct db {
  * Params:
  *  @ctx: the tal_t context to allocate from
  *  @log: where to log messages to
+ *  @network_name: chainparams-style network name to differentiate databases.
  */
-struct db *db_setup(const tal_t *ctx, struct log *log);
+struct db *db_setup(const tal_t *ctx, struct log *log, const char *network_name);
 
 /**
  * db_query - Prepare and execute a query, and return the result (or NULL)
