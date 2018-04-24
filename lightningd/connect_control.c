@@ -177,7 +177,13 @@ static void json_connect(struct command *cmd,
 			}
 			addr.port = port;
 		} else {
-			addr.port = DEFAULT_PORT;
+			/* BOLT #1:
+			 *
+			 * The default TCP port is 9735. This corresponds to
+			 * hexadecimal `0x2607`, the Unicode code point for
+			 * LIGHTNING.
+			 */
+			addr.port = 9735;
 		}
 		if (!parse_wireaddr(name, &addr, addr.port, &err_msg) || !addr.port) {
 			command_fail(cmd, "Host %s:%u not valid: %s",

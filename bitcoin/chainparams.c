@@ -14,6 +14,12 @@ const struct chainparams networks[] = {
      .dust_limit = 546,
      /* "Lightning Charge Powers Developers & Blockstream Store" */
      .when_lightning_became_cool = 504500,
+     /* BOLT #1:
+      *
+      * The default TCP port is 9735. This corresponds to hexadecimal
+      * `0x2607`, the Unicode code point for LIGHTNING.
+      */
+     .default_port = 9735,
      .testnet = false},
     {.index = 1,
      .network_name = "regtest",
@@ -24,6 +30,7 @@ const struct chainparams networks[] = {
      .cli_args = "-regtest",
      .dust_limit = 546,
      .when_lightning_became_cool = 1,
+     .default_port = 9734,
      .testnet = true},
     {.index = 2,
      .network_name = "testnet",
@@ -33,6 +40,7 @@ const struct chainparams networks[] = {
      .cli = "bitcoin-cli",
      .cli_args = "-testnet",
      .dust_limit = 546,
+     .default_port = 9734,
      .testnet = true},
     {.index = 3,
      .network_name = "litecoin",
@@ -43,6 +51,7 @@ const struct chainparams networks[] = {
      .cli_args = NULL,
      .dust_limit = 100000,
      .when_lightning_became_cool = 1,
+     .default_port = 9735,
      .testnet = false},
     {.index = 4,
      .network_name = "litecoin-testnet",
@@ -53,6 +62,7 @@ const struct chainparams networks[] = {
      .cli_args = "-testnet",
      .dust_limit = 100000,
      .when_lightning_became_cool = 1,
+     .default_port = 9734,
      .testnet = true}
 };
 

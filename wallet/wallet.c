@@ -509,7 +509,8 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 	addrstr = sqlite3_column_text(stmt, 2);
 	if (addrstr) {
 		addrp = &addr;
-		if (!parse_wireaddr((const char*)addrstr, addrp, DEFAULT_PORT, NULL)) {
+		/* Port is always explicitly saved, so don't need default */
+		if (!parse_wireaddr((const char*)addrstr, addrp, 0, NULL)) {
 			sqlite3_finalize(stmt);
 			return NULL;
 		}

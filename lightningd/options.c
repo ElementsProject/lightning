@@ -67,7 +67,7 @@ static u16 get_portnum(const struct lightningd *ld)
 {
 	if (ld->portnum)
 		return *ld->portnum;
-	return DEFAULT_PORT;
+	return get_chainparams(ld)->default_port;
 }
 
 /* FIXME: Put into ccan/time. */
@@ -755,7 +755,7 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 	/* If port is still unset, assign it the default */
 	if (!ld->portnum) {
 		ld->portnum = tal(ld, u16);
-		*ld->portnum = DEFAULT_PORT;
+		*ld->portnum = get_chainparams(ld)->default_port;
 	}
 
 	if (*ld->portnum && tal_count(ld->wireaddrs) == 0)
