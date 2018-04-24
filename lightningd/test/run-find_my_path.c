@@ -43,13 +43,13 @@ void free_htlcs(struct lightningd *ld UNNEEDED, const struct channel *channel UN
 void gossip_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "gossip_init called!\n"); abort(); }
 /* Generated stub for handle_opts */
-bool handle_opts(struct lightningd *ld UNNEEDED, int argc UNNEEDED, char *argv[])
+void handle_opts(struct lightningd *ld UNNEEDED, int argc UNNEEDED, char *argv[])
 { fprintf(stderr, "handle_opts called!\n"); abort(); }
 /* Generated stub for hash_htlc_key */
 size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)
 { fprintf(stderr, "hash_htlc_key called!\n"); abort(); }
 /* Generated stub for hsm_init */
-void hsm_init(struct lightningd *ld UNNEEDED, bool newdir UNNEEDED)
+void hsm_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "hsm_init called!\n"); abort(); }
 /* Generated stub for json_escape */
 struct json_escaped *json_escape(const tal_t *ctx UNNEEDED, const char *str TAKES UNNEEDED)

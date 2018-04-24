@@ -30,22 +30,16 @@ u8 *hsm_sync_read(const tal_t *ctx, struct lightningd *ld)
 	}
 }
 
-void hsm_init(struct lightningd *ld, bool newdir)
+void hsm_init(struct lightningd *ld)
 {
 	u8 *msg;
-	bool create;
 
 	ld->hsm_fd = subd_raw(ld, "lightning_hsmd");
 	if (ld->hsm_fd < 0)
 		err(1, "Could not subd hsm");
 
 	ld->hsm_log = new_log(ld, ld->log_book, "hsmd:");
-	if (newdir)
-		create = true;
-	else
-		create = (access("hsm_secret", F_OK) != 0);
-
-	if (!wire_sync_write(ld->hsm_fd, towire_hsm_init(tmpctx, create,
+	if (!wire_sync_write(ld->hsm_fd, towire_hsm_init(tmpctx,
 							 get_chainparams(ld)->network_name)))
 		err(1, "Writing init msg to hsm");
 

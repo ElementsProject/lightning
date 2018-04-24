@@ -478,13 +478,16 @@ static int open_hsm_secret(const char *filename, int flags)
 	return open(filename, flags, 0400);
 }
 
-static void create_new_hsm(const char *network_name)
+static void maybe_create_new_hsm(const char *network_name)
 {
 	const char *filename = hsm_filename(tmpctx, network_name);
 	int fd = open_hsm_secret(filename, O_CREAT|O_EXCL|O_WRONLY);
-	if (fd < 0)
+	if (fd < 0) {
+		if (errno == EEXIST)
+			return;
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "creating %s: %s", filename, strerror(errno));
+	}
 
 	randombytes_buf(&secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret));
 	if (!write_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret))) {
@@ -513,8 +516,7 @@ static void create_new_hsm(const char *network_name)
 			      "fsyncdir: %s", strerror(errno));
 	}
 	close(fd);
-
-	populate_secretstuff();
+	status_unusual("HSM: created new hsm_secret file");
 }
 
 static void load_hsm(const char *network_name)
@@ -534,16 +536,13 @@ static void load_hsm(const char *network_name)
 
 static void init_hsm(struct daemon_conn *master, const u8 *msg)
 {
-	bool new;
 	char *network_name;
 
-	if (!fromwire_hsm_init(msg, msg, &new, &network_name))
+	if (!fromwire_hsm_init(msg, msg, &network_name))
 		master_badmsg(WIRE_HSM_INIT, msg);
 
-	if (new)
-		create_new_hsm(network_name);
-	else
-		load_hsm(network_name);
+	maybe_create_new_hsm(network_name);
+	load_hsm(network_name);
 
 	send_init_response(master);
 }

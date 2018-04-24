@@ -280,7 +280,6 @@ static void pidfile_create(const struct lightningd *ld)
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
-	bool newdir;
 	u32 first_blocknum;
 
 	daemon_setup(argv[0], log_backtrace_print, log_backtrace_exit);
@@ -294,7 +293,7 @@ int main(int argc, char *argv[])
 	register_opts(ld);
 
 	/* Handle options and config; move to .lightningd */
-	newdir = handle_opts(ld, argc, argv);
+	handle_opts(ld, argc, argv);
 
 	/* Ignore SIGPIPE: we look at our write return values*/
 	signal(SIGPIPE, SIG_IGN);
@@ -308,7 +307,7 @@ int main(int argc, char *argv[])
 	ld->topology->wallet = ld->wallet;
 
 	/* Set up HSM. */
-	hsm_init(ld, newdir);
+	hsm_init(ld);
 
 	/* Now we know our ID, we can set our color/alias if not already. */
 	setup_color_and_alias(ld);
