@@ -214,7 +214,7 @@ void gossip_init(struct lightningd *ld)
 
 	msg = towire_gossipctl_init(
 	    tmpctx, ld->config.broadcast_interval,
-	    &get_chainparams(ld)->genesis_blockhash, &ld->id, ld->portnum,
+	    &get_chainparams(ld)->genesis_blockhash, &ld->id, *ld->portnum,
 	    get_offered_global_features(tmpctx),
 	    get_offered_local_features(tmpctx), ld->wireaddrs, ld->rgb,
 	    ld->alias, ld->config.channel_update_interval);

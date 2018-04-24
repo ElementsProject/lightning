@@ -62,6 +62,14 @@ static void tal_freefn(void *ptr)
 	tal_free(ptr);
 }
 
+/* During option parsing, ld->port can be NULL to indicate "still default" */
+static u16 get_portnum(const struct lightningd *ld)
+{
+	if (ld->portnum)
+		return *ld->portnum;
+	return DEFAULT_PORT;
+}
+
 /* FIXME: Put into ccan/time. */
 #define TIME_FROM_SEC(sec) { { .tv_nsec = 0, .tv_sec = sec } }
 #define TIME_FROM_MSEC(msec) \
@@ -102,20 +110,24 @@ static char *opt_set_u32(const char *arg, u32 *u)
 	return NULL;
 }
 
-static char *opt_set_u16(const char *arg, u16 *u)
+static char *opt_set_port(const char *arg, struct lightningd *ld)
 {
 	char *endp;
 	unsigned long l;
 
 	assert(arg != NULL);
 
+	/* Don't leak in case we set it twice */
+	tal_free(ld->portnum);
+	ld->portnum = tal(ld, u16);
+
 	/* This is how the manpage says to do it.  Yech. */
 	errno = 0;
 	l = strtoul(arg, &endp, 0);
 	if (*endp || !arg[0])
 		return tal_fmt(NULL, "'%s' is not a number", arg);
-	*u = l;
-	if (errno || *u != l)
+	*ld->portnum = l;
+	if (errno || *ld->portnum != l)
 		return tal_fmt(NULL, "'%s' is out of range", arg);
 	return NULL;
 }
@@ -141,13 +153,14 @@ static char *opt_set_s32(const char *arg, s32 *u)
 static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
 {
 	size_t n = tal_count(ld->wireaddrs);
+	u16 defport = get_portnum(ld);
 	char const *err_msg;
 
 	assert(arg != NULL);
 
 	tal_resize(&ld->wireaddrs, n+1);
 
-	if (!parse_wireaddr(arg, &ld->wireaddrs[n], ld->portnum, &err_msg)) {
+	if (!parse_wireaddr(arg, &ld->wireaddrs[n], defport, &err_msg)) {
 		return tal_fmt(NULL, "Unable to parse IP address '%s': %s", arg, err_msg);
 	}
 
@@ -169,9 +182,9 @@ static void opt_show_s32(char buf[OPT_SHOW_LEN], const s32 *u)
 	snprintf(buf, OPT_SHOW_LEN, "%"PRIi32, *u);
 }
 
-static void opt_show_u16(char buf[OPT_SHOW_LEN], const u16 *u)
+static void opt_show_port(char buf[OPT_SHOW_LEN], const struct lightningd *ld)
 {
-	snprintf(buf, OPT_SHOW_LEN, "%u", *u);
+	snprintf(buf, OPT_SHOW_LEN, "%u", get_portnum(ld));
 }
 
 static char *opt_set_network(const char *arg, struct lightningd *ld)
@@ -625,10 +638,8 @@ void register_opts(struct lightningd *ld)
 				 test_daemons_and_exit,
 				 ld, opt_hidden);
 
-	/* --port needs to be an early arg to force it being parsed
-         * before --ipaddr which may depend on it */
-	opt_register_early_arg("--port", opt_set_u16, opt_show_u16, &ld->portnum,
-			       "Port to bind to (0 means don't listen)");
+	opt_register_arg("--port", opt_set_port, opt_show_port, ld,
+			 "Port to bind to (0 means don't listen)");
 	opt_register_arg("--bitcoin-datadir", opt_set_talstr, NULL,
 			 &ld->topology->bitcoind->datadir,
 			 "-datadir arg for bitcoin-cli");
@@ -759,11 +770,17 @@ bool handle_opts(struct lightningd *ld, int argc, char *argv[])
 
 	check_config(ld);
 
-	if (ld->portnum && tal_count(ld->wireaddrs) == 0)
+	/* If port is still unset, assign it the default */
+	if (!ld->portnum) {
+		ld->portnum = tal(ld, u16);
+		*ld->portnum = DEFAULT_PORT;
+	}
+
+	if (*ld->portnum && tal_count(ld->wireaddrs) == 0)
 		guess_addresses(ld);
 	else
 		log_debug(ld->log, "Not guessing addresses: %s",
-			  ld->portnum ? "manually set" : "port set to zero");
+			  *ld->portnum ? "manually set" : "port set to zero");
 
 #if DEVELOPER
 	if (ld->dev_hsm_seed) {

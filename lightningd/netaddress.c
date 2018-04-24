@@ -289,10 +289,10 @@ void guess_addresses(struct lightningd *ld)
 
     /* We allocate an extra, then remove if it's not needed. */
     tal_resize(&ld->wireaddrs, n+1);
-    if (guess_one_address(ld, &ld->wireaddrs[n], ld->portnum, ADDR_TYPE_IPV4)) {
+    if (guess_one_address(ld, &ld->wireaddrs[n], *ld->portnum, ADDR_TYPE_IPV4)) {
         n++;
         tal_resize(&ld->wireaddrs, n+1);
     }
-    if (!guess_one_address(ld, &ld->wireaddrs[n], ld->portnum, ADDR_TYPE_IPV6))
+    if (!guess_one_address(ld, &ld->wireaddrs[n], *ld->portnum, ADDR_TYPE_IPV6))
         tal_resize(&ld->wireaddrs, n);
 }

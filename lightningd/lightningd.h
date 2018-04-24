@@ -104,8 +104,8 @@ struct lightningd {
 	/* Any pending timers. */
 	struct timers timers;
 
-	/* Port we're listening on */
-	u16 portnum;
+	/* Port we're listening on: always populated by option parsing. */
+	u16 *portnum;
 
 	/* Addresses to announce to the network (tal_count()) */
 	struct wireaddr *wireaddrs;
