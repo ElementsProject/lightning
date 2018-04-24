@@ -1,4 +1,5 @@
 #include "configdir.h"
+#include <assert.h>
 #include <ccan/opt/opt.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
@@ -23,16 +24,31 @@ static char *default_configdir(const tal_t *ctx)
 }
 
 void configdir_register_opts(const tal_t *ctx,
-			     char **configdir, char **rpc_filename)
+			     char **configdir,
+			     char **rpc_filename,
+			     char **netname)
 {
+	assert(*netname);
 	*configdir = default_configdir(ctx);
-	*rpc_filename =	tal_strdup(ctx, "lightning-rpc");
+	*rpc_filename =	NULL;
 
 	opt_register_early_arg("--lightning-dir=<dir>", opt_set_talstr, opt_show_charp,
 			       configdir,
 			       "Set working directory. All other files are relative to this");
 
-	opt_register_arg("--rpc-file", opt_set_talstr, opt_show_charp,
+	opt_register_arg("--rpc-file", opt_set_talstr, NULL,
 			 rpc_filename,
 			 "Set JSON-RPC socket (or /dev/tty)");
+
+	opt_register_early_arg("--network", opt_set_talstr, opt_show_charp,
+			       netname,
+			       "Select the network parameters (bitcoin, testnet,"
+			       " regtest, litecoin or litecoin-testnet)");
+}
+
+void config_finalize_rpc_name(const tal_t *ctx, char **rpc_filename,
+			      const char *netname)
+{
+	if (*rpc_filename == NULL)
+		*rpc_filename = tal_fmt(ctx, "rpc-%s", netname);
 }

@@ -289,8 +289,6 @@ int main(int argc, char *argv[])
 	if (!ld->daemon_dir)
 		errx(1, "Could not find daemons");
 
-	register_opts(ld);
-
 	/* Handle options and config; move to .lightningd */
 	handle_opts(ld, argc, argv);
 

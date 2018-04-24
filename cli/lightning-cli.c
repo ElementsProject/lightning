@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
 {
 	int fd, i, off;
 	const char *method;
-	char *cmd, *resp, *idstr, *rpc_filename;
+	char *cmd, *resp, *idstr, *rpc_filename, *netname;
 	struct sockaddr_un addr;
 	jsmntok_t *toks;
 	const jsmntok_t *result, *error, *id;
@@ -184,7 +184,8 @@ int main(int argc, char *argv[])
 	jsmn_init(&parser);
 
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
-	configdir_register_opts(ctx, &lightning_dir, &rpc_filename);
+	netname = tal_strdup(ctx, "testnet");
+	configdir_register_opts(ctx, &lightning_dir, &rpc_filename, &netname);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "<command> [<params>...]", "Show this message. Use the command help (without hyphens -- \"lightning-cli help\") to get a list of all RPC commands");
@@ -217,6 +218,9 @@ int main(int argc, char *argv[])
 		else
 			format = JSON;
 	}
+
+	/* If they didn't set --rpc-file, do it now */
+	config_finalize_rpc_name(ctx, &rpc_filename, netname);
 
 	if (chdir(lightning_dir) != 0)
 		err(ERROR_TALKING_TO_LIGHTNINGD, "Moving into '%s'",

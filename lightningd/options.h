@@ -5,9 +5,6 @@
 
 struct lightningd;
 
-/* You can register additional options *after* this if you want. */
-void register_opts(struct lightningd *ld);
-
 /* After this, we're in the .lightning dir, config files parsed. */
 void handle_opts(struct lightningd *ld, int argc, char *argv[]);
 

@@ -187,22 +187,6 @@ static void opt_show_port(char buf[OPT_SHOW_LEN], const struct lightningd *ld)
 	snprintf(buf, OPT_SHOW_LEN, "%u", get_portnum(ld));
 }
 
-static char *opt_set_network(const char *arg, struct lightningd *ld)
-{
-	assert(arg != NULL);
-
-	ld->topology->bitcoind->chainparams = chainparams_for_network(arg);
-	if (!ld->topology->bitcoind->chainparams)
-		return tal_fmt(NULL, "Unknown network name '%s'", arg);
-	return NULL;
-}
-
-static void opt_show_network(char buf[OPT_SHOW_LEN],
-			     const struct lightningd *ld)
-{
-	snprintf(buf, OPT_SHOW_LEN, "%s", get_chainparams(ld)->network_name);
-}
-
 static char *opt_set_rgb(const char *arg, struct lightningd *ld)
 {
 	assert(arg != NULL);
@@ -331,10 +315,6 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_noarg("--offline", opt_set_offline, ld,
 			   "Start in offline-mode (do not automatically reconnect and do not accept incoming connections");
 
-	opt_register_early_arg("--network", opt_set_network, opt_show_network,
-			       ld,
-			       "Select the network parameters (bitcoin, testnet,"
-			       " regtest, litecoin or litecoin-testnet)");
 	opt_register_arg("--allow-deprecated-apis",
 			 opt_set_bool_arg, opt_show_bool,
 			 &deprecated_apis,
@@ -497,8 +477,13 @@ static void check_config(struct lightningd *ld)
 		fatal("anchor-confirms must be greater than zero");
 }
 
-static void setup_default_config(struct lightningd *ld)
+static void setup_default_config(struct lightningd *ld, const char *netname)
 {
+	/* Now transfer network name to chainparams */
+	ld->topology->bitcoind->chainparams = chainparams_for_network(netname);
+	if (!ld->topology->bitcoind->chainparams)
+		fatal("Unknown network name '%s'", netname);
+
 	if (get_chainparams(ld)->testnet)
 		ld->config = testnet_config;
 	else
@@ -611,7 +596,7 @@ static char *test_daemons_and_exit(struct lightningd *ld)
 	return NULL;
 }
 
-void register_opts(struct lightningd *ld)
+static void register_opts(struct lightningd *ld, char **netname)
 {
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 
@@ -660,7 +645,8 @@ void register_opts(struct lightningd *ld)
 	opt_register_logging(ld);
 	opt_register_version();
 
-	configdir_register_opts(ld, &ld->config_dir, &ld->rpc_filename);
+	configdir_register_opts(ld, &ld->config_dir, &ld->rpc_filename,
+				netname);
 	config_register_opts(ld);
 #if DEVELOPER
 	dev_register_opts(ld);
@@ -725,11 +711,15 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 {
 	char **config_args;
 	char *per_net_configfile;
+	/* In case we ever have aliases: use ->network_name instead! */
+	char *netname = tal_strdup(tmpctx, get_chainparams(ld)->network_name);
+
+	register_opts(ld, &netname);
 
 	/* Load defaults first, so that --help (in early options) has something
 	 * to display. The actual values loaded here, will be overwritten later
 	 * by opt_parse_from_config. */
-	setup_default_config(ld);
+	setup_default_config(ld, netname);
 
 	/* Get any configdir/testnet options first. */
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
@@ -755,7 +745,7 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
 
 	/* Now we know network name, we can set proper defaults. */
-	setup_default_config(ld);
+	setup_default_config(ld, netname);
 
 	/* Now parse the non-early options from default config. */
 	parse_config_lines("config", config_args, 0);
@@ -771,6 +761,13 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc != 1)
 		errx(1, "no arguments accepted");
+
+	/* Free network name; it might have been assigned by --network */
+	tal_free(netname);
+
+	/* If they didn't set --rpc-file, do it now */
+	config_finalize_rpc_name(ld, &ld->rpc_filename,
+				 get_chainparams(ld)->network_name);
 
 	check_config(ld);
 
