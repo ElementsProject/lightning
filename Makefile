@@ -268,7 +268,10 @@ check-shellcheck:
 check-setup_locale:
 	@tools/check-setup_locale.sh
 
-check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python check-includes check-cppcheck check-shellcheck check-setup_locale
+check-locale-dependence:
+	@tools/check-locale-dependence.sh
+
+check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python check-includes check-cppcheck check-shellcheck check-setup_locale check-locale-dependence
 
 full-check: check check-source
 
