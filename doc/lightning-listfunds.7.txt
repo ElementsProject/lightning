@@ -4,7 +4,7 @@ LIGHTNING-LISTFUNDS(7)
 
 NAME
 ----
-lightning-listfunds - Protocol showing all funds currently managed by 
+lightning-listfunds - Command showing all funds currently managed by 
 the c-lightning node.
 
 SYNOPSIS

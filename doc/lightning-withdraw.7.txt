@@ -4,7 +4,7 @@ LIGHTNING-WITHDRAW(7)
 
 NAME
 ----
-lightning-withdraw - Protocol for withdrawing funds from the 
+lightning-withdraw - Command for withdrawing funds from the 
 internal wallet.
 
 SYNOPSIS
