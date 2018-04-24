@@ -1,6 +1,7 @@
 #include "configdir.h"
 #include <assert.h>
 #include <ccan/opt/opt.h>
+#include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <errno.h>
@@ -21,6 +22,16 @@ static char *default_configdir(const tal_t *ctx)
 
 	path = path_join(ctx, env, ".lightning");
 	return path;
+}
+
+static char *opt_set_testnet(char **netname)
+{
+	return opt_set_talstr("testnet", netname);
+}
+
+static char *opt_set_mainnet(char **netname)
+{
+	return opt_set_talstr("bitcoin", netname);
 }
 
 void configdir_register_opts(const tal_t *ctx,
@@ -44,6 +55,11 @@ void configdir_register_opts(const tal_t *ctx,
 			       netname,
 			       "Select the network parameters (bitcoin, testnet,"
 			       " regtest, litecoin or litecoin-testnet)");
+
+	opt_register_early_noarg("--testnet", opt_set_testnet, netname,
+				 "Alias for --network=testnet");
+	opt_register_early_noarg("--mainnet", opt_set_mainnet, netname,
+				 "Alias for --network=bigtcoin");
 }
 
 void config_finalize_rpc_name(const tal_t *ctx, char **rpc_filename,
