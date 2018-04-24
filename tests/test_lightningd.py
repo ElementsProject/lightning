@@ -445,6 +445,17 @@ class LightningDTests(BaseLightningDTests):
         assert len(l1.rpc.listinvoices('inv1')['invoices']) == 0
         assert len(l1.rpc.listinvoices('inv2')['invoices']) == 0
 
+    def test_names(self):
+        for key, alias, color in [('0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518', 'JUNIORBEAM', '0266e4'),
+                                  ('022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59', 'SILENTARTIST', '022d22'),
+                                  ('035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d', 'HOPPINGFIRE', '035d2b'),
+                                  ('0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199', 'JUNIORFELONY', '0382ce'),
+                                  ('032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'SOMBERFIRE', '032cf1'),
+                                  ('0265b6ab5ec860cd257865d61ef0bbf5b3339c36cbda8b26b74e7f1dca490b6518', 'LOUDPHOTO', '0265b6')]:
+            n = self.node_factory.get_node()
+            assert n.daemon.is_in_log('public key {}, alias {}.* \(color #{}\)'
+                                      .format(key, alias, color))
+
     def test_invoice(self):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node()

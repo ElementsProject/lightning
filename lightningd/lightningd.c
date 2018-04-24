@@ -49,7 +49,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 #if DEVELOPER
 	ld->dev_debug_subdaemon = NULL;
 	ld->dev_disconnect_fd = -1;
-	ld->dev_hsm_seed = NULL;
 	ld->dev_subdaemon_fail = false;
 	ld->no_reconnect = false;
 
