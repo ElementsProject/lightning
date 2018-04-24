@@ -77,6 +77,21 @@ bool invoices_find_by_label(struct invoices *invoices,
 			    const struct json_escaped *label);
 
 /**
+ * invoices_find_by_rhash - Search for an invoice by
+ * payment_hash
+ *
+ * @invoices - the invoice handler.
+ * @pinvoice - pointer to location to load found invoice in.
+ * @rhash - the payment_hash to search for.
+ *
+ * Returns false if no invoice with that rhash exists.
+ * Returns true if found.
+ */
+bool invoices_find_by_rhash(struct invoices *invoices,
+			    struct invoice *pinvoice,
+			    const struct sha256 *rhash);
+
+/**
  * invoices_find_unpaid - Search for an unpaid, unexpired invoice by
  * payment_hash
  *

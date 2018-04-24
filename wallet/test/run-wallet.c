@@ -142,6 +142,11 @@ bool invoices_find_by_label(struct invoices *invoices UNNEEDED,
 			    struct invoice *pinvoice UNNEEDED,
 			    const struct json_escaped *label UNNEEDED)
 { fprintf(stderr, "invoices_find_by_label called!\n"); abort(); }
+/* Generated stub for invoices_find_by_rhash */
+bool invoices_find_by_rhash(struct invoices *invoices UNNEEDED,
+			    struct invoice *pinvoice UNNEEDED,
+			    const struct sha256 *rhash UNNEEDED)
+{ fprintf(stderr, "invoices_find_by_rhash called!\n"); abort(); }
 /* Generated stub for invoices_find_unpaid */
 bool invoices_find_unpaid(struct invoices *invoices UNNEEDED,
 			  struct invoice *pinvoice UNNEEDED,
