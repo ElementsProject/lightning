@@ -526,39 +526,6 @@ static void config_log_stderr_exit(const char *fmt, ...)
 	fatal("%s", msg);
 }
 
-/* For each line: either argument string or NULL */
-static char **args_from_config_file(struct lightningd *ld,
-				    const char *configname)
-{
-	char **all_args, **lines;
-	char *contents;
-
-	contents = grab_file(tmpctx, configname);
-	/* Doesn't have to exist. */
-	if (!contents) {
-		if (errno != ENOENT)
-			fatal("Opening and reading %s: %s",
-			      configname, strerror(errno));
-		return NULL;
-	}
-
-	lines = tal_strsplit(tmpctx, contents, "\r\n", STR_NO_EMPTY);
-	/* Args need to persist because we might keep pointers to them. */
-	all_args = notleak(tal_arr(ld, char *, tal_count(lines) - 1));
-
-	for (size_t i = 0; i < tal_count(lines) - 1; i++) {
-		if (strstarts(lines[i], "#")) {
-			all_args[i] = NULL;
-		}
-		else {
-			/* Only valid forms are "foo" and "foo=bar" */
-			all_args[i] = tal_fmt(all_args, "--%s", lines[i]);
-		}
-	}
-
-	return all_args;
-}
-
 static void parse_config_lines(const char *configname, char **all_args,
 			       int early)
 {
@@ -738,7 +705,14 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 
 	/* Now get early options from 'config' */
 	config_args = args_from_config_file(ld, "config");
-	parse_config_lines("config", config_args, OPT_EARLY);
+	/* Args need to persist because we might keep pointers to them. */
+	if (!config_args) {
+		if (errno != ENOENT)
+			fatal("Opening and reading config: %s", strerror(errno));
+	} else {
+		notleak(config_args);
+		parse_config_lines("config", config_args, OPT_EARLY);
+	}
 
 	/* Corner case: parse cmdline again, as network here should override
 	 * network in config file! */
@@ -755,7 +729,14 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 				     "config-%s",
 				     get_chainparams(ld)->network_name);
 	config_args = args_from_config_file(ld, per_net_configfile);
-	parse_config_lines(per_net_configfile, config_args, 0);
+	/* Args need to persist because we might keep pointers to them. */
+	if (!config_args) {
+		if (errno != ENOENT)
+			fatal("Opening and reading config: %s", strerror(errno));
+	} else {
+		notleak(config_args);
+		parse_config_lines(per_net_configfile, config_args, 0);
+	}
 
 	/* Finally, parse commandline (which overrides config files). */
 	opt_parse(&argc, argv, opt_log_stderr_exit);

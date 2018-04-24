@@ -165,6 +165,37 @@ static void add_input(char **cmd, const char *input,
 		tal_append_fmt(cmd, ", ");
 }
 
+static void ignore_err(const char *fmt UNNEEDED, ...)
+{
+}
+
+/* They might specify default network in config, for example.
+ * We don't understand most options, so we ignore failure here.
+ *
+ * We could later introduce a cli-config(-netname?).
+ */
+static void parse_config_for_options(void)
+{
+	char *argv[3];
+	char **all_args = args_from_config_file(NULL, "config");
+
+	/*
+	For each line we construct a fake argc,argv commandline.
+	argv[1] is the only element that changes between iterations.
+	*/
+	argv[0] = "config file";
+	argv[2] = NULL;
+
+	for (size_t i = 0; i < tal_count(all_args); i++) {
+		if (all_args[i] == NULL)
+			continue;
+
+		argv[1] = all_args[i];
+		opt_early_parse(2, argv, ignore_err);
+	}
+	tal_free(all_args);
+}
+
 int main(int argc, char *argv[])
 {
 	int fd, i, off;
@@ -200,6 +231,17 @@ int main(int argc, char *argv[])
 
 	opt_register_version();
 
+	/* Get lightning dir. */
+	opt_early_parse(argc, argv, opt_log_stderr_exit);
+
+	if (chdir(lightning_dir) != 0)
+		err(ERROR_TALKING_TO_LIGHTNINGD, "Moving into '%s'",
+		    lightning_dir);
+
+	/* Look in config file, then override with command line */
+	parse_config_for_options();
+
+	/* Parse again: may override network */
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 
@@ -221,10 +263,6 @@ int main(int argc, char *argv[])
 
 	/* If they didn't set --rpc-file, do it now */
 	config_finalize_rpc_name(ctx, &rpc_filename, netname);
-
-	if (chdir(lightning_dir) != 0)
-		err(ERROR_TALKING_TO_LIGHTNINGD, "Moving into '%s'",
-		    lightning_dir);
 
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (strlen(rpc_filename) + 1 > sizeof(addr.sun_path))

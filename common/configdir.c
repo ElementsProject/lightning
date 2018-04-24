@@ -68,3 +68,31 @@ void config_finalize_rpc_name(const tal_t *ctx, char **rpc_filename,
 	if (*rpc_filename == NULL)
 		*rpc_filename = tal_fmt(ctx, "rpc-%s", netname);
 }
+
+/* For each line: either argument string or NULL */
+char **args_from_config_file(const tal_t *ctx, const char *configname)
+{
+	char **all_args, **lines;
+	char *contents;
+
+	contents = grab_file(NULL, configname);
+	/* Doesn't have to exist. */
+	if (!contents)
+		return NULL;
+
+	lines = tal_strsplit(contents, contents, "\r\n", STR_NO_EMPTY);
+	all_args = tal_arr(ctx, char *, tal_count(lines) - 1);
+
+	for (size_t i = 0; i < tal_count(lines) - 1; i++) {
+		if (strstarts(lines[i], "#")) {
+			all_args[i] = NULL;
+		}
+		else {
+			/* Only valid forms are "foo" and "foo=bar" */
+			all_args[i] = tal_fmt(all_args, "--%s", lines[i]);
+		}
+	}
+
+	tal_free(contents);
+	return all_args;
+}

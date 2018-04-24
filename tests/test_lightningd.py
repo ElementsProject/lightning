@@ -4290,6 +4290,14 @@ class LightningDTests(BaseLightningDTests):
         except Exception:
             pass
 
+        # Test getinfo works (it must read config file to know we're regtest)
+        out = subprocess.check_output(['cli/lightning-cli',
+                                       '--lightning-dir={}'
+                                       .format(l1.daemon.lightning_dir),
+                                       'getinfo', 'getinfo']).decode('utf-8')
+        j, _ = json.JSONDecoder().raw_decode(out)
+        assert j == l1.rpc.getinfo()
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_forget_channel(self):
         l1 = self.node_factory.get_node()
