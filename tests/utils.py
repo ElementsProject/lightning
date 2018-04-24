@@ -18,6 +18,7 @@ BITCOIND_CONFIG = {
 
 
 LIGHTNINGD_CONFIG = {
+    'network': 'regtest',
     "bitcoind-poll": "1s",
     "log-level": "debug",
     "cltv-delta": 6,
@@ -246,19 +247,23 @@ class LightningD(TailableProc):
         self.port = port
         self.cmd_prefix = []
 
-        self.opts = LIGHTNINGD_CONFIG.copy()
-        opts = {
-            'bitcoin-datadir': bitcoin_dir,
-            'lightning-dir': lightning_dir,
-            'port': port,
-            'allow-deprecated-apis': 'false',
-            'override-fee-rates': '15000/7500/1000',
-            'network': 'regtest',
-            'ignore-fee-limits': 'false',
-        }
+        if not os.path.exists(lightning_dir):
+            os.makedirs(lightning_dir)
 
-        for k, v in opts.items():
-            self.opts[k] = v
+        # To test config file handling, we write to config, override with
+        # config-regtest and then override further with cmdline.  It's fun!
+        write_config(os.path.join(lightning_dir, 'config'), LIGHTNINGD_CONFIG)
+        write_config(os.path.join(lightning_dir, 'config-regtest'),
+                     {'bitcoin-datadir': bitcoin_dir,
+                      'port': port,
+                      'allow-deprecated-apis': 'false',
+                      'override-fee-rates': '15000/7500/1000',
+                      'ignore-fee-limits': 'false'})
+
+        # These go onto cmdline.
+        self.opts = {
+            'lightning-dir': lightning_dir
+        }
 
         # Last 32-bytes of final part of dir -> seed.
         seed = (bytes(re.search('([^/]+)/*$', lightning_dir).group(1), encoding='utf-8') + bytes(32))[:32]
@@ -267,9 +272,6 @@ class LightningD(TailableProc):
             if not random_hsm:
                 self.opts['dev-hsm-seed'] = binascii.hexlify(seed).decode('ascii')
         self.prefix = 'lightningd(%d)' % (port)
-
-        if not os.path.exists(lightning_dir):
-            os.makedirs(lightning_dir)
 
     @property
     def cmd_line(self):
