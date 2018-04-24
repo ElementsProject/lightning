@@ -14,6 +14,9 @@
 #include <ccan/ptrint/ptrint.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/take/take.h>
+#ifdef COMPAT_V052
+#include <ccan/tal/str/str.h>
+#endif
 #include <common/daemon_conn.h>
 #include <common/derive_basepoints.h>
 #include <common/funding_tx.h>
@@ -460,36 +463,52 @@ static void bitcoin_keypair(struct privkey *privkey,
 			      "BIP32 pubkey %u create failed", index);
 }
 
-static void create_new_hsm(void)
+static const char *hsm_filename(const tal_t *ctx,
+				const char *network_name)
 {
-	int fd = open("hsm_secret", O_CREAT|O_EXCL|O_WRONLY, 0400);
+	return tal_fmt(ctx, "hsm_secret-%s", network_name);
+}
+
+static int open_hsm_secret(const char *filename, int flags)
+{
+#ifdef COMPAT_V052
+	/* Filename used not to include network name */
+	rename("hsm_secret", filename);
+#endif
+	return open(filename, flags, 0400);
+}
+
+static void create_new_hsm(const char *network_name)
+{
+	const char *filename = hsm_filename(tmpctx, network_name);
+	int fd = open_hsm_secret(filename, O_CREAT|O_EXCL|O_WRONLY);
 	if (fd < 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "creating: %s", strerror(errno));
+			      "creating %s: %s", filename, strerror(errno));
 
 	randombytes_buf(&secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret));
 	if (!write_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret))) {
-		unlink_noerr("hsm_secret");
+		unlink_noerr(filename);
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "writing: %s", strerror(errno));
+			      "writing %s: %s", filename, strerror(errno));
 	}
 	if (fsync(fd) != 0) {
-		unlink_noerr("hsm_secret");
+		unlink_noerr(filename);
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "fsync: %s", strerror(errno));
+			      "fsync %s: %s", filename, strerror(errno));
 	}
 	if (close(fd) != 0) {
-		unlink_noerr("hsm_secret");
+		unlink_noerr(filename);
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "closing: %s", strerror(errno));
+			      "closing %s: %s", filename, strerror(errno));
 	}
 	fd = open(".", O_RDONLY);
 	if (fd < 0) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "opening: %s", strerror(errno));
+			      "opening '.': %s", strerror(errno));
 	}
 	if (fsync(fd) != 0) {
-		unlink_noerr("hsm_secret");
+		unlink_noerr(filename);
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "fsyncdir: %s", strerror(errno));
 	}
@@ -498,15 +517,16 @@ static void create_new_hsm(void)
 	populate_secretstuff();
 }
 
-static void load_hsm(void)
+static void load_hsm(const char *network_name)
 {
-	int fd = open("hsm_secret", O_RDONLY);
+	const char *filename = hsm_filename(tmpctx, network_name);
+	int fd = open_hsm_secret(filename, O_RDONLY);
 	if (fd < 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "opening: %s", strerror(errno));
+			      "opening %s: %s", filename, strerror(errno));
 	if (!read_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "reading: %s", strerror(errno));
+			      "reading %s: %s", filename, strerror(errno));
 	close(fd);
 
 	populate_secretstuff();
@@ -521,9 +541,9 @@ static void init_hsm(struct daemon_conn *master, const u8 *msg)
 		master_badmsg(WIRE_HSM_INIT, msg);
 
 	if (new)
-		create_new_hsm();
+		create_new_hsm(network_name);
 	else
-		load_hsm();
+		load_hsm(network_name);
 
 	send_init_response(master);
 }
