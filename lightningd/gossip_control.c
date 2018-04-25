@@ -137,6 +137,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_ROUTING_FAILURE:
 	case WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT:
+	case WIRE_GOSSIPCTL_PEER_IMPORTANT:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIPCTL_INIT_REPLY:
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:

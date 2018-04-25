@@ -32,6 +32,11 @@ gossipctl_peer_addrhint,,addr,struct wireaddr
 gossipctl_reach_peer,3001
 gossipctl_reach_peer,,id,struct pubkey
 
+# Master -> gossipd: try to always maintain connection to this peer (or not)
+gossipctl_peer_important,3010
+gossipctl_peer_important,,id,struct pubkey
+gossipctl_peer_important,,important,bool
+
 # Gossipd -> master: we got a peer. Two fds: peer and gossip
 gossip_peer_connected,3002
 gossip_peer_connected,,id,struct pubkey
