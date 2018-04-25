@@ -203,6 +203,8 @@ static void run(const char *name)
 
 int main(int argc, char *argv[])
 {
+	setup_locale();
+
 	static const struct bitcoin_blkid zerohash;
 	struct routing_state *rstate;
 	size_t num_nodes = 100, num_runs = 1;

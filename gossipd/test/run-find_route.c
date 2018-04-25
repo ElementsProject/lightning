@@ -172,6 +172,8 @@ static bool channel_is_between(const struct chan *chan,
 
 int main(void)
 {
+	setup_locale();
+
 	static const struct bitcoin_blkid zerohash;
 	struct routing_state *rstate;
 	struct pubkey a, b, c, d;

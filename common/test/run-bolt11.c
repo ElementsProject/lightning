@@ -114,6 +114,8 @@ static void test_b11(const char *b11str,
 
 int main(void)
 {
+	setup_locale();
+
 	struct bolt11 *b11;
 	struct pubkey node;
 	u64 msatoshi;

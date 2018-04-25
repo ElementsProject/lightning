@@ -2602,6 +2602,8 @@ static void send_shutdown_complete(struct peer *peer)
 
 int main(int argc, char *argv[])
 {
+	setup_locale();
+
 	int i, nfds;
 	fd_set fds_in, fds_out;
 	struct peer *peer;

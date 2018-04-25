@@ -158,6 +158,8 @@ static void run_unit_tests(void)
 
 int main(int argc, char **argv)
 {
+	setup_locale();
+
 	bool generate = false, decode = false, unit = false;
 	u8 assocdata[32];
 	memset(assocdata, 'B', sizeof(assocdata));

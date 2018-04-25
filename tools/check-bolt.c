@@ -7,6 +7,7 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
+#include <common/utils.h>
 #include <sys/types.h>
 #include <dirent.h>
 
@@ -256,6 +257,8 @@ static struct bolt_file *find_bolt(const char *bolt_prefix,
 
 int main(int argc, char *argv[])
 {
+	setup_locale();
+
 	struct bolt_file *bolts;
 	int i;
 

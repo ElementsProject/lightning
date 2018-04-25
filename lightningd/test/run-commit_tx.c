@@ -425,6 +425,8 @@ static const struct htlc **invert_htlcs(const struct htlc **htlcs)
 
 int main(void)
 {
+	setup_locale();
+
 	struct bitcoin_txid funding_txid;
 	u64 funding_amount_satoshi, dust_limit_satoshi;
 	u32 feerate_per_kw;

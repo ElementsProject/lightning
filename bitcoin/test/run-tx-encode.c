@@ -26,6 +26,8 @@ static void tal_hexeq(const u8 *p, const char *hex)
 
 int main(void)
 {
+	setup_locale();
+
 	struct bitcoin_tx *tx;
 
 	tx = bitcoin_tx_from_hex(NULL, extended_tx, strlen(extended_tx));

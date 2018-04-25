@@ -2,6 +2,7 @@
 #include <ccan/list/list.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
+#include <locale.h>
 
 secp256k1_context *secp256k1_ctx;
 const tal_t *tmpctx;
@@ -24,6 +25,13 @@ u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len)
 	if (!hex_decode(str, len, data, hex_data_size(len)))
 		return NULL;
 	return data;
+}
+
+/* Use the POSIX C locale. */
+void setup_locale(void)
+{
+	setlocale(LC_ALL, "C");
+	putenv("LC_ALL=C"); /* For exec{l,lp,v,vp}(...) */
 }
 
 /* Global temporary convenience context: freed in io loop core. */

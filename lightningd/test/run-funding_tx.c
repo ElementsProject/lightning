@@ -41,6 +41,8 @@ static struct privkey privkey_from_hex(const char *hex)
 
 int main(void)
 {
+	setup_locale();
+
 	struct bitcoin_tx *input, *funding;
 	u64 fee;
 	struct pubkey local_funding_pubkey, remote_funding_pubkey;
