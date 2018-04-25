@@ -194,6 +194,11 @@ void gossip_init(struct lightningd *ld)
 	u8 *msg;
 	int hsmfd;
 	u64 capabilities = HSM_CAP_ECDH | HSM_CAP_SIGN_GOSSIP;
+#if DEVELOPER
+	bool no_reconnect = ld->no_reconnect;
+#else
+	bool no_reconnect = false;
+#endif
 
 	msg = towire_hsm_client_hsmfd(tmpctx, &ld->id, capabilities);
 	if (!wire_sync_write(ld->hsm_fd, msg))
@@ -218,7 +223,7 @@ void gossip_init(struct lightningd *ld)
 	    &get_chainparams(ld)->genesis_blockhash, &ld->id, ld->portnum,
 	    get_offered_global_features(tmpctx),
 	    get_offered_local_features(tmpctx), ld->wireaddrs, ld->rgb,
-	    ld->alias, ld->config.channel_update_interval);
+	    ld->alias, ld->config.channel_update_interval, no_reconnect);
 	subd_req(ld->gossip, ld->gossip, msg, -1, 0, gossip_init_done, NULL);
 
 	/* Wait for init done */

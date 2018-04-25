@@ -4,6 +4,7 @@
 #include <common/initial_commit_tx.h>
 #include <common/utils.h>
 #include <errno.h>
+#include <gossipd/gen_gossip_wire.h>
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
@@ -92,6 +93,10 @@ static void peer_closing_complete(struct channel *channel, const u8 *msg)
 	/* Retransmission only, ignore closing. */
 	if (channel->state == CLOSINGD_COMPLETE)
 		return;
+
+	/* Tell gossipd we no longer need to keep connection to this peer */
+	msg = towire_gossipctl_peer_important(NULL, &channel->peer->id, false);
+	subd_send_msg(channel->peer->ld->gossip, take(msg));
 
 	/* Channel gets dropped to chain cooperatively. */
 	drop_to_chain(channel->peer->ld, channel, true);

@@ -1090,7 +1090,7 @@ static const struct json_command close_command = {
 };
 AUTODATA(json_command, &close_command);
 
-void try_reconnect(struct peer *peer)
+static void try_reconnect(struct peer *peer)
 {
 	struct lightningd *ld = peer->ld;
 	u8 *msg;
