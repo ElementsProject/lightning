@@ -1584,10 +1584,17 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 			NULL, &reach->id, diff, reach->attempts, false)));
 		tal_free(reach);
 	} else {
-		status_trace("Failed connected out for %s, will try again",
-			     type_to_string(tmpctx, struct pubkey, &reach->id));
-		/* FIXME: Configurable timer! */
-		new_reltimer(&reach->daemon->timers, reach, time_from_sec(5),
+		unsigned int secs;
+
+		/* Exponential backoff, then every 5 minutes */
+		if (reach->attempts < 9)
+			secs = 1 << reach->attempts;
+		else
+			secs = 300;
+		status_trace("Failed connected out for %s, will try again in %u seconds",
+			     type_to_string(tmpctx, struct pubkey, &reach->id),
+			     secs);
+		new_reltimer(&reach->daemon->timers, reach, time_from_sec(secs),
 			     try_connect, reach);
 	}
 }
