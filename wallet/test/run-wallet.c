@@ -364,6 +364,10 @@ void subd_send_fd(struct subd *sd UNNEEDED, int fd UNNEEDED)
 /* Generated stub for subd_send_msg */
 void subd_send_msg(struct subd *sd UNNEEDED, const u8 *msg_out UNNEEDED)
 { fprintf(stderr, "subd_send_msg called!\n"); abort(); }
+/* Generated stub for tell_gossipd_peer_is_important */
+void tell_gossipd_peer_is_important(struct lightningd *ld UNNEEDED,
+				    const struct channel *channel UNNEEDED)
+{ fprintf(stderr, "tell_gossipd_peer_is_important called!\n"); abort(); }
 /* Generated stub for towire_channel_dev_reenable_commit */
 u8 *towire_channel_dev_reenable_commit(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_dev_reenable_commit called!\n"); abort(); }

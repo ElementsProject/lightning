@@ -41,4 +41,7 @@ bool handle_opening_channel(struct lightningd *ld,
 
 void kill_uncommitted_channel(struct uncommitted_channel *uc,
 			      const char *why);
+
+void tell_gossipd_peer_is_important(struct lightningd *ld,
+				    const struct channel *channel);
 #endif /* LIGHTNING_LIGHTNINGD_OPENING_CONTROL_H */
