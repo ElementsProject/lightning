@@ -255,8 +255,8 @@ static void funding_broadcast_failed(struct channel *channel,
 			       exitstatus, err);
 }
 
-static void tell_gossipd_peer_is_important(struct lightningd *ld,
-					   const struct channel *channel)
+void tell_gossipd_peer_is_important(struct lightningd *ld,
+				    const struct channel *channel)
 {
 	u8 *msg;
 

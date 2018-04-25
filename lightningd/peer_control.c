@@ -1090,22 +1090,6 @@ static const struct json_command close_command = {
 };
 AUTODATA(json_command, &close_command);
 
-static void try_reconnect(struct peer *peer)
-{
-	struct lightningd *ld = peer->ld;
-	u8 *msg;
-
-#if DEVELOPER
-	/* Don't schedule an attempt if we disabled reconnections with
-	 * the `--dev-no-reconnect` flag */
-	if (ld->no_reconnect)
-		return;
-#endif /* DEVELOPER */
-
-	msg = towire_gossipctl_reach_peer(NULL, &peer->id);
-	subd_send_msg(ld->gossip, take(msg));
-}
-
 static void activate_peer(struct peer *peer)
 {
 	u8 *msg;
@@ -1116,10 +1100,11 @@ static void activate_peer(struct peer *peer)
 	msg = towire_gossipctl_peer_addrhint(peer, &peer->id, &peer->addr);
 	subd_send_msg(peer->ld->gossip, take(msg));
 
-	/* We can only have one active channel: reconnect if not already. */
+	/* We can only have one active channel: make sure gossipd
+	 * knows to reconnect. */
 	channel = peer_active_channel(peer);
-	if (channel && !channel->owner)
-		try_reconnect(peer);
+	if (channel)
+		tell_gossipd_peer_is_important(ld, channel);
 
 	list_for_each(&peer->channels, channel, list) {
 		/* Watching lockin may be unnecessary, but it's harmless. */
