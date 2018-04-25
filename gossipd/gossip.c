@@ -20,6 +20,7 @@
 #include <common/daemon_conn.h>
 #include <common/features.h>
 #include <common/ping.h>
+#include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/timeout.h>
@@ -52,6 +53,36 @@
 
 #define HSM_FD 3
 
+struct important_peerid {
+	struct daemon *daemon;
+
+	struct pubkey id;
+};
+
+/* We keep a set of peer ids we're always trying to reach. */
+static const struct pubkey *
+important_peerid_keyof(const struct important_peerid *imp)
+{
+	return &imp->id;
+}
+
+static bool important_peerid_eq(const struct important_peerid *imp,
+				const struct pubkey *key)
+{
+	return pubkey_eq(&imp->id, key);
+}
+
+static size_t important_peerid_hash(const struct pubkey *id)
+{
+	return siphash24(siphash_seed(), id, sizeof(*id));
+}
+
+HTABLE_DEFINE_TYPE(struct important_peerid,
+		   important_peerid_keyof,
+		   important_peerid_hash,
+		   important_peerid_eq,
+		   important_peerid_map);
+
 struct daemon {
 	/* Who am I? */
 	struct pubkey id;
@@ -74,6 +105,9 @@ struct daemon {
 	struct timers timers;
 
 	u32 broadcast_interval;
+
+	/* Important peers */
+	struct important_peerid_map important_peerids;
 
 	/* Local and global features to offer to peers. */
 	u8 *localfeatures, *globalfeatures;
@@ -101,12 +135,6 @@ struct reaching {
 
 	/* Where I'm reaching to. */
 	struct wireaddr addr;
-
-	/* Did we succeed? */
-	bool succeeded;
-
-	/* Is this an important peer to keep connected? */
-	bool keep_connected;
 
 	/* How many times have we attempted to connect? */
 	u32 attempts;
@@ -160,9 +188,6 @@ struct peer {
 	/* Is it time to continue the staggered broadcast? */
 	bool gossip_sync;
 
-	/* If we die, should we reach again? */
-	bool keep_connected;
-
 	/* Only one of these is set: */
 	struct local_peer_state *local;
 	struct daemon_conn *remote;
@@ -182,18 +207,17 @@ static struct io_plan *peer_start_gossip(struct io_conn *conn,
 					 struct peer *peer);
 static bool send_peer_with_fds(struct peer *peer, const u8 *msg);
 static void wake_pkt_out(struct peer *peer);
-static bool try_reach_peer(struct daemon *daemon, const struct pubkey *id,
-			   bool keep_connected);
+static void retry_important(struct important_peerid *imp);
 
 static void destroy_peer(struct peer *peer)
 {
+	struct important_peerid *imp;
+
 	list_del_from(&peer->daemon->peers, &peer->list);
-#if DEVELOPER
-	if (peer->daemon->no_reconnect)
-		return;
-#endif
-	if (peer->keep_connected)
-		try_reach_peer(peer->daemon, &peer->id, true);
+	imp = important_peerid_map_get(&peer->daemon->important_peerids,
+				       &peer->id);
+	if (imp)
+		retry_important(imp);
 }
 
 static struct peer *find_peer(struct daemon *daemon, const struct pubkey *id)
@@ -250,7 +274,6 @@ static struct peer *new_peer(const tal_t *ctx,
 	peer->daemon = daemon;
 	peer->local = new_local_peer_state(peer, cs);
 	peer->remote = NULL;
-	peer->keep_connected = false;
 
 	return peer;
 }
@@ -283,16 +306,11 @@ static struct reaching *find_reaching(struct daemon *daemon,
 
 static void reached_peer(struct peer *peer, struct io_conn *conn)
 {
+	/* OK, we've reached the peer successfully, stop retrying. */
 	struct reaching *r = find_reaching(peer->daemon, &peer->id);
 
 	if (!r)
 		return;
-
-	/* If this peer was important, remember, so we reconnect. */
-	if (r->keep_connected)
-		peer->keep_connected = true;
-
-	/* OK, we've reached the peer successfully, stop retrying. */
 
 	/* Don't free conn with reach. */
 	tal_steal(peer->daemon, conn);
@@ -1585,7 +1603,8 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 	u32 diff = time_now().ts.tv_sec - reach->first_attempt;
 	reach->attempts++;
 
-	if (!reach->keep_connected && reach->attempts >= 10) {
+	if (!important_peerid_map_get(&reach->daemon->important_peerids, &reach->id)
+	    && reach->attempts >= 10) {
 		status_info("Failed to connect after %d attempts, giving up "
 			    "after %d seconds",
 			    reach->attempts, diff);
@@ -1735,17 +1754,13 @@ static void try_connect(struct reaching *reach)
 }
 
 /* Returns true if we're already connected. */
-static bool try_reach_peer(struct daemon *daemon, const struct pubkey *id,
-			   bool keep_connected)
+static bool try_reach_peer(struct daemon *daemon, const struct pubkey *id)
 {
 	struct reaching *reach;
 	struct peer *peer;
 
 	reach = find_reaching(daemon, id);
 	if (reach) {
-		/* May not have been important before */
-		if (keep_connected)
-			reach->keep_connected = true;
 		status_trace("try_reach_peer: already trying to reach %s",
 			     type_to_string(tmpctx, struct pubkey, id));
 		return false;
@@ -1754,27 +1769,33 @@ static bool try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 	/* Master might find out before we do that a peer is dead. */
 	peer = find_peer(daemon, id);
 	if (peer) {
-		/* May not have been important before */
-		if (keep_connected)
-			peer->keep_connected = true;
-		status_trace("reach_peer: have peer %s%s",
-			     type_to_string(tmpctx, struct pubkey, id),
-			     peer->keep_connected ? " (will retry if it dies)" : "");
+		status_trace("reach_peer: have peer %s",
+			     type_to_string(tmpctx, struct pubkey, id));
 		return true;
 	}
 
 	reach = tal(daemon, struct reaching);
-	reach->succeeded = false;
 	reach->daemon = daemon;
 	reach->id = *id;
 	reach->first_attempt = time_now().ts.tv_sec;
 	reach->attempts = 0;
-	reach->keep_connected = keep_connected;
 	list_add_tail(&daemon->reaching, &reach->list);
 	tal_add_destructor(reach, destroy_reaching);
 
 	try_connect(reach);
 	return false;
+}
+
+/* Reconnect to peer. */
+static void retry_important(struct important_peerid *imp)
+{
+#if DEVELOPER
+	/* With --dev-no-reconnect, we only want explicit
+	 * connects */
+	if (imp->daemon->no_reconnect)
+		return;
+#endif
+	try_reach_peer(imp->daemon, &imp->id);
 }
 
 static struct io_plan *reach_peer(struct io_conn *conn,
@@ -1786,7 +1807,7 @@ static struct io_plan *reach_peer(struct io_conn *conn,
 		master_badmsg(WIRE_GOSSIPCTL_REACH_PEER, msg);
 
 	/* Master can't check this itself, because that's racy. */
-	if (try_reach_peer(daemon, &id, false)) {
+	if (try_reach_peer(daemon, &id)) {
 		daemon_conn_send(&daemon->master,
 				 take(towire_gossip_peer_already_connected(NULL,
 									  &id)));
@@ -1817,30 +1838,30 @@ static struct io_plan *peer_important(struct io_conn *conn,
 {
 	struct pubkey id;
 	bool important;
-	struct reaching *r;
-	struct peer *p;
+	struct important_peerid *imp;
 
 	if (!fromwire_gossipctl_peer_important(msg, &id, &important))
-		master_badmsg(WIRE_GOSSIPCTL_REACH_PEER, msg);
+		master_badmsg(WIRE_GOSSIPCTL_PEER_IMPORTANT, msg);
 
-	r = find_reaching(daemon, &id);
-	p = find_peer(daemon, &id);
-
-	/* Override keep_connected flag everywhere */
-	if (r)
-		r->keep_connected = important;
-	if (p)
-		p->keep_connected = important;
-
-#if DEVELOPER
-	/* With --dev-no-reconnect, we only want explicit connects */
-	if (daemon->no_reconnect)
-		important = false;
-#endif
-
-	/* If it's important and we're not connected/connecting, do so now. */
-	if (important && !r && !p)
-		try_reach_peer(daemon, &id, true);
+	imp = important_peerid_map_get(&daemon->important_peerids, &id);
+	if (important) {
+		if (!imp) {
+			imp = tal(daemon, struct important_peerid);
+			imp->id = id;
+			imp->daemon = daemon;
+			important_peerid_map_add(&daemon->important_peerids,
+						 imp);
+			/* Start trying to reaching it now. */
+			retry_important(imp);
+		}
+	} else {
+		if (imp) {
+			important_peerid_map_del(&daemon->important_peerids,
+						 imp);
+			/* Stop trying to reach it (if we are) */
+			tal_free(find_reaching(daemon, &imp->id));
+		}
+	}
 
 	return daemon_conn_read_next(conn, &daemon->master);
 }
@@ -2163,6 +2184,7 @@ int main(int argc, char *argv[])
 	list_head_init(&daemon->peers);
 	list_head_init(&daemon->reaching);
 	list_head_init(&daemon->addrhints);
+	important_peerid_map_init(&daemon->important_peerids);
 	timers_init(&daemon->timers, time_mono());
 	daemon->broadcast_interval = 30000;
 	daemon->last_announce_timestamp = 0;
