@@ -109,8 +109,12 @@ class NodeFactory(object):
         self.executor = executor
         self.bitcoind = bitcoind
 
+    def get_next_port(self):
+        return 16330 + self.next_id
+
     def get_node(self, disconnect=None, options=None, may_fail=False, may_reconnect=False, random_hsm=False, fake_bitcoin_cli=False):
         node_id = self.next_id
+        port = self.get_next_port()
         self.next_id += 1
 
         lightning_dir = os.path.join(
@@ -120,7 +124,6 @@ class NodeFactory(object):
             shutil.rmtree(lightning_dir)
 
         socket_path = os.path.join(lightning_dir, "lightning-rpc").format(node_id)
-        port = 16330 + node_id
         daemon = utils.LightningD(lightning_dir, self.bitcoind.bitcoin_dir, port=port, random_hsm=random_hsm)
         # If we have a disconnect string, dump it to a file for daemon.
         if disconnect:
@@ -632,6 +635,31 @@ class LightningDTests(BaseLightningDTests):
         self.assertRaisesRegex(ValueError,
                                "Cryptographic handshake: ",
                                l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'localhost', l2.info['port'])
+
+    def test_connect_by_gossip(self):
+        """Test connecting to an unknown peer using node gossip
+        """
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
+        # Force l3 to give its address.
+        l3port = self.node_factory.get_next_port()
+        l3 = self.node_factory.get_node(options={"ipaddr": "127.0.0.1:{}".format(l3port)})
+
+        l2.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
+
+        # Nodes are gossiped only if they have channels
+        chanid = self.fund_channel(l2, l3, 10**6)
+        # Let channel reach announcement depth
+        self.wait_for_routes(l2, [chanid])
+        # Make sure l3 has given node announcement to l2.
+        l2.daemon.wait_for_logs(['Received node_announcement for node {}'.format(l3.info['id'])])
+
+        # Let l1 learn of l3 by node gossip
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        l1.daemon.wait_for_logs(['Received node_announcement for node {}'.format(l3.info['id'])])
+
+        # Have l1 connect to l3 without explicit host and port.
+        l1.rpc.connect(l3.info['id'])
 
     def test_connect_standard_addr(self):
         """Test standard node@host:port address

@@ -1811,6 +1811,34 @@ seed_resolve_addr(const tal_t *ctx, const struct pubkey *id, const u16 port)
 	}
 }
 
+/* Resolve using gossiped wireaddr stored in routemap. */
+static struct addrhint *
+gossip_resolve_addr(const tal_t *ctx,
+		    struct routing_state *rstate,
+		    const struct pubkey *id)
+{
+	struct node *node;
+	struct addrhint *a;
+
+	/* Get from routing state. */
+	node = get_node(rstate, id);
+
+	/* No matching node? */
+	if (!node)
+		return NULL;
+	/* Node has no addresses? */
+	if (tal_count(node->addresses) == 0)
+		return NULL;
+
+	/* FIXME: When struct addrhint can contain more than one address,
+	 * we should copy all addresses.
+	 * For now getting first address should be fine. */
+	a = tal(ctx, struct addrhint);
+	a->addr = node->addresses[0];
+
+	return a;
+}
+
 static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 			   bool master_needs_response)
 {
@@ -1846,6 +1874,11 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 	}
 
 	a = find_addrhint(daemon, id);
+
+	if (!a)
+		a = gossip_resolve_addr(tmpctx,
+					daemon->rstate,
+					id);
 
 	if (!a)
 		a = seed_resolve_addr(tmpctx, id, 9735);
