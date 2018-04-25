@@ -130,6 +130,8 @@ class NodeFactory(object):
             daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
             if VALGRIND:
                 daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
+            if not may_reconnect:
+                daemon.opts["dev-no-reconnect"] = None
 
         if fake_bitcoin_cli:
             cli = os.path.join(lightning_dir, "fake-bitcoin-cli")
@@ -243,7 +245,8 @@ class BaseLightningDTests(unittest.TestCase):
         return 1 if errors else 0
 
     def checkReconnect(self, node):
-        if node.may_reconnect:
+        # Without DEVELOPER, we can't suppress reconnection.
+        if node.may_reconnect or not DEVELOPER:
             return 0
         if node.daemon.is_in_log('Peer has reconnected'):
             return 1
@@ -277,16 +280,9 @@ class BaseLightningDTests(unittest.TestCase):
 
 
 class LightningDTests(BaseLightningDTests):
-    def connect(self):
-        # Better to have clear failure because they didn't reconnect, than
-        # catch it at the end that we had an unexpected reconnect.
-        if DEVELOPER:
-            opts = {'dev-no-reconnect': None}
-        else:
-            opts = None
-
-        l1 = self.node_factory.get_node(options=opts)
-        l2 = self.node_factory.get_node(options=opts)
+    def connect(self, may_reconnect=False):
+        l1 = self.node_factory.get_node(may_reconnect=may_reconnect)
+        l2 = self.node_factory.get_node(may_reconnect=may_reconnect)
         ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         assert ret['id'] == l2.info['id']
@@ -331,21 +327,6 @@ class LightningDTests(BaseLightningDTests):
         # Intermittent decoding failure.  See if it decodes badly twice?
         decoded2 = bitcoind.rpc.decoderawtransaction(tx)
         raise ValueError("Can't find {} payment in {} (1={} 2={})".format(amount, tx, decoded, decoded2))
-
-    def line_graph(self, n=2):
-        """Build a line graph of the specified length and fund it.
-        """
-        nodes = [self.node_factory.get_node() for _ in range(n)]
-
-        for i in range(len(nodes) - 1):
-            nodes[i].rpc.connect(
-                nodes[i + 1].info['id'],
-                'localhost',
-                nodes[i + 1].info['port']
-            )
-            self.fund_channel(nodes[i], nodes[i + 1], 10**6)
-
-        return nodes
 
     def pay(self, lsrc, ldst, amt, label=None, async=False):
         if not label:
@@ -1268,9 +1249,7 @@ class LightningDTests(BaseLightningDTests):
         wait_forget_channels(l2)
 
     def test_closing_while_disconnected(self):
-        l1 = self.node_factory.get_node(may_reconnect=True)
-        l2 = self.node_factory.get_node(may_reconnect=True)
-        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+        l1, l2 = self.connect(may_reconnect=True)
 
         self.fund_channel(l1, l2, 10**6)
         self.pay(l1, l2, 200000000)
@@ -2260,7 +2239,8 @@ class LightningDTests(BaseLightningDTests):
         wait_forget_channels(l2)
 
     def test_gossip_jsonrpc(self):
-        l1, l2 = self.line_graph(n=2)
+        l1, l2 = self.connect()
+        self.fund_channel(l1, l2, 10**6)
 
         # Shouldn't send announce signatures until 6 deep.
         assert not l1.daemon.is_in_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
@@ -3968,8 +3948,8 @@ class LightningDTests(BaseLightningDTests):
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_channel_reenable(self):
-        l1, l2 = self.line_graph(n=2)
-        l1.may_reconnect = l2.may_reconnect = True
+        l1, l2 = self.connect(may_reconnect=True)
+        self.fund_channel(l1, l2, 10**6)
 
         l1.bitcoin.generate_block(6)
         l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l2.info['id']))
