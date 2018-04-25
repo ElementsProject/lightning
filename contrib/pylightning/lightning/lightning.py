@@ -150,10 +150,13 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listchannels", payload)
 
-    def invoice(self, msatoshi, label, description, expiry=None, fallbacks=None, preimage=None):
+    def invoice(self, msatoshi, label, description, expiry=None, fallbacks=None, preimage=None, idempotent=None):
         """
         Create an invoice for {msatoshi} with {label} and {description} with
-        optional {expiry} seconds (default 1 hour)
+        optional {expiry} seconds (default 1 hour),
+        with optional {preimage} (default securely random).
+        If {idempotent} (default false), will not fail if value,
+        label, and description exactly match existing invoice.
         """
         payload = {
             "msatoshi": msatoshi,
@@ -161,7 +164,8 @@ class LightningRpc(UnixDomainSocketRpc):
             "description": description,
             "expiry": expiry,
             "fallbacks": fallbacks,
-            "preimage": preimage
+            "preimage": preimage,
+            "idempotent": idempotent
         }
         return self.call("invoice", payload)
 
