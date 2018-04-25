@@ -230,7 +230,7 @@ bolt-precheck:
 
 check-source-bolt: $(ALL_TEST_PROGRAMS:%=bolt-check/%.c)
 
-tools/check-bolt: tools/check-bolt.o $(CCAN_OBJS)
+tools/check-bolt: tools/check-bolt.o $(CCAN_OBJS) common/utils.o
 
 tools/check-bolt.o: $(CCAN_HEADERS)
 
@@ -265,7 +265,10 @@ check-cppcheck: .cppcheck-suppress
 check-shellcheck:
 	git ls-files -- "*.sh" | xargs shellcheck
 
-check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python check-includes check-cppcheck check-shellcheck
+check-setup_locale:
+	@tools/check-setup_locale.sh
+
+check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python check-includes check-cppcheck check-shellcheck check-setup_locale
 
 full-check: check check-source
 

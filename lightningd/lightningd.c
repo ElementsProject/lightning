@@ -280,6 +280,8 @@ static void pidfile_create(const struct lightningd *ld)
 
 int main(int argc, char *argv[])
 {
+	setup_locale();
+
 	struct lightningd *ld;
 	bool newdir;
 	u32 blockheight;

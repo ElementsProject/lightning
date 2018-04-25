@@ -992,6 +992,8 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 
 int main(void)
 {
+	setup_locale();
+
 	bool ok = true;
 	struct lightningd *ld;
 

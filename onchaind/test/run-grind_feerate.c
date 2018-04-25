@@ -153,6 +153,8 @@ bool wire_sync_write(int fd UNNEEDED, const void *msg TAKES UNNEEDED)
 
 int main(int argc, char *argv[])
 {
+	setup_locale();
+
 	struct bitcoin_tx *tx;
 	secp256k1_ecdsa_signature sig;
 	u8 *der, *wscript;

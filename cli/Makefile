@@ -5,6 +5,7 @@ LIGHTNING_CLI_COMMON_OBJS :=			\
 	common/configdir.o			\
 	common/json.o				\
 	common/json_escaped.o			\
+	common/utils.o			\
 	common/version.o
 
 lightning-cli-all: cli/lightning-cli

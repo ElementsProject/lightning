@@ -98,6 +98,8 @@ static struct secret secret_from_hex(const char *hex)
 
 int main(void)
 {
+	setup_locale();
+
 	struct peer_crypto_state cs_out, cs_in;
 	struct secret sk, rk, ck;
 	const void *msg;

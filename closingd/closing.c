@@ -423,6 +423,8 @@ static u64 adjust_offer(struct crypto_state *cs,
 
 int main(int argc, char *argv[])
 {
+	setup_locale();
+
 	struct crypto_state cs;
 	const tal_t *ctx = tal(NULL, char);
 	u8 *msg;

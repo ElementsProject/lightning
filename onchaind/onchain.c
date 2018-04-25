@@ -2096,6 +2096,8 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 
 int main(int argc, char *argv[])
 {
+	setup_locale();
+
 	const tal_t *ctx = tal(NULL, char);
 	u8 *msg;
 	struct privkey seed;

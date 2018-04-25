@@ -317,6 +317,8 @@ static void update_feerate(struct channel *channel, u32 feerate)
 
 int main(void)
 {
+	setup_locale();
+
 	struct bitcoin_txid funding_txid;
 	/* We test from both sides. */
 	struct channel *lchannel, *rchannel;

@@ -196,6 +196,8 @@ bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point)
 
 int main(void)
 {
+	setup_locale();
+
 	struct wireaddr dummy;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY

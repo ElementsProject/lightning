@@ -157,6 +157,8 @@ struct log *crashlog;
 #undef main
 int main(int argc UNUSED, char *argv[] UNUSED)
 {
+	setup_locale();
+
 	char *argv0;
 	/* We're assuming we're run from top build dir. */
 	const char *answer;

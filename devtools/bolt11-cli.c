@@ -54,6 +54,8 @@ static char *fmt_time(const tal_t *ctx, u64 time)
 
 int main(int argc, char *argv[])
 {
+	setup_locale();
+
 	const tal_t *ctx = tal(NULL, char);
 	const char *method;
 	struct bolt11 *b11;

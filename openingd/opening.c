@@ -793,6 +793,8 @@ static u8 *fundee_channel(struct state *state,
 #ifndef TESTING
 int main(int argc, char *argv[])
 {
+	setup_locale();
+
 	u8 *msg, *peer_msg;
 	struct state *state = tal(NULL, struct state);
 	struct privkey seed;

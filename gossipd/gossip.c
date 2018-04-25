@@ -2362,6 +2362,8 @@ static void master_gone(struct io_conn *unused UNUSED, struct daemon_conn *dc UN
 
 int main(int argc, char *argv[])
 {
+	setup_locale();
+
 	struct daemon *daemon;
 
 	subdaemon_setup(argc, argv);

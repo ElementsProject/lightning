@@ -18,6 +18,8 @@ static struct secret secret_from_hex(const char *hex)
 
 int main(void)
 {
+	setup_locale();
+
 	struct privkey privkey;
 	struct secret base_secret, per_commitment_secret;
 	struct pubkey base_point, per_commitment_point, pubkey, pubkey2;

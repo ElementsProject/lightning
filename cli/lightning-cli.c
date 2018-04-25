@@ -8,6 +8,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/json.h>
+#include <common/utils.h>
 #include <common/version.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -167,6 +168,8 @@ static void add_input(char **cmd, const char *input,
 
 int main(int argc, char *argv[])
 {
+	setup_locale();
+
 	int fd, i, off;
 	const char *method;
 	char *cmd, *resp, *idstr, *rpc_filename;
