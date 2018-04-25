@@ -309,6 +309,7 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 	va_list ap;
 	char *why;
 	struct channel_id cid;
+	u8 *msg;
 
 	va_start(ap, fmt);
 	why = tal_vfmt(channel, fmt, ap);
@@ -332,6 +333,10 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 				  channel->funding_outnum);
 		channel->error = towire_errorfmt(channel, &cid, "%s", why);
 	}
+
+	/* Tell gossipd we no longer need to keep connection to this peer */
+	msg = towire_gossipctl_peer_important(NULL, &channel->peer->id, false);
+	subd_send_msg(ld->gossip, take(msg));
 
 	channel_set_owner(channel, NULL);
 	/* Drop non-cooperatively (unilateral) to chain. */
@@ -397,8 +402,4 @@ void channel_fail_transient(struct channel *channel, const char *fmt, ...)
 #endif
 
 	channel_set_owner(channel, NULL);
-
-	/* Reconnect unless we've dropped/are dropping to chain. */
-	if (channel_active(channel))
-		try_reconnect(channel->peer);
 }

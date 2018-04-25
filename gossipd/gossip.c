@@ -84,6 +84,9 @@ struct daemon {
 
 	/* To make sure our node_announcement timestamps increase */
 	u32 last_announce_timestamp;
+
+	/* Only matters if DEVELOPER defined */
+	bool no_reconnect;
 };
 
 /* Peers we're trying to reach. */
@@ -185,6 +188,10 @@ static bool try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->daemon->peers, &peer->list);
+#if DEVELOPER
+	if (peer->daemon->no_reconnect)
+		return;
+#endif
 	if (peer->keep_connected)
 		try_reach_peer(peer->daemon, &peer->id, true);
 }
@@ -1498,7 +1505,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 		daemon, msg, &daemon->broadcast_interval, &chain_hash,
 		&daemon->id, &port, &daemon->globalfeatures,
 		&daemon->localfeatures, &daemon->wireaddrs, daemon->rgb,
-		daemon->alias, &update_channel_interval)) {
+		daemon->alias, &update_channel_interval, &daemon->no_reconnect)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
 	/* Prune time is twice update time */
@@ -1824,6 +1831,12 @@ static struct io_plan *peer_important(struct io_conn *conn,
 		r->keep_connected = important;
 	if (p)
 		p->keep_connected = important;
+
+#if DEVELOPER
+	/* With --dev-no-reconnect, we only want explicit connects */
+	if (daemon->no_reconnect)
+		important = false;
+#endif
 
 	/* If it's important and we're not connected/connecting, do so now. */
 	if (important && !r && !p)
