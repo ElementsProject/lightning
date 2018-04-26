@@ -53,11 +53,17 @@
 
 #define HSM_FD 3
 
+#define INITIAL_WAIT_SECONDS	1
+#define MAX_WAIT_SECONDS	300
+
 /* We put everything in this struct (redundantly) to pass it to timer cb */
 struct important_peerid {
 	struct daemon *daemon;
 
 	struct pubkey id;
+
+	/* How long to wait after failed connect */
+	unsigned int wait_seconds;
 };
 
 /* We keep a set of peer ids we're always trying to reach. */
@@ -217,8 +223,10 @@ static void destroy_peer(struct peer *peer)
 	list_del_from(&peer->daemon->peers, &peer->list);
 	imp = important_peerid_map_get(&peer->daemon->important_peerids,
 				       &peer->id);
-	if (imp)
+	if (imp) {
+		imp->wait_seconds = INITIAL_WAIT_SECONDS;
 		retry_important(imp);
+	}
 }
 
 static struct peer *find_peer(struct daemon *daemon, const struct pubkey *id)
@@ -1707,11 +1715,16 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 	imp = important_peerid_map_get(&reach->daemon->important_peerids,
 				       &reach->id);
 	if (imp) {
-		/* FIXME: Exponential backoff! */
-		status_trace("...will try again in %u seconds", 5);
+		imp->wait_seconds *= 2;
+		if (imp->wait_seconds > MAX_WAIT_SECONDS)
+			imp->wait_seconds = MAX_WAIT_SECONDS;
+
+		status_trace("...will try again in %u seconds",
+			     imp->wait_seconds);
 		/* If important_id freed, this will be removed too */
 		new_reltimer(&reach->daemon->timers, imp,
-			     time_from_sec(5), retry_important, imp);
+			     time_from_sec(imp->wait_seconds),
+			     retry_important, imp);
 	}
 	tal_free(reach);
 	return;
@@ -1928,6 +1941,7 @@ static struct io_plan *peer_important(struct io_conn *conn,
 			imp = tal(daemon, struct important_peerid);
 			imp->id = id;
 			imp->daemon = daemon;
+			imp->wait_seconds = INITIAL_WAIT_SECONDS;
 			important_peerid_map_add(&daemon->important_peerids,
 						 imp);
 			/* Start trying to reaching it now. */
