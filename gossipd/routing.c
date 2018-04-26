@@ -1516,8 +1516,9 @@ void handle_local_add_channel(struct routing_state *rstate, u8 *msg)
 		return;
 	}
 
+	/* Can happen on channeld restart. */
 	if (get_channel(rstate, &scid)) {
-		status_broken("Attempted to local_add_channel a known channel");
+		status_trace("Attempted to local_add_channel a known channel");
 		return;
 	}
 

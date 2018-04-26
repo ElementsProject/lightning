@@ -186,6 +186,7 @@ bool peer_start_channeld(struct channel *channel,
 	u64 num_revocations;
 	struct lightningd *ld = channel->peer->ld;
 	const struct config *cfg = &ld->config;
+	bool reached_announce_depth;
 
 	msg = towire_hsm_client_hsmfd(tmpctx, &channel->peer->id, HSM_CAP_SIGN_GOSSIP | HSM_CAP_ECDH);
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
@@ -223,10 +224,16 @@ bool peer_start_channeld(struct channel *channel,
 
 	if (channel->scid) {
 		funding_channel_id = *channel->scid;
-		log_debug(channel->log, "Already have funding locked in");
+		reached_announce_depth
+			= (short_channel_id_blocknum(&funding_channel_id)
+			   + ANNOUNCE_MIN_DEPTH <= get_block_height(ld->topology));
+		log_debug(channel->log, "Already have funding locked in%s",
+			  reached_announce_depth
+			  ? " (and ready to announce)" : "");
 	} else {
 		log_debug(channel->log, "Waiting for funding confirmations");
 		memset(&funding_channel_id, 0, sizeof(funding_channel_id));
+		reached_announce_depth = false;
 	}
 
 	num_revocations = revocations_received(&channel->their_shachain.chain);
@@ -281,7 +288,8 @@ bool peer_start_channeld(struct channel *channel,
 				      p2wpkh_for_keyidx(tmpctx, ld,
 							channel->final_key_idx),
 				      channel->channel_flags,
-				      funding_signed);
+				      funding_signed,
+				      reached_announce_depth);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));

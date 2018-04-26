@@ -58,6 +58,7 @@ channel_init,,final_scriptpubkey,final_scriptpubkey_len*u8
 channel_init,,flags,u8
 channel_init,,init_peer_pkt_len,u16
 channel_init,,init_peer_pkt,init_peer_pkt_len*u8
+channel_init,,reached_announce_depth,bool
 
 # Tx is deep enough, go!
 channel_funding_locked,1002
