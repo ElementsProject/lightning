@@ -1940,6 +1940,10 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 
 static void handle_funding_announce_depth(struct peer *peer)
 {
+	/* This can happen if we got told already at init time */
+	if (peer->announce_depth_reached)
+		return;
+
 	peer->announce_depth_reached = true;
 	send_announcement_signatures(peer);
 
@@ -2449,7 +2453,8 @@ static void init_channel(struct peer *peer)
 				   &peer->shutdown_sent[REMOTE],
 				   &peer->final_scriptpubkey,
 				   &peer->channel_flags,
-				   &funding_signed))
+				   &funding_signed,
+				   &peer->announce_depth_reached))
 		master_badmsg(WIRE_CHANNEL_INIT, msg);
 
 	status_trace("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
@@ -2515,6 +2520,10 @@ static void init_channel(struct peer *peer)
 	/* If we have a funding_signed message, send that immediately */
 	if (funding_signed)
 		enqueue_peer_msg(peer, take(funding_signed));
+
+	/* It's possible that we died previously before doing these. */
+	send_temporary_announcement(peer);
+	send_announcement_signatures(peer);
 
 	billboard_update(peer);
 	tal_free(msg);
