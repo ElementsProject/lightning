@@ -366,6 +366,9 @@ void channel_errmsg(struct channel *channel,
 					     err_for_them,
 					     tal_len(err_for_them), 0);
 
+	/* Make sure channel_fail_permanent doesn't tell gossipd we died! */
+	channel->connected = false;
+
 	/* BOLT #1:
 	 *
 	 * A sending node:

@@ -237,7 +237,9 @@ wallet_commit_channel(struct lightningd *ld,
 			      final_key_idx, false,
 			      NULL, /* No commit sent yet */
 			      uc->first_blocknum,
-			      feerate, feerate);
+			      feerate, feerate,
+			      /* We are connected */
+			      true);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
@@ -546,7 +548,9 @@ static void opening_channel_errmsg(struct uncommitted_channel *uc,
 				   const u8 *err_for_them)
 {
 	if (peer_fd == -1) {
+		u8 *msg = towire_gossipctl_peer_disconnected(tmpctx, &uc->peer->id);
 		log_info(uc->log, "%s", desc);
+		subd_send_msg(uc->peer->ld->gossip, msg);
 		if (uc->fc)
 			command_fail(uc->fc->cmd, "%s", desc);
 	} else {

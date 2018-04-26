@@ -96,6 +96,9 @@ struct channel {
 
 	/* Feerate range */
 	u32 min_possible_feerate, max_possible_feerate;
+
+	/* Does gossipd need to know if the owner dies? (ie. not onchaind) */
+	bool connected;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,
@@ -136,7 +139,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct changed_htlc *last_sent_commit,
 			    u32 first_blocknum,
 			    u32 min_possible_feerate,
-			    u32 max_possible_feerate);
+			    u32 max_possible_feerate,
+			    bool connected);
 
 void delete_channel(struct channel *channel);
 
