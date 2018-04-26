@@ -525,10 +525,20 @@ static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 	if (blockcount < topo->first_blocknum) {
 		if (bitcoind->ld->config.rescan < 0) {
 			/* Absolute blockheight, but bitcoind's blockheight isn't there yet */
-			topo->first_blocknum = blockcount - 1;
+			/* Protect against underflow in subtraction.
+			 * Possible in regtest mode. */
+			if (blockcount < 1)
+				topo->first_blocknum = 0;
+			else
+				topo->first_blocknum = blockcount - 1;
 		} else if (topo->first_blocknum == UINT32_MAX) {
 			/* Relative rescan, but we didn't know the blockheight */
-			topo->first_blocknum = blockcount - bitcoind->ld->config.rescan;
+			/* Protect against underflow in subtraction.
+			 * Possible in regtest mode. */
+			if (blockcount < bitcoind->ld->config.rescan)
+				topo->first_blocknum = 0;
+			else
+				topo->first_blocknum = blockcount - bitcoind->ld->config.rescan;
 		}
 	}
 
