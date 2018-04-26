@@ -148,6 +148,9 @@ struct reaching {
 
 	/* How many (if any) connect commands are waiting for the result. */
 	size_t num_master_responses;
+
+	/* How far did we get? */
+	const char *connstate;
 };
 
 /* Things we need when we're talking direct to the peer. */
@@ -1681,6 +1684,7 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 					     const struct crypto_state *cs,
 					     struct reaching *reach)
 {
+	reach->connstate = "Exchanging init messages";
 	return init_new_peer(conn, id, addr, cs, reach->daemon);
 }
 
@@ -1692,6 +1696,7 @@ static struct io_plan *connection_out(struct io_conn *conn,
 	status_trace("Connected out for %s",
 		     type_to_string(tmpctx, struct pubkey, &reach->id));
 
+	reach->connstate = "Cryptographic handshake";
 	return initiator_handshake(conn, &reach->daemon->id, &reach->id,
 				   &reach->addr,
 				   handshake_out_success, reach);
@@ -1701,10 +1706,13 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 {
 	u8 *msg;
 	struct important_peerid *imp;
+	const char *err = tal_fmt(tmpctx, "%s: %s",
+				  reach->connstate,
+				  strerror(errno));
 
 	/* Tell any connect commands what happened. */
 	msg = towire_gossipctl_connect_to_peer_result(reach, &reach->id,
-						      false, strerror(errno));
+						      false, err);
 	for (size_t i = 0; i < reach->num_master_responses; i++)
 		daemon_conn_send(&reach->daemon->master, msg);
 
@@ -1878,6 +1886,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 	reach->id = *id;
 	reach->addr = a->addr;
 	reach->num_master_responses = master_needs_response;
+	reach->connstate = "Connection establishment";
 	list_add_tail(&daemon->reaching, &reach->list);
 	tal_add_destructor(reach, destroy_reaching);
 

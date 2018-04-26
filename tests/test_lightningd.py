@@ -617,6 +617,16 @@ class LightningDTests(BaseLightningDTests):
                                "No address known",
                                l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e')
 
+        # Should get reasonable error if connection refuse.
+        self.assertRaisesRegex(ValueError,
+                               "Connection establishment: Connection refused",
+                               l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'localhost', 1)
+
+        # Should get reasonable error if wrong key for peer.
+        self.assertRaisesRegex(ValueError,
+                               "Cryptographic handshake: ",
+                               l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'localhost', l2.info['port'])
+
     def test_connect_standard_addr(self):
         """Test standard node@host:port address
         """
