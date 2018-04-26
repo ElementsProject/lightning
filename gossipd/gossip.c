@@ -398,8 +398,8 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 		peer->broadcast_index
 			= peer->daemon->rstate->broadcasts->next_index;
 
-	/* This is a full peer now; we keep it around until its
-	 * gossipfd closed (forget_peer) or reconnect. */
+	/* This is a full peer now; we keep it around until master says
+	 * it's dead, or reconnect. */
 	peer_finalized(peer);
 
 	/* We will not have anything queued, since we're not duplex. */
@@ -845,23 +845,10 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 		status_broken("peer %s: send us unknown msg of type %s",
 			      type_to_string(tmpctx, struct pubkey, &peer->id),
 			      gossip_wire_type_name(type));
-		/* Calls forget_peer */
 		return io_close(conn);
 	}
 
 	return daemon_conn_read_next(conn, dc);
-}
-
-static void forget_peer(struct io_conn *conn UNUSED, struct daemon_conn *dc)
-{
-	struct peer *peer = dc->ctx;
-
-	status_trace("Forgetting %s peer %s",
-		     peer->local ? "local" : "remote",
-		     type_to_string(tmpctx, struct pubkey, &peer->id));
-
-	/* Free peer. */
-	tal_free(dc->ctx);
 }
 
 /* When a peer is to be owned by another daemon, we create a socket
@@ -884,7 +871,7 @@ static bool send_peer_with_fds(struct peer *peer, const u8 *msg)
 	peer->local = tal_free(peer->local);
 	peer->remote = tal(peer, struct daemon_conn);
 	daemon_conn_init(peer, peer->remote, fds[0],
-			 owner_msg_in, forget_peer);
+			 owner_msg_in, NULL);
 	peer->remote->msg_queue_cleared_cb = nonlocal_dump_gossip;
 
 	/* Peer stays around, even though caller will close conn. */
@@ -1871,6 +1858,35 @@ static struct io_plan *peer_important(struct io_conn *conn,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+static struct io_plan *peer_disconnected(struct io_conn *conn,
+					 struct daemon *daemon, const u8 *msg)
+{
+	struct pubkey id;
+	struct peer *peer;
+
+	if (!fromwire_gossipctl_peer_disconnected(msg, &id))
+		master_badmsg(WIRE_GOSSIPCTL_PEER_DISCONNECTED, msg);
+
+	peer = find_peer(daemon, &id);
+	if (!peer)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "peer_disconnected unknown peer: %s",
+			      type_to_string(tmpctx, struct pubkey, &id));
+
+	/* Possible if there's a reconnect: ignore disonnect. */
+	if (peer->local) {
+		status_trace("peer_disconnected %s: reconnected, ignoring",
+			     type_to_string(tmpctx, struct pubkey, &id));
+		return daemon_conn_read_next(conn, &daemon->master);
+	}
+
+	status_trace("Forgetting remote peer %s",
+		     type_to_string(tmpctx, struct pubkey, &peer->id));
+
+	tal_free(peer);
+	return daemon_conn_read_next(conn, &daemon->master);
+}
+
 static struct io_plan *get_peers(struct io_conn *conn,
 				 struct daemon *daemon, const u8 *msg)
 {
@@ -2121,6 +2137,9 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 
 	case WIRE_GOSSIPCTL_PEER_IMPORTANT:
 		return peer_important(conn, daemon, master->msg_in);
+
+	case WIRE_GOSSIPCTL_PEER_DISCONNECTED:
+		return peer_disconnected(conn, daemon, master->msg_in);
 
 	case WIRE_GOSSIP_GETPEERS_REQUEST:
 		return get_peers(conn, daemon, master->msg_in);

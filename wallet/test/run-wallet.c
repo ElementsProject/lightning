@@ -376,6 +376,9 @@ u8 *towire_gossipctl_peer_addrhint(const tal_t *ctx UNNEEDED, const struct pubke
 /* Generated stub for towire_gossipctl_peer_disconnect */
 u8 *towire_gossipctl_peer_disconnect(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
 { fprintf(stderr, "towire_gossipctl_peer_disconnect called!\n"); abort(); }
+/* Generated stub for towire_gossipctl_peer_disconnected */
+u8 *towire_gossipctl_peer_disconnected(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
+{ fprintf(stderr, "towire_gossipctl_peer_disconnected called!\n"); abort(); }
 /* Generated stub for towire_gossipctl_peer_important */
 u8 *towire_gossipctl_peer_important(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, bool important UNNEEDED)
 { fprintf(stderr, "towire_gossipctl_peer_important called!\n"); abort(); }

@@ -651,7 +651,9 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 			   last_sent_commit,
 			   sqlite3_column_int64(stmt, 35),
 			   sqlite3_column_int(stmt, 36),
-			   sqlite3_column_int(stmt, 37));
+			   sqlite3_column_int(stmt, 37),
+			   /* Not connected */
+			   false);
 
 	return chan;
 }

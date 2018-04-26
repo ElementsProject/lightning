@@ -92,6 +92,10 @@ gossipctl_hand_back_peer,,crypto_state,struct crypto_state
 gossipctl_hand_back_peer,,len,u16
 gossipctl_hand_back_peer,,msg,len*u8
 
+# master -> gossipd: peer has disconnected.
+gossipctl_peer_disconnected,3015
+gossipctl_peer_disconnected,,id,struct pubkey
+
 # Pass JSON-RPC getnodes call through
 gossip_getnodes_request,3005
 # Can be 0 or 1 currently
