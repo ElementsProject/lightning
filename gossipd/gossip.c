@@ -64,6 +64,9 @@ struct important_peerid {
 
 	/* How long to wait after failed connect */
 	unsigned int wait_seconds;
+
+	/* The timer we're using to reconnect */
+	struct oneshot *reconnect_timer;
 };
 
 /* We keep a set of peer ids we're always trying to reach. */
@@ -1730,9 +1733,10 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 		status_trace("...will try again in %u seconds",
 			     imp->wait_seconds);
 		/* If important_id freed, this will be removed too */
-		new_reltimer(&reach->daemon->timers, imp,
-			     time_from_sec(imp->wait_seconds),
-			     retry_important, imp);
+		imp->reconnect_timer
+			= new_reltimer(&reach->daemon->timers, imp,
+				       time_from_sec(imp->wait_seconds),
+				       retry_important, imp);
 	}
 	tal_free(reach);
 	return;
@@ -1896,6 +1900,9 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 /* Called from timer, so needs single-arg declaration */
 static void retry_important(struct important_peerid *imp)
 {
+	/* In case we've come off a timer, don't leave dangling pointer */
+	imp->reconnect_timer = NULL;
+
 #if DEVELOPER
 	/* With --dev-no-reconnect, we only want explicit
 	 * connects */
@@ -1909,10 +1916,15 @@ static struct io_plan *connect_to_peer(struct io_conn *conn,
 				       struct daemon *daemon, const u8 *msg)
 {
 	struct pubkey id;
+	struct important_peerid *imp;
 
 	if (!fromwire_gossipctl_connect_to_peer(msg, &id))
 		master_badmsg(WIRE_GOSSIPCTL_CONNECT_TO_PEER, msg);
 
+	/* If this is an important peer, free any outstanding timer */
+	imp = important_peerid_map_get(&daemon->important_peerids, &id);
+	if (imp)
+		imp->reconnect_timer = tal_free(imp->reconnect_timer);
 	try_reach_peer(daemon, &id, true);
 	return daemon_conn_read_next(conn, &daemon->master);
 }
