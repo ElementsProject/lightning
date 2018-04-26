@@ -90,6 +90,11 @@ static void peer_closing_complete(struct channel *channel, const u8 *msg)
 		return;
 	}
 
+	/* Don't report spurious failure when closingd exits. */
+	channel_set_owner(channel, NULL);
+	/* Clear any transient negotiation messages */
+	channel_set_billboard(channel, false, NULL);
+
 	/* Retransmission only, ignore closing. */
 	if (channel->state == CLOSINGD_COMPLETE)
 		return;
