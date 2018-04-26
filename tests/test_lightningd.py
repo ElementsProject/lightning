@@ -660,9 +660,19 @@ class LightningDTests(BaseLightningDTests):
                                "Connection refused",
                                l1.rpc.connect, l2.info['id'], 'localhost', l2.info['port'])
 
+        # Wait for exponential backoff to give us a 2 second window.
+        l1.daemon.wait_for_log('...will try again in 2 seconds')
+
         # It should now succeed when it restarts.
         l2.daemon.start()
-        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+
+        # Multiples should be fine!
+        fut1 = self.executor.submit(l1.rpc.connect, l2.info['id'], 'localhost', l2.info['port'])
+        fut2 = self.executor.submit(l1.rpc.connect, l2.info['id'], 'localhost', l2.info['port'])
+        fut3 = self.executor.submit(l1.rpc.connect, l2.info['id'], 'localhost', l2.info['port'])
+        fut1.result(10)
+        fut2.result(10)
+        fut3.result(10)
 
     def test_balance(self):
         l1, l2 = self.connect()
