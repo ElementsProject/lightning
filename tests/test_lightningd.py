@@ -490,6 +490,23 @@ class LightningDTests(BaseLightningDTests):
         # separator, and not for example "lnbcrt1m1....".
         assert b11.count('1') == 1
 
+        # Check idempotent
+        invRpt = l1.rpc.invoice("any", 'label2', 'description2', idempotent=True)
+        assert inv['bolt11'] == invRpt['bolt11']
+        # Check idempotent mismatch
+        self.assertRaisesRegex(ValueError,
+                               "idempotency fail",
+                               l1.rpc.invoice, 444222, 'label2', 'description2',
+                               None, None, None, True)
+        self.assertRaisesRegex(ValueError,
+                               "idempotency fail",
+                               l1.rpc.invoice, "any", 'label2', '2noitpircsed',
+                               None, None, None, True)
+        self.assertRaisesRegex(ValueError,
+                               "idempotency fail",
+                               l1.rpc.invoice, "any", 'label2', 'description2',
+                               None, None, "0000000000000000000000000000000000000000000000000000000000000000", True)
+
     def test_invoice_weirdstring(self):
         l1 = self.node_factory.get_node()
 

@@ -8,7 +8,7 @@ lightning-invoice - Protocol for accepting payments.
 
 SYNOPSIS
 --------
-*invoice* 'msatoshi' 'label' 'description' ['expiry'] ['fallbacks'] ['preimage']
+*invoice* 'msatoshi' 'label' 'description' ['expiry'] ['fallbacks'] ['preimage'] ['idempotent']
 
 DESCRIPTION
 -----------
@@ -48,6 +48,26 @@ secret.
 This parameter is an advanced feature intended for use with cutting-edge
 cryptographic protocols and should not be used unless explicitly needed.
 
+If 'idempotent' is specified, and is the JSON Boolean 'true',
+then invoice creation will be idempotent.
+If an invoice with the given 'label' does not exist, it will be
+created as normal.
+However, if an invoice with the given 'label' already exists and
+creation is marked as 'idempotent', then the following checks
+on the existing invoice are performed:
+
+* The existing invoice must be unpaid and not expired.
+* The amount of the existing invoice must match the specified 'msatoshi',
+  including being the string "any".
+* The 'description' of the existing invoice must match the specified
+  'description'.
+* If 'preimage' is given as an argument, then the existing invoice must
+  have a 'preimage' matching the argument.
+
+If all above checks pass, then the existing invoice is returned without
+an error as if the invoice was created,
+except the expiration remains as it was for the existing invoice.
+
 RETURN VALUE
 ------------
 
@@ -58,6 +78,7 @@ payer.
 On failure, an error is returned and no invoice is created.  If the
 lightning process fails before responding, the caller should use
 lightning-listinvoice(7) to query whether this invoice was created or not.
+Alternatively, the caller can use 'idempotent' mode.
 
 //FIXME:Enumerate errors
 

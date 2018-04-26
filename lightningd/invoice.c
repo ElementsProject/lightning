@@ -150,6 +150,23 @@ static bool parse_fallback(struct command *cmd,
 	return true;
 }
 
+static void json_invoice_success(struct command *cmd,
+				 const struct invoice_details *details)
+{
+	struct json_result *response = new_json_result(cmd);
+
+	json_object_start(response, NULL);
+	json_add_hex(response, "payment_hash",
+		     &details->rhash, sizeof(details->rhash));
+	if (deprecated_apis)
+		json_add_u64(response, "expiry_time", details->expiry_time);
+	json_add_u64(response, "expires_at", details->expiry_time);
+	json_add_string(response, "bolt11", details->bolt11);
+	json_object_end(response);
+
+	command_success(cmd, response);
+}
+
 static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
@@ -157,16 +174,18 @@ static void json_invoice(struct command *cmd,
 	struct invoice_details details;
 	jsmntok_t *msatoshi, *label, *desctok, *exp, *fallback, *fallbacks;
 	jsmntok_t *preimagetok;
+	jsmntok_t *idempotenttok;
 	u64 *msatoshi_val;
 	const struct json_escaped *label_val, *desc;
 	const char *desc_val;
-	struct json_result *response = new_json_result(cmd);
 	struct wallet *wallet = cmd->ld->wallet;
 	struct bolt11 *b11;
 	char *b11enc;
+	char *fail;
 	const u8 **fallback_scripts = NULL;
 	u64 expiry = 3600;
 	bool result;
+	bool idempotent = false;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "msatoshi", &msatoshi,
@@ -176,6 +195,7 @@ static void json_invoice(struct command *cmd,
 			     "?fallback", &fallback,
 			     "?fallbacks", &fallbacks,
 			     "?preimage", &preimagetok,
+			     "?idempotent", &idempotenttok,
 			     NULL)) {
 		return;
 	}
@@ -200,10 +220,6 @@ static void json_invoice(struct command *cmd,
 	if (!label_val) {
 		command_fail(cmd, "label '%.*s' not a string or number",
 			     label->end - label->start, buffer + label->start);
-		return;
-	}
-	if (wallet_invoice_find_by_label(wallet, &invoice, label_val)) {
-		command_fail(cmd, "Duplicate label '%s'", label_val->s);
 		return;
 	}
 	if (strlen(label_val->s) > INVOICE_MAX_LABEL_LEN) {
@@ -280,6 +296,12 @@ static void json_invoice(struct command *cmd,
 		}
 	}
 
+	if (idempotenttok &&
+	    !json_tok_bool(buffer, idempotenttok, &idempotent)) {
+		command_fail(cmd, "idempotent must be 'true' or 'false'");
+		return;
+	}
+
 	struct preimage r;
 	struct sha256 rhash;
 
@@ -296,6 +318,57 @@ static void json_invoice(struct command *cmd,
 		randombytes_buf(r.r, sizeof(r.r));
 	/* Generate preimage hash. */
 	sha256(&rhash, r.r, sizeof(r.r));
+
+	if (wallet_invoice_find_by_label(wallet, &invoice, label_val)) {
+		if (!idempotent) {
+			command_fail(cmd, "Duplicate label '%s'", label_val->s);
+			return;
+		}
+
+		/* Get details to compare with later. */
+		wallet_invoice_details(cmd, cmd->ld->wallet, invoice, &details);
+
+		/* Check still UNPAID. */
+		if (details.state != UNPAID) {
+			command_fail(cmd,
+				     "idempotency fail: "
+				     "existing invoice is not unpaid.");
+			return;
+		}
+
+		/* Check msatoshi matches. */
+		if ((msatoshi_val && !details.msatoshi) ||
+		    (!msatoshi_val && details.msatoshi) ||
+		    (msatoshi_val && details.msatoshi &&
+		     msatoshi_val != details.msatoshi)) {
+			command_fail(cmd,
+				     "idempotency fail: "
+				     "msatoshi not matched to existing");
+			return;
+		}
+
+		/* If specified, check preimage matches. */
+		if (preimagetok &&
+		    !structeq(&r, &details.r)) {
+			command_fail(cmd,
+				     "idempotency fail: "
+				     "preimage not matched to existing");
+			return;
+		}
+
+		/* Recover description. */
+		b11 = bolt11_decode(cmd, details.bolt11, NULL, &fail);
+		if (!b11 || !streq(b11->description, desc_val)) {
+			command_fail(cmd,
+				     "idempotency fail: "
+				     "description not matched to existing");
+			return;
+		}
+
+		/* Everything that needed to pass passed. */
+		json_invoice_success(cmd, &details);
+		return;
+	}
 
 	/* Check duplicate preimage if explicitly specified.
 	 * We do not check when it is randomly generated, since
@@ -340,16 +413,7 @@ static void json_invoice(struct command *cmd,
 	/* Get details */
 	wallet_invoice_details(cmd, cmd->ld->wallet, invoice, &details);
 
-	json_object_start(response, NULL);
-	json_add_hex(response, "payment_hash",
-		     &details.rhash, sizeof(details.rhash));
-	if (deprecated_apis)
-		json_add_u64(response, "expiry_time", details.expiry_time);
-	json_add_u64(response, "expires_at", details.expiry_time);
-	json_add_string(response, "bolt11", details.bolt11);
-	json_object_end(response);
-
-	command_success(cmd, response);
+	json_invoice_success(cmd, &details);
 }
 
 static const struct json_command invoice_command = {
