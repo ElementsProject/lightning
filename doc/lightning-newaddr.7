@@ -1,5 +1,5 @@
 '\" t
-.\"     Title: lightning-listpayments
+.\"     Title: lightning-newaddr
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
 .\"      Date: 04/26/2018
@@ -7,7 +7,7 @@
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-LISTPAYME" "7" "04/26/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-NEWADDR" "7" "04/26/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,22 +28,31 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-lightning-listpayments \- Protocol for querying payment status
+lightning-newaddr \- Command for generating a new address to be used by c\-lightning\&.
 .SH "SYNOPSIS"
 .sp
-\fBlistpayments\fR
+\fBnewaddr\fR [ \fIp2sh\-segwit\fR | \fIbech32\fR ]
 .SH "DESCRIPTION"
 .sp
-The \fBlistpayments\fR RPC command gets the status of all \fIpay\fR and \fIsendpay\fR commands\&.
+The \fBnewaddr\fR RPC command generates a new address which can subsequently be used to fund channels managed by the c\-lightning node\&.
+.sp
+The funding transaction needs to be confirmed before funds can be used\&.
+.sp
+The optional parameter specifies the type of address wanted i\&.e\&. p2sh\-segwit (e\&.g\&. 2MxaozoqWwiUcuD9KKgUSrLFDafLqimT9Ta on bitcoin testnet or 3MZxzq3jBSKNQ2e7dzneo9hy4FvNzmMmt3 on bitcoin mainnet) or bech32 (e\&.g\&. tb1qu9j4lg5f9rgjyfhvfd905vw46eg39czmktxqgg on bitcoin testnet or bc1qwqdg6squsna38e46795at95yu9atm8azzmyvckulcc7kytlcckxswvvzej on bitcoin mainnet)\&.
+.sp
+If not specified the address generated is p2sh\-segwit\&.
 .SH "RETURN VALUE"
 .sp
-On success, an array of objects is returned\&. Each object contains an \fIid\fR (unique internal value assigned at creation), \fIpayment_hash\fR, \fIdestination\fR, \fImsatoshi\fR and \fItimestamp\fR (UNIX timestamp indicating when it was initiated), and a \fIstatus\fR which is one of \fIpending\fR (in progress), \fIcomplete\fR (successfully paid) or \fIfailed\fR\&.
+On success, a new address will be returned\&.
+.SH "ERRORS"
+.sp
+If a non recognized address type is requested an error message will be returned
 .SH "AUTHOR"
 .sp
-Christian Decker <decker\&.christian@gmail\&.com> is mainly responsible\&.
+Felix <fixone@gmail\&.com> is mainly responsible\&.
 .SH "SEE ALSO"
 .sp
-lightning\-pay(7), lightning\-sendpay(7), lightning\-listinvoice(7)\&.
+lightning\-listfunds(7), lightning\-fundchannel(7), lightning\-withdraw(7)
 .SH "RESOURCES"
 .sp
 Main web site: https://github\&.com/ElementsProject/lightning

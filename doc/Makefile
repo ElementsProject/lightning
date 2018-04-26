@@ -18,7 +18,10 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-sendpay.7 \
 	doc/lightning-waitinvoice.7 \
 	doc/lightning-waitanyinvoice.7 \
-	doc/lightning-waitsendpay.7
+	doc/lightning-waitsendpay.7 \
+	doc/lightning-newaddr.7 \
+	doc/lightning-withdraw.7 \
+	doc/lightning-listfunds.7
 
 doc-all: $(MANPAGES)
 
