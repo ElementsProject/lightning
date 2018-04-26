@@ -61,17 +61,18 @@ void gossip_connect_result(struct lightningd *ld, const u8 *msg)
 		      tal_hex(msg, msg));
 
 
-	c = find_connect(ld, &id);
-	assert(c);
-
-	if (connected) {
-		struct json_result *response = new_json_result(c->cmd);
-		json_object_start(response, NULL);
-		json_add_pubkey(response, "id", &id);
-		json_object_end(response);
-		command_success(c->cmd, response);
-	} else {
-		command_fail(c->cmd, "%s", err);
+	/* We can have multiple connect commands: complete them all */
+	while ((c = find_connect(ld, &id)) != NULL) {
+		if (connected) {
+			struct json_result *response = new_json_result(c->cmd);
+			json_object_start(response, NULL);
+			json_add_pubkey(response, "id", &id);
+			json_object_end(response);
+			command_success(c->cmd, response);
+		} else {
+			command_fail(c->cmd, "%s", err);
+		}
+		/* They delete themselves from list */
 	}
 }
 
@@ -162,10 +163,11 @@ static void json_connect(struct command *cmd,
 		subd_send_msg(cmd->ld->gossip, take(msg));
 	}
 
-	/* Now tell it to try reaching it. */
-	msg = towire_gossipctl_connect_to_peer(NULL, &id);
-	subd_send_msg(cmd->ld->gossip, take(msg));
-
+	/* If there isn't already a connect command, tell gossipd */
+	if (!find_connect(cmd->ld, &id)) {
+		msg = towire_gossipctl_connect_to_peer(NULL, &id);
+		subd_send_msg(cmd->ld->gossip, take(msg));
+	}
 	/* Leave this here for gossip_connect_result */
 	new_connect(cmd->ld, &id, cmd);
 	command_still_pending(cmd);

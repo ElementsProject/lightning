@@ -149,8 +149,8 @@ struct reaching {
 	/* FIXME: Support multiple address. */
 	struct wireaddr addr;
 
-	/* How many (if any) connect commands are waiting for the result. */
-	size_t num_master_responses;
+	/* Whether connect command is waiting for the result. */
+	bool master_needs_response;
 
 	/* How far did we get? */
 	const char *connstate;
@@ -362,10 +362,12 @@ static void reached_peer(struct peer *peer, struct io_conn *conn)
 	/* Don't free conn with reach */
 	tal_steal(peer->daemon, conn);
 
-	/* Tell any connect commands what happened. */
-	msg = towire_gossipctl_connect_to_peer_result(r, &r->id, true, "");
-	for (size_t i = 0; i < r->num_master_responses; i++)
-		daemon_conn_send(&peer->daemon->master, msg);
+	/* Tell any connect command what happened. */
+	if (r->master_needs_response) {
+		msg = towire_gossipctl_connect_to_peer_result(NULL, &r->id,
+							      true, "");
+		daemon_conn_send(&peer->daemon->master, take(msg));
+	}
 
 	tal_free(r);
 }
@@ -1713,11 +1715,12 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 				  reach->connstate,
 				  strerror(errno));
 
-	/* Tell any connect commands what happened. */
-	msg = towire_gossipctl_connect_to_peer_result(reach, &reach->id,
-						      false, err);
-	for (size_t i = 0; i < reach->num_master_responses; i++)
-		daemon_conn_send(&reach->daemon->master, msg);
+	/* Tell any connect command what happened. */
+	if (reach->master_needs_response) {
+		msg = towire_gossipctl_connect_to_peer_result(NULL, &reach->id,
+							      false, err);
+		daemon_conn_send(&reach->daemon->master, take(msg));
+	}
 
 	status_trace("Failed connected out for %s",
 		     type_to_string(tmpctx, struct pubkey, &reach->id));
@@ -1832,9 +1835,13 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 	/* If we're trying to reach it right now, that's OK. */
 	reach = find_reaching(daemon, id);
 	if (reach) {
-		/* Please tell us too. */
-		if (master_needs_response)
-			reach->num_master_responses++;
+		/* Please tell us too.  Master should not ask twice (we'll
+		 * only respond once, and so one request will get stuck) */
+		if (reach->master_needs_response)
+			status_failed(STATUS_FAIL_MASTER_IO,
+				      "Already reaching %s",
+				      type_to_string(tmpctx, struct pubkey, id));
+		reach->master_needs_response = true;
 		return;
 	}
 
@@ -1889,7 +1896,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 	reach->daemon = daemon;
 	reach->id = *id;
 	reach->addr = a->addr;
-	reach->num_master_responses = master_needs_response;
+	reach->master_needs_response = master_needs_response;
 	reach->connstate = "Connection establishment";
 	list_add_tail(&daemon->reaching, &reach->list);
 	tal_add_destructor(reach, destroy_reaching);
