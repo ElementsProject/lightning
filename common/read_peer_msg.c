@@ -60,7 +60,7 @@ void handle_gossip_msg_(const u8 *msg TAKES, int peer_fd,
 		if (!send_msg(cs, peer_fd, gossip, arg))
 			io_error(arg);
 	} else if (fromwire_peektype(gossip) == WIRE_ERROR) {
-		status_debug("Gossipd old us to send error");
+		status_debug("Gossipd told us to send error");
 		send_msg(cs, peer_fd, gossip, arg);
 		io_error(arg);
 	} else {
