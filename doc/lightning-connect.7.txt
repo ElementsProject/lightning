@@ -1,0 +1,64 @@
+LIGHTNING-CONNECT(7)
+====================
+:doctype: manpage
+
+NAME
+----
+lightning-connect - Command for connecting to another 
+lightning node.
+
+SYNOPSIS
+--------
+*connect* 'node_id'[@('ip_addr'|'hostname')[:'port']]
+
+or
+
+*connect* 'node_id'[ ('ip_addr'|'hostname')[:'port']]
+
+DESCRIPTION
+-----------
+The *connect* RPC command establishes a new connection 
+with another node in the Lightning Network.
+
+'node_id' represents the target node's public key and 
+'ip_addr' can be either IPv4 or IPv6. 
+
+If not specified the 'port' is assumed to be 9375 
+(default lightning port).
+
+If neither 'ip_addr' or 'hostname' is specified, 
+connection will be attempted to an IP belonging to 
+'node_id' learned through gossip with other already 
+connected peers
+
+Connecting to a node is just the first step in opening 
+a channel with another node, once the peer is connected
+a channel can be opened with lightning-fundchannel(7)
+
+
+RETURN VALUE
+------------
+On success the response will include just the peer id 
+(peer's public key)
+
+ERRORS
+------
+If 'node_id' or 'ip_addr' are invalid or if 'hostname' 
+can't be resolved to a valid IP address an error message
+will be returned. An error will also be returned if the 
+simplified version (only 'node_id') is used and there's
+no published IP for the peer. *connect* will make up to 
+10(?) attempts to connect to the peer before giving up
+
+AUTHOR
+------
+Felix <fixone@gmail.com> is mainly responsible.
+
+SEE ALSO
+--------
+lightning-fundchannel(7), lightning-listpeers(7), 
+lightning-listchannels(7), lightning-disconnect(7)
+
+RESOURCES
+---------
+Main web site: https://github.com/ElementsProject/lightning
