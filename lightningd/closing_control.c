@@ -96,10 +96,6 @@ static void peer_closing_complete(struct channel *channel, const u8 *msg)
 	if (channel->state == CLOSINGD_COMPLETE)
 		return;
 
-	/* Tell gossipd we no longer need to keep connection to this peer */
-	msg = towire_gossipctl_peer_important(NULL, &channel->peer->id, false);
-	subd_send_msg(channel->peer->ld->gossip, take(msg));
-
 	/* Channel gets dropped to chain cooperatively. */
 	drop_to_chain(channel->peer->ld, channel, true);
 	channel_set_state(channel, CLOSINGD_SIGEXCHANGE, CLOSINGD_COMPLETE);

@@ -332,6 +332,12 @@ register_close_command(struct lightningd *ld,
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		   bool cooperative)
 {
+	u8 *msg;
+
+	/* Tell gossipd we no longer need to keep connection to this peer */
+	msg = towire_gossipctl_peer_important(NULL, &channel->peer->id, false);
+	subd_send_msg(ld->gossip, take(msg));
+
 	sign_last_tx(channel);
 
 	/* Keep broadcasting until we say stop (can fail due to dup,
