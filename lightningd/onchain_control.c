@@ -357,7 +357,6 @@ static bool tell_if_missing(const struct channel *channel,
 static void onchain_error(struct channel *channel,
 			  int peer_fd UNUSED, int gossip_fd UNUSED,
 			  const struct crypto_state *cs UNUSED,
-			  u64 gossip_index UNUSED,
 			  const struct channel_id *channel_id UNUSED,
 			  const char *desc,
 			  const u8 *err_for_them UNUSED)

@@ -346,7 +346,6 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 void channel_errmsg(struct channel *channel,
 		    int peer_fd, int gossip_fd,
 		    const struct crypto_state *cs,
-		    u64 gossip_index,
 		    const struct channel_id *channel_id UNUSED,
 		    const char *desc,
 		    const u8 *err_for_them)
@@ -393,8 +392,7 @@ void channel_errmsg(struct channel *channel,
 
 	/* Hand back to gossipd, with any error packet. */
 	msg = towire_gossipctl_hand_back_peer(NULL, &channel->peer->id,
-					      cs, gossip_index,
-					      err_for_them);
+					      cs, err_for_them);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
 	subd_send_fd(ld->gossip, gossip_fd);
@@ -412,11 +410,10 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	u8 *local_features;
 	struct channel *channel;
 	struct wireaddr addr;
-	u64 gossip_index;
 	struct uncommitted_channel *uc;
 
 	if (!fromwire_gossip_peer_connected(msg, msg,
-					    &id, &addr, &cs, &gossip_index,
+					    &id, &addr, &cs,
 					    &gfeatures, &lfeatures))
 		fatal("Gossip gave bad GOSSIP_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
@@ -441,7 +438,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	}
 
 	/* Were we trying to open a channel, and we've raced? */
-	if (handle_opening_channel(ld, &id, &addr, &cs, gossip_index,
+	if (handle_opening_channel(ld, &id, &addr, &cs,
 				   gfeatures, lfeatures, peer_fd, gossip_fd))
 		return;
 
@@ -489,7 +486,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			channel_set_owner(channel, NULL);
 
 			channel->peer->addr = addr;
-			peer_start_channeld(channel, &cs, gossip_index,
+			peer_start_channeld(channel, &cs,
 					    peer_fd, gossip_fd, NULL,
 					    true);
 			return;
@@ -500,7 +497,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			channel_set_owner(channel, NULL);
 
 			channel->peer->addr = addr;
-			peer_start_closingd(channel, &cs, gossip_index,
+			peer_start_closingd(channel, &cs,
 					    peer_fd, gossip_fd,
 					    true, NULL);
 			return;
@@ -514,8 +511,7 @@ return_to_gossipd:
 
 send_error:
 	/* Hand back to gossipd, with an error packet. */
-	msg = towire_gossipctl_hand_back_peer(msg, &id, &cs, gossip_index,
-					      error);
+	msg = towire_gossipctl_hand_back_peer(msg, &id, &cs, error);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
 	subd_send_fd(ld->gossip, gossip_fd);
@@ -543,7 +539,6 @@ void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
 			 const struct wireaddr *addr,
 			 const struct crypto_state *cs,
-			 u64 gossip_index,
 			 const u8 *gfeatures,
 			 const u8 *lfeatures,
 			 int peer_fd, int gossip_fd,
@@ -563,7 +558,7 @@ void peer_sent_nongossip(struct lightningd *ld,
 	/* Open request? */
 	if (fromwire_peektype(in_msg) == WIRE_OPEN_CHANNEL) {
 		error = peer_accept_channel(tmpctx,
-					    ld, id, addr, cs, gossip_index,
+					    ld, id, addr, cs,
 					    gfeatures, lfeatures,
 					    peer_fd, gossip_fd, channel_id,
 					    in_msg);
@@ -588,7 +583,7 @@ void peer_sent_nongossip(struct lightningd *ld,
 		if (fromwire_peektype(in_msg) == WIRE_CHANNEL_REESTABLISH
 		    && channel
 		    && channel->state == CLOSINGD_COMPLETE) {
-			peer_start_closingd(channel, cs, gossip_index,
+			peer_start_closingd(channel, cs,
 					    peer_fd, gossip_fd, true, in_msg);
 			return;
 		}
@@ -601,7 +596,7 @@ void peer_sent_nongossip(struct lightningd *ld,
 
 send_error:
 	/* Hand back to gossipd, with an error packet. */
-	msg = towire_gossipctl_hand_back_peer(ld, id, cs, gossip_index, error);
+	msg = towire_gossipctl_hand_back_peer(ld, id, cs, error);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
 	subd_send_fd(ld->gossip, gossip_fd);

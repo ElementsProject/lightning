@@ -12,7 +12,6 @@ struct channel_id;
  * read_peer_msg - read & decode in a peer message, handling common ones.
  * @ctx: context to allocate return packet from.
  * @cs: the cryptostate (updated)
- * @gossip_index: the gossip_index
  * @chanid: the channel id (for identifying errors)
  * @send_reply: the way to send a reply packet (eg. sync_crypto_write_arg)
  * @io_error: what to do if there's an IO error (eg. status_fail_io)
@@ -21,9 +20,8 @@ struct channel_id;
  * This returns NULL if it handled the message, so it's normally called in
  * a loop.
  */
-#define read_peer_msg(ctx, cs, gossip_index, chanid, send_reply,	\
-		      io_error, arg)					\
-	read_peer_msg_((ctx), PEER_FD, GOSSIP_FD, (cs), (gossip_index), \
+#define read_peer_msg(ctx, cs, chanid, send_reply, io_error, arg)	\
+	read_peer_msg_((ctx), PEER_FD, GOSSIP_FD, (cs),			\
 		       (chanid),					\
 		       typesafe_cb_preargs(bool, void *, (send_reply), (arg), \
 					   struct crypto_state *, int,	\
@@ -40,7 +38,7 @@ void status_fail_io(void *unused);
 
 u8 *read_peer_msg_(const tal_t *ctx,
 		   int peer_fd, int gossip_fd,
-		   struct crypto_state *cs, u64 gossip_index,
+		   struct crypto_state *cs,
 		   const struct channel_id *channel,
 		   bool (*send_reply)(struct crypto_state *cs, int fd,
 				      const u8 *TAKES,  void *arg),

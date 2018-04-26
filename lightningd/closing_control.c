@@ -81,10 +81,7 @@ static void peer_received_closing_signature(struct channel *channel,
 
 static void peer_closing_complete(struct channel *channel, const u8 *msg)
 {
-	/* FIXME: We should save this, to return to gossipd */
-	u64 gossip_index;
-
-	if (!fromwire_closing_complete(msg, &gossip_index)) {
+	if (!fromwire_closing_complete(msg)) {
 		channel_internal_error(channel, "Bad closing_complete %s",
 				       tal_hex(msg, msg));
 		return;
@@ -132,7 +129,6 @@ static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds UNUSE
 
 void peer_start_closingd(struct channel *channel,
 			 const struct crypto_state *cs,
-			 u64 gossip_index,
 			 int peer_fd, int gossip_fd,
 			 bool reconnected,
 			 const u8 *channel_reestablish)
@@ -197,7 +193,6 @@ void peer_start_closingd(struct channel *channel,
 	their_msatoshi = funding_msatoshi - our_msatoshi;
 	initmsg = towire_closing_init(tmpctx,
 				      cs,
-				      gossip_index,
 				      &channel->seed,
 				      &channel->funding_txid,
 				      channel->funding_outnum,
