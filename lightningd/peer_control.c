@@ -401,7 +401,8 @@ void channel_errmsg(struct channel *channel,
 	subd_send_fd(ld->gossip, gossip_fd);
 }
 
-/* Gossipd tells us a peer has connected */
+/* Gossipd tells us a peer has connected: it never hands us duplicates, since
+ * it holds them until we say peer_died. */
 void peer_connected(struct lightningd *ld, const u8 *msg,
 		    int peer_fd, int gossip_fd)
 {
@@ -450,11 +451,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	 * channel. */
 	channel = active_channel_by_id(ld, &id, &uc);
 
-	/* Opening now?  Kill it */
-	if (uc) {
-		kill_uncommitted_channel(uc, "Peer reconnected");
-		goto return_to_gossipd;
-	}
+	/* Can't be opening now, since we wouldn't have sent peer_died. */
+	assert(!uc);
 
 	if (channel) {
 		log_debug(channel->log, "Peer has reconnected, state %s",
@@ -484,9 +482,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		case CHANNELD_AWAITING_LOCKIN:
 		case CHANNELD_NORMAL:
 		case CHANNELD_SHUTTING_DOWN:
-			/* Stop any existing daemon, without triggering error
-			 * on this peer. */
-			channel_set_owner(channel, NULL);
+			assert(!channel->owner);
 
 			channel->peer->addr = addr;
 			peer_start_channeld(channel, &cs,
@@ -495,9 +491,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			return;
 
 		case CLOSINGD_SIGEXCHANGE:
-			/* Stop any existing daemon, without triggering error
-			 * on this peer. */
-			channel_set_owner(channel, NULL);
+			assert(!channel->owner);
 
 			channel->peer->addr = addr;
 			peer_start_closingd(channel, &cs,
@@ -508,7 +502,6 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		abort();
 	}
 
-return_to_gossipd:
 	/* No err, all good. */
 	error = NULL;
 

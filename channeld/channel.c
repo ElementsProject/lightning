@@ -2661,11 +2661,10 @@ int main(int argc, char *argv[])
 			req_in(peer, msg);
 		} else if (FD_ISSET(GOSSIP_FD, &rfds)) {
 			msg = wire_sync_read(peer, GOSSIP_FD);
-
+			/* Gossipd hangs up on us to kill us when a new
+			 * connection comes in. */
 			if (!msg)
-				status_failed(STATUS_FAIL_GOSSIP_IO,
-					      "Can't read command: %s",
-					      strerror(errno));
+				peer_conn_broken(peer);
 			handle_gossip_msg(msg, &peer->cs,
 					  channeld_send_reply,
 					  channeld_io_error,

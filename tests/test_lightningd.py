@@ -3125,8 +3125,9 @@ class LightningDTests(BaseLightningDTests):
         # Reconnect.
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
-        # We should get a message about reconnecting.
-        l2.daemon.wait_for_log('Killing openingd: Peer reconnected')
+        # We should get a message about reconnecting, but order unsynced.
+        l2.daemon.wait_for_logs(['gossipd.*reconnect for active peer',
+                                 'openingd.*Error reading gossip msg'])
 
         # Should work fine.
         l1.rpc.fundchannel(l2.info['id'], 20000)
