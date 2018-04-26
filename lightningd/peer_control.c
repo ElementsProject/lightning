@@ -764,7 +764,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 			connected = true;
 		else {
 			channel = peer_active_channel(p);
-			connected = channel && channel->owner;
+			connected = channel && channel->connected;
 		}
 		json_add_bool(response, "connected", connected);
 
