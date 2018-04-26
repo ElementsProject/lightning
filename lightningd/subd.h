@@ -61,6 +61,9 @@ struct subd {
 	/* For global daemons: we fail if they fail. */
 	bool must_not_exit;
 
+	/* Do we talk to a peer?  ie. not onchaind */
+	bool talks_to_peer;
+
 	/* Messages queue up here. */
 	struct msg_queue outq;
 
@@ -109,6 +112,7 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 			       const char *name,
 			       void *channel,
 			       struct log *base_log,
+			       bool talks_to_peer,
 			       const char *(*msgname)(int msgtype),
 			       unsigned int (*msgcb)(struct subd *, const u8 *,
 						     const int *fds),
@@ -122,9 +126,10 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 						   const char *happenings),
 			       ...);
 
-#define new_channel_subd(ld, name, channel, log, msgname, \
+#define new_channel_subd(ld, name, channel, log, talks_to_peer, msgname, \
 			 msgcb, errcb, billboardcb, ...)		\
-	new_channel_subd_((ld), (name), (channel), (log), (msgname), (msgcb), \
+	new_channel_subd_((ld), (name), (channel), (log), (talks_to_peer), \
+			  (msgname), (msgcb),				\
 			  typesafe_cb_postargs(void, void *, (errcb),	\
 					       (channel), int, int,	\
 					       const struct crypto_state *, \

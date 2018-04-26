@@ -199,9 +199,10 @@ bool peer_start_channeld(struct channel *channel,
 	if (hsmfd < 0)
 		fatal("Could not read fd from HSM: %s", strerror(errno));
 
-	channel_set_owner(channel, new_channel_subd(ld,
+	channel_set_owner(channel,
+			  new_channel_subd(ld,
 					   "lightning_channeld", channel,
-					   channel->log,
+					   channel->log, true,
 					   channel_wire_type_name,
 					   channel_msg,
 					   channel_errmsg,

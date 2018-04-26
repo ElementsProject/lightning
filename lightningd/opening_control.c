@@ -698,7 +698,7 @@ u8 *peer_accept_channel(const tal_t *ctx,
 				       "Multiple channels unsupported");
 
 	uc->openingd = new_channel_subd(ld, "lightning_openingd", uc, uc->log,
-					opening_wire_type_name,	NULL,
+					true, opening_wire_type_name, NULL,
 					opening_channel_errmsg,
 					opening_channel_set_billboard,
 					take(&peer_fd), take(&gossip_fd),
@@ -786,12 +786,13 @@ static void peer_offer_channel(struct lightningd *ld,
 	tal_steal(fc->uc, fc);
 
 	fc->uc->openingd = new_channel_subd(ld,
-				    "lightning_openingd", fc->uc, fc->uc->log,
-				    opening_wire_type_name, NULL,
-				    opening_channel_errmsg,
-				    opening_channel_set_billboard,
-				    take(&peer_fd), take(&gossip_fd),
-				    NULL);
+					    "lightning_openingd",
+					    fc->uc, fc->uc->log,
+					    true, opening_wire_type_name, NULL,
+					    opening_channel_errmsg,
+					    opening_channel_set_billboard,
+					    take(&peer_fd), take(&gossip_fd),
+					    NULL);
 	if (!fc->uc->openingd) {
 		/* We don't send them an error packet: for them, nothing
 		 * happened! */

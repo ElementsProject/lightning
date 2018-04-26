@@ -631,6 +631,7 @@ static struct subd *new_subd(struct lightningd *ld,
 			     const char *name,
 			     void *channel,
 			     struct log *base_log,
+			     bool talks_to_peer,
 			     const char *(*msgname)(int msgtype),
 			     unsigned int (*msgcb)(struct subd *,
 						   const u8 *, const int *fds),
@@ -674,6 +675,7 @@ static struct subd *new_subd(struct lightningd *ld,
 
 	sd->name = name;
 	sd->must_not_exit = false;
+	sd->talks_to_peer = talks_to_peer;
 	sd->msgname = msgname;
 	sd->msgcb = msgcb;
 	sd->errcb = errcb;
@@ -707,7 +709,7 @@ struct subd *new_global_subd(struct lightningd *ld,
 	struct subd *sd;
 
 	va_start(ap, msgcb);
-	sd = new_subd(ld, name, NULL, NULL, msgname, msgcb, NULL, NULL, &ap);
+	sd = new_subd(ld, name, NULL, NULL, false, msgname, msgcb, NULL, NULL, &ap);
 	va_end(ap);
 
 	sd->must_not_exit = true;
@@ -718,6 +720,7 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 			       const char *name,
 			       void *channel,
 			       struct log *base_log,
+			       bool talks_to_peer,
 			       const char *(*msgname)(int msgtype),
 			       unsigned int (*msgcb)(struct subd *, const u8 *,
 						     const int *fds),
@@ -735,7 +738,7 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 	struct subd *sd;
 
 	va_start(ap, billboardcb);
-	sd = new_subd(ld, name, channel, base_log, msgname,
+	sd = new_subd(ld, name, channel, base_log, talks_to_peer, msgname,
 		      msgcb, errcb, billboardcb, &ap);
 	va_end(ap);
 	return sd;
