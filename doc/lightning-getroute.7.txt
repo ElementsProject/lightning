@@ -4,7 +4,7 @@ LIGHTNING-GETROUTE(7)
 
 NAME
 ----
-lightning-getroute - Protocol for routing a payment (low-level).
+lightning-getroute - Command for routing a payment (low-level).
 
 
 SYNOPSIS

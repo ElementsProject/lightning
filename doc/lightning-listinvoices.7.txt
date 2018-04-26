@@ -4,7 +4,7 @@ LIGHTNING-LISTINVOICES(7)
 
 NAME
 ----
-lightning-listinvoices - Protocol for querying invoice status
+lightning-listinvoices - Command for querying invoice status
 
 SYNOPSIS
 --------

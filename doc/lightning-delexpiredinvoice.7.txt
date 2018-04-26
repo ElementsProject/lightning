@@ -4,7 +4,7 @@ LIGHTNING-DELEXPIREDINVOICE(7)
 
 NAME
 ----
-lightning-delexpiredinvoice - Protocol for removing expired invoices.
+lightning-delexpiredinvoice - Command for removing expired invoices.
 
 SYNOPSIS
 --------

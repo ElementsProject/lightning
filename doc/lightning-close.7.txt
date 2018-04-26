@@ -4,7 +4,7 @@ LIGHTNING-CLOSE(7)
 
 NAME
 ----
-lightning-close - Protocol for closing channels with direct peers
+lightning-close - Command for closing channels with direct peers
 
 SYNOPSIS
 --------
