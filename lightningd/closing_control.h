@@ -8,7 +8,6 @@ struct crypto_state;
 
 void peer_start_closingd(struct channel *channel,
 			 const struct crypto_state *cs,
-			 u64 gossip_index,
 			 int peer_fd, int gossip_fd,
 			 bool reconnected,
 			 const u8 *channel_reestablish);

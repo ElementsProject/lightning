@@ -102,20 +102,18 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 					       const int *fds)
 {
 	struct crypto_state cs;
-	u64 gossip_index;
 
 	/* We expect 2 fds. */
 	assert(tal_count(fds) == 2);
 
-	if (!fromwire_channel_shutdown_complete(msg, &cs, &gossip_index)) {
+	if (!fromwire_channel_shutdown_complete(msg, &cs)) {
 		channel_internal_error(channel, "bad shutdown_complete: %s",
 				       tal_hex(msg, msg));
 		return;
 	}
 
 	/* This sets channel->owner, closes down channeld. */
-	peer_start_closingd(channel, &cs, gossip_index, fds[0], fds[1],
-			    false, NULL);
+	peer_start_closingd(channel, &cs, fds[0], fds[1], false, NULL);
 	channel_set_state(channel, CHANNELD_SHUTTING_DOWN, CLOSINGD_SIGEXCHANGE);
 }
 
@@ -172,7 +170,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 
 bool peer_start_channeld(struct channel *channel,
 			 const struct crypto_state *cs,
-			 u64 gossip_index,
 			 int peer_fd, int gossip_fd,
 			 const u8 *funding_signed,
 			 bool reconnected)
@@ -248,7 +245,7 @@ bool peer_start_channeld(struct channel *channel,
 				      feerate_min(ld),
 				      feerate_max(ld),
 				      &channel->last_sig,
-				      cs, gossip_index,
+				      cs,
 				      &channel->channel_info.remote_fundingkey,
 				      &channel->channel_info.theirbase.revocation,
 				      &channel->channel_info.theirbase.payment,

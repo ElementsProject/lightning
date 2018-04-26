@@ -40,7 +40,7 @@ static void handle_ping(const u8 *msg,
 
 u8 *read_peer_msg_(const tal_t *ctx,
 		   int peer_fd, int gossip_fd,
-		   struct crypto_state *cs, u64 gossip_index,
+		   struct crypto_state *cs,
 		   const struct channel_id *channel,
 		   bool (*send_reply)(struct crypto_state *cs, int fd,
 				      const u8 *TAKES,  void *arg),
@@ -86,8 +86,7 @@ u8 *read_peer_msg_(const tal_t *ctx,
 		 */
 		if (structeq(&chanid, channel) || channel_id_is_all(&chanid))
 			peer_failed_received_errmsg(peer_fd, gossip_fd,
-						    cs, gossip_index,
-						    err, &chanid);
+						    cs, err, &chanid);
 
 		return tal_free(msg);
 	}

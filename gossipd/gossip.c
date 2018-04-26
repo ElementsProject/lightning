@@ -330,8 +330,7 @@ static void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 	if (peer->local) {
 		msg_enqueue(&peer->local->peer_out, msg);
 	} else {
-		/* Use gossip_index 0 meaning don't update index */
-		const u8 *send = towire_gossip_send_gossip(NULL, 0, msg);
+		const u8 *send = towire_gossip_send_gossip(NULL, msg);
 		if (taken(msg))
 			tal_free(msg);
 		daemon_conn_send(peer->remote, take(send));
@@ -406,7 +405,6 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	/* We will not have anything queued, since we're not duplex. */
 	msg = towire_gossip_peer_connected(peer, &peer->id, &peer->addr,
 					   &peer->local->pcs.cs,
-					   peer->broadcast_index,
 					   peer->gfeatures, peer->lfeatures);
 	if (!send_peer_with_fds(peer, msg))
 		return io_close(conn);
@@ -599,7 +597,6 @@ static struct io_plan *ready_for_master(struct io_conn *conn, struct peer *peer)
 		msg = towire_gossip_peer_nongossip(peer, &peer->id,
 						   &peer->addr,
 						   &peer->local->pcs.cs,
-						   peer->broadcast_index,
 						   peer->gfeatures,
 						   peer->lfeatures,
 						   peer->local->nongossip_msg);
@@ -607,7 +604,6 @@ static struct io_plan *ready_for_master(struct io_conn *conn, struct peer *peer)
 		msg = towire_gossipctl_release_peer_reply(peer,
 							  &peer->addr,
 							  &peer->local->pcs.cs,
-							  peer->broadcast_index,
 							  peer->gfeatures,
 							  peer->lfeatures);
 
@@ -925,9 +921,7 @@ static bool nonlocal_dump_gossip(struct io_conn *conn, struct daemon_conn *dc)
 		peer->gossip_sync = false;
 		return false;
 	} else {
-		u8 *msg = towire_gossip_send_gossip(NULL,
-						    peer->broadcast_index,
-						    next);
+		u8 *msg = towire_gossip_send_gossip(NULL, next);
 		daemon_conn_send(peer->remote, take(msg));
 		return true;
 	}
@@ -953,10 +947,32 @@ struct returning_peer {
 	struct daemon *daemon;
 	struct pubkey id;
 	struct crypto_state cs;
-	u64 gossip_index;
 	u8 *inner_msg;
 	int peer_fd, gossip_fd;
 };
+
+static void drain_and_forward_gossip(struct peer *peer, int gossip_fd)
+{
+	u8 *msg;
+
+	/* Be careful: what if they handed wrong fd?  Make it non-blocking. */
+	if (!io_fd_block(gossip_fd, false)) {
+		status_unusual("NONBLOCK failed for gossip_fd from peer %s: %s",
+			       type_to_string(tmpctx, struct pubkey, &peer->id),
+			       strerror(errno));
+		return;
+	}
+
+	/* It's sync, but not blocking. */
+	while ((msg = wire_sync_read(tmpctx, gossip_fd)) != NULL) {
+		u8 *gossip;
+		if (!fromwire_gossip_send_gossip(NULL, msg, &gossip))
+			break;
+		msg_enqueue(&peer->local->peer_out, take(gossip));
+	}
+
+	close(gossip_fd);
+}
 
 static struct io_plan *handle_returning_peer(struct io_conn *conn,
 					     struct returning_peer *rpeer)
@@ -970,15 +986,12 @@ static struct io_plan *handle_returning_peer(struct io_conn *conn,
 			      "hand_back_peer unknown peer: %s",
 			      type_to_string(tmpctx, struct pubkey, &rpeer->id));
 
-	/* We don't need the gossip_fd; we know what gossip it got
-	 * from gossip_index */
-	close(rpeer->gossip_fd);
-
 	/* Possible if there's a reconnect: ignore handed back. */
 	if (peer->local) {
 		status_trace("hand_back_peer %s: reconnected, dropping handback",
 			     type_to_string(tmpctx, struct pubkey, &rpeer->id));
 
+		close(rpeer->gossip_fd);
 		close(rpeer->peer_fd);
 		tal_free(rpeer);
 		return daemon_conn_read_next(conn, &daemon->master);
@@ -993,7 +1006,9 @@ static struct io_plan *handle_returning_peer(struct io_conn *conn,
 
 	peer->local = new_local_peer_state(peer, &rpeer->cs);
 	peer->local->fd = rpeer->peer_fd;
-	peer->broadcast_index = rpeer->gossip_index;
+
+	/* Forward any gossip we sent while fd wasn't being read */
+	drain_and_forward_gossip(peer, rpeer->gossip_fd);
 
 	/* If they told us to send a message, queue it now */
 	if (tal_len(rpeer->inner_msg))
@@ -1019,7 +1034,6 @@ static struct io_plan *hand_back_peer(struct io_conn *conn,
 	rpeer->daemon = daemon;
 	if (!fromwire_gossipctl_hand_back_peer(msg, msg,
 					       &rpeer->id, &rpeer->cs,
-					       &rpeer->gossip_index,
 					       &rpeer->inner_msg))
 		master_badmsg(WIRE_GOSSIPCTL_HAND_BACK_PEER, msg);
 

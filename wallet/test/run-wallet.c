@@ -81,7 +81,7 @@ bool fromwire_gossipctl_peer_disconnect_replyfail(const void *p UNNEEDED, bool *
 bool fromwire_gossip_getpeers_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey **id UNNEEDED, struct wireaddr **addr UNNEEDED, struct gossip_getnodes_entry ***nodes UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_getpeers_reply called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_peer_connected */
-bool fromwire_gossip_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey *id UNNEEDED, struct wireaddr *addr UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u64 *gossip_index UNNEEDED, u8 **gfeatures UNNEEDED, u8 **lfeatures UNNEEDED)
+bool fromwire_gossip_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey *id UNNEEDED, struct wireaddr *addr UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u8 **gfeatures UNNEEDED, u8 **lfeatures UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_peer_connected called!\n"); abort(); }
 /* Generated stub for get_feerate */
 u32 get_feerate(const struct chain_topology *topo UNNEEDED, enum feerate feerate UNNEEDED)
@@ -97,7 +97,6 @@ bool handle_opening_channel(struct lightningd *ld UNNEEDED,
 			    const struct pubkey *id UNNEEDED,
 			    const struct wireaddr *addr UNNEEDED,
 			    const struct crypto_state *cs UNNEEDED,
-			    u64 gossip_index UNNEEDED,
 			    const u8 *gfeatures UNNEEDED, const u8 *lfeatures UNNEEDED,
 			    int peer_fd UNNEEDED, int gossip_fd UNNEEDED)
 { fprintf(stderr, "handle_opening_channel called!\n"); abort(); }
@@ -314,7 +313,6 @@ u8 *peer_accept_channel(const tal_t *ctx UNNEEDED,
 			const struct pubkey *peer_id UNNEEDED,
 			const struct wireaddr *addr UNNEEDED,
 			const struct crypto_state *cs UNNEEDED,
-			u64 gossip_index UNNEEDED,
 			const u8 *gfeatures UNNEEDED, const u8 *lfeatures UNNEEDED,
 			int peer_fd UNNEEDED, int gossip_fd UNNEEDED,
 			const struct channel_id *channel_id UNNEEDED,
@@ -323,7 +321,6 @@ u8 *peer_accept_channel(const tal_t *ctx UNNEEDED,
 /* Generated stub for peer_start_channeld */
 bool peer_start_channeld(struct channel *channel UNNEEDED,
 			 const struct crypto_state *cs UNNEEDED,
-			 u64 gossip_index UNNEEDED,
 			 int peer_fd UNNEEDED, int gossip_fd UNNEEDED,
 			 const u8 *funding_signed UNNEEDED,
 			 bool reconnected UNNEEDED)
@@ -331,7 +328,6 @@ bool peer_start_channeld(struct channel *channel UNNEEDED,
 /* Generated stub for peer_start_closingd */
 void peer_start_closingd(struct channel *channel UNNEEDED,
 			 const struct crypto_state *cs UNNEEDED,
-			 u64 gossip_index UNNEEDED,
 			 int peer_fd UNNEEDED, int gossip_fd UNNEEDED,
 			 bool reconnected UNNEEDED,
 			 const u8 *channel_reestablish UNNEEDED)
@@ -372,7 +368,7 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
 /* Generated stub for towire_gossipctl_hand_back_peer */
-u8 *towire_gossipctl_hand_back_peer(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, const struct crypto_state *crypto_state UNNEEDED, u64 gossip_index UNNEEDED, const u8 *msg UNNEEDED)
+u8 *towire_gossipctl_hand_back_peer(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, const struct crypto_state *crypto_state UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "towire_gossipctl_hand_back_peer called!\n"); abort(); }
 /* Generated stub for towire_gossipctl_peer_addrhint */
 u8 *towire_gossipctl_peer_addrhint(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, const struct wireaddr *addr UNNEEDED)

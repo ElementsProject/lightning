@@ -6,6 +6,5 @@ status_peer_error,0xFFF4
 status_peer_error,,channel,struct channel_id
 status_peer_error,,desc,wirestring
 status_peer_error,,crypto_state,struct crypto_state
-status_peer_error,,gossip_index,u64
 status_peer_error,,len,u16
 status_peer_error,,error_for_them,len*u8

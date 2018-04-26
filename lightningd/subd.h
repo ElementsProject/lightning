@@ -44,7 +44,6 @@ struct subd {
 	void (*errcb)(void *channel,
 		      int peer_fd, int gossip_fd,
 		      const struct crypto_state *cs,
-		      u64 gossip_index,
 		      const struct channel_id *channel_id,
 		      const char *desc,
 		      const u8 *err_for_them);
@@ -116,7 +115,6 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 			       void (*errcb)(void *channel,
 					     int peer_fd, int gossip_fd,
 					     const struct crypto_state *cs,
-					     u64 gossip_index,
 					     const struct channel_id *channel_id,
 					     const char *desc,
 					     const u8 *err_for_them),
@@ -130,7 +128,6 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 			  typesafe_cb_postargs(void, void *, (errcb),	\
 					       (channel), int, int,	\
 					       const struct crypto_state *, \
-					       u64,			\
 					       const struct channel_id *, \
 					       const char *, const u8 *), \
 			  typesafe_cb_postargs(void, void *, (billboardcb), \
