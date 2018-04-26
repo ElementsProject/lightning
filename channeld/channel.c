@@ -298,29 +298,6 @@ static void enqueue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 	msg_enqueue(&peer->peer_out, msg);
 }
 
-static void gossip_in(struct peer *peer, const u8 *msg)
-{
-	u8 *gossip;
-
-	if (!fromwire_gossip_send_gossip(msg, msg, &gossip))
-		status_failed(STATUS_FAIL_GOSSIP_IO,
-			      "Got bad message from gossipd: %s",
-			      tal_hex(msg, msg));
-
-	if (is_msg_for_gossipd(gossip))
-		enqueue_peer_msg(peer, gossip);
-	else if (fromwire_peektype(gossip) == WIRE_ERROR) {
-		struct channel_id channel_id;
-		char *what = sanitize_error(msg, msg, &channel_id);
-		peer_failed(&peer->cs, &channel_id,
-			    "gossipd said: %s", what);
-	} else
-		status_failed(STATUS_FAIL_GOSSIP_IO,
-			      "Got bad message type %s from gossipd: %s",
-			      wire_type_name(fromwire_peektype(gossip)),
-			      tal_hex(msg, msg));
-}
-
 /* Send a temporary `channel_announcement` and `channel_update`. These
  * are unsigned and mainly used to tell gossip about the channel
  * before we have reached the `announcement_depth`, not being signed
@@ -2632,8 +2609,10 @@ int main(int argc, char *argv[])
 		if (msg) {
 			status_trace("Now dealing with deferred gossip %u",
 				     fromwire_peektype(msg));
-			gossip_in(peer, msg);
-			tal_free(msg);
+			handle_gossip_msg(take(msg), &peer->cs,
+					  channeld_send_reply,
+					  channeld_io_error,
+					  peer);
 			continue;
 		}
 
@@ -2687,7 +2666,10 @@ int main(int argc, char *argv[])
 				status_failed(STATUS_FAIL_GOSSIP_IO,
 					      "Can't read command: %s",
 					      strerror(errno));
-			gossip_in(peer, msg);
+			handle_gossip_msg(msg, &peer->cs,
+					  channeld_send_reply,
+					  channeld_io_error,
+					  peer);
 		} else if (FD_ISSET(PEER_FD, &rfds)) {
 			/* This could take forever, but who cares? */
 			msg = channeld_read_peer_msg(peer);
