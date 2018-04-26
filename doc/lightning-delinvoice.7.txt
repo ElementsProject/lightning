@@ -4,7 +4,7 @@ LIGHTNING-DELINVOICE(7)
 
 NAME
 ----
-lightning-delinvoice - Protocol for removing an invoice.
+lightning-delinvoice - Command for removing an invoice.
 
 SYNOPSIS
 --------

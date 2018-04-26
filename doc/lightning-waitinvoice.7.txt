@@ -4,7 +4,7 @@ LIGHTNING-WAITINVOICE(7)
 
 NAME
 ----
-lightning-waitinvoice - Protocol for waiting for specific payment.
+lightning-waitinvoice - Command for waiting for specific payment.
 
 SYNOPSIS
 --------

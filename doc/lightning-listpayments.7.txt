@@ -4,7 +4,7 @@ LIGHTNING-LISTPAYMENTS(7)
 
 NAME
 ----
-lightning-listpayments - Protocol for querying payment status
+lightning-listpayments - Command for querying payment status
 
 SYNOPSIS
 --------

@@ -4,7 +4,7 @@ LIGHTNING-INVOICE(7)
 
 NAME
 ----
-lightning-invoice - Protocol for accepting payments.
+lightning-invoice - Command for accepting payments.
 
 SYNOPSIS
 --------

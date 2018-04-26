@@ -4,7 +4,7 @@ LIGHTNING-DECODEPAY(7)
 
 NAME
 ----
-lightning-decodepay - Protocol for decoding a bolt11 string (low-level)
+lightning-decodepay - Command for decoding a bolt11 string (low-level)
 
 
 SYNOPSIS

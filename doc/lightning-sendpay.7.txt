@@ -4,7 +4,7 @@ LIGHTNING-SENDPAY(7)
 
 NAME
 ----
-lightning-sendpay - Protocol for sending a payment via a route.
+lightning-sendpay - Command for sending a payment via a route.
 
 SYNOPSIS
 --------
