@@ -66,7 +66,10 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/version.o			\
-	common/wire_error.o
+	common/wire_error.o			\
+	common/wireaddr.o			\
+	gossipd/gen_gossip_wire.o		\
+	lightningd/gossip_msg.o
 
 closingd/gen_closing_wire.h: $(WIRE_GEN) closingd/closing_wire.csv
 	$(WIRE_GEN) --header $@ closing_wire_type < closingd/closing_wire.csv > $@

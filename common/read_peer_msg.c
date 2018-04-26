@@ -8,6 +8,8 @@
 #include <common/utils.h>
 #include <common/wire_error.h>
 #include <errno.h>
+#include <gossipd/gen_gossip_wire.h>
+#include <sys/select.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
@@ -38,6 +40,38 @@ static void handle_ping(const u8 *msg,
 		io_error(arg);
 }
 
+void handle_gossip_msg_(const u8 *msg TAKES, int peer_fd,
+			struct crypto_state *cs,
+			bool (*send_msg)(struct crypto_state *cs, int fd,
+					 const u8 *TAKES, void *arg),
+			void (*io_error)(void *arg),
+			void *arg)
+{
+	u8 *gossip;
+
+	if (!fromwire_gossip_send_gossip(tmpctx, msg, &gossip)) {
+		status_broken("Got bad message from gossipd: %s",
+			      tal_hex(msg, msg));
+		io_error(arg);
+	}
+
+	/* Gossipd can send us gossip messages, OR errors */
+	if (is_msg_for_gossipd(gossip)) {
+		if (!send_msg(cs, peer_fd, gossip, arg))
+			io_error(arg);
+	} else if (fromwire_peektype(gossip) == WIRE_ERROR) {
+		status_debug("Gossipd old us to send error");
+		send_msg(cs, peer_fd, gossip, arg);
+		io_error(arg);
+	} else {
+		status_broken("Gossipd gave us bad send_gossip message %s",
+			      tal_hex(msg, msg));
+		io_error(arg);
+	}
+	if (taken(msg))
+		tal_free(msg);
+}
+
 u8 *read_peer_msg_(const tal_t *ctx,
 		   int peer_fd, int gossip_fd,
 		   struct crypto_state *cs,
@@ -49,6 +83,27 @@ u8 *read_peer_msg_(const tal_t *ctx,
 {
 	u8 *msg;
 	struct channel_id chanid;
+	fd_set readfds;
+
+	FD_ZERO(&readfds);
+	FD_SET(peer_fd, &readfds);
+	FD_SET(gossip_fd, &readfds);
+
+	select(peer_fd > gossip_fd ? peer_fd + 1 : gossip_fd + 1,
+	       &readfds, NULL, NULL, NULL);
+
+	if (FD_ISSET(gossip_fd, &readfds)) {
+		/* gossipd uses this to kill us, so not a surprise if it
+		   happens. */
+		msg = wire_sync_read(NULL, gossip_fd);
+		if (!msg) {
+			status_debug("Error reading gossip msg");
+			io_error(arg);
+		}
+
+		handle_gossip_msg_(msg, peer_fd, cs, send_reply, io_error, arg);
+		return NULL;
+	}
 
 	msg = sync_crypto_read(ctx, cs, peer_fd);
 	if (!msg)

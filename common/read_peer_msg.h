@@ -36,6 +36,24 @@ bool sync_crypto_write_arg(struct crypto_state *cs, int fd, const u8 *TAKES,
 /* Helper: calls peer_failed_connection_lost. */
 void status_fail_io(void *unused);
 
+/* Handler for a gossip msg; used by channeld since it queues them. */
+#define handle_gossip_msg(msg, cs, send_reply, io_error, arg)		\
+	handle_gossip_msg_((msg), PEER_FD, (cs),			\
+			   typesafe_cb_preargs(bool, void *,		\
+					       (send_reply), (arg),	\
+					       struct crypto_state *, int, \
+					       const u8 *),		\
+			   typesafe_cb(void, void *, (io_error), (arg)), \
+			   arg)
+
+void handle_gossip_msg_(const u8 *msg TAKES,
+			int peer_fd,
+			struct crypto_state *cs,
+			bool (*send_msg)(struct crypto_state *cs, int fd,
+					 const u8 *TAKES, void *arg),
+			void (*io_error)(void *arg),
+			void *arg);
+
 u8 *read_peer_msg_(const tal_t *ctx,
 		   int peer_fd, int gossip_fd,
 		   struct crypto_state *cs,
