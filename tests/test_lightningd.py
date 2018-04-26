@@ -1856,8 +1856,8 @@ class LightningDTests(BaseLightningDTests):
     def test_penalty_inhtlc(self):
         """Test penalty transaction with an incoming HTLC"""
         # We suppress each one after first commit; HTLC gets added not fulfilled.
-        l1 = self.node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'], may_fail=True)
-        l2 = self.node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'])
+        l1 = self.node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'], may_fail=True, may_reconnect=True)
+        l2 = self.node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'], may_reconnect=True)
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         self.fund_channel(l1, l2, 10**6)
