@@ -492,7 +492,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			peer_start_channeld(channel, &cs, gossip_index,
 					    peer_fd, gossip_fd, NULL,
 					    true);
-			goto connected;
+			return;
 
 		case CLOSINGD_SIGEXCHANGE:
 			/* Stop any existing daemon, without triggering error
@@ -503,26 +503,17 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			peer_start_closingd(channel, &cs, gossip_index,
 					    peer_fd, gossip_fd,
 					    true, NULL);
-			goto connected;
+			return;
 		}
 		abort();
 	}
 
 return_to_gossipd:
-	/* Otherwise, we hand back to gossipd, to continue. */
-	msg = towire_gossipctl_hand_back_peer(msg, &id, &cs, gossip_index, NULL);
-	subd_send_msg(ld->gossip, take(msg));
-	subd_send_fd(ld->gossip, peer_fd);
-	subd_send_fd(ld->gossip, gossip_fd);
-
-connected:
-	/* If we were waiting for connection, we succeeded. */
-	connect_succeeded(ld, &id);
-	return;
+	/* No err, all good. */
+	error = NULL;
 
 send_error:
 	/* Hand back to gossipd, with an error packet. */
-	connect_failed(ld, &id, sanitize_error(msg, error, NULL));
 	msg = towire_gossipctl_hand_back_peer(msg, &id, &cs, gossip_index,
 					      error);
 	subd_send_msg(ld->gossip, take(msg));
@@ -610,7 +601,6 @@ void peer_sent_nongossip(struct lightningd *ld,
 
 send_error:
 	/* Hand back to gossipd, with an error packet. */
-	connect_failed(ld, id, sanitize_error(tmpctx, error, NULL));
 	msg = towire_gossipctl_hand_back_peer(ld, id, cs, gossip_index, error);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
@@ -1068,13 +1058,6 @@ static void json_close(struct command *cmd,
 			subd_send_msg(channel->owner,
 				      take(towire_channel_send_shutdown(channel)));
 	}
-	/* If channel has no owner, it means the peer is disconnected,
-	 * so make a nominal effort to contact it now.
-	 */
-	if (!channel->owner)
-		subd_send_msg(cmd->ld->gossip,
-			      take(towire_gossipctl_reach_peer(NULL,
-							       &channel->peer->id)));
 
 	/* Register this command for later handling. */
 	register_close_command(cmd->ld, cmd, channel, timeout, force);
