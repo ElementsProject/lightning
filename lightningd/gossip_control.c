@@ -125,7 +125,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_GETPEERS_REQUEST:
 	case WIRE_GOSSIP_PING:
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST:
-	case WIRE_GOSSIPCTL_REACH_PEER:
+	case WIRE_GOSSIPCTL_CONNECT_TO_PEER:
 	case WIRE_GOSSIPCTL_HAND_BACK_PEER:
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
 	case WIRE_GOSSIPCTL_PEER_ADDRHINT:
@@ -160,12 +160,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 			return 2;
 		peer_connected(gossip->ld, msg, fds[0], fds[1]);
 		break;
-	case WIRE_GOSSIP_PEER_ALREADY_CONNECTED:
-		peer_already_connected(gossip->ld, msg);
-		break;
-	case WIRE_GOSSIP_PEER_CONNECTION_FAILED:
-		peer_connection_failed(gossip->ld, msg);
-		break;
 	case WIRE_GOSSIP_PEER_NONGOSSIP:
 		if (tal_count(fds) != 2)
 			return 2;
@@ -173,6 +167,9 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 		break;
 	case WIRE_GOSSIP_GET_TXOUT:
 		get_txout(gossip, msg);
+		break;
+	case WIRE_GOSSIPCTL_CONNECT_TO_PEER_RESULT:
+		gossip_connect_result(gossip->ld, msg);
 		break;
 	}
 	return 0;

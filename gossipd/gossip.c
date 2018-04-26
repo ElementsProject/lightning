@@ -53,6 +53,7 @@
 
 #define HSM_FD 3
 
+/* We put everything in this struct (redundantly) to pass it to timer cb */
 struct important_peerid {
 	struct daemon *daemon;
 
@@ -133,14 +134,11 @@ struct reaching {
 	/* The ID of the peer (not necessarily unique, in transit!) */
 	struct pubkey id;
 
-	/* Where I'm reaching to. */
+	/* FIXME: Support multiple address. */
 	struct wireaddr addr;
 
-	/* How many times have we attempted to connect? */
-	u32 attempts;
-
-	/* Timestamp of the first attempt */
-	u32 first_attempt;
+	/* How many (if any) connect commands are waiting for the result. */
+	size_t num_master_responses;
 };
 
 /* Things we need when we're talking direct to the peer. */
@@ -306,16 +304,23 @@ static struct reaching *find_reaching(struct daemon *daemon,
 
 static void reached_peer(struct peer *peer, struct io_conn *conn)
 {
-	/* OK, we've reached the peer successfully, stop retrying. */
+	/* OK, we've reached the peer successfully, tell everyone. */
 	struct reaching *r = find_reaching(peer->daemon, &peer->id);
+	u8 *msg;
 
 	if (!r)
 		return;
 
-	/* Don't free conn with reach. */
-	tal_steal(peer->daemon, conn);
 	/* Don't call connect_failed */
 	io_set_finish(conn, NULL, NULL);
+
+	/* Don't free conn with reach */
+	tal_steal(peer->daemon, conn);
+
+	/* Tell any connect commands what happened. */
+	msg = towire_gossipctl_connect_to_peer_result(r, &r->id, true, "");
+	for (size_t i = 0; i < r->num_master_responses; i++)
+		daemon_conn_send(&peer->daemon->master, msg);
 
 	tal_free(r);
 }
@@ -1596,37 +1601,32 @@ static struct io_plan *connection_out(struct io_conn *conn,
 				   handshake_out_success, reach);
 }
 
-static void try_connect(struct reaching *reach);
-
 static void connect_failed(struct io_conn *conn, struct reaching *reach)
 {
-	u32 diff = time_now().ts.tv_sec - reach->first_attempt;
-	reach->attempts++;
+	u8 *msg;
+	struct important_peerid *imp;
 
-	if (!important_peerid_map_get(&reach->daemon->important_peerids, &reach->id)
-	    && reach->attempts >= 10) {
-		status_info("Failed to connect after %d attempts, giving up "
-			    "after %d seconds",
-			    reach->attempts, diff);
-		daemon_conn_send(
-		    &reach->daemon->master,
-		    take(towire_gossip_peer_connection_failed(
-			NULL, &reach->id, diff, reach->attempts, false)));
-		tal_free(reach);
-	} else {
-		unsigned int secs;
+	/* Tell any connect commands what happened. */
+	msg = towire_gossipctl_connect_to_peer_result(reach, &reach->id,
+						      false, strerror(errno));
+	for (size_t i = 0; i < reach->num_master_responses; i++)
+		daemon_conn_send(&reach->daemon->master, msg);
 
-		/* Exponential backoff, then every 5 minutes */
-		if (reach->attempts < 9)
-			secs = 1 << reach->attempts;
-		else
-			secs = 300;
-		status_trace("Failed connected out for %s, will try again in %u seconds",
-			     type_to_string(tmpctx, struct pubkey, &reach->id),
-			     secs);
-		new_reltimer(&reach->daemon->timers, reach, time_from_sec(secs),
-			     try_connect, reach);
+	status_trace("Failed connected out for %s",
+		     type_to_string(tmpctx, struct pubkey, &reach->id));
+
+	/* If we want to keep trying, do so. */
+	imp = important_peerid_map_get(&reach->daemon->important_peerids,
+				       &reach->id);
+	if (imp) {
+		/* FIXME: Exponential backoff! */
+		status_trace("...will try again in %u seconds", 5);
+		/* If important_id freed, this will be removed too */
+		new_reltimer(&reach->daemon->timers, imp,
+			     time_from_sec(5), retry_important, imp);
 	}
+	tal_free(reach);
+	return;
 }
 
 static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
@@ -1695,34 +1695,50 @@ seed_resolve_addr(const tal_t *ctx, const struct pubkey *id, const u16 port)
 	}
 }
 
-static void try_connect(struct reaching *reach)
+static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
+			   bool master_needs_response)
 {
 	struct addrhint *a;
 	int fd;
+	struct reaching *reach;
+	u8 *msg;
+	struct peer *peer = find_peer(daemon, id);
 
-	/* Already succeeded somehow? */
-	if (find_peer(reach->daemon, &reach->id)) {
-		status_trace("Already reached %s, not retrying",
-			     type_to_string(tmpctx, struct pubkey, &reach->id));
-		tal_free(reach);
+	if (peer) {
+		status_debug("try_reach_peer: have peer %s",
+			     type_to_string(tmpctx, struct pubkey, id));
+		if (master_needs_response) {
+			msg = towire_gossipctl_connect_to_peer_result(NULL, id,
+								      true,
+								      "");
+			daemon_conn_send(&daemon->master, take(msg));
+		}
 		return;
 	}
 
-	a = find_addrhint(reach->daemon, &reach->id);
+	/* If we're trying to reach it right now, that's OK. */
+	reach = find_reaching(daemon, id);
+	if (reach) {
+		/* Please tell us too. */
+		if (master_needs_response)
+			reach->num_master_responses++;
+		return;
+	}
+
+	a = find_addrhint(daemon, id);
 
 	if (!a)
-		a = seed_resolve_addr(reach, &reach->id, 9735);
+		a = seed_resolve_addr(tmpctx, id, 9735);
 
 	if (!a) {
-		status_info("No address known for %s, giving up",
-			    type_to_string(tmpctx, struct pubkey, &reach->id));
-		daemon_conn_send(
-		    &reach->daemon->master,
-		    take(towire_gossip_peer_connection_failed(
-			NULL, &reach->id,
-			time_now().ts.tv_sec - reach->first_attempt,
-			reach->attempts, true)));
-		tal_free(reach);
+		status_debug("No address known for %s, giving up",
+			     type_to_string(tmpctx, struct pubkey, id));
+		if (master_needs_response) {
+			msg = towire_gossipctl_connect_to_peer_result(NULL, id,
+					      false,
+					      "No address known, giving up");
+			daemon_conn_send(&daemon->master, take(msg));
+		}
 		return;
 	}
 
@@ -1741,52 +1757,33 @@ static void try_connect(struct reaching *reach)
 	}
 
 	if (fd < 0) {
-		status_broken("Can't open %i socket for %s (%s), giving up",
-			      a->addr.type,
-			      type_to_string(tmpctx, struct pubkey, &reach->id),
-			      strerror(errno));
-		tal_free(reach);
+		char *err = tal_fmt(tmpctx,
+				    "Can't open %i socket for %s (%s), giving up",
+				    a->addr.type,
+				    type_to_string(tmpctx, struct pubkey, id),
+				    strerror(errno));
+		status_debug("%s", err);
+		if (master_needs_response) {
+			msg = towire_gossipctl_connect_to_peer_result(NULL, id,
+							      false, err);
+			daemon_conn_send(&daemon->master, take(msg));
+		}
 		return;
 	}
 
-	reach->addr = a->addr;
-	io_new_conn(reach, fd, conn_init, reach);
-}
-
-/* Returns true if we're already connected. */
-static bool try_reach_peer(struct daemon *daemon, const struct pubkey *id)
-{
-	struct reaching *reach;
-	struct peer *peer;
-
-	reach = find_reaching(daemon, id);
-	if (reach) {
-		status_trace("try_reach_peer: already trying to reach %s",
-			     type_to_string(tmpctx, struct pubkey, id));
-		return false;
-	}
-
-	/* Master might find out before we do that a peer is dead. */
-	peer = find_peer(daemon, id);
-	if (peer) {
-		status_trace("reach_peer: have peer %s",
-			     type_to_string(tmpctx, struct pubkey, id));
-		return true;
-	}
-
+	/* Start connecting to it */
 	reach = tal(daemon, struct reaching);
 	reach->daemon = daemon;
 	reach->id = *id;
-	reach->first_attempt = time_now().ts.tv_sec;
-	reach->attempts = 0;
+	reach->addr = a->addr;
+	reach->num_master_responses = master_needs_response;
 	list_add_tail(&daemon->reaching, &reach->list);
 	tal_add_destructor(reach, destroy_reaching);
 
-	try_connect(reach);
-	return false;
+	io_new_conn(reach, fd, conn_init, reach);
 }
 
-/* Reconnect to peer. */
+/* Called from timer, so needs single-arg declaration */
 static void retry_important(struct important_peerid *imp)
 {
 #if DEVELOPER
@@ -1795,24 +1792,18 @@ static void retry_important(struct important_peerid *imp)
 	if (imp->daemon->no_reconnect)
 		return;
 #endif
-	try_reach_peer(imp->daemon, &imp->id);
+	try_reach_peer(imp->daemon, &imp->id, false);
 }
 
-static struct io_plan *reach_peer(struct io_conn *conn,
-				  struct daemon *daemon, const u8 *msg)
+static struct io_plan *connect_to_peer(struct io_conn *conn,
+				       struct daemon *daemon, const u8 *msg)
 {
 	struct pubkey id;
 
-	if (!fromwire_gossipctl_reach_peer(msg, &id))
-		master_badmsg(WIRE_GOSSIPCTL_REACH_PEER, msg);
+	if (!fromwire_gossipctl_connect_to_peer(msg, &id))
+		master_badmsg(WIRE_GOSSIPCTL_CONNECT_TO_PEER, msg);
 
-	/* Master can't check this itself, because that's racy. */
-	if (try_reach_peer(daemon, &id)) {
-		daemon_conn_send(&daemon->master,
-				 take(towire_gossip_peer_already_connected(NULL,
-									  &id)));
-	}
-
+	try_reach_peer(daemon, &id, true);
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
@@ -2108,8 +2099,8 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIPCTL_HAND_BACK_PEER:
 		return hand_back_peer(conn, daemon, master->msg_in);
 
-	case WIRE_GOSSIPCTL_REACH_PEER:
-		return reach_peer(conn, daemon, master->msg_in);
+	case WIRE_GOSSIPCTL_CONNECT_TO_PEER:
+		return connect_to_peer(conn, daemon, master->msg_in);
 
 	case WIRE_GOSSIPCTL_PEER_ADDRHINT:
 		return addr_hint(conn, daemon, master->msg_in);
@@ -2149,8 +2140,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_PING_REPLY:
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REPLY:
 	case WIRE_GOSSIP_PEER_CONNECTED:
-	case WIRE_GOSSIP_PEER_ALREADY_CONNECTED:
-	case WIRE_GOSSIP_PEER_CONNECTION_FAILED:
+	case WIRE_GOSSIPCTL_CONNECT_TO_PEER_RESULT:
 	case WIRE_GOSSIP_PEER_NONGOSSIP:
 	case WIRE_GOSSIP_GET_UPDATE:
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:

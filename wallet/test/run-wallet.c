@@ -58,13 +58,6 @@ void command_still_pending(struct command *cmd UNNEEDED)
 /* Generated stub for command_success */
 void command_success(struct command *cmd UNNEEDED, struct json_result *response UNNEEDED)
 { fprintf(stderr, "command_success called!\n"); abort(); }
-/* Generated stub for connect_failed */
-void connect_failed(struct lightningd *ld UNNEEDED, const struct pubkey *id UNNEEDED,
-		    const char *error UNNEEDED)
-{ fprintf(stderr, "connect_failed called!\n"); abort(); }
-/* Generated stub for connect_succeeded */
-void connect_succeeded(struct lightningd *ld UNNEEDED, const struct pubkey *id UNNEEDED)
-{ fprintf(stderr, "connect_succeeded called!\n"); abort(); }
 /* Generated stub for derive_basepoints */
 bool derive_basepoints(const struct privkey *seed UNNEEDED,
 		       struct pubkey *funding_pubkey UNNEEDED,
@@ -343,10 +336,6 @@ void peer_start_closingd(struct channel *channel UNNEEDED,
 			 bool reconnected UNNEEDED,
 			 const u8 *channel_reestablish UNNEEDED)
 { fprintf(stderr, "peer_start_closingd called!\n"); abort(); }
-/* Generated stub for sanitize_error */
-char *sanitize_error(const tal_t *ctx UNNEEDED, const u8 *errmsg UNNEEDED,
-		     struct channel_id *channel_id UNNEEDED)
-{ fprintf(stderr, "sanitize_error called!\n"); abort(); }
 /* Generated stub for subd_release_channel */
 void subd_release_channel(struct subd *owner UNNEEDED, void *channel UNNEEDED)
 { fprintf(stderr, "subd_release_channel called!\n"); abort(); }
@@ -394,9 +383,6 @@ u8 *towire_gossipctl_peer_disconnect(const tal_t *ctx UNNEEDED, const struct pub
 /* Generated stub for towire_gossipctl_peer_important */
 u8 *towire_gossipctl_peer_important(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, bool important UNNEEDED)
 { fprintf(stderr, "towire_gossipctl_peer_important called!\n"); abort(); }
-/* Generated stub for towire_gossipctl_reach_peer */
-u8 *towire_gossipctl_reach_peer(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
-{ fprintf(stderr, "towire_gossipctl_reach_peer called!\n"); abort(); }
 /* Generated stub for towire_gossip_disable_channel */
 u8 *towire_gossip_disable_channel(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED, u8 direction UNNEEDED, bool active UNNEEDED)
 { fprintf(stderr, "towire_gossip_disable_channel called!\n"); abort(); }

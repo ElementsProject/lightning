@@ -78,7 +78,9 @@ def wait_forget_channels(node):
     """This node is closing all of its channels, check we are forgetting them
     """
     node.daemon.wait_for_log(r'onchaind complete, forgetting peer')
-    assert node.rpc.listpeers()['peers'] == []
+    # May have reconnected, but should merely be gossiping.
+    for peer in node.rpc.listpeers()['peers']:
+        assert peer['state'] == 'GOSSIPING'
     assert node.db_query("SELECT * FROM channels") == []
 
 
@@ -616,6 +618,11 @@ class LightningDTests(BaseLightningDTests):
         assert len(l1.rpc.listpeers()) == 1
         assert len(l2.rpc.listpeers()) == 1
 
+        # Should get reasonable error if unknown addr for peer.
+        self.assertRaisesRegex(ValueError,
+                               "No address known",
+                               l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e')
+
     def test_connect_standard_addr(self):
         """Test standard node@host:port address
         """
@@ -634,6 +641,34 @@ class LightningDTests(BaseLightningDTests):
         # node@[ipv6]:port --- not supported by our CI
         # ret = l1.rpc.connect("{}@[::1]:{}".format(l3.info['id'], l3.info['port']))
         # assert ret['id'] == l3.info['id']
+
+    def test_reconnect_channel_peers(self):
+        l1 = self.node_factory.get_node(may_reconnect=True)
+        l2 = self.node_factory.get_node(may_reconnect=True)
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+
+        self.fund_channel(l1, l2, 10**6)
+        l2.stop()
+        l2.daemon.start()
+
+        # Should reconnect.
+        wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'][0]['connected'])
+        wait_for(lambda: l2.rpc.listpeers(l1.info['id'])['peers'][0]['connected'])
+        # Connect command should succeed.
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+
+        # Stop l2 and wait for l1 to notice.
+        l2.stop()
+        wait_for(lambda: not l1.rpc.listpeers(l2.info['id'])['peers'][0]['connected'])
+
+        # Now should fail.
+        self.assertRaisesRegex(ValueError,
+                               "Connection refused",
+                               l1.rpc.connect, l2.info['id'], 'localhost', l2.info['port'])
+
+        # It should now succeed when it restarts.
+        l2.daemon.start()
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
     def test_balance(self):
         l1, l2 = self.connect()
@@ -2961,18 +2996,24 @@ class LightningDTests(BaseLightningDTests):
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_disconnect(self):
-        # These should all make us fail, and retry.
-        # FIXME: Configure short timeout for reconnect!
+        # These should all make us fail
         disconnects = ['-WIRE_INIT',
                        '@WIRE_INIT',
                        '+WIRE_INIT']
         l1 = self.node_factory.get_node(disconnect=disconnects)
         l2 = self.node_factory.get_node()
+
+        self.assertRaises(ValueError, l1.rpc.connect,
+                          l2.info['id'], 'localhost', l2.info['port'])
+        self.assertRaises(ValueError, l1.rpc.connect,
+                          l2.info['id'], 'localhost', l2.info['port'])
+        self.assertRaises(ValueError, l1.rpc.connect,
+                          l2.info['id'], 'localhost', l2.info['port'])
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         # Should have 3 connect fails.
         for d in disconnects:
-            l1.daemon.wait_for_log('Failed connected out for {}, will try again'
+            l1.daemon.wait_for_log('Failed connected out for {}'
                                    .format(l2.info['id']))
 
         # Should still only have one peer!
