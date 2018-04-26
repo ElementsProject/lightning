@@ -145,9 +145,10 @@ void peer_start_closingd(struct channel *channel,
 		return;
 	}
 
-	channel_set_owner(channel, new_channel_subd(ld,
+	channel_set_owner(channel,
+			  new_channel_subd(ld,
 					   "lightning_closingd",
-					   channel, channel->log,
+					   channel, channel->log, true,
 					   closing_wire_type_name, closing_msg,
 					   channel_errmsg,
 					   channel_set_billboard,
