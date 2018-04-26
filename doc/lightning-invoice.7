@@ -2,12 +2,12 @@
 .\"     Title: lightning-invoice
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 04/23/2018
+.\"      Date: 04/26/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-INVOICE" "7" "04/23/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-INVOICE" "7" "04/26/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -50,6 +50,45 @@ The \fIpreimage\fR is a 64\-digit hex string to be used as payment preimage for 
 .SH "RETURN VALUE"
 .sp
 On success, a hash is returned as \fIpayment_hash\fR to be given to the payer, and the \fIexpiry_time\fR as a UNIX timestamp\&. It also returns a BOLT11 invoice as \fIbolt11\fR to be given to the payer\&. On failure, an error is returned and no invoice is created\&. If the lightning process fails before responding, the caller should use lightning\-listinvoice(7) to query whether this invoice was created or not\&.
+.sp
+The following error codes may occur:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\-1\&. Catchall nonspecific error\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+900\&. An invoice with the given
+\fIlabel\fR
+already exists\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+901\&. An invoice with the given
+\fIpreimage\fR
+already exists\&.
+.RE
 .SH "AUTHOR"
 .sp
 Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.

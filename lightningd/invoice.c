@@ -16,6 +16,7 @@
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
 #include <sodium/randombytes.h>
@@ -203,7 +204,9 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 	if (wallet_invoice_find_by_label(wallet, &invoice, label_val)) {
-		command_fail(cmd, "Duplicate label '%s'", label_val->s);
+		command_fail_detailed(cmd, INVOICE_LABEL_ALREADY_EXISTS,
+				      NULL,
+				      "Duplicate label '%s'", label_val->s);
 		return;
 	}
 	if (strlen(label_val->s) > INVOICE_MAX_LABEL_LEN) {
@@ -303,7 +306,8 @@ static void json_invoice(struct command *cmd,
 	 */
 	if (preimagetok &&
 	    wallet_invoice_find_by_rhash(cmd->ld->wallet, &invoice, &rhash)) {
-		command_fail(cmd, "preimage already used");
+		command_fail_detailed(cmd, INVOICE_PREIMAGE_ALREADY_EXISTS,
+				      NULL, "preimage already used");
 		return;
 	}
 
