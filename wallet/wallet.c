@@ -2264,6 +2264,7 @@ u32 *wallet_onchaind_channels(struct wallet *w,
 		tal_resize(&channel_ids, count);
 			channel_ids[count-1] = sqlite3_column_int64(stmt, 0);
 	}
+	sqlite3_finalize(stmt);
 
 	return channel_ids;
 }
