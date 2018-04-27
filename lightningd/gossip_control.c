@@ -337,6 +337,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	jsmntok_t *idtok, *msatoshitok, *riskfactortok, *cltvtok, *fromidtok;
 	jsmntok_t *fuzztok;
 	jsmntok_t *seedtok;
+	jsmntok_t *feecostbiastok;
 	u64 msatoshi;
 	unsigned cltv = 9;
 	double riskfactor;
@@ -347,6 +348,11 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	 * selecting the higher-fee paths. */
 	double fuzz = 75.0;
 	struct siphash_seed seed;
+	/* This biases against fees vs delays, or delays vs fees.
+	 * If feecostbias > 1.0, then fees are considered more
+	 * important, if feecostbias < 1.0 then delays are considered
+	 * more important. */
+	double feecostbias = 1.0;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "id", &idtok,
@@ -356,6 +362,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 			     "?fromid", &fromidtok,
 			     "?fuzzpercent", &fuzztok,
 			     "?seed", &seedtok,
+			     "?feecostbias", &feecostbiastok,
 			     NULL)) {
 		return;
 	}
@@ -416,7 +423,21 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	} else
 		randombytes_buf(&seed, sizeof(seed));
 
-	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination, msatoshi, riskfactor*1000, cltv, &fuzz, &seed);
+	if (feecostbiastok &&
+	    !json_tok_double(buffer, feecostbiastok, &feecostbias)) {
+		command_fail(cmd, "'%.*s' is not a valid double",
+			     feecostbiastok->end - feecostbiastok->start,
+			     buffer + feecostbiastok->start);
+		return;
+	}
+	if (!(0.0 < feecostbias && feecostbias < 2.0)) {
+		command_fail(cmd,
+			     "feecostbias must be in range 0.0 < %f < 2.0",
+			     feecostbias);
+		return;
+	}
+
+	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination, msatoshi, riskfactor*1000, cltv, &fuzz, &seed, &feecostbias);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 	command_still_pending(cmd);
 }
@@ -427,7 +448,8 @@ static const struct json_command getroute_command = {
 	"Show route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9). "
 	"If specified search from {fromid} otherwise use this node as source. "
 	"Randomize the route with up to {fuzzpercent} (0.0 -> 100.0, default 5.0) "
-	"using {seed} as an arbitrary-size string seed."
+	"using {seed} as an arbitrary-size string seed. "
+	"Bias against/for fees or delays using {feecostbias}."
 };
 AUTODATA(json_command, &getroute_command);
 

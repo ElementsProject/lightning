@@ -9,7 +9,7 @@ lightning-getroute - Protocol for routing a payment (low-level).
 
 SYNOPSIS
 --------
-*getroute* 'id' 'msatoshi' 'riskfactor' ['cltv'] ['fuzzpercent'] ['seed']
+*getroute* 'id' 'msatoshi' 'riskfactor' ['cltv'] ['fuzzpercent'] ['seed'] ['feecostbias']
 
 DESCRIPTION
 -----------
@@ -41,6 +41,12 @@ The 'seed' is a string whose bytes are used to seed the RNG for
 the route randomization.
 If not specified, a random string is used.
 
+The 'feecostbias' is a floating-point number, higher than 0.0 and
+less than 2.0, that indicates whether to bias against high fees or
+high delays when computing the risk of the route.
+Default is 1.0, meaning no bias.
+Higher than 1.0 biases against high fee routes, while less than 1.0
+biases against low fee routes.
 
 RISKFACTOR EFFECT ON ROUTING
 ----------------------------

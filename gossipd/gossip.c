@@ -1199,18 +1199,21 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	struct route_hop *hops;
 	double fuzz;
 	struct siphash_seed seed;
+	double feecostbias;
 
 	fromwire_gossip_getroute_request(msg,
 					 &source, &destination,
 					 &msatoshi, &riskfactor, &final_cltv,
-					 &fuzz, &seed);
+					 &fuzz, &seed,
+					 &feecostbias);
 	status_trace("Trying to find a route from %s to %s for %"PRIu64" msatoshi",
 		     pubkey_to_hexstr(tmpctx, &source),
 		     pubkey_to_hexstr(tmpctx, &destination), msatoshi);
 
 	hops = get_route(tmpctx, daemon->rstate, &source, &destination,
 			 msatoshi, 1, final_cltv,
-			 fuzz, &seed);
+			 fuzz, &seed,
+			 feecostbias);
 
 	out = towire_gossip_getroute_reply(msg, hops);
 	daemon_conn_send(&daemon->master, out);
