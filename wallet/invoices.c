@@ -183,7 +183,7 @@ static void trigger_expiration(struct invoices *invoices)
 		list_add_tail(&idlist, &idn->list);
 		idn->id = sqlite3_column_int64(stmt, 0);
 	}
-	sqlite3_finalize(stmt);
+	db_stmt_done(stmt);
 
 	/* Expire all those invoices */
 	update_db_expirations(invoices, now);
@@ -220,11 +220,11 @@ static void install_expiration_timer(struct invoices *invoices)
 	assert(res == SQLITE_ROW);
 	if (sqlite3_column_type(stmt, 0) == SQLITE_NULL) {
 		/* Nothing to install */
-		sqlite3_finalize(stmt);
+		db_stmt_done(stmt);
 		return;
 	} else
 		invoices->min_expiry_time = sqlite3_column_int64(stmt, 0);
-	sqlite3_finalize(stmt);
+	db_stmt_done(stmt);
 
 	memset(&expiry, 0, sizeof(expiry));
 	expiry.ts.tv_sec = invoices->min_expiry_time;
@@ -339,10 +339,10 @@ bool invoices_find_by_label(struct invoices *invoices,
 	sqlite3_bind_json_escaped(stmt, 1, label);
 	if (sqlite3_step(stmt) == SQLITE_ROW) {
 		pinvoice->id = sqlite3_column_int64(stmt, 0);
-		sqlite3_finalize(stmt);
+		db_stmt_done(stmt);
 		return true;
 	} else {
-		sqlite3_finalize(stmt);
+		db_stmt_done(stmt);
 		return false;
 	}
 }
@@ -360,10 +360,10 @@ bool invoices_find_by_rhash(struct invoices *invoices,
 	sqlite3_bind_blob(stmt, 1, rhash, sizeof(*rhash), SQLITE_TRANSIENT);
 	if (sqlite3_step(stmt) == SQLITE_ROW) {
 		pinvoice->id = sqlite3_column_int64(stmt, 0);
-		sqlite3_finalize(stmt);
+		db_stmt_done(stmt);
 		return true;
 	} else {
-		sqlite3_finalize(stmt);
+		db_stmt_done(stmt);
 		return false;
 	}
 }
@@ -383,10 +383,10 @@ bool invoices_find_unpaid(struct invoices *invoices,
 	sqlite3_bind_int(stmt, 2, UNPAID);
 	if (sqlite3_step(stmt) == SQLITE_ROW) {
 		pinvoice->id = sqlite3_column_int64(stmt, 0);
-		sqlite3_finalize(stmt);
+		db_stmt_done(stmt);
 		return true;
 	} else {
-		sqlite3_finalize(stmt);
+		db_stmt_done(stmt);
 		return false;
 	}
 }
@@ -476,7 +476,7 @@ bool invoices_iterate(struct invoices *invoices,
 
 	res = sqlite3_step(stmt);
 	if (res == SQLITE_DONE) {
-		sqlite3_finalize(stmt);
+		db_stmt_done(stmt);
 		it->p = NULL;
 		return false;
 	} else {
@@ -586,13 +586,13 @@ void invoices_waitany(const tal_t *ctx,
 	res = sqlite3_step(stmt);
 	if (res == SQLITE_ROW) {
 		invoice.id = sqlite3_column_int64(stmt, 0);
-		sqlite3_finalize(stmt);
+		db_stmt_done(stmt);
 
 		cb(&invoice, cbarg);
 		return;
 	}
 
-	sqlite3_finalize(stmt);
+	db_stmt_done(stmt);
 
 	/* None found. */
 	add_invoice_waiter(ctx, &invoices->waiters,
@@ -618,7 +618,7 @@ void invoices_waitone(const tal_t *ctx,
 	res = sqlite3_step(stmt);
 	assert(res == SQLITE_ROW);
 	state = sqlite3_column_int(stmt, 0);
-	sqlite3_finalize(stmt);
+	db_stmt_done(stmt);
 
 	if (state == PAID || state == EXPIRED) {
 		cb(&invoice, cbarg);
@@ -650,5 +650,5 @@ void invoices_get_details(const tal_t *ctx,
 
 	wallet_stmt2invoice_details(ctx, stmt, dtl);
 
-	sqlite3_finalize(stmt);
+	db_stmt_done(stmt);
 }

@@ -112,6 +112,12 @@ bool db_exec_prepared_mayfail_(const char *caller,
 			       struct db *db,
 			       sqlite3_stmt *stmt);
 
+/* Wrapper around sqlite3_finalize(), for tracking statements. */
+void db_stmt_done(sqlite3_stmt *stmt);
+
+/* Call when you know there should be no outstanding db statements. */
+void db_assert_no_outstanding_statements(void);
+
 /* Do not keep db open across a fork: needed for --daemon */
 void db_close_for_fork(struct db *db);
 void db_reopen_after_fork(struct db *db);
