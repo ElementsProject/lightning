@@ -496,7 +496,7 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 	struct wireaddr *addrp, addr;
 
 	sqlite3_stmt *stmt =
-		db_query(__func__, w->db,
+		db_query(w->db,
 			 "SELECT id, node_id, address FROM peers WHERE id=%"PRIu64";", dbid);
 
 	if (!stmt || sqlite3_step(stmt) != SQLITE_ROW) {
@@ -685,9 +685,8 @@ bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
 	sqlite3_stmt *stmt;
 
 	/* We load all channels */
-	stmt = db_query(
-	    __func__, w->db, "SELECT %s FROM channels;",
-	    channel_fields);
+	stmt = db_query(w->db, "SELECT %s FROM channels;",
+			channel_fields);
 
 	w->max_channel_dbid = 0;
 
@@ -828,7 +827,7 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 	    "SELECT id, dust_limit_satoshis, max_htlc_value_in_flight_msat, "
 	    "channel_reserve_satoshis, htlc_minimum_msat, to_self_delay, "
 	    "max_accepted_htlcs FROM channel_configs WHERE id=%" PRIu64 ";";
-	sqlite3_stmt *stmt = db_query(__func__, w->db, query, id);
+	sqlite3_stmt *stmt = db_query(w->db, query, id);
 	if (!stmt || sqlite3_step(stmt) != SQLITE_ROW) {
 		db_stmt_done(stmt);
 		return false;
@@ -1008,7 +1007,7 @@ void wallet_peer_delete(struct wallet *w, u64 peer_dbid)
 	sqlite3_stmt *stmt;
 
 	/* Must not have any channels still using this peer */
-	stmt = db_query(__func__, w->db,
+	stmt = db_query(w->db,
 			"SELECT * FROM channels WHERE peer_id = %"PRIu64,
 			peer_dbid);
 	assert(sqlite3_step(stmt) == SQLITE_DONE);
@@ -1280,7 +1279,7 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 
 	log_debug(wallet->log, "Loading HTLCs for channel %"PRIu64, chan->dbid);
 	sqlite3_stmt *stmt = db_query(
-	    __func__, wallet->db,
+	    wallet->db,
 	    "SELECT id, channel_htlc_id, msatoshi, cltv_expiry, hstate, "
 	    "payment_hash, shared_secret, payment_key, routing_onion FROM channel_htlcs WHERE "
 	    "direction=%d AND channel_id=%" PRIu64 " AND hstate != %d",
@@ -1301,7 +1300,7 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 	db_stmt_done(stmt);
 
 	stmt = db_query(
-	    __func__, wallet->db,
+	    wallet->db,
 	    "SELECT id, channel_htlc_id, msatoshi, cltv_expiry, hstate, "
 	    "payment_hash, origin_htlc, payment_key, routing_onion FROM channel_htlcs WHERE "
 	    "direction=%d AND channel_id=%" PRIu64 " AND hstate != %d",
@@ -1907,7 +1906,7 @@ void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
 bool wallet_network_check(struct wallet *w,
 			  const struct chainparams *chainparams)
 {
-	sqlite3_stmt *stmt = db_query(__func__, w->db,
+	sqlite3_stmt *stmt = db_query(w->db,
 				      "SELECT val FROM vars WHERE name='genesis_hash'");
 	struct bitcoin_blkid chainhash;
 
