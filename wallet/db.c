@@ -396,7 +396,7 @@ void db_stmt_done(sqlite3_stmt *stmt)
 	sqlite3_finalize(stmt);
 }
 
-sqlite3_stmt *db_prepare_(const char *caller, struct db *db, const char *query)
+sqlite3_stmt *db_prepare_(const char *location, struct db *db, const char *query)
 {
 	int err;
 	sqlite3_stmt *stmt;
@@ -406,9 +406,9 @@ sqlite3_stmt *db_prepare_(const char *caller, struct db *db, const char *query)
 	err = sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
 
 	if (err != SQLITE_OK)
-		fatal("%s: %s: %s", caller, query, sqlite3_errmsg(db->sql));
+		fatal("%s: %s: %s", location, query, sqlite3_errmsg(db->sql));
 
-	dev_statement_start(stmt, caller);
+	dev_statement_start(stmt, location);
 	return stmt;
 }
 
@@ -468,7 +468,7 @@ fail:
 }
 
 sqlite3_stmt *PRINTF_FMT(3, 4)
-    db_query(const char *caller, struct db *db, const char *fmt, ...)
+    db_query_(const char *location, struct db *db, const char *fmt, ...)
 {
 	va_list ap;
 	char *query;
@@ -484,7 +484,7 @@ sqlite3_stmt *PRINTF_FMT(3, 4)
 	sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
 	tal_free(query);
 	if (stmt)
-		dev_statement_start(stmt, caller);
+		dev_statement_start(stmt, location);
 	return stmt;
 }
 
@@ -554,8 +554,7 @@ static int db_get_version(struct db *db)
 {
 	int err;
 	u64 res = -1;
-	sqlite3_stmt *stmt =
-	    db_query(__func__, db, "SELECT version FROM version LIMIT 1");
+	sqlite3_stmt *stmt = db_query(db, "SELECT version FROM version LIMIT 1");
 
 	if (!stmt)
 		return -1;
@@ -658,7 +657,7 @@ s64 db_get_intvar(struct db *db, char *varname, s64 defval)
 	int err;
 	s64 res = defval;
 	sqlite3_stmt *stmt =
-	    db_query(__func__, db,
+	    db_query(db,
 		     "SELECT val FROM vars WHERE name='%s' LIMIT 1", varname);
 
 	if (!stmt)
