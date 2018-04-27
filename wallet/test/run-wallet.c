@@ -71,6 +71,9 @@ bool extract_channel_id(const u8 *in_pkt UNNEEDED, struct channel_id *channel_id
 /* Generated stub for features_supported */
 bool features_supported(const u8 *gfeatures UNNEEDED, const u8 *lfeatures UNNEEDED)
 { fprintf(stderr, "features_supported called!\n"); abort(); }
+/* Generated stub for feerate_floor */
+u32 feerate_floor(void)
+{ fprintf(stderr, "feerate_floor called!\n"); abort(); }
 /* Generated stub for fromwire_gossipctl_peer_disconnect_reply */
 bool fromwire_gossipctl_peer_disconnect_reply(const void *p UNNEEDED)
 { fprintf(stderr, "fromwire_gossipctl_peer_disconnect_reply called!\n"); abort(); }
