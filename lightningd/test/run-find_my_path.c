@@ -18,6 +18,9 @@ void daemon_setup(const char *argv0 UNNEEDED,
 /* Generated stub for daemon_shutdown */
 void daemon_shutdown(void)
 { fprintf(stderr, "daemon_shutdown called!\n"); abort(); }
+/* Generated stub for db_assert_no_outstanding_statements */
+void db_assert_no_outstanding_statements(void)
+{ fprintf(stderr, "db_assert_no_outstanding_statements called!\n"); abort(); }
 /* Generated stub for db_begin_transaction_ */
 void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED)
 { fprintf(stderr, "db_begin_transaction_ called!\n"); abort(); }
