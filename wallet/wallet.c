@@ -11,6 +11,7 @@
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
+#include <onchaind/gen_onchain_wire.h>
 #include <string.h>
 
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
@@ -650,7 +651,9 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 			   last_sent_commit,
 			   sqlite3_column_int64(stmt, 35),
 			   sqlite3_column_int(stmt, 36),
-			   sqlite3_column_int(stmt, 37));
+			   sqlite3_column_int(stmt, 37),
+			   /* Not connected */
+			   false);
 
 	return chan;
 }
@@ -766,75 +769,18 @@ void wallet_channel_stats_load(struct wallet *w,
 	stats->out_msatoshi_fulfilled = sqlite3_column_int64(stmt, 7);
 }
 
-#ifdef COMPAT_V052
-/* Upgrade of db (or initial create): do we have anything to scan for? */
-static bool wallet_ever_used(struct wallet *w)
+u32 wallet_blocks_height(struct wallet *w, u32 def)
 {
-	sqlite3_stmt *stmt;
-	bool channel_utxos;
+	u32 blockheight;
+	sqlite3_stmt *stmt = db_prepare(w->db, "SELECT MAX(height) FROM blocks;");
 
-	/* If we ever handed out an address. */
-	if (db_get_intvar(w->db, "bip32_max_index", 0) != 0)
-		return true;
-
-	/* Or if they do a unilateral close, the output to us provides a UTXO. */
-	stmt = db_query(__func__, w->db,
-			"SELECT COUNT(*) FROM outputs WHERE commitment_point IS NOT NULL;");
-	int ret = sqlite3_step(stmt);
-	assert(ret == SQLITE_ROW);
-	channel_utxos = (sqlite3_column_int(stmt, 0) != 0);
-	sqlite3_finalize(stmt);
-
-	return channel_utxos;
-}
-#endif
-
-/* We want the earlier of either:
- * 1. The first channel we're still watching (it might have closed),
- * 2. The last block we scanned for UTXO (might have new incoming payments)
- *
- * chaintopology actually subtracts another 100 blocks to make sure we
- * catch chain forks.
- */
-u32 wallet_first_blocknum(struct wallet *w, u32 first_possible)
-{
-	int err;
-	u32 first_channel, first_utxo;
-	sqlite3_stmt *stmt =
-	    db_query(__func__, w->db,
-		     "SELECT MIN(first_blocknum) FROM channels;");
-
-	/* If we ever opened a channel, this will give us the first block. */
-	err = sqlite3_step(stmt);
-	if (err == SQLITE_ROW && sqlite3_column_type(stmt, 0) != SQLITE_NULL)
-		first_channel = sqlite3_column_int(stmt, 0);
-	else
-		first_channel = UINT32_MAX;
-	sqlite3_finalize(stmt);
-
-#ifdef COMPAT_V052
-	/* This field was missing in older databases. */
-	first_utxo = db_get_intvar(w->db, "last_processed_block", 0);
-	if (first_utxo == 0) {
-		/* Don't know?  New db, or upgraded. */
-		if (wallet_ever_used(w))
-			/* Be conservative */
-			first_utxo = first_possible;
-		else
-			first_utxo = UINT32_MAX;
-	}
-#else
-	first_utxo = db_get_intvar(w->db, "last_processed_block", UINT32_MAX);
-#endif
-
-	/* Never go below the start of the Lightning Network */
-	if (first_utxo < first_possible)
-		first_utxo = first_possible;
-
-	if (first_utxo < first_channel)
-		return first_utxo;
-	else
-		return first_channel;
+	/* If we ever processed a block we'll get the latest block in the chain */
+	if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_type(stmt, 0) != SQLITE_NULL) {
+		blockheight = sqlite3_column_int(stmt, 0);
+		sqlite3_finalize(stmt);
+		return blockheight;
+	} else
+		return def;
 }
 
 static void wallet_channel_config_insert(struct wallet *w,
@@ -1441,6 +1387,12 @@ bool wallet_invoice_find_by_label(struct wallet *wallet,
 				  const struct json_escaped *label)
 {
 	return invoices_find_by_label(wallet->invoices, pinvoice, label);
+}
+bool wallet_invoice_find_by_rhash(struct wallet *wallet,
+				  struct invoice *pinvoice,
+				  const struct sha256 *rhash)
+{
+	return invoices_find_by_rhash(wallet->invoices, pinvoice, rhash);
 }
 bool wallet_invoice_find_unpaid(struct wallet *wallet,
 				struct invoice *pinvoice,
@@ -2277,3 +2229,78 @@ struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
 	return txids;
 }
 
+void wallet_channeltxs_add(struct wallet *w, struct channel *chan,
+			   const int type, const struct bitcoin_txid *txid,
+			   const u32 input_num, const u32 blockheight)
+{
+	sqlite3_stmt *stmt;
+	stmt = db_prepare(w->db, "INSERT INTO channeltxs ("
+			  "  channel_id"
+			  ", type"
+			  ", transaction_id"
+			  ", input_num"
+			  ", blockheight"
+			  ") VALUES (?, ?, ?, ?, ?);");
+	sqlite3_bind_int(stmt, 1, chan->dbid);
+	sqlite3_bind_int(stmt, 2, type);
+	sqlite3_bind_sha256(stmt, 3, &txid->shad.sha);
+	sqlite3_bind_int(stmt, 4, input_num);
+	sqlite3_bind_int(stmt, 5, blockheight);
+
+	db_exec_prepared(w->db, stmt);
+}
+
+u32 *wallet_onchaind_channels(struct wallet *w,
+			      const tal_t *ctx)
+{
+	sqlite3_stmt *stmt;
+	size_t count = 0;
+	u32 *channel_ids = tal_arr(ctx, u32, 0);
+	stmt = db_prepare(w->db, "SELECT DISTINCT(channel_id) FROM channeltxs WHERE type = ?;");
+	sqlite3_bind_int(stmt, 1, WIRE_ONCHAIN_INIT);
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		count++;
+		tal_resize(&channel_ids, count);
+			channel_ids[count-1] = sqlite3_column_int64(stmt, 0);
+	}
+	sqlite3_finalize(stmt);
+
+	return channel_ids;
+}
+
+struct channeltx *wallet_channeltxs_get(struct wallet *w, const tal_t *ctx,
+					u32 channel_id)
+{
+	sqlite3_stmt *stmt;
+	size_t count = 0;
+	struct channeltx *res = tal_arr(ctx, struct channeltx, 0);
+	stmt = db_prepare(w->db,
+			  "SELECT"
+			  "  c.type"
+			  ", c.blockheight"
+			  ", t.rawtx"
+			  ", c.input_num"
+			  ", c.blockheight - t.blockheight + 1 AS depth"
+			  ", t.id as txid "
+			  "FROM channeltxs c "
+			  "JOIN transactions t ON t.id == c.transaction_id "
+			  "WHERE channel_id = ? "
+			  "ORDER BY c.id ASC;");
+	sqlite3_bind_int(stmt, 1, channel_id);
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		count++;
+		tal_resize(&res, count);
+
+		res[count-1].channel_id = channel_id;
+		res[count-1].type = sqlite3_column_int(stmt, 0);
+		res[count-1].blockheight = sqlite3_column_int(stmt, 1);
+		res[count-1].tx = sqlite3_column_tx(ctx, stmt, 2);
+		res[count-1].input_num = sqlite3_column_int(stmt, 3);
+		res[count-1].depth = sqlite3_column_int(stmt, 4);
+		sqlite3_column_sha256(stmt, 5, &res[count-1].txid.shad.sha);
+	}
+
+	return res;
+}

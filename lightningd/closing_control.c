@@ -4,6 +4,7 @@
 #include <common/initial_commit_tx.h>
 #include <common/utils.h>
 #include <errno.h>
+#include <gossipd/gen_gossip_wire.h>
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
@@ -80,20 +81,23 @@ static void peer_received_closing_signature(struct channel *channel,
 
 static void peer_closing_complete(struct channel *channel, const u8 *msg)
 {
-	/* FIXME: We should save this, to return to gossipd */
-	u64 gossip_index;
-
-	if (!fromwire_closing_complete(msg, &gossip_index)) {
+	if (!fromwire_closing_complete(msg)) {
 		channel_internal_error(channel, "Bad closing_complete %s",
 				       tal_hex(msg, msg));
 		return;
 	}
 
+	/* Don't report spurious failure when closingd exits. */
+	channel_set_owner(channel, NULL);
+	/* Clear any transient negotiation messages */
+	channel_set_billboard(channel, false, NULL);
+
 	/* Retransmission only, ignore closing. */
 	if (channel->state == CLOSINGD_COMPLETE)
 		return;
 
-	drop_to_chain(channel->peer->ld, channel);
+	/* Channel gets dropped to chain cooperatively. */
+	drop_to_chain(channel->peer->ld, channel, true);
 	channel_set_state(channel, CLOSINGD_SIGEXCHANGE, CLOSINGD_COMPLETE);
 }
 
@@ -120,10 +124,10 @@ static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds UNUSE
 }
 
 void peer_start_closingd(struct channel *channel,
-			 struct crypto_state *cs,
-			 u64 gossip_index,
+			 const struct crypto_state *cs,
 			 int peer_fd, int gossip_fd,
-			 bool reconnected)
+			 bool reconnected,
+			 const u8 *channel_reestablish)
 {
 	u8 *initmsg;
 	u64 minfee, startfee, feelimit;
@@ -137,9 +141,10 @@ void peer_start_closingd(struct channel *channel,
 		return;
 	}
 
-	channel_set_owner(channel, new_channel_subd(ld,
+	channel_set_owner(channel,
+			  new_channel_subd(ld,
 					   "lightning_closingd",
-					   channel, channel->log,
+					   channel, channel->log, true,
 					   closing_wire_type_name, closing_msg,
 					   channel_errmsg,
 					   channel_set_billboard,
@@ -185,7 +190,6 @@ void peer_start_closingd(struct channel *channel,
 	their_msatoshi = funding_msatoshi - our_msatoshi;
 	initmsg = towire_closing_init(tmpctx,
 				      cs,
-				      gossip_index,
 				      &channel->seed,
 				      &channel->funding_txid,
 				      channel->funding_outnum,
@@ -203,7 +207,8 @@ void peer_start_closingd(struct channel *channel,
 				      channel->next_index[LOCAL],
 				      channel->next_index[REMOTE],
 				      num_revocations,
-				      deprecated_apis);
+				      deprecated_apis,
+				      channel_reestablish);
 
 	/* We don't expect a response: it will give us feedback on
 	 * signatures sent and received, then closing_complete. */

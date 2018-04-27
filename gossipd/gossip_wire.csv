@@ -18,45 +18,50 @@ gossipctl_init,,wireaddrs,num_wireaddrs*struct wireaddr
 gossipctl_init,,rgb,3*u8
 gossipctl_init,,alias,32*u8
 gossipctl_init,,update_channel_interval,u32
+# DEVELOPER only
+gossipctl_init,,no_reconnect,bool
+
+# Gossipd->master, I am ready.
+gossipctl_init_reply,3100
 
 # Master -> gossipd: Optional hint for where to find peer.
 gossipctl_peer_addrhint,3014
 gossipctl_peer_addrhint,,id,struct pubkey
 gossipctl_peer_addrhint,,addr,struct wireaddr
 
-# Master -> gossipd: connect to a peer.  We may get a peer_connected or
-# peer_already_connected
-gossipctl_reach_peer,3001
-gossipctl_reach_peer,,id,struct pubkey
+# Master -> gossipd: connect to a peer.
+gossipctl_connect_to_peer,3001
+gossipctl_connect_to_peer,,id,struct pubkey
+
+# Gossipd->master: result (not a reply since it can be out-of-order, but
+# you will get one reply for every request).
+gossipctl_connect_to_peer_result,3020
+gossipctl_connect_to_peer_result,,id,struct pubkey
+# True it connected.
+gossipctl_connect_to_peer_result,,connected,bool
+# Otherwise, why we can't reach them.
+gossipctl_connect_to_peer_result,,failreason,wirestring
+
+# Master -> gossipd: try to always maintain connection to this peer (or not)
+gossipctl_peer_important,3010
+gossipctl_peer_important,,id,struct pubkey
+gossipctl_peer_important,,important,bool
 
 # Gossipd -> master: we got a peer. Two fds: peer and gossip
 gossip_peer_connected,3002
 gossip_peer_connected,,id,struct pubkey
 gossip_peer_connected,,addr,struct wireaddr
 gossip_peer_connected,,crypto_state,struct crypto_state
-gossip_peer_connected,,gossip_index,u64
 gossip_peer_connected,,gflen,u16
 gossip_peer_connected,,gfeatures,gflen*u8
 gossip_peer_connected,,lflen,u16
 gossip_peer_connected,,lfeatures,lflen*u8
-
-# Gossipd -> master: you asked to reach a peer, we already had.
-gossip_peer_already_connected,3015
-gossip_peer_already_connected,,id,struct pubkey
-
-# gossipd -> master: attempted to connect, unsuccessful, gave up
-gossip_peer_connection_failed,3020
-gossip_peer_connection_failed,,id,struct pubkey
-gossip_peer_connection_failed,,timeout,u32
-gossip_peer_connection_failed,,attempts,u32
-gossip_peer_connection_failed,,addr_unknown,bool
 
 # Gossipd -> master: peer sent non-gossip packet. Two fds: peer and gossip
 gossip_peer_nongossip,3003
 gossip_peer_nongossip,,id,struct pubkey
 gossip_peer_nongossip,,addr,struct wireaddr
 gossip_peer_nongossip,,crypto_state,struct crypto_state
-gossip_peer_nongossip,,gossip_index,u64
 gossip_peer_nongossip,,gflen,u16
 gossip_peer_nongossip,,gfeatures,gflen*u8
 gossip_peer_nongossip,,lflen,u16
@@ -72,7 +77,6 @@ gossipctl_release_peer,,id,struct pubkey
 gossipctl_release_peer_reply,3104
 gossipctl_release_peer_reply,,addr,struct wireaddr
 gossipctl_release_peer_reply,,crypto_state,struct crypto_state
-gossipctl_release_peer_reply,,gossip_index,u64
 gossipctl_release_peer_reply,,gflen,u16
 gossipctl_release_peer_reply,,gfeatures,gflen*u8
 gossipctl_release_peer_reply,,lflen,u16
@@ -85,9 +89,12 @@ gossipctl_release_peer_replyfail,3204
 gossipctl_hand_back_peer,3013
 gossipctl_hand_back_peer,,id,struct pubkey
 gossipctl_hand_back_peer,,crypto_state,struct crypto_state
-gossipctl_hand_back_peer,,gossip_index,u64
 gossipctl_hand_back_peer,,len,u16
 gossipctl_hand_back_peer,,msg,len*u8
+
+# master -> gossipd: peer has disconnected.
+gossipctl_peer_disconnected,3015
+gossipctl_peer_disconnected,,id,struct pubkey
 
 # Pass JSON-RPC getnodes call through
 gossip_getnodes_request,3005
@@ -168,7 +175,6 @@ gossip_get_update_reply,,update,len*u8
 
 # Gossipd can tell channeld etc about gossip to fwd.
 gossip_send_gossip,3016
-gossip_send_gossip,,gossip_index,u64
 gossip_send_gossip,,len,u16
 gossip_send_gossip,,gossip,len*u8
 

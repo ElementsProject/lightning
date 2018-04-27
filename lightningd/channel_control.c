@@ -14,6 +14,15 @@
 #include <lightningd/subd.h>
 #include <wire/wire_sync.h>
 
+static void lockin_complete(struct channel *channel)
+{
+	/* We set this once we're locked in. */
+	assert(channel->scid);
+	/* We set this once they're locked in. */
+	assert(channel->remote_funding_locked);
+	channel_set_state(channel, CHANNELD_AWAITING_LOCKIN, CHANNELD_NORMAL);
+}
+
 /* We were informed by channeld that it announced the channel and sent
  * an update, so we can now start sending a node_announcement. The
  * first step is to build the provisional announcement and ask the HSM
@@ -40,6 +49,9 @@ static void peer_got_funding_locked(struct channel *channel, const u8 *msg)
 
 	log_debug(channel->log, "Got funding_locked");
 	channel->remote_funding_locked = true;
+
+	if (channel->scid)
+		lockin_complete(channel);
 }
 
 static void peer_got_shutdown(struct channel *channel, const u8 *msg)
@@ -90,19 +102,18 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 					       const int *fds)
 {
 	struct crypto_state cs;
-	u64 gossip_index;
 
 	/* We expect 2 fds. */
 	assert(tal_count(fds) == 2);
 
-	if (!fromwire_channel_shutdown_complete(msg, &cs, &gossip_index)) {
+	if (!fromwire_channel_shutdown_complete(msg, &cs)) {
 		channel_internal_error(channel, "bad shutdown_complete: %s",
 				       tal_hex(msg, msg));
 		return;
 	}
 
 	/* This sets channel->owner, closes down channeld. */
-	peer_start_closingd(channel, &cs, gossip_index, fds[0], fds[1], false);
+	peer_start_closingd(channel, &cs, fds[0], fds[1], false, NULL);
 	channel_set_state(channel, CHANNELD_SHUTTING_DOWN, CLOSINGD_SIGEXCHANGE);
 }
 
@@ -111,10 +122,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	enum channel_wire_type t = fromwire_peektype(msg);
 
 	switch (t) {
-	case WIRE_CHANNEL_NORMAL_OPERATION:
-		channel_set_state(sd->channel,
-				  CHANNELD_AWAITING_LOCKIN, CHANNELD_NORMAL);
-		break;
 	case WIRE_CHANNEL_SENDING_COMMITSIG:
 		peer_sending_commitsig(sd->channel, msg);
 		break;
@@ -163,7 +170,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 
 bool peer_start_channeld(struct channel *channel,
 			 const struct crypto_state *cs,
-			 u64 gossip_index,
 			 int peer_fd, int gossip_fd,
 			 const u8 *funding_signed,
 			 bool reconnected)
@@ -180,6 +186,7 @@ bool peer_start_channeld(struct channel *channel,
 	u64 num_revocations;
 	struct lightningd *ld = channel->peer->ld;
 	const struct config *cfg = &ld->config;
+	bool reached_announce_depth;
 
 	msg = towire_hsm_client_hsmfd(tmpctx, &channel->peer->id, HSM_CAP_SIGN_GOSSIP | HSM_CAP_ECDH);
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
@@ -193,9 +200,10 @@ bool peer_start_channeld(struct channel *channel,
 	if (hsmfd < 0)
 		fatal("Could not read fd from HSM: %s", strerror(errno));
 
-	channel_set_owner(channel, new_channel_subd(ld,
+	channel_set_owner(channel,
+			  new_channel_subd(ld,
 					   "lightning_channeld", channel,
-					   channel->log,
+					   channel->log, true,
 					   channel_wire_type_name,
 					   channel_msg,
 					   channel_errmsg,
@@ -216,10 +224,16 @@ bool peer_start_channeld(struct channel *channel,
 
 	if (channel->scid) {
 		funding_channel_id = *channel->scid;
-		log_debug(channel->log, "Already have funding locked in");
+		reached_announce_depth
+			= (short_channel_id_blocknum(&funding_channel_id)
+			   + ANNOUNCE_MIN_DEPTH <= get_block_height(ld->topology));
+		log_debug(channel->log, "Already have funding locked in%s",
+			  reached_announce_depth
+			  ? " (and ready to announce)" : "");
 	} else {
 		log_debug(channel->log, "Waiting for funding confirmations");
 		memset(&funding_channel_id, 0, sizeof(funding_channel_id));
+		reached_announce_depth = false;
 	}
 
 	num_revocations = revocations_received(&channel->their_shachain.chain);
@@ -239,7 +253,7 @@ bool peer_start_channeld(struct channel *channel,
 				      feerate_min(ld),
 				      feerate_max(ld),
 				      &channel->last_sig,
-				      cs, gossip_index,
+				      cs,
 				      &channel->channel_info.remote_fundingkey,
 				      &channel->channel_info.theirbase.revocation,
 				      &channel->channel_info.theirbase.payment,
@@ -274,10 +288,37 @@ bool peer_start_channeld(struct channel *channel,
 				      p2wpkh_for_keyidx(tmpctx, ld,
 							channel->final_key_idx),
 				      channel->channel_flags,
-				      funding_signed);
+				      funding_signed,
+				      reached_announce_depth);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));
 
+	return true;
+}
+
+bool channel_tell_funding_locked(struct lightningd *ld,
+				 struct channel *channel,
+				 const struct bitcoin_txid *txid)
+{
+	/* If not awaiting lockin, it doesn't care any more */
+	if (channel->state != CHANNELD_AWAITING_LOCKIN) {
+		log_debug(channel->log,
+			  "Funding tx confirmed, but peer in state %s",
+			  channel_state_name(channel));
+		return true;
+	}
+
+	if (!channel->owner) {
+		log_debug(channel->log,
+			  "Funding tx confirmed, but peer disconnected");
+		return false;
+	}
+
+	subd_send_msg(channel->owner,
+		      take(towire_channel_funding_locked(NULL, channel->scid)));
+
+	if (channel->remote_funding_locked)
+		lockin_complete(channel);
 	return true;
 }

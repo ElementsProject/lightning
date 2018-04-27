@@ -109,6 +109,15 @@ void gossip_store_add_channel_delete(struct gossip_store *gs,
 	tal_free(msg);
 }
 
+void gossip_store_local_add_channel(struct gossip_store *gs,
+				    const u8 *add_msg)
+{
+	u8 *msg = towire_gossip_store_local_add_channel(NULL, add_msg);
+	gossip_store_append(gs, msg);
+	tal_free(msg);
+}
+
+
 void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 {
 	beint32_t belen;
@@ -163,6 +172,9 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			}
 			tal_free(c);
 			stats[3]++;
+		} else if (fromwire_gossip_store_local_add_channel(
+			       msg, msg, &gossip_msg)) {
+			handle_local_add_channel(rstate, gossip_msg);
 		} else {
 			bad = "Unknown message";
 			goto truncate;

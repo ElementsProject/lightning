@@ -844,6 +844,8 @@ static bool node_announcement_eq(const struct msg_node_announcement *a,
 
 int main(void)
 {
+	setup_locale();
+
 	struct msg_channel_announcement ca, *ca2;
 	struct msg_funding_locked fl, *fl2;
 	struct msg_announcement_signatures as, *as2;

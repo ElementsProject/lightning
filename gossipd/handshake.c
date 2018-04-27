@@ -341,6 +341,7 @@ static struct io_plan *handshake_failed_(struct io_conn *conn,
 	status_trace("%s: handshake failed %s:%u",
 		     h->side == RESPONDER ? "Responder" : "Initiator",
 		     function, line);
+	errno = EPROTO;
 	return io_close(conn);
 }
 #define handshake_failed(conn, h) \

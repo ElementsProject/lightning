@@ -252,8 +252,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_SIGN_INVOICE:
 		return (client->capabilities & HSM_CAP_MASTER) != 0;
 
-      /* These are messages sent by the HSM so we should never receive
-       * them */
+	/* These are messages sent by the HSM so we should never receive them */
 	case WIRE_HSM_ECDH_RESP:
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_CUPDATE_SIG_REPLY:
@@ -825,6 +824,8 @@ static void master_gone(struct io_conn *unused UNUSED, struct daemon_conn *dc UN
 
 int main(int argc, char *argv[])
 {
+	setup_locale();
+
 	struct client *client;
 
 	subdaemon_setup(argc, argv);

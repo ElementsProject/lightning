@@ -27,6 +27,8 @@ void towire_u8(u8 **pptr UNNEEDED, u8 v UNNEEDED)
 
 int main(void)
 {
+	setup_locale();
+
 	struct wireaddr addr;
 	char *ip;
 	u16 port;

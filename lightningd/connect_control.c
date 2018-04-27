@@ -28,79 +28,52 @@ static struct connect *new_connect(struct lightningd *ld,
 	struct connect *c = tal(cmd, struct connect);
 	c->id = *id;
 	c->cmd = cmd;
-	list_add(&ld->connects, &c->list);
+	list_add_tail(&ld->connects, &c->list);
 	tal_add_destructor(c, destroy_connect);
 	return c;
 }
 
-void connect_succeeded(struct lightningd *ld, const struct pubkey *id)
+/* Finds first command which matches. */
+static struct connect *find_connect(struct lightningd *ld,
+				    const struct pubkey *id)
 {
-	struct connect *i, *next;
+	struct connect *i;
 
-	/* Careful!  Completing command frees connect. */
-	list_for_each_safe(&ld->connects, i, next, list) {
-		struct json_result *response;
-
-		if (!pubkey_eq(&i->id, id))
-			continue;
-
-		response = new_json_result(i->cmd);
-		json_object_start(response, NULL);
-		json_add_pubkey(response, "id", id);
-		json_object_end(response);
-		command_success(i->cmd, response);
-	}
-}
-
-void connect_failed(struct lightningd *ld, const struct pubkey *id,
-		    const char *error)
-{
-	struct connect *i, *next;
-
-	/* Careful!  Completing command frees connect. */
-	list_for_each_safe(&ld->connects, i, next, list) {
+	list_for_each(&ld->connects, i, list) {
 		if (pubkey_eq(&i->id, id))
-			command_fail(i->cmd, "%s", error);
+			return i;
 	}
+	return NULL;
 }
 
-void peer_connection_failed(struct lightningd *ld, const u8 *msg)
+void gossip_connect_result(struct lightningd *ld, const u8 *msg)
 {
 	struct pubkey id;
-	u32 attempts, timediff;
-	bool addr_unknown;
-	char *error;
+	bool connected;
+	char *err;
+	struct connect *c;
 
-	if (!fromwire_gossip_peer_connection_failed(msg, &id, &timediff,
-						    &attempts, &addr_unknown))
-		fatal(
-		    "Gossip gave bad GOSSIP_PEER_CONNECTION_FAILED message %s",
-		    tal_hex(msg, msg));
-
-	if (addr_unknown) {
-		error = tal_fmt(
-		    msg, "No address known for node %s, please provide one",
-		    type_to_string(msg, struct pubkey, &id));
-	} else {
-		error = tal_fmt(msg, "Could not connect to %s after %d seconds and %d attempts",
-				type_to_string(msg, struct pubkey, &id), timediff,
-				attempts);
-	}
-
-	connect_failed(ld, &id, error);
-}
-
-/* Gossipd tells us peer was already connected. */
-void peer_already_connected(struct lightningd *ld, const u8 *msg)
-{
-	struct pubkey id;
-
-	if (!fromwire_gossip_peer_already_connected(msg, &id))
-		fatal("Gossip gave bad GOSSIP_PEER_ALREADY_CONNECTED message %s",
+	if (!fromwire_gossipctl_connect_to_peer_result(tmpctx, msg,
+						       &id,
+						       &connected,
+						       &err))
+		fatal("Gossip gave bad GOSSIPCTL_CONNECT_TO_PEER_RESULT message %s",
 		      tal_hex(msg, msg));
 
-	/* If we were waiting for connection, we succeeded. */
-	connect_succeeded(ld, &id);
+
+	/* We can have multiple connect commands: complete them all */
+	while ((c = find_connect(ld, &id)) != NULL) {
+		if (connected) {
+			struct json_result *response = new_json_result(c->cmd);
+			json_object_start(response, NULL);
+			json_add_pubkey(response, "id", &id);
+			json_object_end(response);
+			command_success(c->cmd, response);
+		} else {
+			command_fail(c->cmd, "%s", err);
+		}
+		/* They delete themselves from list */
+	}
 }
 
 static void json_connect(struct command *cmd,
@@ -190,11 +163,12 @@ static void json_connect(struct command *cmd,
 		subd_send_msg(cmd->ld->gossip, take(msg));
 	}
 
-	/* Now tell it to try reaching it. */
-	msg = towire_gossipctl_reach_peer(cmd, &id);
-	subd_send_msg(cmd->ld->gossip, take(msg));
-
-	/* Leave this here for gossip_peer_connected */
+	/* If there isn't already a connect command, tell gossipd */
+	if (!find_connect(cmd->ld, &id)) {
+		msg = towire_gossipctl_connect_to_peer(NULL, &id);
+		subd_send_msg(cmd->ld->gossip, take(msg));
+	}
+	/* Leave this here for gossip_connect_result */
 	new_connect(cmd->ld, &id, cmd);
 	command_still_pending(cmd);
 }

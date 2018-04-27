@@ -16,6 +16,9 @@ char *tal_hex(const tal_t *ctx, const tal_t *data);
 /* Allocate and fill a buffer with the data of this hex string. */
 u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len);
 
+/* Use the POSIX C locale. */
+void setup_locale(void);
+
 /* Global temporary convenience context: freed in io loop core. */
 extern const tal_t *tmpctx;
 

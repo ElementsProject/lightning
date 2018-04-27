@@ -80,7 +80,6 @@ void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
 			 const struct wireaddr *addr,
 			 const struct crypto_state *cs,
-			 u64 gossip_index,
 			 const u8 *gfeatures,
 			 const u8 *lfeatures,
 			 int peer_fd, int gossip_fd,
@@ -92,7 +91,6 @@ void peer_sent_nongossip(struct lightningd *ld,
 void channel_errmsg(struct channel *channel,
 		    int peer_fd, int gossip_fd,
 		    const struct crypto_state *cs,
-		    u64 gossip_index,
 		    const struct channel_id *channel_id,
 		    const char *desc,
 		    const u8 *err_for_them);
@@ -102,7 +100,7 @@ u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx);
 /* We've loaded peers from database, set them going. */
 void activate_peers(struct lightningd *ld);
 
-void drop_to_chain(struct lightningd *ld, struct channel *channel);
+void drop_to_chain(struct lightningd *ld, struct channel *channel, bool cooperative);
 
 /* Get range of feerates to insist other side abide by for normal channels. */
 u32 feerate_min(struct lightningd *ld);

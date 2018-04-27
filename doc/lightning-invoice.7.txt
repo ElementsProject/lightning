@@ -4,11 +4,11 @@ LIGHTNING-INVOICE(7)
 
 NAME
 ----
-lightning-invoice - Protocol for accepting payments.
+lightning-invoice - Command for accepting payments.
 
 SYNOPSIS
 --------
-*invoice* 'msatoshi' 'label' 'description' ['expiry'] ['fallbacks']
+*invoice* 'msatoshi' 'label' 'description' ['expiry'] ['fallbacks'] ['preimage']
 
 DESCRIPTION
 -----------
@@ -36,6 +36,18 @@ The 'fallbacks' array is one or more fallback addresses to include in
 the invoice (in order from most-preferred to least): note that these
 arrays are not currently tracked to fulfill the invoice.
 
+The 'preimage' is a 64-digit hex string to be used as payment preimage
+for the created invoice.
+By default, if unspecified, lightningd will generate a secure
+pseudorandom preimage seeded from an appropriate entropy source on
+your system.
+*IMPORTANT*: if you specify the 'preimage', you are responsible, to
+ensure appropriate care for generating using a secure pseudorandom
+generator seeded with sufficient entropy, and keeping the preimage
+secret.
+This parameter is an advanced feature intended for use with cutting-edge
+cryptographic protocols and should not be used unless explicitly needed.
+
 RETURN VALUE
 ------------
 
@@ -47,7 +59,11 @@ On failure, an error is returned and no invoice is created.  If the
 lightning process fails before responding, the caller should use
 lightning-listinvoice(7) to query whether this invoice was created or not.
 
-//FIXME:Enumerate errors
+The following error codes may occur:
+
+* -1. Catchall nonspecific error.
+* 900. An invoice with the given 'label' already exists.
+* 901. An invoice with the given 'preimage' already exists.
 
 AUTHOR
 ------

@@ -37,10 +37,9 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 	struct crypto_state cs;
 	struct wireaddr addr;
 	u8 *gfeatures, *lfeatures, *in_pkt;
-	u64 gossip_index;
 
 	if (!fromwire_gossip_peer_nongossip(msg, msg,
-					    &id, &addr, &cs, &gossip_index,
+					    &id, &addr, &cs,
 					    &gfeatures,
 					    &lfeatures,
 					    &in_pkt))
@@ -58,7 +57,7 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 		return;
 	}
 
-	peer_sent_nongossip(gossip->ld, &id, &addr, &cs, gossip_index,
+	peer_sent_nongossip(gossip->ld, &id, &addr, &cs,
 			    gfeatures, lfeatures,
 			    peer_fd, gossip_fd, in_pkt);
 }
@@ -125,7 +124,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_GETPEERS_REQUEST:
 	case WIRE_GOSSIP_PING:
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST:
-	case WIRE_GOSSIPCTL_REACH_PEER:
+	case WIRE_GOSSIPCTL_CONNECT_TO_PEER:
 	case WIRE_GOSSIPCTL_HAND_BACK_PEER:
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
 	case WIRE_GOSSIPCTL_PEER_ADDRHINT:
@@ -137,7 +136,10 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_ROUTING_FAILURE:
 	case WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT:
+	case WIRE_GOSSIPCTL_PEER_IMPORTANT:
+	case WIRE_GOSSIPCTL_PEER_DISCONNECTED:
 	/* This is a reply, so never gets through to here. */
+	case WIRE_GOSSIPCTL_INIT_REPLY:
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
@@ -158,12 +160,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 			return 2;
 		peer_connected(gossip->ld, msg, fds[0], fds[1]);
 		break;
-	case WIRE_GOSSIP_PEER_ALREADY_CONNECTED:
-		peer_already_connected(gossip->ld, msg);
-		break;
-	case WIRE_GOSSIP_PEER_CONNECTION_FAILED:
-		peer_connection_failed(gossip->ld, msg);
-		break;
 	case WIRE_GOSSIP_PEER_NONGOSSIP:
 		if (tal_count(fds) != 2)
 			return 2;
@@ -172,8 +168,20 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_GET_TXOUT:
 		get_txout(gossip, msg);
 		break;
+	case WIRE_GOSSIPCTL_CONNECT_TO_PEER_RESULT:
+		gossip_connect_result(gossip->ld, msg);
+		break;
 	}
 	return 0;
+}
+
+static void gossip_init_done(struct subd *gossip UNUSED,
+			     const u8 *reply UNUSED,
+			     const int *fds UNUSED,
+			     void *unused UNUSED)
+{
+	/* Break out of loop, so we can begin */
+	io_break(gossip);
 }
 
 /* Create the `gossipd` subdaemon and send the initialization
@@ -183,6 +191,11 @@ void gossip_init(struct lightningd *ld)
 	u8 *msg;
 	int hsmfd;
 	u64 capabilities = HSM_CAP_ECDH | HSM_CAP_SIGN_GOSSIP;
+#if DEVELOPER
+	bool no_reconnect = ld->no_reconnect;
+#else
+	bool no_reconnect = false;
+#endif
 
 	msg = towire_hsm_client_hsmfd(tmpctx, &ld->id, capabilities);
 	if (!wire_sync_write(ld->hsm_fd, msg))
@@ -207,8 +220,11 @@ void gossip_init(struct lightningd *ld)
 	    &get_chainparams(ld)->genesis_blockhash, &ld->id, ld->portnum,
 	    get_offered_global_features(tmpctx),
 	    get_offered_local_features(tmpctx), ld->wireaddrs, ld->rgb,
-	    ld->alias, ld->config.channel_update_interval);
-	subd_send_msg(ld->gossip, msg);
+	    ld->alias, ld->config.channel_update_interval, no_reconnect);
+	subd_req(ld->gossip, ld->gossip, msg, -1, 0, gossip_init_done, NULL);
+
+	/* Wait for init done */
+	io_loop(NULL, NULL);
 }
 
 void gossipd_notify_spend(struct lightningd *ld,

@@ -128,6 +128,16 @@ struct channel_stats {
 	u64 out_msatoshi_offered, out_msatoshi_fulfilled;
 };
 
+struct channeltx {
+	u32 channel_id;
+	int type;
+	u32 blockheight;
+	struct bitcoin_txid txid;
+	struct bitcoin_tx *tx;
+	u32 input_num;
+	u32 depth;
+};
+
 /**
  * wallet_new - Constructor for a new sqlite3 based wallet
  *
@@ -304,12 +314,15 @@ void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 cdbid, u64 ms
 void wallet_channel_stats_load(struct wallet *w, u64 cdbid, struct channel_stats *stats);
 
 /**
- * wallet_first_blocknum - get first block we're interested in.
+ * Retrieve the blockheight of the last block processed by lightningd.
+ *
+ * Will return either the maximal blockheight or the default value if the wallet
+ * was never used before.
  *
  * @w: wallet to load from.
- * @first_possible: when c-lightning may have been active from
+ * @def: the default value to return if we've never used the wallet before
  */
-u32 wallet_first_blocknum(struct wallet *w, u32 first_possible);
+u32 wallet_blocks_height(struct wallet *w, u32 def);
 
 /**
  * wallet_extract_owned_outputs - given a tx, extract all of our outputs
@@ -496,6 +509,20 @@ bool wallet_invoice_create(struct wallet *wallet,
 bool wallet_invoice_find_by_label(struct wallet *wallet,
 				  struct invoice *pinvoice,
 				  const struct json_escaped *label);
+
+/**
+ * wallet_invoice_find_by_rhash - Search for an invoice by payment_hash
+ *
+ * @wallet - the wallet to search.
+ * @pinvoice - pointer to location to load found invoice in.
+ * @rhash - the payment_hash to search for.
+ *
+ * Returns false if no invoice with that rhash exists.
+ * Returns true if found.
+ */
+bool wallet_invoice_find_by_rhash(struct wallet *wallet,
+				  struct invoice *pinvoice,
+				  const struct sha256 *rhash);
 
 /**
  * wallet_invoice_find_unpaid - Search for an unpaid, unexpired invoice by
@@ -835,5 +862,24 @@ struct txlocator *wallet_transaction_locate(const tal_t *ctx, struct wallet *w,
 struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
 						   struct wallet *w,
 						   const u32 blockheight);
+
+/**
+ * Store transactions of interest in the database to replay on restart
+ */
+void wallet_channeltxs_add(struct wallet *w, struct channel *chan,
+			    const int type, const struct bitcoin_txid *txid,
+			   const u32 input_num, const u32 blockheight);
+
+/**
+ * List channels for which we had an onchaind running
+ */
+u32 *wallet_onchaind_channels(struct wallet *w,
+			      const tal_t *ctx);
+
+/**
+ * Get transactions that we'd like to replay for a channel.
+ */
+struct channeltx *wallet_channeltxs_get(struct wallet *w, const tal_t *ctx,
+					u32 channel_id);
 
 #endif /* LIGHTNING_WALLET_WALLET_H */

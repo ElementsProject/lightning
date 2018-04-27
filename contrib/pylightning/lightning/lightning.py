@@ -150,7 +150,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listchannels", payload)
 
-    def invoice(self, msatoshi, label, description, expiry=None, fallbacks=None):
+    def invoice(self, msatoshi, label, description, expiry=None, fallbacks=None, preimage=None):
         """
         Create an invoice for {msatoshi} with {label} and {description} with
         optional {expiry} seconds (default 1 hour)
@@ -160,7 +160,8 @@ class LightningRpc(UnixDomainSocketRpc):
             "label": label,
             "description": description,
             "expiry": expiry,
-            "fallbacks": fallbacks
+            "fallbacks": fallbacks,
+            "preimage": preimage
         }
         return self.call("invoice", payload)
 
@@ -333,12 +334,16 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("fundchannel", payload)
 
-    def close(self, peer_id):
+    def close(self, peer_id, force=None, timeout=None):
         """
-        Close the channel with peer {id}
+        Close the channel with peer {id}, forcing a unilateral
+        close if {force} is True, and timing out with {timeout}
+        seconds.
         """
         payload = {
-            "id": peer_id
+            "id": peer_id,
+            "force": force,
+            "timeout": timeout
         }
         return self.call("close", payload)
 

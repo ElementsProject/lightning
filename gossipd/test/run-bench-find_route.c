@@ -62,6 +62,9 @@ bool fromwire_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNE
 /* Generated stub for fromwire_channel_update */
 bool fromwire_channel_update(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED, struct bitcoin_blkid *chain_hash UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, u32 *timestamp UNNEEDED, u16 *flags UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, u64 *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED)
 { fprintf(stderr, "fromwire_channel_update called!\n"); abort(); }
+/* Generated stub for fromwire_gossip_local_add_channel */
+bool fromwire_gossip_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct bitcoin_blkid *chain_hash UNNEEDED, struct pubkey *remote_node_id UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, u64 *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED)
+{ fprintf(stderr, "fromwire_gossip_local_add_channel called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_store_channel_announcement */
 bool fromwire_gossip_store_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **announcement UNNEEDED, u64 *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_store_channel_announcement called!\n"); abort(); }
@@ -71,6 +74,9 @@ bool fromwire_gossip_store_channel_delete(const void *p UNNEEDED, struct short_c
 /* Generated stub for fromwire_gossip_store_channel_update */
 bool fromwire_gossip_store_channel_update(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **update UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_store_channel_update called!\n"); abort(); }
+/* Generated stub for fromwire_gossip_store_local_add_channel */
+bool fromwire_gossip_store_local_add_channel(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **local_add UNNEEDED)
+{ fprintf(stderr, "fromwire_gossip_store_local_add_channel called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_store_node_announcement */
 bool fromwire_gossip_store_node_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **announcement UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_store_node_announcement called!\n"); abort(); }
@@ -114,6 +120,9 @@ u8 *towire_gossip_store_channel_delete(const tal_t *ctx UNNEEDED, const struct s
 /* Generated stub for towire_gossip_store_channel_update */
 u8 *towire_gossip_store_channel_update(const tal_t *ctx UNNEEDED, const u8 *update UNNEEDED)
 { fprintf(stderr, "towire_gossip_store_channel_update called!\n"); abort(); }
+/* Generated stub for towire_gossip_store_local_add_channel */
+u8 *towire_gossip_store_local_add_channel(const tal_t *ctx UNNEEDED, const u8 *local_add UNNEEDED)
+{ fprintf(stderr, "towire_gossip_store_local_add_channel called!\n"); abort(); }
 /* Generated stub for towire_gossip_store_node_announcement */
 u8 *towire_gossip_store_node_announcement(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED)
 { fprintf(stderr, "towire_gossip_store_node_announcement called!\n"); abort(); }
@@ -194,6 +203,8 @@ static void run(const char *name)
 
 int main(int argc, char *argv[])
 {
+	setup_locale();
+
 	static const struct bitcoin_blkid zerohash;
 	struct routing_state *rstate;
 	size_t num_nodes = 100, num_runs = 1;

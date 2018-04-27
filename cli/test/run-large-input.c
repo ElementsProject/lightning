@@ -83,8 +83,9 @@ ssize_t test_read(int fd UNUSED, void *buf, size_t len)
 
 int main(int argc UNUSED, char *argv[])
 {
-	char *fake_argv[] = { argv[0], "--lightning-dir=/tmp/", "test", NULL };
+	setup_locale();
 
+	char *fake_argv[] = { argv[0], "--lightning-dir=/tmp/", "test", NULL };
 
 	/* sizeof() is an overestimate, but we don't care. */
 	response = tal_arr(NULL, char,

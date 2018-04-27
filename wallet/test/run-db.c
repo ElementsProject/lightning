@@ -116,6 +116,8 @@ static bool test_vars(void)
 
 int main(void)
 {
+	setup_locale();
+
 	bool ok = true;
 
 	ok &= test_empty_db_migrate();

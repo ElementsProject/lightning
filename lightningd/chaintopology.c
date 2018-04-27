@@ -59,8 +59,10 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 			out.index = tx->input[j].index;
 
 			txo = txowatch_hash_get(&topo->txowatches, &out);
-			if (txo)
+			if (txo) {
+				wallet_transaction_add(topo->wallet, tx, b->height, i);
 				txowatch_fire(txo, tx, j, b);
+			}
 		}
 
 		satoshi_owned = 0;
@@ -517,17 +519,28 @@ static void get_init_block(struct bitcoind *bitcoind,
 static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 			       struct chain_topology *topo)
 {
-	/* This can happen if bitcoind still syncing, or first_blocknum is MAX */
-	if (blockcount < topo->first_blocknum)
-		topo->first_blocknum = blockcount;
-
-	/* For fork protection (esp. because we don't handle our own first
-	 * block getting reorged out), we always go 100 blocks further back
-	 * than we need. */
-	if (topo->first_blocknum < 100)
-		topo->first_blocknum = 0;
-	else
-		topo->first_blocknum -= 100;
+	/* If bitcoind's current blockheight is below the requested height, just
+	 * go back to that height. This might be a new node catching up, or
+	 * bitcoind is processing a reorg. */
+	if (blockcount < topo->first_blocknum) {
+		if (bitcoind->ld->config.rescan < 0) {
+			/* Absolute blockheight, but bitcoind's blockheight isn't there yet */
+			/* Protect against underflow in subtraction.
+			 * Possible in regtest mode. */
+			if (blockcount < 1)
+				topo->first_blocknum = 0;
+			else
+				topo->first_blocknum = blockcount - 1;
+		} else if (topo->first_blocknum == UINT32_MAX) {
+			/* Relative rescan, but we didn't know the blockheight */
+			/* Protect against underflow in subtraction.
+			 * Possible in regtest mode. */
+			if (blockcount < bitcoind->ld->config.rescan)
+				topo->first_blocknum = 0;
+			else
+				topo->first_blocknum = blockcount - bitcoind->ld->config.rescan;
+		}
+	}
 
 	/* Rollback to the given blockheight, so we start track
 	 * correctly again */

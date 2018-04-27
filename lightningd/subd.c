@@ -396,17 +396,16 @@ static bool handle_peer_error(struct subd *sd, const u8 *msg, int fds[2])
 	struct channel_id channel_id;
 	char *desc;
 	struct crypto_state cs;
-	u64 gossip_index;
 	u8 *err_for_them;
 
 	if (!fromwire_status_peer_error(msg, msg,
 					&channel_id, &desc,
-					&cs, &gossip_index, &err_for_them))
+					&cs, &err_for_them))
 		return false;
 
 	/* Don't free sd; we're may be about to free channel. */
 	sd->channel = NULL;
-	sd->errcb(channel, fds[0], fds[1], &cs, gossip_index,
+	sd->errcb(channel, fds[0], fds[1], &cs,
 		  &channel_id, desc, err_for_them);
 	return true;
 }
@@ -587,7 +586,7 @@ static void destroy_subd(struct subd *sd)
 		if (!outer_transaction)
 			db_begin_transaction(db);
 		if (sd->errcb)
-			sd->errcb(channel, -1, -1, NULL, 0, NULL,
+			sd->errcb(channel, -1, -1, NULL, NULL,
 				  tal_fmt(sd, "Owning subdaemon %s died (%i)",
 					  sd->name, status),
 				  NULL);
@@ -632,13 +631,13 @@ static struct subd *new_subd(struct lightningd *ld,
 			     const char *name,
 			     void *channel,
 			     struct log *base_log,
+			     bool talks_to_peer,
 			     const char *(*msgname)(int msgtype),
 			     unsigned int (*msgcb)(struct subd *,
 						   const u8 *, const int *fds),
 			     void (*errcb)(void *channel,
 					   int peer_fd, int gossip_fd,
 					   const struct crypto_state *cs,
-					   u64 gossip_index,
 					   const struct channel_id *channel_id,
 					   const char *desc,
 					   const u8 *err_for_them),
@@ -676,6 +675,7 @@ static struct subd *new_subd(struct lightningd *ld,
 
 	sd->name = name;
 	sd->must_not_exit = false;
+	sd->talks_to_peer = talks_to_peer;
 	sd->msgname = msgname;
 	sd->msgcb = msgcb;
 	sd->errcb = errcb;
@@ -709,7 +709,7 @@ struct subd *new_global_subd(struct lightningd *ld,
 	struct subd *sd;
 
 	va_start(ap, msgcb);
-	sd = new_subd(ld, name, NULL, NULL, msgname, msgcb, NULL, NULL, &ap);
+	sd = new_subd(ld, name, NULL, NULL, false, msgname, msgcb, NULL, NULL, &ap);
 	va_end(ap);
 
 	sd->must_not_exit = true;
@@ -720,13 +720,13 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 			       const char *name,
 			       void *channel,
 			       struct log *base_log,
+			       bool talks_to_peer,
 			       const char *(*msgname)(int msgtype),
 			       unsigned int (*msgcb)(struct subd *, const u8 *,
 						     const int *fds),
 			       void (*errcb)(void *channel,
 					     int peer_fd, int gossip_fd,
 					     const struct crypto_state *cs,
-					     u64 gossip_index,
 					     const struct channel_id *channel_id,
 					     const char *desc,
 					     const u8 *err_for_them),
@@ -738,7 +738,7 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 	struct subd *sd;
 
 	va_start(ap, billboardcb);
-	sd = new_subd(ld, name, channel, base_log, msgname,
+	sd = new_subd(ld, name, channel, base_log, talks_to_peer, msgname,
 		      msgcb, errcb, billboardcb, &ap);
 	va_end(ap);
 	return sd;

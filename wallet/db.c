@@ -306,6 +306,28 @@ char *dbmigrations[] = {
     "   SET faildetail = 'unspecified payment failure reason'"
     " WHERE status = 2;", /* PAYMENT_FAILED */
     /* -- Detailed payment faiure ends -- */
+    "CREATE TABLE channeltxs ("
+    /* The id serves as insertion order and short ID */
+    "  id INTEGER"
+    ", channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE"
+    ", type INTEGER"
+    ", transaction_id BLOB REFERENCES transactions(id) ON DELETE CASCADE"
+    /* The input_num is only used by the txo_watch, 0 if txwatch */
+    ", input_num INTEGER"
+    /* The height at which we sent the depth notice */
+    ", blockheight INTEGER REFERENCES blocks(height) ON DELETE CASCADE"
+    ", PRIMARY KEY(id)"
+    ");",
+    /* -- Set the correct rescan height for PR #1398 -- */
+    /* Delete blocks that are higher than our initial scan point, this is a
+     * no-op if we don't have a channel. */
+    "DELETE FROM blocks WHERE height > (SELECT MIN(first_blocknum) FROM channels);",
+    /* Now make sure we have the lower bound block with the first_blocknum
+     * height. This may introduce a block with NULL height if we didn't have any
+     * blocks, remove that in the next. */
+    "INSERT OR IGNORE INTO blocks (height) VALUES ((SELECT MIN(first_blocknum) FROM channels));",
+    "DELETE FROM blocks WHERE height IS NULL;",
+    /* -- End of  PR #1398 -- */
     NULL,
 };
 

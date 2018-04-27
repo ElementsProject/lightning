@@ -106,6 +106,8 @@ static void do_decode(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
+	setup_locale();
+
 	bool generate = false, decode = false;
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY |
 						 SECP256K1_CONTEXT_SIGN);

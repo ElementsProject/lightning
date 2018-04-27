@@ -12,13 +12,26 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 
+static bool connects_to_peer(struct subd *owner)
+{
+	return owner && owner->talks_to_peer;
+}
+
 void channel_set_owner(struct channel *channel, struct subd *owner)
 {
 	struct subd *old_owner = channel->owner;
 	channel->owner = owner;
 
-	if (old_owner)
+	if (old_owner) {
 		subd_release_channel(old_owner, channel);
+		if (channel->connected && !connects_to_peer(owner)) {
+			u8 *msg = towire_gossipctl_peer_disconnected(NULL,
+							     &channel->peer->id);
+			subd_send_msg(channel->peer->ld->gossip, take(msg));
+			channel->connected = false;
+		}
+	}
+	channel->connected = connects_to_peer(owner);
 }
 
 struct htlc_out *channel_has_htlc_out(struct channel *channel)
@@ -155,7 +168,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct changed_htlc *last_sent_commit,
 			    u32 first_blocknum,
 			    u32 min_possible_feerate,
-			    u32 max_possible_feerate)
+			    u32 max_possible_feerate,
+			    bool connected)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
 
@@ -212,6 +226,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->first_blocknum = first_blocknum;
 	channel->min_possible_feerate = min_possible_feerate;
 	channel->max_possible_feerate = max_possible_feerate;
+	channel->connected = connected;
 	derive_channel_seed(peer->ld, &channel->seed, &peer->id, channel->dbid);
 
 	list_add_tail(&peer->channels, &channel->list);
@@ -263,6 +278,19 @@ struct channel *active_channel_by_id(struct lightningd *ld,
 	if (uc)
 		*uc = peer->uncommitted_channel;
 	return peer_active_channel(peer);
+}
+
+struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid)
+{
+	struct peer *p;
+	struct channel *chan;
+	list_for_each(&ld->peers, p, list) {
+		list_for_each(&p->channels, chan, list) {
+			if (chan->dbid == dbid)
+				return chan;
+		}
+	}
+	return NULL;
 }
 
 void channel_set_last_tx(struct channel *channel,
@@ -321,7 +349,8 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 	}
 
 	channel_set_owner(channel, NULL);
-	drop_to_chain(ld, channel);
+	/* Drop non-cooperatively (unilateral) to chain. */
+	drop_to_chain(ld, channel, false);
 	tal_free(why);
 }
 
@@ -383,19 +412,4 @@ void channel_fail_transient(struct channel *channel, const char *fmt, ...)
 #endif
 
 	channel_set_owner(channel, NULL);
-
-	/* Reconnect unless we've dropped/are dropping to chain. */
-	if (channel_active(channel)) {
-		struct lightningd *ld = channel->peer->ld;
-
-#if DEVELOPER
-		/* Don't schedule an attempt if we disabled reconnections with
-		 * the `--dev-no-reconnect` flag */
-		if (ld->no_reconnect)
-			return;
-#endif /* DEVELOPER */
-		u8 *msg = towire_gossipctl_reach_peer(NULL,
-						      &channel->peer->id);
-		subd_send_msg(ld->gossip, take(msg));
-	}
 }

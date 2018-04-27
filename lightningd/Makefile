@@ -15,6 +15,7 @@ default: lightningd-all
 # Common source we use.
 LIGHTNINGD_COMMON_OBJS :=			\
 	common/bech32.o				\
+	common/bech32_util.o			\
 	common/bip32.o				\
 	common/bolt11.o				\
 	common/channel_config.o			\

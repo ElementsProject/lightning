@@ -96,6 +96,9 @@ struct channel {
 
 	/* Feerate range */
 	u32 min_possible_feerate, max_possible_feerate;
+
+	/* Does gossipd need to know if the owner dies? (ie. not onchaind) */
+	bool connected;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,
@@ -136,7 +139,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct changed_htlc *last_sent_commit,
 			    u32 first_blocknum,
 			    u32 min_possible_feerate,
-			    u32 max_possible_feerate);
+			    u32 max_possible_feerate,
+			    bool connected);
 
 void delete_channel(struct channel *channel);
 
@@ -164,6 +168,8 @@ struct channel *peer_active_channel(struct peer *peer);
 struct channel *active_channel_by_id(struct lightningd *ld,
 				     const struct pubkey *id,
 				     struct uncommitted_channel **uc);
+
+struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid);
 
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,

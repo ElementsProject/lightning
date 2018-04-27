@@ -74,6 +74,9 @@ struct log_book *new_log_book(size_t max_mem UNNEEDED,
 /* Generated stub for new_topology */
 struct chain_topology *new_topology(struct lightningd *ld UNNEEDED, struct log *log UNNEEDED)
 { fprintf(stderr, "new_topology called!\n"); abort(); }
+/* Generated stub for onchaind_replay_channels */
+void onchaind_replay_channels(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "onchaind_replay_channels called!\n"); abort(); }
 /* Generated stub for register_opts */
 void register_opts(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "register_opts called!\n"); abort(); }
@@ -104,12 +107,12 @@ struct txfilter *txfilter_new(const tal_t *ctx UNNEEDED)
 /* Generated stub for version */
 const char *version(void)
 { fprintf(stderr, "version called!\n"); abort(); }
+/* Generated stub for wallet_blocks_height */
+u32 wallet_blocks_height(struct wallet *w UNNEEDED, u32 def UNNEEDED)
+{ fprintf(stderr, "wallet_blocks_height called!\n"); abort(); }
 /* Generated stub for wallet_channels_load_active */
 bool wallet_channels_load_active(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_channels_load_active called!\n"); abort(); }
-/* Generated stub for wallet_first_blocknum */
-u32 wallet_first_blocknum(struct wallet *w UNNEEDED, u32 first_possible UNNEEDED)
-{ fprintf(stderr, "wallet_first_blocknum called!\n"); abort(); }
 /* Generated stub for wallet_htlcs_load_for_channel */
 bool wallet_htlcs_load_for_channel(struct wallet *wallet UNNEEDED,
 				   struct channel *chan UNNEEDED,
@@ -154,6 +157,8 @@ struct log *crashlog;
 #undef main
 int main(int argc UNUSED, char *argv[] UNUSED)
 {
+	setup_locale();
+
 	char *argv0;
 	/* We're assuming we're run from top build dir. */
 	const char *answer;

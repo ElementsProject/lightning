@@ -289,4 +289,14 @@ bool routing_add_channel_update(struct routing_state *rstate,
 bool routing_add_node_announcement(struct routing_state *rstate,
                                   const u8 *msg TAKES);
 
+
+/**
+ * Add a local channel.
+ *
+ * Entrypoint to add a local channel that was not learned through gossip. This
+ * is the case for private channels or channels that have not yet reached
+ * `announce_depth`.
+ */
+void handle_local_add_channel(struct routing_state *rstate, u8 *msg);
+
 #endif /* LIGHTNING_GOSSIPD_ROUTING_H */

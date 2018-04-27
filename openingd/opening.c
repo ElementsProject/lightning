@@ -40,7 +40,6 @@
 
 struct state {
 	struct crypto_state cs;
-	u64 gossip_index;
 	struct pubkey next_per_commit[NUM_SIDES];
 
 	/* Initially temporary, then final channel id. */
@@ -82,14 +81,14 @@ static void negotiation_failed(struct state *state, const char *fmt, ...)
 
 	peer_billboard(true, errmsg);
 	msg = towire_status_peer_error(NULL, &state->channel_id,
-				       errmsg, &state->cs, state->gossip_index,
+				       errmsg, &state->cs,
 				       towire_errorfmt(errmsg,
 						       &state->channel_id,
 						       "You gave bad parameters:%s",
 						       errmsg));
 	tal_free(errmsg);
 	status_send_fatal(take(msg), PEER_FD, GOSSIP_FD);
-	peer_failed(&state->cs, state->gossip_index, &state->channel_id,
+	peer_failed(&state->cs, &state->channel_id,
 		    "You gave bad parameters: %s", errmsg);
 }
 
@@ -230,7 +229,7 @@ static u8 *opening_read_peer_msg(struct state *state)
 {
 	u8 *msg;
 
-	while ((msg = read_peer_msg(state, &state->cs, state->gossip_index,
+	while ((msg = read_peer_msg(state, &state->cs,
 				    &state->channel_id,
 				    sync_crypto_write_arg,
 				    status_fail_io,
@@ -329,7 +328,7 @@ static u8 *funder_channel(struct state *state,
 				     &theirs.delayed_payment,
 				     &theirs.htlc,
 				     &state->next_per_commit[REMOTE]))
-		peer_failed(&state->cs, state->gossip_index,
+		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "Parsing accept_channel %s", tal_hex(msg, msg));
 
@@ -338,7 +337,7 @@ static u8 *funder_channel(struct state *state,
 	 * The `temporary_channel_id` MUST be the same as the
 	 * `temporary_channel_id` in the `open_channel` message. */
 	if (!structeq(&id_in, &state->channel_id))
-		peer_failed(&state->cs, state->gossip_index,
+		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "accept_channel ids don't match: sent %s got %s",
 			    type_to_string(msg, struct channel_id, &id_in),
@@ -419,7 +418,7 @@ static u8 *funder_channel(struct state *state,
 					     &their_funding_pubkey,
 					     LOCAL);
 	if (!state->channel)
-		peer_failed(&state->cs, state->gossip_index,
+		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "could not create channel with given config");
 
@@ -466,7 +465,7 @@ static u8 *funder_channel(struct state *state,
 	msg = opening_read_peer_msg(state);
 
 	if (!fromwire_funding_signed(msg, &id_in, &sig))
-		peer_failed(&state->cs, state->gossip_index,
+		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "Parsing funding_signed: %s", tal_hex(msg, msg));
 
@@ -482,7 +481,7 @@ static u8 *funder_channel(struct state *state,
 			  &state->funding_txid, state->funding_txout);
 
 	if (!structeq(&id_in, &state->channel_id))
-		peer_failed(&state->cs, state->gossip_index, &id_in,
+		peer_failed(&state->cs, &id_in,
 			    "funding_signed ids don't match: expected %s got %s",
 			    type_to_string(msg, struct channel_id,
 					   &state->channel_id),
@@ -499,7 +498,7 @@ static u8 *funder_channel(struct state *state,
 				   "Could not meet our fees and reserve");
 
 	if (!check_tx_sig(tx, 0, NULL, wscript, &their_funding_pubkey, &sig)) {
-		peer_failed(&state->cs, state->gossip_index,
+		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "Bad signature %s on tx %s using key %s",
 			    type_to_string(tmpctx, secp256k1_ecdsa_signature,
@@ -518,7 +517,7 @@ static u8 *funder_channel(struct state *state,
 					   state->remoteconf,
 					   tx,
 					   &sig,
-					   &state->cs, state->gossip_index,
+					   &state->cs,
 					   &theirs.revocation,
 					   &theirs.payment,
 					   &theirs.htlc,
@@ -574,7 +573,7 @@ static u8 *fundee_channel(struct state *state,
 				   &theirs.htlc,
 				   &state->next_per_commit[REMOTE],
 				   &channel_flags))
-		peer_failed(&state->cs, state->gossip_index, NULL,
+		peer_failed(&state->cs, NULL,
 			    "Bad open_channel %s",
 			    tal_hex(peer_msg, peer_msg));
 
@@ -607,7 +606,7 @@ static u8 *fundee_channel(struct state *state,
 	 * greater than `funding_satoshis` * 1000.
 	 */
 	if (state->push_msat > state->funding_satoshis * 1000)
-		peer_failed(&state->cs, state->gossip_index,
+		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "Our push_msat %"PRIu64
 			    " would be too large for funding_satoshis %"PRIu64,
@@ -684,7 +683,7 @@ static u8 *fundee_channel(struct state *state,
 				      &state->funding_txid,
 				      &state->funding_txout,
 				      &theirsig))
-		peer_failed(&state->cs, state->gossip_index,
+		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "Parsing funding_created");
 
@@ -693,7 +692,7 @@ static u8 *fundee_channel(struct state *state,
 	 * The sender MUST set `temporary_channel_id` the same as the
 	 * `temporary_channel_id` in the `open_channel` message. */
 	if (!structeq(&id_in, &state->channel_id))
-		peer_failed(&state->cs, state->gossip_index, &id_in,
+		peer_failed(&state->cs, &id_in,
 			    "funding_created ids don't match: sent %s got %s",
 			    type_to_string(msg, struct channel_id,
 					   &state->channel_id),
@@ -712,7 +711,7 @@ static u8 *fundee_channel(struct state *state,
 					     &their_funding_pubkey,
 					     REMOTE);
 	if (!state->channel)
-		peer_failed(&state->cs, state->gossip_index,
+		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "We could not create channel with given config");
 
@@ -728,7 +727,7 @@ static u8 *fundee_channel(struct state *state,
 
 	if (!check_tx_sig(their_commit, 0, NULL, wscript, &their_funding_pubkey,
 			  &theirsig)) {
-		peer_failed(&state->cs, state->gossip_index,
+		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "Bad signature %s on tx %s using key %s",
 			    type_to_string(tmpctx, secp256k1_ecdsa_signature,
@@ -776,7 +775,6 @@ static u8 *fundee_channel(struct state *state,
 					   their_commit,
 					   &theirsig,
 					   &state->cs,
-					   state->gossip_index,
 					   &theirs.revocation,
 					   &theirs.payment,
 					   &theirs.htlc,
@@ -795,6 +793,8 @@ static u8 *fundee_channel(struct state *state,
 #ifndef TESTING
 int main(int argc, char *argv[])
 {
+	setup_locale();
+
 	u8 *msg, *peer_msg;
 	struct state *state = tal(NULL, struct state);
 	struct privkey seed;
@@ -820,7 +820,6 @@ int main(int argc, char *argv[])
 				   &state->max_to_self_delay,
 				   &state->min_effective_htlc_capacity_msat,
 				   &state->cs,
-				   &state->gossip_index,
 				   &seed))
 		master_badmsg(WIRE_OPENING_INIT, msg);
 

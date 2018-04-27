@@ -16,6 +16,7 @@
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
 #include <sodium/randombytes.h>
@@ -156,6 +157,7 @@ static void json_invoice(struct command *cmd,
 	struct invoice invoice;
 	struct invoice_details details;
 	jsmntok_t *msatoshi, *label, *desctok, *exp, *fallback, *fallbacks;
+	jsmntok_t *preimagetok;
 	u64 *msatoshi_val;
 	const struct json_escaped *label_val, *desc;
 	const char *desc_val;
@@ -174,6 +176,7 @@ static void json_invoice(struct command *cmd,
 			     "?expiry", &exp,
 			     "?fallback", &fallback,
 			     "?fallbacks", &fallbacks,
+			     "?preimage", &preimagetok,
 			     NULL)) {
 		return;
 	}
@@ -201,7 +204,9 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 	if (wallet_invoice_find_by_label(wallet, &invoice, label_val)) {
-		command_fail(cmd, "Duplicate label '%s'", label_val->s);
+		command_fail_detailed(cmd, INVOICE_LABEL_ALREADY_EXISTS,
+				      NULL,
+				      "Duplicate label '%s'", label_val->s);
 		return;
 	}
 	if (strlen(label_val->s) > INVOICE_MAX_LABEL_LEN) {
@@ -281,9 +286,30 @@ static void json_invoice(struct command *cmd,
 	struct preimage r;
 	struct sha256 rhash;
 
-	/* Generate random secret preimage and hash. */
-	randombytes_buf(r.r, sizeof(r.r));
+	if (preimagetok) {
+		/* Get secret preimage from user. */
+		if (!hex_decode(buffer + preimagetok->start,
+				preimagetok->end - preimagetok->start,
+				r.r, sizeof(r.r))) {
+			command_fail(cmd, "preimage must be 64 hex digits");
+			return;
+		}
+	} else
+		/* Generate random secret preimage. */
+		randombytes_buf(r.r, sizeof(r.r));
+	/* Generate preimage hash. */
 	sha256(&rhash, r.r, sizeof(r.r));
+
+	/* Check duplicate preimage if explicitly specified.
+	 * We do not check when it is randomly generated, since
+	 * the probability of that matching is very low.
+	 */
+	if (preimagetok &&
+	    wallet_invoice_find_by_rhash(cmd->ld->wallet, &invoice, &rhash)) {
+		command_fail_detailed(cmd, INVOICE_PREIMAGE_ALREADY_EXISTS,
+				      NULL, "preimage already used");
+		return;
+	}
 
 	/* Construct bolt11 string. */
 	b11 = new_bolt11(cmd, msatoshi_val);

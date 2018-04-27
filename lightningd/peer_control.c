@@ -44,6 +44,17 @@
 #include <wally_bip32.h>
 #include <wire/gen_onion_wire.h>
 
+struct close_command {
+	/* Inside struct lightningd close_commands. */
+	struct list_node list;
+	/* Command structure. This is the parent of the close command. */
+	struct command *cmd;
+	/* Channel being closed. */
+	struct channel *channel;
+	/* Should we force the close on timeout? */
+	bool force;
+};
+
 static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->ld->peers, &peer->list);
@@ -209,20 +220,138 @@ static void remove_sig(struct bitcoin_tx *signed_tx)
 	signed_tx->input[0].witness = tal_free(signed_tx->input[0].witness);
 }
 
-void drop_to_chain(struct lightningd *ld, struct channel *channel)
+/* Resolve a single close command. */
+static void
+resolve_one_close_command(struct close_command *cc, bool cooperative)
 {
+	struct json_result *result = new_json_result(cc);
+	u8 *tx = linearize_tx(result, cc->channel->last_tx);
+	struct bitcoin_txid txid;
+
+	bitcoin_txid(cc->channel->last_tx, &txid);
+
+	json_object_start(result, NULL);
+	json_add_hex(result, "tx", tx, tal_len(tx));
+	json_add_txid(result, "txid", &txid);
+	if (cooperative)
+		json_add_string(result, "type", "mutual");
+	else
+		json_add_string(result, "type", "unilateral");
+	json_object_end(result);
+
+	command_success(cc->cmd, result);
+}
+
+/* Resolve a close command for a channel that will be closed soon. */
+static void
+resolve_close_command(struct lightningd *ld, struct channel *channel,
+		      bool cooperative)
+{
+	struct close_command *cc;
+	struct close_command *n;
+
+	list_for_each_safe (&ld->close_commands, cc, n, list) {
+		if (cc->channel != channel)
+			continue;
+		resolve_one_close_command(cc, cooperative);
+	}
+}
+
+/* Destroy the close command structure in reaction to the
+ * channel being destroyed. */
+static void
+destroy_close_command_on_channel_destroy(struct channel *_ UNUSED,
+					 struct close_command *cc)
+{
+	/* The cc has the command as parent, so resolving the
+	 * command destroys the cc and triggers destroy_close_command.
+	 * Clear the cc->channel first so that we will not try to
+	 * remove a destructor. */
+	cc->channel = NULL;
+	command_fail(cc->cmd, "Channel forgotten before proper close.");
+}
+
+/* Destroy the close command structure. */
+static void
+destroy_close_command(struct close_command *cc)
+{
+	list_del(&cc->list);
+	/* If destroy_close_command_on_channel_destroy was
+	 * triggered beforehand, it will have cleared
+	 * the channel field, preventing us from removing it
+	 * from an already-destroyed channel. */
+	if (!cc->channel)
+		return;
+	tal_del_destructor2(cc->channel,
+			    &destroy_close_command_on_channel_destroy,
+			    cc);
+}
+
+/* Handle timeout. */
+static void
+close_command_timeout(struct close_command *cc)
+{
+	if (cc->force)
+		/* This will trigger drop_to_chain, which will trigger
+		 * resolution of the command and destruction of the
+		 * close_command. */
+		channel_fail_permanent(cc->channel,
+				       "Forcibly closed by 'close' command timeout");
+	else
+		/* Fail the command directly, which will resolve the
+		 * command and destroy the close_command. */
+		command_fail(cc->cmd,
+			     "Channel close negotiation not finished "
+			     "before timeout");
+}
+
+/* Construct a close command structure and add to ld. */
+static void
+register_close_command(struct lightningd *ld,
+		       struct command *cmd,
+		       struct channel *channel,
+		       unsigned int timeout,
+		       bool force)
+{
+	struct close_command *cc;
+	assert(channel);
+
+	cc = tal(cmd, struct close_command);
+	list_add_tail(&ld->close_commands, &cc->list);
+	cc->cmd = cmd;
+	cc->channel = channel;
+	cc->force = force;
+	tal_add_destructor(cc, &destroy_close_command);
+	tal_add_destructor2(channel,
+			    &destroy_close_command_on_channel_destroy,
+			    cc);
+	new_reltimer(&ld->timers, cc, time_from_sec(timeout),
+		     &close_command_timeout, cc);
+}
+
+void drop_to_chain(struct lightningd *ld, struct channel *channel,
+		   bool cooperative)
+{
+	u8 *msg;
+
+	/* Tell gossipd we no longer need to keep connection to this peer */
+	msg = towire_gossipctl_peer_important(NULL, &channel->peer->id, false);
+	subd_send_msg(ld->gossip, take(msg));
+
 	sign_last_tx(channel);
 
 	/* Keep broadcasting until we say stop (can fail due to dup,
 	 * if they beat us to the broadcast). */
 	broadcast_tx(ld->topology, channel, channel->last_tx, NULL);
+
+	resolve_close_command(ld, channel, cooperative);
+
 	remove_sig(channel->last_tx);
 }
 
 void channel_errmsg(struct channel *channel,
 		    int peer_fd, int gossip_fd,
 		    const struct crypto_state *cs,
-		    u64 gossip_index,
 		    const struct channel_id *channel_id UNUSED,
 		    const char *desc,
 		    const u8 *err_for_them)
@@ -242,6 +371,9 @@ void channel_errmsg(struct channel *channel,
 		channel->error = tal_dup_arr(channel, u8,
 					     err_for_them,
 					     tal_len(err_for_them), 0);
+
+	/* Make sure channel_fail_permanent doesn't tell gossipd we died! */
+	channel->connected = false;
 
 	/* BOLT #1:
 	 *
@@ -269,14 +401,14 @@ void channel_errmsg(struct channel *channel,
 
 	/* Hand back to gossipd, with any error packet. */
 	msg = towire_gossipctl_hand_back_peer(NULL, &channel->peer->id,
-					      cs, gossip_index,
-					      err_for_them);
+					      cs, err_for_them);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
 	subd_send_fd(ld->gossip, gossip_fd);
 }
 
-/* Gossipd tells us a peer has connected */
+/* Gossipd tells us a peer has connected: it never hands us duplicates, since
+ * it holds them until we say peer_died. */
 void peer_connected(struct lightningd *ld, const u8 *msg,
 		    int peer_fd, int gossip_fd)
 {
@@ -288,11 +420,10 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	u8 *local_features;
 	struct channel *channel;
 	struct wireaddr addr;
-	u64 gossip_index;
 	struct uncommitted_channel *uc;
 
 	if (!fromwire_gossip_peer_connected(msg, msg,
-					    &id, &addr, &cs, &gossip_index,
+					    &id, &addr, &cs,
 					    &gfeatures, &lfeatures))
 		fatal("Gossip gave bad GOSSIP_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
@@ -316,16 +447,18 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		goto send_error;
 	}
 
+	/* Were we trying to open a channel, and we've raced? */
+	if (handle_opening_channel(ld, &id, &addr, &cs,
+				   gfeatures, lfeatures, peer_fd, gossip_fd))
+		return;
+
 	/* If we're already dealing with this peer, hand off to correct
 	 * subdaemon.  Otherwise, we'll respond iff they ask about an inactive
 	 * channel. */
 	channel = active_channel_by_id(ld, &id, &uc);
 
-	/* Opening now?  Kill it */
-	if (uc) {
-		kill_uncommitted_channel(uc, "Peer reconnected");
-		goto return_to_gossipd;
-	}
+	/* Can't be opening now, since we wouldn't have sent peer_died. */
+	assert(!uc);
 
 	if (channel) {
 		log_debug(channel->log, "Peer has reconnected, state %s",
@@ -355,47 +488,32 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		case CHANNELD_AWAITING_LOCKIN:
 		case CHANNELD_NORMAL:
 		case CHANNELD_SHUTTING_DOWN:
-			/* Stop any existing daemon, without triggering error
-			 * on this peer. */
-			channel_set_owner(channel, NULL);
+			assert(!channel->owner);
 
 			channel->peer->addr = addr;
-			peer_start_channeld(channel, &cs, gossip_index,
+			peer_start_channeld(channel, &cs,
 					    peer_fd, gossip_fd, NULL,
 					    true);
-			goto connected;
+			return;
 
 		case CLOSINGD_SIGEXCHANGE:
-			/* Stop any existing daemon, without triggering error
-			 * on this peer. */
-			channel_set_owner(channel, NULL);
+			assert(!channel->owner);
 
 			channel->peer->addr = addr;
-			peer_start_closingd(channel, &cs, gossip_index,
+			peer_start_closingd(channel, &cs,
 					    peer_fd, gossip_fd,
-					    true);
-			goto connected;
+					    true, NULL);
+			return;
 		}
 		abort();
 	}
 
-return_to_gossipd:
-	/* Otherwise, we hand back to gossipd, to continue. */
-	msg = towire_gossipctl_hand_back_peer(msg, &id, &cs, gossip_index, NULL);
-	subd_send_msg(ld->gossip, take(msg));
-	subd_send_fd(ld->gossip, peer_fd);
-	subd_send_fd(ld->gossip, gossip_fd);
-
-connected:
-	/* If we were waiting for connection, we succeeded. */
-	connect_succeeded(ld, &id);
-	return;
+	/* No err, all good. */
+	error = NULL;
 
 send_error:
 	/* Hand back to gossipd, with an error packet. */
-	connect_failed(ld, &id, sanitize_error(msg, error, NULL));
-	msg = towire_gossipctl_hand_back_peer(msg, &id, &cs, gossip_index,
-					      error);
+	msg = towire_gossipctl_hand_back_peer(msg, &id, &cs, error);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
 	subd_send_fd(ld->gossip, gossip_fd);
@@ -423,7 +541,6 @@ void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
 			 const struct wireaddr *addr,
 			 const struct crypto_state *cs,
-			 u64 gossip_index,
 			 const u8 *gfeatures,
 			 const u8 *lfeatures,
 			 int peer_fd, int gossip_fd,
@@ -443,7 +560,7 @@ void peer_sent_nongossip(struct lightningd *ld,
 	/* Open request? */
 	if (fromwire_peektype(in_msg) == WIRE_OPEN_CHANNEL) {
 		error = peer_accept_channel(tmpctx,
-					    ld, id, addr, cs, gossip_index,
+					    ld, id, addr, cs,
 					    gfeatures, lfeatures,
 					    peer_fd, gossip_fd, channel_id,
 					    in_msg);
@@ -461,6 +578,17 @@ void peer_sent_nongossip(struct lightningd *ld,
 			error = channel->error;
 			goto send_error;
 		}
+
+		/* Reestablish for a now-closed channel?  They might have
+		 * missed final update, so do the closing negotiation dance
+		 * again. */
+		if (fromwire_peektype(in_msg) == WIRE_CHANNEL_REESTABLISH
+		    && channel
+		    && channel->state == CLOSINGD_COMPLETE) {
+			peer_start_closingd(channel, cs,
+					    peer_fd, gossip_fd, true, in_msg);
+			return;
+		}
 	}
 
 	/* Weird request. */
@@ -470,8 +598,7 @@ void peer_sent_nongossip(struct lightningd *ld,
 
 send_error:
 	/* Hand back to gossipd, with an error packet. */
-	connect_failed(ld, id, sanitize_error(tmpctx, error, NULL));
-	msg = towire_gossipctl_hand_back_peer(ld, id, cs, gossip_index, error);
+	msg = towire_gossipctl_hand_back_peer(ld, id, cs, error);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
 	subd_send_fd(ld->gossip, gossip_fd);
@@ -504,8 +631,6 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 					   unsigned int depth)
 {
 	const char *txidstr;
-	struct txlocator *loc;
-	bool channel_ready;
 	struct lightningd *ld = channel->peer->ld;
 
 	txidstr = type_to_string(channel, struct bitcoin_txid, txid);
@@ -516,30 +641,21 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 	if (depth < channel->minimum_depth)
 		return KEEP_WATCHING;
 
-	loc = wallet_transaction_locate(channel, ld->wallet, txid);
-
 	/* If we restart, we could already have peer->scid from database */
 	if (!channel->scid) {
+		struct txlocator *loc;
+
+		loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
 		channel->scid = tal(channel, struct short_channel_id);
 		mk_short_channel_id(channel->scid,
 				    loc->blkheight, loc->index,
 				    channel->funding_outnum);
+		/* We've added scid, update */
+		wallet_channel_save(ld->wallet, channel);
 	}
-	tal_free(loc);
 
-	/* In theory, it could have been buried before we got back
-	 * from accepting openingd or disconnected: just wait for next one. */
-	channel_ready = (channel->owner && channel->state == CHANNELD_AWAITING_LOCKIN);
-	if (!channel_ready) {
-		log_debug(channel->log,
-			  "Funding tx confirmed, but channel state %s %s",
-			  channel_state_name(channel),
-			  channel->owner ? channel->owner->name : "unowned");
-	} else {
-		subd_send_msg(channel->owner,
-			      take(towire_channel_funding_locked(channel,
-								 channel->scid)));
-	}
+	if (!channel_tell_funding_locked(ld, channel, txid))
+		return KEEP_WATCHING;
 
 	/* BOLT #7:
 	 *
@@ -561,6 +677,20 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 		watch_txid(channel, ld->topology, channel, txid,
 			   funding_announce_cb);
 	return DELETE_WATCH;
+}
+
+static enum watch_result funding_spent(struct channel *channel,
+				       const struct bitcoin_tx *tx,
+				       size_t inputnum UNUSED,
+				       const struct block *block)
+{
+	struct bitcoin_txid txid;
+	bitcoin_txid(tx, &txid);
+
+	wallet_channeltxs_add(channel->peer->ld->wallet, channel,
+			      WIRE_ONCHAIN_INIT, &txid, 0, block->height);
+
+	return onchaind_funding_spent(channel, tx, block->height);
 }
 
 void channel_watch_funding(struct lightningd *ld, struct channel *channel)
@@ -640,7 +770,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 			connected = true;
 		else {
 			channel = peer_active_channel(p);
-			connected = channel && channel->owner;
+			connected = channel && channel->connected;
 		}
 		json_add_bool(response, "connected", connected);
 
@@ -854,11 +984,17 @@ static void json_close(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)
 {
 	jsmntok_t *peertok;
+	jsmntok_t *timeouttok;
+	jsmntok_t *forcetok;
 	struct peer *peer;
 	struct channel *channel;
+	unsigned int timeout = 30;
+	bool force = false;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "id", &peertok,
+			     "?force", &forcetok,
+			     "?timeout", &timeouttok,
 			     NULL)) {
 		return;
 	}
@@ -866,6 +1002,18 @@ static void json_close(struct command *cmd,
 	peer = peer_from_json(cmd->ld, buffer, peertok);
 	if (!peer) {
 		command_fail(cmd, "Could not find peer with that id");
+		return;
+	}
+	if (forcetok && !json_tok_bool(buffer, forcetok, &force)) {
+		command_fail(cmd, "Force '%.*s' must be true or false",
+			     forcetok->end - forcetok->start,
+			     buffer + forcetok->start);
+		return;
+	}
+	if (timeouttok && !json_tok_number(buffer, timeouttok, &timeout)) {
+		command_fail(cmd, "Timeout '%.*s' is not a number",
+			     timeouttok->end - timeouttok->start,
+			     buffer + timeouttok->start);
 		return;
 	}
 
@@ -883,7 +1031,22 @@ static void json_close(struct command *cmd,
 		return;
 	}
 
-	/* Normal case. */
+	/* Normal case.
+	 * We allow states shutting down and sigexchange; a previous
+	 * close command may have timed out, and this current command
+	 * will continue waiting for the effects of the previous
+	 * close command. */
+	if (channel->state != CHANNELD_NORMAL &&
+	    channel->state != CHANNELD_AWAITING_LOCKIN &&
+	    channel->state != CHANNELD_SHUTTING_DOWN &&
+	    channel->state != CLOSINGD_SIGEXCHANGE)
+		command_fail(cmd, "Peer is in state %s",
+			     channel_state_name(channel));
+
+	/* If normal or locking in, transition to shutting down
+	 * state.
+	 * (if already shutting down or sigexchange, just keep
+	 * waiting) */
 	if (channel->state == CHANNELD_NORMAL || channel->state == CHANNELD_AWAITING_LOCKIN) {
 		channel_set_state(channel,
 				  channel->state, CHANNELD_SHUTTING_DOWN);
@@ -891,11 +1054,13 @@ static void json_close(struct command *cmd,
 		if (channel->owner)
 			subd_send_msg(channel->owner,
 				      take(towire_channel_send_shutdown(channel)));
+	}
 
-		command_success(cmd, null_response(cmd));
-	} else
-		command_fail(cmd, "Peer is in state %s",
-			     channel_state_name(channel));
+	/* Register this command for later handling. */
+	register_close_command(cmd->ld, cmd, channel, timeout, force);
+
+	/* Wait until close drops down to chain. */
+	command_still_pending(cmd);
 }
 
 static const struct json_command close_command = {
@@ -915,12 +1080,11 @@ static void activate_peer(struct peer *peer)
 	msg = towire_gossipctl_peer_addrhint(peer, &peer->id, &peer->addr);
 	subd_send_msg(peer->ld->gossip, take(msg));
 
-	/* We can only have one active channel: reconnect if not already. */
+	/* We can only have one active channel: make sure gossipd
+	 * knows to reconnect. */
 	channel = peer_active_channel(peer);
-	if (channel && !channel->owner) {
-		msg = towire_gossipctl_reach_peer(peer, &peer->id);
-		subd_send_msg(peer->ld->gossip, take(msg));
-	}
+	if (channel)
+		tell_gossipd_peer_is_important(ld, channel);
 
 	list_for_each(&peer->channels, channel, list) {
 		/* Watching lockin may be unnecessary, but it's harmless. */
