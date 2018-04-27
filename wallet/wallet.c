@@ -766,6 +766,7 @@ void wallet_channel_stats_load(struct wallet *w,
 	stats->out_payments_fulfilled = sqlite3_column_int64(stmt, 5);
 	stats->out_msatoshi_offered = sqlite3_column_int64(stmt, 6);
 	stats->out_msatoshi_fulfilled = sqlite3_column_int64(stmt, 7);
+	db_stmt_done(stmt);
 }
 
 u32 wallet_blocks_height(struct wallet *w, u32 def)
@@ -778,8 +779,10 @@ u32 wallet_blocks_height(struct wallet *w, u32 def)
 		blockheight = sqlite3_column_int(stmt, 0);
 		db_stmt_done(stmt);
 		return blockheight;
-	} else
+	} else {
+		db_stmt_done(stmt);
 		return def;
+	}
 }
 
 static void wallet_channel_config_insert(struct wallet *w,
@@ -2103,8 +2106,10 @@ struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 	sqlite3_bind_int(stmt, 3, short_channel_id_outnum(scid));
 
 
-	if (sqlite3_step(stmt) != SQLITE_ROW)
+	if (sqlite3_step(stmt) != SQLITE_ROW) {
+		db_stmt_done(stmt);
 		return NULL;
+	}
 
 	op = tal(ctx, struct outpoint);
 	op->blockheight = short_channel_id_blocknum(scid);
@@ -2115,6 +2120,7 @@ struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 	op->scriptpubkey = tal_arr(op, u8, sqlite3_column_bytes(stmt, 2));
 	memcpy(op->scriptpubkey, sqlite3_column_blob(stmt, 2), sqlite3_column_bytes(stmt, 2));
 	op->satoshis = sqlite3_column_int64(stmt, 3);
+	db_stmt_done(stmt);
 
 	return op;
 }
@@ -2300,6 +2306,6 @@ struct channeltx *wallet_channeltxs_get(struct wallet *w, const tal_t *ctx,
 		res[count-1].depth = sqlite3_column_int(stmt, 4);
 		sqlite3_column_sha256(stmt, 5, &res[count-1].txid.shad.sha);
 	}
-
+	db_stmt_done(stmt);
 	return res;
 }
