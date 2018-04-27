@@ -744,15 +744,8 @@ u8 *peer_accept_channel(const tal_t *ctx,
 
 	subd_send_msg(uc->openingd, take(msg));
 
-	/* BOLT #2:
-	 *
-	 * Given the variance in fees, and the fact that the transaction may
-	 * be spent in the future, it's a good idea for the fee payer to keep
-	 * a good margin, say 5x the expected fee requirement */
 	msg = towire_opening_fundee(uc, uc->minimum_depth,
-				    get_feerate(ld->topology, FEERATE_SLOW),
-				    get_feerate(ld->topology, FEERATE_IMMEDIATE)
-				    * 5,
+				    feerate_min(ld), feerate_max(ld),
 				    open_msg);
 
 	subd_req(uc, uc->openingd, take(msg), -1, 2,

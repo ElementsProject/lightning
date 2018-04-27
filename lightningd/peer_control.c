@@ -162,12 +162,18 @@ u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
 
 u32 feerate_min(struct lightningd *ld)
 {
-	if (ld->config.ignore_fee_limits)
-		return 1;
+	u32 min;
 
-	/* Set this to average of slow and normal.*/
-	return (get_feerate(ld->topology, FEERATE_SLOW)
-		+ get_feerate(ld->topology, FEERATE_NORMAL)) / 2;
+	/* We can't allow less than feerate_floor, since that won't relay */
+	if (ld->config.ignore_fee_limits)
+		min = 1;
+	else
+		/* Set this to half of slow rate.*/
+		min = get_feerate(ld->topology, FEERATE_SLOW) / 2;
+
+	if (min < feerate_floor())
+		return feerate_floor();
+	return min;
 }
 
 /* BOLT #2:
