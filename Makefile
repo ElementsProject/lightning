@@ -213,7 +213,7 @@ ifndef PYTEST
 	@echo "py.test is required to run the integration tests, please install using 'pip3 install -r tests/requirements.txt'"
 	exit 1
 else
-	PYTHONPATH=contrib/pylightning:$$PYTHONPATH TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) $(PYTEST) tests/ $(PYTEST_OPTS)
+	PYTHONPATH=contrib/pylightning:$$PYTHONPATH TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) NO_VALGRIND=$(NO_VALGRIND) $(PYTEST) tests/ $(PYTEST_OPTS)
 endif
 
 # Keep includes in alpha order.
