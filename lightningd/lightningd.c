@@ -328,9 +328,6 @@ int main(int argc, char *argv[])
 	/* Now we know our ID, we can set our color/alias if not already. */
 	setup_color_and_alias(ld);
 
-	/* Set up gossip daemon. */
-	gossip_init(ld);
-
 	/* Everything is within a transaction. */
 	db_begin_transaction(ld->wallet->db);
 
@@ -393,6 +390,10 @@ int main(int argc, char *argv[])
 		       &ld->timers,
 		       ld->config.poll_time,
 		       blockheight);
+
+	/* Set up gossip daemon. Needs to be after the initialization of
+	 * chaintopology, otherwise we may be asking for uninitialized data. */
+	gossip_init(ld);
 
 	/* Replay transactions for all running onchainds */
 	onchaind_replay_channels(ld);
