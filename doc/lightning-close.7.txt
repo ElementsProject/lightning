@@ -15,8 +15,12 @@ DESCRIPTION
 
 The *close* RPC command attempts to close the channel cooperatively
 with the peer.
-It applies to the active channel of the direct peer corresponding to
-the given peer 'id'.
+If the given 'id' is a peer ID (66 hex digits as a string), then
+it applies to the active channel of the direct peer corresponding to
+the given peer ID.
+If the given 'id' is a channel ID (64 hex digits as a string, or
+the short channel ID 'blockheight:txindex:outindex' form), then it
+applies to that channel.
 
 The *close* command will time out and return with an error when the
 number of seconds specified in 'timeout' is reached.

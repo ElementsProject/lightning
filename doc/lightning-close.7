@@ -2,12 +2,12 @@
 .\"     Title: lightning-close
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 04/15/2018
+.\"      Date: 04/30/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-CLOSE" "7" "04/15/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-CLOSE" "7" "04/30/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -34,7 +34,7 @@ lightning-close \- Protocol for closing channels with direct peers
 \fBclose\fR \fIid\fR [\fIforce\fR] [\fItimeout\fR]
 .SH "DESCRIPTION"
 .sp
-The \fBclose\fR RPC command attempts to close the channel cooperatively with the peer\&. It applies to the active channel of the direct peer corresponding to the given peer \fIid\fR\&.
+The \fBclose\fR RPC command attempts to close the channel cooperatively with the peer\&. If the given \fIid\fR is a peer ID (66 hex digits as a string), then it applies to the active channel of the direct peer corresponding to the given peer ID\&. If the given \fIid\fR is a channel ID (64 hex digits as a string, or the short channel ID \fIblockheight:txindex:outindex\fR form), then it applies to that channel\&.
 .sp
 The \fBclose\fR command will time out and return with an error when the number of seconds specified in \fItimeout\fR is reached\&. If unspecified, it times out in 30 seconds\&.
 .sp

@@ -254,6 +254,10 @@ void json_object_start(struct json_result *ptr UNNEEDED, const char *fieldname U
 /* Generated stub for json_tok_bool */
 bool json_tok_bool(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, bool *b UNNEEDED)
 { fprintf(stderr, "json_tok_bool called!\n"); abort(); }
+/* Generated stub for json_tok_channel_id */
+bool json_tok_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+			 struct channel_id *cid UNNEEDED)
+{ fprintf(stderr, "json_tok_channel_id called!\n"); abort(); }
 /* Generated stub for json_tok_loglevel */
 bool json_tok_loglevel(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		       enum log_level *level UNNEEDED)
