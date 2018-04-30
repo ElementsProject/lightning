@@ -1625,12 +1625,11 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 				   const u8 *msg)
 {
 	struct bitcoin_blkid chain_hash;
-	u16 port;
 	u32 update_channel_interval;
 
 	if (!fromwire_gossipctl_init(
 		daemon, msg, &daemon->broadcast_interval, &chain_hash,
-		&daemon->id, &port, &daemon->globalfeatures,
+		&daemon->id, &daemon->globalfeatures,
 		&daemon->localfeatures, &daemon->wireaddrs, daemon->rgb,
 		daemon->alias, &update_channel_interval, &daemon->no_reconnect)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
@@ -1639,18 +1638,31 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	daemon->rstate = new_routing_state(daemon, &chain_hash, &daemon->id,
 					   update_channel_interval * 2);
 
-	setup_listeners(daemon, port);
+	/* Load stored gossip messages */
+	gossip_store_load(daemon->rstate, daemon->rstate->store);
 
 	new_reltimer(&daemon->timers, daemon,
 		     time_from_sec(daemon->rstate->prune_timeout/4),
 		     gossip_refresh_network, daemon);
 
-	/* Load stored gossip messages */
-	gossip_store_load(daemon->rstate, daemon->rstate->store);
+	return daemon_conn_read_next(master->conn, master);
+}
+
+static struct io_plan *gossip_activate(struct daemon_conn *master,
+				       struct daemon *daemon,
+				       const u8 *msg)
+{
+	u16 port;
+
+	if (!fromwire_gossipctl_activate(msg, &port))
+		master_badmsg(WIRE_GOSSIPCTL_ACTIVATE, msg);
+
+	setup_listeners(daemon, port);
 
 	/* OK, we're ready! */
 	daemon_conn_send(&daemon->master,
-			 take(towire_gossipctl_init_reply(NULL)));
+			 take(towire_gossipctl_activate_reply(NULL)));
+
 	return daemon_conn_read_next(master->conn, master);
 }
 
@@ -2271,6 +2283,9 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIPCTL_INIT:
 		return gossip_init(master, daemon, master->msg_in);
 
+	case WIRE_GOSSIPCTL_ACTIVATE:
+		return gossip_activate(master, daemon, master->msg_in);
+
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
 		return release_peer(conn, daemon, master->msg_in);
 
@@ -2326,7 +2341,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		return handle_outpoint_spent(conn, daemon, master->msg_in);
 
 	/* We send these, we don't receive them */
-	case WIRE_GOSSIPCTL_INIT_REPLY:
+	case WIRE_GOSSIPCTL_ACTIVATE_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
 	case WIRE_GOSSIP_GETNODES_REPLY:

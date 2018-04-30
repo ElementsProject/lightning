@@ -42,6 +42,9 @@ void   fatal(const char *fmt UNNEEDED, ...)
 /* Generated stub for free_htlcs */
 void free_htlcs(struct lightningd *ld UNNEEDED, const struct channel *channel UNNEEDED)
 { fprintf(stderr, "free_htlcs called!\n"); abort(); }
+/* Generated stub for gossip_activate */
+void gossip_activate(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "gossip_activate called!\n"); abort(); }
 /* Generated stub for gossip_init */
 void gossip_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "gossip_init called!\n"); abort(); }
