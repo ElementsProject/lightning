@@ -8,6 +8,7 @@
 #include <lightningd/options.h>
 #include <sys/socket.h>
 #include <wallet/wallet.h>
+#include <wire/wire.h>
 
 /* Output a route hop */
 static void
@@ -108,6 +109,14 @@ bool json_tok_short_channel_id(const char *buffer, const jsmntok_t *tok,
 	return short_channel_id_from_str(buffer + tok->start,
 					 tok->end - tok->start,
 					 scid);
+}
+
+bool
+json_tok_channel_id(const char *buffer, const jsmntok_t *tok,
+		    struct channel_id *cid)
+{
+	return hex_decode(buffer + tok->start, tok->end - tok->start,
+			  cid, sizeof(*cid));
 }
 
 void json_add_address(struct json_result *response, const char *fieldname,

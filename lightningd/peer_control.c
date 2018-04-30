@@ -985,10 +985,60 @@ static const struct json_command listpeers_command = {
 };
 AUTODATA(json_command, &listpeers_command);
 
+static struct channel *
+command_find_channel(struct command *cmd,
+		     const char *buffer, const jsmntok_t *tok)
+{
+	struct lightningd *ld = cmd->ld;
+	struct channel_id cid;
+	struct channel_id channel_cid;
+	struct short_channel_id scid;
+	struct peer *peer;
+	struct channel *channel;
+
+	if (json_tok_channel_id(buffer, tok, &cid)) {
+		list_for_each(&ld->peers, peer, list) {
+			channel = peer_active_channel(peer);
+			if (!channel)
+				continue;
+			derive_channel_id(&channel_cid,
+					  &channel->funding_txid,
+					  channel->funding_outnum);
+			if (structeq(&channel_cid, &cid))
+				return channel;
+		}
+		command_fail(cmd,
+			     "Channel ID not found: '%.*s'",
+			     tok->end - tok->start,
+			     buffer + tok->start);
+		return NULL;
+	} else if (json_tok_short_channel_id(buffer, tok, &scid)) {
+		list_for_each(&ld->peers, peer, list) {
+			channel = peer_active_channel(peer);
+			if (!channel)
+				continue;
+			if (channel->scid && channel->scid->u64 == scid.u64)
+				return channel;
+		}
+		command_fail(cmd,
+			     "Short channel ID not found: '%.*s'",
+			     tok->end - tok->start,
+			     buffer + tok->start);
+		return NULL;
+	} else {
+		command_fail(cmd,
+			     "Given id is not a channel ID or "
+			     "short channel ID: '%.*s'",
+			     tok->end - tok->start,
+			     buffer + tok->start);
+		return NULL;
+	}
+}
+
 static void json_close(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *peertok;
+	jsmntok_t *idtok;
 	jsmntok_t *timeouttok;
 	jsmntok_t *forcetok;
 	struct peer *peer;
@@ -997,18 +1047,13 @@ static void json_close(struct command *cmd,
 	bool force = false;
 
 	if (!json_get_params(cmd, buffer, params,
-			     "id", &peertok,
+			     "id", &idtok,
 			     "?force", &forcetok,
 			     "?timeout", &timeouttok,
 			     NULL)) {
 		return;
 	}
 
-	peer = peer_from_json(cmd->ld, buffer, peertok);
-	if (!peer) {
-		command_fail(cmd, "Could not find peer with that id");
-		return;
-	}
 	if (forcetok && !json_tok_bool(buffer, forcetok, &force)) {
 		command_fail(cmd, "Force '%.*s' must be true or false",
 			     forcetok->end - forcetok->start,
@@ -1022,8 +1067,16 @@ static void json_close(struct command *cmd,
 		return;
 	}
 
-	channel = peer_active_channel(peer);
-	if (!channel) {
+	peer = peer_from_json(cmd->ld, buffer, idtok);
+	if (peer)
+		channel = peer_active_channel(peer);
+	else {
+		channel = command_find_channel(cmd, buffer, idtok);
+		if (!channel)
+			return;
+	}
+
+	if (!channel && peer) {
 		struct uncommitted_channel *uc = peer->uncommitted_channel;
 		if (uc) {
 			/* Easy case: peer can simply be forgotten. */
@@ -1045,7 +1098,7 @@ static void json_close(struct command *cmd,
 	    channel->state != CHANNELD_AWAITING_LOCKIN &&
 	    channel->state != CHANNELD_SHUTTING_DOWN &&
 	    channel->state != CLOSINGD_SIGEXCHANGE)
-		command_fail(cmd, "Peer is in state %s",
+		command_fail(cmd, "Channel is in state %s",
 			     channel_state_name(channel));
 
 	/* If normal or locking in, transition to shutting down
@@ -1071,7 +1124,12 @@ static void json_close(struct command *cmd,
 static const struct json_command close_command = {
 	"close",
 	json_close,
-	"Close the channel with peer {id}"
+	"Close the channel with {id} "
+	"(either peer ID, channel ID, or short channel ID). "
+	"If {force} (default false) is true, force a unilateral close "
+	"after {timeout} seconds (default 30), "
+	"otherwise just schedule a mutual close later and fail after "
+	"timing out."
 };
 AUTODATA(json_command, &close_command);
 
