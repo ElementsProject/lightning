@@ -118,6 +118,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	switch (t) {
 	/* These are messages we send, not them. */
 	case WIRE_GOSSIPCTL_INIT:
+	case WIRE_GOSSIPCTL_ACTIVATE:
 	case WIRE_GOSSIP_GETNODES_REQUEST:
 	case WIRE_GOSSIP_GETROUTE_REQUEST:
 	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
@@ -139,7 +140,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPCTL_PEER_IMPORTANT:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECTED:
 	/* This is a reply, so never gets through to here. */
-	case WIRE_GOSSIPCTL_INIT_REPLY:
+	case WIRE_GOSSIPCTL_ACTIVATE_REPLY:
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
@@ -175,15 +176,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	return 0;
 }
 
-static void gossip_init_done(struct subd *gossip UNUSED,
-			     const u8 *reply UNUSED,
-			     const int *fds UNUSED,
-			     void *unused UNUSED)
-{
-	/* Break out of loop, so we can begin */
-	io_break(gossip);
-}
-
 /* Create the `gossipd` subdaemon and send the initialization
  * message */
 void gossip_init(struct lightningd *ld)
@@ -217,13 +209,29 @@ void gossip_init(struct lightningd *ld)
 
 	msg = towire_gossipctl_init(
 	    tmpctx, ld->config.broadcast_interval,
-	    &get_chainparams(ld)->genesis_blockhash, &ld->id, ld->portnum,
+	    &get_chainparams(ld)->genesis_blockhash, &ld->id,
 	    get_offered_global_features(tmpctx),
 	    get_offered_local_features(tmpctx), ld->wireaddrs, ld->rgb,
 	    ld->alias, ld->config.channel_update_interval, no_reconnect);
-	subd_req(ld->gossip, ld->gossip, msg, -1, 0, gossip_init_done, NULL);
+	subd_send_msg(ld->gossip, msg);
+}
 
-	/* Wait for init done */
+static void gossip_activate_done(struct subd *gossip UNUSED,
+				 const u8 *reply UNUSED,
+				 const int *fds UNUSED,
+				 void *unused UNUSED)
+{
+	/* Break out of loop, so we can begin */
+	io_break(gossip);
+}
+
+void gossip_activate(struct lightningd *ld)
+{
+	const u8 *msg = towire_gossipctl_activate(NULL, ld->portnum);
+	subd_req(ld->gossip, ld->gossip, take(msg), -1, 0,
+		 gossip_activate_done, NULL);
+
+	/* Wait for activate done */
 	io_loop(NULL, NULL);
 }
 
