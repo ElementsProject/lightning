@@ -18,7 +18,7 @@ VALGRIND_TEST_ARGS = --track-origins=yes --leak-check=full --show-reachable=yes 
 endif
 
 # By default, we are in DEVELOPER mode, use DEVELOPER= on cmdline to override.
-DEVELOPER := 1
+DEVELOPER := 0
 
 ifeq ($(DEVELOPER),1)
 DEV_CFLAGS=-DDEVELOPER=1 -DCCAN_TAL_DEBUG=1 -DCCAN_TAKE_DEBUG=1
