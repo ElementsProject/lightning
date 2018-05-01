@@ -210,6 +210,9 @@ struct chan *new_chan(struct routing_state *rstate,
 	size_t n;
 	struct node *n1, *n2;
 
+	/* We should never add a channel twice */
+	assert(!uintmap_get(&rstate->chanmap, scid->u64));
+
 	/* Create nodes on demand */
 	n1 = get_node(rstate, id1);
 	if (!n1)
