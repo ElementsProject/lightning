@@ -565,6 +565,125 @@ static const struct config mainnet_config = {
 	.rescan = 15,
 };
 
+static const struct config litecoin_testnet_config = {
+	/* 6 blocks to catch cheating attempts. */
+	.locktime_blocks = 6,
+
+	/* They can have up to 1 day. */
+	.locktime_max = 1 * 6 * 4 * 24,
+
+	/* Testnet can have long runs of empty blocks. */
+	.anchor_onchain_wait = 100,
+
+	/* We're fairly trusting, under normal circumstances. */
+	.anchor_confirms = 1,
+
+	/* More than 10 confirms seems overkill. */
+	.anchor_confirms_max = 10,
+
+	/* Testnet fees are crazy, allow infinite feerange. */
+	.commitment_fee_min_percent = 0,
+	.commitment_fee_max_percent = 0,
+
+	/* We offer to pay 5 times 2-block fee */
+	.commitment_fee_percent = 500,
+
+	/* Be aggressive on testnet. */
+	.cltv_expiry_delta = 6,
+	.cltv_final = 6,
+
+	/* Don't lock up channel for more than 5 days. */
+	.max_htlc_expiry = 5 * 6 * 4 * 24,
+
+	/* How often to bother litecoind. */
+	.poll_time = TIME_FROM_SEC(10),
+
+	/* Send commit 10msec after receiving; almost immediately. */
+	.commit_time = TIME_FROM_MSEC(10),
+
+	/* Allow dust payments */
+	.fee_base = 1,
+	/* Take 0.001% */
+	.fee_per_satoshi = 10,
+
+	/* BOLT #7:
+	 * Each node SHOULD flush outgoing announcements once every 60 seconds */
+	.broadcast_interval = 60000,
+
+	/* Send a keepalive update at least every week, prune every twice that */
+	.channel_update_interval = 1209600/2,
+
+	/* Testnet sucks */
+	.ignore_fee_limits = true,
+
+	/* Rescan 5 hours of blocks on testnet, it's reorg happy */
+	.rescan = 30,
+};
+
+/* aka. "Dude, where's my litecoins?" */
+static const struct config litecoin_mainnet_config = {
+	/* ~one day to catch cheating attempts. */
+	.locktime_blocks = 6 * 4 * 24,
+
+	/* They can have up to 1 day. */
+	.locktime_max = 1 * 6 * 4 * 24,
+
+	/* You should get in within 10 blocks. */
+	.anchor_onchain_wait = 10,
+
+	/* We're fairly trusting, under normal circumstances. */
+	.anchor_confirms = 3,
+
+	/* More than 10 confirms seems overkill. */
+	.anchor_confirms_max = 10,
+
+	/* Insist between 2 and 20 times the 2-block fee. */
+	.commitment_fee_min_percent = 200,
+	.commitment_fee_max_percent = 2000,
+
+	/* We offer to pay 5 times 2-block fee */
+	.commitment_fee_percent = 500,
+
+	/* BOLT #2:
+	 *
+	 * The `cltv_expiry_delta` for channels.  `3R+2G+2S` */
+	/* R = 2, G = 1, S = 3 */
+	.cltv_expiry_delta = 14,
+
+	/* BOLT #2:
+	 *
+	 * The minimum `cltv_expiry` we will accept for terminal payments: the
+	 * worst case for the terminal node C lower at `2R+G+S` blocks */
+	.cltv_final = 8,
+
+	/* Don't lock up channel for more than 5 days. */
+	.max_htlc_expiry = 5 * 6 * 4 * 24,
+
+	/* How often to bother litecoind. */
+	.poll_time = TIME_FROM_SEC(30),
+
+	/* Send commit 10msec after receiving; almost immediately. */
+	.commit_time = TIME_FROM_MSEC(10),
+
+	/* Discourage dust payments */
+	.fee_base = 1000,
+	/* Take 0.001% */
+	.fee_per_satoshi = 10,
+
+	/* BOLT #7:
+	 * Each node SHOULD flush outgoing announcements once every 60 seconds */
+	.broadcast_interval = 60000,
+
+	/* Send a keepalive update at least every week, prune every twice that */
+	.channel_update_interval = 1209600/2,
+
+	/* Mainnet should have more stable fees */
+	.ignore_fee_limits = false,
+
+	/* Rescan 2.5 hours of blocks on startup, it's not so reorg happy */
+	.rescan = 15,
+};
+
 static void check_config(struct lightningd *ld)
 {
 	/* We do this by ensuring it's less than the minimum we would accept. */
@@ -584,10 +703,17 @@ static void check_config(struct lightningd *ld)
 
 static void setup_default_config(struct lightningd *ld)
 {
-	if (get_chainparams(ld)->testnet)
-		ld->config = testnet_config;
-	else
-		ld->config = mainnet_config;
+	if (strstr(get_chainparams(ld)->network_name, "litecoin")) {
+		if (get_chainparams(ld)->testnet)
+			ld->config = litecoin_testnet_config;
+		else
+			ld->config = litecoin_mainnet_config;
+	} else {
+		if (get_chainparams(ld)->testnet)
+			ld->config = testnet_config;
+		else
+			ld->config = mainnet_config;
+	}
 
 	/* Set default PID file name to be per-network */
 	tal_free(ld->pidfile);
