@@ -394,13 +394,6 @@ int main(int argc, char *argv[])
 		       ld->config.poll_time,
 		       blockheight);
 
-	/* Activate gossip daemon. Needs to be after the initialization of
-	 * chaintopology, otherwise we may be asking for uninitialized data. */
-	gossip_activate(ld);
-
-	/* Replay transactions for all running onchainds */
-	onchaind_replay_channels(ld);
-
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(ld, ld->rpc_filename);
 
@@ -410,6 +403,13 @@ int main(int argc, char *argv[])
 
 	/* Create PID file */
 	pidfile_create(ld);
+
+	/* Activate gossip daemon. Needs to be after the initialization of
+	 * chaintopology, otherwise we may be asking for uninitialized data. */
+	gossip_activate(ld);
+
+	/* Replay transactions for all running onchainds */
+	onchaind_replay_channels(ld);
 
 	/* Mark ourselves live. */
 	log_info(ld->log, "Server started with public key %s, alias %s (color #%s) and lightningd %s",
