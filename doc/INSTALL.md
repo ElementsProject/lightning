@@ -53,6 +53,7 @@ Clone lightning:
 
     git clone https://github.com/ElementsProject/lightning.git
     cd lightning
+    git submodule update --init
 
 Build lightning:
 
@@ -99,6 +100,7 @@ Clone lightning:
 ```
 $ git clone https://github.com/ElementsProject/lightning.git
 $ cd lightning
+$ git submodule update --init
 ```
 
 Build and install lightning:
@@ -138,6 +140,7 @@ Clone lightning:
 
     $ git clone https://github.com/ElementsProject/lightning.git
     $ cd lightning
+    $ git submodule update --init
 
 Build lightning:
 
@@ -188,6 +191,7 @@ Clone lightning:
 
     $ git clone https://github.com/ElementsProject/lightning.git
     $ cd lightning
+    $ git submodule update --init
 
 Build lightning:
 
