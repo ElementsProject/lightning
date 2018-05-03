@@ -344,17 +344,6 @@ static void config_register_opts(struct lightningd *ld)
 }
 
 #if DEVELOPER
-static char *opt_set_hsm_seed(const char *arg, struct lightningd *ld)
-{
-	assert(arg != NULL);
-
-	ld->dev_hsm_seed = tal_hexdata(ld, arg, strlen(arg));
-	if (ld->dev_hsm_seed)
-		return NULL;
-
-	return tal_fmt(NULL, "bad hex string '%s'", arg);
-}
-
 static void dev_register_opts(struct lightningd *ld)
 {
 	opt_register_noarg("--dev-no-reconnect", opt_set_bool,
@@ -369,8 +358,6 @@ static void dev_register_opts(struct lightningd *ld)
 			 "Time between gossip broadcasts in milliseconds");
 	opt_register_arg("--dev-disconnect=<filename>", opt_subd_dev_disconnect,
 			 NULL, ld, "File containing disconnection points");
-	opt_register_arg("--dev-hsm-seed=<seed>", opt_set_hsm_seed,
-			 NULL, ld, "Hex-encoded seed for HSM");
 }
 #endif
 
@@ -771,20 +758,6 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 	else
 		log_debug(ld->log, "Not guessing addresses: %s",
 			  ld->portnum ? "manually set" : "port set to zero");
-
-#if DEVELOPER
-	if (ld->dev_hsm_seed) {
-		int fd;
-		unlink("hsm_secret");
-		fd = open("hsm_secret", O_CREAT|O_WRONLY, 0400);
-		if (fd < 0 ||
-		    !write_all(fd, ld->dev_hsm_seed, tal_len(ld->dev_hsm_seed))
-		    || fsync(fd) != 0)
-			fatal("dev-hsm-seed: Could not write file: %s",
-			      strerror(errno));
-		close(fd);
-	}
-#endif
 }
 
 /* FIXME: This is a hack!  Expose somehow in ccan/opt.*/
