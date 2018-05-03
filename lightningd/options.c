@@ -184,6 +184,16 @@ static char *opt_set_network(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_set_testnet(struct lightningd *ld)
+{
+	return opt_set_network("testnet", ld);
+}
+
+static char *opt_set_mainnet(struct lightningd *ld)
+{
+	return opt_set_network("bitcoin", ld);
+}
+
 static void opt_show_network(char buf[OPT_SHOW_LEN],
 			     const struct lightningd *ld)
 {
@@ -326,6 +336,10 @@ static void config_register_opts(struct lightningd *ld)
 			       ld,
 			       "Select the network parameters (bitcoin, testnet,"
 			       " regtest, litecoin or litecoin-testnet)");
+	opt_register_early_noarg("--testnet", opt_set_testnet, ld,
+				 "Alias for --network=testnet");
+	opt_register_early_noarg("--mainnet", opt_set_mainnet, ld,
+				 "Alias for --network=bigtcoin");
 	opt_register_arg("--allow-deprecated-apis",
 			 opt_set_bool_arg, opt_show_bool,
 			 &deprecated_apis,
@@ -787,6 +801,9 @@ static void add_config(struct lightningd *ld,
 	if (opt->type & OPT_NOARG) {
 		if (opt->cb == (void *)opt_usage_and_exit
 		    || opt->cb == (void *)version_and_exit
+		    /* These two show up as --network= */
+		    || opt->cb == (void *)opt_set_testnet
+		    || opt->cb == (void *)opt_set_mainnet
 		    || opt->cb == (void *)opt_set_offline /* will show up as port=0 and --no-reconnect */
 		    || opt->cb == (void *)test_daemons_and_exit) {
 			/* These are not important */
