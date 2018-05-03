@@ -1047,9 +1047,11 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 	if (!routing_add_channel_update(rstate, serialized))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed adding channel_update");
-	/* Only store updates for public channels */
-	if (chan->public)
-		gossip_store_add_channel_update(rstate->store, serialized);
+
+	/* Store the channel_update for both public and non-public channels
+	 * (non-public ones may just be the incoming direction). We'd have
+	 * dropped invalid ones earlier. */
+	gossip_store_add_channel_update(rstate->store, serialized);
 
 	return NULL;
 }
