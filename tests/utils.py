@@ -7,6 +7,7 @@ import threading
 import time
 
 from bitcoin.rpc import RawProxy as BitcoinProxy
+from decimal import Decimal
 
 
 BITCOIND_CONFIG = {
@@ -26,6 +27,14 @@ LIGHTNINGD_CONFIG = {
 }
 
 DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
+
+
+def wait_for(success, timeout=30, interval=0.1):
+    start_time = time.time()
+    while not success() and time.time() < start_time + timeout:
+        time.sleep(interval)
+    if time.time() > start_time + timeout:
+        raise ValueError("Error waiting for {}", success)
 
 
 def write_config(filename, opts):
@@ -425,3 +434,34 @@ class LightningNode(object):
             self.daemon.stop()
 
         self.daemon.start()
+
+    def fund_channel(self, l2, amount):
+
+        # Give yourself some funds to work with
+        addr = self.rpc.newaddr()['address']
+        self.bitcoin.rpc.sendtoaddress(addr, (amount + 1000000) / 10**8)
+        numfunds = len(self.rpc.listfunds()['outputs'])
+        self.bitcoin.generate_block(1)
+        wait_for(lambda: len(self.rpc.listfunds()['outputs']) > numfunds)
+
+        # Now go ahead and open a channel
+        num_tx = len(self.bitcoin.rpc.getrawmempool())
+        tx = self.rpc.fundchannel(l2.info['id'], amount)['tx']
+
+        wait_for(lambda: len(self.bitcoin.rpc.getrawmempool()) == num_tx + 1)
+        self.bitcoin.generate_block(1)
+        # We wait until gossipd sees local update, as well as status NORMAL,
+        # so it can definitely route through.
+        self.daemon.wait_for_logs(['update for channel .* now ACTIVE', 'to CHANNELD_NORMAL'])
+        l2.daemon.wait_for_logs(['update for channel .* now ACTIVE', 'to CHANNELD_NORMAL'])
+
+        # Hacky way to find our output.
+        decoded = self.bitcoin.rpc.decoderawtransaction(tx)
+        for out in decoded['vout']:
+            # Sometimes a float?  Sometimes a decimal?  WTF Python?!
+            if out['scriptPubKey']['type'] == 'witness_v0_scripthash':
+                if out['value'] == Decimal(amount) / 10**8 or out['value'] * 10**8 == amount:
+                    return "{}:1:{}".format(self.bitcoin.rpc.getblockcount(), out['n'])
+        # Intermittent decoding failure.  See if it decodes badly twice?
+        decoded2 = self.bitcoin.rpc.decoderawtransaction(tx)
+        raise ValueError("Can't find {} payment in {} (1={} 2={})".format(amount, tx, decoded, decoded2))
