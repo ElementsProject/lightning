@@ -735,10 +735,8 @@ void setup_color_and_alias(struct lightningd *ld)
 	}
 }
 
-bool handle_opts(struct lightningd *ld, int argc, char *argv[])
+void handle_opts(struct lightningd *ld, int argc, char *argv[])
 {
-	bool newdir = false;
-
 	/* Load defaults first, so that --help (in early options) has something
 	 * to display. The actual values loaded here, will be overwritten later
 	 * by opt_parse_from_config. */
@@ -757,7 +755,6 @@ bool handle_opts(struct lightningd *ld, int argc, char *argv[])
 		if (chdir(ld->config_dir) != 0)
 			fatal("Could not change directory %s: %s",
 			      ld->config_dir, strerror(errno));
-		newdir = true;
 	}
 
 	/* Now look for config file */
@@ -788,8 +785,6 @@ bool handle_opts(struct lightningd *ld, int argc, char *argv[])
 		close(fd);
 	}
 #endif
-
-	return newdir;
 }
 
 /* FIXME: This is a hack!  Expose somehow in ccan/opt.*/
