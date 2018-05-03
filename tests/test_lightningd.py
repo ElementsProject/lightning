@@ -102,8 +102,45 @@ class NodeFactory(object):
         self.executor = executor
         self.bitcoind = bitcoind
 
+    def split_options(self, opts):
+        """Split node options from cli options
+
+        Some options are used to instrument the node wrapper and some are passed
+        to the daemon on the command line. Split them so we know where to use
+        them.
+        """
+        node_opt_keys = [
+            'disconnect',
+            'may_fail',
+            'may_reconnect',
+            'random_hsm',
+            'fake_bitcoin_cli'
+        ]
+        node_opts = {k: v for k, v in opts.items() if k in node_opt_keys}
+        cli_opts = {k: v for k, v in opts.items() if k not in node_opt_keys}
+        return node_opts, cli_opts
+
     def get_next_port(self):
         return 16330 + self.next_id
+
+    def get_nodes(self, num_nodes, opts=None):
+        """Start a number of nodes in parallel, each with its own options
+        """
+        if opts is None:
+            # No opts were passed in, give some dummy opts
+            opts = [{} for _ in range(num_nodes)]
+        elif isinstance(opts, dict):
+            # A single dict was passed in, so we use these opts for all nodes
+            opts = [opts] * num_nodes
+
+        assert len(opts) == num_nodes
+
+        jobs = []
+        for i in range(num_nodes):
+            node_opts, cli_opts = self.split_options(opts[i])
+            jobs.append(self.executor.submit(self.get_node, options=cli_opts, **node_opts))
+
+        return [j.result() for j in jobs]
 
     def get_node(self, disconnect=None, options=None, may_fail=False, may_reconnect=False, random_hsm=False, fake_bitcoin_cli=False):
         node_id = self.next_id
