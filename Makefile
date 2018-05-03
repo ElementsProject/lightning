@@ -17,7 +17,7 @@ VALGRIND=valgrind -q --error-exitcode=7
 VALGRIND_TEST_ARGS = --track-origins=yes --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all
 endif
 
-# By default, we are in DEVELOPER mode, use DEVELOPER= on cmdline to override.
+# By default, we are not in DEVELOPER mode, use DEVELOPER=1 on cmdline to override.
 DEVELOPER := 0
 
 ifeq ($(DEVELOPER),1)
