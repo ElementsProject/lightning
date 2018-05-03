@@ -1,5 +1,6 @@
 from concurrent import futures
 from decimal import Decimal
+from utils import wait_for
 
 import copy
 import json
@@ -64,14 +65,6 @@ def setupBitcoind(directory):
     elif bitcoind.rpc.getwalletinfo()['balance'] < 1:
         logging.debug("Insufficient balance, generating 1 block")
         bitcoind.generate_block(1)
-
-
-def wait_for(success, timeout=30, interval=0.1):
-    start_time = time.time()
-    while not success() and time.time() < start_time + timeout:
-        time.sleep(interval)
-    if time.time() > start_time + timeout:
-        raise ValueError("Error waiting for {}", success)
 
 
 def wait_forget_channels(node):
@@ -307,31 +300,7 @@ class LightningDTests(BaseLightningDTests):
 
     # Returns the short channel-id: <blocknum>:<txnum>:<outnum>
     def fund_channel(self, l1, l2, amount):
-        # Generates a block, so we know next tx will be first in block.
-        self.give_funds(l1, amount + 1000000)
-        num_tx = len(l1.bitcoin.rpc.getrawmempool())
-
-        tx = l1.rpc.fundchannel(l2.info['id'], amount)['tx']
-        # Technically, this is async to fundchannel.
-        l1.daemon.wait_for_log('sendrawtx exit 0')
-
-        wait_for(lambda: len(l1.bitcoin.rpc.getrawmempool()) == num_tx + 1)
-        l1.bitcoin.generate_block(1)
-        # We wait until gossipd sees local update, as well as status NORMAL,
-        # so it can definitely route through.
-        l1.daemon.wait_for_logs(['update for channel .* now ACTIVE', 'to CHANNELD_NORMAL'])
-        l2.daemon.wait_for_logs(['update for channel .* now ACTIVE', 'to CHANNELD_NORMAL'])
-
-        # Hacky way to find our output.
-        decoded = bitcoind.rpc.decoderawtransaction(tx)
-        for out in decoded['vout']:
-            # Sometimes a float?  Sometimes a decimal?  WTF Python?!
-            if out['scriptPubKey']['type'] == 'witness_v0_scripthash':
-                if out['value'] == Decimal(amount) / 10**8 or out['value'] * 10**8 == amount:
-                    return "{}:1:{}".format(bitcoind.rpc.getblockcount(), out['n'])
-        # Intermittent decoding failure.  See if it decodes badly twice?
-        decoded2 = bitcoind.rpc.decoderawtransaction(tx)
-        raise ValueError("Can't find {} payment in {} (1={} 2={})".format(amount, tx, decoded, decoded2))
+        return l1.fund_channel(l2, amount)
 
     def pay(self, lsrc, ldst, amt, label=None, async=False):
         if not label:
@@ -731,7 +700,6 @@ class LightningDTests(BaseLightningDTests):
 
     def test_balance(self):
         l1, l2 = self.connect()
-
         self.fund_channel(l1, l2, 10**6)
         p1 = l1.rpc.getpeer(peer_id=l2.info['id'], level='info')['channels'][0]
         p2 = l2.rpc.getpeer(l1.info['id'], 'info')['channels'][0]
