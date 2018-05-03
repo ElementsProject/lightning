@@ -316,8 +316,7 @@ class BaseLightningDTests(unittest.TestCase):
 
 class LightningDTests(BaseLightningDTests):
     def connect(self, may_reconnect=False):
-        l1 = self.node_factory.get_node(may_reconnect=may_reconnect)
-        l2 = self.node_factory.get_node(may_reconnect=may_reconnect)
+        l1, l2 = self.node_factory.get_nodes(2, opts={'may_reconnect': may_reconnect})
         ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
         assert ret['id'] == l2.info['id']
