@@ -1241,7 +1241,7 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 	e->satoshis = chan->satoshis;
 	e->active = c->active;
 	e->flags = c->flags;
-	e->public = (c->channel_update_msgidx != 0);
+	e->public = chan->public && (c->channel_update_msgidx != 0);
 	e->short_channel_id = chan->scid;
 	e->last_update_timestamp = c->channel_update_msgidx ? c->last_timestamp : -1;
 	if (e->last_update_timestamp >= 0) {
