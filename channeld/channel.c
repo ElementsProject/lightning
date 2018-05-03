@@ -298,11 +298,54 @@ static void enqueue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 	msg_enqueue(&peer->peer_out, msg);
 }
 
-/* Send a temporary `channel_announcement` and `channel_update`. These
- * are unsigned and mainly used to tell gossip about the channel
- * before we have reached the `announcement_depth`, not being signed
- * means they will not be relayed, but we can already rely on them for
- * our own outgoing payments */
+static u8 *create_channel_update(const tal_t *ctx,
+				 struct peer *peer, bool disabled)
+{
+	u32 timestamp = time_now().ts.tv_sec;
+	u16 flags;
+	u8 *cupdate, *msg;
+
+	/* Identical timestamps will be ignored. */
+	if (timestamp <= peer->last_update_timestamp)
+		timestamp = peer->last_update_timestamp + 1;
+	peer->last_update_timestamp = timestamp;
+
+	/* Set the signature to empty so that valgrind doesn't complain */
+	secp256k1_ecdsa_signature *sig =
+	    talz(tmpctx, secp256k1_ecdsa_signature);
+
+	flags = peer->channel_direction | (disabled << 1);
+	cupdate = towire_channel_update(
+	    tmpctx, sig, &peer->chain_hash,
+	    &peer->short_channel_ids[LOCAL], timestamp, flags,
+	    peer->cltv_delta, peer->conf[REMOTE].htlc_minimum_msat,
+	    peer->fee_base, peer->fee_per_satoshi);
+
+	msg = towire_hsm_cupdate_sig_req(tmpctx, cupdate);
+
+	if (!wire_sync_write(HSM_FD, msg))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Writing cupdate_sig_req: %s",
+			      strerror(errno));
+
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!msg || !fromwire_hsm_cupdate_sig_reply(ctx, msg, &cupdate))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading cupdate_sig_req: %s",
+			      strerror(errno));
+	return cupdate;
+}
+
+/**
+ * Add a channel locally and send a channel update to the peer
+ *
+ * Send a local_add_channel message to gossipd in order to make the channel
+ * usable locally, and also tell our peer about our parameters via a
+ * channel_update message. The peer may accept the update and use the contained
+ * information to route incoming payments through the channel. The
+ * channel_update is not preceeded by a channel_announcement and won't make much
+ * sense to other nodes, so we don't tell gossipd about it.
+ */
 static void send_temporary_announcement(struct peer *peer)
 {
 	u8 *msg;
@@ -319,6 +362,11 @@ static void send_temporary_announcement(struct peer *peer)
 	    peer->conf[REMOTE].htlc_minimum_msat, peer->fee_base,
 	    peer->fee_per_satoshi);
 	wire_sync_write(GOSSIP_FD, take(msg));
+
+	/* Tell the other side what parameters we expect should they route
+	 * through us */
+	msg = create_channel_update(NULL, peer, false);
+	enqueue_peer_msg(peer, take(msg));
 }
 
 static void send_announcement_signatures(struct peer *peer)
@@ -381,44 +429,6 @@ static void send_announcement_signatures(struct peer *peer)
 	    &peer->announcement_node_sigs[LOCAL],
 	    &peer->announcement_bitcoin_sigs[LOCAL]);
 	enqueue_peer_msg(peer, take(msg));
-}
-
-static u8 *create_channel_update(const tal_t *ctx,
-				 struct peer *peer, bool disabled)
-{
-	u32 timestamp = time_now().ts.tv_sec;
-	u16 flags;
-	u8 *cupdate, *msg;
-
-	/* Identical timestamps will be ignored. */
-	if (timestamp <= peer->last_update_timestamp)
-		timestamp = peer->last_update_timestamp + 1;
-	peer->last_update_timestamp = timestamp;
-
-	/* Set the signature to empty so that valgrind doesn't complain */
-	secp256k1_ecdsa_signature *sig =
-	    talz(tmpctx, secp256k1_ecdsa_signature);
-
-	flags = peer->channel_direction | (disabled << 1);
-	cupdate = towire_channel_update(
-	    tmpctx, sig, &peer->chain_hash,
-	    &peer->short_channel_ids[LOCAL], timestamp, flags,
-	    peer->cltv_delta, peer->conf[REMOTE].htlc_minimum_msat,
-	    peer->fee_base, peer->fee_per_satoshi);
-
-	msg = towire_hsm_cupdate_sig_req(tmpctx, cupdate);
-
-	if (!wire_sync_write(HSM_FD, msg))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Writing cupdate_sig_req: %s",
-			      strerror(errno));
-
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_cupdate_sig_reply(ctx, msg, &cupdate))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Reading cupdate_sig_req: %s",
-			      strerror(errno));
-	return cupdate;
 }
 
 /* Tentatively create a channel_announcement, possibly with invalid

@@ -1135,11 +1135,11 @@ class LightningDTests(BaseLightningDTests):
 
     def test_pay(self):
         l1, l2 = self.connect()
-
         chanid = self.fund_channel(l1, l2, 10**6)
 
         # Wait for route propagation.
         self.wait_for_routes(l1, [chanid])
+        sync_blockheight([l1, l2])
 
         inv = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
         before = int(time.time())
@@ -1311,7 +1311,9 @@ class LightningDTests(BaseLightningDTests):
             wait_for(lambda: len(l1.getactivechannels()) == 2)
             wait_for(lambda: len(l2.getactivechannels()) == 2)
             billboard = l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]['status']
-            assert billboard == ['CHANNELD_NORMAL:Funding transaction locked. Channel announced.']
+            # This may either be from a local_update or an announce, so just
+            # check for the substring
+            assert 'CHANNELD_NORMAL:Funding transaction locked.' in billboard[0]
 
         # This should return with an error, then close.
         self.assertRaisesRegex(ValueError,
@@ -1918,8 +1920,8 @@ class LightningDTests(BaseLightningDTests):
         # Now, this will get stuck due to l1 commit being disabled..
         t = self.pay(l1, l2, 100000000, async=True)
 
-        assert len(l1.getactivechannels()) == 1
-        assert len(l2.getactivechannels()) == 1
+        assert len(l1.getactivechannels()) == 2
+        assert len(l2.getactivechannels()) == 2
 
         # They should both have commitments blocked now.
         l1.daemon.wait_for_log('=WIRE_COMMITMENT_SIGNED-nocommit')
@@ -2346,6 +2348,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(1)
         wait_forget_channels(l2)
 
+    @unittest.skipIf(not DEVELOPER, "DEVELOPER=1 needed to speed up gossip propagation, would be too long otherwise")
     def test_gossip_jsonrpc(self):
         l1, l2 = self.connect()
         self.fund_channel(l1, l2, 10**6)
@@ -2354,21 +2357,22 @@ class LightningDTests(BaseLightningDTests):
         assert not l1.daemon.is_in_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
 
         # Channels should be activated locally
-        wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True])
+        wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
+        wait_for(lambda: len(l2.rpc.listchannels()['channels']) == 2)
 
         # Make sure we can route through the channel, will raise on failure
         l1.rpc.getroute(l2.info['id'], 100, 1)
 
         # Outgoing should be active, but not public.
-        channels = l1.rpc.listchannels()['channels']
-        assert len(channels) == 1
-        assert channels[0]['active'] is True
-        assert channels[0]['public'] is False
+        channels1 = l1.rpc.listchannels()['channels']
+        channels2 = l2.rpc.listchannels()['channels']
 
-        channels = l2.rpc.listchannels()['channels']
-        assert len(channels) == 1
-        assert channels[0]['active'] is True
-        assert channels[0]['public'] is False
+        assert [c['active'] for c in channels1] == [True, True]
+        assert [c['active'] for c in channels2] == [True, True]
+        # The incoming direction will be considered public, hence check for out
+        # outgoing only
+        assert len([c for c in channels1 if not c['public']]) == 2
+        assert len([c for c in channels2 if not c['public']]) == 2
 
         # Now proceed to funding-depth and do a full gossip round
         l1.bitcoin.generate_block(5)
@@ -2516,13 +2520,12 @@ class LightningDTests(BaseLightningDTests):
         def count_active(node):
             chans = node.rpc.listchannels()['channels']
             active = [c for c in chans if c['active']]
-            print(len(active), active)
             return len(active)
 
         # Channels should be activated
         wait_for(lambda: count_active(l1) == 4)
         wait_for(lambda: count_active(l2) == 4)
-        wait_for(lambda: count_active(l3) == 5)  # 4 public + 1 local
+        wait_for(lambda: count_active(l3) == 6)  # 4 public + 2 local
 
         # l1 restarts and doesn't connect, but loads from persisted store
         l1.restart()
@@ -2538,7 +2541,7 @@ class LightningDTests(BaseLightningDTests):
 
         wait_for(lambda: count_active(l1) == 2)
         wait_for(lambda: count_active(l2) == 2)
-        wait_for(lambda: count_active(l3) == 3)  # 2 public + 1 local
+        wait_for(lambda: count_active(l3) == 4)  # 2 public + 2 local
 
         # We should have one local-only channel
         def count_non_public(node):
@@ -2549,17 +2552,17 @@ class LightningDTests(BaseLightningDTests):
         # The channel l3 -> l4 should be known only to them
         assert count_non_public(l1) == 0
         assert count_non_public(l2) == 0
-        wait_for(lambda: count_non_public(l3) == 1)
-        wait_for(lambda: count_non_public(l4) == 1)
+        wait_for(lambda: count_non_public(l3) == 2)
+        wait_for(lambda: count_non_public(l4) == 2)
 
         # Finally, it should also remember the deletion after a restart
         l3.restart()
         l4.restart()
-        wait_for(lambda: count_active(l3) == 3)  # 2 public + 1 local
+        wait_for(lambda: count_active(l3) == 4)  # 2 public + 2 local
 
         # Both l3 and l4 should remember their local-only channel
-        wait_for(lambda: count_non_public(l3) == 1)
-        wait_for(lambda: count_non_public(l4) == 1)
+        wait_for(lambda: count_non_public(l3) == 2)
+        wait_for(lambda: count_non_public(l4) == 2)
 
     def ping_tests(self, l1, l2):
         # 0-byte pong gives just type + length field.
@@ -3032,6 +3035,7 @@ class LightningDTests(BaseLightningDTests):
         chanid = self.fund_channel(l1, l2, 10**6)
 
         self.wait_for_routes(l1, [chanid])
+        sync_blockheight([l1, l2])
 
         amt = 200000000
         inv = l2.rpc.invoice(amt, 'test_htlc_in_timeout', 'desc')['bolt11']
@@ -4096,6 +4100,7 @@ class LightningDTests(BaseLightningDTests):
         # Now make sure an HTLC works.
         # (First wait for route propagation.)
         self.wait_for_routes(l1, [chanid])
+        sync_blockheight([l1, l2])
 
         # Make payments.
         self.pay(l1, l2, 200000000)
