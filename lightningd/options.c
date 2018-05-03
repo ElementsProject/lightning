@@ -617,7 +617,7 @@ static const struct config litecoin_testnet_config = {
 	.ignore_fee_limits = true,
 
 	/* Rescan 5 hours of blocks on testnet, it's reorg happy */
-	.rescan = 30,
+	.rescan = 120,
 };
 
 /* aka. "Dude, where's my litecoins?" */
@@ -681,7 +681,7 @@ static const struct config litecoin_mainnet_config = {
 	.ignore_fee_limits = false,
 
 	/* Rescan 2.5 hours of blocks on startup, it's not so reorg happy */
-	.rescan = 15,
+	.rescan = 60,
 };
 
 static void check_config(struct lightningd *ld)
