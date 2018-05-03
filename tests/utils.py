@@ -50,7 +50,7 @@ class TailableProc(object):
     tail the processes and react to their output.
     """
 
-    def __init__(self, outputDir=None):
+    def __init__(self, outputDir=None, verbose=True):
         self.logs = []
         self.logs_cond = threading.Condition(threading.RLock())
         self.env = os.environ
@@ -58,6 +58,9 @@ class TailableProc(object):
         self.proc = None
         self.outputDir = outputDir
         self.logsearch_start = 0
+
+        # Should we be logging lines we read from stdout?
+        self.verbose = verbose
 
     def start(self):
         """Start the underlying process and start monitoring it.
@@ -110,9 +113,10 @@ class TailableProc(object):
         for line in iter(self.proc.stdout.readline, ''):
             if len(line) == 0:
                 break
+            if self.verbose:
+                logging.debug("%s: %s", self.prefix, line.decode().rstrip())
             with self.logs_cond:
                 self.logs.append(str(line.rstrip()))
-                logging.debug("%s: %s", self.prefix, line.decode().rstrip())
                 self.logs_cond.notifyAll()
         self.running = False
         self.proc.stdout.close()
@@ -206,7 +210,7 @@ class SimpleBitcoinProxy:
 class BitcoinD(TailableProc):
 
     def __init__(self, bitcoin_dir="/tmp/bitcoind-test", rpcport=18332):
-        TailableProc.__init__(self, bitcoin_dir)
+        TailableProc.__init__(self, bitcoin_dir, verbose=False)
 
         self.bitcoin_dir = bitcoin_dir
         self.rpcport = rpcport
