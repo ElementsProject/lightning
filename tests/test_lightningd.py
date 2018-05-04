@@ -95,12 +95,17 @@ def teardown_bitcoind():
 class NodeFactory(object):
     """A factory to setup and start `lightningd` daemons.
     """
-    def __init__(self, testname, bitcoind, executor):
+    def __init__(self, testname, bitcoind, executor, directory=None):
         self.testname = testname
         self.next_id = 1
         self.nodes = []
         self.executor = executor
         self.bitcoind = bitcoind
+        if directory is not None:
+            self.directory = directory
+        else:
+            self.directory = os.path.join(TEST_DIR, testname)
+        self.lock = threading.Lock()
 
     def split_options(self, opts):
         """Split node options from cli options
@@ -148,7 +153,7 @@ class NodeFactory(object):
         self.next_id += 1
 
         lightning_dir = os.path.join(
-            TEST_DIR, self.testname, "lightning-{}/".format(node_id))
+            self.directory, "lightning-{}/".format(node_id))
 
         if os.path.exists(lightning_dir):
             shutil.rmtree(lightning_dir)
