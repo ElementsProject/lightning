@@ -203,9 +203,10 @@ check:
 
 pytest: $(ALL_PROGRAMS)
 ifndef PYTEST
-	PYTHONPATH=contrib/pylightning:$$PYTHONPATH DEVELOPER=$(DEVELOPER) python3 tests/test_lightningd.py -f
+	@echo "py.test is required to run the integration tests, please install using 'pip3 install -r tests/requirements.txt'"
+	exit 1
 else
-	PYTHONPATH=contrib/pylightning:$$PYTHONPATH TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) $(PYTEST) -vx tests/test_lightningd.py --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT) $(PYTEST_OPTS)
+	PYTHONPATH=contrib/pylightning:$$PYTHONPATH TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) $(PYTEST) -vx tests/ --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT) $(PYTEST_OPTS)
 endif
 
 # Keep includes in alpha order.
