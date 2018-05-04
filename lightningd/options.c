@@ -339,7 +339,7 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_early_noarg("--testnet", opt_set_testnet, ld,
 				 "Alias for --network=testnet");
 	opt_register_early_noarg("--mainnet", opt_set_mainnet, ld,
-				 "Alias for --network=bigtcoin");
+				 "Alias for --network=bitcoin");
 	opt_register_arg("--allow-deprecated-apis",
 			 opt_set_bool_arg, opt_show_bool,
 			 &deprecated_apis,
