@@ -1,5 +1,6 @@
 from concurrent import futures
 from decimal import Decimal
+from ephemeral_port_reserve import reserve as reserve_port
 from utils import wait_for
 
 import copy
@@ -43,7 +44,7 @@ def to_json(arg):
 
 def setupBitcoind(directory):
     global bitcoind
-    bitcoind = utils.BitcoinD(bitcoin_dir=directory, rpcport=28332)
+    bitcoind = utils.BitcoinD(bitcoin_dir=directory, rpcport=None)
 
     try:
         bitcoind.start()
@@ -126,7 +127,8 @@ class NodeFactory(object):
         return node_opts, cli_opts
 
     def get_next_port(self):
-        return 16330 + self.next_id
+        with self.lock:
+            return reserve_port()
 
     def get_nodes(self, num_nodes, opts=None):
         """Start a number of nodes in parallel, each with its own options
@@ -148,9 +150,10 @@ class NodeFactory(object):
         return [j.result() for j in jobs]
 
     def get_node(self, disconnect=None, options=None, may_fail=False, may_reconnect=False, random_hsm=False, fake_bitcoin_cli=False):
-        node_id = self.next_id
+        with self.lock:
+            node_id = self.next_id
+            self.next_id += 1
         port = self.get_next_port()
-        self.next_id += 1
 
         lightning_dir = os.path.join(
             self.directory, "lightning-{}/".format(node_id))
@@ -662,9 +665,7 @@ class LightningDTests(BaseLightningDTests):
         """
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node()
-        # Force l3 to give its address.
-        l3port = self.node_factory.get_next_port()
-        l3 = self.node_factory.get_node(options={"ipaddr": "127.0.0.1:{}".format(l3port)})
+        l3 = self.node_factory.get_node(options={"ipaddr": "127.0.0.1"})
 
         l2.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
 

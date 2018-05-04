@@ -8,6 +8,7 @@ import time
 
 from bitcoin.rpc import RawProxy as BitcoinProxy
 from decimal import Decimal
+from ephemeral_port_reserve import reserve
 
 
 BITCOIND_CONFIG = {
@@ -209,8 +210,11 @@ class SimpleBitcoinProxy:
 
 class BitcoinD(TailableProc):
 
-    def __init__(self, bitcoin_dir="/tmp/bitcoind-test", rpcport=18332):
+    def __init__(self, bitcoin_dir="/tmp/bitcoind-test", rpcport=None):
         TailableProc.__init__(self, bitcoin_dir, verbose=False)
+
+        if rpcport is None:
+            rpcport = reserve()
 
         self.bitcoin_dir = bitcoin_dir
         self.rpcport = rpcport

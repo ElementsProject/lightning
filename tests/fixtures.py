@@ -30,7 +30,7 @@ def test_name(request):
 
 @pytest.fixture
 def bitcoind(directory):
-    bitcoind = utils.BitcoinD(bitcoin_dir=directory, rpcport=28332)
+    bitcoind = utils.BitcoinD(bitcoin_dir=directory, rpcport=None)
     try:
         bitcoind.start()
     except Exception:
