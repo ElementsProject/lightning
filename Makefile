@@ -160,15 +160,22 @@ WIRE_GEN := tools/generate-wire.py
 
 ALL_PROGRAMS =
 
-CPPFLAGS = -DBINTOPKGLIBEXECDIR='"'$(shell sh tools/rel.sh $(bindir) $(pkglibexecdir))'"'
+CL_CPPFLAGS = -DBINTOPKGLIBEXECDIR='"'$(shell sh tools/rel.sh $(bindir) $(pkglibexecdir))'"'
 CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition
 CDEBUGFLAGS := -std=gnu11 -g -fstack-protector
-CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I/usr/local/include $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS)
+CL_CFLAGS = $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I/usr/local/include $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS)
+
+# Override commands used for implicit rules.
+# We leave CFLAGS, CPPFLAGS, and LDFLAGS to the builder,
+# but use CL_CFLAGS, CL_CPPFLAGS, and CL_LDFLAGS for
+# our own flags.
+COMPILE.c = $(CC) $(CFLAGS) $(CL_CFLAGS) $(CPPFLAGS) $(CL_CPPFLAGS) $(TARGET_ARCH) -c
+LINK.o = $(CC) $(LDFLAGS) $(CL_LDFLAGS)
 
 # We can get configurator to run a different compile cmd to cross-configure.
 CONFIGURATOR_CC := $(CC)
 
-LDFLAGS = $(PIE_LDFLAGS)
+CL_LDFLAGS = $(PIE_LDFLAGS)
 LDLIBS = -L/usr/local/lib -lm -lgmp -lsqlite3 $(COVFLAGS)
 
 default: all-programs all-test-programs
@@ -291,7 +298,7 @@ ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
 ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS) Makefile
 
 ccan/config.h: ccan/tools/configurator/configurator Makefile
-	if $< --configurator-cc="$(CONFIGURATOR_CC)" $(CC) $(CFLAGS) > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
+	if $< --configurator-cc="$(CONFIGURATOR_CC)" $(CC) $(CL_CFLAGS) $(CFLAGS) > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
 
 gen_version.h: FORCE
 	@(echo "#define VERSION \"`git describe --always --dirty=-modded`\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
@@ -459,88 +466,88 @@ installcheck:
 	installcheck
 
 ccan-breakpoint.o: $(CCANDIR)/ccan/breakpoint/breakpoint.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-tal-str.o: $(CCANDIR)/ccan/tal/str/str.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-tal-link.o: $(CCANDIR)/ccan/tal/link/link.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-tal-path.o: $(CCANDIR)/ccan/tal/path/path.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-tal-grab_file.o: $(CCANDIR)/ccan/tal/grab_file/grab_file.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-take.o: $(CCANDIR)/ccan/take/take.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-list.o: $(CCANDIR)/ccan/list/list.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-asort.o: $(CCANDIR)/ccan/asort/asort.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-autodata.o: $(CCANDIR)/ccan/autodata/autodata.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-ptr_valid.o: $(CCANDIR)/ccan/ptr_valid/ptr_valid.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-read_write_all.o: $(CCANDIR)/ccan/read_write_all/read_write_all.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-str.o: $(CCANDIR)/ccan/str/str.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-opt.o: $(CCANDIR)/ccan/opt/opt.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-opt-helpers.o: $(CCANDIR)/ccan/opt/helpers.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-opt-parse.o: $(CCANDIR)/ccan/opt/parse.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-opt-usage.o: $(CCANDIR)/ccan/opt/usage.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-daemonize.o: $(CCANDIR)/ccan/daemonize/daemonize.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-err.o: $(CCANDIR)/ccan/err/err.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-noerr.o: $(CCANDIR)/ccan/noerr/noerr.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-str-hex.o: $(CCANDIR)/ccan/str/hex/hex.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-crypto-hmac.o: $(CCANDIR)/ccan/crypto/hmac_sha256/hmac_sha256.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-crypto-hkdf.o: $(CCANDIR)/ccan/crypto/hkdf_sha256/hkdf_sha256.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-crypto-shachain.o: $(CCANDIR)/ccan/crypto/shachain/shachain.c
-	$(CC) $(CFLAGS) -DSHACHAIN_BITS=48 -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -DSHACHAIN_BITS=48 -c -o $@ $<
 ccan-crypto-sha256.o: $(CCANDIR)/ccan/crypto/sha256/sha256.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-crypto-ripemd160.o: $(CCANDIR)/ccan/crypto/ripemd160/ripemd160.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-cdump.o: $(CCANDIR)/ccan/cdump/cdump.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-strmap.o: $(CCANDIR)/ccan/strmap/strmap.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-crypto-siphash24.o: $(CCANDIR)/ccan/crypto/siphash24/siphash24.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-htable.o: $(CCANDIR)/ccan/htable/htable.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-ilog.o: $(CCANDIR)/ccan/ilog/ilog.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-intmap.o: $(CCANDIR)/ccan/intmap/intmap.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-isaac.o: $(CCANDIR)/ccan/isaac/isaac.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-isaac64.o: $(CCANDIR)/ccan/isaac/isaac64.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-time.o: $(CCANDIR)/ccan/time/time.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-timer.o: $(CCANDIR)/ccan/timer/timer.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-io-io.o: $(CCANDIR)/ccan/io/io.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-io-poll.o: $(CCANDIR)/ccan/io/poll.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-io-fdpass.o: $(CCANDIR)/ccan/io/fdpass/fdpass.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-pipecmd.o: $(CCANDIR)/ccan/pipecmd/pipecmd.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-mem.o: $(CCANDIR)/ccan/mem/mem.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-fdpass.o: $(CCANDIR)/ccan/fdpass/fdpass.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
 ccan-bitops.o: $(CCANDIR)/ccan/bitops/bitops.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CL_CFLAGS) $(CFLAGS) -c -o $@ $<
