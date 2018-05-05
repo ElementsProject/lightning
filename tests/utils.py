@@ -251,7 +251,7 @@ class BitcoinD(TailableProc):
 
 
 class LightningD(TailableProc):
-    def __init__(self, lightning_dir, bitcoin_dir, port=9735, random_hsm=False):
+    def __init__(self, lightning_dir, bitcoin_dir, port=9735, random_hsm=False, node_id=0):
         TailableProc.__init__(self, lightning_dir)
         self.lightning_dir = lightning_dir
         self.port = port
@@ -281,7 +281,7 @@ class LightningD(TailableProc):
                 f.write(seed)
         if DEVELOPER:
             self.opts['dev-broadcast-interval'] = 1000
-        self.prefix = 'lightningd(%d)' % (port)
+        self.prefix = 'lightningd-%d' % (node_id)
 
     @property
     def cmd_line(self):

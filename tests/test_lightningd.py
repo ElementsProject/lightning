@@ -163,7 +163,10 @@ class NodeFactory(object):
             shutil.rmtree(lightning_dir)
 
         socket_path = os.path.join(lightning_dir, "lightning-rpc").format(node_id)
-        daemon = utils.LightningD(lightning_dir, self.bitcoind.bitcoin_dir, port=port, random_hsm=random_hsm)
+        daemon = utils.LightningD(
+            lightning_dir, self.bitcoind.bitcoin_dir,
+            port=port, random_hsm=random_hsm, node_id=node_id
+        )
         # If we have a disconnect string, dump it to a file for daemon.
         if disconnect:
             with open(os.path.join(lightning_dir, "dev_disconnect"), "w") as f:
