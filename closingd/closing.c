@@ -9,6 +9,7 @@
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/read_peer_msg.h>
+#include <common/socket_close.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/type_to_string.h>
@@ -581,6 +582,11 @@ int main(int argc, char *argv[])
 		       offer[LOCAL]);
 
 	/* We're done! */
+	/* Properly close the channel first. */
+	if (!socket_close(PEER_FD))
+		status_unusual("Closing and draining peerfd gave error: %s",
+			       strerror(errno));
+	/* Sending the below will kill us! */
 	wire_sync_write(REQ_FD,	take(towire_closing_complete(NULL)));
 	tal_free(ctx);
 	daemon_shutdown();

@@ -60,6 +60,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/permute_tx.o			\
 	common/ping.o				\
 	common/read_peer_msg.o			\
+	common/socket_close.o			\
 	common/status.o				\
 	common/status_wire.o			\
 	common/subdaemon.o			\
