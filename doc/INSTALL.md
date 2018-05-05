@@ -34,7 +34,7 @@ Get dependencies:
     sudo apt-get update
     sudo apt-get install -y \
       autoconf automake build-essential git libtool libgmp-dev \
-      libsqlite3-dev python python3 net-tools libsodium-dev
+      libsqlite3-dev python python3 net-tools
 
 If you don't have Bitcoin installed locally you'll need to install that
 as well:
@@ -86,7 +86,6 @@ $ sudo dnf update -y && \
                 python3-pip \
                 python3-setuptools \
                 net-tools \
-                libsodium-devel \
                 net-tools \
                 valgrind \
                 wget && \
@@ -171,7 +170,7 @@ To Build on macOS
 Assume you have Xcode and HomeBrew installed on your Mac.
 Get dependencies:
 
-    $ brew install autoconf automake libtool python3 gmp libsodium gnu-sed
+    $ brew install autoconf automake libtool python3 gmp gnu-sed
 
 If you don't have bitcoind installed locally you'll need to install that
 as well:
