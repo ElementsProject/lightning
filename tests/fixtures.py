@@ -15,12 +15,22 @@ DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
 TEST_DEBUG = os.getenv("TEST_DEBUG", "0") == "1"
 
 
+# A dict in which we count how often a particular test has run so far. Used to
+# give each attempt its own numbered directory, and avoid clashes.
+__attempts = {}
+
+
 @pytest.fixture
 def directory(test_name):
-    """Return a per-test specific directory
+    """Return a per-test specific directory.
+
+    This makes a unique test-directory even if a test is rerun multiple times.
+
     """
-    global TEST_DIR
-    yield os.path.join(TEST_DIR, test_name)
+    global TEST_DIR, __attempts
+    # Auto set value if it isn't in the dict yet
+    __attempts[test_name] = __attempts.get(test_name, 0) + 1
+    yield os.path.join(TEST_DIR, "{}_{}".format(test_name, __attempts[test_name]))
 
 
 @pytest.fixture
