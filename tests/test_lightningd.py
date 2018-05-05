@@ -1,6 +1,7 @@
 from concurrent import futures
 from decimal import Decimal
 from ephemeral_port_reserve import reserve as reserve_port
+from flaky import flaky
 from utils import wait_for
 
 import copy
@@ -1437,6 +1438,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(5)
         sync_blockheight([l1])
 
+    @flaky
     def test_closing_different_fees(self):
         l1 = self.node_factory.get_node()
 

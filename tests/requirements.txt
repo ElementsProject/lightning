@@ -1,1 +1,4 @@
 python-bitcoinlib==0.7.0
+ephemeral-port-reserve==1.1.0
+pytest-forked==0.2
+flaky==3.4.0
