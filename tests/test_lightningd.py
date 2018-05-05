@@ -1428,7 +1428,44 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(5)
         sync_blockheight([l1])
 
-    @flaky
+    @unittest.skipIf(not DEVELOPER, "needs dev-rescan-outputs")
+    def test_closing_torture(self):
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
+
+        amount = 10**6
+        self.give_funds(l1, amount + 10**7)
+
+        # The range below of 15 is unsatisfactory.
+        # Before the fix was applied, 15 would often pass.
+        # However, increasing the number of tries would
+        # take longer in VALGRIND mode, triggering a CI
+        # failure since the test does not print any
+        # output.
+        for i in range(15):
+            # Reduce probability that spurious sendrawtx error will occur
+            l1.rpc.dev_rescan_outputs()
+
+            # Create a channel.
+            l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+            l1.rpc.fundchannel(l2.info['id'], amount)
+            l1.daemon.wait_for_log('sendrawtx exit 0')
+            # Get it confirmed.
+            l1.bitcoin.generate_block(6)
+            # Wait for it to go to CHANNELD_NORMAL
+            l1.daemon.wait_for_logs(['to CHANNELD_NORMAL'])
+            l2.daemon.wait_for_logs(['to CHANNELD_NORMAL'])
+
+            # Start closers.
+            c1 = self.executor.submit(l1.rpc.close, l2.info['id'])
+            c2 = self.executor.submit(l2.rpc.close, l1.info['id'])
+            # Wait for close to finish
+            c1.result(10)
+            c2.result(10)
+            l1.daemon.wait_for_log('sendrawtx exit 0')
+            # Get close confirmed
+            l1.bitcoin.generate_block(100)
+
     def test_closing_different_fees(self):
         l1 = self.node_factory.get_node()
 
