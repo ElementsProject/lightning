@@ -4628,6 +4628,43 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log(r'Adding block 105')
         assert not l1.daemon.is_in_log(r'Adding block 102')
 
+    @unittest.skipIf(not DEVELOPER, "needs --dev-max-funding-unconfirmed-blocks")
+    def test_fundee_forget_funding_tx_unconfirmed(self):
+        """Test that fundee will forget the channel if
+        the funding tx has been unconfirmed for too long.
+        """
+        # Keep this low (default is 2016), since everything
+        # is much slower in VALGRIND mode and wait_for_log
+        # could time out before lightningd processes all the
+        # blocks.
+        blocks = 200
+        # funder
+        l1 = self.node_factory.get_node(fake_bitcoin_cli=True)
+        # fundee
+        l2 = self.node_factory.get_node(options={"dev-max-funding-unconfirmed-blocks": blocks})
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+        # Give funder some funds.
+        self.give_funds(l1, 10**7)
+        # Let blocks settle.
+        time.sleep(1)
+
+        # Prevent funder from broadcasting funding tx.
+        self.fake_bitcoind_fail(l1, 1)
+        # Fund the channel.
+        # The process will complete, but funder will be unable
+        # to broadcast and confirm funding tx.
+        l1.rpc.fundchannel(l2.info['id'], 10**6)
+        # Prevent l1 from timing out bitcoin-cli.
+        self.fake_bitcoind_unfail(l1)
+        # Generate blocks until unconfirmed.
+        bitcoind.generate_block(blocks)
+
+        # fundee will forget channel!
+        l2.daemon.wait_for_log('Forgetting channel: It has been {} blocks'.format(blocks))
+        # fundee will also forget and disconnect from peer.
+        assert len(l2.rpc.listpeers(l1.info['id'])['peers']) == 0
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
