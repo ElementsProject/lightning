@@ -92,7 +92,7 @@ struct channel {
 
 	/* Blockheight at creation, scans for funding confirmations
 	 * will start here */
-	u64 first_blocknum;
+	u32 first_blocknum;
 
 	/* Feerate range */
 	u32 min_possible_feerate, max_possible_feerate;
