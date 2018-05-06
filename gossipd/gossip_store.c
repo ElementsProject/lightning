@@ -130,7 +130,10 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 	const char *bad;
 	size_t stats[] = {0, 0, 0, 0};
 
-	lseek(gs->fd, known_good, SEEK_SET);
+	if (lseek(gs->fd, known_good, SEEK_SET) < 0) {
+		status_unusual("gossip_store: lseek failure");
+		goto truncate_nomsg;
+	}
 	while (read(gs->fd, &belen, sizeof(belen)) == sizeof(belen)) {
 		msglen = be32_to_cpu(belen);
 		msg = tal_arr(gs, u8, msglen);
