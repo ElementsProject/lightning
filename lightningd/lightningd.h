@@ -192,4 +192,7 @@ struct backtrace_state *backtrace_state;
 /* Check we can run subdaemons, and check their versions */
 void test_daemons(const struct lightningd *ld);
 
+/* Notify lightningd about new blocks. */
+void notify_new_block(struct lightningd *ld, u32 block_height);
+
 #endif /* LIGHTNING_LIGHTNINGD_LIGHTNINGD_H */

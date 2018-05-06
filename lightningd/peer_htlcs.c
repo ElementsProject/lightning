@@ -1514,7 +1514,7 @@ static u32 htlc_in_deadline(const struct lightningd *ld,
 	return hin->cltv_expiry - (ld->config.cltv_expiry_delta + 1)/2;
 }
 
-void notify_new_block(struct lightningd *ld, u32 height)
+void htlcs_notify_new_block(struct lightningd *ld, u32 height)
 {
 	bool removed;
 

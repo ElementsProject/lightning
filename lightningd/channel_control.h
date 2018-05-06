@@ -19,5 +19,8 @@ bool channel_tell_funding_locked(struct lightningd *ld,
 				 struct channel *channel,
 				 const struct bitcoin_txid *txid,
 				 u32 depth);
+/* Notify channels of new blocks. */
+void channel_notify_new_block(struct lightningd *ld,
+			      u32 block_height);
 
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_CONTROL_H */

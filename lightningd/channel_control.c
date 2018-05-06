@@ -1,6 +1,10 @@
+#include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
 #include <ccan/fdpass/fdpass.h>
 #include <channeld/gen_channel_wire.h>
+#include <common/memleak.h>
+#include <common/timeout.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <gossipd/gossip_constants.h>
 #include <hsmd/capabilities.h>
@@ -326,4 +330,94 @@ bool channel_tell_funding_locked(struct lightningd *ld,
 		lockin_complete(channel);
 
 	return true;
+}
+
+/* Check if we are the fundee of this channel, the channel
+ * funding transaction is still not yet seen onchain, and
+ * it has been too long since the channel was first opened.
+ * If so, we should forget the channel. */
+static bool
+is_fundee_should_forget(struct lightningd *ld,
+			struct channel *channel,
+			u32 block_height)
+{
+	u32 max_no_funding_tx = 2016;
+
+	/* FIXME: we should be getting max_no_funding_tx
+	 * from an lightningd option, which is why we get
+	 * it as an argument. */
+	(void) ld;
+
+	/* BOLT #2:
+	 *
+	 * A non-funding node (fundee):
+	 *   - SHOULD forget the channel if it does not see the
+	 * funding transaction after a reasonable timeout.
+	 */
+
+	/* Only applies if we are fundee. */
+	if (channel->funder == LOCAL)
+		return false;
+
+	/* Does not apply if we already saw the funding tx. */
+	if (channel->scid)
+		return false;
+
+	/* Not even reached previous starting blocknum.
+	 * (e.g. if --rescan option is used) */
+	if (block_height < channel->first_blocknum)
+		return false;
+
+	/* Timeout in blocks not yet reached. */
+	if (block_height - channel->first_blocknum < max_no_funding_tx)
+		return false;
+
+	/* Ah forget it! */
+	return true;
+}
+
+/* Notify all channels of new blocks. */
+void channel_notify_new_block(struct lightningd *ld,
+			      u32 block_height)
+{
+	struct peer *peer;
+	struct channel *channel;
+	struct channel **to_forget = tal_arr(NULL, struct channel *, 0);
+	size_t i;
+
+	list_for_each (&ld->peers, peer, list) {
+		list_for_each (&peer->channels, channel, list)
+			if (is_fundee_should_forget(ld, channel, block_height)) {
+				i = tal_count(to_forget);
+				tal_resize(&to_forget, i + 1);
+				to_forget[i] = channel;
+			}
+	}
+
+	/* Need to forget in a separate loop, else the above
+	 * nested loops may crash due to the last channel of
+	 * a peer also deleting the peer, making the inner
+	 * loop crash.
+	 * list_for_each_safe does not work because it is not
+	 * just the freeing of the channel that occurs, but the
+	 * potential destruction of the peer that invalidates
+	 * memory the inner loop is accessing. */
+	for (i = 0; i < tal_count(to_forget); ++i) {
+		channel = to_forget[i];
+		/* Report it first. */
+		log_unusual(channel->log,
+			    "Forgetting channel: "
+			    "It has been %"PRIu32" blocks without the "
+			    "funding transaction %s getting deeply "
+			    "confirmed. "
+			    "We are fundee and can forget channel without "
+			    "loss of funds.",
+			    block_height - channel->first_blocknum,
+			    type_to_string(tmpctx, struct bitcoin_txid,
+					   &channel->funding_txid));
+		/* And forget it. */
+		delete_channel(channel);
+	}
+
+	tal_free(to_forget);
 }

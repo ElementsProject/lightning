@@ -11,6 +11,10 @@ void activate_peers(struct lightningd *ld UNNEEDED)
 /* Generated stub for begin_topology */
 void begin_topology(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "begin_topology called!\n"); abort(); }
+/* Generated stub for channel_notify_new_block */
+void channel_notify_new_block(struct lightningd *ld UNNEEDED,
+			      u32 block_height UNNEEDED)
+{ fprintf(stderr, "channel_notify_new_block called!\n"); abort(); }
 /* Generated stub for daemon_setup */
 void daemon_setup(const char *argv0 UNNEEDED,
 		  void (*backtrace_print)(const char *fmt UNNEEDED, ...) UNNEEDED,
@@ -58,6 +62,9 @@ size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)
 /* Generated stub for hsm_init */
 void hsm_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "hsm_init called!\n"); abort(); }
+/* Generated stub for htlcs_notify_new_block */
+void htlcs_notify_new_block(struct lightningd *ld UNNEEDED, u32 height UNNEEDED)
+{ fprintf(stderr, "htlcs_notify_new_block called!\n"); abort(); }
 /* Generated stub for json_escape */
 struct json_escaped *json_escape(const tal_t *ctx UNNEEDED, const char *str TAKES UNNEEDED)
 { fprintf(stderr, "json_escape called!\n"); abort(); }
