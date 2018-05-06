@@ -16,6 +16,7 @@
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <inttypes.h>
+#include <lightningd/channel_control.h>
 #include <lightningd/gossip_control.h>
 
 /* Mutual recursion via timer. */

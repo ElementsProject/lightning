@@ -27,6 +27,7 @@
 #include <fcntl.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/channel_control.h>
 #include <lightningd/invoice.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
@@ -290,6 +291,14 @@ static int io_poll_lightningd(struct pollfd *fds, nfds_t nfds, int timeout)
 	db_assert_no_outstanding_statements();
 
 	return io_poll_debug(fds, nfds, timeout);
+}
+
+void notify_new_block(struct lightningd *ld,
+		      u32 block_height)
+{
+	/* Inform our subcomponents individually. */
+	htlcs_notify_new_block(ld, block_height);
+	channel_notify_new_block(ld, block_height);
 }
 
 int main(int argc, char *argv[])

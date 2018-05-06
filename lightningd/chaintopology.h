@@ -158,7 +158,6 @@ void begin_topology(struct chain_topology *topo);
 
 struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo, const struct bitcoin_txid *txid);
 
-void notify_new_block(struct lightningd *ld, unsigned int height);
 void notify_feerate_change(struct lightningd *ld);
 
 #if DEVELOPER
