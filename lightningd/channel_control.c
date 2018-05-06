@@ -341,12 +341,7 @@ is_fundee_should_forget(struct lightningd *ld,
 			struct channel *channel,
 			u32 block_height)
 {
-	u32 max_no_funding_tx = 2016;
-
-	/* FIXME: we should be getting max_no_funding_tx
-	 * from an lightningd option, which is why we get
-	 * it as an argument. */
-	(void) ld;
+	u32 max_funding_unconfirmed = ld->max_funding_unconfirmed;
 
 	/* BOLT #2:
 	 *
@@ -369,7 +364,7 @@ is_fundee_should_forget(struct lightningd *ld,
 		return false;
 
 	/* Timeout in blocks not yet reached. */
-	if (block_height - channel->first_blocknum < max_no_funding_tx)
+	if (block_height - channel->first_blocknum < max_funding_unconfirmed)
 		return false;
 
 	/* Ah forget it! */

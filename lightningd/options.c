@@ -406,6 +406,15 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_early_arg("--always-use-proxy",
 			       opt_set_bool_arg, opt_show_bool,
 			       &ld->use_proxy_always, "Use the proxy always");
+
+#if DEVELOPER
+	opt_register_arg("--dev-max-funding-unconfirmed-blocks",
+			 opt_set_u32, opt_show_u32,
+			 &ld->max_funding_unconfirmed,
+			 "Maximum number of blocks we wait for a channel "
+			 "funding transaction to confirm, if we are the "
+			 "fundee.");
+#endif
 }
 
 #if DEVELOPER

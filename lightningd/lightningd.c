@@ -87,6 +87,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->use_proxy_always = false;
 	ld->pure_tor_setup = false;
 	ld->tor_service_password = NULL;
+	ld->max_funding_unconfirmed = 2016;
+
 	return ld;
 }
 
