@@ -49,7 +49,7 @@ struct uncommitted_channel {
 
 	/* Blockheight at creation, scans for funding confirmations
 	 * will start here */
-	u64 first_blocknum;
+	u32 first_blocknum;
 
 	/* These are *not* filled in by new_uncommitted_channel: */
 
