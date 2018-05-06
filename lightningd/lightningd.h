@@ -160,6 +160,10 @@ struct lightningd {
 	u64 ini_autocleaninvoice_cycle;
 	u64 ini_autocleaninvoice_expiredby;
 
+	/* Number of blocks we wait for a channel to get funded
+	 * if we are the fundee. */
+	u32 max_funding_unconfirmed;
+
 #if DEVELOPER
 	/* If we want to debug a subdaemon. */
 	const char *dev_debug_subdaemon;
