@@ -53,6 +53,16 @@ const struct chainparams networks[] = {
      .cli_args = "-testnet",
      .dust_limit = 100000,
      .when_lightning_became_cool = 1,
+     .testnet = true},
+      {.index = 5,
+     .network_name = "litecoin-regtest",
+     .bip173_name = "rltc",
+     .genesis_blockhash = {{{.u.u8 ={ 0xf9, 0x16, 0xc4, 0x56, 0xfc, 0x51, 0xdf, 0x62, 0x78, 0x85, 0xd7, 0xd6, 0x74, 0xed, 0x02, 0xdc, 0x88, 0xa2, 0x25, 0xad, 0xb3, 0xf0, 0x2a, 0xd1, 0x3e, 0xb4, 0x93, 0x8f, 0xf3, 0x27, 0x08, 0x53 }}}},
+     .rpc_port = 19332,
+     .cli = "litecoin-cli",
+     .cli_args = "-regtest",
+     .dust_limit = 100000,
+     .when_lightning_became_cool = 1,
      .testnet = true}
 };
 
