@@ -138,7 +138,7 @@ static char *opt_set_s32(const char *arg, s32 *u)
 	return NULL;
 }
 
-static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
+static char *opt_add_addr(const char *arg, struct lightningd *ld)
 {
 	size_t n = tal_count(ld->wireaddrs);
 	char const *err_msg;
@@ -153,6 +153,14 @@ static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
 
 	return NULL;
 
+}
+
+static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
+{
+	log_broken(ld->log, "--ipaddr has been deprecated, use --addr");
+	if (!deprecated_apis)
+		return "--ipaddr is deprecated";
+	return opt_add_addr(arg, ld);
 }
 
 static void opt_show_u64(char buf[OPT_SHOW_LEN], const u64 *u)
@@ -328,10 +336,12 @@ static void config_register_opts(struct lightningd *ld)
 			 &ld->config.fee_per_satoshi,
 			 "Microsatoshi fee for every satoshi in HTLC");
 	opt_register_arg("--ipaddr", opt_add_ipaddr, NULL,
+			 ld, opt_hidden);
+	opt_register_arg("--addr", opt_add_addr, NULL,
 			 ld,
-			 "Set the IP address (v4 or v6) to announce to the network for incoming connections");
+			 "Set the IP address (v4 or v6) to listen on and announce to the network for incoming connections");
 	opt_register_noarg("--offline", opt_set_offline, ld,
-			   "Start in offline-mode (do not automatically reconnect and do not accept incoming connections");
+			   "Start in offline-mode (do not automatically reconnect and do not accept incoming connections)");
 
 	opt_register_early_arg("--network", opt_set_network, opt_show_network,
 			       ld,
@@ -341,10 +351,10 @@ static void config_register_opts(struct lightningd *ld)
 				 "Alias for --network=testnet");
 	opt_register_early_noarg("--mainnet", opt_set_mainnet, ld,
 				 "Alias for --network=bitcoin");
-	opt_register_arg("--allow-deprecated-apis",
-			 opt_set_bool_arg, opt_show_bool,
-			 &deprecated_apis,
-			 "Enable deprecated options, JSONRPC commands, fields, etc.");
+	opt_register_early_arg("--allow-deprecated-apis",
+			       opt_set_bool_arg, opt_show_bool,
+			       &deprecated_apis,
+			       "Enable deprecated options, JSONRPC commands, fields, etc.");
 	opt_register_arg("--debug-subdaemon-io",
 			 opt_set_charp, NULL, &ld->debug_subdaemon_io,
 			 "Enable full peer IO logging in subdaemons ending in this string (can also send SIGUSR1 to toggle)");
@@ -861,6 +871,8 @@ static void add_config(struct lightningd *ld,
 						 topo->override_fee_rate[1],
 						 topo->override_fee_rate[2]);
 		} else if (opt->cb_arg == (void *)opt_add_ipaddr) {
+			/* Covered by opt_add_addr below */
+		} else if (opt->cb_arg == (void *)opt_add_addr) {
 			/* This is a bit weird, we can have multiple args */
 			for (size_t i = 0; i < tal_count(ld->wireaddrs); i++) {
 				json_add_string(response,
