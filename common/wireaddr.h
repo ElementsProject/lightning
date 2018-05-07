@@ -75,6 +75,8 @@ void wireaddr_from_ipv6(struct wireaddr *addr,
 bool wireaddr_to_ipv4(const struct wireaddr *addr, struct sockaddr_in *s4);
 bool wireaddr_to_ipv6(const struct wireaddr *addr, struct sockaddr_in6 *s6);
 
+bool wireaddr_is_wildcard(const struct wireaddr *addr);
+
 enum wireaddr_internal_type {
 	ADDR_INTERNAL_SOCKNAME,
 	ADDR_INTERNAL_ALLPROTO,

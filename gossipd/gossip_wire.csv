@@ -24,11 +24,12 @@ gossipctl_activate,3025
 # Do we listen?
 gossipctl_activate,,listen,bool
 
-# Gossipd->master, I am ready, here are the final addresses.
+# Gossipd->master, I am ready, here's the addresses I bound, can announce.
 gossipctl_activate_reply,3125
-gossipctl_activate_reply,,num_wireaddrs,u16
-gossipctl_activate_reply,,wireaddrs,num_wireaddrs*struct wireaddr_internal
-gossipctl_activate_reply,,listen_announce,num_wireaddrs*enum addr_listen_announce
+gossipctl_activate_reply,,num_bindings,u16
+gossipctl_activate_reply,,bindings,num_bindings*struct wireaddr_internal
+gossipctl_activate_reply,,num_announcable,u16
+gossipctl_activate_reply,,announcable,num_announcable*struct wireaddr
 
 # Master -> gossipd: Optional hint for where to find peer.
 gossipctl_peer_addrhint,3014

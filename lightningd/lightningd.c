@@ -69,8 +69,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	list_head_init(&ld->waitsendpay_commands);
 	list_head_init(&ld->sendpay_commands);
 	list_head_init(&ld->close_commands);
-	ld->wireaddrs = tal_arr(ld, struct wireaddr_internal, 0);
-	ld->listen_announce = tal_arr(ld, enum addr_listen_announce, 0);
+	ld->proposed_wireaddr = tal_arr(ld, struct wireaddr_internal, 0);
+	ld->proposed_listen_announce = tal_arr(ld, enum addr_listen_announce, 0);
 	ld->portnum = DEFAULT_PORT;
 	ld->listen = true;
 	ld->autolisten = true;

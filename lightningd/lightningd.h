@@ -120,10 +120,14 @@ struct lightningd {
 	/* Do we want to guess addresses to listen and announce? */
 	bool autolisten;
 
-	/* Addresses to bind/announce to the network (tal_count()) */
-	struct wireaddr_internal *wireaddrs;
-	/* And the bitset for each, whether to listen, announce or both */
-	enum addr_listen_announce *listen_announce;
+	/* Setup: Addresses to bind/announce to the network (tal_count()) */
+	struct wireaddr_internal *proposed_wireaddr;
+	/* Setup: And the bitset for each, whether to listen, announce or both */
+	enum addr_listen_announce *proposed_listen_announce;
+
+	/* Actual bindings and announcables from gossipd */
+	struct wireaddr_internal *binding;
+	struct wireaddr *announcable;
 
 	/* Bearer of all my secrets. */
 	int hsm_fd;

@@ -183,8 +183,8 @@ void gossip_init(struct lightningd *ld)
 	u8 *msg;
 	int hsmfd;
 	u64 capabilities = HSM_CAP_ECDH | HSM_CAP_SIGN_GOSSIP;
-	struct wireaddr_internal *wireaddrs = ld->wireaddrs;
-	enum addr_listen_announce *listen_announce = ld->listen_announce;
+	struct wireaddr_internal *wireaddrs = ld->proposed_wireaddr;
+	enum addr_listen_announce *listen_announce = ld->proposed_listen_announce;
 
 	msg = towire_hsm_client_hsmfd(tmpctx, &ld->id, capabilities);
 	if (!wire_sync_write(ld->hsm_fd, msg))
@@ -230,12 +230,9 @@ static void gossip_activate_done(struct subd *gossip UNUSED,
 {
 	struct lightningd *ld = gossip->ld;
 
-	/* Reply gives us the actual wireaddrs we're using */
-	tal_free(ld->wireaddrs);
-	tal_free(ld->listen_announce);
 	if (!fromwire_gossipctl_activate_reply(gossip->ld, reply,
-					       &ld->wireaddrs,
-					       &ld->listen_announce))
+					       &ld->binding,
+					       &ld->announcable))
 		fatal("Bad gossipctl_activate_reply: %s",
 		      tal_hex(reply, reply));
 

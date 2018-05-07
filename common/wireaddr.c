@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ccan/build_assert/build_assert.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
@@ -162,6 +163,18 @@ bool wireaddr_to_ipv6(const struct wireaddr *addr, struct sockaddr_in6 *s6)
 	assert(addr->addrlen == sizeof(s6->sin6_addr));
 	memcpy(&s6->sin6_addr, addr->addr, sizeof(s6->sin6_addr));
 	return true;
+}
+
+bool wireaddr_is_wildcard(const struct wireaddr *addr)
+{
+	switch (addr->type) {
+	case ADDR_TYPE_IPV6:
+	case ADDR_TYPE_IPV4:
+		return memeqzero(addr->addr, addr->addrlen);
+	case ADDR_TYPE_PADDING:
+		return false;
+	}
+	abort();
 }
 
 char *fmt_wireaddr_internal(const tal_t *ctx,
