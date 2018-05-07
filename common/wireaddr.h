@@ -10,6 +10,7 @@ struct in6_addr;
 struct in_addr;
 struct sockaddr_in6;
 struct sockaddr_in;
+struct sockaddr_un;
 
 /* BOLT #7:
  *
@@ -74,4 +75,30 @@ void wireaddr_from_ipv6(struct wireaddr *addr,
 bool wireaddr_to_ipv4(const struct wireaddr *addr, struct sockaddr_in *s4);
 bool wireaddr_to_ipv6(const struct wireaddr *addr, struct sockaddr_in6 *s6);
 
+enum wireaddr_internal_type {
+	ADDR_INTERNAL_SOCKNAME,
+	ADDR_INTERNAL_WIREADDR,
+};
+
+/* For internal use, where we can also supply a local socket, wildcard. */
+struct wireaddr_internal {
+	enum wireaddr_internal_type itype;
+	union {
+		struct wireaddr wireaddr;
+		char sockname[108];
+	} u;
+};
+bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr, u16 port, const char **err_msg);
+
+void towire_wireaddr_internal(u8 **pptr,
+				 const struct wireaddr_internal *addr);
+bool fromwire_wireaddr_internal(const u8 **cursor, size_t *max,
+				   struct wireaddr_internal *addr);
+char *fmt_wireaddr_internal(const tal_t *ctx,
+			       const struct wireaddr_internal *a);
+
+void wireaddr_from_sockname(struct wireaddr_internal *addr,
+			    const char *sockname);
+bool wireaddr_to_sockname(const struct wireaddr_internal *addr,
+			  struct sockaddr_un *sun);
 #endif /* LIGHTNING_COMMON_WIREADDR_H */
