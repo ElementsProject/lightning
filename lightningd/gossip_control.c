@@ -183,6 +183,8 @@ void gossip_init(struct lightningd *ld)
 	u8 *msg;
 	int hsmfd;
 	u64 capabilities = HSM_CAP_ECDH | HSM_CAP_SIGN_GOSSIP;
+	struct wireaddr_internal *wireaddrs = ld->wireaddrs;
+	enum addr_listen_announce *listen_announce = ld->listen_announce;
 
 	msg = towire_hsm_client_hsmfd(tmpctx, &ld->id, capabilities);
 	if (!wire_sync_write(ld->hsm_fd, msg))
@@ -202,12 +204,21 @@ void gossip_init(struct lightningd *ld)
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
 
+	/* If no addr specified, hand wildcard to gossipd */
+	if (tal_count(wireaddrs) == 0 && ld->autolisten) {
+		wireaddrs = tal_arrz(tmpctx, struct wireaddr_internal, 1);
+		listen_announce = tal_arr(tmpctx, enum addr_listen_announce, 1);
+		wireaddrs->itype = ADDR_INTERNAL_ALLPROTO;
+		wireaddrs->u.port = ld->portnum;
+		*listen_announce = ADDR_LISTEN_AND_ANNOUNCE;
+	}
+
 	msg = towire_gossipctl_init(
 	    tmpctx, ld->config.broadcast_interval,
 	    &get_chainparams(ld)->genesis_blockhash, &ld->id,
 	    get_offered_global_features(tmpctx),
-	    get_offered_local_features(tmpctx), ld->wireaddrs,
-	    ld->listen_announce, ld->rgb,
+	    get_offered_local_features(tmpctx), wireaddrs,
+	    listen_announce, ld->rgb,
 	    ld->alias, ld->config.channel_update_interval, ld->reconnect);
 	subd_send_msg(ld->gossip, msg);
 }
@@ -234,8 +245,7 @@ static void gossip_activate_done(struct subd *gossip UNUSED,
 
 void gossip_activate(struct lightningd *ld)
 {
-	const u8 *msg = towire_gossipctl_activate(NULL, ld->listen, ld->autolisten,
-						  ld->portnum);
+	const u8 *msg = towire_gossipctl_activate(NULL, ld->listen);
 	subd_req(ld->gossip, ld->gossip, take(msg), -1, 0,
 		 gossip_activate_done, NULL);
 
