@@ -23,9 +23,15 @@ gossipctl_init,,reconnect,bool
 gossipctl_activate,3025
 # Do we listen?
 gossipctl_activate,,listen,bool
+gossipctl_activate,,guess_addresses,bool
+# FIXME: Hack for deprecated --port option.
+gossipctl_activate,,port,u16
 
-# Gossipd->master, I am ready.
+# Gossipd->master, I am ready, here are the final addresses.
 gossipctl_activate_reply,3125
+gossipctl_activate_reply,,num_wireaddrs,u16
+gossipctl_activate_reply,,wireaddrs,num_wireaddrs*struct wireaddr
+gossipctl_activate_reply,,listen_announce,num_wireaddrs*enum addr_listen_announce
 
 # Master -> gossipd: Optional hint for where to find peer.
 gossipctl_peer_addrhint,3014

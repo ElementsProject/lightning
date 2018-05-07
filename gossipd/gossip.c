@@ -34,6 +34,7 @@
 #include <gossipd/broadcast.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <gossipd/handshake.h>
+#include <gossipd/netaddress.h>
 #include <gossipd/routing.h>
 #include <hsmd/client.h>
 #include <hsmd/gen_hsm_client_wire.h>
@@ -1631,16 +1632,25 @@ static struct io_plan *gossip_activate(struct daemon_conn *master,
 				       const u8 *msg)
 {
 	bool listen;
+	bool guess_addrs;
+	u16 port;
 
-	if (!fromwire_gossipctl_activate(msg, &listen))
+	if (!fromwire_gossipctl_activate(msg, &listen, &guess_addrs, &port))
 		master_badmsg(WIRE_GOSSIPCTL_ACTIVATE, msg);
 
-	if (listen)
+	if (listen) {
+		if (guess_addrs)
+			guess_addresses(&daemon->wireaddrs,
+					&daemon->listen_announce,
+					port);
 		setup_listeners(daemon);
+	}
 
 	/* OK, we're ready! */
 	daemon_conn_send(&daemon->master,
-			 take(towire_gossipctl_activate_reply(NULL)));
+			 take(towire_gossipctl_activate_reply(NULL,
+							      daemon->wireaddrs,
+							      daemon->listen_announce)));
 
 	return daemon_conn_read_next(master->conn, master);
 }

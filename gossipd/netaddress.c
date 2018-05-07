@@ -1,10 +1,10 @@
 #include <arpa/inet.h>
 #include <assert.h>
+#include <common/status.h>
+#include <common/type_to_string.h>
 #include <common/wireaddr.h>
 #include <errno.h>
-#include <lightningd/lightningd.h>
-#include <lightningd/log.h>
-#include <lightningd/netaddress.h>
+#include <gossipd/netaddress.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <sys/socket.h>
@@ -202,27 +202,26 @@ static bool IsRoutable(const struct wireaddr *addr)
  * then query address. */
 /* Returns 0 if protocol completely unsupported, ADDR_LISTEN if we
  * can't reach addr, ADDR_LISTEN_AND_ANNOUNCE if we can (and fill saddr). */
-static enum addr_listen_announce get_local_sockname(struct lightningd *ld,
-						    int af, void *saddr,
+static enum addr_listen_announce get_local_sockname(int af, void *saddr,
 						    socklen_t saddrlen)
 {
     int fd = socket(af, SOCK_DGRAM, 0);
     if (fd < 0) {
-        log_debug(ld->log, "Failed to create %u socket: %s",
-                  af, strerror(errno));
+        status_trace("Failed to create %u socket: %s",
+		     af, strerror(errno));
         return 0;
     }
 
     if (connect(fd, saddr, saddrlen) != 0) {
-        log_debug(ld->log, "Failed to connect %u socket: %s",
-                  af, strerror(errno));
+        status_trace("Failed to connect %u socket: %s",
+		     af, strerror(errno));
         close(fd);
         return ADDR_LISTEN;
     }
 
     if (getsockname(fd, saddr, &saddrlen) != 0) {
-        log_debug(ld->log, "Failed to get %u socket name: %s",
-                  af, strerror(errno));
+        status_trace("Failed to get %u socket name: %s",
+		     af, strerror(errno));
         close(fd);
         return ADDR_LISTEN;
     }
@@ -234,8 +233,7 @@ static enum addr_listen_announce get_local_sockname(struct lightningd *ld,
 /* Return 0 if not available, or whether it's listenable-only or announceable.
  * If it's listenable only, will set wireaddr to all-zero address for universal
  * binding. */
-static enum addr_listen_announce guess_one_address(struct lightningd *ld,
-						   struct wireaddr *addr,
+static enum addr_listen_announce guess_one_address(struct wireaddr *addr,
 						   u16 portnum,
 						   enum wire_addr_type type)
 {
@@ -252,7 +250,7 @@ static enum addr_listen_announce guess_one_address(struct lightningd *ld,
         /* 8.8.8.8 */
 	sin.sin_addr.s_addr = 0x08080808;
         sin.sin_family = AF_INET;
-        ret = get_local_sockname(ld, AF_INET, &sin, sizeof(sin));
+        ret = get_local_sockname(AF_INET, &sin, sizeof(sin));
         addr->addrlen = sizeof(sin.sin_addr);
         memcpy(addr->addr, &sin.sin_addr, addr->addrlen);
         break;
@@ -266,13 +264,13 @@ static enum addr_listen_announce guess_one_address(struct lightningd *ld,
         sin6.sin6_port = htons(53);
         sin6.sin6_family = AF_INET6;
         memcpy(sin6.sin6_addr.s6_addr, pchGoogle, sizeof(pchGoogle));
-        ret = get_local_sockname(ld, AF_INET6, &sin6, sizeof(sin6));
+        ret = get_local_sockname(AF_INET6, &sin6, sizeof(sin6));
         addr->addrlen = sizeof(sin6.sin6_addr);
         memcpy(addr->addr, &sin6.sin6_addr, addr->addrlen);
         break;
     }
     case ADDR_TYPE_PADDING:
-        log_debug(ld->log, "Padding address, ignoring");
+        status_trace("Padding address, ignoring");
         return 0;
     }
 
@@ -281,8 +279,8 @@ static enum addr_listen_announce guess_one_address(struct lightningd *ld,
 
     /* If we can reach it, but resulting address is unroutable, listen only */
     if (ret == ADDR_LISTEN_AND_ANNOUNCE && !IsRoutable(addr)) {
-        log_debug(ld->log, "Address %s is not routable",
-                  type_to_string(tmpctx, struct wireaddr, addr));
+        status_trace("Address %s is not routable",
+		     type_to_string(tmpctx, struct wireaddr, addr));
 	ret = ADDR_LISTEN;
     }
 
@@ -290,33 +288,35 @@ static enum addr_listen_announce guess_one_address(struct lightningd *ld,
 	/* This corresponds to INADDR_ANY or in6addr_any */
 	memset(addr->addr, 0, addr->addrlen);
     } else {
-	log_debug(ld->log, "Public address %s",
-		  type_to_string(tmpctx, struct wireaddr, addr));
+	status_trace("Public address %s",
+		     type_to_string(tmpctx, struct wireaddr, addr));
     }
     return ret;
 }
 
-void guess_addresses(struct lightningd *ld)
+void guess_addresses(struct wireaddr **wireaddrs,
+		     enum addr_listen_announce **listen_announce,
+		     u16 portnum)
 {
-    size_t n = tal_count(ld->wireaddrs);
+    size_t n = tal_count(*wireaddrs);
 
-    log_debug(ld->log, "Trying to guess public addresses...");
+    status_trace("Trying to guess public addresses...");
 
     /* We allocate an extra, then remove if it's not needed. */
-    tal_resize(&ld->wireaddrs, n+1);
-    tal_resize(&ld->listen_announce, n+1);
+    tal_resize(wireaddrs, n+1);
+    tal_resize(listen_announce, n+1);
     /* We do IPv6 first: on Linux, that binds to IPv4 too. */
-    ld->listen_announce[n] = guess_one_address(ld, &ld->wireaddrs[n],
-					       ld->portnum, ADDR_TYPE_IPV6);
-    if (ld->listen_announce[n] != 0) {
+    (*listen_announce)[n] = guess_one_address(&(*wireaddrs)[n],
+					      portnum, ADDR_TYPE_IPV6);
+    if ((*listen_announce)[n] != 0) {
         n++;
-        tal_resize(&ld->wireaddrs, n+1);
-	tal_resize(&ld->listen_announce, n+1);
+        tal_resize(wireaddrs, n+1);
+	tal_resize(listen_announce, n+1);
     }
-    ld->listen_announce[n] = guess_one_address(ld, &ld->wireaddrs[n],
-					       ld->portnum, ADDR_TYPE_IPV4);
-    if (ld->listen_announce[n] == 0) {
-        tal_resize(&ld->wireaddrs, n);
-        tal_resize(&ld->listen_announce, n);
+    (*listen_announce)[n] = guess_one_address(&(*wireaddrs)[n],
+					      portnum, ADDR_TYPE_IPV4);
+    if ((*listen_announce)[n] == 0) {
+        tal_resize(wireaddrs, n);
+        tal_resize(listen_announce, n);
     }
 }
