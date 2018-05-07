@@ -367,6 +367,10 @@ class LightningNode(object):
         c.close()
         db.close()
 
+    def start(self):
+        self.daemon.start()
+        self.port = self.rpc.getinfo()['port']
+
     def stop(self, timeout=10):
         """ Attempt to do a clean shutdown, but kill if it hangs
         """
@@ -403,7 +407,7 @@ class LightningNode(object):
         else:
             self.daemon.stop()
 
-        self.daemon.start()
+        self.start()
 
     def fund_channel(self, l2, amount):
 
