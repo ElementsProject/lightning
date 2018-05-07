@@ -77,6 +77,7 @@ bool wireaddr_to_ipv6(const struct wireaddr *addr, struct sockaddr_in6 *s6);
 
 enum wireaddr_internal_type {
 	ADDR_INTERNAL_SOCKNAME,
+	ADDR_INTERNAL_ALLPROTO,
 	ADDR_INTERNAL_WIREADDR,
 };
 
@@ -84,11 +85,15 @@ enum wireaddr_internal_type {
 struct wireaddr_internal {
 	enum wireaddr_internal_type itype;
 	union {
+		/* ADDR_INTERNAL_SOCKNAME */
 		struct wireaddr wireaddr;
+		/* ADDR_INTERNAL_ALLPROTO */
+		u16 port;
+		/* ADDR_INTERNAL_WIREADDR */
 		char sockname[108];
 	} u;
 };
-bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr, u16 port, const char **err_msg);
+bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr, u16 port, bool wildcard_ok, const char **err_msg);
 
 void towire_wireaddr_internal(u8 **pptr,
 				 const struct wireaddr_internal *addr);

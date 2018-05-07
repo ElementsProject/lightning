@@ -63,6 +63,9 @@ void towire_wireaddr_internal(u8 **pptr, const struct wireaddr_internal *addr)
 		towire_u8_array(pptr, (const u8 *)addr->u.sockname,
 				sizeof(addr->u.sockname));
 		return;
+	case ADDR_INTERNAL_ALLPROTO:
+		towire_u16(pptr, addr->u.port);
+		return;
 	case ADDR_INTERNAL_WIREADDR:
 		towire_wireaddr(pptr, &addr->u.wireaddr);
 		return;
@@ -81,6 +84,9 @@ bool fromwire_wireaddr_internal(const u8 **cursor, size_t *max,
 		/* Must be NUL terminated */
 		if (!memchr(addr->u.sockname, 0, sizeof(addr->u.sockname)))
 			fromwire_fail(cursor, max);
+		return *cursor != NULL;
+	case ADDR_INTERNAL_ALLPROTO:
+		addr->u.port = fromwire_u16(cursor, max);
 		return *cursor != NULL;
 	case ADDR_INTERNAL_WIREADDR:
 		return fromwire_wireaddr(cursor, max, &addr->u.wireaddr);
@@ -164,6 +170,8 @@ char *fmt_wireaddr_internal(const tal_t *ctx,
 	switch (a->itype) {
 	case ADDR_INTERNAL_SOCKNAME:
 		return tal_fmt(ctx, "%s", a->u.sockname);
+	case ADDR_INTERNAL_ALLPROTO:
+		return tal_fmt(ctx, ":%u", a->u.port);
 	case ADDR_INTERNAL_WIREADDR:
 		return fmt_wireaddr(ctx, &a->u.wireaddr);
 	}
@@ -297,8 +305,12 @@ finish:
 	return res;
 }
 
-bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr, u16 port, const char **err_msg)
+bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
+			     u16 port, bool wildcard_ok, const char **err_msg)
 {
+	u16 wildport;
+	char *ip;
+
 	/* Addresses starting with '/' are local socket paths */
 	if (arg[0] == '/') {
 		addr->itype = ADDR_INTERNAL_SOCKNAME;
@@ -310,6 +322,16 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr, u1
 			return false;
 		}
 		strcpy(addr->u.sockname, arg);
+		return true;
+	}
+
+	/* An empty string means IPv4 and IPv6 (which under Linux by default
+	 * means just IPv6, and IPv4 gets autobound). */
+	if (wildcard_ok
+	    && separate_address_and_port(tmpctx, arg, &ip, &wildport)
+	    && streq(ip, "")) {
+		addr->itype = ADDR_INTERNAL_ALLPROTO;
+		addr->u.port = wildport;
 		return true;
 	}
 

@@ -4281,6 +4281,13 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(1)
         l1.daemon.wait_for_log('ONCHAIN')
 
+    def test_address(self):
+        l1 = self.node_factory.get_node()
+        assert len(l1.rpc.getinfo()['address']) == 1
+        assert l1.rpc.getinfo()['address'][0]['type'] == 'ipv4'
+        assert l1.rpc.getinfo()['address'][0]['address'] == '127.0.0.1'
+        assert int(l1.rpc.getinfo()['address'][0]['port']) == l1.port
+
     def test_listconfigs(self):
         l1 = self.node_factory.get_node()
 

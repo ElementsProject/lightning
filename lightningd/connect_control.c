@@ -151,7 +151,8 @@ static void json_connect(struct command *cmd,
 		} else {
 			port = DEFAULT_PORT;
 		}
-		if (!parse_wireaddr_internal(name, &addr, port, &err_msg)) {
+		if (!parse_wireaddr_internal(name, &addr, port, false,
+					     &err_msg)) {
 			command_fail(cmd, "Host %s:%u not valid: %s",
 				     name, port, err_msg ? err_msg : "port is 0");
 			return;
