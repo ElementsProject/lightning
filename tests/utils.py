@@ -319,44 +319,6 @@ class LightningNode(object):
         self.may_fail = may_fail
         self.may_reconnect = may_reconnect
 
-    # Use batch if you're doing more than one async.
-    def connect(self, remote_node, capacity, async=False):
-        # Collect necessary information
-        addr = self.rpc.newaddr()['address']
-        txid = self.bitcoin.rpc.sendtoaddress(addr, capacity)
-        tx = self.bitcoin.rpc.gettransaction(txid)
-        start_size = self.bitcoin.rpc.getmempoolinfo()['size']
-
-        def call_connect():
-            try:
-                self.rpc.connect('127.0.0.1', remote_node.daemon.port, tx['hex'], async=False)
-            except Exception:
-                pass
-        t = threading.Thread(target=call_connect)
-        t.daemon = True
-        t.start()
-
-        def wait_connected():
-            # Up to 10 seconds to get tx into mempool.
-            start_time = time.time()
-            while self.bitcoin.rpc.getmempoolinfo()['size'] == start_size:
-                if time.time() > start_time + 10:
-                    raise TimeoutError('No new transactions in mempool')
-                time.sleep(0.1)
-
-            self.bitcoin.generate_block(1)
-
-            # fut.result(timeout=5)
-
-            # Now wait for confirmation
-            self.daemon.wait_for_log(" to CHANNELD_NORMAL|STATE_NORMAL")
-            remote_node.daemon.wait_for_log(" to CHANNELD_NORMAL|STATE_NORMAL")
-
-        if async:
-            return self.executor.submit(wait_connected)
-        else:
-            return wait_connected()
-
     def openchannel(self, remote_node, capacity, addrtype="p2sh-segwit"):
         addr, wallettxid = self.fundwallet(capacity, addrtype)
         fundingtx = self.rpc.fundchannel(remote_node.info['id'], capacity)
