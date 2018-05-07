@@ -37,9 +37,21 @@ struct wireaddr {
 	u16 port;
 };
 
+/* We use wireaddr to tell gossipd both what to listen on, and what to
+ * announce */
+enum addr_listen_announce {
+	ADDR_LISTEN = (1 << 0),
+	ADDR_ANNOUNCE = (1 << 1),
+	ADDR_LISTEN_AND_ANNOUNCE = ADDR_LISTEN|ADDR_ANNOUNCE
+};
+
 /* Inserts a single ADDR_TYPE_PADDING if addr is NULL */
 void towire_wireaddr(u8 **pptr, const struct wireaddr *addr);
 bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr);
+
+enum addr_listen_announce fromwire_addr_listen_announce(const u8 **cursor,
+							size_t *max);
+void towire_addr_listen_announce(u8 **pptr, enum addr_listen_announce ala);
 
 bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 port, const char **err_msg);
 

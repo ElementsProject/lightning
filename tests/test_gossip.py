@@ -16,8 +16,8 @@ def test_gossip_pruning(node_factory, bitcoind):
     opts = {'channel-update-interval': 5}
     l1, l2, l3 = node_factory.get_nodes(3, opts)
 
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
-    l2.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
 
     scid1 = l1.fund_channel(l2, 10**6)
     scid2 = l2.fund_channel(l3, 10**6)

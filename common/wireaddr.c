@@ -42,6 +42,17 @@ void towire_wireaddr(u8 **pptr, const struct wireaddr *addr)
 	towire_u16(pptr, addr->port);
 }
 
+enum addr_listen_announce fromwire_addr_listen_announce(const u8 **cursor,
+							size_t *max)
+{
+	return fromwire_u8(cursor, max);
+}
+
+void towire_addr_listen_announce(u8 **pptr, enum addr_listen_announce ala)
+{
+	towire_u8(pptr, ala);
+}
+
 char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a)
 {
 	char addrstr[INET6_ADDRSTRLEN];

@@ -117,8 +117,13 @@ struct lightningd {
 	/* Do we want to listen for other peers? */
 	bool listen;
 
-	/* Addresses to announce to the network (tal_count()) */
+	/* Do we want to guess addresses to listen and announce? */
+	bool autolisten;
+
+	/* Addresses to bind/announce to the network (tal_count()) */
 	struct wireaddr *wireaddrs;
+	/* And the bitset for each, whether to listen, announce or both */
+	enum addr_listen_announce *listen_announce;
 
 	/* Bearer of all my secrets. */
 	int hsm_fd;

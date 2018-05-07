@@ -206,7 +206,8 @@ void gossip_init(struct lightningd *ld)
 	    tmpctx, ld->config.broadcast_interval,
 	    &get_chainparams(ld)->genesis_blockhash, &ld->id,
 	    get_offered_global_features(tmpctx),
-	    get_offered_local_features(tmpctx), ld->wireaddrs, ld->rgb,
+	    get_offered_local_features(tmpctx), ld->wireaddrs,
+	    ld->listen_announce, ld->rgb,
 	    ld->alias, ld->config.channel_update_interval, ld->reconnect);
 	subd_send_msg(ld->gossip, msg);
 }
@@ -222,8 +223,7 @@ static void gossip_activate_done(struct subd *gossip UNUSED,
 
 void gossip_activate(struct lightningd *ld)
 {
-	const u8 *msg = towire_gossipctl_activate(NULL,
-						  ld->listen ? ld->portnum : 0);
+	const u8 *msg = towire_gossipctl_activate(NULL, ld->listen);
 	subd_req(ld->gossip, ld->gossip, take(msg), -1, 0,
 		 gossip_activate_done, NULL);
 
