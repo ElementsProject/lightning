@@ -16,6 +16,7 @@ LIGHTNINGD_GOSSIP_HEADERS := gossipd/gen_gossip_wire.h \
 	gossipd/gen_gossip_store.h			\
 	gossipd/gossip_store.h				\
 	gossipd/handshake.h				\
+	gossipd/netaddress.h				\
 	gossipd/routing.h				\
 	gossipd/broadcast.h
 LIGHTNINGD_GOSSIP_SRC := gossipd/gossip.c	\

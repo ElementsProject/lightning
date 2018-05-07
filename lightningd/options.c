@@ -22,7 +22,6 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
-#include <lightningd/netaddress.h>
 #include <lightningd/opt_time.h>
 #include <lightningd/options.h>
 #include <lightningd/subd.h>
@@ -809,12 +808,6 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 		errx(1, "no arguments accepted");
 
 	check_config(ld);
-
-	if (ld->listen && ld->autolisten)
-		guess_addresses(ld);
-	else
-		log_debug(ld->log, "Not guessing addresses: %s",
-			  !ld->listen ? "--offline" : "--autolisten=0");
 }
 
 /* FIXME: This is a hack!  Expose somehow in ccan/opt.*/

@@ -213,17 +213,29 @@ void gossip_init(struct lightningd *ld)
 }
 
 static void gossip_activate_done(struct subd *gossip UNUSED,
-				 const u8 *reply UNUSED,
+				 const u8 *reply,
 				 const int *fds UNUSED,
 				 void *unused UNUSED)
 {
+	struct lightningd *ld = gossip->ld;
+
+	/* Reply gives us the actual wireaddrs we're using */
+	tal_free(ld->wireaddrs);
+	tal_free(ld->listen_announce);
+	if (!fromwire_gossipctl_activate_reply(gossip->ld, reply,
+					       &ld->wireaddrs,
+					       &ld->listen_announce))
+		fatal("Bad gossipctl_activate_reply: %s",
+		      tal_hex(reply, reply));
+
 	/* Break out of loop, so we can begin */
 	io_break(gossip);
 }
 
 void gossip_activate(struct lightningd *ld)
 {
-	const u8 *msg = towire_gossipctl_activate(NULL, ld->listen);
+	const u8 *msg = towire_gossipctl_activate(NULL, ld->listen, ld->autolisten,
+						  ld->portnum);
 	subd_req(ld->gossip, ld->gossip, take(msg), -1, 0,
 		 gossip_activate_done, NULL);
 
