@@ -102,10 +102,14 @@ static char *opt_set_u32(const char *arg, u32 *u)
 	return NULL;
 }
 
-static char *opt_set_u16(const char *arg, u16 *u)
+static char *opt_set_port(const char *arg, struct lightningd *ld)
 {
 	char *endp;
 	unsigned long l;
+
+	log_broken(ld->log, "--port has been deprecated, use --autolisten=0 or --addr=:<port>");
+	if (!deprecated_apis)
+		return "--port is deprecated";
 
 	assert(arg != NULL);
 
@@ -114,9 +118,13 @@ static char *opt_set_u16(const char *arg, u16 *u)
 	l = strtoul(arg, &endp, 0);
 	if (*endp || !arg[0])
 		return tal_fmt(NULL, "'%s' is not a number", arg);
-	*u = l;
-	if (errno || *u != l)
+	ld->portnum = l;
+	if (errno || ld->portnum != l)
 		return tal_fmt(NULL, "'%s' is out of range", arg);
+
+	if (ld->portnum == 0)
+		ld->autolisten = false;
+
 	return NULL;
 }
 
@@ -138,7 +146,9 @@ static char *opt_set_s32(const char *arg, s32 *u)
 	return NULL;
 }
 
-static char *opt_add_addr(const char *arg, struct lightningd *ld)
+static char *opt_add_addr_withtype(const char *arg,
+				   struct lightningd *ld,
+				   enum addr_listen_announce ala)
 {
 	size_t n = tal_count(ld->wireaddrs);
 	char const *err_msg;
@@ -146,6 +156,8 @@ static char *opt_add_addr(const char *arg, struct lightningd *ld)
 	assert(arg != NULL);
 
 	tal_resize(&ld->wireaddrs, n+1);
+	tal_resize(&ld->listen_announce, n+1);
+	ld->listen_announce[n] = ala;
 
 	if (!parse_wireaddr(arg, &ld->wireaddrs[n], ld->portnum, &err_msg)) {
 		return tal_fmt(NULL, "Unable to parse IP address '%s': %s", arg, err_msg);
@@ -153,6 +165,21 @@ static char *opt_add_addr(const char *arg, struct lightningd *ld)
 
 	return NULL;
 
+}
+
+static char *opt_add_addr(const char *arg, struct lightningd *ld)
+{
+	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN_AND_ANNOUNCE);
+}
+
+static char *opt_add_bind_addr(const char *arg, struct lightningd *ld)
+{
+	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN);
+}
+
+static char *opt_add_announce_addr(const char *arg, struct lightningd *ld)
+{
+	return opt_add_addr_withtype(arg, ld, ADDR_ANNOUNCE);
 }
 
 static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
@@ -175,11 +202,6 @@ static void opt_show_u32(char buf[OPT_SHOW_LEN], const u32 *u)
 static void opt_show_s32(char buf[OPT_SHOW_LEN], const s32 *u)
 {
 	snprintf(buf, OPT_SHOW_LEN, "%"PRIi32, *u);
-}
-
-static void opt_show_u16(char buf[OPT_SHOW_LEN], const u16 *u)
-{
-	snprintf(buf, OPT_SHOW_LEN, "%u", *u);
 }
 
 static char *opt_set_network(const char *arg, struct lightningd *ld)
@@ -339,9 +361,19 @@ static void config_register_opts(struct lightningd *ld)
 			 ld, opt_hidden);
 	opt_register_arg("--addr", opt_add_addr, NULL,
 			 ld,
-			 "Set the IP address (v4 or v6) to listen on and announce to the network for incoming connections");
+			 "Set an IP address (v4 or v6) to listen on and announce to the network for incoming connections");
+	opt_register_arg("--bind-addr", opt_add_bind_addr, NULL,
+			 ld,
+			 "Set an IP address (v4 or v6) to listen on, but not announce");
+	opt_register_arg("--announce-addr", opt_add_announce_addr, NULL,
+			 ld,
+			 "Set an IP address (v4 or v6) to announce, but not listen on");
+
 	opt_register_noarg("--offline", opt_set_offline, ld,
 			   "Start in offline-mode (do not automatically reconnect and do not accept incoming connections)");
+	opt_register_arg("--autolisten", opt_set_bool_arg, opt_show_bool,
+			 &ld->autolisten,
+			 "If true, listen on default port and announce if it seems to be a public interface");
 
 	opt_register_early_arg("--network", opt_set_network, opt_show_network,
 			       ld,
@@ -649,8 +681,8 @@ void register_opts(struct lightningd *ld)
 
 	/* --port needs to be an early arg to force it being parsed
          * before --ipaddr which may depend on it */
-	opt_register_early_arg("--port", opt_set_u16, opt_show_u16, &ld->portnum,
-			       "Port to bind to (0 means don't listen)");
+	opt_register_early_arg("--port", opt_set_port, NULL, ld,
+			       opt_hidden);
 	opt_register_arg("--bitcoin-datadir", opt_set_talstr, NULL,
 			 &ld->topology->bitcoind->datadir,
 			 "-datadir arg for bitcoin-cli");
@@ -778,11 +810,11 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 
 	check_config(ld);
 
-	if (ld->portnum && ld->listen && tal_count(ld->wireaddrs) == 0)
+	if (ld->listen && ld->autolisten)
 		guess_addresses(ld);
 	else
 		log_debug(ld->log, "Not guessing addresses: %s",
-			  (ld->portnum && ld->listen) ? "manually set" : "port set to zero");
+			  !ld->listen ? "--offline" : "--autolisten=0");
 }
 
 /* FIXME: This is a hack!  Expose somehow in ccan/opt.*/
@@ -799,6 +831,21 @@ static const char *next_name(const char *names, unsigned *len)
 	if (names[0] == ' ' || names[0] == '=' || names[0] == '\0')
 		return NULL;
 	return first_name(names + 1, len);
+}
+
+static void json_add_opt_addrs(struct json_result *response,
+			       const char *name0,
+			       const struct wireaddr *wireaddrs,
+			       const enum addr_listen_announce *listen_announce,
+			       enum addr_listen_announce ala)
+{
+	for (size_t i = 0; i < tal_count(wireaddrs); i++) {
+		if (listen_announce[i] != ala)
+			continue;
+		json_add_string(response,
+				name0,
+				fmt_wireaddr(name0, wireaddrs+i));
+	}
 }
 
 static void add_config(struct lightningd *ld,
@@ -870,16 +917,25 @@ static void add_config(struct lightningd *ld,
 						 topo->override_fee_rate[0],
 						 topo->override_fee_rate[1],
 						 topo->override_fee_rate[2]);
+		} else if (opt->cb_arg == (void *)opt_set_port) {
+			if (!deprecated_apis)
+				answer = tal_fmt(name0, "%u", ld->portnum);
 		} else if (opt->cb_arg == (void *)opt_add_ipaddr) {
 			/* Covered by opt_add_addr below */
 		} else if (opt->cb_arg == (void *)opt_add_addr) {
-			/* This is a bit weird, we can have multiple args */
-			for (size_t i = 0; i < tal_count(ld->wireaddrs); i++) {
-				json_add_string(response,
-						name0,
-						fmt_wireaddr(name0,
-							     ld->wireaddrs+i));
-			}
+			json_add_opt_addrs(response, name0,
+					   ld->wireaddrs, ld->listen_announce,
+					   ADDR_LISTEN_AND_ANNOUNCE);
+			return;
+		} else if (opt->cb_arg == (void *)opt_add_bind_addr) {
+			json_add_opt_addrs(response, name0,
+					   ld->wireaddrs, ld->listen_announce,
+					   ADDR_LISTEN);
+			return;
+		} else if (opt->cb_arg == (void *)opt_add_announce_addr) {
+			json_add_opt_addrs(response, name0,
+					   ld->wireaddrs, ld->listen_announce,
+					   ADDR_ANNOUNCE);
 			return;
 #if DEVELOPER
 		} else if (strstarts(name, "dev-")) {

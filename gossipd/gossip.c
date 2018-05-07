@@ -128,6 +128,7 @@ struct daemon {
 	u8 alias[33];
 	u8 rgb[3];
 	struct wireaddr *wireaddrs;
+	enum addr_listen_announce *listen_announce;
 
 	/* To make sure our node_announcement timestamps increase */
 	u32 last_announce_timestamp;
@@ -563,8 +564,10 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 		sig = tal(ctx, secp256k1_ecdsa_signature);
 		memset(sig, 0, sizeof(*sig));
 	}
-	for (i = 0; i < tal_count(daemon->wireaddrs); i++)
-		towire_wireaddr(&addresses, daemon->wireaddrs+i);
+	for (i = 0; i < tal_count(daemon->wireaddrs); i++) {
+		if (daemon->listen_announce[i] & ADDR_ANNOUNCE)
+			towire_wireaddr(&addresses, daemon->wireaddrs+i);
+	}
 
 	announcement =
 	    towire_node_announcement(ctx, sig, features, timestamp,
@@ -1552,69 +1555,63 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 				   init_new_peer, daemon);
 }
 
-static void setup_listeners(struct daemon *daemon, u16 portnum)
+static void setup_listeners(struct daemon *daemon)
 {
+	bool had_ipv6_wildcard = false;
 	struct sockaddr_in addr;
 	struct sockaddr_in6 addr6;
-	socklen_t len;
-	int fd1, fd2;
+	int fd;
 
-	if (!portnum) {
-		status_info("Zero portnum, not listening for incoming");
-		return;
-	}
+	for (size_t i = 0; i < tal_count(daemon->wireaddrs); i++) {
+		if (!(daemon->listen_announce[i] & ADDR_LISTEN))
+			continue;
 
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = INADDR_ANY;
-	addr.sin_port = htons(portnum);
-
-	memset(&addr6, 0, sizeof(addr6));
-	addr6.sin6_family = AF_INET6;
-	addr6.sin6_addr = in6addr_any;
-	addr6.sin6_port = htons(portnum);
-
-	/* IPv6, since on Linux that (usually) binds to IPv4 too. */
-	fd1 = make_listen_fd(AF_INET6, &addr6, sizeof(addr6), true);
-	if (fd1 >= 0) {
-		struct sockaddr_in6 in6 = {};
-
-		len = sizeof(in6);
-		if (getsockname(fd1, (void *)&in6, &len) != 0) {
-			status_broken("Failed get IPv6 sockname: %s",
-				      strerror(errno));
-			close_noerr(fd1);
-			fd1 = -1;
-		} else {
-			addr.sin_port = in6.sin6_port;
-			assert(portnum == ntohs(addr.sin_port));
-			status_trace("Creating IPv6 listener on port %u",
-				     portnum);
-			io_new_listener(daemon, fd1, connection_in, daemon);
+		switch (daemon->wireaddrs[i].type) {
+		case ADDR_TYPE_IPV4:
+			addr.sin_family = AF_INET;
+			addr.sin_port = htons(daemon->wireaddrs[i].port);
+			assert(daemon->wireaddrs[i].addrlen
+			       == sizeof(addr.sin_addr));
+			memcpy(&addr.sin_addr,
+			       daemon->wireaddrs[i].addr,
+			       sizeof(addr.sin_addr));
+			/* We might fail if IPv6 bound to port first */
+			fd = make_listen_fd(AF_INET, &addr, sizeof(addr),
+					    !had_ipv6_wildcard);
+			if (fd >= 0) {
+				status_trace("Created IPv4 listener on port %u",
+					     daemon->wireaddrs[i].port);
+				io_new_listener(daemon, fd, connection_in,
+						daemon);
+			}
+			continue;
+		case ADDR_TYPE_IPV6:
+			memset(&addr6, 0, sizeof(addr6));
+			addr6.sin6_family = AF_INET6;
+			addr6.sin6_port = htons(daemon->wireaddrs[i].port);
+			assert(daemon->wireaddrs[i].addrlen
+			       == sizeof(addr6.sin6_addr));
+			memcpy(&addr6.sin6_addr, daemon->wireaddrs[i].addr,
+			       sizeof(addr6.sin6_addr));
+			if (memeqzero(&addr6.sin6_addr, sizeof(addr6.sin6_addr)))
+				had_ipv6_wildcard = true;
+			fd = make_listen_fd(AF_INET6, &addr6, sizeof(addr6),
+					    true);
+			if (fd >= 0) {
+				status_trace("Created IPv6 listener on port %u",
+					     daemon->wireaddrs[i].port);
+				io_new_listener(daemon, fd, connection_in,
+						daemon);
+			}
+			continue;
+		case ADDR_TYPE_PADDING:
+			break;
 		}
-	}
-
-	/* Just in case, aim for the same port... */
-	fd2 = make_listen_fd(AF_INET, &addr, sizeof(addr), false);
-	if (fd2 >= 0) {
-		len = sizeof(addr);
-		if (getsockname(fd2, (void *)&addr, &len) != 0) {
-			status_broken("Failed get IPv4 sockname: %s",
-				      strerror(errno));
-			close_noerr(fd2);
-			fd2 = -1;
-		} else {
-			assert(portnum == ntohs(addr.sin_port));
-			status_trace("Creating IPv4 listener on port %u",
-				     portnum);
-			io_new_listener(daemon, fd2, connection_in, daemon);
-		}
-	}
-
-	if (fd1 < 0 && fd2 < 0)
+		/* Shouldn't happen. */
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Could not bind to a network address on port %u",
-			      portnum);
+			      "Invalid listener address type %u",
+			      daemon->wireaddrs[i].type);
+	}
 }
 
 /* Parse an incoming gossip init message and assign config variables
@@ -1630,7 +1627,8 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	if (!fromwire_gossipctl_init(
 		daemon, msg, &daemon->broadcast_interval, &chain_hash,
 		&daemon->id, &daemon->globalfeatures,
-		&daemon->localfeatures, &daemon->wireaddrs, daemon->rgb,
+		&daemon->localfeatures, &daemon->wireaddrs,
+		&daemon->listen_announce, daemon->rgb,
 		daemon->alias, &update_channel_interval, &daemon->reconnect)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
@@ -1652,12 +1650,13 @@ static struct io_plan *gossip_activate(struct daemon_conn *master,
 				       struct daemon *daemon,
 				       const u8 *msg)
 {
-	u16 port;
+	bool listen;
 
-	if (!fromwire_gossipctl_activate(msg, &port))
+	if (!fromwire_gossipctl_activate(msg, &listen))
 		master_badmsg(WIRE_GOSSIPCTL_ACTIVATE, msg);
 
-	setup_listeners(daemon, port);
+	if (listen)
+		setup_listeners(daemon);
 
 	/* OK, we're ready! */
 	daemon_conn_send(&daemon->master,

@@ -228,10 +228,13 @@ static bool get_local_sockname(struct lightningd *ld,
     return true;
 }
 
-/* Return a wireaddr without port filled in */
-static bool guess_one_address(struct lightningd *ld,
-                              struct wireaddr *addr, u16 portnum,
-                              enum wire_addr_type type)
+/* Return 0 if not available, or whether it's listenable-only or announceable.
+ * If it's listenable only, will set wireaddr to all-zero address for universal
+ * binding. */
+static enum addr_listen_announce guess_one_address(struct lightningd *ld,
+						   struct wireaddr *addr,
+						   u16 portnum,
+						   enum wire_addr_type type)
 {
     addr->type = type;
     addr->port = portnum;
@@ -245,7 +248,7 @@ static bool guess_one_address(struct lightningd *ld,
 	sin.sin_addr.s_addr = 0x08080808;
         sin.sin_family = AF_INET;
         if (!get_local_sockname(ld, AF_INET, &sin, sizeof(sin)))
-            return false;
+            return 0;
         addr->addrlen = sizeof(sin.sin_addr);
         memcpy(addr->addr, &sin.sin_addr, addr->addrlen);
         break;
@@ -260,25 +263,27 @@ static bool guess_one_address(struct lightningd *ld,
         sin6.sin6_family = AF_INET6;
         memcpy(sin6.sin6_addr.s6_addr, pchGoogle, sizeof(pchGoogle));
         if (!get_local_sockname(ld, AF_INET6, &sin6, sizeof(sin6)))
-            return false;
+            return 0;
         addr->addrlen = sizeof(sin6.sin6_addr);
         memcpy(addr->addr, &sin6.sin6_addr, addr->addrlen);
         break;
     }
     case ADDR_TYPE_PADDING:
         log_debug(ld->log, "Padding address, ignoring");
-        return false;
+        return 0;
     }
 
     if (!IsRoutable(addr)) {
         log_debug(ld->log, "Address %s is not routable",
                   type_to_string(tmpctx, struct wireaddr, addr));
-        return false;
+	/* This corresponds to INADDR_ANY or in6addr_any */
+	memset(addr->addr, 0, addr->addrlen);
+        return ADDR_LISTEN;
     }
 
     log_debug(ld->log, "Public address %s",
               type_to_string(tmpctx, struct wireaddr, addr));
-    return true;
+    return ADDR_LISTEN_AND_ANNOUNCE;
 }
 
 void guess_addresses(struct lightningd *ld)
@@ -289,10 +294,19 @@ void guess_addresses(struct lightningd *ld)
 
     /* We allocate an extra, then remove if it's not needed. */
     tal_resize(&ld->wireaddrs, n+1);
-    if (guess_one_address(ld, &ld->wireaddrs[n], ld->portnum, ADDR_TYPE_IPV4)) {
+    tal_resize(&ld->listen_announce, n+1);
+    /* We do IPv6 first: on Linux, that binds to IPv4 too. */
+    ld->listen_announce[n] = guess_one_address(ld, &ld->wireaddrs[n],
+					       ld->portnum, ADDR_TYPE_IPV6);
+    if (ld->listen_announce[n] != 0) {
         n++;
         tal_resize(&ld->wireaddrs, n+1);
+	tal_resize(&ld->listen_announce, n+1);
     }
-    if (!guess_one_address(ld, &ld->wireaddrs[n], ld->portnum, ADDR_TYPE_IPV6))
+    ld->listen_announce[n] = guess_one_address(ld, &ld->wireaddrs[n],
+					       ld->portnum, ADDR_TYPE_IPV4);
+    if (ld->listen_announce[n] == 0) {
         tal_resize(&ld->wireaddrs, n);
+        tal_resize(&ld->listen_announce, n);
+    }
 }

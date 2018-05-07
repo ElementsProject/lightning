@@ -4288,7 +4288,6 @@ class LightningDTests(BaseLightningDTests):
         # See utils.py
         assert configs['bitcoin-datadir'] == bitcoind.bitcoin_dir
         assert configs['lightning-dir'] == l1.daemon.lightning_dir
-        assert configs['port'] == l1.port
         assert configs['allow-deprecated-apis'] is False
         assert configs['override-fee-rates'] == '15000/7500/1000'
         assert configs['network'] == 'regtest'
