@@ -78,6 +78,50 @@ char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a)
 }
 REGISTER_TYPE_TO_STRING(wireaddr, fmt_wireaddr);
 
+void wireaddr_from_ipv4(struct wireaddr *addr,
+			const struct in_addr *ip4,
+			const u16 port)
+{
+	addr->type = ADDR_TYPE_IPV4;
+	addr->addrlen = sizeof(*ip4);
+	addr->port = port;
+	memset(addr->addr, 0, sizeof(addr->addr));
+	memcpy(addr->addr, ip4, addr->addrlen);
+}
+
+void wireaddr_from_ipv6(struct wireaddr *addr,
+			const struct in6_addr *ip6,
+			const u16 port)
+{
+	addr->type = ADDR_TYPE_IPV6;
+	addr->addrlen = sizeof(*ip6);
+	addr->port = port;
+	memset(addr->addr, 0, sizeof(addr->addr));
+	memcpy(&addr->addr, ip6, addr->addrlen);
+}
+
+bool wireaddr_to_ipv4(const struct wireaddr *addr, struct sockaddr_in *s4)
+{
+	if (addr->type != ADDR_TYPE_IPV4)
+		return false;
+	s4->sin_family = AF_INET;
+	s4->sin_port = htons(addr->port);
+	assert(addr->addrlen == sizeof(s4->sin_addr));
+	memcpy(&s4->sin_addr, addr->addr, sizeof(s4->sin_addr));
+	return true;
+}
+
+bool wireaddr_to_ipv6(const struct wireaddr *addr, struct sockaddr_in6 *s6)
+{
+	if (addr->type != ADDR_TYPE_IPV6)
+		return false;
+	s6->sin6_family = AF_INET6;
+	s6->sin6_port = htons(addr->port);
+	assert(addr->addrlen == sizeof(s6->sin6_addr));
+	memcpy(&s6->sin6_addr, addr->addr, sizeof(s6->sin6_addr));
+	return true;
+}
+
 /* Valid forms:
  *
  * [anything]:<number>
@@ -148,18 +192,12 @@ bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
 	}
 	/* Use only the first found address */
 	if (addrinfo->ai_family == AF_INET) {
-		addr->type = ADDR_TYPE_IPV4;
-		addr->addrlen = 4;
-		addr->port = port;
 		sa4 = (struct sockaddr_in *) addrinfo->ai_addr;
-		memcpy(&addr->addr, &sa4->sin_addr, addr->addrlen);
+		wireaddr_from_ipv4(addr, &sa4->sin_addr, port);
 		res = true;
 	} else if (addrinfo->ai_family == AF_INET6) {
-		addr->type = ADDR_TYPE_IPV6;
-		addr->addrlen = 16;
-		addr->port = port;
 		sa6 = (struct sockaddr_in6 *) addrinfo->ai_addr;
-		memcpy(&addr->addr, &sa6->sin6_addr, addr->addrlen);
+		wireaddr_from_ipv6(addr, &sa6->sin6_addr, port);
 		res = true;
 	}
 
@@ -193,16 +231,10 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
 	memset(&addr->addr, 0, sizeof(addr->addr));
 
 	if (inet_pton(AF_INET, ip, &v4) == 1) {
-		addr->type = ADDR_TYPE_IPV4;
-		addr->addrlen = 4;
-		addr->port = port;
-		memcpy(&addr->addr, &v4, addr->addrlen);
+		wireaddr_from_ipv4(addr, &v4, port);
 		res = true;
 	} else if (inet_pton(AF_INET6, ip, &v6) == 1) {
-		addr->type = ADDR_TYPE_IPV6;
-		addr->addrlen = 16;
-		addr->port = port;
-		memcpy(&addr->addr, &v6, addr->addrlen);
+		wireaddr_from_ipv6(addr, &v6, port);
 		res = true;
 	}
 
