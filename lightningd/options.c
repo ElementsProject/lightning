@@ -259,8 +259,9 @@ static char *opt_set_fee_rates(const char *arg, struct chain_topology *topo)
 
 static char *opt_set_offline(struct lightningd *ld)
 {
-	ld->portnum = 0;
-	ld->no_reconnect = true;
+	ld->reconnect = false;
+	ld->listen = false;
+
 	return NULL;
 }
 
@@ -360,8 +361,8 @@ static void config_register_opts(struct lightningd *ld)
 #if DEVELOPER
 static void dev_register_opts(struct lightningd *ld)
 {
-	opt_register_noarg("--dev-no-reconnect", opt_set_bool,
-			   &ld->no_reconnect,
+	opt_register_noarg("--dev-no-reconnect", opt_set_invbool,
+			   &ld->reconnect,
 			   "Disable automatic reconnect attempts");
 	opt_register_noarg("--dev-fail-on-subdaemon-fail", opt_set_bool,
 			   &ld->dev_subdaemon_fail, opt_hidden);
@@ -767,11 +768,11 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 
 	check_config(ld);
 
-	if (ld->portnum && tal_count(ld->wireaddrs) == 0)
+	if (ld->portnum && ld->listen && tal_count(ld->wireaddrs) == 0)
 		guess_addresses(ld);
 	else
 		log_debug(ld->log, "Not guessing addresses: %s",
-			  ld->portnum ? "manually set" : "port set to zero");
+			  (ld->portnum && ld->listen) ? "manually set" : "port set to zero");
 }
 
 /* FIXME: This is a hack!  Expose somehow in ccan/opt.*/
@@ -804,12 +805,18 @@ static void add_config(struct lightningd *ld,
 		    /* These two show up as --network= */
 		    || opt->cb == (void *)opt_set_testnet
 		    || opt->cb == (void *)opt_set_mainnet
-		    || opt->cb == (void *)opt_set_offline /* will show up as port=0 and --no-reconnect */
 		    || opt->cb == (void *)test_daemons_and_exit) {
 			/* These are not important */
 		} else if (opt->cb == (void *)opt_set_bool) {
 			const bool *b = opt->u.carg;
 			answer = tal_fmt(name0, "%s", *b ? "true" : "false");
+		} else if (opt->cb == (void *)opt_set_invbool) {
+			const bool *b = opt->u.carg;
+			answer = tal_fmt(name0, "%s", !*b ? "true" : "false");
+		} else if (opt->cb == (void *)opt_set_offline) {
+			answer = tal_fmt(name0, "%s",
+					 (!ld->reconnect && !ld->listen)
+					 ? "true" : "false");
 		} else {
 			/* Insert more decodes here! */
 			abort();

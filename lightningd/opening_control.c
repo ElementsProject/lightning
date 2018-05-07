@@ -257,13 +257,6 @@ void tell_gossipd_peer_is_important(struct lightningd *ld,
 {
 	u8 *msg;
 
-#if DEVELOPER
-	/* Don't schedule an attempt if we disabled reconnections with
-	 * the `--dev-no-reconnect` flag */
-	if (ld->no_reconnect)
-		return;
-#endif /* DEVELOPER */
-
 	/* Tell gossipd we need to keep connection to this peer */
 	msg = towire_gossipctl_peer_important(NULL, &channel->peer->id, true);
 	subd_send_msg(ld->gossip, take(msg));

@@ -51,7 +51,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_debug_subdaemon = NULL;
 	ld->dev_disconnect_fd = -1;
 	ld->dev_subdaemon_fail = false;
-	ld->no_reconnect = false;
 
 	if (getenv("LIGHTNINGD_DEV_MEMLEAK"))
 		memleak_init(ld, backtrace_state);
@@ -72,6 +71,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	list_head_init(&ld->close_commands);
 	ld->wireaddrs = tal_arr(ld, struct wireaddr, 0);
 	ld->portnum = DEFAULT_PORT;
+	ld->listen = true;
+	ld->reconnect = true;
 	timers_init(&ld->timers, time_mono());
 	ld->topology = new_topology(ld, ld->log);
 	ld->debug_subdaemon_io = NULL;
