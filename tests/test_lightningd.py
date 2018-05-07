@@ -1490,6 +1490,7 @@ class LightningDTests(BaseLightningDTests):
             wait_for(lambda: p.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['status'][1] == 'ONCHAIN:Tracking mutual close transaction')
         l1.daemon.wait_for_logs([' to ONCHAIN'] * num_peers)
 
+    @flaky
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail(self):
         l1, l2 = self.connect()
