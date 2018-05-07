@@ -6,6 +6,11 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+struct in6_addr;
+struct in_addr;
+struct sockaddr_in6;
+struct sockaddr_in;
+
 /* BOLT #7:
  *
  * The following `address descriptor` types are defined:
@@ -59,5 +64,14 @@ char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a);
 
 bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
 			    const u16 port, const char **err_msg);
+
+void wireaddr_from_ipv4(struct wireaddr *addr,
+			const struct in_addr *ip4,
+			const u16 port);
+void wireaddr_from_ipv6(struct wireaddr *addr,
+			const struct in6_addr *ip6,
+			const u16 port);
+bool wireaddr_to_ipv4(const struct wireaddr *addr, struct sockaddr_in *s4);
+bool wireaddr_to_ipv6(const struct wireaddr *addr, struct sockaddr_in6 *s6);
 
 #endif /* LIGHTNING_COMMON_WIREADDR_H */

@@ -1532,18 +1532,10 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 
 	if (s.ss_family == AF_INET6) {
 		struct sockaddr_in6 *s6 = (void *)&s;
-		addr.type = ADDR_TYPE_IPV6;
-		addr.addrlen = sizeof(s6->sin6_addr);
-		BUILD_ASSERT(sizeof(s6->sin6_addr) <= sizeof(addr.addr));
-		memcpy(addr.addr, &s6->sin6_addr, addr.addrlen);
-		addr.port = ntohs(s6->sin6_port);
+		wireaddr_from_ipv6(&addr, &s6->sin6_addr, ntohs(s6->sin6_port));
 	} else if (s.ss_family == AF_INET) {
 		struct sockaddr_in *s4 = (void *)&s;
-		addr.type = ADDR_TYPE_IPV4;
-		addr.addrlen = sizeof(s4->sin_addr);
-		BUILD_ASSERT(sizeof(s4->sin_addr) <= sizeof(addr.addr));
-		memcpy(addr.addr, &s4->sin_addr, addr.addrlen);
-		addr.port = ntohs(s4->sin_port);
+		wireaddr_from_ipv4(&addr, &s4->sin_addr, ntohs(s4->sin_port));
 	} else {
 		status_broken("Unknown socket type %i for incoming conn",
 			      s.ss_family);
@@ -1568,13 +1560,7 @@ static void setup_listeners(struct daemon *daemon)
 
 		switch (daemon->wireaddrs[i].type) {
 		case ADDR_TYPE_IPV4:
-			addr.sin_family = AF_INET;
-			addr.sin_port = htons(daemon->wireaddrs[i].port);
-			assert(daemon->wireaddrs[i].addrlen
-			       == sizeof(addr.sin_addr));
-			memcpy(&addr.sin_addr,
-			       daemon->wireaddrs[i].addr,
-			       sizeof(addr.sin_addr));
+			wireaddr_to_ipv4(&daemon->wireaddrs[i], &addr);
 			/* We might fail if IPv6 bound to port first */
 			fd = make_listen_fd(AF_INET, &addr, sizeof(addr),
 					    !had_ipv6_wildcard);
@@ -1586,13 +1572,7 @@ static void setup_listeners(struct daemon *daemon)
 			}
 			continue;
 		case ADDR_TYPE_IPV6:
-			memset(&addr6, 0, sizeof(addr6));
-			addr6.sin6_family = AF_INET6;
-			addr6.sin6_port = htons(daemon->wireaddrs[i].port);
-			assert(daemon->wireaddrs[i].addrlen
-			       == sizeof(addr6.sin6_addr));
-			memcpy(&addr6.sin6_addr, daemon->wireaddrs[i].addr,
-			       sizeof(addr6.sin6_addr));
+			wireaddr_to_ipv6(&daemon->wireaddrs[i], &addr6);
 			if (memeqzero(&addr6.sin6_addr, sizeof(addr6.sin6_addr)))
 				had_ipv6_wildcard = true;
 			fd = make_listen_fd(AF_INET6, &addr6, sizeof(addr6),
@@ -1771,19 +1751,14 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 
 	switch (reach->addr.type) {
 	case ADDR_TYPE_IPV4:
-		ai.ai_family = AF_INET;
-		sin.sin_family = AF_INET;
-		sin.sin_port = htons(reach->addr.port);
-		memcpy(&sin.sin_addr, reach->addr.addr, sizeof(sin.sin_addr));
+		wireaddr_to_ipv4(&reach->addr, &sin);
+		ai.ai_family = sin.sin_family;
 		ai.ai_addrlen = sizeof(sin);
 		ai.ai_addr = (struct sockaddr *)&sin;
 		break;
 	case ADDR_TYPE_IPV6:
-		ai.ai_family = AF_INET6;
-		memset(&sin6, 0, sizeof(sin6));
-		sin6.sin6_family = AF_INET6;
-		sin6.sin6_port = htons(reach->addr.port);
-		memcpy(&sin6.sin6_addr, reach->addr.addr, sizeof(sin6.sin6_addr));
+		wireaddr_to_ipv6(&reach->addr, &sin6);
+		ai.ai_family = sin6.sin6_family;
 		ai.ai_addrlen = sizeof(sin6);
 		ai.ai_addr = (struct sockaddr *)&sin6;
 		break;
