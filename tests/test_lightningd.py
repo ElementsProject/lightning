@@ -1288,21 +1288,6 @@ class LightningDTests(BaseLightningDTests):
 
         l2.daemon.wait_for_log('to_self_delay 100 larger than 99')
 
-    def test_closing_id(self):
-        """Test closing using peer ID and full channel ID"""
-        l1, l2 = self.connect()
-
-        # Close by full channel ID.
-        self.fund_channel(l1, l2, 10**6)
-        cid = l2.rpc.listpeers()['peers'][0]['channels'][0]['channel_id']
-        l2.rpc.close(cid)
-
-        # Close by peer ID.
-        l1.rpc.connect(l2.info['id'])
-        self.fund_channel(l2, l1, 10**6)
-        pid = l1.info['id']
-        l2.rpc.close(pid)
-
     def test_closing(self):
         l1, l2 = self.connect()
 
