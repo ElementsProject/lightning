@@ -111,6 +111,12 @@ struct lightningd {
 	/* Port we're listening on */
 	u16 portnum;
 
+	/* Do we want to reconnect to other peers? */
+	bool reconnect;
+
+	/* Do we want to listen for other peers? */
+	bool listen;
+
 	/* Addresses to announce to the network (tal_count()) */
 	struct wireaddr *wireaddrs;
 
@@ -159,9 +165,6 @@ struct lightningd {
 
 	/* May be useful for non-developers debugging in the field */
 	char *debug_subdaemon_io;
-
-	/* Disable automatic reconnects */
-	bool no_reconnect;
 
 	/* Initial autocleaninvoice settings. */
 	u64 ini_autocleaninvoice_cycle;

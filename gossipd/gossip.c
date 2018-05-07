@@ -132,8 +132,8 @@ struct daemon {
 	/* To make sure our node_announcement timestamps increase */
 	u32 last_announce_timestamp;
 
-	/* Only matters if DEVELOPER defined */
-	bool no_reconnect;
+	/* Automatically reconnect. */
+	bool reconnect;
 };
 
 /* Peers we're trying to reach. */
@@ -1631,7 +1631,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 		daemon, msg, &daemon->broadcast_interval, &chain_hash,
 		&daemon->id, &daemon->globalfeatures,
 		&daemon->localfeatures, &daemon->wireaddrs, daemon->rgb,
-		daemon->alias, &update_channel_interval, &daemon->no_reconnect)) {
+		daemon->alias, &update_channel_interval, &daemon->reconnect)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
 	/* Prune time is twice update time */
@@ -1955,12 +1955,11 @@ static void retry_important(struct important_peerid *imp)
 	/* In case we've come off a timer, don't leave dangling pointer */
 	imp->reconnect_timer = NULL;
 
-#if DEVELOPER
-	/* With --dev-no-reconnect, we only want explicit
+	/* With --dev-no-reconnect or --offline, we only want explicit
 	 * connects */
-	if (imp->daemon->no_reconnect)
+	if (!imp->daemon->reconnect)
 		return;
-#endif
+
 	try_reach_peer(imp->daemon, &imp->id, false);
 }
 

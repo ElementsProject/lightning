@@ -149,7 +149,7 @@ static void json_getinfo(struct command *cmd,
 
 	json_object_start(response, NULL);
 	json_add_pubkey(response, "id", &cmd->ld->id);
-	if (cmd->ld->portnum) {
+	if (cmd->ld->listen && cmd->ld->portnum) {
 		json_add_num(response, "port", cmd->ld->portnum);
 		json_array_start(response, "address");
 		for (size_t i = 0; i < tal_count(cmd->ld->wireaddrs); i++)
