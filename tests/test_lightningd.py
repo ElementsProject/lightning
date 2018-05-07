@@ -670,7 +670,7 @@ class LightningDTests(BaseLightningDTests):
         """
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node()
-        l3 = self.node_factory.get_node(options={"addr": "127.0.0.1"})
+        l3 = self.node_factory.get_node()
 
         l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
 
