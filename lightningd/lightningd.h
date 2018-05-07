@@ -189,6 +189,9 @@ struct lightningd {
 	/* If we have --dev-fail-on-subdaemon-fail */
 	bool dev_subdaemon_fail;
 
+	/* Allow and accept localhost node_announcement addresses */
+	bool dev_allow_localhost;
+
 	/* Things we've marked as not leaking. */
 	const void **notleaks;
 #endif /* DEVELOPER */

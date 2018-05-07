@@ -185,6 +185,11 @@ void gossip_init(struct lightningd *ld)
 	u64 capabilities = HSM_CAP_ECDH | HSM_CAP_SIGN_GOSSIP;
 	struct wireaddr_internal *wireaddrs = ld->proposed_wireaddr;
 	enum addr_listen_announce *listen_announce = ld->proposed_listen_announce;
+	bool allow_localhost = false;
+#if DEVELOPER
+	if (ld->dev_allow_localhost)
+		allow_localhost = true;
+#endif
 
 	msg = towire_hsm_client_hsmfd(tmpctx, &ld->id, capabilities);
 	if (!wire_sync_write(ld->hsm_fd, msg))
@@ -219,7 +224,8 @@ void gossip_init(struct lightningd *ld)
 	    get_offered_global_features(tmpctx),
 	    get_offered_local_features(tmpctx), wireaddrs,
 	    listen_announce, ld->rgb,
-	    ld->alias, ld->config.channel_update_interval, ld->reconnect);
+	    ld->alias, ld->config.channel_update_interval, ld->reconnect,
+	    allow_localhost);
 	subd_send_msg(ld->gossip, msg);
 }
 

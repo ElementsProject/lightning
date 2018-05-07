@@ -265,7 +265,9 @@ bool guess_address(struct wireaddr *addr)
     abort();
 }
 
-bool address_routable(const struct wireaddr *wireaddr)
+bool address_routable(const struct wireaddr *wireaddr, bool allow_localhost)
 {
+    if (allow_localhost && IsLocal(wireaddr))
+	return true;
     return IsRoutable(wireaddr);
 }

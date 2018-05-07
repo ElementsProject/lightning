@@ -188,7 +188,7 @@ int main(void)
 
 	memset(&tmp, 'a', sizeof(tmp));
 	pubkey_from_privkey(&tmp, &a);
-	rstate = new_routing_state(tmpctx, &zerohash, &a, 0);
+	rstate = new_routing_state(tmpctx, &zerohash, &a, 0, false);
 
 	new_node(rstate, &a);
 

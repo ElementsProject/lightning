@@ -261,9 +261,7 @@ class LightningD(TailableProc):
         opts = {
             'bitcoin-datadir': bitcoin_dir,
             'lightning-dir': lightning_dir,
-            'bind-addr': '127.0.0.1:{}'.format(port),
-            # lightningd won't announce non-routable addresses by default.
-            'announce-addr': '127.0.0.1:{}'.format(port),
+            'addr': '127.0.0.1:{}'.format(port),
             'allow-deprecated-apis': 'false',
             'override-fee-rates': '15000/7500/1000',
             'network': 'regtest',
@@ -283,6 +281,8 @@ class LightningD(TailableProc):
                 f.write(seed)
         if DEVELOPER:
             self.opts['dev-broadcast-interval'] = 1000
+            # lightningd won't announce non-routable addresses by default.
+            self.opts['dev-allow-localhost'] = None
         self.prefix = 'lightningd-%d' % (node_id)
 
     @property

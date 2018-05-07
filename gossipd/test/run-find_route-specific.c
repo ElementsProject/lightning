@@ -152,7 +152,7 @@ int main(void)
 			   strlen("02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06"),
 			   &c);
 
-	rstate = new_routing_state(tmpctx, &zerohash, &a, 0);
+	rstate = new_routing_state(tmpctx, &zerohash, &a, 0, false);
 
 	/* [{'active': True, 'short_id': '6990:2:1/1', 'fee_per_kw': 10, 'delay': 5, 'flags': 1, 'destination': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'source': '02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06', 'last_update': 1504064344}, */
 	nc = get_or_make_connection(rstate, &c, &b, "6990:2:1");
