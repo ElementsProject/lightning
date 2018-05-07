@@ -33,7 +33,7 @@ enum wire_addr_type {
 struct wireaddr {
 	enum wire_addr_type type;
 	u8 addrlen;
-	u8 addr[16];
+	u8 addr[108];
 	u16 port;
 };
 

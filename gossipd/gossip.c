@@ -46,6 +46,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/un.h>
 #include <unistd.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_io.h>
@@ -1541,6 +1542,12 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 		BUILD_ASSERT(sizeof(s4->sin_addr) <= sizeof(addr.addr));
 		memcpy(addr.addr, &s4->sin_addr, addr.addrlen);
 		addr.port = ntohs(s4->sin_port);
+	} else if (s.ss_family == AF_UNIX) {
+		struct sockaddr_un *sun = (void *)&s;
+		addr.type = ADDR_TYPE_PADDING;
+		addr.addrlen = sizeof(sun->sun_path);
+		memcpy(addr.addr, &sun->sun_path, addr.addrlen);
+		addr.port = 0;
 	} else {
 		status_broken("Unknown socket type %i for incoming conn",
 			      s.ss_family);
@@ -1552,12 +1559,13 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 				   init_new_peer, daemon);
 }
 
-static void setup_listeners(struct daemon *daemon, u16 portnum)
+static void setup_listeners(struct daemon *daemon, u16 portnum, const char *localsocket)
 {
 	struct sockaddr_in addr;
 	struct sockaddr_in6 addr6;
+	struct sockaddr_un sun;
 	socklen_t len;
-	int fd1, fd2;
+	int fd1, fd2, fd3;
 
 	if (!portnum) {
 		status_info("Zero portnum, not listening for incoming");
@@ -1615,6 +1623,27 @@ static void setup_listeners(struct daemon *daemon, u16 portnum)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not bind to a network address on port %u",
 			      portnum);
+
+	/* Optional UNIX socket */
+	if (localsocket) {
+		memset(&sun, 0, sizeof(sun));
+		sun.sun_family = AF_UNIX;
+		strcpy(sun.sun_path, (char*)localsocket);
+
+		fd3 = make_listen_fd(AF_UNIX, &sun, sizeof(sun), false);
+		if (fd3 >= 0) {
+			len = sizeof(sun);
+			if (getsockname(fd3, (void *)&sun, &len) != 0) {
+				status_broken("Failed get UNIX sockname: %s",
+					      strerror(errno));
+				close_noerr(fd3);
+				fd3 = -1;
+			} else {
+				status_trace("Creating UNIX socket listener");
+				io_new_listener(daemon, fd3, connection_in, daemon);
+			}
+		}
+	}
 }
 
 /* Parse an incoming gossip init message and assign config variables
@@ -1653,11 +1682,12 @@ static struct io_plan *gossip_activate(struct daemon_conn *master,
 				       const u8 *msg)
 {
 	u16 port;
+	u8* localsocket;
 
-	if (!fromwire_gossipctl_activate(msg, &port))
+	if (!fromwire_gossipctl_activate(msg, msg, &port, &localsocket))
 		master_badmsg(WIRE_GOSSIPCTL_ACTIVATE, msg);
 
-	setup_listeners(daemon, port);
+	setup_listeners(daemon, port, (const char*)localsocket);
 
 	/* OK, we're ready! */
 	daemon_conn_send(&daemon->master,
@@ -1762,6 +1792,7 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 	struct addrinfo ai;
 	struct sockaddr_in sin;
 	struct sockaddr_in6 sin6;
+	struct sockaddr_un sun;
 
 	/* FIXME: make generic */
 	ai.ai_flags = 0;
@@ -1789,8 +1820,12 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 		ai.ai_addr = (struct sockaddr *)&sin6;
 		break;
 	case ADDR_TYPE_PADDING:
-		/* Shouldn't happen. */
-		return io_close(conn);
+		ai.ai_family = AF_UNIX;
+		sun.sun_family = AF_UNIX;
+		memcpy(&sun.sun_path, reach->addr.addr, sizeof(sun.sun_path));
+		ai.ai_addrlen = sizeof(sun);
+		ai.ai_addr = (struct sockaddr *)&sun;
+		break;
 	}
 
 	io_set_finish(conn, connect_failed, reach);
@@ -1914,6 +1949,9 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 		break;
 	case ADDR_TYPE_IPV6:
 		fd = socket(AF_INET6, SOCK_STREAM, 0);
+		break;
+	case ADDR_TYPE_PADDING:
+		fd = socket(AF_UNIX, SOCK_STREAM, 0);
 		break;
 	default:
 		fd = -1;
