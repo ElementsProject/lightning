@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <assert.h>
+#include <ccan/build_assert/build_assert.h>
 #include <ccan/tal/str/str.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
@@ -8,6 +9,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/un.h>
 #include <wire/wire.h>
 
 /* Returns false if we didn't parse it, and *cursor == NULL if malformed. */
@@ -51,6 +53,40 @@ enum addr_listen_announce fromwire_addr_listen_announce(const u8 **cursor,
 void towire_addr_listen_announce(u8 **pptr, enum addr_listen_announce ala)
 {
 	towire_u8(pptr, ala);
+}
+
+void towire_wireaddr_internal(u8 **pptr, const struct wireaddr_internal *addr)
+{
+	towire_u8(pptr, addr->itype);
+	switch (addr->itype) {
+	case ADDR_INTERNAL_SOCKNAME:
+		towire_u8_array(pptr, (const u8 *)addr->u.sockname,
+				sizeof(addr->u.sockname));
+		return;
+	case ADDR_INTERNAL_WIREADDR:
+		towire_wireaddr(pptr, &addr->u.wireaddr);
+		return;
+	}
+	abort();
+}
+
+bool fromwire_wireaddr_internal(const u8 **cursor, size_t *max,
+				struct wireaddr_internal *addr)
+{
+	addr->itype = fromwire_u8(cursor, max);
+	switch (addr->itype) {
+	case ADDR_INTERNAL_SOCKNAME:
+		fromwire_u8_array(cursor, max, (u8 *)addr->u.sockname,
+				  sizeof(addr->u.sockname));
+		/* Must be NUL terminated */
+		if (!memchr(addr->u.sockname, 0, sizeof(addr->u.sockname)))
+			fromwire_fail(cursor, max);
+		return *cursor != NULL;
+	case ADDR_INTERNAL_WIREADDR:
+		return fromwire_wireaddr(cursor, max, &addr->u.wireaddr);
+	}
+	fromwire_fail(cursor, max);
+	return false;
 }
 
 char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a)
@@ -121,6 +157,19 @@ bool wireaddr_to_ipv6(const struct wireaddr *addr, struct sockaddr_in6 *s6)
 	memcpy(&s6->sin6_addr, addr->addr, sizeof(s6->sin6_addr));
 	return true;
 }
+
+char *fmt_wireaddr_internal(const tal_t *ctx,
+			       const struct wireaddr_internal *a)
+{
+	switch (a->itype) {
+	case ADDR_INTERNAL_SOCKNAME:
+		return tal_fmt(ctx, "%s", a->u.sockname);
+	case ADDR_INTERNAL_WIREADDR:
+		return fmt_wireaddr(ctx, &a->u.wireaddr);
+	}
+	abort();
+}
+REGISTER_TYPE_TO_STRING(wireaddr_internal, fmt_wireaddr_internal);
 
 /* Valid forms:
  *
@@ -246,4 +295,43 @@ finish:
 	if (!res && err_msg && !*err_msg)
 		*err_msg = "Error parsing hostname";
 	return res;
+}
+
+bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr, u16 port, const char **err_msg)
+{
+	/* Addresses starting with '/' are local socket paths */
+	if (arg[0] == '/') {
+		addr->itype = ADDR_INTERNAL_SOCKNAME;
+
+		/* Check if the path is too long */
+		if (strlen(arg) >= sizeof(addr->u.sockname)) {
+			if (err_msg)
+				*err_msg = "Socket name too long";
+			return false;
+		}
+		strcpy(addr->u.sockname, arg);
+		return true;
+	}
+
+	addr->itype = ADDR_INTERNAL_WIREADDR;
+	return parse_wireaddr(arg, &addr->u.wireaddr, port, err_msg);
+}
+
+void wireaddr_from_sockname(struct wireaddr_internal *addr,
+			    const char *sockname)
+{
+	addr->itype = ADDR_INTERNAL_SOCKNAME;
+	memset(addr->u.sockname, 0, sizeof(addr->u.sockname));
+	strncpy(addr->u.sockname, sockname, sizeof(addr->u.sockname)-1);
+}
+
+bool wireaddr_to_sockname(const struct wireaddr_internal *addr,
+			  struct sockaddr_un *sun)
+{
+	if (addr->itype != ADDR_INTERNAL_SOCKNAME)
+		return false;
+	sun->sun_family = AF_LOCAL;
+	BUILD_ASSERT(sizeof(sun->sun_path) == sizeof(addr->u.sockname));
+	memcpy(sun->sun_path, addr->u.sockname, sizeof(addr->u.sockname));
+	return true;
 }
