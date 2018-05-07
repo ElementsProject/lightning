@@ -473,6 +473,10 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 	if (peer->funding_locked[REMOTE])
 		return;
 
+	/* Too late, we're shutting down! */
+	if (peer->shutdown_sent[LOCAL])
+		return;
+
 	peer->old_remote_per_commit = peer->remote_per_commit;
 	if (!fromwire_funding_locked(msg, &chanid,
 				     &peer->remote_per_commit))
@@ -1930,6 +1934,10 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 					     &peer->short_channel_ids[LOCAL]))
 		master_badmsg(WIRE_CHANNEL_FUNDING_LOCKED, msg);
 
+	/* Too late, we're shutting down! */
+	if (peer->shutdown_sent[LOCAL])
+		return;
+
 	per_commit_point(&peer->shaseed,
 			 &next_per_commit_point, peer->next_index[LOCAL]);
 
@@ -1952,6 +1960,10 @@ static void handle_funding_announce_depth(struct peer *peer)
 {
 	/* This can happen if we got told already at init time */
 	if (peer->announce_depth_reached)
+		return;
+
+	/* Too late, we're shutting down! */
+	if (peer->shutdown_sent[LOCAL])
 		return;
 
 	peer->announce_depth_reached = true;
@@ -2531,9 +2543,12 @@ static void init_channel(struct peer *peer)
 	if (funding_signed)
 		enqueue_peer_msg(peer, take(funding_signed));
 
-	/* It's possible that we died previously before doing these. */
-	send_temporary_announcement(peer);
-	send_announcement_signatures(peer);
+	/* Don't send if we're shutting down */
+	if (!peer->shutdown_sent[LOCAL]) {
+		/* It's possible that we died previously before doing these. */
+		send_temporary_announcement(peer);
+		send_announcement_signatures(peer);
+	}
 
 	billboard_update(peer);
 	tal_free(msg);
