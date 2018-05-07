@@ -12,7 +12,7 @@ gossipctl_init,,gfeatures,gflen*u8
 gossipctl_init,,lflen,u16
 gossipctl_init,,lfeatures,lflen*u8
 gossipctl_init,,num_wireaddrs,u16
-gossipctl_init,,wireaddrs,num_wireaddrs*struct wireaddr
+gossipctl_init,,wireaddrs,num_wireaddrs*struct wireaddr_internal
 gossipctl_init,,listen_announce,num_wireaddrs*enum addr_listen_announce
 gossipctl_init,,rgb,3*u8
 gossipctl_init,,alias,32*u8
@@ -30,13 +30,13 @@ gossipctl_activate,,port,u16
 # Gossipd->master, I am ready, here are the final addresses.
 gossipctl_activate_reply,3125
 gossipctl_activate_reply,,num_wireaddrs,u16
-gossipctl_activate_reply,,wireaddrs,num_wireaddrs*struct wireaddr
+gossipctl_activate_reply,,wireaddrs,num_wireaddrs*struct wireaddr_internal
 gossipctl_activate_reply,,listen_announce,num_wireaddrs*enum addr_listen_announce
 
 # Master -> gossipd: Optional hint for where to find peer.
 gossipctl_peer_addrhint,3014
 gossipctl_peer_addrhint,,id,struct pubkey
-gossipctl_peer_addrhint,,addr,struct wireaddr
+gossipctl_peer_addrhint,,addr,struct wireaddr_internal
 
 # Master -> gossipd: connect to a peer.
 gossipctl_connect_to_peer,3001
@@ -59,7 +59,7 @@ gossipctl_peer_important,,important,bool
 # Gossipd -> master: we got a peer. Two fds: peer and gossip
 gossip_peer_connected,3002
 gossip_peer_connected,,id,struct pubkey
-gossip_peer_connected,,addr,struct wireaddr
+gossip_peer_connected,,addr,struct wireaddr_internal
 gossip_peer_connected,,crypto_state,struct crypto_state
 gossip_peer_connected,,gflen,u16
 gossip_peer_connected,,gfeatures,gflen*u8
@@ -69,7 +69,7 @@ gossip_peer_connected,,lfeatures,lflen*u8
 # Gossipd -> master: peer sent non-gossip packet. Two fds: peer and gossip
 gossip_peer_nongossip,3003
 gossip_peer_nongossip,,id,struct pubkey
-gossip_peer_nongossip,,addr,struct wireaddr
+gossip_peer_nongossip,,addr,struct wireaddr_internal
 gossip_peer_nongossip,,crypto_state,struct crypto_state
 gossip_peer_nongossip,,gflen,u16
 gossip_peer_nongossip,,gfeatures,gflen*u8
@@ -84,7 +84,7 @@ gossipctl_release_peer,,id,struct pubkey
 
 # Gossipd -> master: reply to gossip_release_peer.  Two fds: peer and gossip.
 gossipctl_release_peer_reply,3104
-gossipctl_release_peer_reply,,addr,struct wireaddr
+gossipctl_release_peer_reply,,addr,struct wireaddr_internal
 gossipctl_release_peer_reply,,crypto_state,struct crypto_state
 gossipctl_release_peer_reply,,gflen,u16
 gossipctl_release_peer_reply,,gfeatures,gflen*u8
@@ -168,7 +168,7 @@ gossip_getpeers_request,,id,num*struct pubkey
 gossip_getpeers_reply,3111
 gossip_getpeers_reply,,num,u16
 gossip_getpeers_reply,,id,num*struct pubkey
-gossip_getpeers_reply,,addr,num*struct wireaddr
+gossip_getpeers_reply,,addr,num*struct wireaddr_internal
 gossip_getpeers_reply,,numnodes,u16
 gossip_getpeers_reply,,nodes,numnodes*struct gossip_getnodes_entry
 

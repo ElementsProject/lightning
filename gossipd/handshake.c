@@ -170,7 +170,7 @@ struct handshake {
 	struct act_three act3;
 
 	/* Where is connection from/to */
-	struct wireaddr addr;
+	struct wireaddr_internal addr;
 
 	/* Who we are */
 	struct pubkey my_id;
@@ -183,7 +183,7 @@ struct handshake {
 	/* Function to call once handshake complete. */
 	struct io_plan *(*cb)(struct io_conn *conn,
 			      const struct pubkey *their_id,
-			      const struct wireaddr *wireaddr,
+			      const struct wireaddr_internal *wireaddr,
 			      const struct crypto_state *cs,
 			      void *cbarg);
 	void *cbarg;
@@ -353,12 +353,12 @@ static struct io_plan *handshake_succeeded(struct io_conn *conn,
 	struct crypto_state cs;
 	struct io_plan *(*cb)(struct io_conn *conn,
 			      const struct pubkey *their_id,
-			      const struct wireaddr *addr,
+			      const struct wireaddr_internal *addr,
 			      const struct crypto_state *cs,
 			      void *cbarg);
 	void *cbarg;
 	struct pubkey their_id;
-	struct wireaddr addr;
+	struct wireaddr_internal addr;
 
 	/* BOLT #8:
 	 *
@@ -965,10 +965,10 @@ static struct io_plan *act_one_responder(struct io_conn *conn,
 
 struct io_plan *responder_handshake_(struct io_conn *conn,
 				     const struct pubkey *my_id,
-				     const struct wireaddr *addr,
+				     const struct wireaddr_internal *addr,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
-							   const struct wireaddr *,
+							   const struct wireaddr_internal *,
 							   const struct crypto_state *,
 							   void *cbarg),
 				     void *cbarg)
@@ -987,10 +987,10 @@ struct io_plan *responder_handshake_(struct io_conn *conn,
 struct io_plan *initiator_handshake_(struct io_conn *conn,
 				     const struct pubkey *my_id,
 				     const struct pubkey *their_id,
-				     const struct wireaddr *addr,
+				     const struct wireaddr_internal *addr,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
-							   const struct wireaddr *,
+							   const struct wireaddr_internal *,
 							   const struct crypto_state *,
 							   void *cbarg),
 				     void *cbarg)

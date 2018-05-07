@@ -158,8 +158,8 @@ static char *opt_add_addr_withtype(const char *arg,
 	tal_resize(&ld->listen_announce, n+1);
 	ld->listen_announce[n] = ala;
 
-	if (!parse_wireaddr(arg, &ld->wireaddrs[n], ld->portnum, &err_msg)) {
-		return tal_fmt(NULL, "Unable to parse IP address '%s': %s", arg, err_msg);
+	if (!parse_wireaddr_internal(arg, &ld->wireaddrs[n], ld->portnum, &err_msg)) {
+		return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
 	}
 
 	return NULL;
@@ -828,7 +828,7 @@ static const char *next_name(const char *names, unsigned *len)
 
 static void json_add_opt_addrs(struct json_result *response,
 			       const char *name0,
-			       const struct wireaddr *wireaddrs,
+			       const struct wireaddr_internal *wireaddrs,
 			       const enum addr_listen_announce *listen_announce,
 			       enum addr_listen_announce ala)
 {
@@ -837,7 +837,7 @@ static void json_add_opt_addrs(struct json_result *response,
 			continue;
 		json_add_string(response,
 				name0,
-				fmt_wireaddr(name0, wireaddrs+i));
+				fmt_wireaddr_internal(name0, wireaddrs+i));
 	}
 }
 

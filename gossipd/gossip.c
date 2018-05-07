@@ -47,6 +47,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/un.h>
 #include <unistd.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_io.h>
@@ -128,7 +129,7 @@ struct daemon {
 
 	u8 alias[33];
 	u8 rgb[3];
-	struct wireaddr *wireaddrs;
+	struct wireaddr_internal *wireaddrs;
 	enum addr_listen_announce *listen_announce;
 
 	/* To make sure our node_announcement timestamps increase */
@@ -149,7 +150,7 @@ struct reaching {
 	struct pubkey id;
 
 	/* FIXME: Support multiple address. */
-	struct wireaddr addr;
+	struct wireaddr_internal addr;
 
 	/* Whether connect command is waiting for the result. */
 	bool master_needs_response;
@@ -192,7 +193,7 @@ struct peer {
 	struct pubkey id;
 
 	/* Where it's connected to. */
-	struct wireaddr addr;
+	struct wireaddr_internal addr;
 
 	/* Feature bitmaps. */
 	u8 *gfeatures, *lfeatures;
@@ -214,7 +215,7 @@ struct addrhint {
 
 	struct pubkey id;
 	/* FIXME: use array... */
-	struct wireaddr addr;
+	struct wireaddr_internal addr;
 };
 
 /* FIXME: Reorder */
@@ -309,7 +310,7 @@ new_local_peer_state(struct peer *peer, const struct crypto_state *cs)
 static struct peer *new_peer(const tal_t *ctx,
 			     struct daemon *daemon,
 			     const struct pubkey *their_id,
-			     const struct wireaddr *addr,
+			     const struct wireaddr_internal *addr,
 			     const struct crypto_state *cs)
 {
 	struct peer *peer = tal(ctx, struct peer);
@@ -522,7 +523,7 @@ static struct io_plan *read_init(struct io_conn *conn, struct peer *peer)
  * we have the features. */
 static struct io_plan *init_new_peer(struct io_conn *conn,
 				     const struct pubkey *their_id,
-				     const struct wireaddr *addr,
+				     const struct wireaddr_internal *addr,
 				     const struct crypto_state *cs,
 				     struct daemon *daemon)
 {
@@ -566,8 +567,12 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 		memset(sig, 0, sizeof(*sig));
 	}
 	for (i = 0; i < tal_count(daemon->wireaddrs); i++) {
-		if (daemon->listen_announce[i] & ADDR_ANNOUNCE)
-			towire_wireaddr(&addresses, daemon->wireaddrs+i);
+		if (!(daemon->listen_announce[i] & ADDR_ANNOUNCE))
+			continue;
+		/* You can only announce wiretypes! */
+		assert(daemon->wireaddrs[i].itype == ADDR_INTERNAL_WIREADDR);
+		towire_wireaddr(&addresses,
+				&daemon->wireaddrs[i].u.wireaddr);
 	}
 
 	announcement =
@@ -1521,7 +1526,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 
 static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon)
 {
-	struct wireaddr addr;
+	struct wireaddr_internal addr;
 	struct sockaddr_storage s = {};
 	socklen_t len = sizeof(s);
 
@@ -1533,10 +1538,18 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 
 	if (s.ss_family == AF_INET6) {
 		struct sockaddr_in6 *s6 = (void *)&s;
-		wireaddr_from_ipv6(&addr, &s6->sin6_addr, ntohs(s6->sin6_port));
+		addr.itype = ADDR_INTERNAL_WIREADDR;
+		wireaddr_from_ipv6(&addr.u.wireaddr,
+				   &s6->sin6_addr, ntohs(s6->sin6_port));
 	} else if (s.ss_family == AF_INET) {
 		struct sockaddr_in *s4 = (void *)&s;
-		wireaddr_from_ipv4(&addr, &s4->sin_addr, ntohs(s4->sin_port));
+		addr.itype = ADDR_INTERNAL_WIREADDR;
+		wireaddr_from_ipv4(&addr.u.wireaddr,
+				   &s4->sin_addr, ntohs(s4->sin_port));
+	} else if (s.ss_family == AF_UNIX) {
+		struct sockaddr_un *sun = (void *)&s;
+		addr.itype = ADDR_INTERNAL_SOCKNAME;
+		memcpy(addr.u.sockname, sun->sun_path, sizeof(sun->sun_path));
 	} else {
 		status_broken("Unknown socket type %i for incoming conn",
 			      s.ss_family);
@@ -1548,50 +1561,78 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 				   init_new_peer, daemon);
 }
 
+/* Returns true if it was an IPv6 wildcard (as inserted by guess_addresses) */
+static bool handle_wireaddr_listen(struct daemon *daemon,
+				   const struct wireaddr *wireaddr,
+				   bool had_ipv6_wildcard)
+{
+	int fd;
+	struct sockaddr_in addr;
+	struct sockaddr_in6 addr6;
+
+	switch (wireaddr->type) {
+	case ADDR_TYPE_IPV4:
+		wireaddr_to_ipv4(wireaddr, &addr);
+		/* We might fail if IPv6 bound to port first */
+		fd = make_listen_fd(AF_INET, &addr, sizeof(addr),
+				    !had_ipv6_wildcard);
+		if (fd >= 0) {
+			status_trace("Created IPv4 listener on port %u",
+				     wireaddr->port);
+			io_new_listener(daemon, fd, connection_in, daemon);
+		}
+		return false;
+	case ADDR_TYPE_IPV6:
+		wireaddr_to_ipv6(wireaddr, &addr6);
+		if (memeqzero(&addr6.sin6_addr, sizeof(addr6.sin6_addr)))
+			had_ipv6_wildcard = true;
+		else
+			had_ipv6_wildcard = false;
+		fd = make_listen_fd(AF_INET6, &addr6, sizeof(addr6), true);
+		if (fd >= 0) {
+			status_trace("Created IPv6 listener on port %u",
+				     wireaddr->port);
+			io_new_listener(daemon, fd, connection_in, daemon);
+		}
+		return had_ipv6_wildcard;
+	case ADDR_TYPE_PADDING:
+		break;
+	}
+	status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		      "Invalid listener wireaddress type %u", wireaddr->type);
+}
+
 static void setup_listeners(struct daemon *daemon)
 {
 	bool had_ipv6_wildcard = false;
-	struct sockaddr_in addr;
-	struct sockaddr_in6 addr6;
+	struct sockaddr_un addrun;
 	int fd;
 
 	for (size_t i = 0; i < tal_count(daemon->wireaddrs); i++) {
 		if (!(daemon->listen_announce[i] & ADDR_LISTEN))
 			continue;
 
-		switch (daemon->wireaddrs[i].type) {
-		case ADDR_TYPE_IPV4:
-			wireaddr_to_ipv4(&daemon->wireaddrs[i], &addr);
-			/* We might fail if IPv6 bound to port first */
-			fd = make_listen_fd(AF_INET, &addr, sizeof(addr),
-					    !had_ipv6_wildcard);
-			if (fd >= 0) {
-				status_trace("Created IPv4 listener on port %u",
-					     daemon->wireaddrs[i].port);
-				io_new_listener(daemon, fd, connection_in,
-						daemon);
-			}
+		switch (daemon->wireaddrs[i].itype) {
+		case ADDR_INTERNAL_SOCKNAME:
+			addrun.sun_family = AF_UNIX;
+			memcpy(addrun.sun_path, daemon->wireaddrs[i].u.sockname,
+			       sizeof(addrun.sun_path));
+			fd = make_listen_fd(AF_INET, &addrun, sizeof(addrun),
+					    false);
+			status_trace("Created socket listener on file %s",
+				     addrun.sun_path);
+			io_new_listener(daemon, fd, connection_in, daemon);
 			continue;
-		case ADDR_TYPE_IPV6:
-			wireaddr_to_ipv6(&daemon->wireaddrs[i], &addr6);
-			if (memeqzero(&addr6.sin6_addr, sizeof(addr6.sin6_addr)))
-				had_ipv6_wildcard = true;
-			fd = make_listen_fd(AF_INET6, &addr6, sizeof(addr6),
-					    true);
-			if (fd >= 0) {
-				status_trace("Created IPv6 listener on port %u",
-					     daemon->wireaddrs[i].port);
-				io_new_listener(daemon, fd, connection_in,
-						daemon);
-			}
+		case ADDR_INTERNAL_WIREADDR:
+			had_ipv6_wildcard = handle_wireaddr_listen(
+				daemon, &daemon->wireaddrs[i].u.wireaddr,
+				had_ipv6_wildcard);
 			continue;
-		case ADDR_TYPE_PADDING:
-			break;
 		}
 		/* Shouldn't happen. */
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Invalid listener address type %u",
-			      daemon->wireaddrs[i].type);
+			      daemon->wireaddrs[i].itype);
 	}
 }
 
@@ -1686,7 +1727,7 @@ static struct io_plan *resolve_channel_req(struct io_conn *conn,
 
 static struct io_plan *handshake_out_success(struct io_conn *conn,
 					     const struct pubkey *id,
-					     const struct wireaddr *addr,
+					     const struct wireaddr_internal *addr,
 					     const struct crypto_state *cs,
 					     struct reaching *reach)
 {
@@ -1751,6 +1792,7 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 	struct addrinfo ai;
 	struct sockaddr_in sin;
 	struct sockaddr_in6 sin6;
+	struct sockaddr_un sun;
 
 	/* FIXME: make generic */
 	ai.ai_flags = 0;
@@ -1759,24 +1801,32 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 	ai.ai_canonname = NULL;
 	ai.ai_next = NULL;
 
-	switch (reach->addr.type) {
-	case ADDR_TYPE_IPV4:
-		wireaddr_to_ipv4(&reach->addr, &sin);
-		ai.ai_family = sin.sin_family;
+	switch (reach->addr.itype) {
+	case ADDR_INTERNAL_SOCKNAME:
+		wireaddr_to_sockname(&reach->addr, &sun);
+		ai.ai_family = sun.sun_family;
 		ai.ai_addrlen = sizeof(sin);
-		ai.ai_addr = (struct sockaddr *)&sin;
+		ai.ai_addr = (struct sockaddr *)&sun;
 		break;
-	case ADDR_TYPE_IPV6:
-		wireaddr_to_ipv6(&reach->addr, &sin6);
-		ai.ai_family = sin6.sin6_family;
-		ai.ai_addrlen = sizeof(sin6);
-		ai.ai_addr = (struct sockaddr *)&sin6;
-		break;
-	case ADDR_TYPE_PADDING:
-		/* Shouldn't happen. */
-		return io_close(conn);
+	case ADDR_INTERNAL_WIREADDR:
+		switch (reach->addr.u.wireaddr.type) {
+		case ADDR_TYPE_IPV4:
+			wireaddr_to_ipv4(&reach->addr.u.wireaddr, &sin);
+			ai.ai_family = sin.sin_family;
+			ai.ai_addrlen = sizeof(sin);
+			ai.ai_addr = (struct sockaddr *)&sin;
+			break;
+		case ADDR_TYPE_IPV6:
+			wireaddr_to_ipv6(&reach->addr.u.wireaddr, &sin6);
+			ai.ai_family = sin6.sin6_family;
+			ai.ai_addrlen = sizeof(sin6);
+			ai.ai_addr = (struct sockaddr *)&sin6;
+			break;
+		case ADDR_TYPE_PADDING:
+			/* Shouldn't happen. */
+			return io_close(conn);
+		}
 	}
-
 	io_set_finish(conn, connect_failed, reach);
 	return io_connect(conn, &ai, connection_out, reach);
 }
@@ -1797,12 +1847,14 @@ seed_resolve_addr(const tal_t *ctx, const struct pubkey *id, const u16 port)
 	status_trace("Resolving %s", addr);
 
 	a = tal(ctx, struct addrhint);
-	if (!wireaddr_from_hostname(&a->addr, addr, port, NULL)) {
+	a->addr.itype = ADDR_INTERNAL_WIREADDR;
+	if (!wireaddr_from_hostname(&a->addr.u.wireaddr, addr, port, NULL)) {
 		status_trace("Could not resolve %s", addr);
 		return tal_free(a);
 	} else {
 		status_trace("Resolved %s to %s", addr,
-			     type_to_string(ctx, struct wireaddr, &a->addr));
+			     type_to_string(ctx, struct wireaddr,
+					    &a->addr.u.wireaddr));
 		return a;
 	}
 }
@@ -1830,7 +1882,8 @@ gossip_resolve_addr(const tal_t *ctx,
 	 * we should copy all addresses.
 	 * For now getting first address should be fine. */
 	a = tal(ctx, struct addrhint);
-	a->addr = node->addresses[0];
+	a->addr.itype = ADDR_INTERNAL_WIREADDR;
+	a->addr.u.wireaddr = node->addresses[0];
 
 	return a;
 }
@@ -1839,7 +1892,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 			   bool master_needs_response)
 {
 	struct addrhint *a;
-	int fd;
+	int fd, af;
 	struct reaching *reach;
 	u8 *msg;
 	struct peer *peer = find_peer(daemon, id);
@@ -1892,23 +1945,33 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 	}
 
 	/* Might not even be able to create eg. IPv6 sockets */
-	switch (a->addr.type) {
-	case ADDR_TYPE_IPV4:
-		fd = socket(AF_INET, SOCK_STREAM, 0);
+	af = -1;
+	switch (a->addr.itype) {
+	case ADDR_INTERNAL_SOCKNAME:
+		af = AF_LOCAL;
 		break;
-	case ADDR_TYPE_IPV6:
-		fd = socket(AF_INET6, SOCK_STREAM, 0);
-		break;
-	default:
+	case ADDR_INTERNAL_WIREADDR:
+		switch (a->addr.u.wireaddr.type) {
+		case ADDR_TYPE_IPV4:
+			af = AF_INET;
+			break;
+		case ADDR_TYPE_IPV6:
+			af = AF_INET6;
+			break;
+		case ADDR_TYPE_PADDING:
+			break;
+		}
+	}
+	if (af == -1) {
 		fd = -1;
 		errno = EPROTONOSUPPORT;
-		break;
-	}
+	} else
+		fd = socket(af, SOCK_STREAM, 0);
 
 	if (fd < 0) {
 		char *err = tal_fmt(tmpctx,
 				    "Can't open %i socket for %s (%s), giving up",
-				    a->addr.type,
+				    af,
 				    type_to_string(tmpctx, struct pubkey, id),
 				    strerror(errno));
 		status_debug("%s", err);
@@ -2051,7 +2114,7 @@ static struct io_plan *get_peers(struct io_conn *conn,
 	struct peer *peer;
 	size_t n = 0;
 	struct pubkey *id = tal_arr(conn, struct pubkey, n);
-	struct wireaddr *wireaddr = tal_arr(conn, struct wireaddr, n);
+	struct wireaddr_internal *wireaddr = tal_arr(conn, struct wireaddr_internal, n);
 	const struct gossip_getnodes_entry **nodes;
 	struct pubkey *specific_id = NULL;
 	struct node_map_iter it;

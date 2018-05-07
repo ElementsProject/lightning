@@ -19,6 +19,7 @@ struct route_hop;
 struct short_channel_id;
 struct wallet_payment;
 struct wireaddr;
+struct wireaddr_internal;
 
 /* Output a route array. */
 void json_add_route(struct json_result *r, char const *n,
@@ -58,5 +59,8 @@ bool json_tok_channel_id(const char *buffer, const jsmntok_t *tok,
 void json_add_address(struct json_result *response, const char *fieldname,
 		      const struct wireaddr *addr);
 
-
+/* JSON serialize a network address for a node. */
+void json_add_address_internal(struct json_result *response,
+			       const char *fieldname,
+			       const struct wireaddr_internal *addr);
 #endif /* LIGHTNING_LIGHTNINGD_JSON_H */

@@ -158,8 +158,8 @@ static void json_getinfo(struct command *cmd,
 		json_array_start(response, "address");
 		for (size_t i = 0; i < tal_count(cmd->ld->wireaddrs); i++) {
 			if (cmd->ld->listen_announce[i] & ADDR_ANNOUNCE)
-				json_add_address(response, NULL,
-						 cmd->ld->wireaddrs+i);
+				json_add_address_internal(response, NULL,
+							  cmd->ld->wireaddrs+i);
 			else
 				have_listen_no_announce = true;
 		}
@@ -169,8 +169,8 @@ static void json_getinfo(struct command *cmd,
 			json_array_start(response, "listen-only");
 			for (size_t i = 0; i < tal_count(cmd->ld->wireaddrs); i++) {
 			if (cmd->ld->listen_announce[i] == ADDR_LISTEN)
-				json_add_address(response, NULL,
-						 cmd->ld->wireaddrs+i);
+				json_add_address_internal(response, NULL,
+							  cmd->ld->wireaddrs+i);
 			}
 			json_array_end(response);
 		}

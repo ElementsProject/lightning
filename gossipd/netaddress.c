@@ -2,7 +2,6 @@
 #include <assert.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
-#include <common/wireaddr.h>
 #include <errno.h>
 #include <gossipd/netaddress.h>
 #include <netinet/in.h>
@@ -294,7 +293,7 @@ static enum addr_listen_announce guess_one_address(struct wireaddr *addr,
     return ret;
 }
 
-void guess_addresses(struct wireaddr **wireaddrs,
+void guess_addresses(struct wireaddr_internal **wireaddrs,
 		     enum addr_listen_announce **listen_announce,
 		     u16 portnum)
 {
@@ -305,15 +304,18 @@ void guess_addresses(struct wireaddr **wireaddrs,
     /* We allocate an extra, then remove if it's not needed. */
     tal_resize(wireaddrs, n+1);
     tal_resize(listen_announce, n+1);
+
+    (*wireaddrs)[n].itype = ADDR_INTERNAL_WIREADDR;
     /* We do IPv6 first: on Linux, that binds to IPv4 too. */
-    (*listen_announce)[n] = guess_one_address(&(*wireaddrs)[n],
+    (*listen_announce)[n] = guess_one_address(&(*wireaddrs)[n].u.wireaddr,
 					      portnum, ADDR_TYPE_IPV6);
     if ((*listen_announce)[n] != 0) {
         n++;
         tal_resize(wireaddrs, n+1);
 	tal_resize(listen_announce, n+1);
+	(*wireaddrs)[n].itype = ADDR_INTERNAL_WIREADDR;
     }
-    (*listen_announce)[n] = guess_one_address(&(*wireaddrs)[n],
+    (*listen_announce)[n] = guess_one_address(&(*wireaddrs)[n].u.wireaddr,
 					      portnum, ADDR_TYPE_IPV4);
     if ((*listen_announce)[n] == 0) {
         tal_resize(wireaddrs, n);
