@@ -121,7 +121,7 @@ struct lightningd {
 	bool autolisten;
 
 	/* Addresses to bind/announce to the network (tal_count()) */
-	struct wireaddr *wireaddrs;
+	struct wireaddr_internal *wireaddrs;
 	/* And the bitset for each, whether to listen, announce or both */
 	enum addr_listen_announce *listen_announce;
 

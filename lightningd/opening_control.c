@@ -586,7 +586,7 @@ static struct uncommitted_channel *
 new_uncommitted_channel(struct lightningd *ld,
 			struct funding_channel *fc,
 			const struct pubkey *peer_id,
-			const struct wireaddr *addr)
+			const struct wireaddr_internal *addr)
 {
 	struct uncommitted_channel *uc = tal(ld, struct uncommitted_channel);
 	char *idname;
@@ -671,7 +671,7 @@ static void channel_config(struct lightningd *ld,
 u8 *peer_accept_channel(const tal_t *ctx,
 			struct lightningd *ld,
 			const struct pubkey *peer_id,
-			const struct wireaddr *addr,
+			const struct wireaddr_internal *addr,
 			const struct crypto_state *cs,
 			const u8 *gfeatures UNUSED, const u8 *lfeatures UNUSED,
 			int peer_fd, int gossip_fd,
@@ -745,7 +745,7 @@ u8 *peer_accept_channel(const tal_t *ctx,
 
 static void peer_offer_channel(struct lightningd *ld,
 			       struct funding_channel *fc,
-			       const struct wireaddr *addr,
+			       const struct wireaddr_internal *addr,
 			       const struct crypto_state *cs,
 			       const u8 *gfeatures UNUSED, const u8 *lfeatures UNUSED,
 			       int peer_fd, int gossip_fd)
@@ -826,7 +826,7 @@ static void gossip_peer_released(struct subd *gossip,
 	struct lightningd *ld = gossip->ld;
 	struct crypto_state cs;
 	u8 *gfeatures, *lfeatures;
-	struct wireaddr addr;
+	struct wireaddr_internal addr;
 	struct channel *c;
 	struct uncommitted_channel *uc;
 
@@ -869,7 +869,7 @@ static void gossip_peer_released(struct subd *gossip,
  * released. */
 bool handle_opening_channel(struct lightningd *ld,
 			    const struct pubkey *id,
-			    const struct wireaddr *addr,
+			    const struct wireaddr_internal *addr,
 			    const struct crypto_state *cs,
 			    const u8 *gfeatures, const u8 *lfeatures,
 			    int peer_fd, int gossip_fd)

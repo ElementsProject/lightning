@@ -77,7 +77,7 @@ static void copy_to_parent_log(const char *prefix,
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct pubkey *id,
-		      const struct wireaddr *addr)
+		      const struct wireaddr_internal *addr)
 {
 	/* We are owned by our channels, and freed manually by destroy_channel */
 	struct peer *peer = tal(NULL, struct peer);
@@ -86,10 +86,13 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->dbid = dbid;
 	peer->id = *id;
 	peer->uncommitted_channel = NULL;
+	/* FIXME: This is always set, right? */
 	if (addr)
 		peer->addr = *addr;
-	else
-		peer->addr.type = ADDR_TYPE_PADDING;
+	else {
+		peer->addr.itype = ADDR_INTERNAL_WIREADDR;
+		peer->addr.u.wireaddr.type = ADDR_TYPE_PADDING;
+	}
 	list_head_init(&peer->channels);
 	peer->direction = get_channel_direction(&peer->ld->id, &peer->id);
 
@@ -423,7 +426,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	u8 *global_features;
 	u8 *local_features;
 	struct channel *channel;
-	struct wireaddr addr;
+	struct wireaddr_internal addr;
 	struct uncommitted_channel *uc;
 
 	if (!fromwire_gossip_peer_connected(msg, msg,
@@ -543,7 +546,7 @@ static struct channel *channel_by_channel_id(struct peer *peer,
 /* We only get here IF we weren't trying to connect to it. */
 void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
-			 const struct wireaddr *addr,
+			 const struct wireaddr_internal *addr,
 			 const struct crypto_state *cs,
 			 const u8 *gfeatures,
 			 const u8 *lfeatures,
@@ -745,7 +748,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 {
 	/* This is a little sneaky... */
 	struct pubkey *ids;
-	struct wireaddr *addrs;
+	struct wireaddr_internal *addrs;
 	struct gossip_getnodes_entry **nodes;
 	struct json_result *response = new_json_result(gpa->cmd);
 	struct peer *p;
@@ -780,10 +783,11 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 
 		if (connected) {
 			json_array_start(response, "netaddr");
-			if (p->addr.type != ADDR_TYPE_PADDING)
+			if (p->addr.itype != ADDR_INTERNAL_WIREADDR
+			    || p->addr.u.wireaddr.type != ADDR_TYPE_PADDING)
 				json_add_string(response, NULL,
 						type_to_string(response,
-							       struct wireaddr,
+							       struct wireaddr_internal,
 							       &p->addr));
 			json_array_end(response);
 		}
@@ -921,9 +925,11 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 		json_add_pubkey(response, "id", ids+i);
 		json_add_node_decoration(response, nodes, ids+i);
 		json_array_start(response, "netaddr");
-		if (addrs[i].type != ADDR_TYPE_PADDING)
+		if (addrs[i].itype != ADDR_INTERNAL_WIREADDR
+		    || addrs[i].u.wireaddr.type != ADDR_TYPE_PADDING)
 			json_add_string(response, NULL,
-					type_to_string(response, struct wireaddr,
+					type_to_string(response,
+						       struct wireaddr_internal,
 						       addrs + i));
 		json_array_end(response);
 		json_add_bool(response, "connected", true);

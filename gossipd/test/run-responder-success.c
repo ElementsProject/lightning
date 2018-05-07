@@ -175,7 +175,7 @@ static struct io_plan *test_read(struct io_conn *conn,
 
 static struct io_plan *success(struct io_conn *conn UNUSED,
 			       const struct pubkey *them UNUSED,
-			       const struct wireaddr *addr UNUSED,
+			       const struct wireaddr_internal *addr UNUSED,
 			       const struct crypto_state *cs,
 			       void *unused UNUSED)
 {
@@ -198,7 +198,7 @@ int main(void)
 {
 	setup_locale();
 
-	struct wireaddr dummy;
+	struct wireaddr_internal dummy;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
@@ -218,7 +218,8 @@ int main(void)
 	e_priv = privkey("2222222222222222222222222222222222222222222222222222222222222222");
 	e_pub = pubkey("02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27");
 
-	dummy.addrlen = 0;
+	dummy.itype = ADDR_INTERNAL_WIREADDR;
+	dummy.u.wireaddr.addrlen = 0;
 	responder_handshake((void *)tmpctx, &ls_pub, &dummy, success, NULL);
 	/* Should not exit! */
 	abort();

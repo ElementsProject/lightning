@@ -35,7 +35,7 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 {
 	struct pubkey id;
 	struct crypto_state cs;
-	struct wireaddr addr;
+	struct wireaddr_internal addr;
 	u8 *gfeatures, *lfeatures, *in_pkt;
 
 	if (!fromwire_gossip_peer_nongossip(msg, msg,
