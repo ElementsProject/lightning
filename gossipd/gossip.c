@@ -1606,14 +1606,14 @@ static bool handle_wireaddr_listen(struct daemon *daemon,
 }
 
 /* If it's a wildcard, turns it into a real address pointing to internet */
-static bool public_address(struct wireaddr *wireaddr)
+static bool public_address(struct daemon *daemon, struct wireaddr *wireaddr)
 {
 	if (wireaddr_is_wildcard(wireaddr)) {
 		if (!guess_address(wireaddr))
 			return false;
 	}
 
-	return address_routable(wireaddr);
+	return address_routable(wireaddr, daemon->rstate->dev_allow_localhost);
 }
 
 static void add_announcable(struct daemon *daemon, const struct wireaddr *addr)
@@ -1684,7 +1684,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 							 true);
 			if (ipv6_ok) {
 				add_binding(&binding, &wa);
-				if (public_address(&wa.u.wireaddr))
+				if (public_address(daemon, &wa.u.wireaddr))
 					add_announcable(daemon, &wa.u.wireaddr);
 			}
 			wa.u.wireaddr.type = ADDR_TYPE_IPV4;
@@ -1693,7 +1693,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			if (handle_wireaddr_listen(daemon, &wa.u.wireaddr,
 						   ipv6_ok)) {
 				add_binding(&binding, &wa);
-				if (public_address(&wa.u.wireaddr))
+				if (public_address(daemon, &wa.u.wireaddr))
 					add_announcable(daemon, &wa.u.wireaddr);
 			}
 			continue;
@@ -1701,7 +1701,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 		case ADDR_INTERNAL_WIREADDR:
 			handle_wireaddr_listen(daemon, &wa.u.wireaddr, false);
 			add_binding(&binding, &wa);
-			if (public_address(&wa.u.wireaddr))
+			if (public_address(daemon, &wa.u.wireaddr))
 				add_announcable(daemon, &wa.u.wireaddr);
 			continue;
 		}
@@ -1723,18 +1723,21 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 {
 	struct bitcoin_blkid chain_hash;
 	u32 update_channel_interval;
+	bool dev_allow_localhost;
 
 	if (!fromwire_gossipctl_init(
 		daemon, msg, &daemon->broadcast_interval, &chain_hash,
 		&daemon->id, &daemon->globalfeatures,
 		&daemon->localfeatures, &daemon->proposed_wireaddr,
 		&daemon->proposed_listen_announce, daemon->rgb,
-		daemon->alias, &update_channel_interval, &daemon->reconnect)) {
+		daemon->alias, &update_channel_interval, &daemon->reconnect,
+		&dev_allow_localhost)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
 	/* Prune time is twice update time */
 	daemon->rstate = new_routing_state(daemon, &chain_hash, &daemon->id,
-					   update_channel_interval * 2);
+					   update_channel_interval * 2,
+					   dev_allow_localhost);
 
 	/* Load stored gossip messages */
 	gossip_store_load(daemon->rstate, daemon->rstate->store);
@@ -1944,7 +1947,6 @@ gossip_resolve_addr(const tal_t *ctx,
 		    const struct pubkey *id)
 {
 	struct node *node;
-	struct addrhint *a;
 
 	/* Get from routing state. */
 	node = get_node(rstate, id);
@@ -1952,18 +1954,23 @@ gossip_resolve_addr(const tal_t *ctx,
 	/* No matching node? */
 	if (!node)
 		return NULL;
-	/* Node has no addresses? */
-	if (tal_count(node->addresses) == 0)
-		return NULL;
 
 	/* FIXME: When struct addrhint can contain more than one address,
-	 * we should copy all addresses.
-	 * For now getting first address should be fine. */
-	a = tal(ctx, struct addrhint);
-	a->addr.itype = ADDR_INTERNAL_WIREADDR;
-	a->addr.u.wireaddr = node->addresses[0];
+	 * we should copy all routable addresses. */
+	for (size_t i = 0; i < tal_count(node->addresses); i++) {
+		struct addrhint *a;
 
-	return a;
+		if (!address_routable(&node->addresses[i],
+				      rstate->dev_allow_localhost))
+			continue;
+
+		a = tal(ctx, struct addrhint);
+		a->addr.itype = ADDR_INTERNAL_WIREADDR;
+		a->addr.u.wireaddr = node->addresses[i];
+		return a;
+	}
+
+	return NULL;
 }
 
 static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,

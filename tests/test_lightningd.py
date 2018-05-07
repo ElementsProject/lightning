@@ -664,6 +664,7 @@ class LightningDTests(BaseLightningDTests):
                                "Cryptographic handshake: ",
                                l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'localhost', l2.port)
 
+    @unittest.skipIf(not DEVELOPER, "needs --dev-allow-localhost")
     def test_connect_by_gossip(self):
         """Test connecting to an unknown peer using node gossip
         """
@@ -4284,10 +4285,13 @@ class LightningDTests(BaseLightningDTests):
     def test_address(self):
         l1 = self.node_factory.get_node()
         addr = l1.rpc.getinfo()['address']
-        assert len(addr) == 1
-        assert addr[0]['type'] == 'ipv4'
-        assert addr[0]['address'] == '127.0.0.1'
-        assert int(addr[0]['port']) == l1.port
+        if 'dev-allow-localhost' in l1.daemon.opts:
+            assert len(addr) == 1
+            assert addr[0]['type'] == 'ipv4'
+            assert addr[0]['address'] == '127.0.0.1'
+            assert int(addr[0]['port']) == l1.port
+        else:
+            assert len(addr) == 0
 
         bind = l1.rpc.getinfo()['binding']
         assert len(bind) == 1

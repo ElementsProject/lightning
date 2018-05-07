@@ -415,6 +415,9 @@ static void dev_register_opts(struct lightningd *ld)
 			 "Time between gossip broadcasts in milliseconds");
 	opt_register_arg("--dev-disconnect=<filename>", opt_subd_dev_disconnect,
 			 NULL, ld, "File containing disconnection points");
+	opt_register_noarg("--dev-allow-localhost", opt_set_bool,
+			   &ld->dev_allow_localhost,
+			   "Announce and allow announcments for localhost address");
 }
 #endif
 

@@ -51,6 +51,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_debug_subdaemon = NULL;
 	ld->dev_disconnect_fd = -1;
 	ld->dev_subdaemon_fail = false;
+	ld->dev_allow_localhost = false;
 
 	if (getenv("LIGHTNINGD_DEV_MEMLEAK"))
 		memleak_init(ld, backtrace_state);

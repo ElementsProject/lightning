@@ -8,6 +8,7 @@
 bool guess_address(struct wireaddr *wireaddr);
 
 /* Is this address public? */
-bool address_routable(const struct wireaddr *wireaddr);
+bool address_routable(const struct wireaddr *wireaddr,
+		      bool allow_localhost);
 
 #endif /* LIGHTNING_GOSSIPD_NETADDRESS_H */
