@@ -612,8 +612,14 @@ static void send_node_announcement(struct daemon *daemon)
 			      tal_hex(tmpctx, err));
 }
 
-/* Returns error if we should send an error. */
-static u8 *handle_gossip_msg(struct daemon *daemon, const u8 *msg, bool store)
+/**
+ * Handle an incoming gossip message
+ *
+ * Returns wire formatted error if handling failed. The error contains the
+ * details of the failures. The caller is expected to return the error to the
+ * peer, or drop the error if the message did not come from a peer.
+ */
+static u8 *handle_gossip_msg(struct daemon *daemon, const u8 *msg)
 {
 	struct routing_state *rstate = daemon->rstate;
 	int t = fromwire_peektype(msg);
@@ -743,7 +749,7 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_NODE_ANNOUNCEMENT:
 	case WIRE_CHANNEL_UPDATE:
-		err = handle_gossip_msg(peer->daemon, msg, true);
+		err = handle_gossip_msg(peer->daemon, msg);
 		if (err)
 			queue_peer_msg(peer, take(err));
 		return peer_next_in(conn, peer);
@@ -926,7 +932,7 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 	int type = fromwire_peektype(msg);
 	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
 	    type == WIRE_NODE_ANNOUNCEMENT) {
-		err = handle_gossip_msg(peer->daemon, dc->msg_in, true);
+		err = handle_gossip_msg(peer->daemon, dc->msg_in);
 		if (err)
 			queue_peer_msg(peer, take(err));
 
