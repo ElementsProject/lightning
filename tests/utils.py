@@ -261,7 +261,9 @@ class LightningD(TailableProc):
         opts = {
             'bitcoin-datadir': bitcoin_dir,
             'lightning-dir': lightning_dir,
-            'addr': '127.0.0.1:{}'.format(port),
+            'bind-addr': '127.0.0.1:{}'.format(port),
+            # lightningd won't announce non-routable addresses by default.
+            'announce-addr': '127.0.0.1:{}'.format(port),
             'allow-deprecated-apis': 'false',
             'override-fee-rates': '15000/7500/1000',
             'network': 'regtest',
@@ -370,7 +372,7 @@ class LightningNode(object):
     def start(self):
         self.daemon.start()
         # This shortcut is sufficient for our simple tests.
-        self.port = self.rpc.getinfo()['address'][0]['port']
+        self.port = self.rpc.getinfo()['binding'][0]['port']
 
     def stop(self, timeout=10):
         """ Attempt to do a clean shutdown, but kill if it hangs

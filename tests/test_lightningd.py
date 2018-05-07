@@ -4283,10 +4283,17 @@ class LightningDTests(BaseLightningDTests):
 
     def test_address(self):
         l1 = self.node_factory.get_node()
-        assert len(l1.rpc.getinfo()['address']) == 1
-        assert l1.rpc.getinfo()['address'][0]['type'] == 'ipv4'
-        assert l1.rpc.getinfo()['address'][0]['address'] == '127.0.0.1'
-        assert int(l1.rpc.getinfo()['address'][0]['port']) == l1.port
+        addr = l1.rpc.getinfo()['address']
+        assert len(addr) == 1
+        assert addr[0]['type'] == 'ipv4'
+        assert addr[0]['address'] == '127.0.0.1'
+        assert int(addr[0]['port']) == l1.port
+
+        bind = l1.rpc.getinfo()['binding']
+        assert len(bind) == 1
+        assert bind[0]['type'] == 'ipv4'
+        assert bind[0]['address'] == '127.0.0.1'
+        assert int(bind[0]['port']) == l1.port
 
     def test_listconfigs(self):
         l1 = self.node_factory.get_node()

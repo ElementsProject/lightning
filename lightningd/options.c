@@ -149,16 +149,16 @@ static char *opt_add_addr_withtype(const char *arg,
 				   struct lightningd *ld,
 				   enum addr_listen_announce ala)
 {
-	size_t n = tal_count(ld->wireaddrs);
+	size_t n = tal_count(ld->proposed_wireaddr);
 	char const *err_msg;
 
 	assert(arg != NULL);
 
-	tal_resize(&ld->wireaddrs, n+1);
-	tal_resize(&ld->listen_announce, n+1);
-	ld->listen_announce[n] = ala;
+	tal_resize(&ld->proposed_wireaddr, n+1);
+	tal_resize(&ld->proposed_listen_announce, n+1);
+	ld->proposed_listen_announce[n] = ala;
 
-	if (!parse_wireaddr_internal(arg, &ld->wireaddrs[n], ld->portnum,
+	if (!parse_wireaddr_internal(arg, &ld->proposed_wireaddr[n], ld->portnum,
 				     true, &err_msg)) {
 		return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
 	}
@@ -918,17 +918,20 @@ static void add_config(struct lightningd *ld,
 			/* Covered by opt_add_addr below */
 		} else if (opt->cb_arg == (void *)opt_add_addr) {
 			json_add_opt_addrs(response, name0,
-					   ld->wireaddrs, ld->listen_announce,
+					   ld->proposed_wireaddr,
+					   ld->proposed_listen_announce,
 					   ADDR_LISTEN_AND_ANNOUNCE);
 			return;
 		} else if (opt->cb_arg == (void *)opt_add_bind_addr) {
 			json_add_opt_addrs(response, name0,
-					   ld->wireaddrs, ld->listen_announce,
+					   ld->proposed_wireaddr,
+					   ld->proposed_listen_announce,
 					   ADDR_LISTEN);
 			return;
 		} else if (opt->cb_arg == (void *)opt_add_announce_addr) {
 			json_add_opt_addrs(response, name0,
-					   ld->wireaddrs, ld->listen_announce,
+					   ld->proposed_wireaddr,
+					   ld->proposed_listen_announce,
 					   ADDR_ANNOUNCE);
 			return;
 #if DEVELOPER

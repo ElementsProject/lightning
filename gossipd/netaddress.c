@@ -201,48 +201,39 @@ static bool IsRoutable(const struct wireaddr *addr)
  * then query address. */
 /* Returns 0 if protocol completely unsupported, ADDR_LISTEN if we
  * can't reach addr, ADDR_LISTEN_AND_ANNOUNCE if we can (and fill saddr). */
-static enum addr_listen_announce get_local_sockname(int af, void *saddr,
-						    socklen_t saddrlen)
+static bool get_local_sockname(int af, void *saddr, socklen_t saddrlen)
 {
     int fd = socket(af, SOCK_DGRAM, 0);
     if (fd < 0) {
         status_trace("Failed to create %u socket: %s",
 		     af, strerror(errno));
-        return 0;
+        return false;
     }
 
     if (connect(fd, saddr, saddrlen) != 0) {
         status_trace("Failed to connect %u socket: %s",
 		     af, strerror(errno));
         close(fd);
-        return ADDR_LISTEN;
+        return false;
     }
 
     if (getsockname(fd, saddr, &saddrlen) != 0) {
         status_trace("Failed to get %u socket name: %s",
 		     af, strerror(errno));
         close(fd);
-        return ADDR_LISTEN;
+        return false;
     }
 
     close(fd);
-    return ADDR_LISTEN_AND_ANNOUNCE;
+    return true;
 }
 
-/* Return 0 if not available, or whether it's listenable-only or announceable.
- * If it's listenable only, will set wireaddr to all-zero address for universal
- * binding. */
-static enum addr_listen_announce guess_one_address(struct wireaddr *addr,
-						   u16 portnum,
-						   enum wire_addr_type type)
+bool guess_address(struct wireaddr *addr)
 {
-    enum addr_listen_announce ret;
-
-    addr->type = type;
-    addr->port = portnum;
+    bool ret;
 
     /* We point to Google nameservers, works unless you're inside Google :) */
-    switch (type) {
+    switch (addr->type) {
     case ADDR_TYPE_IPV4: {
         struct sockaddr_in sin;
 	sin.sin_port = htons(53);
@@ -252,7 +243,7 @@ static enum addr_listen_announce guess_one_address(struct wireaddr *addr,
         ret = get_local_sockname(AF_INET, &sin, sizeof(sin));
         addr->addrlen = sizeof(sin.sin_addr);
         memcpy(addr->addr, &sin.sin_addr, addr->addrlen);
-        break;
+        return ret;
     }
     case ADDR_TYPE_IPV6: {
         struct sockaddr_in6 sin6;
@@ -266,59 +257,15 @@ static enum addr_listen_announce guess_one_address(struct wireaddr *addr,
         ret = get_local_sockname(AF_INET6, &sin6, sizeof(sin6));
         addr->addrlen = sizeof(sin6.sin6_addr);
         memcpy(addr->addr, &sin6.sin6_addr, addr->addrlen);
-        break;
+        return ret;
     }
     case ADDR_TYPE_PADDING:
-        status_trace("Padding address, ignoring");
-        return 0;
+        break;
     }
-
-    if (ret == 0)
-	return ret;
-
-    /* If we can reach it, but resulting address is unroutable, listen only */
-    if (ret == ADDR_LISTEN_AND_ANNOUNCE && !IsRoutable(addr)) {
-        status_trace("Address %s is not routable",
-		     type_to_string(tmpctx, struct wireaddr, addr));
-	ret = ADDR_LISTEN;
-    }
-
-    if (ret == ADDR_LISTEN) {
-	/* This corresponds to INADDR_ANY or in6addr_any */
-	memset(addr->addr, 0, addr->addrlen);
-    } else {
-	status_trace("Public address %s",
-		     type_to_string(tmpctx, struct wireaddr, addr));
-    }
-    return ret;
+    abort();
 }
 
-void guess_addresses(struct wireaddr_internal **wireaddrs,
-		     enum addr_listen_announce **listen_announce,
-		     u16 portnum)
+bool address_routable(const struct wireaddr *wireaddr)
 {
-    size_t n = tal_count(*wireaddrs);
-
-    status_trace("Trying to guess public addresses...");
-
-    /* We allocate an extra, then remove if it's not needed. */
-    tal_resize(wireaddrs, n+1);
-    tal_resize(listen_announce, n+1);
-
-    (*wireaddrs)[n].itype = ADDR_INTERNAL_WIREADDR;
-    /* We do IPv6 first: on Linux, that binds to IPv4 too. */
-    (*listen_announce)[n] = guess_one_address(&(*wireaddrs)[n].u.wireaddr,
-					      portnum, ADDR_TYPE_IPV6);
-    if ((*listen_announce)[n] != 0) {
-        n++;
-        tal_resize(wireaddrs, n+1);
-	tal_resize(listen_announce, n+1);
-	(*wireaddrs)[n].itype = ADDR_INTERNAL_WIREADDR;
-    }
-    (*listen_announce)[n] = guess_one_address(&(*wireaddrs)[n].u.wireaddr,
-					      portnum, ADDR_TYPE_IPV4);
-    if ((*listen_announce)[n] == 0) {
-        tal_resize(wireaddrs, n);
-        tal_resize(listen_announce, n);
-    }
+    return IsRoutable(wireaddr);
 }

@@ -4,8 +4,10 @@
 #include <ccan/short_types/short_types.h>
 #include <common/wireaddr.h>
 
-void guess_addresses(struct wireaddr_internal **wireaddrs,
-		     enum addr_listen_announce **listen_announce,
-		     u16 portnum);
+/* Address is a wildcard: try to guess what it looks like to outside world */
+bool guess_address(struct wireaddr *wireaddr);
+
+/* Is this address public? */
+bool address_routable(const struct wireaddr *wireaddr);
 
 #endif /* LIGHTNING_GOSSIPD_NETADDRESS_H */

@@ -129,8 +129,13 @@ struct daemon {
 
 	u8 alias[33];
 	u8 rgb[3];
-	struct wireaddr_internal *wireaddrs;
-	enum addr_listen_announce *listen_announce;
+
+	/* Addresses master told us to use */
+	struct wireaddr_internal *proposed_wireaddr;
+	enum addr_listen_announce *proposed_listen_announce;
+
+	/* What we actually announce. */
+	struct wireaddr *announcable;
 
 	/* To make sure our node_announcement timestamps increase */
 	u32 last_announce_timestamp;
@@ -566,15 +571,8 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 		sig = tal(ctx, secp256k1_ecdsa_signature);
 		memset(sig, 0, sizeof(*sig));
 	}
-	for (i = 0; i < tal_count(daemon->wireaddrs); i++) {
-		if (!(daemon->listen_announce[i] & ADDR_ANNOUNCE))
-			continue;
-		/* You can only announce wiretypes! */
-		if (daemon->wireaddrs[i].itype != ADDR_INTERNAL_WIREADDR)
-			continue;
-		towire_wireaddr(&addresses,
-				&daemon->wireaddrs[i].u.wireaddr);
-	}
+	for (i = 0; i < tal_count(daemon->announcable); i++)
+		towire_wireaddr(&addresses, &daemon->announcable[i]);
 
 	announcement =
 	    towire_node_announcement(ctx, sig, features, timestamp,
@@ -1607,51 +1605,113 @@ static bool handle_wireaddr_listen(struct daemon *daemon,
 		      "Invalid listener wireaddress type %u", wireaddr->type);
 }
 
-static void setup_listeners(struct daemon *daemon)
+/* If it's a wildcard, turns it into a real address pointing to internet */
+static bool public_address(struct wireaddr *wireaddr)
+{
+	if (wireaddr_is_wildcard(wireaddr)) {
+		if (!guess_address(wireaddr))
+			return false;
+	}
+
+	return address_routable(wireaddr);
+}
+
+static void add_announcable(struct daemon *daemon, const struct wireaddr *addr)
+{
+	size_t n = tal_count(daemon->announcable);
+	tal_resize(&daemon->announcable, n+1);
+	daemon->announcable[n] = *addr;
+}
+
+static void add_binding(struct wireaddr_internal **binding,
+			const struct wireaddr_internal *addr)
+{
+	size_t n = tal_count(*binding);
+	tal_resize(binding, n+1);
+	(*binding)[n] = *addr;
+}
+
+/* Initializes daemon->announcable array, returns addresses we bound to. */
+static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
+						 struct daemon *daemon)
 {
 	struct sockaddr_un addrun;
 	int fd;
+	struct wireaddr_internal *binding;
 
-	for (size_t i = 0; i < tal_count(daemon->wireaddrs); i++) {
-		struct wireaddr wa = daemon->wireaddrs[i].u.wireaddr;
+	binding = tal_arr(ctx, struct wireaddr_internal, 0);
+	daemon->announcable = tal_arr(daemon, struct wireaddr, 0);
 
-		if (!(daemon->listen_announce[i] & ADDR_LISTEN))
+	for (size_t i = 0; i < tal_count(daemon->proposed_wireaddr); i++) {
+		struct wireaddr_internal wa = daemon->proposed_wireaddr[i];
+
+		if (!(daemon->proposed_listen_announce[i] & ADDR_LISTEN)) {
+			assert(daemon->proposed_listen_announce[i]
+			       & ADDR_ANNOUNCE);
+			/* You can only announce wiretypes! */
+			assert(daemon->proposed_wireaddr[i].itype
+			       == ADDR_INTERNAL_WIREADDR);
+			add_announcable(daemon, &wa.u.wireaddr);
 			continue;
+		}
 
-		switch (daemon->wireaddrs[i].itype) {
+		switch (wa.itype) {
 		case ADDR_INTERNAL_SOCKNAME:
 			addrun.sun_family = AF_UNIX;
-			memcpy(addrun.sun_path, daemon->wireaddrs[i].u.sockname,
+			memcpy(addrun.sun_path, wa.u.sockname,
 			       sizeof(addrun.sun_path));
 			fd = make_listen_fd(AF_INET, &addrun, sizeof(addrun),
 					    false);
 			status_trace("Created socket listener on file %s",
 				     addrun.sun_path);
 			io_new_listener(daemon, fd, connection_in, daemon);
+			/* We don't announce socket names */
+			add_binding(&binding, &wa);
 			continue;
 		case ADDR_INTERNAL_ALLPROTO: {
 			bool ipv6_ok;
 
-			memset(wa.addr, 0, sizeof(wa.addr));
-			wa.type = ADDR_TYPE_IPV6;
-			wa.addrlen = 16;
+			wa.itype = ADDR_INTERNAL_WIREADDR;
+			wa.u.wireaddr.port = wa.u.port;
+			memset(wa.u.wireaddr.addr, 0,
+			       sizeof(wa.u.wireaddr.addr));
 
-			ipv6_ok = handle_wireaddr_listen(daemon, &wa, true);
-			wa.type = ADDR_TYPE_IPV4;
-			wa.addrlen = 4;
+			/* Try both IPv6 and IPv4. */
+			wa.u.wireaddr.type = ADDR_TYPE_IPV6;
+			wa.u.wireaddr.addrlen = 16;
+
+			ipv6_ok = handle_wireaddr_listen(daemon, &wa.u.wireaddr,
+							 true);
+			if (ipv6_ok) {
+				add_binding(&binding, &wa);
+				if (public_address(&wa.u.wireaddr))
+					add_announcable(daemon, &wa.u.wireaddr);
+			}
+			wa.u.wireaddr.type = ADDR_TYPE_IPV4;
+			wa.u.wireaddr.addrlen = 4;
 			/* OK if this fails, as long as one succeeds! */
-			handle_wireaddr_listen(daemon, &wa, ipv6_ok);
+			if (handle_wireaddr_listen(daemon, &wa.u.wireaddr,
+						   ipv6_ok)) {
+				add_binding(&binding, &wa);
+				if (public_address(&wa.u.wireaddr))
+					add_announcable(daemon, &wa.u.wireaddr);
+			}
 			continue;
 		}
 		case ADDR_INTERNAL_WIREADDR:
-			handle_wireaddr_listen(daemon, &wa, false);
+			handle_wireaddr_listen(daemon, &wa.u.wireaddr, false);
+			add_binding(&binding, &wa);
+			if (public_address(&wa.u.wireaddr))
+				add_announcable(daemon, &wa.u.wireaddr);
 			continue;
 		}
 		/* Shouldn't happen. */
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Invalid listener address type %u",
-			      daemon->wireaddrs[i].itype);
+			      daemon->proposed_wireaddr[i].itype);
 	}
+
+	return binding;
 }
 
 /* Parse an incoming gossip init message and assign config variables
@@ -1667,8 +1727,8 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	if (!fromwire_gossipctl_init(
 		daemon, msg, &daemon->broadcast_interval, &chain_hash,
 		&daemon->id, &daemon->globalfeatures,
-		&daemon->localfeatures, &daemon->wireaddrs,
-		&daemon->listen_announce, daemon->rgb,
+		&daemon->localfeatures, &daemon->proposed_wireaddr,
+		&daemon->proposed_listen_announce, daemon->rgb,
 		daemon->alias, &update_channel_interval, &daemon->reconnect)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
@@ -1691,18 +1751,21 @@ static struct io_plan *gossip_activate(struct daemon_conn *master,
 				       const u8 *msg)
 {
 	bool listen;
+	struct wireaddr_internal *binding;
 
 	if (!fromwire_gossipctl_activate(msg, &listen))
 		master_badmsg(WIRE_GOSSIPCTL_ACTIVATE, msg);
 
 	if (listen)
-		setup_listeners(daemon);
+		binding = setup_listeners(tmpctx, daemon);
+	else
+		binding = NULL;
 
 	/* OK, we're ready! */
 	daemon_conn_send(&daemon->master,
 			 take(towire_gossipctl_activate_reply(NULL,
-							      daemon->wireaddrs,
-							      daemon->listen_announce)));
+							      binding,
+							      daemon->announcable)));
 
 	return daemon_conn_read_next(master->conn, master);
 }
