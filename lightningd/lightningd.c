@@ -50,9 +50,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 #if DEVELOPER
 	ld->dev_debug_subdaemon = NULL;
 	ld->dev_disconnect_fd = -1;
-	ld->dev_hsm_seed = NULL;
 	ld->dev_subdaemon_fail = false;
-	ld->no_reconnect = false;
+	ld->dev_allow_localhost = false;
 
 	if (getenv("LIGHTNINGD_DEV_MEMLEAK"))
 		memleak_init(ld, backtrace_state);
@@ -71,8 +70,12 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	list_head_init(&ld->waitsendpay_commands);
 	list_head_init(&ld->sendpay_commands);
 	list_head_init(&ld->close_commands);
-	ld->wireaddrs = tal_arr(ld, struct wireaddr, 0);
+	ld->proposed_wireaddr = tal_arr(ld, struct wireaddr_internal, 0);
+	ld->proposed_listen_announce = tal_arr(ld, enum addr_listen_announce, 0);
 	ld->portnum = DEFAULT_PORT;
+	ld->listen = true;
+	ld->autolisten = true;
+	ld->reconnect = true;
 	timers_init(&ld->timers, time_mono());
 	ld->topology = new_topology(ld, ld->log);
 	ld->debug_subdaemon_io = NULL;
@@ -278,14 +281,21 @@ static void pidfile_create(const struct lightningd *ld)
 	write_all(pid_fd, pid, strlen(pid));
 }
 
+/* Yuck, we need globals here. */
+static int (*io_poll_debug)(struct pollfd *, nfds_t, int);
+static int io_poll_lightningd(struct pollfd *fds, nfds_t nfds, int timeout)
+{
+	db_assert_no_outstanding_statements();
+
+	return io_poll_debug(fds, nfds, timeout);
+}
+
 int main(int argc, char *argv[])
 {
-	setup_locale();
-
 	struct lightningd *ld;
-	bool newdir;
 	u32 blockheight;
 
+	setup_locale();
 	daemon_setup(argv[0], log_backtrace_print, log_backtrace_exit);
 	ld = new_lightningd(NULL);
 
@@ -297,7 +307,7 @@ int main(int argc, char *argv[])
 	register_opts(ld);
 
 	/* Handle options and config; move to .lightningd */
-	newdir = handle_opts(ld, argc, argv);
+	handle_opts(ld, argc, argv);
 
 	/* Ignore SIGPIPE: we look at our write return values*/
 	signal(SIGPIPE, SIG_IGN);
@@ -310,8 +320,11 @@ int main(int argc, char *argv[])
 	ld->owned_txfilter = txfilter_new(ld);
 	ld->topology->wallet = ld->wallet;
 
+	/* We do extra checks in io_loop. */
+	io_poll_debug = io_poll_override(io_poll_lightningd);
+
 	/* Set up HSM. */
-	hsm_init(ld, newdir);
+	hsm_init(ld);
 
 	/* Now we know our ID, we can set our color/alias if not already. */
 	setup_color_and_alias(ld);
@@ -382,9 +395,6 @@ int main(int argc, char *argv[])
 		       ld->config.poll_time,
 		       blockheight);
 
-	/* Replay transactions for all running onchainds */
-	onchaind_replay_channels(ld);
-
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(ld, ld->rpc_filename);
 
@@ -394,6 +404,13 @@ int main(int argc, char *argv[])
 
 	/* Create PID file */
 	pidfile_create(ld);
+
+	/* Activate gossip daemon. Needs to be after the initialization of
+	 * chaintopology, otherwise we may be asking for uninitialized data. */
+	gossip_activate(ld);
+
+	/* Replay transactions for all running onchainds */
+	onchaind_replay_channels(ld);
 
 	/* Mark ourselves live. */
 	log_info(ld->log, "Server started with public key %s, alias %s (color #%s) and lightningd %s",

@@ -22,7 +22,6 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
-#include <lightningd/netaddress.h>
 #include <lightningd/opt_time.h>
 #include <lightningd/options.h>
 #include <lightningd/subd.h>
@@ -102,10 +101,14 @@ static char *opt_set_u32(const char *arg, u32 *u)
 	return NULL;
 }
 
-static char *opt_set_u16(const char *arg, u16 *u)
+static char *opt_set_port(const char *arg, struct lightningd *ld)
 {
 	char *endp;
 	unsigned long l;
+
+	log_broken(ld->log, "--port has been deprecated, use --autolisten=0 or --addr=:<port>");
+	if (!deprecated_apis)
+		return "--port is deprecated";
 
 	assert(arg != NULL);
 
@@ -114,9 +117,13 @@ static char *opt_set_u16(const char *arg, u16 *u)
 	l = strtoul(arg, &endp, 0);
 	if (*endp || !arg[0])
 		return tal_fmt(NULL, "'%s' is not a number", arg);
-	*u = l;
-	if (errno || *u != l)
+	ld->portnum = l;
+	if (errno || ld->portnum != l)
 		return tal_fmt(NULL, "'%s' is out of range", arg);
+
+	if (ld->portnum == 0)
+		ld->autolisten = false;
+
 	return NULL;
 }
 
@@ -138,21 +145,49 @@ static char *opt_set_s32(const char *arg, s32 *u)
 	return NULL;
 }
 
-static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
+static char *opt_add_addr_withtype(const char *arg,
+				   struct lightningd *ld,
+				   enum addr_listen_announce ala)
 {
-	size_t n = tal_count(ld->wireaddrs);
+	size_t n = tal_count(ld->proposed_wireaddr);
 	char const *err_msg;
 
 	assert(arg != NULL);
 
-	tal_resize(&ld->wireaddrs, n+1);
+	tal_resize(&ld->proposed_wireaddr, n+1);
+	tal_resize(&ld->proposed_listen_announce, n+1);
+	ld->proposed_listen_announce[n] = ala;
 
-	if (!parse_wireaddr(arg, &ld->wireaddrs[n], ld->portnum, &err_msg)) {
-		return tal_fmt(NULL, "Unable to parse IP address '%s': %s", arg, err_msg);
+	if (!parse_wireaddr_internal(arg, &ld->proposed_wireaddr[n], ld->portnum,
+				     true, &err_msg)) {
+		return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
 	}
 
 	return NULL;
 
+}
+
+static char *opt_add_addr(const char *arg, struct lightningd *ld)
+{
+	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN_AND_ANNOUNCE);
+}
+
+static char *opt_add_bind_addr(const char *arg, struct lightningd *ld)
+{
+	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN);
+}
+
+static char *opt_add_announce_addr(const char *arg, struct lightningd *ld)
+{
+	return opt_add_addr_withtype(arg, ld, ADDR_ANNOUNCE);
+}
+
+static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
+{
+	log_broken(ld->log, "--ipaddr has been deprecated, use --addr");
+	if (!deprecated_apis)
+		return "--ipaddr is deprecated";
+	return opt_add_addr(arg, ld);
 }
 
 static void opt_show_u64(char buf[OPT_SHOW_LEN], const u64 *u)
@@ -169,11 +204,6 @@ static void opt_show_s32(char buf[OPT_SHOW_LEN], const s32 *u)
 	snprintf(buf, OPT_SHOW_LEN, "%"PRIi32, *u);
 }
 
-static void opt_show_u16(char buf[OPT_SHOW_LEN], const u16 *u)
-{
-	snprintf(buf, OPT_SHOW_LEN, "%u", *u);
-}
-
 static char *opt_set_network(const char *arg, struct lightningd *ld)
 {
 	assert(arg != NULL);
@@ -182,6 +212,16 @@ static char *opt_set_network(const char *arg, struct lightningd *ld)
 	if (!ld->topology->bitcoind->chainparams)
 		return tal_fmt(NULL, "Unknown network name '%s'", arg);
 	return NULL;
+}
+
+static char *opt_set_testnet(struct lightningd *ld)
+{
+	return opt_set_network("testnet", ld);
+}
+
+static char *opt_set_mainnet(struct lightningd *ld)
+{
+	return opt_set_network("bitcoin", ld);
 }
 
 static void opt_show_network(char buf[OPT_SHOW_LEN],
@@ -249,8 +289,9 @@ static char *opt_set_fee_rates(const char *arg, struct chain_topology *topo)
 
 static char *opt_set_offline(struct lightningd *ld)
 {
-	ld->portnum = 0;
-	ld->no_reconnect = true;
+	ld->reconnect = false;
+	ld->listen = false;
+
 	return NULL;
 }
 
@@ -317,19 +358,35 @@ static void config_register_opts(struct lightningd *ld)
 			 &ld->config.fee_per_satoshi,
 			 "Microsatoshi fee for every satoshi in HTLC");
 	opt_register_arg("--ipaddr", opt_add_ipaddr, NULL,
+			 ld, opt_hidden);
+	opt_register_arg("--addr", opt_add_addr, NULL,
 			 ld,
-			 "Set the IP address (v4 or v6) to announce to the network for incoming connections");
+			 "Set an IP address (v4 or v6) to listen on and announce to the network for incoming connections");
+	opt_register_arg("--bind-addr", opt_add_bind_addr, NULL,
+			 ld,
+			 "Set an IP address (v4 or v6) to listen on, but not announce");
+	opt_register_arg("--announce-addr", opt_add_announce_addr, NULL,
+			 ld,
+			 "Set an IP address (v4 or v6) to announce, but not listen on");
+
 	opt_register_noarg("--offline", opt_set_offline, ld,
-			   "Start in offline-mode (do not automatically reconnect and do not accept incoming connections");
+			   "Start in offline-mode (do not automatically reconnect and do not accept incoming connections)");
+	opt_register_arg("--autolisten", opt_set_bool_arg, opt_show_bool,
+			 &ld->autolisten,
+			 "If true, listen on default port and announce if it seems to be a public interface");
 
 	opt_register_early_arg("--network", opt_set_network, opt_show_network,
 			       ld,
 			       "Select the network parameters (bitcoin, testnet,"
 			       " regtest, litecoin or litecoin-testnet)");
-	opt_register_arg("--allow-deprecated-apis",
-			 opt_set_bool_arg, opt_show_bool,
-			 &deprecated_apis,
-			 "Enable deprecated options, JSONRPC commands, fields, etc.");
+	opt_register_early_noarg("--testnet", opt_set_testnet, ld,
+				 "Alias for --network=testnet");
+	opt_register_early_noarg("--mainnet", opt_set_mainnet, ld,
+				 "Alias for --network=bitcoin");
+	opt_register_early_arg("--allow-deprecated-apis",
+			       opt_set_bool_arg, opt_show_bool,
+			       &deprecated_apis,
+			       "Enable deprecated options, JSONRPC commands, fields, etc.");
 	opt_register_arg("--debug-subdaemon-io",
 			 opt_set_charp, NULL, &ld->debug_subdaemon_io,
 			 "Enable full peer IO logging in subdaemons ending in this string (can also send SIGUSR1 to toggle)");
@@ -344,21 +401,10 @@ static void config_register_opts(struct lightningd *ld)
 }
 
 #if DEVELOPER
-static char *opt_set_hsm_seed(const char *arg, struct lightningd *ld)
-{
-	assert(arg != NULL);
-
-	ld->dev_hsm_seed = tal_hexdata(ld, arg, strlen(arg));
-	if (ld->dev_hsm_seed)
-		return NULL;
-
-	return tal_fmt(NULL, "bad hex string '%s'", arg);
-}
-
 static void dev_register_opts(struct lightningd *ld)
 {
-	opt_register_noarg("--dev-no-reconnect", opt_set_bool,
-			   &ld->no_reconnect,
+	opt_register_noarg("--dev-no-reconnect", opt_set_invbool,
+			   &ld->reconnect,
 			   "Disable automatic reconnect attempts");
 	opt_register_noarg("--dev-fail-on-subdaemon-fail", opt_set_bool,
 			   &ld->dev_subdaemon_fail, opt_hidden);
@@ -369,8 +415,9 @@ static void dev_register_opts(struct lightningd *ld)
 			 "Time between gossip broadcasts in milliseconds");
 	opt_register_arg("--dev-disconnect=<filename>", opt_subd_dev_disconnect,
 			 NULL, ld, "File containing disconnection points");
-	opt_register_arg("--dev-hsm-seed=<seed>", opt_set_hsm_seed,
-			 NULL, ld, "Hex-encoded seed for HSM");
+	opt_register_noarg("--dev-allow-localhost", opt_set_bool,
+			   &ld->dev_allow_localhost,
+			   "Announce and allow announcments for localhost address");
 }
 #endif
 
@@ -637,8 +684,8 @@ void register_opts(struct lightningd *ld)
 
 	/* --port needs to be an early arg to force it being parsed
          * before --ipaddr which may depend on it */
-	opt_register_early_arg("--port", opt_set_u16, opt_show_u16, &ld->portnum,
-			       "Port to bind to (0 means don't listen)");
+	opt_register_early_arg("--port", opt_set_port, NULL, ld,
+			       opt_hidden);
 	opt_register_arg("--bitcoin-datadir", opt_set_talstr, NULL,
 			 &ld->topology->bitcoind->datadir,
 			 "-datadir arg for bitcoin-cli");
@@ -735,10 +782,8 @@ void setup_color_and_alias(struct lightningd *ld)
 	}
 }
 
-bool handle_opts(struct lightningd *ld, int argc, char *argv[])
+void handle_opts(struct lightningd *ld, int argc, char *argv[])
 {
-	bool newdir = false;
-
 	/* Load defaults first, so that --help (in early options) has something
 	 * to display. The actual values loaded here, will be overwritten later
 	 * by opt_parse_from_config. */
@@ -757,7 +802,6 @@ bool handle_opts(struct lightningd *ld, int argc, char *argv[])
 		if (chdir(ld->config_dir) != 0)
 			fatal("Could not change directory %s: %s",
 			      ld->config_dir, strerror(errno));
-		newdir = true;
 	}
 
 	/* Now look for config file */
@@ -768,28 +812,6 @@ bool handle_opts(struct lightningd *ld, int argc, char *argv[])
 		errx(1, "no arguments accepted");
 
 	check_config(ld);
-
-	if (ld->portnum && tal_count(ld->wireaddrs) == 0)
-		guess_addresses(ld);
-	else
-		log_debug(ld->log, "Not guessing addresses: %s",
-			  ld->portnum ? "manually set" : "port set to zero");
-
-#if DEVELOPER
-	if (ld->dev_hsm_seed) {
-		int fd;
-		unlink("hsm_secret");
-		fd = open("hsm_secret", O_CREAT|O_WRONLY, 0400);
-		if (fd < 0 ||
-		    !write_all(fd, ld->dev_hsm_seed, tal_len(ld->dev_hsm_seed))
-		    || fsync(fd) != 0)
-			fatal("dev-hsm-seed: Could not write file: %s",
-			      strerror(errno));
-		close(fd);
-	}
-#endif
-
-	return newdir;
 }
 
 /* FIXME: This is a hack!  Expose somehow in ccan/opt.*/
@@ -808,6 +830,21 @@ static const char *next_name(const char *names, unsigned *len)
 	return first_name(names + 1, len);
 }
 
+static void json_add_opt_addrs(struct json_result *response,
+			       const char *name0,
+			       const struct wireaddr_internal *wireaddrs,
+			       const enum addr_listen_announce *listen_announce,
+			       enum addr_listen_announce ala)
+{
+	for (size_t i = 0; i < tal_count(wireaddrs); i++) {
+		if (listen_announce[i] != ala)
+			continue;
+		json_add_string(response,
+				name0,
+				fmt_wireaddr_internal(name0, wireaddrs+i));
+	}
+}
+
 static void add_config(struct lightningd *ld,
 		       struct json_result *response,
 		       const struct opt_table *opt,
@@ -819,12 +856,21 @@ static void add_config(struct lightningd *ld,
 	if (opt->type & OPT_NOARG) {
 		if (opt->cb == (void *)opt_usage_and_exit
 		    || opt->cb == (void *)version_and_exit
-		    || opt->cb == (void *)opt_set_offline /* will show up as port=0 and --no-reconnect */
+		    /* These two show up as --network= */
+		    || opt->cb == (void *)opt_set_testnet
+		    || opt->cb == (void *)opt_set_mainnet
 		    || opt->cb == (void *)test_daemons_and_exit) {
 			/* These are not important */
 		} else if (opt->cb == (void *)opt_set_bool) {
 			const bool *b = opt->u.carg;
 			answer = tal_fmt(name0, "%s", *b ? "true" : "false");
+		} else if (opt->cb == (void *)opt_set_invbool) {
+			const bool *b = opt->u.carg;
+			answer = tal_fmt(name0, "%s", !*b ? "true" : "false");
+		} else if (opt->cb == (void *)opt_set_offline) {
+			answer = tal_fmt(name0, "%s",
+					 (!ld->reconnect && !ld->listen)
+					 ? "true" : "false");
 		} else {
 			/* Insert more decodes here! */
 			abort();
@@ -868,14 +914,28 @@ static void add_config(struct lightningd *ld,
 						 topo->override_fee_rate[0],
 						 topo->override_fee_rate[1],
 						 topo->override_fee_rate[2]);
+		} else if (opt->cb_arg == (void *)opt_set_port) {
+			if (!deprecated_apis)
+				answer = tal_fmt(name0, "%u", ld->portnum);
 		} else if (opt->cb_arg == (void *)opt_add_ipaddr) {
-			/* This is a bit weird, we can have multiple args */
-			for (size_t i = 0; i < tal_count(ld->wireaddrs); i++) {
-				json_add_string(response,
-						name0,
-						fmt_wireaddr(name0,
-							     ld->wireaddrs+i));
-			}
+			/* Covered by opt_add_addr below */
+		} else if (opt->cb_arg == (void *)opt_add_addr) {
+			json_add_opt_addrs(response, name0,
+					   ld->proposed_wireaddr,
+					   ld->proposed_listen_announce,
+					   ADDR_LISTEN_AND_ANNOUNCE);
+			return;
+		} else if (opt->cb_arg == (void *)opt_add_bind_addr) {
+			json_add_opt_addrs(response, name0,
+					   ld->proposed_wireaddr,
+					   ld->proposed_listen_announce,
+					   ADDR_LISTEN);
+			return;
+		} else if (opt->cb_arg == (void *)opt_add_announce_addr) {
+			json_add_opt_addrs(response, name0,
+					   ld->proposed_wireaddr,
+					   ld->proposed_listen_announce,
+					   ADDR_ANNOUNCE);
 			return;
 #if DEVELOPER
 		} else if (strstarts(name, "dev-")) {

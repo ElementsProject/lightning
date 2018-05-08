@@ -5,7 +5,7 @@
 
 struct crypto_state;
 struct io_conn;
-struct wireaddr;
+struct wireaddr_internal;
 struct pubkey;
 
 #define initiator_handshake(conn, my_id, their_id, addr, cb, cbarg)	\
@@ -14,7 +14,7 @@ struct pubkey;
 						 (cb), (cbarg),		\
 						 struct io_conn *,	\
 						 const struct pubkey *,	\
-						 const struct wireaddr *,	\
+						 const struct wireaddr_internal *,	\
 						 const struct crypto_state *), \
 			     (cbarg))
 
@@ -22,10 +22,10 @@ struct pubkey;
 struct io_plan *initiator_handshake_(struct io_conn *conn,
 				     const struct pubkey *my_id,
 				     const struct pubkey *their_id,
-				     const struct wireaddr *addr,
+				     const struct wireaddr_internal *addr,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
-							   const struct wireaddr *,
+							   const struct wireaddr_internal *,
 							   const struct crypto_state *,
 							   void *cbarg),
 				     void *cbarg);
@@ -37,16 +37,16 @@ struct io_plan *initiator_handshake_(struct io_conn *conn,
 						 (cb), (cbarg),		\
 						 struct io_conn *,	\
 						 const struct pubkey *,	\
-						 const struct wireaddr *,	\
+						 const struct wireaddr_internal *,	\
 						 const struct crypto_state *), \
 			     (cbarg))
 
 struct io_plan *responder_handshake_(struct io_conn *conn,
 				     const struct pubkey *my_id,
-				     const struct wireaddr *addr,
+				     const struct wireaddr_internal *addr,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
-							   const struct wireaddr *,
+							   const struct wireaddr_internal *,
 							   const struct crypto_state *,
 							   void *cbarg),
 				     void *cbarg);

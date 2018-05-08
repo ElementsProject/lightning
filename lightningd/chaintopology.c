@@ -253,7 +253,7 @@ static void next_updatefee_timer(struct chain_topology *topo);
  * This formula is satisfied by a feerate of 4030 (hand-search).
  */
 #define FEERATE_FLOOR 253
-static u32 feerate_floor(void)
+u32 feerate_floor(void)
 {
 	/* Assert that bitcoind will see this as above minRelayTxFee */
 	BUILD_ASSERT(FEERATE_BITCOIND_SEES(FEERATE_FLOOR, MINIMUM_TX_WEIGHT)

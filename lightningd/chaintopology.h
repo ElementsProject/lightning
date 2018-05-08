@@ -136,6 +136,9 @@ u32 get_block_height(const struct chain_topology *topo);
 /* Get fee rate in satoshi per kiloweight. */
 u32 get_feerate(const struct chain_topology *topo, enum feerate feerate);
 
+/* Get the minimum possible fee to allow relaying by bitcoind */
+u32 feerate_floor(void);
+
 /* Broadcast a single tx, and rebroadcast as reqd (copies tx).
  * If failed is non-NULL, call that and don't rebroadcast. */
 void broadcast_tx(struct chain_topology *topo,

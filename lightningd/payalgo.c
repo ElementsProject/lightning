@@ -344,12 +344,13 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 	if (why) {
 		/* We have some reason to delay retrying. */
 
+		log_info(pay->cmd->ld->log,
+			 "pay(%p): Delay before retry: %s", pay, why);
+
 		/* Clear previous try memory. */
 		pay->try_parent = tal_free(pay->try_parent);
 		pay->try_parent = tal(pay, char);
 
-		log_info(pay->cmd->ld->log,
-			 "pay(%p): Delay before retry: %s", pay, why);
 		/* Delay for 3 seconds if needed. FIXME: random
 		 * exponential backoff */
 		new_reltimer(&pay->cmd->ld->timers, pay->try_parent,

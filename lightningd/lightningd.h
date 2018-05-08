@@ -111,8 +111,23 @@ struct lightningd {
 	/* Port we're listening on */
 	u16 portnum;
 
-	/* Addresses to announce to the network (tal_count()) */
-	struct wireaddr *wireaddrs;
+	/* Do we want to reconnect to other peers? */
+	bool reconnect;
+
+	/* Do we want to listen for other peers? */
+	bool listen;
+
+	/* Do we want to guess addresses to listen and announce? */
+	bool autolisten;
+
+	/* Setup: Addresses to bind/announce to the network (tal_count()) */
+	struct wireaddr_internal *proposed_wireaddr;
+	/* Setup: And the bitset for each, whether to listen, announce or both */
+	enum addr_listen_announce *proposed_listen_announce;
+
+	/* Actual bindings and announcables from gossipd */
+	struct wireaddr_internal *binding;
+	struct wireaddr *announcable;
 
 	/* Bearer of all my secrets. */
 	int hsm_fd;
@@ -160,9 +175,6 @@ struct lightningd {
 	/* May be useful for non-developers debugging in the field */
 	char *debug_subdaemon_io;
 
-	/* Disable automatic reconnects */
-	bool no_reconnect;
-
 	/* Initial autocleaninvoice settings. */
 	u64 ini_autocleaninvoice_cycle;
 	u64 ini_autocleaninvoice_expiredby;
@@ -171,14 +183,14 @@ struct lightningd {
 	/* If we want to debug a subdaemon. */
 	const char *dev_debug_subdaemon;
 
-	/* If we want to set a specific non-random HSM seed. */
-	const u8 *dev_hsm_seed;
-
 	/* If we have a --dev-disconnect file */
 	int dev_disconnect_fd;
 
 	/* If we have --dev-fail-on-subdaemon-fail */
 	bool dev_subdaemon_fail;
+
+	/* Allow and accept localhost node_announcement addresses */
+	bool dev_allow_localhost;
 
 	/* Things we've marked as not leaking. */
 	const void **notleaks;

@@ -41,7 +41,7 @@ struct peer {
 	struct log_book *log_book;
 
 	/* Where we connected to, or it connected from. */
-	struct wireaddr addr;
+	struct wireaddr_internal addr;
 
 	/* If we open a channel our direction will be this */
 	u8 direction;
@@ -56,7 +56,7 @@ struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid);
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct pubkey *id,
-		      const struct wireaddr *addr);
+		      const struct wireaddr_internal *addr);
 
 /* Also removes from db. */
 void delete_peer(struct peer *peer);
@@ -78,7 +78,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 
 void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
-			 const struct wireaddr *addr,
+			 const struct wireaddr_internal *addr,
 			 const struct crypto_state *cs,
 			 const u8 *gfeatures,
 			 const u8 *lfeatures,

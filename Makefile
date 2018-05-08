@@ -17,8 +17,8 @@ VALGRIND=valgrind -q --error-exitcode=7
 VALGRIND_TEST_ARGS = --track-origins=yes --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all
 endif
 
-# By default, we are in DEVELOPER mode, use DEVELOPER= on cmdline to override.
-DEVELOPER := 1
+# By default, we are not in DEVELOPER mode, use DEVELOPER=1 on cmdline to override.
+DEVELOPER := 0
 
 ifeq ($(DEVELOPER),1)
 DEV_CFLAGS=-DDEVELOPER=1 -DCCAN_TAL_DEBUG=1 -DCCAN_TAKE_DEBUG=1
@@ -203,9 +203,10 @@ check:
 
 pytest: $(ALL_PROGRAMS)
 ifndef PYTEST
-	PYTHONPATH=contrib/pylightning:$$PYTHONPATH DEVELOPER=$(DEVELOPER) python3 tests/test_lightningd.py -f
+	@echo "py.test is required to run the integration tests, please install using 'pip3 install -r tests/requirements.txt'"
+	exit 1
 else
-	PYTHONPATH=contrib/pylightning:$$PYTHONPATH TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) $(PYTEST) -vx tests/test_lightningd.py --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT) $(PYTEST_OPTS)
+	PYTHONPATH=contrib/pylightning:$$PYTHONPATH TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) $(PYTEST) -vx tests/ --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT) $(PYTEST_OPTS)
 endif
 
 # Keep includes in alpha order.
@@ -294,7 +295,7 @@ ccan/config.h: ccan/tools/configurator/configurator Makefile
 	if $< --configurator-cc="$(CONFIGURATOR_CC)" $(CC) $(CFLAGS) > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
 
 gen_version.h: FORCE
-	@(echo "#define VERSION \"`git describe --always --dirty=-with-local-modifications`\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
+	@(echo "#define VERSION \"`git describe --always --dirty=-modded`\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
 	@if cmp $@.new $@ >/dev/null 2>&2; then rm -f $@.new; else mv $@.new $@; echo Version updated; fi
 
 # All binaries require the external libs, ccan

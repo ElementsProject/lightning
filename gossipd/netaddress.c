@@ -1,10 +1,9 @@
 #include <arpa/inet.h>
 #include <assert.h>
-#include <common/wireaddr.h>
+#include <common/status.h>
+#include <common/type_to_string.h>
 #include <errno.h>
-#include <lightningd/lightningd.h>
-#include <lightningd/log.h>
-#include <lightningd/netaddress.h>
+#include <gossipd/netaddress.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <sys/socket.h>
@@ -200,26 +199,27 @@ static bool IsRoutable(const struct wireaddr *addr)
 
 /* Trick I learned from Harald Welte: create UDP socket, connect() and
  * then query address. */
-static bool get_local_sockname(struct lightningd *ld,
-                               int af, void *saddr, socklen_t saddrlen)
+/* Returns 0 if protocol completely unsupported, ADDR_LISTEN if we
+ * can't reach addr, ADDR_LISTEN_AND_ANNOUNCE if we can (and fill saddr). */
+static bool get_local_sockname(int af, void *saddr, socklen_t saddrlen)
 {
     int fd = socket(af, SOCK_DGRAM, 0);
     if (fd < 0) {
-        log_debug(ld->log, "Failed to create %u socket: %s",
-                  af, strerror(errno));
+        status_trace("Failed to create %u socket: %s",
+		     af, strerror(errno));
         return false;
     }
 
     if (connect(fd, saddr, saddrlen) != 0) {
-        log_debug(ld->log, "Failed to connect %u socket: %s",
-                  af, strerror(errno));
+        status_trace("Failed to connect %u socket: %s",
+		     af, strerror(errno));
         close(fd);
         return false;
     }
 
     if (getsockname(fd, saddr, &saddrlen) != 0) {
-        log_debug(ld->log, "Failed to get %u socket name: %s",
-                  af, strerror(errno));
+        status_trace("Failed to get %u socket name: %s",
+		     af, strerror(errno));
         close(fd);
         return false;
     }
@@ -228,27 +228,22 @@ static bool get_local_sockname(struct lightningd *ld,
     return true;
 }
 
-/* Return a wireaddr without port filled in */
-static bool guess_one_address(struct lightningd *ld,
-                              struct wireaddr *addr, u16 portnum,
-                              enum wire_addr_type type)
+bool guess_address(struct wireaddr *addr)
 {
-    addr->type = type;
-    addr->port = portnum;
+    bool ret;
 
     /* We point to Google nameservers, works unless you're inside Google :) */
-    switch (type) {
+    switch (addr->type) {
     case ADDR_TYPE_IPV4: {
         struct sockaddr_in sin;
 	sin.sin_port = htons(53);
         /* 8.8.8.8 */
 	sin.sin_addr.s_addr = 0x08080808;
         sin.sin_family = AF_INET;
-        if (!get_local_sockname(ld, AF_INET, &sin, sizeof(sin)))
-            return false;
+        ret = get_local_sockname(AF_INET, &sin, sizeof(sin));
         addr->addrlen = sizeof(sin.sin_addr);
         memcpy(addr->addr, &sin.sin_addr, addr->addrlen);
-        break;
+        return ret;
     }
     case ADDR_TYPE_IPV6: {
         struct sockaddr_in6 sin6;
@@ -259,40 +254,20 @@ static bool guess_one_address(struct lightningd *ld,
         sin6.sin6_port = htons(53);
         sin6.sin6_family = AF_INET6;
         memcpy(sin6.sin6_addr.s6_addr, pchGoogle, sizeof(pchGoogle));
-        if (!get_local_sockname(ld, AF_INET6, &sin6, sizeof(sin6)))
-            return false;
+        ret = get_local_sockname(AF_INET6, &sin6, sizeof(sin6));
         addr->addrlen = sizeof(sin6.sin6_addr);
         memcpy(addr->addr, &sin6.sin6_addr, addr->addrlen);
-        break;
+        return ret;
     }
     case ADDR_TYPE_PADDING:
-        log_debug(ld->log, "Padding address, ignoring");
-        return false;
+        break;
     }
-
-    if (!IsRoutable(addr)) {
-        log_debug(ld->log, "Address %s is not routable",
-                  type_to_string(tmpctx, struct wireaddr, addr));
-        return false;
-    }
-
-    log_debug(ld->log, "Public address %s",
-              type_to_string(tmpctx, struct wireaddr, addr));
-    return true;
+    abort();
 }
 
-void guess_addresses(struct lightningd *ld)
+bool address_routable(const struct wireaddr *wireaddr, bool allow_localhost)
 {
-    size_t n = tal_count(ld->wireaddrs);
-
-    log_debug(ld->log, "Trying to guess public addresses...");
-
-    /* We allocate an extra, then remove if it's not needed. */
-    tal_resize(&ld->wireaddrs, n+1);
-    if (guess_one_address(ld, &ld->wireaddrs[n], ld->portnum, ADDR_TYPE_IPV4)) {
-        n++;
-        tal_resize(&ld->wireaddrs, n+1);
-    }
-    if (!guess_one_address(ld, &ld->wireaddrs[n], ld->portnum, ADDR_TYPE_IPV6))
-        tal_resize(&ld->wireaddrs, n);
+    if (allow_localhost && IsLocal(wireaddr))
+	return true;
+    return IsRoutable(wireaddr);
 }

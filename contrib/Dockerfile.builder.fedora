@@ -16,8 +16,6 @@ RUN dnf update -y && \
 		python3-pip \
 		python3-setuptools \
 		net-tools \
-		libsodium-devel \
-		net-tools \
 		valgrind \
 		wget && \
 	dnf clean all
@@ -27,5 +25,5 @@ RUN wget https://bitcoin.org/bin/bitcoin-core-$BITCOIN_VERSION/bitcoin-$BITCOIN_
     mv bitcoin-$BITCOIN_VERSION/bin/bitcoin* /usr/local/bin/ && \
     rm -rf bitcoin.tar.gz bitcoin-$BITCOIN_VERSION
 
-RUN pip3 install --upgrade pip && \
-    pip3 install python-bitcoinlib==0.7.0 pytest==3.0.5 setuptools==36.6.0 pytest-test-groups==1.0.3 flake8==3.5.0 pytest-rerunfailures==3.1
+RUN python3 -m pip install --upgrade pip && \
+    python3 -m pip install python-bitcoinlib==0.7.0 pytest==3.0.5 setuptools==36.6.0 pytest-test-groups==1.0.3 flake8==3.5.0 pytest-rerunfailures==3.1 ephemeral-port-reserve==1.1.0

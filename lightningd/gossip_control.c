@@ -35,7 +35,7 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 {
 	struct pubkey id;
 	struct crypto_state cs;
-	struct wireaddr addr;
+	struct wireaddr_internal addr;
 	u8 *gfeatures, *lfeatures, *in_pkt;
 
 	if (!fromwire_gossip_peer_nongossip(msg, msg,
@@ -118,6 +118,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	switch (t) {
 	/* These are messages we send, not them. */
 	case WIRE_GOSSIPCTL_INIT:
+	case WIRE_GOSSIPCTL_ACTIVATE:
 	case WIRE_GOSSIP_GETNODES_REQUEST:
 	case WIRE_GOSSIP_GETROUTE_REQUEST:
 	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
@@ -139,7 +140,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPCTL_PEER_IMPORTANT:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECTED:
 	/* This is a reply, so never gets through to here. */
-	case WIRE_GOSSIPCTL_INIT_REPLY:
+	case WIRE_GOSSIPCTL_ACTIVATE_REPLY:
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
@@ -175,15 +176,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	return 0;
 }
 
-static void gossip_init_done(struct subd *gossip UNUSED,
-			     const u8 *reply UNUSED,
-			     const int *fds UNUSED,
-			     void *unused UNUSED)
-{
-	/* Break out of loop, so we can begin */
-	io_break(gossip);
-}
-
 /* Create the `gossipd` subdaemon and send the initialization
  * message */
 void gossip_init(struct lightningd *ld)
@@ -191,10 +183,12 @@ void gossip_init(struct lightningd *ld)
 	u8 *msg;
 	int hsmfd;
 	u64 capabilities = HSM_CAP_ECDH | HSM_CAP_SIGN_GOSSIP;
+	struct wireaddr_internal *wireaddrs = ld->proposed_wireaddr;
+	enum addr_listen_announce *listen_announce = ld->proposed_listen_announce;
+	bool allow_localhost = false;
 #if DEVELOPER
-	bool no_reconnect = ld->no_reconnect;
-#else
-	bool no_reconnect = false;
+	if (ld->dev_allow_localhost)
+		allow_localhost = true;
 #endif
 
 	msg = towire_hsm_client_hsmfd(tmpctx, &ld->id, capabilities);
@@ -215,15 +209,50 @@ void gossip_init(struct lightningd *ld)
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
 
+	/* If no addr specified, hand wildcard to gossipd */
+	if (tal_count(wireaddrs) == 0 && ld->autolisten) {
+		wireaddrs = tal_arrz(tmpctx, struct wireaddr_internal, 1);
+		listen_announce = tal_arr(tmpctx, enum addr_listen_announce, 1);
+		wireaddrs->itype = ADDR_INTERNAL_ALLPROTO;
+		wireaddrs->u.port = ld->portnum;
+		*listen_announce = ADDR_LISTEN_AND_ANNOUNCE;
+	}
+
 	msg = towire_gossipctl_init(
 	    tmpctx, ld->config.broadcast_interval,
-	    &get_chainparams(ld)->genesis_blockhash, &ld->id, ld->portnum,
+	    &get_chainparams(ld)->genesis_blockhash, &ld->id,
 	    get_offered_global_features(tmpctx),
-	    get_offered_local_features(tmpctx), ld->wireaddrs, ld->rgb,
-	    ld->alias, ld->config.channel_update_interval, no_reconnect);
-	subd_req(ld->gossip, ld->gossip, msg, -1, 0, gossip_init_done, NULL);
+	    get_offered_local_features(tmpctx), wireaddrs,
+	    listen_announce, ld->rgb,
+	    ld->alias, ld->config.channel_update_interval, ld->reconnect,
+	    allow_localhost);
+	subd_send_msg(ld->gossip, msg);
+}
 
-	/* Wait for init done */
+static void gossip_activate_done(struct subd *gossip UNUSED,
+				 const u8 *reply,
+				 const int *fds UNUSED,
+				 void *unused UNUSED)
+{
+	struct lightningd *ld = gossip->ld;
+
+	if (!fromwire_gossipctl_activate_reply(gossip->ld, reply,
+					       &ld->binding,
+					       &ld->announcable))
+		fatal("Bad gossipctl_activate_reply: %s",
+		      tal_hex(reply, reply));
+
+	/* Break out of loop, so we can begin */
+	io_break(gossip);
+}
+
+void gossip_activate(struct lightningd *ld)
+{
+	const u8 *msg = towire_gossipctl_activate(NULL, ld->listen);
+	subd_req(ld->gossip, ld->gossip, take(msg), -1, 0,
+		 gossip_activate_done, NULL);
+
+	/* Wait for activate done */
 	io_loop(NULL, NULL);
 }
 

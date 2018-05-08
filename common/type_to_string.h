@@ -20,6 +20,7 @@ union printable_types {
 	const struct preimage *preimage;
 	const struct channel_oneside *channel_oneside;
 	const struct wireaddr *wireaddr;
+	const struct wireaddr_internal *wireaddr_internal;
 	const secp256k1_pubkey *secp256k1_pubkey;
 	const struct channel_id *channel_id;
 	const struct short_channel_id *short_channel_id;

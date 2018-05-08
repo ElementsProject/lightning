@@ -8,10 +8,8 @@ struct lightningd;
 /* You can register additional options *after* this if you want. */
 void register_opts(struct lightningd *ld);
 
-/* After this, we're in the .lightning dir, config file parsed.
- * If we just created the dir, returns true.
- */
-bool handle_opts(struct lightningd *ld, int argc, char *argv[]);
+/* After this, we're in the .lightning dir, config files parsed. */
+void handle_opts(struct lightningd *ld, int argc, char *argv[]);
 
 /* Derive default color and alias from the pubkey. */
 void setup_color_and_alias(struct lightningd *ld);

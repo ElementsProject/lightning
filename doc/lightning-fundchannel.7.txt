@@ -1,0 +1,56 @@
+LIGHTNING-FUNDCHANNEL(7)
+========================
+:doctype: manpage
+
+NAME
+----
+lightning-fundchannel - Command for establishing a lightning channel.
+
+SYNOPSIS
+--------
+*fundchannel* 'id' 'satoshi'
+
+DESCRIPTION
+-----------
+The *fundchannel* RPC command opens a payment channel with a peer by commiting
+a funding transaction to the blockchain as defined in BOLT #2.
+*fundchannel* by itself does not attempt to open a connection.
+A connection must first be established using *connect*.
+Once the transaction is confirmed, normal channel operations may begin.
+Readiness is indicated by *listpeers* reporting a 'state' of CHANNELD_NORMAL
+for the channel.
+
+'id' is the peer id obtained from *connect*.
+
+'satoshi' is the amount in satoshis taken from the internal wallet to fund the channel.
+The string 'all' can be used to specify all available funds.
+This value must be greater than the dust limit, currently set to 546.
+And it must be less than 1<<24 (approximately 0.16778 BTC).
+
+RETURN VALUE
+------------
+On success, the 'tx' and 'txid' of the transaction is returned, as well as the
+'channel_id' of the newly created channel.
+On failure, an error is reported and the channel is not funded.
+
+The following error codes may occur:
+
+* -1. Catchall nonspecific arror.
+
+The above error may include a descriptive message indicating:
+
+* The 'id' is invalid.
+* There are not enough funds in the internal wallet to create the transaction.
+* The maximum allowed funding amount is exceeded.
+* 'satoshi' is less than the dust limit.
+
+Failure may also occur if *lightningd* and the peer cannot agree on channel
+parameters (funding limits, channel reserves, fees, etc.).
+
+SEE ALSO
+--------
+lightning-connect(7), lightning-listfunds(), lightning-listpeers(7)
+
+RESOURCES
+---------
+Main web site: https://github.com/ElementsProject/lightning

@@ -85,7 +85,7 @@ static void json_connect(struct command *cmd,
 	char *atptr;
 	char *ataddr = NULL;
 	const char *name;
-	struct wireaddr addr;
+	struct wireaddr_internal addr;
 	u8 *msg;
 	const char *err_msg;
 
@@ -139,22 +139,22 @@ static void json_connect(struct command *cmd,
 
 	/* Was there parseable host name? */
 	if (name) {
+		u32 port;
 		/* Is there a port? */
 		if (porttok) {
-			u32 port;
-			if (!json_tok_number(buffer, porttok, &port)) {
+			if (!json_tok_number(buffer, porttok, &port) || !port) {
 				command_fail(cmd, "Port %.*s not valid",
 					     porttok->end - porttok->start,
 					     buffer + porttok->start);
 				return;
 			}
-			addr.port = port;
 		} else {
-			addr.port = DEFAULT_PORT;
+			port = DEFAULT_PORT;
 		}
-		if (!parse_wireaddr(name, &addr, addr.port, &err_msg) || !addr.port) {
+		if (!parse_wireaddr_internal(name, &addr, port, false,
+					     &err_msg)) {
 			command_fail(cmd, "Host %s:%u not valid: %s",
-				     name, addr.port, err_msg ? err_msg : "port is 0");
+				     name, port, err_msg ? err_msg : "port is 0");
 			return;
 		}
 

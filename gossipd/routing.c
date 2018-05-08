@@ -86,7 +86,8 @@ static struct node_map *empty_node_map(const tal_t *ctx)
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct bitcoin_blkid *chain_hash,
 					const struct pubkey *local_id,
-					u32 prune_timeout)
+					u32 prune_timeout,
+					bool dev_allow_localhost)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->nodes = empty_node_map(rstate);
@@ -95,6 +96,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->local_id = *local_id;
 	rstate->prune_timeout = prune_timeout;
 	rstate->store = gossip_store_new(rstate);
+	rstate->dev_allow_localhost = dev_allow_localhost;
 	list_head_init(&rstate->pending_cannouncement);
 	uintmap_init(&rstate->chanmap);
 
@@ -209,6 +211,9 @@ struct chan *new_chan(struct routing_state *rstate,
 	int n1idx = pubkey_idx(id1, id2);
 	size_t n;
 	struct node *n1, *n2;
+
+	/* We should never add a channel twice */
+	assert(!uintmap_get(&rstate->chanmap, scid->u64));
 
 	/* Create nodes on demand */
 	n1 = get_node(rstate, id1);
@@ -1044,9 +1049,11 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 	if (!routing_add_channel_update(rstate, serialized))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed adding channel_update");
-	/* Only store updates for public channels */
-	if (chan->public)
-		gossip_store_add_channel_update(rstate->store, serialized);
+
+	/* Store the channel_update for both public and non-public channels
+	 * (non-public ones may just be the incoming direction). We'd have
+	 * dropped invalid ones earlier. */
+	gossip_store_add_channel_update(rstate->store, serialized);
 
 	return NULL;
 }

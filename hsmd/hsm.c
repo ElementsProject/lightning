@@ -460,12 +460,15 @@ static void bitcoin_keypair(struct privkey *privkey,
 			      "BIP32 pubkey %u create failed", index);
 }
 
-static void create_new_hsm(void)
+static void maybe_create_new_hsm(void)
 {
 	int fd = open("hsm_secret", O_CREAT|O_EXCL|O_WRONLY, 0400);
-	if (fd < 0)
+	if (fd < 0) {
+		if (errno == EEXIST)
+			return;
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "creating: %s", strerror(errno));
+	}
 
 	randombytes_buf(&secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret));
 	if (!write_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret))) {
@@ -494,8 +497,7 @@ static void create_new_hsm(void)
 			      "fsyncdir: %s", strerror(errno));
 	}
 	close(fd);
-
-	populate_secretstuff();
+	status_unusual("HSM: created new hsm_secret file");
 }
 
 static void load_hsm(void)
@@ -514,15 +516,12 @@ static void load_hsm(void)
 
 static void init_hsm(struct daemon_conn *master, const u8 *msg)
 {
-	bool new;
 
-	if (!fromwire_hsm_init(msg, &new))
+	if (!fromwire_hsm_init(msg))
 		master_badmsg(WIRE_HSM_INIT, msg);
 
-	if (new)
-		create_new_hsm();
-	else
-		load_hsm();
+	maybe_create_new_hsm();
+	load_hsm();
 
 	send_init_response(master);
 }

@@ -18,6 +18,9 @@ void daemon_setup(const char *argv0 UNNEEDED,
 /* Generated stub for daemon_shutdown */
 void daemon_shutdown(void)
 { fprintf(stderr, "daemon_shutdown called!\n"); abort(); }
+/* Generated stub for db_assert_no_outstanding_statements */
+void db_assert_no_outstanding_statements(void)
+{ fprintf(stderr, "db_assert_no_outstanding_statements called!\n"); abort(); }
 /* Generated stub for db_begin_transaction_ */
 void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED)
 { fprintf(stderr, "db_begin_transaction_ called!\n"); abort(); }
@@ -39,17 +42,20 @@ void   fatal(const char *fmt UNNEEDED, ...)
 /* Generated stub for free_htlcs */
 void free_htlcs(struct lightningd *ld UNNEEDED, const struct channel *channel UNNEEDED)
 { fprintf(stderr, "free_htlcs called!\n"); abort(); }
+/* Generated stub for gossip_activate */
+void gossip_activate(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "gossip_activate called!\n"); abort(); }
 /* Generated stub for gossip_init */
 void gossip_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "gossip_init called!\n"); abort(); }
 /* Generated stub for handle_opts */
-bool handle_opts(struct lightningd *ld UNNEEDED, int argc UNNEEDED, char *argv[])
+void handle_opts(struct lightningd *ld UNNEEDED, int argc UNNEEDED, char *argv[])
 { fprintf(stderr, "handle_opts called!\n"); abort(); }
 /* Generated stub for hash_htlc_key */
 size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)
 { fprintf(stderr, "hash_htlc_key called!\n"); abort(); }
 /* Generated stub for hsm_init */
-void hsm_init(struct lightningd *ld UNNEEDED, bool newdir UNNEEDED)
+void hsm_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "hsm_init called!\n"); abort(); }
 /* Generated stub for json_escape */
 struct json_escaped *json_escape(const tal_t *ctx UNNEEDED, const char *str TAKES UNNEEDED)

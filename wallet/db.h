@@ -37,7 +37,9 @@ struct db *db_setup(const tal_t *ctx, struct log *log);
  * db_query - Prepare and execute a query, and return the result (or NULL)
  */
 sqlite3_stmt *PRINTF_FMT(3, 4)
-	db_query(const char *caller, struct db *db, const char *fmt, ...);
+	db_query_(const char *location, struct db *db, const char *fmt, ...);
+#define db_query(db, ...) \
+	db_query_(__FILE__ ":" stringify(__LINE__), db, __VA_ARGS__)
 
 /**
  * db_begin_transaction - Begin a transaction
@@ -84,8 +86,9 @@ s64 db_get_intvar(struct db *db, char *varname, s64 defval);
  * @db: Database to query/exec
  * @query: The SQL statement to compile
  */
-#define db_prepare(db,query) db_prepare_(__func__,db,query)
-sqlite3_stmt *db_prepare_(const char *caller, struct db *db, const char *query);
+#define db_prepare(db,query) \
+	db_prepare_(__FILE__ ":" stringify(__LINE__), db, query)
+sqlite3_stmt *db_prepare_(const char *location, struct db *db, const char *query);
 
 /**
  * db_exec_prepared -- Execute a prepared statement
@@ -111,6 +114,12 @@ void db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt);
 bool db_exec_prepared_mayfail_(const char *caller,
 			       struct db *db,
 			       sqlite3_stmt *stmt);
+
+/* Wrapper around sqlite3_finalize(), for tracking statements. */
+void db_stmt_done(sqlite3_stmt *stmt);
+
+/* Call when you know there should be no outstanding db statements. */
+void db_assert_no_outstanding_statements(void);
 
 /* Do not keep db open across a fork: needed for --daemon */
 void db_close_for_fork(struct db *db);

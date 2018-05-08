@@ -1,6 +1,7 @@
 #include "json.h"
 #include <arpa/inet.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/tal/str/str.h>
 #include <common/json.h>
 #include <common/type_to_string.h>
 #include <common/wireaddr.h>
@@ -8,6 +9,7 @@
 #include <lightningd/options.h>
 #include <sys/socket.h>
 #include <wallet/wallet.h>
+#include <wire/wire.h>
 
 /* Output a route hop */
 static void
@@ -110,6 +112,14 @@ bool json_tok_short_channel_id(const char *buffer, const jsmntok_t *tok,
 					 scid);
 }
 
+bool
+json_tok_channel_id(const char *buffer, const jsmntok_t *tok,
+		    struct channel_id *cid)
+{
+	return hex_decode(buffer + tok->start, tok->end - tok->start,
+			  cid, sizeof(*cid));
+}
+
 void json_add_address(struct json_result *response, const char *fieldname,
 		      const struct wireaddr *addr)
 {
@@ -133,3 +143,26 @@ void json_add_address(struct json_result *response, const char *fieldname,
 	json_object_end(response);
 }
 
+void json_add_address_internal(struct json_result *response,
+			       const char *fieldname,
+			       const struct wireaddr_internal *addr)
+{
+	switch (addr->itype) {
+	case ADDR_INTERNAL_SOCKNAME:
+		json_object_start(response, fieldname);
+		json_add_string(response, "type", "local socket");
+		json_add_string(response, "socket", addr->u.sockname);
+		json_object_end(response);
+		return;
+	case ADDR_INTERNAL_ALLPROTO:
+		json_object_start(response, fieldname);
+		json_add_string(response, "type", "any protocol");
+		json_add_num(response, "port", addr->u.port);
+		json_object_end(response);
+		return;
+	case ADDR_INTERNAL_WIREADDR:
+		json_add_address(response, fieldname, &addr->u.wireaddr);
+		return;
+	}
+	abort();
+}

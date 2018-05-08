@@ -331,7 +331,72 @@ char *dbmigrations[] = {
     NULL,
 };
 
-sqlite3_stmt *db_prepare_(const char *caller, struct db *db, const char *query)
+/* Leak tracking. */
+#if DEVELOPER
+/* We need a global here, since caller has no context.  Yuck! */
+static struct list_head db_statements = LIST_HEAD_INIT(db_statements);
+
+struct db_statement {
+	struct list_node list;
+	sqlite3_stmt *stmt;
+	const char *origin;
+};
+
+static struct db_statement *find_statement(sqlite3_stmt *stmt)
+{
+	struct db_statement *i;
+
+	list_for_each(&db_statements, i, list) {
+		if (i->stmt == stmt)
+			return i;
+	}
+	return NULL;
+}
+
+void db_assert_no_outstanding_statements(void)
+{
+	struct db_statement *dbstat;
+
+	dbstat = list_top(&db_statements, struct db_statement, list);
+	if (dbstat)
+		fatal("Unfinalized statement %s", dbstat->origin);
+}
+
+static void dev_statement_start(sqlite3_stmt *stmt, const char *origin)
+{
+	struct db_statement *dbstat = tal(NULL, struct db_statement);
+	dbstat->stmt = stmt;
+	dbstat->origin = origin;
+	list_add(&db_statements, &dbstat->list);
+}
+
+static void dev_statement_end(sqlite3_stmt *stmt)
+{
+	struct db_statement *dbstat = find_statement(stmt);
+	list_del_from(&db_statements, &dbstat->list);
+	tal_free(dbstat);
+}
+#else
+static void dev_statement_start(sqlite3_stmt *stmt, const char *origin)
+{
+}
+
+static void dev_statement_end(sqlite3_stmt *stmt)
+{
+}
+
+void db_assert_no_outstanding_statements(void)
+{
+}
+#endif
+
+void db_stmt_done(sqlite3_stmt *stmt)
+{
+	dev_statement_end(stmt);
+	sqlite3_finalize(stmt);
+}
+
+sqlite3_stmt *db_prepare_(const char *location, struct db *db, const char *query)
 {
 	int err;
 	sqlite3_stmt *stmt;
@@ -341,8 +406,9 @@ sqlite3_stmt *db_prepare_(const char *caller, struct db *db, const char *query)
 	err = sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
 
 	if (err != SQLITE_OK)
-		fatal("%s: %s: %s", caller, query, sqlite3_errmsg(db->sql));
+		fatal("%s: %s: %s", location, query, sqlite3_errmsg(db->sql));
 
+	dev_statement_start(stmt, location);
 	return stmt;
 }
 
@@ -353,7 +419,7 @@ void db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt)
 	if (sqlite3_step(stmt) !=  SQLITE_DONE)
 		fatal("%s: %s", caller, sqlite3_errmsg(db->sql));
 
-	sqlite3_finalize(stmt);
+	db_stmt_done(stmt);
 }
 
 /* This one doesn't check if we're in a transaction. */
@@ -394,15 +460,15 @@ bool db_exec_prepared_mayfail_(const char *caller UNUSED, struct db *db, sqlite3
 		goto fail;
 	}
 
-	sqlite3_finalize(stmt);
+	db_stmt_done(stmt);
 	return true;
 fail:
-	sqlite3_finalize(stmt);
+	db_stmt_done(stmt);
 	return false;
 }
 
 sqlite3_stmt *PRINTF_FMT(3, 4)
-    db_query(const char *caller UNUSED, struct db *db, const char *fmt, ...)
+    db_query_(const char *location, struct db *db, const char *fmt, ...)
 {
 	va_list ap;
 	char *query;
@@ -417,11 +483,14 @@ sqlite3_stmt *PRINTF_FMT(3, 4)
 	/* Sets stmt to NULL if not SQLITE_OK */
 	sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
 	tal_free(query);
+	if (stmt)
+		dev_statement_start(stmt, location);
 	return stmt;
 }
 
 static void destroy_db(struct db *db)
 {
+	db_assert_no_outstanding_statements();
 	sqlite3_close(db->sql);
 }
 
@@ -437,6 +506,7 @@ void db_begin_transaction_(struct db *db, const char *location)
 void db_commit_transaction(struct db *db)
 {
 	assert(db->in_transaction);
+	db_assert_no_outstanding_statements();
 	db_exec(__func__, db, "COMMIT;");
 	db->in_transaction = NULL;
 }
@@ -484,19 +554,18 @@ static int db_get_version(struct db *db)
 {
 	int err;
 	u64 res = -1;
-	sqlite3_stmt *stmt =
-	    db_query(__func__, db, "SELECT version FROM version LIMIT 1");
+	sqlite3_stmt *stmt = db_query(db, "SELECT version FROM version LIMIT 1");
 
 	if (!stmt)
 		return -1;
 
 	err = sqlite3_step(stmt);
 	if (err != SQLITE_ROW) {
-		sqlite3_finalize(stmt);
+		db_stmt_done(stmt);
 		return -1;
 	} else {
 		res = sqlite3_column_int64(stmt, 0);
-		sqlite3_finalize(stmt);
+		db_stmt_done(stmt);
 		return res;
 	}
 }
@@ -588,7 +657,7 @@ s64 db_get_intvar(struct db *db, char *varname, s64 defval)
 	int err;
 	s64 res = defval;
 	sqlite3_stmt *stmt =
-	    db_query(__func__, db,
+	    db_query(db,
 		     "SELECT val FROM vars WHERE name='%s' LIMIT 1", varname);
 
 	if (!stmt)
@@ -599,7 +668,7 @@ s64 db_get_intvar(struct db *db, char *varname, s64 defval)
 		const unsigned char *stringvar = sqlite3_column_text(stmt, 0);
 		res = atol((const char *)stringvar);
 	}
-	sqlite3_finalize(stmt);
+	db_stmt_done(stmt);
 	return res;
 }
 

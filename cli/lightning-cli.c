@@ -335,6 +335,8 @@ int main(int argc, char *argv[])
 			printf("%.*s\n",
 			       json_tok_len(result),
 			       json_tok_contents(resp, result));
+		tal_free(lightning_dir);
+		tal_free(rpc_filename);
 		tal_free(ctx);
 		opt_free_table();
 		return 0;
@@ -342,6 +344,8 @@ int main(int argc, char *argv[])
 
 	printf("%.*s\n",
 	       json_tok_len(error), json_tok_contents(resp, error));
+	tal_free(lightning_dir);
+	tal_free(rpc_filename);
 	tal_free(ctx);
 	opt_free_table();
 	return 1;

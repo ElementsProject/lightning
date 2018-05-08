@@ -188,7 +188,7 @@ int main(void)
 
 	memset(&tmp, 'a', sizeof(tmp));
 	pubkey_from_privkey(&tmp, &a);
-	rstate = new_routing_state(tmpctx, &zerohash, &a, 0);
+	rstate = new_routing_state(tmpctx, &zerohash, &a, 0, false);
 
 	new_node(rstate, &a);
 
@@ -200,6 +200,7 @@ int main(void)
 	add_connection(rstate, &a, &b, 1, 1, 1);
 
 	route = find_route(tmpctx, rstate, &a, &b, 1000, riskfactor, 0.0, NULL, &fee);
+	assert(route);
 	assert(tal_count(route) == 1);
 	assert(fee == 0);
 
@@ -214,6 +215,7 @@ int main(void)
 	add_connection(rstate, &b, &c, 1, 1, 1);
 
 	route = find_route(tmpctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL, &fee);
+	assert(route);
 	assert(tal_count(route) == 2);
 	assert(fee == 1);
 
@@ -228,6 +230,7 @@ int main(void)
 
 	/* Will go via D for small amounts. */
 	route = find_route(tmpctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL, &fee);
+	assert(route);
 	assert(tal_count(route) == 2);
 	assert(channel_is_between(route[0], &a, &d));
 	assert(channel_is_between(route[1], &d, &c));
@@ -235,6 +238,7 @@ int main(void)
 
 	/* Will go via B for large amounts. */
 	route = find_route(tmpctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL, &fee);
+	assert(route);
 	assert(tal_count(route) == 2);
 	assert(channel_is_between(route[0], &a, &b));
 	assert(channel_is_between(route[1], &b, &c));
@@ -243,6 +247,7 @@ int main(void)
 	/* Make B->C inactive, force it back via D */
 	get_connection(rstate, &b, &c)->active = false;
 	route = find_route(tmpctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL, &fee);
+	assert(route);
 	assert(tal_count(route) == 2);
 	assert(channel_is_between(route[0], &a, &d));
 	assert(channel_is_between(route[1], &d, &c));

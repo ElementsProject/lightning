@@ -26,7 +26,6 @@
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/bitcoind.h>
-#include <lightningd/build_utxos.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>
@@ -35,7 +34,6 @@
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
-#include <lightningd/netaddress.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/opening_control.h>
 #include <lightningd/options.h>
@@ -79,7 +77,7 @@ static void copy_to_parent_log(const char *prefix,
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct pubkey *id,
-		      const struct wireaddr *addr)
+		      const struct wireaddr_internal *addr)
 {
 	/* We are owned by our channels, and freed manually by destroy_channel */
 	struct peer *peer = tal(NULL, struct peer);
@@ -88,10 +86,13 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->dbid = dbid;
 	peer->id = *id;
 	peer->uncommitted_channel = NULL;
+	/* FIXME: This is always set, right? */
 	if (addr)
 		peer->addr = *addr;
-	else
-		peer->addr.type = ADDR_TYPE_PADDING;
+	else {
+		peer->addr.itype = ADDR_INTERNAL_WIREADDR;
+		peer->addr.u.wireaddr.type = ADDR_TYPE_PADDING;
+	}
 	list_head_init(&peer->channels);
 	peer->direction = get_channel_direction(&peer->ld->id, &peer->id);
 
@@ -162,12 +163,18 @@ u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
 
 u32 feerate_min(struct lightningd *ld)
 {
-	if (ld->config.ignore_fee_limits)
-		return 1;
+	u32 min;
 
-	/* Set this to average of slow and normal.*/
-	return (get_feerate(ld->topology, FEERATE_SLOW)
-		+ get_feerate(ld->topology, FEERATE_NORMAL)) / 2;
+	/* We can't allow less than feerate_floor, since that won't relay */
+	if (ld->config.ignore_fee_limits)
+		min = 1;
+	else
+		/* Set this to half of slow rate.*/
+		min = get_feerate(ld->topology, FEERATE_SLOW) / 2;
+
+	if (min < feerate_floor())
+		return feerate_floor();
+	return min;
 }
 
 /* BOLT #2:
@@ -419,7 +426,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	u8 *global_features;
 	u8 *local_features;
 	struct channel *channel;
-	struct wireaddr addr;
+	struct wireaddr_internal addr;
 	struct uncommitted_channel *uc;
 
 	if (!fromwire_gossip_peer_connected(msg, msg,
@@ -539,7 +546,7 @@ static struct channel *channel_by_channel_id(struct peer *peer,
 /* We only get here IF we weren't trying to connect to it. */
 void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
-			 const struct wireaddr *addr,
+			 const struct wireaddr_internal *addr,
 			 const struct crypto_state *cs,
 			 const u8 *gfeatures,
 			 const u8 *lfeatures,
@@ -741,7 +748,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 {
 	/* This is a little sneaky... */
 	struct pubkey *ids;
-	struct wireaddr *addrs;
+	struct wireaddr_internal *addrs;
 	struct gossip_getnodes_entry **nodes;
 	struct json_result *response = new_json_result(gpa->cmd);
 	struct peer *p;
@@ -776,10 +783,11 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 
 		if (connected) {
 			json_array_start(response, "netaddr");
-			if (p->addr.type != ADDR_TYPE_PADDING)
+			if (p->addr.itype != ADDR_INTERNAL_WIREADDR
+			    || p->addr.u.wireaddr.type != ADDR_TYPE_PADDING)
 				json_add_string(response, NULL,
 						type_to_string(response,
-							       struct wireaddr,
+							       struct wireaddr_internal,
 							       &p->addr));
 			json_array_end(response);
 		}
@@ -917,9 +925,11 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 		json_add_pubkey(response, "id", ids+i);
 		json_add_node_decoration(response, nodes, ids+i);
 		json_array_start(response, "netaddr");
-		if (addrs[i].type != ADDR_TYPE_PADDING)
+		if (addrs[i].itype != ADDR_INTERNAL_WIREADDR
+		    || addrs[i].u.wireaddr.type != ADDR_TYPE_PADDING)
 			json_add_string(response, NULL,
-					type_to_string(response, struct wireaddr,
+					type_to_string(response,
+						       struct wireaddr_internal,
 						       addrs + i));
 		json_array_end(response);
 		json_add_bool(response, "connected", true);
@@ -980,10 +990,60 @@ static const struct json_command listpeers_command = {
 };
 AUTODATA(json_command, &listpeers_command);
 
+static struct channel *
+command_find_channel(struct command *cmd,
+		     const char *buffer, const jsmntok_t *tok)
+{
+	struct lightningd *ld = cmd->ld;
+	struct channel_id cid;
+	struct channel_id channel_cid;
+	struct short_channel_id scid;
+	struct peer *peer;
+	struct channel *channel;
+
+	if (json_tok_channel_id(buffer, tok, &cid)) {
+		list_for_each(&ld->peers, peer, list) {
+			channel = peer_active_channel(peer);
+			if (!channel)
+				continue;
+			derive_channel_id(&channel_cid,
+					  &channel->funding_txid,
+					  channel->funding_outnum);
+			if (structeq(&channel_cid, &cid))
+				return channel;
+		}
+		command_fail(cmd,
+			     "Channel ID not found: '%.*s'",
+			     tok->end - tok->start,
+			     buffer + tok->start);
+		return NULL;
+	} else if (json_tok_short_channel_id(buffer, tok, &scid)) {
+		list_for_each(&ld->peers, peer, list) {
+			channel = peer_active_channel(peer);
+			if (!channel)
+				continue;
+			if (channel->scid && channel->scid->u64 == scid.u64)
+				return channel;
+		}
+		command_fail(cmd,
+			     "Short channel ID not found: '%.*s'",
+			     tok->end - tok->start,
+			     buffer + tok->start);
+		return NULL;
+	} else {
+		command_fail(cmd,
+			     "Given id is not a channel ID or "
+			     "short channel ID: '%.*s'",
+			     tok->end - tok->start,
+			     buffer + tok->start);
+		return NULL;
+	}
+}
+
 static void json_close(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *peertok;
+	jsmntok_t *idtok;
 	jsmntok_t *timeouttok;
 	jsmntok_t *forcetok;
 	struct peer *peer;
@@ -992,18 +1052,13 @@ static void json_close(struct command *cmd,
 	bool force = false;
 
 	if (!json_get_params(cmd, buffer, params,
-			     "id", &peertok,
+			     "id", &idtok,
 			     "?force", &forcetok,
 			     "?timeout", &timeouttok,
 			     NULL)) {
 		return;
 	}
 
-	peer = peer_from_json(cmd->ld, buffer, peertok);
-	if (!peer) {
-		command_fail(cmd, "Could not find peer with that id");
-		return;
-	}
 	if (forcetok && !json_tok_bool(buffer, forcetok, &force)) {
 		command_fail(cmd, "Force '%.*s' must be true or false",
 			     forcetok->end - forcetok->start,
@@ -1017,8 +1072,16 @@ static void json_close(struct command *cmd,
 		return;
 	}
 
-	channel = peer_active_channel(peer);
-	if (!channel) {
+	peer = peer_from_json(cmd->ld, buffer, idtok);
+	if (peer)
+		channel = peer_active_channel(peer);
+	else {
+		channel = command_find_channel(cmd, buffer, idtok);
+		if (!channel)
+			return;
+	}
+
+	if (!channel && peer) {
 		struct uncommitted_channel *uc = peer->uncommitted_channel;
 		if (uc) {
 			/* Easy case: peer can simply be forgotten. */
@@ -1040,7 +1103,7 @@ static void json_close(struct command *cmd,
 	    channel->state != CHANNELD_AWAITING_LOCKIN &&
 	    channel->state != CHANNELD_SHUTTING_DOWN &&
 	    channel->state != CLOSINGD_SIGEXCHANGE)
-		command_fail(cmd, "Peer is in state %s",
+		command_fail(cmd, "Channel is in state %s",
 			     channel_state_name(channel));
 
 	/* If normal or locking in, transition to shutting down
@@ -1066,7 +1129,12 @@ static void json_close(struct command *cmd,
 static const struct json_command close_command = {
 	"close",
 	json_close,
-	"Close the channel with peer {id}"
+	"Close the channel with {id} "
+	"(either peer ID, channel ID, or short channel ID). "
+	"If {force} (default false) is true, force a unilateral close "
+	"after {timeout} seconds (default 30), "
+	"otherwise just schedule a mutual close later and fail after "
+	"timing out."
 };
 AUTODATA(json_command, &close_command);
 
