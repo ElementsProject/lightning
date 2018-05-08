@@ -4471,6 +4471,7 @@ class LightningDTests(BaseLightningDTests):
         assert l1.rpc.listnodes()['nodes'] == []
         assert l2.rpc.listnodes()['nodes'] == []
 
+    @flaky
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_blockchaintrack(self):
         """Check that we track the blockchain correctly across reorgs
