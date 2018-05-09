@@ -67,13 +67,14 @@ enum addr_listen_announce fromwire_addr_listen_announce(const u8 **cursor,
 							size_t *max);
 void towire_addr_listen_announce(u8 **pptr, enum addr_listen_announce ala);
 
-bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 port, const char **err_msg);
+bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 port,
+		    bool dns_ok, const char **err_msg);
 
 char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a);
 char *fmt_wireaddr_without_port(const tal_t *ctx, const struct wireaddr *a);
 
 bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
-			    const u16 port, const char **err_msg);
+			    const u16 port, bool dns_ok, const char **err_msg);
 
 void wireaddr_from_ipv4(struct wireaddr *addr,
 			const struct in_addr *ip4,
@@ -104,7 +105,9 @@ struct wireaddr_internal {
 		char sockname[sizeof(((struct sockaddr_un *)0)->sun_path)];
 	} u;
 };
-bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr, u16 port, bool wildcard_ok, const char **err_msg);
+bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
+			     u16 port, bool wildcard_ok, bool dns_ok,
+			     const char **err_msg);
 
 void towire_wireaddr_internal(u8 **pptr,
 				 const struct wireaddr_internal *addr);

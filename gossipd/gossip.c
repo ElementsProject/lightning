@@ -1930,7 +1930,8 @@ static struct io_plan *conn_tor_init(struct io_conn *conn,
 }
 
 static struct addrhint *
-seed_resolve_addr(const tal_t *ctx, const struct pubkey *id, const u16 port)
+seed_resolve_addr(const tal_t *ctx, const struct pubkey *id, const u16 port,
+		  bool dns_ok)
 {
 	struct addrhint *a;
 	char bech32[100], *addr;
@@ -1946,7 +1947,8 @@ seed_resolve_addr(const tal_t *ctx, const struct pubkey *id, const u16 port)
 
 	a = tal(ctx, struct addrhint);
 	a->addr.itype = ADDR_INTERNAL_WIREADDR;
-	if (!wireaddr_from_hostname(&a->addr.u.wireaddr, addr, port, NULL)) {
+	if (!wireaddr_from_hostname(&a->addr.u.wireaddr, addr, port, dns_ok,
+				    NULL)) {
 		status_trace("Could not resolve %s", addr);
 		return tal_free(a);
 	} else {
@@ -2033,7 +2035,8 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 					id);
 
 	if (!a)
-		a = seed_resolve_addr(tmpctx, id, 9735);
+		a = seed_resolve_addr(tmpctx, id, 9735,
+				      !daemon->use_proxy_always);
 
 	if (!a) {
 		status_debug("No address known for %s, giving up",

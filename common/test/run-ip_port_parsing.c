@@ -85,35 +85,35 @@ int main(void)
 	assert(!separate_address_and_port(tmpctx, "[::1]:http", &ip, &port));
 
 	// localhost hostnames for backward compat
-	assert(parse_wireaddr("localhost", &addr, 200, NULL));
+	assert(parse_wireaddr("localhost", &addr, 200, false, NULL));
 	assert(addr.port == 200);
 
 	// string should win the port battle
-	assert(parse_wireaddr("[::1]:9735", &addr, 500, NULL));
+	assert(parse_wireaddr("[::1]:9735", &addr, 500, false, NULL));
 	assert(addr.port == 9735);
 	ip = fmt_wireaddr(tmpctx, &addr);
 	assert(streq(ip, "[::1]:9735"));
 
 	// should use argument if we have no port in string
-	assert(parse_wireaddr("2001:db8:85a3::8a2e:370:7334", &addr, 9777, NULL));
+	assert(parse_wireaddr("2001:db8:85a3::8a2e:370:7334", &addr, 9777, false, NULL));
 	assert(addr.port == 9777);
 
 	ip = fmt_wireaddr(tmpctx, &addr);
 	assert(streq(ip, "[2001:db8:85a3::8a2e:370:7334]:9777"));
 
-	assert(parse_wireaddr("[::ffff:127.0.0.1]:49150", &addr, 1, NULL));
+	assert(parse_wireaddr("[::ffff:127.0.0.1]:49150", &addr, 1, false, NULL));
 	assert(addr.port == 49150);
 
-  assert(parse_wireaddr("4ruvswpqec5i2gogopxl4vm5bruzknbvbylov2awbo4rxiq4cimdldad.onion:49150", &addr, 1, NULL));
+  assert(parse_wireaddr("4ruvswpqec5i2gogopxl4vm5bruzknbvbylov2awbo4rxiq4cimdldad.onion:49150", &addr, 1, false, NULL));
 	assert(addr.port == 49150);
 
-	assert(parse_wireaddr("4ruvswpqec5i2gogopxl4vm5bruzknbvbylov2awbo4rxiq4cimdldad.onion", &addr, 1, NULL));
+	assert(parse_wireaddr("4ruvswpqec5i2gogopxl4vm5bruzknbvbylov2awbo4rxiq4cimdldad.onion", &addr, 1, false, NULL));
 	assert(addr.port == 1);
 
-	assert(parse_wireaddr("odpzvneidqdf5hdq.onion:49150", &addr, 1, NULL));
+	assert(parse_wireaddr("odpzvneidqdf5hdq.onion:49150", &addr, 1, false, NULL));
 	assert(addr.port == 49150);
 
-	assert(parse_wireaddr("odpzvneidqdf5hdq.onion", &addr, 1, NULL));
+	assert(parse_wireaddr("odpzvneidqdf5hdq.onion", &addr, 1, false, NULL));
 	assert(addr.port == 1);
 	tal_free(tmpctx);
 	return 0;
