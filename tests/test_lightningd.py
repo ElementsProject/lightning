@@ -1527,7 +1527,6 @@ class LightningDTests(BaseLightningDTests):
             wait_for(lambda: p.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['status'][1] == 'ONCHAIN:Tracking mutual close transaction')
         l1.daemon.wait_for_logs([' to ONCHAIN'] * num_peers)
 
-    @flaky
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail(self):
         l1, l2 = self.connect()
@@ -1583,7 +1582,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(95)
         wait_forget_channels(l1)
 
-        wait_for(lambda: l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['status'] == ['ONCHAIN:Tracking our own unilateral close', 'ONCHAIN:All outputs resolved: waiting 5 more blocks before forgetting channel'], timeout=1)
+        wait_for(lambda: l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['status'] == ['ONCHAIN:Tracking our own unilateral close', 'ONCHAIN:All outputs resolved: waiting 5 more blocks before forgetting channel'])
 
         # Now, 100 blocks l2 should be done.
         bitcoind.generate_block(5)
