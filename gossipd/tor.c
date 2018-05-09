@@ -41,81 +41,6 @@ struct reaching_socks {
 	struct reaching *reach;
 };
 
-static struct io_plan *connect_finish(struct io_conn *,
-				      struct reaching_socks *);
-
-static struct io_plan *connect_finish2(struct io_conn *,
-				       struct reaching_socks *);
-
-static struct io_plan *connect_out(struct io_conn *, struct reaching_socks *);
-
-static struct io_plan *io_tor_connect_after_req_to_connect(struct io_conn *,
-							   struct reaching_socks
-							   *);
-static struct io_plan *io_tor_connect_after_req_host(struct io_conn *,
-						     struct reaching_socks *);
-
-static struct io_plan *io_tor_connect_do_req(struct io_conn *,
-					     struct reaching_socks *);
-
-static struct io_plan *connect_out(struct io_conn *, struct reaching_socks *);
-
-static struct io_plan *io_tor_connect_do_req(struct io_conn *,
-					     struct reaching_socks *);
-
-static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
-							    *conn,
-							    struct
-							    reaching_socks *);
-
-static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
-							    *conn,
-							    struct
-							    reaching_socks
-							    *reach)
-{
-	if (reach->buffer[1] == SOCKS_ERROR) {
-		status_trace("Connected out for %s error", reach->host);
-		return io_close(conn);
-	}
-	/* make the V5 request */
-	reach->hlen = strlen(reach->host);
-	reach->buffer[0] = SOCKS_V5;
-	reach->buffer[1] = SOCKS_CONNECT;
-	reach->buffer[2] = 0;
-	reach->buffer[3] = SOCKS_DOMAIN;
-	reach->buffer[4] = reach->hlen;
-
-	memcpy(reach->buffer + SOCK_REQ_V5_LEN, reach->host, reach->hlen);
-	memcpy(reach->buffer + SOCK_REQ_V5_LEN + strlen(reach->host),
-	       &(reach->port), sizeof reach->port);
-
-	return io_write(conn, reach->buffer,
-			SOCK_REQ_V5_HEADER_LEN + reach->hlen,
-			io_tor_connect_after_req_host, reach);
-}
-
-static struct io_plan *io_tor_connect_after_req_to_connect(struct io_conn *conn,
-							   struct reaching_socks
-							   *reach)
-{
-
-	return io_read(conn, reach->buffer, 2,
-		       &io_tor_connect_after_resp_to_connect, reach);
-}
-
-static struct io_plan *io_tor_connect_do_req(struct io_conn *conn,
-					     struct reaching_socks *reach)
-{
-	/* make the init request */
-	reach->buffer[0] = SOCKS_V5;
-	reach->buffer[1] = 1;
-	reach->buffer[2] = SOCKS_NOAUTH;
-
-	return io_write(conn, reach->buffer, SOCK_REQ_METH_LEN,
-			&io_tor_connect_after_req_to_connect, reach);
-}
-
 static struct io_plan *connect_finish2(struct io_conn *conn,
 				       struct reaching_socks *reach)
 {
@@ -173,6 +98,54 @@ static struct io_plan *io_tor_connect_after_req_host(struct io_conn *conn,
 		return io_close(conn);
 	}
 	return connect_out(conn, reach);
+}
+
+static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
+							    *conn,
+							    struct
+							    reaching_socks
+							    *reach)
+{
+	if (reach->buffer[1] == SOCKS_ERROR) {
+		status_trace("Connected out for %s error", reach->host);
+		return io_close(conn);
+	}
+	/* make the V5 request */
+	reach->hlen = strlen(reach->host);
+	reach->buffer[0] = SOCKS_V5;
+	reach->buffer[1] = SOCKS_CONNECT;
+	reach->buffer[2] = 0;
+	reach->buffer[3] = SOCKS_DOMAIN;
+	reach->buffer[4] = reach->hlen;
+
+	memcpy(reach->buffer + SOCK_REQ_V5_LEN, reach->host, reach->hlen);
+	memcpy(reach->buffer + SOCK_REQ_V5_LEN + strlen(reach->host),
+	       &(reach->port), sizeof reach->port);
+
+	return io_write(conn, reach->buffer,
+			SOCK_REQ_V5_HEADER_LEN + reach->hlen,
+			io_tor_connect_after_req_host, reach);
+}
+
+static struct io_plan *io_tor_connect_after_req_to_connect(struct io_conn *conn,
+							   struct reaching_socks
+							   *reach)
+{
+
+	return io_read(conn, reach->buffer, 2,
+		       &io_tor_connect_after_resp_to_connect, reach);
+}
+
+static struct io_plan *io_tor_connect_do_req(struct io_conn *conn,
+					     struct reaching_socks *reach)
+{
+	/* make the init request */
+	reach->buffer[0] = SOCKS_V5;
+	reach->buffer[1] = 1;
+	reach->buffer[2] = SOCKS_NOAUTH;
+
+	return io_write(conn, reach->buffer, SOCK_REQ_METH_LEN,
+			&io_tor_connect_after_req_to_connect, reach);
 }
 
 // called when we want to connect to TOR SOCKS5
