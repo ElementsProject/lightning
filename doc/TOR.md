@@ -78,10 +78,9 @@ then you can use c-lightning with following options
 
 or the password for the service if cookiefile is not accessable
 
---tor-auto-listen true : try to generate an temp V2 onion addr
+--announce-addr=autotor:<torservice> : try to generate an temp V2 onion addr.
 
-NOTE if --tor-proxy set all traffic will be rooted over the proxy
-if --addr is not specified only the auto generated onion addr will be used for your node.
+NOTE if --always-use-proxy set all traffic will be rooted over the proxy, or if no non-TOR addresses are announced.
 
 you can also set a fixed onion addr by option
 --addr=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.onion  (V2 or V3 is allowed)
@@ -113,29 +112,22 @@ cli/lightning-cli getinfo
 
 some examples:
 
-sudo lightningd/lightningd --network=testnet --addr=127.0.0.1 --port=1234
---proxy=127.0.0.1:9050 --tor-auto-listen true --tor-service=127.0.0.1:9051
+sudo lightningd/lightningd --network=testnet --bind-addr=127.0.0.1:1234
+--proxy=127.0.0.1:9050 --addr=autotor:127.0.0.1:9051
 
 this will try to generate an V2 auto hidden-service by reading the tor cookie and
 also create local ipaddr at port 1234
-so the node is accessableby connect peerid xxxxxxxxxxxxxxxx.onion 1234
+so the node is accessableby connect peerid xxxxxxxxxxxxxxxx.onion 9735
 or local by connect ID 127.0.0.1 1234
 
-lightningd/lightningd --network=testnet --port=1234
---proxy=127.0.0.1:9050 --tor-service-password testpassword --tor-auto-listen true --tor-service=127.0.0.1:9051
-
-this will try to generate an V2 auto temp hidden-service addr by using the password to access tor service api
-so the node accessable by connect peerid xxxxxxxxxxxxxxxxxxx.onion 1234
-
-
-lightningd/lightningd --network=testnet --port=1234
---proxy=127.0.0.1:9050 --addr=xxxxxxxxxxxxxxxxxxxxxxxxxxxx.onion --port 1234
+lightningd/lightningd --network=testnet --bind-addr=127.0.0.1
+--proxy=127.0.0.1:9050 --addr=xxxxxxxxxxxxxxxxxxxxxxxxxxxx.onion:1234
 
 this will use the hidden-service set by /etc/tor/torrc and use the hidden service
 so the node is  accessable by connect peerid xxxxxxxxxxxxxxxxxxxxxxxx.onion 1234
 or
-lightningd/lightningd --network=testnet --port=1234
---proxy=127.0.0.1:9050 --addr=xxxxxxxxxxxxxxxxxxxxxxxxxxxx.onion --port 1234
+lightningd/lightningd --network=testnet --bind-addr=127.0.0.1:1234
+--proxy=127.0.0.1:9050 --addr=xxxxxxxxxxxxxxxxxxxxxxxxxxxx.onion:1234
 this will use the hidden-service set by /etc/tor/torrc and use the hidden service
 so the node is only accessable by connect peerid xxxxxxxxxxxxxxxxxxxxxxxonion 1234
 
