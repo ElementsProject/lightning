@@ -18,7 +18,9 @@ gossipctl_init,,rgb,3*u8
 gossipctl_init,,alias,32*u8
 gossipctl_init,,update_channel_interval,u32
 gossipctl_init,,reconnect,bool
-gossipctl_init,,tor_proxyaddrs,struct wireaddr
+# This is 0 or 1.
+gossipctl_init,,num_tor_proxyaddrs,u16
+gossipctl_init,,tor_proxyaddr,num_tor_proxyaddrs*struct wireaddr
 gossipctl_init,,use_tor_proxy_always,bool
 gossipctl_init,,dev_allow_localhost,bool
 

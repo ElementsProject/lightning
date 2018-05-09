@@ -226,7 +226,7 @@ void gossip_init(struct lightningd *ld)
 	    get_offered_local_features(tmpctx), wireaddrs,
 	    listen_announce, ld->rgb,
 	    ld->alias, ld->config.channel_update_interval, ld->reconnect,
-	    ld->tor_proxyaddrs, ld->use_tor_proxy_always,
+	    ld->tor_proxyaddr, ld->use_tor_proxy_always,
 	    allow_localhost);
 	subd_send_msg(ld->gossip, msg);
 }
