@@ -41,16 +41,17 @@ static void tal_freefn(void *ptr)
 	tal_free(ptr);
 }
 
-struct netaddr;
-
 /* Returns number of tokens digested */
-static size_t human_readable(const char *buffer, const jsmntok_t *t, char term)
+static size_t human_readable(const char *buffer,
+			     const jsmntok_t *t,
+			     const char *prefix)
 {
 	size_t i, n;
 
 	switch (t->type) {
 	case JSMN_PRIMITIVE:
 	case JSMN_STRING:
+		fputs(prefix, stdout);
 		for (i = t->start; i < t->end; i++) {
 			/* We only translate \n and \t. */
 			if (buffer[i] == '\\' && i + 1 < t->end) {
@@ -66,43 +67,32 @@ static size_t human_readable(const char *buffer, const jsmntok_t *t, char term)
 			}
 			fputc(buffer[i], stdout);
 		}
-		fputc(term, stdout);
+		fputc('\n', stdout);
 		return 1;
 	case JSMN_ARRAY:
 		n = 1;
 		for (i = 0; i < t->size; i++)
-			n += human_readable(buffer, t + n, '\n');
+			n += human_readable(buffer, t + n, prefix);
 		return n;
 	case JSMN_OBJECT:
 		/* Elide single-field objects */
 		if (t->size == 1)
-			return human_readable(buffer, t + 2, '\n') + 3;
+			return human_readable(buffer, t + 2, prefix) + 3;
 		n = 1;
 		for (i = 0; i < t->size; i++) {
-			n += human_readable(buffer, t + n, '=');
-			n += human_readable(buffer, t + n, '\n');
+			const char *p = tal_fmt(NULL, "%s%.*s=",
+						prefix,
+						t[n].end - t[n].start,
+						buffer + t[n].start);
+			n++;
+			n += human_readable(buffer, t + n, p);
+			tal_free(p);
 		}
 		return n;
 	case JSMN_UNDEFINED:
 		break;
 	}
 	abort();
-}
-
-static void human_help(const char *buffer, const jsmntok_t *result) {
-	int i;
-	const jsmntok_t * help_array = result + 2;
-	/* the first command object */
-	const jsmntok_t * curr = help_array + 1;
-	/* iterate through all commands, printing the name and description */
-	for (i = 0; i<help_array->size; i++) {
-		curr += 2;
-		printf("%.*s\n", curr->end - curr->start, buffer + curr->start);
-		curr += 2;
-		printf("    %.*s\n\n", curr->end - curr->start, buffer + curr->start);
-		/* advance to next command */
-		curr++;
-	}
 }
 
 enum format {
@@ -329,8 +319,7 @@ int main(int argc, char *argv[])
 
 	if (!error || json_tok_is_null(resp, error)) {
 		if (format == HUMAN)
-			if (streq(method, "help")) human_help(resp, result);
-			else human_readable(resp, result, '\n');
+			human_readable(resp, result, "");
 		else
 			printf("%.*s\n",
 			       json_tok_len(result),
