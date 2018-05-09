@@ -1810,15 +1810,6 @@ static struct io_plan *gossip_activate(struct daemon_conn *master,
 	else
 		binding = NULL;
 
-	/* If we only advertize Tor addresses, force everything through proxy
-	 * to avoid other leakage */
-	if (!daemon->use_proxy_always
-	    && tal_count(daemon->announcable) != 0
-	    && all_tor_addresses(daemon->announcable)) {
-		status_trace("Only announcing Tor addresses: forcing proxy use");
-		daemon->use_proxy_always = true;
-	}
-
 	/* OK, we're ready! */
 	daemon_conn_send(&daemon->master,
 			 take(towire_gossipctl_activate_reply(NULL,

@@ -839,6 +839,15 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 	if (argc != 1)
 		errx(1, "no arguments accepted");
 
+	/* We keep a separate variable rather than overriding use_proxy_always,
+	 * so listconfigs shows the correct thing. */
+	if (tal_count(ld->proposed_wireaddr) != 0
+	    && all_tor_addresses(ld->proposed_wireaddr)) {
+		ld->pure_tor_setup = true;
+		if (!ld->proxyaddr)
+			log_info(ld->log, "Pure Tor setup with no --proxy:"
+				 " you won't be able to make connections out");
+	}
 	check_config(ld);
 }
 
