@@ -114,6 +114,8 @@ static void make_onion(struct lightningd *ld, struct rbuf *rbuf)
 static void negotiate_auth(struct lightningd *ld, struct rbuf *rbuf)
 {
 	char *line;
+	char *cookiefile = NULL;
+	int cookiefileerrno;
 
 	tor_send_cmd(ld, rbuf, "PROTOCOLINFO 1");
 
@@ -145,10 +147,14 @@ static void negotiate_auth(struct lightningd *ld, struct rbuf *rbuf)
 				errx(1, "Tor protocolinfo bad line '%s'", line);
 			*end = '\0';
 
+			/* If we can't access this, try other methods */
+			cookiefile = tal_strdup(tmpctx, p);
 			contents = grab_file(tmpctx, p);
-			if (!contents)
-				err(1, "Cannot open Tor cookie file '%s'", p);
-
+			if (!contents) {
+				cookiefileerrno = errno;
+				fprintf(stderr, "No cookies for me!\n");
+				continue;
+			}
 			discard_remaining_response(ld, rbuf);
 			tor_send_cmd(ld, rbuf,
 				     tal_fmt(tmpctx, "AUTHENTICATE %s",
@@ -159,6 +165,13 @@ static void negotiate_auth(struct lightningd *ld, struct rbuf *rbuf)
 			return;
 		}
 	}
+
+	/* Now report if we tried cookie file and it failed */
+	if (cookiefile) {
+		errno = cookiefileerrno;
+		err(1, "Could not open Tor cookie file '%s'", cookiefile);
+	}
+
 	errx(1, "Tor protocolinfo did not give auth");
 }
 
