@@ -137,10 +137,9 @@ static bool IsRFC4843(const struct wireaddr *addr)
     return IsIPv6(addr) && (GetByte(addr, 15) == 0x20 && GetByte(addr, 14) == 0x01 && GetByte(addr, 13) == 0x00 && (GetByte(addr, 12) & 0xF0) == 0x10);
 }
 
-static bool IsTor(const struct wireaddr *addr UNUSED)
+static bool IsTor(const struct wireaddr *addr)
 {
-	/* FIXME */
-	return false;
+	return addr->type == ADDR_TYPE_TOR_V2 || addr->type == ADDR_TYPE_TOR_V3;
 }
 
 static bool IsLocal(const struct wireaddr *addr)
