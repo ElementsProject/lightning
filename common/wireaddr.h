@@ -5,6 +5,8 @@
 #include <ccan/tal/tal.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 struct in6_addr;
 struct in_addr;
@@ -87,12 +89,12 @@ enum wireaddr_internal_type {
 struct wireaddr_internal {
 	enum wireaddr_internal_type itype;
 	union {
-		/* ADDR_INTERNAL_SOCKNAME */
+		/* ADDR_INTERNAL_WIREADDR */
 		struct wireaddr wireaddr;
 		/* ADDR_INTERNAL_ALLPROTO */
 		u16 port;
-		/* ADDR_INTERNAL_WIREADDR */
-		char sockname[108];
+		/* ADDR_INTERNAL_SOCKNAME */
+		char sockname[sizeof(((struct sockaddr_un *)0)->sun_path)];
 	} u;
 };
 bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr, u16 port, bool wildcard_ok, const char **err_msg);

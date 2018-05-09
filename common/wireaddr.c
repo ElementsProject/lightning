@@ -8,9 +8,7 @@
 #include <common/wireaddr.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <sys/socket.h>
 #include <sys/types.h>
-#include <sys/un.h>
 #include <wire/wire.h>
 
 /* Returns false if we didn't parse it, and *cursor == NULL if malformed. */
