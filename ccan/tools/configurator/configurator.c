@@ -102,7 +102,8 @@ static struct test tests[] = {
 	  "#include <stdio.h>\n"
 	  "static char *func(int x) {"
 	  "	char *p;\n"
-	  "	if (asprintf(&p, \"%u\", x) == -1) p = NULL;"
+	  "	if (asprintf(&p, \"%u\", x) == -1) \n"
+	  "		p = NULL;\n"
 	  "	return p;\n"
 	  "}" },
 	{ "HAVE_ATTRIBUTE_COLD", DEFINES_FUNC, NULL, NULL,
