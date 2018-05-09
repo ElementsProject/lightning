@@ -1692,7 +1692,6 @@ class LightningDTests(BaseLightningDTests):
         options = {'locktime-blocks': 201, 'cltv-delta': 101}
         l1 = self.node_factory.get_node(options=options, disconnect=disconnects)
         l2 = self.node_factory.get_node(options=options)
-        btc = l1.bitcoin
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         self.fund_channel(l1, l2, 10**6)
@@ -1706,7 +1705,7 @@ class LightningDTests(BaseLightningDTests):
         }
         l1.rpc.sendpay(to_json([routestep]), rhash)
         l1.daemon.wait_for_log(r'Disabling channel')
-        btc.rpc.generate(1)
+        bitcoind.rpc.generate(1)
 
         # Wait for nodes to notice the failure, this seach needle is after the
         # DB commit so we're sure the tx entries in onchaindtxs have been added
@@ -1719,7 +1718,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Generate some blocks so we restart the onchaind from DB (we rescan
         # last_height - 100)
-        btc.rpc.generate(100)
+        bitcoind.rpc.generate(100)
         sync_blockheight([l1, l2])
 
         # l1 should still have a running onchaind
@@ -1734,7 +1733,7 @@ class LightningDTests(BaseLightningDTests):
         # l1 should still notice that the funding was spent and that we should react to it
         l1.daemon.wait_for_log("Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET")
         sync_blockheight([l1])
-        btc.rpc.generate(10)
+        bitcoind.rpc.generate(10)
         sync_blockheight([l1])
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -4514,7 +4513,6 @@ class LightningDTests(BaseLightningDTests):
         """Check that we track the blockchain correctly across reorgs
         """
         l1 = self.node_factory.get_node()
-        btc = l1.bitcoin
         addr = l1.rpc.newaddr()['address']
 
         ######################################################################
@@ -4523,10 +4521,10 @@ class LightningDTests(BaseLightningDTests):
         l1.restart()
 
         # At height 111 we receive an incoming payment
-        hashes = btc.rpc.generate(9)
-        btc.rpc.sendtoaddress(addr, 1)
+        hashes = bitcoind.rpc.generate(9)
+        bitcoind.rpc.sendtoaddress(addr, 1)
         time.sleep(1)  # mempool is still unpredictable
-        btc.rpc.generate(1)
+        bitcoind.rpc.generate(1)
 
         l1.daemon.wait_for_log(r'Owning')
         outputs = l1.rpc.listfunds()['outputs']
@@ -4534,17 +4532,17 @@ class LightningDTests(BaseLightningDTests):
 
         ######################################################################
         # Second failure scenario: perform a 20 block reorg
-        btc.rpc.generate(10)
-        btc.rpc.getblockcount()
+        bitcoind.rpc.generate(10)
+        bitcoind.rpc.getblockcount()
         l1.daemon.wait_for_log(r'Adding block 121: [a-f0-9]{32}')
 
         # Now reorg out with a longer fork of 21 blocks
-        btc.rpc.invalidateblock(hashes[0])
-        btc.wait_for_log(r'InvalidChainFound: invalid block=.*  height=102')
-        hashes = btc.rpc.generate(30)
+        bitcoind.rpc.invalidateblock(hashes[0])
+        bitcoind.wait_for_log(r'InvalidChainFound: invalid block=.*  height=102')
+        hashes = bitcoind.rpc.generate(30)
         time.sleep(1)
 
-        btc.rpc.getblockcount()
+        bitcoind.rpc.getblockcount()
         l1.daemon.wait_for_log(r'Adding block 131: [a-f0-9]{32}')
 
         # Our funds got reorged out, we should not have any funds that are confirmed
@@ -4586,7 +4584,6 @@ class LightningDTests(BaseLightningDTests):
         """Test the rescan option
         """
         l1 = self.node_factory.get_node()
-        btc = l1.bitcoin
 
         # The first start should start at current_height - 30 = 71, make sure
         # it's not earlier
@@ -4611,7 +4608,7 @@ class LightningDTests(BaseLightningDTests):
         # the current height
         l1.daemon.opts['rescan'] = -500000
         l1.stop()
-        btc.rpc.generate(4)
+        bitcoind.rpc.generate(4)
         l1.start()
         l1.daemon.wait_for_log(r'Adding block 105')
         assert not l1.daemon.is_in_log(r'Adding block 102')
