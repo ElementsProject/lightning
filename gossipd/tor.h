@@ -10,7 +10,7 @@ struct reaching;
 bool do_we_use_tor_addr(const struct wireaddr *wireaddrs);
 
 struct io_plan *io_tor_connect(struct io_conn *conn,
-			       const struct wireaddr *tor_proxyaddrs,
+			       const struct wireaddr *tor_proxyaddr,
 			       const struct wireaddr *addr,
 			       struct reaching *reach);
 

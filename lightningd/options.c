@@ -297,25 +297,26 @@ static char *opt_set_offline(struct lightningd *ld)
 
 static char *opt_add_torproxy_addr(const char *arg, struct lightningd *ld)
 {
+	tal_free(ld->tor_proxyaddr);
 
-	if (!parse_wireaddr(arg, ld->tor_proxyaddrs,9050,NULL)) {
-	return tal_fmt(NULL, "Unable to parse Tor proxy address '%s'", arg);
+	/* We use a tal_arr here, so we can marshal it to gossipd */
+	ld->tor_proxyaddr = tal_arr(ld, struct wireaddr, 1);
+
+	if (!parse_wireaddr(arg, ld->tor_proxyaddr, 9050, NULL)) {
+		return tal_fmt(NULL, "Unable to parse Tor proxy address '%s'",
+			       arg);
 	}
 	return NULL;
 }
 
 static char *opt_add_tor_service_addr(const char *arg, struct lightningd *ld)
 {
-
-	if (!parse_wireaddr(arg, ld->tor_serviceaddrs,9051,NULL)) {
-	return tal_fmt(NULL, "Unable to parse Tor service address '%s'", arg);
+	tal_free(ld->tor_serviceaddr);
+	ld->tor_serviceaddr = tal(ld, struct wireaddr);
+	if (!parse_wireaddr(arg, ld->tor_serviceaddr, 9051, NULL)) {
+		return tal_fmt(NULL, "Unable to parse Tor service address '%s'",
+			       arg);
 	}
-	return NULL;
-}
-
-static char *opt_add_tor_service_password(const char *arg, struct lightningd *ld)
-{
-	ld->tor_service_password = tal_fmt(ld, "%.30s", arg);
 	return NULL;
 }
 
@@ -426,8 +427,9 @@ static void config_register_opts(struct lightningd *ld)
 			ld,"Set a socks v5 proxy IP address and port");
 	opt_register_arg("--tor-service",opt_add_tor_service_addr, NULL,
 			ld,"Set a tor service api IP address and port");
-	opt_register_arg("--tor-service-password", opt_add_tor_service_password, NULL,
-			ld,"Set a Tor hidden service password");
+	opt_register_arg("--tor-service-password", opt_set_talstr, NULL,
+			 &ld->tor_service_password,
+			 "Set a Tor hidden service password");
 	opt_register_arg("--tor-auto-listen", opt_set_bool_arg, opt_show_bool,
 			&ld->config.tor_enable_auto_hidden_service , "Generate and use a temp auto hidden-service and show the onion address");
 	opt_register_arg("--always-use-tor-proxy", opt_set_bool_arg, opt_show_bool,
@@ -978,11 +980,12 @@ static void add_config(struct lightningd *ld,
 					   ADDR_ANNOUNCE);
 			return;
 		} else if (opt->cb_arg == (void *)opt_add_torproxy_addr) {
-			answer = fmt_wireaddr(name0, ld->tor_proxyaddrs);
+			if (ld->tor_proxyaddr)
+				answer = fmt_wireaddr(name0, ld->tor_proxyaddr);
 		} else if (opt->cb_arg == (void *)opt_add_tor_service_addr) {
-			answer = fmt_wireaddr(name0, ld->tor_serviceaddrs);
-		} else if (opt->cb_arg == (void *)opt_add_tor_service_password) {
-			answer = tal_fmt(name0, "%s", ld->tor_service_password);
+			if (ld->tor_serviceaddr)
+				answer = fmt_wireaddr(name0,
+						      ld->tor_serviceaddr);
 #if DEVELOPER
 		} else if (strstarts(name, "dev-")) {
 			/* Ignore dev settings */

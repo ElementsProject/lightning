@@ -147,7 +147,7 @@ struct daemon {
 	/* Automatically reconnect. */
 	bool reconnect;
 
-	struct wireaddr *tor_proxyaddrs;
+	struct wireaddr *tor_proxyaddr;
 	bool use_tor_proxy_always;
 };
 
@@ -1739,7 +1739,6 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	struct bitcoin_blkid chain_hash;
 	u32 update_channel_interval;
 	bool dev_allow_localhost;
-	daemon->tor_proxyaddrs = tal_arrz(daemon, struct wireaddr, 1);
 
 	if (!fromwire_gossipctl_init(
 		daemon, msg, &daemon->broadcast_interval, &chain_hash,
@@ -1747,7 +1746,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 		&daemon->localfeatures, &daemon->proposed_wireaddr,
 		&daemon->proposed_listen_announce, daemon->rgb,
 		daemon->alias, &update_channel_interval, &daemon->reconnect,
-		daemon->tor_proxyaddrs, &daemon->use_tor_proxy_always,
+		&daemon->tor_proxyaddr, &daemon->use_tor_proxy_always,
 		&dev_allow_localhost)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
@@ -1929,7 +1928,7 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 			return io_close(conn);
 		}
 
-		if (!use_tor && reach->daemon->tor_proxyaddrs->port > 0) {
+		if (!use_tor && reach->daemon->tor_proxyaddr) {
 			/* We dont use tor proxy if we only have ip */
 			if (reach->daemon->use_tor_proxy_always
 			    || do_we_use_tor_addr(reach->daemon->announcable))
@@ -1940,7 +1939,7 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 	io_set_finish(conn, connect_failed, reach);
 	if (use_tor) {
 		assert(reach->addr.itype == ADDR_INTERNAL_WIREADDR);
-		return io_tor_connect(conn, reach->daemon->tor_proxyaddrs,
+		return io_tor_connect(conn, reach->daemon->tor_proxyaddr,
 				      &reach->addr.u.wireaddr, reach);
 	}
 	return io_connect(conn, &ai, connection_out, reach);

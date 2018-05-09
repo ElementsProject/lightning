@@ -173,8 +173,8 @@ void tor_init(struct lightningd *ld)
 		return;
 
 	/* FIXME: Need better way to convert wireaddr to addrinfo... */
-	if (getaddrinfo(fmt_wireaddr_without_port(ld, ld->tor_serviceaddrs),
-			tal_fmt(tmpctx, "%d", ld->tor_serviceaddrs->port), NULL,
+	if (getaddrinfo(fmt_wireaddr_without_port(ld, ld->tor_serviceaddr),
+			tal_fmt(tmpctx, "%d", ld->tor_serviceaddr->port), NULL,
 			&ai_tor) != 0)
 		errx(1, "getaddrinfo failed for Tor service");
 
