@@ -164,12 +164,12 @@ struct io_plan *io_tor_connect(struct io_conn *conn,
 			  &io_tor_connect_do_req, reach_tor);
 }
 
-bool do_we_use_tor_addr(const struct wireaddr *wireaddr)
+bool all_tor_addresses(const struct wireaddr *wireaddr)
 {
 	for (int i = 0; i < tal_count(wireaddr); i++) {
-		if ((wireaddr[i].type == ADDR_TYPE_TOR_V2)
-		    || (wireaddr[i].type == ADDR_TYPE_TOR_V3))
-			return true;
+		if (wireaddr[i].type != ADDR_TYPE_TOR_V2
+		    && wireaddr[i].type != ADDR_TYPE_TOR_V3)
+			return false;
 	}
-	return false;
+	return true;
 }
