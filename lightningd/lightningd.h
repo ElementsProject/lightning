@@ -70,9 +70,6 @@ struct config {
 	 * blockheight if rescan >= 500'000 */
 	s32 rescan;
 
-	/* tor support */
-	bool tor_enable_auto_hidden_service;
-
 	/* ipv6 bind disable */
 	bool no_ipv6_bind;
 };
@@ -198,7 +195,6 @@ struct lightningd {
 	/* tor support */
 	struct wireaddr *proxyaddr;
 	bool use_proxy_always;
-	struct wireaddr *tor_serviceaddr;
 	char *tor_service_password;
 };
 

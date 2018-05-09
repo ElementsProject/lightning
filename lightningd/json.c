@@ -168,6 +168,12 @@ void json_add_address_internal(struct json_result *response,
 		json_add_num(response, "port", addr->u.port);
 		json_object_end(response);
 		return;
+	case ADDR_INTERNAL_AUTOTOR:
+		json_object_start(response, fieldname);
+		json_add_string(response, "type", "Tor generated address");
+		json_add_address(response, "service", &addr->u.torservice);
+		json_object_end(response);
+		return;
 	case ADDR_INTERNAL_WIREADDR:
 		json_add_address(response, fieldname, &addr->u.wireaddr);
 		return;

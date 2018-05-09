@@ -310,18 +310,6 @@ static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
-static char *opt_add_tor_service_addr(const char *arg, struct lightningd *ld)
-{
-	tal_free(ld->tor_serviceaddr);
-	ld->tor_serviceaddr = tal(ld, struct wireaddr);
-	if (!parse_wireaddr(arg, ld->tor_serviceaddr, 9051,
-			    !ld->use_proxy_always, NULL)) {
-		return tal_fmt(NULL, "Unable to parse Tor service address '%s'",
-			       arg);
-	}
-	return NULL;
-}
-
 static void config_register_opts(struct lightningd *ld)
 {
 	opt_register_noarg("--daemon", opt_set_bool, &ld->daemon,
@@ -427,13 +415,9 @@ static void config_register_opts(struct lightningd *ld)
 			 "If expired invoice autoclean enabled, invoices that have expired for at least this given seconds are cleaned");
 	opt_register_arg("--proxy", opt_add_proxy_addr, NULL,
 			ld,"Set a socks v5 proxy IP address and port");
-	opt_register_arg("--tor-service",opt_add_tor_service_addr, NULL,
-			ld,"Set a tor service api IP address and port");
 	opt_register_arg("--tor-service-password", opt_set_talstr, NULL,
 			 &ld->tor_service_password,
 			 "Set a Tor hidden service password");
-	opt_register_arg("--tor-auto-listen", opt_set_bool_arg, opt_show_bool,
-			&ld->config.tor_enable_auto_hidden_service , "Generate and use a temp auto hidden-service and show the onion address");
 
 	/* Early, as it suppresses DNS lookups from cmdline too. */
 	opt_register_early_arg("--always-use-proxy",
@@ -515,9 +499,6 @@ static const struct config testnet_config = {
 
 	/* Rescan 5 hours of blocks on testnet, it's reorg happy */
 	.rescan = 30,
-
-	/* tor support */
-	.tor_enable_auto_hidden_service = false
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -582,9 +563,6 @@ static const struct config mainnet_config = {
 
 	/* Rescan 2.5 hours of blocks on startup, it's not so reorg happy */
 	.rescan = 15,
-
-
-	.tor_enable_auto_hidden_service = false
 };
 
 static void check_config(struct lightningd *ld)
@@ -599,9 +577,6 @@ static void check_config(struct lightningd *ld)
 
 	if (ld->config.anchor_confirms == 0)
 		fatal("anchor-confirms must be greater than zero");
-
-	if (ld->config.tor_enable_auto_hidden_service && !ld->tor_serviceaddr)
-		fatal("--tor-auto-listen needs --tor-service");
 
 	if (ld->use_proxy_always && !ld->proxyaddr)
 		fatal("--always-use-proxy needs --proxy");
@@ -993,10 +968,6 @@ static void add_config(struct lightningd *ld,
 		} else if (opt->cb_arg == (void *)opt_add_proxy_addr) {
 			if (ld->proxyaddr)
 				answer = fmt_wireaddr(name0, ld->proxyaddr);
-		} else if (opt->cb_arg == (void *)opt_add_tor_service_addr) {
-			if (ld->tor_serviceaddr)
-				answer = fmt_wireaddr(name0,
-						      ld->tor_serviceaddr);
 #if DEVELOPER
 		} else if (strstarts(name, "dev-")) {
 			/* Ignore dev settings */

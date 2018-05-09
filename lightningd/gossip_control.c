@@ -209,9 +209,8 @@ void gossip_init(struct lightningd *ld)
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
 
-	/* If no addr (not even Tor auto) specified, hand wildcard to gossipd */
-	if (tal_count(wireaddrs) == 0 && ld->autolisten
-	    && !ld->config.tor_enable_auto_hidden_service) {
+	/* If no addr specified, hand wildcard to gossipd */
+	if (tal_count(wireaddrs) == 0 && ld->autolisten) {
 		wireaddrs = tal_arrz(tmpctx, struct wireaddr_internal, 1);
 		listen_announce = tal_arr(tmpctx, enum addr_listen_announce, 1);
 		wireaddrs->itype = ADDR_INTERNAL_ALLPROTO;
@@ -228,8 +227,6 @@ void gossip_init(struct lightningd *ld)
 	    ld->alias, ld->config.channel_update_interval, ld->reconnect,
 	    ld->proxyaddr, ld->use_proxy_always,
 	    allow_localhost,
-	    ld->config.tor_enable_auto_hidden_service,
-	    ld->tor_serviceaddr,
 	    ld->tor_service_password ? ld->tor_service_password : "");
 	subd_send_msg(ld->gossip, msg);
 }
