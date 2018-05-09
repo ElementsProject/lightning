@@ -181,8 +181,8 @@ REGISTER_TYPE_TO_STRING(wireaddr_internal, fmt_wireaddr_internal);
 
 char *fmt_wireaddr_without_port(const tal_t * ctx, const struct wireaddr *a)
 {
-	char addrstr[LARGEST_ADDRLEN];
 	char *ret, *hex;
+	char addrstr[LARGEST_ADDRLEN];
 
 	switch (a->type) {
 	case ADDR_TYPE_IPV4:
@@ -194,11 +194,9 @@ char *fmt_wireaddr_without_port(const tal_t * ctx, const struct wireaddr *a)
 			return "Unprintable-ipv6-address";
 		return tal_fmt(ctx, "[%s]", addrstr);
 	case ADDR_TYPE_TOR_V2:
-		return tal_fmt(ctx, "%.16s.onion",
-			       b32_encode(addrstr, (u8 *) a->addr, 2));
 	case ADDR_TYPE_TOR_V3:
-		return tal_fmt(ctx, "%.56s.onion",
-			       b32_encode(addrstr, (u8 *) a->addr, 3));
+		return tal_fmt(ctx, "%s.onion",
+			       b32_encode(tmpctx, a->addr, a->addrlen));
 	case ADDR_TYPE_PADDING:
 		break;
 	}
@@ -271,26 +269,26 @@ bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
 	struct addrinfo *addrinfo;
 	struct addrinfo hints;
 	int gai_err;
-	u8 tor_dec_bytes[TOR_V3_ADDRLEN];
 	bool res = false;
 
 	/* Don't do lookup on onion addresses. */
 	if (strends(hostname, ".onion")) {
-		if (strlen(hostname) < 25) { //FIXME bool is_V2_or_V3_TOR(addr);
+		u8 *dec = b32_decode(tmpctx, hostname,
+				     strlen(hostname) - strlen(".onion"));
+		if (tal_len(dec) == TOR_V2_ADDRLEN)
 			addr->type = ADDR_TYPE_TOR_V2;
-			addr->addrlen = TOR_V2_ADDRLEN;
-			addr->port = port;
-			b32_decode((u8 *) tor_dec_bytes, (u8 *)hostname, 2);
-			memcpy(&addr->addr, tor_dec_bytes, addr->addrlen);
-			return true;
-		} else {
-			addr->type = ADDR_TYPE_TOR_V3;
-			addr->addrlen = TOR_V3_ADDRLEN;
-			addr->port = port;
-			b32_decode((u8 *) tor_dec_bytes, (u8 *)hostname, 3);
-			memcpy(&addr->addr, tor_dec_bytes, addr->addrlen);
-			return true;
+		else if (tal_len(dec) == TOR_V3_ADDRLEN)
+ 			addr->type = ADDR_TYPE_TOR_V3;
+		else {
+			if (err_msg)
+				*err_msg = "Invalid Tor address";
+			return false;
 		}
+
+		addr->addrlen = tal_len(dec);
+		addr->port = port;
+		memcpy(&addr->addr, dec, tal_len(dec));
+		return true;
 	}
 
 	memset(&hints, 0, sizeof(hints));
