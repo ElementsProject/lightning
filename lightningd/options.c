@@ -12,6 +12,7 @@
 #include <common/configdir.h>
 #include <common/json_escaped.h>
 #include <common/memleak.h>
+#include <common/tor.h>
 #include <common/version.h>
 #include <common/wireaddr.h>
 #include <errno.h>
@@ -295,6 +296,30 @@ static char *opt_set_offline(struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_add_torproxy_addr(const char *arg, struct lightningd *ld)
+{
+
+	if (!parse_wireaddr(arg, ld->tor_proxyaddrs,9050,NULL)) {
+	return tal_fmt(NULL, "Unable to parse Tor proxy address '%s'", arg);
+	}
+	return NULL;
+}
+
+static char *opt_add_tor_service_addr(const char *arg, struct lightningd *ld)
+{
+
+	if (!parse_wireaddr(arg, ld->tor_serviceaddrs,9051,NULL)) {
+	return tal_fmt(NULL, "Unable to parse Tor service address '%s'", arg);
+	}
+	return NULL;
+}
+
+static char *opt_add_tor_service_password(const char *arg, struct lightningd *ld)
+{
+	ld->tor_service_password = tal_fmt(ld, "%.30s", arg);
+	return NULL;
+}
+
 static void config_register_opts(struct lightningd *ld)
 {
 	opt_register_noarg("--daemon", opt_set_bool, &ld->daemon,
@@ -367,7 +392,7 @@ static void config_register_opts(struct lightningd *ld)
 			 "Set an IP address (v4 or v6) to listen on, but not announce");
 	opt_register_arg("--announce-addr", opt_add_announce_addr, NULL,
 			 ld,
-			 "Set an IP address (v4 or v6) to announce, but not listen on");
+			 "Set an IP address (v4 or v6) or .onion v2/v3 to announce, but not listen on");
 
 	opt_register_noarg("--offline", opt_set_offline, ld,
 			   "Start in offline-mode (do not automatically reconnect and do not accept incoming connections)");
@@ -398,6 +423,16 @@ static void config_register_opts(struct lightningd *ld)
 			 opt_set_u64, opt_show_u64,
 			 &ld->ini_autocleaninvoice_cycle,
 			 "If expired invoice autoclean enabled, invoices that have expired for at least this given seconds are cleaned");
+	opt_register_arg("--proxy", opt_add_torproxy_addr, NULL,
+			ld,"Set a socks v5 proxy IP address and port");
+	opt_register_arg("--tor-service",opt_add_tor_service_addr, NULL,
+			ld,"Set a tor service api IP address and port");
+	opt_register_arg("--tor-service-password", opt_add_tor_service_password, NULL,
+			ld,"Set a Tor hidden service password");
+	opt_register_arg("--tor-auto-listen", opt_set_bool_arg, opt_show_bool,
+			&ld->config.tor_enable_auto_hidden_service , "Generate and use a temp auto hidden-service and show the onion address");
+	opt_register_arg("--always-use-tor-proxy", opt_set_bool_arg, opt_show_bool,
+			&ld->use_tor_proxy_always , "Use the Tor proxy always");
 }
 
 #if DEVELOPER
@@ -474,6 +509,9 @@ static const struct config testnet_config = {
 
 	/* Rescan 5 hours of blocks on testnet, it's reorg happy */
 	.rescan = 30,
+
+	/* tor support */
+	.tor_enable_auto_hidden_service = false
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -538,6 +576,9 @@ static const struct config mainnet_config = {
 
 	/* Rescan 2.5 hours of blocks on startup, it's not so reorg happy */
 	.rescan = 15,
+
+
+	.tor_enable_auto_hidden_service = false
 };
 
 static void check_config(struct lightningd *ld)
@@ -937,6 +978,12 @@ static void add_config(struct lightningd *ld,
 					   ld->proposed_listen_announce,
 					   ADDR_ANNOUNCE);
 			return;
+		} else if (opt->cb_arg == (void *)opt_add_torproxy_addr) {
+			answer = fmt_wireaddr(name0, ld->tor_proxyaddrs);
+		} else if (opt->cb_arg == (void *)opt_add_tor_service_addr) {
+			answer = fmt_wireaddr(name0, ld->tor_serviceaddrs);
+		} else if (opt->cb_arg == (void *)opt_add_tor_service_password) {
+			answer = tal_fmt(name0, "%s", ld->tor_service_password);
 #if DEVELOPER
 		} else if (strstarts(name, "dev-")) {
 			/* Ignore dev settings */
