@@ -463,8 +463,9 @@ static struct io_plan *peer_connected(struct io_conn *conn, struct peer *peer)
 			add_reconnecting_peer(peer->daemon, peer);
 			return io_wait(conn, peer, retry_peer_connected, peer);
 		}
-		/* Local peers can just be discarded when they reconnect */
-		tal_free(old_peer);
+		/* Local peers can just be discarded when they reconnect:
+		 * closing conn will free peer. */
+		io_close(old_peer->local->conn);
 	}
 
 	reached_peer(peer, conn);
