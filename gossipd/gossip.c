@@ -2075,6 +2075,9 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 		switch (a->addr.u.wireaddr.type) {
 		case ADDR_TYPE_TOR_V2:
 		case ADDR_TYPE_TOR_V3:
+			if (!daemon->tor_proxyaddr)
+				break;
+			/* fall thru */
 		case ADDR_TYPE_IPV4:
 			af = AF_INET;
 			break;
