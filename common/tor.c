@@ -238,16 +238,6 @@ bool create_tor_hidden_service_conn(struct lightningd * ld)
 	return true;
 }
 
-bool do_we_use_tor_addr(const struct wireaddr * wireaddr)
-{
-	for (int i = 0; i < tal_count(wireaddr); i++) {
-		if ((wireaddr[i].type == ADDR_TYPE_TOR_V2)
-		    || (wireaddr[i].type == ADDR_TYPE_TOR_V3))
-			return true;
-	}
-	return false;
-}
-
 bool check_return_from_service_call(void)
 {
 	return return_from_service_call;
