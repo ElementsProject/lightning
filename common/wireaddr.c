@@ -108,7 +108,7 @@ bool fromwire_wireaddr_internal(const u8 **cursor, size_t *max,
 
 char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a)
 {
-	char addrstr[FQDN_ADDRLEN];
+	char addrstr[LARGEST_ADDRLEN];
 	char *ret, *hex;
 
 	switch (a->type) {
@@ -212,7 +212,7 @@ REGISTER_TYPE_TO_STRING(wireaddr_internal, fmt_wireaddr_internal);
 
 char *fmt_wireaddr_without_port(const tal_t * ctx, const struct wireaddr *a)
 {
-	char addrstr[FQDN_ADDRLEN];
+	char addrstr[LARGEST_ADDRLEN];
 	char *ret, *hex;
 
 	switch (a->type) {

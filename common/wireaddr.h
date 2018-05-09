@@ -33,7 +33,7 @@ struct sockaddr_un;
 
 #define	TOR_V2_ADDRLEN 12
 #define	TOR_V3_ADDRLEN 37
-#define	FQDN_ADDRLEN 255
+#define	LARGEST_ADDRLEN 37
 
 enum wire_addr_type {
 	ADDR_TYPE_PADDING = 0,
@@ -47,7 +47,7 @@ enum wire_addr_type {
 struct wireaddr {
 	enum wire_addr_type type;
 	u8 addrlen;
-	u8 addr[TOR_V3_ADDRLEN]; //or FQDN_ADDRLEN ?
+	u8 addr[LARGEST_ADDRLEN];
 	u16 port;
 };
 
