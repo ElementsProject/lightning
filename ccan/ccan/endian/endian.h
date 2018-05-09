@@ -113,9 +113,17 @@ static inline uint64_t bswap_64(uint64_t val)
 #elif HAVE_LITTLE_ENDIAN && HAVE_BIG_ENDIAN
 #error "Can't compile for both big and little endian."
 #elif HAVE_LITTLE_ENDIAN
+#ifndef __BYTE_ORDER
 #define __BYTE_ORDER	__LITTLE_ENDIAN
+#elif __BYTE_ORDER != __LITTLE_ENDIAN
+#error "__BYTE_ORDER already defined, but not equal to __LITTLE_ENDIAN"
+#endif
 #elif HAVE_BIG_ENDIAN
+#ifndef __BYTE_ORDER
 #define __BYTE_ORDER	__BIG_ENDIAN
+#elif __BYTE_ORDER != __BIG_ENDIAN
+#error "__BYTE_ORDER already defined, but not equal to __BIG_ENDIAN"
+#endif
 #endif
 
 

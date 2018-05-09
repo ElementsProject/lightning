@@ -110,7 +110,7 @@ static char *add_desc(char *base, size_t *len, size_t *max,
 
 	base = add_str(base, len, max, opt->names);
 	off = strlen(opt->names);
-	if (opt->type == OPT_HASARG
+	if ((opt->type & OPT_HASARG)
 	    && !strchr(opt->names, ' ')
 	    && !strchr(opt->names, '=')) {
 		base = add_str(base, len, max, " <arg>");
