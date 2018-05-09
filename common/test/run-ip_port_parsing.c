@@ -113,7 +113,7 @@ int main(void)
 	assert(parse_wireaddr("odpzvneidqdf5hdq.onion:49150", &addr, 1, NULL));
 	assert(addr.port == 49150);
 
-	assert(parse_wireaddr("odpzvneidqdf5hdq.onion.onion", &addr, 1, NULL));
+	assert(parse_wireaddr("odpzvneidqdf5hdq.onion", &addr, 1, NULL));
 	assert(addr.port == 1);
 	tal_free(tmpctx);
 	return 0;
