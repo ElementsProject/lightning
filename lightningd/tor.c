@@ -2,13 +2,17 @@
 #include <assert.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
+#include <ccan/rbuf/rbuf.h>
+#include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/wireaddr.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <lightningd/log.h>
 #include <lightningd/tor.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -22,223 +26,175 @@
 #define MAX_TOR_ONION_V2_ADDR_LEN 16
 #define MAX_TOR_ONION_V3_ADDR_LEN 56
 
-static bool return_from_service_call;
-
-struct tor_service_reaching {
-	struct lightningd *ld;
-	u8 buffer[MAX_TOR_SERVICE_READBUFFER_LEN];
-	char *cookie[MAX_TOR_COOKIE_LEN];
-	u8 *p;
-	bool noauth;
-	size_t hlen;
-};
-
-static struct io_plan *io_tor_connect_close(struct io_conn *conn)
+static void *buf_resize(void *buf, size_t len)
 {
-	err(1, "Cannot create TOR service address");
-	return_from_service_call = true;
-	return io_close(conn);
+	tal_resize(&buf, len);
+	return buf;
 }
 
-static struct io_plan *io_tor_connect_create_onion_finished(struct io_conn
-							    *conn, struct
-							    tor_service_reaching
-							    *reach)
+static void tor_send_cmd(struct lightningd *ld,
+			 struct rbuf *rbuf, const char *cmd)
 {
-	char *temp_char;
+	log_io(ld->log, LOG_IO_OUT, "torcontrol", cmd, strlen(cmd));
+	if (!write_all(rbuf->fd, cmd, strlen(cmd)))
+		err(1, "Writing '%s' to Tor socket", cmd);
 
-	if (reach->hlen == MAX_TOR_ONION_V2_ADDR_LEN) {
-		size_t n = tal_count(reach->ld->proposed_wireaddr);
-		tal_resize(&reach->ld->proposed_wireaddr, n + 1);
-		tal_resize(&reach->ld->proposed_listen_announce, n+1);
-		reach->ld->proposed_listen_announce[n] = ADDR_ANNOUNCE;
-		temp_char = tal_fmt(tmpctx, "%.56s.onion", reach->buffer);
-		parse_wireaddr_internal(temp_char,
-					&reach->ld->proposed_wireaddr[n],
-					reach->ld->portnum, false, NULL);
-		return_from_service_call = true;
-		return io_close(conn);
+	log_io(ld->log, LOG_IO_OUT, "torcontrol", "\r\n", 2);
+	if (!write_all(rbuf->fd, "\r\n", 2))
+		err(1, "Writing CRLF to Tor socket");
+}
+
+static char *tor_response_line(struct lightningd *ld, struct rbuf *rbuf)
+{
+	char *line;
+
+	while ((line = rbuf_read_str(rbuf, '\n', buf_resize)) != NULL) {
+		log_io(ld->log, LOG_IO_IN, "torcontrol", line, strlen(line));
+
+		/* Weird response */
+		if (!strstarts(line, "250"))
+			errx(1, "Tor returned '%s'", line);
+
+		/* Last line */
+		if (strstarts(line, "250 "))
+			break;
+
+		return line + 4;
 	}
+	return NULL;
+}
+
+static void discard_remaining_response(struct lightningd *ld, struct rbuf *rbuf)
+{
+	while (tor_response_line(ld, rbuf));
+}
+
+static void make_onion(struct lightningd *ld, struct rbuf *rbuf)
+{
+	char *line;
+
+//V3 tor after 3.3.3.aplha FIXME: TODO SAIBATO
+//sprintf((char *)reach->buffer,"ADD_ONION NEW:ED25519-V3 Port=9735,127.0.0.1:9735\r\n");
+	tor_send_cmd(ld, rbuf,
+		     tal_fmt(tmpctx, "ADD_ONION NEW:RSA1024 Port=%d,127.0.0.1:%d Flags=DiscardPK,Detach",
+			     ld->portnum, ld->portnum));
+
+	while ((line = tor_response_line(ld, rbuf)) != NULL) {
+		size_t n;
+
+		if (!strstarts(line, "ServiceID="))
+			continue;
+		line += strlen("ServiceID=");
+		/* Strip the trailing CR */
+		if (strchr(line, '\r'))
+			*strchr(line, '\r') = '\0';
+
+		n = tal_count(ld->proposed_wireaddr);
+		tal_resize(&ld->proposed_wireaddr, n + 1);
+		tal_resize(&ld->proposed_listen_announce, n + 1);
+		parse_wireaddr_internal(tal_fmt(tmpctx, "%s.onion", line),
+					&ld->proposed_wireaddr[n],
+					ld->portnum, false, NULL);
+		ld->proposed_listen_announce[n] = ADDR_ANNOUNCE;
+		discard_remaining_response(ld, rbuf);
+		return;
+	}
+	errx(1, "Tor didn't give us a ServiceID");
+}
+
+/* https://gitweb.torproject.org/torspec.git/tree/control-spec.txt:
+ *
+ *     MidReplyLine = StatusCode "-" ReplyLine
+ *     DataReplyLine = StatusCode "+" ReplyLine CmdData
+ *         EndReplyLine = StatusCode SP ReplyLine
+ *         ReplyLine = [ReplyText] CRLF
+ *         ReplyText = XXXX
+ *         StatusCode = 3DIGIT
+ */
+static void negotiate_auth(struct lightningd *ld, struct rbuf *rbuf)
+{
+	char *line;
+
+	tor_send_cmd(ld, rbuf, "PROTOCOLINFO 1");
+
+	while ((line = tor_response_line(ld, rbuf)) != NULL) {
+		const char *p;
+
+		if (!strstarts(line, "AUTH METHODS="))
+			continue;
+
+		if (strstr(line, "NULL")) {
+			discard_remaining_response(ld, rbuf);
+			tor_send_cmd(ld, rbuf, "AUTHENTICATE");
+			discard_remaining_response(ld, rbuf);
+			return;
+		} else if (strstr(line, "HASHEDPASSWORD")
+			   && strlen(ld->tor_service_password)) {
+			discard_remaining_response(ld, rbuf);
+			tor_send_cmd(ld, rbuf,
+				     tal_fmt(tmpctx, "AUTHENTICATE \"%s\"",
+					     ld->tor_service_password));
+			discard_remaining_response(ld, rbuf);
+			return;
+		} else if ((p = strstr(line, "COOKIEFILE=\"")) != NULL) {
+			char *contents, *end;
+
+			p += strlen("COOKIEFILE=\"");
+			end = strstr(p, "\"");
+			if (!end)
+				errx(1, "Tor protocolinfo bad line '%s'", line);
+			*end = '\0';
+
+			contents = grab_file(tmpctx, p);
+			if (!contents)
+				err(1, "Cannot open Tor cookie file '%s'", p);
+
+			discard_remaining_response(ld, rbuf);
+			tor_send_cmd(ld, rbuf,
+				     tal_fmt(tmpctx, "AUTHENTICATE %s",
+					     tal_hexstr(tmpctx,
+							contents,
+							tal_len(contents)-1)));
+			discard_remaining_response(ld, rbuf);
+			return;
+		}
+	}
+	errx(1, "Tor protocolinfo did not give auth");
+}
+
+void tor_init(struct lightningd *ld)
+{
+	int fd;
+	struct addrinfo *ai_tor;
+	struct rbuf rbuf;
+	char *buffer;
+
+	if (!ld->config.tor_enable_auto_hidden_service)
+		return;
+
+	/* FIXME: Need better way to convert wireaddr to addrinfo... */
+	if (getaddrinfo(fmt_wireaddr_without_port(ld, ld->tor_serviceaddrs),
+			tal_fmt(tmpctx, "%d", ld->tor_serviceaddrs->port), NULL,
+			&ai_tor) != 0)
+		errx(1, "getaddrinfo failed for Tor service");
+
+	fd = socket(ai_tor->ai_family, SOCK_STREAM, 0);
+	if (fd < 0)
+		err(1, "Creating stream socket for Tor");
+
+	if (connect(fd, ai_tor->ai_addr, ai_tor->ai_addrlen) != 0)
+		err(1, "Connecting stream socket to Tor service");
+
+	buffer = tal_arr(tmpctx, char, rbuf_good_size(fd));
+	rbuf_init(&rbuf, fd, buffer, tal_len(buffer));
+
+	negotiate_auth(ld, &rbuf);
+	make_onion(ld, &rbuf);
+
 	/*on the other hand we can stay connected until ln finish to keep onion alive and then vanish */
 	//because when we run with Detach flag as we now do every start of LN creates a new addr while the old
 	//stays valid until reboot this might not be desired so we can also drop Detach and use the
 	//read_partial to keep it open until LN drops
 	//FIXME: SAIBATO we might not want to close this conn
-	//return io_read_partial(conn, reach->p, 1 ,&reach->hlen, io_tor_connect_create_onion_finished, reach);
-	return io_tor_connect_close(conn);
-}
-
-static struct io_plan *io_tor_connect_after_create_onion(struct io_conn *conn, struct
-							 tor_service_reaching
-							 *reach)
-{
-	reach->p = reach->p + reach->hlen;
-
-	if (!strstr((char *)reach->buffer, "ServiceID=")) {
-		if (reach->hlen == 0)
-			return io_tor_connect_close(conn);
-
-		return io_read_partial(conn, reach->p, 1, &reach->hlen,
-				       io_tor_connect_after_create_onion,
-				       reach);
-	} else {
-		memset(reach->buffer, 0, sizeof(reach->buffer));
-		return io_read_partial(conn, reach->buffer,
-				       MAX_TOR_ONION_V2_ADDR_LEN, &reach->hlen,
-				       io_tor_connect_create_onion_finished,
-				       reach);
-	}
-}
-
-//V3 tor after 3.3.3.aplha FIXME: TODO SAIBATO
-//sprintf((char *)reach->buffer,"ADD_ONION NEW:ED25519-V3 Port=9735,127.0.0.1:9735\r\n");
-
-static struct io_plan *io_tor_connect_make_onion(struct io_conn *conn, struct tor_service_reaching
-						 *reach)
-{
-	if (strstr((char *)reach->buffer, "250 OK") == NULL)
-		return io_tor_connect_close(conn);
-
-	sprintf((char *)reach->buffer,
-		"ADD_ONION NEW:RSA1024 Port=%d,127.0.0.1:%d Flags=DiscardPK,Detach\r\n",
-		reach->ld->portnum, reach->ld->portnum);
-
-	reach->hlen = strlen((char *)reach->buffer);
-	reach->p = reach->buffer;
-	return io_write(conn, reach->buffer, reach->hlen,
-			io_tor_connect_after_create_onion, reach);
-}
-
-static struct io_plan *io_tor_connect_after_authenticate(struct io_conn *conn, struct
-							 tor_service_reaching
-							 *reach)
-{
-	return io_read(conn, reach->buffer, 7, io_tor_connect_make_onion,
-		       reach);
-}
-
-static struct io_plan *io_tor_connect_authenticate(struct io_conn *conn, struct
-						   tor_service_reaching
-						   *reach)
-{
-	sprintf((char *)reach->buffer, "AUTHENTICATE %s\r\n",
-		(char *)reach->cookie);
-
-	if (reach->noauth)
-		sprintf((char *)reach->buffer, "AUTHENTICATE\r\n");
-
-	reach->hlen = strlen((char *)reach->buffer);
-
-	return io_write(conn, reach->buffer, reach->hlen,
-			io_tor_connect_after_authenticate, reach);
-
-}
-
-static struct io_plan *io_tor_connect_after_answer_pi(struct io_conn *conn, struct
-						      tor_service_reaching
-						      *reach)
-{
-	char *p = tal(reach, char);
-	char *p2 = tal(reach, char);
-
-	u8 *buf = tal_arrz(reach, u8, MAX_TOR_COOKIE_LEN);
-
-	reach->noauth = false;
-
-	if (strstr((char *)reach->buffer, "NULL"))
-		reach->noauth = true;
-	else if (strstr((char *)reach->buffer, "HASHEDPASSWORD")
-		 && (strlen(reach->ld->tor_service_password))) {
-		reach->noauth = false;
-		sprintf((char *)reach->cookie, "\"%s\"",
-			reach->ld->tor_service_password);
-	} else if ((p = strstr((char *)reach->buffer, "COOKIEFILE="))) {
-		assert(strlen(p) > 12);
-		p2 = strstr((char *)(p + 12), "\"");
-		assert(p2 != NULL);
-		*(char *)(p + (strlen(p) - strlen(p2))) = 0;
-
-		int fd = open((char *)(p + 12), O_RDONLY);
-		if (fd < 0)
-			return io_tor_connect_close(conn);
-		if (!read(fd, buf, MAX_TOR_COOKIE_LEN)) {
-			close(fd);
-			return io_tor_connect_close(conn);
-		} else
-			close(fd);
-
-		hex_encode(buf, 32, (char *)reach->cookie, 80);
-		reach->noauth = false;
-	} else
-		return io_tor_connect_close(conn);
-
-	return io_tor_connect_authenticate(conn, reach);
-
-}
-
-static struct io_plan *io_tor_connect_after_protocolinfo(struct io_conn *conn, struct
-							 tor_service_reaching
-							 *reach)
-{
-
-	memset(reach->buffer, 0, MAX_TOR_SERVICE_READBUFFER_LEN);
-	return io_read_partial(conn, reach->buffer,
-			       MAX_TOR_SERVICE_READBUFFER_LEN - 1, &reach->hlen,
-			       &io_tor_connect_after_answer_pi, reach);
-}
-
-static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
-							    *conn, struct
-							    tor_service_reaching
-							    *reach)
-{
-
-	sprintf((char *)reach->buffer, "PROTOCOLINFO 1\r\n");
-	reach->hlen = strlen((char *)reach->buffer);
-
-	return io_write(conn, reach->buffer, reach->hlen,
-			io_tor_connect_after_protocolinfo, reach);
-}
-
-static struct io_plan *tor_connect_finish(struct io_conn *conn,
-					  struct tor_service_reaching *reach)
-{
-	return io_tor_connect_after_resp_to_connect(conn, reach);
-}
-
-static struct io_plan *tor_conn_init(struct io_conn *conn,
-				     struct lightningd *ld)
-{
-	struct addrinfo *ai_tor = tal(ld, struct addrinfo);
-	struct tor_service_reaching *reach =
-	    tal(ld, struct tor_service_reaching);
-
-	reach->ld = ld;
-
-	getaddrinfo(fmt_wireaddr_without_port(ld, ld->tor_serviceaddrs),
-		    tal_fmt(ld, "%d", ld->tor_serviceaddrs->port), NULL,
-		    &ai_tor);
-
-	return io_connect(conn, ai_tor, &tor_connect_finish, reach);
-}
-
-bool create_tor_hidden_service_conn(struct lightningd * ld)
-{
-	int fd;
-	struct io_conn *conn;
-
-	return_from_service_call = false;
-
-	fd = socket(AF_INET, SOCK_STREAM, 0);
-	conn = io_new_conn(NULL, fd, &tor_conn_init, ld);
-	if (!conn) {
-		return_from_service_call = true;
-		err(1, "Cannot create new TOR connection");
-	}
-	return true;
-}
-
-bool check_return_from_service_call(void)
-{
-	return return_from_service_call;
+	close(fd);
 }

@@ -7,6 +7,5 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-bool check_return_from_service_call(void);
-bool create_tor_hidden_service_conn(struct lightningd *ld);
+void tor_init(struct lightningd *ld);
 #endif /* LIGHTNING_LIGHTNINGD_TOR_H */
