@@ -8,8 +8,6 @@ struct wireaddr;
 struct io_conn;
 struct reaching;
 
-bool all_tor_addresses(const struct wireaddr *wireaddr);
-
 struct io_plan *io_tor_connect(struct io_conn *conn,
 			       const struct addrinfo *tor_proxyaddr,
 			       const struct wireaddr *addr,

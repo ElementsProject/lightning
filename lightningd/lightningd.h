@@ -196,6 +196,7 @@ struct lightningd {
 	struct wireaddr *proxyaddr;
 	bool use_proxy_always;
 	char *tor_service_password;
+	bool pure_tor_setup;
 };
 
 const struct chainparams *get_chainparams(const struct lightningd *ld);

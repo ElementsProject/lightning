@@ -490,3 +490,29 @@ struct addrinfo *wireaddr_to_addrinfo(const tal_t *ctx,
 	}
 	abort();
 }
+
+bool all_tor_addresses(const struct wireaddr_internal *wireaddr)
+{
+	for (int i = 0; i < tal_count(wireaddr); i++) {
+		switch (wireaddr[i].itype) {
+		case ADDR_INTERNAL_SOCKNAME:
+			return false;
+		case ADDR_INTERNAL_ALLPROTO:
+			return false;
+		case ADDR_INTERNAL_AUTOTOR:
+			continue;
+		case ADDR_INTERNAL_WIREADDR:
+			switch (wireaddr[i].u.wireaddr.type) {
+			case ADDR_TYPE_IPV4:
+			case ADDR_TYPE_IPV6:
+				return false;
+			case ADDR_TYPE_TOR_V2:
+			case ADDR_TYPE_TOR_V3:
+			case ADDR_TYPE_PADDING:
+				continue;
+			}
+		}
+		abort();
+	}
+	return true;
+}
