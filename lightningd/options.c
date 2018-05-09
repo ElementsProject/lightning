@@ -12,7 +12,6 @@
 #include <common/configdir.h>
 #include <common/json_escaped.h>
 #include <common/memleak.h>
-#include <common/tor.h>
 #include <common/version.h>
 #include <common/wireaddr.h>
 #include <errno.h>

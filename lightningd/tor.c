@@ -4,12 +4,12 @@
 #include <ccan/io/io.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
-#include <common/tor.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/wireaddr.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <lightningd/tor.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
