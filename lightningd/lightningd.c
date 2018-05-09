@@ -32,7 +32,6 @@
 #include <lightningd/log.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/options.h>
-#include <lightningd/tor.h>
 #include <onchaind/onchain_wire.h>
 #include <signal.h>
 #include <sys/types.h>
@@ -315,9 +314,6 @@ int main(int argc, char *argv[])
 
 	/* Ignore SIGPIPE: we look at our write return values*/
 	signal(SIGPIPE, SIG_IGN);
-
-	/* tor support */
-	tor_init(ld);
 
 	/* Make sure we can reach other daemons, and versions match. */
 	test_daemons(ld);

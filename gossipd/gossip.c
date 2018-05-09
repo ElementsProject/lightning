@@ -38,6 +38,7 @@
 #include <gossipd/netaddress.h>
 #include <gossipd/routing.h>
 #include <gossipd/tor.h>
+#include <gossipd/tor_autoservice.h>
 #include <hsmd/client.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
@@ -149,6 +150,11 @@ struct daemon {
 
 	struct addrinfo *proxyaddr;
 	bool use_proxy_always;
+
+	bool tor_autoservice;
+	struct wireaddr *tor_serviceaddr;
+	char *tor_password;
+
 };
 
 /* Peers we're trying to reach. */
@@ -1748,7 +1754,8 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 		&daemon->proposed_listen_announce, daemon->rgb,
 		daemon->alias, &update_channel_interval, &daemon->reconnect,
 		&proxyaddr, &daemon->use_proxy_always,
-		&dev_allow_localhost)) {
+		&dev_allow_localhost, &daemon->tor_autoservice,
+		&daemon->tor_serviceaddr, &daemon->tor_password)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
 	/* Prune time is twice update time */
@@ -1784,9 +1791,17 @@ static struct io_plan *gossip_activate(struct daemon_conn *master,
 	if (!fromwire_gossipctl_activate(msg, &listen))
 		master_badmsg(WIRE_GOSSIPCTL_ACTIVATE, msg);
 
-	if (listen)
+	if (listen) {
 		binding = setup_listeners(tmpctx, daemon);
-	else
+		if (daemon->tor_autoservice) {
+			struct wireaddr *tor;
+			tor = tor_autoservice(tmpctx,
+					      daemon->tor_serviceaddr,
+					      daemon->tor_password,
+					      binding);
+			add_announcable(daemon, tor);
+		}
+	} else
 		binding = NULL;
 
 	/* If we only advertize Tor addresses, force everything through proxy
