@@ -74,6 +74,9 @@ void towire_wireaddr_internal(u8 **pptr, const struct wireaddr_internal *addr)
 		towire_u8_array(pptr, (const u8 *)addr->u.sockname,
 				sizeof(addr->u.sockname));
 		return;
+	case ADDR_INTERNAL_AUTOTOR:
+		towire_wireaddr(pptr, &addr->u.torservice);
+		return;
 	case ADDR_INTERNAL_ALLPROTO:
 		towire_u16(pptr, addr->u.port);
 		return;
@@ -99,6 +102,8 @@ bool fromwire_wireaddr_internal(const u8 **cursor, size_t *max,
 	case ADDR_INTERNAL_ALLPROTO:
 		addr->u.port = fromwire_u16(cursor, max);
 		return *cursor != NULL;
+	case ADDR_INTERNAL_AUTOTOR:
+		return fromwire_wireaddr(cursor, max, &addr->u.torservice);
 	case ADDR_INTERNAL_WIREADDR:
 		return fromwire_wireaddr(cursor, max, &addr->u.wireaddr);
 	}
@@ -174,6 +179,9 @@ char *fmt_wireaddr_internal(const tal_t *ctx,
 		return tal_fmt(ctx, ":%u", a->u.port);
 	case ADDR_INTERNAL_WIREADDR:
 		return fmt_wireaddr(ctx, &a->u.wireaddr);
+	case ADDR_INTERNAL_AUTOTOR:
+		return tal_fmt(ctx, "autotor:%s",
+			       fmt_wireaddr(tmpctx, &a->u.torservice));
 	}
 	abort();
 }
@@ -394,6 +402,15 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 		return true;
 	}
 
+	/* 'autotor:' is a special prefix meaning talk to Tor to create
+	 * an onion address. */
+	if (strstarts(arg, "autotor:")) {
+		addr->itype = ADDR_INTERNAL_AUTOTOR;
+		return parse_wireaddr(arg + strlen("autotor:"),
+				      &addr->u.torservice, 9051, dns_ok,
+				      err_msg);
+	}
+
 	addr->itype = ADDR_INTERNAL_WIREADDR;
 	return parse_wireaddr(arg, &addr->u.wireaddr, port, dns_ok, err_msg);
 }
@@ -434,6 +451,7 @@ struct addrinfo *wireaddr_internal_to_addrinfo(const tal_t *ctx,
 		ai->ai_addr = (struct sockaddr *)sun;
 		return ai;
 	case ADDR_INTERNAL_ALLPROTO:
+	case ADDR_INTERNAL_AUTOTOR:
 		break;
 	case ADDR_INTERNAL_WIREADDR:
 		return wireaddr_to_addrinfo(ctx, &wireaddr->u.wireaddr);

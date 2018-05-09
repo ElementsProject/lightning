@@ -23,10 +23,6 @@ gossipctl_init,,num_tor_proxyaddrs,u16
 gossipctl_init,,tor_proxyaddr,num_tor_proxyaddrs*struct wireaddr
 gossipctl_init,,use_tor_proxy_always,bool
 gossipctl_init,,dev_allow_localhost,bool
-gossipctl_init,,tor_autoservice,bool
-# This is 0 or 1.
-gossipctl_init,,num_tor_serviceaddrs,u16
-gossipctl_init,,tor_serviceaddr,num_tor_serviceaddrs*struct wireaddr
 gossipctl_init,,tor_password,wirestring
 
 # Activate the gossip daemon, so others can connect.

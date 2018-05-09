@@ -86,7 +86,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->proxyaddr = NULL;
 	ld->use_proxy_always = false;
 	ld->tor_service_password = NULL;
-	ld->tor_serviceaddr = NULL;
 	return ld;
 }
 
