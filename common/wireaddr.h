@@ -31,9 +31,9 @@ struct sockaddr_un;
  *             where `checksum = sha3(".onion checksum" | pubkey || version)[:2]`
  */
 
-#define	TOR_V2_ADDRLEN 12
-#define	TOR_V3_ADDRLEN 37
-#define	LARGEST_ADDRLEN 37
+#define	TOR_V2_ADDRLEN 10
+#define	TOR_V3_ADDRLEN 35
+#define	LARGEST_ADDRLEN TOR_V3_ADDRLEN
 
 enum wire_addr_type {
 	ADDR_TYPE_PADDING = 0,
