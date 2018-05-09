@@ -150,46 +150,18 @@ static struct io_plan *io_tor_connect_do_req(struct io_conn *conn,
 
 // called when we want to connect to TOR SOCKS5
 struct io_plan *io_tor_connect(struct io_conn *conn,
-			       const struct wireaddr *tor_proxyaddrs,
+			       const struct addrinfo *tor_proxyaddr,
 			       const struct wireaddr *addr,
 			       struct reaching *reach)
 {
-	struct addrinfo *ai_tor = tal(reach, struct addrinfo);
-	char *port_addr = tal(reach, char);
-	struct io_plan *plan;
 	struct reaching_socks *reach_tor = tal(reach, struct reaching_socks);
 
 	reach_tor->port = htons(addr->port);
-	port_addr = tal_fmt(reach, "%u", tor_proxyaddrs->port);
-	getaddrinfo((char *)
-		    fmt_wireaddr_without_port(tmpctx,
-					      tor_proxyaddrs),
-		    port_addr, NULL, &ai_tor);
-	status_trace("Tor proxyaddr : %s",
-		     fmt_wireaddr(reach, tor_proxyaddrs));
-	reach_tor->host = tal_strdup(reach, "");
-
-	if (addr->type == ADDR_TYPE_TOR_V3)
-		reach_tor->host =
-		    tal_fmt(reach, "%.62s",
-			    fmt_wireaddr_without_port(tmpctx, addr));
-	else if (addr->type == ADDR_TYPE_TOR_V2)
-		reach_tor->host =
-		    tal_fmt(reach, "%.22s",
-			    fmt_wireaddr_without_port(tmpctx, addr));
-	else if (addr->type == ADDR_TYPE_IPV4)
-		reach_tor->host =
-		    tal_fmt(reach, "%s",
-			    fmt_wireaddr_without_port(tmpctx, addr));
-	else if (addr->type == ADDR_TYPE_IPV6)
-		reach_tor->host =
-		    tal_fmt(reach, "%s",
-			    fmt_wireaddr_without_port(tmpctx, addr));
+	reach_tor->host = fmt_wireaddr_without_port(reach_tor, addr);
 	reach_tor->reach = reach;
 
-	plan = io_connect(conn, ai_tor, &io_tor_connect_do_req, reach_tor);
-
-	return plan;
+	return io_connect(conn, tor_proxyaddr,
+			  &io_tor_connect_do_req, reach_tor);
 }
 
 bool do_we_use_tor_addr(const struct wireaddr *wireaddr)
