@@ -147,8 +147,8 @@ struct daemon {
 	/* Automatically reconnect. */
 	bool reconnect;
 
-	struct addrinfo *tor_proxyaddr;
-	bool use_tor_proxy_always;
+	struct addrinfo *proxyaddr;
+	bool use_proxy_always;
 };
 
 /* Peers we're trying to reach. */
@@ -1739,7 +1739,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	struct bitcoin_blkid chain_hash;
 	u32 update_channel_interval;
 	bool dev_allow_localhost;
-	struct wireaddr *tor_proxyaddr;
+	struct wireaddr *proxyaddr;
 
 	if (!fromwire_gossipctl_init(
 		daemon, msg, &daemon->broadcast_interval, &chain_hash,
@@ -1747,7 +1747,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 		&daemon->localfeatures, &daemon->proposed_wireaddr,
 		&daemon->proposed_listen_announce, daemon->rgb,
 		daemon->alias, &update_channel_interval, &daemon->reconnect,
-		&tor_proxyaddr, &daemon->use_tor_proxy_always,
+		&proxyaddr, &daemon->use_proxy_always,
 		&dev_allow_localhost)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
@@ -1757,13 +1757,12 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 					   dev_allow_localhost);
 
 	/* Resolve Tor proxy address if any */
-	if (tor_proxyaddr) {
-		status_trace("Tor proxyaddr : %s",
-			     fmt_wireaddr(tmpctx, tor_proxyaddr));
-		daemon->tor_proxyaddr = wireaddr_to_addrinfo(daemon,
-							     tor_proxyaddr);
+	if (proxyaddr) {
+		status_trace("Proxy address: %s",
+			     fmt_wireaddr(tmpctx, proxyaddr));
+		daemon->proxyaddr = wireaddr_to_addrinfo(daemon, proxyaddr);
 	} else
-		daemon->tor_proxyaddr = NULL;
+		daemon->proxyaddr = NULL;
 
 	/* Load stored gossip messages */
 	gossip_store_load(daemon->rstate, daemon->rstate->store);
@@ -1918,9 +1917,9 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 			return io_close(conn);
 		}
 
-		if (!use_tor && reach->daemon->tor_proxyaddr) {
+		if (!use_tor && reach->daemon->proxyaddr) {
 			/* We dont use tor proxy if we only have ip */
-			if (reach->daemon->use_tor_proxy_always
+			if (reach->daemon->use_proxy_always
 			    || do_we_use_tor_addr(reach->daemon->announcable))
 				use_tor = true;
 		}
@@ -1929,7 +1928,7 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 	io_set_finish(conn, connect_failed, reach);
 	if (use_tor) {
 		assert(reach->addr.itype == ADDR_INTERNAL_WIREADDR);
-		return io_tor_connect(conn, reach->daemon->tor_proxyaddr,
+		return io_tor_connect(conn, reach->daemon->proxyaddr,
 				      &reach->addr.u.wireaddr, reach);
 	}
 	return io_connect(conn, ai, connection_out, reach);
@@ -2065,7 +2064,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 		switch (a->addr.u.wireaddr.type) {
 		case ADDR_TYPE_TOR_V2:
 		case ADDR_TYPE_TOR_V3:
-			if (!daemon->tor_proxyaddr)
+			if (!daemon->proxyaddr)
 				break;
 			/* fall thru */
 		case ADDR_TYPE_IPV4:

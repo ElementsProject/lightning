@@ -295,14 +295,14 @@ static char *opt_set_offline(struct lightningd *ld)
 	return NULL;
 }
 
-static char *opt_add_torproxy_addr(const char *arg, struct lightningd *ld)
+static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 {
-	tal_free(ld->tor_proxyaddr);
+	tal_free(ld->proxyaddr);
 
 	/* We use a tal_arr here, so we can marshal it to gossipd */
-	ld->tor_proxyaddr = tal_arr(ld, struct wireaddr, 1);
+	ld->proxyaddr = tal_arr(ld, struct wireaddr, 1);
 
-	if (!parse_wireaddr(arg, ld->tor_proxyaddr, 9050, NULL)) {
+	if (!parse_wireaddr(arg, ld->proxyaddr, 9050, NULL)) {
 		return tal_fmt(NULL, "Unable to parse Tor proxy address '%s'",
 			       arg);
 	}
@@ -423,7 +423,7 @@ static void config_register_opts(struct lightningd *ld)
 			 opt_set_u64, opt_show_u64,
 			 &ld->ini_autocleaninvoice_cycle,
 			 "If expired invoice autoclean enabled, invoices that have expired for at least this given seconds are cleaned");
-	opt_register_arg("--proxy", opt_add_torproxy_addr, NULL,
+	opt_register_arg("--proxy", opt_add_proxy_addr, NULL,
 			ld,"Set a socks v5 proxy IP address and port");
 	opt_register_arg("--tor-service",opt_add_tor_service_addr, NULL,
 			ld,"Set a tor service api IP address and port");
@@ -432,8 +432,8 @@ static void config_register_opts(struct lightningd *ld)
 			 "Set a Tor hidden service password");
 	opt_register_arg("--tor-auto-listen", opt_set_bool_arg, opt_show_bool,
 			&ld->config.tor_enable_auto_hidden_service , "Generate and use a temp auto hidden-service and show the onion address");
-	opt_register_arg("--always-use-tor-proxy", opt_set_bool_arg, opt_show_bool,
-			&ld->use_tor_proxy_always , "Use the Tor proxy always");
+	opt_register_arg("--always-use-proxy", opt_set_bool_arg, opt_show_bool,
+			&ld->use_proxy_always, "Use the proxy always");
 }
 
 #if DEVELOPER
@@ -598,8 +598,8 @@ static void check_config(struct lightningd *ld)
 	if (ld->config.tor_enable_auto_hidden_service && !ld->tor_serviceaddr)
 		fatal("--tor-auto-listen needs --tor-service");
 
-	if (ld->use_tor_proxy_always && !ld->tor_proxyaddr)
-		fatal("--always-use-tor-proxy needs --proxy");
+	if (ld->use_proxy_always && !ld->proxyaddr)
+		fatal("--always-use-proxy needs --proxy");
 }
 
 static void setup_default_config(struct lightningd *ld)
@@ -985,9 +985,9 @@ static void add_config(struct lightningd *ld,
 					   ld->proposed_listen_announce,
 					   ADDR_ANNOUNCE);
 			return;
-		} else if (opt->cb_arg == (void *)opt_add_torproxy_addr) {
-			if (ld->tor_proxyaddr)
-				answer = fmt_wireaddr(name0, ld->tor_proxyaddr);
+		} else if (opt->cb_arg == (void *)opt_add_proxy_addr) {
+			if (ld->proxyaddr)
+				answer = fmt_wireaddr(name0, ld->proxyaddr);
 		} else if (opt->cb_arg == (void *)opt_add_tor_service_addr) {
 			if (ld->tor_serviceaddr)
 				answer = fmt_wireaddr(name0,

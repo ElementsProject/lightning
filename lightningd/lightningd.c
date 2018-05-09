@@ -84,10 +84,10 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->pidfile = NULL;
 	ld->ini_autocleaninvoice_cycle = 0;
 	ld->ini_autocleaninvoice_expiredby = 86400;
+	ld->proxyaddr = NULL;
+	ld->use_proxy_always = false;
 	ld->tor_service_password = NULL;
-	ld->tor_proxyaddr = NULL;
 	ld->tor_serviceaddr = NULL;
-	ld->use_tor_proxy_always = false;
 	return ld;
 }
 

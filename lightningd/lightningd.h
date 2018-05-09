@@ -203,10 +203,10 @@ struct lightningd {
 #endif /* DEVELOPER */
 
 	/* tor support */
-	struct wireaddr *tor_proxyaddr;
+	struct wireaddr *proxyaddr;
+	bool use_proxy_always;
 	struct wireaddr *tor_serviceaddr;
 	char *tor_service_password;
-	bool use_tor_proxy_always;
 };
 
 const struct chainparams *get_chainparams(const struct lightningd *ld);
