@@ -25,7 +25,9 @@ void status_vfmt(enum log_level level, const char *fmt, va_list ap);
 
 /* Usually we only log the packet names, not contents. */
 extern volatile bool logging_io;
-void status_io(enum log_level iodir, const u8 *p);
+void status_peer_io(enum log_level iodir, const u8 *p);
+void status_io(enum log_level iodir, const char *who,
+	       const void *data, size_t len);
 
 /* Helpers */
 #define status_debug(...)			\

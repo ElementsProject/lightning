@@ -18,7 +18,7 @@ bool sync_crypto_write(struct crypto_state *cs, int fd, const void *msg TAKES)
 	u8 *enc;
 	bool ret;
 
-	status_io(LOG_IO_OUT, msg);
+	status_peer_io(LOG_IO_OUT, msg);
 	enc = cryptomsg_encrypt_msg(NULL, cs, msg);
 
 #if DEVELOPER
@@ -74,7 +74,7 @@ u8 *sync_crypto_read(const tal_t *ctx, struct crypto_state *cs, int fd)
 	if (!dec)
 		status_trace("Failed body decrypt with rn=%"PRIu64, cs->rn-2);
 	else
-		status_io(LOG_IO_IN, dec);
+		status_peer_io(LOG_IO_IN, dec);
 
 	return dec;
 }

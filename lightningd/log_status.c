@@ -3,7 +3,7 @@
 
 bool log_status_msg(struct log *log, const u8 *msg)
 {
-	char *entry;
+	char *entry, *who;
 	u8 *data;
  	enum log_level level;
 
@@ -12,9 +12,9 @@ bool log_status_msg(struct log *log, const u8 *msg)
 			log_(log, level, "%s", entry);
 			return true;
 		}
-	} else if (fromwire_status_io(msg, msg, &level, &data)) {
+	} else if (fromwire_status_io(msg, msg, &level, &who, &data)) {
 		if (level == LOG_IO_IN || level == LOG_IO_OUT) {
-			log_io(log, level, "", data, tal_len(data));
+			log_io(log, level, who, data, tal_len(data));
 			return true;
 		}
 	}

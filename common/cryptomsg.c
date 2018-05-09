@@ -137,7 +137,7 @@ static struct io_plan *peer_decrypt_body(struct io_conn *conn,
 	if (!decrypted)
 		return io_close(conn);
 
-	status_io(LOG_IO_IN, decrypted);
+	status_peer_io(LOG_IO_IN, decrypted);
 
 	/* BOLT #1:
 	 *
@@ -351,7 +351,7 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 	assert(!pcs->out);
 
 	/* Important: this doesn't take msg! */
-	status_io(LOG_IO_OUT, msg);
+	status_peer_io(LOG_IO_OUT, msg);
 	pcs->out = cryptomsg_encrypt_msg(conn, &pcs->cs, msg);
 	pcs->next_out = next;
 
