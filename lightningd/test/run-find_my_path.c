@@ -104,9 +104,6 @@ void subd_shutdown(struct subd *subd UNNEEDED, unsigned int seconds UNNEEDED)
 /* Generated stub for timer_expired */
 void timer_expired(tal_t *ctx UNNEEDED, struct timer *timer UNNEEDED)
 { fprintf(stderr, "timer_expired called!\n"); abort(); }
-/* Generated stub for tor_init */
-void tor_init(struct lightningd *ld UNNEEDED)
-{ fprintf(stderr, "tor_init called!\n"); abort(); }
 /* Generated stub for txfilter_add_derkey */
 void txfilter_add_derkey(struct txfilter *filter UNNEEDED,
 			 const u8 derkey[PUBKEY_DER_LEN])

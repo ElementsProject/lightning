@@ -19,6 +19,7 @@ LIGHTNINGD_GOSSIP_HEADERS := gossipd/gen_gossip_wire.h \
 	gossipd/handshake.h				\
 	gossipd/netaddress.h				\
 	gossipd/routing.h				\
+	gossipd/tor_autoservice.h			\
 	gossipd/tor.h					\
 	gossipd/broadcast.h
 LIGHTNINGD_GOSSIP_SRC := $(LIGHTNINGD_GOSSIP_HEADERS:.h=.c)

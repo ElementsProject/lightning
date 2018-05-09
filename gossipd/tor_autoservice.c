@@ -12,8 +12,8 @@
 #include <common/wireaddr.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <gossipd/tor_autoservice.h>
 #include <lightningd/log.h>
-#include <lightningd/tor.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -32,28 +32,30 @@ static void *buf_resize(void *buf, size_t len)
 	return buf;
 }
 
-static void tor_send_cmd(struct lightningd *ld,
-			 struct rbuf *rbuf, const char *cmd)
+static void tor_send_cmd(struct rbuf *rbuf, const char *cmd)
 {
-	log_io(ld->log, LOG_IO_OUT, "torcontrol", cmd, strlen(cmd));
+	status_io(LOG_IO_OUT, "torcontrol", cmd, strlen(cmd));
 	if (!write_all(rbuf->fd, cmd, strlen(cmd)))
-		err(1, "Writing '%s' to Tor socket", cmd);
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Writing '%s' to Tor socket", cmd);
 
-	log_io(ld->log, LOG_IO_OUT, "torcontrol", "\r\n", 2);
+	status_io(LOG_IO_OUT, "torcontrol", "\r\n", 2);
 	if (!write_all(rbuf->fd, "\r\n", 2))
-		err(1, "Writing CRLF to Tor socket");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Writing CRLF to Tor socket");
 }
 
-static char *tor_response_line(struct lightningd *ld, struct rbuf *rbuf)
+static char *tor_response_line(struct rbuf *rbuf)
 {
 	char *line;
 
 	while ((line = rbuf_read_str(rbuf, '\n', buf_resize)) != NULL) {
-		log_io(ld->log, LOG_IO_IN, "torcontrol", line, strlen(line));
+		status_io(LOG_IO_IN, "torcontrol", line, strlen(line));
 
 		/* Weird response */
 		if (!strstarts(line, "250"))
-			errx(1, "Tor returned '%s'", line);
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Tor returned '%s'", line);
 
 		/* Last line */
 		if (strstarts(line, "250 "))
@@ -64,23 +66,27 @@ static char *tor_response_line(struct lightningd *ld, struct rbuf *rbuf)
 	return NULL;
 }
 
-static void discard_remaining_response(struct lightningd *ld, struct rbuf *rbuf)
+static void discard_remaining_response(struct rbuf *rbuf)
 {
-	while (tor_response_line(ld, rbuf));
+	while (tor_response_line(rbuf));
 }
 
-static void make_onion(struct lightningd *ld, struct rbuf *rbuf)
+static struct wireaddr *make_onion(const tal_t *ctx,
+				   struct rbuf *rbuf,
+				   const struct wireaddr *local)
 {
 	char *line;
+	struct wireaddr *onion;
 
 //V3 tor after 3.3.3.aplha FIXME: TODO SAIBATO
 //sprintf((char *)reach->buffer,"ADD_ONION NEW:ED25519-V3 Port=9735,127.0.0.1:9735\r\n");
-	tor_send_cmd(ld, rbuf,
-		     tal_fmt(tmpctx, "ADD_ONION NEW:RSA1024 Port=%d,127.0.0.1:%d Flags=DiscardPK,Detach",
-			     ld->portnum, ld->portnum));
+	tor_send_cmd(rbuf,
+		     tal_fmt(tmpctx, "ADD_ONION NEW:RSA1024 Port=%d,%s Flags=DiscardPK,Detach",
+			     /* FIXME: We *could* allow user to set Tor port */
+			     DEFAULT_PORT, fmt_wireaddr(tmpctx, local)));
 
-	while ((line = tor_response_line(ld, rbuf)) != NULL) {
-		size_t n;
+	while ((line = tor_response_line(rbuf)) != NULL) {
+		const char *name;
 
 		if (!strstarts(line, "ServiceID="))
 			continue;
@@ -89,17 +95,16 @@ static void make_onion(struct lightningd *ld, struct rbuf *rbuf)
 		if (strchr(line, '\r'))
 			*strchr(line, '\r') = '\0';
 
-		n = tal_count(ld->proposed_wireaddr);
-		tal_resize(&ld->proposed_wireaddr, n + 1);
-		tal_resize(&ld->proposed_listen_announce, n + 1);
-		parse_wireaddr_internal(tal_fmt(tmpctx, "%s.onion", line),
-					&ld->proposed_wireaddr[n],
-					ld->portnum, false, false, NULL);
-		ld->proposed_listen_announce[n] = ADDR_ANNOUNCE;
-		discard_remaining_response(ld, rbuf);
-		return;
+		name = tal_fmt(tmpctx, "%s.onion", line);
+		onion = tal(ctx, struct wireaddr);
+		if (!parse_wireaddr(name, onion, 0, false, NULL))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Tor gave bad onion name '%s'", name);
+		discard_remaining_response(rbuf);
+		return onion;
 	}
-	errx(1, "Tor didn't give us a ServiceID");
+	status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		      "Tor didn't give us a ServiceID");
 }
 
 /* https://gitweb.torproject.org/torspec.git/tree/control-spec.txt:
@@ -111,32 +116,32 @@ static void make_onion(struct lightningd *ld, struct rbuf *rbuf)
  *         ReplyText = XXXX
  *         StatusCode = 3DIGIT
  */
-static void negotiate_auth(struct lightningd *ld, struct rbuf *rbuf)
+static void negotiate_auth(struct rbuf *rbuf, const char *tor_password)
 {
 	char *line;
 	char *cookiefile = NULL;
 	int cookiefileerrno;
 
-	tor_send_cmd(ld, rbuf, "PROTOCOLINFO 1");
+	tor_send_cmd(rbuf, "PROTOCOLINFO 1");
 
-	while ((line = tor_response_line(ld, rbuf)) != NULL) {
+	while ((line = tor_response_line(rbuf)) != NULL) {
 		const char *p;
 
 		if (!strstarts(line, "AUTH METHODS="))
 			continue;
 
 		if (strstr(line, "NULL")) {
-			discard_remaining_response(ld, rbuf);
-			tor_send_cmd(ld, rbuf, "AUTHENTICATE");
-			discard_remaining_response(ld, rbuf);
+			discard_remaining_response(rbuf);
+			tor_send_cmd(rbuf, "AUTHENTICATE");
+			discard_remaining_response(rbuf);
 			return;
 		} else if (strstr(line, "HASHEDPASSWORD")
-			   && strlen(ld->tor_service_password)) {
-			discard_remaining_response(ld, rbuf);
-			tor_send_cmd(ld, rbuf,
+			   && strlen(tor_password)) {
+			discard_remaining_response(rbuf);
+			tor_send_cmd(rbuf,
 				     tal_fmt(tmpctx, "AUTHENTICATE \"%s\"",
-					     ld->tor_service_password));
-			discard_remaining_response(ld, rbuf);
+					     tor_password));
+			discard_remaining_response(rbuf);
 			return;
 		} else if ((p = strstr(line, "COOKIEFILE=\"")) != NULL) {
 			char *contents, *end;
@@ -144,7 +149,9 @@ static void negotiate_auth(struct lightningd *ld, struct rbuf *rbuf)
 			p += strlen("COOKIEFILE=\"");
 			end = strstr(p, "\"");
 			if (!end)
-				errx(1, "Tor protocolinfo bad line '%s'", line);
+				status_failed(STATUS_FAIL_INTERNAL_ERROR,
+					      "Tor protocolinfo bad line '%s'",
+					      line);
 			*end = '\0';
 
 			/* If we can't access this, try other methods */
@@ -152,44 +159,59 @@ static void negotiate_auth(struct lightningd *ld, struct rbuf *rbuf)
 			contents = grab_file(tmpctx, p);
 			if (!contents) {
 				cookiefileerrno = errno;
-				fprintf(stderr, "No cookies for me!\n");
 				continue;
 			}
-			discard_remaining_response(ld, rbuf);
-			tor_send_cmd(ld, rbuf,
+			discard_remaining_response(rbuf);
+			tor_send_cmd(rbuf,
 				     tal_fmt(tmpctx, "AUTHENTICATE %s",
 					     tal_hexstr(tmpctx,
 							contents,
 							tal_len(contents)-1)));
-			discard_remaining_response(ld, rbuf);
+			discard_remaining_response(rbuf);
 			return;
 		}
 	}
 
 	/* Now report if we tried cookie file and it failed */
-	if (cookiefile) {
-		errno = cookiefileerrno;
-		err(1, "Could not open Tor cookie file '%s'", cookiefile);
-	}
+	if (cookiefile)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Could not open Tor cookie file '%s': %s",
+			      cookiefile, strerror(cookiefileerrno));
 
-	errx(1, "Tor protocolinfo did not give auth");
+	status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		      "Tor protocolinfo did not give auth");
 }
 
-void tor_init(struct lightningd *ld)
+/* We need to have a bound address we can tell Tor to connect to */
+static const struct wireaddr *
+find_local_address(const struct wireaddr_internal *bindings)
+{
+	for (size_t i = 0; i < tal_count(bindings); i++) {
+		if (bindings[i].itype != ADDR_INTERNAL_WIREADDR)
+			continue;
+		if (bindings[i].u.wireaddr.type != ADDR_TYPE_IPV4
+		    && bindings[i].u.wireaddr.type != ADDR_TYPE_IPV6)
+			continue;
+		return &bindings[i].u.wireaddr;
+	}
+	status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		      "No local address found to tell Tor to connect to");
+}
+
+struct wireaddr *tor_autoservice(const tal_t *ctx,
+				 const struct wireaddr *tor_serviceaddr,
+				 const char *tor_password,
+				 const struct wireaddr_internal *bindings)
 {
 	int fd;
+	const struct wireaddr *laddr;
+	struct wireaddr *onion;
 	struct addrinfo *ai_tor;
 	struct rbuf rbuf;
 	char *buffer;
 
-	if (!ld->config.tor_enable_auto_hidden_service)
-		return;
-
-	/* FIXME: Need better way to convert wireaddr to addrinfo... */
-	if (getaddrinfo(fmt_wireaddr_without_port(ld, ld->tor_serviceaddr),
-			tal_fmt(tmpctx, "%d", ld->tor_serviceaddr->port), NULL,
-			&ai_tor) != 0)
-		errx(1, "getaddrinfo failed for Tor service");
+	laddr = find_local_address(bindings);
+	ai_tor = wireaddr_to_addrinfo(tmpctx, tor_serviceaddr);
 
 	fd = socket(ai_tor->ai_family, SOCK_STREAM, 0);
 	if (fd < 0)
@@ -201,8 +223,8 @@ void tor_init(struct lightningd *ld)
 	buffer = tal_arr(tmpctx, char, rbuf_good_size(fd));
 	rbuf_init(&rbuf, fd, buffer, tal_len(buffer));
 
-	negotiate_auth(ld, &rbuf);
-	make_onion(ld, &rbuf);
+	negotiate_auth(&rbuf, tor_password);
+	onion = make_onion(ctx, &rbuf, laddr);
 
 	/*on the other hand we can stay connected until ln finish to keep onion alive and then vanish */
 	//because when we run with Detach flag as we now do every start of LN creates a new addr while the old
@@ -210,4 +232,6 @@ void tor_init(struct lightningd *ld)
 	//read_partial to keep it open until LN drops
 	//FIXME: SAIBATO we might not want to close this conn
 	close(fd);
+
+	return onion;
 }

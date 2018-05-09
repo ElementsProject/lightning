@@ -76,7 +76,6 @@ LIGHTNINGD_SRC :=				\
 	lightningd/peer_control.c		\
 	lightningd/peer_htlcs.c			\
 	lightningd/subd.c			\
-	lightningd/tor.c			\
 	lightningd/watch.c
 
 # Source files without corresponding headers

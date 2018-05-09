@@ -227,7 +227,10 @@ void gossip_init(struct lightningd *ld)
 	    listen_announce, ld->rgb,
 	    ld->alias, ld->config.channel_update_interval, ld->reconnect,
 	    ld->proxyaddr, ld->use_proxy_always,
-	    allow_localhost);
+	    allow_localhost,
+	    ld->config.tor_enable_auto_hidden_service,
+	    ld->tor_serviceaddr,
+	    ld->tor_service_password ? ld->tor_service_password : "");
 	subd_send_msg(ld->gossip, msg);
 }
 
