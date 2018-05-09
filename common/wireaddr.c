@@ -413,3 +413,59 @@ bool wireaddr_to_sockname(const struct wireaddr_internal *addr,
 	memcpy(sun->sun_path, addr->u.sockname, sizeof(addr->u.sockname));
 	return true;
 }
+
+struct addrinfo *wireaddr_internal_to_addrinfo(const tal_t *ctx,
+					       const struct wireaddr_internal *wireaddr)
+{
+	struct addrinfo *ai = talz(ctx, struct addrinfo);
+	struct sockaddr_un *sun;
+
+	ai->ai_socktype = SOCK_STREAM;
+
+	switch (wireaddr->itype) {
+	case ADDR_INTERNAL_SOCKNAME:
+		sun = tal(ai, struct sockaddr_un);
+		wireaddr_to_sockname(wireaddr, sun);
+		ai->ai_family = sun->sun_family;
+		ai->ai_addrlen = sizeof(*sun);
+		ai->ai_addr = (struct sockaddr *)sun;
+		return ai;
+	case ADDR_INTERNAL_ALLPROTO:
+		break;
+	case ADDR_INTERNAL_WIREADDR:
+		return wireaddr_to_addrinfo(ctx, &wireaddr->u.wireaddr);
+	}
+	abort();
+}
+
+struct addrinfo *wireaddr_to_addrinfo(const tal_t *ctx,
+				      const struct wireaddr *wireaddr)
+{
+	struct addrinfo *ai = talz(ctx, struct addrinfo);
+	struct sockaddr_in *sin;
+	struct sockaddr_in6 *sin6;
+
+	ai->ai_socktype = SOCK_STREAM;
+
+	switch (wireaddr->type) {
+	case ADDR_TYPE_IPV4:
+		sin = tal(ai, struct sockaddr_in);
+		wireaddr_to_ipv4(wireaddr, sin);
+		ai->ai_family = sin->sin_family;
+		ai->ai_addrlen = sizeof(*sin);
+		ai->ai_addr = (struct sockaddr *)sin;
+		return ai;
+	case ADDR_TYPE_IPV6:
+		sin6 = tal(ai, struct sockaddr_in6);
+		wireaddr_to_ipv6(wireaddr, sin6);
+		ai->ai_family = sin6->sin6_family;
+		ai->ai_addrlen = sizeof(*sin6);
+		ai->ai_addr = (struct sockaddr *)sin6;
+		return ai;
+	case ADDR_TYPE_TOR_V2:
+	case ADDR_TYPE_TOR_V3:
+	case ADDR_TYPE_PADDING:
+		break;
+	}
+	abort();
+}
