@@ -6,6 +6,7 @@ status_log,,entry,wirestring
 
 status_io,0xFFF1
 status_io,,iodir,enum log_level
+status_io,,who,wirestring
 status_io,,len,u16
 status_io,,data,len*u8
 

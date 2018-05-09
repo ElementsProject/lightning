@@ -62,25 +62,34 @@ void status_send(const u8 *msg TAKES)
 	}
 }
 
-static void status_io_full(enum log_level iodir, const u8 *p)
+static void status_io_full(enum log_level iodir, const char *who, const u8 *p)
 {
-	status_send(take(towire_status_io(NULL, iodir, p)));
+	status_send(take(towire_status_io(NULL, iodir, who, p)));
 }
 
-static void status_io_short(enum log_level iodir, const u8 *p)
+static void status_peer_io_short(enum log_level iodir, const u8 *p)
 {
 	status_debug("%s %s",
 		     iodir == LOG_IO_OUT ? "peer_out" : "peer_in",
 		     wire_type_name(fromwire_peektype(p)));
 }
 
-void status_io(enum log_level iodir, const u8 *p)
+void status_peer_io(enum log_level iodir, const u8 *p)
 {
 	if (logging_io)
-		status_io_full(iodir, p);
+		status_io_full(iodir, "", p);
 	/* We get a huge amount of gossip; don't log it */
 	else if (!is_msg_for_gossipd(p))
-		status_io_short(iodir, p);
+		status_peer_io_short(iodir, p);
+}
+
+void status_io(enum log_level iodir, const char *who,
+	       const void *data, size_t len)
+{
+	if (!logging_io)
+		return;
+	/* Horribly inefficient, but so is logging IO generally. */
+	status_io_full(iodir, who, tal_dup_arr(tmpctx, u8, data, len, 0));
 }
 
 void status_vfmt(enum log_level level, const char *fmt, va_list ap)

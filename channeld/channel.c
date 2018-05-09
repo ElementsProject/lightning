@@ -247,7 +247,7 @@ static bool peer_write_pending(struct peer *peer)
 	if (!msg)
 		return false;
 
-	status_io(LOG_IO_OUT, msg);
+	status_peer_io(LOG_IO_OUT, msg);
 	peer->peer_outmsg = cryptomsg_encrypt_msg(peer, &peer->cs, take(msg));
 	peer->peer_outoff = 0;
 	return true;

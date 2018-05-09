@@ -46,7 +46,7 @@ void status_fmt(enum log_level level UNUSED, const char *fmt, ...)
 	va_end(ap);
 }
 
-void status_io(enum log_level dir UNUSED, const u8 *msg UNUSED)
+void status_peer_io(enum log_level dir UNUSED, const u8 *msg UNUSED)
 {
 }
 
