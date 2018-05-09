@@ -94,7 +94,7 @@ static void make_onion(struct lightningd *ld, struct rbuf *rbuf)
 		tal_resize(&ld->proposed_listen_announce, n + 1);
 		parse_wireaddr_internal(tal_fmt(tmpctx, "%s.onion", line),
 					&ld->proposed_wireaddr[n],
-					ld->portnum, false, NULL);
+					ld->portnum, false, false, NULL);
 		ld->proposed_listen_announce[n] = ADDR_ANNOUNCE;
 		discard_remaining_response(ld, rbuf);
 		return;

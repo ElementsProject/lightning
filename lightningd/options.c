@@ -159,7 +159,7 @@ static char *opt_add_addr_withtype(const char *arg,
 	ld->proposed_listen_announce[n] = ala;
 
 	if (!parse_wireaddr_internal(arg, &ld->proposed_wireaddr[n], ld->portnum,
-				     true, &err_msg)) {
+				     true, !ld->use_proxy_always, &err_msg)) {
 		return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
 	}
 
@@ -302,7 +302,8 @@ static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 	/* We use a tal_arr here, so we can marshal it to gossipd */
 	ld->proxyaddr = tal_arr(ld, struct wireaddr, 1);
 
-	if (!parse_wireaddr(arg, ld->proxyaddr, 9050, NULL)) {
+	if (!parse_wireaddr(arg, ld->proxyaddr, 9050, !ld->use_proxy_always,
+			    NULL)) {
 		return tal_fmt(NULL, "Unable to parse Tor proxy address '%s'",
 			       arg);
 	}
@@ -313,7 +314,8 @@ static char *opt_add_tor_service_addr(const char *arg, struct lightningd *ld)
 {
 	tal_free(ld->tor_serviceaddr);
 	ld->tor_serviceaddr = tal(ld, struct wireaddr);
-	if (!parse_wireaddr(arg, ld->tor_serviceaddr, 9051, NULL)) {
+	if (!parse_wireaddr(arg, ld->tor_serviceaddr, 9051,
+			    !ld->use_proxy_always, NULL)) {
 		return tal_fmt(NULL, "Unable to parse Tor service address '%s'",
 			       arg);
 	}
@@ -432,8 +434,11 @@ static void config_register_opts(struct lightningd *ld)
 			 "Set a Tor hidden service password");
 	opt_register_arg("--tor-auto-listen", opt_set_bool_arg, opt_show_bool,
 			&ld->config.tor_enable_auto_hidden_service , "Generate and use a temp auto hidden-service and show the onion address");
-	opt_register_arg("--always-use-proxy", opt_set_bool_arg, opt_show_bool,
-			&ld->use_proxy_always, "Use the proxy always");
+
+	/* Early, as it suppresses DNS lookups from cmdline too. */
+	opt_register_early_arg("--always-use-proxy",
+			       opt_set_bool_arg, opt_show_bool,
+			       &ld->use_proxy_always, "Use the proxy always");
 }
 
 #if DEVELOPER
