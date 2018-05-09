@@ -594,6 +594,12 @@ static void check_config(struct lightningd *ld)
 
 	if (ld->config.anchor_confirms == 0)
 		fatal("anchor-confirms must be greater than zero");
+
+	if (ld->config.tor_enable_auto_hidden_service && !ld->tor_serviceaddr)
+		fatal("--tor-auto-listen needs --tor-service");
+
+	if (ld->use_tor_proxy_always && !ld->tor_proxyaddr)
+		fatal("--always-use-tor-proxy needs --proxy");
 }
 
 static void setup_default_config(struct lightningd *ld)
