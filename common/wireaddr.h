@@ -117,4 +117,9 @@ void wireaddr_from_sockname(struct wireaddr_internal *addr,
 			    const char *sockname);
 bool wireaddr_to_sockname(const struct wireaddr_internal *addr,
 			  struct sockaddr_un *sun);
+
+struct addrinfo *wireaddr_to_addrinfo(const tal_t *ctx,
+				      const struct wireaddr *wireaddr);
+struct addrinfo *wireaddr_internal_to_addrinfo(const tal_t *ctx,
+					       const struct wireaddr_internal *wireaddr);
 #endif /* LIGHTNING_COMMON_WIREADDR_H */

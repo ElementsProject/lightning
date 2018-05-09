@@ -1881,25 +1881,12 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 
 static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 {
-	struct addrinfo ai;
-	struct sockaddr_in sin;
-	struct sockaddr_in6 sin6;
-	struct sockaddr_un sun;
+	struct addrinfo *ai;
 	bool use_tor = false;
-
-	/* FIXME: make generic */
-	ai.ai_flags = 0;
-	ai.ai_socktype = SOCK_STREAM;
-	ai.ai_protocol = 0;
-	ai.ai_canonname = NULL;
-	ai.ai_next = NULL;
 
 	switch (reach->addr.itype) {
 	case ADDR_INTERNAL_SOCKNAME:
-		wireaddr_to_sockname(&reach->addr, &sun);
-		ai.ai_family = sun.sun_family;
-		ai.ai_addrlen = sizeof(sin);
-		ai.ai_addr = (struct sockaddr *)&sun;
+		ai = wireaddr_internal_to_addrinfo(tmpctx, &reach->addr);
 		break;
 	case ADDR_INTERNAL_ALLPROTO:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -1908,16 +1895,9 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 	case ADDR_INTERNAL_WIREADDR:
 		switch (reach->addr.u.wireaddr.type) {
 		case ADDR_TYPE_IPV4:
-			wireaddr_to_ipv4(&reach->addr.u.wireaddr, &sin);
-			ai.ai_family = sin.sin_family;
-			ai.ai_addrlen = sizeof(sin);
-			ai.ai_addr = (struct sockaddr *)&sin;
-			break;
 		case ADDR_TYPE_IPV6:
-			wireaddr_to_ipv6(&reach->addr.u.wireaddr, &sin6);
-			ai.ai_family = sin6.sin6_family;
-			ai.ai_addrlen = sizeof(sin6);
-			ai.ai_addr = (struct sockaddr *)&sin6;
+			ai = wireaddr_to_addrinfo(tmpctx,
+						  &reach->addr.u.wireaddr);
 			break;
 		case ADDR_TYPE_TOR_V2:
 		case ADDR_TYPE_TOR_V3:
@@ -1942,7 +1922,7 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 		return io_tor_connect(conn, reach->daemon->tor_proxyaddr,
 				      &reach->addr.u.wireaddr, reach);
 	}
-	return io_connect(conn, &ai, connection_out, reach);
+	return io_connect(conn, ai, connection_out, reach);
 }
 
 static struct addrhint *
