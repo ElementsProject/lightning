@@ -1886,10 +1886,14 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 
 	switch (reach->addr.itype) {
 	case ADDR_INTERNAL_SOCKNAME:
-		wireaddr_to_sockname(&reach->addr, &sun);
-		ai.ai_family = sun.sun_family;
-		ai.ai_addrlen = sizeof(sin);
-		ai.ai_addr = (struct sockaddr *)&sun;
+		if (wireaddr_to_sockname(&reach->addr, &sun)) {
+			ai.ai_family = sun.sun_family;
+			ai.ai_addrlen = sizeof(sin);
+			ai.ai_addr = (struct sockaddr *)&sun;
+		} else {
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Can't reach to internal sockname");
+		}
 		break;
 	case ADDR_INTERNAL_ALLPROTO:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
