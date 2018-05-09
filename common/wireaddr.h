@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <lightningd/lightningd.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -30,18 +31,23 @@ struct sockaddr_un;
  *             where `checksum = sha3(".onion checksum" | pubkey || version)[:2]`
  */
 
+#define	TOR_V2_ADDRLEN 12
+#define	TOR_V3_ADDRLEN 37
+#define	FQDN_ADDRLEN 255
+
 enum wire_addr_type {
 	ADDR_TYPE_PADDING = 0,
 	ADDR_TYPE_IPV4 = 1,
 	ADDR_TYPE_IPV6 = 2,
+	ADDR_TYPE_TOR_V2 = 3,
+	ADDR_TYPE_TOR_V3 = 4
 };
 
-/* FIXME(cdecker) Extend this once we have defined how TOR addresses
- * should look like */
+/* Structure now fit for tor support */
 struct wireaddr {
 	enum wire_addr_type type;
 	u8 addrlen;
-	u8 addr[16];
+	u8 addr[TOR_V3_ADDRLEN]; //or FQDN_ADDRLEN ?
 	u16 port;
 };
 
@@ -64,6 +70,7 @@ void towire_addr_listen_announce(u8 **pptr, enum addr_listen_announce ala);
 bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 port, const char **err_msg);
 
 char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a);
+char *fmt_wireaddr_without_port(const tal_t *ctx, const struct wireaddr *a);
 
 bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
 			    const u16 port, const char **err_msg);

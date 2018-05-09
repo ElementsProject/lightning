@@ -37,6 +37,7 @@ LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_GOSSIP_HEADERS)
 
 # Common source we use.
 GOSSIPD_COMMON_OBJS :=				\
+	common/base32.o				\
 	common/bech32.o				\
 	common/bech32_util.o			\
 	common/bip32.o				\
@@ -55,6 +56,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/status_wire.o			\
 	common/subdaemon.o			\
 	common/timeout.o			\
+	common/tor.o				\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/utxo.o				\

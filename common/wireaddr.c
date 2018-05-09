@@ -1,14 +1,20 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ccan/build_assert/build_assert.h>
+#include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
+#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
+#include <common/base32.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/wireaddr.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/types.h>
+#include <unistd.h>
 #include <wire/wire.h>
 
 /* Returns false if we didn't parse it, and *cursor == NULL if malformed. */
@@ -22,6 +28,12 @@ bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr)
 		break;
 	case ADDR_TYPE_IPV6:
 		addr->addrlen = 16;
+		break;
+	case ADDR_TYPE_TOR_V2:
+		addr->addrlen = TOR_V2_ADDRLEN;
+		break;
+	case ADDR_TYPE_TOR_V3:
+		addr->addrlen = TOR_V3_ADDRLEN;
 		break;
 	default:
 		return false;
@@ -96,7 +108,7 @@ bool fromwire_wireaddr_internal(const u8 **cursor, size_t *max,
 
 char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a)
 {
-	char addrstr[INET6_ADDRSTRLEN];
+	char addrstr[FQDN_ADDRLEN];
 	char *ret, *hex;
 
 	switch (a->type) {
@@ -108,6 +120,12 @@ char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a)
 		if (!inet_ntop(AF_INET6, a->addr, addrstr, INET6_ADDRSTRLEN))
 			return "Unprintable-ipv6-address";
 		return tal_fmt(ctx, "[%s]:%u", addrstr, a->port);
+	case ADDR_TYPE_TOR_V2:
+		return tal_fmt(ctx, "%s.onion:%u",
+			       b32_encode(addrstr, (u8 *) a->addr, 2), a->port);
+	case ADDR_TYPE_TOR_V3:
+		return tal_fmt(ctx, "%s.onion:%u",
+			       b32_encode(addrstr, (u8 *) a->addr, 3), a->port);
 	case ADDR_TYPE_PADDING:
 		break;
 	}
@@ -170,6 +188,8 @@ bool wireaddr_is_wildcard(const struct wireaddr *addr)
 	case ADDR_TYPE_IPV4:
 		return memeqzero(addr->addr, addr->addrlen);
 	case ADDR_TYPE_PADDING:
+	case ADDR_TYPE_TOR_V2:
+	case ADDR_TYPE_TOR_V3:
 		return false;
 	}
 	abort();
@@ -189,6 +209,36 @@ char *fmt_wireaddr_internal(const tal_t *ctx,
 	abort();
 }
 REGISTER_TYPE_TO_STRING(wireaddr_internal, fmt_wireaddr_internal);
+
+char *fmt_wireaddr_without_port(const tal_t * ctx, const struct wireaddr *a)
+{
+	char addrstr[FQDN_ADDRLEN];
+	char *ret, *hex;
+
+	switch (a->type) {
+	case ADDR_TYPE_IPV4:
+		if (!inet_ntop(AF_INET, a->addr, addrstr, INET_ADDRSTRLEN))
+			return "Unprintable-ipv4-address";
+		return tal_fmt(ctx, "%s", addrstr);
+	case ADDR_TYPE_IPV6:
+		if (!inet_ntop(AF_INET6, a->addr, addrstr, INET6_ADDRSTRLEN))
+			return "Unprintable-ipv6-address";
+		return tal_fmt(ctx, "[%s]", addrstr);
+	case ADDR_TYPE_TOR_V2:
+		return tal_fmt(ctx, "%.16s.onion",
+			       b32_encode(addrstr, (u8 *) a->addr, 2));
+	case ADDR_TYPE_TOR_V3:
+		return tal_fmt(ctx, "%.56s.onion",
+			       b32_encode(addrstr, (u8 *) a->addr, 3));
+	case ADDR_TYPE_PADDING:
+		break;
+	}
+
+	hex = tal_hexstr(ctx, a->addr, a->addrlen);
+	ret = tal_fmt(ctx, "Unknown type %u %s", a->type, hex);
+	tal_free(hex);
+	return ret;
+}
 
 /* Valid forms:
  *
@@ -244,7 +294,27 @@ bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
 	struct addrinfo *addrinfo;
 	struct addrinfo hints;
 	int gai_err;
+	u8 tor_dec_bytes[TOR_V3_ADDRLEN];
 	bool res = false;
+
+	/* Don't do lookup on onion addresses. */
+	if (strends(hostname, ".onion")) {
+		if (strlen(hostname) < 25) { //FIXME bool is_V2_or_V3_TOR(addr);
+			addr->type = ADDR_TYPE_TOR_V2;
+			addr->addrlen = TOR_V2_ADDRLEN;
+			addr->port = port;
+			b32_decode((u8 *) tor_dec_bytes, (u8 *)hostname, 2);
+			memcpy(&addr->addr, tor_dec_bytes, addr->addrlen);
+			return true;
+		} else {
+			addr->type = ADDR_TYPE_TOR_V3;
+			addr->addrlen = TOR_V3_ADDRLEN;
+			addr->port = port;
+			b32_decode((u8 *) tor_dec_bytes, (u8 *)hostname, 3);
+			memcpy(&addr->addr, tor_dec_bytes, addr->addrlen);
+			return true;
+		}
+	}
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
