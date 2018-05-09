@@ -1789,6 +1789,15 @@ static struct io_plan *gossip_activate(struct daemon_conn *master,
 	else
 		binding = NULL;
 
+	/* If we only advertize Tor addresses, force everything through proxy
+	 * to avoid other leakage */
+	if (!daemon->use_proxy_always
+	    && tal_count(daemon->announcable) != 0
+	    && all_tor_addresses(daemon->announcable)) {
+		status_trace("Only announcing Tor addresses: forcing proxy use");
+		daemon->use_proxy_always = true;
+	}
+
 	/* OK, we're ready! */
 	daemon_conn_send(&daemon->master,
 			 take(towire_gossipctl_activate_reply(NULL,
@@ -1891,7 +1900,6 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 {
 	struct addrinfo *ai;
-	bool use_tor = false;
 
 	switch (reach->addr.itype) {
 	case ADDR_INTERNAL_SOCKNAME:
@@ -1902,36 +1910,23 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 			      "Can't reach to all protocols");
 		break;
 	case ADDR_INTERNAL_WIREADDR:
-		switch (reach->addr.u.wireaddr.type) {
-		case ADDR_TYPE_IPV4:
-		case ADDR_TYPE_IPV6:
-			ai = wireaddr_to_addrinfo(tmpctx,
-						  &reach->addr.u.wireaddr);
-			break;
-		case ADDR_TYPE_TOR_V2:
-		case ADDR_TYPE_TOR_V3:
-			use_tor = true;
-			break;
-		case ADDR_TYPE_PADDING:
-			/* Shouldn't happen. */
-			return io_close(conn);
-		}
-
-		if (!use_tor && reach->daemon->proxyaddr) {
-			/* We dont use tor proxy if we only have ip */
-			if (reach->daemon->use_proxy_always
-			    || do_we_use_tor_addr(reach->daemon->announcable))
-				use_tor = true;
-		}
+		/* If it was a Tor address, we wouldn't be here. */
+		ai = wireaddr_to_addrinfo(tmpctx, &reach->addr.u.wireaddr);
+		break;
 	}
+	assert(ai);
 
 	io_set_finish(conn, connect_failed, reach);
-	if (use_tor) {
-		assert(reach->addr.itype == ADDR_INTERNAL_WIREADDR);
-		return io_tor_connect(conn, reach->daemon->proxyaddr,
-				      &reach->addr.u.wireaddr, reach);
-	}
 	return io_connect(conn, ai, connection_out, reach);
+}
+
+static struct io_plan *conn_tor_init(struct io_conn *conn,
+				     struct reaching *reach)
+{
+	assert(reach->addr.itype == ADDR_INTERNAL_WIREADDR);
+	io_set_finish(conn, connect_failed, reach);
+	return io_tor_connect(conn, reach->daemon->proxyaddr,
+			      &reach->addr.u.wireaddr, reach);
 }
 
 static struct addrhint *
@@ -2002,6 +1997,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 	int fd, af;
 	struct reaching *reach;
 	u8 *msg;
+	bool use_tor;
 	struct peer *peer = find_peer(daemon, id);
 
 	if (peer) {
@@ -2053,9 +2049,13 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 
 	/* Might not even be able to create eg. IPv6 sockets */
 	af = -1;
+	use_tor = daemon->use_proxy_always;
+
 	switch (a->addr.itype) {
 	case ADDR_INTERNAL_SOCKNAME:
 		af = AF_LOCAL;
+		/* Local sockets don't use tor proxy */
+		use_tor = false;
 		break;
 	case ADDR_INTERNAL_ALLPROTO:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -2064,9 +2064,8 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 		switch (a->addr.u.wireaddr.type) {
 		case ADDR_TYPE_TOR_V2:
 		case ADDR_TYPE_TOR_V3:
-			if (!daemon->proxyaddr)
-				break;
-			/* fall thru */
+			use_tor = true;
+			break;
 		case ADDR_TYPE_IPV4:
 			af = AF_INET;
 			break;
@@ -2077,6 +2076,18 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 			break;
 		}
 	}
+
+	/* If we have to use Tor but we don't have a proxy, we fail. */
+	if (use_tor) {
+		/* Can't reach tor addresses without proxy. */
+		if (!daemon->proxyaddr) {
+			status_debug("Need to use tor for %i, but no proxy",
+				     a->addr.u.wireaddr.type);
+			af = -1;
+		} else
+			af = daemon->proxyaddr->ai_family;
+	}
+
 	if (af == -1) {
 		fd = -1;
 		errno = EPROTONOSUPPORT;
@@ -2108,7 +2119,10 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 	list_add_tail(&daemon->reaching, &reach->list);
 	tal_add_destructor(reach, destroy_reaching);
 
-	io_new_conn(reach, fd, conn_init, reach);
+	if (use_tor)
+		io_new_conn(reach, fd, conn_tor_init, reach);
+	else
+		io_new_conn(reach, fd, conn_init, reach);
 }
 
 /* Called from timer, so needs single-arg declaration */
