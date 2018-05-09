@@ -4512,13 +4512,15 @@ class LightningDTests(BaseLightningDTests):
     def test_blockchaintrack(self):
         """Check that we track the blockchain correctly across reorgs
         """
-        l1 = self.node_factory.get_node()
+        l1 = self.node_factory.get_node(random_hsm=True)
         addr = l1.rpc.newaddr()['address']
 
         ######################################################################
         # First failure scenario: rollback on startup doesn't work,
         # and we try to add a block twice when rescanning:
         l1.restart()
+
+        height = bitcoind.rpc.getblockcount()
 
         # At height 111 we receive an incoming payment
         hashes = bitcoind.rpc.generate(9)
@@ -4533,17 +4535,17 @@ class LightningDTests(BaseLightningDTests):
         ######################################################################
         # Second failure scenario: perform a 20 block reorg
         bitcoind.rpc.generate(10)
-        bitcoind.rpc.getblockcount()
-        l1.daemon.wait_for_log(r'Adding block 121: [a-f0-9]{32}')
+        l1.daemon.wait_for_log('Adding block {}: '.format(height + 20))
 
         # Now reorg out with a longer fork of 21 blocks
         bitcoind.rpc.invalidateblock(hashes[0])
-        bitcoind.wait_for_log(r'InvalidChainFound: invalid block=.*  height=102')
+        bitcoind.wait_for_log(r'InvalidChainFound: invalid block=.*  height={}'
+                              .format(height + 1))
         hashes = bitcoind.rpc.generate(30)
         time.sleep(1)
 
         bitcoind.rpc.getblockcount()
-        l1.daemon.wait_for_log(r'Adding block 131: [a-f0-9]{32}')
+        l1.daemon.wait_for_log('Adding block {}: '.format(height + 30))
 
         # Our funds got reorged out, we should not have any funds that are confirmed
         assert [o for o in l1.rpc.listfunds()['outputs'] if o['status'] != "unconfirmed"] == []
