@@ -902,7 +902,7 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 					      &scid));
 		update = NULL;
 	} else {
-		/* We want update that comes from our end. */
+		/* We want (public) update that comes from our end. */
 		if (pubkey_eq(&chan->nodes[0]->id, &peer->daemon->id))
 			update = get_broadcast(rstate->broadcasts,
 					       chan->half[0]

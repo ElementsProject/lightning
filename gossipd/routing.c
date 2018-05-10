@@ -194,6 +194,7 @@ static void init_half_chan(struct routing_state *rstate,
 	struct half_chan *c = &chan->half[idx];
 
 	c->channel_update_msgidx = 0;
+	c->private_update = NULL;
 	c->unroutable_until = 0;
 	c->active = false;
 	c->flags = idx;
@@ -641,6 +642,17 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 			      old_msgidx, chan->channel_announce_msgidx);
 		return false;
 	}
+
+	/* If we have previously private updates for channels, process now */
+	for (size_t i = 0; i < ARRAY_SIZE(chan->half); i++) {
+		const u8 *update = chan->half[i].private_update;
+
+		if (update) {
+			chan->half[i].private_update = NULL;
+			routing_add_channel_update(rstate, take(update));
+		}
+	}
+
 	return true;
 }
 
@@ -947,6 +959,15 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			      fee_proportional_millionths, expiry,
 			      (flags & ROUTING_FLAGS_DISABLED) == 0, timestamp,
 			      htlc_minimum_msat);
+
+	/* For private channels, we get updates without an announce: don't
+	 * broadcast them! */
+	if (chan->channel_announce_msgidx == 0) {
+		tal_free(chan->half[direction].private_update);
+		chan->half[direction].private_update
+			= tal_dup_arr(chan, u8, update, tal_len(update), 0);
+		return true;
+	}
 
 	replace_broadcast(chan, rstate->broadcasts,
 			  &chan->half[direction].channel_update_msgidx,

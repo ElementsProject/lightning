@@ -37,6 +37,9 @@ struct half_chan {
 	/* Cached `channel_update` we might forward to new peers (or 0) */
 	u64 channel_update_msgidx;
 
+	/* If it's a private update, it's not in the broadcast map. */
+	const u8 *private_update;
+
 	/* If greater than current time, this connection should not
 	 * be used for routing. */
 	time_t unroutable_until;
