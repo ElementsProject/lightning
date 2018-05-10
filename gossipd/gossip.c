@@ -1911,7 +1911,7 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 
 static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 {
-	struct addrinfo *ai;
+	struct addrinfo *ai = NULL;
 
 	switch (reach->addr.itype) {
 	case ADDR_INTERNAL_SOCKNAME:
