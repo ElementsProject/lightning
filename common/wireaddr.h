@@ -104,6 +104,7 @@ enum wireaddr_internal_type {
 	ADDR_INTERNAL_SOCKNAME,
 	ADDR_INTERNAL_ALLPROTO,
 	ADDR_INTERNAL_AUTOTOR,
+	ADDR_INTERNAL_FORPROXY,
 	ADDR_INTERNAL_WIREADDR,
 };
 
@@ -117,13 +118,18 @@ struct wireaddr_internal {
 		u16 port;
 		/* ADDR_INTERNAL_AUTOTOR */
 		struct wireaddr torservice;
+		/* ADDR_INTERNAL_FORPROXY */
+		struct unresolved {
+			char name[256];
+			u16 port;
+		} unresolved;
 		/* ADDR_INTERNAL_SOCKNAME */
 		char sockname[sizeof(((struct sockaddr_un *)0)->sun_path)];
 	} u;
 };
 bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 			     u16 port, bool wildcard_ok, bool dns_ok,
-			     const char **err_msg);
+			     bool unresolved_ok, const char **err_msg);
 
 void towire_wireaddr_internal(u8 **pptr,
 				 const struct wireaddr_internal *addr);
@@ -131,6 +137,9 @@ bool fromwire_wireaddr_internal(const u8 **cursor, size_t *max,
 				   struct wireaddr_internal *addr);
 char *fmt_wireaddr_internal(const tal_t *ctx,
 			       const struct wireaddr_internal *a);
+
+bool wireaddr_from_unresolved(struct wireaddr_internal *addr,
+			      const char *name, u16 port);
 
 void wireaddr_from_sockname(struct wireaddr_internal *addr,
 			    const char *sockname);
