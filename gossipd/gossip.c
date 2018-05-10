@@ -902,15 +902,11 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 					      &scid));
 		update = NULL;
 	} else {
-		/* We want (public) update that comes from our end. */
+		/* We want the update that comes from our end. */
 		if (pubkey_eq(&chan->nodes[0]->id, &peer->daemon->id))
-			update = get_broadcast(rstate->broadcasts,
-					       chan->half[0]
-					       .channel_update_msgidx);
+			update = chan->half[0].channel_update;
 		else if (pubkey_eq(&chan->nodes[1]->id, &peer->daemon->id))
-			update = get_broadcast(rstate->broadcasts,
-					       chan->half[1]
-					       .channel_update_msgidx);
+			update = chan->half[1].channel_update;
 		else {
 			status_unusual("peer %s scid %s: not our channel?",
 				       type_to_string(tmpctx, struct pubkey,
@@ -1253,8 +1249,8 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 	if (!c)
 		return;
 
-	/* Don't mention non-public inactive channels. */
-	if (!c->active && !c->channel_update_msgidx)
+	/* Don't mention inactive or unannounced channels. */
+	if (!c->active && !c->channel_update)
 		return;
 
 	n = tal_count(*entries);
@@ -1266,9 +1262,9 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 	e->satoshis = chan->satoshis;
 	e->active = c->active;
 	e->flags = c->flags;
-	e->public = chan->public && (c->channel_update_msgidx != 0);
+	e->public = chan->public && (c->channel_update != NULL);
 	e->short_channel_id = chan->scid;
-	e->last_update_timestamp = c->channel_update_msgidx ? c->last_timestamp : -1;
+	e->last_update_timestamp = c->channel_update ? c->last_timestamp : -1;
 	if (e->last_update_timestamp >= 0) {
 		e->base_fee_msat = c->base_fee;
 		e->fee_per_millionth = c->proportional_fee;
@@ -1459,14 +1455,10 @@ static void gossip_send_keepalive_update(struct routing_state *rstate,
 	u64 htlc_minimum_msat;
 	u16 flags, cltv_expiry_delta;
 	u8 *update, *msg, *err;
-	const u8 *old_update;
 
 	/* Parse old update */
-	old_update = get_broadcast(rstate->broadcasts,
-				   hc->channel_update_msgidx);
-
 	if (!fromwire_channel_update(
-		old_update, &sig, &chain_hash, &scid, &timestamp,
+		hc->channel_update, &sig, &chain_hash, &scid, &timestamp,
 		&flags, &cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
 		&fee_proportional_millionths)) {
 		status_failed(
@@ -1524,8 +1516,8 @@ static void gossip_refresh_network(struct daemon *daemon)
 		for (size_t i = 0; i < tal_count(n->chans); i++) {
 			struct half_chan *hc = half_chan_from(n, n->chans[i]);
 
-			if (!hc->channel_update_msgidx) {
-				/* Connection is not public yet, so don't even
+			if (!hc->channel_update) {
+				/* Connection is not announced yet, so don't even
 				 * try to re-announce it */
 				continue;
 			}
@@ -2329,7 +2321,6 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 	secp256k1_ecdsa_signature sig;
 	u64 htlc_minimum_msat;
 	u8 *err;
-	const u8 *old_update;
 
 	if (!fromwire_gossip_disable_channel(msg, &scid, &direction, &active) ) {
 		status_unusual("Unable to parse %s",
@@ -2352,7 +2343,7 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 
 	hc->active = active;
 
-	if (!hc->channel_update_msgidx) {
+	if (!hc->channel_update) {
 		status_trace(
 		    "Channel %s/%d doesn't have a channel_update yet, can't "
 		    "disable",
@@ -2361,11 +2352,8 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 		goto fail;
 	}
 
-	old_update = get_broadcast(daemon->rstate->broadcasts,
-				   hc->channel_update_msgidx);
-
 	if (!fromwire_channel_update(
-		old_update, &sig, &chain_hash, &scid, &timestamp,
+		hc->channel_update, &sig, &chain_hash, &scid, &timestamp,
 		&flags, &cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
 		&fee_proportional_millionths)) {
 		status_failed(
