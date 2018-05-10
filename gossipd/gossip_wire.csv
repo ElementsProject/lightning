@@ -196,12 +196,9 @@ gossip_send_gossip,,gossip,len*u8
 # we can use it already.
 gossip_local_add_channel,3017
 gossip_local_add_channel,,short_channel_id,struct short_channel_id
-gossip_local_add_channel,,chain_hash,struct bitcoin_blkid
 gossip_local_add_channel,,remote_node_id,struct pubkey
-gossip_local_add_channel,,cltv_expiry_delta,u16
-gossip_local_add_channel,,htlc_minimum_msat,u64
-gossip_local_add_channel,,fee_base_msat,u32
-gossip_local_add_channel,,fee_proportional_millionths,u32
+gossip_local_add_channel,,len,u16
+gossip_local_add_channel,,update,len*u8
 
 # Gossipd->master get this tx output please.
 gossip_get_txout,3018
