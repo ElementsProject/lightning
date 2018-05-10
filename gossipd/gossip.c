@@ -1939,10 +1939,27 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 static struct io_plan *conn_proxy_init(struct io_conn *conn,
 				       struct reaching *reach)
 {
-	assert(reach->addr.itype == ADDR_INTERNAL_WIREADDR);
+	char *host = NULL;
+	u16 port;
+
+	switch (reach->addr.itype) {
+	case ADDR_INTERNAL_WIREADDR:
+		host = fmt_wireaddr_without_port(tmpctx,
+						 &reach->addr.u.wireaddr);
+		port = reach->addr.u.wireaddr.port;
+		break;
+	case ADDR_INTERNAL_SOCKNAME:
+	case ADDR_INTERNAL_ALLPROTO:
+	case ADDR_INTERNAL_AUTOTOR:
+		break;
+	}
+
+	if (!host)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't reach to %u address", reach->addr.itype);
+
 	io_set_finish(conn, connect_failed, reach);
-	return io_tor_connect(conn, reach->daemon->proxyaddr,
-			      &reach->addr.u.wireaddr, reach);
+	return io_tor_connect(conn, reach->daemon->proxyaddr, host, port, reach);
 }
 
 static struct addrhint *

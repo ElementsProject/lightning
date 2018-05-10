@@ -10,7 +10,7 @@ struct reaching;
 
 struct io_plan *io_tor_connect(struct io_conn *conn,
 			       const struct addrinfo *tor_proxyaddr,
-			       const struct wireaddr *addr,
+			       const char *host, u16 port,
 			       struct reaching *reach);
 
 #endif /* LIGHTNING_GOSSIPD_TOR_H */

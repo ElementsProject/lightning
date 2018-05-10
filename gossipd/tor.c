@@ -151,13 +151,13 @@ static struct io_plan *io_tor_connect_do_req(struct io_conn *conn,
 // called when we want to connect to TOR SOCKS5
 struct io_plan *io_tor_connect(struct io_conn *conn,
 			       const struct addrinfo *tor_proxyaddr,
-			       const struct wireaddr *addr,
+			       const char *host, u16 port,
 			       struct reaching *reach)
 {
 	struct reaching_socks *reach_tor = tal(reach, struct reaching_socks);
 
-	reach_tor->port = htons(addr->port);
-	reach_tor->host = fmt_wireaddr_without_port(reach_tor, addr);
+	reach_tor->port = htons(port);
+	reach_tor->host = tal_strdup(reach_tor, host);
 	reach_tor->reach = reach;
 
 	return io_connect(conn, tor_proxyaddr,
