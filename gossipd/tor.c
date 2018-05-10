@@ -44,6 +44,9 @@ struct reaching_socks {
 static struct io_plan *connect_finish2(struct io_conn *conn,
 				       struct reaching_socks *reach)
 {
+	status_io(LOG_IO_IN, "proxy",
+		  (reach->buffer + SIZE_OF_RESPONSE - SIZE_OF_IPV4_RESPONSE),
+		  SIZE_OF_IPV6_RESPONSE - SIZE_OF_RESPONSE - SIZE_OF_IPV4_RESPONSE);
 	status_trace("Now try LN connect out for host %s", reach->host);
 	return connection_out(conn, reach->reach);
 }
@@ -51,6 +54,8 @@ static struct io_plan *connect_finish2(struct io_conn *conn,
 static struct io_plan *connect_finish(struct io_conn *conn,
 				      struct reaching_socks *reach)
 {
+	status_io(LOG_IO_IN, "proxy",
+		  reach->buffer, SIZE_OF_IPV4_RESPONSE + SIZE_OF_RESPONSE);
 
 	if ( reach->buffer[1] == '\0') {
 		if ( reach->buffer[3] == SOCKS_TYP_IPV6) {
@@ -78,6 +83,7 @@ static struct io_plan *connect_finish(struct io_conn *conn,
 	}
 }
 
+/* called when TOR responds */
 static struct io_plan *connect_out(struct io_conn *conn,
 				   struct reaching_socks *reach)
 {
@@ -87,25 +93,14 @@ static struct io_plan *connect_out(struct io_conn *conn,
 
 }
 
-/* called when TOR responds */
-static struct io_plan *io_tor_connect_after_req_host(struct io_conn *conn,
-						     struct reaching_socks
-						     *reach)
-{
-	if (reach->buffer[0] == '0') {
-		status_trace("Connected out over tor for %s failed",
-			     reach->host);
-		return io_close(conn);
-	}
-	return connect_out(conn, reach);
-}
-
 static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
 							    *conn,
 							    struct
 							    reaching_socks
 							    *reach)
 {
+	status_io(LOG_IO_IN, "proxy", reach->buffer, 2);
+
 	if (reach->buffer[1] == SOCKS_ERROR) {
 		status_trace("Connected out for %s error", reach->host);
 		return io_close(conn);
@@ -122,16 +117,17 @@ static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
 	memcpy(reach->buffer + SOCK_REQ_V5_LEN + strlen(reach->host),
 	       &(reach->port), sizeof reach->port);
 
+	status_io(LOG_IO_OUT, "proxy", reach->buffer,
+		  SOCK_REQ_V5_HEADER_LEN + reach->hlen);
 	return io_write(conn, reach->buffer,
 			SOCK_REQ_V5_HEADER_LEN + reach->hlen,
-			io_tor_connect_after_req_host, reach);
+			connect_out, reach);
 }
 
 static struct io_plan *io_tor_connect_after_req_to_connect(struct io_conn *conn,
 							   struct reaching_socks
 							   *reach)
 {
-
 	return io_read(conn, reach->buffer, 2,
 		       &io_tor_connect_after_resp_to_connect, reach);
 }
@@ -144,6 +140,7 @@ static struct io_plan *io_tor_connect_do_req(struct io_conn *conn,
 	reach->buffer[1] = 1;
 	reach->buffer[2] = SOCKS_NOAUTH;
 
+	status_io(LOG_IO_OUT, "proxy", reach->buffer, SOCK_REQ_METH_LEN);
 	return io_write(conn, reach->buffer, SOCK_REQ_METH_LEN,
 			&io_tor_connect_after_req_to_connect, reach);
 }
