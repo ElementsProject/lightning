@@ -83,6 +83,11 @@ void towire_wireaddr_internal(u8 **pptr, const struct wireaddr_internal *addr)
 	case ADDR_INTERNAL_WIREADDR:
 		towire_wireaddr(pptr, &addr->u.wireaddr);
 		return;
+	case ADDR_INTERNAL_FORPROXY:
+		towire_u8_array(pptr, (const u8 *)addr->u.unresolved.name,
+				sizeof(addr->u.unresolved.name));
+		towire_u16(pptr, addr->u.unresolved.port);
+		return;
 	}
 	abort();
 }
@@ -106,6 +111,15 @@ bool fromwire_wireaddr_internal(const u8 **cursor, size_t *max,
 		return fromwire_wireaddr(cursor, max, &addr->u.torservice);
 	case ADDR_INTERNAL_WIREADDR:
 		return fromwire_wireaddr(cursor, max, &addr->u.wireaddr);
+	case ADDR_INTERNAL_FORPROXY:
+		fromwire_u8_array(cursor, max, (u8 *)addr->u.unresolved.name,
+				  sizeof(addr->u.unresolved.name));
+		/* Must be NUL terminated */
+		if (!memchr(addr->u.unresolved.name, 0,
+			    sizeof(addr->u.unresolved.name)))
+			fromwire_fail(cursor, max);
+		addr->u.unresolved.port = fromwire_u16(cursor, max);
+		return *cursor != NULL;
 	}
 	fromwire_fail(cursor, max);
 	return false;
@@ -179,6 +193,9 @@ char *fmt_wireaddr_internal(const tal_t *ctx,
 		return tal_fmt(ctx, ":%u", a->u.port);
 	case ADDR_INTERNAL_WIREADDR:
 		return fmt_wireaddr(ctx, &a->u.wireaddr);
+	case ADDR_INTERNAL_FORPROXY:
+		return tal_fmt(ctx, "%s:%u",
+			       a->u.unresolved.name, a->u.unresolved.port);
 	case ADDR_INTERNAL_AUTOTOR:
 		return tal_fmt(ctx, "autotor:%s",
 			       fmt_wireaddr(tmpctx, &a->u.torservice));
@@ -383,11 +400,12 @@ finish:
 
 bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 			     u16 port, bool wildcard_ok, bool dns_ok,
+			     bool unresolved_ok,
 			     const char **err_msg)
 {
-	u16 wildport;
+	u16 splitport;
 	char *ip;
-	bool needed_dns;
+	bool needed_dns = false;
 
 	/* Addresses starting with '/' are local socket paths */
 	if (arg[0] == '/') {
@@ -405,12 +423,12 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 
 	/* An empty string means IPv4 and IPv6 (which under Linux by default
 	 * means just IPv6, and IPv4 gets autobound). */
-	wildport = port;
+	splitport = port;
 	if (wildcard_ok
-	    && separate_address_and_port(tmpctx, arg, &ip, &wildport)
+	    && separate_address_and_port(tmpctx, arg, &ip, &splitport)
 	    && streq(ip, "")) {
 		addr->itype = ADDR_INTERNAL_ALLPROTO;
-		addr->u.port = wildport;
+		addr->u.port = splitport;
 		return true;
 	}
 
@@ -425,8 +443,33 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 	}
 
 	addr->itype = ADDR_INTERNAL_WIREADDR;
-	return parse_wireaddr(arg, &addr->u.wireaddr, port,
-			      dns_ok ? NULL : &needed_dns, err_msg);
+	if (parse_wireaddr(arg, &addr->u.wireaddr, port,
+			   dns_ok ? NULL : &needed_dns, err_msg))
+		return true;
+
+	if (!needed_dns || !unresolved_ok)
+		return false;
+
+	/* We can't do DNS, so keep unresolved. */
+	if (!wireaddr_from_unresolved(addr, ip, splitport)) {
+		if (err_msg)
+			*err_msg = "Name too long";
+		return false;
+	}
+	return true;
+}
+
+bool wireaddr_from_unresolved(struct wireaddr_internal *addr,
+			      const char *name, u16 port)
+{
+	addr->itype = ADDR_INTERNAL_FORPROXY;
+	if (strlen(name) >= sizeof(addr->u.unresolved.name))
+		return false;
+
+	memset(addr->u.unresolved.name, 0, sizeof(addr->u.unresolved.name));
+	strcpy(addr->u.unresolved.name, name);
+	addr->u.unresolved.port = port;
+	return true;
 }
 
 void wireaddr_from_sockname(struct wireaddr_internal *addr,
@@ -466,6 +509,7 @@ struct addrinfo *wireaddr_internal_to_addrinfo(const tal_t *ctx,
 		return ai;
 	case ADDR_INTERNAL_ALLPROTO:
 	case ADDR_INTERNAL_AUTOTOR:
+	case ADDR_INTERNAL_FORPROXY:
 		break;
 	case ADDR_INTERNAL_WIREADDR:
 		return wireaddr_to_addrinfo(ctx, &wireaddr->u.wireaddr);
@@ -511,6 +555,8 @@ bool all_tor_addresses(const struct wireaddr_internal *wireaddr)
 		switch (wireaddr[i].itype) {
 		case ADDR_INTERNAL_SOCKNAME:
 			return false;
+		case ADDR_INTERNAL_FORPROXY:
+			abort();
 		case ADDR_INTERNAL_ALLPROTO:
 			return false;
 		case ADDR_INTERNAL_AUTOTOR:

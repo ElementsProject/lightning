@@ -1725,6 +1725,8 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			if (public_address(daemon, &wa.u.wireaddr))
 				add_announcable(daemon, &wa.u.wireaddr);
 			continue;
+		case ADDR_INTERNAL_FORPROXY:
+			break;
 		}
 		/* Shouldn't happen. */
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -1925,6 +1927,10 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Can't reach to autotor address");
 		break;
+	case ADDR_INTERNAL_FORPROXY:
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't reach to forproxy address");
+		break;
 	case ADDR_INTERNAL_WIREADDR:
 		/* If it was a Tor address, we wouldn't be here. */
 		ai = wireaddr_to_addrinfo(tmpctx, &reach->addr.u.wireaddr);
@@ -1943,6 +1949,10 @@ static struct io_plan *conn_proxy_init(struct io_conn *conn,
 	u16 port;
 
 	switch (reach->addr.itype) {
+	case ADDR_INTERNAL_FORPROXY:
+		host = reach->addr.u.unresolved.name;
+		port = reach->addr.u.unresolved.port;
+		break;
 	case ADDR_INTERNAL_WIREADDR:
 		host = fmt_wireaddr_without_port(tmpctx,
 						 &reach->addr.u.wireaddr);
@@ -2038,7 +2048,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 	int fd, af;
 	struct reaching *reach;
 	u8 *msg;
-	bool use_proxy;
+	bool use_proxy = daemon->use_proxy_always;
 	struct peer *peer = find_peer(daemon, id);
 
 	if (peer) {
@@ -2077,8 +2087,16 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 					daemon->rstate,
 					id);
 
-	if (!a && !daemon->use_proxy_always)
-		a = seed_resolve_addr(tmpctx, id);
+	if (!a) {
+		/* Don't resolve via DNS seed if we're supposed to use proxy. */
+		if (use_proxy) {
+			a = tal(tmpctx, struct wireaddr_internal);
+			wireaddr_from_unresolved(a, seedname(tmpctx, id),
+						 DEFAULT_PORT);
+		} else {
+			a = seed_resolve_addr(tmpctx, id);
+		}
+	}
 
 	if (!a) {
 		status_debug("No address known for %s, giving up",
@@ -2094,7 +2112,6 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 
 	/* Might not even be able to create eg. IPv6 sockets */
 	af = -1;
-	use_proxy = daemon->use_proxy_always;
 
 	switch (a->itype) {
 	case ADDR_INTERNAL_SOCKNAME:
@@ -2108,6 +2125,9 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 	case ADDR_INTERNAL_AUTOTOR:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Can't reach AUTOTOR");
+	case ADDR_INTERNAL_FORPROXY:
+		use_proxy = true;
+		break;
 	case ADDR_INTERNAL_WIREADDR:
 		switch (a->u.wireaddr.type) {
 		case ADDR_TYPE_TOR_V2:

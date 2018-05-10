@@ -160,7 +160,7 @@ static char *opt_add_addr_withtype(const char *arg,
 	ld->proposed_listen_announce[n] = ala;
 
 	if (!parse_wireaddr_internal(arg, &ld->proposed_wireaddr[n], ld->portnum,
-				     wildcard_ok, !ld->use_proxy_always,
+				     wildcard_ok, !ld->use_proxy_always, false,
 				     &err_msg)) {
 		return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
 	}
