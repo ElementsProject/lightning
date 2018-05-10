@@ -394,6 +394,7 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 
 	/* An empty string means IPv4 and IPv6 (which under Linux by default
 	 * means just IPv6, and IPv4 gets autobound). */
+	wildport = port;
 	if (wildcard_ok
 	    && separate_address_and_port(tmpctx, arg, &ip, &wildport)
 	    && streq(ip, "")) {
