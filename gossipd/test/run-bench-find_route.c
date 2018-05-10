@@ -145,7 +145,6 @@ static struct half_chan *add_connection(struct routing_state *rstate,
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
-	c->active = true;
 	c->flags = get_channel_direction(from, to);
 	return c;
 }

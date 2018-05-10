@@ -1246,11 +1246,7 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 	struct gossip_getchannels_entry *e;
 	size_t n;
 
-	if (!c)
-		return;
-
-	/* Don't mention inactive or unannounced channels. */
-	if (!c->active && !c->channel_update)
+	if (!is_halfchan_defined(c))
 		return;
 
 	n = tal_count(*entries);
@@ -1260,16 +1256,13 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 	e->source = chan->nodes[idx]->id;
 	e->destination = chan->nodes[!idx]->id;
 	e->satoshis = chan->satoshis;
-	e->active = c->active;
 	e->flags = c->flags;
-	e->public = chan->public && (c->channel_update != NULL);
+	e->public = is_chan_public(chan);
 	e->short_channel_id = chan->scid;
-	e->last_update_timestamp = c->channel_update ? c->last_timestamp : -1;
-	if (e->last_update_timestamp >= 0) {
-		e->base_fee_msat = c->base_fee;
-		e->fee_per_millionth = c->proportional_fee;
-		e->delay = c->delay;
-	}
+	e->last_update_timestamp = c->last_timestamp;
+	e->base_fee_msat = c->base_fee;
+	e->fee_per_millionth = c->proportional_fee;
+	e->delay = c->delay;
 }
 
 static void append_channel(struct gossip_getchannels_entry **entries,
@@ -1516,7 +1509,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 		for (size_t i = 0; i < tal_count(n->chans); i++) {
 			struct half_chan *hc = half_chan_from(n, n->chans[i]);
 
-			if (!hc->channel_update) {
+			if (!is_halfchan_defined(hc)) {
 				/* Connection is not announced yet, so don't even
 				 * try to re-announce it */
 				continue;
@@ -1527,7 +1520,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 				continue;
 			}
 
-			if (!hc->active) {
+			if (!is_halfchan_enabled(hc)) {
 				/* Only send keepalives for active connections */
 				continue;
 			}
@@ -2339,11 +2332,9 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 
 	status_trace("Disabling channel %s/%d, active %d -> %d",
 		     type_to_string(msg, struct short_channel_id, &scid),
-		     direction, hc->active, active);
+		     direction, is_halfchan_enabled(hc), active);
 
-	hc->active = active;
-
-	if (!hc->channel_update) {
+	if (!is_halfchan_defined(hc)) {
 		status_trace(
 		    "Channel %s/%d doesn't have a channel_update yet, can't "
 		    "disable",

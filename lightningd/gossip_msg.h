@@ -15,12 +15,10 @@ struct gossip_getnodes_entry {
 struct gossip_getchannels_entry {
 	struct pubkey source, destination;
 	u64 satoshis;
-	bool active;
 	struct short_channel_id short_channel_id;
 	u16 flags;
 	bool public;
-	s64 last_update_timestamp; /* -1 means never */
-	/* These are only set if last_update_timestamp >= 0 */
+	u32 last_update_timestamp;
 	u32 delay;
 	u32 base_fee_msat;
 	u32 fee_per_millionth;

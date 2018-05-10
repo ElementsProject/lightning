@@ -195,7 +195,6 @@ static void init_half_chan(struct routing_state *rstate,
 
 	c->channel_update = NULL;
 	c->unroutable_until = 0;
-	c->active = false;
 	c->flags = idx;
 	/* We haven't seen channel_update: make it halfway to prune time,
 	 * which should be older than any update we'd see. */
@@ -228,7 +227,6 @@ struct chan *new_chan(struct routing_state *rstate,
 	chan->nodes[!n1idx] = n2;
 	chan->txout_script = NULL;
 	chan->channel_announce = NULL;
-	chan->public = false;
 	chan->satoshis = 0;
 
 	n = tal_count(n2->chans);
@@ -345,7 +343,7 @@ static void bfg_one_edge(struct node *node,
 /* Determine if the given half_chan is routable */
 static bool hc_is_routable(const struct half_chan *hc, time_t now)
 {
-	return hc->active && hc->unroutable_until < now;
+	return is_halfchan_enabled(hc) && hc->unroutable_until < now;
 }
 
 /* riskfactor is already scaled to per-block amount */
@@ -622,10 +620,8 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	if (!chan)
 		chan = new_chan(rstate, &scid, &node_id_1, &node_id_2);
 
-	/* Channel is now public. */
-	chan->public = true;
 	chan->satoshis = satoshis;
-
+	/* Channel is now public. */
 	chan->channel_announce = tal_dup_arr(chan, u8, msg, tal_len(msg), 0);
 
 	/* Now we can broadcast channel announce */
@@ -633,7 +629,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 
 	/* If we had private updates for channels, we can broadcast them too. */
 	for (size_t i = 0; i < ARRAY_SIZE(chan->half); i++) {
-		if (!chan->half[i].channel_update)
+		if (!is_halfchan_defined(&chan->half[i]))
 			continue;
 		insert_broadcast(rstate->broadcasts,
 				 chan->half[i].channel_update);
@@ -681,7 +677,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	/* Check if we know the channel already (no matter in what
 	 * state, we stop here if yes). */
 	chan = get_channel(rstate, &pending->short_channel_id);
-	if (chan != NULL && chan->public) {
+	if (chan != NULL && is_chan_public(chan)) {
 		SUPERVERBOSE("%s: %s already has public channel",
 			     __func__,
 			     type_to_string(tmpctx, struct short_channel_id,
@@ -884,7 +880,7 @@ static void set_connection_values(struct chan *chan,
 				  u32 base_fee,
 				  u32 proportional_fee,
 				  u32 delay,
-				  bool active,
+				  u16 flags,
 				  u64 timestamp,
 				  u32 htlc_minimum_msat)
 {
@@ -894,9 +890,9 @@ static void set_connection_values(struct chan *chan,
 	c->htlc_minimum_msat = htlc_minimum_msat;
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
-	c->active = active;
+	c->flags = flags;
 	c->last_timestamp = timestamp;
-	assert((c->flags & 0x1) == idx);
+	assert((c->flags & ROUTING_FLAGS_DIRECTION) == idx);
 
 	/* If it was temporarily unroutable, re-enable */
 	c->unroutable_until = 0;
@@ -912,7 +908,7 @@ static void set_connection_values(struct chan *chan,
 					    &chan->scid),
 			     idx,
 			     c->proportional_fee);
-		c->active = false;
+		c->flags |= ROUTING_FLAGS_DISABLED;
 	}
 }
 
@@ -943,8 +939,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	direction = flags & 0x1;
 	set_connection_values(chan, direction, fee_base_msat,
 			      fee_proportional_millionths, expiry,
-			      (flags & ROUTING_FLAGS_DISABLED) == 0, timestamp,
-			      htlc_minimum_msat);
+			      flags, timestamp, htlc_minimum_msat);
 
 	/* Replace any old one. */
 	tal_free(chan->half[direction].channel_update);
@@ -1008,7 +1003,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 	chan = get_channel(rstate, &short_channel_id);
 
 	/* Optimization: only check for pending if not public */
-	if (!chan || !chan->public) {
+	if (!chan || !is_chan_public(chan)) {
 		struct pending_cannouncement *pending;
 
 		pending = find_pending_cannouncement(rstate, &short_channel_id);
@@ -1028,7 +1023,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 
 	c = &chan->half[direction];
 
-	if (c->last_timestamp >= timestamp) {
+	if (is_halfchan_defined(c) && c->last_timestamp >= timestamp) {
 		SUPERVERBOSE("Ignoring outdated update.");
 		return NULL;
 	}
@@ -1141,7 +1136,7 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 static bool node_has_public_channels(struct node *node)
 {
 	for (size_t i = 0; i < tal_count(node->chans); i++)
-		if (node->chans[i]->public)
+		if (is_chan_public(node->chans[i]))
 			return true;
 	return false;
 }
@@ -1485,7 +1480,7 @@ void route_prune(struct routing_state *rstate)
 	     chan;
 	     chan = uintmap_after(&rstate->chanmap, &idx)) {
 		/* Local-only?  Don't prune. */
-		if (!chan->public)
+		if (!is_chan_public(chan))
 			continue;
 
 		if (chan->half[0].last_timestamp < highwater

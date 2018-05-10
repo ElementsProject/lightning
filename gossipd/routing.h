@@ -11,9 +11,20 @@
 #include <wire/wire.h>
 
 #define ROUTING_MAX_HOPS 20
-#define ROUTING_FLAGS_DISABLED 2
+/* BOLT #7:
+ *
+ * The `flags` bitfield...individual bits:
+ *...
+ * | 0             | `direction` | Direction this update refers to. |
+ * | 1             | `disable`   | Disable the channel.             |
+ */
+#define ROUTING_FLAGS_DIRECTION (1 << 0)
+#define ROUTING_FLAGS_DISABLED  (1 << 1)
 
 struct half_chan {
+	/* Cached `channel_update` which initialized below (or NULL) */
+	const u8 *channel_update;
+
 	/* millisatoshi. */
 	u32 base_fee;
 	/* millionths */
@@ -22,9 +33,7 @@ struct half_chan {
 	/* Delay for HTLC in blocks.*/
 	u32 delay;
 
-	/* Is this connection active? */
-	bool active;
-
+	/* -1 if channel_update is NULL */
 	s64 last_timestamp;
 
 	/* Minimum number of msatoshi in an HTLC */
@@ -33,9 +42,6 @@ struct half_chan {
 	/* Flags as specified by the `channel_update`s, among other
 	 * things indicated direction wrt the `channel_id` */
 	u16 flags;
-
-	/* Cached `channel_update` we might forward to new peers (or NULL) */
-	const u8 *channel_update;
 
 	/* If greater than current time, this connection should not
 	 * be used for routing. */
@@ -54,14 +60,26 @@ struct chan {
 	/* node[0].id < node[1].id */
 	struct node *nodes[2];
 
-	/* NULL if not announced yet */
+	/* NULL if not announced yet (ie. not public). */
 	const u8 *channel_announce;
-
-	/* Is this a public channel, or was it only added locally? */
-	bool public;
 
 	u64 satoshis;
 };
+
+static inline bool is_chan_public(const struct chan *chan)
+{
+	return chan->channel_announce != NULL;
+}
+
+static inline bool is_halfchan_defined(const struct half_chan *hc)
+{
+	return hc->channel_update != NULL;
+}
+
+static inline bool is_halfchan_enabled(const struct half_chan *hc)
+{
+	return is_halfchan_defined(hc) && !(hc->flags & ROUTING_FLAGS_DISABLED);
+}
 
 struct node {
 	struct pubkey id;

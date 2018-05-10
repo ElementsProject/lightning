@@ -107,10 +107,11 @@ static struct half_chan *add_connection(struct routing_state *rstate,
 		chan = new_chan(rstate, &scid, from, to);
 
 	c = &chan->half[pubkey_idx(from, to)];
+	/* Make sure it's seen as initialized (update non-NULL). */
+	c->channel_update = (void *)c;
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
-	c->active = true;
 	c->flags = get_channel_direction(from, to);
 	return c;
 }
@@ -242,7 +243,7 @@ int main(void)
 	assert(fee == 1 + 3);
 
 	/* Make B->C inactive, force it back via D */
-	get_connection(rstate, &b, &c)->active = false;
+	get_connection(rstate, &b, &c)->flags |= ROUTING_FLAGS_DISABLED;
 	route = find_route(tmpctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL, &fee);
 	assert(route);
 	assert(tal_count(route) == 2);

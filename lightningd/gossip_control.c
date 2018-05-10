@@ -485,19 +485,18 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 		json_add_string(response, "short_channel_id",
 				type_to_string(reply, struct short_channel_id,
 					       &entries[i].short_channel_id));
-		json_add_num(response, "flags", entries[i].flags);
-		json_add_bool(response, "active", entries[i].active);
 		json_add_bool(response, "public", entries[i].public);
 		json_add_u64(response, "satoshis", entries[i].satoshis);
-		if (entries[i].last_update_timestamp >= 0) {
-			json_add_num(response, "last_update",
-				     entries[i].last_update_timestamp);
-			json_add_num(response, "base_fee_millisatoshi",
-				     entries[i].base_fee_msat);
-			json_add_num(response, "fee_per_millionth",
-				     entries[i].fee_per_millionth);
-			json_add_num(response, "delay", entries[i].delay);
-		}
+		json_add_num(response, "flags", entries[i].flags);
+		json_add_bool(response, "active",
+			      !(entries[i].flags & ROUTING_FLAGS_DISABLED));
+		json_add_num(response, "last_update",
+			     entries[i].last_update_timestamp);
+		json_add_num(response, "base_fee_millisatoshi",
+			     entries[i].base_fee_msat);
+		json_add_num(response, "fee_per_millionth",
+			     entries[i].fee_per_millionth);
+		json_add_num(response, "delay", entries[i].delay);
 		json_object_end(response);
 	}
 	json_array_end(response);
