@@ -1974,31 +1974,31 @@ static const char *seedname(const tal_t *ctx, const struct pubkey *id)
 	return tal_fmt(ctx, "%s.lseed.bitcoinstats.com", bech32);
 }
 
-static struct addrhint *
-seed_resolve_addr(const tal_t *ctx, const struct pubkey *id, const u16 port)
+static struct wireaddr_internal *
+seed_resolve_addr(const tal_t *ctx, const struct pubkey *id)
 {
-	struct addrhint *a;
+	struct wireaddr_internal *a;
 	const char *addr;
 
 	addr = seedname(tmpctx, id);
 	status_trace("Resolving %s", addr);
 
-	a = tal(ctx, struct addrhint);
-	a->addr.itype = ADDR_INTERNAL_WIREADDR;
-	if (!wireaddr_from_hostname(&a->addr.u.wireaddr, addr, port, NULL,
+	a = tal(ctx, struct wireaddr_internal);
+	a->itype = ADDR_INTERNAL_WIREADDR;
+	if (!wireaddr_from_hostname(&a->u.wireaddr, addr, DEFAULT_PORT, NULL,
 				    NULL)) {
 		status_trace("Could not resolve %s", addr);
 		return tal_free(a);
 	} else {
 		status_trace("Resolved %s to %s", addr,
 			     type_to_string(ctx, struct wireaddr,
-					    &a->addr.u.wireaddr));
+					    &a->u.wireaddr));
 		return a;
 	}
 }
 
 /* Resolve using gossiped wireaddr stored in routemap. */
-static struct addrhint *
+static struct wireaddr_internal *
 gossip_resolve_addr(const tal_t *ctx,
 		    struct routing_state *rstate,
 		    const struct pubkey *id)
@@ -2015,15 +2015,15 @@ gossip_resolve_addr(const tal_t *ctx,
 	/* FIXME: When struct addrhint can contain more than one address,
 	 * we should copy all routable addresses. */
 	for (size_t i = 0; i < tal_count(node->addresses); i++) {
-		struct addrhint *a;
+		struct wireaddr_internal *a;
 
 		if (!address_routable(&node->addresses[i],
 				      rstate->dev_allow_localhost))
 			continue;
 
-		a = tal(ctx, struct addrhint);
-		a->addr.itype = ADDR_INTERNAL_WIREADDR;
-		a->addr.u.wireaddr = node->addresses[i];
+		a = tal(ctx, struct wireaddr_internal);
+		a->itype = ADDR_INTERNAL_WIREADDR;
+		a->u.wireaddr = node->addresses[i];
 		return a;
 	}
 
@@ -2033,7 +2033,8 @@ gossip_resolve_addr(const tal_t *ctx,
 static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 			   bool master_needs_response)
 {
-	struct addrhint *a;
+	struct wireaddr_internal *a;
+	struct addrhint *hint;
 	int fd, af;
 	struct reaching *reach;
 	u8 *msg;
@@ -2065,7 +2066,11 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 		return;
 	}
 
-	a = find_addrhint(daemon, id);
+	hint = find_addrhint(daemon, id);
+	if (hint)
+		a = &hint->addr;
+	else
+		a = NULL;
 
 	if (!a)
 		a = gossip_resolve_addr(tmpctx,
@@ -2073,7 +2078,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 					id);
 
 	if (!a && !daemon->use_proxy_always)
-		a = seed_resolve_addr(tmpctx, id, 9735);
+		a = seed_resolve_addr(tmpctx, id);
 
 	if (!a) {
 		status_debug("No address known for %s, giving up",
@@ -2091,7 +2096,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 	af = -1;
 	use_proxy = daemon->use_proxy_always;
 
-	switch (a->addr.itype) {
+	switch (a->itype) {
 	case ADDR_INTERNAL_SOCKNAME:
 		af = AF_LOCAL;
 		/* Local sockets don't use tor proxy */
@@ -2104,7 +2109,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Can't reach AUTOTOR");
 	case ADDR_INTERNAL_WIREADDR:
-		switch (a->addr.u.wireaddr.type) {
+		switch (a->u.wireaddr.type) {
 		case ADDR_TYPE_TOR_V2:
 		case ADDR_TYPE_TOR_V3:
 			use_proxy = true;
@@ -2154,7 +2159,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 	reach = tal(daemon, struct reaching);
 	reach->daemon = daemon;
 	reach->id = *id;
-	reach->addr = a->addr;
+	reach->addr = *a;
 	reach->master_needs_response = master_needs_response;
 	reach->connstate = "Connection establishment";
 	list_add_tail(&daemon->reaching, &reach->list);
