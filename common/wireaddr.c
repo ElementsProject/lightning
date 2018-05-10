@@ -270,7 +270,8 @@ static bool separate_address_and_port(const tal_t *ctx, const char *arg,
 }
 
 bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
-			    const u16 port, bool dns_ok, const char **err_msg)
+			    const u16 port, bool *no_dns,
+			    const char **err_msg)
 {
 	struct sockaddr_in6 *sa6;
 	struct sockaddr_in *sa4;
@@ -278,6 +279,9 @@ bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
 	struct addrinfo hints;
 	int gai_err;
 	bool res = false;
+
+	if (no_dns)
+		*no_dns = false;
 
 	/* Don't do lookup on onion addresses. */
 	if (strends(hostname, ".onion")) {
@@ -299,13 +303,19 @@ bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
 		return true;
 	}
 
+	/* Tell them we wanted DNS and fail. */
+	if (no_dns) {
+		if (err_msg)
+			*err_msg = "Needed DNS, but lookups suppressed";
+		*no_dns = true;
+		return false;
+	}
+
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = 0;
 	hints.ai_flags = AI_ADDRCONFIG;
-	if (!dns_ok)
-		hints.ai_flags = AI_NUMERICHOST;
 	gai_err = getaddrinfo(hostname, tal_fmt(tmpctx, "%d", port),
 			      &hints, &addrinfo);
 	if (gai_err != 0) {
@@ -330,7 +340,7 @@ bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
 }
 
 bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
-		    bool dns_ok, const char **err_msg)
+		    bool *no_dns, const char **err_msg)
 {
 	struct in6_addr v6;
 	struct in_addr v4;
@@ -363,7 +373,7 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
 
 	/* Resolve with getaddrinfo */
 	if (!res)
-		res = wireaddr_from_hostname(addr, ip, port, dns_ok, err_msg);
+		res = wireaddr_from_hostname(addr, ip, port, no_dns, err_msg);
 
 finish:
 	if (!res && err_msg && !*err_msg)
@@ -377,6 +387,7 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 {
 	u16 wildport;
 	char *ip;
+	bool needed_dns;
 
 	/* Addresses starting with '/' are local socket paths */
 	if (arg[0] == '/') {
@@ -408,12 +419,14 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 	if (strstarts(arg, "autotor:")) {
 		addr->itype = ADDR_INTERNAL_AUTOTOR;
 		return parse_wireaddr(arg + strlen("autotor:"),
-				      &addr->u.torservice, 9051, dns_ok,
+				      &addr->u.torservice, 9051,
+				      dns_ok ? NULL : &needed_dns,
 				      err_msg);
 	}
 
 	addr->itype = ADDR_INTERNAL_WIREADDR;
-	return parse_wireaddr(arg, &addr->u.wireaddr, port, dns_ok, err_msg);
+	return parse_wireaddr(arg, &addr->u.wireaddr, port,
+			      dns_ok ? NULL : &needed_dns, err_msg);
 }
 
 void wireaddr_from_sockname(struct wireaddr_internal *addr,
