@@ -1948,19 +1948,25 @@ static struct io_plan *conn_proxy_init(struct io_conn *conn,
 	return io_tor_connect(conn, reach->daemon->proxyaddr, host, port, reach);
 }
 
-static struct addrhint *
-seed_resolve_addr(const tal_t *ctx, const struct pubkey *id, const u16 port)
+static const char *seedname(const tal_t *ctx, const struct pubkey *id)
 {
-	struct addrhint *a;
-	char bech32[100], *addr;
+	char bech32[100];
 	u8 der[PUBKEY_DER_LEN];
 	u5 *data = tal_arr(ctx, u5, 0);
 
 	pubkey_to_der(der, id);
 	bech32_push_bits(&data, der, PUBKEY_DER_LEN*8);
 	bech32_encode(bech32, "ln", data, tal_count(data), sizeof(bech32));
-	addr = tal_fmt(ctx, "%s.lseed.bitcoinstats.com", bech32);
+	return tal_fmt(ctx, "%s.lseed.bitcoinstats.com", bech32);
+}
 
+static struct addrhint *
+seed_resolve_addr(const tal_t *ctx, const struct pubkey *id, const u16 port)
+{
+	struct addrhint *a;
+	const char *addr;
+
+	addr = seedname(tmpctx, id);
 	status_trace("Resolving %s", addr);
 
 	a = tal(ctx, struct addrhint);
