@@ -299,15 +299,17 @@ static char *opt_set_offline(struct lightningd *ld)
 
 static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 {
+	bool needed_dns;
 	tal_free(ld->proxyaddr);
 
 	/* We use a tal_arr here, so we can marshal it to gossipd */
 	ld->proxyaddr = tal_arr(ld, struct wireaddr, 1);
 
-	if (!parse_wireaddr(arg, ld->proxyaddr, 9050, !ld->use_proxy_always,
+	if (!parse_wireaddr(arg, ld->proxyaddr, 9050,
+			    ld->use_proxy_always ? &needed_dns : NULL,
 			    NULL)) {
-		return tal_fmt(NULL, "Unable to parse Tor proxy address '%s'",
-			       arg);
+		return tal_fmt(NULL, "Unable to parse Tor proxy address '%s' %s",
+			       arg, needed_dns ? " (needed dns)" : "");
 	}
 	return NULL;
 }
