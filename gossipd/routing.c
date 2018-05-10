@@ -786,7 +786,7 @@ static void process_pending_channel_update(struct routing_state *rstate,
 		return;
 
 	/* FIXME: We don't remember who sent us updates, so can't error them */
-	err = handle_channel_update(rstate, cupdate);
+	err = handle_channel_update(rstate, cupdate, true);
 	if (err) {
 		status_trace("Pending channel_update for %s: %s",
 			     type_to_string(tmpctx, struct short_channel_id, scid),
@@ -879,14 +879,14 @@ static void update_pending(struct pending_cannouncement *pending,
 	}
 }
 
-void set_connection_values(struct chan *chan,
-			   int idx,
-			   u32 base_fee,
-			   u32 proportional_fee,
-			   u32 delay,
-			   bool active,
-			   u64 timestamp,
-			   u32 htlc_minimum_msat)
+static void set_connection_values(struct chan *chan,
+				  int idx,
+				  u32 base_fee,
+				  u32 proportional_fee,
+				  u32 delay,
+				  bool active,
+				  u64 timestamp,
+				  u32 htlc_minimum_msat)
 {
 	struct half_chan *c = &chan->half[idx];
 
@@ -961,7 +961,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	return true;
 }
 
-u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
+u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
+			  bool add_to_store)
 {
 	u8 *serialized;
 	struct half_chan *c;
@@ -1060,7 +1061,8 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 	/* Store the channel_update for both public and non-public channels
 	 * (non-public ones may just be the incoming direction). We'd have
 	 * dropped invalid ones earlier. */
-	gossip_store_add_channel_update(rstate->store, serialized);
+	if (add_to_store)
+		gossip_store_add_channel_update(rstate->store, serialized);
 
 	return NULL;
 }
@@ -1430,7 +1432,7 @@ void routing_failure(struct routing_state *rstate,
 				       (int) failcode);
 			return;
 		}
-		err = handle_channel_update(rstate, channel_update);
+		err = handle_channel_update(rstate, channel_update, true);
 		if (err) {
 			status_unusual("routing_failure: "
 				       "bad channel_update %s",
@@ -1504,29 +1506,17 @@ void route_prune(struct routing_state *rstate)
 	tal_free(pruned);
 }
 
-void handle_local_add_channel(struct routing_state *rstate, u8 *msg)
+void handle_local_add_channel(struct routing_state *rstate, const u8 *msg)
 {
 	struct short_channel_id scid;
-	struct bitcoin_blkid chain_hash;
 	struct pubkey remote_node_id;
-	u16 cltv_expiry_delta;
-	u32 fee_base_msat, fee_proportional_millionths;
-	u64 htlc_minimum_msat;
-	int idx;
+	u8 *update;
 	struct chan *chan;
+	u8 *err;
 
-	if (!fromwire_gossip_local_add_channel(
-		msg, &scid, &chain_hash, &remote_node_id,
-		&cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
-		&fee_proportional_millionths)) {
+	if (!fromwire_gossip_local_add_channel(msg, msg, &scid, &remote_node_id,
+					       &update)) {
 		status_broken("Unable to parse local_add_channel message: %s", tal_hex(msg, msg));
-		return;
-	}
-
-	if (!structeq(&chain_hash, &rstate->chain_hash)) {
-		status_broken("Received local_add_channel for unknown chain %s",
-			     type_to_string(msg, struct bitcoin_blkid,
-					    &chain_hash));
 		return;
 	}
 
@@ -1539,17 +1529,10 @@ void handle_local_add_channel(struct routing_state *rstate, u8 *msg)
 	/* Create new channel */
 	chan = new_chan(rstate, &scid, &rstate->local_id, &remote_node_id);
 
-	idx = pubkey_idx(&rstate->local_id, &remote_node_id),
-	/* Activate the half_chan from us to them. */
-	set_connection_values(chan, idx,
-			      fee_base_msat,
-			      fee_proportional_millionths,
-			      cltv_expiry_delta,
-			      true,
-			      0,
-			      htlc_minimum_msat);
-	/* Designed to match msg in handle_channel_update, for easy testing */
-	status_trace("Received local update for channel %s(%d) now ACTIVE",
-		     type_to_string(msg, struct short_channel_id, &scid),
-		     idx);
+	/* We've already put this in the store: don't again! */
+	err = handle_channel_update(rstate, update, false);
+	if (err) {
+		status_broken("local_add_channel: %s", err);
+		tal_free(chan);
+	}
 }

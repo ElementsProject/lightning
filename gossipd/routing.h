@@ -220,20 +220,11 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 				  const u8 *txscript);
 
 /* Returns NULL if all OK, otherwise an error for the peer which sent. */
-u8 *handle_channel_update(struct routing_state *rstate, const u8 *update);
+u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
+			  bool add_to_store);
 
 /* Returns NULL if all OK, otherwise an error for the peer which sent. */
 u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node);
-
-/* Set values on the struct node_connection */
-void set_connection_values(struct chan *chan,
-			   int idx,
-			   u32 base_fee,
-			   u32 proportional_fee,
-			   u32 delay,
-			   bool active,
-			   u64 timestamp,
-			   u32 htlc_minimum_msat);
 
 /* Get a node: use this instead of node_map_get() */
 struct node *get_node(struct routing_state *rstate, const struct pubkey *id);
@@ -301,6 +292,6 @@ bool routing_add_node_announcement(struct routing_state *rstate,
  * is the case for private channels or channels that have not yet reached
  * `announce_depth`.
  */
-void handle_local_add_channel(struct routing_state *rstate, u8 *msg);
+void handle_local_add_channel(struct routing_state *rstate, const u8 *msg);
 
 #endif /* LIGHTNING_GOSSIPD_ROUTING_H */
