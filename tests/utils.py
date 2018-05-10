@@ -28,9 +28,10 @@ LIGHTNINGD_CONFIG = {
 }
 
 DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
+TIMEOUT = int(os.getenv("TIMEOUT", "60"))
 
 
-def wait_for(success, timeout=30, interval=0.1):
+def wait_for(success, timeout=TIMEOUT, interval=0.1):
     start_time = time.time()
     while not success() and time.time() < start_time + timeout:
         time.sleep(interval)
@@ -134,7 +135,7 @@ class TailableProc(object):
         logging.debug("Did not find '%s' in logs", regex)
         return None
 
-    def wait_for_logs(self, regexs, timeout=60):
+    def wait_for_logs(self, regexs, timeout=TIMEOUT):
         """Look for `regexs` in the logs.
 
         We tail the stdout of the process and look for each regex in `regexs`,
@@ -173,7 +174,7 @@ class TailableProc(object):
                     return self.logs[pos]
                 pos += 1
 
-    def wait_for_log(self, regex, timeout=60):
+    def wait_for_log(self, regex, timeout=TIMEOUT):
         """Look for `regex` in the logs.
 
         Convenience wrapper for the common case of only seeking a single entry.
@@ -241,7 +242,7 @@ class BitcoinD(TailableProc):
 
     def start(self):
         TailableProc.start(self)
-        self.wait_for_log("Done loading", timeout=60)
+        self.wait_for_log("Done loading", timeout=TIMEOUT)
 
         logging.info("BitcoinD started")
 
