@@ -147,7 +147,8 @@ static char *opt_set_s32(const char *arg, s32 *u)
 
 static char *opt_add_addr_withtype(const char *arg,
 				   struct lightningd *ld,
-				   enum addr_listen_announce ala)
+				   enum addr_listen_announce ala,
+				   bool wildcard_ok)
 {
 	size_t n = tal_count(ld->proposed_wireaddr);
 	char const *err_msg;
@@ -159,7 +160,8 @@ static char *opt_add_addr_withtype(const char *arg,
 	ld->proposed_listen_announce[n] = ala;
 
 	if (!parse_wireaddr_internal(arg, &ld->proposed_wireaddr[n], ld->portnum,
-				     true, !ld->use_proxy_always, &err_msg)) {
+				     wildcard_ok, !ld->use_proxy_always,
+				     &err_msg)) {
 		return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
 	}
 
@@ -169,17 +171,17 @@ static char *opt_add_addr_withtype(const char *arg,
 
 static char *opt_add_addr(const char *arg, struct lightningd *ld)
 {
-	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN_AND_ANNOUNCE);
+	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN_AND_ANNOUNCE, true);
 }
 
 static char *opt_add_bind_addr(const char *arg, struct lightningd *ld)
 {
-	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN);
+	return opt_add_addr_withtype(arg, ld, ADDR_LISTEN, true);
 }
 
 static char *opt_add_announce_addr(const char *arg, struct lightningd *ld)
 {
-	return opt_add_addr_withtype(arg, ld, ADDR_ANNOUNCE);
+	return opt_add_addr_withtype(arg, ld, ADDR_ANNOUNCE, false);
 }
 
 static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
