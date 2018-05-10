@@ -147,7 +147,7 @@ static struct node *new_node(struct routing_state *rstate,
 	n->id = *id;
 	n->chans = tal_arr(n, struct chan *, 0);
 	n->alias = NULL;
-	n->node_announce_msgidx = 0;
+	n->node_announcement = NULL;
 	n->last_timestamp = -1;
 	n->addresses = tal_arr(n, struct wireaddr, 0);
 	node_map_add(rstate->nodes, n);
@@ -193,8 +193,7 @@ static void init_half_chan(struct routing_state *rstate,
 {
 	struct half_chan *c = &chan->half[idx];
 
-	c->channel_update_msgidx = 0;
-	c->private_update = NULL;
+	c->channel_update = NULL;
 	c->unroutable_until = 0;
 	c->active = false;
 	c->flags = idx;
@@ -228,7 +227,7 @@ struct chan *new_chan(struct routing_state *rstate,
 	chan->nodes[n1idx] = n1;
 	chan->nodes[!n1idx] = n2;
 	chan->txout_script = NULL;
-	chan->channel_announce_msgidx = 0;
+	chan->channel_announce = NULL;
 	chan->public = false;
 	chan->satoshis = 0;
 
@@ -611,8 +610,6 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	struct pubkey node_id_2;
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
-	bool old_chan, old_public;
-	u64 old_msgidx;
 
 	fromwire_channel_announcement(
 	    tmpctx, msg, &node_signature_1, &node_signature_2,
@@ -622,35 +619,24 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	 * local_add_channel(); normally we don't accept new
 	 * channel_announcements.  See handle_channel_announcement. */
 	chan = get_channel(rstate, &scid);
-	old_chan = chan;
 	if (!chan)
 		chan = new_chan(rstate, &scid, &node_id_1, &node_id_2);
-
-	old_public = chan->public;
-	old_msgidx = chan->channel_announce_msgidx;
 
 	/* Channel is now public. */
 	chan->public = true;
 	chan->satoshis = satoshis;
 
-	if (replace_broadcast(chan, rstate->broadcasts,
-			      &chan->channel_announce_msgidx, msg)) {
-		status_broken("Announcement %s was replaced: %s, %s, msgidx was %"PRIu64" now %"PRIu64"?",
-			      tal_hex(tmpctx, msg),
-			      old_chan ? "preexisting" : "new channel",
-			      old_public ? "public" : "not public",
-			      old_msgidx, chan->channel_announce_msgidx);
-		return false;
-	}
+	chan->channel_announce = tal_dup_arr(chan, u8, msg, tal_len(msg), 0);
 
-	/* If we have previously private updates for channels, process now */
+	/* Now we can broadcast channel announce */
+	insert_broadcast(rstate->broadcasts, chan->channel_announce);
+
+	/* If we had private updates for channels, we can broadcast them too. */
 	for (size_t i = 0; i < ARRAY_SIZE(chan->half); i++) {
-		const u8 *update = chan->half[i].private_update;
-
-		if (update) {
-			chan->half[i].private_update = NULL;
-			routing_add_channel_update(rstate, take(update));
-		}
+		if (!chan->half[i].channel_update)
+			continue;
+		insert_broadcast(rstate->broadcasts,
+				 chan->half[i].channel_update);
 	}
 
 	return true;
@@ -960,18 +946,18 @@ bool routing_add_channel_update(struct routing_state *rstate,
 			      (flags & ROUTING_FLAGS_DISABLED) == 0, timestamp,
 			      htlc_minimum_msat);
 
+	/* Replace any old one. */
+	tal_free(chan->half[direction].channel_update);
+	chan->half[direction].channel_update
+		= tal_dup_arr(chan, u8, update, tal_len(update), 0);
+
 	/* For private channels, we get updates without an announce: don't
 	 * broadcast them! */
-	if (chan->channel_announce_msgidx == 0) {
-		tal_free(chan->half[direction].private_update);
-		chan->half[direction].private_update
-			= tal_dup_arr(chan, u8, update, tal_len(update), 0);
+	if (!chan->channel_announce)
 		return true;
-	}
 
-	replace_broadcast(chan, rstate->broadcasts,
-			  &chan->half[direction].channel_update_msgidx,
-			  update);
+	insert_broadcast(rstate->broadcasts,
+			 chan->half[direction].channel_update);
 	return true;
 }
 
@@ -1131,7 +1117,7 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 	node = get_node(rstate, &node_id);
 
 	/* May happen if we accepted the node_announcement due to a local
-	* channel, for which we didn't have the announcement hust yet. */
+	* channel, for which we didn't have the announcement yet. */
 	if (node == NULL)
 		return false;
 
@@ -1144,9 +1130,9 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 	tal_free(node->alias);
 	node->alias = tal_dup_arr(node, u8, alias, 32, 0);
 
-	replace_broadcast(node, rstate->broadcasts,
-			  &node->node_announce_msgidx,
-			  msg);
+	tal_free(node->node_announcement);
+	node->node_announcement = tal_dup_arr(node, u8, msg, tal_len(msg), 0);
+	insert_broadcast(rstate->broadcasts, node->node_announcement);
 	return true;
 }
 

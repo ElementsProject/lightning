@@ -51,15 +51,12 @@ u8 fromwire_u8(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 /* Generated stub for fromwire_wireaddr */
 bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct wireaddr *addr UNNEEDED)
 { fprintf(stderr, "fromwire_wireaddr called!\n"); abort(); }
+/* Generated stub for insert_broadcast */
+void insert_broadcast(struct broadcast_state *bstate UNNEEDED, const u8 *msg UNNEEDED)
+{ fprintf(stderr, "insert_broadcast called!\n"); abort(); }
 /* Generated stub for onion_type_name */
 const char *onion_type_name(int e UNNEEDED)
 { fprintf(stderr, "onion_type_name called!\n"); abort(); }
-/* Generated stub for replace_broadcast */
-bool replace_broadcast(const tal_t *ctx UNNEEDED,
-		       struct broadcast_state *bstate UNNEEDED,
-		       u64 *index UNNEEDED,
-		       const u8 *payload TAKES UNNEEDED)
-{ fprintf(stderr, "replace_broadcast called!\n"); abort(); }
 /* Generated stub for sanitize_error */
 char *sanitize_error(const tal_t *ctx UNNEEDED, const u8 *errmsg UNNEEDED,
 		     struct channel_id *channel_id UNNEEDED)

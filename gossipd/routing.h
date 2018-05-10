@@ -34,11 +34,8 @@ struct half_chan {
 	 * things indicated direction wrt the `channel_id` */
 	u16 flags;
 
-	/* Cached `channel_update` we might forward to new peers (or 0) */
-	u64 channel_update_msgidx;
-
-	/* If it's a private update, it's not in the broadcast map. */
-	const u8 *private_update;
+	/* Cached `channel_update` we might forward to new peers (or NULL) */
+	const u8 *channel_update;
 
 	/* If greater than current time, this connection should not
 	 * be used for routing. */
@@ -57,8 +54,8 @@ struct chan {
 	/* node[0].id < node[1].id */
 	struct node *nodes[2];
 
-	/* Cached `channel_announcement` we might forward to new peers (or 0) */
-	u64 channel_announce_msgidx;
+	/* NULL if not announced yet */
+	const u8 *channel_announce;
 
 	/* Is this a public channel, or was it only added locally? */
 	bool public;
@@ -94,8 +91,8 @@ struct node {
 	/* Color to be used when displaying the name */
 	u8 rgb_color[3];
 
-	/* Cached `node_announcement` we might forward to new peers (or 0). */
-	u64 node_announce_msgidx;
+	/* Cached `node_announcement` we might forward to new peers (or NULL). */
+	const u8 *node_announcement;
 };
 
 const secp256k1_pubkey *node_map_keyof_node(const struct node *n);
