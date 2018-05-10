@@ -1922,8 +1922,8 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 	return io_connect(conn, ai, connection_out, reach);
 }
 
-static struct io_plan *conn_tor_init(struct io_conn *conn,
-				     struct reaching *reach)
+static struct io_plan *conn_proxy_init(struct io_conn *conn,
+				       struct reaching *reach)
 {
 	assert(reach->addr.itype == ADDR_INTERNAL_WIREADDR);
 	io_set_finish(conn, connect_failed, reach);
@@ -2001,7 +2001,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 	int fd, af;
 	struct reaching *reach;
 	u8 *msg;
-	bool use_tor;
+	bool use_proxy;
 	struct peer *peer = find_peer(daemon, id);
 
 	if (peer) {
@@ -2054,13 +2054,13 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 
 	/* Might not even be able to create eg. IPv6 sockets */
 	af = -1;
-	use_tor = daemon->use_proxy_always;
+	use_proxy = daemon->use_proxy_always;
 
 	switch (a->addr.itype) {
 	case ADDR_INTERNAL_SOCKNAME:
 		af = AF_LOCAL;
 		/* Local sockets don't use tor proxy */
-		use_tor = false;
+		use_proxy = false;
 		break;
 	case ADDR_INTERNAL_ALLPROTO:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -2072,7 +2072,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 		switch (a->addr.u.wireaddr.type) {
 		case ADDR_TYPE_TOR_V2:
 		case ADDR_TYPE_TOR_V3:
-			use_tor = true;
+			use_proxy = true;
 			break;
 		case ADDR_TYPE_IPV4:
 			af = AF_INET;
@@ -2085,12 +2085,10 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 		}
 	}
 
-	/* If we have to use Tor but we don't have a proxy, we fail. */
-	if (use_tor) {
-		/* Can't reach tor addresses without proxy. */
+	/* If we have to use proxy but we don't have one, we fail. */
+	if (use_proxy) {
 		if (!daemon->proxyaddr) {
-			status_debug("Need to use tor for %i, but no proxy",
-				     a->addr.u.wireaddr.type);
+			status_debug("Need proxy");
 			af = -1;
 		} else
 			af = daemon->proxyaddr->ai_family;
@@ -2127,8 +2125,8 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 	list_add_tail(&daemon->reaching, &reach->list);
 	tal_add_destructor(reach, destroy_reaching);
 
-	if (use_tor)
-		io_new_conn(reach, fd, conn_tor_init, reach);
+	if (use_proxy)
+		io_new_conn(reach, fd, conn_proxy_init, reach);
 	else
 		io_new_conn(reach, fd, conn_init, reach);
 }
