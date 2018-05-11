@@ -1135,7 +1135,8 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 
 static bool node_has_public_channels(struct node *node)
 {
-	for (size_t i = 0; i < tal_count(node->chans); i++)
+	size_t i;
+	for (i = 0; i < tal_count(node->chans); i++)
 		if (is_chan_public(node->chans[i]))
 			return true;
 	return false;
@@ -1357,6 +1358,7 @@ void routing_failure(struct routing_state *rstate,
 {
 	struct node *node;
 	time_t now = time_now().ts.tv_sec;
+	size_t i;
 
 	status_trace("Received routing failure 0x%04x (%s), "
 		     "erring node %s, "
@@ -1383,7 +1385,7 @@ void routing_failure(struct routing_state *rstate,
 	 *
 	 */
 	if (failcode & NODE) {
-		for (int i = 0; i < tal_count(node->chans); ++i) {
+		for (i = 0; i < tal_count(node->chans); ++i) {
 			routing_failure_channel_out(tmpctx, node, failcode,
 						    node->chans[i],
 						    now);

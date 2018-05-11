@@ -72,6 +72,7 @@ static void test_b11(const char *b11str,
 	struct bolt11 *b11;
 	char *fail;
 	char *reproduce;
+	size_t i;
 
 	b11 = bolt11_decode(tmpctx, b11str, hashed_desc, &fail);
 	if (!b11)
@@ -93,7 +94,7 @@ static void test_b11(const char *b11str,
 	assert(b11->min_final_cltv_expiry == expect_b11->min_final_cltv_expiry);
 
 	assert(tal_count(b11->fallbacks) == tal_count(expect_b11->fallbacks));
-	for (size_t i = 0; i < tal_count(b11->fallbacks); i++)
+	for (i = 0; i < tal_count(b11->fallbacks); i++)
 		assert(memeq(b11->fallbacks[i], tal_len(b11->fallbacks[i]),
 			     expect_b11->fallbacks[i],
 			     tal_len(expect_b11->fallbacks[i])));
@@ -106,7 +107,7 @@ static void test_b11(const char *b11str,
 
 	/* Re-encode to check */
 	reproduce = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
-	for (size_t i = 0; i < strlen(reproduce); i++) {
+	for (i = 0; i < strlen(reproduce); i++) {
 		if (reproduce[i] != b11str[i])
 			abort();
 	}

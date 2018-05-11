@@ -93,6 +93,7 @@ static void run_unit_tests(void)
 	};
 
 	int replylen = 164 * 2;
+	int i;
 
 	u8 *intermediates[] = {
 	    tal_hexdata(tmpctx, "500d8596f76d3045bfdbf99914b98519fe76ea130dc223"
@@ -144,7 +145,7 @@ static void run_unit_tests(void)
 	};
 
 	reply = create_onionreply(tmpctx, &ss[4], raw);
-	for (int i = 4; i >= 0; i--) {
+	for (i = 4; i >= 0; i--) {
 		printf("input_packet %s\n", tal_hex(tmpctx, reply));
 		reply = wrap_onionreply(tmpctx, &ss[i], reply);
 		printf("obfuscated_packet %s\n", tal_hex(tmpctx, reply));

@@ -521,10 +521,11 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
                 u64 m10 = 10;
                 u64 amount;
                 char *end;
+				size_t i;
 
                 /* Gather and trim multiplier */
                 end = amountstr + strlen(amountstr)-1;
-                for (size_t i = 0; i < ARRAY_SIZE(multipliers); i++) {
+                for (i = 0; i < ARRAY_SIZE(multipliers); i++) {
                         if (*end == multipliers[i].letter) {
                                 m10 = multipliers[i].m10;
                                 *end = '\0';
@@ -730,10 +731,12 @@ static void push_field(u5 **data, char type, const void *src, size_t nbits)
  */
 static void push_varlen_field(u5 **data, char type, u64 val)
 {
+		size_t nbits;
+
         assert(bech32_charset_rev[(unsigned char)type] >= 0);
         push_varlen_uint(data, bech32_charset_rev[(unsigned char)type], 5);
 
-        for (size_t nbits = 5; nbits < 65; nbits += 5) {
+        for (nbits = 5; nbits < 65; nbits += 5) {
                 if ((val >> nbits) == 0) {
                         push_varlen_uint(data, nbits / 5, 10);
                         push_varlen_uint(data, val,  nbits);
@@ -830,8 +833,9 @@ static void encode_f(u5 **data, const u8 *fallback)
 static void encode_r(u5 **data, const struct route_info *r)
 {
         u8 *rinfo = tal_arr(NULL, u8, 0);
+		size_t i;
 
-        for (size_t i = 0; i < tal_count(r); i++)
+        for (i = 0; i < tal_count(r); i++)
                 towire_route_info(&rinfo, r);
 
         push_field(data, 'r', rinfo, tal_len(rinfo) * CHAR_BIT);
@@ -868,6 +872,7 @@ char *bolt11_encode_(const tal_t *ctx,
         u8 sig_and_recid[65];
         u8 *hrpu8;
         int recid;
+		size_t i;
 
         /* BOLT #11:
          *
@@ -926,10 +931,10 @@ char *bolt11_encode_(const tal_t *ctx,
         if (b11->min_final_cltv_expiry != DEFAULT_C)
                 encode_c(&data, b11->min_final_cltv_expiry);
 
-        for (size_t i = 0; i < tal_count(b11->fallbacks); i++)
+        for (i = 0; i < tal_count(b11->fallbacks); i++)
                 encode_f(&data, b11->fallbacks[i]);
 
-        for (size_t i = 0; i < tal_count(b11->routes); i++)
+        for (i = 0; i < tal_count(b11->routes); i++)
                 encode_r(&data, b11->routes[i]);
 
         list_for_each(&b11->extra_fields, extra, list)

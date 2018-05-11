@@ -722,7 +722,8 @@ static void json_add_node_decoration(struct json_result *response,
 				     struct gossip_getnodes_entry **nodes,
 				     const struct pubkey *id)
 {
-	for (size_t i = 0; i < tal_count(nodes); i++) {
+	size_t i;
+	for (i = 0; i < tal_count(nodes); i++) {
 		struct json_escaped *esc;
 
 		/* If no addresses, then this node announcement hasn't been
@@ -752,6 +753,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 	struct gossip_getnodes_entry **nodes;
 	struct json_result *response = new_json_result(gpa->cmd);
 	struct peer *p;
+	size_t i;
 
 	if (!fromwire_gossip_getpeers_reply(msg, msg, &ids, &addrs, &nodes)) {
 		command_fail(gpa->cmd, "Bad response from gossipd");
@@ -870,7 +872,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 				     channel->our_config.max_accepted_htlcs);
 
 			json_array_start(response, "status");
-			for (size_t i = 0;
+			for (i = 0;
 			     i < ARRAY_SIZE(channel->billboard.permanent);
 			     i++) {
 				if (!channel->billboard.permanent[i])
@@ -913,7 +915,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 		json_object_end(response);
 	}
 
-	for (size_t i = 0; i < tal_count(ids); i++) {
+	for (i = 0; i < tal_count(ids); i++) {
 		/* Don't report peers in both, which can happen if they're
 		 * reconnecting */
 		if (peer_by_id(gpa->cmd->ld, ids + i))

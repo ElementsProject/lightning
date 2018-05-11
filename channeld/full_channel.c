@@ -1044,8 +1044,9 @@ bool channel_force_htlcs(struct channel *channel,
 const char *channel_add_err_name(enum channel_add_err e)
 {
 	static char invalidbuf[sizeof("INVALID ") + STR_MAX_CHARS(e)];
+	size_t i;
 
-	for (size_t i = 0; enum_channel_add_err_names[i].name; i++) {
+	for (i = 0; enum_channel_add_err_names[i].name; i++) {
 		if (enum_channel_add_err_names[i].v == e)
 			return enum_channel_add_err_names[i].name;
 	}
@@ -1056,8 +1057,9 @@ const char *channel_add_err_name(enum channel_add_err e)
 const char *channel_remove_err_name(enum channel_remove_err e)
 {
 	static char invalidbuf[sizeof("INVALID ") + STR_MAX_CHARS(e)];
+	size_t i;
 
-	for (size_t i = 0; enum_channel_remove_err_names[i].name; i++) {
+	for (i = 0; enum_channel_remove_err_names[i].name; i++) {
 		if (enum_channel_remove_err_names[i].v == e)
 			return enum_channel_remove_err_names[i].name;
 	}

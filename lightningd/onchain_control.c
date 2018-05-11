@@ -139,6 +139,7 @@ static void watch_tx_and_outputs(struct channel *channel,
 	struct bitcoin_txid txid;
 	struct txwatch *txw;
 	struct lightningd *ld = channel->peer->ld;
+	size_t i;
 
 	bitcoin_txid(tx, &txid);
 
@@ -146,7 +147,7 @@ static void watch_tx_and_outputs(struct channel *channel,
 	txw = watch_tx(channel->owner, ld->topology, channel, tx,
 		       onchain_tx_watched);
 
-	for (size_t i = 0; i < tal_count(tx->output); i++)
+	for (i = 0; i < tal_count(tx->output); i++)
 		watch_txo(txw, ld->topology, channel, &txid, i,
 			  onchain_txo_watched);
 }
@@ -378,6 +379,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	struct htlc_stub *stubs;
 	struct lightningd *ld = channel->peer->ld;
 	struct pubkey final_key;
+	size_t i;
 
 	channel_fail_permanent(channel, "Funding transaction spent");
 
@@ -451,7 +453,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	subd_send_msg(channel->owner, take(msg));
 
 	/* FIXME: Don't queue all at once, use an empty cb... */
-	for (size_t i = 0; i < tal_count(stubs); i++) {
+	for (i = 0; i < tal_count(stubs); i++) {
 		bool tell_immediate;
 		bool tell = tell_if_missing(channel, &stubs[i], &tell_immediate);
 		msg = towire_onchain_htlc(channel, &stubs[i],
@@ -473,11 +475,12 @@ void onchaind_replay_channels(struct lightningd *ld)
 	u32 *onchaind_ids;
 	struct channeltx *txs;
 	struct channel *chan;
+	size_t i, j;
 
 	db_begin_transaction(ld->wallet->db);
 	onchaind_ids = wallet_onchaind_channels(ld->wallet, ld);
 
-	for (size_t i = 0; i < tal_count(onchaind_ids); i++) {
+	for (i = 0; i < tal_count(onchaind_ids); i++) {
 		log_info(ld->log, "Restarting onchaind for channel %d",
 			 onchaind_ids[i]);
 
@@ -485,7 +488,7 @@ void onchaind_replay_channels(struct lightningd *ld)
 					    onchaind_ids[i]);
 		chan = channel_by_dbid(ld, onchaind_ids[i]);
 
-		for (size_t j = 0; j < tal_count(txs); j++) {
+		for (j = 0; j < tal_count(txs); j++) {
 			if (txs[j].type == WIRE_ONCHAIN_INIT) {
 				onchaind_funding_spent(chan, txs[j].tx,
 						       txs[j].blockheight);

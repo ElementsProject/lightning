@@ -1329,12 +1329,13 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 	struct node *n;
 	const struct gossip_getnodes_entry **nodes;
 	struct pubkey *ids;
+	size_t i;
 
 	fromwire_gossip_getnodes_request(tmpctx, msg, &ids);
 
 	nodes = tal_arr(tmpctx, const struct gossip_getnodes_entry *, 0);
 	if (ids) {
-		for (size_t i = 0; i < tal_count(ids); i++) {
+		for (i = 0; i < tal_count(ids); i++) {
 			n = get_node(daemon->rstate, &ids[i]);
 			if (n)
 				append_node(&nodes, n);
@@ -1495,6 +1496,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 	/* Anything below this highwater mark could be pruned if not refreshed */
 	s64 highwater = now - daemon->rstate->prune_timeout / 2;
 	struct node *n;
+	size_t i;
 
 	/* Schedule next run now */
 	new_reltimer(&daemon->timers, daemon,
@@ -1506,7 +1508,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 	if (n) {
 		/* Iterate through all outgoing connection and check whether
 		 * it's time to re-announce */
-		for (size_t i = 0; i < tal_count(n->chans); i++) {
+		for (i = 0; i < tal_count(n->chans); i++) {
 			struct half_chan *hc = half_chan_from(n, n->chans[i]);
 
 			if (!is_halfchan_defined(hc)) {

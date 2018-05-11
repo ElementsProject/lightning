@@ -142,8 +142,9 @@ int main(int argc, char *argv[])
         }
 
 	for (i = 0; i < tal_count(b11->routes); i++) {
+		size_t n;
 		printf("route: (node/chanid/fee/expirydelta) ");
-		for (size_t n = 0; n < tal_count(b11->routes[i]); n++) {
+		for (n = 0; n < tal_count(b11->routes[i]); n++) {
 			printf(" %s/%s/%u/%u/%u",
 			       type_to_string(ctx, struct pubkey,
 					      &b11->routes[i][n].pubkey),

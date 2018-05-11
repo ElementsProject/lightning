@@ -657,7 +657,7 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	}
 
 	/* Now complete the transaction by attaching the scriptSigs where necessary */
-	for (size_t i=0; i<tal_count(utxomap); i++)
+	for (i=0; i<tal_count(utxomap); i++)
 		tx->input[i].script = scriptSigs[i];
 
 	daemon_conn_send(master,
@@ -677,6 +677,8 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	struct ext_key ext;
 	struct pubkey changekey;
 	u8 *scriptpubkey;
+	size_t i;
+
 
 	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg, &satoshi_out,
 					  &change_out, &change_keyindex,
@@ -700,7 +702,7 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 		&changekey, change_out, NULL);
 
 	scriptSigs = tal_arr(tmpctx, u8*, tal_count(utxos));
-	for (size_t i = 0; i < tal_count(utxos); i++) {
+	for (i = 0; i < tal_count(utxos); i++) {
 		struct pubkey inkey;
 		struct privkey inprivkey;
 		const struct utxo *in = utxos[i];
@@ -727,7 +729,7 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	}
 
 	/* Now complete the transaction by attaching the scriptSigs where necessary */
-	for (size_t i=0; i<tal_count(utxos); i++)
+	for (i=0; i<tal_count(utxos); i++)
 		tx->input[i].script = scriptSigs[i];
 
 	daemon_conn_send(master,

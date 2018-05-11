@@ -275,8 +275,9 @@ static void update_feerates(struct bitcoind *bitcoind,
 {
 	u32 old_feerates[NUM_FEERATES];
 	bool changed = false;
+	size_t i, j;
 
-	for (size_t i = 0; i < NUM_FEERATES; i++) {
+	for (i = 0; i < NUM_FEERATES; i++) {
 		u32 feerate = satoshi_per_kw[i];
 
 		if (feerate < feerate_floor())
@@ -295,8 +296,8 @@ static void update_feerates(struct bitcoind *bitcoind,
 		topo->feerate[i] = feerate;
 	}
 
-	for (size_t i = 0; i < NUM_FEERATES; i++) {
-		for (size_t j = 0; j < i; j++) {
+	for (i = 0; i < NUM_FEERATES; i++) {
+		for (j = 0; j < i; j++) {
 			if (topo->feerate[j] < topo->feerate[i]) {
 				log_debug(topo->log,
 					  "Feerate %s (%u) above %s (%u)",
@@ -365,9 +366,10 @@ static void updates_complete(struct chain_topology *topo)
 static void topo_update_spends(struct chain_topology *topo, struct block *b)
 {
 	const struct short_channel_id *scid;
-	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
+	size_t i, j;
+	for (i = 0; i < tal_count(b->full_txs); i++) {
 		const struct bitcoin_tx *tx = b->full_txs[i];
-		for (size_t j = 0; j < tal_count(tx->input); j++) {
+		for (j = 0; j < tal_count(tx->input); j++) {
 			const struct bitcoin_tx_input *input = &tx->input[j];
 			scid = wallet_outpoint_spend(topo->wallet, tmpctx,
 						     b->height, &input->txid,
@@ -382,9 +384,10 @@ static void topo_update_spends(struct chain_topology *topo, struct block *b)
 
 static void topo_add_utxos(struct chain_topology *topo, struct block *b)
 {
-	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
+	size_t i, j;
+	for (i = 0; i < tal_count(b->full_txs); i++) {
 		const struct bitcoin_tx *tx = b->full_txs[i];
-		for (size_t j = 0; j < tal_count(tx->output); j++) {
+		for (j = 0; j < tal_count(tx->output); j++) {
 			const struct bitcoin_tx_output *output = &tx->output[j];
 			if (is_p2wsh(output->script, NULL)) {
 				wallet_utxoset_add(topo->wallet, tx, j,
@@ -622,6 +625,7 @@ static void json_dev_setfees(struct command *cmd,
 	jsmntok_t *ratetok[NUM_FEERATES];
 	struct chain_topology *topo = cmd->ld->topology;
 	struct json_result *response;
+	size_t i;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "?immediate", &ratetok[FEERATE_IMMEDIATE],
@@ -633,12 +637,12 @@ static void json_dev_setfees(struct command *cmd,
 
 	if (!topo->override_fee_rate) {
 		u32 fees[NUM_FEERATES];
-		for (size_t i = 0; i < ARRAY_SIZE(fees); i++)
+		for (i = 0; i < ARRAY_SIZE(fees); i++)
 			fees[i] = get_feerate(topo, i);
 		topo->override_fee_rate = tal_dup_arr(topo, u32, fees,
 						      ARRAY_SIZE(fees), 0);
 	}
-	for (size_t i = 0; i < NUM_FEERATES; i++) {
+	for (i = 0; i < NUM_FEERATES; i++) {
 		if (!ratetok[i])
 			continue;
 		if (!json_tok_number(buffer, ratetok[i],

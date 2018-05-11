@@ -1094,6 +1094,7 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 	struct json_result *response = new_json_result(cmd);
 	jsmntok_t *bolt11tok, *rhashtok;
 	struct sha256 *rhash = NULL;
+	size_t i;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "?bolt11", &bolt11tok,
@@ -1137,7 +1138,7 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 
 	json_object_start(response, NULL);
 	json_array_start(response, "payments");
-	for (int i=0; i<tal_count(payments); i++) {
+	for (i=0; i<tal_count(payments); i++) {
 		json_object_start(response, NULL);
 		json_add_payment_fields(response, payments[i]);
 		json_object_end(response);

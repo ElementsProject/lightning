@@ -268,10 +268,12 @@ static char *opt_set_alias(const char *arg, struct lightningd *ld)
 
 static char *opt_set_fee_rates(const char *arg, struct chain_topology *topo)
 {
+	size_t i;
+
 	tal_free(topo->override_fee_rate);
 	topo->override_fee_rate = tal_arr(topo, u32, 3);
 
-	for (size_t i = 0; i < tal_count(topo->override_fee_rate); i++) {
+	for (i = 0; i < tal_count(topo->override_fee_rate); i++) {
 		char *endp;
 		char term;
 

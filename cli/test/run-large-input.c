@@ -86,6 +86,7 @@ int main(int argc UNUSED, char *argv[])
 	setup_locale();
 
 	char *fake_argv[] = { argv[0], "--lightning-dir=/tmp/", "test", NULL };
+	size_t i;
 
 	/* sizeof() is an overestimate, but we don't care. */
 	response = tal_arr(NULL, char,
@@ -97,7 +98,7 @@ int main(int argc UNUSED, char *argv[])
 	response_off = strlen(HEADER);
 
 	/* Append a huge log */
-	for (size_t i = 0; i < NUM_ENTRIES; i++) {
+	for (i = 0; i < NUM_ENTRIES; i++) {
 		memcpy(response + response_off, LOG_ENTRY, sizeof(LOG_ENTRY)-1);
 		response_off += sizeof(LOG_ENTRY)-1;
 	}

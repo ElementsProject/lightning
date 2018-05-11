@@ -278,7 +278,8 @@ class Message(object):
             subcalls.append('\tfromwire_{}_array(&cursor, &plen, {}, {});'
                             .format(basetype, name, num_elems))
         else:
-            subcalls.append('\tfor (size_t i = 0; i < {}; i++)'
+            subcalls.append('\t{\n\tsize_t i;\n')
+            subcalls.append('\tfor (i = 0; i < {}; i++)'
                             .format(num_elems))
             if f.fieldtype.is_assignable():
                 subcalls.append('\t\t({})[i] = fromwire_{}(&cursor, &plen);'
@@ -289,6 +290,7 @@ class Message(object):
             else:
                 subcalls.append('\t\tfromwire_{}(&cursor, &plen, {} + i);'
                                 .format(basetype, name))
+            subcalls.append('\n\t}')
 
     def print_fromwire(self, is_header):
         ctx_arg = 'const tal_t *ctx, ' if self.has_variable_fields else ''
@@ -367,7 +369,8 @@ class Message(object):
             subcalls.append('\ttowire_{}_array(&p, {}, {});'
                             .format(basetype, f.name, num_elems))
         else:
-            subcalls.append('\tfor (size_t i = 0; i < {}; i++)\n'
+            subcalls.append('\t{\n\tsize_t i;\n')
+            subcalls.append('\tfor (i = 0; i < {}; i++)\n'
                             .format(num_elems))
             if f.fieldtype.is_assignable() or basetype in varlen_structs:
                 subcalls.append('\t\ttowire_{}(&p, {}[i]);'
@@ -375,6 +378,7 @@ class Message(object):
             else:
                 subcalls.append('\t\ttowire_{}(&p, {} + i);'
                                 .format(basetype, f.name))
+            subcalls.append('\n\t}')
 
     def print_towire(self, is_header):
         template = towire_header_templ if is_header else towire_impl_templ
@@ -441,7 +445,8 @@ class Message(object):
                             .format(basetype, num_elems))
         else:
             subcalls.append('\tprintf("[");')
-            subcalls.append('\tfor (size_t i = 0; i < {}; i++) {{'
+            subcalls.append('\t{\n\tsize_t i;\n')
+            subcalls.append('\tfor (i = 0; i < {}; i++) {{'
                             .format(num_elems))
             subcalls.append('\t\t{} v;'.format(f.fieldtype.name))
             if f.fieldtype.is_assignable():
@@ -457,7 +462,7 @@ class Message(object):
             self.add_truncate_check(subcalls, indent='\t\t')
 
             subcalls.append('\t\tprintwire_{}(&v);'.format(basetype))
-            subcalls.append('\t}')
+            subcalls.append('\t}}')
             subcalls.append('\tprintf("]");')
 
     def print_printwire(self, is_header):

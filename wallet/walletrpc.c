@@ -217,7 +217,7 @@ static void json_newaddr(struct command *cmd, const char *buffer UNUSED,
 	struct pubkey pubkey;
 	jsmntok_t *addrtype;
 	bool is_p2wpkh;
-	s64 keyidx;
+	u64 keyidx;
 	char *out;
 
 	if (!json_get_params(cmd, buffer, params,
@@ -286,6 +286,7 @@ static void json_listaddrs(struct command *cmd,
 	struct pubkey pubkey;
 	jsmntok_t *bip32tok;
 	u64 bip32_max_index;
+	u64 keyidx;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "?bip32_max_index", &bip32tok,
@@ -299,7 +300,7 @@ static void json_listaddrs(struct command *cmd,
 	json_object_start(response, NULL);
 	json_array_start(response, "addresses");
 
-	for (s64 keyidx = 0; keyidx <= bip32_max_index; keyidx++) {
+	for (keyidx = 0; keyidx <= bip32_max_index; keyidx++) {
 
 		if(keyidx == BIP32_INITIAL_HARDENED_CHILD){
 			break;
@@ -370,9 +371,11 @@ static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 	    wallet_get_utxos(cmd, cmd->ld->wallet, output_state_available);
 	char* out;
 	struct pubkey funding_pubkey;
+	size_t i;
+
 	json_object_start(response, NULL);
 	json_array_start(response, "outputs");
-	for (size_t i = 0; i < tal_count(utxos); i++) {
+	for (i = 0; i < tal_count(utxos); i++) {
 		json_object_start(response, NULL);
 		json_add_txid(response, "txid", &utxos[i]->txid);
 		json_add_num(response, "output", utxos[i]->outnum);

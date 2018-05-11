@@ -58,7 +58,9 @@ const struct chainparams networks[] = {
 
 const struct chainparams *chainparams_for_network(const char *network_name)
 {
-	for (size_t i = 0; i < ARRAY_SIZE(networks); i++) {
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(networks); i++) {
 		if (streq(network_name, networks[i].network_name)) {
 			return &networks[i];
 		}
@@ -77,7 +79,9 @@ const struct chainparams *chainparams_by_index(const int index)
 
 const struct chainparams *chainparams_by_bip173(const char *bip173_name)
 {
-	for (size_t i = 0; i < ARRAY_SIZE(networks); i++) {
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(networks); i++) {
 		if (streq(bip173_name, networks[i].bip173_name)) {
 			return &networks[i];
 		}

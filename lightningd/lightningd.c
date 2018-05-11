@@ -235,9 +235,10 @@ static void init_txfilter(struct wallet *w, struct txfilter *filter)
 {
 	struct ext_key ext;
 	u64 bip32_max_index;
+	u64 i;
 
 	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
-	for (u64 i = 0; i <= bip32_max_index; i++) {
+	for (i = 0; i <= bip32_max_index; i++) {
 		if (bip32_key_from_parent(w->bip32_base, i, BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
 			abort();
 		}

@@ -282,6 +282,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	struct json_result *response;
 	struct lightningd *ld = openingd->ld;
 	struct channel_id cid;
+	size_t i;
 
 	assert(tal_count(fds) == 2);
 
@@ -332,7 +333,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		  tal_count(fundingtx->input),
 		  tal_count(fundingtx->output));
 
-	for (size_t i = 0; i < tal_count(fundingtx->input); i++) {
+	for (i = 0; i < tal_count(fundingtx->input); i++) {
 		log_debug(fc->uc->log, "%zi: %"PRIu64" satoshi (%s) %s\n",
 			  i, fc->wtx.utxos[i]->amount,
 			  fc->wtx.utxos[i]->is_p2sh ? "P2SH" : "SEGWIT",

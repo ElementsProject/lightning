@@ -146,6 +146,7 @@ static void json_getinfo(struct command *cmd,
 			 const char *buffer UNUSED, const jsmntok_t *params UNUSED)
 {
 	struct json_result *response = new_json_result(cmd);
+	size_t i;
 
 	json_object_start(response, NULL);
 	json_add_pubkey(response, "id", &cmd->ld->id);
@@ -155,13 +156,13 @@ static void json_getinfo(struct command *cmd,
 
 		/* These are the addresses we're announcing */
 		json_array_start(response, "address");
-		for (size_t i = 0; i < tal_count(cmd->ld->announcable); i++)
+		for (i = 0; i < tal_count(cmd->ld->announcable); i++)
 			json_add_address(response, NULL, cmd->ld->announcable+i);
 		json_array_end(response);
 
 		/* This is what we're actually bound to. */
 		json_array_start(response, "binding");
-		for (size_t i = 0; i < tal_count(cmd->ld->binding); i++)
+		for (i = 0; i < tal_count(cmd->ld->binding); i++)
 			json_add_address_internal(response, NULL,
 						  cmd->ld->binding+i);
 		json_array_end(response);
@@ -570,7 +571,8 @@ bool json_get_params(struct command *cmd,
 		/* Find each parameter among the valid names */
 		for (t = param + 1; t < end; t = json_next(t+1)) {
 			bool found = false;
-			for (size_t i = 0; i < num_names; i++) {
+			size_t i;
+			for (i = 0; i < num_names; i++) {
 				if (json_tok_streq(buffer, t, names[i]))
 					found = true;
 			}
@@ -775,7 +777,8 @@ static const char* segwit_addr_net_decode(int *witness_version,
 				   const char *addrz)
 {
 	const char *network[] = { "bc", "tb", "bcrt" };
-	for (int i = 0; i < sizeof(network) / sizeof(*network); ++i) {
+	size_t i;
+	for (i = 0; i < sizeof(network) / sizeof(*network); ++i) {
 		if (segwit_addr_decode(witness_version,
 				       witness_program, witness_program_len,
 				       network[i], addrz))

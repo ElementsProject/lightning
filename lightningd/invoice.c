@@ -111,6 +111,7 @@ static struct json_escaped *json_tok_label(const tal_t *ctx,
 					   const jsmntok_t *tok)
 {
 	struct json_escaped *label;
+	size_t i;
 
 	label = json_tok_escaped_string(ctx, buffer, tok);
 	if (label)
@@ -120,7 +121,7 @@ static struct json_escaped *json_tok_label(const tal_t *ctx,
 	if (tok->type != JSMN_PRIMITIVE)
 		return NULL;
 
-	for (int i = tok->start; i < tok->end; i++)
+	for (i = tok->start; i < tok->end; i++)
 		if (!cisdigit(buffer[i]))
 			return NULL;
 
@@ -778,16 +779,17 @@ static void json_decodepay(struct command *cmd,
                              sizeof(*b11->description_hash));
 	json_add_num(response, "min_final_cltv_expiry",
 		     b11->min_final_cltv_expiry);
-        if (tal_count(b11->fallbacks)) {
+	if (tal_count(b11->fallbacks)) {
+		size_t i;
 		if (deprecated_apis)
 			json_add_fallback(response, "fallback",
-					  b11->fallbacks[0], b11->chain);
+					b11->fallbacks[0], b11->chain);
 		json_array_start(response, "fallbacks");
-		for (size_t i = 0; i < tal_count(b11->fallbacks); i++)
+		for (i = 0; i < tal_count(b11->fallbacks); i++)
 			json_add_fallback(response, NULL,
-					  b11->fallbacks[i], b11->chain);
+					b11->fallbacks[i], b11->chain);
 		json_array_end(response);
-        }
+	}
 
         if (tal_count(b11->routes)) {
                 size_t i, n;
