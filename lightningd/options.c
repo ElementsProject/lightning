@@ -879,7 +879,9 @@ static void json_add_opt_addrs(struct json_result *response,
 			       const enum addr_listen_announce *listen_announce,
 			       enum addr_listen_announce ala)
 {
-	for (size_t i = 0; i < tal_count(wireaddrs); i++) {
+	size_t i;
+
+	for (i = 0; i < tal_count(wireaddrs); i++) {
 		if (listen_announce[i] != ala)
 			continue;
 		json_add_string(response,

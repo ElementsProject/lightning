@@ -551,7 +551,9 @@ struct addrinfo *wireaddr_to_addrinfo(const tal_t *ctx,
 
 bool all_tor_addresses(const struct wireaddr_internal *wireaddr)
 {
-	for (int i = 0; i < tal_count(wireaddr); i++) {
+	int i;
+
+	for (i = 0; i < tal_count(wireaddr); i++) {
 		switch (wireaddr[i].itype) {
 		case ADDR_INTERNAL_SOCKNAME:
 			return false;

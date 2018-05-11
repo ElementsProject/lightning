@@ -608,6 +608,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	struct pubkey node_id_2;
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
+	size_t i;
 
 	fromwire_channel_announcement(
 	    tmpctx, msg, &node_signature_1, &node_signature_2,
@@ -628,7 +629,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	insert_broadcast(rstate->broadcasts, chan->channel_announce);
 
 	/* If we had private updates for channels, we can broadcast them too. */
-	for (size_t i = 0; i < ARRAY_SIZE(chan->half); i++) {
+	for (i = 0; i < ARRAY_SIZE(chan->half); i++) {
 		if (!is_halfchan_defined(&chan->half[i]))
 			continue;
 		insert_broadcast(rstate->broadcasts,
