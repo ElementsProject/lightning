@@ -446,7 +446,7 @@ static void forward_htlc(struct htlc_in *hin,
 	 * The node creating `channel_update` SHOULD accept HTLCs which pay a
 	 * fee equal or greater than:
 	 *
-	 *    fee_base_msat + amount_msat * fee_proportional_millionths / 1000000
+	 *    fee_base_msat + amount_msat / 1000 * fee_proportional_millionths / 1000000
 	 */
 	if (mul_overflows_u64(amt_to_forward,
 			      ld->config.fee_per_satoshi)) {
@@ -454,7 +454,7 @@ static void forward_htlc(struct htlc_in *hin,
 		goto fail;
 	}
 	fee = ld->config.fee_base
-		+ amt_to_forward * ld->config.fee_per_satoshi / 1000000;
+		+ amt_to_forward / 1000 * ld->config.fee_per_satoshi / 1000000;
 	if (!check_amount(hin, amt_to_forward, hin->msatoshi, fee)) {
 		failcode = WIRE_FEE_INSUFFICIENT;
 		goto fail;
