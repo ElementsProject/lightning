@@ -207,7 +207,7 @@ REGISTER_TYPE_TO_STRING(wireaddr_internal, fmt_wireaddr_internal);
 char *fmt_wireaddr_without_port(const tal_t * ctx, const struct wireaddr *a)
 {
 	char *ret, *hex;
-	char addrstr[LARGEST_ADDRLEN];
+	char addrstr[INET6_ADDRSTRLEN];
 
 	switch (a->type) {
 	case ADDR_TYPE_IPV4:
