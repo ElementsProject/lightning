@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_WIREADDR_H
 #define LIGHTNING_COMMON_WIREADDR_H
 #include "config.h"
+#include <arpa/inet.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <lightningd/lightningd.h>
@@ -39,9 +40,10 @@ struct sockaddr_un;
  *             where `checksum = sha3(".onion checksum" | pubkey || version)[:2]`
  */
 
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define	TOR_V2_ADDRLEN 10
 #define	TOR_V3_ADDRLEN 35
-#define	LARGEST_ADDRLEN TOR_V3_ADDRLEN
+#define	LARGEST_ADDRLEN MAX(INET6_ADDRSTRLEN, TOR_V3_ADDRLEN)
 
 enum wire_addr_type {
 	ADDR_TYPE_PADDING = 0,
