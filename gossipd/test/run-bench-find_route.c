@@ -161,12 +161,13 @@ static struct pubkey nodeid(size_t n)
 static void populate_random_node(struct routing_state *rstate, u64 n)
 {
 	struct pubkey id = nodeid(n);
+	size_t i;
 
 	/* Create 2 random channels. */
 	if (n < 1)
 		return;
 
-	for (size_t i = 0; i < 2; i++) {
+	for (i = 0; i < 2; i++) {
 		struct pubkey randnode = nodeid(pseudorand(n));
 
 		add_connection(rstate, &id, &randnode,
@@ -210,6 +211,7 @@ int main(int argc, char *argv[])
 	bool perfme = false;
 	const double riskfactor = 0.01 / BLOCKS_PER_YEAR / 10000;
 	struct siphash_seed base_seed;
+	size_t i;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
@@ -229,7 +231,7 @@ int main(int argc, char *argv[])
 		opt_usage_and_exit("[num_nodes [num_runs]]");
 
 	memset(&base_seed, 0, sizeof(base_seed));
-	for (size_t i = 0; i < num_nodes; i++)
+	for (i = 0; i < num_nodes; i++)
 		populate_random_node(rstate, i);
 
 	in_bench = true;
@@ -238,7 +240,7 @@ int main(int argc, char *argv[])
 
 	start = time_mono();
 	num_success = 0;
-	for (size_t i = 0; i < num_runs; i++) {
+	for (i = 0; i < num_runs; i++) {
 		struct pubkey from = nodeid(pseudorand(num_nodes));
 		struct pubkey to = nodeid(pseudorand(num_nodes));
 		u64 fee;

@@ -21,8 +21,9 @@ static void set_bit(u8 **ptr, u32 bit)
 static u8 *mkfeatures(const tal_t *ctx, const u32 *arr, size_t n)
 {
 	u8 *f = tal_arr(ctx, u8, 0);
+	size_t i;
 
-	for (size_t i = 0; i < n; i++)
+	for (i = 0; i < n; i++)
 		set_bit(&f, OPTIONAL_FEATURE(arr[i]));
 	return f;
 }
@@ -64,7 +65,8 @@ static bool feature_supported(int feature_bit,
 			      const u32 *supported,
 			      size_t num_supported)
 {
-	for (size_t i = 0; i < num_supported; i++) {
+	size_t i;
+	for (i = 0; i < num_supported; i++) {
 		if (supported[i] == feature_bit)
 			return true;
 	}
@@ -87,9 +89,10 @@ static bool all_supported_features(const u8 *bitmap,
 				   size_t num_supported)
 {
 	size_t len = tal_count(bitmap);
+	size_t bitnum;
 
 	/* It's OK to be odd: only check even bits. */
-	for (size_t bitnum = 0; bitnum < len; bitnum += 2) {
+	for (bitnum = 0; bitnum < len; bitnum += 2) {
 		if (!test_bit(bitmap, bitnum/8, bitnum%8))
 			continue;
 

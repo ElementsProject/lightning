@@ -268,10 +268,12 @@ static char *opt_set_alias(const char *arg, struct lightningd *ld)
 
 static char *opt_set_fee_rates(const char *arg, struct chain_topology *topo)
 {
+	size_t i;
+
 	tal_free(topo->override_fee_rate);
 	topo->override_fee_rate = tal_arr(topo, u32, 3);
 
-	for (size_t i = 0; i < tal_count(topo->override_fee_rate); i++) {
+	for (i = 0; i < tal_count(topo->override_fee_rate); i++) {
 		char *endp;
 		char term;
 
@@ -877,7 +879,9 @@ static void json_add_opt_addrs(struct json_result *response,
 			       const enum addr_listen_announce *listen_announce,
 			       enum addr_listen_announce ala)
 {
-	for (size_t i = 0; i < tal_count(wireaddrs); i++) {
+	size_t i;
+
+	for (i = 0; i < tal_count(wireaddrs); i++) {
 		if (listen_announce[i] != ala)
 			continue;
 		json_add_string(response,

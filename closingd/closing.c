@@ -446,6 +446,7 @@ int main(int argc, char *argv[])
 	enum side whose_turn;
 	bool deprecated_api;
 	u8 *channel_reestablish;
+	size_t i;
 
 	subdaemon_setup(argc, argv);
 
@@ -502,7 +503,7 @@ int main(int argc, char *argv[])
 	 *    - SHOULD send a `closing_signed` message.
 	 */
 	whose_turn = funder;
-	for (size_t i = 0; i < 2; i++, whose_turn = !whose_turn) {
+	for (i = 0; i < 2; i++, whose_turn = !whose_turn) {
 		if (whose_turn == LOCAL) {
 			send_offer(&cs,
 				   &channel_id, funding_pubkey,

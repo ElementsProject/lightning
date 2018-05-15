@@ -247,7 +247,8 @@ const char *channel_state_name(const struct channel *channel)
 
 const char *channel_state_str(enum channel_state state)
 {
-	for (size_t i = 0; enum_channel_state_names[i].name; i++)
+	size_t i;
+	for (i = 0; enum_channel_state_names[i].name; i++)
 		if (enum_channel_state_names[i].v == state)
 			return enum_channel_state_names[i].name;
 	return "unknown";

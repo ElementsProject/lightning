@@ -18,7 +18,9 @@ struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 {
 	struct bitcoin_tx *tx =
 	    bitcoin_tx(ctx, tal_count(utxos), changesat ? 2 : 1);
-	for (size_t i = 0; i < tal_count(utxos); i++) {
+	size_t i;
+
+	for (i = 0; i < tal_count(utxos); i++) {
 		tx->input[i].txid = utxos[i]->txid;
 		tx->input[i].index = utxos[i]->outnum;
 		tx->input[i].amount = tal_dup(tx, u64, &utxos[i]->amount);

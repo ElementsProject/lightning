@@ -1075,6 +1075,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 	struct added_htlc *added;
 	struct secret *shared_secret;
 	u8 *msg;
+	size_t i;
 
 	changed = tal_arr(tmpctx, struct changed_htlc, 0);
 	added = tal_arr(tmpctx, struct added_htlc, 0);
@@ -1082,7 +1083,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 	failed = tal_arr(tmpctx, const struct failed_htlc *, 0);
 	fulfilled = tal_arr(tmpctx, struct fulfilled_htlc, 0);
 
-	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
+	for (i = 0; i < tal_count(changed_htlcs); i++) {
 		const struct htlc *htlc = changed_htlcs[i];
 		if (htlc->state == RCVD_ADD_COMMIT) {
 			struct added_htlc *a = tal_arr_append(&added);
@@ -1258,9 +1259,10 @@ static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
 			  const struct htlc **changed_htlcs)
 {
 	u8 *msg;
+	size_t i;
 	struct changed_htlc *changed = tal_arr(tmpctx, struct changed_htlc, 0);
 
-	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
+	for (i = 0; i < tal_count(changed_htlcs); i++) {
 		struct changed_htlc *c = tal_arr_append(&changed);
 		const struct htlc *htlc = changed_htlcs[i];
 
@@ -2390,7 +2392,8 @@ static void init_shared_secrets(struct channel *channel,
 				const struct added_htlc *htlcs,
 				const enum htlc_state *hstates)
 {
-	for (size_t i = 0; i < tal_count(htlcs); i++) {
+	size_t i;
+	for (i = 0; i < tal_count(htlcs); i++) {
 		struct htlc *htlc;
 
 		/* We only derive this for HTLCs *they* added. */

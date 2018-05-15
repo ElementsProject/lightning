@@ -108,8 +108,9 @@ static u64 grind_htlc_tx_fee(struct bitcoin_tx *tx,
 {
 	u64 prev_fee = UINT64_MAX;
 	u64 input_amount = *tx->input[0].amount;
+	u64 i;
 
-	for (u64 i = min_possible_feerate; i <= max_possible_feerate; i++) {
+	for (i = min_possible_feerate; i <= max_possible_feerate; i++) {
 		/* BOLT #3:
 		 *
 		 * The fee for an HTLC-timeout transaction:
@@ -416,6 +417,8 @@ static bool is_valid_sig(const u8 *e)
 static bool input_similar(const struct bitcoin_tx_input *i1,
 			  const struct bitcoin_tx_input *i2)
 {
+	size_t i;
+
 	if (!structeq(&i1->txid, &i2->txid))
 		return false;
 
@@ -431,7 +434,7 @@ static bool input_similar(const struct bitcoin_tx_input *i1,
 	if (tal_count(i1->witness) != tal_count(i2->witness))
 		return false;
 
-	for (size_t i = 0; i < tal_count(i1->witness); i++) {
+	for (i = 0; i < tal_count(i1->witness); i++) {
 		if (scripteq(i1->witness[i], i2->witness[i]))
 			continue;
 
@@ -447,6 +450,8 @@ static bool input_similar(const struct bitcoin_tx_input *i1,
 static bool resolved_by_proposal(struct tracked_output *out,
 				 const struct bitcoin_tx *tx)
 {
+	size_t i;
+
 	/* If there's no TX associated, it's not us. */
 	if (!out->proposal->tx)
 		return false;
@@ -462,7 +467,7 @@ static bool resolved_by_proposal(struct tracked_output *out,
 	if (tal_count(tx->input) != tal_count(out->proposal->tx->input))
 		return false;
 
-	for (size_t i = 0; i < tal_count(tx->input); i++) {
+	for (i = 0; i < tal_count(tx->input); i++) {
 		if (!input_similar(tx->input + i, out->proposal->tx->input + i))
 			return false;
 	}
@@ -601,9 +606,10 @@ static u32 prop_blockheight(const struct tracked_output *out)
 static void billboard_update(struct tracked_output **outs)
 {
 	const struct tracked_output *best = NULL;
+	size_t i;
 
 	/* Highest priority is to report on proposals we have */
-	for (size_t i = 0; i < tal_count(outs); i++) {
+	for (i = 0; i < tal_count(outs); i++) {
 		if (!outs[i]->proposal)
 			continue;
 		if (!best || prop_blockheight(outs[i]) < prop_blockheight(best))
@@ -636,7 +642,7 @@ static void billboard_update(struct tracked_output **outs)
 	}
 
 	/* Now, just report on the last thing we're waiting out. */
-	for (size_t i = 0; i < tal_count(outs); i++) {
+	for (i = 0; i < tal_count(outs); i++) {
 		/* FIXME: Can this happen?  No proposal, no resolution? */
 		if (!outs[i]->resolved)
 			continue;
@@ -833,10 +839,11 @@ static void output_spent(struct tracked_output ***outs,
 			 u32 tx_blockheight)
 {
 	struct bitcoin_txid txid;
+	size_t i;
 
 	bitcoin_txid(tx, &txid);
 
-	for (size_t i = 0; i < tal_count(*outs); i++) {
+	for (i = 0; i < tal_count(*outs); i++) {
 		struct tracked_output *out = (*outs)[i];
 		if (out->resolved)
 			continue;
@@ -1261,11 +1268,13 @@ static int match_htlc_output(const struct bitcoin_tx *tx,
 			     unsigned int outnum,
 			     u8 **htlc_scripts)
 {
+	size_t i;
+
 	/* Must be a p2wsh output */
 	if (!is_p2wsh(tx->output[outnum].script, NULL))
 		return -1;
 
-	for (size_t i = 0; i < tal_count(htlc_scripts); i++) {
+	for (i = 0; i < tal_count(htlc_scripts); i++) {
 		struct sha256 sha;
 		if (!htlc_scripts[i])
 			continue;
@@ -1285,7 +1294,8 @@ static void note_missing_htlcs(u8 **htlc_scripts,
 			       const bool *tell_if_missing,
 			       const bool *tell_immediately)
 {
-	for (size_t i = 0; i < tal_count(htlcs); i++) {
+	size_t i;
+	for (i = 0; i < tal_count(htlcs); i++) {
 		u8 *msg;
 
 		/* Used. */
@@ -2118,6 +2128,7 @@ int main(int argc, char *argv[])
 	struct htlc_stub *htlcs;
 	bool *tell_if_missing, *tell_immediately;
 	u32 tx_blockheight;
+	u64 i;
 
 	subdaemon_setup(argc, argv);
 
@@ -2165,7 +2176,7 @@ int main(int argc, char *argv[])
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Can't allocate %"PRIu64" htlcs", num_htlcs);
 
-	for (u64 i = 0; i < num_htlcs; i++) {
+	for (i = 0; i < num_htlcs; i++) {
 		msg = wire_sync_read(tmpctx, REQ_FD);
 		if (!fromwire_onchain_htlc(msg, &htlcs[i],
 					   &tell_if_missing[i],

@@ -534,6 +534,7 @@ struct onionreply *unwrap_onionreply(const tal_t *ctx,
 	u8 key[KEY_LEN], hmac[HMAC_SIZE];
 	const u8 *cursor;
 	size_t max;
+	size_t i;
 	u16 msglen;
 
 	if (tal_len(reply) != ONION_REPLY_SIZE + sizeof(hmac) + 4) {
@@ -543,7 +544,7 @@ struct onionreply *unwrap_onionreply(const tal_t *ctx,
 	memcpy(msg, reply, tal_len(reply));
 	oreply->origin_index = -1;
 
-	for (int i = 0; i < numhops; i++) {
+	for (i = 0; i < numhops; i++) {
 		/* Since the encryption is just XORing with the cipher
 		 * stream encryption is identical to decryption */
 		msg = wrap_onionreply(tmpctx, &shared_secrets[i], msg);

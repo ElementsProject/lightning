@@ -1329,12 +1329,13 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 	struct node *n;
 	const struct gossip_getnodes_entry **nodes;
 	struct pubkey *ids;
+	size_t i;
 
 	fromwire_gossip_getnodes_request(tmpctx, msg, &ids);
 
 	nodes = tal_arr(tmpctx, const struct gossip_getnodes_entry *, 0);
 	if (ids) {
-		for (size_t i = 0; i < tal_count(ids); i++) {
+		for (i = 0; i < tal_count(ids); i++) {
 			n = get_node(daemon->rstate, &ids[i]);
 			if (n)
 				append_node(&nodes, n);
@@ -1495,6 +1496,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 	/* Anything below this highwater mark could be pruned if not refreshed */
 	s64 highwater = now - daemon->rstate->prune_timeout / 2;
 	struct node *n;
+	size_t i;
 
 	/* Schedule next run now */
 	new_reltimer(&daemon->timers, daemon,
@@ -1506,7 +1508,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 	if (n) {
 		/* Iterate through all outgoing connection and check whether
 		 * it's time to re-announce */
-		for (size_t i = 0; i < tal_count(n->chans); i++) {
+		for (i = 0; i < tal_count(n->chans); i++) {
 			struct half_chan *hc = half_chan_from(n, n->chans[i]);
 
 			if (!is_halfchan_defined(hc)) {
@@ -1642,11 +1644,12 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	struct sockaddr_un addrun;
 	int fd;
 	struct wireaddr_internal *binding;
+	size_t i;
 
 	binding = tal_arr(ctx, struct wireaddr_internal, 0);
 	daemon->announcable = tal_arr(daemon, struct wireaddr, 0);
 
-	for (size_t i = 0; i < tal_count(daemon->proposed_wireaddr); i++) {
+	for (i = 0; i < tal_count(daemon->proposed_wireaddr); i++) {
 		struct wireaddr_internal wa = daemon->proposed_wireaddr[i];
 
 		if (!(daemon->proposed_listen_announce[i] & ADDR_LISTEN)) {
@@ -1721,7 +1724,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	}
 
 	/* Now we have bindings, set up any Tor auto addresses */
-	for (size_t i = 0; i < tal_count(daemon->proposed_wireaddr); i++) {
+	for (i = 0; i < tal_count(daemon->proposed_wireaddr); i++) {
 		if (!(daemon->proposed_listen_announce[i] & ADDR_LISTEN))
 			continue;
 
@@ -2000,6 +2003,7 @@ gossip_resolve_addr(const tal_t *ctx,
 		    const struct pubkey *id)
 {
 	struct node *node;
+	size_t i;
 
 	/* Get from routing state. */
 	node = get_node(rstate, id);
@@ -2010,7 +2014,7 @@ gossip_resolve_addr(const tal_t *ctx,
 
 	/* FIXME: When struct addrhint can contain more than one address,
 	 * we should copy all routable addresses. */
-	for (size_t i = 0; i < tal_count(node->addresses); i++) {
+	for (i = 0; i < tal_count(node->addresses); i++) {
 		struct wireaddr_internal *a;
 
 		if (!address_routable(&node->addresses[i],

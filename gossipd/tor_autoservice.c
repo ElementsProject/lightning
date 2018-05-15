@@ -187,7 +187,9 @@ static void negotiate_auth(struct rbuf *rbuf, const char *tor_password)
 static const struct wireaddr *
 find_local_address(const struct wireaddr_internal *bindings)
 {
-	for (size_t i = 0; i < tal_count(bindings); i++) {
+	size_t i;
+
+	for (i = 0; i < tal_count(bindings); i++) {
 		if (bindings[i].itype != ADDR_INTERNAL_WIREADDR)
 			continue;
 		if (bindings[i].u.wireaddr.type != ADDR_TYPE_IPV4

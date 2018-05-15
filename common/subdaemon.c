@@ -31,19 +31,21 @@ volatile bool debugger_connected;
 
 void subdaemon_setup(int argc, char *argv[])
 {
+	int i;
+
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
 		exit(0);
 	}
 
-	for (int i = 1; i < argc; i++) {
+	for (i = 1; i < argc; i++) {
 		if (streq(argv[i], "--log-io"))
 			logging_io = true;
 	}
 
 #if DEVELOPER
 	/* From debugger, set debugger_spin to 0. */
-	for (int i = 1; i < argc; i++) {
+	for (i = 1; i < argc; i++) {
 		if (streq(argv[i], "--debugger")) {
 			fprintf(stderr, "gdb -ex 'attach %u' -ex 'p debugger_connected=1' %s\n",
 				getpid(), argv[0]);

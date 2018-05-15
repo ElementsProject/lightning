@@ -19,11 +19,12 @@ static void do_generate(int argc, char **argv)
 	struct hop_data hops_data[num_hops];
 	struct secret *shared_secrets;
 	u8 assocdata[32];
+	int i;
 
 	memset(&sessionkey, 'A', sizeof(sessionkey));
 	memset(&assocdata, 'B', sizeof(assocdata));
 
-	for (int i = 0; i < num_hops; i++) {
+	for (i = 0; i < num_hops; i++) {
 		if (!hex_decode(argv[1 + i], 66, privkeys[i], 33)) {
 			errx(1, "Invalid private key hex '%s'", argv[1 + i]);
 		}
@@ -33,7 +34,7 @@ static void do_generate(int argc, char **argv)
 		fprintf(stderr, "Node %d pubkey %s\n", i, secp256k1_pubkey_to_hexstr(ctx, &path[i].pubkey));
 	}
 
-	for (int i = 0; i < num_hops; i++) {
+	for (i = 0; i < num_hops; i++) {
 		memset(&hops_data[i], 0, sizeof(hops_data[i]));
 		hops_data[i].realm = i;
 		memset(&hops_data[i].channel_id, i,

@@ -27,9 +27,10 @@ static void outpointfilters_init(struct wallet *w)
 	struct utxo **utxos = wallet_get_utxos(NULL, w, output_state_any);
 	struct bitcoin_txid txid;
 	u32 outnum;
+	size_t i;
 
 	w->owned_outpoints = outpointfilter_new(w);
-	for (size_t i = 0; i < tal_count(utxos); i++)
+	for (i = 0; i < tal_count(utxos); i++)
 		outpointfilter_add(w->owned_outpoints, &utxos[i]->txid, utxos[i]->outnum);
 
 	tal_free(utxos);
@@ -216,14 +217,16 @@ static void unreserve_utxo(struct wallet *w, const struct utxo *unres)
  */
 static void destroy_utxos(const struct utxo **utxos, struct wallet *w)
 {
-	for (size_t i = 0; i < tal_count(utxos); i++)
+	size_t i;
+	for (i = 0; i < tal_count(utxos); i++)
 		unreserve_utxo(w, utxos[i]);
 }
 
 void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos)
 {
+	size_t i;
 	tal_del_destructor2(utxos, destroy_utxos, w);
-	for (size_t i = 0; i < tal_count(utxos); i++) {
+	for (i = 0; i < tal_count(utxos); i++) {
 		if (!wallet_update_output_status(
 			w, &utxos[i]->txid, utxos[i]->outnum,
 			output_state_reserved, output_state_spent)) {
@@ -1044,7 +1047,8 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 				 const u32 *blockheight, u64 *total_satoshi)
 {
 	int num_utxos = 0;
-	for (size_t output = 0; output < tal_count(tx->output); output++) {
+	size_t output;
+	for (output = 0; output < tal_count(tx->output); output++) {
 		struct utxo *utxo;
 		u32 index;
 		bool is_p2sh;
@@ -1892,6 +1896,8 @@ wallet_payment_list(const tal_t *ctx,
 void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
 			   secp256k1_ecdsa_signature *htlc_sigs)
 {
+	size_t i;
+
 	/* Clear any existing HTLC sigs for this channel */
 	sqlite3_stmt *stmt =
 	    db_prepare(w->db, "DELETE FROM htlc_sigs WHERE channelid = ?");
@@ -1899,7 +1905,7 @@ void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
 	db_exec_prepared(w->db, stmt);
 
 	/* Now insert the new ones */
-	for (size_t i=0; i<tal_count(htlc_sigs); i++) {
+	for (i=0; i<tal_count(htlc_sigs); i++) {
 		stmt = db_prepare(w->db, "INSERT INTO htlc_sigs (channelid, signature) VALUES (?, ?)");
 		sqlite3_bind_int64(stmt, 1, channel_id);
 		sqlite3_bind_signature(stmt, 2, &htlc_sigs[i]);

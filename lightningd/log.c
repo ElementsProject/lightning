@@ -252,11 +252,12 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 {
 	int save_errno = errno;
 	struct log_entry *l = new_log_entry(log, level);
+	size_t i;
 
 	l->log = tal_vfmt(l, fmt, ap);
 
 	/* Sanitize any non-printable characters, and replace with '?' */
-	for (size_t i=0; i<strlen(l->log); i++)
+	for (i=0; i<strlen(l->log); i++)
 		if (l->log[i] < ' ' || l->log[i] >= 0x7f)
 			l->log[i] = '?';
 
@@ -287,6 +288,7 @@ void logv_add(struct log *log, const char *fmt, va_list ap)
 {
 	struct log_entry *l = list_tail(&log->lr->log, struct log_entry, list);
 	size_t oldlen = strlen(l->log);
+	size_t i;
 
 	/* Remove from list, so it doesn't get pruned. */
 	log->lr->mem_used -= mem_used(l);
@@ -295,7 +297,7 @@ void logv_add(struct log *log, const char *fmt, va_list ap)
 	tal_append_vfmt(&l->log, fmt, ap);
 
 	/* Sanitize any non-printable characters, and replace with '?' */
-	for (size_t i=oldlen; i<strlen(l->log); i++)
+	for (i=oldlen; i<strlen(l->log); i++)
 		if (l->log[i] < ' ' || l->log[i] >= 0x7f)
 			l->log[i] = '?';
 

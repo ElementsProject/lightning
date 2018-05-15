@@ -489,8 +489,9 @@ void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *scrip
 static void mempat(void *dst, size_t len)
 {
 	static int n = 0;
+	int i;
 	u8 *p = (u8*)dst;
-	for(int i=0 ; i < len; ++i)
+	for(i=0 ; i < len; ++i)
 		p[i] = n % 251; /* Prime */
 }
 
@@ -613,6 +614,7 @@ static bool test_shachain_crud(void)
 	struct wallet *w = tal(NULL, struct wallet);
 	struct sha256 seed, hash;
 	uint64_t index = UINT64_MAX >> (64 - SHACHAIN_BITS);
+	int i;
 
 	w->db = db_open(w, filename);
 	CHECK_MSG(w->db, "Failed opening the db");
@@ -637,7 +639,7 @@ static bool test_shachain_crud(void)
 	CHECK(a.chain.num_valid == 0);
 	CHECK(shachain_next_index(&a.chain) == index);
 
-	for (int i=0; i<100; i++) {
+	for (i=0; i<100; i++) {
 		shachain_from_seed(&seed, index, &hash);
 		CHECK(wallet_shachain_add_hash(w, &a, index, &hash));
 		index--;
