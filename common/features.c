@@ -98,7 +98,7 @@ static bool all_supported_features(const u8 *bitmap,
 				   const u32 *supported,
 				   size_t num_supported)
 {
-	size_t len = tal_count(bitmap);
+	size_t len = tal_count(bitmap) * 8;
 
 	/* It's OK to be odd: only check even bits. */
 	for (size_t bitnum = 0; bitnum < len; bitnum += 2) {
@@ -124,7 +124,7 @@ bool features_supported(const u8 *gfeatures, const u8 *lfeatures)
 	return all_supported_features(gfeatures,
 				      global_features,
 				      ARRAY_SIZE(global_features))
-		|| all_supported_features(lfeatures,
+		&& all_supported_features(lfeatures,
 					  local_features,
 					  ARRAY_SIZE(local_features));
 }
