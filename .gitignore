@@ -30,6 +30,7 @@ wire/test/run-peer-wire
 bitcoin/test/run-tx-encode
 channeld/test/run-full_channel
 common/test/run-bolt11
+common/test/run-features
 common/test/run-json
 common/test/run-sphinx
 daemon/test/run-maxfee
