@@ -299,7 +299,7 @@ static char *opt_set_offline(struct lightningd *ld)
 
 static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 {
-	bool needed_dns;
+	bool needed_dns = false;
 	tal_free(ld->proxyaddr);
 
 	/* We use a tal_arr here, so we can marshal it to gossipd */
