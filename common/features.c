@@ -10,11 +10,28 @@ static const u32 local_features[] = {
 static const u32 global_features[] = {
 };
 
+/* BOLT #1:
+ *
+ * All data fields are unsigned big-endian unless otherwise specified.
+ */
 static void set_bit(u8 **ptr, u32 bit)
 {
-	if (bit / 8 >= tal_len(*ptr))
-		tal_resizez(ptr, (bit / 8) + 1);
-	(*ptr)[bit / 8] |= (1 << (bit % 8));
+	size_t len = tal_len(*ptr);
+	if (bit / 8 >= len) {
+		size_t newlen = (bit / 8) + 1;
+		u8 *newarr = tal_arrz(tal_parent(*ptr), u8, newlen);
+		memcpy(newarr + (newlen - len), *ptr, len);
+		tal_free(*ptr);
+		*ptr = newarr;
+		len = newlen;
+	}
+	(*ptr)[len - 1 - bit / 8] |= (1 << (bit % 8));
+}
+
+static bool test_bit(const u8 *features, size_t byte, unsigned int bit)
+{
+	assert(byte < tal_len(features));
+	return features[tal_len(features) - 1 - byte] & (1 << (bit % 8));
 }
 
 /* We don't insist on anything, it's all optional. */
@@ -35,11 +52,6 @@ u8 *get_offered_global_features(const tal_t *ctx)
 u8 *get_offered_local_features(const tal_t *ctx)
 {
 	return mkfeatures(ctx, local_features, ARRAY_SIZE(local_features));
-}
-
-static bool test_bit(const u8 *features, size_t byte, unsigned int bit)
-{
-	return features[byte] & (1 << (bit % 8));
 }
 
 static bool feature_set(const u8 *features, size_t bit)
