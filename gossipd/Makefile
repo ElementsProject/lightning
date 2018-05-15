@@ -55,6 +55,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/ping.o				\
 	common/pseudorand.o			\
 	common/route_builder.o			\
+	common/route_info.o			\
 	common/status.o				\
 	common/status_wire.o			\
 	common/subdaemon.o			\

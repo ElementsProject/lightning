@@ -140,6 +140,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT:
 	case WIRE_GOSSIPCTL_PEER_IMPORTANT:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECTED:
+	case WIRE_GOSSIP_GET_PRIVATE_ROUTES:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIPCTL_ACTIVATE_REPLY:
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
@@ -153,6 +154,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLY:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLYFAIL:
+	case WIRE_GOSSIP_GET_PRIVATE_ROUTES_REPLY:
 	/* These are inter-daemon messages, not received by us */
 	case WIRE_GOSSIP_LOCAL_ADD_CHANNEL:
 	case WIRE_GOSSIP_LOCAL_CHANNEL_UPDATE:

@@ -18,6 +18,9 @@ const u8 *fromwire(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, void *copy 
 /* Generated stub for fromwire_pad */
 void fromwire_pad(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, size_t num UNNEEDED)
 { fprintf(stderr, "fromwire_pad called!\n"); abort(); }
+/* Generated stub for fromwire_pubkey */
+void fromwire_pubkey(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct pubkey *pubkey UNNEEDED)
+{ fprintf(stderr, "fromwire_pubkey called!\n"); abort(); }
 /* Generated stub for fromwire_short_channel_id */
 void fromwire_short_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 			       struct short_channel_id *short_channel_id UNNEEDED)
@@ -40,6 +43,9 @@ void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 /* Generated stub for towire_pad */
 void towire_pad(u8 **pptr UNNEEDED, size_t num UNNEEDED)
 { fprintf(stderr, "towire_pad called!\n"); abort(); }
+/* Generated stub for towire_pubkey */
+void towire_pubkey(u8 **pptr UNNEEDED, const struct pubkey *pubkey UNNEEDED)
+{ fprintf(stderr, "towire_pubkey called!\n"); abort(); }
 /* Generated stub for towire_short_channel_id */
 void towire_short_channel_id(u8 **pptr UNNEEDED,
 			     const struct short_channel_id *short_channel_id UNNEEDED)

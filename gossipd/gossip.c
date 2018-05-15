@@ -2591,6 +2591,73 @@ static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+static struct io_plan *get_private_routes(struct io_conn *conn,
+					  struct daemon *daemon,
+					  const u8 *msg)
+{
+	struct route_info *routes;
+	u8 *reply;
+	struct node *self;
+
+	if (!fromwire_gossip_get_private_routes(msg))
+		master_badmsg(WIRE_GOSSIP_GET_PRIVATE_ROUTES, msg);
+
+	status_trace("Getting private routes");
+
+	/* Empty routes array. */
+	routes = tal_arr(tmpctx, struct route_info, 0);
+
+	/* Locate ourself. */
+	self = get_node(daemon->rstate, &daemon->id);
+	if (!self) {
+		/* We are not on routemap, no channels known. */
+		status_trace("Self is not in routemap, cannot get private routes");
+		goto end;
+	}
+
+	/* Go through our channels. */
+	for (size_t i = 0; i < tal_count(self->chans); ++i) {
+		struct chan *chan = self->chans[i];
+		struct node *node;
+		struct half_chan *half_chan;
+		struct route_info *route;
+		size_t o;
+
+		/* Skip public channels*/
+		if (is_chan_public(chan))
+			continue;
+		/* Check if incoming direction is enabled. */
+		half_chan = &chan->half[half_chan_to(self, chan)];
+		if (!is_halfchan_enabled(half_chan))
+			continue;
+
+		node = other_node(self, chan);
+
+		/* Get a new routes array entry. */
+		o = tal_count(routes);
+		tal_resize(&routes, o + 1);
+		route = &routes[o];
+
+		/* Load the route information. */
+		route->pubkey = node->id;
+		route->short_channel_id = chan->scid;
+		route->fee_base_msat = half_chan->base_fee;
+		route->fee_proportional_millionths
+			= half_chan->proportional_fee;
+		route->cltv_expiry_delta = half_chan->delay;
+	}
+
+	status_trace("Found %u private routes",
+		     (unsigned int) tal_count(routes));
+
+end:
+	reply = towire_gossip_get_private_routes_reply(NULL,
+						       routes);
+	daemon_conn_send(&daemon->master, take(reply));
+
+	return daemon_conn_read_next(conn, &daemon->master);
+}
+
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct daemon *daemon = container_of(master, struct daemon, master);
@@ -2657,6 +2724,9 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_OUTPOINT_SPENT:
 		return handle_outpoint_spent(conn, daemon, master->msg_in);
 
+	case WIRE_GOSSIP_GET_PRIVATE_ROUTES:
+		return get_private_routes(conn, daemon, master->msg_in);
+
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPCTL_ACTIVATE_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
@@ -2678,6 +2748,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_GET_TXOUT:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLY:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLYFAIL:
+	case WIRE_GOSSIP_GET_PRIVATE_ROUTES_REPLY:
 		break;
 	}
 

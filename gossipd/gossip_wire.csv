@@ -1,4 +1,5 @@
 #include <common/cryptomsg.h>
+#include <common/route_info.h>
 #include <common/wireaddr.h>
 #include <wire/gen_onion_wire.h>
 
@@ -250,3 +251,11 @@ gossipctl_peer_disconnect_replyfail,,isconnected,bool
 # master -> gossipd: a potential funding outpoint was spent, please forget the eventual channel
 gossip_outpoint_spent,3024
 gossip_outpoint_spent,,short_channel_id,struct short_channel_id
+
+# master -> gossipd: Request for any number of one-hop private routes
+gossip_get_private_routes,3027
+
+# gossipd -> master: Reply to gossip_get_private_routes with a number of one-hop routes.
+gossip_get_private_routes_reply,3127
+gossip_get_private_routes_reply,,len,u16
+gossip_get_private_routes_reply,,routes,len*struct route_info
