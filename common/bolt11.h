@@ -9,6 +9,8 @@
 #include <common/hash_u5.h>
 #include <secp256k1_recovery.h>
 
+struct route_info;
+
 /* We only have 10 bits for the field length, meaning < 640 bytes */
 #define BOLT11_FIELD_BYTE_LIMIT ((1 << 10) * 5 / 8)
 
@@ -17,21 +19,6 @@ struct bolt11_field {
 
 	char tag;
 	u5 *data;
-};
-
-/* BOLT #11:
- *   * `pubkey` (264 bits)
- *   * `short_channel_id` (64 bits)
- *   * `fee_base_msat` (32 bits, big-endian)
- *   * `fee_proportional_millionths` (32 bits, big-endian)
- *   * `cltv_expiry_delta` (16 bits, big-endian)
- */
-
-struct route_info {
-	struct pubkey pubkey;
-	struct short_channel_id short_channel_id;
-	u32 fee_base_msat, fee_proportional_millionths;
-	u16 cltv_expiry_delta;
 };
 
 struct bolt11 {

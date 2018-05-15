@@ -10,6 +10,7 @@
 #include <common/bech32.h>
 #include <common/bech32_util.h>
 #include <common/bolt11.h>
+#include <common/route_info.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <hsmd/gen_hsm_client_wire.h>
@@ -373,26 +374,6 @@ static char *decode_f(struct bolt11 *b11,
 	b11->fallbacks[tal_count(b11->fallbacks)-1]
 		= tal_steal(b11->fallbacks, fallback);
         return NULL;
-}
-
-static bool fromwire_route_info(const u8 **cursor, size_t *max,
-                                struct route_info *route_info)
-{
-        fromwire_pubkey(cursor, max, &route_info->pubkey);
-        fromwire_short_channel_id(cursor, max, &route_info->short_channel_id);
-        route_info->fee_base_msat = fromwire_u32(cursor, max);
-        route_info->fee_proportional_millionths = fromwire_u32(cursor, max);
-        route_info->cltv_expiry_delta = fromwire_u16(cursor, max);
-        return *cursor != NULL;
-}
-
-static void towire_route_info(u8 **pptr, const struct route_info *route_info)
-{
-        towire_pubkey(pptr, &route_info->pubkey);
-        towire_short_channel_id(pptr, &route_info->short_channel_id);
-        towire_u32(pptr, route_info->fee_base_msat);
-        towire_u32(pptr, route_info->fee_proportional_millionths);
-        towire_u16(pptr, route_info->cltv_expiry_delta);
 }
 
 /* BOLT #11:

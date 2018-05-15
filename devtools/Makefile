@@ -8,6 +8,7 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/bech32_util.o			\
 	common/bolt11.o				\
 	common/hash_u5.o			\
+	common/route_info.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/version.o

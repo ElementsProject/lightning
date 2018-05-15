@@ -10,6 +10,7 @@
 #include <ccan/time/time.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
+#include <common/route_info.h>
 #include <common/type_to_string.h>
 #include <common/version.h>
 #include <inttypes.h>

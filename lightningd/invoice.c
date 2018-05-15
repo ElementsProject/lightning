@@ -13,6 +13,7 @@
 #include <common/bech32.h>
 #include <common/bolt11.h>
 #include <common/json_escaped.h>
+#include <common/route_info.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <hsmd/gen_hsm_client_wire.h>

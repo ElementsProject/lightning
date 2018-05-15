@@ -9,6 +9,7 @@
 #include <common/bolt11.h>
 #include <common/pseudorand.h>
 #include <common/route_builder.h>
+#include <common/route_info.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <gossipd/gen_gossip_wire.h>
