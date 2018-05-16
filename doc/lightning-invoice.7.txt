@@ -8,7 +8,7 @@ lightning-invoice - Command for accepting payments.
 
 SYNOPSIS
 --------
-*invoice* 'msatoshi' 'label' 'description' ['expiry'] ['fallbacks'] ['preimage'] ['maxroutes']
+*invoice* 'msatoshi' 'label' 'description' ['expiry'] ['fallbacks'] ['preimage'] ['maxprivchannels']
 
 DESCRIPTION
 -----------
@@ -48,7 +48,7 @@ secret.
 This parameter is an advanced feature intended for use with cutting-edge
 cryptographic protocols and should not be used unless explicitly needed.
 
-The 'maxroutes' is the maximum number of non-published channels, that
+The 'maxprivchannels' is the maximum number of non-published channels, that
 will be added as single-hop routes on the invoice.
 If unspecified, no routes will be added.
 

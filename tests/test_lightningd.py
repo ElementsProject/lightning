@@ -2765,11 +2765,15 @@ class LightningDTests(BaseLightningDTests):
         wait_for(lambda: len(l1.bitcoin.rpc.getrawmempool()) == num_tx + 1)
         # Confirm once for funding_locked but below announce_depth.
         l3.bitcoin.generate_block(1)
+        # Find our short channel ID
+        c23_block = bitcoind.rpc.getblockcount()
+
         # Wait for l3 to log this!
-        l3.daemon.wait_for_log('State changed from CHANNELD_AWAITING_LOCKIN to CHANNELD_NORMAL')
+        l3.daemon.wait_for_logs(['Received channel_update for channel {}:1:[01].1. now ACTIVE'.format(c23_block),
+                                 'Received channel_update for channel {}:1:[01].0. now ACTIVE'.format(c23_block)])
 
         # Generate an invoice at l3.
-        inv = l3.rpc.invoice(msatoshi=123000, label='inv', description='inv', maxroutes=1)['bolt11']
+        inv = l3.rpc.invoice(msatoshi=123000, label='inv', description='inv', maxprivchannels=1)['bolt11']
         b11 = l3.rpc.decodepay(inv)
         assert len(b11['routes']) == 1
         # Pay at l1 must succeed.

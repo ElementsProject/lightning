@@ -16,6 +16,7 @@
 #include <common/route_info.h>
 #include <common/utils.h>
 #include <errno.h>
+#include <gossipd/gen_gossip_wire.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
@@ -25,6 +26,7 @@
 #include <lightningd/log.h>
 #include <lightningd/options.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
@@ -160,105 +162,154 @@ static bool parse_fallback(struct command *cmd,
 	}
 	return true;
 }
-/* Determine if channel is private and useable. */
-static bool
-channel_is_private_and_useable(const struct channel *c)
-{
-	u32 blocknum;
-	u32 blockheight;
-	u32 depth;
-	switch (c->state) {
-	case CHANNELD_NORMAL:
-		/* Useable. Check if marked as private. */
-		assert(c->scid);
-		blocknum = short_channel_id_blocknum(c->scid);
-		blockheight = get_block_height(c->peer->ld->topology);
-		depth = blockheight - blocknum + 1;
-		return depth < ANNOUNCE_MIN_DEPTH ||
-		       !(c->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL);
 
-		/* Unuseable. */
-	case CHANNELD_AWAITING_LOCKIN:
-	case CHANNELD_SHUTTING_DOWN:
-	case CLOSINGD_SIGEXCHANGE:
-	case CLOSINGD_COMPLETE:
-	case FUNDING_SPEND_SEEN:
-	case ONCHAIN:
-		return false;
-	}
-	/* All cases should have been handled above. */
-	abort();
-}
-/* Create 'r' routes for bolt11. */
-static struct route_info **
-create_bolt11_routes(const tal_t *ctx,
-		     struct lightningd *ld,
-		     unsigned int max_routes)
-{
+/* Represent a pending invoice command. */
+struct invoice_command {
+	struct command *cmd;
+	struct preimage r;
+	struct sha256 rhash;
+	u64 *msatoshi_val;
+	const struct json_escaped *label_val;
+	u64 expiry;
+	const char *desc_val;
+	const u8 **fallback_scripts;
+	unsigned int maxprivchannels;
 	struct route_info **routes;
-	struct peer *peer;
-	struct channel *channel;
-	size_t i;
+};
 
-	if (max_routes == 0)
-		return NULL;
+/* Resolve a pending invoice command. */
+static void resolve_invoice_command(struct invoice_command *ic)
+{
+	struct invoice invoice;
+	struct invoice_details details;
+	struct bolt11 *b11;
+	struct command *cmd = ic->cmd;
+	struct wallet *wallet = cmd->ld->wallet;
+	char *b11enc;
+	bool result;
+	struct json_result *response;
 
-	routes = tal_arr(ctx, struct route_info*, 0);
-	i = 0;
-
-	list_for_each (&ld->peers, peer, list) {
-		list_for_each(&peer->channels, channel, list) {
-			if (max_routes == 0)
-				return routes;
-
-			if (!channel_is_private_and_useable(channel))
-				continue;
-			assert(channel->scid);
-
-			/* Create a new hop. */
-			tal_resize(&routes, tal_count(routes) + 1);
-
-			/* Create a single hop route. */
-			routes[i] = tal_arr(routes, struct route_info, 1);
-			routes[i]->pubkey = peer->id;
-			routes[i]->short_channel_id = *channel->scid;
-			/* FIXME: we should really query this from the
-			 * peer, instead of assuming the peer has
-			 * similar settings to us.
-			 * But there is no way for the peer to provide
-			 * this information to us as of 2018-04-18. */
-			routes[i]->fee_base_msat = ld->config.fee_base;
-			routes[i]->fee_proportional_millionths = ld->config.fee_per_satoshi;
-			routes[i]->cltv_expiry_delta = ld->config.cltv_expiry_delta;
-			/* FIXME ends. */
-
-			++i;
-			--max_routes;
-		}
+	/* There is a potential race where multiple
+	 * invoices are made with the same labels, but get
+	 * resolved in a different order, and can reach
+	 * this part of the code.
+	 * e.g. one might be created with maxprivchannels>0 and
+	 * a slightly later one with maxprivchannels>0, both with
+	 * same label.
+	 * The duplicate-label check for the first is done,
+	 * which passes, then the command is suspended while
+	 * waiting for the gossipd to reply with private
+	 * routes.
+	 * The second command with same label will then
+	 * be started, with the same-label check redone,
+	 * but the same-label check will still pass because
+	 * the first command has not yet created the invoice
+	 * yet.
+	 * So we need to recheck duplicate label and
+	 * duplicate rhash here. */
+	if (wallet_invoice_find_by_label(wallet, &invoice, ic->label_val)) {
+		command_fail_detailed(cmd, INVOICE_LABEL_ALREADY_EXISTS,
+				      NULL,
+				      "Duplicate label '%s'",
+				      ic->label_val->s);
+		return;
+	}
+	if (wallet_invoice_find_by_rhash(wallet, &invoice, &ic->rhash)) {
+		command_fail_detailed(cmd, INVOICE_PREIMAGE_ALREADY_EXISTS,
+				      NULL, "preimage already used");
+		return;
 	}
 
-	return routes;
+	/* Fill in the BOLT11 invoice. */
+	b11 = new_bolt11(ic, ic->msatoshi_val);
+	b11->chain = get_chainparams(cmd->ld);
+	b11->timestamp = time_now().ts.tv_sec;
+	b11->payment_hash = ic->rhash;
+	b11->receiver_id = cmd->ld->id;
+	b11->min_final_cltv_expiry = cmd->ld->config.cltv_final;
+	b11->expiry = ic->expiry;
+	b11->description = tal_steal(b11, ic->desc_val);
+	b11->description_hash = NULL;
+	if (ic->fallback_scripts)
+		b11->fallbacks = tal_steal(b11, ic->fallback_scripts);
+	if (ic->routes)
+		b11->routes = tal_steal(b11, ic->routes);
+
+	/* Encode the BOLT11 invoice. */
+	b11enc = bolt11_encode(cmd, b11, false, &hsm_sign_b11, cmd->ld);
+
+	/* Add invoice to database. */
+	result = wallet_invoice_create(wallet,
+				       &invoice,
+				       take(ic->msatoshi_val),
+				       take(ic->label_val),
+				       ic->expiry,
+				       b11enc,
+				       &ic->r,
+				       &ic->rhash);
+	if (!result) {
+		command_fail(cmd, LIGHTNINGD,
+			     "Failed to create invoice on database");
+		return;
+	}
+
+	/* Get details, then output them. */
+	wallet_invoice_details(cmd, wallet, invoice, &details);
+
+	response = new_json_result(cmd);
+	json_object_start(response, NULL);
+	json_add_hex(response, "payment_hash",
+		     &details.rhash, sizeof(details.rhash));
+	if (deprecated_apis)
+		json_add_u64(response, "expiry_time", details.expiry_time);
+	json_add_u64(response, "expires_at", details.expiry_time);
+	json_add_string(response, "bolt11", details.bolt11);
+	json_object_end(response);
+
+	command_success(cmd, response);
+}
+
+/* Handle the reply from the gossip_get_private_routes request. */
+static void
+invoice_command_get_private_routes_reply(struct subd *_ UNUSED,
+					 const u8 *reply,
+					 const int *fds UNUSED,
+					 struct invoice_command *ic)
+{
+	struct route_info *hops;
+	fromwire_gossip_get_private_routes_reply(ic, reply, &hops);
+
+	/* FIXME: We should sort returned routes according to
+	 * the incoming capacity, highest incoming capacity
+	 * first. */
+
+	/* Generate one-hop private routes. */
+	tal_free(ic->routes);
+	ic->routes = tal_arr(ic, struct route_info *, 0);
+	for (size_t i = 0; i < tal_count(hops) && i < ic->maxprivchannels; ++i) {
+		tal_resize(&ic->routes, i + 1);
+		ic->routes[i] = tal_arr(ic, struct route_info, 1);
+		ic->routes[i][0] = hops[i];
+	}
+
+	resolve_invoice_command(ic);
 }
 
 static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	struct invoice invoice;
-	struct invoice_details details;
 	jsmntok_t *msatoshi, *label, *desctok, *exp, *fallback, *fallbacks;
 	jsmntok_t *preimagetok;
-	jsmntok_t *maxroutestok;
+	jsmntok_t *maxprivchannelstok;
 	u64 *msatoshi_val;
 	const struct json_escaped *label_val, *desc;
 	const char *desc_val;
-	struct json_result *response = new_json_result(cmd);
 	struct wallet *wallet = cmd->ld->wallet;
-	struct bolt11 *b11;
-	char *b11enc;
 	const u8 **fallback_scripts = NULL;
 	u64 expiry = 3600;
-	bool result;
-	unsigned int maxroutes = 0;
+	unsigned int maxprivchannels = 0;
+	struct invoice_command *ic;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "msatoshi", &msatoshi,
@@ -268,7 +319,7 @@ static void json_invoice(struct command *cmd,
 			     "?fallback", &fallback,
 			     "?fallbacks", &fallbacks,
 			     "?preimage", &preimagetok,
-			     "?maxroutes", &maxroutestok,
+			     "?maxprivchannels", &maxprivchannelstok,
 			     NULL)) {
 		return;
 	}
@@ -382,10 +433,10 @@ static void json_invoice(struct command *cmd,
 		}
 	}
 
-	if (maxroutestok && !json_tok_number(buffer, maxroutestok, &maxroutes)) {
-		command_fail(cmd, LIGHTNINGD, "maxroutes '%.*s' is not a number",
-			     maxroutestok->end - maxroutestok->start,
-			     buffer + maxroutestok->start);
+	if (maxprivchannelstok && !json_tok_number(buffer, maxprivchannelstok, &maxprivchannels)) {
+		command_fail(cmd, LIGHTNINGD, "maxprivchannels '%.*s' is not a number",
+			     maxprivchannelstok->end - maxprivchannelstok->start,
+			     buffer + maxprivchannelstok->start);
 		return;
 	}
 
@@ -418,51 +469,33 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 
-	/* Construct bolt11 string. */
-	b11 = new_bolt11(cmd, msatoshi_val);
-	b11->chain = get_chainparams(cmd->ld);
-	b11->timestamp = time_now().ts.tv_sec;
-	b11->payment_hash = rhash;
-	b11->receiver_id = cmd->ld->id;
-	b11->min_final_cltv_expiry = cmd->ld->config.cltv_final;
-	b11->expiry = expiry;
-	b11->description = tal_steal(b11, desc_val);
-	b11->description_hash = NULL;
-	if (fallback_scripts)
-		b11->fallbacks = tal_steal(b11, fallback_scripts);
-	b11->routes = create_bolt11_routes(b11, cmd->ld, maxroutes);
+	/* Construct invoice_command. */
+	ic = tal(cmd, struct invoice_command);
+	ic->cmd = cmd;
+	ic->r = r;
+	ic->rhash = rhash;
+	ic->msatoshi_val = tal_steal(ic, msatoshi_val);
+	ic->label_val = tal_steal(ic, label_val);
+	ic->expiry = expiry;
+	ic->desc_val = tal_steal(ic, desc_val);
+	ic->fallback_scripts = tal_steal(ic, fallback_scripts);
+	ic->maxprivchannels = maxprivchannels;
+	ic->routes = NULL;
 
-	/* FIXME: add private routes if necessary! */
-	b11enc = bolt11_encode(cmd, b11, false, hsm_sign_b11, cmd->ld);
-
-	result = wallet_invoice_create(cmd->ld->wallet,
-				       &invoice,
-				       take(msatoshi_val),
-				       take(label_val),
-				       expiry,
-				       b11enc,
-				       &r,
-				       &rhash);
-
-	if (!result) {
-		command_fail(cmd, LIGHTNINGD,
-			     "Failed to create invoice on database");
-		   return;
+	if (maxprivchannels == 0)
+		/* No private routes requested, resolve command now. */
+		resolve_invoice_command(ic);
+	else {
+		/* Request gossip to give us private routes. */
+		u8 *msg = towire_gossip_get_private_routes(tmpctx);
+		subd_req(ic, cmd->ld->gossip,
+			 take(msg),
+			 -1, 0,
+			 &invoice_command_get_private_routes_reply,
+			 ic);
+		/* Command is pending until we get reply from gossipd. */
+		command_still_pending(cmd);
 	}
-
-	/* Get details */
-	wallet_invoice_details(cmd, cmd->ld->wallet, invoice, &details);
-
-	json_object_start(response, NULL);
-	json_add_hex(response, "payment_hash",
-		     &details.rhash, sizeof(details.rhash));
-	if (deprecated_apis)
-		json_add_u64(response, "expiry_time", details.expiry_time);
-	json_add_u64(response, "expires_at", details.expiry_time);
-	json_add_string(response, "bolt11", details.bolt11);
-	json_object_end(response);
-
-	command_success(cmd, response);
 }
 
 static const struct json_command invoice_command = {
@@ -471,7 +504,7 @@ static const struct json_command invoice_command = {
 	"Create an invoice for {msatoshi} with {label} and {description} with optional {expiry} seconds (default 1 hour), "
 	"0 or more {fallbacks} addresses, "
 	"optional {preimage} (default autogenerated), "
-	"and 0 or more private routes (up to {maxroutes})"
+	"and 0 or more private routes (up to {maxprivchannels})"
 };
 AUTODATA(json_command, &invoice_command);
 
