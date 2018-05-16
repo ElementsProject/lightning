@@ -196,9 +196,8 @@ include devtools/Makefile
 # Git doesn't maintain timestamps, so we only regen if git says we should.
 CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o x"`git diff $<`" != x"" ]
 
-ifeq ($(TEST_GROUP_COUNT),)
-TEST_GROUP=1
-TEST_GROUP_COUNT=1
+ifneq ($(TEST_GROUP_COUNT),)
+PYTEST_OPTS += --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT)
 endif
 
 check:
@@ -210,7 +209,7 @@ ifndef PYTEST
 	@echo "py.test is required to run the integration tests, please install using 'pip3 install -r tests/requirements.txt'"
 	exit 1
 else
-	PYTHONPATH=contrib/pylightning:$$PYTHONPATH TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) $(PYTEST) -vx tests/ --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT) $(PYTEST_OPTS)
+	PYTHONPATH=contrib/pylightning:$$PYTHONPATH TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) $(PYTEST) tests/ $(PYTEST_OPTS)
 endif
 
 # Keep includes in alpha order.
