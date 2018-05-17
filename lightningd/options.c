@@ -360,9 +360,6 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--max-htlc-expiry", opt_set_u32, opt_show_u32,
 			 &ld->config.max_htlc_expiry,
 			 "Maximum number of blocks to accept an HTLC before expiry");
-	opt_register_arg("--bitcoind-poll", opt_set_time, opt_show_time,
-			 &ld->config.poll_time,
-			 "Time between polling for new transactions");
 	opt_register_arg("--commit-time", opt_set_time, opt_show_time,
 			 &ld->config.commit_time,
 			 "Time after changes before sending out COMMIT");
@@ -447,6 +444,9 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_noarg("--dev-allow-localhost", opt_set_bool,
 			   &ld->dev_allow_localhost,
 			   "Announce and allow announcments for localhost address");
+	opt_register_arg("--dev-bitcoind-poll", opt_set_u32, opt_show_u32,
+			 &ld->topology->poll_seconds,
+			 "Time between polling for new transactions");
 }
 #endif
 
@@ -479,9 +479,6 @@ static const struct config testnet_config = {
 
 	/* Don't lock up channel for more than 5 days. */
 	.max_htlc_expiry = 5 * 6 * 24,
-
-	/* How often to bother bitcoind. */
-	.poll_time = TIME_FROM_SEC(10),
 
 	/* Send commit 10msec after receiving; almost immediately. */
 	.commit_time = TIME_FROM_MSEC(10),
@@ -543,9 +540,6 @@ static const struct config mainnet_config = {
 
 	/* Don't lock up channel for more than 5 days. */
 	.max_htlc_expiry = 5 * 6 * 24,
-
-	/* How often to bother bitcoind. */
-	.poll_time = TIME_FROM_SEC(30),
 
 	/* Send commit 10msec after receiving; almost immediately. */
 	.commit_time = TIME_FROM_MSEC(10),

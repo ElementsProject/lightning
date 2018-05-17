@@ -395,7 +395,6 @@ int main(int argc, char *argv[])
 	/* Initialize block topology (does its own transaction) */
 	setup_topology(ld->topology,
 		       &ld->timers,
-		       ld->config.poll_time,
 		       blockheight);
 
 	/* Create RPC socket (if any) */

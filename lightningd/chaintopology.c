@@ -24,7 +24,8 @@ static void try_extend_tip(struct chain_topology *topo);
 static void next_topology_timer(struct chain_topology *topo)
 {
 	/* This takes care of its own lifetime. */
-	notleak(new_reltimer(topo->timers, topo, topo->poll_time,
+	notleak(new_reltimer(topo->timers, topo,
+			     time_from_sec(topo->poll_seconds),
 			     try_extend_tip, topo));
 }
 
@@ -331,7 +332,8 @@ static void start_fee_estimate(struct chain_topology *topo)
 static void next_updatefee_timer(struct chain_topology *topo)
 {
 	/* This takes care of its own lifetime. */
-	notleak(new_reltimer(topo->timers, topo, topo->poll_time,
+	notleak(new_reltimer(topo->timers, topo,
+			     time_from_sec(topo->poll_seconds),
 			     start_fee_estimate, topo));
 }
 
@@ -720,16 +722,16 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 	topo->override_fee_rate = NULL;
 	topo->bitcoind = new_bitcoind(topo, ld, log);
 	topo->wallet = ld->wallet;
+	topo->poll_seconds = 30;
 	return topo;
 }
 
 void setup_topology(struct chain_topology *topo,
 		    struct timers *timers,
-		    struct timerel poll_time, u32 first_blocknum)
+		    u32 first_blocknum)
 {
 	memset(&topo->feerate, 0, sizeof(topo->feerate));
 	topo->timers = timers;
-	topo->poll_time = poll_time;
 
 	topo->first_blocknum = first_blocknum;
 
