@@ -1,0 +1,426 @@
+'\" t
+.\"     Title: lightningd-config
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 05/10/2018
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LIGHTNINGD\-CONFIG" "5" "05/10/2018" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lightningd-config \- Lightning daemon configuration file
+.SH "SYNOPSIS"
+.sp
+\fB~/\&.lightningd/config\fR
+.SH "DESCRIPTION"
+.sp
+lightningd(8) reads a configuration file called \fIconfig\fR, if it exists, when it starts up\&. The location of this file defaults to \fB\&.lightning\fR in the home directory, but can be overridden by the \fI\-\-lightning\-dir\fR option on the lightningd(8) command line\&.
+.sp
+Configuration file options are processsed first, then command line options: later options override earlier ones except \fIaddr\fR options which accumulate\&.
+.sp
+All these options are mirrored as commandline arguments to lightningd(8), so \fI\-\-foo\fR becomes simply \fIfoo\fR in the configuration file, and \fI\-\-foo=bar\fR becomes \fIfoo=bar\fR in the configuration file\&.
+.sp
+Blank lines and lines beginning with \fI#\fR are ignored\&.
+.SH "DEBUGGING"
+.sp
+\fI\-\-help\fR will show you the defaults for many options; they vary with network settings so you can specify \fI\-\-network\fR before \fI\-\-help\fR to see the defaults for that network\&.
+.sp
+The lightning\-listconfigs(7) command will output a valid configuration file using the current settings\&.
+.SH "OPTIONS"
+.sp
+General options:
+.PP
+\fBallow\-deprecated\-apis\fR=\fIBOOL\fR
+.RS 4
+Enable deprecated options, JSONRPC commands, fields, etc\&. It defaults to
+\fItrue\fR, but you should set it to
+\fIfalse\fR
+when testing to ensure that an upgrade won\(cqt break your configuration\&.
+.RE
+.PP
+\fBhelp\fR
+.RS 4
+Print help and exit\&. Not very useful inside a configuration file, but fun to put in other\(cqs config files while their computer is unattended\&.
+.RE
+.PP
+\fBversion\fR
+.RS 4
+Print version and exit\&. Also useless inside a configuration file, but putting this in someone\(cqs config file may convince them to read this man page\&.
+.RE
+.sp
+Bitcoin control options:
+.PP
+\fBnetwork\fR=\fINETWORK\fR
+.RS 4
+Select the network parameters (\fIbitcoin\fR,
+\fItestnet\fR, or
+\fIregtest\fR)\&.
+.RE
+.PP
+\fBtestnet\fR
+.RS 4
+Alias for
+\fInetwork=testnet\fR\&.
+.RE
+.PP
+\fBmainnet\fR
+.RS 4
+Alias for
+\fInetwork=bitcoin\fR\&.
+.RE
+.PP
+\fBbitcoin\-cli\fR=\fIPATH\fR
+.RS 4
+The name of
+\fIbitcoin\-cli\fR
+executable to run\&.
+.RE
+.PP
+\fBbitcoin\-datadir\fR=\fIDIR\fR
+.RS 4
+\fI\-datadir\fR
+argument to supply to bitcoin\-cli(1)\&.
+.RE
+.PP
+\fBbitcoin\-rpcuser\fR=\fIUSER\fR
+.RS 4
+The RPC username for talking to bitcoind(1)\&.
+.RE
+.PP
+\fBbitcoin\-rpcpassword\fR=\fIPASSWORD\fR
+.RS 4
+The RPC password for talking to bitcoind(1)\&.
+.RE
+.PP
+\fBbitcoin\-rpcconnect\fR=\fIHOST\fR
+.RS 4
+The bitcoind(1) RPC host to connect to\&.
+.RE
+.PP
+\fBbitcoin\-rpcport\fR=\fIPORT\fR
+.RS 4
+The bitcoind(1) RPC port to connect to\&.
+.RE
+.PP
+\fBdefault\-fee\-rate\fR=\fISIPA\fR
+.RS 4
+Satoshis per kw if bitcoind can\(cqt estimate fees\&.
+.RE
+.PP
+\fBrescan\fR=\fIBLOCKS\fR
+.RS 4
+Number of blocks to rescan from the current head, or absolute blockheight if negative\&. This is only needed if something goes badly wrong\&.
+.RE
+.sp
+Lightning daemon options:
+.PP
+\fBlightning\-dir\fR=\fIDIR\fR
+.RS 4
+Sets the working directory\&. All other files are relative to this\&.
+.RE
+.PP
+\fBpid\-file\fR=\fIPATH\fR
+.RS 4
+Specify pid file to write to\&.
+.RE
+.PP
+\fBlog\-level\fR=\fILEVEL\fR
+.RS 4
+What log level to print out: options are io, debug, info, unusual, broken\&.
+.RE
+.PP
+\fBlog\-prefix\fR=\fIPREFIX\fR
+.RS 4
+Prefix for log lines: this can be customized if you want to merge logs with multiple daemons\&.
+.RE
+.PP
+\fBlog\-file\fR=\fIPATH\fR
+.RS 4
+Log to this file instead of stdout\&.
+.RE
+.PP
+\fBrpc\-file\fR=\fIPATH\fR
+.RS 4
+Set JSON\-RPC socket (or /dev/tty), such as for lightning\-cli(1)\&.
+.RE
+.PP
+\fBdaemon\fR
+.RS 4
+Run in the background, suppress stdout and stderr\&.
+.RE
+.sp
+Lightning node customization options:
+.PP
+\fBrgb\fR=\fIRRGGBB\fR
+.RS 4
+Your favorite color as a hex code\&.
+.RE
+.PP
+\fBalias\fR=\fINAME\fR
+.RS 4
+Up to 32 UTF\-8 characters to tag your node\&. Completely silly, since anyone can call their node anything they want\&. The default is an NSA\-style codename derived from your public key, but "Peter Todd" and "VAULTERO" are good options, too\&.
+.RE
+.PP
+\fBfee\-base\fR=\fIMILLISATOSHI\fR
+.RS 4
+The base fee to charge for every payment which passes through\&. Note that millisatoshis are a very, very small unit!
+.RE
+.PP
+\fBfee\-per\-satoshi\fR=\fIMILLIONTHS\fR
+.RS 4
+This is the proportional fee to charge for every payment which passes through\&. As percentages are too course, it\(cqs in millionths, so 10000 is 1 percent, 1000 is 0\&.1%\&.
+.RE
+.PP
+\fBignore\-fee\-limits\fR=\fIBOOL\fR
+.RS 4
+Allow nodes which establish channels to us to set any fee they want\&. This may result in a channel which cannot be closed, should fees increase, but make channels far more reliable since we never close it due to unreasonable fees\&.
+.RE
+.PP
+\fBcommit\-time\fR=\fITIME\fR
+.RS 4
+How long to wait before sending commitment messages to the peer: in theory increasing this would reduce load, but your node would have to be extremely busy node for you to even notice\&.
+.RE
+.sp
+Lightning channel and HTLC options:
+.PP
+\fBlocktime\-blocks\fR=\fIBLOCKS\fR
+.RS 4
+How long we need to spot an outdated close attempt, which is also how long the peer would need to wait if they perform a unilateral close\&.
+.RE
+.PP
+\fBmax\-locktime\-blocks\fR=\fIBLOCKS\fR
+.RS 4
+The longest we\(cqll ever allow a peer to hold up payments, in the worst case\&. If they ask for longer, we\(cqll refuse to create a channel, and if an HTLC asks for longer, we\(cqll refuse it\&.
+.RE
+.PP
+\fBfunding\-confirms\fR=\fIBLOCKS\fR
+.RS 4
+Confirmations required for the funding transaction when the other side opens a channel before the channel is usable\&.
+.RE
+.PP
+\fBcommit\-fee\-min\fR=\fIPERCENT\fR, \fBcommit\-fee\-max\fR=\fIPERCENT\fR
+.RS 4
+Limits on what onchain fee range we\(cqll allow when a node opens a channel with us\&. If they\(cqre outside this range, we abort their opening attempt\&. Note that max can (should!) be greater than 100\&.
+.RE
+.PP
+\fBcommit\-fee\fR=\fIPERCENT\fR
+.RS 4
+The percentage of
+\fIestimatesmartfee 2\fR
+to use for channel funding: can be greater than 100\&.
+.RE
+.PP
+\fBcltv\-delta\fR=\fIBLOCKS\fR
+.RS 4
+The number of blocks between incoming payments and outgoing payments: this needs to be enough to make sure that if we have to, we can close the outgoing payment before the incoming, or redeem the incoming once the outgoing is redeemed\&.
+.RE
+.PP
+\fBcltv\-final\fR=\fIBLOCKS\fR
+.RS 4
+The number of blocks to allow for payments we receive: if we have to, we might need to redeem this on\-chain, so this is the number of blocks we have to do that\&.
+.RE
+.sp
+Invoice control options:
+.PP
+\fBautocleaninvoice\-cycle\fR=\fISECONDS\fR
+.RS 4
+Perform cleanup of expired invoices every
+\fISECONDS\fR
+seconds, or disable if 0\&. Usually unpaid expired invoices are uninteresting, and just take up space in the database\&.
+.RE
+.PP
+\fBautocleaninvoice\-expired\-by\fR=\fISECONDS\fR
+.RS 4
+Control how long invoices must have been expired before they are cleaned (if
+\fIautocleaninvoice\-cycle\fR
+is non\-zero)\&.
+.RE
+.sp
+Networking options:
+.sp
+Note that for simple setups, the implicit \fIautolisten\fR option does the right thing: it will try to bind to port 9735 on IPv4 and IPv6, and will announce it to peers if it\(cqs seems like a public address\&.
+.sp
+You can instead use \fIaddr\fR to override this (eg\&. to change the port), or precisely control where to bind and what to announce with the \fIbind\-addr\fR and \fIannounce\-addr\fR options\&.
+.PP
+\fBaddr\fR=\fI[IPADDRESS[:PORT]]|autotor:TORIPADDRESS[:TORPORT]\fR
+.RS 4
+Set an IP address (v4 or v6) or automatic Tor address to listen on and (maybe) announce as our node address\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+An empty \*(AqIPADDRESS\*(Aq is a special value meaning bind to IPv4 and/or
+IPv6 on all interfaces, \*(Aq0\&.0\&.0\&.0\*(Aq means bind to all IPv4
+interfaces, \*(Aq::\*(Aq means \*(Aqbind to all IPv6 interfaces\*(Aq\&.  \*(AqPORT\*(Aq is
+not specified, 9735 is used\&.  If we can determine a public IP
+address from the resulting binding, the address is announced\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+If the argument begins with \*(Aqautotor:\*(Aq then it is followed by the
+IPv4 or IPv6 address of the Tor control port (default port 9051),
+and this will be used to configure a Tor hidden service for port
+9735\&.  The Tor hidden service will be configured to point to the
+first IPv4 or IPv6 address we bind to\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+This option can be used multiple times to add more addresses, and
+its use disables autolisten\&.  If necessary, and \*(Aqalways\-use\-proxy\*(Aq
+is not specified, a DNS lookup may be done to resolve \*(AqIPADDRESS\*(Aq
+or \*(AqTORIPADDRESS\*(Aq\&.
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.PP
+\fBbind\-addr\fR=\fI[IPADDRESS[:PORT]]|SOCKETPATH\fR
+.RS 4
+Set an IP address or UNIX domain socket to listen to, but do not announce\&. A UNIX domain socket is distingished from an IP address by beginning with a
+\fI/\fR\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+An empty \*(AqIPADDRESS\*(Aq is a special value meaning bind to IPv4 and/or
+IPv6 on all interfaces, \*(Aq0\&.0\&.0\&.0\*(Aq means bind to all IPv4
+interfaces, \*(Aq::\*(Aq means \*(Aqbind to all IPv6 interfaces\*(Aq\&.  \*(AqPORT\*(Aq is
+not specified, 9735 is used\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+This option can be used multiple times to add more addresses, and
+its use disables autolisten\&.  If necessary, and \*(Aqalways\-use\-proxy\*(Aq
+is not specified, a DNS lookup may be done to resolve \*(AqIPADDRESS\*(Aq\&.
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.PP
+\fBannounce\-addr\fR=\fI[IPADDRESS[:PORT]]|TORADDRESS\&.onion[:PORT]\fR
+.RS 4
+Set an IP address or Tor address to announce; a Tor address is distinguished by ending in
+\fI\&.onion\fR, and is
+\fIPORT\fR
+defaults to 9735\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+Empty or wildcard IPv4 and IPv6 addresses don\*(Aqt make sense here\&.
+Also, unlike the \*(Aqaddr\*(Aq option, there is no checking that your
+announced addresses are sane (ie\&. not localhost)\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+This option can be used multiple times to add more addresses, and
+its use disables autolisten\&.  If necessary, and \*(Aqalways\-use\-proxy\*(Aq
+is not specified, a DNS lookup may be done to resolve \*(AqIPADDRESS\*(Aq
+or \*(AqTORADDRESS\*(Aq\&.
+.fi
+.if n \{\
+.RE
+.\}
+.RE
+.PP
+\fBoffline\fR
+.RS 4
+Do not bind to any ports, and do not try to reconnect to any peers\&. This can be useful for maintenance and forensics, so is usually specified on the command line\&. Overrides all
+\fIaddr\fR
+and
+\fIbind\-addr\fR
+options\&.
+.RE
+.PP
+\fBautolisten\fR=\fIBOOL\fR
+.RS 4
+By default, we bind (and maybe announce) on IPv4 and IPv6 interfaces if no
+\fIaddr\fR,
+\fIbind\-addr\fR
+or
+\fIannounce\-addr\fR
+options are specified\&. Setting this to
+\fIfalse\fR
+disables that\&.
+.RE
+.PP
+\fBproxy\fR=\fIIPADDRESS[:PORT]\fR
+.RS 4
+Set a socks proxy to use to connect to Tor nodes (or for all connections if
+\fBalways\-use\-proxy\fR
+is set)\&.
+.RE
+.PP
+\fBalways\-use\-proxy\fR=\fIBOOL\fR
+.RS 4
+Always use the
+\fBproxy\fR, even to connect to normal IP addresses (you can still connect to Unix domain sockets manually)\&. This also disables all DNS lookups, to avoid leaking information\&.
+.RE
+.PP
+\fBtor\-service\-password\fR=\fIPASSWORD\fR
+.RS 4
+Set a Tor control password, which may be needed for
+\fIautotor:\fR
+to authenticate to the Tor control port\&.
+.RE
+.SH "BUGS"
+.sp
+You should report bugs on our github issues page, and maybe submit a fix to gain our eternal gratutide!
+.SH "AUTHOR"
+.sp
+Rusty Russell <rusty@rustcorp\&.com\&.au> wrote this man page, and much of the configuration language, but many others did the hard work of actually implementing these options\&.
+.SH "RESOURCES"
+.sp
+Main web site: https://github\&.com/ElementsProject/lightning
+.SH "COPYING"
+.sp
+Note: the modules in the ccan/ directory have their own licenses, but the rest of the code is covered by the BSD\-style MIT license\&.
