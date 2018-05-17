@@ -75,7 +75,7 @@ def test_single_hop(node_factory, executor):
 def test_single_payment(node_factory, benchmark):
     l1 = node_factory.get_node()
     l2 = node_factory.get_node()
-    l1.rpc.connect(l2.rpc.getinfo()['id'], 'localhost:%d' % l2.rpc.getinfo()['port'])
+    l1.rpc.connect(l2.rpc.getinfo()['id'], 'localhost:%d' % l2.port)
     l1.openchannel(l2, 4000000)
 
     def do_pay(l1, l2):
@@ -83,3 +83,33 @@ def test_single_payment(node_factory, benchmark):
         l1.rpc.pay(invoice)
 
     benchmark(do_pay, l1, l2)
+
+
+def test_invoice(node_factory, benchmark):
+    l1 = node_factory.get_node()
+
+    def bench_invoice():
+        l1.rpc.invoice(1000, 'invoice-{}'.format(time()), 'desc')
+
+    benchmark(bench_invoice)
+
+
+def test_pay(node_factory, benchmark):
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node()
+    l1.rpc.connect(l2.rpc.getinfo()['id'], 'localhost:%d' % l2.port)
+    l1.openchannel(l2, 4000000)
+
+    invoices = []
+    for _ in range(1, 100):
+        invoice = l2.rpc.invoice(1000, 'invoice-{}'.format(random.random()), 'desc')['bolt11']
+        invoices.append(invoice)
+
+    def do_pay(l1, l2):
+        l1.rpc.pay(invoices.pop())
+
+    benchmark(do_pay, l1, l2)
+
+
+def test_start(node_factory, benchmark):
+    benchmark(node_factory.get_node)
