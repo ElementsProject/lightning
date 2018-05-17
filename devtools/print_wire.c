@@ -5,22 +5,22 @@
 
 void printwire_u8(const u8 *v)
 {
-	printf("%u", *v);
+	printf("%u\n", *v);
 }
 
 void printwire_u16(const u16 *v)
 {
-	printf("%u", *v);
+	printf("%u\n", *v);
 }
 
 void printwire_u32(const u32 *v)
 {
-	printf("%u", *v);
+	printf("%u\n", *v);
 }
 
 void printwire_u64(const u64 *v)
 {
-	printf("%"PRIu64, *v);
+	printf("%"PRIu64"\n", *v);
 }
 
 void printwire_u8_array(const u8 **cursor, size_t *plen, size_t len)
