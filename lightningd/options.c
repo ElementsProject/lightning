@@ -291,6 +291,14 @@ static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_set_anchor(const char *arg, u32 *u)
+{
+	if (!deprecated_apis)
+		return "--anchor-confirms is now --funding-confirms";
+
+	return opt_set_u32(arg, u);
+}
+
 static void config_register_opts(struct lightningd *ld)
 {
 	opt_register_noarg("--daemon", opt_set_bool, &ld->daemon,
@@ -304,9 +312,11 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--max-locktime-blocks", opt_set_u32, opt_show_u32,
 			 &ld->config.locktime_max,
 			 "Maximum blocks a peer can lock up our funds");
-	opt_register_arg("--anchor-confirms", opt_set_u32, opt_show_u32,
+	opt_register_arg("--funding-confirms", opt_set_u32, opt_show_u32,
 			 &ld->config.anchor_confirms,
-			 "Confirmations required for anchor transaction");
+			 "Confirmations required for funding transaction");
+	opt_register_arg("--anchor-confirms", opt_set_anchor, NULL,
+			 &ld->config.anchor_confirms, opt_hidden);
 	opt_register_arg("--commit-fee-min=<percent>", opt_set_u32, opt_show_u32,
 			 &ld->config.commitment_fee_min_percent,
 			 "Minimum percentage of fee to accept for commitment");
