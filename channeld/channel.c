@@ -160,6 +160,7 @@ struct peer {
 	u8 channel_flags;
 
 	bool announce_depth_reached;
+	bool sent_temporary_announce;
 
 	/* Make sure timestamps move forward. */
 	u32 last_update_timestamp;
@@ -505,11 +506,13 @@ static void channel_announcement_negotiate(struct peer *peer)
 	if (!peer->funding_locked[LOCAL] || !peer->funding_locked[REMOTE])
 		return;
 
-
 	/* If we haven't reached announce depth yet, we can only send
 	 * a local update */
 	if (!peer->announce_depth_reached) {
-		send_temporary_announcement(peer);
+		if (!peer->sent_temporary_announce) {
+			send_temporary_announcement(peer);
+			peer->sent_temporary_announce = true;
+		}
 		return;
 	}
 
@@ -2588,6 +2591,7 @@ int main(int argc, char *argv[])
 	peer->commit_timer = NULL;
 	peer->have_sigs[LOCAL] = peer->have_sigs[REMOTE] = false;
 	peer->announce_depth_reached = false;
+	peer->sent_temporary_announce = false;
 	msg_queue_init(&peer->from_master, peer);
 	msg_queue_init(&peer->from_gossipd, peer);
 	msg_queue_init(&peer->peer_out, peer);
