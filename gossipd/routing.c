@@ -784,7 +784,7 @@ static void process_pending_channel_update(struct routing_state *rstate,
 		return;
 
 	/* FIXME: We don't remember who sent us updates, so can't error them */
-	err = handle_channel_update(rstate, cupdate, true);
+	err = handle_channel_update(rstate, cupdate);
 	if (err) {
 		status_trace("Pending channel_update for %s: %s",
 			     type_to_string(tmpctx, struct short_channel_id, scid),
@@ -958,8 +958,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	return true;
 }
 
-u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
-			  bool add_to_store)
+u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 {
 	u8 *serialized;
 	struct half_chan *c;
@@ -1058,8 +1057,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 	/* Store the channel_update for both public and non-public channels
 	 * (non-public ones may just be the incoming direction). We'd have
 	 * dropped invalid ones earlier. */
-	if (add_to_store)
-		gossip_store_add_channel_update(rstate->store, serialized);
+	gossip_store_add_channel_update(rstate->store, serialized);
 
 	return NULL;
 }
@@ -1431,7 +1429,7 @@ void routing_failure(struct routing_state *rstate,
 				       (int) failcode);
 			return;
 		}
-		err = handle_channel_update(rstate, channel_update, true);
+		err = handle_channel_update(rstate, channel_update);
 		if (err) {
 			status_unusual("routing_failure: "
 				       "bad channel_update %s",
@@ -1509,12 +1507,8 @@ void handle_local_add_channel(struct routing_state *rstate, const u8 *msg)
 {
 	struct short_channel_id scid;
 	struct pubkey remote_node_id;
-	u8 *update;
-	struct chan *chan;
-	u8 *err;
 
-	if (!fromwire_gossip_local_add_channel(msg, msg, &scid, &remote_node_id,
-					       &update)) {
+	if (!fromwire_gossip_local_add_channel(msg, &scid, &remote_node_id)) {
 		status_broken("Unable to parse local_add_channel message: %s", tal_hex(msg, msg));
 		return;
 	}
@@ -1525,13 +1519,6 @@ void handle_local_add_channel(struct routing_state *rstate, const u8 *msg)
 		return;
 	}
 
-	/* Create new channel */
-	chan = new_chan(rstate, &scid, &rstate->local_id, &remote_node_id);
-
-	/* We've already put this in the store: don't again! */
-	err = handle_channel_update(rstate, update, false);
-	if (err) {
-		status_broken("local_add_channel: %s", err);
-		tal_free(chan);
-	}
+	/* Create new (unannounced) channel */
+	new_chan(rstate, &scid, &rstate->local_id, &remote_node_id);
 }

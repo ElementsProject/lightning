@@ -374,17 +374,15 @@ static void send_temporary_announcement(struct peer *peer)
 {
 	u8 *msg;
 
-	/* Tell the other side what parameters we expect should they route
-	 * through us */
-	msg = create_channel_update(tmpctx, peer, 0);
-	enqueue_peer_msg(peer, msg);
-
+	/* Tell gossipd about local channel. */
 	msg = towire_gossip_local_add_channel(NULL,
 					      &peer->short_channel_ids[LOCAL],
-					      &peer->node_ids[REMOTE],
-					      msg);
-	wire_sync_write(GOSSIP_FD, take(msg));
+					      &peer->node_ids[REMOTE]);
+ 	wire_sync_write(GOSSIP_FD, take(msg));
 
+	/* Tell gossipd and the other side what parameters we expect should
+	 * they route through us */
+	send_channel_update(peer, true, 0);
 }
 
 static void send_announcement_signatures(struct peer *peer)

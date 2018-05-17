@@ -657,7 +657,7 @@ static u8 *handle_gossip_msg(struct daemon *daemon, const u8 *msg)
 		break;
 
 	case WIRE_CHANNEL_UPDATE:
-		err = handle_channel_update(rstate, msg, true);
+		err = handle_channel_update(rstate, msg);
 		if (err)
 			return err;
 		break;
@@ -1482,7 +1482,7 @@ static void gossip_send_keepalive_update(struct routing_state *rstate,
 	status_trace("Sending keepalive channel_update for %s",
 		     type_to_string(tmpctx, struct short_channel_id, &scid));
 
-	err = handle_channel_update(rstate, update, true);
+	err = handle_channel_update(rstate, update);
 	if (err)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "rejected keepalive channel_update: %s",
@@ -2420,7 +2420,7 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 			      strerror(errno));
 	}
 
-	err = handle_channel_update(daemon->rstate, msg, true);
+	err = handle_channel_update(daemon->rstate, msg);
 	if (err)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "rejected disabling channel_update: %s",
