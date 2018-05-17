@@ -14,8 +14,6 @@
 #include <wallet/wallet.h>
 #include <wire/peer_wire.h>
 
-#define ANNOUNCE_MIN_DEPTH 6
-
 struct crypto_state;
 
 struct peer {

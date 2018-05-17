@@ -46,7 +46,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gen_gossip_wire.h>
-#include <gossipd/routing.h>
+#include <gossipd/gossip_constants.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <secp256k1.h>
