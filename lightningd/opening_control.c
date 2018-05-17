@@ -624,12 +624,10 @@ new_uncommitted_channel(struct lightningd *ld,
 static void channel_config(struct lightningd *ld,
 			   struct channel_config *ours,
 			   u32 *max_to_self_delay,
-			   u32 *max_minimum_depth,
 			   u64 *min_effective_htlc_capacity_msat)
 {
 	/* FIXME: depend on feerate. */
 	*max_to_self_delay = ld->config.locktime_max;
-	*max_minimum_depth = ld->config.anchor_confirms_max;
 	/* This is 1c at $1000/BTC */
 	*min_effective_htlc_capacity_msat = 1000000;
 
@@ -678,7 +676,7 @@ u8 *peer_accept_channel(const tal_t *ctx,
 			const struct channel_id *channel_id,
 			const u8 *open_msg)
 {
-	u32 max_to_self_delay, max_minimum_depth;
+	u32 max_to_self_delay;
 	u64 min_effective_htlc_capacity_msat;
 	u8 *msg;
 	struct uncommitted_channel *uc;
@@ -723,7 +721,7 @@ u8 *peer_accept_channel(const tal_t *ctx,
 	uc->minimum_depth = ld->config.anchor_confirms;
 
 	channel_config(ld, &uc->our_config,
-		       &max_to_self_delay, &max_minimum_depth,
+		       &max_to_self_delay,
 		       &min_effective_htlc_capacity_msat);
 
 	msg = towire_opening_init(uc, get_chainparams(ld)->index,
@@ -751,7 +749,7 @@ static void peer_offer_channel(struct lightningd *ld,
 			       int peer_fd, int gossip_fd)
 {
 	u8 *msg;
-	u32 max_to_self_delay, max_minimum_depth;
+	u32 max_to_self_delay;
 	u64 min_effective_htlc_capacity_msat;
 
 	/* Remove from list, it's not pending any more. */
@@ -793,7 +791,7 @@ static void peer_offer_channel(struct lightningd *ld,
 	}
 
 	channel_config(ld, &fc->uc->our_config,
-		       &max_to_self_delay, &max_minimum_depth,
+		       &max_to_self_delay,
 		       &min_effective_htlc_capacity_msat);
 
 	msg = towire_opening_init(fc,
@@ -807,7 +805,6 @@ static void peer_offer_channel(struct lightningd *ld,
 	msg = towire_opening_funder(fc, fc->wtx.amount,
 				    fc->push_msat,
 				    get_feerate(ld->topology, FEERATE_NORMAL),
-				    max_minimum_depth,
 				    fc->wtx.change, fc->wtx.change_key_index,
 				    fc->channel_flags,
 				    fc->wtx.utxos,

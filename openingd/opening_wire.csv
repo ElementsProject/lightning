@@ -19,7 +19,6 @@ opening_funder,6001
 opening_funder,,funding_satoshis,u64
 opening_funder,,push_msat,u64
 opening_funder,,feerate_per_kw,u32
-opening_funder,,max_minimum_depth,u32
 opening_funder,,change_satoshis,u64
 opening_funder,,change_keyindex,u32
 opening_funder,,channel_flags,u8
