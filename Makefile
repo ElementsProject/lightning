@@ -332,6 +332,7 @@ update-ccan:
 	grep -v '^CCAN version:' ccan.old/README > ccan/README
 	echo CCAN version: `git -C ../ccan describe` >> ccan/README
 	$(RM) -r ccan.old
+	$(RM) -r ccan/ccan/hash/ ccan/ccan/tal/talloc/	# Unnecessary deps
 
 # Now ALL_PROGRAMS is fully populated, we can expand it.
 all-programs: $(ALL_PROGRAMS)
