@@ -96,7 +96,7 @@ void setup_jsonrpc(struct lightningd *ld UNNEEDED, const char *rpc_filename UNNE
 /* Generated stub for setup_topology */
 void setup_topology(struct chain_topology *topology UNNEEDED,
 		    struct timers *timers UNNEEDED,
-		    struct timerel poll_time UNNEEDED, u32 first_channel_block UNNEEDED)
+		    u32 first_channel_block UNNEEDED)
 { fprintf(stderr, "setup_topology called!\n"); abort(); }
 /* Generated stub for subd_shutdown */
 void subd_shutdown(struct subd *subd UNNEEDED, unsigned int seconds UNNEEDED)

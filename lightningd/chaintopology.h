@@ -93,7 +93,7 @@ struct chain_topology {
 	unsigned int first_blocknum;
 
 	/* How often to poll. */
-	struct timerel poll_time;
+	u32 poll_seconds;
 
 	/* The bitcoind. */
 	struct bitcoind *bitcoind;
@@ -150,7 +150,7 @@ void broadcast_tx(struct chain_topology *topo,
 struct chain_topology *new_topology(struct lightningd *ld, struct log *log);
 void setup_topology(struct chain_topology *topology,
 		    struct timers *timers,
-		    struct timerel poll_time, u32 first_channel_block);
+		    u32 first_channel_block);
 
 void begin_topology(struct chain_topology *topo);
 

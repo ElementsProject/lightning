@@ -51,9 +51,6 @@ struct config {
 	u32 fee_base;
 	s32 fee_per_satoshi;
 
-	/* How long between polling bitcoind. */
-	struct timerel poll_time;
-
 	/* How long between changing commit and sending COMMIT message. */
 	struct timerel commit_time;
 
