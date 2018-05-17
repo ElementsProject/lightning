@@ -2,6 +2,7 @@
 #include <ccan/fdpass/fdpass.h>
 #include <channeld/gen_channel_wire.h>
 #include <errno.h>
+#include <gossipd/gossip_constants.h>
 #include <hsmd/capabilities.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>

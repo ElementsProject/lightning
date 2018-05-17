@@ -6,20 +6,10 @@
 #include <ccan/htable/htable_type.h>
 #include <ccan/time/time.h>
 #include <gossipd/broadcast.h>
+#include <gossipd/gossip_constants.h>
 #include <gossipd/gossip_store.h>
 #include <wire/gen_onion_wire.h>
 #include <wire/wire.h>
-
-#define ROUTING_MAX_HOPS 20
-/* BOLT #7:
- *
- * The `flags` bitfield...individual bits:
- *...
- * | 0             | `direction` | Direction this update refers to. |
- * | 1             | `disable`   | Disable the channel.             |
- */
-#define ROUTING_FLAGS_DIRECTION (1 << 0)
-#define ROUTING_FLAGS_DISABLED  (1 << 1)
 
 struct half_chan {
 	/* Cached `channel_update` which initialized below (or NULL) */

@@ -93,7 +93,7 @@ channeld/gen_full_channel_error_names.h: channeld/full_channel_error.h ccan/ccan
 	ccan/ccan/cdump/tools/cdump-enumstr channeld/full_channel_error.h > $@
 
 
-$(LIGHTNINGD_CHANNEL_OBJS): $(LIGHTNINGD_HEADERS)
+$(LIGHTNINGD_CHANNEL_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_GOSSIP_CONTROL_HEADERS)
 
 channeld/gen_channel_wire.h: $(WIRE_GEN) channeld/channel_wire.csv
 	$(WIRE_GEN) --header $@ channel_wire_type < channeld/channel_wire.csv > $@
