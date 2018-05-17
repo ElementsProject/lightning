@@ -609,10 +609,12 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
 
-	fromwire_channel_announcement(
-	    tmpctx, msg, &node_signature_1, &node_signature_2,
-	    &bitcoin_signature_1, &bitcoin_signature_2, &features, &chain_hash,
-	    &scid, &node_id_1, &node_id_2, &bitcoin_key_1, &bitcoin_key_2);
+	if (!fromwire_channel_announcement(
+		    tmpctx, msg, &node_signature_1, &node_signature_2,
+		    &bitcoin_signature_1, &bitcoin_signature_2, &features, &chain_hash,
+		    &scid, &node_id_1, &node_id_2, &bitcoin_key_1, &bitcoin_key_2))
+		return false;
+
 	/* The channel may already exist if it was non-public from
 	 * local_add_channel(); normally we don't accept new
 	 * channel_announcements.  See handle_channel_announcement. */
@@ -1106,10 +1108,12 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 	u8 alias[32];
 	u8 *features, *addresses;
 	struct wireaddr *wireaddrs;
-	fromwire_node_announcement(tmpctx, msg,
-				   &signature, &features, &timestamp,
-				   &node_id, rgb_color, alias,
-				   &addresses);
+
+	if (!fromwire_node_announcement(tmpctx, msg,
+					&signature, &features, &timestamp,
+					&node_id, rgb_color, alias,
+					&addresses))
+		return false;
 
 	node = get_node(rstate, &node_id);
 
