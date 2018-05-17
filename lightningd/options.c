@@ -298,6 +298,14 @@ static char *opt_set_anchor(const char *arg, u32 *u)
 	return opt_set_u32(arg, u);
 }
 
+static char *opt_set_locktime(const char *arg, u32 *u)
+{
+	if (!deprecated_apis)
+		return "--locktime-blocks is now --watchtime-blocks";
+
+	return opt_set_u32(arg, u);
+}
+
 static void config_register_opts(struct lightningd *ld)
 {
 	opt_register_noarg("--daemon", opt_set_bool, &ld->daemon,
@@ -305,9 +313,11 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--ignore-fee-limits", opt_set_bool_arg, opt_show_bool,
 			 &ld->config.ignore_fee_limits,
 			 "(DANGEROUS) allow peer to set any feerate");
-	opt_register_arg("--locktime-blocks", opt_set_u32, opt_show_u32,
+	opt_register_arg("--watchtime-blocks", opt_set_u32, opt_show_u32,
 			 &ld->config.locktime_blocks,
 			 "Blocks before peer can unilaterally spend funds");
+	opt_register_arg("--locktime-blocks", opt_set_locktime, NULL,
+			 &ld->config.locktime_blocks, opt_hidden);
 	opt_register_arg("--max-locktime-blocks", opt_set_u32, opt_show_u32,
 			 &ld->config.locktime_max,
 			 "Maximum blocks a peer can lock up our funds");
@@ -891,7 +901,9 @@ static void add_config(struct lightningd *ld,
 			abort();
 		}
 	} else if (opt->type & OPT_HASARG) {
-		if (opt->show) {
+		if (opt->desc == opt_hidden) {
+			/* Ignore hidden options (deprecated) */
+		} else if (opt->show) {
 			char *buf = tal_arr(name0, char, OPT_SHOW_LEN+1);
 			opt->show(buf, opt->u.carg);
 

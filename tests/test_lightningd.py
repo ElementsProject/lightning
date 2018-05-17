@@ -1274,7 +1274,7 @@ class LightningDTests(BaseLightningDTests):
 
     def test_bad_opening(self):
         # l1 asks for a too-long locktime
-        l1 = self.node_factory.get_node(options={'locktime-blocks': 100})
+        l1 = self.node_factory.get_node(options={'watchtime-blocks': 100})
         l2 = self.node_factory.get_node(options={'max-locktime-blocks': 99})
         ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -1605,7 +1605,7 @@ class LightningDTests(BaseLightningDTests):
         disconnects = ['+WIRE_FUNDING_LOCKED', 'permfail']
         l1 = self.node_factory.get_node(disconnect=disconnects)
         # Make locktime different, as we once had them reversed!
-        l2 = self.node_factory.get_node(options={'locktime-blocks': 10})
+        l2 = self.node_factory.get_node(options={'watchtime-blocks': 10})
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -1689,7 +1689,7 @@ class LightningDTests(BaseLightningDTests):
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_onchaind_replay(self):
         disconnects = ['+WIRE_REVOKE_AND_ACK', 'permfail']
-        options = {'locktime-blocks': 201, 'cltv-delta': 101}
+        options = {'watchtime-blocks': 201, 'cltv-delta': 101}
         l1 = self.node_factory.get_node(options=options, disconnect=disconnects)
         l2 = self.node_factory.get_node(options=options)
 
@@ -3612,7 +3612,7 @@ class LightningDTests(BaseLightningDTests):
         # Previous runs with same bitcoind can leave funds!
         l1 = self.node_factory.get_node(random_hsm=True)
         max_locktime = 5 * 6 * 24
-        l2 = self.node_factory.get_node(options={'locktime-blocks': max_locktime + 1})
+        l2 = self.node_factory.get_node(options={'watchtime-blocks': max_locktime + 1})
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
         funds = 1000000
@@ -3631,7 +3631,7 @@ class LightningDTests(BaseLightningDTests):
         assert l2.rpc.listpeers()['peers'][0]['connected']
 
         # Restart l2 without ridiculous locktime.
-        del l2.daemon.opts['locktime-blocks']
+        del l2.daemon.opts['watchtime-blocks']
         l2.restart()
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
