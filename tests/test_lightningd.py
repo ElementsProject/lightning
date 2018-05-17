@@ -299,6 +299,13 @@ class BaseLightningDTests(unittest.TestCase):
             return 1
         return 0
 
+    def checkBadGossipOrder(self, node):
+        # We can have a race where we notice a channel deleted and someone
+        # sends an update.
+        if node.daemon.is_in_log('Bad gossip order') and not node.daemon.is_in_log('Deleting channel'):
+            return 1
+        return 0
+
     def tearDown(self):
         ok = self.node_factory.killall([not n.may_fail for n in self.node_factory.nodes])
         self.executor.shutdown(wait=False)
@@ -321,6 +328,11 @@ class BaseLightningDTests(unittest.TestCase):
             err_count += self.checkReconnect(node)
         if err_count:
             raise ValueError("{} nodes had unexpected reconnections".format(err_count))
+
+        for node in self.node_factory.nodes:
+            err_count += self.checkBadGossipOrder(node)
+        if err_count:
+            raise ValueError("{} nodes had bad gossip order".format(err_count))
 
         if not ok:
             raise Exception("At least one lightning exited with unexpected non-zero return code")
