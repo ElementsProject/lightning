@@ -373,12 +373,6 @@ static void send_temporary_announcement(struct peer *peer)
 {
 	u8 *msg;
 
-	/* If we are supposed to send a real announcement, don't do a
-	 * dummy one here, hence the check for announce_depth. */
-	if (peer->announce_depth_reached || !peer->funding_locked[LOCAL] ||
-	    !peer->funding_locked[REMOTE])
-		return;
-
 	/* Tell the other side what parameters we expect should they route
 	 * through us */
 	msg = create_channel_update(tmpctx, peer, 0);
@@ -398,17 +392,6 @@ static void send_announcement_signatures(struct peer *peer)
 	size_t offset = 258;
 	struct sha256_double hash;
 	u8 *msg, *ca, *req;
-
-	/* BOLT #7:
-	 *
-	 * If sent, `announcement_signatures` messages MUST NOT be sent until
-	 * `funding_locked` has been sent and the funding transaction has
-	 * at least 6 confirmations.
-	 */
-	/* Actually defer a bit further until both ends have signaled */
-	if (!peer->announce_depth_reached || !peer->funding_locked[LOCAL] ||
-	    !peer->funding_locked[REMOTE])
-		return;
 
 	status_trace("Exchanging announcement signatures.");
 	ca = create_channel_announcement(tmpctx, peer);
@@ -443,9 +426,6 @@ static void send_announcement_signatures(struct peer *peer)
 	 * funding_privkey there */
 	sign_hash(&peer->our_secrets.funding_privkey, &hash,
 		  &peer->announcement_bitcoin_sigs[LOCAL]);
-
-	peer->have_sigs[LOCAL] = true;
-	billboard_update(peer);
 
 	msg = towire_announcement_signatures(
 	    NULL, &peer->channel_id, &peer->short_channel_ids[LOCAL],
@@ -484,6 +464,71 @@ static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer)
 	return cannounce;
 }
 
+/* Once we have both, we'd better make sure we agree what they are! */
+static void check_short_ids_match(struct peer *peer)
+{
+	assert(peer->have_sigs[LOCAL]);
+	assert(peer->have_sigs[REMOTE]);
+
+	if (!structeq(&peer->short_channel_ids[LOCAL],
+		      &peer->short_channel_ids[REMOTE]))
+		peer_failed(&peer->cs,
+			    &peer->channel_id,
+			    "We disagree on short_channel_ids:"
+			    " I have %s, you say %s",
+			    type_to_string(peer, struct short_channel_id,
+					   &peer->short_channel_ids[LOCAL]),
+			    type_to_string(peer, struct short_channel_id,
+					   &peer->short_channel_ids[REMOTE]));
+}
+
+static void announce_channel(struct peer *peer)
+{
+	u8 *cannounce, *cupdate;
+
+	check_short_ids_match(peer);
+
+	cannounce = create_channel_announcement(tmpctx, peer);
+	cupdate = create_channel_update(tmpctx, peer, 0);
+
+	wire_sync_write(GOSSIP_FD, cannounce);
+	wire_sync_write(GOSSIP_FD, cupdate);
+}
+
+static void channel_announcement_negotiate(struct peer *peer)
+{
+	/* Don't do any announcement work if we're shutting down */
+	if (peer->shutdown_sent[LOCAL])
+		return;
+
+	/* Can't do anything until funding is locked. */
+	if (!peer->funding_locked[LOCAL] || !peer->funding_locked[REMOTE])
+		return;
+
+
+	/* If we haven't reached announce depth yet, we can only send
+	 * a local update */
+	if (!peer->announce_depth_reached) {
+		send_temporary_announcement(peer);
+		return;
+	}
+
+	/* BOLT #7:
+	 *
+	 * If sent, `announcement_signatures` messages MUST NOT be sent until
+	 * `funding_locked` has been sent and the funding transaction has
+	 * at least 6 confirmations.
+	 */
+	if (!peer->have_sigs[LOCAL]) {
+		send_announcement_signatures(peer);
+		peer->have_sigs[LOCAL] = true;
+		billboard_update(peer);
+	}
+
+	if (peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE])
+		announce_channel(peer);
+}
+
 static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 {
 	struct channel_id chanid;
@@ -520,42 +565,8 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 			take(towire_channel_got_funding_locked(NULL,
 						&peer->remote_per_commit)));
 
+	channel_announcement_negotiate(peer);
 	billboard_update(peer);
-
-	/* Send temporary or final announcements */
-	send_temporary_announcement(peer);
-	send_announcement_signatures(peer);
-}
-
-/* Once we have both, we'd better make sure we agree what they are! */
-static void check_short_ids_match(struct peer *peer)
-{
-	assert(peer->have_sigs[LOCAL]);
-	assert(peer->have_sigs[REMOTE]);
-
-	if (!structeq(&peer->short_channel_ids[LOCAL],
-		      &peer->short_channel_ids[REMOTE]))
-		peer_failed(&peer->cs,
-			    &peer->channel_id,
-			    "We disagree on short_channel_ids:"
-			    " I have %s, you say %s",
-			    type_to_string(peer, struct short_channel_id,
-					   &peer->short_channel_ids[LOCAL]),
-			    type_to_string(peer, struct short_channel_id,
-					   &peer->short_channel_ids[REMOTE]));
-}
-
-static void announce_channel(struct peer *peer)
-{
-	u8 *cannounce, *cupdate;
-
-	check_short_ids_match(peer);
-
-	cannounce = create_channel_announcement(tmpctx, peer);
-	cupdate = create_channel_update(tmpctx, peer, 0);
-
-	wire_sync_write(GOSSIP_FD, cannounce);
-	wire_sync_write(GOSSIP_FD, cupdate);
 }
 
 static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg)
@@ -585,9 +596,7 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 	peer->have_sigs[REMOTE] = true;
 	billboard_update(peer);
 
-	/* We have the remote sigs, do we have the local ones as well? */
-	if (peer->funding_locked[LOCAL] && peer->have_sigs[LOCAL])
-		announce_channel(peer);
+	channel_announcement_negotiate(peer);
 }
 
 static bool get_shared_secret(const struct htlc *htlc,
@@ -1927,7 +1936,7 @@ static void peer_reconnect(struct peer *peer)
 
 	/* Reenable channel by sending a channel_update without the
 	 * disable flag */
-	send_channel_update(peer, true, 0);
+	channel_announcement_negotiate(peer);
 
 	/* Corner case: we will get upset with them if they send
 	 * commitment_signed with no changes.  But it could be that we sent a
@@ -1974,13 +1983,7 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 	peer->announce_depth_reached = (depth >= ANNOUNCE_MIN_DEPTH);
 
 	/* Send temporary or final announcements */
-	send_temporary_announcement(peer);
-	send_announcement_signatures(peer);
-
-	/* Only send the announcement and update if the other end gave
-	 * us its sig */
-	if (peer->have_sigs[REMOTE] && peer->have_sigs[LOCAL])
-		announce_channel(peer);
+	channel_announcement_negotiate(peer);
 
 	billboard_update(peer);
 }
@@ -2550,12 +2553,7 @@ static void init_channel(struct peer *peer)
 	if (funding_signed)
 		enqueue_peer_msg(peer, take(funding_signed));
 
-	/* Don't send if we're shutting down */
-	if (!peer->shutdown_sent[LOCAL]) {
-		/* It's possible that we died previously before doing these. */
-		send_temporary_announcement(peer);
-		send_announcement_signatures(peer);
-	}
+	channel_announcement_negotiate(peer);
 
 	billboard_update(peer);
 	tal_free(msg);
