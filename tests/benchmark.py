@@ -42,7 +42,7 @@ def bitcoind():
 def node_factory(request, bitcoind, executor):
     nf = NodeFactory(request.node.name, bitcoind, executor, directory="/dev/shm/lightning-tests")
     yield nf
-    nf.killall([False]*len(nf.nodes))
+    nf.killall([False] * len(nf.nodes))
 
 
 def test_single_hop(node_factory, executor):
