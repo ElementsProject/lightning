@@ -148,7 +148,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	/* And we never get these from channeld. */
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_FUNDING_LOCKED:
-	case WIRE_CHANNEL_FUNDING_ANNOUNCE_DEPTH:
 	case WIRE_CHANNEL_OFFER_HTLC:
 	case WIRE_CHANNEL_FULFILL_HTLC:
 	case WIRE_CHANNEL_FAIL_HTLC:
@@ -300,10 +299,12 @@ bool peer_start_channeld(struct channel *channel,
 
 bool channel_tell_funding_locked(struct lightningd *ld,
 				 struct channel *channel,
-				 const struct bitcoin_txid *txid)
+				 const struct bitcoin_txid *txid,
+				 u32 depth)
 {
-	/* If not awaiting lockin, it doesn't care any more */
-	if (channel->state != CHANNELD_AWAITING_LOCKIN) {
+	/* If not awaiting lockin/announce, it doesn't care any more */
+	if (channel->state != CHANNELD_AWAITING_LOCKIN
+	    && channel->state != CHANNELD_NORMAL) {
 		log_debug(channel->log,
 			  "Funding tx confirmed, but peer in state %s",
 			  channel_state_name(channel));
@@ -317,9 +318,12 @@ bool channel_tell_funding_locked(struct lightningd *ld,
 	}
 
 	subd_send_msg(channel->owner,
-		      take(towire_channel_funding_locked(NULL, channel->scid)));
+		      take(towire_channel_funding_locked(NULL, channel->scid,
+							 depth)));
 
-	if (channel->remote_funding_locked)
+	if (channel->remote_funding_locked
+	    && channel->state == CHANNELD_AWAITING_LOCKIN)
 		lockin_complete(channel);
+
 	return true;
 }
