@@ -43,7 +43,7 @@ struct config {
 	s32 fee_per_satoshi;
 
 	/* How long between changing commit and sending COMMIT message. */
-	struct timerel commit_time;
+	u32 commit_time_ms;
 
 	/* How often to broadcast gossip (msec) */
 	u32 broadcast_interval;

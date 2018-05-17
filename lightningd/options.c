@@ -22,7 +22,6 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
-#include <lightningd/opt_time.h>
 #include <lightningd/options.h>
 #include <lightningd/subd.h>
 #include <stdio.h>
@@ -335,8 +334,9 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--cltv-final", opt_set_u32, opt_show_u32,
 			 &ld->config.cltv_final,
 			 "Number of blocks for final ctlv_expiry");
-	opt_register_arg("--commit-time", opt_set_time, opt_show_time,
-			 &ld->config.commit_time,
+	opt_register_arg("--commit-time=<millseconds>",
+			 opt_set_u32, opt_show_u32,
+			 &ld->config.commit_time_ms,
 			 "Time after changes before sending out COMMIT");
 	opt_register_arg("--fee-base", opt_set_u32, opt_show_u32,
 			 &ld->config.fee_base,
@@ -475,7 +475,7 @@ static const struct config testnet_config = {
 	.cltv_final = 6,
 
 	/* Send commit 10msec after receiving; almost immediately. */
-	.commit_time = TIME_FROM_MSEC(10),
+	.commit_time_ms = 10,
 
 	/* Allow dust payments */
 	.fee_base = 1,
@@ -527,7 +527,7 @@ static const struct config mainnet_config = {
 	.cltv_final = 8,
 
 	/* Send commit 10msec after receiving; almost immediately. */
-	.commit_time = TIME_FROM_MSEC(10),
+	.commit_time_ms = 10,
 
 	/* Discourage dust payments */
 	.fee_base = 1000,
