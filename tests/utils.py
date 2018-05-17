@@ -22,7 +22,7 @@ LIGHTNINGD_CONFIG = {
     "log-level": "debug",
     "cltv-delta": 6,
     "cltv-final": 5,
-    "locktime-blocks": 5,
+    "watchtime-blocks": 5,
     "rescan": 1,
 }
 

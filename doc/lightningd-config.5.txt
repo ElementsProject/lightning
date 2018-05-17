@@ -150,15 +150,16 @@ Lightning node customization options:
 
 Lightning channel and HTLC options:
 
-*locktime-blocks*='BLOCKS'::
-    How long we need to spot an outdated close attempt, which is also
-    how long the peer would need to wait if they perform a unilateral
-    close.
+*watchtime-blocks*='BLOCKS'::
+    How long we need to spot an outdated close attempt: on opening a channel
+    we tell our peer that this is how long they'll have to wait if they perform
+    a unilateral close.
 
 *max-locktime-blocks*='BLOCKS'::
-    The longest we'll ever allow a peer to hold up payments, in the worst
-    case.  If they ask for longer, we'll refuse to create a channel,
-    and if an HTLC asks for longer, we'll refuse it.
+    The longest our funds can be delayed (ie. the longest *watchtime-blocks*
+    our peer can ask for, and also the longest HTLC timeout we will accept).
+    If our peer asks for longer, we'll refuse to create a channel, and if an
+    HTLC asks for longer, we'll refuse it.
 
 *funding-confirms*='BLOCKS'::
     Confirmations required for the funding transaction when the other side
