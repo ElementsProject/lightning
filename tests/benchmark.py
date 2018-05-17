@@ -23,14 +23,11 @@ def executor():
 def bitcoind():
     bitcoind = utils.BitcoinD(rpcport=28332)
     bitcoind.start()
-    info = bitcoind.rpc.getinfo()
+    info = bitcoind.rpc.getblockchaininfo()
     # Make sure we have segwit and some funds
     if info['blocks'] < 432:
         logging.debug("SegWit not active, generating some more blocks")
         bitcoind.generate_block(432 - info['blocks'])
-    elif info['balance'] < 1:
-        logging.debug("Insufficient balance, generating 1 block")
-        bitcoind.generate_block(1)
 
     yield bitcoind
 
@@ -43,16 +40,16 @@ def bitcoind():
 
 @pytest.fixture
 def node_factory(request, bitcoind, executor):
-    nf = NodeFactory(request.node.name, bitcoind, executor)
+    nf = NodeFactory(request.node.name, bitcoind, executor, directory="/dev/shm/lightning-tests")
     yield nf
-    nf.killall()
+    nf.killall([False]*len(nf.nodes))
 
 
 def test_single_hop(node_factory, executor):
     l1 = node_factory.get_node()
     l2 = node_factory.get_node()
 
-    l1.rpc.connect(l2.rpc.getinfo()['id'], 'localhost:%d' % l2.rpc.getinfo()['port'])
+    l1.rpc.connect(l2.rpc.getinfo()['id'], 'localhost:%d' % l2.port)
     l1.openchannel(l2, 4000000)
 
     print("Collecting invoices")
