@@ -263,7 +263,7 @@ class LightningD(TailableProc):
             'lightning-dir': lightning_dir,
             'addr': '127.0.0.1:{}'.format(port),
             'allow-deprecated-apis': 'false',
-            'override-fee-rates': '15000/7500/1000',
+            'default-fee-rate': 15000,
             'network': 'regtest',
             'ignore-fee-limits': 'false',
         }

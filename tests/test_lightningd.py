@@ -1478,6 +1478,7 @@ class LightningDTests(BaseLightningDTests):
             # Get close confirmed
             l1.bitcoin.generate_block(100)
 
+    @unittest.skipIf(not DEVELOPER, "needs dev-override-feerates")
     def test_closing_different_fees(self):
         l1 = self.node_factory.get_node()
 
@@ -1493,9 +1494,9 @@ class LightningDTests(BaseLightningDTests):
         for feerate in feerates:
             for amount in amounts:
                 p = self.node_factory.get_node(options={
-                    'override-fee-rates': '{}/{}/{}'.format(feerate[0],
-                                                            feerate[1],
-                                                            feerate[2])
+                    'dev-override-fee-rates': '{}/{}/{}'.format(feerate[0],
+                                                                feerate[1],
+                                                                feerate[2])
                 })
                 p.feerate = feerate
                 p.amount = amount
@@ -4158,7 +4159,7 @@ class LightningDTests(BaseLightningDTests):
         # L1 asks for stupid low fees
         l1.rpc.dev_setfees(15)
 
-        l1.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 15 outside range 500-75000')
+        l1.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 15 outside range 1875-75000')
         # Make sure the resolution of this one doesn't interfere with the next!
         # Note: may succeed, may fail with insufficient fee, depending on how
         # bitcoind feels!
@@ -4300,7 +4301,7 @@ class LightningDTests(BaseLightningDTests):
         # Make l2 upset by asking for crazy fee.
         l1.rpc.dev_setfees('150000')
         # Wait for l1 notice
-        l1.daemon.wait_for_log(r'Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 150000 outside range 500-75000')
+        l1.daemon.wait_for_log(r'Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 150000 outside range 1875-75000')
 
         # Can't pay while its offline.
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
@@ -4340,7 +4341,6 @@ class LightningDTests(BaseLightningDTests):
         assert configs['bitcoin-datadir'] == bitcoind.bitcoin_dir
         assert configs['lightning-dir'] == l1.daemon.lightning_dir
         assert configs['allow-deprecated-apis'] is False
-        assert configs['override-fee-rates'] == '15000/7500/1000'
         assert configs['network'] == 'regtest'
         assert configs['ignore-fee-limits'] is False
 
