@@ -78,7 +78,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->reconnect = true;
 	timers_init(&ld->timers, time_mono());
 	ld->topology = new_topology(ld, ld->log);
-	ld->debug_subdaemon_io = NULL;
 	ld->daemon = false;
 	ld->pidfile = NULL;
 	ld->ini_autocleaninvoice_cycle = 0;

@@ -156,9 +156,6 @@ struct lightningd {
 	/* PID file */
 	char *pidfile;
 
-	/* May be useful for non-developers debugging in the field */
-	char *debug_subdaemon_io;
-
 	/* Initial autocleaninvoice settings. */
 	u64 ini_autocleaninvoice_cycle;
 	u64 ini_autocleaninvoice_expiredby;
