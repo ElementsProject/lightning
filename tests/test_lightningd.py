@@ -3611,7 +3611,7 @@ class LightningDTests(BaseLightningDTests):
         """Add some funds, fund a channel without enough funds"""
         # Previous runs with same bitcoind can leave funds!
         l1 = self.node_factory.get_node(random_hsm=True)
-        max_locktime = 3 * 6 * 24
+        max_locktime = 5 * 6 * 24
         l2 = self.node_factory.get_node(options={'locktime-blocks': max_locktime + 1})
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 

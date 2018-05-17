@@ -304,15 +304,9 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--max-locktime-blocks", opt_set_u32, opt_show_u32,
 			 &ld->config.locktime_max,
 			 "Maximum blocks a peer can lock up our funds");
-	opt_register_arg("--anchor-onchain", opt_set_u32, opt_show_u32,
-			 &ld->config.anchor_onchain_wait,
-			 "Blocks before we give up on pending anchor transaction");
 	opt_register_arg("--anchor-confirms", opt_set_u32, opt_show_u32,
 			 &ld->config.anchor_confirms,
 			 "Confirmations required for anchor transaction");
-	opt_register_arg("--max-anchor-confirms", opt_set_u32, opt_show_u32,
-			 &ld->config.anchor_confirms_max,
-			 "Maximum confirmations other side can wait for anchor transaction");
 	opt_register_arg("--commit-fee-min=<percent>", opt_set_u32, opt_show_u32,
 			 &ld->config.commitment_fee_min_percent,
 			 "Minimum percentage of fee to accept for commitment");
@@ -331,9 +325,6 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--cltv-final", opt_set_u32, opt_show_u32,
 			 &ld->config.cltv_final,
 			 "Number of blocks for final ctlv_expiry");
-	opt_register_arg("--max-htlc-expiry", opt_set_u32, opt_show_u32,
-			 &ld->config.max_htlc_expiry,
-			 "Maximum number of blocks to accept an HTLC before expiry");
 	opt_register_arg("--commit-time", opt_set_time, opt_show_time,
 			 &ld->config.commit_time,
 			 "Time after changes before sending out COMMIT");
@@ -447,6 +438,11 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_arg("--dev-override-fee-rates", opt_set_fee_rates, NULL,
 			 ld->topology,
 			 "Force a specific rates (immediate/normal/slow) in satoshis per kw regardless of estimated fees");
+
+	opt_register_arg(
+	    "--dev-channel-update-interval=<s>", opt_set_u32, opt_show_u32,
+	    &ld->config.channel_update_interval,
+	    "Time in seconds between channel updates for our own channels.");
 }
 #endif
 
@@ -454,17 +450,11 @@ static const struct config testnet_config = {
 	/* 6 blocks to catch cheating attempts. */
 	.locktime_blocks = 6,
 
-	/* They can have up to 3 days. */
-	.locktime_max = 3 * 6 * 24,
-
-	/* Testnet can have long runs of empty blocks. */
-	.anchor_onchain_wait = 100,
+	/* They can have up to 5 days. */
+	.locktime_max = 5 * 6 * 24,
 
 	/* We're fairly trusting, under normal circumstances. */
 	.anchor_confirms = 1,
-
-	/* More than 10 confirms seems overkill. */
-	.anchor_confirms_max = 10,
 
 	/* Testnet fees are crazy, allow infinite feerange. */
 	.commitment_fee_min_percent = 0,
@@ -476,9 +466,6 @@ static const struct config testnet_config = {
 	/* Be aggressive on testnet. */
 	.cltv_expiry_delta = 6,
 	.cltv_final = 6,
-
-	/* Don't lock up channel for more than 5 days. */
-	.max_htlc_expiry = 5 * 6 * 24,
 
 	/* Send commit 10msec after receiving; almost immediately. */
 	.commit_time = TIME_FROM_MSEC(10),
@@ -507,17 +494,11 @@ static const struct config mainnet_config = {
 	/* ~one day to catch cheating attempts. */
 	.locktime_blocks = 6 * 24,
 
-	/* They can have up to 3 days. */
-	.locktime_max = 3 * 6 * 24,
-
-	/* You should get in within 10 blocks. */
-	.anchor_onchain_wait = 10,
+	/* They can have up to 5 days. */
+	.locktime_max = 5 * 6 * 24,
 
 	/* We're fairly trusting, under normal circumstances. */
 	.anchor_confirms = 3,
-
-	/* More than 10 confirms seems overkill. */
-	.anchor_confirms_max = 10,
 
 	/* Insist between 2 and 20 times the 2-block fee. */
 	.commitment_fee_min_percent = 200,
@@ -537,9 +518,6 @@ static const struct config mainnet_config = {
 	 * The minimum `cltv_expiry` we will accept for terminal payments: the
 	 * worst case for the terminal node C lower at `2R+G+S` blocks */
 	.cltv_final = 8,
-
-	/* Don't lock up channel for more than 5 days. */
-	.max_htlc_expiry = 5 * 6 * 24,
 
 	/* Send commit 10msec after receiving; almost immediately. */
 	.commit_time = TIME_FROM_MSEC(10),
@@ -738,11 +716,6 @@ void register_opts(struct lightningd *ld)
 	opt_register_arg("--pid-file=<file>", opt_set_talstr, opt_show_charp,
 			 &ld->pidfile,
 			 "Specify pid file");
-
-	opt_register_arg(
-	    "--channel-update-interval=<s>", opt_set_u32, opt_show_u32,
-	    &ld->config.channel_update_interval,
-	    "Time in seconds between channel updates for our own channels.");
 
 	opt_register_logging(ld);
 	opt_register_version();

@@ -242,7 +242,6 @@ static u8 *opening_read_peer_msg(struct state *state)
 static u8 *funder_channel(struct state *state,
 			  const struct pubkey *our_funding_pubkey,
 			  const struct basepoints *ours,
-			  u32 max_minimum_depth,
 			  u64 change_satoshis, u32 change_keyindex,
 			  u8 channel_flags,
 			  struct utxo **utxos,
@@ -352,10 +351,10 @@ static u8 *funder_channel(struct state *state,
 	 * Other fields have the same requirements as their counterparts in
 	 * `open_channel`.
 	 */
-	if (minimum_depth > max_minimum_depth)
+	if (minimum_depth > 10)
 		negotiation_failed(state,
 				   "minimum_depth %u larger than %u",
-				   minimum_depth, max_minimum_depth);
+				   minimum_depth, 10);
 
 	/* BOLT #2:
 	 *
@@ -800,7 +799,7 @@ int main(int argc, char *argv[])
 	struct privkey seed;
 	struct basepoints our_points;
 	struct pubkey our_funding_pubkey;
-	u32 minimum_depth, max_minimum_depth;
+	u32 minimum_depth;
 	u32 min_feerate, max_feerate;
 	u64 change_satoshis;
 	u32 change_keyindex;
@@ -849,11 +848,11 @@ int main(int argc, char *argv[])
 	if (fromwire_opening_funder(state, msg,
 				    &state->funding_satoshis,
 				    &state->push_msat,
-				    &state->feerate_per_kw, &max_minimum_depth,
+				    &state->feerate_per_kw,
 				    &change_satoshis, &change_keyindex,
 				    &channel_flags, &utxos, &bip32_base)) {
 		msg = funder_channel(state, &our_funding_pubkey, &our_points,
-				     max_minimum_depth, change_satoshis,
+				     change_satoshis,
 				     change_keyindex, channel_flags,
 				     utxos, &bip32_base);
 		peer_billboard(false,

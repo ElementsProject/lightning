@@ -9,11 +9,11 @@ import unittest
 DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
+@unittest.skipIf(not DEVELOPER, "needs --dev-broadcast-interval, --dev-channelupdate-interval")
 def test_gossip_pruning(node_factory, bitcoind):
     """ Create channel and see it being updated in time before pruning
     """
-    opts = {'channel-update-interval': 5}
+    opts = {'dev-channel-update-interval': 5}
     l1, l2, l3 = node_factory.get_nodes(3, opts)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)

@@ -20,14 +20,8 @@ struct config {
 	/* How long do we let them lock up our funds? (blocks) */
 	u32 locktime_max;
 
-	/* How many blocks before we expect to see anchor?. */
-	u32 anchor_onchain_wait;
-
 	/* How many confirms until we consider an anchor "settled". */
 	u32 anchor_confirms;
-
-	/* How long will we accept them waiting? */
-	u32 anchor_confirms_max;
 
 	/* Maximum percent of fee rate we'll accept. */
 	u32 commitment_fee_max_percent;
@@ -43,9 +37,6 @@ struct config {
 
 	/* Minimum CLTV if we're the final hop.*/
 	u32 cltv_final;
-
-	/* Maximum time for an expiring HTLC (blocks). */
-	u32 max_htlc_expiry;
 
 	/* Fee rates. */
 	u32 fee_base;

@@ -490,12 +490,12 @@ static void forward_htlc(struct htlc_in *hin,
 	 * 1. type: 21 (`expiry_too_far`)
 	 */
 	if (get_block_height(ld->topology)
-	    + ld->config.max_htlc_expiry < outgoing_cltv_value) {
+	    + ld->config.locktime_max < outgoing_cltv_value) {
 		log_debug(hin->key.channel->log,
 			  "Expiry cltv %u too far from current %u + max %u",
 			  outgoing_cltv_value,
 			  get_block_height(ld->topology),
-			  ld->config.max_htlc_expiry);
+			  ld->config.locktime_max);
 		failcode = WIRE_EXPIRY_TOO_FAR;
 		goto fail;
 	}
