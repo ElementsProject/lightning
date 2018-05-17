@@ -122,9 +122,9 @@ The bitcoind(1) RPC host to connect to\&.
 The bitcoind(1) RPC port to connect to\&.
 .RE
 .PP
-\fBdefault\-fee\-rate\fR=\fISIPA\fR
+\fBdefault\-fee\-rate\fR=\fISATOSHIKSIPA\fR
 .RS 4
-Satoshis per kw if bitcoind can\(cqt estimate fees\&.
+Satoshis per 1000 transaction weight if bitcoind can\(cqt estimate fees\&.
 .RE
 .PP
 \fBrescan\fR=\fIBLOCKS\fR
@@ -188,7 +188,7 @@ The base fee to charge for every payment which passes through\&. Note that milli
 .PP
 \fBfee\-per\-satoshi\fR=\fIMILLIONTHS\fR
 .RS 4
-This is the proportional fee to charge for every payment which passes through\&. As percentages are too course, it\(cqs in millionths, so 10000 is 1 percent, 1000 is 0\&.1%\&.
+This is the proportional fee to charge for every payment which passes through\&. As percentages are too coarse, it\(cqs in millionths, so 10000 is 1%, 1000 is 0\&.1%\&.
 .RE
 .PP
 \fBignore\-fee\-limits\fR=\fIBOOL\fR
@@ -218,16 +218,19 @@ The longest we\(cqll ever allow a peer to hold up payments, in the worst case\&.
 Confirmations required for the funding transaction when the other side opens a channel before the channel is usable\&.
 .RE
 .PP
-\fBcommit\-fee\-min\fR=\fIPERCENT\fR, \fBcommit\-fee\-max\fR=\fIPERCENT\fR
-.RS 4
-Limits on what onchain fee range we\(cqll allow when a node opens a channel with us\&. If they\(cqre outside this range, we abort their opening attempt\&. Note that max can (should!) be greater than 100\&.
-.RE
-.PP
 \fBcommit\-fee\fR=\fIPERCENT\fR
 .RS 4
 The percentage of
 \fIestimatesmartfee 2\fR
-to use for channel funding: can be greater than 100\&.
+to use for the bitcoin transaction which funds a channel: can be greater than 100\&.
+.RE
+.PP
+\fBcommit\-fee\-min\fR=\fIPERCENT\fR, \fBcommit\-fee\-max\fR=\fIPERCENT\fR
+.RS 4
+Limits on what onchain fee range we\(cqll allow when a node opens a channel with us, as a percentage of
+\fIestimatesmartfee 2\fR\&. If they\(cqre outside this range, we abort their opening attempt\&. Note that
+\fBcommit\-fee\-max\fR
+can (should!) be greater than 100\&.
 .RE
 .PP
 \fBcltv\-delta\fR=\fIBLOCKS\fR
@@ -272,7 +275,7 @@ Set an IP address (v4 or v6) or automatic Tor address to listen on and (maybe) a
 .nf
 An empty \*(AqIPADDRESS\*(Aq is a special value meaning bind to IPv4 and/or
 IPv6 on all interfaces, \*(Aq0\&.0\&.0\&.0\*(Aq means bind to all IPv4
-interfaces, \*(Aq::\*(Aq means \*(Aqbind to all IPv6 interfaces\*(Aq\&.  \*(AqPORT\*(Aq is
+interfaces, \*(Aq::\*(Aq means \*(Aqbind to all IPv6 interfaces\*(Aq\&.  If \*(AqPORT\*(Aq is
 not specified, 9735 is used\&.  If we can determine a public IP
 address from the resulting binding, the address is announced\&.
 .fi
@@ -339,10 +342,10 @@ is not specified, a DNS lookup may be done to resolve \*(AqIPADDRESS\*(Aq\&.
 .\}
 .RE
 .PP
-\fBannounce\-addr\fR=\fI[IPADDRESS[:PORT]]|TORADDRESS\&.onion[:PORT]\fR
+\fBannounce\-addr\fR=\fIIPADDRESS[:PORT]|TORADDRESS\&.onion[:PORT]\fR
 .RS 4
 Set an IP address or Tor address to announce; a Tor address is distinguished by ending in
-\fI\&.onion\fR, and is
+\fI\&.onion\fR\&.
 \fIPORT\fR
 defaults to 9735\&.
 .sp
@@ -364,8 +367,7 @@ announced addresses are sane (ie\&. not localhost)\&.
 .nf
 This option can be used multiple times to add more addresses, and
 its use disables autolisten\&.  If necessary, and \*(Aqalways\-use\-proxy\*(Aq
-is not specified, a DNS lookup may be done to resolve \*(AqIPADDRESS\*(Aq
-or \*(AqTORADDRESS\*(Aq\&.
+is not specified, a DNS lookup may be done to resolve \*(AqIPADDRESS\*(Aq\&.
 .fi
 .if n \{\
 .RE
