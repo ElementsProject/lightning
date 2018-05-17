@@ -91,6 +91,10 @@ def node_factory(directory, test_name, bitcoind, executor):
         err_count += checkReconnect(node)
     if err_count:
         raise ValueError("{} nodes had unexpected reconnections".format(err_count))
+    for node in nf.nodes:
+        err_count += checkBadGossipOrder(node)
+    if err_count:
+        raise ValueError("{} nodes had bad gossip order".format(err_count))
 
     if not ok:
         raise Exception("At least one lightning exited with unexpected non-zero return code")
@@ -143,6 +147,12 @@ def checkReconnect(node):
     if node.may_reconnect or not DEVELOPER:
         return 0
     if node.daemon.is_in_log('Peer has reconnected'):
+        return 1
+    return 0
+
+
+def checkBadGossipOrder(node):
+    if node.daemon.is_in_log('Bad gossip order') and not node.daemon.is_in_log('Deleting channel'):
         return 1
     return 0
 

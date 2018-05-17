@@ -201,6 +201,13 @@ static void init_half_chan(struct routing_state *rstate,
 	c->last_timestamp = time_now().ts.tv_sec - rstate->prune_timeout/2;
 }
 
+static void bad_gossip_order(const u8 *msg, const char *details)
+{
+	status_trace("Bad gossip order: %s before announcement %s",
+		     wire_type_name(fromwire_peektype(msg)),
+		     details);
+}
+
 struct chan *new_chan(struct routing_state *rstate,
 		      const struct short_channel_id *scid,
 		      const struct pubkey *id1,
@@ -1015,9 +1022,12 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 		}
 
 		if (!chan) {
-			SUPERVERBOSE("Ignoring update for unknown channel %s",
-				     type_to_string(tmpctx, struct short_channel_id,
-						    &short_channel_id));
+			bad_gossip_order(serialized,
+					 tal_fmt(tmpctx, "%s(%u)",
+						 type_to_string(tmpctx,
+							struct short_channel_id,
+							&short_channel_id),
+						 flags));
 			return NULL;
 		}
 	}
@@ -1245,11 +1255,9 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 		pna = pending_node_map_get(rstate->pending_node_map,
 					   &node_id.pubkey);
 		if (!pna) {
-			SUPERVERBOSE("Node not found, was the node_announcement "
-				     "for node %s preceded by at least "
-				     "channel_announcement?",
-				     type_to_string(tmpctx, struct pubkey,
-						    &node_id));
+			bad_gossip_order(serialized,
+					 type_to_string(tmpctx, struct pubkey,
+							&node_id));
 		} else if (pna->timestamp < timestamp) {
 			SUPERVERBOSE(
 			    "Deferring node_announcement for node %s",
@@ -1518,6 +1526,9 @@ void handle_local_add_channel(struct routing_state *rstate, const u8 *msg)
 		status_trace("Attempted to local_add_channel a known channel");
 		return;
 	}
+
+	status_trace("local_add_channel %s",
+		     type_to_string(tmpctx, struct short_channel_id, &scid));
 
 	/* Create new (unannounced) channel */
 	new_chan(rstate, &scid, &rstate->local_id, &remote_node_id);
