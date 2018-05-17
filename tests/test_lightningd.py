@@ -4218,8 +4218,7 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     def test_io_logging(self):
-        l1 = self.node_factory.get_node(options={'debug-subdaemon-io': 'channeld',
-                                                 'log-level': 'io'})
+        l1 = self.node_factory.get_node(options={'log-level': 'io'})
         l2 = self.node_factory.get_node()
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -4237,6 +4236,9 @@ class LightningDTests(BaseLightningDTests):
         pidline = l2.daemon.wait_for_log(r'lightning_channeld.*: pid [0-9]*,')
         pid2 = re.search(r'pid ([0-9]*),', pidline).group(1)
         l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
+
+        # Send it sigusr1: should turn on logging.
+        subprocess.run(['kill', '-USR1', pid1])
 
         fut = self.pay(l1, l2, 200000000, async=True)
 
@@ -4256,7 +4258,7 @@ class LightningDTests(BaseLightningDTests):
         assert not l1.daemon.is_in_log(r'channeld.*:\[IN\] 0082',
                                        start=l1.daemon.logsearch_start)
 
-        # IO logs should appear in peer logs.
+        # IO logs should not appear in peer logs.
         peerlog = l2.rpc.listpeers(l1.info['id'], "io")['peers'][0]['log']
         assert not any(l['type'] == 'IO_OUT' or l['type'] == 'IO_IN'
                        for l in peerlog)
