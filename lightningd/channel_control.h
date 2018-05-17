@@ -17,6 +17,7 @@ bool peer_start_channeld(struct channel *channel,
 /* Returns true if subd told, otherwise false. */
 bool channel_tell_funding_locked(struct lightningd *ld,
 				 struct channel *channel,
-				 const struct bitcoin_txid *txid);
+				 const struct bitcoin_txid *txid,
+				 u32 depth);
 
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_CONTROL_H */

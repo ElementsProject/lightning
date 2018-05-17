@@ -60,12 +60,10 @@ channel_init,,init_peer_pkt_len,u16
 channel_init,,init_peer_pkt,init_peer_pkt_len*u8
 channel_init,,reached_announce_depth,bool
 
-# Tx is deep enough, go!
+# master->channeld funding hit new depth >= lock depth
 channel_funding_locked,1002
 channel_funding_locked,,short_channel_id,struct short_channel_id
-
-# Tell the channel that we may announce the channel's existence
-channel_funding_announce_depth,1003
+channel_funding_locked,,depth,u32
 
 # Tell channel to offer this htlc
 channel_offer_htlc,1004

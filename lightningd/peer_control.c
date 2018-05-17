@@ -611,28 +611,6 @@ send_error:
 	subd_send_fd(ld->gossip, gossip_fd);
 }
 
-static enum watch_result funding_announce_cb(struct channel *channel,
-					     const struct bitcoin_txid *txid UNUSED,
-					     unsigned int depth)
-{
-	if (depth < ANNOUNCE_MIN_DEPTH) {
-		return KEEP_WATCHING;
-	}
-
-	if (!channel->owner || !streq(channel->owner->name, "lightning_channeld")) {
-		log_debug(channel->log,
-			  "Funding tx announce ready, but channel state %s"
-			  " owned by %s",
-			  channel_state_name(channel),
-			  channel->owner ? channel->owner->name : "none");
-		return KEEP_WATCHING;
-	}
-
-	subd_send_msg(channel->owner,
-		      take(towire_channel_funding_announce_depth(channel)));
-	return DELETE_WATCH;
-}
-
 static enum watch_result funding_lockin_cb(struct channel *channel,
 					   const struct bitcoin_txid *txid,
 					   unsigned int depth)
@@ -661,7 +639,8 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 		wallet_channel_save(ld->wallet, channel);
 	}
 
-	if (!channel_tell_funding_locked(ld, channel, txid))
+	/* Try to tell subdaemon */
+	if (!channel_tell_funding_locked(ld, channel, txid, depth))
 		return KEEP_WATCHING;
 
 	/* BOLT #7:
@@ -673,16 +652,10 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 	if (!(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
 		return DELETE_WATCH;
 
-	/* Tell channeld that we have reached the announce_depth and
-	 * that it may send the announcement_signatures upon receiving
-	 * funding_locked, or right now if it already received it
-	 * before. If we are at the right depth, call the callback
-	 * directly, otherwise schedule a callback */
-	if (depth >= ANNOUNCE_MIN_DEPTH)
-		funding_announce_cb(channel, txid, depth);
-	else
-		watch_txid(channel, ld->topology, channel, txid,
-			   funding_announce_cb);
+	/* We keep telling it depth until we get to announce depth. */
+	if (depth < ANNOUNCE_MIN_DEPTH)
+		return KEEP_WATCHING;
+
 	return DELETE_WATCH;
 }
 

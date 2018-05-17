@@ -1941,53 +1941,48 @@ static void peer_reconnect(struct peer *peer)
 	peer_billboard(true, "Reconnected, and reestablished.");
 }
 
+/* Funding has locked in, and reached depth. */
 static void handle_funding_locked(struct peer *peer, const u8 *msg)
 {
-	struct pubkey next_per_commit_point;
+	unsigned int depth;
 
 	if (!fromwire_channel_funding_locked(msg,
-					     &peer->short_channel_ids[LOCAL]))
+					     &peer->short_channel_ids[LOCAL],
+					     &depth))
 		master_badmsg(WIRE_CHANNEL_FUNDING_LOCKED, msg);
 
 	/* Too late, we're shutting down! */
 	if (peer->shutdown_sent[LOCAL])
 		return;
 
-	per_commit_point(&peer->shaseed,
-			 &next_per_commit_point, peer->next_index[LOCAL]);
+	if (!peer->funding_locked[LOCAL]) {
+		struct pubkey next_per_commit_point;
 
-	status_trace("funding_locked: sending commit index %"PRIu64": %s",
-		     peer->next_index[LOCAL],
-		     type_to_string(tmpctx, struct pubkey, &next_per_commit_point));
-	msg = towire_funding_locked(NULL,
-				    &peer->channel_id, &next_per_commit_point);
-	enqueue_peer_msg(peer, take(msg));
-	peer->funding_locked[LOCAL] = true;
+		per_commit_point(&peer->shaseed,
+				 &next_per_commit_point,
+				 peer->next_index[LOCAL]);
 
-	billboard_update(peer);
+		status_trace("funding_locked: sending commit index %"PRIu64": %s",
+			     peer->next_index[LOCAL],
+			     type_to_string(tmpctx, struct pubkey, &next_per_commit_point));
+		msg = towire_funding_locked(NULL,
+					    &peer->channel_id, &next_per_commit_point);
+		enqueue_peer_msg(peer, take(msg));
+		peer->funding_locked[LOCAL] = true;
+	}
+
+	peer->announce_depth_reached = (depth >= ANNOUNCE_MIN_DEPTH);
 
 	/* Send temporary or final announcements */
 	send_temporary_announcement(peer);
 	send_announcement_signatures(peer);
-}
-
-static void handle_funding_announce_depth(struct peer *peer)
-{
-	/* This can happen if we got told already at init time */
-	if (peer->announce_depth_reached)
-		return;
-
-	/* Too late, we're shutting down! */
-	if (peer->shutdown_sent[LOCAL])
-		return;
-
-	peer->announce_depth_reached = true;
-	send_announcement_signatures(peer);
 
 	/* Only send the announcement and update if the other end gave
 	 * us its sig */
-	if (peer->have_sigs[REMOTE])
+	if (peer->have_sigs[REMOTE] && peer->have_sigs[LOCAL])
 		announce_channel(peer);
+
+	billboard_update(peer);
 }
 
 static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
@@ -2356,9 +2351,6 @@ static void req_in(struct peer *peer, const u8 *msg)
 	switch (t) {
 	case WIRE_CHANNEL_FUNDING_LOCKED:
 		handle_funding_locked(peer, msg);
-		return;
-	case WIRE_CHANNEL_FUNDING_ANNOUNCE_DEPTH:
-		handle_funding_announce_depth(peer);
 		return;
 	case WIRE_CHANNEL_OFFER_HTLC:
 		handle_offer_htlc(peer, msg);

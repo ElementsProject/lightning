@@ -47,7 +47,8 @@ void broadcast_tx(struct chain_topology *topo UNNEEDED,
 /* Generated stub for channel_tell_funding_locked */
 bool channel_tell_funding_locked(struct lightningd *ld UNNEEDED,
 				 struct channel *channel UNNEEDED,
-				 const struct bitcoin_txid *txid UNNEEDED)
+				 const struct bitcoin_txid *txid UNNEEDED,
+				 u32 depth UNNEEDED)
 { fprintf(stderr, "channel_tell_funding_locked called!\n"); abort(); }
 /* Generated stub for command_fail */
 void  command_fail(struct command *cmd UNNEEDED, const char *fmt UNNEEDED, ...)
@@ -363,9 +364,6 @@ void tell_gossipd_peer_is_important(struct lightningd *ld UNNEEDED,
 /* Generated stub for towire_channel_dev_reenable_commit */
 u8 *towire_channel_dev_reenable_commit(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_dev_reenable_commit called!\n"); abort(); }
-/* Generated stub for towire_channel_funding_announce_depth */
-u8 *towire_channel_funding_announce_depth(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_channel_funding_announce_depth called!\n"); abort(); }
 /* Generated stub for towire_channel_send_shutdown */
 u8 *towire_channel_send_shutdown(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_send_shutdown called!\n"); abort(); }
