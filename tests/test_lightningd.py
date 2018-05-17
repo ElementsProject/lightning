@@ -3361,7 +3361,7 @@ class LightningDTests(BaseLightningDTests):
 
     def test_shutdown_awaiting_lockin(self):
         l1 = self.node_factory.get_node()
-        l2 = self.node_factory.get_node(options={'anchor-confirms': 3})
+        l2 = self.node_factory.get_node(options={'funding-confirms': 3})
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         self.give_funds(l1, 10**6 + 1000000)
@@ -3673,7 +3673,7 @@ class LightningDTests(BaseLightningDTests):
 
     def test_lockin_between_restart(self):
         l1 = self.node_factory.get_node(may_reconnect=True)
-        l2 = self.node_factory.get_node(options={'anchor-confirms': 3},
+        l2 = self.node_factory.get_node(options={'funding-confirms': 3},
                                         may_reconnect=True)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
