@@ -266,29 +266,6 @@ static char *opt_set_alias(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
-static char *opt_set_fee_rates(const char *arg, struct chain_topology *topo)
-{
-	tal_free(topo->override_fee_rate);
-	topo->override_fee_rate = tal_arr(topo, u32, 3);
-
-	for (size_t i = 0; i < tal_count(topo->override_fee_rate); i++) {
-		char *endp;
-		char term;
-
-		if (i == tal_count(topo->override_fee_rate)-1)
-			term = '\0';
-		else
-			term = '/';
-		topo->override_fee_rate[i] = strtol(arg, &endp, 10);
-		if (endp == arg || *endp != term)
-			return tal_fmt(NULL,
-				       "Feerates must be <num>/<num>/<num>");
-
-		arg = endp + 1;
-	}
-	return NULL;
-}
-
 static char *opt_set_offline(struct lightningd *ld)
 {
 	ld->reconnect = false;
@@ -345,9 +322,6 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--commit-fee=<percent>", opt_set_u32, opt_show_u32,
 			 &ld->config.commitment_fee_percent,
 			 "Percentage of fee to request for their commitment");
-	opt_register_arg("--override-fee-rates", opt_set_fee_rates, NULL,
-			 ld->topology,
-			 "Force a specific rates (immediate/normal/slow) in satoshis per kw regardless of estimated fees");
 	opt_register_arg("--default-fee-rate", opt_set_u32, opt_show_u32,
 			 &ld->topology->default_fee_rate,
 			 "Satoshis per kw if can't estimate fees");
@@ -427,6 +401,29 @@ static void config_register_opts(struct lightningd *ld)
 }
 
 #if DEVELOPER
+static char *opt_set_fee_rates(const char *arg, struct chain_topology *topo)
+{
+	tal_free(topo->dev_override_fee_rate);
+	topo->dev_override_fee_rate = tal_arr(topo, u32, 3);
+
+	for (size_t i = 0; i < tal_count(topo->dev_override_fee_rate); i++) {
+		char *endp;
+		char term;
+
+		if (i == tal_count(topo->dev_override_fee_rate)-1)
+			term = '\0';
+		else
+			term = '/';
+		topo->dev_override_fee_rate[i] = strtol(arg, &endp, 10);
+		if (endp == arg || *endp != term)
+			return tal_fmt(NULL,
+				       "Feerates must be <num>/<num>/<num>");
+
+		arg = endp + 1;
+	}
+	return NULL;
+}
+
 static void dev_register_opts(struct lightningd *ld)
 {
 	opt_register_noarg("--dev-no-reconnect", opt_set_invbool,
@@ -447,6 +444,9 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_arg("--dev-bitcoind-poll", opt_set_u32, opt_show_u32,
 			 &ld->topology->poll_seconds,
 			 "Time between polling for new transactions");
+	opt_register_arg("--dev-override-fee-rates", opt_set_fee_rates, NULL,
+			 ld->topology,
+			 "Force a specific rates (immediate/normal/slow) in satoshis per kw regardless of estimated fees");
 }
 #endif
 
@@ -942,13 +942,6 @@ static void add_config(struct lightningd *ld,
 			answer = (const char *)ld->alias;
 		} else if (opt->cb_arg == (void *)arg_log_to_file) {
 			answer = ld->logfile;
-		} else if (opt->cb_arg == (void *)opt_set_fee_rates) {
-			struct chain_topology *topo = ld->topology;
-			if (topo->override_fee_rate)
-				answer = tal_fmt(name0, "%u/%u/%u",
-						 topo->override_fee_rate[0],
-						 topo->override_fee_rate[1],
-						 topo->override_fee_rate[2]);
 		} else if (opt->cb_arg == (void *)opt_set_port) {
 			if (!deprecated_apis)
 				answer = tal_fmt(name0, "%u", ld->portnum);
