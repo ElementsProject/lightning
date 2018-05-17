@@ -299,11 +299,15 @@ static void enqueue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 }
 
 static u8 *create_channel_update(const tal_t *ctx,
-				 struct peer *peer, bool disabled)
+				 struct peer *peer,
+				 int disable_flag)
 {
 	u32 timestamp = time_now().ts.tv_sec;
 	u16 flags;
 	u8 *cupdate, *msg;
+
+	/* We must have a channel id to send */
+	assert(peer->short_channel_ids[LOCAL].u64);
 
 	/* Identical timestamps will be ignored. */
 	if (timestamp <= peer->last_update_timestamp)
@@ -314,7 +318,7 @@ static u8 *create_channel_update(const tal_t *ctx,
 	secp256k1_ecdsa_signature *sig =
 	    talz(tmpctx, secp256k1_ecdsa_signature);
 
-	flags = peer->channel_direction | (disabled << 1);
+	flags = peer->channel_direction | disable_flag;
 	cupdate = towire_channel_update(
 	    tmpctx, sig, &peer->chain_hash,
 	    &peer->short_channel_ids[LOCAL], timestamp, flags,
@@ -334,6 +338,25 @@ static u8 *create_channel_update(const tal_t *ctx,
 			      "Reading cupdate_sig_req: %s",
 			      strerror(errno));
 	return cupdate;
+}
+
+/* Create and send channel_update to gossipd (and maybe peer) */
+static void send_channel_update(struct peer *peer, bool peer_too,
+				int disable_flag)
+{
+	u8 *msg;
+
+	assert(disable_flag == 0 || disable_flag == ROUTING_FLAGS_DISABLED);
+
+	/* If we don't have funding_locked both sides, we can't have told
+	 * gossipd or created update. */
+	if (!peer->funding_locked[LOCAL] || !peer->funding_locked[REMOTE])
+		return;
+
+	msg = create_channel_update(tmpctx, peer, disable_flag);
+	if (peer_too)
+		enqueue_peer_msg(peer, msg);
+	wire_sync_write(GOSSIP_FD, take(msg));
 }
 
 /**
@@ -358,7 +381,7 @@ static void send_temporary_announcement(struct peer *peer)
 
 	/* Tell the other side what parameters we expect should they route
 	 * through us */
-	msg = create_channel_update(tmpctx, peer, false);
+	msg = create_channel_update(tmpctx, peer, 0);
 	enqueue_peer_msg(peer, msg);
 
 	msg = towire_gossip_local_add_channel(NULL,
@@ -529,7 +552,7 @@ static void announce_channel(struct peer *peer)
 	check_short_ids_match(peer);
 
 	cannounce = create_channel_announcement(tmpctx, peer);
-	cupdate = create_channel_update(tmpctx, peer, false);
+	cupdate = create_channel_update(tmpctx, peer, 0);
 
 	wire_sync_write(GOSSIP_FD, cannounce);
 	wire_sync_write(GOSSIP_FD, cupdate);
@@ -737,9 +760,7 @@ static void maybe_send_shutdown(struct peer *peer)
 
 	/* Send a disable channel_update so others don't try to route
 	 * over us */
-	msg = create_channel_update(NULL, peer, true);
-	wire_sync_write(GOSSIP_FD, msg);
-	enqueue_peer_msg(peer, take(msg));
+	send_channel_update(peer, true, ROUTING_FLAGS_DISABLED);
 
 	msg = towire_shutdown(NULL, &peer->channel_id, peer->final_scriptpubkey);
 	enqueue_peer_msg(peer, take(msg));
@@ -1505,10 +1526,10 @@ static void handle_pong(struct peer *peer, const u8 *pong)
 static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 {
 	struct channel_id channel_id;
-	u8 *scriptpubkey, *msg;
+	u8 *scriptpubkey;
 
-	msg = create_channel_update(NULL, peer, true);
-	wire_sync_write(GOSSIP_FD, take(msg));
+	/* Disable the channel. */
+	send_channel_update(peer, false, ROUTING_FLAGS_DISABLED);
 
 	if (!fromwire_shutdown(peer, shutdown, &channel_id, &scriptpubkey))
 		peer_failed(&peer->cs,
@@ -1616,11 +1637,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 static void peer_conn_broken(struct peer *peer)
 {
 	/* If we have signatures, send an update to say we're disabled. */
-	if (peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE]) {
-		u8 *cupdate = create_channel_update(NULL, peer, true);
-
-		wire_sync_write(GOSSIP_FD, take(cupdate));
-	}
+	send_channel_update(peer, false, ROUTING_FLAGS_DISABLED);
 	peer_failed_connection_lost();
 }
 
@@ -1748,7 +1765,7 @@ static void peer_reconnect(struct peer *peer)
 	bool retransmit_revoke_and_ack;
 	struct htlc_map_iter it;
 	const struct htlc *htlc;
-	u8 *msg, *cupdate;
+	u8 *msg;
 
 	/* BOLT #2:
 	 *
@@ -1910,9 +1927,7 @@ static void peer_reconnect(struct peer *peer)
 
 	/* Reenable channel by sending a channel_update without the
 	 * disable flag */
-	cupdate = create_channel_update(NULL, peer, false);
-	wire_sync_write(GOSSIP_FD, cupdate);
-	enqueue_peer_msg(peer, take(cupdate));
+	send_channel_update(peer, true, 0);
 
 	/* Corner case: we will get upset with them if they send
 	 * commitment_signed with no changes.  But it could be that we sent a
