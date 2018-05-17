@@ -1,0 +1,302 @@
+LIGHTNINGD-CONFIG(5)
+====================
+:doctype: manpage
+
+NAME
+----
+lightningd-config - Lightning daemon configuration file
+
+SYNOPSIS
+--------
+*~/.lightningd/config*
+
+DESCRIPTION
+-----------
+
+lightningd(8) reads a configuration file called 'config', if it
+exists, when it starts up.  The location of this file defaults to
+*.lightning* in the home directory, but can be overridden by the
+'--lightning-dir' option on the lightningd(8) command line.
+
+Configuration file options are processsed first, then command line
+options: later options override earlier ones except 'addr' options
+which accumulate.
+
+All these options are mirrored as commandline arguments to
+lightningd(8), so '--foo' becomes simply 'foo' in the configuration
+file, and '--foo=bar' becomes 'foo=bar' in the configuration file.
+
+Blank lines and lines beginning with '#' are ignored.
+
+DEBUGGING
+---------
+
+'--help' will show you the defaults for many options; they vary with
+network settings so you can specify '--network' before '--help' to see
+the defaults for that network.
+
+The lightning-listconfigs(7) command will output a valid configuration
+file using the current settings.
+
+OPTIONS
+-------
+
+General options:
+
+*allow-deprecated-apis*='BOOL'::
+    Enable deprecated options, JSONRPC commands, fields, etc.  It
+    defaults to 'true', but you should set it to 'false' when testing
+    to ensure that an upgrade won't break your configuration.
+
+*help*::
+    Print help and exit.  Not very useful inside a configuration file, but
+    fun to put in other's config files while their computer is unattended.
+
+*version*::
+    Print version and exit.  Also useless inside a configuration file,
+    but putting this in someone's config file may convince them to
+    read this man page.
+
+Bitcoin control options:
+
+*network*='NETWORK'::
+    Select the network parameters ('bitcoin', 'testnet', or 'regtest').
+
+*testnet*::
+    Alias for 'network=testnet'.
+
+*mainnet*::
+    Alias for 'network=bitcoin'.
+
+*bitcoin-cli*='PATH'::
+    The name of 'bitcoin-cli' executable to run.
+
+*bitcoin-datadir*='DIR'::
+    '-datadir' argument to supply to bitcoin-cli(1).
+
+*bitcoin-rpcuser*='USER'::
+    The RPC username for talking to bitcoind(1).
+
+*bitcoin-rpcpassword*='PASSWORD'::
+    The RPC password for talking to bitcoind(1).
+
+*bitcoin-rpcconnect*='HOST'::
+    The bitcoind(1) RPC host to connect to.
+
+*bitcoin-rpcport*='PORT'::
+    The bitcoind(1) RPC port to connect to.
+
+*default-fee-rate*='SIPA'::
+    Satoshis per kw if bitcoind can't estimate fees.
+
+*rescan*='BLOCKS'::
+    Number of blocks to rescan from the current head, or absolute blockheight
+    if negative.  This is only needed if something goes badly wrong.
+
+Lightning daemon options:
+
+*lightning-dir*='DIR'::
+    Sets the working directory. All other files are relative to this.
+
+*pid-file*='PATH'::
+    Specify pid file to write to.
+  
+*log-level*='LEVEL'::
+    What log level to print out: options are io, debug, info, unusual, broken.
+
+*log-prefix*='PREFIX'::
+    Prefix for log lines: this can be customized if you want to merge logs with
+    multiple daemons.
+
+*log-file*='PATH'::
+    Log to this file instead of stdout.
+
+*rpc-file*='PATH'::
+    Set JSON-RPC socket (or /dev/tty), such as for lightning-cli(1).
+
+*daemon*::
+    Run in the background, suppress stdout and stderr.
+
+Lightning node customization options:
+
+*rgb*='RRGGBB'::
+    Your favorite color as a hex code.
+
+*alias*='NAME'::
+    Up to 32 UTF-8 characters to tag your node.  Completely silly, since anyone
+    can call their node anything they want.  The default is an
+    NSA-style codename derived from your public key, but "Peter Todd"
+    and "VAULTERO" are good options, too.
+
+*fee-base*='MILLISATOSHI'::
+    The base fee to charge for every payment which passes through.  Note that
+    millisatoshis are a very, very small unit!
+
+*fee-per-satoshi*='MILLIONTHS'::
+    This is the proportional fee to charge for every payment which passes
+    through.  As percentages are too course, it's in millionths, so 10000
+    is 1 percent, 1000 is 0.1%.
+
+*ignore-fee-limits*='BOOL'::
+    Allow nodes which establish channels to us to set any fee they
+    want.  This may result in a channel which cannot be closed, should
+    fees increase, but make channels far more reliable since we never
+    close it due to unreasonable fees.
+
+*commit-time*='TIME'::
+    How long to wait before sending commitment messages to the peer: in
+    theory increasing this would reduce load, but your node would have to be
+    extremely busy node for you to even notice.
+
+Lightning channel and HTLC options:
+
+*locktime-blocks*='BLOCKS'::
+    How long we need to spot an outdated close attempt, which is also
+    how long the peer would need to wait if they perform a unilateral
+    close.
+
+*max-locktime-blocks*='BLOCKS'::
+    The longest we'll ever allow a peer to hold up payments, in the worst
+    case.  If they ask for longer, we'll refuse to create a channel,
+    and if an HTLC asks for longer, we'll refuse it.
+
+*funding-confirms*='BLOCKS'::
+    Confirmations required for the funding transaction when the other side
+    opens a channel before the channel is usable.
+
+*commit-fee-min*='PERCENT'::
+*commit-fee-max*='PERCENT'::
+    Limits on what onchain fee range we'll allow when a node opens a
+    channel with us.  If they're outside this range, we abort their
+    opening attempt.  Note that max can (should!) be greater than 100.
+
+*commit-fee*='PERCENT'::
+    The percentage of 'estimatesmartfee 2' to use for channel funding: can
+    be greater than 100.
+
+*cltv-delta*='BLOCKS'::
+    The number of blocks between incoming payments and outgoing payments:
+    this needs to be enough to make sure that if we have to, we can close
+    the outgoing payment before the incoming, or redeem the incoming once
+    the outgoing is redeemed.
+
+*cltv-final*='BLOCKS'::
+    The number of blocks to allow for payments we receive: if we have to,
+    we might need to redeem this on-chain, so this is the number of blocks
+    we have to do that.
+
+Invoice control options:
+
+*autocleaninvoice-cycle*='SECONDS'::
+    Perform cleanup of expired invoices every 'SECONDS' seconds, or
+    disable if 0.  Usually unpaid expired invoices are uninteresting,
+    and just take up space in the database.
+
+*autocleaninvoice-expired-by*='SECONDS'::
+    Control how long invoices must have been expired before they are
+    cleaned (if 'autocleaninvoice-cycle' is non-zero).
+
+Networking options:
+
+Note that for simple setups, the implicit 'autolisten' option does the
+right thing: it will try to bind to port 9735 on IPv4 and IPv6, and
+will announce it to peers if it's seems like a public address.
+
+You can instead use 'addr' to override this (eg. to change the port),
+or precisely control where to bind and what to announce with the
+'bind-addr' and 'announce-addr' options.
+
+*addr*='[IPADDRESS[:PORT]]|autotor:TORIPADDRESS[:TORPORT]'::
+
+    Set an IP address (v4 or v6) or automatic Tor address to listen on
+    and (maybe) announce as our node address.
+
+    An empty 'IPADDRESS' is a special value meaning bind to IPv4 and/or
+    IPv6 on all interfaces, '0.0.0.0' means bind to all IPv4
+    interfaces, '::' means 'bind to all IPv6 interfaces'.  'PORT' is
+    not specified, 9735 is used.  If we can determine a public IP
+    address from the resulting binding, the address is announced.
+
+    If the argument begins with 'autotor:' then it is followed by the
+    IPv4 or IPv6 address of the Tor control port (default port 9051),
+    and this will be used to configure a Tor hidden service for port
+    9735.  The Tor hidden service will be configured to point to the
+    first IPv4 or IPv6 address we bind to.
+
+    This option can be used multiple times to add more addresses, and
+    its use disables autolisten.  If necessary, and 'always-use-proxy'
+    is not specified, a DNS lookup may be done to resolve 'IPADDRESS'
+    or 'TORIPADDRESS'.
+
+*bind-addr*='[IPADDRESS[:PORT]]|SOCKETPATH'::
+
+    Set an IP address or UNIX domain socket to listen to, but do not
+    announce.  A UNIX domain socket is distingished from an IP address
+    by beginning with a '/'.
+
+    An empty 'IPADDRESS' is a special value meaning bind to IPv4 and/or
+    IPv6 on all interfaces, '0.0.0.0' means bind to all IPv4
+    interfaces, '::' means 'bind to all IPv6 interfaces'.  'PORT' is
+    not specified, 9735 is used.
+
+    This option can be used multiple times to add more addresses, and
+    its use disables autolisten.  If necessary, and 'always-use-proxy'
+    is not specified, a DNS lookup may be done to resolve 'IPADDRESS'.
+
+*announce-addr*='[IPADDRESS[:PORT]]|TORADDRESS.onion[:PORT]'::
+
+    Set an IP address or Tor address to announce; a Tor address is
+    distinguished by ending in '.onion', and is   'PORT' defaults to 9735.
+
+    Empty or wildcard IPv4 and IPv6 addresses don't make sense here.
+    Also, unlike the 'addr' option, there is no checking that your
+    announced addresses are sane (ie. not localhost).
+
+    This option can be used multiple times to add more addresses, and
+    its use disables autolisten.  If necessary, and 'always-use-proxy'
+    is not specified, a DNS lookup may be done to resolve 'IPADDRESS'
+    or 'TORADDRESS'.
+
+*offline*::
+    Do not bind to any ports, and do not try to reconnect to any peers.
+    This can be useful for maintenance and forensics, so is usually
+    specified on the command line.  Overrides all 'addr' and 'bind-addr'
+    options.
+
+*autolisten*='BOOL'::
+    By default, we bind (and maybe announce) on IPv4 and IPv6 interfaces if
+    no 'addr', 'bind-addr' or 'announce-addr' options are specified.  Setting
+    this to 'false' disables that.
+
+*proxy*='IPADDRESS[:PORT]'::
+    Set a socks proxy to use to connect to Tor nodes (or for all connections if
+    *always-use-proxy* is set).
+
+*always-use-proxy*='BOOL'::
+    Always use the *proxy*, even to connect to normal IP addresses (you
+    can still connect to Unix domain sockets manually).  This also disables
+    all DNS lookups, to avoid leaking information.
+
+*tor-service-password*='PASSWORD'::
+    Set a Tor control password, which may be needed for 'autotor:' to
+    authenticate to the Tor control port.
+    
+BUGS
+----
+You should report bugs on our github issues page, and maybe submit a
+fix to gain our eternal gratutide!
+
+AUTHOR
+------
+Rusty Russell <rusty@rustcorp.com.au> wrote this man page, and much
+of the configuration language, but many others did the hard work
+of actually implementing these options.
+
+RESOURCES
+---------
+Main web site: https://github.com/ElementsProject/lightning
+
+COPYING
+-------
+Note: the modules in the ccan/ directory have their own licenses, but
+the rest of the code is covered by the BSD-style MIT license.
