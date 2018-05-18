@@ -40,7 +40,7 @@ def bitcoind():
 
 @pytest.fixture
 def node_factory(request, bitcoind, executor):
-    nf = NodeFactory(request.node.name, bitcoind, executor, directory="/dev/shm/lightning-tests")
+    nf = NodeFactory(request.node.name, bitcoind, executor)
     yield nf
     nf.killall([False] * len(nf.nodes))
 
@@ -62,10 +62,15 @@ def test_single_hop(node_factory, executor):
     print("Sending payments")
     start_time = time()
 
-    for i in invoices:
-        fs.append(executor.submit(l1.rpc.sendpay, route, i))
+    def do_pay(i):
+        p = l1.rpc.sendpay(route, i)
+        r = l1.rpc.waitsendpay(p['payment_hash'])
+        return r
 
-    for f in tqdm(fs):
+    for i in invoices:
+        fs.append(executor.submit(do_pay, i))
+
+    for f in tqdm(futures.as_completed(fs), total=len(fs)):
         f.result()
 
     diff = time() - start_time
