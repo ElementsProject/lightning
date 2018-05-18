@@ -301,8 +301,8 @@ class BaseLightningDTests(unittest.TestCase):
 
     def checkBadGossipOrder(self, node):
         # We can have a race where we notice a channel deleted and someone
-        # sends an update.
-        if node.daemon.is_in_log('Bad gossip order') and not node.daemon.is_in_log('Deleting channel'):
+        # sends an update, and we can get unknown channel updates in errors.
+        if node.daemon.is_in_log('Bad gossip order from (?!error)') and not node.daemon.is_in_log('Deleting channel'):
             return 1
         return 0
 

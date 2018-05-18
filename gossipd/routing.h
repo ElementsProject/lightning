@@ -228,7 +228,8 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 				  const u8 *txscript);
 
 /* Returns NULL if all OK, otherwise an error for the peer which sent. */
-u8 *handle_channel_update(struct routing_state *rstate, const u8 *update);
+u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
+			  const char *source);
 
 /* Returns NULL if all OK, otherwise an error for the peer which sent. */
 u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node);
