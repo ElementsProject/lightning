@@ -200,6 +200,10 @@ ifneq ($(TEST_GROUP_COUNT),)
 PYTEST_OPTS += --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT)
 endif
 
+ifneq ($(PYTEST_PAR),)
+PYTEST_OPTS += -n=$(PYTEST_PAR)
+endif
+
 check:
 	$(MAKE) installcheck
 	$(MAKE) pytest
