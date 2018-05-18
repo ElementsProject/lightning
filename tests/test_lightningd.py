@@ -1472,8 +1472,8 @@ class LightningDTests(BaseLightningDTests):
             c1 = self.executor.submit(l1.rpc.close, l2.info['id'])
             c2 = self.executor.submit(l2.rpc.close, l1.info['id'])
             # Wait for close to finish
-            c1.result(10)
-            c2.result(10)
+            c1.result(utils.TIMEOUT)
+            c2.result(utils.TIMEOUT)
             l1.daemon.wait_for_log('sendrawtx exit 0')
             # Get close confirmed
             l1.bitcoin.generate_block(100)
