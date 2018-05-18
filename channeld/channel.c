@@ -504,30 +504,26 @@ static void channel_announcement_negotiate(struct peer *peer)
 	if (!peer->funding_locked[LOCAL] || !peer->funding_locked[REMOTE])
 		return;
 
-	/* If we haven't reached announce depth yet, we can only send
-	 * a local update */
-	if (!peer->announce_depth_reached) {
-		if (!peer->sent_temporary_announce) {
-			peer->sent_temporary_announce = true;
-			send_temporary_announcement(peer);
-		}
-		return;
-	}
-
 	/* BOLT #7:
 	 *
 	 * If sent, `announcement_signatures` messages MUST NOT be sent until
 	 * `funding_locked` has been sent and the funding transaction has
 	 * at least 6 confirmations.
 	 */
-	if (!peer->have_sigs[LOCAL]) {
+	if (peer->announce_depth_reached && !peer->have_sigs[LOCAL]) {
 		send_announcement_signatures(peer);
 		peer->have_sigs[LOCAL] = true;
 		billboard_update(peer);
 	}
 
+	/* If we've completed the signature exchange, we can send a real
+	 * announcement, otherwise we send a temporary one */
 	if (peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE])
 		announce_channel(peer);
+	else if (!peer->sent_temporary_announce) {
+		peer->sent_temporary_announce = true;
+		send_temporary_announcement(peer);
+	}
 }
 
 static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
