@@ -201,10 +201,11 @@ static void init_half_chan(struct routing_state *rstate,
 	c->last_timestamp = time_now().ts.tv_sec - rstate->prune_timeout/2;
 }
 
-static void bad_gossip_order(const u8 *msg, const char *details)
+static void bad_gossip_order(const u8 *msg, const char *source,
+			     const char *details)
 {
-	status_trace("Bad gossip order: %s before announcement %s",
-		     wire_type_name(fromwire_peektype(msg)),
+	status_trace("Bad gossip order from %s: %s before announcement %s",
+		     source, wire_type_name(fromwire_peektype(msg)),
 		     details);
 }
 
@@ -791,7 +792,7 @@ static void process_pending_channel_update(struct routing_state *rstate,
 		return;
 
 	/* FIXME: We don't remember who sent us updates, so can't error them */
-	err = handle_channel_update(rstate, cupdate);
+	err = handle_channel_update(rstate, cupdate, "pending update");
 	if (err) {
 		status_trace("Pending channel_update for %s: %s",
 			     type_to_string(tmpctx, struct short_channel_id, scid),
@@ -965,7 +966,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	return true;
 }
 
-u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
+u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
+			  const char *source)
 {
 	u8 *serialized;
 	struct half_chan *c;
@@ -1023,6 +1025,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update)
 
 		if (!chan) {
 			bad_gossip_order(serialized,
+					 source,
 					 tal_fmt(tmpctx, "%s(%u)",
 						 type_to_string(tmpctx,
 							struct short_channel_id,
@@ -1255,7 +1258,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 		pna = pending_node_map_get(rstate->pending_node_map,
 					   &node_id.pubkey);
 		if (!pna) {
-			bad_gossip_order(serialized,
+			bad_gossip_order(serialized, "node_announcement",
 					 type_to_string(tmpctx, struct pubkey,
 							&node_id));
 		} else if (pna->timestamp < timestamp) {
@@ -1437,7 +1440,7 @@ void routing_failure(struct routing_state *rstate,
 				       (int) failcode);
 			return;
 		}
-		err = handle_channel_update(rstate, channel_update);
+		err = handle_channel_update(rstate, channel_update, "error");
 		if (err) {
 			status_unusual("routing_failure: "
 				       "bad channel_update %s",

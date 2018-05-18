@@ -152,7 +152,7 @@ def checkReconnect(node):
 
 
 def checkBadGossipOrder(node):
-    if node.daemon.is_in_log('Bad gossip order') and not node.daemon.is_in_log('Deleting channel'):
+    if node.daemon.is_in_log('Bad gossip order from (?!error)') and not node.daemon.is_in_log('Deleting channel'):
         return 1
     return 0
 
