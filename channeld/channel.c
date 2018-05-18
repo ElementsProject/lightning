@@ -349,9 +349,9 @@ static void send_channel_update(struct peer *peer, bool peer_too,
 
 	assert(disable_flag == 0 || disable_flag == ROUTING_FLAGS_DISABLED);
 
-	/* If we don't have funding_locked both sides, we can't have told
-	 * gossipd or created update. */
-	if (!peer->funding_locked[LOCAL] || !peer->funding_locked[REMOTE])
+	/* Only send an update if we sent a temporary or real announcement */
+	if (!peer->sent_temporary_announce
+	    && !(peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE]))
 		return;
 
 	msg = create_channel_update(tmpctx, peer, disable_flag);
@@ -508,8 +508,8 @@ static void channel_announcement_negotiate(struct peer *peer)
 	 * a local update */
 	if (!peer->announce_depth_reached) {
 		if (!peer->sent_temporary_announce) {
-			send_temporary_announcement(peer);
 			peer->sent_temporary_announce = true;
+			send_temporary_announcement(peer);
 		}
 		return;
 	}
