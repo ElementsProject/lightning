@@ -1300,6 +1300,7 @@ class LightningDTests(BaseLightningDTests):
 
         l2.daemon.wait_for_log('to_self_delay 100 larger than 99')
 
+    @unittest.skipIf(not DEVELOPER, "Too slow without --dev-bitcoind-poll")
     def test_closing(self):
         l1, l2 = self.connect()
 
@@ -2677,6 +2678,7 @@ class LightningDTests(BaseLightningDTests):
                 seen.append((c['source'], c['destination']))
             assert set(seen) == set(comb)
 
+    @unittest.skipIf(not DEVELOPER, "Too slow without --dev-bitcoind-poll")
     def test_forward(self):
         # Connect 1 -> 2 -> 3.
         l1, l2 = self.connect()
@@ -3953,6 +3955,7 @@ class LightningDTests(BaseLightningDTests):
         assert not l2.daemon.is_in_log('signature verification failed')
         assert not l3.daemon.is_in_log('signature verification failed')
 
+    @unittest.skipIf(not DEVELOPER, "Too slow without --dev-bitcoind-poll")
     def test_waitinvoice(self):
         """Test waiting for one invoice will not return if another invoice
         is paid.
@@ -3991,6 +3994,7 @@ class LightningDTests(BaseLightningDTests):
         time.sleep(1)
         assert not f3.done()
 
+    @unittest.skipIf(not DEVELOPER, "Too slow without --dev-bitcoind-poll")
     def test_waitanyinvoice(self):
         """Test various variants of waiting for the next invoice to complete.
         """
@@ -4353,6 +4357,7 @@ class LightningDTests(BaseLightningDTests):
             oneconfig = l1.rpc.listconfigs(config=c)
             assert(oneconfig[c] == configs[c])
 
+    @unittest.skipIf(not DEVELOPER, "Too slow without --dev-bitcoind-poll")
     def test_multiple_channels(self):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node()
