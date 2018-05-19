@@ -1064,13 +1064,16 @@ class LightningDTests(BaseLightningDTests):
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['msatoshi_received'] == rs['msatoshi']
 
         # Balances should reflect it.
-        time.sleep(1)
-        p1 = l1.rpc.getpeer(l2.info['id'], 'info')
-        p2 = l2.rpc.getpeer(l1.info['id'], 'info')
-        assert p1['channels'][0]['msatoshi_to_us'] == 10**6 * 1000 - amt
-        assert p1['channels'][0]['msatoshi_total'] == 10**6 * 1000
-        assert p2['channels'][0]['msatoshi_to_us'] == amt
-        assert p2['channels'][0]['msatoshi_total'] == 10**6 * 1000
+        def check_balances():
+            p1 = l1.rpc.getpeer(l2.info['id'], 'info')
+            p2 = l2.rpc.getpeer(l1.info['id'], 'info')
+            return (
+                p1['channels'][0]['msatoshi_to_us'] == 10**6 * 1000 - amt and
+                p1['channels'][0]['msatoshi_total'] == 10**6 * 1000 and
+                p2['channels'][0]['msatoshi_to_us'] == amt and
+                p2['channels'][0]['msatoshi_total'] == 10**6 * 1000
+            )
+        wait_for(check_balances)
 
         # Repeat will "succeed", but won't actually send anything (duplicate)
         assert not l1.daemon.is_in_log('... succeeded')
