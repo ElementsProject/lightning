@@ -4524,6 +4524,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('Forgetting remote peer')
         bitcoind.generate_block(100)
         l1.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')
+        l2.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')
 
         # The only channel was closed, everybody should have forgotten the nodes
         assert l1.rpc.listnodes()['nodes'] == []
