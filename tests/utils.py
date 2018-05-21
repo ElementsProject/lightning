@@ -63,6 +63,10 @@ class TailableProc(object):
         # Should we be logging lines we read from stdout?
         self.verbose = verbose
 
+        # A filter function that'll tell us whether to filter out the line (not
+        # pass it to the log matcher and not print it to stdout).
+        self.log_filter = lambda line: False
+
     def start(self):
         """Start the underlying process and start monitoring it.
         """
@@ -114,6 +118,8 @@ class TailableProc(object):
         for line in iter(self.proc.stdout.readline, ''):
             if len(line) == 0:
                 break
+            if self.log_filter(line.decode('ASCII')):
+                continue
             if self.verbose:
                 logging.debug("%s: %s", self.prefix, line.decode().rstrip())
             with self.logs_cond:
@@ -285,6 +291,16 @@ class LightningD(TailableProc):
             # lightningd won't announce non-routable addresses by default.
             self.opts['dev-allow-localhost'] = None
         self.prefix = 'lightningd-%d' % (node_id)
+
+        filters = [
+            "Unable to estimate",
+            "No fee estimate",
+            "Connected json input",
+            "Forcing fee rate, ignoring estimate",
+        ]
+
+        filter_re = re.compile(r'({})'.format("|".join(filters)))
+        self.log_filter = lambda line: filter_re.search(line) is not None
 
     @property
     def cmd_line(self):
