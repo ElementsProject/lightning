@@ -255,8 +255,10 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 
 	l->log = tal_vfmt(l, fmt, ap);
 
+	size_t log_len = strlen(l->log);
+
 	/* Sanitize any non-printable characters, and replace with '?' */
-	for (size_t i=0; i<strlen(l->log); i++)
+	for (size_t i=0; i<log_len; i++)
 		if (l->log[i] < ' ' || l->log[i] >= 0x7f)
 			l->log[i] = '?';
 
