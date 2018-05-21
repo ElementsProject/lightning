@@ -2657,22 +2657,6 @@ class LightningDTests(BaseLightningDTests):
         # Allow announce messages.
         l1.bitcoin.generate_block(5)
 
-        def settle_gossip(n):
-            """Wait for gossip to settle at the node
-            """
-            expected_connections = 2 * (len(nodes) - 1)
-            start_time = time.time()
-            # Wait at most 10 seconds, broadcast interval is 1 second
-            while time.time() - start_time < utils.TIMEOUT:
-                channels = n.rpc.listchannels()['channels']
-                if len(channels) == expected_connections:
-                    break
-                else:
-                    time.sleep(0.1)
-
-        for n in nodes:
-            settle_gossip(n)
-
         # Deep check that all channels are in there
         comb = []
         for i in range(len(nodes) - 1):
@@ -2680,11 +2664,13 @@ class LightningDTests(BaseLightningDTests):
             comb.append((nodes[i + 1].info['id'], nodes[i].info['id']))
 
         for n in nodes:
-            seen = []
-            channels = n.rpc.listchannels()['channels']
-            for c in channels:
-                seen.append((c['source'], c['destination']))
-            assert set(seen) == set(comb)
+            def check_gossip():
+                seen = []
+                channels = n.rpc.listchannels()['channels']
+                for c in channels:
+                    seen.append((c['source'], c['destination']))
+                return set(seen) == set(comb)
+            wait_for(check_gossip)
 
     @unittest.skipIf(not DEVELOPER, "Too slow without --dev-bitcoind-poll")
     def test_forward(self):
