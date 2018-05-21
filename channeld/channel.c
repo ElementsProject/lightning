@@ -299,51 +299,8 @@ static void enqueue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 	msg_enqueue(&peer->peer_out, msg);
 }
 
-static u8 *create_channel_update(const tal_t *ctx,
-				 struct peer *peer,
-				 int disable_flag)
-{
-	u32 timestamp = time_now().ts.tv_sec;
-	u16 flags;
-	u8 *cupdate, *msg;
-
-	/* We must have a channel id to send */
-	assert(peer->short_channel_ids[LOCAL].u64);
-
-	/* Identical timestamps will be ignored. */
-	if (timestamp <= peer->last_update_timestamp)
-		timestamp = peer->last_update_timestamp + 1;
-	peer->last_update_timestamp = timestamp;
-
-	/* Set the signature to empty so that valgrind doesn't complain */
-	secp256k1_ecdsa_signature *sig =
-	    talz(tmpctx, secp256k1_ecdsa_signature);
-
-	flags = peer->channel_direction | disable_flag;
-	cupdate = towire_channel_update(
-	    tmpctx, sig, &peer->chain_hash,
-	    &peer->short_channel_ids[LOCAL], timestamp, flags,
-	    peer->cltv_delta, peer->conf[REMOTE].htlc_minimum_msat,
-	    peer->fee_base, peer->fee_per_satoshi);
-
-	msg = towire_hsm_cupdate_sig_req(tmpctx, cupdate);
-
-	if (!wire_sync_write(HSM_FD, msg))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Writing cupdate_sig_req: %s",
-			      strerror(errno));
-
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_cupdate_sig_reply(ctx, msg, &cupdate))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Reading cupdate_sig_req: %s",
-			      strerror(errno));
-	return cupdate;
-}
-
 /* Create and send channel_update to gossipd (and maybe peer) */
-static void send_channel_update(struct peer *peer, bool peer_too,
-				int disable_flag)
+static void send_channel_update(struct peer *peer, int disable_flag)
 {
 	u8 *msg;
 
@@ -353,9 +310,16 @@ static void send_channel_update(struct peer *peer, bool peer_too,
 	if (!peer->channel_local_active)
 		return;
 
-	msg = create_channel_update(tmpctx, peer, disable_flag);
-	if (peer_too)
-		enqueue_peer_msg(peer, msg);
+	assert(peer->short_channel_ids[LOCAL].u64);
+
+	msg = towire_gossip_local_channel_update(NULL,
+						 &peer->short_channel_ids[LOCAL],
+						 disable_flag
+						 == ROUTING_FLAGS_DISABLED,
+						 peer->cltv_delta,
+						 peer->conf[REMOTE].htlc_minimum_msat,
+						 peer->fee_base,
+						 peer->fee_per_satoshi);
 	wire_sync_write(GOSSIP_FD, take(msg));
 }
 
@@ -381,7 +345,7 @@ static void make_channel_local_active(struct peer *peer)
 
 	/* Tell gossipd and the other side what parameters we expect should
 	 * they route through us */
-	send_channel_update(peer, true, 0);
+	send_channel_update(peer, 0);
 }
 
 static void send_announcement_signatures(struct peer *peer)
@@ -482,15 +446,14 @@ static void check_short_ids_match(struct peer *peer)
 
 static void announce_channel(struct peer *peer)
 {
-	u8 *cannounce, *cupdate;
+	u8 *cannounce;
 
 	check_short_ids_match(peer);
 
 	cannounce = create_channel_announcement(tmpctx, peer);
-	cupdate = create_channel_update(tmpctx, peer, 0);
 
 	wire_sync_write(GOSSIP_FD, cannounce);
-	wire_sync_write(GOSSIP_FD, cupdate);
+	send_channel_update(peer, 0);
 }
 
 static void channel_announcement_negotiate(struct peer *peer)
@@ -765,7 +728,7 @@ static void maybe_send_shutdown(struct peer *peer)
 
 	/* Send a disable channel_update so others don't try to route
 	 * over us */
-	send_channel_update(peer, true, ROUTING_FLAGS_DISABLED);
+	send_channel_update(peer, ROUTING_FLAGS_DISABLED);
 
 	msg = towire_shutdown(NULL, &peer->channel_id, peer->final_scriptpubkey);
 	enqueue_peer_msg(peer, take(msg));
@@ -1534,7 +1497,7 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 	u8 *scriptpubkey;
 
 	/* Disable the channel. */
-	send_channel_update(peer, false, ROUTING_FLAGS_DISABLED);
+	send_channel_update(peer, ROUTING_FLAGS_DISABLED);
 
 	if (!fromwire_shutdown(peer, shutdown, &channel_id, &scriptpubkey))
 		peer_failed(&peer->cs,
@@ -1642,7 +1605,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 static void peer_conn_broken(struct peer *peer)
 {
 	/* If we have signatures, send an update to say we're disabled. */
-	send_channel_update(peer, false, ROUTING_FLAGS_DISABLED);
+	send_channel_update(peer, ROUTING_FLAGS_DISABLED);
 	peer_failed_connection_lost();
 }
 

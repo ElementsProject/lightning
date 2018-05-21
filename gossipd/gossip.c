@@ -927,6 +927,123 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 	daemon_conn_send(peer->remote, take(msg));
 }
 
+static u8 *create_channel_update(const tal_t *ctx,
+				 struct routing_state *rstate,
+				 const struct chan *chan,
+				 int direction,
+				 bool disable,
+				 u16 cltv_expiry_delta,
+				 u64 htlc_minimum_msat,
+				 u32 fee_base_msat,
+				 u32 fee_proportional_millionths)
+{
+	secp256k1_ecdsa_signature dummy_sig;
+	u8 *update, *msg;
+	u32 timestamp = time_now().ts.tv_sec;
+	u16 flags;
+
+	/* So valgrind doesn't complain */
+	memset(&dummy_sig, 0, sizeof(dummy_sig));
+
+	/* Don't send duplicate timestamps. */
+	if (is_halfchan_defined(&chan->half[direction])
+	    && timestamp == chan->half[direction].last_timestamp)
+		timestamp++;
+
+	flags = direction;
+	if (disable)
+		flags |= ROUTING_FLAGS_DISABLED;
+
+	update = towire_channel_update(tmpctx, &dummy_sig,
+				       &rstate->chain_hash,
+				       &chan->scid,
+				       timestamp,
+				       flags, cltv_expiry_delta,
+				       htlc_minimum_msat,
+				       fee_base_msat,
+				       fee_proportional_millionths);
+
+	if (!wire_sync_write(HSM_FD,
+			     towire_hsm_cupdate_sig_req(tmpctx, update))) {
+		status_failed(STATUS_FAIL_HSM_IO, "Writing cupdate_sig_req: %s",
+			      strerror(errno));
+	}
+
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!msg || !fromwire_hsm_cupdate_sig_reply(ctx, msg, &update)) {
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading cupdate_sig_req: %s",
+			      strerror(errno));
+	}
+
+	return update;
+}
+
+static void handle_local_channel_update(struct peer *peer, const u8 *msg)
+{
+	struct short_channel_id scid;
+	u16 cltv_delta;
+	u64 htlc_minimum_msat;
+	u32 fee_base_msat, fee_proportional_millionths;
+	bool disable;
+	struct chan *chan;
+	int direction;
+	u8 *cupdate, *err;
+	const struct pubkey *my_id = &peer->daemon->rstate->local_id;
+
+	if (!fromwire_gossip_local_channel_update(msg, &scid, &disable,
+						  &cltv_delta,
+						  &htlc_minimum_msat,
+						  &fee_base_msat,
+						  &fee_proportional_millionths)) {
+		status_broken("peer %s bad local_channel_update %s",
+			      type_to_string(tmpctx, struct pubkey, &peer->id),
+			      tal_hex(tmpctx, msg));
+		return;
+	}
+
+	/* Can theoretically happen if channel just closed. */
+	chan = get_channel(peer->daemon->rstate, &scid);
+	if (!chan) {
+		status_trace("peer %s local_channel_update for unknown %s",
+			      type_to_string(tmpctx, struct pubkey, &peer->id),
+			      type_to_string(tmpctx, struct short_channel_id,
+					     &scid));
+		return;
+	}
+
+	if (pubkey_eq(&chan->nodes[0]->id, my_id))
+		direction = 0;
+	else if (pubkey_eq(&chan->nodes[1]->id, my_id))
+		direction = 1;
+	else {
+		status_broken("peer %s bad local_channel_update for non-local %s",
+			      type_to_string(tmpctx, struct pubkey, &peer->id),
+			      type_to_string(tmpctx, struct short_channel_id,
+					     &scid));
+		return;
+	}
+
+	cupdate = create_channel_update(tmpctx, peer->daemon->rstate,
+					chan, direction,
+					disable, cltv_delta,
+					htlc_minimum_msat,
+					fee_base_msat,
+					fee_proportional_millionths);
+
+	err = handle_channel_update(peer->daemon->rstate, cupdate,
+				    "local_channel_update");
+	if (err)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Rejected local channel update %s: %s",
+			      tal_hex(tmpctx, cupdate),
+			      tal_hex(tmpctx, err));
+
+	/* We always tell peer, even if it's not public yet */
+	if (!is_chan_public(chan))
+		queue_peer_msg(peer, take(cupdate));
+}
+
 /**
  * owner_msg_in - Called by the `peer->remote` upon receiving a
  * message
@@ -950,6 +1067,8 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 		gossip_store_local_add_channel(peer->daemon->rstate->store,
 					       dc->msg_in);
 		handle_local_add_channel(peer->daemon->rstate, dc->msg_in);
+	} else if (type == WIRE_GOSSIP_LOCAL_CHANNEL_UPDATE) {
+		handle_local_channel_update(peer, dc->msg_in);
 	} else {
 		status_broken("peer %s: send us unknown msg of type %s",
 			      type_to_string(tmpctx, struct pubkey, &peer->id),
@@ -2579,6 +2698,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
 	case WIRE_GOSSIP_SEND_GOSSIP:
 	case WIRE_GOSSIP_LOCAL_ADD_CHANNEL:
+	case WIRE_GOSSIP_LOCAL_CHANNEL_UPDATE:
 	case WIRE_GOSSIP_GET_TXOUT:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLY:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLYFAIL:

@@ -198,6 +198,14 @@ gossip_local_add_channel,3017
 gossip_local_add_channel,,short_channel_id,struct short_channel_id
 gossip_local_add_channel,,remote_node_id,struct pubkey
 
+gossip_local_channel_update,3026
+gossip_local_channel_update,,short_channel_id,struct short_channel_id
+gossip_local_channel_update,,disable,bool
+gossip_local_channel_update,,cltv_expiry_delta,u16
+gossip_local_channel_update,,htlc_minimum_msat,u64
+gossip_local_channel_update,,fee_base_msat,u32
+gossip_local_channel_update,,fee_proportional_millionths,u32
+
 # Gossipd->master get this tx output please.
 gossip_get_txout,3018
 gossip_get_txout,,short_channel_id,struct short_channel_id
