@@ -1584,10 +1584,14 @@ class LightningDTests(BaseLightningDTests):
                  ['ONCHAIN:Tracking their unilateral close',
                   'ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel'])
 
-        billboard = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['status']
-        assert len(billboard) == 2
-        assert billboard[0] == 'ONCHAIN:Tracking our own unilateral close'
-        assert re.fullmatch('ONCHAIN:.* outputs unresolved: in 4 blocks will spend DELAYED_OUTPUT_TO_US \(.*:0\) using OUR_DELAYED_RETURN_TO_WALLET', billboard[1])
+        def check_billboard():
+            billboard = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['status']
+            return (
+                len(billboard) == 2 and
+                billboard[0] == 'ONCHAIN:Tracking our own unilateral close' and
+                re.fullmatch('ONCHAIN:.* outputs unresolved: in 4 blocks will spend DELAYED_OUTPUT_TO_US \(.*:0\) using OUR_DELAYED_RETURN_TO_WALLET', billboard[1])
+            )
+        wait_for(check_billboard)
 
         # Now, mine 4 blocks so it sends out the spending tx.
         bitcoind.generate_block(4)
