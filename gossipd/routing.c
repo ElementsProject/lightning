@@ -876,10 +876,7 @@ static void update_pending(struct pending_cannouncement *pending,
 		     type_to_string(tmpctx, struct short_channel_id,
 				    &pending->short_channel_id), direction);
 
-	/* FIXME: This should be <, but in our tests we sometimes can generate
-	 * more than one update per second, and we don't coordinate timestamps
-	 * between gossipd and channeld. */
-	if (pending->update_timestamps[direction] <= timestamp) {
+	if (pending->update_timestamps[direction] < timestamp) {
 		if (pending->updates[direction]) {
 			status_trace("Replacing existing update");
 			tal_free(pending->updates[direction]);
@@ -1041,14 +1038,19 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 
 	c = &chan->half[direction];
 
-	/* FIXME: This should be >=, but in our tests we sometimes can generate
-	 * more than one update per second, and we don't coordinate timestamps
-	 * between gossipd and channeld.  But don't update just because of
-	 * re-transmissions, either. */
-	if (is_halfchan_defined(c)
-	    && (c->last_timestamp > timestamp
-		|| memeq(c->channel_update, tal_len(c->channel_update),
-			 serialized, tal_len(serialized)))) {
+	if (is_halfchan_defined(c) && timestamp <= c->last_timestamp) {
+		/* They're not supposed to do this! */
+		if (timestamp == c->last_timestamp
+		    && !memeq(c->channel_update, tal_len(c->channel_update),
+			      serialized, tal_len(serialized))) {
+			status_unusual("Bad gossip repeated timestamp for %s(%u): %s then %s",
+				       type_to_string(tmpctx,
+						      struct short_channel_id,
+						      &short_channel_id),
+				       flags,
+				       tal_hex(tmpctx, c->channel_update),
+				       tal_hex(tmpctx, serialized));
+		}
 		SUPERVERBOSE("Ignoring outdated update.");
 		return NULL;
 	}
