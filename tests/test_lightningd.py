@@ -2663,7 +2663,7 @@ class LightningDTests(BaseLightningDTests):
             expected_connections = 2 * (len(nodes) - 1)
             start_time = time.time()
             # Wait at most 10 seconds, broadcast interval is 1 second
-            while time.time() - start_time < 10:
+            while time.time() - start_time < utils.TIMEOUT:
                 channels = n.rpc.listchannels()['channels']
                 if len(channels) == expected_connections:
                     break
