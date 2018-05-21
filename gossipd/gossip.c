@@ -1559,48 +1559,23 @@ fail:
 }
 
 static void gossip_send_keepalive_update(struct routing_state *rstate,
-					 struct half_chan *hc)
+					 const struct chan *chan,
+					 const struct half_chan *hc)
 {
-	secp256k1_ecdsa_signature sig;
-	struct bitcoin_blkid chain_hash;
-	struct short_channel_id scid;
-	u32 timestamp, fee_base_msat, fee_proportional_millionths;
-	u64 htlc_minimum_msat;
-	u16 flags, cltv_expiry_delta;
-	u8 *update, *msg, *err;
+	u8 *update, *err;
 
-	/* Parse old update */
-	if (!fromwire_channel_update(
-		hc->channel_update, &sig, &chain_hash, &scid, &timestamp,
-		&flags, &cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
-		&fee_proportional_millionths)) {
-		status_failed(
-		    STATUS_FAIL_INTERNAL_ERROR,
-		    "Unable to parse previously accepted channel_update");
-	}
-
-	/* Now generate a new update, with up to date timestamp */
-	timestamp = time_now().ts.tv_sec;
-	update =
-	    towire_channel_update(tmpctx, &sig, &chain_hash, &scid, timestamp,
-				  flags, cltv_expiry_delta, htlc_minimum_msat,
-				  fee_base_msat, fee_proportional_millionths);
-
-	if (!wire_sync_write(HSM_FD,
-			     towire_hsm_cupdate_sig_req(tmpctx, update))) {
-		status_failed(STATUS_FAIL_HSM_IO, "Writing cupdate_sig_req: %s",
-			      strerror(errno));
-	}
-
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_cupdate_sig_reply(tmpctx, msg, &update)) {
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Reading cupdate_sig_req: %s",
-			      strerror(errno));
-	}
+	/* Generate a new update, with up to date timestamp */
+	update = create_channel_update(tmpctx, rstate, chan,
+				       hc->flags & ROUTING_FLAGS_DIRECTION,
+				       false,
+				       hc->delay,
+				       hc->htlc_minimum_msat,
+				       hc->base_fee,
+				       hc->proportional_fee);
 
 	status_trace("Sending keepalive channel_update for %s",
-		     type_to_string(tmpctx, struct short_channel_id, &scid));
+		     type_to_string(tmpctx, struct short_channel_id,
+				    &chan->scid));
 
 	err = handle_channel_update(rstate, update, "keepalive");
 	if (err)
@@ -1645,7 +1620,8 @@ static void gossip_refresh_network(struct daemon *daemon)
 				continue;
 			}
 
-			gossip_send_keepalive_update(daemon->rstate, hc);
+			gossip_send_keepalive_update(daemon->rstate, n->chans[i],
+						     hc);
 		}
 	}
 
