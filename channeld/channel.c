@@ -160,7 +160,7 @@ struct peer {
 	u8 channel_flags;
 
 	bool announce_depth_reached;
-	bool sent_temporary_announce;
+	bool channel_local_active;
 
 	/* Make sure timestamps move forward. */
 	u32 last_update_timestamp;
@@ -349,9 +349,8 @@ static void send_channel_update(struct peer *peer, bool peer_too,
 
 	assert(disable_flag == 0 || disable_flag == ROUTING_FLAGS_DISABLED);
 
-	/* Only send an update if we sent a temporary or real announcement */
-	if (!peer->sent_temporary_announce
-	    && !(peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE]))
+	/* Only send an update if we told gossipd */
+	if (!peer->channel_local_active)
 		return;
 
 	msg = create_channel_update(tmpctx, peer, disable_flag);
@@ -370,7 +369,7 @@ static void send_channel_update(struct peer *peer, bool peer_too,
  * channel_update is not preceeded by a channel_announcement and won't make much
  * sense to other nodes, so we don't tell gossipd about it.
  */
-static void send_temporary_announcement(struct peer *peer)
+static void make_channel_local_active(struct peer *peer)
 {
 	u8 *msg;
 
@@ -504,6 +503,10 @@ static void channel_announcement_negotiate(struct peer *peer)
 	if (!peer->funding_locked[LOCAL] || !peer->funding_locked[REMOTE])
 		return;
 
+	if (!peer->channel_local_active) {
+		peer->channel_local_active = true;
+		make_channel_local_active(peer);
+	}
 	/* BOLT #7:
 	 *
 	 * If sent, `announcement_signatures` messages MUST NOT be sent until
@@ -520,10 +523,6 @@ static void channel_announcement_negotiate(struct peer *peer)
 	 * announcement, otherwise we send a temporary one */
 	if (peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE])
 		announce_channel(peer);
-	else if (!peer->sent_temporary_announce) {
-		peer->sent_temporary_announce = true;
-		send_temporary_announcement(peer);
-	}
 }
 
 static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
@@ -2585,7 +2584,7 @@ int main(int argc, char *argv[])
 	peer->commit_timer = NULL;
 	peer->have_sigs[LOCAL] = peer->have_sigs[REMOTE] = false;
 	peer->announce_depth_reached = false;
-	peer->sent_temporary_announce = false;
+	peer->channel_local_active = false;
 	msg_queue_init(&peer->from_master, peer);
 	msg_queue_init(&peer->from_gossipd, peer);
 	msg_queue_init(&peer->peer_out, peer);
