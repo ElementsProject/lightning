@@ -162,7 +162,7 @@ Testing
 -------
 
 There are three kinds of tests.  For best results, you should have
-valgrind installed, and build with DEVELOPER=1 (currently the default).
+valgrind installed, and build with DEVELOPER=1.
 
 * source tests - run by `make check-source`, looks for whitespace,
   header order, and checks formatted quotes from BOLTs if BOLTDIR
