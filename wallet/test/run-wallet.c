@@ -51,7 +51,8 @@ bool channel_tell_funding_locked(struct lightningd *ld UNNEEDED,
 				 u32 depth UNNEEDED)
 { fprintf(stderr, "channel_tell_funding_locked called!\n"); abort(); }
 /* Generated stub for command_fail */
-void  command_fail(struct command *cmd UNNEEDED, const char *fmt UNNEEDED, ...)
+void  command_fail(struct command *cmd UNNEEDED, int code UNNEEDED,
+		   const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "command_fail called!\n"); abort(); }
 /* Generated stub for command_still_pending */
 void command_still_pending(struct command *cmd UNNEEDED)

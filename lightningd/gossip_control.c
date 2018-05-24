@@ -24,6 +24,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/log.h>
 #include <sodium/randombytes.h>
 #include <string.h>
@@ -275,7 +276,7 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 	size_t i, j;
 
 	if (!fromwire_gossip_getnodes_reply(reply, reply, &nodes)) {
-		command_fail(cmd, "Malformed gossip_getnodes response");
+		command_fail(cmd, LIGHTNINGD, "Malformed gossip_getnodes response");
 		return;
 	}
 
@@ -325,7 +326,7 @@ static void json_listnodes(struct command *cmd, const char *buffer,
 	if (idtok) {
 		id = tal_arr(cmd, struct pubkey, 1);
 		if (!json_tok_pubkey(buffer, idtok, id)) {
-			command_fail(cmd, "Invalid id");
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Invalid id");
 			return;
 		}
 	}
@@ -351,7 +352,7 @@ static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, con
 	fromwire_gossip_getroute_reply(reply, reply, &hops);
 
 	if (tal_count(hops) == 0) {
-		command_fail(cmd, "Could not find a route");
+		command_fail(cmd, LIGHTNINGD, "Could not find a route");
 		return;
 	}
 
@@ -393,43 +394,46 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	}
 
 	if (!json_tok_pubkey(buffer, idtok, &destination)) {
-		command_fail(cmd, "Invalid id");
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Invalid id");
 		return;
 	}
 
 	if (cltvtok && !json_tok_number(buffer, cltvtok, &cltv)) {
-		command_fail(cmd, "Invalid cltv");
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Invalid cltv");
 		return;
 	}
 
 	if (!json_tok_u64(buffer, msatoshitok, &msatoshi)) {
-		command_fail(cmd, "'%.*s' is not a valid number",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%.*s' is not a valid number",
 			     msatoshitok->end - msatoshitok->start,
 			     buffer + msatoshitok->start);
 		return;
 	}
 
 	if (!json_tok_double(buffer, riskfactortok, &riskfactor)) {
-		command_fail(cmd, "'%.*s' is not a valid double",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%.*s' is not a valid double",
 			     riskfactortok->end - riskfactortok->start,
 			     buffer + riskfactortok->start);
 		return;
 	}
 
 	if (fromidtok && !json_tok_pubkey(buffer, fromidtok, &source)) {
-		command_fail(cmd, "Invalid from id");
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Invalid from id");
 		return;
 	}
 
 	if (fuzztok &&
 	    !json_tok_double(buffer, fuzztok, &fuzz)) {
-		command_fail(cmd, "'%.*s' is not a valid double",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%.*s' is not a valid double",
 			     fuzztok->end - fuzztok->start,
 			     buffer + fuzztok->start);
 		return;
 	}
 	if (!(0.0 <= fuzz && fuzz <= 100.0)) {
-		command_fail(cmd,
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "fuzz must be in range 0.0 <= %f <= 100.0",
 			     fuzz);
 		return;
@@ -439,7 +443,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 
 	if (seedtok) {
 		if (seedtok->end - seedtok->start > sizeof(seed))
-			command_fail(cmd,
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "seed must be < %zu bytes", sizeof(seed));
 
 		memset(&seed, 0, sizeof(seed));
@@ -472,7 +476,7 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 	struct json_result *response = new_json_result(cmd);
 
 	if (!fromwire_gossip_getchannels_reply(reply, reply, &entries)) {
-		command_fail(cmd, "Invalid reply from gossipd");
+		command_fail(cmd, LIGHTNINGD, "Invalid reply from gossipd");
 		return;
 	}
 
@@ -521,7 +525,8 @@ static void json_listchannels(struct command *cmd, const char *buffer,
 	if (idtok) {
 		id = tal_arr(cmd, struct short_channel_id, 1);
 		if (!json_tok_short_channel_id(buffer, idtok, id)) {
-			command_fail(cmd, "Invalid short_channel_id");
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "Invalid short_channel_id");
 			return;
 		}
 	}

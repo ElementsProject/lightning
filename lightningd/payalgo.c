@@ -629,7 +629,8 @@ static void json_pay(struct command *cmd,
 
 	b11 = bolt11_decode(pay, b11str, desc, &fail);
 	if (!b11) {
-		command_fail(cmd, "Invalid bolt11: %s", fail);
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "Invalid bolt11: %s", fail);
 		return;
 	}
 
@@ -641,7 +642,8 @@ static void json_pay(struct command *cmd,
 	pay->min_final_cltv_expiry = b11->min_final_cltv_expiry;
 
 	if (retryfortok && !json_tok_number(buffer, retryfortok, &retryfor)) {
-		command_fail(cmd, "'%.*s' is not an integer",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%.*s' is not an integer",
 			     retryfortok->end - retryfortok->start,
 			     buffer + retryfortok->start);
 		return;
@@ -650,16 +652,18 @@ static void json_pay(struct command *cmd,
 	if (b11->msatoshi) {
 		msatoshi = *b11->msatoshi;
 		if (msatoshitok) {
-			command_fail(cmd, "msatoshi parameter unnecessary");
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "msatoshi parameter unnecessary");
 			return;
 		}
 	} else {
 		if (!msatoshitok) {
-			command_fail(cmd, "msatoshi parameter required");
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "msatoshi parameter required");
 			return;
 		}
 		if (!json_tok_u64(buffer, msatoshitok, &msatoshi)) {
-			command_fail(cmd,
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "msatoshi '%.*s' is not a valid number",
 				     msatoshitok->end-msatoshitok->start,
 				     buffer + msatoshitok->start);
@@ -670,7 +674,8 @@ static void json_pay(struct command *cmd,
 
 	if (riskfactortok
 	    && !json_tok_double(buffer, riskfactortok, &riskfactor)) {
-		command_fail(cmd, "'%.*s' is not a valid double",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%.*s' is not a valid double",
 			     riskfactortok->end - riskfactortok->start,
 			     buffer + riskfactortok->start);
 		return;
@@ -679,19 +684,22 @@ static void json_pay(struct command *cmd,
 
 	if (maxfeetok
 	    && !json_tok_double(buffer, maxfeetok, &maxfeepercent)) {
-		command_fail(cmd, "'%.*s' is not a valid double",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%.*s' is not a valid double",
 			     maxfeetok->end - maxfeetok->start,
 			     buffer + maxfeetok->start);
 		return;
 	}
 	/* Ensure it is in range 0.0 <= maxfeepercent <= 100.0 */
 	if (!(0.0 <= maxfeepercent)) {
-		command_fail(cmd, "%f maxfeepercent must be non-negative",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "%f maxfeepercent must be non-negative",
 			     maxfeepercent);
 		return;
 	}
 	if (!(maxfeepercent <= 100.0)) {
-		command_fail(cmd, "%f maxfeepercent must be <= 100.0",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "%f maxfeepercent must be <= 100.0",
 			     maxfeepercent);
 		return;
 	}
@@ -699,13 +707,14 @@ static void json_pay(struct command *cmd,
 
 	if (maxdelaytok
 	    && !json_tok_number(buffer, maxdelaytok, &maxdelay)) {
-		command_fail(cmd, "'%.*s' is not a valid double",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%.*s' is not a valid integer",
 			     maxdelaytok->end - maxdelaytok->start,
 			     buffer + maxdelaytok->start);
 		return;
 	}
 	if (maxdelay < pay->min_final_cltv_expiry) {
-		command_fail(cmd,
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "maxdelay (%u) must be greater than "
 			     "min_final_cltv_expiry (%"PRIu32") of "
 			     "invoice",

@@ -6,6 +6,7 @@
 #include <lightningd/connect_control.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/subd.h>
@@ -70,7 +71,7 @@ void gossip_connect_result(struct lightningd *ld, const u8 *msg)
 			json_object_end(response);
 			command_success(c->cmd, response);
 		} else {
-			command_fail(c->cmd, "%s", err);
+			command_fail(c->cmd, LIGHTNINGD, "%s", err);
 		}
 		/* They delete themselves from list */
 	}
@@ -109,14 +110,15 @@ static void json_connect(struct command *cmd,
 	}
 
 	if (!json_tok_pubkey(buffer, idtok, &id)) {
-		command_fail(cmd, "id %.*s not valid",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "id %.*s not valid",
 			     idtok->end - idtok->start,
 			     buffer + idtok->start);
 		return;
 	}
 
 	if (hosttok && ataddr) {
-		command_fail(cmd,
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "Can't specify host as both xxx@yyy "
 			     "and separate argument");
 		return;
@@ -133,7 +135,8 @@ static void json_connect(struct command *cmd,
 
 	/* Port without host name? */
 	if (porttok && !name) {
-		command_fail(cmd, "Can't specify port without host");
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "Can't specify port without host");
 		return;
 	}
 
@@ -143,7 +146,8 @@ static void json_connect(struct command *cmd,
 		/* Is there a port? */
 		if (porttok) {
 			if (!json_tok_number(buffer, porttok, &port) || !port) {
-				command_fail(cmd, "Port %.*s not valid",
+				command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					     "Port %.*s not valid",
 					     porttok->end - porttok->start,
 					     buffer + porttok->start);
 				return;
@@ -156,7 +160,7 @@ static void json_connect(struct command *cmd,
 					     && !cmd->ld->pure_tor_setup,
 					     true,
 					     &err_msg)) {
-			command_fail(cmd, "Host %s:%u not valid: %s",
+			command_fail(cmd, LIGHTNINGD, "Host %s:%u not valid: %s",
 				     name, port, err_msg ? err_msg : "port is 0");
 			return;
 		}

@@ -5,6 +5,7 @@
 #include <common/memleak.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <stdio.h>
@@ -148,7 +149,7 @@ static void json_memleak(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 
 	if (!getenv("LIGHTNINGD_DEV_MEMLEAK")) {
-		command_fail(cmd,
+		command_fail(cmd, LIGHTNINGD,
 			     "Leak detection needs $LIGHTNINGD_DEV_MEMLEAK");
 		return;
 	}

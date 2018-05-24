@@ -10,6 +10,12 @@
 #define JSONRPC2_METHOD_NOT_FOUND	-32601
 #define JSONRPC2_INVALID_PARAMS		-32602
 
+/* Uncategorized error.
+ * FIXME: This should be replaced in all places
+ * with a specific error code, and then removed.
+ */
+#define LIGHTNINGD                      -1
+
 /* Errors from `pay`, `sendpay`, or `waitsendpay` commands */
 #define PAY_IN_PROGRESS			200
 #define PAY_RHASH_ALREADY_USED		201

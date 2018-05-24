@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/options.h>
 #include <signal.h>
@@ -664,7 +665,7 @@ static void json_getlog(struct command *cmd,
 	if (!level)
 		minlevel = LOG_INFORM;
 	else if (!json_tok_loglevel(buffer, level, &minlevel)) {
-		command_fail(cmd, "Invalid level param");
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Invalid level param");
 		return;
 	}
 
