@@ -429,13 +429,10 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 
 	msatoshi_sent = route[0].amount;
 	fee = msatoshi_sent - pay->msatoshi;
-	/* FIXME: IEEE Double-precision floating point has only 53 bits
-	 * of precision. Total satoshis that can ever be created is
-	 * slightly less than 2100000000000000. Total msatoshis that
-	 * can ever be created is 1000 times that or
-	 * 2100000000000000000, requiring 60.865 bits of precision,
-	 * and thus losing precision in the below. Currently, OK, as,
-	 * payments are limited to 4294967295 msatoshi. */
+	/* Casting u64 to double will lose some precision. The loss of precision
+	 * in feepercent will be like 3.0000..(some dots)..1 % - 3.0 %.
+	 * That loss will not be representable in double. So, it's Okay to
+	 * cast u64 to double for feepercent calculation. */
 	feepercent = ((double) fee) * 100.0 / ((double) pay->msatoshi);
 	fee_too_high = (feepercent > pay->maxfeepercent);
 	delay_too_high = (route[0].delay > pay->maxdelay);
