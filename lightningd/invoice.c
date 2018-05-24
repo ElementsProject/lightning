@@ -1,6 +1,7 @@
 #include "invoice.h"
 #include "json.h"
 #include "jsonrpc.h"
+#include "jsonrpc_errors.h"
 #include "lightningd.h"
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
@@ -70,13 +71,15 @@ static void tell_waiter(struct command *cmd, const struct invoice *inv)
 	json_add_invoice(response, &details, true);
 	if (details.state == PAID)
 		command_success(cmd, response);
-	else
+	else {
+		/* FIXME: -2 should be a constant in jsonrpc_errors.h.  */
 		command_fail_detailed(cmd, -2, response,
 				      "invoice expired during wait");
+	}
 }
 static void tell_waiter_deleted(struct command *cmd)
 {
-	command_fail(cmd, "Invoice deleted during wait");
+	command_fail(cmd, LIGHTNINGD, "Invoice deleted during wait");
 }
 static void wait_on_invoice(const struct invoice *invoice, void *cmd)
 {
@@ -141,10 +144,11 @@ static bool parse_fallback(struct command *cmd,
 						buffer, fallback,
 						fallback_script);
 	if (fallback_parse == ADDRESS_PARSE_UNRECOGNIZED) {
-		command_fail(cmd, "Fallback address not valid");
+		command_fail(cmd, LIGHTNINGD, "Fallback address not valid");
 		return false;
 	} else if (fallback_parse == ADDRESS_PARSE_WRONG_NETWORK) {
-		command_fail(cmd, "Fallback address does not match our network %s",
+		command_fail(cmd, LIGHTNINGD,
+			     "Fallback address does not match our network %s",
 			     get_chainparams(cmd->ld)->network_name);
 		return false;
 	}
@@ -189,7 +193,7 @@ static void json_invoice(struct command *cmd,
 		msatoshi_val = tal(cmd, u64);
 		if (!json_tok_u64(buffer, msatoshi, msatoshi_val)
 		    || *msatoshi_val == 0) {
-			command_fail(cmd,
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "'%.*s' is not a valid positive number",
 				     msatoshi->end - msatoshi->start,
 				     buffer + msatoshi->start);
@@ -199,39 +203,42 @@ static void json_invoice(struct command *cmd,
 	/* label */
 	label_val = json_tok_label(cmd, buffer, label);
 	if (!label_val) {
-		command_fail(cmd, "label '%.*s' not a string or number",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "label '%.*s' not a string or number",
 			     label->end - label->start, buffer + label->start);
 		return;
 	}
 	if (wallet_invoice_find_by_label(wallet, &invoice, label_val)) {
-		command_fail_detailed(cmd, INVOICE_LABEL_ALREADY_EXISTS,
-				      NULL,
-				      "Duplicate label '%s'", label_val->s);
+		command_fail(cmd, INVOICE_LABEL_ALREADY_EXISTS,
+			     "Duplicate label '%s'", label_val->s);
 		return;
 	}
 	if (strlen(label_val->s) > INVOICE_MAX_LABEL_LEN) {
-		command_fail(cmd, "Label '%s' over %u bytes", label_val->s,
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "Label '%s' over %u bytes", label_val->s,
 			     INVOICE_MAX_LABEL_LEN);
 		return;
 	}
 
 	desc = json_tok_escaped_string(cmd, buffer, desctok);
 	if (!desc) {
-		command_fail(cmd, "description '%.*s' not a string",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "description '%.*s' not a string",
 			     desctok->end - desctok->start,
 			     buffer + desctok->start);
 		return;
 	}
 	desc_val = json_escaped_unescape(cmd, desc);
 	if (!desc_val) {
-		command_fail(cmd, "description '%s' is invalid"
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "description '%s' is invalid"
 			     " (note: we don't allow \\u)",
 			     desc->s);
 		return;
 	}
 	/* description */
 	if (strlen(desc_val) >= BOLT11_FIELD_BYTE_LIMIT) {
-		command_fail(cmd,
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "Descriptions greater than %d bytes "
 			     "not yet supported "
 			     "(description length %zu)",
@@ -241,7 +248,8 @@ static void json_invoice(struct command *cmd,
 	}
 	/* expiry */
 	if (exp && !json_tok_u64(buffer, exp, &expiry)) {
-		command_fail(cmd, "Expiry '%.*s' invalid seconds",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "Expiry '%.*s' invalid seconds",
 			     exp->end - exp->start,
 			     buffer + exp->start);
 		return;
@@ -255,7 +263,8 @@ static void json_invoice(struct command *cmd,
 					    &fallback_scripts[0]))
 				return;
 		} else {
-			command_fail(cmd, "fallback is deprecated: use fallbacks");
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "fallback is deprecated: use fallbacks");
 			return;
 		}
 	}
@@ -265,12 +274,14 @@ static void json_invoice(struct command *cmd,
 		size_t n = 0;
 
 		if (fallback) {
-			command_fail(cmd, "Cannot use fallback and fallbacks");
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "Cannot use fallback and fallbacks");
 			return;
 		}
 
 		if (fallbacks->type != JSMN_ARRAY) {
-			command_fail(cmd, "fallback must be an array");
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "fallback must be an array");
 			return;
 		}
 		fallback_scripts = tal_arr(cmd, const u8 *, n);
@@ -291,7 +302,8 @@ static void json_invoice(struct command *cmd,
 		if (!hex_decode(buffer + preimagetok->start,
 				preimagetok->end - preimagetok->start,
 				r.r, sizeof(r.r))) {
-			command_fail(cmd, "preimage must be 64 hex digits");
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "preimage must be 64 hex digits");
 			return;
 		}
 	} else
@@ -306,8 +318,8 @@ static void json_invoice(struct command *cmd,
 	 */
 	if (preimagetok &&
 	    wallet_invoice_find_by_rhash(cmd->ld->wallet, &invoice, &rhash)) {
-		command_fail_detailed(cmd, INVOICE_PREIMAGE_ALREADY_EXISTS,
-				      NULL, "preimage already used");
+		command_fail(cmd, INVOICE_PREIMAGE_ALREADY_EXISTS,
+			     "preimage already used");
 		return;
 	}
 
@@ -337,7 +349,8 @@ static void json_invoice(struct command *cmd,
 				       &rhash);
 
 	if (!result) {
-		   command_fail(cmd, "Failed to create invoice on database");
+		command_fail(cmd, LIGHTNINGD,
+			     "Failed to create invoice on database");
 		   return;
 	}
 
@@ -399,7 +412,8 @@ static void json_listinvoice_internal(struct command *cmd,
 	if (labeltok) {
 		label = json_tok_label(cmd, buffer, labeltok);
 		if (!label) {
-			command_fail(cmd, "label '%.*s' is not a string or number",
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "label '%.*s' is not a string or number",
 				     labeltok->end - labeltok->start,
 				     buffer + labeltok->start);
 			return;
@@ -467,13 +481,14 @@ static void json_delinvoice(struct command *cmd,
 
 	label = json_tok_label(cmd, buffer, labeltok);
 	if (!label) {
-		command_fail(cmd, "label '%.*s' is not a string or number",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "label '%.*s' is not a string or number",
 			     labeltok->end - labeltok->start,
 			     buffer + labeltok->start);
 		return;
 	}
 	if (!wallet_invoice_find_by_label(wallet, &i, label)) {
-		command_fail(cmd, "Unknown invoice");
+		command_fail(cmd, LIGHTNINGD, "Unknown invoice");
 		return;
 	}
 	wallet_invoice_details(cmd, cmd->ld->wallet, i, &details);
@@ -484,7 +499,7 @@ static void json_delinvoice(struct command *cmd,
 	 * might not make sense if it changed! */
 	actual_status = invoice_status_str(&details);
 	if (!streq(actual_status, status)) {
-		command_fail(cmd, "Invoice status is %s not %s",
+		command_fail(cmd, LIGHTNINGD, "Invoice status is %s not %s",
 			     actual_status, status);
 		return;
 	}
@@ -497,7 +512,7 @@ static void json_delinvoice(struct command *cmd,
 		log_broken(cmd->ld->log,
 			   "Error attempting to remove invoice %"PRIu64,
 			   i.id);
-		command_fail(cmd, "Database error");
+		command_fail(cmd, LIGHTNINGD, "Database error");
 		return;
 	}
 
@@ -526,7 +541,8 @@ static void json_delexpiredinvoice(struct command *cmd, const char *buffer,
 
 	if (maxexpirytimetok) {
 		if (!json_tok_u64(buffer, maxexpirytimetok, &maxexpirytime)) {
-			command_fail(cmd, "'%.*s' is not a valid number",
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "'%.*s' is not a valid number",
 				     maxexpirytimetok->end - maxexpirytimetok->start,
 				     buffer + maxexpirytimetok->start);
 			return;
@@ -566,7 +582,8 @@ static void json_autocleaninvoice(struct command *cmd,
 
 	if (cycletok) {
 		if (!json_tok_u64(buffer, cycletok, &cycle)) {
-			command_fail(cmd, "'%.*s' is not a valid number",
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "'%.*s' is not a valid number",
 				     cycletok->end - cycletok->start,
 				     buffer + cycletok->start);
 			return;
@@ -574,7 +591,8 @@ static void json_autocleaninvoice(struct command *cmd,
 	}
 	if (exbytok) {
 		if (!json_tok_u64(buffer, exbytok, &exby)) {
-			command_fail(cmd, "'%.*s' is not a valid number",
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "'%.*s' is not a valid number",
 				     exbytok->end - exbytok->start,
 				     buffer + exbytok->start);
 			return;
@@ -614,7 +632,8 @@ static void json_waitanyinvoice(struct command *cmd,
 		pay_index = 0;
 	} else {
 		if (!json_tok_u64(buffer, pay_indextok, &pay_index)) {
-			command_fail(cmd, "'%.*s' is not a valid number",
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "'%.*s' is not a valid number",
 				     pay_indextok->end - pay_indextok->start,
 				     buffer + pay_indextok->start);
 			return;
@@ -660,14 +679,15 @@ static void json_waitinvoice(struct command *cmd,
 	/* Search for invoice */
 	label = json_tok_label(cmd, buffer, labeltok);
 	if (!label) {
-		command_fail(cmd, "label '%.*s' is not a string or number",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "label '%.*s' is not a string or number",
 			     labeltok->end - labeltok->start,
 			     buffer + labeltok->start);
 		return;
 	}
 
 	if (!wallet_invoice_find_by_label(wallet, &i, label)) {
-		command_fail(cmd, "Label not found");
+		command_fail(cmd, LIGHTNINGD, "Label not found");
 		return;
 	}
 	wallet_invoice_details(cmd, cmd->ld->wallet, i, &details);
@@ -753,7 +773,7 @@ static void json_decodepay(struct command *cmd,
 	b11 = bolt11_decode(cmd, str, desc, &fail);
 
 	if (!b11) {
-		command_fail(cmd, "Invalid bolt11: %s", fail);
+		command_fail(cmd, LIGHTNINGD, "Invalid bolt11: %s", fail);
 		return;
 	}
 

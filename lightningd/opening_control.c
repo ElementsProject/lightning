@@ -15,6 +15,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/opening_control.h>
@@ -113,7 +114,7 @@ static void uncommitted_channel_to_gossipd(struct lightningd *ld,
 
 	log_unusual(uc->log, "Opening channel: %s", errstr);
 	if (uc->fc)
-		command_fail(uc->fc->cmd, "%s", errstr);
+		command_fail(uc->fc->cmd, LIGHTNINGD, "%s", errstr);
 
 	/* Hand back to gossipd, (maybe) with an error packet to send. */
 	msg = towire_gossipctl_hand_back_peer(errstr, &uc->peer->id, cs,
@@ -133,7 +134,7 @@ void kill_uncommitted_channel(struct uncommitted_channel *uc,
 	uc->openingd = NULL;
 
 	if (uc->fc)
-		command_fail(uc->fc->cmd, "%s", why);
+		command_fail(uc->fc->cmd, LIGHTNINGD, "%s", why);
 	tal_free(uc);
 }
 
@@ -305,7 +306,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		log_broken(fc->uc->log,
 			   "bad OPENING_FUNDER_REPLY %s",
 			   tal_hex(resp, resp));
-		command_fail(fc->cmd, "bad OPENING_FUNDER_REPLY %s",
+		command_fail(fc->cmd, LIGHTNINGD, "bad OPENING_FUNDER_REPLY %s",
 			     tal_hex(fc->cmd, resp));
 		goto failed;
 	}
@@ -354,7 +355,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					  &local_fundingkey),
 			   type_to_string(fc, struct pubkey,
 					  &channel_info.remote_fundingkey));
-		command_fail(fc->cmd,
+		command_fail(fc->cmd, JSONRPC2_INVALID_PARAMS,
 			     "Funding txid mismatch:"
 			     " satoshi %"PRIu64" change %"PRIu64
 			     " changeidx %u"
@@ -380,7 +381,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					&channel_info,
 					feerate);
 	if (!channel) {
-		command_fail(fc->cmd, "Key generation failure");
+		command_fail(fc->cmd, LIGHTNINGD,
+			     "Key generation failure");
 		goto failed;
 	}
 
@@ -542,7 +544,7 @@ static void opening_channel_errmsg(struct uncommitted_channel *uc,
 		log_info(uc->log, "%s", desc);
 		subd_send_msg(uc->peer->ld->gossip, msg);
 		if (uc->fc)
-			command_fail(uc->fc->cmd, "%s", desc);
+			command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc);
 	} else {
 		/* An error occurred (presumably negotiation fail). */
 		const char *errsrc = err_for_them ? "sent" : "received";
@@ -761,7 +763,7 @@ static void peer_offer_channel(struct lightningd *ld,
 	/* We asked to release this peer, but another raced in?  Corner case,
 	 * close this is easiest. */
 	if (!fc->uc) {
-		command_fail(fc->cmd, "Peer already active");
+		command_fail(fc->cmd, LIGHTNINGD, "Peer already active");
 		close(peer_fd);
 		close(gossip_fd);
 		return;
@@ -840,12 +842,12 @@ static void gossip_peer_released(struct subd *gossip,
 			      tal_hex(gossip, resp));
 		}
 		if (uc)
-			command_fail(fc->cmd, "Peer already OPENING");
+			command_fail(fc->cmd, LIGHTNINGD, "Peer already OPENING");
 		else if (c)
-			command_fail(fc->cmd, "Peer already %s",
+			command_fail(fc->cmd, LIGHTNINGD, "Peer already %s",
 				     channel_state_name(c));
 		else
-			command_fail(fc->cmd, "Peer not connected");
+			command_fail(fc->cmd, LIGHTNINGD, "Peer not connected");
 		return;
 	}
 	assert(tal_count(fds) == 2);
@@ -904,7 +906,7 @@ static void json_fund_channel(struct command *cmd,
 	if (!pubkey_from_hexstr(buffer + desttok->start,
 				desttok->end - desttok->start,
 				&fc->peerid)) {
-		command_fail(cmd, "Could not parse id");
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Could not parse id");
 		return;
 	}
 
@@ -917,7 +919,8 @@ static void json_fund_channel(struct command *cmd,
 		return;
 
 	if (fc->wtx.amount > MAX_FUNDING_SATOSHI) {
-		command_fail(cmd, "Funding satoshi must be <= %d",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "Funding satoshi must be <= %d",
 			     MAX_FUNDING_SATOSHI);
 		return;
 	}

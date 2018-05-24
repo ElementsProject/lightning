@@ -11,6 +11,7 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/pay.h>
@@ -1647,12 +1648,14 @@ static void json_dev_ignore_htlcs(struct command *cmd, const char *buffer,
 
 	peer = peer_from_json(cmd->ld, buffer, nodeidtok);
 	if (!peer) {
-		command_fail(cmd, "Could not find channel with that peer");
+		command_fail(cmd, LIGHTNINGD,
+			     "Could not find channel with that peer");
 		return;
 	}
 
 	if (!json_tok_bool(buffer, ignoretok, &peer->ignore_htlcs)) {
-		command_fail(cmd, "Invalid boolean '%.*s'",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "Invalid boolean '%.*s'",
 			     ignoretok->end - ignoretok->start,
 			     buffer + ignoretok->start);
 		return;

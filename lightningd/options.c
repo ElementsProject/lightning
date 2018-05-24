@@ -20,6 +20,7 @@
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
@@ -1031,7 +1032,8 @@ static void json_listconfigs(struct command *cmd,
 	json_object_end(response);
 
 	if (configtok && !found) {
-		command_fail(cmd, "Unknown config option '%.*s'",
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "Unknown config option '%.*s'",
 			     configtok->end - configtok->start,
 			     buffer + configtok->start);
 		return;

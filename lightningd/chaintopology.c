@@ -4,6 +4,7 @@
 #include "bitcoind.h"
 #include "chaintopology.h"
 #include "jsonrpc.h"
+#include "jsonrpc_errors.h"
 #include "lightningd.h"
 #include "log.h"
 #include "watch.h"
@@ -656,7 +657,8 @@ static void json_dev_setfees(struct command *cmd,
 			continue;
 		if (!json_tok_number(buffer, ratetok[i],
 				     &topo->dev_override_fee_rate[i])) {
-			command_fail(cmd, "Invalid feerate %.*s",
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "Invalid feerate %.*s",
 				     ratetok[i]->end - ratetok[i]->start,
 				     buffer + ratetok[i]->start);
 			return;
