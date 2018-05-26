@@ -2591,6 +2591,33 @@ static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+/**
+ * Disable both directions of a channel due to an imminent close.
+ *
+ * We'll leave it to handle_outpoint_spent to delete the channel from our view
+ * once the close gets confirmed. This avoids having strange states in which the
+ * channel is list in our peer list but won't be returned when listing public
+ * channels. This does not send out updates since that's triggered by the peer
+ * connection closing.
+ */
+static struct io_plan *handle_local_channel_close(struct io_conn *conn,
+						  struct daemon *daemon,
+						  const u8 *msg)
+{
+	struct short_channel_id scid;
+	struct chan *chan;
+	struct routing_state *rstate = daemon->rstate;
+	if (!fromwire_gossip_local_channel_close(msg, &scid))
+		master_badmsg(WIRE_GOSSIP_ROUTING_FAILURE, msg);
+
+	chan = get_channel(rstate, &scid);
+	if (chan) {
+		chan->half[0].flags |= ROUTING_FLAGS_DISABLED;
+		chan->half[1].flags |= ROUTING_FLAGS_DISABLED;
+	}
+	return daemon_conn_read_next(conn, &daemon->master);
+}
+
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct daemon *daemon = container_of(master, struct daemon, master);
@@ -2656,6 +2683,9 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 
 	case WIRE_GOSSIP_OUTPOINT_SPENT:
 		return handle_outpoint_spent(conn, daemon, master->msg_in);
+
+	case WIRE_GOSSIP_LOCAL_CHANNEL_CLOSE:
+		return handle_local_channel_close(conn, daemon, master->msg_in);
 
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPCTL_ACTIVATE_REPLY:
