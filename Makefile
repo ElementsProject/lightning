@@ -367,7 +367,7 @@ update-mocks/%: %
 	@tools/update-mocks.sh "$*"
 
 unittest/%: %
-	$(VALGRIND) $(VALGRIND_TEST_ARGS) $*
+	$(VALGRIND) $(VALGRIND_TEST_ARGS) $* > /dev/null
 
 # Installation directories
 prefix = /usr/local
