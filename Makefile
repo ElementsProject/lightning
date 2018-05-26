@@ -51,6 +51,7 @@ CCAN_OBJS :=					\
 	ccan-autodata.o				\
 	ccan-bitops.o				\
 	ccan-breakpoint.o			\
+	ccan-crc.o				\
 	ccan-crypto-hmac.o			\
 	ccan-crypto-hkdf.o			\
 	ccan-crypto-ripemd160.o			\
@@ -106,6 +107,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/compiler/compiler.h		\
 	$(CCANDIR)/ccan/container_of/container_of.h	\
 	$(CCANDIR)/ccan/cppmagic/cppmagic.h		\
+	$(CCANDIR)/ccan/crc/crc.h			\
 	$(CCANDIR)/ccan/crypto/hkdf_sha256/hkdf_sha256.h \
 	$(CCANDIR)/ccan/crypto/hmac_sha256/hmac_sha256.h \
 	$(CCANDIR)/ccan/crypto/ripemd160/ripemd160.h	\
@@ -511,6 +513,8 @@ ccan-err.o: $(CCANDIR)/ccan/err/err.c
 ccan-noerr.o: $(CCANDIR)/ccan/noerr/noerr.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-str-hex.o: $(CCANDIR)/ccan/str/hex/hex.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-crc.o: $(CCANDIR)/ccan/crc/crc.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-crypto-hmac.o: $(CCANDIR)/ccan/crypto/hmac_sha256/hmac_sha256.c
 	$(CC) $(CFLAGS) -c -o $@ $<
