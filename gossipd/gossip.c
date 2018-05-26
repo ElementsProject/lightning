@@ -2496,8 +2496,9 @@ static struct io_plan *handle_disable_channel(struct io_conn *conn,
 	if (timestamp <= hc->last_timestamp)
 		timestamp = hc->last_timestamp + 1;
 
-	/* Active is bit 1 << 1, mask and apply */
-	flags = (0xFFFD & flags) | (!active << 1);
+	flags = direction;
+	if (!active)
+		flags |= ROUTING_FLAGS_DISABLED;
 
 	msg = towire_channel_update(tmpctx, &sig, &chain_hash, &scid, timestamp,
 				    flags, cltv_expiry_delta, htlc_minimum_msat,
