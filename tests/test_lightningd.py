@@ -2663,14 +2663,20 @@ class LightningDTests(BaseLightningDTests):
             comb.append((nodes[i].info['id'], nodes[i + 1].info['id']))
             comb.append((nodes[i + 1].info['id'], nodes[i].info['id']))
 
+        def check_gossip(n):
+            seen = []
+            channels = n.rpc.listchannels()['channels']
+            for c in channels:
+                seen.append((c['source'], c['destination']))
+            missing = set(comb) - set(seen)
+            logging.debug("Node {id} is missing channels {chans}".format(
+                id=n.info['id'],
+                chans=missing)
+            )
+            return len(missing) == 0
+
         for n in nodes:
-            def check_gossip():
-                seen = []
-                channels = n.rpc.listchannels()['channels']
-                for c in channels:
-                    seen.append((c['source'], c['destination']))
-                return set(seen) == set(comb)
-            wait_for(check_gossip)
+            wait_for(lambda: check_gossip(n), interval=1)
 
     @unittest.skipIf(not DEVELOPER, "Too slow without --dev-bitcoind-poll")
     def test_forward(self):
