@@ -1,5 +1,6 @@
 #include "gossip_store.h"
 
+#include <ccan/crc/crc.h>
 #include <ccan/endian/endian.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <common/status.h>
@@ -12,7 +13,7 @@
 #include <wire/wire.h>
 
 #define GOSSIP_STORE_FILENAME "gossip_store"
-static u8 gossip_store_version = 0x01;
+static u8 gossip_store_version = 0x02;
 
 struct gossip_store {
 	int fd;
@@ -63,14 +64,17 @@ struct gossip_store *gossip_store_new(const tal_t *ctx)
 static void gossip_store_append(struct gossip_store *gs, const u8 *msg)
 {
 	u32 msglen = tal_len(msg);
-	beint32_t belen = cpu_to_be32(msglen);
+	beint32_t checksum, belen = cpu_to_be32(msglen);
 
 	/* Only give error message once. */
 	if (gs->fd == -1)
 		return;
 
+	checksum = cpu_to_be32(crc32c(0, msg, msglen));
+
 	/* FORTIFY_SOURCE gets upset if we don't check return. */
 	if (write(gs->fd, &belen, sizeof(belen)) != sizeof(belen) ||
+	    write(gs->fd, &checksum, sizeof(checksum)) != sizeof(checksum) ||
 	    write(gs->fd, msg, msglen) != msglen) {
               status_broken("Failed writing to gossip store: %s",
 			    strerror(errno));
@@ -120,8 +124,8 @@ void gossip_store_local_add_channel(struct gossip_store *gs,
 
 void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 {
-	beint32_t belen;
-	u32 msglen;
+	beint32_t belen, becsum;
+	u32 msglen, checksum;
 	u8 *msg, *gossip_msg;
 	u64 satoshis;
 	struct short_channel_id scid;
@@ -134,13 +138,20 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		status_unusual("gossip_store: lseek failure");
 		goto truncate_nomsg;
 	}
-	while (read(gs->fd, &belen, sizeof(belen)) == sizeof(belen)) {
+	while (read(gs->fd, &belen, sizeof(belen)) == sizeof(belen) &&
+	       read(gs->fd, &becsum, sizeof(becsum)) == sizeof(becsum)) {
 		msglen = be32_to_cpu(belen);
+		checksum = be32_to_cpu(becsum);
 		msg = tal_arr(gs, u8, msglen);
 
 		if (read(gs->fd, msg, msglen) != msglen) {
 			status_unusual("gossip_store: truncated file?");
 			goto truncate_nomsg;
+		}
+
+		if (checksum != crc32c(0, msg, msglen)) {
+			bad = "Checksum verification failed";
+			goto truncate;
 		}
 
 		if (fromwire_gossip_store_channel_announcement(msg, msg,
