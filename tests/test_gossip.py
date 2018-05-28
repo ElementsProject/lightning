@@ -58,3 +58,39 @@ def test_gossip_pruning(node_factory, bitcoind):
     assert scid2 not in [c['short_channel_id'] for c in l2.rpc.listchannels()['channels']]
     assert l3.info['id'] not in [n['nodeid'] for n in l1.rpc.listnodes()['nodes']]
     assert l3.info['id'] not in [n['nodeid'] for n in l2.rpc.listnodes()['nodes']]
+
+
+@unittest.skipIf(not DEVELOPER, "needs --dev-broadcast-interval, --dev-no-reconnect")
+def test_gossip_disable_channels(node_factory, bitcoind):
+    """Simple test to check that channels get disabled correctly on disconnect and
+    reenabled upon reconnecting
+
+    """
+    opts = {'dev-no-reconnect': None, 'may_reconnect': True}
+    l1, l2 = node_factory.get_nodes(2, opts=opts)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    scid = l1.fund_channel(l2, 10**6)
+    bitcoind.rpc.generate(5)
+
+    def count_active(node):
+        chans = node.rpc.listchannels()['channels']
+        active = [c for c in chans if c['active']]
+        return len(active)
+
+    l1.wait_channel_active(scid)
+    l2.wait_channel_active(scid)
+
+    assert(count_active(l1) == 2)
+    assert(count_active(l2) == 2)
+
+    l2.restart()
+
+    wait_for(lambda: count_active(l1) == 0)
+    assert(count_active(l2) == 0)
+
+    # Now reconnect, they should re-enable the channels
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    wait_for(lambda: count_active(l1) == 2)
+    wait_for(lambda: count_active(l2) == 2)
