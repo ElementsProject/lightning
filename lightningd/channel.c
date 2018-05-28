@@ -329,14 +329,6 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 	why = tal_vfmt(channel, fmt, ap);
 	va_end(ap);
 
-	if (channel->scid) {
-		u8 *msg = towire_gossip_disable_channel(NULL,
-						    channel->scid,
-						    channel->peer->direction,
-						    false);
-		subd_send_msg(ld->gossip, take(msg));
-	}
-
 	log_unusual(channel->log, "Peer permanent failure in %s: %s",
 		    channel_state_name(channel), why);
 
