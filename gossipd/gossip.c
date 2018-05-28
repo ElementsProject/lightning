@@ -1900,6 +1900,26 @@ static void gossip_disable_channel(struct routing_state *rstate, struct chan *ch
 			      tal_hex(tmpctx, err));
 }
 
+static void gossip_disable_local_channels(struct daemon *daemon)
+{
+	struct node *local_node =
+	    get_node(daemon->rstate, &daemon->rstate->local_id);
+	struct chan *c;
+	size_t i;
+
+	/* We don't have a local_node, so we don't have any channels yet
+	 * either */
+	if (!local_node)
+		return;
+
+	for (i=0; i<tal_count(local_node->chans); i++) {
+		c = local_node->chans[i];
+		c->half[0].flags |= ROUTING_FLAGS_DISABLED;
+		c->half[1].flags |= ROUTING_FLAGS_DISABLED;
+		gossip_disable_channel(daemon->rstate, c);
+	}
+}
+
 /* Parse an incoming gossip init message and assign config variables
  * to the daemon.
  */
@@ -1938,6 +1958,10 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 
 	/* Load stored gossip messages */
 	gossip_store_load(daemon->rstate, daemon->rstate->store);
+
+	/* Now disable all local channels, they can't be connected yet. */
+	gossip_disable_local_channels(daemon);
+
 
 	new_reltimer(&daemon->timers, daemon,
 		     time_from_sec(daemon->rstate->prune_timeout/4),
