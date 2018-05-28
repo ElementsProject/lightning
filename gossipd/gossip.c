@@ -2394,6 +2394,11 @@ static void gossip_disable_channel(struct routing_state *rstate, struct chan *ch
 		    "Unable to parse previously accepted channel_update");
 	}
 
+	/* Avoid sending gratuitous disable messages, e.g., on close and
+	 * subsequent disconnect */
+	if (flags & ROUTING_FLAGS_DISABLED)
+		return;
+
 	status_trace("Disabling channel %s", type_to_string(tmpctx, struct short_channel_id, &scid));
 
 	timestamp = time_now().ts.tv_sec;
