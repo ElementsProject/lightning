@@ -52,7 +52,7 @@ bool channel_tell_funding_locked(struct lightningd *ld UNNEEDED,
 { fprintf(stderr, "channel_tell_funding_locked called!\n"); abort(); }
 /* Generated stub for command_fail */
 void  command_fail(struct command *cmd UNNEEDED, int code UNNEEDED,
-		   const char *fmt UNNEEDED, ...)
+				   const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "command_fail called!\n"); abort(); }
 /* Generated stub for command_still_pending */
 void command_still_pending(struct command *cmd UNNEEDED)
@@ -388,9 +388,6 @@ u8 *towire_gossipctl_peer_disconnected(const tal_t *ctx UNNEEDED, const struct p
 /* Generated stub for towire_gossipctl_peer_important */
 u8 *towire_gossipctl_peer_important(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, bool important UNNEEDED)
 { fprintf(stderr, "towire_gossipctl_peer_important called!\n"); abort(); }
-/* Generated stub for towire_gossip_disable_channel */
-u8 *towire_gossip_disable_channel(const tal_t *ctx UNNEEDED, const struct short_channel_id *short_channel_id UNNEEDED, u8 direction UNNEEDED, bool active UNNEEDED)
-{ fprintf(stderr, "towire_gossip_disable_channel called!\n"); abort(); }
 /* Generated stub for towire_gossip_getpeers_request */
 u8 *towire_gossip_getpeers_request(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
 { fprintf(stderr, "towire_gossip_getpeers_request called!\n"); abort(); }
