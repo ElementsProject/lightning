@@ -3857,7 +3857,8 @@ class LightningDTests(BaseLightningDTests):
         assert l2.rpc.listinvoices('inv1')['invoices'][0]['status'] == 'paid'
 
         # FIXME: We should re-add pre-announced routes on startup!
-        self.wait_for_routes(l1, [chanid])
+        l1.bitcoin.rpc.generate(5)
+        l1.wait_channel_active(chanid)
 
         # A duplicate should succeed immediately (nop) and return correct preimage.
         preimage = l1.rpc.pay(inv1['bolt11'])['payment_preimage']

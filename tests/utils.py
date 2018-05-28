@@ -459,3 +459,11 @@ class LightningNode(object):
         # Intermittent decoding failure.  See if it decodes badly twice?
         decoded2 = self.bitcoin.rpc.decoderawtransaction(tx)
         raise ValueError("Can't find {} payment in {} (1={} 2={})".format(amount, tx, decoded, decoded2))
+
+    def is_channel_active(self, chanid):
+        channels = self.rpc.listchannels()['channels']
+        active = [(c['short_channel_id'], c['flags']) for c in channels if c['active']]
+        return (chanid, 0) in active and (chanid, 1) in active
+
+    def wait_channel_active(self, chanid):
+        wait_for(lambda: self.is_channel_active(chanid), interval=1)
