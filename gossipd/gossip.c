@@ -1833,6 +1833,73 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	return binding;
 }
 
+static void gossip_disable_channel(struct routing_state *rstate, struct chan *chan)
+{
+	struct short_channel_id scid;
+	u8 direction;
+	struct half_chan *hc;
+	u16 flags, cltv_expiry_delta;
+	u32 timestamp, fee_base_msat, fee_proportional_millionths;
+	struct bitcoin_blkid chain_hash;
+	secp256k1_ecdsa_signature sig;
+	u64 htlc_minimum_msat;
+	u8 *err, *msg;
+
+	direction = pubkey_eq(&chan->nodes[0]->id, &rstate->local_id)?0:1;
+	assert(chan);
+	hc = &chan->half[direction];
+
+	if (!is_halfchan_defined(hc))
+		return;
+
+	status_trace("Disabling channel %s/%d, active %d -> %d",
+		     type_to_string(tmpctx, struct short_channel_id, &chan->scid),
+		     direction, is_halfchan_enabled(hc), 0);
+
+	if (!fromwire_channel_update(
+		hc->channel_update, &sig, &chain_hash, &scid, &timestamp,
+		&flags, &cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
+		&fee_proportional_millionths)) {
+		status_failed(
+		    STATUS_FAIL_INTERNAL_ERROR,
+		    "Unable to parse previously accepted channel_update");
+	}
+
+	/* Avoid sending gratuitous disable messages, e.g., on close and
+	 * subsequent disconnect */
+	if (flags & ROUTING_FLAGS_DISABLED)
+		return;
+
+	timestamp = time_now().ts.tv_sec;
+	if (timestamp <= hc->last_timestamp)
+		timestamp = hc->last_timestamp + 1;
+
+	flags = flags | ROUTING_FLAGS_DISABLED;
+
+	msg = towire_channel_update(tmpctx, &sig, &chain_hash, &scid, timestamp,
+				    flags, cltv_expiry_delta, htlc_minimum_msat,
+				    fee_base_msat, fee_proportional_millionths);
+
+	if (!wire_sync_write(HSM_FD,
+			     towire_hsm_cupdate_sig_req(tmpctx, msg))) {
+		status_failed(STATUS_FAIL_HSM_IO, "Writing cupdate_sig_req: %s",
+			      strerror(errno));
+	}
+
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!msg || !fromwire_hsm_cupdate_sig_reply(tmpctx, msg, &msg)) {
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading cupdate_sig_req: %s",
+			      strerror(errno));
+	}
+
+	err = handle_channel_update(rstate, msg, "disable_channel");
+	if (err)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "rejected disabling channel_update: %s",
+			      tal_hex(tmpctx, err));
+}
+
 /* Parse an incoming gossip init message and assign config variables
  * to the daemon.
  */
@@ -2353,84 +2420,6 @@ static struct io_plan *peer_important(struct io_conn *conn,
 	}
 
 	return daemon_conn_read_next(conn, &daemon->master);
-}
-
-static void gossip_disable_channel(struct routing_state *rstate, struct chan *chan)
-{
-	struct short_channel_id scid;
-	u8 direction;
-	struct half_chan *hc;
-	u16 flags, cltv_expiry_delta;
-	u32 timestamp, fee_base_msat, fee_proportional_millionths;
-	struct bitcoin_blkid chain_hash;
-	secp256k1_ecdsa_signature sig;
-	u64 htlc_minimum_msat;
-	u8 *err, *msg;
-
-	direction = pubkey_eq(&chan->nodes[0]->id, &rstate->local_id)?0:1;
-
-	assert(chan);
-	hc = &chan->half[direction];
-
-	status_trace("Disabling channel %s/%d, active %d -> %d",
-		     type_to_string(tmpctx, struct short_channel_id, &chan->scid),
-		     direction, is_halfchan_enabled(hc), 0);
-
-	if (!is_halfchan_defined(hc)) {
-		status_trace(
-		    "Channel %s/%d doesn't have a channel_update yet, can't "
-		    "disable",
-		    type_to_string(tmpctx, struct short_channel_id, &scid),
-		    direction);
-		return;
-	}
-
-	if (!fromwire_channel_update(
-		hc->channel_update, &sig, &chain_hash, &scid, &timestamp,
-		&flags, &cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
-		&fee_proportional_millionths)) {
-		status_failed(
-		    STATUS_FAIL_INTERNAL_ERROR,
-		    "Unable to parse previously accepted channel_update");
-	}
-
-	/* Avoid sending gratuitous disable messages, e.g., on close and
-	 * subsequent disconnect */
-	if (flags & ROUTING_FLAGS_DISABLED)
-		return;
-
-	status_trace("Disabling channel %s", type_to_string(tmpctx, struct short_channel_id, &scid));
-
-	timestamp = time_now().ts.tv_sec;
-	if (timestamp <= hc->last_timestamp)
-		timestamp = hc->last_timestamp + 1;
-
-	status_trace("Disabling channel %s: %d", type_to_string(tmpctx, struct short_channel_id, &scid), 0);
-
-	flags = flags | ROUTING_FLAGS_DISABLED;
-
-	msg = towire_channel_update(tmpctx, &sig, &chain_hash, &scid, timestamp,
-				    flags, cltv_expiry_delta, htlc_minimum_msat,
-				    fee_base_msat, fee_proportional_millionths);
-
-	if (!wire_sync_write(HSM_FD,
-			     towire_hsm_cupdate_sig_req(tmpctx, msg))) {
-		status_failed(STATUS_FAIL_HSM_IO, "Writing cupdate_sig_req: %s",
-			      strerror(errno));
-	}
-
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_cupdate_sig_reply(tmpctx, msg, &msg)) {
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Reading cupdate_sig_req: %s",
-			      strerror(errno));
-	}
-
-	err = handle_channel_update(rstate, msg, "disable_channel");
-	if (err)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "rejected disabling channel_update: %s",
-			      tal_hex(tmpctx, err));
 }
 
 static void peer_disable_channels(struct routing_state *rstate, struct node *node)
