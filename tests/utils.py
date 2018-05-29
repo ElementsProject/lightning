@@ -338,12 +338,22 @@ class LightningNode(object):
         self.may_fail = may_fail
         self.may_reconnect = may_reconnect
 
-    def openchannel(self, remote_node, capacity, addrtype="p2sh-segwit"):
+    def openchannel(self, remote_node, capacity, addrtype="p2sh-segwit", confirm=True, announce=True):
         addr, wallettxid = self.fundwallet(capacity, addrtype)
         fundingtx = self.rpc.fundchannel(remote_node.info['id'], capacity)
-        self.daemon.wait_for_log('sendrawtx exit 0, gave')
-        self.bitcoin.generate_block(6)
-        self.daemon.wait_for_log('to CHANNELD_NORMAL|STATE_NORMAL')
+
+        # Wait for the funding transaction to be in bitcoind's mempool
+        wait_for(lambda: fundingtx['txid'] in self.bitcoin.rpc.getrawmempool())
+
+        if confirm or announce:
+            self.bitcoin.generate_block(1)
+
+        if announce:
+            self.bitcoin.generate_block(5)
+
+        if confirm or announce:
+            self.daemon.wait_for_log(
+                r'Funding tx {} depth'.format(fundingtx['txid']))
         return {'address': addr, 'wallettxid': wallettxid, 'fundingtx': fundingtx}
 
     def fundwallet(self, sats, addrtype="p2sh-segwit"):
