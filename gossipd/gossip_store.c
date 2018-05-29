@@ -13,15 +13,21 @@
 #include <wire/wire.h>
 
 #define GOSSIP_STORE_FILENAME "gossip_store"
+#define MAX_COUNT_TO_STALE_RATE 10
 static u8 gossip_store_version = 0x02;
 
 struct gossip_store {
 	int fd;
 	u8 version;
 
+	/* Counters for entries in the gossip_store entries. This is used to
+	 * decide whether we should rewrite the on-disk store or not */
+	size_t count;
+
 	/* The broadcast struct we source messages from when rewriting the
 	 * gossip_store */
 	struct broadcast_state *broadcast;
+
 };
 
 static void gossip_store_destroy(struct gossip_store *gs)
@@ -33,6 +39,7 @@ struct gossip_store *gossip_store_new(const tal_t *ctx,
 				      struct broadcast_state *broadcast)
 {
 	struct gossip_store *gs = tal(ctx, struct gossip_store);
+	gs->count = 0;
 	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
 	gs->broadcast = broadcast;
 
@@ -71,6 +78,7 @@ static void gossip_store_append(struct gossip_store *gs, const u8 *msg)
 {
 	u32 msglen = tal_len(msg);
 	beint32_t checksum, belen = cpu_to_be32(msglen);
+	size_t stale;
 
 	/* Only give error message once. */
 	if (gs->fd == -1)
@@ -86,9 +94,16 @@ static void gossip_store_append(struct gossip_store *gs, const u8 *msg)
 			    strerror(errno));
 	      gs->fd = -1;
 	}
+	gs->count++;
+	stale = gs->count - gs->broadcast->count;
+
+	if (gs->count >= 100 && stale * MAX_COUNT_TO_STALE_RATE > gs->count) {
+		/* FIXME(cdecker) Implement rewriting of gossip_store */
+	}
 }
 
-void gossip_store_add_channel_announcement(struct gossip_store *gs, const u8 *gossip_msg, u64 satoshis)
+void gossip_store_add_channel_announcement(struct gossip_store *gs,
+					   const u8 *gossip_msg, u64 satoshis)
 {
 	u8 *msg = towire_gossip_store_channel_announcement(NULL, gossip_msg, satoshis);
 	gossip_store_append(gs, msg);
@@ -200,6 +215,7 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			goto truncate;
 		}
 		known_good += sizeof(belen) + msglen;
+		gs->count++;
 		tal_free(msg);
 	}
 	goto out;
