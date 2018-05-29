@@ -1833,7 +1833,8 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	return binding;
 }
 
-static void gossip_disable_channel(struct routing_state *rstate, struct chan *chan)
+static void gossip_disable_outgoing_halfchan(struct routing_state *rstate,
+					     struct chan *chan)
 {
 	struct short_channel_id scid;
 	u8 direction;
@@ -1900,11 +1901,33 @@ static void gossip_disable_channel(struct routing_state *rstate, struct chan *ch
 			      tal_hex(tmpctx, err));
 }
 
+/**
+ * Disable both directions of a local channel.
+ *
+ * Disables both directions of a local channel as a result of a close or lost
+ * connection. A disabling `channel_update` will be queued for the outgoing
+ * direction as well. We can't do that for the incoming direction, so we just
+ * locally flip the flag, and the other endpoint should take care of publicly
+ * disabling it with a `channel_update`.
+ *
+ * It is important to disable the incoming edge as well since we might otherwise
+ * return that edge as a `contact_point` as part of an invoice.
+ */
+static void gossip_disable_local_channel(struct routing_state *rstate,
+					 struct chan *chan)
+{
+	assert(pubkey_eq(&rstate->local_id, &chan->nodes[0]->id) ||
+	       pubkey_eq(&rstate->local_id, &chan->nodes[1]->id));
+
+	chan->half[0].flags |= ROUTING_FLAGS_DISABLED;
+	chan->half[1].flags |= ROUTING_FLAGS_DISABLED;
+	gossip_disable_outgoing_halfchan(rstate, chan);
+}
+
 static void gossip_disable_local_channels(struct daemon *daemon)
 {
 	struct node *local_node =
 	    get_node(daemon->rstate, &daemon->rstate->local_id);
-	struct chan *c;
 	size_t i;
 
 	/* We don't have a local_node, so we don't have any channels yet
@@ -1912,12 +1935,9 @@ static void gossip_disable_local_channels(struct daemon *daemon)
 	if (!local_node)
 		return;
 
-	for (i=0; i<tal_count(local_node->chans); i++) {
-		c = local_node->chans[i];
-		c->half[0].flags |= ROUTING_FLAGS_DISABLED;
-		c->half[1].flags |= ROUTING_FLAGS_DISABLED;
-		gossip_disable_channel(daemon->rstate, c);
-	}
+	for (i = 0; i < tal_count(local_node->chans); i++)
+		gossip_disable_local_channel(daemon->rstate,
+					     local_node->chans[i]);
 }
 
 /* Parse an incoming gossip init message and assign config variables
@@ -2452,11 +2472,8 @@ static void peer_disable_channels(struct routing_state *rstate, struct node *nod
 	size_t i;
 	for (i=0; i<tal_count(node->chans); i++) {
 		c = node->chans[i];
-		if (pubkey_eq(&other_node(node, c)->id, &rstate->local_id)) {
-			c->half[0].flags |= ROUTING_FLAGS_DISABLED;
-			c->half[1].flags |= ROUTING_FLAGS_DISABLED;
-			gossip_disable_channel(rstate, c);
-		}
+		if (pubkey_eq(&other_node(node, c)->id, &rstate->local_id))
+			gossip_disable_local_channel(rstate, c);
 	}
 }
 
@@ -2637,11 +2654,8 @@ static struct io_plan *handle_local_channel_close(struct io_conn *conn,
 		master_badmsg(WIRE_GOSSIP_ROUTING_FAILURE, msg);
 
 	chan = get_channel(rstate, &scid);
-	if (chan) {
-		chan->half[0].flags |= ROUTING_FLAGS_DISABLED;
-		chan->half[1].flags |= ROUTING_FLAGS_DISABLED;
-		gossip_disable_channel(rstate, chan);
-	}
+	if (chan)
+		gossip_disable_local_channel(rstate, chan);
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
