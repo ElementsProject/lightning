@@ -74,6 +74,28 @@ struct gossip_store *gossip_store_new(const tal_t *ctx,
 			      "Writing version to store: %s", strerror(errno));
 	return gs;
 }
+
+/**
+ * Given a message and a file descriptor append the message to it.
+ *
+ * Returns true on success, false on error.
+ */
+static bool gossip_store_file_append(int fd, const u8 *msg)
+{
+	u32 msglen = tal_len(msg);
+	beint32_t checksum, belen = cpu_to_be32(msglen);
+
+	/* Only give error message once. */
+	if (fd == -1)
+		return true;
+
+	checksum = cpu_to_be32(crc32c(0, msg, msglen));
+
+	return (write(fd, &belen, sizeof(belen)) == sizeof(belen) &&
+		write(fd, &checksum, sizeof(checksum)) == sizeof(checksum) &&
+		write(fd, msg, msglen) == msglen);
+}
+
 /**
  * Write an incoming message to the `gossip_store`
  *
@@ -83,24 +105,14 @@ struct gossip_store *gossip_store_new(const tal_t *ctx,
  */
 static void gossip_store_append(struct gossip_store *gs, const u8 *msg)
 {
-	u32 msglen = tal_len(msg);
-	beint32_t checksum, belen = cpu_to_be32(msglen);
 	size_t stale;
-
-	/* Only give error message once. */
-	if (gs->fd == -1)
+	if (!gossip_store_file_append(gs->fd, msg)) {
+		status_broken("Failed writing to gossip store: %s",
+			      strerror(errno));
+		gs->fd = -1;
 		return;
-
-	checksum = cpu_to_be32(crc32c(0, msg, msglen));
-
-	/* FORTIFY_SOURCE gets upset if we don't check return. */
-	if (write(gs->fd, &belen, sizeof(belen)) != sizeof(belen) ||
-	    write(gs->fd, &checksum, sizeof(checksum)) != sizeof(checksum) ||
-	    write(gs->fd, msg, msglen) != msglen) {
-              status_broken("Failed writing to gossip store: %s",
-			    strerror(errno));
-	      gs->fd = -1;
 	}
+
 	gs->count++;
 	stale = gs->count - gs->broadcast->count;
 
