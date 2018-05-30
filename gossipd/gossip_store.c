@@ -18,6 +18,10 @@ static u8 gossip_store_version = 0x02;
 struct gossip_store {
 	int fd;
 	u8 version;
+
+	/* The broadcast struct we source messages from when rewriting the
+	 * gossip_store */
+	struct broadcast_state *broadcast;
 };
 
 static void gossip_store_destroy(struct gossip_store *gs)
@@ -25,10 +29,12 @@ static void gossip_store_destroy(struct gossip_store *gs)
 	close(gs->fd);
 }
 
-struct gossip_store *gossip_store_new(const tal_t *ctx)
+struct gossip_store *gossip_store_new(const tal_t *ctx,
+				      struct broadcast_state *broadcast)
 {
 	struct gossip_store *gs = tal(ctx, struct gossip_store);
 	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
+	gs->broadcast = broadcast;
 
 	tal_add_destructor(gs, gossip_store_destroy);
 
