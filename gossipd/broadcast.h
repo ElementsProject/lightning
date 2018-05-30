@@ -12,6 +12,7 @@
 struct broadcast_state {
 	u64 next_index;
 	UINTMAP(struct queued_message *) broadcasts;
+	size_t count;
 };
 
 struct broadcast_state *new_broadcast_state(tal_t *ctx);
