@@ -28,6 +28,9 @@ struct gossip_store {
 	 * gossip_store */
 	struct broadcast_state *broadcast;
 
+	/* Handle to the routing_state to retrieve additional information,
+	 * should it be needed */
+	struct routing_state *rstate;
 };
 
 static void gossip_store_destroy(struct gossip_store *gs)
@@ -36,12 +39,14 @@ static void gossip_store_destroy(struct gossip_store *gs)
 }
 
 struct gossip_store *gossip_store_new(const tal_t *ctx,
+				      struct routing_state *rstate,
 				      struct broadcast_state *broadcast)
 {
 	struct gossip_store *gs = tal(ctx, struct gossip_store);
 	gs->count = 0;
 	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
 	gs->broadcast = broadcast;
+	gs->rstate = rstate;
 
 	tal_add_destructor(gs, gossip_store_destroy);
 
