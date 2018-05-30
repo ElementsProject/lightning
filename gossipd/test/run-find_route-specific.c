@@ -63,6 +63,11 @@ bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct 
 u64 insert_broadcast(struct broadcast_state *bstate UNNEEDED, const u8 *msg UNNEEDED,
 		     u32 timestamp UNNEEDED)
 { fprintf(stderr, "insert_broadcast called!\n"); abort(); }
+/* Generated stub for next_broadcast */
+const u8 *next_broadcast(struct broadcast_state *bstate UNNEEDED,
+			 u32 timestamp_min UNNEEDED, u32 timestamp_max UNNEEDED,
+			 u64 *last_index UNNEEDED)
+{ fprintf(stderr, "next_broadcast called!\n"); abort(); }
 /* Generated stub for onion_type_name */
 const char *onion_type_name(int e UNNEEDED)
 { fprintf(stderr, "onion_type_name called!\n"); abort(); }
