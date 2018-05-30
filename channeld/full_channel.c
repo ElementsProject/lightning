@@ -113,6 +113,7 @@ static void dump_htlc(const struct htlc *htlc, const char *prefix)
 
 void dump_htlcs(const struct channel *channel, const char *prefix)
 {
+#ifdef SUPERVERBOSE
 	struct htlc_map_iter it;
 	const struct htlc *htlc;
 
@@ -121,6 +122,7 @@ void dump_htlcs(const struct channel *channel, const char *prefix)
 	     htlc = htlc_map_next(channel->htlcs, &it)) {
 		dump_htlc(htlc, prefix);
 	}
+#endif
 }
 
 /* Returns up to three arrays:
