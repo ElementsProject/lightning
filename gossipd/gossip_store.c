@@ -8,6 +8,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gen_gossip_store.h>
+#include <gossipd/gen_gossip_wire.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire.h>
@@ -107,23 +109,46 @@ static void gossip_store_append(struct gossip_store *gs, const u8 *msg)
 	}
 }
 
-void gossip_store_add_channel_announcement(struct gossip_store *gs,
-					   const u8 *gossip_msg, u64 satoshis)
+static void gossip_store_add_channel_announcement(struct gossip_store *gs,
+						  const u8 *gossip_msg)
 {
-	u8 *msg = towire_gossip_store_channel_announcement(NULL, gossip_msg, satoshis);
+	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
+	secp256k1_ecdsa_signature bitcoin_signature_1, bitcoin_signature_2;
+	u8 *features;
+	struct bitcoin_blkid chain_hash;
+	struct short_channel_id scid;
+	struct pubkey node_id_1;
+	struct pubkey node_id_2;
+	struct pubkey bitcoin_key_1;
+	struct pubkey bitcoin_key_2;
+
+	/* Which channel are we talking about here? */
+	if (!fromwire_channel_announcement(
+		tmpctx, gossip_msg, &node_signature_1, &node_signature_2,
+		&bitcoin_signature_1, &bitcoin_signature_2, &features,
+		&chain_hash, &scid, &node_id_1, &node_id_2, &bitcoin_key_1,
+		&bitcoin_key_2))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Error parsing channel_announcement");
+
+	struct chan *chan = get_channel(gs->rstate, &scid);
+	assert(chan && chan->satoshis > 0);
+
+	u8 *msg = towire_gossip_store_channel_announcement(NULL, gossip_msg,
+							   chan->satoshis);
 	gossip_store_append(gs, msg);
 	tal_free(msg);
 }
 
-void gossip_store_add_channel_update(struct gossip_store *gs,
-				     const u8 *gossip_msg)
+static void gossip_store_add_channel_update(struct gossip_store *gs,
+					    const u8 *gossip_msg)
 {
 	u8 *msg = towire_gossip_store_channel_update(NULL, gossip_msg);
 	gossip_store_append(gs, msg);
 	tal_free(msg);
 }
 
-void gossip_store_add_node_announcement(struct gossip_store *gs,
+static void gossip_store_add_node_announcement(struct gossip_store *gs,
 					const u8 *gossip_msg)
 {
 	u8 *msg = towire_gossip_store_node_announcement(NULL, gossip_msg);
@@ -139,14 +164,31 @@ void gossip_store_add_channel_delete(struct gossip_store *gs,
 	tal_free(msg);
 }
 
-void gossip_store_local_add_channel(struct gossip_store *gs,
-				    const u8 *add_msg)
+static void gossip_store_local_add_channel(struct gossip_store *gs,
+					   const u8 *add_msg)
 {
 	u8 *msg = towire_gossip_store_local_add_channel(NULL, add_msg);
 	gossip_store_append(gs, msg);
 	tal_free(msg);
 }
 
+void gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg)
+{
+	int t =  fromwire_peektype(gossip_msg);
+
+	if (t == WIRE_CHANNEL_ANNOUNCEMENT)
+		gossip_store_add_channel_announcement(gs, gossip_msg);
+	else if(t == WIRE_CHANNEL_UPDATE)
+		gossip_store_add_channel_update(gs, gossip_msg);
+	else if(t == WIRE_NODE_ANNOUNCEMENT)
+		gossip_store_add_node_announcement(gs, gossip_msg);
+	else if(t == WIRE_GOSSIP_LOCAL_ADD_CHANNEL)
+		gossip_store_local_add_channel(gs, gossip_msg);
+	else
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Unexpected message passed to gossip_store: %s",
+			      wire_type_name(t));
+}
 
 void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 {
