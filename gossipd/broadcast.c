@@ -27,6 +27,7 @@ struct broadcast_state *new_broadcast_state(tal_t *ctx)
 	uintmap_init(&bstate->broadcasts);
 	/* Skip 0 because we initialize peers with 0 */
 	bstate->next_index = 1;
+	bstate->count = 0;
 	return bstate;
 }
 
@@ -43,6 +44,7 @@ static void destroy_queued_message(struct queued_message *msg,
 				   struct broadcast_state *bstate)
 {
 	broadcast_del(bstate, msg->index, msg->payload);
+	bstate->count--;
 }
 
 static struct queued_message *new_queued_message(const tal_t *ctx,
@@ -58,6 +60,7 @@ static struct queued_message *new_queued_message(const tal_t *ctx,
 	msg->timestamp = timestamp;
 	uintmap_add(&bstate->broadcasts, index, msg);
 	tal_add_destructor2(msg, destroy_queued_message, bstate);
+	bstate->count++;
 	return msg;
 }
 
