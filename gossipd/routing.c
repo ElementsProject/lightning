@@ -96,7 +96,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->chain_hash = *chain_hash;
 	rstate->local_id = *local_id;
 	rstate->prune_timeout = prune_timeout;
-	rstate->store = gossip_store_new(rstate, rstate->broadcasts);
+	rstate->store = gossip_store_new(rstate, rstate, rstate->broadcasts);
 	rstate->dev_allow_localhost = dev_allow_localhost;
 	list_head_init(&rstate->pending_cannouncement);
 	uintmap_init(&rstate->chanmap);
