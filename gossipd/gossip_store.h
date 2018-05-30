@@ -14,7 +14,8 @@
 struct gossip_store;
 struct routing_state;
 
-struct gossip_store *gossip_store_new(const tal_t *ctx);
+struct gossip_store *gossip_store_new(const tal_t *ctx,
+				      struct broadcast_state *broadcast);
 
 /**
  * Load the initial gossip store, if any.
