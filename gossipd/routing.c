@@ -942,7 +942,7 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 	if (!routing_add_channel_announcement(rstate, pending->announce, satoshis))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not add channel_announcement");
-	gossip_store_add_channel_announcement(rstate->store, pending->announce, satoshis);
+	gossip_store_add(rstate->store, pending->announce);
 
 	/* Did we have an update waiting?  If so, apply now. */
 	process_pending_channel_update(rstate, scid, pending->updates[0]);
@@ -1207,7 +1207,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 	/* Store the channel_update for both public and non-public channels
 	 * (non-public ones may just be the incoming direction). We'd have
 	 * dropped invalid ones earlier. */
-	gossip_store_add_channel_update(rstate->store, serialized);
+	gossip_store_add(rstate->store, serialized);
 
 	return NULL;
 }
@@ -1420,7 +1420,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 
 	applied = routing_add_node_announcement(rstate, serialized);
 	assert(applied);
-	gossip_store_add_node_announcement(rstate->store, serialized);
+	gossip_store_add(rstate->store, serialized);
 	return NULL;
 }
 
