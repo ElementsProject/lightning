@@ -635,10 +635,8 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	/* Channel is now public. */
 	chan->channel_announce = tal_dup_arr(chan, u8, msg, tal_len(msg), 0);
 
-	/* Now we can broadcast channel announce */
-	insert_broadcast(rstate->broadcasts, chan->channel_announce);
-
-	/* Clear any private updates. */
+	/* Clear any private updates: new updates will trigger broadcast of
+	 * this channel_announce. */
 	for (size_t i = 0; i < ARRAY_SIZE(chan->half); i++)
 		chan->half[i].channel_update
 			= tal_free(chan->half[i].channel_update);
@@ -934,6 +932,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	struct bitcoin_blkid chain_hash;
 	struct chan *chan;
 	u8 direction;
+	bool have_broadcast_announce;
 
 	if (!fromwire_channel_update(update, &signature, &chain_hash,
 				     &short_channel_id, &timestamp, &flags,
@@ -943,6 +942,10 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	chan = get_channel(rstate, &short_channel_id);
 	if (!chan)
 		return false;
+
+	/* We broadcast announce once we have one update */
+	have_broadcast_announce = is_halfchan_defined(&chan->half[0])
+		|| is_halfchan_defined(&chan->half[1]);
 
 	direction = flags & 0x1;
 	set_connection_values(chan, direction, fee_base_msat,
@@ -958,6 +961,13 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	 * broadcast them! */
 	if (!chan->channel_announce)
 		return true;
+
+	/* BOLT #7:
+	 *   - MUST consider whether to send the `channel_announcement` after
+	 *     receiving the first corresponding `channel_update`.
+	 */
+	if (!have_broadcast_announce)
+		insert_broadcast(rstate->broadcasts, chan->channel_announce);
 
 	insert_broadcast(rstate->broadcasts,
 			 chan->half[direction].channel_update);
