@@ -34,6 +34,10 @@ struct gossip_store {
 	/* Handle to the routing_state to retrieve additional information,
 	 * should it be needed */
 	struct routing_state *rstate;
+
+	/* Disable compaction if we encounter an error during a prior
+	 * compaction */
+	bool disable_compaction;
 };
 
 static void gossip_store_destroy(struct gossip_store *gs)
@@ -50,6 +54,7 @@ struct gossip_store *gossip_store_new(const tal_t *ctx,
 	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
 	gs->broadcast = broadcast;
 	gs->rstate = rstate;
+	gs->disable_compaction = false;
 
 	tal_add_destructor(gs, gossip_store_destroy);
 
@@ -167,22 +172,24 @@ static void gossip_store_compact(struct gossip_store *gs)
 
 	fd = open(GOSSIP_STORE_TEMP_FILENAME, O_RDWR|O_APPEND|O_CREAT, 0600);
 
-	if (fd < 0)
-		status_failed(
-		    STATUS_FAIL_INTERNAL_ERROR,
+	if (fd < 0) {
+		status_broken(
 		    "Could not open file for gossip_store compaction");
+		goto disable;
+	}
 
 	if (write(fd, &gossip_store_version, sizeof(gossip_store_version))
-	    != sizeof(gossip_store_version))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Writing version to store: %s", strerror(errno));
+	    != sizeof(gossip_store_version)) {
+		status_broken("Writing version to store: %s", strerror(errno));
+		goto unlink_disable;
+	}
 
 	while ((msg = next_broadcast(gs->broadcast, 0, UINT32_MAX, &index)) != NULL) {
 		if (!gossip_store_append(fd, gs->rstate, msg)) {
 			status_broken("Failed writing to gossip store: %s",
 				      strerror(errno));
-			unlink(GOSSIP_STORE_TEMP_FILENAME);
-			return;
+			goto unlink_disable;
+
 		}
 		count++;
 	}
@@ -191,8 +198,7 @@ static void gossip_store_compact(struct gossip_store *gs)
 		status_broken(
 		    "Error swapping compacted gossip_store into place: %s",
 		    strerror(errno));
-		unlink(GOSSIP_STORE_TEMP_FILENAME);
-		return;
+		goto unlink_disable;
 	}
 
 	status_trace(
@@ -201,6 +207,14 @@ static void gossip_store_compact(struct gossip_store *gs)
 	gs->count = count;
 	close(gs->fd);
 	gs->fd = fd;
+	return;
+
+unlink_disable:
+	unlink(GOSSIP_STORE_TEMP_FILENAME);
+disable:
+	status_trace("Encountered an error while compacting, disabling "
+		     "future compactions.");
+	gs->disable_compaction = true;
 }
 
 void gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg)
@@ -219,7 +233,8 @@ void gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg)
 
 	gs->count++;
 	stale = gs->count - gs->broadcast->count;
-	if (gs->count >= 100 && stale * MAX_COUNT_TO_STALE_RATE > gs->count)
+	if (gs->count >= 100 && stale * MAX_COUNT_TO_STALE_RATE > gs->count &&
+	    !gs->disable_compaction)
 		gossip_store_compact(gs);
 }
 
