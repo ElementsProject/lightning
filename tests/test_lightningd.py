@@ -4250,16 +4250,13 @@ class LightningDTests(BaseLightningDTests):
         # Fundchannel manually so we get channeld pid.
         self.give_funds(l1, 10**6 + 1000000)
         l1.rpc.fundchannel(l2.info['id'], 10**6)['tx']
-        # Get pid of channeld, eg 'lightning_channeld(...): pid 13933, msgfd 12'
-        pidline = l1.daemon.wait_for_log(r'lightning_channeld.*: pid [0-9]*,')
-        pid1 = re.search(r'pid ([0-9]*),', pidline).group(1)
+        pid1 = l1.subd_pid('channeld')
 
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l1.bitcoin.generate_block(1)
         l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
 
-        pidline = l2.daemon.wait_for_log(r'lightning_channeld.*: pid [0-9]*,')
-        pid2 = re.search(r'pid ([0-9]*),', pidline).group(1)
+        pid2 = l2.subd_pid('channeld')
         l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
 
         # Send it sigusr1: should turn on logging.
