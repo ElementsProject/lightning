@@ -2642,7 +2642,6 @@ class LightningDTests(BaseLightningDTests):
         for n in [l1, l2, l3]:
             wait_for(lambda: len(n.rpc.listchannels()['channels']) == 4)
 
-    @unittest.expectedFailure
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_gossip_no_empty_announcements(self):
         # Need full IO logging so we can see gossip
