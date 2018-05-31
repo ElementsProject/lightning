@@ -638,13 +638,10 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	/* Now we can broadcast channel announce */
 	insert_broadcast(rstate->broadcasts, chan->channel_announce);
 
-	/* If we had private updates for channels, we can broadcast them too. */
-	for (size_t i = 0; i < ARRAY_SIZE(chan->half); i++) {
-		if (!is_halfchan_defined(&chan->half[i]))
-			continue;
-		insert_broadcast(rstate->broadcasts,
-				 chan->half[i].channel_update);
-	}
+	/* Clear any private updates. */
+	for (size_t i = 0; i < ARRAY_SIZE(chan->half); i++)
+		chan->half[i].channel_update
+			= tal_free(chan->half[i].channel_update);
 
 	return true;
 }
