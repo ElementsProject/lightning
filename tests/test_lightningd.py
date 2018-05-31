@@ -2642,6 +2642,41 @@ class LightningDTests(BaseLightningDTests):
         for n in [l1, l2, l3]:
             wait_for(lambda: len(n.rpc.listchannels()['channels']) == 4)
 
+    @unittest.expectedFailure
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_gossip_no_empty_announcements(self):
+        # Need full IO logging so we can see gossip
+        l1 = self.node_factory.get_node(options={'log-level': 'io'})
+        l2 = self.node_factory.get_node(options={'log-level': 'io',
+                                                 'dev-no-reconnect': None})
+        # l3 sends CHANNEL_ANNOUNCEMENT to l2, but not CHANNEL_UDPATE.
+        l3 = self.node_factory.get_node(disconnect=['+WIRE_CHANNEL_ANNOUNCEMENT'])
+        l4 = self.node_factory.get_node()
+
+        # Turn on IO logging for gossipds
+        subprocess.run(['kill', '-USR1', l1.subd_pid('gossipd')])
+        subprocess.run(['kill', '-USR1', l2.subd_pid('gossipd')])
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+        l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
+
+        # Make an announced-but-not-updated channel.
+        self.fund_channel(l3, l4, 10**5)
+        bitcoind.generate_block(5)
+        sync_blockheight([l3, l4])
+        # 0x0100 = channel_announcement, which goes to l2 before l3 dies.
+        l2.daemon.wait_for_log('\[IN\] 0100')
+
+        # But it never goes to l1, as there's no channel_update.
+        time.sleep(2)
+        assert not l1.daemon.is_in_log('\[IN\] 0100')
+        assert len(l1.rpc.listchannels()['channels']) == 0
+
+        # If we reconnect, gossip will now flow.
+        l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
+
     def test_second_channel(self):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node()
