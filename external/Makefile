@@ -21,20 +21,12 @@ EXTERNAL_INCLUDE_FLAGS :=					\
 
 EXTERNAL_LDLIBS := -Lexternal $(patsubst lib%.a,-l%,$(notdir $(EXTERNAL_LIBS)))
 
-# Might exist, but need updating.  Nuke and rebuild.
-submodcheck-%: FORCE
-	if git submodule status external/$* | grep -q '^[-+]'; then rm -rf external/$*; git submodule update --init external/$*; fi
-
 # We build libsodium, since Ubuntu xenial has one too old.
 external/libsodium.a: external/libsodium/src/libsodium/libsodium.la
 	$(MAKE) -C external/libsodium DESTDIR=$$(pwd)/external install-exec
 
-external/libsodium/src/libsodium/include/sodium.h: submodcheck-libsodium
-
 external/libsodium/src/libsodium/libsodium.la: external/libsodium/src/libsodium/include/sodium.h
 	cd external/libsodium && ./autogen.sh && ./configure CC="$(CC)" --enable-static=yes --host="$(MAKE_HOST)" --build="$(BUILD)" --enable-shared=no --enable-tests=no --prefix=/ --libdir=/ && $(MAKE)
-
-$(LIBWALLY_HEADERS) $(LIBSECP_HEADERS): submodcheck-libwally-core
 
 # libsecp included in libwally.
 # Wildcards here are magic.  See http://stackoverflow.com/questions/2973445/gnu-makefile-rule-generating-a-few-targets-from-a-single-source-file
@@ -43,8 +35,6 @@ external/libsecp256k1.% external/libwallycore.%: external/libwally-core/src/secp
 
 external/libwally-core/src/libwallycore.% external/libwally-core/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
 	cd external/libwally-core && ./tools/autogen.sh && ./configure CC="$(CC)" --enable-static=yes --host="$(MAKE_HOST)" --build="$(BUILD)" --enable-module-recovery --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
-
-external/jsmn/jsmn.h: submodcheck-jsmn
 
 # If we tell Make that the above builds both, it runs it twice in
 # parallel.  So we lie :(
@@ -61,16 +51,12 @@ LIBBASE58_SRC := external/libbase58/base58.c
 
 $(LIBBASE58_SRC): $(LIBBASE58_HEADERS)
 
-$(LIBBASE58_HEADERS): submodcheck-libbase58
-
 # Can't be inside submodule, as that makes git think it's dirty.
 external/base58.o: $(LIBBASE58_SRC) Makefile
 	$(COMPILE.c) $(OUTPUT_OPTION) $<
 
 external/libbase58.a: external/base58.o
 	$(AR) rc $@ $<
-
-external/libbacktrace/backtrace.h: submodcheck-libbacktrace
 
 # Need separate build dir: changes inside submodule make git think it's dirty.
 external/libbacktrace.a: external/libbacktrace/backtrace.h
