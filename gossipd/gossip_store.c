@@ -75,53 +75,8 @@ struct gossip_store *gossip_store_new(const tal_t *ctx,
 	return gs;
 }
 
-/**
- * Given a message and a file descriptor append the message to it.
- *
- * Returns true on success, false on error.
- */
-static bool gossip_store_file_append(int fd, const u8 *msg)
-{
-	u32 msglen = tal_len(msg);
-	beint32_t checksum, belen = cpu_to_be32(msglen);
-
-	/* Only give error message once. */
-	if (fd == -1)
-		return true;
-
-	checksum = cpu_to_be32(crc32c(0, msg, msglen));
-
-	return (write(fd, &belen, sizeof(belen)) == sizeof(belen) &&
-		write(fd, &checksum, sizeof(checksum)) == sizeof(checksum) &&
-		write(fd, msg, msglen) == msglen);
-}
-
-/**
- * Write an incoming message to the `gossip_store`
- *
- * @param gs  The gossip_store to write to
- * @param msg The message to write
- * @return The newly created and initialized `gossip_store`
- */
-static void gossip_store_append(struct gossip_store *gs, const u8 *msg)
-{
-	size_t stale;
-	if (!gossip_store_file_append(gs->fd, msg)) {
-		status_broken("Failed writing to gossip store: %s",
-			      strerror(errno));
-		gs->fd = -1;
-		return;
-	}
-
-	gs->count++;
-	stale = gs->count - gs->broadcast->count;
-
-	if (gs->count >= 100 && stale * MAX_COUNT_TO_STALE_RATE > gs->count) {
-		/* FIXME(cdecker) Implement rewriting of gossip_store */
-	}
-}
-
-static void gossip_store_add_channel_announcement(struct gossip_store *gs,
+static u8 *gossip_store_wrap_channel_announcement(const tal_t *ctx,
+						  struct routing_state *rstate,
 						  const u8 *gossip_msg)
 {
 	secp256k1_ecdsa_signature node_signature_1, node_signature_2;
@@ -143,63 +98,79 @@ static void gossip_store_add_channel_announcement(struct gossip_store *gs,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Error parsing channel_announcement");
 
-	struct chan *chan = get_channel(gs->rstate, &scid);
+	struct chan *chan = get_channel(rstate, &scid);
 	assert(chan && chan->satoshis > 0);
 
-	u8 *msg = towire_gossip_store_channel_announcement(NULL, gossip_msg,
+	u8 *msg = towire_gossip_store_channel_announcement(ctx, gossip_msg,
 							   chan->satoshis);
-	gossip_store_append(gs, msg);
-	tal_free(msg);
+	return msg;
 }
 
-static void gossip_store_add_channel_update(struct gossip_store *gs,
-					    const u8 *gossip_msg)
+/**
+ * Wrap the raw gossip message and write it to fd
+ *
+ * @param fd File descriptor to write the wrapped message into
+ * @param gossip_msg The message to write
+ * @return true if the message was wrapped and written
+ */
+static bool gossip_store_append(int fd, struct routing_state *rstate, const u8 *gossip_msg)
 {
-	u8 *msg = towire_gossip_store_channel_update(NULL, gossip_msg);
-	gossip_store_append(gs, msg);
-	tal_free(msg);
+	int t =  fromwire_peektype(gossip_msg);
+	u32 msglen;
+	beint32_t checksum, belen;
+	const u8 *msg;
+
+	if (t == WIRE_CHANNEL_ANNOUNCEMENT)
+		msg = gossip_store_wrap_channel_announcement(tmpctx, rstate, gossip_msg);
+	else if(t == WIRE_CHANNEL_UPDATE)
+		msg = towire_gossip_store_channel_update(tmpctx, gossip_msg);
+	else if(t == WIRE_NODE_ANNOUNCEMENT)
+		msg = towire_gossip_store_node_announcement(tmpctx, gossip_msg);
+	else if(t == WIRE_GOSSIP_LOCAL_ADD_CHANNEL)
+		msg = towire_gossip_store_local_add_channel(tmpctx, gossip_msg);
+	else if(t == WIRE_GOSSIP_STORE_CHANNEL_DELETE)
+		msg = gossip_msg;
+	else {
+		status_trace("Unexpected message passed to gossip_store: %s",
+			     wire_type_name(t));
+		return false;
+	}
+
+	msglen = tal_len(msg);
+	belen = cpu_to_be32(msglen);
+	checksum = cpu_to_be32(crc32c(0, msg, msglen));
+
+	return (write(fd, &belen, sizeof(belen)) == sizeof(belen) &&
+		write(fd, &checksum, sizeof(checksum)) == sizeof(checksum) &&
+		write(fd, msg, msglen) == msglen);
 }
 
-static void gossip_store_add_node_announcement(struct gossip_store *gs,
-					const u8 *gossip_msg)
+void gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg)
 {
-	u8 *msg = towire_gossip_store_node_announcement(NULL, gossip_msg);
-	gossip_store_append(gs, msg);
-	tal_free(msg);
+	size_t stale;
+
+	/* Only give error message once. */
+	if (gs->fd == -1)
+		return;
+
+	if (!gossip_store_append(gs->fd, gs->rstate, gossip_msg)) {
+		status_broken("Failed writing to gossip store: %s",
+			      strerror(errno));
+		gs->fd = -1;
+	}
+
+	gs->count++;
+	stale = gs->count - gs->broadcast->count;
+	if (gs->count >= 100 && stale * MAX_COUNT_TO_STALE_RATE > gs->count) {
+		/* FIXME(cdecker) Implement rewriting of gossip_store */
+	}
 }
 
 void gossip_store_add_channel_delete(struct gossip_store *gs,
 				     const struct short_channel_id *scid)
 {
 	u8 *msg = towire_gossip_store_channel_delete(NULL, scid);
-	gossip_store_append(gs, msg);
-	tal_free(msg);
-}
-
-static void gossip_store_local_add_channel(struct gossip_store *gs,
-					   const u8 *add_msg)
-{
-	u8 *msg = towire_gossip_store_local_add_channel(NULL, add_msg);
-	gossip_store_append(gs, msg);
-	tal_free(msg);
-}
-
-void gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg)
-{
-	int t =  fromwire_peektype(gossip_msg);
-
-	if (t == WIRE_CHANNEL_ANNOUNCEMENT)
-		gossip_store_add_channel_announcement(gs, gossip_msg);
-	else if(t == WIRE_CHANNEL_UPDATE)
-		gossip_store_add_channel_update(gs, gossip_msg);
-	else if(t == WIRE_NODE_ANNOUNCEMENT)
-		gossip_store_add_node_announcement(gs, gossip_msg);
-	else if(t == WIRE_GOSSIP_LOCAL_ADD_CHANNEL)
-		gossip_store_local_add_channel(gs, gossip_msg);
-	else
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Unexpected message passed to gossip_store: %s",
-			      wire_type_name(t));
+	gossip_store_append(gs->fd, gs->rstate, msg);
 }
 
 void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
