@@ -904,7 +904,7 @@ static struct short_channel_id *decode_short_ids(const tal_t *ctx,
 
 static void handle_query_short_channel_ids(struct peer *peer, u8 *msg)
 {
-	struct routing_state *rstate =peer->daemon->rstate;
+	struct routing_state *rstate = peer->daemon->rstate;
 	struct bitcoin_blkid chain;
 	u8 *encoded;
 	struct short_channel_id *scids;
@@ -930,7 +930,7 @@ static void handle_query_short_channel_ids(struct peer *peer, u8 *msg)
 	 *    - MAY fail the connection.
 	 */
 	if (peer->scid_queries || peer->scid_query_nodes) {
-		peer_error(peer, "Bad second query_short_channel_ids");
+		peer_error(peer, "Bad concurrent query_short_channel_ids");
 		return;
 	}
 

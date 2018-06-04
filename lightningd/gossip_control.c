@@ -706,6 +706,8 @@ static void json_channel_range_reply(struct subd *gossip UNUSED, const u8 *reply
 	}
 
 	json_object_start(response, NULL);
+	/* As this is a dev interface, we don't bother saving and
+	 * returning all the replies, just the final one. */
 	json_add_num(response, "final_first_block", final_first_block);
 	json_add_num(response, "final_num_blocks", final_num_blocks);
 	json_add_bool(response, "final_complete", final_complete);
