@@ -89,8 +89,8 @@ struct chain_topology {
 	/* Where to log things. */
 	struct log *log;
 
-	/* How far back (in blocks) to go. */
-	unsigned int first_blocknum;
+	/* What range of blocks do we have in our database? */
+	u32 min_blockheight, max_blockheight;
 
 	/* How often to poll. */
 	u32 poll_seconds;
