@@ -89,12 +89,15 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 {
 	struct short_channel_id *scid = tal(gossip, struct short_channel_id);
 	struct outpoint *op;
+	u32 blockheight;
+	struct chain_topology *topo = gossip->ld->topology;
 
 	if (!fromwire_gossip_get_txout(msg, scid))
 		fatal("Gossip gave bad GOSSIP_GET_TXOUT message %s",
 		      tal_hex(msg, msg));
 
 	/* FIXME: Block less than 6 deep? */
+	blockheight = short_channel_id_blocknum(scid);
 
 	op = wallet_outpoint_for_scid(gossip->ld->wallet, scid, scid);
 
@@ -103,8 +106,17 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 			      towire_gossip_get_txout_reply(
 				  scid, scid, op->satoshis, op->scriptpubkey));
 		tal_free(scid);
+	} else if (blockheight >= topo->min_blockheight &&
+		   blockheight <= topo->max_blockheight) {
+		/* We should have known about this outpoint since it is included
+		 * in the range in the DB. The fact that we don't means that
+		 * this is either a spent outpoint or an invalid one. Return a
+		 * failure. */
+		subd_send_msg(gossip, take(towire_gossip_get_txout_reply(
+					  NULL, scid, 0, NULL)));
+		tal_free(scid);
 	} else {
-		bitcoind_getoutput(gossip->ld->topology->bitcoind,
+		bitcoind_getoutput(topo->bitcoind,
 				   short_channel_id_blocknum(scid),
 				   short_channel_id_txnum(scid),
 				   short_channel_id_outnum(scid),
