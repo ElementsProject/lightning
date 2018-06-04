@@ -1180,11 +1180,26 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 	return wireaddrs;
 }
 
+/* We've received a channel_announce for a channel attached to this node */
 static bool node_has_public_channels(struct node *node)
 {
 	for (size_t i = 0; i < tal_count(node->chans); i++)
 		if (is_chan_public(node->chans[i]))
 			return true;
+	return false;
+}
+
+/* We can *send* a channel_announce for a channel attached to this node:
+ * we only send once we have a channel_update. */
+static bool node_has_broadcastable_channels(struct node *node)
+{
+	for (size_t i = 0; i < tal_count(node->chans); i++) {
+		if (!is_chan_public(node->chans[i]))
+			continue;
+		if (is_halfchan_defined(&node->chans[i]->half[0])
+		    || is_halfchan_defined(&node->chans[i]->half[1]))
+			return true;
+	}
 	return false;
 }
 
@@ -1229,7 +1244,7 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 	 * order.  It's not vital, but would be nice to fix.
 	 */
 	/* We might be waiting for channel_announce to be released. */
-	node->node_announcement_public = node_has_public_channels(node);
+	node->node_announcement_public = node_has_broadcastable_channels(node);
 	if (node->node_announcement_public)
 		insert_broadcast(rstate->broadcasts, node->node_announcement,
 				 timestamp);
