@@ -17,7 +17,8 @@ RUN dnf update -y && \
 		python3-setuptools \
 		net-tools \
 		valgrind \
-		wget && \
+		wget \
+		zlib-devel && \
 	dnf clean all
 
 RUN wget https://bitcoin.org/bin/bitcoin-core-$BITCOIN_VERSION/bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.gz -O bitcoin.tar.gz && \

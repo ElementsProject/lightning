@@ -32,7 +32,8 @@ RUN apt-get -qq update && \
 	python3-setuptools \
 	python-pkg-resources \
 	shellcheck \
-	wget && \
+	wget \
+	zlib1g-dev && \
 	rm -rf /var/lib/apt/lists/*
 
 ENV LANGUAGE=en_US.UTF-8
