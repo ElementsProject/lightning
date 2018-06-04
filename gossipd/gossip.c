@@ -1,3 +1,4 @@
+#include <ccan/asort/asort.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/cast/cast.h>
 #include <ccan/container_of/container_of.h>
@@ -220,6 +221,10 @@ struct peer {
 	const struct short_channel_id *scid_queries;
 	size_t scid_query_idx;
 
+	/* Are there outstanding node_announcements from scid_queries? */
+	struct pubkey *scid_query_nodes;
+	size_t scid_query_nodes_idx;
+
 	/* Is it time to continue the staggered broadcast? */
 	bool gossip_sync;
 
@@ -341,6 +346,8 @@ static struct peer *new_peer(const tal_t *ctx,
 	peer->remote = NULL;
 	peer->scid_queries = NULL;
 	peer->scid_query_idx = 0;
+	peer->scid_query_nodes = NULL;
+	peer->scid_query_nodes_idx = 0;
 
 	return peer;
 }
@@ -863,6 +870,51 @@ static void wake_pkt_out(struct peer *peer)
 /* Mutual recursion. */
 static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer);
 
+/* We keep a simple array of node ids while we're sending channel info */
+static void append_query_node(struct peer *peer, const struct pubkey *id)
+{
+	size_t n;
+	n = tal_count(peer->scid_query_nodes);
+	tal_resize(&peer->scid_query_nodes, n+1);
+	peer->scid_query_nodes[n] = *id;
+}
+
+/* Arbitrary ordering function of pubkeys.
+ *
+ * Note that we could use memcmp() here: even if they had somehow different
+ * bitwise representations for the same key, we copied them all from struct
+ * node which should make them unique.  Even if not (say, a node vanished
+ * and reappeared) we'd just end up sending two node_announcement for the
+ * same node.
+ */
+static int pubkey_order(const struct pubkey *k1, const struct pubkey *k2,
+			void *unused UNUSED)
+{
+	return pubkey_cmp(k1, k2);
+}
+
+static void uniquify_node_ids(struct pubkey **ids)
+{
+	size_t dst, src;
+
+	/* BOLT #7:
+	 *
+	 * - MUST follow with any `node_announcement`s for each
+	 *   `channel_announcement`
+	 *
+	 *   - SHOULD avoid sending duplicate `node_announcements` in
+	 *     response to a single `query_short_channel_ids`.
+	 */
+	asort(*ids, tal_count(*ids), pubkey_order, NULL);
+
+	for (dst = 0, src = 0; src < tal_count(*ids); src++) {
+		if (dst && pubkey_eq(&(*ids)[dst-1], &(*ids)[src]))
+			continue;
+		(*ids)[dst++] = (*ids)[src];
+	}
+	tal_resize(ids, dst);
+}
+
 static bool create_next_scid_reply(struct peer *peer)
 {
 	struct routing_state *rstate = peer->daemon->rstate;
@@ -891,18 +943,58 @@ static bool create_next_scid_reply(struct peer *peer)
 			queue_peer_msg(peer, chan->half[0].channel_update);
 		if (chan->half[1].channel_update)
 			queue_peer_msg(peer, chan->half[0].channel_update);
+
+		/* Record node ids for later transmission of node_announcement */
+		append_query_node(peer, &chan->nodes[0]->id);
+		append_query_node(peer, &chan->nodes[1]->id);
 		sent = true;
 	}
+
+	/* Just finished channels?  Remove duplicate nodes. */
+	if (peer->scid_query_idx != num && i == num)
+		uniquify_node_ids(&peer->scid_query_nodes);
 	peer->scid_query_idx = i;
 
+	/* BOLT #7:
+	 *
+	 *  - MUST follow with any `node_announcement`s for each
+	 *   `channel_announcement`
+	 *    - SHOULD avoid sending duplicate `node_announcements` in response
+	 *     to a single `query_short_channel_ids`.
+	 */
+	num = tal_count(peer->scid_query_nodes);
+	for (i = peer->scid_query_nodes_idx; !sent && i < num; i++) {
+		const struct node *n;
+
+		n = get_node(rstate, &peer->scid_query_nodes[i]);
+		if (!n || !n->node_announcement || !n->node_announcement_public)
+			continue;
+
+		queue_peer_msg(peer, n->node_announcement);
+		sent = true;
+	}
+	peer->scid_query_nodes_idx = i;
+
 	/* All finished? */
-	if (peer->scid_queries && peer->scid_query_idx == num) {
-		/* FIXME: Send node_announcements now */
+	if (peer->scid_queries && peer->scid_query_nodes_idx == num) {
+		/* BOLT #7:
+		 *
+		 * - MUST follow these responses with
+		 *   `reply_short_channel_ids_end`.
+		 *   - if does not maintain up-to-date channel information for
+		 *     `chain_hash`:
+		 *      - MUST set `complete` to 0.
+		 *   - otherwise:
+		 *      - SHOULD set `complete` to 1.
+		 */
 		u8 *end = towire_reply_short_channel_ids_end(peer,
 							     &rstate->chain_hash,
 							     true);
 		queue_peer_msg(peer, take(end));
 		peer->scid_queries = tal_free(peer->scid_queries);
+		peer->scid_query_idx = 0;
+		peer->scid_query_nodes = tal_free(peer->scid_query_nodes);
+		peer->scid_query_nodes_idx = 0;
 	}
 
 	return sent;
