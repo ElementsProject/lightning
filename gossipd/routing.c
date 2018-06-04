@@ -150,6 +150,7 @@ static struct node *new_node(struct routing_state *rstate,
 	n->chans = tal_arr(n, struct chan *, 0);
 	n->alias = NULL;
 	n->node_announcement = NULL;
+	n->node_announcement_public = false;
 	n->last_timestamp = -1;
 	n->addresses = tal_arr(n, struct wireaddr, 0);
 	node_map_add(rstate->nodes, n);
@@ -617,6 +618,18 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 {
 	insert_broadcast(rstate->broadcasts, chan->channel_announce);
 	rstate->local_channel_announced |= is_local_channel(rstate, chan);
+
+	/* If we've been waiting for this, now we can announce node */
+	for (size_t i = 0; i < ARRAY_SIZE(chan->nodes); i++) {
+		struct node *node = chan->nodes[i];
+		if (!node->node_announcement)
+			continue;
+		if (!node->node_announcement_public) {
+			node->node_announcement_public = true;
+			insert_broadcast(rstate->broadcasts,
+					 node->node_announcement);
+		}
+	}
 }
 
 bool routing_add_channel_announcement(struct routing_state *rstate,
@@ -1140,6 +1153,14 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 	return wireaddrs;
 }
 
+static bool node_has_public_channels(struct node *node)
+{
+	for (size_t i = 0; i < tal_count(node->chans); i++)
+		if (is_chan_public(node->chans[i]))
+			return true;
+	return false;
+}
+
 bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg TAKES)
 {
 	struct node *node;
@@ -1175,16 +1196,16 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 
 	tal_free(node->node_announcement);
 	node->node_announcement = tal_dup_arr(node, u8, msg, tal_len(msg), 0);
-	insert_broadcast(rstate->broadcasts, node->node_announcement);
-	return true;
-}
 
-static bool node_has_public_channels(struct node *node)
-{
-	for (size_t i = 0; i < tal_count(node->chans); i++)
-		if (is_chan_public(node->chans[i]))
-			return true;
-	return false;
+	/* FIXME:
+	 * When a channel is closed, the node announce may now be out of
+	 * order.  It's not vital, but would be nice to fix.
+	 */
+	/* We might be waiting for channel_announce to be released. */
+	node->node_announcement_public = node_has_public_channels(node);
+	if (node->node_announcement_public)
+		insert_broadcast(rstate->broadcasts, node->node_announcement);
+	return true;
 }
 
 u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)

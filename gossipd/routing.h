@@ -101,6 +101,7 @@ struct node {
 
 	/* Cached `node_announcement` we might forward to new peers (or NULL). */
 	const u8 *node_announcement;
+	bool node_announcement_public;
 };
 
 const secp256k1_pubkey *node_map_keyof_node(const struct node *n);
