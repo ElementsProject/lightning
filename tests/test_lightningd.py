@@ -2714,6 +2714,21 @@ class LightningDTests(BaseLightningDTests):
         assert ret['final_complete']
         assert len(ret['short_channel_ids']) == 0
 
+        # Make l2 split reply into two.
+        l2.rpc.dev_set_max_scids_encode_size(max=9)
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=0,
+                                             num=1000000)
+
+        # It should definitely have split
+        assert ret['final_first_block'] != 0 or ret['final_num_blocks'] != 1000000
+        assert ret['final_complete']
+        assert len(ret['short_channel_ids']) == 2
+        assert ret['short_channel_ids'][0] == scid12
+        assert ret['short_channel_ids'][1] == scid23
+
+        l2.daemon.wait_for_log('queue_channel_ranges full: splitting')
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_query_short_channel_id(self):
         l1 = self.node_factory.get_node(options={'log-level': 'io'})

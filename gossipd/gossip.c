@@ -101,6 +101,10 @@ HTABLE_DEFINE_TYPE(struct important_peerid,
 		   important_peerid_eq,
 		   important_peerid_map);
 
+#if DEVELOPER
+static u32 max_scids_encode_bytes = -1U;
+#endif
+
 struct daemon {
 	/* Who am I? */
 	struct pubkey id;
@@ -439,6 +443,10 @@ static void encode_add_short_channel_id(u8 **encoded,
 
 static bool encode_short_channel_ids_end(u8 **encoded, size_t max_bytes)
 {
+#if DEVELOPER
+	if (tal_len(*encoded) > max_scids_encode_bytes)
+		return false;
+#endif
 	return tal_len(*encoded) <= max_bytes;
 }
 
@@ -2291,6 +2299,17 @@ fail:
 								      NULL)));
 	goto out;
 }
+
+static struct io_plan *dev_set_max_scids_encode_size(struct io_conn *conn,
+						     struct daemon *daemon,
+						     const u8 *msg)
+{
+	if (!fromwire_gossip_dev_set_max_scids_encode_size(msg,
+							   &max_scids_encode_bytes))
+		master_badmsg(WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE, msg);
+
+	return daemon_conn_read_next(conn, &daemon->master);
+}
 #endif /* DEVELOPER */
 
 static int make_listen_fd(int domain, void *addr, socklen_t len, bool mayfail)
@@ -3518,11 +3537,15 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
 		return query_channel_range(conn, daemon, daemon->master.msg_in);
 
+	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
+		return dev_set_max_scids_encode_size(conn, daemon,
+						     daemon->master.msg_in);
 #else
 	case WIRE_GOSSIP_PING:
 	case WIRE_GOSSIP_QUERY_SCIDS:
 	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
 	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
+	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 		break;
 #endif /* !DEVELOPER */
 
@@ -3581,7 +3604,6 @@ int main(int argc, char *argv[])
 	timers_init(&daemon->timers, time_mono());
 	daemon->broadcast_interval = 30000;
 	daemon->last_announce_timestamp = 0;
-
 	/* stdin == control */
 	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req,
 			 master_gone);
