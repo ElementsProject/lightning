@@ -623,6 +623,17 @@ static void send_node_announcement(struct daemon *daemon)
 			      tal_hex(tmpctx, err));
 }
 
+/* Should we announce our own node? */
+static void consider_own_node_announce(struct daemon *daemon)
+{
+	if (!daemon->rstate->local_channel_announced)
+		return;
+
+	/* FIXME: We may not need to retransmit here, if previous still valid. */
+	send_node_announcement(daemon);
+	daemon->rstate->local_channel_announced = false;
+}
+
 /**
  * Handle an incoming gossip message
  *
@@ -661,6 +672,8 @@ static u8 *handle_gossip_msg(struct daemon *daemon, const u8 *msg,
 		err = handle_channel_update(rstate, msg, source);
 		if (err)
 			return err;
+		/* In case we just announced a new local channel. */
+		consider_own_node_announce(daemon);
 		break;
 	}
 
@@ -1042,6 +1055,9 @@ static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 	/* We always tell peer, even if it's not public yet */
 	if (!is_chan_public(chan))
 		queue_peer_msg(peer, take(cupdate));
+
+	/* That channel_update might trigger our first channel_announcement */
+	consider_own_node_announce(peer->daemon);
 }
 
 /**
@@ -2005,6 +2021,10 @@ static struct io_plan *gossip_activate(struct daemon_conn *master,
 	else
 		binding = NULL;
 
+	/* Now we know our addresses, re-announce ourselves if we have a
+	 * channel, in case options have changed. */
+	consider_own_node_announce(daemon);
+
 	/* OK, we're ready! */
 	daemon_conn_send(&daemon->master,
 			 take(towire_gossipctl_activate_reply(NULL,
@@ -2562,8 +2582,8 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 	if (!fromwire_gossip_get_txout_reply(msg, msg, &scid, &satoshis, &outscript))
 		master_badmsg(WIRE_GOSSIP_GET_TXOUT_REPLY, msg);
 
-	if (handle_pending_cannouncement(daemon->rstate, &scid, satoshis, outscript))
-		send_node_announcement(daemon);
+	handle_pending_cannouncement(daemon->rstate, &scid, satoshis, outscript);
+	consider_own_node_announce(daemon);
 
 	return daemon_conn_read_next(conn, &daemon->master);
 }
