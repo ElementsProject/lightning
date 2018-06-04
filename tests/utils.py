@@ -472,8 +472,13 @@ class LightningNode(object):
 
     def subd_pid(self, subd):
         """Get the process id of the given subdaemon, eg channeld or gossipd"""
-        pidline = self.daemon.is_in_log('lightning_{}.*: pid [0-9]*,'.format(subd))
-        return re.search(r'pid ([0-9]*),', pidline).group(1)
+        ex = re.compile(r'lightning_{}.*: pid ([0-9]*),'.format(subd))
+        # Make sure we get latest one if it's restarted!
+        for l in reversed(self.daemon.logs):
+            group = ex.search(l)
+            if group:
+                return group.group(1)
+        raise ValueError("No daemon {} found".format(subd))
 
     def is_channel_active(self, chanid):
         channels = self.rpc.listchannels()['channels']
