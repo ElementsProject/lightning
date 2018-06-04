@@ -2624,12 +2624,14 @@ class LightningDTests(BaseLightningDTests):
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_gossip_query_channel_range(self):
-        l1 = self.node_factory.get_node()
+        l1 = self.node_factory.get_node(options={'log-level': 'io'})
         l2 = self.node_factory.get_node()
         l3 = self.node_factory.get_node()
+        l4 = self.node_factory.get_node()
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+        l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
 
         # Make public channels.
         scid12 = self.fund_channel(l1, l2, 10**5)
@@ -2726,8 +2728,37 @@ class LightningDTests(BaseLightningDTests):
         assert len(ret['short_channel_ids']) == 2
         assert ret['short_channel_ids'][0] == scid12
         assert ret['short_channel_ids'][1] == scid23
-
         l2.daemon.wait_for_log('queue_channel_ranges full: splitting')
+
+        # This should actually be large enough for zlib to kick in!
+        self.fund_channel(l3, l4, 10**5)
+        bitcoind.generate_block(5)
+        l2.daemon.wait_for_log('Received node_announcement for node ' + l4.info['id'])
+
+        # Turn on IO logging in l1 channeld.
+        subprocess.run(['kill', '-USR1', l1.subd_pid('channeld')])
+
+        # Restore infinite encode size.
+        l2.rpc.dev_set_max_scids_encode_size(max=(2**32 - 1))
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=0,
+                                             num=65535)
+        l1.daemon.wait_for_log(
+            # WIRE_REPLY_CHANNEL_RANGE
+            '\[IN\] 0108' +
+            # chain_hash
+            '................................................................' +
+            # first_blocknum
+            '00000000' +
+            # number_of_blocks
+            '0000ffff' +
+            # complete
+            '01' +
+            # length
+            '....' +
+            # encoding
+            '01'
+        )
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_query_short_channel_id(self):
