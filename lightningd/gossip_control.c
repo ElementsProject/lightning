@@ -545,3 +545,88 @@ static const struct json_command listchannels_command = {
 	"Show channel {short_channel_id} (or all known channels, if no {short_channel_id})"
 };
 AUTODATA(json_command, &listchannels_command);
+
+#if DEVELOPER
+static void json_scids_reply(struct subd *gossip UNUSED, const u8 *reply,
+			     const int *fds UNUSED, struct command *cmd)
+{
+	bool ok, complete;
+	struct json_result *response = new_json_result(cmd);
+
+	if (!fromwire_gossip_scids_reply(reply, &ok, &complete)) {
+		command_fail(cmd, LIGHTNINGD,
+			     "Gossip gave bad gossip_scids_reply");
+		return;
+	}
+
+	if (!ok) {
+		command_fail(cmd, LIGHTNINGD,
+			     "Gossip refused to query peer");
+		return;
+	}
+
+	json_object_start(response, NULL);
+	json_add_bool(response, "complete", complete);
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+static void json_dev_query_scids(struct command *cmd,
+				 const char *buffer, const jsmntok_t *params)
+{
+	u8 *msg;
+	jsmntok_t *idtok, *scidstok;
+	const jsmntok_t *t, *end;
+	struct pubkey id;
+	struct short_channel_id *scids;
+	size_t i;
+
+	if (!json_get_params(cmd, buffer, params,
+			     "id", &idtok,
+			     "scids", &scidstok,
+			     NULL)) {
+		return;
+	}
+
+	if (!json_tok_pubkey(buffer, idtok, &id)) {
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%.*s' is not a valid id",
+			     idtok->end - idtok->start,
+			     buffer + idtok->start);
+		return;
+	}
+
+	if (scidstok->type != JSMN_ARRAY) {
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%.*s' is not an array",
+			     scidstok->end - scidstok->start,
+			     buffer + scidstok->start);
+		return;
+	}
+
+	scids = tal_arr(cmd, struct short_channel_id, scidstok->size);
+	end = json_next(scidstok);
+	for (i = 0, t = scidstok + 1; t < end; t = json_next(t), i++) {
+		if (!json_tok_short_channel_id(buffer, t, &scids[i])) {
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "scid %zu '%.*s' is not an scid",
+				     i, t->end - t->start,
+				     buffer + t->start);
+			return;
+		}
+	}
+
+	/* Tell gossipd, since this is a gossip query. */
+	msg = towire_gossip_query_scids(cmd, &id, scids);
+	subd_req(cmd->ld->gossip, cmd->ld->gossip,
+		 take(msg), -1, 0, json_scids_reply, cmd);
+	command_still_pending(cmd);
+}
+
+static const struct json_command dev_query_scids_command = {
+	"dev-query-scids",
+	json_dev_query_scids,
+	"Query {peerid} for [scids]"
+};
+AUTODATA(json_command, &dev_query_scids_command);
+#endif /* DEVELOPER */

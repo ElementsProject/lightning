@@ -2623,6 +2623,65 @@ class LightningDTests(BaseLightningDTests):
                                    .format(l2.info['version']))
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_query_short_channel_id(self):
+        l1 = self.node_factory.get_node(options={'log-level': 'io'})
+        l2 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node()
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+        # Need full IO logging so we can see gossip (from gossipd and channeld)
+        subprocess.run(['kill', '-USR1', l1.subd_pid('gossipd')])
+
+        # Empty result tests.
+        reply = l1.rpc.dev_query_scids(l2.info['id'], ['1:1:1', '2:2:2'])
+        # 0x0105 = query_short_channel_ids
+        l1.daemon.wait_for_log('\[OUT\] 0105.*0000000100000100010000020000020002')
+        assert reply['complete']
+
+        # Make channels public.
+        scid12 = self.fund_channel(l1, l2, 10**5)
+        scid23 = self.fund_channel(l2, l3, 10**5)
+        bitcoind.generate_block(5)
+        sync_blockheight([l1, l2, l3])
+
+        # It will know about everything.
+        l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l3.info['id']))
+        subprocess.run(['kill', '-USR1', l1.subd_pid('channeld')])
+
+        # This query should get channel announcements, channel updates, and node announcements.
+        reply = l1.rpc.dev_query_scids(l2.info['id'], [scid23])
+        # 0x0105 = query_short_channel_ids
+        l1.daemon.wait_for_log('\[OUT\] 0105')
+        assert reply['complete']
+
+        # 0x0100 = channel_announcement
+        l1.daemon.wait_for_log('\[IN\] 0100')
+        # 0x0102 = channel_update
+        l1.daemon.wait_for_log('\[IN\] 0102')
+        l1.daemon.wait_for_log('\[IN\] 0102')
+        # 0x0101 = node_announcement
+        l1.daemon.wait_for_log('\[IN\] 0101')
+        l1.daemon.wait_for_log('\[IN\] 0101')
+
+        reply = l1.rpc.dev_query_scids(l2.info['id'], [scid12, scid23])
+        assert reply['complete']
+        # Technically, this order could be different, but this matches code.
+        # 0x0100 = channel_announcement
+        l1.daemon.wait_for_log('\[IN\] 0100')
+        # 0x0102 = channel_update
+        l1.daemon.wait_for_log('\[IN\] 0102')
+        l1.daemon.wait_for_log('\[IN\] 0102')
+        # 0x0100 = channel_announcement
+        l1.daemon.wait_for_log('\[IN\] 0100')
+        # 0x0102 = channel_update
+        l1.daemon.wait_for_log('\[IN\] 0102')
+        l1.daemon.wait_for_log('\[IN\] 0102')
+        # 0x0101 = node_announcement
+        l1.daemon.wait_for_log('\[IN\] 0101')
+        l1.daemon.wait_for_log('\[IN\] 0101')
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_routing_gossip_reconnect(self):
         # Connect two peers, reconnect and then see if we resume the
         # gossip.
