@@ -911,6 +911,121 @@ static void handle_gossip_timestamp_filter(struct peer *peer, u8 *msg)
 	peer->broadcast_index = 0;
 }
 
+static void reply_channel_range(struct peer *peer,
+				u32 first_blocknum, u32 number_of_blocks,
+				const u8 *encoded)
+{
+	/* BOLT #7:
+	 *
+	 * - For each `reply_channel_range`:
+	 *   - MUST set with `chain_hash` equal to that of `query_channel_range`,
+	 *   - MUST encode a `short_channel_id` for every open channel it
+	 *     knows in blocks `first_blocknum` to `first_blocknum` plus
+	 *     `number_of_blocks` minus one.
+	 *   - MUST limit `number_of_blocks` to the maximum number of blocks
+         *     whose results could fit in `encoded_short_ids`
+	 *   - if does not maintain up-to-date channel information for
+	 *     `chain_hash`:
+	 *     - MUST set `complete` to 0.
+	 *   - otherwise:
+	 *     - SHOULD set `complete` to 1.
+	 */
+	u8 *msg = towire_reply_channel_range(NULL,
+					     &peer->daemon->rstate->chain_hash,
+					     first_blocknum,
+					     number_of_blocks,
+					     1, encoded);
+	queue_peer_msg(peer, take(msg));
+}
+
+static void queue_channel_ranges(struct peer *peer,
+				 u32 first_blocknum, u32 number_of_blocks)
+{
+	struct routing_state *rstate = peer->daemon->rstate;
+	u8 *encoded = encode_short_channel_ids_start(tmpctx);
+	struct short_channel_id scid;
+
+	/* BOLT #7:
+	 *
+	 * 1. type: 264 (`reply_channel_range`) (`gossip_queries`)
+	 * 2. data:
+	 *   * [`32`:`chain_hash`]
+	 *   * [`4`:`first_blocknum`]
+	 *   * [`4`:`number_of_blocks`]
+	 *   * [`1`:`complete`]
+	 *   * [`2`:`len`]
+	 *   * [`len`:`encoded_short_ids`]
+	 */
+	const size_t reply_overhead = 32 + 4 + 4 + 1 + 2;
+	const size_t max_encoded_bytes = 65535 - 2 - reply_overhead;
+
+	/* Avoid underflow: we don't use block 0 anyway */
+	if (first_blocknum == 0)
+		mk_short_channel_id(&scid, 1, 0, 0);
+	else
+		mk_short_channel_id(&scid, first_blocknum, 0, 0);
+	scid.u64--;
+
+	while (uintmap_after(&rstate->chanmap, &scid.u64)) {
+		u32 blocknum = short_channel_id_blocknum(&scid);
+		if (blocknum >= first_blocknum + number_of_blocks)
+			break;
+
+		encode_add_short_channel_id(&encoded, &scid);
+	}
+
+	if (encode_short_channel_ids_end(&encoded, max_encoded_bytes)) {
+		reply_channel_range(peer, first_blocknum, number_of_blocks,
+				    encoded);
+		return;
+	}
+
+	/* It wouldn't all fit: divide in half */
+	/* We assume we can always send one block! */
+	if (number_of_blocks <= 1) {
+		/* We always assume we can send 1 blocks worth */
+		status_broken("Could not fit scids for single block %u",
+			      first_blocknum);
+		return;
+	}
+	status_debug("queue_channel_ranges full: splitting %u+%u and %u+%u",
+		     first_blocknum,
+		     number_of_blocks / 2,
+		     first_blocknum + number_of_blocks / 2,
+		     number_of_blocks - number_of_blocks / 2);
+	queue_channel_ranges(peer, first_blocknum, number_of_blocks / 2);
+	queue_channel_ranges(peer, first_blocknum + number_of_blocks / 2,
+			     number_of_blocks - number_of_blocks / 2);
+}
+
+static void handle_query_channel_range(struct peer *peer, u8 *msg)
+{
+	struct bitcoin_blkid chain_hash;
+	u32 first_blocknum, number_of_blocks;
+
+	if (!fromwire_query_channel_range(msg, &chain_hash,
+					  &first_blocknum, &number_of_blocks)) {
+		peer_error(peer, "Bad query_channel_range %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+
+	if (!structeq(&peer->daemon->rstate->chain_hash, &chain_hash)) {
+		status_trace("%s sent query_channel_range chainhash %s",
+			     type_to_string(tmpctx, struct pubkey, &peer->id),
+			     type_to_string(tmpctx, struct bitcoin_blkid,
+					    &chain_hash));
+		return;
+	}
+
+	if (first_blocknum + number_of_blocks < first_blocknum) {
+		peer_error(peer, "query_channel_range overflow %u+%u",
+			   first_blocknum, number_of_blocks);
+		return;
+	}
+	queue_channel_ranges(peer, first_blocknum, number_of_blocks);
+}
+
 static void handle_ping(struct peer *peer, u8 *ping)
 {
 	u8 *pong;
@@ -1057,6 +1172,10 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 		handle_gossip_timestamp_filter(peer, msg);
 		return peer_next_in(conn, peer);
 
+	case WIRE_QUERY_CHANNEL_RANGE:
+		handle_query_channel_range(peer, msg);
+		return peer_next_in(conn, peer);
+
 	case WIRE_OPEN_CHANNEL:
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_ACCEPT_CHANNEL:
@@ -1081,7 +1200,6 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 		/* This will wait. */
 		return peer_next_in(conn, peer);
 
-	case WIRE_QUERY_CHANNEL_RANGE:
 	case WIRE_REPLY_CHANNEL_RANGE:
 		/* FIXME: Implement */
 		return peer_next_in(conn, peer);
