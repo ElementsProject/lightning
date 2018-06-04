@@ -769,20 +769,20 @@ void wallet_channel_stats_load(struct wallet *w,
 	db_stmt_done(stmt);
 }
 
-u32 wallet_blocks_height(struct wallet *w, u32 def)
+void wallet_blocks_heights(struct wallet *w, u32 def, u32 *min, u32 *max)
 {
-	u32 blockheight;
-	sqlite3_stmt *stmt = db_prepare(w->db, "SELECT MAX(height) FROM blocks;");
+	assert(min != NULL && max != NULL);
+	sqlite3_stmt *stmt = db_prepare(w->db, "SELECT MIN(height), MAX(height) FROM blocks;");
 
 	/* If we ever processed a block we'll get the latest block in the chain */
 	if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_type(stmt, 0) != SQLITE_NULL) {
-		blockheight = sqlite3_column_int(stmt, 0);
-		db_stmt_done(stmt);
-		return blockheight;
+		*min = sqlite3_column_int(stmt, 0);
+		*max = sqlite3_column_int(stmt, 1);
 	} else {
-		db_stmt_done(stmt);
-		return def;
+		*min = def;
+		*max = def;
 	}
+	db_stmt_done(stmt);
 }
 
 static void wallet_channel_config_insert(struct wallet *w,

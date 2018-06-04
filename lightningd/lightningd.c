@@ -306,7 +306,7 @@ void notify_new_block(struct lightningd *ld,
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
-	u32 blockheight;
+	u32 blockheight, first_block;
 
 	setup_locale();
 	daemon_setup(argv[0], log_backtrace_print, log_backtrace_exit);
@@ -388,7 +388,7 @@ int main(int argc, char *argv[])
 	/* Get the blockheight we are currently at, UINT32_MAX is used to signal
 	 * an unitialized wallet and that we should start off of bitcoind's
 	 * current height */
-	blockheight = wallet_blocks_height(ld->wallet, UINT32_MAX);
+	wallet_blocks_heights(ld->wallet, UINT32_MAX, &first_block, &blockheight);
 
 	/* If we were asked to rescan from an absolute height (--rescan < 0)
 	 * then just go there. Otherwise take compute the diff to our current

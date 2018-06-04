@@ -121,9 +121,9 @@ struct txfilter *txfilter_new(const tal_t *ctx UNNEEDED)
 /* Generated stub for version */
 const char *version(void)
 { fprintf(stderr, "version called!\n"); abort(); }
-/* Generated stub for wallet_blocks_height */
-u32 wallet_blocks_height(struct wallet *w UNNEEDED, u32 def UNNEEDED)
-{ fprintf(stderr, "wallet_blocks_height called!\n"); abort(); }
+/* Generated stub for wallet_blocks_heights */
+void wallet_blocks_heights(struct wallet *w UNNEEDED, u32 def UNNEEDED, u32 *min UNNEEDED, u32 *max UNNEEDED)
+{ fprintf(stderr, "wallet_blocks_heights called!\n"); abort(); }
 /* Generated stub for wallet_channels_load_active */
 bool wallet_channels_load_active(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_channels_load_active called!\n"); abort(); }
