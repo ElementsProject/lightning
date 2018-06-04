@@ -2623,6 +2623,98 @@ class LightningDTests(BaseLightningDTests):
                                    .format(l2.info['version']))
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_gossip_query_channel_range(self):
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node()
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+        # Make public channels.
+        scid12 = self.fund_channel(l1, l2, 10**5)
+        block12 = int(scid12.split(':')[0])
+        scid23 = self.fund_channel(l2, l3, 10**5)
+        block23 = int(scid23.split(':')[0])
+        bitcoind.generate_block(5)
+        sync_blockheight([l2, l3])
+
+        # Make sure l2 has received all the gossip.
+        l2.daemon.wait_for_logs(['Received node_announcement for node ' + l1.info['id'],
+                                 'Received node_announcement for node ' + l3.info['id']])
+
+        # l1 asks for all channels, gets both.
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=0,
+                                             num=1000000)
+
+        assert ret['final_first_block'] == 0
+        assert ret['final_num_blocks'] == 1000000
+        assert ret['final_complete']
+        assert len(ret['short_channel_ids']) == 2
+        assert ret['short_channel_ids'][0] == scid12
+        assert ret['short_channel_ids'][1] == scid23
+
+        # Does not include scid12
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=0,
+                                             num=block12)
+        assert ret['final_first_block'] == 0
+        assert ret['final_num_blocks'] == block12
+        assert ret['final_complete']
+        assert len(ret['short_channel_ids']) == 0
+
+        # Does include scid12
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=0,
+                                             num=block12 + 1)
+        assert ret['final_first_block'] == 0
+        assert ret['final_num_blocks'] == block12 + 1
+        assert ret['final_complete']
+        assert len(ret['short_channel_ids']) == 1
+        assert ret['short_channel_ids'][0] == scid12
+
+        # Doesn't include scid23
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=0,
+                                             num=block23)
+        assert ret['final_first_block'] == 0
+        assert ret['final_num_blocks'] == block23
+        assert ret['final_complete']
+        assert len(ret['short_channel_ids']) == 1
+        assert ret['short_channel_ids'][0] == scid12
+
+        # Does include scid23
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=block12,
+                                             num=block23 - block12 + 1)
+        assert ret['final_first_block'] == block12
+        assert ret['final_num_blocks'] == block23 - block12 + 1
+        assert ret['final_complete']
+        assert len(ret['short_channel_ids']) == 2
+        assert ret['short_channel_ids'][0] == scid12
+        assert ret['short_channel_ids'][1] == scid23
+
+        # Only includes scid23
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=block23,
+                                             num=1)
+        assert ret['final_first_block'] == block23
+        assert ret['final_num_blocks'] == 1
+        assert ret['final_complete']
+        assert len(ret['short_channel_ids']) == 1
+        assert ret['short_channel_ids'][0] == scid23
+
+        # Past both
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=block23 + 1,
+                                             num=1000000)
+        assert ret['final_first_block'] == block23 + 1
+        assert ret['final_num_blocks'] == 1000000
+        assert ret['final_complete']
+        assert len(ret['short_channel_ids']) == 0
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_query_short_channel_id(self):
         l1 = self.node_factory.get_node(options={'log-level': 'io'})
         l2 = self.node_factory.get_node()

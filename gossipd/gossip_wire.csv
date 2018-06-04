@@ -172,6 +172,20 @@ gossip_send_timestamp_filter,,id,struct pubkey
 gossip_send_timestamp_filter,,first_timestamp,u32
 gossip_send_timestamp_filter,,timestamp_range,u32
 
+# Test of query_channel_range.  Master->gossipd
+gossip_query_channel_range,3029
+gossip_query_channel_range,,id,struct pubkey
+gossip_query_channel_range,,first_blocknum,u32
+gossip_query_channel_range,,number_of_blocks,u32
+
+# Gossipd -> master
+gossip_query_channel_range_reply,3129
+gossip_query_channel_range_reply,,final_first_block,u32
+gossip_query_channel_range_reply,,final_num_blocks,u32
+gossip_query_channel_range_reply,,final_complete,bool
+gossip_query_channel_range_reply,,num,u16
+gossip_query_channel_range_reply,,scids,num*struct short_channel_id
+
 # Given a short_channel_id, return the endpoints
 gossip_resolve_channel_request,3009
 gossip_resolve_channel_request,,channel_id,struct short_channel_id
