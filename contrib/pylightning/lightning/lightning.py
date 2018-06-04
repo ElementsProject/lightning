@@ -249,6 +249,16 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self.call("dev-crash")
 
+    def dev_query_scids(self, id, scids):
+        """
+        Ask peer for a particular set of scids
+        """
+        payload = {
+            "id": id,
+            "scids": scids
+        }
+        return self.call("dev-query-scids", payload)
+
     def getinfo(self):
         """
         Show information about this node
