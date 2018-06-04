@@ -745,14 +745,14 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 
 void setup_topology(struct chain_topology *topo,
 		    struct timers *timers,
-		    u32 first_blocknum)
+		    u32 min_blockheight, u32 max_blockheight)
 {
 	memset(&topo->feerate, 0, sizeof(topo->feerate));
 	topo->timers = timers;
 
 	/* FIXME(cdecker) Actually load this from DB */
-	topo->min_blockheight = first_blocknum;
-	topo->max_blockheight = first_blocknum;
+	topo->min_blockheight = min_blockheight;
+	topo->max_blockheight = max_blockheight;
 
 	/* Make sure bitcoind is started, and ready */
 	wait_for_bitcoind(topo->bitcoind);
