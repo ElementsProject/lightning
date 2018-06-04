@@ -137,6 +137,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_ROUTING_FAILURE:
 	case WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE:
 	case WIRE_GOSSIP_QUERY_SCIDS:
+	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
 	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT:
 	case WIRE_GOSSIPCTL_PEER_IMPORTANT:
@@ -150,6 +151,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_GETPEERS_REPLY:
 	case WIRE_GOSSIP_PING_REPLY:
 	case WIRE_GOSSIP_SCIDS_REPLY:
+	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE_REPLY:
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
@@ -677,4 +679,86 @@ static const struct json_command dev_send_timestamp_filter = {
 	"Send {peerid} the timestamp filter {first} {range}"
 };
 AUTODATA(json_command, &dev_send_timestamp_filter);
+
+static void json_channel_range_reply(struct subd *gossip UNUSED, const u8 *reply,
+				     const int *fds UNUSED, struct command *cmd)
+{
+	struct json_result *response = new_json_result(cmd);
+	u32 final_first_block, final_num_blocks;
+	bool final_complete;
+	struct short_channel_id *scids;
+
+	if (!fromwire_gossip_query_channel_range_reply(tmpctx, reply,
+						       &final_first_block,
+						       &final_num_blocks,
+						       &final_complete,
+						       &scids)) {
+		command_fail(cmd, LIGHTNINGD,
+			     "Gossip gave bad gossip_query_channel_range_reply");
+		return;
+	}
+
+	if (final_num_blocks == 0 && final_num_blocks == 0 && !final_complete) {
+		command_fail(cmd, LIGHTNINGD,
+			     "Gossip refused to query peer");
+		return;
+	}
+
+	json_object_start(response, NULL);
+	json_add_num(response, "final_first_block", final_first_block);
+	json_add_num(response, "final_num_blocks", final_num_blocks);
+	json_add_bool(response, "final_complete", final_complete);
+	json_array_start(response, "short_channel_ids");
+	for (size_t i = 0; i < tal_count(scids); i++)
+		json_add_short_channel_id(response, NULL, &scids[i]);
+	json_array_end(response);
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+static void json_dev_query_channel_range(struct command *cmd,
+					 const char *buffer,
+					 const jsmntok_t *params)
+{
+	u8 *msg;
+	jsmntok_t *idtok, *firsttok, *numtok;
+	struct pubkey id;
+	u32 first, num;
+
+	if (!json_get_params(cmd, buffer, params,
+			     "id", &idtok,
+			     "first", &firsttok,
+			     "num", &numtok,
+			     NULL)) {
+		return;
+	}
+
+	if (!json_tok_pubkey(buffer, idtok, &id)) {
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%.*s' is not a valid id",
+			     idtok->end - idtok->start,
+			     buffer + idtok->start);
+		return;
+	}
+
+	if (!json_tok_number(buffer, firsttok, &first)
+	    || !json_tok_number(buffer, numtok, &num)) {
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "first and num must be numbers");
+		return;
+	}
+
+	/* Tell gossipd, since this is a gossip query. */
+	msg = towire_gossip_query_channel_range(cmd, &id, first, num);
+	subd_req(cmd->ld->gossip, cmd->ld->gossip,
+		 take(msg), -1, 0, json_channel_range_reply, cmd);
+	command_still_pending(cmd);
+}
+
+static const struct json_command dev_query_channel_range_command = {
+	"dev-query-channel-range",
+	json_dev_query_channel_range,
+	"Query {peerid} for short_channel_ids for {first} block + {num} blocks"
+};
+AUTODATA(json_command, &dev_query_channel_range_command);
 #endif /* DEVELOPER */

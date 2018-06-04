@@ -234,6 +234,11 @@ struct peer {
 	/* How many query responses are we expecting? */
 	size_t num_scid_queries_outstanding;
 
+	/* Map of outstanding channel_range requests. */
+	u8 *query_channel_blocks;
+	u32 first_channel_range;
+	struct short_channel_id *query_channel_scids;
+
 	/* Only one of these is set: */
 	struct local_peer_state *local;
 	struct daemon_conn *remote;
@@ -355,6 +360,7 @@ static struct peer *new_peer(const tal_t *ctx,
 	peer->scid_query_nodes = NULL;
 	peer->scid_query_nodes_idx = 0;
 	peer->num_scid_queries_outstanding = 0;
+	peer->query_channel_blocks = NULL;
 	peer->gossip_timestamp_min = 0;
 	peer->gossip_timestamp_max = UINT32_MAX;
 
@@ -1081,6 +1087,97 @@ static void handle_reply_short_channel_ids_end(struct peer *peer, u8 *msg)
 	daemon_conn_send(&peer->daemon->master, take(msg));
 }
 
+static void handle_reply_channel_range(struct peer *peer, u8 *msg)
+{
+	struct bitcoin_blkid chain;
+	u8 complete;
+	u32 first_blocknum, number_of_blocks;
+	u8 *encoded, *p;
+	struct short_channel_id *scids;
+	size_t n;
+
+	if (!fromwire_reply_channel_range(tmpctx, msg, &chain, &first_blocknum,
+					  &number_of_blocks, &complete,
+					  &encoded)) {
+		peer_error(peer, "Bad reply_channel_range %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+
+	if (!structeq(&peer->daemon->rstate->chain_hash, &chain)) {
+		peer_error(peer, "reply_channel_range for bad chain: %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+
+	if (!peer->query_channel_blocks) {
+		peer_error(peer, "reply_channel_range without query: %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+
+	if (first_blocknum + number_of_blocks < first_blocknum) {
+		peer_error(peer, "reply_channel_range invalid %u+%u",
+			   first_blocknum, number_of_blocks);
+		return;
+	}
+
+	scids = decode_short_ids(tmpctx, encoded);
+	if (!scids) {
+		peer_error(peer, "Bad reply_channel_range encoding %s",
+			   tal_hex(tmpctx, encoded));
+		return;
+	}
+
+	n = first_blocknum - peer->first_channel_range;
+	if (first_blocknum < peer->first_channel_range
+	    || n + number_of_blocks > tal_count(peer->query_channel_blocks)) {
+		peer_error(peer, "reply_channel_range invalid %u+%u for query %u+%u",
+			   first_blocknum, number_of_blocks,
+			   peer->first_channel_range,
+			   tal_count(peer->query_channel_blocks));
+		return;
+	}
+
+	p = memchr(peer->query_channel_blocks + n, 1, number_of_blocks);
+	if (p) {
+		peer_error(peer, "reply_channel_range %u+%u already have block %zu",
+			   first_blocknum, number_of_blocks,
+			   peer->first_channel_range + (p - peer->query_channel_blocks));
+		return;
+	}
+
+	/* Mark these blocks received */
+	memset(peer->query_channel_blocks + n, 1, number_of_blocks);
+
+	/* Add scids */
+	n = tal_count(peer->query_channel_scids);
+	tal_resize(&peer->query_channel_scids, n + tal_count(scids));
+	memcpy(peer->query_channel_scids + n, scids, tal_len(scids));
+
+	status_debug("peer %s reply_channel_range %u+%u (of %u+%zu) %zu scids",
+		     type_to_string(tmpctx, struct pubkey, &peer->id),
+		     first_blocknum, number_of_blocks,
+		     peer->first_channel_range,
+		     tal_count(peer->query_channel_blocks),
+		     tal_count(scids));
+
+	/* Still more to go? */
+	if (memchr(peer->query_channel_blocks, 0,
+		   tal_count(peer->query_channel_blocks)))
+		return;
+
+	/* All done, send reply */
+	msg = towire_gossip_query_channel_range_reply(NULL,
+						      first_blocknum,
+						      number_of_blocks,
+						      complete,
+						      peer->query_channel_scids);
+	daemon_conn_send(&peer->daemon->master, take(msg));
+	peer->query_channel_scids = tal_free(peer->query_channel_scids);
+	peer->query_channel_blocks = tal_free(peer->query_channel_blocks);
+}
+
 /* If master asks us to release peer, we attach this destructor in case it
  * dies while we're waiting for it to finish IO */
 static void fail_release(struct peer *peer)
@@ -1176,6 +1273,10 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 		handle_query_channel_range(peer, msg);
 		return peer_next_in(conn, peer);
 
+	case WIRE_REPLY_CHANNEL_RANGE:
+		handle_reply_channel_range(peer, msg);
+		return peer_next_in(conn, peer);
+
 	case WIRE_OPEN_CHANNEL:
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_ACCEPT_CHANNEL:
@@ -1198,10 +1299,6 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 		peer->local->nongossip_msg = tal_steal(peer, msg);
 
 		/* This will wait. */
-		return peer_next_in(conn, peer);
-
-	case WIRE_REPLY_CHANNEL_RANGE:
-		/* FIXME: Implement */
 		return peer_next_in(conn, peer);
 	}
 
@@ -1612,6 +1709,10 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 		handle_local_add_channel(peer->daemon->rstate, dc->msg_in);
 	} else if (type == WIRE_GOSSIP_LOCAL_CHANNEL_UPDATE) {
 		handle_local_channel_update(peer, dc->msg_in);
+	} else if (type == WIRE_QUERY_CHANNEL_RANGE) {
+		handle_query_channel_range(peer, dc->msg_in);
+	} else if (type == WIRE_REPLY_CHANNEL_RANGE) {
+		handle_reply_channel_range(peer, dc->msg_in);
 	} else {
 		status_broken("peer %s: send us unknown msg of type %s",
 			      type_to_string(tmpctx, struct pubkey, &peer->id),
@@ -2137,6 +2238,58 @@ static struct io_plan *send_timestamp_filter(struct io_conn *conn,
 	queue_peer_msg(peer, take(msg));
 out:
 	return daemon_conn_read_next(conn, &daemon->master);
+}
+
+static struct io_plan *query_channel_range(struct io_conn *conn,
+					   struct daemon *daemon,
+					   const u8 *msg)
+{
+	struct pubkey id;
+	u32 first_blocknum, number_of_blocks;
+	struct peer *peer;
+
+	if (!fromwire_gossip_query_channel_range(msg, &id, &first_blocknum,
+						 &number_of_blocks))
+		master_badmsg(WIRE_GOSSIP_QUERY_SCIDS, msg);
+
+	peer = find_peer(daemon, &id);
+	if (!peer) {
+		status_broken("query_channel_range: unknown peer %s",
+			      type_to_string(tmpctx, struct pubkey, &id));
+		goto fail;
+	}
+
+	if (!feature_offered(peer->lfeatures, LOCAL_GOSSIP_QUERIES)) {
+		status_broken("query_channel_range: no gossip_query support in peer %s",
+			      type_to_string(tmpctx, struct pubkey, &id));
+		goto fail;
+	}
+
+	if (peer->query_channel_blocks) {
+		status_broken("query_channel_range: previous query active");
+		goto fail;
+	}
+
+	status_debug("sending query_channel_range for blocks %u+%u",
+		     first_blocknum, number_of_blocks);
+	msg = towire_query_channel_range(NULL, &daemon->rstate->chain_hash,
+					 first_blocknum, number_of_blocks);
+	queue_peer_msg(peer, take(msg));
+	peer->first_channel_range = first_blocknum;
+	/* This uses 8 times as much as it needs to, but it's only for dev */
+	peer->query_channel_blocks = tal_arrz(peer, u8, number_of_blocks);
+	peer->query_channel_scids = tal_arr(peer, struct short_channel_id, 0);
+
+out:
+	return daemon_conn_read_next(conn, &daemon->master);
+
+fail:
+	daemon_conn_send(&daemon->master,
+			 take(towire_gossip_query_channel_range_reply(NULL,
+								      0, 0,
+								      false,
+								      NULL)));
+	goto out;
 }
 #endif /* DEVELOPER */
 
@@ -3361,10 +3514,15 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 
 	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
 		return send_timestamp_filter(conn, daemon, daemon->master.msg_in);
+
+	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
+		return query_channel_range(conn, daemon, daemon->master.msg_in);
+
 #else
 	case WIRE_GOSSIP_PING:
 	case WIRE_GOSSIP_QUERY_SCIDS:
 	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
+	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
 		break;
 #endif /* !DEVELOPER */
 
@@ -3378,6 +3536,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_GETPEERS_REPLY:
 	case WIRE_GOSSIP_PING_REPLY:
 	case WIRE_GOSSIP_SCIDS_REPLY:
+	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE_REPLY:
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REPLY:
 	case WIRE_GOSSIP_PEER_CONNECTED:
 	case WIRE_GOSSIPCTL_CONNECT_TO_PEER_RESULT:
