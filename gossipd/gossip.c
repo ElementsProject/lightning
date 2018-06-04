@@ -1989,6 +1989,37 @@ fail:
 			 take(towire_gossip_scids_reply(NULL, false, false)));
 	goto out;
 }
+
+static struct io_plan *send_timestamp_filter(struct io_conn *conn,
+					     struct daemon *daemon,
+					     const u8 *msg)
+{
+	struct pubkey id;
+	u32 first, range;
+	struct peer *peer;
+
+	if (!fromwire_gossip_send_timestamp_filter(msg, &id, &first, &range))
+		master_badmsg(WIRE_GOSSIP_SEND_TIMESTAMP_FILTER, msg);
+
+	peer = find_peer(daemon, &id);
+	if (!peer) {
+		status_broken("send_timestamp_filter: unknown peer %s",
+			      type_to_string(tmpctx, struct pubkey, &id));
+		goto out;
+	}
+
+	if (!feature_offered(peer->lfeatures, LOCAL_GOSSIP_QUERIES)) {
+		status_broken("send_timestamp_filter: no gossip_query support in peer %s",
+			      type_to_string(tmpctx, struct pubkey, &id));
+		goto out;
+	}
+
+	msg = towire_gossip_timestamp_filter(NULL, &daemon->rstate->chain_hash,
+					     first, range);
+	queue_peer_msg(peer, take(msg));
+out:
+	return daemon_conn_read_next(conn, &daemon->master);
+}
 #endif /* DEVELOPER */
 
 static int make_listen_fd(int domain, void *addr, socklen_t len, bool mayfail)
@@ -3209,9 +3240,13 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 
 	case WIRE_GOSSIP_QUERY_SCIDS:
 		return query_scids_req(conn, daemon, daemon->master.msg_in);
+
+	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
+		return send_timestamp_filter(conn, daemon, daemon->master.msg_in);
 #else
 	case WIRE_GOSSIP_PING:
 	case WIRE_GOSSIP_QUERY_SCIDS:
+	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
 		break;
 #endif /* !DEVELOPER */
 

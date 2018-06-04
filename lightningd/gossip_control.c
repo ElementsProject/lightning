@@ -137,6 +137,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_ROUTING_FAILURE:
 	case WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE:
 	case WIRE_GOSSIP_QUERY_SCIDS:
+	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT:
 	case WIRE_GOSSIPCTL_PEER_IMPORTANT:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECTED:
@@ -629,4 +630,51 @@ static const struct json_command dev_query_scids_command = {
 	"Query {peerid} for [scids]"
 };
 AUTODATA(json_command, &dev_query_scids_command);
+
+static void json_dev_send_timestamp_filter(struct command *cmd,
+					   const char *buffer,
+					   const jsmntok_t *params)
+{
+	u8 *msg;
+	jsmntok_t *idtok, *firsttok, *rangetok;
+	struct pubkey id;
+	u32 first, range;
+
+	if (!json_get_params(cmd, buffer, params,
+			     "id", &idtok,
+			     "first", &firsttok,
+			     "range", &rangetok,
+			     NULL)) {
+		return;
+	}
+
+	if (!json_tok_pubkey(buffer, idtok, &id)) {
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%.*s' is not a valid id",
+			     idtok->end - idtok->start,
+			     buffer + idtok->start);
+		return;
+	}
+
+	if (!json_tok_number(buffer, firsttok, &first)
+	    || !json_tok_number(buffer, rangetok, &range)) {
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "bad first or range numbers");
+		return;
+	}
+
+	log_debug(cmd->ld->log, "Setting timestamp range %u+%u", first, range);
+	/* Tell gossipd, since this is a gossip query. */
+	msg = towire_gossip_send_timestamp_filter(NULL, &id, first, range);
+	subd_send_msg(cmd->ld->gossip, take(msg));
+
+	command_success(cmd, null_response(cmd));
+}
+
+static const struct json_command dev_send_timestamp_filter = {
+	"dev-send-timestamp-filter",
+	json_dev_send_timestamp_filter,
+	"Send {peerid} the timestamp filter {first} {range}"
+};
+AUTODATA(json_command, &dev_send_timestamp_filter);
 #endif /* DEVELOPER */

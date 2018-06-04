@@ -2682,6 +2682,93 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('\[IN\] 0101')
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_gossip_timestamp_filter(self):
+        # Need full IO logging so we can see gossip (from gossipd and channeld)
+        l1 = self.node_factory.get_node(options={'log-level': 'io'})
+        l2 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node()
+
+        # Full IO logging for gossipds
+        subprocess.run(['kill', '-USR1', l1.subd_pid('gossipd')])
+        subprocess.run(['kill', '-USR1', l2.subd_pid('gossipd')])
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+        before_anything = int(time.time() - 1.0)
+
+        # Make a public channel.
+        chan12 = self.fund_channel(l1, l2, 10**5)
+        bitcoind.generate_block(5)
+        sync_blockheight([l1, l2])
+
+        self.wait_for_routes(l3, [chan12])
+        after_12 = int(time.time())
+        # Full IO logging for l1's channeld
+        subprocess.run(['kill', '-USR1', l1.subd_pid('channeld')])
+
+        # Make another one, different timestamp.
+        chan23 = self.fund_channel(l2, l3, 10**5)
+        bitcoind.generate_block(5)
+        sync_blockheight([l2, l3])
+
+        self.wait_for_routes(l1, [chan23])
+        after_23 = int(time.time())
+
+        # Make sure l1 has received all the gossip.
+        wait_for(lambda: ['alias' in node for node in l1.rpc.listnodes()['nodes']] == [True, True, True])
+
+        # l1 sets broad timestamp, will receive info about both channels again.
+        l1.rpc.dev_send_timestamp_filter(id=l2.info['id'],
+                                         first=0,
+                                         range=0xFFFFFFFF)
+        before_sendfilter = l1.daemon.logsearch_start
+
+        # 0x0100 = channel_announcement
+        # 0x0102 = channel_update
+        # 0x0101 = node_announcement
+        l1.daemon.wait_for_log('\[IN\] 0100')
+        # The order of node_announcements relative to others is undefined.
+        l1.daemon.wait_for_logs(['\[IN\] 0102',
+                                 '\[IN\] 0102',
+                                 '\[IN\] 0100',
+                                 '\[IN\] 0102',
+                                 '\[IN\] 0102',
+                                 '\[IN\] 0101',
+                                 '\[IN\] 0101',
+                                 '\[IN\] 0101'])
+
+        # Now timestamp which doesn't overlap (gives nothing).
+        before_sendfilter = l1.daemon.logsearch_start
+        l1.rpc.dev_send_timestamp_filter(id=l2.info['id'],
+                                         first=0,
+                                         range=before_anything)
+        time.sleep(1)
+        assert not l1.daemon.is_in_log('\[IN\] 0100', before_sendfilter)
+
+        # Now choose range which will only give first update.
+        l1.rpc.dev_send_timestamp_filter(id=l2.info['id'],
+                                         first=before_anything,
+                                         range=after_12 - before_anything + 1)
+        # 0x0100 = channel_announcement
+        l1.daemon.wait_for_log('\[IN\] 0100')
+        # 0x0102 = channel_update
+        # (Node announcement may have any timestamp)
+        l1.daemon.wait_for_log('\[IN\] 0102')
+        l1.daemon.wait_for_log('\[IN\] 0102')
+
+        # Now choose range which will only give second update.
+        l1.rpc.dev_send_timestamp_filter(id=l2.info['id'],
+                                         first=after_12,
+                                         range=after_23 - after_12 + 1)
+        # 0x0100 = channel_announcement
+        l1.daemon.wait_for_log('\[IN\] 0100')
+        # 0x0102 = channel_update
+        # (Node announcement may have any timestamp)
+        l1.daemon.wait_for_log('\[IN\] 0102')
+        l1.daemon.wait_for_log('\[IN\] 0102')
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_routing_gossip_reconnect(self):
         # Connect two peers, reconnect and then see if we resume the
         # gossip.

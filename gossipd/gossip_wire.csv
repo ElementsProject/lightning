@@ -166,6 +166,12 @@ gossip_scids_reply,3131
 gossip_scids_reply,,ok,bool
 gossip_scids_reply,,complete,bool
 
+# Test gossip timestamp filtering.
+gossip_send_timestamp_filter,3028
+gossip_send_timestamp_filter,,id,struct pubkey
+gossip_send_timestamp_filter,,first_timestamp,u32
+gossip_send_timestamp_filter,,timestamp_range,u32
+
 # Given a short_channel_id, return the endpoints
 gossip_resolve_channel_request,3009
 gossip_resolve_channel_request,,channel_id,struct short_channel_id
