@@ -190,8 +190,8 @@ The Lightning Network paper proposed a solution, but at the cost of introducing
 status collapsed
 
 \begin_layout Plain Layout
-Schnorr signatures offer faster batch validation, according to https://github.com
-/ElementsProject/elementsproject.github.io#schnorr-signature-validation
+Schnorr signatures offer faster batch validation, according to 
+https://elementsproject.org/elements/schnorr-signatures/
 \end_layout
 
 \end_inset
