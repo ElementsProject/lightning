@@ -490,9 +490,16 @@ static void mempat(void *dst, size_t len)
 		p[i] = n % 251; /* Prime */
 }
 
+/* Destructor for the wallet which unlinks the underlying file */
+static void cleanup_test_wallet(struct wallet *w, char *filename)
+{
+	unlink(filename);
+	tal_free(filename);
+}
+
 static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx)
 {
-	char filename[] = "/tmp/ldb-XXXXXX";
+	char *filename = tal_fmt(ctx, "/tmp/ldb-XXXXXX");
 	int fd = mkstemp(filename);
 	struct wallet *w = tal(ctx, struct wallet);
 	static unsigned char badseed[BIP32_ENTROPY_LEN_128];
@@ -500,6 +507,7 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	close(fd);
 
 	w->db = db_open(w, filename);
+	tal_add_destructor2(w, cleanup_test_wallet, filename);
 
 	list_head_init(&w->unstored_payments);
 	w->ld = ld;
@@ -518,23 +526,14 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	return w;
 }
 
-static bool test_wallet_outputs(void)
+static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 {
-	char filename[] = "/tmp/ldb-XXXXXX";
+	struct wallet *w = create_test_wallet(ld, ctx);
 	struct utxo u;
-	int fd = mkstemp(filename);
-	CHECK_MSG(fd != -1, "Unable to generate temp filename");
-	close(fd);
-
-	struct wallet *w = tal(NULL, struct wallet);
 	struct pubkey pk;
 	u64 fee_estimate, change_satoshis;
 	const struct utxo **utxos;
-
-	w->db = db_open(w, filename);
-	CHECK_MSG(w->db, "Failed opening the db");
-	db_migrate(w->db, NULL);
-	CHECK_MSG(!wallet_err, "DB migration failed");
+	CHECK(w);
 
 	memset(&u, 0, sizeof(u));
 	u.amount = 1;
@@ -596,33 +595,20 @@ static bool test_wallet_outputs(void)
 		  "could not change output state ignoring oldstate");
 
 	db_commit_transaction(w->db);
-
-	tal_free(w);
 	return true;
 }
 
-static bool test_shachain_crud(void)
+static bool test_shachain_crud(struct lightningd *ld, const tal_t *ctx)
 {
 	struct wallet_shachain a, b;
-	char filename[] = "/tmp/ldb-XXXXXX";
-	int fd = mkstemp(filename);
-	struct wallet *w = tal(NULL, struct wallet);
+	struct wallet *w = create_test_wallet(ld, ctx);
 	struct sha256 seed, hash;
 	uint64_t index = UINT64_MAX >> (64 - SHACHAIN_BITS);
 
-	w->db = db_open(w, filename);
-	CHECK_MSG(w->db, "Failed opening the db");
-	db_migrate(w->db, NULL);
-	CHECK_MSG(!wallet_err, "DB migration failed");
-
-	CHECK_MSG(fd != -1, "Unable to generate temp filename");
-	close(fd);
 	memset(&seed, 'A', sizeof(seed));
-
 	memset(&a, 0, sizeof(a));
 	memset(&b, 0, sizeof(b));
 
-	w->db = db_open(w, filename);
 	db_begin_transaction(w->db);
 	CHECK_MSG(!wallet_err, "db_begin_transaction failed");
 	wallet_shachain_init(w, &a);
@@ -644,7 +630,6 @@ static bool test_shachain_crud(void)
 
 	db_commit_transaction(w->db);
 	CHECK(!wallet_err);
-	tal_free(w);
 	return true;
 }
 
@@ -831,7 +816,6 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 
 	db_commit_transaction(w->db);
 	CHECK(!wallet_err);
-	tal_free(w);
 	/* Normally freed by destroy_channel, but we don't call that */
 	tal_free(p);
 	return true;
@@ -1010,15 +994,19 @@ int main(void)
 	htlc_in_map_init(&ld->htlcs_in);
 	htlc_out_map_init(&ld->htlcs_out);
 
-	ok &= test_wallet_outputs();
-	ok &= test_shachain_crud();
+	ok &= test_wallet_outputs(ld, tmpctx);
+	ok &= test_shachain_crud(ld, tmpctx);
 	ok &= test_channel_crud(ld, tmpctx);
 	ok &= test_channel_config_crud(ld, tmpctx);
 	ok &= test_htlc_crud(ld, tmpctx);
 	ok &= test_payment_crud(ld, tmpctx);
 
-	take_cleanup();
-	tal_free(tmpctx);
+	/* Do not clean up in the case of an error, we might want to debug the
+	 * database. */
+	if (ok) {
+		tal_free(tmpctx);
+		take_cleanup();
+	}
 	wally_cleanup(0);
 	return !ok;
 }
