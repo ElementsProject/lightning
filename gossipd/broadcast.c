@@ -5,6 +5,9 @@ struct queued_message {
 	/* Broadcast index. */
 	u64 index;
 
+	/* Timestamp, for filtering. */
+	u32 timestamp;
+
 	/* Serialized payload */
 	const u8 *payload;
 };
@@ -27,20 +30,25 @@ static void destroy_queued_message(struct queued_message *msg,
 static struct queued_message *new_queued_message(const tal_t *ctx,
 						 struct broadcast_state *bstate,
 						 const u8 *payload,
+						 u32 timestamp,
 						 u64 index)
 {
 	struct queued_message *msg = tal(ctx, struct queued_message);
+	assert(payload);
 	msg->payload = payload;
 	msg->index = index;
+	msg->timestamp = timestamp;
 	uintmap_add(&bstate->broadcasts, index, msg);
 	tal_add_destructor2(msg, destroy_queued_message, bstate);
 	return msg;
 }
 
-void insert_broadcast(struct broadcast_state *bstate, const u8 *payload)
+void insert_broadcast(struct broadcast_state *bstate,
+		      const u8 *payload, u32 timestamp)
 {
 	/* Free payload, free index. */
-	new_queued_message(payload, bstate, payload, bstate->next_index++);
+	new_queued_message(payload, bstate, payload, timestamp,
+			   bstate->next_index++);
 }
 
 const u8 *next_broadcast(struct broadcast_state *bstate, u64 *last_index)

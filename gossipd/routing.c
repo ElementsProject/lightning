@@ -614,9 +614,10 @@ static bool is_local_channel(const struct routing_state *rstate,
 }
 
 static void add_channel_announce_to_broadcast(struct routing_state *rstate,
-					      struct chan *chan)
+					      struct chan *chan,
+					      u32 timestamp)
 {
-	insert_broadcast(rstate->broadcasts, chan->channel_announce);
+	insert_broadcast(rstate->broadcasts, chan->channel_announce, timestamp);
 	rstate->local_channel_announced |= is_local_channel(rstate, chan);
 
 	/* If we've been waiting for this, now we can announce node */
@@ -627,7 +628,8 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 		if (!node->node_announcement_public) {
 			node->node_announcement_public = true;
 			insert_broadcast(rstate->broadcasts,
-					 node->node_announcement);
+					 node->node_announcement,
+					 node->last_timestamp);
 		}
 	}
 }
@@ -986,14 +988,17 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		return true;
 
 	/* BOLT #7:
+	 *   - MUST consider the `timestamp` of the `channel_announcement` to be
+	 *     the `timestamp` of a corresponding `channel_update`.
 	 *   - MUST consider whether to send the `channel_announcement` after
 	 *     receiving the first corresponding `channel_update`.
 	 */
 	if (!have_broadcast_announce)
-		add_channel_announce_to_broadcast(rstate, chan);
+		add_channel_announce_to_broadcast(rstate, chan, timestamp);
 
 	insert_broadcast(rstate->broadcasts,
-			 chan->half[direction].channel_update);
+			 chan->half[direction].channel_update,
+			 timestamp);
 	return true;
 }
 
@@ -1204,7 +1209,8 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 	/* We might be waiting for channel_announce to be released. */
 	node->node_announcement_public = node_has_public_channels(node);
 	if (node->node_announcement_public)
-		insert_broadcast(rstate->broadcasts, node->node_announcement);
+		insert_broadcast(rstate->broadcasts, node->node_announcement,
+				 timestamp);
 	return true;
 }
 
