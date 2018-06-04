@@ -782,7 +782,7 @@ static void send_node_announcement(struct daemon *daemon)
 }
 
 /* Should we announce our own node? */
-static void consider_own_node_announce(struct daemon *daemon)
+static void maybe_send_own_node_announce(struct daemon *daemon)
 {
 	if (!daemon->rstate->local_channel_announced)
 		return;
@@ -831,7 +831,7 @@ static u8 *handle_gossip_msg(struct daemon *daemon, const u8 *msg,
 		if (err)
 			return err;
 		/* In case we just announced a new local channel. */
-		consider_own_node_announce(daemon);
+		maybe_send_own_node_announce(daemon);
 		break;
 	}
 
@@ -1754,7 +1754,7 @@ static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 		queue_peer_msg(peer, take(cupdate));
 
 	/* That channel_update might trigger our first channel_announcement */
-	consider_own_node_announce(peer->daemon);
+	maybe_send_own_node_announce(peer->daemon);
 }
 
 /**
@@ -2875,7 +2875,7 @@ static struct io_plan *gossip_activate(struct daemon_conn *master,
 
 	/* Now we know our addresses, re-announce ourselves if we have a
 	 * channel, in case options have changed. */
-	consider_own_node_announce(daemon);
+	maybe_send_own_node_announce(daemon);
 
 	/* OK, we're ready! */
 	daemon_conn_send(&daemon->master,
@@ -3435,7 +3435,7 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 		master_badmsg(WIRE_GOSSIP_GET_TXOUT_REPLY, msg);
 
 	handle_pending_cannouncement(daemon->rstate, &scid, satoshis, outscript);
-	consider_own_node_announce(daemon);
+	maybe_send_own_node_announce(daemon);
 
 	return daemon_conn_read_next(conn, &daemon->master);
 }
