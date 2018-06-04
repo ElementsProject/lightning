@@ -20,7 +20,10 @@ struct broadcast_state *new_broadcast_state(tal_t *ctx);
 void insert_broadcast(struct broadcast_state *bstate, const u8 *msg,
 		      u32 timestamp);
 
-/* Return the broadcast with index >= *last_index, and update *last_index.
+/* Return the broadcast with index >= *last_index, timestamp >= min and <= max
+ * and update *last_index.
  * There's no broadcast with index 0. */
-const u8 *next_broadcast(struct broadcast_state *bstate, u64 *last_index);
+const u8 *next_broadcast(struct broadcast_state *bstate,
+			 u32 timestamp_min, u32 timestamp_max,
+			 u64 *last_index);
 #endif /* LIGHTNING_GOSSIPD_BROADCAST_H */
