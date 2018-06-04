@@ -810,6 +810,14 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 
 		/* This will wait. */
 		return peer_next_in(conn, peer);
+
+	case WIRE_QUERY_SHORT_CHANNEL_IDS:
+	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
+	case WIRE_QUERY_CHANNEL_RANGE:
+	case WIRE_REPLY_CHANNEL_RANGE:
+	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+		/* FIXME: Implement */
+		return peer_next_in(conn, peer);
 	}
 
 	/* BOLT #1:
