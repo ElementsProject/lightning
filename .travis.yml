@@ -2,6 +2,9 @@ language: c
 dist: trusty
 sudo: true
 
+before_install:
+  - git submodule update --init --recursive
+
 notifications:
   email: false
 
