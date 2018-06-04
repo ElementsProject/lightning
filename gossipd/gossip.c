@@ -216,6 +216,10 @@ struct peer {
 	/* High water mark for the staggered broadcast */
 	u64 broadcast_index;
 
+	/* Are there outstanding queries on short_channel_ids? */
+	const struct short_channel_id *scid_queries;
+	size_t scid_query_idx;
+
 	/* Is it time to continue the staggered broadcast? */
 	bool gossip_sync;
 
@@ -335,6 +339,8 @@ static struct peer *new_peer(const tal_t *ctx,
 	peer->daemon = daemon;
 	peer->local = new_local_peer_state(peer, cs);
 	peer->remote = NULL;
+	peer->scid_queries = NULL;
+	peer->scid_query_idx = 0;
 
 	return peer;
 }
@@ -857,10 +863,58 @@ static void wake_pkt_out(struct peer *peer)
 /* Mutual recursion. */
 static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer);
 
+static bool create_next_scid_reply(struct peer *peer)
+{
+	struct routing_state *rstate = peer->daemon->rstate;
+	size_t i, num;
+	bool sent = false;
+
+	/* BOLT #7:
+	 *
+	 *   - SHOULD respond to each known `short_channel_id` with a
+	 *     `channel_announce` and the latest `channel_update`s for
+	 *     each end
+	 *
+	 *   - SHOULD NOT wait for the next outgoing announcement flush
+	 *     to send these.
+	 */
+	num = tal_count(peer->scid_queries);
+	for (i = peer->scid_query_idx; !sent && i < num; i++) {
+		struct chan *chan;
+
+		chan = get_channel(rstate, &peer->scid_queries[i]);
+		if (!chan || is_chan_public(chan))
+			continue;
+
+		queue_peer_msg(peer, chan->channel_announce);
+		if (chan->half[0].channel_update)
+			queue_peer_msg(peer, chan->half[0].channel_update);
+		if (chan->half[1].channel_update)
+			queue_peer_msg(peer, chan->half[0].channel_update);
+		sent = true;
+	}
+	peer->scid_query_idx = i;
+
+	/* All finished? */
+	if (peer->scid_queries && peer->scid_query_idx == num) {
+		/* FIXME: Send node_announcements now */
+		u8 *end = towire_reply_short_channel_ids_end(peer,
+							     &rstate->chain_hash,
+							     true);
+		queue_peer_msg(peer, take(end));
+		peer->scid_queries = tal_free(peer->scid_queries);
+	}
+
+	return sent;
+}
+
 static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer)
 {
 	/* First priority is queued packets, if any */
-	const u8 *out = msg_dequeue(&peer->local->peer_out);
+	const u8 *out;
+
+again:
+	out = msg_dequeue(&peer->local->peer_out);
 	if (out) {
 		if (is_all_channel_error(out))
 			return peer_write_message(conn, &peer->local->pcs,
@@ -874,6 +928,8 @@ static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer)
 	if (peer->local->return_to_master) {
 		if (!peer_in_started(conn, &peer->local->pcs))
 			return ready_for_master(conn, peer);
+	} else if (create_next_scid_reply(peer)) {
+		goto again;
 	} else if (peer->gossip_sync) {
 		/* If we're supposed to be sending gossip, do so now. */
 		const u8 *next;
@@ -1158,6 +1214,10 @@ static bool nonlocal_dump_gossip(struct io_conn *conn, struct daemon_conn *dc)
 
 	/* Make sure we are not connected directly */
 	assert(!peer->local);
+
+	/* Do we have scid query replies to send? */
+	if (create_next_scid_reply(peer))
+		return true;
 
 	/* Nothing to do if we're not gossiping */
 	if (!peer->gossip_sync)
