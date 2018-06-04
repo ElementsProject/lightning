@@ -51,12 +51,16 @@ void insert_broadcast(struct broadcast_state *bstate,
 			   bstate->next_index++);
 }
 
-const u8 *next_broadcast(struct broadcast_state *bstate, u64 *last_index)
+const u8 *next_broadcast(struct broadcast_state *bstate,
+			 u32 timestamp_min, u32 timestamp_max,
+			 u64 *last_index)
 {
 	struct queued_message *m;
 
-	m = uintmap_after(&bstate->broadcasts, last_index);
-	if (m)
-		return m->payload;
+	while ((m = uintmap_after(&bstate->broadcasts, last_index)) != NULL) {
+		if (m->timestamp >= timestamp_min
+		    && m->timestamp <= timestamp_max)
+			return m->payload;
+	}
 	return NULL;
 }
