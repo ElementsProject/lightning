@@ -1071,6 +1071,28 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 		}
 	}
 
+	/* BOLT #7:
+	 *
+	 *  - if the `timestamp` is unreasonably far in the future:
+	 *    - MAY discard the `channel_announcement`.
+	 */
+	if (timestamp > time_now().ts.tv_sec + rstate->prune_timeout) {
+		status_debug("Received channel_update for %s with far time %u",
+			     type_to_string(tmpctx, struct short_channel_id,
+					    &short_channel_id),
+			     timestamp);
+		return NULL;
+	}
+
+	/* Note: we can consider old timestamps a case of "instant prune" too */
+	if (timestamp < time_now().ts.tv_sec - rstate->prune_timeout) {
+		status_debug("Received channel_update for %s with old time %u",
+			     type_to_string(tmpctx, struct short_channel_id,
+					    &short_channel_id),
+			     timestamp);
+		return NULL;
+	}
+
 	c = &chan->half[direction];
 
 	if (is_halfchan_defined(c) && timestamp <= c->last_timestamp) {
