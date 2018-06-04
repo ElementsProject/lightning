@@ -155,6 +155,17 @@ gossip_ping_reply,,sent,bool
 # 0 == no pong expected
 gossip_ping_reply,,totlen,u16
 
+# Test of query_short_channel_ids.  Master->gossipd
+gossip_query_scids,3031
+gossip_query_scids,,id,struct pubkey
+gossip_query_scids,,num_ids,u16
+gossip_query_scids,,ids,num_ids*struct short_channel_id
+
+# Gossipd -> master
+gossip_scids_reply,3131
+gossip_scids_reply,,ok,bool
+gossip_scids_reply,,complete,bool
+
 # Given a short_channel_id, return the endpoints
 gossip_resolve_channel_request,3009
 gossip_resolve_channel_request,,channel_id,struct short_channel_id

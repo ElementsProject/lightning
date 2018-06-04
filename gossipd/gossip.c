@@ -228,6 +228,9 @@ struct peer {
 	/* Is it time to continue the staggered broadcast? */
 	bool gossip_sync;
 
+	/* How many query responses are we expecting? */
+	size_t num_scid_queries_outstanding;
+
 	/* Only one of these is set: */
 	struct local_peer_state *local;
 	struct daemon_conn *remote;
@@ -348,6 +351,7 @@ static struct peer *new_peer(const tal_t *ctx,
 	peer->scid_query_idx = 0;
 	peer->scid_query_nodes = NULL;
 	peer->scid_query_nodes_idx = 0;
+	peer->num_scid_queries_outstanding = 0;
 
 	return peer;
 }
@@ -401,6 +405,30 @@ static void reached_peer(struct peer *peer, struct io_conn *conn)
 	}
 
 	tal_free(r);
+}
+
+static u8 *encode_short_channel_ids_start(const tal_t *ctx)
+{
+	/* BOLT #7:
+	 *
+	 * Encoding types:
+	 * * `0`: uncompressed array of `short_channel_id` types, in ascending
+	 *      order.
+	 */
+	u8 *encoded = tal_arr(tmpctx, u8, 0);
+	towire_u8(&encoded, 0);
+	return encoded;
+}
+
+static void encode_add_short_channel_id(u8 **encoded,
+					const struct short_channel_id *scid)
+{
+	towire_short_channel_id(encoded, scid);
+}
+
+static bool encode_short_channel_ids_end(u8 **encoded, size_t max_bytes)
+{
+	return tal_len(*encoded) <= max_bytes;
 }
 
 static void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
@@ -820,6 +848,34 @@ static void handle_pong(struct peer *peer, const u8 *pong)
 						       tal_len(pong))));
 }
 
+static void handle_reply_short_channel_ids_end(struct peer *peer, u8 *msg)
+{
+	struct bitcoin_blkid chain;
+	u8 complete;
+
+	if (!fromwire_reply_short_channel_ids_end(msg, &chain, &complete)) {
+		peer_error(peer, "Bad reply_short_channel_ids_end %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+
+	if (!structeq(&peer->daemon->rstate->chain_hash, &chain)) {
+		peer_error(peer, "reply_short_channel_ids_end for bad chain: %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+
+	if (peer->num_scid_queries_outstanding == 0) {
+		peer_error(peer, "unexpected reply_short_channel_ids_end: %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+
+	peer->num_scid_queries_outstanding--;
+	msg = towire_gossip_scids_reply(msg, true, complete);
+	daemon_conn_send(&peer->daemon->master, take(msg));
+}
+
 /* If master asks us to release peer, we attach this destructor in case it
  * dies while we're waiting for it to finish IO */
 static void fail_release(struct peer *peer)
@@ -903,6 +959,10 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 		handle_query_short_channel_ids(peer, msg);
 		return peer_next_in(conn, peer);
 
+	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
+		handle_reply_short_channel_ids_end(peer, msg);
+		return peer_next_in(conn, peer);
+
 	case WIRE_OPEN_CHANNEL:
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_ACCEPT_CHANNEL:
@@ -927,7 +987,6 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 		/* This will wait. */
 		return peer_next_in(conn, peer);
 
-	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 	case WIRE_QUERY_CHANNEL_RANGE:
 	case WIRE_REPLY_CHANNEL_RANGE:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
@@ -1037,7 +1096,7 @@ static bool create_next_scid_reply(struct peer *peer)
 		struct chan *chan;
 
 		chan = get_channel(rstate, &peer->scid_queries[i]);
-		if (!chan || is_chan_public(chan))
+		if (!chan || !is_chan_public(chan))
 			continue;
 
 		queue_peer_msg(peer, chan->channel_announce);
@@ -1336,6 +1395,8 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 			queue_peer_msg(peer, take(err));
 	} else if (type == WIRE_QUERY_SHORT_CHANNEL_IDS) {
 		handle_query_short_channel_ids(peer, dc->msg_in);
+	} else if (type == WIRE_REPLY_SHORT_CHANNEL_IDS_END) {
+		handle_reply_short_channel_ids_end(peer, dc->msg_in);
 	} else if (type == WIRE_GOSSIP_GET_UPDATE) {
 		handle_get_update(peer, dc->msg_in);
 	} else if (type == WIRE_GOSSIP_LOCAL_ADD_CHANNEL) {
@@ -1751,6 +1812,7 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+#if DEVELOPER
 static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 				const u8 *msg)
 {
@@ -1792,6 +1854,67 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 out:
 	return daemon_conn_read_next(conn, &daemon->master);
 }
+
+static struct io_plan *query_scids_req(struct io_conn *conn,
+				       struct daemon *daemon,
+				       const u8 *msg)
+{
+	struct pubkey id;
+	struct short_channel_id *scids;
+	struct peer *peer;
+	u8 *encoded;
+	/* BOLT #7:
+	 *
+	 * 1. type: 261 (`query_short_channel_ids`) (`gossip_queries`)
+	 * 2. data:
+	 *     * [`32`:`chain_hash`]
+	 *     * [`2`:`len`]
+	 *     * [`len`:`encoded_short_ids`]
+	 */
+	const size_t reply_overhead = 32 + 2;
+	const size_t max_encoded_bytes = 65535 - 2 - reply_overhead;
+
+	if (!fromwire_gossip_query_scids(msg, msg, &id, &scids))
+		master_badmsg(WIRE_GOSSIP_QUERY_SCIDS, msg);
+
+	peer = find_peer(daemon, &id);
+	if (!peer) {
+		status_broken("query_scids: unknown peer %s",
+			      type_to_string(tmpctx, struct pubkey, &id));
+		goto fail;
+	}
+
+	if (!feature_offered(peer->lfeatures, LOCAL_GOSSIP_QUERIES)) {
+		status_broken("query_scids: no gossip_query support in peer %s",
+			      type_to_string(tmpctx, struct pubkey, &id));
+		goto fail;
+	}
+
+	encoded = encode_short_channel_ids_start(tmpctx);
+	for (size_t i = 0; i < tal_count(scids); i++)
+		encode_add_short_channel_id(&encoded, &scids[i]);
+
+	if (!encode_short_channel_ids_end(&encoded, max_encoded_bytes)) {
+		status_broken("query_short_channel_ids: %zu is too many",
+			      tal_count(scids));
+		goto fail;
+	}
+
+	msg = towire_query_short_channel_ids(NULL, &daemon->rstate->chain_hash,
+					     encoded);
+	queue_peer_msg(peer, take(msg));
+	peer->num_scid_queries_outstanding++;
+
+	status_trace("sending query for %zu scids", tal_count(scids));
+out:
+	return daemon_conn_read_next(conn, &daemon->master);
+
+fail:
+	daemon_conn_send(&daemon->master,
+			 take(towire_gossip_scids_reply(NULL, false, false)));
+	goto out;
+}
+#endif /* DEVELOPER */
 
 static int make_listen_fd(int domain, void *addr, socklen_t len, bool mayfail)
 {
@@ -2966,9 +3089,6 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
 		return getchannels_req(conn, daemon, daemon->master.msg_in);
 
-	case WIRE_GOSSIP_PING:
-		return ping_req(conn, daemon, daemon->master.msg_in);
-
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST:
 		return resolve_channel_req(conn, daemon, daemon->master.msg_in);
 
@@ -3008,6 +3128,18 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_LOCAL_CHANNEL_CLOSE:
 		return handle_local_channel_close(conn, daemon, master->msg_in);
 
+#if DEVELOPER
+	case WIRE_GOSSIP_PING:
+		return ping_req(conn, daemon, daemon->master.msg_in);
+
+	case WIRE_GOSSIP_QUERY_SCIDS:
+		return query_scids_req(conn, daemon, daemon->master.msg_in);
+#else
+	case WIRE_GOSSIP_PING:
+	case WIRE_GOSSIP_QUERY_SCIDS:
+		break;
+#endif /* !DEVELOPER */
+
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPCTL_ACTIVATE_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
@@ -3017,6 +3149,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:
 	case WIRE_GOSSIP_GETPEERS_REPLY:
 	case WIRE_GOSSIP_PING_REPLY:
+	case WIRE_GOSSIP_SCIDS_REPLY:
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REPLY:
 	case WIRE_GOSSIP_PEER_CONNECTED:
 	case WIRE_GOSSIPCTL_CONNECT_TO_PEER_RESULT:
