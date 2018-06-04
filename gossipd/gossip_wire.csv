@@ -186,6 +186,10 @@ gossip_query_channel_range_reply,,final_complete,bool
 gossip_query_channel_range_reply,,num,u16
 gossip_query_channel_range_reply,,scids,num*struct short_channel_id
 
+# Set artificial maximum reply_channel_range size.  Master->gossipd
+gossip_dev_set_max_scids_encode_size,3030
+gossip_dev_set_max_scids_encode_size,,max,u32
+
 # Given a short_channel_id, return the endpoints
 gossip_resolve_channel_request,3009
 gossip_resolve_channel_request,,channel_id,struct short_channel_id

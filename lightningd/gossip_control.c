@@ -139,6 +139,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_QUERY_SCIDS:
 	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
 	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
+	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECT:
 	case WIRE_GOSSIPCTL_PEER_IMPORTANT:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECTED:
@@ -761,4 +762,37 @@ static const struct json_command dev_query_channel_range_command = {
 	"Query {peerid} for short_channel_ids for {first} block + {num} blocks"
 };
 AUTODATA(json_command, &dev_query_channel_range_command);
+
+static void json_dev_set_max_scids_encode_size(struct command *cmd,
+					       const char *buffer,
+					       const jsmntok_t *params)
+{
+	u8 *msg;
+	jsmntok_t *maxtok;
+	u32 max;
+
+	if (!json_get_params(cmd, buffer, params,
+			     "max", &maxtok,
+			     NULL)) {
+		return;
+	}
+
+	if (!json_tok_number(buffer, maxtok, &max)) {
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "max must be a number");
+		return;
+	}
+
+	msg = towire_gossip_dev_set_max_scids_encode_size(NULL, max);
+	subd_send_msg(cmd->ld->gossip, take(msg));
+
+	command_success(cmd, null_response(cmd));
+}
+
+static const struct json_command dev_set_max_scids_encode_size = {
+	"dev-set-max-scids-encode-size",
+	json_dev_set_max_scids_encode_size,
+	"Set {max} bytes of short_channel_ids per reply_channel_range"
+};
+AUTODATA(json_command, &dev_set_max_scids_encode_size);
 #endif /* DEVELOPER */
