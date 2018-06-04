@@ -694,6 +694,105 @@ static u8 *handle_gossip_msg(struct daemon *daemon, const u8 *msg,
 	return NULL;
 }
 
+/* BOLT #7:
+ *
+ * the first byte indicates the encoding, the rest contains the data.
+ *
+ * Encoding types:
+ * * `0`: uncompressed array of `short_channel_id` types, in ascending order.
+ */
+static struct short_channel_id *decode_short_ids(const tal_t *ctx,
+						 const u8 *encoded)
+{
+	struct short_channel_id *scids;
+	size_t max = tal_len(encoded), n;
+	u8 type;
+
+	/* BOLT #7:
+	 *
+	 * The receiver:
+	 *   - if the first byte of `encoded_short_ids` is not zero:
+	 *     - MAY fail the connection
+	 *   - if `encoded_short_ids` does not decode into a whole number of
+	 *     `short_channel_id`:
+	 *     - MAY fail the connection
+	 */
+	type = fromwire_u8(&encoded, &max);
+	if (type != 0)
+		return NULL;
+
+	n = 0;
+	scids = tal_arr(ctx, struct short_channel_id, n);
+	while (max) {
+		tal_resize(&scids, n+1);
+		fromwire_short_channel_id(&encoded, &max, &scids[n++]);
+	}
+
+	/* encoded is set to NULL if we ran over */
+	if (!encoded)
+		return tal_free(scids);
+	return scids;
+}
+
+static void handle_query_short_channel_ids(struct peer *peer, u8 *msg)
+{
+	struct routing_state *rstate =peer->daemon->rstate;
+	struct bitcoin_blkid chain;
+	u8 *encoded;
+	struct short_channel_id *scids;
+
+	if (!fromwire_query_short_channel_ids(tmpctx, msg, &chain, &encoded)) {
+		peer_error(peer, "Bad query_short_channel_ids %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+
+	if (!structeq(&rstate->chain_hash, &chain)) {
+		status_trace("%s sent query_short_channel_ids chainhash %s",
+			     type_to_string(tmpctx, struct pubkey, &peer->id),
+			     type_to_string(tmpctx, struct bitcoin_blkid, &chain));
+		return;
+	}
+
+	/* BOLT #7:
+	 *
+	 * - if it has not sent `reply_short_channel_ids_end` to a
+	 *   previously received `query_short_channel_ids` from this
+         *   sender:
+	 *    - MAY fail the connection.
+	 */
+	if (peer->scid_queries || peer->scid_query_nodes) {
+		peer_error(peer, "Bad second query_short_channel_ids");
+		return;
+	}
+
+	scids = decode_short_ids(tmpctx, encoded);
+	if (!scids) {
+		peer_error(peer, "Bad query_short_channel_ids encoding %s",
+			   tal_hex(tmpctx, encoded));
+		return;
+	}
+
+	/* BOLT #7:
+	 *
+	 * - SHOULD respond to each known `short_channel_id` with a
+	 *   `channel_announce`  and the latest `channel_update`s for each end
+	 *    - SHOULD NOT wait for the next outgoing announcement flush to send
+	 *      these.
+	 */
+	peer->scid_queries = tal_steal(peer, scids);
+	peer->scid_query_idx = 0;
+	peer->scid_query_nodes = tal_arr(peer, struct pubkey, 0);
+
+	/* Wake writer. */
+	if (peer->local)
+		/* Notify the peer-write loop */
+		msg_wake(&peer->local->peer_out);
+	else
+		/* Notify the daemon_conn-write loop */
+		msg_wake(&peer->remote->out);
+}
+
 static void handle_ping(struct peer *peer, u8 *ping)
 {
 	u8 *pong;
@@ -800,6 +899,10 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 		handle_pong(peer, msg);
 		return peer_next_in(conn, peer);
 
+	case WIRE_QUERY_SHORT_CHANNEL_IDS:
+		handle_query_short_channel_ids(peer, msg);
+		return peer_next_in(conn, peer);
+
 	case WIRE_OPEN_CHANNEL:
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_ACCEPT_CHANNEL:
@@ -824,7 +927,6 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 		/* This will wait. */
 		return peer_next_in(conn, peer);
 
-	case WIRE_QUERY_SHORT_CHANNEL_IDS:
 	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 	case WIRE_QUERY_CHANNEL_RANGE:
 	case WIRE_REPLY_CHANNEL_RANGE:
@@ -1232,7 +1334,8 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 		err = handle_gossip_msg(peer->daemon, dc->msg_in, "subdaemon");
 		if (err)
 			queue_peer_msg(peer, take(err));
-
+	} else if (type == WIRE_QUERY_SHORT_CHANNEL_IDS) {
+		handle_query_short_channel_ids(peer, dc->msg_in);
 	} else if (type == WIRE_GOSSIP_GET_UPDATE) {
 		handle_get_update(peer, dc->msg_in);
 	} else if (type == WIRE_GOSSIP_LOCAL_ADD_CHANNEL) {
