@@ -98,6 +98,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->prune_timeout = prune_timeout;
 	rstate->store = gossip_store_new(rstate);
 	rstate->dev_allow_localhost = dev_allow_localhost;
+	rstate->local_channel_announced = false;
 	list_head_init(&rstate->pending_cannouncement);
 	uintmap_init(&rstate->chanmap);
 
@@ -604,6 +605,20 @@ static void destroy_pending_cannouncement(struct pending_cannouncement *pending,
 	list_del_from(&rstate->pending_cannouncement, &pending->list);
 }
 
+static bool is_local_channel(const struct routing_state *rstate,
+			     const struct chan *chan)
+{
+	return pubkey_eq(&chan->nodes[0]->id, &rstate->local_id)
+		|| pubkey_eq(&chan->nodes[1]->id, &rstate->local_id);
+}
+
+static void add_channel_announce_to_broadcast(struct routing_state *rstate,
+					      struct chan *chan)
+{
+	insert_broadcast(rstate->broadcasts, chan->channel_announce);
+	rstate->local_channel_announced |= is_local_channel(rstate, chan);
+}
+
 bool routing_add_channel_announcement(struct routing_state *rstate,
 				      const u8 *msg TAKES, u64 satoshis)
 {
@@ -797,18 +812,17 @@ static void process_pending_channel_update(struct routing_state *rstate,
 	}
 }
 
-bool handle_pending_cannouncement(struct routing_state *rstate,
+void handle_pending_cannouncement(struct routing_state *rstate,
 				  const struct short_channel_id *scid,
 				  const u64 satoshis,
 				  const u8 *outscript)
 {
-	bool local;
 	const u8 *s;
 	struct pending_cannouncement *pending;
 
 	pending = find_pending_cannouncement(rstate, scid);
 	if (!pending)
-		return false;
+		return;
 
 	/* BOLT #7:
 	 *
@@ -819,7 +833,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 			     type_to_string(pending, struct short_channel_id,
 					    scid));
 		tal_free(pending);
-		return false;
+		return;
 	}
 
 	/* BOLT #7:
@@ -841,16 +855,13 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 					    scid),
 			     tal_hex(tmpctx, s), tal_hex(tmpctx, outscript));
 		tal_free(pending);
-		return false;
+		return;
 	}
 
 	if (!routing_add_channel_announcement(rstate, pending->announce, satoshis))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not add channel_announcement");
 	gossip_store_add_channel_announcement(rstate->store, pending->announce, satoshis);
-
-	local = pubkey_eq(&pending->node_id_1, &rstate->local_id) ||
-		pubkey_eq(&pending->node_id_2, &rstate->local_id);
 
 	/* Did we have an update waiting?  If so, apply now. */
 	process_pending_channel_update(rstate, scid, pending->updates[0]);
@@ -860,7 +871,6 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	process_pending_node_announcement(rstate, &pending->node_id_2);
 
 	tal_free(pending);
-	return local;
 }
 
 static void update_pending(struct pending_cannouncement *pending,
@@ -967,7 +977,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	 *     receiving the first corresponding `channel_update`.
 	 */
 	if (!have_broadcast_announce)
-		insert_broadcast(rstate->broadcasts, chan->channel_announce);
+		add_channel_announce_to_broadcast(rstate, chan);
 
 	insert_broadcast(rstate->broadcasts,
 			 chan->half[direction].channel_update);
@@ -1077,11 +1087,12 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 		return err;
 	}
 
-	status_trace("Received channel_update for channel %s(%d) now %s",
+	status_trace("Received channel_update for channel %s(%d) now %s (from %s)",
 		     type_to_string(tmpctx, struct short_channel_id,
 				    &short_channel_id),
 		     flags & 0x01,
-		     flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
+		     flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE",
+		     source);
 
 	if (!routing_add_channel_update(rstate, serialized))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,

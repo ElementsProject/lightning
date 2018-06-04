@@ -175,6 +175,9 @@ struct routing_state {
 
         /* A map of channels indexed by short_channel_ids */
 	UINTMAP(struct chan *) chanmap;
+
+	/* Has one of our own channels been announced? */
+	bool local_channel_announced;
 };
 
 static inline struct chan *
@@ -217,12 +220,8 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 /**
  * handle_pending_cannouncement -- handle channel_announce once we've
  * completed short_channel_id lookup.
- *
- * Returns true if the channel was new and is local. This means that
- * if we haven't sent a node_announcement just yet, now would be a
- * good time.
  */
-bool handle_pending_cannouncement(struct routing_state *rstate,
+void handle_pending_cannouncement(struct routing_state *rstate,
 				  const struct short_channel_id *scid,
 				  const u64 satoshis,
 				  const u8 *txscript);
