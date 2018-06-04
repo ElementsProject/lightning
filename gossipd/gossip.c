@@ -228,8 +228,8 @@ struct peer {
 	struct pubkey *scid_query_nodes;
 	size_t scid_query_nodes_idx;
 
-	/* Is it time to continue the staggered broadcast? */
-	bool gossip_sync;
+	/* If this is NULL, we're syncing gossip now. */
+	struct oneshot *gossip_timer;
 
 	/* How many query responses are we expecting? */
 	size_t num_scid_queries_outstanding;
@@ -252,7 +252,6 @@ struct addrhint {
 static struct io_plan *peer_start_gossip(struct io_conn *conn,
 					 struct peer *peer);
 static bool send_peer_with_fds(struct peer *peer, const u8 *msg);
-static void wake_pkt_out(struct peer *peer);
 static void retry_important(struct important_peerid *imp);
 
 static void destroy_peer(struct peer *peer)
@@ -349,6 +348,7 @@ static struct peer *new_peer(const tal_t *ctx,
 	peer->addr = *addr;
 	peer->daemon = daemon;
 	peer->local = new_local_peer_state(peer, cs);
+	peer->gossip_timer = NULL;
 	peer->remote = NULL;
 	peer->scid_queries = NULL;
 	peer->scid_query_idx = 0;
@@ -446,6 +446,19 @@ static void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 			tal_free(msg);
 		daemon_conn_send(peer->remote, take(send));
 	}
+}
+
+static void wake_gossip_out(struct peer *peer)
+{
+	/* If we were waiting, we're not any more */
+	peer->gossip_timer = tal_free(peer->gossip_timer);
+
+	if (peer->local)
+		/* Notify the peer-write loop */
+		msg_wake(&peer->local->peer_out);
+	else if (peer->remote)
+		/* Notify the daemon_conn-write loop */
+		msg_wake(&peer->remote->out);
 }
 
 static void peer_error(struct peer *peer, const char *fmt, ...)
@@ -588,7 +601,7 @@ static struct io_plan *peer_connected(struct io_conn *conn, struct peer *peer)
 		return io_close(conn);
 
 	/* Start the gossip flowing. */
-	wake_pkt_out(peer);
+	wake_gossip_out(peer);
 
 	setup_gossip_range(peer);
 	return io_close_taken_fd(conn);
@@ -887,7 +900,7 @@ static void handle_gossip_timestamp_filter(struct peer *peer, u8 *msg)
 
 	/* First time, start gossip sync immediately. */
 	if (peer->gossip_timestamp_min > peer->gossip_timestamp_max)
-		wake_pkt_out(peer);
+		wake_gossip_out(peer);
 
 	/* FIXME: We don't index by timestamp, so this forces a brute
 	 * search! */
@@ -1088,26 +1101,6 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	return peer_next_in(conn, peer);
 }
 
-/* Wake up the outgoing direction of the connection and write any
- * queued messages. Needed since the `io_wake` method signature does
- * not allow us to specify it as the callback for `new_reltimer`, but
- * it allows us to set an additional flag for the routing dump..
- */
-static void wake_pkt_out(struct peer *peer)
-{
-	peer->gossip_sync = true;
-	new_reltimer(&peer->daemon->timers, peer,
-		     time_from_msec(peer->daemon->broadcast_interval),
-		     wake_pkt_out, peer);
-
-	if (peer->local)
-		/* Notify the peer-write loop */
-		msg_wake(&peer->local->peer_out);
-	else if (peer->remote)
-		/* Notify the daemon_conn-write loop */
-		msg_wake(&peer->remote->out);
-}
-
 /* Mutual recursion. */
 static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer);
 
@@ -1246,7 +1239,7 @@ static bool maybe_queue_gossip(struct peer *peer)
 {
 	const u8 *next;
 
-	if (!peer->gossip_sync)
+	if (peer->gossip_timer)
 		return false;
 
 	next = next_broadcast(peer->daemon->rstate->broadcasts,
@@ -1260,7 +1253,10 @@ static bool maybe_queue_gossip(struct peer *peer)
 	}
 
 	/* Gossip is drained.  Wait for next timer. */
-	peer->gossip_sync = false;
+	peer->gossip_timer
+		= new_reltimer(&peer->daemon->timers, peer,
+			       time_from_msec(peer->daemon->broadcast_interval),
+			       wake_gossip_out, peer);
 	return false;
 }
 
@@ -1296,7 +1292,7 @@ again:
 /* Now we're a fully-fledged peer. */
 static struct io_plan *peer_start_gossip(struct io_conn *conn, struct peer *peer)
 {
-	wake_pkt_out(peer);
+	wake_gossip_out(peer);
 	return io_duplex(conn,
 			 peer_next_in(conn, peer),
 			 peer_pkt_out(conn, peer));
