@@ -185,6 +185,17 @@ valgrind installed, and build with DEVELOPER=1.
 Our Travis CI instance (see `.travis.yml`) runs all these for each
 pull request.
 
+Source code analysis
+--------------------
+An updated version of the NCC source code analysis tool is available at
+
+https://github.com/bitonic-cjp/ncc
+
+It can be used to analyze the lightningd source code by running
+`make clean && make ncc`. The output (which is built in parallel with the
+binaries) is stored in .nccout files. You can browse it, for instance, with
+a command like `nccnav lightningd/lightningd.nccout`.
+
 Subtleties
 ----------
 

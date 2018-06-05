@@ -292,6 +292,11 @@ coverage/coverage.info: check pytest
 coverage: coverage/coverage.info
 	genhtml coverage/coverage.info --output-directory coverage
 
+# We make libwallycore.la a dependency, so that it gets built normally, without ncc.
+# Ncc can't handle the libwally source code (yet).
+ncc: external/libwally-core/src/libwallycore.la
+	CC="ncc -ncgcc -ncld -ncfabs" AR=nccar LD=nccld make
+
 # Ignore test/ directories.
 TAGS: FORCE
 	$(RM) TAGS; find * -name test -type d -prune -o -name '*.[ch]' -print | xargs etags --append
@@ -360,6 +365,7 @@ clean: wire-clean
 	$(RM) check-bolt tools/check-bolt tools/*.o
 	find . -name '*gcda' -delete
 	find . -name '*gcno' -delete
+	find . -name '*.nccout' -delete
 
 update-mocks/%: %
 	@tools/update-mocks.sh "$*"
@@ -468,7 +474,7 @@ installcheck:
 	@rm -rf testinstall || true
 
 .PHONY: installdirs install-program install-data install uninstall \
-	installcheck
+	installcheck ncc
 
 ccan-breakpoint.o: $(CCANDIR)/ccan/breakpoint/breakpoint.c
 	$(CC) $(CFLAGS) -c -o $@ $<
