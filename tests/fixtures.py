@@ -5,6 +5,7 @@ import logging
 import os
 import pytest
 import re
+import shutil
 import tempfile
 import utils
 
@@ -98,6 +99,8 @@ def node_factory(directory, test_name, bitcoind, executor):
 
     if not ok:
         raise Exception("At least one lightning exited with unexpected non-zero return code")
+
+    shutil.rmtree(nf.directory)
 
 
 def getValgrindErrors(node):
