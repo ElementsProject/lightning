@@ -337,6 +337,8 @@ class BaseLightningDTests(unittest.TestCase):
         if not ok:
             raise Exception("At least one lightning exited with unexpected non-zero return code")
 
+        shutil.rmtree(self.node_factory.directory)
+
 
 class LightningDTests(BaseLightningDTests):
     def connect(self, may_reconnect=False):
