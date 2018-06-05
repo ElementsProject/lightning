@@ -32,7 +32,6 @@ VALGRIND = os.getenv("NO_VALGRIND", "0") == "0"
 DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
 TEST_DEBUG = os.getenv("TEST_DEBUG", "0") == "1"
 
-print("Testing results are in {}".format(TEST_DIR))
 
 if TEST_DEBUG:
     logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
