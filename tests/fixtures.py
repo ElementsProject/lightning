@@ -10,7 +10,6 @@ import tempfile
 import utils
 
 
-TEST_DIR = tempfile.mkdtemp(prefix='ltests-')
 VALGRIND = os.getenv("NO_VALGRIND", "0") == "0"
 DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
 TEST_DEBUG = os.getenv("TEST_DEBUG", "0") == "1"
@@ -21,17 +20,32 @@ TEST_DEBUG = os.getenv("TEST_DEBUG", "0") == "1"
 __attempts = {}
 
 
+@pytest.fixture(scope="session")
+def test_base_dir():
+    directory = tempfile.mkdtemp(prefix='ltests-')
+    print("Running tests in {}".format(directory))
+
+    yield directory
+
+    if os.listdir(directory) == []:
+        shutil.rmtree(directory)
+
+
 @pytest.fixture
-def directory(test_name):
+def directory(test_base_dir, test_name):
     """Return a per-test specific directory.
 
     This makes a unique test-directory even if a test is rerun multiple times.
 
     """
-    global TEST_DIR, __attempts
+    global __attempts
     # Auto set value if it isn't in the dict yet
     __attempts[test_name] = __attempts.get(test_name, 0) + 1
-    yield os.path.join(TEST_DIR, "{}_{}".format(test_name, __attempts[test_name]))
+    directory = os.path.join(test_base_dir, "{}_{}".format(test_name, __attempts[test_name]))
+
+    yield directory
+
+    shutil.rmtree(directory)
 
 
 @pytest.fixture
@@ -99,8 +113,6 @@ def node_factory(directory, test_name, bitcoind, executor):
 
     if not ok:
         raise Exception("At least one lightning exited with unexpected non-zero return code")
-
-    shutil.rmtree(nf.directory)
 
 
 def getValgrindErrors(node):
