@@ -336,7 +336,7 @@ update-ccan:
 	mv ccan ccan.old
 	DIR=$$(pwd)/ccan; cd ../ccan && ./tools/create-ccan-tree -a $$DIR `cd $$DIR.old/ccan && find * -name _info | sed s,/_info,, | sort` $(CCAN_NEW)
 	mkdir -p ccan/tools/configurator
-	cp ../ccan/tools/configurator/configurator.c ccan/tools/configurator/
+	cp ../ccan/tools/configurator/configurator.c ../ccan/doc/configurator.1 ccan/tools/configurator/
 	$(MAKE) ccan/config.h
 	grep -v '^CCAN version:' ccan.old/README > ccan/README
 	echo CCAN version: `git -C ../ccan describe` >> ccan/README
