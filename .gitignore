@@ -18,6 +18,7 @@ tools/check-bolt
 coverage
 ccan/config.h
 __pycache__
+config.vars
 
 # Ignore some generated binaries
 lightningd/test/run-channel
@@ -46,4 +47,5 @@ test/test_protocol
 test/test_sphinx
 tests/.pytest.restart
 gossip_store
+
 .pytest_cache
