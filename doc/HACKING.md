@@ -176,10 +176,9 @@ valgrind installed, and build with DEVELOPER=1.
   link (which will conveniently crash if they're called).
 
 * blackbox tests - run by `make check` or directly as
-  `PYTHONPATH=contrib/pylightning DEVELOPER=1 python3
-  tests/test_lightningd.py -f`.
-  You can run these much faster by putting `NO_VALGRIND=1` after
-  DEVELOPER=1, or after `make check`, which has the added bonus of doing
+  `PYTHONPATH=contrib/pylightning python3 tests/test_lightningd.py -f`.
+  You can run these much faster by putting `VALGRIND=0` after `make check`,
+  which has the added bonus of doing
   memory leak detection.  You can also append `LightningDTests.TESTNAME`
   to run a single test.
 
