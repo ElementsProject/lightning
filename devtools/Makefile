@@ -1,6 +1,6 @@
 DEVTOOLS_SRC := devtools/gen_print_wire.c devtools/print_wire.c
 DEVTOOLS_OBJS := $(DEVTOOLS_SRC:.c=.o)
-DEVTOOLS_TOOL_SRC := devtools/bolt11-cli.c devtools/decodemsg.c
+DEVTOOLS_TOOL_SRC := devtools/bolt11-cli.c devtools/decodemsg.c devtools/onion.c
 DEVTOOLS_TOOL_OBJS := $(DEVTOOLS_TOOL_SRC:.c=.o)
 
 DEVTOOLS_COMMON_OBJS :=				\
