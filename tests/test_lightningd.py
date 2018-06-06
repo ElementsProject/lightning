@@ -26,10 +26,13 @@ import unittest
 import utils
 from lightning import LightningRpc
 
+with open('config.vars') as configfile:
+    config = dict([(line.rstrip().split('=', 1)) for line in configfile])
+
 bitcoind = None
 TEST_DIR = tempfile.mkdtemp(prefix='lightning-')
-VALGRIND = os.getenv("NO_VALGRIND", "0") == "0"
-DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
+VALGRIND = os.getenv("VALGRIND", config['VALGRIND']) == "1"
+DEVELOPER = os.getenv("DEVELOPER", config['DEVELOPER']) == "1"
 TEST_DEBUG = os.getenv("TEST_DEBUG", "0") == "1"
 
 

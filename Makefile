@@ -9,16 +9,12 @@ CCANDIR := ccan
 BOLTDIR := ../lightning-rfc/
 BOLTVERSION := 4f91f0bb2a9c176dda019f9c0618c10f9fa0acfd
 
-# If you don't have (working) valgrind.
-#NO_VALGRIND := 1
+-include config.vars
 
-ifneq ($(NO_VALGRIND),1)
-VALGRIND=valgrind -q --error-exitcode=7
-VALGRIND_TEST_ARGS = --track-origins=yes --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all
+ifneq ($(VALGRIND),0)
+VG=valgrind -q --error-exitcode=7
+VG_TEST_ARGS = --track-origins=yes --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all
 endif
-
-# By default, we are not in DEVELOPER mode, use DEVELOPER=1 on cmdline to override.
-DEVELOPER := 0
 
 ifeq ($(DEVELOPER),1)
 DEV_CFLAGS=-DDEVELOPER=1 -DCCAN_TAL_DEBUG=1 -DCCAN_TAKE_DEBUG=1
@@ -179,6 +175,9 @@ LDLIBS = -L/usr/local/lib -lm -lgmp -lsqlite3 -lz $(COVFLAGS)
 
 default: all-programs all-test-programs
 
+config.vars ccan/config.h: configure
+	./configure --reconfigure
+
 include external/Makefile
 include bitcoin/Makefile
 include common/Makefile
@@ -215,7 +214,8 @@ ifndef PYTEST
 	@echo "py.test is required to run the integration tests, please install using 'pip3 install -r tests/requirements.txt'"
 	exit 1
 else
-	PYTHONPATH=contrib/pylightning:$$PYTHONPATH TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) NO_VALGRIND=$(NO_VALGRIND) $(PYTEST) tests/ $(PYTEST_OPTS)
+# Explicitly hand DEVELOPER and VALGRIND so you can override on make cmd line.
+	PYTHONPATH=contrib/pylightning:$$PYTHONPATH TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) VALGRIND=$(VALGRIND) $(PYTEST) tests/ $(PYTEST_OPTS)
 endif
 
 # Keep includes in alpha order.
@@ -303,9 +303,6 @@ ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
 # Can't add to ALL_OBJS, as that makes a circular dep.
 ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS) Makefile
 
-ccan/config.h: ccan/tools/configurator/configurator Makefile
-	if $< --configurator-cc="$(CONFIGURATOR_CC)" $(CC) $(CFLAGS) > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
-
 gen_version.h: FORCE
 	@(echo "#define VERSION \"`git describe --always --dirty=-modded`\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
 	@if cmp $@.new $@ >/dev/null 2>&2; then rm -f $@.new; else mv $@.new $@; echo Version updated; fi
@@ -357,7 +354,7 @@ clean: wire-clean
 	$(RM) $(CCAN_OBJS) $(CDUMP_OBJS) $(ALL_OBJS)
 	$(RM) $(ALL_PROGRAMS) $(ALL_PROGRAMS:=.o)
 	$(RM) $(ALL_TEST_PROGRAMS) $(ALL_TEST_PROGRAMS:=.o)
-	$(RM) ccan/config.h gen_*.h ccan/tools/configurator/configurator
+	$(RM) ccan/config.h gen_*.h config.vars ccan/tools/configurator/configurator
 	$(RM) ccan/ccan/cdump/tools/cdump-enumstr.o
 	$(RM) check-bolt tools/check-bolt tools/*.o
 	find . -name '*gcda' -delete
@@ -367,7 +364,7 @@ update-mocks/%: %
 	@tools/update-mocks.sh "$*"
 
 unittest/%: %
-	$(VALGRIND) $(VALGRIND_TEST_ARGS) $* > /dev/null
+	$(VG) $(VG_TEST_ARGS) $* > /dev/null
 
 # Installation directories
 prefix = /usr/local
