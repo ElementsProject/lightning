@@ -750,7 +750,6 @@ void setup_topology(struct chain_topology *topo,
 	memset(&topo->feerate, 0, sizeof(topo->feerate));
 	topo->timers = timers;
 
-	/* FIXME(cdecker) Actually load this from DB */
 	topo->min_blockheight = min_blockheight;
 	topo->max_blockheight = max_blockheight;
 
