@@ -48,6 +48,8 @@ usage()
     echo "    Developer mode, good for testing"
     usage_with_default "--enable/disable-compat" "$COMPAT" "enable" "disable"
     echo "    Compatibility mode, good to disable to see if your software breaks"
+    usage_with_default "--enable/disable-valgrind" "(autodetect)"
+    echo "    Valgrind binary to use for tests"
     exit 1
 }
 
@@ -74,6 +76,8 @@ for opt in "$@"; do
 	--disable-developer) DEVELOPER=0;;
 	--enable-compat) COMPAT=1;;
 	--disable-compat) COMPAT=0;;
+	--enable-valgrind) VALGRIND=1;;
+	--disable-valgrind) VALGRIND=0;;
 	--help|-h) usage;;
 	*)
 	    echo "Unknown option '$opt'" >&2
@@ -86,6 +90,14 @@ echo -n "Compiling $CONFIGURATOR..."
 $CC $CWARNFLAGS $CDEBUGFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
 echo "done"
 
+if [ -z "$VALGRIND" ]; then
+    if valgrind -q --error-exitcode=7 --track-origins=yes --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all $CONFIGURATOR --help >/dev/null 2>&1; then
+	VALGRIND=1
+    else
+	VALGRIND=0
+    fi
+fi
+
 rm -f $CONFIG_VAR_FILE.$$
 $CONFIGURATOR --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER --configurator-cc="$CONFIGURATOR_CC" "$CC" $CWARNFLAGS $CDEBUGFLAGS
 mv $CONFIG_VAR_FILE.$$ $CONFIG_VAR_FILE
@@ -95,5 +107,6 @@ add_var CC "$CC"
 add_var CONFIGURATOR_CC "$CONFIGURATOR_CC"
 add_var CWARNFLAGS "$CWARNFLAGS"
 add_var CDEBUGFLAGS "$CDEBUGFLAGS"
+add_var VALGRIND "$VALGRIND"
 add_var DEVELOPER "$DEVELOPER" $CONFIG_HEADER
 add_var COMPAT "$COMPAT" $CONFIG_HEADER
