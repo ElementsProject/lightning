@@ -345,6 +345,7 @@ all-programs: $(ALL_PROGRAMS)
 all-test-programs: $(ALL_TEST_PROGRAMS)
 
 distclean: clean
+	$(RM) ccan/config.h config.vars
 
 maintainer-clean: distclean
 	@echo 'This command is intended for maintainers to use; it'
@@ -354,7 +355,7 @@ clean: wire-clean
 	$(RM) $(CCAN_OBJS) $(CDUMP_OBJS) $(ALL_OBJS)
 	$(RM) $(ALL_PROGRAMS) $(ALL_PROGRAMS:=.o)
 	$(RM) $(ALL_TEST_PROGRAMS) $(ALL_TEST_PROGRAMS:=.o)
-	$(RM) ccan/config.h gen_*.h config.vars ccan/tools/configurator/configurator
+	$(RM) gen_*.h ccan/tools/configurator/configurator
 	$(RM) ccan/ccan/cdump/tools/cdump-enumstr.o
 	$(RM) check-bolt tools/check-bolt tools/*.o
 	find . -name '*gcda' -delete
