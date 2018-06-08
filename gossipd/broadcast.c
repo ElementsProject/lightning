@@ -88,6 +88,7 @@ const u8 *next_broadcast(struct broadcast_state *bstate,
 	return NULL;
 }
 
+#ifdef PEDANTIC
 static const struct pubkey *
 pubkey_keyof(const struct pubkey *pk)
 {
@@ -172,3 +173,10 @@ struct broadcast_state *broadcast_state_check(struct broadcast_state *b,
 	uintmap_clear(&channels);
 	return b;
 }
+#else
+struct broadcast_state *broadcast_state_check(struct broadcast_state *b,
+					      const char *abortstr UNUSED)
+{
+	return b;
+}
+#endif
