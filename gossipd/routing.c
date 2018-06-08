@@ -211,6 +211,14 @@ static bool node_announce_predates_channels(const struct node *node)
 	return true;
 }
 
+static u64 persistent_broadcast(struct routing_state *rstate, const u8 *msg, u32 timestamp)
+{
+	u64 index = insert_broadcast(rstate->broadcasts, msg, timestamp);
+	if (index)
+		gossip_store_add(rstate->store, msg);
+	return index;
+}
+
 static void remove_chan_from_node(struct routing_state *rstate,
 				  struct node *node, const struct chan *chan)
 {
@@ -238,10 +246,8 @@ static void remove_chan_from_node(struct routing_state *rstate,
 		 * retransmissions in this corner case */
 		broadcast_del(rstate->broadcasts, node->node_announcement_index,
 			      node->node_announcement);
-		node->node_announcement_index =
-			insert_broadcast(rstate->broadcasts,
-					 node->node_announcement,
-					 node->last_timestamp);
+		node->node_announcement_index = persistent_broadcast(
+		    rstate, node->node_announcement, node->last_timestamp);
 	}
 }
 
@@ -681,9 +687,8 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 					      struct chan *chan,
 					      u32 timestamp)
 {
-	chan->channel_announcement_index
-		= insert_broadcast(rstate->broadcasts, chan->channel_announce,
-				   timestamp);
+	chan->channel_announcement_index =
+	    persistent_broadcast(rstate, chan->channel_announce, timestamp);
 	rstate->local_channel_announced |= is_local_channel(rstate, chan);
 
 	/* If we've been waiting for this, now we can announce node */
@@ -692,10 +697,9 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 		if (!node->node_announcement)
 			continue;
 		if (!node->node_announcement_index) {
-			node->node_announcement_index =
-				insert_broadcast(rstate->broadcasts,
-						 node->node_announcement,
-						 node->last_timestamp);
+			node->node_announcement_index = persistent_broadcast(
+			    rstate, node->node_announcement,
+			    node->last_timestamp);
 		}
 	}
 }
@@ -942,7 +946,6 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 	if (!routing_add_channel_announcement(rstate, pending->announce, satoshis))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not add channel_announcement");
-	gossip_store_add(rstate->store, pending->announce);
 
 	/* Did we have an update waiting?  If so, apply now. */
 	process_pending_channel_update(rstate, scid, pending->updates[0]);
@@ -1062,9 +1065,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (!have_broadcast_announce)
 		add_channel_announce_to_broadcast(rstate, chan, timestamp);
 
-	insert_broadcast(rstate->broadcasts,
-			 chan->half[direction].channel_update,
-			 timestamp);
+	persistent_broadcast(rstate, chan->half[direction].channel_update,
+			     timestamp);
 	return true;
 }
 
@@ -1204,11 +1206,6 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed adding channel_update");
 
-	/* Store the channel_update for both public and non-public channels
-	 * (non-public ones may just be the incoming direction). We'd have
-	 * dropped invalid ones earlier. */
-	gossip_store_add(rstate->store, serialized);
-
 	return NULL;
 }
 
@@ -1284,10 +1281,8 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 
 	/* We might be waiting for channel_announce to be released. */
 	if (node_has_broadcastable_channels(node)) {
-		node->node_announcement_index =
-			insert_broadcast(rstate->broadcasts,
-					 node->node_announcement,
-					 timestamp);
+		node->node_announcement_index = persistent_broadcast(
+		    rstate, node->node_announcement, timestamp);
 	}
 	return true;
 }
@@ -1420,7 +1415,6 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 
 	applied = routing_add_node_announcement(rstate, serialized);
 	assert(applied);
-	gossip_store_add(rstate->store, serialized);
 	return NULL;
 }
 
