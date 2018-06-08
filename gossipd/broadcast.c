@@ -43,12 +43,13 @@ static struct queued_message *new_queued_message(const tal_t *ctx,
 	return msg;
 }
 
-void insert_broadcast(struct broadcast_state *bstate,
+u64 insert_broadcast(struct broadcast_state *bstate,
 		      const u8 *payload, u32 timestamp)
 {
 	/* Free payload, free index. */
 	new_queued_message(payload, bstate, payload, timestamp,
-			   bstate->next_index++);
+			   bstate->next_index);
+	return bstate->next_index++;
 }
 
 const u8 *next_broadcast(struct broadcast_state *bstate,

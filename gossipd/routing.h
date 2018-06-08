@@ -52,6 +52,8 @@ struct chan {
 
 	/* NULL if not announced yet (ie. not public). */
 	const u8 *channel_announce;
+	/* Index in broadcast map, if public (otherwise 0) */
+	u64 channel_announcement_index;
 
 	u64 satoshis;
 };
@@ -101,7 +103,8 @@ struct node {
 
 	/* Cached `node_announcement` we might forward to new peers (or NULL). */
 	const u8 *node_announcement;
-	bool node_announcement_public;
+	/* If public, this is non-zero. */
+	u64 node_announcement_index;
 };
 
 const secp256k1_pubkey *node_map_keyof_node(const struct node *n);

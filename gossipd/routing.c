@@ -150,7 +150,7 @@ static struct node *new_node(struct routing_state *rstate,
 	n->chans = tal_arr(n, struct chan *, 0);
 	n->alias = NULL;
 	n->node_announcement = NULL;
-	n->node_announcement_public = false;
+	n->node_announcement_index = 0;
 	n->last_timestamp = -1;
 	n->addresses = tal_arr(n, struct wireaddr, 0);
 	node_map_add(rstate->nodes, n);
@@ -238,6 +238,7 @@ struct chan *new_chan(struct routing_state *rstate,
 	chan->nodes[!n1idx] = n2;
 	chan->txout_script = NULL;
 	chan->channel_announce = NULL;
+	chan->channel_announcement_index = 0;
 	chan->satoshis = 0;
 
 	n = tal_count(n2->chans);
@@ -617,7 +618,9 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 					      struct chan *chan,
 					      u32 timestamp)
 {
-	insert_broadcast(rstate->broadcasts, chan->channel_announce, timestamp);
+	chan->channel_announcement_index
+		= insert_broadcast(rstate->broadcasts, chan->channel_announce,
+				   timestamp);
 	rstate->local_channel_announced |= is_local_channel(rstate, chan);
 
 	/* If we've been waiting for this, now we can announce node */
@@ -625,11 +628,11 @@ static void add_channel_announce_to_broadcast(struct routing_state *rstate,
 		struct node *node = chan->nodes[i];
 		if (!node->node_announcement)
 			continue;
-		if (!node->node_announcement_public) {
-			node->node_announcement_public = true;
-			insert_broadcast(rstate->broadcasts,
-					 node->node_announcement,
-					 node->last_timestamp);
+		if (!node->node_announcement_index) {
+			node->node_announcement_index =
+				insert_broadcast(rstate->broadcasts,
+						 node->node_announcement,
+						 node->last_timestamp);
 		}
 	}
 }
@@ -1244,10 +1247,12 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 	 * order.  It's not vital, but would be nice to fix.
 	 */
 	/* We might be waiting for channel_announce to be released. */
-	node->node_announcement_public = node_has_broadcastable_channels(node);
-	if (node->node_announcement_public)
-		insert_broadcast(rstate->broadcasts, node->node_announcement,
-				 timestamp);
+	if (node_has_broadcastable_channels(node)) {
+		node->node_announcement_index =
+			insert_broadcast(rstate->broadcasts,
+					 node->node_announcement,
+					 timestamp);
+	}
 	return true;
 }
 
