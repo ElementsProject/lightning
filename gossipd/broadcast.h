@@ -29,4 +29,9 @@ void broadcast_del(struct broadcast_state *bstate, u64 index, const u8 *payload)
 const u8 *next_broadcast(struct broadcast_state *bstate,
 			 u32 timestamp_min, u32 timestamp_max,
 			 u64 *last_index);
+
+/* Returns b if all OK, otherwise aborts if abortstr non-NULL, otherwise returns
+ * NULL. */
+struct broadcast_state *broadcast_state_check(struct broadcast_state *b,
+					      const char *abortstr);
 #endif /* LIGHTNING_GOSSIPD_BROADCAST_H */
