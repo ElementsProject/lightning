@@ -500,7 +500,7 @@ static const struct config testnet_config = {
 
 	/* Be aggressive on testnet. */
 	.cltv_expiry_delta = 6,
-	.cltv_final = 6,
+	.cltv_final = 10,
 
 	/* Send commit 10msec after receiving; almost immediately. */
 	.commit_time_ms = 10,
@@ -556,7 +556,7 @@ static const struct config mainnet_config = {
 	 *
 	 * The minimum `cltv_expiry` we will accept for terminal payments: the
 	 * worst case for the terminal node C lower at `2R+G+S` blocks */
-	.cltv_final = 8,
+	.cltv_final = 10,
 
 	/* Send commit 10msec after receiving; almost immediately. */
 	.commit_time_ms = 10,
