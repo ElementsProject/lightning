@@ -57,8 +57,8 @@ u8 fromwire_u8(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct wireaddr *addr UNNEEDED)
 { fprintf(stderr, "fromwire_wireaddr called!\n"); abort(); }
 /* Generated stub for insert_broadcast */
-void insert_broadcast(struct broadcast_state *bstate UNNEEDED, const u8 *msg UNNEEDED,
-		      u32 timestamp UNNEEDED)
+u64 insert_broadcast(struct broadcast_state *bstate UNNEEDED, const u8 *msg UNNEEDED,
+		     u32 timestamp UNNEEDED)
 { fprintf(stderr, "insert_broadcast called!\n"); abort(); }
 /* Generated stub for onion_type_name */
 const char *onion_type_name(int e UNNEEDED)

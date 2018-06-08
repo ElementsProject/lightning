@@ -17,8 +17,8 @@ struct broadcast_state {
 struct broadcast_state *new_broadcast_state(tal_t *ctx);
 
 /* Append a queued message for broadcast.  Freeing the msg will remove it. */
-void insert_broadcast(struct broadcast_state *bstate, const u8 *msg,
-		      u32 timestamp);
+u64 insert_broadcast(struct broadcast_state *bstate, const u8 *msg,
+		     u32 timestamp);
 
 /* Return the broadcast with index >= *last_index, timestamp >= min and <= max
  * and update *last_index.
