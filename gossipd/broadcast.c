@@ -21,10 +21,16 @@ struct broadcast_state *new_broadcast_state(tal_t *ctx)
 	return bstate;
 }
 
+void broadcast_del(struct broadcast_state *bstate, u64 index, const u8 *payload)
+{
+	const struct queued_message *q = uintmap_del(&bstate->broadcasts, index);
+	assert(q->payload == payload);
+}
+
 static void destroy_queued_message(struct queued_message *msg,
 				   struct broadcast_state *bstate)
 {
-	uintmap_del(&bstate->broadcasts, msg->index);
+	broadcast_del(bstate, msg->index, msg->payload);
 }
 
 static struct queued_message *new_queued_message(const tal_t *ctx,
