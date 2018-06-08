@@ -256,18 +256,20 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 	off_t known_good = 1;
 	const char *bad;
 	size_t stats[] = {0, 0, 0, 0};
+	int fd = gs->fd;
+	gs->fd = -1;
 
-	if (lseek(gs->fd, known_good, SEEK_SET) < 0) {
+	if (lseek(fd, known_good, SEEK_SET) < 0) {
 		status_unusual("gossip_store: lseek failure");
 		goto truncate_nomsg;
 	}
-	while (read(gs->fd, &belen, sizeof(belen)) == sizeof(belen) &&
-	       read(gs->fd, &becsum, sizeof(becsum)) == sizeof(becsum)) {
+	while (read(fd, &belen, sizeof(belen)) == sizeof(belen) &&
+	       read(fd, &becsum, sizeof(becsum)) == sizeof(becsum)) {
 		msglen = be32_to_cpu(belen);
 		checksum = be32_to_cpu(becsum);
 		msg = tal_arr(gs, u8, msglen);
 
-		if (read(gs->fd, msg, msglen) != msglen) {
+		if (read(fd, msg, msglen) != msglen) {
 			status_unusual("gossip_store: truncated file?");
 			goto truncate_nomsg;
 		}
@@ -330,11 +332,12 @@ truncate_nomsg:
 	 * miss channel_delete msgs.  If we put block numbers into the store
 	 * as we process them, we can know how far we need to roll back if we
 	 * truncate the store */
-	if (ftruncate(gs->fd, 1) != 0)
+	if (ftruncate(fd, 1) != 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Truncating store: %s", strerror(errno));
 out:
 	status_trace("gossip_store: Read %zu/%zu/%zu/%zu cannounce/cupdate/nannounce/cdelete from store in %"PRIu64" bytes",
 		     stats[0], stats[1], stats[2], stats[3],
 		     (u64)known_good);
+	gs->fd = fd;
 }
