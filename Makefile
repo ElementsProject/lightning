@@ -36,7 +36,7 @@ ifneq ($(NO_COMPAT),1)
 COMPAT_CFLAGS=-DCOMPAT_V052=1
 endif
 
-PYTEST := $(shell command -v pytest 2> /dev/null)
+PYTEST := $(shell command -v pytest-3 2> /dev/null)
 PYTEST_OPTS := -v -x
 
 # This is where we add new features as bitcoin adds them.
