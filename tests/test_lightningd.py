@@ -1487,6 +1487,7 @@ class LightningDTests(BaseLightningDTests):
             # Get close confirmed
             l1.bitcoin.generate_block(100)
 
+    @flaky
     @unittest.skipIf(not DEVELOPER, "needs dev-override-feerates")
     def test_closing_different_fees(self):
         l1 = self.node_factory.get_node()
