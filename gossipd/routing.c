@@ -159,7 +159,30 @@ static struct node *new_node(struct routing_state *rstate,
 	return n;
 }
 
-static bool remove_channel_from_array(struct chan ***chans, struct chan *c)
+/* We've received a channel_announce for a channel attached to this node */
+static bool node_has_public_channels(struct node *node)
+{
+	for (size_t i = 0; i < tal_count(node->chans); i++)
+		if (is_chan_public(node->chans[i]))
+			return true;
+	return false;
+}
+
+/* We can *send* a channel_announce for a channel attached to this node:
+ * we only send once we have a channel_update. */
+static bool node_has_broadcastable_channels(struct node *node)
+{
+	for (size_t i = 0; i < tal_count(node->chans); i++) {
+		if (!is_chan_public(node->chans[i]))
+			continue;
+		if (is_halfchan_defined(&node->chans[i]->half[0])
+		    || is_halfchan_defined(&node->chans[i]->half[1]))
+			return true;
+	}
+	return false;
+}
+
+static bool remove_channel_from_array(struct chan ***chans, const struct chan *c)
 {
 	size_t i, n;
 
@@ -175,19 +198,59 @@ static bool remove_channel_from_array(struct chan ***chans, struct chan *c)
 	return false;
 }
 
-static void destroy_chan(struct chan *chan, struct routing_state *rstate)
+static bool node_announce_predates_channels(const struct node *node)
 {
-	if (!remove_channel_from_array(&chan->nodes[0]->chans, chan)
-	    || !remove_channel_from_array(&chan->nodes[1]->chans, chan))
-		/* FIXME! */
+	for (size_t i = 0; i < tal_count(node->chans); i++) {
+		if (!is_chan_public(node->chans[i]))
+			continue;
+
+		if (node->chans[i]->channel_announcement_index
+		    < node->node_announcement_index)
+			return false;
+	}
+	return true;
+}
+
+static void remove_chan_from_node(struct routing_state *rstate,
+				  struct node *node, const struct chan *chan)
+{
+	if (!remove_channel_from_array(&node->chans, chan))
 		abort();
 
-	uintmap_del(&rstate->chanmap, chan->scid.u64);
+	/* Last channel?  Simply delete node (and associated announce) */
+	if (tal_count(node->chans) == 0) {
+		tal_free(node);
+		return;
+	}
 
-	if (tal_count(chan->nodes[0]->chans) == 0)
-		tal_free(chan->nodes[0]);
-	if (tal_count(chan->nodes[1]->chans) == 0)
-		tal_free(chan->nodes[1]);
+	if (!node->node_announcement_index)
+		return;
+
+	/* Removed only public channel?  Remove node announcement. */
+	if (!node_has_broadcastable_channels(node)) {
+		broadcast_del(rstate->broadcasts, node->node_announcement_index,
+			      node->node_announcement);
+		node->node_announcement_index = 0;
+	} else if (node_announce_predates_channels(node)) {
+		/* node announcement predates all channel announcements?
+		 * Move to end (we could, in theory, move to just past next
+		 * channel_announce, but we don't care that much about spurious
+		 * retransmissions in this corner case */
+		broadcast_del(rstate->broadcasts, node->node_announcement_index,
+			      node->node_announcement);
+		node->node_announcement_index =
+			insert_broadcast(rstate->broadcasts,
+					 node->node_announcement,
+					 node->last_timestamp);
+	}
+}
+
+static void destroy_chan(struct chan *chan, struct routing_state *rstate)
+{
+	remove_chan_from_node(rstate, chan->nodes[0], chan);
+	remove_chan_from_node(rstate, chan->nodes[1], chan);
+
+	uintmap_del(&rstate->chanmap, chan->scid.u64);
 }
 
 static void init_half_chan(struct routing_state *rstate,
@@ -1183,29 +1246,6 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 	return wireaddrs;
 }
 
-/* We've received a channel_announce for a channel attached to this node */
-static bool node_has_public_channels(struct node *node)
-{
-	for (size_t i = 0; i < tal_count(node->chans); i++)
-		if (is_chan_public(node->chans[i]))
-			return true;
-	return false;
-}
-
-/* We can *send* a channel_announce for a channel attached to this node:
- * we only send once we have a channel_update. */
-static bool node_has_broadcastable_channels(struct node *node)
-{
-	for (size_t i = 0; i < tal_count(node->chans); i++) {
-		if (!is_chan_public(node->chans[i]))
-			continue;
-		if (is_halfchan_defined(&node->chans[i]->half[0])
-		    || is_halfchan_defined(&node->chans[i]->half[1]))
-			return true;
-	}
-	return false;
-}
-
 bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg TAKES)
 {
 	struct node *node;
@@ -1242,10 +1282,6 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 	tal_free(node->node_announcement);
 	node->node_announcement = tal_dup_arr(node, u8, msg, tal_len(msg), 0);
 
-	/* FIXME:
-	 * When a channel is closed, the node announce may now be out of
-	 * order.  It's not vital, but would be nice to fix.
-	 */
 	/* We might be waiting for channel_announce to be released. */
 	if (node_has_broadcastable_channels(node)) {
 		node->node_announcement_index =
