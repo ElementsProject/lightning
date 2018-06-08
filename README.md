@@ -61,6 +61,7 @@ For the impatient here's the gist of it for Ubuntu and Debian:
       libsqlite3-dev python python3 net-tools zlib1g-dev
     git clone https://github.com/ElementsProject/lightning.git
     cd lightning
+    ./configure
     make
 
 Or if you like to throw `docker` into the mix:
