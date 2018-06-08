@@ -33,8 +33,10 @@ struct broadcast_state *new_broadcast_state(tal_t *ctx)
 void broadcast_del(struct broadcast_state *bstate, u64 index, const u8 *payload)
 {
 	const struct queued_message *q = uintmap_del(&bstate->broadcasts, index);
-	assert(q->payload == payload);
-	broadcast_state_check(bstate, "broadcast_del");
+	if (q != NULL) {
+		assert(q->payload == payload);
+		broadcast_state_check(bstate, "broadcast_del");
+	}
 }
 
 static void destroy_queued_message(struct queued_message *msg,
