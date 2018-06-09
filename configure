@@ -39,6 +39,7 @@ usage()
     usage_with_default "CWARNFLAGS" "$CWARNFLAGS"
     usage_with_default "CDEBUGFLAGS" "$CDEBUGFLAGS"
     usage_with_default "CONFIGURATOR_CC" "$CONFIGURATOR_CC"
+    usage_with_default "PYTEST" "$PYTEST"
     echo "    To override compile line for configurator itself"
 
     echo "Options include:"
@@ -63,12 +64,15 @@ add_var()
 find_pytest()
 {
     PYTEST_BINS="pytest-3 pytest3 pytest py.test"
-    for PYTEST in $PYTEST_BINS; do
-	if [ "$(which $PYTEST)" != "" ] ; then
-	    break
+    for p in $PYTEST_BINS; do
+	if [ "$(which $p)" != "" ] ; then
+	    echo "$p"
+	    return
 	fi
     done
 }
+
+PYTEST=${PYTEST:-`find_pytest`}
 
 for opt in "$@"; do
     case "$opt" in
@@ -81,6 +85,7 @@ for opt in "$@"; do
 	CONFIGURATOR_CC=*) CONFIGURATOR_CC="${opt#CONFIGURATOR_CC=}";;
 	CWARNFLAGS=*) CWARNFLAGS="${opt#CWARNFLAGS=}";;
 	CDEBUGFLAGS=*) CDEBUGFLAGS="${opt#CDEBUGFLAGS=}";;
+	PYTEST=*) PYTEST="${opt#PYTEST=}";;
 	--prefix=*) PREFIX="${opt#--prefix=}";;
 	--enable-developer) DEVELOPER=1;;
 	--disable-developer) DEVELOPER=0;;
@@ -122,4 +127,4 @@ add_var CDEBUGFLAGS "$CDEBUGFLAGS"
 add_var VALGRIND "$VALGRIND"
 add_var DEVELOPER "$DEVELOPER" $CONFIG_HEADER
 add_var COMPAT "$COMPAT" $CONFIG_HEADER
-add_var PYTEST "$(which $PYTEST)"
+add_var PYTEST "$PYTEST"
