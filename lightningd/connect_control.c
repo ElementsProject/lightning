@@ -9,6 +9,7 @@
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/params.h>
 #include <lightningd/subd.h>
 
 struct connect {
@@ -80,7 +81,7 @@ void gossip_connect_result(struct lightningd *ld, const u8 *msg)
 static void json_connect(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *hosttok, *porttok, *idtok;
+	const jsmntok_t *hosttok, *porttok, *idtok;
 	struct pubkey id;
 	char *id_str;
 	char *atptr;
@@ -90,13 +91,12 @@ static void json_connect(struct command *cmd,
 	u8 *msg;
 	const char *err_msg;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "id", &idtok,
-			     "?host", &hosttok,
-			     "?port", &porttok,
-			     NULL)) {
+	struct param_table *pt = new_param_table(cmd);
+	param_add(pt, "?id", json_tok_tok, &idtok);
+	param_add(pt, "?host", json_tok_tok, &hosttok);
+	param_add(pt, "?port", json_tok_tok, &porttok);
+	if (!param_parse(pt, buffer, params))
 		return;
-	}
 
 	/* Check for id@addrport form */
 	id_str = tal_strndup(cmd, buffer + idtok->start,
@@ -106,7 +106,7 @@ static void json_connect(struct command *cmd,
 		int atidx = atptr - id_str;
 		ataddr = tal_strdup(cmd, atptr + 1);
 		/* Cut id. */
-		idtok->end = idtok->start + atidx;
+		((jsmntok_t *)idtok)->end = idtok->start + atidx;
 	}
 
 	if (!json_tok_pubkey(buffer, idtok, &id)) {

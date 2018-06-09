@@ -19,6 +19,7 @@
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/params.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wally_bip32.h>
@@ -76,6 +77,34 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 	}
 }
 
+static bool json_parse_address_scriptpubkey(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *desttok,
+					    struct withdrawal *withdraw)
+{
+	enum address_parse_result addr_parse;
+	addr_parse = json_tok_address_scriptpubkey(cmd,
+						   get_chainparams(cmd->ld),
+						   buffer, desttok,
+						   (const u8**)(&withdraw->destination));
+
+	/* Check that destination address could be understood. */
+	if (addr_parse == ADDRESS_PARSE_UNRECOGNIZED) {
+		command_fail(cmd, ADDRESS_UNRECOGNIZED,
+			     "Could not parse destination address");
+		return false;
+	}
+
+	/* Check address given is compatible with the chain we are on. */
+	if (addr_parse == ADDRESS_PARSE_WRONG_NETWORK) {
+		command_fail(cmd, ADDRESS_WRONG_NETWORK,
+			    "Destination address is not on network %s",
+			    get_chainparams(cmd->ld)->network_name);
+		return false;
+	}
+	return true;
+}
+
 /**
  * json_withdraw - Entrypoint for the withdrawal flow
  *
@@ -86,42 +115,24 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 static void json_withdraw(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *desttok, *sattok;
 	struct withdrawal *withdraw = tal(cmd, struct withdrawal);
 
 	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
 	struct bitcoin_tx *tx;
+	const jsmntok_t * desttok;
 
-	enum address_parse_result addr_parse;
 
 	withdraw->cmd = cmd;
 	wtx_init(cmd, &withdraw->wtx);
-	if (!json_get_params(withdraw->cmd, buffer, params,
-			     "destination", &desttok,
-			     "satoshi", &sattok, NULL))
-		return;
-	if (!json_tok_wtx(&withdraw->wtx, buffer, sattok))
+
+	struct param_table * pt = new_param_table(cmd);
+	param_add(pt, "destination", json_tok_tok, &desttok);
+	param_add(pt, "satoshi", json_tok_wtx, &withdraw->wtx);
+	if (!param_parse(pt, buffer, params))
 		return;
 
-	/* Parse address. */
-	addr_parse = json_tok_address_scriptpubkey(cmd,
-						   get_chainparams(cmd->ld),
-						   buffer, desttok,
-						   (const u8**)(&withdraw->destination));
-
-	/* Check that destination address could be understood. */
-	if (addr_parse == ADDRESS_PARSE_UNRECOGNIZED) {
-		command_fail(cmd, LIGHTNINGD, "Could not parse destination address");
+	if (!json_parse_address_scriptpubkey(cmd, buffer, desttok, withdraw))
 		return;
-	}
-
-	/* Check address given is compatible with the chain we are on. */
-	if (addr_parse == ADDRESS_PARSE_WRONG_NETWORK) {
-		command_fail(cmd, LIGHTNINGD,
-			     "Destination address is not on network %s",
-			     get_chainparams(cmd->ld)->network_name);
-		return;
-	}
 
 	if (!wtx_select_utxos(&withdraw->wtx, feerate_per_kw,
 			      tal_len(withdraw->destination)))
@@ -217,26 +228,15 @@ static void json_newaddr(struct command *cmd, const char *buffer UNUSED,
 	struct json_result *response = new_json_result(cmd);
 	struct ext_key ext;
 	struct pubkey pubkey;
-	jsmntok_t *addrtype;
-	bool is_p2wpkh;
+	bool is_p2wpkh = true;
 	s64 keyidx;
 	char *out;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "?addresstype", &addrtype, NULL)) {
-		return;
-	}
+	struct param_table * pt = new_param_table(cmd);
+	param_add(pt, "?addresstype", json_tok_newaddr, &is_p2wpkh);
 
-	if (!addrtype || json_tok_streq(buffer, addrtype, "p2sh-segwit"))
-		is_p2wpkh = false;
-	else if (json_tok_streq(buffer, addrtype, "bech32"))
-		is_p2wpkh = true;
-	else {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "Invalid address type "
-			     "(expected bech32 or p2sh-segwit)");
+	if (!param_parse(pt, buffer, params))
 		return;
-	}
 
 	keyidx = wallet_get_newindex(cmd->ld);
 	if (keyidx < 0) {
@@ -287,18 +287,16 @@ static void json_listaddrs(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 	struct ext_key ext;
 	struct pubkey pubkey;
-	jsmntok_t *bip32tok;
 	u64 bip32_max_index;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "?bip32_max_index", &bip32tok,
-			     NULL)) {
+	struct param_table *pt = new_param_table(cmd);
+	param_add(pt, "?bip32_max_index", json_tok_u64, &bip32_max_index);
+	if (!param_parse(pt, buffer, params))
 		return;
-	}
 
-	if (!bip32tok || !json_tok_u64(buffer, bip32tok, &bip32_max_index)) {
+	if (!param_is_set(pt, &bip32_max_index))
 		bip32_max_index = db_get_intvar(cmd->ld->wallet->db, "bip32_max_index", 0);
-	}
+
 	json_object_start(response, NULL);
 	json_array_start(response, "addresses");
 

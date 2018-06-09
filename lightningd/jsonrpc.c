@@ -24,6 +24,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
+#include <lightningd/params.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -95,14 +96,12 @@ static void json_rhash(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)
 {
 	struct json_result *response = new_json_result(cmd);
-	jsmntok_t *secrettok;
+	const jsmntok_t *secrettok;
 	struct sha256 secret;
-
-	if (!json_get_params(cmd, buffer, params,
-			     "secret", &secrettok,
-			     NULL)) {
+	struct param_table *pt = new_param_table(cmd);
+	param_add(pt, "secret", json_tok_tok, &secrettok);
+	if (!param_parse(pt, buffer, params))
 		return;
-	}
 
 	if (!hex_decode(buffer + secrettok->start,
 			secrettok->end - secrettok->start,
@@ -198,11 +197,12 @@ static void json_help(struct command *cmd,
 	unsigned int i;
 	struct json_result *response = new_json_result(cmd);
 	struct json_command **cmdlist = get_cmdlist();
-	jsmntok_t *cmdtok;
+	const jsmntok_t *cmdtok;
 
-	if (!json_get_params(cmd, buffer, params, "?command", &cmdtok, NULL)) {
+	struct param_table *pt = new_param_table(cmd);
+	param_add(pt, "?command", json_tok_tok, &cmdtok);
+	if (!param_parse(pt, buffer, params))
 		return;
-	}
 
 	json_object_start(response, NULL);
 	if (cmdtok) {
@@ -490,7 +490,7 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	if (cmd_in_jcon(jcon, c))
 		assert(c->pending);
 }
-
+#if JSON_GET_PARAMS
 bool json_get_params(struct command *cmd,
 		     const char *buffer, const jsmntok_t param[], ...)
 {
@@ -588,6 +588,7 @@ bool json_get_params(struct command *cmd,
 	tal_free(names);
 	return true;
 }
+#endif
 
 static struct io_plan *write_json(struct io_conn *conn,
 				  struct json_connection *jcon)
@@ -862,16 +863,28 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 	return ADDRESS_PARSE_UNRECOGNIZED;
 }
 
-bool json_tok_wtx(struct wallet_tx * tx, const char * buffer,
-                  const jsmntok_t *sattok)
+bool json_tok_wtx(const char *buffer,
+		  const jsmntok_t * sattok, struct wallet_tx *wtx)
 {
-        if (json_tok_streq(buffer, sattok, "all")) {
-                tx->all_funds = true;
-        } else if (!json_tok_u64(buffer, sattok, &tx->amount)) {
-                command_fail(tx->cmd, JSONRPC2_INVALID_PARAMS,
-			     "Invalid satoshis");
-                return false;
-        }
-        return true;
+	if (json_tok_streq(buffer, sattok, "all")) {
+		wtx->all_funds = true;
+		return true;
+	}
+	if (!json_tok_u64(buffer, sattok, &wtx->amount))
+		return false;
+	if (wtx->amount < 546)
+		return false;
+	return true;
 }
 
+bool json_tok_newaddr(const char *buffer,
+		      const jsmntok_t * tok, bool * is_p2wpkh)
+{
+	if (!tok || json_tok_streq(buffer, tok, "p2sh-segwit"))
+		*is_p2wpkh = false;
+	else if (json_tok_streq(buffer, tok, "bech32"))
+		*is_p2wpkh = true;
+	else
+		return false;
+	return true;
+}

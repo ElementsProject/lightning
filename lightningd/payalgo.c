@@ -15,6 +15,7 @@
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/params.h>
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 #include <wallet/wallet.h>
@@ -592,9 +593,7 @@ static void json_pay_stop_retrying(struct pay *pay)
 static void json_pay(struct command *cmd,
 		     const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *bolt11tok, *msatoshitok, *desctok, *riskfactortok, *maxfeetok;
-	jsmntok_t *retryfortok;
-	jsmntok_t *maxdelaytok;
+	const jsmntok_t *bolt11tok, *desctok;
 	double riskfactor = 1.0;
 	double maxfeepercent = 0.5;
 	u64 msatoshi;
@@ -604,17 +603,16 @@ static void json_pay(struct command *cmd,
 	unsigned int retryfor = 60;
 	unsigned int maxdelay = 500;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "bolt11", &bolt11tok,
-			     "?msatoshi", &msatoshitok,
-			     "?description", &desctok,
-			     "?riskfactor", &riskfactortok,
-			     "?maxfeepercent", &maxfeetok,
-			     "?retry_for", &retryfortok,
-			     "?maxdelay", &maxdelaytok,
-			     NULL)) {
+	struct param_table *pt = new_param_table(cmd);
+	param_add(pt, "bolt11", json_tok_tok, &bolt11tok);
+	param_add(pt, "?msatoshi", json_tok_u64, &msatoshi);
+	param_add(pt, "?description", json_tok_tok, &desctok);
+	param_add(pt, "?riskfactor", json_tok_double, &riskfactor);
+	param_add(pt, "?maxfeepercent", json_tok_double, &maxfeepercent);
+	param_add(pt, "?retry_for", json_tok_number, &retryfor);
+	param_add(pt, "?maxdelay", json_tok_number, &maxdelay);
+	if (!param_parse(pt, buffer, params))
 		return;
-	}
 
 	b11str = tal_strndup(cmd, buffer + bolt11tok->start,
 			     bolt11tok->end - bolt11tok->start);
@@ -638,55 +636,23 @@ static void json_pay(struct command *cmd,
 	pay->expiry.ts.tv_sec = b11->timestamp + b11->expiry;
 	pay->min_final_cltv_expiry = b11->min_final_cltv_expiry;
 
-	if (retryfortok && !json_tok_number(buffer, retryfortok, &retryfor)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%.*s' is not an integer",
-			     retryfortok->end - retryfortok->start,
-			     buffer + retryfortok->start);
-		return;
-	}
-
 	if (b11->msatoshi) {
 		msatoshi = *b11->msatoshi;
-		if (msatoshitok) {
+		if (param_is_set(pt, &msatoshi)) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "msatoshi parameter unnecessary");
 			return;
 		}
 	} else {
-		if (!msatoshitok) {
+		if (!param_is_set(pt, &msatoshi)) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "msatoshi parameter required");
 			return;
 		}
-		if (!json_tok_u64(buffer, msatoshitok, &msatoshi)) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "msatoshi '%.*s' is not a valid number",
-				     msatoshitok->end-msatoshitok->start,
-				     buffer + msatoshitok->start);
-			return;
-		}
 	}
 	pay->msatoshi = msatoshi;
-
-	if (riskfactortok
-	    && !json_tok_double(buffer, riskfactortok, &riskfactor)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%.*s' is not a valid double",
-			     riskfactortok->end - riskfactortok->start,
-			     buffer + riskfactortok->start);
-		return;
-	}
 	pay->riskfactor = riskfactor * 1000;
 
-	if (maxfeetok
-	    && !json_tok_double(buffer, maxfeetok, &maxfeepercent)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%.*s' is not a valid double",
-			     maxfeetok->end - maxfeetok->start,
-			     buffer + maxfeetok->start);
-		return;
-	}
 	/* Ensure it is in range 0.0 <= maxfeepercent <= 100.0 */
 	if (!(0.0 <= maxfeepercent)) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -702,14 +668,6 @@ static void json_pay(struct command *cmd,
 	}
 	pay->maxfeepercent = maxfeepercent;
 
-	if (maxdelaytok
-	    && !json_tok_number(buffer, maxdelaytok, &maxdelay)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%.*s' is not a valid integer",
-			     maxdelaytok->end - maxdelaytok->start,
-			     buffer + maxdelaytok->start);
-		return;
-	}
 	if (maxdelay < pay->min_final_cltv_expiry) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "maxdelay (%u) must be greater than "
