@@ -51,6 +51,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/withdraw_tx.o
 
 LIGHTNINGD_SRC :=				\
+	lightningd/app_connection.c			\
 	lightningd/bitcoind.c			\
 	lightningd/chaintopology.c		\
 	lightningd/channel.c			\
