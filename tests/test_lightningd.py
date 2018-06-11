@@ -26,13 +26,15 @@ import unittest
 import utils
 from lightning import LightningRpc
 
+with open('config.vars') as configfile:
+    config = dict([(line.rstrip().split('=', 1)) for line in configfile])
+
 bitcoind = None
 TEST_DIR = tempfile.mkdtemp(prefix='lightning-')
-VALGRIND = os.getenv("NO_VALGRIND", "0") == "0"
-DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
+VALGRIND = os.getenv("VALGRIND", config['VALGRIND']) == "1"
+DEVELOPER = os.getenv("DEVELOPER", config['DEVELOPER']) == "1"
 TEST_DEBUG = os.getenv("TEST_DEBUG", "0") == "1"
 
-print("Testing results are in {}".format(TEST_DIR))
 
 if TEST_DEBUG:
     logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
@@ -336,6 +338,8 @@ class BaseLightningDTests(unittest.TestCase):
 
         if not ok:
             raise Exception("At least one lightning exited with unexpected non-zero return code")
+
+        shutil.rmtree(self.node_factory.directory)
 
 
 class LightningDTests(BaseLightningDTests):
@@ -1483,6 +1487,7 @@ class LightningDTests(BaseLightningDTests):
             # Get close confirmed
             l1.bitcoin.generate_block(100)
 
+    @flaky
     @unittest.skipIf(not DEVELOPER, "needs dev-override-feerates")
     def test_closing_different_fees(self):
         l1 = self.node_factory.get_node()
@@ -2455,16 +2460,14 @@ class LightningDTests(BaseLightningDTests):
         assert n2['nodeid'] == l2.info['id']
 
         # Might not have seen other node-announce yet.
-        # TODO(cdecker) Can't check these without DEVELOPER=1, re-enable after we get alias and color into getinfo
-        if DEVELOPER:
-            assert n1['alias'].startswith('JUNIORBEAM')
-            assert n1['color'] == '0266e4'
-            if 'alias' not in n2:
-                assert 'color' not in n2
-                assert 'addresses' not in n2
-            else:
-                assert n2['alias'].startswith('SILENTARTIST')
-                assert n2['color'] == '022d22'
+        assert n1['alias'].startswith('JUNIORBEAM')
+        assert n1['color'] == '0266e4'
+        if 'alias' not in n2:
+            assert 'color' not in n2
+            assert 'addresses' not in n2
+        else:
+            assert n2['alias'].startswith('SILENTARTIST')
+            assert n2['color'] == '022d22'
 
         assert [c['active'] for c in l1.rpc.listchannels()['channels']] == [True, True]
         assert [c['public'] for c in l1.rpc.listchannels()['channels']] == [True, True]
@@ -2505,10 +2508,10 @@ class LightningDTests(BaseLightningDTests):
         too.
         """
         opts = {'dev-no-reconnect': None}
-        l1 = self.node_factory.get_node(options=opts)
-        l2 = self.node_factory.get_node(options=opts)
-        l3 = self.node_factory.get_node(options=opts)
-        l4 = self.node_factory.get_node(options=opts)
+        l1 = self.node_factory.get_node(options=opts, may_reconnect=True)
+        l2 = self.node_factory.get_node(options=opts, may_reconnect=True)
+        l3 = self.node_factory.get_node(options=opts, may_reconnect=True)
+        l4 = self.node_factory.get_node(options=opts, may_reconnect=True)
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
@@ -2532,8 +2535,14 @@ class LightningDTests(BaseLightningDTests):
         wait_for(lambda: count_active(l2) == 4)
         wait_for(lambda: count_active(l3) == 6)  # 4 public + 2 local
 
-        # l1 restarts and doesn't connect, but loads from persisted store
+        # l1 restarts and doesn't connect, but loads from persisted store, all
+        # local channels should be disabled, leaving only the two l2 <-> l3
+        # directions
         l1.restart()
+        wait_for(lambda: count_active(l1) == 2)
+
+        # Now reconnect, they should re-enable the two l1 <-> l2 directions
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         wait_for(lambda: count_active(l1) == 4)
 
         # Now spend the funding tx, generate a block and see others deleting the
@@ -2563,6 +2572,8 @@ class LightningDTests(BaseLightningDTests):
         # Finally, it should also remember the deletion after a restart
         l3.restart()
         l4.restart()
+        l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+        l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
         wait_for(lambda: count_active(l3) == 4)  # 2 public + 2 local
 
         # Both l3 and l4 should remember their local-only channel
@@ -2615,6 +2626,290 @@ class LightningDTests(BaseLightningDTests):
                                    .format(l2.info['version']))
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_gossip_query_channel_range(self):
+        l1 = self.node_factory.get_node(options={'log-level': 'io'})
+        l2 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node()
+        l4 = self.node_factory.get_node()
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+        l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
+
+        # Make public channels.
+        scid12 = self.fund_channel(l1, l2, 10**5)
+        block12 = int(scid12.split(':')[0])
+        scid23 = self.fund_channel(l2, l3, 10**5)
+        block23 = int(scid23.split(':')[0])
+        bitcoind.generate_block(5)
+        sync_blockheight([l2, l3])
+
+        # Make sure l2 has received all the gossip.
+        l2.daemon.wait_for_logs(['Received node_announcement for node ' + l1.info['id'],
+                                 'Received node_announcement for node ' + l3.info['id']])
+
+        # l1 asks for all channels, gets both.
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=0,
+                                             num=1000000)
+
+        assert ret['final_first_block'] == 0
+        assert ret['final_num_blocks'] == 1000000
+        assert ret['final_complete']
+        assert len(ret['short_channel_ids']) == 2
+        assert ret['short_channel_ids'][0] == scid12
+        assert ret['short_channel_ids'][1] == scid23
+
+        # Does not include scid12
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=0,
+                                             num=block12)
+        assert ret['final_first_block'] == 0
+        assert ret['final_num_blocks'] == block12
+        assert ret['final_complete']
+        assert len(ret['short_channel_ids']) == 0
+
+        # Does include scid12
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=0,
+                                             num=block12 + 1)
+        assert ret['final_first_block'] == 0
+        assert ret['final_num_blocks'] == block12 + 1
+        assert ret['final_complete']
+        assert len(ret['short_channel_ids']) == 1
+        assert ret['short_channel_ids'][0] == scid12
+
+        # Doesn't include scid23
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=0,
+                                             num=block23)
+        assert ret['final_first_block'] == 0
+        assert ret['final_num_blocks'] == block23
+        assert ret['final_complete']
+        assert len(ret['short_channel_ids']) == 1
+        assert ret['short_channel_ids'][0] == scid12
+
+        # Does include scid23
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=block12,
+                                             num=block23 - block12 + 1)
+        assert ret['final_first_block'] == block12
+        assert ret['final_num_blocks'] == block23 - block12 + 1
+        assert ret['final_complete']
+        assert len(ret['short_channel_ids']) == 2
+        assert ret['short_channel_ids'][0] == scid12
+        assert ret['short_channel_ids'][1] == scid23
+
+        # Only includes scid23
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=block23,
+                                             num=1)
+        assert ret['final_first_block'] == block23
+        assert ret['final_num_blocks'] == 1
+        assert ret['final_complete']
+        assert len(ret['short_channel_ids']) == 1
+        assert ret['short_channel_ids'][0] == scid23
+
+        # Past both
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=block23 + 1,
+                                             num=1000000)
+        assert ret['final_first_block'] == block23 + 1
+        assert ret['final_num_blocks'] == 1000000
+        assert ret['final_complete']
+        assert len(ret['short_channel_ids']) == 0
+
+        # Make l2 split reply into two.
+        l2.rpc.dev_set_max_scids_encode_size(max=9)
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=0,
+                                             num=1000000)
+
+        # It should definitely have split
+        assert ret['final_first_block'] != 0 or ret['final_num_blocks'] != 1000000
+        assert ret['final_complete']
+        assert len(ret['short_channel_ids']) == 2
+        assert ret['short_channel_ids'][0] == scid12
+        assert ret['short_channel_ids'][1] == scid23
+        l2.daemon.wait_for_log('queue_channel_ranges full: splitting')
+
+        # This should actually be large enough for zlib to kick in!
+        self.fund_channel(l3, l4, 10**5)
+        bitcoind.generate_block(5)
+        l2.daemon.wait_for_log('Received node_announcement for node ' + l4.info['id'])
+
+        # Turn on IO logging in l1 channeld.
+        subprocess.run(['kill', '-USR1', l1.subd_pid('channeld')])
+
+        # Restore infinite encode size.
+        l2.rpc.dev_set_max_scids_encode_size(max=(2**32 - 1))
+        ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                             first=0,
+                                             num=65535)
+        l1.daemon.wait_for_log(
+            # WIRE_REPLY_CHANNEL_RANGE
+            '\[IN\] 0108' +
+            # chain_hash
+            '................................................................' +
+            # first_blocknum
+            '00000000' +
+            # number_of_blocks
+            '0000ffff' +
+            # complete
+            '01' +
+            # length
+            '....' +
+            # encoding
+            '01'
+        )
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_query_short_channel_id(self):
+        l1 = self.node_factory.get_node(options={'log-level': 'io'})
+        l2 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node()
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+        # Need full IO logging so we can see gossip (from gossipd and channeld)
+        subprocess.run(['kill', '-USR1', l1.subd_pid('gossipd')])
+
+        # Empty result tests.
+        reply = l1.rpc.dev_query_scids(l2.info['id'], ['1:1:1', '2:2:2'])
+        # 0x0105 = query_short_channel_ids
+        l1.daemon.wait_for_log('\[OUT\] 0105.*0000000100000100010000020000020002')
+        assert reply['complete']
+
+        # Make channels public.
+        scid12 = self.fund_channel(l1, l2, 10**5)
+        scid23 = self.fund_channel(l2, l3, 10**5)
+        bitcoind.generate_block(5)
+        sync_blockheight([l1, l2, l3])
+
+        # It will know about everything.
+        l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l3.info['id']))
+        subprocess.run(['kill', '-USR1', l1.subd_pid('channeld')])
+
+        # This query should get channel announcements, channel updates, and node announcements.
+        reply = l1.rpc.dev_query_scids(l2.info['id'], [scid23])
+        # 0x0105 = query_short_channel_ids
+        l1.daemon.wait_for_log('\[OUT\] 0105')
+        assert reply['complete']
+
+        # 0x0100 = channel_announcement
+        l1.daemon.wait_for_log('\[IN\] 0100')
+        # 0x0102 = channel_update
+        l1.daemon.wait_for_log('\[IN\] 0102')
+        l1.daemon.wait_for_log('\[IN\] 0102')
+        # 0x0101 = node_announcement
+        l1.daemon.wait_for_log('\[IN\] 0101')
+        l1.daemon.wait_for_log('\[IN\] 0101')
+
+        reply = l1.rpc.dev_query_scids(l2.info['id'], [scid12, scid23])
+        assert reply['complete']
+        # Technically, this order could be different, but this matches code.
+        # 0x0100 = channel_announcement
+        l1.daemon.wait_for_log('\[IN\] 0100')
+        # 0x0102 = channel_update
+        l1.daemon.wait_for_log('\[IN\] 0102')
+        l1.daemon.wait_for_log('\[IN\] 0102')
+        # 0x0100 = channel_announcement
+        l1.daemon.wait_for_log('\[IN\] 0100')
+        # 0x0102 = channel_update
+        l1.daemon.wait_for_log('\[IN\] 0102')
+        l1.daemon.wait_for_log('\[IN\] 0102')
+        # 0x0101 = node_announcement
+        l1.daemon.wait_for_log('\[IN\] 0101')
+        l1.daemon.wait_for_log('\[IN\] 0101')
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_gossip_timestamp_filter(self):
+        # Need full IO logging so we can see gossip (from gossipd and channeld)
+        l1 = self.node_factory.get_node(options={'log-level': 'io'})
+        l2 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node()
+
+        # Full IO logging for gossipds
+        subprocess.run(['kill', '-USR1', l1.subd_pid('gossipd')])
+        subprocess.run(['kill', '-USR1', l2.subd_pid('gossipd')])
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+        before_anything = int(time.time() - 1.0)
+
+        # Make a public channel.
+        chan12 = self.fund_channel(l1, l2, 10**5)
+        bitcoind.generate_block(5)
+        sync_blockheight([l1, l2])
+
+        self.wait_for_routes(l3, [chan12])
+        after_12 = int(time.time())
+        # Full IO logging for l1's channeld
+        subprocess.run(['kill', '-USR1', l1.subd_pid('channeld')])
+
+        # Make another one, different timestamp.
+        chan23 = self.fund_channel(l2, l3, 10**5)
+        bitcoind.generate_block(5)
+        sync_blockheight([l2, l3])
+
+        self.wait_for_routes(l1, [chan23])
+        after_23 = int(time.time())
+
+        # Make sure l1 has received all the gossip.
+        wait_for(lambda: ['alias' in node for node in l1.rpc.listnodes()['nodes']] == [True, True, True])
+
+        # l1 sets broad timestamp, will receive info about both channels again.
+        l1.rpc.dev_send_timestamp_filter(id=l2.info['id'],
+                                         first=0,
+                                         range=0xFFFFFFFF)
+        before_sendfilter = l1.daemon.logsearch_start
+
+        # 0x0100 = channel_announcement
+        # 0x0102 = channel_update
+        # 0x0101 = node_announcement
+        l1.daemon.wait_for_log('\[IN\] 0100')
+        # The order of node_announcements relative to others is undefined.
+        l1.daemon.wait_for_logs(['\[IN\] 0102',
+                                 '\[IN\] 0102',
+                                 '\[IN\] 0100',
+                                 '\[IN\] 0102',
+                                 '\[IN\] 0102',
+                                 '\[IN\] 0101',
+                                 '\[IN\] 0101',
+                                 '\[IN\] 0101'])
+
+        # Now timestamp which doesn't overlap (gives nothing).
+        before_sendfilter = l1.daemon.logsearch_start
+        l1.rpc.dev_send_timestamp_filter(id=l2.info['id'],
+                                         first=0,
+                                         range=before_anything)
+        time.sleep(1)
+        assert not l1.daemon.is_in_log('\[IN\] 0100', before_sendfilter)
+
+        # Now choose range which will only give first update.
+        l1.rpc.dev_send_timestamp_filter(id=l2.info['id'],
+                                         first=before_anything,
+                                         range=after_12 - before_anything + 1)
+        # 0x0100 = channel_announcement
+        l1.daemon.wait_for_log('\[IN\] 0100')
+        # 0x0102 = channel_update
+        # (Node announcement may have any timestamp)
+        l1.daemon.wait_for_log('\[IN\] 0102')
+        l1.daemon.wait_for_log('\[IN\] 0102')
+
+        # Now choose range which will only give second update.
+        l1.rpc.dev_send_timestamp_filter(id=l2.info['id'],
+                                         first=after_12,
+                                         range=after_23 - after_12 + 1)
+        # 0x0100 = channel_announcement
+        l1.daemon.wait_for_log('\[IN\] 0100')
+        # 0x0102 = channel_update
+        # (Node announcement may have any timestamp)
+        l1.daemon.wait_for_log('\[IN\] 0102')
+        l1.daemon.wait_for_log('\[IN\] 0102')
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_routing_gossip_reconnect(self):
         # Connect two peers, reconnect and then see if we resume the
         # gossip.
@@ -2633,6 +2928,40 @@ class LightningDTests(BaseLightningDTests):
         # Settle the gossip
         for n in [l1, l2, l3]:
             wait_for(lambda: len(n.rpc.listchannels()['channels']) == 4)
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_gossip_no_empty_announcements(self):
+        # Need full IO logging so we can see gossip
+        l1 = self.node_factory.get_node(options={'log-level': 'io'})
+        l2 = self.node_factory.get_node(options={'log-level': 'io',
+                                                 'dev-no-reconnect': None})
+        # l3 sends CHANNEL_ANNOUNCEMENT to l2, but not CHANNEL_UDPATE.
+        l3 = self.node_factory.get_node(disconnect=['+WIRE_CHANNEL_ANNOUNCEMENT'])
+        l4 = self.node_factory.get_node()
+
+        # Turn on IO logging for gossipds
+        subprocess.run(['kill', '-USR1', l1.subd_pid('gossipd')])
+        subprocess.run(['kill', '-USR1', l2.subd_pid('gossipd')])
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+        l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
+
+        # Make an announced-but-not-updated channel.
+        self.fund_channel(l3, l4, 10**5)
+        bitcoind.generate_block(5)
+        sync_blockheight([l3, l4])
+        # 0x0100 = channel_announcement, which goes to l2 before l3 dies.
+        l2.daemon.wait_for_log('\[IN\] 0100')
+
+        # But it never goes to l1, as there's no channel_update.
+        time.sleep(2)
+        assert not l1.daemon.is_in_log('\[IN\] 0100')
+        assert len(l1.rpc.listchannels()['channels']) == 0
+
+        # If we reconnect, gossip will now flow.
+        l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
 
     def test_second_channel(self):
         l1 = self.node_factory.get_node()
@@ -2663,14 +2992,20 @@ class LightningDTests(BaseLightningDTests):
             comb.append((nodes[i].info['id'], nodes[i + 1].info['id']))
             comb.append((nodes[i + 1].info['id'], nodes[i].info['id']))
 
+        def check_gossip(n):
+            seen = []
+            channels = n.rpc.listchannels()['channels']
+            for c in channels:
+                seen.append((c['source'], c['destination']))
+            missing = set(comb) - set(seen)
+            logging.debug("Node {id} is missing channels {chans}".format(
+                id=n.info['id'],
+                chans=missing)
+            )
+            return len(missing) == 0
+
         for n in nodes:
-            def check_gossip():
-                seen = []
-                channels = n.rpc.listchannels()['channels']
-                for c in channels:
-                    seen.append((c['source'], c['destination']))
-                return set(seen) == set(comb)
-            wait_for(check_gossip)
+            wait_for(lambda: check_gossip(n), interval=1)
 
     @unittest.skipIf(not DEVELOPER, "Too slow without --dev-bitcoind-poll")
     def test_forward(self):
@@ -3895,7 +4230,8 @@ class LightningDTests(BaseLightningDTests):
         assert l2.rpc.listinvoices('inv1')['invoices'][0]['status'] == 'paid'
 
         # FIXME: We should re-add pre-announced routes on startup!
-        self.wait_for_routes(l1, [chanid])
+        l1.bitcoin.rpc.generate(5)
+        l1.wait_channel_active(chanid)
 
         # A duplicate should succeed immediately (nop) and return correct preimage.
         preimage = l1.rpc.pay(inv1['bolt11'])['payment_preimage']
@@ -4279,16 +4615,13 @@ class LightningDTests(BaseLightningDTests):
         # Fundchannel manually so we get channeld pid.
         self.give_funds(l1, 10**6 + 1000000)
         l1.rpc.fundchannel(l2.info['id'], 10**6)['tx']
-        # Get pid of channeld, eg 'lightning_channeld(...): pid 13933, msgfd 12'
-        pidline = l1.daemon.wait_for_log(r'lightning_channeld.*: pid [0-9]*,')
-        pid1 = re.search(r'pid ([0-9]*),', pidline).group(1)
+        pid1 = l1.subd_pid('channeld')
 
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l1.bitcoin.generate_block(1)
         l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
 
-        pidline = l2.daemon.wait_for_log(r'lightning_channeld.*: pid [0-9]*,')
-        pid2 = re.search(r'pid ([0-9]*),', pidline).group(1)
+        pid2 = l2.subd_pid('channeld')
         l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
 
         # Send it sigusr1: should turn on logging.

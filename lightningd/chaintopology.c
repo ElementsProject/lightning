@@ -422,6 +422,7 @@ static void add_tip(struct chain_topology *topo, struct block *b)
 	filter_block_txs(topo, b);
 
 	block_map_add(&topo->block_map, b);
+	topo->max_blockheight = b->height;
 }
 
 static struct block *new_block(struct chain_topology *topo,
@@ -509,7 +510,7 @@ static void init_topo(struct bitcoind *bitcoind UNUSED,
 		      struct bitcoin_block *blk,
 		      struct chain_topology *topo)
 {
-	topo->root = new_block(topo, blk, topo->first_blocknum);
+	topo->root = new_block(topo, blk, topo->max_blockheight);
 	block_map_add(&topo->block_map, topo->root);
 	topo->tip = topo->prev_tip = topo->root;
 
@@ -533,32 +534,32 @@ static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 	/* If bitcoind's current blockheight is below the requested height, just
 	 * go back to that height. This might be a new node catching up, or
 	 * bitcoind is processing a reorg. */
-	if (blockcount < topo->first_blocknum) {
+	if (blockcount < topo->max_blockheight) {
 		if (bitcoind->ld->config.rescan < 0) {
 			/* Absolute blockheight, but bitcoind's blockheight isn't there yet */
 			/* Protect against underflow in subtraction.
 			 * Possible in regtest mode. */
 			if (blockcount < 1)
-				topo->first_blocknum = 0;
+				topo->max_blockheight = 0;
 			else
-				topo->first_blocknum = blockcount - 1;
-		} else if (topo->first_blocknum == UINT32_MAX) {
+				topo->max_blockheight = blockcount - 1;
+		} else if (topo->max_blockheight == UINT32_MAX) {
 			/* Relative rescan, but we didn't know the blockheight */
 			/* Protect against underflow in subtraction.
 			 * Possible in regtest mode. */
 			if (blockcount < bitcoind->ld->config.rescan)
-				topo->first_blocknum = 0;
+				topo->max_blockheight = 0;
 			else
-				topo->first_blocknum = blockcount - bitcoind->ld->config.rescan;
+				topo->max_blockheight = blockcount - bitcoind->ld->config.rescan;
 		}
 	}
 
 	/* Rollback to the given blockheight, so we start track
 	 * correctly again */
-	wallet_blocks_rollback(topo->wallet, topo->first_blocknum);
+	wallet_blocks_rollback(topo->wallet, topo->max_blockheight);
 
 	/* Get up to speed with topology. */
-	bitcoind_getblockhash(bitcoind, topo->first_blocknum,
+	bitcoind_getblockhash(bitcoind, topo->max_blockheight,
 			      get_init_block, topo);
 }
 
@@ -744,12 +745,13 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 
 void setup_topology(struct chain_topology *topo,
 		    struct timers *timers,
-		    u32 first_blocknum)
+		    u32 min_blockheight, u32 max_blockheight)
 {
 	memset(&topo->feerate, 0, sizeof(topo->feerate));
 	topo->timers = timers;
 
-	topo->first_blocknum = first_blocknum;
+	topo->min_blockheight = min_blockheight;
+	topo->max_blockheight = max_blockheight;
 
 	/* Make sure bitcoind is started, and ready */
 	wait_for_bitcoind(topo->bitcoind);

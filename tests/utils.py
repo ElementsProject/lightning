@@ -338,12 +338,22 @@ class LightningNode(object):
         self.may_fail = may_fail
         self.may_reconnect = may_reconnect
 
-    def openchannel(self, remote_node, capacity, addrtype="p2sh-segwit"):
+    def openchannel(self, remote_node, capacity, addrtype="p2sh-segwit", confirm=True, announce=True):
         addr, wallettxid = self.fundwallet(capacity, addrtype)
         fundingtx = self.rpc.fundchannel(remote_node.info['id'], capacity)
-        self.daemon.wait_for_log('sendrawtx exit 0, gave')
-        self.bitcoin.generate_block(6)
-        self.daemon.wait_for_log('to CHANNELD_NORMAL|STATE_NORMAL')
+
+        # Wait for the funding transaction to be in bitcoind's mempool
+        wait_for(lambda: fundingtx['txid'] in self.bitcoin.rpc.getrawmempool())
+
+        if confirm or announce:
+            self.bitcoin.generate_block(1)
+
+        if announce:
+            self.bitcoin.generate_block(5)
+
+        if confirm or announce:
+            self.daemon.wait_for_log(
+                r'Funding tx {} depth'.format(fundingtx['txid']))
         return {'address': addr, 'wallettxid': wallettxid, 'fundingtx': fundingtx}
 
     def fundwallet(self, sats, addrtype="p2sh-segwit"):
@@ -459,3 +469,21 @@ class LightningNode(object):
         # Intermittent decoding failure.  See if it decodes badly twice?
         decoded2 = self.bitcoin.rpc.decoderawtransaction(tx)
         raise ValueError("Can't find {} payment in {} (1={} 2={})".format(amount, tx, decoded, decoded2))
+
+    def subd_pid(self, subd):
+        """Get the process id of the given subdaemon, eg channeld or gossipd"""
+        ex = re.compile(r'lightning_{}.*: pid ([0-9]*),'.format(subd))
+        # Make sure we get latest one if it's restarted!
+        for l in reversed(self.daemon.logs):
+            group = ex.search(l)
+            if group:
+                return group.group(1)
+        raise ValueError("No daemon {} found".format(subd))
+
+    def is_channel_active(self, chanid):
+        channels = self.rpc.listchannels()['channels']
+        active = [(c['short_channel_id'], c['flags']) for c in channels if c['active']]
+        return (chanid, 0) in active and (chanid, 1) in active
+
+    def wait_channel_active(self, chanid):
+        wait_for(lambda: self.is_channel_active(chanid), interval=1)

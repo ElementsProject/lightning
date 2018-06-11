@@ -58,9 +58,10 @@ For the impatient here's the gist of it for Ubuntu and Debian:
     sudo apt-get update
     sudo apt-get install -y \
       autoconf automake build-essential git libtool libgmp-dev \
-      libsqlite3-dev python python3 net-tools
+      libsqlite3-dev python python3 net-tools zlib1g-dev
     git clone https://github.com/ElementsProject/lightning.git
     cd lightning
+    ./configure
     make
 
 Or if you like to throw `docker` into the mix:

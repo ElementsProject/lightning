@@ -156,6 +156,41 @@ gossip_ping_reply,,sent,bool
 # 0 == no pong expected
 gossip_ping_reply,,totlen,u16
 
+# Test of query_short_channel_ids.  Master->gossipd
+gossip_query_scids,3031
+gossip_query_scids,,id,struct pubkey
+gossip_query_scids,,num_ids,u16
+gossip_query_scids,,ids,num_ids*struct short_channel_id
+
+# Gossipd -> master
+gossip_scids_reply,3131
+gossip_scids_reply,,ok,bool
+gossip_scids_reply,,complete,bool
+
+# Test gossip timestamp filtering.
+gossip_send_timestamp_filter,3028
+gossip_send_timestamp_filter,,id,struct pubkey
+gossip_send_timestamp_filter,,first_timestamp,u32
+gossip_send_timestamp_filter,,timestamp_range,u32
+
+# Test of query_channel_range.  Master->gossipd
+gossip_query_channel_range,3029
+gossip_query_channel_range,,id,struct pubkey
+gossip_query_channel_range,,first_blocknum,u32
+gossip_query_channel_range,,number_of_blocks,u32
+
+# Gossipd -> master
+gossip_query_channel_range_reply,3129
+gossip_query_channel_range_reply,,final_first_block,u32
+gossip_query_channel_range_reply,,final_num_blocks,u32
+gossip_query_channel_range_reply,,final_complete,bool
+gossip_query_channel_range_reply,,num,u16
+gossip_query_channel_range_reply,,scids,num*struct short_channel_id
+
+# Set artificial maximum reply_channel_range size.  Master->gossipd
+gossip_dev_set_max_scids_encode_size,3030
+gossip_dev_set_max_scids_encode_size,,max,u32
+
 # Given a short_channel_id, return the endpoints
 gossip_resolve_channel_request,3009
 gossip_resolve_channel_request,,channel_id,struct short_channel_id
@@ -207,6 +242,9 @@ gossip_local_channel_update,,htlc_minimum_msat,u64
 gossip_local_channel_update,,fee_base_msat,u32
 gossip_local_channel_update,,fee_proportional_millionths,u32
 
+gossip_local_channel_close,3027
+gossip_local_channel_close,,short_channel_id,struct short_channel_id
+
 # Gossipd->master get this tx output please.
 gossip_get_txout,3018
 gossip_get_txout,,short_channel_id,struct short_channel_id
@@ -217,12 +255,6 @@ gossip_get_txout_reply,,short_channel_id,struct short_channel_id
 gossip_get_txout_reply,,satoshis,u64
 gossip_get_txout_reply,,len,u16
 gossip_get_txout_reply,,outscript,len*u8
-
-# client->gossipd: Disable the channel matching the short_channel_id
-gossip_disable_channel,3019
-gossip_disable_channel,,short_channel_id,struct short_channel_id
-gossip_disable_channel,,direction,u8
-gossip_disable_channel,,active,bool
 
 # master->gossipd a routing failure occurred
 gossip_routing_failure,3021

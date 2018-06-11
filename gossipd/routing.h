@@ -53,6 +53,8 @@ struct chan {
 
 	/* NULL if not announced yet (ie. not public). */
 	const u8 *channel_announce;
+	/* Index in broadcast map, if public (otherwise 0) */
+	u64 channel_announcement_index;
 
 	u64 satoshis;
 };
@@ -102,6 +104,8 @@ struct node {
 
 	/* Cached `node_announcement` we might forward to new peers (or NULL). */
 	const u8 *node_announcement;
+	/* If public, this is non-zero. */
+	u64 node_announcement_index;
 };
 
 const secp256k1_pubkey *node_map_keyof_node(const struct node *n);
@@ -176,6 +180,9 @@ struct routing_state {
 
         /* A map of channels indexed by short_channel_ids */
 	UINTMAP(struct chan *) chanmap;
+
+	/* Has one of our own channels been announced? */
+	bool local_channel_announced;
 };
 
 static inline struct chan *
@@ -211,12 +218,8 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 /**
  * handle_pending_cannouncement -- handle channel_announce once we've
  * completed short_channel_id lookup.
- *
- * Returns true if the channel was new and is local. This means that
- * if we haven't sent a node_announcement just yet, now would be a
- * good time.
  */
-bool handle_pending_cannouncement(struct routing_state *rstate,
+void handle_pending_cannouncement(struct routing_state *rstate,
 				  const struct short_channel_id *scid,
 				  const u64 satoshis,
 				  const u8 *txscript);

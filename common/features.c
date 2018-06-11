@@ -4,7 +4,8 @@
 #include <wire/peer_wire.h>
 
 static const u32 local_features[] = {
-	LOCAL_INITIAL_ROUTING_SYNC
+	LOCAL_INITIAL_ROUTING_SYNC,
+	LOCAL_GOSSIP_QUERIES
 };
 
 static const u32 global_features[] = {

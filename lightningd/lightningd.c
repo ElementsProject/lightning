@@ -306,7 +306,7 @@ void notify_new_block(struct lightningd *ld,
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
-	u32 blockheight;
+	u32 min_blockheight, max_blockheight;
 
 	setup_locale();
 	daemon_setup(argv[0], log_backtrace_print, log_backtrace_exit);
@@ -388,24 +388,22 @@ int main(int argc, char *argv[])
 	/* Get the blockheight we are currently at, UINT32_MAX is used to signal
 	 * an unitialized wallet and that we should start off of bitcoind's
 	 * current height */
-	blockheight = wallet_blocks_height(ld->wallet, UINT32_MAX);
+	wallet_blocks_heights(ld->wallet, UINT32_MAX, &min_blockheight, &max_blockheight);
 
 	/* If we were asked to rescan from an absolute height (--rescan < 0)
-	 * then just go there. Otherwise take compute the diff to our current
-	 * height, lowerbounded by 0. */
+	 * then just go there. Otherwise compute the diff to our current height,
+	 * lowerbounded by 0. */
 	if (ld->config.rescan < 0)
-		blockheight = -ld->config.rescan;
-	else if (blockheight < (u32)ld->config.rescan)
-		blockheight = 0;
-	else if (blockheight != UINT32_MAX)
-		blockheight -= ld->config.rescan;
+		max_blockheight = -ld->config.rescan;
+	else if (max_blockheight < (u32)ld->config.rescan)
+		max_blockheight = 0;
+	else if (max_blockheight != UINT32_MAX)
+		max_blockheight -= ld->config.rescan;
 
 	db_commit_transaction(ld->wallet->db);
 
 	/* Initialize block topology (does its own transaction) */
-	setup_topology(ld->topology,
-		       &ld->timers,
-		       blockheight);
+	setup_topology(ld->topology, &ld->timers, min_blockheight, max_blockheight);
 
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(ld, ld->rpc_filename);

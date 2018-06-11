@@ -89,8 +89,8 @@ struct chain_topology {
 	/* Where to log things. */
 	struct log *log;
 
-	/* How far back (in blocks) to go. */
-	unsigned int first_blocknum;
+	/* What range of blocks do we have in our database? */
+	u32 min_blockheight, max_blockheight;
 
 	/* How often to poll. */
 	u32 poll_seconds;
@@ -150,9 +150,8 @@ void broadcast_tx(struct chain_topology *topo,
 				 const char *err));
 
 struct chain_topology *new_topology(struct lightningd *ld, struct log *log);
-void setup_topology(struct chain_topology *topology,
-		    struct timers *timers,
-		    u32 first_channel_block);
+void setup_topology(struct chain_topology *topology, struct timers *timers,
+		    u32 min_blockheight, u32 max_blockheight);
 
 void begin_topology(struct chain_topology *topo);
 

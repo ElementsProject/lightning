@@ -1,0 +1,216 @@
+'\" t
+.\"     Title: configurator
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 03/01/2018
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "CONFIGURATOR" "1" "03/01/2018" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+configurator \- Generate a simple config\&.h or variable file
+.SH "SYNOPSIS"
+.sp
+\fBconfigurator\fR [\fIOPTIONS\fR] [\fICC\fR] [\fICFLAGS\fR\&...]
+.SH "DESCRIPTION"
+.sp
+\fBconfigurator\fR is a standalone C program which evaluates the C environment using code snippets\&.
+.sp
+The C compiler (and flags) can be provided on the command\-line, otherwise built\-in defaults are used\&.
+.sp
+It has a builtin set of tests, to which more can be added\&. By default it produces a C header file to standard output, but it can also produce a file containing simple "key=value" lines suitable for parsing by \fBsh\fR or \fBmake\fR\&.
+.SH "OPTIONS"
+.PP
+\fB\-v\fR
+.RS 4
+Print out every test result; specified twice, print out each test too\&.
+.RE
+.PP
+\fB\-vv\fR
+.RS 4
+Shortcut for two
+\fB\-v\fR
+options\&.
+.RE
+.PP
+\fB\-\-var\-file=<file>\fR
+.RS 4
+Output results in format
+\fI<key>=<value>\fR
+to
+\fI<file>\fR, or stdout if
+\fI<file>\fR
+is
+\fI\-\fR\&. Default is not to output this\&.
+.RE
+.PP
+\fB\-\-header\-file=<file>\fR
+.RS 4
+Output C\-style header to
+\fI<file>\fR
+instead out stdout\&.
+.RE
+.PP
+\fB\-\-autotools\-style\fR
+.RS 4
+Produce output to stdout like autotools\*(Aq configure script\&. This usually means you want to use
+\fB\-\-header\-file\fR
+so that doesn\(cqt mix with stdout\&.
+.RE
+.PP
+\fB\-O<outflag>\fR
+.RS 4
+Override option to set compiler output file\&.
+.RE
+.PP
+\fB\-\-configurator\-cc=<command>\fR
+.RS 4
+This gives the real compiler command to use for tests, instead of the first commandline argument or the default\&.
+.RE
+.PP
+\fB\-\-extra\-tests\fR
+.RS 4
+Read additional tests from stdin, see
+\fIEXTRA TESTS\fR
+below\&.
+.RE
+.SH "OUTPUT"
+.sp
+The header output is \fI#ifndef/#define\fR idempotent\-wrapped using \fICCAN_CONFIG_H\fR, and defines \fI_GNU_SOURCE\fR\&. It also defines \fICCAN_COMPILER\fR, \fICCAN_CFLAGS\fR and \fICCAN_OUTPUT_EXE_CFLAG\fR as either the built\-in definitions or those provided on the command line\&. The remainder is \fI#define\fR of the test names followed by a \fI0\fR or \fI1\fR: note that this means you should use \fI#if\fR not \fI#ifdef\fR to test features in your C programs!
+.sp
+The var\-file output is simply the test names followed by \fI=1\fR or \fI=0\fR\&.
+.SH "EXTRA TESTS"
+.sp
+Extra tests must be formatted as \fI<key>=<value>\fR pairs, with leading whitespace and \fI#\fR lines ignored\&.
+.sp
+The first three lines are always the same:
+.PP
+\fBvar=<varname>\fR
+.RS 4
+Define the variable set by the test, e\&.g\&.
+\fIvar=HAVE_FOO\fR\&.
+.RE
+.PP
+\fBdesc=<description>\fR
+.RS 4
+The description printed out with
+\fB\-\-autotools\-style\fR, e\&.g\&.
+\fIfoo support\fR\&.
+.RE
+.PP
+\fBstyle=<style>\fR
+.RS 4
+The set of strings defining how to treat the code snippet\&. It must include one of
+\fIOUTSIDE_MAIN\fR,
+\fIDEFINES_FUNC\fR,
+\fIINSIDE_MAIN\fR
+or
+\fIDEFINES_EVERYTHING\fR
+which control the boilerplate to surround the file, and may include
+\fIEXECUTE\fR
+or both
+\fIEXECUTE\fR
+and
+\fIMAY_NOT_COMPILE\fR\&. e\&.g\&.
+\fIINSIDE_MAIN|EXECUTE\fR\&.
+.RE
+.sp
+The following styles are defined:
+.PP
+\fBOUTSIDE_MAIN\fR
+.RS 4
+means we put a simple boilerplate main below it\&.
+.RE
+.PP
+\fBDEFINES_FUNC\fR
+.RS 4
+put a simple boilerplate main below it, which references
+\fIfunc\fR
+(to avoid any unused warnings)\&.
+.RE
+.PP
+\fBINSIDE_MAIN\fR
+.RS 4
+put this inside main()\&. This also means it must exit with status 0 if it compiles, unless
+\fBEXECUTE\fR
+is added\&.
+.RE
+.PP
+\fBDEFINES_EVERYTHING\fR
+.RS 4
+don\(cqt add any boilerplate at all\&.
+.RE
+.PP
+\fBEXECUTE\fR
+.RS 4
+this is an execution test; it must compile, but may not exit with status 0 when run\&.
+.RE
+.PP
+\fBMAY_NOT_COMPILE\fR
+.RS 4
+Only useful with EXECUTE: don\(cqt get upset if it doesn\(cqt compile\&.
+.RE
+.sp
+The following lines are optional, and may follow in any order:
+.PP
+\fBdepends=<varnames>\fR
+.RS 4
+A space\-separates set of vars which must pass to even try to pass this one\&. If the var begins with
+\fI!\fR
+then the dependency must fail to try this one\&. e\&.g\&.
+\fIdepends=HAVE_UCONTEXT !HAVE_VALGRIND_MEMCHECK_H\fR\&.
+.RE
+.PP
+\fBlink=<linkargs>\fR
+.RS 4
+Extra arguments for linking with this test, e\&.g\&.
+\fIlink=\-lrt\fR\&.
+.RE
+.PP
+\fBflags=<cflags>\fR
+.RS 4
+Extra flags for compiling with this test, e\&.g\&.
+\fIflags=\-fopenmp\fR\&.
+.RE
+.PP
+\fBoverrides=<varname>\fR
+.RS 4
+Tests to force passing if this one passes\&. e\&.g\&.
+\fIoverrides=HAVE_SOME_FOO\fR\&.
+.RE
+.sp
+The final line is the code to test, itself, either as a single \fIcode=<oneline>\fR or as multiple lines starting with \fIcode=\fR and ending with \fI/*END*/\fR on a line by itself\&. e\&.g\&. \fIcode=return 0;\fR\&.
+.SH "EXIT STATUS"
+.sp
+It will exit with non\-zero status if it has a problem\&. \fB1\fR means bad commandline options\&. \fB2\fR means some operational problem creating and running tests\&. \fB3\fR means a bad test\&. \fB4\fR means failure to parse an extra test\&.
+.SH "AUTHOR"
+.sp
+Rusty Russell wrote \fBconfigurator\fR\&.
+.SH "RESOURCES"
+.sp
+Main web site: http://ccodearchive\&.net/
+.sp
+Wiki: https://github\&.com/rustyrussell/ccan/wiki/
+.SH "COPYING"
+.sp
+This program is under the MIT\-style BSD license; see code for details\&.

@@ -96,8 +96,9 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->chain_hash = *chain_hash;
 	rstate->local_id = *local_id;
 	rstate->prune_timeout = prune_timeout;
-	rstate->store = gossip_store_new(rstate);
+	rstate->store = gossip_store_new(rstate, rstate, rstate->broadcasts);
 	rstate->dev_allow_localhost = dev_allow_localhost;
+	rstate->local_channel_announced = false;
 	list_head_init(&rstate->pending_cannouncement);
 	uintmap_init(&rstate->chanmap);
 
@@ -149,6 +150,7 @@ static struct node *new_node(struct routing_state *rstate,
 	n->chans = tal_arr(n, struct chan *, 0);
 	n->alias = NULL;
 	n->node_announcement = NULL;
+	n->node_announcement_index = 0;
 	n->last_timestamp = -1;
 	n->addresses = tal_arr(n, struct wireaddr, 0);
 	node_map_add(rstate->nodes, n);
@@ -157,7 +159,30 @@ static struct node *new_node(struct routing_state *rstate,
 	return n;
 }
 
-static bool remove_channel_from_array(struct chan ***chans, struct chan *c)
+/* We've received a channel_announce for a channel attached to this node */
+static bool node_has_public_channels(struct node *node)
+{
+	for (size_t i = 0; i < tal_count(node->chans); i++)
+		if (is_chan_public(node->chans[i]))
+			return true;
+	return false;
+}
+
+/* We can *send* a channel_announce for a channel attached to this node:
+ * we only send once we have a channel_update. */
+static bool node_has_broadcastable_channels(struct node *node)
+{
+	for (size_t i = 0; i < tal_count(node->chans); i++) {
+		if (!is_chan_public(node->chans[i]))
+			continue;
+		if (is_halfchan_defined(&node->chans[i]->half[0])
+		    || is_halfchan_defined(&node->chans[i]->half[1]))
+			return true;
+	}
+	return false;
+}
+
+static bool remove_channel_from_array(struct chan ***chans, const struct chan *c)
 {
 	size_t i, n;
 
@@ -173,19 +198,65 @@ static bool remove_channel_from_array(struct chan ***chans, struct chan *c)
 	return false;
 }
 
-static void destroy_chan(struct chan *chan, struct routing_state *rstate)
+static bool node_announce_predates_channels(const struct node *node)
 {
-	if (!remove_channel_from_array(&chan->nodes[0]->chans, chan)
-	    || !remove_channel_from_array(&chan->nodes[1]->chans, chan))
-		/* FIXME! */
+	for (size_t i = 0; i < tal_count(node->chans); i++) {
+		if (!is_chan_public(node->chans[i]))
+			continue;
+
+		if (node->chans[i]->channel_announcement_index
+		    < node->node_announcement_index)
+			return false;
+	}
+	return true;
+}
+
+static u64 persistent_broadcast(struct routing_state *rstate, const u8 *msg, u32 timestamp)
+{
+	u64 index = insert_broadcast(rstate->broadcasts, msg, timestamp);
+	if (index)
+		gossip_store_add(rstate->store, msg);
+	return index;
+}
+
+static void remove_chan_from_node(struct routing_state *rstate,
+				  struct node *node, const struct chan *chan)
+{
+	if (!remove_channel_from_array(&node->chans, chan))
 		abort();
 
-	uintmap_del(&rstate->chanmap, chan->scid.u64);
+	/* Last channel?  Simply delete node (and associated announce) */
+	if (tal_count(node->chans) == 0) {
+		tal_free(node);
+		return;
+	}
 
-	if (tal_count(chan->nodes[0]->chans) == 0)
-		tal_free(chan->nodes[0]);
-	if (tal_count(chan->nodes[1]->chans) == 0)
-		tal_free(chan->nodes[1]);
+	if (!node->node_announcement_index)
+		return;
+
+	/* Removed only public channel?  Remove node announcement. */
+	if (!node_has_broadcastable_channels(node)) {
+		broadcast_del(rstate->broadcasts, node->node_announcement_index,
+			      node->node_announcement);
+		node->node_announcement_index = 0;
+	} else if (node_announce_predates_channels(node)) {
+		/* node announcement predates all channel announcements?
+		 * Move to end (we could, in theory, move to just past next
+		 * channel_announce, but we don't care that much about spurious
+		 * retransmissions in this corner case */
+		broadcast_del(rstate->broadcasts, node->node_announcement_index,
+			      node->node_announcement);
+		node->node_announcement_index = persistent_broadcast(
+		    rstate, node->node_announcement, node->last_timestamp);
+	}
+}
+
+static void destroy_chan(struct chan *chan, struct routing_state *rstate)
+{
+	remove_chan_from_node(rstate, chan->nodes[0], chan);
+	remove_chan_from_node(rstate, chan->nodes[1], chan);
+
+	uintmap_del(&rstate->chanmap, chan->scid.u64);
 }
 
 static void init_half_chan(struct routing_state *rstate,
@@ -236,6 +307,7 @@ struct chan *new_chan(struct routing_state *rstate,
 	chan->nodes[!n1idx] = n2;
 	chan->txout_script = NULL;
 	chan->channel_announce = NULL;
+	chan->channel_announcement_index = 0;
 	chan->satoshis = 0;
 
 	n = tal_count(n2->chans);
@@ -604,6 +676,34 @@ static void destroy_pending_cannouncement(struct pending_cannouncement *pending,
 	list_del_from(&rstate->pending_cannouncement, &pending->list);
 }
 
+static bool is_local_channel(const struct routing_state *rstate,
+			     const struct chan *chan)
+{
+	return pubkey_eq(&chan->nodes[0]->id, &rstate->local_id)
+		|| pubkey_eq(&chan->nodes[1]->id, &rstate->local_id);
+}
+
+static void add_channel_announce_to_broadcast(struct routing_state *rstate,
+					      struct chan *chan,
+					      u32 timestamp)
+{
+	chan->channel_announcement_index =
+	    persistent_broadcast(rstate, chan->channel_announce, timestamp);
+	rstate->local_channel_announced |= is_local_channel(rstate, chan);
+
+	/* If we've been waiting for this, now we can announce node */
+	for (size_t i = 0; i < ARRAY_SIZE(chan->nodes); i++) {
+		struct node *node = chan->nodes[i];
+		if (!node->node_announcement)
+			continue;
+		if (!node->node_announcement_index) {
+			node->node_announcement_index = persistent_broadcast(
+			    rstate, node->node_announcement,
+			    node->last_timestamp);
+		}
+	}
+}
+
 bool routing_add_channel_announcement(struct routing_state *rstate,
 				      const u8 *msg TAKES, u64 satoshis)
 {
@@ -635,16 +735,11 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	/* Channel is now public. */
 	chan->channel_announce = tal_dup_arr(chan, u8, msg, tal_len(msg), 0);
 
-	/* Now we can broadcast channel announce */
-	insert_broadcast(rstate->broadcasts, chan->channel_announce);
-
-	/* If we had private updates for channels, we can broadcast them too. */
-	for (size_t i = 0; i < ARRAY_SIZE(chan->half); i++) {
-		if (!is_halfchan_defined(&chan->half[i]))
-			continue;
-		insert_broadcast(rstate->broadcasts,
-				 chan->half[i].channel_update);
-	}
+	/* Clear any private updates: new updates will trigger broadcast of
+	 * this channel_announce. */
+	for (size_t i = 0; i < ARRAY_SIZE(chan->half); i++)
+		chan->half[i].channel_update
+			= tal_free(chan->half[i].channel_update);
 
 	return true;
 }
@@ -802,18 +897,17 @@ static void process_pending_channel_update(struct routing_state *rstate,
 	}
 }
 
-bool handle_pending_cannouncement(struct routing_state *rstate,
+void handle_pending_cannouncement(struct routing_state *rstate,
 				  const struct short_channel_id *scid,
 				  const u64 satoshis,
 				  const u8 *outscript)
 {
-	bool local;
 	const u8 *s;
 	struct pending_cannouncement *pending;
 
 	pending = find_pending_cannouncement(rstate, scid);
 	if (!pending)
-		return false;
+		return;
 
 	/* BOLT #7:
 	 *
@@ -824,7 +918,7 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 			     type_to_string(pending, struct short_channel_id,
 					    scid));
 		tal_free(pending);
-		return false;
+		return;
 	}
 
 	/* BOLT #7:
@@ -846,16 +940,12 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 					    scid),
 			     tal_hex(tmpctx, s), tal_hex(tmpctx, outscript));
 		tal_free(pending);
-		return false;
+		return;
 	}
 
 	if (!routing_add_channel_announcement(rstate, pending->announce, satoshis))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not add channel_announcement");
-	gossip_store_add_channel_announcement(rstate->store, pending->announce, satoshis);
-
-	local = pubkey_eq(&pending->node_id_1, &rstate->local_id) ||
-		pubkey_eq(&pending->node_id_2, &rstate->local_id);
 
 	/* Did we have an update waiting?  If so, apply now. */
 	process_pending_channel_update(rstate, scid, pending->updates[0]);
@@ -865,7 +955,6 @@ bool handle_pending_cannouncement(struct routing_state *rstate,
 	process_pending_node_announcement(rstate, &pending->node_id_2);
 
 	tal_free(pending);
-	return local;
 }
 
 static void update_pending(struct pending_cannouncement *pending,
@@ -937,6 +1026,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	struct bitcoin_blkid chain_hash;
 	struct chan *chan;
 	u8 direction;
+	bool have_broadcast_announce;
 
 	if (!fromwire_channel_update(update, &signature, &chain_hash,
 				     &short_channel_id, &timestamp, &flags,
@@ -946,6 +1036,10 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	chan = get_channel(rstate, &short_channel_id);
 	if (!chan)
 		return false;
+
+	/* We broadcast announce once we have one update */
+	have_broadcast_announce = is_halfchan_defined(&chan->half[0])
+		|| is_halfchan_defined(&chan->half[1]);
 
 	direction = flags & 0x1;
 	set_connection_values(chan, direction, fee_base_msat,
@@ -962,8 +1056,17 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (!chan->channel_announce)
 		return true;
 
-	insert_broadcast(rstate->broadcasts,
-			 chan->half[direction].channel_update);
+	/* BOLT #7:
+	 *   - MUST consider the `timestamp` of the `channel_announcement` to be
+	 *     the `timestamp` of a corresponding `channel_update`.
+	 *   - MUST consider whether to send the `channel_announcement` after
+	 *     receiving the first corresponding `channel_update`.
+	 */
+	if (!have_broadcast_announce)
+		add_channel_announce_to_broadcast(rstate, chan, timestamp);
+
+	persistent_broadcast(rstate, chan->half[direction].channel_update,
+			     timestamp);
 	return true;
 }
 
@@ -1036,6 +1139,28 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 		}
 	}
 
+	/* BOLT #7:
+	 *
+	 *  - if the `timestamp` is unreasonably far in the future:
+	 *    - MAY discard the `channel_announcement`.
+	 */
+	if (timestamp > time_now().ts.tv_sec + rstate->prune_timeout) {
+		status_debug("Received channel_update for %s with far time %u",
+			     type_to_string(tmpctx, struct short_channel_id,
+					    &short_channel_id),
+			     timestamp);
+		return NULL;
+	}
+
+	/* Note: we can consider old timestamps a case of "instant prune" too */
+	if (timestamp < time_now().ts.tv_sec - rstate->prune_timeout) {
+		status_debug("Received channel_update for %s with old time %u",
+			     type_to_string(tmpctx, struct short_channel_id,
+					    &short_channel_id),
+			     timestamp);
+		return NULL;
+	}
+
 	c = &chan->half[direction];
 
 	if (is_halfchan_defined(c) && timestamp <= c->last_timestamp) {
@@ -1070,20 +1195,16 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 		return err;
 	}
 
-	status_trace("Received channel_update for channel %s(%d) now %s",
+	status_trace("Received channel_update for channel %s(%d) now %s (from %s)",
 		     type_to_string(tmpctx, struct short_channel_id,
 				    &short_channel_id),
 		     flags & 0x01,
-		     flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
+		     flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE",
+		     source);
 
 	if (!routing_add_channel_update(rstate, serialized))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed adding channel_update");
-
-	/* Store the channel_update for both public and non-public channels
-	 * (non-public ones may just be the incoming direction). We'd have
-	 * dropped invalid ones earlier. */
-	gossip_store_add_channel_update(rstate->store, serialized);
 
 	return NULL;
 }
@@ -1157,16 +1278,13 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 
 	tal_free(node->node_announcement);
 	node->node_announcement = tal_dup_arr(node, u8, msg, tal_len(msg), 0);
-	insert_broadcast(rstate->broadcasts, node->node_announcement);
-	return true;
-}
 
-static bool node_has_public_channels(struct node *node)
-{
-	for (size_t i = 0; i < tal_count(node->chans); i++)
-		if (is_chan_public(node->chans[i]))
-			return true;
-	return false;
+	/* We might be waiting for channel_announce to be released. */
+	if (node_has_broadcastable_channels(node)) {
+		node->node_announcement_index = persistent_broadcast(
+		    rstate, node->node_announcement, timestamp);
+	}
+	return true;
 }
 
 u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
@@ -1297,7 +1415,6 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 
 	applied = routing_add_node_announcement(rstate, serialized);
 	assert(applied);
-	gossip_store_add_node_announcement(rstate->store, serialized);
 	return NULL;
 }
 

@@ -213,4 +213,11 @@ void peer_start_closingd(struct channel *channel,
 	/* We don't expect a response: it will give us feedback on
 	 * signatures sent and received, then closing_complete. */
 	subd_send_msg(channel->owner, take(initmsg));
+
+	/* Now tell gossipd that we're closing and that neither direction should
+	 * be used. */
+	if (channel->scid)
+		subd_send_msg(channel->peer->ld->gossip,
+			      take(towire_gossip_local_channel_close(
+				  tmpctx, channel->scid)));
 }

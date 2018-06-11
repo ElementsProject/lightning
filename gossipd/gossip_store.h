@@ -14,7 +14,9 @@
 struct gossip_store;
 struct routing_state;
 
-struct gossip_store *gossip_store_new(const tal_t *ctx);
+struct gossip_store *gossip_store_new(const tal_t *ctx,
+				      struct routing_state *rstate,
+				      struct broadcast_state *broadcast);
 
 /**
  * Load the initial gossip store, if any.
@@ -25,28 +27,9 @@ struct gossip_store *gossip_store_new(const tal_t *ctx);
 void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs);
 
 /**
- * Store a channel_announcement with all its extra data
+ * Add a gossip message to the gossip_store
  */
-void gossip_store_add_channel_announcement(struct gossip_store *gs,
-					   const u8 *gossip_msg, u64 satoshis);
-
-/**
- * Store a local_add_channel so we remember it when restarting
- */
-void gossip_store_local_add_channel(struct gossip_store *gs,
-				    const u8 *add_msg);
-
-/**
- * Store a channel_update with its associated data in the gossip_store
- */
-void gossip_store_add_channel_update(struct gossip_store *gs,
-				     const u8 *gossip_msg);
-
-/**
- * Store a node_announcement with its associated data in the gossip_store
- */
-void gossip_store_add_node_announcement(struct gossip_store *gs,
-					const u8 *gossip_msg);
+void gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg);
 
 /**
  * Remember that we deleted a channel as a result of its outpoint being spent
