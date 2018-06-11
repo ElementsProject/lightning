@@ -477,8 +477,9 @@ static const struct config testnet_config = {
 	/* 6 blocks to catch cheating attempts. */
 	.locktime_blocks = 6,
 
-	/* They can have up to 5 days. */
-	.locktime_max = 5 * 6 * 24,
+	/* They can have up to 14 days, maximumu value that lnd will ask for by default. */
+	/* FIXME Convince lnd to use more reasonable defaults... */
+	.locktime_max = 14 * 6 * 24,
 
 	/* We're fairly trusting, under normal circumstances. */
 	.anchor_confirms = 1,
@@ -521,8 +522,9 @@ static const struct config mainnet_config = {
 	/* ~one day to catch cheating attempts. */
 	.locktime_blocks = 6 * 24,
 
-	/* They can have up to 5 days. */
-	.locktime_max = 5 * 6 * 24,
+	/* They can have up to 14 days, maximumu value that lnd will ask for by default. */
+	/* FIXME Convince lnd to use more reasonable defaults... */
+	.locktime_max = 14 * 6 * 24,
 
 	/* We're fairly trusting, under normal circumstances. */
 	.anchor_confirms = 3,
