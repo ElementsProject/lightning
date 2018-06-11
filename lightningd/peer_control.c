@@ -182,13 +182,14 @@ u32 feerate_min(struct lightningd *ld)
  *
  * Given the variance in fees, and the fact that the transaction may
  * be spent in the future, it's a good idea for the fee payer to keep
- * a good margin, say 5x the expected fee requirement */
+ * a good margin, say 10x the expected fee requirement */
 u32 feerate_max(struct lightningd *ld)
 {
 	if (ld->config.ignore_fee_limits)
 		return UINT_MAX;
 
-	return get_feerate(ld->topology, FEERATE_IMMEDIATE) * 5;
+	return get_feerate(ld->topology, FEERATE_IMMEDIATE) *
+	       ld->config.max_fee_multiplier;
 }
 
 static void sign_last_tx(struct channel *channel)
