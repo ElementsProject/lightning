@@ -4487,8 +4487,9 @@ class LightningDTests(BaseLightningDTests):
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_fee_limits(self):
         # FIXME: Test case where opening denied.
-        l1, l2 = self.connect()
-        self.fund_channel(l1, l2, 10**6)
+        l1, l2 = self.node_factory.get_nodes(2, opts={'dev-max-fee-multiplier': 5})
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        l1.fund_channel(l2, 10**6)
 
         # L1 asks for stupid low fees
         l1.rpc.dev_setfees(15)
@@ -4618,9 +4619,9 @@ class LightningDTests(BaseLightningDTests):
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_pay_disconnect(self):
         """If the remote node has disconnected, we fail payment, but can try again when it reconnects"""
-        l1, l2 = self.connect()
-
-        chanid = self.fund_channel(l1, l2, 10**6)
+        l1, l2 = self.node_factory.get_nodes(2, opts={'dev-max-fee-multiplier': 5})
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        chanid = l1.fund_channel(l2, 10**6)
 
         # Wait for route propagation.
         self.wait_for_routes(l1, [chanid])
