@@ -524,7 +524,7 @@ static const struct config testnet_config = {
 	.rescan = 30,
 
 	/* Fees may be in the range our_fee - 10*our_fee */
-	.max_fee_multiplier = 5,
+	.max_fee_multiplier = 10,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -580,7 +580,7 @@ static const struct config mainnet_config = {
 	.rescan = 15,
 
 	/* Fees may be in the range our_fee - 10*our_fee */
-	.max_fee_multiplier = 5,
+	.max_fee_multiplier = 10,
 };
 
 static void check_config(struct lightningd *ld)
