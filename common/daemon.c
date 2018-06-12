@@ -32,12 +32,12 @@ static int backtrace_status(void *unused UNUSED, uintptr_t pc,
 static void crashdump(int sig)
 {
 	/* We do stderr first, since it's most reliable. */
-	warnx("Fatal signal %d", sig);
+	warnx("Fatal signal %d (version %s)", sig, version());
 	if (backtrace_state)
 		backtrace_print(backtrace_state, 0, stderr);
 
 	/* Now send to parent. */
-	bt_print("FATAL SIGNAL %d", sig);
+	bt_print("FATAL SIGNAL %d (version %s)", sig, version());
 	if (backtrace_state)
 		backtrace_full(backtrace_state, 0, backtrace_status, NULL, NULL);
 
