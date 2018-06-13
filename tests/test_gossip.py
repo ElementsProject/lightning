@@ -6,7 +6,10 @@ import time
 import unittest
 
 
-DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
+with open('config.vars') as configfile:
+    config = dict([(line.rstrip().split('=', 1)) for line in configfile])
+
+DEVELOPER = os.getenv("DEVELOPER", config['DEVELOPER']) == "1"
 
 
 @unittest.skipIf(not DEVELOPER, "needs --dev-broadcast-interval, --dev-channelupdate-interval")

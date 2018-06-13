@@ -2,8 +2,10 @@ from fixtures import *  # noqa: F401,F403
 
 import os
 
+with open('config.vars') as configfile:
+    config = dict([(line.rstrip().split('=', 1)) for line in configfile])
 
-DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
+DEVELOPER = os.getenv("DEVELOPER", config['DEVELOPER']) == "1"
 
 
 def test_closing_id(node_factory):
