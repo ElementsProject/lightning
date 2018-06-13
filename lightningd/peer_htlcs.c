@@ -638,9 +638,7 @@ static bool peer_accepted_htlc(struct channel *channel,
 
 	/* Unrecognized realm numbers may have application connection bindings */
 	if (rs->hop_data.realm != 0) {
-		handle_app_payment(failcode,
-			rs->hop_data.realm,
-			op);
+		handle_app_payment(failcode, hin, rs);
 		goto out;
 	}
 
