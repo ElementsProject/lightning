@@ -67,6 +67,14 @@ void connect_succeeded(struct lightningd *ld UNNEEDED, const struct pubkey *id U
 void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UNNEEDED,
 			  const struct wireaddr_internal *addrhint TAKES UNNEEDED)
 { fprintf(stderr, "delay_then_reconnect called!\n"); abort(); }
+/* Generated stub for deserialize_per_hop_data */
+void deserialize_per_hop_data(
+	const u8 *per_hop_data UNNEEDED,
+	struct short_channel_id *channel_id UNNEEDED,
+	u64 *amt_forward UNNEEDED,
+	u32 *outgoing_cltv
+	)
+{ fprintf(stderr, "deserialize_per_hop_data called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }

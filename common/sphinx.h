@@ -65,10 +65,7 @@ enum route_next_case {
  */
 struct hop_data {
 	u8 realm;
-	struct short_channel_id channel_id;
-	u64 amt_forward;
-	u32 outgoing_cltv;
-	/* Padding omitted, will be zeroed */
+	u8 per_hop_data[PAYLOAD_SIZE];
 	u8 hmac[SECURITY_PARAMETER];
 };
 
@@ -121,7 +118,6 @@ bool onion_shared_secret(
  * @ctx: tal context to allocate from
  * @packet: incoming packet being processed
  * @shared_secret: the result of onion_shared_secret.
- * @hoppayload: the per-hop payload destined for the processing node.
  * @assocdata: associated data to commit to in HMACs
  * @assocdatalen: length of the assocdata
  */
@@ -131,6 +127,36 @@ struct route_step *process_onionpacket(
 	const u8 *shared_secret,
 	const u8 *assocdata,
 	const size_t assocdatalen
+	);
+
+/**
+ * serialize_per_hop_data - Serialize the per_hop data (for realm 0)
+ *
+ * @channel_id: the short channel ID
+ * @amt_forward: the amount to forward
+ * @outgoing_cltv: the CLTV value of the outgoing HTLC
+ * @per_hop_data: the serialized data buffer
+ */
+void serialize_per_hop_data(
+	const struct short_channel_id *channel_id,
+	u64 amt_forward,
+	u32 outgoing_cltv,
+	u8 *per_hop_data
+	);
+
+/**
+ * deserialize_per_hop_data - Deserialize the per_hop data (for realm 0)
+ *
+ * @per_hop_data: the serialized data buffer
+ * @channel_id: the short channel ID
+ * @amt_forward: the amount to forward
+ * @outgoing_cltv: the CLTV value of the outgoing HTLC
+ */
+void deserialize_per_hop_data(
+	const u8 *per_hop_data,
+	struct short_channel_id *channel_id,
+	u64 *amt_forward,
+	u32 *outgoing_cltv
 	);
 
 /**
