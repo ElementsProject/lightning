@@ -1730,7 +1730,7 @@ class LightningDTests(BaseLightningDTests):
             'channel': '1:1:1'
         }
         l1.rpc.sendpay(to_json([routestep]), rhash)
-        l1.daemon.wait_for_log(r'Disabling channel')
+        l1.daemon.wait_for_log('sendrawtx exit 0')
         bitcoind.rpc.generate(1)
 
         # Wait for nodes to notice the failure, this seach needle is after the
