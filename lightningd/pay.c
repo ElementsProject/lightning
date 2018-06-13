@@ -3,6 +3,7 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt11.h>
+#include <common/sphinx.h>
 #include <common/timeout.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <lightningd/chaintopology.h>
@@ -661,17 +662,25 @@ send_payment(const tal_t *ctx,
 	/* Copy hop_data[n] from route[n+1] (ie. where it goes next) */
 	for (i = 0; i < n_hops - 1; i++) {
 		hop_data[i].realm = 0;
-		hop_data[i].channel_id = route[i+1].channel_id;
-		hop_data[i].amt_forward = route[i+1].amount;
-		hop_data[i].outgoing_cltv = base_expiry + route[i+1].delay;
+		serialize_per_hop_data(
+			&route[i+1].channel_id,
+			route[i+1].amount,
+			base_expiry + route[i+1].delay,
+			hop_data[i].per_hop_data
+			);
 	}
 
 	/* And finally set the final hop to the special values in
 	 * BOLT04 */
 	hop_data[i].realm = 0;
-	hop_data[i].outgoing_cltv = base_expiry + route[i].delay;
-	memset(&hop_data[i].channel_id, 0, sizeof(struct short_channel_id));
-	hop_data[i].amt_forward = route[i].amount;
+	struct short_channel_id channel_id;
+	memset(&channel_id, 0, sizeof(channel_id));
+	serialize_per_hop_data(
+		&channel_id,
+		route[i].amount,
+		base_expiry + route[i].delay,
+		hop_data[i].per_hop_data
+		);
 
 	/* Now, do we already have a payment? */
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet, rhash);

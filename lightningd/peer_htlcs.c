@@ -644,13 +644,23 @@ static bool peer_accepted_htlc(struct channel *channel,
 		goto out;
 	}
 
+	struct short_channel_id channel_id;
+	u64 amt_forward;
+	u32 outgoing_cltv;
+	deserialize_per_hop_data(
+		rs->hop_data.per_hop_data,
+		&channel_id,
+		&amt_forward,
+		&outgoing_cltv
+		);
+
 	if (rs->nextcase == ONION_FORWARD) {
 		struct gossip_resolve *gr = tal(ld, struct gossip_resolve);
 
 		gr->next_onion = serialize_onionpacket(gr, rs->next);
-		gr->next_channel = rs->hop_data.channel_id;
-		gr->amt_to_forward = rs->hop_data.amt_forward;
-		gr->outgoing_cltv_value = rs->hop_data.outgoing_cltv;
+		gr->next_channel = channel_id;
+		gr->amt_to_forward = amt_forward;
+		gr->outgoing_cltv_value = outgoing_cltv;
 		gr->hin = hin;
 
 		req = towire_gossip_resolve_channel_request(tmpctx,
@@ -660,10 +670,11 @@ static bool peer_accepted_htlc(struct channel *channel,
 					 &gr->next_channel));
 		subd_req(hin, ld->gossip, req, -1, 0,
 			 channel_resolve_reply, gr);
-	} else
+	} else {
 		handle_localpay(hin, hin->cltv_expiry, &hin->payment_hash,
-				rs->hop_data.amt_forward,
-				rs->hop_data.outgoing_cltv);
+				amt_forward,
+				outgoing_cltv);
+	}
 
 	*failcode = 0;
 out:

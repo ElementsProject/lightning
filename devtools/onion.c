@@ -34,12 +34,17 @@ static void do_generate(int argc, char **argv)
 	}
 
 	for (int i = 0; i < num_hops; i++) {
+		struct short_channel_id channel_id;
 		memset(&hops_data[i], 0, sizeof(hops_data[i]));
 		hops_data[i].realm = i;
-		memset(&hops_data[i].channel_id, i,
-		       sizeof(hops_data[i].channel_id));
-		hops_data[i].amt_forward = i;
-		hops_data[i].outgoing_cltv = i;
+		memset(&channel_id, i,
+		       sizeof(channel_id));
+		serialize_per_hop_data(
+			&channel_id,
+			i,
+			i,
+			hops_data[i].per_hop_data
+			);
 		fprintf(stderr, "Hopdata %d: %s\n", i, tal_hexstr(NULL, &hops_data[i], sizeof(hops_data[i])));
 	}
 

@@ -314,10 +314,7 @@ static void serialize_hop_data(tal_t *ctx, u8 *dst, const struct hop_data *data)
 {
 	u8 *buf = tal_arr(ctx, u8, 0);
 	towire_u8(&buf, data->realm);
-	towire_short_channel_id(&buf, &data->channel_id);
-	towire_u64(&buf, data->amt_forward);
-	towire_u32(&buf, data->outgoing_cltv);
-	towire_pad(&buf, 12);
+	towire(&buf, data->per_hop_data, PAYLOAD_SIZE);
 	towire(&buf, data->hmac, SECURITY_PARAMETER);
 	memcpy(dst, buf, tal_len(buf));
 	tal_free(buf);
@@ -328,10 +325,7 @@ static void deserialize_hop_data(struct hop_data *data, const u8 *src)
 	const u8 *cursor = src;
 	size_t max = HOP_DATA_SIZE;
 	data->realm = fromwire_u8(&cursor, &max);
-	fromwire_short_channel_id(&cursor, &max, &data->channel_id);
-	data->amt_forward = fromwire_u64(&cursor, &max);
-	data->outgoing_cltv = fromwire_u32(&cursor, &max);
-	fromwire_pad(&cursor, &max, 12);
+	fromwire(&cursor, &max, &data->per_hop_data, PAYLOAD_SIZE);
 	fromwire(&cursor, &max, &data->hmac, SECURITY_PARAMETER);
 }
 
@@ -451,6 +445,40 @@ struct route_step *process_onionpacket(
 	}
 
 	return step;
+}
+
+void serialize_per_hop_data(
+	const struct short_channel_id *channel_id,
+	u64 amt_forward,
+	u32 outgoing_cltv,
+	u8 *per_hop_data
+	)
+{
+	u8 *buf = tal_arr(tmpctx, u8, 0);
+
+	towire_short_channel_id(&buf, channel_id);
+	towire_u64(&buf, amt_forward);
+	towire_u32(&buf, outgoing_cltv);
+	towire_pad(&buf, 12);
+
+	memcpy(per_hop_data, buf, tal_len(buf));
+	tal_free(buf);
+}
+
+void deserialize_per_hop_data(
+	const u8 *per_hop_data,
+	struct short_channel_id *channel_id,
+	u64 *amt_forward,
+	u32 *outgoing_cltv
+	)
+{
+	const u8 *cursor = per_hop_data;
+	size_t max = PAYLOAD_SIZE;
+
+	fromwire_short_channel_id(&cursor, &max, channel_id);
+	*amt_forward = fromwire_u64(&cursor, &max);
+	*outgoing_cltv = fromwire_u32(&cursor, &max);
+	fromwire_pad(&cursor, &max, 12);
 }
 
 u8 *create_onionreply(const tal_t *ctx, const struct secret *shared_secret,
