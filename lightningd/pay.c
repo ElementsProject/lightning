@@ -32,6 +32,15 @@ struct sendpay_command {
 	void *cbarg;
 };
 
+/* data consumed by send_payment_custom_route_data */
+struct route_data
+{
+	struct hop_data *hop_data;
+	struct pubkey *ids;
+	struct short_channel_id *channels;
+	unsigned int base_expiry;
+};
+
 static void destroy_sendpay_command(struct sendpay_command *pc)
 {
 	list_del(&pc->list);
@@ -626,61 +635,75 @@ end:
 	return cb_not_called;
 }
 
+static struct route_data route_to_route_data(
+	struct lightningd* ld,
+	const struct route_hop *route)
+{
+	size_t i, n_hops = tal_count(route);
+	struct route_data ret;
+	ret.hop_data = tal_arr(tmpctx, struct hop_data, n_hops);
+	ret.ids = tal_arr(tmpctx, struct pubkey, n_hops);
+	ret.channels = tal_arr(tmpctx, struct short_channel_id, n_hops);
+
+	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
+	ret.base_expiry = get_block_height(ld->topology) + 1;
+
+	/* Extract IDs for each hop: create_onionpacket wants array. */
+	for (i = 0; i < n_hops; i++)
+		ret.ids[i] = route[i].nodeid;
+
+	/* Copy hd[n] from route[n+1] (ie. where it goes next) */
+	for (i = 0; i < n_hops - 1; i++) {
+		ret.hop_data[i].realm = 0;
+		serialize_per_hop_data(
+			&route[i+1].channel_id,
+			route[i+1].amount,
+			ret.base_expiry + route[i+1].delay,
+			ret.hop_data[i].per_hop_data
+			);
+	}
+
+	/* And finally set the final hop to the special values in
+	 * BOLT04 */
+	ret.hop_data[i].realm = 0;
+	struct short_channel_id channel_id;
+	memset(&channel_id, 0, sizeof(channel_id));
+	serialize_per_hop_data(
+		&channel_id,
+		route[i].amount,
+		ret.base_expiry + route[i].delay,
+		ret.hop_data[i].per_hop_data
+		);
+
+	/* Copy channels used along the route. */
+	for (i = 0; i < n_hops; ++i)
+		ret.channels[i] = route[i].channel_id;
+
+	return ret;
+}
+
 /* Returns false if cb was called, true if cb not yet called. */
-bool
-send_payment(const tal_t *ctx,
+static bool
+send_payment_custom_route_data(const tal_t *ctx,
 	     struct lightningd* ld,
 	     const struct sha256 *rhash,
-	     const struct route_hop *route,
+	     struct route_data route_data,
+	     const struct route_hop *first_hop,
 	     u64 msatoshi,
 	     void (*cb)(const struct sendpay_result *, void*),
 	     void *cbarg)
 {
 	const u8 *onion;
 	u8 sessionkey[32];
-	unsigned int base_expiry;
 	struct onionpacket *packet;
 	struct secret *path_secrets;
 	enum onion_type failcode;
-	size_t i, n_hops = tal_count(route);
-	struct hop_data *hop_data = tal_arr(tmpctx, struct hop_data, n_hops);
-	struct pubkey *ids = tal_arr(tmpctx, struct pubkey, n_hops);
+	size_t n_hops = tal_count(route_data.hop_data);
 	struct wallet_payment *payment = NULL;
 	struct htlc_out *hout;
-	struct short_channel_id *channels;
 	struct routing_failure *fail;
 	struct channel *channel;
 	struct sendpay_result *result;
-
-	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
-	base_expiry = get_block_height(ld->topology) + 1;
-
-	/* Extract IDs for each hop: create_onionpacket wants array. */
-	for (i = 0; i < n_hops; i++)
-		ids[i] = route[i].nodeid;
-
-	/* Copy hop_data[n] from route[n+1] (ie. where it goes next) */
-	for (i = 0; i < n_hops - 1; i++) {
-		hop_data[i].realm = 0;
-		serialize_per_hop_data(
-			&route[i+1].channel_id,
-			route[i+1].amount,
-			base_expiry + route[i+1].delay,
-			hop_data[i].per_hop_data
-			);
-	}
-
-	/* And finally set the final hop to the special values in
-	 * BOLT04 */
-	hop_data[i].realm = 0;
-	struct short_channel_id channel_id;
-	memset(&channel_id, 0, sizeof(channel_id));
-	serialize_per_hop_data(
-		&channel_id,
-		route[i].amount,
-		base_expiry + route[i].delay,
-		hop_data[i].per_hop_data
-		);
 
 	/* Now, do we already have a payment? */
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet, rhash);
@@ -709,7 +732,7 @@ send_payment(const tal_t *ctx,
 				cb(result, cbarg);
 				return false;
 			}
-			if (!structeq(&payment->destination, &ids[n_hops-1])) {
+			if (!structeq(&payment->destination, &route_data.ids[n_hops-1])) {
 				char *msg = tal_fmt(tmpctx,
 						    "Already succeeded to %s",
 						    type_to_string(tmpctx,
@@ -730,12 +753,12 @@ send_payment(const tal_t *ctx,
 		log_add(ld->log, "... retrying");
 	}
 
-	channel = active_channel_by_id(ld, &ids[0], NULL);
+	channel = active_channel_by_id(ld, &route_data.ids[0], NULL);
 	if (!channel) {
 		/* Report routing failure to gossipd */
 		fail = immediate_routing_failure(ctx, ld,
 						 WIRE_UNKNOWN_NEXT_PEER,
-						 &route[0].channel_id);
+						 &first_hop->channel_id);
 		report_routing_failure(ld->log, ld->gossip, fail);
 
 		/* Report routing failure to caller */
@@ -749,21 +772,21 @@ send_payment(const tal_t *ctx,
 	randombytes_buf(&sessionkey, sizeof(sessionkey));
 
 	/* Onion will carry us from first peer onwards. */
-	packet = create_onionpacket(tmpctx, ids, hop_data, sessionkey, rhash->u.u8,
+	packet = create_onionpacket(tmpctx, route_data.ids, route_data.hop_data, sessionkey, rhash->u.u8,
 				    sizeof(struct sha256), &path_secrets);
 	onion = serialize_onionpacket(tmpctx, packet);
 
 	log_info(ld->log, "Sending %"PRIu64" over %zu hops to deliver %"PRIu64"",
-		 route[0].amount, n_hops, msatoshi);
+		 first_hop->amount, n_hops, msatoshi);
 
-	failcode = send_htlc_out(channel, route[0].amount,
-				 base_expiry + route[0].delay,
+	failcode = send_htlc_out(channel, first_hop->amount,
+				 route_data.base_expiry + first_hop->delay,
 				 rhash, onion, NULL, &hout);
 	if (failcode) {
 		/* Report routing failure to gossipd */
 		fail = immediate_routing_failure(ctx, ld,
 						 failcode,
-						 &route[0].channel_id);
+						 &first_hop->channel_id);
 		report_routing_failure(ld->log, ld->gossip, fail);
 
 		/* Report routing failure to caller */
@@ -772,11 +795,6 @@ send_payment(const tal_t *ctx,
 		cb(result, cbarg);
 		return false;
 	}
-
-	/* Copy channels used along the route. */
-	channels = tal_arr(tmpctx, struct short_channel_id, n_hops);
-	for (i = 0; i < n_hops; ++i)
-		channels[i] = route[i].channel_id;
 
 	/* If we're retrying, delete all trace of previous one.  We delete
 	 * outgoing HTLC, too, otherwise it gets reported to onchaind as
@@ -792,15 +810,15 @@ send_payment(const tal_t *ctx,
 	payment = tal(hout, struct wallet_payment);
 	payment->id = 0;
 	payment->payment_hash = *rhash;
-	payment->destination = ids[n_hops - 1];
+	payment->destination = route_data.ids[n_hops - 1];
 	payment->status = PAYMENT_PENDING;
 	payment->msatoshi = msatoshi;
-	payment->msatoshi_sent = route[0].amount;
+	payment->msatoshi_sent = first_hop->amount;
 	payment->timestamp = time_now().ts.tv_sec;
 	payment->payment_preimage = NULL;
 	payment->path_secrets = tal_steal(payment, path_secrets);
-	payment->route_nodes = tal_steal(payment, ids);
-	payment->route_channels = tal_steal(payment, channels);
+	payment->route_nodes = tal_steal(payment, route_data.ids);
+	payment->route_channels = tal_steal(payment, route_data.channels);
 
 	/* We write this into db when HTLC is actually sent. */
 	wallet_payment_setup(ld->wallet, payment);
@@ -808,6 +826,25 @@ send_payment(const tal_t *ctx,
 	add_sendpay_waiter(ctx, rhash, ld, cb, cbarg);
 
 	return true;
+}
+
+/* Returns false if cb was called, true if cb not yet called. */
+bool send_payment(const tal_t *ctx,
+		  struct lightningd* ld,
+		  const struct sha256 *rhash,
+		  const struct route_hop *route,
+		  u64 msatoshi,
+		  void (*cb)(const struct sendpay_result *, void*),
+		  void *cbarg)
+{
+	return send_payment_custom_route_data(ctx,
+	     ld,
+	     rhash,
+	     route_to_route_data(ld, route),
+	     route,
+	     msatoshi,
+	     cb,
+	     cbarg);
 }
 
 /*-----------------------------------------------------------------------------
