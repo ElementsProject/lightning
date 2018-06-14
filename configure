@@ -19,10 +19,10 @@ CONFIG_HEADER=ccan/config.h
 usage_with_default()
 {
     if [ $# = 4 ]; then
-	if [ $2 ]; then
-	    DEF=$4
-	else
+	if [ "$2" = 1 ]; then
 	    DEF=$3
+	else
+	    DEF=$4
 	fi
     else
 	DEF=$2
