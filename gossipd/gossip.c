@@ -3136,7 +3136,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 			status_failed(STATUS_FAIL_MASTER_IO,
 				      "Already reaching %s",
 				      type_to_string(tmpctx, struct pubkey, id));
-		reach->master_needs_response = true;
+		reach->master_needs_response = master_needs_response;
 		return;
 	}
 
