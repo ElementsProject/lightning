@@ -506,6 +506,9 @@ static void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 		if (taken(msg))
 			tal_free(msg);
 		daemon_conn_send(peer->remote, take(send));
+	} else { /* Waiting to die. */
+		if (taken(msg))
+			tal_free(msg);
 	}
 }
 
