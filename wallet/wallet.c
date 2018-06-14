@@ -1162,6 +1162,8 @@ void wallet_htlc_save_out(struct wallet *wallet,
 	sqlite3_bind_int(stmt, 3, DIRECTION_OUTGOING);
 	if (out->in)
 		sqlite3_bind_int64(stmt, 4, out->in->dbid);
+	else
+		sqlite3_bind_null(stmt, 4);
 	sqlite3_bind_int64(stmt, 5, out->msatoshi);
 	sqlite3_bind_int(stmt, 6, out->cltv_expiry);
 	sqlite3_bind_sha256(stmt, 7, &out->payment_hash);
