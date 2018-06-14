@@ -151,6 +151,7 @@ bool wireaddr_to_ipv4(const struct wireaddr *addr, struct sockaddr_in *s4)
 {
 	if (addr->type != ADDR_TYPE_IPV4)
 		return false;
+	memset(s4, 0, sizeof(*s4));
 	s4->sin_family = AF_INET;
 	s4->sin_port = htons(addr->port);
 	assert(addr->addrlen == sizeof(s4->sin_addr));
@@ -162,6 +163,7 @@ bool wireaddr_to_ipv6(const struct wireaddr *addr, struct sockaddr_in6 *s6)
 {
 	if (addr->type != ADDR_TYPE_IPV6)
 		return false;
+	memset(s6, 0, sizeof(*s6));
 	s6->sin6_family = AF_INET6;
 	s6->sin6_port = htons(addr->port);
 	assert(addr->addrlen == sizeof(s6->sin6_addr));
