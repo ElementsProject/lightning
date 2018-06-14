@@ -353,7 +353,7 @@ new_local_peer_state(struct peer *peer, const struct crypto_state *cs)
 	lps->pcs.cs = *cs;
 	lps->return_to_master = false;
 	lps->num_pings_outstanding = 0;
-	msg_queue_init(&lps->peer_out, peer);
+	msg_queue_init(&lps->peer_out, lps);
 
 	return lps;
 }
