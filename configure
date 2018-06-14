@@ -128,3 +128,7 @@ add_var VALGRIND "$VALGRIND"
 add_var DEVELOPER "$DEVELOPER" $CONFIG_HEADER
 add_var COMPAT "$COMPAT" $CONFIG_HEADER
 add_var PYTEST "$PYTEST"
+
+# Hack to avoid sha256 name clash with libwally: will be fixed when that
+# becomes a standalone shared lib.
+echo '#include "ccan_compat.h"' >> $CONFIG_HEADER
