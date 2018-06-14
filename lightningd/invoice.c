@@ -384,11 +384,20 @@ static void json_add_invoices(struct json_result *response,
 	struct invoice_iterator it;
 	struct invoice_details details;
 
+	/* Don't iterate entire db if we're just after one. */
+	if (label) {
+		struct invoice invoice;
+		if (wallet_invoice_find_by_label(wallet, &invoice, label)) {
+			wallet_invoice_details(response, wallet, invoice,
+					       &details);
+			json_add_invoice(response, &details, modern);
+		}
+		return;
+	}
+
 	memset(&it, 0, sizeof(it));
 	while (wallet_invoice_iterate(wallet, &it)) {
 		wallet_invoice_iterator_deref(response, wallet, &it, &details);
-		if (label && !json_escaped_eq(details.label, label))
-			continue;
 		json_add_invoice(response, &details, modern);
 	}
 }
