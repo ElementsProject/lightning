@@ -1865,6 +1865,8 @@ static bool nonlocal_dump_gossip(struct io_conn *conn, struct daemon_conn *dc)
 
 static struct io_plan *new_peer_got_fd(struct io_conn *conn, struct peer *peer)
 {
+	struct daemon *daemon = peer->daemon;
+
 	peer->local->conn = io_new_conn(conn, peer->local->fd,
 					peer_start_gossip, peer);
 	if (!peer->local->conn) {
@@ -1875,7 +1877,7 @@ static struct io_plan *new_peer_got_fd(struct io_conn *conn, struct peer *peer)
 		/* If conn dies, we forget peer. */
 		tal_steal(peer->local->conn, peer);
 	}
-	return daemon_conn_read_next(conn, &peer->daemon->master);
+	return daemon_conn_read_next(conn, &daemon->master);
 }
 
 /* This lets us read the fds in before handling anything. */
