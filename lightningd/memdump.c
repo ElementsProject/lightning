@@ -1,4 +1,5 @@
 /* Only possible if we're in developer mode. */
+#include "config.h"
 #if DEVELOPER
 #include <backtrace.h>
 #include <ccan/tal/str/str.h>
