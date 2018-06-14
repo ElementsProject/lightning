@@ -650,16 +650,16 @@ static struct io_plan *peer_connected(struct io_conn *conn, struct peer *peer)
 				= peer->daemon->rstate->broadcasts->next_index;
 	}
 
-	/* This is a full peer now; we keep it around until master says
-	 * it's dead. */
-	peer_finalized(peer);
-
 	/* We will not have anything queued, since we're not duplex. */
 	msg = towire_gossip_peer_connected(peer, &peer->id, &peer->addr,
 					   &peer->local->pcs.cs,
 					   peer->gfeatures, peer->lfeatures);
 	if (!send_peer_with_fds(peer, msg))
 		return io_close(conn);
+
+	/* This is a full peer now; we keep it around until master says
+	 * it's dead. */
+	peer_finalized(peer);
 
 	/* Start the gossip flowing. */
 	wake_gossip_out(peer);
