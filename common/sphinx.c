@@ -247,7 +247,7 @@ static void generate_key_set(const u8 secret[SHARED_SECRET_SIZE],
 static struct hop_params *generate_hop_params(
 	const tal_t *ctx,
 	const u8 *sessionkey,
-	struct pubkey path[])
+	const struct pubkey path[])
 {
 	int i, j, num_hops = tal_count(path);
 	secp256k1_pubkey temp;
@@ -331,7 +331,7 @@ static void deserialize_hop_data(struct hop_data *data, const u8 *src)
 
 struct onionpacket *create_onionpacket(
 	const tal_t *ctx,
-	struct pubkey *path,
+	const struct pubkey *path,
 	struct hop_data hops_data[],
 	const u8 *sessionkey,
 	const u8 *assocdata,
