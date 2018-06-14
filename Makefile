@@ -31,7 +31,7 @@ PIE_CFLAGS=-fPIE -fPIC
 PIE_LDFLAGS=-pie
 endif
 
-ifneq ($(NO_COMPAT),1)
+ifeq ($(COMPAT),1)
 # We support compatibility with pre-0.6.
 COMPAT_CFLAGS=-DCOMPAT_V052=1
 endif
