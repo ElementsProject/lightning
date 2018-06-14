@@ -29,8 +29,17 @@
 #define PAY_UNSPECIFIED_ERROR		209
 #define PAY_STOPPED_RETRYING		210
 
+/* Errors for 'fundchannel' command */
+#define FUND_ID_UNRECOGNIZED            300
+#define FUND_MAX_EXCEEDED               301
+#define FUND_SATOSHI_TOO_SMALL          302
+
 /* Errors from `invoice` command */
 #define INVOICE_LABEL_ALREADY_EXISTS	900
 #define INVOICE_PREIMAGE_ALREADY_EXISTS	901
+
+/* Non-command specific errors */
+#define ADDRESS_UNRECOGNIZED           1000
+#define ADDRESS_WRONG_NETWORK          1001
 
 #endif /* LIGHTNING_LIGHTNINGD_JSONRPC_ERRORS_H */

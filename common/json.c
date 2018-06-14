@@ -143,6 +143,13 @@ bool json_tok_bool(const char *buffer, const jsmntok_t *tok, bool *b)
 	return false;
 }
 
+bool json_tok_tok(const char *buffer, const jsmntok_t * tok,
+		   const jsmntok_t **out)
+{
+	*out = tok;
+	return true;
+}
+
 const jsmntok_t *json_next(const jsmntok_t *tok)
 {
 	const jsmntok_t *t;

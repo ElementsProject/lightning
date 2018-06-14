@@ -19,6 +19,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/opening_control.h>
+#include <lightningd/params.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <openingd/gen_opening_wire.h>
@@ -889,7 +890,6 @@ bool handle_opening_channel(struct lightningd *ld,
 static void json_fund_channel(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *desttok, *sattok;
 	struct funding_channel * fc = tal(cmd, struct funding_channel);
 	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
 	u8 *msg;
@@ -897,18 +897,12 @@ static void json_fund_channel(struct command *cmd,
 	fc->cmd = cmd;
 	fc->uc = NULL;
 	wtx_init(cmd, &fc->wtx);
-	if (!json_get_params(fc->cmd, buffer, params,
-			     "id", &desttok,
-			     "satoshi", &sattok, NULL))
+
+	struct param_table *pt = new_param_table(cmd);
+	param_add(pt, "id", json_tok_pubkey, &fc->peerid);
+	param_add(pt, "satoshi", json_tok_wtx, &fc->wtx);
+	if (!param_parse(pt, buffer, params))
 		return;
-	if (!json_tok_wtx(&fc->wtx, buffer, sattok))
-		return;
-	if (!pubkey_from_hexstr(buffer + desttok->start,
-				desttok->end - desttok->start,
-				&fc->peerid)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Could not parse id");
-		return;
-	}
 
 	/* FIXME: Support push_msat? */
 	fc->push_msat = 0;
@@ -919,8 +913,7 @@ static void json_fund_channel(struct command *cmd,
 		return;
 
 	if (fc->wtx.amount > MAX_FUNDING_SATOSHI) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "Funding satoshi must be <= %d",
+		command_fail(cmd, FUND_MAX_EXCEEDED, "Funding satoshi must be <= %d",
 			     MAX_FUNDING_SATOSHI);
 		return;
 	}

@@ -45,6 +45,13 @@ bool json_tok_bool(const char *buffer, const jsmntok_t *tok, bool *b);
 /* Is this the null primitive? */
 bool json_tok_is_null(const char *buffer, const jsmntok_t *tok);
 
+/*
+ * Set the address of @out to @tok.  Used as a param_table callback by handlers that
+ * want to unmarshal @tok themselves.
+ */
+bool json_tok_tok(const char *buffer, const jsmntok_t * tok,
+		  const jsmntok_t **out);
+
 /* Returns next token with same parent. */
 const jsmntok_t *json_next(const jsmntok_t *tok);
 

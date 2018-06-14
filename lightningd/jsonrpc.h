@@ -60,6 +60,7 @@ struct json_command {
 	const char *verbose;
 };
 
+#define JSON_GET_PARAMS 1
 /* Get the parameters (by position or name).  Followed by triples of
  * of const char *name, const jsmntok_t **ret_ptr, then NULL.
  *
@@ -67,9 +68,10 @@ struct json_command {
  * if it's a literal 'null' or not present).
  * Otherwise false is returned, and command_fail already called.
  */
+#if JSON_GET_PARAMS
 bool json_get_params(struct command *cmd,
-		     const char *buffer, const jsmntok_t param[], ...);
-
+		     const char *buffer,const jsmntok_t param[], ...);
+#endif
 struct json_result *null_response(const tal_t *ctx);
 void command_success(struct command *cmd, struct json_result *response);
 void PRINTF_FMT(3, 4) command_fail(struct command *cmd, int code,
@@ -104,8 +106,12 @@ json_tok_address_scriptpubkey(const tal_t *ctx,
 			      const jsmntok_t *tok, const u8 **scriptpubkey);
 
 /* Parse the satoshi token in wallet_tx. */
-bool json_tok_wtx(struct wallet_tx * tx, const char * buffer,
-		  const jsmntok_t * sattok);
+bool json_tok_wtx(const char * buffer,
+		  const jsmntok_t *sattok,
+		  struct wallet_tx *wtx);
+
+bool json_tok_newaddr(const char *buffer,
+		      const jsmntok_t * tok, bool * is_p2wpkh);
 
 AUTODATA_TYPE(json_command, struct json_command);
 #endif /* LIGHTNING_LIGHTNINGD_JSONRPC_H */

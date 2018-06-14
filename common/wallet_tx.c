@@ -22,7 +22,7 @@ bool wtx_select_utxos(struct wallet_tx * tx, u32 fee_rate_per_kw,
 					      &tx->amount,
 					      &fee_estimate);
 		if (!tx->utxos || tx->amount < 546) {
-			command_fail(tx->cmd, LIGHTNINGD,
+			command_fail(tx->cmd, FUND_SATOSHI_TOO_SMALL,
 				     "Cannot afford fee %"PRIu64,
 				     fee_estimate);
 			return false;
@@ -34,7 +34,7 @@ bool wtx_select_utxos(struct wallet_tx * tx, u32 fee_rate_per_kw,
 						fee_rate_per_kw, out_len,
 						&fee_estimate, &tx->change);
 		if (!tx->utxos || tx->amount < 546) {
-			command_fail(tx->cmd, LIGHTNINGD,
+			command_fail(tx->cmd, FUND_SATOSHI_TOO_SMALL,
 				     "Cannot afford funding transaction");
 			return false;
 		}

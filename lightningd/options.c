@@ -24,6 +24,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
+#include <lightningd/params.h>
 #include <lightningd/subd.h>
 #include <stdio.h>
 #include <string.h>
@@ -83,6 +84,7 @@ static char *opt_set_u64(const char *arg, u64 *u)
 		return tal_fmt(NULL, "'%s' is out of range", arg);
 	return NULL;
 }
+
 static char *opt_set_u32(const char *arg, u32 *u)
 {
 	char *endp;
@@ -1007,12 +1009,13 @@ static void json_listconfigs(struct command *cmd,
 {
 	size_t i;
 	struct json_result *response = new_json_result(cmd);
-	jsmntok_t *configtok;
+	const jsmntok_t *configtok;
 	bool found = false;
 
-	if (!json_get_params(cmd, buffer, params, "?config", &configtok, NULL)) {
+	struct param_table *pt = new_param_table(cmd);
+	param_add(pt, "?config", json_tok_tok, &configtok);
+	if (!param_parse(pt, buffer, params))
 		return;
-	}
 
 	json_object_start(response, NULL);
 	if (!configtok)
