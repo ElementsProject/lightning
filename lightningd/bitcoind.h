@@ -38,7 +38,7 @@ struct bitcoind {
 	struct lightningd *ld;
 
 	/* Are we currently running a bitcoind request (it's ratelimited) */
-	bool req_running;
+	struct bitcoin_cli *current;
 
 	/* Pending requests. */
 	struct list_head pending;

@@ -145,8 +145,8 @@ static void bcli_failure(struct bitcoind *bitcoind,
 
 	bitcoind->error_count++;
 
-	/* Retry in 1 second */
-	new_reltimer(&bitcoind->ld->timers, bcli, time_from_sec(1),
+	/* Retry in 1 second (not a leak!) */
+	new_reltimer(&bitcoind->ld->timers, notleak(bcli), time_from_sec(1),
 		     retry_bcli, bcli);
 }
 
@@ -170,7 +170,7 @@ static void bcli_finished(struct io_conn *conn UNUSED, struct bitcoin_cli *bcli)
 	if (!bcli->exitstatus) {
 		if (WEXITSTATUS(status) != 0) {
 			bcli_failure(bitcoind, bcli, WEXITSTATUS(status));
-			bitcoind->req_running = false;
+			bitcoind->current = NULL;
 			goto done;
 		}
 	} else
@@ -179,7 +179,7 @@ static void bcli_finished(struct io_conn *conn UNUSED, struct bitcoin_cli *bcli)
 	if (WEXITSTATUS(status) == 0)
 		bitcoind->error_count = 0;
 
-	bitcoind->req_running = false;
+	bitcoind->current = NULL;
 
 	/* Don't continue if were only here because we were freed for shutdown */
 	if (bitcoind->shutdown)
@@ -203,7 +203,7 @@ static void next_bcli(struct bitcoind *bitcoind)
 	struct bitcoin_cli *bcli;
 	struct io_conn *conn;
 
-	if (bitcoind->req_running)
+	if (bitcoind->current)
 		return;
 
 	bcli = list_pop(&bitcoind->pending, struct bitcoin_cli, list);
@@ -215,7 +215,7 @@ static void next_bcli(struct bitcoind *bitcoind)
 	if (bcli->pid < 0)
 		fatal("%s exec failed: %s", bcli->args[0], strerror(errno));
 
-	bitcoind->req_running = true;
+	bitcoind->current = bcli;
 	/* This lifetime is attached to bitcoind command fd */
 	conn = notleak(io_new_conn(bitcoind, bcli->fd, output_init, bcli));
 	io_set_finish(conn, bcli_finished, bcli);
@@ -802,7 +802,7 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 	bitcoind->datadir = NULL;
 	bitcoind->ld = ld;
 	bitcoind->log = log;
-	bitcoind->req_running = false;
+	bitcoind->current = NULL;
 	bitcoind->shutdown = false;
 	bitcoind->error_count = 0;
 	bitcoind->rpcuser = NULL;
