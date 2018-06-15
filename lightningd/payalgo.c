@@ -602,7 +602,7 @@ static void json_pay(struct command *cmd,
 	struct bolt11 *b11;
 	char *fail, *b11str, *desc;
 	unsigned int retryfor = 60;
-	unsigned int maxdelay = 500;
+	unsigned int maxdelay = cmd->ld->config.locktime_max;
 
 	if (!json_get_params(cmd, buffer, params,
 			     "bolt11", &bolt11tok,
