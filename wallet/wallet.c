@@ -1124,6 +1124,8 @@ void wallet_htlc_save_in(struct wallet *wallet,
 
 	if (in->preimage)
 		sqlite3_bind_preimage(stmt, 7, in->preimage);
+	else
+		sqlite3_bind_null(stmt, 7);
 	sqlite3_bind_int(stmt, 8, in->hstate);
 
 	sqlite3_bind_blob(stmt, 9, &in->shared_secret,
