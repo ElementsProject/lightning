@@ -1,5 +1,5 @@
 #! /usr/bin/make
-
+VERSION_NAME=I Accidentally The Smart Contract
 PKGNAME = c-lightning
 
 # We use our own internal ccan copy.
