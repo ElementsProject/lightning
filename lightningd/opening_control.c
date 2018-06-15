@@ -919,7 +919,7 @@ static void json_fund_channel(struct command *cmd,
 		return;
 
 	if (fc->wtx.amount > MAX_FUNDING_SATOSHI) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		command_fail(cmd, FUND_MAX_EXCEEDED,
 			     "Funding satoshi must be <= %d",
 			     MAX_FUNDING_SATOSHI);
 		return;

@@ -3915,7 +3915,7 @@ class LightningDTests(BaseLightningDTests):
 
         # This should fail, can't even afford fee.
         self.assertRaises(ValueError, l1.rpc.withdraw, waddr, 'all')
-        l1.daemon.wait_for_log('Cannot afford fee')
+        l1.daemon.wait_for_log('Cannot afford funding transaction')
 
     def test_funding_change(self):
         """Add some funds, fund a channel, and make sure we remember the change

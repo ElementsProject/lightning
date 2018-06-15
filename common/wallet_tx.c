@@ -12,6 +12,21 @@ void wtx_init(struct command *cmd, struct wallet_tx * wtx)
 	wtx->all_funds = false;
 }
 
+static bool check_amount(const struct wallet_tx *tx)
+{
+	if (!tx->utxos) {
+		command_fail(tx->cmd, FUND_CANNOT_AFFORD,
+			     "Cannot afford funding transaction");
+		return false;
+	}
+	if (tx->amount < 546) {
+		command_fail(tx->cmd, FUND_DUST_LIMIT_UNMET,
+			     "Dust limit unmet");
+		return false;
+	}
+	return true;
+}
+
 bool wtx_select_utxos(struct wallet_tx * tx, u32 fee_rate_per_kw,
 	              size_t out_len)
 {
@@ -21,23 +36,18 @@ bool wtx_select_utxos(struct wallet_tx * tx, u32 fee_rate_per_kw,
 					      fee_rate_per_kw, out_len,
 					      &tx->amount,
 					      &fee_estimate);
-		if (!tx->utxos || tx->amount < 546) {
-			command_fail(tx->cmd, LIGHTNINGD,
-				     "Cannot afford fee %"PRIu64,
-				     fee_estimate);
+		if (!check_amount(tx))
 			return false;
-		}
+
 		tx->change = 0;
 	} else {
 		tx->utxos = wallet_select_coins(tx->cmd, tx->cmd->ld->wallet,
 						tx->amount,
 						fee_rate_per_kw, out_len,
 						&fee_estimate, &tx->change);
-		if (!tx->utxos || tx->amount < 546) {
-			command_fail(tx->cmd, LIGHTNINGD,
-				     "Cannot afford funding transaction");
+		if (!check_amount(tx))
 			return false;
-		}
+
 		if (tx->change < 546) {
 			tx->change = 0;
 			tx->change_key_index = 0;
