@@ -1176,6 +1176,8 @@ void wallet_htlc_save_out(struct wallet *wallet,
 
 	if (out->preimage)
 		sqlite3_bind_preimage(stmt, 8,out->preimage);
+	else
+		sqlite3_bind_null(stmt, 8);
 	sqlite3_bind_int(stmt, 9, out->hstate);
 
 	sqlite3_bind_blob(stmt, 10, &out->onion_routing_packet,
