@@ -888,6 +888,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	sqlite3_bind_int64(stmt, 1, chan->their_shachain.id);
 	if (chan->scid)
 		sqlite3_bind_short_channel_id(stmt, 2, chan->scid);
+	else
+		sqlite3_bind_null(stmt, 2);
 	sqlite3_bind_int(stmt, 3, chan->state);
 	sqlite3_bind_int(stmt, 4, chan->funder);
 	sqlite3_bind_int(stmt, 5, chan->channel_flags);
