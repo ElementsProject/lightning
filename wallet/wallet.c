@@ -911,6 +911,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		sqlite3_bind_blob(stmt, 16, chan->remote_shutdown_scriptpubkey,
 				  tal_len(chan->remote_shutdown_scriptpubkey),
 				  SQLITE_TRANSIENT);
+	else
+		sqlite3_bind_null(stmt, 16);
 
 	sqlite3_bind_int64(stmt, 17, chan->final_key_idx);
 	sqlite3_bind_int64(stmt, 18, chan->our_config.id);
