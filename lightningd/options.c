@@ -322,7 +322,7 @@ static void config_register_opts(struct lightningd *ld)
 			 &ld->config.locktime_blocks, opt_hidden);
 	opt_register_arg("--max-locktime-blocks", opt_set_u32, opt_show_u32,
 			 &ld->config.locktime_max,
-			 "Maximum blocks a peer can lock up our funds");
+			 "Maximum blocks funds may be locked for");
 	opt_register_arg("--funding-confirms", opt_set_u32, opt_show_u32,
 			 &ld->config.anchor_confirms,
 			 "Confirmations required for funding transaction");
@@ -487,7 +487,7 @@ static const struct config testnet_config = {
 
 	/* They can have up to 14 days, maximumu value that lnd will ask for by default. */
 	/* FIXME Convince lnd to use more reasonable defaults... */
-	.locktime_max = 14 * 6 * 24,
+	.locktime_max = 14 * 24 * 6,
 
 	/* We're fairly trusting, under normal circumstances. */
 	.anchor_confirms = 1,
@@ -538,7 +538,7 @@ static const struct config mainnet_config = {
 
 	/* They can have up to 14 days, maximumu value that lnd will ask for by default. */
 	/* FIXME Convince lnd to use more reasonable defaults... */
-	.locktime_max = 14 * 6 * 24,
+	.locktime_max = 14 * 24 * 6,
 
 	/* We're fairly trusting, under normal circumstances. */
 	.anchor_confirms = 3,
