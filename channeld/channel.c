@@ -1703,7 +1703,13 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 	enqueue_peer_msg(peer, take(msg));
 	tal_free(commit_sigs);
 
-	assert(peer->revocations_received == peer->next_index[REMOTE] - 2);
+	/* If we have already received the revocation for the previous, the
+	 * other side shouldn't be asking for a retransmit! */
+	if (peer->revocations_received != peer->next_index[REMOTE] - 2)
+		status_unusual("Retransmitted commitment_signed %"PRIu64
+			       " but they already send revocation %"PRIu64"?",
+			       peer->next_index[REMOTE]-1,
+			       peer->revocations_received);
 }
 
 /* Our local wrapper around read_peer_msg */
