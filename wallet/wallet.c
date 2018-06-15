@@ -1206,6 +1206,8 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 
 	if (payment_key)
 		sqlite3_bind_preimage(stmt, 2, payment_key);
+	else
+		sqlite3_bind_null(stmt, 2);
 
 	db_exec_prepared(wallet->db, stmt);
 }
