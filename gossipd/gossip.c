@@ -882,8 +882,6 @@ static struct short_channel_id *decode_short_ids(const tal_t *ctx,
 		encoded = unzlib(tmpctx, encoded, max);
 		if (!encoded)
 			return NULL;
-		status_trace("Uncompressed %zu into %zu bytes (%s)",
-			     max, tal_len(encoded), tal_hex(tmpctx, encoded));
 		max = tal_len(encoded);
 		/* fall thru */
 	case SHORTIDS_UNCOMPRESSED:
