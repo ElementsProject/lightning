@@ -1470,7 +1470,7 @@ static bool create_next_scid_reply(struct peer *peer)
 		if (chan->half[0].channel_update)
 			queue_peer_msg(peer, chan->half[0].channel_update);
 		if (chan->half[1].channel_update)
-			queue_peer_msg(peer, chan->half[0].channel_update);
+			queue_peer_msg(peer, chan->half[1].channel_update);
 
 		/* Record node ids for later transmission of node_announcement */
 		append_query_node(peer, &chan->nodes[0]->id);
