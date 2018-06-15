@@ -1561,7 +1561,10 @@ static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer)
 	/* First priority is queued packets, if any */
 	const u8 *out;
 
+	assert(peer->local);
 again:
+	/* Second assert may trigger if something happens due to loop */
+	assert(peer->local);
 	out = msg_dequeue(&peer->local->peer_out);
 	if (out) {
 		if (is_all_channel_error(out))
