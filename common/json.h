@@ -42,6 +42,13 @@ bool json_tok_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 /* Extract boolean this (must be a true or false) */
 bool json_tok_bool(const char *buffer, const jsmntok_t *tok, bool *b);
 
+/*
+ * Set the address of @out to @tok.  Used as a param_table callback by handlers that
+ * want to unmarshal @tok themselves.
+ */
+bool json_tok_tok(const char *buffer, const jsmntok_t * tok,
+		  const jsmntok_t **out);
+
 /* Is this the null primitive? */
 bool json_tok_is_null(const char *buffer, const jsmntok_t *tok);
 
