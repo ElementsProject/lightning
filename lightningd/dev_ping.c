@@ -68,8 +68,7 @@ static void json_dev_ping(struct command *cmd,
 	/* BOLT #1:
 	 *
 	 * 1. `type`: a 2-byte big-endian field indicating the type of message
-	 * 2. `payload`
-	 *...
+	 * 2. `payload`: ...
 	 * The size of the message is required by the transport layer to fit
 	 * into a 2-byte unsigned int; therefore, the maximum possible size is
 	 * 65535 bytes.

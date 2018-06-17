@@ -635,9 +635,10 @@ static void channel_config(struct lightningd *ld,
 
 	/* BOLT #2:
 	 *
-	 * The sender SHOULD set `dust_limit_satoshis` to a sufficient
-	 * value to allow commitment transactions to propagate through
-	 * the Bitcoin network.
+	 * The sending node SHOULD:
+	 *...
+	 *   - set `dust_limit_satoshis` to a sufficient value to allow
+	 *     commitment transactions to propagate through the Bitcoin network.
 	 */
 	ours->dust_limit_satoshis = 546;
 	ours->max_htlc_value_in_flight_msat = UINT64_MAX;
@@ -647,16 +648,18 @@ static void channel_config(struct lightningd *ld,
 
 	/* BOLT #2:
 	 *
-	 * The sender SHOULD set `to_self_delay` sufficient to ensure
-	 * the sender can irreversibly spend a commitment transaction
-	 * output in case of misbehavior by the receiver.
+	 * The sending node SHOULD:
+	 *   - set `to_self_delay` sufficient to ensure the sender can
+	 *     irreversibly spend a commitment transaction output, in case of
+	 *     misbehavior by the receiver.
 	 */
 	 ours->to_self_delay = ld->config.locktime_blocks;
 
 	 /* BOLT #2:
 	  *
-	  * It MUST fail the channel if `max_accepted_htlcs` is greater than
-	  * 483.
+	  * The receiving node MUST fail the channel if:
+	  *...
+	  *   - `max_accepted_htlcs` is greater than 483.
 	  */
 	 ours->max_accepted_htlcs = 483;
 
@@ -716,9 +719,9 @@ u8 *peer_accept_channel(const tal_t *ctx,
 
 	/* BOLT #2:
 	 *
-	 * The sender SHOULD set `minimum_depth` to a number of blocks it
-	 * considers reasonable to avoid double-spending of the funding
-	 * transaction.
+	 * The sender:
+	 *   - SHOULD set `minimum_depth` to a number of blocks it considers
+	 *     reasonable to avoid double-spending of the funding transaction.
 	 */
 	uc->minimum_depth = ld->config.anchor_confirms;
 

@@ -26,12 +26,18 @@ static void onchaind_tell_fulfill(struct channel *channel)
 
 		/* BOLT #5:
 		 *
-		 * If the node receives (or already knows) a payment preimage
-		 * for an unresolved HTLC output it was offered for which it
-		 * has committed to an outgoing HTLC, it MUST *resolve* the
-		 * output by spending it.  Otherwise, if the other node is not
-		 * irrevocably committed to the HTLC, it MUST NOT *resolve*
-		 * the output by spending it.
+		 * A local node:
+
+		 *  - if it receives (or already possesses) a payment preimage
+		 *  for an unresolved HTLC output that it has been offered AND
+		 *  for which it has committed to an outgoing HTLC:
+		 *    - MUST *resolve* the output by spending it, using the
+		 *      HTLC-success transaction.
+		 *    - MUST resolve the output of that HTLC-success transaction.
+		 *  - otherwise:
+		 *      - if the *remote node* is NOT irrevocably committed to
+		 *        the HTLC:
+		 *        - MUST NOT *resolve* the output by spending it.
 		 */
 
 		/* We only set preimage once it's irrevocably committed, and
@@ -205,11 +211,13 @@ static void handle_missing_htlc_output(struct channel *channel, const u8 *msg)
 
 	/* BOLT #5:
 	 *
-	 * For any committed HTLC which does not have an output in this
-	 * commitment transaction, the node MUST fail the corresponding
-	 * incoming HTLC (if any) once the commitment transaction has reached
-	 * reasonable depth, and MAY fail it sooner if no valid commitment
-	 * transaction contains an output corresponding to the HTLC.
+	 *   - for any committed HTLC that does NOT have an output in this
+	 *     commitment transaction:
+	 *     - once the commitment transaction has reached reasonable depth:
+	 *       - MUST fail the corresponding incoming HTLC (if any).
+	 *     - if no *valid* commitment transaction contains an output
+	 *       corresponding to the HTLC.
+	 *       - MAY fail the corresponding incoming HTLC sooner.
 	 */
 	onchain_failed_our_htlc(channel, &htlc, "missing in commitment tx");
 }
@@ -225,10 +233,10 @@ static void handle_onchain_htlc_timeout(struct channel *channel, const u8 *msg)
 
 	/* BOLT #5:
 	 *
-	 * If the HTLC output has *timed out* and not been *resolved*, the node
-	 * MUST *resolve* the output and MUST fail the corresponding incoming
-	 * HTLC (if any) once the resolving transaction has reached reasonable
-	 * depth.
+	 *   - if the commitment transaction HTLC output has *timed out* and
+	 *     hasn't been *resolved*:
+	 *     - MUST *resolve* the output by spending it using the HTLC-timeout
+	 *     transaction.
 	 */
 	onchain_failed_our_htlc(channel, &htlc, "timed out");
 }
@@ -337,11 +345,13 @@ static bool tell_if_missing(const struct channel *channel,
 
 	/* BOLT #5:
 	 *
-	 * For any committed HTLC which does not have an output in this
-	 * commitment transaction, the node MUST fail the corresponding
-	 * incoming HTLC (if any) once the commitment transaction has reached
-	 * reasonable depth, and MAY fail it sooner if no valid commitment
-	 * transaction contains an output corresponding to the HTLC.
+	 *   - for any committed HTLC that does NOT have an output in this
+	 *     commitment transaction:
+	 *     - once the commitment transaction has reached reasonable depth:
+	 *       - MUST fail the corresponding incoming HTLC (if any).
+	 *     - if no *valid* commitment transaction contains an output
+	 *       corresponding to the HTLC.
+	 *       - MAY fail the corresponding incoming HTLC sooner.
 	 */
 	if (hout->hstate >= RCVD_ADD_REVOCATION
 	    && hout->hstate < SENT_REMOVE_REVOCATION)
@@ -422,7 +432,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  &channel->channel_info.remote_per_commit,
 				   /* BOLT #2:
 				    * `to_self_delay` is the number of blocks
-				    * that the other nodes to-self outputs
+				    * that the other node's to-self outputs
 				    * must be delayed */
 				   /* So, these are reversed: they specify ours,
 				    * we specify theirs. */

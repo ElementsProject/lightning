@@ -143,20 +143,21 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 
 /* BOLT #4:
  *
- * * `amt_to_forward` - The amount in milli-satoshi to forward to the next
- *    (outgoing) hop specified within the routing information.
+ * * `amt_to_forward`: The amount, in millisatoshis, to forward to the next
+ *   receiving peer specified within the routing information.
  *
- *    This value MUST factor in the computed fee for this particular hop. When
- *    processing an incoming Sphinx packet along with the HTLC message it's
- *    encapsulated within, if the following inequality doesn't hold, then the
- *    HTLC should be rejected as it indicates a prior node in the path has
- *    deviated from the specified parameters:
+ *   This value amount MUST include the origin node's computed _fee_ for the
+ *   receiving peer. When processing an incoming Sphinx packet and the HTLC
+ *   message that it is encapsulated within, if the following inequality
+ *   doesn't hold, then the HTLC should be rejected as it would indicate that
+ *   a prior hop has deviated from the specified parameters:
  *
- *       incoming_htlc_amt - fee >= amt_to_forward
+ *     incoming_htlc_amt - fee >= amt_to_forward
  *
- *    Where `fee` is calculated according to the receiving node's advertised fee
- *    schema as described in [BOLT 7](https://github.com/lightningnetwork/lightning-rfc/blob/master/07-routing-gossip.md#htlc-fees), or 0 if this node is the
- *    final hop.
+ *   Where `fee` is either calculated according to the receiving peer's
+ *   advertised fee schema (as described in [BOLT
+ *   #7](07-routing-gossip.md#htlc-fees)) or is 0, if the processing node is
+ *   the final node.
  */
 static bool check_amount(struct htlc_in *hin,
 			 u64 amt_to_forward, u64 amt_in_htlc, u64 fee)
@@ -171,21 +172,22 @@ static bool check_amount(struct htlc_in *hin,
 
 /* BOLT #4:
  *
- *  * `outgoing_cltv_value` - The CLTV value that the _outgoing_ HTLC carrying
+ *  * `outgoing_cltv_value`: The CLTV value that the _outgoing_ HTLC carrying
  *     the packet should have.
  *
  *        cltv_expiry - cltv_expiry_delta >= outgoing_cltv_value
  *
- *     Inclusion of this field allows a node to both authenticate the information
- *     specified by the original sender and the parameters of the HTLC forwarded,
- *	 and ensure the original sender is using the current `cltv_expiry_delta`  value.
- *     If there is no next hop, `cltv_expiry_delta` is zero.
- *     If the values don't correspond, then the HTLC should be failed+rejected as
- *     this indicates the incoming node has tampered with the intended HTLC
- *     values, or the origin has an obsolete `cltv_expiry_delta` value.
- *     The node MUST be consistent in responding to an unexpected
- *     `outgoing_cltv_value` whether it is the final hop or not, to avoid
- *     leaking that information.
+ *     Inclusion of this field allows a hop to both authenticate the
+ *     information specified by the origin node, and the parameters of the
+ *     HTLC forwarded, and ensure the origin node is using the current
+ *     `cltv_expiry_delta` value.  If there is no next hop,
+ *     `cltv_expiry_delta` is 0.  If the values don't correspond, then the
+ *     HTLC should be failed and rejected, as this indicates that either a
+ *     forwarding node has tampered with the intended HTLC values or that the
+ *     origin node has an obsolete `cltv_expiry_delta` value.  The hop MUST be
+ *     consistent in responding to an unexpected `outgoing_cltv_value`,
+ *     whether it is the final node or not, to avoid leaking its position in
+ *     the route.
  */
 static bool check_cltv(struct htlc_in *hin,
 		       u32 cltv_expiry, u32 outgoing_cltv_value, u32 delta)
@@ -242,12 +244,11 @@ static void handle_localpay(struct htlc_in *hin,
 
 	/* BOLT #4:
 	 *
-	 * If the `amt_to_forward` is higher than `incoming_htlc_amt` of
-	 * the HTLC at the final hop:
-	 *
 	 * 1. type: 19 (`final_incorrect_htlc_amount`)
 	 * 2. data:
 	 *    * [`4`:`incoming_htlc_amt`]
+	 *
+	 * The amount in the HTLC doesn't match the value in the onion.
 	 */
 	if (!check_amount(hin, amt_to_forward, hin->msatoshi, 0)) {
 		failcode = WIRE_FINAL_INCORRECT_HTLC_AMOUNT;
@@ -256,12 +257,11 @@ static void handle_localpay(struct htlc_in *hin,
 
 	/* BOLT #4:
 	 *
-	 * If the `outgoing_cltv_value` does not match the `cltv_expiry` of
-	 * the HTLC at the final hop:
-	 *
 	 * 1. type: 18 (`final_incorrect_cltv_expiry`)
 	 * 2. data:
-	 *   * [`4`:`cltv_expiry`]
+	 *    * [`4`:`cltv_expiry`]
+	 *
+	 * The CLTV expiry in the HTLC doesn't match the value in the onion.
 	 */
 	if (!check_cltv(hin, cltv_expiry, outgoing_cltv_value, 0)) {
 		failcode = WIRE_FINAL_INCORRECT_CLTV_EXPIRY;
@@ -276,13 +276,17 @@ static void handle_localpay(struct htlc_in *hin,
 
 	/* BOLT #4:
 	 *
-	 * If the amount paid is less than the amount expected, the final node
-	 * MUST fail the HTLC.  If the amount paid is more than twice the
-	 * amount expected, the final node SHOULD fail the HTLC.  This allows
-	 * the sender to reduce information leakage by altering the amount,
-	 * without allowing accidental gross overpayment:
-	 *
-	 * 1. type: PERM|16 (`incorrect_payment_amount`)
+	 * An _intermediate hop_ MUST NOT, but the _final node_:
+	 *...
+	 *   - if the amount paid is less than the amount expected:
+	 *     - MUST fail the HTLC.
+	 *...
+	 *   - if the amount paid is more than twice the amount expected:
+	 *     - SHOULD fail the HTLC.
+	 *     - SHOULD return an `incorrect_payment_amount` error.
+	 *       - Note: this allows the origin node to reduce information
+	 *         leakage by altering the amount while not allowing for
+	 *         accidental gross overpayment.
 	 */
 	if (details.msatoshi != NULL && hin->msatoshi < *details.msatoshi) {
 		failcode = WIRE_INCORRECT_PAYMENT_AMOUNT;
@@ -294,7 +298,9 @@ static void handle_localpay(struct htlc_in *hin,
 
 	/* BOLT #4:
 	 *
-	 * If the `cltv_expiry` is too low, the final node MUST fail the HTLC:
+	 *   - if the `cltv_expiry` value is unreasonably near the present:
+	 *     - MUST fail the HTLC.
+	 *     - MUST return a `final_expiry_too_soon` error.
 	 */
 	if (get_block_height(ld->topology) + ld->config.cltv_final
 	    > cltv_expiry) {
@@ -444,10 +450,9 @@ static void forward_htlc(struct htlc_in *hin,
 
 	/* BOLT #7:
 	 *
-	 * The node creating `channel_update` SHOULD accept HTLCs which pay a
-	 * fee equal or greater than:
-	 *
-	 *    fee_base_msat + amount_msat * fee_proportional_millionths / 1000000
+	 * The origin node:
+	 *   - SHOULD accept HTLCs that pay a fee equal to or greater than:
+	 *     - fee_base_msat + ( amount_msat * fee_proportional_millionths / 1000000 )
 	 */
 	if (mul_overflows_u64(amt_to_forward,
 			      ld->config.fee_per_satoshi)) {
@@ -469,9 +474,10 @@ static void forward_htlc(struct htlc_in *hin,
 
 	/* BOLT #2:
 	 *
-	 * A node MUST estimate a timeout deadline for each HTLC it offers.  A
-	 * node MUST NOT offer an HTLC with a timeout deadline before its
-	 * `cltv_expiry`
+	 * An offering node:
+	 *   - MUST estimate a timeout deadline for each HTLC it offers.
+	 *   - MUST NOT offer an HTLC with a timeout deadline before its
+	 *     `cltv_expiry`.
 	 */
 	/* In our case, G = 1, so we need to expire it one after it's expiration.
 	 * But never offer an expired HTLC; that's dumb. */
@@ -486,9 +492,8 @@ static void forward_htlc(struct htlc_in *hin,
 
 	/* BOLT #4:
 	 *
-	 * If the `cltv_expiry` is unreasonably far, we can also report an error:
-	 *
-	 * 1. type: 21 (`expiry_too_far`)
+	 *   - if the `cltv_expiry` is unreasonably far in the future:
+	 *     - return an `expiry_too_far` error.
 	 */
 	if (get_block_height(ld->topology)
 	    + ld->config.locktime_max < outgoing_cltv_value) {
@@ -587,8 +592,8 @@ static bool peer_accepted_htlc(struct channel *channel,
 #endif
 	/* BOLT #2:
 	 *
-	 * A sending node SHOULD fail to route any HTLC added after it
-	 * sent `shutdown`. */
+	 *   - SHOULD fail to route any HTLC added after it has sent `shutdown`.
+	 */
 	if (channel->state == CHANNELD_SHUTTING_DOWN) {
 		*failcode = WIRE_PERMANENT_CHANNEL_FAILURE;
 		goto out;
@@ -596,9 +601,11 @@ static bool peer_accepted_htlc(struct channel *channel,
 
 	/* BOLT #2:
 	 *
-	 * A node MUST estimate a fulfillment deadline for each HTLC it is
-	 * attempting to fulfill.  A node MUST fail (and not forward) an HTLC
-	 * whose fulfillment deadline is already past
+	 * A fulfilling node:
+	 *   - for each HTLC it is attempting to fulfill:
+	 *     - MUST estimate a fulfillment deadline.
+	 *   - MUST fail (and not forward) an HTLC whose fulfillment deadline is
+	 *     already past.
 	 */
 	/* Our deadline is half the cltv_delta we insist on, so this check is
 	 * a subset of the cltv check done in handle_localpay and
@@ -1290,8 +1297,9 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 
 	/* BOLT #2:
 	 *
-	 * A receiving node MAY fail if the `per_commitment_secret` was not
-	 * generated by the protocol in [BOLT #3]
+	 *   - if the `per_commitment_secret` was not generated by the protocol
+	 *     in [BOLT #3](03-transactions.md#per-commitment-secret-requirements):
+	 *     - MAY fail the channel.
 	 */
 	if (!wallet_shachain_add_hash(ld->wallet,
 				      &channel->their_shachain,
@@ -1491,9 +1499,9 @@ void free_htlcs(struct lightningd *ld, const struct channel *channel)
 
 /* BOLT #2:
  *
- * For HTLCs we offer: the timeout deadline when we have to fail the channel
- * and time it out on-chain.  This is `G` blocks after the HTLC
- * `cltv_expiry`; 1 block is reasonable.
+ * 2. the deadline for offered HTLCs: the deadline after which the channel has
+ *    to be failed and timed out on-chain. This is `G` blocks after the HTLC's
+ *    `cltv_expiry`: 1 block is reasonable.
  */
 static u32 htlc_out_deadline(const struct htlc_out *hout)
 {
@@ -1502,10 +1510,10 @@ static u32 htlc_out_deadline(const struct htlc_out *hout)
 
 /* BOLT #2:
  *
- * For HTLCs we accept and have a preimage: the fulfillment deadline when we
- * have to fail the channel and fulfill the HTLC onchain before its
- * `cltv_expiry`.  This is steps 4-7 above, which means a deadline of `2R+G+S`
- * blocks before `cltv_expiry`; 7 blocks is reasonable.
+ * 3. the deadline for received HTLCs this node has fulfilled: the deadline
+ * after which the channel has to be failed and the HTLC fulfilled on-chain
+ * before its `cltv_expiry`. See steps 4-7 above, which imply a deadline of
+ * `2R+G+S` blocks before `cltv_expiry`: 7 blocks is reasonable.
  */
 /* We approximate this, by using half the cltv_expiry_delta (3R+2G+2S),
  * rounded up. */
@@ -1521,9 +1529,9 @@ void htlcs_notify_new_block(struct lightningd *ld, u32 height)
 
 	/* BOLT #2:
 	 *
-	 * A node ... MUST fail the channel if an HTLC which it offered is in
-	 * either node's current commitment transaction past this timeout
-	 * deadline.
+	 *   - if an HTLC which it offered is in either node's current
+	 *   commitment transaction, AND is past this timeout deadline:
+	 *     - MUST fail the channel.
 	 */
 	/* FIXME: use db to look this up in one go (earliest deadline per-peer) */
 	do {
@@ -1561,10 +1569,12 @@ void htlcs_notify_new_block(struct lightningd *ld, u32 height)
 
 	/* BOLT #2:
 	 *
-	 * A node MUST estimate a fulfillment deadline for each HTLC it is
-	 * attempting to fulfill.  A node ... MUST fail the connection if a
-	 * HTLC it has fulfilled is in either node's current commitment
-	 * transaction past this fulfillment deadline.
+	 *   - for each HTLC it is attempting to fulfill:
+	 *     - MUST estimate a fulfillment deadline.
+	 *...
+	 *   - if an HTLC it has fulfilled is in either node's current commitment
+	 *   transaction, AND is past this fulfillment deadline:
+	 *     - MUST fail the connection.
 	 */
 	do {
 		struct htlc_in *hin;

@@ -239,8 +239,9 @@ static char *opt_set_rgb(const char *arg, struct lightningd *ld)
 	ld->rgb = tal_free(ld->rgb);
 	/* BOLT #7:
 	 *
-	 * the first byte of `rgb` is the red value, the second byte is the
-	 * green value and the last byte is the blue value */
+	 *    - Note: the first byte of `rgb` is the red value, the second byte
+	 *      is the green value, and the last byte is the blue value.
+	 */
 	ld->rgb = tal_hexdata(ld, arg, strlen(arg));
 	if (!ld->rgb || tal_len(ld->rgb) != 3)
 		return tal_fmt(NULL, "rgb '%s' is not six hex digits", arg);
@@ -256,8 +257,8 @@ static char *opt_set_alias(const char *arg, struct lightningd *ld)
 	 *
 	 *    * [`32`:`alias`]
 	 *...
-	 * It MUST set `alias` to a valid UTF-8 string, with any `alias` bytes
-	 * following equal to zero.
+	 *  - MUST set `alias` to a valid UTF-8 string, with any
+	 *   `alias` trailing-bytes equal to 0.
 	 */
 	if (strlen(arg) > 32)
 		return tal_fmt(NULL, "Alias '%s' is over 32 characters", arg);
@@ -511,7 +512,10 @@ static const struct config testnet_config = {
 	.fee_per_satoshi = 10,
 
 	/* BOLT #7:
-	 * Each node SHOULD flush outgoing announcements once every 60 seconds */
+	 *
+	 *   - SHOULD flush outgoing gossip messages once every 60
+	 *     seconds, independently of the arrival times of the messages.
+	 */
 	.broadcast_interval = 60000,
 
 	/* Send a keepalive update at least every week, prune every twice that */
@@ -548,14 +552,16 @@ static const struct config mainnet_config = {
 
 	/* BOLT #2:
 	 *
-	 * The `cltv_expiry_delta` for channels.  `3R+2G+2S` */
+	 * 1. the `cltv_expiry_delta` for channels, `3R+2G+2S`: if in doubt, a
+	 *   `cltv_expiry_delta` of 12 is reasonable (R=2, G=1, S=2)
+	 */
 	/* R = 2, G = 1, S = 3 */
 	.cltv_expiry_delta = 14,
 
 	/* BOLT #2:
 	 *
-	 * The minimum `cltv_expiry` we will accept for terminal payments: the
-	 * worst case for the terminal node C lower at `2R+G+S` blocks */
+	 * 4. the minimum `cltv_expiry` accepted for terminal payments: the
+	 *    worst case for the terminal node C is `2R+G+S` blocks */
 	.cltv_final = 10,
 
 	/* Send commit 10msec after receiving; almost immediately. */
@@ -567,7 +573,10 @@ static const struct config mainnet_config = {
 	.fee_per_satoshi = 10,
 
 	/* BOLT #7:
-	 * Each node SHOULD flush outgoing announcements once every 60 seconds */
+	 *
+	 *   - SHOULD flush outgoing gossip messages once every 60
+	 *     seconds, independently of the arrival times of the messages.
+	 */
 	.broadcast_interval = 60000,
 
 	/* Send a keepalive update at least every week, prune every twice that */

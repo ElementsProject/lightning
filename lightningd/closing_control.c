@@ -159,10 +159,10 @@ void peer_start_closingd(struct channel *channel,
 
 	/* BOLT #2:
 	 *
-	 * A sending node MUST set `fee_satoshis` lower than or equal
-	 * to the base fee of the final commitment transaction as
-	 * calculated in [BOLT
-	 * #3](03-transactions.md#fee-calculation).
+	 * The sending node:
+	 *  - MUST set `fee_satoshis` less than or equal to the base
+	 *    fee of the final commitment transaction, as calculated in
+	 *    [BOLT #3](03-transactions.md#fee-calculation).
 	 */
 	feelimit = commit_tx_base_fee(channel->channel_info.feerate_per_kw[LOCAL],
 				      0);
@@ -181,7 +181,8 @@ void peer_start_closingd(struct channel *channel,
 
 	/* BOLT #3:
 	 *
-	 * The amounts for each output MUST BE rounded down to whole satoshis.
+	 * Each node offering a signature:
+	 *  - MUST round each output down to whole satoshis.
 	 */
 	/* Convert unit */
 	funding_msatoshi = channel->funding_satoshi * 1000;
