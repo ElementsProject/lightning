@@ -32,7 +32,7 @@
 /* `fundchannel` or `withdraw` errors */
 #define FUND_MAX_EXCEEDED               300
 #define FUND_CANNOT_AFFORD              301
-#define FUND_DUST_LIMIT_UNMET           302
+#define FUND_OUTPUT_IS_DUST             302
 
 /* Errors from `invoice` command */
 #define INVOICE_LABEL_ALREADY_EXISTS	900
