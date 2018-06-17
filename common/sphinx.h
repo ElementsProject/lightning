@@ -35,9 +35,9 @@ enum route_next_case {
 
 /* BOLT #4:
  *
- * The `hops_data` field is a structure that holds obfuscated versions of the
- * next hop's address, transfer information and the associated HMAC. It is
- * 1300 bytes long, and has the following structure:
+ * The `hops_data` field is a structure that holds obfuscations of the
+ * next hop's address, transfer information, and its associated HMAC. It is
+ * 1300 bytes (`20x65`) long and has the following structure:
  *
  * 1. type: `hops_data`
  * 2. data:
@@ -47,14 +47,14 @@ enum route_next_case {
  *    * ...
  *    * `filler`
  *
- * Where the `realm`, `HMAC` and `per_hop` (whose contents depend on `realm`)
- * are repeated for each hop, and `filler` consists of obfuscated
- * deterministically generated padding. For details about how the `filler` is
- * generated please see below. In addition, `hops_data` is incrementally
- * obfuscated at each hop.
+ * Where, the `realm`, `per_hop` (with contents dependent on `realm`), and `HMAC`
+ * are repeated for each hop; and where, `filler` consists of obfuscated,
+ * deterministically-generated padding, as detailed in
+ * [Filler Generation](#filler-generation).  Additionally, `hops_data` is
+ * incrementally obfuscated at each hop.
  *
- * The `realm` byte determines the format of the `per_hop`; so far only
- * `realm` 0 is defined, and for that, the `per_hop` format is:
+ * The `realm` byte determines the format of the `per_hop` field; currently, only
+ * `realm` 0 is defined, for which the `per_hop` format follows:
  *
  * 1. type: `per_hop` (for `realm` 0)
  * 2. data:

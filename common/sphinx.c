@@ -464,7 +464,8 @@ u8 *create_onionreply(const tal_t *ctx, const struct secret *shared_secret,
 
 	/* BOLT #4:
 	 *
-	 * The node returning the message builds a return packet consisting of
+	 * The node generating the error message (_erring node_) builds a return
+	 * packet consisting of
 	 * the following fields:
 	 *
 	 * 1. data:
@@ -481,16 +482,18 @@ u8 *create_onionreply(const tal_t *ctx, const struct secret *shared_secret,
 
 	/* BOLT #4:
 	 *
-	 * The node SHOULD set `pad` such that the `failure_len` plus
-	 * `pad_len` is equal to 256.  This is 118 bytes longer than then the
-	 * longest currently-defined message.
+	 * The _erring node_:
+	 *   - SHOULD set `pad` such that the `failure_len` plus `pad_len` is
+	 *     equal to 256.
+	 *     - Note: this value is 118 bytes longer than the longest
+	 *       currently-defined message.
 	 */
 	assert(tal_len(payload) == ONION_REPLY_SIZE + 4);
 
 	/* BOLT #4:
 	 *
  	 * Where `hmac` is an HMAC authenticating the remainder of the packet,
-	 * with a key using the above key generation with key type `um`
+	 * with a key generated using the above process, with key type `um`
 	 */
 	generate_key(key, "um", 2, shared_secret->data);
 
@@ -513,11 +516,11 @@ u8 *wrap_onionreply(const tal_t *ctx,
 
 	/* BOLT #4:
 	 *
-	 * The node then generates a new key, using the key type `ammag`.
+	 * The erring node then generates a new key, using the key type `ammag`.
 	 * This key is then used to generate a pseudo-random stream, which is
-	 * then applied to the packet using `XOR`.
+	 * in turn applied to the packet using `XOR`.
 	 *
-	 * The obfuscation step is repeated by every node on the return path.
+	 * The obfuscation step is repeated by every hop along the return path.
 	 */
 	generate_key(key, "ammag", 5, shared_secret->data);
 	generate_cipher_stream(stream, key, streamlen);
