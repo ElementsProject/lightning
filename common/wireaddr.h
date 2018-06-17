@@ -18,7 +18,7 @@ struct sockaddr_un;
 /* BOLT #1:
  *
  * The default TCP port is 9735. This corresponds to hexadecimal
- * `0x2607`, the Unicode code point for LIGHTNING.
+ * `0x2607`: the Unicode code point for LIGHTNING.
  */
 #define DEFAULT_PORT 9735
 
