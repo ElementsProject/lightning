@@ -151,10 +151,10 @@ int main(void)
 	 * * `1`: Bech32 separator
 	 * * `pvjluez`: timestamp (1496314658)
 	 * * `p`: payment hash
-	 *   * `p5`: `data_length` (`p` = 1, `5` = 20. 1 * 32 + 20 == 52)
+	 *   * `p5`: `data_length` (`p` = 1, `5` = 20; 1 * 32 + 20 == 52)
 	 *   * `qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypq`: payment hash 0001020304050607080900010203040506070809000102030405060708090102
 	 * * `d`: short description
-	 *   * `pl`: `data_length` (`p` = 1, `l` = 31. 1 * 32 + 31 == 63)
+	 *   * `pl`: `data_length` (`p` = 1, `l` = 31; 1 * 32 + 31 == 63)
 	 *   * `2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6twvus8g6rfwvs8qun0dfjkxaq`: 'Please consider supporting this project'
 	 * * `8rkx3yf5tcsyz3d73gafnh3cax9rn449d9p5uxz9ezhhypd0elx87sjle52x86fux2ypatgddc6k63n7erqz25le42c4u4ecky03ylcq`: signature
 	 * * `ca784w`: Bech32 checksum
@@ -184,11 +184,11 @@ int main(void)
 	 * * `pvjluez`: timestamp (1496314658)
 	 * * `p`: payment hash...
 	 * * `d`: short description
-	 *   * `q5`: `data_length` (`q` = 0, `5` = 20. 0 * 32 + 20 == 20)
+	 *   * `q5`: `data_length` (`q` = 0, `5` = 20; 0 * 32 + 20 == 20)
 	 *   * `xysxxatsyp3k7enxv4js`: '1 cup coffee'
 	 * * `x`: expiry time
-	 *   * `qz`: `data_length` (`q` = 0, `z` = 2. 0 * 32 + 2 == 2)
-	 *   * `pu`: 60 seconds (`p` = 1, `u` = 28.  1 * 32 + 28 == 60)
+	 *   * `qz`: `data_length` (`q` = 0, `z` = 2; 0 * 32 + 2 == 2)
+	 *   * `pu`: 60 seconds (`p` = 1, `u` = 28;  1 * 32 + 28 == 60)
 	 * * `aztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rsp`: signature
 	 * * `fj9srp`: Bech32 checksum
 	 */
@@ -219,7 +219,7 @@ int main(void)
 	 * * `pvjluez`: timestamp (1496314658)
 	 * * `p`: payment hash...
 	 * * `h`: tagged field: hash of description
-	 *   * `p5`: `data_length` (`p` = 1, `5` = 20. 1 * 32 + 20 == 52)
+	 *   * `p5`: `data_length` (`p` = 1, `5` = 20; 1 * 32 + 20 == 52)
 	 *   * `8yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqs`: SHA256 of 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon'
 	 * * `cc6gd6ql3jrc5yzme8v4ntcewwz5cnw92tz0pc8qcuufvq7khhr8wpald05e92xw006sq94mg8v2ndf4sefvf9sygkshp5zfem29trqq`: signature
 	 * * `2yxxz7`: Bech32 checksum
