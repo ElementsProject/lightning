@@ -805,10 +805,13 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 
 	/* BOLT #7:
 	 *
-	 * If there is an unknown even bit in the `features` field the
-	 * receiving node MUST NOT parse the remainder of the message
-	 * and MUST NOT add the channel to its local network view, and
-	 * SHOULD NOT forward the announcement.
+	 *  - if `features` field contains _unknown even bits_:
+	 *    - MUST NOT parse the remainder of the message.
+	 *    - MAY discard the message altogether.
+	 *    - SHOULD NOT connect to the node.
+	 *  - MAY forward `node_announcement`s that contain an _unknown_
+	 *   `features` _bit_, regardless of if it has parsed the announcement
+	 *   or not.
 	 */
 	if (!features_supported(features, NULL)) {
 		status_trace("Ignoring channel announcement, unsupported features %s.",
@@ -818,8 +821,10 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 
 	/* BOLT #7:
 	 *
-	 * The receiving node MUST ignore the message if the specified
-	 * `chain_hash` is unknown to the receiver.
+	 * The final node:
+	 *...
+	 *  - if the specified `chain_hash` is unknown to the receiver:
+	 *    - MUST ignore the message.
 	 */
 	if (!structeq(&chain_hash, &rstate->chain_hash)) {
 		status_trace(
@@ -911,7 +916,10 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 
 	/* BOLT #7:
 	 *
-	 * The receiving node MUST ignore the message if this output is spent.
+	 * The final node:
+	 *...
+	 *   - if the `short_channel_id`'s output... is spent:
+	 *    - MUST ignore the message.
 	 */
 	if (tal_len(outscript) == 0) {
 		status_trace("channel_announcement: no unspent txout %s",
@@ -923,11 +931,12 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 
 	/* BOLT #7:
 	 *
-	 * The receiving node MUST ignore the message if the output
-	 * specified by `short_channel_id` does not correspond to a
-	 * P2WSH using `bitcoin_key_1` and `bitcoin_key_2` as
-	 * specified in [BOLT
-	 * #3](03-transactions.md#funding-transaction-output).
+	 * The final node:
+	 *...
+	 *   - if the `short_channel_id`'s output does NOT correspond to a P2WSH
+	 *     (using `bitcoin_key_1` and `bitcoin_key_2`, as specified in
+	 *    [BOLT #3](03-transactions.md#funding-transaction-output)) ...
+	 *    - MUST ignore the message.
 	 */
 	s = scriptpubkey_p2wsh(pending,
 			       bitcoin_redeem_2of2(pending,
@@ -1104,9 +1113,12 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 
 	/* BOLT #7:
 	 *
-	 * The receiving node MUST ignore the channel update if the specified
-	 * `chain_hash` value is unknown, meaning it isn't active on the
-	 * specified chain. */
+	 * The final node:
+	 *...
+	 *  - if the specified `chain_hash` value is unknown (meaning it isn't
+	 *    active on the specified chain):
+	 *    - MUST ignore the channel update.
+	 */
 	if (!structeq(&chain_hash, &rstate->chain_hash)) {
 		status_trace("Received channel_update for unknown chain %s",
 			     type_to_string(tmpctx, struct bitcoin_blkid,
@@ -1224,9 +1236,10 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 
 		/* BOLT #7:
 		 *
-		 * The receiving node SHOULD ignore the first `address
-		 * descriptor` which does not match the types defined
-		 * above.
+		 * The final node:
+		 *...
+		 *   - SHOULD ignore the first `address descriptor` that does
+		 *     NOT match the types defined above.
 		 */
 		if (!fromwire_wireaddr(&cursor, &max, &wireaddr)) {
 			if (!cursor)
@@ -1322,9 +1335,12 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 
 	/* BOLT #7:
 	 *
-	 * If the `features` field contains unknown even bits the
-	 * receiving node MUST NOT parse the remainder of the message
-	 * and MAY discard the message altogether.
+	 * The final node:
+	 *...
+	 *  - if `features` field contains _unknown even bits_:
+	 *    - MUST NOT parse the remainder of the message.
+	 *    - MAY discard the message altogether.
+	 *    - SHOULD NOT connect to the node.
 	 */
 	if (!features_supported(features, NULL)) {
 		status_trace("Ignoring node announcement for node %s, unsupported features %s.",
