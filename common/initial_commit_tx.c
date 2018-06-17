@@ -105,16 +105,15 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		 *
 		 * The receiving node MUST fail the channel if:
 		 *...
-		 * - the funder's amount for the initial commitment
-		 *   transaction is not sufficient for full [fee
-		 *   payment](03-transactions.md#fee-payment).
+		 *   - it considers `feerate_per_kw` too small for timely
+		 *     processing or unreasonably large.
 		 */
 		status_unusual("Funder cannot afford fee"
 			       " on initial commitment transaction");
 		return NULL;
 	}
 
-	/* BOLT #2:
+	/* FIXME, should be in #2:
 	 *
 	 * The receiving node MUST fail the channel if:
 	 *...
