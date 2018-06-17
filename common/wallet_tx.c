@@ -20,8 +20,9 @@ static bool check_amount(const struct wallet_tx *tx)
 		return false;
 	}
 	if (tx->amount < 546) {
-		command_fail(tx->cmd, FUND_DUST_LIMIT_UNMET,
-			     "Dust limit unmet");
+		command_fail(tx->cmd, FUND_OUTPUT_IS_DUST,
+			     "Output %"PRIu64" satoshis would be dust",
+			     tx->amount);
 		return false;
 	}
 	return true;
