@@ -20,11 +20,12 @@ static void hkdf_two_keys(struct secret *out1, struct secret *out2,
 {
 	/* BOLT #8:
 	 *
-	 *   * `HKDF(salt,ikm)`: a function is defined in [3](#reference-3),
-	 *      evaluated with a zero-length `info` field.
-	 *      * All invocations of the `HKDF` implicitly return `64-bytes`
-	 *        of cryptographic randomness using the extract-and-expand
-	 *        component of the `HKDF`.
+	 *  * `HKDF(salt,ikm)`: a function defined in
+	 *    `RFC 5869`<sup>[3](#reference-3)</sup>, evaluated with a
+	 *     zero-length `info` field
+	 *     * All invocations of `HKDF` implicitly return 64 bytes of
+	 *       cryptographic randomness using the extract-and-expand component
+	 *       of the `HKDF`.
 	 */
 	struct secret okm[2];
 
@@ -42,9 +43,9 @@ static void maybe_rotate_key(u64 *n, struct secret *k, struct secret *ck)
 	/* BOLT #8:
 	 *
 	 * A key is to be rotated after a party sends or decrypts
-	 * `1000` messages with it.  This can be properly accounted
+	 * 1000 messages with it.  This can be properly accounted
 	 * for by rotating the key once the nonce dedicated to it
-	 * exceeds `1000`.
+	 * exceeds 1000.
 	 */
 	if (*n != 1000)
 		return;
@@ -53,11 +54,11 @@ static void maybe_rotate_key(u64 *n, struct secret *k, struct secret *ck)
 	 *
 	 * Key rotation for a key `k` is performed according to the following:
 	 *
-	 *   * Let `ck` be the chaining key obtained at the end of `Act Three`.
-	 *   * `ck', k' = HKDF(ck, k)`
-	 *   * Reset the nonce for the key to `n = 0`.
-	 *   * `k = k'`
-	 *   * `ck = ck'`
+	 * 1. Let `ck` be the chaining key obtained at the end of Act Three.
+	 * 2. `ck', k' = HKDF(ck, k)`
+	 * 3. Reset the nonce for the key to `n = 0`.
+	 * 4. `k = k'`
+	 * 5. `ck = ck'`
 	 */
 	hkdf_two_keys(&new_ck, &new_k, ck, k);
 #ifdef SUPERVERBOSE
@@ -76,7 +77,7 @@ static void le64_nonce(unsigned char *npub, u64 nonce)
 {
 	/* BOLT #8:
 	 *
-	 * ...with nonce `n` encoded as 32 zero bits followed by a
+	 * ...with nonce `n` encoded as 32 zero bits, followed by a
 	 * *little-endian* 64-bit value (this follows the Noise Protocol
 	 * convention, rather than our normal endian).
 	 */
@@ -105,10 +106,9 @@ u8 *cryptomsg_decrypt_body(const tal_t *ctx,
 
 	/* BOLT #8:
 	 *
-	 * * Decrypt `c` using `ChaCha20-Poly1305`, `rn`, and `rk` to
-	 *   obtain decrypted plaintext packet `p`.
-	 *
-	 *   * The nonce `rn` MUST be incremented after this step.
+	 * 5. Decrypt `c` (using `ChaCha20-Poly1305`, `rn`, and `rk`), to
+	 *    obtain decrypted plaintext packet `p`.
+	 *    * The nonce `rn` MUST be incremented after this step.
 	 */
 	if (crypto_aead_chacha20poly1305_ietf_decrypt(decrypted,
 						      &mlen, NULL,
@@ -141,8 +141,9 @@ static struct io_plan *peer_decrypt_body(struct io_conn *conn,
 
 	/* BOLT #1:
 	 *
-	 * A node MUST ignore a received message of unknown type, if that type
-	 * is odd.
+	 * A receiving node:
+	 *   - upon receiving a message of _odd_, unknown type:
+	 *     - MUST ignore the received message.
 	 */
 	if (unlikely(is_unknown_msg_discardable(decrypted))) {
 		pcs->in = tal_free(pcs->in);
@@ -170,10 +171,9 @@ bool cryptomsg_decrypt_header(struct crypto_state *cs, u8 hdr[18], u16 *lenp)
 
 	/* BOLT #8:
 	 *
-	 *  * Let the encrypted length prefix be known as `lc`
-	 *
-	 *  * Decrypt `lc` using `ChaCha20-Poly1305`, `rn`, and `rk` to
-	 *    obtain size of the encrypted packet `l`.
+	 *  2. Let the encrypted length prefix be known as `lc`
+	 *  3. Decrypt `lc` (using `ChaCha20-Poly1305`, `rn`, and `rk`), to
+	 *     obtain the size of the encrypted packet `l`.
 	 *    * A zero-length byte slice is to be passed as the AD
 	 *	(associated data).
 	 *    * The nonce `rn` MUST be incremented after this step.
@@ -205,8 +205,8 @@ static struct io_plan *peer_decrypt_header(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * * Read _exactly_ `l+16` bytes from the network buffer, let
-	 *   the bytes be known as `c`.
+	 * 4. Read _exactly_ `l+16` bytes from the network buffer, let
+	 *    the bytes be known as `c`.
 	 */
 	pcs->in = tal_arr(conn, u8, (u32)len + 16);
 	return io_read(conn, pcs->in, tal_count(pcs->in), peer_decrypt_body,
@@ -222,12 +222,12 @@ struct io_plan *peer_read_message(struct io_conn *conn,
 	assert(!pcs->in);
 	/* BOLT #8:
 	 *
-	 * ### Decrypting Messages
+	 * ### Receiving and Decrypting Messages
 	 *
 	 * In order to decrypt the _next_ message in the network
 	 * stream, the following is done:
 	 *
-	 *  * Read _exactly_ `18-bytes` from the network buffer.
+	 *  1. Read _exactly_ 18 bytes from the network buffer.
 	 */
 	pcs->reading_body = false;
 	pcs->in = tal_arr(conn, u8, 18);
@@ -256,26 +256,28 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 
 	/* BOLT #8:
 	 *
-	 * In order to encrypt a lightning message (`m`), given a
-	 * sending key (`sk`), and a nonce (`sn`), the following is done:
+	 * In order to encrypt and send a Lightning message (`m`) to the
+	 * network stream, given a sending key (`sk`) and a nonce (`sn`), the
+	 * following is done:
 	 *
+	 *   1. let `l = len(m)`
+	 *      * where `len` obtains the length in bytes of the Lightning
+	 *        message
 	 *
-	 *   * let `l = len(m)`,
-	 *      where `len` obtains the length in bytes of the lightning message.
-	 *
-	 *   * Serialize `l` into `2-bytes` encoded as a big-endian integer.
+	 *   2. Serialize `l` into 2 bytes encoded as a big-endian integer.
 	 */
 	l = cpu_to_be16(mlen);
 
 	/* BOLT #8:
 	 *
-	 *   * Encrypt `l` using `ChaChaPoly-1305`, `sn`, and `sk` to obtain `lc`
-	 *     (`18-bytes`)
-	 *     * The nonce `sn` is encoded as a 96-bit little-endian number.
-	 *      As our decoded nonces a 64-bit, we encode the 96-bit nonce as
-	 *      follows: 32-bits of leading zeroes followed by a 64-bit value.
-	 * 	* The nonce `sn` MUST be incremented after this step.
-	 *     * A zero-length byte slice is to be passed as the AD
+	 * 3. Encrypt `l` (using `ChaChaPoly-1305`, `sn`, and `sk`), to obtain
+	 *    `lc` (18 bytes)
+	 *    * The nonce `sn` is encoded as a 96-bit little-endian number. As
+	 *      the decoded nonce is 64 bits, the 96-bit nonce is encoded as:
+	 *      32 bits of leading zeroes followed by a 64-bit value.
+	 *        * The nonce `sn` MUST be incremented after this step.
+	 *    * A zero-length byte slice is to be passed as the AD (associated
+                data).
 	 */
 	le64_nonce(npub, cs->sn++);
 	ret = crypto_aead_chacha20poly1305_ietf_encrypt(out, &clen,
@@ -297,9 +299,9 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 
 	/* BOLT #8:
 	 *
-	 *   * Finally encrypt the message itself (`m`) using the same
-	 *     procedure used to encrypt the length prefix. Let
-	 *     encrypted ciphertext be known as `c`.
+	 *   4. Finally, encrypt the message itself (`m`) using the same
+	 *      procedure used to encrypt the length prefix. Let
+	 *      encrypted ciphertext be known as `c`.
 	 *
 	 *     * The nonce `sn` MUST be incremented after this step.
 	 */
@@ -376,7 +378,7 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 #endif /* DEVELOPER */
 
 	/* BOLT #8:
-	 *   * Send `lc || c` over the network buffer.
+	 *   5. Send `lc || c` over the network buffer.
 	 */
 	return io_write(conn, pcs->out, tal_count(pcs->out), post, pcs);
 }
