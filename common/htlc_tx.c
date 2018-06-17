@@ -23,8 +23,9 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 	 * ## HTLC-Timeout and HTLC-Success Transactions
 	 *
 	 * These HTLC transactions are almost identical, except the
-	 * HTLC-Timeout transaction is timelocked.  This is also the
-	 * transaction which can be spent by a valid penalty transaction.
+	 * HTLC-timeout transaction is timelocked.  The HTLC-timeout
+	 * transaction is also the transaction that can be spent by a valid
+	 * penalty transaction.
 	 */
 
 	/* BOLT #3:
@@ -33,7 +34,7 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 	assert(tx->version == 2);
 
 	/* BOLT #3:
-	 * * locktime: `0` for HTLC-Success, `cltv_expiry` for HTLC-Timeout.
+	 * * locktime: `0` for HTLC-success, `cltv_expiry` for HTLC-timeout
 	 */
 	tx->lock_time = locktime;
 
@@ -41,7 +42,7 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 	 * * txin count: 1
 	 *    * `txin[0]` outpoint: `txid` of the commitment transaction and
 	 *      `output_index` of the matching HTLC output for the HTLC
-	 *      transaction.
+	 *      transaction
 	 */
 	tx->input[0].txid = *commit_txid;
 	tx->input[0].index = commit_output_number;
@@ -58,9 +59,9 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 	/* BOLT #3:
 	 * * txout count: 1
 	 *    * `txout[0]` amount: the HTLC amount minus fees
-	 *       (see [Fee Calculation](#fee-calculation)).
-	 *    * `txout[0]` script: version 0 P2WSH with witness script as shown
-	 *       below.
+	 *       (see [Fee Calculation](#fee-calculation))
+	 *    * `txout[0]` script: version-0 P2WSH with witness script as shown
+	 *       below
 	 */
 	tx->output[0].amount = amount - htlc_fee_satoshi;
 	wscript = bitcoin_wscript_htlc_tx(tx, to_self_delay,
@@ -80,7 +81,7 @@ struct bitcoin_tx *htlc_success_tx(const tal_t *ctx,
 				   const struct keyset *keyset)
 {
 	/* BOLT #3:
-	 * * locktime: `0` for HTLC-Success, `cltv_expiry` for HTLC-Timeout.
+	 * * locktime: `0` for HTLC-success, `cltv_expiry` for HTLC-timeout
 	 */
 	return htlc_tx(ctx, commit_txid, commit_output_number, htlc_msatoshi,
 		       to_self_delay,
@@ -126,7 +127,7 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 				   const struct keyset *keyset)
 {
 	/* BOLT #3:
-	 * * locktime: `0` for HTLC-Success, `cltv_expiry` for HTLC-Timeout.
+	 * * locktime: `0` for HTLC-success, `cltv_expiry` for HTLC-timeout
 	 */
 	return htlc_tx(ctx, commit_txid, commit_output_number, htlc_msatoshi,
 		       to_self_delay,
