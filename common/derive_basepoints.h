@@ -60,8 +60,9 @@ bool per_commit_point(const struct sha256 *shaseed,
 
 /* BOLT #3:
  *
- * the first secret used MUST be index 281474976710655, and then the index
- * decremented.
+ * The first secret used:
+ *   - MUST be index 281474976710655,
+ *     - and from there, the index is decremented.
  */
 static inline u64 shachain_index(u64 per_commit_index)
 {
