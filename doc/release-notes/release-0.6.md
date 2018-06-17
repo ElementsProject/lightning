@@ -1,8 +1,8 @@
 # Release Announce for 0.6
 ## a.k.a. "I Accidentally The Smart Contract"
 
-The long wait is over: we, the c-lightning team, are excited to announce the 0.6 release of
-[c-lightning][clightning], an important milestone for the project. This complete rewrite of the previous implementation is the first fully specification-compilation release of c-lightning. It migrates away from the protocol used while designing the specification and toward a new architecture that is modular and extensible, to better adapt to your needs and your infrastructure.
+The long wait is over: the c-lightning team is excited to announce the 0.6 release of
+[c-lightning][clightning], an important milestone for the project. This complete rewrite of the previous implementation is the first fully specification-complaint release of c-lightning. It migrates away from the protocol used while designing the specification and toward a new architecture that is modular and extensible, to better adapt to your needs and your infrastructure.
 
 ## New Features
 
