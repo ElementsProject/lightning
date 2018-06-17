@@ -689,8 +689,8 @@ static struct io_plan *read_init(struct io_conn *conn, struct peer *peer)
 {
 	/* BOLT #1:
 	 *
-	 * Each node MUST wait to receive `init` before sending any other
-	 * messages.
+	 * The receiving node:
+	 *  - MUST wait to receive `init` before sending any other messages.
 	 */
 	return peer_read_message(conn, &peer->local->pcs, peer_init_received);
 }
@@ -711,8 +711,9 @@ static struct io_plan *init_new_peer(struct io_conn *conn,
 
 	/* BOLT #1:
 	 *
-	 * Each node MUST send `init` as the first lightning message for any
-	 * connection.
+	 * The sending node:
+	 *   - MUST send `init` as the first Lightning message for any
+	 *     connection.
 	 */
 	initmsg = towire_init(NULL,
 			      daemon->globalfeatures, daemon->localfeatures);
@@ -944,9 +945,9 @@ static void handle_query_short_channel_ids(struct peer *peer, u8 *msg)
 
 	/* BOLT #7:
 	 *
-	 * - SHOULD respond to each known `short_channel_id` with a
-	 *   `channel_announce`  and the latest `channel_update`s for each end
-	 *    - SHOULD NOT wait for the next outgoing announcement flush to send
+	 * - MUST respond to each known `short_channel_id` with a
+	 *   `channel_announcement` and the latest `channel_update`s for each end
+	 *    - SHOULD NOT wait for the next outgoing gossip flush to send
 	 *      these.
 	 */
 	peer->scid_queries = tal_steal(peer, scids);
@@ -1384,7 +1385,7 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	/* BOLT #1:
 	 *
 	 * The type follows the _it's ok to be odd_ rule, so nodes MAY send
-	 * odd-numbered types without ascertaining that the recipient
+	 * _odd_-numbered types without ascertaining that the recipient
 	 * understands it. */
 	if (t & 1) {
 		status_trace("Peer %s sent packet with unknown message type %u, ignoring",
@@ -1451,12 +1452,11 @@ static bool create_next_scid_reply(struct peer *peer)
 
 	/* BOLT #7:
 	 *
-	 *   - SHOULD respond to each known `short_channel_id` with a
-	 *     `channel_announce` and the latest `channel_update`s for
+	 *   - MUST respond to each known `short_channel_id` with a
+	 *     `channel_announcement` and the latest `channel_update`s for
 	 *     each end
-	 *
-	 *   - SHOULD NOT wait for the next outgoing announcement flush
-	 *     to send these.
+	 *     - SHOULD NOT wait for the next outgoing gossip flush
+	 *       to send these.
 	 */
 	num = tal_count(peer->scid_queries);
 	for (i = peer->scid_query_idx; !sent && i < num; i++) {
@@ -2218,9 +2218,13 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 
 	/* BOLT #1:
 	 *
-	 * if `num_pong_bytes` is less than 65532 it MUST respond by sending a
-	 * `pong` message with `byteslen` equal to `num_pong_bytes`, otherwise
-	 * it MUST ignore the `ping`.
+	 * A node receiving a `ping` message:
+	 *...
+	 *  - if `num_pong_bytes` is less than 65532:
+	 *    - MUST respond by sending a `pong` message, with `byteslen` equal
+	 *      to `num_pong_bytes`.
+	 *  - otherwise (`num_pong_bytes` is **not** less than 65532):
+	 *    - MUST ignore the `ping`.
 	 */
 	if (num_pong_bytes >= 65532)
 		daemon_conn_send(&daemon->master,
