@@ -536,11 +536,11 @@ static u64 unmask_commit_number(const struct bitcoin_tx *tx,
 	 *
 	 * * locktime: upper 8 bits are 0x20, lower 24 bits are the
 	 *             lower 24 bits of the obscured commitment transaction
-	 *             number.
+	 *             number
 	 *...
 	 * * `txin[0]` sequence: upper 8 bits are 0x80, lower 24 bits
 	 *                are upper 24 bits of the obscured commitment
-	 *                transaction number.
+	 *                transaction number
 	 */
 	return ((tx->lock_time & 0x00FFFFFF)
 		| (tx->input[0].sequence_number & (u64)0x00FFFFFF) << 24)
@@ -578,9 +578,9 @@ static bool is_local_commitment(const struct bitcoin_txid *txid,
 
 /* BOLT #5:
  *
- * Outputs which are *resolved* are considered *irrevocably resolved*
- * once their *resolving* transaction is included in a block at least 100
- * deep on the most-work blockchain.
+ * Outputs that are *resolved* are considered *irrevocably resolved*
+ * once the remote's *resolving* transaction is included in a block at least 100
+ * deep, on the most-work blockchain.
  */
 static size_t num_not_irrevocably_resolved(struct tracked_output **outs)
 {
@@ -687,7 +687,7 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 		 * ## HTLC-Timeout and HTLC-Success Transactions
 		 *
 		 * ...  `txin[0]` witness stack: `0 <remotehtlcsig> <localhtlcsig>
-		 * <payment_preimage>` for HTLC-Success
+		 * <payment_preimage>` for HTLC-success
 		 */
 		if (tal_count(tx->input[0].witness) != 5) /* +1 for wscript */
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -763,11 +763,12 @@ static void resolve_htlc_tx(struct tracked_output ***outs,
 
 	/* BOLT #5:
 	 *
-	 * A node SHOULD resolve its own HTLC transaction output by spending
-	 * it to a convenient address.  A node MUST wait until the
-	 * `OP_CHECKSEQUENCEVERIFY` delay has passed (as specified by the
-	 * other node's `open_channel` `to_self_delay` field) before spending
-	 * the output.
+	 *       - SHOULD resolve the HTLC-timeout transaction by spending it to
+	 *         a convenient address...
+	 *       - MUST wait until the `OP_CHECKSEQUENCEVERIFY` delay has passed
+	 *         (as specified by the remote node's `open_channel`
+	 *         `to_self_delay` field) before spending that HTLC-timeout
+	 *         output.
 	 */
 	out = new_tracked_output(outs, htlc_txid, tx_blockheight,
 				 (*outs)[out_index]->resolved->tx_type,
@@ -780,9 +781,9 @@ static void resolve_htlc_tx(struct tracked_output ***outs,
 	 * ## HTLC-Timeout and HTLC-Success Transactions
 	 *
 	 * These HTLC transactions are almost identical, except the
-	 * HTLC-Timeout transaction is timelocked.
+	 * HTLC-timeout transaction is timelocked.
 	 *
-	 * ... to collect the output the local node uses an input with
+	 * ... to collect the output, the local node uses an input with
 	 * nSequence `to_self_delay` and a witness stack `<local_delayedsig>
 	 * 0`
 	 */
@@ -797,15 +798,10 @@ static void resolve_htlc_tx(struct tracked_output ***outs,
 
 /* BOLT #5:
  *
- * 5. _B's HTLC-timeout transaction_: The node MUST *resolve* this by
- *    spending using the revocation key.
- */
-/* BOLT #5:
- *
- * 6. _B's HTLC-success transaction_: The node MUST *resolve* this by
- *    spending using the revocation key.  The node SHOULD extract
- *    the payment preimage from the transaction input witness if not
- *    already known.
+ *   - MUST *resolve* the _remote node's HTLC-timeout transaction_ by spending it
+ *     using the revocation private key.
+ *   - MUST *resolve* the _remote node's HTLC-success transaction_ by spending it
+ *     using the revocation private key.
  */
 static void steal_htlc_tx(struct tracked_output *out)
 {
@@ -876,9 +872,15 @@ static void output_spent(struct tracked_output ***outs,
 			 * if it's revoked: */
 			/* BOLT #5:
 			 *
-			 * 6. _B's HTLC-success transaction_: ...  The node
-			 * SHOULD extract the payment preimage from the
-			 * transaction input witness if not already known.
+			 * ## HTLC Output Handling: Local Commitment, Local Offers
+			 *...
+			 *    - MUST extract the payment preimage from the
+			 *      transaction input witness.
+			 *...
+			 * ## HTLC Output Handling: Remote Commitment, Local Offers
+			 *...
+			 *     - MUST extract the payment preimage from the
+			 *       HTLC-success transaction input witness.
 			 */
 			handle_htlc_onchain_fulfill(out, tx);
 			if (out->tx_type == THEIR_REVOKED_UNILATERAL)
@@ -886,11 +888,12 @@ static void output_spent(struct tracked_output ***outs,
 			else {
 				/* BOLT #5:
 				 *
-				 * If the HTLC output is spent using the
-				 * payment preimage, the HTLC output is
-				 * considered *irrevocably resolved*, and the
-				 * node MUST extract the payment preimage from
-				 * the transaction input witness.
+				 * ## HTLC Output Handling: Local Commitment,
+				 *    Local Offers
+				 *...
+				 *  - if the commitment transaction HTLC output
+				 *    is spent using the payment preimage, the
+				 *    output is considered *irrevocably resolved*
 				 */
 				ignore_output(out);
 			}
@@ -937,10 +940,13 @@ static void update_resolution_depth(struct tracked_output *out, u32 depth)
 
 	/* BOLT #5:
 	 *
-	 * If the HTLC output has *timed out* and not been *resolved*,
-	 * the node MUST *resolve* the output and MUST fail the
-	 * corresponding incoming HTLC (if any) once the resolving
-	 * transaction has reached reasonable depth. */
+	 *   - if the commitment transaction HTLC output has *timed out* and
+	 *     hasn't been *resolved*:
+	 *    - MUST *resolve* the output by spending it using the HTLC-timeout
+	 *      transaction.
+	 *    - once the resolving transaction has reached reasonable depth:
+	 *      - MUST fail the corresponding incoming HTLC (if any).
+	 */
 	if ((out->resolved->tx_type == OUR_HTLC_TIMEOUT_TX
 	     || out->resolved->tx_type == OUR_HTLC_TIMEOUT_TO_US)
 	    && reached_reasonable_depth) {
@@ -997,11 +1003,27 @@ static void tx_new_depth(struct tracked_output **outs,
 
 /* BOLT #5:
  *
- * If the node receives (or already knows) a payment preimage for an
- * unresolved HTLC output it was offered for which it has committed to an
- * outgoing HTLC, it MUST *resolve* the output by spending it.  Otherwise, if
- * the other node is not irrevocably committed to the HTLC, it MUST NOT
- * *resolve* the output by spending it.
+ * A local node:
+ *   - if it receives (or already possesses) a payment preimage for an unresolved
+ *   HTLC output that it has been offered AND for which it has committed to an
+ *   outgoing HTLC:
+ *     - MUST *resolve* the output by spending it, using the HTLC-success
+ *     transaction.
+ *     - MUST resolve the output of that HTLC-success transaction.
+ *   - otherwise:
+ *     - if the *remote node* is NOT irrevocably committed to the HTLC:
+ *       - MUST NOT *resolve* the output by spending it.
+ *...
+ * ## HTLC Output Handling: Remote Commitment, Remote Offers
+ *...
+ * A local node:
+ *  - if it receives (or already possesses) a payment preimage for an unresolved
+ *   HTLC output that it was offered AND for which it has committed to an
+ * outgoing HTLC:
+ *     - MUST *resolve* the output by spending it to a convenient address.
+ *   - otherwise:
+ *     - if the remote node is NOT irrevocably committed to the HTLC:
+ *       - MUST NOT *resolve* the output by spending it.
  */
 /* Master makes sure we only get told preimages once other node is committed. */
 static void handle_preimage(struct tracked_output **outs,
@@ -1039,11 +1061,15 @@ static void handle_preimage(struct tracked_output **outs,
 
 		/* BOLT #5:
 		 *
-		 * To spend an offered HTLC output: if the transaction is the
-		 * node's own commitment transaction, then it MUST use the
-		 * HTLC-success transaction, and the HTLC-success transaction
-		 * output MUST be *resolved* as described in "On-chain HTLC
-		 * Transaction Handling"
+		 *
+		 * ## HTLC Output Handling: Local Commitment, Remote Offers
+		 *...
+		 * A local node:
+		 *  - if it receives (or already possesses) a payment preimage
+		 *    for an unresolved HTLC output that it has been offered
+		 *    AND for which it has committed to an outgoing HTLC:
+		 *    - MUST *resolve* the output by spending it, using the
+		 *      HTLC-success transaction.
 		 */
 		if (outs[i]->remote_htlc_sig) {
 			tx = htlc_success_tx(outs[i], &outs[i]->txid,
@@ -1070,8 +1096,16 @@ static void handle_preimage(struct tracked_output **outs,
 
 			/* BOLT #5:
 			 *
-			 * otherwise, it MUST spend the output to a convenient
-			 * address.
+			 * ## HTLC Output Handling: Remote Commitment, Remote
+			 *    Offers
+			 *...
+			 * A local node:
+			 * - if it receives (or already possesses) a payment
+			 *   preimage for an unresolved HTLC output that it was
+			 *   offered AND for which it has committed to an
+			 *   outgoing HTLC:
+			 *    - MUST *resolve* the output by spending it to a
+			 *      convenient address.
 			 */
 			tx = tx_to_us(outs[i], outs[i], 0, 0,
 				      preimage, sizeof(*preimage),
@@ -1086,11 +1120,12 @@ static void handle_preimage(struct tracked_output **outs,
 
 /* BOLT #5:
  *
- * Once a node has broadcast a funding transaction or sent a commitment
- * signature for a commitment transaction which contains an HTLC output,
- * it MUST monitor the blockchain for transactions which spend any output
- * which is not *irrevocably resolved* until all outputs are *irrevocably
- * resolved*.
+ * A node:
+ *  - once it has broadcast a funding transaction OR sent a commitment signature
+ *  for a commitment transaction that contains an HTLC output:
+ *    - until all outputs are *irrevocably resolved*:
+ *      - MUST monitor the blockchain for transactions that spend any output that
+ *      is NOT *irrevocably resolved*.
  */
 static void wait_for_resolved(struct tracked_output **outs)
 {
@@ -1141,8 +1176,9 @@ static void handle_mutual_close(const struct bitcoin_txid *txid,
 	 *
 	 * A mutual close transaction *resolves* the funding transaction output.
 	 *
-	 * A node doesn't need to do anything else as it has already agreed to
-	 * the output, which is sent to its specified `scriptpubkey`
+	 * In the case of a mutual close, a node need not do anything else, as
+	 * it has already agreed to the output, which is sent to its specified
+	 * `scriptpubkey`
 	 */
 	resolved_by_other(outs[0], txid, MUTUAL_CLOSE);
 
@@ -1183,17 +1219,12 @@ static void resolve_our_htlc_ourcommit(struct tracked_output *out)
 
 	/* BOLT #5:
 	 *
-	 * # On-chain HTLC Output Handling: Our Offers
+	 * ## HTLC Output Handling: Local Commitment, Local Offers
 	 * ...
-	 *
-	 * If the HTLC output has *timed out* and not been *resolved*, the
-	 * node MUST *resolve* the output and MUST fail the corresponding
-	 * incoming HTLC (if any) once the resolving transaction has reached
-	 * reasonable depth.  If the transaction is the node's
-	 * own commitment transaction, it MUST *resolve* the output by
-	 * spending it using the HTLC-timeout transaction, and the
-	 * HTLC-timeout transaction output MUST be *resolved* as described in
-	 * "On-chain HTLC Transaction Handling".
+	 *  - if the commitment transaction HTLC output has *timed out* and
+	 *  hasn't been *resolved*:
+	 *    - MUST *resolve* the output by spending it using the HTLC-timeout
+	 *    transaction.
 	 */
 	tx = htlc_timeout_tx(out, &out->txid, out->outnum, out->satoshi * 1000,
 			     out->htlc->cltv_expiry,
@@ -1221,15 +1252,13 @@ static void resolve_our_htlc_theircommit(struct tracked_output *out)
 
 	/* BOLT #5:
 	 *
-	 * # On-chain HTLC Output Handling: Our Offers
+	 * ## HTLC Output Handling: Remote Commitment, Local Offers
 	 * ...
 	 *
-	 * If the HTLC output has *timed out* and not been *resolved*, the
-	 * node MUST *resolve* the output and MUST fail the corresponding
-	 * incoming HTLC (if any) once the resolving transaction has reached
-	 * reasonable depth.  If the transaction is the node's own commitment
-	 * transaction, .... Otherwise it MUST resolve the output by spending
-	 * it to a convenient address.
+	 *   - if the commitment transaction HTLC output has *timed out* AND NOT
+	 *     been *resolved*:
+	 *     - MUST *resolve* the output, by spending it to a convenient
+	 *       address.
 	 */
 	tx = tx_to_us(out, out, 0, out->htlc->cltv_expiry, NULL, 0,
 		      out->wscript,
@@ -1244,10 +1273,9 @@ static void resolve_their_htlc(struct tracked_output *out)
 {
 	/* BOLT #5:
 	 *
-	 * # On-chain HTLC Output Handling: Their Offers
-	 *
+	 * ## HTLC Output Handling: Remote Commitment, Remote Offers
 	 *...
-	 * ## Requirements
+	 * ### Requirements
 	 *...
 	 * If not otherwise resolved, once the HTLC output has expired, it is
 	 * considered *irrevocably resolved*.
@@ -1336,11 +1364,8 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 
 	/* BOLT #5:
 	 *
-	 * There are two cases to consider here: in the first case, node A
-	 * sees its own *commitment transaction*, in the second, it sees the
-	 * node B's unrevoked *commitment transaction*.
-	 *
-	 * Either transaction *resolves* the funding transaction output.
+	 * In this case, a node discovers its *local commitment transaction*,
+	 * which *resolves* the funding transaction output.
 	 */
 	resolved_by_other(outs[0], txid, OUR_UNILATERAL);
 
@@ -1432,15 +1457,6 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			     i, tal_hex(tmpctx, tx->output[i].script));
 	}
 
-	/* BOLT #5:
-	 *
-	 * When node A sees its own *commitment transaction*:
-	 *
-	 * 1. _A's main output_:...
-	 * 2. _B's main output_:...
-	 * 3. _A's offered HTLCs_:...
-	 * 4. _B's offered HTLCs_:...
-	 */
 	for (i = 0; i < tal_count(tx->output); i++) {
 		struct tracked_output *out;
 		int j;
@@ -1452,8 +1468,15 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 
 			/* BOLT #5:
 			 *
-			 * 1. _A's main output_: A node SHOULD spend this
-			 *    output to a convenient address.
+			 * A node:
+			 *   - upon discovering its *local commitment
+			 *   transaction*:
+			 *     - SHOULD spend the `to_local` output to a
+			 *       convenient address.
+			 *     - MUST wait until the `OP_CHECKSEQUENCEVERIFY`
+			 *       delay has passed (as specified by the remote
+			 *       node's `to_self_delay` field) before spending
+			 *       the output.
 			 */
 			out = new_tracked_output(&outs, txid, tx_blockheight,
 						 OUR_UNILATERAL, i,
@@ -1462,9 +1485,10 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 						 NULL, NULL, NULL);
 			/* BOLT #3:
 			 *
-			 * It is spent by a transaction with `nSequence` field
-			 * set to `to_self_delay` (which can only be valid
-			 * after that duration has passed), and witness:
+			 * The output is spent by a transaction with
+			 * `nSequence` field set to `to_self_delay` (which can
+			 * only be valid after that duration has passed) and
+			 * witness:
 			 *
 			 *	<local_delayedsig> 0
 			 */
@@ -1477,8 +1501,9 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 
 			/* BOLT #5:
 			 *
-			 * If the output is spent (as recommended), the output
-			 * is *resolved* by the spending transaction */
+			 * Note: if the output is spent (as recommended), the
+			 * output is *resolved* by the spending transaction
+			 */
 			propose_resolution(out, to_us, to_self_delay[LOCAL],
 					   tx_type);
 
@@ -1489,9 +1514,11 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 		    && scripteq(tx->output[i].script, script[REMOTE])) {
 			/* BOLT #5:
 			 *
-			 * 2. _B's main output_: No action required, this
-			 *    output is considered *resolved* by the
-			 *    *commitment transaction* itself. */
+			 *     - MAY ignore the `to_remote` output.
+			 *       - Note: No action is required by the local
+			 *       node, as `to_remote` is considered *resolved*
+			 *       by the commitment transaction itself.
+			 */
 			out = new_tracked_output(&outs, txid, tx_blockheight,
 						 OUR_UNILATERAL, i,
 						 tx->output[i].amount,
@@ -1512,8 +1539,10 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 		if (htlcs[j].owner == LOCAL) {
 			/* BOLT #5:
 			 *
-			 * 3. _A's offered HTLCs_: See "On-chain HTLC
-			 *    Output Handling: Our Offers" below. */
+			 *     - MUST handle HTLCs offered by itself as specified
+			 *       in [HTLC Output Handling: Local Commitment,
+			 *       Local Offers]
+			 */
 			out = new_tracked_output(&outs, txid,
 						 tx_blockheight,
 						 OUR_UNILATERAL, i,
@@ -1533,8 +1562,10 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 						 remote_htlc_sigs);
 			/* BOLT #5:
 			 *
-			 * 4. _B's offered HTLCs_: See "On-chain HTLC
-			 *    Output Handling: Their Offers" below. */
+			 *     - MUST handle HTLCs offered by the remote node
+			 *     as specified in [HTLC Output Handling: Local
+			 *     Commitment, Remote Offers]
+			 */
 			resolve_their_htlc(out);
 		}
 
@@ -1588,10 +1619,10 @@ static void steal_htlc(struct tracked_output *out)
 
 	/* BOLT #3:
 	 *
-	 * If a revoked commitment transaction is published, the remote node
-	 * can spend this output immediately with the following witness:
+	 * If a revoked commitment transaction is published, the remote node can
+	 * spend this output immediately with the following witness:
 	 *
-	 *     <revocation_sig> <revocationkey>
+	 *     <revocation_sig> <revocationpubkey>
 	 */
 	pubkey_to_der(der, &keyset->self_revocation_key);
 	tx = tx_to_us(out, out, 0xFFFFFFFF, 0,
@@ -1606,8 +1637,10 @@ static void steal_htlc(struct tracked_output *out)
 
 /* BOLT #5:
  *
- * If a node tries to broadcast old state, we can use the revocation key to
- * claim all the funds.
+ * If any node tries to cheat by broadcasting an outdated commitment
+ * transaction (any previous commitment transaction besides the most current
+ * one), the other node in the channel can use its revocation private key to
+ * claim all the funds from the channel's original funding transaction.
  */
 static void handle_their_cheat(const struct bitcoin_tx *tx,
 			       const struct bitcoin_txid *txid,
@@ -1638,8 +1671,8 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 
 	/* BOLT #5:
 	 *
-	 * If a node sees a *commitment transaction* for which it has a
-	 * revocation key, that *resolves* the funding transaction output.
+	 * Once a node discovers a commitment transaction for which *it* has a
+	 * revocation private key, the funding transaction output is *resolved*.
 	 */
 	resolved_by_other(outs[0], txid, THEIR_REVOKED_UNILATERAL);
 
@@ -1750,36 +1783,6 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			     i, tal_hex(tmpctx, tx->output[i].script));
 	}
 
-	/* BOLT #5:
-	 *
-	 * A node MUST resolve all unresolved outputs as follows:
-	 *
-	 * 1. _A's main output_: No action is required; this is a simple
-	 *    P2WPKH output.  This output is considered *resolved* by the
-	 *    *commitment transaction*.
-	 *
-	 * 2. _B's main output_: The node MUST *resolve* this by spending
-	 *    using the revocation key.
-	 *
-	 * 3. _A's offered HTLCs_: The node MUST *resolve* this in one of three
-	 *     ways by spending:
-	 *   * the *commitment tx* using the payment revocation
-	 *   * the *commitment tx* using the payment preimage if known
-	 *   * the *HTLC-timeout tx* if B publishes them
-	 *
-	 * 4. _B's offered HTLCs_: The node MUST *resolve* this in one of two
-	 *     ways by spending:
-	 *   * the *commitment tx* using the payment revocation
-	 *   * the *commitment tx* once the HTLC timeout has passed.
-	 *
-	 * 5. _B's HTLC-timeout transaction_: The node MUST *resolve* this by
-	 *    spending using the revocation key.
-	 *
-	 * 6. _B's HTLC-success transaction_: The node MUST *resolve* this by
-	 *    spending using the revocation key.  The node SHOULD extract
-	 *    the payment preimage from the transaction input witness if not
-	 *    already known.
-	 */
 	for (i = 0; i < tal_count(tx->output); i++) {
 		struct tracked_output *out;
 		int j;
@@ -1788,10 +1791,11 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		    && scripteq(tx->output[i].script, script[LOCAL])) {
 			/* BOLT #5:
 			 *
-			 * 1. _A's main output_: No action is required; this
-			 *    is a simple P2WPKH output.  This output is
-			 *    considered *resolved* by the *commitment
-			 *    transaction* itself.
+			 *   - MAY take no action regarding the _local node's
+			 *     main output_, as this is a simple P2WPKH output
+			 *     to itself.
+			 *     - Note: this output is considered *resolved* by
+			 *       the commitment transaction itself.
 			 */
 			out = new_tracked_output(&outs, txid, tx_blockheight,
 						 THEIR_REVOKED_UNILATERAL,
@@ -1805,8 +1809,9 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		    && scripteq(tx->output[i].script, script[REMOTE])) {
 			/* BOLT #5:
 			 *
-			 * 2. _B's main output_: The node MUST *resolve* this
-			 *    by spending using the revocation key. */
+			 *   - MUST *resolve* the _remote node's main output_ by
+			 *     spending it using the revocation private key.
+			*/
 			out = new_tracked_output(&outs, txid, tx_blockheight,
 						 THEIR_REVOKED_UNILATERAL, i,
 						 tx->output[i].amount,
@@ -1826,12 +1831,14 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		if (htlcs[j].owner == LOCAL) {
 			/* BOLT #5:
 			 *
-			 * 3. _A's offered HTLCs_: The node MUST *resolve* this
-			 *   in one of three ways by spending:
-			 *   * the *commitment tx* using the payment revocation
-			 *   * the *commitment tx* using the payment preimage if
-			 *      known
-			 *   * the *HTLC-timeout tx* if B publishes them
+			 *  - MUST *resolve* the _local node's offered HTLCs_
+			 *    in one of three ways:
+			 *    * spend the *commitment tx* using the payment
+			 *      revocation private key.
+			 *    * spend the *commitment tx* using the payment
+			 *      preimage (if known).
+			 *    * spend the *HTLC-timeout tx*, if the remote node
+			 *      has published it.
 			 */
 			out = new_tracked_output(&outs, txid,
 						 tx_blockheight,
@@ -1851,12 +1858,12 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 						 NULL);
 			/* BOLT #5:
 			 *
-			 * 4. _B's offered HTLCs_: The node MUST *resolve*
-			 *     this in one of two ways by spending:
-			 *
-			 *   * the *commitment tx* using the payment revocation
-			 *   * the *commitment tx* once the HTLC timeout has
-			 *     passed.
+			 *  - MUST *resolve* the _remote node's offered HTLCs_
+			 *    in one of two ways:
+			 *     * spend the *commitment tx* using the payment
+			 *       revocation key.
+			 *     * spend the *commitment tx* once the HTLC timeout
+			 *       has passed.
 			 */
 			steal_htlc(out);
 		}
@@ -1894,11 +1901,15 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 
 	/* BOLT #5:
 	 *
-	 * There are two cases to consider here: in the first case, node A
-	 * sees its own *commitment transaction*, in the second, it sees the
-	 * node B's unrevoked *commitment transaction*.
+	 * # Unilateral Close Handling: Remote Commitment Transaction
 	 *
-	 * Either transaction *resolves* the funding transaction output.
+	 * The *remote node's* commitment transaction *resolves* the funding
+	 * transaction output.
+	 *
+	 * There are no delays constraining node behavior in this case, so
+	 * it's simpler for a node to handle than the case in which it
+	 * discovers its local commitment transaction (see [Unilateral Close
+	 * Handling: Local Commitment Transaction]
 	 */
 	resolved_by_other(outs[0], txid, THEIR_UNILATERAL);
 
@@ -2000,15 +2011,6 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			     i, tal_hex(tmpctx, tx->output[i].script));
 	}
 
-	/* BOLT #5:
-	 *
-	 * Similarly, when node A sees a *commitment transaction* from B:
-	 *
-	 * 1. _A's main output_:...
-	 * 2. _B's main output_:...
-	 * 3. _A's offered HTLCs_:...
-	 * 4. _B's offered HTLCs_:...
-	 */
 	for (i = 0; i < tal_count(tx->output); i++) {
 		struct tracked_output *out;
 		int j;
@@ -2017,10 +2019,11 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		    && scripteq(tx->output[i].script, script[LOCAL])) {
 			/* BOLT #5:
 			 *
-			 * 1. _A's main output_: No action is required; this
-			 *    is a simple P2WPKH output.  This output is
-			 *    considered *resolved* by the *commitment
-			 *    transaction* itself.
+			 * - MAY take no action in regard to the associated
+			 *   `to_remote`, which is simply a P2WPKH output to
+			 *   the *local node*.
+			 *   - Note: `to_remote` is considered *resolved* by the
+			 *     commitment transaction itself.
 			 */
 			out = new_tracked_output(&outs, txid, tx_blockheight,
 						 THEIR_UNILATERAL,
@@ -2042,9 +2045,12 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		    && scripteq(tx->output[i].script, script[REMOTE])) {
 			/* BOLT #5:
 			 *
-			 * 2. _B's main output_: No action required, this
-			 *    output is considered *resolved* by the
-			 *    *commitment transaction* itself. */
+			 * - MAY take no action in regard to the associated
+			 *  `to_local`, which is a payment output to the *remote
+			 *   node*.
+			 *   - Note: `to_local` is considered *resolved* by the
+			 *     commitment transaction itself.
+			 */
 			out = new_tracked_output(&outs, txid, tx_blockheight,
 						 THEIR_UNILATERAL, i,
 						 tx->output[i].amount,
@@ -2062,8 +2068,10 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		if (htlcs[j].owner == LOCAL) {
 			/* BOLT #5:
 			 *
-			 * 3. _A's offered HTLCs_: See "On-chain HTLC Output
-			 *    Handling: Our Offers" below. */
+			 * - MUST handle HTLCs offered by itself as specified in
+			 *   [HTLC Output Handling: Remote Commitment,
+			 *   Local Offers]
+			 */
 			out = new_tracked_output(&outs, txid,
 						 tx_blockheight,
 						 THEIR_UNILATERAL, i,
@@ -2082,8 +2090,10 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 						 NULL);
 			/* BOLT #5:
 			 *
-			 * 4. _B's offered HTLCs_: See "On-chain HTLC Output
-			 *    Handling: Their Offers" below. */
+			 * - MUST handle HTLCs offered by the remote node as
+			 *   specified in [HTLC Output Handling: Remote
+			 *   Commitment, Remote Offers]
+			 */
 			resolve_their_htlc(out);
 		}
 		htlc_scripts[j] = NULL;
@@ -2192,11 +2202,11 @@ int main(int argc, char *argv[])
 	 *
 	 * There are three ways a channel can end:
 	 *
-	 * 1. The good way (*mutual close*): at some point A and B agree on
-	 *    closing the channel, they generate a *closing transaction*
-	 *    (which is similar to a *commitment transaction* without any
-	 *    pending payments), and publish it on the blockchain (see [BOLT
-	 *    #2: Channel Close](02-peer-protocol.md#channel-close)).
+	 * 1. The good way (*mutual close*): at some point the local and
+	 * remote nodes agree to close the channel. They generate a *closing
+	 * transaction* (which is similar to a commitment transaction, but
+	 * without any pending payments) and publish it on the blockchain (see
+	 * [BOLT #2: Channel Close](02-peer-protocol.md#channel-close)).
 	 */
 	if (is_mutual_close(tx, scriptpubkey[LOCAL], scriptpubkey[REMOTE]))
 		handle_mutual_close(&txid, outs);
@@ -2204,9 +2214,9 @@ int main(int argc, char *argv[])
 		/* BOLT #5:
 		 *
 		 * 2. The bad way (*unilateral close*): something goes wrong,
-		 *    without necessarily any evil intent on either side
-		 *    (maybe one party crashed, for instance). Anyway, one
-		 *    side publishes its latest *commitment transaction*.
+		 *    possibly without evil intent on either side. Perhaps one
+		 *    party crashed, for instance. One side publishes its
+		 *    *latest commitment transaction*.
 		 */
 		struct sha256 revocation_preimage;
 		u64 commit_num = unmask_commit_number(tx, funder,
@@ -2235,9 +2245,9 @@ int main(int argc, char *argv[])
 		/* BOLT #5:
 		 *
 		 * 3. The ugly way (*revoked transaction close*): one of the
-		 *    parties deliberately tries to cheat by publishing an
-		 *    outdated version of its *commitment transaction*
-		 *    (presumably one that was more in her favor).
+		 * parties deliberately tries to cheat, by publishing an
+		 * *outdated commitment transaction* (presumably, a prior
+		 * version, which is more in its favor).
 		 */
 		else if (shachain_get_hash(&shachain,
 					   shachain_index(commit_num),
@@ -2258,12 +2268,12 @@ int main(int argc, char *argv[])
 					   outs);
 		/* BOLT #5:
 		 *
-		 * Note that there can be more than one valid,
-		 * unrevoked *commitment transaction* after a
-		 * signature has been received via `commitment_signed`
-		 * and before the corresponding `revoke_and_ack`.
-		 * Either commitment can serve as B's *commitment
-		 * transaction*, hence the requirement to handle both.
+		 * There may be more than one valid, *unrevoked* commitment
+		 * transaction after a signature has been received via
+		 * `commitment_signed` and before the corresponding
+		 * `revoke_and_ack`. As such, either commitment may serve as
+		 * the *remote node's* commitment transaction; hence, the
+		 * local node is required to handle both.
 		 */
 		} else if (commit_num == revocations_received(&shachain)) {
 			status_trace("Their unilateral tx, old commit point");
