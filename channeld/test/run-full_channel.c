@@ -350,24 +350,23 @@ int main(void)
 	 * # Appendix C: Commitment and HTLC Transaction Test Vectors
 	 *
 	 * In the following:
-	 * - we consider *local* transactions, which implies that all payments
-         *    to *local* are delayed
-	 * - we assume that *local* is the funder
-	 * - private keys are displayed as 32 bytes plus a trailing 1
-         *    (bitcoin's convention for "compressed" private keys, i.e. keys
-         *    for which the public key is compressed)
+	 *  - *local* transactions are considered, which implies that all
+	 *    payments to *local* are delayed.
+	 *  - It's assumed that *local* is the funder.
+	 *  - Private keys are displayed as 32 bytes plus a trailing 1
+	 *    (Bitcoin's convention for "compressed" private keys, i.e. keys for
+	 *    which the public key is compressed).
+	 *  - Transaction signatures are all deterministic, using RFC6979 (using
+	 *    HMAC-SHA256).
 	 *
-	 * - transaction signatures are all deterministic, using
-         *    RFC6979 (using HMAC-SHA256)
-	 *
-	 * We start by defining common basic parameters for each test vector:
+	 * To start, common basic parameters for each test vector are defined:
 	 * the HTLCs are not used for the first "simple commitment tx with no
 	 * HTLCs" test.
 	 *
 	 *     funding_tx_id: 8984484a580b825b9972d7adb15050b3ab624ccd731946b3eeddb92f4e7ef6be
 	 *     funding_output_index: 0
 	 *     funding_amount_satoshi: 10000000
-	 *...
+	 *     commitment_number: 42
 	 *     local_delay: 144
 	 *     local_dust_limit_satoshi: 546
 	 */
@@ -469,10 +468,10 @@ int main(void)
 	 */
 	local_per_commitment_point = pubkey_from_hex("025f7117a78150fe2ef97db7cfc83bd57b2e2c0d0dd25eaf467a4a1c2a45ce1486");
 	/* BOLT #3:
-	 * localkey: 030d417a46946384f88d5f3337267c5e579765875dc4daca813e21734b140639e7
-	 * remotekey: 0394854aa6eab5b2a8122cc726e9dded053a2184d88256816826d6231c068d4a5b
-	 * local_delayedkey: 03fd5960528dc152014952efdb702a88f71e3c1653b2314431701ec77e57fde83c
-	 * local_revocation_key: 0212a140cd0c6539d07cd08dfe09984dec3251ea808b892efeac3ede9402bf2b19
+	 * localpubkey: 030d417a46946384f88d5f3337267c5e579765875dc4daca813e21734b140639e7
+	 * remotepubkey: 0394854aa6eab5b2a8122cc726e9dded053a2184d88256816826d6231c068d4a5b
+	 * local_delayedpubkey: 03fd5960528dc152014952efdb702a88f71e3c1653b2314431701ec77e57fde83c
+	 * local_revocation_pubkey: 0212a140cd0c6539d07cd08dfe09984dec3251ea808b892efeac3ede9402bf2b19
 	 */
 	keyset.self_payment_key = pubkey_from_hex("030d417a46946384f88d5f3337267c5e579765875dc4daca813e21734b140639e7");
 	keyset.other_payment_key = pubkey_from_hex("0394854aa6eab5b2a8122cc726e9dded053a2184d88256816826d6231c068d4a5b");
@@ -507,7 +506,7 @@ int main(void)
 
 	/* BOLT #3:
 	 *
-	 *    name: commitment tx with all 5 HTLCs untrimmed (minimum feerate)
+	 *    name: commitment tx with all five HTLCs untrimmed (minimum feerate)
 	 *    to_local_msat: 6988000000
 	 *    to_remote_msat: 3000000000
 	 *    local_feerate_per_kw: 0
