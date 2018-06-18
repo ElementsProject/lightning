@@ -16,7 +16,8 @@ RUN apk add --no-cache \
      git \
      file \
      gnupg \
-     swig
+     swig \
+     zlib-dev
 
 WORKDIR /opt
 
@@ -59,7 +60,7 @@ WORKDIR /opt/lightningd
 COPY . .
 
 ARG DEVELOPER=0
-RUN make -j3 DEVELOPER=${DEVELOPER} && cp lightningd/lightning* cli/lightning-cli /usr/bin/
+RUN ./configure && make -j3 && cp lightningd/lightning* cli/lightning-cli /usr/bin/
 
 FROM alpine:3.7
 
@@ -68,7 +69,8 @@ RUN apk add --no-cache \
      sqlite-dev \
      inotify-tools \
      socat \
-     bash
+     bash \
+     zlib-dev
 
 ARG TRACE_TOOLS=false
 ENV TRACE_TOOLS=$TRACE_TOOLS
@@ -105,8 +107,6 @@ RUN apk add --update curl && \
 
 ENV LIGHTNINGD_DATA=/root/.lightning
 ENV LIGHTNINGD_PORT=9835
-ARG DEVELOPER=0
-ENV DEVELOPER=$DEVELOPER
 
 RUN mkdir $LIGHTNINGD_DATA && \
     touch $LIGHTNINGD_DATA/config
