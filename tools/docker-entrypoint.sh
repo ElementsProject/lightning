@@ -31,7 +31,7 @@ if [ "$CHAIN" == "ltc" ]; then
     fi
 fi
 
-if [ "$TRACE_TOOLS" ]; then
+if [[ $TRACE_TOOLS == "true" ]]; then
 echo "Trace tools detected, installing sample.sh..."
 echo 0 > /proc/sys/kernel/kptr_restrict
 echo "
