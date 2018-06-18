@@ -998,6 +998,7 @@ static void json_sendpay(struct command *cmd,
 	size_t n_hops;
 	struct sha256 *rhash;
 	struct route_hop *route;
+	struct payment_route_data payment_route_data;
 	u64 *msatoshi;
 	const char *description;
 
@@ -1036,6 +1037,8 @@ static void json_sendpay(struct command *cmd,
 		n_hops++;
 	}
 
+	route_to_payment_route_data(cmd->ld, route, &payment_route_data);
+
 	if (n_hops == 0) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Empty route");
 		return;
@@ -1056,7 +1059,8 @@ static void json_sendpay(struct command *cmd,
 		}
 	}
 
-	if (send_payment(cmd, cmd->ld, rhash, route,
+	if (send_payment_custom_route_data(cmd, cmd->ld, rhash,
+			payment_route_data, route,
 			 msatoshi ? *msatoshi : route[n_hops-1].amount,
 			 description,
 			 &json_sendpay_on_resolve, cmd))
