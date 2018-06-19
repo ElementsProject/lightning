@@ -17,6 +17,7 @@
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
+#include <string.h>
 
 /*-----------------------------------------------------------------------------
 Internal sendpay interface
@@ -995,7 +996,7 @@ static void json_sendpay(struct command *cmd,
 {
 	const jsmntok_t *routetok;
 	const jsmntok_t *t, *end;
-	size_t n_hops;
+	size_t i, n_hops;
 	struct sha256 *rhash;
 	struct route_hop *route;
 	struct payment_route_data payment_route_data;
@@ -1014,17 +1015,22 @@ static void json_sendpay(struct command *cmd,
 	n_hops = 0;
 	route = tal_arr(cmd, struct route_hop, n_hops);
 
+	/* First pass through the route input */
 	for (t = routetok + 1; t < end; t = json_next(t)) {
 		u64 *amount;
 		struct pubkey *id;
 		struct short_channel_id *channel;
 		unsigned *delay;
+		unsigned *realm;
+		const char *data;
 
 		if (!param(cmd, buffer, t,
 			   p_req("msatoshi", json_tok_u64, &amount),
 			   p_req("id", json_tok_pubkey, &id),
 			   p_req("delay", json_tok_number, &delay),
 			   p_req("channel", json_tok_short_channel_id, &channel),
+			   p_opt("realm", json_tok_number, &realm),
+			   p_opt("data", json_tok_string, &data),
 			   NULL))
 			return;
 
@@ -1037,11 +1043,55 @@ static void json_sendpay(struct command *cmd,
 		n_hops++;
 	}
 
-	route_to_payment_route_data(cmd->ld, route, &payment_route_data);
-
 	if (n_hops == 0) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Empty route");
 		return;
+	}
+
+	/* Default (realm = 0) realm / hop_data, and other route data */
+	route_to_payment_route_data(cmd->ld, route, &payment_route_data);
+
+	/* Second pass through the route input, to override realm / hop_data */
+	for (i=0, t = routetok + 1; t < end; i++, t = json_next(t)) {
+		u64 *amount;
+		struct pubkey *id;
+		struct short_channel_id *channel;
+		unsigned *delay;
+		unsigned *realm;
+		const char *data;
+
+		//FIXME: ugly repetition of what was already done in the first pass.
+		if (!param(cmd, buffer, t,
+			   p_req("msatoshi", json_tok_u64, &amount),
+			   p_req("id", json_tok_pubkey, &id),
+			   p_req("delay", json_tok_number, &delay),
+			   p_req("channel", json_tok_short_channel_id, &channel),
+			   p_opt("realm", json_tok_number, &realm),
+			   p_opt("data", json_tok_string, &data),
+			   NULL))
+			return;
+
+		if (realm) {
+			if (*realm > 0xff) {
+				command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "Route %zu invalid realm",
+				     i);
+				return;
+			}
+			payment_route_data.hop_data[i].realm = *realm;
+		}
+
+		if (data) {
+			if (!hex_decode(data,
+					strlen(data),
+					payment_route_data.hop_data[i].per_hop_data,
+					sizeof(payment_route_data.hop_data[i].per_hop_data))) {
+				command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "Route %zu invalid data",
+				     i);
+				return;
+			}
+		}
 	}
 
 	/* The given msatoshi is the actual payment that the payee is
