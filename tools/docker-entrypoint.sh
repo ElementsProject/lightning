@@ -70,7 +70,7 @@ fi
 
 if [ "$EXPOSE_TCP" == "true" ]; then
     set -m
-    lightningd &
+    lightningd "$@" &
     echo "C-Lightning starting"
     while read -r i; do if [ "$i" = "lightning-rpc" ]; then break; fi; done \
     < <(inotifywait  -e create,open --format '%f' --quiet "$LIGHTNINGD_DATA" --monitor)
@@ -80,5 +80,5 @@ if [ "$EXPOSE_TCP" == "true" ]; then
 
     fg %-
 else
-    lightningd
+    lightningd "$@"
 fi
