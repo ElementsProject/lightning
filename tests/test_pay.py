@@ -777,6 +777,13 @@ def test_forward(node_factory, bitcoind):
     with pytest.raises(RpcError):
         l1.rpc.waitsendpay(rhash)
 
+    # Unknown realm
+    route = copy.deepcopy(baseroute)
+    route[0]['realm'] = 255
+    l1.rpc.sendpay(route, rhash)
+    with pytest.raises(ValueError):
+        l1.rpc.waitsendpay(rhash)
+
     # Delay too short (we always add one internally anyway, so subtract 2 here).
     route = copy.deepcopy(baseroute)
     route[0]['delay'] = 8
