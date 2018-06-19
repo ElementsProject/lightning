@@ -962,7 +962,7 @@ static void json_sendpay(struct command *cmd,
 	jsmntok_t *routetok, *rhashtok;
 	jsmntok_t *msatoshitok;
 	const jsmntok_t *t, *end;
-	size_t n_hops;
+	size_t i, n_hops;
 	struct sha256 rhash;
 	struct route_hop *route;
 	struct route_data route_data;
@@ -998,6 +998,7 @@ static void json_sendpay(struct command *cmd,
 	n_hops = 0;
 	route = tal_arr(cmd, struct route_hop, n_hops);
 
+	/* First pass through the route input */
 	for (t = routetok + 1; t < end; t = json_next(t)) {
 		const jsmntok_t *amttok, *idtok, *delaytok, *chantok;
 
@@ -1049,11 +1050,49 @@ static void json_sendpay(struct command *cmd,
 		n_hops++;
 	}
 
-	route_data = route_to_route_data(cmd->ld, route);
-
 	if (n_hops == 0) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Empty route");
 		return;
+	}
+
+	/* Default (realm = 0) realm / hop_data, and other route data */
+	route_data = route_to_route_data(cmd->ld, route);
+
+	/* Second pass through the route input, to override realm / hop_data */
+	for (i=0, t = routetok + 1; t < end; i++, t = json_next(t)) {
+		const jsmntok_t *datatok, *realmtok;
+
+		/*
+		No need to check that t->type != JSMN_OBJECT:
+		that was already done in the first pass.
+		*/
+
+		realmtok = json_get_member(buffer, t, "realm");
+		datatok = json_get_member(buffer, t, "data");
+
+		if (realmtok) {
+			unsigned int realm;
+			if (!json_tok_number(buffer, realmtok, &realm) ||
+					realm > 0xff) {
+				command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "Route %zu invalid realm",
+				     i);
+				return;
+			}
+			route_data.hop_data[i].realm = realm;
+		}
+
+		if (datatok) {
+			if (!hex_decode(buffer + datatok->start,
+					datatok->end - datatok->start,
+					route_data.hop_data[i].per_hop_data,
+					sizeof(route_data.hop_data[i].per_hop_data))) {
+				command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "Route %zu invalid data",
+				     i);
+				return;
+			}
+		}
 	}
 
 	if (msatoshitok) {
