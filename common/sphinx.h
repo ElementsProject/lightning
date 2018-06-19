@@ -81,9 +81,8 @@ struct route_step {
  *
  * @ctx: tal context to allocate from
  * @path: public keys of nodes along the path.
- * @hoppayloads: payloads destined for individual hosts (limited to
- *    HOP_PAYLOAD_SIZE bytes)
- * @num_hops: path length in nodes
+ * @hops_data: data destined for individual hosts.
+ *    hops_data[..].hmac will be filled in by this function.
  * @sessionkey: 32 byte random session key to derive secrets from
  * @assocdata: associated data to commit to in HMACs
  * @assocdatalen: length of the assocdata
