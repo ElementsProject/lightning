@@ -3047,6 +3047,12 @@ class LightningDTests(BaseLightningDTests):
                       'delay': 6,
                       'channel': chanid2}]
 
+        # Unknown realm
+        route = copy.deepcopy(baseroute)
+        route[1]['realm'] = 255
+        l1.rpc.sendpay(to_json(route), rhash)
+        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
+
         # Unknown other peer
         route = copy.deepcopy(baseroute)
         route[1]['id'] = '031a8dc444e41bb989653a4501e11175a488a57439b0c4947704fd6e3de5dca607'
