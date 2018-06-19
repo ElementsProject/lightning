@@ -3,6 +3,9 @@
 #include <ccan/tal/path/path.h>
 #include <fcntl.h>
 #include <lightningd/app_connection.h>
+#include <lightningd/channel.h>
+#include <lightningd/htlc_end.h>
+#include <lightningd/log.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -77,6 +80,9 @@ void handle_app_payment(
 {
 	int pid;
 	int msgfd;
+
+	log_debug(hin->key.channel->log, "Trying to run app script for realm %d",
+		  rs->hop_data.realm);
 
 	/* FIXME: use sensible directory and command name */
 	pid = start_cmd(".", "app_connection", &msgfd);
