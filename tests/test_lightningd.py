@@ -204,7 +204,7 @@ class NodeFactory(object):
                 'valgrind',
                 '-q',
                 '--trace-children=yes',
-                '--trace-children-skip=*bitcoin-cli*',
+                '--trace-children-skip=*bitcoin-cli*,*handle_realm_*',
                 '--error-exitcode=7',
                 '--log-file={}/valgrind-errors.%p'.format(node.daemon.lightning_dir)
             ]
@@ -5004,6 +5004,45 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('Forgetting channel: It has been {} blocks'.format(blocks))
         # fundee will also forget and disconnect from peer.
         assert len(l2.rpc.listpeers(l1.info['id'])['peers']) == 0
+
+    def test_app_connection(self):
+        l1, l2 = self.connect()
+        self.fund_channel(l1, l2, 10**6)
+
+        # Allow announce messages.
+        l1.bitcoin.generate_block(5)
+
+        # If they're at different block heights we can get spurious errors.
+        sync_blockheight([l1, l2])
+
+        chanid1 = l1.rpc.getpeer(l2.info['id'])['channels'][0]['short_channel_id']
+        assert l2.rpc.getpeer(l1.info['id'])['channels'][0]['short_channel_id'] == chanid1
+
+        rhash = l2.rpc.invoice(100000000, 'testpayment1', 'desc')['payment_hash']
+        assert l2.rpc.listinvoices('testpayment1')['invoices'][0]['status'] == 'unpaid'
+
+        # Fee for node2 is 10 millionths, plus 1.
+        amt = 100000000
+        fee = amt * 10 // 1000000 + 1
+
+        route = [{'msatoshi': amt + fee,
+                      'id': l2.info['id'],
+                      'delay': 12,
+                      'channel': chanid1,
+                      'realm': 254}]
+
+        def enableScript(scriptFile):
+            ownpath = os.path.abspath(os.path.dirname(__file__))
+            destination = os.path.join(l2.daemon.lightning_dir, 'handle_realm_254')
+            shutil.copy(
+                os.path.join(ownpath, 'app_scripts', scriptFile),
+                destination
+                )
+            os.chmod(destination, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+
+        enableScript('fail.py')
+        l1.rpc.sendpay(to_json(route), rhash)
+        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
 
 
 if __name__ == '__main__':
