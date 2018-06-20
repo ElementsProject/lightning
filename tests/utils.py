@@ -241,8 +241,7 @@ class BitcoinD(TailableProc):
             '-nolisten',
         ]
         BITCOIND_CONFIG['rpcport'] = rpcport
-        btc_conf_file = os.path.join(regtestdir, 'bitcoin.conf')
-        write_config(os.path.join(bitcoin_dir, 'bitcoin.conf'), BITCOIND_CONFIG)
+        btc_conf_file = os.path.join(bitcoin_dir, 'bitcoin.conf')
         write_config(btc_conf_file, BITCOIND_CONFIG)
         self.rpc = SimpleBitcoinProxy(btc_conf_file=btc_conf_file)
 
