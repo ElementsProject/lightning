@@ -108,6 +108,10 @@ bool per_commit_point(const struct sha256 *shaseed UNNEEDED,
 void status_failed(enum status_failreason code UNNEEDED,
 		   const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "status_failed called!\n"); abort(); }
+/* Generated stub for status_fmt */
+void status_fmt(enum log_level level UNNEEDED, const char *fmt UNNEEDED, ...)
+
+{ fprintf(stderr, "status_fmt called!\n"); abort(); }
 /* Generated stub for status_setup_sync */
 void status_setup_sync(int fd UNNEEDED)
 { fprintf(stderr, "status_setup_sync called!\n"); abort(); }

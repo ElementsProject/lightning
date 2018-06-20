@@ -36,7 +36,7 @@ enum tx_type {
 	OUR_PENALTY_TX,
 
 	/* Amount too small, we're just spending it to close UTXO */
-	DONATING_TO_MINERS,
+	IGNORING_TINY_PAYMENT,
 
 	/* Special type for marking outputs as resolved by self. */
 	SELF,
