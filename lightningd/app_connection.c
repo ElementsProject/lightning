@@ -21,6 +21,8 @@ enum app_result_type {
 	APP_NOT_FORWARDED = 1,
 	/* It is unknown whether the app forwarded the payment. */
 	APP_UNKNOWN = 2,
+	/* The app could not be run. */
+	APP_NOT_RUN = 3,
 };
 
 static bool move_fd(int from, int to)
@@ -88,7 +90,7 @@ static int start_cmd(const char *dir, const char *name, int *msgfd, int *resultf
 		execv(args[0], args);
 
 	child_fail:
-		result = APP_NOT_FORWARDED;
+		result = APP_NOT_RUN;
 		write(childresult[1], &result, 1);
 		exit(127);
 	}
@@ -125,15 +127,13 @@ void handle_app_payment(
 	char *configdir = ld->config_dir;
 	char *command = tal_fmt(tmpctx, "handle_realm_%d", rs->hop_data.realm);
 
-	log_debug(log, "Trying to run app script \"%s\"", command);
+	log_debug(log, "Trying to run app command \"%s\"", command);
 	pid = start_cmd(configdir, command, &msgfd, &resultfd);
 
 	if (pid < 0) {
-		log_unusual(log,
-			"Received an incoming transaction with realm %d, but the app script \"%s\" could not be run from directory \"%s\".",
-			rs->hop_data.realm, command, configdir);
+		log_unusual(log, "Failed to fork - app script not run");
 		/* No command was started */
-		result = APP_NOT_FORWARDED;
+		result = APP_NOT_RUN;
 	}
 
 	/* FIXME: write data to msgfd */
@@ -149,9 +149,19 @@ void handle_app_payment(
 	waitpid(pid, NULL, 0);
 	//FIXME: log nonzero exit status
 
-	if (result == APP_NOT_FORWARDED) {
+	switch(result)
+	{
+	case APP_NOT_FORWARDED:
+		log_debug(log, "App command failed to forward the payment");
+		/* FIXME: other failcode: it's not the realm that is invalid */
 		*failcode = WIRE_INVALID_REALM;
-	} else {
+		break;
+	case APP_NOT_RUN:
+		log_debug(log, "Failed to run command \"%s\" from directory \"%s\"",
+			command, configdir);
+		*failcode = WIRE_INVALID_REALM;
+		break;
+	case APP_UNKNOWN:
 		/*
 		We can *only* safely reject the incoming HTLC if we are sure the
 		command did not forward the payment.
@@ -163,7 +173,12 @@ void handle_app_payment(
 		instruct lightningd to remove the incoming HTLC.
 		For now, however, we must accept it unconditionally.
 		*/
+		log_unusual(log, "App command did not report whether it forwarded the payment; keeping the incoming HTLC for now");
 		*failcode = 0;
+		break;
+	case APP_FORWARDED:
+		*failcode = 0;
+		break;
 	}
 }
 
