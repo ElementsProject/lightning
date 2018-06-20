@@ -132,8 +132,11 @@ void handle_app_payment(
 
 	if (pid < 0) {
 		log_unusual(log, "Failed to fork - app script not run");
+		close_noerr(msgfd);
+		close_noerr(resultfd);
 		/* No command was started */
 		result = APP_NOT_RUN;
+		goto end;
 	}
 
 	/* FIXME: write data to msgfd */
@@ -149,6 +152,7 @@ void handle_app_payment(
 	waitpid(pid, NULL, 0);
 	//FIXME: log nonzero exit status
 
+end:
 	switch(result)
 	{
 	case APP_NOT_FORWARDED:
