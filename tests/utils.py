@@ -24,6 +24,7 @@ LIGHTNINGD_CONFIG = {
     "cltv-final": 5,
     "watchtime-blocks": 5,
     "rescan": 1,
+    'disable-dns': None,
 }
 
 DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
