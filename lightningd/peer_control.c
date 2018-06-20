@@ -2,6 +2,7 @@
 #include "peer_control.h"
 #include "subd.h"
 #include <arpa/inet.h>
+#include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
