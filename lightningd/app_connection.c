@@ -156,7 +156,7 @@ end:
 	switch(result)
 	{
 	case APP_NOT_FORWARDED:
-		log_debug(log, "App command failed to forward the payment");
+		log_debug(log, "App command reported failure to forward the payment");
 		/* FIXME: other failcode: it's not the realm that is invalid */
 		*failcode = WIRE_INVALID_REALM;
 		break;
@@ -181,6 +181,7 @@ end:
 		*failcode = 0;
 		break;
 	case APP_FORWARDED:
+		log_debug(log, "App command reported successful forward of the payment");
 		*failcode = 0;
 		break;
 	}
