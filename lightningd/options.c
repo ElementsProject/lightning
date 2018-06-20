@@ -409,6 +409,9 @@ static void config_register_opts(struct lightningd *ld)
 			       opt_set_bool_arg, opt_show_bool,
 			       &ld->use_proxy_always, "Use the proxy always");
 
+	opt_register_noarg("--disable-dns", opt_set_invbool, &ld->config.use_dns,
+			   "Disable DNS lookups of peers");
+
 #if DEVELOPER
 	opt_register_arg("--dev-max-funding-unconfirmed-blocks",
 			 opt_set_u32, opt_show_u32,
@@ -529,6 +532,8 @@ static const struct config testnet_config = {
 
 	/* Fees may be in the range our_fee - 10*our_fee */
 	.max_fee_multiplier = 10,
+
+	.use_dns = true,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -590,6 +595,8 @@ static const struct config mainnet_config = {
 
 	/* Fees may be in the range our_fee - 10*our_fee */
 	.max_fee_multiplier = 10,
+
+	.use_dns = true,
 };
 
 static void check_config(struct lightningd *ld)
