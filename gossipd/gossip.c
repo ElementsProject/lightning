@@ -170,6 +170,8 @@ struct daemon {
 	bool use_proxy_always;
 	char *tor_password;
 
+	/* @see lightningd.config.use_dns */
+	bool use_dns;
 };
 
 /* Peers we're trying to reach. */
@@ -2836,7 +2838,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 		&daemon->proposed_listen_announce, daemon->rgb,
 		daemon->alias, &update_channel_interval, &daemon->reconnect,
 		&proxyaddr, &daemon->use_proxy_always,
-		&dev_allow_localhost,
+		&dev_allow_localhost, &daemon->use_dns,
 		&daemon->tor_password)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
