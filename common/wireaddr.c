@@ -290,6 +290,7 @@ static bool separate_address_and_port(const tal_t *ctx, const char *arg,
 
 bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
 			    const u16 port, bool *no_dns,
+			    struct sockaddr *broken_reply,
 			    const char **err_msg)
 {
 	struct sockaddr_in6 *sa6;
@@ -342,6 +343,12 @@ bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
 			*err_msg = gai_strerror(gai_err);
 		return false;
 	}
+
+	if (broken_reply != NULL && memeq(addrinfo->ai_addr, addrinfo->ai_addrlen, broken_reply, tal_len(broken_reply))) {
+		res = false;
+		goto cleanup;
+	}
+
 	/* Use only the first found address */
 	if (addrinfo->ai_family == AF_INET) {
 		sa4 = (struct sockaddr_in *) addrinfo->ai_addr;
@@ -353,6 +360,7 @@ bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
 		res = true;
 	}
 
+cleanup:
 	/* Clean up */
 	freeaddrinfo(addrinfo);
 	return res;
@@ -392,7 +400,7 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 defport,
 
 	/* Resolve with getaddrinfo */
 	if (!res)
-		res = wireaddr_from_hostname(addr, ip, port, no_dns, err_msg);
+		res = wireaddr_from_hostname(addr, ip, port, no_dns, NULL, err_msg);
 
 finish:
 	if (!res && err_msg && !*err_msg)
