@@ -1,3 +1,4 @@
+#include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/mem/mem.h>
@@ -274,13 +275,31 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 			 + 1 + 3 + 73 + 0 + tal_len(wscript))
 		/ 1000;
 
-	/* Result is trivial?  Spent to OP_RETURN to avoid leaving dust. */
+	/* Result is trivial?  Spend with small feerate, but don't wait
+	 * around for it as it might not confirm. */
 	if (tx->output[0].amount < dust_limit_satoshis + fee) {
-		tx->output[0].amount = 0;
-		tx->output[0].script = scriptpubkey_opreturn(tx->output);
-		*tx_type = DONATING_TO_MINERS;
-	} else
-		tx->output[0].amount -= fee;
+		/* FIXME: We should use SIGHASH_NONE so others can take it */
+		fee = feerate_floor() * (measure_tx_weight(tx)
+				       + 1 + 3 + 73 + 0 + tal_len(wscript))
+			/ 1000;
+		/* This shouldn't happen (we don't set feerate below floor!),
+		 * but just in case. */
+		if (tx->output[0].amount < dust_limit_satoshis + fee) {
+			fee = tx->output[0].amount - dust_limit_satoshis;
+			status_broken("TX %s can't afford minimal feerate"
+				      "; setting fee to %"PRIu64,
+				      tx_type_name(*tx_type),
+				      fee);
+		} else
+			status_unusual("TX %s amount %"PRIu64" too small to"
+				       " pay reasonable fee, using minimal fee"
+				       " and ignoring",
+				       tx_type_name(*tx_type),
+				       out->satoshi);
+
+		*tx_type = IGNORING_TINY_PAYMENT;
+	}
+	tx->output[0].amount -= fee;
 
 	sign_tx_input(tx, 0, NULL, wscript, privkey, pubkey, &sig);
 	tx->input[0].witness = bitcoin_witness_sig_and_element(tx->input,
@@ -361,6 +380,13 @@ static void proposal_meets_depth(struct tracked_output *out)
 	wire_sync_write(REQ_FD,
 			take(towire_onchain_broadcast_tx(NULL,
 							 out->proposal->tx)));
+
+	/* Don't wait for this if we're ignoring the tiny payment. */
+	if (out->proposal->tx_type == IGNORING_TINY_PAYMENT) {
+		ignore_output(out);
+		out->proposal = tal_free(out->proposal);
+	}
+
 	/* We will get a callback when it's in a block. */
 }
 
