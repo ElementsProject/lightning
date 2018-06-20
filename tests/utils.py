@@ -12,6 +12,7 @@ from ephemeral_port_reserve import reserve
 
 
 BITCOIND_CONFIG = {
+    "regtest": 1,
     "rpcuser": "rpcuser",
     "rpcpassword": "rpcpass",
     "rpcport": 18332,
@@ -235,7 +236,6 @@ class BitcoinD(TailableProc):
             '-datadir={}'.format(bitcoin_dir),
             '-printtoconsole',
             '-server',
-            '-regtest',
             '-logtimestamps',
             '-nolisten',
         ]
