@@ -2,12 +2,12 @@
 .\"     Title: lightningd-config
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 05/10/2018
+.\"      Date: 06/20/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNINGD\-CONFIG" "5" "05/10/2018" "\ \&" "\ \&"
+.TH "LIGHTNINGD\-CONFIG" "5" "06/20/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -203,14 +203,16 @@ How long to wait before sending commitment messages to the peer: in theory incre
 .sp
 Lightning channel and HTLC options:
 .PP
-\fBlocktime\-blocks\fR=\fIBLOCKS\fR
+\fBwatchtime\-blocks\fR=\fIBLOCKS\fR
 .RS 4
-How long we need to spot an outdated close attempt, which is also how long the peer would need to wait if they perform a unilateral close\&.
+How long we need to spot an outdated close attempt: on opening a channel we tell our peer that this is how long they\(cqll have to wait if they perform a unilateral close\&.
 .RE
 .PP
 \fBmax\-locktime\-blocks\fR=\fIBLOCKS\fR
 .RS 4
-The longest we\(cqll ever allow a peer to hold up payments, in the worst case\&. If they ask for longer, we\(cqll refuse to create a channel, and if an HTLC asks for longer, we\(cqll refuse it\&.
+The longest our funds can be delayed (ie\&. the longest
+\fBwatchtime\-blocks\fR
+our peer can ask for, and also the longest HTLC timeout we will accept)\&. If our peer asks for longer, we\(cqll refuse to create a channel, and if an HTLC asks for longer, we\(cqll refuse it\&.
 .RE
 .PP
 \fBfunding\-confirms\fR=\fIBLOCKS\fR
@@ -406,6 +408,11 @@ is set)\&.
 .RS 4
 Always use the
 \fBproxy\fR, even to connect to normal IP addresses (you can still connect to Unix domain sockets manually)\&. This also disables all DNS lookups, to avoid leaking information\&.
+.RE
+.PP
+\fBdisable\-dns\fR
+.RS 4
+Disable the DNS bootstrapping mechanism to find a node by its node ID\&.
 .RE
 .PP
 \fBtor\-service\-password\fR=\fIPASSWORD\fR
