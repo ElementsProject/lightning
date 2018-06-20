@@ -3169,7 +3169,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 			a = tal(tmpctx, struct wireaddr_internal);
 			wireaddr_from_unresolved(a, seedname(tmpctx, id),
 						 DEFAULT_PORT);
-		} else {
+		} else if (daemon->use_dns) {
 			a = seed_resolve_addr(tmpctx, id);
 		}
 	}
