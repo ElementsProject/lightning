@@ -1,11 +1,14 @@
 #include <assert.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/tal/path/path.h>
+#include <ccan/tal/str/str.h>
 #include <fcntl.h>
 #include <lightningd/app_connection.h>
 #include <lightningd/channel.h>
 #include <lightningd/htlc_end.h>
+#include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/peer_control.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -117,15 +120,18 @@ void handle_app_payment(
 	int pid;
 	int msgfd, resultfd;
 	u8 result = APP_UNKNOWN;
+	struct log *log = hin->key.channel->log;
+	struct lightningd *ld = hin->key.channel->peer->ld;
+	char *configdir = ld->config_dir;
+	char *command = tal_fmt(tmpctx, "handle_realm_%d", rs->hop_data.realm);
 
-	log_debug(hin->key.channel->log, "Trying to run app script for realm %d",
-		  rs->hop_data.realm);
-
-	/* FIXME: use sensible directory and command name */
-	pid = start_cmd(".", "app_connection", &msgfd, &resultfd);
+	log_debug(log, "Trying to run app script \"%s\"", command);
+	pid = start_cmd(configdir, command, &msgfd, &resultfd);
 
 	if (pid < 0) {
-		//FIXME: log failure
+		log_unusual(log,
+			"Received an incoming transaction with realm %d, but the app script \"%s\" could not be run from directory \"%s\".",
+			rs->hop_data.realm, command, configdir);
 		/* No command was started */
 		result = APP_NOT_FORWARDED;
 	}
