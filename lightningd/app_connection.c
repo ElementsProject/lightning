@@ -141,7 +141,7 @@ void handle_app_payment(
 
 	/* FIXME: don't hang on blocking reads */
 	if (result == APP_UNKNOWN && read(resultfd, &result, 1) < 0) {
-		//FIXME: log failure
+		log_unusual(log, "Failed to read result from app script");
 	}
 	close_noerr(resultfd);
 
