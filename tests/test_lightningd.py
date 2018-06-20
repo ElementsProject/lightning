@@ -669,17 +669,17 @@ class LightningDTests(BaseLightningDTests):
         # Should get reasonable error if unknown addr for peer.
         self.assertRaisesRegex(ValueError,
                                "No address known",
-                               l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e')
+                               l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304d')
 
         # Should get reasonable error if connection refuse.
         self.assertRaisesRegex(ValueError,
                                "Connection establishment: Connection refused",
-                               l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'localhost', 1)
+                               l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304d', 'localhost', 1)
 
         # Should get reasonable error if wrong key for peer.
         self.assertRaisesRegex(ValueError,
                                "Cryptographic handshake: ",
-                               l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'localhost', l2.port)
+                               l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304d', 'localhost', l2.port)
 
     @unittest.skipIf(not DEVELOPER, "needs --dev-allow-localhost")
     def test_connect_by_gossip(self):
