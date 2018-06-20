@@ -3049,7 +3049,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Unknown realm
         route = copy.deepcopy(baseroute)
-        route[1]['realm'] = 255
+        route[0]['realm'] = 255
         l1.rpc.sendpay(to_json(route), rhash)
         self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
 
