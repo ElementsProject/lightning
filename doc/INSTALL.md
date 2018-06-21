@@ -57,6 +57,7 @@ Clone lightning:
 
 Build lightning:
 
+    ./configure
     make
 
 Running lightning:
@@ -105,6 +106,7 @@ $ cd lightning
 
 Build and install lightning:
 ```
+$lightning> ./configure
 $lightning> make
 $lightning> sudo make install
 ```
@@ -143,6 +145,7 @@ Clone lightning:
 
 Build lightning:
 
+    $ ./configure
     $ gmake
     $ gmake install
 
@@ -193,6 +196,7 @@ Clone lightning:
 
 Build lightning:
 
+    $ ./configure
     $ make
 
 Running lightning:
