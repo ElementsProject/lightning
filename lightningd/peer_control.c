@@ -702,27 +702,18 @@ struct getpeers_args {
 };
 
 static void json_add_node_decoration(struct json_result *response,
-				     struct gossip_getnodes_entry **nodes,
-				     const struct pubkey *id)
+				     struct gossip_getnodes_entry *node)
 {
-	for (size_t i = 0; i < tal_count(nodes); i++) {
-		struct json_escaped *esc;
+	struct json_escaped *esc;
 
-		/* If no addresses, then this node announcement hasn't been
-		 * received yet So no alias information either.
-		 */
-		if (nodes[i]->addresses == NULL)
-			continue;
+	/* If node announcement hasn't been received yet, no alias information.
+	 */
+	if (node->last_timestamp < 0)
+		return;
 
-		if (!pubkey_eq(&nodes[i]->nodeid, id))
-			continue;
-
-		esc = json_escape(NULL, (const char *)nodes[i]->alias);
-		json_add_escaped_string(response, "alias", take(esc));
-		json_add_hex(response, "color",
-			     nodes[i]->color, ARRAY_SIZE(nodes[i]->color));
-		break;
-	}
+	esc = json_escape(NULL, (const char *)node->alias);
+	json_add_escaped_string(response, "alias", take(esc));
+	json_add_hex(response, "color", node->color, ARRAY_SIZE(node->color));
 }
 
 static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
@@ -776,7 +767,14 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 			json_array_end(response);
 		}
 
-		json_add_node_decoration(response, nodes, &p->id);
+		/* Search gossip reply for this ID, to add extra info. */
+		for (size_t i = 0; i < tal_len(nodes); i++) {
+			if (pubkey_eq(&nodes[i]->nodeid, &p->id)) {
+				json_add_node_decoration(response, nodes[i]);
+				break;
+			}
+		}
+
 		json_array_start(response, "channels");
 		json_add_uncommitted_channel(response, p->uncommitted_channel);
 
@@ -907,7 +905,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 		/* Fake state. */
 		json_add_string(response, "state", "GOSSIPING");
 		json_add_pubkey(response, "id", ids+i);
-		json_add_node_decoration(response, nodes, ids+i);
+		json_add_node_decoration(response, nodes[i]);
 		json_array_start(response, "netaddr");
 		if (addrs[i].itype != ADDR_INTERNAL_WIREADDR
 		    || addrs[i].u.wireaddr.type != ADDR_TYPE_PADDING)
