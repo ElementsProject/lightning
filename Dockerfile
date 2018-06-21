@@ -106,7 +106,6 @@ RUN apk add --update curl && \
   rm -rf glibc.apk glibc-bin.apk /var/cache/apk/*
 
 ENV LIGHTNINGD_DATA=/root/.lightning
-ENV LIGHTNINGD_PORT=9835
 
 RUN mkdir $LIGHTNINGD_DATA && \
     touch $LIGHTNINGD_DATA/config
