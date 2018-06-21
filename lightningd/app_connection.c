@@ -125,7 +125,7 @@ void handle_app_payment(
 	struct log *log = hin->key.channel->log;
 	struct lightningd *ld = hin->key.channel->peer->ld;
 	char *configdir = ld->config_dir;
-	char *command = tal_fmt(tmpctx, "handle_realm_%d", rs->hop_data.realm);
+	char *command = tal_fmt(tmpctx, "handle_payment");
 
 	log_debug(log, "Trying to run app command \"%s\"", command);
 	pid = start_cmd(configdir, command, &msgfd, &resultfd);

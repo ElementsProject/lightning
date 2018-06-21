@@ -204,7 +204,7 @@ class NodeFactory(object):
                 'valgrind',
                 '-q',
                 '--trace-children=yes',
-                '--trace-children-skip=*bitcoin-cli*,*handle_realm_*',
+                '--trace-children-skip=*bitcoin-cli*,*handle_payment*',
                 '--error-exitcode=7',
                 '--log-file={}/valgrind-errors.%p'.format(node.daemon.lightning_dir)
             ]
@@ -5033,7 +5033,7 @@ class LightningDTests(BaseLightningDTests):
 
         def enableScript(scriptFile):
             ownpath = os.path.abspath(os.path.dirname(__file__))
-            destination = os.path.join(l2.daemon.lightning_dir, 'handle_realm_254')
+            destination = os.path.join(l2.daemon.lightning_dir, 'handle_payment')
             shutil.copy(
                 os.path.join(ownpath, 'app_scripts', scriptFile),
                 destination
