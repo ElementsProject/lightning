@@ -46,7 +46,7 @@ static int start_cmd(const char *dir, const char *name, int *msgfd, int *resultf
 	if (pipe(childmsg) != 0)
 		goto close_resultfd_fail;
 
-	if (fcntl(childmsg[1], F_SETFD, fcntl(childmsg[1], F_GETFD)
+	if (fcntl(childmsg[0], F_SETFD, fcntl(childmsg[0], F_GETFD)
 		  | FD_CLOEXEC) < 0)
 		goto close_fds_fail;
 
@@ -64,17 +64,17 @@ static int start_cmd(const char *dir, const char *name, int *msgfd, int *resultf
 		char *args[] = {NULL, NULL};
 		u8 result;
 
-		close(childmsg[0]);
+		close(childmsg[1]);
 		close(childresult[0]);
 
 		// msg = STDIN
-		if (childmsg[1] != STDIN_FILENO) {
-			if (!move_fd(childmsg[1], STDIN_FILENO))
+		if (childmsg[0] != STDIN_FILENO) {
+			if (!move_fd(childmsg[0], STDIN_FILENO))
 				goto child_fail;
-			childmsg[1] = STDIN_FILENO;
+			childmsg[0] = STDIN_FILENO;
 		}
 
-		// msg = STDOUT
+		// result = STDOUT
 		if (childresult[1] != STDOUT_FILENO) {
 			if (!move_fd(childresult[1], STDOUT_FILENO))
 				goto child_fail;
@@ -95,10 +95,10 @@ static int start_cmd(const char *dir, const char *name, int *msgfd, int *resultf
 		exit(127);
 	}
 
-	close(childmsg[1]);
+	close(childmsg[0]);
 	close(childresult[1]);
 
-	*msgfd = childmsg[0];
+	*msgfd = childmsg[1];
 	*resultfd = childresult[0];
 	return childpid;
 
