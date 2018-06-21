@@ -5042,7 +5042,12 @@ class LightningDTests(BaseLightningDTests):
 
         enableScript('fail.py')
         l1.rpc.sendpay(to_json(route), rhash)
+        l2.daemon.wait_for_log('App command reported failure to forward the payment')
         self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
+
+        enableScript('succeed.py')
+        l1.rpc.sendpay(to_json(route), rhash)
+        l2.daemon.wait_for_log('App command reported successful forward of the payment')
 
 
 if __name__ == '__main__':
