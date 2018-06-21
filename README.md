@@ -64,13 +64,58 @@ For the impatient here's the gist of it for Ubuntu and Debian:
     ./configure
     make
 
-Or if you like to throw `docker` into the mix:
+Or if you like to throw `docker` into the mix, you can use the offial docker image either directly or as a base layer for more complex images.
+The docker image is [elementsproject/lightningd](https://hub.docker.com/r/elementsproject/lightningd/) (from this [Dockerfile](Dockerfile)).
+Image tags with `-dev` at the end are images built with `DEVELOPER=1`.
+If you build the image yourself, you can use the build arg `DEVELOPER=1` to build c-lightning in developer mode.
 
-    sudo docker run \
-    	-v $HOME/.lightning:/root/.lightning \
-    	-v $HOME/.bitcoin:/root/.bitcoin \
-    	-p 9735:9735 \
-    	cdecker/lightningd:latest
+It has the following environment variable:
+
+* `EXPOSE_TCP` default to false, if true, use expose c-lightning on port 9735. (Use this only for testing)
+
+Here is an example of a docker-compose file with bitcoind and c-lightning on `testnet` which expose litecoin's rpc interface on default ports `18332` and c-lightning API on port `9735`:
+
+```
+version: "3"
+services:
+  bitcoind:
+    image: nicolasdorier/docker-bitcoin:0.16.0
+    environment:
+      BITCOIN_EXTRA_ARGS: |
+        testnet=1
+        whitelist=0.0.0.0/0
+        server=1
+        rpcuser=rpcuser
+        rpcpassword=rpcpass
+    expose:
+      - "18332"
+    volumes:
+      - "bitcoin_datadir:/data"
+
+  clightning_bitcoin:
+    image: elementsproject/lightningd
+    command:
+      - lightningd
+      - --bitcoin-rpcconnect=bitcoind
+      - --bitcoin-rpcuser=rpcuser
+      - --bitcoin-rpcpassword=rpcpass
+      - --network=testnet
+      - --alias=myawesomenode
+      - --log-level=debug
+    environment:
+      EXPOSE_TCP: "true"
+    expose:
+      - "9735"
+    volumes:
+      - "clightning_bitcoin_datadir:/root/.lightning"
+      - "bitcoin_datadir:/etc/bitcoin"
+    links:
+      - bitcoind
+
+volumes:
+  bitcoin_datadir:
+  clightning_bitcoin_datadir:
+```
 
 ### Starting `lightningd`
 
