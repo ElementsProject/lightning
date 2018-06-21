@@ -2178,6 +2178,8 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 
 static void append_node(const struct gossip_getnodes_entry ***nodes,
 			const struct pubkey *nodeid,
+			const u8 *gfeatures,
+			const u8 *lfeatures,
 			/* If non-NULL, contains more information */
 			const struct node *n)
 {
@@ -2186,6 +2188,10 @@ static void append_node(const struct gossip_getnodes_entry ***nodes,
 
 	new = tal(*nodes, struct gossip_getnodes_entry);
 	new->nodeid = *nodeid;
+	new->global_features = tal_dup_arr(*nodes, u8, gfeatures,
+					   tal_len(gfeatures), 0);
+	new->local_features = tal_dup_arr(*nodes, u8, lfeatures,
+					  tal_len(lfeatures), 0);
 	if (!n || n->last_timestamp < 0) {
 		new->last_timestamp = -1;
 		new->addresses = NULL;
@@ -2214,13 +2220,15 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 		for (size_t i = 0; i < tal_count(ids); i++) {
 			n = get_node(daemon->rstate, &ids[i]);
 			if (n)
-				append_node(&nodes, &ids[i], n);
+				/* FIXME: Keep global features from node_announcement! */
+				append_node(&nodes, &ids[i], NULL, NULL, n);
 		}
 	} else {
 		struct node_map_iter i;
 		n = node_map_first(daemon->rstate->nodes, &i);
 		while (n != NULL) {
-			append_node(&nodes, &n->id, n);
+			/* FIXME: Keep global features from node_announcement! */
+			append_node(&nodes, &n->id, NULL, NULL, n);
 			n = node_map_next(daemon->rstate->nodes, &i);
 		}
 	}
@@ -3448,7 +3456,7 @@ static struct io_plan *get_peers(struct io_conn *conn,
 	size_t n = 0;
 	struct pubkey *id = tal_arr(conn, struct pubkey, n);
 	struct wireaddr_internal *wireaddr = tal_arr(conn, struct wireaddr_internal, n);
-	const struct gossip_getnodes_entry **nodes = tal_arr(conn, const struct gossip_getnodes_entry *, 0);
+	const struct gossip_getnodes_entry **nodes = tal_arr(conn, const struct gossip_getnodes_entry *, n);
 	struct pubkey *specific_id = NULL;
 
 	if (!fromwire_gossip_getpeers_request(msg, msg, &specific_id))
@@ -3463,6 +3471,7 @@ static struct io_plan *get_peers(struct io_conn *conn,
 		id[n] = peer->id;
 		wireaddr[n] = peer->addr;
 		append_node(&nodes, &peer->id,
+			    peer->gfeatures, peer->lfeatures,
 			    get_node(daemon->rstate, &peer->id));
 		n++;
 	}

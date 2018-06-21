@@ -706,6 +706,16 @@ static void json_add_node_decoration(struct json_result *response,
 {
 	struct json_escaped *esc;
 
+	if (node->local_features)
+		json_add_hex(response, "local_features",
+			     node->local_features,
+			     tal_len(node->local_features));
+
+	if (node->global_features)
+		json_add_hex(response, "global_features",
+			     node->global_features,
+			     tal_len(node->global_features));
+
 	/* If node announcement hasn't been received yet, no alias information.
 	 */
 	if (node->last_timestamp < 0)
@@ -778,6 +788,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 		json_array_start(response, "channels");
 		json_add_uncommitted_channel(response, p->uncommitted_channel);
 
+		/* FIXME: Add their local and global features */
 		list_for_each(&p->channels, channel, list) {
 			struct channel_id cid;
 			u64 our_reserve_msat = channel->channel_info.their_config.channel_reserve_satoshis * 1000;

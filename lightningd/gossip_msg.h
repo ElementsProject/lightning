@@ -6,6 +6,8 @@
 
 struct gossip_getnodes_entry {
 	struct pubkey nodeid;
+	/* We'll only have non-empty local_features if it's a direct peer. */
+	u8 *local_features, *global_features;
 	s64 last_timestamp; /* -1 means never: following fields ignored */
 	struct wireaddr *addresses;
 	u8 *alias;

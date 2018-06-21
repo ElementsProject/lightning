@@ -426,6 +426,12 @@ class LightningDTests(BaseLightningDTests):
                                 .format(l1.daemon.lightning_dir, leaks))
         l1.rpc.stop()
 
+    def test_features(self):
+        l1, l2 = self.connect()
+
+        # LOCAL_INITIAL_ROUTING_SYNC + LOCAL_GOSSIP_QUERIES
+        assert l1.rpc.listpeers()['peers'][0]['local_features'] == '88'
+
     def test_autocleaninvoice(self):
         l1 = self.node_factory.get_node()
 
