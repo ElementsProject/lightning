@@ -30,7 +30,7 @@ get_cmd_opts()
 CMD_OPTNAMES=$(get_cmd_opts "$1" | sort)
 
 # Now, gather (long) opt names from man page, make sure they match.
-MAN_OPTNAMES=$(sed -n 's/^\*\(--\)\?\([^*/]*\)\*\(=\?\).*::/\2\3/p' < "$2" | sort)
+MAN_OPTNAMES=$(sed -E -n 's/^\*(--)?([^*/]*)\*(=?).*::/\2\3/p' < "$2" | sort)
 
 if [ "$CMD_OPTNAMES" != "$MAN_OPTNAMES" ]; then
     echo "diff of command names vs manpage names":
