@@ -148,6 +148,7 @@ static struct node *new_node(struct routing_state *rstate,
 	n->id = *id;
 	n->chans = tal_arr(n, struct chan *, 0);
 	n->alias = NULL;
+	n->gfeatures = NULL;
 	n->node_announcement = NULL;
 	n->node_announcement_index = 0;
 	n->last_timestamp = -1;
@@ -1287,6 +1288,8 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 	memcpy(node->rgb_color, rgb_color, 3);
 	tal_free(node->alias);
 	node->alias = tal_dup_arr(node, u8, alias, 32, 0);
+	tal_free(node->gfeatures);
+	node->gfeatures = tal_steal(node, features);
 
 	tal_free(node->node_announcement);
 	node->node_announcement = tal_dup_arr(node, u8, msg, tal_len(msg), 0);
