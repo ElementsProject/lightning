@@ -1,5 +1,7 @@
 #! /usr/bin/make
 VERSION_NAME=I Accidentally The Smart Contract
+VERSION=$(shell git describe --always --dirty=-modded)
+DISTRO=$(shell lsb_release -is 2>/dev/null || echo unknown)-$(shell lsb_release -rs 2>/dev/null || echo unknown)
 PKGNAME = c-lightning
 
 # We use our own internal ccan copy.
@@ -309,7 +311,7 @@ ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
 ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS) Makefile
 
 gen_version.h: FORCE
-	@(echo "#define VERSION \"`git describe --always --dirty=-modded`\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
+	@(echo "#define VERSION \"$(VERSION)\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
 	@if cmp $@.new $@ >/dev/null 2>&2; then rm -f $@.new; else mv $@.new $@; echo Version updated; fi
 
 # All binaries require the external libs, ccan
@@ -474,7 +476,14 @@ installcheck:
 	@rm -rf testinstall || true
 
 .PHONY: installdirs install-program install-data install uninstall \
-	installcheck ncc
+	installcheck ncc bin-tarball
+
+# Make a tarball of opt/clightning/, optionally with label for distribution.
+bin-tarball: clightning-$(VERSION)-$(DISTRO).tar.xz
+clightning-$(VERSION)-$(DISTRO).tar.xz: DESTDIR=$(shell pwd)/
+clightning-$(VERSION)-$(DISTRO).tar.xz: prefix=opt/clightning
+clightning-$(VERSION)-$(DISTRO).tar.xz: install
+	trap "rm -rf opt" 0; tar cvfa $@ opt/
 
 ccan-breakpoint.o: $(CCANDIR)/ccan/breakpoint/breakpoint.c
 	$(CC) $(CFLAGS) -c -o $@ $<
