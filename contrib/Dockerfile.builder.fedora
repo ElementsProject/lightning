@@ -15,9 +15,11 @@ RUN dnf update -y && \
 		python3-devel \
 		python3-pip \
 		python3-setuptools \
+		redhat-lsb \
 		net-tools \
 		valgrind \
 		wget \
+		xz \
 		zlib-devel && \
 	dnf clean all
 
