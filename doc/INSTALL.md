@@ -48,7 +48,7 @@ as well:
 For development or running tests, get additional dependencies:
 
     sudo apt-get install -y asciidoc valgrind python3-pip
-    sudo pip3 install python-bitcoinlib
+    sudo pip3 install -r tests/requirements.txt
 
 Clone lightning:
 
