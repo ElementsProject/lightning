@@ -75,10 +75,11 @@ OS version: Fedora 27 or above
 Get dependencies:
 ```
 $ sudo dnf update -y && \
-        dnf groupinstall -y \
+        sudo dnf groupinstall -y \
                 'C Development Tools and Libraries' \
                 'Development Tools' && \
-        dnf install -y \
+        sudo dnf install -y \
+                asciidoc \
                 clang \
                 gmp-devel \
                 libsq3-devel \
@@ -89,8 +90,9 @@ $ sudo dnf update -y && \
                 net-tools \
                 net-tools \
                 valgrind \
-                wget && \
-        dnf clean all
+                wget \
+                zlib-devel && \
+        sudo dnf clean all
 ```
 
 Make sure you have [bitcoind](https://github.com/bitcoin/bitcoin) available to run
