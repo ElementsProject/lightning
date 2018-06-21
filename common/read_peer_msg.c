@@ -19,7 +19,6 @@ static void handle_ping(const u8 *msg,
 			const struct channel_id *channel,
 			bool (*send_reply)(struct crypto_state *, int,
 					   const u8 *, void *),
-			void (*io_error)(void *),
 			void *arg)
 {
 	u8 *pong;
@@ -29,7 +28,7 @@ static void handle_ping(const u8 *msg,
 			   take(towire_errorfmt(NULL, channel,
 						"Bad ping %s",
 						tal_hex(msg, msg))), arg);
-		io_error(arg);
+		peer_failed_connection_lost();
 	}
 
 	status_debug("Got ping, sending %s", pong ?
@@ -37,14 +36,13 @@ static void handle_ping(const u8 *msg,
 		     : "nothing");
 
 	if (pong && !send_reply(cs, peer_fd, pong, arg))
-		io_error(arg);
+		peer_failed_connection_lost();
 }
 
 void handle_gossip_msg_(const u8 *msg TAKES, int peer_fd,
 			struct crypto_state *cs,
 			bool (*send_msg)(struct crypto_state *cs, int fd,
 					 const u8 *TAKES, void *arg),
-			void (*io_error)(void *arg),
 			void *arg)
 {
 	u8 *gossip;
@@ -52,21 +50,21 @@ void handle_gossip_msg_(const u8 *msg TAKES, int peer_fd,
 	if (!fromwire_gossip_send_gossip(tmpctx, msg, &gossip)) {
 		status_broken("Got bad message from gossipd: %s",
 			      tal_hex(msg, msg));
-		io_error(arg);
+		peer_failed_connection_lost();
 	}
 
 	/* Gossipd can send us gossip messages, OR errors */
 	if (is_msg_for_gossipd(gossip)) {
 		if (!send_msg(cs, peer_fd, gossip, arg))
-			io_error(arg);
+			peer_failed_connection_lost();
 	} else if (fromwire_peektype(gossip) == WIRE_ERROR) {
 		status_debug("Gossipd told us to send error");
 		send_msg(cs, peer_fd, gossip, arg);
-		io_error(arg);
+		peer_failed_connection_lost();
 	} else {
 		status_broken("Gossipd gave us bad send_gossip message %s",
 			      tal_hex(msg, msg));
-		io_error(arg);
+		peer_failed_connection_lost();
 	}
 	if (taken(msg))
 		tal_free(msg);
@@ -78,7 +76,6 @@ u8 *read_peer_msg_(const tal_t *ctx,
 		   const struct channel_id *channel,
 		   bool (*send_reply)(struct crypto_state *cs, int fd,
 				      const u8 *TAKES,  void *arg),
-		   void (*io_error)(void *arg),
 		   void *arg)
 {
 	u8 *msg;
@@ -98,16 +95,16 @@ u8 *read_peer_msg_(const tal_t *ctx,
 		msg = wire_sync_read(NULL, gossip_fd);
 		if (!msg) {
 			status_debug("Error reading gossip msg");
-			io_error(arg);
+			peer_failed_connection_lost();
 		}
 
-		handle_gossip_msg_(msg, peer_fd, cs, send_reply, io_error, arg);
+		handle_gossip_msg_(msg, peer_fd, cs, send_reply, arg);
 		return NULL;
 	}
 
 	msg = sync_crypto_read(ctx, cs, peer_fd);
 	if (!msg)
-		io_error(arg);
+		peer_failed_connection_lost();
 
 	if (is_msg_for_gossipd(msg)) {
 		/* Forward to gossip daemon */
@@ -116,8 +113,7 @@ u8 *read_peer_msg_(const tal_t *ctx,
 	}
 
 	if (fromwire_peektype(msg) == WIRE_PING) {
-		handle_ping(msg, peer_fd, cs, channel,
-			    send_reply, io_error, arg);
+		handle_ping(msg, peer_fd, cs, channel, send_reply, arg);
 		return tal_free(msg);
 	}
 
@@ -157,7 +153,7 @@ u8 *read_peer_msg_(const tal_t *ctx,
 						     "Multiple channels"
 						     " unsupported")),
 				arg))
-			io_error(arg);
+			peer_failed_connection_lost();
 		return tal_free(msg);
 	}
 
@@ -169,10 +165,4 @@ bool sync_crypto_write_arg(struct crypto_state *cs, int fd, const u8 *msg,
 			   void *unused UNUSED)
 {
 	return sync_crypto_write(cs, fd, msg);
-}
-
-/* Helper: calls peer_failed_connection_lost. */
-void status_fail_io(void *unused UNUSED)
-{
-	peer_failed_connection_lost();
 }

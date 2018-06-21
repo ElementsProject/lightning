@@ -14,36 +14,29 @@ struct channel_id;
  * @cs: the cryptostate (updated)
  * @chanid: the channel id (for identifying errors)
  * @send_reply: the way to send a reply packet (eg. sync_crypto_write_arg)
- * @io_error: what to do if there's an IO error (eg. status_fail_io)
- *            (MUST NOT RETURN!)
  *
  * This returns NULL if it handled the message, so it's normally called in
  * a loop.
  */
-#define read_peer_msg(ctx, cs, chanid, send_reply, io_error, arg)	\
+#define read_peer_msg(ctx, cs, chanid, send_reply, arg)			\
 	read_peer_msg_((ctx), PEER_FD, GOSSIP_FD, (cs),			\
 		       (chanid),					\
 		       typesafe_cb_preargs(bool, void *, (send_reply), (arg), \
 					   struct crypto_state *, int,	\
 					   const u8 *),			\
-		       typesafe_cb(void, void *, (io_error), (arg)),	\
 		       arg)
 
 /* Helper: sync_crypto_write, with extra args it ignores */
 bool sync_crypto_write_arg(struct crypto_state *cs, int fd, const u8 *TAKES,
 			   void *unused);
 
-/* Helper: calls peer_failed_connection_lost. */
-void status_fail_io(void *unused);
-
 /* Handler for a gossip msg; used by channeld since it queues them. */
-#define handle_gossip_msg(msg, cs, send_reply, io_error, arg)		\
+#define handle_gossip_msg(msg, cs, send_reply, arg)			\
 	handle_gossip_msg_((msg), PEER_FD, (cs),			\
 			   typesafe_cb_preargs(bool, void *,		\
 					       (send_reply), (arg),	\
 					       struct crypto_state *, int, \
 					       const u8 *),		\
-			   typesafe_cb(void, void *, (io_error), (arg)), \
 			   arg)
 
 void handle_gossip_msg_(const u8 *msg TAKES,
@@ -51,7 +44,6 @@ void handle_gossip_msg_(const u8 *msg TAKES,
 			struct crypto_state *cs,
 			bool (*send_msg)(struct crypto_state *cs, int fd,
 					 const u8 *TAKES, void *arg),
-			void (*io_error)(void *arg),
 			void *arg);
 
 u8 *read_peer_msg_(const tal_t *ctx,
@@ -60,7 +52,6 @@ u8 *read_peer_msg_(const tal_t *ctx,
 		   const struct channel_id *channel,
 		   bool (*send_reply)(struct crypto_state *cs, int fd,
 				      const u8 *TAKES,  void *arg),
-		   void (*io_error)(void *arg),
 		   void *arg);
 
 #endif /* LIGHTNING_COMMON_READ_PEER_MSG_H */

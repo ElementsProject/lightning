@@ -1628,13 +1628,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		    type, wire_type_name(type));
 }
 
-static void peer_conn_broken(struct peer *peer)
-{
-	/* If we have signatures, send an update to say we're disabled. */
-	send_channel_update(peer, ROUTING_FLAGS_DISABLED);
-	peer_failed_connection_lost();
-}
-
 static void resend_revoke(struct peer *peer)
 {
 	/* Current commit is peer->next_index[LOCAL]-1, revoke prior */
@@ -1734,12 +1727,6 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 			       peer->revocations_received);
 }
 
-/* Our local wrapper around read_peer_msg */
-static void channeld_io_error(struct peer *peer)
-{
-	peer_conn_broken(peer);
-}
-
 static bool channeld_send_reply(struct crypto_state *cs UNUSED,
 			    int peer_fd UNUSED,
 			    const u8 *msg UNUSED,
@@ -1754,7 +1741,6 @@ static u8 *channeld_read_peer_msg(struct peer *peer)
 	return read_peer_msg(peer, &peer->cs,
 			     &peer->channel_id,
 			     channeld_send_reply,
-			     channeld_io_error,
 			     peer);
 }
 
@@ -2660,7 +2646,6 @@ int main(int argc, char *argv[])
 				     fromwire_peektype(msg));
 			handle_gossip_msg(take(msg), &peer->cs,
 					  channeld_send_reply,
-					  channeld_io_error,
 					  peer);
 			continue;
 		}
@@ -2713,10 +2698,9 @@ int main(int argc, char *argv[])
 			/* Gossipd hangs up on us to kill us when a new
 			 * connection comes in. */
 			if (!msg)
-				peer_conn_broken(peer);
+				peer_failed_connection_lost();
 			handle_gossip_msg(msg, &peer->cs,
 					  channeld_send_reply,
-					  channeld_io_error,
 					  peer);
 		} else if (FD_ISSET(PEER_FD, &rfds)) {
 			/* This could take forever, but who cares? */

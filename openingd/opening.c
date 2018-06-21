@@ -237,7 +237,6 @@ static u8 *opening_read_peer_msg(struct state *state)
 	while ((msg = read_peer_msg(state, &state->cs,
 				    &state->channel_id,
 				    sync_crypto_write_arg,
-				    status_fail_io,
 				    state)) == NULL)
 		clean_tmpctx();
 
