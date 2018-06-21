@@ -2220,15 +2220,14 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 		for (size_t i = 0; i < tal_count(ids); i++) {
 			n = get_node(daemon->rstate, &ids[i]);
 			if (n)
-				/* FIXME: Keep global features from node_announcement! */
-				append_node(&nodes, &ids[i], NULL, NULL, n);
+				append_node(&nodes, &ids[i], n->gfeatures,
+					    NULL, n);
 		}
 	} else {
 		struct node_map_iter i;
 		n = node_map_first(daemon->rstate->nodes, &i);
 		while (n != NULL) {
-			/* FIXME: Keep global features from node_announcement! */
-			append_node(&nodes, &n->id, NULL, NULL, n);
+			append_node(&nodes, &n->id, n->gfeatures, NULL, n);
 			n = node_map_next(daemon->rstate->nodes, &i);
 		}
 	}

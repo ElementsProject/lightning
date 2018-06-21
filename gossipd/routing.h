@@ -101,6 +101,9 @@ struct node {
 	/* Color to be used when displaying the name */
 	u8 rgb_color[3];
 
+	/* (Global) features */
+	u8 *gfeatures;
+
 	/* Cached `node_announcement` we might forward to new peers (or NULL). */
 	const u8 *node_announcement;
 	/* If public, this is non-zero. */
