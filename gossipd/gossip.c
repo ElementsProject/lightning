@@ -2586,10 +2586,11 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 
 	for (size_t i = 0; i < tal_count(daemon->proposed_wireaddr); i++) {
 		struct wireaddr_internal wa = daemon->proposed_wireaddr[i];
+		bool announce = (daemon->proposed_listen_announce[i]
+				 & ADDR_ANNOUNCE);
 
 		if (!(daemon->proposed_listen_announce[i] & ADDR_LISTEN)) {
-			assert(daemon->proposed_listen_announce[i]
-			       & ADDR_ANNOUNCE);
+			assert(announce);
 			/* You can only announce wiretypes! */
 			assert(daemon->proposed_wireaddr[i].itype
 			       == ADDR_INTERNAL_WIREADDR);
@@ -2608,6 +2609,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 				     addrun.sun_path);
 			io_new_listener(daemon, fd, connection_in, daemon);
 			/* We don't announce socket names */
+			assert(!announce);
 			add_binding(&binding, &wa);
 			continue;
 		case ADDR_INTERNAL_AUTOTOR:
@@ -2629,7 +2631,8 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 							 true);
 			if (ipv6_ok) {
 				add_binding(&binding, &wa);
-				if (public_address(daemon, &wa.u.wireaddr))
+				if (announce
+				    && public_address(daemon, &wa.u.wireaddr))
 					add_announcable(daemon, &wa.u.wireaddr);
 			}
 			wa.u.wireaddr.type = ADDR_TYPE_IPV4;
@@ -2638,7 +2641,8 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			if (handle_wireaddr_listen(daemon, &wa.u.wireaddr,
 						   ipv6_ok)) {
 				add_binding(&binding, &wa);
-				if (public_address(daemon, &wa.u.wireaddr))
+				if (announce
+				    && public_address(daemon, &wa.u.wireaddr))
 					add_announcable(daemon, &wa.u.wireaddr);
 			}
 			continue;
@@ -2646,7 +2650,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 		case ADDR_INTERNAL_WIREADDR:
 			handle_wireaddr_listen(daemon, &wa.u.wireaddr, false);
 			add_binding(&binding, &wa);
-			if (public_address(daemon, &wa.u.wireaddr))
+			if (announce && public_address(daemon, &wa.u.wireaddr))
 				add_announcable(daemon, &wa.u.wireaddr);
 			continue;
 		case ADDR_INTERNAL_FORPROXY:
@@ -2661,6 +2665,9 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	/* Now we have bindings, set up any Tor auto addresses */
 	for (size_t i = 0; i < tal_count(daemon->proposed_wireaddr); i++) {
 		if (!(daemon->proposed_listen_announce[i] & ADDR_LISTEN))
+			continue;
+
+		if (!(daemon->proposed_listen_announce[i] & ADDR_ANNOUNCE))
 			continue;
 
 		if (daemon->proposed_wireaddr[i].itype != ADDR_INTERNAL_AUTOTOR)
