@@ -2,6 +2,7 @@ from fixtures import *  # noqa: F401,F403
 from test_lightningd import wait_for
 
 import os
+import subprocess
 import time
 import unittest
 
@@ -97,3 +98,32 @@ def test_gossip_disable_channels(node_factory, bitcoind):
 
     wait_for(lambda: count_active(l1) == 2)
     wait_for(lambda: count_active(l2) == 2)
+
+
+def test_announce_address(node_factory, bitcoind):
+    """Make sure our announcements are well formed."""
+
+    # We do not allow announcement of duplicates.
+    opts = {'announce-addr':
+            ['4acth47i6kxnvkewtm6q7ib2s3ufpo5sqbsnzjpbi7utijcltosqemad.onion',
+             'lldan5gahapx5k7iafb3s4ikijc4ni7gx5iywdflkba5y2ezyg6sjgyd.onion',
+             'silkroad6ownowfk.onion',
+             'silkroad7rn2puhj.onion',
+             '1.2.3.4:1234',
+             '192.168.1.1',
+             '::',
+             '2001:0db8:85a3:0000:0000:8a2e:0370:7334'],
+            'log-level': 'io'}
+    l1, l2 = node_factory.get_nodes(2, opts=[opts, {}])
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    scid = l1.fund_channel(l2, 10**6)
+    bitcoind.generate_block(5)
+
+    # Activate IO logging for l1.
+    subprocess.run(['kill', '-USR1', l1.subd_pid('channeld')])
+
+    l1.wait_channel_active(scid)
+    l2.wait_channel_active(scid)
+
+    # We should see it send node announce (257 = 0x0101)
+    l1.daemon.wait_for_log("\[OUT\] 0101.*004d010102030404d202000000000000000000000000000000002607039216a8b803f3acd758aa260704e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba50230032607'")
