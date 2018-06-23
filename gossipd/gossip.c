@@ -2573,6 +2573,45 @@ static void add_binding(struct wireaddr_internal **binding,
 	(*binding)[n] = *addr;
 }
 
+static int wireaddr_cmp_type(const struct wireaddr *a,
+			     const struct wireaddr *b, void *unused)
+{
+	return (int)a->type - (int)b->type;
+}
+
+static void finalize_announcable(struct daemon *daemon)
+{
+	size_t n = tal_count(daemon->announcable);
+
+	/* BOLT #7:
+	 *
+	 * The origin node:
+	 *...
+	 *   - MUST place non-zero typed address descriptors in ascending order.
+	 *...
+	 *   - MUST NOT include more than one `address descriptor` of the same
+	 *     type.
+	 */
+	asort(daemon->announcable, n, wireaddr_cmp_type, NULL);
+	for (size_t i = 1; i < n; i++) {
+		/* Note we use > instead of !=: catches asort bugs too. */
+		if (daemon->announcable[i].type > daemon->announcable[i-1].type)
+			continue;
+
+		status_unusual("WARNING: Cannot announce address %s,"
+			       " already announcing %s",
+			       type_to_string(tmpctx, struct wireaddr,
+					      &daemon->announcable[i]),
+			       type_to_string(tmpctx, struct wireaddr,
+					      &daemon->announcable[i-1]));
+		memmove(daemon->announcable + i,
+			daemon->announcable + i + 1,
+			(n - i - 1) * sizeof(daemon->announcable[0]));
+		tal_resize(&daemon->announcable, --n);
+		--i;
+	}
+}
+
 /* Initializes daemon->announcable array, returns addresses we bound to. */
 static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 						 struct daemon *daemon)
@@ -2584,19 +2623,29 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	binding = tal_arr(ctx, struct wireaddr_internal, 0);
 	daemon->announcable = tal_arr(daemon, struct wireaddr, 0);
 
+	/* Add addresses we've explicitly been told to *first*: implicit
+	 * addresses will be discarded then if we have multiple. */
+	for (size_t i = 0; i < tal_count(daemon->proposed_wireaddr); i++) {
+		struct wireaddr_internal wa = daemon->proposed_wireaddr[i];
+
+		if (daemon->proposed_listen_announce[i] & ADDR_LISTEN)
+			continue;
+
+		assert(daemon->proposed_listen_announce[i] & ADDR_ANNOUNCE);
+		/* You can only announce wiretypes! */
+		assert(daemon->proposed_wireaddr[i].itype
+		       == ADDR_INTERNAL_WIREADDR);
+		add_announcable(daemon, &wa.u.wireaddr);
+	}
+
+	/* Now look for listening addresses. */
 	for (size_t i = 0; i < tal_count(daemon->proposed_wireaddr); i++) {
 		struct wireaddr_internal wa = daemon->proposed_wireaddr[i];
 		bool announce = (daemon->proposed_listen_announce[i]
 				 & ADDR_ANNOUNCE);
 
-		if (!(daemon->proposed_listen_announce[i] & ADDR_LISTEN)) {
-			assert(announce);
-			/* You can only announce wiretypes! */
-			assert(daemon->proposed_wireaddr[i].itype
-			       == ADDR_INTERNAL_WIREADDR);
-			add_announcable(daemon, &wa.u.wireaddr);
+		if (!(daemon->proposed_listen_announce[i] & ADDR_LISTEN))
 			continue;
-		}
 
 		switch (wa.itype) {
 		case ADDR_INTERNAL_SOCKNAME:
@@ -2679,6 +2728,9 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 						daemon->tor_password,
 						binding));
 	}
+
+	finalize_announcable(daemon);
+
 	return binding;
 }
 
