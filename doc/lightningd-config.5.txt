@@ -217,7 +217,8 @@ or precisely control where to bind and what to announce with the
     IPv6 on all interfaces, '0.0.0.0' means bind to all IPv4
     interfaces, '::' means 'bind to all IPv6 interfaces'.  If 'PORT' is
     not specified, 9735 is used.  If we can determine a public IP
-    address from the resulting binding, the address is announced.
+    address from the resulting binding, and no other addresses of the
+    same type are already announced, the address is announced.
 
     If the argument begins with 'autotor:' then it is followed by the
     IPv4 or IPv6 address of the Tor control port (default port 9051),
@@ -247,16 +248,20 @@ or precisely control where to bind and what to announce with the
 
 *announce-addr*='IPADDRESS[:PORT]|TORADDRESS.onion[:PORT]'::
 
-    Set an IP address or Tor address to announce; a Tor address is
+    Set an IP (v4 or v6) address or Tor address to announce; a Tor address is
     distinguished by ending in '.onion'.  'PORT' defaults to 9735.
 
     Empty or wildcard IPv4 and IPv6 addresses don't make sense here.
     Also, unlike the 'addr' option, there is no checking that your
-    announced addresses are sane (ie. not localhost).
+    announced addresses are public (e.g. not localhost).
 
     This option can be used multiple times to add more addresses, and
-    its use disables autolisten.  If necessary, and 'always-use-proxy'
-    is not specified, a DNS lookup may be done to resolve 'IPADDRESS'.
+    its use disables autolisten.  The spec says you can't announce
+    more that one address of the same type (eg. two IPv4 or two IPv6
+    addresses) so `lightningd` will refuse if you specify more than one.
+
+    If necessary, and 'always-use-proxy' is not specified, a DNS
+    lookup may be done to resolve 'IPADDRESS'.
 
 *offline*::
     Do not bind to any ports, and do not try to reconnect to any peers.
