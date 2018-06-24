@@ -100,21 +100,22 @@ def test_gossip_disable_channels(node_factory, bitcoind):
     wait_for(lambda: count_active(l2) == 2)
 
 
+@unittest.skipIf(not DEVELOPER, "needs --dev-allow-localhost")
 def test_announce_address(node_factory, bitcoind):
     """Make sure our announcements are well formed."""
 
     # We do not allow announcement of duplicates.
     opts = {'announce-addr':
             ['4acth47i6kxnvkewtm6q7ib2s3ufpo5sqbsnzjpbi7utijcltosqemad.onion',
-             'lldan5gahapx5k7iafb3s4ikijc4ni7gx5iywdflkba5y2ezyg6sjgyd.onion',
              'silkroad6ownowfk.onion',
-             'silkroad7rn2puhj.onion',
              '1.2.3.4:1234',
-             '192.168.1.1',
-             '::',
-             '2001:0db8:85a3:0000:0000:8a2e:0370:7334'],
+             '::'],
             'log-level': 'io'}
     l1, l2 = node_factory.get_nodes(2, opts=[opts, {}])
+
+    # It should warn about the collision between --addr=127.0.0.1:<ephem>
+    # and --announce-addr=1.2.3.4:1234 (may happen before get_nodes returns).
+    wait_for(lambda: l1.daemon.is_in_log('Cannot announce address 127.0.0.1:[0-9]*, already announcing 1.2.3.4:1234'))
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     scid = l1.fund_channel(l2, 10**6)
     bitcoind.generate_block(5)
