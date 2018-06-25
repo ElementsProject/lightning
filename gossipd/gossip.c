@@ -170,6 +170,12 @@ struct daemon {
 	bool use_proxy_always;
 	char *tor_password;
 
+	/* @see lightningd.config.use_dns */
+	bool use_dns;
+
+	/* The address that the broken response returns instead of
+	 * NXDOMAIN. NULL if we have not detected a broken resolver. */
+	struct sockaddr *broken_resolver_response;
 };
 
 /* Peers we're trying to reach. */
@@ -356,6 +362,37 @@ new_local_peer_state(struct peer *peer, const struct crypto_state *cs)
 	msg_queue_init(&lps->peer_out, lps);
 
 	return lps;
+}
+
+/**
+ * Some ISP resolvers will reply with a dummy IP to queries that would otherwise
+ * result in an NXDOMAIN reply. This just checks whether we have one such
+ * resolver upstream and remembers its reply so we can try to filter future
+ * dummies out.
+ */
+static bool broken_resolver(struct daemon *daemon)
+{
+	struct addrinfo *addrinfo;
+	struct addrinfo hints;
+	char *hostname = "nxdomain-test.doesntexist";
+	int err;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = 0;
+	hints.ai_flags = AI_ADDRCONFIG;
+	err = getaddrinfo(hostname, tal_fmt(tmpctx, "%d", 42),
+			      &hints, &addrinfo);
+
+	daemon->broken_resolver_response =
+	    tal_free(daemon->broken_resolver_response);
+
+	if (err == 0) {
+		daemon->broken_resolver_response = tal_dup(daemon, struct sockaddr, addrinfo->ai_addr);
+		freeaddrinfo(addrinfo);
+	}
+
+	return 	daemon->broken_resolver_response != NULL;
 }
 
 static struct peer *new_peer(const tal_t *ctx,
@@ -689,8 +726,8 @@ static struct io_plan *read_init(struct io_conn *conn, struct peer *peer)
 {
 	/* BOLT #1:
 	 *
-	 * Each node MUST wait to receive `init` before sending any other
-	 * messages.
+	 * The receiving node:
+	 *  - MUST wait to receive `init` before sending any other messages.
 	 */
 	return peer_read_message(conn, &peer->local->pcs, peer_init_received);
 }
@@ -711,8 +748,9 @@ static struct io_plan *init_new_peer(struct io_conn *conn,
 
 	/* BOLT #1:
 	 *
-	 * Each node MUST send `init` as the first lightning message for any
-	 * connection.
+	 * The sending node:
+	 *   - MUST send `init` as the first Lightning message for any
+	 *     connection.
 	 */
 	initmsg = towire_init(NULL,
 			      daemon->globalfeatures, daemon->localfeatures);
@@ -944,9 +982,9 @@ static void handle_query_short_channel_ids(struct peer *peer, u8 *msg)
 
 	/* BOLT #7:
 	 *
-	 * - SHOULD respond to each known `short_channel_id` with a
-	 *   `channel_announce`  and the latest `channel_update`s for each end
-	 *    - SHOULD NOT wait for the next outgoing announcement flush to send
+	 * - MUST respond to each known `short_channel_id` with a
+	 *   `channel_announcement` and the latest `channel_update`s for each end
+	 *    - SHOULD NOT wait for the next outgoing gossip flush to send
 	 *      these.
 	 */
 	peer->scid_queries = tal_steal(peer, scids);
@@ -1384,7 +1422,7 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	/* BOLT #1:
 	 *
 	 * The type follows the _it's ok to be odd_ rule, so nodes MAY send
-	 * odd-numbered types without ascertaining that the recipient
+	 * _odd_-numbered types without ascertaining that the recipient
 	 * understands it. */
 	if (t & 1) {
 		status_trace("Peer %s sent packet with unknown message type %u, ignoring",
@@ -1451,12 +1489,11 @@ static bool create_next_scid_reply(struct peer *peer)
 
 	/* BOLT #7:
 	 *
-	 *   - SHOULD respond to each known `short_channel_id` with a
-	 *     `channel_announce` and the latest `channel_update`s for
+	 *   - MUST respond to each known `short_channel_id` with a
+	 *     `channel_announcement` and the latest `channel_update`s for
 	 *     each end
-	 *
-	 *   - SHOULD NOT wait for the next outgoing announcement flush
-	 *     to send these.
+	 *     - SHOULD NOT wait for the next outgoing gossip flush
+	 *       to send these.
 	 */
 	num = tal_count(peer->scid_queries);
 	for (i = peer->scid_query_idx; !sent && i < num; i++) {
@@ -2218,9 +2255,13 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 
 	/* BOLT #1:
 	 *
-	 * if `num_pong_bytes` is less than 65532 it MUST respond by sending a
-	 * `pong` message with `byteslen` equal to `num_pong_bytes`, otherwise
-	 * it MUST ignore the `ping`.
+	 * A node receiving a `ping` message:
+	 *...
+	 *  - if `num_pong_bytes` is less than 65532:
+	 *    - MUST respond by sending a `pong` message, with `byteslen` equal
+	 *      to `num_pong_bytes`.
+	 *  - otherwise (`num_pong_bytes` is **not** less than 65532):
+	 *    - MUST ignore the `ping`.
 	 */
 	if (num_pong_bytes >= 65532)
 		daemon_conn_send(&daemon->master,
@@ -2832,7 +2873,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 		&daemon->proposed_listen_announce, daemon->rgb,
 		daemon->alias, &update_channel_interval, &daemon->reconnect,
 		&proxyaddr, &daemon->use_proxy_always,
-		&dev_allow_localhost,
+		&dev_allow_localhost, &daemon->use_dns,
 		&daemon->tor_password)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
@@ -2848,6 +2889,11 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 		daemon->proxyaddr = wireaddr_to_addrinfo(daemon, proxyaddr);
 	} else
 		daemon->proxyaddr = NULL;
+
+	if (broken_resolver(daemon)) {
+		status_trace("Broken DNS resolver detected, will check for "
+			     "dummy replies");
+	}
 
 	/* Load stored gossip messages */
 	gossip_store_load(daemon->rstate, daemon->rstate->store);
@@ -3055,7 +3101,8 @@ static const char *seedname(const tal_t *ctx, const struct pubkey *id)
 }
 
 static struct wireaddr_internal *
-seed_resolve_addr(const tal_t *ctx, const struct pubkey *id)
+seed_resolve_addr(const tal_t *ctx, const struct pubkey *id,
+		  struct sockaddr *broken_reply)
 {
 	struct wireaddr_internal *a;
 	const char *addr;
@@ -3066,7 +3113,7 @@ seed_resolve_addr(const tal_t *ctx, const struct pubkey *id)
 	a = tal(ctx, struct wireaddr_internal);
 	a->itype = ADDR_INTERNAL_WIREADDR;
 	if (!wireaddr_from_hostname(&a->u.wireaddr, addr, DEFAULT_PORT, NULL,
-				    NULL)) {
+				    broken_reply, NULL)) {
 		status_trace("Could not resolve %s", addr);
 		return tal_free(a);
 	} else {
@@ -3163,8 +3210,9 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 			a = tal(tmpctx, struct wireaddr_internal);
 			wireaddr_from_unresolved(a, seedname(tmpctx, id),
 						 DEFAULT_PORT);
-		} else {
-			a = seed_resolve_addr(tmpctx, id);
+		} else if (daemon->use_dns) {
+			a = seed_resolve_addr(tmpctx, id,
+					      daemon->broken_resolver_response);
 		}
 	}
 
@@ -3679,6 +3727,7 @@ int main(int argc, char *argv[])
 	timers_init(&daemon->timers, time_mono());
 	daemon->broadcast_interval = 30000;
 	daemon->last_announce_timestamp = 0;
+	daemon->broken_resolver_response = NULL;
 	/* stdin == control */
 	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req,
 			 master_gone);

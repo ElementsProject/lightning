@@ -40,8 +40,9 @@ bool derive_basepoints(const struct privkey *seed,
 
 	/* BOLT #3:
 	 *
-	 * A node MUST select an unguessable 256-bit seed for each connection,
-	 * and MUST NOT reveal the seed.
+	 * A node:
+	 *  - MUST select an unguessable 256-bit seed for each connection,
+	 *  - MUST NOT reveal the seed.
 	 */
 	if (shaseed)
 		*shaseed = keys.shaseed;
@@ -69,7 +70,8 @@ bool per_commit_point(const struct sha256 *shaseed,
 
 	/* BOLT #3:
 	 *
-	 * The `per_commitment_point` is generated using EC multiplication:
+	 * The `per_commitment_point` is generated using elliptic-curve
+	 * multiplication:
 	 *
 	 * 	per_commitment_point = per_commitment_secret * G
 	 */

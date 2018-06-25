@@ -33,11 +33,14 @@ be returned.
 'tx' represents the raw bitcoin, fully signed, transaction
 and 'txid' represent the bitcoin transaction id.
 
-ERRORS
-------
-If an incorrect address is supplied or the 'satoshi' 
-parameter exceeds the amount in the internal wallet 
-an error message will be returned. 
+On failure, an error is reported and the channel is not funded.
+
+The following error codes may occur:
+
+* -1. Catchall nonspecific error.
+* 301. There are not enough funds in the internal wallet (including fees) to
+       create the transaction.
+* 302. The dust limit is not met.
 
 AUTHOR
 ------

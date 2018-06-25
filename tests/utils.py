@@ -12,9 +12,9 @@ from ephemeral_port_reserve import reserve
 
 
 BITCOIND_CONFIG = {
+    "regtest": 1,
     "rpcuser": "rpcuser",
     "rpcpassword": "rpcpass",
-    "rpcport": 18332,
 }
 
 
@@ -24,6 +24,7 @@ LIGHTNINGD_CONFIG = {
     "cltv-final": 5,
     "watchtime-blocks": 5,
     "rescan": 1,
+    'disable-dns': None,
 }
 
 DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
@@ -38,10 +39,14 @@ def wait_for(success, timeout=TIMEOUT, interval=0.1):
         raise ValueError("Error waiting for {}", success)
 
 
-def write_config(filename, opts):
+def write_config(filename, opts, regtest_opts=None):
     with open(filename, 'w') as f:
         for k, v in opts.items():
             f.write("{}={}\n".format(k, v))
+        if regtest_opts:
+            f.write("[regtest]\n")
+            for k, v in regtest_opts.items():
+                f.write("{}={}\n".format(k, v))
 
 
 class TailableProc(object):
@@ -235,14 +240,16 @@ class BitcoinD(TailableProc):
             '-datadir={}'.format(bitcoin_dir),
             '-printtoconsole',
             '-server',
-            '-regtest',
             '-logtimestamps',
             '-nolisten',
         ]
+        # For up to and including 0.16.1, this needs to be in main section.
         BITCOIND_CONFIG['rpcport'] = rpcport
-        btc_conf_file = os.path.join(regtestdir, 'bitcoin.conf')
-        write_config(os.path.join(bitcoin_dir, 'bitcoin.conf'), BITCOIND_CONFIG)
-        write_config(btc_conf_file, BITCOIND_CONFIG)
+        # For after 0.16.1 (eg. 3f398d7a17f136cd4a67998406ca41a124ae2966), this
+        # needs its own [regtest] section.
+        BITCOIND_REGTEST = {'rpcport': rpcport}
+        btc_conf_file = os.path.join(bitcoin_dir, 'bitcoin.conf')
+        write_config(btc_conf_file, BITCOIND_CONFIG, BITCOIND_REGTEST)
         self.rpc = SimpleBitcoinProxy(btc_conf_file=btc_conf_file)
 
     def start(self):

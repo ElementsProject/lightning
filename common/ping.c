@@ -15,23 +15,29 @@ bool check_ping_make_pong(const tal_t *ctx, const u8 *ping, u8 **pong)
 	/* FIXME: */
 	/* BOLT #1:
 	 *
-	 * A node receiving a `ping` message SHOULD fail the channels if it
-	 * has received significantly in excess of one `ping` per 30 seconds,
+	 * A node receiving a `ping` message:
+	 *  - SHOULD fail the channels if it has received significantly in
+	 *    excess of one `ping` per 30 seconds.
 	 */
 
 	/* BOLT #1:
 	 *
-	 * ... otherwise if `num_pong_bytes` is less than 65532 it MUST
-	 * respond by sending a `pong` message with `byteslen` equal to
-	 * `num_pong_bytes`, otherwise it MUST ignore the `ping`.
+	 * A node receiving a `ping` message:
+	 *...
+	 *  - if `num_pong_bytes` is less than 65532:
+	 *    - MUST respond by sending a `pong` message, with `byteslen` equal
+	 *      to `num_pong_bytes`.
+	 *  - otherwise (`num_pong_bytes` is **not** less than 65532):
+	 *    - MUST ignore the `ping`.
 	 */
 	if (num_pong_bytes < 65532) {
 		/* BOLT #1:
 		 *
-		 * A node sending `pong` or `ping` SHOULD set `ignored` to
-		 * zeroes, but MUST NOT set `ignored` to sensitive data such
-		 * as secrets, or portions of initialized memory.
-		*/
+		 * A node sending a `pong` message:
+		 *   - SHOULD set `ignored` to 0s.
+		 *   - MUST NOT set `ignored` to sensitive data such as secrets
+		 *     or portions of initialized memory.
+		 */
 		ignored = tal_arrz(ctx, u8, num_pong_bytes);
 #if DEVELOPER
 		/* Embed version */
@@ -49,9 +55,10 @@ u8 *make_ping(const tal_t *ctx, u16 num_pong_bytes, u16 padlen)
 {
 	/* BOLT #1:
 	 *
-	 * A node sending `pong` or `ping` SHOULD set `ignored` to zeroes, but
-	 * MUST NOT set `ignored` to sensitive data such as secrets, or
-	 * portions of initialized memory.
+	 * A node sending a `ping` message:
+	 *  - SHOULD set `ignored` to 0s.
+	 *  - MUST NOT set `ignored` to sensitive data such as secrets or
+	 *    portions of initialized memory.
 	 */
 	u8 *ping, *ignored = tal_arrz(ctx, u8, padlen);
 

@@ -452,19 +452,19 @@ u8 **bitcoin_witness_sig_and_element(const tal_t *ctx,
 
 /* BOLT #3:
  *
- * This output sends funds back to the owner of this commitment transaction,
+ * This output sends funds back to the owner of this commitment transaction and
  * thus must be timelocked using `OP_CSV`. It can be claimed, without delay,
- * by the other party if they know the revocation key. The output is a version
- * 0 P2WSH, with a witness script:
+ * by the other party if they know the revocation private key. The output is a
+ * version-0 P2WSH, with a witness script:
  *
  *     OP_IF
  *         # Penalty transaction
- *         <revocationkey>
+ *         <revocationpubkey>
  *     OP_ELSE
  *         `to_self_delay`
  *         OP_CSV
  *         OP_DROP
- *         <local_delayedkey>
+ *         <local_delayedpubkey>
  *     OP_ENDIF
  *     OP_CHECKSIG
  */
@@ -489,21 +489,21 @@ u8 *bitcoin_wscript_to_local(const tal_t *ctx, u16 to_self_delay,
  *
  * #### Offered HTLC Outputs
  *
- * This output sends funds to an HTLC-timeout transaction after the HTLC
- * timeout, or to the remote peer using the payment preimage or the revocation
- * key.  The output is a P2WSH, with a witness script:
+ * This output sends funds to either an HTLC-timeout transaction after the
+ * HTLC-timeout or to the remote node using the payment preimage or the
+ * revocation key. The output is a P2WSH, with a witness script:
  *
- *     # To you with revocation key
- *     OP_DUP OP_HASH160 <RIPEMD160(SHA256(revocationkey))> OP_EQUAL
+ *     # To remote node with revocation key
+ *     OP_DUP OP_HASH160 <RIPEMD160(SHA256(revocationpubkey))> OP_EQUAL
  *     OP_IF
  *         OP_CHECKSIG
  *     OP_ELSE
- *         <remote_htlckey> OP_SWAP OP_SIZE 32 OP_EQUAL
+ *         <remote_htlcpubkey> OP_SWAP OP_SIZE 32 OP_EQUAL
  *         OP_NOTIF
- *             # To me via HTLC-timeout transaction (timelocked).
- *             OP_DROP 2 OP_SWAP <local_htlckey> 2 OP_CHECKMULTISIG
+ *             # To local node via HTLC-timeout transaction (timelocked).
+ *             OP_DROP 2 OP_SWAP <local_htlcpubkey> 2 OP_CHECKMULTISIG
  *         OP_ELSE
- *             # To you with preimage.
+ *             # To remote node with preimage.
  *             OP_HASH160 <RIPEMD160(payment_hash)> OP_EQUALVERIFY
  *             OP_CHECKSIG
  *         OP_ENDIF
@@ -568,23 +568,23 @@ u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
  *
  * #### Received HTLC Outputs
  *
- * This output sends funds to the remote peer after the HTLC timeout or using
- * the revocation key, or to an HTLC-success transaction with a successful
- * payment preimage. The output is a P2WSH, with a witness script:
+ * This output sends funds to either the remote node after the HTLC-timeout or
+ * using the revocation key, or to an HTLC-success transaction with a
+ * successful payment preimage. The output is a P2WSH, with a witness script:
  *
- *     # To you with revocation key
- *     OP_DUP OP_HASH160 <RIPEMD160(SHA256(revocationkey))> OP_EQUAL
+ *     # To remote node with revocation key
+ *     OP_DUP OP_HASH160 <RIPEMD160(SHA256(revocationpubkey))> OP_EQUAL
  *     OP_IF
  *         OP_CHECKSIG
  *     OP_ELSE
- *         <remote_htlckey> OP_SWAP
+ *         <remote_htlcpubkey> OP_SWAP
  *             OP_SIZE 32 OP_EQUAL
  *         OP_IF
- *             # To me via HTLC-success transaction.
+ *             # To local node via HTLC-success transaction.
  *             OP_HASH160 <RIPEMD160(payment_hash)> OP_EQUALVERIFY
- *             2 OP_SWAP <local_htlckey> 2 OP_CHECKMULTISIG
+ *             2 OP_SWAP <local_htlcpubkey> 2 OP_CHECKMULTISIG
  *         OP_ELSE
- *             # To you after timeout.
+ *             # To remote node after timeout.
  *             OP_DROP <cltv_expiry> OP_CHECKLOCKTIMEVERIFY OP_DROP
  *             OP_CHECKSIG
  *         OP_ENDIF
@@ -655,7 +655,7 @@ u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
  * ## HTLC-Timeout and HTLC-Success Transactions
  *
  *...
- *   * `txin[0]` witness stack: `0 <remotehtlcsig> <localhtlcsig>  <payment_preimage>` for HTLC-Success, `0 <remotehtlcsig> <localhtlcsig> 0` for HTLC-Timeout.
+ *   * `txin[0]` witness stack: `0 <remotehtlcsig> <localhtlcsig>  <payment_preimage>` for HTLC-success, `0 <remotehtlcsig> <localhtlcsig> 0` for HTLC-timeout
  */
 u8 **bitcoin_witness_htlc_timeout_tx(const tal_t *ctx,
 				     const secp256k1_ecdsa_signature *localhtlcsig,
@@ -702,12 +702,12 @@ u8 *bitcoin_wscript_htlc_tx(const tal_t *ctx,
 	 *
 	 *     OP_IF
 	 *         # Penalty transaction
-	 *         <revocationkey>
+	 *         <revocationpubkey>
 	 *     OP_ELSE
 	 *         `to_self_delay`
 	 *         OP_CSV
 	 *         OP_DROP
-	 *         <local_delayedkey>
+	 *         <local_delayedpubkey>
 	 *     OP_ENDIF
 	 *     OP_CHECKSIG
 	 */

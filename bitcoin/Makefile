@@ -20,6 +20,7 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/base58.h			\
 	bitcoin/block.h				\
 	bitcoin/chainparams.h			\
+	bitcoin/feerate.h			\
 	bitcoin/locktime.h			\
 	bitcoin/preimage.h			\
 	bitcoin/privkey.h			\

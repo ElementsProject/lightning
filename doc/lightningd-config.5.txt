@@ -100,7 +100,7 @@ Lightning daemon options:
 
 *pid-file*='PATH'::
     Specify pid file to write to.
-  
+
 *log-level*='LEVEL'::
     What log level to print out: options are io, debug, info, unusual, broken.
 
@@ -278,10 +278,13 @@ or precisely control where to bind and what to announce with the
     can still connect to Unix domain sockets manually).  This also disables
     all DNS lookups, to avoid leaking information.
 
+*disable-dns*::
+    Disable the DNS bootstrapping mechanism to find a node by its node ID.
+
 *tor-service-password*='PASSWORD'::
     Set a Tor control password, which may be needed for 'autotor:' to
     authenticate to the Tor control port.
-    
+
 BUGS
 ----
 You should report bugs on our github issues page, and maybe submit a

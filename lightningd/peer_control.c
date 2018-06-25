@@ -2,6 +2,7 @@
 #include "peer_control.h"
 #include "subd.h"
 #include <arpa/inet.h>
+#include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
@@ -180,9 +181,10 @@ u32 feerate_min(struct lightningd *ld)
 
 /* BOLT #2:
  *
- * Given the variance in fees, and the fact that the transaction may
- * be spent in the future, it's a good idea for the fee payer to keep
- * a good margin, say 10x the expected fee requirement */
+ * Given the variance in fees, and the fact that the transaction may be
+ * spent in the future, it's a good idea for the fee payer to keep a good
+ * margin (say 5x the expected fee requirement)
+ */
 u32 feerate_max(struct lightningd *ld)
 {
 	if (ld->config.ignore_fee_limits)
@@ -648,9 +650,14 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 
 	/* BOLT #7:
 	 *
-	 * If the `open_channel` message had the `announce_channel` bit set,
-	 * then both nodes must send the `announcement_signatures` message,
-	 * otherwise they MUST NOT.
+	 * A node:
+	 *   - if the `open_channel` message has the `announce_channel` bit set:
+	 *     - MUST send the `announcement_signatures` message.
+	 *       - MUST NOT send `announcement_signatures` messages until
+	 *         `funding_locked` has been sent AND the funding transaction has
+	 *         at least six confirmations.
+	 *   - otherwise:
+	 *     - MUST NOT send the `announcement_signatures` message.
 	 */
 	if (!(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
 		return DELETE_WATCH;

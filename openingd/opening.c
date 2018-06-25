@@ -100,8 +100,9 @@ static void check_config_bounds(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiving node MUST fail the channel if `to_self_delay` is
-	 * unreasonably large.
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *  - `to_self_delay` is unreasonably large.
 	 */
 	if (remoteconf->to_self_delay > state->max_to_self_delay)
 		negotiation_failed(state,
@@ -111,12 +112,13 @@ static void check_config_bounds(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiver MAY fail the channel if `funding_satoshis` is too
-	 * small, and MUST fail the channel if `push_msat` is greater than
-	 * `funding_satoshis` * 1000.  The receiving node MAY fail the channel
-	 * if it considers `htlc_minimum_msat` too large,
-	 * `max_htlc_value_in_flight_msat` too small, `channel_reserve_satoshis`
-	 * too large, or `max_accepted_htlcs` too small.
+	 * The receiving node MAY fail the channel if:
+	 *...
+	 *   - `funding_satoshis` is too small.
+	 *   - it considers `htlc_minimum_msat` too large.
+	 *   - it considers `max_htlc_value_in_flight_msat` too small.
+	 *   - it considers `channel_reserve_satoshis` too large.
+	 *   - it considers `max_accepted_htlcs` too small.
 	 */
 	/* We accumulate this into an effective bandwidth minimum. */
 
@@ -168,15 +170,16 @@ static void check_config_bounds(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * It MUST fail the channel if `max_accepted_htlcs` is greater
-	 * than 483.
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *  - `max_accepted_htlcs` is greater than 483.
 	 */
 	if (remoteconf->max_accepted_htlcs > 483)
 		negotiation_failed(state,
 				   "max_accepted_htlcs %u too large",
 				   remoteconf->max_accepted_htlcs);
 
-	/* BOLT #2:
+	/* FIXME #2:
 	 *
 	 * The receiving node MUST fail the channel if:
 	 *...
@@ -198,7 +201,7 @@ static void set_reserve(struct state *state)
 	state->localconf.channel_reserve_satoshis
 		= (state->funding_satoshis + 99) / 100;
 
-	/* BOLT #2:
+	/* FIXME #2:
 	 *
 	 * The sending node:
 	 *...
@@ -213,8 +216,10 @@ static void set_reserve(struct state *state)
 
 /* BOLT #2:
  *
- * A sending node MUST ensure `temporary_channel_id` is unique from any other
- * channel id with the same peer.
+ * The sending node:
+ *...
+ *  - MUST ensure `temporary_channel_id` is unique from any other channel ID
+ *    with the same peer.
  */
 static void temporary_channel_id(struct channel_id *channel_id)
 {
@@ -269,8 +274,10 @@ static u8 *funder_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The sender MUST set `push_msat` to equal or less than to 1000 *
-	 * `funding_satoshis`.
+	 * The sending node:
+	 *...
+	 *  - MUST set `push_msat` to equal or less than 1000 *
+	 *   `funding_satoshis`.
 	 */
 	if (state->push_msat > 1000 * state->funding_satoshis)
 		status_failed(STATUS_FAIL_MASTER_IO,
@@ -306,10 +313,11 @@ static u8 *funder_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiver MUST fail the channel if `funding_pubkey`,
-	 * `revocation_basepoint`, `htlc_basepoint`, `payment_basepoint` or
-	 * `delayed_payment_basepoint` are not valid DER-encoded compressed
-	 * secp256k1 pubkeys.
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *  - `funding_pubkey`, `revocation_basepoint`, `htlc_basepoint`,
+	 *    `payment_basepoint`, or `delayed_payment_basepoint` are not
+	 *    valid DER-encoded compressed secp256k1 pubkeys.
 	 */
 	if (!fromwire_accept_channel(msg, &id_in,
 				     &state->remoteconf->dust_limit_satoshis,
@@ -345,18 +353,17 @@ static u8 *funder_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiver MAY reject the `minimum_depth` if it considers it
-	 * unreasonably large.
-	 *
-	 * Other fields have the same requirements as their counterparts in
-	 * `open_channel`.
+	 * The receiver:
+	 *...
+	 *  - if `minimum_depth` is unreasonably large:
+	 *    - MAY reject the channel.
 	 */
 	if (minimum_depth > 10)
 		negotiation_failed(state,
 				   "minimum_depth %u larger than %u",
 				   minimum_depth, 10);
 
-	/* BOLT #2:
+	/* FIXME #2:
 	 *
 	 * The receiver:
 	 *...
@@ -423,11 +430,12 @@ static u8 *funder_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * ### The `funding_created` message
+	 * ### The `funding_created` Message
 	 *
 	 * This message describes the outpoint which the funder has created
 	 * for the initial commitment transactions.  After receiving the
-	 * peer's signature, it will broadcast the funding transaction.
+	 * peer's signature, via `funding_signed`, it will broadcast the funding
+	 * transaction.
 	 */
 	tx = initial_channel_tx(state, &wscript, state->channel,
 				&state->next_per_commit[REMOTE], REMOTE);
@@ -452,11 +460,11 @@ static u8 *funder_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * ### The `funding_signed` message
+	 * ### The `funding_signed` Message
 	 *
-	 * This message gives the funder the signature they need for the first
-	 * commitment transaction, so they can broadcast it knowing they can
-	 * redeem their funds if they need to.
+	 * This message gives the funder the signature it needs for the first
+	 * commitment transaction, so it can broadcast the signature knowing
+	 * that funds can be redeemed, if need be.
 	 */
 	peer_billboard(false,
 		       "Funding channel: create first tx, now waiting for their signature");
@@ -470,10 +478,10 @@ static u8 *funder_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * This message introduces the `channel_id` to identify the channel, which
-	 * is derived from the funding transaction by combining the
-	 * `funding_txid` and the `funding_output_index` using big-endian
-	 * exclusive-OR (ie. `funding_output_index` alters the last two
+	 * This message introduces the `channel_id` to identify the channel.
+	 * It's derived from the funding transaction by combining the
+	 * `funding_txid` and the `funding_output_index`, using big-endian
+	 * exclusive-OR (i.e. `funding_output_index` alters the last 2
 	 * bytes).
 	 */
 	derive_channel_id(&state->channel_id,
@@ -488,7 +496,9 @@ static u8 *funder_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The recipient MUST fail the channel if `signature` is incorrect.
+	 * The recipient:
+	 *   - if `signature` is incorrect:
+	 *     - MUST fail the channel.
 	 */
 	tx = initial_channel_tx(state, &wscript, state->channel,
 				&state->next_per_commit[LOCAL], LOCAL);
@@ -509,8 +519,10 @@ static u8 *funder_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * Once the channel funder receives the `funding_signed` message, they
-	 * must broadcast the funding transaction to the Bitcoin network.
+	 * The recipient:
+	 *...
+	 *   - on receipt of a valid `funding_signed`:
+	 *     - SHOULD broadcast the funding transaction.
 	 */
 	return towire_opening_funder_reply(state,
 					   state->remoteconf,
@@ -550,10 +562,11 @@ static u8 *fundee_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiver MUST fail the channel if `funding_pubkey`,
-	 * `revocation_basepoint`, `htlc_basepoint`, `payment_basepoint` or
-	 * `delayed_payment_basepoint` are not valid DER-encoded compressed
-	 * secp256k1 pubkeys.
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *  - `funding_pubkey`, `revocation_basepoint`, `htlc_basepoint`,
+	 *    `payment_basepoint`, or `delayed_payment_basepoint` are not valid
+	 *     DER-encoded compressed secp256k1 pubkeys.
 	 */
 	if (!fromwire_open_channel(peer_msg, &chain_hash,
 				   &state->channel_id,
@@ -578,9 +591,10 @@ static u8 *fundee_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiving node MUST reject the channel if the `chain_hash` value
-	 * within the `open_channel` message is set to a hash of a chain
-	 * unknown to the receiver.
+	 * The receiver:
+	 *  - if the `chain_hash` value, within the `open_channel`, message is
+	 *    set to a hash of a chain that is unknown to the receiver:
+	 *     - MUST reject the channel.
 	 */
 	if (!structeq(&chain_hash, &state->chainparams->genesis_blockhash)) {
 		negotiation_failed(state,
@@ -601,8 +615,8 @@ static u8 *fundee_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiving node ... MUST fail the channel if `push_msat` is
-	 * greater than `funding_satoshis` * 1000.
+	 * The receiving node MUST fail the channel if:
+	 *   - `push_msat` is greater than `funding_satoshis` * 1000.
 	 */
 	if (state->push_msat > state->funding_satoshis * 1000)
 		peer_failed(&state->cs,
@@ -613,8 +627,10 @@ static u8 *fundee_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiver MUST fail the channel if it considers `feerate_per_kw`
-	 * too small for timely processing, or unreasonably large.
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *  - it considers `feerate_per_kw` too small for timely processing or
+	 *    unreasonably large.
 	 */
 	if (state->feerate_per_kw < min_feerate)
 		negotiation_failed(state,
@@ -628,7 +644,7 @@ static u8 *fundee_channel(struct state *state,
 
 	set_reserve(state);
 
-	/* BOLT #2:
+	/* FIXME #2:
 	 *
 	 * The sender:
 	 *...
@@ -688,8 +704,9 @@ static u8 *fundee_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The sender MUST set `temporary_channel_id` the same as the
-	 * `temporary_channel_id` in the `open_channel` message. */
+	 * The `temporary_channel_id` MUST be the same as the
+	 * `temporary_channel_id` in the `open_channel` message.
+	 */
 	if (!structeq(&id_in, &state->channel_id))
 		peer_failed(&state->cs, &id_in,
 			    "funding_created ids don't match: sent %s got %s",
@@ -716,7 +733,9 @@ static u8 *fundee_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The recipient MUST fail the channel if `signature` is incorrect.
+	 * The recipient:
+	 *   - if `signature` is incorrect:
+	 *     - MUST fail the channel.
 	 */
 	their_commit = initial_channel_tx(state, &wscript, state->channel,
 					  &state->next_per_commit[LOCAL], LOCAL);
@@ -738,22 +757,21 @@ static u8 *fundee_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * This message introduces the `channel_id` to identify the channel,
-	 * which is derived from the funding transaction by combining the
-	 * `funding_txid` and the `funding_output_index` using big-endian
-	 * exclusive-OR (ie. `funding_output_index` alters the last two
-	 * bytes).
+	 * This message introduces the `channel_id` to identify the
+	 * channel. It's derived from the funding transaction by combining the
+	 * `funding_txid` and the `funding_output_index`, using big-endian
+	 * exclusive-OR (i.e. `funding_output_index` alters the last 2 bytes).
 	 */
 	derive_channel_id(&state->channel_id,
 			  &state->funding_txid, state->funding_txout);
 
 	/* BOLT #2:
 	 *
-	 * ### The `funding_signed` message
+	 * ### The `funding_signed` Message
 	 *
-	 * This message gives the funder the signature they need for the first
-	 * commitment transaction, so they can broadcast it knowing they can
-	 * redeem their funds if they need to.
+	 * This message gives the funder the signature it needs for the first
+	 * commitment transaction, so it can broadcast the signature knowing
+	 * that funds can be redeemed, if need be.
 	 */
 	our_commit = initial_channel_tx(state, &wscript, state->channel,
 					&state->next_per_commit[REMOTE], REMOTE);

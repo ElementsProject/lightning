@@ -25,25 +25,24 @@ static inline u64 commit_tx_base_fee(u32 feerate_per_kw,
 
 	/* BOLT #3:
 	 *
-	 * The base fee for a commitment transaction MUST BE
-	 * calculated to match:
-	 *
-	 * 1. Start with `weight` = 724.
+	 * The base fee for a commitment transaction:
+	 *  - MUST be calculated to match:
+	 *    1. Start with `weight` = 724.
 	 */
 	weight = 724;
 
 	/* BOLT #3:
 	 *
-	 * 2. For each committed HTLC, if that output is not trimmed
-	 *    as specified in [Trimmed Outputs](#trimmed-outputs), add
-	 *    172 to `weight`.
+	 *    2. For each committed HTLC, if that output is not trimmed as
+	 *       specified in [Trimmed Outputs](#trimmed-outputs), add 172
+	 *       to `weight`.
 	 */
 	weight += 172 * num_untrimmed_htlcs;
 
 	/* BOLT #3:
 	 *
-	 * 3. Multiply `feerate_per_kw` by `weight`, divide by 1000
-	 *    (rounding down).
+	 *    3. Multiply `feerate_per_kw` by `weight`, divide by 1000 (rounding
+	 *    down).
 	 */
 	return feerate_per_kw * weight / 1000;
 }

@@ -76,16 +76,17 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 
 	/* BOLT #2:
 	 *
-	 * A sending node MUST set `scriptpubkey` to one of the following forms:
-	 *
 	 * 1. `OP_DUP` `OP_HASH160` `20` 20-bytes `OP_EQUALVERIFY` `OP_CHECKSIG`
 	 *   (pay to pubkey hash), OR
 	 * 2. `OP_HASH160` `20` 20-bytes `OP_EQUAL` (pay to script hash), OR
 	 * 3. `OP_0` `20` 20-bytes (version 0 pay to witness pubkey), OR
 	 * 4. `OP_0` `32` 32-bytes (version 0 pay to witness script hash)
 	 *
-	 * A receiving node SHOULD fail the connection if the `scriptpubkey`
-	 * is not one of those forms. */
+	 * A receiving node:
+	 *...
+	 *  - if the `scriptpubkey` is not in one of the above forms:
+	 *    - SHOULD fail the connection.
+	 */
 	if (!is_p2pkh(scriptpubkey, NULL) && !is_p2sh(scriptpubkey, NULL)
 	    && !is_p2wpkh(scriptpubkey, NULL) && !is_p2wsh(scriptpubkey, NULL)) {
 		channel_fail_permanent(channel, "Bad shutdown scriptpubkey %s",

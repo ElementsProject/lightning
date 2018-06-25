@@ -97,7 +97,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	/* BOLT #3:
 	 *
 	 * 3. Subtract this base fee from the funder (either `to_local` or
-	 * `to_remote`), with a floor of zero (see [Fee Payment](#fee-payment)).
+	 * `to_remote`), with a floor of 0 (see [Fee Payment](#fee-payment)).
 	 */
 	if (!try_subtract_fee(funder, side, base_fee_msat,
 			      &self_pay_msat, &other_pay_msat)) {
@@ -105,16 +105,15 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		 *
 		 * The receiving node MUST fail the channel if:
 		 *...
-		 * - the funder's amount for the initial commitment
-		 *   transaction is not sufficient for full [fee
-		 *   payment](03-transactions.md#fee-payment).
+		 *   - it considers `feerate_per_kw` too small for timely
+		 *     processing or unreasonably large.
 		 */
 		status_unusual("Funder cannot afford fee"
 			       " on initial commitment transaction");
 		return NULL;
 	}
 
-	/* BOLT #2:
+	/* FIXME, should be in #2:
 	 *
 	 * The receiving node MUST fail the channel if:
 	 *...
@@ -158,7 +157,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *
 	 * 5. If the `to_local` amount is greater or equal to
 	 *    `dust_limit_satoshis`, add a [`to_local`
-	 *    Output](#to-local-output).
+	 *    output](#to-local-output).
 	 */
 	if (self_pay_msat / 1000 >= dust_limit_satoshis) {
 		u8 *wscript = to_self_wscript(tmpctx, to_self_delay,keyset);
@@ -171,15 +170,15 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *
 	 * 6. If the `to_remote` amount is greater or equal to
 	 *    `dust_limit_satoshis`, add a [`to_remote`
-	 *    Output](#to-remote-output).
+	 *    output](#to-remote-output).
 	 */
 	if (other_pay_msat / 1000 >= dust_limit_satoshis) {
 		/* BOLT #3:
 		 *
 		 * #### `to_remote` Output
 		 *
-		 * This output sends funds to the other peer, thus is a simple
-		 * P2WPKH to `remotekey`.
+		 * This output sends funds to the other peer and thus is a simple
+		 * P2WPKH to `remotepubkey`.
 		 */
 		tx->output[n].amount = other_pay_msat / 1000;
 		tx->output[n].script = scriptpubkey_p2wpkh(tx,
@@ -208,7 +207,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	/* BOLT #3:
 	 *
 	 * * locktime: upper 8 bits are 0x20, lower 24 bits are the lower
-	 *   24 bits of the obscured commitment transaction number.
+	 *   24 bits of the obscured commitment transaction number
 	 */
 	tx->lock_time
 		= (0x20000000 | (obscured_commitment_number & 0xFFFFFF));
@@ -225,7 +224,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	/* BOLT #3:
 	 *
 	 *    * `txin[0]` sequence: upper 8 bits are 0x80, lower 24 bits are
-	 *       upper 24 bits of the obscured commitment transaction number.
+	 *       upper 24 bits of the obscured commitment transaction number
 	 */
 	tx->input[0].sequence_number
 		= (0x80000000 | ((obscured_commitment_number>>24) & 0xFFFFFF));

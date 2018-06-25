@@ -2,12 +2,12 @@
 .\"     Title: lightning-fundchannel
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 05/07/2018
+.\"      Date: 06/17/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-FUNDCHANN" "7" "05/07/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-FUNDCHANN" "7" "06/17/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -38,7 +38,7 @@ The \fBfundchannel\fR RPC command opens a payment channel with a peer by commiti
 .sp
 \fIid\fR is the peer id obtained from \fBconnect\fR\&.
 .sp
-\fIsatoshi\fR is the amount in satoshis taken from the internal wallet to fund the channel\&. The string \fIall\fR can be used to specify all available funds\&. This value must be greater than the dust limit, currently set to 546\&. And it must be less than 1<<24 (approximately 0\&.16778 BTC)\&.
+\fIsatoshi\fR is the amount in satoshis taken from the internal wallet to fund the channel\&. The string \fIall\fR can be used to specify all available funds\&. This value cannot be less than the dust limit, currently set to 546\&. And it must be less than 1<<24 (approximately 0\&.16778 BTC)\&.
 .SH "RETURN VALUE"
 .sp
 On success, the \fItx\fR and \fItxid\fR of the transaction is returned, as well as the \fIchannel_id\fR of the newly created channel\&. On failure, an error is reported and the channel is not funded\&.
@@ -53,22 +53,7 @@ The following error codes may occur:
 .sp -1
 .IP \(bu 2.3
 .\}
-\-1\&. Catchall nonspecific arror\&.
-.RE
-.sp
-The above error may include a descriptive message indicating:
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-The
-\fIid\fR
-is invalid\&.
+\-1\&. Catchall nonspecific error\&.
 .RE
 .sp
 .RS 4
@@ -79,7 +64,7 @@ is invalid\&.
 .sp -1
 .IP \(bu 2.3
 .\}
-There are not enough funds in the internal wallet to create the transaction\&.
+300\&. The maximum allowed funding amount is exceeded\&.
 .RE
 .sp
 .RS 4
@@ -90,7 +75,7 @@ There are not enough funds in the internal wallet to create the transaction\&.
 .sp -1
 .IP \(bu 2.3
 .\}
-The maximum allowed funding amount is exceeded\&.
+301\&. There are not enough funds in the internal wallet (including fees) to create the transaction\&.
 .RE
 .sp
 .RS 4
@@ -101,8 +86,7 @@ The maximum allowed funding amount is exceeded\&.
 .sp -1
 .IP \(bu 2.3
 .\}
-\fIsatoshi\fR
-is less than the dust limit\&.
+302\&. The output amount is too small, and would be considered dust\&.
 .RE
 .sp
 Failure may also occur if \fBlightningd\fR and the peer cannot agree on channel parameters (funding limits, channel reserves, fees, etc\&.)\&.

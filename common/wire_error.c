@@ -12,8 +12,8 @@ u8 *towire_errorfmtv(const tal_t *ctx,
 {
 	/* BOLT #1:
 	 *
-	 * The channel is referred to by `channel_id` unless `channel_id` is
-	 * zero (ie. all bytes zero), in which case it refers to all
+	 * The channel is referred to by `channel_id`, unless `channel_id` is
+	 * 0 (i.e. all bytes are 0), in which case it refers to all
 	 * channels. */
 	static const struct channel_id all_channels;
 	char *estr;
@@ -63,10 +63,12 @@ char *sanitize_error(const tal_t *ctx, const u8 *errmsg,
 
 	/* BOLT #1:
 	 *
-	 * A receiving node SHOULD only print out `data` verbatim if the
-	 * string is composed solely of printable ASCII characters.  For
-	 * reference, the printable character set includes byte values 32
-	 * through 127 inclusive.
+	 * The receiving node:
+	 *...
+	 *  - if `data` is not composed solely of printable ASCII characters
+	 *   (For reference: the printable character set includes byte values 32
+	 *   through 126, inclusive):
+	 *    - SHOULD NOT print out `data` verbatim.
 	 */
 	for (i = 0; i < tal_len(data); i++) {
 		if (data[i] < 32 || data[i] > 127) {

@@ -24,7 +24,7 @@ for the channel.
 
 'satoshi' is the amount in satoshis taken from the internal wallet to fund the channel.
 The string 'all' can be used to specify all available funds.
-This value must be greater than the dust limit, currently set to 546.
+This value cannot be less than the dust limit, currently set to 546.
 And it must be less than 1<<24 (approximately 0.16778 BTC).
 
 RETURN VALUE
@@ -35,14 +35,11 @@ On failure, an error is reported and the channel is not funded.
 
 The following error codes may occur:
 
-* -1. Catchall nonspecific arror.
-
-The above error may include a descriptive message indicating:
-
-* The 'id' is invalid.
-* There are not enough funds in the internal wallet to create the transaction.
-* The maximum allowed funding amount is exceeded.
-* 'satoshi' is less than the dust limit.
+* -1. Catchall nonspecific error.
+* 300. The maximum allowed funding amount is exceeded.
+* 301. There are not enough funds in the internal wallet (including fees) to
+       create the transaction.
+* 302. The output amount is too small, and would be considered dust.
 
 Failure may also occur if *lightningd* and the peer cannot agree on channel
 parameters (funding limits, channel reserves, fees, etc.).

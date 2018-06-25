@@ -29,6 +29,11 @@
 #define PAY_UNSPECIFIED_ERROR		209
 #define PAY_STOPPED_RETRYING		210
 
+/* `fundchannel` or `withdraw` errors */
+#define FUND_MAX_EXCEEDED               300
+#define FUND_CANNOT_AFFORD              301
+#define FUND_OUTPUT_IS_DUST             302
+
 /* Errors from `invoice` command */
 #define INVOICE_LABEL_ALREADY_EXISTS	900
 #define INVOICE_PREIMAGE_ALREADY_EXISTS	901

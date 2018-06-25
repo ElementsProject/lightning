@@ -6,10 +6,11 @@
 
 /* BOLT #1:
  *
- * A node MUST ignore a received message of unknown type, if that type is odd.
- *
- * A node MUST fail the channels if it receives a message of unknown type, if
- * that type is even.
+ * A receiving node:
+ *   - upon receiving a message of _odd_, unknown type:
+ *     - MUST ignore the received message.
+ *   - upon receiving a message of _even_, unknown type:
+ *     - MUST fail the channels.
  */
 
 /* Return true if it's an unknown ODD message.  cursor is a tal ptr. */
@@ -25,13 +26,15 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id);
  * Only the least-significant bit of `channel_flags` is currently
  * defined: `announce_channel`.  This indicates whether the initiator
  * of the funding flow wishes to advertise this channel publicly to
- * the network as detailed within [BOLT #7]
+ * the network, as detailed within [BOLT #7]
  */
 #define CHANNEL_FLAGS_ANNOUNCE_CHANNEL 1
 
 /* BOLT #2:
  *
- * The sender MUST set `funding_satoshis` to less than 2^24 satoshi.
+ * The sending node:
+ *...
+ *   - MUST set `funding_satoshis` to less than 2^24 satoshi.
  */
 #define MAX_FUNDING_SATOSHI ((1 << 24) - 1)
 

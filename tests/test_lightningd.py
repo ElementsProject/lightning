@@ -2206,26 +2206,22 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log(' to ONCHAIN')
 
         # Wait for timeout.
-        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by DONATING_TO_MINERS .* after 6 blocks')
-        bitcoind.generate_block(6)
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by IGNORING_TINY_PAYMENT .* after 6 blocks')
+        bitcoind.generate_block(5)
 
-        l1.daemon.wait_for_log('sendrawtx exit 0')
-        bitcoind.generate_block(1)
-
-        l1.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal DONATING_TO_MINERS')
+        l1.daemon.wait_for_logs(['Broadcasting IGNORING_TINY_PAYMENT .* to resolve THEIR_UNILATERAL/OUR_HTLC',
+                                 'sendrawtx exit 0',
+                                 'Ignoring output 0 of .*: THEIR_UNILATERAL/OUR_HTLC'])
 
         # 100 deep and l2 forgets.
-        bitcoind.generate_block(91)
-        sync_blockheight([l2])
+        bitcoind.generate_block(93)
+        sync_blockheight([l1, l2])
         assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
+        assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')
         bitcoind.generate_block(1)
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
-        # l1 forgets 100 blocks after DONATING_TO_MINERS.
-        bitcoind.generate_block(6)
-        sync_blockheight([l1])
-        assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')
-        bitcoind.generate_block(1)
+        # l1 does not wait for ignored payment.
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_fail")
@@ -3921,7 +3917,7 @@ class LightningDTests(BaseLightningDTests):
 
         # This should fail, can't even afford fee.
         self.assertRaises(ValueError, l1.rpc.withdraw, waddr, 'all')
-        l1.daemon.wait_for_log('Cannot afford fee')
+        l1.daemon.wait_for_log('Cannot afford funding transaction')
 
     def test_funding_change(self):
         """Add some funds, fund a channel, and make sure we remember the change

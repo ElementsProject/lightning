@@ -96,8 +96,10 @@ struct peer {
 
 	/* BOLT #2:
 	 *
-	 * A sending node MUST set `id` to 0 for the first HTLC it offers, and
-	 * increase the value by 1 for each successive offer.
+	 * A sending node:
+	 *...
+	 *  - for the first HTLC it offers:
+	 *    - MUST set `id` to 0.
 	 */
 	u64 htlc_id;
 
@@ -472,9 +474,9 @@ static void channel_announcement_negotiate(struct peer *peer)
 	}
 	/* BOLT #7:
 	 *
-	 * If sent, `announcement_signatures` messages MUST NOT be sent until
-	 * `funding_locked` has been sent and the funding transaction has
-	 * at least 6 confirmations.
+	 *      - MUST NOT send `announcement_signatures` messages until
+	 *      `funding_locked` has been sent AND the funding transaction has
+	 *      at least six confirmations.
 	 */
 	if (peer->announce_depth_reached && !peer->have_sigs[LOCAL]) {
 		send_announcement_signatures(peer);
@@ -494,8 +496,10 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 
 	/* BOLT #2:
 	 *
-	 * On reconnection, a node MUST ignore a redundant `funding_locked` if
-	 * it receives one.
+	 * A node:
+	 *...
+	 *  - upon reconnection:
+	 *    - MUST ignore any redundant `funding_locked` it receives.
 	 */
 	if (peer->funding_locked[REMOTE])
 		return;
@@ -632,8 +636,10 @@ static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 
 	/* BOLT #2:
 	 *
-	 * A receiving node MUST fail the channel if the sender is not
-	 * responsible for paying the bitcoin fee.
+	 * A receiving node:
+	 *...
+	 *  - if the sender is not responsible for paying the Bitcoin fee:
+	 *    - MUST fail the channel.
 	 */
 	if (peer->channel->funder != REMOTE)
 		peer_failed(&peer->cs,
@@ -645,8 +651,10 @@ static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 
 	/* BOLT #2:
 	 *
-	 * A receiving node SHOULD fail the channel if the `update_fee` is too
-	 * low for timely processing, or unreasonably large.
+	 * A receiving node:
+	 *   - if the `update_fee` is too low for timely processing, OR is
+	 *     unreasonably large:
+	 *     - SHOULD fail the channel.
 	 */
 	if (feerate < peer->feerate_min || feerate > peer->feerate_max)
 		peer_failed(&peer->cs,
@@ -656,10 +664,10 @@ static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 
 	/* BOLT #2:
 	 *
-	 * A receiving node SHOULD fail the channel if the sender cannot
-	 * afford the new fee rate on the receiving node's current commitment
-	 * transaction, but it MAY delay this check until the `update_fee` is
-	 * committed.
+	 *  - if the sender cannot afford the new fee rate on the receiving
+	 *    node's current commitment transaction:
+	 *    - SHOULD fail the channel,
+	 *      - but MAY delay this check until the `update_fee` is committed.
 	 */
 	if (!channel_update_feerate(peer->channel, feerate))
 		peer_failed(&peer->cs,
@@ -715,8 +723,11 @@ static bool shutdown_complete(const struct peer *peer)
 
 /* BOLT #2:
  *
- * A node MUST NOT send a `shutdown` if there are updates pending on
- * the receiving node's commitment transaction.
+ * A sending node:
+ *...
+ *  - if there are updates pending on the receiving node's commitment
+ *    transaction:
+ *     - MUST NOT send a `shutdown`.
  */
 /* So we only call this after reestablish or immediately after sending commit */
 static void maybe_send_shutdown(struct peer *peer)
@@ -845,9 +856,11 @@ static struct commit_sigs *calc_commitsigs(const tal_t *ctx,
 
 	/* BOLT #2:
 	 *
-	 * A node MUST include one `htlc_signature` for every HTLC transaction
-	 * corresponding to BIP69 lexicographic ordering of the commitment
-	 * transaction.
+	 * A sending node:
+	 *...
+	 *  - MUST include one `htlc_signature` for every HTLC transaction
+	 *    corresponding to BIP69 lexicographic ordering of the commitment
+	 *    transaction.
 	 */
 	commit_sigs->htlc_sigs = tal_arr(commit_sigs, secp256k1_ecdsa_signature,
 					 tal_count(txs) - 1);
@@ -941,8 +954,9 @@ static void send_commit(struct peer *peer)
 
 	/* BOLT #2:
 	 *
-	 * A node MUST NOT send a `commitment_signed` message which does not
-	 * include any updates.
+	 * A sending node:
+	 *   - MUST NOT send a `commitment_signed` message that does not include
+	 *     any updates.
 	 */
 	changed_htlcs = tal_arr(tmpctx, const struct htlc *, 0);
 	if (!channel_sending_commit(peer->channel, &changed_htlcs)) {
@@ -1137,8 +1151,9 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	if (!channel_rcvd_commit(peer->channel, &changed_htlcs)) {
 		/* BOLT #2:
 		 *
-		 * A node MUST NOT send a `commitment_signed` message which
-		 * does not include any updates.
+		 * A sending node:
+		 *   - MUST NOT send a `commitment_signed` message that does not
+		 *     include any updates.
 		 */
 		peer_failed(&peer->cs,
 			    &peer->channel_id,
@@ -1177,9 +1192,10 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 		     type_to_string(tmpctx, struct pubkey, &point));
 	/* BOLT #2:
 	 *
-	 * A receiving node MUST fail the channel if `signature` is not valid
-	 * for its local commitment transaction once all pending updates are
-	 * applied.
+	 * A receiving node:
+	 *  - once all pending updates are applied:
+	 *    - if `signature` is not valid for its local commitment transaction:
+	 *      - MUST fail the channel.
 	 */
 	if (!check_tx_sig(txs[0], 0, NULL, wscripts[0],
 			  &peer->channel->funding_pubkey[REMOTE], &commit_sig)) {
@@ -1199,9 +1215,11 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 
 	/* BOLT #2:
 	 *
-	 * A receiving node MUST fail the channel if `num_htlcs` is not equal
-	 * to the number of HTLC outputs in the local commitment transaction
-	 * once all pending updates are applied.
+	 * A receiving node:
+	 *...
+	 *    - if `num_htlcs` is not equal to the number of HTLC outputs in the
+	 * local commitment transaction:
+	 *      - MUST fail the channel.
 	 */
 	if (tal_count(htlc_sigs) != tal_count(txs) - 1)
 		peer_failed(&peer->cs,
@@ -1211,9 +1229,9 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 
 	/* BOLT #2:
 	 *
-	 * A receiving node MUST fail
-	 * the channel if any `htlc_signature` is not valid for the
-	 * corresponding HTLC transaction.
+	 *   - if any `htlc_signature` is not valid for the corresponding HTLC
+	 *     transaction:
+	 *     - MUST fail the channel.
 	 */
 	for (i = 0; i < tal_count(htlc_sigs); i++) {
 		if (!check_tx_sig(txs[1+i], 0, NULL, wscripts[1+i],
@@ -1289,9 +1307,10 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 
 	/* BOLT #2:
 	 *
-	 * A receiving node MUST check that `per_commitment_secret` generates
-	 * the previous `per_commitment_point`, and MUST fail if it does
-	 * not.
+	 * A receiving node:
+	 *  - if `per_commitment_secret` does not generate the previous
+	 *   `per_commitment_point`:
+	 *    - MUST fail the channel.
 	 */
 	memcpy(&privkey, &old_commit_secret, sizeof(privkey));
 	if (!pubkey_from_privkey(&privkey, &per_commit_point)) {
@@ -1430,8 +1449,9 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 
 	/* BOLT #2:
 	 *
-	 * A receiving node MUST fail the channel if the `BADONION` bit in
-	 * `failure_code` is not set for `update_fail_malformed_htlc`.
+	 *   - if the `BADONION` bit in `failure_code` is not set for
+	 *    `update_fail_malformed_htlc`:
+	 *      - MUST fail the channel.
 	 */
 	if (!(failure_code & BADONION)) {
 		peer_failed(&peer->cs,
@@ -1446,19 +1466,20 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 		/* FIXME: Do this! */
 		/* BOLT #2:
 		 *
-		 * A receiving node MAY check the `sha256_of_onion`
-		 * in `update_fail_malformed_htlc` and MAY retry or choose an
-		 * alternate error response if it does not match the onion it
-		 * sent.
+		 *   - if the `sha256_of_onion` in `update_fail_malformed_htlc`
+		 *     doesn't match the onion it sent:
+		 *    - MAY retry or choose an alternate error response.
 		 */
 
 		/* BOLT #2:
 		 *
-		 * Otherwise, a receiving node which has an outgoing HTLC
-		 * canceled by `update_fail_malformed_htlc` MUST return an
-		 * error in the `update_fail_htlc` sent to the link which
-		 * originally sent the HTLC using the `failure_code` given and
-		 * setting the data to `sha256_of_onion`.
+		 *  - otherwise, a receiving node which has an outgoing HTLC
+		 * canceled by `update_fail_malformed_htlc`:
+		 *
+		 *    - MUST return an error in the `update_fail_htlc` sent to
+		 *      the link which originally sent the HTLC, using the
+		 *      `failure_code` given and setting the data to
+		 *      `sha256_of_onion`.
 		 */
 		fail = tal_arr(htlc, u8, 0);
 		towire_u16(&fail, failure_code);
@@ -1653,10 +1674,11 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 
 	/* BOLT #2:
 	 *
-	 * If `next_local_commitment_number` is equal to the commitment number
-	 * of the last `commitment_signed` message the receiving node has
-	 * sent, it MUST reuse the same commitment number for its next
-	 * `commitment_signed`
+	 *   - if `next_local_commitment_number` is equal to the commitment
+	 *     number of the last `commitment_signed` message the receiving node
+	 *     has sent:
+	 *     - MUST reuse the same commitment number for its next
+	 *       `commitment_signed`.
 	 */
 	/* In our case, we consider ourselves already committed to this, so
 	 * retransmission is simplest. */
@@ -1748,16 +1770,20 @@ static void peer_reconnect(struct peer *peer)
 
 	/* BOLT #2:
 	 *
-	 * On reconnection, a node MUST transmit `channel_reestablish` for
-	 * each channel, and MUST wait for to receive the other node's
-	 * `channel_reestablish` message before sending any other messages for
-	 * that channel.
+	 *   - upon reconnection:
+	 *     - if a channel is in an error state:
+	 *       - SHOULD retransmit the error packet and ignore any other packets for
+	 *        that channel.
+	 *     - otherwise:
+	 *       - MUST transmit `channel_reestablish` for each channel.
+	 *       - MUST wait to receive the other node's `channel_reestablish`
+	 *         message before sending any other messages for that channel.
 	 *
-	 * The sending node MUST set `next_local_commitment_number` to the
-	 * commitment number of the next `commitment_signed` it expects to
-	 * receive, and MUST set `next_remote_revocation_number` to the
-	 * commitment number of the next `revoke_and_ack` message it expects
-	 * to receive.
+	 * The sending node:
+	 *   - MUST set `next_local_commitment_number` to the commitment number
+	 *     of the next `commitment_signed` it expects to receive.
+	 *   - MUST set `next_remote_revocation_number` to the commitment number
+	 *     of the next `revoke_and_ack` message it expects to receive.
 	 */
 	msg = towire_channel_reestablish(NULL, &peer->channel_id,
 					 peer->next_index[LOCAL],
@@ -1787,9 +1813,11 @@ static void peer_reconnect(struct peer *peer)
 
 	/* BOLT #2:
 	 *
-	 * If `next_local_commitment_number` is 1 in both the
-	 * `channel_reestablish` it sent and received, then the node MUST
-	 * retransmit `funding_locked`, otherwise it MUST NOT.
+	 *   - if `next_local_commitment_number` is 1 in both the
+	 *    `channel_reestablish` it sent and received:
+	 *     - MUST retransmit `funding_locked`.
+	 *   - otherwise:
+	 *     - MUST NOT retransmit `funding_locked`.
 	 */
 	if (peer->funding_locked[LOCAL]
 	    && peer->next_index[LOCAL] == 1
@@ -1811,13 +1839,16 @@ static void peer_reconnect(struct peer *peer)
 
 	/* BOLT #2:
 	 *
-	 * If `next_remote_revocation_number` is equal to the commitment
-	 * number of the last `revoke_and_ack` the receiving node has sent and the receiving node has not already received a `closing_signed`, it
-	 * MUST re-send the `revoke_and_ack`, otherwise if
-	 * `next_remote_revocation_number` is not equal to one greater than
-	 * the commitment number of the last `revoke_and_ack` the receiving
-	 * node has sent (or equal to zero if none have been sent), it SHOULD
-	 * fail the channel.
+	 *   - if `next_local_commitment_number` is equal to the commitment
+	 *     number of the last `commitment_signed` message the receiving node
+	 *     has sent:
+	 *     - MUST reuse the same commitment number for its next
+	 *      `commitment_signed`.
+	 *   - otherwise:
+	 *     - if `next_local_commitment_number` is not 1 greater than the
+	 *       commitment number of the last `commitment_signed` message the
+	 *       receiving node has sent:
+	 *       - SHOULD fail the channel.
 	 */
 	if (next_remote_revocation_number == peer->next_index[LOCAL] - 2) {
 		/* Don't try to retransmit revocation index -1! */
@@ -1846,10 +1877,11 @@ static void peer_reconnect(struct peer *peer)
 
 	/* BOLT #2:
 	 *
-	 * If `next_local_commitment_number` is equal to the commitment number
-	 * of the last `commitment_signed` message the receiving node has
-	 * sent, it MUST reuse the same commitment number for its next
-	 * `commitment_signed`
+	 *   - if `next_local_commitment_number` is equal to the commitment
+	 *     number of the last `commitment_signed` message the receiving node
+	 *     has sent:
+	 *     - MUST reuse the same commitment number for its next
+	 *       `commitment_signed`.
 	 */
 	if (next_local_commitment_number == peer->next_index[REMOTE] - 1) {
 		/* We completed opening, we don't re-transmit that one! */
@@ -1864,9 +1896,11 @@ static void peer_reconnect(struct peer *peer)
 
 	/* BOLT #2:
 	 *
-	 * ... otherwise if `next_local_commitment_number` is not one greater
-	 * than the commitment number of the last `commitment_signed` message
-	 * the receiving node has sent, it SHOULD fail the channel.
+	 *   - otherwise:
+	 *     - if `next_local_commitment_number` is not 1 greater than the
+	 *       commitment number of the last `commitment_signed` message the
+	 *       receiving node has sent:
+	 *       - SHOULD fail the channel.
 	 */
 	} else if (next_local_commitment_number != peer->next_index[REMOTE])
 		peer_failed(&peer->cs,
@@ -1882,11 +1916,11 @@ static void peer_reconnect(struct peer *peer)
 
 	/* BOLT #2:
 	 *
-	 * On reconnection if the node has sent a previous `closing_signed` it
-	 * MUST send another `closing_signed`, otherwise if the node has sent
-	 * a previous `shutdown` it MUST retransmit it.
+	 *   - upon reconnection:
+	 *     - if it has sent a previous `shutdown`:
+	 *       - MUST retransmit `shutdown`.
 	 */
-	/* If we had sent `closing_signed`, we'd be in closingd. */
+	/* (If we had sent `closing_signed`, we'd be in closingd). */
 	maybe_send_shutdown(peer);
 
 	/* Corner case: we didn't send shutdown before because update_add_htlc
@@ -2051,18 +2085,19 @@ static void handle_feerates(struct peer *peer, const u8 *inmsg)
 
 	/* BOLT #2:
 	 *
-	 * The node which is responsible for paying the bitcoin fee SHOULD
-	 * send `update_fee` to ensure the current fee rate is sufficient for
-	 * timely processing of the commitment transaction by a significant
-	 * margin. */
+	 * The node _responsible_ for paying the Bitcoin fee:
+	 *   - SHOULD send `update_fee` to ensure the current fee rate is
+	 *    sufficient (by a significant margin) for timely processing of the
+	 *     commitment transaction.
+	 */
 	if (peer->channel->funder == LOCAL) {
 		peer->desired_feerate = feerate;
 		start_commit_timer(peer);
 	} else {
 		/* BOLT #2:
 		 *
-		 * The node which is not responsible for paying the bitcoin
-		 * fee MUST NOT send `update_fee`.
+		 * The node _not responsible_ for paying the Bitcoin fee:
+		 *  - MUST NOT send `update_fee`.
 		 */
 		/* FIXME: We could drop to chain if fees are too low, but
 		 * that's fraught too. */
@@ -2285,9 +2320,11 @@ static void handle_ping_cmd(struct peer *peer, const u8 *inmsg)
 
 	/* BOLT #1:
 	 *
-	 * if `num_pong_bytes` is less than 65532 it MUST respond by sending a
-	 * `pong` message with `byteslen` equal to `num_pong_bytes`, otherwise
-	 * it MUST ignore the `ping`.
+	 *   - if `num_pong_bytes` is less than 65532:
+	 *     - MUST respond by sending a `pong` message, with `byteslen` equal
+	 *       to `num_pong_bytes`.
+	 *   - otherwise (`num_pong_bytes` is **not** less than 65532):
+	 *     - MUST ignore the `ping`.
 	 */
 	if (num_pong_bytes >= 65532)
 		wire_sync_write(MASTER_FD,

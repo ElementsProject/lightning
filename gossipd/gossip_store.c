@@ -16,7 +16,6 @@
 
 #define GOSSIP_STORE_FILENAME "gossip_store"
 #define GOSSIP_STORE_TEMP_FILENAME "gossip_store.tmp"
-#define MAX_COUNT_TO_STALE_RATE 10
 static u8 gossip_store_version = 0x02;
 
 struct gossip_store {
@@ -219,8 +218,6 @@ disable:
 
 void gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg)
 {
-	size_t stale;
-
 	/* Only give error message once. */
 	if (gs->fd == -1)
 		return;
@@ -232,8 +229,7 @@ void gossip_store_add(struct gossip_store *gs, const u8 *gossip_msg)
 	}
 
 	gs->count++;
-	stale = gs->count - gs->broadcast->count;
-	if (gs->count >= 100 && stale * MAX_COUNT_TO_STALE_RATE > gs->count &&
+	if (gs->count >= 1000 && gs->count > gs->broadcast->count * 1.25 &&
 	    !gs->disable_compaction)
 		gossip_store_compact(gs);
 }

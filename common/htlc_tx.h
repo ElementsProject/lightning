@@ -11,10 +11,10 @@ static inline u64 htlc_timeout_fee(u32 feerate_per_kw)
 {
 	/* BOLT #3:
 	 *
-	 * The fee for an HTLC-timeout transaction MUST BE calculated to match:
-	 *
-	 * 1. Multiply `feerate_per_kw` by 663 and divide by 1000 (rounding
-	 *    down).
+	 * The fee for an HTLC-timeout transaction:
+	 *  - MUST BE calculated to match:
+	 *    1. Multiply `feerate_per_kw` by 663 and divide by 1000 (rounding
+	 *       down).
 	 */
 	return feerate_per_kw * 663ULL / 1000;
 }
@@ -23,10 +23,10 @@ static inline u64 htlc_success_fee(u32 feerate_per_kw)
 {
 	/* BOLT #3:
 	 *
-	 * The fee for an HTLC-success transaction MUST BE calculated to match:
-	 *
-	 * 1. Multiply `feerate_per_kw` by 703 and divide by 1000 (rounding
-	 *    down).
+	 * The fee for an HTLC-success transaction:
+	 *   - MUST BE calculated to match:
+	 *     1. Multiply `feerate_per_kw` by 703 and divide by 1000 (rounding
+	 *     down).
 	 */
 	return feerate_per_kw * 703ULL / 1000;
 }

@@ -2,12 +2,12 @@
 .\"     Title: lightning-withdraw
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 04/26/2018
+.\"      Date: 06/15/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-WITHDRAW" "7" "04/26/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-WITHDRAW" "7" "06/15/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -44,9 +44,43 @@ The address can be of any Bitcoin accepted type, including bech32\&.
 On success, an object with attributes \fItx\fR and \fItxid\fR will be returned\&.
 .sp
 \fItx\fR represents the raw bitcoin, fully signed, transaction and \fItxid\fR represent the bitcoin transaction id\&.
-.SH "ERRORS"
 .sp
-If an incorrect address is supplied or the \fIsatoshi\fR parameter exceeds the amount in the internal wallet an error message will be returned\&.
+On failure, an error is reported and the channel is not funded\&.
+.sp
+The following error codes may occur:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\-1\&. Catchall nonspecific error\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+301\&. There are not enough funds in the internal wallet (including fees) to create the transaction\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+302\&. The dust limit is not met\&.
+.RE
 .SH "AUTHOR"
 .sp
 Felix <fixone@gmail\&.com> is mainly responsible\&.

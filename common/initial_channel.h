@@ -86,7 +86,7 @@ static inline u64 max_htlc_value_in_flight_msat(const struct channel *channel,
 }
 /* BOLT #2:
  *
- * similarly `max_accepted_htlcs` limits the number of outstanding
+ * similarly, `max_accepted_htlcs` limits the number of outstanding
  * HTLCs the other node can offer. */
 static inline u16 max_accepted_htlcs(const struct channel *channel,
 				     enum side recipient)
@@ -113,7 +113,7 @@ static inline u32 htlc_minimum_msat(const struct channel *channel,
 }
 /* BOLT #2:
  *
- * `to_self_delay` is the number of blocks that the other nodes
+ * `to_self_delay` is the number of blocks that the other node's
  * to-self outputs must be delayed, using `OP_CHECKSEQUENCEVERIFY`
  * delays */
 static inline u16 to_self_delay(const struct channel *channel, enum side side)

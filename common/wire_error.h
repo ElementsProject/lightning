@@ -34,9 +34,8 @@ u8 *towire_errorfmtv(const tal_t *ctx,
 
 /* BOLT #1:
  *
- * A node receiving `error` MUST fail the channel referred to by the message,
- * or if `channel_id` is zero, it MUST fail all channels and MUST close the
- * connection.
+ * The channel is referred to by `channel_id`, unless `channel_id` is 0
+ * (i.e. all bytes are 0), in which case it refers to all channels.
  */
 /**
  * channel_id_is_all - True if channel_id is all zeroes.

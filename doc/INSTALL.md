@@ -48,7 +48,7 @@ as well:
 For development or running tests, get additional dependencies:
 
     sudo apt-get install -y asciidoc valgrind python3-pip
-    sudo pip3 install python-bitcoinlib
+    sudo pip3 install -r tests/requirements.txt
 
 Clone lightning:
 
@@ -57,6 +57,7 @@ Clone lightning:
 
 Build lightning:
 
+    ./configure
     make
 
 Running lightning:
@@ -75,10 +76,11 @@ OS version: Fedora 27 or above
 Get dependencies:
 ```
 $ sudo dnf update -y && \
-        dnf groupinstall -y \
+        sudo dnf groupinstall -y \
                 'C Development Tools and Libraries' \
                 'Development Tools' && \
-        dnf install -y \
+        sudo dnf install -y \
+                asciidoc \
                 clang \
                 gmp-devel \
                 libsq3-devel \
@@ -89,8 +91,9 @@ $ sudo dnf update -y && \
                 net-tools \
                 net-tools \
                 valgrind \
-                wget && \
-        dnf clean all
+                wget \
+                zlib-devel && \
+        sudo dnf clean all
 ```
 
 Make sure you have [bitcoind](https://github.com/bitcoin/bitcoin) available to run
@@ -103,6 +106,7 @@ $ cd lightning
 
 Build and install lightning:
 ```
+$lightning> ./configure
 $lightning> make
 $lightning> sudo make install
 ```
@@ -141,6 +145,7 @@ Clone lightning:
 
 Build lightning:
 
+    $ ./configure
     $ gmake
     $ gmake install
 
@@ -191,6 +196,7 @@ Clone lightning:
 
 Build lightning:
 
+    $ ./configure
     $ make
 
 Running lightning:
