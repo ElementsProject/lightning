@@ -1384,6 +1384,7 @@ static void add_fulfill(u64 id, enum side side,
 }
 
 static void add_fail(u64 id, enum side side,
+		     enum onion_type malformed,
 		     const u8 *failuremsg,
 		     const struct failed_htlc ***failed_htlcs,
 		     enum side **failed_sides)
@@ -1396,8 +1397,12 @@ static void add_fail(u64 id, enum side side,
 
 	*f = tal(*failed_htlcs, struct failed_htlc);
 	(*f)->id = id;
-	(*f)->failreason
-		= tal_dup_arr(*f, u8, failuremsg, tal_len(failuremsg), 0);
+	(*f)->malformed = malformed;
+	if (failuremsg)
+		(*f)->failreason
+			= tal_dup_arr(*f, u8, failuremsg, tal_len(failuremsg), 0);
+	else
+		(*f)->failreason = NULL;
 	*s = side;
 }
 
@@ -1435,9 +1440,9 @@ void peer_htlcs(const tal_t *ctx,
 			 hin->cltv_expiry, hin->onion_routing_packet,
 			 hin->hstate);
 
-		if (hin->failuremsg)
-			add_fail(hin->key.id, REMOTE, hin->failuremsg,
-				 failed_htlcs, failed_sides);
+		if (hin->failuremsg || hin->failcode)
+			add_fail(hin->key.id, REMOTE, hin->failcode,
+				 hin->failuremsg, failed_htlcs, failed_sides);
 		if (hin->preimage)
 			add_fulfill(hin->key.id, REMOTE, hin->preimage,
 				    fulfilled_htlcs, fulfilled_sides);
@@ -1454,9 +1459,9 @@ void peer_htlcs(const tal_t *ctx,
 			 hout->cltv_expiry, hout->onion_routing_packet,
 			 hout->hstate);
 
-		if (hout->failuremsg)
-			add_fail(hout->key.id, LOCAL, hout->failuremsg,
-				 failed_htlcs, failed_sides);
+		if (hout->failuremsg || hout->failcode)
+			add_fail(hout->key.id, LOCAL, hout->failcode,
+				 hout->failuremsg, failed_htlcs, failed_sides);
 		if (hout->preimage)
 			add_fulfill(hout->key.id, LOCAL, hout->preimage,
 				    fulfilled_htlcs, fulfilled_sides);
