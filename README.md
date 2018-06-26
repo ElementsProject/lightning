@@ -71,7 +71,7 @@ If you build the image yourself, you can use the build arg `DEVELOPER=1` to buil
 
 It has the following environment variable:
 
-* `EXPOSE_TCP` default to false, if true, use expose c-lightning on port 9735. (Use this only for testing)
+* `EXPOSE_TCP` default to false, if true, use expose c-lightning RPC on port 9835. (Use this only for testing)
 
 Here is an example of a docker-compose file with bitcoind and c-lightning on `testnet` which expose litecoin's rpc interface on default ports `18332` and c-lightning API on port `9735`:
 
