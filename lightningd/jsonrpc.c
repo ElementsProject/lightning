@@ -150,6 +150,8 @@ static void json_getinfo(struct command *cmd,
 
 	json_object_start(response, NULL);
 	json_add_pubkey(response, "id", &cmd->ld->id);
+	json_add_string(response, "alias", (const char *)cmd->ld->alias);
+	json_add_hex(response, "color", (const void *)cmd->ld->rgb, tal_len(cmd->ld->rgb));
 	if (cmd->ld->listen) {
 		if (deprecated_apis)
 			json_add_num(response, "port", cmd->ld->portnum);
