@@ -1,5 +1,6 @@
 #include <ccan/mem/mem.h>
 #include <ccan/utf8/utf8.h>
+#include <common/decode_short_channel_ids.h>
 #include <common/type_to_string.h>
 #include <devtools/print_wire.h>
 #include <errno.h>
@@ -100,6 +101,46 @@ static void printwire_addresses(const u8 **cursor, size_t *plen, size_t len)
 	printf(" ]\n");
 }
 
+static void printwire_encoded_short_ids(const u8 **cursor, size_t *plen, size_t len)
+{
+	struct short_channel_id *scids;
+	u8 *arr = tal_arr(tmpctx, u8, len);
+
+	fromwire_u8_array(cursor, plen, arr, len);
+	if (!*cursor)
+		return;
+
+	printf("[");
+	scids = decode_short_ids(tmpctx, arr);
+	if (scids) {
+		switch (arr[0]) {
+		case SHORTIDS_UNCOMPRESSED:
+			printf(" (UNCOMPRESSED)");
+			break;
+		case SHORTIDS_ZLIB:
+			printf(" (ZLIB)");
+			break;
+		default:
+			abort();
+		}
+		for (size_t i = 0; i < tal_count(scids); i++)
+			printf(" %s",
+			       short_channel_id_to_str(tmpctx, &scids[i]));
+	} else {
+		/* If it was unknown, that's different from corrupt */
+		if (len == 0
+		    || arr[0] == SHORTIDS_UNCOMPRESSED
+		    || arr[0] == SHORTIDS_ZLIB) {
+			printf(" **CORRUPT**");
+			return;
+		} else {
+			printf(" UNKNOWN:");
+			print_hexstring(cursor, plen, len);
+		}
+	}
+	printf(" ]\n");
+}
+
 void printwire_u8_array(const char *fieldname, const u8 **cursor, size_t *plen, size_t len)
 {
 	if (streq(fieldname, "node_announcement.alias")) {
@@ -108,6 +149,10 @@ void printwire_u8_array(const char *fieldname, const u8 **cursor, size_t *plen, 
 	}
 	if (streq(fieldname, "node_announcement.addresses")) {
 		printwire_addresses(cursor, plen, len);
+		return;
+	}
+	if (strends(fieldname, ".encoded_short_ids")) {
+		printwire_encoded_short_ids(cursor, plen, len);
 		return;
 	}
 
