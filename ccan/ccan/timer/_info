@@ -70,7 +70,6 @@ int main(int argc, char *argv[])
 	if (strcmp(argv[1], "depends") == 0) {
 		printf("ccan/array_size\n");
 		printf("ccan/ilog\n");
-		printf("ccan/likely\n");
 		printf("ccan/list\n");
 		printf("ccan/time\n");
 		return 0;
