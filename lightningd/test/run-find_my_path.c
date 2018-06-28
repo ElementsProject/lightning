@@ -94,6 +94,9 @@ void onchaind_replay_channels(struct lightningd *ld UNNEEDED)
 /* Generated stub for register_opts */
 void register_opts(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "register_opts called!\n"); abort(); }
+/* Generated stub for setup_app_connection */
+void setup_app_connection(struct lightningd *ld UNNEEDED, const char *app_filename UNNEEDED)
+{ fprintf(stderr, "setup_app_connection called!\n"); abort(); }
 /* Generated stub for setup_color_and_alias */
 void setup_color_and_alias(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "setup_color_and_alias called!\n"); abort(); }

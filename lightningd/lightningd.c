@@ -25,6 +25,7 @@
 #include <common/version.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <lightningd/app_connection.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel_control.h>
@@ -66,6 +67,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->logfile = NULL;
 	ld->alias = NULL;
 	ld->rgb = NULL;
+	ld->app_connection = NULL;
 	list_head_init(&ld->connects);
 	list_head_init(&ld->fundchannels);
 	list_head_init(&ld->waitsendpay_commands);
@@ -324,6 +326,9 @@ int main(int argc, char *argv[])
 
 	/* Ignore SIGPIPE: we look at our write return values*/
 	signal(SIGPIPE, SIG_IGN);
+
+	/* Setup the app connection, if any */
+	setup_app_connection(ld, ""); //FIXME
 
 	/* Make sure we can reach other daemons, and versions match. */
 	test_daemons(ld);

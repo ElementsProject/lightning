@@ -1,189 +1,137 @@
-#include <assert.h>
-#include <ccan/noerr/noerr.h>
-#include <ccan/tal/path/path.h>
-#include <ccan/tal/str/str.h>
-#include <fcntl.h>
+#include <ccan/err/err.h>
+#include <ccan/io/io.h>
+#include <common/memleak.h>
 #include <lightningd/app_connection.h>
 #include <lightningd/channel.h>
 #include <lightningd/htlc_end.h>
-#include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
-#include <stdlib.h>
 #include <sys/types.h>
-#include <sys/wait.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
-enum app_result_type {
-	/* The app forwarded the payment. */
-	APP_FORWARDED = 0,
-	/* The app did not forward the payment. */
-	APP_NOT_FORWARDED = 1,
-	/* It is unknown whether the app forwarded the payment. */
-	APP_UNKNOWN = 2,
-	/* The app could not be run. */
-	APP_NOT_RUN = 3,
+struct app_connection {
+	/* The global state */
+	struct lightningd *ld;
+
+	/* The buffer (required to interpret tokens). */
+	char *buffer;
+
+	/* Internal state: */
+	/* How much is already filled. */
+	size_t used;
+	/* How much has just been filled. */
+	size_t len_read;
+
+	/* We've been told to stop. */
+	bool stop;
 };
-
-static bool move_fd(int from, int to)
-{
-	assert(from >= 0);
-	if (dup2(from, to) == -1)
-		return false;
-	close(from);
-	return true;
-}
-
-static int start_cmd(const char *dir, const char *name, int *msgfd, int *resultfd)
-{
-	int childresult[2];
-	int childmsg[2];
-	pid_t childpid;
-
-	if (pipe(childresult) != 0)
-		goto fail;
-
-	if (pipe(childmsg) != 0)
-		goto close_resultfd_fail;
-
-	if (fcntl(childmsg[0], F_SETFD, fcntl(childmsg[0], F_GETFD)
-		  | FD_CLOEXEC) < 0)
-		goto close_fds_fail;
-
-	if (fcntl(childresult[1], F_SETFD, fcntl(childresult[1], F_GETFD)
-		  | FD_CLOEXEC) < 0)
-		goto close_fds_fail;
-
-	childpid = fork();
-	if (childpid < 0)
-		goto close_fds_fail;
-
-	if (childpid == 0) {
-		int fdnum = 3, i;
-		long max;
-		char *args[] = {NULL, NULL};
-		u8 result;
-
-		close(childmsg[1]);
-		close(childresult[0]);
-
-		// msg = STDIN
-		if (childmsg[0] != STDIN_FILENO) {
-			if (!move_fd(childmsg[0], STDIN_FILENO))
-				goto child_fail;
-			childmsg[0] = STDIN_FILENO;
-		}
-
-		// result = STDOUT
-		if (childresult[1] != STDOUT_FILENO) {
-			if (!move_fd(childresult[1], STDOUT_FILENO))
-				goto child_fail;
-			childresult[1] = STDOUT_FILENO;
-		}
-
-		/* Make (fairly!) sure all other fds are closed. */
-		max = sysconf(_SC_OPEN_MAX);
-		for (i = fdnum; i < max; i++)
-			close(i);
-
-		args[0] = path_join(NULL, dir, name);
-		execv(args[0], args);
-
-	child_fail:
-		result = APP_NOT_RUN;
-		write(childresult[1], &result, 1);
-		exit(127);
-	}
-
-	close(childmsg[0]);
-	close(childresult[1]);
-
-	*msgfd = childmsg[1];
-	*resultfd = childresult[0];
-	return childpid;
-
-close_fds_fail:
-	close_noerr(childmsg[0]);
-	close_noerr(childmsg[1]);
-
-close_resultfd_fail:
-	close_noerr(childresult[0]);
-	close_noerr(childresult[1]);
-
-fail:
-	return -1;
-}
 
 void handle_app_payment(
 	enum onion_type *failcode,
 	const struct htlc_in *hin,
 	const struct route_step *rs)
 {
-	int pid;
-	int msgfd, resultfd;
-	u8 result = APP_UNKNOWN;
 	struct log *log = hin->key.channel->log;
 	struct lightningd *ld = hin->key.channel->peer->ld;
-	char *configdir = ld->config_dir;
-	char *command = tal_fmt(tmpctx, "handle_payment");
+	struct app_connection *appcon = ld->app_connection;
 
-	log_debug(log, "Trying to run app command \"%s\"", command);
-	pid = start_cmd(configdir, command, &msgfd, &resultfd);
+	log_debug(log, "Using app connection to handle the payment");
 
-	if (pid < 0) {
-		log_unusual(log, "Failed to fork - app script not run");
-		close_noerr(msgfd);
-		close_noerr(resultfd);
-		/* No command was started */
-		result = APP_NOT_RUN;
-		goto end;
-	}
-
-	/* FIXME: write data to msgfd */
-	close_noerr(msgfd);
-
-	/* FIXME: don't hang on blocking reads */
-	if (result == APP_UNKNOWN && read(resultfd, &result, 1) < 0) {
-		log_unusual(log, "Failed to read result from app script");
-	}
-	close_noerr(resultfd);
-
-	/* FIXME: don't hang on non-halting commands */
-	waitpid(pid, NULL, 0);
-	//FIXME: log nonzero exit status
-
-end:
-	switch(result)
-	{
-	case APP_NOT_FORWARDED:
-		log_debug(log, "App command reported failure to forward the payment");
-		/* FIXME: other failcode: it's not the realm that is invalid */
+	if(!appcon) {
+		log_debug(log, "App connection is not active");
 		*failcode = WIRE_INVALID_REALM;
-		break;
-	case APP_NOT_RUN:
-		log_debug(log, "Failed to run command \"%s\" from directory \"%s\"",
-			command, configdir);
-		*failcode = WIRE_INVALID_REALM;
-		break;
-	case APP_UNKNOWN:
-		/*
-		We can *only* safely reject the incoming HTLC if we are sure the
-		command did not forward the payment.
-		In case it is unknown, the command might have done someting that
-		makes the transaction succeed, so we still need the incoming
-		HTLC.
-		If the higher-level application (to which the command belongs)
-		knows the transaction is guaranteed to fail, it must manually
-		instruct lightningd to remove the incoming HTLC.
-		For now, however, we must accept it unconditionally.
-		*/
-		log_unusual(log, "App command did not report whether it forwarded the payment; keeping the incoming HTLC for now");
-		*failcode = 0;
-		break;
-	case APP_FORWARDED:
-		log_debug(log, "App command reported successful forward of the payment");
-		*failcode = 0;
-		break;
+		return;
 	}
+
+	//FIXME: write request to connection
+	io_wake(appcon);
+	*failcode = 0;
+}
+
+static struct io_plan *write_app(struct io_conn *conn,
+				  struct app_connection *appcon)
+{
+	return NULL; //FIXME
+}
+
+static struct io_plan *read_app(struct io_conn *conn,
+				 struct app_connection *appcon)
+{
+	return NULL; //FIXME
+}
+
+static void destroy_appcon(struct app_connection *appcon)
+{
+	//un-register the connection in ld
+	log_debug(appcon->ld->log, "Disconnected app");
+	appcon->ld->app_connection = NULL;
+}
+
+static struct io_plan *app_connected(struct io_conn *conn,
+				      struct lightningd *ld)
+{
+	struct app_connection *appcon;
+
+	appcon = tal(conn, struct app_connection);
+	appcon->ld = ld;
+	appcon->used = 0;
+	appcon->buffer = tal_arr(appcon, char, 64);
+	appcon->stop = false;
+
+	tal_add_destructor(appcon, destroy_appcon);
+
+	//Register appcon in ld
+	log_debug(ld->log, "Connected app");
+	ld->app_connection = appcon;
+
+	return io_duplex(conn,
+			 io_read_partial(conn, appcon->buffer,
+					 tal_count(appcon->buffer),
+					 &appcon->len_read, read_app, appcon),
+			 write_app(conn, appcon));
+}
+
+static struct io_plan *incoming_app_connected(struct io_conn *conn,
+					       struct lightningd *ld)
+{
+	/* Lifetime of app conn is limited to fd connect time. */
+	return app_connected(notleak(conn), ld);
+}
+
+void setup_app_connection(struct lightningd *ld, const char *app_filename)
+{
+	struct sockaddr_un addr;
+	int fd, old_umask;
+
+	if (streq(app_filename, ""))
+		return;
+
+	fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (fd < 0) {
+		errx(1, "domain socket creation failed");
+	}
+	if (strlen(app_filename) + 1 > sizeof(addr.sun_path))
+		errx(1, "app filename '%s' too long", app_filename);
+	strcpy(addr.sun_path, app_filename);
+	addr.sun_family = AF_UNIX;
+
+	/* Of course, this is racy! */
+	if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == 0)
+		errx(1, "app filename '%s' in use", app_filename);
+	unlink(app_filename);
+
+	/* This file is only rw by us! */
+	old_umask = umask(0177);
+	if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)))
+		err(1, "Binding app socket to '%s'", app_filename);
+	umask(old_umask);
+
+	if (listen(fd, 1) != 0)
+		err(1, "Listening on '%s'", app_filename);
+
+	log_debug(ld->log, "Listening on '%s'", app_filename);
+	/* Technically this is a leak, but there's only one */
+	notleak(io_new_listener(ld, fd, incoming_app_connected, ld));
 }
 
