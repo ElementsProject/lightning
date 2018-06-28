@@ -392,7 +392,7 @@ void channel_errmsg(struct channel *channel,
 	 * A sending node:
 	 *...
 	 *   - when `channel_id` is 0:
-	 *    - MUST fail all channels.
+	 *    - MUST fail all channels with the receiving node.
 	 *    - MUST close the connection.
 	 */
 	/* FIXME: Gossipd closes connection, but doesn't fail channels. */
@@ -405,7 +405,8 @@ void channel_errmsg(struct channel *channel,
 	 *...
 	 * The receiving node:
 	 *  - upon receiving `error`:
-	 *    - MUST fail the channel referred to by the error message.
+	 *    - MUST fail the channel referred to by the error message,
+	 *      if that channel is with the sending node.
 	 */
 	channel_fail_permanent(channel, "%s: %s ERROR %s",
 			       channel->owner->name,
@@ -651,7 +652,8 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 	/* BOLT #7:
 	 *
 	 * A node:
-	 *   - if the `open_channel` message has the `announce_channel` bit set:
+	 *   - if the `open_channel` message has the `announce_channel` bit set
+	 *     AND a `shutdown` message has not been sent:
 	 *     - MUST send the `announcement_signatures` message.
 	 *       - MUST NOT send `announcement_signatures` messages until
 	 *         `funding_locked` has been sent AND the funding transaction has

@@ -134,7 +134,7 @@ u8 *read_peer_msg_(const tal_t *ctx,
 		 * The receiving node:
 		 *   - upon receiving `error`:
 		 *    - MUST fail the channel referred to by the error
-		 *       message.
+		 *       message, if that channel is with the sending node.
 		 *  - if no existing channel is referred to by the
 		 *    message:
 		 *    - MUST ignore the message.

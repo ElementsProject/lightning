@@ -664,8 +664,7 @@ static struct io_plan *peer_connected(struct io_conn *conn, struct peer *peer)
 		 *
 		 * - upon receiving an `init` message with the
 		 *   `initial_routing_sync` flag set to 1:
-		 *   - SHOULD send `channel_announcement`s, `channel_update`s
-		 *    and `node_announcement`s for all known channels and
+		 *   - SHOULD send gossip messages for all known channels and
 		 *    nodes, as if they were just received.
 		 * - if the `initial_routing_sync` flag is set to 0, OR if the
 		 *   initial sync was completed:

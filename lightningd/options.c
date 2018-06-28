@@ -268,8 +268,8 @@ static char *opt_set_rgb(const char *arg, struct lightningd *ld)
 	ld->rgb = tal_free(ld->rgb);
 	/* BOLT #7:
 	 *
-	 *    - Note: the first byte of `rgb` is the red value, the second byte
-	 *      is the green value, and the last byte is the blue value.
+	 *    - Note: the first byte of `rgb_color` is the red value, the second
+	 *      byte is the green value, and the last byte is the blue value.
 	 */
 	ld->rgb = tal_hexdata(ld, arg, strlen(arg));
 	if (!ld->rgb || tal_len(ld->rgb) != 3)
