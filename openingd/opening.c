@@ -179,7 +179,7 @@ static void check_config_bounds(struct state *state,
 				   "max_accepted_htlcs %u too large",
 				   remoteconf->max_accepted_htlcs);
 
-	/* FIXME #2:
+	/* BOLT #2:
 	 *
 	 * The receiving node MUST fail the channel if:
 	 *...
@@ -201,7 +201,7 @@ static void set_reserve(struct state *state)
 	state->localconf.channel_reserve_satoshis
 		= (state->funding_satoshis + 99) / 100;
 
-	/* FIXME #2:
+	/* BOLT #2:
 	 *
 	 * The sending node:
 	 *...
@@ -363,7 +363,7 @@ static u8 *funder_channel(struct state *state,
 				   "minimum_depth %u larger than %u",
 				   minimum_depth, 10);
 
-	/* FIXME #2:
+	/* BOLT #2:
 	 *
 	 * The receiver:
 	 *...
@@ -463,7 +463,7 @@ static u8 *funder_channel(struct state *state,
 	 * ### The `funding_signed` Message
 	 *
 	 * This message gives the funder the signature it needs for the first
-	 * commitment transaction, so it can broadcast the signature knowing
+	 * commitment transaction, so it can broadcast the transaction knowing
 	 * that funds can be redeemed, if need be.
 	 */
 	peer_billboard(false,
@@ -644,7 +644,7 @@ static u8 *fundee_channel(struct state *state,
 
 	set_reserve(state);
 
-	/* FIXME #2:
+	/* BOLT #2:
 	 *
 	 * The sender:
 	 *...
@@ -770,7 +770,7 @@ static u8 *fundee_channel(struct state *state,
 	 * ### The `funding_signed` Message
 	 *
 	 * This message gives the funder the signature it needs for the first
-	 * commitment transaction, so it can broadcast the signature knowing
+	 * commitment transaction, so it can broadcast the transaction knowing
 	 * that funds can be redeemed, if need be.
 	 */
 	our_commit = initial_channel_tx(state, &wscript, state->channel,

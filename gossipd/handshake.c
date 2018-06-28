@@ -35,7 +35,7 @@ enum bolt8_side {
  *
  * Act One is sent from initiator to responder. During Act One, the
  * initiator attempts to satisfy an implicit challenge by the responder. To
- * complete this challenge, the initiator _must_ know the static public key of
+ * complete this challenge, the initiator must know the static public key of
  * the responder.
  */
 struct act_one {
@@ -123,7 +123,7 @@ static inline void check_act_three(const struct act_three *act3)
 /* BOLT #8:
  *
  *  * `generateKey()`: generates and returns a fresh `secp256k1` keypair
- *      * where the object returned by `generateKey` has two attributes:
+ *      * Where the object returned by `generateKey` has two attributes:
  *          * `.pub`, which returns an abstract object representing the
  *            public key
  *          * `.priv`, which represents the private key used to generate the
@@ -138,19 +138,19 @@ struct keypair {
  *
  * Throughout the handshake process, each side maintains these variables:
  *
- *  * `ck`: The **chaining key**. This value is the accumulated hash of all
+ *  * `ck`: the **chaining key**. This value is the accumulated hash of all
  *    previous ECDH outputs. At the end of the handshake, `ck` is used to
  *    derive the encryption keys for Lightning messages.
  *
- *  * `h`: The **handshake hash**. This value is the accumulated hash of _all_
+ *  * `h`: the **handshake hash**. This value is the accumulated hash of _all_
  *    handshake data that has been sent and received so far during the
  *    handshake process.
  *
- * * `temp_k1`, `temp_k2`, `temp_k3`: **intermediate keys**. These are used to
+ * * `temp_k1`, `temp_k2`, `temp_k3`: the **intermediate keys**. These are used to
  *    encrypt and decrypt the zero-length AEAD payloads at the end of each
  *    handshake message.
  *
- *  * `e`: A party's **ephemeral keypair**. For each session a node MUST
+ *  * `e`: a party's **ephemeral keypair**. For each session, a node MUST
  *    generate a new ephemeral key with strong cryptographic randomness.
  *
  *  * `s`: a party's **static public key** (`ls` for local, `rs` for remote)
@@ -253,8 +253,8 @@ static void le64_nonce(unsigned char *npub, u64 nonce)
 	/* BOLT #8:
 	 *
 	 * ...with nonce `n` encoded as 32 zero bits, followed by a
-	 * *little-endian* 64-bit value (this follows the Noise Protocol
-	 * convention, rather than our normal endian).
+	 * *little-endian* 64-bit value. Note: this follows the Noise
+	 * Protocol convention, rather than our normal endian
 	 */
 	le64 le_nonce = cpu_to_le64(nonce);
 	const size_t zerolen = crypto_aead_chacha20poly1305_ietf_NPUBBYTES - sizeof(le_nonce);
@@ -268,7 +268,7 @@ static void le64_nonce(unsigned char *npub, u64 nonce)
 /* BOLT #8:
  *   * `encryptWithAD(k, n, ad, plaintext)`: outputs `encrypt(k, n, ad,
  *      plaintext)`
- *      * where `encrypt` is an evaluation of `ChaCha20-Poly1305` (IETF
+ *      * Where `encrypt` is an evaluation of `ChaCha20-Poly1305` (IETF
  *	  variant) with the passed arguments, with nonce `n`
  */
 static void encrypt_ad(const struct secret *k, u64 nonce,
@@ -302,7 +302,7 @@ static void encrypt_ad(const struct secret *k, u64 nonce,
 /* BOLT #8:
  *    * `decryptWithAD(k, n, ad, ciphertext)`: outputs `decrypt(k, n, ad,
  *       ciphertext)`
- *      * where `decrypt` is an evaluation of `ChaCha20-Poly1305` (IETF
+ *      * Where `decrypt` is an evaluation of `ChaCha20-Poly1305` (IETF
  *        variant) with the passed arguments, with nonce `n`
  */
 static bool decrypt(const struct secret *k, u64 nonce,
@@ -367,8 +367,8 @@ static struct io_plan *handshake_succeeded(struct io_conn *conn,
 	 *        initiator, and `sk` is the key to be used by the responder
 	 *        to encrypt messages to the initiator
 	 *
-	 *      * The final encryption keys to be used for sending and
-	 *        receiving messages for the duration of the session are
+	 *      * The final encryption keys, to be used for sending and
+	 *        receiving messages for the duration of the session, are
 	 *        generated.
 	 */
 	if (h->side == RESPONDER)
@@ -395,12 +395,12 @@ static struct handshake *new_handshake(const tal_t *ctx,
 
 	/* BOLT #8:
 	 *
-	 * Before the start of the first act, both sides initialize their
+	 * Before the start of Act One, both sides initialize their
 	 * per-sessions state as follows:
 	 *
 	 *  1. `h = SHA-256(protocolName)`
 	 *   *  where `protocolName = "Noise_XK_secp256k1_ChaChaPoly_SHA256"`
-	 *      encoded as an ASCII string.
+	 *      encoded as an ASCII string
 	 */
 	sha256(&handshake->h, "Noise_XK_secp256k1_ChaChaPoly_SHA256",
 	       strlen("Noise_XK_secp256k1_ChaChaPoly_SHA256"));
@@ -417,7 +417,7 @@ static struct handshake *new_handshake(const tal_t *ctx,
 	/* BOLT #8:
 	 *
 	 * 3. `h = SHA-256(h || prologue)`
-	 *    *  where `prologue` is the ASCII string: `lightning`.
+	 *    *  where `prologue` is the ASCII string: `lightning`
 	 */
 	sha_mix_in(&handshake->h, "lightning", strlen("lightning"));
 
@@ -471,7 +471,7 @@ static struct io_plan *act_three_initiator(struct io_conn *conn,
 	/* BOLT #8:
 	 *
 	 * 3. `ss = ECDH(re, s.priv)`
-	 *     * where `re` is the ephemeral public key of the responder.
+	 *     * where `re` is the ephemeral public key of the responder
 	 *
 	 */
 	if (!hsm_do_ecdh(&h->ss, &h->re))
@@ -599,7 +599,7 @@ static struct io_plan *act_two_initiator(struct io_conn *conn,
 	 *
 	 * 1. Read _exactly_ 50 bytes from the network buffer.
 	 *
-	 * 2. Parse the read message (`m`) into `v`, `re` and `c`:
+	 * 2. Parse the read message (`m`) into `v`, `re`, and `c`:
 	 *    * where `v` is the _first_ byte of `m`, `re` is the next 33
 	 *      bytes of `m`, and `c` is the last 16 bytes of `m`.
 	 */
@@ -698,9 +698,9 @@ static struct io_plan *act_three_responder2(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 2. Parse the read message (`m`) into `v`, `c` and `t`:
+	 * 2. Parse the read message (`m`) into `v`, `c`, and `t`:
 	 *    * where `v` is the _first_ byte of `m`, `c` is the next 49
-	 *      bytes of `m`, and `t` is the last 16 bytes of `m`.
+	 *      bytes of `m`, and `t` is the last 16 bytes of `m`
 	 */
 
 	/* BOLT #8:
@@ -923,9 +923,9 @@ static struct io_plan *act_one_responder2(struct io_conn *conn,
 	 *
 	 * 7. `p = decryptWithAD(temp_k1, 0, h, c)`
 	 *     * If the MAC check in this operation fails, then the initiator
-	 *       does _not_ know the responder's static public key. If so, then
-	 *       the responder MUST terminate the connection without any further
-	 *       messages.
+	 *       does _not_ know the responder's static public key. If this
+	 *       is the case, then the responder MUST terminate the connection
+	 *       without any further messages.
 	 */
 	if (!decrypt(&h->temp_k, 0, &h->h, sizeof(h->h),
 		     h->act1.tag, sizeof(h->act1.tag), NULL, 0))
@@ -954,7 +954,7 @@ static struct io_plan *act_one_responder(struct io_conn *conn,
 	 *
 	 * 1. Read _exactly_ 50 bytes from the network buffer.
 	 *
-	 * 2. Parse the read message (`m`) into `v`, `re` and `c`:
+	 * 2. Parse the read message (`m`) into `v`, `re`, and `c`:
 	 *     * where `v` is the _first_ byte of `m`, `re` is the next 33
 	 *       bytes of `m`, and `c` is the last 16 bytes of `m`.
 	 */

@@ -8,8 +8,7 @@
  *
  * Encoding types:
  * * `0`: uncompressed array of `short_channel_id` types, in ascending order.
- * * `1`: array of `short_channel_id` types, in ascending order, compressed with
- *        zlib<sup>[1](#reference-1)</sup>
+ * * `1`: array of `short_channel_id` types, in ascending order, compressed with zlib deflate<sup>[1](#reference-1)</sup>
  */
 enum scid_encode_types {
 	SHORTIDS_UNCOMPRESSED = 0,

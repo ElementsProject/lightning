@@ -489,8 +489,9 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
          *
          * The human-readable part of a Lightning invoice consists of two
 	 * sections:
-	 * 1. `prefix`: `ln` + BIP-0173 currency prefix (e.g. `lnbc` for
-	 *     bitcoins or `lntb` for testnet bitcoins)
+	 * 1. `prefix`: `ln` + BIP-0173 currency prefix (e.g. `lnbc` for bitcoin
+	 *     mainnet, `lntb` for bitcoin testnet and `lnbcrt` for bitcoin
+	 *     regtest)
          * 1. `amount`: optional number in that currency, followed by an optional
          *    `multiplier` letter
          */
