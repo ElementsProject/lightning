@@ -3,27 +3,27 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-void printwire_u8(const u8 *v)
+void printwire_u8(const char *fieldname, const u8 *v)
 {
 	printf("%u\n", *v);
 }
 
-void printwire_u16(const u16 *v)
+void printwire_u16(const char *fieldname, const u16 *v)
 {
 	printf("%u\n", *v);
 }
 
-void printwire_u32(const u32 *v)
+void printwire_u32(const char *fieldname, const u32 *v)
 {
 	printf("%u\n", *v);
 }
 
-void printwire_u64(const u64 *v)
+void printwire_u64(const char *fieldname, const u64 *v)
 {
 	printf("%"PRIu64"\n", *v);
 }
 
-void printwire_u8_array(const u8 **cursor, size_t *plen, size_t len)
+void printwire_u8_array(const char *fieldname, const u8 **cursor, size_t *plen, size_t len)
 {
 	printf("[");
 	while (len) {
@@ -40,7 +40,7 @@ void printwire_u8_array(const u8 **cursor, size_t *plen, size_t len)
 }
 
 #define PRINTWIRE_TYPE_TO_STRING(T, N)					\
-	void printwire_##N(const T *v)					\
+	void printwire_##N(const char *fieldname, const T *v)		\
 	{								\
 		const char *s = type_to_string(NULL, T, v);		\
 		printf("%s\n", s);					\

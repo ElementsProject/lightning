@@ -29,7 +29,7 @@ devtools/onion.c: ccan/config.h
 devtools/onion: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/onion.o common/sphinx.o
 
 $(DEVTOOLS_OBJS) $(DEVTOOLS_TOOL_OBJS): wire/wire.h devtools/gen_print_wire.h
-devtools/gen_print_wire.o: devtools/gen_print_wire.h wire/gen_peer_wire.h
+devtools/gen_print_wire.o: devtools/gen_print_wire.h wire/gen_peer_wire.h devtools/print_wire.h
 
 # Make sure these depend on everything.
 ALL_PROGRAMS += devtools/bolt11-cli devtools/decodemsg devtools/onion
