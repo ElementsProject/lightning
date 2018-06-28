@@ -19,6 +19,7 @@
 #include <common/bech32_util.h>
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
+#include <common/decode_short_channel_ids.h>
 #include <common/features.h>
 #include <common/ping.h>
 #include <common/pseudorand.h>
@@ -64,18 +65,6 @@
 
 #define INITIAL_WAIT_SECONDS	1
 #define MAX_WAIT_SECONDS	300
-
-/* BOLT #7:
- *
- * Encoding types:
- * * `0`: uncompressed array of `short_channel_id` types, in ascending order.
- * * `1`: array of `short_channel_id` types, in ascending order, compressed with
- *        zlib<sup>[1](#reference-1)</sup>
- */
-enum scid_encode_types {
-	SHORTIDS_UNCOMPRESSED = 0,
-	SHORTIDS_ZLIB = 1
-};
 
 /* We put everything in this struct (redundantly) to pass it to timer cb */
 struct important_peerid {
@@ -877,67 +866,6 @@ static u8 *handle_gossip_msg(struct daemon *daemon, const u8 *msg,
 	}
 
 	/* All good, no error to report */
-	return NULL;
-}
-
-static u8 *unzlib(const tal_t *ctx, const u8 *encoded, size_t len)
-{
-	/* http://www.zlib.net/zlib_tech.html gives 1032:1 as worst-case,
-	 * which is 67632120 bytes for us.  But they're not encoding zeroes,
-	 * and each scid must be unique.  So 1MB is far more reasonable. */
-	unsigned long unclen = 1024*1024;
-	int zerr;
-	u8 *unc = tal_arr(ctx, u8, unclen);
-
-	zerr = uncompress(unc, &unclen, encoded, len);
-	if (zerr != Z_OK) {
-		status_trace("unzlib: error %i", zerr);
-		return tal_free(unc);
-	}
-
-	/* Truncate and return. */
-	tal_resize(&unc, unclen);
-	return unc;
-}
-
-static struct short_channel_id *decode_short_ids(const tal_t *ctx,
-						 const u8 *encoded)
-{
-	struct short_channel_id *scids;
-	size_t max = tal_len(encoded), n;
-	enum scid_encode_types type;
-
-	/* BOLT #7:
-	 *
-	 * The receiver:
-	 *   - if the first byte of `encoded_short_ids` is not a known encoding
-	 *     type:
-	 *     - MAY fail the connection
-	 *   - if `encoded_short_ids` does not decode into a whole number of
-	 *     `short_channel_id`:
-	 *     - MAY fail the connection
-	 */
-	type = fromwire_u8(&encoded, &max);
-	switch (type) {
-	case SHORTIDS_ZLIB:
-		encoded = unzlib(tmpctx, encoded, max);
-		if (!encoded)
-			return NULL;
-		max = tal_len(encoded);
-		/* fall thru */
-	case SHORTIDS_UNCOMPRESSED:
-		n = 0;
-		scids = tal_arr(ctx, struct short_channel_id, n);
-		while (max) {
-			tal_resize(&scids, n+1);
-			fromwire_short_channel_id(&encoded, &max, &scids[n++]);
-		}
-
-		/* encoded is set to NULL if we ran over */
-		if (!encoded)
-			return tal_free(scids);
-		return scids;
-	}
 	return NULL;
 }
 
