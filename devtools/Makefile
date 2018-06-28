@@ -4,13 +4,15 @@ DEVTOOLS_TOOL_SRC := devtools/bolt11-cli.c devtools/decodemsg.c devtools/onion.c
 DEVTOOLS_TOOL_OBJS := $(DEVTOOLS_TOOL_SRC:.c=.o)
 
 DEVTOOLS_COMMON_OBJS :=				\
+	common/base32.o				\
 	common/bech32.o				\
 	common/bech32_util.o			\
 	common/bolt11.o				\
 	common/hash_u5.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
-	common/version.o
+	common/version.o			\
+	common/wireaddr.o
 
 devtools-all: devtools/bolt11-cli devtools/decodemsg devtools/onion
 

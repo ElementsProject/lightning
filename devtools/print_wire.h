@@ -2,6 +2,7 @@
 #define LIGHTNING_DEVTOOLS_PRINT_WIRE_H
 #include <bitcoin/preimage.h>
 #include <bitcoin/tx.h>
+#include <common/wireaddr.h>
 #include <wire/gen_peer_wire.h>
 
 void printwire_u8(const char *fieldname, const u8 *v);
