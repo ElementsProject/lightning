@@ -82,10 +82,32 @@ hexdump:
 	return;
 }
 
+static void printwire_addresses(const u8 **cursor, size_t *plen, size_t len)
+{
+	struct wireaddr addr;
+
+	printf("[");
+	while (*plen && fromwire_wireaddr(cursor, plen, &addr))
+		printf(" %s", fmt_wireaddr(NULL, &addr));
+	if (!*cursor)
+		return;
+
+	if (*plen != 0) {
+		printf(" UNKNOWN:");
+		if (!print_hexstring(cursor, plen, len))
+			return;
+	}
+	printf(" ]\n");
+}
+
 void printwire_u8_array(const char *fieldname, const u8 **cursor, size_t *plen, size_t len)
 {
 	if (streq(fieldname, "node_announcement.alias")) {
 		printwire_alias(cursor, plen, len);
+		return;
+	}
+	if (streq(fieldname, "node_announcement.addresses")) {
+		printwire_addresses(cursor, plen, len);
 		return;
 	}
 
