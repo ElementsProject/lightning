@@ -1,4 +1,5 @@
 #include <ccan/err/err.h>
+#include <common/decode_short_channel_ids.h>
 #include <common/utils.h>
 #include <devtools/gen_print_wire.h>
 #include <stdio.h>
