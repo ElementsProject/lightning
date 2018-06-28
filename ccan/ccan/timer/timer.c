@@ -2,7 +2,6 @@
 #include <ccan/timer/timer.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/ilog/ilog.h>
-#include <ccan/likely/likely.h>
 #include <stdlib.h>
 #include <stdio.h>
 

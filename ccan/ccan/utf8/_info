@@ -1,0 +1,48 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * utf8 - Simple routines to encode/decode valid UTF-8.
+ *
+ * This code contains routines to encode and decode UTF-8 characters.
+ * Table and test code stolen entirely from:
+ *    Copyright (c) 2017 Christian Hansen <chansen@cpan.org>
+ *    <https://github.com/chansen/c-utf8-valid>
+ * 
+ * Example:
+ *	int main(int argc, char *argv[])
+ *	{
+ *		size_t i;
+ *		struct utf8_state utf8_state = UTF8_STATE_INIT;
+ *		bool decoded = true;
+ *
+ *		for (i = 0; i < strlen(argv[1]); i++) {
+ *			decoded = utf8_decode(&utf8_state, argv[1][i]);
+ *			if (decoded) {
+ *				if (errno != 0)
+ *					err(1, "Invalid UTF8 char %zu-%zu",
+ *					    i - utf8_state.used_len, i);
+ *				printf("Character %u\n", utf8_state.c);
+ *			}
+ *		}
+ *
+ *		if (!decoded)
+ *			errx(1, "Incomplete UTF8");
+ *		return 0;
+ *	}
+ *
+ * License: BSD-MIT
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		return 0;
+	}
+
+	return 1;
+}

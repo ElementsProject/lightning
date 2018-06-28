@@ -87,7 +87,8 @@ CCAN_OBJS :=					\
 	ccan-tal-str.o				\
 	ccan-tal.o				\
 	ccan-time.o				\
-	ccan-timer.o
+	ccan-timer.o				\
+	ccan-utf8.o
 
 CCAN_HEADERS :=						\
 	$(CCANDIR)/config.h				\
@@ -153,7 +154,8 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/tcon/tcon.h			\
 	$(CCANDIR)/ccan/time/time.h			\
 	$(CCANDIR)/ccan/timer/timer.h			\
-	$(CCANDIR)/ccan/typesafe_cb/typesafe_cb.h
+	$(CCANDIR)/ccan/typesafe_cb/typesafe_cb.h	\
+	$(CCANDIR)/ccan/utf8/utf8.h
 
 ALL_GEN_HEADERS += gen_version.h
 
@@ -576,4 +578,6 @@ ccan-bitops.o: $(CCANDIR)/ccan/bitops/bitops.c
 ccan-rbuf.o: $(CCANDIR)/ccan/rbuf/rbuf.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-str-base32.o: $(CCANDIR)/ccan/str/base32/base32.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-utf8.o: $(CCANDIR)/ccan/utf8/utf8.c
 	$(CC) $(CFLAGS) -c -o $@ $<
