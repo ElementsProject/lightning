@@ -1,7 +1,7 @@
 import json
 import logging
 import socket
-
+import json
 
 class UnixDomainSocketRpc(object):
     def __init__(self, socket_path, executor=None, logger=logging):
@@ -63,12 +63,11 @@ class UnixDomainSocketRpc(object):
 
         self.logger.debug("Received response for %s call: %r", method, resp)
         if "error" in resp:
-            raise ValueError(
-                "RPC call failed: {}, method: {}, payload: {}".format(
-                    resp["error"],
-                    method,
-                    payload
-                ))
+            error = {}
+            error['error'] = resp["error"]
+            error['method'] = method
+            error['payload'] = payload
+            raise ValueError(json.dumps(error))
         elif "result" not in resp:
             raise ValueError("Malformed response, \"result\" missing.")
         return resp["result"]
