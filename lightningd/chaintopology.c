@@ -237,6 +237,8 @@ static void update_feerates(struct bitcoind *bitcoind,
 {
 	u32 old_feerates[NUM_FEERATES];
 	bool changed = false;
+	/* Rate of change of the fee smoothing, depending on the poll-interval */
+	double change_rate = (double)topo->poll_seconds / 150 * 0.9;
 
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
 		u32 feerate = satoshi_per_kw[i];
@@ -248,7 +250,14 @@ static void update_feerates(struct bitcoind *bitcoind,
 		if (!feerate)
 			continue;
 
-		if (feerate < feerate_floor())
+		/* Smooth the feerate to avoid spikes. The goal is to have the
+		 * fee consist of 0.9 * feerate + 0.1 * old_feerate after 300
+		 * seconds. The following will do that in a polling interval
+		 * independent manner. */
+                feerate =
+                    feerate * (1 - change_rate) + old_feerates[i] * change_rate;
+
+                if (feerate < feerate_floor())
 			feerate = feerate_floor();
 
 		if (feerate != topo->feerate[i]) {
