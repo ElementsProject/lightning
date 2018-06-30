@@ -73,7 +73,7 @@ It has the following environment variable:
 
 * `EXPOSE_TCP` default to false, if true, use expose c-lightning RPC on port 9835. (Use this only for testing)
 
-Here is an example of a docker-compose file with bitcoind and c-lightning on `testnet` which expose litecoin's rpc interface on default ports `18332` and c-lightning API on port `9735`:
+Here is an example of a docker-compose file with bitcoind and c-lightning on `testnet` which exposes bitcoin's rpc interface on default ports `18332` and c-lightning API on port `9735`:
 
 ```
 version: "3"
