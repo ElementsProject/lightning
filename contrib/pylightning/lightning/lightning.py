@@ -3,6 +3,12 @@ import logging
 import socket
 
 
+class RpcError(ValueError):
+    def __init__(self, description, error=None):
+        super(ValueError, self).__init__(description)
+        self.error = error
+
+
 class UnixDomainSocketRpc(object):
     def __init__(self, socket_path, executor=None, logger=logging):
         self.socket_path = socket_path
@@ -63,12 +69,12 @@ class UnixDomainSocketRpc(object):
 
         self.logger.debug("Received response for %s call: %r", method, resp)
         if "error" in resp:
-            raise ValueError(
-                "RPC call failed: {}, method: {}, payload: {}".format(
-                    resp["error"],
+            raise RpcError(
+                "RPC call failed: method: {}, payload: {}, error: {}".format(
                     method,
-                    payload
-                ))
+                    payload,
+                    resp['error']
+                ), resp['error'])
         elif "result" not in resp:
             raise ValueError("Malformed response, \"result\" missing.")
         return resp["result"]
