@@ -22,7 +22,6 @@ RUN apt-get -qq update && \
 	libprotobuf-c-dev \
 	libsqlite3-dev \
 	libgmp-dev \
-	libsqlite3-dev \
 	git \
 	python \
 	python3 \
