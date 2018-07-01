@@ -103,6 +103,8 @@ static void human_help(const char *buffer, const jsmntok_t *result) {
 		/* advance to next command */
 		curr++;
 	}
+
+	printf("---\nrun `man lightning-{command}` for more information on each command\n");
 }
 
 enum format {
