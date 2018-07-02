@@ -3270,6 +3270,8 @@ class LightningDTests(BaseLightningDTests):
 
         # This should reload the htlc_sig
         l2.rpc.dev_fail(l1.info['id'])
+        # Make sure it broadcasts to chain.
+        l2.daemon.wait_for_log('sendrawtx exit 0')
         l2.stop()
         l1.bitcoin.rpc.generate(1)
         l1.start()
