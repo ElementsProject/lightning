@@ -11,13 +11,12 @@ struct param;
   Typical usage:
 	unsigned cltv;
 	const jsmntok_t *note;
-	u64 msatoshi;
-	struct param * mp;
+	u64 *msatoshi;
 
 	if (!param_parse(cmd, buffer, tokens,
 			 param_req("cltv", json_tok_number, &cltv),
-			 param_opt("note", json_tok_tok, &note),
-			 mp = param_opt("msatoshi", json_tok_u64, &msatoshi),
+			 param_opt_tok("note", &note),
+			 param_opt("msatoshi", json_tok_u64, &msatoshi),
 			 NULL))
 		return;
 
@@ -28,16 +27,12 @@ struct param;
 
   cltv is a required parameter, and is set correctly.
 
-  note and msatoshi are optional parameters.  You can see if they have been set
-  by calling param_is_set(); e.g.:
+  note and msatoshi are optional parameters.  Their argument will be set to NULL
+  if they are not provided.
 
-	if (param_is_set(mp))
-		do_something()
-
-  The note parameter uses a special callback, json_tok_tok(). It
-  simply sets seedtok to the appropriate value and lets the handler do the
-  validating. It has the added feature of setting seedtok to NULL if it is null
-  or not specified.
+  The note parameter uses a special callback, param_opt_tok: it
+  simply sets note to the appropriate value (or NULL) and lets the
+  handler do the validating.
 
   There are canned failure messages for common callbacks. An example:
 
@@ -65,29 +60,27 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
  * Returns an opaque pointer that can be later used in param_is_set().
  */
 #define param_req(name, cb, arg)         \
-		  param_add_(true, name, \
+		  param_add_(NULL, name,			     \
 			     typesafe_cb_preargs(bool, void *,       \
 						 (cb), (arg),        \
 						 const char *,       \
 						 const jsmntok_t *), \
-			     (arg))
+			     (arg), 0)
 /*
  * Same as above but for optional parameters.
  */
-#define param_opt(name, cb, arg)          \
-		  param_add_(false, name, \
+#define param_opt(ctx, name, cb, arg)	  \
+		  param_add_(ctx, name,				     \
 			     typesafe_cb_preargs(bool, void *,       \
-						 (cb), (arg),        \
+						 (cb), *(arg),       \
 						 const char *,       \
 						 const jsmntok_t *), \
-			     (arg))
-struct param * param_add_(bool required, char *name, param_cb cb, void *arg);
+			     (arg), sizeof(**arg))
+struct param * param_add_(const tal_t *ctx, char *name, param_cb cb, void *arg, size_t argsize);
 
-/*
- * Check to see if an optional parameter was set during parsing (although it
- * works for all parameters).
- * Returns the @arg if set, otherwise NULL.
- */
-void * param_is_set(struct param *p);
+#define param_opt_tok(ctx, name, arg)		\
+	param_opt_add_(ctx, name, arg)
+
+struct param *param_opt_add_(const tal_t *ctx, char *name, const jsmntok_t **tok);
 
 #endif /* LIGHTNING_LIGHTNINGD_PARAMS_H */
