@@ -1215,7 +1215,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 				f = tal_arr_append(&failed);
 				*f = tal(failed, struct failed_htlc);
 				(*f)->id = htlc->id;
-				(*f)->malformed = htlc->malformed;
+				(*f)->malformed = htlc->failcode;
 				(*f)->failreason = cast_const(u8 *, htlc->fail);
 			}
 		} else {
@@ -1465,6 +1465,7 @@ static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
 	u64 id;
 	struct preimage preimage;
 	enum channel_remove_err e;
+	struct htlc *h;
 
 	if (!fromwire_update_fulfill_htlc(msg, &channel_id,
 					  &id, &preimage)) {
@@ -1473,9 +1474,10 @@ static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
 			    "Bad update_fulfill_htlc %s", tal_hex(msg, msg));
 	}
 
-	e = channel_fulfill_htlc(peer->channel, LOCAL, id, &preimage, NULL);
+	e = channel_fulfill_htlc(peer->channel, LOCAL, id, &preimage, &h);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
+		h->r = tal_dup(h, struct preimage, &preimage);
 		/* FIXME: We could send preimages to master immediately. */
 		start_commit_timer(peer);
 		return;
@@ -1748,16 +1750,31 @@ static void resend_revoke(struct peer *peer)
 static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 {
 	u8 *msg;
-	if (h->malformed) {
+
+	if (h->failcode & BADONION) {
+		/* Malformed: use special reply since we can't onion. */
 		struct sha256 sha256_of_onion;
 		sha256(&sha256_of_onion, h->routing, tal_len(h->routing));
 
 		msg = towire_update_fail_malformed_htlc(NULL, &peer->channel_id,
 							h->id, &sha256_of_onion,
-							h->malformed);
-	} else if (h->fail) {
-		msg = towire_update_fail_htlc(NULL, &peer->channel_id, h->id,
-					      h->fail);
+							h->failcode);
+	} else if (h->failcode || h->fail) {
+		const u8 *onion;
+		if (h->failcode) {
+			/* Local failure, make a message. */
+			u8 *failmsg = make_failmsg(tmpctx, peer, h, h->failcode,
+						   &peer->short_channel_ids[LOCAL]);
+			onion = create_onionreply(tmpctx, h->shared_secret,
+						  failmsg);
+		} else /* Remote failure, just forward. */
+			onion = h->fail;
+
+		/* Now we wrap, just before sending out. */
+		msg = towire_update_fail_htlc(peer, &peer->channel_id, h->id,
+					      wrap_onionreply(tmpctx,
+							      h->shared_secret,
+							      onion));
 	} else if (h->r) {
 		msg = towire_update_fulfill_htlc(NULL, &peer->channel_id, h->id,
 						 h->r);
@@ -2209,18 +2226,17 @@ static void handle_feerates(struct peer *peer, const u8 *inmsg)
 
 static void handle_preimage(struct peer *peer, const u8 *inmsg)
 {
-	u8 *msg;
 	u64 id;
 	struct preimage preimage;
+	struct htlc *h;
 
 	if (!fromwire_channel_fulfill_htlc(inmsg, &id, &preimage))
 		master_badmsg(WIRE_CHANNEL_FULFILL_HTLC, inmsg);
 
-	switch (channel_fulfill_htlc(peer->channel, REMOTE, id, &preimage, NULL)) {
+	switch (channel_fulfill_htlc(peer->channel, REMOTE, id, &preimage, &h)) {
 	case CHANNEL_ERR_REMOVE_OK:
-		msg = towire_update_fulfill_htlc(NULL, &peer->channel_id,
-						 id, &preimage);
-		enqueue_peer_msg(peer, take(msg));
+		h->r = tal_dup(h, struct preimage, &preimage);
+		send_fail_or_fulfill(peer, h);
 		start_commit_timer(peer);
 		return;
 	/* These shouldn't happen, because any offered HTLC (which would give
@@ -2239,7 +2255,6 @@ static void handle_preimage(struct peer *peer, const u8 *inmsg)
 
 static void handle_fail(struct peer *peer, const u8 *inmsg)
 {
-	u8 *msg;
 	u64 id;
 	u8 *errpkt;
 	u16 failcode;
@@ -2259,33 +2274,9 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 	e = channel_fail_htlc(peer->channel, REMOTE, id, &h);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
-		if (failcode & BADONION) {
-			struct sha256 sha256_of_onion;
-			status_trace("Failing %"PRIu64" with code %u",
-				     id, failcode);
-			sha256(&sha256_of_onion, h->routing,
-			       tal_len(h->routing));
-			msg = towire_update_fail_malformed_htlc(peer,
-							&peer->channel_id,
-							id, &sha256_of_onion,
-							failcode);
-		} else {
-			u8 *reply;
-
-			if (failcode) {
-				u8 *failmsg = make_failmsg(inmsg, peer, h,
-							   failcode, &scid);
-				errpkt = create_onionreply(inmsg,
-							   h->shared_secret,
-							   failmsg);
-			}
-
-			reply = wrap_onionreply(inmsg, h->shared_secret,
-						errpkt);
-			msg = towire_update_fail_htlc(peer, &peer->channel_id,
-						      id, reply);
-		}
-		enqueue_peer_msg(peer, take(msg));
+		h->failcode = failcode;
+		h->fail = tal_steal(h, errpkt);
+		send_fail_or_fulfill(peer, h);
 		start_commit_timer(peer);
 		return;
 	case CHANNEL_ERR_NO_SUCH_ID:
