@@ -7,7 +7,8 @@
 6. [macOS](#to-build-on-macos)
 7. [Android](#to-cross-compile-for-android)
 8. [Raspberry Pi](#to-cross-compile-for-raspberry-pi)
-9. [Additional steps](#additional-steps)
+9. [Armbian](#to-compile-for-armbian)
+10. [Additional steps](#additional-steps)
 
 Library Requirements
 --------------------
@@ -271,6 +272,15 @@ The compilation will eventually fail due to a compile error in the `cdump` CCAN 
     make clean -C ccan/ccan/cdump/tools
     make CC=gcc -C ccan/ccan/cdump/tools
     BUILD=x86_64 MAKE_HOST=arm-linux-gnueabihf make PIE=1 DEVELOPER=0 CONFIGURATOR_CC="arm-linux-gnueabihf-gcc -static" LDFLAGS="-L/path/to/gmp-and-sqlite/lib" CFLAGS="-std=gnu11 -I /path/to/gmp-and-sqlite/include -I . -I ccan -I external/libwally-core/src/secp256k1/include -I external/libsodium/src/libsodium/include -I external/jsmn -I external/libwally-core/include -I external/libbacktrace -I external/libbase58"
+
+To compile for Armbian
+--------------------
+For all the other Pi devices out there, consider using [Armbian](https://www.armbian.com).
+
+You can compile in `customize-image.sh` using the instructions for Ubuntu.
+
+A working example that compiles both bitcoind and c-lightning for Armbian can
+be found [here](https://github.com/Sjors/armbian-bitcoin-core).
 
 Additional steps
 --------------------
