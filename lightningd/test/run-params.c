@@ -318,21 +318,6 @@ static void bad_programmer(void)
 		assert(false);
 	}
 
-	/* check for NULL input */
-	if (setjmp(jump) == 0) {
-		param_parse(cmd, j->buffer, j->toks,
-			    param_req(NULL, json_tok_u64, &ival), NULL);
-		restore_assert();
-		assert(false);
-	}
-
-	if (setjmp(jump) == 0) {
-		param_parse(cmd, j->buffer, j->toks,
-			    param_req(NULL, json_tok_u64, &ival), NULL);
-		restore_assert();
-		assert(false);
-	}
-
 	if (setjmp(jump) == 0) {
 		param_parse(cmd, j->buffer, j->toks,
 			    param_req("u64", NULL, &ival), NULL);
@@ -364,12 +349,18 @@ static void add_members(struct param **params,
 			struct json_result *obj,
 			struct json_result *arr, unsigned int *ints)
 {
-	char name[256];
 	for (int i = 0; i < tal_count(ints); ++i) {
-		sprintf(name, "%d", i);
+		char *name = tal_fmt(tmpctx, "%i", i);
 		json_add_num(obj, name, i);
 		json_add_num(arr, NULL, i);
-		params[i] = param_req(name, json_tok_number, &ints[i]);
+		/* Since name is not a literal, we do this manually. */
+		params[i] = param_add_(NULL, name,
+				       typesafe_cb_preargs(bool, void *,
+							   json_tok_number,
+							   &ints[i],
+							   const char *,
+							   const jsmntok_t *),
+				       &ints[i], 0);
 		tal_steal(params, params[i]);
 	}
 }

@@ -60,7 +60,7 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
  * Returns an opaque pointer that can be later used in param_is_set().
  */
 #define param_req(name, cb, arg)         \
-		  param_add_(NULL, name,			     \
+		  param_add_(NULL, name"",			     \
 			     typesafe_cb_preargs(bool, void *,       \
 						 (cb), (arg),        \
 						 const char *,       \
@@ -70,17 +70,17 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
  * Same as above but for optional parameters.
  */
 #define param_opt(ctx, name, cb, arg)	  \
-		  param_add_(ctx, name,				     \
+		  param_add_(ctx, name"",			     \
 			     typesafe_cb_preargs(bool, void *,       \
 						 (cb), *(arg),       \
 						 const char *,       \
 						 const jsmntok_t *), \
 			     (arg), sizeof(**arg))
-struct param * param_add_(const tal_t *ctx, char *name, param_cb cb, void *arg, size_t argsize);
+struct param * param_add_(const tal_t *ctx, const char *name, param_cb cb, void *arg, size_t argsize);
 
 #define param_opt_tok(ctx, name, arg)		\
-	param_opt_add_(ctx, name, arg)
+	param_opt_add_(ctx, name"", arg)
 
-struct param *param_opt_add_(const tal_t *ctx, char *name, const jsmntok_t **tok);
+struct param *param_opt_add_(const tal_t *ctx, const char *name, const jsmntok_t **tok);
 
 #endif /* LIGHTNING_LIGHTNINGD_PARAMS_H */
