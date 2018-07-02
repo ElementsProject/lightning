@@ -1,3 +1,4 @@
+#include <ccan/asort/asort.h>
 #include <ccan/tal/str/str.h>
 #include <common/utils.h>
 #include <lightningd/json.h>
@@ -202,28 +203,30 @@ static struct param **parse_by_name(struct command *cmd,
 }
 
 #if DEVELOPER
-static int comp_by_name(const void *a, const void *b)
+static int comp_by_name(struct param *const *a, struct param *const *b,
+			void *unused)
 {
-	const char *x = (*(const struct param **) a)->name;
-	const char *y = (*(const struct param **) b)->name;
-	return strcmp(x, y);
+	return strcmp((*a)->name, (*b)->name);
 }
 
-static int comp_by_arg(const void *a, const void *b)
+static int comp_by_arg(struct param *const *a, struct param *const *b,
+		       void *unused)
 {
-	size_t x = (size_t) ((*(const struct param **) a)->arg);
-	size_t y = (size_t) ((*(const struct param **) b)->arg);
-	return x - y;
+	/* size_t could be larger than int: don't turn a 4bn difference into 0 */
+	if ((*a)->arg > (*b)->arg)
+		return 1;
+	else if ((*a)->arg < (*b)->arg)
+		return -1;
+	return 0;
 }
 
 /* This comparator is a bit different, but works well.
  * Return 0 if @a is optional and @b is required. Otherwise return 1.
  */
-static int comp_req_order(const void *a, const void *b)
+static int comp_req_order(struct param *const *a, struct param *const *b,
+			  void *unused)
 {
-	bool x = (bool) ((*(const struct param **) a)->argsize == 0);
-	bool y = (bool) ((*(const struct param **) b)->argsize == 0);
-	if (!x && y)
+	if ((*a)->argsize != 0 && (*b)->argsize == 0)
 		return 0;
 	return 1;
 }
@@ -233,21 +236,23 @@ static int comp_req_order(const void *a, const void *b)
  * provided comparator).
  */
 static void check_distinct(struct param **params,
-			   int (*compar) (const void *, const void *))
+			   int (*compar) (struct param *const *a,
+					  struct param *const *b, void *unused))
 {
 	struct param **first = params;
 	struct param **last = first + tal_count(params);
 	first++;
 	while (first != last) {
-		assert(compar(first - 1, first) != 0);
+		assert(compar(first - 1, first, NULL) != 0);
 		first++;
 	}
 }
 
 static void check_unique(struct param **copy,
-			 int (*compar) (const void *, const void *))
+			 int (*compar) (struct param *const *a,
+					struct param *const *b, void *unused))
 {
-	qsort(copy, tal_count(copy), sizeof(struct param *), compar);
+	asort(copy, tal_count(copy), compar, NULL);
 	check_distinct(copy, compar);
 }
 

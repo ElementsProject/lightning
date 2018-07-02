@@ -1,3 +1,4 @@
+#include "config.h"
 #include <signal.h>
 #include <setjmp.h>
 #include <lightningd/jsonrpc.h>
