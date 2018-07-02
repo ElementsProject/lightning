@@ -250,7 +250,7 @@ static void send_and_fulfill_htlc(struct channel *channel,
 		assert(ret);
 		ret = channel_sending_revoke_and_ack(channel);
 		assert(!ret);
-		assert(channel_fulfill_htlc(channel, LOCAL, 1337, &r)
+		assert(channel_fulfill_htlc(channel, LOCAL, 1337, &r, NULL)
 		       == CHANNEL_ERR_REMOVE_OK);
 		ret = channel_rcvd_commit(channel, &changed_htlcs);
 		assert(ret);
@@ -271,7 +271,7 @@ static void send_and_fulfill_htlc(struct channel *channel,
 		assert(ret);
 		ret = channel_rcvd_revoke_and_ack(channel, &changed_htlcs);
 		assert(!ret);
-		assert(channel_fulfill_htlc(channel, REMOTE, 1337, &r)
+		assert(channel_fulfill_htlc(channel, REMOTE, 1337, &r, NULL)
 		       == CHANNEL_ERR_REMOVE_OK);
 		ret = channel_sending_commit(channel, &changed_htlcs);
 		assert(ret);

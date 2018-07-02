@@ -129,6 +129,7 @@ enum channel_remove_err channel_fail_htlc(struct channel *channel,
  * @channel: The channel state
  * @owner: the side who offered the HTLC (opposite to that fulfilling it)
  * @id: unique HTLC id.
+ * @htlcp: optional pointer for resulting htlc: filled in if and only if CHANNEL_ERR_FULFILL_OK.
  *
  * If the htlc exists, is not already fulfilled, the preimage is correct and
  * HTLC committed at the recipient, this will add a pending change to
@@ -138,7 +139,8 @@ enum channel_remove_err channel_fail_htlc(struct channel *channel,
 enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 					     enum side owner,
 					     u64 id,
-					     const struct preimage *preimage);
+					     const struct preimage *preimage,
+					     struct htlc **htlcp);
 
 /**
  * approx_max_feerate: what's the max funder could raise fee rate to?
