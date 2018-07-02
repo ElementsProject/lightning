@@ -2739,6 +2739,9 @@ class LightningDTests(BaseLightningDTests):
 
         # Restore infinite encode size.
         l2.rpc.dev_set_max_scids_encode_size(max=(2**32 - 1))
+        l2.daemon.wait_for_log('Set max_scids_encode_bytes to {}'
+                               .format(2**32 - 1))
+
         ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
                                              first=0,
                                              num=65535)

@@ -2351,6 +2351,7 @@ static struct io_plan *dev_set_max_scids_encode_size(struct io_conn *conn,
 							   &max_scids_encode_bytes))
 		master_badmsg(WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE, msg);
 
+	status_trace("Set max_scids_encode_bytes to %u", max_scids_encode_bytes);
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 #endif /* DEVELOPER */
