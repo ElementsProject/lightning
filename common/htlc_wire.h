@@ -26,7 +26,8 @@ struct fulfilled_htlc {
 
 struct failed_htlc {
 	u64 id;
-	enum onion_type malformed;
+	/* Either this is 0 and failreason non-NULL, or vice versa. */
+	enum onion_type failcode;
 	u8 *failreason;
 };
 
