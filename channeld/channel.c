@@ -1472,7 +1472,7 @@ static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
 			    "Bad update_fulfill_htlc %s", tal_hex(msg, msg));
 	}
 
-	e = channel_fulfill_htlc(peer->channel, LOCAL, id, &preimage);
+	e = channel_fulfill_htlc(peer->channel, LOCAL, id, &preimage, NULL);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
 		/* FIXME: We could send preimages to master immediately. */
@@ -1509,11 +1509,10 @@ static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
 			    "Bad update_fulfill_htlc %s", tal_hex(msg, msg));
 	}
 
-	e = channel_fail_htlc(peer->channel, LOCAL, id, NULL);
+	e = channel_fail_htlc(peer->channel, LOCAL, id, &htlc);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
 		/* Save reason for when we tell master. */
-		htlc = channel_get_htlc(peer->channel, LOCAL, id);
 		htlc->fail = tal_steal(htlc, reason);
 		start_commit_timer(peer);
 		return;
@@ -2202,7 +2201,7 @@ static void handle_preimage(struct peer *peer, const u8 *inmsg)
 	if (!fromwire_channel_fulfill_htlc(inmsg, &id, &preimage))
 		master_badmsg(WIRE_CHANNEL_FULFILL_HTLC, inmsg);
 
-	switch (channel_fulfill_htlc(peer->channel, REMOTE, id, &preimage)) {
+	switch (channel_fulfill_htlc(peer->channel, REMOTE, id, &preimage, NULL)) {
 	case CHANNEL_ERR_REMOVE_OK:
 		msg = towire_update_fulfill_htlc(NULL, &peer->channel_id,
 						 id, &preimage);

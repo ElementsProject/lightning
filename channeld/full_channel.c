@@ -493,9 +493,10 @@ struct htlc *channel_get_htlc(struct channel *channel, enum side sender, u64 id)
 }
 
 enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
-					      enum side owner,
-					      u64 id,
-					      const struct preimage *preimage)
+					     enum side owner,
+					     u64 id,
+					     const struct preimage *preimage,
+					     struct htlc **htlcp)
 {
 	struct sha256 hash;
 	struct htlc *htlc;
@@ -555,6 +556,9 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 	channel->changes_pending[owner] = true;
 
 	dump_htlc(htlc, "FULFILL:");
+
+	if (htlcp)
+		*htlcp = htlc;
 
 	return CHANNEL_ERR_REMOVE_OK;
 }
