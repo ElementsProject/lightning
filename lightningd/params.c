@@ -7,19 +7,16 @@
 #include <lightningd/params.h>
 
 struct param {
+	const tal_t *ctx;
 	char *name;
-	bool required;
 	bool is_set;
 	param_cb cb;
 	void *arg;
+	size_t argsize;
 };
 
-void *param_is_set(struct param *def)
-{
-	return def->is_set ? def->arg : NULL;
-}
-
-struct param *param_add_(bool required, char *name, param_cb cb, void *arg)
+struct param *param_add_(const tal_t *ctx,
+			 char *name, param_cb cb, void *arg, size_t argsize)
 {
 #if DEVELOPER
 	assert(name);
@@ -27,11 +24,29 @@ struct param *param_add_(bool required, char *name, param_cb cb, void *arg)
 	assert(arg);
 #endif
 	struct param *last = tal(tmpctx, struct param);
+	last->ctx = ctx;
 	last->is_set = false;
 	last->name = tal_strdup(last, name);
 	last->cb = cb;
 	last->arg = arg;
-	last->required = required;
+	last->argsize = argsize;
+	/* Non-NULL means we are supposed to allocate iff found */
+	if (last->ctx)
+		*(void **)last->arg = NULL;
+	return last;
+}
+
+struct param *param_opt_add_(const tal_t *ctx, char *name, const jsmntok_t **tok)
+{
+	struct param *last = tal(tmpctx, struct param);
+	assert(ctx);
+	last->ctx = ctx;
+	last->is_set = false;
+	last->name = tal_strdup(last, name);
+	last->cb = (param_cb)json_tok_tok;
+	last->arg = tok;
+	last->argsize = sizeof(*tok);
+	*tok = NULL;
 	return last;
 }
 
@@ -66,8 +81,16 @@ static bool make_callback(struct command *cmd,
 			  struct param *def,
 			  const char *buffer, const jsmntok_t * tok)
 {
+	void *arg;
 	def->is_set = true;
-	if (!def->cb(buffer, tok, def->arg)) {
+	if (def->argsize && def->cb != (param_cb)json_tok_tok) {
+		*(void **)def->arg
+			= arg
+			= tal_alloc_(def->ctx, def->argsize, false, false,
+				     "param");
+	} else
+		arg = def->arg;
+	if (!def->cb(buffer, tok, arg)) {
 		struct json_result *data = new_json_result(cmd);
 		const char *val = tal_fmt(cmd, "%.*s", tok->end - tok->start,
 					  buffer + tok->start);
@@ -89,22 +112,12 @@ static struct param **post_check(struct command *cmd, struct param **params)
 	struct param **last = first + tal_count(params);
 
 	/* Make sure required params were provided. */
-	while (first != last && (*first)->required) {
+	while (first != last && (*first)->argsize == 0) {
 		if (!(*first)->is_set) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "missing required parameter: '%s'",
 				     (*first)->name);
 			return NULL;
-		}
-		first++;
-	}
-
-	/* Set optional missing jsmntok_t args to NULL.  */
-	while (first != last) {
-		struct param *p = *first;
-		if (!p->is_set && (p->cb == (param_cb) json_tok_tok)) {
-			jsmntok_t **tok = p->arg;
-			*tok = NULL;
 		}
 		first++;
 	}
@@ -208,8 +221,8 @@ static int comp_by_arg(const void *a, const void *b)
  */
 static int comp_req_order(const void *a, const void *b)
 {
-	bool x = (bool) ((*(const struct param **) a)->required);
-	bool y = (bool) ((*(const struct param **) b)->required);
+	bool x = (bool) ((*(const struct param **) a)->argsize == 0);
+	bool y = (bool) ((*(const struct param **) b)->argsize == 0);
 	if (!x && y)
 		return 0;
 	return 1;

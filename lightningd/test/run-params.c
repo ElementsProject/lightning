@@ -172,8 +172,7 @@ static void tok_tok(void)
 
 		struct json *j = json_parse(cmd, "{}");
 		assert(param_parse(cmd, j->buffer, j->toks,
-				   param_opt("satoshi", json_tok_tok,
-					     &tok), NULL));
+				   param_opt_tok(cmd, "satoshi", &tok), NULL));
 
 		/* make sure it *is* NULL */
 		assert(tok == NULL);
@@ -196,7 +195,8 @@ static void dup(void)
 
 static void null_params(void)
 {
-	uint64_t *ints = tal_arr(cmd, uint64_t, 7);
+	uint64_t *ints = tal_arr(cmd, uint64_t, 4);
+	uint64_t **intptrs = tal_arr(cmd, uint64_t *, 3);
 	/* no null params */
 	struct json *j =
 	    json_parse(cmd, "[ '10', '11', '12', '13', '14', '15', '16']");
@@ -208,31 +208,34 @@ static void null_params(void)
 			   param_req("1", json_tok_u64, &ints[1]),
 			   param_req("2", json_tok_u64, &ints[2]),
 			   param_req("3", json_tok_u64, &ints[3]),
-			   param_opt("4", json_tok_u64, &ints[4]),
-			   param_opt("5", json_tok_u64, &ints[5]),
-			   param_opt("6", json_tok_u64, &ints[6]), NULL));
+			   param_opt(tmpctx, "4", json_tok_u64, &intptrs[0]),
+			   param_opt(tmpctx, "5", json_tok_u64, &intptrs[1]),
+			   param_opt(tmpctx, "6", json_tok_u64, &intptrs[2]),
+			   NULL));
 	for (int i = 0; i < tal_count(ints); ++i)
 		assert(ints[i] == i + 10);
+	for (int i = 0; i < tal_count(intptrs); ++i)
+		assert(*intptrs[i] == i + 10 + tal_count(ints));
 
 	/* missing at end */
 	for (int i = 0; i < tal_count(ints); ++i)
 		ints[i] = 42;
+	for (int i = 0; i < tal_count(intptrs); ++i)
+		intptrs[i] = (void *)42;
 
 	j = json_parse(cmd, "[ '10', '11', '12', '13', '14']");
-	struct param *four, *five;
 	assert(param_parse(cmd, j->buffer, j->toks,
 			   param_req("0", json_tok_u64, &ints[0]),
 			   param_req("1", json_tok_u64, &ints[1]),
 			   param_req("2", json_tok_u64, &ints[2]),
 			   param_req("3", json_tok_u64, &ints[3]),
-			   four = param_opt("4", json_tok_u64, &ints[4]),
-			   five = param_opt("5", json_tok_u64, &ints[5]),
-			   param_opt("6", json_tok_u64, &ints[6]), NULL));
-	assert(ints[4] == 14);
-	assert(param_is_set(four) == &ints[4]);
-	assert(!param_is_set(five));
-	assert(ints[5] == 42);
-	assert(ints[6] == 42);
+			   param_opt(tmpctx, "4", json_tok_u64, &intptrs[0]),
+			   param_opt(tmpctx, "5", json_tok_u64, &intptrs[1]),
+			   param_opt(tmpctx, "6", json_tok_u64, &intptrs[2]),
+			   NULL));
+	assert(*intptrs[0] == 14);
+	assert(intptrs[1] == NULL);
+	assert(intptrs[2] == NULL);
 }
 
 #if DEVELOPER
@@ -340,12 +343,13 @@ static void bad_programmer(void)
 		/* Add required param after optional */
 		struct json *j =
 		    json_parse(cmd, "[ '25', '546', '26', '1.1' ]");
-		unsigned int msatoshi;
+		unsigned int *msatoshi;
 		double riskfactor;
 		param_parse(cmd, j->buffer, j->toks,
 			    param_req("u64", json_tok_u64, &ival),
 			    param_req("double", json_tok_double, &dval),
-			    param_opt("msatoshi", json_tok_number, &msatoshi),
+			    param_opt(tmpctx, "msatoshi",
+				      json_tok_number, &msatoshi),
 			    param_req("riskfactor", json_tok_double,
 				      &riskfactor), NULL);
 		restore_assert();
@@ -409,26 +413,27 @@ static void sendpay(void)
 	struct json *j = json_parse(cmd, "[ 'A', '123', 'hello there' '547']");
 
 	const jsmntok_t *routetok, *note;
-	u64 msatoshi;
+	u64 *msatoshi;
 	unsigned cltv;
-	struct param * mp;
 
 	if (!param_parse(cmd, j->buffer, j->toks,
 			 param_req("route", json_tok_tok, &routetok),
 			 param_req("cltv", json_tok_number, &cltv),
-			 param_opt("note", json_tok_tok, &note),
-			 mp = param_opt("msatoshi", json_tok_u64, &msatoshi),
+			 param_opt_tok(tmpctx, "note", &note),
+			 param_opt(tmpctx, "msatoshi", json_tok_u64, &msatoshi),
 			 NULL))
 		assert(false);
 
-	assert(param_is_set(mp));
-	assert(msatoshi == 547);
+	assert(note);
+	assert(msatoshi);
+	assert(*msatoshi == 547);
 }
 
 int main(void)
 {
 	setup_locale();
-	cmd = tal(NULL, struct command);
+	setup_tmpctx();
+	cmd = tal(tmpctx, struct command);
 	fail_msg = tal_arr(cmd, char, 10000);
 
 	zero_params();
@@ -441,6 +446,6 @@ int main(void)
 	dup();
 	five_hundred_params();
 	sendpay();
-	tal_free(cmd);
+	tal_free(tmpctx);
 	printf("run-params ok\n");
 }
