@@ -1214,7 +1214,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 				f = tal_arr_append(&failed);
 				*f = tal(failed, struct failed_htlc);
 				(*f)->id = htlc->id;
-				(*f)->malformed = htlc->failcode;
+				(*f)->failcode = htlc->failcode;
 				(*f)->failreason = cast_const(u8 *, htlc->fail);
 			}
 		} else {

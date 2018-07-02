@@ -771,8 +771,8 @@ static bool peer_failed_our_htlc(struct channel *channel,
 	if (!htlc_out_update_state(channel, hout, RCVD_REMOVE_COMMIT))
 		return false;
 
-	hout->failcode = failed->malformed;
-	if (!failed->malformed)
+	hout->failcode = failed->failcode;
+	if (!failed->failcode)
 		hout->failuremsg = tal_dup_arr(hout, u8, failed->failreason,
 					       tal_len(failed->failreason), 0);
 
@@ -1384,7 +1384,7 @@ static void add_fulfill(u64 id, enum side side,
 }
 
 static void add_fail(u64 id, enum side side,
-		     enum onion_type malformed,
+		     enum onion_type failcode,
 		     const u8 *failuremsg,
 		     const struct failed_htlc ***failed_htlcs,
 		     enum side **failed_sides)
@@ -1397,7 +1397,7 @@ static void add_fail(u64 id, enum side side,
 
 	*f = tal(*failed_htlcs, struct failed_htlc);
 	(*f)->id = id;
-	(*f)->malformed = malformed;
+	(*f)->failcode = failcode;
 	if (failuremsg)
 		(*f)->failreason
 			= tal_dup_arr(*f, u8, failuremsg, tal_len(failuremsg), 0);

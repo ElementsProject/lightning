@@ -1048,13 +1048,14 @@ bool channel_force_htlcs(struct channel *channel,
 				     htlc_state_name(htlc->state));
 			return false;
 		}
-		if (failed[i]->malformed)
-			htlc->failcode = failed[i]->malformed;
-		else
+		htlc->failcode = failed[i]->failcode;
+		if (failed[i]->failreason)
 			htlc->fail = tal_dup_arr(htlc, u8,
 						 failed[i]->failreason,
 						 tal_len(failed[i]->failreason),
 						 0);
+		else
+			htlc->fail = NULL;
 	}
 
 	for (i = 0; i < tal_count(htlcs); i++) {
