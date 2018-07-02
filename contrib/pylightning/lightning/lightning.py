@@ -105,12 +105,6 @@ class LightningRpc(UnixDomainSocketRpc):
         res = self.call("listpeers", payload)
         return res.get("peers") and res["peers"][0] or None
 
-    def dev_blockheight(self):
-        """
-        Show current block height
-        """
-        return self.call("dev-blockheight")
-
     def dev_setfees(self, immediate=None, normal=None, slow=None):
         """
         Set feerate in satoshi-per-kw for {immediate}, {normal} and {slow}
