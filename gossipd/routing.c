@@ -1207,11 +1207,14 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 		return err;
 	}
 
-	status_trace("Received channel_update for channel %s(%d) now %s (from %s)",
+	status_trace("Received channel_update for channel %s(%d) now %s was %s (from %s)",
 		     type_to_string(tmpctx, struct short_channel_id,
 				    &short_channel_id),
 		     flags & 0x01,
 		     flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE",
+		     is_halfchan_defined(c)
+		     ? (c->flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE")
+		     : "UNDEFINED",
 		     source);
 
 	if (!routing_add_channel_update(rstate, serialized))

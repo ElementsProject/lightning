@@ -1656,6 +1656,21 @@ static u8 *create_channel_update(const tal_t *ctx,
 	return update;
 }
 
+/* Return true if the only change would be the timestamp. */
+static bool update_redundant(const struct half_chan *hc,
+			   bool disable, u16 cltv_delta, u64 htlc_minimum_msat,
+			   u32 fee_base_msat, u32 fee_proportional_millionths)
+{
+	if (!is_halfchan_defined(hc))
+		return false;
+
+	return !(hc->flags & ROUTING_FLAGS_DISABLED) == !disable
+		&& hc->delay == cltv_delta
+		&& hc->htlc_minimum_msat == htlc_minimum_msat
+		&& hc->base_fee == fee_base_msat
+		&& hc->proportional_fee == fee_proportional_millionths;
+}
+
 static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 {
 	struct short_channel_id scid;
@@ -1698,6 +1713,25 @@ static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 			      type_to_string(tmpctx, struct pubkey, &peer->id),
 			      type_to_string(tmpctx, struct short_channel_id,
 					     &scid));
+		return;
+	}
+
+	/* Avoid redundant updates on public channels: on non-public channels
+	 * we'd need to consider pending updates, so don't bother. */
+	if (is_chan_public(chan)
+	    && update_redundant(&chan->half[direction],
+				disable, cltv_delta, htlc_minimum_msat,
+				fee_base_msat, fee_proportional_millionths)) {
+		status_trace("Suppressing redundant channel update for %s:(%u) %s %"PRIu64"/%u vs %u/%u",
+			     type_to_string(tmpctx, struct short_channel_id,
+					    &scid),
+			     direction,
+			     is_halfchan_defined(&chan->half[direction])
+			     ? (chan->half[direction].flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE")
+			     : "UNDEFINED",
+			     chan->half[direction].last_timestamp,
+			     (u32)time_now().ts.tv_sec,
+			     chan->half[direction].flags, disable);
 		return;
 	}
 
