@@ -570,26 +570,6 @@ u32 get_feerate(const struct chain_topology *topo, enum feerate feerate)
 }
 
 #if DEVELOPER
-static void json_dev_blockheight(struct command *cmd,
-				 const char *buffer UNUSED, const jsmntok_t *params UNUSED)
-{
-	struct chain_topology *topo = cmd->ld->topology;
-	struct json_result *response;
-
-	response = new_json_result(cmd);
-	json_object_start(response, NULL);
-	json_add_num(response, "blockheight", get_block_height(topo));
-	json_object_end(response);
-	command_success(cmd, response);
-}
-
-static const struct json_command dev_blockheight = {
-	"dev-blockheight",
-	json_dev_blockheight,
-	"Show current block height"
-};
-AUTODATA(json_command, &dev_blockheight);
-
 static void json_dev_setfees(struct command *cmd,
 			     const char *buffer, const jsmntok_t *params)
 {
