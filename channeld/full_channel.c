@@ -996,6 +996,12 @@ bool channel_force_htlcs(struct channel *channel,
 				     fulfilled[i].id);
 			return false;
 		}
+		if (htlc->failcode) {
+			status_trace("Fulfill %s HTLC %"PRIu64" already fail %u",
+				     fulfilled_sides[i] == LOCAL ? "out" : "in",
+				     fulfilled[i].id, htlc->failcode);
+			return false;
+		}
 		if (!htlc_has(htlc, HTLC_REMOVING)) {
 			status_trace("Fulfill %s HTLC %"PRIu64" state %s",
 				     fulfilled_sides[i] == LOCAL ? "out" : "in",
