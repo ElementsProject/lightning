@@ -27,8 +27,12 @@ struct htlc {
 	/* FIXME: We could union these together: */
 	/* Routing information sent with this HTLC. */
 	const u8 *routing;
+
+	/* Failure message we received or generated. */
 	const u8 *fail;
-	enum onion_type malformed;
+	/* For a local failure, we might have to generate fail ourselves
+	 * (or, if BADONION we send a update_fail_malformed_htlc). */
+	enum onion_type failcode;
 };
 
 static inline bool htlc_has(const struct htlc *h, int flag)

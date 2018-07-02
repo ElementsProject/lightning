@@ -107,7 +107,8 @@ static void dump_htlc(const struct htlc *htlc, const char *prefix)
 		     htlc_state_name(htlc->state),
 		     htlc_state_name(remote_state),
 		     htlc->r ? "FULFILLED" : htlc->fail ? "FAILED" :
-		     htlc->malformed ? "MALFORMED" : "");
+		     htlc->failcode
+		     ? tal_fmt(tmpctx, "FAILCODE:%u", htlc->failcode) : "");
 }
 
 void dump_htlcs(const struct channel *channel, const char *prefix)
@@ -324,7 +325,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 
 	htlc->rhash = *payment_hash;
 	htlc->fail = NULL;
-	htlc->malformed = 0;
+	htlc->failcode = 0;
 	htlc->r = NULL;
 	htlc->routing = tal_dup_arr(htlc, u8, routing, TOTAL_PACKET_SIZE, 0);
 
@@ -903,7 +904,7 @@ static bool adjust_balance(struct channel *channel, struct htlc *htlc)
 		if (htlc_has(htlc, HTLC_FLAG(side, HTLC_F_COMMITTED)))
 			continue;
 
-		if (!htlc->fail && !htlc->malformed && !htlc->r) {
+		if (!htlc->fail && !htlc->failcode && !htlc->r) {
 			status_trace("%s HTLC %"PRIu64
 				     " %s neither fail nor fulfill?",
 				     htlc_state_owner(htlc->state) == LOCAL
@@ -1028,10 +1029,10 @@ bool channel_force_htlcs(struct channel *channel,
 				     failed[i]->id);
 			return false;
 		}
-		if (htlc->malformed) {
-			status_trace("Fail %s HTLC %"PRIu64" already malformed",
+		if (htlc->failcode) {
+			status_trace("Fail %s HTLC %"PRIu64" already fail %u",
 				     failed_sides[i] == LOCAL ? "out" : "in",
-				     failed[i]->id);
+				     failed[i]->id, htlc->failcode);
 			return false;
 		}
 		if (!htlc_has(htlc, HTLC_REMOVING)) {
@@ -1042,7 +1043,7 @@ bool channel_force_htlcs(struct channel *channel,
 			return false;
 		}
 		if (failed[i]->malformed)
-			htlc->malformed = failed[i]->malformed;
+			htlc->failcode = failed[i]->malformed;
 		else
 			htlc->fail = tal_dup_arr(htlc, u8,
 						 failed[i]->failreason,
