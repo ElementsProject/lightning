@@ -9,7 +9,7 @@
 
 struct param {
 	const tal_t *ctx;
-	char *name;
+	const char *name;
 	bool is_set;
 	param_cb cb;
 	void *arg;
@@ -17,7 +17,8 @@ struct param {
 };
 
 struct param *param_add_(const tal_t *ctx,
-			 char *name, param_cb cb, void *arg, size_t argsize)
+			 const char *name, param_cb cb, void *arg,
+			 size_t argsize)
 {
 #if DEVELOPER
 	assert(name);
@@ -27,7 +28,7 @@ struct param *param_add_(const tal_t *ctx,
 	struct param *last = tal(tmpctx, struct param);
 	last->ctx = ctx;
 	last->is_set = false;
-	last->name = tal_strdup(last, name);
+	last->name = name;
 	last->cb = cb;
 	last->arg = arg;
 	last->argsize = argsize;
@@ -37,13 +38,14 @@ struct param *param_add_(const tal_t *ctx,
 	return last;
 }
 
-struct param *param_opt_add_(const tal_t *ctx, char *name, const jsmntok_t **tok)
+struct param *param_opt_add_(const tal_t *ctx, const char *name,
+			     const jsmntok_t **tok)
 {
 	struct param *last = tal(tmpctx, struct param);
 	assert(ctx);
 	last->ctx = ctx;
 	last->is_set = false;
-	last->name = tal_strdup(last, name);
+	last->name = name;
 	last->cb = (param_cb)json_tok_tok;
 	last->arg = tok;
 	last->argsize = sizeof(*tok);
