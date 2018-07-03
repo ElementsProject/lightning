@@ -2935,11 +2935,12 @@ class LightningDTests(BaseLightningDTests):
     def test_gossip_no_empty_announcements(self):
         # Need full IO logging so we can see gossip
         l1 = self.node_factory.get_node(options={'log-level': 'io'})
-        l2 = self.node_factory.get_node(options={'log-level': 'io',
-                                                 'dev-no-reconnect': None})
+        l2 = self.node_factory.get_node(options={'log-level': 'io'})
         # l3 sends CHANNEL_ANNOUNCEMENT to l2, but not CHANNEL_UDPATE.
-        l3 = self.node_factory.get_node(disconnect=['+WIRE_CHANNEL_ANNOUNCEMENT'])
-        l4 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node(disconnect=['+WIRE_CHANNEL_ANNOUNCEMENT'],
+                                        options={'dev-no-reconnect': None},
+                                        may_reconnect=True)
+        l4 = self.node_factory.get_node(may_reconnect=True)
 
         # Turn on IO logging for gossipds
         subprocess.run(['kill', '-USR1', l1.subd_pid('gossipd')])
@@ -2955,6 +2956,11 @@ class LightningDTests(BaseLightningDTests):
         sync_blockheight([l3, l4])
         # 0x0100 = channel_announcement, which goes to l2 before l3 dies.
         l2.daemon.wait_for_log('\[IN\] 0100')
+
+        # l3 actually disconnects from l4 *and* l2!  That means we never see
+        # the (delayed) channel_update from l4.
+        wait_for(lambda: not l3.rpc.listpeers(l4.info['id'])['peers'][0]['connected'])
+        l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
 
         # But it never goes to l1, as there's no channel_update.
         time.sleep(2)
