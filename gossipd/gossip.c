@@ -1791,6 +1791,21 @@ static void destroy_local_update(struct local_update *local_update)
 		      &local_update->list);
 }
 
+static void queue_local_update(struct daemon *daemon,
+			       struct local_update *local_update)
+{
+	/* Free any old unapplied update. */
+	tal_free(find_local_update(daemon, &local_update->scid));
+
+	list_add_tail(&daemon->local_updates, &local_update->list);
+	tal_add_destructor(local_update, destroy_local_update);
+
+	/* Delay 1/4 a broadcast interval */
+	new_reltimer(&daemon->timers, local_update,
+		     time_from_msec(daemon->broadcast_interval/4),
+		     apply_delayed_local_update, local_update);
+}
+
 static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 {
 	struct chan *chan;
@@ -1838,16 +1853,7 @@ static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 		return;
 	}
 
-	/* Free any old unapplied update. */
-	tal_free(find_local_update(peer->daemon, &local_update->scid));
-
-	list_add_tail(&peer->daemon->local_updates, &local_update->list);
-	tal_add_destructor(local_update, destroy_local_update);
-
-	/* Delay 1/4 a broadcast interval */
-	new_reltimer(&peer->daemon->timers, local_update,
-		     time_from_msec(peer->daemon->broadcast_interval/4),
-		     apply_delayed_local_update, local_update);
+	queue_local_update(peer->daemon, local_update);
 }
 
 /**
@@ -2868,18 +2874,17 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 	return binding;
 }
 
-static void gossip_disable_outgoing_halfchan(struct routing_state *rstate,
+static void gossip_disable_outgoing_halfchan(struct daemon *daemon,
 					     struct chan *chan)
 {
-	struct short_channel_id scid;
 	u8 direction;
 	struct half_chan *hc;
-	u16 flags, cltv_expiry_delta;
-	u32 timestamp, fee_base_msat, fee_proportional_millionths;
+	u16 flags;
+	u32 timestamp;
 	struct bitcoin_blkid chain_hash;
 	secp256k1_ecdsa_signature sig;
-	u64 htlc_minimum_msat;
-	u8 *err, *msg;
+	struct local_update *local_update;
+	struct routing_state *rstate = daemon->rstate;
 
 	direction = pubkey_eq(&chan->nodes[0]->id, &rstate->local_id)?0:1;
 	assert(chan);
@@ -2892,48 +2897,29 @@ static void gossip_disable_outgoing_halfchan(struct routing_state *rstate,
 		     type_to_string(tmpctx, struct short_channel_id, &chan->scid),
 		     direction, is_halfchan_enabled(hc), 0);
 
+	local_update = tal(daemon, struct local_update);
+	local_update->daemon = daemon;
+	local_update->direction = direction;
+
 	if (!fromwire_channel_update(
-		hc->channel_update, &sig, &chain_hash, &scid, &timestamp,
-		&flags, &cltv_expiry_delta, &htlc_minimum_msat, &fee_base_msat,
-		&fee_proportional_millionths)) {
+		hc->channel_update, &sig, &chain_hash,
+		&local_update->scid, &timestamp, &flags,
+		&local_update->cltv_delta,
+		&local_update->htlc_minimum_msat,
+		&local_update->fee_base_msat,
+		&local_update->fee_proportional_millionths)) {
 		status_failed(
 		    STATUS_FAIL_INTERNAL_ERROR,
 		    "Unable to parse previously accepted channel_update");
 	}
 
-	/* Avoid sending gratuitous disable messages, e.g., on close and
-	 * subsequent disconnect */
-	if (flags & ROUTING_FLAGS_DISABLED)
-		return;
-
 	timestamp = time_now().ts.tv_sec;
 	if (timestamp <= hc->last_timestamp)
 		timestamp = hc->last_timestamp + 1;
 
-	flags = flags | ROUTING_FLAGS_DISABLED;
+	local_update->disable = true;
 
-	msg = towire_channel_update(tmpctx, &sig, &chain_hash, &scid, timestamp,
-				    flags, cltv_expiry_delta, htlc_minimum_msat,
-				    fee_base_msat, fee_proportional_millionths);
-
-	if (!wire_sync_write(HSM_FD,
-			     towire_hsm_cupdate_sig_req(tmpctx, msg))) {
-		status_failed(STATUS_FAIL_HSM_IO, "Writing cupdate_sig_req: %s",
-			      strerror(errno));
-	}
-
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_cupdate_sig_reply(tmpctx, msg, &msg)) {
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Reading cupdate_sig_req: %s",
-			      strerror(errno));
-	}
-
-	err = handle_channel_update(rstate, msg, "disable_channel");
-	if (err)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "rejected disabling channel_update: %s",
-			      tal_hex(tmpctx, err));
+	queue_local_update(daemon, local_update);
 }
 
 /**
@@ -2948,15 +2934,17 @@ static void gossip_disable_outgoing_halfchan(struct routing_state *rstate,
  * It is important to disable the incoming edge as well since we might otherwise
  * return that edge as a `contact_point` as part of an invoice.
  */
-static void gossip_disable_local_channel(struct routing_state *rstate,
+static void gossip_disable_local_channel(struct daemon *daemon,
 					 struct chan *chan)
 {
+	struct routing_state *rstate = daemon->rstate;
+
 	assert(pubkey_eq(&rstate->local_id, &chan->nodes[0]->id) ||
 	       pubkey_eq(&rstate->local_id, &chan->nodes[1]->id));
 
 	chan->half[0].flags |= ROUTING_FLAGS_DISABLED;
 	chan->half[1].flags |= ROUTING_FLAGS_DISABLED;
-	gossip_disable_outgoing_halfchan(rstate, chan);
+	gossip_disable_outgoing_halfchan(daemon, chan);
 }
 
 static void gossip_disable_local_channels(struct daemon *daemon)
@@ -2971,7 +2959,7 @@ static void gossip_disable_local_channels(struct daemon *daemon)
 		return;
 
 	for (i = 0; i < tal_count(local_node->chans); i++)
-		gossip_disable_local_channel(daemon->rstate,
+		gossip_disable_local_channel(daemon,
 					     local_node->chans[i]);
 }
 
@@ -3511,14 +3499,15 @@ static struct io_plan *peer_important(struct io_conn *conn,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
-static void peer_disable_channels(struct routing_state *rstate, struct node *node)
+static void peer_disable_channels(struct daemon *daemon, struct node *node)
 {
 	struct chan *c;
 	size_t i;
 	for (i=0; i<tal_count(node->chans); i++) {
 		c = node->chans[i];
-		if (pubkey_eq(&other_node(node, c)->id, &rstate->local_id))
-			gossip_disable_local_channel(rstate, c);
+		if (pubkey_eq(&other_node(node, c)->id,
+			      &daemon->rstate->local_id))
+			gossip_disable_local_channel(daemon, c);
 	}
 }
 
@@ -3546,7 +3535,7 @@ static struct io_plan *peer_disconnected(struct io_conn *conn,
 	/* Disable any channels to and from this peer */
 	node = get_node(daemon->rstate, &id);
 	if (node)
-		peer_disable_channels(daemon->rstate, node);
+		peer_disable_channels(daemon, node);
 
 	tal_free(peer);
 
@@ -3693,7 +3682,7 @@ static struct io_plan *handle_local_channel_close(struct io_conn *conn,
 
 	chan = get_channel(rstate, &scid);
 	if (chan)
-		gossip_disable_local_channel(rstate, chan);
+		gossip_disable_local_channel(daemon, chan);
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
