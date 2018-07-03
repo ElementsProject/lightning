@@ -118,6 +118,25 @@ HTABLE_DEFINE_TYPE(struct important_peerid,
 static u32 max_scids_encode_bytes = -1U;
 #endif
 
+struct local_update {
+	/* daemon->local_updates */
+	struct list_node list;
+
+	/* Because we're handed to a one-arg timer */
+	struct daemon *daemon;
+
+	/* Which channel this is */
+	struct short_channel_id scid;
+
+	/* Which direction we own */
+	int direction;
+
+	u16 cltv_delta;
+	u64 htlc_minimum_msat;
+	u32 fee_base_msat, fee_proportional_millionths;
+	bool disable;
+};
+
 struct daemon {
 	/* Who am I? */
 	struct pubkey id;
@@ -169,6 +188,9 @@ struct daemon {
 	struct addrinfo *proxyaddr;
 	bool use_proxy_always;
 	char *tor_password;
+
+	/* Unapplied local updates waiting for their timers. */
+	struct list_head local_updates;
 
 	/* @see lightningd.config.use_dns */
 	bool use_dns;
@@ -1745,79 +1767,72 @@ static bool update_redundant(const struct half_chan *hc,
 		&& hc->proportional_fee == fee_proportional_millionths;
 }
 
-static void handle_local_channel_update(struct peer *peer, const u8 *msg)
+static struct local_update *find_local_update(struct daemon *daemon,
+					      const struct short_channel_id *scid)
 {
-	struct short_channel_id scid;
-	u16 cltv_delta;
-	u64 htlc_minimum_msat;
-	u32 fee_base_msat, fee_proportional_millionths;
-	bool disable;
-	struct chan *chan;
-	int direction;
-	u8 *cupdate, *err;
-	const struct pubkey *my_id = &peer->daemon->rstate->local_id;
+	struct local_update *i;
 
-	if (!fromwire_gossip_local_channel_update(msg, &scid, &disable,
-						  &cltv_delta,
-						  &htlc_minimum_msat,
-						  &fee_base_msat,
-						  &fee_proportional_millionths)) {
-		status_broken("peer %s bad local_channel_update %s",
-			      type_to_string(tmpctx, struct pubkey, &peer->id),
-			      tal_hex(tmpctx, msg));
-		return;
+	list_for_each(&daemon->local_updates, i, list) {
+		if (structeq(scid, &i->scid))
+			return i;
 	}
+	return NULL;
+}
+
+/* Frees local_update */
+static void apply_delayed_local_update(struct local_update *local_update)
+{
+	struct chan *chan;
+	const struct half_chan *hc;
+	u8 *cupdate, *err;
 
 	/* Can theoretically happen if channel just closed. */
-	chan = get_channel(peer->daemon->rstate, &scid);
+	chan = get_channel(local_update->daemon->rstate, &local_update->scid);
 	if (!chan) {
-		status_trace("peer %s local_channel_update for unknown %s",
-			      type_to_string(tmpctx, struct pubkey, &peer->id),
+		status_trace("Delayed local_channel_update for unknown %s",
 			      type_to_string(tmpctx, struct short_channel_id,
-					     &scid));
+					     &local_update->scid));
+		tal_free(local_update);
 		return;
 	}
 
-	if (pubkey_eq(&chan->nodes[0]->id, my_id))
-		direction = 0;
-	else if (pubkey_eq(&chan->nodes[1]->id, my_id))
-		direction = 1;
-	else {
-		status_broken("peer %s bad local_channel_update for non-local %s",
-			      type_to_string(tmpctx, struct pubkey, &peer->id),
-			      type_to_string(tmpctx, struct short_channel_id,
-					     &scid));
-		return;
-	}
+	/* Convenience variable */
+	hc = &chan->half[local_update->direction];
 
 	/* Avoid redundant updates on public channels: on non-public channels
 	 * we'd need to consider pending updates, so don't bother. */
 	if (is_chan_public(chan)
-	    && update_redundant(&chan->half[direction],
-				disable, cltv_delta, htlc_minimum_msat,
-				fee_base_msat, fee_proportional_millionths)) {
+	    && update_redundant(hc,
+				local_update->disable,
+				local_update->cltv_delta,
+				local_update->htlc_minimum_msat,
+				local_update->fee_base_msat,
+				local_update->fee_proportional_millionths)) {
 		status_trace("Suppressing redundant channel update for %s:(%u) %s %"PRIu64"/%u vs %u/%u",
 			     type_to_string(tmpctx, struct short_channel_id,
-					    &scid),
-			     direction,
-			     is_halfchan_defined(&chan->half[direction])
-			     ? (chan->half[direction].flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE")
+					    &local_update->scid),
+			     local_update->direction,
+			     is_halfchan_defined(hc)
+			     ? (hc->flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE")
 			     : "UNDEFINED",
-			     chan->half[direction].last_timestamp,
+			     hc->last_timestamp,
 			     (u32)time_now().ts.tv_sec,
-			     chan->half[direction].flags, disable);
+			     hc->flags,
+			     local_update->disable);
+		tal_free(local_update);
 		return;
 	}
 
-	cupdate = create_channel_update(tmpctx, peer->daemon->rstate,
-					chan, direction,
-					disable, cltv_delta,
-					htlc_minimum_msat,
-					fee_base_msat,
-					fee_proportional_millionths);
+	cupdate = create_channel_update(tmpctx, local_update->daemon->rstate,
+					chan, local_update->direction,
+					local_update->disable,
+					local_update->cltv_delta,
+					local_update->htlc_minimum_msat,
+					local_update->fee_base_msat,
+					local_update->fee_proportional_millionths);
 
-	err = handle_channel_update(peer->daemon->rstate, cupdate,
-				    "local_channel_update");
+	err = handle_channel_update(local_update->daemon->rstate, cupdate,
+				    "apply_delayed_local_update");
 	if (err)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Rejected local channel update %s: %s",
@@ -1825,11 +1840,88 @@ static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 			      tal_hex(tmpctx, err));
 
 	/* We always tell peer, even if it's not public yet */
-	if (!is_chan_public(chan))
-		queue_peer_msg(peer, take(cupdate));
+	if (!is_chan_public(chan)) {
+		struct peer *peer = find_peer(local_update->daemon,
+					      &chan->nodes[!local_update
+							   ->direction]->id);
+		if (peer)
+			queue_peer_msg(peer, take(cupdate));
+	}
+
+	status_trace("Channel update for %s(%u)%s",
+		     type_to_string(tmpctx, struct short_channel_id,
+				    &local_update->scid),
+		     local_update->direction,
+		     is_chan_public(chan) ? "" : " (private)");
 
 	/* That channel_update might trigger our first channel_announcement */
-	maybe_send_own_node_announce(peer->daemon);
+	maybe_send_own_node_announce(local_update->daemon);
+	tal_free(local_update);
+}
+
+static void destroy_local_update(struct local_update *local_update)
+{
+	list_del_from(&local_update->daemon->local_updates,
+		      &local_update->list);
+}
+
+static void handle_local_channel_update(struct peer *peer, const u8 *msg)
+{
+	struct chan *chan;
+	struct local_update *local_update;
+	const struct pubkey *my_id = &peer->daemon->rstate->local_id;
+
+	local_update = tal(peer->daemon, struct local_update);
+	local_update->daemon = peer->daemon;
+
+	if (!fromwire_gossip_local_channel_update(msg,
+						  &local_update->scid,
+						  &local_update->disable,
+						  &local_update->cltv_delta,
+						  &local_update->htlc_minimum_msat,
+						  &local_update->fee_base_msat,
+						  &local_update->fee_proportional_millionths)) {
+		status_broken("peer %s bad local_channel_update %s",
+			      type_to_string(tmpctx, struct pubkey, &peer->id),
+			      tal_hex(tmpctx, msg));
+		tal_free(local_update);
+		return;
+	}
+
+	/* Can theoretically happen if channel just closed. */
+	chan = get_channel(peer->daemon->rstate, &local_update->scid);
+	if (!chan) {
+		status_trace("peer %s local_channel_update for unknown %s",
+			      type_to_string(tmpctx, struct pubkey, &peer->id),
+			      type_to_string(tmpctx, struct short_channel_id,
+					     &local_update->scid));
+		tal_free(local_update);
+		return;
+	}
+
+	if (pubkey_eq(&chan->nodes[0]->id, my_id))
+		local_update->direction = 0;
+	else if (pubkey_eq(&chan->nodes[1]->id, my_id))
+		local_update->direction = 1;
+	else {
+		status_broken("peer %s bad local_channel_update for non-local %s",
+			      type_to_string(tmpctx, struct pubkey, &peer->id),
+			      type_to_string(tmpctx, struct short_channel_id,
+					     &local_update->scid));
+		tal_free(local_update);
+		return;
+	}
+
+	/* Free any old unapplied update. */
+	tal_free(find_local_update(peer->daemon, &local_update->scid));
+
+	list_add_tail(&peer->daemon->local_updates, &local_update->list);
+	tal_add_destructor(local_update, destroy_local_update);
+
+	/* Delay 1/4 a broadcast interval */
+	new_reltimer(&peer->daemon->timers, local_update,
+		     time_from_msec(peer->daemon->broadcast_interval/4),
+		     apply_delayed_local_update, local_update);
 }
 
 /**
@@ -2945,7 +3037,6 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	/* Now disable all local channels, they can't be connected yet. */
 	gossip_disable_local_channels(daemon);
 
-
 	new_reltimer(&daemon->timers, daemon,
 		     time_from_sec(daemon->rstate->prune_timeout/4),
 		     gossip_refresh_network, daemon);
@@ -3760,6 +3851,7 @@ int main(int argc, char *argv[])
 	list_head_init(&daemon->reconnecting);
 	list_head_init(&daemon->reaching);
 	list_head_init(&daemon->addrhints);
+	list_head_init(&daemon->local_updates);
 	important_peerid_map_init(&daemon->important_peerids);
 	timers_init(&daemon->timers, time_mono());
 	daemon->broadcast_interval = 30000;
