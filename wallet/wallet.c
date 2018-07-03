@@ -1932,7 +1932,9 @@ bool wallet_network_check(struct wallet *w,
 		if (!structeq(&chainhash, &chainparams->genesis_blockhash)) {
 			log_broken(w->log, "Wallet blockchain hash does not "
 					   "match network blockchain hash: %s "
-					   "!= %s",
+					   "!= %s. "
+				           "Are you on the right network? "
+				           "(--network={bitcoin,testnet})",
 				   type_to_string(w, struct bitcoin_blkid,
 						  &chainhash),
 				   type_to_string(w, struct bitcoin_blkid,
