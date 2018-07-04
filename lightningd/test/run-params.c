@@ -423,7 +423,7 @@ static void sendpay(void)
 		assert(false);
 
 	assert(note);
-    assert(!strncmp("hello there", j->buffer + note->start, note->end - note->start));
+	assert(!strncmp("hello there", j->buffer + note->start, note->end - note->start));
 	assert(msatoshi);
 	assert(*msatoshi == 547);
 }
