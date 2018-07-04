@@ -175,7 +175,7 @@ static void tok_tok(void)
 
 		struct json *j = json_parse(cmd, "{}");
 		assert(param_parse(cmd, j->buffer, j->toks,
-				   param_opt_tok(cmd, "satoshi", &tok), NULL));
+				   param_opt_tok("satoshi", &tok), NULL));
 
 		/* make sure it *is* NULL */
 		assert(tok == NULL);
@@ -211,9 +211,9 @@ static void null_params(void)
 			   param_req("1", json_tok_u64, &ints[1]),
 			   param_req("2", json_tok_u64, &ints[2]),
 			   param_req("3", json_tok_u64, &ints[3]),
-			   param_opt(tmpctx, "4", json_tok_u64, &intptrs[0]),
-			   param_opt(tmpctx, "5", json_tok_u64, &intptrs[1]),
-			   param_opt(tmpctx, "6", json_tok_u64, &intptrs[2]),
+			   param_opt("4", json_tok_u64, &intptrs[0]),
+			   param_opt("5", json_tok_u64, &intptrs[1]),
+			   param_opt("6", json_tok_u64, &intptrs[2]),
 			   NULL));
 	for (int i = 0; i < tal_count(ints); ++i)
 		assert(ints[i] == i + 10);
@@ -232,9 +232,9 @@ static void null_params(void)
 			   param_req("1", json_tok_u64, &ints[1]),
 			   param_req("2", json_tok_u64, &ints[2]),
 			   param_req("3", json_tok_u64, &ints[3]),
-			   param_opt(tmpctx, "4", json_tok_u64, &intptrs[0]),
-			   param_opt(tmpctx, "5", json_tok_u64, &intptrs[1]),
-			   param_opt(tmpctx, "6", json_tok_u64, &intptrs[2]),
+			   param_opt("4", json_tok_u64, &intptrs[0]),
+			   param_opt("5", json_tok_u64, &intptrs[1]),
+			   param_opt("6", json_tok_u64, &intptrs[2]),
 			   NULL));
 	assert(*intptrs[0] == 14);
 	assert(intptrs[1] == NULL);
@@ -342,7 +342,7 @@ static void bad_programmer(void)
 		param_parse(cmd, j->buffer, j->toks,
 			    param_req("u64", json_tok_u64, &ival),
 			    param_req("double", json_tok_double, &dval),
-			    param_opt(tmpctx, "msatoshi",
+			    param_opt("msatoshi",
 				      json_tok_number, &msatoshi),
 			    param_req("riskfactor", json_tok_double,
 				      &riskfactor), NULL);
@@ -367,7 +367,7 @@ static void add_members(struct param **params,
 					      &ints[i],
 					      const char *,
 					      const jsmntok_t *),
-			  &ints[i], NULL, 0);
+			  &ints[i], 0);
 	}
 }
 
@@ -417,8 +417,8 @@ static void sendpay(void)
 	if (!param_parse(cmd, j->buffer, j->toks,
 			 param_req("route", json_tok_tok, &routetok),
 			 param_req("cltv", json_tok_number, &cltv),
-			 param_opt_tok(tmpctx, "note", &note),
-			 param_opt(tmpctx, "msatoshi", json_tok_u64, &msatoshi),
+			 param_opt_tok("note", &note),
+			 param_opt("msatoshi", json_tok_u64, &msatoshi),
 			 NULL))
 		assert(false);
 

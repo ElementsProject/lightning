@@ -8,7 +8,6 @@
 #include <lightningd/params.h>
 
 struct param {
-	const tal_t *ctx;
 	const char *name;
 	bool is_set;
 	param_cb cb;
@@ -18,7 +17,7 @@ struct param {
 
 static void param_add(struct param **params,
 		      const char *name, param_cb cb, void *arg,
-		      const tal_t *ctx, size_t argsize)
+		      size_t argsize)
 {
 #if DEVELOPER
 	assert(name);
@@ -30,14 +29,13 @@ static void param_add(struct param **params,
 	tal_resize(params, tal_count(*params) + 1);
 	last = &(*params)[tal_count(*params) - 1];
 
-	last->ctx = ctx;
 	last->is_set = false;
 	last->name = name;
 	last->cb = cb;
 	last->arg = arg;
 	last->argsize = argsize;
-	/* Non-NULL means we are supposed to allocate iff found */
-	if (last->ctx)
+	/* Non-0 means we are supposed to allocate iff found */
+	if (last->argsize != 0)
 		*(void **)last->arg = NULL;
 }
 
@@ -77,7 +75,7 @@ static bool make_callback(struct command *cmd,
 	if (def->argsize && def->cb != (param_cb)json_tok_tok) {
 		*(void **)def->arg
 			= arg
-			= tal_alloc_(def->ctx, def->argsize, false, false,
+			= tal_alloc_(cmd, def->argsize, false, false,
 				     "param");
 	} else
 		arg = def->arg;
@@ -290,7 +288,7 @@ static bool param_parse_arr(struct command *cmd,
 bool param_parse(struct command *cmd, const char *buffer,
 		 const jsmntok_t tokens[], ...)
 {
-	struct param *params = tal_arr(tmpctx, struct param, 0);
+	struct param *params = tal_arr(cmd, struct param, 0);
 	const char *name;
 	va_list ap;
 
@@ -298,9 +296,8 @@ bool param_parse(struct command *cmd, const char *buffer,
 	while ((name = va_arg(ap, const char *)) != NULL) {
 		param_cb cb = va_arg(ap, param_cb);
 		void *arg = va_arg(ap, void *);
-		const tal_t *ctx = va_arg(ap, const tal_t *);
 		size_t argsize = va_arg(ap, size_t);
-		param_add(&params, name, cb, arg, ctx, argsize);
+		param_add(&params, name, cb, arg, argsize);
 	}
 	va_end(ap);
 

@@ -65,27 +65,27 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
 				      (cb), (arg),			\
 				      const char *,			\
 				      const jsmntok_t *),		\
-		  (arg), NULL, 0
+		  (arg), 0
 /*
  * Same as above but for optional parameters.
  */
-#define param_opt(ctx, name, cb, arg)				\
+#define param_opt(name, cb, arg)				\
 		  name"",					\
 		  typesafe_cb_preargs(bool, void *,		\
 				      (cb), *(arg),		\
 				      const char *,		\
 				      const jsmntok_t *),	\
-		  (arg), (ctx), sizeof(**arg)
+		  (arg), sizeof(**arg)
 
 /*
  * For when you want an optional raw token.
  *
  * Note: weird sizeof() does type check that arg really is a (const) jsmntok_t **.
  */
-#define param_opt_tok(ctx, name, arg)					\
+#define param_opt_tok(name, arg)					\
 		      name"",						\
 		      json_tok_tok,					\
 		      (arg) + 0*sizeof(*(arg) == (jsmntok_t *)NULL),	\
-		      (ctx), sizeof(const jsmntok_t *)
+		      sizeof(const jsmntok_t *)
 
 #endif /* LIGHTNING_LIGHTNINGD_PARAMS_H */
