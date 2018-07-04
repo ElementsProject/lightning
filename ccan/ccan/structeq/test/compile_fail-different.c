@@ -8,6 +8,8 @@ struct mydata2 {
 	int start, end;
 };
 
+STRUCTEQ_DEF(mydata1, 0, start, end);
+
 int main(void)
 {
 	struct mydata1 a = { 0, 100 };
@@ -18,5 +20,5 @@ int main(void)
 #endif
 		b = { 0, 100 };
 
-	return structeq(&a, &b);
+	return mydata1_eq(&a, &b);
 }

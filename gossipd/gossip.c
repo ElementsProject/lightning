@@ -11,7 +11,6 @@
 #include <ccan/list/list.h>
 #include <ccan/mem/mem.h>
 #include <ccan/noerr/noerr.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/timer/timer.h>
@@ -881,7 +880,7 @@ static void handle_query_short_channel_ids(struct peer *peer, u8 *msg)
 		return;
 	}
 
-	if (!structeq(&rstate->chain_hash, &chain)) {
+	if (!bitcoin_blkid_eq(&rstate->chain_hash, &chain)) {
 		status_trace("%s sent query_short_channel_ids chainhash %s",
 			     type_to_string(tmpctx, struct pubkey, &peer->id),
 			     type_to_string(tmpctx, struct bitcoin_blkid, &chain));
@@ -940,7 +939,7 @@ static void handle_gossip_timestamp_filter(struct peer *peer, u8 *msg)
 		return;
 	}
 
-	if (!structeq(&peer->daemon->rstate->chain_hash, &chain_hash)) {
+	if (!bitcoin_blkid_eq(&peer->daemon->rstate->chain_hash, &chain_hash)) {
 		status_trace("%s sent gossip_timestamp_filter chainhash %s",
 			     type_to_string(tmpctx, struct pubkey, &peer->id),
 			     type_to_string(tmpctx, struct bitcoin_blkid,
@@ -1060,7 +1059,7 @@ static void handle_query_channel_range(struct peer *peer, u8 *msg)
 		return;
 	}
 
-	if (!structeq(&peer->daemon->rstate->chain_hash, &chain_hash)) {
+	if (!bitcoin_blkid_eq(&peer->daemon->rstate->chain_hash, &chain_hash)) {
 		status_trace("%s sent query_channel_range chainhash %s",
 			     type_to_string(tmpctx, struct pubkey, &peer->id),
 			     type_to_string(tmpctx, struct bitcoin_blkid,
@@ -1114,7 +1113,7 @@ static void handle_reply_short_channel_ids_end(struct peer *peer, u8 *msg)
 		return;
 	}
 
-	if (!structeq(&peer->daemon->rstate->chain_hash, &chain)) {
+	if (!bitcoin_blkid_eq(&peer->daemon->rstate->chain_hash, &chain)) {
 		peer_error(peer, "reply_short_channel_ids_end for bad chain: %s",
 			   tal_hex(tmpctx, msg));
 		return;
@@ -1148,7 +1147,7 @@ static void handle_reply_channel_range(struct peer *peer, u8 *msg)
 		return;
 	}
 
-	if (!structeq(&peer->daemon->rstate->chain_hash, &chain)) {
+	if (!bitcoin_blkid_eq(&peer->daemon->rstate->chain_hash, &chain)) {
 		peer_error(peer, "reply_channel_range for bad chain: %s",
 			   tal_hex(tmpctx, msg));
 		return;

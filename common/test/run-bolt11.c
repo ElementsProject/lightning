@@ -83,7 +83,7 @@ static void test_b11(const char *b11str,
 		assert(!expect_b11->msatoshi);
 	else
 		assert(*b11->msatoshi == *expect_b11->msatoshi);
-	assert(structeq(&b11->payment_hash, &expect_b11->payment_hash));
+	assert(sha256_eq(&b11->payment_hash, &expect_b11->payment_hash));
 	if (!b11->description)
 		assert(!expect_b11->description);
 	else

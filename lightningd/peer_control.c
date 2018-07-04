@@ -543,7 +543,7 @@ static struct channel *channel_by_channel_id(struct peer *peer,
 		derive_channel_id(&cid,
 				  &channel->funding_txid,
 				  channel->funding_outnum);
-		if (structeq(&cid, channel_id))
+		if (channel_id_eq(&cid, channel_id))
 			return channel;
 	}
 	return NULL;
@@ -997,7 +997,7 @@ command_find_channel(struct command *cmd,
 			derive_channel_id(&channel_cid,
 					  &channel->funding_txid,
 					  channel->funding_outnum);
-			if (structeq(&channel_cid, &cid))
+			if (channel_id_eq(&channel_cid, &cid))
 				return channel;
 		}
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -1437,7 +1437,7 @@ static void json_dev_forget_channel(struct command *cmd, const char *buffer,
 		if (scidtok) {
 			if (!channel->scid)
 				continue;
-			if (!structeq(channel->scid, &scid))
+			if (!short_channel_id_eq(channel->scid, &scid))
 				continue;
 		}
 		if (forget->channel) {

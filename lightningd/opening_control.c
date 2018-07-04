@@ -343,7 +343,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 
 	bitcoin_txid(fundingtx, &funding_txid);
 
-	if (!structeq(&funding_txid, &expected_txid)) {
+	if (!bitcoin_txid_eq(&funding_txid, &expected_txid)) {
 		log_broken(fc->uc->log,
 			   "Funding txid mismatch:"
 			   " satoshi %"PRIu64" change %"PRIu64

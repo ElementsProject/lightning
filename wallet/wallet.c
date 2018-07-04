@@ -2,7 +2,6 @@
 #include "wallet.h"
 
 #include <bitcoin/script.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/key_derive.h>
 #include <common/wireaddr.h>
@@ -1525,7 +1524,7 @@ find_unstored_payment(struct wallet *wallet, const struct sha256 *payment_hash)
 	struct wallet_payment *i;
 
 	list_for_each(&wallet->unstored_payments, i, list) {
-		if (structeq(payment_hash, &i->payment_hash))
+		if (sha256_eq(payment_hash, &i->payment_hash))
 			return i;
 	}
 	return NULL;
@@ -1892,7 +1891,7 @@ wallet_payment_list(const tal_t *ctx,
 
 	/* Now attach payments not yet in db. */
 	list_for_each(&wallet->unstored_payments, p, list) {
-		if (payment_hash && !structeq(&p->payment_hash, payment_hash))
+		if (payment_hash && !sha256_eq(&p->payment_hash, payment_hash))
 			continue;
 		tal_resize(&payments, i+1);
 		payments[i++] = p;
@@ -1929,7 +1928,8 @@ bool wallet_network_check(struct wallet *w,
 	if (stmt && sqlite3_step(stmt) == SQLITE_ROW) {
 		sqlite3_column_sha256_double(stmt, 0, &chainhash.shad);
 		db_stmt_done(stmt);
-		if (!structeq(&chainhash, &chainparams->genesis_blockhash)) {
+		if (!bitcoin_blkid_eq(&chainhash,
+				      &chainparams->genesis_blockhash)) {
 			log_broken(w->log, "Wallet blockchain hash does not "
 					   "match network blockchain hash: %s "
 					   "!= %s. "

@@ -741,7 +741,7 @@ void onchain_fulfilled_htlc(struct channel *channel,
 		if (hout->failcode != 0 || hout->failuremsg)
 			continue;
 
-		if (!structeq(&hout->payment_hash, &payment_hash))
+		if (!sha256_eq(&hout->payment_hash, &payment_hash))
 			continue;
 
 		/* We may have already fulfilled before going onchain, or
@@ -803,7 +803,7 @@ struct htlc_out *find_htlc_out_by_ripemd(const struct channel *channel,
 
 		ripemd160(&hash,
 			  &hout->payment_hash, sizeof(hout->payment_hash));
-		if (structeq(&hash, ripemd))
+		if (ripemd160_eq(&hash, ripemd))
 			return hout;
 	}
 	return NULL;

@@ -202,9 +202,8 @@ Subtleties
 There are a few subtleties you should be aware of as you modify deeper
 parts of the code:
 
-* `structeq` will not work on some structures.
-  For example, it will not work with `struct short_channel_id` --- use
-  `short_channel_id_eq` for comparing those.
+* `ccan/structeq`'s STRUCTEQ_DEF will define safe comparison function foo_eq()
+  for struct foo, failing the build if the structure has implied padding.
 * `command_success`, `command_fail`, and `command_fail_detailed` will free the
   `cmd` you pass in.
   This also means that if you `tal`-allocated anything from the `cmd`, they
