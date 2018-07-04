@@ -7,6 +7,8 @@
 #include <common/json.c>
 #include <common/json_escaped.c>
 #include <ccan/array_size/array_size.h>
+#include <ccan/err/err.h>
+#include <unistd.h>
 
 bool failed;
 char *fail_msg;
@@ -181,7 +183,7 @@ static void tok_tok(void)
 }
 
 /* check for valid but duplicate json name-value pairs */
-static void dup(void)
+static void dup_names(void)
 {
 	struct json *j =
 	    json_parse(cmd,
@@ -246,26 +248,32 @@ static void handle_abort(int sig)
 	longjmp(jump, 1);
 }
 
-static void set_assert(void)
+static int set_assert(void)
 {
 	struct sigaction act;
+	int old_stderr;
 	memset(&act, '\0', sizeof(act));
 	act.sa_handler = &handle_abort;
-	if (sigaction(SIGABRT, &act, NULL) < 0) {
-		perror("set_assert");
-		exit(0);
-	}
+	if (sigaction(SIGABRT, &act, NULL) < 0)
+		err(1, "set_assert");
+
+	/* Don't spam with assert messages. */
+	old_stderr = dup(STDERR_FILENO);
+	close(STDERR_FILENO);
+	return old_stderr;
 }
 
-static void restore_assert(void)
+static void restore_assert(int old_stderr)
 {
 	struct sigaction act;
+
+	dup2(old_stderr, STDERR_FILENO);
+	close(old_stderr);
 	memset(&act, '\0', sizeof(act));
 	act.sa_handler = SIG_DFL;
-	if (sigaction(SIGABRT, &act, NULL) < 0) {
-		perror("reset_assert");
-		exit(0);
-	}
+	if (sigaction(SIGABRT, &act, NULL) < 0)
+		err(1, "restore_assert");
+
 }
 
 /*
@@ -276,8 +284,8 @@ static void bad_programmer(void)
 	u64 ival;
 	u64 ival2;
 	double dval;
-	set_assert();
 	struct json *j = json_parse(cmd, "[ '25', '546', '26' ]");
+	int old_stderr = set_assert();
 
 	/* check for repeated names */
 	if (setjmp(jump) == 0) {
@@ -286,7 +294,7 @@ static void bad_programmer(void)
 			    param_req("double", json_tok_double, &dval),
 			    param_req("repeat", json_tok_u64, &ival2), NULL);
 		/* shouldn't get here */
-		restore_assert();
+		restore_assert(old_stderr);
 		assert(false);
 	}
 
@@ -295,7 +303,7 @@ static void bad_programmer(void)
 			    param_req("repeat", json_tok_u64, &ival),
 			    param_req("double", json_tok_double, &dval),
 			    param_req("repeat", json_tok_u64, &ival), NULL);
-		restore_assert();
+		restore_assert(old_stderr);
 		assert(false);
 	}
 
@@ -304,7 +312,7 @@ static void bad_programmer(void)
 			    param_req("u64", json_tok_u64, &ival),
 			    param_req("repeat", json_tok_double, &dval),
 			    param_req("repeat", json_tok_double, &dval), NULL);
-		restore_assert();
+		restore_assert(old_stderr);
 		assert(false);
 	}
 
@@ -314,14 +322,14 @@ static void bad_programmer(void)
 			    param_req("u64", json_tok_u64, &ival),
 			    param_req("repeated-arg", json_tok_u64, &ival),
 			    NULL);
-		restore_assert();
+		restore_assert(old_stderr);
 		assert(false);
 	}
 
 	if (setjmp(jump) == 0) {
 		param_parse(cmd, j->buffer, j->toks,
 			    param_req("u64", NULL, &ival), NULL);
-		restore_assert();
+		restore_assert(old_stderr);
 		assert(false);
 	}
 
@@ -338,10 +346,10 @@ static void bad_programmer(void)
 				      json_tok_number, &msatoshi),
 			    param_req("riskfactor", json_tok_double,
 				      &riskfactor), NULL);
-		restore_assert();
+		restore_assert(old_stderr);
 		assert(false);
 	}
-	restore_assert();
+	restore_assert(old_stderr);
 }
 #endif
 
@@ -433,7 +441,7 @@ int main(void)
 #if DEVELOPER
 	bad_programmer();
 #endif
-	dup();
+	dup_names();
 	five_hundred_params();
 	sendpay();
 	tal_free(tmpctx);
