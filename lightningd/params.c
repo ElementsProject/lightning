@@ -16,16 +16,20 @@ struct param {
 	size_t argsize;
 };
 
-struct param *param_add_(const tal_t *ctx,
-			 const char *name, param_cb cb, void *arg,
-			 size_t argsize)
+static void param_add(struct param **params,
+		      const char *name, param_cb cb, void *arg,
+		      const tal_t *ctx, size_t argsize)
 {
 #if DEVELOPER
 	assert(name);
 	assert(cb);
 	assert(arg);
 #endif
-	struct param *last = tal(tmpctx, struct param);
+	struct param *last;
+
+	tal_resize(params, tal_count(*params) + 1);
+	last = &(*params)[tal_count(*params) - 1];
+
 	last->ctx = ctx;
 	last->is_set = false;
 	last->name = name;
@@ -35,22 +39,6 @@ struct param *param_add_(const tal_t *ctx,
 	/* Non-NULL means we are supposed to allocate iff found */
 	if (last->ctx)
 		*(void **)last->arg = NULL;
-	return last;
-}
-
-struct param *param_opt_add_(const tal_t *ctx, const char *name,
-			     const jsmntok_t **tok)
-{
-	struct param *last = tal(tmpctx, struct param);
-	assert(ctx);
-	last->ctx = ctx;
-	last->is_set = false;
-	last->name = name;
-	last->cb = (param_cb)json_tok_tok;
-	last->arg = tok;
-	last->argsize = sizeof(*tok);
-	*tok = NULL;
-	return last;
 }
 
 struct fail_format {
@@ -109,17 +97,17 @@ static bool make_callback(struct command *cmd,
 	return true;
 }
 
-static struct param **post_check(struct command *cmd, struct param **params)
+static struct param *post_check(struct command *cmd, struct param *params)
 {
-	struct param **first = params;
-	struct param **last = first + tal_count(params);
+	struct param *first = params;
+	struct param *last = first + tal_count(params);
 
 	/* Make sure required params were provided. */
-	while (first != last && (*first)->argsize == 0) {
-		if (!(*first)->is_set) {
+	while (first != last && first->argsize == 0) {
+		if (!first->is_set) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "missing required parameter: '%s'",
-				     (*first)->name);
+				     first->name);
 			return NULL;
 		}
 		first++;
@@ -127,19 +115,19 @@ static struct param **post_check(struct command *cmd, struct param **params)
 	return params;
 }
 
-static struct param **parse_by_position(struct command *cmd,
-					struct param **params,
-					const char *buffer,
-					const jsmntok_t tokens[])
+static bool parse_by_position(struct command *cmd,
+			      struct param *params,
+			      const char *buffer,
+			      const jsmntok_t tokens[])
 {
 	const jsmntok_t *tok = tokens + 1;
 	const jsmntok_t *end = json_next(tokens);
-	struct param **first = params;
-	struct param **last = first + tal_count(params);
+	struct param *first = params;
+	struct param *last = first + tal_count(params);
 
 	while (first != last && tok != end) {
 		if (!json_tok_is_null(buffer, tok))
-			if (!make_callback(cmd, *first, buffer, tok))
+			if (!make_callback(cmd, first, buffer, tok))
 				return NULL;
 		tok = json_next(tok);
 		first++;
@@ -151,31 +139,31 @@ static struct param **parse_by_position(struct command *cmd,
 			     "too many parameters:"
 			     " got %u, expected %zu",
 			     tokens->size, tal_count(params));
-		return NULL;
+		return false;
 	}
 
 	return post_check(cmd, params);
 }
 
-static struct param *find_param(struct param **params, const char *start,
+static struct param *find_param(struct param *params, const char *start,
 				size_t n)
 {
-	struct param **first = params;
-	struct param **last = first + tal_count(params);
+	struct param *first = params;
+	struct param *last = first + tal_count(params);
 
 	while (first != last) {
-		if (strncmp((*first)->name, start, n) == 0)
-			if (strlen((*first)->name) == n)
-				return *first;
+		if (strncmp(first->name, start, n) == 0)
+			if (strlen(first->name) == n)
+				return first;
 		first++;
 	}
 	return NULL;
 }
 
-static struct param **parse_by_name(struct command *cmd,
-				    struct param **params,
-				    const char *buffer,
-				    const jsmntok_t tokens[])
+static bool parse_by_name(struct command *cmd,
+			  struct param *params,
+			  const char *buffer,
+			  const jsmntok_t tokens[])
 {
 	const jsmntok_t *first = tokens + 1;
 	const jsmntok_t *last = json_next(tokens);
@@ -188,36 +176,36 @@ static struct param **parse_by_name(struct command *cmd,
 				     "unknown parameter: '%.*s'",
 				     first->end - first->start,
 				     buffer + first->start);
-			return NULL;
+			return false;
 		}
 
 		if (p->is_set) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "duplicate json names: '%s'", p->name);
-			return NULL;
+			return false;
 		}
 
 		if (!make_callback(cmd, p, buffer, first + 1))
-			return NULL;
+			return false;
 		first = json_next(first + 1);
 	}
 	return post_check(cmd, params);
 }
 
 #if DEVELOPER
-static int comp_by_name(struct param *const *a, struct param *const *b,
+static int comp_by_name(const struct param *a, const struct param *b,
 			void *unused)
 {
-	return strcmp((*a)->name, (*b)->name);
+	return strcmp(a->name, b->name);
 }
 
-static int comp_by_arg(struct param *const *a, struct param *const *b,
+static int comp_by_arg(const struct param *a, const struct param *b,
 		       void *unused)
 {
 	/* size_t could be larger than int: don't turn a 4bn difference into 0 */
-	if ((*a)->arg > (*b)->arg)
+	if (a->arg > b->arg)
 		return 1;
-	else if ((*a)->arg < (*b)->arg)
+	else if (a->arg < b->arg)
 		return -1;
 	return 0;
 }
@@ -225,10 +213,10 @@ static int comp_by_arg(struct param *const *a, struct param *const *b,
 /* This comparator is a bit different, but works well.
  * Return 0 if @a is optional and @b is required. Otherwise return 1.
  */
-static int comp_req_order(struct param *const *a, struct param *const *b,
+static int comp_req_order(const struct param *a, const struct param *b,
 			  void *unused)
 {
-	if ((*a)->argsize != 0 && (*b)->argsize == 0)
+	if (a->argsize != 0 && b->argsize == 0)
 		return 0;
 	return 1;
 }
@@ -237,12 +225,12 @@ static int comp_req_order(struct param *const *a, struct param *const *b,
  * Make sure 2 sequential items in @params are not equal (based on
  * provided comparator).
  */
-static void check_distinct(struct param **params,
-			   int (*compar) (struct param *const *a,
-					  struct param *const *b, void *unused))
+static void check_distinct(struct param *params,
+			   int (*compar) (const struct param *a,
+					  const struct param *b, void *unused))
 {
-	struct param **first = params;
-	struct param **last = first + tal_count(params);
+	struct param *first = params;
+	struct param *last = first + tal_count(params);
 	first++;
 	while (first != last) {
 		assert(compar(first - 1, first, NULL) != 0);
@@ -250,9 +238,9 @@ static void check_distinct(struct param **params,
 	}
 }
 
-static void check_unique(struct param **copy,
-			 int (*compar) (struct param *const *a,
-					struct param *const *b, void *unused))
+static void check_unique(struct param *copy,
+			 int (*compar) (const struct param *a,
+					const struct param *b, void *unused))
 {
 	asort(copy, tal_count(copy), compar, NULL);
 	check_distinct(copy, compar);
@@ -261,7 +249,7 @@ static void check_unique(struct param **copy,
 /*
  * Verify consistent internal state.
  */
-static void check_params(struct param **params)
+static void check_params(struct param *params)
 {
 	if (tal_count(params) < 2)
 		return;
@@ -270,8 +258,8 @@ static void check_params(struct param **params)
 	check_distinct(params, comp_req_order);
 
 	/* duplicate so we can sort */
-	struct param **copy = tal_dup_arr(params, struct param *,
-					  params, tal_count(params), 0);
+	struct param *copy = tal_dup_arr(params, struct param,
+					 params, tal_count(params), 0);
 
 	/* check for repeated names and args */
 	check_unique(copy, comp_by_name);
@@ -281,10 +269,10 @@ static void check_params(struct param **params)
 }
 #endif
 
-static struct param **param_parse_arr(struct command *cmd,
-				      const char *buffer,
-				      const jsmntok_t tokens[],
-				      struct param **params)
+static bool param_parse_arr(struct command *cmd,
+			    const char *buffer,
+			    const jsmntok_t tokens[],
+			    struct param *params)
 {
 #if DEVELOPER
 	check_params(params);
@@ -296,20 +284,23 @@ static struct param **param_parse_arr(struct command *cmd,
 
 	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 		     "Expected array or object for params");
-	return NULL;
+	return false;
 }
 
-struct param **param_parse(struct command *cmd, const char *buffer,
-			   const jsmntok_t tokens[], ...)
+bool param_parse(struct command *cmd, const char *buffer,
+		 const jsmntok_t tokens[], ...)
 {
-	struct param *def;
-	struct param **params = tal_arr(cmd, struct param *, 0);
+	struct param *params = tal_arr(tmpctx, struct param, 0);
+	const char *name;
 	va_list ap;
+
 	va_start(ap, tokens);
-	while ((def = va_arg(ap, struct param *)) != NULL) {
-		tal_steal(params, def);
-		tal_resize(&params, tal_count(params) + 1);
-		params[tal_count(params) - 1] = def;
+	while ((name = va_arg(ap, const char *)) != NULL) {
+		param_cb cb = va_arg(ap, param_cb);
+		void *arg = va_arg(ap, void *);
+		const tal_t *ctx = va_arg(ap, const tal_t *);
+		size_t argsize = va_arg(ap, size_t);
+		param_add(&params, name, cb, arg, ctx, argsize);
 	}
 	va_end(ap);
 

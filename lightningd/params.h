@@ -21,7 +21,7 @@ struct param;
 		return;
 
   At this point in the code you can be assured the json tokens were successfully
-  parsed.  If not, param_parse() returned NULL, having already called
+  parsed.  If not, param_parse() returns false, having already called
   command_fail() with a descriptive error message. The data section of the json
   result contains the offending parameter and its value.
 
@@ -40,8 +40,8 @@ struct param;
 
   Otherwise a generic message is provided.
  */
-struct param **param_parse(struct command *cmd, const char *buffer,
-			   const jsmntok_t params[], ...);
+bool param_parse(struct command *cmd, const char *buffer,
+		 const jsmntok_t params[], ...);
 
 /*
  * This callback provided must follow this signature; e.g.,
@@ -59,28 +59,33 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
  *
  * Returns an opaque pointer that can be later used in param_is_set().
  */
-#define param_req(name, cb, arg)         \
-		  param_add_(NULL, name"",			     \
-			     typesafe_cb_preargs(bool, void *,       \
-						 (cb), (arg),        \
-						 const char *,       \
-						 const jsmntok_t *), \
-			     (arg), 0)
+#define param_req(name, cb, arg)					\
+		  name"",						\
+		  typesafe_cb_preargs(bool, void *,			\
+				      (cb), (arg),			\
+				      const char *,			\
+				      const jsmntok_t *),		\
+		  (arg), NULL, 0
 /*
  * Same as above but for optional parameters.
  */
-#define param_opt(ctx, name, cb, arg)	  \
-		  param_add_(ctx, name"",			     \
-			     typesafe_cb_preargs(bool, void *,       \
-						 (cb), *(arg),       \
-						 const char *,       \
-						 const jsmntok_t *), \
-			     (arg), sizeof(**arg))
-struct param * param_add_(const tal_t *ctx, const char *name, param_cb cb, void *arg, size_t argsize);
+#define param_opt(ctx, name, cb, arg)				\
+		  name"",					\
+		  typesafe_cb_preargs(bool, void *,		\
+				      (cb), *(arg),		\
+				      const char *,		\
+				      const jsmntok_t *),	\
+		  (arg), (ctx), sizeof(**arg)
 
-#define param_opt_tok(ctx, name, arg)		\
-	param_opt_add_(ctx, name"", arg)
-
-struct param *param_opt_add_(const tal_t *ctx, const char *name, const jsmntok_t **tok);
+/*
+ * For when you want an optional raw token.
+ *
+ * Note: weird sizeof() does type check that arg really is a (const) jsmntok_t **.
+ */
+#define param_opt_tok(ctx, name, arg)					\
+		      name"",						\
+		      json_tok_tok,					\
+		      (arg) + 0*sizeof(*(arg) == (jsmntok_t *)NULL),	\
+		      (ctx), sizeof(const jsmntok_t *)
 
 #endif /* LIGHTNING_LIGHTNINGD_PARAMS_H */

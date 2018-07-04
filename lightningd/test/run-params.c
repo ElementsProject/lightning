@@ -353,15 +353,13 @@ static void add_members(struct param **params,
 		char *name = tal_fmt(tmpctx, "%i", i);
 		json_add_num(obj, name, i);
 		json_add_num(arr, NULL, i);
-		/* Since name is not a literal, we do this manually. */
-		params[i] = param_add_(NULL, name,
-				       typesafe_cb_preargs(bool, void *,
-							   json_tok_number,
-							   &ints[i],
-							   const char *,
-							   const jsmntok_t *),
-				       &ints[i], 0);
-		tal_steal(params, params[i]);
+		param_add(params, name,
+			  typesafe_cb_preargs(bool, void *,
+					      json_tok_number,
+					      &ints[i],
+					      const char *,
+					      const jsmntok_t *),
+			  &ints[i], NULL, 0);
 	}
 }
 
@@ -371,14 +369,14 @@ static void add_members(struct param **params,
  */
 static void five_hundred_params(void)
 {
-	struct param **params = tal_arr(NULL, struct param *, 500);
+	struct param *params = tal_arr(NULL, struct param, 0);
 
 	unsigned int *ints = tal_arr(params, unsigned int, 500);
 	struct json_result *obj = new_json_result(params);
 	struct json_result *arr = new_json_result(params);
 	json_object_start(obj, NULL);
 	json_array_start(arr, NULL);
-	add_members(params, obj, arr, ints);
+	add_members(&params, obj, arr, ints);
 	json_object_end(obj);
 	json_array_end(arr);
 
