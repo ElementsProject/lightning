@@ -32,6 +32,7 @@ RUN apt-get -qq update && \
 	python3-setuptools \
 	python-pkg-resources \
 	shellcheck \
+	libxml2-utils \
 	wget \
 	zlib1g-dev && \
 	rm -rf /var/lib/apt/lists/*
