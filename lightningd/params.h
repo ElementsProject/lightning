@@ -15,7 +15,7 @@ struct param;
 
 	if (!param_parse(cmd, buffer, tokens,
 			 param_req("cltv", json_tok_number, &cltv),
-			 param_opt_tok("note", &note),
+			 param_opt("note", json_tok_tok, &note),
 			 param_opt("msatoshi", json_tok_u64, &msatoshi),
 			 NULL))
 		return;
@@ -67,7 +67,9 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
 				      const jsmntok_t *),		\
 		  (arg), 0
 /*
- * Same as above but for optional parameters.
+ * Similar to above but for optional parameters.
+ * @arg must be the address of a pointer. If found during parsing, it will be
+ * allocated, otherwise it will be set to NULL.
  */
 #define param_opt(name, cb, arg)				\
 		  name"",					\
@@ -76,16 +78,5 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
 				      const char *,		\
 				      const jsmntok_t *),	\
 		  (arg), sizeof(**arg)
-
-/*
- * For when you want an optional raw token.
- *
- * Note: weird sizeof() does type check that arg really is a (const) jsmntok_t **.
- */
-#define param_opt_tok(name, arg)					\
-		      name"",						\
-		      json_tok_tok,					\
-		      (arg) + 0*sizeof(*(arg) == (jsmntok_t *)NULL),	\
-		      sizeof(const jsmntok_t *)
 
 #endif /* LIGHTNING_LIGHTNINGD_PARAMS_H */
