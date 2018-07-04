@@ -175,7 +175,7 @@ static void tok_tok(void)
 
 		struct json *j = json_parse(cmd, "{}");
 		assert(param_parse(cmd, j->buffer, j->toks,
-				   param_opt_tok("satoshi", &tok), NULL));
+				   param_opt("satoshi", json_tok_tok, &tok), NULL));
 
 		/* make sure it *is* NULL */
 		assert(tok == NULL);
@@ -417,14 +417,35 @@ static void sendpay(void)
 	if (!param_parse(cmd, j->buffer, j->toks,
 			 param_req("route", json_tok_tok, &routetok),
 			 param_req("cltv", json_tok_number, &cltv),
-			 param_opt_tok("note", &note),
+			 param_opt("note", json_tok_tok, &note),
 			 param_opt("msatoshi", json_tok_u64, &msatoshi),
 			 NULL))
 		assert(false);
 
 	assert(note);
+    assert(!strncmp("hello there", j->buffer + note->start, note->end - note->start));
 	assert(msatoshi);
 	assert(*msatoshi == 547);
+}
+
+static void sendpay_nulltok(void)
+{
+	struct json *j = json_parse(cmd, "[ 'A', '123']");
+
+	const jsmntok_t *routetok, *note = (void *) 65535;
+	u64 *msatoshi;
+	unsigned cltv;
+
+	if (!param_parse(cmd, j->buffer, j->toks,
+			 param_req("route", json_tok_tok, &routetok),
+			 param_req("cltv", json_tok_number, &cltv),
+			 param_opt("note", json_tok_tok, &note),
+			 param_opt("msatoshi", json_tok_u64, &msatoshi),
+			 NULL))
+		assert(false);
+
+	assert(note == NULL);
+	assert(msatoshi == NULL);
 }
 
 int main(void)
@@ -444,6 +465,7 @@ int main(void)
 	dup_names();
 	five_hundred_params();
 	sendpay();
+	sendpay_nulltok();
 	tal_free(tmpctx);
 	printf("run-params ok\n");
 }
