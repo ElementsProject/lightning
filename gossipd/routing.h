@@ -107,9 +107,9 @@ struct node {
 	u64 node_announcement_index;
 };
 
-const secp256k1_pubkey *node_map_keyof_node(const struct node *n);
-size_t node_map_hash_key(const secp256k1_pubkey *key);
-bool node_map_node_eq(const struct node *n, const secp256k1_pubkey *key);
+const struct pubkey *node_map_keyof_node(const struct node *n);
+size_t node_map_hash_key(const struct pubkey *key);
+bool node_map_node_eq(const struct node *n, const struct pubkey *key);
 HTABLE_DEFINE_TYPE(struct node, node_map_keyof_node, node_map_hash_key, node_map_node_eq, node_map);
 
 struct pending_node_map;

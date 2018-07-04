@@ -60,16 +60,16 @@ struct pending_node_announce {
 	u32 timestamp;
 };
 
-static const secp256k1_pubkey *
+static const struct pubkey *
 pending_node_announce_keyof(const struct pending_node_announce *a)
 {
-	return &a->nodeid.pubkey;
+	return &a->nodeid;
 }
 
 static bool pending_node_announce_eq(const struct pending_node_announce *pna,
-				     const secp256k1_pubkey *key)
+				     const struct pubkey *key)
 {
-	return structeq(&pna->nodeid.pubkey, key);
+	return structeq(&pna->nodeid, key);
 }
 
 HTABLE_DEFINE_TYPE(struct pending_node_announce, pending_node_announce_keyof,
@@ -109,19 +109,19 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 }
 
 
-const secp256k1_pubkey *node_map_keyof_node(const struct node *n)
+const struct pubkey *node_map_keyof_node(const struct node *n)
 {
-	return &n->id.pubkey;
+	return &n->id;
 }
 
-size_t node_map_hash_key(const secp256k1_pubkey *key)
+size_t node_map_hash_key(const struct pubkey *key)
 {
 	return siphash24(siphash_seed(), key, sizeof(*key));
 }
 
-bool node_map_node_eq(const struct node *n, const secp256k1_pubkey *key)
+bool node_map_node_eq(const struct node *n, const struct pubkey *key)
 {
-	return structeq(&n->id.pubkey, key);
+	return structeq(&n->id, key);
 }
 
 static void destroy_node(struct node *node, struct routing_state *rstate)
@@ -135,7 +135,7 @@ static void destroy_node(struct node *node, struct routing_state *rstate)
 
 struct node *get_node(struct routing_state *rstate, const struct pubkey *id)
 {
-	return node_map_get(rstate->nodes, &id->pubkey);
+	return node_map_get(rstate->nodes, id);
 }
 
 static struct node *new_node(struct routing_state *rstate,
@@ -635,7 +635,7 @@ static void add_pending_node_announcement(struct routing_state *rstate, struct p
 static void process_pending_node_announcement(struct routing_state *rstate,
 					      struct pubkey *nodeid)
 {
-	struct pending_node_announce *pna = pending_node_map_get(rstate->pending_node_map, &nodeid->pubkey);
+	struct pending_node_announce *pna = pending_node_map_get(rstate->pending_node_map, nodeid);
 	if (!pna)
 		return;
 
@@ -1403,7 +1403,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 		/* Check if we are currently verifying the txout for a
 		 * matching channel */
 		pna = pending_node_map_get(rstate->pending_node_map,
-					   &node_id.pubkey);
+					   &node_id);
 		if (!pna) {
 			bad_gossip_order(serialized, "node_announcement",
 					 type_to_string(tmpctx, struct pubkey,
