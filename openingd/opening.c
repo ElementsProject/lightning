@@ -5,7 +5,6 @@
 #include <ccan/breakpoint/breakpoint.h>
 #include <ccan/cast/cast.h>
 #include <ccan/fdpass/fdpass.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/crypto_sync.h>
 #include <common/derive_basepoints.h>
@@ -343,7 +342,7 @@ static u8 *funder_channel(struct state *state,
 	 *
 	 * The `temporary_channel_id` MUST be the same as the
 	 * `temporary_channel_id` in the `open_channel` message. */
-	if (!structeq(&id_in, &state->channel_id))
+	if (!channel_id_eq(&id_in, &state->channel_id))
 		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "accept_channel ids don't match: sent %s got %s",
@@ -487,7 +486,7 @@ static u8 *funder_channel(struct state *state,
 	derive_channel_id(&state->channel_id,
 			  &state->funding_txid, state->funding_txout);
 
-	if (!structeq(&id_in, &state->channel_id))
+	if (!channel_id_eq(&id_in, &state->channel_id))
 		peer_failed(&state->cs, &id_in,
 			    "funding_signed ids don't match: expected %s got %s",
 			    type_to_string(msg, struct channel_id,
@@ -596,7 +595,8 @@ static u8 *fundee_channel(struct state *state,
 	 *    set to a hash of a chain that is unknown to the receiver:
 	 *     - MUST reject the channel.
 	 */
-	if (!structeq(&chain_hash, &state->chainparams->genesis_blockhash)) {
+	if (!bitcoin_blkid_eq(&chain_hash,
+			      &state->chainparams->genesis_blockhash)) {
 		negotiation_failed(state,
 				   "Unknown chain-hash %s",
 				   type_to_string(peer_msg,
@@ -707,7 +707,7 @@ static u8 *fundee_channel(struct state *state,
 	 * The `temporary_channel_id` MUST be the same as the
 	 * `temporary_channel_id` in the `open_channel` message.
 	 */
-	if (!structeq(&id_in, &state->channel_id))
+	if (!channel_id_eq(&id_in, &state->channel_id))
 		peer_failed(&state->cs, &id_in,
 			    "funding_created ids don't match: sent %s got %s",
 			    type_to_string(msg, struct channel_id,

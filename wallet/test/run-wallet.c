@@ -18,7 +18,6 @@ static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const c
 
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/structeq/structeq.h>
 #include <common/memleak.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -653,7 +652,8 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 	CHECK(c1->peer == c2->peer);
 	CHECK(c1->their_shachain.id == c2->their_shachain.id);
 	CHECK_MSG(pubkey_eq(&p1->id, &p2->id), "NodeIDs do not match");
-	CHECK((c1->scid == NULL && c2->scid == NULL) || structeq(c1->scid, c2->scid));
+	CHECK((c1->scid == NULL && c2->scid == NULL)
+	      || short_channel_id_eq(c1->scid, c2->scid));
 	CHECK(c1->our_msatoshi == c2->our_msatoshi);
 	CHECK((c1->remote_shutdown_scriptpubkey == NULL && c2->remote_shutdown_scriptpubkey == NULL) || memeq(
 		      c1->remote_shutdown_scriptpubkey,
@@ -968,7 +968,7 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK(pubkey_cmp(&t2->destination, &t->destination) == 0);
 	CHECK(t2->msatoshi == t->msatoshi);
 	CHECK(t2->msatoshi_sent == t->msatoshi_sent);
-	CHECK(structeq(t->payment_preimage, t2->payment_preimage));
+	CHECK(preimage_eq(t->payment_preimage, t2->payment_preimage));
 
 	db_commit_transaction(w->db);
 	return true;

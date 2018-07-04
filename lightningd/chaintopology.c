@@ -38,7 +38,7 @@ static bool we_broadcast(const struct chain_topology *topo,
 	const struct outgoing_tx *otx;
 
 	list_for_each(&topo->outgoing_txs, otx, list) {
-		if (structeq(&otx->txid, txid))
+		if (bitcoin_txid_eq(&otx->txid, txid))
 			return true;
 	}
 	return false;
@@ -447,7 +447,7 @@ static void have_new_block(struct bitcoind *bitcoind UNUSED,
 			   struct chain_topology *topo)
 {
 	/* Unexpected predecessor?  Free predecessor, refetch it. */
-	if (!structeq(&topo->tip->blkid, &blk->hdr.prev_hash))
+	if (!bitcoin_blkid_eq(&topo->tip->blkid, &blk->hdr.prev_hash))
 		remove_tip(topo);
 	else
 		add_tip(topo, new_block(topo, blk, topo->tip->height + 1));

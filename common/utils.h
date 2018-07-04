@@ -1,7 +1,10 @@
 #ifndef LIGHTNING_COMMON_UTILS_H
 #define LIGHTNING_COMMON_UTILS_H
 #include "config.h"
+#include <ccan/crypto/ripemd160/ripemd160.h>
+#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
 #include <secp256k1.h>
 
@@ -27,5 +30,11 @@ void setup_tmpctx(void);
 
 /* Free any children of tmpctx. */
 void clean_tmpctx(void);
+
+/* Define sha256_eq. */
+STRUCTEQ_DEF(sha256, 0, u);
+
+/* Define ripemd160_eq. */
+STRUCTEQ_DEF(ripemd160, 0, u);
 
 #endif /* LIGHTNING_COMMON_UTILS_H */

@@ -19,7 +19,6 @@
 #include <ccan/err/err.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/mem/mem.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
@@ -434,8 +433,8 @@ static void check_short_ids_match(struct peer *peer)
 	assert(peer->have_sigs[LOCAL]);
 	assert(peer->have_sigs[REMOTE]);
 
-	if (!structeq(&peer->short_channel_ids[LOCAL],
-		      &peer->short_channel_ids[REMOTE]))
+	if (!short_channel_id_eq(&peer->short_channel_ids[LOCAL],
+				 &peer->short_channel_ids[REMOTE]))
 		peer_failed(&peer->cs,
 			    &peer->channel_id,
 			    "We disagree on short_channel_ids:"
@@ -515,7 +514,7 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 			    &peer->channel_id,
 			    "Bad funding_locked %s", tal_hex(msg, msg));
 
-	if (!structeq(&chanid, &peer->channel_id))
+	if (!channel_id_eq(&chanid, &peer->channel_id))
 		peer_failed(&peer->cs,
 			    &peer->channel_id,
 			    "Wrong channel id in %s (expected %s)",
@@ -547,7 +546,7 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 			    tal_hex(msg, msg));
 
 	/* Make sure we agree on the channel ids */
-	if (!structeq(&chanid, &peer->channel_id)) {
+	if (!channel_id_eq(&chanid, &peer->channel_id)) {
 		peer_failed(&peer->cs,
 			    &peer->channel_id,
 			    "Wrong channel_id: expected %s, got %s",

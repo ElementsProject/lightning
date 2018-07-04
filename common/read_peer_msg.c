@@ -1,4 +1,3 @@
-#include <ccan/structeq/structeq.h>
 #include <common/crypto_sync.h>
 #include <common/peer_failed.h>
 #include <common/ping.h>
@@ -139,16 +138,18 @@ u8 *read_peer_msg_(const tal_t *ctx,
 		 *    message:
 		 *    - MUST ignore the message.
 		 */
-		if (structeq(&chanid, channel) || channel_id_is_all(&chanid))
+		if (channel_id_eq(&chanid, channel)
+		    || channel_id_is_all(&chanid)) {
 			peer_failed_received_errmsg(peer_fd, gossip_fd,
 						    cs, err, &chanid);
+		}
 
 		return tal_free(msg);
 	}
 
 	/* They're talking about a different channel? */
 	if (extract_channel_id(msg, &chanid)
-	    && !structeq(&chanid, channel)) {
+	    && !channel_id_eq(&chanid, channel)) {
 		status_trace("Rejecting %s for unknown channel_id %s",
 			     wire_type_name(fromwire_peektype(msg)),
 			     type_to_string(tmpctx, struct channel_id, &chanid));

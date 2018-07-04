@@ -1,6 +1,5 @@
 /* FIXME: We don't relay from gossipd at all here. */
 #include <bitcoin/script.h>
-#include <ccan/structeq/structeq.h>
 #include <closingd/gen_closing_wire.h>
 #include <common/close_tx.h>
 #include <common/crypto_sync.h>

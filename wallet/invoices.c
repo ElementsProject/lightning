@@ -3,7 +3,6 @@
 #include "wallet.h"
 #include <assert.h>
 #include <ccan/list/list.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>

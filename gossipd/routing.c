@@ -5,7 +5,6 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/features.h>
 #include <common/pseudorand.h>
@@ -69,7 +68,7 @@ pending_node_announce_keyof(const struct pending_node_announce *a)
 static bool pending_node_announce_eq(const struct pending_node_announce *pna,
 				     const struct pubkey *key)
 {
-	return structeq(&pna->nodeid, key);
+	return pubkey_eq(&pna->nodeid, key);
 }
 
 HTABLE_DEFINE_TYPE(struct pending_node_announce, pending_node_announce_keyof,
@@ -121,7 +120,7 @@ size_t node_map_hash_key(const struct pubkey *key)
 
 bool node_map_node_eq(const struct node *n, const struct pubkey *key)
 {
-	return structeq(&n->id, key);
+	return pubkey_eq(&n->id, key);
 }
 
 static void destroy_node(struct node *node, struct routing_state *rstate)
@@ -664,7 +663,7 @@ find_pending_cannouncement(struct routing_state *rstate,
 	struct pending_cannouncement *i;
 
 	list_for_each(&rstate->pending_cannouncement, i, list) {
-		if (structeq(scid, &i->short_channel_id))
+		if (short_channel_id_eq(scid, &i->short_channel_id))
 			return i;
 	}
 	return NULL;
@@ -826,7 +825,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	 *  - if the specified `chain_hash` is unknown to the receiver:
 	 *    - MUST ignore the message.
 	 */
-	if (!structeq(&chain_hash, &rstate->chain_hash)) {
+	if (!bitcoin_blkid_eq(&chain_hash, &rstate->chain_hash)) {
 		status_trace(
 		    "Received channel_announcement %s for unknown chain %s",
 		    type_to_string(pending, struct short_channel_id,
@@ -1119,7 +1118,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 	 *    active on the specified chain):
 	 *    - MUST ignore the channel update.
 	 */
-	if (!structeq(&chain_hash, &rstate->chain_hash)) {
+	if (!bitcoin_blkid_eq(&chain_hash, &rstate->chain_hash)) {
 		status_trace("Received channel_update for unknown chain %s",
 			     type_to_string(tmpctx, struct bitcoin_blkid,
 					    &chain_hash));
@@ -1577,8 +1576,7 @@ void routing_failure(struct routing_state *rstate,
 		u8 *err;
 		if (tal_len(channel_update) == 0) {
 			/* Suppress UNUSUAL log if local failure */
-			if (structeq(&erring_node_pubkey->pubkey,
-				     &rstate->local_id.pubkey))
+			if (pubkey_eq(erring_node_pubkey, &rstate->local_id))
 				return;
 			status_unusual("routing_failure: "
 				       "UPDATE bit set, no channel_update. "

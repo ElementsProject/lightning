@@ -3,7 +3,6 @@
 #include <assert.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
-#include <ccan/structeq/structeq.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 
@@ -61,6 +60,7 @@ char *pubkey_to_hexstr(const tal_t *ctx, const struct pubkey *key)
 	pubkey_to_der(der, key);
 	return tal_hexstr(ctx, der, sizeof(der));
 }
+REGISTER_TYPE_TO_STRING(pubkey, pubkey_to_hexstr);
 
 char *secp256k1_pubkey_to_hexstr(const tal_t *ctx, const secp256k1_pubkey *key)
 {
@@ -73,13 +73,6 @@ char *secp256k1_pubkey_to_hexstr(const tal_t *ctx, const secp256k1_pubkey *key)
 	return tal_hexstr(ctx, der, sizeof(der));
 }
 REGISTER_TYPE_TO_STRING(secp256k1_pubkey, secp256k1_pubkey_to_hexstr);
-
-bool pubkey_eq(const struct pubkey *a, const struct pubkey *b)
-{
-	return structeq(&a->pubkey, &b->pubkey);
-}
-
-REGISTER_TYPE_TO_STRING(pubkey, pubkey_to_hexstr);
 
 int pubkey_cmp(const struct pubkey *a, const struct pubkey *b)
 {

@@ -4,7 +4,6 @@
 #include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/commit_tx.h>
 #include <channeld/full_channel.h>
@@ -334,7 +333,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 		if (old->state != htlc->state
 		    || old->msatoshi != htlc->msatoshi
 		    || old->expiry.locktime != htlc->expiry.locktime
-		    || !structeq(&old->rhash, &htlc->rhash))
+		    || !sha256_eq(&old->rhash, &htlc->rhash))
 			return CHANNEL_ERR_DUPLICATE_ID_DIFFERENT;
 		else
 			return CHANNEL_ERR_DUPLICATE;
@@ -515,7 +514,7 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 	 *  doesn't SHA256 hash to the corresponding HTLC `payment_hash`:
 	 *    - MUST fail the channel.
 	 */
-	if (!structeq(&hash, &htlc->rhash))
+	if (!sha256_eq(&hash, &htlc->rhash))
 		return CHANNEL_ERR_BAD_PREIMAGE;
 
 	htlc->r = tal_dup(htlc, struct preimage, preimage);
