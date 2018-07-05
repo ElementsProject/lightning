@@ -65,6 +65,7 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
 					(const jsmntok_t *)NULL,	\
 					(arg)) == true),		\
 		  0
+
 /*
  * Similar to above but for optional parameters.
  * @arg must be the address of a pointer. If found during parsing, it will be
@@ -88,5 +89,17 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
 		      json_tok_tok,					\
 		      (arg) + 0*sizeof(*(arg) == (jsmntok_t *)NULL),	\
 		      sizeof(const jsmntok_t *)
+
+/*
+ * Convenient way to set an optional @param to a @value if it wasn't set during
+ * parsing.
+ */
+#define param_set_if_null(ctx, param, value)              \
+	do {                                              \
+		if (!param) {                             \
+			param = tal(ctx, typeof(*param)); \
+			*param = value;                   \
+		}                                         \
+	} while (0)
 
 #endif /* LIGHTNING_LIGHTNINGD_PARAMS_H */

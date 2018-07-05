@@ -5,9 +5,9 @@
 #include "bitcoind.h"
 #include "chaintopology.h"
 #include "jsonrpc.h"
-#include "jsonrpc_errors.h"
 #include "lightningd.h"
 #include "log.h"
+#include "params.h"
 #include "watch.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
@@ -582,17 +582,16 @@ u32 get_feerate(const struct chain_topology *topo, enum feerate feerate)
 static void json_dev_setfees(struct command *cmd,
 			     const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *ratetok[NUM_FEERATES];
+	u32 *rates[NUM_FEERATES];
 	struct chain_topology *topo = cmd->ld->topology;
 	struct json_result *response;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "?immediate", &ratetok[FEERATE_IMMEDIATE],
-			     "?normal", &ratetok[FEERATE_NORMAL],
-			     "?slow", &ratetok[FEERATE_SLOW],
-			     NULL)) {
+	if (!param_parse(cmd, buffer, params,
+			 param_opt("immediate", json_tok_number, &rates[FEERATE_IMMEDIATE]),
+			 param_opt("normal", json_tok_number, &rates[FEERATE_NORMAL]),
+			 param_opt("slow", json_tok_number, &rates[FEERATE_SLOW]),
+			 NULL))
 		return;
-	}
 
 	if (!topo->dev_override_fee_rate) {
 		u32 fees[NUM_FEERATES];
@@ -601,18 +600,8 @@ static void json_dev_setfees(struct command *cmd,
 		topo->dev_override_fee_rate = tal_dup_arr(topo, u32, fees,
 							  ARRAY_SIZE(fees), 0);
 	}
-	for (size_t i = 0; i < NUM_FEERATES; i++) {
-		if (!ratetok[i])
-			continue;
-		if (!json_tok_number(buffer, ratetok[i],
-				     &topo->dev_override_fee_rate[i])) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "Invalid feerate %.*s",
-				     ratetok[i]->end - ratetok[i]->start,
-				     buffer + ratetok[i]->start);
-			return;
-		}
-	}
+	for (size_t i = 0; i < NUM_FEERATES; i++)
+		if (rates[i]) topo->dev_override_fee_rate[i] = *rates[i];
 	log_debug(topo->log,
 		  "dev-setfees: fees now %u/%u/%u",
 		  topo->dev_override_fee_rate[FEERATE_IMMEDIATE],

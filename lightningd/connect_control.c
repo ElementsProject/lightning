@@ -9,6 +9,7 @@
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/params.h>
 #include <lightningd/subd.h>
 
 struct connect {
@@ -80,7 +81,8 @@ void gossip_connect_result(struct lightningd *ld, const u8 *msg)
 static void json_connect(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *hosttok, *porttok, *idtok;
+	const jsmntok_t *hosttok, *porttok;
+	jsmntok_t *idtok;
 	struct pubkey id;
 	char *id_str;
 	char *atptr;
@@ -90,13 +92,12 @@ static void json_connect(struct command *cmd,
 	u8 *msg;
 	const char *err_msg;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "id", &idtok,
-			     "?host", &hosttok,
-			     "?port", &porttok,
-			     NULL)) {
+	if (!param_parse(cmd, buffer, params,
+			 param_req("id", json_tok_tok, (const jsmntok_t **)&idtok),
+			 param_opt_tok("host", &hosttok),
+			 param_opt_tok("port", &porttok),
+			 NULL))
 		return;
-	}
 
 	/* Check for id@addrport form */
 	id_str = tal_strndup(cmd, buffer + idtok->start,
