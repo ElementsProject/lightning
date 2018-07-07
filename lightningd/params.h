@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_LIGHTNINGD_PARAMS_H
 #define LIGHTNING_LIGHTNINGD_PARAMS_H
 #include "config.h"
-#include <ccan/ccan/typesafe_cb/typesafe_cb.h>
 
 struct param;
 
@@ -55,17 +54,17 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
  * called with a descriptive error message.
  *
  * This operation is typesafe; i.e., a compilation error will occur if the types
- * of @arg and the last parameter of @cb do not match.
+ * of @arg and the last parameter of @cb do not match (see the weird 0*sizeof).
  *
  * Returns an opaque pointer that can be later used in param_is_set().
  */
 #define param_req(name, cb, arg)					\
 		  name"",						\
-		  typesafe_cb_preargs(bool, void *,			\
-				      (cb), (arg),			\
-				      const char *,			\
-				      const jsmntok_t *),		\
-		  (arg), 0
+		  (cb),							\
+		  (arg) + 0*sizeof((cb)((const char *)NULL,		\
+					(const jsmntok_t *)NULL,	\
+					(arg)) == true),		\
+		  0
 /*
  * Similar to above but for optional parameters.
  * @arg must be the address of a pointer. If found during parsing, it will be
@@ -73,10 +72,21 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
  */
 #define param_opt(name, cb, arg)				\
 		  name"",					\
-		  typesafe_cb_preargs(bool, void *,		\
-				      (cb), *(arg),		\
-				      const char *,		\
-				      const jsmntok_t *),	\
-		  (arg), sizeof(**arg)
+		  (cb),						\
+		  (arg) + 0*sizeof((cb)((const char *)NULL,	\
+					(const jsmntok_t *)NULL,\
+					*(arg)) == true),	\
+		  sizeof(**(arg))
+
+/*
+ * For when you want an optional raw token.
+ *
+ * Note: weird sizeof() does type check that arg really is a (const) jsmntok_t **.
+ */
+#define param_opt_tok(name, arg)					\
+		      name"",						\
+		      json_tok_tok,					\
+		      (arg) + 0*sizeof(*(arg) == (jsmntok_t *)NULL),	\
+		      sizeof(const jsmntok_t *)
 
 #endif /* LIGHTNING_LIGHTNINGD_PARAMS_H */
