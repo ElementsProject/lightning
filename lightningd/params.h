@@ -15,7 +15,7 @@ struct param;
 
 	if (!param_parse(cmd, buffer, tokens,
 			 param_req("cltv", json_tok_number, &cltv),
-			 param_opt("note", json_tok_tok, &note),
+			 param_opt_tok("note", &note),
 			 param_opt("msatoshi", json_tok_u64, &msatoshi),
 			 NULL))
 		return;
@@ -57,26 +57,41 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
  * This operation is typesafe; i.e., a compilation error will occur if the types
  * of @arg and the last parameter of @cb do not match.
  *
- * Returns an opaque pointer that can be later used in param_is_set().
+ * Returns an opaque pointer.
  */
 #define param_req(name, cb, arg)					\
-		  name"",						\
-		  typesafe_cb_preargs(bool, void *,			\
-				      (cb), (arg),			\
-				      const char *,			\
-				      const jsmntok_t *),		\
-		  (arg), 0
+		  param_add(name"",					\
+			    typesafe_cb_preargs(bool, void *,		\
+					        (cb), (arg),		\
+					        const char *,		\
+					        const jsmntok_t *),	\
+			    (arg), 0)
+
 /*
  * Similar to above but for optional parameters.
  * @arg must be the address of a pointer. If found during parsing, it will be
  * allocated, otherwise it will be set to NULL.
  */
 #define param_opt(name, cb, arg)				\
-		  name"",					\
+		  param_add(name"",				\
 		  typesafe_cb_preargs(bool, void *,		\
 				      (cb), *(arg),		\
 				      const char *,		\
 				      const jsmntok_t *),	\
-		  (arg), sizeof(**arg)
+		  (arg), sizeof(**arg))
 
+/*
+ * For when you want an optional raw token.
+ *
+ * Note: We use sizeof() to comiple-time type check that @arg really is a
+ * (const) jsmntok_t **.
+ */
+#define param_opt_tok(name, arg)                                      \
+		      param_add(name"",                               \
+		      (param_cb) json_tok_tok,                        \
+		      (arg) + 0*sizeof(*(arg) == (jsmntok_t *)NULL),  \
+		      sizeof(const jsmntok_t *))
+
+struct param *param_add(const char *name, param_cb cb, void *arg,
+			size_t argsize);
 #endif /* LIGHTNING_LIGHTNINGD_PARAMS_H */

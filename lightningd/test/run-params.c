@@ -175,7 +175,7 @@ static void tok_tok(void)
 
 		struct json *j = json_parse(cmd, "{}");
 		assert(param_parse(cmd, j->buffer, j->toks,
-				   param_opt("satoshi", json_tok_tok, &tok), NULL));
+				   param_opt_tok("satoshi", &tok), NULL));
 
 		/* make sure it *is* NULL */
 		assert(tok == NULL);
@@ -361,13 +361,16 @@ static void add_members(struct param **params,
 		char *name = tal_fmt(tmpctx, "%i", i);
 		json_add_num(obj, name, i);
 		json_add_num(arr, NULL, i);
-		param_add(params, name,
+		struct param * p = param_add(name,
 			  typesafe_cb_preargs(bool, void *,
 					      json_tok_number,
 					      &ints[i],
 					      const char *,
 					      const jsmntok_t *),
 			  &ints[i], 0);
+		tal_resize(params, tal_count(*params) + 1);
+		(*params)[tal_count(*params) - 1] = *p;
+		tal_free(p);
 	}
 }
 
@@ -417,7 +420,7 @@ static void sendpay(void)
 	if (!param_parse(cmd, j->buffer, j->toks,
 			 param_req("route", json_tok_tok, &routetok),
 			 param_req("cltv", json_tok_number, &cltv),
-			 param_opt("note", json_tok_tok, &note),
+			 param_opt_tok("note", &note),
 			 param_opt("msatoshi", json_tok_u64, &msatoshi),
 			 NULL))
 		assert(false);
@@ -439,13 +442,27 @@ static void sendpay_nulltok(void)
 	if (!param_parse(cmd, j->buffer, j->toks,
 			 param_req("route", json_tok_tok, &routetok),
 			 param_req("cltv", json_tok_number, &cltv),
-			 param_opt("note", json_tok_tok, &note),
+			 param_opt_tok("note", &note),
 			 param_opt("msatoshi", json_tok_u64, &msatoshi),
 			 NULL))
 		assert(false);
 
 	assert(note == NULL);
 	assert(msatoshi == NULL);
+}
+
+static void type_check(void) {
+	/* change u64 to char and compilation should fail. */
+	u64 x;
+	struct json *j = json_parse(cmd, "[ '65535']");
+
+	if (!param_parse(cmd, j->buffer, j->toks,
+			 param_req("x", json_tok_u64, &x),
+			 NULL))
+		assert(false);
+
+	/* otherwise, this line will fail. */
+	assert(x == 65535);
 }
 
 int main(void)
@@ -466,6 +483,7 @@ int main(void)
 	five_hundred_params();
 	sendpay();
 	sendpay_nulltok();
+	type_check();
 	tal_free(tmpctx);
 	printf("run-params ok\n");
 }

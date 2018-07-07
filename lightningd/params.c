@@ -15,28 +15,24 @@ struct param {
 	size_t argsize;
 };
 
-static void param_add(struct param **params,
-		      const char *name, param_cb cb, void *arg,
-		      size_t argsize)
+struct param *param_add(const char *name, param_cb cb, void *arg,
+			size_t argsize)
 {
+	struct param *p = tal(tmpctx, struct param);
 #if DEVELOPER
 	assert(name);
 	assert(cb);
 	assert(arg);
 #endif
-	struct param *last;
-
-	tal_resize(params, tal_count(*params) + 1);
-	last = &(*params)[tal_count(*params) - 1];
-
-	last->is_set = false;
-	last->name = name;
-	last->cb = cb;
-	last->arg = arg;
-	last->argsize = argsize;
+	p->is_set = false;
+	p->name = name;
+	p->cb = cb;
+	p->arg = arg;
+	p->argsize = argsize;
 	/* Non-0 means we are supposed to allocate iff found */
-	if (last->argsize != 0)
-		*(void **)last->arg = NULL;
+	if (p->argsize != 0)
+		*(void **)p->arg = NULL;
+	return p;
 }
 
 struct fail_format {
@@ -289,15 +285,14 @@ bool param_parse(struct command *cmd, const char *buffer,
 		 const jsmntok_t tokens[], ...)
 {
 	struct param *params = tal_arr(cmd, struct param, 0);
-	const char *name;
+	struct param *p;
 	va_list ap;
 
 	va_start(ap, tokens);
-	while ((name = va_arg(ap, const char *)) != NULL) {
-		param_cb cb = va_arg(ap, param_cb);
-		void *arg = va_arg(ap, void *);
-		size_t argsize = va_arg(ap, size_t);
-		param_add(&params, name, cb, arg, argsize);
+	while ((p = va_arg(ap, struct param *)) != NULL) {
+		tal_resize(&params, tal_count(params) + 1);
+		params[tal_count(params) - 1] = *p;
+		tal_free(p);
 	}
 	va_end(ap);
 
