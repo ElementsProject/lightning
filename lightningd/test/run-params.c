@@ -175,7 +175,7 @@ static void tok_tok(void)
 
 		struct json *j = json_parse(cmd, "{}");
 		assert(param_parse(cmd, j->buffer, j->toks,
-				   param_opt("satoshi", json_tok_tok, &tok), NULL));
+				   param_opt_tok("satoshi", &tok), NULL));
 
 		/* make sure it *is* NULL */
 		assert(tok == NULL);
@@ -328,7 +328,7 @@ static void bad_programmer(void)
 
 	if (setjmp(jump) == 0) {
 		param_parse(cmd, j->buffer, j->toks,
-			    param_req("u64", NULL, &ival), NULL);
+			    param_req("u64", (param_cb)NULL, &ival), NULL);
 		restore_assert(old_stderr);
 		assert(false);
 	}
@@ -417,7 +417,7 @@ static void sendpay(void)
 	if (!param_parse(cmd, j->buffer, j->toks,
 			 param_req("route", json_tok_tok, &routetok),
 			 param_req("cltv", json_tok_number, &cltv),
-			 param_opt("note", json_tok_tok, &note),
+			 param_opt_tok("note", &note),
 			 param_opt("msatoshi", json_tok_u64, &msatoshi),
 			 NULL))
 		assert(false);
@@ -439,7 +439,7 @@ static void sendpay_nulltok(void)
 	if (!param_parse(cmd, j->buffer, j->toks,
 			 param_req("route", json_tok_tok, &routetok),
 			 param_req("cltv", json_tok_number, &cltv),
-			 param_opt("note", json_tok_tok, &note),
+			 param_opt_tok("note", &note),
 			 param_opt("msatoshi", json_tok_u64, &msatoshi),
 			 NULL))
 		assert(false);
