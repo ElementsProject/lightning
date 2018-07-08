@@ -1699,7 +1699,7 @@ static struct local_update *find_local_update(struct daemon *daemon,
 	struct local_update *i;
 
 	list_for_each(&daemon->local_updates, i, list) {
-		if (structeq(scid, &i->scid))
+		if (short_channel_id_eq(scid, &i->scid))
 			return i;
 	}
 	return NULL;
