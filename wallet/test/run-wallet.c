@@ -60,7 +60,7 @@ void command_still_pending(struct command *cmd UNNEEDED)
 void command_success(struct command *cmd UNNEEDED, struct json_result *response UNNEEDED)
 { fprintf(stderr, "command_success called!\n"); abort(); }
 /* Generated stub for derive_basepoints */
-bool derive_basepoints(const struct privkey *seed UNNEEDED,
+bool derive_basepoints(const struct secret *seed UNNEEDED,
 		       struct pubkey *funding_pubkey UNNEEDED,
 		       struct basepoints *basepoints UNNEEDED,
 		       struct secrets *secrets UNNEEDED,

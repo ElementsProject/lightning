@@ -32,7 +32,7 @@ struct secrets {
  * @secrets: (out) basepoints for channel (if non-NULL)
  * @shaseed: (out) seed for shachain (if non-NULL)
  */
-bool derive_basepoints(const struct privkey *seed,
+bool derive_basepoints(const struct secret *seed,
 		       struct pubkey *funding_pubkey,
 		       struct basepoints *basepoints,
 		       struct secrets *secrets,

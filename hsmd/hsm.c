@@ -545,7 +545,7 @@ static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg)
 }
 
 
-static void derive_peer_seed(struct privkey *peer_seed, struct privkey *peer_seed_base,
+static void derive_peer_seed(struct secret *peer_seed, struct secret *peer_seed_base,
 		      const struct pubkey *peer_id, const u64 channel_id)
 {
 	u8 input[PUBKEY_DER_LEN + sizeof(channel_id)];
@@ -562,10 +562,10 @@ static void derive_peer_seed(struct privkey *peer_seed, struct privkey *peer_see
 static void hsm_unilateral_close_privkey(struct privkey *dst,
 					 struct unilateral_close_info *info)
 {
-	struct privkey peer_seed, peer_seed_base;
+	struct secret peer_seed, peer_seed_base;
 	struct basepoints basepoints;
 	struct secrets secrets;
-	hsm_peer_secret_base(&peer_seed_base.secret);
+	hsm_peer_secret_base(&peer_seed_base);
 	derive_peer_seed(&peer_seed, &peer_seed_base, &info->peer_id, info->channel_id);
 	derive_basepoints(&peer_seed, NULL, &basepoints, &secrets, NULL);
 

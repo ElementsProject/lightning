@@ -2398,7 +2398,7 @@ static void init_shared_secrets(struct channel *channel,
 /* We do this synchronously. */
 static void init_channel(struct peer *peer)
 {
-	struct privkey seed;
+	struct secret seed;
 	struct basepoints points[NUM_SIDES];
 	u64 funding_satoshi;
 	u16 funding_txout;

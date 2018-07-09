@@ -813,7 +813,7 @@ int main(int argc, char *argv[])
 
 	u8 *msg, *peer_msg;
 	struct state *state = tal(NULL, struct state);
-	struct privkey seed;
+	struct secret seed;
 	struct basepoints our_points;
 	struct pubkey our_funding_pubkey;
 	u32 minimum_depth;
@@ -849,14 +849,14 @@ int main(int argc, char *argv[])
 			       &state->shaseed))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Secret derivation failed, secret = %s",
-			      type_to_string(tmpctx, struct privkey, &seed));
+			      type_to_string(tmpctx, struct secret, &seed));
 
 	if (!per_commit_point(&state->shaseed, &state->next_per_commit[LOCAL],
 			      0))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "First per_commitment_point derivation failed,"
 			      " secret = %s",
-			      type_to_string(tmpctx, struct privkey, &seed));
+			      type_to_string(tmpctx, struct secret, &seed));
 
 	status_trace("First per_commit_point = %s",
 		     type_to_string(tmpctx, struct pubkey,

@@ -1,7 +1,7 @@
 #include <common/htlc_wire.h>
 # Begin!  Here's the onchain tx which spends funding tx, followed by all HTLCs.
 onchain_init,5001
-onchain_init,,seed,struct privkey
+onchain_init,,seed,struct secret
 onchain_init,,shachain,struct shachain
 onchain_init,,funding_amount_satoshi,u64
 # Remote per commit point for committed tx.

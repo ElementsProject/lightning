@@ -424,7 +424,7 @@ int main(int argc, char *argv[])
 	struct crypto_state cs;
 	const tal_t *ctx = tal(NULL, char);
 	u8 *msg;
-	struct privkey seed;
+	struct secret seed;
 	struct pubkey funding_pubkey[NUM_SIDES];
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
