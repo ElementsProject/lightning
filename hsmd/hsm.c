@@ -52,6 +52,7 @@ struct client {
 	struct daemon_conn *master;
 
 	struct pubkey id;
+	u64 dbid;
 	struct io_plan *(*handle)(struct io_conn *, struct daemon_conn *);
 
 	/* What is this client allowed to ask for? */
@@ -90,6 +91,7 @@ static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 
 static struct client *new_client(struct daemon_conn *master,
 				 const struct pubkey *id,
+				 u64 dbid,
 				 const u64 capabilities,
 				 struct io_plan *(*handle)(struct io_conn *,
 							   struct daemon_conn *),
@@ -102,6 +104,7 @@ static struct client *new_client(struct daemon_conn *master,
 	} else {
 		memset(&c->id, 0, sizeof(c->id));
 	}
+	c->dbid = dbid;
 
 	c->handle = handle;
 	c->master = master;
@@ -529,16 +532,16 @@ static void init_hsm(struct daemon_conn *master, const u8 *msg)
 static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg)
 {
 	int fds[2];
-	u64 capabilities;
+	u64 dbid, capabilities;
 	struct pubkey id;
 
-	if (!fromwire_hsm_client_hsmfd(msg, &id, &capabilities))
+	if (!fromwire_hsm_client_hsmfd(msg, &id, &dbid, &capabilities))
 		master_badmsg(WIRE_HSM_CLIENT_HSMFD, msg);
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR, "creating fds: %s", strerror(errno));
 
-	new_client(master, &id, capabilities, handle_client, fds[0]);
+	new_client(master, &id, dbid, capabilities, handle_client, fds[0]);
 	daemon_conn_send(master,
 			 take(towire_hsm_client_hsmfd_reply(NULL)));
 	daemon_conn_send_fd(master, fds[1]);
@@ -829,7 +832,7 @@ int main(int argc, char *argv[])
 
 	subdaemon_setup(argc, argv);
 
-	client = new_client(NULL, NULL, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP, handle_client, STDIN_FILENO);
+	client = new_client(NULL, NULL, 0, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP, handle_client, STDIN_FILENO);
 
 	/* We're our own master! */
 	client->master = &client->dc;
