@@ -18,9 +18,7 @@ gossipctl_init,,rgb,3*u8
 gossipctl_init,,alias,32*u8
 gossipctl_init,,update_channel_interval,u32
 gossipctl_init,,reconnect,bool
-# This is 0 or 1.
-gossipctl_init,,num_tor_proxyaddrs,u16
-gossipctl_init,,tor_proxyaddr,num_tor_proxyaddrs*struct wireaddr
+gossipctl_init,,tor_proxyaddr,?struct wireaddr
 gossipctl_init,,use_tor_proxy_always,bool
 gossipctl_init,,dev_allow_localhost,bool
 gossipctl_init,,use_dns,bool
@@ -112,9 +110,7 @@ gossipctl_peer_disconnected,,id,struct pubkey
 
 # Pass JSON-RPC getnodes call through
 gossip_getnodes_request,3005
-# Can be 0 or 1 currently
-gossip_getnodes_request,,num,u16
-gossip_getnodes_request,,id,num*struct pubkey
+gossip_getnodes_request,,id,?struct pubkey
 
 #include <lightningd/gossip_msg.h>
 gossip_getnodes_reply,3105
@@ -136,9 +132,7 @@ gossip_getroute_reply,,num_hops,u16
 gossip_getroute_reply,,hops,num_hops*struct route_hop
 
 gossip_getchannels_request,3007
-# In practice, 0 or 1.
-gossip_getchannels_request,,num,u16
-gossip_getchannels_request,,short_channel_id,num*struct short_channel_id
+gossip_getchannels_request,,short_channel_id,?struct short_channel_id
 
 gossip_getchannels_reply,3107
 gossip_getchannels_reply,,num_channels,u16
@@ -201,9 +195,7 @@ gossip_resolve_channel_reply,,keys,num_keys*struct pubkey
 
 # The main daemon asks for peers
 gossip_getpeers_request,3011
-# 0 or 1
-gossip_getpeers_request,,num,u16
-gossip_getpeers_request,,id,num*struct pubkey
+gossip_getpeers_request,,id,?struct pubkey
 
 gossip_getpeers_reply,3111
 gossip_getpeers_reply,,num,u16
