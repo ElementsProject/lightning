@@ -118,6 +118,37 @@ static struct client *new_client(struct daemon_conn *master,
 	return c;
 }
 
+/**
+ * hsm_peer_secret_base -- Derive the base secret seed for per-peer seeds
+ *
+ * This secret is shared by all channels/peers for the client. The
+ * per-peer seeds will be generated from it by mixing in the
+ * channel_id and the peer node_id.
+ */
+static void hsm_peer_secret_base(struct secret *peer_seed_base)
+{
+	hkdf_sha256(peer_seed_base, sizeof(struct secret), NULL, 0,
+		    &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret),
+		    "peer seed", strlen("peer seed"));
+}
+
+static void get_channel_seed(const struct pubkey *peer_id, u64 dbid,
+			     struct secret *channel_seed)
+{
+	struct secret peer_base;
+	u8 input[PUBKEY_DER_LEN + sizeof(dbid)];
+	const char *info = "per-peer seed";
+
+	hsm_peer_secret_base(&peer_base);
+	pubkey_to_der(input, peer_id);
+	memcpy(input + PUBKEY_DER_LEN, &dbid, sizeof(dbid));
+
+	hkdf_sha256(channel_seed, sizeof(*channel_seed),
+		    input, sizeof(input),
+		    &peer_base, sizeof(peer_base),
+		    info, strlen(info));
+}
+
 static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 {
 	struct client *c = container_of(dc, struct client, dc);
@@ -150,19 +181,25 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 }
 
 static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
-						struct daemon_conn *dc)
+						struct client *c)
 {
+	struct daemon_conn *dc = &c->dc;
 	/* First 2 + 256 byte are the signatures and msg type, skip them */
 	size_t offset = 258;
 	struct privkey node_pkey;
-	secp256k1_ecdsa_signature node_sig;
+	secp256k1_ecdsa_signature node_sig, bitcoin_sig;
 	struct sha256_double hash;
 	u8 *reply;
 	u8 *ca;
-	struct pubkey bitcoin_id;
+	struct pubkey funding_pubkey;
+	struct privkey funding_privkey;
+	struct secret channel_seed;
 
-	if (!fromwire_hsm_cannouncement_sig_req(tmpctx, dc->msg_in,
-						&bitcoin_id, &ca)) {
+	/* FIXME: We should cache these. */
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	derive_funding_key(&channel_seed, &funding_pubkey, &funding_privkey);
+
+	if (!fromwire_hsm_cannouncement_sig_req(tmpctx, dc->msg_in, &ca)) {
 		status_broken("Failed to parse cannouncement_sig_req: %s",
 			      tal_hex(tmpctx, dc->msg_in));
 		return io_close(conn);
@@ -179,8 +216,10 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 	sha256_double(&hash, ca + offset, tal_len(ca) - offset);
 
 	sign_hash(&node_pkey, &hash, &node_sig);
+	sign_hash(&funding_privkey, &hash, &bitcoin_sig);
 
-	reply = towire_hsm_cannouncement_sig_reply(NULL, &node_sig);
+	reply = towire_hsm_cannouncement_sig_reply(NULL, &node_sig,
+						   &bitcoin_sig);
 	daemon_conn_send(dc, take(reply));
 
 	return daemon_conn_read_next(conn, dc);
@@ -303,7 +342,7 @@ static struct io_plan *handle_client(struct io_conn *conn,
 		return handle_ecdh(conn, dc);
 
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REQ:
-		return handle_cannouncement_sig(conn, dc);
+		return handle_cannouncement_sig(conn, c);
 
 	case WIRE_HSM_CUPDATE_SIG_REQ:
 		return handle_channel_update_sig(conn, dc);
@@ -342,20 +381,6 @@ static struct io_plan *handle_client(struct io_conn *conn,
 								  &c->id,
 								  dc->msg_in)));
 	return io_close(conn);
-}
-
-/**
- * hsm_peer_secret_base -- Derive the base secret seed for per-peer seeds
- *
- * This secret is shared by all channels/peers for the client. The
- * per-peer seeds will be generated from it by mixing in the
- * channel_id and the peer node_id.
- */
-static void hsm_peer_secret_base(struct secret *peer_seed_base)
-{
-	hkdf_sha256(peer_seed_base, sizeof(struct secret), NULL, 0,
-		    &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret),
-		    "peer seed", strlen("peer seed"));
 }
 
 static void send_init_response(struct daemon_conn *master)

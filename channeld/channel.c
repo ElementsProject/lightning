@@ -358,9 +358,7 @@ static void send_announcement_signatures(struct peer *peer)
 
 	status_trace("Exchanging announcement signatures.");
 	ca = create_channel_announcement(tmpctx, peer);
-	req = towire_hsm_cannouncement_sig_req(
-	    tmpctx, &peer->channel->funding_pubkey[LOCAL], ca);
-
+	req = towire_hsm_cannouncement_sig_req(tmpctx, ca);
 
 	if (!wire_sync_write(HSM_FD, req))
 		status_failed(STATUS_FAIL_HSM_IO,
@@ -369,12 +367,13 @@ static void send_announcement_signatures(struct peer *peer)
 
 	msg = wire_sync_read(tmpctx, HSM_FD);
 	if (!msg || !fromwire_hsm_cannouncement_sig_reply(msg,
-					  &peer->announcement_node_sigs[LOCAL]))
+				  &peer->announcement_node_sigs[LOCAL],
+				  &peer->announcement_bitcoin_sigs[LOCAL]))
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading cannouncement_sig_resp: %s",
 			      strerror(errno));
 
-	/* Double-check that HSM gave a valid signature. */
+	/* Double-check that HSM gave valid signatures. */
 	sha256_double(&hash, ca + offset, tal_len(ca) - offset);
 	if (!check_signed_hash(&hash, &peer->announcement_node_sigs[LOCAL],
 			       &peer->node_ids[LOCAL])) {
@@ -382,13 +381,17 @@ static void send_announcement_signatures(struct peer *peer)
 		 * unique, unlike the channel update which may have
 		 * been replaced in the meantime. */
 		status_failed(STATUS_FAIL_HSM_IO,
-			      "HSM returned an invalid signature");
+			      "HSM returned an invalid node signature");
 	}
 
-	/* TODO(cdecker) Move this to the HSM once we store the
-	 * funding_privkey there */
-	sign_hash(&peer->our_secrets.funding_privkey, &hash,
-		  &peer->announcement_bitcoin_sigs[LOCAL]);
+	if (!check_signed_hash(&hash, &peer->announcement_bitcoin_sigs[LOCAL],
+			       &peer->channel->funding_pubkey[LOCAL])) {
+		/* It's ok to fail here, the channel announcement is
+		 * unique, unlike the channel update which may have
+		 * been replaced in the meantime. */
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "HSM returned an invalid bitcoin signature");
+	}
 
 	msg = towire_announcement_signatures(
 	    NULL, &peer->channel_id, &peer->short_channel_ids[LOCAL],
