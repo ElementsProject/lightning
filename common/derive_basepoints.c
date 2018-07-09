@@ -2,6 +2,7 @@
 #include <ccan/crypto/sha256/sha256.h>
 #include <common/derive_basepoints.h>
 #include <common/utils.h>
+#include <wire/wire.h>
 
 bool derive_basepoints(const struct secret *seed,
 		       struct pubkey *funding_pubkey,
@@ -84,4 +85,21 @@ bool per_commit_point(const struct sha256 *shaseed,
 		return false;
 
 	return true;
+}
+
+void towire_basepoints(u8 **pptr, const struct basepoints *b)
+{
+	towire_pubkey(pptr, &b->revocation);
+	towire_pubkey(pptr, &b->payment);
+	towire_pubkey(pptr, &b->htlc);
+	towire_pubkey(pptr, &b->delayed_payment);
+}
+
+void fromwire_basepoints(const u8 **ptr, size_t *max,
+			 struct basepoints *b)
+{
+	fromwire_pubkey(ptr, max, &b->revocation);
+	fromwire_pubkey(ptr, max, &b->payment);
+	fromwire_pubkey(ptr, max, &b->htlc);
+	fromwire_pubkey(ptr, max, &b->delayed_payment);
 }
