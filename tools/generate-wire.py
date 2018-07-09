@@ -115,9 +115,14 @@ class Field(object):
         self.is_len_var = False
         self.lenvar = None
         self.num_elems = 1
+        self.optional = False
 
+        # ? means optional field (not supported for arrays)
+        if size.startswith('?'):
+            self.optional = True
+            size = size[1:]
         # If it's an arraysize, swallow prefix.
-        if '*' in size:
+        elif '*' in size:
             number = size.split('*')[0]
             if number == prevname:
                 self.lenvar = number
@@ -164,8 +169,14 @@ class Field(object):
     def is_variable_size(self):
         return self.lenvar is not None
 
+    def needs_ptr_to_ptr(self):
+        return self.is_variable_size() or self.optional
+
+    def is_optional(self):
+        return self.optional
+
     def is_assignable(self):
-        if self.is_array() or self.is_variable_size():
+        if self.is_array() or self.needs_ptr_to_ptr():
             return False
         return self.fieldtype.is_assignable()
 
@@ -248,13 +259,16 @@ class Message(object):
         self.has_variable_fields = False
 
     def checkLenField(self, field):
+        # Optional fields don't have a len.
+        if field.is_optional():
+            return
         for f in self.fields:
             if f.name == field.lenvar:
                 if f.fieldtype.name != 'u16':
                     raise ValueError('Field {} has non-u16 length variable {} (type {})'
                                      .format(field.name, field.lenvar, f.fieldtype.name))
 
-                if f.is_array() or f.is_variable_size():
+                if f.is_array() or f.needs_ptr_to_ptr():
                     raise ValueError('Field {} has non-simple length variable {}'
                                      .format(field.name, field.lenvar))
                 f.is_len_var = True
@@ -270,6 +284,8 @@ class Message(object):
             self.checkLenField(field)
             self.has_variable_fields = True
         elif field.basetype() in varlen_structs:
+            self.has_variable_fields = True
+        elif field.is_optional():
             self.has_variable_fields = True
         self.fields.append(field)
 
@@ -303,7 +319,7 @@ class Message(object):
             else:
                 ptrs = '*'
                 # If we're handing a variable array, we need a ptr-to-ptr.
-                if f.is_variable_size():
+                if f.needs_ptr_to_ptr():
                     ptrs += '*'
                 # If each type is a variable length, we need a ptr to that.
                 if f.basetype() in varlen_structs:
@@ -338,20 +354,30 @@ class Message(object):
 
                 self.print_fromwire_array(subcalls, basetype, f, '*' + f.name,
                                           f.lenvar)
-            elif f.is_assignable():
-                subcalls.append("\t//3th case {name}".format(name=f.name))
-                if f.is_len_var:
-                    subcalls.append('\t{} = fromwire_{}(&cursor, &plen);'
+            else:
+                if f.is_optional():
+                    subcalls.append("\tif (!fromwire_bool(&cursor, &plen))\n"
+                                    "\t\t*{} = NULL;\n"
+                                    "\telse {{\n"
+                                    "\t\t*{} = tal(ctx, {});\n"
+                                    "\t\tfromwire_{}(&cursor, &plen, *{});\n"
+                                    "\t}}"
+                                    .format(f.name, f.name, f.fieldtype.name,
+                                            basetype, f.name))
+                elif f.is_assignable():
+                    subcalls.append("\t//3th case {name}".format(name=f.name))
+                    if f.is_len_var:
+                        subcalls.append('\t{} = fromwire_{}(&cursor, &plen);'
+                                        .format(f.name, basetype))
+                    else:
+                        subcalls.append('\t*{} = fromwire_{}(&cursor, &plen);'
+                                        .format(f.name, basetype))
+                elif basetype in varlen_structs:
+                    subcalls.append('\t*{} = fromwire_{}(ctx, &cursor, &plen);'
                                     .format(f.name, basetype))
                 else:
-                    subcalls.append('\t*{} = fromwire_{}(&cursor, &plen);'
-                                    .format(f.name, basetype))
-            elif basetype in varlen_structs:
-                subcalls.append('\t*{} = fromwire_{}(ctx, &cursor, &plen);'
-                                .format(f.name, basetype))
-            else:
-                subcalls.append('\tfromwire_{}(&cursor, &plen, {});'
-                                .format(basetype, f.name))
+                    subcalls.append('\tfromwire_{}(&cursor, &plen, {});'
+                                    .format(basetype, f.name))
 
         return template.format(
             name=self.name,
@@ -417,8 +443,16 @@ class Message(object):
             elif f.is_variable_size():
                 self.print_towire_array(subcalls, basetype, f, f.lenvar)
             else:
-                subcalls.append('\ttowire_{}(&p, {});'
-                                .format(basetype, f.name))
+                if f.is_optional():
+                    subcalls.append("\tif (!{})\n"
+                                    "\t\ttowire_bool(&p, false);\n"
+                                    "\telse {{\n"
+                                    "\t\ttowire_bool(&p, true);\n"
+                                    "\t\ttowire_{}(&p, {});\n"
+                                    "\t}}".format(f.name, basetype, f.name))
+                else:
+                    subcalls.append('\ttowire_{}(&p, {});'
+                                    .format(basetype, f.name))
 
         return template.format(
             name=self.name,
@@ -490,20 +524,29 @@ class Message(object):
                 self.print_printwire_array(subcalls, basetype, f, f.lenvar)
                 self.add_truncate_check(subcalls)
             else:
+                indent = '\t'
+                if f.is_optional():
+                    subcalls.append("\tif (fromwire_bool(&cursor, &plen)) {")
+                    indent += '\t'
+
                 if f.is_assignable():
-                    subcalls.append('\t{} {} = fromwire_{}(&cursor, &plen);'
+                    subcalls.append(indent + '{} {} = fromwire_{}(&cursor, &plen);'
                                     .format(f.fieldtype.name, f.name, basetype))
                 else:
                     # Don't handle these yet.
                     assert(basetype not in varlen_structs)
-                    subcalls.append('\t{} {};'.
+                    subcalls.append(indent + '{} {};'.
                                     format(f.fieldtype.name, f.name))
-                    subcalls.append('\tfromwire_{}(&cursor, &plen, &{});'
+                    subcalls.append(indent + 'fromwire_{}(&cursor, &plen, &{});'
                                     .format(basetype, f.name))
 
-                self.add_truncate_check(subcalls)
-                subcalls.append('\tprintwire_{}(tal_fmt(NULL, "%s.{}", fieldname), &{});'
+                self.add_truncate_check(subcalls, indent=indent)
+                subcalls.append(indent + 'printwire_{}(tal_fmt(NULL, "%s.{}", fieldname), &{});'
                                 .format(basetype, f.name, f.name))
+                if f.is_optional():
+                    subcalls.append("\t} else {")
+                    self.add_truncate_check(subcalls, indent='\t\t')
+                    subcalls.append("\t}")
 
         return template.format(
             name=self.name,
