@@ -87,6 +87,85 @@ bool per_commit_point(const struct sha256 *shaseed,
 	return true;
 }
 
+bool derive_payment_basepoint(const struct secret *seed,
+			      struct pubkey *payment_basepoint,
+			      struct secret *payment_secret)
+{
+	struct keys {
+		struct privkey f, r, h, p, d;
+		struct sha256 shaseed;
+	} keys;
+
+	hkdf_sha256(&keys, sizeof(keys), NULL, 0, seed, sizeof(*seed),
+		    "c-lightning", strlen("c-lightning"));
+
+	if (payment_basepoint) {
+		if (!pubkey_from_privkey(&keys.p, payment_basepoint))
+			return false;
+	}
+
+	if (payment_secret)
+		*payment_secret = keys.p.secret;
+
+	return true;
+}
+
+bool derive_delayed_payment_basepoint(const struct secret *seed,
+				      struct pubkey *delayed_payment_basepoint,
+				      struct secret *delayed_payment_secret)
+{
+	struct keys {
+		struct privkey f, r, h, p, d;
+		struct sha256 shaseed;
+	} keys;
+
+	hkdf_sha256(&keys, sizeof(keys), NULL, 0, seed, sizeof(*seed),
+		    "c-lightning", strlen("c-lightning"));
+
+	if (delayed_payment_basepoint) {
+		if (!pubkey_from_privkey(&keys.d, delayed_payment_basepoint))
+			return false;
+	}
+
+	if (delayed_payment_secret)
+		*delayed_payment_secret = keys.d.secret;
+
+	return true;
+}
+
+bool derive_shaseed(const struct secret *seed, struct sha256 *shaseed)
+{
+	struct keys {
+		struct privkey f, r, h, p, d;
+		struct sha256 shaseed;
+	} keys;
+
+	hkdf_sha256(&keys, sizeof(keys), NULL, 0, seed, sizeof(*seed),
+		    "c-lightning", strlen("c-lightning"));
+	*shaseed = keys.shaseed;
+	return true;
+}
+
+bool derive_funding_key(const struct secret *seed,
+			struct pubkey *funding_pubkey,
+			struct privkey *funding_privkey)
+{
+	struct privkey f;
+
+	hkdf_sha256(&f, sizeof(f), NULL, 0, seed, sizeof(*seed),
+		    "c-lightning", strlen("c-lightning"));
+
+	if (funding_pubkey) {
+		if (!pubkey_from_privkey(&f, funding_pubkey))
+			return false;
+	}
+
+	if (funding_privkey)
+		*funding_privkey = f;
+
+	return true;
+}
+
 void towire_basepoints(u8 **pptr, const struct basepoints *b)
 {
 	towire_pubkey(pptr, &b->revocation);
