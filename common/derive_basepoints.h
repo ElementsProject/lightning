@@ -39,6 +39,51 @@ bool derive_basepoints(const struct secret *seed,
 		       struct sha256 *shaseed);
 
 /**
+ * derive_funding_key - give a (per-peer) seed, get just funding key
+ * @seed: (in) seed (derived by master daemon from counter and main seed)
+ * @funding_pubkey: (out) pubkey for funding tx output (if non-NULL)
+ * @funding_privkey: (out) privkey for funding tx output (if non-NULL)
+ *
+ * This is a cut-down version of derive_basepoints.
+ */
+bool derive_funding_key(const struct secret *seed,
+			struct pubkey *funding_pubkey,
+			struct privkey *funding_privkey);
+
+/**
+ * derive_payment_basepoint - give a (per-channel) seed, get just payment basepoint
+ * @seed: (in) seed (derived by master daemon from counter and main seed)
+ * @payment_basepoint: (out) basepoint for payment output (if non-NULL)
+ * @payment_secret: (out) secret for payment basepoint (if non-NULL)
+ *
+ * This is a cut-down version of derive_basepoints.
+ */
+bool derive_payment_basepoint(const struct secret *seed,
+			      struct pubkey *payment_basepoint,
+			      struct secret *payment_secret);
+
+/**
+ * derive_shaseed - give a (per-peer) seed, get just the shaseed
+ * @seed: (in) seed (derived by master daemon from counter and main seed)
+ * @shaseed: (out) seed for shachain
+ *
+ * This is a cut-down version of derive_basepoints.
+ */
+bool derive_shaseed(const struct secret *seed, struct sha256 *shaseed);
+
+/**
+ * derive_delayed_payment_basepoint - give a (per-channel) seed, get just delayed payment basepoint
+ * @seed: (in) seed (derived by master daemon from counter and main seed)
+ * @delayed_payment_basepoint: (out) basepoint for payment output (if non-NULL)
+ * @delayed_payment_secret: (out) secret for payment basepoint (if non-NULL)
+ *
+ * This is a cut-down version of derive_basepoints.
+ */
+bool derive_delayed_payment_basepoint(const struct secret *seed,
+			      struct pubkey *delayed_payment_basepoint,
+			      struct secret *delayed_payment_secret);
+
+/**
  * per_commit_secret - get a secret for this index.
  * @shaseed: the sha256 seed
  * @commit_secret: the returned per-commit secret.
