@@ -10,7 +10,7 @@ opening_init,,max_to_self_delay,u32
 opening_init,,min_effective_htlc_capacity_msat,u64
 opening_init,,crypto_state,struct crypto_state
 # Seed to generate all the keys from
-opening_init,,seed,struct privkey
+opening_init,,seed,struct secret
 
 #include <common/bip32.h>
 #include <common/htlc_wire.h>

@@ -3,7 +3,7 @@
 #include <common/derive_basepoints.h>
 #include <common/utils.h>
 
-bool derive_basepoints(const struct privkey *seed,
+bool derive_basepoints(const struct secret *seed,
 		       struct pubkey *funding_pubkey,
 		       struct basepoints *basepoints,
 		       struct secrets *secrets,

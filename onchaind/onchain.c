@@ -2135,7 +2135,7 @@ int main(int argc, char *argv[])
 
 	const tal_t *ctx = tal(NULL, char);
 	u8 *msg;
-	struct privkey seed;
+	struct secret seed;
 	struct pubkey remote_payment_basepoint, remote_htlc_basepoint,
 		remote_per_commit_point, old_remote_per_commit_point,
 		remote_revocation_basepoint, remote_delayed_payment_basepoint;

@@ -114,7 +114,7 @@ void delete_channel(struct channel *channel)
  * reconnection. We use the DB channel ID to guarantee unique secrets
  * per channel.
  */
-void derive_channel_seed(struct lightningd *ld, struct privkey *seed,
+void derive_channel_seed(struct lightningd *ld, struct secret *seed,
 			 const struct pubkey *peer_id,
 			 const u64 dbid)
 {

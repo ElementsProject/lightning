@@ -46,7 +46,7 @@ struct uncommitted_channel {
 	struct funding_channel *fc;
 
 	/* Secret seed (FIXME: Move to hsm!) */
-	struct privkey seed;
+	struct secret seed;
 
 	/* Blockheight at creation, scans for funding confirmations
 	 * will start here */

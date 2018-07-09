@@ -26,7 +26,7 @@ channel_init,,funder,enum side
 channel_init,,fee_base,u32
 channel_init,,fee_proportional,u32
 channel_init,,local_msatoshi,u64
-channel_init,,seed,struct privkey
+channel_init,,seed,struct secret
 channel_init,,local_node_id,struct pubkey
 channel_init,,remote_node_id,struct pubkey
 channel_init,,commit_msec,u32
