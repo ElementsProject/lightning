@@ -1,13 +1,11 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
-#include <ccan/fdpass/fdpass.h>
 #include <channeld/gen_channel_wire.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <gossipd/gossip_constants.h>
-#include <hsmd/capabilities.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/channel_control.h>
@@ -179,7 +177,7 @@ bool peer_start_channeld(struct channel *channel,
 			 const u8 *funding_signed,
 			 bool reconnected)
 {
-	u8 *msg, *initmsg;
+	u8 *initmsg;
 	int hsmfd;
 	struct added_htlc *htlcs;
 	enum htlc_state *htlc_states;
@@ -193,19 +191,9 @@ bool peer_start_channeld(struct channel *channel,
 	const struct config *cfg = &ld->config;
 	bool reached_announce_depth;
 
-	msg = towire_hsm_client_hsmfd(tmpctx, &channel->peer->id,
-				      channel->dbid,
-				      HSM_CAP_SIGN_GOSSIP | HSM_CAP_ECDH);
-	if (!wire_sync_write(ld->hsm_fd, take(msg)))
-		fatal("Could not write to HSM: %s", strerror(errno));
-
-	msg = hsm_sync_read(tmpctx, ld);
-	if (!fromwire_hsm_client_hsmfd_reply(msg))
-		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
-
-	hsmfd = fdpass_recv(ld->hsm_fd);
-	if (hsmfd < 0)
-		fatal("Could not read fd from HSM: %s", strerror(errno));
+	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
+				  channel->dbid,
+				  HSM_CAP_SIGN_GOSSIP | HSM_CAP_ECDH);
 
 	channel_set_owner(channel,
 			  new_channel_subd(ld,

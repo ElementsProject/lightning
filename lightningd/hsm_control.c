@@ -2,6 +2,7 @@
 #include "lightningd.h"
 #include "subd.h"
 #include <ccan/err/err.h>
+#include <ccan/fdpass/fdpass.h>
 #include <ccan/io/io.h>
 #include <ccan/take/take.h>
 #include <common/status.h>
@@ -28,6 +29,29 @@ u8 *hsm_sync_read(const tal_t *ctx, struct lightningd *ld)
 		else
 			return msg;
 	}
+}
+
+int hsm_get_client_fd(struct lightningd *ld,
+		      const struct pubkey *id,
+		      u64 dbid,
+		      int capabilities)
+{
+	int hsm_fd;
+	u8 *msg;
+
+	assert(dbid);
+	msg = towire_hsm_client_hsmfd(NULL, id, dbid, capabilities);
+	if (!wire_sync_write(ld->hsm_fd, take(msg)))
+		fatal("Could not write to HSM: %s", strerror(errno));
+
+	msg = hsm_sync_read(tmpctx, ld);
+	if (!fromwire_hsm_client_hsmfd_reply(msg))
+		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
+
+	hsm_fd = fdpass_recv(ld->hsm_fd);
+	if (hsm_fd < 0)
+		fatal("Could not read fd from HSM: %s", strerror(errno));
+	return hsm_fd;
 }
 
 void hsm_init(struct lightningd *ld)
