@@ -180,16 +180,14 @@ static int subd(const char *dir, const char *name,
 		}
 
 		/* Dup any extra fds up first. */
-		if (ap) {
-			while ((fd = va_arg(*ap, int *)) != NULL) {
-				int actual_fd = *fd;
-				/* If this were stdin, we moved it above! */
-				if (actual_fd == STDIN_FILENO)
-					actual_fd = stdin_is_now;
-				if (!move_fd(actual_fd, fdnum))
-					goto child_errno_fail;
-				fdnum++;
-			}
+		while ((fd = va_arg(*ap, int *)) != NULL) {
+			int actual_fd = *fd;
+			/* If this were stdin, we moved it above! */
+			if (actual_fd == STDIN_FILENO)
+				actual_fd = stdin_is_now;
+			if (!move_fd(actual_fd, fdnum))
+				goto child_errno_fail;
+			fdnum++;
 		}
 
 		/* Make (fairly!) sure all other fds are closed. */
@@ -244,30 +242,6 @@ fail:
 	if (ap)
 		close_taken_fds(ap);
 	return -1;
-}
-
-int subd_raw(struct lightningd *ld, const char *name)
-{
-	pid_t pid;
-	int msg_fd;
-	const char *debug_subd = NULL;
-	int disconnect_fd = -1;
-
-#if DEVELOPER
-	debug_subd = ld->dev_debug_subdaemon;
-	disconnect_fd = ld->dev_disconnect_fd;
-#endif /* DEVELOPER */
-
-	pid = subd(ld->daemon_dir, name, debug_subd,
-		   &msg_fd, disconnect_fd,
-		   NULL);
-	if (pid == (pid_t)-1) {
-		log_unusual(ld->log, "subd %s failed: %s",
-			    name, strerror(errno));
-		return -1;
-	}
-
-	return msg_fd;
 }
 
 static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd);

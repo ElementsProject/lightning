@@ -207,6 +207,7 @@ static void shutdown_subdaemons(struct lightningd *ld)
 	/* Let everyone shutdown cleanly. */
 	close(ld->hsm_fd);
 	subd_shutdown(ld->gossip, 10);
+	subd_shutdown(ld->hsm, 10);
 
 	free_htlcs(ld, NULL);
 

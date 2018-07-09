@@ -215,7 +215,7 @@ void gossip_init(struct lightningd *ld)
 	if (!wire_sync_write(ld->hsm_fd, msg))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
-	msg = hsm_sync_read(tmpctx, ld);
+	msg = wire_sync_read(tmpctx, ld->hsm_fd);
 	if (!fromwire_hsm_client_hsmfd_reply(msg))
 		fatal("Malformed hsmfd response: %s", tal_hex(msg, msg));
 
