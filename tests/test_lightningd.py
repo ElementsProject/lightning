@@ -5027,6 +5027,7 @@ class LightningDTests(BaseLightningDTests):
                       'channel': chanid1,
                       'realm': 254}]
 
+        #FIXME: remove once no longer needed
         def enableScript(scriptFile):
             ownpath = os.path.abspath(os.path.dirname(__file__))
             destination = os.path.join(l2.daemon.lightning_dir, 'handle_payment')
@@ -5036,14 +5037,9 @@ class LightningDTests(BaseLightningDTests):
                 )
             os.chmod(destination, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
-        enableScript('fail.py')
         l1.rpc.sendpay(to_json(route), rhash)
-        l2.daemon.wait_for_log('App command reported failure to forward the payment')
+        l2.daemon.wait_for_log('App connection is not active')
         self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
-
-        enableScript('succeed.py')
-        l1.rpc.sendpay(to_json(route), rhash)
-        l2.daemon.wait_for_log('App command reported successful forward of the payment')
 
 
 if __name__ == '__main__':
