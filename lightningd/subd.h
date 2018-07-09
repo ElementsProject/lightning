@@ -139,12 +139,6 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 					       (channel), bool,		\
 					       const char *),		\
 			  __VA_ARGS__)
-/**
- * subd_raw - raw interface to get a subdaemon on an fd (for HSM)
- * @ld: global state
- * @name: basename of daemon
- */
-int subd_raw(struct lightningd *ld, const char *name);
 
 /**
  * subd_send_msg - queue a message to the subdaemon.

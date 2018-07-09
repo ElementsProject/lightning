@@ -122,7 +122,7 @@ struct lightningd {
 
 	/* Bearer of all my secrets. */
 	int hsm_fd;
-	struct log *hsm_log;
+	struct subd *hsm;
 
 	/* Daemon looking after peers during init / before channel. */
 	struct subd *gossip;

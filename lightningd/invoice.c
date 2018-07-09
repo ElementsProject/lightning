@@ -93,17 +93,16 @@ static bool hsm_sign_b11(const u5 *u5bytes,
 			 secp256k1_ecdsa_recoverable_signature *rsig,
 			 struct lightningd *ld)
 {
-	u8 *msg = towire_hsm_sign_invoice(ld, u5bytes, hrpu8);
+	u8 *msg = towire_hsm_sign_invoice(NULL, u5bytes, hrpu8);
 
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
-	msg = hsm_sync_read(ld, ld);
+	msg = wire_sync_read(tmpctx, ld->hsm_fd);
         if (!fromwire_hsm_sign_invoice_reply(msg, rsig))
 		fatal("HSM gave bad sign_invoice_reply %s",
 		      tal_hex(msg, msg));
 
-	tal_free(msg);
 	return true;
 }
 

@@ -398,7 +398,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
-	msg = hsm_sync_read(fc, ld);
+	msg = wire_sync_read(fc, ld->hsm_fd);
 	if (!fromwire_hsm_sign_funding_reply(tmpctx, msg, &fundingtx))
 		fatal("HSM gave bad sign_funding_reply %s",
 		      tal_hex(msg, resp));

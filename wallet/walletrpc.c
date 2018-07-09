@@ -138,7 +138,7 @@ static void json_withdraw(struct command *cmd,
 		fatal("Could not write sign_withdrawal to HSM: %s",
 		      strerror(errno));
 
-	msg = hsm_sync_read(cmd, cmd->ld);
+	msg = wire_sync_read(cmd, cmd->ld->hsm_fd);
 
 	if (!fromwire_hsm_sign_withdrawal_reply(msg, msg, &tx))
 		fatal("HSM gave bad sign_withdrawal_reply %s",

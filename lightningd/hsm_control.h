@@ -15,6 +15,5 @@ int hsm_get_client_fd(struct lightningd *ld,
 		      u64 dbid,
 		      int capabilities);
 
-u8 *hsm_sync_read(const tal_t *ctx, struct lightningd *ld);
 void hsm_init(struct lightningd *ld);
 #endif /* LIGHTNING_LIGHTNINGD_HSM_CONTROL_H */

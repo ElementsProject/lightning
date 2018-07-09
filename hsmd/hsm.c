@@ -41,6 +41,8 @@
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_io.h>
 
+#define REQ_FD 3
+
 /* Nobody will ever find it here! */
 static struct {
 	struct secret hsm_secret;
@@ -856,14 +858,13 @@ int main(int argc, char *argv[])
 	struct client *client;
 
 	subdaemon_setup(argc, argv);
+	status_setup_sync(STDIN_FILENO);
 
-	client = new_client(NULL, NULL, 0, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP, handle_client, STDIN_FILENO);
+	client = new_client(NULL, NULL, 0, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP, handle_client, REQ_FD);
 
 	/* We're our own master! */
 	client->master = &client->dc;
 	io_set_finish(client->dc.conn, master_gone, &client->dc);
-
-	status_setup_async(&client->dc);
 
 	/* When conn closes, everything is freed. */
 	tal_steal(client->dc.conn, client);
