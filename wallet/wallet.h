@@ -228,7 +228,7 @@ s64 wallet_get_newindex(struct lightningd *ld);
 bool wallet_shachain_add_hash(struct wallet *wallet,
 			      struct wallet_shachain *chain,
 			      uint64_t index,
-			      const struct sha256 *hash);
+			      const struct secret *hash);
 
 /**
  * wallet_shachain_load -- Load an existing shachain from the wallet.

@@ -1119,7 +1119,7 @@ static void start_commit_timer(struct peer *peer)
 static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index)
 {
 	struct pubkey oldpoint, point;
-	struct sha256 old_commit_secret;
+	struct secret old_commit_secret;
 
 	/* Get secret. */
 	per_commit_secret(&peer->shaseed, &old_commit_secret, revoke_index);
@@ -1363,7 +1363,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 }
 
 static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
-			  const struct sha256 *per_commitment_secret,
+			  const struct secret *per_commitment_secret,
 			  const struct pubkey *next_per_commit_point,
 			  const struct htlc **changed_htlcs)
 {
@@ -1389,7 +1389,7 @@ static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
 
 static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 {
-	struct sha256 old_commit_secret;
+	struct secret old_commit_secret;
 	struct privkey privkey;
 	struct channel_id channel_id;
 	struct pubkey per_commit_point, next_per_commit;

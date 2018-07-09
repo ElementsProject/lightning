@@ -424,12 +424,17 @@ static unsigned int count_trailing_zeroes(uint64_t index)
 bool wallet_shachain_add_hash(struct wallet *wallet,
 			      struct wallet_shachain *chain,
 			      uint64_t index,
-			      const struct sha256 *hash)
+			      const struct secret *hash)
 {
 	sqlite3_stmt *stmt;
 	u32 pos = count_trailing_zeroes(index);
+	struct sha256 s;
+
+	BUILD_ASSERT(sizeof(s) == sizeof(*hash));
+	memcpy(&s, hash, sizeof(s));
+
 	assert(index < SQLITE_MAX_UINT);
-	if (!shachain_add_hash(&chain->chain, index, hash)) {
+	if (!shachain_add_hash(&chain->chain, index, &s)) {
 		return false;
 	}
 

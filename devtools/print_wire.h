@@ -18,6 +18,7 @@ void printwire_preimage(const char *fieldname, const struct preimage *preimage);
 void printwire_pubkey(const char *fieldname, const struct pubkey *pubkey);
 void printwire_secp256k1_ecdsa_signature(const char *fieldname, const secp256k1_ecdsa_signature *);
 void printwire_sha256(const char *fieldname, const struct sha256 *sha256);
+void printwire_secret(const char *fieldname, const struct secret *secret);
 void printwire_short_channel_id(const char *fieldname, const struct short_channel_id *short_channel_id);
 
 #endif /* LIGHTNING_DEVTOOLS_PRINT_WIRE_H */

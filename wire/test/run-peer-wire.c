@@ -117,7 +117,7 @@ struct msg_funding_signed {
 };
 struct msg_revoke_and_ack {
 	struct channel_id channel_id;
-	struct sha256 per_commitment_secret;
+	struct secret per_commitment_secret;
 	struct pubkey next_per_commitment_point;
 };
 struct msg_channel_update {

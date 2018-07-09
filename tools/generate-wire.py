@@ -21,6 +21,7 @@ type2size = {
     'struct sha256': 32,
     'struct bitcoin_blkid': 32,
     'struct bitcoin_txid': 32,
+    'struct secret': 32,
     'u64': 8,
     'u32': 4,
     'u16': 2,
@@ -75,7 +76,8 @@ typemap = {
     ('node_announcement', 'ipv6'): FieldType('struct ipv6'),
     ('announcement_signatures', 'short_channel_id'): FieldType('struct short_channel_id'),
     ('channel_announcement', 'short_channel_id'): FieldType('struct short_channel_id'),
-    ('channel_update', 'short_channel_id'): FieldType('struct short_channel_id')
+    ('channel_update', 'short_channel_id'): FieldType('struct short_channel_id'),
+    ('revoke_and_ack', 'per_commitment_secret'): FieldType('struct secret')
 }
 
 # Partial names that map to a datatype

@@ -151,7 +151,7 @@ channel_got_commitsig_reply,1121
 
 channel_got_revoke,1022
 channel_got_revoke,,revokenum,u64
-channel_got_revoke,,per_commitment_secret,struct sha256
+channel_got_revoke,,per_commitment_secret,struct secret
 channel_got_revoke,,next_per_commit_point,struct pubkey
 # RCVD_ADD_ACK_REVOCATION, RCVD_REMOVE_ACK_REVOCATION, RCVD_ADD_REVOCATION, RCVD_REMOVE_REVOCATION
 channel_got_revoke,,num_changed,u16
