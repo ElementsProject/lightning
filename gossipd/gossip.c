@@ -2269,18 +2269,15 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 	u8 *out;
 	struct node *n;
 	const struct gossip_getnodes_entry **nodes;
-	struct pubkey *ids;
+	struct pubkey *id;
 
-	fromwire_gossip_getnodes_request(tmpctx, msg, &ids);
+	fromwire_gossip_getnodes_request(tmpctx, msg, &id);
 
 	nodes = tal_arr(tmpctx, const struct gossip_getnodes_entry *, 0);
-	if (ids) {
-		for (size_t i = 0; i < tal_count(ids); i++) {
-			n = get_node(daemon->rstate, &ids[i]);
-			if (n)
-				append_node(&nodes, &ids[i], n->gfeatures,
-					    NULL, n);
-		}
+	if (id) {
+		n = get_node(daemon->rstate, id);
+		if (n)
+			append_node(&nodes, id, n->gfeatures, NULL, n);
 	} else {
 		struct node_map_iter i;
 		n = node_map_first(daemon->rstate->nodes, &i);
@@ -3556,7 +3553,7 @@ static struct io_plan *get_peers(struct io_conn *conn,
 	struct pubkey *id = tal_arr(conn, struct pubkey, n);
 	struct wireaddr_internal *wireaddr = tal_arr(conn, struct wireaddr_internal, n);
 	const struct gossip_getnodes_entry **nodes = tal_arr(conn, const struct gossip_getnodes_entry *, n);
-	struct pubkey *specific_id = NULL;
+	struct pubkey *specific_id;
 
 	if (!fromwire_gossip_getpeers_request(msg, msg, &specific_id))
 		master_badmsg(WIRE_GOSSIPCTL_PEER_ADDRHINT, msg);
