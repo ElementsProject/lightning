@@ -4,6 +4,7 @@ from ephemeral_port_reserve import reserve as reserve_port
 from flaky import flaky
 from utils import wait_for
 
+import asyncore
 import copy
 import json
 import logging
@@ -25,6 +26,7 @@ import unittest
 
 import utils
 from lightning import LightningRpc
+from lightning import AppConnection
 
 with open('config.vars') as configfile:
     config = dict([(line.rstrip().split('=', 1)) for line in configfile])
@@ -5027,19 +5029,28 @@ class LightningDTests(BaseLightningDTests):
                       'channel': chanid1,
                       'realm': 254}]
 
-        #FIXME: remove once no longer needed
-        def enableScript(scriptFile):
-            ownpath = os.path.abspath(os.path.dirname(__file__))
-            destination = os.path.join(l2.daemon.lightning_dir, 'handle_payment')
-            shutil.copy(
-                os.path.join(ownpath, 'app_scripts', scriptFile),
-                destination
-                )
-            os.chmod(destination, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
-
         l1.rpc.sendpay(to_json(route), rhash)
         l2.daemon.wait_for_log('App connection is not active')
         self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
+
+        class SimpleAppConnection(AppConnection):
+            def __init__(self, *args, **kwargs):
+                AppConnection.__init__(self, *args, **kwargs)
+                self.received = False
+            def handle_payment(self):
+                self.received = True
+                self.close()
+
+        app_connection = SimpleAppConnection(
+            os.path.join(l2.daemon.lightning_dir, 'app-connection')
+            )
+
+        l1.rpc.sendpay(to_json(route), rhash)
+        asyncore.loop(timeout=utils.TIMEOUT) #Processes app_connection events
+        self.assertTrue(app_connection.received)
+        #self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
+
+
 
 
 if __name__ == '__main__':

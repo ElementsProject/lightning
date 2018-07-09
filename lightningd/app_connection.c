@@ -13,18 +13,7 @@
 struct app_connection {
 	/* The global state */
 	struct lightningd *ld;
-
-	/* The buffer (required to interpret tokens). */
-	char *buffer;
-
-	/* Internal state: */
-	/* How much is already filled. */
-	size_t used;
-	/* How much has just been filled. */
-	size_t len_read;
-
-	/* We've been told to stop. */
-	bool stop;
+	int fd;
 };
 
 void handle_app_payment(
@@ -45,27 +34,9 @@ void handle_app_payment(
 	}
 
 	//FIXME: write request to connection
-	io_wake(appcon);
+	write(appcon->fd, "Hello world", 11);
+	//FIXME: read response from connection
 	*failcode = 0;
-}
-
-static struct io_plan *write_app(struct io_conn *conn,
-				  struct app_connection *appcon)
-{
-	return NULL; //FIXME
-}
-
-static struct io_plan *read_app(struct io_conn *conn,
-				 struct app_connection *appcon)
-{
-	return NULL; //FIXME
-}
-
-static void destroy_appcon(struct app_connection *appcon)
-{
-	//un-register the connection in ld
-	log_debug(appcon->ld->log, "Disconnected app");
-	appcon->ld->app_connection = NULL;
 }
 
 static struct io_plan *app_connected(struct io_conn *conn,
@@ -73,23 +44,18 @@ static struct io_plan *app_connected(struct io_conn *conn,
 {
 	struct app_connection *appcon;
 
-	appcon = tal(conn, struct app_connection);
-	appcon->ld = ld;
-	appcon->used = 0;
-	appcon->buffer = tal_arr(appcon, char, 64);
-	appcon->stop = false;
+	//FIXME: refuse connections if we already have one, or support multiple
+	//FIXME: handle closing of existing connection
 
-	tal_add_destructor(appcon, destroy_appcon);
+	appcon = tal(ld, struct app_connection);
+	appcon->ld = ld;
+	appcon->fd = io_conn_fd(conn);
 
 	//Register appcon in ld
 	log_debug(ld->log, "Connected app");
 	ld->app_connection = appcon;
 
-	return io_duplex(conn,
-			 io_read_partial(conn, appcon->buffer,
-					 tal_count(appcon->buffer),
-					 &appcon->len_read, read_app, appcon),
-			 write_app(conn, appcon));
+	return io_close_taken_fd(conn);
 }
 
 static struct io_plan *incoming_app_connected(struct io_conn *conn,

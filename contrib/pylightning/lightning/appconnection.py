@@ -16,6 +16,8 @@ class AppConnection(asyncore.dispatcher_with_send):
     def handle_read(self):
         data = self.recv(1024)
         self.logger.debug('Received: ' + repr(data))
+        #FIXME: actually read and parse data
+        self.handle_payment()
 
     def handle_payment(self):
         pass #to be replaced in derived classes

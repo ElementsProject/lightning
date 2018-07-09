@@ -328,7 +328,7 @@ int main(int argc, char *argv[])
 	signal(SIGPIPE, SIG_IGN);
 
 	/* Setup the app connection, if any */
-	setup_app_connection(ld, ""); //FIXME
+	setup_app_connection(ld, "app-connection"); //FIXME: get from configuration
 
 	/* Make sure we can reach other daemons, and versions match. */
 	test_daemons(ld);
