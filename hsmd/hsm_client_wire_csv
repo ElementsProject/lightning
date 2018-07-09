@@ -15,7 +15,9 @@ hsm_init_reply,,bip32,struct ext_key
 
 # Get a new HSM FD, with the specified capabilities
 hsm_client_hsmfd,9
-hsm_client_hsmfd,,pubkey,struct pubkey # Which identity to report for requests
+hsm_client_hsmfd,,pubkey,struct pubkey  # Which identity to use for requests
+# Database id for this client, if any.
+hsm_client_hsmfd,,dbid,u64
 hsm_client_hsmfd,,capabilities,u64
 
 # No content, just an fd.

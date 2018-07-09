@@ -193,7 +193,9 @@ bool peer_start_channeld(struct channel *channel,
 	const struct config *cfg = &ld->config;
 	bool reached_announce_depth;
 
-	msg = towire_hsm_client_hsmfd(tmpctx, &channel->peer->id, HSM_CAP_SIGN_GOSSIP | HSM_CAP_ECDH);
+	msg = towire_hsm_client_hsmfd(tmpctx, &channel->peer->id,
+				      channel->dbid,
+				      HSM_CAP_SIGN_GOSSIP | HSM_CAP_ECDH);
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 

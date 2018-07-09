@@ -211,7 +211,7 @@ void gossip_init(struct lightningd *ld)
 		allow_localhost = true;
 #endif
 
-	msg = towire_hsm_client_hsmfd(tmpctx, &ld->id, capabilities);
+	msg = towire_hsm_client_hsmfd(tmpctx, &ld->id, 0, capabilities);
 	if (!wire_sync_write(ld->hsm_fd, msg))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
