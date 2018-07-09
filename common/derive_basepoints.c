@@ -51,11 +51,14 @@ bool derive_basepoints(const struct secret *seed,
 }
 
 void per_commit_secret(const struct sha256 *shaseed,
-		       struct sha256 *commit_secret,
+		       struct secret *commit_secret,
 		       u64 per_commit_index)
 {
-	shachain_from_seed(shaseed, shachain_index(per_commit_index),
-			   commit_secret);
+	struct sha256 s;
+	shachain_from_seed(shaseed, shachain_index(per_commit_index), &s);
+
+	BUILD_ASSERT(sizeof(s) == sizeof(*commit_secret));
+	memcpy(commit_secret, &s, sizeof(s));
 }
 
 bool per_commit_point(const struct sha256 *shaseed,

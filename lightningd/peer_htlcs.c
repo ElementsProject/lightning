@@ -1245,7 +1245,7 @@ void update_per_commit_point(struct channel *channel,
 void peer_got_revoke(struct channel *channel, const u8 *msg)
 {
 	u64 revokenum;
-	struct sha256 per_commitment_secret;
+	struct secret per_commitment_secret;
 	struct pubkey next_per_commitment_point;
 	struct changed_htlc *changed;
 	enum onion_type *failcodes;
@@ -1307,7 +1307,7 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 				      &per_commitment_secret)) {
 		channel_fail_permanent(channel,
 				    "Bad per_commitment_secret %s for %"PRIu64,
-				    type_to_string(msg, struct sha256,
+				    type_to_string(msg, struct secret,
 						   &per_commitment_secret),
 				    revokenum);
 		return;

@@ -45,7 +45,7 @@ bool derive_basepoints(const struct secret *seed,
  * @per_commit_index: (in) which @commit_secret to return.
  */
 void per_commit_secret(const struct sha256 *shaseed,
-		       struct sha256 *commit_secret,
+		       struct secret *commit_secret,
 		       u64 per_commit_index);
 
 /**

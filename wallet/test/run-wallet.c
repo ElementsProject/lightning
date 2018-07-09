@@ -599,6 +599,7 @@ static bool test_shachain_crud(struct lightningd *ld, const tal_t *ctx)
 	struct wallet_shachain a, b;
 	struct wallet *w = create_test_wallet(ld, ctx);
 	struct sha256 seed, hash;
+	struct secret secret;
 	uint64_t index = UINT64_MAX >> (64 - SHACHAIN_BITS);
 
 	memset(&seed, 'A', sizeof(seed));
@@ -617,7 +618,8 @@ static bool test_shachain_crud(struct lightningd *ld, const tal_t *ctx)
 
 	for (int i=0; i<100; i++) {
 		shachain_from_seed(&seed, index, &hash);
-		CHECK(wallet_shachain_add_hash(w, &a, index, &hash));
+		memcpy(&secret, &hash, sizeof(secret));
+		CHECK(wallet_shachain_add_hash(w, &a, index, &secret));
 		index--;
 	}
 
