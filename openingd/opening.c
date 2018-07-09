@@ -550,7 +550,7 @@ static u8 *fundee_channel(struct state *state,
 	struct basepoints theirs;
 	struct pubkey their_funding_pubkey;
 	secp256k1_ecdsa_signature theirsig, sig;
-	struct bitcoin_tx *their_commit, *our_commit;
+	struct bitcoin_tx *local_commit, *remote_commit;
 	struct bitcoin_blkid chain_hash;
 	u8 *msg;
 	const u8 *wscript;
@@ -736,20 +736,20 @@ static u8 *fundee_channel(struct state *state,
 	 *   - if `signature` is incorrect:
 	 *     - MUST fail the channel.
 	 */
-	their_commit = initial_channel_tx(state, &wscript, state->channel,
+	local_commit = initial_channel_tx(state, &wscript, state->channel,
 					  &state->next_per_commit[LOCAL], LOCAL);
-	if (!their_commit)
+	if (!local_commit)
 		negotiation_failed(state,
 				   "Could not meet our fees and reserve");
 
-	if (!check_tx_sig(their_commit, 0, NULL, wscript, &their_funding_pubkey,
+	if (!check_tx_sig(local_commit, 0, NULL, wscript, &their_funding_pubkey,
 			  &theirsig)) {
 		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "Bad signature %s on tx %s using key %s",
 			    type_to_string(tmpctx, secp256k1_ecdsa_signature,
 					   &theirsig),
-			    type_to_string(tmpctx, struct bitcoin_tx, their_commit),
+			    type_to_string(tmpctx, struct bitcoin_tx, local_commit),
 			    type_to_string(tmpctx, struct pubkey,
 					   &their_funding_pubkey));
 	}
@@ -772,13 +772,14 @@ static u8 *fundee_channel(struct state *state,
 	 * commitment transaction, so it can broadcast the transaction knowing
 	 * that funds can be redeemed, if need be.
 	 */
-	our_commit = initial_channel_tx(state, &wscript, state->channel,
-					&state->next_per_commit[REMOTE], REMOTE);
-	if (!our_commit)
+	remote_commit = initial_channel_tx(state, &wscript, state->channel,
+					   &state->next_per_commit[REMOTE],
+					   REMOTE);
+	if (!remote_commit)
 		negotiation_failed(state,
 				   "Could not meet their fees and reserve");
 
-	sign_tx_input(our_commit, 0, NULL, wscript,
+	sign_tx_input(remote_commit, 0, NULL, wscript,
 		      &state->our_secrets.funding_privkey,
 		      our_funding_pubkey, &sig);
 
@@ -788,7 +789,7 @@ static u8 *fundee_channel(struct state *state,
 
 	return towire_opening_fundee_reply(state,
 					   state->remoteconf,
-					   their_commit,
+					   local_commit,
 					   &theirsig,
 					   &state->cs,
 					   &theirs.revocation,
