@@ -1,5 +1,6 @@
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
+#include <common/derive_basepoints.h>
 
 # Begin!  (passes gossipd-client fd)
 channel_init,1000
@@ -16,10 +17,7 @@ channel_init,,feerate_max,u32
 channel_init,,first_commit_sig,secp256k1_ecdsa_signature
 channel_init,,crypto_state,struct crypto_state
 channel_init,,remote_fundingkey,struct pubkey
-channel_init,,remote_revocation_basepoint,struct pubkey
-channel_init,,remote_payment_basepoint,struct pubkey
-channel_init,,remote_htlc_basepoint,struct pubkey
-channel_init,,remote_delayed_payment_basepoint,struct pubkey
+channel_init,,remote_basepoints,struct basepoints
 channel_init,,remote_per_commit,struct pubkey
 channel_init,,old_remote_per_commit,struct pubkey
 channel_init,,funder,enum side

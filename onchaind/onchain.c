@@ -2136,11 +2136,9 @@ int main(int argc, char *argv[])
 	const tal_t *ctx = tal(NULL, char);
 	u8 *msg;
 	struct secret seed;
-	struct pubkey remote_payment_basepoint, remote_htlc_basepoint,
-		remote_per_commit_point, old_remote_per_commit_point,
-		remote_revocation_basepoint, remote_delayed_payment_basepoint;
+	struct pubkey remote_per_commit_point, old_remote_per_commit_point;
 	enum side funder;
-	struct basepoints basepoints;
+	struct basepoints basepoints, remote_basepoints;
 	struct shachain shachain;
 	struct bitcoin_tx *tx;
 	struct secrets secrets;
@@ -2170,15 +2168,12 @@ int main(int argc, char *argv[])
 				   &to_self_delay[REMOTE],
 				   &feerate_per_kw,
 				   &dust_limit_satoshis,
-				   &remote_revocation_basepoint,
 				   &our_broadcast_txid,
 				   &scriptpubkey[LOCAL],
 				   &scriptpubkey[REMOTE],
 				   &our_wallet_pubkey,
 				   &funder,
-				   &remote_payment_basepoint,
-				   &remote_htlc_basepoint,
-				   &remote_delayed_payment_basepoint,
+				   &remote_basepoints,
 				   &tx,
 				   &tx_blockheight,
 				   &reasonable_depth,
@@ -2246,7 +2241,7 @@ int main(int argc, char *argv[])
 		struct sha256 revocation_preimage;
 		u64 commit_num = unmask_commit_number(tx, funder,
 						      &basepoints.payment,
-						      &remote_payment_basepoint);
+						      &remote_basepoints.payment);
 
 		status_trace("commitnum = %"PRIu64
 			     ", revocations_received = %"PRIu64,
@@ -2256,10 +2251,10 @@ int main(int argc, char *argv[])
 			handle_our_unilateral(tx, tx_blockheight, &txid,
 					      &secrets,
 					      &shaseed,
-					      &remote_revocation_basepoint,
-					      &remote_payment_basepoint,
+					      &remote_basepoints.revocation,
+					      &remote_basepoints.payment,
 					      &basepoints.payment,
-					      &remote_htlc_basepoint,
+					      &remote_basepoints.htlc,
 					      &basepoints.htlc,
 					      &basepoints.delayed_payment,
 					      commit_num,
@@ -2283,10 +2278,10 @@ int main(int argc, char *argv[])
 					   &secrets,
 					   &basepoints.revocation,
 					   &basepoints.payment,
-					   &remote_payment_basepoint,
+					   &remote_basepoints.payment,
 					   &basepoints.htlc,
-					   &remote_htlc_basepoint,
-					   &remote_delayed_payment_basepoint,
+					   &remote_basepoints.htlc,
+					   &remote_basepoints.delayed_payment,
 					   commit_num,
 					   htlcs,
 					   tell_if_missing, tell_immediately,
@@ -2307,10 +2302,10 @@ int main(int argc, char *argv[])
 						&old_remote_per_commit_point,
 						&basepoints.revocation,
 						&basepoints.payment,
-						&remote_payment_basepoint,
-						&remote_htlc_basepoint,
+						&remote_basepoints.payment,
+						&remote_basepoints.htlc,
 						&basepoints.htlc,
-						&remote_delayed_payment_basepoint,
+						&remote_basepoints.delayed_payment,
 						commit_num,
 						htlcs,
 						tell_if_missing,
@@ -2323,10 +2318,10 @@ int main(int argc, char *argv[])
 						&remote_per_commit_point,
 						&basepoints.revocation,
 						&basepoints.payment,
-						&remote_payment_basepoint,
-						&remote_htlc_basepoint,
+						&remote_basepoints.payment,
+						&remote_basepoints.htlc,
 						&basepoints.htlc,
-						&remote_delayed_payment_basepoint,
+						&remote_basepoints.delayed_payment,
 						commit_num,
 						htlcs,
 						tell_if_missing,
