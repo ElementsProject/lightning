@@ -30,12 +30,19 @@ class AppConnection(asyncore.dispatcher_with_send):
         self.read_buffer = self.read_buffer[end_index:]
 
         #FIXME: check method name (must be handle_payment)
-        ret = self.handle_payment(**obj['params'])
+        #FIXME: handle exceptions in handle_payment
+        result = self.handle_payment(**obj['params'])
 
-        #FIXME: send the return data back
+        s = json.dumps({'id': obj['id'], 'result': result})
+        self.send(bytearray(s, 'UTF-8'))
 
+
+    #return values for handle_payment:
+    PAYMENT_KEEP   = 1 #Keep the payment for now       (we may have a way to get the preimage)
+    PAYMENT_REJECT = 0 #Reject the payment immediately (we don't have a way to get the preimage)
 
     def handle_payment(self, realm):
         #to be replaced in derived classes
-        #FIXME: by default, cancel a transaction
-        pass
+        #By default, cancel a transaction immediately
+        return AppConnection.PAYMENT_REJECT
+

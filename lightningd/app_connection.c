@@ -12,6 +12,15 @@
 #include <string.h>
 #include <unistd.h>
 
+enum app_result_type {
+	/* Reject the payment immediately */
+	PAYMENT_REJECT = 0,
+	/* Keep the payment for now */
+	PAYMENT_KEEP = 1,
+	/* There was a connection error */
+	PAYMENT_CONNECTION_ERROR = 3,
+};
+
 struct app_connection {
 	/* The global state */
 	struct lightningd *ld;
@@ -29,6 +38,20 @@ static bool write_all(int fd, const void *buf, size_t count)
 	return true;
 }
 
+static enum app_result_type read_app_response(const struct app_connection *appcon)
+{
+	//FIXME: parse response from connection
+
+	//Dummy read: continue until closing }
+	char c = '\0';
+	while(true) {
+		read(appcon->fd, &c, 1);
+		if(c == '}') break;
+	}
+
+	return PAYMENT_REJECT;
+}
+
 void handle_app_payment(
 	enum onion_type *failcode,
 	const struct htlc_in *hin,
@@ -42,7 +65,7 @@ void handle_app_payment(
 	log_debug(log, "Using app connection to handle the payment");
 
 	if(!appcon) {
-		log_debug(log, "App connection is not active");
+		log_debug(log, "App connection is not active: rejecting the payment");
 		*failcode = WIRE_INVALID_REALM;
 		return;
 	}
@@ -64,8 +87,23 @@ void handle_app_payment(
 		return;
 	}
 
-	//FIXME: read response from connection
-	*failcode = 0;
+	//Read response from the socket
+	switch(read_app_response(appcon))
+	{
+	case PAYMENT_REJECT:
+		log_debug(log, "App rejected the payment");
+		*failcode = WIRE_INVALID_REALM;
+		break;
+	case PAYMENT_KEEP:
+		log_debug(log, "App accepted the payment");
+		*failcode = 0;
+		break;
+	case PAYMENT_CONNECTION_ERROR:
+		log_debug(log, "App connection error: accepting the payment for now");
+		//FIXME: proper handling, e.g. closing the app connection
+		*failcode = 0;
+		break;
+	}
 }
 
 static struct io_plan *app_connected(struct io_conn *conn,

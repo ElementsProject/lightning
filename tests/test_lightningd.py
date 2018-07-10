@@ -5030,7 +5030,7 @@ class LightningDTests(BaseLightningDTests):
                       'realm': 254}]
 
         l1.rpc.sendpay(to_json(route), rhash)
-        l2.daemon.wait_for_log('App connection is not active')
+        l2.daemon.wait_for_log('App connection is not active: rejecting the payment')
         self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
 
         class SimpleAppConnection(AppConnection):
@@ -5039,16 +5039,16 @@ class LightningDTests(BaseLightningDTests):
                 self.realm = None
             def handle_payment(self, realm):
                 self.realm = realm
-                self.close()
+                return AppConnection.PAYMENT_REJECT
 
         app_connection = SimpleAppConnection(
             os.path.join(l2.daemon.lightning_dir, 'app-connection')
             )
 
         l1.rpc.sendpay(to_json(route), rhash)
-        asyncore.loop(timeout=utils.TIMEOUT) #Processes app_connection events
+        asyncore.loop(timeout=5, count=1) #Processes app_connection event
         self.assertEqual(app_connection.realm, 254)
-        #self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
+        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
 
 
 
