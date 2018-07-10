@@ -50,6 +50,10 @@ static enum app_result_type read_app_response(const struct app_connection *appco
 	jsmntok_t *toks;
 	bool valid;
 
+	const jsmntok_t *result;
+
+	unsigned int ret;
+
 	/* Keep reading until we have a valid JSON object */
 	while (true) {
 		size_t remaining_space = tal_count(buffer) - used;
@@ -92,9 +96,34 @@ static enum app_result_type read_app_response(const struct app_connection *appco
 	we do.
 	*/
 
-	//FIXME: actually read the result from the JSON data
+	if (toks[0].type != JSMN_OBJECT) {
+		//FIXME: proper logging
+		return PAYMENT_CONNECTION_ERROR;
+	}
 
-	return PAYMENT_REJECT;
+	//FIXME: check that "id" exists and corresponds to the call
+
+	result = json_get_member(buffer, toks, "result");
+	if (!result) {
+		//FIXME: proper logging
+		return PAYMENT_CONNECTION_ERROR;
+	}
+
+	if (!json_tok_number(buffer, result, &ret)) {
+		//FIXME: proper logging
+		return PAYMENT_CONNECTION_ERROR;
+	}
+
+	//A small firewall to only forward recognized values:
+	switch(ret) {
+	case PAYMENT_REJECT:
+	case PAYMENT_KEEP:
+		return ret;
+	}
+
+	//Pass-through for other, invalid values
+	//FIXME: proper logging
+	return PAYMENT_CONNECTION_ERROR;
 }
 
 void handle_app_payment(
@@ -133,8 +162,7 @@ void handle_app_payment(
 	}
 
 	//Read response from the socket
-	switch(read_app_response(appcon))
-	{
+	switch (read_app_response(appcon)) {
 	case PAYMENT_REJECT:
 		log_debug(log, "App rejected the payment");
 		*failcode = WIRE_INVALID_REALM;
