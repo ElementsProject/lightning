@@ -5,6 +5,7 @@
 #include <lightningd/app_connection.h>
 #include <lightningd/channel.h>
 #include <lightningd/htlc_end.h>
+#include <lightningd/json.h>
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
 #include <sys/types.h>
@@ -40,14 +41,58 @@ static bool write_all(int fd, const void *buf, size_t count)
 
 static enum app_result_type read_app_response(const struct app_connection *appcon)
 {
-	//FIXME: parse response from connection
+	/* The buffer (required to interpret tokens). */
+	char *buffer = tal_arr(tmpctx, char, 64);
 
-	//Dummy read: continue until closing }
-	char c = '\0';
-	while(true) {
-		read(appcon->fd, &c, 1);
-		if(c == '}') break;
+	/* How much is already filled. */
+	size_t used = 0;
+
+	jsmntok_t *toks;
+	bool valid;
+
+	/* Keep reading until we have a valid JSON object */
+	while (true) {
+		size_t remaining_space = tal_count(buffer) - used;
+
+		ssize_t num_read = read(appcon->fd, buffer + used, remaining_space);
+		if (num_read < 0) {
+			//FIXME: proper logging
+			return PAYMENT_CONNECTION_ERROR;
+		}
+		used += num_read;
+		remaining_space -= num_read;
+
+		toks = json_parse_input(buffer, used, &valid);
+		if (toks) {
+			if (tal_count(toks) == 1) {
+				/* Empty buffer? (eg. just whitespace). */
+				used = 0;
+			} else {
+				/* We have what we want */
+				break;
+			}
+		}
+
+		if (!valid) {
+			//FIXME: proper logging
+			return PAYMENT_CONNECTION_ERROR;
+		}
+
+		/* We may need to allocate more space for the rest. */
+		if (!remaining_space) {
+			tal_resize(&buffer, used * 2);
+		}
 	}
+
+	/* FIXME: We may have read more than just the reponse we expect.
+	This data is ignored; maybe this is not desired behavior.
+
+	It should not be a problem, if the app behaves normally, that is,
+	if the only data it ever sends is a single reply object after every call
+	we do.
+	*/
+
+	//FIXME: actually read the result from the JSON data
 
 	return PAYMENT_REJECT;
 }
