@@ -18,7 +18,18 @@ struct app_connection {
 	struct lightningd *ld;
 	struct log *log;
 	int fd;
+
+	/* We've been told to stop. */
+	bool stop;
 };
+
+static void close_app_connection(const struct app_connection *appcon)
+{
+	close(appcon->fd);
+	appcon->ld->app_connection = NULL;
+	tal_free(appcon);
+	log_debug(appcon->log, "App connection closed");
+}
 
 static bool write_all(int fd, const void *buf, size_t count)
 {
@@ -31,7 +42,7 @@ static bool write_all(int fd, const void *buf, size_t count)
 	return true;
 }
 
-static enum onion_type read_app_response(const struct app_connection *appcon)
+static enum onion_type read_app_response(struct app_connection *appcon)
 {
 	/* The buffer (required to interpret tokens). */
 	char *buffer = tal_arr(tmpctx, char, 64);
@@ -114,7 +125,9 @@ static enum onion_type read_app_response(const struct app_connection *appcon)
 	return ret;
 
 connection_error:
-	//FIXME: proper handling, e.g. closing the app connection
+	log_debug(appcon->log,
+		"Will close the app connection because of a previously encountered error");
+	appcon->stop = true;
 
 	//For now, we don't know whether the app has processed the transaction,
 	//so don't return an error:
@@ -135,7 +148,7 @@ void handle_app_payment(
 	if (!appcon) {
 		log_debug(ld->log, "App connection is not active: rejecting the payment");
 		*failcode = WIRE_INVALID_REALM;
-		return;
+		goto end;
 	}
 
 	// Write the command to the socket
@@ -149,10 +162,10 @@ void handle_app_payment(
 		rs->hop_data.realm
 		);
 	if (!write_all(appcon->fd, command, strlen(command))) {
-		//FIXME: proper handling, e.g. closing the app connection
 		log_debug(appcon->log, "Failed to write command to app connection socket");
-		*failcode = WIRE_INVALID_REALM;
-		return;
+		appcon->stop = true;
+		*failcode = WIRE_TEMPORARY_NODE_FAILURE;
+		goto end;
 	}
 
 	//Read response from the socket
@@ -163,6 +176,10 @@ void handle_app_payment(
 	} else {
 		log_debug(appcon->log, "App accepted the payment");
 	}
+
+end:
+	if (appcon && appcon->stop)
+		close_app_connection(appcon);
 }
 
 static struct io_plan *app_connected(struct io_conn *conn,
@@ -177,6 +194,7 @@ static struct io_plan *app_connected(struct io_conn *conn,
 	appcon->ld = ld;
 	appcon->log = ld->log; //FIXME: maybe we want it to have its own log?
 	appcon->fd = io_conn_fd(conn);
+	appcon->stop = false;
 
 	//Register appcon in ld
 	log_debug(appcon->log, "Connected app");
