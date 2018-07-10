@@ -31,7 +31,7 @@ struct app_connection {
 
 static bool write_all(int fd, const void *buf, size_t count)
 {
-	while(count) {
+	while (count) {
 		ssize_t written = write(fd, buf, count);
 		if(written < 0) return false;
 		buf += written;
@@ -144,7 +144,7 @@ void handle_app_payment(
 
 	log_debug(ld->log, "Using app connection to handle the payment");
 
-	if(!appcon) {
+	if (!appcon) {
 		log_debug(ld->log, "App connection is not active: rejecting the payment");
 		*failcode = WIRE_INVALID_REALM;
 		return;
@@ -160,7 +160,7 @@ void handle_app_payment(
 		"\"id\": 0}",
 		rs->hop_data.realm
 		);
-	if(!write_all(appcon->fd, command, strlen(command))) {
+	if (!write_all(appcon->fd, command, strlen(command))) {
 		//FIXME: proper handling, e.g. closing the app connection
 		log_debug(appcon->log, "Failed to write command to app connection socket");
 		*failcode = WIRE_INVALID_REALM;
