@@ -5039,7 +5039,7 @@ class LightningDTests(BaseLightningDTests):
                 self.realm = None
             def handle_payment(self, realm):
                 self.realm = realm
-                return AppConnection.PAYMENT_REJECT
+                return AppConnection.PERMANENT_NODE_FAILURE
 
         app_connection = SimpleAppConnection(
             os.path.join(l2.daemon.lightning_dir, 'app-connection')

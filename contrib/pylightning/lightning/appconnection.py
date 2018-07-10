@@ -37,12 +37,20 @@ class AppConnection(asyncore.dispatcher_with_send):
         self.send(bytearray(s, 'UTF-8'))
 
 
+    BADONION = 0x8000
+    PERM     = 0x4000
+    NODE     = 0x2000
+    UPDATE   = 0x1000
+
     #return values for handle_payment:
-    PAYMENT_KEEP   = 1 #Keep the payment for now       (we may have a way to get the preimage)
-    PAYMENT_REJECT = 0 #Reject the payment immediately (we don't have a way to get the preimage)
+    OK                     = 0
+    INVALID_REALM          = PERM|1
+    TEMPORARY_NODE_FAILURE = NODE|2
+    PERMANENT_NODE_FAILURE = PERM|NODE|2
+    #FIXME: add the rest (see BOLT #4)
 
     def handle_payment(self, realm):
         #to be replaced in derived classes
-        #By default, cancel a transaction immediately
-        return AppConnection.PAYMENT_REJECT
+        #By default, fail a transaction immediately
+        return AppConnection.PERMANENT_NODE_FAILURE
 

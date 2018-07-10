@@ -13,15 +13,6 @@
 #include <string.h>
 #include <unistd.h>
 
-enum app_result_type {
-	/* Reject the payment immediately */
-	PAYMENT_REJECT = 0,
-	/* Keep the payment for now */
-	PAYMENT_KEEP = 1,
-	/* There was a connection error */
-	PAYMENT_CONNECTION_ERROR = 3,
-};
-
 struct app_connection {
 	/* The global state */
 	struct lightningd *ld;
@@ -40,7 +31,7 @@ static bool write_all(int fd, const void *buf, size_t count)
 	return true;
 }
 
-static enum app_result_type read_app_response(const struct app_connection *appcon)
+static enum onion_type read_app_response(const struct app_connection *appcon)
 {
 	/* The buffer (required to interpret tokens). */
 	char *buffer = tal_arr(tmpctx, char, 64);
@@ -64,7 +55,7 @@ static enum app_result_type read_app_response(const struct app_connection *appco
 			log_unusual(appcon->log,
 				"Received error code %zd when reading from the app connection",
 				num_read);
-			return PAYMENT_CONNECTION_ERROR;
+			goto connection_error;
 		}
 		used += num_read;
 		remaining_space -= num_read;
@@ -84,7 +75,7 @@ static enum app_result_type read_app_response(const struct app_connection *appco
 			log_unusual(appcon->log,
 				"Invalid token in app connection input: '%.*s'",
 				(int)used, buffer);
-			return PAYMENT_CONNECTION_ERROR;
+			goto connection_error;
 		}
 
 		/* We may need to allocate more space for the rest. */
@@ -103,7 +94,7 @@ static enum app_result_type read_app_response(const struct app_connection *appco
 
 	if (toks[0].type != JSMN_OBJECT) {
 		log_unusual(appcon->log, "Expected {} for app connection result");
-		return PAYMENT_CONNECTION_ERROR;
+		goto connection_error;
 	}
 
 	//FIXME: check that "id" exists and corresponds to the call
@@ -111,26 +102,23 @@ static enum app_result_type read_app_response(const struct app_connection *appco
 	result = json_get_member(buffer, toks, "result");
 	if (!result) {
 		log_unusual(appcon->log, "No \"result\" element in app connection result");
-		return PAYMENT_CONNECTION_ERROR;
+		goto connection_error;
 	}
 
 	if (!json_tok_number(buffer, result, &ret)) {
 		log_unusual(appcon->log,
 			"\"result\" element in app connection result is not a number");
-		return PAYMENT_CONNECTION_ERROR;
+		goto connection_error;
 	}
 
-	//A small firewall to only forward recognized values:
-	switch(ret) {
-	case PAYMENT_REJECT:
-	case PAYMENT_KEEP:
-		return ret;
-	}
+	return ret;
 
-	//Pass-through for other, invalid values
-	log_unusual(appcon->log,
-		"\"result\" element in app connection result has an unrecognized value");
-	return PAYMENT_CONNECTION_ERROR;
+connection_error:
+	//FIXME: proper handling, e.g. closing the app connection
+
+	//For now, we don't know whether the app has processed the transaction,
+	//so don't return an error:
+	return 0;
 }
 
 void handle_app_payment(
@@ -168,20 +156,12 @@ void handle_app_payment(
 	}
 
 	//Read response from the socket
-	switch (read_app_response(appcon)) {
-	case PAYMENT_REJECT:
-		log_debug(appcon->log, "App rejected the payment");
-		*failcode = WIRE_INVALID_REALM;
-		break;
-	case PAYMENT_KEEP:
+	*failcode = read_app_response(appcon);
+	if (*failcode) {
+		log_debug(appcon->log,
+			"App rejected the payment with code %d", *failcode);
+	} else {
 		log_debug(appcon->log, "App accepted the payment");
-		*failcode = 0;
-		break;
-	case PAYMENT_CONNECTION_ERROR:
-		log_debug(appcon->log, "App connection error: accepting the payment for now");
-		//FIXME: proper handling, e.g. closing the app connection
-		*failcode = 0;
-		break;
 	}
 }
 
