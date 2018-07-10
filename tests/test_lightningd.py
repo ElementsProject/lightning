@@ -5036,9 +5036,9 @@ class LightningDTests(BaseLightningDTests):
         class SimpleAppConnection(AppConnection):
             def __init__(self, *args, **kwargs):
                 AppConnection.__init__(self, *args, **kwargs)
-                self.received = False
-            def handle_payment(self):
-                self.received = True
+                self.realm = None
+            def handle_payment(self, realm):
+                self.realm = realm
                 self.close()
 
         app_connection = SimpleAppConnection(
@@ -5047,7 +5047,7 @@ class LightningDTests(BaseLightningDTests):
 
         l1.rpc.sendpay(to_json(route), rhash)
         asyncore.loop(timeout=utils.TIMEOUT) #Processes app_connection events
-        self.assertTrue(app_connection.received)
+        self.assertEqual(app_connection.realm, 254)
         #self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
 
 
