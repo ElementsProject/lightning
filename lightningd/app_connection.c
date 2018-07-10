@@ -25,6 +25,7 @@ enum app_result_type {
 struct app_connection {
 	/* The global state */
 	struct lightningd *ld;
+	struct log *log;
 	int fd;
 };
 
@@ -60,7 +61,9 @@ static enum app_result_type read_app_response(const struct app_connection *appco
 
 		ssize_t num_read = read(appcon->fd, buffer + used, remaining_space);
 		if (num_read < 0) {
-			//FIXME: proper logging
+			log_unusual(appcon->log,
+				"Received error code %zd when reading from the app connection",
+				num_read);
 			return PAYMENT_CONNECTION_ERROR;
 		}
 		used += num_read;
@@ -78,7 +81,9 @@ static enum app_result_type read_app_response(const struct app_connection *appco
 		}
 
 		if (!valid) {
-			//FIXME: proper logging
+			log_unusual(appcon->log,
+				"Invalid token in app connection input: '%.*s'",
+				(int)used, buffer);
 			return PAYMENT_CONNECTION_ERROR;
 		}
 
@@ -97,7 +102,7 @@ static enum app_result_type read_app_response(const struct app_connection *appco
 	*/
 
 	if (toks[0].type != JSMN_OBJECT) {
-		//FIXME: proper logging
+		log_unusual(appcon->log, "Expected {} for app connection result");
 		return PAYMENT_CONNECTION_ERROR;
 	}
 
@@ -105,12 +110,13 @@ static enum app_result_type read_app_response(const struct app_connection *appco
 
 	result = json_get_member(buffer, toks, "result");
 	if (!result) {
-		//FIXME: proper logging
+		log_unusual(appcon->log, "No \"result\" element in app connection result");
 		return PAYMENT_CONNECTION_ERROR;
 	}
 
 	if (!json_tok_number(buffer, result, &ret)) {
-		//FIXME: proper logging
+		log_unusual(appcon->log,
+			"\"result\" element in app connection result is not a number");
 		return PAYMENT_CONNECTION_ERROR;
 	}
 
@@ -122,7 +128,8 @@ static enum app_result_type read_app_response(const struct app_connection *appco
 	}
 
 	//Pass-through for other, invalid values
-	//FIXME: proper logging
+	log_unusual(appcon->log,
+		"\"result\" element in app connection result has an unrecognized value");
 	return PAYMENT_CONNECTION_ERROR;
 }
 
@@ -131,15 +138,14 @@ void handle_app_payment(
 	const struct htlc_in *hin,
 	const struct route_step *rs)
 {
-	struct log *log = hin->key.channel->log;
 	struct lightningd *ld = hin->key.channel->peer->ld;
 	struct app_connection *appcon = ld->app_connection;
 	char *command;
 
-	log_debug(log, "Using app connection to handle the payment");
+	log_debug(ld->log, "Using app connection to handle the payment");
 
 	if(!appcon) {
-		log_debug(log, "App connection is not active: rejecting the payment");
+		log_debug(ld->log, "App connection is not active: rejecting the payment");
 		*failcode = WIRE_INVALID_REALM;
 		return;
 	}
@@ -156,7 +162,7 @@ void handle_app_payment(
 		);
 	if(!write_all(appcon->fd, command, strlen(command))) {
 		//FIXME: proper handling, e.g. closing the app connection
-		log_debug(log, "Failed to write command to app connection socket");
+		log_debug(appcon->log, "Failed to write command to app connection socket");
 		*failcode = WIRE_INVALID_REALM;
 		return;
 	}
@@ -164,15 +170,15 @@ void handle_app_payment(
 	//Read response from the socket
 	switch (read_app_response(appcon)) {
 	case PAYMENT_REJECT:
-		log_debug(log, "App rejected the payment");
+		log_debug(appcon->log, "App rejected the payment");
 		*failcode = WIRE_INVALID_REALM;
 		break;
 	case PAYMENT_KEEP:
-		log_debug(log, "App accepted the payment");
+		log_debug(appcon->log, "App accepted the payment");
 		*failcode = 0;
 		break;
 	case PAYMENT_CONNECTION_ERROR:
-		log_debug(log, "App connection error: accepting the payment for now");
+		log_debug(appcon->log, "App connection error: accepting the payment for now");
 		//FIXME: proper handling, e.g. closing the app connection
 		*failcode = 0;
 		break;
@@ -189,10 +195,11 @@ static struct io_plan *app_connected(struct io_conn *conn,
 
 	appcon = tal(ld, struct app_connection);
 	appcon->ld = ld;
+	appcon->log = ld->log; //FIXME: maybe we want it to have its own log?
 	appcon->fd = io_conn_fd(conn);
 
 	//Register appcon in ld
-	log_debug(ld->log, "Connected app");
+	log_debug(appcon->log, "Connected app");
 	ld->app_connection = appcon;
 
 	return io_close_taken_fd(conn);
