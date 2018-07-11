@@ -80,6 +80,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	timers_init(&ld->timers, time_mono());
 	ld->topology = new_topology(ld, ld->log);
 	ld->daemon = false;
+	ld->config_filename = NULL;
 	ld->pidfile = NULL;
 	ld->ini_autocleaninvoice_cycle = 0;
 	ld->ini_autocleaninvoice_expiredby = 86400;

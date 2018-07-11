@@ -80,6 +80,8 @@ struct lightningd {
 	char *config_dir;
 	char *rpc_filename;
 
+	/* Configuration file name */
+	char *config_filename;
 	/* Configuration settings. */
 	struct config config;
 

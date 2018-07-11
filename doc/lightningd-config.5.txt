@@ -91,7 +91,7 @@ Bitcoin control options:
 
 *rescan*='BLOCKS'::
     Number of blocks to rescan from the current head, or absolute blockheight
-    if negative.  This is only needed if something goes badly wrong.
+    if negative. This is only needed if something goes badly wrong.
 
 Lightning daemon options:
 
@@ -116,6 +116,9 @@ Lightning daemon options:
 
 *daemon*::
     Run in the background, suppress stdout and stderr.
+
+*conf*='PATH'::
+    Sets configuration file. Relative paths will be prefixed by lightning-dir location. (default: config)
 
 Lightning node customization options:
 
