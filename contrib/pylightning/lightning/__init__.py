@@ -1,2 +1,2 @@
-from .lightning import LightningRpc
+from .lightning import LightningRpc, RpcError
 from .appconnection import AppConnection

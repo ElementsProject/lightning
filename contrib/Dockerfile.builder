@@ -8,6 +8,7 @@ WORKDIR /build
 
 RUN apt-get -qq update && \
     apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
+	asciidoc \
 	autoconf \
 	automake \
 	clang \
@@ -22,7 +23,6 @@ RUN apt-get -qq update && \
 	libprotobuf-c-dev \
 	libsqlite3-dev \
 	libgmp-dev \
-	libsqlite3-dev \
 	git \
 	python \
 	python3 \
@@ -32,6 +32,7 @@ RUN apt-get -qq update && \
 	python3-setuptools \
 	python-pkg-resources \
 	shellcheck \
+	libxml2-utils \
 	wget \
 	zlib1g-dev && \
 	rm -rf /var/lib/apt/lists/*

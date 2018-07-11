@@ -7,11 +7,19 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 {
 	u8 numaddresses, i;
 	struct gossip_getnodes_entry *entry;
+	u16 flen;
 
 	entry = tal(ctx, struct gossip_getnodes_entry);
 	fromwire_pubkey(pptr, max, &entry->nodeid);
-	entry->last_timestamp = fromwire_u64(pptr, max);
+	flen = fromwire_u16(pptr, max);
+	entry->local_features = tal_arr(entry, u8, flen);
+	fromwire_u8_array(pptr, max, entry->local_features, flen);
 
+	flen = fromwire_u16(pptr, max);
+	entry->global_features = tal_arr(entry, u8, flen);
+	fromwire_u8_array(pptr, max, entry->global_features, flen);
+
+	entry->last_timestamp = fromwire_u64(pptr, max);
 	if (entry->last_timestamp < 0) {
 		entry->addresses = NULL;
 		entry->alias = NULL;
@@ -30,6 +38,7 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 	entry->alias = tal_arr(entry, u8, fromwire_u8(pptr, max));
 	fromwire(pptr, max, entry->alias, tal_len(entry->alias));
 	fromwire(pptr, max, entry->color, sizeof(entry->color));
+
 	return entry;
 }
 
@@ -38,6 +47,12 @@ void towire_gossip_getnodes_entry(u8 **pptr,
 {
 	u8 i, numaddresses = tal_count(entry->addresses);
 	towire_pubkey(pptr, &entry->nodeid);
+	towire_u16(pptr, tal_count(entry->local_features));
+	towire_u8_array(pptr, entry->local_features,
+			tal_count(entry->local_features));
+	towire_u16(pptr, tal_count(entry->global_features));
+	towire_u8_array(pptr, entry->global_features,
+			tal_count(entry->global_features));
 	towire_u64(pptr, entry->last_timestamp);
 
 	if (entry->last_timestamp < 0)

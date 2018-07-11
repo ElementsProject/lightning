@@ -1,6 +1,5 @@
 /* FIXME: We don't relay from gossipd at all here. */
 #include <bitcoin/script.h>
-#include <ccan/structeq/structeq.h>
 #include <closingd/gen_closing_wire.h>
 #include <common/close_tx.h>
 #include <common/crypto_sync.h>
@@ -118,7 +117,6 @@ static void do_reconnect(struct crypto_state *cs,
 		channel_reestablish
 			= read_peer_msg(tmpctx, cs, channel_id,
 					sync_crypto_write_arg,
-					status_fail_io,
 					NULL);
 	}
 
@@ -232,7 +230,6 @@ static uint64_t receive_offer(struct crypto_state *cs,
 
 		msg = read_peer_msg(tmpctx, cs, channel_id,
 				    sync_crypto_write_arg,
-				    status_fail_io,
 				    NULL);
 
 		/* BOLT #2:

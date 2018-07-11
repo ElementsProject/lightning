@@ -29,7 +29,6 @@ script:
   - docker run --rm=true --env-file=/tmp/envlist -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit ./configure
   - $SOURCE_CHECK_ONLY || docker run --rm=true --env-file=/tmp/envlist -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make -j3 
   - $SOURCE_CHECK_ONLY || docker run --rm=true --env-file=/tmp/envlist -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check
-#  - (! $SOURCE_CHECK_ONLY) || git clone https://github.com/lightningnetwork/lightning-rfc.git
-#  - (! $SOURCE_CHECK_ONLY) || docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check-source BOLTDIR=lightning-rfc
+  - (! $SOURCE_CHECK_ONLY) || git clone https://github.com/lightningnetwork/lightning-rfc.git
   - (! $SOURCE_CHECK_ONLY) || docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make clean
-  - (! $SOURCE_CHECK_ONLY) || docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check-source BOLTDIR=none
+  - (! $SOURCE_CHECK_ONLY) || docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check-source BOLTDIR=lightning-rfc

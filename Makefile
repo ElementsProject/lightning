@@ -9,7 +9,7 @@ CCANDIR := ccan
 
 # Where we keep the BOLT RFCs
 BOLTDIR := ../lightning-rfc/
-BOLTVERSION := e7dc7594f57ad6cab262c093396d0f438fb162bb
+BOLTVERSION := fd9da9b95eb5d585252d7e749212151502e0cc17
 
 -include config.vars
 
@@ -87,7 +87,8 @@ CCAN_OBJS :=					\
 	ccan-tal-str.o				\
 	ccan-tal.o				\
 	ccan-time.o				\
-	ccan-timer.o
+	ccan-timer.o				\
+	ccan-utf8.o
 
 CCAN_HEADERS :=						\
 	$(CCANDIR)/config.h				\
@@ -153,7 +154,8 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/tcon/tcon.h			\
 	$(CCANDIR)/ccan/time/time.h			\
 	$(CCANDIR)/ccan/timer/timer.h			\
-	$(CCANDIR)/ccan/typesafe_cb/typesafe_cb.h
+	$(CCANDIR)/ccan/typesafe_cb/typesafe_cb.h	\
+	$(CCANDIR)/ccan/utf8/utf8.h
 
 ALL_GEN_HEADERS += gen_version.h
 
@@ -297,7 +299,7 @@ coverage: coverage/coverage.info
 # We make libwallycore.la a dependency, so that it gets built normally, without ncc.
 # Ncc can't handle the libwally source code (yet).
 ncc: external/libwally-core/src/libwallycore.la
-	CC="ncc -ncgcc -ncld -ncfabs" AR=nccar LD=nccld make
+	make CC="ncc -ncgcc -ncld -ncfabs" AR=nccar LD=nccld
 
 # Ignore test/ directories.
 TAGS: FORCE
@@ -576,4 +578,6 @@ ccan-bitops.o: $(CCANDIR)/ccan/bitops/bitops.c
 ccan-rbuf.o: $(CCANDIR)/ccan/rbuf/rbuf.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-str-base32.o: $(CCANDIR)/ccan/str/base32/base32.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-utf8.o: $(CCANDIR)/ccan/utf8/utf8.c
 	$(CC) $(CFLAGS) -c -o $@ $<

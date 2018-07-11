@@ -5,7 +5,6 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/features.h>
 #include <common/pseudorand.h>
@@ -60,16 +59,16 @@ struct pending_node_announce {
 	u32 timestamp;
 };
 
-static const secp256k1_pubkey *
+static const struct pubkey *
 pending_node_announce_keyof(const struct pending_node_announce *a)
 {
-	return &a->nodeid.pubkey;
+	return &a->nodeid;
 }
 
 static bool pending_node_announce_eq(const struct pending_node_announce *pna,
-				     const secp256k1_pubkey *key)
+				     const struct pubkey *key)
 {
-	return structeq(&pna->nodeid.pubkey, key);
+	return pubkey_eq(&pna->nodeid, key);
 }
 
 HTABLE_DEFINE_TYPE(struct pending_node_announce, pending_node_announce_keyof,
@@ -109,19 +108,19 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 }
 
 
-const secp256k1_pubkey *node_map_keyof_node(const struct node *n)
+const struct pubkey *node_map_keyof_node(const struct node *n)
 {
-	return &n->id.pubkey;
+	return &n->id;
 }
 
-size_t node_map_hash_key(const secp256k1_pubkey *key)
+size_t node_map_hash_key(const struct pubkey *key)
 {
 	return siphash24(siphash_seed(), key, sizeof(*key));
 }
 
-bool node_map_node_eq(const struct node *n, const secp256k1_pubkey *key)
+bool node_map_node_eq(const struct node *n, const struct pubkey *key)
 {
-	return structeq(&n->id.pubkey, key);
+	return pubkey_eq(&n->id, key);
 }
 
 static void destroy_node(struct node *node, struct routing_state *rstate)
@@ -135,7 +134,7 @@ static void destroy_node(struct node *node, struct routing_state *rstate)
 
 struct node *get_node(struct routing_state *rstate, const struct pubkey *id)
 {
-	return node_map_get(rstate->nodes, &id->pubkey);
+	return node_map_get(rstate->nodes, id);
 }
 
 static struct node *new_node(struct routing_state *rstate,
@@ -149,6 +148,7 @@ static struct node *new_node(struct routing_state *rstate,
 	n->id = *id;
 	n->chans = tal_arr(n, struct chan *, 0);
 	n->alias = NULL;
+	n->gfeatures = NULL;
 	n->node_announcement = NULL;
 	n->node_announcement_index = 0;
 	n->last_timestamp = -1;
@@ -635,7 +635,7 @@ static void add_pending_node_announcement(struct routing_state *rstate, struct p
 static void process_pending_node_announcement(struct routing_state *rstate,
 					      struct pubkey *nodeid)
 {
-	struct pending_node_announce *pna = pending_node_map_get(rstate->pending_node_map, &nodeid->pubkey);
+	struct pending_node_announce *pna = pending_node_map_get(rstate->pending_node_map, nodeid);
 	if (!pna)
 		return;
 
@@ -664,7 +664,7 @@ find_pending_cannouncement(struct routing_state *rstate,
 	struct pending_cannouncement *i;
 
 	list_for_each(&rstate->pending_cannouncement, i, list) {
-		if (structeq(scid, &i->short_channel_id))
+		if (short_channel_id_eq(scid, &i->short_channel_id))
 			return i;
 	}
 	return NULL;
@@ -826,7 +826,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	 *  - if the specified `chain_hash` is unknown to the receiver:
 	 *    - MUST ignore the message.
 	 */
-	if (!structeq(&chain_hash, &rstate->chain_hash)) {
+	if (!bitcoin_blkid_eq(&chain_hash, &rstate->chain_hash)) {
 		status_trace(
 		    "Received channel_announcement %s for unknown chain %s",
 		    type_to_string(pending, struct short_channel_id,
@@ -1119,7 +1119,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 	 *    active on the specified chain):
 	 *    - MUST ignore the channel update.
 	 */
-	if (!structeq(&chain_hash, &rstate->chain_hash)) {
+	if (!bitcoin_blkid_eq(&chain_hash, &rstate->chain_hash)) {
 		status_trace("Received channel_update for unknown chain %s",
 			     type_to_string(tmpctx, struct bitcoin_blkid,
 					    &chain_hash));
@@ -1207,11 +1207,14 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 		return err;
 	}
 
-	status_trace("Received channel_update for channel %s(%d) now %s (from %s)",
+	status_trace("Received channel_update for channel %s(%d) now %s was %s (from %s)",
 		     type_to_string(tmpctx, struct short_channel_id,
 				    &short_channel_id),
 		     flags & 0x01,
 		     flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE",
+		     is_halfchan_defined(c)
+		     ? (c->flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE")
+		     : "UNDEFINED",
 		     source);
 
 	if (!routing_add_channel_update(rstate, serialized))
@@ -1288,6 +1291,8 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 	memcpy(node->rgb_color, rgb_color, 3);
 	tal_free(node->alias);
 	node->alias = tal_dup_arr(node, u8, alias, 32, 0);
+	tal_free(node->gfeatures);
+	node->gfeatures = tal_steal(node, features);
 
 	tal_free(node->node_announcement);
 	node->node_announcement = tal_dup_arr(node, u8, msg, tal_len(msg), 0);
@@ -1403,7 +1408,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 		/* Check if we are currently verifying the txout for a
 		 * matching channel */
 		pna = pending_node_map_get(rstate->pending_node_map,
-					   &node_id.pubkey);
+					   &node_id);
 		if (!pna) {
 			bad_gossip_order(serialized, "node_announcement",
 					 type_to_string(tmpctx, struct pubkey,
@@ -1577,8 +1582,7 @@ void routing_failure(struct routing_state *rstate,
 		u8 *err;
 		if (tal_len(channel_update) == 0) {
 			/* Suppress UNUSUAL log if local failure */
-			if (structeq(&erring_node_pubkey->pubkey,
-				     &rstate->local_id.pubkey))
+			if (pubkey_eq(erring_node_pubkey, &rstate->local_id))
 				return;
 			status_unusual("routing_failure: "
 				       "UPDATE bit set, no channel_update. "

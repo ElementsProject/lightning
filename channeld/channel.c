@@ -19,7 +19,6 @@
 #include <ccan/err/err.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/mem/mem.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
@@ -434,8 +433,8 @@ static void check_short_ids_match(struct peer *peer)
 	assert(peer->have_sigs[LOCAL]);
 	assert(peer->have_sigs[REMOTE]);
 
-	if (!structeq(&peer->short_channel_ids[LOCAL],
-		      &peer->short_channel_ids[REMOTE]))
+	if (!short_channel_id_eq(&peer->short_channel_ids[LOCAL],
+				 &peer->short_channel_ids[REMOTE]))
 		peer_failed(&peer->cs,
 			    &peer->channel_id,
 			    "We disagree on short_channel_ids:"
@@ -515,7 +514,7 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 			    &peer->channel_id,
 			    "Bad funding_locked %s", tal_hex(msg, msg));
 
-	if (!structeq(&chanid, &peer->channel_id))
+	if (!channel_id_eq(&chanid, &peer->channel_id))
 		peer_failed(&peer->cs,
 			    &peer->channel_id,
 			    "Wrong channel id in %s (expected %s)",
@@ -547,7 +546,7 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 			    tal_hex(msg, msg));
 
 	/* Make sure we agree on the channel ids */
-	if (!structeq(&chanid, &peer->channel_id)) {
+	if (!channel_id_eq(&chanid, &peer->channel_id)) {
 		peer_failed(&peer->cs,
 			    &peer->channel_id,
 			    "Wrong channel_id: expected %s, got %s",
@@ -799,6 +798,110 @@ static u8 *gossipd_wait_sync_reply(const tal_t *ctx,
 {
 	return wait_sync_reply(ctx, msg, replytype,
 			       GOSSIP_FD, &peer->from_gossipd, "gossipd");
+}
+
+static u8 *foreign_channel_update(const tal_t *ctx,
+				  struct peer *peer,
+				  const struct short_channel_id *scid)
+{
+	u8 *msg, *update;
+
+	msg = towire_gossip_get_update(NULL, scid);
+	msg = gossipd_wait_sync_reply(tmpctx, peer, take(msg),
+				      WIRE_GOSSIP_GET_UPDATE_REPLY);
+	if (!fromwire_gossip_get_update_reply(ctx, msg, &update))
+		status_failed(STATUS_FAIL_GOSSIP_IO,
+			      "Invalid update reply");
+	return update;
+}
+
+static u8 *make_failmsg(const tal_t *ctx,
+			struct peer *peer,
+			const struct htlc *htlc,
+			enum onion_type failcode,
+			const struct short_channel_id *scid)
+{
+	u8 *msg, *channel_update = NULL;
+	u32 cltv_expiry = abs_locktime_to_blocks(&htlc->expiry);
+
+	switch (failcode) {
+	case WIRE_INVALID_REALM:
+		msg = towire_invalid_realm(ctx);
+		goto done;
+	case WIRE_TEMPORARY_NODE_FAILURE:
+		msg = towire_temporary_node_failure(ctx);
+		goto done;
+	case WIRE_PERMANENT_NODE_FAILURE:
+		msg = towire_permanent_node_failure(ctx);
+		goto done;
+	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
+		msg = towire_required_node_feature_missing(ctx);
+		goto done;
+	case WIRE_TEMPORARY_CHANNEL_FAILURE:
+		channel_update = foreign_channel_update(ctx, peer, scid);
+		msg = towire_temporary_channel_failure(ctx, channel_update);
+		goto done;
+	case WIRE_CHANNEL_DISABLED:
+		msg = towire_channel_disabled(ctx);
+		goto done;
+	case WIRE_PERMANENT_CHANNEL_FAILURE:
+		msg = towire_permanent_channel_failure(ctx);
+		goto done;
+	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
+		msg = towire_required_channel_feature_missing(ctx);
+		goto done;
+	case WIRE_UNKNOWN_NEXT_PEER:
+		msg = towire_unknown_next_peer(ctx);
+		goto done;
+	case WIRE_AMOUNT_BELOW_MINIMUM:
+		channel_update = foreign_channel_update(ctx, peer, scid);
+		msg = towire_amount_below_minimum(ctx, htlc->msatoshi,
+						  channel_update);
+		goto done;
+	case WIRE_FEE_INSUFFICIENT:
+		channel_update = foreign_channel_update(ctx, peer, scid);
+		msg = towire_fee_insufficient(ctx, htlc->msatoshi,
+					      channel_update);
+		goto done;
+	case WIRE_INCORRECT_CLTV_EXPIRY:
+		channel_update = foreign_channel_update(ctx, peer, scid);
+		msg = towire_incorrect_cltv_expiry(ctx, cltv_expiry,
+						   channel_update);
+		goto done;
+	case WIRE_EXPIRY_TOO_SOON:
+		channel_update = foreign_channel_update(ctx, peer, scid);
+		msg = towire_expiry_too_soon(ctx, channel_update);
+		goto done;
+	case WIRE_EXPIRY_TOO_FAR:
+		msg = towire_expiry_too_far(ctx);
+		goto done;
+	case WIRE_UNKNOWN_PAYMENT_HASH:
+		msg = towire_unknown_payment_hash(ctx);
+		goto done;
+	case WIRE_INCORRECT_PAYMENT_AMOUNT:
+		msg = towire_incorrect_payment_amount(ctx);
+		goto done;
+	case WIRE_FINAL_EXPIRY_TOO_SOON:
+		msg = towire_final_expiry_too_soon(ctx);
+		goto done;
+	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
+		msg = towire_final_incorrect_cltv_expiry(ctx, cltv_expiry);
+		goto done;
+	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
+		msg = towire_final_incorrect_htlc_amount(ctx, htlc->msatoshi);
+		goto done;
+	case WIRE_INVALID_ONION_VERSION:
+	case WIRE_INVALID_ONION_HMAC:
+	case WIRE_INVALID_ONION_KEY:
+		break;
+	}
+	status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		      "Asked to create failmsg %u (%s)",
+		      failcode, onion_type_name(failcode));
+
+done:
+	tal_free(channel_update);
+	return msg;
 }
 
 static struct commit_sigs *calc_commitsigs(const tal_t *ctx,
@@ -1111,7 +1214,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 				f = tal_arr_append(&failed);
 				*f = tal(failed, struct failed_htlc);
 				(*f)->id = htlc->id;
-				(*f)->malformed = htlc->malformed;
+				(*f)->failcode = htlc->failcode;
 				(*f)->failreason = cast_const(u8 *, htlc->fail);
 			}
 		} else {
@@ -1361,6 +1464,7 @@ static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
 	u64 id;
 	struct preimage preimage;
 	enum channel_remove_err e;
+	struct htlc *h;
 
 	if (!fromwire_update_fulfill_htlc(msg, &channel_id,
 					  &id, &preimage)) {
@@ -1369,9 +1473,10 @@ static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
 			    "Bad update_fulfill_htlc %s", tal_hex(msg, msg));
 	}
 
-	e = channel_fulfill_htlc(peer->channel, LOCAL, id, &preimage);
+	e = channel_fulfill_htlc(peer->channel, LOCAL, id, &preimage, &h);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
+		h->r = tal_dup(h, struct preimage, &preimage);
 		/* FIXME: We could send preimages to master immediately. */
 		start_commit_timer(peer);
 		return;
@@ -1406,11 +1511,10 @@ static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
 			    "Bad update_fulfill_htlc %s", tal_hex(msg, msg));
 	}
 
-	e = channel_fail_htlc(peer->channel, LOCAL, id, NULL);
+	e = channel_fail_htlc(peer->channel, LOCAL, id, &htlc);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
 		/* Save reason for when we tell master. */
-		htlc = channel_get_htlc(peer->channel, LOCAL, id);
 		htlc->fail = tal_steal(htlc, reason);
 		start_commit_timer(peer);
 		return;
@@ -1628,13 +1732,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		    type, wire_type_name(type));
 }
 
-static void peer_conn_broken(struct peer *peer)
-{
-	/* If we have signatures, send an update to say we're disabled. */
-	send_channel_update(peer, ROUTING_FLAGS_DISABLED);
-	peer_failed_connection_lost();
-}
-
 static void resend_revoke(struct peer *peer)
 {
 	/* Current commit is peer->next_index[LOCAL]-1, revoke prior */
@@ -1645,16 +1742,31 @@ static void resend_revoke(struct peer *peer)
 static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 {
 	u8 *msg;
-	if (h->malformed) {
+
+	if (h->failcode & BADONION) {
+		/* Malformed: use special reply since we can't onion. */
 		struct sha256 sha256_of_onion;
 		sha256(&sha256_of_onion, h->routing, tal_len(h->routing));
 
 		msg = towire_update_fail_malformed_htlc(NULL, &peer->channel_id,
 							h->id, &sha256_of_onion,
-							h->malformed);
-	} else if (h->fail) {
-		msg = towire_update_fail_htlc(NULL, &peer->channel_id, h->id,
-					      h->fail);
+							h->failcode);
+	} else if (h->failcode || h->fail) {
+		const u8 *onion;
+		if (h->failcode) {
+			/* Local failure, make a message. */
+			u8 *failmsg = make_failmsg(tmpctx, peer, h, h->failcode,
+						   &peer->short_channel_ids[LOCAL]);
+			onion = create_onionreply(tmpctx, h->shared_secret,
+						  failmsg);
+		} else /* Remote failure, just forward. */
+			onion = h->fail;
+
+		/* Now we wrap, just before sending out. */
+		msg = towire_update_fail_htlc(peer, &peer->channel_id, h->id,
+					      wrap_onionreply(tmpctx,
+							      h->shared_secret,
+							      onion));
 	} else if (h->r) {
 		msg = towire_update_fulfill_htlc(NULL, &peer->channel_id, h->id,
 						 h->r);
@@ -1734,12 +1846,6 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 			       peer->revocations_received);
 }
 
-/* Our local wrapper around read_peer_msg */
-static void channeld_io_error(struct peer *peer)
-{
-	peer_conn_broken(peer);
-}
-
 static bool channeld_send_reply(struct crypto_state *cs UNUSED,
 			    int peer_fd UNUSED,
 			    const u8 *msg UNUSED,
@@ -1754,7 +1860,6 @@ static u8 *channeld_read_peer_msg(struct peer *peer)
 	return read_peer_msg(peer, &peer->cs,
 			     &peer->channel_id,
 			     channeld_send_reply,
-			     channeld_io_error,
 			     peer);
 }
 
@@ -2106,18 +2211,17 @@ static void handle_feerates(struct peer *peer, const u8 *inmsg)
 
 static void handle_preimage(struct peer *peer, const u8 *inmsg)
 {
-	u8 *msg;
 	u64 id;
 	struct preimage preimage;
+	struct htlc *h;
 
 	if (!fromwire_channel_fulfill_htlc(inmsg, &id, &preimage))
 		master_badmsg(WIRE_CHANNEL_FULFILL_HTLC, inmsg);
 
-	switch (channel_fulfill_htlc(peer->channel, REMOTE, id, &preimage)) {
+	switch (channel_fulfill_htlc(peer->channel, REMOTE, id, &preimage, &h)) {
 	case CHANNEL_ERR_REMOVE_OK:
-		msg = towire_update_fulfill_htlc(NULL, &peer->channel_id,
-						 id, &preimage);
-		enqueue_peer_msg(peer, take(msg));
+		h->r = tal_dup(h, struct preimage, &preimage);
+		send_fail_or_fulfill(peer, h);
 		start_commit_timer(peer);
 		return;
 	/* These shouldn't happen, because any offered HTLC (which would give
@@ -2134,113 +2238,8 @@ static void handle_preimage(struct peer *peer, const u8 *inmsg)
 	abort();
 }
 
-static u8 *foreign_channel_update(const tal_t *ctx,
-				  struct peer *peer,
-				  const struct short_channel_id *scid)
-{
-	u8 *msg, *update;
-
-	msg = towire_gossip_get_update(NULL, scid);
-	msg = gossipd_wait_sync_reply(tmpctx, peer, take(msg),
-				      WIRE_GOSSIP_GET_UPDATE_REPLY);
-	if (!fromwire_gossip_get_update_reply(ctx, msg, &update))
-		status_failed(STATUS_FAIL_GOSSIP_IO,
-			      "Invalid update reply");
-	return update;
-}
-
-static u8 *make_failmsg(const tal_t *ctx,
-			struct peer *peer,
-			const struct htlc *htlc,
-			enum onion_type failcode,
-			const struct short_channel_id *scid)
-{
-	u8 *msg, *channel_update = NULL;
-	u32 cltv_expiry = abs_locktime_to_blocks(&htlc->expiry);
-
-	switch (failcode) {
-	case WIRE_INVALID_REALM:
-		msg = towire_invalid_realm(ctx);
-		goto done;
-	case WIRE_TEMPORARY_NODE_FAILURE:
-		msg = towire_temporary_node_failure(ctx);
-		goto done;
-	case WIRE_PERMANENT_NODE_FAILURE:
-		msg = towire_permanent_node_failure(ctx);
-		goto done;
-	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
-		msg = towire_required_node_feature_missing(ctx);
-		goto done;
-	case WIRE_TEMPORARY_CHANNEL_FAILURE:
-		channel_update = foreign_channel_update(ctx, peer, scid);
-		msg = towire_temporary_channel_failure(ctx, channel_update);
-		goto done;
-	case WIRE_CHANNEL_DISABLED:
-		msg = towire_channel_disabled(ctx);
-		goto done;
-	case WIRE_PERMANENT_CHANNEL_FAILURE:
-		msg = towire_permanent_channel_failure(ctx);
-		goto done;
-	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
-		msg = towire_required_channel_feature_missing(ctx);
-		goto done;
-	case WIRE_UNKNOWN_NEXT_PEER:
-		msg = towire_unknown_next_peer(ctx);
-		goto done;
-	case WIRE_AMOUNT_BELOW_MINIMUM:
-		channel_update = foreign_channel_update(ctx, peer, scid);
-		msg = towire_amount_below_minimum(ctx, htlc->msatoshi,
-						  channel_update);
-		goto done;
-	case WIRE_FEE_INSUFFICIENT:
-		channel_update = foreign_channel_update(ctx, peer, scid);
-		msg = towire_fee_insufficient(ctx, htlc->msatoshi,
-					      channel_update);
-		goto done;
-	case WIRE_INCORRECT_CLTV_EXPIRY:
-		channel_update = foreign_channel_update(ctx, peer, scid);
-		msg = towire_incorrect_cltv_expiry(ctx, cltv_expiry,
-						   channel_update);
-		goto done;
-	case WIRE_EXPIRY_TOO_SOON:
-		channel_update = foreign_channel_update(ctx, peer, scid);
-		msg = towire_expiry_too_soon(ctx, channel_update);
-		goto done;
-	case WIRE_EXPIRY_TOO_FAR:
-		msg = towire_expiry_too_far(ctx);
-		goto done;
-	case WIRE_UNKNOWN_PAYMENT_HASH:
-		msg = towire_unknown_payment_hash(ctx);
-		goto done;
-	case WIRE_INCORRECT_PAYMENT_AMOUNT:
-		msg = towire_incorrect_payment_amount(ctx);
-		goto done;
-	case WIRE_FINAL_EXPIRY_TOO_SOON:
-		msg = towire_final_expiry_too_soon(ctx);
-		goto done;
-	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
-		msg = towire_final_incorrect_cltv_expiry(ctx, cltv_expiry);
-		goto done;
-	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
-		msg = towire_final_incorrect_htlc_amount(ctx, htlc->msatoshi);
-		goto done;
-	case WIRE_INVALID_ONION_VERSION:
-	case WIRE_INVALID_ONION_HMAC:
-	case WIRE_INVALID_ONION_KEY:
-		break;
-	}
-	status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		      "Asked to create failmsg %u (%s)",
-		      failcode, onion_type_name(failcode));
-
-done:
-	tal_free(channel_update);
-	return msg;
-}
-
 static void handle_fail(struct peer *peer, const u8 *inmsg)
 {
-	u8 *msg;
 	u64 id;
 	u8 *errpkt;
 	u16 failcode;
@@ -2260,33 +2259,9 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 	e = channel_fail_htlc(peer->channel, REMOTE, id, &h);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
-		if (failcode & BADONION) {
-			struct sha256 sha256_of_onion;
-			status_trace("Failing %"PRIu64" with code %u",
-				     id, failcode);
-			sha256(&sha256_of_onion, h->routing,
-			       tal_len(h->routing));
-			msg = towire_update_fail_malformed_htlc(peer,
-							&peer->channel_id,
-							id, &sha256_of_onion,
-							failcode);
-		} else {
-			u8 *reply;
-
-			if (failcode) {
-				u8 *failmsg = make_failmsg(inmsg, peer, h,
-							   failcode, &scid);
-				errpkt = create_onionreply(inmsg,
-							   h->shared_secret,
-							   failmsg);
-			}
-
-			reply = wrap_onionreply(inmsg, h->shared_secret,
-						errpkt);
-			msg = towire_update_fail_htlc(peer, &peer->channel_id,
-						      id, reply);
-		}
-		enqueue_peer_msg(peer, take(msg));
+		h->failcode = failcode;
+		h->fail = tal_steal(h, errpkt);
+		send_fail_or_fulfill(peer, h);
 		start_commit_timer(peer);
 		return;
 	case CHANNEL_ERR_NO_SUCH_ID:
@@ -2660,7 +2635,6 @@ int main(int argc, char *argv[])
 				     fromwire_peektype(msg));
 			handle_gossip_msg(take(msg), &peer->cs,
 					  channeld_send_reply,
-					  channeld_io_error,
 					  peer);
 			continue;
 		}
@@ -2713,10 +2687,9 @@ int main(int argc, char *argv[])
 			/* Gossipd hangs up on us to kill us when a new
 			 * connection comes in. */
 			if (!msg)
-				peer_conn_broken(peer);
+				peer_failed_connection_lost();
 			handle_gossip_msg(msg, &peer->cs,
 					  channeld_send_reply,
-					  channeld_io_error,
 					  peer);
 		} else if (FD_ISSET(PEER_FD, &rfds)) {
 			/* This could take forever, but who cares? */

@@ -753,7 +753,7 @@ void onchain_fulfilled_htlc(struct channel *channel,
 		if (hout->failcode != 0 || hout->failuremsg)
 			continue;
 
-		if (!structeq(&hout->payment_hash, &payment_hash))
+		if (!sha256_eq(&hout->payment_hash, &payment_hash))
 			continue;
 
 		/* We may have already fulfilled before going onchain, or
@@ -783,8 +783,8 @@ static bool peer_failed_our_htlc(struct channel *channel,
 	if (!htlc_out_update_state(channel, hout, RCVD_REMOVE_COMMIT))
 		return false;
 
-	hout->failcode = failed->malformed;
-	if (!failed->malformed)
+	hout->failcode = failed->failcode;
+	if (!failed->failcode)
 		hout->failuremsg = tal_dup_arr(hout, u8, failed->failreason,
 					       tal_len(failed->failreason), 0);
 
@@ -815,7 +815,7 @@ struct htlc_out *find_htlc_out_by_ripemd(const struct channel *channel,
 
 		ripemd160(&hash,
 			  &hout->payment_hash, sizeof(hout->payment_hash));
-		if (structeq(&hash, ripemd))
+		if (ripemd160_eq(&hash, ripemd))
 			return hout;
 	}
 	return NULL;
@@ -1396,6 +1396,7 @@ static void add_fulfill(u64 id, enum side side,
 }
 
 static void add_fail(u64 id, enum side side,
+		     enum onion_type failcode,
 		     const u8 *failuremsg,
 		     const struct failed_htlc ***failed_htlcs,
 		     enum side **failed_sides)
@@ -1408,8 +1409,12 @@ static void add_fail(u64 id, enum side side,
 
 	*f = tal(*failed_htlcs, struct failed_htlc);
 	(*f)->id = id;
-	(*f)->failreason
-		= tal_dup_arr(*f, u8, failuremsg, tal_len(failuremsg), 0);
+	(*f)->failcode = failcode;
+	if (failuremsg)
+		(*f)->failreason
+			= tal_dup_arr(*f, u8, failuremsg, tal_len(failuremsg), 0);
+	else
+		(*f)->failreason = NULL;
 	*s = side;
 }
 
@@ -1447,9 +1452,9 @@ void peer_htlcs(const tal_t *ctx,
 			 hin->cltv_expiry, hin->onion_routing_packet,
 			 hin->hstate);
 
-		if (hin->failuremsg)
-			add_fail(hin->key.id, REMOTE, hin->failuremsg,
-				 failed_htlcs, failed_sides);
+		if (hin->failuremsg || hin->failcode)
+			add_fail(hin->key.id, REMOTE, hin->failcode,
+				 hin->failuremsg, failed_htlcs, failed_sides);
 		if (hin->preimage)
 			add_fulfill(hin->key.id, REMOTE, hin->preimage,
 				    fulfilled_htlcs, fulfilled_sides);
@@ -1466,9 +1471,9 @@ void peer_htlcs(const tal_t *ctx,
 			 hout->cltv_expiry, hout->onion_routing_packet,
 			 hout->hstate);
 
-		if (hout->failuremsg)
-			add_fail(hout->key.id, LOCAL, hout->failuremsg,
-				 failed_htlcs, failed_sides);
+		if (hout->failuremsg || hout->failcode)
+			add_fail(hout->key.id, LOCAL, hout->failcode,
+				 hout->failuremsg, failed_htlcs, failed_sides);
 		if (hout->preimage)
 			add_fulfill(hout->key.id, LOCAL, hout->preimage,
 				    fulfilled_htlcs, fulfilled_sides);

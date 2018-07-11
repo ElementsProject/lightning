@@ -2,7 +2,6 @@
 #include <bitcoin/script.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/mem/mem.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc_tx.h>
@@ -442,7 +441,7 @@ static bool is_valid_sig(const u8 *e)
 static bool input_similar(const struct bitcoin_tx_input *i1,
 			  const struct bitcoin_tx_input *i2)
 {
-	if (!structeq(&i1->txid, &i2->txid))
+	if (!bitcoin_txid_eq(&i1->txid, &i2->txid))
 		return false;
 
 	if (i1->index != i2->index)
@@ -599,7 +598,7 @@ static bool is_mutual_close(const struct bitcoin_tx *tx,
 static bool is_local_commitment(const struct bitcoin_txid *txid,
 				const struct bitcoin_txid *our_broadcast_txid)
 {
-	return structeq(txid, our_broadcast_txid);
+	return bitcoin_txid_eq(txid, our_broadcast_txid);
 }
 
 /* BOLT #5:
@@ -754,7 +753,7 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 	sha256(&sha, &preimage, sizeof(preimage));
 	ripemd160(&ripemd, &sha, sizeof(sha));
 
-	if (!structeq(&ripemd, &out->htlc->ripemd))
+	if (!ripemd160_eq(&ripemd, &out->htlc->ripemd))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "%s/%s spent with bad preimage %s (ripemd not %s)",
 			      tx_type_name(out->tx_type),
@@ -865,7 +864,7 @@ static void output_spent(struct tracked_output ***outs,
 
 		if (tx->input[input_num].index != out->outnum)
 			continue;
-		if (!structeq(&tx->input[input_num].txid, &out->txid))
+		if (!bitcoin_txid_eq(&tx->input[input_num].txid, &out->txid))
 			continue;
 
 		/* Was this our resolution? */
@@ -993,7 +992,7 @@ static void tx_new_depth(struct tracked_output **outs,
 	size_t i;
 
 	/* Special handling for commitment tx reaching depth */
-	if (structeq(&outs[0]->resolved->txid, txid)
+	if (bitcoin_txid_eq(&outs[0]->resolved->txid, txid)
 	    && depth >= reasonable_depth
 	    && missing_htlc_msgs) {
 		status_trace("Sending %zu missing htlc messages",
@@ -1006,12 +1005,12 @@ static void tx_new_depth(struct tracked_output **outs,
 
 	for (i = 0; i < tal_count(outs); i++) {
 		/* Update output depth. */
-		if (structeq(&outs[i]->txid, txid))
+		if (bitcoin_txid_eq(&outs[i]->txid, txid))
 			outs[i]->depth = depth;
 
 		/* Is this tx resolving an output? */
 		if (outs[i]->resolved) {
-			if (structeq(&outs[i]->resolved->txid, txid)) {
+			if (bitcoin_txid_eq(&outs[i]->resolved->txid, txid)) {
 				update_resolution_depth(outs[i], depth);
 			}
 			continue;
@@ -1020,7 +1019,7 @@ static void tx_new_depth(struct tracked_output **outs,
 		/* Otherwise, is this something we have a pending
 		 * resolution for? */
 		if (outs[i]->proposal
-		    && structeq(&outs[i]->txid, txid)
+		    && bitcoin_txid_eq(&outs[i]->txid, txid)
 		    && depth >= outs[i]->proposal->depth_required) {
 			proposal_meets_depth(outs[i]);
 		}
@@ -1069,7 +1068,7 @@ static void handle_preimage(struct tracked_output **outs,
 		if (outs[i]->output_type != THEIR_HTLC)
 			continue;
 
-		if (!structeq(&outs[i]->htlc->ripemd, &ripemd))
+		if (!ripemd160_eq(&outs[i]->htlc->ripemd, &ripemd))
 			continue;
 
 		/* Too late? */

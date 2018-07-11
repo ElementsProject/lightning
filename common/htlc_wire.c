@@ -25,8 +25,11 @@ void towire_fulfilled_htlc(u8 **pptr, const struct fulfilled_htlc *fulfilled)
 
 void towire_failed_htlc(u8 **pptr, const struct failed_htlc *failed)
 {
+	/* Only one can be set. */
+	assert(failed->failcode || tal_len(failed->failreason));
+	assert(!failed->failcode || !tal_len(failed->failreason));
 	towire_u64(pptr, failed->id);
-	towire_u16(pptr, failed->malformed);
+	towire_u16(pptr, failed->failcode);
 	towire_u16(pptr, tal_count(failed->failreason));
 	towire_u8_array(pptr, failed->failreason, tal_count(failed->failreason));
 }
@@ -84,9 +87,12 @@ struct failed_htlc *fromwire_failed_htlc(const tal_t *ctx, const u8 **cursor, si
 	struct failed_htlc *failed = tal(ctx, struct failed_htlc);
 
 	failed->id = fromwire_u64(cursor, max);
-	failed->malformed = fromwire_u16(cursor, max);
+	failed->failcode = fromwire_u16(cursor, max);
 	failreason_len = fromwire_u16(cursor, max);
-	failed->failreason = tal_arr(failed, u8, failreason_len);
+	if (failreason_len)
+		failed->failreason = tal_arr(failed, u8, failreason_len);
+	else
+		failed->failreason = NULL;
 	fromwire_u8_array(cursor, max, failed->failreason, failreason_len);
 
 	return failed;

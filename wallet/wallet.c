@@ -2,7 +2,6 @@
 #include "wallet.h"
 
 #include <bitcoin/script.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/key_derive.h>
 #include <common/wireaddr.h>
@@ -888,6 +887,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	sqlite3_bind_int64(stmt, 1, chan->their_shachain.id);
 	if (chan->scid)
 		sqlite3_bind_short_channel_id(stmt, 2, chan->scid);
+	else
+		sqlite3_bind_null(stmt, 2);
 	sqlite3_bind_int(stmt, 3, chan->state);
 	sqlite3_bind_int(stmt, 4, chan->funder);
 	sqlite3_bind_int(stmt, 5, chan->channel_flags);
@@ -909,6 +910,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		sqlite3_bind_blob(stmt, 16, chan->remote_shutdown_scriptpubkey,
 				  tal_len(chan->remote_shutdown_scriptpubkey),
 				  SQLITE_TRANSIENT);
+	else
+		sqlite3_bind_null(stmt, 16);
 
 	sqlite3_bind_int64(stmt, 17, chan->final_key_idx);
 	sqlite3_bind_int64(stmt, 18, chan->our_config.id);
@@ -1120,6 +1123,8 @@ void wallet_htlc_save_in(struct wallet *wallet,
 
 	if (in->preimage)
 		sqlite3_bind_preimage(stmt, 7, in->preimage);
+	else
+		sqlite3_bind_null(stmt, 7);
 	sqlite3_bind_int(stmt, 8, in->hstate);
 
 	sqlite3_bind_blob(stmt, 9, &in->shared_secret,
@@ -1162,12 +1167,16 @@ void wallet_htlc_save_out(struct wallet *wallet,
 	sqlite3_bind_int(stmt, 3, DIRECTION_OUTGOING);
 	if (out->in)
 		sqlite3_bind_int64(stmt, 4, out->in->dbid);
+	else
+		sqlite3_bind_null(stmt, 4);
 	sqlite3_bind_int64(stmt, 5, out->msatoshi);
 	sqlite3_bind_int(stmt, 6, out->cltv_expiry);
 	sqlite3_bind_sha256(stmt, 7, &out->payment_hash);
 
 	if (out->preimage)
 		sqlite3_bind_preimage(stmt, 8,out->preimage);
+	else
+		sqlite3_bind_null(stmt, 8);
 	sqlite3_bind_int(stmt, 9, out->hstate);
 
 	sqlite3_bind_blob(stmt, 10, &out->onion_routing_packet,
@@ -1196,6 +1205,8 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 
 	if (payment_key)
 		sqlite3_bind_preimage(stmt, 2, payment_key);
+	else
+		sqlite3_bind_null(stmt, 2);
 
 	db_exec_prepared(wallet->db, stmt);
 }
@@ -1513,7 +1524,7 @@ find_unstored_payment(struct wallet *wallet, const struct sha256 *payment_hash)
 	struct wallet_payment *i;
 
 	list_for_each(&wallet->unstored_payments, i, list) {
-		if (structeq(payment_hash, &i->payment_hash))
+		if (sha256_eq(payment_hash, &i->payment_hash))
 			return i;
 	}
 	return NULL;
@@ -1880,7 +1891,7 @@ wallet_payment_list(const tal_t *ctx,
 
 	/* Now attach payments not yet in db. */
 	list_for_each(&wallet->unstored_payments, p, list) {
-		if (payment_hash && !structeq(&p->payment_hash, payment_hash))
+		if (payment_hash && !sha256_eq(&p->payment_hash, payment_hash))
 			continue;
 		tal_resize(&payments, i+1);
 		payments[i++] = p;
@@ -1917,10 +1928,13 @@ bool wallet_network_check(struct wallet *w,
 	if (stmt && sqlite3_step(stmt) == SQLITE_ROW) {
 		sqlite3_column_sha256_double(stmt, 0, &chainhash.shad);
 		db_stmt_done(stmt);
-		if (!structeq(&chainhash, &chainparams->genesis_blockhash)) {
+		if (!bitcoin_blkid_eq(&chainhash,
+				      &chainparams->genesis_blockhash)) {
 			log_broken(w->log, "Wallet blockchain hash does not "
 					   "match network blockchain hash: %s "
-					   "!= %s",
+					   "!= %s. "
+				           "Are you on the right network? "
+				           "(--network={bitcoin,testnet})",
 				   type_to_string(w, struct bitcoin_blkid,
 						  &chainhash),
 				   type_to_string(w, struct bitcoin_blkid,

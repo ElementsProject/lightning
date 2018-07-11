@@ -9,12 +9,15 @@
 #include <bitcoin/signature.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/structeq/structeq.h>
 #include <secp256k1_recovery.h>
 #include <stdlib.h>
 
 struct channel_id {
 	u8 id[32];
 };
+/* Define channel_id_eq (no padding) */
+STRUCTEQ_DEF(channel_id, 0, id);
 
 struct bitcoin_blkid;
 struct bitcoin_txid;

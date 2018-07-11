@@ -25,7 +25,7 @@ import time
 import unittest
 
 import utils
-from lightning import LightningRpc
+from lightning import LightningRpc, RpcError
 from lightning import AppConnection
 
 with open('config.vars') as configfile:
@@ -428,6 +428,12 @@ class LightningDTests(BaseLightningDTests):
                                 .format(l1.daemon.lightning_dir, leaks))
         l1.rpc.stop()
 
+    def test_features(self):
+        l1, l2 = self.connect()
+
+        # LOCAL_INITIAL_ROUTING_SYNC + LOCAL_GOSSIP_QUERIES
+        assert l1.rpc.listpeers()['peers'][0]['local_features'] == '88'
+
     def test_autocleaninvoice(self):
         l1 = self.node_factory.get_node()
 
@@ -485,7 +491,7 @@ class LightningDTests(BaseLightningDTests):
         assert invoice_preimage == payment_preimage
 
         # Creating a new invoice with same preimage should error.
-        self.assertRaisesRegex(ValueError,
+        self.assertRaisesRegex(RpcError,
                                "preimage already used",
                                l2.rpc.invoice, 123456, 'inv2', '?',
                                None, None, invoice_preimage)
@@ -592,22 +598,22 @@ class LightningDTests(BaseLightningDTests):
 
         inv = l2.rpc.invoice(msatoshi=123000, label='test_pay', description='description', expiry=1)['bolt11']
         time.sleep(2)
-        self.assertRaises(ValueError, l1.rpc.pay, inv)
+        self.assertRaises(RpcError, l1.rpc.pay, inv)
         assert l2.rpc.listinvoices('test_pay')['invoices'][0]['status'] == 'expired'
         assert l2.rpc.listinvoices('test_pay')['invoices'][0]['expires_at'] < time.time()
 
         # Try deleting it.
-        self.assertRaisesRegex(ValueError,
+        self.assertRaisesRegex(RpcError,
                                'Invoice status is expired not unpaid',
                                l2.rpc.delinvoice,
                                'test_pay', 'unpaid')
-        self.assertRaisesRegex(ValueError,
+        self.assertRaisesRegex(RpcError,
                                'Invoice status is expired not paid',
                                l2.rpc.delinvoice,
                                'test_pay', 'paid')
         l2.rpc.delinvoice('test_pay', 'expired')
 
-        self.assertRaisesRegex(ValueError,
+        self.assertRaisesRegex(RpcError,
                                'Unknown invoice',
                                l2.rpc.delinvoice,
                                'test_pay', 'expired')
@@ -628,13 +634,13 @@ class LightningDTests(BaseLightningDTests):
         assert not w3.done()
         time.sleep(4)  # total 6
         assert not w1.done()
-        self.assertRaises(ValueError, w2.result)
+        self.assertRaises(RpcError, w2.result)
         assert not w3.done()
         time.sleep(6)  # total 12
-        self.assertRaises(ValueError, w1.result)
+        self.assertRaises(RpcError, w1.result)
         assert not w3.done()
         time.sleep(8)  # total 20
-        self.assertRaises(ValueError, w3.result)
+        self.assertRaises(RpcError, w3.result)
 
         # Test delexpiredinvoice
         l2.rpc.delexpiredinvoice(maxexpirytime=creation + 8)
@@ -669,17 +675,17 @@ class LightningDTests(BaseLightningDTests):
         assert len(l2.rpc.listpeers()) == 1
 
         # Should get reasonable error if unknown addr for peer.
-        self.assertRaisesRegex(ValueError,
+        self.assertRaisesRegex(RpcError,
                                "No address known",
                                l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e')
 
         # Should get reasonable error if connection refuse.
-        self.assertRaisesRegex(ValueError,
+        self.assertRaisesRegex(RpcError,
                                "Connection establishment: Connection refused",
                                l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'localhost', 1)
 
         # Should get reasonable error if wrong key for peer.
-        self.assertRaisesRegex(ValueError,
+        self.assertRaisesRegex(RpcError,
                                "Cryptographic handshake: ",
                                l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'localhost', l2.port)
 
@@ -745,7 +751,7 @@ class LightningDTests(BaseLightningDTests):
         wait_for(lambda: not l1.rpc.listpeers(l2.info['id'])['peers'][0]['connected'])
 
         # Now should fail.
-        self.assertRaisesRegex(ValueError,
+        self.assertRaisesRegex(RpcError,
                                "Connection refused",
                                l1.rpc.connect, l2.info['id'], 'localhost', l2.port)
 
@@ -1000,7 +1006,7 @@ class LightningDTests(BaseLightningDTests):
         assert b11['fallbacks'][0]['type'] == 'P2WSH'
         assert b11['fallbacks'][0]['addr'] == 'bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3'
 
-        self.assertRaises(ValueError, l1.rpc.decodepay, '1111111')
+        self.assertRaises(RpcError, l1.rpc.decodepay, '1111111')
 
     def test_sendpay(self):
         l1, l2 = self.connect()
@@ -1022,27 +1028,27 @@ class LightningDTests(BaseLightningDTests):
         rs = copy.deepcopy(routestep)
         rs['msatoshi'] = rs['msatoshi'] - 1
         l1.rpc.sendpay(to_json([rs]), rhash)
-        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
+        self.assertRaises(RpcError, l1.rpc.waitsendpay, rhash)
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         # Gross overpayment (more than factor of 2)
         rs = copy.deepcopy(routestep)
         rs['msatoshi'] = rs['msatoshi'] * 2 + 1
         l1.rpc.sendpay(to_json([rs]), rhash)
-        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
+        self.assertRaises(RpcError, l1.rpc.waitsendpay, rhash)
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         # Insufficient delay.
         rs = copy.deepcopy(routestep)
         rs['delay'] = rs['delay'] - 2
         l1.rpc.sendpay(to_json([rs]), rhash)
-        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
+        self.assertRaises(RpcError, l1.rpc.waitsendpay, rhash)
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         # Bad ID.
         rs = copy.deepcopy(routestep)
         rs['id'] = '00000000000000000000000000000000'
-        self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
+        self.assertRaises(RpcError, l1.rpc.sendpay, to_json([rs]), rhash)
         assert l2.rpc.listinvoices('testpayment2')['invoices'][0]['status'] == 'unpaid'
 
         # FIXME: test paying via another node, should fail to pay twice.
@@ -1125,7 +1131,7 @@ class LightningDTests(BaseLightningDTests):
         self.fund_channel(l1, l2, 10**6)
 
         # Can't pay more than channel capacity.
-        self.assertRaises(ValueError, self.pay, l1, l2, 10**9 + 1)
+        self.assertRaises(RpcError, self.pay, l1, l2, 10**9 + 1)
 
         # This is the fee, which needs to be taken into account for l1.
         available = 10**9 - 6720
@@ -1133,14 +1139,14 @@ class LightningDTests(BaseLightningDTests):
         reserve = 10**7
 
         # Can't pay past reserve.
-        self.assertRaises(ValueError, self.pay, l1, l2, available)
-        self.assertRaises(ValueError, self.pay, l1, l2, available - reserve + 1)
+        self.assertRaises(RpcError, self.pay, l1, l2, available)
+        self.assertRaises(RpcError, self.pay, l1, l2, available - reserve + 1)
 
         # Can pay up to reserve (1%)
         self.pay(l1, l2, available - reserve)
 
         # And now it can't pay back, due to its own reserve.
-        self.assertRaises(ValueError, self.pay, l2, l1, available - reserve)
+        self.assertRaises(RpcError, self.pay, l2, l1, available - reserve)
 
         # But this should work.
         self.pay(l2, l1, available - reserve * 2)
@@ -1166,7 +1172,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Amount must be nonzero!
         l1.rpc.sendpay(to_json([routestep]), rhash)
-        self.assertRaisesRegex(ValueError, 'WIRE_AMOUNT_BELOW_MINIMUM',
+        self.assertRaisesRegex(RpcError, 'WIRE_AMOUNT_BELOW_MINIMUM',
                                l1.rpc.waitsendpay, rhash)
 
     def test_pay(self):
@@ -1196,8 +1202,8 @@ class LightningDTests(BaseLightningDTests):
         # Repeat payments are NOPs (if valid): we can hand null.
         l1.rpc.pay(inv)
         # This won't work: can't provide an amount (even if correct!)
-        self.assertRaises(ValueError, l1.rpc.pay, inv, 123000)
-        self.assertRaises(ValueError, l1.rpc.pay, inv, 122000)
+        self.assertRaises(RpcError, l1.rpc.pay, inv, 123000)
+        self.assertRaises(RpcError, l1.rpc.pay, inv, 122000)
 
         # Check pay_index is not null
         outputs = l2.db_query('SELECT pay_index IS NOT NULL AS q FROM invoices WHERE label="label";')
@@ -1208,7 +1214,7 @@ class LightningDTests(BaseLightningDTests):
             label = "any{}".format(i)
             inv2 = l2.rpc.invoice("any", label, 'description')['bolt11']
             # Must provide an amount!
-            self.assertRaises(ValueError, l1.rpc.pay, inv2)
+            self.assertRaises(RpcError, l1.rpc.pay, inv2)
             l1.rpc.pay(inv2, random.randint(1000, 999999))
 
         # Should see 6 completed payments
@@ -1306,7 +1312,7 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('Handing back peer .* to master')
 
         self.give_funds(l1, 10**6 + 1000000)
-        self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 10**6)
+        self.assertRaises(RpcError, l1.rpc.fundchannel, l2.info['id'], 10**6)
 
         l2.daemon.wait_for_log('to_self_delay 100 larger than 99')
 
@@ -1338,7 +1344,7 @@ class LightningDTests(BaseLightningDTests):
             assert 'CHANNELD_NORMAL:Funding transaction locked.' in billboard[0]
 
         # This should return with an error, then close.
-        self.assertRaisesRegex(ValueError,
+        self.assertRaisesRegex(RpcError,
                                "Channel close negotiation not finished",
                                l1.rpc.close, chan, False, 0)
         l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
@@ -1390,7 +1396,7 @@ class LightningDTests(BaseLightningDTests):
         l2.stop()
 
         # The close should still be triggered afterwards.
-        self.assertRaisesRegex(ValueError,
+        self.assertRaisesRegex(RpcError,
                                "Channel close negotiation not finished",
                                l1.rpc.close, chan, False, 0)
         l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
@@ -1798,13 +1804,13 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(3)
 
         # It should fail.
-        self.assertRaises(ValueError, payfuture.result, 5)
+        self.assertRaises(RpcError, payfuture.result, 5)
 
         l1.daemon.wait_for_log('WIRE_PERMANENT_CHANNEL_FAILURE: missing in commitment tx')
 
         # Retry payment, this should fail (and, as a side-effect, tickle a
         # bug).
-        self.assertRaisesRegex(ValueError, 'WIRE_UNKNOWN_NEXT_PEER',
+        self.assertRaisesRegex(RpcError, 'WIRE_UNKNOWN_NEXT_PEER',
                                l1.rpc.sendpay, to_json([routestep]), rhash)
 
         # 6 later, l1 should collect its to-self payment.
@@ -1873,7 +1879,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(3)
 
         # It should fail.
-        self.assertRaises(ValueError, payfuture.result, 5)
+        self.assertRaises(RpcError, payfuture.result, 5)
 
         l1.daemon.wait_for_log('WIRE_PERMANENT_CHANNEL_FAILURE: timed out')
 
@@ -2602,7 +2608,7 @@ class LightningDTests(BaseLightningDTests):
 
         # 65535 - type(2 bytes) - num_pong_bytes(2 bytes) - byteslen(2 bytes)
         # = 65529 max.
-        self.assertRaisesRegex(ValueError, r'oversize ping',
+        self.assertRaisesRegex(RpcError, r'oversize ping',
                                l1.rpc.dev_ping, l2.info['id'], 65530, 1)
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -2741,6 +2747,9 @@ class LightningDTests(BaseLightningDTests):
 
         # Restore infinite encode size.
         l2.rpc.dev_set_max_scids_encode_size(max=(2**32 - 1))
+        l2.daemon.wait_for_log('Set max_scids_encode_bytes to {}'
+                               .format(2**32 - 1))
+
         ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
                                              first=0,
                                              num=65535)
@@ -2931,11 +2940,12 @@ class LightningDTests(BaseLightningDTests):
     def test_gossip_no_empty_announcements(self):
         # Need full IO logging so we can see gossip
         l1 = self.node_factory.get_node(options={'log-level': 'io'})
-        l2 = self.node_factory.get_node(options={'log-level': 'io',
-                                                 'dev-no-reconnect': None})
+        l2 = self.node_factory.get_node(options={'log-level': 'io'})
         # l3 sends CHANNEL_ANNOUNCEMENT to l2, but not CHANNEL_UDPATE.
-        l3 = self.node_factory.get_node(disconnect=['+WIRE_CHANNEL_ANNOUNCEMENT'])
-        l4 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node(disconnect=['+WIRE_CHANNEL_ANNOUNCEMENT'],
+                                        options={'dev-no-reconnect': None},
+                                        may_reconnect=True)
+        l4 = self.node_factory.get_node(may_reconnect=True)
 
         # Turn on IO logging for gossipds
         subprocess.run(['kill', '-USR1', l1.subd_pid('gossipd')])
@@ -2951,6 +2961,11 @@ class LightningDTests(BaseLightningDTests):
         sync_blockheight([l3, l4])
         # 0x0100 = channel_announcement, which goes to l2 before l3 dies.
         l2.daemon.wait_for_log('\[IN\] 0100')
+
+        # l3 actually disconnects from l4 *and* l2!  That means we never see
+        # the (delayed) channel_update from l4.
+        wait_for(lambda: not l3.rpc.listpeers(l4.info['id'])['peers'][0]['connected'])
+        l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
 
         # But it never goes to l1, as there's no channel_update.
         time.sleep(2)
@@ -3055,19 +3070,19 @@ class LightningDTests(BaseLightningDTests):
         route = copy.deepcopy(baseroute)
         route[1]['id'] = '031a8dc444e41bb989653a4501e11175a488a57439b0c4947704fd6e3de5dca607'
         l1.rpc.sendpay(to_json(route), rhash)
-        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
+        self.assertRaises(RpcError, l1.rpc.waitsendpay, rhash)
 
         # Delay too short (we always add one internally anyway, so subtract 2 here).
         route = copy.deepcopy(baseroute)
         route[0]['delay'] = 8
         l1.rpc.sendpay(to_json(route), rhash)
-        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
+        self.assertRaises(RpcError, l1.rpc.waitsendpay, rhash)
 
         # Final delay too short
         route = copy.deepcopy(baseroute)
         route[1]['delay'] = 3
         l1.rpc.sendpay(to_json(route), rhash)
-        self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
+        self.assertRaises(RpcError, l1.rpc.waitsendpay, rhash)
 
         # This one works
         route = copy.deepcopy(baseroute)
@@ -3268,13 +3283,15 @@ class LightningDTests(BaseLightningDTests):
         l1.stop()
 
         # `pay` call is lost
-        self.assertRaises(ValueError, f.result)
+        self.assertRaises(RpcError, f.result)
 
         # We should have the HTLC sig
         assert(len(l1.db_query("SELECT * FROM htlc_sigs;")) == 1)
 
         # This should reload the htlc_sig
         l2.rpc.dev_fail(l1.info['id'])
+        # Make sure it broadcasts to chain.
+        l2.daemon.wait_for_log('sendrawtx exit 0')
         l2.stop()
         l1.bitcoin.rpc.generate(1)
         l1.start()
@@ -3411,11 +3428,11 @@ class LightningDTests(BaseLightningDTests):
         l1 = self.node_factory.get_node(disconnect=disconnects)
         l2 = self.node_factory.get_node()
 
-        self.assertRaises(ValueError, l1.rpc.connect,
+        self.assertRaises(RpcError, l1.rpc.connect,
                           l2.info['id'], 'localhost', l2.port)
-        self.assertRaises(ValueError, l1.rpc.connect,
+        self.assertRaises(RpcError, l1.rpc.connect,
                           l2.info['id'], 'localhost', l2.port)
-        self.assertRaises(ValueError, l1.rpc.connect,
+        self.assertRaises(RpcError, l1.rpc.connect,
                           l2.info['id'], 'localhost', l2.port)
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -3443,7 +3460,7 @@ class LightningDTests(BaseLightningDTests):
 
         for d in disconnects:
             l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-            self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
+            self.assertRaises(RpcError, l1.rpc.fundchannel, l2.info['id'], 20000)
             assert l1.rpc.getpeer(l2.info['id']) is None
 
         # This one will succeed.
@@ -3467,7 +3484,7 @@ class LightningDTests(BaseLightningDTests):
 
         for d in disconnects:
             l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-            self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
+            self.assertRaises(RpcError, l1.rpc.fundchannel, l2.info['id'], 20000)
             assert l1.rpc.getpeer(l2.info['id']) is None
 
         # This one will succeed.
@@ -3489,7 +3506,7 @@ class LightningDTests(BaseLightningDTests):
         self.give_funds(l1, 2000000)
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-        self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
+        self.assertRaises(RpcError, l1.rpc.fundchannel, l2.info['id'], 20000)
 
         # Fundee remembers, funder doesn't.
         assert l1.rpc.getpeer(l2.info['id']) is None
@@ -3533,7 +3550,7 @@ class LightningDTests(BaseLightningDTests):
         self.give_funds(l1, 2000000)
 
         # l2 closes on l1, l1 forgets.
-        self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
+        self.assertRaises(RpcError, l1.rpc.fundchannel, l2.info['id'], 20000)
         assert l1.rpc.getpeer(l2.info['id']) is None
 
         # Reconnect.
@@ -3585,7 +3602,7 @@ class LightningDTests(BaseLightningDTests):
 
         for i in range(0, len(disconnects)):
             l1.rpc.sendpay(to_json(route), rhash)
-            self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
+            self.assertRaises(RpcError, l1.rpc.waitsendpay, rhash)
             # Wait for reconnection.
             l1.daemon.wait_for_log('Already have funding locked in')
 
@@ -3691,7 +3708,7 @@ class LightningDTests(BaseLightningDTests):
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
 
         # This should return with an error, then close.
-        self.assertRaisesRegex(ValueError,
+        self.assertRaisesRegex(RpcError,
                                "Channel close negotiation not finished",
                                l1.rpc.close, chan, False, 0)
         l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
@@ -3719,7 +3736,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(1)
 
         # This should return with an error, then close.
-        self.assertRaisesRegex(ValueError,
+        self.assertRaisesRegex(RpcError,
                                "Channel close negotiation not finished",
                                l1.rpc.close, chanid, False, 0)
         l1.daemon.wait_for_log('CHANNELD_AWAITING_LOCKIN to CHANNELD_SHUTTING_DOWN')
@@ -3757,7 +3774,7 @@ class LightningDTests(BaseLightningDTests):
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
 
         # This should return with an error, then close.
-        self.assertRaisesRegex(ValueError,
+        self.assertRaisesRegex(RpcError,
                                "Channel close negotiation not finished",
                                l1.rpc.close, chan, False, 0)
         l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
@@ -3822,9 +3839,9 @@ class LightningDTests(BaseLightningDTests):
 
         waddr = l1.bitcoin.rpc.getnewaddress()
         # Now attempt to withdraw some (making sure we collect multiple inputs)
-        self.assertRaises(ValueError, l1.rpc.withdraw, 'not an address', amount)
-        self.assertRaises(ValueError, l1.rpc.withdraw, waddr, 'not an amount')
-        self.assertRaises(ValueError, l1.rpc.withdraw, waddr, -amount)
+        self.assertRaises(RpcError, l1.rpc.withdraw, 'not an address', amount)
+        self.assertRaises(RpcError, l1.rpc.withdraw, waddr, 'not an amount')
+        self.assertRaises(RpcError, l1.rpc.withdraw, waddr, -amount)
 
         out = l1.rpc.withdraw(waddr, 2 * amount)
 
@@ -3859,9 +3876,9 @@ class LightningDTests(BaseLightningDTests):
         # Simple test for withdrawal to P2WPKH
         # Address from: https://bc-2.jp/tools/bech32demo/index.html
         waddr = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
-        self.assertRaises(ValueError, l1.rpc.withdraw, 'xx1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx', 2 * amount)
-        self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1pw508d6qejxtdg4y5r3zarvary0c5xw7kdl9fad', 2 * amount)
-        self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxxxxxx', 2 * amount)
+        self.assertRaises(RpcError, l1.rpc.withdraw, 'xx1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx', 2 * amount)
+        self.assertRaises(RpcError, l1.rpc.withdraw, 'tb1pw508d6qejxtdg4y5r3zarvary0c5xw7kdl9fad', 2 * amount)
+        self.assertRaises(RpcError, l1.rpc.withdraw, 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxxxxxx', 2 * amount)
         l1.rpc.withdraw(waddr, 2 * amount)
         l1.bitcoin.rpc.generate(1)
         # Now make sure additional two of them were marked as spent
@@ -3872,9 +3889,9 @@ class LightningDTests(BaseLightningDTests):
         # Simple test for withdrawal to P2WSH
         # Address from: https://bc-2.jp/tools/bech32demo/index.html
         waddr = 'bcrt1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qzf4jry'
-        self.assertRaises(ValueError, l1.rpc.withdraw, 'xx1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7', 2 * amount)
-        self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1prp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qsm03tq', 2 * amount)
-        self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qxxxxxx', 2 * amount)
+        self.assertRaises(RpcError, l1.rpc.withdraw, 'xx1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7', 2 * amount)
+        self.assertRaises(RpcError, l1.rpc.withdraw, 'tb1prp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qsm03tq', 2 * amount)
+        self.assertRaises(RpcError, l1.rpc.withdraw, 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qxxxxxx', 2 * amount)
         l1.rpc.withdraw(waddr, 2 * amount)
         l1.bitcoin.rpc.generate(1)
         # Now make sure additional two of them were marked as spent
@@ -3884,21 +3901,21 @@ class LightningDTests(BaseLightningDTests):
 
         # failure testing for invalid SegWit addresses, from BIP173
         # HRP character out of range
-        self.assertRaises(ValueError, l1.rpc.withdraw, ' 1nwldj5', 2 * amount)
+        self.assertRaises(RpcError, l1.rpc.withdraw, ' 1nwldj5', 2 * amount)
         # overall max length exceeded
-        self.assertRaises(ValueError, l1.rpc.withdraw, 'an84characterslonghumanreadablepartthatcontainsthenumber1andtheexcludedcharactersbio1569pvx', 2 * amount)
+        self.assertRaises(RpcError, l1.rpc.withdraw, 'an84characterslonghumanreadablepartthatcontainsthenumber1andtheexcludedcharactersbio1569pvx', 2 * amount)
         # No separator character
-        self.assertRaises(ValueError, l1.rpc.withdraw, 'pzry9x0s0muk', 2 * amount)
+        self.assertRaises(RpcError, l1.rpc.withdraw, 'pzry9x0s0muk', 2 * amount)
         # Empty HRP
-        self.assertRaises(ValueError, l1.rpc.withdraw, '1pzry9x0s0muk', 2 * amount)
+        self.assertRaises(RpcError, l1.rpc.withdraw, '1pzry9x0s0muk', 2 * amount)
         # Invalid witness version
-        self.assertRaises(ValueError, l1.rpc.withdraw, 'BC13W508D6QEJXTDG4Y5R3ZARVARY0C5XW7KN40WF2', 2 * amount)
+        self.assertRaises(RpcError, l1.rpc.withdraw, 'BC13W508D6QEJXTDG4Y5R3ZARVARY0C5XW7KN40WF2', 2 * amount)
         # Invalid program length for witness version 0 (per BIP141)
-        self.assertRaises(ValueError, l1.rpc.withdraw, 'BC1QR508D6QEJXTDG4Y5R3ZARVARYV98GJ9P', 2 * amount)
+        self.assertRaises(RpcError, l1.rpc.withdraw, 'BC1QR508D6QEJXTDG4Y5R3ZARVARYV98GJ9P', 2 * amount)
         # Mixed case
-        self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sL5k7', 2 * amount)
+        self.assertRaises(RpcError, l1.rpc.withdraw, 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sL5k7', 2 * amount)
         # Non-zero padding in 8-to-5 conversion
-        self.assertRaises(ValueError, l1.rpc.withdraw, 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3pjxtptv', 2 * amount)
+        self.assertRaises(RpcError, l1.rpc.withdraw, 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3pjxtptv', 2 * amount)
 
         # Should have 6 outputs available.
         c = db.cursor()
@@ -3918,7 +3935,7 @@ class LightningDTests(BaseLightningDTests):
         assert(c.fetchone()[0] == 0)
 
         # This should fail, can't even afford fee.
-        self.assertRaises(ValueError, l1.rpc.withdraw, waddr, 'all')
+        self.assertRaises(RpcError, l1.rpc.withdraw, waddr, 'all')
         l1.daemon.wait_for_log('Cannot afford funding transaction')
 
     def test_funding_change(self):
@@ -3972,7 +3989,7 @@ class LightningDTests(BaseLightningDTests):
         wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
 
         # Fail because l1 dislikes l2's huge locktime.
-        self.assertRaisesRegex(ValueError, r'to_self_delay \d+ larger than \d+',
+        self.assertRaisesRegex(RpcError, r'to_self_delay \d+ larger than \d+',
                                l1.rpc.fundchannel, l2.info['id'], int(funds / 10))
         assert l1.rpc.listpeers()['peers'][0]['connected']
         assert l2.rpc.listpeers()['peers'][0]['connected']
@@ -3983,7 +4000,7 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
         # We don't have enough left to cover fees if we try to spend it all.
-        self.assertRaisesRegex(ValueError, r'Cannot afford funding transaction',
+        self.assertRaisesRegex(RpcError, r'Cannot afford funding transaction',
                                l1.rpc.fundchannel, l2.info['id'], funds)
 
         # Should still be connected.
@@ -4011,7 +4028,7 @@ class LightningDTests(BaseLightningDTests):
         try:
             l1.rpc.fundchannel(l2.info['id'], amount)
             self.fail('Expected fundchannel to fail!')
-        except ValueError as err:
+        except RpcError as err:
             assert 'Funding satoshi must be <= 16777215' in str(err)
 
         # This should work.
@@ -4235,7 +4252,7 @@ class LightningDTests(BaseLightningDTests):
         assert l1.rpc.listpayments()['payments'][0]['status'] == 'failed'
 
         # Another attempt should also fail.
-        self.assertRaises(ValueError, l1.rpc.pay, inv1['bolt11'])
+        self.assertRaises(RpcError, l1.rpc.pay, inv1['bolt11'])
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_payment_duplicate_uncommitted(self):
@@ -4369,7 +4386,7 @@ class LightningDTests(BaseLightningDTests):
         r = f.result(timeout=5)
         assert r['label'] == 'inv3'
 
-        self.assertRaises(ValueError, l2.rpc.waitanyinvoice, 'non-number')
+        self.assertRaises(RpcError, l2.rpc.waitanyinvoice, 'non-number')
 
     def test_waitanyinvoice_reversed(self):
         """Test waiting for invoices, where they are paid in reverse order
@@ -4439,7 +4456,7 @@ class LightningDTests(BaseLightningDTests):
         self.pay(l2, l1, 100000000)
 
         # Now shutdown cleanly.
-        self.assertRaisesRegex(ValueError,
+        self.assertRaisesRegex(RpcError,
                                "Channel close negotiation not finished",
                                l1.rpc.close, chanid, False, 0)
         l1.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
@@ -4642,11 +4659,11 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log(r'Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 150000 outside range 1875-75000')
 
         # Can't pay while its offline.
-        self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
+        self.assertRaises(RpcError, l1.rpc.sendpay, to_json(route), rhash)
         l1.daemon.wait_for_log('failed: WIRE_TEMPORARY_CHANNEL_FAILURE \\(First peer not ready\\)')
 
         # Should fail due to temporary channel fail
-        self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
+        self.assertRaises(RpcError, l1.rpc.sendpay, to_json(route), rhash)
         l1.daemon.wait_for_log('failed: WIRE_TEMPORARY_CHANNEL_FAILURE \\(First peer not ready\\)')
         assert not l1.daemon.is_in_log('Payment is still in progress')
 
@@ -4815,7 +4832,7 @@ class LightningDTests(BaseLightningDTests):
         assert len(l1.rpc.listpeers()['peers']) == 1
 
         # This should fail, the funding tx is in the mempool and may confirm
-        self.assertRaisesRegex(ValueError,
+        self.assertRaisesRegex(RpcError,
                                "Cowardly refusing to forget channel",
                                l1.rpc.dev_forget_channel, l2.info['id'])
         assert len(l1.rpc.listpeers()['peers']) == 1
@@ -4846,7 +4863,7 @@ class LightningDTests(BaseLightningDTests):
         assert l1.rpc.getpeer(l2.info['id'])['color'] == l1.rpc.listnodes(l2.info['id'])['nodes'][0]['color']
 
         # Close the channel to forget the peer
-        self.assertRaisesRegex(ValueError,
+        self.assertRaisesRegex(RpcError,
                                "Channel close negotiation not finished",
                                l1.rpc.close, chan, False, 0)
         l1.daemon.wait_for_log('Forgetting remote peer')
@@ -4920,9 +4937,9 @@ class LightningDTests(BaseLightningDTests):
         assert l2.rpc.getpeer(l1.info['id']) is None
 
         # Make sure you cannot disconnect after disconnecting
-        self.assertRaisesRegex(ValueError, "Peer not connected",
+        self.assertRaisesRegex(RpcError, "Peer not connected",
                                l1.rpc.disconnect, l2.info['id'])
-        self.assertRaisesRegex(ValueError, "Peer not connected",
+        self.assertRaisesRegex(RpcError, "Peer not connected",
                                l2.rpc.disconnect, l1.info['id'])
 
         # Fund channel l1 -> l3
@@ -4930,7 +4947,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(5)
 
         # disconnecting a non gossiping peer results in error
-        self.assertRaisesRegex(ValueError, "Peer is not in gossip mode",
+        self.assertRaisesRegex(RpcError, "Peer is not in gossip mode",
                                l1.rpc.disconnect, l3.info['id'])
 
     def test_rescan(self):

@@ -220,9 +220,9 @@ towire_impl_templ = """u8 *towire_{name}(const tal_t *ctx{args})
 }}
 """
 
-printwire_header_templ = """void printwire_{name}(const u8 *cursor);
+printwire_header_templ = """void printwire_{name}(const char *fieldname, const u8 *cursor);
 """
-printwire_impl_templ = """void printwire_{name}(const u8 *cursor)
+printwire_impl_templ = """void printwire_{name}(const char *fieldname, const u8 *cursor)
 {{
 \tsize_t plen = tal_len(cursor);
 
@@ -437,8 +437,8 @@ class Message(object):
 
     def print_printwire_array(self, subcalls, basetype, f, num_elems):
         if f.has_array_helper():
-            subcalls.append('\tprintwire_{}_array(&cursor, &plen, {});'
-                            .format(basetype, num_elems))
+            subcalls.append('\tprintwire_{}_array(tal_fmt(NULL, "%s.{}", fieldname), &cursor, &plen, {});'
+                            .format(basetype, f.name, num_elems))
         else:
             subcalls.append('\tprintf("[");')
             subcalls.append('\tfor (size_t i = 0; i < {}; i++) {{'
@@ -456,7 +456,8 @@ class Message(object):
 
             self.add_truncate_check(subcalls, indent='\t\t')
 
-            subcalls.append('\t\tprintwire_{}(&v);'.format(basetype))
+            subcalls.append('\t\tprintwire_{}(tal_fmt(NULL, "%s.{}", fieldname), &v);'
+                            .format(basetype, f.name))
             subcalls.append('\t}')
             subcalls.append('\tprintf("]");')
 
@@ -479,8 +480,8 @@ class Message(object):
 
             subcalls.append('\tprintf("{}=");'.format(f.name))
             if f.is_padding():
-                subcalls.append('\tprintwire_pad(&cursor, &plen, {});'
-                                .format(f.num_elems))
+                subcalls.append('\tprintwire_pad(tal_fmt(NULL, "%s.{}", fieldname), &cursor, &plen, {});'
+                                .format(f.name, f.num_elems))
                 self.add_truncate_check(subcalls)
             elif f.is_array():
                 self.print_printwire_array(subcalls, basetype, f, f.num_elems)
@@ -501,8 +502,8 @@ class Message(object):
                                     .format(basetype, f.name))
 
                 self.add_truncate_check(subcalls)
-                subcalls.append('\tprintwire_{}(&{});'
-                                .format(basetype, f.name))
+                subcalls.append('\tprintwire_{}(tal_fmt(NULL, "%s.{}", fieldname), &{});'
+                                .format(basetype, f.name, f.name))
 
         return template.format(
             name=self.name,
@@ -686,7 +687,7 @@ for m in messages:
     enums += '\t{} = {},\n'.format(m.enum.name, m.enum.value)
 includes = '\n'.join(includes)
 cases = ['case {enum.name}: return "{enum.name}";'.format(enum=m.enum) for m in messages]
-printcases = ['case {enum.name}: printf("{enum.name}:\\n"); printwire_{name}(msg); return;'.format(enum=m.enum, name=m.name) for m in messages]
+printcases = ['case {enum.name}: printf("{enum.name}:\\n"); printwire_{name}("{name}", msg); return;'.format(enum=m.enum, name=m.name) for m in messages]
 
 if options.printwire:
     decls = [m.print_printwire(options.header) for m in messages + messages_with_option]

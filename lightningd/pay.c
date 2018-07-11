@@ -1,6 +1,5 @@
 #include "pay.h"
 #include <ccan/str/hex/hex.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt11.h>
 #include <common/sphinx.h>
@@ -91,7 +90,7 @@ static void waitsendpay_resolve(const tal_t *ctx,
 	struct sendpay_command *pc;
 	struct sendpay_command *next;
 	list_for_each_safe(&ld->waitsendpay_commands, pc, next, list) {
-		if (!structeq(payment_hash, &pc->payment_hash))
+		if (!sha256_eq(payment_hash, &pc->payment_hash))
 			continue;
 
 		/* Delete later (in our own caller) if callback did
@@ -417,7 +416,7 @@ void payment_store(struct lightningd *ld,
 
 	/* Trigger any sendpay commands waiting for the store to occur. */
 	list_for_each_safe(&ld->sendpay_commands, pc, next, list) {
-		if (!structeq(payment_hash, &pc->payment_hash))
+		if (!sha256_eq(payment_hash, &pc->payment_hash))
 			continue;
 
 		/* Delete later if callback did not delete. */
@@ -732,7 +731,7 @@ send_payment_custom_route_data(const tal_t *ctx,
 				cb(result, cbarg);
 				return false;
 			}
-			if (!structeq(&payment->destination, &route_data.ids[n_hops-1])) {
+			if (!pubkey_eq(&payment->destination, &route_data.ids[n_hops-1])) {
 				char *msg = tal_fmt(tmpctx,
 						    "Already succeeded to %s",
 						    type_to_string(tmpctx,

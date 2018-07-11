@@ -316,6 +316,9 @@ class LightningD(TailableProc):
         for k, v in sorted(self.opts.items()):
             if v is None:
                 opts.append("--{}".format(k))
+            elif isinstance(v, list):
+                for i in v:
+                    opts.append("--{}={}".format(k, i))
             else:
                 opts.append("--{}={}".format(k, v))
 

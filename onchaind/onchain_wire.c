@@ -1,4 +1,3 @@
-#include <ccan/structeq/structeq.h>
 #include <common/htlc_wire.h>
 #include <onchaind/onchain_wire.h>
 #include <wire/wire.h>

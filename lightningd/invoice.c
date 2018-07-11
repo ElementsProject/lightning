@@ -7,7 +7,6 @@
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
 #include <ccan/str/hex/hex.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>

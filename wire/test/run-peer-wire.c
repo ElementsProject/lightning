@@ -11,7 +11,6 @@ void fromwire_pad_orig(const u8 **cursor, size_t *max, size_t num);
 #undef towire_pad
 #undef fromwire_pad
 
-#include <ccan/structeq/structeq.h>
 #include <assert.h>
 #include <stdio.h>
 #include <common/sphinx.h>
@@ -704,21 +703,22 @@ static bool channel_announcement_eq(const struct msg_channel_announcement *a,
 	return eq_upto(a, b, features)
 		&& eq_var(a, b, features)
 		&& eq_field(a, b, chain_hash)
-		&& structeq(&a->short_channel_id, &b->short_channel_id)
+		&& short_channel_id_eq(&a->short_channel_id,
+				       &b->short_channel_id)
 		&& eq_between(a, b, node_id_1, bitcoin_key_2);
 }
 
 static bool funding_locked_eq(const struct msg_funding_locked *a,
 			      const struct msg_funding_locked *b)
 {
-	return structeq(a, b);
+	return memcmp(a, b, sizeof(*a)) == 0;
 }
 
 static bool announcement_signatures_eq(const struct msg_announcement_signatures *a,
 			      const struct msg_announcement_signatures *b)
 {
 	return eq_upto(a, b, short_channel_id) &&
-		structeq(&a->short_channel_id, &b->short_channel_id);
+		short_channel_id_eq(&a->short_channel_id, &b->short_channel_id);
 }
 
 static bool update_fail_htlc_eq(const struct msg_update_fail_htlc *a,
@@ -738,19 +738,19 @@ static bool commitment_signed_eq(const struct msg_commitment_signed *a,
 static bool funding_signed_eq(const struct msg_funding_signed *a,
 			      const struct msg_funding_signed *b)
 {
-	return structeq(a, b);
+	return memcmp(a, b, sizeof(*a)) == 0;
 }
 
 static bool closing_signed_eq(const struct msg_closing_signed *a,
 			      const struct msg_closing_signed *b)
 {
-	return structeq(a, b);
+	return memcmp(a, b, sizeof(*a)) == 0;
 }
 
 static bool update_fulfill_htlc_eq(const struct msg_update_fulfill_htlc *a,
 				   const struct msg_update_fulfill_htlc *b)
 {
-	return structeq(a, b);
+	return memcmp(a, b, sizeof(*a)) == 0;
 }
 
 static bool error_eq(const struct msg_error *a,
@@ -770,7 +770,7 @@ static bool init_eq(const struct msg_init *a,
 static bool update_fee_eq(const struct msg_update_fee *a,
 			  const struct msg_update_fee *b)
 {
-	return structeq(a, b);
+	return memcmp(a, b, sizeof(*a)) == 0;
 }
 
 static bool shutdown_eq(const struct msg_shutdown *a,
@@ -790,7 +790,7 @@ static bool funding_created_eq(const struct msg_funding_created *a,
 static bool revoke_and_ack_eq(const struct msg_revoke_and_ack *a,
 			      const struct msg_revoke_and_ack *b)
 {
-	return structeq(a, b);
+	return memcmp(a, b, sizeof(*a)) == 0;
 }
 
 static bool open_channel_eq(const struct msg_open_channel *a,
@@ -804,7 +804,7 @@ static bool channel_update_eq(const struct msg_channel_update *a,
 			      const struct msg_channel_update *b)
 {
 	return eq_upto(a, b, short_channel_id) &&
-		structeq(&a->short_channel_id, &b->short_channel_id);
+		short_channel_id_eq(&a->short_channel_id, &b->short_channel_id);
 }
 
 static bool accept_channel_eq(const struct msg_accept_channel *a,

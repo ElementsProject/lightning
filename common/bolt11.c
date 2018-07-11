@@ -5,7 +5,6 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/endian/endian.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bech32_util.h>
@@ -489,8 +488,9 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
          *
          * The human-readable part of a Lightning invoice consists of two
 	 * sections:
-	 * 1. `prefix`: `ln` + BIP-0173 currency prefix (e.g. `lnbc` for
-	 *     bitcoins or `lntb` for testnet bitcoins)
+	 * 1. `prefix`: `ln` + BIP-0173 currency prefix (e.g. `lnbc` for bitcoin
+	 *     mainnet, `lntb` for bitcoin testnet and `lnbcrt` for bitcoin
+	 *     regtest)
          * 1. `amount`: optional number in that currency, followed by an optional
          *    `multiplier` letter
          */
@@ -652,7 +652,7 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
                         return decode_fail(b11, fail,
                                            "h: no description to check");
                 sha256(&sha, description, strlen(description));
-                if (!structeq(b11->description_hash, &sha))
+                if (!sha256_eq(b11->description_hash, &sha))
                         return decode_fail(b11, fail,
                                            "h: does not match description");
         }

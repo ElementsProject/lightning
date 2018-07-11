@@ -209,8 +209,7 @@ gossip_getpeers_reply,3111
 gossip_getpeers_reply,,num,u16
 gossip_getpeers_reply,,id,num*struct pubkey
 gossip_getpeers_reply,,addr,num*struct wireaddr_internal
-gossip_getpeers_reply,,numnodes,u16
-gossip_getpeers_reply,,nodes,numnodes*struct gossip_getnodes_entry
+gossip_getpeers_reply,,nodes,num*struct gossip_getnodes_entry
 
 # Channel daemon can ask for updates for a specific channel, for sending
 # errors.  Must be distinct from WIRE_CHANNEL_ANNOUNCEMENT etc. gossip msgs!

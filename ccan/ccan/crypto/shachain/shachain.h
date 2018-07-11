@@ -116,6 +116,8 @@ bool shachain_add_hash(struct shachain *chain,
  *
  * Example:
  * #include <ccan/structeq/structeq.h>
+ * // Defines sha256_eq
+ * STRUCTEQ_DEF(sha256, 0, u);
  *
  * static void next_hash(const struct sha256 *hash)
  * {
@@ -127,7 +129,7 @@ bool shachain_add_hash(struct shachain *chain,
  *	else {
  *		struct sha256 check;
  *		assert(shachain_get_hash(&chain, index+1, &check));
- *		assert(structeq(&check, hash));
+ *		assert(sha256_eq(&check, hash));
  *	}
  * }
  */

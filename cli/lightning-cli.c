@@ -103,6 +103,8 @@ static void human_help(const char *buffer, const jsmntok_t *result) {
 		/* advance to next command */
 		curr++;
 	}
+
+	printf("---\nrun `lightning-cli help <command>` for more information on a specific command\n");
 }
 
 enum format {
@@ -166,6 +168,12 @@ static void add_input(char **cmd, const char *input,
 		tal_append_fmt(cmd, ", ");
 }
 
+static void
+exec_man (const char *page) {
+	execlp("man", "man", page, (char *)NULL);
+	err(1, "Running man command");
+}
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -219,6 +227,14 @@ int main(int argc, char *argv[])
 			format = HUMAN;
 		else
 			format = JSON;
+	}
+
+	/* Launch a manpage if we have a help command with an argument. We do
+	 * not need to have lightningd running in this case. */
+	if (streq(method, "help") && format == HUMAN && argc >= 3) {
+		char command[strlen(argv[2]) + sizeof("lightning-")];
+		sprintf(command, "lightning-%s", argv[2]);
+		exec_man(command);
 	}
 
 	if (chdir(lightning_dir) != 0)

@@ -29,7 +29,6 @@
 #include <bitcoin/script.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/ptrint/ptrint.h>
-#include <ccan/structeq/structeq.h>
 #include <common/pseudorand.h>
 #include <common/timeout.h>
 #include <lightningd/bitcoind.h>
@@ -88,7 +87,7 @@ size_t txo_hash(const struct txwatch_output *out)
 
 bool txowatch_eq(const struct txowatch *w, const struct txwatch_output *out)
 {
-	return structeq(&w->out.txid, &out->txid)
+	return bitcoin_txid_eq(&w->out.txid, &out->txid)
 		&& w->out.index == out->index;
 }
 
@@ -110,7 +109,7 @@ size_t txid_hash(const struct bitcoin_txid *txid)
 
 bool txwatch_eq(const struct txwatch *w, const struct bitcoin_txid *txid)
 {
-	return structeq(&w->txid, txid);
+	return bitcoin_txid_eq(&w->txid, txid);
 }
 
 static void destroy_txwatch(struct txwatch *w)

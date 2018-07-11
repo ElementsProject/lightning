@@ -89,7 +89,7 @@ RUN apk add --update curl && \
   rm -rf glibc.apk glibc-bin.apk /var/cache/apk/*
 
 ENV LIGHTNINGD_DATA=/root/.lightning
-ENV LIGHTNINGD_PORT=9735
+ENV LIGHTNINGD_RPC_PORT=9835
 
 VOLUME [ "/root/.lightning" ]
 
@@ -99,5 +99,5 @@ COPY --from=builder /opt/bitcoin/bin /usr/bin
 COPY --from=builder /opt/litecoin/bin /usr/bin
 COPY tools/docker-entrypoint.sh entrypoint.sh
 
-EXPOSE 9735
+EXPOSE 9735 9835
 ENTRYPOINT  [ "./entrypoint.sh" ]

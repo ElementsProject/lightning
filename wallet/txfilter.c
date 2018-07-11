@@ -4,7 +4,6 @@
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/mem/mem.h>
-#include <ccan/structeq/structeq.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/utils.h>
@@ -31,7 +30,7 @@ static size_t outpoint_hash(const struct outpointfilter_entry *out)
 static bool outpoint_eq(const struct outpointfilter_entry *o1,
 			const struct outpointfilter_entry *o2)
 {
-	return structeq(&o1->txid, &o2->txid) && o1->outnum == o2->outnum;
+	return bitcoin_txid_eq(&o1->txid, &o2->txid) && o1->outnum == o2->outnum;
 }
 
 static const struct outpointfilter_entry *outpoint_keyof(const struct outpointfilter_entry *out)

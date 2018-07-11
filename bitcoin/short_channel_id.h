@@ -2,18 +2,18 @@
 #define LIGHTNING_BITCOIN_SHORT_CHANNEL_ID_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
 #include <stdbool.h>
 #include <stddef.h>
 
 /* Short Channel ID is composed of 3 bytes for the block height, 3
- * bytes of tx index in block and 2 bytes of output index. The
- * bitfield is mainly for unit tests where it is nice to be able to
- * just memset them and not have to take care about the extra byte for
- * u32 */
+ * bytes of tx index in block and 2 bytes of output index. */
 struct short_channel_id {
 	u64 u64;
 };
+/* Define short_channel_id_eq (no padding) */
+STRUCTEQ_DEF(short_channel_id, 0, u64);
 
 static inline u32 short_channel_id_blocknum(const struct short_channel_id *scid)
 {

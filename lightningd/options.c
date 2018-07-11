@@ -181,7 +181,36 @@ static char *opt_add_bind_addr(const char *arg, struct lightningd *ld)
 
 static char *opt_add_announce_addr(const char *arg, struct lightningd *ld)
 {
-	return opt_add_addr_withtype(arg, ld, ADDR_ANNOUNCE, false);
+	const struct wireaddr *wn;
+	size_t n = tal_count(ld->proposed_wireaddr);
+	char *err = opt_add_addr_withtype(arg, ld, ADDR_ANNOUNCE, false);
+	if (err)
+		return err;
+
+	/* Can't announce anything that's not a normal wireaddr. */
+	if (ld->proposed_wireaddr[n].itype != ADDR_INTERNAL_WIREADDR)
+		return tal_fmt(NULL, "address '%s' is not announcable",
+			       arg);
+
+	/* gossipd will refuse to announce the second one, sure, but it's
+	 * better to check and fail now if they've explicitly asked for it. */
+	wn = &ld->proposed_wireaddr[n].u.wireaddr;
+	for (size_t i = 0; i < n; i++) {
+		const struct wireaddr *wi;
+
+		if (ld->proposed_listen_announce[i] != ADDR_ANNOUNCE)
+			continue;
+		assert(ld->proposed_wireaddr[i].itype == ADDR_INTERNAL_WIREADDR);
+		wi = &ld->proposed_wireaddr[i].u.wireaddr;
+
+		if (wn->type != wi->type)
+			continue;
+		return tal_fmt(NULL, "Cannot announce address %s;"
+			       " already have %s which is the same type",
+			       type_to_string(tmpctx, struct wireaddr, wn),
+			       type_to_string(tmpctx, struct wireaddr, wi));
+	}
+	return NULL;
 }
 
 static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
@@ -239,8 +268,8 @@ static char *opt_set_rgb(const char *arg, struct lightningd *ld)
 	ld->rgb = tal_free(ld->rgb);
 	/* BOLT #7:
 	 *
-	 *    - Note: the first byte of `rgb` is the red value, the second byte
-	 *      is the green value, and the last byte is the blue value.
+	 *    - Note: the first byte of `rgb_color` is the red value, the second
+	 *      byte is the green value, and the last byte is the blue value.
 	 */
 	ld->rgb = tal_hexdata(ld, arg, strlen(arg));
 	if (!ld->rgb || tal_len(ld->rgb) != 3)

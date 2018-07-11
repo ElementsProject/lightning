@@ -38,7 +38,7 @@ static bool we_broadcast(const struct chain_topology *topo,
 	const struct outgoing_tx *otx;
 
 	list_for_each(&topo->outgoing_txs, otx, list) {
-		if (structeq(&otx->txid, txid))
+		if (bitcoin_txid_eq(&otx->txid, txid))
 			return true;
 	}
 	return false;
@@ -237,6 +237,8 @@ static void update_feerates(struct bitcoind *bitcoind,
 {
 	u32 old_feerates[NUM_FEERATES];
 	bool changed = false;
+	/* Rate of change of the fee smoothing, depending on the poll-interval */
+	double change_rate = (double)topo->poll_seconds / 150 * 0.9;
 
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
 		u32 feerate = satoshi_per_kw[i];
@@ -248,7 +250,14 @@ static void update_feerates(struct bitcoind *bitcoind,
 		if (!feerate)
 			continue;
 
-		if (feerate < feerate_floor())
+		/* Smooth the feerate to avoid spikes. The goal is to have the
+		 * fee consist of 0.9 * feerate + 0.1 * old_feerate after 300
+		 * seconds. The following will do that in a polling interval
+		 * independent manner. */
+                feerate =
+                    feerate * (1 - change_rate) + old_feerates[i] * change_rate;
+
+                if (feerate < feerate_floor())
 			feerate = feerate_floor();
 
 		if (feerate != topo->feerate[i]) {
@@ -438,7 +447,7 @@ static void have_new_block(struct bitcoind *bitcoind UNUSED,
 			   struct chain_topology *topo)
 {
 	/* Unexpected predecessor?  Free predecessor, refetch it. */
-	if (!structeq(&topo->tip->blkid, &blk->hdr.prev_hash))
+	if (!bitcoin_blkid_eq(&topo->tip->blkid, &blk->hdr.prev_hash))
 		remove_tip(topo);
 	else
 		add_tip(topo, new_block(topo, blk, topo->tip->height + 1));
@@ -570,26 +579,6 @@ u32 get_feerate(const struct chain_topology *topo, enum feerate feerate)
 }
 
 #if DEVELOPER
-static void json_dev_blockheight(struct command *cmd,
-				 const char *buffer UNUSED, const jsmntok_t *params UNUSED)
-{
-	struct chain_topology *topo = cmd->ld->topology;
-	struct json_result *response;
-
-	response = new_json_result(cmd);
-	json_object_start(response, NULL);
-	json_add_num(response, "blockheight", get_block_height(topo));
-	json_object_end(response);
-	command_success(cmd, response);
-}
-
-static const struct json_command dev_blockheight = {
-	"dev-blockheight",
-	json_dev_blockheight,
-	"Show current block height"
-};
-AUTODATA(json_command, &dev_blockheight);
-
 static void json_dev_setfees(struct command *cmd,
 			     const char *buffer, const jsmntok_t *params)
 {

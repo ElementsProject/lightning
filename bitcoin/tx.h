@@ -5,11 +5,14 @@
 #include "signature.h"
 #include "varint.h"
 #include <ccan/short_types/short_types.h>
+#include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
 
 struct bitcoin_txid {
 	struct sha256_double shad;
 };
+/* Define bitcoin_txid_eq */
+STRUCTEQ_DEF(bitcoin_txid, 0, shad.sha.u);
 
 struct bitcoin_tx {
 	u32 version;

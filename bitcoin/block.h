@@ -4,12 +4,15 @@
 #include "bitcoin/shadouble.h"
 #include <ccan/endian/endian.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
 #include <stdbool.h>
 
 struct bitcoin_blkid {
 	struct sha256_double shad;
 };
+/* Define bitcoin_blkid_eq (no padding) */
+STRUCTEQ_DEF(bitcoin_blkid, 0, shad.sha.u);
 
 struct bitcoin_block_hdr {
 	le32 version;

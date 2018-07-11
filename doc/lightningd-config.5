@@ -2,12 +2,12 @@
 .\"     Title: lightningd-config
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 06/20/2018
+.\"      Date: 06/23/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNINGD\-CONFIG" "5" "06/20/2018" "\ \&" "\ \&"
+.TH "LIGHTNINGD\-CONFIG" "5" "06/23/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -279,7 +279,8 @@ An empty \*(AqIPADDRESS\*(Aq is a special value meaning bind to IPv4 and/or
 IPv6 on all interfaces, \*(Aq0\&.0\&.0\&.0\*(Aq means bind to all IPv4
 interfaces, \*(Aq::\*(Aq means \*(Aqbind to all IPv6 interfaces\*(Aq\&.  If \*(AqPORT\*(Aq is
 not specified, 9735 is used\&.  If we can determine a public IP
-address from the resulting binding, the address is announced\&.
+address from the resulting binding, and no other addresses of the
+same type are already announced, the address is announced\&.
 .fi
 .if n \{\
 .RE
@@ -346,7 +347,7 @@ is not specified, a DNS lookup may be done to resolve \*(AqIPADDRESS\*(Aq\&.
 .PP
 \fBannounce\-addr\fR=\fIIPADDRESS[:PORT]|TORADDRESS\&.onion[:PORT]\fR
 .RS 4
-Set an IP address or Tor address to announce; a Tor address is distinguished by ending in
+Set an IP (v4 or v6) address or Tor address to announce; a Tor address is distinguished by ending in
 \fI\&.onion\fR\&.
 \fIPORT\fR
 defaults to 9735\&.
@@ -357,7 +358,7 @@ defaults to 9735\&.
 .nf
 Empty or wildcard IPv4 and IPv6 addresses don\*(Aqt make sense here\&.
 Also, unlike the \*(Aqaddr\*(Aq option, there is no checking that your
-announced addresses are sane (ie\&. not localhost)\&.
+announced addresses are public (e\&.g\&. not localhost)\&.
 .fi
 .if n \{\
 .RE
@@ -368,8 +369,20 @@ announced addresses are sane (ie\&. not localhost)\&.
 .\}
 .nf
 This option can be used multiple times to add more addresses, and
-its use disables autolisten\&.  If necessary, and \*(Aqalways\-use\-proxy\*(Aq
-is not specified, a DNS lookup may be done to resolve \*(AqIPADDRESS\*(Aq\&.
+its use disables autolisten\&.  The spec says you can\*(Aqt announce
+more that one address of the same type (eg\&. two IPv4 or two IPv6
+addresses) so `lightningd` will refuse if you specify more than one\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+If necessary, and \*(Aqalways\-use\-proxy\*(Aq is not specified, a DNS
+lookup may be done to resolve \*(AqIPADDRESS\*(Aq\&.
 .fi
 .if n \{\
 .RE

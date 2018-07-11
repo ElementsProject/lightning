@@ -4,7 +4,6 @@
 #include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/commit_tx.h>
 #include <channeld/full_channel.h>
@@ -108,7 +107,8 @@ static void dump_htlc(const struct htlc *htlc, const char *prefix)
 		     htlc_state_name(htlc->state),
 		     htlc_state_name(remote_state),
 		     htlc->r ? "FULFILLED" : htlc->fail ? "FAILED" :
-		     htlc->malformed ? "MALFORMED" : "");
+		     htlc->failcode
+		     ? tal_fmt(tmpctx, "FAILCODE:%u", htlc->failcode) : "");
 }
 
 void dump_htlcs(const struct channel *channel, const char *prefix)
@@ -325,7 +325,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 
 	htlc->rhash = *payment_hash;
 	htlc->fail = NULL;
-	htlc->malformed = 0;
+	htlc->failcode = 0;
 	htlc->r = NULL;
 	htlc->routing = tal_dup_arr(htlc, u8, routing, TOTAL_PACKET_SIZE, 0);
 
@@ -334,7 +334,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 		if (old->state != htlc->state
 		    || old->msatoshi != htlc->msatoshi
 		    || old->expiry.locktime != htlc->expiry.locktime
-		    || !structeq(&old->rhash, &htlc->rhash))
+		    || !sha256_eq(&old->rhash, &htlc->rhash))
 			return CHANNEL_ERR_DUPLICATE_ID_DIFFERENT;
 		else
 			return CHANNEL_ERR_DUPLICATE;
@@ -494,9 +494,10 @@ struct htlc *channel_get_htlc(struct channel *channel, enum side sender, u64 id)
 }
 
 enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
-					      enum side owner,
-					      u64 id,
-					      const struct preimage *preimage)
+					     enum side owner,
+					     u64 id,
+					     const struct preimage *preimage,
+					     struct htlc **htlcp)
 {
 	struct sha256 hash;
 	struct htlc *htlc;
@@ -515,7 +516,7 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 	 *  doesn't SHA256 hash to the corresponding HTLC `payment_hash`:
 	 *    - MUST fail the channel.
 	 */
-	if (!structeq(&hash, &htlc->rhash))
+	if (!sha256_eq(&hash, &htlc->rhash))
 		return CHANNEL_ERR_BAD_PREIMAGE;
 
 	htlc->r = tal_dup(htlc, struct preimage, preimage);
@@ -556,6 +557,9 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 	channel->changes_pending[owner] = true;
 
 	dump_htlc(htlc, "FULFILL:");
+
+	if (htlcp)
+		*htlcp = htlc;
 
 	return CHANNEL_ERR_REMOVE_OK;
 }
@@ -900,7 +904,7 @@ static bool adjust_balance(struct channel *channel, struct htlc *htlc)
 		if (htlc_has(htlc, HTLC_FLAG(side, HTLC_F_COMMITTED)))
 			continue;
 
-		if (!htlc->fail && !htlc->malformed && !htlc->r) {
+		if (!htlc->fail && !htlc->failcode && !htlc->r) {
 			status_trace("%s HTLC %"PRIu64
 				     " %s neither fail nor fulfill?",
 				     htlc_state_owner(htlc->state) == LOCAL
@@ -992,6 +996,12 @@ bool channel_force_htlcs(struct channel *channel,
 				     fulfilled[i].id);
 			return false;
 		}
+		if (htlc->failcode) {
+			status_trace("Fulfill %s HTLC %"PRIu64" already fail %u",
+				     fulfilled_sides[i] == LOCAL ? "out" : "in",
+				     fulfilled[i].id, htlc->failcode);
+			return false;
+		}
 		if (!htlc_has(htlc, HTLC_REMOVING)) {
 			status_trace("Fulfill %s HTLC %"PRIu64" state %s",
 				     fulfilled_sides[i] == LOCAL ? "out" : "in",
@@ -1025,10 +1035,10 @@ bool channel_force_htlcs(struct channel *channel,
 				     failed[i]->id);
 			return false;
 		}
-		if (htlc->malformed) {
-			status_trace("Fail %s HTLC %"PRIu64" already malformed",
+		if (htlc->failcode) {
+			status_trace("Fail %s HTLC %"PRIu64" already fail %u",
 				     failed_sides[i] == LOCAL ? "out" : "in",
-				     failed[i]->id);
+				     failed[i]->id, htlc->failcode);
 			return false;
 		}
 		if (!htlc_has(htlc, HTLC_REMOVING)) {
@@ -1038,13 +1048,14 @@ bool channel_force_htlcs(struct channel *channel,
 				     htlc_state_name(htlc->state));
 			return false;
 		}
-		if (failed[i]->malformed)
-			htlc->malformed = failed[i]->malformed;
-		else
+		htlc->failcode = failed[i]->failcode;
+		if (failed[i]->failreason)
 			htlc->fail = tal_dup_arr(htlc, u8,
 						 failed[i]->failreason,
 						 tal_len(failed[i]->failreason),
 						 0);
+		else
+			htlc->fail = NULL;
 	}
 
 	for (i = 0; i < tal_count(htlcs); i++) {

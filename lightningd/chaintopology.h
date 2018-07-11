@@ -72,7 +72,7 @@ static inline size_t hash_sha(const struct bitcoin_blkid *key)
 
 static inline bool block_eq(const struct block *b, const struct bitcoin_blkid *key)
 {
-	return structeq(&b->blkid, key);
+	return bitcoin_blkid_eq(&b->blkid, key);
 }
 HTABLE_DEFINE_TYPE(struct block, keyof_block_map, hash_sha, block_eq, block_map);
 

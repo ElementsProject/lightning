@@ -392,7 +392,7 @@ void channel_errmsg(struct channel *channel,
 	 * A sending node:
 	 *...
 	 *   - when `channel_id` is 0:
-	 *    - MUST fail all channels.
+	 *    - MUST fail all channels with the receiving node.
 	 *    - MUST close the connection.
 	 */
 	/* FIXME: Gossipd closes connection, but doesn't fail channels. */
@@ -405,7 +405,8 @@ void channel_errmsg(struct channel *channel,
 	 *...
 	 * The receiving node:
 	 *  - upon receiving `error`:
-	 *    - MUST fail the channel referred to by the error message.
+	 *    - MUST fail the channel referred to by the error message,
+	 *      if that channel is with the sending node.
 	 */
 	channel_fail_permanent(channel, "%s: %s ERROR %s",
 			       channel->owner->name,
@@ -542,7 +543,7 @@ static struct channel *channel_by_channel_id(struct peer *peer,
 		derive_channel_id(&cid,
 				  &channel->funding_txid,
 				  channel->funding_outnum);
-		if (structeq(&cid, channel_id))
+		if (channel_id_eq(&cid, channel_id))
 			return channel;
 	}
 	return NULL;
@@ -651,7 +652,8 @@ static enum watch_result funding_lockin_cb(struct channel *channel,
 	/* BOLT #7:
 	 *
 	 * A node:
-	 *   - if the `open_channel` message has the `announce_channel` bit set:
+	 *   - if the `open_channel` message has the `announce_channel` bit set
+	 *     AND a `shutdown` message has not been sent:
 	 *     - MUST send the `announcement_signatures` message.
 	 *       - MUST NOT send `announcement_signatures` messages until
 	 *         `funding_locked` has been sent AND the funding transaction has
@@ -702,27 +704,28 @@ struct getpeers_args {
 };
 
 static void json_add_node_decoration(struct json_result *response,
-				     struct gossip_getnodes_entry **nodes,
-				     const struct pubkey *id)
+				     struct gossip_getnodes_entry *node)
 {
-	for (size_t i = 0; i < tal_count(nodes); i++) {
-		struct json_escaped *esc;
+	struct json_escaped *esc;
 
-		/* If no addresses, then this node announcement hasn't been
-		 * received yet So no alias information either.
-		 */
-		if (nodes[i]->addresses == NULL)
-			continue;
+	if (node->local_features)
+		json_add_hex(response, "local_features",
+			     node->local_features,
+			     tal_len(node->local_features));
 
-		if (!pubkey_eq(&nodes[i]->nodeid, id))
-			continue;
+	if (node->global_features)
+		json_add_hex(response, "global_features",
+			     node->global_features,
+			     tal_len(node->global_features));
 
-		esc = json_escape(NULL, (const char *)nodes[i]->alias);
-		json_add_escaped_string(response, "alias", take(esc));
-		json_add_hex(response, "color",
-			     nodes[i]->color, ARRAY_SIZE(nodes[i]->color));
-		break;
-	}
+	/* If node announcement hasn't been received yet, no alias information.
+	 */
+	if (node->last_timestamp < 0)
+		return;
+
+	esc = json_escape(NULL, (const char *)node->alias);
+	json_add_escaped_string(response, "alias", take(esc));
+	json_add_hex(response, "color", node->color, ARRAY_SIZE(node->color));
 }
 
 static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
@@ -776,10 +779,18 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 			json_array_end(response);
 		}
 
-		json_add_node_decoration(response, nodes, &p->id);
+		/* Search gossip reply for this ID, to add extra info. */
+		for (size_t i = 0; i < tal_len(nodes); i++) {
+			if (pubkey_eq(&nodes[i]->nodeid, &p->id)) {
+				json_add_node_decoration(response, nodes[i]);
+				break;
+			}
+		}
+
 		json_array_start(response, "channels");
 		json_add_uncommitted_channel(response, p->uncommitted_channel);
 
+		/* FIXME: Add their local and global features */
 		list_for_each(&p->channels, channel, list) {
 			struct channel_id cid;
 			u64 our_reserve_msat = channel->channel_info.their_config.channel_reserve_satoshis * 1000;
@@ -907,7 +918,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 		/* Fake state. */
 		json_add_string(response, "state", "GOSSIPING");
 		json_add_pubkey(response, "id", ids+i);
-		json_add_node_decoration(response, nodes, ids+i);
+		json_add_node_decoration(response, nodes[i]);
 		json_array_start(response, "netaddr");
 		if (addrs[i].itype != ADDR_INTERNAL_WIREADDR
 		    || addrs[i].u.wireaddr.type != ADDR_TYPE_PADDING)
@@ -995,7 +1006,7 @@ command_find_channel(struct command *cmd,
 			derive_channel_id(&channel_cid,
 					  &channel->funding_txid,
 					  channel->funding_outnum);
-			if (structeq(&channel_cid, &cid))
+			if (channel_id_eq(&channel_cid, &cid))
 				return channel;
 		}
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -1435,7 +1446,7 @@ static void json_dev_forget_channel(struct command *cmd, const char *buffer,
 		if (scidtok) {
 			if (!channel->scid)
 				continue;
-			if (!structeq(channel->scid, &scid))
+			if (!short_channel_id_eq(channel->scid, &scid))
 				continue;
 		}
 		if (forget->channel) {
