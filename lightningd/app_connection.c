@@ -8,6 +8,7 @@
 #include <lightningd/json.h>
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
+#include <poll.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <string.h>
@@ -23,12 +24,22 @@ struct app_connection {
 	bool stop;
 };
 
+static bool is_closed(int fd)
+{
+	struct pollfd pfd;
+	pfd.fd = fd;
+	pfd.events = POLLERR | POLLHUP | POLLNVAL;
+	poll(&pfd, 1, 0); //timeout = 0
+	return pfd.revents != 0;
+}
+
 static void close_app_connection(const struct app_connection *appcon)
 {
+	struct log *log = appcon->ld->log;
 	close(appcon->fd);
 	appcon->ld->app_connection = NULL;
 	tal_free(appcon);
-	log_debug(appcon->log, "App connection closed");
+	log_debug(log, "App connection closed");
 }
 
 static bool write_all(int fd, const void *buf, size_t count)
@@ -187,8 +198,15 @@ static struct io_plan *app_connected(struct io_conn *conn,
 {
 	struct app_connection *appcon;
 
-	//FIXME: refuse connections if we already have one, or support multiple
-	//FIXME: handle closing of existing connection
+	if (ld->app_connection) {
+		if (is_closed(ld->app_connection->fd)) {
+			//Old peer closed the connection - clean up our side
+			close_app_connection(ld->app_connection);
+		} else {
+			//We don't support multiple connections - refuse the new one
+			return io_close(conn);
+		}
+	}
 
 	appcon = tal(ld, struct app_connection);
 	appcon->ld = ld;
