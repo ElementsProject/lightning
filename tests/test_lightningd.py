@@ -5039,7 +5039,7 @@ class LightningDTests(BaseLightningDTests):
                 self.realm = None
             def handle_payment(self, realm):
                 self.realm = realm
-                return AppConnection.PERMANENT_NODE_FAILURE
+                return AppConnection.INVALID_REALM
 
         for i in range(2):
             app_connection = SimpleAppConnection(
