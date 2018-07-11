@@ -65,7 +65,7 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
 		  (arg) + 0*sizeof((cb)((const char *)NULL,		\
 					(const jsmntok_t *)NULL,	\
 					(arg)) == true),		\
-		  0
+		  (size_t)0
 /*
  * Similar to above but for optional parameters.
  * @arg must be the address of a pointer. If found during parsing, it will be
