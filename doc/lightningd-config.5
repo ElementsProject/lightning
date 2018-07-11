@@ -2,12 +2,12 @@
 .\"     Title: lightningd-config
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 06/23/2018
+.\"      Date: 07/12/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNINGD\-CONFIG" "5" "06/23/2018" "\ \&" "\ \&"
+.TH "LIGHTNINGD\-CONFIG" "5" "07/12/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -167,6 +167,11 @@ Set JSON\-RPC socket (or /dev/tty), such as for lightning\-cli(1)\&.
 \fBdaemon\fR
 .RS 4
 Run in the background, suppress stdout and stderr\&.
+.RE
+.PP
+\fBconf\fR=\fIPATH\fR
+.RS 4
+Sets configuration file\&. Relative paths will be prefixed by lightning\-dir location\&. (default: config)
 .RE
 .sp
 Lightning node customization options:

@@ -339,6 +339,9 @@ static char *opt_set_locktime(const char *arg, u32 *u)
 
 static void config_register_opts(struct lightningd *ld)
 {
+	opt_register_early_arg("--conf=<file>", opt_set_talstr, NULL,
+		&ld->config_filename,
+		"Specify configuration file. Relative paths will be prefixed by lightning-dir location. (default: config)");
 	opt_register_noarg("--daemon", opt_set_bool, &ld->daemon,
 			 "Run in the background, suppress stdout/stderr");
 	opt_register_arg("--ignore-fee-limits", opt_set_bool_arg, opt_show_bool,
@@ -697,10 +700,14 @@ static void opt_parse_from_config(struct lightningd *ld)
 	char *argv[3];
 	int i, argc;
 
-	contents = grab_file(ld, "config");
-	/* Doesn't have to exist. */
+	if (ld->config_filename != NULL) {
+		contents = grab_file(ld, ld->config_filename);
+	} else
+		contents = grab_file(ld, "config");
+	/* The default config doesn't have to exist, but if the config was
+	 * specified on the command line it has to exist. */
 	if (!contents) {
-		if (errno != ENOENT)
+		if ((errno != ENOENT) || (ld->config_filename != NULL))
 			fatal("Opening and reading config: %s",
 			      strerror(errno));
 		/* Now we can set up defaults, since no config file. */
