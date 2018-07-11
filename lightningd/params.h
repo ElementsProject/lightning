@@ -81,9 +81,8 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
 		  sizeof(**(arg))
 
 /*
- * Similar to param_req but for optional parameters.
- * If not found during parsing, @arg will be set to @def.
- * allocated, otherwise it will be set to NULL.
+ * Similar to param_req but for optional parameters with defaults.
+ * @arg will be set to @def if it isn't found during parsing.
  */
 #define param_opt_default(name, cb, arg, def)				\
 		  name"",						\
