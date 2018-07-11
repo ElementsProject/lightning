@@ -198,12 +198,12 @@ static void dup_names(void)
 
 static void null_params(void)
 {
-	uint64_t *ints = tal_arr(cmd, uint64_t, 4);
-	uint64_t **intptrs = tal_arr(cmd, uint64_t *, 3);
+	uint64_t *ints = tal_arr(cmd, uint64_t, 5);
+	uint64_t **intptrs = tal_arr(cmd, uint64_t *, 2);
 	/* no null params */
 	struct json *j =
 	    json_parse(cmd, "[ '10', '11', '12', '13', '14', '15', '16']");
-	for (int i = 0; i < tal_count(ints); ++i)
+	for (int i = 0; i < tal_count(ints) - 1; ++i)
 		ints[i] = i;
 
 	assert(param_parse(cmd, j->buffer, j->toks,
@@ -211,9 +211,9 @@ static void null_params(void)
 			   param_req("1", json_tok_u64, &ints[1]),
 			   param_req("2", json_tok_u64, &ints[2]),
 			   param_req("3", json_tok_u64, &ints[3]),
-			   param_opt("4", json_tok_u64, &intptrs[0]),
-			   param_opt("5", json_tok_u64, &intptrs[1]),
-			   param_opt("6", json_tok_u64, &intptrs[2]),
+			   param_opt_default("4", json_tok_u64, &ints[4], 999),
+			   param_opt("5", json_tok_u64, &intptrs[0]),
+			   param_opt("6", json_tok_u64, &intptrs[1]),
 			   NULL));
 	for (int i = 0; i < tal_count(ints); ++i)
 		assert(ints[i] == i + 10);
@@ -234,11 +234,11 @@ static void null_params(void)
 			   param_req("3", json_tok_u64, &ints[3]),
 			   param_opt("4", json_tok_u64, &intptrs[0]),
 			   param_opt("5", json_tok_u64, &intptrs[1]),
-			   param_opt("6", json_tok_u64, &intptrs[2]),
+			   param_opt_default("6", json_tok_u64, &ints[4], 888),
 			   NULL));
 	assert(*intptrs[0] == 14);
 	assert(intptrs[1] == NULL);
-	assert(intptrs[2] == NULL);
+	assert(ints[4] == 888);
 }
 
 #if DEVELOPER
@@ -337,13 +337,13 @@ static void bad_programmer(void)
 		/* Add required param after optional */
 		struct json *j =
 		    json_parse(cmd, "[ '25', '546', '26', '1.1' ]");
-		unsigned int *msatoshi;
+		unsigned int msatoshi;
 		double riskfactor;
 		param_parse(cmd, j->buffer, j->toks,
 			    param_req("u64", json_tok_u64, &ival),
 			    param_req("double", json_tok_double, &dval),
-			    param_opt("msatoshi",
-				      json_tok_number, &msatoshi),
+			    param_opt_default("msatoshi",
+					      json_tok_number, &msatoshi, 100),
 			    param_req("riskfactor", json_tok_double,
 				      &riskfactor), NULL);
 		restore_assert(old_stderr);
@@ -361,7 +361,7 @@ static void add_members(struct param **params,
 		char *name = tal_fmt(tmpctx, "%i", i);
 		json_add_num(obj, name, i);
 		json_add_num(arr, NULL, i);
-		param_add(params, name,
+		param_add(params, name, true,
 			  typesafe_cb_preargs(bool, void *,
 					      json_tok_number,
 					      &ints[i],
