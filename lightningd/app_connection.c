@@ -173,7 +173,8 @@ void handle_app_payment(
 		rs->hop_data.realm
 		);
 	if (!write_all(appcon->fd, command, strlen(command))) {
-		log_debug(appcon->log, "Failed to write command to app connection socket");
+		log_debug(appcon->log,
+			"Failed to write command to app connection socket; closing it and rejecting the payment");
 		appcon->stop = true;
 		*failcode = WIRE_TEMPORARY_NODE_FAILURE;
 		goto end;

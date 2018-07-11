@@ -5041,15 +5041,21 @@ class LightningDTests(BaseLightningDTests):
                 self.realm = realm
                 return AppConnection.PERMANENT_NODE_FAILURE
 
-        app_connection = SimpleAppConnection(
-            os.path.join(l2.daemon.lightning_dir, 'app-connection')
-            )
+        for i in range(2):
+            app_connection = SimpleAppConnection(
+                os.path.join(l2.daemon.lightning_dir, 'app-connection')
+                )
+
+            l1.rpc.sendpay(to_json(route), rhash)
+            asyncore.loop(timeout=5, count=1) #Processes app_connection event
+            self.assertEqual(app_connection.realm, 254)
+            self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
+
+            app_connection.close()
 
         l1.rpc.sendpay(to_json(route), rhash)
-        asyncore.loop(timeout=5, count=1) #Processes app_connection event
-        self.assertEqual(app_connection.realm, 254)
+        l2.daemon.wait_for_log('Failed to write command to app connection socket; closing it and rejecting the payment')
         self.assertRaises(ValueError, l1.rpc.waitsendpay, rhash)
-
 
 
 
