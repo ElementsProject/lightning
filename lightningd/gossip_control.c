@@ -376,41 +376,38 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 {
 	struct lightningd *ld = cmd->ld;
 	struct pubkey destination;
-	struct pubkey *source;
+	struct pubkey source;
 	jsmntok_t *seedtok;
 	u64 msatoshi;
-	unsigned *cltv;
+	unsigned cltv;
 	double riskfactor;
 	/* Higher fuzz means that some high-fee paths can be discounted
 	 * for an even larger value, increasing the scope for route
 	 * randomization (the higher-fee paths become more likely to
 	 * be selected) at the cost of increasing the probability of
 	 * selecting the higher-fee paths. */
-	double *fuzz;
+	double fuzz;
 	struct siphash_seed seed;
 
 	if (!param_parse(cmd, buffer, params,
 			 param_req("id", json_tok_pubkey, &destination),
 			 param_req("msatoshi", json_tok_u64, &msatoshi),
 			 param_req("riskfactor", json_tok_double, &riskfactor),
-			 param_opt("cltv", json_tok_number, &cltv),
-			 param_opt("fromid", json_tok_pubkey, &source),
-			 param_opt("fuzzpercent", json_tok_double, &fuzz),
+			 param_opt_default("cltv", json_tok_number, &cltv, 9),
+			 param_opt_default("fromid", json_tok_pubkey, &source, ld->id),
+			 param_opt_default("fuzzpercent", json_tok_double, &fuzz, 75.0),
 			 param_opt_tok("seed", &seedtok),
 			 NULL))
 		return;
 
-	param_set_if_null(cmd, source, ld->id);
-	param_set_if_null(cmd, fuzz, 75.0);
-
-	if (!(0.0 <= *fuzz && *fuzz <= 100.0)) {
+	if (!(0.0 <= fuzz && fuzz <= 100.0)) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "fuzz must be in range 0.0 <= %f <= 100.0",
-			     *fuzz);
+			     fuzz);
 		return;
 	}
 	/* Convert from percentage */
-	*fuzz = *fuzz / 100.0;
+	fuzz = fuzz / 100.0;
 
 	if (seedtok) {
 		if (seedtok->end - seedtok->start > sizeof(seed))
@@ -423,10 +420,9 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	} else
 		randombytes_buf(&seed, sizeof(seed));
 
-	u8 *req = towire_gossip_getroute_request(cmd, source, &destination,
+	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination,
 						 msatoshi, riskfactor*1000,
-						 cltv ? *cltv : 9,
-						 fuzz, &seed);
+						 cltv, &fuzz, &seed);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 	command_still_pending(cmd);
 }
