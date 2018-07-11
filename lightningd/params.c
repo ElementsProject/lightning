@@ -10,13 +10,14 @@
 struct param {
 	const char *name;
 	bool is_set;
+	bool required;
 	param_cb cb;
 	void *arg;
 	size_t argsize;
 };
 
 static void param_add(struct param **params,
-		      const char *name, param_cb cb, void *arg,
+		      const char *name, bool required, param_cb cb, void *arg,
 		      size_t argsize)
 {
 #if DEVELOPER
@@ -31,6 +32,7 @@ static void param_add(struct param **params,
 
 	last->is_set = false;
 	last->name = name;
+	last->required = required;
 	last->cb = cb;
 	last->arg = arg;
 	last->argsize = argsize;
@@ -101,7 +103,7 @@ static struct param *post_check(struct command *cmd, struct param *params)
 	struct param *last = first + tal_count(params);
 
 	/* Make sure required params were provided. */
-	while (first != last && first->argsize == 0) {
+	while (first != last && first->required) {
 		if (!first->is_set) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "missing required parameter: '%s'",
@@ -214,7 +216,7 @@ static int comp_by_arg(const struct param *a, const struct param *b,
 static int comp_req_order(const struct param *a, const struct param *b,
 			  void *unused)
 {
-	if (a->argsize != 0 && b->argsize == 0)
+	if (!a->required && b->required)
 		return 0;
 	return 1;
 }
@@ -294,10 +296,11 @@ bool param_parse(struct command *cmd, const char *buffer,
 
 	va_start(ap, tokens);
 	while ((name = va_arg(ap, const char *)) != NULL) {
+		bool required = va_arg(ap, int);
 		param_cb cb = va_arg(ap, param_cb);
 		void *arg = va_arg(ap, void *);
 		size_t argsize = va_arg(ap, size_t);
-		param_add(&params, name, cb, arg, argsize);
+		param_add(&params, name, required, cb, arg, argsize);
 	}
 	va_end(ap);
 

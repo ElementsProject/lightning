@@ -60,6 +60,7 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
  */
 #define param_req(name, cb, arg)					\
 		  name"",						\
+		  true,							\
 		  (cb),							\
 		  (arg) + 0*sizeof((cb)((const char *)NULL,		\
 					(const jsmntok_t *)NULL,	\
@@ -73,11 +74,25 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
  */
 #define param_opt(name, cb, arg)				\
 		  name"",					\
+		  false,					\
 		  (cb),						\
 		  (arg) + 0*sizeof((cb)((const char *)NULL,	\
 					(const jsmntok_t *)NULL,\
 					*(arg)) == true),	\
 		  sizeof(**(arg))
+
+/*
+ * Similar to param_req but for optional parameters with defaults.
+ * If not found during parsing, @arg will be set to @def.
+ */
+#define param_opt_default(name, cb, arg, def)				\
+		  name"",						\
+		  false,						\
+		  (cb),							\
+		  (arg) + 0*sizeof((cb)((const char *)NULL,		\
+					(const jsmntok_t *)NULL,	\
+					(arg)) == true),		\
+		  ((void)((*arg) = (def)), 0)
 
 /*
  * For when you want an optional raw token.
@@ -86,6 +101,7 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
  */
 #define param_opt_tok(name, arg)					\
 		      name"",						\
+		      false,						\
 		      json_tok_tok,					\
 		      (arg) + 0*sizeof(*(arg) == (jsmntok_t *)NULL),	\
 		      sizeof(const jsmntok_t *)
