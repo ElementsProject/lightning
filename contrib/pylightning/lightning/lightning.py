@@ -128,16 +128,22 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listnodes", payload)
 
-    def getroute(self, peer_id, msatoshi, riskfactor, cltv=9):
+    def getroute(self, peer_id, msatoshi, riskfactor, cltv=9, fromid=None, fuzzpercent=None, seed=None):
         """
         Show route to {id} for {msatoshi}, using {riskfactor} and optional
-        {cltv} (default 9)
+        {cltv} (default 9). If specified search from {fromid} otherwise use
+        this node as source. Randomize the route with up to {fuzzpercent}
+        (0.0 -> 100.0, default 5.0) using {seed} as an arbitrary-size string
+        seed.
         """
         payload = {
             "id": peer_id,
             "msatoshi": msatoshi,
             "riskfactor": riskfactor,
-            "cltv": cltv
+            "cltv": cltv,
+            "fromid": fromid,
+            "fuzzpercent": fuzzpercent,
+            "seed": seed
         }
         return self.call("getroute", payload)
 
