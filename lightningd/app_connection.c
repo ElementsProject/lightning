@@ -226,6 +226,7 @@ static struct io_plan *incoming_app_connected(struct io_conn *conn,
 					       struct lightningd *ld)
 {
 	/* Lifetime of app conn is limited to fd connect time. */
+	//FIXME: This was copied from elsewhere. Does it make sense here?
 	return app_connected(notleak(conn), ld);
 }
 
