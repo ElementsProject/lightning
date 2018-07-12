@@ -89,10 +89,10 @@ static struct json *json_parse(const tal_t * ctx, const char *str)
 static void zero_params(void)
 {
 	struct json *j = json_parse(cmd, "{}");
-	assert(param_parse(cmd, j->buffer, j->toks, NULL));
+	assert(param(cmd, j->buffer, j->toks, NULL));
 
 	j = json_parse(cmd, "[]");
-	assert(param_parse(cmd, j->buffer, j->toks, NULL));
+	assert(param(cmd, j->buffer, j->toks, NULL));
 }
 
 struct sanity {
@@ -127,9 +127,9 @@ static void stest(const struct json *j, struct sanity *b)
 {
 	u64 ival;
 	double dval;
-	if (!param_parse(cmd, j->buffer, j->toks,
-			 param_req("u64", json_tok_u64, &ival),
-			 param_req("double", json_tok_double, &dval), NULL)) {
+	if (!param(cmd, j->buffer, j->toks,
+		   p_req("u64", json_tok_u64, &ival),
+		   p_req("double", json_tok_double, &dval), NULL)) {
 		assert(failed == true);
 		assert(b->failed == true);
 		assert(strstr(fail_msg, b->fail_str));
@@ -161,9 +161,8 @@ static void tok_tok(void)
 		const jsmntok_t *tok = NULL;
 		struct json *j = json_parse(cmd, "{ 'satoshi', '546' }");
 
-		assert(param_parse(cmd, j->buffer, j->toks,
-				   param_req("satoshi", json_tok_tok,
-					     &tok), NULL));
+		assert(param(cmd, j->buffer, j->toks,
+			     p_req("satoshi", json_tok_tok, &tok), NULL));
 		assert(tok);
 		assert(json_tok_number(j->buffer, tok, &n));
 		assert(n == 546);
@@ -174,8 +173,8 @@ static void tok_tok(void)
 		const jsmntok_t *tok = (const jsmntok_t *) 65535;
 
 		struct json *j = json_parse(cmd, "{}");
-		assert(param_parse(cmd, j->buffer, j->toks,
-				   param_opt_tok("satoshi", &tok), NULL));
+		assert(param(cmd, j->buffer, j->toks,
+			     p_opt_tok("satoshi", &tok), NULL));
 
 		/* make sure it *is* NULL */
 		assert(tok == NULL);
@@ -185,15 +184,14 @@ static void tok_tok(void)
 /* check for valid but duplicate json name-value pairs */
 static void dup_names(void)
 {
-	struct json *j =
-	    json_parse(cmd,
-		       "{ 'u64' : '42', 'u64' : '43', 'double' : '3.15' }");
+	struct json *j = json_parse(cmd,
+				    "{ 'u64' : '42', 'u64' : '43', 'double' : '3.15' }");
 
 	u64 i;
 	double d;
-	assert(!param_parse(cmd, j->buffer, j->toks,
-			    param_req("u64", json_tok_u64, &i),
-			    param_req("double", json_tok_double, &d), NULL));
+	assert(!param(cmd, j->buffer, j->toks,
+		      p_req("u64", json_tok_u64, &i),
+		      p_req("double", json_tok_double, &d), NULL));
 }
 
 static void null_params(void)
@@ -206,15 +204,14 @@ static void null_params(void)
 	for (int i = 0; i < tal_count(ints) - 1; ++i)
 		ints[i] = i;
 
-	assert(param_parse(cmd, j->buffer, j->toks,
-			   param_req("0", json_tok_u64, &ints[0]),
-			   param_req("1", json_tok_u64, &ints[1]),
-			   param_req("2", json_tok_u64, &ints[2]),
-			   param_req("3", json_tok_u64, &ints[3]),
-			   param_opt_default("4", json_tok_u64, &ints[4], 999),
-			   param_opt("5", json_tok_u64, &intptrs[0]),
-			   param_opt("6", json_tok_u64, &intptrs[1]),
-			   NULL));
+	assert(param(cmd, j->buffer, j->toks,
+		     p_req("0", json_tok_u64, &ints[0]),
+		     p_req("1", json_tok_u64, &ints[1]),
+		     p_req("2", json_tok_u64, &ints[2]),
+		     p_req("3", json_tok_u64, &ints[3]),
+		     p_opt_def("4", json_tok_u64, &ints[4], 999),
+		     p_opt("5", json_tok_u64, &intptrs[0]),
+		     p_opt("6", json_tok_u64, &intptrs[1]), NULL));
 	for (int i = 0; i < tal_count(ints); ++i)
 		assert(ints[i] == i + 10);
 	for (int i = 0; i < tal_count(intptrs); ++i)
@@ -224,18 +221,17 @@ static void null_params(void)
 	for (int i = 0; i < tal_count(ints); ++i)
 		ints[i] = 42;
 	for (int i = 0; i < tal_count(intptrs); ++i)
-		intptrs[i] = (void *)42;
+		intptrs[i] = (void *) 42;
 
 	j = json_parse(cmd, "[ '10', '11', '12', '13', '14']");
-	assert(param_parse(cmd, j->buffer, j->toks,
-			   param_req("0", json_tok_u64, &ints[0]),
-			   param_req("1", json_tok_u64, &ints[1]),
-			   param_req("2", json_tok_u64, &ints[2]),
-			   param_req("3", json_tok_u64, &ints[3]),
-			   param_opt("4", json_tok_u64, &intptrs[0]),
-			   param_opt("5", json_tok_u64, &intptrs[1]),
-			   param_opt_default("6", json_tok_u64, &ints[4], 888),
-			   NULL));
+	assert(param(cmd, j->buffer, j->toks,
+		     p_req("0", json_tok_u64, &ints[0]),
+		     p_req("1", json_tok_u64, &ints[1]),
+		     p_req("2", json_tok_u64, &ints[2]),
+		     p_req("3", json_tok_u64, &ints[3]),
+		     p_opt("4", json_tok_u64, &intptrs[0]),
+		     p_opt("5", json_tok_u64, &intptrs[1]),
+		     p_opt_def("6", json_tok_u64, &ints[4], 888), NULL));
 	assert(*intptrs[0] == 14);
 	assert(intptrs[1] == NULL);
 	assert(ints[4] == 888);
@@ -289,46 +285,45 @@ static void bad_programmer(void)
 
 	/* check for repeated names */
 	if (setjmp(jump) == 0) {
-		param_parse(cmd, j->buffer, j->toks,
-			    param_req("repeat", json_tok_u64, &ival),
-			    param_req("double", json_tok_double, &dval),
-			    param_req("repeat", json_tok_u64, &ival2), NULL);
+		param(cmd, j->buffer, j->toks,
+		      p_req("repeat", json_tok_u64, &ival),
+		      p_req("double", json_tok_double, &dval),
+		      p_req("repeat", json_tok_u64, &ival2), NULL);
 		/* shouldn't get here */
 		restore_assert(old_stderr);
 		assert(false);
 	}
 
 	if (setjmp(jump) == 0) {
-		param_parse(cmd, j->buffer, j->toks,
-			    param_req("repeat", json_tok_u64, &ival),
-			    param_req("double", json_tok_double, &dval),
-			    param_req("repeat", json_tok_u64, &ival), NULL);
+		param(cmd, j->buffer, j->toks,
+		      p_req("repeat", json_tok_u64, &ival),
+		      p_req("double", json_tok_double, &dval),
+		      p_req("repeat", json_tok_u64, &ival), NULL);
 		restore_assert(old_stderr);
 		assert(false);
 	}
 
 	if (setjmp(jump) == 0) {
-		param_parse(cmd, j->buffer, j->toks,
-			    param_req("u64", json_tok_u64, &ival),
-			    param_req("repeat", json_tok_double, &dval),
-			    param_req("repeat", json_tok_double, &dval), NULL);
+		param(cmd, j->buffer, j->toks,
+		      p_req("u64", json_tok_u64, &ival),
+		      p_req("repeat", json_tok_double, &dval),
+		      p_req("repeat", json_tok_double, &dval), NULL);
 		restore_assert(old_stderr);
 		assert(false);
 	}
 
 	/* check for repeated arguments */
 	if (setjmp(jump) == 0) {
-		param_parse(cmd, j->buffer, j->toks,
-			    param_req("u64", json_tok_u64, &ival),
-			    param_req("repeated-arg", json_tok_u64, &ival),
-			    NULL);
+		param(cmd, j->buffer, j->toks,
+		      p_req("u64", json_tok_u64, &ival),
+		      p_req("repeated-arg", json_tok_u64, &ival), NULL);
 		restore_assert(old_stderr);
 		assert(false);
 	}
 
 	if (setjmp(jump) == 0) {
-		param_parse(cmd, j->buffer, j->toks,
-			    param_req("u64", (param_cb)NULL, &ival), NULL);
+		param(cmd, j->buffer, j->toks,
+		      p_req("u64", (param_cb) NULL, &ival), NULL);
 		restore_assert(old_stderr);
 		assert(false);
 	}
@@ -339,13 +334,12 @@ static void bad_programmer(void)
 		    json_parse(cmd, "[ '25', '546', '26', '1.1' ]");
 		unsigned int msatoshi;
 		double riskfactor;
-		param_parse(cmd, j->buffer, j->toks,
-			    param_req("u64", json_tok_u64, &ival),
-			    param_req("double", json_tok_double, &dval),
-			    param_opt_default("msatoshi",
-					      json_tok_number, &msatoshi, 100),
-			    param_req("riskfactor", json_tok_double,
-				      &riskfactor), NULL);
+		param(cmd, j->buffer, j->toks,
+		      p_req("u64", json_tok_u64, &ival),
+		      p_req("double", json_tok_double, &dval),
+		      p_opt_def("msatoshi",
+				json_tok_number, &msatoshi, 100),
+		      p_req("riskfactor", json_tok_double, &riskfactor), NULL);
 		restore_assert(old_stderr);
 		assert(false);
 	}
@@ -390,7 +384,7 @@ static void five_hundred_params(void)
 
 	/* first test object version */
 	struct json *j = json_parse(params, obj->s);
-	assert(param_parse_arr(cmd, j->buffer, j->toks, params));
+	assert(param_arr(cmd, j->buffer, j->toks, params));
 	for (int i = 0; i < tal_count(ints); ++i) {
 		assert(ints[i] == i);
 		ints[i] = 65535;
@@ -398,7 +392,7 @@ static void five_hundred_params(void)
 
 	/* now test array */
 	j = json_parse(params, arr->s);
-	assert(param_parse_arr(cmd, j->buffer, j->toks, params));
+	assert(param_arr(cmd, j->buffer, j->toks, params));
 	for (int i = 0; i < tal_count(ints); ++i) {
 		assert(ints[i] == i);
 	}
@@ -414,16 +408,17 @@ static void sendpay(void)
 	u64 *msatoshi;
 	unsigned cltv;
 
-	if (!param_parse(cmd, j->buffer, j->toks,
-			 param_req("route", json_tok_tok, &routetok),
-			 param_req("cltv", json_tok_number, &cltv),
-			 param_opt_tok("note", &note),
-			 param_opt("msatoshi", json_tok_u64, &msatoshi),
-			 NULL))
+	if (!param(cmd, j->buffer, j->toks,
+		   p_req("route", json_tok_tok, &routetok),
+		   p_req("cltv", json_tok_number, &cltv),
+		   p_opt_tok("note", &note),
+		   p_opt("msatoshi", json_tok_u64, &msatoshi), NULL))
 		assert(false);
 
 	assert(note);
-	assert(!strncmp("hello there", j->buffer + note->start, note->end - note->start));
+	assert(!strncmp
+	       ("hello there", j->buffer + note->start,
+		note->end - note->start));
 	assert(msatoshi);
 	assert(*msatoshi == 547);
 }
@@ -436,18 +431,16 @@ static void sendpay_nulltok(void)
 	u64 *msatoshi;
 	unsigned cltv;
 
-	if (!param_parse(cmd, j->buffer, j->toks,
-			 param_req("route", json_tok_tok, &routetok),
-			 param_req("cltv", json_tok_number, &cltv),
-			 param_opt_tok("note", &note),
-			 param_opt("msatoshi", json_tok_u64, &msatoshi),
-			 NULL))
+	if (!param(cmd, j->buffer, j->toks,
+		   p_req("route", json_tok_tok, &routetok),
+		   p_req("cltv", json_tok_number, &cltv),
+		   p_opt_tok("note", &note),
+		   p_opt("msatoshi", json_tok_u64, &msatoshi), NULL))
 		assert(false);
 
 	assert(note == NULL);
 	assert(msatoshi == NULL);
 }
-
 int main(void)
 {
 	setup_locale();

@@ -269,7 +269,7 @@ static void check_params(struct param *params)
 }
 #endif
 
-static bool param_parse_arr(struct command *cmd,
+static bool param_arr(struct command *cmd,
 			    const char *buffer,
 			    const jsmntok_t tokens[],
 			    struct param *params)
@@ -287,8 +287,8 @@ static bool param_parse_arr(struct command *cmd,
 	return false;
 }
 
-bool param_parse(struct command *cmd, const char *buffer,
-		 const jsmntok_t tokens[], ...)
+bool param(struct command *cmd, const char *buffer,
+	   const jsmntok_t tokens[], ...)
 {
 	struct param *params = tal_arr(cmd, struct param, 0);
 	const char *name;
@@ -304,5 +304,5 @@ bool param_parse(struct command *cmd, const char *buffer,
 	}
 	va_end(ap);
 
-	return param_parse_arr(cmd, buffer, tokens, params);
+	return param_arr(cmd, buffer, tokens, params);
 }
