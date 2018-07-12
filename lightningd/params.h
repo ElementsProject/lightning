@@ -12,15 +12,15 @@ struct param;
 	const jsmntok_t *note;
 	u64 *msatoshi;
 
-	if (!param_parse(cmd, buffer, tokens,
-			 param_req("cltv", json_tok_number, &cltv),
-			 param_opt("note", json_tok_tok, &note),
-			 param_opt("msatoshi", json_tok_u64, &msatoshi),
-			 NULL))
+	if (!param(cmd, buffer, tokens,
+		   p_req("cltv", json_tok_number, &cltv),
+		   p_opt("note", json_tok_tok, &note),
+		   p_opt("msatoshi", json_tok_u64, &msatoshi),
+		   NULL))
 		return;
 
   At this point in the code you can be assured the json tokens were successfully
-  parsed.  If not, param_parse() returns false, having already called
+  parsed.  If not, param() returns false, having already called
   command_fail() with a descriptive error message. The data section of the json
   result contains the offending parameter and its value.
 
@@ -29,7 +29,7 @@ struct param;
   note and msatoshi are optional parameters.  Their argument will be set to NULL
   if they are not provided.
 
-  The note parameter uses a special callback, param_opt_tok: it
+  The note parameter uses a special callback, p_opt_tok: it
   simply sets note to the appropriate value (or NULL) and lets the
   handler do the validating.
 
@@ -39,8 +39,8 @@ struct param;
 
   Otherwise a generic message is provided.
  */
-bool param_parse(struct command *cmd, const char *buffer,
-		 const jsmntok_t params[], ...);
+bool param(struct command *cmd, const char *buffer,
+	   const jsmntok_t params[], ...);
 
 /*
  * This callback provided must follow this signature; e.g.,
@@ -58,34 +58,33 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
  *
  * Returns an opaque pointer that can be later used in param_is_set().
  */
-#define param_req(name, cb, arg)					\
-		  name"",						\
-		  true,							\
-		  (cb),							\
-		  (arg) + 0*sizeof((cb)((const char *)NULL,		\
-					(const jsmntok_t *)NULL,	\
-					(arg)) == true),		\
-		  0
-
+#define p_req(name, cb, arg)					\
+	      name"",						\
+	      true,						\
+	      (cb),				 		\
+	      (arg) + 0*sizeof((cb)((const char *)NULL,		\
+				    (const jsmntok_t *)NULL,	\
+				    (arg)) == true),		\
+	      0
 /*
  * Similar to above but for optional parameters.
  * @arg must be the address of a pointer. If found during parsing, it will be
  * allocated, otherwise it will be set to NULL.
  */
-#define param_opt(name, cb, arg)				\
-		  name"",					\
-		  false,					\
-		  (cb),						\
-		  (arg) + 0*sizeof((cb)((const char *)NULL,	\
-					(const jsmntok_t *)NULL,\
-					*(arg)) == true),	\
-		  sizeof(**(arg))
+#define p_opt(name, cb, arg)					\
+	      name"",						\
+	      false,						\
+	      (cb),				 		\
+	      (arg) + 0*sizeof((cb)((const char *)NULL,		\
+				    (const jsmntok_t *)NULL,	\
+				    *(arg)) == true),		\
+	      sizeof(**(arg))
 
 /*
- * Similar to param_req but for optional parameters with defaults.
- * If not found during parsing, @arg will be set to @def.
+ * Similar to p_req but for optional parameters with defaults.
+ * @arg will be set to @def if it isn't found during parsing.
  */
-#define param_opt_default(name, cb, arg, def)				\
+#define p_opt_def(name, cb, arg, def)					\
 		  name"",						\
 		  false,						\
 		  (cb),							\
@@ -99,11 +98,11 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
  *
  * Note: weird sizeof() does type check that arg really is a (const) jsmntok_t **.
  */
-#define param_opt_tok(name, arg)					\
-		      name"",						\
-		      false,						\
-		      json_tok_tok,					\
-		      (arg) + 0*sizeof(*(arg) == (jsmntok_t *)NULL),	\
-		      sizeof(const jsmntok_t *)
+#define p_opt_tok(name, arg)						\
+		  name"",						\
+		  false,						\
+		  json_tok_tok,						\
+		  (arg) + 0*sizeof(*(arg) == (jsmntok_t *)NULL),	\
+		  sizeof(const jsmntok_t *)
 
 #endif /* LIGHTNING_LIGHTNINGD_PARAMS_H */
