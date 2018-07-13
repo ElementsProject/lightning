@@ -173,14 +173,15 @@ static void json_invoice(struct command *cmd,
 	u64 expiry;
 	bool result;
 
-	if (!param_parse(cmd, buffer, params,
-			 param_req("msatoshi", json_tok_tok, &msatoshi),
-			 param_req("label", json_tok_tok, &label),
-			 param_req("description", json_tok_tok, &desctok),
-			 param_opt_default("expiry", json_tok_u64, &expiry, 3600),
-			 param_opt_tok("fallback", &fallback),
-			 param_opt_tok("fallbacks", &fallbacks),
-			 param_opt_tok("preimage", &preimagetok), NULL))
+	if (!param(cmd, buffer, params,
+		   p_req("msatoshi", json_tok_tok, &msatoshi),
+		   p_req("label", json_tok_tok, &label),
+		   p_req("description", json_tok_tok, &desctok),
+		   p_opt_def("expiry", json_tok_u64, &expiry, 3600),
+		   p_opt_tok("fallback", &fallback),
+		   p_opt_tok("fallbacks", &fallbacks),
+		   p_opt_tok("preimage", &preimagetok),
+		   NULL))
 		return;
 
 	/* Get arguments. */
@@ -401,9 +402,9 @@ static void json_listinvoice_internal(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 	struct wallet *wallet = cmd->ld->wallet;
 
-	if (!param_parse(cmd, buffer, params,
-			 param_opt_tok("label", &labeltok),
-			 NULL))
+	if (!param(cmd, buffer, params,
+		   p_opt_tok("label", &labeltok),
+		   NULL))
 		return;
 
 	if (labeltok) {
@@ -469,10 +470,10 @@ static void json_delinvoice(struct command *cmd,
 	struct json_escaped *label;
 	struct wallet *wallet = cmd->ld->wallet;
 
-	if (!param_parse(cmd, buffer, params,
-			 param_req("label", json_tok_tok, &labeltok),
-			 param_req("status", json_tok_tok, &statustok),
-			 NULL))
+	if (!param(cmd, buffer, params,
+		   p_req("label", json_tok_tok, &labeltok),
+		   p_req("status", json_tok_tok, &statustok),
+		   NULL))
 		return;
 
 	label = json_tok_label(cmd, buffer, labeltok);
@@ -528,10 +529,10 @@ static void json_delexpiredinvoice(struct command *cmd, const char *buffer,
 	u64 maxexpirytime;
 	struct json_result *result;
 
-	if (!param_parse(cmd, buffer, params,
-			 param_opt_default("maxexpirytime", json_tok_u64, &maxexpirytime,
-			 		   time_now().ts.tv_sec),
-			 NULL))
+	if (!param(cmd, buffer, params,
+		   p_opt_def("maxexpirytime", json_tok_u64, &maxexpirytime,
+			     time_now().ts.tv_sec),
+		   NULL))
 		return;
 
 	wallet_invoice_delete_expired(cmd->ld->wallet, maxexpirytime);
@@ -556,10 +557,9 @@ static void json_autocleaninvoice(struct command *cmd,
 	u64 exby;
 	struct json_result *result;
 
-	if (!param_parse(cmd, buffer, params,
-			 param_opt_default("cycle_seconds", json_tok_u64, &cycle, 3600),
-			 param_opt_default("expired_by", json_tok_u64, &exby, 86400),
-			 NULL))
+	if (!param(cmd, buffer, params,
+		   p_opt_def("cycle_seconds", json_tok_u64, &cycle, 3600),
+		   p_opt_def("expired_by", json_tok_u64, &exby, 86400), NULL))
 		return;
 
 	wallet_invoice_autoclean(cmd->ld->wallet, cycle, exby);
@@ -584,9 +584,9 @@ static void json_waitanyinvoice(struct command *cmd,
 	u64 pay_index;
 	struct wallet *wallet = cmd->ld->wallet;
 
-	if (!param_parse(cmd, buffer, params,
-			 param_opt_default("lastpay_index", json_tok_u64, &pay_index, 0),
-			 NULL))
+	if (!param(cmd, buffer, params,
+		   p_opt_def("lastpay_index", json_tok_u64, &pay_index, 0),
+		   NULL))
 		return;
 
 	/* Set command as pending. We do not know if
@@ -596,7 +596,7 @@ static void json_waitanyinvoice(struct command *cmd,
 
 	/* Find next paid invoice. */
 	wallet_invoice_waitany(cmd, wallet, pay_index,
-			       &wait_on_invoice, (void*) cmd);
+			       &wait_on_invoice, (void *) cmd);
 }
 
 static const struct json_command waitanyinvoice_command = {
@@ -621,9 +621,9 @@ static void json_waitinvoice(struct command *cmd,
 	const jsmntok_t *labeltok;
 	struct json_escaped *label;
 
-	if (!param_parse(cmd, buffer, params,
-			 param_req("label", json_tok_tok, &labeltok),
-			 NULL))
+	if (!param(cmd, buffer, params,
+		   p_req("label", json_tok_tok, &labeltok),
+		   NULL))
 		return;
 
 	/* Search for invoice */
@@ -704,10 +704,10 @@ static void json_decodepay(struct command *cmd,
 	struct json_result *response;
         char *str, *desc, *fail;
 
-	if (!param_parse(cmd, buffer, params,
-			 param_req("bolt11", json_tok_tok, &bolt11tok),
-			 param_opt_tok("description", &desctok),
-			 NULL))
+	if (!param(cmd, buffer, params,
+		   p_req("bolt11", json_tok_tok, &bolt11tok),
+		   p_opt_tok("description", &desctok),
+		   NULL))
 		return;
 
         str = tal_strndup(cmd, buffer + bolt11tok->start,

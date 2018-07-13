@@ -92,11 +92,10 @@ static void json_connect(struct command *cmd,
 	u8 *msg;
 	const char *err_msg;
 
-	if (!param_parse(cmd, buffer, params,
-			 param_req("id", json_tok_tok, (const jsmntok_t **)&idtok),
-			 param_opt_tok("host", &hosttok),
-			 param_opt_tok("port", &porttok),
-			 NULL))
+	if (!param(cmd, buffer, params,
+		   p_req("id", json_tok_tok, (const jsmntok_t **) &idtok),
+		   p_opt_tok("host", &hosttok), p_opt_tok("port", &porttok),
+		   NULL))
 		return;
 
 	/* Check for id@addrport form */

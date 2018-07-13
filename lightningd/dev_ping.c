@@ -47,11 +47,10 @@ static void json_dev_ping(struct command *cmd,
 	struct pubkey id;
 	struct subd *owner;
 
-	if (!param_parse(cmd, buffer, params,
-		         param_req("id", json_tok_pubkey, &id),
-		         param_req("len", json_tok_number, &len),
-		         param_req("pongbytes", json_tok_number, &pongbytes),
-		         NULL))
+	if (!param(cmd, buffer, params,
+		   p_req("id", json_tok_pubkey, &id),
+		   p_req("len", json_tok_number, &len),
+		   p_req("pongbytes", json_tok_number, &pongbytes), NULL))
 		return;
 
 	/* BOLT #1:

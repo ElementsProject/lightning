@@ -586,11 +586,11 @@ static void json_dev_setfees(struct command *cmd,
 	struct chain_topology *topo = cmd->ld->topology;
 	struct json_result *response;
 
-	if (!param_parse(cmd, buffer, params,
-			 param_opt("immediate", json_tok_number, &rates[FEERATE_IMMEDIATE]),
-			 param_opt("normal", json_tok_number, &rates[FEERATE_NORMAL]),
-			 param_opt("slow", json_tok_number, &rates[FEERATE_SLOW]),
-			 NULL))
+	if (!param(cmd, buffer, params,
+		   p_opt("immediate", json_tok_number, &rates[FEERATE_IMMEDIATE]),
+		   p_opt("normal", json_tok_number, &rates[FEERATE_NORMAL]),
+		   p_opt("slow", json_tok_number, &rates[FEERATE_SLOW]),
+		   NULL))
 		return;
 
 	if (!topo->dev_override_fee_rate) {

@@ -335,9 +335,9 @@ static void json_listnodes(struct command *cmd, const char *buffer,
 	u8 *req;
 	struct pubkey *id;
 
-	if (!param_parse(cmd, buffer, params,
-			 param_opt("id", json_tok_pubkey, &id),
-			 NULL))
+	if (!param(cmd, buffer, params,
+		   p_opt("id", json_tok_pubkey, &id),
+		   NULL))
 		return;
 
 	req = towire_gossip_getnodes_request(cmd, id);
@@ -389,15 +389,15 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	double fuzz;
 	struct siphash_seed seed;
 
-	if (!param_parse(cmd, buffer, params,
-			 param_req("id", json_tok_pubkey, &destination),
-			 param_req("msatoshi", json_tok_u64, &msatoshi),
-			 param_req("riskfactor", json_tok_double, &riskfactor),
-			 param_opt_default("cltv", json_tok_number, &cltv, 9),
-			 param_opt_default("fromid", json_tok_pubkey, &source, ld->id),
-			 param_opt_default("fuzzpercent", json_tok_double, &fuzz, 75.0),
-			 param_opt_tok("seed", &seedtok),
-			 NULL))
+	if (!param(cmd, buffer, params,
+		   p_req("id", json_tok_pubkey, &destination),
+		   p_req("msatoshi", json_tok_u64, &msatoshi),
+		   p_req("riskfactor", json_tok_double, &riskfactor),
+		   p_opt_def("cltv", json_tok_number, &cltv, 9),
+		   p_opt_def("fromid", json_tok_pubkey, &source, ld->id),
+		   p_opt_def("fuzzpercent", json_tok_double, &fuzz, 75.0),
+		   p_opt_tok("seed", &seedtok),
+		   NULL))
 		return;
 
 	if (!(0.0 <= fuzz && fuzz <= 100.0)) {
@@ -484,11 +484,10 @@ static void json_listchannels(struct command *cmd, const char *buffer,
 {
 	u8 *req;
 	struct short_channel_id *id;
-	if (!param_parse(cmd, buffer, params,
-			 param_opt("short_channel_id", json_tok_short_channel_id, &id),
-			 NULL))
+	if (!param(cmd, buffer, params,
+		   p_opt("short_channel_id", json_tok_short_channel_id, &id),
+		   NULL))
 		return;
-
 	req = towire_gossip_getchannels_request(cmd, id);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
 		 req, -1, 0, json_listchannels_reply, cmd);
@@ -537,10 +536,10 @@ static void json_dev_query_scids(struct command *cmd,
 	struct short_channel_id *scids;
 	size_t i;
 
-	if (!param_parse(cmd, buffer, params,
-			 param_req("id", json_tok_pubkey, &id),
-			 param_req("scids", json_tok_tok, &scidstok),
-			 NULL))
+	if (!param(cmd, buffer, params,
+		   p_req("id", json_tok_pubkey, &id),
+		   p_req("scids", json_tok_tok, &scidstok),
+		   NULL))
 		return;
 
 	if (scidstok->type != JSMN_ARRAY) {
@@ -585,11 +584,10 @@ static void json_dev_send_timestamp_filter(struct command *cmd,
 	struct pubkey id;
 	u32 first, range;
 
-	if (!param_parse(cmd, buffer, params,
-			 param_req("id", json_tok_pubkey, &id),
-			 param_req("first", json_tok_number, &first),
-			 param_req("range", json_tok_number, &range),
-			 NULL))
+	if (!param(cmd, buffer, params,
+		   p_req("id", json_tok_pubkey, &id),
+		   p_req("first", json_tok_number, &first),
+		   p_req("range", json_tok_number, &range), NULL))
 		return;
 
 	log_debug(cmd->ld->log, "Setting timestamp range %u+%u", first, range);
@@ -653,11 +651,11 @@ static void json_dev_query_channel_range(struct command *cmd,
 	struct pubkey id;
 	u32 first, num;
 
-	if (!param_parse(cmd, buffer, params,
-			 param_req("id", json_tok_pubkey, &id),
-			 param_req("first", json_tok_number, &first),
-			 param_req("num", json_tok_number, &num),
-			 NULL))
+	if (!param(cmd, buffer, params,
+		   p_req("id", json_tok_pubkey, &id),
+		   p_req("first", json_tok_number, &first),
+		   p_req("num", json_tok_number, &num),
+		   NULL))
 		return;
 
 	/* Tell gossipd, since this is a gossip query. */
@@ -681,9 +679,9 @@ static void json_dev_set_max_scids_encode_size(struct command *cmd,
 	u8 *msg;
 	u32 max;
 
-	if (!param_parse(cmd, buffer, params,
-			 param_req("max", json_tok_number, &max),
-			 NULL))
+	if (!param(cmd, buffer,
+		   params, p_req("max", json_tok_number, &max),
+		   NULL))
 		return;
 
 	msg = towire_gossip_dev_set_max_scids_encode_size(NULL, max);
