@@ -451,7 +451,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def disconnect(self, peer_id):
         """
-        Show peer with {peer_id}, if {level} is set, include {log}s
+        Disconnect from peer with {peer_id}
         """
         payload = {
             "id": peer_id,
