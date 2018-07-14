@@ -3,7 +3,7 @@
 #include <setjmp.h>
 #include <lightningd/jsonrpc.h>
 
-#include <lightningd/params.c>
+#include <lightningd/param.c>
 #include <common/json.c>
 #include <common/json_escaped.c>
 #include <ccan/array_size/array_size.h>
@@ -184,8 +184,9 @@ static void tok_tok(void)
 /* check for valid but duplicate json name-value pairs */
 static void dup_names(void)
 {
-	struct json *j = json_parse(cmd,
-				    "{ 'u64' : '42', 'u64' : '43', 'double' : '3.15' }");
+	struct json *j =
+		json_parse(cmd,
+			   "{ 'u64' : '42', 'u64' : '43', 'double' : '3.15' }");
 
 	u64 i;
 	double d;
@@ -211,7 +212,8 @@ static void null_params(void)
 		     p_req("3", json_tok_u64, &ints[3]),
 		     p_opt_def("4", json_tok_u64, &ints[4], 999),
 		     p_opt("5", json_tok_u64, &intptrs[0]),
-		     p_opt("6", json_tok_u64, &intptrs[1]), NULL));
+		     p_opt("6", json_tok_u64, &intptrs[1]),
+		     NULL));
 	for (int i = 0; i < tal_count(ints); ++i)
 		assert(ints[i] == i + 10);
 	for (int i = 0; i < tal_count(intptrs); ++i)
@@ -231,7 +233,8 @@ static void null_params(void)
 		     p_req("3", json_tok_u64, &ints[3]),
 		     p_opt("4", json_tok_u64, &intptrs[0]),
 		     p_opt("5", json_tok_u64, &intptrs[1]),
-		     p_opt_def("6", json_tok_u64, &ints[4], 888), NULL));
+		     p_opt_def("6", json_tok_u64, &ints[4], 888),
+		     NULL));
 	assert(*intptrs[0] == 14);
 	assert(intptrs[1] == NULL);
 	assert(ints[4] == 888);
@@ -337,8 +340,7 @@ static void bad_programmer(void)
 		param(cmd, j->buffer, j->toks,
 		      p_req("u64", json_tok_u64, &ival),
 		      p_req("double", json_tok_double, &dval),
-		      p_opt_def("msatoshi",
-				json_tok_number, &msatoshi, 100),
+		      p_opt_def("msatoshi", json_tok_number, &msatoshi, 100),
 		      p_req("riskfactor", json_tok_double, &riskfactor), NULL);
 		restore_assert(old_stderr);
 		assert(false);
@@ -412,13 +414,13 @@ static void sendpay(void)
 		   p_req("route", json_tok_tok, &routetok),
 		   p_req("cltv", json_tok_number, &cltv),
 		   p_opt_tok("note", &note),
-		   p_opt("msatoshi", json_tok_u64, &msatoshi), NULL))
+		   p_opt("msatoshi", json_tok_u64, &msatoshi),
+		   NULL))
 		assert(false);
 
 	assert(note);
-	assert(!strncmp
-	       ("hello there", j->buffer + note->start,
-		note->end - note->start));
+	assert(!strncmp("hello there", j->buffer + note->start,
+			note->end - note->start));
 	assert(msatoshi);
 	assert(*msatoshi == 547);
 }
@@ -435,7 +437,8 @@ static void sendpay_nulltok(void)
 		   p_req("route", json_tok_tok, &routetok),
 		   p_req("cltv", json_tok_number, &cltv),
 		   p_opt_tok("note", &note),
-		   p_opt("msatoshi", json_tok_u64, &msatoshi), NULL))
+		   p_opt("msatoshi", json_tok_u64, &msatoshi),
+		   NULL))
 		assert(false);
 
 	assert(note == NULL);

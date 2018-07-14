@@ -5,7 +5,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/params.h>
+#include <lightningd/param.h>
 
 struct param {
 	const char *name;
@@ -269,10 +269,9 @@ static void check_params(struct param *params)
 }
 #endif
 
-static bool param_arr(struct command *cmd,
-			    const char *buffer,
-			    const jsmntok_t tokens[],
-			    struct param *params)
+static bool param_arr(struct command *cmd, const char *buffer,
+		      const jsmntok_t tokens[],
+		      struct param *params)
 {
 #if DEVELOPER
 	check_params(params);
