@@ -5,7 +5,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/params.h>
+#include <lightningd/param.h>
 
 struct param {
 	const char *name;

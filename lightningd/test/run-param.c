@@ -3,7 +3,7 @@
 #include <setjmp.h>
 #include <lightningd/jsonrpc.h>
 
-#include <lightningd/params.c>
+#include <lightningd/param.c>
 #include <common/json.c>
 #include <common/json_escaped.c>
 #include <ccan/array_size/array_size.h>
