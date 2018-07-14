@@ -70,7 +70,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/onchain_control.c		\
 	lightningd/opening_control.c		\
 	lightningd/options.c			\
-	lightningd/params.c			\
+	lightningd/param.c			\
 	lightningd/pay.c			\
 	lightningd/payalgo.c			\
 	lightningd/peer_control.c		\

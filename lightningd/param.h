@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_PARAMS_H
-#define LIGHTNING_LIGHTNINGD_PARAMS_H
+#ifndef LIGHTNING_LIGHTNINGD_PARAM_H
+#define LIGHTNING_LIGHTNINGD_PARAM_H
 #include "config.h"
 
 /*
@@ -110,4 +110,4 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
 		  (arg) + 0*sizeof(*(arg) == (jsmntok_t *)NULL),	\
 		  sizeof(const jsmntok_t *)
 
-#endif /* LIGHTNING_LIGHTNINGD_PARAMS_H */
+#endif /* LIGHTNING_LIGHTNINGD_PARAM_H */
