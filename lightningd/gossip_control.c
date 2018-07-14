@@ -26,7 +26,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/log.h>
-#include <lightningd/params.h>
+#include <lightningd/param.h>
 #include <sodium/randombytes.h>
 #include <string.h>
 #include <wire/gen_peer_wire.h>

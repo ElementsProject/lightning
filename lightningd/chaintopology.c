@@ -7,7 +7,6 @@
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
-#include "params.h"
 #include "watch.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
@@ -20,6 +19,7 @@
 #include <inttypes.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/gossip_control.h>
+#include <lightningd/param.h>
 
 /* Mutual recursion via timer. */
 static void try_extend_tip(struct chain_topology *topo);

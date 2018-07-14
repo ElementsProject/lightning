@@ -19,7 +19,7 @@
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
-#include <lightningd/params.h>
+#include <lightningd/param.h>
 #include <sodium/randombytes.h>
 #include <wire/wire_sync.h>
 
