@@ -237,8 +237,11 @@ static void update_feerates(struct bitcoind *bitcoind,
 {
 	u32 old_feerates[NUM_FEERATES];
 	bool changed = false;
-	/* Rate of change of the fee smoothing, depending on the poll-interval */
-	double change_rate = (double)topo->poll_seconds / 150 * 0.9;
+	/* Smoothing factor alpha for simple exponential smoothing. The goal is to
+     * have the feerate account for 90 percent of the values polled in the last
+     * 2 minutes. The following will do that in a polling interval
+     * independent manner. */
+	double alpha = 1 - pow(0.1,(double)topo->poll_seconds / 120);
 
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
 		u32 feerate = satoshi_per_kw[i];
@@ -250,24 +253,28 @@ static void update_feerates(struct bitcoind *bitcoind,
 		if (!feerate)
 			continue;
 
-		/* Smooth the feerate to avoid spikes. The goal is to have the
-		 * fee consist of 0.9 * feerate + 0.1 * old_feerate after 300
-		 * seconds. The following will do that in a polling interval
-		 * independent manner. */
-                feerate =
-                    feerate * (1 - change_rate) + old_feerates[i] * change_rate;
+        /* Smooth the feerate to avoid spikes. */
+        u32 feerate_smooth = feerate * alpha + old_feerates[i] * (1 - alpha);
+        /* But to avoid updating forever, only apply smoothing when its
+         * effect is more then 10 percent */
+        if (abs(feerate - feerate_smooth) > (0.1 * feerate)) {
+            feerate = feerate_smooth;
+            log_debug(topo->log,
+					  "...feerate %u smoothed to %u (alpha=%.2f)",
+					  satoshi_per_kw[i], feerate, alpha);
+        }
 
-                if (feerate < feerate_floor())
-			feerate = feerate_floor();
+        if (feerate < feerate_floor()) {
+            feerate = feerate_floor();
+            log_debug(topo->log,
+					  "...feerate %u hit floor %u",
+					  satoshi_per_kw[i], feerate);
+        }
 
 		if (feerate != topo->feerate[i]) {
 			log_debug(topo->log, "%s feerate %u (was %u)",
 				  feerate_name(i),
 				  feerate, topo->feerate[i]);
-			if (feerate != satoshi_per_kw[i])
-				log_debug(topo->log,
-					  "...feerate %u hit floor %u",
-					  satoshi_per_kw[i], feerate);
 		}
 		topo->feerate[i] = feerate;
 	}

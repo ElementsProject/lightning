@@ -10,6 +10,7 @@
 #include <jsmn.h>
 #include <lightningd/watch.h>
 #include <stddef.h>
+#include <math.h>
 
 struct bitcoin_tx;
 struct bitcoind;
