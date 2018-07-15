@@ -4218,7 +4218,7 @@ class LightningDTests(BaseLightningDTests):
         self.fund_channel(l1, l2, 100000)
 
         # Expires almost immediately, so it will fail.
-        inv1 = l2.rpc.invoice(1000, 'inv1', 'inv1', 2)
+        inv1 = l2.rpc.invoice(1000, 'inv1', 'inv1', 5)
 
         # Fire off a pay request, it'll get interrupted by a restart
         self.executor.submit(l1.rpc.pay, inv1['bolt11'])
@@ -4233,7 +4233,7 @@ class LightningDTests(BaseLightningDTests):
         del l1.daemon.opts['dev-disconnect']
 
         # Make sure invoice has expired.
-        time.sleep(3)
+        time.sleep(5 + 1)
 
         # Should reconnect, and fail the payment
         l1.start()
