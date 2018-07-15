@@ -9,6 +9,7 @@
 #include <ccan/time/time.h>
 #include <jsmn.h>
 #include <lightningd/watch.h>
+#include <math.h>
 #include <stddef.h>
 
 struct bitcoin_tx;
