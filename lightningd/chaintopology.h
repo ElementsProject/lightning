@@ -9,8 +9,8 @@
 #include <ccan/time/time.h>
 #include <jsmn.h>
 #include <lightningd/watch.h>
-#include <stddef.h>
 #include <math.h>
+#include <stddef.h>
 
 struct bitcoin_tx;
 struct bitcoind;
