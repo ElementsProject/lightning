@@ -4148,8 +4148,10 @@ class LightningDTests(BaseLightningDTests):
 
         # Now make sure this is really functional by sending a payment
         self.pay(l1, l2, 10000)
-        time.sleep(1)
-        assert l1.rpc.listpeers()['peers'][0]['channels'][0]['msatoshi_to_us'] == 99980000
+
+        # L1 doesn't actually update msatoshi_to_us until it receives
+        # revoke_and_ack from L2, which can take a little bit.
+        wait_for(lambda: l1.rpc.listpeers()['peers'][0]['channels'][0]['msatoshi_to_us'] == 99980000)
         assert l2.rpc.listpeers()['peers'][0]['channels'][0]['msatoshi_to_us'] == 20000
 
         # Finally restart l1, and make sure it remembers
