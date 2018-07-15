@@ -11,7 +11,6 @@
 #include <lightningd/watch.h>
 #include <math.h>
 #include <stddef.h>
-#include <math.h>
 
 struct bitcoin_tx;
 struct bitcoind;
