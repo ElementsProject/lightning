@@ -488,6 +488,7 @@ static void json_listchannels(struct command *cmd, const char *buffer,
 		   p_opt("short_channel_id", json_tok_short_channel_id, &id),
 		   NULL))
 		return;
+
 	req = towire_gossip_getchannels_request(cmd, id);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
 		 req, -1, 0, json_listchannels_reply, cmd);
@@ -587,7 +588,8 @@ static void json_dev_send_timestamp_filter(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_req("id", json_tok_pubkey, &id),
 		   p_req("first", json_tok_number, &first),
-		   p_req("range", json_tok_number, &range), NULL))
+		   p_req("range", json_tok_number, &range),
+		   NULL))
 		return;
 
 	log_debug(cmd->ld->log, "Setting timestamp range %u+%u", first, range);

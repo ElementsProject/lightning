@@ -223,7 +223,7 @@ static void null_params(void)
 	for (int i = 0; i < tal_count(ints); ++i)
 		ints[i] = 42;
 	for (int i = 0; i < tal_count(intptrs); ++i)
-		intptrs[i] = (void *) 42;
+		intptrs[i] = (void *)42;
 
 	j = json_parse(cmd, "[ '10', '11', '12', '13', '14']");
 	assert(param(cmd, j->buffer, j->toks,

@@ -50,7 +50,8 @@ static void json_dev_ping(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_req("id", json_tok_pubkey, &id),
 		   p_req("len", json_tok_number, &len),
-		   p_req("pongbytes", json_tok_number, &pongbytes), NULL))
+		   p_req("pongbytes", json_tok_number, &pongbytes),
+		   NULL))
 		return;
 
 	/* BOLT #1:

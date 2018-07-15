@@ -559,7 +559,8 @@ static void json_autocleaninvoice(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_opt_def("cycle_seconds", json_tok_u64, &cycle, 3600),
-		   p_opt_def("expired_by", json_tok_u64, &exby, 86400), NULL))
+		   p_opt_def("expired_by", json_tok_u64, &exby, 86400),
+		   NULL))
 		return;
 
 	wallet_invoice_autoclean(cmd->ld->wallet, cycle, exby);
@@ -596,7 +597,7 @@ static void json_waitanyinvoice(struct command *cmd,
 
 	/* Find next paid invoice. */
 	wallet_invoice_waitany(cmd, wallet, pay_index,
-			       &wait_on_invoice, (void *) cmd);
+			       &wait_on_invoice, (void*) cmd);
 }
 
 static const struct json_command waitanyinvoice_command = {

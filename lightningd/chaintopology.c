@@ -582,16 +582,8 @@ u32 get_feerate(const struct chain_topology *topo, enum feerate feerate)
 static void json_dev_setfees(struct command *cmd,
 			     const char *buffer, const jsmntok_t *params)
 {
-	u32 *rates[NUM_FEERATES];
 	struct chain_topology *topo = cmd->ld->topology;
 	struct json_result *response;
-
-	if (!param(cmd, buffer, params,
-		   p_opt("immediate", json_tok_number, &rates[FEERATE_IMMEDIATE]),
-		   p_opt("normal", json_tok_number, &rates[FEERATE_NORMAL]),
-		   p_opt("slow", json_tok_number, &rates[FEERATE_SLOW]),
-		   NULL))
-		return;
 
 	if (!topo->dev_override_fee_rate) {
 		u32 fees[NUM_FEERATES];
@@ -600,8 +592,20 @@ static void json_dev_setfees(struct command *cmd,
 		topo->dev_override_fee_rate = tal_dup_arr(topo, u32, fees,
 							  ARRAY_SIZE(fees), 0);
 	}
-	for (size_t i = 0; i < NUM_FEERATES; i++)
-		if (rates[i]) topo->dev_override_fee_rate[i] = *rates[i];
+
+	if (!param(cmd, buffer, params,
+		   p_opt_def("immediate", json_tok_number,
+			     &topo->dev_override_fee_rate[FEERATE_IMMEDIATE],
+			     topo->dev_override_fee_rate[FEERATE_IMMEDIATE]),
+		   p_opt_def("normal", json_tok_number,
+			     &topo->dev_override_fee_rate[FEERATE_NORMAL],
+			     topo->dev_override_fee_rate[FEERATE_NORMAL]),
+		   p_opt_def("slow", json_tok_number,
+			     &topo->dev_override_fee_rate[FEERATE_SLOW],
+			     topo->dev_override_fee_rate[FEERATE_SLOW]),
+		   NULL))
+		return;
+
 	log_debug(topo->log,
 		  "dev-setfees: fees now %u/%u/%u",
 		  topo->dev_override_fee_rate[FEERATE_IMMEDIATE],
