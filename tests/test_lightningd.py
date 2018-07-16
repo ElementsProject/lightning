@@ -3559,6 +3559,8 @@ class LightningDTests(BaseLightningDTests):
         # Just to be sure, second openingd hand over to channeld.
         l2.daemon.wait_for_log('lightning_openingd.*REPLY WIRE_OPENING_FUNDEE_REPLY with 2 fds')
 
+    # FIXME: bad gossip order fix is wrapped up in gossipd/welcomed: see #1706
+    @flaky
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_reconnect_normal(self):
         # Should reconnect fine even if locked message gets lost.
