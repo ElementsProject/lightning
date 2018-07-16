@@ -174,9 +174,6 @@ class Field(object):
     def needs_ptr_to_ptr(self):
         return self.is_variable_size() or self.optional
 
-    def is_optional(self):
-        return self.optional
-
     def is_assignable(self):
         if self.is_array() or self.needs_ptr_to_ptr():
             return False
@@ -262,7 +259,7 @@ class Message(object):
 
     def checkLenField(self, field):
         # Optional fields don't have a len.
-        if field.is_optional():
+        if field.optional:
             return
         for f in self.fields:
             if f.name == field.lenvar:
@@ -285,9 +282,7 @@ class Message(object):
         if field.is_variable_size():
             self.checkLenField(field)
             self.has_variable_fields = True
-        elif field.basetype() in varlen_structs:
-            self.has_variable_fields = True
-        elif field.is_optional():
+        elif field.basetype() in varlen_structs or field.optional:
             self.has_variable_fields = True
         self.fields.append(field)
 
@@ -357,7 +352,7 @@ class Message(object):
                 self.print_fromwire_array(subcalls, basetype, f, '*' + f.name,
                                           f.lenvar)
             else:
-                if f.is_optional():
+                if f.optional:
                     subcalls.append("\tif (!fromwire_bool(&cursor, &plen))\n"
                                     "\t\t*{} = NULL;\n"
                                     "\telse {{\n"
@@ -445,7 +440,7 @@ class Message(object):
             elif f.is_variable_size():
                 self.print_towire_array(subcalls, basetype, f, f.lenvar)
             else:
-                if f.is_optional():
+                if f.optional:
                     subcalls.append("\tif (!{})\n"
                                     "\t\ttowire_bool(&p, false);\n"
                                     "\telse {{\n"
@@ -527,7 +522,7 @@ class Message(object):
                 self.add_truncate_check(subcalls)
             else:
                 indent = '\t'
-                if f.is_optional():
+                if f.optional:
                     subcalls.append("\tif (fromwire_bool(&cursor, &plen)) {")
                     indent += '\t'
 
@@ -545,7 +540,7 @@ class Message(object):
                 self.add_truncate_check(subcalls, indent=indent)
                 subcalls.append(indent + 'printwire_{}(tal_fmt(NULL, "%s.{}", fieldname), &{});'
                                 .format(basetype, f.name, f.name))
-                if f.is_optional():
+                if f.optional:
                     subcalls.append("\t} else {")
                     self.add_truncate_check(subcalls, indent='\t\t')
                     subcalls.append("\t}")
