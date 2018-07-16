@@ -246,12 +246,17 @@ static void update_feerates(struct bitcoind *bitcoind,
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
 		u32 feerate = satoshi_per_kw[i];
 
-		/* Takes into account override_fee_rate */
-		old_feerates[i] = get_feerate(topo, i);
-
-		/* If estimatefee failed, don't do anything. */
+        /* If estimatefee failed, don't do anything. */
 		if (!feerate)
 			continue;
+
+        /* Prevent defaulting of feerates at startup */
+        if (topo->startup) {
+            topo->feerate[i] = feerate;
+        }
+
+		/* Takes into account override_fee_rate */
+		old_feerates[i] = get_feerate(topo, i);
 
         /* Smooth the feerate to avoid spikes. */
         u32 feerate_smooth = feerate * alpha + old_feerates[i] * (1 - alpha);
@@ -278,6 +283,8 @@ static void update_feerates(struct bitcoind *bitcoind,
 		}
 		topo->feerate[i] = feerate;
 	}
+
+    topo->startup = false;
 
 	/* Make sure fee rates are in order. */
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
@@ -682,6 +689,7 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 	topo->log = log;
 	topo->default_fee_rate = 40000;
 	memset(topo->feerate, 0, sizeof(topo->feerate));
+    topo->startup = true;
 	topo->bitcoind = new_bitcoind(topo, ld, log);
 	topo->wallet = ld->wallet;
 	topo->poll_seconds = 30;
