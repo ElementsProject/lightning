@@ -5,7 +5,6 @@
 #include "bitcoind.h"
 #include "chaintopology.h"
 #include "jsonrpc.h"
-#include "jsonrpc_errors.h"
 #include "lightningd.h"
 #include "log.h"
 #include "watch.h"
@@ -20,6 +19,7 @@
 #include <inttypes.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/gossip_control.h>
+#include <lightningd/param.h>
 
 /* Mutual recursion via timer. */
 static void try_extend_tip(struct chain_topology *topo);
@@ -589,17 +589,8 @@ u32 get_feerate(const struct chain_topology *topo, enum feerate feerate)
 static void json_dev_setfees(struct command *cmd,
 			     const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *ratetok[NUM_FEERATES];
 	struct chain_topology *topo = cmd->ld->topology;
 	struct json_result *response;
-
-	if (!json_get_params(cmd, buffer, params,
-			     "?immediate", &ratetok[FEERATE_IMMEDIATE],
-			     "?normal", &ratetok[FEERATE_NORMAL],
-			     "?slow", &ratetok[FEERATE_SLOW],
-			     NULL)) {
-		return;
-	}
 
 	if (!topo->dev_override_fee_rate) {
 		u32 fees[NUM_FEERATES];
@@ -608,18 +599,20 @@ static void json_dev_setfees(struct command *cmd,
 		topo->dev_override_fee_rate = tal_dup_arr(topo, u32, fees,
 							  ARRAY_SIZE(fees), 0);
 	}
-	for (size_t i = 0; i < NUM_FEERATES; i++) {
-		if (!ratetok[i])
-			continue;
-		if (!json_tok_number(buffer, ratetok[i],
-				     &topo->dev_override_fee_rate[i])) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "Invalid feerate %.*s",
-				     ratetok[i]->end - ratetok[i]->start,
-				     buffer + ratetok[i]->start);
-			return;
-		}
-	}
+
+	if (!param(cmd, buffer, params,
+		   p_opt_def("immediate", json_tok_number,
+			     &topo->dev_override_fee_rate[FEERATE_IMMEDIATE],
+			     topo->dev_override_fee_rate[FEERATE_IMMEDIATE]),
+		   p_opt_def("normal", json_tok_number,
+			     &topo->dev_override_fee_rate[FEERATE_NORMAL],
+			     topo->dev_override_fee_rate[FEERATE_NORMAL]),
+		   p_opt_def("slow", json_tok_number,
+			     &topo->dev_override_fee_rate[FEERATE_SLOW],
+			     topo->dev_override_fee_rate[FEERATE_SLOW]),
+		   NULL))
+		return;
+
 	log_debug(topo->log,
 		  "dev-setfees: fees now %u/%u/%u",
 		  topo->dev_override_fee_rate[FEERATE_IMMEDIATE],
