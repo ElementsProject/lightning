@@ -390,7 +390,7 @@ class Message(object):
             subcalls.append('\ttowire_{}_array(&p, {}, {});'
                             .format(basetype, f.name, num_elems))
         else:
-            subcalls.append('\tfor (size_t i = 0; i < {}; i++)\n'
+            subcalls.append('\tfor (size_t i = 0; i < {}; i++)'
                             .format(num_elems))
             if f.fieldtype.is_assignable() or basetype in varlen_structs:
                 subcalls.append('\t\ttowire_{}(&p, {}[i]);'
