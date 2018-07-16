@@ -19,6 +19,7 @@
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
+#include <lightningd/param.h>
 #include <sodium/randombytes.h>
 #include <wire/wire_sync.h>
 
@@ -159,8 +160,8 @@ static void json_invoice(struct command *cmd,
 {
 	struct invoice invoice;
 	struct invoice_details details;
-	jsmntok_t *msatoshi, *label, *desctok, *exp, *fallback, *fallbacks;
-	jsmntok_t *preimagetok;
+	const jsmntok_t *msatoshi, *label, *desctok, *fallback, *fallbacks;
+	const jsmntok_t *preimagetok;
 	u64 *msatoshi_val;
 	const struct json_escaped *label_val, *desc;
 	const char *desc_val;
@@ -169,20 +170,19 @@ static void json_invoice(struct command *cmd,
 	struct bolt11 *b11;
 	char *b11enc;
 	const u8 **fallback_scripts = NULL;
-	u64 expiry = 3600;
+	u64 expiry;
 	bool result;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "msatoshi", &msatoshi,
-			     "label", &label,
-			     "description", &desctok,
-			     "?expiry", &exp,
-			     "?fallback", &fallback,
-			     "?fallbacks", &fallbacks,
-			     "?preimage", &preimagetok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_req("msatoshi", json_tok_tok, &msatoshi),
+		   p_req("label", json_tok_tok, &label),
+		   p_req("description", json_tok_tok, &desctok),
+		   p_opt_def("expiry", json_tok_u64, &expiry, 3600),
+		   p_opt_tok("fallback", &fallback),
+		   p_opt_tok("fallbacks", &fallbacks),
+		   p_opt_tok("preimage", &preimagetok),
+		   NULL))
 		return;
-	}
 
 	/* Get arguments. */
 	/* msatoshi */
@@ -245,14 +245,6 @@ static void json_invoice(struct command *cmd,
 			     strlen(desc_val));
 		return;
 	}
-	/* expiry */
-	if (exp && !json_tok_u64(buffer, exp, &expiry)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "Expiry '%.*s' invalid seconds",
-			     exp->end - exp->start,
-			     buffer + exp->start);
-		return;
-	}
 
 	/* fallback addresses */
 	if (fallback) {
@@ -292,7 +284,6 @@ static void json_invoice(struct command *cmd,
 			n++;
 		}
 	}
-
 	struct preimage r;
 	struct sha256 rhash;
 
@@ -406,16 +397,15 @@ static void json_listinvoice_internal(struct command *cmd,
 				      const jsmntok_t *params,
 				      bool modern)
 {
-	jsmntok_t *labeltok = NULL;
+	jsmntok_t *labeltok;
 	struct json_escaped *label;
 	struct json_result *response = new_json_result(cmd);
 	struct wallet *wallet = cmd->ld->wallet;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "?label", &labeltok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_opt_tok("label", &labeltok),
+		   NULL))
 		return;
-	}
 
 	if (labeltok) {
 		label = json_tok_label(cmd, buffer, labeltok);
@@ -474,18 +464,17 @@ static void json_delinvoice(struct command *cmd,
 {
 	struct invoice i;
 	struct invoice_details details;
-	jsmntok_t *labeltok, *statustok;
+	const jsmntok_t *labeltok, *statustok;
 	struct json_result *response = new_json_result(cmd);
 	const char *status, *actual_status;
 	struct json_escaped *label;
 	struct wallet *wallet = cmd->ld->wallet;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "label", &labeltok,
-			     "status", &statustok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_req("label", json_tok_tok, &labeltok),
+		   p_req("status", json_tok_tok, &statustok),
+		   NULL))
 		return;
-	}
 
 	label = json_tok_label(cmd, buffer, labeltok);
 	if (!label) {
@@ -537,25 +526,14 @@ AUTODATA(json_command, &delinvoice_command);
 static void json_delexpiredinvoice(struct command *cmd, const char *buffer,
 				   const jsmntok_t *params)
 {
-	jsmntok_t *maxexpirytimetok;
-	u64 maxexpirytime = time_now().ts.tv_sec;
+	u64 maxexpirytime;
 	struct json_result *result;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "?maxexpirytime", &maxexpirytimetok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_opt_def("maxexpirytime", json_tok_u64, &maxexpirytime,
+			     time_now().ts.tv_sec),
+		   NULL))
 		return;
-	}
-
-	if (maxexpirytimetok) {
-		if (!json_tok_u64(buffer, maxexpirytimetok, &maxexpirytime)) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "'%.*s' is not a valid number",
-				     maxexpirytimetok->end - maxexpirytimetok->start,
-				     buffer + maxexpirytimetok->start);
-			return;
-		}
-	}
 
 	wallet_invoice_delete_expired(cmd->ld->wallet, maxexpirytime);
 
@@ -575,37 +553,15 @@ static void json_autocleaninvoice(struct command *cmd,
 				  const char *buffer,
 				  const jsmntok_t *params)
 {
-	jsmntok_t *cycletok;
-	jsmntok_t *exbytok;
-	u64 cycle = 3600;
-	u64 exby = 86400;
+	u64 cycle;
+	u64 exby;
 	struct json_result *result;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "?cycle_seconds", &cycletok,
-			     "?expired_by", &exbytok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_opt_def("cycle_seconds", json_tok_u64, &cycle, 3600),
+		   p_opt_def("expired_by", json_tok_u64, &exby, 86400),
+		   NULL))
 		return;
-	}
-
-	if (cycletok) {
-		if (!json_tok_u64(buffer, cycletok, &cycle)) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "'%.*s' is not a valid number",
-				     cycletok->end - cycletok->start,
-				     buffer + cycletok->start);
-			return;
-		}
-	}
-	if (exbytok) {
-		if (!json_tok_u64(buffer, exbytok, &exby)) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "'%.*s' is not a valid number",
-				     exbytok->end - exbytok->start,
-				     buffer + exbytok->start);
-			return;
-		}
-	}
 
 	wallet_invoice_autoclean(cmd->ld->wallet, cycle, exby);
 
@@ -626,27 +582,13 @@ AUTODATA(json_command, &autocleaninvoice_command);
 static void json_waitanyinvoice(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *pay_indextok;
 	u64 pay_index;
 	struct wallet *wallet = cmd->ld->wallet;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "?lastpay_index", &pay_indextok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_opt_def("lastpay_index", json_tok_u64, &pay_index, 0),
+		   NULL))
 		return;
-	}
-
-	if (!pay_indextok) {
-		pay_index = 0;
-	} else {
-		if (!json_tok_u64(buffer, pay_indextok, &pay_index)) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "'%.*s' is not a valid number",
-				     pay_indextok->end - pay_indextok->start,
-				     buffer + pay_indextok->start);
-			return;
-		}
-	}
 
 	/* Set command as pending. We do not know if
 	 * wallet_invoice_waitany will return immediately
@@ -677,12 +619,13 @@ static void json_waitinvoice(struct command *cmd,
 	struct invoice i;
 	struct invoice_details details;
 	struct wallet *wallet = cmd->ld->wallet;
-	jsmntok_t *labeltok;
+	const jsmntok_t *labeltok;
 	struct json_escaped *label;
 
-	if (!json_get_params(cmd, buffer, params, "label", &labeltok, NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_req("label", json_tok_tok, &labeltok),
+		   NULL))
 		return;
-	}
 
 	/* Search for invoice */
 	label = json_tok_label(cmd, buffer, labeltok);
@@ -757,17 +700,16 @@ static void json_add_fallback(struct json_result *response,
 static void json_decodepay(struct command *cmd,
                            const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *bolt11tok, *desctok;
+	const jsmntok_t *bolt11tok, *desctok;
 	struct bolt11 *b11;
 	struct json_result *response;
         char *str, *desc, *fail;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "bolt11", &bolt11tok,
-			     "?description", &desctok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_req("bolt11", json_tok_tok, &bolt11tok),
+		   p_opt_tok("description", &desctok),
+		   NULL))
 		return;
-	}
 
         str = tal_strndup(cmd, buffer + bolt11tok->start,
                           bolt11tok->end - bolt11tok->start);

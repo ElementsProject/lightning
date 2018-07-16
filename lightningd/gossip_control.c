@@ -26,6 +26,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/log.h>
+#include <lightningd/param.h>
 #include <sodium/randombytes.h>
 #include <string.h>
 #include <wire/gen_peer_wire.h>
@@ -332,22 +333,12 @@ static void json_listnodes(struct command *cmd, const char *buffer,
 			  const jsmntok_t *params)
 {
 	u8 *req;
-	jsmntok_t *idtok = NULL;
-	struct pubkey *id = NULL;
+	struct pubkey *id;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "?id", &idtok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_opt("id", json_tok_pubkey, &id),
+		   NULL))
 		return;
-	}
-
-	if (idtok) {
-		id = tal_arr(cmd, struct pubkey, 1);
-		if (!json_tok_pubkey(buffer, idtok, id)) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Invalid id");
-			return;
-		}
-	}
 
 	req = towire_gossip_getnodes_request(cmd, id);
 	subd_req(cmd, cmd->ld->gossip, req, -1, 0, json_getnodes_reply, cmd);
@@ -384,72 +375,31 @@ static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, con
 static void json_getroute(struct command *cmd, const char *buffer, const jsmntok_t *params)
 {
 	struct lightningd *ld = cmd->ld;
-	struct pubkey source = ld->id, destination;
-	jsmntok_t *idtok, *msatoshitok, *riskfactortok, *cltvtok, *fromidtok;
-	jsmntok_t *fuzztok;
+	struct pubkey destination;
+	struct pubkey source;
 	jsmntok_t *seedtok;
 	u64 msatoshi;
-	unsigned cltv = 9;
+	unsigned cltv;
 	double riskfactor;
 	/* Higher fuzz means that some high-fee paths can be discounted
 	 * for an even larger value, increasing the scope for route
 	 * randomization (the higher-fee paths become more likely to
 	 * be selected) at the cost of increasing the probability of
 	 * selecting the higher-fee paths. */
-	double fuzz = 75.0;
+	double fuzz;
 	struct siphash_seed seed;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "id", &idtok,
-			     "msatoshi", &msatoshitok,
-			     "riskfactor", &riskfactortok,
-			     "?cltv", &cltvtok,
-			     "?fromid", &fromidtok,
-			     "?fuzzpercent", &fuzztok,
-			     "?seed", &seedtok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_req("id", json_tok_pubkey, &destination),
+		   p_req("msatoshi", json_tok_u64, &msatoshi),
+		   p_req("riskfactor", json_tok_double, &riskfactor),
+		   p_opt_def("cltv", json_tok_number, &cltv, 9),
+		   p_opt_def("fromid", json_tok_pubkey, &source, ld->id),
+		   p_opt_def("fuzzpercent", json_tok_double, &fuzz, 75.0),
+		   p_opt_tok("seed", &seedtok),
+		   NULL))
 		return;
-	}
 
-	if (!json_tok_pubkey(buffer, idtok, &destination)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Invalid id");
-		return;
-	}
-
-	if (cltvtok && !json_tok_number(buffer, cltvtok, &cltv)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Invalid cltv");
-		return;
-	}
-
-	if (!json_tok_u64(buffer, msatoshitok, &msatoshi)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%.*s' is not a valid number",
-			     msatoshitok->end - msatoshitok->start,
-			     buffer + msatoshitok->start);
-		return;
-	}
-
-	if (!json_tok_double(buffer, riskfactortok, &riskfactor)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%.*s' is not a valid double",
-			     riskfactortok->end - riskfactortok->start,
-			     buffer + riskfactortok->start);
-		return;
-	}
-
-	if (fromidtok && !json_tok_pubkey(buffer, fromidtok, &source)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Invalid from id");
-		return;
-	}
-
-	if (fuzztok &&
-	    !json_tok_double(buffer, fuzztok, &fuzz)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%.*s' is not a valid double",
-			     fuzztok->end - fuzztok->start,
-			     buffer + fuzztok->start);
-		return;
-	}
 	if (!(0.0 <= fuzz && fuzz <= 100.0)) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "fuzz must be in range 0.0 <= %f <= 100.0",
@@ -470,7 +420,9 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	} else
 		randombytes_buf(&seed, sizeof(seed));
 
-	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination, msatoshi, riskfactor*1000, cltv, &fuzz, &seed);
+	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination,
+						 msatoshi, riskfactor*1000,
+						 cltv, &fuzz, &seed);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 	command_still_pending(cmd);
 }
@@ -531,23 +483,11 @@ static void json_listchannels(struct command *cmd, const char *buffer,
 			     const jsmntok_t *params)
 {
 	u8 *req;
-	jsmntok_t *idtok;
-	struct short_channel_id *id = NULL;
-
-	if (!json_get_params(cmd, buffer, params,
-			     "?short_channel_id", &idtok,
-			     NULL)) {
+	struct short_channel_id *id;
+	if (!param(cmd, buffer, params,
+		   p_opt("short_channel_id", json_tok_short_channel_id, &id),
+		   NULL))
 		return;
-	}
-
-	if (idtok) {
-		id = tal_arr(cmd, struct short_channel_id, 1);
-		if (!json_tok_short_channel_id(buffer, idtok, id)) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "Invalid short_channel_id");
-			return;
-		}
-	}
 
 	req = towire_gossip_getchannels_request(cmd, id);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
@@ -591,26 +531,17 @@ static void json_dev_query_scids(struct command *cmd,
 				 const char *buffer, const jsmntok_t *params)
 {
 	u8 *msg;
-	jsmntok_t *idtok, *scidstok;
+	const jsmntok_t *scidstok;
 	const jsmntok_t *t, *end;
 	struct pubkey id;
 	struct short_channel_id *scids;
 	size_t i;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "id", &idtok,
-			     "scids", &scidstok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_req("id", json_tok_pubkey, &id),
+		   p_req("scids", json_tok_tok, &scidstok),
+		   NULL))
 		return;
-	}
-
-	if (!json_tok_pubkey(buffer, idtok, &id)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%.*s' is not a valid id",
-			     idtok->end - idtok->start,
-			     buffer + idtok->start);
-		return;
-	}
 
 	if (scidstok->type != JSMN_ARRAY) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -651,32 +582,15 @@ static void json_dev_send_timestamp_filter(struct command *cmd,
 					   const jsmntok_t *params)
 {
 	u8 *msg;
-	jsmntok_t *idtok, *firsttok, *rangetok;
 	struct pubkey id;
 	u32 first, range;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "id", &idtok,
-			     "first", &firsttok,
-			     "range", &rangetok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_req("id", json_tok_pubkey, &id),
+		   p_req("first", json_tok_number, &first),
+		   p_req("range", json_tok_number, &range),
+		   NULL))
 		return;
-	}
-
-	if (!json_tok_pubkey(buffer, idtok, &id)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%.*s' is not a valid id",
-			     idtok->end - idtok->start,
-			     buffer + idtok->start);
-		return;
-	}
-
-	if (!json_tok_number(buffer, firsttok, &first)
-	    || !json_tok_number(buffer, rangetok, &range)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "bad first or range numbers");
-		return;
-	}
 
 	log_debug(cmd->ld->log, "Setting timestamp range %u+%u", first, range);
 	/* Tell gossipd, since this is a gossip query. */
@@ -736,32 +650,15 @@ static void json_dev_query_channel_range(struct command *cmd,
 					 const jsmntok_t *params)
 {
 	u8 *msg;
-	jsmntok_t *idtok, *firsttok, *numtok;
 	struct pubkey id;
 	u32 first, num;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "id", &idtok,
-			     "first", &firsttok,
-			     "num", &numtok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_req("id", json_tok_pubkey, &id),
+		   p_req("first", json_tok_number, &first),
+		   p_req("num", json_tok_number, &num),
+		   NULL))
 		return;
-	}
-
-	if (!json_tok_pubkey(buffer, idtok, &id)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%.*s' is not a valid id",
-			     idtok->end - idtok->start,
-			     buffer + idtok->start);
-		return;
-	}
-
-	if (!json_tok_number(buffer, firsttok, &first)
-	    || !json_tok_number(buffer, numtok, &num)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "first and num must be numbers");
-		return;
-	}
 
 	/* Tell gossipd, since this is a gossip query. */
 	msg = towire_gossip_query_channel_range(cmd, &id, first, num);
@@ -782,20 +679,12 @@ static void json_dev_set_max_scids_encode_size(struct command *cmd,
 					       const jsmntok_t *params)
 {
 	u8 *msg;
-	jsmntok_t *maxtok;
 	u32 max;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "max", &maxtok,
-			     NULL)) {
+	if (!param(cmd, buffer,
+		   params, p_req("max", json_tok_number, &max),
+		   NULL))
 		return;
-	}
-
-	if (!json_tok_number(buffer, maxtok, &max)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "max must be a number");
-		return;
-	}
 
 	msg = towire_gossip_dev_set_max_scids_encode_size(NULL, max);
 	subd_send_msg(cmd->ld->gossip, take(msg));
