@@ -27,7 +27,10 @@ LIGHTNINGD_CONFIG = {
     'disable-dns': None,
 }
 
-DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
+with open('config.vars') as configfile:
+    config = dict([(line.rstrip().split('=', 1)) for line in configfile])
+
+DEVELOPER = os.getenv("DEVELOPER", config['DEVELOPER']) == "1"
 TIMEOUT = int(os.getenv("TIMEOUT", "60"))
 
 
