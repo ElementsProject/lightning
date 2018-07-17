@@ -257,7 +257,7 @@ static void update_feerates(struct bitcoind *bitcoind,
         u32 feerate_smooth = feerate * alpha + old_feerates[i] * (1 - alpha);
         /* But to avoid updating forever, only apply smoothing when its
          * effect is more then 10 percent */
-        if (abs(feerate - feerate_smooth) > (0.1 * feerate)) {
+        if (abs((int)feerate - (int)feerate_smooth) > (0.1 * feerate)) {
             feerate = feerate_smooth;
             log_debug(topo->log,
 					  "...feerate %u smoothed to %u (alpha=%.2f)",
