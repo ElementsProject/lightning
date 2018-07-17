@@ -60,16 +60,6 @@ struct json_command {
 	const char *verbose;
 };
 
-/* Get the parameters (by position or name).  Followed by triples of
- * of const char *name, const jsmntok_t **ret_ptr, then NULL.
- *
- * If name starts with '?' it is optional (and will be set to NULL
- * if it's a literal 'null' or not present).
- * Otherwise false is returned, and command_fail already called.
- */
-bool json_get_params(struct command *cmd,
-		     const char *buffer, const jsmntok_t param[], ...);
-
 struct json_result *null_response(const tal_t *ctx);
 void command_success(struct command *cmd, struct json_result *response);
 void PRINTF_FMT(3, 4) command_fail(struct command *cmd, int code,
@@ -102,6 +92,8 @@ json_tok_address_scriptpubkey(const tal_t *ctx,
 			      const struct chainparams *chainparams,
 			      const char *buffer,
 			      const jsmntok_t *tok, const u8 **scriptpubkey);
+
+bool json_tok_newaddr(const char *buffer, const jsmntok_t *tok, bool *is_p2wpkh);
 
 /* Parse the satoshi token in wallet_tx. */
 bool json_tok_wtx(struct wallet_tx * tx, const char * buffer,

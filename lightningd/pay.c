@@ -11,6 +11,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
+#include <lightningd/param.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/subd.h>
@@ -912,21 +913,19 @@ static void json_sendpay_on_resolve(const struct sendpay_result* r,
 static void json_sendpay(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *routetok, *rhashtok;
-	jsmntok_t *msatoshitok;
+	const jsmntok_t *routetok, *rhashtok;
 	const jsmntok_t *t, *end;
 	size_t n_hops;
 	struct sha256 rhash;
 	struct route_hop *route;
-	u64 msatoshi;
+	u64 *msatoshi;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "route", &routetok,
-			     "payment_hash", &rhashtok,
-			     "?msatoshi", &msatoshitok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_req("route", json_tok_tok, &routetok),
+		   p_req("payment_hash", json_tok_tok, &rhashtok),
+		   p_opt("msatoshi", json_tok_u64, &msatoshi),
+		   NULL))
 		return;
-	}
 
 	if (!hex_decode(buffer + rhashtok->start,
 			rhashtok->end - rhashtok->start,
@@ -1006,32 +1005,24 @@ static void json_sendpay(struct command *cmd,
 		return;
 	}
 
-	if (msatoshitok) {
-		if (!json_tok_u64(buffer, msatoshitok, &msatoshi)) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "'%.*s' is not a number",
-				     msatoshitok->end - msatoshitok->start,
-				     buffer + msatoshitok->start);
-			return;
-		}
-		/* The given msatoshi is the actual payment that
-		 * the payee is requesting. The final hop amount, is
-		 * what we actually give, which can be from the
-		 * msatoshi to twice msatoshi. */
-		/* if not: msatoshi <= finalhop.amount <= 2 * msatoshi,
-		 * fail. */
-		if (!(msatoshi <= route[n_hops-1].amount &&
-		      route[n_hops-1].amount <= 2 * msatoshi)) {
+	/* The given msatoshi is the actual payment that the payee is
+	 * requesting. The final hop amount is what we actually give, which can
+	 * be from the msatoshi to twice msatoshi. */
+
+	/* if not: msatoshi <= finalhop.amount <= 2 * msatoshi, fail. */
+	if (msatoshi) {
+		if (!(*msatoshi <= route[n_hops-1].amount &&
+		      route[n_hops-1].amount <= 2 * *msatoshi)) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "msatoshi %"PRIu64" out of range",
-				     msatoshi);
+				     *msatoshi);
 			return;
 		}
-	} else
-		msatoshi = route[n_hops-1].amount;
+	}
 
-	if (send_payment(cmd, cmd->ld, &rhash, route, msatoshi,
-			  &json_sendpay_on_resolve, cmd))
+	if (send_payment(cmd, cmd->ld, &rhash, route,
+			 msatoshi ? *msatoshi : route[n_hops-1].amount,
+			 &json_sendpay_on_resolve, cmd))
 		command_still_pending(cmd);
 }
 
@@ -1050,15 +1041,14 @@ static void waitsendpay_timeout(struct command *cmd)
 static void json_waitsendpay(struct command *cmd, const char *buffer,
 			     const jsmntok_t *params)
 {
-	jsmntok_t *rhashtok;
-	jsmntok_t *timeouttok;
+	const jsmntok_t *rhashtok;
 	struct sha256 rhash;
-	unsigned int timeout;
+	unsigned int *timeout;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "payment_hash", &rhashtok,
-			     "?timeout", &timeouttok,
-			     NULL))
+	if (!param(cmd, buffer, params,
+		   p_req("payment_hash", json_tok_tok, &rhashtok),
+		   p_opt("timeout", json_tok_number, &timeout),
+		   NULL))
 		return;
 
 	if (!hex_decode(buffer + rhashtok->start,
@@ -1071,21 +1061,12 @@ static void json_waitsendpay(struct command *cmd, const char *buffer,
 		return;
 	}
 
-	if (timeouttok && !json_tok_number(buffer, timeouttok, &timeout)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%.*s' is not a valid number",
-			     timeouttok->end - timeouttok->start,
-			     buffer + timeouttok->start);
-		return;
-	}
-
 	if (!wait_payment(cmd, cmd->ld, &rhash, &json_waitsendpay_on_resolve, cmd))
 		return;
 
-	if (timeouttok)
-		new_reltimer(&cmd->ld->timers, cmd, time_from_sec(timeout),
+	if (timeout)
+		new_reltimer(&cmd->ld->timers, cmd, time_from_sec(*timeout),
 			     &waitsendpay_timeout, cmd);
-
 	command_still_pending(cmd);
 }
 
@@ -1105,12 +1086,11 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 	jsmntok_t *bolt11tok, *rhashtok;
 	struct sha256 *rhash = NULL;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "?bolt11", &bolt11tok,
-			     "?payment_hash", &rhashtok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_opt_tok("bolt11", &bolt11tok),
+		   p_opt_tok("payment_hash", &rhashtok),
+		   NULL))
 		return;
-	}
 
 	if (bolt11tok) {
 		struct bolt11 *b11;

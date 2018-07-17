@@ -19,6 +19,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/opening_control.h>
+#include <lightningd/param.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <openingd/gen_opening_wire.h>
@@ -892,7 +893,7 @@ bool handle_opening_channel(struct lightningd *ld,
 static void json_fund_channel(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *desttok, *sattok;
+	const jsmntok_t *desttok, *sattok;
 	struct funding_channel * fc = tal(cmd, struct funding_channel);
 	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
 	u8 *msg;
@@ -900,10 +901,12 @@ static void json_fund_channel(struct command *cmd,
 	fc->cmd = cmd;
 	fc->uc = NULL;
 	wtx_init(cmd, &fc->wtx);
-	if (!json_get_params(fc->cmd, buffer, params,
-			     "id", &desttok,
-			     "satoshi", &sattok, NULL))
+	if (!param(fc->cmd, buffer, params,
+		   p_req("id", json_tok_tok, &desttok),
+		   p_req("satoshi", json_tok_tok, &sattok),
+		   NULL))
 		return;
+
 	if (!json_tok_wtx(&fc->wtx, buffer, sattok))
 		return;
 	if (!pubkey_from_hexstr(buffer + desttok->start,

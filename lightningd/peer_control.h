@@ -62,7 +62,7 @@ void delete_peer(struct peer *peer);
 struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id);
 struct peer *peer_from_json(struct lightningd *ld,
 			    const char *buffer,
-			    jsmntok_t *peeridtok);
+			    const jsmntok_t *peeridtok);
 
 /* The three ways peers enter from the network:
  *

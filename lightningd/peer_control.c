@@ -39,6 +39,7 @@
 #include <lightningd/onchain_control.h>
 #include <lightningd/opening_control.h>
 #include <lightningd/options.h>
+#include <lightningd/param.h>
 #include <lightningd/peer_htlcs.h>
 #include <unistd.h>
 #include <wally_bip32.h>
@@ -143,7 +144,7 @@ struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id)
 
 struct peer *peer_from_json(struct lightningd *ld,
 			    const char *buffer,
-			    jsmntok_t *peeridtok)
+			    const jsmntok_t *peeridtok)
 {
 	struct pubkey peerid;
 
@@ -940,38 +941,14 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 static void json_listpeers(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *leveltok;
 	struct getpeers_args *gpa = tal(cmd, struct getpeers_args);
-	jsmntok_t *idtok;
 
 	gpa->cmd = cmd;
-	gpa->specific_id = NULL;
-	if (!json_get_params(cmd, buffer, params,
-			     "?id", &idtok,
-			     "?level", &leveltok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_opt("id", json_tok_pubkey, &gpa->specific_id),
+		   p_opt("level", json_tok_loglevel, &gpa->ll),
+		   NULL))
 		return;
-	}
-
-	if (idtok) {
-		gpa->specific_id = tal_arr(cmd, struct pubkey, 1);
-		if (!json_tok_pubkey(buffer, idtok, gpa->specific_id)) {
-			command_fail(cmd, LIGHTNINGD,
-				     "id %.*s not valid",
-				     idtok->end - idtok->start,
-				     buffer + idtok->start);
-			return;
-		}
-	}
-	if (leveltok) {
-		gpa->ll = tal(gpa, enum log_level);
-		if (!json_tok_loglevel(buffer, leveltok, gpa->ll)) {
-			command_fail(cmd, LIGHTNINGD,
-				     "Invalid level param");
-			return;
-		}
-	} else
-		gpa->ll = NULL;
 
 	/* Get peers from gossipd. */
 	subd_req(cmd, cmd->ld->gossip,
@@ -1040,36 +1017,18 @@ command_find_channel(struct command *cmd,
 static void json_close(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *idtok;
-	jsmntok_t *timeouttok;
-	jsmntok_t *forcetok;
+	const jsmntok_t *idtok;
 	struct peer *peer;
 	struct channel *channel;
-	unsigned int timeout = 30;
-	bool force = false;
+	unsigned int timeout;
+	bool force;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "id", &idtok,
-			     "?force", &forcetok,
-			     "?timeout", &timeouttok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_req("id", json_tok_tok, &idtok),
+		   p_opt_def("force", json_tok_bool, &force, false),
+		   p_opt_def("timeout", json_tok_number, &timeout, 30),
+		   NULL))
 		return;
-	}
-
-	if (forcetok && !json_tok_bool(buffer, forcetok, &force)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "Force '%.*s' must be true or false",
-			     forcetok->end - forcetok->start,
-			     buffer + forcetok->start);
-		return;
-	}
-	if (timeouttok && !json_tok_number(buffer, timeouttok, &timeout)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "Timeout '%.*s' is not a number",
-			     timeouttok->end - timeouttok->start,
-			     buffer + timeouttok->start);
-		return;
-	}
 
 	peer = peer_from_json(cmd->ld, buffer, idtok);
 	if (peer)
@@ -1194,22 +1153,13 @@ static void gossip_peer_disconnected (struct subd *gossip,
 static void json_disconnect(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *idtok;
 	struct pubkey id;
 	u8 *msg;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "id", &idtok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_req("id", json_tok_pubkey, &id),
+		   NULL))
 		return;
-	}
-
-	if (!json_tok_pubkey(buffer, idtok, &id)) {
-		command_fail(cmd, LIGHTNINGD, "id %.*s not valid",
-			     idtok->end - idtok->start,
-			     buffer + idtok->start);
-		return;
-	}
 
 	msg = towire_gossipctl_peer_disconnect(cmd, &id);
 	subd_req(cmd, cmd->ld->gossip, msg, -1, 0, gossip_peer_disconnected, cmd);
@@ -1227,19 +1177,18 @@ AUTODATA(json_command, &disconnect_command);
 static void json_sign_last_tx(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *peertok;
+	struct pubkey peerid;
 	struct peer *peer;
 	struct json_result *response = new_json_result(cmd);
 	u8 *linear;
 	struct channel *channel;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "id", &peertok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_req("id", json_tok_pubkey, &peerid),
+		   NULL))
 		return;
-	}
 
-	peer = peer_from_json(cmd->ld, buffer, peertok);
+	peer = peer_by_id(cmd->ld, &peerid);
 	if (!peer) {
 		command_fail(cmd, LIGHTNINGD,
 			     "Could not find peer with that id");
@@ -1274,17 +1223,16 @@ AUTODATA(json_command, &dev_sign_last_tx);
 static void json_dev_fail(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *peertok;
+	struct pubkey peerid;
 	struct peer *peer;
 	struct channel *channel;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "id", &peertok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_req("id", json_tok_pubkey, &peerid),
+		   NULL))
 		return;
-	}
 
-	peer = peer_from_json(cmd->ld, buffer, peertok);
+	peer = peer_by_id(cmd->ld, &peerid);
 	if (!peer) {
 		command_fail(cmd, LIGHTNINGD,
 			     "Could not find peer with that id");
@@ -1320,18 +1268,17 @@ static void dev_reenable_commit_finished(struct subd *channeld UNUSED,
 static void json_dev_reenable_commit(struct command *cmd,
 				     const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *peertok;
+	struct pubkey peerid;
 	struct peer *peer;
 	u8 *msg;
 	struct channel *channel;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "id", &peertok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_req("id", json_tok_pubkey, &peerid),
+		   NULL))
 		return;
-	}
 
-	peer = peer_from_json(cmd->ld, buffer, peertok);
+	peer = peer_by_id(cmd->ld, &peerid);
 	if (!peer) {
 		command_fail(cmd, LIGHTNINGD,
 			     "Could not find peer with that id");
@@ -1408,33 +1355,25 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 static void json_dev_forget_channel(struct command *cmd, const char *buffer,
 				    const jsmntok_t *params)
 {
-	jsmntok_t *nodeidtok, *forcetok, *scidtok;
+	struct pubkey peerid;
 	struct peer *peer;
 	struct channel *channel;
-	struct short_channel_id scid;
+	struct short_channel_id *scid;
 	struct dev_forget_channel_cmd *forget = tal(cmd, struct dev_forget_channel_cmd);
 	forget->cmd = cmd;
-	if (!json_get_params(cmd, buffer, params,
-			     "id", &nodeidtok,
-			     "?short_channel_id", &scidtok,
-			     "?force", &forcetok,
-			     NULL)) {
+
+	/* If &forget->force is used directly in the p_opt_def() below then we get
+	 * an odd "forget->force may be undefined" compiler error.
+	 * Hence this indirection. */
+	bool *force = &forget->force;
+	if (!param(cmd, buffer, params,
+		   p_req("id", json_tok_pubkey, &peerid),
+		   p_opt("short_channel_id", json_tok_short_channel_id, &scid),
+		   p_opt_def("force", json_tok_bool, force, false),
+		   NULL))
 		return;
-	}
 
-	if (scidtok && !json_tok_short_channel_id(buffer, scidtok, &scid)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "Invalid short_channel_id '%.*s'",
-			     scidtok->end - scidtok->start,
-			     buffer + scidtok->start);
-		return;
-	}
-
-	forget->force = false;
-	if (forcetok)
-		json_tok_bool(buffer, forcetok, &forget->force);
-
-	peer = peer_from_json(cmd->ld, buffer, nodeidtok);
+	peer = peer_by_id(cmd->ld, &peerid);
 	if (!peer) {
 		command_fail(cmd, LIGHTNINGD,
 			     "Could not find channel with that peer");
@@ -1443,10 +1382,10 @@ static void json_dev_forget_channel(struct command *cmd, const char *buffer,
 
 	forget->channel = NULL;
 	list_for_each(&peer->channels, channel, list) {
-		if (scidtok) {
+		if (scid) {
 			if (!channel->scid)
 				continue;
-			if (!short_channel_id_eq(channel->scid, &scid))
+			if (!short_channel_id_eq(channel->scid, scid))
 				continue;
 		}
 		if (forget->channel) {

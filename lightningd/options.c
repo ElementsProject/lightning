@@ -24,6 +24,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
+#include <lightningd/param.h>
 #include <lightningd/subd.h>
 #include <stdio.h>
 #include <string.h>
@@ -1059,12 +1060,13 @@ static void json_listconfigs(struct command *cmd,
 {
 	size_t i;
 	struct json_result *response = new_json_result(cmd);
-	jsmntok_t *configtok;
+	const jsmntok_t *configtok;
 	bool found = false;
 
-	if (!json_get_params(cmd, buffer, params, "?config", &configtok, NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_opt_tok("config", &configtok),
+		   NULL))
 		return;
-	}
 
 	json_object_start(response, NULL);
 	if (!configtok)

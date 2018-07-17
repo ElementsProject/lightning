@@ -242,10 +242,6 @@ struct json_escaped *json_escape(const tal_t *ctx UNNEEDED, const char *str TAKE
 struct json_escaped *json_escaped_string_(const tal_t *ctx UNNEEDED,
 					  const void *bytes UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "json_escaped_string_ called!\n"); abort(); }
-/* Generated stub for json_get_params */
-bool json_get_params(struct command *cmd UNNEEDED,
-		     const char *buffer UNNEEDED, const jsmntok_t param[] UNNEEDED, ...)
-{ fprintf(stderr, "json_get_params called!\n"); abort(); }
 /* Generated stub for json_object_end */
 void json_object_end(struct json_result *ptr UNNEEDED)
 { fprintf(stderr, "json_object_end called!\n"); abort(); }
@@ -275,6 +271,10 @@ bool json_tok_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 bool json_tok_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			       struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "json_tok_short_channel_id called!\n"); abort(); }
+/* Generated stub for json_tok_tok */
+bool json_tok_tok(const char *buffer UNNEEDED, const jsmntok_t * tok UNNEEDED,
+		  const jsmntok_t **out UNNEEDED)
+{ fprintf(stderr, "json_tok_tok called!\n"); abort(); }
 /* Generated stub for kill_uncommitted_channel */
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
@@ -312,6 +312,10 @@ struct outpointfilter *outpointfilter_new(tal_t *ctx UNNEEDED)
 void outpointfilter_remove(struct outpointfilter *of UNNEEDED,
 			   const struct bitcoin_txid *txid UNNEEDED, const u32 outnum UNNEEDED)
 { fprintf(stderr, "outpointfilter_remove called!\n"); abort(); }
+/* Generated stub for param */
+bool param(struct command *cmd UNNEEDED, const char *buffer UNNEEDED,
+	   const jsmntok_t params[] UNNEEDED, ...)
+{ fprintf(stderr, "param called!\n"); abort(); }
 /* Generated stub for peer_accept_channel */
 u8 *peer_accept_channel(const tal_t *ctx UNNEEDED,
 			struct lightningd *ld UNNEEDED,
