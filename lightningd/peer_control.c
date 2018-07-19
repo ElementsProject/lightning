@@ -1362,9 +1362,14 @@ static void json_dev_forget_channel(struct command *cmd, const char *buffer,
 	struct dev_forget_channel_cmd *forget = tal(cmd, struct dev_forget_channel_cmd);
 	forget->cmd = cmd;
 
-	/* If &forget->force is used directly in the p_opt_def() below then we get
-	 * an odd "forget->force may be undefined" compiler error.
-	 * Hence this indirection. */
+	/* If &forget->force is used directly in p_opt_def() below then
+	 * gcc 7.3.0 fails with:
+	 * 'operation on ‘forget->force’ may be undefined [-Werror=sequence-point]'
+	 *
+	 * See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86584
+	 *
+	 * Hence this indirection.
+	 */
 	bool *force = &forget->force;
 	if (!param(cmd, buffer, params,
 		   p_req("id", json_tok_pubkey, &peerid),
