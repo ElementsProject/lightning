@@ -780,7 +780,7 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 		}
 
 		/* Search gossip reply for this ID, to add extra info. */
-		for (size_t i = 0; i < tal_len(nodes); i++) {
+		for (size_t i = 0; i < tal_count(nodes); i++) {
 			if (pubkey_eq(&nodes[i]->nodeid, &p->id)) {
 				json_add_node_decoration(response, nodes[i]);
 				break;
