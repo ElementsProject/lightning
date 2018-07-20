@@ -108,6 +108,9 @@ struct wallet_payment {
 	struct secret *path_secrets;
 	struct pubkey *route_nodes;
 	struct short_channel_id *route_channels;
+
+	/* The description of the payment. Must support `tal_len` */
+	const char *description;
 };
 
 struct outpoint {
@@ -442,6 +445,9 @@ struct invoice_details {
 	u64 paid_timestamp;
 	/* BOLT11 encoding for this invoice */
 	const char *bolt11;
+
+	/* The description of the payment. */
+	char *description;
 };
 
 /* An object that handles iteration over the set of invoices */
