@@ -24,6 +24,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
+#include <lightningd/param.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -95,14 +96,13 @@ static void json_rhash(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)
 {
 	struct json_result *response = new_json_result(cmd);
-	jsmntok_t *secrettok;
+	const jsmntok_t *secrettok;
 	struct sha256 secret;
 
-	if (!json_get_params(cmd, buffer, params,
-			     "secret", &secrettok,
-			     NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_req("secret", json_tok_tok, &secrettok),
+		   NULL))
 		return;
-	}
 
 	if (!hex_decode(buffer + secrettok->start,
 			secrettok->end - secrettok->start,
@@ -200,11 +200,12 @@ static void json_help(struct command *cmd,
 	unsigned int i;
 	struct json_result *response = new_json_result(cmd);
 	struct json_command **cmdlist = get_cmdlist();
-	jsmntok_t *cmdtok;
+	const jsmntok_t *cmdtok;
 
-	if (!json_get_params(cmd, buffer, params, "?command", &cmdtok, NULL)) {
+	if (!param(cmd, buffer, params,
+		   p_opt_tok("command", &cmdtok),
+		   NULL))
 		return;
-	}
 
 	json_object_start(response, NULL);
 	if (cmdtok) {
@@ -493,104 +494,6 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		assert(c->pending);
 }
 
-bool json_get_params(struct command *cmd,
-		     const char *buffer, const jsmntok_t param[], ...)
-{
-	va_list ap;
-	const char **names;
-	size_t num_names;
-	 /* Uninitialized warnings on p and end */
-	const jsmntok_t *p = NULL, *end = NULL;
-
-	if (param->type == JSMN_ARRAY) {
-		if (param->size == 0)
-			p = NULL;
-		else
-			p = param + 1;
-		end = json_next(param);
-	} else if (param->type != JSMN_OBJECT) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "Expected array or object for params");
-		return false;
-	}
-
-	num_names = 0;
-	names = tal_arr(cmd, const char *, num_names + 1);
-	va_start(ap, param);
-	while ((names[num_names] = va_arg(ap, const char *)) != NULL) {
-		const jsmntok_t **tokptr = va_arg(ap, const jsmntok_t **);
-		bool compulsory = true;
-		if (names[num_names][0] == '?') {
-			names[num_names]++;
-			compulsory = false;
-		}
-		if (param->type == JSMN_ARRAY) {
-			*tokptr = p;
-			if (p) {
-				p = json_next(p);
-				if (p == end)
-					p = NULL;
-			}
-		} else {
-			*tokptr = json_get_member(buffer, param,
-						  names[num_names]);
-		}
-		/* Convert 'null' to NULL */
-		if (*tokptr
-		    && (*tokptr)->type == JSMN_PRIMITIVE
-		    && buffer[(*tokptr)->start] == 'n') {
-			*tokptr = NULL;
-		}
-		if (compulsory && !*tokptr) {
-			va_end(ap);
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "Missing '%s' parameter",
-				      names[num_names]);
-			return false;
-		}
-		num_names++;
-		tal_resize(&names, num_names + 1);
-	}
-
-	va_end(ap);
-
-	/* Now make sure there aren't any params which aren't valid */
-	if (param->type == JSMN_ARRAY) {
-		if (param->size > num_names) {
-			tal_free(names);
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "Too many parameters:"
-				     " got %u, expected %zu",
-				     param->size, num_names);
-			return false;
-		}
-	} else {
-		const jsmntok_t *t;
-
-		end = json_next(param);
-
-		/* Find each parameter among the valid names */
-		for (t = param + 1; t < end; t = json_next(t+1)) {
-			bool found = false;
-			for (size_t i = 0; i < num_names; i++) {
-				if (json_tok_streq(buffer, t, names[i]))
-					found = true;
-			}
-			if (!found) {
-				tal_free(names);
-				command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					     "Unknown parameter '%.*s'",
-					     t->end - t->start,
-					     buffer + t->start);
-				return false;
-			}
-		}
-	}
-
-	tal_free(names);
-	return true;
-}
-
 static struct io_plan *write_json(struct io_conn *conn,
 				  struct json_connection *jcon)
 {
@@ -862,6 +765,17 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 	}
 
 	return ADDRESS_PARSE_UNRECOGNIZED;
+}
+
+bool json_tok_newaddr(const char *buffer, const jsmntok_t *tok, bool *is_p2wpkh)
+{
+	if (json_tok_streq(buffer, tok, "p2sh-segwit"))
+		*is_p2wpkh = false;
+	else if (json_tok_streq(buffer, tok, "bech32"))
+		*is_p2wpkh = true;
+	else
+		return false;
+	return true;
 }
 
 bool json_tok_wtx(struct wallet_tx * tx, const char * buffer,
