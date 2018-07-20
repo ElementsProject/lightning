@@ -33,7 +33,7 @@ be returned.
 'tx' represents the raw bitcoin, fully signed, transaction
 and 'txid' represent the bitcoin transaction id.
 
-On failure, an error is reported and the channel is not funded.
+On failure, an error is reported and the withdrawal transaction is not created.
 
 The following error codes may occur:
 
