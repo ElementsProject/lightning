@@ -328,6 +328,8 @@ char *dbmigrations[] = {
     "INSERT OR IGNORE INTO blocks (height) VALUES ((SELECT MIN(first_blocknum) FROM channels));",
     "DELETE FROM blocks WHERE height IS NULL;",
     /* -- End of  PR #1398 -- */
+    "ALTER TABLE invoices ADD description TEXT;",
+    "ALTER TABLE payments ADD description TEXT;",
     NULL,
 };
 
