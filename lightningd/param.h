@@ -96,7 +96,7 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
 		  (arg) + 0*sizeof((cb)((const char *)NULL,		\
 					(const jsmntok_t *)NULL,	\
 					(arg)) == true),		\
-		  ((void)((*arg) = (def)), 0)
+		  ((void)((*arg) = (def)), (size_t)0)
 
 /*
  * For when you want an optional raw token.
