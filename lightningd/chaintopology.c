@@ -235,7 +235,7 @@ static void update_feerates(struct bitcoind *bitcoind,
 			    const u32 *satoshi_per_kw,
 			    struct chain_topology *topo)
 {
-	u32 old_feerates[NUM_FEERATES];
+	u32 old_feerates[NUM_FEERATES] = { 0 };
 	bool changed = false;
 	/* Smoothing factor alpha for simple exponential smoothing. The goal is to
 	 * have the feerate account for 90 percent of the values polled in the last
