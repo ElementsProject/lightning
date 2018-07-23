@@ -53,9 +53,6 @@ static u32 to_self_delay[NUM_SIDES];
 /* Where we send money to (our wallet) */
 static struct pubkey our_wallet_pubkey;
 
-/* Private key for spending HTLC outputs via HTLC txs. */
-static struct privkey htlc_privkey;
-
 /* Their revocation secret (only if they cheated). */
 static const struct secret *remote_per_commitment_secret;
 
@@ -351,6 +348,24 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 							       elem, elemsize,
 							       wscript);
 	return tx;
+}
+
+static void hsm_sign_local_htlc_tx(struct bitcoin_tx *tx,
+				   const u8 *wscript,
+				   secp256k1_ecdsa_signature *sig)
+{
+	u8 *msg = towire_hsm_sign_local_htlc_tx(NULL, commit_num,
+					  tx, wscript,
+					  *tx->input[0].amount);
+
+	if (!wire_sync_write(HSM_FD, take(msg)))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Writing sign_local_htlc_tx to hsm");
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!msg || !fromwire_hsm_sign_tx_reply(msg, sig))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading sign_local_htlc_tx: %s",
+			      tal_hex(tmpctx, msg));
 }
 
 static struct tracked_output *
@@ -1147,10 +1162,7 @@ static void handle_preimage(struct tracked_output **outs,
 					     keyset);
 			set_htlc_success_fee(tx, outs[i]->remote_htlc_sig,
 					     outs[i]->wscript);
-			sign_tx_input(tx, 0, NULL, outs[i]->wscript,
-				      &htlc_privkey,
-				      &keyset->self_htlc_key,
-				      &sig);
+			hsm_sign_local_htlc_tx(tx, outs[i]->wscript, &sig);
 			tx->input[0].witness
 				= bitcoin_witness_htlc_success_tx(tx->input,
 								  &sig,
@@ -1298,8 +1310,7 @@ static void resolve_our_htlc_ourcommit(struct tracked_output *out)
 
 	set_htlc_timeout_fee(tx, out->remote_htlc_sig, out->wscript);
 
-	sign_tx_input(tx, 0, NULL, out->wscript, &htlc_privkey,
-		      &keyset->self_htlc_key, &localsig);
+	hsm_sign_local_htlc_tx(tx, out->wscript, &localsig);
 
 	tx->input[0].witness
 		= bitcoin_witness_htlc_timeout_tx(tx->input,
@@ -1404,7 +1415,6 @@ static void note_missing_htlcs(u8 **htlc_scripts,
 static void handle_our_unilateral(const struct bitcoin_tx *tx,
 				  u32 tx_blockheight,
 				  const struct bitcoin_txid *txid,
-				  const struct secrets *secrets,
 				  const struct sha256 *shaseed,
 				  const struct basepoints basepoints[NUM_SIDES],
 				  const struct htlc_stub *htlcs,
@@ -1464,14 +1474,6 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 				    &keyset->self_htlc_key),
 		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->other_htlc_key));
-
-	if (!derive_simple_privkey(&secrets->htlc_basepoint_secret,
-				   &basepoints[LOCAL].htlc,
-				   &local_per_commitment_point,
-				   &htlc_privkey))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Deriving htlc_privkey for %"PRIu64,
-			      commit_num);
 
 	local_wscript = to_self_wscript(tmpctx, to_self_delay[LOCAL], keyset);
 
@@ -1684,7 +1686,6 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			       const struct bitcoin_txid *txid,
 			       u32 tx_blockheight,
 			       const struct sha256 *revocation_preimage,
-			       const struct secrets *secrets,
 			       const struct basepoints basepoints[NUM_SIDES],
 			       const struct htlc_stub *htlcs,
 			       const bool *tell_if_missing,
@@ -1893,7 +1894,6 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 static void handle_their_unilateral(const struct bitcoin_tx *tx,
 				    u32 tx_blockheight,
 				    const struct bitcoin_txid *txid,
-				    const struct secrets *secrets,
 				    const struct pubkey *this_remote_per_commitment_point,
 				    const struct basepoints basepoints[NUM_SIDES],
 				    const struct htlc_stub *htlcs,
@@ -1979,14 +1979,6 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 				    &keyset->self_htlc_key),
 		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->other_htlc_key));
-
-	if (!derive_simple_privkey(&secrets->htlc_basepoint_secret,
-				   &basepoints[LOCAL].htlc,
-				   remote_per_commitment_point,
-				   &htlc_privkey))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Deriving htlc_privkey for %"PRIu64,
-			      commit_num);
 
 	remote_wscript = to_self_wscript(tmpctx, to_self_delay[REMOTE], keyset);
 
@@ -2116,7 +2108,6 @@ int main(int argc, char *argv[])
 	struct basepoints basepoints[NUM_SIDES];
 	struct shachain shachain;
 	struct bitcoin_tx *tx;
-	struct secrets secrets;
 	struct sha256 shaseed;
 	struct tracked_output **outs;
 	struct bitcoin_txid our_broadcast_txid, txid;
@@ -2159,7 +2150,7 @@ int main(int argc, char *argv[])
 		master_badmsg(WIRE_ONCHAIN_INIT, msg);
 	}
 
-	derive_basepoints(&seed, NULL, &basepoints[LOCAL], &secrets, &shaseed);
+	derive_basepoints(&seed, NULL, &basepoints[LOCAL], NULL, &shaseed);
 	bitcoin_txid(tx, &txid);
 
 	/* FIXME: Filter as we go, don't load them all into mem! */
@@ -2224,7 +2215,6 @@ int main(int argc, char *argv[])
 
 		if (is_local_commitment(&txid, &our_broadcast_txid))
 			handle_our_unilateral(tx, tx_blockheight, &txid,
-					      &secrets,
 					      &shaseed,
 					      basepoints,
 					      htlcs,
@@ -2244,7 +2234,6 @@ int main(int argc, char *argv[])
 			handle_their_cheat(tx, &txid,
 					   tx_blockheight,
 					   &revocation_preimage,
-					   &secrets,
 					   basepoints,
 					   htlcs,
 					   tell_if_missing, tell_immediately,
@@ -2261,7 +2250,7 @@ int main(int argc, char *argv[])
 		} else if (commit_num == revocations_received(&shachain)) {
 			status_trace("Their unilateral tx, old commit point");
 			handle_their_unilateral(tx, tx_blockheight,
-						&txid, &secrets,
+						&txid,
 						&old_remote_per_commit_point,
 						basepoints,
 						htlcs,
@@ -2271,7 +2260,7 @@ int main(int argc, char *argv[])
 		} else if (commit_num == revocations_received(&shachain) + 1) {
 			status_trace("Their unilateral tx, new commit point");
 			handle_their_unilateral(tx, tx_blockheight,
-						&txid, &secrets,
+						&txid,
 						&remote_per_commit_point,
 						basepoints,
 						htlcs,

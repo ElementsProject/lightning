@@ -31,12 +31,6 @@ bool derive_keyset(const struct pubkey *per_commitment_point UNNEEDED,
 		   const struct basepoints *other UNNEEDED,
 		   struct keyset *keyset UNNEEDED)
 { fprintf(stderr, "derive_keyset called!\n"); abort(); }
-/* Generated stub for derive_simple_privkey */
-bool derive_simple_privkey(const struct secret *base_secret UNNEEDED,
-			   const struct pubkey *basepoint UNNEEDED,
-			   const struct pubkey *per_commitment_point UNNEEDED,
-			   struct privkey *key UNNEEDED)
-{ fprintf(stderr, "derive_simple_privkey called!\n"); abort(); }
 /* Generated stub for fromwire_hsm_sign_tx_reply */
 bool fromwire_hsm_sign_tx_reply(const void *p UNNEEDED, secp256k1_ecdsa_signature *sig UNNEEDED)
 { fprintf(stderr, "fromwire_hsm_sign_tx_reply called!\n"); abort(); }
@@ -118,6 +112,9 @@ u8 *to_self_wscript(const tal_t *ctx UNNEEDED,
 /* Generated stub for towire_hsm_sign_delayed_payment_to_us */
 u8 *towire_hsm_sign_delayed_payment_to_us(const tal_t *ctx UNNEEDED, u64 commit_num UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED, u64 input_amount UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_delayed_payment_to_us called!\n"); abort(); }
+/* Generated stub for towire_hsm_sign_local_htlc_tx */
+u8 *towire_hsm_sign_local_htlc_tx(const tal_t *ctx UNNEEDED, u64 commit_num UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED, u64 input_amount UNNEEDED)
+{ fprintf(stderr, "towire_hsm_sign_local_htlc_tx called!\n"); abort(); }
 /* Generated stub for towire_hsm_sign_penalty_to_us */
 u8 *towire_hsm_sign_penalty_to_us(const tal_t *ctx UNNEEDED, const struct secret *revocation_secret UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED, u64 input_amount UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_penalty_to_us called!\n"); abort(); }
