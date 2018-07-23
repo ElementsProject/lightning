@@ -39,7 +39,7 @@ bool derive_basepoints(const struct secret *seed,
 		       struct sha256 *shaseed);
 
 /**
- * derive_funding_key - give a (per-peer) seed, get just funding key
+ * derive_funding_key - given a (per-peer) seed, get just funding key
  * @seed: (in) seed (derived by master daemon from counter and main seed)
  * @funding_pubkey: (out) pubkey for funding tx output (if non-NULL)
  * @funding_privkey: (out) privkey for funding tx output (if non-NULL)
@@ -51,7 +51,7 @@ bool derive_funding_key(const struct secret *seed,
 			struct privkey *funding_privkey);
 
 /**
- * derive_payment_basepoint - give a (per-channel) seed, get just payment basepoint
+ * derive_payment_basepoint - given a (per-channel) seed, get just payment basepoint
  * @seed: (in) seed (derived by master daemon from counter and main seed)
  * @payment_basepoint: (out) basepoint for payment output (if non-NULL)
  * @payment_secret: (out) secret for payment basepoint (if non-NULL)
@@ -63,7 +63,7 @@ bool derive_payment_basepoint(const struct secret *seed,
 			      struct secret *payment_secret);
 
 /**
- * derive_shaseed - give a (per-peer) seed, get just the shaseed
+ * derive_shaseed - given a (per-peer) seed, get just the shaseed
  * @seed: (in) seed (derived by master daemon from counter and main seed)
  * @shaseed: (out) seed for shachain
  *
@@ -82,6 +82,30 @@ bool derive_shaseed(const struct secret *seed, struct sha256 *shaseed);
 bool derive_delayed_payment_basepoint(const struct secret *seed,
 			      struct pubkey *delayed_payment_basepoint,
 			      struct secret *delayed_payment_secret);
+
+/**
+ * derive_revocation_basepoint - given a (per-channel) seed, get just revocation basepoint
+ * @seed: (in) seed (derived by master daemon from counter and main seed)
+ * @payment_basepoint: (out) basepoint for revocation keys (if non-NULL)
+ * @payment_secret: (out) secret for revocation keys (if non-NULL)
+ *
+ * This is a cut-down version of derive_basepoints.
+ */
+bool derive_revocation_basepoint(const struct secret *seed,
+				 struct pubkey *revocation_basepoint,
+				 struct secret *revocation_secret);
+
+/**
+ * derive_htlc_basepoint - give a (per-channel) seed, get just htlc basepoint
+ * @seed: (in) seed (derived by master daemon from counter and main seed)
+ * @htlc_basepoint: (out) basepoint for htlc output (if non-NULL)
+ * @htlc_secret: (out) secret for htlc basepoint (if non-NULL)
+ *
+ * This is a cut-down version of derive_basepoints.
+ */
+bool derive_htlc_basepoint(const struct secret *seed,
+			   struct pubkey *htlc_basepoint,
+			   struct secret *htlc_secret);
 
 /**
  * per_commit_secret - get a secret for this index.

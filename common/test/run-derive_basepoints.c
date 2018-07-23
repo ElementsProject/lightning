@@ -151,6 +151,24 @@ int main(void)
 	assert(derive_shaseed(&info->seed, &info->shaseed));
 	assert(sha256_eq(&baseline->shaseed, &info->shaseed));
 
+	/* derive_revocation_basepoint should give same results. */
+	info = new_info(ctx);
+	assert(derive_revocation_basepoint(&info->seed, &info->basepoints.revocation,
+					&info->secrets.revocation_basepoint_secret));
+	assert(pubkey_eq(&baseline->basepoints.revocation,
+			 &info->basepoints.revocation));
+	assert(secret_eq(&baseline->secrets.revocation_basepoint_secret,
+			  &info->secrets.revocation_basepoint_secret));
+
+	/* derive_htlc_basepoint should give same results. */
+	info = new_info(ctx);
+	assert(derive_htlc_basepoint(&info->seed, &info->basepoints.htlc,
+					&info->secrets.htlc_basepoint_secret));
+	assert(pubkey_eq(&baseline->basepoints.htlc,
+			 &info->basepoints.htlc));
+	assert(secret_eq(&baseline->secrets.htlc_basepoint_secret,
+			  &info->secrets.htlc_basepoint_secret));
+
 	tal_free(ctx);
 	wally_cleanup(0);
 	return 0;
