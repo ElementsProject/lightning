@@ -56,14 +56,6 @@ static struct secret secret_from_hex(const char *hex)
 	return s;
 }
 
-static bool pubkey_from_secret(const struct secret *secret,
-			       struct pubkey *key)
-{
-	return secp256k1_ec_pubkey_create(secp256k1_ctx,
-					  &key->pubkey,
-					  secret->data);
-}
-
 static void tx_must_be_eq(const struct bitcoin_tx *a,
 			  const struct bitcoin_tx *b)
 {
