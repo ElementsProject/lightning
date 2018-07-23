@@ -18,19 +18,15 @@ u64 commit_number_obscurer(const struct pubkey *opener_payment_basepoint UNNEEDE
 /* Generated stub for daemon_shutdown */
 void daemon_shutdown(void)
 { fprintf(stderr, "daemon_shutdown called!\n"); abort(); }
-/* Generated stub for derive_basepoints */
-bool derive_basepoints(const struct secret *seed UNNEEDED,
-		       struct pubkey *funding_pubkey UNNEEDED,
-		       struct basepoints *basepoints UNNEEDED,
-		       struct secrets *secrets UNNEEDED,
-		       struct sha256 *shaseed UNNEEDED)
-{ fprintf(stderr, "derive_basepoints called!\n"); abort(); }
 /* Generated stub for derive_keyset */
 bool derive_keyset(const struct pubkey *per_commitment_point UNNEEDED,
 		   const struct basepoints *self UNNEEDED,
 		   const struct basepoints *other UNNEEDED,
 		   struct keyset *keyset UNNEEDED)
 { fprintf(stderr, "derive_keyset called!\n"); abort(); }
+/* Generated stub for fromwire_hsm_get_per_commitment_point_reply */
+bool fromwire_hsm_get_per_commitment_point_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey *per_commitment_point UNNEEDED, struct secret **old_commitment_secret UNNEEDED)
+{ fprintf(stderr, "fromwire_hsm_get_per_commitment_point_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsm_sign_tx_reply */
 bool fromwire_hsm_sign_tx_reply(const void *p UNNEEDED, secp256k1_ecdsa_signature *sig UNNEEDED)
 { fprintf(stderr, "fromwire_hsm_sign_tx_reply called!\n"); abort(); }
@@ -41,7 +37,7 @@ bool fromwire_onchain_depth(const void *p UNNEEDED, struct bitcoin_txid *txid UN
 bool fromwire_onchain_htlc(const void *p UNNEEDED, struct htlc_stub *htlc UNNEEDED, bool *tell_if_missing UNNEEDED, bool *tell_immediately UNNEEDED)
 { fprintf(stderr, "fromwire_onchain_htlc called!\n"); abort(); }
 /* Generated stub for fromwire_onchain_init */
-bool fromwire_onchain_init(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct secret *seed UNNEEDED, struct shachain *shachain UNNEEDED, u64 *funding_amount_satoshi UNNEEDED, struct pubkey *old_remote_per_commitment_point UNNEEDED, struct pubkey *remote_per_commitment_point UNNEEDED, u32 *local_to_self_delay UNNEEDED, u32 *remote_to_self_delay UNNEEDED, u32 *feerate_per_kw UNNEEDED, u64 *local_dust_limit_satoshi UNNEEDED, struct bitcoin_txid *our_broadcast_txid UNNEEDED, u8 **local_scriptpubkey UNNEEDED, u8 **remote_scriptpubkey UNNEEDED, struct pubkey *ourwallet_pubkey UNNEEDED, enum side *funder UNNEEDED, struct basepoints *remote_basepoints UNNEEDED, struct bitcoin_tx **tx UNNEEDED, u32 *tx_blockheight UNNEEDED, u32 *reasonable_depth UNNEEDED, secp256k1_ecdsa_signature **htlc_signature UNNEEDED, u64 *num_htlcs UNNEEDED, u32 *min_possible_feerate UNNEEDED, u32 *max_possible_feerate UNNEEDED)
+bool fromwire_onchain_init(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct shachain *shachain UNNEEDED, u64 *funding_amount_satoshi UNNEEDED, struct pubkey *old_remote_per_commitment_point UNNEEDED, struct pubkey *remote_per_commitment_point UNNEEDED, u32 *local_to_self_delay UNNEEDED, u32 *remote_to_self_delay UNNEEDED, u32 *feerate_per_kw UNNEEDED, u64 *local_dust_limit_satoshi UNNEEDED, struct bitcoin_txid *our_broadcast_txid UNNEEDED, u8 **local_scriptpubkey UNNEEDED, u8 **remote_scriptpubkey UNNEEDED, struct pubkey *ourwallet_pubkey UNNEEDED, enum side *funder UNNEEDED, struct basepoints *local_basepoints UNNEEDED, struct basepoints *remote_basepoints UNNEEDED, struct bitcoin_tx **tx UNNEEDED, u32 *tx_blockheight UNNEEDED, u32 *reasonable_depth UNNEEDED, secp256k1_ecdsa_signature **htlc_signature UNNEEDED, u64 *num_htlcs UNNEEDED, u32 *min_possible_feerate UNNEEDED, u32 *max_possible_feerate UNNEEDED)
 { fprintf(stderr, "fromwire_onchain_init called!\n"); abort(); }
 /* Generated stub for fromwire_onchain_known_preimage */
 bool fromwire_onchain_known_preimage(const void *p UNNEEDED, struct preimage *preimage UNNEEDED)
@@ -85,11 +81,6 @@ void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
 /* Generated stub for peer_billboard */
 void peer_billboard(bool perm UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "peer_billboard called!\n"); abort(); }
-/* Generated stub for per_commit_point */
-bool per_commit_point(const struct sha256 *shaseed UNNEEDED,
-		      struct pubkey *commit_point UNNEEDED,
-		      u64 per_commit_index UNNEEDED)
-{ fprintf(stderr, "per_commit_point called!\n"); abort(); }
 /* Generated stub for status_failed */
 void status_failed(enum status_failreason code UNNEEDED,
 		   const char *fmt UNNEEDED, ...)
@@ -109,6 +100,9 @@ u8 *to_self_wscript(const tal_t *ctx UNNEEDED,
 		    u16 to_self_delay UNNEEDED,
 		    const struct keyset *keyset UNNEEDED)
 { fprintf(stderr, "to_self_wscript called!\n"); abort(); }
+/* Generated stub for towire_hsm_get_per_commitment_point */
+u8 *towire_hsm_get_per_commitment_point(const tal_t *ctx UNNEEDED, u64 n UNNEEDED)
+{ fprintf(stderr, "towire_hsm_get_per_commitment_point called!\n"); abort(); }
 /* Generated stub for towire_hsm_sign_delayed_payment_to_us */
 u8 *towire_hsm_sign_delayed_payment_to_us(const tal_t *ctx UNNEEDED, u64 commit_num UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED, u64 input_amount UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_delayed_payment_to_us called!\n"); abort(); }

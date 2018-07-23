@@ -400,7 +400,8 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,
-				  HSM_CAP_SIGN_ONCHAIN_TX);
+				  HSM_CAP_SIGN_ONCHAIN_TX
+				  | HSM_CAP_COMMITMENT_POINT);
 
 	channel_set_owner(channel, new_channel_subd(ld,
 						    "lightning_onchaind",
@@ -435,7 +436,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	bitcoin_txid(channel->last_tx, &our_last_txid);
 
 	msg = towire_onchain_init(channel,
-				  &channel->seed, &channel->their_shachain.chain,
+				  &channel->their_shachain.chain,
 				  channel->funding_satoshi,
 				  &channel->channel_info.old_remote_per_commit,
 				  &channel->channel_info.remote_per_commit,
@@ -455,6 +456,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  channel->remote_shutdown_scriptpubkey,
 				  &final_key,
 				  channel->funder,
+				  &channel->local_basepoints,
 				  &channel->channel_info.theirbase,
 				  tx,
 				  blockheight,
