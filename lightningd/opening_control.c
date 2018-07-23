@@ -696,6 +696,7 @@ u8 *peer_accept_channel(const tal_t *ctx,
 	u64 min_effective_htlc_capacity_msat;
 	u8 *msg;
 	struct uncommitted_channel *uc;
+	int hsmfd;
 
 	assert(fromwire_peektype(open_msg) == WIRE_OPEN_CHANNEL);
 
@@ -705,12 +706,16 @@ u8 *peer_accept_channel(const tal_t *ctx,
 		return towire_errorfmt(ctx, channel_id,
 				       "Multiple channels unsupported");
 
+	hsmfd = hsm_get_client_fd(ld, &uc->peer->id, uc->dbid,
+				  HSM_CAP_COMMITMENT_POINT
+				  | HSM_CAP_SIGN_REMOTE_TX);
+
 	uc->openingd = new_channel_subd(ld, "lightning_openingd", uc, uc->log,
 					true, opening_wire_type_name, NULL,
 					opening_channel_errmsg,
 					opening_channel_set_billboard,
 					take(&peer_fd), take(&gossip_fd),
-					NULL);
+					take(&hsmfd), NULL);
 	if (!uc->openingd) {
 		u8 *errpkt;
 		char *errmsg;
@@ -744,7 +749,8 @@ u8 *peer_accept_channel(const tal_t *ctx,
 				  &uc->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
-				  cs, &uc->seed);
+				  cs, &uc->local_basepoints,
+				  &uc->local_funding_pubkey);
 
 	subd_send_msg(uc->openingd, take(msg));
 
@@ -767,6 +773,7 @@ static void peer_offer_channel(struct lightningd *ld,
 	u8 *msg;
 	u32 max_to_self_delay;
 	u64 min_effective_htlc_capacity_msat;
+	int hsmfd;
 
 	/* Remove from list, it's not pending any more. */
 	list_del_from(&ld->fundchannels, &fc->list);
@@ -786,6 +793,10 @@ static void peer_offer_channel(struct lightningd *ld,
 	/* Channel now owns fc; if it dies, we free fc. */
 	tal_steal(fc->uc, fc);
 
+	hsmfd = hsm_get_client_fd(ld, &fc->uc->peer->id, fc->uc->dbid,
+				  HSM_CAP_COMMITMENT_POINT
+				  | HSM_CAP_SIGN_REMOTE_TX);
+
 	fc->uc->openingd = new_channel_subd(ld,
 					    "lightning_openingd",
 					    fc->uc, fc->uc->log,
@@ -793,6 +804,7 @@ static void peer_offer_channel(struct lightningd *ld,
 					    opening_channel_errmsg,
 					    opening_channel_set_billboard,
 					    take(&peer_fd), take(&gossip_fd),
+					    take(&hsmfd),
 					    NULL);
 	if (!fc->uc->openingd) {
 		/* We don't send them an error packet: for them, nothing
@@ -815,7 +827,8 @@ static void peer_offer_channel(struct lightningd *ld,
 				  &fc->uc->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
-				  cs, &fc->uc->seed);
+				  cs, &fc->uc->local_basepoints,
+				  &fc->uc->local_funding_pubkey);
 	subd_send_msg(fc->uc->openingd, take(msg));
 
 	msg = towire_opening_funder(fc, fc->wtx.amount,

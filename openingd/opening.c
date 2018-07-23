@@ -22,6 +22,7 @@
 #include <common/version.h>
 #include <common/wire_error.h>
 #include <errno.h>
+#include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <openingd/gen_opening_wire.h>
 #include <secp256k1.h>
@@ -36,6 +37,7 @@
 #define REQ_FD STDIN_FILENO
 #define PEER_FD 3
 #define GOSSIP_FD 4
+#define HSM_FD 5
 
 struct state {
 	struct crypto_state cs;
@@ -50,11 +52,6 @@ struct state {
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
 
-	/* Secret keys and basepoint secrets. */
-	struct secrets our_secrets;
-
-	/* Our shaseed for generating per-commitment-secrets. */
-	struct sha256 shaseed;
 	struct channel_config localconf, *remoteconf;
 
 	/* Limits on what remote config we accept */
@@ -441,9 +438,17 @@ static u8 *funder_channel(struct state *state,
 		negotiation_failed(state,
 				   "Could not meet their fees and reserve");
 
-	sign_tx_input(tx, 0, NULL, wscript,
-		      &state->our_secrets.funding_privkey,
-		      our_funding_pubkey, &sig);
+	msg = towire_hsm_sign_remote_commitment_tx(NULL,
+						   tx,
+						   &state->channel->funding_pubkey[REMOTE],
+						   state->channel->funding_msat / 1000);
+
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsm_sign_tx_reply(msg, &sig))
+		status_failed(STATUS_FAIL_HSM_IO, "Bad sign_tx_reply %s",
+			      tal_hex(tmpctx, msg));
+
 	status_trace("signature %s on tx %s using key %s",
 		     type_to_string(tmpctx, secp256k1_ecdsa_signature, &sig),
 		     type_to_string(tmpctx, struct bitcoin_tx, tx),
@@ -779,9 +784,16 @@ static u8 *fundee_channel(struct state *state,
 		negotiation_failed(state,
 				   "Could not meet their fees and reserve");
 
-	sign_tx_input(remote_commit, 0, NULL, wscript,
-		      &state->our_secrets.funding_privkey,
-		      our_funding_pubkey, &sig);
+	msg = towire_hsm_sign_remote_commitment_tx(NULL,
+						   remote_commit,
+						   &state->channel->funding_pubkey[REMOTE],
+						   state->channel->funding_msat / 1000);
+
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsm_sign_tx_reply(msg, &sig))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Bad sign_tx_reply %s", tal_hex(tmpctx, msg));
 
 	/* We don't send this ourselves: channeld does, because master needs
 	 * to save state to disk before doing so. */
@@ -814,7 +826,6 @@ int main(int argc, char *argv[])
 
 	u8 *msg, *peer_msg;
 	struct state *state = tal(NULL, struct state);
-	struct secret seed;
 	struct basepoints our_points;
 	struct pubkey our_funding_pubkey;
 	u32 minimum_depth;
@@ -825,6 +836,7 @@ int main(int argc, char *argv[])
 	struct utxo **utxos;
 	struct ext_key bip32_base;
 	u32 network_index;
+	struct secret *none;
 
 	subdaemon_setup(argc, argv);
 
@@ -837,28 +849,24 @@ int main(int argc, char *argv[])
 				   &state->max_to_self_delay,
 				   &state->min_effective_htlc_capacity_msat,
 				   &state->cs,
-				   &seed))
+				   &our_points,
+				   &our_funding_pubkey))
 		master_badmsg(WIRE_OPENING_INIT, msg);
 
 	tal_free(msg);
 
 	state->chainparams = chainparams_by_index(network_index);
 
-	/* We derive everything from the one secret seed. */
-	if (!derive_basepoints(&seed, &our_funding_pubkey,
-			       &our_points, &state->our_secrets,
-			       &state->shaseed))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Secret derivation failed, secret = %s",
-			      type_to_string(tmpctx, struct secret, &seed));
-
-	if (!per_commit_point(&state->shaseed, &state->next_per_commit[LOCAL],
-			      0))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "First per_commitment_point derivation failed,"
-			      " secret = %s",
-			      type_to_string(tmpctx, struct secret, &seed));
-
+	wire_sync_write(HSM_FD,
+			take(towire_hsm_get_per_commitment_point(NULL, 0)));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsm_get_per_commitment_point_reply(tmpctx, msg,
+							 &state->next_per_commit[LOCAL],
+							 &none))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Bad get_per_commitment_point_reply %s",
+			      tal_hex(tmpctx, msg));
+	assert(none == NULL);
 	status_trace("First per_commit_point = %s",
 		     type_to_string(tmpctx, struct pubkey,
 				    &state->next_per_commit[LOCAL]));
