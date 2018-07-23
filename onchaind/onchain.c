@@ -1676,7 +1676,6 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 	struct keyset *ks;
 	size_t i;
 	struct secret per_commitment_secret;
-	struct privkey per_commitment_privkey;
 	struct pubkey per_commitment_point;
 
 	init_reply("Tracking their illegal close: taking all funds");
@@ -1693,15 +1692,11 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		     == sizeof(*revocation_preimage));
 	memcpy(&per_commitment_secret, revocation_preimage,
 	       sizeof(per_commitment_secret));
-	BUILD_ASSERT(sizeof(per_commitment_privkey)
-		     == sizeof(*revocation_preimage));
-	memcpy(&per_commitment_privkey, revocation_preimage,
-	       sizeof(per_commitment_privkey));
-	if (!pubkey_from_privkey(&per_commitment_privkey, &per_commitment_point))
+	if (!pubkey_from_secret(&per_commitment_secret, &per_commitment_point))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed derive from per_commitment_secret %s",
-			      type_to_string(tmpctx, struct privkey,
-					     &per_commitment_privkey));
+			      type_to_string(tmpctx, struct secret,
+					     &per_commitment_secret));
 
 	status_trace("Deriving keyset %"PRIu64
 		     ": per_commit_point=%s"
