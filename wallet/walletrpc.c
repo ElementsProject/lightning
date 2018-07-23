@@ -268,7 +268,7 @@ static void json_newaddr(struct command *cmd, const char *buffer UNUSED,
 static const struct json_command newaddr_command = {
 	"newaddr",
 	json_newaddr,
-	"Get a new {bech32, p2sh-segwit} address to fund a channel", false,
+	"Get a new {bech32, p2sh-segwit} address to fund a channel (default is bech32)", false,
 	"Generates a new address that belongs to the internal wallet. Funds sent to these addresses will be managed by lightningd. Use `withdraw` to withdraw funds to an external wallet."
 };
 AUTODATA(json_command, &newaddr_command);
