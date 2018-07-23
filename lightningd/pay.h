@@ -65,8 +65,10 @@ bool send_payment(const tal_t *ctx,
 		  const struct sha256 *rhash,
 		  const struct route_hop *route,
 		  u64 msatoshi,
+		  const char *description TAKES,
 		  void (*cb)(const struct sendpay_result *, void*),
 		  void *cbarg);
+
 /* Wait for a previous send_payment to complete in definite
  * success or failure. If the given context is freed before
  * the callback is called, then the callback will no longer

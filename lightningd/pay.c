@@ -632,6 +632,7 @@ send_payment(const tal_t *ctx,
 	     const struct sha256 *rhash,
 	     const struct route_hop *route,
 	     u64 msatoshi,
+	     const char *description TAKES,
 	     void (*cb)(const struct sendpay_result *, void*),
 	     void *cbarg)
 {
@@ -792,7 +793,10 @@ send_payment(const tal_t *ctx,
 	payment->path_secrets = tal_steal(payment, path_secrets);
 	payment->route_nodes = tal_steal(payment, ids);
 	payment->route_channels = tal_steal(payment, channels);
-	payment->description = NULL;
+	if (description != NULL)
+		payment->description = tal_strdup(payment, description);
+	else
+		payment->description = NULL;
 
 	/* We write this into db when HTLC is actually sent. */
 	wallet_payment_setup(ld->wallet, payment);
@@ -1021,8 +1025,10 @@ static void json_sendpay(struct command *cmd,
 		}
 	}
 
+	/* FIXME(cdecker): Add a description parameter to sendpay */
 	if (send_payment(cmd, cmd->ld, &rhash, route,
 			 msatoshi ? *msatoshi : route[n_hops-1].amount,
+			 NULL,
 			 &json_sendpay_on_resolve, cmd))
 		command_still_pending(cmd);
 }
