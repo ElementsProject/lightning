@@ -149,6 +149,12 @@ hsm_sign_remote_htlc_tx,,wscript,len*u8
 hsm_sign_remote_htlc_tx,,amounts_satoshi,u64
 hsm_sign_remote_htlc_tx,,remote_per_commit_point,struct pubkey
 
+# closingd asks HSM to sign mutual close tx.
+hsm_sign_mutual_close_tx,21
+hsm_sign_mutual_close_tx,,tx,struct bitcoin_tx
+hsm_sign_mutual_close_tx,,remote_funding_key,struct pubkey
+hsm_sign_mutual_close_tx,,funding_amount,u64
+
 # Reply for all the above requests.
 hsm_sign_tx_reply,112
 hsm_sign_tx_reply,,sig,secp256k1_ecdsa_signature
