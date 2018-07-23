@@ -49,6 +49,12 @@ struct uncommitted_channel {
 	/* Secret seed (FIXME: Move to hsm!) */
 	struct secret seed;
 
+	/* Our basepoints for the channel. */
+	struct basepoints local_basepoints;
+
+	/* Public key for funding tx. */
+	struct pubkey local_funding_pubkey;
+
 	/* Blockheight at creation, scans for funding confirmations
 	 * will start here */
 	u32 first_blocknum;
@@ -238,7 +244,9 @@ wallet_commit_channel(struct lightningd *ld,
 			      uc->first_blocknum,
 			      feerate, feerate,
 			      /* We are connected */
-			      true);
+			      true,
+			      &uc->local_basepoints,
+			      &uc->local_funding_pubkey);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
@@ -273,7 +281,6 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	struct bitcoin_tx *fundingtx;
 	struct bitcoin_txid funding_txid, expected_txid;
 	struct pubkey changekey;
-	struct pubkey local_fundingkey;
 	struct crypto_state cs;
 	secp256k1_ecdsa_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
@@ -321,11 +328,9 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 			     &changekey, fc->wtx.change_key_index))
 		fatal("Error deriving change key %u", fc->wtx.change_key_index);
 
-	derive_basepoints(&fc->uc->seed, &local_fundingkey, NULL, NULL, NULL);
-
 	fundingtx = funding_tx(tmpctx, &funding_outnum,
 			       fc->wtx.utxos, fc->wtx.amount,
-			       &local_fundingkey,
+			       &fc->uc->local_funding_pubkey,
 			       &channel_info.remote_fundingkey,
 			       fc->wtx.change, &changekey,
 			       ld->wallet->bip32_base);
@@ -353,7 +358,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 			   fc->wtx.amount,
 			   fc->wtx.change, fc->wtx.change_key_index,
 			   type_to_string(fc, struct pubkey,
-					  &local_fundingkey),
+					  &fc->uc->local_funding_pubkey),
 			   type_to_string(fc, struct pubkey,
 					  &channel_info.remote_fundingkey));
 		command_fail(fc->cmd, JSONRPC2_INVALID_PARAMS,
@@ -364,7 +369,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 			     fc->wtx.amount,
 			     fc->wtx.change, fc->wtx.change_key_index,
 			     type_to_string(fc, struct pubkey,
-					    &local_fundingkey),
+					    &fc->uc->local_funding_pubkey),
 			     type_to_string(fc, struct pubkey,
 					    &channel_info.remote_fundingkey));
 		goto failed;
@@ -392,7 +397,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 
 	msg = towire_hsm_sign_funding(tmpctx, channel->funding_satoshi,
 				      fc->wtx.change, fc->wtx.change_key_index,
-				      &local_fundingkey,
+				      &fc->uc->local_funding_pubkey,
 				      &channel_info.remote_fundingkey,
 				      fc->wtx.utxos);
 
@@ -617,7 +622,12 @@ new_uncommitted_channel(struct lightningd *ld,
 	uc->first_blocknum = get_block_height(ld->topology);
 	uc->our_config.id = 0;
 
+	/* FIXME: Keep these in HSM! */
 	derive_channel_seed(ld, &uc->seed, &uc->peer->id, uc->dbid);
+	derive_basepoints(&uc->seed,
+			  &uc->local_funding_pubkey, &uc->local_basepoints,
+			  NULL, NULL);
+
 	uc->peer->uncommitted_channel = uc;
 	tal_add_destructor(uc, destroy_uncommitted_channel);
 

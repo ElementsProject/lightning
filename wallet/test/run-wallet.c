@@ -59,13 +59,6 @@ void command_still_pending(struct command *cmd UNNEEDED)
 /* Generated stub for command_success */
 void command_success(struct command *cmd UNNEEDED, struct json_result *response UNNEEDED)
 { fprintf(stderr, "command_success called!\n"); abort(); }
-/* Generated stub for derive_basepoints */
-bool derive_basepoints(const struct secret *seed UNNEEDED,
-		       struct pubkey *funding_pubkey UNNEEDED,
-		       struct basepoints *basepoints UNNEEDED,
-		       struct secrets *secrets UNNEEDED,
-		       struct sha256 *shaseed UNNEEDED)
-{ fprintf(stderr, "derive_basepoints called!\n"); abort(); }
 /* Generated stub for extract_channel_id */
 bool extract_channel_id(const u8 *in_pkt UNNEEDED, struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "extract_channel_id called!\n"); abort(); }
@@ -988,6 +981,7 @@ int main(void)
 	struct lightningd *ld;
 
 	setup_tmpctx();
+	secp256k1_ctx = wally_get_secp_context();
 	ld = tal(tmpctx, struct lightningd);
 
 	/* Only elements in ld we should access */
