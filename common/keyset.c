@@ -1,13 +1,10 @@
+#include <common/derive_basepoints.h>
 #include <common/key_derive.h>
 #include <common/keyset.h>
 
 bool derive_keyset(const struct pubkey *per_commitment_point,
-		   const struct pubkey *self_payment_basepoint,
-		   const struct pubkey *other_payment_basepoint,
-		   const struct pubkey *self_htlc_basepoint,
-		   const struct pubkey *other_htlc_basepoint,
-		   const struct pubkey *self_delayed_basepoint,
-		   const struct pubkey *other_revocation_basepoint,
+		   const struct basepoints *self,
+		   const struct basepoints *other,
 		   struct keyset *keyset)
 {
 	/* BOLT #3:
@@ -27,27 +24,27 @@ bool derive_keyset(const struct pubkey *per_commitment_point,
 	 * node's `htlc_basepoint`; and the `remote_delayedpubkey` uses the
 	 * remote node's `delayed_payment_basepoint`.
 	 */
-	if (!derive_simple_key(self_payment_basepoint,
+	if (!derive_simple_key(&self->payment,
 			       per_commitment_point,
 			       &keyset->self_payment_key))
 		return false;
 
-	if (!derive_simple_key(other_payment_basepoint,
+	if (!derive_simple_key(&other->payment,
 			       per_commitment_point,
 			       &keyset->other_payment_key))
 		return false;
 
-	if (!derive_simple_key(self_htlc_basepoint,
+	if (!derive_simple_key(&self->htlc,
 			       per_commitment_point,
 			       &keyset->self_htlc_key))
 		return false;
 
-	if (!derive_simple_key(other_htlc_basepoint,
+	if (!derive_simple_key(&other->htlc,
 			       per_commitment_point,
 			       &keyset->other_htlc_key))
 		return false;
 
-	if (!derive_simple_key(self_delayed_basepoint,
+	if (!derive_simple_key(&self->delayed_payment,
 			       per_commitment_point,
 			       &keyset->self_delayed_payment_key))
 		return false;
@@ -61,7 +58,7 @@ bool derive_keyset(const struct pubkey *per_commitment_point,
 	 * `revocation_basepoint` and the remote node's `per_commitment_point`
 	 * to derive a new `revocationpubkey` for the commitment.
 	 */
-	if (!derive_revocation_key(other_revocation_basepoint,
+	if (!derive_revocation_key(&other->revocation,
 				   per_commitment_point,
 				   &keyset->self_revocation_key))
 		return false;

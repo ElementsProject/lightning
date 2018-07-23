@@ -27,12 +27,8 @@ bool derive_basepoints(const struct secret *seed UNNEEDED,
 { fprintf(stderr, "derive_basepoints called!\n"); abort(); }
 /* Generated stub for derive_keyset */
 bool derive_keyset(const struct pubkey *per_commitment_point UNNEEDED,
-		   const struct pubkey *self_payment_basepoint UNNEEDED,
-		   const struct pubkey *other_payment_basepoint UNNEEDED,
-		   const struct pubkey *self_htlc_basepoint UNNEEDED,
-		   const struct pubkey *other_htlc_basepoint UNNEEDED,
-		   const struct pubkey *self_delayed_basepoint UNNEEDED,
-		   const struct pubkey *other_revocation_basepoint UNNEEDED,
+		   const struct basepoints *self UNNEEDED,
+		   const struct basepoints *other UNNEEDED,
 		   struct keyset *keyset UNNEEDED)
 { fprintf(stderr, "derive_keyset called!\n"); abort(); }
 /* Generated stub for derive_revocation_privkey */
