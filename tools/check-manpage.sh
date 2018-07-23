@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/usr/bin/env bash
 # Needs bash for process substitition, ie <(
 
 if [ $# != 2 ]; then

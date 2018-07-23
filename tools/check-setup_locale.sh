@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 EXIT_CODE=0
 for FILE in $(git grep -lE 'int main\(' | grep -vE '^ccan/'); do

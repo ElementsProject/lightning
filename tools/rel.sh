@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 from=${1}
 to=${2}

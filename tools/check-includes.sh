@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 EXIT_CODE=0
 
