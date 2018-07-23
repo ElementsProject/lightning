@@ -49,6 +49,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/daemon.o				\
 	common/daemon_conn.o			\
 	common/decode_short_channel_ids.o	\
+	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
 	common/features.o			\
 	common/gen_status_wire.o		\
