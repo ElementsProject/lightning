@@ -15,6 +15,7 @@
 #include <common/utils.h>
 #include <common/version.h>
 #include <errno.h>
+#include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/channel_state.h>
 #include <onchaind/gen_onchain_wire.h>
@@ -26,9 +27,13 @@
 
 /* stdin == requests */
 #define REQ_FD STDIN_FILENO
+#define HSM_FD 3
 
 /* Required in various places: keys for commitment transaction. */
 static const struct keyset *keyset;
+
+/* IFF it's their commitment tx: HSM can't derive their per-commitment point! */
+static const struct pubkey *remote_per_commitment_point;
 
 /* The commitment number we're dealing with (if not mutual close) */
 static u64 commit_num;
@@ -48,11 +53,11 @@ static u32 to_self_delay[NUM_SIDES];
 /* Where we send money to (our wallet) */
 static struct pubkey our_wallet_pubkey;
 
-/* Private keys for spending HTLC outputs via HTLC txs, delayed, and directly. */
-static struct privkey htlc_privkey, delayed_payment_privkey, payment_privkey;
+/* Private key for spending HTLC outputs via HTLC txs. */
+static struct privkey htlc_privkey;
 
-/* Private keys for spending HTLC for penalty (only if they cheated). */
-static struct privkey *revocation_privkey;
+/* Their revocation secret (only if they cheated). */
+static const struct secret *remote_per_commitment_secret;
 
 /* one value is useful for a few witness scripts */
 static const u8 ONE = 0x1;
@@ -237,6 +242,33 @@ static const char *output_type_name(enum output_type output_type)
 	return "unknown";
 }
 
+static u8 *delayed_payment_to_us(const tal_t *ctx,
+				 struct bitcoin_tx *tx,
+				 const u8 *wscript)
+{
+	return towire_hsm_sign_delayed_payment_to_us(ctx, commit_num,
+						     tx, wscript,
+						     *tx->input[0].amount);
+}
+
+static u8 *remote_htlc_to_us(const tal_t *ctx,
+			     struct bitcoin_tx *tx,
+			     const u8 *wscript)
+{
+	return towire_hsm_sign_remote_htlc_to_us(ctx,
+						 remote_per_commitment_point,
+						 tx, wscript,
+						 *tx->input[0].amount);
+}
+
+static u8 *penalty_to_us(const tal_t *ctx,
+			 struct bitcoin_tx *tx,
+			 const u8 *wscript)
+{
+	return towire_hsm_sign_penalty_to_us(ctx, remote_per_commitment_secret,
+					     tx, wscript, *tx->input[0].amount);
+}
+
 /*
  * This covers:
  * 1. to-us output spend (`<local_delayedsig> 0`)
@@ -248,18 +280,20 @@ static const char *output_type_name(enum output_type output_type)
  * Overrides *tx_type if it all turns to dust.
  */
 static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
+				   u8 *(*hsm_sign_msg)(const tal_t *ctx,
+						       struct bitcoin_tx *tx,
+						       const u8 *wscript),
 				   struct tracked_output *out,
 				   u32 to_self_delay,
 				   u32 locktime,
 				   const void *elem, size_t elemsize,
 				   const u8 *wscript,
-				   const struct privkey *privkey,
-				   const struct pubkey *pubkey,
 				   enum tx_type *tx_type)
 {
 	struct bitcoin_tx *tx;
 	u64 fee;
 	secp256k1_ecdsa_signature sig;
+	u8 *msg;
 
 	tx = bitcoin_tx(ctx, 1, 1);
 	tx->lock_time = locktime;
@@ -303,7 +337,15 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 	}
 	tx->output[0].amount -= fee;
 
-	sign_tx_input(tx, 0, NULL, wscript, privkey, pubkey, &sig);
+	if (!wire_sync_write(HSM_FD, take(hsm_sign_msg(NULL, tx, wscript))))
+		status_failed(STATUS_FAIL_HSM_IO, "Writing sign request to hsm");
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!msg || !fromwire_hsm_sign_tx_reply(msg, &sig)) {
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading sign_tx_reply: %s",
+			      tal_hex(tmpctx, msg));
+	}
+
 	tx->input[0].witness = bitcoin_witness_sig_and_element(tx->input,
 							       &sig,
 							       elem, elemsize,
@@ -815,10 +857,9 @@ static void resolve_htlc_tx(struct tracked_output ***outs,
 	 * nSequence `to_self_delay` and a witness stack `<local_delayedsig>
 	 * 0`
 	 */
-	tx = tx_to_us(*outs, out, to_self_delay[LOCAL], 0, NULL, 0,
+	tx = tx_to_us(*outs, delayed_payment_to_us,
+		      out, to_self_delay[LOCAL], 0, NULL, 0,
 		      wscript,
-		      &delayed_payment_privkey,
-		      &keyset->self_delayed_payment_key,
 		      &tx_type);
 
 	propose_resolution(out, tx, to_self_delay[LOCAL], tx_type);
@@ -841,11 +882,9 @@ static void steal_htlc_tx(struct tracked_output *out)
 	 * To spend this via penalty, the remote node uses a witness stack
 	 * `<revocationsig> 1`
 	 */
-	tx = tx_to_us(out, out, 0xFFFFFFFF, 0,
+	tx = tx_to_us(out, penalty_to_us, out, 0xFFFFFFFF, 0,
 		      &ONE, sizeof(ONE),
 		      out->wscript,
-		      revocation_privkey,
-		      &keyset->self_revocation_key,
 		      &tx_type);
 	propose_resolution(out, tx, 0, tx_type);
 }
@@ -1135,11 +1174,10 @@ static void handle_preimage(struct tracked_output **outs,
 			 *    - MUST *resolve* the output by spending it to a
 			 *      convenient address.
 			 */
-			tx = tx_to_us(outs[i], outs[i], 0, 0,
+			tx = tx_to_us(outs[i], remote_htlc_to_us,
+				      outs[i], 0, 0,
 				      preimage, sizeof(*preimage),
 				      outs[i]->wscript,
-				      &htlc_privkey,
-				      &keyset->other_htlc_key,
 				      &tx_type);
 			propose_resolution(outs[i], tx, 0, tx_type);
 		}
@@ -1288,10 +1326,9 @@ static void resolve_our_htlc_theircommit(struct tracked_output *out)
 	 *     - MUST *resolve* the output, by spending it to a convenient
 	 *       address.
 	 */
-	tx = tx_to_us(out, out, 0, out->htlc->cltv_expiry, NULL, 0,
+	tx = tx_to_us(out, remote_htlc_to_us,
+		      out, 0, out->htlc->cltv_expiry, NULL, 0,
 		      out->wscript,
-		      &htlc_privkey,
-		      &keyset->other_htlc_key,
 		      &tx_type);
 
 	propose_resolution_at_block(out, tx, out->htlc->cltv_expiry, tx_type);
@@ -1428,22 +1465,6 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->other_htlc_key));
 
-	if (!derive_simple_privkey(&secrets->delayed_payment_basepoint_secret,
-				   &basepoints[LOCAL].delayed_payment,
-				   &local_per_commitment_point,
-				   &delayed_payment_privkey))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Deriving delayed_payment_privkey for %"PRIu64,
-			      commit_num);
-
-	if (!derive_simple_privkey(&secrets->payment_basepoint_secret,
-				   &basepoints[LOCAL].payment,
-				   &local_per_commitment_point,
-				   &payment_privkey))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Deriving payment_privkey for %"PRIu64,
-			      commit_num);
-
 	if (!derive_simple_privkey(&secrets->htlc_basepoint_secret,
 				   &basepoints[LOCAL].htlc,
 				   &local_per_commitment_point,
@@ -1510,11 +1531,10 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			 *
 			 *	<local_delayedsig> 0
 			 */
-			to_us = tx_to_us(out, out, to_self_delay[LOCAL], 0,
+			to_us = tx_to_us(out, delayed_payment_to_us,
+					 out, to_self_delay[LOCAL], 0,
 					 NULL, 0,
 					 local_wscript,
-					 &delayed_payment_privkey,
-					 &keyset->self_delayed_payment_key,
 					 &tx_type);
 
 			/* BOLT #5:
@@ -1619,11 +1639,11 @@ static void steal_to_them_output(struct tracked_output *out)
 					   &keyset->self_revocation_key,
 					   &keyset->self_delayed_payment_key);
 
-	tx = tx_to_us(tmpctx, out, 0xFFFFFFFF, 0,
+	tx = tx_to_us(tmpctx,
+		      penalty_to_us,
+		      out, 0xFFFFFFFF, 0,
 		      &ONE, sizeof(ONE),
 		      wscript,
-		      revocation_privkey,
-		      &keyset->self_revocation_key,
 		      &tx_type);
 
 	propose_resolution(out, tx, 0, tx_type);
@@ -1643,11 +1663,11 @@ static void steal_htlc(struct tracked_output *out)
 	 *     <revocation_sig> <revocationpubkey>
 	 */
 	pubkey_to_der(der, &keyset->self_revocation_key);
-	tx = tx_to_us(out, out, 0xFFFFFFFF, 0,
+	tx = tx_to_us(out,
+		      penalty_to_us,
+		      out, 0xFFFFFFFF, 0,
 		      der, sizeof(der),
 		      out->wscript,
-		      revocation_privkey,
-		      &keyset->self_revocation_key,
 		      &tx_type);
 
 	propose_resolution(out, tx, 0, tx_type);
@@ -1674,9 +1694,8 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 	u8 **htlc_scripts;
 	u8 *remote_wscript, *script[NUM_SIDES];
 	struct keyset *ks;
+	struct pubkey *k;
 	size_t i;
-	struct secret per_commitment_secret;
-	struct pubkey per_commitment_point;
 
 	init_reply("Tracking their illegal close: taking all funds");
 
@@ -1688,15 +1707,18 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 	resolved_by_other(outs[0], txid, THEIR_REVOKED_UNILATERAL);
 
 	/* FIXME: Types. */
-	BUILD_ASSERT(sizeof(per_commitment_secret)
-		     == sizeof(*revocation_preimage));
-	memcpy(&per_commitment_secret, revocation_preimage,
-	       sizeof(per_commitment_secret));
-	if (!pubkey_from_secret(&per_commitment_secret, &per_commitment_point))
+	BUILD_ASSERT(sizeof(struct secret) == sizeof(*revocation_preimage));
+	remote_per_commitment_secret = tal_dup(tx, struct secret,
+					       (struct secret *)
+					       revocation_preimage);
+
+	/* Need tmpvar for non-const.  */
+	remote_per_commitment_point = k = tal(tx, struct pubkey);
+	if (!pubkey_from_secret(remote_per_commitment_secret, k))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed derive from per_commitment_secret %s",
 			      type_to_string(tmpctx, struct secret,
-					     &per_commitment_secret));
+					     remote_per_commitment_secret));
 
 	status_trace("Deriving keyset %"PRIu64
 		     ": per_commit_point=%s"
@@ -1708,7 +1730,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		     " other_revocation_basepoint=%s",
 		     commit_num,
 		     type_to_string(tmpctx, struct pubkey,
-				    &per_commitment_point),
+				    remote_per_commitment_point),
 		     type_to_string(tmpctx, struct pubkey,
 				    &basepoints[REMOTE].payment),
 		     type_to_string(tmpctx, struct pubkey,
@@ -1724,7 +1746,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 
 	/* keyset is const, we need a non-const ptr to set it up */
 	keyset = ks = tal(tx, struct keyset);
-	if (!derive_keyset(&per_commitment_point,
+	if (!derive_keyset(remote_per_commitment_point,
 			   &basepoints[REMOTE],
 			   &basepoints[LOCAL],
 			   ks))
@@ -1752,16 +1774,6 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 				    &keyset->self_htlc_key),
 		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->other_htlc_key));
-
-	revocation_privkey = tal(tx, struct privkey);
-	if (!derive_revocation_privkey(&secrets->revocation_basepoint_secret,
-				       &per_commitment_secret,
-				       &basepoints[LOCAL].revocation,
-				       &per_commitment_point,
-				       revocation_privkey))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Deriving revocation_privkey for %"PRIu64,
-			      commit_num);
 
 	remote_wscript = to_self_wscript(tmpctx, to_self_delay[REMOTE], keyset);
 
@@ -1882,7 +1894,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 				    u32 tx_blockheight,
 				    const struct bitcoin_txid *txid,
 				    const struct secrets *secrets,
-				    const struct pubkey *remote_per_commitment_point,
+				    const struct pubkey *this_remote_per_commitment_point,
 				    const struct basepoints basepoints[NUM_SIDES],
 				    const struct htlc_stub *htlcs,
 				    const bool *tell_if_missing,
@@ -1895,6 +1907,9 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 	size_t i;
 
 	init_reply("Tracking their unilateral close");
+
+	/* HSM can't derive this. */
+	remote_per_commitment_point = this_remote_per_commitment_point;
 
 	/* BOLT #5:
 	 *
@@ -1964,14 +1979,6 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 				    &keyset->self_htlc_key),
 		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->other_htlc_key));
-
-	if (!derive_simple_privkey(&secrets->payment_basepoint_secret,
-				   &basepoints[LOCAL].payment,
-				   remote_per_commitment_point,
-				   &payment_privkey))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Deriving local_delayeprivkey for %"PRIu64,
-			      commit_num);
 
 	if (!derive_simple_privkey(&secrets->htlc_basepoint_secret,
 				   &basepoints[LOCAL].htlc,

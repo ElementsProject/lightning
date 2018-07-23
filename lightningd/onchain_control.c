@@ -1,14 +1,17 @@
 #include <bitcoin/script.h>
 #include <common/key_derive.h>
 #include <errno.h>
+#include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/log.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <lightningd/watch.h>
 #include <onchaind/onchain_wire.h>
+#include <wire/wire_sync.h>
 
 /* We dump all the known preimages when onchaind starts up. */
 static void onchaind_tell_fulfill(struct channel *channel)
@@ -388,11 +391,16 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	struct htlc_stub *stubs;
 	struct lightningd *ld = channel->peer->ld;
 	struct pubkey final_key;
+	int hsmfd;
 
 	channel_fail_permanent(channel, "Funding transaction spent");
 
 	/* We could come from almost any state. */
 	channel_set_state(channel, channel->state, FUNDING_SPEND_SEEN);
+
+	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
+				  channel->dbid,
+				  HSM_CAP_SIGN_ONCHAIN_TX);
 
 	channel_set_owner(channel, new_channel_subd(ld,
 						    "lightning_onchaind",
@@ -402,6 +410,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 						    onchain_msg,
 						    onchain_error,
 						    channel_set_billboard,
+						    take(&hsmfd),
 						    NULL));
 
 	if (!channel->owner) {
