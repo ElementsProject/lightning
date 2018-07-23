@@ -133,6 +133,9 @@ struct pay {
 	 * is mainly useful for tiny transfers for which the leveraged fee would
 	 * be dominated by the forwarding fee. */
 	u64 exemptfee;
+
+	/* The description from the bolt11 string */
+	const char *description;
 };
 
 static struct routing_failure *
@@ -502,6 +505,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	send_payment(pay->try_parent,
 		     pay->cmd->ld, &pay->payment_hash, route,
 		     pay->msatoshi,
+		     pay->description,
 		     &json_pay_sendpay_resume, pay);
 }
 
@@ -691,6 +695,7 @@ static void json_pay(struct command *cmd,
 	/* Start with no failures */
 	list_head_init(&pay->pay_failures);
 	pay->in_sendpay = false;
+	pay->description = b11->description;
 
 	/* Initiate payment */
 	if (json_pay_try(pay))
