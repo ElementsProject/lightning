@@ -1,5 +1,7 @@
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
+#include <common/derive_basepoints.h>
+
 opening_init,6000
 # Which network are we configured for (as index into the chainparams)?
 opening_init,,network_index,u32
@@ -9,8 +11,8 @@ opening_init,,our_config,struct channel_config
 opening_init,,max_to_self_delay,u32
 opening_init,,min_effective_htlc_capacity_msat,u64
 opening_init,,crypto_state,struct crypto_state
-# Seed to generate all the keys from
-opening_init,,seed,struct secret
+opening_init,,our_basepoints,struct basepoints
+opening_init,,our_funding_pubkey,struct pubkey
 
 #include <common/bip32.h>
 #include <common/htlc_wire.h>
