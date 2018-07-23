@@ -77,6 +77,9 @@ struct peer {
 	/* Tolerable amounts for feerate (only relevant for fundee). */
 	u32 feerate_min, feerate_max;
 
+	/* Local next per-commit point. */
+	struct pubkey next_local_per_commit;
+
 	/* Remote's current per-commit point. */
 	struct pubkey remote_per_commit;
 
@@ -1132,16 +1135,17 @@ static void start_commit_timer(struct peer *peer)
 					  send_commit, peer);
 }
 
-static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index)
+static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index,
+			       struct pubkey *point)
 {
-	struct pubkey oldpoint, point;
+	struct pubkey oldpoint = peer->next_local_per_commit, old2;
 	struct secret old_commit_secret;
 
 	/* Get secret. */
 	per_commit_secret(&peer->shaseed, &old_commit_secret, revoke_index);
 
 	/* Sanity check that it corresponds to the point we sent. */
-	pubkey_from_privkey((struct privkey *)&old_commit_secret, &point);
+	pubkey_from_privkey((struct privkey *)&old_commit_secret, &old2);
 	if (!per_commit_point(&peer->shaseed, &oldpoint, revoke_index))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Invalid point %"PRIu64" for commit_point",
@@ -1151,25 +1155,26 @@ static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index)
 		     revoke_index,
 		     type_to_string(tmpctx, struct pubkey, &oldpoint));
 
-	if (!pubkey_eq(&point, &oldpoint))
+	if (!pubkey_eq(&old2, &oldpoint))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Invalid secret %s for commit_point",
 			      tal_hexstr(tmpctx, &old_commit_secret,
 					 sizeof(old_commit_secret)));
 
 	/* We're revoking N-1th commit, sending N+1th point. */
-	if (!per_commit_point(&peer->shaseed, &point, revoke_index+2))
+	if (!per_commit_point(&peer->shaseed, point, revoke_index+2))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving next commit_point");
 
 	return towire_revoke_and_ack(peer, &peer->channel_id, &old_commit_secret,
-				     &point);
+				     point);
 }
 
 static void send_revocation(struct peer *peer)
 {
-	/* Revoke previous commit. */
-	u8 *msg = make_revocation_msg(peer, peer->next_index[LOCAL]-1);
+	/* Revoke previous commit, get new point. */
+	u8 *msg = make_revocation_msg(peer, peer->next_index[LOCAL]-1,
+				      &peer->next_local_per_commit);
 
 	/* From now on we apply changes to the next commitment */
 	peer->next_index[LOCAL]++;
@@ -1296,9 +1301,11 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving per_commit_point for %"PRIu64,
 			      peer->next_index[LOCAL]);
+	assert(pubkey_eq(&point, &peer->next_local_per_commit));
 
 	txs = channel_txs(tmpctx, &htlc_map, &wscripts, peer->channel,
-			  &point, peer->next_index[LOCAL], LOCAL);
+			  &peer->next_local_per_commit,
+			  peer->next_index[LOCAL], LOCAL);
 
 	if (!derive_simple_key(&peer->channel->basepoints[REMOTE].htlc,
 			       &point, &remote_htlckey))
@@ -1750,8 +1757,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 
 static void resend_revoke(struct peer *peer)
 {
+	struct pubkey point;
 	/* Current commit is peer->next_index[LOCAL]-1, revoke prior */
-	u8 *msg = make_revocation_msg(peer, peer->next_index[LOCAL]-2);
+	u8 *msg = make_revocation_msg(peer, peer->next_index[LOCAL]-2, &point);
 	enqueue_peer_msg(peer, take(msg));
 }
 
@@ -1948,6 +1956,8 @@ static void peer_reconnect(struct peer *peer)
 
 		/* Contains per commit point #1, for first post-opening commit */
 		per_commit_point(&peer->shaseed, &next_per_commit_point, 1);
+		assert(pubkey_eq(&next_per_commit_point,
+				 &peer->next_local_per_commit));
 		msg = towire_funding_locked(NULL,
 					    &peer->channel_id,
 					    &next_per_commit_point);
@@ -2091,12 +2101,16 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 		per_commit_point(&peer->shaseed,
 				 &next_per_commit_point,
 				 peer->next_index[LOCAL]);
+		assert(pubkey_eq(&next_per_commit_point,
+				 &peer->next_local_per_commit));
 
 		status_trace("funding_locked: sending commit index %"PRIu64": %s",
 			     peer->next_index[LOCAL],
-			     type_to_string(tmpctx, struct pubkey, &next_per_commit_point));
+			     type_to_string(tmpctx, struct pubkey,
+					    &peer->next_local_per_commit));
 		msg = towire_funding_locked(NULL,
-					    &peer->channel_id, &next_per_commit_point);
+					    &peer->channel_id,
+					    &peer->next_local_per_commit);
 		enqueue_peer_msg(peer, take(msg));
 		peer->funding_locked[LOCAL] = true;
 	}
@@ -2426,8 +2440,9 @@ static void init_channel(struct peer *peer)
 	struct added_htlc *htlcs;
 	bool reconnected;
 	u8 *funding_signed;
-	u8 *msg;
+	const u8 *msg;
 	u32 feerate_per_kw[NUM_SIDES];
+	struct secret *unused_secret;
 
 	assert(!(fcntl(MASTER_FD, F_GETFL) & O_NONBLOCK));
 
@@ -2499,6 +2514,17 @@ static void init_channel(struct peer *peer)
 	 * index 1. */
 	assert(peer->next_index[LOCAL] > 0);
 	assert(peer->next_index[REMOTE] > 0);
+
+	/* Ask HSM for next per-commitment point: may return old secret, don't
+	 * care */
+	msg = towire_hsm_get_per_commitment_point(NULL, peer->next_index[LOCAL]);
+	msg = hsm_req(tmpctx, take(msg));
+	if (!fromwire_hsm_get_per_commitment_point_reply(tmpctx, msg,
+						 &peer->next_local_per_commit,
+						 &unused_secret))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Malformed per_commitment_point_reply %"PRIu64,
+			      peer->next_index[LOCAL]);
 
 	/* channel_id is set from funding txout */
 	derive_channel_id(&peer->channel_id, &funding_txid, funding_txout);
