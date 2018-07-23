@@ -9,6 +9,7 @@
 #include <secp256k1.h>
 
 struct privkey;
+struct secret;
 
 #define PUBKEY_DER_LEN 33
 
@@ -27,6 +28,9 @@ char *pubkey_to_hexstr(const tal_t *ctx, const struct pubkey *key);
 
 /* Convenience wrapper for a raw secp256k1_pubkey */
 char *secp256k1_pubkey_to_hexstr(const tal_t *ctx, const secp256k1_pubkey *key);
+
+/* Point from secret */
+bool pubkey_from_secret(const struct secret *secret, struct pubkey *key);
 
 /* Pubkey from privkey */
 bool pubkey_from_privkey(const struct privkey *privkey,
