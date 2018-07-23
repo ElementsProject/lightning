@@ -1369,12 +1369,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 				  const struct bitcoin_txid *txid,
 				  const struct secrets *secrets,
 				  const struct sha256 *shaseed,
-				  const struct pubkey *remote_revocation_basepoint,
-				  const struct pubkey *remote_payment_basepoint,
-				  const struct pubkey *local_payment_basepoint,
-				  const struct pubkey *remote_htlc_basepoint,
-				  const struct pubkey *local_htlc_basepoint,
-				  const struct pubkey *local_delayed_payment_basepoint,
+				  const struct basepoints basepoints[NUM_SIDES],
 				  const struct htlc_stub *htlcs,
 				  const bool *tell_if_missing,
 				  const bool *tell_immediately,
@@ -1405,12 +1400,8 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 	/* keyset is const, we need a non-const ptr to set it up */
 	keyset = ks = tal(tx, struct keyset);
 	if (!derive_keyset(&local_per_commitment_point,
-			   local_payment_basepoint,
-			   remote_payment_basepoint,
-			   local_htlc_basepoint,
-			   remote_htlc_basepoint,
-			   local_delayed_payment_basepoint,
-			   remote_revocation_basepoint,
+			   &basepoints[LOCAL],
+			   &basepoints[REMOTE],
 			   ks))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving keyset for %"PRIu64, commit_num);
@@ -1438,7 +1429,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 				    &keyset->other_htlc_key));
 
 	if (!derive_simple_privkey(&secrets->delayed_payment_basepoint_secret,
-				   local_delayed_payment_basepoint,
+				   &basepoints[LOCAL].delayed_payment,
 				   &local_per_commitment_point,
 				   &delayed_payment_privkey))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -1446,7 +1437,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			      commit_num);
 
 	if (!derive_simple_privkey(&secrets->payment_basepoint_secret,
-				   local_payment_basepoint,
+				   &basepoints[LOCAL].payment,
 				   &local_per_commitment_point,
 				   &payment_privkey))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -1454,7 +1445,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			      commit_num);
 
 	if (!derive_simple_privkey(&secrets->htlc_basepoint_secret,
-				   local_htlc_basepoint,
+				   &basepoints[LOCAL].htlc,
 				   &local_per_commitment_point,
 				   &htlc_privkey))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -1674,12 +1665,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			       u32 tx_blockheight,
 			       const struct sha256 *revocation_preimage,
 			       const struct secrets *secrets,
-			       const struct pubkey *local_revocation_basepoint,
-			       const struct pubkey *local_payment_basepoint,
-			       const struct pubkey *remote_payment_basepoint,
-			       const struct pubkey *remote_htlc_basepoint,
-			       const struct pubkey *local_htlc_basepoint,
-			       const struct pubkey *remote_delayed_payment_basepoint,
+			       const struct basepoints basepoints[NUM_SIDES],
 			       const struct htlc_stub *htlcs,
 			       const bool *tell_if_missing,
 			       const bool *tell_immediately,
@@ -1729,27 +1715,23 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		     type_to_string(tmpctx, struct pubkey,
 				    &per_commitment_point),
 		     type_to_string(tmpctx, struct pubkey,
-				    remote_payment_basepoint),
+				    &basepoints[REMOTE].payment),
 		     type_to_string(tmpctx, struct pubkey,
-				    local_payment_basepoint),
+				    &basepoints[LOCAL].payment),
 		     type_to_string(tmpctx, struct pubkey,
-				    remote_htlc_basepoint),
+				    &basepoints[REMOTE].htlc),
 		     type_to_string(tmpctx, struct pubkey,
-				    local_htlc_basepoint),
+				    &basepoints[LOCAL].htlc),
 		     type_to_string(tmpctx, struct pubkey,
-				    remote_delayed_payment_basepoint),
+				    &basepoints[REMOTE].delayed_payment),
 		     type_to_string(tmpctx, struct pubkey,
-				    local_revocation_basepoint));
+				    &basepoints[LOCAL].revocation));
 
 	/* keyset is const, we need a non-const ptr to set it up */
 	keyset = ks = tal(tx, struct keyset);
 	if (!derive_keyset(&per_commitment_point,
-			   remote_payment_basepoint,
-			   local_payment_basepoint,
-			   local_htlc_basepoint,
-			   remote_htlc_basepoint,
-			   remote_delayed_payment_basepoint,
-			   local_revocation_basepoint,
+			   &basepoints[REMOTE],
+			   &basepoints[LOCAL],
 			   ks))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving keyset for %"PRIu64, commit_num);
@@ -1779,7 +1761,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 	revocation_privkey = tal(tx, struct privkey);
 	if (!derive_revocation_privkey(&secrets->revocation_basepoint_secret,
 				       &per_commitment_secret,
-				       local_revocation_basepoint,
+				       &basepoints[LOCAL].revocation,
 				       &per_commitment_point,
 				       revocation_privkey))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -1906,12 +1888,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 				    const struct bitcoin_txid *txid,
 				    const struct secrets *secrets,
 				    const struct pubkey *remote_per_commitment_point,
-				    const struct pubkey *local_revocation_basepoint,
-				    const struct pubkey *local_payment_basepoint,
-				    const struct pubkey *remote_payment_basepoint,
-				    const struct pubkey *remote_htlc_basepoint,
-				    const struct pubkey *local_htlc_basepoint,
-				    const struct pubkey *remote_delayed_payment_basepoint,
+				    const struct basepoints basepoints[NUM_SIDES],
 				    const struct htlc_stub *htlcs,
 				    const bool *tell_if_missing,
 				    const bool *tell_immediately,
@@ -1950,27 +1927,23 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		     type_to_string(tmpctx, struct pubkey,
 				    remote_per_commitment_point),
 		     type_to_string(tmpctx, struct pubkey,
-				    remote_payment_basepoint),
+				    &basepoints[REMOTE].payment),
 		     type_to_string(tmpctx, struct pubkey,
-				    local_payment_basepoint),
+				    &basepoints[LOCAL].payment),
 		     type_to_string(tmpctx, struct pubkey,
-				    remote_htlc_basepoint),
+				    &basepoints[REMOTE].htlc),
 		     type_to_string(tmpctx, struct pubkey,
-				    local_htlc_basepoint),
+				    &basepoints[LOCAL].htlc),
 		     type_to_string(tmpctx, struct pubkey,
-				    remote_delayed_payment_basepoint),
+				    &basepoints[REMOTE].delayed_payment),
 		     type_to_string(tmpctx, struct pubkey,
-				    local_revocation_basepoint));
+				    &basepoints[LOCAL].revocation));
 
 	/* keyset is const, we need a non-const ptr to set it up */
 	keyset = ks = tal(tx, struct keyset);
 	if (!derive_keyset(remote_per_commitment_point,
-			   remote_payment_basepoint,
-			   local_payment_basepoint,
-			   remote_htlc_basepoint,
-			   local_htlc_basepoint,
-			   remote_delayed_payment_basepoint,
-			   local_revocation_basepoint,
+			   &basepoints[REMOTE],
+			   &basepoints[LOCAL],
 			   ks))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving keyset for %"PRIu64, commit_num);
@@ -1998,7 +1971,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 				    &keyset->other_htlc_key));
 
 	if (!derive_simple_privkey(&secrets->payment_basepoint_secret,
-				   local_payment_basepoint,
+				   &basepoints[LOCAL].payment,
 				   remote_per_commitment_point,
 				   &payment_privkey))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -2006,7 +1979,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			      commit_num);
 
 	if (!derive_simple_privkey(&secrets->htlc_basepoint_secret,
-				   local_htlc_basepoint,
+				   &basepoints[LOCAL].htlc,
 				   remote_per_commitment_point,
 				   &htlc_privkey))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -2138,7 +2111,7 @@ int main(int argc, char *argv[])
 	struct secret seed;
 	struct pubkey remote_per_commit_point, old_remote_per_commit_point;
 	enum side funder;
-	struct basepoints basepoints, remote_basepoints;
+	struct basepoints basepoints[NUM_SIDES];
 	struct shachain shachain;
 	struct bitcoin_tx *tx;
 	struct secrets secrets;
@@ -2173,7 +2146,7 @@ int main(int argc, char *argv[])
 				   &scriptpubkey[REMOTE],
 				   &our_wallet_pubkey,
 				   &funder,
-				   &remote_basepoints,
+				   &basepoints[REMOTE],
 				   &tx,
 				   &tx_blockheight,
 				   &reasonable_depth,
@@ -2184,7 +2157,7 @@ int main(int argc, char *argv[])
 		master_badmsg(WIRE_ONCHAIN_INIT, msg);
 	}
 
-	derive_basepoints(&seed, NULL, &basepoints, &secrets, &shaseed);
+	derive_basepoints(&seed, NULL, &basepoints[LOCAL], &secrets, &shaseed);
 	bitcoin_txid(tx, &txid);
 
 	/* FIXME: Filter as we go, don't load them all into mem! */
@@ -2240,8 +2213,8 @@ int main(int argc, char *argv[])
 		 */
 		struct sha256 revocation_preimage;
 		commit_num = unmask_commit_number(tx, funder,
-						      &basepoints.payment,
-						      &remote_basepoints.payment);
+						  &basepoints[LOCAL].payment,
+						  &basepoints[REMOTE].payment);
 
 		status_trace("commitnum = %"PRIu64
 			     ", revocations_received = %"PRIu64,
@@ -2251,12 +2224,7 @@ int main(int argc, char *argv[])
 			handle_our_unilateral(tx, tx_blockheight, &txid,
 					      &secrets,
 					      &shaseed,
-					      &remote_basepoints.revocation,
-					      &remote_basepoints.payment,
-					      &basepoints.payment,
-					      &remote_basepoints.htlc,
-					      &basepoints.htlc,
-					      &basepoints.delayed_payment,
+					      basepoints,
 					      htlcs,
 					      tell_if_missing, tell_immediately,
 					      remote_htlc_sigs,
@@ -2275,12 +2243,7 @@ int main(int argc, char *argv[])
 					   tx_blockheight,
 					   &revocation_preimage,
 					   &secrets,
-					   &basepoints.revocation,
-					   &basepoints.payment,
-					   &remote_basepoints.payment,
-					   &basepoints.htlc,
-					   &remote_basepoints.htlc,
-					   &remote_basepoints.delayed_payment,
+					   basepoints,
 					   htlcs,
 					   tell_if_missing, tell_immediately,
 					   outs);
@@ -2298,12 +2261,7 @@ int main(int argc, char *argv[])
 			handle_their_unilateral(tx, tx_blockheight,
 						&txid, &secrets,
 						&old_remote_per_commit_point,
-						&basepoints.revocation,
-						&basepoints.payment,
-						&remote_basepoints.payment,
-						&remote_basepoints.htlc,
-						&basepoints.htlc,
-						&remote_basepoints.delayed_payment,
+						basepoints,
 						htlcs,
 						tell_if_missing,
 						tell_immediately,
@@ -2313,12 +2271,7 @@ int main(int argc, char *argv[])
 			handle_their_unilateral(tx, tx_blockheight,
 						&txid, &secrets,
 						&remote_per_commit_point,
-						&basepoints.revocation,
-						&basepoints.payment,
-						&remote_basepoints.payment,
-						&remote_basepoints.htlc,
-						&basepoints.htlc,
-						&remote_basepoints.delayed_payment,
+						basepoints,
 						htlcs,
 						tell_if_missing,
 						tell_immediately,
