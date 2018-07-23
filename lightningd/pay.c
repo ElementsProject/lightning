@@ -918,17 +918,20 @@ static void json_sendpay_on_resolve(const struct sendpay_result* r,
 static void json_sendpay(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
-	const jsmntok_t *routetok, *rhashtok;
+	const jsmntok_t *routetok, *rhashtok, *desctok;
 	const jsmntok_t *t, *end;
 	size_t n_hops;
 	struct sha256 rhash;
 	struct route_hop *route;
 	u64 *msatoshi;
+	const struct json_escaped *desc;
+	const char *description;
 
 	if (!param(cmd, buffer, params,
 		   p_req("route", json_tok_tok, &routetok),
 		   p_req("payment_hash", json_tok_tok, &rhashtok),
 		   p_opt("msatoshi", json_tok_u64, &msatoshi),
+		   p_opt_tok("description", &desctok),
 		   NULL))
 		return;
 
@@ -1025,10 +1028,31 @@ static void json_sendpay(struct command *cmd,
 		}
 	}
 
-	/* FIXME(cdecker): Add a description parameter to sendpay */
+	if (desctok) {
+		desc = json_tok_escaped_string(cmd, buffer, desctok);
+		if (!desc) {
+			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				     "description '%.*s' not a string",
+				     desctok->end - desctok->start,
+				     buffer + desctok->start);
+			return;
+		}
+		description = json_escaped_unescape(cmd, desc);
+		if (description == NULL) {
+			command_fail(
+			    cmd, JSONRPC2_INVALID_PARAMS,
+			    "description '%.*s' not a valid escaped string",
+			    desctok->end - desctok->start,
+			    buffer + desctok->start);
+			return;
+		}
+	} else {
+		description = NULL;
+	}
+
 	if (send_payment(cmd, cmd->ld, &rhash, route,
 			 msatoshi ? *msatoshi : route[n_hops-1].amount,
-			 NULL,
+			 description,
 			 &json_sendpay_on_resolve, cmd))
 		command_still_pending(cmd);
 }
