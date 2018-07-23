@@ -47,6 +47,7 @@ $(LIGHTNINGD_ONCHAIN_OBJS): $(LIGHTNINGD_HEADERS)
 
 # Common source we use.
 ONCHAIND_COMMON_OBJS :=				\
+	common/bip32.o				\
 	common/daemon.o				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
@@ -66,6 +67,7 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/subdaemon.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
+	common/utxo.o				\
 	common/version.o
 
 onchaind/gen_onchain_wire.h: $(WIRE_GEN) onchaind/onchain_wire.csv
@@ -81,7 +83,7 @@ ALL_OBJS += $(LIGHTNINGD_ONCHAIN_OBJS)
 ALL_PROGRAMS += lightningd/lightning_onchaind
 ALL_GEN_HEADERS += $(LIGHTNINGD_ONCHAIN_HEADERS_GEN)
 
-lightningd/lightning_onchaind: $(LIGHTNINGD_ONCHAIN_OBJS) $(WIRE_ONION_OBJS) $(ONCHAIND_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS)
+lightningd/lightning_onchaind: $(LIGHTNINGD_ONCHAIN_OBJS) $(WIRE_ONION_OBJS) $(ONCHAIND_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
 
 check-source: $(LIGHTNINGD_ONCHAIN_SRC_NOGEN:%=check-src-include-order/%)
 check-source-bolt: $(LIGHTNINGD_ONCHAIN_SRC:%=bolt-check/%) $(LIGHTNINGD_ONCHAIN_HEADERS:%=bolt-check/%)
