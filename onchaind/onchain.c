@@ -368,6 +368,23 @@ static void hsm_sign_local_htlc_tx(struct bitcoin_tx *tx,
 			      tal_hex(tmpctx, msg));
 }
 
+static void hsm_get_per_commitment_point(struct pubkey *per_commitment_point)
+{
+	u8 *msg = towire_hsm_get_per_commitment_point(NULL, commit_num);
+	struct secret *unused;
+
+	if (!wire_sync_write(HSM_FD, take(msg)))
+		status_failed(STATUS_FAIL_HSM_IO, "Writing sign_htlc_tx to hsm");
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!msg
+	    || !fromwire_hsm_get_per_commitment_point_reply(tmpctx, msg,
+							    per_commitment_point,
+							    &unused))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading hsm_get_per_commitment_point_reply: %s",
+			      tal_hex(tmpctx, msg));
+}
+
 static struct tracked_output *
 	new_tracked_output(struct tracked_output ***outs,
 			   const struct bitcoin_txid *txid,
@@ -1415,7 +1432,6 @@ static void note_missing_htlcs(u8 **htlc_scripts,
 static void handle_our_unilateral(const struct bitcoin_tx *tx,
 				  u32 tx_blockheight,
 				  const struct bitcoin_txid *txid,
-				  const struct sha256 *shaseed,
 				  const struct basepoints basepoints[NUM_SIDES],
 				  const struct htlc_stub *htlcs,
 				  const bool *tell_if_missing,
@@ -1439,10 +1455,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 	resolved_by_other(outs[0], txid, OUR_UNILATERAL);
 
 	/* Figure out what delayed to-us output looks like */
-	if (!per_commit_point(shaseed, &local_per_commitment_point, commit_num))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Deriving local_per_commit_point for %"PRIu64,
-			      commit_num);
+	hsm_get_per_commitment_point(&local_per_commitment_point);
 
 	/* keyset is const, we need a non-const ptr to set it up */
 	keyset = ks = tal(tx, struct keyset);
@@ -2102,13 +2115,11 @@ int main(int argc, char *argv[])
 
 	const tal_t *ctx = tal(NULL, char);
 	u8 *msg;
-	struct secret seed;
 	struct pubkey remote_per_commit_point, old_remote_per_commit_point;
 	enum side funder;
 	struct basepoints basepoints[NUM_SIDES];
 	struct shachain shachain;
 	struct bitcoin_tx *tx;
-	struct sha256 shaseed;
 	struct tracked_output **outs;
 	struct bitcoin_txid our_broadcast_txid, txid;
 	secp256k1_ecdsa_signature *remote_htlc_sigs;
@@ -2126,7 +2137,7 @@ int main(int argc, char *argv[])
 
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_onchain_init(ctx, msg,
-				   &seed, &shachain,
+				   &shachain,
 				   &funding_amount_satoshi,
 				   &old_remote_per_commit_point,
 				   &remote_per_commit_point,
@@ -2139,6 +2150,7 @@ int main(int argc, char *argv[])
 				   &scriptpubkey[REMOTE],
 				   &our_wallet_pubkey,
 				   &funder,
+				   &basepoints[LOCAL],
 				   &basepoints[REMOTE],
 				   &tx,
 				   &tx_blockheight,
@@ -2150,7 +2162,6 @@ int main(int argc, char *argv[])
 		master_badmsg(WIRE_ONCHAIN_INIT, msg);
 	}
 
-	derive_basepoints(&seed, NULL, &basepoints[LOCAL], NULL, &shaseed);
 	bitcoin_txid(tx, &txid);
 
 	/* FIXME: Filter as we go, don't load them all into mem! */
@@ -2215,7 +2226,6 @@ int main(int argc, char *argv[])
 
 		if (is_local_commitment(&txid, &our_broadcast_txid))
 			handle_our_unilateral(tx, tx_blockheight, &txid,
-					      &shaseed,
 					      basepoints,
 					      htlcs,
 					      tell_if_missing, tell_immediately,
