@@ -538,6 +538,55 @@ static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
 	return daemon_conn_read_next(conn, &c->dc);
 }
 
+static struct io_plan *
+handle_get_per_commitment_point(struct io_conn *conn, struct client *c)
+{
+	struct daemon_conn *dc = &c->dc;
+	struct secret channel_seed;
+	struct sha256 shaseed;
+	struct pubkey per_commitment_point;
+	u64 n;
+	struct secret *old_secret;
+
+	if (!fromwire_hsm_get_per_commitment_point(dc->msg_in, &n)) {
+		status_broken("bad get_per_commitment_point for client %s",
+			      type_to_string(tmpctx, struct pubkey, &c->id));
+		goto fail;
+	}
+
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	if (!derive_shaseed(&channel_seed, &shaseed)) {
+		status_broken("bad derive_shaseed for client %s",
+			      type_to_string(tmpctx, struct pubkey, &c->id));
+		goto fail;
+	}
+
+	if (!per_commit_point(&shaseed, &per_commitment_point, n)) {
+		status_broken("bad per_commit_point %"PRIu64" for client %s",
+			      n, type_to_string(tmpctx, struct pubkey, &c->id));
+		goto fail;
+	}
+
+	if (n >= 2) {
+		old_secret = tal(tmpctx, struct secret);
+		per_commit_secret(&shaseed, old_secret, n - 2);
+	} else
+		old_secret = NULL;
+
+	daemon_conn_send(&c->dc,
+			 take(towire_hsm_get_per_commitment_point_reply(NULL,
+									&per_commitment_point,
+									old_secret)));
+	return daemon_conn_read_next(conn, &c->dc);
+
+fail:
+	daemon_conn_send(c->master,
+			 take(towire_hsmstatus_client_bad_request(NULL,
+							  &c->id,
+							  c->dc.msg_in)));
+	return io_close(conn);
+}
+
 static bool check_client_capabilities(struct client *client,
 				      enum hsm_client_wire_type t)
 {
@@ -555,6 +604,9 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_SIGN_PENALTY_TO_US:
 	case WIRE_HSM_SIGN_LOCAL_HTLC_TX:
 		return (client->capabilities & HSM_CAP_SIGN_ONCHAIN_TX) != 0;
+
+	case WIRE_HSM_GET_PER_COMMITMENT_POINT:
+		return (client->capabilities & HSM_CAP_COMMITMENT_POINT) != 0;
 
 	case WIRE_HSM_INIT:
 	case WIRE_HSM_CLIENT_HSMFD:
@@ -577,6 +629,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 	case WIRE_HSM_SIGN_COMMITMENT_TX_REPLY:
 	case WIRE_HSM_SIGN_TX_REPLY:
+	case WIRE_HSM_GET_PER_COMMITMENT_POINT_REPLY:
 		break;
 	}
 	return false;
@@ -650,6 +703,9 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	case WIRE_HSM_SIGN_LOCAL_HTLC_TX:
 		return handle_sign_local_htlc_tx(conn, c);
 
+	case WIRE_HSM_GET_PER_COMMITMENT_POINT:
+		return handle_get_per_commitment_point(conn, c);
+
 	case WIRE_HSM_ECDH_RESP:
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_CUPDATE_SIG_REPLY:
@@ -662,6 +718,7 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 	case WIRE_HSM_SIGN_COMMITMENT_TX_REPLY:
 	case WIRE_HSM_SIGN_TX_REPLY:
+	case WIRE_HSM_GET_PER_COMMITMENT_POINT_REPLY:
 		break;
 	}
 
