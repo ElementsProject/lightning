@@ -9,6 +9,7 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/closing_control.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
@@ -133,6 +134,7 @@ void peer_start_closingd(struct channel *channel,
 	u64 minfee, startfee, feelimit;
 	u64 num_revocations;
 	u64 funding_msatoshi, our_msatoshi, their_msatoshi;
+	int hsmfd;
 	struct lightningd *ld = channel->peer->ld;
 
 	if (!channel->remote_shutdown_scriptpubkey) {
@@ -140,6 +142,9 @@ void peer_start_closingd(struct channel *channel,
 				       "Can't start closing: no remote info");
 		return;
 	}
+
+	hsmfd = hsm_get_client_fd(ld, &channel->peer->id, channel->dbid,
+				  HSM_CAP_SIGN_CLOSING_TX);
 
 	channel_set_owner(channel,
 			  new_channel_subd(ld,
@@ -149,6 +154,7 @@ void peer_start_closingd(struct channel *channel,
 					   channel_errmsg,
 					   channel_set_billboard,
 					   take(&peer_fd), take(&gossip_fd),
+					   take(&hsmfd),
 					   NULL));
 	if (!channel->owner) {
 		log_unusual(channel->log, "Could not subdaemon closing: %s",
@@ -191,10 +197,10 @@ void peer_start_closingd(struct channel *channel,
 	their_msatoshi = funding_msatoshi - our_msatoshi;
 	initmsg = towire_closing_init(tmpctx,
 				      cs,
-				      &channel->seed,
 				      &channel->funding_txid,
 				      channel->funding_outnum,
 				      channel->funding_satoshi,
+				      &channel->local_funding_pubkey,
 				      &channel->channel_info.remote_fundingkey,
 				      channel->funder,
 				      our_msatoshi / 1000, /* Rounds down */
