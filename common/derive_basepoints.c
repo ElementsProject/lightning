@@ -166,6 +166,52 @@ bool derive_funding_key(const struct secret *seed,
 	return true;
 }
 
+bool derive_revocation_basepoint(const struct secret *seed,
+				 struct pubkey *revocation_basepoint,
+				 struct secret *revocation_secret)
+{
+	struct keys {
+		struct privkey f, r, h, p, d;
+		struct sha256 shaseed;
+	} keys;
+
+	hkdf_sha256(&keys, sizeof(keys), NULL, 0, seed, sizeof(*seed),
+		    "c-lightning", strlen("c-lightning"));
+
+	if (revocation_basepoint) {
+		if (!pubkey_from_privkey(&keys.r, revocation_basepoint))
+			return false;
+	}
+
+	if (revocation_secret)
+		*revocation_secret = keys.r.secret;
+
+	return true;
+}
+
+bool derive_htlc_basepoint(const struct secret *seed,
+			   struct pubkey *htlc_basepoint,
+			   struct secret *htlc_secret)
+{
+	struct keys {
+		struct privkey f, r, h, p, d;
+		struct sha256 shaseed;
+	} keys;
+
+	hkdf_sha256(&keys, sizeof(keys), NULL, 0, seed, sizeof(*seed),
+		    "c-lightning", strlen("c-lightning"));
+
+	if (htlc_basepoint) {
+		if (!pubkey_from_privkey(&keys.h, htlc_basepoint))
+			return false;
+	}
+
+	if (htlc_secret)
+		*htlc_secret = keys.h.secret;
+
+	return true;
+}
+
 void towire_basepoints(u8 **pptr, const struct basepoints *b)
 {
 	towire_pubkey(pptr, &b->revocation);
