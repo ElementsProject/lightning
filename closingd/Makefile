@@ -43,6 +43,7 @@ $(LIGHTNINGD_CLOSING_OBJS): $(LIGHTNINGD_HEADERS)
 # Common source we use.
 CLOSINGD_COMMON_OBJS :=				\
 	common/base32.o				\
+	common/bip32.o				\
 	common/close_tx.o			\
 	common/crypto_state.o			\
 	common/crypto_sync.o			\
@@ -67,6 +68,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/subdaemon.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
+	common/utxo.o				\
 	common/version.o			\
 	common/wire_error.o			\
 	common/wireaddr.o			\
@@ -81,7 +83,7 @@ closingd/gen_closing_wire.c: $(WIRE_GEN) closingd/closing_wire.csv
 
 LIGHTNINGD_CLOSING_OBJS := $(LIGHTNINGD_CLOSING_SRC:.c=.o) $(LIGHTNINGD_CLOSING_GEN_SRC:.c=.o)
 
-lightningd/lightning_closingd: $(LIGHTNINGD_CLOSING_OBJS) $(WIRE_ONION_OBJS) $(CLOSINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS)
+lightningd/lightning_closingd: $(LIGHTNINGD_CLOSING_OBJS) $(WIRE_ONION_OBJS) $(CLOSINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
 
 check-source: $(LIGHTNINGD_CLOSING_SRC_NOGEN:%=check-src-include-order/%)
 check-source-bolt: $(LIGHTNINGD_CLOSING_SRC:%=bolt-check/%) $(LIGHTNINGD_CLOSING_HEADERS:%=bolt-check/%)

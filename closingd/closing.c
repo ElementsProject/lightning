@@ -16,6 +16,7 @@
 #include <common/version.h>
 #include <common/wire_error.h>
 #include <errno.h>
+#include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -26,6 +27,7 @@
 #define REQ_FD STDIN_FILENO
 #define PEER_FD 3
 #define GOSSIP_FD 4
+#define HSM_FD 5
 
 static struct bitcoin_tx *close_tx(const tal_t *ctx,
 				   struct crypto_state *cs,
@@ -147,7 +149,6 @@ static void send_offer(struct crypto_state *cs,
 		       const u64 satoshi_out[NUM_SIDES],
 		       enum side funder,
 		       uint64_t our_dust_limit,
-		       const struct secrets *secrets,
 		       uint64_t fee_to_offer)
 {
 	struct bitcoin_tx *tx;
@@ -176,10 +177,16 @@ static void send_offer(struct crypto_state *cs,
 	 * own output.
 	 */
 	/* (We don't do this). */
-	sign_tx_input(tx, 0, NULL, funding_wscript,
-		      &secrets->funding_privkey,
-		      &funding_pubkey[LOCAL],
-		      &our_sig);
+	wire_sync_write(HSM_FD,
+			take(towire_hsm_sign_mutual_close_tx(NULL,
+							     tx,
+							     &funding_pubkey[REMOTE],
+							     funding_satoshi)));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsm_sign_tx_reply(msg, &our_sig))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Bad hsm_sign_mutual_close_tx reply %s",
+			      tal_hex(tmpctx, msg));
 
 	status_trace("sending fee offer %"PRIu64, fee_to_offer);
 
@@ -424,7 +431,6 @@ int main(int argc, char *argv[])
 	struct crypto_state cs;
 	const tal_t *ctx = tal(NULL, char);
 	u8 *msg;
-	struct secret seed;
 	struct pubkey funding_pubkey[NUM_SIDES];
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
@@ -435,7 +441,6 @@ int main(int argc, char *argv[])
 	enum side funder;
 	u8 *scriptpubkey[NUM_SIDES], *funding_wscript;
 	struct channel_id channel_id;
-	struct secrets secrets;
 	bool reconnected;
 	u64 next_index[NUM_SIDES], revocations_received;
 	enum side whose_turn;
@@ -448,9 +453,10 @@ int main(int argc, char *argv[])
 
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_closing_init(ctx, msg,
-				   &cs, &seed,
+				   &cs,
 				   &funding_txid, &funding_txout,
 				   &funding_satoshi,
+				   &funding_pubkey[LOCAL],
 				   &funding_pubkey[REMOTE],
 				   &funder,
 				   &satoshi_out[LOCAL],
@@ -473,8 +479,6 @@ int main(int argc, char *argv[])
 	status_trace("dustlimit = %"PRIu64, our_dust_limit);
 	status_trace("fee = %"PRIu64, offer[LOCAL]);
 	derive_channel_id(&channel_id, &funding_txid, funding_txout);
-	derive_basepoints(&seed, &funding_pubkey[LOCAL], NULL,
-			  &secrets, NULL);
 
 	funding_wscript = bitcoin_redeem_2of2(ctx,
 					      &funding_pubkey[LOCAL],
@@ -504,7 +508,8 @@ int main(int argc, char *argv[])
 				   funding_wscript,
 				   scriptpubkey, &funding_txid, funding_txout,
 				   funding_satoshi, satoshi_out, funder,
-				   our_dust_limit, &secrets, offer[LOCAL]);
+				   our_dust_limit,
+				   offer[LOCAL]);
 		} else {
 			if (i == 0)
 				peer_billboard(false, "Waiting for their initial"
@@ -552,7 +557,8 @@ int main(int argc, char *argv[])
 				   funding_wscript,
 				   scriptpubkey, &funding_txid, funding_txout,
 				   funding_satoshi, satoshi_out, funder,
-				   our_dust_limit, &secrets, offer[LOCAL]);
+				   our_dust_limit,
+				   offer[LOCAL]);
 		} else {
 			peer_billboard(false, "Waiting for another"
 				       " closing fee offer:"
