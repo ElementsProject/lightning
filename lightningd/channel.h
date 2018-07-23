@@ -81,6 +81,12 @@ struct channel {
 	/* Secret seed (FIXME: Move to hsm!) */
 	struct secret seed;
 
+	/* Our local basepoints */
+	struct basepoints local_basepoints;
+
+	/* Our funding tx pubkey. */
+	struct pubkey local_funding_pubkey;
+
 	/* Their scriptpubkey if they sent shutdown. */
 	u8 *remote_shutdown_scriptpubkey;
 	/* Address for any final outputs */
@@ -140,7 +146,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u32 first_blocknum,
 			    u32 min_possible_feerate,
 			    u32 max_possible_feerate,
-			    bool connected);
+			    bool connected,
+			    const struct basepoints *local_basepoints,
+			    const struct pubkey *local_funding_pubkey);
 
 void delete_channel(struct channel *channel);
 

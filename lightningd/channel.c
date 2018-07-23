@@ -169,7 +169,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u32 first_blocknum,
 			    u32 min_possible_feerate,
 			    u32 max_possible_feerate,
-			    bool connected)
+			    bool connected,
+			    const struct basepoints *local_basepoints,
+			    const struct pubkey *local_funding_pubkey)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
 
@@ -227,6 +229,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->min_possible_feerate = min_possible_feerate;
 	channel->max_possible_feerate = max_possible_feerate;
 	channel->connected = connected;
+	channel->local_basepoints = *local_basepoints;
+	channel->local_funding_pubkey = *local_funding_pubkey;
 	derive_channel_seed(peer->ld, &channel->seed, &peer->id, channel->dbid);
 
 	list_add_tail(&peer->channels, &channel->list);

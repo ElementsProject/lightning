@@ -198,24 +198,22 @@ u32 feerate_max(struct lightningd *ld)
 static void sign_last_tx(struct channel *channel)
 {
 	u8 *funding_wscript;
-	struct pubkey local_funding_pubkey;
 	struct secrets secrets;
 	secp256k1_ecdsa_signature sig;
 
 	assert(!channel->last_tx->input[0].witness);
 
-	derive_basepoints(&channel->seed, &local_funding_pubkey, NULL, &secrets,
-			  NULL);
+	derive_basepoints(&channel->seed, NULL, NULL, &secrets, NULL);
 
 	funding_wscript = bitcoin_redeem_2of2(tmpctx,
-					      &local_funding_pubkey,
+					      &channel->local_funding_pubkey,
 					      &channel->channel_info.remote_fundingkey);
 	/* Need input amount for signing */
 	channel->last_tx->input[0].amount = tal_dup(channel->last_tx->input, u64,
 						    &channel->funding_satoshi);
 	sign_tx_input(channel->last_tx, 0, NULL, funding_wscript,
 		      &secrets.funding_privkey,
-		      &local_funding_pubkey,
+		      &channel->local_funding_pubkey,
 		      &sig);
 
 	channel->last_tx->input[0].witness
@@ -223,7 +221,7 @@ static void sign_last_tx(struct channel *channel)
 				       &channel->last_sig,
 				       &sig,
 				       &channel->channel_info.remote_fundingkey,
-				       &local_funding_pubkey);
+				       &channel->local_funding_pubkey);
 }
 
 static void remove_sig(struct bitcoin_tx *signed_tx)
