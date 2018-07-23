@@ -337,6 +337,43 @@ static PRINTF_FMT(3,4)
 	return io_close(conn);
 }
 
+/* FIXME: make sure it meets some criteria? */
+static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
+							struct client *c)
+{
+	struct daemon_conn *dc = &c->dc;
+	struct pubkey remote_funding_pubkey, local_funding_pubkey;
+	u64 funding_amount;
+	struct secret channel_seed;
+	struct bitcoin_tx *tx;
+	secp256k1_ecdsa_signature sig;
+	struct secrets secrets;
+	const u8 *funding_wscript;
+
+	if (!fromwire_hsm_sign_remote_commitment_tx(tmpctx, dc->msg_in,
+						    &tx,
+						    &remote_funding_pubkey,
+						    &funding_amount))
+		master_badmsg(WIRE_HSM_SIGN_REMOTE_COMMITMENT_TX, dc->msg_in);
+
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	derive_basepoints(&channel_seed,
+			  &local_funding_pubkey, NULL, &secrets, NULL);
+
+	funding_wscript = bitcoin_redeem_2of2(tmpctx,
+					      &local_funding_pubkey,
+					      &remote_funding_pubkey);
+	/* Need input amount for signing */
+	tx->input[0].amount = tal_dup(tx->input, u64, &funding_amount);
+	sign_tx_input(tx, 0, NULL, funding_wscript,
+		      &secrets.funding_privkey,
+		      &local_funding_pubkey,
+		      &sig);
+
+	daemon_conn_send(dc, take(towire_hsm_sign_tx_reply(NULL, &sig)));
+	return daemon_conn_read_next(conn, dc);
+}
+
 /* FIXME: Derive output address for this client, and check it here! */
 static struct io_plan *handle_sign_to_us_tx(struct io_conn *conn,
 					    struct client *c,
@@ -587,6 +624,65 @@ fail:
 	return io_close(conn);
 }
 
+static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
+						  struct client *c)
+{
+	struct daemon_conn *dc = &c->dc;
+	struct secret channel_seed;
+	struct bitcoin_tx *tx;
+	secp256k1_ecdsa_signature sig;
+	struct secrets secrets;
+	struct basepoints basepoints;
+	struct pubkey remote_per_commit_point;
+	u64 amount;
+	u8 *wscript;
+	struct privkey htlc_privkey;
+	struct pubkey htlc_pubkey;
+
+	if (!fromwire_hsm_sign_remote_htlc_tx(tmpctx, dc->msg_in,
+				       &tx, &wscript, &amount,
+				       &remote_per_commit_point)) {
+		status_broken("bad hsm_sign_remote_htlc_tx for client %s",
+			      type_to_string(tmpctx, struct pubkey, &c->id));
+		goto fail;
+	}
+
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	derive_basepoints(&channel_seed, NULL, &basepoints, &secrets, NULL);
+
+	if (!derive_simple_privkey(&secrets.htlc_basepoint_secret,
+				   &basepoints.htlc,
+				   &remote_per_commit_point,
+				   &htlc_privkey)) {
+		status_broken("Failed deriving htlc privkey for client %s",
+			      type_to_string(tmpctx, struct pubkey, &c->id));
+		goto fail;
+	}
+
+	if (!derive_simple_key(&basepoints.htlc,
+			       &remote_per_commit_point,
+			       &htlc_pubkey)) {
+		status_broken("Failed deriving htlc pubkey for client %s",
+			      type_to_string(tmpctx, struct pubkey, &c->id));
+		goto fail;
+	}
+
+	/* Need input amount for signing */
+	tx->input[0].amount = tal_dup(tx->input, u64, &amount);
+	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
+		      &sig);
+
+	daemon_conn_send(dc, take(towire_hsm_sign_tx_reply(NULL, &sig)));
+	return daemon_conn_read_next(conn, dc);
+
+fail:
+	daemon_conn_send(c->master,
+			 take(towire_hsmstatus_client_bad_request(NULL,
+							  &c->id,
+							  c->dc.msg_in)));
+	return io_close(conn);
+}
+
 static bool check_client_capabilities(struct client *client,
 				      enum hsm_client_wire_type t)
 {
@@ -607,6 +703,10 @@ static bool check_client_capabilities(struct client *client,
 
 	case WIRE_HSM_GET_PER_COMMITMENT_POINT:
 		return (client->capabilities & HSM_CAP_COMMITMENT_POINT) != 0;
+
+	case WIRE_HSM_SIGN_REMOTE_COMMITMENT_TX:
+	case WIRE_HSM_SIGN_REMOTE_HTLC_TX:
+		return (client->capabilities & HSM_CAP_SIGN_REMOTE_TX) != 0;
 
 	case WIRE_HSM_INIT:
 	case WIRE_HSM_CLIENT_HSMFD:
@@ -705,6 +805,12 @@ static struct io_plan *handle_client(struct io_conn *conn,
 
 	case WIRE_HSM_GET_PER_COMMITMENT_POINT:
 		return handle_get_per_commitment_point(conn, c);
+
+	case WIRE_HSM_SIGN_REMOTE_COMMITMENT_TX:
+		return handle_sign_remote_commitment_tx(conn, c);
+
+	case WIRE_HSM_SIGN_REMOTE_HTLC_TX:
+		return handle_sign_remote_htlc_tx(conn, c);
 
 	case WIRE_HSM_ECDH_RESP:
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:

@@ -135,7 +135,21 @@ hsm_sign_local_htlc_tx,,wscript_len,u16
 hsm_sign_local_htlc_tx,,wscript,wscript_len*u8
 hsm_sign_local_htlc_tx,,input_amount,u64
 
-# Reply for all the above requests from onchaind.
+# Openingd/channeld asks HSM to sign the other sides' commitment tx.
+hsm_sign_remote_commitment_tx,19
+hsm_sign_remote_commitment_tx,,tx,struct bitcoin_tx
+hsm_sign_remote_commitment_tx,,remote_funding_key,struct pubkey
+hsm_sign_remote_commitment_tx,,funding_amount,u64
+
+# channeld asks HSM to sign remote HTLC tx.
+hsm_sign_remote_htlc_tx,20
+hsm_sign_remote_htlc_tx,,tx,struct bitcoin_tx
+hsm_sign_remote_htlc_tx,,len,u16
+hsm_sign_remote_htlc_tx,,wscript,len*u8
+hsm_sign_remote_htlc_tx,,amounts_satoshi,u64
+hsm_sign_remote_htlc_tx,,remote_per_commit_point,struct pubkey
+
+# Reply for all the above requests.
 hsm_sign_tx_reply,112
 hsm_sign_tx_reply,,sig,secp256k1_ecdsa_signature
 
@@ -146,4 +160,3 @@ hsm_get_per_commitment_point,,n,u64
 hsm_get_per_commitment_point_reply,118
 hsm_get_per_commitment_point_reply,,per_commitment_point,struct pubkey
 hsm_get_per_commitment_point_reply,,old_commitment_secret,?struct secret
-
