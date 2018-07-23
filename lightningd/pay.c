@@ -1123,20 +1123,19 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 		   NULL))
 		return;
 
+	if (rhashtok && bolt11tok) {
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "Can only specify one of"
+			     " {bolt11} or {payment_hash}");
+		return;
+	}
+
 	if (bolt11tok) {
 		struct bolt11 *b11;
 		char *b11str, *fail;
 
-		if (rhashtok) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "Can only specify one of"
-				     " {bolt11} or {payment_hash}");
-			return;
-		}
-
 		b11str = tal_strndup(cmd, buffer + bolt11tok->start,
 				     bolt11tok->end - bolt11tok->start);
-
 		b11 = bolt11_decode(cmd, b11str, NULL, &fail);
 		if (!b11) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -1160,13 +1159,15 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 	payments = wallet_payment_list(cmd, cmd->ld->wallet, rhash);
 
 	json_object_start(response, NULL);
+
 	json_array_start(response, "payments");
-	for (int i=0; i<tal_count(payments); i++) {
+	for (size_t i = 0; i < tal_count(payments); i++) {
 		json_object_start(response, NULL);
 		json_add_payment_fields(response, payments[i]);
 		json_object_end(response);
 	}
 	json_array_end(response);
+
 	json_object_end(response);
 	command_success(cmd, response);
 }
