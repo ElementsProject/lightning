@@ -103,4 +103,30 @@ hsm_sign_commitment_tx,,funding_amount,u64
 hsm_sign_commitment_tx_reply,105
 hsm_sign_commitment_tx_reply,,sig,secp256k1_ecdsa_signature
 
+# Onchaind asks HSM to sign a spend to-us.  Four variants, since each set
+# of keys is derived differently...
+# FIXME: Have master tell hsmd the keyindex, so it can validate output!
+hsm_sign_delayed_payment_to_us,12
+hsm_sign_delayed_payment_to_us,,commit_num,u64
+hsm_sign_delayed_payment_to_us,,tx,struct bitcoin_tx
+hsm_sign_delayed_payment_to_us,,wscript_len,u16
+hsm_sign_delayed_payment_to_us,,wscript,wscript_len*u8
+hsm_sign_delayed_payment_to_us,,input_amount,u64
 
+hsm_sign_remote_htlc_to_us,13
+hsm_sign_remote_htlc_to_us,,remote_per_commitment_point,struct pubkey
+hsm_sign_remote_htlc_to_us,,tx,struct bitcoin_tx
+hsm_sign_remote_htlc_to_us,,wscript_len,u16
+hsm_sign_remote_htlc_to_us,,wscript,wscript_len*u8
+hsm_sign_remote_htlc_to_us,,input_amount,u64
+
+hsm_sign_penalty_to_us,14
+hsm_sign_penalty_to_us,,revocation_secret,struct secret
+hsm_sign_penalty_to_us,,tx,struct bitcoin_tx
+hsm_sign_penalty_to_us,,wscript_len,u16
+hsm_sign_penalty_to_us,,wscript,wscript_len*u8
+hsm_sign_penalty_to_us,,input_amount,u64
+
+# Reply for all the above requests from onchaind.
+hsm_sign_tx_reply,112
+hsm_sign_tx_reply,,sig,secp256k1_ecdsa_signature

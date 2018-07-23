@@ -14,6 +14,7 @@
 #include <ccan/ptrint/ptrint.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/take/take.h>
+#include <ccan/tal/str/str.h>
 #include <common/daemon_conn.h>
 #include <common/derive_basepoints.h>
 #include <common/funding_tx.h>
@@ -315,6 +316,172 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 	return daemon_conn_read_next(conn, dc);
 }
 
+static PRINTF_FMT(3,4)
+	struct io_plan *bad_sign_request(struct io_conn *conn,
+					 struct client *c,
+					 const char *fmt, ...)
+{
+	va_list ap;
+	char *str;
+
+	va_start(ap, fmt);
+	str = tal_fmt(tmpctx, fmt, ap);
+	status_broken("Client %s bad sign request: %s",
+		      type_to_string(tmpctx, struct pubkey, &c->id), str);
+	va_end(ap);
+
+	daemon_conn_send(c->master,
+			 take(towire_hsmstatus_client_bad_request(NULL,
+							  &c->id,
+							  c->dc.msg_in)));
+	return io_close(conn);
+}
+
+/* FIXME: Derive output address for this client, and check it here! */
+static struct io_plan *handle_sign_to_us_tx(struct io_conn *conn,
+					    struct client *c,
+					    struct bitcoin_tx *tx,
+					    const struct privkey *privkey,
+					    const u8 *wscript,
+					    u64 input_amount)
+{
+	secp256k1_ecdsa_signature sig;
+	struct pubkey pubkey;
+
+	if (!pubkey_from_privkey(privkey, &pubkey))
+		return bad_sign_request(conn, c, "bad pubkey_from_privkey");
+
+	if (tal_count(tx->input) != 1)
+		return bad_sign_request(conn, c, "bad txinput count");
+
+	tx->input[0].amount = tal_dup(tx->input, u64, &input_amount);
+	sign_tx_input(tx, 0, NULL, wscript, privkey, &pubkey, &sig);
+
+	daemon_conn_send(&c->dc, take(towire_hsm_sign_tx_reply(NULL, &sig)));
+	return daemon_conn_read_next(conn, &c->dc);
+}
+
+static struct io_plan *handle_sign_delayed_payment_to_us(struct io_conn *conn,
+							 struct client *c)
+{
+	u64 commit_num, input_amount;
+	struct secret channel_seed, basepoint_secret;
+	struct pubkey basepoint;
+	struct bitcoin_tx *tx;
+	struct sha256 shaseed;
+	struct pubkey per_commitment_point;
+	struct privkey privkey;
+	u8 *wscript;
+
+	if (!fromwire_hsm_sign_delayed_payment_to_us(tmpctx, c->dc.msg_in,
+						     &commit_num,
+						     &tx, &wscript,
+						     &input_amount))
+		return bad_sign_request(conn, c,
+					"malformed hsm_sign_delayed_payment");
+
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+
+	if (!derive_shaseed(&channel_seed, &shaseed))
+		return bad_sign_request(conn, c, "bad derive_shaseed");
+
+	if (!per_commit_point(&shaseed, &per_commitment_point, commit_num))
+		return bad_sign_request(conn, c,
+					"bad per_commitment_point %"PRIu64,
+					commit_num);
+
+	if (!derive_delayed_payment_basepoint(&channel_seed,
+					      &basepoint,
+					      &basepoint_secret))
+		return bad_sign_request(conn, c, "failed deriving basepoint");
+
+	if (!derive_simple_privkey(&basepoint_secret,
+				   &basepoint,
+				   &per_commitment_point,
+				   &privkey))
+		return bad_sign_request(conn, c, "failed deriving privkey");
+
+	return handle_sign_to_us_tx(conn, c, tx, &privkey, wscript,
+				    input_amount);
+}
+
+static struct io_plan *handle_sign_remote_htlc_to_us(struct io_conn *conn,
+						     struct client *c)
+{
+	u64 input_amount;
+	struct secret channel_seed, htlc_basepoint_secret;
+	struct pubkey htlc_basepoint;
+	struct bitcoin_tx *tx;
+	struct pubkey remote_per_commitment_point;
+	struct privkey privkey;
+	u8 *wscript;
+
+	if (!fromwire_hsm_sign_remote_htlc_to_us(tmpctx, c->dc.msg_in,
+						 &remote_per_commitment_point,
+						 &tx, &wscript,
+						 &input_amount))
+		return bad_sign_request(conn, c,
+					"malformed hsm_sign_remote_htlc_to_us");
+
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+
+	if (!derive_htlc_basepoint(&channel_seed, &htlc_basepoint,
+				   &htlc_basepoint_secret))
+		return bad_sign_request(conn, c,
+					"Failed derive_htlc_basepoint");
+
+	if (!derive_simple_privkey(&htlc_basepoint_secret,
+				   &htlc_basepoint,
+				   &remote_per_commitment_point,
+				   &privkey))
+		return bad_sign_request(conn, c,
+					"Failed deriving htlc privkey");
+
+	return handle_sign_to_us_tx(conn, c, tx, &privkey, wscript,
+				    input_amount);
+}
+
+static struct io_plan *handle_sign_penalty_to_us(struct io_conn *conn,
+						 struct client *c)
+{
+	u64 input_amount;
+	struct secret channel_seed, revocation_secret, revocation_basepoint_secret;
+	struct pubkey revocation_basepoint;
+	struct bitcoin_tx *tx;
+	struct pubkey point;
+	struct privkey privkey;
+	u8 *wscript;
+
+	if (!fromwire_hsm_sign_penalty_to_us(tmpctx, c->dc.msg_in,
+					     &revocation_secret,
+					     &tx, &wscript,
+					     &input_amount))
+		return bad_sign_request(conn, c,
+					"malformed hsm_sign_penalty_to_us");
+
+	if (!pubkey_from_secret(&revocation_secret, &point))
+		return bad_sign_request(conn, c,
+					"Failed deriving pubkey");
+
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	if (!derive_revocation_basepoint(&channel_seed,
+					 &revocation_basepoint,
+					 &revocation_basepoint_secret))
+		return bad_sign_request(conn, c,
+					"Failed deriving revocation basepoint");
+
+	if (!derive_revocation_privkey(&revocation_basepoint_secret,
+				       &revocation_secret,
+				       &revocation_basepoint,
+				       &point,
+				       &privkey))
+		return bad_sign_request(conn, c,
+					"Failed deriving revocation privkey");
+
+	return handle_sign_to_us_tx(conn, c, tx, &privkey, wscript,
+				    input_amount);
+}
+
 static bool check_client_capabilities(struct client *client,
 				      enum hsm_client_wire_type t)
 {
@@ -326,6 +493,11 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_CUPDATE_SIG_REQ:
 	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REQ:
 		return (client->capabilities & HSM_CAP_SIGN_GOSSIP) != 0;
+
+	case WIRE_HSM_SIGN_DELAYED_PAYMENT_TO_US:
+	case WIRE_HSM_SIGN_REMOTE_HTLC_TO_US:
+	case WIRE_HSM_SIGN_PENALTY_TO_US:
+		return (client->capabilities & HSM_CAP_SIGN_ONCHAIN_TX) != 0;
 
 	case WIRE_HSM_INIT:
 	case WIRE_HSM_CLIENT_HSMFD:
@@ -347,6 +519,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_INIT_REPLY:
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 	case WIRE_HSM_SIGN_COMMITMENT_TX_REPLY:
+	case WIRE_HSM_SIGN_TX_REPLY:
 		break;
 	}
 	return false;
@@ -408,6 +581,15 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	case WIRE_HSM_SIGN_COMMITMENT_TX:
 		return handle_sign_commitment_tx(conn, dc);
 
+	case WIRE_HSM_SIGN_DELAYED_PAYMENT_TO_US:
+		return handle_sign_delayed_payment_to_us(conn, c);
+
+	case WIRE_HSM_SIGN_REMOTE_HTLC_TO_US:
+		return handle_sign_remote_htlc_to_us(conn, c);
+
+	case WIRE_HSM_SIGN_PENALTY_TO_US:
+		return handle_sign_penalty_to_us(conn, c);
+
 	case WIRE_HSM_ECDH_RESP:
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_CUPDATE_SIG_REPLY:
@@ -419,6 +601,7 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	case WIRE_HSM_INIT_REPLY:
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 	case WIRE_HSM_SIGN_COMMITMENT_TX_REPLY:
+	case WIRE_HSM_SIGN_TX_REPLY:
 		break;
 	}
 
