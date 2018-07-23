@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if ! diff -u <(grep -E 'sudo apt-get install .*git' README.md) \
      <(grep -E 'sudo apt-get install .*git' doc/INSTALL.md); then

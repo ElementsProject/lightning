@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if git --no-pager grep -nHiE 'l[ightn]{6}g|l[ightn]{8}g|ilghtning|lgihtning|lihgtning|ligthning|lighnting|lightinng|lightnnig|lightnign' -- . ':!tools/check-spelling.sh'; then
     echo "Identified a likely misspelling of the word \"lightning\" (see above). Please fix."
