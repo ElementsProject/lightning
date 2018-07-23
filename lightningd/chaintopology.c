@@ -235,7 +235,7 @@ static void update_feerates(struct bitcoind *bitcoind,
 			    const u32 *satoshi_per_kw,
 			    struct chain_topology *topo)
 {
-	u32 old_feerates[NUM_FEERATES] = { 0 };
+	u32 old_feerates[NUM_FEERATES];
 	bool changed = false;
 	/* Smoothing factor alpha for simple exponential smoothing. The goal is to
 	 * have the feerate account for 90 percent of the values polled in the last
@@ -245,6 +245,9 @@ static void update_feerates(struct bitcoind *bitcoind,
 
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
 		u32 feerate = satoshi_per_kw[i];
+
+		/* FIXME: This duplicate line mysteriously prevents channeld crash in some tests */
+		old_feerates[i] = get_feerate(topo, i);
 
 		/* If estimatefee failed, don't do anything. */
 		if (!feerate)
