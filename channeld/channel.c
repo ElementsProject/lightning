@@ -2046,10 +2046,6 @@ static void peer_reconnect(struct peer *peer)
 			send_fail_or_fulfill(peer, htlc);
 	}
 
-	/* Reenable channel by sending a channel_update without the
-	 * disable flag */
-	channel_announcement_negotiate(peer);
-
 	/* Corner case: we will get upset with them if they send
 	 * commitment_signed with no changes.  But it could be that we sent a
 	 * feechange, they acked, and now they want to commit it; we can't
@@ -2535,6 +2531,7 @@ static void init_channel(struct peer *peer)
 	if (funding_signed)
 		enqueue_peer_msg(peer, take(funding_signed));
 
+	/* Reenable channel */
 	channel_announcement_negotiate(peer);
 
 	billboard_update(peer);
