@@ -482,6 +482,62 @@ static struct io_plan *handle_sign_penalty_to_us(struct io_conn *conn,
 				    input_amount);
 }
 
+static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
+						 struct client *c)
+{
+	u64 commit_num, input_amount;
+	struct secret channel_seed, htlc_basepoint_secret;
+	struct sha256 shaseed;
+	struct pubkey per_commitment_point, htlc_basepoint;
+	struct bitcoin_tx *tx;
+	u8 *wscript;
+	secp256k1_ecdsa_signature sig;
+	struct privkey htlc_privkey;
+	struct pubkey htlc_pubkey;
+
+	if (!fromwire_hsm_sign_local_htlc_tx(tmpctx, c->dc.msg_in,
+					     &commit_num, &tx, &wscript,
+					     &input_amount))
+		return bad_sign_request(conn, c,
+					"malformed hsm_sign_local_htlc_tx");
+
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+
+	if (!derive_shaseed(&channel_seed, &shaseed))
+		return bad_sign_request(conn, c, "bad derive_shaseed");
+
+	if (!per_commit_point(&shaseed, &per_commitment_point, commit_num))
+		return bad_sign_request(conn, c,
+					"bad per_commitment_point %"PRIu64,
+					commit_num);
+
+	if (!derive_htlc_basepoint(&channel_seed,
+				   &htlc_basepoint,
+				   &htlc_basepoint_secret))
+		return bad_sign_request(conn, c,
+					"Failed deriving htlc basepoint");
+
+	if (!derive_simple_privkey(&htlc_basepoint_secret,
+				   &htlc_basepoint,
+				   &per_commitment_point,
+				   &htlc_privkey))
+		return bad_sign_request(conn, c,
+					"Failed deriving htlc privkey");
+
+	if (!pubkey_from_privkey(&htlc_privkey, &htlc_pubkey))
+		return bad_sign_request(conn, c, "bad pubkey_from_privkey");
+
+	if (tal_count(tx->input) != 1)
+		return bad_sign_request(conn, c, "bad txinput count");
+
+	/* FIXME: Check that output script is correct! */
+	tx->input[0].amount = tal_dup(tx->input, u64, &input_amount);
+	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey, &sig);
+
+	daemon_conn_send(&c->dc, take(towire_hsm_sign_tx_reply(NULL, &sig)));
+	return daemon_conn_read_next(conn, &c->dc);
+}
+
 static bool check_client_capabilities(struct client *client,
 				      enum hsm_client_wire_type t)
 {
@@ -497,6 +553,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_SIGN_DELAYED_PAYMENT_TO_US:
 	case WIRE_HSM_SIGN_REMOTE_HTLC_TO_US:
 	case WIRE_HSM_SIGN_PENALTY_TO_US:
+	case WIRE_HSM_SIGN_LOCAL_HTLC_TX:
 		return (client->capabilities & HSM_CAP_SIGN_ONCHAIN_TX) != 0;
 
 	case WIRE_HSM_INIT:
@@ -589,6 +646,9 @@ static struct io_plan *handle_client(struct io_conn *conn,
 
 	case WIRE_HSM_SIGN_PENALTY_TO_US:
 		return handle_sign_penalty_to_us(conn, c);
+
+	case WIRE_HSM_SIGN_LOCAL_HTLC_TX:
+		return handle_sign_local_htlc_tx(conn, c);
 
 	case WIRE_HSM_ECDH_RESP:
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
