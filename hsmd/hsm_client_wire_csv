@@ -127,6 +127,15 @@ hsm_sign_penalty_to_us,,wscript_len,u16
 hsm_sign_penalty_to_us,,wscript,wscript_len*u8
 hsm_sign_penalty_to_us,,input_amount,u64
 
+# Onchaind asks HSM to sign a local HTLC success or HTLC timeout tx.
+hsm_sign_local_htlc_tx,16
+hsm_sign_local_htlc_tx,,commit_num,u64
+hsm_sign_local_htlc_tx,,tx,struct bitcoin_tx
+hsm_sign_local_htlc_tx,,wscript_len,u16
+hsm_sign_local_htlc_tx,,wscript,wscript_len*u8
+hsm_sign_local_htlc_tx,,input_amount,u64
+
 # Reply for all the above requests from onchaind.
 hsm_sign_tx_reply,112
 hsm_sign_tx_reply,,sig,secp256k1_ecdsa_signature
+
