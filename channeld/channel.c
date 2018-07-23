@@ -2535,7 +2535,6 @@ static void init_channel(struct peer *peer)
 	channel_announcement_negotiate(peer);
 
 	billboard_update(peer);
-	tal_free(msg);
 }
 
 static void send_shutdown_complete(struct peer *peer)
