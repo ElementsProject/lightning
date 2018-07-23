@@ -566,7 +566,6 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 	s64 final_key_idx;
 	struct basepoints local_basepoints;
 	struct pubkey local_funding_pubkey;
-	struct secret seed;
 
 	peer_dbid = sqlite3_column_int64(stmt, 1);
 	peer = find_peer_by_dbid(w->ld, peer_dbid);
@@ -627,11 +626,8 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 		return NULL;
 	}
 
-	/* FIXME: this belongs in HSM */
-	derive_channel_seed(w->ld, &seed, &peer->id,
-			    sqlite3_column_int64(stmt, 0));
-	derive_basepoints(&seed, &local_funding_pubkey, &local_basepoints,
-			  NULL, NULL);
+	get_channel_basepoints(w->ld, &peer->id, sqlite3_column_int64(stmt, 0),
+			       &local_basepoints, &local_funding_pubkey);
 	chan = new_channel(peer, sqlite3_column_int64(stmt, 0),
 			   &wshachain,
 			   sqlite3_column_int(stmt, 5),

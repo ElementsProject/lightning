@@ -10,7 +10,6 @@ hsm_init,11
 #include <common/bip32.h>
 hsm_init_reply,111
 hsm_init_reply,,node_id,struct pubkey
-hsm_init_reply,,peer_seed,struct secret
 hsm_init_reply,,bip32,struct ext_key
 
 # Get a new HSM FD, with the specified capabilities

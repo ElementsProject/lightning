@@ -46,9 +46,6 @@ struct uncommitted_channel {
 	/* If we offered channel, this contains information, otherwise NULL */
 	struct funding_channel *fc;
 
-	/* Secret seed (FIXME: Move to hsm!) */
-	struct secret seed;
-
 	/* Our basepoints for the channel. */
 	struct basepoints local_basepoints;
 
@@ -622,11 +619,8 @@ new_uncommitted_channel(struct lightningd *ld,
 	uc->first_blocknum = get_block_height(ld->topology);
 	uc->our_config.id = 0;
 
-	/* FIXME: Keep these in HSM! */
-	derive_channel_seed(ld, &uc->seed, &uc->peer->id, uc->dbid);
-	derive_basepoints(&uc->seed,
-			  &uc->local_funding_pubkey, &uc->local_basepoints,
-			  NULL, NULL);
+	get_channel_basepoints(ld, &uc->peer->id, uc->dbid,
+			       &uc->local_basepoints, &uc->local_funding_pubkey);
 
 	uc->peer->uncommitted_channel = uc;
 	tal_add_destructor(uc, destroy_uncommitted_channel);
