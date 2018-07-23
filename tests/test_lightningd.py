@@ -1236,20 +1236,22 @@ class LightningDTests(BaseLightningDTests):
         # Wait for route propagation.
         self.wait_for_routes(l1, [chanid])
 
-        inv1 = l2.rpc.invoice(123000, 'test_pay', '1000')['bolt11']
-        l1.rpc.pay(inv1, description='1000')
+        inv1 = l2.rpc.invoice(123000, 'test_pay', 'desc')['bolt11']
+        l1.rpc.pay(inv1, description='desc')
         payment1 = l1.rpc.listpayments(inv1)['payments']
         assert only_one(payment1)['msatoshi'] == 123000
+        assert payment1[0]['description'] == 'desc'
 
         inv2 = l2.rpc.invoice(321000, 'test_pay2', 'description')['bolt11']
         l1.rpc.pay(inv2, riskfactor=5.0)
         payment2 = l1.rpc.listpayments(inv2)['payments']
         assert only_one(payment2)['msatoshi'] == 321000
 
-        anyinv = l2.rpc.invoice('any', 'any_pay', 'description')['bolt11']
-        l1.rpc.pay(anyinv, description='1000', msatoshi='500')
+        anyinv = l2.rpc.invoice('any', 'any_pay', 'desc')['bolt11']
+        l1.rpc.pay(anyinv, description='desc', msatoshi='500')
         payment3 = l1.rpc.listpayments(anyinv)['payments']
         assert only_one(payment3)['msatoshi'] == 500
+        assert payment3[0]['description'] == 'desc'
 
         # Should see 3 completed transactions
         assert len(l1.rpc.listpayments()['payments']) == 3

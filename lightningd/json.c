@@ -66,6 +66,8 @@ json_add_payment_fields(struct json_result *response,
 		json_add_hex(response, "payment_preimage",
 			     t->payment_preimage,
 			     sizeof(*t->payment_preimage));
+	if (t->description)
+		json_add_string(response, "description", t->description);
 }
 
 void json_add_pubkey(struct json_result *response,
