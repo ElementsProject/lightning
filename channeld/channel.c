@@ -300,6 +300,27 @@ static void enqueue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 	msg_enqueue(&peer->peer_out, msg);
 }
 
+static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
+{
+	u8 *msg;
+	int type = fromwire_peektype(req);
+
+	if (!wire_sync_write(HSM_FD, req))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Writing %s to HSM: %s",
+			      hsm_client_wire_type_name(type),
+			      strerror(errno));
+
+	msg = wire_sync_read(ctx, HSM_FD);
+	if (!msg)
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading resp to %s: %s",
+			      hsm_client_wire_type_name(type),
+			      strerror(errno));
+
+	return msg;
+}
+
 /* Create and send channel_update to gossipd (and maybe peer) */
 static void send_channel_update(struct peer *peer, int disable_flag)
 {
@@ -354,19 +375,14 @@ static void send_announcement_signatures(struct peer *peer)
 	/* First 2 + 256 byte are the signatures and msg type, skip them */
 	size_t offset = 258;
 	struct sha256_double hash;
-	u8 *msg, *ca, *req;
+	const u8 *msg, *ca, *req;
 
 	status_trace("Exchanging announcement signatures.");
 	ca = create_channel_announcement(tmpctx, peer);
 	req = towire_hsm_cannouncement_sig_req(tmpctx, ca);
 
-	if (!wire_sync_write(HSM_FD, req))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Writing cannouncement_sig_req: %s",
-			      strerror(errno));
-
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_cannouncement_sig_reply(msg,
+	msg = hsm_req(tmpctx, req);
+	if (!fromwire_hsm_cannouncement_sig_reply(msg,
 				  &peer->announcement_node_sigs[LOCAL],
 				  &peer->announcement_bitcoin_sigs[LOCAL]))
 		status_failed(STATUS_FAIL_HSM_IO,
@@ -569,7 +585,7 @@ static bool get_shared_secret(const struct htlc *htlc,
 {
 	struct pubkey ephemeral;
 	struct onionpacket *op;
-	u8 *msg;
+	const u8 *msg;
 
 	/* We unwrap the onion now. */
 	op = parse_onionpacket(tmpctx, htlc->routing, TOTAL_PACKET_SIZE);
@@ -581,14 +597,11 @@ static bool get_shared_secret(const struct htlc *htlc,
 
 	/* Because wire takes struct pubkey. */
 	ephemeral.pubkey = op->ephemeralkey;
-	msg = towire_hsm_ecdh_req(tmpctx, &ephemeral);
-	if (!wire_sync_write(HSM_FD, msg))
-		status_failed(STATUS_FAIL_HSM_IO, "Writing ecdh req");
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	/* Gives all-zero shares_secret if it was invalid. */
-	if (!msg || !fromwire_hsm_ecdh_resp(msg, shared_secret))
+	msg = hsm_req(tmpctx, towire_hsm_ecdh_req(tmpctx, &ephemeral));
+	if (!fromwire_hsm_ecdh_resp(msg, shared_secret))
 		status_failed(STATUS_FAIL_HSM_IO, "Reading ecdh response");
 
+	/* Gives all-zero shares_secret if it was invalid. */
 	return !memeqzero(shared_secret, sizeof(*shared_secret));
 }
 
