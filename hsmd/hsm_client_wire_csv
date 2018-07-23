@@ -139,3 +139,11 @@ hsm_sign_local_htlc_tx,,input_amount,u64
 hsm_sign_tx_reply,112
 hsm_sign_tx_reply,,sig,secp256k1_ecdsa_signature
 
+# Openingd/channeld/onchaind asks for Nth per_commitment_point, if > 2, gets N-2 secret.
+hsm_get_per_commitment_point,18
+hsm_get_per_commitment_point,,n,u64
+
+hsm_get_per_commitment_point_reply,118
+hsm_get_per_commitment_point_reply,,per_commitment_point,struct pubkey
+hsm_get_per_commitment_point_reply,,old_commitment_secret,?struct secret
+
