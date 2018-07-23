@@ -160,11 +160,11 @@ lightning funds.
 
 Testing
 -------
-Install `valgrind` and `pytest-xdist` for best results:
+Install `valgrind` and the python dependencies for best results:
 
 ```
 sudo apt install valgrind
-pip3 install pytest-xdist
+pip3 install -r tests/requirements.txt
 ```
 
 Tests are run with: `make check [flags]` where the pertinent flags are:
