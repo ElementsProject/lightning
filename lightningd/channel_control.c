@@ -195,7 +195,8 @@ bool peer_start_channeld(struct channel *channel,
 				  channel->dbid,
 				  HSM_CAP_SIGN_GOSSIP
 				  | HSM_CAP_ECDH
-				  | HSM_CAP_COMMITMENT_POINT);
+				  | HSM_CAP_COMMITMENT_POINT
+				  | HSM_CAP_SIGN_REMOTE_TX);
 
 	channel_set_owner(channel,
 			  new_channel_subd(ld,
@@ -259,7 +260,8 @@ bool peer_start_channeld(struct channel *channel,
 				      cfg->fee_base,
 				      cfg->fee_per_satoshi,
 				      channel->our_msatoshi,
-				      &channel->seed,
+				      &channel->local_basepoints,
+				      &channel->local_funding_pubkey,
 				      &ld->id,
 				      &channel->peer->id,
 				      cfg->commit_time_ms,
