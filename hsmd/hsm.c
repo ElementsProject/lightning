@@ -921,14 +921,11 @@ static struct io_plan *handle_client(struct io_conn *conn,
 static void send_init_response(struct daemon_conn *master)
 {
 	struct pubkey node_id;
-	struct secret peer_seed;
 	u8 *msg;
 
-	hsm_peer_secret_base(&peer_seed);
 	node_key(NULL, &node_id);
 
-	msg = towire_hsm_init_reply(NULL, &node_id, &peer_seed,
-				    &secretstuff.bip32);
+	msg = towire_hsm_init_reply(NULL, &node_id, &secretstuff.bip32);
 	daemon_conn_send(master, take(msg));
 }
 

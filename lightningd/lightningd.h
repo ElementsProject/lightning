@@ -131,8 +131,6 @@ struct lightningd {
 
 	/* All peers we're tracking. */
 	struct list_head peers;
-	/* FIXME: This should stay in HSM */
-	struct secret peer_seed;
 
 	/* Outstanding connect commands. */
 	struct list_head connects;

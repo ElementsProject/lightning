@@ -78,9 +78,6 @@ struct channel {
 	/* Keys for channel */
 	struct channel_info channel_info;
 
-	/* Secret seed (FIXME: Move to hsm!) */
-	struct secret seed;
-
 	/* Our local basepoints */
 	struct basepoints local_basepoints;
 
@@ -211,9 +208,11 @@ static inline bool channel_active(const struct channel *channel)
 		&& !channel_on_chain(channel);
 }
 
-void derive_channel_seed(struct lightningd *ld, struct secret *seed,
-			 const struct pubkey *peer_id,
-			 const u64 dbid);
+void get_channel_basepoints(struct lightningd *ld,
+			    const struct pubkey *peer_id,
+			    const u64 dbid,
+			    struct basepoints *local_basepoints,
+			    struct pubkey *local_funding_pubkey);
 
 void channel_set_billboard(struct channel *channel, bool perm,
 			   const char *str TAKES);

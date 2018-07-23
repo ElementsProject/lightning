@@ -2,15 +2,19 @@
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/tal/str/str.h>
 #include <common/wire_error.h>
+#include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
+#include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/channel.h>
 #include <lightningd/gen_channel_state_names.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
+#include <wire/wire_sync.h>
 
 static bool connects_to_peer(struct subd *owner)
 {
@@ -99,35 +103,24 @@ void delete_channel(struct channel *channel)
 		delete_peer(peer);
 }
 
-/* FIXME: We have no business knowing this! */
-/**
- * derive_channel_seed - Generate a unique secret for this peer's channel
- *
- * @ld: the lightning daemon to get global secret from
- * @seed: where to store the generated secret
- * @peer_id: the id node_id of the remote peer
- * @dbid: channel DBID
- *
- * This method generates a unique secret from the given parameters. It
- * is important that this secret be unique for each channel, but it
- * must be reproducible for the same channel in case of
- * reconnection. We use the DB channel ID to guarantee unique secrets
- * per channel.
- */
-void derive_channel_seed(struct lightningd *ld, struct secret *seed,
-			 const struct pubkey *peer_id,
-			 const u64 dbid)
+void get_channel_basepoints(struct lightningd *ld,
+			    const struct pubkey *peer_id,
+			    const u64 dbid,
+			    struct basepoints *local_basepoints,
+			    struct pubkey *local_funding_pubkey)
 {
-	u8 input[PUBKEY_DER_LEN + sizeof(dbid)];
-	char *info = "per-peer seed";
-	pubkey_to_der(input, peer_id);
-	memcpy(input + PUBKEY_DER_LEN, &dbid, sizeof(dbid));
+	u8 *msg;
 
 	assert(dbid != 0);
-	hkdf_sha256(seed, sizeof(*seed),
-		    input, sizeof(input),
-		    &ld->peer_seed, sizeof(ld->peer_seed),
-		    info, strlen(info));
+	msg = towire_hsm_get_channel_basepoints(NULL, peer_id, dbid);
+	if (!wire_sync_write(ld->hsm_fd, take(msg)))
+		fatal("Could not write to HSM: %s", strerror(errno));
+
+	msg = wire_sync_read(tmpctx, ld->hsm_fd);
+	if (!fromwire_hsm_get_channel_basepoints_reply(msg, local_basepoints,
+						       local_funding_pubkey))
+		fatal("HSM gave bad hsm_get_channel_basepoints_reply %s",
+		      tal_hex(msg, msg));
 }
 
 struct channel *new_channel(struct peer *peer, u64 dbid,
@@ -231,7 +224,6 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->connected = connected;
 	channel->local_basepoints = *local_basepoints;
 	channel->local_funding_pubkey = *local_funding_pubkey;
-	derive_channel_seed(peer->ld, &channel->seed, &peer->id, channel->dbid);
 
 	list_add_tail(&peer->channels, &channel->list);
 	tal_add_destructor(channel, destroy_channel);
