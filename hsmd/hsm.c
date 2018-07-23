@@ -277,6 +277,44 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 	return daemon_conn_read_next(conn, dc);
 }
 
+/* FIXME: Ensure HSM never does this twice for same dbid! */
+static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
+						 struct daemon_conn *dc)
+{
+	struct pubkey peer_id, remote_funding_pubkey, local_funding_pubkey;
+	u64 dbid, funding_amount;
+	struct secret channel_seed;
+	struct bitcoin_tx *tx;
+	secp256k1_ecdsa_signature sig;
+	struct secrets secrets;
+	const u8 *funding_wscript;
+
+	if (!fromwire_hsm_sign_commitment_tx(tmpctx, dc->msg_in,
+					     &peer_id, &dbid,
+					     &tx,
+					     &remote_funding_pubkey,
+					     &funding_amount))
+		master_badmsg(WIRE_HSM_SIGN_COMMITMENT_TX, dc->msg_in);
+
+	get_channel_seed(&peer_id, dbid, &channel_seed);
+	derive_basepoints(&channel_seed,
+			  &local_funding_pubkey, NULL, &secrets, NULL);
+
+	funding_wscript = bitcoin_redeem_2of2(tmpctx,
+					      &local_funding_pubkey,
+					      &remote_funding_pubkey);
+	/* Need input amount for signing */
+	tx->input[0].amount = tal_dup(tx->input, u64, &funding_amount);
+	sign_tx_input(tx, 0, NULL, funding_wscript,
+		      &secrets.funding_privkey,
+		      &local_funding_pubkey,
+		      &sig);
+
+	daemon_conn_send(dc,
+			 take(towire_hsm_sign_commitment_tx_reply(NULL, &sig)));
+	return daemon_conn_read_next(conn, dc);
+}
+
 static bool check_client_capabilities(struct client *client,
 				      enum hsm_client_wire_type t)
 {
@@ -294,6 +332,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_SIGN_FUNDING:
 	case WIRE_HSM_SIGN_WITHDRAWAL:
 	case WIRE_HSM_SIGN_INVOICE:
+	case WIRE_HSM_SIGN_COMMITMENT_TX:
 		return (client->capabilities & HSM_CAP_MASTER) != 0;
 
 	/* These are messages sent by the HSM so we should never receive them */
@@ -307,6 +346,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_SIGN_INVOICE_REPLY:
 	case WIRE_HSM_INIT_REPLY:
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
+	case WIRE_HSM_SIGN_COMMITMENT_TX_REPLY:
 		break;
 	}
 	return false;
@@ -365,6 +405,9 @@ static struct io_plan *handle_client(struct io_conn *conn,
 		sign_withdrawal_tx(dc, dc->msg_in);
 		return daemon_conn_read_next(conn, dc);
 
+	case WIRE_HSM_SIGN_COMMITMENT_TX:
+		return handle_sign_commitment_tx(conn, dc);
+
 	case WIRE_HSM_ECDH_RESP:
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_CUPDATE_SIG_REPLY:
@@ -375,6 +418,7 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	case WIRE_HSM_SIGN_INVOICE_REPLY:
 	case WIRE_HSM_INIT_REPLY:
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
+	case WIRE_HSM_SIGN_COMMITMENT_TX_REPLY:
 		break;
 	}
 

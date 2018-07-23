@@ -23,6 +23,7 @@ hsm_client_hsmfd,,capabilities,u64
 # No content, just an fd.
 hsm_client_hsmfd_reply,109
 
+
 # Return signature for a funding tx.
 #include <common/utxo.h>
 # FIXME: This should also take their commit sig & details, to verify.
@@ -90,3 +91,16 @@ hsm_cupdate_sig_req,,cu,culen*u8
 hsm_cupdate_sig_reply,103
 hsm_cupdate_sig_reply,,culen,u16
 hsm_cupdate_sig_reply,,cu,culen*u8
+
+# Master asks HSM to sign a commitment transaction.
+hsm_sign_commitment_tx,5
+hsm_sign_commitment_tx,,peer_id,struct pubkey
+hsm_sign_commitment_tx,,channel_dbid,u64
+hsm_sign_commitment_tx,,tx,struct bitcoin_tx
+hsm_sign_commitment_tx,,remote_funding_key,struct pubkey
+hsm_sign_commitment_tx,,funding_amount,u64
+
+hsm_sign_commitment_tx_reply,105
+hsm_sign_commitment_tx_reply,,sig,secp256k1_ecdsa_signature
+
+

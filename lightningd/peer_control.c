@@ -44,6 +44,7 @@
 #include <unistd.h>
 #include <wally_bip32.h>
 #include <wire/gen_onion_wire.h>
+#include <wire/wire_sync.h>
 
 struct close_command {
 	/* Inside struct lightningd close_commands. */
@@ -197,24 +198,27 @@ u32 feerate_max(struct lightningd *ld)
 
 static void sign_last_tx(struct channel *channel)
 {
-	u8 *funding_wscript;
-	struct secrets secrets;
+	struct lightningd *ld = channel->peer->ld;
 	secp256k1_ecdsa_signature sig;
+	u8 *msg;
 
 	assert(!channel->last_tx->input[0].witness);
 
-	derive_basepoints(&channel->seed, NULL, NULL, &secrets, NULL);
+	msg = towire_hsm_sign_commitment_tx(tmpctx,
+					    &channel->peer->id,
+					    channel->dbid,
+					    channel->last_tx,
+					    &channel->channel_info
+					    .remote_fundingkey,
+					    channel->funding_satoshi);
 
-	funding_wscript = bitcoin_redeem_2of2(tmpctx,
-					      &channel->local_funding_pubkey,
-					      &channel->channel_info.remote_fundingkey);
-	/* Need input amount for signing */
-	channel->last_tx->input[0].amount = tal_dup(channel->last_tx->input, u64,
-						    &channel->funding_satoshi);
-	sign_tx_input(channel->last_tx, 0, NULL, funding_wscript,
-		      &secrets.funding_privkey,
-		      &channel->local_funding_pubkey,
-		      &sig);
+	if (!wire_sync_write(ld->hsm_fd, take(msg)))
+		fatal("Could not write to HSM: %s", strerror(errno));
+
+	msg = wire_sync_read(tmpctx, ld->hsm_fd);
+	if (!fromwire_hsm_sign_commitment_tx_reply(msg, &sig))
+		fatal("HSM gave bad sign_commitment_tx_reply %s",
+		      tal_hex(tmpctx, msg));
 
 	channel->last_tx->input[0].witness
 		= bitcoin_witness_2of2(channel->last_tx->input,
@@ -226,7 +230,6 @@ static void sign_last_tx(struct channel *channel)
 
 static void remove_sig(struct bitcoin_tx *signed_tx)
 {
-	signed_tx->input[0].amount = tal_free(signed_tx->input[0].amount);
 	signed_tx->input[0].witness = tal_free(signed_tx->input[0].witness);
 }
 
