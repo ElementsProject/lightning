@@ -278,6 +278,28 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 	return daemon_conn_read_next(conn, dc);
 }
 
+static struct io_plan *handle_get_channel_basepoints(struct io_conn *conn,
+						     struct daemon_conn *dc)
+{
+	struct pubkey peer_id;
+	u64 dbid;
+	struct secret seed;
+	struct basepoints basepoints;
+	struct pubkey funding_pubkey;
+
+	if (!fromwire_hsm_get_channel_basepoints(dc->msg_in, &peer_id, &dbid))
+		master_badmsg(WIRE_HSM_GET_CHANNEL_BASEPOINTS, dc->msg_in);
+
+	get_channel_seed(&peer_id, dbid, &seed);
+	derive_basepoints(&seed, &funding_pubkey, &basepoints, NULL, NULL);
+
+	daemon_conn_send(dc,
+			 take(towire_hsm_get_channel_basepoints_reply(NULL,
+							      &basepoints,
+							      &funding_pubkey)));
+	return daemon_conn_read_next(conn, dc);
+}
+
 /* FIXME: Ensure HSM never does this twice for same dbid! */
 static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 						 struct daemon_conn *dc)
@@ -766,6 +788,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_SIGN_WITHDRAWAL:
 	case WIRE_HSM_SIGN_INVOICE:
 	case WIRE_HSM_SIGN_COMMITMENT_TX:
+	case WIRE_HSM_GET_CHANNEL_BASEPOINTS:
 		return (client->capabilities & HSM_CAP_MASTER) != 0;
 
 	/* These are messages sent by the HSM so we should never receive them */
@@ -782,6 +805,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_SIGN_COMMITMENT_TX_REPLY:
 	case WIRE_HSM_SIGN_TX_REPLY:
 	case WIRE_HSM_GET_PER_COMMITMENT_POINT_REPLY:
+	case WIRE_HSM_GET_CHANNEL_BASEPOINTS_REPLY:
 		break;
 	}
 	return false;
@@ -814,6 +838,9 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	case WIRE_HSM_CLIENT_HSMFD:
 		pass_client_hsmfd(dc, dc->msg_in);
 		return daemon_conn_read_next(conn, dc);
+
+	case WIRE_HSM_GET_CHANNEL_BASEPOINTS:
+		return handle_get_channel_basepoints(conn, dc);
 
 	case WIRE_HSM_ECDH_REQ:
 		return handle_ecdh(conn, dc);
@@ -880,6 +907,7 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	case WIRE_HSM_SIGN_COMMITMENT_TX_REPLY:
 	case WIRE_HSM_SIGN_TX_REPLY:
 	case WIRE_HSM_GET_PER_COMMITMENT_POINT_REPLY:
+	case WIRE_HSM_GET_CHANNEL_BASEPOINTS_REPLY:
 		break;
 	}
 

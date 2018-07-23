@@ -23,6 +23,15 @@ hsm_client_hsmfd,,capabilities,u64
 # No content, just an fd.
 hsm_client_hsmfd_reply,109
 
+#include <common/derive_basepoints.h>
+# Get the basepoints and funding key for this specific channel.
+hsm_get_channel_basepoints,10
+hsm_get_channel_basepoints,,peerid,struct pubkey
+hsm_get_channel_basepoints,,dbid,u64
+
+hsm_get_channel_basepoints_reply,110
+hsm_get_channel_basepoints_reply,,basepoints,struct basepoints
+hsm_get_channel_basepoints_reply,,funding_pubkey,struct pubkey
 
 # Return signature for a funding tx.
 #include <common/utxo.h>
