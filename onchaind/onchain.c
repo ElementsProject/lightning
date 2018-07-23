@@ -30,6 +30,9 @@
 /* Required in various places: keys for commitment transaction. */
 static const struct keyset *keyset;
 
+/* The commitment number we're dealing with (if not mutual close) */
+static u64 commit_num;
+
 /* The feerate to use when we generate transactions. */
 static u32 feerate_per_kw;
 
@@ -1372,7 +1375,6 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 				  const struct pubkey *remote_htlc_basepoint,
 				  const struct pubkey *local_htlc_basepoint,
 				  const struct pubkey *local_delayed_payment_basepoint,
-				  u64 commit_num,
 				  const struct htlc_stub *htlcs,
 				  const bool *tell_if_missing,
 				  const bool *tell_immediately,
@@ -1678,7 +1680,6 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			       const struct pubkey *remote_htlc_basepoint,
 			       const struct pubkey *local_htlc_basepoint,
 			       const struct pubkey *remote_delayed_payment_basepoint,
-			       u64 commit_num,
 			       const struct htlc_stub *htlcs,
 			       const bool *tell_if_missing,
 			       const bool *tell_immediately,
@@ -1911,7 +1912,6 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 				    const struct pubkey *remote_htlc_basepoint,
 				    const struct pubkey *local_htlc_basepoint,
 				    const struct pubkey *remote_delayed_payment_basepoint,
-				    u64 commit_num,
 				    const struct htlc_stub *htlcs,
 				    const bool *tell_if_missing,
 				    const bool *tell_immediately,
@@ -2239,7 +2239,7 @@ int main(int argc, char *argv[])
 		 *    *latest commitment transaction*.
 		 */
 		struct sha256 revocation_preimage;
-		u64 commit_num = unmask_commit_number(tx, funder,
+		commit_num = unmask_commit_number(tx, funder,
 						      &basepoints.payment,
 						      &remote_basepoints.payment);
 
@@ -2257,7 +2257,6 @@ int main(int argc, char *argv[])
 					      &remote_basepoints.htlc,
 					      &basepoints.htlc,
 					      &basepoints.delayed_payment,
-					      commit_num,
 					      htlcs,
 					      tell_if_missing, tell_immediately,
 					      remote_htlc_sigs,
@@ -2282,7 +2281,6 @@ int main(int argc, char *argv[])
 					   &basepoints.htlc,
 					   &remote_basepoints.htlc,
 					   &remote_basepoints.delayed_payment,
-					   commit_num,
 					   htlcs,
 					   tell_if_missing, tell_immediately,
 					   outs);
@@ -2306,7 +2304,6 @@ int main(int argc, char *argv[])
 						&remote_basepoints.htlc,
 						&basepoints.htlc,
 						&remote_basepoints.delayed_payment,
-						commit_num,
 						htlcs,
 						tell_if_missing,
 						tell_immediately,
@@ -2322,7 +2319,6 @@ int main(int argc, char *argv[])
 						&remote_basepoints.htlc,
 						&basepoints.htlc,
 						&remote_basepoints.delayed_payment,
-						commit_num,
 						htlcs,
 						tell_if_missing,
 						tell_immediately,
