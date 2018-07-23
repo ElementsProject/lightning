@@ -193,7 +193,9 @@ bool peer_start_channeld(struct channel *channel,
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,
-				  HSM_CAP_SIGN_GOSSIP | HSM_CAP_ECDH);
+				  HSM_CAP_SIGN_GOSSIP
+				  | HSM_CAP_ECDH
+				  | HSM_CAP_COMMITMENT_POINT);
 
 	channel_set_owner(channel,
 			  new_channel_subd(ld,
