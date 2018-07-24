@@ -305,6 +305,7 @@ static void json_invoice(struct command *cmd,
 				       take(label_val),
 				       expiry,
 				       b11enc,
+				       b11->description,
 				       &r,
 				       &rhash);
 

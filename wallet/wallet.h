@@ -501,6 +501,7 @@ bool wallet_invoice_create(struct wallet *wallet,
 			   const struct json_escaped *label TAKES,
 			   u64 expiry,
 			   const char *b11enc,
+			   const char *description,
 			   const struct preimage *r,
 			   const struct sha256 *rhash);
 

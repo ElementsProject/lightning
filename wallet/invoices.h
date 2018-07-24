@@ -59,6 +59,7 @@ bool invoices_create(struct invoices *invoices,
 		     const struct json_escaped *label TAKES,
 		     u64 expiry,
 		     const char *b11enc,
+		     const char *description,
 		     const struct preimage *r,
 		     const struct sha256 *rhash);
 

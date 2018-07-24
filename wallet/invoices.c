@@ -260,6 +260,7 @@ bool invoices_create(struct invoices *invoices,
 		     const struct json_escaped *label TAKES,
 		     u64 expiry,
 		     const char *b11enc,
+		     const char *description,
 		     const struct preimage *r,
 		     const struct sha256 *rhash)
 {
@@ -288,11 +289,11 @@ bool invoices_create(struct invoices *invoices,
 			  "            ( payment_hash, payment_key, state"
 			  "            , msatoshi, label, expiry_time"
 			  "            , pay_index, msatoshi_received"
-			  "            , paid_timestamp, bolt11)"
+			  "            , paid_timestamp, bolt11, description)"
 			  "     VALUES ( ?, ?, ?"
 			  "            , ?, ?, ?"
 			  "            , NULL, NULL"
-			  "            , NULL, ?);");
+			  "            , NULL, ?, ?);");
 
 	sqlite3_bind_blob(stmt, 1, rhash, sizeof(struct sha256), SQLITE_TRANSIENT);
 	sqlite3_bind_blob(stmt, 2, r, sizeof(struct preimage), SQLITE_TRANSIENT);
@@ -304,6 +305,7 @@ bool invoices_create(struct invoices *invoices,
 	sqlite3_bind_json_escaped(stmt, 5, label);
 	sqlite3_bind_int64(stmt, 6, expiry_time);
 	sqlite3_bind_text(stmt, 7, b11enc, strlen(b11enc), SQLITE_TRANSIENT);
+	sqlite3_bind_text(stmt, 8, description, strlen(description), SQLITE_TRANSIENT);
 
 	db_exec_prepared(invoices->db, stmt);
 

@@ -1402,10 +1402,11 @@ bool wallet_invoice_create(struct wallet *wallet,
 			   const struct json_escaped *label TAKES,
 			   u64 expiry,
 			   const char *b11enc,
+			   const char *description,
 			   const struct preimage *r,
 			   const struct sha256 *rhash)
 {
-	return invoices_create(wallet->invoices, pinvoice, msatoshi, label, expiry, b11enc, r, rhash);
+	return invoices_create(wallet->invoices, pinvoice, msatoshi, label, expiry, b11enc, description, r, rhash);
 }
 bool wallet_invoice_find_by_label(struct wallet *wallet,
 				  struct invoice *pinvoice,
