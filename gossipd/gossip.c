@@ -30,6 +30,7 @@
 #include <common/version.h>
 #include <common/wire_error.h>
 #include <common/wireaddr.h>
+#include <connectd/gen_connect_gossip_wire.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/broadcast.h>
@@ -61,6 +62,7 @@
 #define GOSSIP_MAX_REACH_ATTEMPTS 10
 
 #define HSM_FD 3
+#define CONNECTD_FD 4
 
 #define INITIAL_WAIT_SECONDS	1
 #define MAX_WAIT_SECONDS	300
@@ -140,6 +142,9 @@ struct daemon {
 
 	/* Connection to main daemon. */
 	struct daemon_conn master;
+
+	/* Connection to connect daemon. */
+	struct daemon_conn connectd;
 
 	/* Routing information */
 	struct routing_state *rstate;
@@ -710,6 +715,7 @@ static struct io_plan *peer_connected(struct io_conn *conn, struct peer *peer)
 	wake_gossip_out(peer);
 
 	setup_gossip_range(peer);
+
 	return io_close_taken_fd(conn);
 }
 
@@ -1946,6 +1952,107 @@ static bool send_peer_with_fds(struct peer *peer, const u8 *msg)
 	daemon_conn_send_fd(&peer->daemon->master, fds[1]);
 
 	return true;
+}
+
+static void free_peer(struct io_conn *conn, struct daemon_conn *dc)
+{
+	struct peer *peer = dc->ctx;
+
+	tal_free(peer);
+}
+
+static struct io_plan *connectd_new_peer(struct io_conn *conn,
+					 struct daemon *daemon,
+					 const u8 *msg)
+{
+	struct peer *peer = tal(conn, struct peer);
+	int fds[2];
+
+	if (!fromwire_gossip_new_peer(msg, &peer->id,
+				      &peer->gossip_queries_feature,
+				      &peer->initial_routing_sync_feature)) {
+		status_broken("Bad new_peer msg from connectd: %s",
+			      tal_hex(tmpctx, msg));
+		return io_close(conn);
+	}
+
+	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+		status_broken("Failed to create socketpair: %s",
+			      strerror(errno));
+		daemon_conn_send(&daemon->connectd,
+				 take(towire_gossip_new_peer_reply(NULL, false)));
+		goto done;
+	}
+
+	/* We might not have noticed old peer is dead; kill it now. */
+	tal_free(find_peer(daemon, &peer->id));
+
+	/* FIXME: Remove addr field. */
+	peer->addr.itype = ADDR_INTERNAL_WIREADDR;
+	peer->addr.u.wireaddr.type = ADDR_TYPE_PADDING;
+	/* FIXME: Remove these fields. */
+	peer->lfeatures = peer->gfeatures = NULL;
+
+	peer->daemon = daemon;
+	peer->remote = tal(peer, struct daemon_conn);
+	daemon_conn_init(peer, peer->remote, fds[0], owner_msg_in, free_peer);
+	peer->remote->msg_queue_cleared_cb = nonlocal_dump_gossip;
+
+	peer->scid_queries = NULL;
+	peer->scid_query_idx = 0;
+	peer->scid_query_nodes = NULL;
+	peer->scid_query_nodes_idx = 0;
+	peer->num_scid_queries_outstanding = 0;
+	peer->query_channel_blocks = NULL;
+	peer->num_pings_outstanding = 0;
+	peer->gossip_timer = NULL;
+
+	list_add_tail(&peer->daemon->peers, &peer->list);
+	tal_add_destructor(peer, destroy_peer);
+
+	/* BOLT #7:
+	 *
+	 *   - if the `gossip_queries` feature is negotiated:
+	 *	- MUST NOT relay any gossip messages unless explicitly requested.
+	 */
+	if (peer->gossip_queries_feature) {
+		peer->broadcast_index = UINT64_MAX;
+		/* Nothing in this range */
+		peer->gossip_timestamp_min = UINT32_MAX;
+		peer->gossip_timestamp_max = 0;
+	} else {
+		/* BOLT #7:
+		 *
+		 * - upon receiving an `init` message with the
+		 *   `initial_routing_sync` flag set to 1:
+		 *   - SHOULD send gossip messages for all known channels and
+		 *    nodes, as if they were just received.
+		 * - if the `initial_routing_sync` flag is set to 0, OR if the
+		 *   initial sync was completed:
+		 *   - SHOULD resume normal operation, as specified in the
+		 *     following [Rebroadcasting](#rebroadcasting) section.
+		 */
+		peer->gossip_timestamp_min = 0;
+		peer->gossip_timestamp_max = UINT32_MAX;
+		if (peer->initial_routing_sync_feature)
+			peer->broadcast_index = 0;
+		else
+			peer->broadcast_index
+				= peer->daemon->rstate->broadcasts->next_index;
+	}
+
+	/* Start the gossip flowing. */
+	wake_gossip_out(peer);
+
+	setup_gossip_range(peer);
+
+	/* Reply with success, and the new fd */
+	daemon_conn_send(&daemon->connectd,
+			 take(towire_gossip_new_peer_reply(NULL, true)));
+	daemon_conn_send_fd(&daemon->connectd, fds[1]);
+
+done:
+	return daemon_conn_read_next(conn, &daemon->connectd);
 }
 
 /**
@@ -3809,6 +3916,26 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		      t, tal_hex(tmpctx, master->msg_in));
 }
 
+static struct io_plan *connectd_req(struct io_conn *conn,
+				    struct daemon_conn *connectd)
+{
+	struct daemon *daemon = container_of(connectd, struct daemon, connectd);
+	enum connect_gossip_wire_type t = fromwire_peektype(connectd->msg_in);
+
+	switch (t) {
+	case WIRE_GOSSIP_NEW_PEER:
+		return connectd_new_peer(conn, daemon, connectd->msg_in);
+
+	/* We send this, don't receive it. */
+	case WIRE_GOSSIP_NEW_PEER_REPLY:
+		break;
+	}
+
+	status_broken("Bad msg from connectd: %s",
+		      tal_hex(tmpctx, connectd->msg_in));
+	return io_close(conn);
+}
+
 #ifndef TESTING
 static void master_gone(struct io_conn *unused UNUSED, struct daemon_conn *dc UNUSED)
 {
@@ -3840,6 +3967,8 @@ int main(int argc, char *argv[])
 			 master_gone);
 	status_setup_async(&daemon->master);
 	hsm_setup(HSM_FD);
+	daemon_conn_init(daemon, &daemon->connectd, CONNECTD_FD, connectd_req,
+			 NULL);
 
 	/* When conn closes, everything is freed. */
 	tal_steal(daemon->master.conn, daemon);

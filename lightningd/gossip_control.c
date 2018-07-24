@@ -199,7 +199,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 
 /* Create the `gossipd` subdaemon and send the initialization
  * message */
-void gossip_init(struct lightningd *ld)
+void gossip_init(struct lightningd *ld, int connectd_fd)
 {
 	u8 *msg;
 	int hsmfd;
@@ -226,7 +226,7 @@ void gossip_init(struct lightningd *ld)
 
 	ld->gossip = new_global_subd(ld, "lightning_gossipd",
 				     gossip_wire_type_name, gossip_msg,
-				     take(&hsmfd), NULL);
+				     take(&hsmfd), take(&connectd_fd), NULL);
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
 

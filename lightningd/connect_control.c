@@ -188,3 +188,14 @@ static const struct json_command connect_command = {
 	"{id} can also be of the form id@host"
 };
 AUTODATA(json_command, &connect_command);
+
+int connectd_init(struct lightningd *ld)
+{
+	/* FIXME: implement */
+	int fds[2];
+
+	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0)
+		fatal("Could not socketpair for connectd<->gossipd");
+
+	return fds[0];
+}

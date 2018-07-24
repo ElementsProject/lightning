@@ -66,6 +66,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/version.o			\
 	common/wireaddr.o			\
 	common/wire_error.o			\
+	connectd/gen_connect_gossip_wire.o	\
 	hsmd/client.o				\
 	hsmd/gen_hsm_client_wire.o		\
 	lightningd/gossip_msg.o			\
