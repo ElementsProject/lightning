@@ -65,18 +65,18 @@ bool extract_channel_id(const u8 *in_pkt UNNEEDED, struct channel_id *channel_id
 /* Generated stub for features_supported */
 bool features_supported(const u8 *gfeatures UNNEEDED, const u8 *lfeatures UNNEEDED)
 { fprintf(stderr, "features_supported called!\n"); abort(); }
-/* Generated stub for fromwire_gossipctl_peer_disconnect_reply */
-bool fromwire_gossipctl_peer_disconnect_reply(const void *p UNNEEDED)
-{ fprintf(stderr, "fromwire_gossipctl_peer_disconnect_reply called!\n"); abort(); }
-/* Generated stub for fromwire_gossipctl_peer_disconnect_replyfail */
-bool fromwire_gossipctl_peer_disconnect_replyfail(const void *p UNNEEDED, bool *isconnected UNNEEDED)
-{ fprintf(stderr, "fromwire_gossipctl_peer_disconnect_replyfail called!\n"); abort(); }
-/* Generated stub for fromwire_gossip_getpeers_reply */
-bool fromwire_gossip_getpeers_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey **id UNNEEDED, struct wireaddr_internal **addr UNNEEDED, struct gossip_getnodes_entry ***nodes UNNEEDED)
-{ fprintf(stderr, "fromwire_gossip_getpeers_reply called!\n"); abort(); }
-/* Generated stub for fromwire_gossip_peer_connected */
-bool fromwire_gossip_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u8 **gfeatures UNNEEDED, u8 **lfeatures UNNEEDED)
-{ fprintf(stderr, "fromwire_gossip_peer_connected called!\n"); abort(); }
+/* Generated stub for fromwire_connectctl_peer_disconnect_reply */
+bool fromwire_connectctl_peer_disconnect_reply(const void *p UNNEEDED)
+{ fprintf(stderr, "fromwire_connectctl_peer_disconnect_reply called!\n"); abort(); }
+/* Generated stub for fromwire_connectctl_peer_disconnect_replyfail */
+bool fromwire_connectctl_peer_disconnect_replyfail(const void *p UNNEEDED, bool *isconnected UNNEEDED)
+{ fprintf(stderr, "fromwire_connectctl_peer_disconnect_replyfail called!\n"); abort(); }
+/* Generated stub for fromwire_connect_getpeers_reply */
+bool fromwire_connect_getpeers_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey **id UNNEEDED, struct wireaddr_internal **addr UNNEEDED, struct gossip_getnodes_entry ***nodes UNNEEDED)
+{ fprintf(stderr, "fromwire_connect_getpeers_reply called!\n"); abort(); }
+/* Generated stub for fromwire_connect_peer_connected */
+bool fromwire_connect_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u8 **gfeatures UNNEEDED, u8 **lfeatures UNNEEDED)
+{ fprintf(stderr, "fromwire_connect_peer_connected called!\n"); abort(); }
 /* Generated stub for fromwire_hsm_sign_commitment_tx_reply */
 bool fromwire_hsm_sign_commitment_tx_reply(const void *p UNNEEDED, secp256k1_ecdsa_signature *sig UNNEEDED)
 { fprintf(stderr, "fromwire_hsm_sign_commitment_tx_reply called!\n"); abort(); }
@@ -354,39 +354,39 @@ void subd_send_fd(struct subd *sd UNNEEDED, int fd UNNEEDED)
 /* Generated stub for subd_send_msg */
 void subd_send_msg(struct subd *sd UNNEEDED, const u8 *msg_out UNNEEDED)
 { fprintf(stderr, "subd_send_msg called!\n"); abort(); }
-/* Generated stub for tell_gossipd_peer_is_important */
-void tell_gossipd_peer_is_important(struct lightningd *ld UNNEEDED,
-				    const struct channel *channel UNNEEDED)
-{ fprintf(stderr, "tell_gossipd_peer_is_important called!\n"); abort(); }
+/* Generated stub for tell_connectd_peer_is_important */
+void tell_connectd_peer_is_important(struct lightningd *ld UNNEEDED,
+				     const struct channel *channel UNNEEDED)
+{ fprintf(stderr, "tell_connectd_peer_is_important called!\n"); abort(); }
 /* Generated stub for towire_channel_dev_reenable_commit */
 u8 *towire_channel_dev_reenable_commit(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_dev_reenable_commit called!\n"); abort(); }
 /* Generated stub for towire_channel_send_shutdown */
 u8 *towire_channel_send_shutdown(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_send_shutdown called!\n"); abort(); }
+/* Generated stub for towire_connectctl_hand_back_peer */
+u8 *towire_connectctl_hand_back_peer(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, const struct crypto_state *crypto_state UNNEEDED, const u8 *msg UNNEEDED)
+{ fprintf(stderr, "towire_connectctl_hand_back_peer called!\n"); abort(); }
+/* Generated stub for towire_connectctl_peer_addrhint */
+u8 *towire_connectctl_peer_addrhint(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, const struct wireaddr_internal *addr UNNEEDED)
+{ fprintf(stderr, "towire_connectctl_peer_addrhint called!\n"); abort(); }
+/* Generated stub for towire_connectctl_peer_disconnect */
+u8 *towire_connectctl_peer_disconnect(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
+{ fprintf(stderr, "towire_connectctl_peer_disconnect called!\n"); abort(); }
+/* Generated stub for towire_connectctl_peer_disconnected */
+u8 *towire_connectctl_peer_disconnected(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
+{ fprintf(stderr, "towire_connectctl_peer_disconnected called!\n"); abort(); }
+/* Generated stub for towire_connectctl_peer_important */
+u8 *towire_connectctl_peer_important(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, bool important UNNEEDED)
+{ fprintf(stderr, "towire_connectctl_peer_important called!\n"); abort(); }
+/* Generated stub for towire_connect_getpeers_request */
+u8 *towire_connect_getpeers_request(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
+{ fprintf(stderr, "towire_connect_getpeers_request called!\n"); abort(); }
 /* Generated stub for towire_errorfmt */
 u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const struct channel_id *channel UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
-/* Generated stub for towire_gossipctl_hand_back_peer */
-u8 *towire_gossipctl_hand_back_peer(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, const struct crypto_state *crypto_state UNNEEDED, const u8 *msg UNNEEDED)
-{ fprintf(stderr, "towire_gossipctl_hand_back_peer called!\n"); abort(); }
-/* Generated stub for towire_gossipctl_peer_addrhint */
-u8 *towire_gossipctl_peer_addrhint(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, const struct wireaddr_internal *addr UNNEEDED)
-{ fprintf(stderr, "towire_gossipctl_peer_addrhint called!\n"); abort(); }
-/* Generated stub for towire_gossipctl_peer_disconnect */
-u8 *towire_gossipctl_peer_disconnect(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
-{ fprintf(stderr, "towire_gossipctl_peer_disconnect called!\n"); abort(); }
-/* Generated stub for towire_gossipctl_peer_disconnected */
-u8 *towire_gossipctl_peer_disconnected(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
-{ fprintf(stderr, "towire_gossipctl_peer_disconnected called!\n"); abort(); }
-/* Generated stub for towire_gossipctl_peer_important */
-u8 *towire_gossipctl_peer_important(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, bool important UNNEEDED)
-{ fprintf(stderr, "towire_gossipctl_peer_important called!\n"); abort(); }
-/* Generated stub for towire_gossip_getpeers_request */
-u8 *towire_gossip_getpeers_request(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
-{ fprintf(stderr, "towire_gossip_getpeers_request called!\n"); abort(); }
 /* Generated stub for towire_hsm_sign_commitment_tx */
 u8 *towire_hsm_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct pubkey *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED, u64 funding_amount UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_commitment_tx called!\n"); abort(); }

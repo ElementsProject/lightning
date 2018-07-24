@@ -32,38 +32,6 @@
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_sync.h>
 
-static void peer_nongossip(struct subd *gossip, const u8 *msg,
-			   int peer_fd, int gossip_fd)
-{
-	struct pubkey id;
-	struct crypto_state cs;
-	struct wireaddr_internal addr;
-	u8 *gfeatures, *lfeatures, *in_pkt;
-
-	if (!fromwire_gossip_peer_nongossip(msg, msg,
-					    &id, &addr, &cs,
-					    &gfeatures,
-					    &lfeatures,
-					    &in_pkt))
-		fatal("Gossip gave bad GOSSIP_PEER_NONGOSSIP message %s",
-		      tal_hex(msg, msg));
-
-	/* We already checked the features when it first connected. */
-	if (!features_supported(gfeatures, lfeatures)) {
-		log_unusual(gossip->log,
-			    "Gossip gave unsupported features %s/%s",
-			    tal_hex(msg, gfeatures),
-			    tal_hex(msg, lfeatures));
-		close(peer_fd);
-		close(gossip_fd);
-		return;
-	}
-
-	peer_sent_nongossip(gossip->ld, &id, &addr, &cs,
-			    gfeatures, lfeatures,
-			    peer_fd, gossip_fd, in_pkt);
-}
-
 static void got_txout(struct bitcoind *bitcoind,
 		      const struct bitcoin_tx_output *output,
 		      struct short_channel_id *scid)
@@ -125,24 +93,18 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 	}
 }
 
-unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
+static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 {
 	enum gossip_wire_type t = fromwire_peektype(msg);
 
 	switch (t) {
 	/* These are messages we send, not them. */
 	case WIRE_GOSSIPCTL_INIT:
-	case WIRE_GOSSIPCTL_ACTIVATE:
 	case WIRE_GOSSIP_GETNODES_REQUEST:
 	case WIRE_GOSSIP_GETROUTE_REQUEST:
 	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
-	case WIRE_GOSSIP_GETPEERS_REQUEST:
 	case WIRE_GOSSIP_PING:
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST:
-	case WIRE_GOSSIPCTL_CONNECT_TO_PEER:
-	case WIRE_GOSSIPCTL_HAND_BACK_PEER:
-	case WIRE_GOSSIPCTL_RELEASE_PEER:
-	case WIRE_GOSSIPCTL_PEER_ADDRHINT:
 	case WIRE_GOSSIP_GET_UPDATE:
 	case WIRE_GOSSIP_SEND_GOSSIP:
 	case WIRE_GOSSIP_GET_TXOUT_REPLY:
@@ -153,44 +115,43 @@ unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
 	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
 	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
-	case WIRE_GOSSIPCTL_PEER_DISCONNECT:
-	case WIRE_GOSSIPCTL_PEER_IMPORTANT:
-	case WIRE_GOSSIPCTL_PEER_DISCONNECTED:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:
-	case WIRE_GOSSIP_GETPEERS_REPLY:
 	case WIRE_GOSSIP_PING_REPLY:
 	case WIRE_GOSSIP_SCIDS_REPLY:
 	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE_REPLY:
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REPLY:
-	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
-	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
-	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLY:
-	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLYFAIL:
 	/* These are inter-daemon messages, not received by us */
 	case WIRE_GOSSIP_LOCAL_ADD_CHANNEL:
 	case WIRE_GOSSIP_LOCAL_CHANNEL_UPDATE:
 	case WIRE_GOSSIP_LOCAL_CHANNEL_CLOSE:
 		break;
 
+	/* These are handled by connectd */
+	case WIRE_GOSSIPCTL_ACTIVATE:
+	case WIRE_GOSSIP_GETPEERS_REQUEST:
+	case WIRE_GOSSIPCTL_CONNECT_TO_PEER:
+	case WIRE_GOSSIPCTL_HAND_BACK_PEER:
+	case WIRE_GOSSIPCTL_RELEASE_PEER:
+	case WIRE_GOSSIPCTL_PEER_ADDRHINT:
+	case WIRE_GOSSIPCTL_PEER_DISCONNECT:
+	case WIRE_GOSSIPCTL_PEER_IMPORTANT:
+	case WIRE_GOSSIPCTL_PEER_DISCONNECTED:
+	case WIRE_GOSSIP_GETPEERS_REPLY:
+	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
+	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
+	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLY:
+	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLYFAIL:
 	case WIRE_GOSSIP_PEER_CONNECTED:
-		if (tal_count(fds) != 2)
-			return 2;
-		peer_connected(gossip->ld, msg, fds[0], fds[1]);
-		break;
 	case WIRE_GOSSIP_PEER_NONGOSSIP:
-		if (tal_count(fds) != 2)
-			return 2;
-		peer_nongossip(gossip, msg, fds[0], fds[1]);
+	case WIRE_GOSSIPCTL_CONNECT_TO_PEER_RESULT:
 		break;
+
 	case WIRE_GOSSIP_GET_TXOUT:
 		get_txout(gossip, msg);
-		break;
-	case WIRE_GOSSIPCTL_CONNECT_TO_PEER_RESULT:
-		gossip_connect_result(gossip->ld, msg);
 		break;
 	}
 	return 0;

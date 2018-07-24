@@ -6,8 +6,8 @@
 #include <common/key_derive.h>
 #include <common/wallet_tx.h>
 #include <common/wire_error.h>
+#include <connectd/gen_connect_wire.h>
 #include <errno.h>
-#include <gossipd/gen_gossip_wire.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel_control.h>
@@ -67,7 +67,7 @@ struct uncommitted_channel {
 
 
 struct funding_channel {
-	/* In lightningd->fundchannels while waiting for gossipd reply. */
+	/* In lightningd->fundchannels while waiting for connectd reply. */
 	struct list_node list;
 
 	struct command *cmd; /* Which also owns us. */
@@ -99,8 +99,8 @@ static void remove_funding_channel_from_list(struct funding_channel *fc)
 	list_del_from(&fc->cmd->ld->fundchannels, &fc->list);
 }
 
-/* Opening failed: hand back to gossipd (sending errpkt if not NULL) */
-static void uncommitted_channel_to_gossipd(struct lightningd *ld,
+/* Opening failed: hand back to connectd (sending errpkt if not NULL) */
+static void uncommitted_channel_to_connectd(struct lightningd *ld,
 					   struct uncommitted_channel *uc,
 					   const struct crypto_state *cs,
 					   int peer_fd, int gossip_fd,
@@ -120,8 +120,8 @@ static void uncommitted_channel_to_gossipd(struct lightningd *ld,
 	if (uc->fc)
 		command_fail(uc->fc->cmd, LIGHTNINGD, "%s", errstr);
 
-	/* Hand back to gossipd, (maybe) with an error packet to send. */
-	msg = towire_gossipctl_hand_back_peer(errstr, &uc->peer->id, cs,
+	/* Hand back to connectd, (maybe) with an error packet to send. */
+	msg = towire_connectctl_hand_back_peer(errstr, &uc->peer->id, cs,
 					      errorpkt);
 	subd_send_msg(ld->connectd, take(msg));
 	subd_send_fd(ld->connectd, peer_fd);
@@ -131,7 +131,7 @@ static void uncommitted_channel_to_gossipd(struct lightningd *ld,
 static void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
 					   const char *desc)
 {
-	u8 *msg = towire_gossipctl_peer_disconnected(tmpctx, &uc->peer->id);
+	u8 *msg = towire_connectctl_peer_disconnected(tmpctx, &uc->peer->id);
 	log_info(uc->log, "%s", desc);
 	subd_send_msg(uc->peer->ld->connectd, msg);
 	if (uc->fc)
@@ -268,13 +268,13 @@ static void funding_broadcast_failed(struct channel *channel,
 			       exitstatus, err);
 }
 
-void tell_gossipd_peer_is_important(struct lightningd *ld,
+void tell_connectd_peer_is_important(struct lightningd *ld,
 				    const struct channel *channel)
 {
 	u8 *msg;
 
-	/* Tell gossipd we need to keep connection to this peer */
-	msg = towire_gossipctl_peer_important(NULL, &channel->peer->id, true);
+	/* Tell connectd we need to keep connection to this peer */
+	msg = towire_connectctl_peer_important(NULL, &channel->peer->id, true);
 	subd_send_msg(ld->connectd, take(msg));
 }
 
@@ -429,7 +429,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 
 	channel_watch_funding(ld, channel);
 
-	tell_gossipd_peer_is_important(ld, channel);
+	tell_connectd_peer_is_important(ld, channel);
 
 	/* Start normal channel daemon. */
 	peer_start_channeld(channel, &cs, fds[0], fds[1], NULL, false);
@@ -533,7 +533,7 @@ static void opening_fundee_finished(struct subd *openingd,
 
 	channel_watch_funding(ld, channel);
 
-	tell_gossipd_peer_is_important(ld, channel);
+	tell_connectd_peer_is_important(ld, channel);
 
 	/* On to normal operation! */
 	peer_start_channeld(channel, &cs,
@@ -557,7 +557,7 @@ static void opening_channel_errmsg(struct uncommitted_channel *uc,
 		/* An error occurred (presumably negotiation fail). */
 		const char *errsrc = err_for_them ? "sent" : "received";
 
-		uncommitted_channel_to_gossipd(uc->peer->ld, uc,
+		uncommitted_channel_to_connectd(uc->peer->ld, uc,
 					       cs,
 					       peer_fd, gossip_fd,
 					       err_for_them,
@@ -677,8 +677,8 @@ static void channel_config(struct lightningd *ld,
 	 ours->channel_reserve_satoshis = 0;
 };
 
-/* Peer has spontaneously exited from gossip due to open msg.  Return
- * NULL if we took over, otherwise hand back to gossipd with this
+/* Peer has spontaneously exited from connectd due to open msg.  Return
+ * NULL if we took over, otherwise hand back to connectd with this
  * error.
  */
 u8 *peer_accept_channel(const tal_t *ctx,
@@ -724,7 +724,7 @@ u8 *peer_accept_channel(const tal_t *ctx,
 				 strerror(errno));
 		errpkt = towire_errorfmt(uc, channel_id, "%s", errmsg);
 
-		uncommitted_channel_to_gossipd(ld, uc,
+		uncommitted_channel_to_connectd(ld, uc,
 					       cs,
 					       peer_fd, gossip_fd,
 					       errpkt, "%s", errmsg);
@@ -808,7 +808,7 @@ static void peer_offer_channel(struct lightningd *ld,
 	if (!fc->uc->openingd) {
 		/* We don't send them an error packet: for them, nothing
 		 * happened! */
-		uncommitted_channel_to_gossipd(ld, fc->uc, NULL,
+		uncommitted_channel_to_connectd(ld, fc->uc, NULL,
 					       peer_fd, gossip_fd,
 					       NULL,
 					       "Failed to launch openingd: %s",
@@ -842,13 +842,13 @@ static void peer_offer_channel(struct lightningd *ld,
 		 take(msg), -1, 2, opening_funder_finished, fc);
 }
 
-/* Peer has been released from gossip.  Start opening. */
-static void gossip_peer_released(struct subd *gossip,
+/* Peer has been released from connectd.  Start opening. */
+static void connectd_peer_released(struct subd *connectd,
 				 const u8 *resp,
 				 const int *fds,
 				 struct funding_channel *fc)
 {
-	struct lightningd *ld = gossip->ld;
+	struct lightningd *ld = connectd->ld;
 	struct crypto_state cs;
 	u8 *gfeatures, *lfeatures;
 	struct wireaddr_internal addr;
@@ -861,11 +861,11 @@ static void gossip_peer_released(struct subd *gossip,
 
 	c = active_channel_by_id(ld, &fc->peerid, &uc);
 
-	if (!fromwire_gossipctl_release_peer_reply(fc, resp, &addr, &cs,
+	if (!fromwire_connectctl_release_peer_reply(fc, resp, &addr, &cs,
 						   &gfeatures, &lfeatures)) {
-		if (!fromwire_gossipctl_release_peer_replyfail(resp)) {
-			fatal("Gossip daemon gave invalid reply %s",
-			      tal_hex(gossip, resp));
+		if (!fromwire_connectctl_release_peer_replyfail(resp)) {
+			fatal("Connect daemon gave invalid reply %s",
+			      tal_hex(connectd, resp));
 		}
 		if (uc)
 			command_fail(fc->cmd, LIGHTNINGD, "Peer already OPENING");
@@ -878,7 +878,7 @@ static void gossip_peer_released(struct subd *gossip,
 	}
 	assert(tal_count(fds) == 2);
 
-	/* Gossipd should guarantee peer is unique: we would have killed any
+	/* Connectd should guarantee peer is unique: we would have killed any
 	 * old connection when it was told us peer reconnected. */
 	assert(!c);
 	assert(!uc);
@@ -889,7 +889,7 @@ static void gossip_peer_released(struct subd *gossip,
 			   fds[0], fds[1]);
 }
 
-/* We can race: we're trying to get gossipd to release peer just as it
+/* We can race: we're trying to get connectd to release peer just as it
  * reconnects.  If that's happened, treat it as if it were
  * released. */
 bool handle_opening_channel(struct lightningd *ld,
@@ -956,8 +956,8 @@ static void json_fund_channel(struct command *cmd,
 	list_add(&cmd->ld->fundchannels, &fc->list);
 	tal_add_destructor(fc, remove_funding_channel_from_list);
 
-	msg = towire_gossipctl_release_peer(cmd, &fc->peerid);
-	subd_req(fc, cmd->ld->connectd, msg, -1, 2, gossip_peer_released, fc);
+	msg = towire_connectctl_release_peer(cmd, &fc->peerid);
+	subd_req(fc, cmd->ld->connectd, msg, -1, 2, connectd_peer_released, fc);
 	command_still_pending(cmd);
 }
 

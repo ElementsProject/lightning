@@ -7,12 +7,10 @@
 #include <common/wireaddr.h>
 #include <connectd/gen_connect_wire.h>
 #include <errno.h>
-#include <gossipd/gen_gossip_wire.h>
 #include <hsmd/capabilities.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <lightningd/channel.h>
 #include <lightningd/connect_control.h>
-#include <lightningd/gossip_control.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/jsonrpc_errors.h>
@@ -20,6 +18,7 @@
 #include <lightningd/log.h>
 #include <lightningd/opening_control.h>
 #include <lightningd/param.h>
+#include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_sync.h>
@@ -60,18 +59,18 @@ static struct connect *find_connect(struct lightningd *ld,
 	return NULL;
 }
 
-void gossip_connect_result(struct lightningd *ld, const u8 *msg)
+static void connectd_connect_result(struct lightningd *ld, const u8 *msg)
 {
 	struct pubkey id;
 	bool connected;
 	char *err;
 	struct connect *c;
 
-	if (!fromwire_gossipctl_connect_to_peer_result(tmpctx, msg,
+	if (!fromwire_connectctl_connect_to_peer_result(tmpctx, msg,
 						       &id,
 						       &connected,
 						       &err))
-		fatal("Gossip gave bad GOSSIPCTL_CONNECT_TO_PEER_RESULT message %s",
+		fatal("Connect gave bad CONNECTCTL_CONNECT_TO_PEER_RESULT message %s",
 		      tal_hex(msg, msg));
 
 
@@ -179,16 +178,16 @@ static void json_connect(struct command *cmd,
 		}
 
 		/* Tell it about the address. */
-		msg = towire_gossipctl_peer_addrhint(cmd, &id, &addr);
+		msg = towire_connectctl_peer_addrhint(cmd, &id, &addr);
 		subd_send_msg(cmd->ld->connectd, take(msg));
 	}
 
 	/* If there isn't already a connect command, tell connectd */
 	if (!find_connect(cmd->ld, &id)) {
-		msg = towire_gossipctl_connect_to_peer(NULL, &id);
+		msg = towire_connectctl_connect_to_peer(NULL, &id);
 		subd_send_msg(cmd->ld->connectd, take(msg));
 	}
-	/* Leave this here for gossip_connect_result */
+	/* Leave this here for connect_connect_result */
 	new_connect(cmd->ld, &id, cmd);
 	command_still_pending(cmd);
 }
@@ -217,15 +216,83 @@ static void peer_please_disconnect(struct lightningd *ld, const u8 *msg)
 		channel_fail_transient(c, "Reconnected");
 }
 
-static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)
+static void peer_nongossip(struct subd *connectd, const u8 *msg,
+			   int peer_fd, int gossip_fd)
 {
-	/* FIXME: Move away from gossip types */
-	if (fromwire_peektype(msg) == WIRE_CONNECT_RECONNECTED) {
-		peer_please_disconnect(connectd->ld, msg);
-		return 0;
+	struct pubkey id;
+	struct crypto_state cs;
+	struct wireaddr_internal addr;
+	u8 *gfeatures, *lfeatures, *in_pkt;
+
+	if (!fromwire_connect_peer_nongossip(msg, msg,
+					    &id, &addr, &cs,
+					    &gfeatures,
+					    &lfeatures,
+					    &in_pkt))
+		fatal("Connectd gave bad CONNECT_PEER_NONGOSSIP message %s",
+		      tal_hex(msg, msg));
+
+	/* We already checked the features when it first connected. */
+	if (!features_supported(gfeatures, lfeatures)) {
+		log_unusual(connectd->log,
+			    "Connectd gave unsupported features %s/%s",
+			    tal_hex(msg, gfeatures),
+			    tal_hex(msg, lfeatures));
+		close(peer_fd);
+		close(gossip_fd);
+		return;
 	}
 
-	return gossip_msg(connectd->ld->gossip, msg, fds);
+	peer_sent_nongossip(connectd->ld, &id, &addr, &cs,
+			    gfeatures, lfeatures,
+			    peer_fd, gossip_fd, in_pkt);
+}
+
+static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)
+{
+	enum connect_wire_type t = fromwire_peektype(msg);
+
+	switch (t) {
+	/* These are messages we send, not them. */
+	case WIRE_CONNECTCTL_INIT:
+	case WIRE_CONNECTCTL_ACTIVATE:
+	case WIRE_CONNECT_GETPEERS_REQUEST:
+	case WIRE_CONNECTCTL_PEER_ADDRHINT:
+	case WIRE_CONNECTCTL_CONNECT_TO_PEER:
+	case WIRE_CONNECTCTL_PEER_IMPORTANT:
+	case WIRE_CONNECTCTL_RELEASE_PEER:
+	case WIRE_CONNECTCTL_HAND_BACK_PEER:
+	case WIRE_CONNECTCTL_PEER_DISCONNECTED:
+	case WIRE_CONNECTCTL_PEER_DISCONNECT:
+	/* This is a reply, so never gets through to here. */
+	case WIRE_CONNECTCTL_INIT_REPLY:
+	case WIRE_CONNECTCTL_ACTIVATE_REPLY:
+	case WIRE_CONNECT_GETPEERS_REPLY:
+	case WIRE_CONNECTCTL_RELEASE_PEER_REPLY:
+	case WIRE_CONNECTCTL_RELEASE_PEER_REPLYFAIL:
+	case WIRE_CONNECTCTL_PEER_DISCONNECT_REPLY:
+	case WIRE_CONNECTCTL_PEER_DISCONNECT_REPLYFAIL:
+		break;
+
+	case WIRE_CONNECT_RECONNECTED:
+		peer_please_disconnect(connectd->ld, msg);
+		break;
+
+	case WIRE_CONNECT_PEER_CONNECTED:
+		if (tal_count(fds) != 2)
+			return 2;
+		peer_connected(connectd->ld, msg, fds[0], fds[1]);
+		break;
+	case WIRE_CONNECT_PEER_NONGOSSIP:
+		if (tal_count(fds) != 2)
+			return 2;
+		peer_nongossip(connectd, msg, fds[0], fds[1]);
+		break;
+	case WIRE_CONNECTCTL_CONNECT_TO_PEER_RESULT:
+		connectd_connect_result(connectd->ld, msg);
+		break;
+	}
+	return 0;
 }
 
 static void connect_init_done(struct subd *connectd,
@@ -243,15 +310,6 @@ static void connect_init_done(struct subd *connectd,
 
 	/* Break out of loop, so we can begin */
 	io_break(connectd);
-}
-
-/* FIXME: This is a transition hack */
-static const char *connect_and_gossip_wire_type_name(int e)
-{
-	const char *name = connect_wire_type_name(e);
-	if (strstarts(name, "INVALID"))
-		name = gossip_wire_type_name(e);
-	return name;
 }
 
 int connectd_init(struct lightningd *ld)
@@ -284,7 +342,7 @@ int connectd_init(struct lightningd *ld)
 		fatal("Could not read fd from HSM: %s", strerror(errno));
 
 	ld->connectd = new_global_subd(ld, "lightning_connectd",
-				       connect_and_gossip_wire_type_name, connectd_msg,
+				       connect_wire_type_name, connectd_msg,
 				       take(&hsmfd), take(&fds[1]), NULL);
 	if (!ld->connectd)
 		err(1, "Could not subdaemon connectd");
