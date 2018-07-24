@@ -117,7 +117,7 @@ connect_getpeers_reply,2111
 connect_getpeers_reply,,num,u16
 connect_getpeers_reply,,id,num*struct pubkey
 connect_getpeers_reply,,addr,num*struct wireaddr_internal
-connect_getpeers_reply,,nodes,num*struct gossip_getnodes_entry
+connect_getpeers_reply,,features,num*struct peer_features
 
 # master->connectd: Request to disconnect from a peer.
 connectctl_peer_disconnect,2023

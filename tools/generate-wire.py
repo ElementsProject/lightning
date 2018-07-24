@@ -31,6 +31,7 @@ type2size = {
 
 # These struct array helpers require a context to allocate from.
 varlen_structs = [
+    'peer_features',
     'gossip_getnodes_entry',
     'failed_htlc',
     'utxo',
