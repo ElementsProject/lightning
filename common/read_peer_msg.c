@@ -56,19 +56,18 @@ u8 *read_peer_msg_(const tal_t *ctx,
 
 	FD_ZERO(&readfds);
 	FD_SET(peer_fd, &readfds);
-	FD_SET(gossip_fd, &readfds);
+	if (gossip_fd >= 0)
+		FD_SET(gossip_fd, &readfds);
 
 	select(peer_fd > gossip_fd ? peer_fd + 1 : gossip_fd + 1,
 	       &readfds, NULL, NULL, NULL);
 
-	if (FD_ISSET(gossip_fd, &readfds)) {
-		/* gossipd uses this to kill us, so not a surprise if it
-		   happens. */
+	if (gossip_fd >= 0 && FD_ISSET(gossip_fd, &readfds)) {
 		msg = wire_sync_read(NULL, gossip_fd);
-		if (!msg) {
-			status_debug("Error reading gossip msg");
-			peer_failed_connection_lost();
-		}
+		if (!msg)
+			status_failed(STATUS_FAIL_GOSSIP_IO,
+				      "Error reading gossip msg: %s",
+				      strerror(errno));
 
 		handle_gossip_msg_(msg, peer_fd, cs, send_reply, arg);
 		return NULL;

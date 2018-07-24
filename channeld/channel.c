@@ -1884,8 +1884,13 @@ static void peer_reconnect(struct peer *peer)
 
 	peer_billboard(false, "Sent reestablish, waiting for theirs");
 
-	/* Read until they say something interesting */
-	while ((msg = channeld_read_peer_msg(peer)) == NULL)
+	/* Read until they say something interesting (don't forward
+	 * gossip to them yet: we might try sending channel_update
+	 * before we've reestablished channel). */
+	while ((msg = read_peer_msg_nogossip(peer, &peer->cs,
+					     &peer->channel_id,
+					     channeld_send_reply,
+					     peer)) == NULL)
 		clean_tmpctx();
 
 	if (!fromwire_channel_reestablish(msg, &channel_id,
