@@ -4850,18 +4850,19 @@ class LightningDTests(BaseLightningDTests):
         l1, l2 = self.connect()
         # Gossiping but no node announcement yet
         assert l1.rpc.getpeer(l2.info['id'])['state'] == "GOSSIPING"
-        assert 'alias' not in l1.rpc.getpeer(l2.info['id'])
-        assert 'color' not in l1.rpc.getpeer(l2.info['id'])
+        assert l1.rpc.getpeer(l2.info['id'])['local_features'] == '88'
+        assert l1.rpc.getpeer(l2.info['id'])['global_features'] == ''
 
         # Fund a channel to force a node announcement
         chan = self.fund_channel(l1, l2, 10**6)
         # Now proceed to funding-depth and do a full gossip round
         bitcoind.generate_block(5)
         l1.daemon.wait_for_logs(['Received node_announcement for node ' + l2.info['id']])
+        l2.daemon.wait_for_logs(['Received node_announcement for node ' + l1.info['id']])
 
-        # With the node announcement, ensure we see that information in the peer info
-        assert l1.rpc.getpeer(l2.info['id'])['alias'] == only_one(l1.rpc.listnodes(l2.info['id'])['nodes'])['alias']
-        assert l1.rpc.getpeer(l2.info['id'])['color'] == only_one(l1.rpc.listnodes(l2.info['id'])['nodes'])['color']
+        # Should have announced the same global features as told to peer.
+        assert only_one(l1.rpc.listnodes(l2.info['id'])['nodes'])['global_features'] == l1.rpc.getpeer(l2.info['id'])['global_features']
+        assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['global_features'] == l2.rpc.getpeer(l1.info['id'])['global_features']
 
         # Close the channel to forget the peer
         self.assertRaisesRegex(RpcError,
