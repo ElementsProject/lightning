@@ -522,7 +522,7 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 		addrp = NULL;
 
 	peer = new_peer(w->ld, sqlite3_column_int64(stmt, 0),
-			&id, addrp);
+			&id, addrp, NULL, NULL);
 	db_stmt_done(stmt);
 
 	return peer;

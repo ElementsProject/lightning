@@ -596,7 +596,8 @@ static struct uncommitted_channel *
 new_uncommitted_channel(struct lightningd *ld,
 			struct funding_channel *fc,
 			const struct pubkey *peer_id,
-			const struct wireaddr_internal *addr)
+			const struct wireaddr_internal *addr,
+			const u8 *gfeatures, const u8 *lfeatures)
 {
 	struct uncommitted_channel *uc = tal(ld, struct uncommitted_channel);
 	char *idname;
@@ -604,7 +605,7 @@ new_uncommitted_channel(struct lightningd *ld,
 	/* We make a new peer if necessary. */
 	uc->peer = peer_by_id(ld, peer_id);
 	if (!uc->peer)
-		uc->peer = new_peer(ld, 0, peer_id, addr);
+		uc->peer = new_peer(ld, 0, peer_id, addr, gfeatures, lfeatures);
 
 	if (uc->peer->uncommitted_channel)
 		return tal_free(uc);
@@ -686,7 +687,7 @@ u8 *peer_accept_channel(const tal_t *ctx,
 			const struct pubkey *peer_id,
 			const struct wireaddr_internal *addr,
 			const struct crypto_state *cs,
-			const u8 *gfeatures UNUSED, const u8 *lfeatures UNUSED,
+			const u8 *gfeatures, const u8 *lfeatures,
 			int peer_fd, int gossip_fd,
 			const struct channel_id *channel_id,
 			const u8 *open_msg)
@@ -700,7 +701,8 @@ u8 *peer_accept_channel(const tal_t *ctx,
 	assert(fromwire_peektype(open_msg) == WIRE_OPEN_CHANNEL);
 
 	/* Fails if there's already one */
-	uc = new_uncommitted_channel(ld, NULL, peer_id, addr);
+	uc = new_uncommitted_channel(ld, NULL, peer_id, addr,
+				     gfeatures, lfeatures);
 	if (!uc)
 		return towire_errorfmt(ctx, channel_id,
 				       "Multiple channels unsupported");
@@ -766,7 +768,7 @@ static void peer_offer_channel(struct lightningd *ld,
 			       struct funding_channel *fc,
 			       const struct wireaddr_internal *addr,
 			       const struct crypto_state *cs,
-			       const u8 *gfeatures UNUSED, const u8 *lfeatures UNUSED,
+			       const u8 *gfeatures, const u8 *lfeatures,
 			       int peer_fd, int gossip_fd)
 {
 	u8 *msg;
@@ -778,7 +780,8 @@ static void peer_offer_channel(struct lightningd *ld,
 	list_del_from(&ld->fundchannels, &fc->list);
 	tal_del_destructor(fc, remove_funding_channel_from_list);
 
-	fc->uc = new_uncommitted_channel(ld, fc, &fc->peerid, addr);
+	fc->uc = new_uncommitted_channel(ld, fc, &fc->peerid, addr,
+					 gfeatures, lfeatures);
 
 	/* We asked to release this peer, but another raced in?  Corner case,
 	 * close this is easiest. */
