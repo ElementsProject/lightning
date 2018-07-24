@@ -33,12 +33,12 @@
 #include <connectd/connect.h>
 #include <connectd/gen_connect_gossip_wire.h>
 #include <connectd/gen_connect_wire.h>
+#include <connectd/handshake.h>
+#include <connectd/netaddress.h>
+#include <connectd/tor.h>
+#include <connectd/tor_autoservice.h>
 #include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
-#include <gossipd/handshake.h>
-#include <gossipd/netaddress.h>
-#include <gossipd/tor.h>
-#include <gossipd/tor_autoservice.h>
 #include <hsmd/client.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>

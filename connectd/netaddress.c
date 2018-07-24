@@ -2,8 +2,8 @@
 #include <assert.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
+#include <connectd/netaddress.h>
 #include <errno.h>
-#include <gossipd/netaddress.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <sys/socket.h>

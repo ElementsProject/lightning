@@ -11,8 +11,8 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/wireaddr.h>
+#include <connectd/handshake.h>
 #include <errno.h>
-#include <gossipd/handshake.h>
 #include <hsmd/client.h>
 #include <secp256k1.h>
 #include <secp256k1_ecdh.h>
