@@ -128,6 +128,16 @@ static void uncommitted_channel_to_gossipd(struct lightningd *ld,
 	subd_send_fd(ld->gossip, gossip_fd);
 }
 
+static void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
+					   const char *desc)
+{
+	u8 *msg = towire_gossipctl_peer_disconnected(tmpctx, &uc->peer->id);
+	log_info(uc->log, "%s", desc);
+	subd_send_msg(uc->peer->ld->gossip, msg);
+	if (uc->fc)
+		command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc);
+}
+
 void kill_uncommitted_channel(struct uncommitted_channel *uc,
 			      const char *why)
 {
@@ -137,8 +147,7 @@ void kill_uncommitted_channel(struct uncommitted_channel *uc,
 	subd_release_channel(uc->openingd, uc);
 	uc->openingd = NULL;
 
-	if (uc->fc)
-		command_fail(uc->fc->cmd, LIGHTNINGD, "%s", why);
+	uncommitted_channel_disconnect(uc, why);
 	tal_free(uc);
 }
 
@@ -543,11 +552,7 @@ static void opening_channel_errmsg(struct uncommitted_channel *uc,
 				   const u8 *err_for_them)
 {
 	if (peer_fd == -1) {
-		u8 *msg = towire_gossipctl_peer_disconnected(tmpctx, &uc->peer->id);
-		log_info(uc->log, "%s", desc);
-		subd_send_msg(uc->peer->ld->gossip, msg);
-		if (uc->fc)
-			command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc);
+		uncommitted_channel_disconnect(uc, desc);
 	} else {
 		/* An error occurred (presumably negotiation fail). */
 		const char *errsrc = err_for_them ? "sent" : "received";
