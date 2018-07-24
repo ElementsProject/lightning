@@ -28,6 +28,7 @@
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel_control.h>
+#include <lightningd/connect_control.h>
 #include <lightningd/invoice.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
@@ -310,6 +311,7 @@ int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
 	u32 min_blockheight, max_blockheight;
+	int connectd_gossipd_fd;
 
 	setup_locale();
 	daemon_setup(argv[0], log_backtrace_print, log_backtrace_exit);
@@ -345,8 +347,11 @@ int main(int argc, char *argv[])
 	/* Now we know our ID, we can set our color/alias if not already. */
 	setup_color_and_alias(ld);
 
-	/* Set up gossip daemon. */
-	gossip_init(ld);
+	/* Set up connect daemon. */
+	connectd_gossipd_fd = connectd_init(ld);
+
+ 	/* Set up gossip daemon. */
+	gossip_init(ld, connectd_gossipd_fd);
 
 	/* Everything is within a transaction. */
 	db_begin_transaction(ld->wallet->db);
