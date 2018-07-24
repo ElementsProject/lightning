@@ -2164,6 +2164,31 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		      t, tal_hex(tmpctx, master->msg_in));
 }
 
+static struct io_plan *connectd_get_address(struct io_conn *conn,
+					    struct daemon *daemon,
+					    const u8 *msg)
+{
+	struct pubkey id;
+	struct node *node;
+	const struct wireaddr *addrs;
+
+	if (!fromwire_gossip_get_addrs(msg, &id)) {
+		status_broken("Bad gossip_get_addrs msg from connectd: %s",
+			      tal_hex(tmpctx, msg));
+		return io_close(conn);
+	}
+
+	node = get_node(daemon->rstate, &id);
+	if (node)
+		addrs = node->addresses;
+	else
+		addrs = NULL;
+
+	daemon_conn_send(&daemon->connectd,
+			 take(towire_gossip_get_addrs_reply(NULL, addrs)));
+	return daemon_conn_read_next(conn, &daemon->connectd);
+}
+
 static struct io_plan *connectd_req(struct io_conn *conn,
 				    struct daemon_conn *connectd)
 {
@@ -2174,8 +2199,12 @@ static struct io_plan *connectd_req(struct io_conn *conn,
 	case WIRE_GOSSIP_NEW_PEER:
 		return connectd_new_peer(conn, daemon, connectd->msg_in);
 
-	/* We send this, don't receive it. */
+	case WIRE_GOSSIP_GET_ADDRS:
+		return connectd_get_address(conn, daemon, connectd->msg_in);
+
+	/* We send these, don't receive them. */
 	case WIRE_GOSSIP_NEW_PEER_REPLY:
+	case WIRE_GOSSIP_GET_ADDRS_REPLY:
 		break;
 	}
 

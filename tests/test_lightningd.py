@@ -695,7 +695,6 @@ class LightningDTests(BaseLightningDTests):
                                l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'localhost', l2.port)
 
     @unittest.skipIf(not DEVELOPER, "needs --dev-allow-localhost")
-    @unittest.skip("FIXME: Re-enable once gossipd gives out addresses to connectd")
     def test_connect_by_gossip(self):
         """Test connecting to an unknown peer using node gossip
         """

@@ -1505,8 +1505,31 @@ seed_resolve_addr(const tal_t *ctx, const struct pubkey *id,
 static struct wireaddr_internal *
 gossip_resolve_addr(const tal_t *ctx, const struct pubkey *id)
 {
-	/* FIXME: Ask gossipd! */
-	return NULL;
+	u8 *msg;
+	struct wireaddr *addrs;
+	struct wireaddr_internal *addr;
+
+	msg = towire_gossip_get_addrs(NULL, id);
+	if (!wire_sync_write(GOSSIPCTL_FD, take(msg)))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed writing to gossipctl: %s",
+			      strerror(errno));
+
+	msg = wire_sync_read(tmpctx, GOSSIPCTL_FD);
+	if (!fromwire_gossip_get_addrs_reply(tmpctx, msg, &addrs))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed parsing get_addrs_reply gossipctl: %s",
+			      tal_hex(tmpctx, msg));
+
+	if (!addrs)
+		return NULL;
+
+	/* FIXME: Don't just take first address! */
+	addr = tal(ctx, struct wireaddr_internal);
+	addr->itype = ADDR_INTERNAL_WIREADDR;
+	addr->u.wireaddr = addrs[0];
+
+	return addr;
 }
 
 static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
