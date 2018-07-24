@@ -1,3 +1,41 @@
+#include <common/wireaddr.h>
+
+connectctl_init,2000
+connectctl_init,,broadcast_interval,u32
+connectctl_init,,chain_hash,struct bitcoin_blkid
+connectctl_init,,id,struct pubkey
+connectctl_init,,gflen,u16
+connectctl_init,,gfeatures,gflen*u8
+connectctl_init,,lflen,u16
+connectctl_init,,lfeatures,lflen*u8
+connectctl_init,,num_wireaddrs,u16
+connectctl_init,,wireaddrs,num_wireaddrs*struct wireaddr_internal
+connectctl_init,,listen_announce,num_wireaddrs*enum addr_listen_announce
+connectctl_init,,rgb,3*u8
+connectctl_init,,alias,32*u8
+connectctl_init,,update_channel_interval,u32
+connectctl_init,,reconnect,bool
+connectctl_init,,tor_proxyaddr,?struct wireaddr
+connectctl_init,,use_tor_proxy_always,bool
+connectctl_init,,dev_allow_localhost,bool
+connectctl_init,,use_dns,bool
+connectctl_init,,tor_password,wirestring
+
+# Connectd->master, here are the addresses I bound, can announce.
+connectctl_init_reply,2100
+connectctl_init_reply,,num_bindings,u16
+connectctl_init_reply,,bindings,num_bindings*struct wireaddr_internal
+connectctl_init_reply,,num_announcable,u16
+connectctl_init_reply,,announcable,num_announcable*struct wireaddr
+
+# Activate the connect daemon, so others can connect.
+connectctl_activate,2025
+# Do we listen?
+connectctl_activate,,listen,bool
+
+# Connectd->master, I am ready.
+connectctl_activate_reply,2125
+
 # connectd->master: disconnect this peer please (due to reconnect).
 connect_reconnected,2112
 connect_reconnected,,id,struct pubkey
