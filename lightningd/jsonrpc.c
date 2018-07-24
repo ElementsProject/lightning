@@ -447,7 +447,7 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 
 	/* This is a convenient tal parent for duration of command
 	 * (which may outlive the conn!). */
-	c = tal(jcon->ld, struct command);
+	c = tal(jcon->ld->rpc_listener, struct command);
 	c->jcon = jcon;
 	c->ld = jcon->ld;
 	c->pending = false;
@@ -650,8 +650,7 @@ void setup_jsonrpc(struct lightningd *ld, const char *rpc_filename)
 		err(1, "Listening on '%s'", rpc_filename);
 
 	log_debug(ld->log, "Listening on '%s'", rpc_filename);
-	/* Technically this is a leak, but there's only one */
-	notleak(io_new_listener(ld, fd, incoming_jcon_connected, ld));
+	ld->rpc_listener = io_new_listener(ld->rpc_filename, fd, incoming_jcon_connected, ld);
 }
 
 /**
@@ -790,4 +789,3 @@ bool json_tok_wtx(struct wallet_tx * tx, const char * buffer,
         }
         return true;
 }
-

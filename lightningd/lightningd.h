@@ -78,7 +78,14 @@ struct lightningd {
 
 	/* Our config dir, and rpc file */
 	char *config_dir;
+
+	/* Location of the RPC socket. */
 	char *rpc_filename;
+
+	/* The listener for the RPC socket. Can be shut down separately from the
+	 * rest of the daemon to allow a clean shutdown, which frees all pending
+	 * cmds in a DB transaction. */
+	struct io_listener *rpc_listener;
 
 	/* Configuration file name */
 	char *config_filename;
