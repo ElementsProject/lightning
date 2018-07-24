@@ -162,6 +162,9 @@ struct daemon {
 	/* The address that the broken response returns instead of
 	 * NXDOMAIN. NULL if we have not detected a broken resolver. */
 	struct sockaddr *broken_resolver_response;
+
+	/* File descriptors to listen on once we're activated. */
+	int *listen_fds;
 };
 
 /* Peers we're trying to reach. */
@@ -989,11 +992,6 @@ static int make_listen_fd(int domain, void *addr, socklen_t len, bool mayfail)
 		}
 	}
 
-	if (listen(fd, 5) != 0) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed to listen on %u socket: %s",
-			      domain, strerror(errno));
-	}
 	return fd;
 
 fail:
@@ -1038,6 +1036,13 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 				   init_new_peer, daemon);
 }
 
+static void add_listen_fd(struct daemon *daemon, int fd)
+{
+	size_t n = tal_count(daemon->listen_fds);
+	tal_resize(&daemon->listen_fds, n+1);
+	daemon->listen_fds[n] = fd;
+}
+
 /* Return true if it created socket successfully. */
 static bool handle_wireaddr_listen(struct daemon *daemon,
 				   const struct wireaddr *wireaddr,
@@ -1055,7 +1060,7 @@ static bool handle_wireaddr_listen(struct daemon *daemon,
 		if (fd >= 0) {
 			status_trace("Created IPv4 listener on port %u",
 				     wireaddr->port);
-			io_new_listener(daemon, fd, connection_in, daemon);
+			add_listen_fd(daemon, fd);
 			return true;
 		}
 		return false;
@@ -1065,7 +1070,7 @@ static bool handle_wireaddr_listen(struct daemon *daemon,
 		if (fd >= 0) {
 			status_trace("Created IPv6 listener on port %u",
 				     wireaddr->port);
-			io_new_listener(daemon, fd, connection_in, daemon);
+			add_listen_fd(daemon, fd);
 			return true;
 		}
 		return false;
@@ -1276,8 +1281,9 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	struct bitcoin_blkid chain_hash;
 	u32 update_channel_interval;
 	struct wireaddr *proxyaddr;
+	struct wireaddr_internal *binding;
 
-	if (!fromwire_gossipctl_init(
+	if (!fromwire_connectctl_init(
 		daemon, msg, &daemon->broadcast_interval, &chain_hash,
 		&daemon->id, &daemon->globalfeatures,
 		&daemon->localfeatures, &daemon->proposed_wireaddr,
@@ -1286,7 +1292,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 		&proxyaddr, &daemon->use_proxy_always,
 		&daemon->dev_allow_localhost, &daemon->use_dns,
 		&daemon->tor_password)) {
-		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
+		master_badmsg(WIRE_CONNECTCTL_INIT, msg);
 	}
 
 	/* Resolve Tor proxy address if any */
@@ -1302,6 +1308,13 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 			     "dummy replies");
 	}
 
+	binding = setup_listeners(tmpctx, daemon);
+
+	daemon_conn_send(&daemon->master,
+			 take(towire_connectctl_init_reply(NULL,
+							   binding,
+							   daemon->announcable)));
+
 	return daemon_conn_read_next(master->conn, master);
 }
 
@@ -1309,23 +1322,26 @@ static struct io_plan *gossip_activate(struct daemon_conn *master,
 				       struct daemon *daemon,
 				       const u8 *msg)
 {
-	bool listen;
-	struct wireaddr_internal *binding;
+	bool do_listen;
 
-	if (!fromwire_gossipctl_activate(msg, &listen))
-		master_badmsg(WIRE_GOSSIPCTL_ACTIVATE, msg);
+	if (!fromwire_connectctl_activate(msg, &do_listen))
+		master_badmsg(WIRE_CONNECTCTL_ACTIVATE, msg);
 
-	if (listen)
-		binding = setup_listeners(tmpctx, daemon);
-	else
-		binding = NULL;
+	if (do_listen) {
+		for (size_t i = 0; i < tal_count(daemon->listen_fds); i++) {
+			if (listen(daemon->listen_fds[i], 5) != 0)
+				status_failed(STATUS_FAIL_INTERNAL_ERROR,
+					      "Failed to listen on socket: %s",
+					      strerror(errno));
+			io_new_listener(daemon, daemon->listen_fds[i],
+					connection_in, daemon);
+		}
+	}
+	daemon->listen_fds = tal_free(daemon->listen_fds);
 
 	/* OK, we're ready! */
 	daemon_conn_send(&daemon->master,
-			 take(towire_gossipctl_activate_reply(NULL,
-							      binding,
-							      daemon->announcable)));
-
+			 take(towire_connectctl_activate_reply(NULL)));
 	return daemon_conn_read_next(master->conn, master);
 }
 
@@ -1813,12 +1829,13 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	struct daemon *daemon = container_of(master, struct daemon, master);
 	enum gossip_wire_type t= fromwire_peektype(master->msg_in);
 
+	/* FIXME: Move away from gossip wiretypes */
+	if (fromwire_peektype(master->msg_in) == WIRE_CONNECTCTL_ACTIVATE)
+		return gossip_activate(master, daemon, master->msg_in);
+
 	switch (t) {
 	case WIRE_GOSSIPCTL_INIT:
 		return gossip_init(master, daemon, master->msg_in);
-
-	case WIRE_GOSSIPCTL_ACTIVATE:
-		return gossip_activate(master, daemon, master->msg_in);
 
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
 		return release_peer(conn, daemon, master->msg_in);
@@ -1845,6 +1862,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		return disconnect_peer(conn, daemon, master->msg_in);
 
 	/* FIXME: We don't really do these, gossipd does */
+	case WIRE_GOSSIPCTL_ACTIVATE:
 	case WIRE_GOSSIP_GETNODES_REQUEST:
 	case WIRE_GOSSIP_PING:
 	case WIRE_GOSSIP_QUERY_SCIDS:
@@ -1917,6 +1935,7 @@ int main(int argc, char *argv[])
 	timers_init(&daemon->timers, time_mono());
 	daemon->broadcast_interval = 30000;
 	daemon->broken_resolver_response = NULL;
+	daemon->listen_fds = tal_arr(daemon, int, 0);
 	/* stdin == control */
 	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req,
 			 master_gone);
