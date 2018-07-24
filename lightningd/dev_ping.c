@@ -19,10 +19,7 @@ static void ping_reply(struct subd *subd, const u8 *msg, const int *fds UNUSED,
 	bool ok, sent = true;
 
 	log_debug(subd->ld->log, "Got ping reply!");
-	if (streq(subd->name, "lightning_channeld"))
-		ok = fromwire_channel_ping_reply(msg, &totlen);
-	else
-		ok = fromwire_gossip_ping_reply(msg, &sent, &totlen);
+	ok = fromwire_gossip_ping_reply(msg, &sent, &totlen);
 
 	if (!ok)
 		command_fail(cmd, LIGHTNINGD, "Bad reply message");
@@ -41,11 +38,9 @@ static void ping_reply(struct subd *subd, const u8 *msg, const int *fds UNUSED,
 static void json_dev_ping(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
-	struct peer *peer;
 	u8 *msg;
 	unsigned int len, pongbytes;
 	struct pubkey id;
-	struct subd *owner;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", json_tok_pubkey, &id),
@@ -81,29 +76,10 @@ static void json_dev_ping(struct command *cmd,
 		return;
 	}
 
-	/* First, see if it's in channeld. */
-	peer = peer_by_id(cmd->ld, &id);
-	if (peer) {
-		struct channel *channel = peer_active_channel(peer);
-
-		if (!channel
-		    || !channel->owner
-		    || !streq(channel->owner->name, "lightning_channeld")) {
-			command_fail(cmd, LIGHTNINGD, "Peer in %s",
-				     channel && channel->owner
-				     ? channel->owner->name
-				     : "unattached");
-			return;
-		}
-		msg = towire_channel_ping(cmd, pongbytes, len);
-		owner = channel->owner;
-	} else {
-		/* We assume it's in gossipd. */
-		msg = towire_gossip_ping(cmd, &id, pongbytes, len);
-		owner = cmd->ld->gossip;
-	}
-
-	subd_req(owner, owner, take(msg), -1, 0, ping_reply, cmd);
+	/* gossipd handles all pinging, even if it's in another daemon. */
+	msg = towire_gossip_ping(NULL, &id, pongbytes, len);
+	subd_req(cmd->ld->gossip, cmd->ld->gossip,
+		 take(msg), -1, 0, ping_reply, cmd);
 	command_still_pending(cmd);
 }
 

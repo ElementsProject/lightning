@@ -60,7 +60,6 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/peer_billboard.o			\
 	common/peer_failed.o			\
 	common/permute_tx.o			\
-	common/ping.o				\
 	common/read_peer_msg.o			\
 	common/socket_close.o			\
 	common/status.o				\

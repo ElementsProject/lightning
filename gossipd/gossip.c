@@ -225,9 +225,6 @@ struct local_peer_state {
 	/* If we're exiting due to non-gossip msg, otherwise release */
 	u8 *nongossip_msg;
 
-	/* How many pongs are we expecting? */
-	size_t num_pings_outstanding;
-
 	/* Message queue for outgoing. */
 	struct msg_queue peer_out;
 };
@@ -266,6 +263,9 @@ struct peer {
 
 	/* How many query responses are we expecting? */
 	size_t num_scid_queries_outstanding;
+
+	/* How many pongs are we expecting? */
+	size_t num_pings_outstanding;
 
 	/* Map of outstanding channel_range requests. */
 	u8 *query_channel_blocks;
@@ -368,7 +368,6 @@ new_local_peer_state(struct peer *peer, const struct crypto_state *cs)
 	init_peer_crypto_state(peer, &lps->pcs);
 	lps->pcs.cs = *cs;
 	lps->return_to_master = false;
-	lps->num_pings_outstanding = 0;
 	msg_queue_init(&lps->peer_out, lps);
 
 	return lps;
@@ -427,6 +426,7 @@ static struct peer *new_peer(const tal_t *ctx,
 	peer->query_channel_blocks = NULL;
 	peer->gossip_timestamp_min = 0;
 	peer->gossip_timestamp_max = UINT32_MAX;
+	peer->num_pings_outstanding = 0;
 
 	return peer;
 }
@@ -1101,18 +1101,18 @@ static void handle_ping(struct peer *peer, u8 *ping)
 {
 	u8 *pong;
 
-	if (!check_ping_make_pong(peer, ping, &pong)) {
+	if (!check_ping_make_pong(NULL, ping, &pong)) {
 		peer_error(peer, "Bad ping");
 		return;
 	}
 
 	if (pong)
-		msg_enqueue(&peer->local->peer_out, take(pong));
+		queue_peer_msg(peer, take(pong));
 }
 
 static void handle_pong(struct peer *peer, const u8 *pong)
 {
-	const char *err = got_pong(pong, &peer->local->num_pings_outstanding);
+	const char *err = got_pong(pong, &peer->num_pings_outstanding);
 
 	if (err) {
 		peer_error(peer, "%s", err);
@@ -1889,6 +1889,10 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 		handle_query_channel_range(peer, dc->msg_in);
 	} else if (type == WIRE_REPLY_CHANNEL_RANGE) {
 		handle_reply_channel_range(peer, dc->msg_in);
+	} else if (type == WIRE_PING) {
+		handle_ping(peer, dc->msg_in);
+	} else if (type == WIRE_PONG) {
+		handle_pong(peer, dc->msg_in);
 	} else {
 		status_broken("peer %s: send us unknown msg of type %s",
 			      type_to_string(tmpctx, struct pubkey, &peer->id),
@@ -2314,7 +2318,7 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 	if (tal_len(ping) > 65535)
 		status_failed(STATUS_FAIL_MASTER_IO, "Oversize ping");
 
-	msg_enqueue(&peer->local->peer_out, take(ping));
+	queue_peer_msg(peer, take(ping));
 	status_trace("sending ping expecting %sresponse",
 		     num_pong_bytes >= 65532 ? "no " : "");
 
@@ -2332,7 +2336,7 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 		daemon_conn_send(&daemon->master,
 				 take(towire_gossip_ping_reply(NULL, true, 0)));
 	else
-		peer->local->num_pings_outstanding++;
+		peer->num_pings_outstanding++;
 
 out:
 	return daemon_conn_read_next(conn, &daemon->master);
