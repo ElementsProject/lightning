@@ -569,7 +569,7 @@ static void wake_gossip_out(struct peer *peer)
 		msg_wake(&peer->local->peer_out);
 	else if (peer->remote)
 		/* Notify the daemon_conn-write loop */
-		msg_wake(&peer->remote->out);
+		daemon_conn_wake(peer->remote);
 }
 
 static void peer_error(struct peer *peer, const char *fmt, ...)
@@ -944,7 +944,7 @@ static void handle_query_short_channel_ids(struct peer *peer, u8 *msg)
 		msg_wake(&peer->local->peer_out);
 	else
 		/* Notify the daemon_conn-write loop */
-		msg_wake(&peer->remote->out);
+		daemon_conn_wake(peer->remote);
 }
 
 static void handle_gossip_timestamp_filter(struct peer *peer, u8 *msg)

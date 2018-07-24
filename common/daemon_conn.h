@@ -58,6 +58,11 @@ void daemon_conn_clear(struct daemon_conn *dc);
 void daemon_conn_send(struct daemon_conn *dc, const u8 *msg);
 
 /**
+ * daemon_conn_wake - Wake queue (fires msg_queue_cleared_cb if queue empty)
+ */
+void daemon_conn_wake(struct daemon_conn *dc);
+
+/**
  * daemon_conn_send_fd - Enqueue a file descriptor to be sent (closed after)
  */
 void daemon_conn_send_fd(struct daemon_conn *dc, int fd);
