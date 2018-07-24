@@ -244,6 +244,8 @@ struct peer {
 	/* Feature bitmaps. */
 	u8 *gfeatures, *lfeatures;
 
+	bool gossip_queries_feature, initial_routing_sync_feature;
+
 	/* High water mark for the staggered broadcast */
 	u64 broadcast_index;
 
@@ -624,14 +626,9 @@ static struct io_plan *retry_peer_connected(struct io_conn *conn,
 
 static void setup_gossip_range(struct peer *peer)
 {
-	bool gossip_queries;
 	u8 *msg;
 
-	gossip_queries = feature_offered(peer->lfeatures, LOCAL_GOSSIP_QUERIES)
-		&& feature_offered(peer->daemon->localfeatures,
-				   LOCAL_GOSSIP_QUERIES);
-
-	if (!gossip_queries)
+	if (!peer->gossip_queries_feature)
 		return;
 
 	/* Tell it to start gossip!  (And give us everything!) */
@@ -674,8 +671,7 @@ static struct io_plan *peer_connected(struct io_conn *conn, struct peer *peer)
 	 *   - if the `gossip_queries` feature is negotiated:
 	 *	- MUST NOT relay any gossip messages unless explicitly requested.
 	 */
-	if (feature_offered(peer->lfeatures, LOCAL_GOSSIP_QUERIES)
-	    && feature_offered(peer->daemon->localfeatures, LOCAL_GOSSIP_QUERIES)) {
+	if (peer->gossip_queries_feature) {
 		peer->broadcast_index = UINT64_MAX;
 		/* Nothing in this range */
 		peer->gossip_timestamp_min = UINT32_MAX;
@@ -692,7 +688,7 @@ static struct io_plan *peer_connected(struct io_conn *conn, struct peer *peer)
 		 *   - SHOULD resume normal operation, as specified in the
 		 *     following [Rebroadcasting](#rebroadcasting) section.
 		 */
-		if (feature_offered(peer->lfeatures, LOCAL_INITIAL_ROUTING_SYNC))
+		if (peer->initial_routing_sync_feature)
 			peer->broadcast_index = 0;
 		else
 			peer->broadcast_index
@@ -727,6 +723,13 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 			     tal_hex(tmpctx, msg));
 		return io_close(conn);
 	}
+
+	peer->gossip_queries_feature
+		= feature_offered(peer->lfeatures, LOCAL_GOSSIP_QUERIES)
+		&& feature_offered(peer->daemon->localfeatures,
+				   LOCAL_GOSSIP_QUERIES);
+	peer->initial_routing_sync_feature
+		= feature_offered(peer->lfeatures, LOCAL_INITIAL_ROUTING_SYNC);
 
 	return peer_connected(conn, peer);
 }
@@ -2370,7 +2373,7 @@ static struct io_plan *query_scids_req(struct io_conn *conn,
 		goto fail;
 	}
 
-	if (!feature_offered(peer->lfeatures, LOCAL_GOSSIP_QUERIES)) {
+	if (!peer->gossip_queries_feature) {
 		status_broken("query_scids: no gossip_query support in peer %s",
 			      type_to_string(tmpctx, struct pubkey, &id));
 		goto fail;
@@ -2419,7 +2422,7 @@ static struct io_plan *send_timestamp_filter(struct io_conn *conn,
 		goto out;
 	}
 
-	if (!feature_offered(peer->lfeatures, LOCAL_GOSSIP_QUERIES)) {
+	if (!peer->gossip_queries_feature) {
 		status_broken("send_timestamp_filter: no gossip_query support in peer %s",
 			      type_to_string(tmpctx, struct pubkey, &id));
 		goto out;
@@ -2451,7 +2454,7 @@ static struct io_plan *query_channel_range(struct io_conn *conn,
 		goto fail;
 	}
 
-	if (!feature_offered(peer->lfeatures, LOCAL_GOSSIP_QUERIES)) {
+	if (!peer->gossip_queries_feature) {
 		status_broken("query_channel_range: no gossip_query support in peer %s",
 			      type_to_string(tmpctx, struct pubkey, &id));
 		goto fail;
