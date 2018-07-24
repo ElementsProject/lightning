@@ -317,6 +317,9 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 			     nodes[i]->color, ARRAY_SIZE(nodes[i]->color));
 		json_add_u64(response, "last_timestamp",
 			     nodes[i]->last_timestamp);
+		json_add_hex(response, "global_features",
+			     nodes[i]->global_features,
+			     tal_len(nodes[i]->global_features));
 		json_array_start(response, "addresses");
 		for (j=0; j<tal_count(nodes[i]->addresses); j++) {
 			json_add_address(response, NULL, &nodes[i]->addresses[j]);
