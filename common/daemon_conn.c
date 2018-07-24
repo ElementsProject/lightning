@@ -104,3 +104,8 @@ void daemon_conn_send_fd(struct daemon_conn *dc, int fd)
 {
 	msg_enqueue_fd(&dc->out, fd);
 }
+
+void daemon_conn_wake(struct daemon_conn *dc)
+{
+	msg_wake(&dc->out);
+}
