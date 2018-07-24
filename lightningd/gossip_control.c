@@ -130,26 +130,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_LOCAL_CHANNEL_CLOSE:
 		break;
 
-	/* These are handled by connectd */
-	case WIRE_GOSSIPCTL_ACTIVATE:
-	case WIRE_GOSSIP_GETPEERS_REQUEST:
-	case WIRE_GOSSIPCTL_CONNECT_TO_PEER:
-	case WIRE_GOSSIPCTL_HAND_BACK_PEER:
-	case WIRE_GOSSIPCTL_RELEASE_PEER:
-	case WIRE_GOSSIPCTL_PEER_ADDRHINT:
-	case WIRE_GOSSIPCTL_PEER_DISCONNECT:
-	case WIRE_GOSSIPCTL_PEER_IMPORTANT:
-	case WIRE_GOSSIPCTL_PEER_DISCONNECTED:
-	case WIRE_GOSSIP_GETPEERS_REPLY:
-	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
-	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
-	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLY:
-	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLYFAIL:
-	case WIRE_GOSSIP_PEER_CONNECTED:
-	case WIRE_GOSSIP_PEER_NONGOSSIP:
-	case WIRE_GOSSIPCTL_CONNECT_TO_PEER_RESULT:
-		break;
-
 	case WIRE_GOSSIP_GET_TXOUT:
 		get_txout(gossip, msg);
 		break;
@@ -164,13 +144,6 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	u8 *msg;
 	int hsmfd;
 	u64 capabilities = HSM_CAP_SIGN_GOSSIP;
-	struct wireaddr_internal *wireaddrs = ld->proposed_wireaddr;
-	enum addr_listen_announce *listen_announce = ld->proposed_listen_announce;
-	bool allow_localhost = false;
-#if DEVELOPER
-	if (ld->dev_allow_localhost)
-		allow_localhost = true;
-#endif
 
 	msg = towire_hsm_client_hsmfd(tmpctx, &ld->id, 0, capabilities);
 	if (!wire_sync_write(ld->hsm_fd, msg))
@@ -190,25 +163,12 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
 
-	/* If no addr specified, hand wildcard to gossipd */
-	if (tal_count(wireaddrs) == 0 && ld->autolisten) {
-		wireaddrs = tal_arrz(tmpctx, struct wireaddr_internal, 1);
-		listen_announce = tal_arr(tmpctx, enum addr_listen_announce, 1);
-		wireaddrs->itype = ADDR_INTERNAL_ALLPROTO;
-		wireaddrs->u.port = ld->portnum;
-		*listen_announce = ADDR_LISTEN_AND_ANNOUNCE;
-	}
-
 	msg = towire_gossipctl_init(
 	    tmpctx, ld->config.broadcast_interval,
 	    &get_chainparams(ld)->genesis_blockhash, &ld->id,
 	    get_offered_global_features(tmpctx),
-	    get_offered_local_features(tmpctx), wireaddrs,
-	    listen_announce, ld->rgb,
-	    ld->alias, ld->config.channel_update_interval, ld->reconnect,
-	    ld->proxyaddr, ld->use_proxy_always || ld->pure_tor_setup,
-	    allow_localhost, ld->config.use_dns,
-	    ld->tor_service_password ? ld->tor_service_password : "",
+	    ld->rgb,
+	    ld->alias, ld->config.channel_update_interval,
 	    ld->announcable);
 	subd_send_msg(ld->gossip, msg);
 }

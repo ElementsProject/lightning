@@ -9,99 +9,11 @@ gossipctl_init,,chain_hash,struct bitcoin_blkid
 gossipctl_init,,id,struct pubkey
 gossipctl_init,,gflen,u16
 gossipctl_init,,gfeatures,gflen*u8
-gossipctl_init,,lflen,u16
-gossipctl_init,,lfeatures,lflen*u8
-gossipctl_init,,num_wireaddrs,u16
-gossipctl_init,,wireaddrs,num_wireaddrs*struct wireaddr_internal
-gossipctl_init,,listen_announce,num_wireaddrs*enum addr_listen_announce
 gossipctl_init,,rgb,3*u8
 gossipctl_init,,alias,32*u8
 gossipctl_init,,update_channel_interval,u32
-gossipctl_init,,reconnect,bool
-gossipctl_init,,tor_proxyaddr,?struct wireaddr
-gossipctl_init,,use_tor_proxy_always,bool
-gossipctl_init,,dev_allow_localhost,bool
-gossipctl_init,,use_dns,bool
-gossipctl_init,,tor_password,wirestring
 gossipctl_init,,num_announcable,u16
 gossipctl_init,,announcable,num_announcable*struct wireaddr
-
-# Activate the gossip daemon, so others can connect.
-gossipctl_activate,3025
-# Do we listen?
-gossipctl_activate,,listen,bool
-
-# Master -> gossipd: Optional hint for where to find peer.
-gossipctl_peer_addrhint,3014
-gossipctl_peer_addrhint,,id,struct pubkey
-gossipctl_peer_addrhint,,addr,struct wireaddr_internal
-
-# Master -> gossipd: connect to a peer.
-gossipctl_connect_to_peer,3001
-gossipctl_connect_to_peer,,id,struct pubkey
-
-# Gossipd->master: result (not a reply since it can be out-of-order, but
-# you will get one reply for every request).
-gossipctl_connect_to_peer_result,3020
-gossipctl_connect_to_peer_result,,id,struct pubkey
-# True it connected.
-gossipctl_connect_to_peer_result,,connected,bool
-# Otherwise, why we can't reach them.
-gossipctl_connect_to_peer_result,,failreason,wirestring
-
-# Master -> gossipd: try to always maintain connection to this peer (or not)
-gossipctl_peer_important,3010
-gossipctl_peer_important,,id,struct pubkey
-gossipctl_peer_important,,important,bool
-
-# Gossipd -> master: we got a peer. Two fds: peer and gossip
-gossip_peer_connected,3002
-gossip_peer_connected,,id,struct pubkey
-gossip_peer_connected,,addr,struct wireaddr_internal
-gossip_peer_connected,,crypto_state,struct crypto_state
-gossip_peer_connected,,gflen,u16
-gossip_peer_connected,,gfeatures,gflen*u8
-gossip_peer_connected,,lflen,u16
-gossip_peer_connected,,lfeatures,lflen*u8
-
-# Gossipd -> master: peer sent non-gossip packet. Two fds: peer and gossip
-gossip_peer_nongossip,3003
-gossip_peer_nongossip,,id,struct pubkey
-gossip_peer_nongossip,,addr,struct wireaddr_internal
-gossip_peer_nongossip,,crypto_state,struct crypto_state
-gossip_peer_nongossip,,gflen,u16
-gossip_peer_nongossip,,gfeatures,gflen*u8
-gossip_peer_nongossip,,lflen,u16
-gossip_peer_nongossip,,lfeatures,lflen*u8
-gossip_peer_nongossip,,len,u16
-gossip_peer_nongossip,,msg,len*u8
-
-# Master -> gossipd: release a peer (so we can open a channel)
-gossipctl_release_peer,3004
-gossipctl_release_peer,,id,struct pubkey
-
-# Gossipd -> master: reply to gossip_release_peer.  Two fds: peer and gossip.
-gossipctl_release_peer_reply,3104
-gossipctl_release_peer_reply,,addr,struct wireaddr_internal
-gossipctl_release_peer_reply,,crypto_state,struct crypto_state
-gossipctl_release_peer_reply,,gflen,u16
-gossipctl_release_peer_reply,,gfeatures,gflen*u8
-gossipctl_release_peer_reply,,lflen,u16
-gossipctl_release_peer_reply,,lfeatures,lflen*u8
-
-# Gossipd -> master:  reply to gossip_release_peer if we couldn't find the peer.
-gossipctl_release_peer_replyfail,3204
-
-# master -> gossipd: take back peer, with optional msg. (+peer fd, +gossip fd)
-gossipctl_hand_back_peer,3013
-gossipctl_hand_back_peer,,id,struct pubkey
-gossipctl_hand_back_peer,,crypto_state,struct crypto_state
-gossipctl_hand_back_peer,,len,u16
-gossipctl_hand_back_peer,,msg,len*u8
-
-# master -> gossipd: peer has disconnected.
-gossipctl_peer_disconnected,3015
-gossipctl_peer_disconnected,,id,struct pubkey
 
 # Pass JSON-RPC getnodes call through
 gossip_getnodes_request,3005
@@ -188,16 +100,6 @@ gossip_resolve_channel_reply,3109
 gossip_resolve_channel_reply,,num_keys,u16
 gossip_resolve_channel_reply,,keys,num_keys*struct pubkey
 
-# The main daemon asks for peers
-gossip_getpeers_request,3011
-gossip_getpeers_request,,id,?struct pubkey
-
-gossip_getpeers_reply,3111
-gossip_getpeers_reply,,num,u16
-gossip_getpeers_reply,,id,num*struct pubkey
-gossip_getpeers_reply,,addr,num*struct wireaddr_internal
-gossip_getpeers_reply,,nodes,num*struct gossip_getnodes_entry
-
 # Channel daemon can ask for updates for a specific channel, for sending
 # errors.  Must be distinct from WIRE_CHANNEL_ANNOUNCEMENT etc. gossip msgs!
 gossip_get_update,3012
@@ -254,17 +156,6 @@ gossip_routing_failure,,channel_update,len*u8
 # (used in case of unparseable onion reply)
 gossip_mark_channel_unroutable,3022
 gossip_mark_channel_unroutable,,channel,struct short_channel_id
-
-# master->gossipd: Request to disconnect from a peer.
-gossipctl_peer_disconnect,3023
-gossipctl_peer_disconnect,,id,struct pubkey
-
-# Gossipd -> master:  reply to gossip_peer_disconnect with peer id.
-gossipctl_peer_disconnect_reply,3123
-
-# Gossipd -> master:  reply to gossip_peer_disconnect if we couldn't find the peer.
-gossipctl_peer_disconnect_replyfail,3223
-gossipctl_peer_disconnect_replyfail,,isconnected,bool
 
 # master -> gossipd: a potential funding outpoint was spent, please forget the eventual channel
 gossip_outpoint_spent,3024

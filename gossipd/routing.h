@@ -177,9 +177,6 @@ struct routing_state {
 	 * restarts */
 	struct gossip_store *store;
 
-	/* For testing, we announce and accept localhost */
-	bool dev_allow_localhost;
-
         /* A map of channels indexed by short_channel_ids */
 	UINTMAP(struct chan *) chanmap;
 
@@ -204,8 +201,7 @@ struct route_hop {
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct bitcoin_blkid *chain_hash,
 					const struct pubkey *local_id,
-					u32 prune_timeout,
-					bool dev_allow_localhost);
+					u32 prune_timeout);
 
 struct chan *new_chan(struct routing_state *rstate,
 		      const struct short_channel_id *scid,
