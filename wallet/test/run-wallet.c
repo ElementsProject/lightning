@@ -762,7 +762,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	mempat(scriptpubkey, tal_len(scriptpubkey));
 	c1.first_blocknum = 1;
 	c1.final_key_idx = 1337;
-	p = new_peer(ld, 0, &pk, NULL);
+	p = new_peer(ld, 0, &pk, NULL, NULL, NULL);
 	c1.peer = p;
 	c1.dbid = wallet_get_channel_dbid(w);
 	c1.state = CHANNELD_NORMAL;

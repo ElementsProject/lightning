@@ -80,7 +80,8 @@ static void copy_to_parent_log(const char *prefix,
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct pubkey *id,
-		      const struct wireaddr_internal *addr)
+		      const struct wireaddr_internal *addr,
+		      const u8 *gfeatures, const u8 *lfeatures)
 {
 	/* We are owned by our channels, and freed manually by destroy_channel */
 	struct peer *peer = tal(NULL, struct peer);
@@ -96,6 +97,10 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		peer->addr.itype = ADDR_INTERNAL_WIREADDR;
 		peer->addr.u.wireaddr.type = ADDR_TYPE_PADDING;
 	}
+	peer->global_features = tal_dup_arr(peer, u8,
+					    gfeatures, tal_count(gfeatures), 0);
+	peer->local_features = tal_dup_arr(peer, u8,
+					   lfeatures, tal_count(lfeatures), 0);
 	list_head_init(&peer->channels);
 	peer->direction = get_channel_direction(&peer->ld->id, &peer->id);
 
@@ -704,18 +709,6 @@ struct getpeers_args {
 	struct pubkey *specific_id;
 };
 
-static void json_add_features(struct json_result *response,
-			      const struct peer_features *pf)
-{
-	json_add_hex(response, "global_features",
-		     pf->global_features,
-		     tal_len(pf->global_features));
-
-	json_add_hex(response, "local_features",
-		     pf->local_features,
-		     tal_len(pf->local_features));
-}
-
 static void connectd_getpeers_complete(struct subd *connectd, const u8 *msg,
 				      const int *fds UNUSED,
 				      struct getpeers_args *gpa)
@@ -756,6 +749,9 @@ static void connectd_getpeers_complete(struct subd *connectd, const u8 *msg,
 		}
 		json_add_bool(response, "connected", connected);
 
+		/* If it's not connected, features are unreliable: we don't
+		 * store them in the database, and they would only reflect
+		 * their features *last* time they connected. */
 		if (connected) {
 			json_array_start(response, "netaddr");
 			if (p->addr.itype != ADDR_INTERNAL_WIREADDR
@@ -765,14 +761,13 @@ static void connectd_getpeers_complete(struct subd *connectd, const u8 *msg,
 							       struct wireaddr_internal,
 							       &p->addr));
 			json_array_end(response);
-		}
+			json_add_hex(response, "global_features",
+				     p->global_features,
+				     tal_len(p->global_features));
 
-		/* Search connectd reply for this ID, to add extra info. */
-		for (size_t i = 0; i < tal_count(ids); i++) {
-			if (pubkey_eq(&ids[i], &p->id)) {
-				json_add_features(response, pf[i]);
-				break;
-			}
+			json_add_hex(response, "local_features",
+				     p->local_features,
+				     tal_len(p->local_features));
 		}
 
 		json_array_start(response, "channels");
@@ -905,7 +900,13 @@ static void connectd_getpeers_complete(struct subd *connectd, const u8 *msg,
 		/* Fake state. */
 		json_add_string(response, "state", "GOSSIPING");
 		json_add_pubkey(response, "id", ids+i);
-		json_add_features(response, pf[i]);
+		json_add_hex(response, "global_features",
+			     pf[i]->global_features,
+			     tal_len(pf[i]->global_features));
+
+		json_add_hex(response, "local_features",
+			     pf[i]->local_features,
+			     tal_len(pf[i]->local_features));
 		json_array_start(response, "netaddr");
 		if (addrs[i].itype != ADDR_INTERNAL_WIREADDR
 		    || addrs[i].u.wireaddr.type != ADDR_TYPE_PADDING)
