@@ -8,9 +8,11 @@
 struct lightningd;
 
 void gossip_init(struct lightningd *ld, int connectd_fd);
-void gossip_activate(struct lightningd *ld);
 
 void gossipd_notify_spend(struct lightningd *ld,
 			  const struct short_channel_id *scid);
 
+/* FIXME: Exposing this is a hack for connectd transition. */
+struct subd;
+unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds);
 #endif /* LIGHTNING_LIGHTNINGD_GOSSIP_CONTROL_H */

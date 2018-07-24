@@ -126,8 +126,11 @@ struct lightningd {
 	int hsm_fd;
 	struct subd *hsm;
 
+	/* Daemon for routing */
+ 	struct subd *gossip;
+
 	/* Daemon looking after peers during init / before channel. */
-	struct subd *gossip;
+	struct subd *connectd;
 
 	/* All peers we're tracking. */
 	struct list_head peers;

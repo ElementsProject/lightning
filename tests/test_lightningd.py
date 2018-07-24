@@ -695,6 +695,7 @@ class LightningDTests(BaseLightningDTests):
                                l1.rpc.connect, '032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'localhost', l2.port)
 
     @unittest.skipIf(not DEVELOPER, "needs --dev-allow-localhost")
+    @unittest.skip("FIXME: Re-enable once gossipd gives out addresses to connectd")
     def test_connect_by_gossip(self):
         """Test connecting to an unknown peer using node gossip
         """
@@ -2782,8 +2783,8 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
 
-        # Need full IO logging so we can see gossip (from gossipd and channeld)
-        subprocess.run(['kill', '-USR1', l1.subd_pid('gossipd')])
+        # Need full IO logging so we can see gossip (from connectd and channeld)
+        subprocess.run(['kill', '-USR1', l1.subd_pid('connectd')])
 
         # Empty result tests.
         reply = l1.rpc.dev_query_scids(l2.info['id'], ['1:1:1', '2:2:2'])
@@ -2840,9 +2841,9 @@ class LightningDTests(BaseLightningDTests):
         l2 = self.node_factory.get_node()
         l3 = self.node_factory.get_node()
 
-        # Full IO logging for gossipds
-        subprocess.run(['kill', '-USR1', l1.subd_pid('gossipd')])
-        subprocess.run(['kill', '-USR1', l2.subd_pid('gossipd')])
+        # Full IO logging for connectds
+        subprocess.run(['kill', '-USR1', l1.subd_pid('connectd')])
+        subprocess.run(['kill', '-USR1', l2.subd_pid('connectd')])
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
@@ -2951,9 +2952,9 @@ class LightningDTests(BaseLightningDTests):
                                         may_reconnect=True)
         l4 = self.node_factory.get_node(may_reconnect=True)
 
-        # Turn on IO logging for gossipds
-        subprocess.run(['kill', '-USR1', l1.subd_pid('gossipd')])
-        subprocess.run(['kill', '-USR1', l2.subd_pid('gossipd')])
+        # Turn on IO logging for connectd
+        subprocess.run(['kill', '-USR1', l1.subd_pid('connectd')])
+        subprocess.run(['kill', '-USR1', l2.subd_pid('connectd')])
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
@@ -3555,8 +3556,8 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
         # We should get a message about reconnecting, but order unsynced.
-        l2.daemon.wait_for_logs(['gossipd.*reconnect for active peer',
-                                 'openingd.*Error reading gossip msg'])
+        l2.daemon.wait_for_logs(['connectd.*reconnect for active peer',
+                                 'Killing openingd: Reconnected'])
 
         # Should work fine.
         l1.rpc.fundchannel(l2.info['id'], 20000)

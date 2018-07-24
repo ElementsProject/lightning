@@ -31,7 +31,7 @@ void channel_set_owner(struct channel *channel, struct subd *owner)
 		if (channel->connected && !connects_to_peer(owner)) {
 			u8 *msg = towire_gossipctl_peer_disconnected(NULL,
 							     &channel->peer->id);
-			subd_send_msg(channel->peer->ld->gossip, take(msg));
+			subd_send_msg(channel->peer->ld->connectd, take(msg));
 			channel->connected = false;
 		}
 	}

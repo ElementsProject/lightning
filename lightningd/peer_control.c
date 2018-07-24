@@ -350,7 +350,7 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 
 	/* Tell gossipd we no longer need to keep connection to this peer */
 	msg = towire_gossipctl_peer_important(NULL, &channel->peer->id, false);
-	subd_send_msg(ld->gossip, take(msg));
+	subd_send_msg(ld->connectd, take(msg));
 
 	sign_last_tx(channel);
 
@@ -414,15 +414,15 @@ void channel_errmsg(struct channel *channel,
 			       channel->owner->name,
 			       err_for_them ? "sent" : "received", desc);
 
-	/* Hand back to gossipd, with any error packet. */
+	/* Hand back to connectdd, with any error packet. */
 	msg = towire_gossipctl_hand_back_peer(NULL, &channel->peer->id,
 					      cs, err_for_them);
-	subd_send_msg(ld->gossip, take(msg));
-	subd_send_fd(ld->gossip, peer_fd);
-	subd_send_fd(ld->gossip, gossip_fd);
+	subd_send_msg(ld->connectd, take(msg));
+	subd_send_fd(ld->connectd, peer_fd);
+	subd_send_fd(ld->connectd, gossip_fd);
 }
 
-/* Gossipd tells us a peer has connected: it never hands us duplicates, since
+/* Connectd tells us a peer has connected: it never hands us duplicates, since
  * it holds them until we say peer_died. */
 void peer_connected(struct lightningd *ld, const u8 *msg,
 		    int peer_fd, int gossip_fd)
@@ -527,11 +527,11 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	error = NULL;
 
 send_error:
-	/* Hand back to gossipd, with an error packet. */
+	/* Hand back to channeld, with an error packet. */
 	msg = towire_gossipctl_hand_back_peer(msg, &id, &cs, error);
-	subd_send_msg(ld->gossip, take(msg));
-	subd_send_fd(ld->gossip, peer_fd);
-	subd_send_fd(ld->gossip, gossip_fd);
+	subd_send_msg(ld->connectd, take(msg));
+	subd_send_fd(ld->connectd, peer_fd);
+	subd_send_fd(ld->connectd, gossip_fd);
 }
 
 static struct channel *channel_by_channel_id(struct peer *peer,
@@ -612,11 +612,11 @@ void peer_sent_nongossip(struct lightningd *ld,
 				fromwire_peektype(in_msg));
 
 send_error:
-	/* Hand back to gossipd, with an error packet. */
+	/* Hand back to channeld, with an error packet. */
 	msg = towire_gossipctl_hand_back_peer(ld, id, cs, error);
-	subd_send_msg(ld->gossip, take(msg));
-	subd_send_fd(ld->gossip, peer_fd);
-	subd_send_fd(ld->gossip, gossip_fd);
+	subd_send_msg(ld->connectd, take(msg));
+	subd_send_fd(ld->connectd, peer_fd);
+	subd_send_fd(ld->connectd, gossip_fd);
 }
 
 static enum watch_result funding_lockin_cb(struct channel *channel,
@@ -951,8 +951,8 @@ static void json_listpeers(struct command *cmd,
 		   NULL))
 		return;
 
-	/* Get peers from gossipd. */
-	subd_req(cmd, cmd->ld->gossip,
+	/* Get peers from connectd. */
+	subd_req(cmd, cmd->ld->connectd,
 		 take(towire_gossip_getpeers_request(cmd, gpa->specific_id)),
 		 -1, 0, gossipd_getpeers_complete, gpa);
 	command_still_pending(cmd);
@@ -1104,11 +1104,11 @@ static void activate_peer(struct peer *peer)
 	struct channel *channel;
 	struct lightningd *ld = peer->ld;
 
-	/* Pass gossipd any addrhints we currently have */
+	/* Pass channeld any addrhints we currently have */
 	msg = towire_gossipctl_peer_addrhint(peer, &peer->id, &peer->addr);
-	subd_send_msg(peer->ld->gossip, take(msg));
+	subd_send_msg(peer->ld->connectd, take(msg));
 
-	/* We can only have one active channel: make sure gossipd
+	/* We can only have one active channel: make sure connectd
 	 * knows to reconnect. */
 	channel = peer_active_channel(peer);
 	if (channel)
@@ -1128,8 +1128,8 @@ void activate_peers(struct lightningd *ld)
 		activate_peer(p);
 }
 
-/* Peer has been released from gossip. */
-static void gossip_peer_disconnected (struct subd *gossip,
+/* Peer has been released from connectd. */
+static void gossip_peer_disconnected (struct subd *connectd,
 				 const u8 *resp,
 				 const int *fds,
 				 struct command *cmd) {
@@ -1138,7 +1138,7 @@ static void gossip_peer_disconnected (struct subd *gossip,
 	if (!fromwire_gossipctl_peer_disconnect_reply(resp)) {
 		if (!fromwire_gossipctl_peer_disconnect_replyfail(resp, &isconnected))
 			fatal("Gossip daemon gave invalid reply %s",
-			      tal_hex(gossip, resp));
+			      tal_hex(tmpctx, resp));
 		if (isconnected)
 			command_fail(cmd, LIGHTNINGD,
 				     "Peer is not in gossip mode");
@@ -1163,7 +1163,7 @@ static void json_disconnect(struct command *cmd,
 		return;
 
 	msg = towire_gossipctl_peer_disconnect(cmd, &id);
-	subd_req(cmd, cmd->ld->gossip, msg, -1, 0, gossip_peer_disconnected, cmd);
+	subd_req(cmd, cmd->ld->connectd, msg, -1, 0, gossip_peer_disconnected, cmd);
 	command_still_pending(cmd);
 }
 

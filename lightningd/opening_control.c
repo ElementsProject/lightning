@@ -123,9 +123,9 @@ static void uncommitted_channel_to_gossipd(struct lightningd *ld,
 	/* Hand back to gossipd, (maybe) with an error packet to send. */
 	msg = towire_gossipctl_hand_back_peer(errstr, &uc->peer->id, cs,
 					      errorpkt);
-	subd_send_msg(ld->gossip, take(msg));
-	subd_send_fd(ld->gossip, peer_fd);
-	subd_send_fd(ld->gossip, gossip_fd);
+	subd_send_msg(ld->connectd, take(msg));
+	subd_send_fd(ld->connectd, peer_fd);
+	subd_send_fd(ld->connectd, gossip_fd);
 }
 
 static void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
@@ -133,7 +133,7 @@ static void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
 {
 	u8 *msg = towire_gossipctl_peer_disconnected(tmpctx, &uc->peer->id);
 	log_info(uc->log, "%s", desc);
-	subd_send_msg(uc->peer->ld->gossip, msg);
+	subd_send_msg(uc->peer->ld->connectd, msg);
 	if (uc->fc)
 		command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc);
 }
@@ -275,7 +275,7 @@ void tell_gossipd_peer_is_important(struct lightningd *ld,
 
 	/* Tell gossipd we need to keep connection to this peer */
 	msg = towire_gossipctl_peer_important(NULL, &channel->peer->id, true);
-	subd_send_msg(ld->gossip, take(msg));
+	subd_send_msg(ld->connectd, take(msg));
 }
 
 static void opening_funder_finished(struct subd *openingd, const u8 *resp,
@@ -957,7 +957,7 @@ static void json_fund_channel(struct command *cmd,
 	tal_add_destructor(fc, remove_funding_channel_from_list);
 
 	msg = towire_gossipctl_release_peer(cmd, &fc->peerid);
-	subd_req(fc, cmd->ld->gossip, msg, -1, 2, gossip_peer_released, fc);
+	subd_req(fc, cmd->ld->connectd, msg, -1, 2, gossip_peer_released, fc);
 	command_still_pending(cmd);
 }
 

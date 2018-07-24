@@ -1,16 +1,28 @@
 #include <bitcoin/pubkey.h>
+#include <ccan/err/err.h>
+#include <ccan/fdpass/fdpass.h>
 #include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
+#include <common/features.h>
 #include <common/wireaddr.h>
+#include <connectd/gen_connect_wire.h>
+#include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
+#include <hsmd/capabilities.h>
+#include <hsmd/gen_hsm_client_wire.h>
+#include <lightningd/channel.h>
 #include <lightningd/connect_control.h>
+#include <lightningd/gossip_control.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/opening_control.h>
 #include <lightningd/param.h>
 #include <lightningd/subd.h>
+#include <wire/gen_peer_wire.h>
+#include <wire/wire_sync.h>
 
 struct connect {
 	struct list_node list;
@@ -168,13 +180,13 @@ static void json_connect(struct command *cmd,
 
 		/* Tell it about the address. */
 		msg = towire_gossipctl_peer_addrhint(cmd, &id, &addr);
-		subd_send_msg(cmd->ld->gossip, take(msg));
+		subd_send_msg(cmd->ld->connectd, take(msg));
 	}
 
-	/* If there isn't already a connect command, tell gossipd */
+	/* If there isn't already a connect command, tell connectd */
 	if (!find_connect(cmd->ld, &id)) {
 		msg = towire_gossipctl_connect_to_peer(NULL, &id);
-		subd_send_msg(cmd->ld->gossip, take(msg));
+		subd_send_msg(cmd->ld->connectd, take(msg));
 	}
 	/* Leave this here for gossip_connect_result */
 	new_connect(cmd->ld, &id, cmd);
@@ -189,13 +201,140 @@ static const struct json_command connect_command = {
 };
 AUTODATA(json_command, &connect_command);
 
+static void peer_please_disconnect(struct lightningd *ld, const u8 *msg)
+{
+	struct pubkey id;
+	struct channel *c;
+	struct uncommitted_channel *uc;
+
+	if (!fromwire_connect_reconnected(msg, &id))
+		fatal("Bad msg %s from connectd", tal_hex(tmpctx, msg));
+
+	c = active_channel_by_id(ld, &id, &uc);
+	if (uc)
+		kill_uncommitted_channel(uc, "Reconnected");
+	else if (c)
+		channel_fail_transient(c, "Reconnected");
+}
+
+static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)
+{
+	/* FIXME: Move away from gossip types */
+	if (fromwire_peektype(msg) == WIRE_CONNECT_RECONNECTED) {
+		peer_please_disconnect(connectd->ld, msg);
+		return 0;
+	}
+
+	return gossip_msg(connectd->ld->gossip, msg, fds);
+}
+
+static void connect_init_done(struct subd *connectd,
+			      const u8 *reply,
+			      const int *fds UNUSED,
+			      void *unused UNUSED)
+{
+	struct lightningd *ld = connectd->ld;
+
+	if (!fromwire_connectctl_init_reply(ld, reply,
+					    &ld->binding,
+					    &ld->announcable))
+		fatal("Bad connectctl_activate_reply: %s",
+		      tal_hex(reply, reply));
+
+	/* Break out of loop, so we can begin */
+	io_break(connectd);
+}
+
+/* FIXME: This is a transition hack */
+static const char *connect_and_gossip_wire_type_name(int e)
+{
+	const char *name = connect_wire_type_name(e);
+	if (strstarts(name, "INVALID"))
+		name = gossip_wire_type_name(e);
+	return name;
+}
+
 int connectd_init(struct lightningd *ld)
 {
-	/* FIXME: implement */
 	int fds[2];
+	u8 *msg;
+	int hsmfd;
+	u64 capabilities = HSM_CAP_ECDH;
+	struct wireaddr_internal *wireaddrs = ld->proposed_wireaddr;
+	enum addr_listen_announce *listen_announce = ld->proposed_listen_announce;
+	bool allow_localhost = false;
+#if DEVELOPER
+	if (ld->dev_allow_localhost)
+		allow_localhost = true;
+#endif
 
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0)
 		fatal("Could not socketpair for connectd<->gossipd");
 
+	msg = towire_hsm_client_hsmfd(tmpctx, &ld->id, 0, capabilities);
+	if (!wire_sync_write(ld->hsm_fd, msg))
+		fatal("Could not write to HSM: %s", strerror(errno));
+
+	msg = wire_sync_read(tmpctx, ld->hsm_fd);
+	if (!fromwire_hsm_client_hsmfd_reply(msg))
+		fatal("Malformed hsmfd response: %s", tal_hex(msg, msg));
+
+	hsmfd = fdpass_recv(ld->hsm_fd);
+	if (hsmfd < 0)
+		fatal("Could not read fd from HSM: %s", strerror(errno));
+
+	ld->connectd = new_global_subd(ld, "lightning_connectd",
+				       connect_and_gossip_wire_type_name, connectd_msg,
+				       take(&hsmfd), take(&fds[1]), NULL);
+	if (!ld->connectd)
+		err(1, "Could not subdaemon connectd");
+
+	/* If no addr specified, hand wildcard to connectd */
+	if (tal_count(wireaddrs) == 0 && ld->autolisten) {
+		wireaddrs = tal_arrz(tmpctx, struct wireaddr_internal, 1);
+		listen_announce = tal_arr(tmpctx, enum addr_listen_announce, 1);
+		wireaddrs->itype = ADDR_INTERNAL_ALLPROTO;
+		wireaddrs->u.port = ld->portnum;
+		*listen_announce = ADDR_LISTEN_AND_ANNOUNCE;
+	}
+
+	msg = towire_connectctl_init(
+	    tmpctx, ld->config.broadcast_interval,
+	    &get_chainparams(ld)->genesis_blockhash, &ld->id,
+	    get_offered_global_features(tmpctx),
+	    get_offered_local_features(tmpctx), wireaddrs,
+	    listen_announce, ld->rgb,
+	    ld->alias, ld->config.channel_update_interval, ld->reconnect,
+	    ld->proxyaddr, ld->use_proxy_always || ld->pure_tor_setup,
+	    allow_localhost, ld->config.use_dns,
+	    ld->tor_service_password ? ld->tor_service_password : "");
+
+	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
+		 connect_init_done, NULL);
+
+	/* Wait for init_reply */
+	io_loop(NULL, NULL);
+
 	return fds[0];
 }
+
+static void connect_activate_done(struct subd *connectd,
+				  const u8 *reply UNUSED,
+				  const int *fds UNUSED,
+				  void *unused UNUSED)
+{
+	/* Break out of loop, so we can begin */
+	io_break(connectd);
+}
+
+void connectd_activate(struct lightningd *ld)
+{
+	const u8 *msg = towire_connectctl_activate(NULL, ld->listen);
+
+	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
+		 connect_activate_done, NULL);
+
+	/* Wait for activate_reply */
+	io_loop(NULL, NULL);
+}
+
