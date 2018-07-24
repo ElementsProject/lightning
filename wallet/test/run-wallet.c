@@ -72,7 +72,7 @@ bool fromwire_connectctl_peer_disconnect_reply(const void *p UNNEEDED)
 bool fromwire_connectctl_peer_disconnect_replyfail(const void *p UNNEEDED, bool *isconnected UNNEEDED)
 { fprintf(stderr, "fromwire_connectctl_peer_disconnect_replyfail called!\n"); abort(); }
 /* Generated stub for fromwire_connect_getpeers_reply */
-bool fromwire_connect_getpeers_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey **id UNNEEDED, struct wireaddr_internal **addr UNNEEDED, struct gossip_getnodes_entry ***nodes UNNEEDED)
+bool fromwire_connect_getpeers_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey **id UNNEEDED, struct wireaddr_internal **addr UNNEEDED, struct peer_features ***features UNNEEDED)
 { fprintf(stderr, "fromwire_connect_getpeers_reply called!\n"); abort(); }
 /* Generated stub for fromwire_connect_peer_connected */
 bool fromwire_connect_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u8 **gfeatures UNNEEDED, u8 **lfeatures UNNEEDED)
@@ -183,11 +183,6 @@ void invoices_waitone(const tal_t *ctx UNNEEDED,
 void json_add_bool(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
 		   bool value UNNEEDED)
 { fprintf(stderr, "json_add_bool called!\n"); abort(); }
-/* Generated stub for json_add_escaped_string */
-void json_add_escaped_string(struct json_result *result UNNEEDED,
-			     const char *fieldname UNNEEDED,
-			     const struct json_escaped *esc TAKES UNNEEDED)
-{ fprintf(stderr, "json_add_escaped_string called!\n"); abort(); }
 /* Generated stub for json_add_hex */
 void json_add_hex(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
 		  const void *data UNNEEDED, size_t len UNNEEDED)
@@ -231,9 +226,6 @@ void json_array_end(struct json_result *ptr UNNEEDED)
 /* Generated stub for json_array_start */
 void json_array_start(struct json_result *ptr UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_array_start called!\n"); abort(); }
-/* Generated stub for json_escape */
-struct json_escaped *json_escape(const tal_t *ctx UNNEEDED, const char *str TAKES UNNEEDED)
-{ fprintf(stderr, "json_escape called!\n"); abort(); }
 /* Generated stub for json_escaped_string_ */
 struct json_escaped *json_escaped_string_(const tal_t *ctx UNNEEDED,
 					  const void *bytes UNNEEDED, size_t len UNNEEDED)

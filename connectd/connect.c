@@ -1782,25 +1782,20 @@ static struct io_plan *peer_disconnected(struct io_conn *conn,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
-static void append_node(const struct gossip_getnodes_entry ***nodes,
-			const struct pubkey *nodeid,
-			const u8 *gfeatures,
-			const u8 *lfeatures)
+static void append_peer_features(const struct peer_features ***pf,
+				 const u8 *gfeatures,
+				 const u8 *lfeatures)
 {
-	struct gossip_getnodes_entry *new;
-	size_t num_nodes = tal_count(*nodes);
+	struct peer_features *new;
+	size_t num_nodes = tal_count(*pf);
 
-	new = tal(*nodes, struct gossip_getnodes_entry);
-	new->nodeid = *nodeid;
-	new->global_features = tal_dup_arr(*nodes, u8, gfeatures,
+	new = tal(*pf, struct peer_features);
+	new->global_features = tal_dup_arr(new, u8, gfeatures,
 					   tal_len(gfeatures), 0);
-	new->local_features = tal_dup_arr(*nodes, u8, lfeatures,
+	new->local_features = tal_dup_arr(new, u8, lfeatures,
 					  tal_len(lfeatures), 0);
-	/* FIXME: Don't use gossip_getnodes_entry. */
-	new->last_timestamp = -1;
-	new->addresses = NULL;
-	tal_resize(nodes, num_nodes + 1);
-	(*nodes)[num_nodes] = new;
+	tal_resize(pf, num_nodes + 1);
+	(*pf)[num_nodes] = new;
 }
 
 static struct io_plan *get_peers(struct io_conn *conn,
@@ -1810,7 +1805,7 @@ static struct io_plan *get_peers(struct io_conn *conn,
 	size_t n = 0;
 	struct pubkey *id = tal_arr(conn, struct pubkey, n);
 	struct wireaddr_internal *wireaddr = tal_arr(conn, struct wireaddr_internal, n);
-	const struct gossip_getnodes_entry **nodes = tal_arr(conn, const struct gossip_getnodes_entry *, n);
+	const struct peer_features **pf = tal_arr(conn, const struct peer_features *, n);
 	struct pubkey *specific_id;
 
 	if (!fromwire_connect_getpeers_request(msg, msg, &specific_id))
@@ -1824,13 +1819,12 @@ static struct io_plan *get_peers(struct io_conn *conn,
 
 		id[n] = peer->id;
 		wireaddr[n] = peer->addr;
-		append_node(&nodes, &peer->id,
-			    peer->gfeatures, peer->lfeatures);
+		append_peer_features(&pf, peer->gfeatures, peer->lfeatures);
 		n++;
 	}
 
 	daemon_conn_send(&daemon->master,
-			 take(towire_connect_getpeers_reply(NULL, id, wireaddr, nodes)));
+			 take(towire_connect_getpeers_reply(NULL, id, wireaddr, pf)));
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 

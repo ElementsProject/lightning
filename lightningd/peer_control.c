@@ -704,29 +704,16 @@ struct getpeers_args {
 	struct pubkey *specific_id;
 };
 
-static void json_add_node_decoration(struct json_result *response,
-				     struct gossip_getnodes_entry *node)
+static void json_add_features(struct json_result *response,
+			      const struct peer_features *pf)
 {
-	struct json_escaped *esc;
+	json_add_hex(response, "global_features",
+		     pf->global_features,
+		     tal_len(pf->global_features));
 
-	if (node->local_features)
-		json_add_hex(response, "local_features",
-			     node->local_features,
-			     tal_len(node->local_features));
-
-	if (node->global_features)
-		json_add_hex(response, "global_features",
-			     node->global_features,
-			     tal_len(node->global_features));
-
-	/* If node announcement hasn't been received yet, no alias information.
-	 */
-	if (node->last_timestamp < 0)
-		return;
-
-	esc = json_escape(NULL, (const char *)node->alias);
-	json_add_escaped_string(response, "alias", take(esc));
-	json_add_hex(response, "color", node->color, ARRAY_SIZE(node->color));
+	json_add_hex(response, "local_features",
+		     pf->local_features,
+		     tal_len(pf->local_features));
 }
 
 static void connectd_getpeers_complete(struct subd *connectd, const u8 *msg,
@@ -736,11 +723,11 @@ static void connectd_getpeers_complete(struct subd *connectd, const u8 *msg,
 	/* This is a little sneaky... */
 	struct pubkey *ids;
 	struct wireaddr_internal *addrs;
-	struct gossip_getnodes_entry **nodes;
+	struct peer_features **pf;
 	struct json_result *response = new_json_result(gpa->cmd);
 	struct peer *p;
 
-	if (!fromwire_connect_getpeers_reply(msg, msg, &ids, &addrs, &nodes)) {
+	if (!fromwire_connect_getpeers_reply(msg, msg, &ids, &addrs, &pf)) {
 		command_fail(gpa->cmd, LIGHTNINGD,
 			     "Bad response from connectd");
 		return;
@@ -780,10 +767,10 @@ static void connectd_getpeers_complete(struct subd *connectd, const u8 *msg,
 			json_array_end(response);
 		}
 
-		/* Search gossip reply for this ID, to add extra info. */
-		for (size_t i = 0; i < tal_count(nodes); i++) {
-			if (pubkey_eq(&nodes[i]->nodeid, &p->id)) {
-				json_add_node_decoration(response, nodes[i]);
+		/* Search connectd reply for this ID, to add extra info. */
+		for (size_t i = 0; i < tal_count(ids); i++) {
+			if (pubkey_eq(&ids[i], &p->id)) {
+				json_add_features(response, pf[i]);
 				break;
 			}
 		}
@@ -791,7 +778,6 @@ static void connectd_getpeers_complete(struct subd *connectd, const u8 *msg,
 		json_array_start(response, "channels");
 		json_add_uncommitted_channel(response, p->uncommitted_channel);
 
-		/* FIXME: Add their local and global features */
 		list_for_each(&p->channels, channel, list) {
 			struct channel_id cid;
 			u64 our_reserve_msat = channel->channel_info.their_config.channel_reserve_satoshis * 1000;
@@ -919,7 +905,7 @@ static void connectd_getpeers_complete(struct subd *connectd, const u8 *msg,
 		/* Fake state. */
 		json_add_string(response, "state", "GOSSIPING");
 		json_add_pubkey(response, "id", ids+i);
-		json_add_node_decoration(response, nodes[i]);
+		json_add_features(response, pf[i]);
 		json_array_start(response, "netaddr");
 		if (addrs[i].itype != ADDR_INTERNAL_WIREADDR
 		    || addrs[i].u.wireaddr.type != ADDR_TYPE_PADDING)

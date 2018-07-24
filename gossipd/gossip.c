@@ -1446,7 +1446,6 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 static void append_node(const struct gossip_getnodes_entry ***nodes,
 			const struct pubkey *nodeid,
 			const u8 *gfeatures,
-			const u8 *lfeatures,
 			/* If non-NULL, contains more information */
 			const struct node *n)
 {
@@ -1457,8 +1456,6 @@ static void append_node(const struct gossip_getnodes_entry ***nodes,
 	new->nodeid = *nodeid;
 	new->global_features = tal_dup_arr(*nodes, u8, gfeatures,
 					   tal_len(gfeatures), 0);
-	new->local_features = tal_dup_arr(*nodes, u8, lfeatures,
-					  tal_len(lfeatures), 0);
 	if (!n || n->last_timestamp < 0) {
 		new->last_timestamp = -1;
 		new->addresses = NULL;
@@ -1486,12 +1483,12 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 	if (id) {
 		n = get_node(daemon->rstate, id);
 		if (n)
-			append_node(&nodes, id, n->gfeatures, NULL, n);
+			append_node(&nodes, id, n->gfeatures, n);
 	} else {
 		struct node_map_iter i;
 		n = node_map_first(daemon->rstate->nodes, &i);
 		while (n != NULL) {
-			append_node(&nodes, &n->id, n->gfeatures, NULL, n);
+			append_node(&nodes, &n->id, n->gfeatures, n);
 			n = node_map_next(daemon->rstate->nodes, &i);
 		}
 	}
