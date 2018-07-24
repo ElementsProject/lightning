@@ -462,6 +462,14 @@ int main(int argc, char *argv[])
 	}
 
 	shutdown_subdaemons(ld);
+
+	/* Clean up the JSON-RPC. This needs to happen in a DB transaction since
+	 * it might actually be touching the DB in some destructors, e.g.,
+	 * unreserving UTXOs (see #1737) */
+	db_begin_transaction(ld->wallet->db);
+	tal_free(ld->rpc_listener);
+	db_commit_transaction(ld->wallet->db);
+
 	close(pid_fd);
 	remove(ld->pidfile);
 

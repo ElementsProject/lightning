@@ -1,7 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 
 import os
-import pytest
 import signal
 import unittest
 
@@ -11,13 +10,13 @@ with open('config.vars') as configfile:
 DEVELOPER = os.getenv("DEVELOPER", config['DEVELOPER']) == "1"
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs --dev-disconnect")
 def test_stop_pending_fundchannel(node_factory, executor):
     """Stop the daemon while waiting for an accept_channel
 
-    This used to crash the node, since we were calling unreserve_utxo while freeing
-    the daemon, but that needs a DB transaction to be open.
+    This used to crash the node, since we were calling unreserve_utxo while
+    freeing the daemon, but that needs a DB transaction to be open.
+
     """
     l1 = node_factory.get_node()
     l2 = node_factory.get_node()
