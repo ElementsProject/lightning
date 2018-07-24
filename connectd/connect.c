@@ -626,7 +626,10 @@ static struct io_plan *ready_for_master(struct io_conn *conn, struct peer *peer)
 							  peer->gfeatures,
 							  peer->lfeatures);
 
-	/* FIXME: This can leave half-read/written gossip messages! */
+	/* FIXME: This can block (bad!) and anyway we can still have
+	 * half-*read* gossip messages! */
+	daemon_conn_sync_flush(&peer->local->gossip_conn);
+
 	io_close_taken_fd(peer->local->gossip_conn.conn);
 	send_peer_with_fds(peer, take(msg));
 	/* In case we set this earlier. */
