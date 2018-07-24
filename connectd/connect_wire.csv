@@ -1,0 +1,3 @@
+# connectd->master: disconnect this peer please (due to reconnect).
+connect_reconnected,2112
+connect_reconnected,,id,struct pubkey

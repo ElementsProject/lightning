@@ -193,6 +193,7 @@ include openingd/Makefile
 include channeld/Makefile
 include closingd/Makefile
 include onchaind/Makefile
+include connectd/Makefile
 include lightningd/Makefile
 include cli/Makefile
 include doc/Makefile
@@ -421,6 +422,7 @@ BIN_PROGRAMS = \
 PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_channeld \
 	       lightningd/lightning_closingd \
+	       lightningd/lightning_connectd \
 	       lightningd/lightning_gossipd \
 	       lightningd/lightning_hsmd \
 	       lightningd/lightning_onchaind \
