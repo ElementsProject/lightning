@@ -36,11 +36,7 @@
 #include <gossipd/broadcast.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <gossipd/gossip.h>
-#include <gossipd/handshake.h>
-#include <gossipd/netaddress.h>
 #include <gossipd/routing.h>
-#include <gossipd/tor.h>
-#include <gossipd/tor_autoservice.h>
 #include <hsmd/client.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>

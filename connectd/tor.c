@@ -4,8 +4,8 @@
 #include <common/status.h>
 #include <common/utils.h>
 #include <common/wireaddr.h>
-#include <gossipd/gossip.h>
-#include <gossipd/tor.h>
+#include <connectd/connect.h>
+#include <connectd/tor.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>

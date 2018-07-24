@@ -15,10 +15,10 @@ LIGHTNINGD_CONNECT_CONTROL_OBJS := $(LIGHTNINGD_CONNECT_CONTROL_SRC:.c=.o)
 LIGHTNINGD_CONNECT_HEADERS := connectd/gen_connect_wire.h \
 	connectd/gen_connect_gossip_wire.h		\
 	connectd/connect.h				\
-	gossipd/handshake.h				\
-	gossipd/netaddress.h				\
-	gossipd/tor_autoservice.h			\
-	gossipd/tor.h
+	connectd/handshake.h				\
+	connectd/netaddress.h				\
+	connectd/tor_autoservice.h			\
+	connectd/tor.h
 LIGHTNINGD_CONNECT_SRC := $(LIGHTNINGD_CONNECT_HEADERS:.h=.c)
 LIGHTNINGD_CONNECT_OBJS := $(LIGHTNINGD_CONNECT_SRC:.c=.o)
 

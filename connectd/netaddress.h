@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_GOSSIPD_NETADDRESS_H
-#define LIGHTNING_GOSSIPD_NETADDRESS_H
+#ifndef LIGHTNING_CONNECTD_NETADDRESS_H
+#define LIGHTNING_CONNECTD_NETADDRESS_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <common/wireaddr.h>
@@ -11,4 +11,4 @@ bool guess_address(struct wireaddr *wireaddr);
 bool address_routable(const struct wireaddr *wireaddr,
 		      bool allow_localhost);
 
-#endif /* LIGHTNING_GOSSIPD_NETADDRESS_H */
+#endif /* LIGHTNING_CONNECTD_NETADDRESS_H */

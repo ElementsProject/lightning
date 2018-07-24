@@ -10,9 +10,9 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/wireaddr.h>
+#include <connectd/tor_autoservice.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <gossipd/tor_autoservice.h>
 #include <lightningd/log.h>
 #include <netdb.h>
 #include <netinet/in.h>
