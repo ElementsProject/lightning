@@ -26,6 +26,15 @@ struct channel_id;
 					   const u8 *),			\
 		       arg)
 
+/* Like the above, but don't read from GOSSIP_FD */
+#define read_peer_msg_nogossip(ctx, cs, chanid, send_reply, arg)	\
+	read_peer_msg_((ctx), PEER_FD, -1, (cs),			\
+		       (chanid),					\
+		       typesafe_cb_preargs(bool, void *, (send_reply), (arg), \
+					   struct crypto_state *, int,	\
+					   const u8 *),			\
+		       arg)
+
 /* Helper: sync_crypto_write, with extra args it ignores */
 bool sync_crypto_write_arg(struct crypto_state *cs, int fd, const u8 *TAKES,
 			   void *unused);
