@@ -124,17 +124,11 @@ struct daemon {
 
 	struct timers timers;
 
-	u32 broadcast_interval;
-
 	/* Important peers */
 	struct important_peerid_map important_peerids;
 
 	/* Local and global features to offer to peers. */
 	u8 *localfeatures, *globalfeatures;
-
-	/* FIXME: Do not want. */
-	u8 alias[33];
-	u8 rgb[3];
 
 	/* Addresses master told us to use */
 	struct wireaddr_internal *proposed_wireaddr;
@@ -152,9 +146,6 @@ struct daemon {
 	struct addrinfo *proxyaddr;
 	bool use_proxy_always;
 	char *tor_password;
-
-	/* Unapplied local updates waiting for their timers. */
-	struct list_head local_updates;
 
 	/* @see lightningd.config.use_dns */
 	bool use_dns;
@@ -1278,17 +1269,14 @@ static struct io_plan *connect_init(struct daemon_conn *master,
 				   struct daemon *daemon,
 				   const u8 *msg)
 {
-	struct bitcoin_blkid chain_hash;
-	u32 update_channel_interval;
 	struct wireaddr *proxyaddr;
 	struct wireaddr_internal *binding;
 
 	if (!fromwire_connectctl_init(
-		daemon, msg, &daemon->broadcast_interval, &chain_hash,
+		daemon, msg,
 		&daemon->id, &daemon->globalfeatures,
 		&daemon->localfeatures, &daemon->proposed_wireaddr,
-		&daemon->proposed_listen_announce, daemon->rgb,
-		daemon->alias, &update_channel_interval, &daemon->reconnect,
+		&daemon->proposed_listen_announce, &daemon->reconnect,
 		&proxyaddr, &daemon->use_proxy_always,
 		&daemon->dev_allow_localhost, &daemon->use_dns,
 		&daemon->tor_password)) {
@@ -1923,10 +1911,8 @@ int main(int argc, char *argv[])
 	list_head_init(&daemon->reconnecting);
 	list_head_init(&daemon->reaching);
 	list_head_init(&daemon->addrhints);
-	list_head_init(&daemon->local_updates);
 	important_peerid_map_init(&daemon->important_peerids);
 	timers_init(&daemon->timers, time_mono());
-	daemon->broadcast_interval = 30000;
 	daemon->broken_resolver_response = NULL;
 	daemon->listen_fds = tal_arr(daemon, int, 0);
 	/* stdin == control */
