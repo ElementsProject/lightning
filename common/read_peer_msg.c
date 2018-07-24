@@ -1,6 +1,5 @@
 #include <common/crypto_sync.h>
 #include <common/peer_failed.h>
-#include <common/ping.h>
 #include <common/read_peer_msg.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
@@ -11,32 +10,6 @@
 #include <sys/select.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
-
-static void handle_ping(const u8 *msg,
-			int peer_fd,
-			struct crypto_state *cs,
-			const struct channel_id *channel,
-			bool (*send_reply)(struct crypto_state *, int,
-					   const u8 *, void *),
-			void *arg)
-{
-	u8 *pong;
-
-	if (!check_ping_make_pong(msg, msg, &pong)) {
-		send_reply(cs, peer_fd,
-			   take(towire_errorfmt(NULL, channel,
-						"Bad ping %s",
-						tal_hex(msg, msg))), arg);
-		peer_failed_connection_lost();
-	}
-
-	status_debug("Got ping, sending %s", pong ?
-		     wire_type_name(fromwire_peektype(pong))
-		     : "nothing");
-
-	if (pong && !send_reply(cs, peer_fd, pong, arg))
-		peer_failed_connection_lost();
-}
 
 void handle_gossip_msg_(const u8 *msg TAKES, int peer_fd,
 			struct crypto_state *cs,
@@ -109,11 +82,6 @@ u8 *read_peer_msg_(const tal_t *ctx,
 		/* Forward to gossip daemon */
 		wire_sync_write(gossip_fd, take(msg));
 		return NULL;
-	}
-
-	if (fromwire_peektype(msg) == WIRE_PING) {
-		handle_ping(msg, peer_fd, cs, channel, send_reply, arg);
-		return tal_free(msg);
 	}
 
 	if (fromwire_peektype(msg) == WIRE_ERROR) {

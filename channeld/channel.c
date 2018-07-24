@@ -1603,18 +1603,6 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 	abort();
 }
 
-static void handle_pong(struct peer *peer, const u8 *pong)
-{
-	const char *err = got_pong(pong, &peer->num_pings_outstanding);
-	if (err)
-		peer_failed(&peer->cs,
-			    &peer->channel_id,
-			    "%s", err);
-
-	wire_sync_write(MASTER_FD,
-			take(towire_channel_ping_reply(NULL, tal_len(pong))));
-}
-
 static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 {
 	struct channel_id channel_id;
@@ -1695,9 +1683,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
 		handle_peer_fail_malformed_htlc(peer, msg);
 		return;
-	case WIRE_PONG:
-		handle_pong(peer, msg);
-		return;
 	case WIRE_SHUTDOWN:
 		handle_peer_shutdown(peer, msg);
 		return;
@@ -1721,6 +1706,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
 	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 	case WIRE_PING:
+	case WIRE_PONG:
 	case WIRE_ERROR:
 		abort();
 	}
@@ -2266,38 +2252,6 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 	abort();
 }
 
-static void handle_ping_cmd(struct peer *peer, const u8 *inmsg)
-{
-	u16 num_pong_bytes, ping_len;
-	u8 *ping;
-
-	if (!fromwire_channel_ping(inmsg, &num_pong_bytes, &ping_len))
-		master_badmsg(WIRE_CHANNEL_PING, inmsg);
-
-	ping = make_ping(NULL, num_pong_bytes, ping_len);
-	if (tal_len(ping) > 65535)
-		status_failed(STATUS_FAIL_MASTER_IO, "Oversize channel_ping");
-
-	enqueue_peer_msg(peer, take(ping));
-
-	status_trace("sending ping expecting %sresponse",
-		     num_pong_bytes >= 65532 ? "no " : "");
-
-	/* BOLT #1:
-	 *
-	 *   - if `num_pong_bytes` is less than 65532:
-	 *     - MUST respond by sending a `pong` message, with `byteslen` equal
-	 *       to `num_pong_bytes`.
-	 *   - otherwise (`num_pong_bytes` is **not** less than 65532):
-	 *     - MUST ignore the `ping`.
-	 */
-	if (num_pong_bytes >= 65532)
-		wire_sync_write(MASTER_FD,
-				take(towire_channel_ping_reply(NULL, 0)));
-	else
-		peer->num_pings_outstanding++;
-}
-
 static void handle_shutdown_cmd(struct peer *peer, const u8 *inmsg)
 {
 	if (!fromwire_channel_send_shutdown(inmsg))
@@ -2339,9 +2293,6 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_FAIL_HTLC:
 		handle_fail(peer, msg);
 		return;
-	case WIRE_CHANNEL_PING:
-		handle_ping_cmd(peer, msg);
-		return;
 	case WIRE_CHANNEL_SEND_SHUTDOWN:
 		handle_shutdown_cmd(peer, msg);
 		return;
@@ -2352,7 +2303,6 @@ static void req_in(struct peer *peer, const u8 *msg)
 #endif /* DEVELOPER */
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
-	case WIRE_CHANNEL_PING_REPLY:
 	case WIRE_CHANNEL_SENDING_COMMITSIG:
 	case WIRE_CHANNEL_GOT_COMMITSIG:
 	case WIRE_CHANNEL_GOT_REVOKE:

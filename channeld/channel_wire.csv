@@ -96,14 +96,6 @@ channel_fail_htlc,,errcode,u16
 # If errcode & UPDATE, this says which outgoing channel failed.
 channel_fail_htlc,,which_channel,struct short_channel_id
 
-# Ping/pong test.
-channel_ping,1011
-channel_ping,,num_pong_bytes,u16
-channel_ping,,len,u16
-
-channel_ping_reply,1111
-channel_ping_reply,,totlen,u16
-
 # When we receive funding_locked.
 channel_got_funding_locked,1019
 channel_got_funding_locked,,next_per_commit_point,struct pubkey

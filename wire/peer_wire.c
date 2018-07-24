@@ -47,6 +47,8 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_QUERY_CHANNEL_RANGE:
 	case WIRE_REPLY_CHANNEL_RANGE:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+	case WIRE_PING:
+	case WIRE_PONG:
 		return true;
 	case WIRE_INIT:
 	case WIRE_ERROR:
@@ -64,8 +66,6 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_COMMITMENT_SIGNED:
 	case WIRE_REVOKE_AND_ACK:
 	case WIRE_UPDATE_FEE:
-	case WIRE_PING:
-	case WIRE_PONG:
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
 		break;

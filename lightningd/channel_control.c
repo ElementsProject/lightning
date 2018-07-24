@@ -154,7 +154,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_OFFER_HTLC:
 	case WIRE_CHANNEL_FULFILL_HTLC:
 	case WIRE_CHANNEL_FAIL_HTLC:
-	case WIRE_CHANNEL_PING:
 	case WIRE_CHANNEL_GOT_COMMITSIG_REPLY:
 	case WIRE_CHANNEL_GOT_REVOKE_REPLY:
 	case WIRE_CHANNEL_SENDING_COMMITSIG_REPLY:
@@ -163,7 +162,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_FEERATES:
 	/* Replies go to requests. */
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
-	case WIRE_CHANNEL_PING_REPLY:
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT_REPLY:
 		break;
 	}
