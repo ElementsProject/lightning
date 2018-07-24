@@ -114,7 +114,14 @@ static void wallet_stmt2invoice_details(const tal_t *ctx,
 		dtl->paid_timestamp = sqlite3_column_int64(stmt, 8);
 	}
 
-	dtl->bolt11 = tal_strndup(ctx, sqlite3_column_blob(stmt, 9), sqlite3_column_bytes(stmt, 9));
+	dtl->bolt11 = tal_strndup(ctx, sqlite3_column_blob(stmt, 9),
+				  sqlite3_column_bytes(stmt, 9));
+
+	if (sqlite3_column_type(stmt, 10) != SQLITE_NULL)
+		dtl->description = tal_strdup(
+		    ctx, (const char *)sqlite3_column_text(stmt, 10));
+	else
+		dtl->description = NULL;
 }
 
 struct invoices *invoices_new(const tal_t *ctx,
@@ -643,6 +650,7 @@ void invoices_get_details(const tal_t *ctx,
 			  "SELECT state, payment_key, payment_hash"
 			  "     , label, msatoshi, expiry_time, pay_index"
 			  "     , msatoshi_received, paid_timestamp, bolt11"
+			  "     , description"
 			  "  FROM invoices"
 			  " WHERE id = ?;");
 	sqlite3_bind_int64(stmt, 1, invoice.id);
