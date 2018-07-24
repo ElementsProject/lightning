@@ -2,8 +2,8 @@
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/tal/str/str.h>
 #include <common/wire_error.h>
+#include <connectd/gen_connect_wire.h>
 #include <errno.h>
-#include <gossipd/gen_gossip_wire.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/channel.h>
@@ -29,7 +29,7 @@ void channel_set_owner(struct channel *channel, struct subd *owner)
 	if (old_owner) {
 		subd_release_channel(old_owner, channel);
 		if (channel->connected && !connects_to_peer(owner)) {
-			u8 *msg = towire_gossipctl_peer_disconnected(NULL,
+			u8 *msg = towire_connectctl_peer_disconnected(NULL,
 							     &channel->peer->id);
 			subd_send_msg(channel->peer->ld->connectd, take(msg));
 			channel->connected = false;

@@ -58,7 +58,7 @@
 #include <wire/wire_sync.h>
 #include <zlib.h>
 
-#define GOSSIP_MAX_REACH_ATTEMPTS 10
+#define CONNECT_MAX_REACH_ATTEMPTS 10
 
 #define HSM_FD 3
 #define GOSSIPCTL_FD 4
@@ -417,7 +417,7 @@ static void reached_peer(struct peer *peer, struct io_conn *conn)
 
 	/* Tell any connect command what happened. */
 	if (r->master_needs_response) {
-		msg = towire_gossipctl_connect_to_peer_result(NULL, &r->id,
+		msg = towire_connectctl_connect_to_peer_result(NULL, &r->id,
 							      true, "");
 		daemon_conn_send(&peer->daemon->master, take(msg));
 	}
@@ -548,7 +548,7 @@ static struct io_plan *peer_connected(struct io_conn *conn, struct peer *peer)
 		return io_close(conn);
 
 	/* We will not have anything queued, since we're not duplex. */
-	msg = towire_gossip_peer_connected(peer, &peer->id, &peer->addr,
+	msg = towire_connect_peer_connected(peer, &peer->id, &peer->addr,
 					   &peer->local->pcs.cs,
 					   peer->gfeatures, peer->lfeatures);
 	send_peer_with_fds(peer, msg);
@@ -614,7 +614,7 @@ static struct io_plan *init_new_peer(struct io_conn *conn,
  * dies while we're waiting for it to finish IO */
 static void fail_release(struct peer *peer)
 {
-	u8 *msg = towire_gossipctl_release_peer_replyfail(NULL);
+	u8 *msg = towire_connectctl_release_peer_replyfail(NULL);
 	daemon_conn_send(&peer->daemon->master, take(msg));
 }
 
@@ -622,14 +622,14 @@ static struct io_plan *ready_for_master(struct io_conn *conn, struct peer *peer)
 {
 	u8 *msg;
 	if (peer->local->nongossip_msg)
-		msg = towire_gossip_peer_nongossip(peer, &peer->id,
+		msg = towire_connect_peer_nongossip(peer, &peer->id,
 						   &peer->addr,
 						   &peer->local->pcs.cs,
 						   peer->gfeatures,
 						   peer->lfeatures,
 						   peer->local->nongossip_msg);
 	else
-		msg = towire_gossipctl_release_peer_reply(peer,
+		msg = towire_connectctl_release_peer_reply(peer,
 							  &peer->addr,
 							  &peer->local->pcs.cs,
 							  peer->gfeatures,
@@ -894,10 +894,10 @@ static struct io_plan *hand_back_peer(struct io_conn *conn,
 	struct returning_peer *rpeer = tal(daemon, struct returning_peer);
 
 	rpeer->daemon = daemon;
-	if (!fromwire_gossipctl_hand_back_peer(msg, msg,
+	if (!fromwire_connectctl_hand_back_peer(msg, msg,
 					       &rpeer->id, &rpeer->cs,
 					       &rpeer->inner_msg))
-		master_badmsg(WIRE_GOSSIPCTL_HAND_BACK_PEER, msg);
+		master_badmsg(WIRE_CONNECTCTL_HAND_BACK_PEER, msg);
 
 	status_debug("Handing back peer %s to master",
 		     type_to_string(msg, struct pubkey, &rpeer->id));
@@ -912,20 +912,20 @@ static struct io_plan *disconnect_peer(struct io_conn *conn, struct daemon *daem
 	struct pubkey id;
  	struct peer *peer;
 
-	if (!fromwire_gossipctl_peer_disconnect(msg, &id))
-		master_badmsg(WIRE_GOSSIPCTL_PEER_DISCONNECT, msg);
+	if (!fromwire_connectctl_peer_disconnect(msg, &id))
+		master_badmsg(WIRE_CONNECTCTL_PEER_DISCONNECT, msg);
 
 	peer = find_peer(daemon, &id);
 	if (peer && peer->local) {
-		/* This peer is local to this (gossipd) daemon */
+		/* This peer is local to this (connectd) daemon */
 		io_close(peer->local->conn);
-		msg = towire_gossipctl_peer_disconnect_reply(NULL);
+		msg = towire_connectctl_peer_disconnect_reply(NULL);
 		daemon_conn_send(&daemon->master, take(msg));
 	} else {
 		status_trace("disconnect_peer: peer %s %s",
 			     type_to_string(tmpctx, struct pubkey, &id),
 			     !peer ? "not connected" : "not gossiping");
-		msg = towire_gossipctl_peer_disconnect_replyfail(NULL, peer ? true : false);
+		msg = towire_connectctl_peer_disconnect_replyfail(NULL, peer ? true : false);
 		daemon_conn_send(&daemon->master, take(msg));
 	}
 	return daemon_conn_read_next(conn, &daemon->master);
@@ -937,8 +937,8 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 	struct pubkey id;
  	struct peer *peer;
 
-	if (!fromwire_gossipctl_release_peer(msg, &id))
-		master_badmsg(WIRE_GOSSIPCTL_RELEASE_PEER, msg);
+	if (!fromwire_connectctl_release_peer(msg, &id))
+		master_badmsg(WIRE_CONNECTCTL_RELEASE_PEER, msg);
 
 	peer = find_peer(daemon, &id);
 	if (!peer || !peer->local || peer->local->return_to_master) {
@@ -948,7 +948,7 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 			     !peer ? "not found"
 			     : peer->local ? "already releasing"
 			     : "not local");
-		msg = towire_gossipctl_release_peer_replyfail(NULL);
+		msg = towire_connectctl_release_peer_replyfail(NULL);
 		daemon_conn_send(&daemon->master, take(msg));
 	} else {
 		peer->local->return_to_master = true;
@@ -1271,10 +1271,10 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 }
 
 
-/* Parse an incoming gossip init message and assign config variables
+/* Parse an incoming connect init message and assign config variables
  * to the daemon.
  */
-static struct io_plan *gossip_init(struct daemon_conn *master,
+static struct io_plan *connect_init(struct daemon_conn *master,
 				   struct daemon *daemon,
 				   const u8 *msg)
 {
@@ -1318,7 +1318,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	return daemon_conn_read_next(master->conn, master);
 }
 
-static struct io_plan *gossip_activate(struct daemon_conn *master,
+static struct io_plan *connect_activate(struct daemon_conn *master,
 				       struct daemon *daemon,
 				       const u8 *msg)
 {
@@ -1377,7 +1377,7 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 
 	/* Tell any connect command what happened. */
 	if (reach->master_needs_response) {
-		msg = towire_gossipctl_connect_to_peer_result(NULL, &reach->id,
+		msg = towire_connectctl_connect_to_peer_result(NULL, &reach->id,
 							      false, err);
 		daemon_conn_send(&reach->daemon->master, take(msg));
 	}
@@ -1547,7 +1547,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 		status_debug("try_reach_peer: have peer %s",
 			     type_to_string(tmpctx, struct pubkey, id));
 		if (master_needs_response) {
-			msg = towire_gossipctl_connect_to_peer_result(NULL, id,
+			msg = towire_connectctl_connect_to_peer_result(NULL, id,
 								      true,
 								      "");
 			daemon_conn_send(&daemon->master, take(msg));
@@ -1593,7 +1593,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 		status_debug("No address known for %s, giving up",
 			     type_to_string(tmpctx, struct pubkey, id));
 		if (master_needs_response) {
-			msg = towire_gossipctl_connect_to_peer_result(NULL, id,
+			msg = towire_connectctl_connect_to_peer_result(NULL, id,
 					      false,
 					      "No address known, giving up");
 			daemon_conn_send(&daemon->master, take(msg));
@@ -1659,7 +1659,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 				    strerror(errno));
 		status_debug("%s", err);
 		if (master_needs_response) {
-			msg = towire_gossipctl_connect_to_peer_result(NULL, id,
+			msg = towire_connectctl_connect_to_peer_result(NULL, id,
 							      false, err);
 			daemon_conn_send(&daemon->master, take(msg));
 		}
@@ -1702,8 +1702,8 @@ static struct io_plan *connect_to_peer(struct io_conn *conn,
 	struct pubkey id;
 	struct important_peerid *imp;
 
-	if (!fromwire_gossipctl_connect_to_peer(msg, &id))
-		master_badmsg(WIRE_GOSSIPCTL_CONNECT_TO_PEER, msg);
+	if (!fromwire_connectctl_connect_to_peer(msg, &id))
+		master_badmsg(WIRE_CONNECTCTL_CONNECT_TO_PEER, msg);
 
 	/* If this is an important peer, free any outstanding timer */
 	imp = important_peerid_map_get(&daemon->important_peerids, &id);
@@ -1718,8 +1718,8 @@ static struct io_plan *addr_hint(struct io_conn *conn,
 {
 	struct addrhint *a = tal(daemon, struct addrhint);
 
-	if (!fromwire_gossipctl_peer_addrhint(msg, &a->id, &a->addr))
-		master_badmsg(WIRE_GOSSIPCTL_PEER_ADDRHINT, msg);
+	if (!fromwire_connectctl_peer_addrhint(msg, &a->id, &a->addr))
+		master_badmsg(WIRE_CONNECTCTL_PEER_ADDRHINT, msg);
 
 	/* Replace any old one. */
 	tal_free(find_addrhint(daemon, &a->id));
@@ -1737,8 +1737,8 @@ static struct io_plan *peer_important(struct io_conn *conn,
 	bool important;
 	struct important_peerid *imp;
 
-	if (!fromwire_gossipctl_peer_important(msg, &id, &important))
-		master_badmsg(WIRE_GOSSIPCTL_PEER_IMPORTANT, msg);
+	if (!fromwire_connectctl_peer_important(msg, &id, &important))
+		master_badmsg(WIRE_CONNECTCTL_PEER_IMPORTANT, msg);
 
 	imp = important_peerid_map_get(&daemon->important_peerids, &id);
 	if (important) {
@@ -1770,8 +1770,8 @@ static struct io_plan *peer_disconnected(struct io_conn *conn,
 	struct pubkey id;
 	struct peer *peer;
 
-	if (!fromwire_gossipctl_peer_disconnected(msg, &id))
-		master_badmsg(WIRE_GOSSIPCTL_PEER_DISCONNECTED, msg);
+	if (!fromwire_connectctl_peer_disconnected(msg, &id))
+		master_badmsg(WIRE_CONNECTCTL_PEER_DISCONNECTED, msg);
 
 	peer = find_peer(daemon, &id);
 	if (!peer)
@@ -1825,8 +1825,8 @@ static struct io_plan *get_peers(struct io_conn *conn,
 	const struct gossip_getnodes_entry **nodes = tal_arr(conn, const struct gossip_getnodes_entry *, n);
 	struct pubkey *specific_id;
 
-	if (!fromwire_gossip_getpeers_request(msg, msg, &specific_id))
-		master_badmsg(WIRE_GOSSIPCTL_PEER_ADDRHINT, msg);
+	if (!fromwire_connect_getpeers_request(msg, msg, &specific_id))
+		master_badmsg(WIRE_CONNECTCTL_PEER_ADDRHINT, msg);
 
 	list_for_each(&daemon->peers, peer, list) {
 		if (specific_id && !pubkey_eq(specific_id, &peer->id))
@@ -1842,7 +1842,7 @@ static struct io_plan *get_peers(struct io_conn *conn,
 	}
 
 	daemon_conn_send(&daemon->master,
-			 take(towire_gossip_getpeers_reply(NULL, id, wireaddr, nodes)));
+			 take(towire_connect_getpeers_reply(NULL, id, wireaddr, nodes)));
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
@@ -1850,80 +1850,51 @@ static struct io_plan *get_peers(struct io_conn *conn,
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct daemon *daemon = container_of(master, struct daemon, master);
-	enum gossip_wire_type t= fromwire_peektype(master->msg_in);
-
-	/* FIXME: Move away from gossip wiretypes */
-	if (fromwire_peektype(master->msg_in) == WIRE_CONNECTCTL_INIT)
-		return gossip_init(master, daemon, master->msg_in);
-	if (fromwire_peektype(master->msg_in) == WIRE_CONNECTCTL_ACTIVATE)
-		return gossip_activate(master, daemon, master->msg_in);
+	enum connect_wire_type t = fromwire_peektype(master->msg_in);
 
 	switch (t) {
-	case WIRE_GOSSIPCTL_RELEASE_PEER:
+	case WIRE_CONNECTCTL_INIT:
+		return connect_init(master, daemon, master->msg_in);
+
+	case WIRE_CONNECTCTL_ACTIVATE:
+		return connect_activate(master, daemon, master->msg_in);
+
+	case WIRE_CONNECTCTL_RELEASE_PEER:
 		return release_peer(conn, daemon, master->msg_in);
 
-	case WIRE_GOSSIPCTL_HAND_BACK_PEER:
+	case WIRE_CONNECTCTL_HAND_BACK_PEER:
 		return hand_back_peer(conn, daemon, master->msg_in);
 
-	case WIRE_GOSSIPCTL_CONNECT_TO_PEER:
+	case WIRE_CONNECTCTL_CONNECT_TO_PEER:
 		return connect_to_peer(conn, daemon, master->msg_in);
 
-	case WIRE_GOSSIPCTL_PEER_ADDRHINT:
+	case WIRE_CONNECTCTL_PEER_ADDRHINT:
 		return addr_hint(conn, daemon, master->msg_in);
 
-	case WIRE_GOSSIPCTL_PEER_IMPORTANT:
+	case WIRE_CONNECTCTL_PEER_IMPORTANT:
 		return peer_important(conn, daemon, master->msg_in);
 
-	case WIRE_GOSSIPCTL_PEER_DISCONNECTED:
+	case WIRE_CONNECTCTL_PEER_DISCONNECTED:
 		return peer_disconnected(conn, daemon, master->msg_in);
 
-	case WIRE_GOSSIP_GETPEERS_REQUEST:
+	case WIRE_CONNECT_GETPEERS_REQUEST:
 		return get_peers(conn, daemon, master->msg_in);
 
-	case WIRE_GOSSIPCTL_PEER_DISCONNECT:
+	case WIRE_CONNECTCTL_PEER_DISCONNECT:
 		return disconnect_peer(conn, daemon, master->msg_in);
 
-	/* FIXME: We don't really do these, gossipd does */
-	case WIRE_GOSSIPCTL_INIT:
-	case WIRE_GOSSIPCTL_ACTIVATE:
-	case WIRE_GOSSIP_GETNODES_REQUEST:
-	case WIRE_GOSSIP_PING:
-	case WIRE_GOSSIP_QUERY_SCIDS:
-	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
-	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
-	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
-	case WIRE_GOSSIP_OUTPOINT_SPENT:
-	case WIRE_GOSSIP_LOCAL_CHANNEL_CLOSE:
-	case WIRE_GOSSIP_GET_TXOUT_REPLY:
-	case WIRE_GOSSIP_ROUTING_FAILURE:
-	case WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE:
-	case WIRE_GOSSIP_GETROUTE_REQUEST:
-	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
-	case WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST:
-		break;
-
 	/* We send these, we don't receive them */
-	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
-	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
-	case WIRE_GOSSIP_GETNODES_REPLY:
-	case WIRE_GOSSIP_GETROUTE_REPLY:
-	case WIRE_GOSSIP_GETCHANNELS_REPLY:
-	case WIRE_GOSSIP_GETPEERS_REPLY:
-	case WIRE_GOSSIP_PING_REPLY:
-	case WIRE_GOSSIP_SCIDS_REPLY:
-	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE_REPLY:
-	case WIRE_GOSSIP_RESOLVE_CHANNEL_REPLY:
-	case WIRE_GOSSIP_PEER_CONNECTED:
-	case WIRE_GOSSIPCTL_CONNECT_TO_PEER_RESULT:
-	case WIRE_GOSSIP_PEER_NONGOSSIP:
-	case WIRE_GOSSIP_GET_UPDATE:
-	case WIRE_GOSSIP_GET_UPDATE_REPLY:
-	case WIRE_GOSSIP_SEND_GOSSIP:
-	case WIRE_GOSSIP_LOCAL_ADD_CHANNEL:
-	case WIRE_GOSSIP_LOCAL_CHANNEL_UPDATE:
-	case WIRE_GOSSIP_GET_TXOUT:
-	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLY:
-	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLYFAIL:
+	case WIRE_CONNECTCTL_INIT_REPLY:
+	case WIRE_CONNECTCTL_ACTIVATE_REPLY:
+	case WIRE_CONNECTCTL_RELEASE_PEER_REPLY:
+	case WIRE_CONNECTCTL_RELEASE_PEER_REPLYFAIL:
+	case WIRE_CONNECT_GETPEERS_REPLY:
+	case WIRE_CONNECT_PEER_CONNECTED:
+	case WIRE_CONNECTCTL_CONNECT_TO_PEER_RESULT:
+	case WIRE_CONNECT_PEER_NONGOSSIP:
+	case WIRE_CONNECTCTL_PEER_DISCONNECT_REPLY:
+	case WIRE_CONNECTCTL_PEER_DISCONNECT_REPLYFAIL:
+	case WIRE_CONNECT_RECONNECTED:
 		break;
 	}
 
