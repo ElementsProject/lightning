@@ -125,7 +125,7 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 	}
 }
 
-static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
+unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 {
 	enum gossip_wire_type t = fromwire_peektype(msg);
 
@@ -157,7 +157,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPCTL_PEER_IMPORTANT:
 	case WIRE_GOSSIPCTL_PEER_DISCONNECTED:
 	/* This is a reply, so never gets through to here. */
-	case WIRE_GOSSIPCTL_ACTIVATE_REPLY:
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
@@ -203,7 +202,7 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 {
 	u8 *msg;
 	int hsmfd;
-	u64 capabilities = HSM_CAP_ECDH | HSM_CAP_SIGN_GOSSIP;
+	u64 capabilities = HSM_CAP_SIGN_GOSSIP;
 	struct wireaddr_internal *wireaddrs = ld->proposed_wireaddr;
 	enum addr_listen_announce *listen_announce = ld->proposed_listen_announce;
 	bool allow_localhost = false;
@@ -248,35 +247,9 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	    ld->alias, ld->config.channel_update_interval, ld->reconnect,
 	    ld->proxyaddr, ld->use_proxy_always || ld->pure_tor_setup,
 	    allow_localhost, ld->config.use_dns,
-	    ld->tor_service_password ? ld->tor_service_password : "");
+	    ld->tor_service_password ? ld->tor_service_password : "",
+	    ld->announcable);
 	subd_send_msg(ld->gossip, msg);
-}
-
-static void gossip_activate_done(struct subd *gossip UNUSED,
-				 const u8 *reply,
-				 const int *fds UNUSED,
-				 void *unused UNUSED)
-{
-	struct lightningd *ld = gossip->ld;
-
-	if (!fromwire_gossipctl_activate_reply(gossip->ld, reply,
-					       &ld->binding,
-					       &ld->announcable))
-		fatal("Bad gossipctl_activate_reply: %s",
-		      tal_hex(reply, reply));
-
-	/* Break out of loop, so we can begin */
-	io_break(gossip);
-}
-
-void gossip_activate(struct lightningd *ld)
-{
-	const u8 *msg = towire_gossipctl_activate(NULL, ld->listen);
-	subd_req(ld->gossip, ld->gossip, take(msg), -1, 0,
-		 gossip_activate_done, NULL);
-
-	/* Wait for activate done */
-	io_loop(NULL, NULL);
 }
 
 void gossipd_notify_spend(struct lightningd *ld,

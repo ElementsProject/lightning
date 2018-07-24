@@ -1830,13 +1830,12 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	enum gossip_wire_type t= fromwire_peektype(master->msg_in);
 
 	/* FIXME: Move away from gossip wiretypes */
+	if (fromwire_peektype(master->msg_in) == WIRE_CONNECTCTL_INIT)
+		return gossip_init(master, daemon, master->msg_in);
 	if (fromwire_peektype(master->msg_in) == WIRE_CONNECTCTL_ACTIVATE)
 		return gossip_activate(master, daemon, master->msg_in);
 
 	switch (t) {
-	case WIRE_GOSSIPCTL_INIT:
-		return gossip_init(master, daemon, master->msg_in);
-
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
 		return release_peer(conn, daemon, master->msg_in);
 
@@ -1862,6 +1861,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		return disconnect_peer(conn, daemon, master->msg_in);
 
 	/* FIXME: We don't really do these, gossipd does */
+	case WIRE_GOSSIPCTL_INIT:
 	case WIRE_GOSSIPCTL_ACTIVATE:
 	case WIRE_GOSSIP_GETNODES_REQUEST:
 	case WIRE_GOSSIP_PING:
@@ -1880,7 +1880,6 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		break;
 
 	/* We send these, we don't receive them */
-	case WIRE_GOSSIPCTL_ACTIVATE_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
 	case WIRE_GOSSIP_GETNODES_REPLY:

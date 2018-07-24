@@ -15,6 +15,9 @@ void begin_topology(struct chain_topology *topo UNNEEDED)
 void channel_notify_new_block(struct lightningd *ld UNNEEDED,
 			      u32 block_height UNNEEDED)
 { fprintf(stderr, "channel_notify_new_block called!\n"); abort(); }
+/* Generated stub for connectd_activate */
+void connectd_activate(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "connectd_activate called!\n"); abort(); }
 /* Generated stub for connectd_init */
 int connectd_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "connectd_init called!\n"); abort(); }
@@ -50,9 +53,6 @@ void   fatal(const char *fmt UNNEEDED, ...)
 /* Generated stub for free_htlcs */
 void free_htlcs(struct lightningd *ld UNNEEDED, const struct channel *channel UNNEEDED)
 { fprintf(stderr, "free_htlcs called!\n"); abort(); }
-/* Generated stub for gossip_activate */
-void gossip_activate(struct lightningd *ld UNNEEDED)
-{ fprintf(stderr, "gossip_activate called!\n"); abort(); }
 /* Generated stub for gossip_init */
 void gossip_init(struct lightningd *ld UNNEEDED, int connectd_fd UNNEEDED)
 { fprintf(stderr, "gossip_init called!\n"); abort(); }

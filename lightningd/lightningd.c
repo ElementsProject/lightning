@@ -208,6 +208,7 @@ static void shutdown_subdaemons(struct lightningd *ld)
 	db_begin_transaction(ld->wallet->db);
 	/* Let everyone shutdown cleanly. */
 	close(ld->hsm_fd);
+	subd_shutdown(ld->connectd, 10);
 	subd_shutdown(ld->gossip, 10);
 	subd_shutdown(ld->hsm, 10);
 
@@ -423,9 +424,9 @@ int main(int argc, char *argv[])
 	/* Create PID file */
 	pidfile_create(ld);
 
-	/* Activate gossip daemon. Needs to be after the initialization of
+	/* Activate connect daemon. Needs to be after the initialization of
 	 * chaintopology, otherwise we may be asking for uninitialized data. */
-	gossip_activate(ld);
+	connectd_activate(ld);
 
 	/* Replay transactions for all running onchainds */
 	onchaind_replay_channels(ld);

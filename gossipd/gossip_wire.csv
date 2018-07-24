@@ -23,18 +23,13 @@ gossipctl_init,,use_tor_proxy_always,bool
 gossipctl_init,,dev_allow_localhost,bool
 gossipctl_init,,use_dns,bool
 gossipctl_init,,tor_password,wirestring
+gossipctl_init,,num_announcable,u16
+gossipctl_init,,announcable,num_announcable*struct wireaddr
 
 # Activate the gossip daemon, so others can connect.
 gossipctl_activate,3025
 # Do we listen?
 gossipctl_activate,,listen,bool
-
-# Gossipd->master, I am ready, here's the addresses I bound, can announce.
-gossipctl_activate_reply,3125
-gossipctl_activate_reply,,num_bindings,u16
-gossipctl_activate_reply,,bindings,num_bindings*struct wireaddr_internal
-gossipctl_activate_reply,,num_announcable,u16
-gossipctl_activate_reply,,announcable,num_announcable*struct wireaddr
 
 # Master -> gossipd: Optional hint for where to find peer.
 gossipctl_peer_addrhint,3014
