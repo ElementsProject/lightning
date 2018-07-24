@@ -86,8 +86,7 @@ static struct node_map *empty_node_map(const tal_t *ctx)
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct bitcoin_blkid *chain_hash,
 					const struct pubkey *local_id,
-					u32 prune_timeout,
-					bool dev_allow_localhost)
+					u32 prune_timeout)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->nodes = empty_node_map(rstate);
@@ -96,7 +95,6 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 	rstate->local_id = *local_id;
 	rstate->prune_timeout = prune_timeout;
 	rstate->store = gossip_store_new(rstate, rstate, rstate->broadcasts);
-	rstate->dev_allow_localhost = dev_allow_localhost;
 	rstate->local_channel_announced = false;
 	list_head_init(&rstate->pending_cannouncement);
 	uintmap_init(&rstate->chanmap);

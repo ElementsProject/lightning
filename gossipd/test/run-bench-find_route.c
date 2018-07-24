@@ -229,7 +229,7 @@ int main(int argc, char *argv[])
 						 | SECP256K1_CONTEXT_SIGN);
 	setup_tmpctx();
 
-	rstate = new_routing_state(tmpctx, &zerohash, &me, 0, false);
+	rstate = new_routing_state(tmpctx, &zerohash, &me, 0);
 	opt_register_noarg("--perfme", opt_set_bool, &perfme,
 			   "Run perfme-start and perfme-stop around benchmark");
 

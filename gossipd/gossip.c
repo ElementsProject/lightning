@@ -101,8 +101,8 @@ struct daemon {
 
 	u32 broadcast_interval;
 
-	/* Local and global features to offer to peers. */
-	u8 *localfeatures, *globalfeatures;
+	/* Global features to list in node_announcement. */
+	u8 *globalfeatures;
 
 	u8 alias[33];
 	u8 rgb[3];
@@ -1872,29 +1872,17 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	struct bitcoin_blkid chain_hash;
 	u32 update_channel_interval;
 
-	/* FIXME: Remove these from init msg */
-	bool dev_allow_localhost;
-	struct wireaddr_internal *proposed_wireaddr;
-	enum addr_listen_announce *proposed_listen_announce;
-	struct wireaddr *proxyaddr;
-	bool reconnect, use_proxy_always, use_dns;
-	char *tor_password;
-
 	if (!fromwire_gossipctl_init(
 		daemon, msg, &daemon->broadcast_interval, &chain_hash,
 		&daemon->id, &daemon->globalfeatures,
-		&daemon->localfeatures, &proposed_wireaddr,
-		&proposed_listen_announce, daemon->rgb,
-		daemon->alias, &update_channel_interval, &reconnect,
-		&proxyaddr, &use_proxy_always,
-		&dev_allow_localhost, &use_dns,
-		&tor_password, &daemon->announcable)) {
+		daemon->rgb,
+		daemon->alias, &update_channel_interval,
+		&daemon->announcable)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
 	/* Prune time is twice update time */
 	daemon->rstate = new_routing_state(daemon, &chain_hash, &daemon->id,
-					   update_channel_interval * 2,
-					   dev_allow_localhost);
+					   update_channel_interval * 2);
 
 	/* Load stored gossip messages */
 	gossip_store_load(daemon->rstate, daemon->rstate->store);
@@ -2118,40 +2106,20 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		break;
 #endif /* !DEVELOPER */
 
-	/* These are handled by channeld */
-	case WIRE_GOSSIPCTL_ACTIVATE:
-	case WIRE_GOSSIPCTL_RELEASE_PEER:
-	case WIRE_GOSSIPCTL_HAND_BACK_PEER:
-	case WIRE_GOSSIPCTL_CONNECT_TO_PEER:
-	case WIRE_GOSSIPCTL_PEER_ADDRHINT:
-	case WIRE_GOSSIPCTL_PEER_IMPORTANT:
-	case WIRE_GOSSIPCTL_PEER_DISCONNECTED:
-	case WIRE_GOSSIP_GETPEERS_REQUEST:
-	case WIRE_GOSSIPCTL_PEER_DISCONNECT:
-		break;
-
 	/* We send these, we don't receive them */
-	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
-	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:
-	case WIRE_GOSSIP_GETPEERS_REPLY:
 	case WIRE_GOSSIP_PING_REPLY:
 	case WIRE_GOSSIP_SCIDS_REPLY:
 	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE_REPLY:
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REPLY:
-	case WIRE_GOSSIP_PEER_CONNECTED:
-	case WIRE_GOSSIPCTL_CONNECT_TO_PEER_RESULT:
-	case WIRE_GOSSIP_PEER_NONGOSSIP:
 	case WIRE_GOSSIP_GET_UPDATE:
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
 	case WIRE_GOSSIP_SEND_GOSSIP:
 	case WIRE_GOSSIP_LOCAL_ADD_CHANNEL:
 	case WIRE_GOSSIP_LOCAL_CHANNEL_UPDATE:
 	case WIRE_GOSSIP_GET_TXOUT:
-	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLY:
-	case WIRE_GOSSIPCTL_PEER_DISCONNECT_REPLYFAIL:
 		break;
 	}
 
