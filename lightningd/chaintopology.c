@@ -238,9 +238,9 @@ static void update_feerates(struct bitcoind *bitcoind,
 	u32 old_feerates[NUM_FEERATES];
 	bool changed = false;
 	/* Smoothing factor alpha for simple exponential smoothing. The goal is to
-     * have the feerate account for 90 percent of the values polled in the last
-     * 2 minutes. The following will do that in a polling interval
-     * independent manner. */
+	 * have the feerate account for 90 percent of the values polled in the last
+	 * 2 minutes. The following will do that in a polling interval
+	 * independent manner. */
 	double alpha = 1 - pow(0.1,(double)topo->poll_seconds / 120);
 
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
@@ -253,23 +253,28 @@ static void update_feerates(struct bitcoind *bitcoind,
 		if (!feerate)
 			continue;
 
-        /* Smooth the feerate to avoid spikes. */
-        u32 feerate_smooth = feerate * alpha + old_feerates[i] * (1 - alpha);
-        /* But to avoid updating forever, only apply smoothing when its
-         * effect is more then 10 percent */
-        if (abs((int)feerate - (int)feerate_smooth) > (0.1 * feerate)) {
-            feerate = feerate_smooth;
-            log_debug(topo->log,
+		/* Initial smoothed feerate is the polled feerate */
+		if (topo->startup) {
+			old_feerates[i] = feerate;
+		}
+
+		/* Smooth the feerate to avoid spikes. */
+		u32 feerate_smooth = feerate * alpha + old_feerates[i] * (1 - alpha);
+		/* But to avoid updating forever, only apply smoothing when its
+		 * effect is more then 10 percent */
+		if (abs((int)feerate - (int)feerate_smooth) > (0.1 * feerate)) {
+			feerate = feerate_smooth;
+			log_debug(topo->log,
 					  "...feerate %u smoothed to %u (alpha=%.2f)",
 					  satoshi_per_kw[i], feerate, alpha);
-        }
+		}
 
-        if (feerate < feerate_floor()) {
-            feerate = feerate_floor();
-            log_debug(topo->log,
+		if (feerate < feerate_floor()) {
+			feerate = feerate_floor();
+			log_debug(topo->log,
 					  "...feerate %u hit floor %u",
 					  satoshi_per_kw[i], feerate);
-        }
+		}
 
 		if (feerate != topo->feerate[i]) {
 			log_debug(topo->log, "%s feerate %u (was %u)",
@@ -278,6 +283,9 @@ static void update_feerates(struct bitcoind *bitcoind,
 		}
 		topo->feerate[i] = feerate;
 	}
+	/* Moving this forward in time is ok, but feerate smoothing is effectively
+	 * disabled until topo->startup is set to false */
+	topo->startup = false;
 
 	/* Make sure fee rates are in order. */
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
@@ -685,6 +693,7 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 	topo->bitcoind = new_bitcoind(topo, ld, log);
 	topo->wallet = ld->wallet;
 	topo->poll_seconds = 30;
+	topo->startup = true;
 #if DEVELOPER
 	topo->dev_override_fee_rate = NULL;
 #endif
