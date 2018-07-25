@@ -16,7 +16,7 @@
 
 static int status_fd = -1;
 static struct daemon_conn *status_conn;
-volatile bool logging_io = false;
+volatile bool logging_io = true;
 
 static void got_sigusr1(int signal UNUSED)
 {

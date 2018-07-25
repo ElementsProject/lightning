@@ -24,6 +24,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <devtools/gen_print_wire.h>
 
 /* Once we're up and running, this is set up. */
 struct log *crashlog;
@@ -78,6 +79,9 @@ static void log_to_file(const char *prefix,
 		fprintf(logf, "%s %s%s%s %s\n",
 			iso8601_s, prefix, str, dir, hex);
 		tal_free(hex);
+		printf("[log begin]-------------------------------------------------\n");
+		print_message(io);
+		printf("[log end]---------------------------------------------------\n");
 	} else 	if (!continued) {
 		fprintf(logf, "%s %s %s\n", iso8601_s, prefix, str);
 	} else {
