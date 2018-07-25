@@ -48,7 +48,10 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/wallet_tx.o			\
 	common/wire_error.o			\
 	common/wireaddr.o			\
-	common/withdraw_tx.o
+	common/withdraw_tx.o	\
+	common/decode_short_channel_ids.o	\
+	devtools/print_wire.o \
+	devtools/gen_print_wire.o
 
 LIGHTNINGD_SRC :=				\
 	lightningd/bitcoind.c			\
