@@ -388,6 +388,7 @@ datadir = $(prefix)/share
 docdir = $(datadir)/doc/$(PKGNAME)
 mandir = $(datadir)/man
 man1dir = $(mandir)/man1
+man5dir = $(mandir)/man5
 man7dir = $(mandir)/man7
 
 # Commands
@@ -410,6 +411,7 @@ installdirs:
 	$(MKDIR_P) $(DESTDIR)$(bindir)
 	$(MKDIR_P) $(DESTDIR)$(pkglibexecdir)
 	$(MKDIR_P) $(DESTDIR)$(man1dir)
+	$(MKDIR_P) $(DESTDIR)$(man5dir)
 	$(MKDIR_P) $(DESTDIR)$(man7dir)
 	$(MKDIR_P) $(DESTDIR)$(docdir)
 
@@ -434,12 +436,14 @@ install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS)
 	$(INSTALL_PROGRAM) $(PKGLIBEXEC_PROGRAMS) $(DESTDIR)$(pkglibexecdir)
 
 MAN1PAGES = $(filter %.1,$(MANPAGES))
+MAN5PAGES = $(filter %.5,$(MANPAGES))
 MAN7PAGES = $(filter %.7,$(MANPAGES))
 DOC_DATA = README.md doc/INSTALL.md doc/HACKING.md LICENSE
 
-install-data: installdirs $(MAN1PAGES) $(MAN7PAGES) $(DOC_DATA)
+install-data: installdirs $(MAN1PAGES) $(MAN5PAGES) $(MAN7PAGES) $(DOC_DATA)
 	@$(NORMAL_INSTALL)
 	$(INSTALL_DATA) $(MAN1PAGES) $(DESTDIR)$(man1dir)
+	$(INSTALL_DATA) $(MAN5PAGES) $(DESTDIR)$(man5dir)
 	$(INSTALL_DATA) $(MAN7PAGES) $(DESTDIR)$(man7dir)
 	$(INSTALL_DATA) $(DOC_DATA) $(DESTDIR)$(docdir)
 
@@ -458,6 +462,10 @@ uninstall:
 	@for f in $(MAN1PAGES); do \
 	  echo rm -f $(DESTDIR)$(man1dir)/`basename $$f`; \
 	  rm -f $(DESTDIR)$(man1dir)/`basename $$f`; \
+	done
+	@for f in $(MAN5PAGES); do \
+	  echo rm -f $(DESTDIR)$(man5dir)/`basename $$f`; \
+	  rm -f $(DESTDIR)$(man5dir)/`basename $$f`; \
 	done
 	@for f in $(MAN7PAGES); do \
 	  echo rm -f $(DESTDIR)$(man7dir)/`basename $$f`; \
