@@ -81,7 +81,7 @@ static void copy_to_parent_log(const char *prefix,
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct pubkey *id,
 		      const struct wireaddr_internal *addr,
-		      const u8 *gfeatures, const u8 *lfeatures)
+		      const u8 *gfeatures TAKES, const u8 *lfeatures TAKES)
 {
 	/* We are owned by our channels, and freed manually by destroy_channel */
 	struct peer *peer = tal(NULL, struct peer);
