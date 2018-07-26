@@ -277,7 +277,8 @@ static void enqueue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 		/* Should not return */
 		abort();
 	case DEV_DISCONNECT_DROPPKT:
-		tal_free(msg);
+		if (taken(msg))
+			tal_free(msg);
 		/* Fail next time we try to do something. */
 		dev_sabotage_fd(PEER_FD);
 		return;
@@ -1834,7 +1835,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 
 static bool channeld_send_reply(struct crypto_state *cs UNUSED,
 			    int peer_fd UNUSED,
-			    const u8 *msg UNUSED,
+			    const u8 *msg,
 			    struct peer *peer)
 {
 	enqueue_peer_msg(peer, msg);
@@ -2625,7 +2626,7 @@ int main(int argc, char *argv[])
 		}
 
 		if (FD_ISSET(MASTER_FD, &rfds)) {
-			msg = wire_sync_read(peer, MASTER_FD);
+			msg = wire_sync_read(tmpctx, MASTER_FD);
 
 			if (!msg)
 				status_failed(STATUS_FAIL_MASTER_IO,
@@ -2633,7 +2634,7 @@ int main(int argc, char *argv[])
 					      strerror(errno));
 			req_in(peer, msg);
 		} else if (FD_ISSET(GOSSIP_FD, &rfds)) {
-			msg = wire_sync_read(peer, GOSSIP_FD);
+			msg = wire_sync_read(tmpctx, GOSSIP_FD);
 			/* Gossipd hangs up on us to kill us when a new
 			 * connection comes in. */
 			if (!msg)
@@ -2644,11 +2645,11 @@ int main(int argc, char *argv[])
 		} else if (FD_ISSET(PEER_FD, &rfds)) {
 			/* This could take forever, but who cares? */
 			msg = channeld_read_peer_msg(peer);
-			if (msg)
+			if (msg) {
 				peer_in(peer, msg);
-		} else
-			msg = NULL;
-		tal_free(msg);
+				tal_free(msg);
+			}
+		}
 	}
 
 	/* We only exit when shutdown is complete. */
