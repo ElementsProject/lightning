@@ -162,6 +162,17 @@ struct peer {
 
 /* FIXME: Reorder */
 static void peer_disable_channels(struct daemon *daemon, struct node *node);
+static u8 *create_channel_update(const tal_t *ctx,
+				 struct routing_state *rstate,
+				 const struct chan *chan,
+				 int direction,
+				 bool disable,
+				 u16 cltv_expiry_delta,
+				 u64 htlc_minimum_msat,
+				 u32 fee_base_msat,
+				 u32 fee_proportional_millionths);
+static struct local_update *find_local_update(struct daemon *daemon,
+					      const struct short_channel_id *scid);
 
 static void destroy_peer(struct peer *peer)
 {
@@ -937,6 +948,8 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 					      &scid));
 		update = NULL;
 	} else {
+		struct local_update *l;
+
 		/* We want the update that comes from our end. */
 		if (pubkey_eq(&chan->nodes[0]->id, &peer->daemon->id))
 			update = chan->half[0].channel_update;
@@ -950,8 +963,25 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 						      struct short_channel_id,
 						      &scid));
 			update = NULL;
+			goto out;
 		}
+
+		/* We might have a pending update which overrides: always send
+		 * that now, since this is used to populate errors which should
+		 * contain the latest information. */
+		l = find_local_update(peer->daemon, &scid);
+		if (l)
+			update = create_channel_update(tmpctx,
+						       rstate,
+						       chan, l->direction,
+						       l->disable,
+						       l->cltv_delta,
+						       l->htlc_minimum_msat,
+						       l->fee_base_msat,
+						       l->fee_proportional_millionths);
 	}
+
+out:
 	status_trace("peer %s schanid %s: %s update",
 		     type_to_string(tmpctx, struct pubkey, &peer->id),
 		     type_to_string(tmpctx, struct short_channel_id, &scid),
