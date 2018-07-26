@@ -33,6 +33,8 @@ struct htlc {
 	/* For a local failure, we might have to generate fail ourselves
 	 * (or, if BADONION we send a update_fail_malformed_htlc). */
 	enum onion_type failcode;
+	/* If failcode & UPDATE, this is channel which failed. Otherwise NULL. */
+	const struct short_channel_id *failed_scid;
 };
 
 static inline bool htlc_has(const struct htlc *h, int flag)

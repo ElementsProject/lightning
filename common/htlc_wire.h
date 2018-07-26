@@ -29,6 +29,8 @@ struct failed_htlc {
 	/* Either this is 0 and failreason non-NULL, or vice versa. */
 	enum onion_type failcode;
 	u8 *failreason;
+	/* Non-NULL if failcode & UPDATE */
+	struct short_channel_id *scid;
 };
 
 struct changed_htlc {
