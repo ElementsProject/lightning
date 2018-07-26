@@ -160,3 +160,6 @@ gossip_mark_channel_unroutable,,channel,struct short_channel_id
 # master -> gossipd: a potential funding outpoint was spent, please forget the eventual channel
 gossip_outpoint_spent,3024
 gossip_outpoint_spent,,short_channel_id,struct short_channel_id
+
+# master -> gossipd: stop gossip timers.
+gossip_dev_suppress,3032

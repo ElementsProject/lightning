@@ -60,6 +60,7 @@
 
 #if DEVELOPER
 static u32 max_scids_encode_bytes = -1U;
+static bool suppress_gossip = false;
 #endif
 
 struct local_update {
@@ -908,6 +909,11 @@ static bool maybe_queue_gossip(struct peer *peer)
 	if (peer->gossip_timer)
 		return false;
 
+#if DEVELOPER
+	if (suppress_gossip)
+		return false;
+#endif
+
 	next = next_broadcast(peer->daemon->rstate->broadcasts,
 			      peer->gossip_timestamp_min,
 			      peer->gossip_timestamp_max,
@@ -1731,6 +1737,18 @@ static struct io_plan *dev_set_max_scids_encode_size(struct io_conn *conn,
 	status_trace("Set max_scids_encode_bytes to %u", max_scids_encode_bytes);
 	return daemon_conn_read_next(conn, &daemon->master);
 }
+
+static struct io_plan *dev_gossip_suppress(struct io_conn *conn,
+					   struct daemon *daemon,
+					   const u8 *msg)
+{
+	if (!fromwire_gossip_dev_suppress(msg))
+		master_badmsg(WIRE_GOSSIP_DEV_SUPPRESS, msg);
+
+	status_unusual("Suppressing all gossip");
+	suppress_gossip = true;
+	return daemon_conn_read_next(conn, &daemon->master);
+}
 #endif /* DEVELOPER */
 
 static void gossip_send_keepalive_update(struct routing_state *rstate,
@@ -2126,12 +2144,16 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 		return dev_set_max_scids_encode_size(conn, daemon,
 						     daemon->master.msg_in);
+	case WIRE_GOSSIP_DEV_SUPPRESS:
+		return dev_gossip_suppress(conn, daemon,
+					   daemon->master.msg_in);
 #else
 	case WIRE_GOSSIP_PING:
 	case WIRE_GOSSIP_QUERY_SCIDS:
 	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
 	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
 	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
+	case WIRE_GOSSIP_DEV_SUPPRESS:
 		break;
 #endif /* !DEVELOPER */
 
