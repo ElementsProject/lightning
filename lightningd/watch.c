@@ -274,13 +274,13 @@ void watch_topology_changed(struct chain_topology *topo)
 		/* Iterating a htable during deletes is safe, but might skip entries. */
 		needs_rerun = false;
 		for (w = txwatch_hash_first(&topo->txwatches, &i);
-	    	w;
-	    	w = txwatch_hash_next(&topo->txwatches, &i)) {
-				u32 depth;
+		     w;
+		     w = txwatch_hash_next(&topo->txwatches, &i)) {
+			u32 depth;
 
-				depth = get_tx_depth(topo, &w->txid);
-				if (depth)
-					needs_rerun |= txw_fire(w, &w->txid, depth);
+			depth = get_tx_depth(topo, &w->txid);
+			if (depth)
+				needs_rerun |= txw_fire(w, &w->txid, depth);
 		}
 	} while (needs_rerun);
 }
