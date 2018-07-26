@@ -1,4 +1,4 @@
-DEVTOOLS_SRC := devtools/gen_print_wire.c devtools/print_wire.c
+DEVTOOLS_SRC := devtools/gen_print_wire.c devtools/gen_print_onion_wire.c devtools/print_wire.c
 DEVTOOLS_OBJS := $(DEVTOOLS_SRC:.c=.o)
 DEVTOOLS_TOOL_SRC := devtools/bolt11-cli.c devtools/decodemsg.c devtools/onion.c
 DEVTOOLS_TOOL_OBJS := $(DEVTOOLS_TOOL_SRC:.c=.o)
@@ -23,6 +23,12 @@ devtools/gen_print_wire.h: $(WIRE_GEN) wire/gen_peer_wire_csv
 devtools/gen_print_wire.c: $(WIRE_GEN) wire/gen_peer_wire_csv
 	$(WIRE_GEN) --bolt --printwire ${@:.c=.h} wire_type < wire/gen_peer_wire_csv > $@
 
+devtools/gen_print_onion_wire.h: $(WIRE_GEN) wire/gen_onion_wire_csv
+	$(WIRE_GEN) --bolt --printwire --header $@ onion_type < wire/gen_onion_wire_csv > $@
+
+devtools/gen_print_onion_wire.c: $(WIRE_GEN) wire/gen_onion_wire_csv
+	$(WIRE_GEN) --bolt --printwire ${@:.c=.h} onion_type < wire/gen_onion_wire_csv > $@
+
 devtools/bolt11-cli: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/bolt11-cli.o
 
 devtools/decodemsg: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/decodemsg.o
@@ -31,8 +37,9 @@ devtools/onion.c: ccan/config.h
 
 devtools/onion: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/onion.o common/sphinx.o
 
-$(DEVTOOLS_OBJS) $(DEVTOOLS_TOOL_OBJS): wire/wire.h devtools/gen_print_wire.h
+$(DEVTOOLS_OBJS) $(DEVTOOLS_TOOL_OBJS): wire/wire.h devtools/gen_print_wire.h devtools/gen_print_onion_wire.h
 devtools/gen_print_wire.o: devtools/gen_print_wire.h wire/gen_peer_wire.h devtools/print_wire.h
+devtools/gen_print_onion_wire.o: devtools/gen_print_onion_wire.h devtools/print_wire.h
 
 # Make sure these depend on everything.
 ALL_PROGRAMS += devtools/bolt11-cli devtools/decodemsg devtools/onion
