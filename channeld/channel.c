@@ -1220,6 +1220,8 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 				(*f)->id = htlc->id;
 				(*f)->failcode = htlc->failcode;
 				(*f)->failreason = cast_const(u8 *, htlc->fail);
+				(*f)->scid = cast_const(struct short_channel_id *,
+							htlc->failed_scid);
 			}
 		} else {
 			struct changed_htlc *c = tal_arr_append(&changed);
@@ -1508,7 +1510,7 @@ static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
 				       &channel_id, &id, &reason)) {
 		peer_failed(&peer->cs,
 			    &peer->channel_id,
-			    "Bad update_fulfill_htlc %s", tal_hex(msg, msg));
+			    "Bad update_fail_htlc %s", tal_hex(msg, msg));
 	}
 
 	e = channel_fail_htlc(peer->channel, LOCAL, id, &htlc);
@@ -2243,6 +2245,11 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 	case CHANNEL_ERR_REMOVE_OK:
 		h->failcode = failcode;
 		h->fail = tal_steal(h, errpkt);
+		if (failcode & UPDATE)
+			h->failed_scid
+				= tal_dup(h, struct short_channel_id, &scid);
+		else
+			h->failed_scid = NULL;
 		send_fail_or_fulfill(peer, h);
 		start_commit_timer(peer);
 		return;

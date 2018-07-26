@@ -322,6 +322,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	htlc->rhash = *payment_hash;
 	htlc->fail = NULL;
 	htlc->failcode = 0;
+	htlc->failed_scid = NULL;
 	htlc->r = NULL;
 	htlc->routing = tal_dup_arr(htlc, u8, routing, TOTAL_PACKET_SIZE, 0);
 
@@ -1052,6 +1053,12 @@ bool channel_force_htlcs(struct channel *channel,
 						 0);
 		else
 			htlc->fail = NULL;
+		if (failed[i]->scid)
+			htlc->failed_scid = tal_dup(htlc,
+						    struct short_channel_id,
+						    failed[i]->scid);
+		else
+			htlc->failed_scid = NULL;
 	}
 
 	for (i = 0; i < tal_count(htlcs); i++) {

@@ -1387,6 +1387,7 @@ static void add_fulfill(u64 id, enum side side,
 
 static void add_fail(u64 id, enum side side,
 		     enum onion_type failcode,
+		     const struct short_channel_id *failing_channel,
 		     const u8 *failuremsg,
 		     const struct failed_htlc ***failed_htlcs,
 		     enum side **failed_sides)
@@ -1400,6 +1401,13 @@ static void add_fail(u64 id, enum side side,
 	*f = tal(*failed_htlcs, struct failed_htlc);
 	(*f)->id = id;
 	(*f)->failcode = failcode;
+	if (failcode & UPDATE) {
+		assert(failing_channel);
+		(*f)->scid = tal_dup(*f, struct short_channel_id,
+				     failing_channel);
+	} else
+		(*f)->scid = NULL;
+
 	if (failuremsg)
 		(*f)->failreason
 			= tal_dup_arr(*f, u8, failuremsg, tal_len(failuremsg), 0);
@@ -1444,6 +1452,7 @@ void peer_htlcs(const tal_t *ctx,
 
 		if (hin->failuremsg || hin->failcode)
 			add_fail(hin->key.id, REMOTE, hin->failcode,
+				 &hin->failoutchannel,
 				 hin->failuremsg, failed_htlcs, failed_sides);
 		if (hin->preimage)
 			add_fulfill(hin->key.id, REMOTE, hin->preimage,
@@ -1463,6 +1472,7 @@ void peer_htlcs(const tal_t *ctx,
 
 		if (hout->failuremsg || hout->failcode)
 			add_fail(hout->key.id, LOCAL, hout->failcode,
+				 hout->key.channel->scid,
 				 hout->failuremsg, failed_htlcs, failed_sides);
 		if (hout->preimage)
 			add_fulfill(hout->key.id, LOCAL, hout->preimage,
