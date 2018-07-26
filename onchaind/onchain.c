@@ -1832,6 +1832,14 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 						 OUTPUT_TO_US, NULL, NULL, NULL);
 			ignore_output(out);
 			script[LOCAL] = NULL;
+
+			/* Tell the master that it will want to add
+			 * this UTXO to its outputs */
+			wire_sync_write(REQ_FD, towire_onchain_add_utxo(
+						    tmpctx, txid, i,
+						    remote_per_commitment_point,
+						    tx->output[i].amount,
+						    tx_blockheight));
 			continue;
 		}
 		if (script[REMOTE]
