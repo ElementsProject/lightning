@@ -2041,10 +2041,15 @@ class LightningDTests(BaseLightningDTests):
         # 100 blocks later, all resolved.
         bitcoind.generate_block(100)
 
-        # FIXME: Test wallet balance...
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
-    @unittest.skip("flaky test causing CI fails too often")
+        outputs = l2.rpc.listfunds()['outputs']
+        assert [o['status'] for o in outputs] == ['confirmed'] * 2
+        # Allow some lossage for fees.
+        assert sum(o['value'] for o in outputs) < 10**6
+        assert sum(o['value'] for o in outputs) > 10**6 - 15000
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_penalty_outhtlc(self):
         """Test penalty transaction with an outgoing HTLC"""
         # First we need to get funds to l2, so suppress after second.
@@ -2104,8 +2109,13 @@ class LightningDTests(BaseLightningDTests):
         # 100 blocks later, all resolved.
         bitcoind.generate_block(100)
 
-        # FIXME: Test wallet balance...
         wait_forget_channels(l2)
+
+        outputs = l2.rpc.listfunds()['outputs']
+        assert [o['status'] for o in outputs] == ['confirmed'] * 3
+        # Allow some lossage for fees.
+        assert sum(o['value'] for o in outputs) < 10**6
+        assert sum(o['value'] for o in outputs) > 10**6 - 15000
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_onchain_feechange(self):
