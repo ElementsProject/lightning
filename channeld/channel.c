@@ -1745,7 +1745,7 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 		if (h->failcode) {
 			/* Local failure, make a message. */
 			u8 *failmsg = make_failmsg(tmpctx, peer, h, h->failcode,
-						   &peer->short_channel_ids[LOCAL]);
+						   h->failed_scid);
 			onion = create_onionreply(tmpctx, h->shared_secret,
 						  failmsg);
 		} else /* Remote failure, just forward. */
