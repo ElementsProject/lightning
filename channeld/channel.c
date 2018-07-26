@@ -2195,16 +2195,19 @@ static void handle_feerates(struct peer *peer, const u8 *inmsg)
 
 static void handle_preimage(struct peer *peer, const u8 *inmsg)
 {
-	u64 id;
-	struct preimage preimage;
+	struct fulfilled_htlc fulfilled_htlc;
 	struct htlc *h;
 
-	if (!fromwire_channel_fulfill_htlc(inmsg, &id, &preimage))
+	if (!fromwire_channel_fulfill_htlc(inmsg, &fulfilled_htlc))
 		master_badmsg(WIRE_CHANNEL_FULFILL_HTLC, inmsg);
 
-	switch (channel_fulfill_htlc(peer->channel, REMOTE, id, &preimage, &h)) {
+	switch (channel_fulfill_htlc(peer->channel, REMOTE,
+				     fulfilled_htlc.id,
+				     &fulfilled_htlc.payment_preimage,
+				     &h)) {
 	case CHANNEL_ERR_REMOVE_OK:
-		h->r = tal_dup(h, struct preimage, &preimage);
+		h->r = tal_dup(h, struct preimage,
+			       &fulfilled_htlc.payment_preimage);
 		send_fail_or_fulfill(peer, h);
 		start_commit_timer(peer);
 		return;
@@ -2217,39 +2220,27 @@ static void handle_preimage(struct peer *peer, const u8 *inmsg)
 	case CHANNEL_ERR_HTLC_NOT_IRREVOCABLE:
 	case CHANNEL_ERR_BAD_PREIMAGE:
 		status_failed(STATUS_FAIL_MASTER_IO,
-			      "HTLC %"PRIu64" preimage failed", id);
+			      "HTLC %"PRIu64" preimage failed",
+			      fulfilled_htlc.id);
 	}
 	abort();
 }
 
 static void handle_fail(struct peer *peer, const u8 *inmsg)
 {
-	u64 id;
-	u8 *errpkt;
-	u16 failcode;
-	struct short_channel_id scid;
+	struct failed_htlc *failed_htlc;
 	enum channel_remove_err e;
 	struct htlc *h;
 
-	if (!fromwire_channel_fail_htlc(inmsg, inmsg, &id, &errpkt,
-					&failcode, &scid))
+	if (!fromwire_channel_fail_htlc(inmsg, inmsg, &failed_htlc))
 		master_badmsg(WIRE_CHANNEL_FAIL_HTLC, inmsg);
 
-	if (failcode && tal_len(errpkt))
-		status_failed(STATUS_FAIL_MASTER_IO,
-			      "Invalid channel_fail_htlc: %s with errpkt?",
-			      onion_type_name(failcode));
-
-	e = channel_fail_htlc(peer->channel, REMOTE, id, &h);
+	e = channel_fail_htlc(peer->channel, REMOTE, failed_htlc->id, &h);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
-		h->failcode = failcode;
-		h->fail = tal_steal(h, errpkt);
-		if (failcode & UPDATE)
-			h->failed_scid
-				= tal_dup(h, struct short_channel_id, &scid);
-		else
-			h->failed_scid = NULL;
+		h->failcode = failed_htlc->failcode;
+		h->fail = tal_steal(h, failed_htlc->failreason);
+		h->failed_scid = tal_steal(h, failed_htlc->scid);
 		send_fail_or_fulfill(peer, h);
 		start_commit_timer(peer);
 		return;
@@ -2259,7 +2250,8 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 	case CHANNEL_ERR_HTLC_NOT_IRREVOCABLE:
 	case CHANNEL_ERR_BAD_PREIMAGE:
 		status_failed(STATUS_FAIL_MASTER_IO,
-			      "HTLC %"PRIu64" removal failed: %s", id,
+			      "HTLC %"PRIu64" removal failed: %s",
+			      failed_htlc->id,
 			      channel_remove_err_name(e));
 	}
 	abort();

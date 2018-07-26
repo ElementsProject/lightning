@@ -1,5 +1,6 @@
 #include <bitcoin/tx.h>
 #include <ccan/build_assert/build_assert.h>
+#include <ccan/cast/cast.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
@@ -88,6 +89,7 @@ static void fail_in_htlc(struct htlc_in *hin,
 			 const u8 *failuremsg,
 			 const struct short_channel_id *out_channelid)
 {
+	struct failed_htlc failed_htlc;
 	assert(!hin->preimage);
 
 	assert(failcode || failuremsg);
@@ -112,12 +114,15 @@ static void fail_in_htlc(struct htlc_in *hin,
 	if (channel_on_chain(hin->key.channel))
 		return;
 
+	failed_htlc.id = hin->key.id;
+	failed_htlc.failcode = hin->failcode;
+	failed_htlc.failreason = cast_const(u8 *, hin->failuremsg);
+	if (failed_htlc.failcode & UPDATE)
+		failed_htlc.scid = &hin->failoutchannel;
+	else
+		failed_htlc.scid = NULL;
 	subd_send_msg(hin->key.channel->owner,
-		      take(towire_channel_fail_htlc(hin,
-						    hin->key.id,
-						    hin->failuremsg,
-						    hin->failcode,
-						    &hin->failoutchannel)));
+		      take(towire_channel_fail_htlc(NULL, &failed_htlc)));
 }
 
 /* This is used for cases where we can immediately fail the HTLC. */
@@ -228,7 +233,10 @@ static void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 	if (channel_on_chain(channel)) {
 		msg = towire_onchain_known_preimage(hin, preimage);
 	} else {
-		msg = towire_channel_fulfill_htlc(hin, hin->key.id, preimage);
+		struct fulfilled_htlc fulfilled_htlc;
+		fulfilled_htlc.id = hin->key.id;
+		fulfilled_htlc.payment_preimage = *preimage;
+		msg = towire_channel_fulfill_htlc(hin, &fulfilled_htlc);
 	}
 	subd_send_msg(channel->owner, take(msg));
 }

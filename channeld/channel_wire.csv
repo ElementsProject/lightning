@@ -82,19 +82,11 @@ channel_offer_htlc_reply,,failurestr,failurestrlen*u8
 # Main daemon found out the preimage for an HTLC
 #include <bitcoin/preimage.h>
 channel_fulfill_htlc,1005
-channel_fulfill_htlc,,id,u64
-channel_fulfill_htlc,,payment_preimage,struct preimage
+channel_fulfill_htlc,,fulfilled_htlc,struct fulfilled_htlc
 
 # Main daemon says HTLC failed
 channel_fail_htlc,1006
-channel_fail_htlc,,id,u64
-# If this is non-zero length, you need to wrap this and pass it on.
-channel_fail_htlc,,len,u16
-channel_fail_htlc,,error_pkt,len*u8
-# If it errcode is != 0, it's a local error, otherwise we're passing through.
-channel_fail_htlc,,errcode,u16
-# If errcode & UPDATE, this says which outgoing channel failed.
-channel_fail_htlc,,which_channel,struct short_channel_id
+channel_fail_htlc,,failed_htlc,struct failed_htlc
 
 # When we receive funding_locked.
 channel_got_funding_locked,1019
