@@ -24,6 +24,7 @@ struct gossip_getchannels_entry {
 	struct short_channel_id short_channel_id;
 	u16 flags;
 	bool public;
+	bool local_disabled;
 	u32 last_update_timestamp;
 	u32 delay;
 	u32 base_fee_msat;

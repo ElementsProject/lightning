@@ -307,6 +307,7 @@ struct chan *new_chan(struct routing_state *rstate,
 	chan->channel_announce = NULL;
 	chan->channel_announcement_index = 0;
 	chan->satoshis = 0;
+	chan->local_disabled = false;
 
 	n = tal_count(n2->chans);
 	tal_resize(&n2->chans, n+1);
@@ -420,9 +421,11 @@ static void bfg_one_edge(struct node *node,
 }
 
 /* Determine if the given half_chan is routable */
-static bool hc_is_routable(const struct half_chan *hc, time_t now)
+static bool hc_is_routable(const struct chan *chan, int idx, time_t now)
 {
-	return is_halfchan_enabled(hc) && hc->unroutable_until < now;
+	return !chan->local_disabled
+		&& is_halfchan_enabled(&chan->half[idx])
+		&& chan->half[idx].unroutable_until < now;
 }
 
 /* riskfactor is already scaled to per-block amount */
@@ -491,7 +494,7 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 							    &n->id),
 					     i, num_edges);
 
-				if (!hc_is_routable(&chan->half[idx], now)) {
+				if (!hc_is_routable(chan, idx, now)) {
 					SUPERVERBOSE("...unroutable");
 					continue;
 				}
