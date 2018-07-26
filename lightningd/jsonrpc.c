@@ -360,7 +360,6 @@ void command_success(struct command *cmd, struct json_result *result)
 	}
 	assert(cmd_in_jcon(jcon, cmd));
 	connection_complete_ok(jcon, cmd, cmd->id, result);
-	log_debug(jcon->log, "Success");
 }
 
 static void command_fail_v(struct command *cmd,
@@ -373,14 +372,18 @@ static void command_fail_v(struct command *cmd,
 
 	if (!jcon) {
 		log_debug(cmd->ld->log,
-			  "Command failed after jcon close");
+			  "%s: Command failed after jcon close",
+			  cmd->json_cmd->name);
 		tal_free(cmd);
 		return;
 	}
 
 	error = tal_vfmt(cmd, fmt, ap);
 
-	log_debug(jcon->log, "Failing: %s", error);
+	/* cmd->json_cmd can be NULL, if we're failing for command not found! */
+	log_debug(jcon->log, "Failing %s: %s",
+		  cmd->json_cmd ? cmd->json_cmd->name : "invalid cmd",
+		  error);
 
 	assert(cmd_in_jcon(jcon, cmd));
 	connection_complete_error(jcon, cmd, cmd->id, error, code, data);
@@ -422,7 +425,6 @@ static void json_command_malformed(struct json_connection *jcon,
 static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 {
 	const jsmntok_t *method, *id, *params;
-	const struct json_command *cmd;
 	struct command *c;
 
 	if (tok[0].type != JSMN_OBJECT) {
@@ -469,15 +471,15 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		return;
 	}
 
-	cmd = find_cmd(jcon->buffer, method);
-	if (!cmd) {
+	c->json_cmd = find_cmd(jcon->buffer, method);
+	if (!c->json_cmd) {
 		command_fail(c, JSONRPC2_METHOD_NOT_FOUND,
 			     "Unknown command '%.*s'",
 			     method->end - method->start,
 			     jcon->buffer + method->start);
 		return;
 	}
-	if (cmd->deprecated && !deprecated_apis) {
+	if (c->json_cmd->deprecated && !deprecated_apis) {
 		command_fail(c, JSONRPC2_METHOD_NOT_FOUND,
 			     "Command '%.*s' is deprecated",
 			      method->end - method->start,
@@ -486,7 +488,7 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	}
 
 	db_begin_transaction(jcon->ld->wallet->db);
-	cmd->dispatch(c, jcon->buffer, params);
+	c->json_cmd->dispatch(c, jcon->buffer, params);
 	db_commit_transaction(jcon->ld->wallet->db);
 
 	/* If they didn't complete it, they must call command_still_pending */
@@ -603,8 +605,6 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 static struct io_plan *incoming_jcon_connected(struct io_conn *conn,
 					       struct lightningd *ld)
 {
-	log_debug(ld->log, "Connected json input");
-
 	/* Lifetime of JSON conn is limited to fd connect time. */
 	return jcon_connected(notleak(conn), ld);
 }
