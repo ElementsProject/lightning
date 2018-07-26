@@ -55,6 +55,9 @@ struct chan {
 	/* Index in broadcast map, if public (otherwise 0) */
 	u64 channel_announcement_index;
 
+	/* Disabled locally (due to peer disconnect) */
+	bool local_disabled;
+
 	u64 satoshis;
 };
 

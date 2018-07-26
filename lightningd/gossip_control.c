@@ -359,7 +359,8 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 		json_add_u64(response, "satoshis", entries[i].satoshis);
 		json_add_num(response, "flags", entries[i].flags);
 		json_add_bool(response, "active",
-			      !(entries[i].flags & ROUTING_FLAGS_DISABLED));
+			      !(entries[i].flags & ROUTING_FLAGS_DISABLED)
+			      && !entries[i].local_disabled);
 		json_add_num(response, "last_update",
 			     entries[i].last_update_timestamp);
 		json_add_num(response, "base_fee_millisatoshi",

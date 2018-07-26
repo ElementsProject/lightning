@@ -1188,6 +1188,8 @@ static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 		return;
 	}
 
+	/* channeld has reconnected, remove local disable. */
+	chan->local_disabled = false;
 	queue_local_update(peer->daemon, local_update);
 }
 
@@ -1398,6 +1400,7 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 	e->destination = chan->nodes[!idx]->id;
 	e->satoshis = chan->satoshis;
 	e->flags = c->flags;
+	e->local_disabled = chan->local_disabled;
 	e->public = is_chan_public(chan);
 	e->short_channel_id = chan->scid;
 	e->last_update_timestamp = c->last_timestamp;
@@ -1823,9 +1826,9 @@ static void gossip_disable_outgoing_halfchan(struct daemon *daemon,
  *
  * Disables both directions of a local channel as a result of a close or lost
  * connection. A disabling `channel_update` will be queued for the outgoing
- * direction as well. We can't do that for the incoming direction, so we just
- * locally flip the flag, and the other endpoint should take care of publicly
- * disabling it with a `channel_update`.
+ * direction as well, but that will be a little delayed.  We can't do that for
+ * the incoming direction, so we set local_disabled and the other endpoint
+ * should take care of publicly disabling it with a `channel_update`.
  *
  * It is important to disable the incoming edge as well since we might otherwise
  * return that edge as a `contact_point` as part of an invoice.
@@ -1838,8 +1841,7 @@ static void gossip_disable_local_channel(struct daemon *daemon,
 	assert(pubkey_eq(&rstate->local_id, &chan->nodes[0]->id) ||
 	       pubkey_eq(&rstate->local_id, &chan->nodes[1]->id));
 
-	chan->half[0].flags |= ROUTING_FLAGS_DISABLED;
-	chan->half[1].flags |= ROUTING_FLAGS_DISABLED;
+	chan->local_disabled = true;
 	gossip_disable_outgoing_halfchan(daemon, chan);
 }
 

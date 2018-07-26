@@ -85,6 +85,7 @@ void fromwire_gossip_getchannels_entry(const u8 **pptr, size_t *max,
 	entry->satoshis = fromwire_u64(pptr, max);
 	entry->flags = fromwire_u16(pptr, max);
 	entry->public = fromwire_bool(pptr, max);
+	entry->local_disabled = fromwire_bool(pptr, max);
 	entry->last_update_timestamp = fromwire_u32(pptr, max);
 	entry->base_fee_msat = fromwire_u32(pptr, max);
 	entry->fee_per_millionth = fromwire_u32(pptr, max);
@@ -100,6 +101,7 @@ void towire_gossip_getchannels_entry(u8 **pptr,
 	towire_u64(pptr, entry->satoshis);
 	towire_u16(pptr, entry->flags);
 	towire_bool(pptr, entry->public);
+	towire_bool(pptr, entry->local_disabled);
 	towire_u32(pptr, entry->last_update_timestamp);
 	towire_u32(pptr, entry->base_fee_msat);
 	towire_u32(pptr, entry->fee_per_millionth);
