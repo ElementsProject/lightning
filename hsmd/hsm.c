@@ -39,6 +39,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <wally_bip32.h>
+#include <wally_bip39.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_io.h>
 
@@ -1020,6 +1021,20 @@ static void bitcoin_keypair(struct privkey *privkey,
 			      "BIP32 pubkey %u create failed", index);
 }
 
+static void display_mnemonic_word_list(void){
+	char **mnemonic_secret=NULL;
+	int ret = bip39_mnemonic_from_bytes(NULL,secretstuff.hsm_secret.data,32,mnemonic_secret);
+    if (ret!=WALLY_OK){
+    	status_info("HSM: convert hsm_secret to mnemonic seed failed. error code: %d",ret);
+    }
+	status_info("HSM: your should remember / write down the following words to recover your funds!");
+	if (mnemonic_secret){
+		int i = 0;
+		while ( *mnemonic_secret )
+			status_info( "%d. %s", ++i, *mnemonic_secret++ );
+	}
+}
+
 static void maybe_create_new_hsm(void)
 {
 	int fd = open("hsm_secret", O_CREAT|O_EXCL|O_WRONLY, 0400);
@@ -1057,6 +1072,8 @@ static void maybe_create_new_hsm(void)
 			      "fsyncdir: %s", strerror(errno));
 	}
 	close(fd);
+	display_mnemonic_word_list();
+
 	status_unusual("HSM: created new hsm_secret file");
 }
 
