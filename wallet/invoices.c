@@ -87,20 +87,20 @@ trigger_invoice_waiter_expire_or_delete(struct invoices *invoices,
 	}
 }
 
-static void wallet_stmt2invoice_details(const tal_t *ctx,
-					sqlite3_stmt *stmt,
-					struct invoice_details *dtl)
+static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
+							   sqlite3_stmt *stmt)
 {
+	struct invoice_details *dtl = tal(ctx, struct invoice_details);
 	dtl->state = sqlite3_column_int(stmt, 0);
 
 	sqlite3_column_preimage(stmt, 1, &dtl->r);
 
 	sqlite3_column_sha256(stmt, 2, &dtl->rhash);
 
-	dtl->label = sqlite3_column_json_escaped(ctx, stmt, 3);
+	dtl->label = sqlite3_column_json_escaped(dtl, stmt, 3);
 
 	if (sqlite3_column_type(stmt, 4) != SQLITE_NULL) {
-		dtl->msatoshi = tal(ctx, u64);
+		dtl->msatoshi = tal(dtl, u64);
 		*dtl->msatoshi = sqlite3_column_int64(stmt, 4);
 	} else {
 		dtl->msatoshi = NULL;
@@ -114,14 +114,16 @@ static void wallet_stmt2invoice_details(const tal_t *ctx,
 		dtl->paid_timestamp = sqlite3_column_int64(stmt, 8);
 	}
 
-	dtl->bolt11 = tal_strndup(ctx, sqlite3_column_blob(stmt, 9),
+	dtl->bolt11 = tal_strndup(dtl, sqlite3_column_blob(stmt, 9),
 				  sqlite3_column_bytes(stmt, 9));
 
 	if (sqlite3_column_type(stmt, 10) != SQLITE_NULL)
 		dtl->description = tal_strdup(
-		    ctx, (const char *)sqlite3_column_text(stmt, 10));
+		    dtl, (const char *)sqlite3_column_text(stmt, 10));
 	else
 		dtl->description = NULL;
+
+	return dtl;
 }
 
 struct invoices *invoices_new(const tal_t *ctx,
@@ -492,13 +494,12 @@ bool invoices_iterate(struct invoices *invoices,
 		return true;
 	}
 }
-void invoices_iterator_deref(const tal_t *ctx,
-			     struct invoices *invoices UNUSED,
-			     const struct invoice_iterator *it,
-			     struct invoice_details *details)
+const struct invoice_details *
+invoices_iterator_deref(const tal_t *ctx, struct invoices *invoices UNUSED,
+			const struct invoice_iterator *it)
 {
 	assert(it->p);
-	wallet_stmt2invoice_details(ctx, (sqlite3_stmt*) it->p, details);
+	return wallet_stmt2invoice_details(ctx, (sqlite3_stmt*) it->p);
 }
 
 static s64 get_next_pay_index(struct db *db)
@@ -638,13 +639,13 @@ void invoices_waitone(const tal_t *ctx,
 			   false, invoice.id, cb, cbarg);
 }
 
-void invoices_get_details(const tal_t *ctx,
-			  struct invoices *invoices,
-			  struct invoice invoice,
-			  struct invoice_details *dtl)
+const struct invoice_details *invoices_get_details(const tal_t *ctx,
+						   struct invoices *invoices,
+						   struct invoice invoice)
 {
 	sqlite3_stmt *stmt;
 	int result;
+	struct invoice_details *details;
 
 	stmt = db_prepare(invoices->db,
 			  "SELECT state, payment_key, payment_hash"
@@ -657,7 +658,7 @@ void invoices_get_details(const tal_t *ctx,
 	result = sqlite3_step(stmt);
 	assert(result == SQLITE_ROW);
 
-	wallet_stmt2invoice_details(ctx, stmt, dtl);
-
+	details = wallet_stmt2invoice_details(ctx, stmt);
 	db_stmt_done(stmt);
+	return details;
 }

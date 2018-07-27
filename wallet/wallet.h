@@ -605,13 +605,11 @@ bool wallet_invoice_iterate(struct wallet *wallet,
  * @ctx - the owner of the label and msatoshi fields returned.
  * @wallet - the wallet whose invoices are to be iterated over.
  * @iterator - the iterator object to use.
- * @details - pointer to details object to load.
- *
+ * @return pointer to the invoice details allocated off of `ctx`.
  */
-void wallet_invoice_iterator_deref(const tal_t *ctx,
-				   struct wallet *wallet,
-				   const struct invoice_iterator *it,
-				   struct invoice_details *details);
+const struct invoice_details *
+wallet_invoice_iterator_deref(const tal_t *ctx, struct wallet *wallet,
+			      const struct invoice_iterator *it);
 
 /**
  * wallet_invoice_resolve - Mark an invoice as paid
@@ -676,12 +674,11 @@ void wallet_invoice_waitone(const tal_t *ctx,
  * @ctx - the owner of the label and msatoshi fields returned.
  * @wallet - the wallet to query.
  * @invoice - the invoice to get details on.
- * @details - pointer to details object to load.
+ * @return pointer to the invoice details allocated off of `ctx`.
  */
-void wallet_invoice_details(const tal_t *ctx,
-			    struct wallet *wallet,
-			    struct invoice invoice,
-			    struct invoice_details *details);
+const struct invoice_details *wallet_invoice_details(const tal_t *ctx,
+						     struct wallet *wallet,
+						     struct invoice invoice);
 
 /**
  * wallet_htlc_stubs - Retrieve HTLC stubs for the given channel
