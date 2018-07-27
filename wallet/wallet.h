@@ -81,7 +81,8 @@ struct wallet_shachain {
  * get the preimage matching the rhash, or to
  * `PAYMENT_FAILED`. */
 /* /!\ This is a DB ENUM, please do not change the numbering of any
- * already defined elements (adding is ok) /!\ */
+ * already defined elements (adding is ok but you should append the
+ * test case test_wallet_payment_status_enum() ) /!\ */
 enum wallet_payment_status {
 	PAYMENT_PENDING = 0,
 	PAYMENT_COMPLETE = 1,
