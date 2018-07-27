@@ -45,7 +45,7 @@ mailing list [lightning-dev@lists.linuxfoundation.org][ml2].
 ## Getting Started
 
 c-lightning currently only works on Linux (and possibly Mac OS with some
-tweaking), and requires a locally running `bitcoind` (version 0.15 or
+tweaking), and requires a locally (or remotely) running `bitcoind` (version 0.15 or
 above) that is fully caught up with the network you're testing on.
 Pruning (prune=n option in bitcoin.conf) is not currently supported.
 
