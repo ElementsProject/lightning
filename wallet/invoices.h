@@ -65,9 +65,9 @@ bool invoices_create(struct invoices *invoices,
 /**
  * invoices_find_by_label - Search for an invoice by label
  *
- * @invoices - the invoice handler.
- * @pinvoice - pointer to location to load found invoice in.
- * @label - the label to search for.
+ * @param invoices - the invoice handler.
+ * @param pinvoice - pointer to location to load found invoice in.
+ * @param label - the label to search for.
  *
  * Returns false if no invoice with that label exists.
  * Returns true if found.

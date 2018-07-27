@@ -128,6 +128,11 @@ struct pay {
 
 	/* Whether we are attempting payment or not. */
 	bool in_sendpay;
+
+	/* Maximum fee that is exempted from the maxfeepercent computation. This
+	 * is mainly useful for tiny transfers for which the leveraged fee would
+	 * be dominated by the forwarding fee. */
+	u64 exemptfee;
 };
 
 static struct routing_failure *
@@ -435,7 +440,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	 * That loss will not be representable in double. So, it's Okay to
 	 * cast u64 to double for feepercent calculation. */
 	feepercent = ((double) fee) * 100.0 / ((double) pay->msatoshi);
-	fee_too_high = (feepercent > pay->maxfeepercent);
+	fee_too_high = (fee > pay->exemptfee && feepercent > pay->maxfeepercent);
 	delay_too_high = (route[0].delay > pay->maxdelay);
 	/* compare fuzz to range */
 	if ((fee_too_high || delay_too_high) && pay->fuzz < 0.01) {
@@ -602,6 +607,7 @@ static void json_pay(struct command *cmd,
 	char *fail, *b11str, *desc;
 	unsigned int retryfor;
 	unsigned int maxdelay;
+	unsigned int exemptfee;
 
 	if (!param(cmd, buffer, params,
 		   p_req("bolt11", json_tok_tok, &bolt11tok),
@@ -612,6 +618,7 @@ static void json_pay(struct command *cmd,
 		   p_opt_def("retry_for", json_tok_number, &retryfor, 60),
 		   p_opt_def("maxdelay", json_tok_number, &maxdelay,
 			     cmd->ld->config.locktime_max),
+		   p_opt_def("exemptfee", json_tok_number, &exemptfee, 5000),
 		   NULL))
 		return;
 
@@ -636,6 +643,7 @@ static void json_pay(struct command *cmd,
 	memset(&pay->expiry, 0, sizeof(pay->expiry));
 	pay->expiry.ts.tv_sec = b11->timestamp + b11->expiry;
 	pay->min_final_cltv_expiry = b11->min_final_cltv_expiry;
+	pay->exemptfee = exemptfee;
 
 	if (b11->msatoshi) {
 		if (msatoshi) {
