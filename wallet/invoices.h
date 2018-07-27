@@ -169,13 +169,12 @@ bool invoices_iterate(struct invoices *invoices,
  * @ctx - the owner of the label and msatoshi fields returned.
  * @wallet - the wallet whose invoices are to be iterated over.
  * @iterator - the iterator object to use.
- * @details - pointer to details object to load.
+ * @return The invoice details allocated off of `ctx`
  *
  */
-void invoices_iterator_deref(const tal_t *ctx,
-			     struct invoices *invoices,
-			     const struct invoice_iterator *it,
-			     struct invoice_details *details);
+const struct invoice_details *invoices_iterator_deref(
+	const tal_t *ctx, struct invoices *invoices,
+	const struct invoice_iterator *it);
 
 /**
  * invoices_resolve - Mark an invoice as paid
@@ -239,11 +238,10 @@ void invoices_waitone(const tal_t *ctx,
  * @ctx - the owner of the label and msatoshi fields returned.
  * @invoices - the invoice handler,
  * @invoice - the invoice to get details on.
- * @details - pointer to details object to load.
+ * @return pointer to the invoice details allocated off of `ctx`.
  */
-void invoices_get_details(const tal_t *ctx,
-			  struct invoices *invoices,
-			  struct invoice invoice,
-			  struct invoice_details *details);
+const struct invoice_details *invoices_get_details(const tal_t *ctx,
+						   struct invoices *invoices,
+						   struct invoice invoice);
 
 #endif /* LIGHTNING_WALLET_INVOICES_H */

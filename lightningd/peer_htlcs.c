@@ -249,7 +249,7 @@ static void handle_localpay(struct htlc_in *hin,
 {
 	enum onion_type failcode;
 	struct invoice invoice;
-	struct invoice_details details;
+	const struct invoice_details *details;
 	struct lightningd *ld = hin->key.channel->peer->ld;
 
 	/* BOLT #4:
@@ -282,7 +282,7 @@ static void handle_localpay(struct htlc_in *hin,
 		failcode = WIRE_UNKNOWN_PAYMENT_HASH;
 		goto fail;
 	}
-	wallet_invoice_details(tmpctx, ld->wallet, invoice, &details);
+	details = wallet_invoice_details(tmpctx, ld->wallet, invoice);
 
 	/* BOLT #4:
 	 *
@@ -298,10 +298,10 @@ static void handle_localpay(struct htlc_in *hin,
 	 *         leakage by altering the amount while not allowing for
 	 *         accidental gross overpayment.
 	 */
-	if (details.msatoshi != NULL && hin->msatoshi < *details.msatoshi) {
+	if (details->msatoshi != NULL && hin->msatoshi < *details->msatoshi) {
 		failcode = WIRE_INCORRECT_PAYMENT_AMOUNT;
 		goto fail;
-	} else if (details.msatoshi != NULL && hin->msatoshi > *details.msatoshi * 2) {
+	} else if (details->msatoshi != NULL && hin->msatoshi > *details->msatoshi * 2) {
 		failcode = WIRE_INCORRECT_PAYMENT_AMOUNT;
 		goto fail;
 	}
@@ -324,10 +324,10 @@ static void handle_localpay(struct htlc_in *hin,
 	}
 
 	log_info(ld->log, "Resolving invoice '%s' with HTLC %"PRIu64,
-		 details.label->s, hin->key.id);
+		 details->label->s, hin->key.id);
 	log_debug(ld->log, "%s: Actual amount %"PRIu64"msat, HTLC expiry %u",
-		  details.label->s, hin->msatoshi, cltv_expiry);
-	fulfill_htlc(hin, &details.r);
+		  details->label->s, hin->msatoshi, cltv_expiry);
+	fulfill_htlc(hin, &details->r);
 	wallet_invoice_resolve(ld->wallet, invoice, hin->msatoshi);
 
 	return;

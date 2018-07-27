@@ -1444,12 +1444,11 @@ bool wallet_invoice_iterate(struct wallet *wallet,
 {
 	return invoices_iterate(wallet->invoices, it);
 }
-void wallet_invoice_iterator_deref(const tal_t *ctx,
-				   struct wallet *wallet,
-				   const struct invoice_iterator *it,
-				   struct invoice_details *details)
+const struct invoice_details *
+wallet_invoice_iterator_deref(const tal_t *ctx, struct wallet *wallet,
+			      const struct invoice_iterator *it)
 {
-	return invoices_iterator_deref(ctx, wallet->invoices, it, details);
+	return invoices_iterator_deref(ctx, wallet->invoices, it);
 }
 void wallet_invoice_resolve(struct wallet *wallet,
 			    struct invoice invoice,
@@ -1473,14 +1472,13 @@ void wallet_invoice_waitone(const tal_t *ctx,
 {
 	invoices_waitone(ctx, wallet->invoices, invoice, cb, cbarg);
 }
-void wallet_invoice_details(const tal_t *ctx,
-			    struct wallet *wallet,
-			    struct invoice invoice,
-			    struct invoice_details *details)
-{
-	invoices_get_details(ctx, wallet->invoices, invoice, details);
-}
 
+const struct invoice_details *wallet_invoice_details(const tal_t *ctx,
+						     struct wallet *wallet,
+						     struct invoice invoice)
+{
+	return invoices_get_details(ctx, wallet->invoices, invoice);
+}
 
 struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 				    struct channel *chan)
