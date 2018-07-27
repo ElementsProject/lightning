@@ -955,6 +955,14 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	return true;
 }
 
+static bool test_wallet_payment_status_enum(void)
+{
+	CHECK(PAYMENT_PENDING == 0);
+	CHECK(PAYMENT_COMPLETE == 1);
+	CHECK(PAYMENT_FAILED == 2);
+	return true;
+}
+
 int main(void)
 {
 	setup_locale();
@@ -979,6 +987,7 @@ int main(void)
 	ok &= test_channel_config_crud(ld, tmpctx);
 	ok &= test_htlc_crud(ld, tmpctx);
 	ok &= test_payment_crud(ld, tmpctx);
+	ok &= test_wallet_payment_status_enum();
 
 	/* Do not clean up in the case of an error, we might want to debug the
 	 * database. */
