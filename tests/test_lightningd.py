@@ -2075,10 +2075,14 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('dev_disconnect: =WIRE_COMMITMENT_SIGNED')
         l2.daemon.wait_for_log('dev_disconnect: =WIRE_COMMITMENT_SIGNED')
 
+        # Make sure both sides got revoke_and_ack for that commitment.
+        l1.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
+        l2.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
+
         # Take our snapshot.
         tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
 
-        # Let the continue
+        # Let them continue
         l1.rpc.dev_reenable_commit(l2.info['id'])
         l2.rpc.dev_reenable_commit(l1.info['id'])
 
