@@ -256,6 +256,9 @@ static void update_feerates(struct bitcoind *bitcoind,
 		/* Initial smoothed feerate is the polled feerate */
 		if (topo->startup) {
 			old_feerates[i] = feerate;
+			log_debug(topo->log,
+					  "Smoothed feerate estimate for %s initialized to polled estimate %u",
+					  feerate_name(i), feerate);
 		}
 
 		/* Smooth the feerate to avoid spikes. */
@@ -265,19 +268,20 @@ static void update_feerates(struct bitcoind *bitcoind,
 		if (abs((int)feerate - (int)feerate_smooth) > (0.1 * feerate)) {
 			feerate = feerate_smooth;
 			log_debug(topo->log,
-					  "...feerate %u smoothed to %u (alpha=%.2f)",
-					  satoshi_per_kw[i], feerate, alpha);
+					  "... polled feerate estimate for %s (%u) smoothed to %u (alpha=%.2f)",
+					  feerate_name(i), satoshi_per_kw[i],
+					  feerate, alpha);
 		}
 
 		if (feerate < feerate_floor()) {
 			feerate = feerate_floor();
 			log_debug(topo->log,
-					  "...feerate %u hit floor %u",
-					  satoshi_per_kw[i], feerate);
+					  "... feerate estimate for %s hit floor %u",
+					  feerate_name(i), feerate);
 		}
 
 		if (feerate != topo->feerate[i]) {
-			log_debug(topo->log, "%s feerate %u (was %u)",
+			log_debug(topo->log, "Feerate estimate for %s set to %u (was %u)",
 				  feerate_name(i),
 				  feerate, topo->feerate[i]);
 		}
@@ -292,7 +296,7 @@ static void update_feerates(struct bitcoind *bitcoind,
 		for (size_t j = 0; j < i; j++) {
 			if (topo->feerate[j] < topo->feerate[i]) {
 				log_debug(topo->log,
-					  "Feerate %s (%u) above %s (%u)",
+					  "Feerate estimate for %s (%u) above %s (%u)",
 					  feerate_name(i), topo->feerate[i],
 					  feerate_name(j), topo->feerate[j]);
 				topo->feerate[j] = topo->feerate[i];
