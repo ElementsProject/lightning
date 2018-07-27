@@ -4684,6 +4684,36 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.generate_block(1)
         l1.daemon.wait_for_log('ONCHAIN')
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_suppress_gossip")
+    def test_pay_get_error_with_update(self):
+        """We should process an update inside a temporary_channel_failure"""
+        l1, l2, l3 = self.node_factory.get_nodes(3, {'log-level': 'io'})
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        chanid1 = l1.fund_channel(l2, 10**6)
+
+        l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+        chanid2 = l2.fund_channel(l3, 10**6)
+
+        # Wait for route propagation.
+        self.wait_for_routes(l1, [chanid1, chanid2])
+
+        inv = l3.rpc.invoice(123000, 'test_pay_get_error_with_update', 'description')
+
+        route = l1.rpc.getroute(l3.info['id'], 12300, 1)["route"]
+
+        # Make sure l2 doesn't tell l1 directly that channel is disabled.
+        l2.rpc.dev_suppress_gossip()
+        l3.stop()
+
+        # Make sure that l2 has processed the local update which disables.
+        l2.daemon.wait_for_log('Received channel_update for channel {}\(.*\) now DISABLED was ACTIVE \(from apply_delayed_local_update\)'.format(chanid2))
+
+        l1.rpc.sendpay(to_json(route), inv['payment_hash'])
+        self.assertRaisesRegex(RpcError, 'WIRE_TEMPORARY_CHANNEL_FAILURE',
+                               l1.rpc.waitsendpay, inv['payment_hash'])
+
+        l1.daemon.wait_for_log('Received channel_update for channel {}\(.\) now DISABLED was ACTIVE \(from error\)'.format(chanid2))
+
     def test_address(self):
         l1 = self.node_factory.get_node()
         addr = l1.rpc.getinfo()['address']
