@@ -615,7 +615,7 @@ static void log_to_json(unsigned int skipped,
 	json_add_string(info->response, "source", prefix);
 	json_add_string(info->response, "log", log);
 	if (io)
-		json_add_hex(info->response, "data", io, tal_count(io));
+		json_add_hex_talarr(info->response, "data", io);
 
 	json_object_end(info->response);
 }

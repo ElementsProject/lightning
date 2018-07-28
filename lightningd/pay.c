@@ -852,8 +852,7 @@ static void json_waitsendpay_on_resolve(const struct sendpay_result *r,
 		case PAY_UNPARSEABLE_ONION:
 			data = new_json_result(cmd);
 			json_object_start(data, NULL);
-			json_add_hex(data, "onionreply",
-				     r->onionreply, tal_len(r->onionreply));
+			json_add_hex_talarr(data, "onionreply", r->onionreply);
 			json_object_end(data);
 
 			assert(r->details != NULL);
@@ -878,9 +877,8 @@ static void json_waitsendpay_on_resolve(const struct sendpay_result *r,
 			json_add_short_channel_id(data, "erring_channel",
 						  &fail->erring_channel);
 			if (fail->channel_update)
-				json_add_hex(data, "channel_update",
-					     fail->channel_update,
-					     tal_len(fail->channel_update));
+				json_add_hex_talarr(data, "channel_update",
+						    fail->channel_update);
 			json_object_end(data);
 
 			assert(r->details != NULL);

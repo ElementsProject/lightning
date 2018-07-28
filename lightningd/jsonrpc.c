@@ -151,7 +151,7 @@ static void json_getinfo(struct command *cmd,
 	json_object_start(response, NULL);
 	json_add_pubkey(response, "id", &cmd->ld->id);
 	json_add_string(response, "alias", (const char *)cmd->ld->alias);
-	json_add_hex(response, "color", (const void *)cmd->ld->rgb, tal_len(cmd->ld->rgb));
+	json_add_hex_talarr(response, "color", cmd->ld->rgb);
 	if (cmd->ld->listen) {
 		/* These are the addresses we're announcing */
 		json_array_start(response, "address");

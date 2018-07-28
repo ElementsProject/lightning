@@ -419,6 +419,13 @@ void json_add_hex(struct json_result *result, const char *fieldname,
 	tal_free(hex);
 }
 
+void json_add_hex_talarr(struct json_result *result,
+			 const char *fieldname,
+			 const tal_t *data)
+{
+	json_add_hex(result, fieldname, data, tal_len(data));
+}
+
 void json_add_object(struct json_result *result, ...)
 {
 	va_list ap;

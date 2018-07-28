@@ -110,6 +110,10 @@ void json_add_bool(struct json_result *result, const char *fieldname,
 /* '"fieldname" : "0189abcdef..."' or "0189abcdef..." if fieldname is NULL */
 void json_add_hex(struct json_result *result, const char *fieldname,
 		  const void *data, size_t len);
+/* '"fieldname" : "0189abcdef..."' or "0189abcdef..." if fieldname is NULL */
+void json_add_hex_talarr(struct json_result *result,
+			 const char *fieldname,
+			 const tal_t *data);
 void json_add_object(struct json_result *result, ...);
 
 const char *json_result_string(const struct json_result *result);

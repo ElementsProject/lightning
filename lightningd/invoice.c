@@ -638,7 +638,7 @@ static void json_add_fallback(struct json_result *response,
 				       (const u8 *)&wsh, sizeof(wsh)))
 			json_add_string(response, "addr", out);
 	}
-	json_add_hex(response, "hex", fallback, tal_len(fallback));
+	json_add_hex_talarr(response, "hex", fallback);
 	json_object_end(response);
 }
 
