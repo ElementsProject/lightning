@@ -15,6 +15,7 @@
  * with a specific error code, and then removed.
  */
 #define LIGHTNINGD                      -1
+#define LIGHTNINGD_INTERNAL             -2
 
 /* Errors from `pay`, `sendpay`, or `waitsendpay` commands */
 #define PAY_IN_PROGRESS			200
