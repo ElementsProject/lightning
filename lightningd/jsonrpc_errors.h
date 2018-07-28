@@ -15,7 +15,9 @@
  * with a specific error code, and then removed.
  */
 #define LIGHTNINGD                      -1
-#define LIGHTNINGD_INTERNAL             -2
+
+/* Developer error in the parameters to param() call */
+#define PARAM_DEV_ERROR                 -2
 
 /* Errors from `pay`, `sendpay`, or `waitsendpay` commands */
 #define PAY_IN_PROGRESS			200
