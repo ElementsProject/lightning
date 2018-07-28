@@ -32,8 +32,9 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 			return NULL;
 		}
 	}
-	entry->alias = tal_arr(entry, u8, fromwire_u8(pptr, max));
-	fromwire(pptr, max, entry->alias, tal_len(entry->alias));
+	/* Make sure alias is NUL terminated */
+	entry->alias = tal_arrz(entry, u8, fromwire_u8(pptr, max)+1);
+	fromwire(pptr, max, entry->alias, tal_count(entry->alias)-1);
 	fromwire(pptr, max, entry->color, sizeof(entry->color));
 
 	return entry;
