@@ -10,13 +10,17 @@
 #include <ccan/err/err.h>
 #include <unistd.h>
 
-char *fail_msg;
+char *fail_msg = NULL;
 bool failed = false;
 
 static bool check_fail(void) {
 	if (!failed)
 		return false;
 	failed = false;
+	if (taken(fail_msg)) {
+		tal_free(fail_msg);
+		fail_msg = NULL;
+	}
 	return true;
 }
 
@@ -248,115 +252,61 @@ static void null_params(void)
 }
 
 #if DEVELOPER
-#if 0
-jmp_buf jump;
-static void handle_abort(int sig)
-{
-	longjmp(jump, 1);
-}
-
-static int set_assert(void)
-{
-	struct sigaction act;
-	int old_stderr;
-	memset(&act, '\0', sizeof(act));
-	act.sa_handler = &handle_abort;
-	if (sigaction(SIGABRT, &act, NULL) < 0)
-		err(1, "set_assert");
-
-	/* Don't spam with assert messages. */
-	old_stderr = dup(STDERR_FILENO);
-	close(STDERR_FILENO);
-	return old_stderr;
-}
-
-static void restore_assert(int old_stderr)
-{
-	struct sigaction act;
-
-	dup2(old_stderr, STDERR_FILENO);
-	close(old_stderr);
-	memset(&act, '\0', sizeof(act));
-	act.sa_handler = SIG_DFL;
-	if (sigaction(SIGABRT, &act, NULL) < 0)
-		err(1, "restore_assert");
-
-}
-#endif
-
 /*
  * Check to make sure there are no programming mistakes.
  */
 static void bad_programmer(void)
 {
-#if 0
 	u64 ival;
 	u64 ival2;
 	double dval;
 	struct json *j = json_parse(cmd, "[ '25', '546', '26' ]");
-	int old_stderr = set_assert();
 
 	/* check for repeated names */
-	if (setjmp(jump) == 0) {
-		param(cmd, j->buffer, j->toks,
+	assert(!param(cmd, j->buffer, j->toks,
 		      p_req("repeat", json_tok_u64, &ival),
 		      p_req("double", json_tok_double, &dval),
-		      p_req("repeat", json_tok_u64, &ival2), NULL);
-		/* shouldn't get here */
-		restore_assert(old_stderr);
-		assert(false);
-	}
+		      p_req("repeat", json_tok_u64, &ival2), NULL));
+	assert(check_fail());
+	assert(strstr(fail_msg, "programmer error"));
 
-	if (setjmp(jump) == 0) {
-		param(cmd, j->buffer, j->toks,
+	assert(!param(cmd, j->buffer, j->toks,
 		      p_req("repeat", json_tok_u64, &ival),
 		      p_req("double", json_tok_double, &dval),
-		      p_req("repeat", json_tok_u64, &ival), NULL);
-		restore_assert(old_stderr);
-		assert(false);
-	}
+		      p_req("repeat", json_tok_u64, &ival), NULL));
+	assert(check_fail());
+	assert(strstr(fail_msg, "programmer error"));
 
-	if (setjmp(jump) == 0) {
-		param(cmd, j->buffer, j->toks,
+	assert(!param(cmd, j->buffer, j->toks,
 		      p_req("u64", json_tok_u64, &ival),
 		      p_req("repeat", json_tok_double, &dval),
-		      p_req("repeat", json_tok_double, &dval), NULL);
-		restore_assert(old_stderr);
-		assert(false);
-	}
+		      p_req("repeat", json_tok_double, &dval), NULL));
+	assert(check_fail());
+	assert(strstr(fail_msg, "programmer error"));
 
 	/* check for repeated arguments */
-	if (setjmp(jump) == 0) {
-		param(cmd, j->buffer, j->toks,
+	assert(!param(cmd, j->buffer, j->toks,
 		      p_req("u64", json_tok_u64, &ival),
-		      p_req("repeated-arg", json_tok_u64, &ival), NULL);
-		restore_assert(old_stderr);
-		assert(false);
-	}
+		      p_req("repeated-arg", json_tok_u64, &ival), NULL));
+	assert(check_fail());
+	assert(strstr(fail_msg, "programmer error"));
 
-	if (setjmp(jump) == 0) {
-		param(cmd, j->buffer, j->toks,
-		      p_req("u64", (param_cb) NULL, &ival), NULL);
-		restore_assert(old_stderr);
-		assert(false);
-	}
+	assert(!param(cmd, j->buffer, j->toks,
+		      p_req("u64", (param_cb) NULL, &ival), NULL));
+	assert(check_fail());
+	assert(strstr(fail_msg, "programmer error"));
 
-	if (setjmp(jump) == 0) {
-		/* Add required param after optional */
-		struct json *j =
-		    json_parse(cmd, "[ '25', '546', '26', '1.1' ]");
-		unsigned int msatoshi;
-		double riskfactor;
-		param(cmd, j->buffer, j->toks,
+	/* Add required param after optional */
+	j = json_parse(cmd, "[ '25', '546', '26', '1.1' ]");
+	unsigned int msatoshi;
+	double riskfactor;
+	assert(!param(cmd, j->buffer, j->toks,
 		      p_req("u64", json_tok_u64, &ival),
 		      p_req("double", json_tok_double, &dval),
 		      p_opt_def("msatoshi", json_tok_number, &msatoshi, 100),
-		      p_req("riskfactor", json_tok_double, &riskfactor), NULL);
-		restore_assert(old_stderr);
-		assert(false);
-	}
-	restore_assert(old_stderr);
-#endif
+		      p_req("riskfactor", json_tok_double, &riskfactor), NULL));
+	assert(check_fail());
+	assert(strstr(fail_msg, "programmer error"));
 }
 #endif
 
