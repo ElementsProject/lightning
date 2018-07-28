@@ -160,7 +160,7 @@ void towire_wirestring(u8 **pptr, const char *str)
 void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
 {
 	u8 *lin = linearize_tx(tmpctx, tx);
-	towire_u8_array(pptr, lin, tal_len(lin));
+	towire_u8_array(pptr, lin, tal_count(lin));
 }
 
 void towire_siphash_seed(u8 **pptr, const struct siphash_seed *seed)

@@ -17,7 +17,7 @@ static const u32 global_features[] = {
  */
 static void set_bit(u8 **ptr, u32 bit)
 {
-	size_t len = tal_len(*ptr);
+	size_t len = tal_count(*ptr);
 	if (bit / 8 >= len) {
 		size_t newlen = (bit / 8) + 1;
 		u8 *newarr = tal_arrz(tal_parent(*ptr), u8, newlen);
@@ -31,8 +31,8 @@ static void set_bit(u8 **ptr, u32 bit)
 
 static bool test_bit(const u8 *features, size_t byte, unsigned int bit)
 {
-	assert(byte < tal_len(features));
-	return features[tal_len(features) - 1 - byte] & (1 << (bit % 8));
+	assert(byte < tal_count(features));
+	return features[tal_count(features) - 1 - byte] & (1 << (bit % 8));
 }
 
 /* We don't insist on anything, it's all optional. */
@@ -59,7 +59,7 @@ static bool feature_set(const u8 *features, size_t bit)
 {
 	size_t bytenum = bit / 8;
 
-	if (bytenum >= tal_len(features))
+	if (bytenum >= tal_count(features))
 		return false;
 
 	return test_bit(features, bytenum, bit % 8);

@@ -106,7 +106,7 @@ int main(int argc UNUSED, char *argv[])
 	response_off += sizeof(TAILER)-1;
 	response[response_off++] = '\0';
 	assert(strlen(response) == response_off - 1);
-	assert(response_off < tal_len(response));
+	assert(response_off < tal_count(response));
 
 	response_off = 0;
 	max_read_return = -1;

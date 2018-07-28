@@ -148,12 +148,12 @@ static void run_unit_tests(void)
 		printf("input_packet %s\n", tal_hex(tmpctx, reply));
 		reply = wrap_onionreply(tmpctx, &ss[i], reply);
 		printf("obfuscated_packet %s\n", tal_hex(tmpctx, reply));
-		assert(memcmp(reply, intermediates[i], tal_len(reply)) == 0);
+		assert(memcmp(reply, intermediates[i], tal_count(reply)) == 0);
 	}
 
 	oreply = unwrap_onionreply(tmpctx, ss, 5, reply);
 	printf("unwrapped %s\n", tal_hex(tmpctx, oreply->msg));
-	assert(memcmp(raw, oreply->msg, tal_len(raw)) == 0);
+	assert(memcmp(raw, oreply->msg, tal_bytelen(raw)) == 0);
 }
 
 int main(int argc, char **argv)

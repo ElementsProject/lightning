@@ -16,4 +16,8 @@
 #define sha256_be16(ctx, v) ccan_sha256_be16(ctx, v)
 #define sha256_be32(ctx, v) ccan_sha256_be32(ctx, v)
 #define sha256_be64(ctx, v) ccan_sha256_be64(ctx, v)
+
+/* Transition for ccan update. */
+#define tal_bytelen(x) tal_len(x)
+
 #endif /* LIGHTNING_CCAN_COMPAT_H */

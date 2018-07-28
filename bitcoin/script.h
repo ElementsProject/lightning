@@ -136,7 +136,7 @@ bool is_p2wsh(const u8 *script, struct sha256 *addr);
 bool is_p2wpkh(const u8 *script, struct bitcoin_address *addr);
 
 /* Are these two scripts equal? */
-bool scripteq(const tal_t *s1, const tal_t *s2);
+bool scripteq(const u8 *s1, const u8 *s2);
 
 /* OP_DUP + OP_HASH160 + PUSH(20-byte-hash) + OP_EQUALVERIFY + OP_CHECKSIG */
 #define BITCOIN_SCRIPTPUBKEY_P2PKH_LEN (1 + 1 + 1 + 20 + 1 + 1)

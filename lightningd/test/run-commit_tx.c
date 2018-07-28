@@ -65,8 +65,8 @@ static void tx_must_be_eq(const struct bitcoin_tx *a,
 	lina = linearize_tx(tmpctx, a);
 	linb = linearize_tx(tmpctx, b);
 
-	for (i = 0; i < tal_len(lina); i++) {
-		if (i >= tal_len(linb))
+	for (i = 0; i < tal_count(lina); i++) {
+		if (i >= tal_count(linb))
 			errx(1, "Second tx is truncated:\n"
 			     "%s\n"
 			     "%s",
@@ -80,7 +80,7 @@ static void tx_must_be_eq(const struct bitcoin_tx *a,
 			     tal_hex(tmpctx, lina),
 			     tal_hex(tmpctx, linb));
 	}
-	if (i != tal_len(linb))
+	if (i != tal_count(linb))
 		errx(1, "First tx is truncated:\n"
 		     "%s\n"
 		     "%s",

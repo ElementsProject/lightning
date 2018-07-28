@@ -95,7 +95,7 @@ static void fail_in_htlc(struct htlc_in *hin,
 	assert(failcode || failuremsg);
 	hin->failcode = failcode;
 	if (failuremsg)
-		hin->failuremsg = tal_dup_arr(hin, u8, failuremsg, tal_len(failuremsg), 0);
+		hin->failuremsg = tal_dup_arr(hin, u8, failuremsg, tal_count(failuremsg), 0);
 
 	/* We need this set, since we send it to channeld. */
 	if (hin->failcode & UPDATE)
@@ -377,7 +377,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 		if (!hout->in) {
 			char *localfail = tal_fmt(msg, "%s: %.*s",
 						  onion_type_name(failure_code),
-						  (int)tal_len(failurestr),
+						  (int)tal_count(failurestr),
 						  (const char *)failurestr);
 			payment_failed(ld, hout, localfail);
 		} else
@@ -784,7 +784,7 @@ static bool peer_failed_our_htlc(struct channel *channel,
 	hout->failcode = failed->failcode;
 	if (!failed->failcode)
 		hout->failuremsg = tal_dup_arr(hout, u8, failed->failreason,
-					       tal_len(failed->failreason), 0);
+					       tal_count(failed->failreason), 0);
 
 	else
 		hout->failuremsg = NULL;
@@ -1348,7 +1348,7 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 
 static void *tal_arr_append_(void **p, size_t size)
 {
-	size_t n = tal_len(*p) / size;
+	size_t n = tal_bytelen(*p) / size;
 	tal_resize_(p, size, n+1, false);
 	return (char *)(*p) + n * size;
 }
@@ -1418,7 +1418,7 @@ static void add_fail(u64 id, enum side side,
 
 	if (failuremsg)
 		(*f)->failreason
-			= tal_dup_arr(*f, u8, failuremsg, tal_len(failuremsg), 0);
+			= tal_dup_arr(*f, u8, failuremsg, tal_count(failuremsg), 0);
 	else
 		(*f)->failreason = NULL;
 	*s = side;

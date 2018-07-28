@@ -1049,7 +1049,7 @@ bool channel_force_htlcs(struct channel *channel,
 		if (failed[i]->failreason)
 			htlc->fail = tal_dup_arr(htlc, u8,
 						 failed[i]->failreason,
-						 tal_len(failed[i]->failreason),
+						 tal_count(failed[i]->failreason),
 						 0);
 		else
 			htlc->fail = NULL;

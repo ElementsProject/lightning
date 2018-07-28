@@ -239,7 +239,7 @@ static char *opt_set_rgb(const char *arg, struct lightningd *ld)
 	 *      byte is the green value, and the last byte is the blue value.
 	 */
 	ld->rgb = tal_hexdata(ld, arg, strlen(arg));
-	if (!ld->rgb || tal_len(ld->rgb) != 3)
+	if (!ld->rgb || tal_count(ld->rgb) != 3)
 		return tal_fmt(NULL, "rgb '%s' is not six hex digits", arg);
 	return NULL;
 }

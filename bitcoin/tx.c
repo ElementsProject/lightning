@@ -341,7 +341,7 @@ static void pull_input(const tal_t *ctx, const u8 **cursor, size_t *max,
 		input->script = tal_arr(ctx, u8, script_len);
 	else
 		input->script = NULL;
-	pull(cursor, max, input->script, tal_len(input->script));
+	pull(cursor, max, input->script, tal_count(input->script));
 	input->sequence_number = pull_le32(cursor, max);
 }
 
@@ -350,7 +350,7 @@ static void pull_output(const tal_t *ctx, const u8 **cursor, size_t *max,
 {
 	output->amount = pull_value(cursor, max);
 	output->script = tal_arr(ctx, u8, pull_length(cursor, max, 1));
-	pull(cursor, max, output->script, tal_len(output->script));
+	pull(cursor, max, output->script, tal_count(output->script));
 }
 
 static u8 *pull_witness_item(const tal_t *ctx, const u8 **cursor, size_t *max)

@@ -38,7 +38,7 @@ bool sync_crypto_write(struct crypto_state *cs, int fd, const void *msg TAKES)
 		break;
 	}
 #endif
-	ret = write_all(fd, enc, tal_len(enc));
+	ret = write_all(fd, enc, tal_count(enc));
 	tal_free(enc);
 
 #if DEVELOPER
@@ -64,7 +64,7 @@ u8 *sync_crypto_read(const tal_t *ctx, struct crypto_state *cs, int fd)
 	}
 
 	enc = tal_arr(ctx, u8, len + 16);
-	if (!read_all(fd, enc, tal_len(enc))) {
+	if (!read_all(fd, enc, tal_count(enc))) {
 		status_trace("Failed reading body: %s", strerror(errno));
 		return tal_free(enc);
 	}

@@ -7,10 +7,10 @@
 
 bool wire_sync_write(int fd, const void *msg TAKES)
 {
-	wire_len_t hdr = cpu_to_wirelen(tal_len(msg));
+	wire_len_t hdr = cpu_to_wirelen(tal_bytelen(msg));
 	bool ret;
 
-	assert(tal_len(msg) < WIRE_LEN_LIMIT);
+	assert(tal_bytelen(msg) < WIRE_LEN_LIMIT);
 	ret = write_all(fd, &hdr, sizeof(hdr))
 		&& write_all(fd, msg, tal_count(msg));
 

@@ -351,7 +351,7 @@ static char *decode_f(struct bolt11 *b11,
         } else if (version < 17) {
                 u8 *f = tal_arr(b11, u8, data_length * 5 / 8);
                 if (version == 0) {
-                        if (tal_len(f) != 20 && tal_len(f) != 32)
+                        if (tal_count(f) != 20 && tal_count(f) != 32)
                                 return tal_fmt(b11,
                                                "f: witness v0 bad length %zu",
                                                data_length);
@@ -359,7 +359,7 @@ static char *decode_f(struct bolt11 *b11,
                 pull_bits_certain(hu5, data, data_len, f, data_length * 5,
                                   false);
                 fallback = scriptpubkey_witness_raw(b11, version,
-						    f, tal_len(f));
+						    f, tal_count(f));
                 tal_free(f);
         } else
                 return unknown_field(b11, hu5, data, data_len, 'f',
@@ -816,16 +816,16 @@ static void encode_f(u5 **data, const u8 *fallback)
                 push_fallback_addr(data, 0, &pkh, sizeof(pkh));
         } else if (is_p2wsh(fallback, &wsh)) {
                 push_fallback_addr(data, 0, &wsh, sizeof(wsh));
-        } else if (tal_len(fallback)
+        } else if (tal_count(fallback)
                    && fallback[0] >= 0x50
                    && fallback[0] < (0x50+16)) {
                 /* Other (future) witness versions: turn OP_N into N */
                 push_fallback_addr(data, fallback[0] - 0x50, fallback + 1,
-                                   tal_len(fallback) - 1);
+                                   tal_count(fallback) - 1);
         } else {
                 /* Copy raw. */
                 push_field(data, 'f',
-                           fallback, tal_len(fallback) * CHAR_BIT);
+                           fallback, tal_count(fallback) * CHAR_BIT);
         }
 }
 
@@ -836,7 +836,7 @@ static void encode_r(u5 **data, const struct route_info *r)
         for (size_t i = 0; i < tal_count(r); i++)
                 towire_route_info(&rinfo, r);
 
-        push_field(data, 'r', rinfo, tal_len(rinfo) * CHAR_BIT);
+        push_field(data, 'r', rinfo, tal_count(rinfo) * CHAR_BIT);
         tal_free(rinfo);
 }
 
@@ -848,7 +848,7 @@ static void encode_extra(u5 **data, const struct bolt11_field *extra)
         push_varlen_uint(data, tal_count(extra->data), 10);
 
         /* extra->data is already u5s, so do this raw. */
-        len = tal_len(*data);
+        len = tal_count(*data);
         tal_resize(data, len + tal_count(extra->data));
         memcpy(*data + len, extra->data, tal_count(extra->data));
 }
@@ -938,7 +938,7 @@ char *bolt11_encode_(const tal_t *ctx,
                 encode_extra(&data, extra);
 
         /* FIXME: towire_ should check this? */
-        if (tal_len(data) > 65535)
+        if (tal_count(data) > 65535)
                 return NULL;
 
         /* Need exact length here */

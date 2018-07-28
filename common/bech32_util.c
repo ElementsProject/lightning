@@ -9,7 +9,7 @@ static u8 get_bit(const u8 *src, size_t bitoff)
 void bech32_push_bits(u5 **data, const void *src, size_t nbits)
 {
         size_t i, b;
-        size_t data_len = tal_len(*data);
+        size_t data_len = tal_count(*data);
 
         for (i = 0; i < nbits; i += b) {
                 tal_resize(data, data_len+1);

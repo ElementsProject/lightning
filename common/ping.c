@@ -78,12 +78,12 @@ const char *got_pong(const u8 *pong, size_t *num_pings_outstanding)
 	if (*num_pings_outstanding == 0)
 		return "Unexpected pong";
 
-	for (i = 0; i < tal_len(ignored); i++) {
+	for (i = 0; i < tal_count(ignored); i++) {
 		if (ignored[i] < ' ' || ignored[i] == 127)
 			break;
 	}
 	status_trace("Got pong %zu bytes (%.*s...)",
-		     tal_len(ignored), i, (char *)ignored);
+		     tal_count(ignored), i, (char *)ignored);
 
 	(*num_pings_outstanding)--;
 	return NULL;

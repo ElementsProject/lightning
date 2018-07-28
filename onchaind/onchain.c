@@ -305,7 +305,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 
 	/* Worst-case sig is 73 bytes */
 	fee = feerate_per_kw * (measure_tx_weight(tx)
-			 + 1 + 3 + 73 + 0 + tal_len(wscript))
+			 + 1 + 3 + 73 + 0 + tal_count(wscript))
 		/ 1000;
 
 	/* Result is trivial?  Spend with small feerate, but don't wait
@@ -313,7 +313,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 	if (tx->output[0].amount < dust_limit_satoshis + fee) {
 		/* FIXME: We should use SIGHASH_NONE so others can take it */
 		fee = feerate_floor() * (measure_tx_weight(tx)
-				       + 1 + 3 + 73 + 0 + tal_len(wscript))
+				       + 1 + 3 + 73 + 0 + tal_count(wscript))
 			/ 1000;
 		/* This shouldn't happen (we don't set feerate below floor!),
 		 * but just in case. */
@@ -505,7 +505,7 @@ static void propose_resolution_at_block(struct tracked_output *out,
 static bool is_valid_sig(const u8 *e)
 {
 	secp256k1_ecdsa_signature sig;
-	size_t len = tal_len(e);
+	size_t len = tal_count(e);
 
 	/* Last byte is sighash flags */
 	if (len < 1)
@@ -820,12 +820,12 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 			      tx_type_name(out->tx_type),
 			      output_type_name(out->output_type));
 
-	if (tal_len(witness_preimage) != sizeof(preimage))
+	if (tal_count(witness_preimage) != sizeof(preimage))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "%s/%s spent with bad witness length %zu",
 			      tx_type_name(out->tx_type),
 			      output_type_name(out->output_type),
-			      tal_len(witness_preimage));
+			      tal_count(witness_preimage));
 	memcpy(&preimage, witness_preimage, sizeof(preimage));
 	sha256(&sha, &preimage, sizeof(preimage));
 	ripemd160(&ripemd, &sha, sizeof(sha));
@@ -1391,9 +1391,9 @@ static int match_htlc_output(const struct bitcoin_tx *tx,
 		if (!htlc_scripts[i])
 			continue;
 
-		sha256(&sha, htlc_scripts[i], tal_len(htlc_scripts[i]));
+		sha256(&sha, htlc_scripts[i], tal_count(htlc_scripts[i]));
 		if (memeq(tx->output[outnum].script + 2,
-			  tal_len(tx->output[outnum].script) - 2,
+			  tal_count(tx->output[outnum].script) - 2,
 			  &sha, sizeof(sha)))
 			return i;
 	}

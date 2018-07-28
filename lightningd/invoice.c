@@ -732,10 +732,10 @@ static void json_decodepay(struct command *cmd,
 
                 json_array_start(response, "extra");
                 list_for_each(&b11->extra_fields, extra, list) {
-                        char *data = tal_arr(cmd, char, tal_len(extra->data)+1);
+                        char *data = tal_arr(cmd, char, tal_count(extra->data)+1);
                         size_t i;
 
-                        for (i = 0; i < tal_len(extra->data); i++)
+                        for (i = 0; i < tal_count(extra->data); i++)
                                 data[i] = bech32_charset[extra->data[i]];
                         data[i] = '\0';
                         json_object_start(response, NULL);

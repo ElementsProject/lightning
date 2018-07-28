@@ -57,8 +57,8 @@ void towire_gossip_getnodes_entry(u8 **pptr,
 	for (i=0; i<numaddresses; i++) {
 		towire_wireaddr(pptr, &entry->addresses[i]);
 	}
-	towire_u8(pptr, tal_len(entry->alias));
-	towire(pptr, entry->alias, tal_len(entry->alias));
+	towire_u8(pptr, tal_count(entry->alias));
+	towire(pptr, entry->alias, tal_count(entry->alias));
 	towire(pptr, entry->color, sizeof(entry->color));
 }
 
@@ -127,8 +127,8 @@ fromwire_peer_features(const tal_t *ctx, const u8 **pptr, size_t *max)
 
 void towire_peer_features(u8 **pptr, const struct peer_features *pf)
 {
-	towire_u16(pptr, tal_len(pf->local_features));
-	towire_u8_array(pptr, pf->local_features, tal_len(pf->local_features));
-	towire_u16(pptr, tal_len(pf->global_features));
-	towire_u8_array(pptr, pf->global_features, tal_len(pf->global_features));
+	towire_u16(pptr, tal_count(pf->local_features));
+	towire_u8_array(pptr, pf->local_features, tal_count(pf->local_features));
+	towire_u16(pptr, tal_count(pf->global_features));
+	towire_u8_array(pptr, pf->global_features, tal_count(pf->global_features));
 }

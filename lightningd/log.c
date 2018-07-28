@@ -98,7 +98,7 @@ static void log_to_stdout(const char *prefix,
 
 static size_t mem_used(const struct log_entry *e)
 {
-	return sizeof(*e) + strlen(e->log) + 1 + tal_len(e->io);
+	return sizeof(*e) + strlen(e->log) + 1 + tal_count(e->io);
 }
 
 static size_t prune_log(struct log_book *log)

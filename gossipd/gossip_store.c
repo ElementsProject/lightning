@@ -141,7 +141,7 @@ static bool gossip_store_append(int fd, struct routing_state *rstate, const u8 *
 		return false;
 	}
 
-	msglen = tal_len(msg);
+	msglen = tal_count(msg);
 	belen = cpu_to_be32(msglen);
 	checksum = cpu_to_be32(crc32c(0, msg, msglen));
 

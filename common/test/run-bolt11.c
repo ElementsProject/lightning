@@ -48,11 +48,11 @@ static bool test_sign(const u5 *u5bytes,
 	char *hrp;
 	struct sha256 sha;
 
-	hrp = tal_dup_arr(NULL, char, (char *)hrpu8, tal_len(hrpu8), 1);
-	hrp[tal_len(hrpu8)] = '\0';
+	hrp = tal_dup_arr(NULL, char, (char *)hrpu8, tal_count(hrpu8), 1);
+	hrp[tal_count(hrpu8)] = '\0';
 
 	hash_u5_init(&hu5, hrp);
-	hash_u5(&hu5, u5bytes, tal_len(u5bytes));
+	hash_u5(&hu5, u5bytes, tal_count(u5bytes));
 	hash_u5_done(&hu5, &sha);
 	tal_free(hrp);
 
@@ -94,9 +94,9 @@ static void test_b11(const char *b11str,
 
 	assert(tal_count(b11->fallbacks) == tal_count(expect_b11->fallbacks));
 	for (size_t i = 0; i < tal_count(b11->fallbacks); i++)
-		assert(memeq(b11->fallbacks[i], tal_len(b11->fallbacks[i]),
+		assert(memeq(b11->fallbacks[i], tal_count(b11->fallbacks[i]),
 			     expect_b11->fallbacks[i],
-			     tal_len(expect_b11->fallbacks[i])));
+			     tal_count(expect_b11->fallbacks[i])));
 
 	/* FIXME: compare routes. */
 	assert(tal_count(b11->routes) == tal_count(expect_b11->routes));

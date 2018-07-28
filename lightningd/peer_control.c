@@ -71,7 +71,7 @@ static void copy_to_parent_log(const char *prefix,
 			       struct log *parent_log)
 {
 	if (level == LOG_IO_IN || level == LOG_IO_OUT)
-		log_io(parent_log, level, prefix, io, tal_len(io));
+		log_io(parent_log, level, prefix, io, tal_count(io));
 	else if (continued)
 		log_add(parent_log, "%s ... %s", prefix, str);
 	else
@@ -388,7 +388,7 @@ void channel_errmsg(struct channel *channel,
 	if (err_for_them && !channel->error)
 		channel->error = tal_dup_arr(channel, u8,
 					     err_for_them,
-					     tal_len(err_for_them), 0);
+					     tal_count(err_for_them), 0);
 
 	/* Make sure channel_fail_permanent doesn't tell connectd we died! */
 	channel->connected = false;
@@ -459,10 +459,10 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 					" and localfeatures %s",
 					tal_hexstr(msg,
 						   global_features,
-						   tal_len(global_features)),
+						   tal_count(global_features)),
 					tal_hexstr(msg,
 						   local_features,
-						   tal_len(local_features)));
+						   tal_count(local_features)));
 		goto send_error;
 	}
 

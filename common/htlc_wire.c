@@ -26,8 +26,8 @@ void towire_fulfilled_htlc(u8 **pptr, const struct fulfilled_htlc *fulfilled)
 void towire_failed_htlc(u8 **pptr, const struct failed_htlc *failed)
 {
 	/* Only one can be set. */
-	assert(failed->failcode || tal_len(failed->failreason));
-	assert(!failed->failcode || !tal_len(failed->failreason));
+	assert(failed->failcode || tal_count(failed->failreason));
+	assert(!failed->failcode || !tal_count(failed->failreason));
 	towire_u64(pptr, failed->id);
 	towire_u16(pptr, failed->failcode);
 	if (failed->failcode & UPDATE) {

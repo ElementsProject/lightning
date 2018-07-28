@@ -423,7 +423,7 @@ void json_add_hex_talarr(struct json_result *result,
 			 const char *fieldname,
 			 const tal_t *data)
 {
-	json_add_hex(result, fieldname, data, tal_len(data));
+	json_add_hex(result, fieldname, data, tal_bytelen(data));
 }
 
 void json_add_object(struct json_result *result, ...)

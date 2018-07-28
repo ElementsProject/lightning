@@ -14,7 +14,7 @@ bool log_status_msg(struct log *log, const u8 *msg)
 		}
 	} else if (fromwire_status_io(msg, msg, &level, &who, &data)) {
 		if (level == LOG_IO_IN || level == LOG_IO_OUT) {
-			log_io(log, level, who, data, tal_len(data));
+			log_io(log, level, who, data, tal_count(data));
 			return true;
 		}
 	}

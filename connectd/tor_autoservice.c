@@ -161,13 +161,13 @@ static void negotiate_auth(struct rbuf *rbuf, const char *tor_password)
 				cookiefileerrno = errno;
 				continue;
 			}
-			assert(tal_len(contents) != 0);
+			assert(tal_count(contents) != 0);
 			discard_remaining_response(rbuf);
 			tor_send_cmd(rbuf,
 				     tal_fmt(tmpctx, "AUTHENTICATE %s",
 					     tal_hexstr(tmpctx,
 							contents,
-							tal_len(contents)-1)));
+							tal_count(contents)-1)));
 			discard_remaining_response(rbuf);
 			return;
 		}
@@ -222,7 +222,7 @@ struct wireaddr *tor_autoservice(const tal_t *ctx,
 		err(1, "Connecting stream socket to Tor service");
 
 	buffer = tal_arr(tmpctx, char, rbuf_good_size(fd));
-	rbuf_init(&rbuf, fd, buffer, tal_len(buffer));
+	rbuf_init(&rbuf, fd, buffer, tal_count(buffer));
 
 	negotiate_auth(&rbuf, tor_password);
 	onion = make_onion(ctx, &rbuf, laddr);

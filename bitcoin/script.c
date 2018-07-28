@@ -369,7 +369,7 @@ u8 *p2wpkh_scriptcode(const tal_t *ctx, const struct pubkey *key)
 
 bool is_p2pkh(const u8 *script, struct bitcoin_address *addr)
 {
-	size_t script_len = tal_len(script);
+	size_t script_len = tal_count(script);
 
 	if (script_len != BITCOIN_SCRIPTPUBKEY_P2PKH_LEN)
 		return false;
@@ -390,7 +390,7 @@ bool is_p2pkh(const u8 *script, struct bitcoin_address *addr)
 
 bool is_p2sh(const u8 *script, struct ripemd160 *addr)
 {
-	size_t script_len = tal_len(script);
+	size_t script_len = tal_count(script);
 
 	if (script_len != BITCOIN_SCRIPTPUBKEY_P2SH_LEN)
 		return false;
@@ -407,7 +407,7 @@ bool is_p2sh(const u8 *script, struct ripemd160 *addr)
 
 bool is_p2wsh(const u8 *script, struct sha256 *addr)
 {
-	size_t script_len = tal_len(script);
+	size_t script_len = tal_count(script);
 
 	if (script_len != BITCOIN_SCRIPTPUBKEY_P2WSH_LEN)
 		return false;
@@ -422,7 +422,7 @@ bool is_p2wsh(const u8 *script, struct sha256 *addr)
 
 bool is_p2wpkh(const u8 *script, struct bitcoin_address *addr)
 {
-	size_t script_len = tal_len(script);
+	size_t script_len = tal_count(script);
 
 	if (script_len != BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN)
 		return false;
@@ -668,7 +668,7 @@ u8 **bitcoin_witness_htlc_timeout_tx(const tal_t *ctx,
 	witness[1] = stack_sig(witness, remotehtlcsig);
 	witness[2] = stack_sig(witness, localhtlcsig);
 	witness[3] = stack_number(witness, 0);
-	witness[4] = tal_dup_arr(witness, u8, wscript, tal_len(wscript), 0);
+	witness[4] = tal_dup_arr(witness, u8, wscript, tal_count(wscript), 0);
 
 	return witness;
 }
@@ -685,7 +685,7 @@ u8 **bitcoin_witness_htlc_success_tx(const tal_t *ctx,
 	witness[1] = stack_sig(witness, remotesig);
 	witness[2] = stack_sig(witness, localhtlcsig);
 	witness[3] = stack_preimage(witness, preimage);
-	witness[4] = tal_dup_arr(witness, u8, wscript, tal_len(wscript), 0);
+	witness[4] = tal_dup_arr(witness, u8, wscript, tal_count(wscript), 0);
 
 	return witness;
 }
@@ -724,12 +724,12 @@ u8 *bitcoin_wscript_htlc_tx(const tal_t *ctx,
 	return script;
 }
 
-bool scripteq(const tal_t *s1, const tal_t *s2)
+bool scripteq(const u8 *s1, const u8 *s2)
 {
-	memcheck(s1, tal_len(s1));
-	memcheck(s2, tal_len(s2));
+	memcheck(s1, tal_count(s1));
+	memcheck(s2, tal_count(s2));
 
-	if (tal_len(s1) != tal_len(s2))
+	if (tal_count(s1) != tal_count(s2))
 		return false;
-	return memcmp(s1, s2, tal_len(s1)) == 0;
+	return memcmp(s1, s2, tal_count(s1)) == 0;
 }

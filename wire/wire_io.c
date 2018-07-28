@@ -104,7 +104,7 @@ static int do_write_wire_header(int fd, struct io_plan_arg *arg)
 static int do_write_wire(int fd, struct io_plan_arg *arg)
 {
 	ssize_t ret;
-	size_t totlen = tal_len(arg->u1.cp);
+	size_t totlen = tal_bytelen(arg->u1.cp);
 
 	/* Still writing header? */
 	if (arg->u2.s & INSIDE_HEADER_BIT)
@@ -131,13 +131,14 @@ struct io_plan *io_write_wire_(struct io_conn *conn,
 {
 	struct io_plan_arg *arg = io_plan_arg(conn, IO_OUT);
 
-	if (tal_len(data) >= INSIDE_HEADER_BIT) {
+	if (tal_bytelen(data) >= INSIDE_HEADER_BIT) {
 		errno = E2BIG;
 		return io_close(conn);
 	}
 
-	arg->u1.const_vp = tal_dup_arr(conn, u8, memcheck(data, tal_len(data)),
-				       tal_len(data), 0);
+	arg->u1.const_vp = tal_dup_arr(conn, u8,
+				       memcheck(data, tal_bytelen(data)),
+				       tal_bytelen(data), 0);
 
 	/* We use u2 to store the length we've written. */
 	arg->u2.s = INSIDE_HEADER_BIT;

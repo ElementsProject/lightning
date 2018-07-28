@@ -128,7 +128,7 @@ static void json_withdraw(struct command *cmd,
 	}
 
 	if (!wtx_select_utxos(&withdraw->wtx, feerate_per_kw,
-			      tal_len(withdraw->destination)))
+			      tal_count(withdraw->destination)))
 		return;
 
 	u8 *msg = towire_hsm_sign_withdrawal(cmd,
