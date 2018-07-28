@@ -16,14 +16,13 @@ struct param {
 	size_t argsize;
 };
 
-static void param_add(struct param **params,
+static bool param_add(struct param **params,
 		      const char *name, bool required, param_cb cb, void *arg,
 		      size_t argsize)
 {
 #if DEVELOPER
-	assert(name);
-	assert(cb);
-	assert(arg);
+	if (!(name && cb && arg))
+		return false;
 #endif
 	struct param *last;
 
@@ -39,6 +38,7 @@ static void param_add(struct param **params,
 	/* Non-0 means we are supposed to allocate iff found */
 	if (last->argsize != 0)
 		*(void **)last->arg = NULL;
+	return true;
 }
 
 struct fail_format {
@@ -228,7 +228,7 @@ static int comp_req_order(const struct param *a, const struct param *b,
  * Make sure 2 sequential items in @params are not equal (based on
  * provided comparator).
  */
-static void check_distinct(struct param *params,
+static bool check_distinct(struct param *params,
 			   int (*compar) (const struct param *a,
 					  const struct param *b, void *unused))
 {
@@ -236,39 +236,45 @@ static void check_distinct(struct param *params,
 	struct param *last = first + tal_count(params);
 	first++;
 	while (first != last) {
-		assert(compar(first - 1, first, NULL) != 0);
+		if (compar(first - 1, first, NULL) == 0)
+			return false;
 		first++;
 	}
+	return true;
 }
 
-static void check_unique(struct param *copy,
+static bool check_unique(struct param *copy,
 			 int (*compar) (const struct param *a,
 					const struct param *b, void *unused))
 {
 	asort(copy, tal_count(copy), compar, NULL);
-	check_distinct(copy, compar);
+	return check_distinct(copy, compar);
 }
 
 /*
  * Verify consistent internal state.
  */
-static void check_params(struct param *params)
+static bool check_params(struct param *params)
 {
 	if (tal_count(params) < 2)
-		return;
+		return true;
 
 	/* make sure there are no required params following optional */
-	check_distinct(params, comp_req_order);
+	if (!check_distinct(params, comp_req_order))
+		return false;
 
 	/* duplicate so we can sort */
 	struct param *copy = tal_dup_arr(params, struct param,
 					 params, tal_count(params), 0);
 
 	/* check for repeated names and args */
-	check_unique(copy, comp_by_name);
-	check_unique(copy, comp_by_arg);
+	if (!check_unique(copy, comp_by_name))
+		return false;
+	if (!check_unique(copy, comp_by_arg))
+		return false;
 
 	tal_free(copy);
+	return true;
 }
 #endif
 
@@ -277,7 +283,10 @@ static bool param_arr(struct command *cmd, const char *buffer,
 		      struct param *params)
 {
 #if DEVELOPER
-	check_params(params);
+	if (!check_params(params)) {
+		command_fail(cmd, LIGHTNINGD_INTERNAL, "programmer error");
+		return false;
+	}
 #endif
 	if (tokens->type == JSMN_ARRAY)
 		return parse_by_position(cmd, params, buffer, tokens);
@@ -302,7 +311,11 @@ bool param(struct command *cmd, const char *buffer,
 		param_cb cb = va_arg(ap, param_cb);
 		void *arg = va_arg(ap, void *);
 		size_t argsize = va_arg(ap, size_t);
-		param_add(&params, name, required, cb, arg, argsize);
+		if  (!param_add(&params, name, required, cb, arg, argsize)) {
+			command_fail(cmd, LIGHTNINGD_INTERNAL,
+				     "programmer error");
+			return false;
+		}
 	}
 	va_end(ap);
 

@@ -241,6 +241,7 @@ static void null_params(void)
 }
 
 #if DEVELOPER
+#if 0
 jmp_buf jump;
 static void handle_abort(int sig)
 {
@@ -274,12 +275,14 @@ static void restore_assert(int old_stderr)
 		err(1, "restore_assert");
 
 }
+#endif
 
 /*
  * Check to make sure there are no programming mistakes.
  */
 static void bad_programmer(void)
 {
+#if 0
 	u64 ival;
 	u64 ival2;
 	double dval;
@@ -346,6 +349,7 @@ static void bad_programmer(void)
 		assert(false);
 	}
 	restore_assert(old_stderr);
+#endif
 }
 #endif
 
