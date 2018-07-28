@@ -39,7 +39,7 @@ bool deprecated_apis = true;
 /* Tal wrappers for opt. */
 static void *opt_allocfn(size_t size)
 {
-	return tal_alloc_(NULL, size, false, false, TAL_LABEL("opt_allocfn", ""));
+	return tal_arr_label(NULL, char, size, TAL_LABEL("opt_allocfn", ""));
 }
 
 static void *tal_reallocfn(void *ptr, size_t size)

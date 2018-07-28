@@ -6,8 +6,8 @@ struct json_escaped *json_escaped_string_(const tal_t *ctx,
 {
 	struct json_escaped *esc;
 
-	esc = tal_alloc_arr_(ctx, 1, len + 1, false, true,
-			     TAL_LABEL(struct json_escaped, ""));
+	esc = (void *)tal_arr_label(ctx, char, len + 1,
+				    TAL_LABEL(struct json_escaped, ""));
 	memcpy(esc->s, bytes, len);
 	esc->s[len] = '\0';
 	return esc;

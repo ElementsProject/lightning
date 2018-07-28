@@ -19,5 +19,9 @@
 
 /* Transition for ccan update. */
 #define tal_bytelen(x) tal_len(x)
+#define tal_arr_label(ctx, type, len, label) \
+	((type *)tal_alloc_arr_(ctx, sizeof(type), len, false, true, label))
+#define tal_arrz_label(ctx, type, len, label) \
+	((type *)tal_alloc_arr_(ctx, sizeof(type), len, true, true, label))
 
 #endif /* LIGHTNING_CCAN_COMPAT_H */

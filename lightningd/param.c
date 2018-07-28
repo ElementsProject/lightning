@@ -80,8 +80,7 @@ static bool make_callback(struct command *cmd,
 	if (def->argsize && def->cb != (param_cb)json_tok_tok) {
 		*(void **)def->arg
 			= arg
-			= tal_alloc_(cmd, def->argsize, false, false,
-				     "param");
+			= tal_arr_label(cmd, char, def->argsize, "param");
 	} else
 		arg = def->arg;
 	if (!def->cb(buffer, tok, arg)) {

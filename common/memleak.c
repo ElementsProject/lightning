@@ -224,8 +224,7 @@ static int append_bt(void *data, uintptr_t pc)
 static void add_backtrace(tal_t *parent UNUSED, enum tal_notify_type type UNNEEDED,
 			  void *child)
 {
-	uintptr_t *bt = tal_alloc_arr_(child, sizeof(uintptr_t), 32, true, true,
-				       "backtrace");
+	uintptr_t *bt = tal_arrz_label(child, uintptr_t, 32, "backtrace");
 
 	/* First serves as counter. */
 	bt[0] = 1;
