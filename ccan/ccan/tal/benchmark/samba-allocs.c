@@ -178,15 +178,8 @@ static void do_tals(struct node *node)
 	unsigned int i;
 	static int count;
 
-	/* Tal pays a penalty for arrays, but we can't tell which is an array
-	 * and which isn't.  Grepping samba source gives 1221 talloc_array of
-	 * 33137 talloc occurrences, so conservatively assume 1 in 16 */
-	if (count++ % 16 == 0)
-		node->n = tal_arr(node->parent ? node->parent->n : NULL,
-				  char, node->len);
-	else
-		node->n = tal_alloc_(node->parent ? node->parent->n : NULL,
-				     node->len, false, false, TAL_LABEL(type, ""));
+	node->n = tal_arr(node->parent ? node->parent->n : NULL,
+			  char, node->len);
 
 	if (node->destructor)
 		tal_add_destructor(node->n, unused_tal_destructor);

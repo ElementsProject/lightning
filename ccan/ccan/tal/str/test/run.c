@@ -15,7 +15,7 @@ int main(void)
 	char **split, *str;
 	void *ctx;
 
-	plan_tests(69);
+	plan_tests(78);
 	split = tal_strsplit(NULL, "hello  world", " ", STR_EMPTY_OK);
 	ok1(!strcmp(split[0], "hello"));
 	ok1(!strcmp(split[1], ""));
@@ -54,16 +54,20 @@ int main(void)
 
 	str = tal_strjoin(NULL, (char **)substrings, ", ", STR_TRAIL);
 	ok1(!strcmp(str, "far, bar, baz, b, ba, z, ar, "));
+	ok1(tal_count(str) == strlen(str) + 1);
 	ctx = str;
 	str = tal_strjoin(ctx, (char **)substrings, "", STR_TRAIL);
 	ok1(!strcmp(str, "farbarbazbbazar"));
+	ok1(tal_count(str) == strlen(str) + 1);
 	ok1(tal_parent(str) == ctx);
 	str = tal_strjoin(ctx, (char **)substrings, ", ", STR_NO_TRAIL);
 	ok1(tal_parent(str) == ctx);
 	ok1(!strcmp(str, "far, bar, baz, b, ba, z, ar"));
+	ok1(tal_count(str) == strlen(str) + 1);
 	str = tal_strjoin(ctx, (char **)substrings, "", STR_NO_TRAIL);
 	ok1(!strcmp(str, "farbarbazbbazar"));
 	ok1(tal_parent(str) == ctx);
+	ok1(tal_count(str) == strlen(str) + 1);
 	tal_free(ctx);
 
 	ctx = tal_strdup(NULL, "context");
@@ -77,6 +81,7 @@ int main(void)
 	str = tal_strdup(ctx, "hello world");
 	ok1(tal_check(ctx, NULL));
 	ok1(tal_check(str, NULL));
+	ok1(tal_count(str) == strlen(str) + 1);
 	split = tal_strsplit(ctx, take(str), " ", STR_EMPTY_OK);
 	ok1(tal_parent(split) == ctx);
 	ok1(!strcmp(split[0], "hello"));
@@ -90,6 +95,7 @@ int main(void)
 
 	/* tal_strsplit take delims */
 	str = tal_strdup(ctx, " ");
+	ok1(tal_count(str) == strlen(str) + 1);
 	split = tal_strsplit(ctx, "hello world", take(str), STR_EMPTY_OK);
 	ok1(tal_parent(split) == ctx);
 	ok1(!strcmp(split[0], "hello"));
@@ -124,6 +130,7 @@ int main(void)
 	split = tal_strsplit(ctx, "hello world", " ", STR_EMPTY_OK);
 	str = tal_strjoin(ctx, take(split), " there ", STR_NO_TRAIL);
 	ok1(!strcmp(str, "hello there world"));
+	ok1(tal_count(str) == strlen(str) + 1);
 	ok1(tal_parent(str) == ctx);
 	/* split is gone... */
 	ok1(single_child(ctx, str));
@@ -136,6 +143,7 @@ int main(void)
 			  STR_NO_TRAIL);
 	ok1(!strcmp(str, "hello there world"));
 	ok1(tal_parent(str) == ctx);
+	ok1(tal_count(str) == strlen(str) + 1);
 	tal_free(split);
 	/* tmp alloc is gone, str is only remainder. */
 	ok1(single_child(ctx, str));
@@ -147,6 +155,7 @@ int main(void)
 						 STR_EMPTY_OK)),
 			  take(tal_strdup(ctx, " there ")), STR_NO_TRAIL);
 	ok1(!strcmp(str, "hello there world"));
+	ok1(tal_count(str) == strlen(str) + 1);
 	ok1(tal_parent(str) == ctx);
 	/* tmp allocs are gone, str is only remainder. */
 	ok1(single_child(ctx, str));

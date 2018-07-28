@@ -21,7 +21,7 @@ int main(void)
 	/* If it accesses this, it will crash. */
 	char **invalid = (char **)1L;
 
-	plan_tests(41);
+	plan_tests(54);
 	/* Simple matching. */
 	ok1(tal_strreg(ctx, "hello world!", "hello") == true);
 	ok1(tal_strreg(ctx, "hello world!", "hi") == false);
@@ -36,12 +36,15 @@ int main(void)
 	ok1(streq(a, "hello"));
 	/* Allocated off ctx */
 	ok1(find_parent(a, ctx));
+	ok1(tal_count(a) == strlen(a) + 1);
 	tal_free(a);
 
 	ok1(tal_strreg(ctx, "hello world!", "([a-z]*) ([a-z]+)",
 		       &a, &b, invalid) == true);
 	ok1(streq(a, "hello"));
 	ok1(streq(b, "world"));
+	ok1(tal_count(a) == strlen(a) + 1);
+	ok1(tal_count(b) == strlen(b) + 1);
 	ok1(find_parent(a, ctx));
 	ok1(find_parent(b, ctx));
 	tal_free(a);
@@ -52,6 +55,8 @@ int main(void)
 		       &a, &b, invalid) == true);
 	ok1(streq(a, "o"));
 	ok1(streq(b, "world"));
+	ok1(tal_count(a) == strlen(a) + 1);
+	ok1(tal_count(b) == strlen(b) + 1);
 	tal_free(a);
 	tal_free(b);
 
@@ -60,6 +65,8 @@ int main(void)
 		       &a, &b, invalid) == true);
 	ok1(streq(a, "hello world"));
 	ok1(streq(b, "hello"));
+	ok1(tal_count(a) == strlen(a) + 1);
+	ok1(tal_count(b) == strlen(b) + 1);
 	tal_free(a);
 	tal_free(b);
 
@@ -68,6 +75,8 @@ int main(void)
 		       &a, &b, invalid) == true);
 	ok1(streq(a, "hello world"));
 	ok1(streq(b, "hello"));
+	ok1(tal_count(a) == strlen(a) + 1);
+	ok1(tal_count(b) == strlen(b) + 1);
 	tal_free(a);
 	tal_free(b);
 
@@ -75,6 +84,7 @@ int main(void)
 	ok1(tal_strreg(ctx, "hello world!", "((hello|goodbye) world)",
 		       &a, NULL, invalid) == true);
 	ok1(streq(a, "hello world"));
+	ok1(tal_count(a) == strlen(a) + 1);
 	tal_free(a);
 
 	/* No leaks! */
@@ -88,6 +98,7 @@ int main(void)
 	a = tal_strdup(ctx, "hello world!");
 	ok1(tal_strreg(ctx, take(a), "([a-z]+)", &b, invalid) == true);
 	ok1(streq(b, "hello"));
+	ok1(tal_count(b) == strlen(b) + 1);
 	ok1(tal_parent(b) == ctx);
 	tal_free(b);
 	ok1(no_children(ctx));
@@ -96,6 +107,7 @@ int main(void)
 	a = tal_strdup(ctx, "([a-z]+)");
 	ok1(tal_strreg(ctx, "hello world!", take(a), &b, invalid) == true);
 	ok1(streq(b, "hello"));
+	ok1(tal_count(b) == strlen(b) + 1);
 	ok1(tal_parent(b) == ctx);
 	tal_free(b);
 	ok1(no_children(ctx));
@@ -105,6 +117,7 @@ int main(void)
 	ok1(tal_strreg(ctx, take(tal_strdup(ctx, "hello world!")),
 		       take(a), &b, invalid) == true);
 	ok1(streq(b, "hello"));
+	ok1(tal_count(b) == strlen(b) + 1);
 	ok1(tal_parent(b) == ctx);
 	tal_free(b);
 	ok1(no_children(ctx));

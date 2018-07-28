@@ -11,11 +11,12 @@ int main(void)
 	char *str;
 	const char *fmt = "";
 
-	plan_tests(1);
+	plan_tests(2);
 	/* GCC complains about empty format string, complains about non-literal
 	 * with no args... */
 	str = tal_fmt(NULL, fmt, "");
 	ok1(!strcmp(str, ""));
+	ok1(tal_count(str) == strlen(str) + 1);
 	tal_free(str);
 
 	return exit_status();
