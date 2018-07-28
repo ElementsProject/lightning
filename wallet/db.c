@@ -701,7 +701,7 @@ void *sqlite3_column_arr_(const tal_t *ctx, sqlite3_stmt *stmt, int col,
 		fatal("%s: column size %zu not a multiple of %s (%zu)",
 		      caller, sourcelen, label, bytes);
 
-	p = tal_alloc_arr_(ctx, bytes, sourcelen / bytes, false, true, label);
+	p = tal_arr_label(ctx, char, sourcelen, label);
 	memcpy(p, sqlite3_column_blob(stmt, col), sourcelen);
 	return p;
 }
