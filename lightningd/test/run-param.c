@@ -268,33 +268,33 @@ static void bad_programmer(void)
 		      p_req("double", json_tok_double, &dval),
 		      p_req("repeat", json_tok_u64, &ival2), NULL));
 	assert(check_fail());
-	assert(strstr(fail_msg, "programmer error"));
+	assert(strstr(fail_msg, "developer error"));
 
 	assert(!param(cmd, j->buffer, j->toks,
 		      p_req("repeat", json_tok_u64, &ival),
 		      p_req("double", json_tok_double, &dval),
 		      p_req("repeat", json_tok_u64, &ival), NULL));
 	assert(check_fail());
-	assert(strstr(fail_msg, "programmer error"));
+	assert(strstr(fail_msg, "developer error"));
 
 	assert(!param(cmd, j->buffer, j->toks,
 		      p_req("u64", json_tok_u64, &ival),
 		      p_req("repeat", json_tok_double, &dval),
 		      p_req("repeat", json_tok_double, &dval), NULL));
 	assert(check_fail());
-	assert(strstr(fail_msg, "programmer error"));
+	assert(strstr(fail_msg, "developer error"));
 
 	/* check for repeated arguments */
 	assert(!param(cmd, j->buffer, j->toks,
 		      p_req("u64", json_tok_u64, &ival),
 		      p_req("repeated-arg", json_tok_u64, &ival), NULL));
 	assert(check_fail());
-	assert(strstr(fail_msg, "programmer error"));
+	assert(strstr(fail_msg, "developer error"));
 
 	assert(!param(cmd, j->buffer, j->toks,
 		      p_req("u64", (param_cb) NULL, &ival), NULL));
 	assert(check_fail());
-	assert(strstr(fail_msg, "programmer error"));
+	assert(strstr(fail_msg, "developer error"));
 
 	/* Add required param after optional */
 	j = json_parse(cmd, "[ '25', '546', '26', '1.1' ]");
@@ -306,7 +306,7 @@ static void bad_programmer(void)
 		      p_opt_def("msatoshi", json_tok_number, &msatoshi, 100),
 		      p_req("riskfactor", json_tok_double, &riskfactor), NULL));
 	assert(check_fail());
-	assert(strstr(fail_msg, "programmer error"));
+	assert(strstr(fail_msg, "developer error"));
 }
 #endif
 
