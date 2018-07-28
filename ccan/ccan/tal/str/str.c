@@ -12,14 +12,13 @@
 #include <stdio.h>
 #include <ccan/str/str.h>
 
-char *tal_strdup(const tal_t *ctx, const char *p)
+char *tal_strdup_(const tal_t *ctx, const char *p, const char *label)
 {
 	/* We have to let through NULL for take(). */
-	return tal_dup_(ctx, p, 1, p ? strlen(p) + 1: 1, 0, false,
-			TAL_LABEL(char, "[]"));
+	return tal_dup_arr_label(ctx, char, p, p ? strlen(p) + 1: 1, 0, label);
 }
 
-char *tal_strndup(const tal_t *ctx, const char *p, size_t n)
+char *tal_strndup_(const tal_t *ctx, const char *p, size_t n, const char *label)
 {
 	size_t len;
 	char *ret;
@@ -30,19 +29,19 @@ char *tal_strndup(const tal_t *ctx, const char *p, size_t n)
 	else
 		len = n;
 
-	ret = tal_dup_(ctx, p, 1, len, 1, false, TAL_LABEL(char, "[]"));
+	ret = tal_dup_arr_label(ctx, char, p, len, 1, label);
 	if (ret)
 		ret[len] = '\0';
 	return ret;
 }
 
-char *tal_fmt(const tal_t *ctx, const char *fmt, ...)
+char *tal_fmt_(const tal_t *ctx, const char *label, const char *fmt, ...)
 {
 	va_list ap;
 	char *ret;
 
 	va_start(ap, fmt);
-	ret = tal_vfmt(ctx, fmt, ap);
+	ret = tal_vfmt_(ctx, fmt, ap, label);
 	va_end(ap);
 
 	return ret;
@@ -69,6 +68,8 @@ static bool do_vfmt(char **buf, size_t off, const char *fmt, va_list ap)
 
 		if (ret < max) {
 			ok = true;
+			/* Make sure tal_count() is correct! */
+			tal_resize(buf, off + ret + 1);
 			break;
 		}
 		max *= 2;
@@ -79,7 +80,7 @@ static bool do_vfmt(char **buf, size_t off, const char *fmt, va_list ap)
 	return ok;
 }
 
-char *tal_vfmt(const tal_t *ctx, const char *fmt, va_list ap)
+char *tal_vfmt_(const tal_t *ctx, const char *fmt, va_list ap, const char *label)
 {
 	char *buf;
 
@@ -87,7 +88,7 @@ char *tal_vfmt(const tal_t *ctx, const char *fmt, va_list ap)
 		return NULL;
 
 	/* A decent guess to start. */
-	buf = tal_arr(ctx, char, strlen(fmt) * 2);
+	buf = tal_arr_label(ctx, char, strlen(fmt) * 2, label);
 	if (!do_vfmt(&buf, 0, fmt, ap))
 		buf = tal_free(buf);
 	return buf;
@@ -113,7 +114,8 @@ bool tal_append_fmt(char **baseptr, const char *fmt, ...)
 	return ret;
 }
 
-char *tal_strcat(const tal_t *ctx, const char *s1, const char *s2)
+char *tal_strcat_(const tal_t *ctx, const char *s1, const char *s2,
+		  const char *label)
 {
 	size_t len1, len2;
 	char *ret;
@@ -127,9 +129,7 @@ char *tal_strcat(const tal_t *ctx, const char *s1, const char *s2)
 	len1 = s1 ? strlen(s1) : 0;
 	len2 = strlen(s2);
 
-	/* We use tal_dup_ here to avoid attaching a length property. */
-	ret = tal_dup_(ctx, s1, 1, len1, len2 + 1, false,
-		       TAL_LABEL(char, "[]"));
+	ret = tal_dup_arr_label(ctx, char, s1, len1, len2 + 1, label);
 	if (likely(ret))
 		memcpy(ret + len1, s2, len2 + 1);
 
@@ -138,8 +138,9 @@ char *tal_strcat(const tal_t *ctx, const char *s1, const char *s2)
 	return ret;
 }
 
-char **tal_strsplit(const tal_t *ctx,
-		    const char *string, const char *delims, enum strsplit flags)
+char **tal_strsplit_(const tal_t *ctx,
+		     const char *string, const char *delims, enum strsplit flags,
+		     const char *label)
 {
 	char **parts, *str;
 	size_t max = 64, num = 0;
@@ -190,8 +191,9 @@ fail:
 	return NULL;
 }
 
-char *tal_strjoin(const tal_t *ctx,
-		  char *strings[], const char *delim, enum strjoin flags)
+char *tal_strjoin_(const tal_t *ctx,
+		   char *strings[], const char *delim, enum strjoin flags,
+		   const char *label)
 {
 	unsigned int i;
 	char *ret = NULL;
@@ -204,7 +206,7 @@ char *tal_strjoin(const tal_t *ctx,
 		goto fail;
 
 	dlen = strlen(delim);
-	ret = tal_arr(ctx, char, dlen*2+1);
+	ret = tal_arr_label(ctx, char, dlen*2+1, label);
 	if (!ret)
 		goto fail;
 
@@ -222,6 +224,8 @@ char *tal_strjoin(const tal_t *ctx,
 		totlen += dlen;
 	}
 	ret[totlen] = '\0';
+	/* Make sure tal_count() is correct! */
+	tal_resize(&ret, totlen+1);
 out:
 	if (taken(strings))
 		tal_free(strings);
@@ -255,7 +259,8 @@ static size_t count_open_braces(const char *string)
 #endif
 }
 
-bool tal_strreg(const tal_t *ctx, const char *string, const char *regex, ...)
+bool tal_strreg_(const tal_t *ctx, const char *string, const char *label,
+		 const char *regex, ...)
 {
 	size_t nmatch = 1 + count_open_braces(regex);
 	regmatch_t matches[nmatch];
@@ -285,10 +290,11 @@ bool tal_strreg(const tal_t *ctx, const char *string, const char *regex, ...)
 			if (matches[i].rm_so == -1)
 				*arg = NULL;
 			else {
-				*arg = tal_strndup(ctx,
-						   string + matches[i].rm_so,
-						   matches[i].rm_eo
-						   - matches[i].rm_so);
+				*arg = tal_strndup_(ctx,
+						    string + matches[i].rm_so,
+						    matches[i].rm_eo
+						    - matches[i].rm_so,
+						    label);
 				/* FIXME: If we fail, we set some and leak! */
 				if (!*arg) {
 					ret = false;

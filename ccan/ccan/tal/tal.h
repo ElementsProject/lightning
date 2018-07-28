@@ -28,12 +28,14 @@ typedef void tal_t;
  * of the object is a string of the type, but if CCAN_TAL_DEBUG is
  * defined it also contains the file and line which allocated it.
  *
+ * tal_count() of the return will be 1.
+ *
  * Example:
  *	int *p = tal(NULL, int);
  *	*p = 1;
  */
 #define tal(ctx, type)							\
-	((type *)tal_alloc_((ctx), sizeof(type), false, false, TAL_LABEL(type, "")))
+	tal_label(ctx, type, TAL_LABEL(type, ""))
 
 /**
  * talz - zeroing allocator function
@@ -47,7 +49,7 @@ typedef void tal_t;
  *	assert(*p == 0);
  */
 #define talz(ctx, type)							\
-	((type *)tal_alloc_((ctx), sizeof(type), true, false, TAL_LABEL(type, "")))
+	talz_label(ctx, type, TAL_LABEL(type, ""))
 
 /**
  * tal_free - free a tal-allocated pointer.
@@ -71,8 +73,7 @@ void *tal_free(const tal_t *p);
  * @type: the type to allocate.
  * @count: the number to allocate.
  *
- * Note that an object allocated with tal_arr() has a length property;
- * see tal_count().
+ * tal_count() of the returned pointer will be @count.
  *
  * Example:
  *	p = tal_arr(NULL, int, 2);
@@ -80,8 +81,7 @@ void *tal_free(const tal_t *p);
  *	p[1] = 1;
  */
 #define tal_arr(ctx, type, count)					\
-	((type *)tal_alloc_arr_((ctx), sizeof(type), (count), false,	\
-				true, TAL_LABEL(type, "[]")))
+	tal_arr_label(ctx, type, count, TAL_LABEL(type, "[]"))
 
 /**
  * tal_arrz - allocate an array of zeroed objects.
@@ -89,24 +89,22 @@ void *tal_free(const tal_t *p);
  * @type: the type to allocate.
  * @count: the number to allocate.
  *
- * Note that an object allocated with tal_arrz() has a length property;
- * see tal_count().
+ * Equivalent to tal_arr() followed by memset() to zero.
  *
  * Example:
  *	p = tal_arrz(NULL, int, 2);
  *	assert(p[0] == 0 && p[1] == 0);
  */
 #define tal_arrz(ctx, type, count) \
-	((type *)tal_alloc_arr_((ctx), sizeof(type), (count), true,	\
-				true, TAL_LABEL(type, "[]")))
+	tal_arrz_label(ctx, type, count, TAL_LABEL(type, "[]"))
 
 /**
- * tal_resize - enlarge or reduce a tal_arr[z].
+ * tal_resize - enlarge or reduce a tal object.
  * @p: A pointer to the tal allocated array to resize.
  * @count: the number to allocate.
  *
  * This returns true on success (and may move *@p), or false on failure.
- * If @p has a length property, it is updated on success.
+ * On success, tal_count() of *@p will be @count.
  *
  * Example:
  *	tal_resize(&p, 100);
@@ -115,13 +113,11 @@ void *tal_free(const tal_t *p);
 	tal_resize_((void **)(p), sizeof**(p), (count), false)
 
 /**
- * tal_resizez - enlarge or reduce a tal_arr[z]; zero out extra.
+ * tal_resizez - enlarge or reduce a tal object; zero out extra.
  * @p: A pointer to the tal allocated array to resize.
  * @count: the number to allocate.
  *
  * This returns true on success (and may move *@p), or false on failure.
- * If @p has a length property, it is updated on success.
- * On expand, new elements are memset to 0 bytes.
  *
  * Example:
  *	tal_resizez(&p, 200);
@@ -304,22 +300,22 @@ enum tal_notify_type {
 const char *tal_name(const tal_t *ptr);
 
 /**
- * tal_count - get the count of objects in a tal_arr.
- * @ptr: The tal allocated object array (or NULL)
+ * tal_count - get the count of objects in a tal object.
+ * @ptr: The tal allocated object (or NULL)
  *
- * Returns 0 if @ptr has no length property or is NULL, but be aware
- * that that is also a valid size!
+ * Returns 0 if @ptr is NULL.  Note that if the allocation was done as a
+ * different type to @ptr, the result may not match the @count argument
+ * (or implied 1) of that allocation!
  */
-#define tal_count(p) (tal_len(p) / sizeof(*p))
+#define tal_count(p) (tal_bytelen(p) / sizeof(*p))
 
 /**
- * tal_len - get the count of bytes in a tal_arr.
- * @ptr: The tal allocated object array (or NULL)
+ * tal_bytelen - get the count of bytes in a tal object.
+ * @ptr: The tal allocated object (or NULL)
  *
- * Returns 0 if @ptr has no length property or NULL, but be aware that that is
- * also a valid size!
+ * Returns 0 if @ptr is NULL.
  */
-size_t tal_len(const tal_t *ptr);
+size_t tal_bytelen(const tal_t *ptr);
 
 /**
  * tal_first - get the first immediate tal object child.
@@ -353,9 +349,7 @@ tal_t *tal_parent(const tal_t *ctx);
  * @p: the object to copy (or reparented if take())
  */
 #define tal_dup(ctx, type, p)					\
-	((type *)tal_dup_((ctx), tal_typechk_(p, type *),	\
-			  sizeof(type), 1, 0,			\
-			  false, TAL_LABEL(type, "")))
+	tal_dup_label(ctx, type, p, TAL_LABEL(type, ""))
 
 /**
  * tal_dup_arr - duplicate an array.
@@ -366,10 +360,27 @@ tal_t *tal_parent(const tal_t *ctx);
  * @extra: the number of extra sizeof(type) entries to allocate.
  */
 #define tal_dup_arr(ctx, type, p, n, extra)			\
+	tal_dup_arr_label(ctx, type, p, n, extra, TAL_LABEL(type, "[]"))
+
+
+
+/* Lower-level interfaces, where you want to supply your own label string. */
+#define tal_label(ctx, type, label)						\
+	((type *)tal_alloc_((ctx), sizeof(type), false, label))
+#define talz_label(ctx, type, label)						\
+	((type *)tal_alloc_((ctx), sizeof(type), true, label))
+#define tal_arr_label(ctx, type, count, label)					\
+	((type *)tal_alloc_arr_((ctx), sizeof(type), (count), false, label))
+#define tal_arrz_label(ctx, type, count, label)					\
+	((type *)tal_alloc_arr_((ctx), sizeof(type), (count), true, label))
+#define tal_dup_label(ctx, type, p, label)			\
+	((type *)tal_dup_((ctx), tal_typechk_(p, type *),	\
+			  sizeof(type), 1, 0,			\
+			  label))
+#define tal_dup_arr_label(ctx, type, p, n, extra, label)	\
 	((type *)tal_dup_((ctx), tal_typechk_(p, type *),	\
 			  sizeof(type), (n), (extra),		\
-			  true, TAL_LABEL(type, "[]")))
-
+			  label))
 
 /**
  * tal_set_backend - set the allocation or error functions to use
@@ -483,14 +494,12 @@ bool tal_set_name_(tal_t *ctx, const char *name, bool literal);
 #define tal_typechk_(ptr, ptype) (ptr)
 #endif
 
-void *tal_alloc_(const tal_t *ctx, size_t bytes, bool clear,
-		 bool add_length, const char *label);
+void *tal_alloc_(const tal_t *ctx, size_t bytes, bool clear, const char *label);
 void *tal_alloc_arr_(const tal_t *ctx, size_t bytes, size_t count, bool clear,
-		     bool add_length, const char *label);
+		     const char *label);
 
 void *tal_dup_(const tal_t *ctx, const void *p TAKES, size_t size,
-	       size_t n, size_t extra, bool add_length,
-	       const char *label);
+	       size_t n, size_t extra, const char *label);
 
 tal_t *tal_steal_(const tal_t *new_parent, const tal_t *t);
 

@@ -7,7 +7,9 @@
  *
  * This is a grab bag of functions for string operations, designed to enhance
  * the standard string.h; these are separated from the non-tal-needing
- * string utilities in "str.h".
+ * string utilities in "str.h".  Each string created by this library
+ * will have tal_count() equal to strlen() + 1 (assuming you didn't create
+ * a string containing a NUL, such as using tal_fmt("%c", 0)).
  *
  * Example:
  *	#include <ccan/tal/str/str.h>

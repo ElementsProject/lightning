@@ -7,7 +7,7 @@ int main(void)
 {
 	char *parent, *c;
 
-	plan_tests(32);
+	plan_tests(43);
 
 	parent = tal(NULL, char);
 	ok1(parent);
@@ -15,11 +15,13 @@ int main(void)
 	c = tal_strdup(parent, "hello");
 	ok1(strcmp(c, "hello") == 0);
 	ok1(tal_parent(c) == parent);
+	ok1(tal_count(c) == strlen(c) + 1);
 	tal_free(c);
 
 	c = tal_strndup(parent, "hello", 3);
 	ok1(strcmp(c, "hel") == 0);
 	ok1(tal_parent(c) == parent);
+	ok1(tal_count(c) == strlen(c) + 1);
 	tal_free(c);
 
 #ifdef TAL_USE_TALLOC
@@ -30,6 +32,7 @@ int main(void)
 	c = tal_dup_arr(parent, char, "hello", 6, 0);
 	ok1(strcmp(c, "hello") == 0);
 	ok1(strcmp(tal_name(c), "char[]") == 0);
+	ok1(tal_count(c) == 6);
 	ok1(tal_parent(c) == parent);
 	tal_free(c);
 
@@ -37,26 +40,31 @@ int main(void)
 	c = tal_dup_arr(parent, char, "hello", 6, 1);
 	ok1(strcmp(c, "hello") == 0);
 	ok1(strcmp(tal_name(c), "char[]") == 0);
+	ok1(tal_count(c) == 7);
 	ok1(tal_parent(c) == parent);
 	strcat(c, "x");
 	tal_free(c);
 
 	c = tal_fmt(parent, "hello %s", "there");
 	ok1(strcmp(c, "hello there") == 0);
+	ok1(tal_count(c) == strlen(c) + 1);
 	ok1(tal_parent(c) == parent);
 	tal_free(c);
 
 	c = tal_strcat(parent, "hello ", "there");
 	ok1(strcmp(c, "hello there") == 0);
+	ok1(tal_count(c) == strlen(c) + 1);
 	ok1(tal_parent(c) == parent);
 
 	/* Make sure take works correctly. */
 	c = tal_strcat(parent, take(c), " again");
 	ok1(strcmp(c, "hello there again") == 0);
+	ok1(tal_count(c) == strlen(c) + 1);
 	ok1(tal_parent(c) == parent);
 	ok1(single_child(parent, c));
 
 	c = tal_strcat(parent, "And ", take(c));
+	ok1(tal_count(c) == strlen(c) + 1);
 	ok1(strcmp(c, "And hello there again") == 0);
 	ok1(tal_parent(c) == parent);
 	ok1(single_child(parent, c));
@@ -77,12 +85,15 @@ int main(void)
 
 	/* Appending formatted strings. */
 	c = tal_strdup(parent, "hi");
+	ok1(tal_count(c) == strlen(c) + 1);
 	ok1(tal_append_fmt(&c, "%s %s", "there", "world"));
 	ok1(strcmp(c, "hithere world") == 0);
+	ok1(tal_count(c) == strlen(c) + 1);
 	ok1(tal_parent(c) == parent);
 
 	ok1(!tal_append_fmt(&c, take(NULL), "there", "world"));
 	ok1(strcmp(c, "hithere world") == 0);
+	ok1(tal_count(c) == strlen(c) + 1);
 
 	tal_free(parent);
 
