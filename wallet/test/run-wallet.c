@@ -661,7 +661,7 @@ static bool bitcoin_tx_eq(const struct bitcoin_tx *tx1,
 	bool eq;
 	lin1 = linearize_tx(NULL, tx1);
 	lin2 = linearize_tx(lin1, tx2);
-	eq = memeq(lin1, tal_len(lin1), lin2, tal_len(lin2));
+	eq = memeq(lin1, tal_count(lin1), lin2, tal_count(lin2));
 	tal_free(lin1);
 	return eq;
 }
@@ -682,9 +682,9 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 	CHECK(c1->our_msatoshi == c2->our_msatoshi);
 	CHECK((c1->remote_shutdown_scriptpubkey == NULL && c2->remote_shutdown_scriptpubkey == NULL) || memeq(
 		      c1->remote_shutdown_scriptpubkey,
-		      tal_len(c1->remote_shutdown_scriptpubkey),
+		      tal_count(c1->remote_shutdown_scriptpubkey),
 		      c2->remote_shutdown_scriptpubkey,
-		      tal_len(c2->remote_shutdown_scriptpubkey)));
+		      tal_count(c2->remote_shutdown_scriptpubkey)));
 	CHECK(memeq(
 		      &c1->funding_txid,
 		      sizeof(struct sha256_double),
@@ -714,9 +714,9 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 
 	CHECK(c1->final_key_idx == c2->final_key_idx);
 	CHECK(memeq(c1->remote_shutdown_scriptpubkey,
-		    tal_len(c1->remote_shutdown_scriptpubkey),
+		    tal_count(c1->remote_shutdown_scriptpubkey),
 		    c2->remote_shutdown_scriptpubkey,
-		    tal_len(c2->remote_shutdown_scriptpubkey)));
+		    tal_count(c2->remote_shutdown_scriptpubkey)));
 
 	CHECK(c1->last_was_revoke == c2->last_was_revoke);
 
@@ -760,7 +760,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	mempat(&last_commit, sizeof(last_commit));
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
 	ci->feerate_per_kw[LOCAL] = ci->feerate_per_kw[REMOTE] = 31337;
-	mempat(scriptpubkey, tal_len(scriptpubkey));
+	mempat(scriptpubkey, tal_count(scriptpubkey));
 	c1.first_blocknum = 1;
 	c1.final_key_idx = 1337;
 	p = new_peer(ld, 0, &pk, NULL, NULL, NULL);

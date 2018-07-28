@@ -13,7 +13,7 @@ static void do_enqueue(struct msg_queue *q, const u8 *add)
 {
 	size_t n = tal_count(q->q);
 	tal_resize(&q->q, n+1);
-	q->q[n] = tal_dup_arr(q->ctx, u8, add, tal_len(add), 0);
+	q->q[n] = tal_dup_arr(q->ctx, u8, add, tal_count(add), 0);
 
 	/* In case someone is waiting */
 	io_wake(q);

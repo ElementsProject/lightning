@@ -48,7 +48,7 @@ int main(void)
 
 	/* This is a p2sh-p2wpkh: */
 	/* ScriptSig is push of "version 0 + hash of pubkey" */
-	hexeq(tx->input[0].script, tal_len(tx->input[0].script),
+	hexeq(tx->input[0].script, tal_count(tx->input[0].script),
 	      "16" "00" "144aa38e396e1394fb45cbf83f48d1464fbc9f498f");
 
 	/* Witness with 2 items */

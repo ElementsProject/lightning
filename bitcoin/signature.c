@@ -43,13 +43,13 @@ static void dump_tx(const char *msg,
 		warnx("output[%zu].amount = %llu",
 		      i, (long long)tx->output[i].amount);
 		warnx("output[%zu].script = %zu",
-		      i, tal_len(tx->output[i].script));
-		for (j = 0; j < tal_len(tx->output[i].script); j++)
+		      i, tal_count(tx->output[i].script));
+		for (j = 0; j < tal_count(tx->output[i].script); j++)
 			fprintf(stderr, "%02x", tx->output[i].script[j]);
 		fprintf(stderr, "\n");
 	}
-	warnx("input[%zu].script = %zu", inputnum, tal_len(script));
-	for (i = 0; i < tal_len(script); i++)
+	warnx("input[%zu].script = %zu", inputnum, tal_count(script));
+	for (i = 0; i < tal_count(script); i++)
 		fprintf(stderr, "%02x", script[i]);
 	if (key) {
 		fprintf(stderr, "\nPubkey: ");

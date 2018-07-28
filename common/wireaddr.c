@@ -307,9 +307,9 @@ bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
 	if (strends(hostname, ".onion")) {
 		u8 *dec = b32_decode(tmpctx, hostname,
 				     strlen(hostname) - strlen(".onion"));
-		if (tal_len(dec) == TOR_V2_ADDRLEN)
+		if (tal_count(dec) == TOR_V2_ADDRLEN)
 			addr->type = ADDR_TYPE_TOR_V2;
-		else if (tal_len(dec) == TOR_V3_ADDRLEN)
+		else if (tal_count(dec) == TOR_V3_ADDRLEN)
  			addr->type = ADDR_TYPE_TOR_V3;
 		else {
 			if (err_msg)
@@ -317,9 +317,9 @@ bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
 			return false;
 		}
 
-		addr->addrlen = tal_len(dec);
+		addr->addrlen = tal_count(dec);
 		addr->port = port;
-		memcpy(&addr->addr, dec, tal_len(dec));
+		memcpy(&addr->addr, dec, tal_count(dec));
 		return true;
 	}
 
@@ -344,7 +344,7 @@ bool wireaddr_from_hostname(struct wireaddr *addr, const char *hostname,
 		return false;
 	}
 
-	if (broken_reply != NULL && memeq(addrinfo->ai_addr, addrinfo->ai_addrlen, broken_reply, tal_len(broken_reply))) {
+	if (broken_reply != NULL && memeq(addrinfo->ai_addr, addrinfo->ai_addrlen, broken_reply, tal_count(broken_reply))) {
 		res = false;
 		goto cleanup;
 	}

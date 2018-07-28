@@ -919,7 +919,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 
 	if (chan->remote_shutdown_scriptpubkey)
 		sqlite3_bind_blob(stmt, 16, chan->remote_shutdown_scriptpubkey,
-				  tal_len(chan->remote_shutdown_scriptpubkey),
+				  tal_count(chan->remote_shutdown_scriptpubkey),
 				  SQLITE_TRANSIENT);
 	else
 		sqlite3_bind_null(stmt, 16);
@@ -1602,7 +1602,7 @@ void wallet_payment_store(struct wallet *wallet,
 	sqlite3_bind_int64(stmt, 4, payment->msatoshi);
 	sqlite3_bind_int(stmt, 5, payment->timestamp);
 	sqlite3_bind_blob(stmt, 6, payment->path_secrets,
-				   tal_len(payment->path_secrets),
+				   tal_bytelen(payment->path_secrets),
 				   SQLITE_TRANSIENT);
 	sqlite3_bind_pubkey_array(stmt, 7, payment->route_nodes);
 	sqlite3_bind_short_channel_id_array(stmt, 8,
@@ -2106,7 +2106,7 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 	sqlite3_bind_int(stmt, 3, blockheight);
 	sqlite3_bind_null(stmt, 4);
 	sqlite3_bind_int(stmt, 5, txindex);
-	sqlite3_bind_blob(stmt, 6, scriptpubkey, tal_len(scriptpubkey), SQLITE_TRANSIENT);
+	sqlite3_bind_blob(stmt, 6, scriptpubkey, tal_count(scriptpubkey), SQLITE_TRANSIENT);
 	sqlite3_bind_int64(stmt, 7, satoshis);
 	db_exec_prepared(w->db, stmt);
 

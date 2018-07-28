@@ -208,15 +208,15 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 		return io_close(conn);
 	}
 
-	if (tal_len(ca) < offset) {
-		status_broken("bad cannounce length %zu", tal_len(ca));
+	if (tal_count(ca) < offset) {
+		status_broken("bad cannounce length %zu", tal_count(ca));
 		return io_close(conn);
 	}
 
 	/* TODO(cdecker) Check that this is actually a valid
 	 * channel_announcement */
 	node_key(&node_pkey, NULL);
-	sha256_double(&hash, ca + offset, tal_len(ca) - offset);
+	sha256_double(&hash, ca + offset, tal_count(ca) - offset);
 
 	sign_hash(&node_pkey, &hash, &node_sig);
 	sign_hash(&funding_privkey, &hash, &bitcoin_sig);
@@ -258,14 +258,14 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 			      tal_hex(tmpctx, dc->msg_in));
 		return io_close(conn);
 	}
-	if (tal_len(cu) < offset) {
+	if (tal_count(cu) < offset) {
 		status_broken("inner channel_update too short: %s",
 			      tal_hex(tmpctx, dc->msg_in));
 		return io_close(conn);
 	}
 
 	node_key(&node_pkey, NULL);
-	sha256_double(&hash, cu + offset, tal_len(cu) - offset);
+	sha256_double(&hash, cu + offset, tal_count(cu) - offset);
 
 	sign_hash(&node_pkey, &hash, &sig);
 
@@ -1315,11 +1315,11 @@ static void sign_invoice(struct daemon_conn *master, const u8 *msg)
 
 	/* FIXME: Check invoice! */
 
-	hrp = tal_dup_arr(tmpctx, char, (char *)hrpu8, tal_len(hrpu8), 1);
-	hrp[tal_len(hrpu8)] = '\0';
+	hrp = tal_dup_arr(tmpctx, char, (char *)hrpu8, tal_count(hrpu8), 1);
+	hrp[tal_count(hrpu8)] = '\0';
 
 	hash_u5_init(&hu5, hrp);
-	hash_u5(&hu5, u5bytes, tal_len(u5bytes));
+	hash_u5(&hu5, u5bytes, tal_count(u5bytes));
 	hash_u5_done(&hu5, &sha);
 
 	node_key(&node_pkey, NULL);
@@ -1352,7 +1352,7 @@ static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 			     tal_hex(tmpctx, msg));
 	}
 
-	if (tal_len(ann) < offset) {
+	if (tal_count(ann) < offset) {
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Node announcement too short: %s",
 			      tal_hex(tmpctx, msg));
@@ -1360,7 +1360,7 @@ static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 
 	/* FIXME(cdecker) Check the node announcement's content */
 	node_key(&node_pkey, NULL);
-	sha256_double(&hash, ann + offset, tal_len(ann) - offset);
+	sha256_double(&hash, ann + offset, tal_count(ann) - offset);
 
 	sign_hash(&node_pkey, &hash, &sig);
 

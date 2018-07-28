@@ -14,9 +14,9 @@ static bool input_better(const struct bitcoin_tx_input *a,
 		return a->index < b->index;
 
 	/* These shouldn't happen, but let's get a canonical order anyway. */
-	if (tal_len(a->script) != tal_len(b->script))
-		return tal_len(a->script) < tal_len(b->script);
-	cmp = memcmp(a->script, b->script, tal_len(a->script));
+	if (tal_count(a->script) != tal_count(b->script))
+		return tal_count(a->script) < tal_count(b->script);
+	cmp = memcmp(a->script, b->script, tal_count(a->script));
 	if (cmp != 0)
 		return cmp < 0;
 	return a->sequence_number < b->sequence_number;
@@ -102,16 +102,16 @@ static bool output_better(const struct bitcoin_tx_output *a,
 		return a->amount < b->amount;
 
 	/* Lexicographical sort. */
-	if (tal_len(a->script) < tal_len(b->script))
-		len = tal_len(a->script);
+	if (tal_count(a->script) < tal_count(b->script))
+		len = tal_count(a->script);
 	else
-		len = tal_len(b->script);
+		len = tal_count(b->script);
 
 	ret = memcmp(a->script, b->script, len);
 	if (ret != 0)
 		return ret < 0;
 
-	return tal_len(a->script) < tal_len(b->script);
+	return tal_count(a->script) < tal_count(b->script);
 }
 
 static size_t find_best_out(struct bitcoin_tx_output *outputs, size_t num)

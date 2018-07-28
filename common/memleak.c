@@ -128,7 +128,7 @@ static void scan_for_pointers(struct htable *memtable, const tal_t *p)
 	size_t i, n;
 
 	/* Search for (aligned) pointers. */
-	n = tal_len(p) / sizeof(void *);
+	n = tal_bytelen(p) / sizeof(void *);
 	for (i = 0; i < n; i++) {
 		void *ptr;
 

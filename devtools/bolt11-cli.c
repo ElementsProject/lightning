@@ -157,9 +157,9 @@ int main(int argc, char *argv[])
 	}
 
 	list_for_each(&b11->extra_fields, extra, list) {
-		char *data = tal_arr(ctx, char, tal_len(extra->data)+1);
+		char *data = tal_arr(ctx, char, tal_count(extra->data)+1);
 
-		for (i = 0; i < tal_len(extra->data); i++)
+		for (i = 0; i < tal_count(extra->data); i++)
 			data[i] = bech32_charset[extra->data[i]];
 
 		data[i] = '\0';

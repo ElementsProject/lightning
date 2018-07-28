@@ -865,7 +865,7 @@ static struct io_plan *handle_returning_peer(struct io_conn *conn,
 			 recv_gossip, NULL);
 
 	/* If they told us to send a message, queue it now */
-	if (tal_len(rpeer->inner_msg))
+	if (tal_count(rpeer->inner_msg))
 		msg_enqueue(&peer->local->peer_out, take(rpeer->inner_msg));
 
 	/* FIXME: rpeer destructor should close peer_fd, gossip_fd */
@@ -1794,9 +1794,9 @@ static void append_peer_features(const struct peer_features ***pf,
 
 	new = tal(*pf, struct peer_features);
 	new->global_features = tal_dup_arr(new, u8, gfeatures,
-					   tal_len(gfeatures), 0);
+					   tal_count(gfeatures), 0);
 	new->local_features = tal_dup_arr(new, u8, lfeatures,
-					  tal_len(lfeatures), 0);
+					  tal_count(lfeatures), 0);
 	tal_resize(pf, num_nodes + 1);
 	(*pf)[num_nodes] = new;
 }

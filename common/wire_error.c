@@ -70,11 +70,11 @@ char *sanitize_error(const tal_t *ctx, const u8 *errmsg,
 	 *   through 126, inclusive):
 	 *    - SHOULD NOT print out `data` verbatim.
 	 */
-	for (i = 0; i < tal_len(data); i++) {
+	for (i = 0; i < tal_count(data); i++) {
 		if (data[i] < 32 || data[i] > 127) {
 			/* Convert to hex, minus NUL term */
 			data = (u8 *)tal_hex(ctx, data);
-			tal_resize(&data, tal_len(data)-1);
+			tal_resize(&data, strlen((const char *)data));
 			break;
 		}
 	}
@@ -83,5 +83,5 @@ char *sanitize_error(const tal_t *ctx, const u8 *errmsg,
 		       channel_id_is_all(channel_id)
 		       ? "ALL"
 		       : type_to_string(ctx, struct channel_id, channel_id),
-		       (int)tal_len(data), (char *)data);
+		       (int)tal_count(data), (char *)data);
 }

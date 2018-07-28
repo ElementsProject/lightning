@@ -234,10 +234,10 @@ static bool encode_short_channel_ids_end(u8 **encoded, size_t max_bytes)
 
 	switch ((enum scid_encode_types)(*encoded)[0]) {
 	case SHORTIDS_ZLIB:
-		z = zencode_scids(tmpctx, *encoded + 1, tal_len(*encoded) - 1);
+		z = zencode_scids(tmpctx, *encoded + 1, tal_count(*encoded) - 1);
 		if (z) {
-			tal_resize(encoded, 1 + tal_len(z));
-			memcpy((*encoded) + 1, z, tal_len(z));
+			tal_resize(encoded, 1 + tal_count(z));
+			memcpy((*encoded) + 1, z, tal_count(z));
 			goto check_length;
 		}
 		(*encoded)[0] = SHORTIDS_UNCOMPRESSED;
@@ -251,10 +251,10 @@ static bool encode_short_channel_ids_end(u8 **encoded, size_t max_bytes)
 
 check_length:
 #if DEVELOPER
-	if (tal_len(*encoded) > max_scids_encode_bytes)
+	if (tal_count(*encoded) > max_scids_encode_bytes)
 		return false;
 #endif
-	return tal_len(*encoded) <= max_bytes;
+	return tal_count(*encoded) <= max_bytes;
 }
 
 static void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
@@ -650,7 +650,7 @@ static void handle_pong(struct peer *peer, const u8 *pong)
 
 	daemon_conn_send(&peer->daemon->master,
 			 take(towire_gossip_ping_reply(NULL, true,
-						       tal_len(pong))));
+						       tal_count(pong))));
 }
 
 static void handle_reply_short_channel_ids_end(struct peer *peer, u8 *msg)
@@ -747,7 +747,7 @@ static void handle_reply_channel_range(struct peer *peer, u8 *msg)
 	/* Add scids */
 	n = tal_count(peer->query_channel_scids);
 	tal_resize(&peer->query_channel_scids, n + tal_count(scids));
-	memcpy(peer->query_channel_scids + n, scids, tal_len(scids));
+	memcpy(peer->query_channel_scids + n, scids, tal_bytelen(scids));
 
 	status_debug("peer %s reply_channel_range %u+%u (of %u+%zu) %zu scids",
 		     type_to_string(tmpctx, struct pubkey, &peer->id),
@@ -1494,7 +1494,7 @@ static void append_node(const struct gossip_getnodes_entry ***nodes,
 	new = tal(*nodes, struct gossip_getnodes_entry);
 	new->nodeid = *nodeid;
 	new->global_features = tal_dup_arr(*nodes, u8, gfeatures,
-					   tal_len(gfeatures), 0);
+					   tal_count(gfeatures), 0);
 	if (!n || n->last_timestamp < 0) {
 		new->last_timestamp = -1;
 		new->addresses = NULL;
@@ -1556,7 +1556,7 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 	}
 
 	ping = make_ping(peer, num_pong_bytes, len);
-	if (tal_len(ping) > 65535)
+	if (tal_count(ping) > 65535)
 		status_failed(STATUS_FAIL_MASTER_IO, "Oversize ping");
 
 	queue_peer_msg(peer, take(ping));

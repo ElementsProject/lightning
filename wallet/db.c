@@ -739,7 +739,7 @@ bool sqlite3_bind_short_channel_id_array(sqlite3_stmt *stmt, int col,
 	for (i = 0; i < num; ++i)
 		towire_short_channel_id(&ser, &id[i]);
 
-	sqlite3_bind_blob(stmt, col, ser, tal_len(ser), SQLITE_TRANSIENT);
+	sqlite3_bind_blob(stmt, col, ser, tal_count(ser), SQLITE_TRANSIENT);
 
 	tal_free(ser);
 	return true;
@@ -774,7 +774,7 @@ sqlite3_column_short_channel_id_array(const tal_t *ctx,
 bool sqlite3_bind_tx(sqlite3_stmt *stmt, int col, const struct bitcoin_tx *tx)
 {
 	u8 *ser = linearize_tx(NULL, tx);
-	sqlite3_bind_blob(stmt, col, ser, tal_len(ser), SQLITE_TRANSIENT);
+	sqlite3_bind_blob(stmt, col, ser, tal_count(ser), SQLITE_TRANSIENT);
 	tal_free(ser);
 	return true;
 }
@@ -836,7 +836,7 @@ bool sqlite3_bind_pubkey_array(sqlite3_stmt *stmt, int col,
 
 	for (i = 0; i < n; ++i)
 		pubkey_to_der(&ders[i * PUBKEY_DER_LEN], &pks[i]);
-	sqlite3_bind_blob(stmt, col, ders, tal_len(ders), SQLITE_TRANSIENT);
+	sqlite3_bind_blob(stmt, col, ders, tal_count(ders), SQLITE_TRANSIENT);
 
 	tal_free(ders);
 	return true;

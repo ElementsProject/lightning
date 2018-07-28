@@ -60,7 +60,7 @@ int main(void)
 	assert(!feature_offered(bits, 16));
 
 	/* We always support no features. */
-	memset(bits, 0, tal_len(bits));
+	memset(bits, 0, tal_count(bits));
 	assert(features_supported(bits, bits));
 
 	/* We must support our own features. */
@@ -70,18 +70,18 @@ int main(void)
 
 	/* We can add random odd features, no problem. */
 	for (size_t i = 1; i < 16; i += 2) {
-		bits = tal_dup_arr(tmpctx, u8, lf, tal_len(lf), 0);
+		bits = tal_dup_arr(tmpctx, u8, lf, tal_count(lf), 0);
 		set_bit(&bits, i);
 		assert(features_supported(gf, bits));
 
-		bits = tal_dup_arr(tmpctx, u8, gf, tal_len(gf), 0);
+		bits = tal_dup_arr(tmpctx, u8, gf, tal_count(gf), 0);
 		set_bit(&bits, i);
 		assert(features_supported(bits, lf));
 	}
 
 	/* We can't add random even features. */
 	for (size_t i = 0; i < 16; i += 2) {
-		bits = tal_dup_arr(tmpctx, u8, lf, tal_len(lf), 0);
+		bits = tal_dup_arr(tmpctx, u8, lf, tal_count(lf), 0);
 		set_bit(&bits, i);
 
 		/* Special case for missing compulsory feature */
@@ -93,7 +93,7 @@ int main(void)
 						    ARRAY_SIZE(local_features)));
 		}
 
-		bits = tal_dup_arr(tmpctx, u8, gf, tal_len(gf), 0);
+		bits = tal_dup_arr(tmpctx, u8, gf, tal_count(gf), 0);
 		set_bit(&bits, i);
 		assert(features_supported(bits, lf)
 		       == feature_supported(i, global_features,

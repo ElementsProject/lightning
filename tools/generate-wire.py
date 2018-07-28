@@ -206,7 +206,7 @@ fromwire_impl_templ = """bool fromwire_{name}({ctx}const void *p{args})
 {{
 {fields}
 \tconst u8 *cursor = p;
-\tsize_t plen = tal_len(p);
+\tsize_t plen = tal_count(p);
 
 \tif (fromwire_u16(&cursor, &plen) != {enum.name})
 \t\treturn false;
@@ -235,7 +235,7 @@ printwire_header_templ = """void printwire_{name}(const char *fieldname, const u
 """
 printwire_impl_templ = """void printwire_{name}(const char *fieldname, const u8 *cursor)
 {{
-\tsize_t plen = tal_len(cursor);
+\tsize_t plen = tal_count(cursor);
 
 \tif (fromwire_u16(&cursor, &plen) != {enum.name}) {{
 \t\tprintf("WRONG TYPE?!\\n");

@@ -543,7 +543,7 @@ static u8 *check_channel_update(const tal_t *ctx,
 	/* 2 byte msg type + 64 byte signatures */
 	int offset = 66;
 	struct sha256_double hash;
-	sha256_double(&hash, update + offset, tal_len(update) - offset);
+	sha256_double(&hash, update + offset, tal_count(update) - offset);
 
 	if (!check_signed_hash(&hash, node_sig, node_key))
 		return towire_errorfmt(ctx, NULL,
@@ -571,7 +571,7 @@ static u8 *check_channel_announcement(const tal_t *ctx,
 	int offset = 258;
 	struct sha256_double hash;
 	sha256_double(&hash, announcement + offset,
-		      tal_len(announcement) - offset);
+		      tal_count(announcement) - offset);
 
 	if (!check_signed_hash(&hash, node1_sig, node1_key)) {
 		return towire_errorfmt(ctx, NULL,
@@ -734,7 +734,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 
 	chan->satoshis = satoshis;
 	/* Channel is now public. */
-	chan->channel_announce = tal_dup_arr(chan, u8, msg, tal_len(msg), 0);
+	chan->channel_announce = tal_dup_arr(chan, u8, msg, tal_count(msg), 0);
 
 	/* Clear any private updates: new updates will trigger broadcast of
 	 * this channel_announce. */
@@ -760,7 +760,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	pending->updates[0] = NULL;
 	pending->updates[1] = NULL;
 	pending->announce = tal_dup_arr(pending, u8,
-					announce, tal_len(announce), 0);
+					announce, tal_count(announce), 0);
 	pending->update_timestamps[0] = pending->update_timestamps[1] = 0;
 
 	if (!fromwire_channel_announcement(pending, pending->announce,
@@ -922,7 +922,7 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 	 *   - if the `short_channel_id`'s output... is spent:
 	 *    - MUST ignore the message.
 	 */
-	if (tal_len(outscript) == 0) {
+	if (tal_count(outscript) == 0) {
 		status_trace("channel_announcement: no unspent txout %s",
 			     type_to_string(pending, struct short_channel_id,
 					    scid));
@@ -980,7 +980,7 @@ static void update_pending(struct pending_cannouncement *pending,
 			status_trace("Replacing existing update");
 			tal_free(pending->updates[direction]);
 		}
-		pending->updates[direction] = tal_dup_arr(pending, u8, update, tal_len(update), 0);
+		pending->updates[direction] = tal_dup_arr(pending, u8, update, tal_count(update), 0);
 		pending->update_timestamps[direction] = timestamp;
 	}
 }
@@ -1059,7 +1059,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	/* Replace any old one. */
 	tal_free(chan->half[direction].channel_update);
 	chan->half[direction].channel_update
-		= tal_dup_arr(chan, u8, update, tal_len(update), 0);
+		= tal_dup_arr(chan, u8, update, tal_count(update), 0);
 
 	/* For private channels, we get updates without an announce: don't
 	 * broadcast them! */
@@ -1096,7 +1096,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 	struct bitcoin_blkid chain_hash;
 	struct chan *chan;
 	u8 direction;
-	size_t len = tal_len(update);
+	size_t len = tal_count(update);
 	u8 *err;
 
 	serialized = tal_dup_arr(tmpctx, u8, update, len, 0);
@@ -1179,8 +1179,8 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 	if (is_halfchan_defined(c) && timestamp <= c->last_timestamp) {
 		/* They're not supposed to do this! */
 		if (timestamp == c->last_timestamp
-		    && !memeq(c->channel_update, tal_len(c->channel_update),
-			      serialized, tal_len(serialized))) {
+		    && !memeq(c->channel_update, tal_count(c->channel_update),
+			      serialized, tal_count(serialized))) {
 			status_unusual("Bad gossip repeated timestamp for %s(%u): %s then %s",
 				       type_to_string(tmpctx,
 						      struct short_channel_id,
@@ -1228,7 +1228,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 {
 	const u8 *cursor = ser;
-	size_t max = tal_len(ser);
+	size_t max = tal_count(ser);
 	struct wireaddr *wireaddrs = tal_arr(ctx, struct wireaddr, 0);
 	int numaddrs = 0;
 	while (cursor && cursor < ser + max) {
@@ -1296,7 +1296,7 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 	node->gfeatures = tal_steal(node, features);
 
 	tal_free(node->node_announcement);
-	node->node_announcement = tal_dup_arr(node, u8, msg, tal_len(msg), 0);
+	node->node_announcement = tal_dup_arr(node, u8, msg, tal_count(msg), 0);
 
 	/* We might be waiting for channel_announce to be released. */
 	if (node_has_broadcastable_channels(node)) {
@@ -1319,7 +1319,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	u8 *features, *addresses;
 	struct wireaddr *wireaddrs;
 	struct pending_node_announce *pna;
-	size_t len = tal_len(node_ann);
+	size_t len = tal_count(node_ann);
 	bool applied;
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
@@ -1421,7 +1421,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 			pna->timestamp = timestamp;
 			tal_free(pna->node_announcement);
 			pna->node_announcement = tal_dup_arr(pna, u8, node_ann,
-							     tal_len(node_ann),
+							     tal_count(node_ann),
 							     0);
 		}
 		return NULL;
@@ -1581,7 +1581,7 @@ void routing_failure(struct routing_state *rstate,
 	 * reactivated. */
 	if (failcode & UPDATE) {
 		u8 *err;
-		if (tal_len(channel_update) == 0) {
+		if (tal_count(channel_update) == 0) {
 			/* Suppress UNUSUAL log if local failure */
 			if (pubkey_eq(erring_node_pubkey, &rstate->local_id))
 				return;
@@ -1600,7 +1600,7 @@ void routing_failure(struct routing_state *rstate,
 			return;
 		}
 	} else {
-		if (tal_len(channel_update) != 0)
+		if (tal_count(channel_update) != 0)
 			status_unusual("routing_failure: "
 				       "UPDATE bit clear, channel_update given. "
 				       "failcode: 0x%04x",

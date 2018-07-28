@@ -214,7 +214,7 @@ static void billboard_update(const struct peer *peer)
 /* Returns a pointer to the new end */
 static void *tal_arr_append_(void **p, size_t size)
 {
-	size_t n = tal_len(*p) / size;
+	size_t n = tal_bytelen(*p) / size;
 	tal_resize_(p, size, n+1, false);
 	return (char *)(*p) + n * size;
 }
@@ -223,7 +223,7 @@ static void *tal_arr_append_(void **p, size_t size)
 static void do_peer_write(struct peer *peer)
 {
 	int r;
-	size_t len = tal_len(peer->peer_outmsg);
+	size_t len = tal_count(peer->peer_outmsg);
 
 	r = write(PEER_FD, peer->peer_outmsg + peer->peer_outoff,
 		  len - peer->peer_outoff);
@@ -388,7 +388,7 @@ static void send_announcement_signatures(struct peer *peer)
 			      strerror(errno));
 
 	/* Double-check that HSM gave valid signatures. */
-	sha256_double(&hash, ca + offset, tal_len(ca) - offset);
+	sha256_double(&hash, ca + offset, tal_count(ca) - offset);
 	if (!check_signed_hash(&hash, &peer->announcement_node_sigs[LOCAL],
 			       &peer->node_ids[LOCAL])) {
 		/* It's ok to fail here, the channel announcement is
@@ -1735,7 +1735,7 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 	if (h->failcode & BADONION) {
 		/* Malformed: use special reply since we can't onion. */
 		struct sha256 sha256_of_onion;
-		sha256(&sha256_of_onion, h->routing, tal_len(h->routing));
+		sha256(&sha256_of_onion, h->routing, tal_count(h->routing));
 
 		msg = towire_update_fail_malformed_htlc(NULL, &peer->channel_id,
 							h->id, &sha256_of_onion,
@@ -2090,7 +2090,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
 	enum channel_add_err e;
 	enum onion_type failcode;
-	/* Subtle: must be tal_arr since we marshal using tal_len() */
+	/* Subtle: must be tal object since we marshal using tal_bytelen() */
 	const char *failmsg;
 
 	if (!peer->funding_locked[LOCAL] || !peer->funding_locked[REMOTE])
