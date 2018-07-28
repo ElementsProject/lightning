@@ -334,11 +334,11 @@ static void json_listaddrs(struct command *cmd,
 		json_add_u64(response, "keyidx", keyidx);
 		json_add_pubkey(response, "pubkey", &pubkey);
 		json_add_string(response, "p2sh", out_p2sh);
-		json_add_hex(response, "p2sh_redeemscript",
-			     redeemscript_p2sh, tal_count(redeemscript_p2sh));
+		json_add_hex_talarr(response, "p2sh_redeemscript",
+				    redeemscript_p2sh);
 		json_add_string(response, "bech32", out_p2wpkh);
-		json_add_hex(response, "bech32_redeemscript",
-			     redeemscript_p2wpkh, tal_count(redeemscript_p2wpkh));
+		json_add_hex_talarr(response, "bech32_redeemscript",
+				    redeemscript_p2wpkh);
 		json_object_end(response);
 	}
 	json_array_end(response);

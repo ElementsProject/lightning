@@ -56,8 +56,7 @@ json_add_failure(struct json_result *r, char const *n,
 	switch (f->type) {
 	case FAIL_UNPARSEABLE_ONION:
 		json_add_string(r, "type", "FAIL_UNPARSEABLE_ONION");
-		json_add_hex(r, "onionreply", f->onionreply,
-			     tal_len(f->onionreply));
+		json_add_hex_talarr(r, "onionreply", f->onionreply);
 		break;
 
 	case FAIL_PAYMENT_REPLY:
@@ -69,9 +68,8 @@ json_add_failure(struct json_result *r, char const *n,
 		json_add_short_channel_id(r, "erring_channel",
 					  &rf->erring_channel);
 		if (rf->channel_update)
-			json_add_hex(r, "channel_update",
-				     rf->channel_update,
-				     tal_len(rf->channel_update));
+			json_add_hex_talarr(r, "channel_update",
+					    rf->channel_update);
 		break;
 	}
 	json_add_route(r, "route", f->route, tal_count(f->route));
@@ -251,9 +249,8 @@ static void json_pay_failure(struct pay *pay,
 		json_add_short_channel_id(data, "erring_channel",
 					  &fail->erring_channel);
 		if (fail->channel_update)
-			json_add_hex(data, "channel_update",
-				     fail->channel_update,
-				     tal_len(fail->channel_update));
+			json_add_hex_talarr(data, "channel_update",
+					    fail->channel_update);
 		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
 

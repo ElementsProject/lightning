@@ -248,7 +248,7 @@ resolve_one_close_command(struct close_command *cc, bool cooperative)
 	bitcoin_txid(cc->channel->last_tx, &txid);
 
 	json_object_start(result, NULL);
-	json_add_hex(result, "tx", tx, tal_len(tx));
+	json_add_hex_talarr(result, "tx", tx);
 	json_add_txid(result, "txid", &txid);
 	if (cooperative)
 		json_add_string(result, "type", "mutual");
@@ -761,13 +761,11 @@ static void connectd_getpeers_complete(struct subd *connectd, const u8 *msg,
 							       struct wireaddr_internal,
 							       &p->addr));
 			json_array_end(response);
-			json_add_hex(response, "global_features",
-				     p->global_features,
-				     tal_len(p->global_features));
+			json_add_hex_talarr(response, "global_features",
+					    p->global_features);
 
-			json_add_hex(response, "local_features",
-				     p->local_features,
-				     tal_len(p->local_features));
+			json_add_hex_talarr(response, "local_features",
+					    p->local_features);
 		}
 
 		json_array_start(response, "channels");
@@ -900,13 +898,11 @@ static void connectd_getpeers_complete(struct subd *connectd, const u8 *msg,
 		/* Fake state. */
 		json_add_string(response, "state", "GOSSIPING");
 		json_add_pubkey(response, "id", ids+i);
-		json_add_hex(response, "global_features",
-			     pf[i]->global_features,
-			     tal_len(pf[i]->global_features));
+		json_add_hex_talarr(response, "global_features",
+				    pf[i]->global_features);
 
-		json_add_hex(response, "local_features",
-			     pf[i]->local_features,
-			     tal_len(pf[i]->local_features));
+		json_add_hex_talarr(response, "local_features",
+				    pf[i]->local_features);
 		json_array_start(response, "netaddr");
 		if (addrs[i].itype != ADDR_INTERNAL_WIREADDR
 		    || addrs[i].u.wireaddr.type != ADDR_TYPE_PADDING)
@@ -1196,7 +1192,7 @@ static void json_sign_last_tx(struct command *cmd,
 	remove_sig(channel->last_tx);
 
 	json_object_start(response, NULL);
-	json_add_hex(response, "tx", linear, tal_len(linear));
+	json_add_hex_talarr(response, "tx", linear);
 	json_object_end(response);
 	command_success(cmd, response);
 }

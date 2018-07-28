@@ -183,10 +183,11 @@ void invoices_waitone(const tal_t *ctx UNNEEDED,
 void json_add_bool(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
 		   bool value UNNEEDED)
 { fprintf(stderr, "json_add_bool called!\n"); abort(); }
-/* Generated stub for json_add_hex */
-void json_add_hex(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
-		  const void *data UNNEEDED, size_t len UNNEEDED)
-{ fprintf(stderr, "json_add_hex called!\n"); abort(); }
+/* Generated stub for json_add_hex_talarr */
+void json_add_hex_talarr(struct json_result *result UNNEEDED,
+			 const char *fieldname UNNEEDED,
+			 const tal_t *data UNNEEDED)
+{ fprintf(stderr, "json_add_hex_talarr called!\n"); abort(); }
 /* Generated stub for json_add_log */
 void json_add_log(struct json_result *result UNNEEDED,
 		  const struct log_book *lr UNNEEDED, enum log_level minlevel UNNEEDED)

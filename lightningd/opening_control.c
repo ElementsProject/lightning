@@ -439,7 +439,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	response = new_json_result(fc->cmd);
 	json_object_start(response, NULL);
 	linear = linearize_tx(response, fundingtx);
-	json_add_hex(response, "tx", linear, tal_len(linear));
+	json_add_hex_talarr(response, "tx", linear);
 	json_add_txid(response, "txid", &channel->funding_txid);
 	derive_channel_id(&cid, &channel->funding_txid, funding_outnum);
 	json_add_string(response, "channel_id",
