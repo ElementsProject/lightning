@@ -711,6 +711,7 @@ static const struct json_command pay_command = {
 	"{description} (required if {bolt11} uses description hash), "
 	"{riskfactor} (default 1.0), "
 	"{maxfeepercent} (default 0.5) the maximum acceptable fee as a percentage (e.g. 0.5 => 0.5%), "
+	"{exemptfee} (default 5000 msat) disables the maxfeepercent check for fees below the threshold, "
 	"{retry_for} (default 60) the integer number of seconds before we stop retrying, and "
 	"{maxdelay} (default 500) the maximum number of blocks we allow the funds to possibly get locked"
 };
