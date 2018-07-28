@@ -10,8 +10,15 @@
 #include <ccan/err/err.h>
 #include <unistd.h>
 
-bool failed;
 char *fail_msg;
+bool failed = false;
+
+static bool check_fail(void) {
+	if (!failed)
+		return false;
+	failed = false;
+	return true;
+}
 
 struct command *cmd;
 
@@ -82,7 +89,6 @@ static struct json *json_parse(const tal_t * ctx, const char *str)
 	if (ret <= 0) {
 		assert(0);
 	}
-	failed = false;
 	return j;
 }
 
@@ -130,10 +136,11 @@ static void stest(const struct json *j, struct sanity *b)
 	if (!param(cmd, j->buffer, j->toks,
 		   p_req("u64", json_tok_u64, &ival),
 		   p_req("double", json_tok_double, &dval), NULL)) {
-		assert(failed == true);
+		assert(check_fail());
 		assert(b->failed == true);
 		assert(strstr(fail_msg, b->fail_str));
 	} else {
+		assert(!check_fail());
 		assert(b->failed == false);
 		assert(ival == 42);
 		assert(dval > 3.1499 && b->dval < 3.1501);
