@@ -1489,9 +1489,9 @@ class LightningDTests(BaseLightningDTests):
             l1.daemon.wait_for_logs(['to CHANNELD_NORMAL'])
             l2.daemon.wait_for_logs(['to CHANNELD_NORMAL'])
 
-            # Start closers.
-            c1 = self.executor.submit(l1.rpc.close, l2.info['id'])
-            c2 = self.executor.submit(l2.rpc.close, l1.info['id'])
+            # Start closers: can take a long time under valgrind!
+            c1 = self.executor.submit(l1.rpc.close, l2.info['id'], False, 60)
+            c2 = self.executor.submit(l2.rpc.close, l1.info['id'], False, 60)
             # Wait for close to finish
             c1.result(utils.TIMEOUT)
             c2.result(utils.TIMEOUT)
