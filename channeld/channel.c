@@ -2157,8 +2157,6 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	abort();
 
 failed:
-	/* Note: tal_fmt doesn't set tal_len() to exact length, so fix here. */
-	tal_resize(&failmsg, strlen(failmsg)+1);
 	msg = towire_channel_offer_htlc_reply(NULL, 0, failcode, (u8*)failmsg);
 	wire_sync_write(MASTER_FD, take(msg));
 }
