@@ -58,11 +58,6 @@ void *notleak_(const void *ptr, bool plus_children)
 	return cast_const(void *, ptr);
 }
 
-/* This only works if all objects have tal_len() */
-#ifndef CCAN_TAL_DEBUG
-#error CCAN_TAL_DEBUG must be set
-#endif
-
 static size_t hash_ptr(const void *elem, void *unused UNNEEDED)
 {
 	static struct siphash_seed seed;
@@ -96,8 +91,7 @@ static void children_into_htable(const void *exclude1, const void *exclude2,
 				continue;
 
 			/* ccan/io allocates pollfd array. */
-			if (streq(name,
-				  "ccan/ccan/io/poll.c:40:struct pollfd[]"))
+			if (streq(name, "struct pollfd[]") && !tal_parent(i))
 				continue;
 
 			/* Don't add tmpctx. */

@@ -19,7 +19,7 @@ VG_TEST_ARGS = --track-origins=yes --leak-check=full --show-reachable=yes --erro
 endif
 
 ifeq ($(DEVELOPER),1)
-DEV_CFLAGS=-DCCAN_TAL_DEBUG=1 -DCCAN_TAKE_DEBUG=1
+DEV_CFLAGS=-DCCAN_TAKE_DEBUG=1
 else
 DEV_CFLAGS=
 endif
