@@ -284,7 +284,7 @@ static bool param_arr(struct command *cmd, const char *buffer,
 {
 #if DEVELOPER
 	if (!check_params(params)) {
-		command_fail(cmd, PARAM_DEV_ERROR, "programmer error");
+		command_fail(cmd, PARAM_DEV_ERROR, "developer error");
 		return false;
 	}
 #endif
@@ -312,7 +312,7 @@ bool param(struct command *cmd, const char *buffer,
 		void *arg = va_arg(ap, void *);
 		size_t argsize = va_arg(ap, size_t);
 		if  (!param_add(&params, name, required, cb, arg, argsize)) {
-			command_fail(cmd, PARAM_DEV_ERROR, "programmer error");
+			command_fail(cmd, PARAM_DEV_ERROR, "developer error");
 			va_end(ap);
 			return false;
 		}
