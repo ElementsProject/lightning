@@ -3949,7 +3949,7 @@ class LightningDTests(BaseLightningDTests):
 
         # This should fail, can't even afford fee.
         self.assertRaises(RpcError, l1.rpc.withdraw, waddr, 'all')
-        l1.daemon.wait_for_log('Cannot afford funding transaction')
+        l1.daemon.wait_for_log('Cannot afford transaction')
 
     def test_funding_change(self):
         """Add some funds, fund a channel, and make sure we remember the change
@@ -3984,6 +3984,17 @@ class LightningDTests(BaseLightningDTests):
         outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
         assert len(outputs) == 0
 
+    def test_funding_all_too_much(self):
+        """Add more than max possible funds, fund a channel using all funds we can.
+        """
+        l1, l2 = self.connect()
+
+        self.give_funds(l1, 2**24 + 10000)
+        l1.rpc.fundchannel(l2.info['id'], "all")
+
+        assert only_one(l1.rpc.listfunds()['outputs'])['status'] == 'unconfirmed'
+        assert only_one(l1.rpc.listfunds()['channels'])['channel_total_sat'] == 2**24 - 1
+
     def test_funding_fail(self):
         """Add some funds, fund a channel without enough funds"""
         # Previous runs with same bitcoind can leave funds!
@@ -4013,7 +4024,7 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
         # We don't have enough left to cover fees if we try to spend it all.
-        self.assertRaisesRegex(RpcError, r'Cannot afford funding transaction',
+        self.assertRaisesRegex(RpcError, r'Cannot afford transaction',
                                l1.rpc.fundchannel, l2.info['id'], funds)
 
         # Should still be connected.
@@ -4042,7 +4053,7 @@ class LightningDTests(BaseLightningDTests):
             l1.rpc.fundchannel(l2.info['id'], amount)
             self.fail('Expected fundchannel to fail!')
         except RpcError as err:
-            assert 'Funding satoshi must be <= 16777215' in str(err)
+            assert 'Amount exceeded 16777215' in str(err)
 
         # This should work.
         amount = amount - 1

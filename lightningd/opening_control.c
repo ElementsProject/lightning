@@ -932,7 +932,7 @@ static void json_fund_channel(struct command *cmd,
 		   NULL))
 		return;
 
-	if (!json_tok_wtx(&fc->wtx, buffer, sattok))
+	if (!json_tok_wtx(&fc->wtx, buffer, sattok, MAX_FUNDING_SATOSHI))
 		return;
 	if (!pubkey_from_hexstr(buffer + desttok->start,
 				desttok->end - desttok->start,
@@ -949,12 +949,7 @@ static void json_fund_channel(struct command *cmd,
 			      BITCOIN_SCRIPTPUBKEY_P2WSH_LEN))
 		return;
 
-	if (fc->wtx.amount > MAX_FUNDING_SATOSHI) {
-		command_fail(cmd, FUND_MAX_EXCEEDED,
-			     "Funding satoshi must be <= %d",
-			     MAX_FUNDING_SATOSHI);
-		return;
-	}
+	assert(fc->wtx.amount <= MAX_FUNDING_SATOSHI);
 
 	list_add(&cmd->ld->fundchannels, &fc->list);
 	tal_add_destructor(fc, remove_funding_channel_from_list);

@@ -23,9 +23,9 @@ for the channel.
 'id' is the peer id obtained from *connect*.
 
 'satoshi' is the amount in satoshis taken from the internal wallet to fund the channel.
-The string 'all' can be used to specify all available funds.
-This value cannot be less than the dust limit, currently set to 546.
-And it must be less than 1<<24 (approximately 0.16778 BTC).
+The string 'all' can be used to specify all available funds (or 16777215 satoshi if more is available).
+The value cannot be less than the dust limit, currently set to 546, nor more
+than 16777215 satoshi.
 
 RETURN VALUE
 ------------

@@ -104,7 +104,7 @@ static void json_withdraw(struct command *cmd,
 		   NULL))
 		return;
 
-	if (!json_tok_wtx(&withdraw->wtx, buffer, sattok))
+	if (!json_tok_wtx(&withdraw->wtx, buffer, sattok, -1ULL))
 		return;
 
 	/* Parse address. */

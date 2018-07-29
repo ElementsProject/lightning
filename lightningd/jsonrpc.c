@@ -775,14 +775,19 @@ bool json_tok_newaddr(const char *buffer, const jsmntok_t *tok, bool *is_p2wpkh)
 }
 
 bool json_tok_wtx(struct wallet_tx * tx, const char * buffer,
-                  const jsmntok_t *sattok)
+                  const jsmntok_t *sattok, u64 max)
 {
         if (json_tok_streq(buffer, sattok, "all")) {
                 tx->all_funds = true;
+		tx->amount = max;
         } else if (!json_tok_u64(buffer, sattok, &tx->amount)) {
                 command_fail(tx->cmd, JSONRPC2_INVALID_PARAMS,
 			     "Invalid satoshis");
                 return false;
-        }
+	} else if (tx->amount > max) {
+                command_fail(tx->cmd, FUND_MAX_EXCEEDED,
+			     "Amount exceeded %"PRIu64, max);
+                return false;
+	}
         return true;
 }
