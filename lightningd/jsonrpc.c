@@ -153,9 +153,6 @@ static void json_getinfo(struct command *cmd,
 	json_add_string(response, "alias", (const char *)cmd->ld->alias);
 	json_add_hex(response, "color", (const void *)cmd->ld->rgb, tal_len(cmd->ld->rgb));
 	if (cmd->ld->listen) {
-		if (deprecated_apis)
-			json_add_num(response, "port", cmd->ld->portnum);
-
 		/* These are the addresses we're announcing */
 		json_array_start(response, "address");
 		for (size_t i = 0; i < tal_count(cmd->ld->announcable); i++)

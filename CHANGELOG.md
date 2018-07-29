@@ -38,6 +38,7 @@ changes.
 
 - JSON API: `listpeers` results no long have `alias` and `color` fields;
   they're in `listnodes` (we used to internally merge the information).
+- Removed all Deprecated options from 0.6.
 
 ### Fixed
 

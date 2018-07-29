@@ -33,8 +33,7 @@ static const char *invoice_status_str(const struct invoice_details *inv)
 }
 
 static void json_add_invoice(struct json_result *response,
-			     const struct invoice_details *inv,
-			     bool modern)
+			     const struct invoice_details *inv)
 {
 	json_object_start(response, NULL);
 	json_add_escaped_string(response, "label", inv->label);
@@ -42,21 +41,13 @@ static void json_add_invoice(struct json_result *response,
 	json_add_hex(response, "payment_hash", &inv->rhash, sizeof(inv->rhash));
 	if (inv->msatoshi)
 		json_add_u64(response, "msatoshi", *inv->msatoshi);
-	if (modern)
-		json_add_string(response, "status", invoice_status_str(inv));
-	else if (deprecated_apis && !modern)
-		json_add_bool(response, "complete", inv->state == PAID);
+	json_add_string(response, "status", invoice_status_str(inv));
 	if (inv->state == PAID) {
 		json_add_u64(response, "pay_index", inv->pay_index);
 		json_add_u64(response, "msatoshi_received",
 			     inv->msatoshi_received);
-		if (deprecated_apis)
-			json_add_u64(response, "paid_timestamp",
-				     inv->paid_timestamp);
 		json_add_u64(response, "paid_at", inv->paid_timestamp);
 	}
-	if (deprecated_apis)
-		json_add_u64(response, "expiry_time", inv->expiry_time);
 	json_add_u64(response, "expires_at", inv->expiry_time);
 
 	json_object_end(response);
@@ -68,7 +59,7 @@ static void tell_waiter(struct command *cmd, const struct invoice *inv)
 	struct invoice_details details;
 
 	wallet_invoice_details(cmd, cmd->ld->wallet, *inv, &details);
-	json_add_invoice(response, &details, true);
+	json_add_invoice(response, &details);
 	if (details.state == PAID)
 		command_success(cmd, response);
 	else {
@@ -159,7 +150,7 @@ static void json_invoice(struct command *cmd,
 {
 	struct invoice invoice;
 	struct invoice_details details;
-	const jsmntok_t *msatoshi, *label, *desctok, *fallback, *fallbacks;
+	const jsmntok_t *msatoshi, *label, *desctok, *fallbacks;
 	const jsmntok_t *preimagetok;
 	u64 *msatoshi_val;
 	const struct json_escaped *label_val, *desc;
@@ -177,7 +168,6 @@ static void json_invoice(struct command *cmd,
 		   p_req("label", json_tok_tok, &label),
 		   p_req("description", json_tok_tok, &desctok),
 		   p_opt_def("expiry", json_tok_u64, &expiry, 3600),
-		   p_opt_tok("fallback", &fallback),
 		   p_opt_tok("fallbacks", &fallbacks),
 		   p_opt_tok("preimage", &preimagetok),
 		   NULL))
@@ -245,29 +235,9 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 
-	/* fallback addresses */
-	if (fallback) {
-		if (deprecated_apis) {
-			fallback_scripts = tal_arr(cmd, const u8 *, 1);
-			if (!parse_fallback(cmd, buffer, fallback,
-					    &fallback_scripts[0]))
-				return;
-		} else {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "fallback is deprecated: use fallbacks");
-			return;
-		}
-	}
-
 	if (fallbacks) {
 		const jsmntok_t *i, *end = json_next(fallbacks);
 		size_t n = 0;
-
-		if (fallback) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "Cannot use fallback and fallbacks");
-			return;
-		}
 
 		if (fallbacks->type != JSMN_ARRAY) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -350,8 +320,6 @@ static void json_invoice(struct command *cmd,
 	json_object_start(response, NULL);
 	json_add_hex(response, "payment_hash",
 		     &details.rhash, sizeof(details.rhash));
-	if (deprecated_apis)
-		json_add_u64(response, "expiry_time", details.expiry_time);
 	json_add_u64(response, "expires_at", details.expiry_time);
 	json_add_string(response, "bolt11", details.bolt11);
 	json_object_end(response);
@@ -368,8 +336,7 @@ AUTODATA(json_command, &invoice_command);
 
 static void json_add_invoices(struct json_result *response,
 			      struct wallet *wallet,
-			      const struct json_escaped *label,
-			      bool modern)
+			      const struct json_escaped *label)
 {
 	struct invoice_iterator it;
 	struct invoice_details details;
@@ -380,7 +347,7 @@ static void json_add_invoices(struct json_result *response,
 		if (wallet_invoice_find_by_label(wallet, &invoice, label)) {
 			wallet_invoice_details(response, wallet, invoice,
 					       &details);
-			json_add_invoice(response, &details, modern);
+			json_add_invoice(response, &details);
 		}
 		return;
 	}
@@ -388,14 +355,12 @@ static void json_add_invoices(struct json_result *response,
 	memset(&it, 0, sizeof(it));
 	while (wallet_invoice_iterate(wallet, &it)) {
 		wallet_invoice_iterator_deref(response, wallet, &it, &details);
-		json_add_invoice(response, &details, modern);
+		json_add_invoice(response, &details);
 	}
 }
 
-static void json_listinvoice_internal(struct command *cmd,
-				      const char *buffer,
-				      const jsmntok_t *params,
-				      bool modern)
+static void json_listinvoices(struct command *cmd,
+			      const char *buffer, const jsmntok_t *params)
 {
 	jsmntok_t *labeltok;
 	struct json_escaped *label;
@@ -419,37 +384,12 @@ static void json_listinvoice_internal(struct command *cmd,
 	} else
 		label = NULL;
 
-	if (modern) {
-		json_object_start(response, NULL);
-		json_array_start(response, "invoices");
-	} else
-		json_array_start(response, NULL);
-	json_add_invoices(response, wallet, label, modern);
+	json_object_start(response, NULL);
+	json_array_start(response, "invoices");
+	json_add_invoices(response, wallet, label);
 	json_array_end(response);
-	if (modern)
-		json_object_end(response);
+	json_object_end(response);
 	command_success(cmd, response);
-}
-
-/* FIXME: Deprecated! */
-static void json_listinvoice(struct command *cmd,
-			     const char *buffer, const jsmntok_t *params)
-{
-	return json_listinvoice_internal(cmd, buffer, params, false);
-}
-
-static const struct json_command listinvoice_command = {
-	"listinvoice",
-	json_listinvoice,
-	"(DEPRECATED) Show invoice {label} (or all, if no {label}))",
-	.deprecated = true
-};
-AUTODATA(json_command, &listinvoice_command);
-
-static void json_listinvoices(struct command *cmd,
-			     const char *buffer, const jsmntok_t *params)
-{
-	return json_listinvoice_internal(cmd, buffer, params, true);
 }
 
 static const struct json_command listinvoices_command = {
@@ -503,7 +443,7 @@ static void json_delinvoice(struct command *cmd,
 
 	/* Get invoice details before attempting to delete, as
 	 * otherwise the invoice will be freed. */
-	json_add_invoice(response, &details, true);
+	json_add_invoice(response, &details);
 
 	if (!wallet_invoice_delete(wallet, i)) {
 		log_broken(cmd->ld->log,
@@ -731,8 +671,6 @@ static void json_decodepay(struct command *cmd,
 	json_object_start(response, NULL);
 
 	json_add_string(response, "currency", b11->chain->bip173_name);
-	if (deprecated_apis)
-		json_add_u64(response, "timestamp", b11->timestamp);
 	json_add_u64(response, "created_at", b11->timestamp);
 	json_add_u64(response, "expiry", b11->expiry);
 	json_add_pubkey(response, "payee", &b11->receiver_id);
@@ -749,9 +687,6 @@ static void json_decodepay(struct command *cmd,
 	json_add_num(response, "min_final_cltv_expiry",
 		     b11->min_final_cltv_expiry);
         if (tal_count(b11->fallbacks)) {
-		if (deprecated_apis)
-			json_add_fallback(response, "fallback",
-					  b11->fallbacks[0], b11->chain);
 		json_array_start(response, "fallbacks");
 		for (size_t i = 0; i < tal_count(b11->fallbacks); i++)
 			json_add_fallback(response, NULL,
