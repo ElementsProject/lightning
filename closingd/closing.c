@@ -1,4 +1,3 @@
-/* FIXME: We don't relay from gossipd at all here. */
 #include <bitcoin/script.h>
 #include <closingd/gen_closing_wire.h>
 #include <common/close_tx.h>
@@ -337,8 +336,6 @@ static uint64_t receive_offer(struct crypto_state *cs,
 struct feerange {
 	enum side higher_side;
 	u64 min, max;
-
-	bool allow_mistakes;
 };
 
 static void init_feerange(struct feerange *feerange,
@@ -354,7 +351,6 @@ static void init_feerange(struct feerange *feerange,
          *    in [BOLT #3](03-transactions.md#fee-calculation).
 	 */
 	feerange->max = commitment_fee;
-	feerange->allow_mistakes = false;
 
 	if (offer[LOCAL] > offer[REMOTE])
 		feerange->higher_side = LOCAL;
@@ -371,18 +367,6 @@ static void adjust_feerange(struct crypto_state *cs,
 			    struct feerange *feerange,
 			    u64 offer, enum side side)
 {
-	if (offer < feerange->min || offer > feerange->max) {
-		if (!feerange->allow_mistakes || side != REMOTE)
-			peer_failed(cs, channel_id,
-				    "%s offer %"PRIu64
-				    " not between %"PRIu64" and %"PRIu64,
-				    side == LOCAL ? "local" : "remote",
-				    offer, feerange->min, feerange->max);
-
-		status_trace("Allowing deprecated out-of-range fee");
-		return;
-	}
-
 	/* BOLT #2:
 	 *
 	 *     - MUST propose a value "strictly between" the received
@@ -444,7 +428,6 @@ int main(int argc, char *argv[])
 	bool reconnected;
 	u64 next_index[NUM_SIDES], revocations_received;
 	enum side whose_turn;
-	bool deprecated_api;
 	u8 *channel_reestablish;
 
 	subdaemon_setup(argc, argv);
@@ -470,7 +453,6 @@ int main(int argc, char *argv[])
 				   &next_index[LOCAL],
 				   &next_index[REMOTE],
 				   &revocations_received,
-				   &deprecated_api,
 				   &channel_reestablish))
 		master_badmsg(WIRE_CLOSING_INIT, msg);
 
@@ -536,9 +518,6 @@ int main(int argc, char *argv[])
 
 	/* Apply (and check) funder offer now. */
 	adjust_feerange(&cs, &channel_id, &feerange, offer[funder], funder);
-
-	/* Older spec clients would make offers independently, so allow */
-	feerange.allow_mistakes = deprecated_api;
 
 	/* Now any extra rounds required. */
 	while (offer[LOCAL] != offer[REMOTE]) {

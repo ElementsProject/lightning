@@ -214,7 +214,6 @@ void peer_start_closingd(struct channel *channel,
 				      channel->next_index[LOCAL],
 				      channel->next_index[REMOTE],
 				      num_revocations,
-				      deprecated_apis,
 				      channel_reestablish);
 
 	/* We don't expect a response: it will give us feedback on
