@@ -821,9 +821,6 @@ static void connectd_getpeers_complete(struct subd *connectd, const u8 *msg,
 				     channel->our_config.channel_reserve_satoshis);
 			json_add_u64(response, "our_channel_reserve_satoshis",
 				     channel->channel_info.their_config.channel_reserve_satoshis);
-			if (deprecated_apis)
-				json_add_u64(response, "channel_reserve_satoshis",
-					     channel->our_config.channel_reserve_satoshis);
 			/* Compute how much we can send via this channel. */
 			if (channel->our_msatoshi <= our_reserve_msat)
 				json_add_u64(response, "spendable_msatoshi", 0);
@@ -840,9 +837,6 @@ static void connectd_getpeers_complete(struct subd *connectd, const u8 *msg,
 				     channel->our_config.to_self_delay);
 			json_add_num(response, "our_to_self_delay",
 				     channel->channel_info.their_config.to_self_delay);
-			if (deprecated_apis)
-				json_add_num(response, "to_self_delay",
-					     channel->our_config.to_self_delay);
 			json_add_num(response, "max_accepted_htlcs",
 				     channel->our_config.max_accepted_htlcs);
 

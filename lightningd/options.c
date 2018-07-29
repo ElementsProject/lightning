@@ -102,32 +102,6 @@ static char *opt_set_u32(const char *arg, u32 *u)
 	return NULL;
 }
 
-static char *opt_set_port(const char *arg, struct lightningd *ld)
-{
-	char *endp;
-	unsigned long l;
-
-	log_broken(ld->log, "--port has been deprecated, use --autolisten=0 or --addr=:<port>");
-	if (!deprecated_apis)
-		return "--port is deprecated";
-
-	assert(arg != NULL);
-
-	/* This is how the manpage says to do it.  Yech. */
-	errno = 0;
-	l = strtoul(arg, &endp, 0);
-	if (*endp || !arg[0])
-		return tal_fmt(NULL, "'%s' is not a number", arg);
-	ld->portnum = l;
-	if (errno || ld->portnum != l)
-		return tal_fmt(NULL, "'%s' is out of range", arg);
-
-	if (ld->portnum == 0)
-		ld->autolisten = false;
-
-	return NULL;
-}
-
 static char *opt_set_s32(const char *arg, s32 *u)
 {
 	char *endp;
@@ -212,14 +186,6 @@ static char *opt_add_announce_addr(const char *arg, struct lightningd *ld)
 			       type_to_string(tmpctx, struct wireaddr, wi));
 	}
 	return NULL;
-}
-
-static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
-{
-	log_broken(ld->log, "--ipaddr has been deprecated, use --addr");
-	if (!deprecated_apis)
-		return "--ipaddr is deprecated";
-	return opt_add_addr(arg, ld);
 }
 
 static void opt_show_u64(char buf[OPT_SHOW_LEN], const u64 *u)
@@ -322,22 +288,6 @@ static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
-static char *opt_set_anchor(const char *arg, u32 *u)
-{
-	if (!deprecated_apis)
-		return "--anchor-confirms is now --funding-confirms";
-
-	return opt_set_u32(arg, u);
-}
-
-static char *opt_set_locktime(const char *arg, u32 *u)
-{
-	if (!deprecated_apis)
-		return "--locktime-blocks is now --watchtime-blocks";
-
-	return opt_set_u32(arg, u);
-}
-
 static void config_register_opts(struct lightningd *ld)
 {
 	opt_register_early_arg("--conf=<file>", opt_set_talstr, NULL,
@@ -351,16 +301,12 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--watchtime-blocks", opt_set_u32, opt_show_u32,
 			 &ld->config.locktime_blocks,
 			 "Blocks before peer can unilaterally spend funds");
-	opt_register_arg("--locktime-blocks", opt_set_locktime, NULL,
-			 &ld->config.locktime_blocks, opt_hidden);
 	opt_register_arg("--max-locktime-blocks", opt_set_u32, opt_show_u32,
 			 &ld->config.locktime_max,
 			 "Maximum blocks funds may be locked for");
 	opt_register_arg("--funding-confirms", opt_set_u32, opt_show_u32,
 			 &ld->config.anchor_confirms,
 			 "Confirmations required for funding transaction");
-	opt_register_arg("--anchor-confirms", opt_set_anchor, NULL,
-			 &ld->config.anchor_confirms, opt_hidden);
 	opt_register_arg("--commit-fee-min=<percent>", opt_set_u32, opt_show_u32,
 			 &ld->config.commitment_fee_min_percent,
 			 "Minimum percentage of fee to accept for commitment");
@@ -393,8 +339,6 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--fee-per-satoshi", opt_set_s32, opt_show_s32,
 			 &ld->config.fee_per_satoshi,
 			 "Microsatoshi fee for every satoshi in HTLC");
-	opt_register_arg("--ipaddr", opt_add_ipaddr, NULL,
-			 ld, opt_hidden);
 	opt_register_arg("--addr", opt_add_addr, NULL,
 			 ld,
 			 "Set an IP address (v4 or v6) to listen on and announce to the network for incoming connections");
@@ -781,10 +725,6 @@ void register_opts(struct lightningd *ld)
 				 test_daemons_and_exit,
 				 ld, opt_hidden);
 
-	/* --port needs to be an early arg to force it being parsed
-         * before --ipaddr which may depend on it */
-	opt_register_early_arg("--port", opt_set_port, NULL, ld,
-			       opt_hidden);
 	opt_register_arg("--bitcoin-datadir", opt_set_talstr, NULL,
 			 &ld->topology->bitcoind->datadir,
 			 "-datadir arg for bitcoin-cli");
@@ -1012,11 +952,6 @@ static void add_config(struct lightningd *ld,
 			answer = (const char *)ld->alias;
 		} else if (opt->cb_arg == (void *)arg_log_to_file) {
 			answer = ld->logfile;
-		} else if (opt->cb_arg == (void *)opt_set_port) {
-			if (!deprecated_apis)
-				answer = tal_fmt(name0, "%u", ld->portnum);
-		} else if (opt->cb_arg == (void *)opt_add_ipaddr) {
-			/* Covered by opt_add_addr below */
 		} else if (opt->cb_arg == (void *)opt_add_addr) {
 			json_add_opt_addrs(response, name0,
 					   ld->proposed_wireaddr,

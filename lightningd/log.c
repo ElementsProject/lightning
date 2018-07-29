@@ -664,8 +664,6 @@ static void json_getlog(struct command *cmd,
 		return;
 
 	json_object_start(response, NULL);
-	if (deprecated_apis)
-		json_add_time(response, "creation_time", log_init_time(lr)->ts);
 	json_add_time(response, "created_at", log_init_time(lr)->ts);
 	json_add_num(response, "bytes_used", (unsigned int)log_used(lr));
 	json_add_num(response, "bytes_max", (unsigned int)log_max_mem(lr));
