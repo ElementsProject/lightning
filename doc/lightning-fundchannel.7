@@ -2,12 +2,12 @@
 .\"     Title: lightning-fundchannel
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 06/17/2018
+.\"      Date: 07/29/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-FUNDCHANN" "7" "06/17/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-FUNDCHANN" "7" "07/29/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -38,7 +38,7 @@ The \fBfundchannel\fR RPC command opens a payment channel with a peer by commiti
 .sp
 \fIid\fR is the peer id obtained from \fBconnect\fR\&.
 .sp
-\fIsatoshi\fR is the amount in satoshis taken from the internal wallet to fund the channel\&. The string \fIall\fR can be used to specify all available funds\&. This value cannot be less than the dust limit, currently set to 546\&. And it must be less than 1<<24 (approximately 0\&.16778 BTC)\&.
+\fIsatoshi\fR is the amount in satoshis taken from the internal wallet to fund the channel\&. The string \fIall\fR can be used to specify all available funds (or 16777215 satoshi if more is available)\&. The value cannot be less than the dust limit, currently set to 546, nor more than 16777215 satoshi\&.
 .SH "RETURN VALUE"
 .sp
 On success, the \fItx\fR and \fItxid\fR of the transaction is returned, as well as the \fIchannel_id\fR of the newly created channel\&. On failure, an error is reported and the channel is not funded\&.

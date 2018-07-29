@@ -16,7 +16,7 @@ struct wallet_tx {
 	u32 change_key_index;
 	const struct utxo **utxos;
 
-	bool all_funds;
+	bool all_funds; /* In this case, amount is a maximum. */
 };
 
 void wtx_init(struct command *cmd, struct wallet_tx *wtx);

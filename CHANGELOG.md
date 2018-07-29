@@ -46,6 +46,7 @@ changes.
 - Protocol: `node_announcement` multiple addresses are correctly ordered and uniquified.
 - JSON API: `listnodes`: now displays node aliases and colors even if they
   don't advertise a network address
+- JSON API: `fundchannel all`: now restricts to 2^24-1 satoshis rather than failing.
 - When we reconnect and have to retransmit failing HTLCs, the errors weren't
   encrypted by us.
 - `lightningd_config` man page is now installed by `make install`.
