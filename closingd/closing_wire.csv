@@ -23,8 +23,6 @@ closing_init,,reconnected,bool
 closing_init,,next_index_local,u64
 closing_init,,next_index_remote,u64
 closing_init,,revocations_received,u64
-# This means we allow closing negotiations out of bounds.
-closing_init,,deprecated_api,bool
 closing_init,,channel_reestablish_len,u16
 closing_init,,channel_reestablish,channel_reestablish_len*u8
 
