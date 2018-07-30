@@ -29,7 +29,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   to/from peers, instead of `gossipd` doing that itself.
 - Test: `python-xdist` is now a dependency for tests.
 - Logging: JSON connections no longer spam debug logs.
-
+- Routing: We no longer consider channels that are not usable either because of
+  their capacity or their `htlc_minimum_msat` parameter (#1777)
 ### Deprecated
 
 Note: You should always set `allow-deprecated-apis=false` to test for

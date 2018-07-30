@@ -115,6 +115,7 @@ get_or_make_connection(struct routing_state *rstate,
 {
 	struct short_channel_id scid;
 	struct chan *chan;
+	const int idx = pubkey_idx(from_id, to_id);
 
 	if (!short_channel_id_from_str(shortid, strlen(shortid), &scid))
 		abort();
@@ -123,8 +124,11 @@ get_or_make_connection(struct routing_state *rstate,
 		chan = new_chan(rstate, &scid, from_id, to_id);
 
 	/* Make sure it's seen as initialized (update non-NULL). */
-	chan->half[pubkey_idx(from_id, to_id)].channel_update = (void *)chan;
+	chan->half[idx].channel_update = (void *)chan;
+	chan->half[idx].htlc_minimum_msat = 0;
+
 	chan->satoshis = satoshis;
+
 	return &chan->half[pubkey_idx(from_id, to_id)];
 }
 
@@ -194,6 +198,7 @@ int main(void)
 	nc->delay = 5;
 	nc->flags = 0;
 	nc->last_timestamp = 1504064344;
+	nc->htlc_minimum_msat = 100;
 
 	/* {'active': True, 'short_id': '6989:2:1/1', 'fee_per_kw': 10, 'delay': 5, 'flags': 1, 'destination': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'source': '03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf', 'last_update': 1504064344}]} */
 	nc = get_or_make_connection(rstate, &a, &b, "6989:2:1", 1000);
@@ -217,6 +222,11 @@ int main(void)
 	/* Now test with a query that exceeds the channel capacity after adding
 	 * some fees */
 	route = find_route(tmpctx, rstate, &a, &c, 999999, riskfactor, 0.0, NULL, &fee);
+	assert(!route);
+
+	/* This should fail to returns a route because it is smaller than these
+	 * htlc_minimum_msat on the last channel. */
+	route = find_route(tmpctx, rstate, &a, &c, 1, riskfactor, 0.0, NULL, &fee);
 	assert(!route);
 
 	tal_free(tmpctx);
