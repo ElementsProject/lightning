@@ -110,7 +110,8 @@ static struct half_chan *
 get_or_make_connection(struct routing_state *rstate,
 		       const struct pubkey *from_id,
 		       const struct pubkey *to_id,
-		       const char *shortid)
+		       const char *shortid,
+		       const u64 satoshis)
 {
 	struct short_channel_id scid;
 	struct chan *chan;
@@ -123,6 +124,7 @@ get_or_make_connection(struct routing_state *rstate,
 
 	/* Make sure it's seen as initialized (update non-NULL). */
 	chan->half[pubkey_idx(from_id, to_id)].channel_update = (void *)chan;
+	chan->satoshis = satoshis;
 	return &chan->half[pubkey_idx(from_id, to_id)];
 }
 
@@ -169,7 +171,8 @@ int main(void)
 	rstate = new_routing_state(tmpctx, &zerohash, &a, 0);
 
 	/* [{'active': True, 'short_id': '6990:2:1/1', 'fee_per_kw': 10, 'delay': 5, 'flags': 1, 'destination': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'source': '02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06', 'last_update': 1504064344}, */
-	nc = get_or_make_connection(rstate, &c, &b, "6990:2:1");
+
+	nc = get_or_make_connection(rstate, &c, &b, "6990:2:1", 1000);
 	nc->base_fee = 0;
 	nc->proportional_fee = 10;
 	nc->delay = 5;
@@ -177,7 +180,7 @@ int main(void)
 	nc->last_timestamp = 1504064344;
 
 	/* {'active': True, 'short_id': '6989:2:1/0', 'fee_per_kw': 10, 'delay': 5, 'flags': 0, 'destination': '03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf', 'source': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'last_update': 1504064344}, */
-	nc = get_or_make_connection(rstate, &b, &a, "6989:2:1");
+	nc = get_or_make_connection(rstate, &b, &a, "6989:2:1", 1000);
 	nc->base_fee = 0;
 	nc->proportional_fee = 10;
 	nc->delay = 5;
@@ -185,7 +188,7 @@ int main(void)
 	nc->last_timestamp = 1504064344;
 
 	/* {'active': True, 'short_id': '6990:2:1/0', 'fee_per_kw': 10, 'delay': 5, 'flags': 0, 'destination': '02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06', 'source': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'last_update': 1504064344}, */
-	nc = get_or_make_connection(rstate, &b, &c, "6990:2:1");
+	nc = get_or_make_connection(rstate, &b, &c, "6990:2:1", 1000);
 	nc->base_fee = 0;
 	nc->proportional_fee = 10;
 	nc->delay = 5;
@@ -193,7 +196,7 @@ int main(void)
 	nc->last_timestamp = 1504064344;
 
 	/* {'active': True, 'short_id': '6989:2:1/1', 'fee_per_kw': 10, 'delay': 5, 'flags': 1, 'destination': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'source': '03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf', 'last_update': 1504064344}]} */
-	nc = get_or_make_connection(rstate, &a, &b, "6989:2:1");
+	nc = get_or_make_connection(rstate, &a, &b, "6989:2:1", 1000);
 	nc->base_fee = 0;
 	nc->proportional_fee = 10;
 	nc->delay = 5;
@@ -205,6 +208,16 @@ int main(void)
 	assert(tal_count(route) == 2);
 	assert(channel_is_between(route[0], &a, &b));
 	assert(channel_is_between(route[1], &b, &c));
+
+
+	/* We should not be able to find a route that exceeds our own capacity */
+	route = find_route(tmpctx, rstate, &a, &c, 1000001, riskfactor, 0.0, NULL, &fee);
+	assert(!route);
+
+	/* Now test with a query that exceeds the channel capacity after adding
+	 * some fees */
+	route = find_route(tmpctx, rstate, &a, &c, 999999, riskfactor, 0.0, NULL, &fee);
+	assert(!route);
 
 	tal_free(tmpctx);
 	secp256k1_context_destroy(secp256k1_ctx);

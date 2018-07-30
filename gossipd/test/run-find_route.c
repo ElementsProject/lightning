@@ -121,6 +121,8 @@ static void add_connection(struct routing_state *rstate,
 	if (!chan)
 		chan = new_chan(rstate, &scid, from, to);
 
+	chan->satoshis = 100000;
+
 	c = &chan->half[pubkey_idx(from, to)];
 	/* Make sure it's seen as initialized (update non-NULL). */
 	c->channel_update = (void *)c;
