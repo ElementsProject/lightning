@@ -158,6 +158,14 @@ bool json_tok_bool(const char *buffer, const jsmntok_t *tok, bool *b)
 	return false;
 }
 
+bool json_tok_sha256(const char *buffer, const jsmntok_t * tok,
+		     struct sha256 *hash)
+{
+	return hex_decode(buffer + tok->start,
+			  tok->end - tok->start,
+			  hash, sizeof(*hash));
+}
+
 bool json_tok_tok(const char *buffer, const jsmntok_t * tok,
 		  const jsmntok_t **out)
 {

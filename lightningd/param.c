@@ -57,6 +57,7 @@ static struct fail_format fail_formats[] = {
 	{json_tok_wtx,
 	 "'%s' should be 'all' or a positive integer greater than "
 	 "545, not '%.*s'"},
+	{json_tok_sha256, "'%s' should be a 32 byte hex value, not '%.*s'"},
 	{NULL, "'%s' of '%.*s' is invalid'"}
 };
 

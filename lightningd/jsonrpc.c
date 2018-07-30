@@ -96,23 +96,12 @@ static void json_rhash(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)
 {
 	struct json_result *response = new_json_result(cmd);
-	const jsmntok_t *secrettok;
 	struct sha256 secret;
 
 	if (!param(cmd, buffer, params,
-		   p_req("secret", json_tok_tok, &secrettok),
+		   p_req("secret", json_tok_sha256, &secret),
 		   NULL))
 		return;
-
-	if (!hex_decode(buffer + secrettok->start,
-			secrettok->end - secrettok->start,
-			&secret, sizeof(secret))) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%.*s' is not a valid 32-byte hex value",
-			     secrettok->end - secrettok->start,
-			     buffer + secrettok->start);
-		return;
-	}
 
 	/* Hash in place. */
 	sha256(&secret, &secret, sizeof(secret));

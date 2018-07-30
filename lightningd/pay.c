@@ -916,7 +916,7 @@ static void json_sendpay_on_resolve(const struct sendpay_result* r,
 static void json_sendpay(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
-	const jsmntok_t *routetok, *rhashtok, *desctok;
+	const jsmntok_t *routetok, *desctok;
 	const jsmntok_t *t, *end;
 	size_t n_hops;
 	struct sha256 rhash;
@@ -927,21 +927,11 @@ static void json_sendpay(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("route", json_tok_tok, &routetok),
-		   p_req("payment_hash", json_tok_tok, &rhashtok),
+		   p_req("payment_hash", json_tok_sha256, &rhash),
 		   p_opt("msatoshi", json_tok_u64, &msatoshi),
 		   p_opt_tok("description", &desctok),
 		   NULL))
 		return;
-
-	if (!hex_decode(buffer + rhashtok->start,
-			rhashtok->end - rhashtok->start,
-			&rhash, sizeof(rhash))) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%.*s' is not a valid sha256 hash",
-			     rhashtok->end - rhashtok->start,
-			     buffer + rhashtok->start);
-		return;
-	}
 
 	if (routetok->type != JSMN_ARRAY) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -1070,25 +1060,14 @@ static void waitsendpay_timeout(struct command *cmd)
 static void json_waitsendpay(struct command *cmd, const char *buffer,
 			     const jsmntok_t *params)
 {
-	const jsmntok_t *rhashtok;
 	struct sha256 rhash;
 	unsigned int *timeout;
 
 	if (!param(cmd, buffer, params,
-		   p_req("payment_hash", json_tok_tok, &rhashtok),
+		   p_req("payment_hash", json_tok_sha256, &rhash),
 		   p_opt("timeout", json_tok_number, &timeout),
 		   NULL))
 		return;
-
-	if (!hex_decode(buffer + rhashtok->start,
-			rhashtok->end - rhashtok->start,
-			&rhash, sizeof(rhash))) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%.*s' is not a valid sha256 hash",
-			     rhashtok->end - rhashtok->start,
-			     buffer + rhashtok->start);
-		return;
-	}
 
 	if (!wait_payment(cmd, cmd->ld, &rhash, &json_waitsendpay_on_resolve, cmd))
 		return;
