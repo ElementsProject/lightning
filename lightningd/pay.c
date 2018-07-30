@@ -402,6 +402,7 @@ static void report_routing_failure(struct log *log,
 		  type_to_string(tmpctx, struct short_channel_id,
 			  	 &fail->erring_channel),
 		  tal_hex(tmpctx, fail->channel_update));
+
 	gossip_msg = towire_gossip_routing_failure(tmpctx,
 						   &fail->erring_node,
 						   &fail->erring_channel,
