@@ -1022,7 +1022,7 @@ static void bitcoin_keypair(struct privkey *privkey,
 }
 
 static void display_mnemonic_word_list(void){
-	char **mnemonic_secret=NULL;
+	char *mnemonic_secret[24];
 	int ret = bip39_mnemonic_from_bytes(NULL,secretstuff.hsm_secret.data,32,mnemonic_secret);
     if (ret!=WALLY_OK){
     	status_info("HSM: convert hsm_secret to mnemonic seed failed. error code: %d",ret);
