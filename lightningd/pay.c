@@ -187,6 +187,27 @@ void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 	payment_trigger_success(ld, &hout->payment_hash);
 }
 
+/* Fix up the channel_update to include the type if it doesn't currently have
+ * one. See ElementsProject/lightning#1730 and lightningnetwork/lnd#1599 for the
+ * in-depth discussion on why we break message parsing here... */
+static u8 *patch_channel_update(const tal_t *ctx, u8 *channel_update TAKES)
+{
+	u8 *fixed;
+	if (channel_update != NULL &&
+	    fromwire_peektype(channel_update) != WIRE_CHANNEL_UPDATE) {
+		/* This should be a channel_update, prefix with the
+		 * WIRE_CHANNEL_UPDATE type, but isn't. Let's prefix it. */
+		fixed = tal_arr(ctx, u8, 0);
+		towire_u16(&fixed, WIRE_CHANNEL_UPDATE);
+		towire(&fixed, channel_update, tal_bytelen(channel_update));
+		if (taken(channel_update))
+			tal_free(channel_update);
+		return fixed;
+	} else {
+		return channel_update;
+	}
+}
+
 /* Return NULL if the wrapped onion error message has no
  * channel_update field, or return the embedded
  * channel_update message otherwise. */
@@ -217,9 +238,9 @@ static u8 *channel_update_from_onion_error(const tal_t *ctx,
 		    		      onion_message,
 				      &channel_update))
 		/* No channel update. */
-		channel_update = NULL;
+		return NULL;
 
-	return channel_update;
+	return patch_channel_update(ctx, take(channel_update));
 }
 
 /* Return a struct routing_failure for an immediate failure
