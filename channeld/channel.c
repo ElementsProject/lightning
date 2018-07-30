@@ -818,7 +818,7 @@ static u8 *foreign_channel_update(const tal_t *ctx,
 				  struct peer *peer,
 				  const struct short_channel_id *scid)
 {
-	u8 *msg, *update;
+	u8 *msg, *update, *channel_update;
 
 	msg = towire_gossip_get_update(NULL, scid);
 	msg = gossipd_wait_sync_reply(tmpctx, peer, take(msg),
@@ -826,7 +826,20 @@ static u8 *foreign_channel_update(const tal_t *ctx,
 	if (!fromwire_gossip_get_update_reply(ctx, msg, &update))
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Invalid update reply");
-	return update;
+
+	/* Strip the type from the channel_update. Due to the specification
+	 * being underspecified, some implementations skipped the type
+	 * prefix. Since we are in the minority we adapt (See #1730 and
+	 * lightningnetwork/lnd#1599 for details). */
+	if (update && fromwire_peektype(update) == WIRE_CHANNEL_UPDATE) {
+		assert(tal_bytelen(update) > 2);
+		channel_update = tal_arr(ctx, u8, 0);
+		towire(&channel_update, update + 2, tal_bytelen(update) - 2);
+		tal_free(update);
+		return channel_update;
+	} else {
+		return update;
+	}
 }
 
 static u8 *make_failmsg(const tal_t *ctx,
