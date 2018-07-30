@@ -22,6 +22,10 @@ in lightning-getroute(7), and defaults to 1.0.
 The 'maxfeepercent' limits the money paid in fees, and defaults to 0.5.
 The `maxfeepercent' is a percentage of the amount that is to be
 paid.
+The `exemptfee` option can be used for tiny payments which would be dominated by
+the fee leveraged by forwarding nodes. Setting `exemptfee` allows the
+`maxfeepercent` check to be skipped on fees that are smaller than `exemptfee`
+(default: 5000 millsatoshi).
 
 The *pay* RPC command will randomize routes slightly, as long as the
 route achieves the targeted 'maxfeepercent' and 'maxdelay'.
