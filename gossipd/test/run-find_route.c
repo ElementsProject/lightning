@@ -130,6 +130,7 @@ static void add_connection(struct routing_state *rstate,
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
 	c->flags = get_channel_direction(from, to);
+	c->htlc_minimum_msat = 0;
 }
 
 /* Returns chan connecting from and to: *idx set to refer

@@ -28,7 +28,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   to/from peers, instead of `gossipd` doing that itself.
 - Test: `python-xdist` is now a dependency for tests.
 - Logging: JSON connections no longer spam debug logs.
-
+- Routing: We no longer consider channels that are not usable either because of
+  their capacity or their `htlc_minimum_msat` parameter (#1777)
 ### Deprecated
 
 Note: You should always set `allow-deprecated-apis=false` to test for
@@ -84,7 +85,7 @@ changes.
 - JSON API: `getlog` result field `creation_time`.  Use `created_at`.
 - JSON API: `getpeers` result field `channel_reserve_satoshis`.  Use `their_channel_reserve_satoshis`.
 - JSON API: `getpeers` result field `to_self_delay`.  Use `their_to_self_delay`.
-  
+
 
 [Unreleased]: https://github.com/ElementsProject/lightning/compare/v0.6...HEAD
 [0.6]: https://github.com/ElementsProject/lightning/releases/tag/v0.6
