@@ -389,15 +389,21 @@ static void bfg_one_edge(struct node *node,
 		/* FIXME: Bias against smaller channels. */
 		u64 fee;
 		u64 risk;
+		u64 requiredcap;
 
 		if (node->bfg[h].total == INFINITE)
 			continue;
 
 		fee = connection_fee(c, node->bfg[h].total) * fee_scale;
-		risk = node->bfg[h].risk + risk_fee(node->bfg[h].total + fee,
-						    c->delay, riskfactor);
+		requiredcap = node->bfg[h].total + fee;
+		risk = node->bfg[h].risk +
+		       risk_fee(requiredcap, c->delay, riskfactor);
 
-		if (node->bfg[h].total + fee + risk >= MAX_MSATOSHI) {
+		if (requiredcap > chan->satoshis * 1000) {
+			/* Skip this edge if the channel has insufficient
+			 * capacity to route the required amount */
+			continue;
+		} else if (requiredcap + risk >= MAX_MSATOSHI) {
 			SUPERVERBOSE("...extreme %"PRIu64
 				     " + fee %"PRIu64
 				     " + risk %"PRIu64" ignored",
@@ -407,13 +413,13 @@ static void bfg_one_edge(struct node *node,
 
 		/* nodes[0] is src for connections[0] */
 		src = chan->nodes[idx];
-		if (node->bfg[h].total + fee + risk
-		    < src->bfg[h+1].total + src->bfg[h+1].risk) {
+		if (requiredcap + risk <
+		    src->bfg[h + 1].total + src->bfg[h + 1].risk) {
 			SUPERVERBOSE("...%s can reach here in hoplen %zu total %"PRIu64,
 				     type_to_string(trc, struct pubkey,
 						    &src->id),
 				     h, node->bfg[h].total + fee);
-			src->bfg[h+1].total = node->bfg[h].total + fee;
+			src->bfg[h+1].total = requiredcap;
 			src->bfg[h+1].risk = risk;
 			src->bfg[h+1].prev = chan;
 		}
