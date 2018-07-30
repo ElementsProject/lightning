@@ -297,7 +297,8 @@ remote_routing_failure(const tal_t *ctx,
 		       bool *p_retry_plausible,
 		       bool *p_report_to_gossipd,
 		       const struct wallet_payment *payment,
-		       const struct onionreply *failure)
+		       const struct onionreply *failure,
+		       struct log *log)
 {
 	enum onion_type failcode = fromwire_peektype(failure->msg);
 	u8 *channel_update;
@@ -318,6 +319,11 @@ remote_routing_failure(const tal_t *ctx,
 	channel_update
 		= channel_update_from_onion_error(routing_failure,
 						  failure->msg);
+	if (channel_update)
+		log_debug(log, "Extracted channel_update %s from onionreply %s",
+			  tal_hex(tmpctx, channel_update),
+			  tal_hex(tmpctx, failure->msg));
+
 	retry_plausible = true;
 	report_to_gossipd = true;
 
@@ -521,7 +527,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 			fail = remote_routing_failure(tmpctx,
 						      &retry_plausible,
 						      &report_to_gossipd,
-						      payment, reply);
+						      payment, reply,
+						      hout->key.channel->log);
 		}
 	}
 

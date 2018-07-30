@@ -53,6 +53,8 @@ changes.
 - Fixed crash when shutting down during opening a channel (#1737)
 - Don't lose track of our own output when applying penalty transaction (#1738)
 - Protocol: `channel_update` inside error messages now refers to correct channel.
+- Stripping type prefix from `channel_update`s that are nested in an onion reply
+  to be compatible with eclair and lnd (#1730).
 
 ### Security
 
@@ -84,7 +86,7 @@ changes.
 - JSON API: `getlog` result field `creation_time`.  Use `created_at`.
 - JSON API: `getpeers` result field `channel_reserve_satoshis`.  Use `their_channel_reserve_satoshis`.
 - JSON API: `getpeers` result field `to_self_delay`.  Use `their_to_self_delay`.
-  
+
 
 [Unreleased]: https://github.com/ElementsProject/lightning/compare/v0.6...HEAD
 [0.6]: https://github.com/ElementsProject/lightning/releases/tag/v0.6
