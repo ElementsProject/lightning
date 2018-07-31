@@ -67,6 +67,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/lightningd.c			\
 	lightningd/log.c			\
 	lightningd/log_status.c			\
+	lightningd/status.c			\
 	lightningd/onchain_control.c		\
 	lightningd/opening_control.c		\
 	lightningd/options.c			\

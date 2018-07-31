@@ -10,5 +10,7 @@ enum lightningd_status {
 	LIGHTNINGD_STATUS_SYNCING
 };
 
+const char *lightningd_status_to_str(enum lightningd_status status);
+
 #endif /* LIGHTNING_LIGHTNINGD_STATUS_H */
 
