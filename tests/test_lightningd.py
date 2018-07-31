@@ -7,6 +7,7 @@ from utils import wait_for
 import copy
 import json
 import logging
+import pytest
 import queue
 import os
 import random
@@ -5063,6 +5064,29 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('Forgetting channel: It has been {} blocks'.format(blocks))
         # fundee will also forget and disconnect from peer.
         assert len(l2.rpc.listpeers(l1.info['id'])['peers']) == 0
+
+    @pytest.mark.xfail(strict=True)
+    def test_reserve_enforcement(self):
+        """Channeld should disallow you spending into your reserve"""
+        l1, l2 = self.connect(may_reconnect=True)
+
+        self.fund_channel(l1, l2, 10**6)
+        # Pay 1000 satoshi to l2.
+        self.pay(l1, l2, 1000000)
+
+        l2.stop()
+
+        # Edit db to reduce reserve to 0 so it will try to violate it.
+        l2.db_query('UPDATE channel_configs SET channel_reserve_satoshis=0',
+                    use_copy=False)
+
+        l2.start()
+        wait_for(lambda: only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
+
+        # This should be impossible to pay entire thing back: l1 should
+        # kill us for trying to violate reserve.
+        self.pay(l2, l1, 1000000, async=True)
+        l1.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: sent ERROR Bad peer_add_htlc: CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED')
 
 
 if __name__ == '__main__':
