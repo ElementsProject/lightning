@@ -92,6 +92,7 @@ ALL_OBJS += $(LIGHTNINGD_OBJS)
 LIGHTNINGD_HEADERS_NOGEN =			\
 	$(LIGHTNINGD_SRC:.c=.h)			\
 	lightningd/channel_state.h			\
+	lightningd/status.h			\
 	lightningd/jsonrpc_errors.h
 
 # Generated headers
