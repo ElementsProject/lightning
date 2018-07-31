@@ -353,6 +353,9 @@ static void updates_complete(struct chain_topology *topo)
 		topo->prev_tip = topo->tip;
 	}
 
+	/* We're done syncing, update our status */
+	topo->status = TOPOLOGY_AT_TIP;
+
 	/* Try again soon. */
 	next_topology_timer(topo);
 }
@@ -422,6 +425,9 @@ static struct block *new_block(struct chain_topology *topo,
 	log_debug(topo->log, "Adding block %u: %s",
 		  height,
 		  type_to_string(tmpctx, struct bitcoin_blkid, &b->blkid));
+
+	topo->status = TOPOLOGY_SYNCING;
+
 	assert(!block_map_get(&topo->block_map, &b->blkid));
 	b->next = NULL;
 	b->prev = NULL;
@@ -500,6 +506,7 @@ static void init_topo(struct bitcoind *bitcoind UNUSED,
 	topo->root = new_block(topo, blk, topo->max_blockheight);
 	block_map_add(&topo->block_map, topo->root);
 	topo->tip = topo->prev_tip = topo->root;
+	topo->status = TOPOLOGY_INITIALIZING;
 
 	/* In case we don't get all the way to updates_complete */
 	db_set_intvar(topo->bitcoind->ld->wallet->db,
