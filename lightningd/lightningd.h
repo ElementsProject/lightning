@@ -203,6 +203,9 @@ struct lightningd {
 	bool use_proxy_always;
 	char *tor_service_password;
 	bool pure_tor_setup;
+
+	/* lightningd status flags */
+	int status;
 };
 
 const struct chainparams *get_chainparams(const struct lightningd *ld);

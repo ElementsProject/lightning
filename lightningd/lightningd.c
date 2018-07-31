@@ -90,6 +90,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->pure_tor_setup = false;
 	ld->tor_service_password = NULL;
 	ld->max_funding_unconfirmed = 2016;
+	ld->status = 0;
 
 	return ld;
 }
@@ -412,7 +413,8 @@ int main(int argc, char *argv[])
 	db_commit_transaction(ld->wallet->db);
 
 	/* Initialize block topology (does its own transaction) */
-	setup_topology(ld->topology, &ld->timers, min_blockheight, max_blockheight);
+	setup_topology(ld->topology, &ld->timers, min_blockheight,
+		       max_blockheight, &ld->status);
 
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(ld, ld->rpc_filename);

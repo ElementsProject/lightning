@@ -8,6 +8,7 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/time/time.h>
 #include <jsmn.h>
+#include <lightningd/status.h>
 #include <lightningd/watch.h>
 #include <math.h>
 #include <stddef.h>
@@ -116,6 +117,9 @@ struct chain_topology {
 	/* Force a particular fee rate regardless of estimatefee (satoshis/kw) */
 	u32 *dev_override_fee_rate;
 #endif
+
+	/* lightningd's status so we can update it when we're done syncing */
+	int *lightningd_status;
 };
 
 /* Information relevant to locating a TX in a blockchain. */
@@ -149,7 +153,8 @@ void broadcast_tx(struct chain_topology *topo,
 
 struct chain_topology *new_topology(struct lightningd *ld, struct log *log);
 void setup_topology(struct chain_topology *topology, struct timers *timers,
-		    u32 min_blockheight, u32 max_blockheight);
+		    u32 min_blockheight, u32 max_blockheight,
+		    int *lightningd_status);
 
 void begin_topology(struct chain_topology *topo);
 
