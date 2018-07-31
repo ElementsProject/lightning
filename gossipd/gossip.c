@@ -1860,10 +1860,6 @@ static void gossip_disable_outgoing_halfchan(struct daemon *daemon,
 		    "Unable to parse previously accepted channel_update");
 	}
 
-	timestamp = time_now().ts.tv_sec;
-	if (timestamp <= hc->last_timestamp)
-		timestamp = hc->last_timestamp + 1;
-
 	local_update->disable = true;
 
 	queue_local_update(daemon, local_update);
