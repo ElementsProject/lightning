@@ -121,6 +121,7 @@ gossip_send_gossip,,gossip,len*u8
 gossip_local_add_channel,3017
 gossip_local_add_channel,,short_channel_id,struct short_channel_id
 gossip_local_add_channel,,remote_node_id,struct pubkey
+gossip_local_add_channel,,satoshis,u64
 
 gossip_local_channel_update,3026
 gossip_local_channel_update,,short_channel_id,struct short_channel_id

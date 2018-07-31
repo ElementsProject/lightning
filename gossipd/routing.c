@@ -1669,9 +1669,13 @@ void handle_local_add_channel(struct routing_state *rstate, const u8 *msg)
 {
 	struct short_channel_id scid;
 	struct pubkey remote_node_id;
+	struct chan *chan;
+	u64 satoshis;
 
-	if (!fromwire_gossip_local_add_channel(msg, &scid, &remote_node_id)) {
-		status_broken("Unable to parse local_add_channel message: %s", tal_hex(msg, msg));
+	if (!fromwire_gossip_local_add_channel(msg, &scid, &remote_node_id,
+					       &satoshis)) {
+		status_broken("Unable to parse local_add_channel message: %s",
+			      tal_hex(msg, msg));
 		return;
 	}
 
@@ -1685,5 +1689,6 @@ void handle_local_add_channel(struct routing_state *rstate, const u8 *msg)
 		     type_to_string(tmpctx, struct short_channel_id, &scid));
 
 	/* Create new (unannounced) channel */
-	new_chan(rstate, &scid, &rstate->local_id, &remote_node_id);
+	chan = new_chan(rstate, &scid, &rstate->local_id, &remote_node_id);
+	chan->satoshis = satoshis;
 }
