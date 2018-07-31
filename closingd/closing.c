@@ -140,7 +140,6 @@ static void do_reconnect(struct crypto_state *cs,
 static void send_offer(struct crypto_state *cs,
 		       const struct channel_id *channel_id,
 		       const struct pubkey funding_pubkey[NUM_SIDES],
-		       const u8 *funding_wscript,
 		       u8 *scriptpubkey[NUM_SIDES],
 		       const struct bitcoin_txid *funding_txid,
 		       unsigned int funding_txout,
@@ -487,7 +486,6 @@ int main(int argc, char *argv[])
 		if (whose_turn == LOCAL) {
 			send_offer(&cs,
 				   &channel_id, funding_pubkey,
-				   funding_wscript,
 				   scriptpubkey, &funding_txid, funding_txout,
 				   funding_satoshi, satoshi_out, funder,
 				   our_dust_limit,
@@ -533,7 +531,6 @@ int main(int argc, char *argv[])
 						    min_fee_to_accept);
 			send_offer(&cs, &channel_id,
 				   funding_pubkey,
-				   funding_wscript,
 				   scriptpubkey, &funding_txid, funding_txout,
 				   funding_satoshi, satoshi_out, funder,
 				   our_dust_limit,
