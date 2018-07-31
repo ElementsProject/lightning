@@ -7,5 +7,7 @@
 
 #define LIGHTNINGD_STATUS_SYNCING (1 << 0)
 
+const char *lightningd_status_to_str(int status);
+
 #endif /* LIGHTNING_LIGHTNINGD_STATUS_H */
 
