@@ -706,10 +706,12 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 
 void setup_topology(struct chain_topology *topo,
 		    struct timers *timers,
-		    u32 min_blockheight, u32 max_blockheight)
+		    u32 min_blockheight, u32 max_blockheight,
+		    enum lightningd_status *lightningd_status)
 {
 	memset(&topo->feerate, 0, sizeof(topo->feerate));
 	topo->timers = timers;
+	topo->lightningd_status = lightningd_status;
 
 	topo->min_blockheight = min_blockheight;
 	topo->max_blockheight = max_blockheight;
