@@ -710,9 +710,9 @@ bool sqlite3_bind_short_channel_id(sqlite3_stmt *stmt, int col,
 				   const struct short_channel_id *id)
 {
 	char *ser = short_channel_id_to_str(id, id);
-	sqlite3_bind_blob(stmt, col, ser, strlen(ser), SQLITE_TRANSIENT);
+	int err = sqlite3_bind_blob(stmt, col, ser, strlen(ser), SQLITE_TRANSIENT);
 	tal_free(ser);
-	return true;
+	return err == SQLITE_OK;
 }
 
 bool sqlite3_column_short_channel_id(sqlite3_stmt *stmt, int col,
@@ -731,8 +731,8 @@ bool sqlite3_bind_short_channel_id_array(sqlite3_stmt *stmt, int col,
 
 	/* Handle nulls early. */
 	if (!id) {
-		sqlite3_bind_null(stmt, col);
-		return true;
+		int err = sqlite3_bind_null(stmt, col);
+		return err == SQLITE_OK;
 	}
 
 	ser = tal_arr(NULL, u8, 0);
@@ -741,10 +741,10 @@ bool sqlite3_bind_short_channel_id_array(sqlite3_stmt *stmt, int col,
 	for (i = 0; i < num; ++i)
 		towire_short_channel_id(&ser, &id[i]);
 
-	sqlite3_bind_blob(stmt, col, ser, tal_count(ser), SQLITE_TRANSIENT);
+	int err = sqlite3_bind_blob(stmt, col, ser, tal_count(ser), SQLITE_TRANSIENT);
 
 	tal_free(ser);
-	return true;
+	return err == SQLITE_OK;
 }
 struct short_channel_id *
 sqlite3_column_short_channel_id_array(const tal_t *ctx,
@@ -776,9 +776,9 @@ sqlite3_column_short_channel_id_array(const tal_t *ctx,
 bool sqlite3_bind_tx(sqlite3_stmt *stmt, int col, const struct bitcoin_tx *tx)
 {
 	u8 *ser = linearize_tx(NULL, tx);
-	sqlite3_bind_blob(stmt, col, ser, tal_count(ser), SQLITE_TRANSIENT);
+	int err = sqlite3_bind_blob(stmt, col, ser, tal_count(ser), SQLITE_TRANSIENT);
 	tal_free(ser);
-	return true;
+	return err == SQLITE_OK;
 }
 
 struct bitcoin_tx *sqlite3_column_tx(const tal_t *ctx, sqlite3_stmt *stmt,
@@ -795,8 +795,8 @@ bool sqlite3_bind_signature(sqlite3_stmt *stmt, int col,
 	u8 buf[64];
 	ok = secp256k1_ecdsa_signature_serialize_compact(secp256k1_ctx, buf,
 							 sig) == 1;
-	sqlite3_bind_blob(stmt, col, buf, sizeof(buf), SQLITE_TRANSIENT);
-	return ok;
+	int err = sqlite3_bind_blob(stmt, col, buf, sizeof(buf), SQLITE_TRANSIENT);
+	return ok && err == SQLITE_OK;
 }
 
 bool sqlite3_column_signature(sqlite3_stmt *stmt, int col,
@@ -817,8 +817,8 @@ bool sqlite3_bind_pubkey(sqlite3_stmt *stmt, int col, const struct pubkey *pk)
 {
 	u8 der[PUBKEY_DER_LEN];
 	pubkey_to_der(der, pk);
-	sqlite3_bind_blob(stmt, col, der, sizeof(der), SQLITE_TRANSIENT);
-	return true;
+	int err = sqlite3_bind_blob(stmt, col, der, sizeof(der), SQLITE_TRANSIENT);
+	return err == SQLITE_OK;
 }
 
 bool sqlite3_bind_pubkey_array(sqlite3_stmt *stmt, int col,
@@ -829,8 +829,8 @@ bool sqlite3_bind_pubkey_array(sqlite3_stmt *stmt, int col,
 	u8 *ders;
 
 	if (!pks) {
-		sqlite3_bind_null(stmt, col);
-		return true;
+		int err = sqlite3_bind_null(stmt, col);
+		return err == SQLITE_OK;
 	}
 
 	n = tal_count(pks);
@@ -838,10 +838,10 @@ bool sqlite3_bind_pubkey_array(sqlite3_stmt *stmt, int col,
 
 	for (i = 0; i < n; ++i)
 		pubkey_to_der(&ders[i * PUBKEY_DER_LEN], &pks[i]);
-	sqlite3_bind_blob(stmt, col, ders, tal_count(ders), SQLITE_TRANSIENT);
+	int err = sqlite3_bind_blob(stmt, col, ders, tal_count(ders), SQLITE_TRANSIENT);
 
 	tal_free(ders);
-	return true;
+	return err == SQLITE_OK;
 }
 struct pubkey *sqlite3_column_pubkey_array(const tal_t *ctx,
 					   sqlite3_stmt *stmt, int col)
@@ -875,8 +875,8 @@ bool sqlite3_column_preimage(sqlite3_stmt *stmt, int col,  struct preimage *dest
 
 bool sqlite3_bind_preimage(sqlite3_stmt *stmt, int col, const struct preimage *p)
 {
-	sqlite3_bind_blob(stmt, col, p, sizeof(struct preimage), SQLITE_TRANSIENT);
-	return true;
+	int err = sqlite3_bind_blob(stmt, col, p, sizeof(struct preimage), SQLITE_TRANSIENT);
+	return err == SQLITE_OK;
 }
 
 bool sqlite3_column_sha256(sqlite3_stmt *stmt, int col,  struct sha256 *dest)
@@ -887,8 +887,8 @@ bool sqlite3_column_sha256(sqlite3_stmt *stmt, int col,  struct sha256 *dest)
 
 bool sqlite3_bind_sha256(sqlite3_stmt *stmt, int col, const struct sha256 *p)
 {
-	sqlite3_bind_blob(stmt, col, p, sizeof(struct sha256), SQLITE_TRANSIENT);
-	return true;
+	int err = sqlite3_bind_blob(stmt, col, p, sizeof(struct sha256), SQLITE_TRANSIENT);
+	return err == SQLITE_OK;
 }
 
 bool sqlite3_column_sha256_double(sqlite3_stmt *stmt, int col,  struct sha256_double *dest)
@@ -905,8 +905,8 @@ struct secret *sqlite3_column_secrets(const tal_t *ctx,
 
 bool sqlite3_bind_sha256_double(sqlite3_stmt *stmt, int col, const struct sha256_double *p)
 {
-	sqlite3_bind_blob(stmt, col, p, sizeof(struct sha256_double), SQLITE_TRANSIENT);
-	return true;
+	int err = sqlite3_bind_blob(stmt, col, p, sizeof(struct sha256_double), SQLITE_TRANSIENT);
+	return err == SQLITE_OK;
 }
 
 struct json_escaped *sqlite3_column_json_escaped(const tal_t *ctx,
@@ -920,6 +920,6 @@ struct json_escaped *sqlite3_column_json_escaped(const tal_t *ctx,
 bool sqlite3_bind_json_escaped(sqlite3_stmt *stmt, int col,
 			       const struct json_escaped *esc)
 {
-	sqlite3_bind_text(stmt, col, esc->s, strlen(esc->s), SQLITE_TRANSIENT);
-	return true;
+	int err = sqlite3_bind_text(stmt, col, esc->s, strlen(esc->s), SQLITE_TRANSIENT);
+	return err == SQLITE_OK;
 }
