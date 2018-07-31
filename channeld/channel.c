@@ -275,7 +275,8 @@ static void make_channel_local_active(struct peer *peer)
 	/* Tell gossipd about local channel. */
 	msg = towire_gossip_local_add_channel(NULL,
 					      &peer->short_channel_ids[LOCAL],
-					      &peer->node_ids[REMOTE]);
+					      &peer->node_ids[REMOTE],
+					      peer->channel->funding_msat / 1000);
  	wire_sync_write(GOSSIP_FD, take(msg));
 
 	/* Tell gossipd and the other side what parameters we expect should
