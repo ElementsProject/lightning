@@ -431,12 +431,17 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 		return true;
 	}
 
+	splitport = port;
+	if (!separate_address_and_port(tmpctx, arg, &ip, &splitport)) {
+		if (err_msg) {
+			*err_msg = "Error parsing hostname";
+		}
+		return false;
+	}
+
 	/* An empty string means IPv4 and IPv6 (which under Linux by default
 	 * means just IPv6, and IPv4 gets autobound). */
-	splitport = port;
-	if (wildcard_ok
-	    && separate_address_and_port(tmpctx, arg, &ip, &splitport)
-	    && streq(ip, "")) {
+	if (wildcard_ok && streq(ip, "")) {
 		addr->itype = ADDR_INTERNAL_ALLPROTO;
 		addr->u.port = splitport;
 		return true;
