@@ -361,9 +361,7 @@ static void init_feerange(struct feerange *feerange,
 		     feerange->higher_side == LOCAL ? "local" : "remote");
 }
 
-static void adjust_feerange(struct crypto_state *cs,
-			    const struct channel_id *channel_id,
-			    struct feerange *feerange,
+static void adjust_feerange(struct feerange *feerange,
 			    u64 offer, enum side side)
 {
 	/* BOLT #2:
@@ -515,13 +513,12 @@ int main(int argc, char *argv[])
 	init_feerange(&feerange, commitment_fee, offer);
 
 	/* Apply (and check) funder offer now. */
-	adjust_feerange(&cs, &channel_id, &feerange, offer[funder], funder);
+	adjust_feerange(&feerange, offer[funder], funder);
 
 	/* Now any extra rounds required. */
 	while (offer[LOCAL] != offer[REMOTE]) {
 		/* Still don't agree: adjust feerange based on previous offer */
-		adjust_feerange(&cs, &channel_id,
-				&feerange,
+		adjust_feerange(&feerange,
 				offer[!whose_turn], !whose_turn);
 
 		if (whose_turn == LOCAL) {
