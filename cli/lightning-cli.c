@@ -232,7 +232,7 @@ int main(int argc, char *argv[])
 	 * not need to have lightningd running in this case. */
 	if (streq(method, "help") && format == HUMAN && argc >= 3) {
 		char command[strlen(argv[2]) + sizeof("lightning-")];
-		sprintf(command, "lightning-%s", argv[2]);
+		snprintf(command, sizeof(command), "lightning-%s", argv[2]);
 		exec_man(command);
 	}
 

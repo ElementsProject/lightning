@@ -89,7 +89,7 @@ static struct json_escaped *escape(const tal_t *ctx,
 			break;
 		default:
 			if ((unsigned)str[i] < ' ' || str[i] == 127) {
-				sprintf(esc->s + n, "\\u%04X", str[i]);
+				snprintf(esc->s + n, 7, "\\u%04X", str[i]);
 				n += 5;
 				continue;
 			}

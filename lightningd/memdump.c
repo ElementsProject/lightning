@@ -15,7 +15,7 @@ static void json_add_ptr(struct json_result *response, const char *name,
 			 const void *ptr)
 {
 	char ptrstr[STR_MAX_CHARS(void *)];
-	sprintf(ptrstr, "%p", ptr);
+	snprintf(ptrstr, sizeof(ptrstr), "%p", ptr);
 	json_add_string(response, name, ptrstr);
 }
 
