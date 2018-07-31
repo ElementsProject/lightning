@@ -197,7 +197,7 @@ static struct peer *find_peer(struct daemon *daemon, const struct pubkey *id)
 
 static u8 *encode_short_channel_ids_start(const tal_t *ctx)
 {
-	u8 *encoded = tal_arr(tmpctx, u8, 0);
+	u8 *encoded = tal_arr(ctx, u8, 0);
 	towire_u8(&encoded, SHORTIDS_ZLIB);
 	return encoded;
 }
