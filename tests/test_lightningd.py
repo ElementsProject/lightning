@@ -7,7 +7,6 @@ from utils import wait_for
 import copy
 import json
 import logging
-import pytest
 import queue
 import os
 import random
@@ -5114,7 +5113,6 @@ class LightningDTests(BaseLightningDTests):
         # fundee will also forget and disconnect from peer.
         assert len(l2.rpc.listpeers(l1.info['id'])['peers']) == 0
 
-    @pytest.mark.xfail(strict=True)
     def test_reserve_enforcement(self):
         """Channeld should disallow you spending into your reserve"""
         l1, l2 = self.connect(may_reconnect=True)
@@ -5124,6 +5122,9 @@ class LightningDTests(BaseLightningDTests):
         self.pay(l1, l2, 1000000)
 
         l2.stop()
+
+        # They should both aim for 1%.
+        assert l2.db_query('SELECT channel_reserve_satoshis FROM channel_configs') == [{'channel_reserve_satoshis': 10**6 // 100}, {'channel_reserve_satoshis': 10**6 // 100}]
 
         # Edit db to reduce reserve to 0 so it will try to violate it.
         l2.db_query('UPDATE channel_configs SET channel_reserve_satoshis=0',

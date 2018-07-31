@@ -314,7 +314,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					   &fc->uc->minimum_depth,
 					   &channel_info.remote_fundingkey,
 					   &expected_txid,
-					   &feerate)) {
+					   &feerate,
+					   &fc->uc->our_config.channel_reserve_satoshis)) {
 		log_broken(fc->uc->log,
 			   "bad OPENING_FUNDER_REPLY %s",
 			   tal_hex(resp, resp));
@@ -502,7 +503,8 @@ static void opening_fundee_finished(struct subd *openingd,
 					   &push_msat,
 					   &channel_flags,
 					   &feerate,
-					   &funding_signed)) {
+					   &funding_signed,
+					   &uc->our_config.channel_reserve_satoshis)) {
 		log_broken(uc->log, "bad OPENING_FUNDEE_REPLY %s",
 			   tal_hex(reply, reply));
 		tal_free(uc);
@@ -674,8 +676,8 @@ static void channel_config(struct lightningd *ld,
 	 ours->max_accepted_htlcs = 483;
 
 	 /* This is filled in by lightning_openingd, for consistency. */
-	 ours->channel_reserve_satoshis = 0;
-};
+	 ours->channel_reserve_satoshis = -1;
+}
 
 /* Peer has spontaneously exited from connectd due to open msg.  Return
  * NULL if we took over, otherwise hand back to connectd with this

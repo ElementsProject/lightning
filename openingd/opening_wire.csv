@@ -44,6 +44,7 @@ opening_funder_reply,,minimum_depth,u32
 opening_funder_reply,,remote_fundingkey,struct pubkey
 opening_funder_reply,,funding_txid,struct bitcoin_txid
 opening_funder_reply,,feerate_per_kw,u32
+opening_funder_reply,,our_channel_reserve_satoshis,u64
 
 # This means they offer the open (contains their offer packet)
 opening_fundee,6003
@@ -74,3 +75,4 @@ opening_fundee_reply,,feerate_per_kw,u32
 # The (encrypted) funding signed message: send this and we're committed.
 opening_fundee_reply,,msglen,u16
 opening_fundee_reply,,funding_signed_msg,msglen*u8
+opening_fundee_reply,,our_channel_reserve_satoshis,u64

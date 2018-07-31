@@ -544,7 +544,8 @@ static u8 *funder_channel(struct state *state,
 					   minimum_depth,
 					   &their_funding_pubkey,
 					   &state->funding_txid,
-					   state->feerate_per_kw);
+					   state->feerate_per_kw,
+					   state->localconf.channel_reserve_satoshis);
 }
 
 /* This is handed the message the peer sent which caused gossip to stop:
@@ -819,7 +820,8 @@ static u8 *fundee_channel(struct state *state,
 					   state->push_msat,
 					   channel_flags,
 					   state->feerate_per_kw,
-					   msg);
+					   msg,
+					   state->localconf.channel_reserve_satoshis);
 }
 
 #ifndef TESTING
