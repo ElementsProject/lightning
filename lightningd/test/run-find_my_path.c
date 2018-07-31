@@ -105,7 +105,8 @@ void setup_jsonrpc(struct lightningd *ld UNNEEDED, const char *rpc_filename UNNE
 { fprintf(stderr, "setup_jsonrpc called!\n"); abort(); }
 /* Generated stub for setup_topology */
 void setup_topology(struct chain_topology *topology UNNEEDED, struct timers *timers UNNEEDED,
-		    u32 min_blockheight UNNEEDED, u32 max_blockheight UNNEEDED)
+		    u32 min_blockheight UNNEEDED, u32 max_blockheight UNNEEDED,
+		    int *lightningd_status UNNEEDED)
 { fprintf(stderr, "setup_topology called!\n"); abort(); }
 /* Generated stub for subd_shutdown */
 void subd_shutdown(struct subd *subd UNNEEDED, unsigned int seconds UNNEEDED)

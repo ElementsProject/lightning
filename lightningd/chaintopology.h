@@ -153,7 +153,8 @@ void broadcast_tx(struct chain_topology *topo,
 
 struct chain_topology *new_topology(struct lightningd *ld, struct log *log);
 void setup_topology(struct chain_topology *topology, struct timers *timers,
-		    u32 min_blockheight, u32 max_blockheight);
+		    u32 min_blockheight, u32 max_blockheight,
+		    int *lightningd_status);
 
 void begin_topology(struct chain_topology *topo);
 
