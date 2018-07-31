@@ -1,0 +1,14 @@
+
+
+#ifndef LIGHTNING_LIGHTNINGD_STATUS_H
+#define LIGHTNING_LIGHTNINGD_STATUS_H
+
+#include "config.h"
+
+enum lightningd_status {
+	LIGHTNINGD_STATUS_READY,
+	LIGHTNINGD_STATUS_SYNCING
+};
+
+#endif /* LIGHTNING_LIGHTNINGD_STATUS_H */
+

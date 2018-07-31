@@ -90,6 +90,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->pure_tor_setup = false;
 	ld->tor_service_password = NULL;
 	ld->max_funding_unconfirmed = 2016;
+	ld->status = LIGHTNINGD_STATUS_READY;
 
 	return ld;
 }

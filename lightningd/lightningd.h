@@ -8,6 +8,7 @@
 #include <ccan/timer/timer.h>
 #include <common/json_escaped.h>
 #include <lightningd/htlc_end.h>
+#include <lightningd/status.h>
 #include <stdio.h>
 #include <wallet/txfilter.h>
 #include <wallet/wallet.h>
@@ -203,6 +204,8 @@ struct lightningd {
 	bool use_proxy_always;
 	char *tor_service_password;
 	bool pure_tor_setup;
+
+	enum lightningd_status status;
 };
 
 const struct chainparams *get_chainparams(const struct lightningd *ld);
