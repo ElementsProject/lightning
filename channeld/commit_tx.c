@@ -140,7 +140,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 #ifdef PRINT_ACTUAL_FEE
 	{
 		u64 satoshis_out = 0;
-		for (i = n = 0; i < tal_count(htlcs); i++) {
+		for (i = 0; i < tal_count(htlcs); i++) {
 			if (!trim(htlcs[i], feerate_per_kw, dust_limit_satoshis,
 				  side))
 				satoshis_out += htlcs[i]->msatoshi / 1000;
