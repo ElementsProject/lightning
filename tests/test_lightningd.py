@@ -4939,6 +4939,20 @@ class LightningDTests(BaseLightningDTests):
         assert l1.rpc.listnodes()['nodes'] == []
         assert l2.rpc.listnodes()['nodes'] == []
 
+    def test_sync_status(self):
+        "Make sure the status says syncing when we're adding blocks"
+        l1 = self.node_factory.get_node(random_hsm=True)
+
+        status = l1.rpc.getinfo()['status']
+
+        # this could be either, let's not get flaky
+        assert status in ["initializing", "syncing"]
+
+        height = bitcoind.rpc.getblockcount()
+
+        wait_for(lambda: l1.rpc.getinfo()['blockheight'] == height)
+        assert "ready" == l1.rpc.getinfo()['status']
+
     @flaky
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_blockchaintrack(self):
