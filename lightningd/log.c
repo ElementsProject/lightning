@@ -360,12 +360,12 @@ static void log_one_line(unsigned int skipped,
 	char buf[101];
 
 	if (skipped) {
-		sprintf(buf, "%s... %u skipped...", data->prefix, skipped);
+		snprintf(buf, sizeof(buf), "%s... %u skipped...", data->prefix, skipped);
 		write_all(data->fd, buf, strlen(buf));
 		data->prefix = "\n";
 	}
 
-	sprintf(buf, "%s+%lu.%09u %s%s: ",
+	snprintf(buf, sizeof(buf), "%s+%lu.%09u %s%s: ",
 		data->prefix,
 		(unsigned long)diff.ts.tv_sec,
 		(unsigned)diff.ts.tv_nsec,
@@ -501,7 +501,7 @@ static void log_dump_to_file(int fd, const struct log_book *lr)
 	}
 
 	start = lr->init_time.ts.tv_sec;
-	len = sprintf(buf, "%zu bytes, %s", lr->mem_used, ctime(&start));
+	len = snprintf(buf, sizeof(buf), "%zu bytes, %s", lr->mem_used, ctime(&start));
 	write_all(fd, buf, len);
 
 	/* ctime includes \n... WTF? */
@@ -579,7 +579,7 @@ static void json_add_time(struct json_result *result, const char *fieldname,
 {
 	char timebuf[100];
 
-	sprintf(timebuf, "%lu.%09u",
+	snprintf(timebuf, sizeof(timebuf), "%lu.%09u",
 		(unsigned long)ts.tv_sec,
 		(unsigned)ts.tv_nsec);
 	json_add_string(result, fieldname, timebuf);

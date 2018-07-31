@@ -1082,7 +1082,7 @@ const char *channel_add_err_name(enum channel_add_err e)
 		if (enum_channel_add_err_names[i].v == e)
 			return enum_channel_add_err_names[i].name;
 	}
-	sprintf(invalidbuf, "INVALID %i", e);
+	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
 	return invalidbuf;
 }
 
@@ -1094,6 +1094,6 @@ const char *channel_remove_err_name(enum channel_remove_err e)
 		if (enum_channel_remove_err_names[i].v == e)
 			return enum_channel_remove_err_names[i].name;
 	}
-	sprintf(invalidbuf, "INVALID %i", e);
+	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
 	return invalidbuf;
 }

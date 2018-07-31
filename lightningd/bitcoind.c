@@ -350,7 +350,7 @@ static void do_one_estimatefee(struct bitcoind *bitcoind,
 {
 	char blockstr[STR_MAX_CHARS(u32)];
 
-	sprintf(blockstr, "%u", efee->blocks[efee->i]);
+	snprintf(blockstr, sizeof(blockstr), "%u", efee->blocks[efee->i]);
 	start_bitcoin_cli(bitcoind, NULL, process_estimatefee, false, NULL, efee,
 			  "estimatesmartfee", blockstr, efee->estmode[efee->i],
 			  NULL);
@@ -682,7 +682,7 @@ void bitcoind_getblockhash_(struct bitcoind *bitcoind,
 			    void *arg)
 {
 	char str[STR_MAX_CHARS(height)];
-	sprintf(str, "%u", height);
+	snprintf(str, sizeof(str), "%u", height);
 
 	start_bitcoin_cli(bitcoind, NULL, process_getblockhash, true, cb, arg,
 			  "getblockhash", str, NULL);

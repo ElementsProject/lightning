@@ -703,7 +703,7 @@ const char *{enumname}_name(int e)
 \t{cases}
 \t}}
 
-\tsprintf(invalidbuf, "INVALID %i", e);
+\tsnprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
 \treturn invalidbuf;
 }}
 
