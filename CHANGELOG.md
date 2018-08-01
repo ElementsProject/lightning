@@ -59,6 +59,8 @@ changes.
   to be compatible with eclair and lnd (#1730).
 - JSON API: `listnodes`: now correctly prints `addresses` if more than
   one is advertised.
+- Failing tests no longer delete the test directory, to allow easier debugging
+  (Issue: #1599)
 
 ### Security
 
