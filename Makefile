@@ -286,7 +286,10 @@ check-setup_locale:
 check-tmpctx:
 	@if git grep -n 'tal_free[(]tmpctx)' | grep -Ev '^ccan/|/test/|^common/daemon.c:|^common/utils.c:'; then echo "Don't free tmpctx!">&2; exit 1; fi
 
-check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python check-includes check-cppcheck check-shellcheck check-setup_locale check-tmpctx
+check-discouraged-functions:
+	@if git grep -E "[^a-z_/](fgets|fputs|gets|scanf|sprintf)\(" -- "*.c" "*.h" ":(exclude)ccan/"; then exit 1; fi
+
+check-source: check-makefile check-source-bolt check-whitespace check-markdown check-spelling check-python check-includes check-cppcheck check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions
 
 full-check: check check-source
 
