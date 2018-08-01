@@ -1393,7 +1393,6 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 				       retry_important, imp);
 	}
 	tal_free(reach);
-	return;
 }
 
 static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
