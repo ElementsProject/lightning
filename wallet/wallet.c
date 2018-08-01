@@ -1316,7 +1316,7 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 		return false;
 	}
 
-	while (ok && stmt && sqlite3_step(stmt) == SQLITE_ROW) {
+	while (ok && sqlite3_step(stmt) == SQLITE_ROW) {
 		struct htlc_in *in = tal(chan, struct htlc_in);
 		ok &= wallet_stmt2htlc_in(chan, stmt, in);
 		connect_htlc_in(htlcs_in, in);
@@ -1337,7 +1337,7 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 		return false;
 	}
 
-	while (ok && stmt && sqlite3_step(stmt) == SQLITE_ROW) {
+	while (ok && sqlite3_step(stmt) == SQLITE_ROW) {
 		struct htlc_out *out = tal(chan, struct htlc_out);
 		ok &= wallet_stmt2htlc_out(chan, stmt, out);
 		connect_htlc_out(htlcs_out, out);

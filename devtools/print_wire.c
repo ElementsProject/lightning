@@ -80,7 +80,6 @@ hexdump:
 	if (!print_hexstring(cursor, plen, len))
 		return;
 	printf(" ]\n");
-	return;
 }
 
 static void printwire_addresses(const u8 **cursor, size_t *plen, size_t len)
