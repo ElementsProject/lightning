@@ -445,13 +445,15 @@ class LightningDTests(BaseLightningDTests):
         start_time = time.time()
         l1.rpc.autocleaninvoice(cycle_seconds=8, expired_by=2)
 
-        l1.rpc.invoice(msatoshi=12300, label='inv1', description='1', expiry=4)
-        l1.rpc.invoice(msatoshi=12300, label='inv2', description='2', expiry=12)
+        l1.rpc.invoice(msatoshi=12300, label='inv1', description='description1', expiry=4)
+        l1.rpc.invoice(msatoshi=12300, label='inv2', description='description2', expiry=12)
 
         # time 0
         # Both should still be there.
         assert len(l1.rpc.listinvoices('inv1')['invoices']) == 1
         assert len(l1.rpc.listinvoices('inv2')['invoices']) == 1
+
+        assert l1.rpc.listinvoices('inv1')['invoices'][0]['description'] == 'description1'
 
         time.sleep(start_time - time.time() + 6)   # total 6
         # Both should still be there - auto clean cycle not started.
