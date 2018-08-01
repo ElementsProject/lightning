@@ -713,13 +713,19 @@ static char *test_daemons_and_exit(struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_lightningd_usage(struct lightningd *ld) {
+	/* Reload config so that --help has the correct network defaults
+	 * to display before it exits */
+	setup_default_config(ld);
+	opt_usage_and_exit("\nA bitcoin lightning daemon.");
+	return NULL;
+}
+
 void register_opts(struct lightningd *ld)
 {
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 
-	opt_register_early_noarg("--help|-h", opt_usage_and_exit,
-				 "\n"
-				 "A bitcoin lightning daemon.",
+	opt_register_early_noarg("--help|-h", opt_lightningd_usage, ld,
 				 "Print this message.");
 	opt_register_early_noarg("--test-daemons-only",
 				 test_daemons_and_exit,
@@ -818,9 +824,8 @@ void setup_color_and_alias(struct lightningd *ld)
 
 void handle_opts(struct lightningd *ld, int argc, char *argv[])
 {
-	/* Load defaults first, so that --help (in early options) has something
-	 * to display. The actual values loaded here, will be overwritten later
-	 * by opt_parse_from_config. */
+	/* Load defaults. The actual values loaded here will be overwritten
+	 * later by opt_parse_from_config. */
 	setup_default_config(ld);
 
 	/* Get any configdir/testnet options first. */
@@ -902,6 +907,7 @@ static void add_config(struct lightningd *ld,
 		    /* These two show up as --network= */
 		    || opt->cb == (void *)opt_set_testnet
 		    || opt->cb == (void *)opt_set_mainnet
+		    || opt->cb == (void *)opt_lightningd_usage
 		    || opt->cb == (void *)test_daemons_and_exit) {
 			/* These are not important */
 		} else if (opt->cb == (void *)opt_set_bool) {
@@ -916,7 +922,7 @@ static void add_config(struct lightningd *ld,
 					 ? "true" : "false");
 		} else {
 			/* Insert more decodes here! */
-			abort();
+			assert(!"A noarg option was added but was not handled");
 		}
 	} else if (opt->type & OPT_HASARG) {
 		if (opt->desc == opt_hidden) {
