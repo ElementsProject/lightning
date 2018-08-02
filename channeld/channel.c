@@ -2488,9 +2488,7 @@ int main(int argc, char *argv[])
 		if (msg) {
 			status_trace("Now dealing with deferred gossip %u",
 				     fromwire_peektype(msg));
-			handle_gossip_msg(take(msg), &peer->cs,
-					  sync_crypto_write_arg,
-					  NULL);
+			handle_gossip_msg(PEER_FD, &peer->cs, take(msg));
 			continue;
 		}
 
@@ -2523,9 +2521,7 @@ int main(int argc, char *argv[])
 			 * connection comes in. */
 			if (!msg)
 				peer_failed_connection_lost();
-			handle_gossip_msg(msg, &peer->cs,
-					  sync_crypto_write_arg,
-					  peer);
+			handle_gossip_msg(PEER_FD, &peer->cs, take(msg));
 		} else if (FD_ISSET(PEER_FD, &rfds)) {
 			/* This could take forever, but who cares? */
 			msg = sync_crypto_read(tmpctx, &peer->cs, PEER_FD);
