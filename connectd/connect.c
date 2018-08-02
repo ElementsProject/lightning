@@ -1186,7 +1186,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 					    false);
 			status_trace("Created socket listener on file %s",
 				     addrun.sun_path);
-			io_new_listener(daemon, fd, connection_in, daemon);
+			add_listen_fd(daemon, fd);
 			/* We don't announce socket names */
 			assert(!announce);
 			add_binding(&binding, &wa);
