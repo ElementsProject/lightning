@@ -107,8 +107,7 @@ static void do_reconnect(struct crypto_state *cs,
 	msg = towire_channel_reestablish(NULL, channel_id,
 					 next_index[LOCAL],
 					 revocations_received);
-	if (!sync_crypto_write(cs, PEER_FD, take(msg)))
-		peer_failed_connection_lost();
+	sync_crypto_write(cs, PEER_FD, take(msg));
 
 	/* They might have already send reestablish, which triggered us */
 	while (!channel_reestablish) {
@@ -189,8 +188,7 @@ static void send_offer(struct crypto_state *cs,
 	status_trace("sending fee offer %"PRIu64, fee_to_offer);
 
 	msg = towire_closing_signed(NULL, channel_id, fee_to_offer, &our_sig);
-	if (!sync_crypto_write(cs, PEER_FD, take(msg)))
-		peer_failed_connection_lost();
+	sync_crypto_write(cs, PEER_FD, take(msg));
 }
 
 static void tell_master_their_offer(const secp256k1_ecdsa_signature *their_sig,

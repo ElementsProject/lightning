@@ -40,7 +40,6 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/bech32_util.o			\
 	common/bip32.o				\
 	common/crypto_state.o			\
-	common/crypto_sync.o			\
 	common/cryptomsg.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\

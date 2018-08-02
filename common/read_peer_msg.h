@@ -84,7 +84,7 @@ bool handle_peer_gossip_or_error(int peer_fd, int gossip_fd,
 #define read_peer_msg(ctx, cs, chanid, send_reply, arg)			\
 	read_peer_msg_((ctx), PEER_FD, GOSSIP_FD, (cs),			\
 		       (chanid),					\
-		       typesafe_cb_preargs(bool, void *, (send_reply), (arg), \
+		       typesafe_cb_preargs(void, void *, (send_reply), (arg), \
 					   struct crypto_state *, int,	\
 					   const u8 *),			\
 		       arg)
@@ -93,13 +93,13 @@ bool handle_peer_gossip_or_error(int peer_fd, int gossip_fd,
 #define read_peer_msg_nogossip(ctx, cs, chanid, send_reply, arg)	\
 	read_peer_msg_((ctx), PEER_FD, -1, (cs),			\
 		       (chanid),					\
-		       typesafe_cb_preargs(bool, void *, (send_reply), (arg), \
+		       typesafe_cb_preargs(void, void *, (send_reply), (arg), \
 					   struct crypto_state *, int,	\
 					   const u8 *),			\
 		       arg)
 
 /* Helper: sync_crypto_write, with extra args it ignores */
-bool sync_crypto_write_arg(struct crypto_state *cs, int fd, const u8 *TAKES,
+void sync_crypto_write_arg(struct crypto_state *cs, int fd, const u8 *TAKES,
 			   void *unused);
 
 /* Handler for a gossip msg; used by channeld since it queues them. */
@@ -114,7 +114,7 @@ bool sync_crypto_write_arg(struct crypto_state *cs, int fd, const u8 *TAKES,
 void handle_gossip_msg_(const u8 *msg TAKES,
 			int peer_fd,
 			struct crypto_state *cs,
-			bool (*send_msg)(struct crypto_state *cs, int fd,
+			void (*send_msg)(struct crypto_state *cs, int fd,
 					 const u8 *TAKES, void *arg),
 			void *arg);
 
@@ -122,7 +122,7 @@ u8 *read_peer_msg_(const tal_t *ctx,
 		   int peer_fd, int gossip_fd,
 		   struct crypto_state *cs,
 		   const struct channel_id *channel,
-		   bool (*send_reply)(struct crypto_state *cs, int fd,
+		   void (*send_reply)(struct crypto_state *cs, int fd,
 				      const u8 *TAKES,  void *arg),
 		   void *arg);
 
