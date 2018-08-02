@@ -127,7 +127,7 @@ def test_pay_get_error_with_update(node_factory):
         try:
             src.rpc.getroute(dst.info['id'], 1, 1)
             return True
-        except:
+        except Exception:
             return False
 
     wait_for(lambda: try_route(l1, l3))
