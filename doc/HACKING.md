@@ -181,6 +181,14 @@ A modern desktop can build and run through all the tests in a couple of minutes 
 
 Adust `-j` and `PYTEST_PAR` accordingly for your hardware.
 
+To run the python tests even faster, another trick is to use a ramdisc by
+setting `TEST_DIR` like so:
+
+```bash
+TEST_DIR=/dev/shm/ltest PYTEST_PAR=24 make pytest
+```
+
+
 There are three kinds of tests:
 
 * **source tests** - run by `make check-source`, looks for whitespace,
