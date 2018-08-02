@@ -660,10 +660,10 @@ class NodeFactory(object):
         node.info = node.rpc.getinfo()
         return node
 
-    def line_graph(self, num_nodes, fundchannel=True, fundamount=10**6, announce=False):
+    def line_graph(self, num_nodes, fundchannel=True, fundamount=10**6, announce=False, opts=None):
         """ Create nodes, connect them and optionally fund channels.
         """
-        nodes = self.get_nodes(num_nodes)
+        nodes = self.get_nodes(num_nodes, opts=opts)
         bitcoin = nodes[0].bitcoin
         connections = [(nodes[i], nodes[i+1]) for i in range(0, num_nodes-1)]
 
