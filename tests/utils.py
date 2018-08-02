@@ -507,6 +507,28 @@ class LightningNode(object):
                 return group.group(1)
         raise ValueError("No daemon {} found".format(subd))
 
+    def channel_state(self, other):
+        """Return the state of the channel to the other node.
+
+        Returns None if there is no such peer, or a channel hasn't been funded
+        yet.
+
+        """
+        peers = self.rpc.listpeers(other.info['id'])['peers']
+        if not peers or 'channels' not in peers[0]:
+            return None
+        channel = peers[0]['channels'][0]
+        return channel['state']
+
+    def get_channel_scid(self, other):
+        """Get the short_channel_id for the channel to the other node.
+        """
+        peers = self.rpc.listpeers(other.info['id'])['peers']
+        if not peers or 'channels' not in peers[0]:
+            return None
+        channel = peers[0]['channels'][0]
+        return channel['short_channel_id']
+
     def is_channel_active(self, chanid):
         channels = self.rpc.listchannels()['channels']
         active = [(c['short_channel_id'], c['flags']) for c in channels if c['active']]
