@@ -52,10 +52,6 @@ struct uncommitted_channel {
 	/* Public key for funding tx. */
 	struct pubkey local_funding_pubkey;
 
-	/* Blockheight at creation, scans for funding confirmations
-	 * will start here */
-	u32 first_blocknum;
-
 	/* These are *not* filled in by new_uncommitted_channel: */
 
 	/* Minimum funding depth (if funder == REMOTE). */
@@ -247,7 +243,9 @@ wallet_commit_channel(struct lightningd *ld,
 			      NULL, /* No remote_shutdown_scriptpubkey yet */
 			      final_key_idx, false,
 			      NULL, /* No commit sent yet */
-			      uc->first_blocknum,
+			      /* If we're fundee, could be a little before this
+			       * in theory, but it's only used for timing out. */
+			      get_block_height(ld->topology),
 			      feerate, feerate,
 			      /* We are connected */
 			      true,
@@ -624,7 +622,6 @@ new_uncommitted_channel(struct lightningd *ld,
 	tal_free(idname);
 
 	uc->fc = fc;
-	uc->first_blocknum = get_block_height(ld->topology);
 	uc->our_config.id = 0;
 
 	get_channel_basepoints(ld, &uc->peer->id, uc->dbid,
