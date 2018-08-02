@@ -236,8 +236,7 @@ static u8 *opening_read_peer_msg(const tal_t *ctx, struct state *state)
 		msg = peer_or_gossip_sync_read(ctx, PEER_FD, GOSSIP_FD,
 					       &state->cs, &from_gossipd);
 		if (from_gossipd) {
-			handle_gossip_msg(msg, &state->cs, sync_crypto_write_arg,
-					  NULL);
+			handle_gossip_msg(PEER_FD, &state->cs, take(msg));
 			continue;
 		}
 		if (!handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD, &state->cs,

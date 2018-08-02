@@ -80,11 +80,7 @@ bool is_wrong_channel(const u8 *msg, const struct channel_id *expected,
 	return !channel_id_eq(expected, actual);
 }
 
-void handle_gossip_msg_(const u8 *msg TAKES, int peer_fd,
-			struct crypto_state *cs,
-			void (*send_msg)(struct crypto_state *cs, int fd,
-					 const u8 *TAKES, void *arg),
-			void *arg)
+void handle_gossip_msg(int peer_fd, struct crypto_state *cs, const u8 *msg TAKES)
 {
 	u8 *gossip;
 
@@ -96,10 +92,10 @@ void handle_gossip_msg_(const u8 *msg TAKES, int peer_fd,
 
 	/* Gossipd can send us gossip messages, OR errors */
 	if (is_msg_for_gossipd(gossip)) {
-		send_msg(cs, peer_fd, gossip, arg);
+		sync_crypto_write(cs, peer_fd, gossip);
 	} else if (fromwire_peektype(gossip) == WIRE_ERROR) {
 		status_debug("Gossipd told us to send error");
-		send_msg(cs, peer_fd, gossip, arg);
+		sync_crypto_write(cs, peer_fd, gossip);
 		peer_failed_connection_lost();
 	} else {
 		status_broken("Gossipd gave us bad send_gossip message %s",
@@ -154,70 +150,4 @@ handled:
 	if (taken(msg))
 		tal_free(msg);
 	return true;
-}
-
-u8 *read_peer_msg_(const tal_t *ctx,
-		   int peer_fd, int gossip_fd,
-		   struct crypto_state *cs,
-		   const struct channel_id *channel,
-		   void (*send_reply)(struct crypto_state *cs, int fd,
-				      const u8 *TAKES,  void *arg),
-		   void *arg)
-{
-	u8 *msg;
-	bool from_gossipd, all_channels;
-	struct channel_id actual;
-	char *err;
-
-	if (gossip_fd > 0) {
-		msg = peer_or_gossip_sync_read(ctx, peer_fd, gossip_fd,
-					       cs, &from_gossipd);
-	} else {
-		msg = sync_crypto_read(ctx, cs, peer_fd);
-		from_gossipd = false;
-	}
-
-	if (from_gossipd) {
-		handle_gossip_msg_(take(msg), peer_fd, cs, send_reply, arg);
-		return NULL;
-	}
-
-	if (is_msg_for_gossipd(msg)) {
-		/* Forward to gossip daemon */
-		wire_sync_write(gossip_fd, take(msg));
-		return NULL;
-	}
-
-	if (is_peer_error(tmpctx, msg, channel, &err, &all_channels)) {
-		if (err)
-			peer_failed_received_errmsg(peer_fd, gossip_fd,
-						    cs, err,
-						    all_channels
-						    ? NULL : channel);
-
-		/* Ignore unknown channel errors. */
-		return tal_free(msg);
-	}
-
-	/* They're talking about a different channel? */
-	if (is_wrong_channel(msg, channel, &actual)) {
-		status_trace("Rejecting %s for unknown channel_id %s",
-			     wire_type_name(fromwire_peektype(msg)),
-			     type_to_string(tmpctx, struct channel_id, &actual));
-		send_reply(cs, peer_fd,
-			   take(towire_errorfmt(NULL, &actual,
-						"Multiple channels"
-						" unsupported")),
-			   arg);
-		return tal_free(msg);
-	}
-
-	return msg;
-}
-
-/* Helper: sync_crypto_write, with extra args it ignores */
-void sync_crypto_write_arg(struct crypto_state *cs, int fd, const u8 *msg,
-			   void *unused UNUSED)
-{
-	sync_crypto_write(cs, fd, msg);
 }
