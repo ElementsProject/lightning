@@ -321,7 +321,7 @@ static void subdaemon_malformed_msg(struct subd *sd, const u8 *msg)
 
 #if DEVELOPER
 	if (sd->ld->dev_subdaemon_fail)
-		fatal("Subdaemon %s sent malformed message", sd->name);
+		exit(1);
 #endif
 }
 
@@ -356,7 +356,7 @@ static bool log_status_fail(struct subd *sd, const u8 *msg)
 
 #if DEVELOPER
 	if (sd->ld->dev_subdaemon_fail)
-		fatal("Subdaemon %s hit error", sd->name);
+		exit(1);
 #endif
 	return true;
 }
@@ -533,9 +533,11 @@ static void destroy_subd(struct subd *sd)
 		break;
 	}
 
-	if (fail_if_subd_fails && WIFSIGNALED(status))
-		fatal("Subdaemon %s killed with signal %i",
-		      sd->name, WTERMSIG(status));
+	if (fail_if_subd_fails && WIFSIGNALED(status)) {
+		log_broken(sd->log, "Subdaemon %s killed with signal %i",
+			   sd->name, WTERMSIG(status));
+		exit(1);
+	}
 
 	/* In case we're freed manually, such as channel_fail_permanent */
 	if (sd->conn)
