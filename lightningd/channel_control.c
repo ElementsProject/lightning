@@ -400,6 +400,7 @@ void channel_notify_new_block(struct lightningd *ld,
 			    block_height - channel->first_blocknum,
 			    type_to_string(tmpctx, struct bitcoin_txid,
 					   &channel->funding_txid));
+		/* FIXME: Send an error packet for this case! */
 		/* And forget it. */
 		delete_channel(channel);
 	}
