@@ -95,7 +95,6 @@ services:
   clightning_bitcoin:
     image: elementsproject/lightningd
     command:
-      - lightningd
       - --bitcoin-rpcconnect=bitcoind
       - --bitcoin-rpcuser=rpcuser
       - --bitcoin-rpcpassword=rpcpass
