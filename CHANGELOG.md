@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - JSON API:`listnodes` has new field `global_features`.
 - Protocol: gossipd now deliberately delays spamming with `channel_update`.
 - Config: `--conf` option to set config file.
+- JSON API: Added description to invoices and payments (#1740).
 
 ### Changed
 
