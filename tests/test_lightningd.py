@@ -2,7 +2,7 @@ from concurrent import futures
 from decimal import Decimal
 from ephemeral_port_reserve import reserve as reserve_port
 from flaky import flaky
-from utils import wait_for
+from utils import NodeFactory, wait_for, only_one
 
 import copy
 import json
@@ -43,13 +43,6 @@ logging.info("Tests running in '%s'", TEST_DIR)
 
 def to_json(arg):
     return json.loads(json.dumps(arg))
-
-
-def only_one(arr):
-    """Many JSON RPC calls return an array; often we only expect a single entry
-    """
-    assert len(arr) == 1
-    return arr[0]
 
 
 def setupBitcoind(directory):
@@ -103,156 +96,6 @@ def teardown_bitcoind():
     bitcoind.proc.wait()
 
 
-class NodeFactory(object):
-    """A factory to setup and start `lightningd` daemons.
-    """
-    def __init__(self, testname, bitcoind, executor, directory=None):
-        self.testname = testname
-        self.next_id = 1
-        self.nodes = []
-        self.executor = executor
-        self.bitcoind = bitcoind
-        if directory is not None:
-            self.directory = directory
-        else:
-            self.directory = os.path.join(TEST_DIR, testname)
-        self.lock = threading.Lock()
-
-    def split_options(self, opts):
-        """Split node options from cli options
-
-        Some options are used to instrument the node wrapper and some are passed
-        to the daemon on the command line. Split them so we know where to use
-        them.
-        """
-        node_opt_keys = [
-            'disconnect',
-            'may_fail',
-            'may_reconnect',
-            'random_hsm',
-            'fake_bitcoin_cli'
-        ]
-        node_opts = {k: v for k, v in opts.items() if k in node_opt_keys}
-        cli_opts = {k: v for k, v in opts.items() if k not in node_opt_keys}
-        return node_opts, cli_opts
-
-    def get_next_port(self):
-        with self.lock:
-            return reserve_port()
-
-    def get_nodes(self, num_nodes, opts=None):
-        """Start a number of nodes in parallel, each with its own options
-        """
-        if opts is None:
-            # No opts were passed in, give some dummy opts
-            opts = [{} for _ in range(num_nodes)]
-        elif isinstance(opts, dict):
-            # A single dict was passed in, so we use these opts for all nodes
-            opts = [opts] * num_nodes
-
-        assert len(opts) == num_nodes
-
-        jobs = []
-        for i in range(num_nodes):
-            node_opts, cli_opts = self.split_options(opts[i])
-            jobs.append(self.executor.submit(self.get_node, options=cli_opts, **node_opts))
-
-        return [j.result() for j in jobs]
-
-    def get_node(self, disconnect=None, options=None, may_fail=False, may_reconnect=False, random_hsm=False, fake_bitcoin_cli=False):
-        with self.lock:
-            node_id = self.next_id
-            self.next_id += 1
-        port = self.get_next_port()
-
-        lightning_dir = os.path.join(
-            self.directory, "lightning-{}/".format(node_id))
-
-        if os.path.exists(lightning_dir):
-            shutil.rmtree(lightning_dir)
-
-        socket_path = os.path.join(lightning_dir, "lightning-rpc").format(node_id)
-        daemon = utils.LightningD(
-            lightning_dir, self.bitcoind.bitcoin_dir,
-            port=port, random_hsm=random_hsm, node_id=node_id
-        )
-        # If we have a disconnect string, dump it to a file for daemon.
-        if disconnect:
-            with open(os.path.join(lightning_dir, "dev_disconnect"), "w") as f:
-                f.write("\n".join(disconnect))
-            daemon.opts["dev-disconnect"] = "dev_disconnect"
-        if DEVELOPER:
-            daemon.opts["dev-fail-on-subdaemon-fail"] = None
-            daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
-            if VALGRIND:
-                daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
-            if not may_reconnect:
-                daemon.opts["dev-no-reconnect"] = None
-
-        if fake_bitcoin_cli:
-            cli = os.path.join(lightning_dir, "fake-bitcoin-cli")
-            with open(cli, "w") as text_file:
-                print("""#! /bin/sh
-                ! [ -f bitcoin-cli-fail ] || exit `cat bitcoin-cli-fail`
-                exec bitcoin-cli "$@"
-                """, file=text_file)
-            os.chmod(cli, os.stat(cli).st_mode | stat.S_IEXEC)
-            daemon.opts['bitcoin-cli'] = cli
-
-        if options is not None:
-            daemon.opts.update(options)
-
-        rpc = LightningRpc(socket_path, self.executor)
-
-        node = utils.LightningNode(daemon, rpc, self.bitcoind, self.executor, may_fail=may_fail, may_reconnect=may_reconnect)
-        self.nodes.append(node)
-        if VALGRIND:
-            node.daemon.cmd_prefix = [
-                'valgrind',
-                '-q',
-                '--trace-children=yes',
-                '--trace-children-skip=*bitcoin-cli*',
-                '--error-exitcode=7',
-                '--log-file={}/valgrind-errors.%p'.format(node.daemon.lightning_dir)
-            ]
-
-        try:
-            node.start()
-        except Exception:
-            node.daemon.stop()
-            raise
-
-        # Cache `getinfo`, we'll be using it a lot
-        node.info = node.rpc.getinfo()
-        return node
-
-    def killall(self, expected_successes):
-        """Returns true if every node we expected to succeed actually succeeded"""
-        unexpected_fail = False
-        for i in range(len(self.nodes)):
-            leaks = None
-            # leak detection upsets VALGRIND by reading uninitialized mem.
-            # If it's dead, we'll catch it below.
-            if not VALGRIND:
-                try:
-                    # This also puts leaks in log.
-                    leaks = self.nodes[i].rpc.dev_memleak()['leaks']
-                except Exception:
-                    pass
-
-            try:
-                self.nodes[i].stop()
-            except Exception:
-                if expected_successes[i]:
-                    unexpected_fail = True
-
-            if leaks is not None and len(leaks) != 0:
-                raise Exception("Node {} has memory leaks: {}"
-                                .format(self.nodes[i].daemon.lightning_dir, leaks))
-
-        return not unexpected_fail
-
-
 class BaseLightningDTests(unittest.TestCase):
     def setUp(self):
         bitcoin_dir = os.path.join(TEST_DIR, self._testMethodName, "bitcoind")
@@ -260,7 +103,7 @@ class BaseLightningDTests(unittest.TestCase):
         # Most of the executor threads will be waiting for IO, so
         # let's have a few of them
         self.executor = futures.ThreadPoolExecutor(max_workers=20)
-        self.node_factory = NodeFactory(self._testMethodName, bitcoind, self.executor)
+        self.node_factory = NodeFactory(self._testMethodName, bitcoind, self.executor, directory=TEST_DIR)
 
     def getValgrindErrors(self, node):
         for error_file in os.listdir(node.daemon.lightning_dir):
