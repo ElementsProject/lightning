@@ -34,8 +34,6 @@ void setup_locale(void)
 	putenv("LC_ALL=C"); /* For exec{l,lp,v,vp}(...) */
 }
 
-/* Global temporary convenience context: freed in io loop core. */
-
 /* Initial creation of tmpctx. */
 void setup_tmpctx(void)
 {
@@ -45,9 +43,9 @@ void setup_tmpctx(void)
 /* Free any children of tmpctx. */
 void clean_tmpctx(void)
 {
-	/* Minor optimization: don't do anything if tmpctx unused. */
-	if (tal_first(tmpctx)) {
-		tal_free(tmpctx);
-		tmpctx = tal_arr_label(NULL, char, 0, "tmpctx");
-	}
+	const tal_t *p;
+
+	/* Don't actually free tmpctx: we hand pointers to it around. */
+	while ((p = tal_first(tmpctx)) != NULL)
+		tal_free(p);
 }

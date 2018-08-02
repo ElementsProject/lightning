@@ -22,7 +22,7 @@ u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len);
 /* Use the POSIX C locale. */
 void setup_locale(void);
 
-/* Global temporary convenience context: freed in io loop core. */
+/* Global temporary convenience context: children freed in io loop core. */
 extern const tal_t *tmpctx;
 
 /* Initial creation of tmpctx. */
