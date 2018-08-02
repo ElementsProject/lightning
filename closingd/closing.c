@@ -77,6 +77,29 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 	return tx;
 }
 
+/* Handle random messages we might get, returning the first non-handled one. */
+static u8 *closing_read_peer_msg(const tal_t *ctx,
+				 struct crypto_state *cs,
+				 const struct channel_id *channel_id)
+{
+	for (;;) {
+		u8 *msg;
+		bool from_gossipd;
+
+		clean_tmpctx();
+		msg = peer_or_gossip_sync_read(ctx, PEER_FD, GOSSIP_FD,
+					       cs, &from_gossipd);
+		if (from_gossipd) {
+			handle_gossip_msg(msg, cs, sync_crypto_write_arg,
+					  NULL);
+			continue;
+		}
+		if (!handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD, cs,
+						 channel_id, msg))
+			return msg;
+	}
+}
+
 static void do_reconnect(struct crypto_state *cs,
 			 const struct channel_id *channel_id,
 			 const u64 next_index[NUM_SIDES],
@@ -110,15 +133,8 @@ static void do_reconnect(struct crypto_state *cs,
 	sync_crypto_write(cs, PEER_FD, take(msg));
 
 	/* They might have already send reestablish, which triggered us */
-	while (!channel_reestablish) {
-		clean_tmpctx();
-
-		/* Wait for them to say something interesting */
-		channel_reestablish
-			= read_peer_msg(tmpctx, cs, channel_id,
-					sync_crypto_write_arg,
-					NULL);
-	}
+	if (!channel_reestablish)
+		channel_reestablish = closing_read_peer_msg(tmpctx, cs, channel_id);
 
 	if (!fromwire_channel_reestablish(channel_reestablish, &their_channel_id,
 					  &next_local_commitment_number,
@@ -229,11 +245,7 @@ static uint64_t receive_offer(struct crypto_state *cs,
 
 	/* Wait for them to say something interesting */
 	do {
-		clean_tmpctx();
-
-		msg = read_peer_msg(tmpctx, cs, channel_id,
-				    sync_crypto_write_arg,
-				    NULL);
+		msg = closing_read_peer_msg(tmpctx, cs, channel_id);
 
 		/* BOLT #2:
 		 *
@@ -242,13 +254,13 @@ static uint64_t receive_offer(struct crypto_state *cs,
 		 */
 		/* This should only happen if we've made no commitments, but
 		 * we don't have to check that: it's their problem. */
-		if (msg && fromwire_peektype(msg) == WIRE_FUNDING_LOCKED)
+		if (fromwire_peektype(msg) == WIRE_FUNDING_LOCKED)
 			msg = tal_free(msg);
 		/* BOLT #2:
 		 *     - if it has sent a previous `shutdown`:
 		 *       - MUST retransmit `shutdown`.
 		 */
-		else if (msg && fromwire_peektype(msg) == WIRE_SHUTDOWN)
+		else if (fromwire_peektype(msg) == WIRE_SHUTDOWN)
 			msg = tal_free(msg);
 	} while (!msg);
 
