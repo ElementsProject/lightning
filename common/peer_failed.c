@@ -36,8 +36,12 @@ void peer_failed_received_errmsg(int peer_fd, int gossip_fd,
 				 const char *desc,
 				 const struct channel_id *channel_id)
 {
-	u8 *msg = towire_status_peer_error(NULL, channel_id,
-					   desc, cs, NULL);
+	static const struct channel_id all_channels;
+	u8 *msg;
+
+	if (!channel_id)
+		channel_id = &all_channels;
+	msg = towire_status_peer_error(NULL, channel_id, desc, cs, NULL);
 	peer_billboard(true, "Received error from peer: %s", desc);
 	status_send_fatal(take(msg), peer_fd, gossip_fd);
 }

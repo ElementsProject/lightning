@@ -21,7 +21,8 @@ void peer_failed_(int peer_fd, int gossip_fd,
 		  const char *fmt, ...)
 	PRINTF_FMT(5,6) NORETURN;
 
-/* We're failing because peer sent us an error message */
+/* We're failing because peer sent us an error message: NULL
+ * channel_id means all channels. */
 void peer_failed_received_errmsg(int peer_fd, int gossip_fd,
 				 struct crypto_state *cs,
 				 const char *desc,
