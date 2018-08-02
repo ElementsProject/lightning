@@ -91,7 +91,7 @@ static void children_into_htable(const void *exclude1, const void *exclude2,
 				continue;
 
 			/* ccan/io allocates pollfd array. */
-			if (streq(name, "struct pollfd[]") && !tal_parent(i))
+			if (strends(name, "struct pollfd[]") && !tal_parent(i))
 				continue;
 
 			/* Don't add tmpctx. */
