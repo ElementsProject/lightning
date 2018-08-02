@@ -445,8 +445,6 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	struct crypto_state cs;
 	u8 *gfeatures, *lfeatures;
 	u8 *error;
-	u8 *global_features;
-	u8 *local_features;
 	struct channel *channel;
 	struct wireaddr_internal addr;
 	struct uncommitted_channel *uc;
@@ -456,25 +454,6 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 					    &gfeatures, &lfeatures))
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
-
-	if (!features_supported(gfeatures, lfeatures)) {
-		log_unusual(ld->log, "peer %s offers unsupported features %s/%s",
-			    type_to_string(msg, struct pubkey, &id),
-			    tal_hex(msg, gfeatures),
-			    tal_hex(msg, lfeatures));
-		global_features = get_offered_global_features(msg);
-		local_features = get_offered_local_features(msg);
-		error = towire_errorfmt(msg, NULL,
-					"We only offer globalfeatures %s"
-					" and localfeatures %s",
-					tal_hexstr(msg,
-						   global_features,
-						   tal_count(global_features)),
-					tal_hexstr(msg,
-						   local_features,
-						   tal_count(local_features)));
-		goto send_error;
-	}
 
 	/* Were we trying to open a channel, and we've raced? */
 	if (handle_opening_channel(ld, &id, &addr, &cs,
