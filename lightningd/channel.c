@@ -98,9 +98,7 @@ void delete_channel(struct channel *channel)
 	wallet_channel_delete(channel->peer->ld->wallet, channel->dbid);
 	tal_free(channel);
 
-	/* Last one out frees the peer */
-	if (list_empty(&peer->channels) && !peer->uncommitted_channel)
-		delete_peer(peer);
+	maybe_delete_peer(peer);
 }
 
 void get_channel_basepoints(struct lightningd *ld,

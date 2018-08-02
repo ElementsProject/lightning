@@ -116,7 +116,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	return peer;
 }
 
-void delete_peer(struct peer *peer)
+static void delete_peer(struct peer *peer)
 {
 	assert(list_empty(&peer->channels));
 	assert(!peer->uncommitted_channel);
@@ -125,6 +125,16 @@ void delete_peer(struct peer *peer)
 	if (peer->dbid != 0)
 		wallet_peer_delete(peer->ld->wallet, peer->dbid);
 	tal_free(peer);
+}
+
+/* Last one out deletes peer. */
+void maybe_delete_peer(struct peer *peer)
+{
+	if (peer->uncommitted_channel)
+		return;
+	if (!list_empty(&peer->channels))
+		return;
+	delete_peer(peer);
 }
 
 struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid)

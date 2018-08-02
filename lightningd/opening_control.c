@@ -586,9 +586,7 @@ static void destroy_uncommitted_channel(struct uncommitted_channel *uc)
 
 	uc->peer->uncommitted_channel = NULL;
 
-	/* Last one out frees */
-	if (list_empty(&uc->peer->channels))
-		delete_peer(uc->peer);
+	maybe_delete_peer(uc->peer);
 }
 
 /* Returns NULL if there's already an opening or active channel for this peer */
