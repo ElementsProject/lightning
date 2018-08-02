@@ -1568,11 +1568,14 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 	billboard_update(peer);
 }
 
-/* Note: msg came from read_peer_msg() which handles pings, gossip,
- * wrong channel, errors */
 static void peer_in(struct peer *peer, const u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
+
+	if (handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD,
+					&peer->cs,
+					&peer->channel_id, msg))
+		return;
 
 	/* Must get funding_locked before almost anything. */
 	if (!peer->funding_locked[REMOTE]) {
@@ -1627,7 +1630,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_CLOSING_SIGNED:
 		break;
 
-	/* These are all swallowed by read_peer_msg */
+	/* These are all swallowed by handle_peer_gossip_or_error */
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_CHANNEL_UPDATE:
 	case WIRE_NODE_ANNOUNCEMENT:
@@ -1763,14 +1766,6 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 			       peer->revocations_received);
 }
 
-static u8 *channeld_read_peer_msg(struct peer *peer)
-{
-	return read_peer_msg(peer, &peer->cs,
-			     &peer->channel_id,
-			     sync_crypto_write_arg,
-			     NULL);
-}
-
 static void peer_reconnect(struct peer *peer)
 {
 	struct channel_id channel_id;
@@ -1806,13 +1801,13 @@ static void peer_reconnect(struct peer *peer)
 	peer_billboard(false, "Sent reestablish, waiting for theirs");
 
 	/* Read until they say something interesting (don't forward
-	 * gossip to them yet: we might try sending channel_update
+	 * gossip *to* them yet: we might try sending channel_update
 	 * before we've reestablished channel). */
-	while ((msg = read_peer_msg_nogossip(peer, &peer->cs,
-					     &peer->channel_id,
-					     sync_crypto_write_arg,
-					     peer)) == NULL)
+	do {
 		clean_tmpctx();
+		msg = sync_crypto_read(peer, &peer->cs, PEER_FD);
+	} while (handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD, &peer->cs,
+					     &peer->channel_id, msg));
 
 	if (!fromwire_channel_reestablish(msg, &channel_id,
 					  &next_local_commitment_number,
@@ -2533,11 +2528,8 @@ int main(int argc, char *argv[])
 					  peer);
 		} else if (FD_ISSET(PEER_FD, &rfds)) {
 			/* This could take forever, but who cares? */
-			msg = channeld_read_peer_msg(peer);
-			if (msg) {
-				peer_in(peer, msg);
-				tal_free(msg);
-			}
+			msg = sync_crypto_read(tmpctx, &peer->cs, PEER_FD);
+			peer_in(peer, msg);
 		}
 	}
 
