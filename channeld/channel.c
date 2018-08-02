@@ -326,8 +326,7 @@ static void send_announcement_signatures(struct peer *peer)
 	    NULL, &peer->channel_id, &peer->short_channel_ids[LOCAL],
 	    &peer->announcement_node_sigs[LOCAL],
 	    &peer->announcement_bitcoin_sigs[LOCAL]);
-	if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-		peer_failed_connection_lost();
+	sync_crypto_write(&peer->cs, PEER_FD, take(msg));
 }
 
 /* Tentatively create a channel_announcement, possibly with invalid
@@ -671,8 +670,7 @@ static void maybe_send_shutdown(struct peer *peer)
 	send_channel_update(peer, ROUTING_FLAGS_DISABLED);
 
 	msg = towire_shutdown(NULL, &peer->channel_id, peer->final_scriptpubkey);
-	if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-		peer_failed_connection_lost();
+	sync_crypto_write(&peer->cs, PEER_FD, take(msg));
 	peer->send_shutdown = false;
 	peer->shutdown_sent[LOCAL] = true;
 	billboard_update(peer);
@@ -992,8 +990,7 @@ static void send_commit(struct peer *peer)
 				      feerate, max);
 
 		msg = towire_update_fee(NULL, &peer->channel_id, feerate);
-		if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-			peer_failed_connection_lost();
+		sync_crypto_write(&peer->cs, PEER_FD, take(msg));
 	}
 
 	/* BOLT #2:
@@ -1035,8 +1032,7 @@ static void send_commit(struct peer *peer)
 	msg = towire_commitment_signed(NULL, &peer->channel_id,
 				       &peer->next_commit_sigs->commit_sig,
 				       peer->next_commit_sigs->htlc_sigs);
-	if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-		peer_failed_connection_lost();
+	sync_crypto_write(&peer->cs, PEER_FD, take(msg));
 	peer->next_commit_sigs = tal_free(peer->next_commit_sigs);
 
 	maybe_send_shutdown(peer);
@@ -1100,8 +1096,7 @@ static void send_revocation(struct peer *peer)
 		start_commit_timer(peer);
 	}
 
-	if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-		peer_failed_connection_lost();
+	sync_crypto_write(&peer->cs, PEER_FD, take(msg));
 }
 
 static u8 *got_commitsig_msg(const tal_t *ctx,
@@ -1658,8 +1653,7 @@ static void resend_revoke(struct peer *peer)
 	struct pubkey point;
 	/* Current commit is peer->next_index[LOCAL]-1, revoke prior */
 	u8 *msg = make_revocation_msg(peer, peer->next_index[LOCAL]-2, &point);
-	if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-		peer_failed_connection_lost();
+	sync_crypto_write(&peer->cs, PEER_FD, take(msg));
 }
 
 static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
@@ -1698,8 +1692,7 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 			    &peer->channel_id,
 			    "HTLC %"PRIu64" state %s not failed/fulfilled",
 			    h->id, htlc_state_name(h->state));
-	if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-		peer_failed_connection_lost();
+	sync_crypto_write(&peer->cs, PEER_FD, take(msg));
 }
 
 static void resend_commitment(struct peer *peer, const struct changed_htlc *last)
@@ -1740,8 +1733,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 							 abs_locktime_to_blocks(
 								 &h->expiry),
 							 h->routing);
-			if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-				peer_failed_connection_lost();
+			sync_crypto_write(&peer->cs, PEER_FD, take(msg));
 		} else if (h->state == SENT_REMOVE_COMMIT) {
 			send_fail_or_fulfill(peer, h);
 		}
@@ -1751,8 +1743,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 	if (peer->channel->funder == LOCAL) {
 		msg = towire_update_fee(NULL, &peer->channel_id,
 					channel_feerate(peer->channel, REMOTE));
-		if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-			peer_failed_connection_lost();
+		sync_crypto_write(&peer->cs, PEER_FD, take(msg));
 	}
 
 	/* Re-send the commitment_signed itself. */
@@ -1760,8 +1751,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 	msg = towire_commitment_signed(NULL, &peer->channel_id,
 				       &commit_sigs->commit_sig,
 				       commit_sigs->htlc_sigs);
-	if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-		peer_failed_connection_lost();
+	sync_crypto_write(&peer->cs, PEER_FD, take(msg));
 	tal_free(commit_sigs);
 
 	/* If we have already received the revocation for the previous, the
@@ -1811,8 +1801,7 @@ static void peer_reconnect(struct peer *peer)
 	msg = towire_channel_reestablish(NULL, &peer->channel_id,
 					 peer->next_index[LOCAL],
 					 peer->revocations_received);
-	if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-		peer_failed_connection_lost();
+	sync_crypto_write(&peer->cs, PEER_FD, take(msg));
 
 	peer_billboard(false, "Sent reestablish, waiting for theirs");
 
@@ -1856,8 +1845,7 @@ static void peer_reconnect(struct peer *peer)
 		msg = towire_funding_locked(NULL,
 					    &peer->channel_id,
 					    &peer->next_local_per_commit);
-		if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-			peer_failed_connection_lost();
+		sync_crypto_write(&peer->cs, PEER_FD, take(msg));
 	}
 
 	/* Note: next_index is the index of the current commit we're working
@@ -1999,8 +1987,7 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 		msg = towire_funding_locked(NULL,
 					    &peer->channel_id,
 					    &peer->next_local_per_commit);
-		if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-			peer_failed_connection_lost();
+		sync_crypto_write(&peer->cs, PEER_FD, take(msg));
 		peer->funding_locked[LOCAL] = true;
 	}
 
@@ -2047,8 +2034,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 					     peer->htlc_id, amount_msat,
 					     &payment_hash, cltv_expiry,
 					     onion_routing_packet);
-		if (!sync_crypto_write(&peer->cs, PEER_FD, take(msg)))
-			peer_failed_connection_lost();
+		sync_crypto_write(&peer->cs, PEER_FD, take(msg));
 		start_commit_timer(peer);
 		/* Tell the master. */
 		msg = towire_channel_offer_htlc_reply(NULL, peer->htlc_id,
@@ -2412,10 +2398,8 @@ static void init_channel(struct peer *peer)
 		peer_reconnect(peer);
 
 	/* If we have a funding_signed message, send that immediately */
-	if (funding_signed) {
-		if (!sync_crypto_write(&peer->cs, PEER_FD, take(funding_signed)))
-			peer_failed_connection_lost();
-	}
+	if (funding_signed)
+		sync_crypto_write(&peer->cs, PEER_FD, take(funding_signed));
 
 	/* Reenable channel */
 	channel_announcement_negotiate(peer);

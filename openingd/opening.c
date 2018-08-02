@@ -297,8 +297,7 @@ static u8 *funder_channel(struct state *state,
 				  &ours->htlc,
 				  &state->next_per_commit[LOCAL],
 				  channel_flags);
-	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
-		peer_failed_connection_lost();
+	sync_crypto_write(&state->cs, PEER_FD, msg);
 
 	state->remoteconf = tal(state, struct channel_config);
 
@@ -458,8 +457,7 @@ static u8 *funder_channel(struct state *state,
 				     &state->funding_txid,
 				     state->funding_txout,
 				     &sig);
-	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
-		peer_failed_connection_lost();
+	sync_crypto_write(&state->cs, PEER_FD, msg);
 
 	/* BOLT #2:
 	 *
@@ -690,8 +688,7 @@ static u8 *fundee_channel(struct state *state,
 				    &ours->htlc,
 				    &state->next_per_commit[LOCAL]);
 
-	if (!sync_crypto_write(&state->cs, PEER_FD, take(msg)))
-		peer_failed_connection_lost();
+	sync_crypto_write(&state->cs, PEER_FD, take(msg));
 
 	peer_billboard(false,
 		       "Incoming channel: accepted, now waiting for them to create funding tx");

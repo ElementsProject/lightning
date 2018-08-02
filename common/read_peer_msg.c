@@ -37,8 +37,6 @@ u8 *peer_or_gossip_sync_read(const tal_t *ctx,
 	}
 
 	msg = sync_crypto_read(ctx, cs, peer_fd);
-	if (!msg)
-		peer_failed_connection_lost();
 	*from_gossipd = false;
 	return msg;
 }
@@ -84,7 +82,7 @@ bool is_wrong_channel(const u8 *msg, const struct channel_id *expected,
 
 void handle_gossip_msg_(const u8 *msg TAKES, int peer_fd,
 			struct crypto_state *cs,
-			bool (*send_msg)(struct crypto_state *cs, int fd,
+			void (*send_msg)(struct crypto_state *cs, int fd,
 					 const u8 *TAKES, void *arg),
 			void *arg)
 {
@@ -98,8 +96,7 @@ void handle_gossip_msg_(const u8 *msg TAKES, int peer_fd,
 
 	/* Gossipd can send us gossip messages, OR errors */
 	if (is_msg_for_gossipd(gossip)) {
-		if (!send_msg(cs, peer_fd, gossip, arg))
-			peer_failed_connection_lost();
+		send_msg(cs, peer_fd, gossip, arg);
 	} else if (fromwire_peektype(gossip) == WIRE_ERROR) {
 		status_debug("Gossipd told us to send error");
 		send_msg(cs, peer_fd, gossip, arg);
@@ -144,11 +141,10 @@ bool handle_peer_gossip_or_error(int peer_fd, int gossip_fd,
 		status_trace("Rejecting %s for unknown channel_id %s",
 			     wire_type_name(fromwire_peektype(msg)),
 			     type_to_string(tmpctx, struct channel_id, &actual));
-		if (!sync_crypto_write(cs, peer_fd,
-				take(towire_errorfmt(NULL, &actual,
-						     "Multiple channels"
-						     " unsupported"))))
-			peer_failed_connection_lost();
+		sync_crypto_write(cs, peer_fd,
+				  take(towire_errorfmt(NULL, &actual,
+						       "Multiple channels"
+						       " unsupported")));
 		goto handled;
 	}
 
@@ -164,7 +160,7 @@ u8 *read_peer_msg_(const tal_t *ctx,
 		   int peer_fd, int gossip_fd,
 		   struct crypto_state *cs,
 		   const struct channel_id *channel,
-		   bool (*send_reply)(struct crypto_state *cs, int fd,
+		   void (*send_reply)(struct crypto_state *cs, int fd,
 				      const u8 *TAKES,  void *arg),
 		   void *arg)
 {
@@ -178,8 +174,6 @@ u8 *read_peer_msg_(const tal_t *ctx,
 					       cs, &from_gossipd);
 	} else {
 		msg = sync_crypto_read(ctx, cs, peer_fd);
-		if (!msg)
-			peer_failed_connection_lost();
 		from_gossipd = false;
 	}
 
@@ -210,12 +204,11 @@ u8 *read_peer_msg_(const tal_t *ctx,
 		status_trace("Rejecting %s for unknown channel_id %s",
 			     wire_type_name(fromwire_peektype(msg)),
 			     type_to_string(tmpctx, struct channel_id, &actual));
-		if (!send_reply(cs, peer_fd,
-				take(towire_errorfmt(NULL, &actual,
-						     "Multiple channels"
-						     " unsupported")),
-				arg))
-			peer_failed_connection_lost();
+		send_reply(cs, peer_fd,
+			   take(towire_errorfmt(NULL, &actual,
+						"Multiple channels"
+						" unsupported")),
+			   arg);
 		return tal_free(msg);
 	}
 
@@ -223,8 +216,8 @@ u8 *read_peer_msg_(const tal_t *ctx,
 }
 
 /* Helper: sync_crypto_write, with extra args it ignores */
-bool sync_crypto_write_arg(struct crypto_state *cs, int fd, const u8 *msg,
+void sync_crypto_write_arg(struct crypto_state *cs, int fd, const u8 *msg,
 			   void *unused UNUSED)
 {
-	return sync_crypto_write(cs, fd, msg);
+	sync_crypto_write(cs, fd, msg);
 }
