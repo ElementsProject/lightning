@@ -226,17 +226,24 @@ static void temporary_channel_id(struct channel_id *channel_id)
 }
 
 /* Handle random messages we might get, returning the first non-handled one. */
-static u8 *opening_read_peer_msg(struct state *state)
+static u8 *opening_read_peer_msg(const tal_t *ctx, struct state *state)
 {
-	u8 *msg;
+	for (;;) {
+		u8 *msg;
+		bool from_gossipd;
 
-	while ((msg = read_peer_msg(state, &state->cs,
-				    &state->channel_id,
-				    sync_crypto_write_arg,
-				    state)) == NULL)
 		clean_tmpctx();
-
-	return msg;
+		msg = peer_or_gossip_sync_read(ctx, PEER_FD, GOSSIP_FD,
+					       &state->cs, &from_gossipd);
+		if (from_gossipd) {
+			handle_gossip_msg(msg, &state->cs, sync_crypto_write_arg,
+					  NULL);
+			continue;
+		}
+		if (!handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD, &state->cs,
+						 &state->channel_id, msg))
+			return msg;
+	}
 }
 
 static u8 *funder_channel(struct state *state,
@@ -303,7 +310,7 @@ static u8 *funder_channel(struct state *state,
 
 	peer_billboard(false,
 		       "Funding channel: offered, now waiting for accept_channel");
-	msg = opening_read_peer_msg(state);
+	msg = opening_read_peer_msg(tmpctx, state);
 
 	/* BOLT #2:
 	 *
@@ -470,7 +477,7 @@ static u8 *funder_channel(struct state *state,
 	peer_billboard(false,
 		       "Funding channel: create first tx, now waiting for their signature");
 
-	msg = opening_read_peer_msg(state);
+	msg = opening_read_peer_msg(tmpctx, state);
 
 	if (!fromwire_funding_signed(msg, &id_in, &sig))
 		peer_failed(&state->cs,
@@ -693,7 +700,7 @@ static u8 *fundee_channel(struct state *state,
 	peer_billboard(false,
 		       "Incoming channel: accepted, now waiting for them to create funding tx");
 
-	msg = opening_read_peer_msg(state);
+	msg = opening_read_peer_msg(tmpctx, state);
 
 	if (!fromwire_funding_created(msg, &id_in,
 				      &state->funding_txid,
