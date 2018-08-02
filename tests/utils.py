@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import shutil
 import sqlite3
 import stat
 import subprocess
@@ -10,7 +11,8 @@ import time
 from bitcoin.rpc import RawProxy as BitcoinProxy
 from decimal import Decimal
 from ephemeral_port_reserve import reserve
-from lightning import LightningRpc, RpcError
+from lightning import LightningRpc
+from shutil import copyfile
 
 
 BITCOIND_CONFIG = {
@@ -537,6 +539,15 @@ class LightningNode(object):
     def wait_channel_active(self, chanid):
         wait_for(lambda: self.is_channel_active(chanid), interval=1)
 
+    # This waits until gossipd sees channel_update in both directions
+    # (or for local channels, at least a local announcement)
+    def wait_for_routes(self, channel_ids):
+        # Could happen in any order...
+        self.daemon.wait_for_logs(['Received channel_update for channel {}\\(0\\)'.format(c)
+                                   for c in channel_ids] +
+                                  ['Received channel_update for channel {}\\(1\\)'.format(c)
+                                   for c in channel_ids])
+
 
 class NodeFactory(object):
     """A factory to setup and start `lightningd` daemons.
@@ -665,7 +676,7 @@ class NodeFactory(object):
         """
         nodes = self.get_nodes(num_nodes, opts=opts)
         bitcoin = nodes[0].bitcoin
-        connections = [(nodes[i], nodes[i+1]) for i in range(0, num_nodes-1)]
+        connections = [(nodes[i], nodes[i + 1]) for i in range(0, num_nodes - 1)]
 
         for src, dst in connections:
             src.rpc.connect(dst.info['id'], 'localhost', dst.port)
