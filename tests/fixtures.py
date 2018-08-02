@@ -1,11 +1,12 @@
 from concurrent import futures
-from test_lightningd import NodeFactory
+from utils import NodeFactory
 
 import logging
 import os
 import pytest
 import re
 import shutil
+import sys
 import tempfile
 import utils
 
@@ -16,6 +17,10 @@ with open('config.vars') as configfile:
 VALGRIND = os.getenv("VALGRIND", config['VALGRIND']) == "1"
 DEVELOPER = os.getenv("DEVELOPER", config['DEVELOPER']) == "1"
 TEST_DEBUG = os.getenv("TEST_DEBUG", "0") == "1"
+
+
+if TEST_DEBUG:
+    logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 
 
 # A dict in which we count how often a particular test has run so far. Used to
