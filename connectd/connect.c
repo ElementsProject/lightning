@@ -562,6 +562,26 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 		return io_close(conn);
 	}
 
+	if (!features_supported(peer->gfeatures, peer->lfeatures)) {
+		const u8 *global_features = get_offered_global_features(msg);
+		const u8 *local_features = get_offered_local_features(msg);
+		msg = towire_errorfmt(NULL, NULL, "Unsupported features %s/%s:"
+				      " we only offer globalfeatures %s"
+				      " and localfeatures %s",
+				      tal_hex(msg, peer->gfeatures),
+				      tal_hex(msg, peer->lfeatures),
+				      tal_hexstr(msg,
+						 global_features,
+						 tal_count(global_features)),
+				      tal_hexstr(msg,
+						 local_features,
+						 tal_count(local_features)));
+		queue_peer_msg(peer, take(msg));
+
+		/* Don't read any more */
+		return io_wait(conn, peer, io_never, peer);
+	}
+
 	return peer_connected(conn, peer);
 }
 
