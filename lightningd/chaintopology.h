@@ -35,6 +35,12 @@ struct outgoing_tx {
 	void (*failed)(struct channel *channel, int exitstatus, const char *err);
 };
 
+enum topology_status {
+	TOPOLOGY_INITIALIZING,
+	TOPOLOGY_SYNCING,
+	TOPOLOGY_AT_TIP,
+};
+
 struct block {
 	u32 height;
 
@@ -116,6 +122,9 @@ struct chain_topology {
 	/* Force a particular fee rate regardless of estimatefee (satoshis/kw) */
 	u32 *dev_override_fee_rate;
 #endif
+
+	/* Are we syncing, or at tip? */
+	enum topology_status status;
 };
 
 /* Information relevant to locating a TX in a blockchain. */
