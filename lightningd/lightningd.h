@@ -8,6 +8,7 @@
 #include <ccan/timer/timer.h>
 #include <common/json_escaped.h>
 #include <lightningd/htlc_end.h>
+#include <lightningd/status.h>
 #include <stdio.h>
 #include <wallet/txfilter.h>
 #include <wallet/wallet.h>
