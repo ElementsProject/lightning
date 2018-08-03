@@ -372,7 +372,7 @@ class LightningNode(object):
         self.may_reconnect = may_reconnect
 
     def openchannel(self, remote_node, capacity, addrtype="p2sh-segwit", confirm=True, announce=True):
-        addr, wallettxid = self.fundwallet(capacity, addrtype)
+        addr, wallettxid = self.fundwallet(10 * capacity, addrtype)
         fundingtx = self.rpc.fundchannel(remote_node.info['id'], capacity)
 
         # Wait for the funding transaction to be in bitcoind's mempool
@@ -391,7 +391,7 @@ class LightningNode(object):
 
     def fundwallet(self, sats, addrtype="p2sh-segwit"):
         addr = self.rpc.newaddr(addrtype)['address']
-        txid = self.bitcoin.rpc.sendtoaddress(addr, sats / 10**6)
+        txid = self.bitcoin.rpc.sendtoaddress(addr, sats / 10**8)
         self.bitcoin.generate_block(1)
         self.daemon.wait_for_log('Owning output .* txid {}'.format(txid))
         return addr, txid
@@ -582,6 +582,16 @@ class LightningNode(object):
         self.rpc.sendpay([routestep], rhash)
         # wait for sendpay to comply
         self.rpc.waitsendpay(rhash)
+
+    def fake_bitcoind_fail(self, exitcode):
+        # Create and rename, for atomicity.
+        f = os.path.join(self.daemon.lightning_dir, "bitcoin-cli-fail.tmp")
+        with open(f, "w") as text_file:
+            text_file.write("%d" % exitcode)
+        os.rename(f, os.path.join(self.daemon.lightning_dir, "bitcoin-cli-fail"))
+
+    def fake_bitcoind_unfail(self):
+        os.remove(os.path.join(self.daemon.lightning_dir, "bitcoin-cli-fail"))
 
 
 class NodeFactory(object):
