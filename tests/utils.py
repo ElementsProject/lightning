@@ -1,9 +1,11 @@
 import logging
 import os
+import random
 import re
 import shutil
 import sqlite3
 import stat
+import string
 import subprocess
 import threading
 import time
@@ -62,6 +64,12 @@ def only_one(arr):
     """
     assert len(arr) == 1
     return arr[0]
+
+
+def sync_blockheight(bitcoind, nodes):
+    height = bitcoind.rpc.getblockchaininfo()['blocks']
+    for n in nodes:
+        wait_for(lambda: n.rpc.getinfo()['blockheight'] == height)
 
 
 class TailableProc(object):
@@ -547,6 +555,33 @@ class LightningNode(object):
                                    for c in channel_ids] +
                                   ['Received channel_update for channel {}\\(1\\)'.format(c)
                                    for c in channel_ids])
+
+    def pay(self, dst, amt, label=None):
+        if not label:
+            label = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
+
+        rhash = dst.rpc.invoice(amt, label, label)['payment_hash']
+        invoices = dst.rpc.listinvoices(label)['invoices']
+        assert len(invoices) == 1 and invoices[0]['status'] == 'unpaid'
+
+        routestep = {
+            'msatoshi': amt,
+            'id': dst.info['id'],
+            'delay': 5,
+            'channel': '1:1:1'
+        }
+
+        def wait_pay():
+            # Up to 10 seconds for payment to succeed.
+            start_time = time.time()
+            while dst.rpc.listinvoices(label)['invoices'][0]['status'] != 'paid':
+                if time.time() > start_time + 10:
+                    raise TimeoutError('Payment timed out')
+                time.sleep(0.1)
+        # sendpay is async now
+        self.rpc.sendpay([routestep], rhash)
+        # wait for sendpay to comply
+        self.rpc.waitsendpay(rhash)
 
 
 class NodeFactory(object):
