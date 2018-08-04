@@ -203,9 +203,9 @@ There are three kinds of tests:
 * **blackbox tests** - These test setup a mini-regtest environment and test
   lightningd as a whole.  They can be run individually:
 
-  `PYTHONPATH=contrib/pylightning python3 tests/test_lightningd.py -f`.
+  `PYTHONPATH=contrib/pylightning py.test -v tests/`.
 
-  You can also append `LightningDTests.TESTNAME` to run a single test.
+  You can also append `-k TESTNAME` to run a single test.
 
 Our Travis CI instance (see `.travis.yml`) runs all these for each
 pull request.

@@ -1,12 +1,14 @@
+from concurrent import futures
+from fixtures import *  # noqa: F401,F403
+from time import time
+from tqdm import tqdm
+
+
 import logging
 import pytest
 import random
 import utils
 
-from concurrent import futures
-from test_lightningd import NodeFactory
-from time import time
-from tqdm import tqdm
 
 num_workers = 480
 num_payments = 10000
@@ -36,13 +38,6 @@ def bitcoind():
     except Exception:
         bitcoind.proc.kill()
     bitcoind.proc.wait()
-
-
-@pytest.fixture
-def node_factory(request, bitcoind, executor):
-    nf = NodeFactory(request.node.name, bitcoind, executor)
-    yield nf
-    nf.killall([False] * len(nf.nodes))
 
 
 def test_single_hop(node_factory, executor):
