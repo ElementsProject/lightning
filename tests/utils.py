@@ -14,7 +14,6 @@ from bitcoin.rpc import RawProxy as BitcoinProxy
 from decimal import Decimal
 from ephemeral_port_reserve import reserve
 from lightning import LightningRpc
-from shutil import copyfile
 
 
 BITCOIND_CONFIG = {
@@ -402,9 +401,8 @@ class LightningNode(object):
     def db_query(self, query, use_copy=True):
         orig = os.path.join(self.daemon.lightning_dir, "lightningd.sqlite3")
         if use_copy:
-            from shutil import copyfile
             copy = os.path.join(self.daemon.lightning_dir, "lightningd-copy.sqlite3")
-            copyfile(orig, copy)
+            shutil.copyfile(orig, copy)
             db = sqlite3.connect(copy)
         else:
             db = sqlite3.connect(orig)
