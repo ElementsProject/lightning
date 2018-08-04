@@ -1,5 +1,5 @@
 from fixtures import *  # noqa: F401,F403
-from test_lightningd import wait_for
+from utils import wait_for
 
 import json
 import logging
