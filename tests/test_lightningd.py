@@ -4332,6 +4332,35 @@ class LightningDTests(BaseLightningDTests):
         assert not l2.daemon.is_in_log('signature verification failed')
         assert not l3.daemon.is_in_log('signature verification failed')
 
+    def test_gossip_addresses(self):
+        l1 = self.node_factory.get_node(options={'announce-addr':
+                                                 ['[::]:3',
+                                                  '127.0.0.1:2',
+                                                  'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion',
+
+                                                  '3fyb44wdhnd2ghhl.onion:1234']})
+        l2 = self.node_factory.get_node()
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+        self.fund_channel(l1, l2, 100000)
+        bitcoind.generate_block(6)
+        l2.daemon.wait_for_log('Received node_announcement for node {}'
+                               .format(l1.info['id']))
+
+        node = only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])
+        assert node['addresses'] == [{'type': 'ipv4',
+                                      'address': '127.0.0.1',
+                                      'port': 2},
+                                     {'type': 'ipv6',
+                                      'address': '::',
+                                      'port': 3},
+                                     {'type': 'torv2',
+                                      'address': '3fyb44wdhnd2ghhl.onion',
+                                      'port': 1234},
+                                     {'type': 'torv3',
+                                      'address': 'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion',
+                                      'port': 9735}]
+
     @unittest.skipIf(not DEVELOPER, "Too slow without --dev-bitcoind-poll")
     def test_waitinvoice(self):
         """Test waiting for one invoice will not return if another invoice

@@ -56,6 +56,8 @@ changes.
 - Protocol: `channel_update` inside error messages now refers to correct channel.
 - Stripping type prefix from `channel_update`s that are nested in an onion reply
   to be compatible with eclair and lnd (#1730).
+- JSON API: `listnodes`: now correctly prints `addresses` if more than
+  one is advertised.
 
 ### Security
 
