@@ -1,0 +1,11 @@
+lightningd (0.6-1) stable; urgency=medium
+
+  * While there are far too many new features in the 0.6 release to list, the following are the most interesting and impactful: Lightweight nodes: Previous releases required a full bitcoind node running alongside c-lightning, to provide access to the Bitcoin network. Thisrelease still requires the bitcoin-cli utility to be present, but it can now talk to remote nodes as well, including some lightweight nodes such as spruned. This makes it possible to run a c-lightning node on Raspberry Pis as well as other low-powered devices.
+  * The gossip protocol has been updated to use a more lightweight bandwidth mechanism that asks for specific information, rather than exchanging full network views as the previous release did. This is particularly important for low-powered and mobile devices that would otherwise spend a lot of bandwidth and energy downloading and verifying information they already have.
+  * API stability: The c-lightning JSON-RPC interface and supporting libraries have been redesigned in order to minimize changes in future releases. This API stability should make it easy for other projects to build on top of c-lightning because we will support this version of the API for the foreseeable future, maintaining backward compatibility, should we introduce any changes.
+  * Wallet and sync: c-lightning now includes a full-fledged wallet that manages both on-chain and off-chain funds. There is no more raw transaction handling! All funds are automatically tracked and returned to the internalwallet as soon as possible, with no user interaction required. In addition the blockchain tracking now maintains an internal view of the blockchain,ending long blockchain rescans.
+  * TOR support: c-lightning now supports connecting to nodes over the TOR network, auto-registering as a hidden service, and accepting incoming connections over TOR.
+  * The payment logic has undergone a major overhaul to support automatic retries for routing failures, randomization of route selection, and better feedback about the current state of a payment.
+  * And as always: performance, performance, performance.
+
+ -- Christian Decker <decker.christian@gmail.com>  Sun, 05 Aug 2018 11:46:08 +0200

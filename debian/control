@@ -1,0 +1,20 @@
+Source: lightningd
+Section: net
+Priority: optional
+Maintainer: Christian Decker <decker.christian@gmail.com>
+Build-Depends: debhelper (>=9),autotools-dev,build-essential,pkg-config,libsqlite3-dev,git,libtool,libgmp-dev,libsqlite3-dev,python,python3,net-tools,zlib1g-dev,python3-pip,autoconf,automake,python3-mako
+Depends: libsqlite3-0 bitcoind
+Standards-Version: 3.9.6
+Homepage: https://github.com/ElementsProject/lightning
+Vcs-Git: https://github.com/ElementsProject/lightning.git
+Vcs-Browser: https://github.com/ElementsProject/lightning
+
+Package: lightningd
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: c-lightning: A specification compliant Lightning Network implementation in C
+  c-lightning is a standard compliant implementation of the Lightning Network
+  protocol. The Lightning Network is a scalability solution for Bitcoin,
+  enabling secure and instant transfer of funds between any two parties for
+  any amount.For more information about the Lightning Network please refer to
+  http://lightning.network.
