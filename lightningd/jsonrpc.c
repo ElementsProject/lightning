@@ -25,6 +25,7 @@
 #include <lightningd/log.h>
 #include <lightningd/options.h>
 #include <lightningd/param.h>
+#include <lightningd/status.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -158,6 +159,8 @@ static void json_getinfo(struct command *cmd,
 	json_add_string(response, "version", version());
 	json_add_num(response, "blockheight", get_block_height(cmd->ld->topology));
 	json_add_string(response, "network", get_chainparams(cmd->ld)->network_name);
+	const char *ldstatus = lightningd_status_to_str(get_lightningd_status(cmd->ld));
+	json_add_string(response, "status", ldstatus);
 	json_object_end(response);
 	command_success(cmd, response);
 }

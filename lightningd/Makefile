@@ -67,6 +67,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/lightningd.c			\
 	lightningd/log.c			\
 	lightningd/log_status.c			\
+	lightningd/status.c			\
 	lightningd/onchain_control.c		\
 	lightningd/opening_control.c		\
 	lightningd/options.c			\
@@ -92,6 +93,7 @@ ALL_OBJS += $(LIGHTNINGD_OBJS)
 LIGHTNINGD_HEADERS_NOGEN =			\
 	$(LIGHTNINGD_SRC:.c=.h)			\
 	lightningd/channel_state.h			\
+	lightningd/status.h			\
 	lightningd/jsonrpc_errors.h
 
 # Generated headers

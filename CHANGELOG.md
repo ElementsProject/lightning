@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 - Documentation: Added CHANGELOG.md
-- JSON API: `getinfo` has new fields `alias` and `color`.
+- JSON API: `getinfo` has new fields `alias`, `status` and `color`.
 - JSON API: `listpeers` has new fields `global_features` and `local_features`.
 - JSON API:`listnodes` has new field `global_features`.
 - Protocol: gossipd now deliberately delays spamming with `channel_update`.

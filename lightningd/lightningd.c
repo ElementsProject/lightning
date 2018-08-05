@@ -313,6 +313,19 @@ void notify_new_block(struct lightningd *ld,
 	channel_notify_new_block(ld, block_height);
 }
 
+enum lightningd_status get_lightningd_status(struct lightningd *ld) {
+	switch (ld->topology->status) {
+	case TOPOLOGY_INITIALIZING:
+		return LIGHTNINGD_STATUS_INITIALIZING;
+	case TOPOLOGY_SYNCING:
+		return LIGHTNINGD_STATUS_SYNCING;
+	case TOPOLOGY_AT_TIP:
+		return LIGHTNINGD_STATUS_READY;
+	}
+
+	assert(!"chain_topology has an invalid status");
+}
+
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld;

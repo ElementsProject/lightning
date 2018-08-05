@@ -8,6 +8,7 @@
 #include <ccan/timer/timer.h>
 #include <common/json_escaped.h>
 #include <lightningd/htlc_end.h>
+#include <lightningd/status.h>
 #include <stdio.h>
 #include <wallet/txfilter.h>
 #include <wallet/wallet.h>
@@ -215,5 +216,7 @@ void test_daemons(const struct lightningd *ld);
 
 /* Notify lightningd about new blocks. */
 void notify_new_block(struct lightningd *ld, u32 block_height);
+
+enum lightningd_status get_lightningd_status(struct lightningd *ld);
 
 #endif /* LIGHTNING_LIGHTNINGD_LIGHTNINGD_H */
