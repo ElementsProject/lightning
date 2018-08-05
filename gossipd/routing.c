@@ -1228,15 +1228,16 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 {
 	const u8 *cursor = ser;
-	size_t max = tal_count(ser);
+	size_t len = tal_count(ser);
 	struct wireaddr *wireaddrs = tal_arr(ctx, struct wireaddr, 0);
 	int numaddrs = 0;
-	while (cursor && cursor < ser + max) {
+
+	while (cursor && len) {
 		struct wireaddr wireaddr;
 
 		/* Skip any padding */
-		while (max && cursor[0] == ADDR_TYPE_PADDING)
-			fromwire_u8(&cursor, &max);
+		while (len && cursor[0] == ADDR_TYPE_PADDING)
+			fromwire_u8(&cursor, &len);
 
 		/* BOLT #7:
 		 *
@@ -1245,11 +1246,13 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 		 *   - SHOULD ignore the first `address descriptor` that does
 		 *     NOT match the types defined above.
 		 */
-		if (!fromwire_wireaddr(&cursor, &max, &wireaddr)) {
+		if (!fromwire_wireaddr(&cursor, &len, &wireaddr)) {
 			if (!cursor)
 				/* Parsing address failed */
 				return tal_free(wireaddrs);
 			/* Unknown type, stop there. */
+			status_trace("read_addresses: unknown address type %u",
+				     cursor[0]);
 			break;
 		}
 
