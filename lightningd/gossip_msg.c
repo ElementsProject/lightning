@@ -27,7 +27,7 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 	entry->addresses = tal_arr(entry, struct wireaddr, numaddresses);
 	for (i=0; i<numaddresses; i++) {
 		/* Gossipd doesn't hand us addresses we can't understand. */
-		if (!fromwire_wireaddr(pptr, max, entry->addresses)) {
+		if (!fromwire_wireaddr(pptr, max, &entry->addresses[i])) {
 			fromwire_fail(pptr, max);
 			return NULL;
 		}
