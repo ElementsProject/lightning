@@ -145,6 +145,9 @@ static char *opt_set_ordered(enum input *input)
 static bool is_literal(const char *arg)
 {
 	size_t arglen = strlen(arg);
+	if (arglen == 0) {
+		return false;
+	}
 	return strspn(arg, "0123456789") == arglen
 		|| streq(arg, "true")
 		|| streq(arg, "false")
