@@ -9,7 +9,6 @@ import json
 import os
 import pytest
 import signal
-import sqlite3
 import socket
 import subprocess
 import time
@@ -348,11 +347,7 @@ def test_withdraw(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
 
     # Reach around into the db to check that outputs were added
-    db = sqlite3.connect(os.path.join(l1.daemon.lightning_dir, "lightningd.sqlite3"))
-
-    c = db.cursor()
-    c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
-    assert(c.fetchone()[0] == 10)
+    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 10
 
     waddr = l1.bitcoin.rpc.getnewaddress()
     # Now attempt to withdraw some (making sure we collect multiple inputs)
@@ -372,9 +367,7 @@ def test_withdraw(node_factory, bitcoind):
     assert(withdrawal[0]['amount'] == Decimal('0.02'))
 
     # Now make sure two of them were marked as spent
-    c = db.cursor()
-    c.execute('SELECT COUNT(*) FROM outputs WHERE status=2')
-    assert(c.fetchone()[0] == 2)
+    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 2
 
     # Now send some money to l2.
     # lightningd uses P2SH-P2WPKH
@@ -388,9 +381,7 @@ def test_withdraw(node_factory, bitcoind):
     assert only_one(outputs)['value'] == 2 * amount
 
     # Now make sure an additional two of them were marked as spent
-    c = db.cursor()
-    c.execute('SELECT COUNT(*) FROM outputs WHERE status=2')
-    assert(c.fetchone()[0] == 4)
+    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 4
 
     # Simple test for withdrawal to P2WPKH
     # Address from: https://bc-2.jp/tools/bech32demo/index.html
@@ -404,9 +395,7 @@ def test_withdraw(node_factory, bitcoind):
     l1.rpc.withdraw(waddr, 2 * amount)
     l1.bitcoin.rpc.generate(1)
     # Now make sure additional two of them were marked as spent
-    c = db.cursor()
-    c.execute('SELECT COUNT(*) FROM outputs WHERE status=2')
-    assert(c.fetchone()[0] == 6)
+    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 6
 
     # Simple test for withdrawal to P2WSH
     # Address from: https://bc-2.jp/tools/bech32demo/index.html
@@ -420,9 +409,7 @@ def test_withdraw(node_factory, bitcoind):
     l1.rpc.withdraw(waddr, 2 * amount)
     l1.bitcoin.rpc.generate(1)
     # Now make sure additional two of them were marked as spent
-    c = db.cursor()
-    c.execute('SELECT COUNT(*) FROM outputs WHERE status=2')
-    assert(c.fetchone()[0] == 8)
+    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 8
 
     # failure testing for invalid SegWit addresses, from BIP173
     # HRP character out of range
@@ -451,21 +438,15 @@ def test_withdraw(node_factory, bitcoind):
         l1.rpc.withdraw('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3pjxtptv', 2 * amount)
 
     # Should have 6 outputs available.
-    c = db.cursor()
-    c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
-    assert(c.fetchone()[0] == 6)
+    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 6
 
     # Test withdrawal to self.
     l1.rpc.withdraw(l1.rpc.newaddr('bech32')['address'], 'all')
     bitcoind.rpc.generate(1)
-    c = db.cursor()
-    c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
-    assert(c.fetchone()[0] == 1)
+    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 1
 
     l1.rpc.withdraw(waddr, 'all')
-    c = db.cursor()
-    c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
-    assert(c.fetchone()[0] == 0)
+    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 0
 
     # This should fail, can't even afford fee.
     with pytest.raises(RpcError):
