@@ -268,9 +268,8 @@ static bool separate_address_and_port(const tal_t *ctx, const char *arg,
 		portcolon = strchr(arg, ':');
 		if (portcolon) {
 			/* Disregard if there's more than one : or if it's at
-			   the start or end */
+			   the end */
 			if (portcolon != strrchr(arg, ':')
-			    || portcolon == arg
 			    || portcolon[1] == '\0')
 				portcolon = NULL;
 		}
