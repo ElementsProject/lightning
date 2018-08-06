@@ -206,10 +206,17 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct pubkey *local_id,
 					u32 prune_timeout);
 
+/**
+ * Add a new bidirectional channel from id1 to id2 with the given
+ * short_channel_id and capacity to the local network view. The channel may not
+ * already exist, and might create the node entries for the two endpoints, if
+ * they do not exist yet.
+ */
 struct chan *new_chan(struct routing_state *rstate,
 		      const struct short_channel_id *scid,
 		      const struct pubkey *id1,
-		      const struct pubkey *id2);
+		      const struct pubkey *id2,
+		      u64 satoshis);
 
 /* Handlers for incoming messages */
 

@@ -154,7 +154,7 @@ static void add_connection(struct routing_state *rstate,
 	memset(&scid, 0, sizeof(scid));
 	chan = get_channel(rstate, &scid);
 	if (!chan)
-		chan = new_chan(rstate, &scid, from, to);
+		chan = new_chan(rstate, &scid, from, to, 1000000);
 
 	c = &chan->half[pubkey_idx(from, to)];
 	c->base_fee = base_fee;
