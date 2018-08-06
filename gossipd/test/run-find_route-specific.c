@@ -121,13 +121,11 @@ get_or_make_connection(struct routing_state *rstate,
 		abort();
 	chan = get_channel(rstate, &scid);
 	if (!chan)
-		chan = new_chan(rstate, &scid, from_id, to_id);
+		chan = new_chan(rstate, &scid, from_id, to_id, satoshis);
 
 	/* Make sure it's seen as initialized (update non-NULL). */
 	chan->half[idx].channel_update = (void *)chan;
 	chan->half[idx].htlc_minimum_msat = 0;
-
-	chan->satoshis = satoshis;
 
 	return &chan->half[pubkey_idx(from_id, to_id)];
 }

@@ -282,7 +282,8 @@ static void bad_gossip_order(const u8 *msg, const char *source,
 struct chan *new_chan(struct routing_state *rstate,
 		      const struct short_channel_id *scid,
 		      const struct pubkey *id1,
-		      const struct pubkey *id2)
+		      const struct pubkey *id2,
+		      u64 satoshis)
 {
 	struct chan *chan = tal(rstate, struct chan);
 	int n1idx = pubkey_idx(id1, id2);
@@ -306,7 +307,7 @@ struct chan *new_chan(struct routing_state *rstate,
 	chan->txout_script = NULL;
 	chan->channel_announce = NULL;
 	chan->channel_announcement_index = 0;
-	chan->satoshis = 0;
+	chan->satoshis = satoshis;
 	chan->local_disabled = false;
 
 	n = tal_count(n2->chans);
@@ -740,9 +741,8 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	 * channel_announcements.  See handle_channel_announcement. */
 	chan = get_channel(rstate, &scid);
 	if (!chan)
-		chan = new_chan(rstate, &scid, &node_id_1, &node_id_2);
+		chan = new_chan(rstate, &scid, &node_id_1, &node_id_2, satoshis);
 
-	chan->satoshis = satoshis;
 	/* Channel is now public. */
 	chan->channel_announce = tal_dup_arr(chan, u8, msg, tal_count(msg), 0);
 
@@ -1682,7 +1682,6 @@ void handle_local_add_channel(struct routing_state *rstate, const u8 *msg)
 {
 	struct short_channel_id scid;
 	struct pubkey remote_node_id;
-	struct chan *chan;
 	u64 satoshis;
 
 	if (!fromwire_gossip_local_add_channel(msg, &scid, &remote_node_id,
@@ -1702,6 +1701,5 @@ void handle_local_add_channel(struct routing_state *rstate, const u8 *msg)
 		     type_to_string(tmpctx, struct short_channel_id, &scid));
 
 	/* Create new (unannounced) channel */
-	chan = new_chan(rstate, &scid, &rstate->local_id, &remote_node_id);
-	chan->satoshis = satoshis;
+	new_chan(rstate, &scid, &rstate->local_id, &remote_node_id, satoshis);
 }

@@ -119,9 +119,7 @@ static void add_connection(struct routing_state *rstate,
 
 	chan = get_channel(rstate, &scid);
 	if (!chan)
-		chan = new_chan(rstate, &scid, from, to);
-
-	chan->satoshis = 100000;
+		chan = new_chan(rstate, &scid, from, to, 100000);
 
 	c = &chan->half[pubkey_idx(from, to)];
 	/* Make sure it's seen as initialized (update non-NULL). */
