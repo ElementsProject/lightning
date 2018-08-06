@@ -555,7 +555,6 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 	struct channel_info channel_info;
 	struct short_channel_id *scid;
 	struct channel *chan;
-	u64 peer_dbid;
 	struct peer *peer;
 	struct wallet_shachain wshachain;
 	struct channel_config our_config;
@@ -567,14 +566,9 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 	struct basepoints local_basepoints;
 	struct pubkey local_funding_pubkey;
 
-	peer_dbid = sqlite3_column_int64(stmt, 1);
-	peer = find_peer_by_dbid(w->ld, peer_dbid);
-	if (!peer) {
-		peer = wallet_peer_load(w, peer_dbid);
-		if (!peer) {
-			return NULL;
-		}
-	}
+	peer = wallet_peer_load(w, sqlite3_column_int64(stmt, 1));
+	if (!peer)
+		return NULL;
 
 	if (sqlite3_column_type(stmt, 2) != SQLITE_NULL) {
 		scid = tal(tmpctx, struct short_channel_id);
