@@ -679,10 +679,9 @@ class NodeFactory(object):
         if fake_bitcoin_cli:
             cli = os.path.join(lightning_dir, "fake-bitcoin-cli")
             with open(cli, "w") as text_file:
-                print("""#! /bin/sh
-                ! [ -f bitcoin-cli-fail ] || exit `cat bitcoin-cli-fail`
-                exec bitcoin-cli "$@"
-                """, file=text_file)
+                text_file.write('#! /bin/sh\n'
+                                '! [ -f bitcoin-cli-fail ] || exit `cat bitcoin-cli-fail`\n'
+                                'exec bitcoin-cli "$@"\n')
             os.chmod(cli, os.stat(cli).st_mode | stat.S_IEXEC)
             daemon.opts['bitcoin-cli'] = cli
 

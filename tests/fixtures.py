@@ -164,8 +164,7 @@ def printCrashLog(node):
     errors, fname = getCrashLog(node)
     if errors:
         print("-" * 10, "{} (last 50 lines)".format(fname), "-" * 10)
-        for l in errors[-50:]:
-            print(l, end='')
+        print("".join(errors[-50:]))
         print("-" * 80)
     return 1 if errors else 0
 
