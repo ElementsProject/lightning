@@ -103,6 +103,15 @@ HTABLE_DEFINE_TYPE(struct important_peerid,
 		   important_peerid_eq,
 		   important_peerid_map);
 
+struct listen_fd {
+	int fd;
+	/* If we bind() IPv6 then IPv4 to same port, we *may* fail to listen()
+	 * on the IPv4 socket: under Linux, by default, the IPv6 listen()
+	 * covers IPv4 too.  Normally we'd consider failing to listen on a
+	 * port to be fatal, so we note this when setting up addresses. */
+	bool mayfail;
+};
+
 struct daemon {
 	/* Who am I? */
 	struct pubkey id;
@@ -155,7 +164,7 @@ struct daemon {
 	struct sockaddr *broken_resolver_response;
 
 	/* File descriptors to listen on once we're activated. */
-	int *listen_fds;
+	struct listen_fd *listen_fds;
 };
 
 /* Peers we're trying to reach. */
@@ -1050,11 +1059,12 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 				   init_new_peer, daemon);
 }
 
-static void add_listen_fd(struct daemon *daemon, int fd)
+static void add_listen_fd(struct daemon *daemon, int fd, bool mayfail)
 {
 	size_t n = tal_count(daemon->listen_fds);
 	tal_resize(&daemon->listen_fds, n+1);
-	daemon->listen_fds[n] = fd;
+	daemon->listen_fds[n].fd = fd;
+	daemon->listen_fds[n].mayfail = mayfail;
 }
 
 /* Return true if it created socket successfully. */
@@ -1074,7 +1084,7 @@ static bool handle_wireaddr_listen(struct daemon *daemon,
 		if (fd >= 0) {
 			status_trace("Created IPv4 listener on port %u",
 				     wireaddr->port);
-			add_listen_fd(daemon, fd);
+			add_listen_fd(daemon, fd, mayfail);
 			return true;
 		}
 		return false;
@@ -1084,7 +1094,7 @@ static bool handle_wireaddr_listen(struct daemon *daemon,
 		if (fd >= 0) {
 			status_trace("Created IPv6 listener on port %u",
 				     wireaddr->port);
-			add_listen_fd(daemon, fd);
+			add_listen_fd(daemon, fd, mayfail);
 			return true;
 		}
 		return false;
@@ -1206,7 +1216,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 					    false);
 			status_trace("Created socket listener on file %s",
 				     addrun.sun_path);
-			add_listen_fd(daemon, fd);
+			add_listen_fd(daemon, fd, false);
 			/* We don't announce socket names */
 			assert(!announce);
 			add_binding(&binding, &wa);
@@ -1219,12 +1229,12 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 
 			wa.itype = ADDR_INTERNAL_WIREADDR;
 			wa.u.wireaddr.port = wa.u.port;
-			memset(wa.u.wireaddr.addr, 0,
-			       sizeof(wa.u.wireaddr.addr));
 
-			/* Try both IPv6 and IPv4. */
+			/* First, create wildcard IPv6 address. */
 			wa.u.wireaddr.type = ADDR_TYPE_IPV6;
 			wa.u.wireaddr.addrlen = 16;
+			memset(wa.u.wireaddr.addr, 0,
+			       sizeof(wa.u.wireaddr.addr));
 
 			ipv6_ok = handle_wireaddr_listen(daemon, &wa.u.wireaddr,
 							 true);
@@ -1234,8 +1244,12 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 				    && public_address(daemon, &wa.u.wireaddr))
 					add_announcable(daemon, &wa.u.wireaddr);
 			}
+
+			/* Now, create wildcard IPv4 address. */
 			wa.u.wireaddr.type = ADDR_TYPE_IPV4;
 			wa.u.wireaddr.addrlen = 4;
+			memset(wa.u.wireaddr.addr, 0,
+			       sizeof(wa.u.wireaddr.addr));
 			/* OK if this fails, as long as one succeeds! */
 			if (handle_wireaddr_listen(daemon, &wa.u.wireaddr,
 						   ipv6_ok)) {
@@ -1340,11 +1354,16 @@ static struct io_plan *connect_activate(struct daemon_conn *master,
 
 	if (do_listen) {
 		for (size_t i = 0; i < tal_count(daemon->listen_fds); i++) {
-			if (listen(daemon->listen_fds[i], 5) != 0)
+			/* On Linux, at least, we may bind to all addresses
+			 * for IPv4 and IPv6, but we'll fail to listen. */
+			if (listen(daemon->listen_fds[i].fd, 5) != 0) {
+				if (daemon->listen_fds[i].mayfail)
+					continue;
 				status_failed(STATUS_FAIL_INTERNAL_ERROR,
 					      "Failed to listen on socket: %s",
 					      strerror(errno));
-			io_new_listener(daemon, daemon->listen_fds[i],
+			}
+			io_new_listener(daemon, daemon->listen_fds[i].fd,
 					connection_in, daemon);
 		}
 	}
@@ -1930,7 +1949,7 @@ int main(int argc, char *argv[])
 	important_peerid_map_init(&daemon->important_peerids);
 	timers_init(&daemon->timers, time_mono());
 	daemon->broken_resolver_response = NULL;
-	daemon->listen_fds = tal_arr(daemon, int, 0);
+	daemon->listen_fds = tal_arr(daemon, struct listen_fd, 0);
 	/* stdin == control */
 	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req,
 			 master_gone);
