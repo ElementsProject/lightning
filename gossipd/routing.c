@@ -408,7 +408,7 @@ static void bfg_one_edge(struct node *node,
 			/* Skip a channels if it indicated that it won't route
 			 * the requeuested amount. */
 			continue;
-		} else if (requiredcap + risk >= MAX_MSATOSHI) {
+		} else if (requiredcap >= MAX_MSATOSHI) {
 			SUPERVERBOSE("...extreme %"PRIu64
 				     " + fee %"PRIu64
 				     " + risk %"PRIu64" ignored",
