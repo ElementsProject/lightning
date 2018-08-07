@@ -85,7 +85,7 @@ typedef char *(*param_cbx)(struct command *cmd,
 		  true,						\
 		  true,						\
 		  (cbx),				 	\
-		  (arg) + 0*sizeof((cbx)((const tal_t *)NULL,   \
+		  (arg) + 0*sizeof((cbx)((struct command *)NULL,\
 				   (const char *)NULL,		\
 				   (const jsmntok_t *)NULL,	\
 				   (arg)) == NULL),		\
@@ -111,7 +111,7 @@ typedef char *(*param_cbx)(struct command *cmd,
 		  false,					\
 		  true,						\
 		  (cbx),				 	\
-		  (arg) + 0*sizeof((cbx)((const tal_t *)NULL,   \
+		  (arg) + 0*sizeof((cbx)((struct command *)NULL,\
 				   (const char *)NULL,		\
 				   (const jsmntok_t *)NULL,	\
 				   (arg)) == NULL),		\

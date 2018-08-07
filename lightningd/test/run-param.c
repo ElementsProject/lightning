@@ -403,7 +403,7 @@ static void sendpay_nulltok(void)
 	assert(msatoshi == NULL);
 }
 
-static char *json_tok_msat(const tal_t *ctx,
+static char *json_tok_msat(struct command *cmd,
 			   const char *buffer,
 			   const jsmntok_t * msatoshi,
 			   u64 **msatoshi_val)
@@ -425,7 +425,7 @@ static char *json_tok_msat(const tal_t *ctx,
 
 /* This can eventually replace json_tok_tok and we can remove the special p_opt_tok()
  * macro. */
-static char *json_tok_tok_x(const tal_t *ctx,
+static char *json_tok_tok_x(struct command *cmd,
 			    const char *buffer,
 			    const jsmntok_t *tok,
 			    const jsmntok_t **arg)
@@ -438,12 +438,12 @@ static char *json_tok_tok_x(const tal_t *ctx,
  * New version of json_tok_label conforming to advanced style. This can eventually
  * replace the existing json_tok_label.
  */
-static char *json_tok_label_x(const tal_t *ctx,
+static char *json_tok_label_x(struct command *cmd,
 			      const char *buffer,
 			      const jsmntok_t *tok,
 			      struct json_escaped **label)
 {
-	if ((*label = json_tok_escaped_string(ctx, buffer, tok)))
+	if ((*label = json_tok_escaped_string(cmd, buffer, tok)))
 		return NULL;
 
 	/* Allow literal numbers */
@@ -454,12 +454,12 @@ static char *json_tok_label_x(const tal_t *ctx,
 		if (!cisdigit(buffer[i]))
 			goto fail;
 
-	if ((*label = json_escaped_string_(ctx, buffer + tok->start,
+	if ((*label = json_escaped_string_(cmd, buffer + tok->start,
 				    tok->end - tok->start)))
 		return NULL;
 
 fail:
-	return tal_fmt(ctx, "expected a string or number, not '%.*s'",
+	return tal_fmt(cmd, "expected a string or number, not '%.*s'",
 		       tok->end - tok->start,
 		       buffer + tok->start);
 }
