@@ -499,6 +499,18 @@ static void advanced(void)
 		assert(!strcmp(label->s, "3"));
 		assert(!strcmp(foo->s, "foo"));
 	}
+	{
+		u64 *msat;
+		u64 *msat2;
+		struct json *j = json_parse(cmd, "[ 3 ]");
+		assert(param(cmd, j->buffer, j->toks,
+			      p_opt_def_tal("msat", json_tok_msat, &msat, 23),
+			      p_opt_def_tal("msat2", json_tok_msat, &msat2, 53),
+			      NULL));
+		assert(*msat == 3);
+		assert(msat2);
+		assert(*msat2 == 53);
+	}
 }
 
 static void advanced_fail(void)

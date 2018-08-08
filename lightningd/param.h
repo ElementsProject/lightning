@@ -131,6 +131,17 @@ typedef char *(*param_cbx)(struct command *cmd,
 					(arg)) == true),		\
 		  ((void)((*arg) = (def)), (size_t)0)
 
+#define p_opt_def_tal(name, cbx, arg, def)				\
+		  name"",					\
+		  false,					\
+		  true,						\
+		  (cbx),				 	\
+		  (arg) + 0*sizeof((cbx)((struct command *)NULL,\
+				   (const char *)NULL,		\
+				   (const jsmntok_t *)NULL,	\
+				   (arg)) == NULL),		\
+		  ({ *arg = tal(cmd, typeof(**arg)); **arg = def; (size_t)0;})
+
 /*
  * For when you want an optional raw token.
  *
