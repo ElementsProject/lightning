@@ -487,18 +487,35 @@ class LightningNode(object):
 
         wait_for(lambda: len(self.bitcoin.rpc.getrawmempool()) == num_tx + 1)
         self.bitcoin.generate_block(1)
-        # We wait until gossipd sees local update, as well as status NORMAL,
-        # so it can definitely route through.
-        self.daemon.wait_for_logs(['update for channel .* now ACTIVE', 'to CHANNELD_NORMAL'])
-        l2.daemon.wait_for_logs(['update for channel .* now ACTIVE', 'to CHANNELD_NORMAL'])
 
         # Hacky way to find our output.
+        scid = None
         decoded = self.bitcoin.rpc.decoderawtransaction(tx, True)
+
         for out in decoded['vout']:
             if out['scriptPubKey']['type'] == 'witness_v0_scripthash':
                 if out['value'] == Decimal(amount) / 10**8:
-                    return "{}:1:{}".format(self.bitcoin.rpc.getblockcount(), out['n'])
-        raise ValueError("Can't find {} payment in {} (1={} 2={})".format(amount, tx, decoded))
+                    scid = "{}:1:{}".format(self.bitcoin.rpc.getblockcount(), out['n'])
+                    break
+
+        if not scid:
+            # Intermittent decoding failure.  See if it decodes badly twice?
+            decoded2 = self.bitcoin.rpc.decoderawtransaction(tx)
+            raise ValueError("Can't find {} payment in {} (1={} 2={})".format(amount, tx, decoded, decoded2))
+
+        # We wait until gossipd sees both local updates, as well as status NORMAL,
+        # so it can definitely route through.
+        self.daemon.wait_for_logs(['update for channel {}\(0\) now ACTIVE'
+                                   .format(scid),
+                                   'update for channel {}\(1\) now ACTIVE'
+                                   .format(scid),
+                                   'to CHANNELD_NORMAL'])
+        l2.daemon.wait_for_logs(['update for channel {}\(0\) now ACTIVE'
+                                 .format(scid),
+                                 'update for channel {}\(1\) now ACTIVE'
+                                 .format(scid),
+                                 'to CHANNELD_NORMAL'])
+        return scid
 
     def subd_pid(self, subd):
         """Get the process id of the given subdaemon, eg channeld or gossipd"""
