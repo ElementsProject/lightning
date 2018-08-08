@@ -538,9 +538,13 @@ def test_io_logging(node_factory, executor):
 
 
 def test_address(node_factory):
-    l1 = node_factory.get_node()
+    if DEVELOPER:
+        opts = {'dev-allow-localhost': None}
+    else:
+        opts = None
+    l1 = node_factory.get_node(options=opts)
     addr = l1.rpc.getinfo()['address']
-    if 'dev-allow-localhost' in l1.daemon.opts:
+    if DEVELOPER:
         assert len(addr) == 1
         assert addr[0]['type'] == 'ipv4'
         assert addr[0]['address'] == '127.0.0.1'

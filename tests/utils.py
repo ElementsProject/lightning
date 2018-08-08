@@ -317,8 +317,6 @@ class LightningD(TailableProc):
         if DEVELOPER:
             self.opts['dev-broadcast-interval'] = 1000
             self.opts['dev-bitcoind-poll'] = 1
-            # lightningd won't announce non-routable addresses by default.
-            self.opts['dev-allow-localhost'] = None
         self.prefix = 'lightningd-%d' % (node_id)
 
         filters = [

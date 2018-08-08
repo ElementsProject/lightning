@@ -112,7 +112,8 @@ def test_announce_address(node_factory, bitcoind):
              'silkroad6ownowfk.onion',
              '1.2.3.4:1234',
              '::'],
-            'log-level': 'io'}
+            'log-level': 'io',
+            'dev-allow-localhost': None}
     l1, l2 = node_factory.get_nodes(2, opts=[opts, {}])
 
     # It should warn about the collision between --addr=127.0.0.1:<ephem>
@@ -217,7 +218,10 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
 def test_connect_by_gossip(node_factory, bitcoind):
     """Test connecting to an unknown peer using node gossip
     """
-    l1, l2, l3 = node_factory.get_nodes(3)
+    l1, l2, l3 = node_factory.get_nodes(3,
+                                        opts=[{'dev-allow-localhost': None},
+                                              {},
+                                              {'dev-allow-localhost': None}])
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
 
     # Nodes are gossiped only if they have channels
