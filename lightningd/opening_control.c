@@ -63,9 +63,6 @@ struct uncommitted_channel {
 
 
 struct funding_channel {
-	/* In lightningd->fundchannels while waiting for connectd reply. */
-	struct list_node list;
-
 	struct command *cmd; /* Which also owns us. */
 	struct wallet_tx wtx;
 	u64 push_msat;
@@ -77,52 +74,6 @@ struct funding_channel {
 	/* Channel. */
 	struct uncommitted_channel *uc;
 };
-
-static struct funding_channel *find_funding_channel(struct lightningd *ld,
-						    const struct pubkey *id)
-{
-	struct funding_channel *i;
-
-	list_for_each(&ld->fundchannels, i, list) {
-		if (pubkey_eq(&i->peerid, id))
-			return i;
-	}
-	return NULL;
-}
-
-static void remove_funding_channel_from_list(struct funding_channel *fc)
-{
-	list_del_from(&fc->cmd->ld->fundchannels, &fc->list);
-}
-
-/* Opening failed: hand back to connectd (sending errpkt if not NULL) */
-static void uncommitted_channel_to_connectd(struct lightningd *ld,
-					   struct uncommitted_channel *uc,
-					   const struct crypto_state *cs,
-					   int peer_fd, int gossip_fd,
-					   const u8 *errorpkt,
-					   const char *fmt,
-					   ...)
-{
-	va_list ap;
-	char *errstr;
-	u8 *msg;
-
-	va_start(ap, fmt);
-	errstr = tal_vfmt(uc, fmt, ap);
-	va_end(ap);
-
-	log_unusual(uc->log, "Opening channel: %s", errstr);
-	if (uc->fc)
-		command_fail(uc->fc->cmd, LIGHTNINGD, "%s", errstr);
-
-	/* Hand back to connectd, (maybe) with an error packet to send. */
-	msg = towire_connectctl_hand_back_peer(errstr, &uc->peer->id, cs,
-					      errorpkt);
-	subd_send_msg(ld->connectd, take(msg));
-	subd_send_fd(ld->connectd, peer_fd);
-	subd_send_fd(ld->connectd, gossip_fd);
-}
 
 static void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
 					   const char *desc)
@@ -150,27 +101,28 @@ void kill_uncommitted_channel(struct uncommitted_channel *uc,
 void json_add_uncommitted_channel(struct json_result *response,
 				  const struct uncommitted_channel *uc)
 {
+	u64 msatoshi_total, our_msatoshi;
 	if (!uc)
+		return;
+
+	/* If we're chatting but no channel, that's shown by connected: True */
+	if (!uc->fc)
 		return;
 
 	json_object_start(response, NULL);
 	json_add_string(response, "state", "OPENINGD");
 	json_add_string(response, "owner", "lightning_openingd");
-	json_add_string(response, "funder",
-			uc->fc ? "LOCAL" : "REMOTE");
+	json_add_string(response, "funding", "LOCAL");
 	if (uc->transient_billboard) {
 		json_array_start(response, "status");
 		json_add_string(response, NULL, uc->transient_billboard);
 		json_array_end(response);
 	}
-	if (uc->fc) {
-		u64 msatoshi_total, our_msatoshi;
 
-		msatoshi_total = uc->fc->wtx.amount * 1000;
-		our_msatoshi = msatoshi_total - uc->fc->push_msat;
-		json_add_u64(response, "msatoshi_to_us", our_msatoshi);
-		json_add_u64(response, "msatoshi_total", msatoshi_total);
-	}
+	msatoshi_total = uc->fc->wtx.amount * 1000;
+	our_msatoshi = msatoshi_total - uc->fc->push_msat;
+	json_add_u64(response, "msatoshi_to_us", our_msatoshi);
+	json_add_u64(response, "msatoshi_total", msatoshi_total);
 	json_object_end(response);
 }
 
@@ -486,7 +438,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	/* This is a new channel_info.their_config, set its ID to 0 */
 	channel_info.their_config.id = 0;
 
-	if (!fromwire_opening_fundee_reply(tmpctx, reply,
+	if (!fromwire_opening_fundee(tmpctx, reply,
 					   &channel_info.their_config,
 					   &remote_commit,
 					   &remote_commit_sig,
@@ -508,6 +460,29 @@ static void opening_fundee_finished(struct subd *openingd,
 		log_broken(uc->log, "bad OPENING_FUNDEE_REPLY %s",
 			   tal_hex(reply, reply));
 		tal_free(uc);
+		return;
+	}
+
+	/* If we resumed chatting with them to send an error, this could
+	 * happen: refuse to let them open another active channel.
+	 *
+	 * FIXME: Perhaps we should not consider channels with errors to be
+	 * active, however we don't store errors in the db so we could end
+	 * up with multiple on restart. */
+	if (peer_active_channel(uc->peer)) {
+		u8 *errmsg;
+		struct peer *peer = uc->peer;
+		struct channel_id channel_id;
+
+		derive_channel_id(&channel_id, &funding_txid, funding_outnum);
+		errmsg = towire_errorfmt(tmpctx, &channel_id,
+					 "Already have active channel");
+
+		/* Won't free peer, since has active channel */
+		tal_free(uc);
+
+		/* Hand back to openingd. */
+		peer_start_openingd(peer, &cs, fds[0], fds[1], errmsg);
 		return;
 	}
 
@@ -551,18 +526,11 @@ static void opening_channel_errmsg(struct uncommitted_channel *uc,
 				   const char *desc,
 				   const u8 *err_for_them)
 {
-	if (peer_fd == -1) {
-		uncommitted_channel_disconnect(uc, desc);
-	} else {
-		/* An error occurred (presumably negotiation fail). */
-		const char *errsrc = err_for_them ? "sent" : "received";
-
-		uncommitted_channel_to_connectd(uc->peer->ld, uc,
-					       cs,
-					       peer_fd, gossip_fd,
-					       err_for_them,
-					       "%s ERROR %s", errsrc, desc);
+	if (peer_fd != -1) {
+		close(peer_fd);
+		close(gossip_fd);
 	}
+	uncommitted_channel_disconnect(uc, desc);
 	tal_free(uc);
 }
 
@@ -593,27 +561,15 @@ static void destroy_uncommitted_channel(struct uncommitted_channel *uc)
 	maybe_delete_peer(uc->peer);
 }
 
-/* Returns NULL if there's already an opening or active channel for this peer */
 static struct uncommitted_channel *
-new_uncommitted_channel(struct lightningd *ld,
-			struct funding_channel *fc,
-			const struct pubkey *peer_id,
-			const struct wireaddr_internal *addr,
-			const u8 *gfeatures, const u8 *lfeatures)
+new_uncommitted_channel(struct peer *peer)
 {
+	struct lightningd *ld = peer->ld;
 	struct uncommitted_channel *uc = tal(ld, struct uncommitted_channel);
 	char *idname;
 
-	/* We make a new peer if necessary. */
-	uc->peer = peer_by_id(ld, peer_id);
-	if (!uc->peer)
-		uc->peer = new_peer(ld, 0, peer_id, addr, gfeatures, lfeatures);
-
-	if (uc->peer->uncommitted_channel)
-		return tal_free(uc);
-
-	if (peer_active_channel(uc->peer))
-		return tal_free(uc);
+	uc->peer = peer;
+	assert(!peer->uncommitted_channel);
 
 	uc->transient_billboard = NULL;
 	uc->dbid = wallet_get_channel_dbid(ld->wallet);
@@ -623,7 +579,7 @@ new_uncommitted_channel(struct lightningd *ld,
 			  idname, uc->dbid);
 	tal_free(idname);
 
-	uc->fc = fc;
+	uc->fc = NULL;
 	uc->our_config.id = 0;
 
 	get_channel_basepoints(ld, &uc->peer->id, uc->dbid,
@@ -679,61 +635,81 @@ static void channel_config(struct lightningd *ld,
 	 ours->channel_reserve_satoshis = -1;
 }
 
-/* Peer has spontaneously exited from connectd due to open msg.  Return
- * NULL if we took over, otherwise hand back to connectd with this
- * error.
- */
-u8 *peer_accept_channel(const tal_t *ctx,
-			struct lightningd *ld,
-			const struct pubkey *peer_id,
-			const struct wireaddr_internal *addr,
-			const struct crypto_state *cs,
-			const u8 *gfeatures, const u8 *lfeatures,
-			int peer_fd, int gossip_fd,
-			const struct channel_id *channel_id,
-			const u8 *open_msg)
+static unsigned int openingd_msg(struct subd *openingd,
+				 const u8 *msg, const int *fds)
 {
+	enum opening_wire_type t = fromwire_peektype(msg);
+	struct uncommitted_channel *uc = openingd->channel;
+
+	switch (t) {
+	case WIRE_OPENING_FUNDER_REPLY:
+		if (!uc->fc) {
+			log_broken(openingd->log, "Unexpected FUNDER_REPLY %s",
+				   tal_hex(tmpctx, msg));
+			tal_free(openingd);
+			return 0;
+		}
+		if (tal_count(fds) != 2)
+			return 2;
+		opening_funder_finished(openingd, msg, fds, uc->fc);
+		return 0;
+
+	case WIRE_OPENING_FUNDEE:
+		if (tal_count(fds) != 2)
+			return 2;
+		opening_fundee_finished(openingd, msg, fds, uc);
+		return 0;
+
+	/* We send these! */
+	case WIRE_OPENING_INIT:
+	case WIRE_OPENING_FUNDER:
+		break;
+	}
+	log_broken(openingd->log, "Unexpected msg %s: %s",
+		   opening_wire_type_name(t), tal_hex(tmpctx, msg));
+	tal_free(openingd);
+	return 0;
+}
+
+void peer_start_openingd(struct peer *peer,
+			 const struct crypto_state *cs,
+			 int peer_fd, int gossip_fd,
+			 const u8 *send_msg)
+{
+	int hsmfd;
 	u32 max_to_self_delay;
 	u64 min_effective_htlc_capacity_msat;
-	u8 *msg;
 	struct uncommitted_channel *uc;
-	int hsmfd;
+	const u8 *msg;
 
-	assert(fromwire_peektype(open_msg) == WIRE_OPEN_CHANNEL);
+	assert(!peer->uncommitted_channel);
 
-	/* Fails if there's already one */
-	uc = new_uncommitted_channel(ld, NULL, peer_id, addr,
-				     gfeatures, lfeatures);
-	if (!uc)
-		return towire_errorfmt(ctx, channel_id,
-				       "Multiple channels unsupported");
+	uc = peer->uncommitted_channel = new_uncommitted_channel(peer);
 
-	hsmfd = hsm_get_client_fd(ld, &uc->peer->id, uc->dbid,
+	hsmfd = hsm_get_client_fd(peer->ld, &uc->peer->id, uc->dbid,
 				  HSM_CAP_COMMITMENT_POINT
 				  | HSM_CAP_SIGN_REMOTE_TX);
 
-	uc->openingd = new_channel_subd(ld, "lightning_openingd", uc, uc->log,
-					true, opening_wire_type_name, NULL,
+	uc->openingd = new_channel_subd(peer->ld,
+					"lightning_openingd",
+					uc, uc->log,
+					true, opening_wire_type_name,
+					openingd_msg,
 					opening_channel_errmsg,
 					opening_channel_set_billboard,
 					take(&peer_fd), take(&gossip_fd),
 					take(&hsmfd), NULL);
 	if (!uc->openingd) {
-		u8 *errpkt;
-		char *errmsg;
-
-		errmsg = tal_fmt(uc, "INTERNAL ERROR:"
-				 " Failed to subdaemon opening: %s",
-				 strerror(errno));
-		errpkt = towire_errorfmt(uc, channel_id, "%s", errmsg);
-
-		uncommitted_channel_to_connectd(ld, uc,
-					       cs,
-					       peer_fd, gossip_fd,
-					       errpkt, "%s", errmsg);
-		tal_free(uc);
-		return NULL;
+		uncommitted_channel_disconnect(uc,
+					       tal_fmt(tmpctx,
+						       "Running lightning_openingd: %s",
+						       strerror(errno)));
+		return;
 	}
+
+	channel_config(peer->ld, &uc->our_config,
+		       &max_to_self_delay,
+		       &min_effective_htlc_capacity_msat);
 
 	/* BOLT #2:
 	 *
@@ -741,176 +717,18 @@ u8 *peer_accept_channel(const tal_t *ctx,
 	 *   - SHOULD set `minimum_depth` to a number of blocks it considers
 	 *     reasonable to avoid double-spending of the funding transaction.
 	 */
-	uc->minimum_depth = ld->config.anchor_confirms;
+	uc->minimum_depth = peer->ld->config.anchor_confirms;
 
-	channel_config(ld, &uc->our_config,
-		       &max_to_self_delay,
-		       &min_effective_htlc_capacity_msat);
-
-	msg = towire_opening_init(uc, get_chainparams(ld)->index,
+	msg = towire_opening_init(NULL, get_chainparams(peer->ld)->index,
 				  &uc->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
 				  cs, &uc->local_basepoints,
-				  &uc->local_funding_pubkey);
-
+				  &uc->local_funding_pubkey,
+				  uc->minimum_depth,
+				  feerate_min(peer->ld), feerate_max(peer->ld),
+				  send_msg);
 	subd_send_msg(uc->openingd, take(msg));
-
-	msg = towire_opening_fundee(uc, uc->minimum_depth,
-				    feerate_min(ld), feerate_max(ld),
-				    open_msg);
-
-	subd_req(uc, uc->openingd, take(msg), -1, 2,
-		 opening_fundee_finished, uc);
-	return NULL;
-}
-
-static void peer_offer_channel(struct lightningd *ld,
-			       struct funding_channel *fc,
-			       const struct wireaddr_internal *addr,
-			       const struct crypto_state *cs,
-			       const u8 *gfeatures, const u8 *lfeatures,
-			       int peer_fd, int gossip_fd)
-{
-	u8 *msg;
-	u32 max_to_self_delay;
-	u64 min_effective_htlc_capacity_msat;
-	int hsmfd;
-
-	/* Remove from list, it's not pending any more. */
-	list_del_from(&ld->fundchannels, &fc->list);
-	tal_del_destructor(fc, remove_funding_channel_from_list);
-
-	fc->uc = new_uncommitted_channel(ld, fc, &fc->peerid, addr,
-					 gfeatures, lfeatures);
-
-	/* We asked to release this peer, but another raced in?  Corner case,
-	 * close this is easiest. */
-	if (!fc->uc) {
-		command_fail(fc->cmd, LIGHTNINGD, "Peer already active");
-		close(peer_fd);
-		close(gossip_fd);
-		return;
-	}
-
-	/* Channel now owns fc; if it dies, we free fc. */
-	tal_steal(fc->uc, fc);
-
-	hsmfd = hsm_get_client_fd(ld, &fc->uc->peer->id, fc->uc->dbid,
-				  HSM_CAP_COMMITMENT_POINT
-				  | HSM_CAP_SIGN_REMOTE_TX);
-
-	fc->uc->openingd = new_channel_subd(ld,
-					    "lightning_openingd",
-					    fc->uc, fc->uc->log,
-					    true, opening_wire_type_name, NULL,
-					    opening_channel_errmsg,
-					    opening_channel_set_billboard,
-					    take(&peer_fd), take(&gossip_fd),
-					    take(&hsmfd),
-					    NULL);
-	if (!fc->uc->openingd) {
-		/* We don't send them an error packet: for them, nothing
-		 * happened! */
-		uncommitted_channel_to_connectd(ld, fc->uc, NULL,
-					       peer_fd, gossip_fd,
-					       NULL,
-					       "Failed to launch openingd: %s",
-					       strerror(errno));
-		tal_free(fc->uc);
-		return;
-	}
-
-	channel_config(ld, &fc->uc->our_config,
-		       &max_to_self_delay,
-		       &min_effective_htlc_capacity_msat);
-
-	msg = towire_opening_init(fc,
-				  get_chainparams(ld)->index,
-				  &fc->uc->our_config,
-				  max_to_self_delay,
-				  min_effective_htlc_capacity_msat,
-				  cs, &fc->uc->local_basepoints,
-				  &fc->uc->local_funding_pubkey);
-	subd_send_msg(fc->uc->openingd, take(msg));
-
-	msg = towire_opening_funder(fc, fc->wtx.amount,
-				    fc->push_msat,
-				    get_feerate(ld->topology, FEERATE_NORMAL),
-				    fc->wtx.change, fc->wtx.change_key_index,
-				    fc->channel_flags,
-				    fc->wtx.utxos,
-				    ld->wallet->bip32_base);
-
-	subd_req(fc, fc->uc->openingd,
-		 take(msg), -1, 2, opening_funder_finished, fc);
-}
-
-/* Peer has been released from connectd.  Start opening. */
-static void connectd_peer_released(struct subd *connectd,
-				 const u8 *resp,
-				 const int *fds,
-				 struct funding_channel *fc)
-{
-	struct lightningd *ld = connectd->ld;
-	struct crypto_state cs;
-	u8 *gfeatures, *lfeatures;
-	struct wireaddr_internal addr;
-	struct channel *c;
-	struct uncommitted_channel *uc;
-
-	/* handle_opening_channel might have already taken care of this. */
-	if (fc->uc)
-		return;
-
-	c = active_channel_by_id(ld, &fc->peerid, &uc);
-
-	if (!fromwire_connectctl_release_peer_reply(fc, resp, &addr, &cs,
-						   &gfeatures, &lfeatures)) {
-		if (!fromwire_connectctl_release_peer_replyfail(resp)) {
-			fatal("Connect daemon gave invalid reply %s",
-			      tal_hex(connectd, resp));
-		}
-		if (uc)
-			command_fail(fc->cmd, LIGHTNINGD, "Peer already OPENING");
-		else if (c)
-			command_fail(fc->cmd, LIGHTNINGD, "Peer already %s",
-				     channel_state_name(c));
-		else
-			command_fail(fc->cmd, LIGHTNINGD, "Peer not connected");
-		return;
-	}
-	assert(tal_count(fds) == 2);
-
-	/* Connectd should guarantee peer is unique: we would have killed any
-	 * old connection when it was told us peer reconnected. */
-	assert(!c);
-	assert(!uc);
-
-	/* OK, offer peer a channel. */
-	peer_offer_channel(ld, fc, &addr, &cs,
-			   gfeatures, lfeatures,
-			   fds[0], fds[1]);
-}
-
-/* We can race: we're trying to get connectd to release peer just as it
- * reconnects.  If that's happened, treat it as if it were
- * released. */
-bool handle_opening_channel(struct lightningd *ld,
-			    const struct pubkey *id,
-			    const struct wireaddr_internal *addr,
-			    const struct crypto_state *cs,
-			    const u8 *gfeatures, const u8 *lfeatures,
-			    int peer_fd, int gossip_fd)
-{
-	struct funding_channel *fc = find_funding_channel(ld, id);
-
-	if (!fc)
-		return false;
-
-	peer_offer_channel(ld, fc, addr, cs, gfeatures, lfeatures,
-			   peer_fd, gossip_fd);
-	return true;
 }
 
 /**
@@ -919,8 +737,11 @@ bool handle_opening_channel(struct lightningd *ld,
 static void json_fund_channel(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
-	const jsmntok_t *desttok, *sattok;
+	const jsmntok_t *sattok;
 	struct funding_channel * fc = tal(cmd, struct funding_channel);
+	struct pubkey id;
+	struct peer *peer;
+	struct channel *channel;
 	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
 	u8 *msg;
 
@@ -928,17 +749,34 @@ static void json_fund_channel(struct command *cmd,
 	fc->uc = NULL;
 	wtx_init(cmd, &fc->wtx);
 	if (!param(fc->cmd, buffer, params,
-		   p_req("id", json_tok_tok, &desttok),
+		   p_req("id", json_tok_pubkey, &id),
 		   p_req("satoshi", json_tok_tok, &sattok),
 		   NULL))
 		return;
 
 	if (!json_tok_wtx(&fc->wtx, buffer, sattok, MAX_FUNDING_SATOSHI))
 		return;
-	if (!pubkey_from_hexstr(buffer + desttok->start,
-				desttok->end - desttok->start,
-				&fc->peerid)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Could not parse id");
+
+	peer = peer_by_id(cmd->ld, &id);
+	if (!peer) {
+		command_fail(cmd, LIGHTNINGD, "Unknown peer");
+		return;
+	}
+
+	channel = peer_active_channel(peer);
+	if (channel) {
+		command_fail(cmd, LIGHTNINGD, "Peer already %s",
+			     channel_state_name(channel));
+		return;
+	}
+
+	if (!peer->uncommitted_channel) {
+		command_fail(cmd, LIGHTNINGD, "Peer not connected");
+		return;
+	}
+
+	if (peer->uncommitted_channel->fc) {
+		command_fail(cmd, LIGHTNINGD, "Already funding channel");
 		return;
 	}
 
@@ -952,11 +790,23 @@ static void json_fund_channel(struct command *cmd,
 
 	assert(fc->wtx.amount <= MAX_FUNDING_SATOSHI);
 
-	list_add(&cmd->ld->fundchannels, &fc->list);
-	tal_add_destructor(fc, remove_funding_channel_from_list);
+	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
+	fc->uc = peer->uncommitted_channel;
 
-	msg = towire_connectctl_release_peer(cmd, &fc->peerid);
-	subd_req(fc, cmd->ld->connectd, msg, -1, 2, connectd_peer_released, fc);
+	msg = towire_opening_funder(NULL,
+				    fc->wtx.amount,
+				    fc->push_msat,
+				    get_feerate(cmd->ld->topology,
+						FEERATE_NORMAL),
+				    fc->wtx.change,
+				    fc->wtx.change_key_index,
+				    fc->channel_flags,
+				    fc->wtx.utxos,
+				    cmd->ld->wallet->bip32_base);
+
+	/* Openingd will either succeed, or fail, or tell us the other side
+	 * funded first. */
+	subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
 	command_still_pending(cmd);
 }
 

@@ -447,26 +447,23 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	u8 *error;
 	struct channel *channel;
 	struct wireaddr_internal addr;
-	struct uncommitted_channel *uc;
+	struct peer *peer;
 
 	if (!fromwire_connect_peer_connected(msg, msg,
-					    &id, &addr, &cs,
-					    &gfeatures, &lfeatures))
+					     &id, &addr, &cs,
+					     &gfeatures, &lfeatures))
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
 
-	/* Were we trying to open a channel, and we've raced? */
-	if (handle_opening_channel(ld, &id, &addr, &cs,
-				   gfeatures, lfeatures, peer_fd, gossip_fd))
-		return;
-
 	/* If we're already dealing with this peer, hand off to correct
-	 * subdaemon.  Otherwise, we'll respond iff they ask about an inactive
-	 * channel. */
-	channel = active_channel_by_id(ld, &id, &uc);
+	 * subdaemon.  Otherwise, we'll hand to openingd to wait there. */
+	peer = peer_by_id(ld, &id);
+	if (!peer)
+		peer = new_peer(ld, 0, &id, &addr, gfeatures, lfeatures);
 
-	/* Can't be opening now, since we wouldn't have sent peer_died. */
-	assert(!uc);
+	/* Can't be opening, since we wouldn't have sent peer_disconnected. */
+	assert(!peer->uncommitted_channel);
+	channel = peer_active_channel(peer);
 
 	if (channel) {
 		log_debug(channel->log, "Peer has reconnected, state %s",
@@ -480,17 +477,18 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 
 #if DEVELOPER
 		if (dev_disconnect_permanent(ld)) {
-			channel_internal_error(channel, "dev_disconnect permfail");
+			channel_internal_error(channel,
+					       "dev_disconnect permfail");
 			error = channel->error;
 			goto send_error;
-	}
+		}
 #endif
 
 		switch (channel->state) {
 		case ONCHAIN:
 		case FUNDING_SPEND_SEEN:
 		case CLOSINGD_COMPLETE:
-			/* Channel is active! */
+			/* Channel is supposed to be active! */
 			abort();
 
 		case CHANNELD_AWAITING_LOCKIN:
@@ -520,96 +518,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	error = NULL;
 
 send_error:
-	/* Hand back to channeld, with an error packet. */
-	msg = towire_connectctl_hand_back_peer(msg, &id, &cs, error);
-	subd_send_msg(ld->connectd, take(msg));
-	subd_send_fd(ld->connectd, peer_fd);
-	subd_send_fd(ld->connectd, gossip_fd);
-}
-
-static struct channel *channel_by_channel_id(struct peer *peer,
-					     const struct channel_id *channel_id)
-{
-	struct channel *channel;
-
-	list_for_each(&peer->channels, channel, list) {
-		struct channel_id cid;
-
-		derive_channel_id(&cid,
-				  &channel->funding_txid,
-				  channel->funding_outnum);
-		if (channel_id_eq(&cid, channel_id))
-			return channel;
-	}
-	return NULL;
-}
-
-/* We only get here IF we weren't trying to connect to it. */
-void peer_sent_nongossip(struct lightningd *ld,
-			 const struct pubkey *id,
-			 const struct wireaddr_internal *addr,
-			 const struct crypto_state *cs,
-			 const u8 *gfeatures,
-			 const u8 *lfeatures,
-			 int peer_fd, int gossip_fd,
-			 const u8 *in_msg)
-{
-	struct channel_id *channel_id, extracted_channel_id;
-	struct peer *peer;
-	u8 *error, *msg;
-
-	if (!extract_channel_id(in_msg, &extracted_channel_id))
-		channel_id = NULL;
-	else
-		channel_id = &extracted_channel_id;
-
-	peer = peer_by_id(ld, id);
-
-	/* Open request? */
-	if (fromwire_peektype(in_msg) == WIRE_OPEN_CHANNEL) {
-		error = peer_accept_channel(tmpctx,
-					    ld, id, addr, cs,
-					    gfeatures, lfeatures,
-					    peer_fd, gossip_fd, channel_id,
-					    in_msg);
-		if (error)
-			goto send_error;
-		return;
-	}
-
-	/* If they are talking about a specific channel id, we may have an
-	 * error for them. */
-	if (peer && channel_id) {
-		struct channel *channel;
-		channel = channel_by_channel_id(peer, channel_id);
-		if (channel && channel->error) {
-			error = channel->error;
-			goto send_error;
-		}
-
-		/* Reestablish for a now-closed channel?  They might have
-		 * missed final update, so do the closing negotiation dance
-		 * again. */
-		if (fromwire_peektype(in_msg) == WIRE_CHANNEL_REESTABLISH
-		    && channel
-		    && channel->state == CLOSINGD_COMPLETE) {
-			peer_start_closingd(channel, cs,
-					    peer_fd, gossip_fd, true, in_msg);
-			return;
-		}
-	}
-
-	/* Weird request. */
-	error = towire_errorfmt(tmpctx, channel_id,
-				"Unexpected message %i for peer",
-				fromwire_peektype(in_msg));
-
-send_error:
-	/* Hand back to channeld, with an error packet. */
-	msg = towire_connectctl_hand_back_peer(ld, id, cs, error);
-	subd_send_msg(ld->connectd, take(msg));
-	subd_send_fd(ld->connectd, peer_fd);
-	subd_send_fd(ld->connectd, gossip_fd);
+	peer_start_openingd(peer, &cs, peer_fd, gossip_fd, error);
 }
 
 static enum watch_result funding_lockin_cb(struct channel *channel,

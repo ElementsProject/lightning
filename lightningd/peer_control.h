@@ -68,24 +68,8 @@ struct peer *peer_from_json(struct lightningd *ld,
 			    const char *buffer,
 			    const jsmntok_t *peeridtok);
 
-/* The three ways peers enter from the network:
- *
- * peer_connected - when it first connects to gossipd (after init exchange).
- * peer_sent_nongossip - when it tries to fund a channel.
- * gossip_peer_released - when we tell gossipd to release it so we can fund
- *			  a channel.
-*/
 void peer_connected(struct lightningd *ld, const u8 *msg,
 		    int peer_fd, int gossip_fd);
-
-void peer_sent_nongossip(struct lightningd *ld,
-			 const struct pubkey *id,
-			 const struct wireaddr_internal *addr,
-			 const struct crypto_state *cs,
-			 const u8 *gfeatures,
-			 const u8 *lfeatures,
-			 int peer_fd, int gossip_fd,
-			 const u8 *in_msg);
 
 /* Could be configurable. */
 #define OUR_CHANNEL_FLAGS CHANNEL_FLAGS_ANNOUNCE_CHANNEL

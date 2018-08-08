@@ -471,13 +471,15 @@ def test_gossip_no_empty_announcements(node_factory, bitcoind):
                                may_reconnect=True)
     l4 = node_factory.get_node(may_reconnect=True)
 
-    # Turn on IO logging for connectd
-    subprocess.run(['kill', '-USR1', l1.subd_pid('connectd')])
-    subprocess.run(['kill', '-USR1', l2.subd_pid('connectd')])
-
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
+
+    # Turn on IO logging for openingd (make sure it's ready!)
+    l1.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
+    subprocess.run(['kill', '-USR1', l1.subd_pid('openingd')])
+    l2.daemon.wait_for_log('openingd-{}.*: Handed peer, entering loop'.format(l3.info['id']))
+    subprocess.run(['kill', '-USR1', l2.subd_pid('openingd-{}'.format(l3.info['id']))])
 
     # Make an announced-but-not-updated channel.
     l3.fund_channel(l4, 10**5)
@@ -731,8 +733,9 @@ def test_query_short_channel_id(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
 
-    # Need full IO logging so we can see gossip (from connectd and channeld)
-    subprocess.run(['kill', '-USR1', l1.subd_pid('connectd')])
+    # Need full IO logging so we can see gossip (from openingd and channeld)
+    l1.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
+    subprocess.run(['kill', '-USR1', l1.subd_pid('openingd')])
 
     # Empty result tests.
     reply = l1.rpc.dev_query_scids(l2.info['id'], ['1:1:1', '2:2:2'])

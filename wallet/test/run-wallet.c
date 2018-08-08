@@ -59,12 +59,6 @@ void command_still_pending(struct command *cmd UNNEEDED)
 /* Generated stub for command_success */
 void command_success(struct command *cmd UNNEEDED, struct json_result *response UNNEEDED)
 { fprintf(stderr, "command_success called!\n"); abort(); }
-/* Generated stub for extract_channel_id */
-bool extract_channel_id(const u8 *in_pkt UNNEEDED, struct channel_id *channel_id UNNEEDED)
-{ fprintf(stderr, "extract_channel_id called!\n"); abort(); }
-/* Generated stub for features_supported */
-bool features_supported(const u8 *gfeatures UNNEEDED, const u8 *lfeatures UNNEEDED)
-{ fprintf(stderr, "features_supported called!\n"); abort(); }
 /* Generated stub for fromwire_connectctl_peer_disconnect_reply */
 bool fromwire_connectctl_peer_disconnect_reply(const void *p UNNEEDED)
 { fprintf(stderr, "fromwire_connectctl_peer_disconnect_reply called!\n"); abort(); }
@@ -83,20 +77,6 @@ bool fromwire_hsm_sign_commitment_tx_reply(const void *p UNNEEDED, secp256k1_ecd
 /* Generated stub for get_feerate */
 u32 get_feerate(const struct chain_topology *topo UNNEEDED, enum feerate feerate UNNEEDED)
 { fprintf(stderr, "get_feerate called!\n"); abort(); }
-/* Generated stub for get_offered_global_features */
-u8 *get_offered_global_features(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "get_offered_global_features called!\n"); abort(); }
-/* Generated stub for get_offered_local_features */
-u8 *get_offered_local_features(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "get_offered_local_features called!\n"); abort(); }
-/* Generated stub for handle_opening_channel */
-bool handle_opening_channel(struct lightningd *ld UNNEEDED,
-			    const struct pubkey *id UNNEEDED,
-			    const struct wireaddr_internal *addr UNNEEDED,
-			    const struct crypto_state *cs UNNEEDED,
-			    const u8 *gfeatures UNNEEDED, const u8 *lfeatures UNNEEDED,
-			    int peer_fd UNNEEDED, int gossip_fd UNNEEDED)
-{ fprintf(stderr, "handle_opening_channel called!\n"); abort(); }
 /* Generated stub for invoices_autoclean_set */
 void invoices_autoclean_set(struct invoices *invoices UNNEEDED,
 			    u64 cycle_seconds UNNEEDED,
@@ -304,17 +284,6 @@ void outpointfilter_remove(struct outpointfilter *of UNNEEDED,
 bool param(struct command *cmd UNNEEDED, const char *buffer UNNEEDED,
 	   const jsmntok_t params[] UNNEEDED, ...)
 { fprintf(stderr, "param called!\n"); abort(); }
-/* Generated stub for peer_accept_channel */
-u8 *peer_accept_channel(const tal_t *ctx UNNEEDED,
-			struct lightningd *ld UNNEEDED,
-			const struct pubkey *peer_id UNNEEDED,
-			const struct wireaddr_internal *addr UNNEEDED,
-			const struct crypto_state *cs UNNEEDED,
-			const u8 *gfeatures UNNEEDED, const u8 *lfeatures UNNEEDED,
-			int peer_fd UNNEEDED, int gossip_fd UNNEEDED,
-			const struct channel_id *channel_id UNNEEDED,
-			const u8 *open_msg UNNEEDED)
-{ fprintf(stderr, "peer_accept_channel called!\n"); abort(); }
 /* Generated stub for peer_start_channeld */
 bool peer_start_channeld(struct channel *channel UNNEEDED,
 			 const struct crypto_state *cs UNNEEDED,
@@ -329,6 +298,12 @@ void peer_start_closingd(struct channel *channel UNNEEDED,
 			 bool reconnected UNNEEDED,
 			 const u8 *channel_reestablish UNNEEDED)
 { fprintf(stderr, "peer_start_closingd called!\n"); abort(); }
+/* Generated stub for peer_start_openingd */
+void peer_start_openingd(struct peer *peer UNNEEDED,
+			 const struct crypto_state *cs UNNEEDED,
+			 int peer_fd UNNEEDED, int gossip_fd UNNEEDED,
+			 const u8 *msg UNNEEDED)
+{ fprintf(stderr, "peer_start_openingd called!\n"); abort(); }
 /* Generated stub for subd_release_channel */
 void subd_release_channel(struct subd *owner UNNEEDED, void *channel UNNEEDED)
 { fprintf(stderr, "subd_release_channel called!\n"); abort(); }

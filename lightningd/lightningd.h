@@ -145,9 +145,6 @@ struct lightningd {
 	/* Outstanding connect commands. */
 	struct list_head connects;
 
-	/* Outstanding fundchannel commands. */
-	struct list_head fundchannels;
-
 	/* Our chain topology. */
 	struct chain_topology *topology;
 

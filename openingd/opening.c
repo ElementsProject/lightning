@@ -2,6 +2,7 @@
 #include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/breakpoint/breakpoint.h>
 #include <ccan/cast/cast.h>
 #include <ccan/fdpass/fdpass.h>
@@ -25,6 +26,7 @@
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <openingd/gen_opening_wire.h>
+#include <poll.h>
 #include <secp256k1.h>
 #include <stdio.h>
 #include <wally_bip32.h>
@@ -42,6 +44,13 @@
 struct state {
 	struct crypto_state cs;
 	struct pubkey next_per_commit[NUM_SIDES];
+
+	/* Constriants on a channel they open. */
+	u32 minimum_depth;
+	u32 min_feerate, max_feerate;
+
+	struct basepoints our_points;
+	struct pubkey our_funding_pubkey;
 
 	/* Initially temporary, then final channel id. */
 	struct channel_id channel_id;
@@ -63,6 +72,8 @@ struct state {
 	const struct chainparams *chainparams;
 };
 
+/* FIXME: Don't close connection in this case, but inform master and
+ * continue! */
 /* For negotiation failures: we tell them it's their fault.  Same
  * as peer_failed, with slightly different local and remote wording. */
 static void negotiation_failed(struct state *state, const char *fmt, ...)
@@ -246,8 +257,6 @@ static u8 *opening_read_peer_msg(const tal_t *ctx, struct state *state)
 }
 
 static u8 *funder_channel(struct state *state,
-			  const struct pubkey *our_funding_pubkey,
-			  const struct basepoints *ours,
 			  u64 change_satoshis, u32 change_keyindex,
 			  u8 channel_flags,
 			  struct utxo **utxos,
@@ -296,11 +305,11 @@ static u8 *funder_channel(struct state *state,
 				  state->feerate_per_kw,
 				  state->localconf.to_self_delay,
 				  state->localconf.max_accepted_htlcs,
-				  our_funding_pubkey,
-				  &ours->revocation,
-				  &ours->payment,
-				  &ours->delayed_payment,
-				  &ours->htlc,
+				  &state->our_funding_pubkey,
+				  &state->our_points.revocation,
+				  &state->our_points.payment,
+				  &state->our_points.delayed_payment,
+				  &state->our_points.htlc,
 				  &state->next_per_commit[LOCAL],
 				  channel_flags);
 	sync_crypto_write(&state->cs, PEER_FD, msg);
@@ -404,7 +413,7 @@ static u8 *funder_channel(struct state *state,
 	funding = funding_tx(state, &state->funding_txout,
 			     cast_const2(const struct utxo **, utxos),
 			     state->funding_satoshis,
-			     our_funding_pubkey,
+			     &state->our_funding_pubkey,
 			     &their_funding_pubkey,
 			     change_satoshis, changekey,
 			     bip32_base);
@@ -419,8 +428,8 @@ static u8 *funder_channel(struct state *state,
 					     state->feerate_per_kw,
 					     &state->localconf,
 					     state->remoteconf,
-					     ours, &theirs,
-					     our_funding_pubkey,
+					     &state->our_points, &theirs,
+					     &state->our_funding_pubkey,
 					     &their_funding_pubkey,
 					     LOCAL);
 	if (!state->channel)
@@ -457,7 +466,8 @@ static u8 *funder_channel(struct state *state,
 	status_trace("signature %s on tx %s using key %s",
 		     type_to_string(tmpctx, secp256k1_ecdsa_signature, &sig),
 		     type_to_string(tmpctx, struct bitcoin_tx, tx),
-		     type_to_string(tmpctx, struct pubkey, our_funding_pubkey));
+		     type_to_string(tmpctx, struct pubkey,
+				    &state->our_funding_pubkey));
 
 	msg = towire_funding_created(state, &state->channel_id,
 				     &state->funding_txid,
@@ -548,13 +558,7 @@ static u8 *funder_channel(struct state *state,
 					   state->localconf.channel_reserve_satoshis);
 }
 
-/* This is handed the message the peer sent which caused gossip to stop:
- * it should be an open_channel */
-static u8 *fundee_channel(struct state *state,
-			  const struct pubkey *our_funding_pubkey,
-			  const struct basepoints *ours,
-			  u32 minimum_depth,
-			  u32 min_feerate, u32 max_feerate, const u8 *peer_msg)
+static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 {
 	struct channel_id id_in;
 	struct basepoints theirs;
@@ -576,7 +580,7 @@ static u8 *fundee_channel(struct state *state,
 	 *    `payment_basepoint`, or `delayed_payment_basepoint` are not valid
 	 *     DER-encoded compressed secp256k1 pubkeys.
 	 */
-	if (!fromwire_open_channel(peer_msg, &chain_hash,
+	if (!fromwire_open_channel(open_channel_msg, &chain_hash,
 				   &state->channel_id,
 				   &state->funding_satoshis, &state->push_msat,
 				   &state->remoteconf->dust_limit_satoshis,
@@ -595,7 +599,7 @@ static u8 *fundee_channel(struct state *state,
 				   &channel_flags))
 		peer_failed(&state->cs, NULL,
 			    "Bad open_channel %s",
-			    tal_hex(peer_msg, peer_msg));
+			    tal_hex(open_channel_msg, open_channel_msg));
 
 	/* BOLT #2:
 	 *
@@ -608,7 +612,7 @@ static u8 *fundee_channel(struct state *state,
 			      &state->chainparams->genesis_blockhash)) {
 		negotiation_failed(state,
 				   "Unknown chain-hash %s",
-				   type_to_string(peer_msg,
+				   type_to_string(tmpctx,
 						  struct bitcoin_blkid,
 						  &chain_hash));
 	}
@@ -641,15 +645,15 @@ static u8 *fundee_channel(struct state *state,
 	 *  - it considers `feerate_per_kw` too small for timely processing or
 	 *    unreasonably large.
 	 */
-	if (state->feerate_per_kw < min_feerate)
+	if (state->feerate_per_kw < state->min_feerate)
 		negotiation_failed(state,
 				   "feerate_per_kw %u below minimum %u",
-				   state->feerate_per_kw, min_feerate);
+				   state->feerate_per_kw, state->min_feerate);
 
-	if (state->feerate_per_kw > max_feerate)
+	if (state->feerate_per_kw > state->max_feerate)
 		negotiation_failed(state,
 				   "feerate_per_kw %u above maximum %u",
-				   state->feerate_per_kw, max_feerate);
+				   state->feerate_per_kw, state->max_feerate);
 
 	set_reserve(state);
 
@@ -685,14 +689,14 @@ static u8 *fundee_channel(struct state *state,
 				      .max_htlc_value_in_flight_msat,
 				    state->localconf.channel_reserve_satoshis,
 				    state->localconf.htlc_minimum_msat,
-				    minimum_depth,
+				    state->minimum_depth,
 				    state->localconf.to_self_delay,
 				    state->localconf.max_accepted_htlcs,
-				    our_funding_pubkey,
-				    &ours->revocation,
-				    &ours->payment,
-				    &ours->delayed_payment,
-				    &ours->htlc,
+				    &state->our_funding_pubkey,
+				    &state->our_points.revocation,
+				    &state->our_points.payment,
+				    &state->our_points.delayed_payment,
+				    &state->our_points.htlc,
 				    &state->next_per_commit[LOCAL]);
 
 	sync_crypto_write(&state->cs, PEER_FD, take(msg));
@@ -730,8 +734,8 @@ static u8 *fundee_channel(struct state *state,
 					     state->feerate_per_kw,
 					     &state->localconf,
 					     state->remoteconf,
-					     ours, &theirs,
-					     our_funding_pubkey,
+					     &state->our_points, &theirs,
+					     &state->our_funding_pubkey,
 					     &their_funding_pubkey,
 					     REMOTE);
 	if (!state->channel)
@@ -788,6 +792,8 @@ static u8 *fundee_channel(struct state *state,
 		negotiation_failed(state,
 				   "Could not meet their fees and reserve");
 
+	/* FIXME: Perhaps we should have channeld generate this, so we
+	 * can't possibly send before channel committed? */
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
 						   remote_commit,
 						   &state->channel->funding_pubkey[REMOTE],
@@ -803,43 +809,165 @@ static u8 *fundee_channel(struct state *state,
 	 * to save state to disk before doing so. */
 	msg = towire_funding_signed(state, &state->channel_id, &sig);
 
-	return towire_opening_fundee_reply(state,
-					   state->remoteconf,
-					   local_commit,
-					   &theirsig,
-					   &state->cs,
-					   &theirs.revocation,
-					   &theirs.payment,
-					   &theirs.htlc,
-					   &theirs.delayed_payment,
-					   &state->next_per_commit[REMOTE],
-					   &their_funding_pubkey,
-					   &state->funding_txid,
-					   state->funding_txout,
-					   state->funding_satoshis,
-					   state->push_msat,
-					   channel_flags,
-					   state->feerate_per_kw,
-					   msg,
-					   state->localconf.channel_reserve_satoshis);
+	return towire_opening_fundee(state,
+				     state->remoteconf,
+				     local_commit,
+				     &theirsig,
+				     &state->cs,
+				     &theirs.revocation,
+				     &theirs.payment,
+				     &theirs.htlc,
+				     &theirs.delayed_payment,
+				     &state->next_per_commit[REMOTE],
+				     &their_funding_pubkey,
+				     &state->funding_txid,
+				     state->funding_txout,
+				     state->funding_satoshis,
+				     state->push_msat,
+				     channel_flags,
+				     state->feerate_per_kw,
+				     msg,
+				     state->localconf.channel_reserve_satoshis);
 }
 
-#ifndef TESTING
-int main(int argc, char *argv[])
+static u8 *handle_peer_in(struct state *state)
 {
-	setup_locale();
+	u8 *msg = sync_crypto_read(NULL, &state->cs, PEER_FD);
+	enum wire_type t = fromwire_peektype(msg);
+	struct channel_id channel_id;
 
-	u8 *msg, *peer_msg;
-	struct state *state = tal(NULL, struct state);
-	struct basepoints our_points;
-	struct pubkey our_funding_pubkey;
-	u32 minimum_depth;
-	u32 min_feerate, max_feerate;
+	switch (t) {
+	case WIRE_OPEN_CHANNEL:
+		return fundee_channel(state, msg);
+
+	/* These are handled by handle_peer_gossip_or_error. */
+	case WIRE_PING:
+	case WIRE_PONG:
+	case WIRE_CHANNEL_ANNOUNCEMENT:
+	case WIRE_NODE_ANNOUNCEMENT:
+	case WIRE_CHANNEL_UPDATE:
+	case WIRE_QUERY_SHORT_CHANNEL_IDS:
+	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
+	case WIRE_QUERY_CHANNEL_RANGE:
+	case WIRE_REPLY_CHANNEL_RANGE:
+	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+	case WIRE_ERROR:
+	case WIRE_CHANNEL_REESTABLISH:
+	/* These are all protocol violations at this stage. */
+	case WIRE_INIT:
+	case WIRE_ACCEPT_CHANNEL:
+	case WIRE_FUNDING_CREATED:
+	case WIRE_FUNDING_SIGNED:
+	case WIRE_FUNDING_LOCKED:
+	case WIRE_SHUTDOWN:
+	case WIRE_CLOSING_SIGNED:
+	case WIRE_UPDATE_ADD_HTLC:
+	case WIRE_UPDATE_FULFILL_HTLC:
+	case WIRE_UPDATE_FAIL_HTLC:
+	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+	case WIRE_COMMITMENT_SIGNED:
+	case WIRE_REVOKE_AND_ACK:
+	case WIRE_UPDATE_FEE:
+	case WIRE_ANNOUNCEMENT_SIGNATURES:
+		/* Standard cases */
+		if (handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD, &state->cs,
+						&state->channel_id, msg))
+			return NULL;
+		break;
+	}
+
+	sync_crypto_write(&state->cs, PEER_FD,
+			  take(towire_errorfmt(NULL,
+					       extract_channel_id(msg, &channel_id) ? &channel_id : NULL,
+					       "Unexpected message %s: %s",
+					       wire_type_name(t),
+					       tal_hex(tmpctx, msg))));
+
+	/* FIXME: We don't actually want master to try to send an
+	 * error, since peer is transient.  This is a hack.
+	 */
+	status_broken("Unexpected message %s", wire_type_name(t));
+	peer_failed_connection_lost();
+}
+
+static void handle_gossip_in(struct state *state)
+{
+	u8 *msg = wire_sync_read(NULL, GOSSIP_FD);
+
+	if (!msg)
+		status_failed(STATUS_FAIL_GOSSIP_IO,
+			      "Reading gossip: %s", strerror(errno));
+
+	handle_gossip_msg(PEER_FD, &state->cs, take(msg));
+}
+
+static bool is_all_channel_error(const u8 *msg)
+{
+	struct channel_id channel_id;
+	u8 *data;
+
+	if (!fromwire_error(msg, msg, &channel_id, &data))
+		return false;
+	tal_free(data);
+	return channel_id_is_all(&channel_id);
+}
+
+static void fail_if_all_error(const u8 *inner)
+{
+	if (!is_all_channel_error(inner))
+		return;
+
+	status_info("Master said send err: %s",
+		    sanitize_error(tmpctx, inner, NULL));
+	exit(0);
+}
+
+static u8 *handle_master_in(struct state *state)
+{
+	u8 *msg = wire_sync_read(state, REQ_FD);
+	enum opening_wire_type t = fromwire_peektype(msg);
 	u64 change_satoshis;
 	u32 change_keyindex;
 	u8 channel_flags;
 	struct utxo **utxos;
 	struct ext_key bip32_base;
+
+	switch (t) {
+	case WIRE_OPENING_FUNDER:
+		if (!fromwire_opening_funder(state, msg,
+					     &state->funding_satoshis,
+					     &state->push_msat,
+					     &state->feerate_per_kw,
+					     &change_satoshis, &change_keyindex,
+					     &channel_flags, &utxos,
+					     &bip32_base))
+			master_badmsg(WIRE_OPENING_FUNDER, msg);
+
+		msg = funder_channel(state,
+				     change_satoshis,
+				     change_keyindex, channel_flags,
+				     utxos, &bip32_base);
+		peer_billboard(false,
+			       "Funding channel: opening negotiation succeeded");
+		return msg;
+
+	case WIRE_OPENING_INIT:
+	case WIRE_OPENING_FUNDER_REPLY:
+	case WIRE_OPENING_FUNDEE:
+		break;
+	}
+
+	status_failed(STATUS_FAIL_MASTER_IO,
+		      "Unknown msg %s", tal_hex(tmpctx, msg));
+}
+
+int main(int argc, char *argv[])
+{
+	setup_locale();
+
+	u8 *msg, *inner;
+	struct pollfd pollfd[3];
+	struct state *state = tal(NULL, struct state);
 	u32 network_index;
 	struct secret *none;
 
@@ -847,20 +975,32 @@ int main(int argc, char *argv[])
 
 	status_setup_sync(REQ_FD);
 
-	msg = wire_sync_read(state, REQ_FD);
-	if (!fromwire_opening_init(msg,
+	msg = wire_sync_read(tmpctx, REQ_FD);
+	if (!fromwire_opening_init(tmpctx, msg,
 				   &network_index,
 				   &state->localconf,
 				   &state->max_to_self_delay,
 				   &state->min_effective_htlc_capacity_msat,
 				   &state->cs,
-				   &our_points,
-				   &our_funding_pubkey))
+				   &state->our_points,
+				   &state->our_funding_pubkey,
+				   &state->minimum_depth,
+				   &state->min_feerate, &state->max_feerate,
+				   &inner))
 		master_badmsg(WIRE_OPENING_INIT, msg);
 
-	tal_free(msg);
+	/* If they wanted to send an msg, do so before we waste time
+	 * doing work.  If it's a global error, we'll close
+	 * immediately. */
+	if (inner != NULL) {
+		sync_crypto_write(&state->cs, PEER_FD, inner);
+		fail_if_all_error(inner);
+	}
 
 	state->chainparams = chainparams_by_index(network_index);
+	/* Initially we're not associated with a channel, but
+	 * handle_peer_gossip_or_error wants this. */
+	memset(&state->channel_id, 0, sizeof(state->channel_id));
 
 	wire_sync_write(HSM_FD,
 			take(towire_hsm_get_per_commitment_point(NULL, 0)));
@@ -872,33 +1012,28 @@ int main(int argc, char *argv[])
 			      "Bad get_per_commitment_point_reply %s",
 			      tal_hex(tmpctx, msg));
 	assert(none == NULL);
-	status_trace("First per_commit_point = %s",
-		     type_to_string(tmpctx, struct pubkey,
-				    &state->next_per_commit[LOCAL]));
-	msg = wire_sync_read(state, REQ_FD);
-	if (fromwire_opening_funder(state, msg,
-				    &state->funding_satoshis,
-				    &state->push_msat,
-				    &state->feerate_per_kw,
-				    &change_satoshis, &change_keyindex,
-				    &channel_flags, &utxos, &bip32_base)) {
-		msg = funder_channel(state, &our_funding_pubkey, &our_points,
-				     change_satoshis,
-				     change_keyindex, channel_flags,
-				     utxos, &bip32_base);
-		peer_billboard(false,
-			       "Funding channel: opening negotiation succeeded");
-	} else if (fromwire_opening_fundee(state, msg, &minimum_depth,
-					   &min_feerate, &max_feerate, &peer_msg)) {
-		msg = fundee_channel(state, &our_funding_pubkey, &our_points,
-				   minimum_depth, min_feerate, max_feerate,
-				   peer_msg);
-		peer_billboard(false,
-			       "Incoming channel: opening negotiation succeeded");
-	} else
-		status_failed(STATUS_FAIL_MASTER_IO,
-			      "neither funder nor fundee: %s",
-			      tal_hex(msg, msg));
+	status_trace("Handed peer, entering loop");
+
+	pollfd[0].fd = REQ_FD;
+	pollfd[0].events = POLLIN;
+	pollfd[1].fd = GOSSIP_FD;
+	pollfd[1].events = POLLIN;
+	pollfd[2].fd = PEER_FD;
+	pollfd[2].events = POLLIN;
+
+	msg = NULL;
+	while (!msg) {
+		poll(pollfd, ARRAY_SIZE(pollfd), -1);
+		/* Subtle: handle_master_in can do its own poll loop, so
+		 * don't try to service more than one fd per loop. */
+		if (pollfd[0].revents & POLLIN)
+			msg = handle_master_in(state);
+		else if (pollfd[1].revents & POLLIN)
+			handle_gossip_in(state);
+		else if (pollfd[2].revents & POLLIN)
+			msg = handle_peer_in(state);
+		clean_tmpctx();
+	}
 
 	/* Write message and hand back the fd. */
 	wire_sync_write(REQ_FD, msg);
@@ -910,4 +1045,3 @@ int main(int argc, char *argv[])
 	daemon_shutdown();
 	return 0;
 }
-#endif /* TESTING */
