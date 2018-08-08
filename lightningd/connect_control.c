@@ -216,38 +216,6 @@ static void peer_please_disconnect(struct lightningd *ld, const u8 *msg)
 		channel_fail_transient(c, "Reconnected");
 }
 
-static void peer_nongossip(struct subd *connectd, const u8 *msg,
-			   int peer_fd, int gossip_fd)
-{
-	struct pubkey id;
-	struct crypto_state cs;
-	struct wireaddr_internal addr;
-	u8 *gfeatures, *lfeatures, *in_pkt;
-
-	if (!fromwire_connect_peer_nongossip(msg, msg,
-					    &id, &addr, &cs,
-					    &gfeatures,
-					    &lfeatures,
-					    &in_pkt))
-		fatal("Connectd gave bad CONNECT_PEER_NONGOSSIP message %s",
-		      tal_hex(msg, msg));
-
-	/* We already checked the features when it first connected. */
-	if (!features_supported(gfeatures, lfeatures)) {
-		log_unusual(connectd->log,
-			    "Connectd gave unsupported features %s/%s",
-			    tal_hex(msg, gfeatures),
-			    tal_hex(msg, lfeatures));
-		close(peer_fd);
-		close(gossip_fd);
-		return;
-	}
-
-	peer_sent_nongossip(connectd->ld, &id, &addr, &cs,
-			    gfeatures, lfeatures,
-			    peer_fd, gossip_fd, in_pkt);
-}
-
 static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)
 {
 	enum connect_wire_type t = fromwire_peektype(msg);
@@ -272,6 +240,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTCTL_RELEASE_PEER_REPLYFAIL:
 	case WIRE_CONNECTCTL_PEER_DISCONNECT_REPLY:
 	case WIRE_CONNECTCTL_PEER_DISCONNECT_REPLYFAIL:
+	case WIRE_CONNECT_PEER_NONGOSSIP:
 		break;
 
 	case WIRE_CONNECT_RECONNECTED:
@@ -283,11 +252,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 			return 2;
 		peer_connected(connectd->ld, msg, fds[0], fds[1]);
 		break;
-	case WIRE_CONNECT_PEER_NONGOSSIP:
-		if (tal_count(fds) != 2)
-			return 2;
-		peer_nongossip(connectd, msg, fds[0], fds[1]);
-		break;
+
 	case WIRE_CONNECTCTL_CONNECT_TO_PEER_RESULT:
 		connectd_connect_result(connectd->ld, msg);
 		break;

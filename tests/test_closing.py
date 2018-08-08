@@ -130,7 +130,7 @@ def test_closing_id(node_factory):
 
     # Close by peer ID.
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
-    l1.daemon.wait_for_log("hand_back_peer .*: now local again")
+    l1.daemon.wait_for_log("Handed peer, entering loop")
     l2.fund_channel(l1, 10**6)
     pid = l1.info['id']
     l2.rpc.close(pid)
