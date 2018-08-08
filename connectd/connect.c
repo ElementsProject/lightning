@@ -1022,6 +1022,17 @@ fail:
 	return -1;
 }
 
+static struct io_plan *handshake_in_success(struct io_conn *conn,
+					    const struct pubkey *id,
+					    const struct wireaddr_internal *addr,
+					    const struct crypto_state *cs,
+					    struct daemon *daemon)
+{
+	status_trace("Connect IN from %s",
+		     type_to_string(tmpctx, struct pubkey, id));
+	return init_new_peer(conn, id, addr, cs, daemon);
+}
+
 static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon)
 {
 	struct wireaddr_internal addr;
@@ -1056,7 +1067,7 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 
 	/* FIXME: Timeout */
 	return responder_handshake(conn, &daemon->id, &addr,
-				   init_new_peer, daemon);
+				   handshake_in_success, daemon);
 }
 
 static void add_listen_fd(struct daemon *daemon, int fd, bool mayfail)
@@ -1382,6 +1393,8 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 					     struct reaching *reach)
 {
 	reach->connstate = "Exchanging init messages";
+	status_trace("Connect OUT to %s",
+		     type_to_string(tmpctx, struct pubkey, id));
 	return init_new_peer(conn, id, addr, cs, reach->daemon);
 }
 
