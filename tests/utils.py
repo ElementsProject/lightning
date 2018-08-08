@@ -291,6 +291,7 @@ class LightningD(TailableProc):
         self.lightning_dir = lightning_dir
         self.port = port
         self.cmd_prefix = []
+        self.disconnect_file = None
 
         self.opts = LIGHTNINGD_CONFIG.copy()
         opts = {
@@ -328,6 +329,12 @@ class LightningD(TailableProc):
 
         filter_re = re.compile(r'({})'.format("|".join(filters)))
         self.log_filter = lambda line: filter_re.search(line) is not None
+
+    def cleanup(self):
+        # To force blackhole to exit, disconnect file must be truncated!
+        if self.disconnect_file:
+            with open(self.disconnect_file, "w") as f:
+                f.truncate()
 
     @property
     def cmd_line(self):
@@ -452,6 +459,7 @@ class LightningNode(object):
             rc = self.daemon.stop()
 
         self.daemon.save_log()
+        self.daemon.cleanup()
 
         if rc != 0 and not self.may_fail:
             raise ValueError("Node did not exit cleanly, rc={}".format(rc))
@@ -677,7 +685,8 @@ class NodeFactory(object):
         )
         # If we have a disconnect string, dump it to a file for daemon.
         if disconnect:
-            with open(os.path.join(lightning_dir, "dev_disconnect"), "w") as f:
+            daemon.disconnect_file = os.path.join(lightning_dir, "dev_disconnect")
+            with open(daemon.disconnect_file, "w") as f:
                 f.write("\n".join(disconnect))
             daemon.opts["dev-disconnect"] = "dev_disconnect"
         if DEVELOPER:
