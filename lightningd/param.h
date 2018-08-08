@@ -140,7 +140,7 @@ typedef char *(*param_cbx)(struct command *cmd,
 				   (const char *)NULL,		\
 				   (const jsmntok_t *)NULL,	\
 				   (arg)) == NULL),		\
-		  ({ *arg = tal(cmd, typeof(**arg)); **arg = def; (size_t)0;})
+		  ({ (*arg) = tal((cmd), typeof(**arg)); (**arg) = (def); (size_t)0;})
 
 /*
  * For when you want an optional raw token.
