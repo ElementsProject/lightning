@@ -80,6 +80,7 @@ version: "3"
 services:
   bitcoind:
     image: nicolasdorier/docker-bitcoin:0.16.0
+    container_name: bitcoind
     environment:
       BITCOIN_EXTRA_ARGS: |
         testnet=1
@@ -89,11 +90,14 @@ services:
         rpcpassword=rpcpass
     expose:
       - "18332"
+    ports:
+      - "0.0.0.0:18333:18333"
     volumes:
       - "bitcoin_datadir:/data"
 
   clightning_bitcoin:
     image: elementsproject/lightningd
+    container_name: lightningd
     command:
       - --bitcoin-rpcconnect=bitcoind
       - --bitcoin-rpcuser=rpcuser
@@ -105,6 +109,8 @@ services:
       EXPOSE_TCP: "true"
     expose:
       - "9735"
+    ports:
+      - "0.0.0.0:9735:9735"
     volumes:
       - "clightning_bitcoin_datadir:/root/.lightning"
       - "bitcoin_datadir:/etc/bitcoin"
