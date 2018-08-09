@@ -1033,7 +1033,7 @@ static void send_commit(struct peer *peer)
 	msg = towire_commitment_signed(NULL, &peer->channel_id,
 				       &peer->next_commit_sigs->commit_sig,
 				       peer->next_commit_sigs->htlc_sigs);
-	sync_crypto_write(&peer->cs, PEER_FD, take(msg));
+	sync_crypto_write_no_delay(&peer->cs, PEER_FD, take(msg));
 	peer->next_commit_sigs = tal_free(peer->next_commit_sigs);
 
 	maybe_send_shutdown(peer);
@@ -1097,7 +1097,7 @@ static void send_revocation(struct peer *peer)
 		start_commit_timer(peer);
 	}
 
-	sync_crypto_write(&peer->cs, PEER_FD, take(msg));
+	sync_crypto_write_no_delay(&peer->cs, PEER_FD, take(msg));
 }
 
 static u8 *got_commitsig_msg(const tal_t *ctx,
