@@ -218,10 +218,17 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
 def test_connect_by_gossip(node_factory, bitcoind):
     """Test connecting to an unknown peer using node gossip
     """
+    # l1 announces a bogus addresses.
     l1, l2, l3 = node_factory.get_nodes(3,
-                                        opts=[{'dev-allow-localhost': None},
+                                        opts=[{'announce-addr':
+                                               ['127.0.0.1:2',
+                                                '[::]:2',
+                                                '3fyb44wdhnd2ghhl.onion',
+                                                'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion'],
+                                               'dev-allow-localhost': None},
                                               {},
-                                              {'dev-allow-localhost': None}])
+                                              {'dev-allow-localhost': None,
+                                               'log-level': 'io'}])
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
 
     # Nodes are gossiped only if they have channels
