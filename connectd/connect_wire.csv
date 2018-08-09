@@ -46,14 +46,10 @@ connectctl_peer_addrhint,,addr,struct wireaddr_internal
 connectctl_connect_to_peer,2001
 connectctl_connect_to_peer,,id,struct pubkey
 
-# Connectd->master: result (not a reply since it can be out-of-order, but
-# you will get one reply for every request).
-connectctl_connect_to_peer_result,2020
-connectctl_connect_to_peer_result,,id,struct pubkey
-# True it connected.
-connectctl_connect_to_peer_result,,connected,bool
-# Otherwise, why we can't reach them.
-connectctl_connect_to_peer_result,,failreason,wirestring
+# Connectd->master: connect failed.
+connectctl_connect_failed,2020
+connectctl_connect_failed,,id,struct pubkey
+connectctl_connect_failed,,failreason,wirestring
 
 # Master -> connectd: try to always maintain connection to this peer (or not)
 connectctl_peer_important,2010
