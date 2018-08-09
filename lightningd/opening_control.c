@@ -463,26 +463,11 @@ static void opening_fundee_finished(struct subd *openingd,
 		return;
 	}
 
-	/* If we resumed chatting with them to send an error, this could
-	 * happen: refuse to let them open another active channel.
-	 *
-	 * FIXME: Perhaps we should not consider channels with errors to be
-	 * active, however we don't store errors in the db so we could end
-	 * up with multiple on restart. */
+	/* openingd should never accept them funding channel in this case. */
 	if (peer_active_channel(uc->peer)) {
-		u8 *errmsg;
-		struct peer *peer = uc->peer;
-		struct channel_id channel_id;
-
-		derive_channel_id(&channel_id, &funding_txid, funding_outnum);
-		errmsg = towire_errorfmt(tmpctx, &channel_id,
-					 "Already have active channel");
-
+		log_broken(uc->log, "openingd accepted peer funding channel");
 		/* Won't free peer, since has active channel */
 		tal_free(uc);
-
-		/* Hand back to openingd. */
-		peer_start_openingd(peer, &cs, fds[0], fds[1], errmsg);
 		return;
 	}
 
@@ -663,6 +648,7 @@ static unsigned int openingd_msg(struct subd *openingd,
 	/* We send these! */
 	case WIRE_OPENING_INIT:
 	case WIRE_OPENING_FUNDER:
+	case WIRE_OPENING_CAN_ACCEPT_CHANNEL:
 		break;
 	}
 	log_broken(openingd->log, "Unexpected msg %s: %s",
@@ -727,8 +713,18 @@ void peer_start_openingd(struct peer *peer,
 				  &uc->local_funding_pubkey,
 				  uc->minimum_depth,
 				  feerate_min(peer->ld), feerate_max(peer->ld),
+				  !peer_active_channel(peer),
 				  send_msg);
 	subd_send_msg(uc->openingd, take(msg));
+}
+
+void opening_peer_no_active_channels(struct peer *peer)
+{
+	assert(!peer_active_channel(peer));
+	if (peer->uncommitted_channel) {
+		subd_send_msg(peer->uncommitted_channel->openingd,
+			      take(towire_opening_can_accept_channel(NULL)));
+	}
 }
 
 /**
