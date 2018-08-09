@@ -778,6 +778,59 @@ def test_reserve_enforcement(node_factory, executor):
     )
 
 
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "needs dev_disconnect")
+def test_htlc_send_timeout(node_factory, bitcoind):
+    """Test that we don't commit an HTLC to an unreachable node."""
+    l1 = node_factory.get_node(options={'log-level': 'io'})
+    # Blackhole it after it sends HTLC_ADD to l3.
+    l2 = node_factory.get_node(disconnect=['0WIRE_UPDATE_ADD_HTLC'],
+                               options={'log-level': 'io'})
+    l3 = node_factory.get_node()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+    l1.fund_channel(l2, 10**6)
+    chanid2 = l2.fund_channel(l3, 10**6)
+
+    subprocess.run(['kill', '-USR1', l1.subd_pid('channeld')])
+    subprocess.run(['kill', '-USR1', l2.subd_pid('channeld')])
+
+    # Make sure channels get announced.
+    bitcoind.generate_block(5)
+
+    # Last thing each node receives is the three NODE_ANNOUNCEMENTS.
+    l1.daemon.wait_for_logs(['\[IN\] 0101'] * 3)
+    l2.daemon.wait_for_logs(['\[IN\] 0101'] * 3)
+
+    # Now need to wait have 30 seconds with no traffic to l1, so it
+    # tries to ping before sending WIRE_COMMITMENT_SIGNED.
+    time.sleep(30)
+    inv = l3.rpc.invoice(123000, 'test_htlc_send_timeout', 'description')
+    try:
+        l1.rpc.pay(inv['bolt11'])
+    except RpcError as err:
+        # Complaints it couldn't find route.
+        assert err.error['code'] == 205
+        # Temporary channel failure
+        assert only_one(err.error['data']['failures'])['failcode'] == 0x1007
+        assert only_one(err.error['data']['failures'])['erring_node'] == l2.info['id']
+        assert only_one(err.error['data']['failures'])['erring_channel'] == chanid2
+
+    # L1 should send a ping beforehand, and get reply, then send commitment.
+    l1.daemon.wait_for_log('channeld.*:\[OUT\] 0012')
+    l1.daemon.wait_for_log('channeld.*:\[IN\] 0013')
+    l1.daemon.wait_for_log('channeld.*:\[OUT\] 0084')
+
+    # L2 should send ping, but never receive pong so never send commitment.
+    l2.daemon.wait_for_log('channeld.*:\[OUT\] 0012')
+    assert not l2.daemon.is_in_log('channeld.*:\[IN\] 0013')
+    assert not l2.daemon.is_in_log('channeld.*:\[OUT\] 0084')
+    # L2 killed the channel with l3 because it was too slow.
+    l2.daemon.wait_for_log('channeld-{}.*Adding HTLC too slow: killing channel'.format(l3.info['id']))
+
+
 def test_ipv4_and_ipv6(node_factory):
     """Test we can bind to both IPv4 and IPv6 addresses (if supported)"""
     port = reserve()
