@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - JSON API: `listnodes` has new field `global_features`.
 - JSON API: `ping` command to send a ping to a connected peer.
 - Protocol: gossipd now deliberately delays spamming with `channel_update`.
+- Protocol: liveness ping when we commit changes but peer is idle: speeds up
+  failures and reduces forced closures.
 - Config: `--conf` option to set config file.
 - JSON API: Added description to invoices and payments (#1740).
 - pylightning: RpcError now has `method` and `payload` fields.

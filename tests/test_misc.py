@@ -778,7 +778,6 @@ def test_reserve_enforcement(node_factory, executor):
     )
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs dev_disconnect")
 def test_htlc_send_timeout(node_factory, bitcoind):
     """Test that we don't commit an HTLC to an unreachable node."""
