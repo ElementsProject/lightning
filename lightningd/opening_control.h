@@ -17,6 +17,8 @@ void peer_start_openingd(struct peer *peer,
 			 int peer_fd, int gossip_fd,
 			 const u8 *msg);
 
+void opening_peer_no_active_channels(struct peer *peer);
+
 void kill_uncommitted_channel(struct uncommitted_channel *uc,
 			      const char *why);
 

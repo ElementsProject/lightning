@@ -256,6 +256,9 @@ enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,
 					 const struct bitcoin_tx *tx UNNEEDED,
 					 u32 blockheight UNNEEDED)
 { fprintf(stderr, "onchaind_funding_spent called!\n"); abort(); }
+/* Generated stub for opening_peer_no_active_channels */
+void opening_peer_no_active_channels(struct peer *peer UNNEEDED)
+{ fprintf(stderr, "opening_peer_no_active_channels called!\n"); abort(); }
 /* Generated stub for outpointfilter_add */
 void outpointfilter_add(struct outpointfilter *of UNNEEDED,
 			const struct bitcoin_txid *txid UNNEEDED, const u32 outnum UNNEEDED)

@@ -17,9 +17,13 @@ opening_init,,our_funding_pubkey,struct pubkey
 opening_init,,minimum_depth,u32
 opening_init,,min_feerate,u32
 opening_init,,max_feerate,u32
+opening_init,,can_open_channel,bool
 # Optional msg to send.
 opening_init,,len,u16
 opening_init,,msg,len*u8
+
+# Master->openingd: they can now open a channel if they want.
+opening_can_accept_channel,6002
 
 #include <common/bip32.h>
 #include <common/htlc_wire.h>

@@ -69,6 +69,7 @@ struct state {
 
 	struct channel *channel;
 
+	bool can_accept_channel;
 	const struct chainparams *chainparams;
 };
 
@@ -601,6 +602,17 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 			    "Bad open_channel %s",
 			    tal_hex(open_channel_msg, open_channel_msg));
 
+	/* We can't handle talking about more than one channel at once. */
+	if (!state->can_accept_channel) {
+		u8 *errmsg;
+		errmsg = towire_errorfmt(NULL, &state->channel_id,
+					 "Already have active channel");
+
+		sync_crypto_write(&state->cs, PEER_FD, take(errmsg));
+		state->remoteconf = tal_free(state->remoteconf);
+		return NULL;
+	}
+
 	/* BOLT #2:
 	 *
 	 * The receiver:
@@ -951,6 +963,12 @@ static u8 *handle_master_in(struct state *state)
 			       "Funding channel: opening negotiation succeeded");
 		return msg;
 
+	case WIRE_OPENING_CAN_ACCEPT_CHANNEL:
+		if (!fromwire_opening_can_accept_channel(msg))
+			master_badmsg(WIRE_OPENING_CAN_ACCEPT_CHANNEL, msg);
+		state->can_accept_channel = true;
+		return NULL;
+
 	case WIRE_OPENING_INIT:
 	case WIRE_OPENING_FUNDER_REPLY:
 	case WIRE_OPENING_FUNDEE:
@@ -986,6 +1004,7 @@ int main(int argc, char *argv[])
 				   &state->our_funding_pubkey,
 				   &state->minimum_depth,
 				   &state->min_feerate, &state->max_feerate,
+				   &state->can_accept_channel,
 				   &inner))
 		master_badmsg(WIRE_OPENING_INIT, msg);
 
