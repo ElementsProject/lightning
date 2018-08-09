@@ -68,32 +68,6 @@ static void connect_cmd_succeed(struct command *cmd, const struct pubkey *id)
 	command_success(cmd, response);
 }
 
-static void connectd_connect_result(struct lightningd *ld, const u8 *msg)
-{
-	struct pubkey id;
-	bool connected;
-	char *err;
-	struct connect *c;
-
-	if (!fromwire_connectctl_connect_to_peer_result(tmpctx, msg,
-						       &id,
-						       &connected,
-						       &err))
-		fatal("Connect gave bad CONNECTCTL_CONNECT_TO_PEER_RESULT message %s",
-		      tal_hex(msg, msg));
-
-
-	/* We can have multiple connect commands: complete them all */
-	while ((c = find_connect(ld, &id)) != NULL) {
-		if (connected) {
-			connect_cmd_succeed(c->cmd, &id);
-		} else {
-			command_fail(c->cmd, LIGHTNINGD, "%s", err);
-		}
-		/* They delete themselves from list */
-	}
-}
-
 static void json_connect(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
@@ -200,12 +174,10 @@ static void json_connect(struct command *cmd,
 		subd_send_msg(cmd->ld->connectd, take(msg));
 	}
 
-	/* If there isn't already a connect command, tell connectd */
-	if (!find_connect(cmd->ld, &id)) {
-		msg = towire_connectctl_connect_to_peer(NULL, &id);
-		subd_send_msg(cmd->ld->connectd, take(msg));
-	}
-	/* Leave this here for connect_connect_result */
+	msg = towire_connectctl_connect_to_peer(NULL, &id);
+	subd_send_msg(cmd->ld->connectd, take(msg));
+
+	/* Leave this here for peer_connected or connect_failed. */
 	new_connect(cmd->ld, &id, cmd);
 	command_still_pending(cmd);
 }
@@ -217,6 +189,34 @@ static const struct json_command connect_command = {
 	"{id} can also be of the form id@host"
 };
 AUTODATA(json_command, &connect_command);
+
+static void connect_failed(struct lightningd *ld, const u8 *msg)
+{
+	struct pubkey id;
+	char *err;
+	struct connect *c;
+
+	if (!fromwire_connectctl_connect_failed(tmpctx, msg, &id, &err))
+		fatal("Connect gave bad CONNECTCTL_CONNECT_FAILED message %s",
+		      tal_hex(msg, msg));
+
+	/* We can have multiple connect commands: fail them all */
+	while ((c = find_connect(ld, &id)) != NULL) {
+		/* They delete themselves from list */
+		command_fail(c->cmd, LIGHTNINGD, "%s", err);
+	}
+}
+
+void connect_succeeded(struct lightningd *ld, const struct pubkey *id)
+{
+	struct connect *c;
+
+	/* We can have multiple connect commands: fail them all */
+	while ((c = find_connect(ld, id)) != NULL) {
+		/* They delete themselves from list */
+		connect_cmd_succeed(c->cmd, id);
+	}
+}
 
 static void peer_please_disconnect(struct lightningd *ld, const u8 *msg)
 {
@@ -261,8 +261,8 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 		peer_connected(connectd->ld, msg, fds[0], fds[1]);
 		break;
 
-	case WIRE_CONNECTCTL_CONNECT_TO_PEER_RESULT:
-		connectd_connect_result(connectd->ld, msg);
+	case WIRE_CONNECTCTL_CONNECT_FAILED:
+		connect_failed(connectd->ld, msg);
 		break;
 	}
 	return 0;

@@ -448,6 +448,9 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
 
+	/* Complete any outstanding connect commands. */
+	connect_succeeded(ld, &id);
+
 	/* If we're already dealing with this peer, hand off to correct
 	 * subdaemon.  Otherwise, we'll hand to openingd to wait there. */
 	peer = peer_by_id(ld, &id);

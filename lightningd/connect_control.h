@@ -9,6 +9,7 @@ struct pubkey;
 int connectd_init(struct lightningd *ld);
 void connectd_activate(struct lightningd *ld);
 
+void connect_succeeded(struct lightningd *ld, const struct pubkey *id);
 void gossip_connect_result(struct lightningd *ld, const u8 *msg);
 
 #endif /* LIGHTNING_LIGHTNINGD_CONNECT_CONTROL_H */

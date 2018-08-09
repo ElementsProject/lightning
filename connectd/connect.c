@@ -47,6 +47,7 @@
 #include <netinet/in.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/randombytes.h>
+#include <stdarg.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -188,9 +189,6 @@ struct reaching {
 
 	/* FIXME: Support multiple address. */
 	struct wireaddr_internal addr;
-
-	/* Whether connect command is waiting for the result. */
-	bool master_needs_response;
 
 	/* How far did we get? */
 	const char *connstate;
@@ -343,24 +341,15 @@ static void reached_peer(struct peer *peer, struct io_conn *conn)
 {
 	/* OK, we've reached the peer successfully, tell everyone. */
 	struct reaching *r = find_reaching(peer->daemon, &peer->id);
-	u8 *msg;
 
 	if (!r)
 		return;
 
-	/* Don't call connect_failed */
+	/* Don't call destroy_io_conn */
 	io_set_finish(conn, NULL, NULL);
 
 	/* Don't free conn with reach */
 	tal_steal(peer->daemon, conn);
-
-	/* Tell any connect command what happened. */
-	if (r->master_needs_response) {
-		msg = towire_connectctl_connect_to_peer_result(NULL, &r->id,
-							      true, "");
-		daemon_conn_send(&peer->daemon->master, take(msg));
-	}
-
 	tal_free(r);
 }
 
@@ -966,27 +955,30 @@ struct io_plan *connection_out(struct io_conn *conn, struct reaching *reach)
 				   handshake_out_success, reach);
 }
 
-static void connect_failed(struct io_conn *conn, struct reaching *reach)
+static void PRINTF_FMT(3,4)
+	connect_failed(struct daemon *daemon,
+		       const struct pubkey *id,
+		       const char *errfmt, ...)
 {
 	u8 *msg;
 	struct important_peerid *imp;
-	const char *err = tal_fmt(tmpctx, "%s: %s",
-				  reach->connstate,
-				  strerror(errno));
+	va_list ap;
+	char *err;
+
+	va_start(ap, errfmt);
+	err = tal_vfmt(tmpctx, errfmt, ap);
+	va_end(ap);
 
 	/* Tell any connect command what happened. */
-	if (reach->master_needs_response) {
-		msg = towire_connectctl_connect_to_peer_result(NULL, &reach->id,
-							      false, err);
-		daemon_conn_send(&reach->daemon->master, take(msg));
-	}
+	msg = towire_connectctl_connect_failed(NULL, id, err);
+	daemon_conn_send(&daemon->master, take(msg));
 
-	status_trace("Failed connected out for %s",
-		     type_to_string(tmpctx, struct pubkey, &reach->id));
+	status_trace("Failed connected out for %s: %s",
+		     type_to_string(tmpctx, struct pubkey, id),
+		     err);
 
 	/* If we want to keep trying, do so. */
-	imp = important_peerid_map_get(&reach->daemon->important_peerids,
-				       &reach->id);
+	imp = important_peerid_map_get(&daemon->important_peerids, id);
 	if (imp) {
 		imp->wait_seconds *= 2;
 		if (imp->wait_seconds > MAX_WAIT_SECONDS)
@@ -996,10 +988,16 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 			     imp->wait_seconds);
 		/* If important_id freed, this will be removed too */
 		imp->reconnect_timer
-			= new_reltimer(&reach->daemon->timers, imp,
+			= new_reltimer(&daemon->timers, imp,
 				       time_from_sec(imp->wait_seconds),
 				       retry_important, imp);
 	}
+}
+
+static void destroy_io_conn(struct io_conn *conn, struct reaching *reach)
+{
+	connect_failed(reach->daemon, &reach->id,
+		       "%s: %s", reach->connstate, strerror(errno));
 	tal_free(reach);
 }
 
@@ -1030,7 +1028,7 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 	}
 	assert(ai);
 
-	io_set_finish(conn, connect_failed, reach);
+	io_set_finish(conn, destroy_io_conn, reach);
 	return io_connect(conn, ai, connection_out, reach);
 }
 
@@ -1060,7 +1058,7 @@ static struct io_plan *conn_proxy_init(struct io_conn *conn,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Can't reach to %u address", reach->addr.itype);
 
-	io_set_finish(conn, connect_failed, reach);
+	io_set_finish(conn, destroy_io_conn, reach);
 	return io_tor_connect(conn, reach->daemon->proxyaddr, host, port, reach);
 }
 
@@ -1130,40 +1128,21 @@ gossip_resolve_addr(const tal_t *ctx, const struct pubkey *id)
 	return addr;
 }
 
-static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
-			   bool master_needs_response)
+static void try_reach_peer(struct daemon *daemon, const struct pubkey *id)
 {
 	struct wireaddr_internal *a;
 	struct addrhint *hint;
 	int fd, af;
 	struct reaching *reach;
-	u8 *msg;
 	bool use_proxy = daemon->use_proxy_always;
 
-	if (pubkey_set_get(&daemon->peers, id)) {
-		status_debug("try_reach_peer: have peer %s",
-			     type_to_string(tmpctx, struct pubkey, id));
-		if (master_needs_response) {
-			msg = towire_connectctl_connect_to_peer_result(NULL, id,
-								      true,
-								      "");
-			daemon_conn_send(&daemon->master, take(msg));
-		}
+	/* Already done?  May happen with timer. */
+	if (pubkey_set_get(&daemon->peers, id))
 		return;
-	}
 
 	/* If we're trying to reach it right now, that's OK. */
-	reach = find_reaching(daemon, id);
-	if (reach) {
-		/* Please tell us too.  Master should not ask twice (we'll
-		 * only respond once, and so one request will get stuck) */
-		if (reach->master_needs_response)
-			status_failed(STATUS_FAIL_MASTER_IO,
-				      "Already reaching %s",
-				      type_to_string(tmpctx, struct pubkey, id));
-		reach->master_needs_response = master_needs_response;
+	if (find_reaching(daemon, id))
 		return;
-	}
 
 	hint = find_addrhint(daemon, id);
 	if (hint)
@@ -1187,14 +1166,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 	}
 
 	if (!a) {
-		status_debug("No address known for %s, giving up",
-			     type_to_string(tmpctx, struct pubkey, id));
-		if (master_needs_response) {
-			msg = towire_connectctl_connect_to_peer_result(NULL, id,
-					      false,
-					      "No address known, giving up");
-			daemon_conn_send(&daemon->master, take(msg));
-		}
+		connect_failed(daemon, id, "No address known");
 		return;
 	}
 
@@ -1249,17 +1221,11 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 		fd = socket(af, SOCK_STREAM, 0);
 
 	if (fd < 0) {
-		char *err = tal_fmt(tmpctx,
-				    "Can't open %i socket for %s (%s), giving up",
-				    af,
-				    type_to_string(tmpctx, struct pubkey, id),
-				    strerror(errno));
-		status_debug("%s", err);
-		if (master_needs_response) {
-			msg = towire_connectctl_connect_to_peer_result(NULL, id,
-							      false, err);
-			daemon_conn_send(&daemon->master, take(msg));
-		}
+		connect_failed(daemon, id,
+			       "Can't open %i socket for %s (%s)",
+			       af,
+			       type_to_string(tmpctx, struct pubkey, id),
+			       strerror(errno));
 		return;
 	}
 
@@ -1268,7 +1234,6 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id,
 	reach->daemon = daemon;
 	reach->id = *id;
 	reach->addr = *a;
-	reach->master_needs_response = master_needs_response;
 	reach->connstate = "Connection establishment";
 	list_add_tail(&daemon->reaching, &reach->list);
 	tal_add_destructor(reach, destroy_reaching);
@@ -1290,7 +1255,7 @@ static void retry_important(struct important_peerid *imp)
 	if (!imp->daemon->reconnect)
 		return;
 
-	try_reach_peer(imp->daemon, &imp->id, false);
+	try_reach_peer(imp->daemon, &imp->id);
 }
 
 static struct io_plan *connect_to_peer(struct io_conn *conn,
@@ -1306,7 +1271,7 @@ static struct io_plan *connect_to_peer(struct io_conn *conn,
 	imp = important_peerid_map_get(&daemon->important_peerids, &id);
 	if (imp)
 		imp->reconnect_timer = tal_free(imp->reconnect_timer);
-	try_reach_peer(daemon, &id, true);
+	try_reach_peer(daemon, &id);
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
@@ -1423,8 +1388,8 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_CONNECTCTL_INIT_REPLY:
 	case WIRE_CONNECTCTL_ACTIVATE_REPLY:
 	case WIRE_CONNECT_PEER_CONNECTED:
-	case WIRE_CONNECTCTL_CONNECT_TO_PEER_RESULT:
 	case WIRE_CONNECT_RECONNECTED:
+	case WIRE_CONNECTCTL_CONNECT_FAILED:
 		break;
 	}
 
