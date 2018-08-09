@@ -155,6 +155,9 @@ struct peer {
 
 	/* Make sure timestamps move forward. */
 	u32 last_update_timestamp;
+
+	/* Make sure peer is live. */
+	struct timeabs last_recv;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -928,12 +931,23 @@ static struct commit_sigs *calc_commitsigs(const tal_t *ctx,
 	return commit_sigs;
 }
 
+/* Have we received something from peer recently? */
+static bool peer_recently_active(struct peer *peer)
+{
+	return time_less(time_between(time_now(), peer->last_recv),
+			 time_from_sec(30));
+}
+
 static void maybe_send_ping(struct peer *peer)
 {
 	/* Already have a ping in flight? */
 	if (peer->expecting_pong)
 		return;
 
+	if (peer_recently_active(peer))
+		return;
+
+	/* Send a ping to try to elicit a receive. */
 	sync_crypto_write_no_delay(&peer->cs, PEER_FD,
 				   take(make_ping(NULL, 1, 0)));
 	peer->expecting_pong = true;
@@ -979,6 +993,14 @@ static void send_commit(struct peer *peer)
 		status_trace("Can't send commit: final shutdown phase");
 
 		peer->commit_timer = NULL;
+		return;
+	}
+
+	/* If we haven't received a packet for > 30 seconds, delay. */
+	if (!peer_recently_active(peer)) {
+		/* Mark this as done and try again. */
+		peer->commit_timer = NULL;
+		start_commit_timer(peer);
 		return;
 	}
 
@@ -1586,6 +1608,8 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 static void peer_in(struct peer *peer, const u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
+
+	peer->last_recv = time_now();
 
 	/* Catch our own ping replies. */
 	if (type == WIRE_PONG && peer->expecting_pong) {
@@ -2455,6 +2479,8 @@ int main(int argc, char *argv[])
 	peer->next_commit_sigs = NULL;
 	peer->shutdown_sent[LOCAL] = false;
 	peer->last_update_timestamp = 0;
+	/* We actually received it in the previous daemon, but near enough */
+	peer->last_recv = time_now();
 
 	/* We send these to HSM to get real signatures; don't have valgrind
 	 * complain. */
