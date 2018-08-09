@@ -459,16 +459,15 @@ static void opening_fundee_finished(struct subd *openingd,
 					   &uc->our_config.channel_reserve_satoshis)) {
 		log_broken(uc->log, "bad OPENING_FUNDEE_REPLY %s",
 			   tal_hex(reply, reply));
-		tal_free(uc);
-		return;
+		uncommitted_channel_disconnect(uc, "bad OPENING_FUNDEE_REPLY");
+		goto failed;
 	}
 
 	/* openingd should never accept them funding channel in this case. */
 	if (peer_active_channel(uc->peer)) {
 		log_broken(uc->log, "openingd accepted peer funding channel");
-		/* Won't free peer, since has active channel */
-		tal_free(uc);
-		return;
+		uncommitted_channel_disconnect(uc, "already have active channel");
+		goto failed;
 	}
 
 	/* Consumes uc */
@@ -483,8 +482,8 @@ static void opening_fundee_finished(struct subd *openingd,
 					&channel_info,
 					feerate);
 	if (!channel) {
-		tal_free(uc);
-		return;
+		uncommitted_channel_disconnect(uc, "Commit channel failed");
+		goto failed;
 	}
 
 	log_debug(channel->log, "Watching funding tx %s",
@@ -501,6 +500,12 @@ static void opening_fundee_finished(struct subd *openingd,
 
 	subd_release_channel(openingd, uc);
 	uc->openingd = NULL;
+	tal_free(uc);
+	return;
+
+failed:
+	close(fds[0]);
+	close(fds[1]);
 	tal_free(uc);
 }
 
