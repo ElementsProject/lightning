@@ -83,7 +83,7 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 	sqlite3_bind_blob(stmt, 1, &utxo->txid, sizeof(utxo->txid), SQLITE_TRANSIENT);
 	sqlite3_bind_int(stmt, 2, utxo->outnum);
 	sqlite3_bind_int64(stmt, 3, utxo->amount);
-	sqlite3_bind_int(stmt, 4, type);
+	sqlite3_bind_int(stmt, 4, wallet_output_type_in_db(type));
 	sqlite3_bind_int(stmt, 5, output_state_available);
 	sqlite3_bind_int(stmt, 6, utxo->keyindex);
 	if (utxo->close_info) {
@@ -161,14 +161,14 @@ bool wallet_update_output_status(struct wallet *w,
 	if (oldstatus != output_state_any) {
 		stmt = db_prepare(
 			w->db, "UPDATE outputs SET status=? WHERE status=? AND prev_out_tx=? AND prev_out_index=?");
-		sqlite3_bind_int(stmt, 1, newstatus);
-		sqlite3_bind_int(stmt, 2, oldstatus);
+		sqlite3_bind_int(stmt, 1, output_status_in_db(newstatus));
+		sqlite3_bind_int(stmt, 2, output_status_in_db(oldstatus));
 		sqlite3_bind_blob(stmt, 3, txid, sizeof(*txid), SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 4, outnum);
 	} else {
 		stmt = db_prepare(
 			w->db, "UPDATE outputs SET status=? WHERE prev_out_tx=? AND prev_out_index=?");
-		sqlite3_bind_int(stmt, 1, newstatus);
+		sqlite3_bind_int(stmt, 1, output_status_in_db(newstatus));
 		sqlite3_bind_blob(stmt, 2, txid, sizeof(*txid), SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 3, outnum);
 	}
@@ -176,18 +176,25 @@ bool wallet_update_output_status(struct wallet *w,
 	return sqlite3_changes(w->db->sql) > 0;
 }
 
+#define SELECT_UTXO							\
+	"SELECT prev_out_tx, prev_out_index, value, type, status, keyindex, " \
+	"channel_id, peer_id, commitment_point, confirmation_height, spend_height " \
+	"FROM outputs"
+
 struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum output_status state)
 {
 	struct utxo **results;
 	int i;
+	sqlite3_stmt *stmt;
 
-	sqlite3_stmt *stmt = db_prepare(
-		w->db, "SELECT prev_out_tx, prev_out_index, value, type, status, keyindex, "
-		"channel_id, peer_id, commitment_point, confirmation_height, spend_height "
-		"FROM outputs WHERE status=?1 OR ?1=255");
-	sqlite3_bind_int(stmt, 1, state);
+	if (state == output_state_any)
+		stmt = db_prepare(w->db, SELECT_UTXO);
+	else {
+		stmt = db_prepare(w->db, SELECT_UTXO " WHERE status=?1");
+		sqlite3_bind_int(stmt, 1, output_status_in_db(state));
+	}
 
-       	results = tal_arr(ctx, struct utxo*, 0);
+	results = tal_arr(ctx, struct utxo*, 0);
 	for (i=0; sqlite3_step(stmt) == SQLITE_ROW; i++) {
 		tal_resize(&results, i+1);
 		results[i] = tal(results, struct utxo);
@@ -1211,6 +1218,7 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 		wallet->db,
 		"UPDATE channel_htlcs SET hstate=?, payment_key=? WHERE id=?");
 
+	/* FIXME: htlc_state_in_db */
 	sqlite3_bind_int(stmt, 1, new_state);
 	sqlite3_bind_int64(stmt, 3, htlc_dbid);
 
@@ -1727,7 +1735,7 @@ void wallet_payment_set_status(struct wallet *wallet,
 			  "UPDATE payments SET status=? "
 			  "WHERE payment_hash=?");
 
-	sqlite3_bind_int(stmt, 1, newstatus);
+	sqlite3_bind_int(stmt, 1, wallet_payment_status_in_db(newstatus));
 	sqlite3_bind_sha256(stmt, 2, payment_hash);
 	db_exec_prepared(wallet->db, stmt);
 
