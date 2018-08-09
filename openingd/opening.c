@@ -73,6 +73,23 @@ struct state {
 	const struct chainparams *chainparams;
 };
 
+static void negotiation_aborted(struct state *state, bool am_funder,
+				const char *why)
+{
+	status_debug("aborted opening negotiaion: %s", why);
+	peer_billboard(true, why);
+
+	/* If necessary, tell master that funding failed. */
+	if (am_funder) {
+		u8 *msg = towire_opening_funder_failed(NULL, why);
+		wire_sync_write(REQ_FD, take(msg));
+	}
+
+	/* Reset state. */
+	memset(&state->channel_id, 0, sizeof(state->channel_id));
+	state->channel = tal_free(state->channel);
+}
+
 /* For negotiation failures: we tell them it's their fault. */
 static void negotiation_failed(struct state *state, bool am_funder,
 			       const char *fmt, ...)
@@ -85,21 +102,11 @@ static void negotiation_failed(struct state *state, bool am_funder,
 	errmsg = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
-	status_debug("%s", errmsg);
-	peer_billboard(true, errmsg);
 	msg = towire_errorfmt(NULL, &state->channel_id,
 			      "You gave bad parameters: %s", errmsg);
 	sync_crypto_write(&state->cs, PEER_FD, take(msg));
 
-	/* If necessary, tell master that funding failed. */
-	if (am_funder) {
-		msg = towire_opening_funder_failed(NULL, errmsg);
-		wire_sync_write(REQ_FD, take(msg));
-	}
-
-	/* Reset state. */
-	memset(&state->channel_id, 0, sizeof(state->channel_id));
-	state->channel = tal_free(state->channel);
+	negotiation_aborted(state, am_funder, errmsg);
 }
 
 static bool check_config_bounds(struct state *state,
@@ -256,12 +263,17 @@ static void temporary_channel_id(struct channel_id *channel_id)
 		channel_id->id[i] = pseudorand(256);
 }
 
-/* Handle random messages we might get, returning the first non-handled one. */
-static u8 *opening_read_peer_msg(const tal_t *ctx, struct state *state)
+/* Handle random messages we might get during opening negotiation,
+ * returning the first non-handled one, or NULL if we aborted negotiation. */
+static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
+				 bool am_funder)
 {
 	for (;;) {
 		u8 *msg;
 		bool from_gossipd;
+		char *err;
+		bool all_channels;
+		struct channel_id actual;
 
 		clean_tmpctx();
 		msg = peer_or_gossip_sync_read(ctx, PEER_FD, GOSSIP_FD,
@@ -270,12 +282,56 @@ static u8 *opening_read_peer_msg(const tal_t *ctx, struct state *state)
 			handle_gossip_msg(PEER_FD, &state->cs, take(msg));
 			continue;
 		}
-		if (!handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD, &state->cs,
-						 &state->channel_id, msg))
-			return msg;
+
+		if (is_msg_for_gossipd(msg)) {
+			wire_sync_write(GOSSIP_FD, take(msg));
+			continue;
+		}
+
+		if (is_peer_error(tmpctx, msg, &state->channel_id,
+				  &err, &all_channels)) {
+			/* BOLT #1:
+			 *
+			 *  - if no existing channel is referred to by the
+			 *    message:
+			 *    - MUST ignore the message.
+			 */
+			if (!err) {
+				tal_free(msg);
+				continue;
+			}
+			if (am_funder) {
+				msg = towire_opening_funder_failed(NULL, err);
+				wire_sync_write(REQ_FD, take(msg));
+			}
+			/* Close connection on all_channels error. */
+			if (all_channels)
+				peer_failed_received_errmsg(PEER_FD, GOSSIP_FD,
+							    &state->cs, err,
+							    NULL);
+			negotiation_aborted(state, am_funder,
+					    tal_fmt(tmpctx, "They sent error %s",
+						    err));
+			/* Return NULL so caller knows to stop negotiating. */
+			return NULL;
+		}
+
+		if (is_wrong_channel(msg, &state->channel_id, &actual)) {
+			status_trace("Rejecting %s for unknown channel_id %s",
+				     wire_type_name(fromwire_peektype(msg)),
+				     type_to_string(tmpctx, struct channel_id,
+						    &actual));
+			sync_crypto_write(&state->cs, PEER_FD,
+					  take(towire_errorfmt(NULL, &actual,
+							       "Multiple channels"
+							       " unsupported")));
+			tal_free(msg);
+			continue;
+		}
+
+		return msg;
 	}
 }
-
 static u8 *funder_channel(struct state *state,
 			  u64 change_satoshis, u32 change_keyindex,
 			  u8 channel_flags,
@@ -336,7 +392,9 @@ static u8 *funder_channel(struct state *state,
 
 	peer_billboard(false,
 		       "Funding channel: offered, now waiting for accept_channel");
-	msg = opening_read_peer_msg(tmpctx, state);
+	msg = opening_negotiate_msg(tmpctx, state, true);
+	if (!msg)
+		return NULL;
 
 	/* BOLT #2:
 	 *
@@ -513,7 +571,9 @@ static u8 *funder_channel(struct state *state,
 	peer_billboard(false,
 		       "Funding channel: create first tx, now waiting for their signature");
 
-	msg = opening_read_peer_msg(tmpctx, state);
+	msg = opening_negotiate_msg(tmpctx, state, true);
+	if (!msg)
+		return NULL;
 
 	if (!fromwire_funding_signed(msg, &id_in, &sig))
 		peer_failed(&state->cs,
@@ -757,7 +817,9 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	peer_billboard(false,
 		       "Incoming channel: accepted, now waiting for them to create funding tx");
 
-	msg = opening_read_peer_msg(tmpctx, state);
+	msg = opening_negotiate_msg(tmpctx, state, false);
+	if (!msg)
+		return NULL;
 
 	if (!fromwire_funding_created(msg, &id_in,
 				      &state->funding_txid,
