@@ -178,6 +178,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->peer = peer;
 	channel->dbid = dbid;
 	channel->error = NULL;
+	channel->htlc_timeout = NULL;
 	if (their_shachain)
 		channel->their_shachain = *their_shachain;
 	else {

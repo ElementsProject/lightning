@@ -70,6 +70,9 @@ struct channel {
 	u64 msatoshi_to_us_min;
 	u64 msatoshi_to_us_max;
 
+	/* Timer we use in case they don't add an HTLC in a timely manner. */
+	struct oneshot *htlc_timeout;
+
 	/* Last tx they gave us. */
 	struct bitcoin_tx *last_tx;
 	secp256k1_ecdsa_signature last_sig;

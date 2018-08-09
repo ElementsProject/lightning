@@ -8,6 +8,7 @@
 #include <common/json_escaped.h>
 #include <common/overflows.h>
 #include <common/sphinx.h>
+#include <common/timeout.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/htlc_end.h>
@@ -405,6 +406,19 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 	/* When channeld includes it in commitment, we'll make it persistent. */
 }
 
+static void htlc_offer_timeout(struct channel *channel)
+{
+	/* If owner died, we should already be taken care of. */
+	if (!channel->owner || channel->state != CHANNELD_NORMAL)
+		return;
+
+	log_unusual(channel->owner->log,
+		    "Adding HTLC too slow: killing channel");
+	tal_free(channel->owner);
+	channel_set_billboard(channel, false,
+			      "Adding HTLC timed out: killed channel");
+}
+
 enum onion_type send_htlc_out(struct channel *out, u64 amount, u32 cltv,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
@@ -431,6 +445,12 @@ enum onion_type send_htlc_out(struct channel *out, u64 amount, u32 cltv,
 			    payment_hash, onion_routing_packet, in);
 	tal_add_destructor(hout, destroy_hout_subd_died);
 
+	/* We give it 30 seconds to commit htlc. */
+	if (!out->htlc_timeout)
+		out->htlc_timeout = new_reltimer(&out->peer->ld->timers,
+						 out, time_from_sec(30),
+						 htlc_offer_timeout,
+						 out);
 	msg = towire_channel_offer_htlc(out, amount, cltv, payment_hash,
 					onion_routing_packet);
 	subd_req(out->peer->ld, out->owner, take(msg), -1, 0, rcvd_htlc_reply, hout);
@@ -1011,6 +1031,8 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 	secp256k1_ecdsa_signature commit_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
 	struct lightningd *ld = channel->peer->ld;
+
+	channel->htlc_timeout = tal_free(channel->htlc_timeout);
 
 	if (!fromwire_channel_sending_commitsig(msg, msg,
 						&commitnum,
