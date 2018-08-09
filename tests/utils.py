@@ -744,7 +744,11 @@ class NodeFactory(object):
         for src, dst in connections:
             src.rpc.connect(dst.info['id'], 'localhost', dst.port)
 
+        # If we're returning now, make sure dst all show connections in
+        # getpeers.
         if not fundchannel:
+            for src, dst in connections:
+                dst.daemon.wait_for_log('openingd-{} chan #[0-9]*: Handed peer, entering loop'.format(src.info['id']))
             return nodes
 
         # If we got here, we want to fund channels

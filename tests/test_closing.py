@@ -1063,6 +1063,7 @@ def test_permfail_htlc_out(node_factory, bitcoind, executor):
     l2 = node_factory.get_node(disconnect=disconnects)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.daemon.wait_for_log('openingd-{} chan #1: Handed peer, entering loop'.format(l1.info['id']))
     l2.fund_channel(l1, 10**6)
 
     # This will fail at l2's end.

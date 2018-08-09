@@ -988,15 +988,14 @@ def test_disconnectpeer(node_factory, bitcoind):
     assert len(l1.rpc.getpeer(l2.info['id'])['channels']) == 0
     assert l1.rpc.getpeer(l3.info['id'])['connected']
     assert len(l1.rpc.getpeer(l3.info['id'])['channels']) == 0
+    wait_for(lambda: l2.rpc.getpeer(l1.info['id']) is not None)
 
     # Disconnect l2 from l1
     l1.rpc.disconnect(l2.info['id'])
 
-    time.sleep(5)
-
     # Make sure listpeers no longer returns the disconnected node
     assert l1.rpc.getpeer(l2.info['id']) is None
-    assert l2.rpc.getpeer(l1.info['id']) is None
+    wait_for(lambda: l2.rpc.getpeer(l1.info['id']) is None)
 
     # Make sure you cannot disconnect after disconnecting
     with pytest.raises(RpcError, match=r'Peer not connected'):
