@@ -6,6 +6,7 @@
 #include <bitcoin/chainparams.h>
 #include <bitcoin/tx.h>
 #include <ccan/crypto/shachain/shachain.h>
+#include <ccan/build_assert/build_assert.h>
 #include <ccan/list/list.h>
 #include <ccan/tal/tal.h>
 #include <common/channel_config.h>
@@ -13,6 +14,7 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/invoice.h>
+#include <lightningd/log.h>
 #include <onchaind/onchain_wire.h>
 #include <wally_bip32.h>
 
@@ -46,6 +48,8 @@ struct wallet {
 /* Possible states for tracked outputs in the database. Not sure yet
  * whether we really want to have reservations reflected in the
  * database, it would simplify queries at the cost of some IO ops */
+/* /!\ This is a DB ENUM, please do not change the numbering of any
+ * already defined elements (adding is ok) /!\ */
 enum output_status {
 	output_state_available= 0,
 	output_state_reserved = 1,
@@ -55,10 +59,31 @@ enum output_status {
 	output_state_any = 255
 };
 
+static inline enum output_status output_status_in_db(enum output_status s)
+{
+	switch (s) {
+	case output_state_available:
+		BUILD_ASSERT(output_state_available == 0);
+		return s;
+	case output_state_reserved:
+		BUILD_ASSERT(output_state_reserved == 1);
+		return s;
+	case output_state_spent:
+		BUILD_ASSERT(output_state_spent == 2);
+		return s;
+	/* This one doesn't go into db */
+	case output_state_any:
+		break;
+	}
+	fatal("%s: %u is invalid", __func__, s);
+}
+
 /* Enumeration of all known output types. These include all types that
  * could ever end up on-chain and we may need to react upon. Notice
  * that `to_local`, `htlc_offer`, and `htlc_recv` may need immediate
  * action since they are encumbered with a CSV. */
+/* /!\ This is a DB ENUM, please do not change the numbering of any
+ * already defined elements (adding is ok) /!\ */
 enum wallet_output_type {
 	p2sh_wpkh = 0,
 	to_local = 1,
@@ -67,6 +92,31 @@ enum wallet_output_type {
 	our_change = 5,
 	p2wpkh = 6
 };
+
+static inline enum wallet_output_type wallet_output_type_in_db(enum wallet_output_type w)
+{
+	switch (w) {
+	case p2sh_wpkh:
+		BUILD_ASSERT(p2sh_wpkh == 0);
+		return w;
+	case to_local:
+		BUILD_ASSERT(to_local == 1);
+		return w;
+	case htlc_offer:
+		BUILD_ASSERT(htlc_offer == 3);
+		return w;
+	case htlc_recv:
+		BUILD_ASSERT(htlc_recv == 4);
+		return w;
+	case our_change:
+		BUILD_ASSERT(our_change == 5);
+		return w;
+	case p2wpkh:
+		BUILD_ASSERT(p2wpkh == 6);
+		return w;
+	}
+	fatal("%s: %u is invalid", __func__, w);
+}
 
 /* A database backed shachain struct. The datastructure is
  * writethrough, reads are performed from an in-memory version, all
@@ -81,12 +131,29 @@ struct wallet_shachain {
  * get the preimage matching the rhash, or to
  * `PAYMENT_FAILED`. */
 /* /!\ This is a DB ENUM, please do not change the numbering of any
- * already defined elements (adding is ok) /!\ */
+ * already defined elements (adding is ok but you should append the
+ * test case test_wallet_payment_status_enum() ) /!\ */
 enum wallet_payment_status {
 	PAYMENT_PENDING = 0,
 	PAYMENT_COMPLETE = 1,
 	PAYMENT_FAILED = 2
 };
+
+static inline enum wallet_payment_status wallet_payment_status_in_db(enum wallet_payment_status w)
+{
+	switch (w) {
+	case PAYMENT_PENDING:
+		BUILD_ASSERT(PAYMENT_PENDING == 0);
+		return w;
+	case PAYMENT_COMPLETE:
+		BUILD_ASSERT(PAYMENT_COMPLETE == 1);
+		return w;
+	case PAYMENT_FAILED:
+		BUILD_ASSERT(PAYMENT_FAILED == 2);
+		return w;
+	}
+	fatal("%s: %u is invalid", __func__, w);
+}
 
 /* Outgoing payments. A simple persisted representation
  * of a payment we initiated. This can be used by
@@ -422,6 +489,22 @@ enum invoice_status {
 	PAID,
 	EXPIRED,
 };
+
+static inline enum invoice_status invoice_status_in_db(enum invoice_status s)
+{
+	switch (s) {
+	case UNPAID:
+		BUILD_ASSERT(UNPAID == 0);
+		return s;
+	case PAID:
+		BUILD_ASSERT(PAID == 1);
+		return s;
+	case EXPIRED:
+		BUILD_ASSERT(EXPIRED == 2);
+		return s;
+	}
+	fatal("%s: %u is invalid", __func__, s);
+}
 
 /* The information about an invoice */
 struct invoice_details {

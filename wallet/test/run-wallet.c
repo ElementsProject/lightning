@@ -1,7 +1,7 @@
   #include <lightningd/log.h>
 
-static void wallet_fatal(const char *fmt, ...);
-#define fatal wallet_fatal
+static void wallet_test_fatal(const char *fmt, ...);
+#define db_fatal wallet_test_fatal
 #include "test_utils.h"
 
 static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const char *fmt UNUSED, ...)
@@ -62,9 +62,9 @@ void command_success(struct command *cmd UNNEEDED, struct json_result *response 
 /* Generated stub for extract_channel_id */
 bool extract_channel_id(const u8 *in_pkt UNNEEDED, struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "extract_channel_id called!\n"); abort(); }
-/* Generated stub for features_supported */
-bool features_supported(const u8 *gfeatures UNNEEDED, const u8 *lfeatures UNNEEDED)
-{ fprintf(stderr, "features_supported called!\n"); abort(); }
+/* Generated stub for fatal */
+void   fatal(const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "fatal called!\n"); abort(); }
 /* Generated stub for fromwire_connectctl_peer_disconnect_reply */
 bool fromwire_connectctl_peer_disconnect_reply(const void *p UNNEEDED)
 { fprintf(stderr, "fromwire_connectctl_peer_disconnect_reply called!\n"); abort(); }
@@ -83,12 +83,6 @@ bool fromwire_hsm_sign_commitment_tx_reply(const void *p UNNEEDED, secp256k1_ecd
 /* Generated stub for get_feerate */
 u32 get_feerate(const struct chain_topology *topo UNNEEDED, enum feerate feerate UNNEEDED)
 { fprintf(stderr, "get_feerate called!\n"); abort(); }
-/* Generated stub for get_offered_global_features */
-u8 *get_offered_global_features(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "get_offered_global_features called!\n"); abort(); }
-/* Generated stub for get_offered_local_features */
-u8 *get_offered_local_features(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "get_offered_local_features called!\n"); abort(); }
 /* Generated stub for handle_opening_channel */
 bool handle_opening_channel(struct lightningd *ld UNNEEDED,
 			    const struct pubkey *id UNNEEDED,
@@ -437,7 +431,7 @@ bool fromwire_hsm_get_channel_basepoints_reply(const void *p UNNEEDED,
 }
 
 static char *wallet_err;
-static void wallet_fatal(const char *fmt, ...)
+static void wallet_test_fatal(const char *fmt, ...)
 {
 	va_list ap;
 
@@ -998,6 +992,14 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	return true;
 }
 
+static bool test_wallet_payment_status_enum(void)
+{
+	CHECK(PAYMENT_PENDING == 0);
+	CHECK(PAYMENT_COMPLETE == 1);
+	CHECK(PAYMENT_FAILED == 2);
+	return true;
+}
+
 int main(void)
 {
 	setup_locale();
@@ -1022,6 +1024,7 @@ int main(void)
 	ok &= test_channel_config_crud(ld, tmpctx);
 	ok &= test_htlc_crud(ld, tmpctx);
 	ok &= test_payment_crud(ld, tmpctx);
+	ok &= test_wallet_payment_status_enum();
 
 	/* Do not clean up in the case of an error, we might want to debug the
 	 * database. */
