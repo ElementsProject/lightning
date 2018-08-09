@@ -61,7 +61,7 @@ struct state {
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
 
-	struct channel_config localconf, *remoteconf;
+	struct channel_config localconf, remoteconf;
 
 	/* Limits on what remote config we accept */
 	u32 max_to_self_delay;
@@ -315,8 +315,6 @@ static u8 *funder_channel(struct state *state,
 				  channel_flags);
 	sync_crypto_write(&state->cs, PEER_FD, msg);
 
-	state->remoteconf = tal(state, struct channel_config);
-
 	peer_billboard(false,
 		       "Funding channel: offered, now waiting for accept_channel");
 	msg = opening_read_peer_msg(tmpctx, state);
@@ -330,15 +328,15 @@ static u8 *funder_channel(struct state *state,
 	 *    valid DER-encoded compressed secp256k1 pubkeys.
 	 */
 	if (!fromwire_accept_channel(msg, &id_in,
-				     &state->remoteconf->dust_limit_satoshis,
+				     &state->remoteconf.dust_limit_satoshis,
 				     &state->remoteconf
-				     ->max_htlc_value_in_flight_msat,
+				     .max_htlc_value_in_flight_msat,
 				     &state->remoteconf
-				     ->channel_reserve_satoshis,
-				     &state->remoteconf->htlc_minimum_msat,
+				     .channel_reserve_satoshis,
+				     &state->remoteconf.htlc_minimum_msat,
 				     &minimum_depth,
-				     &state->remoteconf->to_self_delay,
-				     &state->remoteconf->max_accepted_htlcs,
+				     &state->remoteconf.to_self_delay,
+				     &state->remoteconf.max_accepted_htlcs,
 				     &their_funding_pubkey,
 				     &theirs.revocation,
 				     &theirs.payment,
@@ -385,22 +383,22 @@ static u8 *funder_channel(struct state *state,
 	 *    less than `dust_limit_satoshis`:
 	 *    - MUST reject the channel.
 	 */
-	if (state->remoteconf->channel_reserve_satoshis
+	if (state->remoteconf.channel_reserve_satoshis
 	    < state->localconf.dust_limit_satoshis)
 		negotiation_failed(state,
 				   "channel reserve %"PRIu64
 				   " would be below our dust %"PRIu64,
-				   state->remoteconf->channel_reserve_satoshis,
+				   state->remoteconf.channel_reserve_satoshis,
 				   state->localconf.dust_limit_satoshis);
 	if (state->localconf.channel_reserve_satoshis
-	    < state->remoteconf->dust_limit_satoshis)
+	    < state->remoteconf.dust_limit_satoshis)
 		negotiation_failed(state,
 				   "dust limit %"PRIu64
 				   " would be above our reserve %"PRIu64,
-				   state->remoteconf->dust_limit_satoshis,
+				   state->remoteconf.dust_limit_satoshis,
 				   state->localconf.channel_reserve_satoshis);
 
-	check_config_bounds(state, state->remoteconf);
+	check_config_bounds(state, &state->remoteconf);
 
 	/* Now, ask create funding transaction to pay those two addresses. */
 	if (change_satoshis) {
@@ -428,7 +426,7 @@ static u8 *funder_channel(struct state *state,
 					     - state->push_msat,
 					     state->feerate_per_kw,
 					     &state->localconf,
-					     state->remoteconf,
+					     &state->remoteconf,
 					     &state->our_points, &theirs,
 					     &state->our_funding_pubkey,
 					     &their_funding_pubkey,
@@ -543,7 +541,7 @@ static u8 *funder_channel(struct state *state,
 	 *     - SHOULD broadcast the funding transaction.
 	 */
 	return towire_opening_funder_reply(state,
-					   state->remoteconf,
+					   &state->remoteconf,
 					   tx,
 					   &sig,
 					   &state->cs,
@@ -571,8 +569,6 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	const u8 *wscript;
 	u8 channel_flags;
 
-	state->remoteconf = tal(state, struct channel_config);
-
 	/* BOLT #2:
 	 *
 	 * The receiving node MUST fail the channel if:
@@ -584,13 +580,13 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	if (!fromwire_open_channel(open_channel_msg, &chain_hash,
 				   &state->channel_id,
 				   &state->funding_satoshis, &state->push_msat,
-				   &state->remoteconf->dust_limit_satoshis,
-				   &state->remoteconf->max_htlc_value_in_flight_msat,
-				   &state->remoteconf->channel_reserve_satoshis,
-				   &state->remoteconf->htlc_minimum_msat,
+				   &state->remoteconf.dust_limit_satoshis,
+				   &state->remoteconf.max_htlc_value_in_flight_msat,
+				   &state->remoteconf.channel_reserve_satoshis,
+				   &state->remoteconf.htlc_minimum_msat,
 				   &state->feerate_per_kw,
-				   &state->remoteconf->to_self_delay,
-				   &state->remoteconf->max_accepted_htlcs,
+				   &state->remoteconf.to_self_delay,
+				   &state->remoteconf.max_accepted_htlcs,
 				   &their_funding_pubkey,
 				   &theirs.revocation,
 				   &theirs.payment,
@@ -609,7 +605,6 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					 "Already have active channel");
 
 		sync_crypto_write(&state->cs, PEER_FD, take(errmsg));
-		state->remoteconf = tal_free(state->remoteconf);
 		return NULL;
 	}
 
@@ -679,21 +674,21 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
          *   `channel_reserve_satoshis` from the `open_channel` message.
 	 */
 	if (state->localconf.channel_reserve_satoshis
-	    < state->remoteconf->dust_limit_satoshis)
+	    < state->remoteconf.dust_limit_satoshis)
 		negotiation_failed(state,
 				   "Our channel reserve %"PRIu64
 				   " would be below their dust %"PRIu64,
 				   state->localconf.channel_reserve_satoshis,
-				   state->remoteconf->dust_limit_satoshis);
+				   state->remoteconf.dust_limit_satoshis);
 	if (state->localconf.dust_limit_satoshis
-	    > state->remoteconf->channel_reserve_satoshis)
+	    > state->remoteconf.channel_reserve_satoshis)
 		negotiation_failed(state,
 				   "Our dust limit %"PRIu64
 				   " would be above their reserve %"PRIu64,
 				   state->localconf.dust_limit_satoshis,
-				   state->remoteconf->channel_reserve_satoshis);
+				   state->remoteconf.channel_reserve_satoshis);
 
-	check_config_bounds(state, state->remoteconf);
+	check_config_bounds(state, &state->remoteconf);
 
 	msg = towire_accept_channel(state, &state->channel_id,
 				    state->localconf.dust_limit_satoshis,
@@ -745,7 +740,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					     state->push_msat,
 					     state->feerate_per_kw,
 					     &state->localconf,
-					     state->remoteconf,
+					     &state->remoteconf,
 					     &state->our_points, &theirs,
 					     &state->our_funding_pubkey,
 					     &their_funding_pubkey,
@@ -822,7 +817,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	msg = towire_funding_signed(state, &state->channel_id, &sig);
 
 	return towire_opening_fundee(state,
-				     state->remoteconf,
+				     &state->remoteconf,
 				     local_commit,
 				     &theirsig,
 				     &state->cs,
