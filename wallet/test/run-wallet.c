@@ -63,7 +63,8 @@ void command_success(struct command *cmd UNNEEDED, struct json_result *response 
 void connect_succeeded(struct lightningd *ld UNNEEDED, const struct pubkey *id UNNEEDED)
 { fprintf(stderr, "connect_succeeded called!\n"); abort(); }
 /* Generated stub for delay_then_reconnect */
-void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UNNEEDED)
+void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UNNEEDED,
+			  const struct wireaddr_internal *addrhint TAKES UNNEEDED)
 { fprintf(stderr, "delay_then_reconnect called!\n"); abort(); }
 /* Generated stub for fromwire_connect_peer_connected */
 bool fromwire_connect_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u8 **gfeatures UNNEEDED, u8 **lfeatures UNNEEDED)
@@ -325,11 +326,8 @@ u8 *towire_channel_dev_reenable_commit(const tal_t *ctx UNNEEDED)
 u8 *towire_channel_send_shutdown(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_send_shutdown called!\n"); abort(); }
 /* Generated stub for towire_connectctl_connect_to_peer */
-u8 *towire_connectctl_connect_to_peer(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, u32 seconds_waited UNNEEDED)
+u8 *towire_connectctl_connect_to_peer(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, u32 seconds_waited UNNEEDED, const struct wireaddr_internal *addrhint UNNEEDED)
 { fprintf(stderr, "towire_connectctl_connect_to_peer called!\n"); abort(); }
-/* Generated stub for towire_connectctl_peer_addrhint */
-u8 *towire_connectctl_peer_addrhint(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED, const struct wireaddr_internal *addr UNNEEDED)
-{ fprintf(stderr, "towire_connectctl_peer_addrhint called!\n"); abort(); }
 /* Generated stub for towire_connectctl_peer_disconnected */
 u8 *towire_connectctl_peer_disconnected(const tal_t *ctx UNNEEDED, const struct pubkey *id UNNEEDED)
 { fprintf(stderr, "towire_connectctl_peer_disconnected called!\n"); abort(); }
