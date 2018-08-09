@@ -1,7 +1,7 @@
   #include <lightningd/log.h>
 
-static void wallet_fatal(const char *fmt, ...);
-#define fatal wallet_fatal
+static void wallet_test_fatal(const char *fmt, ...);
+#define db_fatal wallet_test_fatal
 #include "test_utils.h"
 
 static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const char *fmt UNUSED, ...)
@@ -66,6 +66,9 @@ void connect_succeeded(struct lightningd *ld UNNEEDED, const struct pubkey *id U
 void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UNNEEDED,
 			  const struct wireaddr_internal *addrhint TAKES UNNEEDED)
 { fprintf(stderr, "delay_then_reconnect called!\n"); abort(); }
+/* Generated stub for fatal */
+void   fatal(const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "fatal called!\n"); abort(); }
 /* Generated stub for fromwire_connect_peer_connected */
 bool fromwire_connect_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u8 **gfeatures UNNEEDED, u8 **lfeatures UNNEEDED)
 { fprintf(stderr, "fromwire_connect_peer_connected called!\n"); abort(); }
@@ -394,7 +397,7 @@ bool fromwire_hsm_get_channel_basepoints_reply(const void *p UNNEEDED,
 }
 
 static char *wallet_err;
-static void wallet_fatal(const char *fmt, ...)
+static void wallet_test_fatal(const char *fmt, ...)
 {
 	va_list ap;
 
