@@ -26,12 +26,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   `man` command.
 - HSM: The HSM daemon now maintains the per-peer secrets, rather than
   handing them out.  It's still lax in what it signs though.
-- connectd: A new daemon `lightningd_connectd` handles connecting
-  to/from peers, instead of `gossipd` doing that itself.
+- connectd: A new daemon `lightning_connectd` handles connecting
+  to/from peers, instead of `gossipd` doing that itself. `lightning_openingd` now
+  handles peers immediately, even if they never actually open a channel.
 - Test: `python-xdist` is now a dependency for tests.
 - Logging: JSON connections no longer spam debug logs.
 - Routing: We no longer consider channels that are not usable either because of
   their capacity or their `htlc_minimum_msat` parameter (#1777)
+
 ### Deprecated
 
 Note: You should always set `allow-deprecated-apis=false` to test for
@@ -41,6 +43,10 @@ changes.
 
 - JSON API: `listpeers` results no long have `alias` and `color` fields;
   they're in `listnodes` (we used to internally merge the information).
+- JSON API: `listpeers` will never have `state` field (it accidentally
+  used to exist and set to `GOSSIPING` before we opened a channel).
+  `connected` will indicate if we're connected, and the `channels`
+  array indicates individual channel states (if any).
 - Removed all Deprecated options from 0.6.
 
 ### Fixed
