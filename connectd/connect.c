@@ -156,13 +156,6 @@ struct daemon {
 	/* Local and global features to offer to peers. */
 	u8 *localfeatures, *globalfeatures;
 
-	/* Addresses master told us to use */
-	struct wireaddr_internal *proposed_wireaddr;
-	enum addr_listen_announce *proposed_listen_announce;
-
-	/* What we actually announce. */
-	struct wireaddr *announcable;
-
 	/* Automatically reconnect. */
 	bool reconnect;
 
@@ -171,7 +164,6 @@ struct daemon {
 
 	struct addrinfo *proxyaddr;
 	bool use_proxy_always;
-	char *tor_password;
 
 	/* @see lightningd.config.use_dns */
 	bool use_dns;
@@ -753,11 +745,12 @@ static bool public_address(struct daemon *daemon, struct wireaddr *wireaddr)
 	return address_routable(wireaddr, daemon->dev_allow_localhost);
 }
 
-static void add_announcable(struct daemon *daemon, const struct wireaddr *addr)
+static void add_announcable(struct wireaddr **announcable,
+			    const struct wireaddr *addr)
 {
-	size_t n = tal_count(daemon->announcable);
-	tal_resize(&daemon->announcable, n+1);
-	daemon->announcable[n] = *addr;
+	size_t n = tal_count(*announcable);
+	tal_resize(announcable, n+1);
+	(*announcable)[n] = *addr;
 }
 
 static void add_binding(struct wireaddr_internal **binding,
@@ -774,9 +767,9 @@ static int wireaddr_cmp_type(const struct wireaddr *a,
 	return (int)a->type - (int)b->type;
 }
 
-static void finalize_announcable(struct daemon *daemon)
+static void finalize_announcable(struct wireaddr **announcable)
 {
-	size_t n = tal_count(daemon->announcable);
+	size_t n = tal_count(*announcable);
 
 	/* BOLT #7:
 	 *
@@ -787,59 +780,62 @@ static void finalize_announcable(struct daemon *daemon)
 	 *   - MUST NOT include more than one `address descriptor` of the same
 	 *     type.
 	 */
-	asort(daemon->announcable, n, wireaddr_cmp_type, NULL);
+	asort(*announcable, n, wireaddr_cmp_type, NULL);
 	for (size_t i = 1; i < n; i++) {
 		/* Note we use > instead of !=: catches asort bugs too. */
-		if (daemon->announcable[i].type > daemon->announcable[i-1].type)
+		if ((*announcable)[i].type > (*announcable)[i-1].type)
 			continue;
 
 		status_unusual("WARNING: Cannot announce address %s,"
 			       " already announcing %s",
 			       type_to_string(tmpctx, struct wireaddr,
-					      &daemon->announcable[i]),
+					      &(*announcable)[i]),
 			       type_to_string(tmpctx, struct wireaddr,
-					      &daemon->announcable[i-1]));
-		memmove(daemon->announcable + i,
-			daemon->announcable + i + 1,
-			(n - i - 1) * sizeof(daemon->announcable[0]));
-		tal_resize(&daemon->announcable, --n);
+					      &(*announcable)[i-1]));
+		memmove(*announcable + i,
+			*announcable + i + 1,
+			(n - i - 1) * sizeof((*announcable)[0]));
+		tal_resize(announcable, --n);
 		--i;
 	}
 }
 
 /* Initializes daemon->announcable array, returns addresses we bound to. */
 static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
-						 struct daemon *daemon)
+						 struct daemon *daemon,
+						 const struct wireaddr_internal *proposed_wireaddr,
+						 const enum addr_listen_announce *proposed_listen_announce,
+						 const char *tor_password,
+						 struct wireaddr **announcable)
 {
 	struct sockaddr_un addrun;
 	int fd;
 	struct wireaddr_internal *binding;
 
 	binding = tal_arr(ctx, struct wireaddr_internal, 0);
-	daemon->announcable = tal_arr(daemon, struct wireaddr, 0);
+	*announcable = tal_arr(ctx, struct wireaddr, 0);
 
 	/* Add addresses we've explicitly been told to *first*: implicit
 	 * addresses will be discarded then if we have multiple. */
-	for (size_t i = 0; i < tal_count(daemon->proposed_wireaddr); i++) {
-		struct wireaddr_internal wa = daemon->proposed_wireaddr[i];
+	for (size_t i = 0; i < tal_count(proposed_wireaddr); i++) {
+		struct wireaddr_internal wa = proposed_wireaddr[i];
 
-		if (daemon->proposed_listen_announce[i] & ADDR_LISTEN)
+		if (proposed_listen_announce[i] & ADDR_LISTEN)
 			continue;
 
-		assert(daemon->proposed_listen_announce[i] & ADDR_ANNOUNCE);
+		assert(proposed_listen_announce[i] & ADDR_ANNOUNCE);
 		/* You can only announce wiretypes! */
-		assert(daemon->proposed_wireaddr[i].itype
+		assert(proposed_wireaddr[i].itype
 		       == ADDR_INTERNAL_WIREADDR);
-		add_announcable(daemon, &wa.u.wireaddr);
+		add_announcable(announcable, &wa.u.wireaddr);
 	}
 
 	/* Now look for listening addresses. */
-	for (size_t i = 0; i < tal_count(daemon->proposed_wireaddr); i++) {
-		struct wireaddr_internal wa = daemon->proposed_wireaddr[i];
-		bool announce = (daemon->proposed_listen_announce[i]
-				 & ADDR_ANNOUNCE);
+	for (size_t i = 0; i < tal_count(proposed_wireaddr); i++) {
+		struct wireaddr_internal wa = proposed_wireaddr[i];
+		bool announce = (proposed_listen_announce[i] & ADDR_ANNOUNCE);
 
-		if (!(daemon->proposed_listen_announce[i] & ADDR_LISTEN))
+		if (!(proposed_listen_announce[i] & ADDR_LISTEN))
 			continue;
 
 		switch (wa.itype) {
@@ -877,7 +873,8 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 				add_binding(&binding, &wa);
 				if (announce
 				    && public_address(daemon, &wa.u.wireaddr))
-					add_announcable(daemon, &wa.u.wireaddr);
+					add_announcable(announcable,
+							&wa.u.wireaddr);
 			}
 
 			/* Now, create wildcard IPv4 address. */
@@ -891,7 +888,8 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 				add_binding(&binding, &wa);
 				if (announce
 				    && public_address(daemon, &wa.u.wireaddr))
-					add_announcable(daemon, &wa.u.wireaddr);
+					add_announcable(announcable,
+							&wa.u.wireaddr);
 			}
 			continue;
 		}
@@ -899,7 +897,7 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 			handle_wireaddr_listen(daemon, &wa.u.wireaddr, false);
 			add_binding(&binding, &wa);
 			if (announce && public_address(daemon, &wa.u.wireaddr))
-				add_announcable(daemon, &wa.u.wireaddr);
+				add_announcable(announcable, &wa.u.wireaddr);
 			continue;
 		case ADDR_INTERNAL_FORPROXY:
 			break;
@@ -907,28 +905,28 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 		/* Shouldn't happen. */
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Invalid listener address type %u",
-			      daemon->proposed_wireaddr[i].itype);
+			      proposed_wireaddr[i].itype);
 	}
 
 	/* Now we have bindings, set up any Tor auto addresses */
-	for (size_t i = 0; i < tal_count(daemon->proposed_wireaddr); i++) {
-		if (!(daemon->proposed_listen_announce[i] & ADDR_LISTEN))
+	for (size_t i = 0; i < tal_count(proposed_wireaddr); i++) {
+		if (!(proposed_listen_announce[i] & ADDR_LISTEN))
 			continue;
 
-		if (!(daemon->proposed_listen_announce[i] & ADDR_ANNOUNCE))
+		if (!(proposed_listen_announce[i] & ADDR_ANNOUNCE))
 			continue;
 
-		if (daemon->proposed_wireaddr[i].itype != ADDR_INTERNAL_AUTOTOR)
+		if (proposed_wireaddr[i].itype != ADDR_INTERNAL_AUTOTOR)
 			continue;
 
-		add_announcable(daemon,
+		add_announcable(announcable,
 				tor_autoservice(tmpctx,
-						&daemon->proposed_wireaddr[i].u.torservice,
-						daemon->tor_password,
+						&proposed_wireaddr[i].u.torservice,
+						tor_password,
 						binding));
 	}
 
-	finalize_announcable(daemon);
+	finalize_announcable(announcable);
 
 	return binding;
 }
@@ -943,15 +941,19 @@ static struct io_plan *connect_init(struct daemon_conn *master,
 {
 	struct wireaddr *proxyaddr;
 	struct wireaddr_internal *binding;
+	struct wireaddr_internal *proposed_wireaddr;
+	enum addr_listen_announce *proposed_listen_announce;
+	struct wireaddr *announcable;
+	char *tor_password;
 
 	if (!fromwire_connectctl_init(
 		daemon, msg,
 		&daemon->id, &daemon->globalfeatures,
-		&daemon->localfeatures, &daemon->proposed_wireaddr,
-		&daemon->proposed_listen_announce, &daemon->reconnect,
+		&daemon->localfeatures, &proposed_wireaddr,
+		&proposed_listen_announce, &daemon->reconnect,
 		&proxyaddr, &daemon->use_proxy_always,
 		&daemon->dev_allow_localhost, &daemon->use_dns,
-		&daemon->tor_password)) {
+		&tor_password)) {
 		master_badmsg(WIRE_CONNECTCTL_INIT, msg);
 	}
 
@@ -968,12 +970,16 @@ static struct io_plan *connect_init(struct daemon_conn *master,
 			     "dummy replies");
 	}
 
-	binding = setup_listeners(tmpctx, daemon);
+	binding = setup_listeners(tmpctx, daemon,
+				  proposed_wireaddr,
+				  proposed_listen_announce,
+				  tor_password,
+				  &announcable);
 
 	daemon_conn_send(&daemon->master,
 			 take(towire_connectctl_init_reply(NULL,
 							   binding,
-							   daemon->announcable)));
+							   announcable)));
 
 	return daemon_conn_read_next(master->conn, master);
 }
