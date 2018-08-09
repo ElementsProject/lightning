@@ -1,4 +1,5 @@
 #include <ccan/tal/str/str.h>
+#include <common/crypto_sync.h>
 #include <common/gen_peer_status_wire.h>
 #include <common/gen_status_wire.h>
 #include <common/peer_billboard.h>
@@ -15,16 +16,20 @@ void peer_failed_(int peer_fd, int gossip_fd,
 {
 	va_list ap;
 	const char *desc;
-	u8 *msg;
+	u8 *msg, *err;
 
  	va_start(ap, fmt);
 	desc = tal_vfmt(NULL, fmt, ap);
 	va_end(ap);
 
+	/* Tell peer the error. */
+	err = towire_errorfmt(desc, channel_id, "%s", desc);
+	sync_crypto_write(cs, peer_fd, err);
+
+	/* Tell master the error so it can re-xmit. */
 	msg = towire_status_peer_error(NULL, channel_id,
 				       desc, cs,
-				       towire_errorfmt(desc, channel_id,
-						       "%s", desc));
+				       err);
 	peer_billboard(true, desc);
 	tal_free(desc);
 	status_send_fatal(take(msg), peer_fd, gossip_fd);

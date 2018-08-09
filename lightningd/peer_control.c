@@ -418,9 +418,6 @@ void channel_errmsg(struct channel *channel,
 	channel_fail_permanent(channel, "%s: %s ERROR %s",
 			       channel->owner->name,
 			       err_for_them ? "sent" : "received", desc);
-
-	/* Get openingd to chat with them, maybe sending error. */
-	peer_start_openingd(channel->peer, cs, peer_fd, gossip_fd, err_for_them);
 }
 
 /* Connectd tells us a peer has connected: it never hands us duplicates, since
