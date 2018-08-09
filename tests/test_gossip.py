@@ -618,8 +618,9 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     assert ret['final_complete']
     assert len(ret['short_channel_ids']) == 0
 
-    # Make l2 split reply into two.
+    # Make l2 split reply into two (technically async)
     l2.rpc.dev_set_max_scids_encode_size(max=9)
+    l2.daemon.wait_for_log('Set max_scids_encode_bytes to 9')
     ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
                                          first=0,
                                          num=1000000)
