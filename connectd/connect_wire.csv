@@ -70,62 +70,6 @@ connect_peer_connected,,gfeatures,gflen*u8
 connect_peer_connected,,lflen,u16
 connect_peer_connected,,lfeatures,lflen*u8
 
-# Connectd -> master: peer sent non-gossip packet. Two fds: peer and gossip
-connect_peer_nongossip,2003
-connect_peer_nongossip,,id,struct pubkey
-connect_peer_nongossip,,addr,struct wireaddr_internal
-connect_peer_nongossip,,crypto_state,struct crypto_state
-connect_peer_nongossip,,gflen,u16
-connect_peer_nongossip,,gfeatures,gflen*u8
-connect_peer_nongossip,,lflen,u16
-connect_peer_nongossip,,lfeatures,lflen*u8
-connect_peer_nongossip,,len,u16
-connect_peer_nongossip,,msg,len*u8
-
-# Master -> connectd: release a peer (so we can open a channel)
-connectctl_release_peer,2004
-connectctl_release_peer,,id,struct pubkey
-
-# Connectd -> master: reply to connect_release_peer.  Two fds: peer and gossip.
-connectctl_release_peer_reply,2104
-connectctl_release_peer_reply,,addr,struct wireaddr_internal
-connectctl_release_peer_reply,,crypto_state,struct crypto_state
-connectctl_release_peer_reply,,gflen,u16
-connectctl_release_peer_reply,,gfeatures,gflen*u8
-connectctl_release_peer_reply,,lflen,u16
-connectctl_release_peer_reply,,lfeatures,lflen*u8
-
-# Connectd -> master:  reply to connect_release_peer if we couldn't find the peer.
-connectctl_release_peer_replyfail,2204
-
-# master -> connectd: take back peer, with optional msg. (+peer fd, +gossip fd)
-connectctl_hand_back_peer,2013
-connectctl_hand_back_peer,,id,struct pubkey
-connectctl_hand_back_peer,,crypto_state,struct crypto_state
-connectctl_hand_back_peer,,len,u16
-connectctl_hand_back_peer,,msg,len*u8
-
 # master -> connectd: peer has disconnected.
 connectctl_peer_disconnected,2015
 connectctl_peer_disconnected,,id,struct pubkey
-
-# The main daemon asks for peers
-connect_getpeers_request,2011
-connect_getpeers_request,,id,?struct pubkey
-
-connect_getpeers_reply,2111
-connect_getpeers_reply,,num,u16
-connect_getpeers_reply,,id,num*struct pubkey
-connect_getpeers_reply,,addr,num*struct wireaddr_internal
-connect_getpeers_reply,,features,num*struct peer_features
-
-# master->connectd: Request to disconnect from a peer.
-connectctl_peer_disconnect,2023
-connectctl_peer_disconnect,,id,struct pubkey
-
-# Connectd -> master:  reply to connect_peer_disconnect with peer id.
-connectctl_peer_disconnect_reply,2123
-
-# Connectd -> master:  reply to connect_peer_disconnect if we couldn't find the peer.
-connectctl_peer_disconnect_replyfail,2223
-connectctl_peer_disconnect_replyfail,,isconnected,bool

@@ -280,9 +280,9 @@ def test_reconnect_openingd(node_factory):
     # Reconnect.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    # We should get a message about reconnecting, but order unsynced.
-    l2.daemon.wait_for_logs(['connectd.*reconnect for active peer',
-                             'Killing openingd: Reconnected'])
+    # We should get a message about reconnecting.
+    l2.daemon.wait_for_log('Killing openingd: Reconnected')
+    l2.daemon.wait_for_log('lightning_openingd.*Handed peer, entering loop')
 
     # Should work fine.
     l1.rpc.fundchannel(l2.info['id'], 20000)
@@ -967,7 +967,7 @@ def test_peerinfo(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'Channel close negotiation not finished'):
         l1.rpc.close(chan, False, 0)
 
-    l1.daemon.wait_for_log('Forgetting remote peer')
+    l1.daemon.wait_for_log('Forgetting peer')
     bitcoind.generate_block(100)
     l1.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')
     l2.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')
@@ -977,7 +977,6 @@ def test_peerinfo(node_factory, bitcoind):
     assert l2.rpc.listnodes()['nodes'] == []
 
 
-@unittest.skip("FIXME: Disabled during transition: disconnect not updated")
 def test_disconnectpeer(node_factory, bitcoind):
     l1, l2, l3 = node_factory.get_nodes(3, opts={'may_reconnect': False})
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1008,7 +1007,7 @@ def test_disconnectpeer(node_factory, bitcoind):
     bitcoind.generate_block(5)
 
     # disconnecting a non gossiping peer results in error
-    with pytest.raises(RpcError, match=r'Peer is not in gossip mode'):
+    with pytest.raises(RpcError, match=r'Peer is in state CHANNELD_NORMAL'):
         l1.rpc.disconnect(l3.info['id'])
 
 
