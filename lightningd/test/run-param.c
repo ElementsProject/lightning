@@ -404,6 +404,7 @@ static void sendpay_nulltok(void)
 }
 
 static char *json_tok_msat(struct command *cmd,
+			   const char *name,
 			   const char *buffer,
 			   const jsmntok_t * msatoshi,
 			   u64 **msatoshi_val)
@@ -426,6 +427,7 @@ static char *json_tok_msat(struct command *cmd,
 /* This can eventually replace json_tok_tok and we can remove the special p_opt_tok()
  * macro. */
 static char *json_tok_tok_x(struct command *cmd,
+			   const char *name,
 			    const char *buffer,
 			    const jsmntok_t *tok,
 			    const jsmntok_t **arg)
@@ -439,6 +441,7 @@ static char *json_tok_tok_x(struct command *cmd,
  * replace the existing json_tok_label.
  */
 static char *json_tok_label_x(struct command *cmd,
+			      const char *name,
 			      const char *buffer,
 			      const jsmntok_t *tok,
 			      struct json_escaped **label)

@@ -58,6 +58,7 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
  * Advanced callback. Returns NULL on success, error message on failure.
  */
 typedef char *(*param_cbx)(struct command *cmd,
+			   const char *name,
 			   const char *buffer,
 			   const jsmntok_t *tok,
 			   void **arg);
@@ -87,6 +88,7 @@ typedef char *(*param_cbx)(struct command *cmd,
 		  (cbx),				 	\
 		  (arg) + 0*sizeof((cbx)((struct command *)NULL,\
 				   (const char *)NULL,		\
+				   (const char *)NULL,		\
 				   (const jsmntok_t *)NULL,	\
 				   (arg)) == NULL),		\
 		  (size_t)0
@@ -113,6 +115,7 @@ typedef char *(*param_cbx)(struct command *cmd,
 		  (cbx),				 	\
 		  (arg) + 0*sizeof((cbx)((struct command *)NULL,\
 				   (const char *)NULL,		\
+				   (const char *)NULL,		\
 				   (const jsmntok_t *)NULL,	\
 				   (arg)) == NULL),		\
 		  sizeof(**(arg))
@@ -137,6 +140,7 @@ typedef char *(*param_cbx)(struct command *cmd,
 		  true,						\
 		  (cbx),				 	\
 		  (arg) + 0*sizeof((cbx)((struct command *)NULL,\
+				   (const char *)NULL,		\
 				   (const char *)NULL,		\
 				   (const jsmntok_t *)NULL,	\
 				   (arg)) == NULL),		\
