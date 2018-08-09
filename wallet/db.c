@@ -9,6 +9,11 @@
 
 #define DB_FILE "lightningd.sqlite3"
 
+/* For testing, we want to catch fatal messages. */
+#ifndef db_fatal
+#define db_fatal fatal
+#endif
+
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
  * string indices */
@@ -361,7 +366,7 @@ void db_assert_no_outstanding_statements(void)
 
 	dbstat = list_top(&db_statements, struct db_statement, list);
 	if (dbstat)
-		fatal("Unfinalized statement %s", dbstat->origin);
+		db_fatal("Unfinalized statement %s", dbstat->origin);
 }
 
 static void dev_statement_start(sqlite3_stmt *stmt, const char *origin)
@@ -408,7 +413,7 @@ sqlite3_stmt *db_prepare_(const char *location, struct db *db, const char *query
 	err = sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
 
 	if (err != SQLITE_OK)
-		fatal("%s: %s: %s", location, query, sqlite3_errmsg(db->sql));
+		db_fatal("%s: %s: %s", location, query, sqlite3_errmsg(db->sql));
 
 	dev_statement_start(stmt, location);
 	return stmt;
@@ -419,7 +424,7 @@ void db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt)
 	assert(db->in_transaction);
 
 	if (sqlite3_step(stmt) !=  SQLITE_DONE)
-		fatal("%s: %s", caller, sqlite3_errmsg(db->sql));
+		db_fatal("%s: %s", caller, sqlite3_errmsg(db->sql));
 
 	db_stmt_done(stmt);
 }
@@ -432,7 +437,7 @@ static void db_do_exec(const char *caller, struct db *db, const char *cmd)
 
 	err = sqlite3_exec(db->sql, cmd, NULL, NULL, &errmsg);
 	if (err != SQLITE_OK) {
-		fatal("%s:%s:%s:%s", caller, sqlite3_errstr(err), cmd, errmsg);
+		db_fatal("%s:%s:%s:%s", caller, sqlite3_errstr(err), cmd, errmsg);
 		/* Only reached in testing */
 		sqlite3_free(errmsg);
 	}
@@ -499,7 +504,7 @@ static void destroy_db(struct db *db)
 void db_begin_transaction_(struct db *db, const char *location)
 {
 	if (db->in_transaction)
-		fatal("Already in transaction from %s", db->in_transaction);
+		db_fatal("Already in transaction from %s", db->in_transaction);
 
 	db_do_exec(location, db, "BEGIN TRANSACTION;");
 	db->in_transaction = location;
@@ -523,15 +528,15 @@ static struct db *db_open(const tal_t *ctx, char *filename)
 	sqlite3 *sql;
 
 	if (SQLITE_VERSION_NUMBER != sqlite3_libversion_number())
-		fatal("SQLITE version mismatch: compiled %u, now %u",
-		      SQLITE_VERSION_NUMBER, sqlite3_libversion_number());
+		db_fatal("SQLITE version mismatch: compiled %u, now %u",
+			 SQLITE_VERSION_NUMBER, sqlite3_libversion_number());
 
 	int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
 	err = sqlite3_open_v2(filename, &sql, flags, NULL);
 
 	if (err != SQLITE_OK) {
-		fatal("failed to open database %s: %s", filename,
-		      sqlite3_errstr(err));
+		db_fatal("failed to open database %s: %s", filename,
+			 sqlite3_errstr(err));
 	}
 
 	db = tal(ctx, struct db);
@@ -602,8 +607,8 @@ static void db_migrate(struct db *db, struct log *log)
 	if (current == -1)
 		log_info(log, "Creating database");
 	else if (available < current)
-		fatal("Refusing to migrate down from version %u to %u",
-		      current, available);
+		db_fatal("Refusing to migrate down from version %u to %u",
+			 current, available);
 	else if (current != available)
 		log_info(log, "Updating database from version %u to %u",
 			 current, available);
@@ -638,7 +643,7 @@ void db_close_for_fork(struct db *db)
 	 * Under Unix, you should not carry an open SQLite database across a
 	 * fork() system call into the child process. */
 	if (sqlite3_close(db->sql) != SQLITE_OK)
-		fatal("sqlite3_close: %s", sqlite3_errmsg(db->sql));
+		db_fatal("sqlite3_close: %s", sqlite3_errmsg(db->sql));
 	db->sql = NULL;
 }
 
@@ -648,8 +653,8 @@ void db_reopen_after_fork(struct db *db)
 				  SQLITE_OPEN_READWRITE, NULL);
 
 	if (err != SQLITE_OK) {
-		fatal("failed to re-open database %s: %s", db->filename,
-		      sqlite3_errstr(err));
+		db_fatal("failed to re-open database %s: %s", db->filename,
+			 sqlite3_errstr(err));
 	}
 	db_do_exec(__func__, db, "PRAGMA foreign_keys = ON;");
 }
@@ -698,8 +703,8 @@ void *sqlite3_column_arr_(const tal_t *ctx, sqlite3_stmt *stmt, int col,
 		return NULL;
 
 	if (sourcelen % bytes != 0)
-		fatal("%s: column size %zu not a multiple of %s (%zu)",
-		      caller, sourcelen, label, bytes);
+		db_fatal("%s: column size %zu not a multiple of %s (%zu)",
+			 caller, sourcelen, label, bytes);
 
 	p = tal_arr_label(ctx, char, sourcelen, label);
 	memcpy(p, sqlite3_column_blob(stmt, col), sourcelen);
