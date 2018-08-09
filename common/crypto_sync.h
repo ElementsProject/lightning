@@ -9,6 +9,10 @@ struct crypto_state;
 /* Exits with peer_failed_connection_lost() if write fails. */
 void sync_crypto_write(struct crypto_state *cs, int fd, const void *msg TAKES);
 
+/* Same, but disabled nagle for this message. */
+void sync_crypto_write_no_delay(struct crypto_state *cs, int fd,
+				const void *msg TAKES);
+
 /* Exits with peer_failed_connection_lost() if can't read packet. */
 u8 *sync_crypto_read(const tal_t *ctx, struct crypto_state *cs, int fd);
 
