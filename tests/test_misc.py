@@ -110,30 +110,30 @@ def test_ping(node_factory):
 
     def ping_tests(l1, l2):
         # 0-byte pong gives just type + length field.
-        ret = l1.rpc.dev_ping(l2.info['id'], 0, 0)
+        ret = l1.rpc.ping(l2.info['id'], 0, 0)
         assert ret['totlen'] == 4
 
         # 1000-byte ping, 0-byte pong.
-        ret = l1.rpc.dev_ping(l2.info['id'], 1000, 0)
+        ret = l1.rpc.ping(l2.info['id'], 1000, 0)
         assert ret['totlen'] == 4
 
         # 1000 byte pong.
-        ret = l1.rpc.dev_ping(l2.info['id'], 1000, 1000)
+        ret = l1.rpc.ping(l2.info['id'], 1000, 1000)
         assert ret['totlen'] == 1004
 
         # Maximum length pong.
-        ret = l1.rpc.dev_ping(l2.info['id'], 1000, 65531)
+        ret = l1.rpc.ping(l2.info['id'], 1000, 65531)
         assert ret['totlen'] == 65535
 
         # Overlength -> no reply.
         for s in range(65532, 65536):
-            ret = l1.rpc.dev_ping(l2.info['id'], 1000, s)
+            ret = l1.rpc.ping(l2.info['id'], 1000, s)
             assert ret['totlen'] == 0
 
         # 65535 - type(2 bytes) - num_pong_bytes(2 bytes) - byteslen(2 bytes)
         # = 65529 max.
         with pytest.raises(RpcError, match=r'oversize ping'):
-            l1.rpc.dev_ping(l2.info['id'], 65530, 1)
+            l1.rpc.ping(l2.info['id'], 65530, 1)
 
     # Test gossip pinging.
     ping_tests(l1, l2)

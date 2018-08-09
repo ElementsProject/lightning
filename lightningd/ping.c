@@ -35,8 +35,8 @@ static void ping_reply(struct subd *subd, const u8 *msg, const int *fds UNUSED,
 	}
 }
 
-static void json_dev_ping(struct command *cmd,
-			  const char *buffer, const jsmntok_t *params)
+static void json_ping(struct command *cmd,
+		      const char *buffer, const jsmntok_t *params)
 {
 	u8 *msg;
 	unsigned int len, pongbytes;
@@ -44,8 +44,8 @@ static void json_dev_ping(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", json_tok_pubkey, &id),
-		   p_req("len", json_tok_number, &len),
-		   p_req("pongbytes", json_tok_number, &pongbytes),
+		   p_opt_def("len", json_tok_number, &len, 128),
+		   p_opt_def("pongbytes", json_tok_number, &pongbytes, 128),
 		   NULL))
 		return;
 
@@ -83,9 +83,9 @@ static void json_dev_ping(struct command *cmd,
 	command_still_pending(cmd);
 }
 
-static const struct json_command dev_ping_command = {
-	"dev-ping",
-	json_dev_ping,
-	"Send {peerid} a ping of length {len} asking for {pongbytes}"
+static const struct json_command ping_command = {
+	"ping",
+	json_ping,
+	"Send {peerid} a ping of length {len} (default 128) asking for {pongbytes} (default 128)"
 };
-AUTODATA(json_command, &dev_ping_command);
+AUTODATA(json_command, &ping_command);

@@ -394,7 +394,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("dev-reenable-commit", payload)
 
-    def dev_ping(self, peer_id, length, pongbytes):
+    def ping(self, peer_id, length=128, pongbytes=128):
         """
         Send {peer_id} a ping of length {len} asking for {pongbytes}"
         """
@@ -403,7 +403,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "len": length,
             "pongbytes": pongbytes
         }
-        return self.call("dev-ping", payload)
+        return self.call("ping", payload)
 
     def dev_memdump(self):
         """
