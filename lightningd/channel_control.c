@@ -169,7 +169,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	return 0;
 }
 
-bool peer_start_channeld(struct channel *channel,
+void peer_start_channeld(struct channel *channel,
 			 const struct crypto_state *cs,
 			 int peer_fd, int gossip_fd,
 			 const u8 *funding_signed,
@@ -213,7 +213,7 @@ bool peer_start_channeld(struct channel *channel,
 		log_unusual(channel->log, "Could not subdaemon channel: %s",
 			    strerror(errno));
 		channel_fail_transient(channel, "Failed to subdaemon channel");
-		return true;
+		return;
 	}
 
 	peer_htlcs(tmpctx, channel, &htlcs, &htlc_states, &fulfilled_htlcs,
@@ -288,8 +288,6 @@ bool peer_start_channeld(struct channel *channel,
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));
-
-	return true;
 }
 
 bool channel_tell_funding_locked(struct lightningd *ld,
