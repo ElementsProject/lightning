@@ -112,13 +112,7 @@ static bool make_callback(struct command *cmd,
 			return false;
 		}
 	} else {
-		char *msg = def->cbx(cmd, def->name, buffer, tok, def->arg);
-		if (msg) {
-			command_fail_detailed(cmd, JSONRPC2_INVALID_PARAMS,
-					      make_result(cmd, def->name, buffer, tok),
-					      "%s: %s", def->name, msg);
-			return false;
-		}
+		return def->cbx(cmd, def->name, buffer, tok, def->arg);
 	}
 	return true;
 }

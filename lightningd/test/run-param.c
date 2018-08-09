@@ -403,51 +403,52 @@ static void sendpay_nulltok(void)
 	assert(msatoshi == NULL);
 }
 
-static char *json_tok_msat(struct command *cmd,
-			   const char *name,
-			   const char *buffer,
-			   const jsmntok_t * msatoshi,
-			   u64 **msatoshi_val)
+static bool json_tok_msat(struct command *cmd,
+			  const char *name,
+			  const char *buffer,
+			  const jsmntok_t * tok,
+			  u64 **msatoshi_val)
 {
-	if (json_tok_streq(buffer, msatoshi, "any")) {
+	if (json_tok_streq(buffer, tok, "any")) {
 		*msatoshi_val = NULL;
-		return NULL;
+		return true;
 	}
 	*msatoshi_val = tal(cmd, u64);
 
-	if (!json_tok_u64(buffer, msatoshi, *msatoshi_val)
-		|| *msatoshi_val == 0)
-		return tal_fmt(cmd, "expected a valid positive number or "
-			       "'any', not '%.*s'",
-			       msatoshi->end - msatoshi->start,
-			       buffer + msatoshi->start);
-	return NULL;
+	if (json_tok_u64(buffer, tok, *msatoshi_val) && *msatoshi_val != 0)
+		return true;
+
+	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		     "'%s' should be a positive number or 'any', not '%.*s'",
+		     name,
+		     tok->end - tok->start,
+		     buffer + tok->start);
+	return false;
 }
 
 /* This can eventually replace json_tok_tok and we can remove the special p_opt_tok()
  * macro. */
-static char *json_tok_tok_x(struct command *cmd,
+static bool json_tok_tok_x(struct command *cmd,
 			   const char *name,
-			    const char *buffer,
-			    const jsmntok_t *tok,
-			    const jsmntok_t **arg)
+			   const char *buffer,
+			   const jsmntok_t *tok,
+			   const jsmntok_t **arg)
 {
-	*arg = tok;
-	return NULL;
+	return (*arg = tok);
 }
 
 /*
  * New version of json_tok_label conforming to advanced style. This can eventually
  * replace the existing json_tok_label.
  */
-static char *json_tok_label_x(struct command *cmd,
-			      const char *name,
-			      const char *buffer,
-			      const jsmntok_t *tok,
-			      struct json_escaped **label)
+static bool json_tok_label_x(struct command *cmd,
+			     const char *name,
+			     const char *buffer,
+			     const jsmntok_t *tok,
+			     struct json_escaped **label)
 {
 	if ((*label = json_tok_escaped_string(cmd, buffer, tok)))
-		return NULL;
+		return true;
 
 	/* Allow literal numbers */
 	if (tok->type != JSMN_PRIMITIVE)
@@ -458,13 +459,14 @@ static char *json_tok_label_x(struct command *cmd,
 			goto fail;
 
 	if ((*label = json_escaped_string_(cmd, buffer + tok->start,
-				    tok->end - tok->start)))
-		return NULL;
+					   tok->end - tok->start)))
+		return true;
 
 fail:
-	return tal_fmt(cmd, "expected a string or number, not '%.*s'",
-		       tok->end - tok->start,
-		       buffer + tok->start);
+	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		     "'%s' should be a string or number, not '%.*s'",
+		     name, tok->end - tok->start, buffer + tok->start);
+	return false;
 }
 
 static void advanced(void)
@@ -525,7 +527,7 @@ static void advanced_fail(void)
 			      p_req_tal("msat", json_tok_msat, &msat),
 			      NULL));
 		assert(check_fail());
-		assert(strstr(fail_msg, "msat: expected a valid positive"
+		assert(strstr(fail_msg, "'msat' should be a positive"
 			      " number or 'any', not 'anyx'"));
 	}
 }
