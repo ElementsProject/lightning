@@ -5,6 +5,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/features.h>
 #include <common/memleak.h>
+#include <common/pseudorand.h>
 #include <common/timeout.h>
 #include <common/wireaddr.h>
 #include <connectd/gen_connect_wire.h>
@@ -229,7 +230,12 @@ void delay_then_reconnect(struct channel *channel, u32 seconds_delay,
 
 	log_debug(channel->log, "Will try reconnect in %u seconds",
 		  seconds_delay);
-	notleak(new_reltimer(&ld->timers, d, time_from_sec(seconds_delay),
+
+	/* We fuzz the timer by up to 1 second, to avoid getting into
+	 * simultanous-reconnect deadlocks with peer. */
+	notleak(new_reltimer(&ld->timers, d,
+			     timerel_add(time_from_sec(seconds_delay),
+					 time_from_usec(pseudorand(1000000))),
 			     maybe_reconnect, d));
 }
 
