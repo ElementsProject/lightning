@@ -504,12 +504,35 @@ static void opening_fundee_finished(struct subd *openingd,
 	tal_free(uc);
 }
 
+static void opening_funder_failed(struct subd *openingd, const u8 *msg,
+				  struct uncommitted_channel *uc)
+{
+	char *desc;
+
+	if (!fromwire_opening_funder_failed(msg, msg, &desc)) {
+		log_broken(uc->log,
+			   "bad OPENING_FUNDER_FAILED %s",
+			   tal_hex(tmpctx, msg));
+		command_fail(uc->fc->cmd, LIGHTNINGD,
+			     "bad OPENING_FUNDER_FAILED %s",
+			     tal_hex(uc->fc->cmd, msg));
+		tal_free(uc);
+		return;
+	}
+
+	command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc);
+
+	/* Clear uc->fc, so we can try again, and so we don't fail twice
+	 * if they close. */
+	uc->fc = tal_free(uc->fc);
+}
+
 static void opening_channel_errmsg(struct uncommitted_channel *uc,
 				   int peer_fd, int gossip_fd,
 				   const struct crypto_state *cs,
 				   const struct channel_id *channel_id UNUSED,
 				   const char *desc,
-				   const u8 *err_for_them)
+				   const u8 *err_for_them UNUSED)
 {
 	if (peer_fd != -1) {
 		close(peer_fd);
@@ -637,6 +660,16 @@ static unsigned int openingd_msg(struct subd *openingd,
 		if (tal_count(fds) != 2)
 			return 2;
 		opening_funder_finished(openingd, msg, fds, uc->fc);
+		return 0;
+
+	case WIRE_OPENING_FUNDER_FAILED:
+		if (!uc->fc) {
+			log_broken(openingd->log, "Unexpected FUNDER_FAILED %s",
+				   tal_hex(tmpctx, msg));
+			tal_free(openingd);
+			return 0;
+		}
+		opening_funder_failed(openingd, msg, uc);
 		return 0;
 
 	case WIRE_OPENING_FUNDEE:

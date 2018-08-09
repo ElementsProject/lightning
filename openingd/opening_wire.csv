@@ -58,6 +58,10 @@ opening_funder_reply,,funding_txid,struct bitcoin_txid
 opening_funder_reply,,feerate_per_kw,u32
 opening_funder_reply,,our_channel_reserve_satoshis,u64
 
+# Openingd->master: we failed to negotiation channel
+opening_funder_failed,6004
+opening_funder_failed,,reason,wirestring
+
 # Openingd->master: they offered channel.
 # This gives their txid and info, means we can send funding_signed: we're done.
 opening_fundee,6003
