@@ -543,7 +543,6 @@ def test_funding_all_too_much(node_factory):
     assert only_one(l1.rpc.listfunds()['channels'])['channel_total_sat'] == 2**24 - 1
 
 
-@unittest.skip("FIXME: Disabled during transition: openingd closes on negotiation fail")
 def test_funding_fail(node_factory, bitcoind):
     """Add some funds, fund a channel without enough funds"""
     # Previous runs with same bitcoind can leave funds!
@@ -579,6 +578,7 @@ def test_funding_fail(node_factory, bitcoind):
 
     # Should still be connected.
     assert only_one(l1.rpc.listpeers()['peers'])['connected']
+    l2.daemon.wait_for_log('lightning_openingd-.*: Handed peer, entering loop')
     assert only_one(l2.rpc.listpeers()['peers'])['connected']
 
     # This works.
