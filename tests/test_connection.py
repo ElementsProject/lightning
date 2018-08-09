@@ -82,7 +82,7 @@ def test_reconnect_channel_peers(node_factory, executor):
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # Wait for exponential backoff to give us a 2 second window.
-    l1.daemon.wait_for_log('...will try again in 2 seconds')
+    l1.daemon.wait_for_log('Will try reconnect in 2 seconds')
 
     # It should now succeed when it restarts.
     l2.start()

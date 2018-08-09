@@ -218,16 +218,6 @@ static void funding_broadcast_failed(struct channel *channel,
 			       exitstatus, err);
 }
 
-void tell_connectd_peer_is_important(struct lightningd *ld,
-				    const struct channel *channel)
-{
-	u8 *msg;
-
-	/* Tell connectd we need to keep connection to this peer */
-	msg = towire_connectctl_peer_important(NULL, &channel->peer->id, true);
-	subd_send_msg(ld->connectd, take(msg));
-}
-
 static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 				    const int *fds,
 				    struct funding_channel *fc)
@@ -380,8 +370,6 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 
 	channel_watch_funding(ld, channel);
 
-	tell_connectd_peer_is_important(ld, channel);
-
 	/* Start normal channel daemon. */
 	peer_start_channeld(channel, &cs, fds[0], fds[1], NULL, false);
 
@@ -491,8 +479,6 @@ static void opening_fundee_finished(struct subd *openingd,
 				    &channel->funding_txid));
 
 	channel_watch_funding(ld, channel);
-
-	tell_connectd_peer_is_important(ld, channel);
 
 	/* On to normal operation! */
 	peer_start_channeld(channel, &cs,

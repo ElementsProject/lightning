@@ -7,6 +7,7 @@
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/channel.h>
+#include <lightningd/connect_control.h>
 #include <lightningd/gen_channel_state_names.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
@@ -22,7 +23,8 @@ static bool connects_to_peer(struct subd *owner)
 	return owner && owner->talks_to_peer;
 }
 
-void channel_set_owner(struct channel *channel, struct subd *owner)
+void channel_set_owner(struct channel *channel, struct subd *owner,
+		       bool reconnect)
 {
 	struct subd *old_owner = channel->owner;
 	channel->owner = owner;
@@ -33,7 +35,12 @@ void channel_set_owner(struct channel *channel, struct subd *owner)
 			u8 *msg = towire_connectctl_peer_disconnected(NULL,
 							     &channel->peer->id);
 			subd_send_msg(channel->peer->ld->connectd, take(msg));
-			channel->connected = false;
+		}
+
+		if (reconnect) {
+			/* Reconnect after 1 second: prevents some spurious
+			 * reconnects during tests. */
+			delay_then_reconnect(channel, 1);
 		}
 	}
 	channel->connected = connects_to_peer(owner);
@@ -88,7 +95,7 @@ static void destroy_channel(struct channel *channel)
 		      htlc_state_name(hin->hstate));
 
 	/* Free any old owner still hanging around. */
-	channel_set_owner(channel, NULL);
+	channel_set_owner(channel, NULL, false);
 
 	list_del_from(&channel->peer->channels, &channel->list);
 }
@@ -342,7 +349,7 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 		channel->error = towire_errorfmt(channel, &cid, "%s", why);
 	}
 
-	channel_set_owner(channel, NULL);
+	channel_set_owner(channel, NULL, false);
 	/* Drop non-cooperatively (unilateral) to chain. */
 	drop_to_chain(ld, channel, false);
 	tal_free(why);
@@ -405,5 +412,5 @@ void channel_fail_transient(struct channel *channel, const char *fmt, ...)
 	}
 #endif
 
-	channel_set_owner(channel, NULL);
+	channel_set_owner(channel, NULL, true);
 }

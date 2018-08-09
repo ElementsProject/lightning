@@ -67,43 +67,6 @@
 #define INITIAL_WAIT_SECONDS	1
 #define MAX_WAIT_SECONDS	300
 
-/* We put everything in this struct (redundantly) to pass it to timer cb */
-struct important_peerid {
-	struct daemon *daemon;
-
-	struct pubkey id;
-
-	/* How long to wait after failed connect */
-	unsigned int wait_seconds;
-
-	/* The timer we're using to reconnect */
-	struct oneshot *reconnect_timer;
-};
-
-/* We keep a set of peer ids we're always trying to reach. */
-static const struct pubkey *
-important_peerid_keyof(const struct important_peerid *imp)
-{
-	return &imp->id;
-}
-
-static bool important_peerid_eq(const struct important_peerid *imp,
-				const struct pubkey *key)
-{
-	return pubkey_eq(&imp->id, key);
-}
-
-static size_t important_peerid_hash(const struct pubkey *id)
-{
-	return siphash24(siphash_seed(), id, sizeof(*id));
-}
-
-HTABLE_DEFINE_TYPE(struct important_peerid,
-		   important_peerid_keyof,
-		   important_peerid_hash,
-		   important_peerid_eq,
-		   important_peerid_map);
-
 struct listen_fd {
 	int fd;
 	/* If we bind() IPv6 then IPv4 to same port, we *may* fail to listen()
@@ -151,14 +114,8 @@ struct daemon {
 
 	struct timers timers;
 
-	/* Important peers */
-	struct important_peerid_map important_peerids;
-
 	/* Local and global features to offer to peers. */
 	u8 *localfeatures, *globalfeatures;
-
-	/* Automatically reconnect. */
-	bool reconnect;
 
 	/* Allow localhost to be considered "public" */
 	bool dev_allow_localhost;
@@ -192,6 +149,9 @@ struct reaching {
 
 	/* How far did we get? */
 	const char *connstate;
+
+	/* How many seconds did we wait this time? */
+	u32 seconds_waited;
 };
 
 struct peer {
@@ -224,9 +184,6 @@ struct addrhint {
 	/* FIXME: use array... */
 	struct wireaddr_internal addr;
 };
-
-/* FIXME: Reorder */
-static void retry_important(struct important_peerid *imp);
 
 static struct peer *find_reconnecting_peer(struct daemon *daemon,
 					   const struct pubkey *id)
@@ -865,7 +822,7 @@ static struct io_plan *connect_init(struct daemon_conn *master,
 		daemon, msg,
 		&daemon->id, &daemon->globalfeatures,
 		&daemon->localfeatures, &proposed_wireaddr,
-		&proposed_listen_announce, &daemon->reconnect,
+		&proposed_listen_announce,
 		&proxyaddr, &daemon->use_proxy_always,
 		&daemon->dev_allow_localhost, &daemon->use_dns,
 		&tor_password)) {
@@ -955,48 +912,40 @@ struct io_plan *connection_out(struct io_conn *conn, struct reaching *reach)
 				   handshake_out_success, reach);
 }
 
-static void PRINTF_FMT(3,4)
+static void PRINTF_FMT(4,5)
 	connect_failed(struct daemon *daemon,
 		       const struct pubkey *id,
+		       u32 seconds_waited,
 		       const char *errfmt, ...)
 {
 	u8 *msg;
-	struct important_peerid *imp;
 	va_list ap;
 	char *err;
+	u32 wait_seconds;
 
 	va_start(ap, errfmt);
 	err = tal_vfmt(tmpctx, errfmt, ap);
 	va_end(ap);
 
+	/* Wait twice as long to reconnect, between min and max. */
+	wait_seconds = seconds_waited * 2;
+	if (wait_seconds > MAX_WAIT_SECONDS)
+		wait_seconds = MAX_WAIT_SECONDS;
+	if (wait_seconds < INITIAL_WAIT_SECONDS)
+		wait_seconds = INITIAL_WAIT_SECONDS;
+
 	/* Tell any connect command what happened. */
-	msg = towire_connectctl_connect_failed(NULL, id, err);
+	msg = towire_connectctl_connect_failed(NULL, id, err, wait_seconds);
 	daemon_conn_send(&daemon->master, take(msg));
 
 	status_trace("Failed connected out for %s: %s",
 		     type_to_string(tmpctx, struct pubkey, id),
 		     err);
-
-	/* If we want to keep trying, do so. */
-	imp = important_peerid_map_get(&daemon->important_peerids, id);
-	if (imp) {
-		imp->wait_seconds *= 2;
-		if (imp->wait_seconds > MAX_WAIT_SECONDS)
-			imp->wait_seconds = MAX_WAIT_SECONDS;
-
-		status_trace("...will try again in %u seconds",
-			     imp->wait_seconds);
-		/* If important_id freed, this will be removed too */
-		imp->reconnect_timer
-			= new_reltimer(&daemon->timers, imp,
-				       time_from_sec(imp->wait_seconds),
-				       retry_important, imp);
-	}
 }
 
 static void destroy_io_conn(struct io_conn *conn, struct reaching *reach)
 {
-	connect_failed(reach->daemon, &reach->id,
+	connect_failed(reach->daemon, &reach->id, reach->seconds_waited,
 		       "%s: %s", reach->connstate, strerror(errno));
 	tal_free(reach);
 }
@@ -1128,7 +1077,9 @@ gossip_resolve_addr(const tal_t *ctx, const struct pubkey *id)
 	return addr;
 }
 
-static void try_reach_peer(struct daemon *daemon, const struct pubkey *id)
+static void try_reach_peer(struct daemon *daemon,
+			   const struct pubkey *id,
+			   u32 seconds_waited)
 {
 	struct wireaddr_internal *a;
 	struct addrhint *hint;
@@ -1166,7 +1117,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id)
 	}
 
 	if (!a) {
-		connect_failed(daemon, id, "No address known");
+		connect_failed(daemon, id, seconds_waited, "No address known");
 		return;
 	}
 
@@ -1221,7 +1172,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id)
 		fd = socket(af, SOCK_STREAM, 0);
 
 	if (fd < 0) {
-		connect_failed(daemon, id,
+		connect_failed(daemon, id, seconds_waited,
 			       "Can't open %i socket for %s (%s)",
 			       af,
 			       type_to_string(tmpctx, struct pubkey, id),
@@ -1235,6 +1186,7 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id)
 	reach->id = *id;
 	reach->addr = *a;
 	reach->connstate = "Connection establishment";
+	reach->seconds_waited = seconds_waited;
 	list_add_tail(&daemon->reaching, &reach->list);
 	tal_add_destructor(reach, destroy_reaching);
 
@@ -1244,34 +1196,16 @@ static void try_reach_peer(struct daemon *daemon, const struct pubkey *id)
 		io_new_conn(reach, fd, conn_init, reach);
 }
 
-/* Called from timer, so needs single-arg declaration */
-static void retry_important(struct important_peerid *imp)
-{
-	/* In case we've come off a timer, don't leave dangling pointer */
-	imp->reconnect_timer = NULL;
-
-	/* With --dev-no-reconnect or --offline, we only want explicit
-	 * connects */
-	if (!imp->daemon->reconnect)
-		return;
-
-	try_reach_peer(imp->daemon, &imp->id);
-}
-
 static struct io_plan *connect_to_peer(struct io_conn *conn,
 				       struct daemon *daemon, const u8 *msg)
 {
 	struct pubkey id;
-	struct important_peerid *imp;
+	u32 seconds_waited;
 
-	if (!fromwire_connectctl_connect_to_peer(msg, &id))
+	if (!fromwire_connectctl_connect_to_peer(msg, &id, &seconds_waited))
 		master_badmsg(WIRE_CONNECTCTL_CONNECT_TO_PEER, msg);
 
-	/* If this is an important peer, free any outstanding timer */
-	imp = important_peerid_map_get(&daemon->important_peerids, &id);
-	if (imp)
-		imp->reconnect_timer = tal_free(imp->reconnect_timer);
-	try_reach_peer(daemon, &id);
+	try_reach_peer(daemon, &id, seconds_waited);
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
@@ -1292,46 +1226,11 @@ static struct io_plan *addr_hint(struct io_conn *conn,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
-static struct io_plan *peer_important(struct io_conn *conn,
-				      struct daemon *daemon, const u8 *msg)
-{
-	struct pubkey id;
-	bool important;
-	struct important_peerid *imp;
-
-	if (!fromwire_connectctl_peer_important(msg, &id, &important))
-		master_badmsg(WIRE_CONNECTCTL_PEER_IMPORTANT, msg);
-
-	imp = important_peerid_map_get(&daemon->important_peerids, &id);
-	if (important) {
-		if (!imp) {
-			imp = tal(daemon, struct important_peerid);
-			imp->id = id;
-			imp->daemon = daemon;
-			imp->wait_seconds = INITIAL_WAIT_SECONDS;
-			important_peerid_map_add(&daemon->important_peerids,
-						 imp);
-			/* Start trying to reaching it now. */
-			retry_important(imp);
-		}
-	} else {
-		if (imp) {
-			important_peerid_map_del(&daemon->important_peerids,
-						 imp);
-			/* Stop trying to reach it (if we are) */
-			tal_free(find_reaching(daemon, &imp->id));
-		}
-	}
-
-	return daemon_conn_read_next(conn, &daemon->master);
-}
-
 static struct io_plan *peer_disconnected(struct io_conn *conn,
 					 struct daemon *daemon, const u8 *msg)
 {
 	struct pubkey id, *key;
 	struct peer *peer;
-	struct important_peerid *imp;
 
 	if (!fromwire_connectctl_peer_disconnected(msg, &id))
 		master_badmsg(WIRE_CONNECTCTL_PEER_DISCONNECTED, msg);
@@ -1352,11 +1251,6 @@ static struct io_plan *peer_disconnected(struct io_conn *conn,
 	if (peer)
 		io_wake(peer);
 
-	imp = important_peerid_map_get(&daemon->important_peerids, &id);
-	if (imp) {
-		imp->wait_seconds = INITIAL_WAIT_SECONDS;
-		retry_important(imp);
-	}
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
@@ -1377,9 +1271,6 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 
 	case WIRE_CONNECTCTL_PEER_ADDRHINT:
 		return addr_hint(conn, daemon, master->msg_in);
-
-	case WIRE_CONNECTCTL_PEER_IMPORTANT:
-		return peer_important(conn, daemon, master->msg_in);
 
 	case WIRE_CONNECTCTL_PEER_DISCONNECTED:
 		return peer_disconnected(conn, daemon, master->msg_in);
@@ -1418,7 +1309,6 @@ int main(int argc, char *argv[])
 	list_head_init(&daemon->reconnecting);
 	list_head_init(&daemon->reaching);
 	list_head_init(&daemon->addrhints);
-	important_peerid_map_init(&daemon->important_peerids);
 	timers_init(&daemon->timers, time_mono());
 	daemon->broken_resolver_response = NULL;
 	daemon->listen_fds = tal_arr(daemon, struct listen_fd, 0);

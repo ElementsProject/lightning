@@ -22,6 +22,4 @@ void opening_peer_no_active_channels(struct peer *peer);
 void kill_uncommitted_channel(struct uncommitted_channel *uc,
 			      const char *why);
 
-void tell_connectd_peer_is_important(struct lightningd *ld,
-				     const struct channel *channel);
 #endif /* LIGHTNING_LIGHTNINGD_OPENING_CONTROL_H */
