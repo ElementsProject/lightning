@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Logging: JSON connections no longer spam debug logs.
 - Routing: We no longer consider channels that are not usable either because of
   their capacity or their `htlc_minimum_msat` parameter (#1777)
+- We now try to connect to all known addresses for a peer, not just
+  the one given or the first one announced.
 
 ### Deprecated
 
