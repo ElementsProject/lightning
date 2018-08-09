@@ -11,7 +11,6 @@ connectctl_init,,lfeatures,lflen*u8
 connectctl_init,,num_wireaddrs,u16
 connectctl_init,,wireaddrs,num_wireaddrs*struct wireaddr_internal
 connectctl_init,,listen_announce,num_wireaddrs*enum addr_listen_announce
-connectctl_init,,reconnect,bool
 connectctl_init,,tor_proxyaddr,?struct wireaddr
 connectctl_init,,use_tor_proxy_always,bool
 connectctl_init,,dev_allow_localhost,bool
@@ -45,16 +44,13 @@ connectctl_peer_addrhint,,addr,struct wireaddr_internal
 # Master -> connectd: connect to a peer.
 connectctl_connect_to_peer,2001
 connectctl_connect_to_peer,,id,struct pubkey
+connectctl_connect_to_peer,,seconds_waited,u32
 
 # Connectd->master: connect failed.
 connectctl_connect_failed,2020
 connectctl_connect_failed,,id,struct pubkey
 connectctl_connect_failed,,failreason,wirestring
-
-# Master -> connectd: try to always maintain connection to this peer (or not)
-connectctl_peer_important,2010
-connectctl_peer_important,,id,struct pubkey
-connectctl_peer_important,,important,bool
+connectctl_connect_failed,,seconds_to_delay,u32
 
 # Connectd -> master: we got a peer. Two fds: peer and gossip
 connect_peer_connected,2002

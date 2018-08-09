@@ -4,6 +4,8 @@
 #include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
 #include <common/features.h>
+#include <common/memleak.h>
+#include <common/timeout.h>
 #include <common/wireaddr.h>
 #include <connectd/gen_connect_wire.h>
 #include <errno.h>
@@ -174,7 +176,7 @@ static void json_connect(struct command *cmd,
 		subd_send_msg(cmd->ld->connectd, take(msg));
 	}
 
-	msg = towire_connectctl_connect_to_peer(NULL, &id);
+	msg = towire_connectctl_connect_to_peer(NULL, &id, 0);
 	subd_send_msg(cmd->ld->connectd, take(msg));
 
 	/* Leave this here for peer_connected or connect_failed. */
@@ -190,13 +192,52 @@ static const struct json_command connect_command = {
 };
 AUTODATA(json_command, &connect_command);
 
+struct delayed_reconnect {
+	struct channel *channel;
+	u32 seconds_delayed;
+};
+
+static void maybe_reconnect(struct delayed_reconnect *d)
+{
+	struct peer *peer = d->channel->peer;
+
+	/* Might have gone onchain since we started timer. */
+	if (channel_active(d->channel)) {
+		u8 *msg = towire_connectctl_connect_to_peer(NULL, &peer->id,
+							    d->seconds_delayed);
+		subd_send_msg(peer->ld->connectd, take(msg));
+	}
+	tal_free(d);
+}
+
+void delay_then_reconnect(struct channel *channel, u32 seconds_delay)
+{
+	struct delayed_reconnect *d;
+	struct lightningd *ld = channel->peer->ld;
+
+	if (!ld->reconnect)
+		return;
+
+	d = tal(channel, struct delayed_reconnect);
+	d->channel = channel;
+	d->seconds_delayed = seconds_delay;
+
+	log_debug(channel->log, "Will try reconnect in %u seconds",
+		  seconds_delay);
+	notleak(new_reltimer(&ld->timers, d, time_from_sec(seconds_delay),
+			     maybe_reconnect, d));
+}
+
 static void connect_failed(struct lightningd *ld, const u8 *msg)
 {
 	struct pubkey id;
 	char *err;
 	struct connect *c;
+	u32 seconds_to_delay;
+	struct channel *channel;
 
-	if (!fromwire_connectctl_connect_failed(tmpctx, msg, &id, &err))
+	if (!fromwire_connectctl_connect_failed(tmpctx, msg, &id, &err,
+						&seconds_to_delay))
 		fatal("Connect gave bad CONNECTCTL_CONNECT_FAILED message %s",
 		      tal_hex(msg, msg));
 
@@ -205,6 +246,11 @@ static void connect_failed(struct lightningd *ld, const u8 *msg)
 		/* They delete themselves from list */
 		command_fail(c->cmd, LIGHTNINGD, "%s", err);
 	}
+
+	/* If we have an active channel, then reconnect. */
+	channel = active_channel_by_id(ld, &id, NULL);
+	if (channel)
+		delay_then_reconnect(channel, seconds_to_delay);
 }
 
 void connect_succeeded(struct lightningd *ld, const struct pubkey *id)
@@ -244,7 +290,6 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTCTL_ACTIVATE:
 	case WIRE_CONNECTCTL_PEER_ADDRHINT:
 	case WIRE_CONNECTCTL_CONNECT_TO_PEER:
-	case WIRE_CONNECTCTL_PEER_IMPORTANT:
 	case WIRE_CONNECTCTL_PEER_DISCONNECTED:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_CONNECTCTL_INIT_REPLY:
@@ -333,7 +378,7 @@ int connectd_init(struct lightningd *ld)
 	    tmpctx, &ld->id,
 	    get_offered_global_features(tmpctx),
 	    get_offered_local_features(tmpctx), wireaddrs,
-	    listen_announce, ld->reconnect,
+	    listen_announce,
 	    ld->proxyaddr, ld->use_proxy_always || ld->pure_tor_setup,
 	    allow_localhost, ld->config.use_dns,
 	    ld->tor_service_password ? ld->tor_service_password : "");

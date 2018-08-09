@@ -152,7 +152,8 @@ void delete_channel(struct channel *channel);
 const char *channel_state_name(const struct channel *channel);
 const char *channel_state_str(enum channel_state state);
 
-void channel_set_owner(struct channel *channel, struct subd *owner);
+void channel_set_owner(struct channel *channel, struct subd *owner,
+		       bool reconnect);
 
 /* Channel has failed, but can try again. */
 PRINTF_FMT(2,3) void channel_fail_transient(struct channel *channel,

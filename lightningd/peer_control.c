@@ -360,12 +360,6 @@ register_close_command(struct lightningd *ld,
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		   bool cooperative)
 {
-	u8 *msg;
-
-	/* Tell connectd we no longer need to keep connection to this peer */
-	msg = towire_connectctl_peer_important(NULL, &channel->peer->id, false);
-	subd_send_msg(ld->connectd, take(msg));
-
 	sign_last_tx(channel);
 
 	/* Keep broadcasting until we say stop (can fail due to dup,
@@ -929,10 +923,12 @@ static void activate_peer(struct peer *peer)
 	subd_send_msg(peer->ld->connectd, take(msg));
 
 	/* We can only have one active channel: make sure connectd
-	 * knows to reconnect. */
+	 * knows to try reconnecting. */
 	channel = peer_active_channel(peer);
-	if (channel)
-		tell_connectd_peer_is_important(ld, channel);
+	if (channel && ld->reconnect) {
+		msg = towire_connectctl_connect_to_peer(NULL, &peer->id, 0);
+		subd_send_msg(ld->connectd, take(msg));
+	}
 
 	list_for_each(&peer->channels, channel, list) {
 		/* Watching lockin may be unnecessary, but it's harmless. */
@@ -1161,6 +1157,9 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 	json_add_txid(response, "funding_txid", &forget->channel->funding_txid);
 	json_object_end(response);
 
+	/* Set error so we don't try to reconnect. */
+	forget->channel->error = towire_errorfmt(forget->channel, NULL,
+						 "dev_forget_channel");
 	delete_channel(forget->channel);
 
 	command_success(forget->cmd, response);

@@ -206,7 +206,8 @@ bool peer_start_channeld(struct channel *channel,
 					   channel_set_billboard,
 					   take(&peer_fd),
 					   take(&gossip_fd),
-					   take(&hsmfd), NULL));
+					   take(&hsmfd), NULL),
+			  false);
 
 	if (!channel->owner) {
 		log_unusual(channel->log, "Could not subdaemon channel: %s",

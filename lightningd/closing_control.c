@@ -89,7 +89,7 @@ static void peer_closing_complete(struct channel *channel, const u8 *msg)
 	}
 
 	/* Don't report spurious failure when closingd exits. */
-	channel_set_owner(channel, NULL);
+	channel_set_owner(channel, NULL, false);
 	/* Clear any transient negotiation messages */
 	channel_set_billboard(channel, false, NULL);
 
@@ -155,7 +155,9 @@ void peer_start_closingd(struct channel *channel,
 					   channel_set_billboard,
 					   take(&peer_fd), take(&gossip_fd),
 					   take(&hsmfd),
-					   NULL));
+					   NULL),
+			  false);
+
 	if (!channel->owner) {
 		log_unusual(channel->log, "Could not subdaemon closing: %s",
 			    strerror(errno));
