@@ -918,15 +918,12 @@ static void activate_peer(struct peer *peer)
 	struct channel *channel;
 	struct lightningd *ld = peer->ld;
 
-	/* Pass connectd any addrhints we currently have */
-	msg = towire_connectctl_peer_addrhint(peer, &peer->id, &peer->addr);
-	subd_send_msg(peer->ld->connectd, take(msg));
-
 	/* We can only have one active channel: make sure connectd
 	 * knows to try reconnecting. */
 	channel = peer_active_channel(peer);
 	if (channel && ld->reconnect) {
-		msg = towire_connectctl_connect_to_peer(NULL, &peer->id, 0);
+		msg = towire_connectctl_connect_to_peer(NULL, &peer->id, 0,
+							&peer->addr);
 		subd_send_msg(ld->connectd, take(msg));
 	}
 

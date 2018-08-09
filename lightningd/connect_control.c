@@ -80,7 +80,7 @@ static void json_connect(struct command *cmd,
 	char *atptr;
 	char *ataddr = NULL;
 	const char *name;
-	struct wireaddr_internal addr;
+	struct wireaddr_internal *addr;
 	u8 *msg;
 	const char *err_msg;
 	struct peer *peer;
@@ -161,7 +161,8 @@ static void json_connect(struct command *cmd,
 		} else {
 			port = DEFAULT_PORT;
 		}
-		if (!parse_wireaddr_internal(name, &addr, port, false,
+		addr = tal(cmd, struct wireaddr_internal);
+		if (!parse_wireaddr_internal(name, addr, port, false,
 					     !cmd->ld->use_proxy_always
 					     && !cmd->ld->pure_tor_setup,
 					     true,
@@ -170,13 +171,10 @@ static void json_connect(struct command *cmd,
 				     name, port, err_msg ? err_msg : "port is 0");
 			return;
 		}
+	} else
+		addr = NULL;
 
-		/* Tell it about the address. */
-		msg = towire_connectctl_peer_addrhint(cmd, &id, &addr);
-		subd_send_msg(cmd->ld->connectd, take(msg));
-	}
-
-	msg = towire_connectctl_connect_to_peer(NULL, &id, 0);
+	msg = towire_connectctl_connect_to_peer(NULL, &id, 0, addr);
 	subd_send_msg(cmd->ld->connectd, take(msg));
 
 	/* Leave this here for peer_connected or connect_failed. */
@@ -195,6 +193,7 @@ AUTODATA(json_command, &connect_command);
 struct delayed_reconnect {
 	struct channel *channel;
 	u32 seconds_delayed;
+	struct wireaddr_internal *addrhint;
 };
 
 static void maybe_reconnect(struct delayed_reconnect *d)
@@ -204,13 +203,15 @@ static void maybe_reconnect(struct delayed_reconnect *d)
 	/* Might have gone onchain since we started timer. */
 	if (channel_active(d->channel)) {
 		u8 *msg = towire_connectctl_connect_to_peer(NULL, &peer->id,
-							    d->seconds_delayed);
+							    d->seconds_delayed,
+							    d->addrhint);
 		subd_send_msg(peer->ld->connectd, take(msg));
 	}
 	tal_free(d);
 }
 
-void delay_then_reconnect(struct channel *channel, u32 seconds_delay)
+void delay_then_reconnect(struct channel *channel, u32 seconds_delay,
+			  const struct wireaddr_internal *addrhint)
 {
 	struct delayed_reconnect *d;
 	struct lightningd *ld = channel->peer->ld;
@@ -221,6 +222,10 @@ void delay_then_reconnect(struct channel *channel, u32 seconds_delay)
 	d = tal(channel, struct delayed_reconnect);
 	d->channel = channel;
 	d->seconds_delayed = seconds_delay;
+	if (addrhint)
+		d->addrhint = tal_dup(d, struct wireaddr_internal, addrhint);
+	else
+		d->addrhint = NULL;
 
 	log_debug(channel->log, "Will try reconnect in %u seconds",
 		  seconds_delay);
@@ -234,10 +239,11 @@ static void connect_failed(struct lightningd *ld, const u8 *msg)
 	char *err;
 	struct connect *c;
 	u32 seconds_to_delay;
+	struct wireaddr_internal *addrhint;
 	struct channel *channel;
 
 	if (!fromwire_connectctl_connect_failed(tmpctx, msg, &id, &err,
-						&seconds_to_delay))
+						&seconds_to_delay, &addrhint))
 		fatal("Connect gave bad CONNECTCTL_CONNECT_FAILED message %s",
 		      tal_hex(msg, msg));
 
@@ -250,7 +256,7 @@ static void connect_failed(struct lightningd *ld, const u8 *msg)
 	/* If we have an active channel, then reconnect. */
 	channel = active_channel_by_id(ld, &id, NULL);
 	if (channel)
-		delay_then_reconnect(channel, seconds_to_delay);
+		delay_then_reconnect(channel, seconds_to_delay, addrhint);
 }
 
 void connect_succeeded(struct lightningd *ld, const struct pubkey *id)
@@ -288,7 +294,6 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	/* These are messages we send, not them. */
 	case WIRE_CONNECTCTL_INIT:
 	case WIRE_CONNECTCTL_ACTIVATE:
-	case WIRE_CONNECTCTL_PEER_ADDRHINT:
 	case WIRE_CONNECTCTL_CONNECT_TO_PEER:
 	case WIRE_CONNECTCTL_PEER_DISCONNECTED:
 	/* This is a reply, so never gets through to here. */

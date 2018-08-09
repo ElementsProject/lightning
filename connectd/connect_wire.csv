@@ -36,21 +36,18 @@ connectctl_activate_reply,2125
 connect_reconnected,2112
 connect_reconnected,,id,struct pubkey
 
-# Master -> connectd: Optional hint for where to find peer.
-connectctl_peer_addrhint,2014
-connectctl_peer_addrhint,,id,struct pubkey
-connectctl_peer_addrhint,,addr,struct wireaddr_internal
-
 # Master -> connectd: connect to a peer.
 connectctl_connect_to_peer,2001
 connectctl_connect_to_peer,,id,struct pubkey
 connectctl_connect_to_peer,,seconds_waited,u32
+connectctl_connect_to_peer,,addrhint,?struct wireaddr_internal
 
 # Connectd->master: connect failed.
 connectctl_connect_failed,2020
 connectctl_connect_failed,,id,struct pubkey
 connectctl_connect_failed,,failreason,wirestring
 connectctl_connect_failed,,seconds_to_delay,u32
+connectctl_connect_failed,,addrhint,?struct wireaddr_internal
 
 # Connectd -> master: we got a peer. Two fds: peer and gossip
 connect_peer_connected,2002

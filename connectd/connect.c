@@ -109,9 +109,6 @@ struct daemon {
 	/* Connection to main daemon. */
 	struct daemon_conn master;
 
-	/* Hacky list of known address hints. */
-	struct list_head addrhints;
-
 	struct timers timers;
 
 	/* Local and global features to offer to peers. */
@@ -147,6 +144,9 @@ struct reaching {
 	/* FIXME: Support multiple address. */
 	struct wireaddr_internal addr;
 
+	/* NULL if there wasn't a hint. */
+	struct wireaddr_internal *addrhint;
+
 	/* How far did we get? */
 	const char *connstate;
 
@@ -176,15 +176,6 @@ struct peer {
 	struct io_conn *conn;
 };
 
-struct addrhint {
-	/* Off ld->addrhints */
-	struct list_node list;
-
-	struct pubkey id;
-	/* FIXME: use array... */
-	struct wireaddr_internal addr;
-};
-
 static struct peer *find_reconnecting_peer(struct daemon *daemon,
 					   const struct pubkey *id)
 {
@@ -211,23 +202,6 @@ static void add_reconnecting_peer(struct daemon *daemon, struct peer *peer)
 
 	list_add_tail(&daemon->reconnecting, &peer->list);
 	tal_add_destructor(peer, destroy_reconnecting_peer);
-}
-
-static void destroy_addrhint(struct addrhint *a)
-{
-	list_del(&a->list);
-}
-
-static struct addrhint *find_addrhint(struct daemon *daemon,
-				      const struct pubkey *id)
-{
-	struct addrhint *a;
-
-	list_for_each(&daemon->addrhints, a, list) {
-		if (pubkey_eq(&a->id, id))
-			return a;
-	}
-	return NULL;
 }
 
 /**
@@ -912,10 +886,11 @@ struct io_plan *connection_out(struct io_conn *conn, struct reaching *reach)
 				   handshake_out_success, reach);
 }
 
-static void PRINTF_FMT(4,5)
+static void PRINTF_FMT(5,6)
 	connect_failed(struct daemon *daemon,
 		       const struct pubkey *id,
 		       u32 seconds_waited,
+		       const struct wireaddr_internal *addrhint,
 		       const char *errfmt, ...)
 {
 	u8 *msg;
@@ -935,7 +910,8 @@ static void PRINTF_FMT(4,5)
 		wait_seconds = INITIAL_WAIT_SECONDS;
 
 	/* Tell any connect command what happened. */
-	msg = towire_connectctl_connect_failed(NULL, id, err, wait_seconds);
+	msg = towire_connectctl_connect_failed(NULL, id, err, wait_seconds,
+					       addrhint);
 	daemon_conn_send(&daemon->master, take(msg));
 
 	status_trace("Failed connected out for %s: %s",
@@ -946,6 +922,7 @@ static void PRINTF_FMT(4,5)
 static void destroy_io_conn(struct io_conn *conn, struct reaching *reach)
 {
 	connect_failed(reach->daemon, &reach->id, reach->seconds_waited,
+		       reach->addrhint,
 		       "%s: %s", reach->connstate, strerror(errno));
 	tal_free(reach);
 }
@@ -1077,12 +1054,13 @@ gossip_resolve_addr(const tal_t *ctx, const struct pubkey *id)
 	return addr;
 }
 
+/* Consumes addrhint if not NULL */
 static void try_reach_peer(struct daemon *daemon,
 			   const struct pubkey *id,
-			   u32 seconds_waited)
+			   u32 seconds_waited,
+			   struct wireaddr_internal *addrhint)
 {
 	struct wireaddr_internal *a;
-	struct addrhint *hint;
 	int fd, af;
 	struct reaching *reach;
 	bool use_proxy = daemon->use_proxy_always;
@@ -1095,12 +1073,8 @@ static void try_reach_peer(struct daemon *daemon,
 	if (find_reaching(daemon, id))
 		return;
 
-	hint = find_addrhint(daemon, id);
-	if (hint)
-		a = &hint->addr;
-	else
-		a = NULL;
-
+	/* FIXME: Gather *all* the addresses, and iterate through. */
+	a = addrhint;
 	if (!a)
 		a = gossip_resolve_addr(tmpctx, id);
 
@@ -1117,7 +1091,8 @@ static void try_reach_peer(struct daemon *daemon,
 	}
 
 	if (!a) {
-		connect_failed(daemon, id, seconds_waited, "No address known");
+		connect_failed(daemon, id, seconds_waited, addrhint,
+			       "No address known");
 		return;
 	}
 
@@ -1172,7 +1147,7 @@ static void try_reach_peer(struct daemon *daemon,
 		fd = socket(af, SOCK_STREAM, 0);
 
 	if (fd < 0) {
-		connect_failed(daemon, id, seconds_waited,
+		connect_failed(daemon, id, seconds_waited, addrhint,
 			       "Can't open %i socket for %s (%s)",
 			       af,
 			       type_to_string(tmpctx, struct pubkey, id),
@@ -1187,6 +1162,7 @@ static void try_reach_peer(struct daemon *daemon,
 	reach->addr = *a;
 	reach->connstate = "Connection establishment";
 	reach->seconds_waited = seconds_waited;
+	reach->addrhint = tal_steal(reach, addrhint);
 	list_add_tail(&daemon->reaching, &reach->list);
 	tal_add_destructor(reach, destroy_reaching);
 
@@ -1201,28 +1177,14 @@ static struct io_plan *connect_to_peer(struct io_conn *conn,
 {
 	struct pubkey id;
 	u32 seconds_waited;
+	struct wireaddr_internal *addrhint;
 
-	if (!fromwire_connectctl_connect_to_peer(msg, &id, &seconds_waited))
+	if (!fromwire_connectctl_connect_to_peer(tmpctx, msg,
+						 &id, &seconds_waited,
+						 &addrhint))
 		master_badmsg(WIRE_CONNECTCTL_CONNECT_TO_PEER, msg);
 
-	try_reach_peer(daemon, &id, seconds_waited);
-	return daemon_conn_read_next(conn, &daemon->master);
-}
-
-static struct io_plan *addr_hint(struct io_conn *conn,
-				 struct daemon *daemon, const u8 *msg)
-{
-	struct addrhint *a = tal(daemon, struct addrhint);
-
-	if (!fromwire_connectctl_peer_addrhint(msg, &a->id, &a->addr))
-		master_badmsg(WIRE_CONNECTCTL_PEER_ADDRHINT, msg);
-
-	/* Replace any old one. */
-	tal_free(find_addrhint(daemon, &a->id));
-
-	list_add_tail(&daemon->addrhints, &a->list);
-	tal_add_destructor(a, destroy_addrhint);
-
+	try_reach_peer(daemon, &id, seconds_waited, addrhint);
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
@@ -1269,9 +1231,6 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_CONNECTCTL_CONNECT_TO_PEER:
 		return connect_to_peer(conn, daemon, master->msg_in);
 
-	case WIRE_CONNECTCTL_PEER_ADDRHINT:
-		return addr_hint(conn, daemon, master->msg_in);
-
 	case WIRE_CONNECTCTL_PEER_DISCONNECTED:
 		return peer_disconnected(conn, daemon, master->msg_in);
 
@@ -1308,7 +1267,6 @@ int main(int argc, char *argv[])
 	pubkey_set_init(&daemon->peers);
 	list_head_init(&daemon->reconnecting);
 	list_head_init(&daemon->reaching);
-	list_head_init(&daemon->addrhints);
 	timers_init(&daemon->timers, time_mono());
 	daemon->broken_resolver_response = NULL;
 	daemon->listen_fds = tal_arr(daemon, struct listen_fd, 0);

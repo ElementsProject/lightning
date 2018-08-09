@@ -40,7 +40,7 @@ void channel_set_owner(struct channel *channel, struct subd *owner,
 		if (reconnect) {
 			/* Reconnect after 1 second: prevents some spurious
 			 * reconnects during tests. */
-			delay_then_reconnect(channel, 1);
+			delay_then_reconnect(channel, 1, &channel->peer->addr);
 		}
 	}
 	channel->connected = connects_to_peer(owner);
