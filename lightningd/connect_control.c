@@ -59,6 +59,15 @@ static struct connect *find_connect(struct lightningd *ld,
 	return NULL;
 }
 
+static void connect_cmd_succeed(struct command *cmd, const struct pubkey *id)
+{
+	struct json_result *response = new_json_result(cmd);
+	json_object_start(response, NULL);
+	json_add_pubkey(response, "id", id);
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
 static void connectd_connect_result(struct lightningd *ld, const u8 *msg)
 {
 	struct pubkey id;
@@ -77,11 +86,7 @@ static void connectd_connect_result(struct lightningd *ld, const u8 *msg)
 	/* We can have multiple connect commands: complete them all */
 	while ((c = find_connect(ld, &id)) != NULL) {
 		if (connected) {
-			struct json_result *response = new_json_result(c->cmd);
-			json_object_start(response, NULL);
-			json_add_pubkey(response, "id", &id);
-			json_object_end(response);
-			command_success(c->cmd, response);
+			connect_cmd_succeed(c->cmd, &id);
 		} else {
 			command_fail(c->cmd, LIGHTNINGD, "%s", err);
 		}
@@ -102,6 +107,7 @@ static void json_connect(struct command *cmd,
 	struct wireaddr_internal addr;
 	u8 *msg;
 	const char *err_msg;
+	struct peer *peer;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", json_tok_tok, (const jsmntok_t **) &idtok),
@@ -150,6 +156,18 @@ static void json_connect(struct command *cmd,
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "Can't specify port without host");
 		return;
+	}
+
+	/* If we know about peer, see if it's already connected. */
+	peer = peer_by_id(cmd->ld, &id);
+	if (peer) {
+		struct channel *channel = peer_active_channel(peer);
+
+		if (peer->uncommitted_channel
+		    || (channel && channel->connected)) {
+			connect_cmd_succeed(cmd, &id);
+			return;
+		}
 	}
 
 	/* Was there parseable host name? */
