@@ -286,7 +286,7 @@ bool param(struct command *cmd UNNEEDED, const char *buffer UNNEEDED,
 	   const jsmntok_t params[] UNNEEDED, ...)
 { fprintf(stderr, "param called!\n"); abort(); }
 /* Generated stub for peer_start_channeld */
-bool peer_start_channeld(struct channel *channel UNNEEDED,
+void peer_start_channeld(struct channel *channel UNNEEDED,
 			 const struct crypto_state *cs UNNEEDED,
 			 int peer_fd UNNEEDED, int gossip_fd UNNEEDED,
 			 const u8 *funding_signed UNNEEDED,
