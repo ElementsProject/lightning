@@ -112,8 +112,8 @@ struct peer {
 	u64 commit_timer_attempts;
 	u32 commit_msec;
 
-	/* Don't accept a pong we didn't ping for. */
-	size_t num_pings_outstanding;
+	/* Are we expecting a pong? */
+	bool expecting_pong;
 
 	/* The feerate we want. */
 	u32 desired_feerate;
@@ -928,6 +928,17 @@ static struct commit_sigs *calc_commitsigs(const tal_t *ctx,
 	return commit_sigs;
 }
 
+static void maybe_send_ping(struct peer *peer)
+{
+	/* Already have a ping in flight? */
+	if (peer->expecting_pong)
+		return;
+
+	sync_crypto_write_no_delay(&peer->cs, PEER_FD,
+				   take(make_ping(NULL, 1, 0)));
+	peer->expecting_pong = true;
+}
+
 static void send_commit(struct peer *peer)
 {
 	u8 *msg;
@@ -1045,6 +1056,9 @@ static void send_commit(struct peer *peer)
 
 static void start_commit_timer(struct peer *peer)
 {
+	/* We should send a ping now if we need a liveness check. */
+	maybe_send_ping(peer);
+
 	/* Already armed? */
 	if (peer->commit_timer)
 		return;
@@ -1572,6 +1586,12 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 static void peer_in(struct peer *peer, const u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
+
+	/* Catch our own ping replies. */
+	if (type == WIRE_PONG && peer->expecting_pong) {
+		peer->expecting_pong = false;
+		return;
+	}
 
 	if (handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD,
 					&peer->cs,
@@ -2424,7 +2444,7 @@ int main(int argc, char *argv[])
 	subdaemon_setup(argc, argv);
 
 	peer = tal(NULL, struct peer);
-	peer->num_pings_outstanding = 0;
+	peer->expecting_pong = false;
 	timers_init(&peer->timers, time_mono());
 	peer->commit_timer = NULL;
 	peer->have_sigs[LOCAL] = peer->have_sigs[REMOTE] = false;
