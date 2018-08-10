@@ -606,9 +606,9 @@ static void json_pay(struct command *cmd,
 	struct pay *pay = tal(cmd, struct pay);
 	struct bolt11 *b11;
 	char *fail, *b11str, *desc;
-	unsigned int retryfor;
-	unsigned int maxdelay;
-	unsigned int exemptfee;
+	unsigned int *retryfor;
+	unsigned int *maxdelay;
+	unsigned int *exemptfee;
 
 	if (!param(cmd, buffer, params,
 		   p_req_tal("bolt11", json_tok_tok, &bolt11tok),
@@ -616,10 +616,10 @@ static void json_pay(struct command *cmd,
 		   p_opt_tal("description", json_tok_tok, &desctok),
 		   p_opt_def("riskfactor", json_tok_double, &riskfactor, 1.0),
 		   p_opt_def("maxfeepercent", json_tok_percent, &maxfeepercent, 0.5),
-		   p_opt_def("retry_for", json_tok_number, &retryfor, 60),
-		   p_opt_def("maxdelay", json_tok_number, &maxdelay,
+		   p_opt_def_tal("retry_for", json_tok_number, &retryfor, 60),
+		   p_opt_def_tal("maxdelay", json_tok_number, &maxdelay,
 			     cmd->ld->config.locktime_max),
-		   p_opt_def("exemptfee", json_tok_number, &exemptfee, 5000),
+		   p_opt_def_tal("exemptfee", json_tok_number, &exemptfee, 5000),
 		   NULL))
 		return;
 
@@ -644,7 +644,7 @@ static void json_pay(struct command *cmd,
 	memset(&pay->expiry, 0, sizeof(pay->expiry));
 	pay->expiry.ts.tv_sec = b11->timestamp + b11->expiry;
 	pay->min_final_cltv_expiry = b11->min_final_cltv_expiry;
-	pay->exemptfee = exemptfee;
+	pay->exemptfee = *exemptfee;
 
 	if (b11->msatoshi) {
 		if (msatoshi) {
@@ -664,15 +664,15 @@ static void json_pay(struct command *cmd,
 	pay->riskfactor = riskfactor * 1000;
 	pay->maxfeepercent = maxfeepercent;
 
-	if (maxdelay < pay->min_final_cltv_expiry) {
+	if (*maxdelay < pay->min_final_cltv_expiry) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "maxdelay (%u) must be greater than "
 			     "min_final_cltv_expiry (%"PRIu32") of "
 			     "invoice",
-			     maxdelay, pay->min_final_cltv_expiry);
+			     *maxdelay, pay->min_final_cltv_expiry);
 		return;
 	}
-	pay->maxdelay = maxdelay;
+	pay->maxdelay = *maxdelay;
 
 	pay->getroute_tries = 0;
 	pay->sendpay_tries = 0;
@@ -701,7 +701,7 @@ static void json_pay(struct command *cmd,
 		return;
 
 	/* Set up timeout. */
-	new_reltimer(&cmd->ld->timers, pay, time_from_sec(retryfor),
+	new_reltimer(&cmd->ld->timers, pay, time_from_sec(*retryfor),
 		     &json_pay_stop_retrying, pay);
 }
 

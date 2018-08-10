@@ -40,6 +40,11 @@ void json_add_pubkey(struct json_result *response,
 void json_add_txid(struct json_result *result, const char *fieldname,
 		   const struct bitcoin_txid *txid);
 
+/* Extract number from this (may be a string, or a number literal) */
+bool json_tok_number(struct command *cmd, const char *name,
+		     const char *buffer, const jsmntok_t *tok,
+		     unsigned int **num);
+
 /* Extract a pubkey from this */
 bool json_tok_pubkey(const char *buffer, const jsmntok_t *tok,
 		     struct pubkey *pubkey);

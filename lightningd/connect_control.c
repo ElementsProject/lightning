@@ -74,7 +74,8 @@ static void connect_cmd_succeed(struct command *cmd, const struct pubkey *id)
 static void json_connect(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
-	const jsmntok_t *hosttok, *porttok;
+	const jsmntok_t *hosttok;
+	u32 *port;
 	jsmntok_t *idtok;
 	struct pubkey id;
 	char *id_str;
@@ -89,7 +90,7 @@ static void json_connect(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_req_tal("id", json_tok_tok, (const jsmntok_t **) &idtok),
 		   p_opt_tal("host", json_tok_tok, &hosttok),
-		   p_opt_tal("port", json_tok_tok, &porttok),
+		   p_opt_tal("port", json_tok_number, &port),
 		   NULL))
 		return;
 
@@ -129,7 +130,7 @@ static void json_connect(struct command *cmd,
 		name = NULL;
 
 	/* Port without host name? */
-	if (porttok && !name) {
+	if (port && !name) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "Can't specify port without host");
 		return;
@@ -149,27 +150,19 @@ static void json_connect(struct command *cmd,
 
 	/* Was there parseable host name? */
 	if (name) {
-		u32 port;
 		/* Is there a port? */
-		if (porttok) {
-			if (!json_tok_number(buffer, porttok, &port) || !port) {
-				command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					     "Port %.*s not valid",
-					     porttok->end - porttok->start,
-					     buffer + porttok->start);
-				return;
-			}
-		} else {
-			port = DEFAULT_PORT;
+		if (!port) {
+			port = tal(cmd, u32);
+			*port = DEFAULT_PORT;
 		}
 		addr = tal(cmd, struct wireaddr_internal);
-		if (!parse_wireaddr_internal(name, addr, port, false,
+		if (!parse_wireaddr_internal(name, addr, *port, false,
 					     !cmd->ld->use_proxy_always
 					     && !cmd->ld->pure_tor_setup,
 					     true,
 					     &err_msg)) {
 			command_fail(cmd, LIGHTNINGD, "Host %s:%u not valid: %s",
-				     name, port, err_msg ? err_msg : "port is 0");
+				     name, *port, err_msg ? err_msg : "port is 0");
 			return;
 		}
 	} else

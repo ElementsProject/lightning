@@ -19,6 +19,7 @@
 #include <inttypes.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/gossip_control.h>
+#include <lightningd/json.h>
 #include <lightningd/param.h>
 
 /* Mutual recursion via timer. */
@@ -603,6 +604,7 @@ static void json_dev_setfees(struct command *cmd,
 {
 	struct chain_topology *topo = cmd->ld->topology;
 	struct json_result *response;
+	u32 *imm, *norm, *slow;
 
 	if (!topo->dev_override_fee_rate) {
 		u32 fees[NUM_FEERATES];
@@ -613,17 +615,18 @@ static void json_dev_setfees(struct command *cmd,
 	}
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("immediate", json_tok_number,
-			     &topo->dev_override_fee_rate[FEERATE_IMMEDIATE],
-			     topo->dev_override_fee_rate[FEERATE_IMMEDIATE]),
-		   p_opt_def("normal", json_tok_number,
-			     &topo->dev_override_fee_rate[FEERATE_NORMAL],
-			     topo->dev_override_fee_rate[FEERATE_NORMAL]),
-		   p_opt_def("slow", json_tok_number,
-			     &topo->dev_override_fee_rate[FEERATE_SLOW],
-			     topo->dev_override_fee_rate[FEERATE_SLOW]),
+		   p_opt_tal("immediate", json_tok_number, &imm),
+		   p_opt_tal("normal", json_tok_number, &norm),
+		   p_opt_tal("slow", json_tok_number, &slow),
 		   NULL))
 		return;
+
+	if (imm)
+		topo->dev_override_fee_rate[FEERATE_IMMEDIATE] = *imm;
+	if (norm)
+		topo->dev_override_fee_rate[FEERATE_NORMAL] = *norm;
+	if (slow)
+		topo->dev_override_fee_rate[FEERATE_SLOW] = *slow;
 
 	log_debug(topo->log,
 		  "dev-setfees: fees now %u/%u/%u",

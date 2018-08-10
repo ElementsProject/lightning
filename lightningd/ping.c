@@ -39,13 +39,13 @@ static void json_ping(struct command *cmd,
 		      const char *buffer, const jsmntok_t *params)
 {
 	u8 *msg;
-	unsigned int len, pongbytes;
+	unsigned int *len, *pongbytes;
 	struct pubkey id;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", json_tok_pubkey, &id),
-		   p_opt_def("len", json_tok_number, &len, 128),
-		   p_opt_def("pongbytes", json_tok_number, &pongbytes, 128),
+		   p_opt_def_tal("len", json_tok_number, &len, 128),
+		   p_opt_def_tal("pongbytes", json_tok_number, &pongbytes, 128),
 		   NULL))
 		return;
 
@@ -63,21 +63,21 @@ static void json_ping(struct command *cmd,
 	 *    * [`2`:`byteslen`]
 	 *    * [`byteslen`:`ignored`]
 	 */
-	if (len > 65535 - 2 - 2 - 2) {
+	if (*len > 65535 - 2 - 2 - 2) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "%u would result in oversize ping", len);
+			     "%u would result in oversize ping", *len);
 		return;
 	}
 
 	/* Note that > 65531 is valid: it means "no pong reply" */
-	if (pongbytes > 65535) {
+	if (*pongbytes > 65535) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "pongbytes %u > 65535", pongbytes);
+			     "pongbytes %u > 65535", *pongbytes);
 		return;
 	}
 
 	/* gossipd handles all pinging, even if it's in another daemon. */
-	msg = towire_gossip_ping(NULL, &id, pongbytes, len);
+	msg = towire_gossip_ping(NULL, &id, *pongbytes, *len);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
 		 take(msg), -1, 0, ping_reply, cmd);
 	command_still_pending(cmd);

@@ -3,6 +3,7 @@
 #include <setjmp.h>
 #include <lightningd/jsonrpc.h>
 
+#include <lightningd/json.c>
 #include <lightningd/param.c>
 #include <lightningd/json.c>
 #include <common/json.c>
@@ -175,7 +176,7 @@ static void tok_tok(void)
 		assert(param(cmd, j->buffer, j->toks,
 			     p_req_tal("satoshi", json_tok_tok, &tok), NULL));
 		assert(tok);
-		assert(json_tok_number(j->buffer, tok, &n));
+		assert(json_to_number(j->buffer, tok, &n));
 		assert(n == 546);
 	}
 	// again with missing optional parameter
@@ -298,13 +299,15 @@ static void bad_programmer(void)
 
 	/* Add required param after optional */
 	j = json_parse(cmd, "[ '25', '546', '26', '1.1' ]");
-	unsigned int msatoshi;
+	unsigned int *msatoshi;
 	double riskfactor;
 	assert(!param(cmd, j->buffer, j->toks,
 		      p_req("u64", json_tok_u64, &ival),
 		      p_req("double", json_tok_double, &dval),
-		      p_opt_def("msatoshi", json_tok_number, &msatoshi, 100),
+		      p_opt_def_tal("msatoshi", json_tok_number, &msatoshi, 100),
 		      p_req("riskfactor", json_tok_double, &riskfactor), NULL));
+	assert(*msatoshi);
+	assert(*msatoshi == 100);
 	assert(check_fail());
 	assert(strstr(fail_msg, "developer error"));
 }
@@ -312,19 +315,21 @@ static void bad_programmer(void)
 
 static void add_members(struct param **params,
 			struct json_result *obj,
-			struct json_result *arr, unsigned int *ints)
+			struct json_result *arr, unsigned int **ints)
 {
 	for (int i = 0; i < tal_count(ints); ++i) {
 		char *name = tal_fmt(tmpctx, "%i", i);
 		json_add_num(obj, name, i);
 		json_add_num(arr, NULL, i);
 		param_add(params, name, true,
-			  typesafe_cb_preargs(bool, void *,
+		          NULL,
+			  typesafe_cb_preargs(bool, void **,
 					      json_tok_number,
 					      &ints[i],
+					      struct command *,
+					      const char *,
 					      const char *,
 					      const jsmntok_t *),
-			  NULL,
 			  &ints[i], 0);
 	}
 }
@@ -337,7 +342,7 @@ static void five_hundred_params(void)
 {
 	struct param *params = tal_arr(NULL, struct param, 0);
 
-	unsigned int *ints = tal_arr(params, unsigned int, 500);
+	unsigned int **ints = tal_arr(params, unsigned int*, 500);
 	struct json_result *obj = new_json_result(params);
 	struct json_result *arr = new_json_result(params);
 	json_object_start(obj, NULL);
@@ -350,15 +355,16 @@ static void five_hundred_params(void)
 	struct json *j = json_parse(params, obj->s);
 	assert(param_arr(cmd, j->buffer, j->toks, params));
 	for (int i = 0; i < tal_count(ints); ++i) {
-		assert(ints[i] == i);
-		ints[i] = 65535;
+		assert(ints[i]);
+		assert(*ints[i] == i);
+		*ints[i] = 65535;
 	}
 
 	/* now test array */
 	j = json_parse(params, arr->s);
 	assert(param_arr(cmd, j->buffer, j->toks, params));
 	for (int i = 0; i < tal_count(ints); ++i) {
-		assert(ints[i] == i);
+		assert(*ints[i] == i);
 	}
 
 	tal_free(params);
@@ -370,11 +376,11 @@ static void sendpay(void)
 
 	const jsmntok_t *routetok, *note;
 	u64 *msatoshi;
-	unsigned cltv;
+	unsigned *cltv;
 
 	if (!param(cmd, j->buffer, j->toks,
 		   p_req_tal("route", json_tok_tok, &routetok),
-		   p_req("cltv", json_tok_number, &cltv),
+		   p_req_tal("cltv", json_tok_number, &cltv),
 		   p_opt_tal("note", json_tok_tok, &note),
 		   p_opt("msatoshi", json_tok_u64, &msatoshi),
 		   NULL))
@@ -393,11 +399,11 @@ static void sendpay_nulltok(void)
 
 	const jsmntok_t *routetok, *note = (void *) 65535;
 	u64 *msatoshi;
-	unsigned cltv;
+	unsigned *cltv;
 
 	if (!param(cmd, j->buffer, j->toks,
 		   p_req_tal("route", json_tok_tok, &routetok),
-		   p_req("cltv", json_tok_number, &cltv),
+		   p_req_tal("cltv", json_tok_number, &cltv),
 		   p_opt_tal("note", json_tok_tok, &note),
 		   p_opt("msatoshi", json_tok_u64, &msatoshi),
 		   NULL))
