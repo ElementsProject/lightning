@@ -229,8 +229,9 @@ bool json_tok_loglevel(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDE
 		       enum log_level *level UNNEEDED)
 { fprintf(stderr, "json_tok_loglevel called!\n"); abort(); }
 /* Generated stub for json_tok_number */
-bool json_tok_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		     unsigned int *num UNNEEDED)
+bool json_tok_number(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+		     const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		     unsigned int **num UNNEEDED)
 { fprintf(stderr, "json_tok_number called!\n"); abort(); }
 /* Generated stub for json_tok_pubkey */
 bool json_tok_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,

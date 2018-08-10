@@ -91,8 +91,8 @@ bool json_tok_percent(const char *buffer, const jsmntok_t *tok, double *num)
 	return true;
 }
 
-bool json_tok_number(const char *buffer, const jsmntok_t *tok,
-		     unsigned int *num)
+bool json_to_number(const char *buffer, const jsmntok_t *tok,
+		    unsigned int *num)
 {
 	uint64_t u64;
 

@@ -1017,7 +1017,7 @@ static void json_sendpay(struct command *cmd,
 				     "Route %zu invalid id", n_hops);
 			return;
 		}
-		if (!json_tok_number(buffer, delaytok, &route[n_hops].delay)) {
+		if (!json_to_number(buffer, delaytok, &route[n_hops].delay)) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "Route %zu invalid delay", n_hops);
 			return;
@@ -1094,7 +1094,7 @@ static void json_waitsendpay(struct command *cmd, const char *buffer,
 
 	if (!param(cmd, buffer, params,
 		   p_req("payment_hash", json_tok_sha256, &rhash),
-		   p_opt("timeout", json_tok_number, &timeout),
+		   p_opt_tal("timeout", json_tok_number, &timeout),
 		   NULL))
 		return;
 

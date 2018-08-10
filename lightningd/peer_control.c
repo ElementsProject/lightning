@@ -832,13 +832,13 @@ static void json_close(struct command *cmd,
 	const jsmntok_t *idtok;
 	struct peer *peer;
 	struct channel *channel;
-	unsigned int timeout;
+	unsigned int *timeout;
 	bool force;
 
 	if (!param(cmd, buffer, params,
 		   p_req_tal("id", json_tok_tok, &idtok),
 		   p_opt_def("force", json_tok_bool, &force, false),
-		   p_opt_def("timeout", json_tok_number, &timeout, 30),
+		   p_opt_def_tal("timeout", json_tok_number, &timeout, 30),
 		   NULL))
 		return;
 
@@ -891,7 +891,7 @@ static void json_close(struct command *cmd,
 	}
 
 	/* Register this command for later handling. */
-	register_close_command(cmd->ld, cmd, channel, timeout, force);
+	register_close_command(cmd->ld, cmd, channel, *timeout, force);
 
 	/* Wait until close drops down to chain. */
 	command_still_pending(cmd);

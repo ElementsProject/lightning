@@ -6,6 +6,8 @@
 #include <common/type_to_string.h>
 #include <common/wireaddr.h>
 #include <gossipd/routing.h>
+#include <lightningd/jsonrpc.h>
+#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/options.h>
 #include <sys/socket.h>
 #include <wallet/wallet.h>
@@ -87,6 +89,20 @@ void json_add_txid(struct json_result *result, const char *fieldname,
 
 	bitcoin_txid_to_hex(txid, hex, sizeof(hex));
 	json_add_string(result, fieldname, hex);
+}
+
+bool json_tok_number(struct command *cmd, const char *name,
+		     const char *buffer, const jsmntok_t *tok,
+		     unsigned int **num)
+{
+	*num = tal(cmd, unsigned int);
+	if (!json_to_number(buffer, tok, *num)) {
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%s' should be an integer, not '%.*s'",
+			     name, tok->end - tok->start, buffer + tok->start);
+		return false;
+	}
+	return true;
 }
 
 bool json_tok_pubkey(const char *buffer, const jsmntok_t *tok,
