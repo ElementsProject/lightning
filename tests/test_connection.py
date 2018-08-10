@@ -293,6 +293,22 @@ def test_reconnect_openingd(node_factory):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+def test_reconnect_gossiping(node_factory):
+    # connectd thinks we're still gossiping; peer reconnects.
+    disconnects = ['0WIRE_PING']
+    l1 = node_factory.get_node(may_reconnect=True)
+    l2 = node_factory.get_node(disconnect=disconnects,
+                               may_reconnect=True)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    l2.rpc.dev_ping(l1.info['id'], 1, 65532)
+    l1.daemon.wait_for_log('Forgetting peer')
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.daemon.wait_for_log('processing now old peer gone')
+
+
+@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_reconnect_normal(node_factory):
     # Should reconnect fine even if locked message gets lost.
     disconnects = ['-WIRE_FUNDING_LOCKED',
