@@ -19,6 +19,7 @@
 #include <inttypes.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
@@ -1005,7 +1006,7 @@ static void json_listconfigs(struct command *cmd,
 	bool found = false;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_tok("config", &configtok),
+		   p_opt_tal("config", json_tok_tok, &configtok),
 		   NULL))
 		return;
 

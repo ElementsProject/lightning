@@ -836,7 +836,7 @@ static void json_close(struct command *cmd,
 	bool force;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_tok, &idtok),
+		   p_req_tal("id", json_tok_tok, &idtok),
 		   p_opt_def("force", json_tok_bool, &force, false),
 		   p_opt_def("timeout", json_tok_number, &timeout, 30),
 		   NULL))

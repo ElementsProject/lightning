@@ -99,8 +99,8 @@ static void json_withdraw(struct command *cmd,
 	wtx_init(cmd, &withdraw->wtx);
 
 	if (!param(cmd, buffer, params,
-		   p_req("destination", json_tok_tok, &desttok),
-		   p_req("satoshi", json_tok_tok, &sattok),
+		   p_req_tal("destination", json_tok_tok, &desttok),
+		   p_req_tal("satoshi", json_tok_tok, &sattok),
 		   NULL))
 		return;
 

@@ -13,6 +13,7 @@
 
 struct bitcoin_txid;
 struct channel_id;
+struct command;
 struct json_result;
 struct pubkey;
 struct route_hop;
@@ -63,4 +64,13 @@ void json_add_address(struct json_result *response, const char *fieldname,
 void json_add_address_internal(struct json_result *response,
 			       const char *fieldname,
 			       const struct wireaddr_internal *addr);
+
+/*
+ * Set the address of @out to @tok.  Used as a callback by handlers that
+ * want to unmarshal @tok themselves.
+ */
+bool json_tok_tok(struct command *cmd, const char *name,
+		  const char *buffer, const jsmntok_t * tok,
+		  const jsmntok_t **out);
+
 #endif /* LIGHTNING_LIGHTNINGD_JSON_H */

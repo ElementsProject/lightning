@@ -146,17 +146,4 @@ typedef bool(*param_cbx)(struct command *cmd,
 				   (arg)) == true),		\
 		  ({ (*arg) = tal((cmd), typeof(**arg)); (**arg) = (def); (size_t)0;})
 
-/*
- * For when you want an optional raw token.
- *
- * Note: weird sizeof() does type check that arg really is a (const) jsmntok_t **.
- */
-#define p_opt_tok(name, arg)						\
-		  name"",						\
-		  false,						\
-		  false,						\
-		  json_tok_tok,						\
-		  (arg) + 0*sizeof(*(arg) == (jsmntok_t *)NULL),	\
-		  sizeof(const jsmntok_t *)
-
 #endif /* LIGHTNING_LIGHTNINGD_PARAM_H */
