@@ -242,14 +242,15 @@ static bool broken_resolver(struct daemon *daemon)
 	return 	daemon->broken_resolver_response != NULL;
 }
 
-static struct peer *new_peer(const tal_t *ctx,
+static struct peer *new_peer(struct io_conn *conn,
 			     struct daemon *daemon,
 			     const struct pubkey *their_id,
 			     const struct wireaddr_internal *addr,
 			     const struct crypto_state *cs)
 {
-	struct peer *peer = tal(ctx, struct peer);
+	struct peer *peer = tal(conn, struct peer);
 
+	peer->conn = conn;
 	peer->id = *their_id;
 	peer->addr = *addr;
 	peer->daemon = daemon;
