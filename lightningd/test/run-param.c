@@ -17,10 +17,6 @@ static bool check_fail(void) {
 	if (!failed)
 		return false;
 	failed = false;
-	if (taken(fail_msg)) {
-		tal_free(fail_msg);
-		fail_msg = NULL;
-	}
 	return true;
 }
 
@@ -324,6 +320,7 @@ static void add_members(struct param **params,
 					      &ints[i],
 					      const char *,
 					      const jsmntok_t *),
+			  NULL,
 			  &ints[i], 0);
 	}
 }
@@ -406,6 +403,136 @@ static void sendpay_nulltok(void)
 	assert(msatoshi == NULL);
 }
 
+static bool json_tok_msat(struct command *cmd,
+			  const char *name,
+			  const char *buffer,
+			  const jsmntok_t * tok,
+			  u64 **msatoshi_val)
+{
+	if (json_tok_streq(buffer, tok, "any")) {
+		*msatoshi_val = NULL;
+		return true;
+	}
+	*msatoshi_val = tal(cmd, u64);
+
+	if (json_tok_u64(buffer, tok, *msatoshi_val) && *msatoshi_val != 0)
+		return true;
+
+	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		     "'%s' should be a positive number or 'any', not '%.*s'",
+		     name,
+		     tok->end - tok->start,
+		     buffer + tok->start);
+	return false;
+}
+
+/* This can eventually replace json_tok_tok and we can remove the special p_opt_tok()
+ * macro. */
+static bool json_tok_tok_x(struct command *cmd,
+			   const char *name,
+			   const char *buffer,
+			   const jsmntok_t *tok,
+			   const jsmntok_t **arg)
+{
+	return (*arg = tok);
+}
+
+/*
+ * New version of json_tok_label conforming to advanced style. This can eventually
+ * replace the existing json_tok_label.
+ */
+static bool json_tok_label_x(struct command *cmd,
+			     const char *name,
+			     const char *buffer,
+			     const jsmntok_t *tok,
+			     struct json_escaped **label)
+{
+	if ((*label = json_tok_escaped_string(cmd, buffer, tok)))
+		return true;
+
+	/* Allow literal numbers */
+	if (tok->type != JSMN_PRIMITIVE)
+		goto fail;
+
+	for (int i = tok->start; i < tok->end; i++)
+		if (!cisdigit(buffer[i]))
+			goto fail;
+
+	if ((*label = json_escaped_string_(cmd, buffer + tok->start,
+					   tok->end - tok->start)))
+		return true;
+
+fail:
+	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		     "'%s' should be a string or number, not '%.*s'",
+		     name, tok->end - tok->start, buffer + tok->start);
+	return false;
+}
+
+static void advanced(void)
+{
+	{
+		struct json *j = json_parse(cmd, "[ 'lightning', 24, 'tok', 543 ]");
+
+		struct json_escaped *label;
+		u64 *msat;
+		u64 *msat_opt1, *msat_opt2;
+		const jsmntok_t *tok;
+
+		assert(param(cmd, j->buffer, j->toks,
+			     p_req_tal("description", json_tok_label_x, &label),
+			     p_req_tal("msat", json_tok_msat, &msat),
+			     p_req_tal("tok", json_tok_tok_x, &tok),
+			     p_opt_tal("msat_opt1", json_tok_msat, &msat_opt1),
+			     p_opt_tal("msat_opt2", json_tok_msat, &msat_opt2),
+			     NULL));
+		assert(label != NULL);
+		assert(!strcmp(label->s, "lightning"));
+		assert(*msat == 24);
+		assert(tok);
+		assert(msat_opt1);
+		assert(*msat_opt1 == 543);
+		assert(msat_opt2 == NULL);
+	}
+	{
+		struct json *j = json_parse(cmd, "[ 3 'foo' ]");
+		struct json_escaped *label, *foo;
+		assert(param(cmd, j->buffer, j->toks,
+			      p_req_tal("label", json_tok_label_x, &label),
+			      p_opt_tal("foo", json_tok_label_x, &foo),
+			      NULL));
+		assert(!strcmp(label->s, "3"));
+		assert(!strcmp(foo->s, "foo"));
+	}
+	{
+		u64 *msat;
+		u64 *msat2;
+		struct json *j = json_parse(cmd, "[ 3 ]");
+		assert(param(cmd, j->buffer, j->toks,
+			      p_opt_def_tal("msat", json_tok_msat, &msat, 23),
+			      p_opt_def_tal("msat2", json_tok_msat, &msat2, 53),
+			      NULL));
+		assert(*msat == 3);
+		assert(msat2);
+		assert(*msat2 == 53);
+	}
+}
+
+static void advanced_fail(void)
+{
+	{
+		struct json *j = json_parse(cmd, "[ 'anyx' ]");
+		u64 *msat;
+		assert(!param(cmd, j->buffer, j->toks,
+			      p_req_tal("msat", json_tok_msat, &msat),
+			      NULL));
+		assert(check_fail());
+		assert(strstr(fail_msg, "'msat' should be a positive"
+			      " number or 'any', not 'anyx'"));
+	}
+}
+
+
 int main(void)
 {
 	setup_locale();
@@ -424,6 +551,8 @@ int main(void)
 	five_hundred_params();
 	sendpay();
 	sendpay_nulltok();
+	advanced();
+	advanced_fail();
 	tal_free(tmpctx);
 	printf("run-params ok\n");
 }

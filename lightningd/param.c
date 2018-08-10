@@ -12,16 +12,18 @@ struct param {
 	bool is_set;
 	bool required;
 	param_cb cb;
+	param_cbx cbx;
 	void *arg;
 	size_t argsize;
 };
 
 static bool param_add(struct param **params,
-		      const char *name, bool required, param_cb cb, void *arg,
+		      const char *name, bool required, param_cb cb,
+		      param_cbx cbx, void *arg,
 		      size_t argsize)
 {
 #if DEVELOPER
-	if (!(name && cb && arg))
+	if (!(name && (cb || cbx) && arg))
 		return false;
 #endif
 	struct param *last;
@@ -33,6 +35,7 @@ static bool param_add(struct param **params,
 	last->name = name;
 	last->required = required;
 	last->cb = cb;
+	last->cbx = cbx;
 	last->arg = arg;
 	last->argsize = argsize;
 	/* Non-0 means we are supposed to allocate iff found */
@@ -72,30 +75,44 @@ static const char *find_fail_format(param_cb cb)
 	return fmt->format;
 }
 
+/* Create a json_result out of a jsmntok_t. */
+static struct json_result *make_result(tal_t *ctx, const char *name, const char *buffer,
+				       const jsmntok_t *tok)
+{
+	struct json_result *data = new_json_result(ctx);
+	const char *val = tal_fmt(ctx, "%.*s", tok->end - tok->start,
+				  buffer + tok->start);
+	json_object_start(data, NULL);
+	json_add_string(data, name, val);
+	json_object_end(data);
+	return data;
+}
+
 static bool make_callback(struct command *cmd,
 			  struct param *def,
-			  const char *buffer, const jsmntok_t * tok)
+			  const char *buffer, const jsmntok_t *tok)
 {
 	void *arg;
 	def->is_set = true;
-	if (def->argsize && def->cb != (param_cb)json_tok_tok) {
-		*(void **)def->arg
-			= arg
-			= tal_arr_label(cmd, char, def->argsize, "param");
-	} else
-		arg = def->arg;
-	if (!def->cb(buffer, tok, arg)) {
-		struct json_result *data = new_json_result(cmd);
-		const char *val = tal_fmt(cmd, "%.*s", tok->end - tok->start,
-					  buffer + tok->start);
-		json_object_start(data, NULL);
-		json_add_string(data, def->name, val);
-		json_object_end(data);
-		command_fail_detailed(cmd, JSONRPC2_INVALID_PARAMS, data,
-				      find_fail_format(def->cb), def->name,
-				      tok->end - tok->start,
-				      buffer + tok->start);
-		return false;
+
+	if (def->cb) {
+		if (def->argsize && def->cb != (param_cb)json_tok_tok) {
+			*(void **)def->arg
+				= arg
+				= tal_arr_label(cmd, char, def->argsize, "param");
+		} else
+			arg = def->arg;
+
+		if (!def->cb(buffer, tok, arg)) {
+			command_fail_detailed(cmd, JSONRPC2_INVALID_PARAMS,
+					      make_result(cmd, def->name, buffer, tok),
+					      find_fail_format(def->cb), def->name,
+					      tok->end - tok->start,
+					      buffer + tok->start);
+			return false;
+		}
+	} else {
+		return def->cbx(cmd, def->name, buffer, tok, def->arg);
 	}
 	return true;
 }
@@ -308,10 +325,12 @@ bool param(struct command *cmd, const char *buffer,
 	va_start(ap, tokens);
 	while ((name = va_arg(ap, const char *)) != NULL) {
 		bool required = va_arg(ap, int);
-		param_cb cb = va_arg(ap, param_cb);
+		bool advanced = va_arg(ap, int);
+		param_cb cb = advanced ? NULL : va_arg(ap, param_cb);
+		param_cbx cbx = advanced ? va_arg(ap, param_cbx) : NULL;
 		void *arg = va_arg(ap, void *);
 		size_t argsize = va_arg(ap, size_t);
-		if  (!param_add(&params, name, required, cb, arg, argsize)) {
+		if  (!param_add(&params, name, required, cb, cbx, arg, argsize)) {
 			command_fail(cmd, PARAM_DEV_ERROR, "developer error");
 			va_end(ap);
 			return false;

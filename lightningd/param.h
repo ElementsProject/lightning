@@ -55,6 +55,15 @@ bool param(struct command *cmd, const char *buffer,
 typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
 
 /*
+ * Advanced callback. Returns NULL on success, error message on failure.
+ */
+typedef bool(*param_cbx)(struct command *cmd,
+			   const char *name,
+			   const char *buffer,
+			   const jsmntok_t *tok,
+			   void **arg);
+
+/*
  * Add a handler to unmarshal a required json token into @arg. The handler must
  * return true on success and false on failure.  Upon failure, command_fail will be
  * called with a descriptive error message.
@@ -65,11 +74,24 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
 #define p_req(name, cb, arg)					\
 	      name"",						\
 	      true,						\
+	      false,						\
 	      (cb),				 		\
 	      (arg) + 0*sizeof((cb)((const char *)NULL,		\
 				    (const jsmntok_t *)NULL,	\
 				    (arg)) == true),		\
 	      (size_t)0
+
+#define p_req_tal(name, cbx, arg)				\
+		  name"",					\
+		  true,						\
+		  true,						\
+		  (cbx),				 	\
+		  (arg) + 0*sizeof((cbx)((struct command *)NULL,\
+				   (const char *)NULL,		\
+				   (const char *)NULL,		\
+				   (const jsmntok_t *)NULL,	\
+				   (arg)) == true),		\
+		  (size_t)0
 
 /*
  * Similar to above but for optional parameters.
@@ -79,11 +101,24 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
 #define p_opt(name, cb, arg)					\
 	      name"",						\
 	      false,						\
+	      false,						\
 	      (cb),				 		\
 	      (arg) + 0*sizeof((cb)((const char *)NULL,		\
 				    (const jsmntok_t *)NULL,	\
 				    *(arg)) == true),		\
 	      sizeof(**(arg))
+
+#define p_opt_tal(name, cbx, arg)				\
+		  name"",					\
+		  false,					\
+		  true,						\
+		  (cbx),				 	\
+		  (arg) + 0*sizeof((cbx)((struct command *)NULL,\
+				   (const char *)NULL,		\
+				   (const char *)NULL,		\
+				   (const jsmntok_t *)NULL,	\
+				   (arg)) == true),		\
+		  sizeof(**(arg))
 
 /*
  * Similar to p_req but for optional parameters with defaults.
@@ -92,11 +127,24 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
 #define p_opt_def(name, cb, arg, def)					\
 		  name"",						\
 		  false,						\
+		  false,						\
 		  (cb),							\
 		  (arg) + 0*sizeof((cb)((const char *)NULL,		\
 					(const jsmntok_t *)NULL,	\
 					(arg)) == true),		\
 		  ((void)((*arg) = (def)), (size_t)0)
+
+#define p_opt_def_tal(name, cbx, arg, def)				\
+		  name"",					\
+		  false,					\
+		  true,						\
+		  (cbx),				 	\
+		  (arg) + 0*sizeof((cbx)((struct command *)NULL,\
+				   (const char *)NULL,		\
+				   (const char *)NULL,		\
+				   (const jsmntok_t *)NULL,	\
+				   (arg)) == true),		\
+		  ({ (*arg) = tal((cmd), typeof(**arg)); (**arg) = (def); (size_t)0;})
 
 /*
  * For when you want an optional raw token.
@@ -105,6 +153,7 @@ typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
  */
 #define p_opt_tok(name, arg)						\
 		  name"",						\
+		  false,						\
 		  false,						\
 		  json_tok_tok,						\
 		  (arg) + 0*sizeof(*(arg) == (jsmntok_t *)NULL),	\
