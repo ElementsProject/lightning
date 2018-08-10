@@ -799,13 +799,15 @@ def test_htlc_send_timeout(node_factory, bitcoind):
     # Make sure channels get announced.
     bitcoind.generate_block(5)
 
-    # Last thing each node receives is the three NODE_ANNOUNCEMENTS.
-    l1.daemon.wait_for_logs(['\[IN\] 0101'] * 3)
-    l2.daemon.wait_for_logs(['\[IN\] 0101'] * 3)
+    # Make sure we have 30 seconds without any incoming traffic from l3 to l2
+    # so it tries to ping before sending WIRE_COMMITMENT_SIGNED.
+    timedout = False
+    while not timedout:
+        try:
+            l2.daemon.wait_for_log('channeld-{} chan #[0-9]*:\[IN\] 0101'.format(l3.info['id']), timeout=30)
+        except TimeoutError:
+            timedout = True
 
-    # Now need to wait have 30 seconds with no traffic to l1, so it
-    # tries to ping before sending WIRE_COMMITMENT_SIGNED.
-    time.sleep(30)
     inv = l3.rpc.invoice(123000, 'test_htlc_send_timeout', 'description')
     with pytest.raises(RpcError) as excinfo:
         l1.rpc.pay(inv['bolt11'])
@@ -817,11 +819,6 @@ def test_htlc_send_timeout(node_factory, bitcoind):
     assert only_one(err.error['data']['failures'])['failcode'] == 0x1007
     assert only_one(err.error['data']['failures'])['erring_node'] == l2.info['id']
     assert only_one(err.error['data']['failures'])['erring_channel'] == chanid2
-
-    # L1 should send a ping beforehand, and get reply, then send commitment.
-    l1.daemon.wait_for_log('channeld.*:\[OUT\] 0012')
-    l1.daemon.wait_for_log('channeld.*:\[IN\] 0013')
-    l1.daemon.wait_for_log('channeld.*:\[OUT\] 0084')
 
     # L2 should send ping, but never receive pong so never send commitment.
     l2.daemon.wait_for_log('channeld.*:\[OUT\] 0012')
