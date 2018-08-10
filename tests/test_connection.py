@@ -3,8 +3,11 @@ from lightning import RpcError
 from utils import DEVELOPER, only_one, wait_for, sync_blockheight
 
 
+import os
 import pytest
 import time
+import random
+import shutil
 import unittest
 
 
@@ -306,6 +309,50 @@ def test_reconnect_gossiping(node_factory):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.daemon.wait_for_log('processing now old peer gone')
+
+
+@pytest.mark.xfail(strict=False)
+def test_connect_stresstest(node_factory, executor):
+    # This test is unreliable, but it's better than nothing.
+    l1 = node_factory.get_node(may_reconnect=True)
+    l2 = node_factory.get_node(may_reconnect=True)
+    l3 = node_factory.get_node(may_reconnect=True)
+
+    # Hack l3 into a clone of l2, to stress reconnect code.
+    l3.stop()
+    shutil.copyfile(os.path.join(l2.daemon.lightning_dir, 'hsm_secret'),
+                    os.path.join(l3.daemon.lightning_dir, 'hsm_secret'))
+    l3.start()
+    l3.info = l3.rpc.getinfo()
+
+    assert l3.info['id'] == l2.info['id']
+
+    # We fire off random connect/disconnect commands.
+    actions = [
+        (l2.rpc.connect, l1.info['id'], 'localhost', l1.port),
+        (l3.rpc.connect, l1.info['id'], 'localhost', l3.port),
+        (l1.rpc.connect, l2.info['id'], 'localhost', l2.port),
+        (l1.rpc.connect, l3.info['id'], 'localhost', l3.port),
+        (l1.rpc.disconnect, l2.info['id'])
+    ]
+    args = [random.choice(actions) for _ in range(1000)]
+
+    # We get them all to connect to each other.
+    futs = []
+    for a in args:
+        futs.append(executor.submit(*a))
+
+    # We don't actually care if they fail, since some will.
+    successes = 0
+    failures = 0
+    for f in futs:
+        if f.exception():
+            failures += 1
+        else:
+            f.result()
+            successes += 1
+
+    assert successes > failures
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
