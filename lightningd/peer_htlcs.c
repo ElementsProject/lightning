@@ -445,7 +445,7 @@ enum onion_type send_htlc_out(struct channel *out, u64 amount, u32 cltv,
 			    payment_hash, onion_routing_packet, in);
 	tal_add_destructor(hout, destroy_hout_subd_died);
 
-	/* We give it 30 seconds to commit htlc. */
+	/* Give channel 30 seconds to commit (first) htlc. */
 	if (!out->htlc_timeout)
 		out->htlc_timeout = new_reltimer(&out->peer->ld->timers,
 						 out, time_from_sec(30),

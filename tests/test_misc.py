@@ -807,15 +807,16 @@ def test_htlc_send_timeout(node_factory, bitcoind):
     # tries to ping before sending WIRE_COMMITMENT_SIGNED.
     time.sleep(30)
     inv = l3.rpc.invoice(123000, 'test_htlc_send_timeout', 'description')
-    try:
+    with pytest.raises(RpcError) as excinfo:
         l1.rpc.pay(inv['bolt11'])
-    except RpcError as err:
-        # Complaints it couldn't find route.
-        assert err.error['code'] == 205
-        # Temporary channel failure
-        assert only_one(err.error['data']['failures'])['failcode'] == 0x1007
-        assert only_one(err.error['data']['failures'])['erring_node'] == l2.info['id']
-        assert only_one(err.error['data']['failures'])['erring_channel'] == chanid2
+
+    err = excinfo.value
+    # Complaints it couldn't find route.
+    assert err.error['code'] == 205
+    # Temporary channel failure
+    assert only_one(err.error['data']['failures'])['failcode'] == 0x1007
+    assert only_one(err.error['data']['failures'])['erring_node'] == l2.info['id']
+    assert only_one(err.error['data']['failures'])['erring_channel'] == chanid2
 
     # L1 should send a ping beforehand, and get reply, then send commitment.
     l1.daemon.wait_for_log('channeld.*:\[OUT\] 0012')
