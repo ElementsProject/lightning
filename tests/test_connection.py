@@ -304,7 +304,7 @@ def test_reconnect_gossiping(node_factory):
                                may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    l2.rpc.dev_ping(l1.info['id'], 1, 65532)
+    l2.rpc.ping(l1.info['id'], 1, 65532)
     l1.daemon.wait_for_log('Forgetting peer')
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
