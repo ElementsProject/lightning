@@ -311,7 +311,6 @@ def test_reconnect_gossiping(node_factory):
     l2.daemon.wait_for_log('processing now old peer gone')
 
 
-@pytest.mark.xfail(strict=False)
 def test_connect_stresstest(node_factory, executor):
     # This test is unreliable, but it's better than nothing.
     l1 = node_factory.get_node(may_reconnect=True)
