@@ -1073,6 +1073,7 @@ static void try_reach_one_addr(struct reaching *reach)
 {
  	int fd, af;
 	bool use_proxy = reach->daemon->use_proxy_always;
+	const struct wireaddr_internal *addr = &reach->addrs[reach->addrnum];
 
 	if (reach->addrnum == tal_count(reach->addrs)) {
 		connect_failed(reach->daemon, &reach->id, reach->seconds_waited,
@@ -1084,7 +1085,7 @@ static void try_reach_one_addr(struct reaching *reach)
  	/* Might not even be able to create eg. IPv6 sockets */
  	af = -1;
 
-	switch (reach->addrs[reach->addrnum].itype) {
+	switch (addr->itype) {
 	case ADDR_INTERNAL_SOCKNAME:
 		af = AF_LOCAL;
 		/* Local sockets don't use tor proxy */
@@ -1100,7 +1101,7 @@ static void try_reach_one_addr(struct reaching *reach)
 		use_proxy = true;
 		break;
 	case ADDR_INTERNAL_WIREADDR:
-		switch (reach->addrs[reach->addrnum].u.wireaddr.type) {
+		switch (addr->u.wireaddr.type) {
 		case ADDR_TYPE_TOR_V2:
 		case ADDR_TYPE_TOR_V3:
 			use_proxy = true;
@@ -1135,7 +1136,7 @@ static void try_reach_one_addr(struct reaching *reach)
 		tal_append_fmt(&reach->errors,
 			       "%s: opening %i socket gave %s. ",
 			       type_to_string(tmpctx, struct wireaddr_internal,
-					      &reach->addrs[reach->addrnum]),
+					      addr),
 			       af, strerror(errno));
 		reach->addrnum++;
 		try_reach_one_addr(reach);
