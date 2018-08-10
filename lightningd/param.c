@@ -96,7 +96,7 @@ static bool make_callback(struct command *cmd,
 	def->is_set = true;
 
 	if (def->cb) {
-		if (def->argsize && def->cb != (param_cb)json_tok_tok) {
+		if (def->argsize) {
 			*(void **)def->arg
 				= arg
 				= tal_arr_label(cmd, char, def->argsize, "param");

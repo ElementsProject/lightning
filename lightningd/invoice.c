@@ -168,12 +168,12 @@ static void json_invoice(struct command *cmd,
 	bool result;
 
 	if (!param(cmd, buffer, params,
-		   p_req("msatoshi", json_tok_tok, &msatoshi),
-		   p_req("label", json_tok_tok, &label),
-		   p_req("description", json_tok_tok, &desctok),
+		   p_req_tal("msatoshi", json_tok_tok, &msatoshi),
+		   p_req_tal("label", json_tok_tok, &label),
+		   p_req_tal("description", json_tok_tok, &desctok),
 		   p_opt_def("expiry", json_tok_u64, &expiry, 3600),
-		   p_opt_tok("fallbacks", &fallbacks),
-		   p_opt_tok("preimage", &preimagetok),
+		   p_opt_tal("fallbacks", json_tok_tok, &fallbacks),
+		   p_opt_tal("preimage", json_tok_tok, &preimagetok),
 		   NULL))
 		return;
 
@@ -366,13 +366,13 @@ static void json_add_invoices(struct json_result *response,
 static void json_listinvoices(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *labeltok;
+	const jsmntok_t *labeltok;
 	struct json_escaped *label;
 	struct json_result *response = new_json_result(cmd);
 	struct wallet *wallet = cmd->ld->wallet;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_tok("label", &labeltok),
+		   p_opt_tal("label", json_tok_tok, &labeltok),
 		   NULL))
 		return;
 
@@ -415,8 +415,8 @@ static void json_delinvoice(struct command *cmd,
 	struct wallet *wallet = cmd->ld->wallet;
 
 	if (!param(cmd, buffer, params,
-		   p_req("label", json_tok_tok, &labeltok),
-		   p_req("status", json_tok_tok, &statustok),
+		   p_req_tal("label", json_tok_tok, &labeltok),
+		   p_req_tal("status", json_tok_tok, &statustok),
 		   NULL))
 		return;
 
@@ -568,7 +568,7 @@ static void json_waitinvoice(struct command *cmd,
 	struct json_escaped *label;
 
 	if (!param(cmd, buffer, params,
-		   p_req("label", json_tok_tok, &labeltok),
+		   p_req_tal("label", json_tok_tok, &labeltok),
 		   NULL))
 		return;
 
@@ -651,8 +651,8 @@ static void json_decodepay(struct command *cmd,
         char *str, *desc, *fail;
 
 	if (!param(cmd, buffer, params,
-		   p_req("bolt11", json_tok_tok, &bolt11tok),
-		   p_opt_tok("description", &desctok),
+		   p_req_tal("bolt11", json_tok_tok, &bolt11tok),
+		   p_opt_tal("description", json_tok_tok, &desctok),
 		   NULL))
 		return;
 

@@ -189,7 +189,7 @@ static void json_help(struct command *cmd,
 	const jsmntok_t *cmdtok;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_tok("command", &cmdtok),
+		   p_opt_tal("command", json_tok_tok, &cmdtok),
 		   NULL))
 		return;
 

@@ -241,7 +241,8 @@ bool json_tok_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok
 			       struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "json_tok_short_channel_id called!\n"); abort(); }
 /* Generated stub for json_tok_tok */
-bool json_tok_tok(const char *buffer UNNEEDED, const jsmntok_t * tok UNNEEDED,
+bool json_tok_tok(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+		  const char *buffer UNNEEDED, const jsmntok_t * tok UNNEEDED,
 		  const jsmntok_t **out UNNEEDED)
 { fprintf(stderr, "json_tok_tok called!\n"); abort(); }
 /* Generated stub for kill_uncommitted_channel */

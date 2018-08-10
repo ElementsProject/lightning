@@ -49,13 +49,6 @@ bool json_tok_bool(const char *buffer, const jsmntok_t *tok, bool *b);
 bool json_tok_sha256(const char *buffer, const jsmntok_t * tok,
 		     struct sha256 *hash);
 
-/*
- * Set the address of @out to @tok.  Used as a param_table callback by handlers that
- * want to unmarshal @tok themselves.
- */
-bool json_tok_tok(const char *buffer, const jsmntok_t * tok,
-		  const jsmntok_t **out);
-
 /* Is this the null primitive? */
 bool json_tok_is_null(const char *buffer, const jsmntok_t *tok);
 

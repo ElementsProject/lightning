@@ -274,7 +274,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	struct lightningd *ld = cmd->ld;
 	struct pubkey destination;
 	struct pubkey source;
-	jsmntok_t *seedtok;
+	const jsmntok_t *seedtok;
 	u64 msatoshi;
 	unsigned cltv;
 	double riskfactor;
@@ -293,7 +293,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 		   p_opt_def("cltv", json_tok_number, &cltv, 9),
 		   p_opt_def("fromid", json_tok_pubkey, &source, ld->id),
 		   p_opt_def("fuzzpercent", json_tok_double, &fuzz, 75.0),
-		   p_opt_tok("seed", &seedtok),
+		   p_opt_tal("seed", json_tok_tok, &seedtok),
 		   NULL))
 		return;
 
@@ -435,7 +435,7 @@ static void json_dev_query_scids(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", json_tok_pubkey, &id),
-		   p_req("scids", json_tok_tok, &scidstok),
+		   p_req_tal("scids", json_tok_tok, &scidstok),
 		   NULL))
 		return;
 

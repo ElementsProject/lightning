@@ -187,3 +187,10 @@ void json_add_address_internal(struct json_result *response,
 	}
 	abort();
 }
+
+bool json_tok_tok(struct command *cmd, const char *name,
+		  const char *buffer, const jsmntok_t * tok,
+		  const jsmntok_t **out)
+{
+	return (*out = tok);
+}
