@@ -30,7 +30,7 @@ ENV BITCOIN_PGP_KEY 01EA5486DE18A882D4C2684590C8019E36C2E964
 RUN mkdir /opt/bitcoin && cd /opt/bitcoin \
     && wget -qO bitcoin.tar.gz "$BITCOIN_URL" \
     && echo "$BITCOIN_SHA256  bitcoin.tar.gz" | sha256sum -c - \
-    && gpg --keyserver keyserver.ubuntu.com --recv-keys "$BITCOIN_PGP_KEY" \
+    && gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "$BITCOIN_PGP_KEY" \
     && wget -qO bitcoin.asc "$BITCOIN_ASC_URL" \
     && gpg --verify bitcoin.asc \
     && BD=bitcoin-$BITCOIN_VERSION/bin \
@@ -47,7 +47,7 @@ ENV LITECOIN_PGP_KEY FE3348877809386C
 RUN mkdir /opt/litecoin && cd /opt/litecoin \
     && wget -qO litecoin.tar.gz "$LITECOIN_URL" \
     && echo "$LITECOIN_SHA256  litecoin.tar.gz" | sha256sum -c - \
-    && gpg --keyserver keyserver.ubuntu.com --recv-keys "$LITECOIN_PGP_KEY" \
+    && gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "$LITECOIN_PGP_KEY" \
     && wget -qO litecoin.asc "$LITECOIN_ASC_URL" \
     && gpg --verify litecoin.asc \
     && BD=litecoin-$LITECOIN_VERSION/bin \
