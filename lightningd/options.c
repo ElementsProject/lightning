@@ -714,11 +714,16 @@ static char *test_daemons_and_exit(struct lightningd *ld)
 	return NULL;
 }
 
-static char *opt_lightningd_usage(struct lightningd *ld) {
+static char *opt_lightningd_usage(struct lightningd *ld)
+{
 	/* Reload config so that --help has the correct network defaults
 	 * to display before it exits */
 	setup_default_config(ld);
-	opt_usage_and_exit("\nA bitcoin lightning daemon.");
+	char *extra = tal_fmt(NULL, "\nA bitcoin lightning daemon (default "
+			"values shown for network: %s).",
+	                get_chainparams(ld)->network_name);
+	opt_usage_and_exit(extra);
+	tal_free(extra);
 	return NULL;
 }
 
