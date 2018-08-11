@@ -727,8 +727,17 @@ void setup_topology(struct chain_topology *topo,
 
 void begin_topology(struct chain_topology *topo)
 {
-	/* Begin fee estimation. */
+#if DEVELOPER
+    if (topo->dev_override_fee_rate) {
+        log_info(topo->log, "Fee estimation disabled because: "
+                 "--dev-override-fee-rates");
+    } else {
+        /* Begin fee estimation. */
+        start_fee_estimate(topo);
+    }
+#else
 	start_fee_estimate(topo);
+#endif
 
 	try_extend_tip(topo);
 }
