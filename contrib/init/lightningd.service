@@ -5,7 +5,7 @@
 # See "man systemd.service" for details.
 
 # Note that almost all daemon options could be specified in
-# /etc/lightningd/bitcoin.conf
+# /etc/lightningd/lightningd.conf
 
 [Unit]
 Description=C-Lightning daemon
