@@ -6,12 +6,11 @@ if [ $# = 0 ]; then
 fi
 
 # git submodule can't run in parallel.  Really.
-echo $$ > .refresh-submodules.$$
-if ! mv -n .refresh-submodules.$$ .refresh-submodules; then
-    rm -f .refresh-submodules.$$
+if ! mkdir .refresh-submodules 2>/dev/null ; then
     exit 0
 fi
-trap "rm -f .refresh-submodules" EXIT
+
+trap "rmdir .refresh-submodules" EXIT
 
 # Be a little careful here, since we do rm -rf!
 for m in "$@"; do
