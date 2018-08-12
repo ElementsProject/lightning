@@ -1027,7 +1027,7 @@ static void display_mnemonic_word_list(void){
     if (ret!=WALLY_OK){
     	status_info("HSM: convert hsm_secret to mnemonic seed failed. error code: %d",ret);
     }
-	status_info("HSM: your should remember / write down the following words to recover your funds: %s",
+	status_info("HSM: you should remember / write down the following words to recover your funds: %s",
 			mnemonic_secret);
 }
 
