@@ -1112,6 +1112,7 @@ def test_permfail_htlc_out(node_factory, bitcoind, executor):
     wait_for(lambda: l2.rpc.listpeers()['peers'] == [])
 
 
+@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_permfail(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2)
@@ -1160,6 +1161,14 @@ def test_permfail(node_factory, bitcoind):
 
     # Now, mine 4 blocks so it sends out the spending tx.
     bitcoind.generate_block(4)
+
+    # onchaind notes to-local payment immediately.
+    assert (closetxid, "confirmed") in set([(o['txid'], o['status']) for o in l1.rpc.listfunds()['outputs']])
+
+    # Restart, should still be confirmed (fails: unwinding blocks erases
+    # the confirmation, and we don't re-make it).
+    l1.restart()
+    wait_for(lambda: (closetxid, "confirmed") in set([(o['txid'], o['status']) for o in l1.rpc.listfunds()['outputs']]))
 
     # It should send the to-wallet tx.
     l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET')
