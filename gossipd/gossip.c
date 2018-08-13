@@ -1163,7 +1163,8 @@ static void destroy_local_update(struct local_update *local_update)
 }
 
 static void queue_local_update(struct daemon *daemon,
-			       struct local_update *local_update)
+			       struct local_update *local_update,
+			       bool instant)
 {
 	/* Free any old unapplied update. */
 	tal_free(find_local_update(daemon, &local_update->scid));
@@ -1171,16 +1172,20 @@ static void queue_local_update(struct daemon *daemon,
 	list_add_tail(&daemon->local_updates, &local_update->list);
 	tal_add_destructor(local_update, destroy_local_update);
 
-	/* Delay 1/4 a broadcast interval */
-	new_reltimer(&daemon->timers, local_update,
-		     time_from_msec(daemon->broadcast_interval/4),
-		     apply_delayed_local_update, local_update);
+	if (instant)
+		apply_delayed_local_update(local_update);
+	else
+		/* Delay 1/4 a broadcast interval */
+		new_reltimer(&daemon->timers, local_update,
+			     time_from_msec(daemon->broadcast_interval/4),
+			     apply_delayed_local_update, local_update);
 }
 
 static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 {
 	struct chan *chan;
 	struct local_update *local_update;
+	bool delay;
 	const struct pubkey *my_id = &peer->daemon->rstate->local_id;
 
 	local_update = tal(peer->daemon, struct local_update);
@@ -1224,9 +1229,12 @@ static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 		return;
 	}
 
+	/* Don't delay the initialization update. */
+	delay = !is_halfchan_defined(&chan->half[local_update->direction]);
+
 	/* channeld has reconnected, remove local disable. */
 	chan->local_disabled = false;
-	queue_local_update(peer->daemon, local_update);
+	queue_local_update(peer->daemon, local_update, delay);
 }
 
 /**
@@ -1862,7 +1870,7 @@ static void gossip_disable_outgoing_halfchan(struct daemon *daemon,
 
 	local_update->disable = true;
 
-	queue_local_update(daemon, local_update);
+	queue_local_update(daemon, local_update, false);
 }
 
 /**
