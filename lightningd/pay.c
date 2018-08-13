@@ -957,8 +957,8 @@ static void json_sendpay(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_req_tal("route", json_tok_tok, &routetok),
 		   p_req("payment_hash", json_tok_sha256, &rhash),
-		   p_opt("msatoshi", json_tok_u64, &msatoshi),
 		   p_opt_tal("description", json_tok_tok, &desctok),
+		   p_opt_tal("msatoshi", json_tok_u64, &msatoshi),
 		   NULL))
 		return;
 
@@ -975,6 +975,7 @@ static void json_sendpay(struct command *cmd,
 	route = tal_arr(cmd, struct route_hop, n_hops);
 
 	for (t = routetok + 1; t < end; t = json_next(t)) {
+		/* FIXME: Use param() to handle parsing each route? -- @wythe */
 		const jsmntok_t *amttok, *idtok, *delaytok, *chantok;
 
 		if (t->type != JSMN_OBJECT) {
@@ -999,7 +1000,7 @@ static void json_sendpay(struct command *cmd,
 		tal_resize(&route, n_hops + 1);
 
 		/* What that hop will forward */
-		if (!json_tok_u64(buffer, amttok, &route[n_hops].amount)) {
+		if (!json_to_u64(buffer, amttok, &route[n_hops].amount)) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "Route %zu invalid msatoshi",
 				     n_hops);

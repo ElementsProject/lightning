@@ -769,7 +769,7 @@ bool json_tok_wtx(struct wallet_tx * tx, const char * buffer,
         if (json_tok_streq(buffer, sattok, "all")) {
                 tx->all_funds = true;
 		tx->amount = max;
-        } else if (!json_tok_u64(buffer, sattok, &tx->amount)) {
+        } else if (!json_to_u64(buffer, sattok, &tx->amount)) {
                 command_fail(tx->cmd, JSONRPC2_INVALID_PARAMS,
 			     "Invalid satoshis");
                 return false;

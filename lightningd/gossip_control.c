@@ -275,7 +275,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	struct pubkey destination;
 	struct pubkey source;
 	const jsmntok_t *seedtok;
-	u64 msatoshi;
+	u64 *msatoshi;
 	unsigned *cltv;
 	double riskfactor;
 	/* Higher fuzz means that some high-fee paths can be discounted
@@ -288,7 +288,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", json_tok_pubkey, &destination),
-		   p_req("msatoshi", json_tok_u64, &msatoshi),
+		   p_req_tal("msatoshi", json_tok_u64, &msatoshi),
 		   p_req("riskfactor", json_tok_double, &riskfactor),
 		   p_opt_def_tal("cltv", json_tok_number, &cltv, 9),
 		   p_opt_def("fromid", json_tok_pubkey, &source, ld->id),
@@ -317,7 +317,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	} else
 		randombytes_buf(&seed, sizeof(seed));
 
-	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination, msatoshi, riskfactor*1000, *cltv, &fuzz, &seed);
+	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination, *msatoshi, riskfactor*1000, *cltv, &fuzz, &seed);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 	command_still_pending(cmd);
 }
