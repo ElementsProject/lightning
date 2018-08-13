@@ -7,6 +7,7 @@
 #include "config.h"
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #define JSMN_STRICT 1
 # include <external/jsmn/jsmn.h>
@@ -52,6 +53,11 @@ bool json_tok_pubkey(const char *buffer, const jsmntok_t *tok,
 /* Extract a short_channel_id from this */
 bool json_tok_short_channel_id(const char *buffer, const jsmntok_t *tok,
 			       struct short_channel_id *scid);
+
+/* Extract number from this (may be a string, or a number literal) */
+bool json_tok_u64(struct command *cmd, const char *name,
+		  const char *buffer, const jsmntok_t *tok,
+		  uint64_t **num);
 
 /* '"fieldname" : "1234:5:6"' */
 void json_add_short_channel_id(struct json_result *response,

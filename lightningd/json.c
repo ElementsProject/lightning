@@ -105,6 +105,20 @@ bool json_tok_number(struct command *cmd, const char *name,
 	return true;
 }
 
+bool json_tok_u64(struct command *cmd, const char *name,
+		  const char *buffer, const jsmntok_t *tok,
+		  uint64_t **num)
+{
+	*num = tal(cmd, uint64_t);
+	if (!json_to_u64(buffer, tok, *num)) {
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%s' should be an unsigned 64 bit integer, not '%.*s'",
+			     name, tok->end - tok->start, buffer + tok->start);
+		return false;
+	}
+	return true;
+}
+
 bool json_tok_pubkey(const char *buffer, const jsmntok_t *tok,
 		     struct pubkey *pubkey)
 {

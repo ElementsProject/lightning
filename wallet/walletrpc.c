@@ -279,19 +279,19 @@ static void json_listaddrs(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 	struct ext_key ext;
 	struct pubkey pubkey;
-	u64 bip32_max_index;
+	u64 *bip32_max_index;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("bip32_max_index", json_tok_u64, &bip32_max_index,
-			     db_get_intvar(cmd->ld->wallet->db,
-					   "bip32_max_index", 0)),
+		   p_opt_def_tal("bip32_max_index", json_tok_u64, &bip32_max_index,
+				 db_get_intvar(cmd->ld->wallet->db,
+				 "bip32_max_index", 0)),
 		   NULL))
 		return;
 
 	json_object_start(response, NULL);
 	json_array_start(response, "addresses");
 
-	for (s64 keyidx = 0; keyidx <= bip32_max_index; keyidx++) {
+	for (s64 keyidx = 0; keyidx <= *bip32_max_index; keyidx++) {
 
 		if(keyidx == BIP32_INITIAL_HARDENED_CHILD){
 			break;

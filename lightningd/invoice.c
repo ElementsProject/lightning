@@ -164,14 +164,14 @@ static void json_invoice(struct command *cmd,
 	struct bolt11 *b11;
 	char *b11enc;
 	const u8 **fallback_scripts = NULL;
-	u64 expiry;
+	u64 *expiry;
 	bool result;
 
 	if (!param(cmd, buffer, params,
 		   p_req_tal("msatoshi", json_tok_tok, &msatoshi),
 		   p_req_tal("label", json_tok_tok, &label),
 		   p_req_tal("description", json_tok_tok, &desctok),
-		   p_opt_def("expiry", json_tok_u64, &expiry, 3600),
+		   p_opt_def_tal("expiry", json_tok_u64, &expiry, 3600),
 		   p_opt_tal("fallbacks", json_tok_tok, &fallbacks),
 		   p_opt_tal("preimage", json_tok_tok, &preimagetok),
 		   NULL))
@@ -183,7 +183,7 @@ static void json_invoice(struct command *cmd,
 		msatoshi_val = NULL;
 	else {
 		msatoshi_val = tal(cmd, u64);
-		if (!json_tok_u64(buffer, msatoshi, msatoshi_val)
+		if (!json_to_u64(buffer, msatoshi, msatoshi_val)
 		    || *msatoshi_val == 0) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "'%.*s' is not a valid positive number",
@@ -294,7 +294,7 @@ static void json_invoice(struct command *cmd,
 	b11->payment_hash = rhash;
 	b11->receiver_id = cmd->ld->id;
 	b11->min_final_cltv_expiry = cmd->ld->config.cltv_final;
-	b11->expiry = expiry;
+	b11->expiry = *expiry;
 	b11->description = tal_steal(b11, desc_val);
 	b11->description_hash = NULL;
 	if (fallback_scripts)
@@ -307,7 +307,7 @@ static void json_invoice(struct command *cmd,
 				       &invoice,
 				       take(msatoshi_val),
 				       take(label_val),
-				       expiry,
+				       *expiry,
 				       b11enc,
 				       b11->description,
 				       &r,
@@ -471,16 +471,16 @@ AUTODATA(json_command, &delinvoice_command);
 static void json_delexpiredinvoice(struct command *cmd, const char *buffer,
 				   const jsmntok_t *params)
 {
-	u64 maxexpirytime;
+	u64 *maxexpirytime;
 	struct json_result *result;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("maxexpirytime", json_tok_u64, &maxexpirytime,
-			     time_now().ts.tv_sec),
+		   p_opt_def_tal("maxexpirytime", json_tok_u64, &maxexpirytime,
+				 time_now().ts.tv_sec),
 		   NULL))
 		return;
 
-	wallet_invoice_delete_expired(cmd->ld->wallet, maxexpirytime);
+	wallet_invoice_delete_expired(cmd->ld->wallet, *maxexpirytime);
 
 	result = new_json_result(cmd);
 	json_object_start(result, NULL);
@@ -498,17 +498,17 @@ static void json_autocleaninvoice(struct command *cmd,
 				  const char *buffer,
 				  const jsmntok_t *params)
 {
-	u64 cycle;
-	u64 exby;
+	u64 *cycle;
+	u64 *exby;
 	struct json_result *result;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("cycle_seconds", json_tok_u64, &cycle, 3600),
-		   p_opt_def("expired_by", json_tok_u64, &exby, 86400),
+		   p_opt_def_tal("cycle_seconds", json_tok_u64, &cycle, 3600),
+		   p_opt_def_tal("expired_by", json_tok_u64, &exby, 86400),
 		   NULL))
 		return;
 
-	wallet_invoice_autoclean(cmd->ld->wallet, cycle, exby);
+	wallet_invoice_autoclean(cmd->ld->wallet, *cycle, *exby);
 
 	result = new_json_result(cmd);
 	json_object_start(result, NULL);
@@ -527,11 +527,11 @@ AUTODATA(json_command, &autocleaninvoice_command);
 static void json_waitanyinvoice(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
 {
-	u64 pay_index;
+	u64 *pay_index;
 	struct wallet *wallet = cmd->ld->wallet;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("lastpay_index", json_tok_u64, &pay_index, 0),
+		   p_opt_def_tal("lastpay_index", json_tok_u64, &pay_index, 0),
 		   NULL))
 		return;
 
@@ -541,7 +541,7 @@ static void json_waitanyinvoice(struct command *cmd,
 	command_still_pending(cmd);
 
 	/* Find next paid invoice. */
-	wallet_invoice_waitany(cmd, wallet, pay_index,
+	wallet_invoice_waitany(cmd, wallet, *pay_index,
 			       &wait_on_invoice, (void*) cmd);
 }
 

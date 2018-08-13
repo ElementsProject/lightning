@@ -130,24 +130,27 @@ struct sanity buffers[] = {
 	{"['42']", true, 0, 0, "missing required"},
 
 	// fail wrong type
-	{"{'u64':'hello', 'double':'3.15'}", true, 0, 0, "\"u64\": \"hello\""},
+	{"{'u64':'hello', 'double':'3.15'}", true, 0, 0, "be an unsigned 64"},
 	{"['3.15', '3.15', 'stuff']", true, 0, 0, "integer"},
 };
 
 static void stest(const struct json *j, struct sanity *b)
 {
-	u64 ival;
+	u64 *ival;
 	double dval;
 	if (!param(cmd, j->buffer, j->toks,
-		   p_req("u64", json_tok_u64, &ival),
+		   p_req_tal("u64", json_tok_u64, &ival),
 		   p_req("double", json_tok_double, &dval), NULL)) {
 		assert(check_fail());
 		assert(b->failed == true);
-		assert(strstr(fail_msg, b->fail_str));
+		if (!strstr(fail_msg, b->fail_str)) {
+			printf("%s != %s\n", fail_msg, b->fail_str);
+			assert(false);
+		}
 	} else {
 		assert(!check_fail());
 		assert(b->failed == false);
-		assert(ival == 42);
+		assert(*ival == 42);
 		assert(dval > 3.1499 && b->dval < 3.1501);
 	}
 }
@@ -200,56 +203,52 @@ static void dup_names(void)
 		json_parse(cmd,
 			   "{ 'u64' : '42', 'u64' : '43', 'double' : '3.15' }");
 
-	u64 i;
+	u64 *i;
 	double d;
 	assert(!param(cmd, j->buffer, j->toks,
-		      p_req("u64", json_tok_u64, &i),
+		      p_req_tal("u64", json_tok_u64, &i),
 		      p_req("double", json_tok_double, &d), NULL));
 }
 
 static void null_params(void)
 {
-	uint64_t *ints = tal_arr(cmd, uint64_t, 5);
-	uint64_t **intptrs = tal_arr(cmd, uint64_t *, 2);
+	uint64_t **intptrs = tal_arr(cmd, uint64_t *, 7);
 	/* no null params */
 	struct json *j =
 	    json_parse(cmd, "[ '10', '11', '12', '13', '14', '15', '16']");
-	for (int i = 0; i < tal_count(ints) - 1; ++i)
-		ints[i] = i;
 
 	assert(param(cmd, j->buffer, j->toks,
-		     p_req("0", json_tok_u64, &ints[0]),
-		     p_req("1", json_tok_u64, &ints[1]),
-		     p_req("2", json_tok_u64, &ints[2]),
-		     p_req("3", json_tok_u64, &ints[3]),
-		     p_opt_def("4", json_tok_u64, &ints[4], 999),
-		     p_opt("5", json_tok_u64, &intptrs[0]),
-		     p_opt("6", json_tok_u64, &intptrs[1]),
+		     p_req_tal("0", json_tok_u64, &intptrs[0]),
+		     p_req_tal("1", json_tok_u64, &intptrs[1]),
+		     p_req_tal("2", json_tok_u64, &intptrs[2]),
+		     p_req_tal("3", json_tok_u64, &intptrs[3]),
+		     p_opt_def_tal("4", json_tok_u64, &intptrs[4], 999),
+		     p_opt_tal("5", json_tok_u64, &intptrs[5]),
+		     p_opt_tal("6", json_tok_u64, &intptrs[6]),
 		     NULL));
-	for (int i = 0; i < tal_count(ints); ++i)
-		assert(ints[i] == i + 10);
-	for (int i = 0; i < tal_count(intptrs); ++i)
-		assert(*intptrs[i] == i + 10 + tal_count(ints));
+	for (int i = 0; i < tal_count(intptrs); ++i) {
+		assert(intptrs[i]);
+		assert(*intptrs[i] == i + 10);
+	}
 
 	/* missing at end */
-	for (int i = 0; i < tal_count(ints); ++i)
-		ints[i] = 42;
-	for (int i = 0; i < tal_count(intptrs); ++i)
-		intptrs[i] = (void *)42;
-
 	j = json_parse(cmd, "[ '10', '11', '12', '13', '14']");
 	assert(param(cmd, j->buffer, j->toks,
-		     p_req("0", json_tok_u64, &ints[0]),
-		     p_req("1", json_tok_u64, &ints[1]),
-		     p_req("2", json_tok_u64, &ints[2]),
-		     p_req("3", json_tok_u64, &ints[3]),
-		     p_opt("4", json_tok_u64, &intptrs[0]),
-		     p_opt("5", json_tok_u64, &intptrs[1]),
-		     p_opt_def("6", json_tok_u64, &ints[4], 888),
+		     p_req_tal("0", json_tok_u64, &intptrs[0]),
+		     p_req_tal("1", json_tok_u64, &intptrs[1]),
+		     p_req_tal("2", json_tok_u64, &intptrs[2]),
+		     p_req_tal("3", json_tok_u64, &intptrs[3]),
+		     p_opt_tal("4", json_tok_u64, &intptrs[4]),
+		     p_opt_tal("5", json_tok_u64, &intptrs[5]),
+		     p_opt_def_tal("6", json_tok_u64, &intptrs[6], 888),
 		     NULL));
-	assert(*intptrs[0] == 14);
-	assert(intptrs[1] == NULL);
-	assert(ints[4] == 888);
+	assert(*intptrs[0] == 10);
+	assert(*intptrs[1] == 11);
+	assert(*intptrs[2] == 12);
+	assert(*intptrs[3] == 13);
+	assert(*intptrs[4] == 14);
+	assert(!intptrs[5]);
+	assert(*intptrs[6] == 888);
 }
 
 #if DEVELOPER
@@ -258,28 +257,28 @@ static void null_params(void)
  */
 static void bad_programmer(void)
 {
-	u64 ival;
-	u64 ival2;
+	u64 *ival;
+	u64 *ival2;
 	double dval;
 	struct json *j = json_parse(cmd, "[ '25', '546', '26' ]");
 
 	/* check for repeated names */
 	assert(!param(cmd, j->buffer, j->toks,
-		      p_req("repeat", json_tok_u64, &ival),
+		      p_req_tal("repeat", json_tok_u64, &ival),
 		      p_req("double", json_tok_double, &dval),
-		      p_req("repeat", json_tok_u64, &ival2), NULL));
+		      p_req_tal("repeat", json_tok_u64, &ival2), NULL));
 	assert(check_fail());
 	assert(strstr(fail_msg, "developer error"));
 
 	assert(!param(cmd, j->buffer, j->toks,
-		      p_req("repeat", json_tok_u64, &ival),
+		      p_req_tal("repeat", json_tok_u64, &ival),
 		      p_req("double", json_tok_double, &dval),
-		      p_req("repeat", json_tok_u64, &ival), NULL));
+		      p_req_tal("repeat", json_tok_u64, &ival), NULL));
 	assert(check_fail());
 	assert(strstr(fail_msg, "developer error"));
 
 	assert(!param(cmd, j->buffer, j->toks,
-		      p_req("u64", json_tok_u64, &ival),
+		      p_req_tal("u64", json_tok_u64, &ival),
 		      p_req("repeat", json_tok_double, &dval),
 		      p_req("repeat", json_tok_double, &dval), NULL));
 	assert(check_fail());
@@ -287,8 +286,8 @@ static void bad_programmer(void)
 
 	/* check for repeated arguments */
 	assert(!param(cmd, j->buffer, j->toks,
-		      p_req("u64", json_tok_u64, &ival),
-		      p_req("repeated-arg", json_tok_u64, &ival), NULL));
+		      p_req_tal("u64", json_tok_u64, &ival),
+		      p_req_tal("repeated-arg", json_tok_u64, &ival), NULL));
 	assert(check_fail());
 	assert(strstr(fail_msg, "developer error"));
 
@@ -302,7 +301,7 @@ static void bad_programmer(void)
 	unsigned int *msatoshi;
 	double riskfactor;
 	assert(!param(cmd, j->buffer, j->toks,
-		      p_req("u64", json_tok_u64, &ival),
+		      p_req_tal("u64", json_tok_u64, &ival),
 		      p_req("double", json_tok_double, &dval),
 		      p_opt_def_tal("msatoshi", json_tok_number, &msatoshi, 100),
 		      p_req("riskfactor", json_tok_double, &riskfactor), NULL));
@@ -382,7 +381,7 @@ static void sendpay(void)
 		   p_req_tal("route", json_tok_tok, &routetok),
 		   p_req_tal("cltv", json_tok_number, &cltv),
 		   p_opt_tal("note", json_tok_tok, &note),
-		   p_opt("msatoshi", json_tok_u64, &msatoshi),
+		   p_opt_tal("msatoshi", json_tok_u64, &msatoshi),
 		   NULL))
 		assert(false);
 
@@ -405,7 +404,7 @@ static void sendpay_nulltok(void)
 		   p_req_tal("route", json_tok_tok, &routetok),
 		   p_req_tal("cltv", json_tok_number, &cltv),
 		   p_opt_tal("note", json_tok_tok, &note),
-		   p_opt("msatoshi", json_tok_u64, &msatoshi),
+		   p_opt_tal("msatoshi", json_tok_u64, &msatoshi),
 		   NULL))
 		assert(false);
 
@@ -425,7 +424,7 @@ static bool json_tok_msat(struct command *cmd,
 	}
 	*msatoshi_val = tal(cmd, u64);
 
-	if (json_tok_u64(buffer, tok, *msatoshi_val) && *msatoshi_val != 0)
+	if (json_to_u64(buffer, tok, *msatoshi_val) && *msatoshi_val != 0)
 		return true;
 
 	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
