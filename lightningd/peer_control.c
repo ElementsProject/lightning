@@ -508,12 +508,12 @@ send_error:
 	peer_start_openingd(peer, &cs, peer_fd, gossip_fd, error);
 }
 
-static enum watch_result funding_lockin_cb(struct channel *channel,
+static enum watch_result funding_lockin_cb(struct lightningd *ld,
+					   struct channel *channel,
 					   const struct bitcoin_txid *txid,
 					   unsigned int depth)
 {
 	const char *txidstr;
-	struct lightningd *ld = channel->peer->ld;
 
 	txidstr = type_to_string(channel, struct bitcoin_txid, txid);
 	log_debug(channel->log, "Funding tx %s depth %u of %u",
