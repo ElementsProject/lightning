@@ -75,11 +75,12 @@ static void onchain_tx_depth(struct channel *channel,
 /**
  * Entrypoint for the txwatch callback, calls onchain_tx_depth.
  */
-static enum watch_result onchain_tx_watched(struct channel *channel,
+static enum watch_result onchain_tx_watched(struct lightningd *ld,
+					    struct channel *channel,
 					    const struct bitcoin_txid *txid,
 					    unsigned int depth)
 {
-	u32 blockheight = channel->peer->ld->topology->tip->height;
+	u32 blockheight = get_block_height(ld->topology);
 	if (depth == 0) {
 		log_unusual(channel->log, "Chain reorganization!");
 		channel_set_owner(channel, NULL, false);
@@ -93,7 +94,7 @@ static enum watch_result onchain_tx_watched(struct channel *channel,
 	}
 
 	/* Store the channeltx so we can replay later */
-	wallet_channeltxs_add(channel->peer->ld->wallet, channel,
+	wallet_channeltxs_add(ld->wallet, channel,
 			      WIRE_ONCHAIN_DEPTH, txid, 0, blockheight);
 
 	onchain_tx_depth(channel, txid, depth);

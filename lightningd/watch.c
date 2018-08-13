@@ -58,7 +58,7 @@ struct txowatch {
 struct txwatch {
 	struct chain_topology *topo;
 
-	/* Channel who owns us. */
+	/* Channel who owns us (or NULL, for wallet usage). */
 	struct channel *channel;
 
 	/* Transaction to watch. */
@@ -66,7 +66,8 @@ struct txwatch {
 	unsigned int depth;
 
 	/* A new depth (0 if kicked out, otherwise 1 = tip, etc.) */
-	enum watch_result (*cb)(struct channel *channel,
+	enum watch_result (*cb)(struct lightningd *ld,
+				struct channel *channel,
 				const struct bitcoin_txid *txid,
 				unsigned int depth);
 };
@@ -121,9 +122,10 @@ struct txwatch *watch_txid(const tal_t *ctx,
 			   struct chain_topology *topo,
 			   struct channel *channel,
 			   const struct bitcoin_txid *txid,
-			   enum watch_result (*cb)(struct channel *channel,
-						    const struct bitcoin_txid *,
-						    unsigned int depth))
+			   enum watch_result (*cb)(struct lightningd *ld,
+						   struct channel *channel,
+						   const struct bitcoin_txid *,
+						   unsigned int depth))
 {
 	struct txwatch *w;
 
@@ -168,9 +170,10 @@ struct txwatch *watch_tx(const tal_t *ctx,
 			 struct chain_topology *topo,
 			 struct channel *channel,
 			 const struct bitcoin_tx *tx,
-			 enum watch_result (*cb)(struct channel *channel,
-						  const struct bitcoin_txid *,
-						  unsigned int depth))
+			 enum watch_result (*cb)(struct lightningd *ld,
+						 struct channel *channel,
+						 const struct bitcoin_txid *,
+						 unsigned int depth))
 {
 	struct bitcoin_txid txid;
 
@@ -208,15 +211,21 @@ static bool txw_fire(struct txwatch *txw,
 		     unsigned int depth)
 {
 	enum watch_result r;
+	struct log *log;
 
 	if (depth == txw->depth)
 		return false;
-	log_debug(txw->channel->log,
+	if (txw->channel)
+		log = txw->channel->log;
+	else
+		log = txw->topo->log;
+
+	log_debug(log,
 		  "Got depth change %u->%u for %s",
 		  txw->depth, depth,
 		  type_to_string(tmpctx, struct bitcoin_txid, &txw->txid));
 	txw->depth = depth;
-	r = txw->cb(txw->channel, txid, txw->depth);
+	r = txw->cb(txw->topo->bitcoind->ld, txw->channel, txid, txw->depth);
 	switch (r) {
 	case DELETE_WATCH:
 		tal_free(txw);
