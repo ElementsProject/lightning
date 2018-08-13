@@ -1055,20 +1055,18 @@ void wallet_peer_delete(struct wallet *w, u64 peer_dbid)
 	db_exec_prepared(w->db, stmt);
 }
 
-static void wallet_output_confirm(struct wallet *w,
-				  const struct bitcoin_txid *txid,
-				  const u32 outnum,
-				  const u32 confirmation_height)
+void wallet_confirm_tx(struct wallet *w,
+		       const struct bitcoin_txid *txid,
+		       const u32 confirmation_height)
 {
 	sqlite3_stmt *stmt;
 	assert(confirmation_height > 0);
 	stmt = db_prepare(w->db,
 			  "UPDATE outputs "
 			  "SET confirmation_height = ? "
-			  "WHERE prev_out_tx = ? AND prev_out_index = ?");
+			  "WHERE prev_out_tx = ?");
 	sqlite3_bind_int(stmt, 1, confirmation_height);
 	sqlite3_bind_sha256_double(stmt, 2, &txid->shad);
-	sqlite3_bind_int(stmt, 3, outnum);
 
 	db_exec_prepared(w->db, stmt);
 }
@@ -1111,7 +1109,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 			 * the output from a transaction we created
 			 * ourselves. */
 			if (blockheight)
-				wallet_output_confirm(w, &utxo->txid, utxo->outnum, *blockheight);
+				wallet_confirm_tx(w, &utxo->txid, *blockheight);
 			tal_free(utxo);
 			continue;
 		}

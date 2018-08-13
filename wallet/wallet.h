@@ -226,6 +226,13 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		     enum wallet_output_type type);
 
 /**
+ * wallet_confirm_tx - Confirm a tx which contains a UTXO.
+ */
+void wallet_confirm_tx(struct wallet *w,
+		       const struct bitcoin_txid *txid,
+		       const u32 confirmation_height);
+
+/**
  * wallet_update_output_status - Perform an output state transition
  *
  * Change the current status of an output we are tracking in the
