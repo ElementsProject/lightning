@@ -833,11 +833,11 @@ static void json_close(struct command *cmd,
 	struct peer *peer;
 	struct channel *channel;
 	unsigned int *timeout;
-	bool force;
+	bool *force;
 
 	if (!param(cmd, buffer, params,
 		   p_req_tal("id", json_tok_tok, &idtok),
-		   p_opt_def("force", json_tok_bool, &force, false),
+		   p_opt_def_tal("force", json_tok_bool, &force, false),
 		   p_opt_def_tal("timeout", json_tok_number, &timeout, 30),
 		   NULL))
 		return;
@@ -891,7 +891,7 @@ static void json_close(struct command *cmd,
 	}
 
 	/* Register this command for later handling. */
-	register_close_command(cmd->ld, cmd, channel, *timeout, force);
+	register_close_command(cmd->ld, cmd, channel, *timeout, *force);
 
 	/* Wait until close drops down to chain. */
 	command_still_pending(cmd);
@@ -1169,22 +1169,15 @@ static void json_dev_forget_channel(struct command *cmd, const char *buffer,
 	struct dev_forget_channel_cmd *forget = tal(cmd, struct dev_forget_channel_cmd);
 	forget->cmd = cmd;
 
-	/* If &forget->force is used directly in p_opt_def() below then
-	 * gcc 7.3.0 fails with:
-	 * 'operation on ‘forget->force’ may be undefined [-Werror=sequence-point]'
-	 *
-	 * See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86584
-	 *
-	 * Hence this indirection.
-	 */
-	bool *force = &forget->force;
+	bool *force;
 	if (!param(cmd, buffer, params,
 		   p_req("id", json_tok_pubkey, &peerid),
 		   p_opt("short_channel_id", json_tok_short_channel_id, &scid),
-		   p_opt_def("force", json_tok_bool, force, false),
+		   p_opt_def_tal("force", json_tok_bool, &force, false),
 		   NULL))
 		return;
 
+	forget->force = *force;
 	peer = peer_by_id(cmd->ld, &peerid);
 	if (!peer) {
 		command_fail(cmd, LIGHTNINGD,

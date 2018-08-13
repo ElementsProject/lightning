@@ -50,7 +50,6 @@ struct fail_format {
 };
 
 static struct fail_format fail_formats[] = {
-	{json_tok_bool, "'%s' should be 'true' or 'false', not '%.*s'"},
 	{json_tok_percent,
 	 "'%s' should be a double in range [0.0, 100.0], not '%.*s'"},
 	{json_tok_newaddr, "'%s' should be 'bech32' or 'p2sh-segwit', not '%.*s'"},
