@@ -61,6 +61,11 @@ struct wallet *wallet_new(struct lightningd *ld,
 	return wallet;
 }
 
+#define UTXO_FIELDS							\
+	"prev_out_tx, prev_out_index, value, type, status, keyindex, "	\
+	"channel_id, peer_id, commitment_point, confirmation_height, "	\
+	"spend_height"
+
 /* We actually use the db constraints to uniquify, so OK if this fails. */
 bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		     enum wallet_output_type type)
@@ -68,17 +73,8 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 	sqlite3_stmt *stmt;
 
 	stmt = db_prepare(w->db, "INSERT INTO outputs ("
-			  "prev_out_tx, "
-			  "prev_out_index, "
-			  "value, "
-			  "type, "
-			  "status, "
-			  "keyindex, "
-			  "channel_id, "
-			  "peer_id, "
-			  "commitment_point, "
-			  "confirmation_height, "
-			  "spend_height) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
+			  UTXO_FIELDS
+			  ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
 	sqlite3_bind_blob(stmt, 1, &utxo->txid, sizeof(utxo->txid), SQLITE_TRANSIENT);
 	sqlite3_bind_int(stmt, 2, utxo->outnum);
 	sqlite3_bind_int64(stmt, 3, utxo->amount);
@@ -175,10 +171,6 @@ bool wallet_update_output_status(struct wallet *w,
 	return sqlite3_changes(w->db->sql) > 0;
 }
 
-#define UTXO_FIELDS							\
-	"prev_out_tx, prev_out_index, value, type, status, keyindex, "	\
-	"channel_id, peer_id, commitment_point, confirmation_height, "	\
-	"spend_height"
 struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum output_status state)
 {
 	struct utxo **results;
@@ -195,6 +187,26 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 	}
 
 	results = tal_arr(ctx, struct utxo*, 0);
+	for (i=0; sqlite3_step(stmt) == SQLITE_ROW; i++) {
+		tal_resize(&results, i+1);
+		results[i] = tal(results, struct utxo);
+		wallet_stmt2output(stmt, results[i]);
+	}
+	db_stmt_done(stmt);
+
+	return results;
+}
+
+struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx, struct wallet *w)
+{
+	struct utxo **results;
+	int i;
+
+	sqlite3_stmt *stmt = db_prepare(
+		w->db, "SELECT " UTXO_FIELDS
+		" FROM outputs WHERE channel_id IS NOT NULL and confirmation_height IS NULL");
+
+       	results = tal_arr(ctx, struct utxo*, 0);
 	for (i=0; sqlite3_step(stmt) == SQLITE_ROW; i++) {
 		tal_resize(&results, i+1);
 		results[i] = tal(results, struct utxo);

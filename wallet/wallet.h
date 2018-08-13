@@ -249,6 +249,16 @@ bool wallet_update_output_status(struct wallet *w,
 struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w,
 			      const enum output_status state);
 
+
+/**
+ * wallet_get_unconfirmed_closeinfo_utxos - Retrieve any unconfirmed utxos w/ closeinfo
+ *
+ * Returns a `tal_arr` of `utxo` structs. Double indirection in order
+ * to be able to steal individual elements onto something else.
+ */
+struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
+						     struct wallet *w);
+
 const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 					const u64 value,
 					const u32 feerate_per_kw,
