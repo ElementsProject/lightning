@@ -137,10 +137,10 @@ struct sanity buffers[] = {
 static void stest(const struct json *j, struct sanity *b)
 {
 	u64 *ival;
-	double dval;
+	double *dval;
 	if (!param(cmd, j->buffer, j->toks,
 		   p_req_tal("u64", json_tok_u64, &ival),
-		   p_req("double", json_tok_double, &dval), NULL)) {
+		   p_req_tal("double", json_tok_double, &dval), NULL)) {
 		assert(check_fail());
 		assert(b->failed == true);
 		if (!strstr(fail_msg, b->fail_str)) {
@@ -151,7 +151,7 @@ static void stest(const struct json *j, struct sanity *b)
 		assert(!check_fail());
 		assert(b->failed == false);
 		assert(*ival == 42);
-		assert(dval > 3.1499 && b->dval < 3.1501);
+		assert(*dval > 3.1499 && b->dval < 3.1501);
 	}
 }
 
@@ -204,10 +204,10 @@ static void dup_names(void)
 			   "{ 'u64' : '42', 'u64' : '43', 'double' : '3.15' }");
 
 	u64 *i;
-	double d;
+	double *d;
 	assert(!param(cmd, j->buffer, j->toks,
 		      p_req_tal("u64", json_tok_u64, &i),
-		      p_req("double", json_tok_double, &d), NULL));
+		      p_req_tal("double", json_tok_double, &d), NULL));
 }
 
 static void null_params(void)
@@ -259,28 +259,28 @@ static void bad_programmer(void)
 {
 	u64 *ival;
 	u64 *ival2;
-	double dval;
+	double *dval;
 	struct json *j = json_parse(cmd, "[ '25', '546', '26' ]");
 
 	/* check for repeated names */
 	assert(!param(cmd, j->buffer, j->toks,
 		      p_req_tal("repeat", json_tok_u64, &ival),
-		      p_req("double", json_tok_double, &dval),
+		      p_req_tal("double", json_tok_double, &dval),
 		      p_req_tal("repeat", json_tok_u64, &ival2), NULL));
 	assert(check_fail());
 	assert(strstr(fail_msg, "developer error"));
 
 	assert(!param(cmd, j->buffer, j->toks,
 		      p_req_tal("repeat", json_tok_u64, &ival),
-		      p_req("double", json_tok_double, &dval),
+		      p_req_tal("double", json_tok_double, &dval),
 		      p_req_tal("repeat", json_tok_u64, &ival), NULL));
 	assert(check_fail());
 	assert(strstr(fail_msg, "developer error"));
 
 	assert(!param(cmd, j->buffer, j->toks,
 		      p_req_tal("u64", json_tok_u64, &ival),
-		      p_req("repeat", json_tok_double, &dval),
-		      p_req("repeat", json_tok_double, &dval), NULL));
+		      p_req_tal("repeat", json_tok_double, &dval),
+		      p_req_tal("repeat", json_tok_double, &dval), NULL));
 	assert(check_fail());
 	assert(strstr(fail_msg, "developer error"));
 
@@ -299,12 +299,12 @@ static void bad_programmer(void)
 	/* Add required param after optional */
 	j = json_parse(cmd, "[ '25', '546', '26', '1.1' ]");
 	unsigned int *msatoshi;
-	double riskfactor;
+	double *riskfactor;
 	assert(!param(cmd, j->buffer, j->toks,
 		      p_req_tal("u64", json_tok_u64, &ival),
-		      p_req("double", json_tok_double, &dval),
+		      p_req_tal("double", json_tok_double, &dval),
 		      p_opt_def_tal("msatoshi", json_tok_number, &msatoshi, 100),
-		      p_req("riskfactor", json_tok_double, &riskfactor), NULL));
+		      p_req_tal("riskfactor", json_tok_double, &riskfactor), NULL));
 	assert(*msatoshi);
 	assert(*msatoshi == 100);
 	assert(check_fail());

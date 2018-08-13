@@ -277,34 +277,34 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	const jsmntok_t *seedtok;
 	u64 *msatoshi;
 	unsigned *cltv;
-	double riskfactor;
+	double *riskfactor;
 	/* Higher fuzz means that some high-fee paths can be discounted
 	 * for an even larger value, increasing the scope for route
 	 * randomization (the higher-fee paths become more likely to
 	 * be selected) at the cost of increasing the probability of
 	 * selecting the higher-fee paths. */
-	double fuzz;
+	double *fuzz;
 	struct siphash_seed seed;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", json_tok_pubkey, &destination),
 		   p_req_tal("msatoshi", json_tok_u64, &msatoshi),
-		   p_req("riskfactor", json_tok_double, &riskfactor),
+		   p_req_tal("riskfactor", json_tok_double, &riskfactor),
 		   p_opt_def_tal("cltv", json_tok_number, &cltv, 9),
 		   p_opt_def("fromid", json_tok_pubkey, &source, ld->id),
-		   p_opt_def("fuzzpercent", json_tok_double, &fuzz, 75.0),
 		   p_opt_tal("seed", json_tok_tok, &seedtok),
+		   p_opt_def_tal("fuzzpercent", json_tok_double, &fuzz, 75.0),
 		   NULL))
 		return;
 
-	if (!(0.0 <= fuzz && fuzz <= 100.0)) {
+	if (!(0.0 <= *fuzz && *fuzz <= 100.0)) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "fuzz must be in range 0.0 <= %f <= 100.0",
-			     fuzz);
+			     *fuzz);
 		return;
 	}
 	/* Convert from percentage */
-	fuzz = fuzz / 100.0;
+	*fuzz = *fuzz / 100.0;
 
 	if (seedtok) {
 		if (seedtok->end - seedtok->start > sizeof(seed))
@@ -317,7 +317,9 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	} else
 		randombytes_buf(&seed, sizeof(seed));
 
-	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination, *msatoshi, riskfactor*1000, *cltv, &fuzz, &seed);
+	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination,
+						 *msatoshi, *riskfactor * 1000,
+						 *cltv, fuzz, &seed);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 	command_still_pending(cmd);
 }
