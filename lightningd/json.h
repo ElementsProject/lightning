@@ -41,6 +41,11 @@ void json_add_pubkey(struct json_result *response,
 void json_add_txid(struct json_result *result, const char *fieldname,
 		   const struct bitcoin_txid *txid);
 
+/* Extract boolean this (must be a true or false) */
+bool json_tok_bool(struct command *cmd, const char *name,
+		   const char *buffer, const jsmntok_t *tok,
+		   bool **b);
+
 /* Extract double from this (must be a number literal) */
 bool json_tok_double(struct command *cmd, const char *name,
 		     const char *buffer, const jsmntok_t *tok,

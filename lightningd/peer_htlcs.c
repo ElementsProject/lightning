@@ -1695,11 +1695,11 @@ static void json_dev_ignore_htlcs(struct command *cmd, const char *buffer,
 {
 	struct pubkey peerid;
 	struct peer *peer;
-	bool ignore;
+	bool *ignore;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", json_tok_pubkey, &peerid),
-		   p_req("ignore", json_tok_bool, &ignore),
+		   p_req_tal("ignore", json_tok_bool, &ignore),
 		   NULL))
 		return;
 
@@ -1709,7 +1709,7 @@ static void json_dev_ignore_htlcs(struct command *cmd, const char *buffer,
 			     "Could not find channel with that peer");
 		return;
 	}
-	peer->ignore_htlcs = ignore;
+	peer->ignore_htlcs = *ignore;
 
 	command_success(cmd, null_response(cmd));
 }

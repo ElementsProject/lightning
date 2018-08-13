@@ -218,7 +218,9 @@ void json_object_end(struct json_result *ptr UNNEEDED)
 void json_object_start(struct json_result *ptr UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_object_start called!\n"); abort(); }
 /* Generated stub for json_tok_bool */
-bool json_tok_bool(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, bool *b UNNEEDED)
+bool json_tok_bool(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+		   const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		   bool **b UNNEEDED)
 { fprintf(stderr, "json_tok_bool called!\n"); abort(); }
 /* Generated stub for json_tok_channel_id */
 bool json_tok_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,

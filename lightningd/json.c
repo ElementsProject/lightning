@@ -91,6 +91,29 @@ void json_add_txid(struct json_result *result, const char *fieldname,
 	json_add_string(result, fieldname, hex);
 }
 
+bool json_tok_bool(struct command *cmd, const char *name,
+		   const char *buffer, const jsmntok_t *tok,
+		   bool **b)
+{
+	*b = tal(cmd, bool);
+	if (tok->type == JSMN_PRIMITIVE) {
+		if (tok->end - tok->start == strlen("true")
+		    && !memcmp(buffer + tok->start, "true", strlen("true"))) {
+			**b = true;
+			return true;
+		}
+		if (tok->end - tok->start == strlen("false")
+		    && !memcmp(buffer + tok->start, "false", strlen("false"))) {
+			**b = false;
+			return true;
+		}
+	}
+	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		     "'%s' should be 'true' or 'false', not '%.*s'",
+		     name, tok->end - tok->start, buffer + tok->start);
+	return false;
+}
+
 bool json_tok_double(struct command *cmd, const char *name,
 		     const char *buffer, const jsmntok_t *tok,
 		     double **num)

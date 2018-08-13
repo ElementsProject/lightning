@@ -42,9 +42,6 @@ bool json_tok_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 /* Extract double in range [0.0, 100.0] */
 bool json_tok_percent(const char *buffer, const jsmntok_t *tok, double *num);
 
-/* Extract boolean this (must be a true or false) */
-bool json_tok_bool(const char *buffer, const jsmntok_t *tok, bool *b);
-
 /* Extract sha256 hash */
 bool json_tok_sha256(const char *buffer, const jsmntok_t * tok,
 		     struct sha256 *hash);
