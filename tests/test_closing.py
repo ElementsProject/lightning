@@ -244,7 +244,8 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
     bitcoind.generate_block(1)
     for p in peers:
         p.daemon.wait_for_log(' to ONCHAIN')
-        wait_for(lambda: only_one(p.rpc.listpeers(l1.info['id'])['peers'][0]['channels'])['status'][1] == 'ONCHAIN:Tracking mutual close transaction')
+        wait_for(lambda: 'ONCHAIN:Tracking mutual close transaction' in only_one(p.rpc.listpeers(l1.info['id'])['peers'][0]['channels'])['status'])
+
     l1.daemon.wait_for_logs([' to ONCHAIN'] * num_peers)
 
 
