@@ -600,7 +600,7 @@ static void json_pay(struct command *cmd,
 		     const char *buffer, const jsmntok_t *params)
 {
 	const jsmntok_t *bolt11tok, *desctok;
-	double riskfactor;
+	double *riskfactor;
 	double maxfeepercent;
 	u64 *msatoshi;
 	struct pay *pay = tal(cmd, struct pay);
@@ -612,9 +612,9 @@ static void json_pay(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req_tal("bolt11", json_tok_tok, &bolt11tok),
-		   p_opt_tal("description", json_tok_tok, &desctok),
 		   p_opt_tal("msatoshi", json_tok_u64, &msatoshi),
-		   p_opt_def("riskfactor", json_tok_double, &riskfactor, 1.0),
+		   p_opt_tal("description", json_tok_tok, &desctok),
+		   p_opt_def_tal("riskfactor", json_tok_double, &riskfactor, 1.0),
 		   p_opt_def("maxfeepercent", json_tok_percent, &maxfeepercent, 0.5),
 		   p_opt_def_tal("retry_for", json_tok_number, &retryfor, 60),
 		   p_opt_def_tal("maxdelay", json_tok_number, &maxdelay,
@@ -661,7 +661,7 @@ static void json_pay(struct command *cmd,
 		}
 	}
 	pay->msatoshi = *msatoshi;
-	pay->riskfactor = riskfactor * 1000;
+	pay->riskfactor = *riskfactor * 1000;
 	pay->maxfeepercent = maxfeepercent;
 
 	if (*maxdelay < pay->min_final_cltv_expiry) {

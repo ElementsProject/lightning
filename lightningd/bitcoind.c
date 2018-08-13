@@ -303,7 +303,7 @@ static bool extract_feerate(struct bitcoin_cli *bcli,
 	if (!feeratetok)
 		return false;
 
-	return json_tok_double(output, feeratetok, feerate);
+	return json_to_double(output, feeratetok, feerate);
 }
 
 struct estimatefee {

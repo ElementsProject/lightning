@@ -66,7 +66,7 @@ bool json_to_u64(const char *buffer, const jsmntok_t *tok,
 	return true;
 }
 
-bool json_tok_double(const char *buffer, const jsmntok_t *tok, double *num)
+bool json_to_double(const char *buffer, const jsmntok_t *tok, double *num)
 {
 	char *end;
 
@@ -78,7 +78,7 @@ bool json_tok_double(const char *buffer, const jsmntok_t *tok, double *num)
 
 bool json_tok_percent(const char *buffer, const jsmntok_t *tok, double *num)
 {
-	if (!json_tok_double(buffer, tok, num))
+	if (!json_to_double(buffer, tok, num))
 		return false;
 
 	/* Ensure it is in the range [0.0, 100.0] */

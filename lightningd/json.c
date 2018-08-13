@@ -91,6 +91,20 @@ void json_add_txid(struct json_result *result, const char *fieldname,
 	json_add_string(result, fieldname, hex);
 }
 
+bool json_tok_double(struct command *cmd, const char *name,
+		     const char *buffer, const jsmntok_t *tok,
+		     double **num)
+{
+	*num = tal(cmd, double);
+	if (!json_to_double(buffer, tok, *num)) {
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%s' should be a double, not '%.*s'",
+			     name, tok->end - tok->start, buffer + tok->start);
+		return false;
+	}
+	return true;
+}
+
 bool json_tok_number(struct command *cmd, const char *name,
 		     const char *buffer, const jsmntok_t *tok,
 		     unsigned int **num)
