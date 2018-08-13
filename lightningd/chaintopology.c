@@ -221,6 +221,49 @@ void broadcast_tx(struct chain_topology *topo,
 	bitcoind_sendrawtx(topo->bitcoind, otx->hextx, broadcast_done, otx);
 }
 
+static enum watch_result closeinfo_txid_confirmed(struct lightningd *ld,
+						  struct channel *channel,
+						  const struct bitcoin_txid *txid,
+						  unsigned int depth)
+{
+	/* We delete ourselves first time, so should not be reorged out!! */
+	assert(depth > 0);
+	/* Subtle: depth 1 == current block. */
+	wallet_confirm_tx(ld->wallet, txid,
+			  get_block_height(ld->topology) + 1 - depth);
+	return DELETE_WATCH;
+}
+
+/* We need to know if close_info UTXOs (which the wallet doesn't natively know
+ * how to spend, so is not in the normal path) get reconfirmed.
+ *
+ * This can happen on startup (where we manually unwind 100 blocks) or on a
+ * reorg.  The db NULLs out the confirmation_height, so we can't easily figure
+ * out just the new ones (and removing the ON DELETE SET NULL clause is
+ * non-trivial).
+ *
+ * So every time, we just set a notification for every tx in this class we're
+ * not already watching: there are not usually many, nor many reorgs, so the
+ * redundancy is OK.
+ */
+static void watch_for_utxo_reconfirmation(struct chain_topology *topo,
+					  struct wallet *wallet)
+{
+	struct utxo **unconfirmed;
+
+	unconfirmed = wallet_get_unconfirmed_closeinfo_utxos(tmpctx, wallet);
+	for (size_t i = 0; i < tal_count(unconfirmed); i++) {
+		assert(unconfirmed[i]->close_info != NULL);
+		assert(unconfirmed[i]->blockheight == NULL);
+
+		if (find_txwatch(topo, &unconfirmed[i]->txid, NULL))
+			continue;
+
+		notleak(watch_txid(topo, topo, NULL, &unconfirmed[i]->txid,
+				   closeinfo_txid_confirmed));
+	}
+}
+
 static const char *feerate_name(enum feerate feerate)
 {
 	return feerate == FEERATE_IMMEDIATE ? "Immediate"
@@ -457,6 +500,8 @@ static void remove_tip(struct chain_topology *topo)
 		txwatch_fire(topo, &txs[i], 0);
 
 	wallet_block_remove(topo->wallet, b);
+	/* This may have unconfirmed txs: reconfirm as we add blocks. */
+	watch_for_utxo_reconfirmation(topo, topo->wallet);
 	block_map_del(&topo->block_map, b);
 	tal_free(b);
 }
@@ -544,6 +589,8 @@ static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 	/* Rollback to the given blockheight, so we start track
 	 * correctly again */
 	wallet_blocks_rollback(topo->wallet, topo->max_blockheight);
+	/* This may have unconfirmed txs: reconfirm as we add blocks. */
+	watch_for_utxo_reconfirmation(topo, topo->wallet);
 
 	/* Get up to speed with topology. */
 	bitcoind_getblockhash(bitcoind, topo->max_blockheight,

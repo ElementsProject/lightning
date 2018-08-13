@@ -1112,7 +1112,6 @@ def test_permfail_htlc_out(node_factory, bitcoind, executor):
     wait_for(lambda: l2.rpc.listpeers()['peers'] == [])
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_permfail(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2)
