@@ -299,14 +299,6 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	const struct htlc **committed, **adding, **removing;
 	const struct channel_view *view;
 	size_t i;
-
-	/* BOLT #2:
-	 *
-	 * A receiving node MUST fail the channel if:
-	 *...
-	 * - the chain_hash value is set to a hash of a chain that is unknown
-	 *   to the receiver.
-     */
 	const struct chainparams *chain_params = chainparams_by_hash(chain_hash);
 	if (chain_params == NULL) {
 		return CHANNEL_ERR_UNKNOWN_CHAIN_HASH;
