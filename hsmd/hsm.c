@@ -976,6 +976,20 @@ static void populate_secretstuff(void)
 				  &secretstuff.bip32) != WALLY_OK)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Can't derive private bip32 key");
+
+#if DEVELOPER
+	unsigned char master_ext_prv_key_serialized[BIP32_SERIALIZED_LEN];
+	bip32_key_serialize(&master_extkey, BIP32_FLAG_KEY_PRIVATE, master_ext_prv_key_serialized, sizeof(master_ext_prv_key_serialized));
+
+	char *base58_check_encoded_master_ext_prv_key = NULL;
+	wally_base58_from_bytes(master_ext_prv_key_serialized, sizeof(master_ext_prv_key_serialized), BASE58_FLAG_CHECKSUM, &base58_check_encoded_master_ext_prv_key);
+	/* given this master extended private key, the first keypair used is found at BIP32 derivation path m/0/0/0 */
+	/* the second is at m/0/0/1, etc... note that non-hardened derivation is used. */
+	status_debug("HSM: master key %s", base58_check_encoded_master_ext_prv_key);
+	wally_free_string(base58_check_encoded_master_ext_prv_key);
+
+	wally_bzero(master_ext_prv_key_serialized, sizeof(master_ext_prv_key_serialized));
+#endif /* DEVELOPER */
 }
 
 static void bitcoin_pubkey(struct pubkey *pubkey, u32 index)
