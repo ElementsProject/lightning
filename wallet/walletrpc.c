@@ -215,18 +215,38 @@ encode_pubkey_to_addr(const tal_t *ctx,
 	return out;
 }
 
+/* Extract a bool indicating "p2sh-segwit" or "bech32" */
+static bool json_tok_newaddr(struct command *cmd, const char *name,
+			     const char *buffer, const jsmntok_t *tok,
+			     bool **is_p2wpkh)
+{
+	*is_p2wpkh = tal(cmd, bool);
+	if (json_tok_streq(buffer, tok, "p2sh-segwit")) {
+		**is_p2wpkh = false;
+		return true;
+	}
+	if (json_tok_streq(buffer, tok, "bech32")) {
+		**is_p2wpkh = true;
+		return true;
+	}
+	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		     "'%s' should be 'bech32' or 'p2sh-segwit', not '%.*s'",
+		     name, tok->end - tok->start, buffer + tok->start);
+	return false;
+}
+
 static void json_newaddr(struct command *cmd, const char *buffer UNUSED,
 			 const jsmntok_t *params UNUSED)
 {
 	struct json_result *response = new_json_result(cmd);
 	struct ext_key ext;
 	struct pubkey pubkey;
-	bool is_p2wpkh;
+	bool *is_p2wpkh;
 	s64 keyidx;
 	char *out;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("addresstype", json_tok_newaddr, &is_p2wpkh, true),
+		   p_opt_def_tal("addresstype", json_tok_newaddr, &is_p2wpkh, true),
 		   NULL))
 		return;
 
@@ -251,7 +271,7 @@ static void json_newaddr(struct command *cmd, const char *buffer UNUSED,
 	txfilter_add_derkey(cmd->ld->owned_txfilter, ext.pub_key);
 
 	out = encode_pubkey_to_addr(cmd, cmd->ld,
-				    &pubkey, !is_p2wpkh,
+				    &pubkey, !*is_p2wpkh,
 				    NULL);
 	if (!out) {
 		command_fail(cmd, LIGHTNINGD,

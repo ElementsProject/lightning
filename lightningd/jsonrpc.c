@@ -752,17 +752,6 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 	return ADDRESS_PARSE_UNRECOGNIZED;
 }
 
-bool json_tok_newaddr(const char *buffer, const jsmntok_t *tok, bool *is_p2wpkh)
-{
-	if (json_tok_streq(buffer, tok, "p2sh-segwit"))
-		*is_p2wpkh = false;
-	else if (json_tok_streq(buffer, tok, "bech32"))
-		*is_p2wpkh = true;
-	else
-		return false;
-	return true;
-}
-
 bool json_tok_wtx(struct wallet_tx * tx, const char * buffer,
                   const jsmntok_t *sattok, u64 max)
 {
