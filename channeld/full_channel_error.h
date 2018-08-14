@@ -19,6 +19,8 @@ enum channel_add_err {
 	CHANNEL_ERR_HTLC_BELOW_MINIMUM,
 	/* HTLC would push past max_accepted_htlcs */
 	CHANNEL_ERR_TOO_MANY_HTLCS,
+	/* Chain hash value unknown to us */
+	CHANNEL_ERR_UNKNOWN_CHAIN_HASH
 };
 
 enum channel_remove_err {

@@ -539,7 +539,8 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 			    &peer->channel_id,
 			    "Bad peer_add_htlc %s", tal_hex(msg, msg));
 
-	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount_msat,
+	add_err = channel_add_htlc(peer->channel, &peer->chain_hash,
+				   REMOTE, id, amount_msat,
 				   cltv_expiry, &payment_hash,
 				   onion_routing_packet, &htlc);
 	if (add_err != CHANNEL_ERR_ADD_OK)
@@ -2278,7 +2279,8 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 					 onion_routing_packet))
 		master_badmsg(WIRE_CHANNEL_OFFER_HTLC, inmsg);
 
-	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
+	e = channel_add_htlc(peer->channel, &peer->chain_hash,
+			     LOCAL, peer->htlc_id,
 			     amount_msat, cltv_expiry, &payment_hash,
 			     onion_routing_packet, NULL);
 	status_trace("Adding HTLC %"PRIu64" msat=%"PRIu64" cltv=%u gave %s",
@@ -2327,6 +2329,10 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	case CHANNEL_ERR_TOO_MANY_HTLCS:
 		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
 		failmsg = tal_fmt(inmsg, "Too many HTLCs");
+		goto failed;
+	case CHANNEL_ERR_UNKNOWN_CHAIN_HASH:
+		failcode = WIRE_REQUIRED_CHANNEL_FEATURE_MISSING;
+		failmsg = tal_fmt(inmsg, "Unknown chain hash");
 		goto failed;
 	}
 	/* Shouldn't return anything else! */
@@ -2624,7 +2630,8 @@ static void init_channel(struct peer *peer)
 					 &funding_pubkey[REMOTE],
 					 funder);
 
-	if (!channel_force_htlcs(peer->channel, htlcs, hstates,
+	if (!channel_force_htlcs(peer->channel, &peer->chain_hash,
+				 htlcs, hstates,
 				 fulfilled, fulfilled_sides,
 				 cast_const2(const struct failed_htlc **,
 					     failed),
