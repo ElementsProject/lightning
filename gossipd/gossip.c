@@ -1536,7 +1536,6 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
-#if DEVELOPER
 static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 				const u8 *msg)
 {
@@ -1583,6 +1582,7 @@ out:
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+#if DEVELOPER
 static struct io_plan *query_scids_req(struct io_conn *conn,
 				       struct daemon *daemon,
 				       const u8 *msg)
@@ -2124,10 +2124,10 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_LOCAL_CHANNEL_CLOSE:
 		return handle_local_channel_close(conn, daemon, master->msg_in);
 
-#if DEVELOPER
 	case WIRE_GOSSIP_PING:
 		return ping_req(conn, daemon, daemon->master.msg_in);
 
+#if DEVELOPER
 	case WIRE_GOSSIP_QUERY_SCIDS:
 		return query_scids_req(conn, daemon, daemon->master.msg_in);
 
@@ -2144,7 +2144,6 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		return dev_gossip_suppress(conn, daemon,
 					   daemon->master.msg_in);
 #else
-	case WIRE_GOSSIP_PING:
 	case WIRE_GOSSIP_QUERY_SCIDS:
 	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
 	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
