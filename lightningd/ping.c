@@ -40,10 +40,10 @@ static void json_ping(struct command *cmd,
 {
 	u8 *msg;
 	unsigned int *len, *pongbytes;
-	struct pubkey id;
+	struct pubkey *id;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &id),
+		   p_req_tal("id", json_tok_pubkey, &id),
 		   p_opt_def_tal("len", json_tok_number, &len, 128),
 		   p_opt_def_tal("pongbytes", json_tok_number, &pongbytes, 128),
 		   NULL))
@@ -77,7 +77,7 @@ static void json_ping(struct command *cmd,
 	}
 
 	/* gossipd handles all pinging, even if it's in another daemon. */
-	msg = towire_gossip_ping(NULL, &id, *pongbytes, *len);
+	msg = towire_gossip_ping(NULL, id, *pongbytes, *len);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
 		 take(msg), -1, 0, ping_reply, cmd);
 	command_still_pending(cmd);

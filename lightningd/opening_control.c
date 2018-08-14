@@ -759,7 +759,7 @@ static void json_fund_channel(struct command *cmd,
 {
 	const jsmntok_t *sattok;
 	struct funding_channel * fc = tal(cmd, struct funding_channel);
-	struct pubkey id;
+	struct pubkey *id;
 	struct peer *peer;
 	struct channel *channel;
 	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
@@ -769,7 +769,7 @@ static void json_fund_channel(struct command *cmd,
 	fc->uc = NULL;
 	wtx_init(cmd, &fc->wtx);
 	if (!param(fc->cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &id),
+		   p_req_tal("id", json_tok_pubkey, &id),
 		   p_req_tal("satoshi", json_tok_tok, &sattok),
 		   NULL))
 		return;
@@ -777,7 +777,7 @@ static void json_fund_channel(struct command *cmd,
 	if (!json_tok_wtx(&fc->wtx, buffer, sattok, MAX_FUNDING_SATOSHI))
 		return;
 
-	peer = peer_by_id(cmd->ld, &id);
+	peer = peer_by_id(cmd->ld, id);
 	if (!peer) {
 		command_fail(cmd, LIGHTNINGD, "Unknown peer");
 		return;

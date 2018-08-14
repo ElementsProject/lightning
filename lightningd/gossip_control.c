@@ -233,7 +233,7 @@ static void json_listnodes(struct command *cmd, const char *buffer,
 	struct pubkey *id;
 
 	if (!param(cmd, buffer, params,
-		   p_opt("id", json_tok_pubkey, &id),
+		   p_opt_tal("id", json_tok_pubkey, &id),
 		   NULL))
 		return;
 
@@ -272,8 +272,8 @@ static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, con
 static void json_getroute(struct command *cmd, const char *buffer, const jsmntok_t *params)
 {
 	struct lightningd *ld = cmd->ld;
-	struct pubkey destination;
-	struct pubkey source;
+	struct pubkey *destination;
+	struct pubkey *source;
 	const jsmntok_t *seedtok;
 	u64 *msatoshi;
 	unsigned *cltv;
@@ -287,11 +287,11 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	struct siphash_seed seed;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &destination),
+		   p_req_tal("id", json_tok_pubkey, &destination),
 		   p_req_tal("msatoshi", json_tok_u64, &msatoshi),
 		   p_req_tal("riskfactor", json_tok_double, &riskfactor),
 		   p_opt_def_tal("cltv", json_tok_number, &cltv, 9),
-		   p_opt_def("fromid", json_tok_pubkey, &source, ld->id),
+		   p_opt_def_tal("fromid", json_tok_pubkey, &source, ld->id),
 		   p_opt_tal("seed", json_tok_tok, &seedtok),
 		   p_opt_def_tal("fuzzpercent", json_tok_double, &fuzz, 75.0),
 		   NULL))
@@ -317,7 +317,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	} else
 		randombytes_buf(&seed, sizeof(seed));
 
-	u8 *req = towire_gossip_getroute_request(cmd, &source, &destination,
+	u8 *req = towire_gossip_getroute_request(cmd, source, destination,
 						 *msatoshi, *riskfactor * 1000,
 						 *cltv, fuzz, &seed);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
@@ -431,12 +431,12 @@ static void json_dev_query_scids(struct command *cmd,
 	u8 *msg;
 	const jsmntok_t *scidstok;
 	const jsmntok_t *t, *end;
-	struct pubkey id;
+	struct pubkey *id;
 	struct short_channel_id *scids;
 	size_t i;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &id),
+		   p_req_tal("id", json_tok_pubkey, &id),
 		   p_req_tal("scids", json_tok_tok, &scidstok),
 		   NULL))
 		return;
@@ -462,7 +462,7 @@ static void json_dev_query_scids(struct command *cmd,
 	}
 
 	/* Tell gossipd, since this is a gossip query. */
-	msg = towire_gossip_query_scids(cmd, &id, scids);
+	msg = towire_gossip_query_scids(cmd, id, scids);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
 		 take(msg), -1, 0, json_scids_reply, cmd);
 	command_still_pending(cmd);
@@ -480,11 +480,11 @@ static void json_dev_send_timestamp_filter(struct command *cmd,
 					   const jsmntok_t *params)
 {
 	u8 *msg;
-	struct pubkey id;
+	struct pubkey *id;
 	u32 *first, *range;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &id),
+		   p_req_tal("id", json_tok_pubkey, &id),
 		   p_req_tal("first", json_tok_number, &first),
 		   p_req_tal("range", json_tok_number, &range),
 		   NULL))
@@ -492,7 +492,7 @@ static void json_dev_send_timestamp_filter(struct command *cmd,
 
 	log_debug(cmd->ld->log, "Setting timestamp range %u+%u", *first, *range);
 	/* Tell gossipd, since this is a gossip query. */
-	msg = towire_gossip_send_timestamp_filter(NULL, &id, *first, *range);
+	msg = towire_gossip_send_timestamp_filter(NULL, id, *first, *range);
 	subd_send_msg(cmd->ld->gossip, take(msg));
 
 	command_success(cmd, null_response(cmd));
@@ -548,18 +548,18 @@ static void json_dev_query_channel_range(struct command *cmd,
 					 const jsmntok_t *params)
 {
 	u8 *msg;
-	struct pubkey id;
+	struct pubkey *id;
 	u32 *first, *num;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &id),
+		   p_req_tal("id", json_tok_pubkey, &id),
 		   p_req_tal("first", json_tok_number, &first),
 		   p_req_tal("num", json_tok_number, &num),
 		   NULL))
 		return;
 
 	/* Tell gossipd, since this is a gossip query. */
-	msg = towire_gossip_query_channel_range(cmd, &id, *first, *num);
+	msg = towire_gossip_query_channel_range(cmd, id, *first, *num);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
 		 take(msg), -1, 0, json_channel_range_reply, cmd);
 	command_still_pending(cmd);
