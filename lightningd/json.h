@@ -63,8 +63,12 @@ bool json_tok_sha256(struct command *cmd, const char *name,
 		     struct sha256 **hash);
 
 /* Extract a pubkey from this */
-bool json_tok_pubkey(const char *buffer, const jsmntok_t *tok,
-		     struct pubkey *pubkey);
+bool json_to_pubkey(const char *buffer, const jsmntok_t *tok,
+		    struct pubkey *pubkey);
+
+bool json_tok_pubkey(struct command *cmd, const char *name,
+		     const char *buffer, const jsmntok_t *tok,
+		     struct pubkey **pubkey);
 
 /* Extract a short_channel_id from this */
 bool json_tok_short_channel_id(const char *buffer, const jsmntok_t *tok,

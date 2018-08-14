@@ -1013,7 +1013,7 @@ static void json_sendpay(struct command *cmd,
 				     "Route %zu invalid channel_id", n_hops);
 			return;
 		}
-		if (!json_tok_pubkey(buffer, idtok, &route[n_hops].nodeid)) {
+		if (!json_to_pubkey(buffer, idtok, &route[n_hops].nodeid)) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "Route %zu invalid id", n_hops);
 			return;

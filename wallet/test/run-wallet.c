@@ -236,8 +236,9 @@ bool json_tok_number(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 		     unsigned int **num UNNEEDED)
 { fprintf(stderr, "json_tok_number called!\n"); abort(); }
 /* Generated stub for json_tok_pubkey */
-bool json_tok_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		     struct pubkey *pubkey UNNEEDED)
+bool json_tok_pubkey(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+		     const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		     struct pubkey **pubkey UNNEEDED)
 { fprintf(stderr, "json_tok_pubkey called!\n"); abort(); }
 /* Generated stub for json_tok_short_channel_id */
 bool json_tok_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
@@ -248,6 +249,10 @@ bool json_tok_tok(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 		  const char *buffer UNNEEDED, const jsmntok_t * tok UNNEEDED,
 		  const jsmntok_t **out UNNEEDED)
 { fprintf(stderr, "json_tok_tok called!\n"); abort(); }
+/* Generated stub for json_to_pubkey */
+bool json_to_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		    struct pubkey *pubkey UNNEEDED)
+{ fprintf(stderr, "json_to_pubkey called!\n"); abort(); }
 /* Generated stub for kill_uncommitted_channel */
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)

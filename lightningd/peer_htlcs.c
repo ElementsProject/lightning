@@ -1693,17 +1693,17 @@ void notify_feerate_change(struct lightningd *ld)
 static void json_dev_ignore_htlcs(struct command *cmd, const char *buffer,
 				  const jsmntok_t *params)
 {
-	struct pubkey peerid;
+	struct pubkey *peerid;
 	struct peer *peer;
 	bool *ignore;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &peerid),
+		   p_req_tal("id", json_tok_pubkey, &peerid),
 		   p_req_tal("ignore", json_tok_bool, &ignore),
 		   NULL))
 		return;
 
-	peer = peer_by_id(cmd->ld, &peerid);
+	peer = peer_by_id(cmd->ld, peerid);
 	if (!peer) {
 		command_fail(cmd, LIGHTNINGD,
 			     "Could not find channel with that peer");

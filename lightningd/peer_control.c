@@ -163,7 +163,7 @@ struct peer *peer_from_json(struct lightningd *ld,
 {
 	struct pubkey peerid;
 
-	if (!json_tok_pubkey(buffer, peeridtok, &peerid))
+	if (!json_to_pubkey(buffer, peeridtok, &peerid))
 		return NULL;
 
 	return peer_by_id(ld, &peerid);
@@ -749,7 +749,7 @@ static void json_listpeers(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 
 	if (!param(cmd, buffer, params,
-		   p_opt("id", json_tok_pubkey, &specific_id),
+		   p_opt_tal("id", json_tok_pubkey, &specific_id),
 		   p_opt("level", json_tok_loglevel, &ll),
 		   NULL))
 		return;
@@ -941,16 +941,16 @@ void activate_peers(struct lightningd *ld)
 static void json_disconnect(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
-	struct pubkey id;
+	struct pubkey *id;
 	struct peer *peer;
 	struct channel *channel;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &id),
+		   p_req_tal("id", json_tok_pubkey, &id),
 		   NULL))
 		return;
 
-	peer = peer_by_id(cmd->ld, &id);
+	peer = peer_by_id(cmd->ld, id);
 	if (!peer) {
 		command_fail(cmd, LIGHTNINGD, "Peer not connected");
 		return;
@@ -981,18 +981,18 @@ AUTODATA(json_command, &disconnect_command);
 static void json_sign_last_tx(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
-	struct pubkey peerid;
+	struct pubkey *peerid;
 	struct peer *peer;
 	struct json_result *response = new_json_result(cmd);
 	u8 *linear;
 	struct channel *channel;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &peerid),
+		   p_req_tal("id", json_tok_pubkey, &peerid),
 		   NULL))
 		return;
 
-	peer = peer_by_id(cmd->ld, &peerid);
+	peer = peer_by_id(cmd->ld, peerid);
 	if (!peer) {
 		command_fail(cmd, LIGHTNINGD,
 			     "Could not find peer with that id");
@@ -1027,16 +1027,16 @@ AUTODATA(json_command, &dev_sign_last_tx);
 static void json_dev_fail(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
-	struct pubkey peerid;
+	struct pubkey *peerid;
 	struct peer *peer;
 	struct channel *channel;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &peerid),
+		   p_req_tal("id", json_tok_pubkey, &peerid),
 		   NULL))
 		return;
 
-	peer = peer_by_id(cmd->ld, &peerid);
+	peer = peer_by_id(cmd->ld, peerid);
 	if (!peer) {
 		command_fail(cmd, LIGHTNINGD,
 			     "Could not find peer with that id");
@@ -1072,17 +1072,17 @@ static void dev_reenable_commit_finished(struct subd *channeld UNUSED,
 static void json_dev_reenable_commit(struct command *cmd,
 				     const char *buffer, const jsmntok_t *params)
 {
-	struct pubkey peerid;
+	struct pubkey *peerid;
 	struct peer *peer;
 	u8 *msg;
 	struct channel *channel;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &peerid),
+		   p_req_tal("id", json_tok_pubkey, &peerid),
 		   NULL))
 		return;
 
-	peer = peer_by_id(cmd->ld, &peerid);
+	peer = peer_by_id(cmd->ld, peerid);
 	if (!peer) {
 		command_fail(cmd, LIGHTNINGD,
 			     "Could not find peer with that id");
@@ -1162,7 +1162,7 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 static void json_dev_forget_channel(struct command *cmd, const char *buffer,
 				    const jsmntok_t *params)
 {
-	struct pubkey peerid;
+	struct pubkey *peerid;
 	struct peer *peer;
 	struct channel *channel;
 	struct short_channel_id *scid;
@@ -1171,14 +1171,14 @@ static void json_dev_forget_channel(struct command *cmd, const char *buffer,
 
 	bool *force;
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &peerid),
+		   p_req_tal("id", json_tok_pubkey, &peerid),
 		   p_opt("short_channel_id", json_tok_short_channel_id, &scid),
 		   p_opt_def_tal("force", json_tok_bool, &force, false),
 		   NULL))
 		return;
 
 	forget->force = *force;
-	peer = peer_by_id(cmd->ld, &peerid);
+	peer = peer_by_id(cmd->ld, peerid);
 	if (!peer) {
 		command_fail(cmd, LIGHTNINGD,
 			     "Could not find channel with that peer");

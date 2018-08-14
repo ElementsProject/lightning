@@ -172,11 +172,25 @@ bool json_tok_u64(struct command *cmd, const char *name,
 	return true;
 }
 
-bool json_tok_pubkey(const char *buffer, const jsmntok_t *tok,
-		     struct pubkey *pubkey)
+bool json_to_pubkey(const char *buffer, const jsmntok_t *tok,
+		    struct pubkey *pubkey)
 {
 	return pubkey_from_hexstr(buffer + tok->start,
 				  tok->end - tok->start, pubkey);
+}
+
+bool json_tok_pubkey(struct command *cmd, const char *name,
+		     const char *buffer, const jsmntok_t *tok,
+		     struct pubkey **pubkey)
+{
+	*pubkey = tal(cmd, struct pubkey);
+	if (json_to_pubkey(buffer, tok, *pubkey))
+		return true;
+
+	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		     "'%s' should be a pubkey, not '%.*s'",
+		     name, tok->end - tok->start, buffer + tok->start);
+	return false;
 }
 
 void json_add_short_channel_id(struct json_result *response,
