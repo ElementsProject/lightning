@@ -795,14 +795,13 @@ def test_channel_reenable(node_factory):
     wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True, True])
 
     # Restart l2, will cause l1 to reconnect
-    l2.restart()
+    l2.stop()
+    wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [False, False])
+    l2.start()
 
-    # Now they should sync and re-establish again
-    l1.daemon.wait_for_logs(['Received channel_update for channel \\d+:1:1.1.',
-                             'Received channel_update for channel \\d+:1:1.0.'])
-    l2.daemon.wait_for_logs(['Received channel_update for channel \\d+:1:1.1.',
-                             'Received channel_update for channel \\d+:1:1.0.'])
+    # Updates may be suppressed if redundant; just test results.
     wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True, True])
+    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels()['channels']] == [True, True])
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
