@@ -948,7 +948,7 @@ static void json_sendpay(struct command *cmd,
 	const jsmntok_t *routetok, *desctok;
 	const jsmntok_t *t, *end;
 	size_t n_hops;
-	struct sha256 rhash;
+	struct sha256 *rhash;
 	struct route_hop *route;
 	u64 *msatoshi;
 	const struct json_escaped *desc;
@@ -956,7 +956,7 @@ static void json_sendpay(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req_tal("route", json_tok_tok, &routetok),
-		   p_req("payment_hash", json_tok_sha256, &rhash),
+		   p_req_tal("payment_hash", json_tok_sha256, &rhash),
 		   p_opt_tal("description", json_tok_tok, &desctok),
 		   p_opt_tal("msatoshi", json_tok_u64, &msatoshi),
 		   NULL))
@@ -1068,7 +1068,7 @@ static void json_sendpay(struct command *cmd,
 		description = NULL;
 	}
 
-	if (send_payment(cmd, cmd->ld, &rhash, route,
+	if (send_payment(cmd, cmd->ld, rhash, route,
 			 msatoshi ? *msatoshi : route[n_hops-1].amount,
 			 description,
 			 &json_sendpay_on_resolve, cmd))
@@ -1090,16 +1090,16 @@ static void waitsendpay_timeout(struct command *cmd)
 static void json_waitsendpay(struct command *cmd, const char *buffer,
 			     const jsmntok_t *params)
 {
-	struct sha256 rhash;
+	struct sha256 *rhash;
 	unsigned int *timeout;
 
 	if (!param(cmd, buffer, params,
-		   p_req("payment_hash", json_tok_sha256, &rhash),
+		   p_req_tal("payment_hash", json_tok_sha256, &rhash),
 		   p_opt_tal("timeout", json_tok_number, &timeout),
 		   NULL))
 		return;
 
-	if (!wait_payment(cmd, cmd->ld, &rhash, &json_waitsendpay_on_resolve, cmd))
+	if (!wait_payment(cmd, cmd->ld, rhash, &json_waitsendpay_on_resolve, cmd))
 		return;
 
 	if (timeout)

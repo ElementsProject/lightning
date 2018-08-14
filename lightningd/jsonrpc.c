@@ -96,17 +96,17 @@ static void json_rhash(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)
 {
 	struct json_result *response = new_json_result(cmd);
-	struct sha256 secret;
+	struct sha256 *secret;
 
 	if (!param(cmd, buffer, params,
-		   p_req("secret", json_tok_sha256, &secret),
+		   p_req_tal("secret", json_tok_sha256, &secret),
 		   NULL))
 		return;
 
 	/* Hash in place. */
-	sha256(&secret, &secret, sizeof(secret));
+	sha256(secret, secret, sizeof(*secret));
 	json_object_start(response, NULL);
-	json_add_hex(response, "rhash", &secret, sizeof(secret));
+	json_add_hex(response, "rhash", secret, sizeof(*secret));
 	json_object_end(response);
 	command_success(cmd, response);
 }

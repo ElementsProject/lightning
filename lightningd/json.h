@@ -18,6 +18,7 @@ struct command;
 struct json_result;
 struct pubkey;
 struct route_hop;
+struct sha256;
 struct short_channel_id;
 struct wallet_payment;
 struct wireaddr;
@@ -55,6 +56,11 @@ bool json_tok_double(struct command *cmd, const char *name,
 bool json_tok_number(struct command *cmd, const char *name,
 		     const char *buffer, const jsmntok_t *tok,
 		     unsigned int **num);
+
+/* Extract sha256 hash */
+bool json_tok_sha256(struct command *cmd, const char *name,
+		     const char *buffer, const jsmntok_t *tok,
+		     struct sha256 **hash);
 
 /* Extract a pubkey from this */
 bool json_tok_pubkey(const char *buffer, const jsmntok_t *tok,
