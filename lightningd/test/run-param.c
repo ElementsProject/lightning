@@ -5,7 +5,6 @@
 
 #include <lightningd/json.c>
 #include <lightningd/param.c>
-#include <lightningd/json.c>
 #include <common/json.c>
 #include <common/json_escaped.c>
 #include <ccan/array_size/array_size.h>
