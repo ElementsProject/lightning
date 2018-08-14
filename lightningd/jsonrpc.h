@@ -95,8 +95,6 @@ json_tok_address_scriptpubkey(const tal_t *ctx,
 			      const char *buffer,
 			      const jsmntok_t *tok, const u8 **scriptpubkey);
 
-bool json_tok_newaddr(const char *buffer, const jsmntok_t *tok, bool *is_p2wpkh);
-
 /* Parse the satoshi token in wallet_tx. */
 bool json_tok_wtx(struct wallet_tx * tx, const char * buffer,
 		  const jsmntok_t * sattok, u64 max);

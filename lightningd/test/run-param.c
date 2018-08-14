@@ -48,9 +48,6 @@ void command_fail_detailed(struct command *cmd, int code,
 /* Generated stub for fmt_wireaddr_without_port */
 char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
 { fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
-/* Generated stub for json_tok_newaddr */
-bool json_tok_newaddr(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, bool *is_p2wpkh UNNEEDED)
-{ fprintf(stderr, "json_tok_newaddr called!\n"); abort(); }
 /* Generated stub for json_tok_wtx */
 bool json_tok_wtx(struct wallet_tx * tx UNNEEDED, const char * buffer UNNEEDED,
 		  const jsmntok_t * sattok UNNEEDED, u64 max UNNEEDED)
