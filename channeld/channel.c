@@ -108,6 +108,7 @@ struct peer {
 	struct msg_queue from_master, from_gossipd;
 
 	struct timers timers;
+	struct oneshot *ping_timer;
 	struct oneshot *commit_timer;
 	u64 commit_timer_attempts;
 	u32 commit_msec;
@@ -162,6 +163,7 @@ struct peer {
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
 static void start_commit_timer(struct peer *peer);
+static void start_ping_timer(struct peer *peer);
 
 static void billboard_update(const struct peer *peer)
 {
@@ -944,13 +946,31 @@ static void maybe_send_ping(struct peer *peer)
 	if (peer->expecting_pong)
 		return;
 
-	if (peer_recently_active(peer))
+	if (peer_recently_active(peer)) {
+		start_ping_timer(peer);
 		return;
+	}
 
 	/* Send a ping to try to elicit a receive. */
 	sync_crypto_write_no_delay(&peer->cs, PEER_FD,
 				   take(make_ping(NULL, 1, 0)));
 	peer->expecting_pong = true;
+}
+
+static void ping_timer_fired(struct peer *peer)
+{
+	peer->ping_timer = NULL;
+	maybe_send_ping(peer);
+}
+
+static void start_ping_timer(struct peer *peer)
+{
+	if (peer->ping_timer)
+		return;
+
+	peer->ping_timer = new_reltimer(&peer->timers, peer,
+					time_from_sec(60),
+					ping_timer_fired, peer);
 }
 
 static void send_commit(struct peer *peer)
@@ -1614,6 +1634,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	/* Catch our own ping replies. */
 	if (type == WIRE_PONG && peer->expecting_pong) {
 		peer->expecting_pong = false;
+		start_ping_timer(peer);
 		return;
 	}
 
@@ -2445,6 +2466,8 @@ static void init_channel(struct peer *peer)
 	channel_announcement_negotiate(peer);
 
 	billboard_update(peer);
+
+	start_ping_timer(peer);
 }
 
 static void send_shutdown_complete(struct peer *peer)
@@ -2470,6 +2493,7 @@ int main(int argc, char *argv[])
 	peer = tal(NULL, struct peer);
 	peer->expecting_pong = false;
 	timers_init(&peer->timers, time_mono());
+	peer->ping_timer = NULL;
 	peer->commit_timer = NULL;
 	peer->have_sigs[LOCAL] = peer->have_sigs[REMOTE] = false;
 	peer->announce_depth_reached = false;
