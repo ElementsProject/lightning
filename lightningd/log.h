@@ -9,6 +9,7 @@
 #include <jsmn.h>
 #include <stdarg.h>
 
+struct command;
 struct json_result;
 struct lightningd;
 struct timerel;
@@ -102,7 +103,8 @@ void log_backtrace_exit(void);
 void json_add_log(struct json_result *result,
 		  const struct log_book *lr, enum log_level minlevel);
 
-bool json_tok_loglevel(const char *buffer, const jsmntok_t *tok,
-		       enum log_level *level);
+bool json_tok_loglevel(struct command *cmd, const char *name,
+		       const char *buffer, const jsmntok_t *tok,
+		       enum log_level **level);
 
 #endif /* LIGHTNING_LIGHTNINGD_LOG_H */

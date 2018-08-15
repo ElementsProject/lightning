@@ -750,7 +750,7 @@ static void json_listpeers(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_opt_tal("id", json_tok_pubkey, &specific_id),
-		   p_opt("level", json_tok_loglevel, &ll),
+		   p_opt_tal("level", json_tok_loglevel, &ll),
 		   NULL))
 		return;
 

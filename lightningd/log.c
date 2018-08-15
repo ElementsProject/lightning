@@ -635,39 +635,47 @@ void json_add_log(struct json_result *response,
 	json_array_end(info.response);
 }
 
-bool json_tok_loglevel(const char *buffer, const jsmntok_t *tok,
-		       enum log_level *level)
+bool json_tok_loglevel(struct command *cmd, const char *name,
+		       const char *buffer, const jsmntok_t *tok,
+		       enum log_level **level)
 {
+	*level = tal(cmd, enum log_level);
 	if (json_tok_streq(buffer, tok, "io"))
-		*level = LOG_IO_OUT;
+		**level = LOG_IO_OUT;
 	else if (json_tok_streq(buffer, tok, "debug"))
-		*level = LOG_DBG;
+		**level = LOG_DBG;
 	else if (json_tok_streq(buffer, tok, "info"))
-		*level = LOG_INFORM;
+		**level = LOG_INFORM;
 	else if (json_tok_streq(buffer, tok, "unusual"))
-		*level = LOG_UNUSUAL;
-	else
+		**level = LOG_UNUSUAL;
+	else {
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%s' should be 'io', 'debug', 'info', or "
+			     "'unusual', not '%.*s'",
+			     name, tok->end - tok->start, buffer + tok->start);
 		return false;
+	}
 	return true;
 }
 
 static void json_getlog(struct command *cmd,
-			const char *buffer, const jsmntok_t *params)
+			const char *buffer, const jsmntok_t * params)
 {
 	struct json_result *response = new_json_result(cmd);
-	enum log_level minlevel;
+	enum log_level *minlevel;
 	struct log_book *lr = cmd->ld->log_book;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("level", json_tok_loglevel, &minlevel, LOG_INFORM),
+		   p_opt_def_tal("level", json_tok_loglevel, &minlevel,
+				 LOG_INFORM),
 		   NULL))
 		return;
 
 	json_object_start(response, NULL);
 	json_add_time(response, "created_at", log_init_time(lr)->ts);
-	json_add_num(response, "bytes_used", (unsigned int)log_used(lr));
-	json_add_num(response, "bytes_max", (unsigned int)log_max_mem(lr));
-	json_add_log(response, lr, minlevel);
+	json_add_num(response, "bytes_used", (unsigned int) log_used(lr));
+	json_add_num(response, "bytes_max", (unsigned int) log_max_mem(lr));
+	json_add_log(response, lr, *minlevel);
 	json_object_end(response);
 	command_success(cmd, response);
 }
