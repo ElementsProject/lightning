@@ -104,7 +104,6 @@ def test_bitcoin_failure(node_factory, bitcoind):
     sync_blockheight(bitcoind, [l1])
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_ping(node_factory):
     l1, l2 = node_factory.line_graph(2, fundchannel=False)
 
