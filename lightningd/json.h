@@ -71,8 +71,12 @@ bool json_tok_pubkey(struct command *cmd, const char *name,
 		     struct pubkey **pubkey);
 
 /* Extract a short_channel_id from this */
-bool json_tok_short_channel_id(const char *buffer, const jsmntok_t *tok,
-			       struct short_channel_id *scid);
+bool json_to_short_channel_id(const char *buffer, const jsmntok_t *tok,
+			      struct short_channel_id *scid);
+
+bool json_tok_short_channel_id(struct command *cmd, const char *name,
+			       const char *buffer, const jsmntok_t *tok,
+			       struct short_channel_id **scid);
 
 /* Extract number from this (may be a string, or a number literal) */
 bool json_tok_u64(struct command *cmd, const char *name,

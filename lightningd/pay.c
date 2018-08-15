@@ -1007,8 +1007,8 @@ static void json_sendpay(struct command *cmd,
 			return;
 		}
 
-		if (!json_tok_short_channel_id(buffer, chantok,
-					       &route[n_hops].channel_id)) {
+		if (!json_to_short_channel_id(buffer, chantok,
+					      &route[n_hops].channel_id)) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "Route %zu invalid channel_id", n_hops);
 			return;
