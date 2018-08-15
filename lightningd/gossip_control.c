@@ -383,7 +383,7 @@ static void json_listchannels(struct command *cmd, const char *buffer,
 	u8 *req;
 	struct short_channel_id *id;
 	if (!param(cmd, buffer, params,
-		   p_opt("short_channel_id", json_tok_short_channel_id, &id),
+		   p_opt_tal("short_channel_id", json_tok_short_channel_id, &id),
 		   NULL))
 		return;
 
@@ -452,7 +452,7 @@ static void json_dev_query_scids(struct command *cmd,
 	scids = tal_arr(cmd, struct short_channel_id, scidstok->size);
 	end = json_next(scidstok);
 	for (i = 0, t = scidstok + 1; t < end; t = json_next(t), i++) {
-		if (!json_tok_short_channel_id(buffer, t, &scids[i])) {
+		if (!json_to_short_channel_id(buffer, t, &scids[i])) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "scid %zu '%.*s' is not an scid",
 				     i, t->end - t->start,

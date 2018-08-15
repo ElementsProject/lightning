@@ -201,12 +201,26 @@ void json_add_short_channel_id(struct json_result *response,
 			type_to_string(response, struct short_channel_id, id));
 }
 
-bool json_tok_short_channel_id(const char *buffer, const jsmntok_t *tok,
-			       struct short_channel_id *scid)
+bool json_to_short_channel_id(const char *buffer, const jsmntok_t *tok,
+			      struct short_channel_id *scid)
 {
-	return short_channel_id_from_str(buffer + tok->start,
-					 tok->end - tok->start,
-					 scid);
+	return (short_channel_id_from_str(buffer + tok->start,
+					  tok->end - tok->start, scid));
+}
+
+bool json_tok_short_channel_id(struct command *cmd, const char *name,
+			       const char *buffer, const jsmntok_t *tok,
+			       struct short_channel_id **scid)
+{
+	*scid = tal(cmd, struct short_channel_id);
+	if (short_channel_id_from_str(buffer + tok->start,
+				      tok->end - tok->start, *scid))
+		return true;
+
+	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		     "'%s' should be a short channel id, not '%.*s'",
+		     name, tok->end - tok->start, buffer + tok->start);
+	return false;
 }
 
 bool

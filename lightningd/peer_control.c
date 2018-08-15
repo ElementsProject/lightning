@@ -803,7 +803,7 @@ command_find_channel(struct command *cmd,
 			     tok->end - tok->start,
 			     buffer + tok->start);
 		return NULL;
-	} else if (json_tok_short_channel_id(buffer, tok, &scid)) {
+	} else if (json_to_short_channel_id(buffer, tok, &scid)) {
 		list_for_each(&ld->peers, peer, list) {
 			channel = peer_active_channel(peer);
 			if (!channel)
@@ -1172,7 +1172,7 @@ static void json_dev_forget_channel(struct command *cmd, const char *buffer,
 	bool *force;
 	if (!param(cmd, buffer, params,
 		   p_req_tal("id", json_tok_pubkey, &peerid),
-		   p_opt("short_channel_id", json_tok_short_channel_id, &scid),
+		   p_opt_tal("short_channel_id", json_tok_short_channel_id, &scid),
 		   p_opt_def_tal("force", json_tok_bool, &force, false),
 		   NULL))
 		return;
