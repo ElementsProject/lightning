@@ -99,7 +99,7 @@ static void json_rhash(struct command *cmd,
 	struct sha256 *secret;
 
 	if (!param(cmd, buffer, params,
-		   p_req_tal("secret", json_tok_sha256, &secret),
+		   p_req("secret", json_tok_sha256, &secret),
 		   NULL))
 		return;
 
@@ -189,7 +189,7 @@ static void json_help(struct command *cmd,
 	const jsmntok_t *cmdtok;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_tal("command", json_tok_tok, &cmdtok),
+		   p_opt("command", json_tok_tok, &cmdtok),
 		   NULL))
 		return;
 

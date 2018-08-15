@@ -43,9 +43,9 @@ static void json_ping(struct command *cmd,
 	struct pubkey *id;
 
 	if (!param(cmd, buffer, params,
-		   p_req_tal("id", json_tok_pubkey, &id),
-		   p_opt_def_tal("len", json_tok_number, &len, 128),
-		   p_opt_def_tal("pongbytes", json_tok_number, &pongbytes, 128),
+		   p_req("id", json_tok_pubkey, &id),
+		   p_opt_def("len", json_tok_number, &len, 128),
+		   p_opt_def("pongbytes", json_tok_number, &pongbytes, 128),
 		   NULL))
 		return;
 

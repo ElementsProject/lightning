@@ -99,8 +99,8 @@ static void json_withdraw(struct command *cmd,
 	wtx_init(cmd, &withdraw->wtx);
 
 	if (!param(cmd, buffer, params,
-		   p_req_tal("destination", json_tok_tok, &desttok),
-		   p_req_tal("satoshi", json_tok_tok, &sattok),
+		   p_req("destination", json_tok_tok, &desttok),
+		   p_req("satoshi", json_tok_tok, &sattok),
 		   NULL))
 		return;
 
@@ -246,7 +246,7 @@ static void json_newaddr(struct command *cmd, const char *buffer UNUSED,
 	char *out;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def_tal("addresstype", json_tok_newaddr, &is_p2wpkh, true),
+		   p_opt_def("addresstype", json_tok_newaddr, &is_p2wpkh, true),
 		   NULL))
 		return;
 
@@ -302,7 +302,7 @@ static void json_listaddrs(struct command *cmd,
 	u64 *bip32_max_index;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def_tal("bip32_max_index", json_tok_u64, &bip32_max_index,
+		   p_opt_def("bip32_max_index", json_tok_u64, &bip32_max_index,
 				 db_get_intvar(cmd->ld->wallet->db,
 				 "bip32_max_index", 0)),
 		   NULL))
