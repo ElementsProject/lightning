@@ -659,12 +659,11 @@ static const char* segwit_addr_net_decode(int *witness_version,
 				   size_t *witness_program_len,
 				   const char *addrz)
 {
-	const char *network[] = { "bc", "tb", "bcrt" };
-	for (int i = 0; i < sizeof(network) / sizeof(*network); ++i) {
+	for (int i = 0; i < chainparams_count(); ++i) {
 		if (segwit_addr_decode(witness_version,
 				       witness_program, witness_program_len,
-				       network[i], addrz))
-			return network[i];
+				       chainparams_by_index(i)->bip173_name, addrz))
+			return chainparams_by_index(i)->bip173_name;
 	}
 
 	return NULL;

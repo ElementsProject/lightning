@@ -515,11 +515,11 @@ static void json_add_fallback(struct json_result *response,
 	if (is_p2pkh(fallback, &pkh)) {
 		json_add_string(response, "type", "P2PKH");
 		json_add_string(response, "addr",
-				bitcoin_to_base58(tmpctx, chain->testnet, &pkh));
+				bitcoin_to_base58(tmpctx, chain->p2pkh_version, &pkh));
 	} else if (is_p2sh(fallback, &sh)) {
 		json_add_string(response, "type", "P2SH");
 		json_add_string(response, "addr",
-				p2sh_to_base58(tmpctx, chain->testnet, &sh));
+				p2sh_to_base58(tmpctx, chain->p2sh_version, &sh));
 	} else if (is_p2wpkh(fallback, &pkh)) {
 		char out[73 + strlen(chain->bip173_name)];
 		json_add_string(response, "type", "P2WPKH");

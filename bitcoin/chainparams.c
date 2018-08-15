@@ -21,6 +21,8 @@ const struct chainparams networks[] = {
      .max_payment_msat = 0xFFFFFFFFULL,
      /* "Lightning Charge Powers Developers & Blockstream Store" */
      .when_lightning_became_cool = 504500,
+     .p2pkh_version = 0,
+     .p2sh_version = 5,
      .testnet = false},
     {.network_name = "regtest",
      .bip173_name = "bcrt",
@@ -32,6 +34,8 @@ const struct chainparams networks[] = {
      .max_funding_satoshi = (1 << 24) - 1,
      .max_payment_msat = 0xFFFFFFFFULL,
      .when_lightning_became_cool = 1,
+     .p2pkh_version = 111,
+     .p2sh_version = 196,
      .testnet = true},
     {.network_name = "testnet",
      .bip173_name = "tb",
@@ -42,6 +46,8 @@ const struct chainparams networks[] = {
      .dust_limit = 546,
      .max_funding_satoshi = (1 << 24) - 1,
      .max_payment_msat = 0xFFFFFFFFULL,
+     .p2pkh_version = 111,
+     .p2sh_version = 196,
      .testnet = true},
     {.network_name = "litecoin",
      .bip173_name = "ltc",
@@ -53,6 +59,8 @@ const struct chainparams networks[] = {
      .max_funding_satoshi = 60 * ((1 << 24) - 1),
      .max_payment_msat = 60 * 0xFFFFFFFFULL,
      .when_lightning_became_cool = 1320000,
+     .p2pkh_version = 48,
+     .p2sh_version = 50,
      .testnet = false},
     {.network_name = "litecoin-testnet",
      .bip173_name = "tltc",
@@ -64,8 +72,24 @@ const struct chainparams networks[] = {
      .max_funding_satoshi = 60 * ((1 << 24) - 1),
      .max_payment_msat = 60 * 0xFFFFFFFFULL,
      .when_lightning_became_cool = 1,
+     .p2pkh_version = 111,
+     .p2sh_version = 58,
      .testnet = true}
 };
+
+int chainparams_count(void)
+{
+	return ARRAY_SIZE(networks);
+}
+
+const struct chainparams *chainparams_by_index(const int index)
+{
+	if (index >= ARRAY_SIZE(networks) || index < 0) {
+		return NULL;
+	} else {
+		return &networks[index];
+	}
+}
 
 const struct chainparams *chainparams_for_network(const char *network_name)
 {
@@ -91,6 +115,26 @@ const struct chainparams *chainparams_by_bip173(const char *bip173_name)
 {
 	for (size_t i = 0; i < ARRAY_SIZE(networks); i++) {
 		if (streq(bip173_name, networks[i].bip173_name)) {
+			return &networks[i];
+		}
+	}
+	return NULL;
+}
+
+const struct chainparams *chainparams_by_p2pkh_version(const u8 version)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(networks); i++) {
+		if (version == networks[i].p2pkh_version) {
+			return &networks[i];
+		}
+	}
+	return NULL;
+}
+
+const struct chainparams *chainparams_by_p2sh_version(const u8 version)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(networks); i++) {
+		if (version == networks[i].p2sh_version) {
 			return &networks[i];
 		}
 	}

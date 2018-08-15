@@ -190,7 +190,7 @@ encode_pubkey_to_addr(const tal_t *ctx,
 		sha256(&h, redeemscript, tal_count(redeemscript));
 		ripemd160(&h160, h.u.u8, sizeof(h));
 		out = p2sh_to_base58(ctx,
-				     get_chainparams(ld)->testnet,
+				     get_chainparams(ld)->p2sh_version,
 				     &h160);
 	} else {
 		hrp = get_chainparams(ld)->bip173_name;

@@ -5,6 +5,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include "address.h"
 #include "base58.h"
+#include "chainparams.h"
 #include "privkey.h"
 #include "pubkey.h"
 #include "shadouble.h"
@@ -35,16 +36,16 @@ static char *to_base58(const tal_t *ctx, u8 version,
 	}
 }
 
-char *bitcoin_to_base58(const tal_t *ctx, bool test_net,
+char *bitcoin_to_base58(const tal_t *ctx, u8 version,
 			const struct bitcoin_address *addr)
 {
-	return to_base58(ctx, test_net ? 111 : 0, &addr->addr);
+	return to_base58(ctx, version, &addr->addr);
 }
 
-char *p2sh_to_base58(const tal_t *ctx, bool test_net,
+char *p2sh_to_base58(const tal_t *ctx, u8 version,
 		     const struct ripemd160 *p2sh)
 {
-	return to_base58(ctx, test_net ? 196 : 5, p2sh);
+	return to_base58(ctx, version, p2sh);
 }
 
 static bool from_base58(u8 *version,
@@ -69,36 +70,36 @@ bool bitcoin_from_base58(bool *test_net,
 			 struct bitcoin_address *addr,
 			 const char *base58, size_t len)
 {
+	const struct chainparams *params;
 	u8 version;
 
 	if (!from_base58(&version, &addr->addr, base58, len))
 		return false;
 
-	if (version == 111)
-		*test_net = true;
-	else if (version == 0)
-		*test_net = false;
-	else
-		return false;
-	return true;
+	params = chainparams_by_p2pkh_version(version);
+	if (params) {
+		*test_net = params->testnet;
+		return true;
+	}
+	return false;
 }
 
 bool p2sh_from_base58(bool *test_net,
 		      struct ripemd160 *p2sh,
 		      const char *base58, size_t len)
 {
+	const struct chainparams *params;
 	u8 version;
 
 	if (!from_base58(&version, p2sh, base58, len))
 		return false;
 
-	if (version == 196)
-		*test_net = true;
-	else if (version == 5)
-		*test_net = false;
-	else
-		return false;
-	return true;
+	params = chainparams_by_p2sh_version(version);
+	if (params) {
+		*test_net = params->testnet;
+		return true;
+	}
+	return false;
 }
 
 bool key_from_base58(const char *base58, size_t base58_len,

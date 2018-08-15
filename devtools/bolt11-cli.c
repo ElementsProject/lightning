@@ -120,12 +120,12 @@ int main(int argc, char *argv[])
 		printf("fallback: %s\n", tal_hex(ctx, b11->fallbacks[i]));
                 if (is_p2pkh(b11->fallbacks[i], &pkh)) {
 			printf("fallback-P2PKH: %s\n",
-			       bitcoin_to_base58(ctx, b11->chain->testnet,
+			       bitcoin_to_base58(ctx, b11->chain->p2pkh_version,
 						 &pkh));
                 } else if (is_p2sh(b11->fallbacks[i], &sh)) {
 			printf("fallback-P2SH: %s\n",
 			       p2sh_to_base58(ctx,
-					      b11->chain->testnet,
+					      b11->chain->p2sh_version,
 					      &sh));
                 } else if (is_p2wpkh(b11->fallbacks[i], &pkh)) {
                         char out[73 + strlen(b11->chain->bip173_name)];
