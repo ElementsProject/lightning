@@ -666,7 +666,7 @@ static void json_getlog(struct command *cmd,
 	struct log_book *lr = cmd->ld->log_book;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def_tal("level", json_tok_loglevel, &minlevel,
+		   p_opt_def("level", json_tok_loglevel, &minlevel,
 				 LOG_INFORM),
 		   NULL))
 		return;

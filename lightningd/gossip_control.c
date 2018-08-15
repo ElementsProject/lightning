@@ -233,7 +233,7 @@ static void json_listnodes(struct command *cmd, const char *buffer,
 	struct pubkey *id;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_tal("id", json_tok_pubkey, &id),
+		   p_opt("id", json_tok_pubkey, &id),
 		   NULL))
 		return;
 
@@ -287,13 +287,13 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 	struct siphash_seed seed;
 
 	if (!param(cmd, buffer, params,
-		   p_req_tal("id", json_tok_pubkey, &destination),
-		   p_req_tal("msatoshi", json_tok_u64, &msatoshi),
-		   p_req_tal("riskfactor", json_tok_double, &riskfactor),
-		   p_opt_def_tal("cltv", json_tok_number, &cltv, 9),
-		   p_opt_def_tal("fromid", json_tok_pubkey, &source, ld->id),
-		   p_opt_tal("seed", json_tok_tok, &seedtok),
-		   p_opt_def_tal("fuzzpercent", json_tok_double, &fuzz, 75.0),
+		   p_req("id", json_tok_pubkey, &destination),
+		   p_req("msatoshi", json_tok_u64, &msatoshi),
+		   p_req("riskfactor", json_tok_double, &riskfactor),
+		   p_opt_def("cltv", json_tok_number, &cltv, 9),
+		   p_opt_def("fromid", json_tok_pubkey, &source, ld->id),
+		   p_opt("seed", json_tok_tok, &seedtok),
+		   p_opt_def("fuzzpercent", json_tok_double, &fuzz, 75.0),
 		   NULL))
 		return;
 
@@ -383,7 +383,7 @@ static void json_listchannels(struct command *cmd, const char *buffer,
 	u8 *req;
 	struct short_channel_id *id;
 	if (!param(cmd, buffer, params,
-		   p_opt_tal("short_channel_id", json_tok_short_channel_id, &id),
+		   p_opt("short_channel_id", json_tok_short_channel_id, &id),
 		   NULL))
 		return;
 
@@ -436,8 +436,8 @@ static void json_dev_query_scids(struct command *cmd,
 	size_t i;
 
 	if (!param(cmd, buffer, params,
-		   p_req_tal("id", json_tok_pubkey, &id),
-		   p_req_tal("scids", json_tok_tok, &scidstok),
+		   p_req("id", json_tok_pubkey, &id),
+		   p_req("scids", json_tok_tok, &scidstok),
 		   NULL))
 		return;
 
@@ -484,9 +484,9 @@ static void json_dev_send_timestamp_filter(struct command *cmd,
 	u32 *first, *range;
 
 	if (!param(cmd, buffer, params,
-		   p_req_tal("id", json_tok_pubkey, &id),
-		   p_req_tal("first", json_tok_number, &first),
-		   p_req_tal("range", json_tok_number, &range),
+		   p_req("id", json_tok_pubkey, &id),
+		   p_req("first", json_tok_number, &first),
+		   p_req("range", json_tok_number, &range),
 		   NULL))
 		return;
 
@@ -552,9 +552,9 @@ static void json_dev_query_channel_range(struct command *cmd,
 	u32 *first, *num;
 
 	if (!param(cmd, buffer, params,
-		   p_req_tal("id", json_tok_pubkey, &id),
-		   p_req_tal("first", json_tok_number, &first),
-		   p_req_tal("num", json_tok_number, &num),
+		   p_req("id", json_tok_pubkey, &id),
+		   p_req("first", json_tok_number, &first),
+		   p_req("num", json_tok_number, &num),
 		   NULL))
 		return;
 
@@ -580,7 +580,7 @@ static void json_dev_set_max_scids_encode_size(struct command *cmd,
 	u32 *max;
 
 	if (!param(cmd, buffer, params,
-		   p_req_tal("max", json_tok_number, &max),
+		   p_req("max", json_tok_number, &max),
 		   NULL))
 		return;
 

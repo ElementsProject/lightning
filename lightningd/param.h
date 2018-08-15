@@ -6,10 +6,10 @@
   Typesafe callback system for unmarshalling and validating json parameters.
 
   Typical usage:
-	unsigned cltv;
+	unsigned *cltv;
 	u64 *msatoshi;
 	const jsmntok_t *note;
-	u64 expiry;
+	u64 *expiry;
 
 	if (!param(cmd, buffer, params,
 		   p_req("cltv", json_tok_number, &cltv),
@@ -19,131 +19,68 @@
 		   NULL))
 		return;
 
-  At this point in the code you can be assured the json tokens were successfully
-  parsed.  If not, param() returned false, having already called command_fail()
-  with a descriptive error message. The data section of the json result contains
-  the offending parameter and its value.
-
-  cltv is a required parameter. It must be present in the json input and will
-  be set appropriately.
-
-  msatoshi is optional.  If not present it will be set to NULL.
-
-  note is also optional. It uses a special callback that simply sets note to the
-  appropriate value (or NULL) and lets the handler do the validating.
-
-  expiry is also optional and will be set to a default value if not present.
-
-  There are canned failure messages for common callbacks. An example:
-
-	'msatoshi' should be an unsigned 64 bit integer, not '123z'
-
-  Otherwise a generic message is provided.
+  See json_invoice() for a good example.  The common callbacks can be found in
+  lightningd/json.c.  Use them as an example for writing your own custom
+  callbacks.
  */
 
 /*
- * parse the json tokens.  @params can be an array of values, or an object
+ * Parse the json tokens.  @params can be an array of values or an object
  * of named values.
  */
 bool param(struct command *cmd, const char *buffer,
 	   const jsmntok_t params[], ...);
 
 /*
- * The callback provided must follow this signature; e.g.,
- * bool json_tok_double(const char *buffer, const jsmntok_t *tok, double *arg)
- */
-typedef bool(*param_cb)(const char *buffer, const jsmntok_t *tok, void *arg);
-
-/*
- * Advanced callback. Returns NULL on success, error message on failure.
+ * The callback signature.  Callbacks must return true on success.  On failure they
+ * must call comand_fail and return false.
  */
 typedef bool(*param_cbx)(struct command *cmd,
-			   const char *name,
-			   const char *buffer,
-			   const jsmntok_t *tok,
-			   void **arg);
+			 const char *name,
+			 const char *buffer,
+			 const jsmntok_t *tok,
+			 void **arg);
 
 /*
- * Add a handler to unmarshal a required json token into @arg. The handler must
- * return true on success and false on failure.  Upon failure, command_fail will be
- * called with a descriptive error message.
- *
- * This operation is typesafe; i.e., a compilation error will occur if the types
- * of @arg and the last parameter of @cb do not match (see the weird 0*sizeof).
+ * Add a required parameter.
  */
-#define p_req(name, cb, arg)					\
-	      name"",						\
-	      true,						\
-	      false,						\
-	      (cb),				 		\
-	      (arg) + 0*sizeof((cb)((const char *)NULL,		\
-				    (const jsmntok_t *)NULL,	\
-				    (arg)) == true),		\
-	      (size_t)0
-
-#define p_req_tal(name, cbx, arg)				\
-		  name"",					\
-		  true,						\
-		  true,						\
-		  (cbx),				 	\
-		  (arg) + 0*sizeof((cbx)((struct command *)NULL,\
-				   (const char *)NULL,		\
-				   (const char *)NULL,		\
-				   (const jsmntok_t *)NULL,	\
-				   (arg)) == true),		\
-		  (size_t)0
+#define p_req(name, cbx, arg)                                \
+	      name"",                                        \
+	      true,                                          \
+	      (cbx),                                         \
+	      (arg) + 0*sizeof((cbx)((struct command *)NULL, \
+			       (const char *)NULL,           \
+			       (const char *)NULL,           \
+			       (const jsmntok_t *)NULL,      \
+			       (arg)) == true)
 
 /*
- * Similar to above but for optional parameters.
- * @arg must be the address of a pointer. If found during parsing, it will be
- * allocated, otherwise it will be set to NULL.
+ * Add an optional parameter.  *arg is set to NULL if it isn't found.
  */
-#define p_opt(name, cb, arg)					\
-	      name"",						\
-	      false,						\
-	      false,						\
-	      (cb),				 		\
-	      (arg) + 0*sizeof((cb)((const char *)NULL,		\
-				    (const jsmntok_t *)NULL,	\
-				    *(arg)) == true),		\
-	      sizeof(**(arg))
-
-#define p_opt_tal(name, cbx, arg)				\
-		  name"",					\
-		  false,					\
-		  true,						\
-		  (cbx),				 	\
-		  (arg) + 0*sizeof((cbx)((struct command *)NULL,\
-				   (const char *)NULL,		\
-				   (const char *)NULL,		\
-				   (const jsmntok_t *)NULL,	\
-				   (arg)) == true),		\
-		  sizeof(**(arg))
+#define p_opt(name, cbx, arg)                                   \
+	      name"",                                           \
+	      false,                                            \
+	      (cbx),                                            \
+	      ({ *arg = NULL;                                   \
+		 (arg) + 0*sizeof((cbx)((struct command *)NULL, \
+		                  (const char *)NULL,           \
+				  (const char *)NULL,           \
+				  (const jsmntok_t *)NULL,      \
+				  (arg)) == true); })
 
 /*
- * Similar to p_req but for optional parameters with defaults.
- * @arg will be set to @def if it isn't found during parsing.
+ * Add an optional parameter.  *arg is set to @def if it isn't found.
  */
-#define p_opt_def(name, cb, arg, def)					\
-		  name"",						\
-		  false,						\
-		  false,						\
-		  (cb),							\
-		  (arg) + 0*sizeof((cb)((const char *)NULL,		\
-					(const jsmntok_t *)NULL,	\
-					(arg)) == true),		\
-		  ((void)((*arg) = (def)), (size_t)0)
-
-#define p_opt_def_tal(name, cbx, arg, def)				\
-		  name"",					\
-		  false,					\
-		  true,						\
-		  (cbx),				 	\
-		  (arg) + 0*sizeof((cbx)((struct command *)NULL,\
-				   (const char *)NULL,		\
-				   (const char *)NULL,		\
-				   (const jsmntok_t *)NULL,	\
-				   (arg)) == true),		\
-		  ({ (*arg) = tal((cmd), typeof(**arg)); (**arg) = (def); (size_t)0;})
+#define p_opt_def(name, cbx, arg, def)				    \
+		  name"",					    \
+		  false,					    \
+		  (cbx),				 	    \
+		  ({ (*arg) = tal((cmd), typeof(**arg));            \
+		     (**arg) = (def);                               \
+		     (arg) + 0*sizeof((cbx)((struct command *)NULL, \
+				   (const char *)NULL,		    \
+				   (const char *)NULL,		    \
+				   (const jsmntok_t *)NULL,	    \
+				   (arg)) == true); })
 
 #endif /* LIGHTNING_LIGHTNINGD_PARAM_H */

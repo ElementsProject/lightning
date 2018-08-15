@@ -615,9 +615,9 @@ static void json_dev_setfees(struct command *cmd,
 	}
 
 	if (!param(cmd, buffer, params,
-		   p_opt_tal("immediate", json_tok_number, &imm),
-		   p_opt_tal("normal", json_tok_number, &norm),
-		   p_opt_tal("slow", json_tok_number, &slow),
+		   p_opt("immediate", json_tok_number, &imm),
+		   p_opt("normal", json_tok_number, &norm),
+		   p_opt("slow", json_tok_number, &slow),
 		   NULL))
 		return;
 
