@@ -568,15 +568,7 @@ static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 	 * go back to that height. This might be a new node catching up, or
 	 * bitcoind is processing a reorg. */
 	if (blockcount < topo->max_blockheight) {
-		if (bitcoind->ld->config.rescan < 0) {
-			/* Absolute blockheight, but bitcoind's blockheight isn't there yet */
-			/* Protect against underflow in subtraction.
-			 * Possible in regtest mode. */
-			if (blockcount < 1)
-				topo->max_blockheight = 0;
-			else
-				topo->max_blockheight = blockcount - 1;
-		} else if (topo->max_blockheight == UINT32_MAX) {
+		if (topo->max_blockheight == UINT32_MAX) {
 			/* Relative rescan, but we didn't know the blockheight */
 			/* Protect against underflow in subtraction.
 			 * Possible in regtest mode. */
@@ -584,6 +576,14 @@ static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 				topo->max_blockheight = 0;
 			else
 				topo->max_blockheight = blockcount - bitcoind->ld->config.rescan;
+		} else {
+			/* Absolute blockheight, but bitcoind's blockheight isn't there yet */
+			/* Protect against underflow in subtraction.
+			 * Possible in regtest mode. */
+			if (blockcount < 1)
+				topo->max_blockheight = 0;
+			else
+				topo->max_blockheight = blockcount - 1;
 		}
 	}
 
