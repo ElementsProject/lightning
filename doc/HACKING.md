@@ -96,7 +96,7 @@ Here's a list of parts, with notes:
 Debugging
 ---------
 
-You can build c-lightning with DEVELOPER=1 to use dev commands listed in ``cli/lightning-cli help``. Edit ccan/config.h to change DEVELOPER macro. You can log console messages with log_info() in lightningd and status_trace() in other subdaemons.
+You can build c-lightning with DEVELOPER=1 to use dev commands listed in ``cli/lightning-cli help``. ``./configure --enable-developer`` will do that. You can log console messages with log_info() in lightningd and status_trace() in other subdaemons.
 
 You can debug crashing subdaemons with the argument
 `--dev-debugger=lightning_channeld`, where `channeld` is the subdaemon name.
