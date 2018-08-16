@@ -158,6 +158,8 @@ struct reaching {
 	u32 seconds_waited;
 };
 
+/* This is a transitory structure: we hand off to the master daemon as soon
+ * as we've completed INIT read/write. */
 struct peer {
 	struct daemon *daemon;
 
@@ -382,9 +384,7 @@ static struct io_plan *peer_connected(struct io_conn *conn, struct peer *peer)
 	pubkey_set_add(&daemon->peers,
 		       tal_dup(daemon, struct pubkey, &peer->id));
 
-	/* We keep peer around until master says peer_disconnected */
-	tal_steal(daemon, peer);
-
+	/* This frees the peer. */
 	return io_close_taken_fd(conn);
 }
 
