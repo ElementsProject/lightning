@@ -1894,16 +1894,18 @@ static void peer_reconnect(struct peer *peer)
 
 	/* BOLT #2:
 	 *
-	 *   - if `next_local_commitment_number` is equal to the commitment
-	 *     number of the last `commitment_signed` message the receiving node
-	 *     has sent:
-	 *     - MUST reuse the same commitment number for its next
-	 *      `commitment_signed`.
-	 *   - otherwise:
-	 *     - if `next_local_commitment_number` is not 1 greater than the
-	 *       commitment number of the last `commitment_signed` message the
-	 *       receiving node has sent:
-	 *       - SHOULD fail the channel.
+	 *  - if `next_remote_revocation_number` is equal to the commitment
+	 *    number of the last `revoke_and_ack` the receiving node sent, AND
+	 *    the receiving node hasn't already received a `closing_signed`:
+	 *    - MUST re-send the `revoke_and_ack`.
+	 *  - otherwise:
+	 *    - if `next_remote_revocation_number` is not equal to 1 greater
+	 *      than the commitment number of the last `revoke_and_ack` the
+	 *      receiving node has sent:
+	 *      - SHOULD fail the channel.
+	 *    - if it has not sent `revoke_and_ack`, AND
+	 *      `next_remote_revocation_number` is equal to 0:
+	 *      - SHOULD fail the channel.
 	 */
 	if (next_remote_revocation_number == peer->next_index[LOCAL] - 2) {
 		/* Don't try to retransmit revocation index -1! */
