@@ -152,6 +152,12 @@ struct peer {
 	/* How many pongs are we expecting? */
 	size_t num_pings_outstanding;
 
+	/* The time of previous ping flood start. */
+	struct timeabs ping_flood_start;
+
+	/* Number of pings received after ping_flood_start. */
+	size_t num_pings_received;
+
 	/* Map of outstanding channel_range requests. */
 	u8 *query_channel_blocks;
 	u32 first_channel_range;
@@ -630,11 +636,26 @@ static void handle_ping(struct peer *peer, u8 *ping)
 {
 	u8 *pong;
 
+	/* BOLT #1:
+	 *
+	 * A node receiving a `ping` message:
+	 *  - SHOULD fail the channels if it has received significantly in
+	 *    excess of one `ping` per 30 seconds.
+	 */
+	if (peer->num_pings_received++ > 10 &&
+	    time_less(time_between(time_now(), peer->ping_flood_start),
+		      time_from_sec(30))) {
+		peer_error(peer, "Ping flood");
+		return;
+	}
+
 	if (!check_ping_make_pong(NULL, ping, &pong)) {
 		peer_error(peer, "Bad ping");
 		return;
 	}
 
+	peer->ping_flood_start = time_now();
+	peer->num_pings_received = 0;
 	if (pong)
 		queue_peer_msg(peer, take(pong));
 }
@@ -1321,6 +1342,8 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	peer->num_scid_queries_outstanding = 0;
 	peer->query_channel_blocks = NULL;
 	peer->num_pings_outstanding = 0;
+	peer->ping_flood_start = time_now();
+	peer->num_pings_received = 0;
 	peer->gossip_timer = NULL;
 
 	list_add_tail(&peer->daemon->peers, &peer->list);
