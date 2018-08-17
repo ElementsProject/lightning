@@ -1829,7 +1829,7 @@ static void peer_reconnect(struct peer *peer,
 	struct channel_id channel_id;
 	/* Note: BOLT #2 uses these names, which are sender-relative! */
 	u64 next_local_commitment_number, next_remote_revocation_number;
-	bool retransmit_revoke_and_ack;
+	bool retransmit_revoke_and_ack, retransmit_commitment_signed;
 	struct htlc_map_iter it;
 	const struct htlc *htlc;
 	u8 *msg;
@@ -1953,11 +1953,6 @@ static void peer_reconnect(struct peer *peer,
 	} else
 		retransmit_revoke_and_ack = false;
 
-	/* We have to re-send in the same order we sent originally:
-	 * revoke_and_ack (usually) alters our next commitment. */
-	if (retransmit_revoke_and_ack && !peer->last_was_revoke)
-		resend_revoke(peer);
-
 	/* BOLT #2:
 	 *
 	 *   - if `next_local_commitment_number` is equal to the commitment
@@ -1975,7 +1970,7 @@ static void peer_reconnect(struct peer *peer,
 				    PRIu64,
 				    next_local_commitment_number);
 
-		resend_commitment(peer, peer->last_sent_commit);
+		retransmit_commitment_signed = true;
 
 	/* BOLT #2:
 	 *
@@ -1992,6 +1987,16 @@ static void peer_reconnect(struct peer *peer,
 			    " vs %"PRIu64,
 			    next_local_commitment_number,
 			    peer->next_index[REMOTE]);
+	else
+		retransmit_commitment_signed = false;
+
+	/* We have to re-send in the same order we sent originally:
+	 * revoke_and_ack (usually) alters our next commitment. */
+	if (retransmit_revoke_and_ack && !peer->last_was_revoke)
+		resend_revoke(peer);
+
+	if (retransmit_commitment_signed)
+		resend_commitment(peer, peer->last_sent_commit);
 
 	/* This covers the case where we sent revoke after commit. */
 	if (retransmit_revoke_and_ack && peer->last_was_revoke)
