@@ -78,6 +78,18 @@ static void copy_to_parent_log(const char *prefix,
 		log_(parent_log, level, "%s %s", prefix, str);
 }
 
+static void peer_update_features(struct peer *peer,
+				 const u8 *gfeatures TAKES,
+				 const u8 *lfeatures TAKES)
+{
+	tal_free(peer->global_features);
+	tal_free(peer->local_features);
+	peer->global_features = tal_dup_arr(peer, u8,
+					    gfeatures, tal_count(gfeatures), 0);
+	peer->local_features = tal_dup_arr(peer, u8,
+					   lfeatures, tal_count(lfeatures), 0);
+}
+
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct pubkey *id,
 		      const struct wireaddr_internal *addr,
@@ -97,10 +109,8 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		peer->addr.itype = ADDR_INTERNAL_WIREADDR;
 		peer->addr.u.wireaddr.type = ADDR_TYPE_PADDING;
 	}
-	peer->global_features = tal_dup_arr(peer, u8,
-					    gfeatures, tal_count(gfeatures), 0);
-	peer->local_features = tal_dup_arr(peer, u8,
-					   lfeatures, tal_count(lfeatures), 0);
+	peer->global_features = peer->local_features = NULL;
+	peer_update_features(peer, gfeatures, lfeatures);
 	list_head_init(&peer->channels);
 	peer->direction = get_channel_direction(&peer->ld->id, &peer->id);
 
@@ -447,6 +457,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	peer = peer_by_id(ld, &id);
 	if (!peer)
 		peer = new_peer(ld, 0, &id, &addr, gfeatures, lfeatures);
+	else
+		peer_update_features(peer, gfeatures, lfeatures);
 
 	/* Can't be opening, since we wouldn't have sent peer_disconnected. */
 	assert(!peer->uncommitted_channel);
