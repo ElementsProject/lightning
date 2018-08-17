@@ -135,8 +135,8 @@ int main(void)
 					&info->secrets.payment_basepoint_secret));
 	assert(pubkey_eq(&baseline->basepoints.payment,
 			 &info->basepoints.payment));
-	assert(secret_eq(&baseline->secrets.payment_basepoint_secret,
-			  &info->secrets.payment_basepoint_secret));
+	assert(secret_eq_consttime(&baseline->secrets.payment_basepoint_secret,
+				   &info->secrets.payment_basepoint_secret));
 
 	/* derive_funding_key should give same results. */
 	info = new_info(ctx);
@@ -157,8 +157,8 @@ int main(void)
 					&info->secrets.revocation_basepoint_secret));
 	assert(pubkey_eq(&baseline->basepoints.revocation,
 			 &info->basepoints.revocation));
-	assert(secret_eq(&baseline->secrets.revocation_basepoint_secret,
-			  &info->secrets.revocation_basepoint_secret));
+	assert(secret_eq_consttime(&baseline->secrets.revocation_basepoint_secret,
+				   &info->secrets.revocation_basepoint_secret));
 
 	/* derive_htlc_basepoint should give same results. */
 	info = new_info(ctx);
@@ -166,8 +166,8 @@ int main(void)
 					&info->secrets.htlc_basepoint_secret));
 	assert(pubkey_eq(&baseline->basepoints.htlc,
 			 &info->basepoints.htlc));
-	assert(secret_eq(&baseline->secrets.htlc_basepoint_secret,
-			  &info->secrets.htlc_basepoint_secret));
+	assert(secret_eq_consttime(&baseline->secrets.htlc_basepoint_secret,
+				   &info->secrets.htlc_basepoint_secret));
 
 	tal_free(ctx);
 	wally_cleanup(0);
