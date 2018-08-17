@@ -36,6 +36,9 @@ static void setup_logging_sighandler(void)
 
 void status_setup_sync(int fd)
 {
+#if DEVELOPER
+	logging_io = (getenv("LIGHTNINGD_DEV_LOG_IO") != NULL);
+#endif
 	assert(status_fd == -1);
 	assert(!status_conn);
 	status_fd = fd;
@@ -44,6 +47,9 @@ void status_setup_sync(int fd)
 
 void status_setup_async(struct daemon_conn *master)
 {
+#if DEVELOPER
+	logging_io = (getenv("LIGHTNINGD_DEV_LOG_IO") != NULL);
+#endif
 	assert(status_fd == -1);
 	assert(!status_conn);
 	status_conn = master;
