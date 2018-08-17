@@ -81,7 +81,7 @@ class TailableProc(object):
     def __init__(self, outputDir=None, verbose=True):
         self.logs = []
         self.logs_cond = threading.Condition(threading.RLock())
-        self.env = os.environ
+        self.env = os.environ.copy()
         self.running = False
         self.proc = None
         self.outputDir = outputDir
@@ -666,7 +666,7 @@ class NodeFactory(object):
         return [j.result() for j in jobs]
 
     def get_node(self, disconnect=None, options=None, may_fail=False, may_reconnect=False, random_hsm=False,
-                 fake_bitcoin_cli=False):
+                 fake_bitcoin_cli=False, log_all_io=False):
         with self.lock:
             node_id = self.next_id
             self.next_id += 1
@@ -689,6 +689,10 @@ class NodeFactory(object):
             with open(daemon.disconnect_file, "w") as f:
                 f.write("\n".join(disconnect))
             daemon.opts["dev-disconnect"] = "dev_disconnect"
+        if log_all_io:
+            assert DEVELOPER
+            daemon.env["LIGHTNINGD_DEV_LOG_IO"] = "1"
+            daemon.opts["log-level"] = "io"
         if DEVELOPER:
             daemon.opts["dev-fail-on-subdaemon-fail"] = None
             daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"

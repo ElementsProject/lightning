@@ -8,8 +8,9 @@
 struct secret {
 	u8 data[32];
 };
-/* Define secret_eq */
-STRUCTEQ_DEF(secret, 0, data);
+
+/* You probably shouldn't compare secrets in non-const time! */
+bool secret_eq_consttime(const struct secret *a, const struct secret *b);
 
 /* This is a private key.  Keep it secret. */
 struct privkey {

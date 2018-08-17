@@ -17,6 +17,7 @@
 static int status_fd = -1;
 static struct daemon_conn *status_conn;
 volatile bool logging_io = false;
+static bool was_logging_io = false;
 
 static void got_sigusr1(int signal UNUSED)
 {
@@ -34,12 +35,25 @@ static void setup_logging_sighandler(void)
 	sigaction(SIGUSR1, &act, NULL);
 }
 
+static void report_logging_io(const char *why)
+{
+	if (logging_io != was_logging_io) {
+		was_logging_io = logging_io;
+		status_trace("%s: IO LOGGING %s",
+			     why, logging_io ? "ENABLED" : "DISABLED");
+	}
+}
+
 void status_setup_sync(int fd)
 {
 	assert(status_fd == -1);
 	assert(!status_conn);
 	status_fd = fd;
 	setup_logging_sighandler();
+#if DEVELOPER
+	logging_io = (getenv("LIGHTNINGD_DEV_LOG_IO") != NULL);
+	report_logging_io("LIGHTNINGD_DEV_LOG_IO");
+#endif
 }
 
 void status_setup_async(struct daemon_conn *master)
@@ -49,10 +63,15 @@ void status_setup_async(struct daemon_conn *master)
 	status_conn = master;
 
 	setup_logging_sighandler();
+#if DEVELOPER
+	logging_io = (getenv("LIGHTNINGD_DEV_LOG_IO") != NULL);
+	report_logging_io("LIGHTNINGD_DEV_LOG_IO");
+#endif
 }
 
 void status_send(const u8 *msg TAKES)
 {
+	report_logging_io("SIGUSR1");
 	if (status_fd >= 0) {
 		int type =fromwire_peektype(msg);
 		if (!wire_sync_write(status_fd, msg))
@@ -76,6 +95,7 @@ static void status_peer_io_short(enum log_level iodir, const u8 *p)
 
 void status_peer_io(enum log_level iodir, const u8 *p)
 {
+	report_logging_io("SIGUSR1");
 	if (logging_io)
 		status_io_full(iodir, "", p);
 	/* We get a huge amount of gossip; don't log it */
@@ -86,6 +106,7 @@ void status_peer_io(enum log_level iodir, const u8 *p)
 void status_io(enum log_level iodir, const char *who,
 	       const void *data, size_t len)
 {
+	report_logging_io("SIGUSR1");
 	if (!logging_io)
 		return;
 	/* Horribly inefficient, but so is logging IO generally. */

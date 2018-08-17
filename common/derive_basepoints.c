@@ -51,26 +51,30 @@ bool derive_basepoints(const struct secret *seed,
 	return true;
 }
 
-void per_commit_secret(const struct sha256 *shaseed,
+bool per_commit_secret(const struct sha256 *shaseed,
 		       struct secret *commit_secret,
 		       u64 per_commit_index)
 {
 	struct sha256 s;
+
+	if (per_commit_index >= (1ULL << SHACHAIN_BITS))
+		return false;
+
 	shachain_from_seed(shaseed, shachain_index(per_commit_index), &s);
 
 	BUILD_ASSERT(sizeof(s) == sizeof(*commit_secret));
 	memcpy(commit_secret, &s, sizeof(s));
+	return true;
 }
 
 bool per_commit_point(const struct sha256 *shaseed,
 		      struct pubkey *commit_point,
 		      u64 per_commit_index)
 {
-	struct sha256 per_commit_secret;
+	struct secret secret;
 
-	/* Derive new per-commitment-point. */
-	shachain_from_seed(shaseed, shachain_index(per_commit_index),
-			   &per_commit_secret);
+	if (!per_commit_secret(shaseed, &secret, per_commit_index))
+		return false;
 
 	/* BOLT #3:
 	 *
@@ -81,7 +85,7 @@ bool per_commit_point(const struct sha256 *shaseed,
 	 */
 	if (secp256k1_ec_pubkey_create(secp256k1_ctx,
 				       &commit_point->pubkey,
-				       per_commit_secret.u.u8) != 1)
+				       secret.data) != 1)
 		return false;
 
 	return true;
@@ -227,4 +231,20 @@ void fromwire_basepoints(const u8 **ptr, size_t *max,
 	fromwire_pubkey(ptr, max, &b->payment);
 	fromwire_pubkey(ptr, max, &b->htlc);
 	fromwire_pubkey(ptr, max, &b->delayed_payment);
+}
+
+bool shachain_get_secret(const struct shachain *shachain,
+			 u64 commit_num,
+			 struct secret *preimage)
+{
+	struct sha256 sha;
+
+	if (commit_num >= (1ULL << SHACHAIN_BITS))
+		return false;
+
+	if (!shachain_get_hash(shachain, shachain_index(commit_num), &sha))
+		return false;
+	BUILD_ASSERT(sizeof(*preimage) == sizeof(sha));
+	memcpy(preimage, &sha, sizeof(*preimage));
+	return true;
 }

@@ -78,6 +78,18 @@ static void copy_to_parent_log(const char *prefix,
 		log_(parent_log, level, "%s %s", prefix, str);
 }
 
+static void peer_update_features(struct peer *peer,
+				 const u8 *gfeatures TAKES,
+				 const u8 *lfeatures TAKES)
+{
+	tal_free(peer->global_features);
+	tal_free(peer->local_features);
+	peer->global_features = tal_dup_arr(peer, u8,
+					    gfeatures, tal_count(gfeatures), 0);
+	peer->local_features = tal_dup_arr(peer, u8,
+					   lfeatures, tal_count(lfeatures), 0);
+}
+
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct pubkey *id,
 		      const struct wireaddr_internal *addr,
@@ -97,10 +109,8 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		peer->addr.itype = ADDR_INTERNAL_WIREADDR;
 		peer->addr.u.wireaddr.type = ADDR_TYPE_PADDING;
 	}
-	peer->global_features = tal_dup_arr(peer, u8,
-					    gfeatures, tal_count(gfeatures), 0);
-	peer->local_features = tal_dup_arr(peer, u8,
-					   lfeatures, tal_count(lfeatures), 0);
+	peer->global_features = peer->local_features = NULL;
+	peer_update_features(peer, gfeatures, lfeatures);
 	list_head_init(&peer->channels);
 	peer->direction = get_channel_direction(&peer->ld->id, &peer->id);
 
@@ -360,15 +370,28 @@ register_close_command(struct lightningd *ld,
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		   bool cooperative)
 {
-	sign_last_tx(channel);
+	/* BOLT #2:
+	 *
+	 * - if `next_remote_revocation_number` is greater than expected
+	 *   above, AND `your_last_per_commitment_secret` is correct for that
+	 *   `next_remote_revocation_number` minus 1:
+	 *      - MUST NOT broadcast its commitment transaction.
+	 */
+	if (channel->future_per_commitment_point && !cooperative) {
+		log_broken(channel->log,
+			   "Cannot broadcast our commitment tx:"
+			   " they have a future one");
+	} else {
+		sign_last_tx(channel);
 
-	/* Keep broadcasting until we say stop (can fail due to dup,
-	 * if they beat us to the broadcast). */
-	broadcast_tx(ld->topology, channel, channel->last_tx, NULL);
+		/* Keep broadcasting until we say stop (can fail due to dup,
+		 * if they beat us to the broadcast). */
+		broadcast_tx(ld->topology, channel, channel->last_tx, NULL);
+
+		remove_sig(channel->last_tx);
+	}
 
 	resolve_close_command(ld, channel, cooperative);
-
-	remove_sig(channel->last_tx);
 }
 
 void channel_errmsg(struct channel *channel,
@@ -447,6 +470,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	peer = peer_by_id(ld, &id);
 	if (!peer)
 		peer = new_peer(ld, 0, &id, &addr, gfeatures, lfeatures);
+	else
+		peer_update_features(peer, gfeatures, lfeatures);
 
 	/* Can't be opening, since we wouldn't have sent peer_disconnected. */
 	assert(!peer->uncommitted_channel);
@@ -508,12 +533,12 @@ send_error:
 	peer_start_openingd(peer, &cs, peer_fd, gossip_fd, error);
 }
 
-static enum watch_result funding_lockin_cb(struct channel *channel,
+static enum watch_result funding_lockin_cb(struct lightningd *ld,
+					   struct channel *channel,
 					   const struct bitcoin_txid *txid,
 					   unsigned int depth)
 {
 	const char *txidstr;
-	struct lightningd *ld = channel->peer->ld;
 
 	txidstr = type_to_string(channel, struct bitcoin_txid, txid);
 	log_debug(channel->log, "Funding tx %s depth %u of %u",

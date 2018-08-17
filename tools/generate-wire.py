@@ -78,7 +78,8 @@ typemap = {
     ('announcement_signatures', 'short_channel_id'): FieldType('struct short_channel_id'),
     ('channel_announcement', 'short_channel_id'): FieldType('struct short_channel_id'),
     ('channel_update', 'short_channel_id'): FieldType('struct short_channel_id'),
-    ('revoke_and_ack', 'per_commitment_secret'): FieldType('struct secret')
+    ('revoke_and_ack', 'per_commitment_secret'): FieldType('struct secret'),
+    ('channel_reestablish_option_data_loss_protect', 'your_last_per_commitment_secret'): FieldType('struct secret')
 }
 
 # Partial names that map to a datatype

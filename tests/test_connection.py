@@ -1002,11 +1002,11 @@ def test_forget_channel(node_factory):
 
 
 def test_peerinfo(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True})
     # Gossiping but no node announcement yet
     assert l1.rpc.getpeer(l2.info['id'])['connected']
     assert len(l1.rpc.getpeer(l2.info['id'])['channels']) == 0
-    assert l1.rpc.getpeer(l2.info['id'])['local_features'] == '88'
+    assert l1.rpc.getpeer(l2.info['id'])['local_features'] == '8a'
     assert l1.rpc.getpeer(l2.info['id'])['global_features'] == ''
 
     # Fund a channel to force a node announcement
@@ -1023,6 +1023,16 @@ def test_peerinfo(node_factory, bitcoind):
     peer2 = l2.rpc.getpeer(l1.info['id'])
     assert only_one(nodes1)['global_features'] == peer1['global_features']
     assert only_one(nodes2)['global_features'] == peer2['global_features']
+
+    assert l1.rpc.getpeer(l2.info['id'])['local_features'] == '8a'
+    assert l2.rpc.getpeer(l1.info['id'])['local_features'] == '8a'
+
+    # If it reconnects after db load, it should know features.
+    l1.restart()
+    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'])
+    wait_for(lambda: l2.rpc.getpeer(l1.info['id'])['connected'])
+    assert l1.rpc.getpeer(l2.info['id'])['local_features'] == '8a'
+    assert l2.rpc.getpeer(l1.info['id'])['local_features'] == '8a'
 
     # Close the channel to forget the peer
     with pytest.raises(RpcError, match=r'Channel close negotiation not finished'):
@@ -1108,3 +1118,95 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     l2.daemon.wait_for_log('Forgetting channel: It has been {} blocks'.format(blocks))
     # fundee will also forget and disconnect from peer.
     assert len(l2.rpc.listpeers(l1.info['id'])['peers']) == 0
+
+
+@unittest.skipIf(not DEVELOPER, "needs LIGHTNINGD_DEV_LOG_IO")
+def test_dataloss_protection(node_factory, bitcoind):
+    l1 = node_factory.get_node(may_reconnect=True, log_all_io=True)
+    l2 = node_factory.get_node(may_reconnect=True, log_all_io=True)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # l1 should send out WIRE_INIT (0010)
+    l1.daemon.wait_for_log("\[OUT\] 0010"
+                           # gflen == 0
+                           "0000"
+                           # lflen == 1
+                           "0001"
+                           # Local features 1, 3 and 7 (0x8a).
+                           "8a")
+
+    l1.fund_channel(l2, 10**6)
+    l2.stop()
+
+    # Save copy of the db.
+    dbpath = os.path.join(l2.daemon.lightning_dir, "lightningd.sqlite3")
+    orig_db = open(dbpath, "rb").read()
+    l2.start()
+
+    # l1 should have sent WIRE_CHANNEL_REESTABLISH with option_data_loss_protect.
+    l1.daemon.wait_for_log("\[OUT\] 0088"
+                           # channel_id
+                           "[0-9a-f]{64}"
+                           # next_local_commitment_number
+                           "0000000000000001"
+                           # next_remote_revocation_number
+                           "0000000000000000"
+                           # your_last_per_commitment_secret (unknown == zeroes)
+                           "0{64}"
+                           # my_current_per_commitment_point
+                           "0[23][0-9a-f]{64}")
+    # After an htlc, we should get different results (two more commits)
+    l1.pay(l2, 200000000)
+
+    # Make sure both sides consider it completely settled (has received both
+    # REVOKE_AND_ACK)
+    l1.daemon.wait_for_logs(["\[IN\] 0085"] * 2)
+    l2.daemon.wait_for_logs(["\[IN\] 0085"] * 2)
+
+    l2.restart()
+
+    # l1 should have sent WIRE_CHANNEL_REESTABLISH with option_data_loss_protect.
+    l1.daemon.wait_for_log("\[OUT\] 0088"
+                           # channel_id
+                           "[0-9a-f]{64}"
+                           # next_local_commitment_number
+                           "0000000000000003"
+                           # next_remote_revocation_number
+                           "0000000000000002"
+                           # your_last_per_commitment_secret
+                           "[0-9a-f]{64}"
+                           # my_current_per_commitment_point
+                           "0[23][0-9a-f]{64}")
+
+    # Now, move l2 back in time.
+    l2.stop()
+    # Overwrite with OLD db.
+    open(dbpath, "wb").write(orig_db)
+    l2.start()
+
+    # l2 should freak out!
+    l2.daemon.wait_for_log("Catastrophic failure: please close channel")
+
+    # l1 should drop to chain.
+    l1.daemon.wait_for_log('sendrawtx exit 0')
+
+    # l2 must NOT drop to chain.
+    l2.daemon.wait_for_log("Cannot broadcast our commitment tx: they have a future one")
+    assert not l2.daemon.is_in_log('sendrawtx exit 0')
+
+    closetxid = only_one(bitcoind.rpc.getrawmempool(False))
+
+    # l2 should still recover something!
+    bitcoind.generate_block(1)
+
+    l2.daemon.wait_for_log("ERROR: Unknown commitment #2, recovering our funds!")
+
+    # Restarting l2, and it should remember from db.
+    l2.restart()
+
+    l2.daemon.wait_for_log("ERROR: Unknown commitment #2, recovering our funds!")
+    bitcoind.generate_block(100)
+    l2.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')
+
+    # l2 should have it in wallet.
+    assert (closetxid, "confirmed") in set([(o['txid'], o['status']) for o in l2.rpc.listfunds()['outputs']])

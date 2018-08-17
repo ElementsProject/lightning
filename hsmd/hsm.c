@@ -628,7 +628,14 @@ handle_get_per_commitment_point(struct io_conn *conn, struct client *c)
 
 	if (n >= 2) {
 		old_secret = tal(tmpctx, struct secret);
-		per_commit_secret(&shaseed, old_secret, n - 2);
+		if (!per_commit_secret(&shaseed, old_secret, n - 2)) {
+			status_broken("Cannot derive secret %"PRIu64
+				      " for client %s",
+				      n - 1,
+				      type_to_string(tmpctx,
+						     struct pubkey, &c->id));
+			goto fail;
+		}
 	} else
 		old_secret = NULL;
 
@@ -636,6 +643,48 @@ handle_get_per_commitment_point(struct io_conn *conn, struct client *c)
 			 take(towire_hsm_get_per_commitment_point_reply(NULL,
 									&per_commitment_point,
 									old_secret)));
+	return daemon_conn_read_next(conn, &c->dc);
+
+fail:
+	daemon_conn_send(c->master,
+			 take(towire_hsmstatus_client_bad_request(NULL,
+							  &c->id,
+							  c->dc.msg_in)));
+	return io_close(conn);
+}
+
+static struct io_plan *handle_check_future_secret(struct io_conn *conn,
+						  struct client *c)
+{
+	struct daemon_conn *dc = &c->dc;
+	struct secret channel_seed;
+	struct sha256 shaseed;
+	u64 n;
+	struct secret secret, suggested;
+
+	if (!fromwire_hsm_check_future_secret(dc->msg_in, &n,
+							     &suggested)) {
+		status_broken("bad check_future_secret for client %s",
+			      type_to_string(tmpctx, struct pubkey, &c->id));
+		goto fail;
+	}
+
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	if (!derive_shaseed(&channel_seed, &shaseed)) {
+		status_broken("bad derive_shaseed for client %s",
+			      type_to_string(tmpctx, struct pubkey, &c->id));
+		goto fail;
+	}
+
+	if (!per_commit_secret(&shaseed, &secret, n)) {
+		status_broken("bad commit secret #%"PRIu64" for client %s",
+			      n, type_to_string(tmpctx, struct pubkey, &c->id));
+		goto fail;
+	}
+
+	daemon_conn_send(&c->dc,
+			 take(towire_hsm_check_future_secret_reply(NULL,
+				   secret_eq_consttime(&secret, &suggested))));
 	return daemon_conn_read_next(conn, &c->dc);
 
 fail:
@@ -773,6 +822,7 @@ static bool check_client_capabilities(struct client *client,
 		return (client->capabilities & HSM_CAP_SIGN_ONCHAIN_TX) != 0;
 
 	case WIRE_HSM_GET_PER_COMMITMENT_POINT:
+	case WIRE_HSM_CHECK_FUTURE_SECRET:
 		return (client->capabilities & HSM_CAP_COMMITMENT_POINT) != 0;
 
 	case WIRE_HSM_SIGN_REMOTE_COMMITMENT_TX:
@@ -805,6 +855,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_SIGN_COMMITMENT_TX_REPLY:
 	case WIRE_HSM_SIGN_TX_REPLY:
 	case WIRE_HSM_GET_PER_COMMITMENT_POINT_REPLY:
+	case WIRE_HSM_CHECK_FUTURE_SECRET_REPLY:
 	case WIRE_HSM_GET_CHANNEL_BASEPOINTS_REPLY:
 		break;
 	}
@@ -885,6 +936,9 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	case WIRE_HSM_GET_PER_COMMITMENT_POINT:
 		return handle_get_per_commitment_point(conn, c);
 
+	case WIRE_HSM_CHECK_FUTURE_SECRET:
+		return handle_check_future_secret(conn, c);
+
 	case WIRE_HSM_SIGN_REMOTE_COMMITMENT_TX:
 		return handle_sign_remote_commitment_tx(conn, c);
 
@@ -907,6 +961,7 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	case WIRE_HSM_SIGN_COMMITMENT_TX_REPLY:
 	case WIRE_HSM_SIGN_TX_REPLY:
 	case WIRE_HSM_GET_PER_COMMITMENT_POINT_REPLY:
+	case WIRE_HSM_CHECK_FUTURE_SECRET_REPLY:
 	case WIRE_HSM_GET_CHANNEL_BASEPOINTS_REPLY:
 		break;
 	}

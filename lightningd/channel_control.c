@@ -4,6 +4,7 @@
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/utils.h>
+#include <common/wire_error.h>
 #include <errno.h>
 #include <gossipd/gossip_constants.h>
 #include <hsmd/gen_hsm_client_wire.h>
@@ -101,6 +102,34 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	wallet_channel_save(ld->wallet, channel);
 }
 
+static void channel_fail_fallen_behind(struct channel *channel, const u8 *msg)
+{
+	struct pubkey per_commitment_point;
+	struct channel_id cid;
+
+	if (!fromwire_channel_fail_fallen_behind(msg, &per_commitment_point)) {
+		channel_internal_error(channel,
+				       "bad channel_fail_fallen_behind %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	channel->future_per_commitment_point
+		= tal_dup(channel, struct pubkey, &per_commitment_point);
+
+	/* TODO(cdecker) Selectively save updated fields to DB */
+	wallet_channel_save(channel->peer->ld->wallet, channel);
+
+	/* We don't fail yet, since we want daemon to send them an error
+	 * to trigger rebroadcasting.  But make sure we set error now in
+	 * case something else goes wrong! */
+	derive_channel_id(&cid,
+			  &channel->funding_txid,
+			  channel->funding_outnum);
+	channel->error = towire_errorfmt(channel, &cid,
+					 "Catastrophic failure: please close channel");
+}
+
 static void peer_start_closingd_after_shutdown(struct channel *channel,
 					       const u8 *msg,
 					       const int *fds)
@@ -147,6 +176,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 			return 2;
 		peer_start_closingd_after_shutdown(sd->channel, msg, fds);
 		break;
+	case WIRE_CHANNEL_FAIL_FALLEN_BEHIND:
+		channel_fail_fallen_behind(sd->channel, msg);
+		break;
 
 	/* And we never get these from channeld. */
 	case WIRE_CHANNEL_INIT:
@@ -188,6 +220,7 @@ void peer_start_channeld(struct channel *channel,
 	struct lightningd *ld = channel->peer->ld;
 	const struct config *cfg = &ld->config;
 	bool reached_announce_depth;
+	struct secret last_remote_per_commit_secret;
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,
@@ -234,6 +267,27 @@ void peer_start_channeld(struct channel *channel,
 	}
 
 	num_revocations = revocations_received(&channel->their_shachain.chain);
+
+	/* BOLT #2:
+	 *
+ 	 *   - if it supports `option_data_loss_protect`:
+	 *     - if `next_remote_revocation_number` equals 0:
+	 *       - MUST set `your_last_per_commitment_secret` to all zeroes
+	 *     - otherwise:
+	 *       - MUST set `your_last_per_commitment_secret` to the last
+	 *         `per_commitment_secret` it received
+	 */
+	if (num_revocations == 0)
+		memset(&last_remote_per_commit_secret, 0,
+		       sizeof(last_remote_per_commit_secret));
+	else if (!shachain_get_secret(&channel->their_shachain.chain,
+				      num_revocations-1,
+				      &last_remote_per_commit_secret)) {
+		channel_fail_permanent(channel,
+				       "Could not get revocation secret %"PRIu64,
+				       num_revocations-1);
+		return;
+	}
 
 	/* Warn once. */
 	if (ld->config.ignore_fee_limits)
@@ -284,7 +338,8 @@ void peer_start_channeld(struct channel *channel,
 							channel->final_key_idx),
 				      channel->channel_flags,
 				      funding_signed,
-				      reached_announce_depth);
+				      reached_announce_depth,
+				      &last_remote_per_commit_secret);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));

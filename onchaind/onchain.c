@@ -1698,7 +1698,7 @@ static void steal_htlc(struct tracked_output *out)
 static void handle_their_cheat(const struct bitcoin_tx *tx,
 			       const struct bitcoin_txid *txid,
 			       u32 tx_blockheight,
-			       const struct sha256 *revocation_preimage,
+			       const struct secret *revocation_preimage,
 			       const struct basepoints basepoints[NUM_SIDES],
 			       const struct htlc_stub *htlcs,
 			       const bool *tell_if_missing,
@@ -2117,6 +2117,94 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 	wait_for_resolved(outs);
 }
 
+static void handle_unknown_commitment(const struct bitcoin_tx *tx,
+				      u32 tx_blockheight,
+				      u64 commit_num,
+				      const struct bitcoin_txid *txid,
+				      const struct pubkey *possible_remote_per_commitment_point,
+				      const struct basepoints basepoints[NUM_SIDES],
+				      const struct htlc_stub *htlcs,
+				      const bool *tell_if_missing,
+				      struct tracked_output **outs)
+{
+	struct keyset *ks;
+	int to_us_output = -1;
+	u8 *local_script;
+
+	resolved_by_other(outs[0], txid, UNKNOWN_UNILATERAL);
+
+	if (!possible_remote_per_commitment_point)
+		goto search_done;
+
+	keyset = ks = tal(tx, struct keyset);
+	if (!derive_keyset(possible_remote_per_commitment_point,
+			   &basepoints[REMOTE],
+			   &basepoints[LOCAL],
+			   ks))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Deriving keyset for possible_remote_per_commitment_point %s",
+			      type_to_string(tmpctx, struct pubkey,
+					     possible_remote_per_commitment_point));
+
+	local_script = scriptpubkey_p2wpkh(tmpctx, &keyset->other_payment_key);
+	for (size_t i = 0; i < tal_count(tx->output); i++) {
+		struct tracked_output *out;
+
+		if (local_script
+		    && scripteq(tx->output[i].script, local_script)) {
+			/* BOLT #5:
+			 *
+			 * - MAY take no action in regard to the associated
+			 *   `to_remote`, which is simply a P2WPKH output to
+			 *   the *local node*.
+			 *   - Note: `to_remote` is considered *resolved* by the
+			 *     commitment transaction itself.
+			 */
+			out = new_tracked_output(&outs, txid, tx_blockheight,
+						 UNKNOWN_UNILATERAL,
+						 i, tx->output[i].amount,
+						 OUTPUT_TO_US, NULL, NULL, NULL);
+			ignore_output(out);
+			local_script = NULL;
+
+			/* Tell the master that it will want to add
+			 * this UTXO to its outputs */
+			wire_sync_write(REQ_FD, towire_onchain_add_utxo(
+						    tmpctx, txid, i,
+						    possible_remote_per_commitment_point,
+						    tx->output[i].amount,
+						    tx_blockheight));
+			to_us_output = i;
+			continue;
+		}
+	}
+
+search_done:
+	if (to_us_output == -1) {
+		status_broken("FUNDS LOST.  Unknown commitment #%"PRIu64"!",
+			      commit_num);
+		init_reply("ERROR: FUNDS LOST.  Unknown commitment!");
+	} else {
+		status_broken("ERROR: Unknown commitment #%"PRIu64
+			      ", recovering our funds!",
+			      commit_num);
+		init_reply("ERROR: Unknown commitment, recovering our funds!");
+	}
+
+	/* Tell master to give up on HTLCs immediately. */
+	for (size_t i = 0; i < tal_count(htlcs); i++) {
+		u8 *msg;
+
+		if (!tell_if_missing[i])
+			continue;
+
+		msg = towire_onchain_missing_htlc_output(NULL, &htlcs[i]);
+		wire_sync_write(REQ_FD, take(msg));
+	}
+
+	wait_for_resolved(outs);
+}
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -2136,6 +2224,7 @@ int main(int argc, char *argv[])
 	struct htlc_stub *htlcs;
 	bool *tell_if_missing, *tell_immediately;
 	u32 tx_blockheight;
+	struct pubkey *possible_remote_per_commitment_point;
 
 	subdaemon_setup(argc, argv);
 
@@ -2166,7 +2255,8 @@ int main(int argc, char *argv[])
 				   &remote_htlc_sigs,
 				   &num_htlcs,
 				   &min_possible_feerate,
-				   &max_possible_feerate)) {
+				   &max_possible_feerate,
+				   &possible_remote_per_commitment_point)) {
 		master_badmsg(WIRE_ONCHAIN_INIT, msg);
 	}
 
@@ -2223,7 +2313,7 @@ int main(int argc, char *argv[])
 		 *    party crashed, for instance. One side publishes its
 		 *    *latest commitment transaction*.
 		 */
-		struct sha256 revocation_preimage;
+		struct secret revocation_preimage;
 		commit_num = unmask_commit_number(tx, funder,
 						  &basepoints[LOCAL].payment,
 						  &basepoints[REMOTE].payment);
@@ -2246,9 +2336,8 @@ int main(int argc, char *argv[])
 		 * *outdated commitment transaction* (presumably, a prior
 		 * version, which is more in its favor).
 		 */
-		else if (shachain_get_hash(&shachain,
-					   shachain_index(commit_num),
-					   &revocation_preimage)) {
+		else if (shachain_get_secret(&shachain, commit_num,
+					     &revocation_preimage)) {
 			handle_their_cheat(tx, &txid,
 					   tx_blockheight,
 					   &revocation_preimage,
@@ -2285,13 +2374,16 @@ int main(int argc, char *argv[])
 						tell_if_missing,
 						tell_immediately,
 						outs);
-		} else
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "Unknown commitment index %"PRIu64
-				      " for tx %s",
-				      commit_num,
-				      type_to_string(tmpctx, struct bitcoin_tx,
-						     tx));
+		} else {
+			handle_unknown_commitment(tx, tx_blockheight,
+						  commit_num,
+						  &txid,
+						  possible_remote_per_commitment_point,
+						  basepoints,
+						  htlcs,
+						  tell_if_missing,
+						  outs);
+		}
 	}
 
 	/* We're done! */

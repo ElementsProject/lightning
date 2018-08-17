@@ -244,7 +244,8 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
     bitcoind.generate_block(1)
     for p in peers:
         p.daemon.wait_for_log(' to ONCHAIN')
-        wait_for(lambda: only_one(p.rpc.listpeers(l1.info['id'])['peers'][0]['channels'])['status'][1] == 'ONCHAIN:Tracking mutual close transaction')
+        wait_for(lambda: 'ONCHAIN:Tracking mutual close transaction' in only_one(p.rpc.listpeers(l1.info['id'])['peers'][0]['channels'])['status'])
+
     l1.daemon.wait_for_logs([' to ONCHAIN'] * num_peers)
 
 
@@ -1160,6 +1161,14 @@ def test_permfail(node_factory, bitcoind):
 
     # Now, mine 4 blocks so it sends out the spending tx.
     bitcoind.generate_block(4)
+
+    # onchaind notes to-local payment immediately.
+    assert (closetxid, "confirmed") in set([(o['txid'], o['status']) for o in l1.rpc.listfunds()['outputs']])
+
+    # Restart, should still be confirmed (fails: unwinding blocks erases
+    # the confirmation, and we don't re-make it).
+    l1.restart()
+    wait_for(lambda: (closetxid, "confirmed") in set([(o['txid'], o['status']) for o in l1.rpc.listfunds()['outputs']]))
 
     # It should send the to-wallet tx.
     l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET')

@@ -421,7 +421,7 @@ static void bfg_one_edge(struct node *node,
 		if (requiredcap + risk <
 		    src->bfg[h + 1].total + src->bfg[h + 1].risk) {
 			SUPERVERBOSE("...%s can reach here in hoplen %zu total %"PRIu64,
-				     type_to_string(trc, struct pubkey,
+				     type_to_string(tmpctx, struct pubkey,
 						    &src->id),
 				     h, node->bfg[h].total + fee);
 			src->bfg[h+1].total = requiredcap;
@@ -506,7 +506,10 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 					     i, num_edges);
 
 				if (!hc_is_routable(chan, idx, now)) {
-					SUPERVERBOSE("...unroutable");
+					SUPERVERBOSE("...unroutable (local_disabled = %i, is_halfchan_enabled = %i, unroutable_until = %i",
+						     chan->local_disabled,
+						     is_halfchan_enabled(&chan->half[idx]),
+						     chan->half[idx].unroutable_until >= now);
 					continue;
 				}
 				bfg_one_edge(n, chan, idx,

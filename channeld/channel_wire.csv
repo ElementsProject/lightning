@@ -58,6 +58,7 @@ channel_init,,flags,u8
 channel_init,,init_peer_pkt_len,u16
 channel_init,,init_peer_pkt,init_peer_pkt_len*u8
 channel_init,,reached_announce_depth,bool
+channel_init,,last_remote_secret,struct secret
 
 # master->channeld funding hit new depth >= lock depth
 channel_funding_locked,1002
@@ -163,3 +164,8 @@ channel_feerates,1027
 channel_feerates,,feerate,u32
 channel_feerates,,min_feerate,u32
 channel_feerates,,max_feerate,u32
+
+# Peer presented proof it was from the future.
+channel_fail_fallen_behind,1028
+channel_fail_fallen_behind,,remote_per_commitment_point,struct pubkey
+

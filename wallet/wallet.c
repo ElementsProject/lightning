@@ -61,6 +61,11 @@ struct wallet *wallet_new(struct lightningd *ld,
 	return wallet;
 }
 
+#define UTXO_FIELDS							\
+	"prev_out_tx, prev_out_index, value, type, status, keyindex, "	\
+	"channel_id, peer_id, commitment_point, confirmation_height, "	\
+	"spend_height"
+
 /* We actually use the db constraints to uniquify, so OK if this fails. */
 bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		     enum wallet_output_type type)
@@ -68,17 +73,8 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 	sqlite3_stmt *stmt;
 
 	stmt = db_prepare(w->db, "INSERT INTO outputs ("
-			  "prev_out_tx, "
-			  "prev_out_index, "
-			  "value, "
-			  "type, "
-			  "status, "
-			  "keyindex, "
-			  "channel_id, "
-			  "peer_id, "
-			  "commitment_point, "
-			  "confirmation_height, "
-			  "spend_height) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
+			  UTXO_FIELDS
+			  ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
 	sqlite3_bind_blob(stmt, 1, &utxo->txid, sizeof(utxo->txid), SQLITE_TRANSIENT);
 	sqlite3_bind_int(stmt, 2, utxo->outnum);
 	sqlite3_bind_int64(stmt, 3, utxo->amount);
@@ -175,10 +171,6 @@ bool wallet_update_output_status(struct wallet *w,
 	return sqlite3_changes(w->db->sql) > 0;
 }
 
-#define UTXO_FIELDS							\
-	"prev_out_tx, prev_out_index, value, type, status, keyindex, "	\
-	"channel_id, peer_id, commitment_point, confirmation_height, "	\
-	"spend_height"
 struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum output_status state)
 {
 	struct utxo **results;
@@ -195,6 +187,26 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 	}
 
 	results = tal_arr(ctx, struct utxo*, 0);
+	for (i=0; sqlite3_step(stmt) == SQLITE_ROW; i++) {
+		tal_resize(&results, i+1);
+		results[i] = tal(results, struct utxo);
+		wallet_stmt2output(stmt, results[i]);
+	}
+	db_stmt_done(stmt);
+
+	return results;
+}
+
+struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx, struct wallet *w)
+{
+	struct utxo **results;
+	int i;
+
+	sqlite3_stmt *stmt = db_prepare(
+		w->db, "SELECT " UTXO_FIELDS
+		" FROM outputs WHERE channel_id IS NOT NULL and confirmation_height IS NULL");
+
+       	results = tal_arr(ctx, struct utxo*, 0);
 	for (i=0; sqlite3_step(stmt) == SQLITE_ROW; i++) {
 		tal_resize(&results, i+1);
 		results[i] = tal(results, struct utxo);
@@ -573,6 +585,7 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 	s64 final_key_idx;
 	struct basepoints local_basepoints;
 	struct pubkey local_funding_pubkey;
+	struct pubkey *future_per_commitment_point;
 
 	peer_dbid = sqlite3_column_int64(stmt, 1);
 	peer = find_peer_by_dbid(w->ld, peer_dbid);
@@ -603,6 +616,13 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 	} else {
 		last_sent_commit = NULL;
 	}
+
+	if (sqlite3_column_type(stmt, 40) != SQLITE_NULL) {
+		future_per_commitment_point = tal(tmpctx, struct pubkey);
+		ok &= sqlite3_column_pubkey(stmt, 40,
+					    future_per_commitment_point);
+	} else
+		future_per_commitment_point = NULL;
 
 	ok &= wallet_channel_config_load(w, sqlite3_column_int64(stmt, 3),
 					 &our_config);
@@ -670,7 +690,8 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 			   sqlite3_column_int(stmt, 37),
 			   /* Not connected */
 			   false,
-			   &local_basepoints, &local_funding_pubkey);
+			   &local_basepoints, &local_funding_pubkey,
+			   future_per_commitment_point);
 
 	return chan;
 }
@@ -694,7 +715,7 @@ static const char *channel_fields =
     /*30*/ "last_sent_commit_state, last_sent_commit_id, "
     /*32*/ "last_tx, last_sig, last_was_revoke, first_blocknum, "
     /*36*/ "min_possible_feerate, max_possible_feerate, "
-    /*38*/ "msatoshi_to_us_min, msatoshi_to_us_max ";
+    /*38*/ "msatoshi_to_us_min, msatoshi_to_us_max, future_per_commitment_point ";
 
 bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
 {
@@ -954,7 +975,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 			  "  old_per_commit_remote=?,"
 			  "  local_feerate_per_kw=?,"
 			  "  remote_feerate_per_kw=?,"
-			  "  channel_config_remote=?"
+			  "  channel_config_remote=?,"
+			  "  future_per_commitment_point=?"
 			  " WHERE id=?");
 	sqlite3_bind_pubkey(stmt, 1,  &chan->channel_info.remote_fundingkey);
 	sqlite3_bind_pubkey(stmt, 2,  &chan->channel_info.theirbase.revocation);
@@ -966,7 +988,11 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	sqlite3_bind_int(stmt, 8, chan->channel_info.feerate_per_kw[LOCAL]);
 	sqlite3_bind_int(stmt, 9, chan->channel_info.feerate_per_kw[REMOTE]);
 	sqlite3_bind_int64(stmt, 10, chan->channel_info.their_config.id);
-	sqlite3_bind_int64(stmt, 11, chan->dbid);
+	if (chan->future_per_commitment_point)
+		sqlite3_bind_pubkey(stmt, 11, chan->future_per_commitment_point);
+	else
+		sqlite3_bind_null(stmt, 11);
+	sqlite3_bind_int64(stmt, 12, chan->dbid);
 	db_exec_prepared(w->db, stmt);
 
 	/* If we have a last_sent_commit, store it */
@@ -1043,20 +1069,18 @@ void wallet_peer_delete(struct wallet *w, u64 peer_dbid)
 	db_exec_prepared(w->db, stmt);
 }
 
-static void wallet_output_confirm(struct wallet *w,
-				  const struct bitcoin_txid *txid,
-				  const u32 outnum,
-				  const u32 confirmation_height)
+void wallet_confirm_tx(struct wallet *w,
+		       const struct bitcoin_txid *txid,
+		       const u32 confirmation_height)
 {
 	sqlite3_stmt *stmt;
 	assert(confirmation_height > 0);
 	stmt = db_prepare(w->db,
 			  "UPDATE outputs "
 			  "SET confirmation_height = ? "
-			  "WHERE prev_out_tx = ? AND prev_out_index = ?");
+			  "WHERE prev_out_tx = ?");
 	sqlite3_bind_int(stmt, 1, confirmation_height);
 	sqlite3_bind_sha256_double(stmt, 2, &txid->shad);
-	sqlite3_bind_int(stmt, 3, outnum);
 
 	db_exec_prepared(w->db, stmt);
 }
@@ -1099,7 +1123,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 			 * the output from a transaction we created
 			 * ourselves. */
 			if (blockheight)
-				wallet_output_confirm(w, &utxo->txid, utxo->outnum, *blockheight);
+				wallet_confirm_tx(w, &utxo->txid, *blockheight);
 			tal_free(utxo);
 			continue;
 		}

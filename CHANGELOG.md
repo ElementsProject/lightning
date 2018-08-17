@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Config: `--conf` option to set config file.
 - JSON API: Added description to invoices and payments (#1740).
 - pylightning: RpcError now has `method` and `payload` fields.
+- Protocol: `option_data_loss_protect` now supported to protect peers
+  against being out-of-date.
 
 ### Changed
 

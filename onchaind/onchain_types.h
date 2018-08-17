@@ -13,6 +13,9 @@ enum tx_type {
 	/* Their unilateral: spends funding */
 	THEIR_UNILATERAL,
 
+	/* Unknown unilateral (presumably theirs): spends funding */
+	UNKNOWN_UNILATERAL,
+
 	/* Our unilateral: spends funding */
 	OUR_UNILATERAL,
 
