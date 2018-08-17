@@ -114,9 +114,11 @@ static void channel_fail_fallen_behind(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	/* FIXME: Save in db! */
 	channel->future_per_commitment_point
 		= tal_dup(channel, struct pubkey, &per_commitment_point);
+
+	/* TODO(cdecker) Selectively save updated fields to DB */
+	wallet_channel_save(channel->peer->ld->wallet, channel);
 
 	/* We don't fail yet, since we want daemon to send them an error
 	 * to trigger rebroadcasting.  But make sure we set error now in
