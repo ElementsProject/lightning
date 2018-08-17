@@ -81,6 +81,11 @@ void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
 /* Generated stub for peer_billboard */
 void peer_billboard(bool perm UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "peer_billboard called!\n"); abort(); }
+/* Generated stub for shachain_get_secret */
+bool shachain_get_secret(const struct shachain *shachain UNNEEDED,
+			 u64 commit_num UNNEEDED,
+			 struct secret *preimage UNNEEDED)
+{ fprintf(stderr, "shachain_get_secret called!\n"); abort(); }
 /* Generated stub for status_failed */
 void status_failed(enum status_failreason code UNNEEDED,
 		   const char *fmt UNNEEDED, ...)
