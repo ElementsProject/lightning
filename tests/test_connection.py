@@ -1156,7 +1156,12 @@ def test_dataloss_protection(node_factory):
                            "8a")
 
     l1.fund_channel(l2, 10**6)
-    l2.restart()
+    l2.stop()
+
+    # Save copy of the db.
+    dbpath = os.path.join(l2.daemon.lightning_dir, "lightningd.sqlite3")
+    orig_db = open(dbpath, "rb").read()
+    l2.start()
 
     # l1 should have sent WIRE_CHANNEL_REESTABLISH with option_data_loss_protect.
     l1.daemon.wait_for_log("\[OUT\] 0088"
@@ -1192,3 +1197,21 @@ def test_dataloss_protection(node_factory):
                            "[0-9a-f]{64}"
                            # my_current_per_commitment_point
                            "0[23][0-9a-f]{64}")
+
+    # Now, move l2 back in time.
+    l2.stop()
+    # Overwrite with OLD db.
+    open(dbpath, "wb").write(orig_db)
+    l2.start()
+
+    # l2 should freak out!
+    l2.daemon.wait_for_log("Catastrophic failure: please close channel")
+
+    # l1 should drop to chain.
+    l1.daemon.wait_for_log('sendrawtx exit 0')
+
+    # l2 must NOT drop to chain.
+    l2.daemon.wait_for_log("Cannot broadcast our commitment tx: they have a future one")
+    assert not l2.daemon.is_in_log('sendrawtx exit 0')
+
+    # FIXME: l2 should still be able to collect onchain.
