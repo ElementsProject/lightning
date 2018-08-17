@@ -1141,7 +1141,7 @@ def test_funder_feerate_reconnect(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "needs LIGHTNINGD_DEV_LOG_IO")
-def test_dataloss_protection(node_factory):
+def test_dataloss_protection(node_factory, bitcoind):
     l1 = node_factory.get_node(may_reconnect=True, log_all_io=True)
     l2 = node_factory.get_node(may_reconnect=True, log_all_io=True)
 
@@ -1214,4 +1214,14 @@ def test_dataloss_protection(node_factory):
     l2.daemon.wait_for_log("Cannot broadcast our commitment tx: they have a future one")
     assert not l2.daemon.is_in_log('sendrawtx exit 0')
 
-    # FIXME: l2 should still be able to collect onchain.
+    closetxid = only_one(bitcoind.rpc.getrawmempool(False))
+
+    # l2 should still recover something!
+    bitcoind.generate_block(1)
+
+    l2.daemon.wait_for_log("ERROR: Unknown commitment #2, recovering our funds!")
+    bitcoind.generate_block(100)
+    l2.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')
+
+    # l2 should have it in wallet.
+    assert (closetxid, "confirmed") in set([(o['txid'], o['status']) for o in l2.rpc.listfunds()['outputs']])
