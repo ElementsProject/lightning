@@ -105,6 +105,10 @@ struct channel {
 
 	/* Does gossipd need to know if the owner dies? (ie. not onchaind) */
 	bool connected;
+
+	/* Do we have an "impossible" future per_commitment_point from
+	 * peer via option_data_loss_protect? */
+	struct pubkey *future_per_commitment_point;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,
