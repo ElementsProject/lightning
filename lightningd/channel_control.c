@@ -188,6 +188,7 @@ void peer_start_channeld(struct channel *channel,
 	struct lightningd *ld = channel->peer->ld;
 	const struct config *cfg = &ld->config;
 	bool reached_announce_depth;
+	struct secret last_remote_per_commit_secret;
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,
@@ -234,6 +235,27 @@ void peer_start_channeld(struct channel *channel,
 	}
 
 	num_revocations = revocations_received(&channel->their_shachain.chain);
+
+	/* BOLT #2:
+	 *
+ 	 *   - if it supports `option_data_loss_protect`:
+	 *     - if `next_remote_revocation_number` equals 0:
+	 *       - MUST set `your_last_per_commitment_secret` to all zeroes
+	 *     - otherwise:
+	 *       - MUST set `your_last_per_commitment_secret` to the last
+	 *         `per_commitment_secret` it received
+	 */
+	if (num_revocations == 0)
+		memset(&last_remote_per_commit_secret, 0,
+		       sizeof(last_remote_per_commit_secret));
+	else if (!shachain_get_secret(&channel->their_shachain.chain,
+				      num_revocations-1,
+				      &last_remote_per_commit_secret)) {
+		channel_fail_permanent(channel,
+				       "Could not get revocation secret %"PRIu64,
+				       num_revocations-1);
+		return;
+	}
 
 	/* Warn once. */
 	if (ld->config.ignore_fee_limits)
@@ -284,7 +306,8 @@ void peer_start_channeld(struct channel *channel,
 							channel->final_key_idx),
 				      channel->channel_flags,
 				      funding_signed,
-				      reached_announce_depth);
+				      reached_announce_depth,
+				      &last_remote_per_commit_secret);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));

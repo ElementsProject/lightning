@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - JSON API: Added description to invoices and payments (#1740).
 - pylightning: RpcError now has `method` and `payload` fields.
 - Sending lightningd a SIGHUP will make it reopen its `log-file`, if any.
+- Protocol: `option_data_loss_protect` now supported to protect peers
+  against being out-of-date.
 
 ### Changed
 
