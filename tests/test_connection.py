@@ -1003,7 +1003,7 @@ def test_forget_channel(node_factory):
 
 
 def test_peerinfo(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True})
     # Gossiping but no node announcement yet
     assert l1.rpc.getpeer(l2.info['id'])['connected']
     assert len(l1.rpc.getpeer(l2.info['id'])['channels']) == 0
@@ -1024,6 +1024,16 @@ def test_peerinfo(node_factory, bitcoind):
     peer2 = l2.rpc.getpeer(l1.info['id'])
     assert only_one(nodes1)['global_features'] == peer1['global_features']
     assert only_one(nodes2)['global_features'] == peer2['global_features']
+
+    assert l1.rpc.getpeer(l2.info['id'])['local_features'] == '8a'
+    assert l2.rpc.getpeer(l1.info['id'])['local_features'] == '8a'
+
+    # If it reconnects after db load, it should know features.
+    l1.restart()
+    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'])
+    wait_for(lambda: l2.rpc.getpeer(l1.info['id'])['connected'])
+    assert l1.rpc.getpeer(l2.info['id'])['local_features'] == '8a'
+    assert l2.rpc.getpeer(l1.info['id'])['local_features'] == '8a'
 
     # Close the channel to forget the peer
     with pytest.raises(RpcError, match=r'Channel close negotiation not finished'):
