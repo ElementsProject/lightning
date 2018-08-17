@@ -1138,3 +1138,57 @@ def test_funder_feerate_reconnect(node_factory, bitcoind):
 
     # Should work normally.
     l1.pay(l2, 200000000)
+
+
+@unittest.skipIf(not DEVELOPER, "needs LIGHTNINGD_DEV_LOG_IO")
+def test_dataloss_protection(node_factory):
+    l1 = node_factory.get_node(may_reconnect=True, log_all_io=True)
+    l2 = node_factory.get_node(may_reconnect=True, log_all_io=True)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # l1 should send out WIRE_INIT (0010)
+    l1.daemon.wait_for_log("\[OUT\] 0010"
+                           # gflen == 0
+                           "0000"
+                           # lflen == 1
+                           "0001"
+                           # Local features 1, 3 and 7 (0x8a).
+                           "8a")
+
+    l1.fund_channel(l2, 10**6)
+    l2.restart()
+
+    # l1 should have sent WIRE_CHANNEL_REESTABLISH with option_data_loss_protect.
+    l1.daemon.wait_for_log("\[OUT\] 0088"
+                           # channel_id
+                           "[0-9a-f]{64}"
+                           # next_local_commitment_number
+                           "0000000000000001"
+                           # next_remote_revocation_number
+                           "0000000000000000"
+                           # your_last_per_commitment_secret (unknown == zeroes)
+                           "0{64}"
+                           # my_current_per_commitment_point
+                           "0[23][0-9a-f]{64}")
+    # After an htlc, we should get different results (two more commits)
+    l1.pay(l2, 200000000)
+
+    # Make sure both sides consider it completely settled (has received both
+    # REVOKE_AND_ACK)
+    l1.daemon.wait_for_logs(["\[IN\] 0085"] * 2)
+    l2.daemon.wait_for_logs(["\[IN\] 0085"] * 2)
+
+    l2.restart()
+
+    # l1 should have sent WIRE_CHANNEL_REESTABLISH with option_data_loss_protect.
+    l1.daemon.wait_for_log("\[OUT\] 0088"
+                           # channel_id
+                           "[0-9a-f]{64}"
+                           # next_local_commitment_number
+                           "0000000000000003"
+                           # next_remote_revocation_number
+                           "0000000000000002"
+                           # your_last_per_commitment_secret
+                           "[0-9a-f]{64}"
+                           # my_current_per_commitment_point
+                           "0[23][0-9a-f]{64}")
