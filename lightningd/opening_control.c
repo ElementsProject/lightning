@@ -202,7 +202,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      /* We are connected */
 			      true,
 			      &uc->local_basepoints,
-			      &uc->local_funding_pubkey);
+			      &uc->local_funding_pubkey,
+			      NULL);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);

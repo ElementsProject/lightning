@@ -1201,6 +1201,11 @@ def test_dataloss_protection(node_factory, bitcoind):
     bitcoind.generate_block(1)
 
     l2.daemon.wait_for_log("ERROR: Unknown commitment #2, recovering our funds!")
+
+    # Restarting l2, and it should remember from db.
+    l2.restart()
+
+    l2.daemon.wait_for_log("ERROR: Unknown commitment #2, recovering our funds!")
     bitcoind.generate_block(100)
     l2.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')
 

@@ -585,6 +585,7 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 	s64 final_key_idx;
 	struct basepoints local_basepoints;
 	struct pubkey local_funding_pubkey;
+	struct pubkey *future_per_commitment_point;
 
 	peer_dbid = sqlite3_column_int64(stmt, 1);
 	peer = find_peer_by_dbid(w->ld, peer_dbid);
@@ -615,6 +616,13 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 	} else {
 		last_sent_commit = NULL;
 	}
+
+	if (sqlite3_column_type(stmt, 40) != SQLITE_NULL) {
+		future_per_commitment_point = tal(tmpctx, struct pubkey);
+		ok &= sqlite3_column_pubkey(stmt, 40,
+					    future_per_commitment_point);
+	} else
+		future_per_commitment_point = NULL;
 
 	ok &= wallet_channel_config_load(w, sqlite3_column_int64(stmt, 3),
 					 &our_config);
@@ -682,7 +690,8 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 			   sqlite3_column_int(stmt, 37),
 			   /* Not connected */
 			   false,
-			   &local_basepoints, &local_funding_pubkey);
+			   &local_basepoints, &local_funding_pubkey,
+			   future_per_commitment_point);
 
 	return chan;
 }
@@ -706,7 +715,7 @@ static const char *channel_fields =
     /*30*/ "last_sent_commit_state, last_sent_commit_id, "
     /*32*/ "last_tx, last_sig, last_was_revoke, first_blocknum, "
     /*36*/ "min_possible_feerate, max_possible_feerate, "
-    /*38*/ "msatoshi_to_us_min, msatoshi_to_us_max ";
+    /*38*/ "msatoshi_to_us_min, msatoshi_to_us_max, future_per_commitment_point ";
 
 bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
 {
@@ -966,7 +975,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 			  "  old_per_commit_remote=?,"
 			  "  local_feerate_per_kw=?,"
 			  "  remote_feerate_per_kw=?,"
-			  "  channel_config_remote=?"
+			  "  channel_config_remote=?,"
+			  "  future_per_commitment_point=?"
 			  " WHERE id=?");
 	sqlite3_bind_pubkey(stmt, 1,  &chan->channel_info.remote_fundingkey);
 	sqlite3_bind_pubkey(stmt, 2,  &chan->channel_info.theirbase.revocation);
@@ -978,7 +988,11 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	sqlite3_bind_int(stmt, 8, chan->channel_info.feerate_per_kw[LOCAL]);
 	sqlite3_bind_int(stmt, 9, chan->channel_info.feerate_per_kw[REMOTE]);
 	sqlite3_bind_int64(stmt, 10, chan->channel_info.their_config.id);
-	sqlite3_bind_int64(stmt, 11, chan->dbid);
+	if (chan->future_per_commitment_point)
+		sqlite3_bind_pubkey(stmt, 11, chan->future_per_commitment_point);
+	else
+		sqlite3_bind_null(stmt, 11);
+	sqlite3_bind_int64(stmt, 12, chan->dbid);
 	db_exec_prepared(w->db, stmt);
 
 	/* If we have a last_sent_commit, store it */
