@@ -76,7 +76,7 @@ static bool secret_eq_str(const struct secret *s, const char *str)
 	struct secret expect;
 	if (!hex_decode(str, strlen(str), &expect, sizeof(expect)))
 		abort();
-	return secret_eq(s, &expect);
+	return secret_eq_consttime(s, &expect);
 }
 
 secp256k1_context *secp256k1_ctx;

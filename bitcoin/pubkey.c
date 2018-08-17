@@ -86,17 +86,6 @@ int pubkey_cmp(const struct pubkey *a, const struct pubkey *b)
 	return memcmp(keya, keyb, sizeof(keya));
 }
 
-static char *privkey_to_hexstr(const tal_t *ctx, const struct privkey *secret)
-{
-	/* Bitcoin appends "01" to indicate the pubkey is compressed. */
-	char *str = tal_arr(ctx, char, hex_str_size(sizeof(*secret) + 1));
-	hex_encode(secret, sizeof(*secret), str, hex_str_size(sizeof(*secret)));
-	strcat(str, "01");
-	return str;
-}
-REGISTER_TYPE_TO_STRING(privkey, privkey_to_hexstr);
-REGISTER_TYPE_TO_HEXSTR(secret);
-
 void pubkey_to_hash160(const struct pubkey *pk, struct ripemd160 *hash)
 {
 	u8 der[PUBKEY_DER_LEN];
