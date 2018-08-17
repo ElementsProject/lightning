@@ -1830,7 +1830,8 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 			       peer->revocations_received);
 }
 
-static void peer_reconnect(struct peer *peer)
+static void peer_reconnect(struct peer *peer,
+			   const struct secret *last_remote_per_commit_secret)
 {
 	struct channel_id channel_id;
 	/* Note: BOLT #2 uses these names, which are sender-relative! */
@@ -1839,6 +1840,10 @@ static void peer_reconnect(struct peer *peer)
 	struct htlc_map_iter it;
 	const struct htlc *htlc;
 	u8 *msg;
+	struct pubkey my_current_per_commitment_point;
+
+	get_per_commitment_point(peer->next_index[LOCAL]-1,
+				 &my_current_per_commitment_point, NULL);
 
 	/* BOLT #2:
 	 *
@@ -1856,10 +1861,19 @@ static void peer_reconnect(struct peer *peer)
 	 *     of the next `commitment_signed` it expects to receive.
 	 *   - MUST set `next_remote_revocation_number` to the commitment number
 	 *     of the next `revoke_and_ack` message it expects to receive.
+	 *   - if it supports `option_data_loss_protect`:
+	 *     - if `next_remote_revocation_number` equals 0:
+	 *       - MUST set `your_last_per_commitment_secret` to all zeroes
+	 *     - otherwise:
+	 *       - MUST set `your_last_per_commitment_secret` to the last
+	 *         `per_commitment_secret` it received
 	 */
-	msg = towire_channel_reestablish(NULL, &peer->channel_id,
-					 peer->next_index[LOCAL],
-					 peer->revocations_received);
+	msg = towire_channel_reestablish_option_data_loss_protect
+		(NULL, &peer->channel_id,
+		 peer->next_index[LOCAL],
+		 peer->revocations_received,
+		 last_remote_per_commit_secret,
+		 &my_current_per_commitment_point);
 	sync_crypto_write(&peer->cs, PEER_FD, take(msg));
 
 	peer_billboard(false, "Sent reestablish, waiting for theirs");
@@ -2337,6 +2351,7 @@ static void init_channel(struct peer *peer)
 	u8 *funding_signed;
 	const u8 *msg;
 	u32 feerate_per_kw[NUM_SIDES];
+	struct secret last_remote_per_commit_secret;
 
 	assert(!(fcntl(MASTER_FD, F_GETFL) & O_NONBLOCK));
 
@@ -2387,7 +2402,8 @@ static void init_channel(struct peer *peer)
 				   &peer->final_scriptpubkey,
 				   &peer->channel_flags,
 				   &funding_signed,
-				   &peer->announce_depth_reached))
+				   &peer->announce_depth_reached,
+				   &last_remote_per_commit_secret))
 		master_badmsg(WIRE_CHANNEL_INIT, msg);
 
 	status_trace("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
@@ -2447,7 +2463,7 @@ static void init_channel(struct peer *peer)
 
 	/* OK, now we can process peer messages. */
 	if (reconnected)
-		peer_reconnect(peer);
+		peer_reconnect(peer, &last_remote_per_commit_secret);
 
 	/* If we have a funding_signed message, send that immediately */
 	if (funding_signed)
