@@ -1698,7 +1698,7 @@ static void steal_htlc(struct tracked_output *out)
 static void handle_their_cheat(const struct bitcoin_tx *tx,
 			       const struct bitcoin_txid *txid,
 			       u32 tx_blockheight,
-			       const struct sha256 *revocation_preimage,
+			       const struct secret *revocation_preimage,
 			       const struct basepoints basepoints[NUM_SIDES],
 			       const struct htlc_stub *htlcs,
 			       const bool *tell_if_missing,
@@ -2223,7 +2223,7 @@ int main(int argc, char *argv[])
 		 *    party crashed, for instance. One side publishes its
 		 *    *latest commitment transaction*.
 		 */
-		struct sha256 revocation_preimage;
+		struct secret revocation_preimage;
 		commit_num = unmask_commit_number(tx, funder,
 						  &basepoints[LOCAL].payment,
 						  &basepoints[REMOTE].payment);
@@ -2246,9 +2246,8 @@ int main(int argc, char *argv[])
 		 * *outdated commitment transaction* (presumably, a prior
 		 * version, which is more in its favor).
 		 */
-		else if (shachain_get_hash(&shachain,
-					   shachain_index(commit_num),
-					   &revocation_preimage)) {
+		else if (shachain_get_secret(&shachain, commit_num,
+					     &revocation_preimage)) {
 			handle_their_cheat(tx, &txid,
 					   tx_blockheight,
 					   &revocation_preimage,

@@ -145,6 +145,10 @@ static inline u64 revocations_received(const struct shachain *shachain)
 	return (1ULL << SHACHAIN_BITS) - (shachain_next_index(shachain) + 1);
 }
 
+bool shachain_get_secret(const struct shachain *shachain,
+			 u64 commit_num,
+			 struct secret *preimage);
+
 void towire_basepoints(u8 **pptr, const struct basepoints *b);
 void fromwire_basepoints(const u8 **ptr, size_t *max,
 			 struct basepoints *b);
