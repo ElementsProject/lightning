@@ -228,3 +228,16 @@ void fromwire_basepoints(const u8 **ptr, size_t *max,
 	fromwire_pubkey(ptr, max, &b->htlc);
 	fromwire_pubkey(ptr, max, &b->delayed_payment);
 }
+
+bool shachain_get_secret(const struct shachain *shachain,
+			 u64 commit_num,
+			 struct secret *preimage)
+{
+	struct sha256 sha;
+
+	if (!shachain_get_hash(shachain, shachain_index(commit_num), &sha))
+		return false;
+	BUILD_ASSERT(sizeof(*preimage) == sizeof(sha));
+	memcpy(preimage, &sha, sizeof(*preimage));
+	return true;
+}
