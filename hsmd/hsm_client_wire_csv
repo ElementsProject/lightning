@@ -174,3 +174,11 @@ hsm_get_per_commitment_point,,n,u64
 hsm_get_per_commitment_point_reply,118
 hsm_get_per_commitment_point_reply,,per_commitment_point,struct pubkey
 hsm_get_per_commitment_point_reply,,old_commitment_secret,?struct secret
+
+# channeld asks to check if claimed future commitment_secret is correct.
+hsm_check_future_secret,22
+hsm_check_future_secret,,n,u64
+hsm_check_future_secret,,commitment_secret,struct secret
+
+hsm_check_future_secret_reply,122
+hsm_check_future_secret_reply,,correct,bool
