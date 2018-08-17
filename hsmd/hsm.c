@@ -628,7 +628,14 @@ handle_get_per_commitment_point(struct io_conn *conn, struct client *c)
 
 	if (n >= 2) {
 		old_secret = tal(tmpctx, struct secret);
-		per_commit_secret(&shaseed, old_secret, n - 2);
+		if (!per_commit_secret(&shaseed, old_secret, n - 2)) {
+			status_broken("Cannot derive secret %"PRIu64
+				      " for client %s",
+				      n - 1,
+				      type_to_string(tmpctx,
+						     struct pubkey, &c->id));
+			goto fail;
+		}
 	} else
 		old_secret = NULL;
 

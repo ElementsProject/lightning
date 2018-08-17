@@ -112,8 +112,10 @@ bool derive_htlc_basepoint(const struct secret *seed,
  * @shaseed: the sha256 seed
  * @commit_secret: the returned per-commit secret.
  * @per_commit_index: (in) which @commit_secret to return.
+ *
+ * Returns false if per_commit_index is invalid, or can't derive.
  */
-void per_commit_secret(const struct sha256 *shaseed,
+bool per_commit_secret(const struct sha256 *shaseed,
 		       struct secret *commit_secret,
 		       u64 per_commit_index);
 
