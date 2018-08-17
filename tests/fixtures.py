@@ -124,6 +124,11 @@ def node_factory(directory, test_name, bitcoind, executor):
     if err_count:
         raise ValueError("{} nodes had bad gossip order".format(err_count))
 
+    for node in nf.nodes:
+        err_count += checkBadReestablish(node)
+    if err_count:
+        raise ValueError("{} nodes had bad reestablish".format(err_count))
+
     if not ok:
         raise Exception("At least one lightning exited with unexpected non-zero return code")
 
@@ -180,6 +185,12 @@ def checkReconnect(node):
 
 def checkBadGossipOrder(node):
     if node.daemon.is_in_log('Bad gossip order from (?!error)') and not node.daemon.is_in_log('Deleting channel'):
+        return 1
+    return 0
+
+
+def checkBadReestablish(node):
+    if node.daemon.is_in_log('Bad reestablish'):
         return 1
     return 0
 
