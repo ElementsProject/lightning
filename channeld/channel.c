@@ -2302,6 +2302,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_GOT_SHUTDOWN:
 	case WIRE_CHANNEL_SHUTDOWN_COMPLETE:
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT_REPLY:
+	case WIRE_CHANNEL_FAIL_FALLEN_BEHIND:
 		break;
 	}
 	master_badmsg(-1, msg);

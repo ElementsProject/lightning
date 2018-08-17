@@ -370,15 +370,28 @@ register_close_command(struct lightningd *ld,
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		   bool cooperative)
 {
-	sign_last_tx(channel);
+	/* BOLT #2:
+	 *
+	 * - if `next_remote_revocation_number` is greater than expected
+	 *   above, AND `your_last_per_commitment_secret` is correct for that
+	 *   `next_remote_revocation_number` minus 1:
+	 *      - MUST NOT broadcast its commitment transaction.
+	 */
+	if (channel->future_per_commitment_point && !cooperative) {
+		log_broken(channel->log,
+			   "Cannot broadcast our commitment tx:"
+			   " they have a future one");
+	} else {
+		sign_last_tx(channel);
 
-	/* Keep broadcasting until we say stop (can fail due to dup,
-	 * if they beat us to the broadcast). */
-	broadcast_tx(ld->topology, channel, channel->last_tx, NULL);
+		/* Keep broadcasting until we say stop (can fail due to dup,
+		 * if they beat us to the broadcast). */
+		broadcast_tx(ld->topology, channel, channel->last_tx, NULL);
+
+		remove_sig(channel->last_tx);
+	}
 
 	resolve_close_command(ld, channel, cooperative);
-
-	remove_sig(channel->last_tx);
 }
 
 void channel_errmsg(struct channel *channel,
