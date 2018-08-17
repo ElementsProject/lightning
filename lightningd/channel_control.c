@@ -4,6 +4,7 @@
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/utils.h>
+#include <common/wire_error.h>
 #include <errno.h>
 #include <gossipd/gossip_constants.h>
 #include <hsmd/gen_hsm_client_wire.h>
@@ -101,6 +102,32 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	wallet_channel_save(ld->wallet, channel);
 }
 
+static void channel_fail_fallen_behind(struct channel *channel, const u8 *msg)
+{
+	struct pubkey per_commitment_point;
+	struct channel_id cid;
+
+	if (!fromwire_channel_fail_fallen_behind(msg, &per_commitment_point)) {
+		channel_internal_error(channel,
+				       "bad channel_fail_fallen_behind %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	/* FIXME: Save in db! */
+	channel->future_per_commitment_point
+		= tal_dup(channel, struct pubkey, &per_commitment_point);
+
+	/* We don't fail yet, since we want daemon to send them an error
+	 * to trigger rebroadcasting.  But make sure we set error now in
+	 * case something else goes wrong! */
+	derive_channel_id(&cid,
+			  &channel->funding_txid,
+			  channel->funding_outnum);
+	channel->error = towire_errorfmt(channel, &cid,
+					 "Catastrophic failure: please close channel");
+}
+
 static void peer_start_closingd_after_shutdown(struct channel *channel,
 					       const u8 *msg,
 					       const int *fds)
@@ -146,6 +173,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 		if (!fds)
 			return 2;
 		peer_start_closingd_after_shutdown(sd->channel, msg, fds);
+		break;
+	case WIRE_CHANNEL_FAIL_FALLEN_BEHIND:
+		channel_fail_fallen_behind(sd->channel, msg);
 		break;
 
 	/* And we never get these from channeld. */
