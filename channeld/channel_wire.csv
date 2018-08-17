@@ -58,6 +58,7 @@ channel_init,,flags,u8
 channel_init,,init_peer_pkt_len,u16
 channel_init,,init_peer_pkt,init_peer_pkt_len*u8
 channel_init,,reached_announce_depth,bool
+channel_init,,last_remote_secret,struct secret
 
 # master->channeld funding hit new depth >= lock depth
 channel_funding_locked,1002

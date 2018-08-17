@@ -1007,7 +1007,7 @@ def test_peerinfo(node_factory, bitcoind):
     # Gossiping but no node announcement yet
     assert l1.rpc.getpeer(l2.info['id'])['connected']
     assert len(l1.rpc.getpeer(l2.info['id'])['channels']) == 0
-    assert l1.rpc.getpeer(l2.info['id'])['local_features'] == '88'
+    assert l1.rpc.getpeer(l2.info['id'])['local_features'] == '8a'
     assert l1.rpc.getpeer(l2.info['id'])['global_features'] == ''
 
     # Fund a channel to force a node announcement
