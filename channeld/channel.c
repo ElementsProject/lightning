@@ -1091,30 +1091,42 @@ static void start_commit_timer(struct peer *peer)
 					  send_commit, peer);
 }
 
-static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index,
-			       struct pubkey *point)
+/* If old_secret is NULL, we don't care, otherwise it is filled in. */
+static void get_per_commitment_point(u64 index, struct pubkey *point,
+				     struct secret *old_secret)
 {
-	struct secret *old_commit_secret;
+	struct secret *s;
 	const u8 *msg;
 
-	/* We're revoking N-1th commit, sending N+1th point. */
 	msg = hsm_req(tmpctx,
-		      take(towire_hsm_get_per_commitment_point(NULL,
-							       revoke_index+2)));
+		      take(towire_hsm_get_per_commitment_point(NULL, index)));
 
 	if (!fromwire_hsm_get_per_commitment_point_reply(tmpctx, msg,
 							 point,
-							 &old_commit_secret))
+							 &s))
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Bad per_commitment_point reply %s",
 			      tal_hex(tmpctx, msg));
 
-	if (!old_commit_secret)
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "No secret in per_commitment_point_reply %"PRIu64,
-			      revoke_index+2);
+	if (old_secret) {
+		if (!s)
+			status_failed(STATUS_FAIL_HSM_IO,
+				      "No secret in per_commitment_point_reply %"
+				      PRIu64,
+				      index);
+		*old_secret = *s;
+	}
+}
 
-	return towire_revoke_and_ack(peer, &peer->channel_id, old_commit_secret,
+/* revoke_index == current index - 1 (usually; not for retransmission) */
+static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index,
+			       struct pubkey *point)
+{
+	struct secret old_commit_secret;
+
+	get_per_commitment_point(revoke_index+2, point, &old_commit_secret);
+
+	return towire_revoke_and_ack(peer, &peer->channel_id, &old_commit_secret,
 				     point);
 }
 
@@ -2318,7 +2330,6 @@ static void init_channel(struct peer *peer)
 	u8 *funding_signed;
 	const u8 *msg;
 	u32 feerate_per_kw[NUM_SIDES];
-	struct secret *unused_secret;
 
 	assert(!(fcntl(MASTER_FD, F_GETFL) & O_NONBLOCK));
 
@@ -2392,16 +2403,8 @@ static void init_channel(struct peer *peer)
 	assert(peer->next_index[LOCAL] > 0);
 	assert(peer->next_index[REMOTE] > 0);
 
-	/* Ask HSM for next per-commitment point: may return old secret, don't
-	 * care */
-	msg = towire_hsm_get_per_commitment_point(NULL, peer->next_index[LOCAL]);
-	msg = hsm_req(tmpctx, take(msg));
-	if (!fromwire_hsm_get_per_commitment_point_reply(tmpctx, msg,
-						 &peer->next_local_per_commit,
-						 &unused_secret))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Malformed per_commitment_point_reply %"PRIu64,
-			      peer->next_index[LOCAL]);
+	get_per_commitment_point(peer->next_index[LOCAL],
+				 &peer->next_local_per_commit, NULL);
 
 	/* channel_id is set from funding txout */
 	derive_channel_id(&peer->channel_id, &funding_txid, funding_txout);
