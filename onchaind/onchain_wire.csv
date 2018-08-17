@@ -32,6 +32,7 @@ onchain_init,,htlc_signature,num_htlc_sigs*secp256k1_ecdsa_signature
 onchain_init,,num_htlcs,u64
 onchain_init,,min_possible_feerate,u32
 onchain_init,,max_possible_feerate,u32
+onchain_init,,possible_remote_per_commit_point,?struct pubkey
 
 #include <onchaind/onchain_wire.h>
 # This is all the HTLCs: one per message
