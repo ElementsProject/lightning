@@ -81,7 +81,7 @@ class TailableProc(object):
     def __init__(self, outputDir=None, verbose=True):
         self.logs = []
         self.logs_cond = threading.Condition(threading.RLock())
-        self.env = os.environ
+        self.env = os.environ.copy()
         self.running = False
         self.proc = None
         self.outputDir = outputDir
