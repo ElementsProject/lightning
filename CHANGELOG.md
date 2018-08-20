@@ -52,6 +52,7 @@ changes.
   used to exist and set to `GOSSIPING` before we opened a channel).
   `connected` will indicate if we're connected, and the `channels`
   array indicates individual channel states (if any).
+- Options: `default-fee-rate` is no longer available.
 - Removed all Deprecated options from 0.6.
 
 ### Fixed
@@ -73,6 +74,8 @@ changes.
   one is advertised.
 - Failing tests no longer delete the test directory, to allow easier debugging
   (Issue: #1599)
+- Protocol: if we can't estimate feerate, be almost infinitely
+  tolerant of other side setting fees to avoid unilateral close.
 
 ### Security
 
