@@ -928,3 +928,8 @@ def test_feerates(node_factory):
     feerates = l1.rpc.feerates('sipa', 15000, 25000 // 4, 5000)
     assert feerates['sipa']['max_acceptable'] == 15000 * 10
     assert feerates['sipa']['min_acceptable'] == 5000 // 2
+
+    assert len(feerates['onchain_fee_estimates']) == 3
+    assert feerates['onchain_fee_estimates']['opening_channel_satoshis'] == feerates['sipa']['normal'] * 702
+    assert feerates['onchain_fee_estimates']['mutual_close_satoshis'] == feerates['sipa']['normal'] * 673
+    assert feerates['onchain_fee_estimates']['unilateral_close_satoshis'] == feerates['sipa']['urgent'] * 598

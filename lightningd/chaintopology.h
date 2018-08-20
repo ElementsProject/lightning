@@ -140,6 +140,10 @@ u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate);
 u32 feerate_min(struct lightningd *ld, bool *unknown);
 u32 feerate_max(struct lightningd *ld, bool *unknown);
 
+u32 mutual_close_feerate(struct chain_topology *topo);
+u32 opening_feerate(struct chain_topology *topo);
+u32 unilateral_feerate(struct chain_topology *topo);
+
 /* Broadcast a single tx, and rebroadcast as reqd (copies tx).
  * If failed is non-NULL, call that and don't rebroadcast. */
 void broadcast_tx(struct chain_topology *topo,

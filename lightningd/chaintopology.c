@@ -365,6 +365,21 @@ static void start_fee_estimate(struct chain_topology *topo)
 			       update_feerates, topo);
 }
 
+u32 mutual_close_feerate(struct chain_topology *topo)
+{
+	return try_get_feerate(topo, FEERATE_NORMAL);
+}
+
+u32 opening_feerate(struct chain_topology *topo)
+{
+	return try_get_feerate(topo, FEERATE_NORMAL);
+}
+
+u32 unilateral_feerate(struct chain_topology *topo)
+{
+	return try_get_feerate(topo, FEERATE_URGENT);
+}
+
 static void json_feerates(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
 {
@@ -436,6 +451,20 @@ static void json_feerates(struct command *cmd,
 	if (missing)
 		json_add_string(response, "warning",
 				"Some fee estimates unavailable: bitcoind startup?");
+	else {
+		json_object_start(response, "onchain_fee_estimates");
+		/* eg 020000000001016f51de645a47baa49a636b8ec974c28bdff0ac9151c0f4eda2dbe3b41dbe711d000000001716001401fad90abcd66697e2592164722de4a95ebee165ffffffff0240420f00000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cdb73f890000000000160014c2ccab171c2a5be9dab52ec41b825863024c54660248304502210088f65e054dbc2d8f679de3e40150069854863efa4a45103b2bb63d060322f94702200d3ae8923924a458cffb0b7360179790830027bb6b29715ba03e12fc22365de1012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf00000000 == weight 702 */
+		json_add_num(response, "opening_channel_satoshis",
+			     opening_feerate(cmd->ld->topology) * 702);
+		/* eg. 02000000000101afcfac637d44d4e0df52031dba55b18d3f1bd79ad4b7ebbee964f124c5163dc30100000000ffffffff02400d03000000000016001427213e2217b4f56bd19b6c8393dc9f61be691233ca1f0c0000000000160014071c49cad2f420f3c805f9f6b98a57269cb1415004004830450221009a12b4d5ae1d41781f79bedecfa3e65542b1799a46c272287ba41f009d2e27ff0220382630c899207487eba28062f3989c4b656c697c23a8c89c1d115c98d82ff261014730440220191ddf13834aa08ea06dca8191422e85d217b065462d1b405b665eefa0684ed70220252409bf033eeab3aae89ae27596d7e0491bcc7ae759c5644bced71ef3cccef30147522102324266de8403b3ab157a09f1f784d587af61831c998c151bcc21bb74c2b2314b2102e3bd38009866c9da8ec4aa99cc4ea9c6c0dd46df15c61ef0ce1f271291714e5752ae00000000 == weight 673 */
+		json_add_u64(response, "mutual_close_satoshis",
+			     mutual_close_feerate(cmd->ld->topology) * 673);
+		/* eg. 02000000000101c4fecaae1ea940c15ec502de732c4c386d51f981317605bbe5ad2c59165690ab00000000009db0e280010a2d0f00000000002200208d290003cedb0dd00cd5004c2d565d55fc70227bf5711186f4fa9392f8f32b4a0400483045022100952fcf8c730c91cf66bcb742cd52f046c0db3694dc461e7599be330a22466d790220740738a6f9d9e1ae5c86452fa07b0d8dddc90f8bee4ded24a88fe4b7400089eb01483045022100db3002a93390fc15c193da57d6ce1020e82705e760a3aa935ebe864bd66dd8e8022062ee9c6aa7b88ff4580e2671900a339754116371d8f40eba15b798136a76cd150147522102324266de8403b3ab157a09f1f784d587af61831c998c151bcc21bb74c2b2314b2102e3bd38009866c9da8ec4aa99cc4ea9c6c0dd46df15c61ef0ce1f271291714e5752ae9a3ed620 == weight 598 */
+		json_add_u64(response, "unilateral_close_satoshis",
+			     unilateral_feerate(cmd->ld->topology) * 598);
+		json_object_end(response);
+	}
+
 	json_object_end(response);
 
 	command_success(cmd, response);
