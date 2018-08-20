@@ -247,6 +247,21 @@ static const char *feerate_name(enum feerate feerate)
 /* Mutual recursion via timer. */
 static void next_updatefee_timer(struct chain_topology *topo);
 
+static void init_feerate_history(struct chain_topology *topo,
+				 enum feerate feerate, u32 val)
+{
+	for (size_t i = 0; i < FEE_HISTORY_NUM; i++)
+		topo->feehistory[feerate][i] = val;
+}
+
+static void add_feerate_history(struct chain_topology *topo,
+				enum feerate feerate, u32 val)
+{
+	memmove(&topo->feehistory[feerate][1], &topo->feehistory[feerate][0],
+		(FEE_HISTORY_NUM - 1) * sizeof(u32));
+	topo->feehistory[feerate][0] = val;
+}
+
 /* We sanitize feerates if necessary to put them in descending order. */
 static void update_feerates(struct bitcoind *bitcoind,
 			    const u32 *satoshi_per_kw,
@@ -273,10 +288,13 @@ static void update_feerates(struct bitcoind *bitcoind,
 		/* Initial smoothed feerate is the polled feerate */
 		if (!old_feerates[i]) {
 			old_feerates[i] = feerate;
+			init_feerate_history(topo, i, feerate);
+
 			log_debug(topo->log,
 					  "Smoothed feerate estimate for %s initialized to polled estimate %u",
 					  feerate_name(i), feerate);
-		}
+		} else
+			add_feerate_history(topo, i, feerate);
 
 		/* Smooth the feerate to avoid spikes. */
 		u32 feerate_smooth = feerate * alpha + old_feerates[i] * (1 - alpha);
@@ -356,6 +374,7 @@ static void json_feerates(struct command *cmd,
 	bool missing;
 	const jsmntok_t *style;
 	bool bitcoind_style;
+	u64 mulfactor;
 
 	if (!param(cmd, buffer, params,
 		   p_req("style", json_tok_tok, &style),
@@ -370,14 +389,16 @@ static void json_feerates(struct command *cmd,
 	feerates[FEERATE_NORMAL] = normal ? *normal : 0;
 	feerates[FEERATE_SLOW] = slow ? *slow : 0;
 
-	if (json_tok_streq(buffer, style, "sipa"))
+	if (json_tok_streq(buffer, style, "sipa")) {
 		bitcoind_style = false;
-	else if (json_tok_streq(buffer, style, "bitcoind")) {
+		mulfactor = 1;
+	} else if (json_tok_streq(buffer, style, "bitcoind")) {
 		/* Everyone uses satoshi per kbyte, but we use satoshi per ksipa
 		 * (don't round down to zero though)! */
 		for (size_t i = 0; i < ARRAY_SIZE(feerates); i++)
 			feerates[i] = (feerates[i] + 3) / 4;
 		bitcoind_style = true;
+		mulfactor = 4;
 	} else {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "invalid style");
 		return;
@@ -396,8 +417,6 @@ static void json_feerates(struct command *cmd,
 		feerates[i] = try_get_feerate(topo, i);
 		if (!feerates[i])
 			missing = true;
-		if (bitcoind_style)
-			feerates[i] *= 4;
 	}
 
 	response = new_json_result(cmd);
@@ -406,8 +425,12 @@ static void json_feerates(struct command *cmd,
 	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
 		if (!feerates[i])
 			continue;
-		json_add_num(response, feerate_name(i), feerates[i]);
+		json_add_num(response, feerate_name(i), feerates[i] * mulfactor);
 	}
+	json_add_u64(response, "min_acceptable",
+		     feerate_min(cmd->ld, NULL) * mulfactor);
+	json_add_u64(response, "max_acceptable",
+		     feerate_max(cmd->ld, NULL) * mulfactor);
 	json_object_end(response);
 
 	if (missing)
@@ -675,9 +698,21 @@ u32 feerate_min(struct lightningd *ld, bool *unknown)
 		if (!feerate) {
 			if (unknown)
 				*unknown = true;
+			min = 0;
+		} else {
+			const u32 *feehistory;
+
+			feehistory = ld->topology->feehistory[FEERATE_SLOW];
+
+			min = feerate;
+			/* If one of last three was an outlier, use that. */
+			for (size_t i = 0; i < FEE_HISTORY_NUM; i++) {
+				if (feehistory[i] < min)
+					min = feehistory[i];
+			}
+			/* Normally, we use half of slow rate. */
+			min /= 2;
 		}
-		/* Set this to half of slow rate (if unknown, will be floor) */
-		min = feerate / 2;
 	}
 
 	if (min < feerate_floor())
@@ -694,6 +729,7 @@ u32 feerate_min(struct lightningd *ld, bool *unknown)
 u32 feerate_max(struct lightningd *ld, bool *unknown)
 {
 	u32 feerate;
+	const u32 *feehistory = ld->topology->feehistory[FEERATE_URGENT];
 
 	if (unknown)
 		*unknown = false;
@@ -709,6 +745,11 @@ u32 feerate_max(struct lightningd *ld, bool *unknown)
 		return UINT_MAX;
 	}
 
+	/* If one of last three was an outlier, use that. */
+	for (size_t i = 0; i < FEE_HISTORY_NUM; i++) {
+		if (feehistory[i] > feerate)
+			feerate = feehistory[i];
+	}
 	return feerate * ld->config.max_fee_multiplier;
 }
 
