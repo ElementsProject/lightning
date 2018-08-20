@@ -83,12 +83,12 @@ def test_db_upgrade(node_factory):
 
 
 def test_bitcoin_failure(node_factory, bitcoind):
-    l1 = node_factory.get_node(fake_bitcoin_cli=True)
+    l1 = node_factory.get_node()
 
     # Make sure we're not failing it between getblockhash and getblock.
     sync_blockheight(bitcoind, [l1])
 
-    l1.fake_bitcoind_fail('exit 1')
+    l1.bitcoind_cmd_override('exit 1')
 
     # This should cause both estimatefee and getblockhash fail
     l1.daemon.wait_for_logs(['estimatesmartfee .* exited with status 1',
@@ -99,7 +99,7 @@ def test_bitcoin_failure(node_factory, bitcoind):
                              'getblockhash .* exited with status 1'])
 
     # Restore, then it should recover and get blockheight.
-    l1.fake_bitcoind_unfail()
+    l1.bitcoind_cmd_remove_override()
     bitcoind.generate_block(5)
     sync_blockheight(bitcoind, [l1])
 
