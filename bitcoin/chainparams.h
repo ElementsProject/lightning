@@ -47,4 +47,19 @@ const struct chainparams *chainparams_by_bip173(const char *bip173_name);
  * chainparams_by_hash - Helper to get a network by its genesis blockhash
  */
 const struct chainparams *chainparams_by_hash(const struct bitcoin_blkid *hash);
+
+/* BOLT #2:
+ *
+ * The sending node:
+ *...
+ *   - MUST set `funding_satoshis` to less than 2^24 satoshi.
+ */
+#define MAX_FUNDING_SATOSHI ((1 << 24) - 1)
+
+/* BOLT #2:
+ *
+ * - for channels with `chain_hash` identifying the Bitcoin blockchain:
+ *    - MUST set the four most significant bytes of `amount_msat` to 0.
+ */
+#define MAX_PAYMENT_MSAT 0xFFFFFFFFULL
 #endif /* LIGHTNING_BITCOIN_CHAINPARAMS_H */

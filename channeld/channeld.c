@@ -99,6 +99,7 @@ struct peer {
 	u64 htlc_id;
 
 	struct bitcoin_blkid chain_hash;
+	const struct chainparams *chain_params;
 	struct channel_id channel_id;
 	struct channel *channel;
 
@@ -539,7 +540,7 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 			    &peer->channel_id,
 			    "Bad peer_add_htlc %s", tal_hex(msg, msg));
 
-	add_err = channel_add_htlc(peer->channel, &peer->chain_hash,
+	add_err = channel_add_htlc(peer->channel, peer->chain_params,
 				   REMOTE, id, amount_msat,
 				   cltv_expiry, &payment_hash,
 				   onion_routing_packet, &htlc);
@@ -2279,7 +2280,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 					 onion_routing_packet))
 		master_badmsg(WIRE_CHANNEL_OFFER_HTLC, inmsg);
 
-	e = channel_add_htlc(peer->channel, &peer->chain_hash,
+	e = channel_add_htlc(peer->channel, peer->chain_params,
 			     LOCAL, peer->htlc_id,
 			     amount_msat, cltv_expiry, &payment_hash,
 			     onion_routing_packet, NULL);
@@ -2329,10 +2330,6 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	case CHANNEL_ERR_TOO_MANY_HTLCS:
 		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
 		failmsg = tal_fmt(inmsg, "Too many HTLCs");
-		goto failed;
-	case CHANNEL_ERR_UNKNOWN_CHAIN_HASH:
-		failcode = WIRE_REQUIRED_CHANNEL_FEATURE_MISSING;
-		failmsg = tal_fmt(inmsg, "Unknown chain hash");
 		goto failed;
 	}
 	/* Shouldn't return anything else! */
@@ -2609,6 +2606,11 @@ static void init_channel(struct peer *peer)
 		     feerate_per_kw[LOCAL], feerate_per_kw[REMOTE],
 		     peer->feerate_min, peer->feerate_max);
 
+	peer->chain_params = chainparams_by_hash(&peer->chain_hash);
+	if (peer->chain_params == NULL)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Unknown genesis blockhash");
+
 	/* First commit is used for opening: if we've sent 0, we're on
 	 * index 1. */
 	assert(peer->next_index[LOCAL] > 0);
@@ -2630,7 +2632,7 @@ static void init_channel(struct peer *peer)
 					 &funding_pubkey[REMOTE],
 					 funder);
 
-	if (!channel_force_htlcs(peer->channel, &peer->chain_hash,
+	if (!channel_force_htlcs(peer->channel, peer->chain_params,
 				 htlcs, hstates,
 				 fulfilled, fulfilled_sides,
 				 cast_const2(const struct failed_htlc **,
