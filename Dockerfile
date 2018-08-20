@@ -21,21 +21,22 @@ RUN apk add --no-cache \
 
 WORKDIR /opt
 
-ENV BITCOIN_VERSION 0.16.0
-ENV BITCOIN_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.gz
-ENV BITCOIN_SHA256 e6322c69bcc974a29e6a715e0ecb8799d2d21691d683eeb8fef65fc5f6a66477
+ARG BITCOIN_VERSION=0.16.0
+ENV BITCOIN_TARBALL bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.gz
+ENV BITCOIN_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/$BITCOIN_TARBALL
 ENV BITCOIN_ASC_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/SHA256SUMS.asc
 ENV BITCOIN_PGP_KEY 01EA5486DE18A882D4C2684590C8019E36C2E964
 
 RUN mkdir /opt/bitcoin && cd /opt/bitcoin \
-    && wget -qO bitcoin.tar.gz "$BITCOIN_URL" \
-    && echo "$BITCOIN_SHA256  bitcoin.tar.gz" | sha256sum -c - \
+    && wget -qO $BITCOIN_TARBALL "$BITCOIN_URL" \
     && gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "$BITCOIN_PGP_KEY" \
     && wget -qO bitcoin.asc "$BITCOIN_ASC_URL" \
     && gpg --verify bitcoin.asc \
+    && grep $BITCOIN_TARBALL bitcoin.asc | tee SHA256SUMS.asc \
+    && sha256sum -c SHA256SUMS.asc \
     && BD=bitcoin-$BITCOIN_VERSION/bin \
-    && tar -xzvf bitcoin.tar.gz $BD/bitcoin-cli --strip-components=1 \
-    && rm bitcoin.tar.gz
+    && tar -xzvf $BITCOIN_TARBALL $BD/bitcoin-cli --strip-components=1 \
+    && rm $BITCOIN_TARBALL
 
 ENV LITECOIN_VERSION 0.14.2
 ENV LITECOIN_URL https://download.litecoin.org/litecoin-0.14.2/linux/litecoin-0.14.2-x86_64-linux-gnu.tar.gz
