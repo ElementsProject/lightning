@@ -3,6 +3,21 @@
 #include <ccan/str/str.h>
 #include <string.h>
 
+/* BOLT #2:
+ *
+ * The sending node:
+ *...
+ *   - MUST set `funding_satoshis` to less than 2^24 satoshi.
+ */
+#define MAX_FUNDING_SATOSHI ((1 << 24) - 1)
+
+/* BOLT #2:
+ *
+ * - for channels with `chain_hash` identifying the Bitcoin blockchain:
+ *    - MUST set the four most significant bytes of `amount_msat` to 0.
+ */
+#define MAX_PAYMENT_MSAT 0xFFFFFFFFULL
+
 const struct chainparams networks[] = {
     {.index = 0,
      .network_name = "bitcoin",
