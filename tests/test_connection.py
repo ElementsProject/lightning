@@ -1136,7 +1136,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
 
     # Restart estimatesmartfee, wait for it to pass 5000
     l1.set_feerates((15000, 7500, 3750), True)
-    l1.daemon.wait_for_log('Feerate estimate for Normal set to [567][0-9]{3}')
+    l1.daemon.wait_for_log('Feerate estimate for normal set to [567][0-9]{3}')
 
     # Can now fund a channel.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)

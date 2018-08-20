@@ -221,7 +221,7 @@ u32 feerate_max(struct lightningd *ld, bool *unknown)
 		return UINT_MAX;
 
 	/* If we don't know feerate, don't limit other side. */
-	feerate = try_get_feerate(ld->topology, FEERATE_IMMEDIATE);
+	feerate = try_get_feerate(ld->topology, FEERATE_URGENT);
 	if (!feerate) {
 		if (unknown)
 			*unknown = true;
