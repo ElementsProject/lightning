@@ -660,6 +660,58 @@ u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate)
 	return topo->feerate[feerate];
 }
 
+u32 feerate_min(struct lightningd *ld, bool *unknown)
+{
+	u32 min;
+
+	if (unknown)
+		*unknown = false;
+
+	/* We can't allow less than feerate_floor, since that won't relay */
+	if (ld->config.ignore_fee_limits)
+		min = 1;
+	else {
+		u32 feerate = try_get_feerate(ld->topology, FEERATE_SLOW);
+		if (!feerate) {
+			if (unknown)
+				*unknown = true;
+		}
+		/* Set this to half of slow rate (if unknown, will be floor) */
+		min = feerate / 2;
+	}
+
+	if (min < feerate_floor())
+		return feerate_floor();
+	return min;
+}
+
+/* BOLT #2:
+ *
+ * Given the variance in fees, and the fact that the transaction may be
+ * spent in the future, it's a good idea for the fee payer to keep a good
+ * margin (say 5x the expected fee requirement)
+ */
+u32 feerate_max(struct lightningd *ld, bool *unknown)
+{
+	u32 feerate;
+
+	if (unknown)
+		*unknown = false;
+
+	if (ld->config.ignore_fee_limits)
+		return UINT_MAX;
+
+	/* If we don't know feerate, don't limit other side. */
+	feerate = try_get_feerate(ld->topology, FEERATE_URGENT);
+	if (!feerate) {
+		if (unknown)
+			*unknown = true;
+		return UINT_MAX;
+	}
+
+	return feerate * ld->config.max_fee_multiplier;
+}
+
 #if DEVELOPER
 void chaintopology_mark_pointers_used(struct htable *memtable,
 				      const struct chain_topology *topo)
