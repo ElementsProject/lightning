@@ -438,8 +438,10 @@ class LightningNode(object):
 
     def start(self):
         self.daemon.start()
+        # Cache `getinfo`, we'll be using it a lot
+        self.info = self.rpc.getinfo()
         # This shortcut is sufficient for our simple tests.
-        self.port = self.rpc.getinfo()['binding'][0]['port']
+        self.port = self.info['binding'][0]['port']
 
     def stop(self, timeout=10):
         """ Attempt to do a clean shutdown, but kill if it hangs
@@ -682,7 +684,7 @@ class NodeFactory(object):
 
         return [j.result() for j in jobs]
 
-    def get_node(self, disconnect=None, options=None, may_fail=False, may_reconnect=False, random_hsm=False, feerates=(15000, 7500, 3750)):
+    def get_node(self, disconnect=None, options=None, may_fail=False, may_reconnect=False, random_hsm=False, feerates=(15000, 7500, 3750), start=True):
         with self.lock:
             node_id = self.next_id
             self.next_id += 1
@@ -746,14 +748,12 @@ class NodeFactory(object):
                 '--log-file={}/valgrind-errors.%p'.format(node.daemon.lightning_dir)
             ]
 
-        try:
-            node.start()
-        except Exception:
-            node.daemon.stop()
-            raise
-
-        # Cache `getinfo`, we'll be using it a lot
-        node.info = node.rpc.getinfo()
+        if start:
+            try:
+                node.start()
+            except Exception:
+                node.daemon.stop()
+                raise
         return node
 
     def line_graph(self, num_nodes, fundchannel=True, fundamount=10**6, announce=False, opts=None):
