@@ -20,6 +20,7 @@
 #include <lightningd/channel_control.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/json.h>
+#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/param.h>
 
 /* Mutual recursion via timer. */
@@ -345,6 +346,84 @@ static void start_fee_estimate(struct chain_topology *topo)
 	bitcoind_estimate_fees(topo->bitcoind, blocks, estmodes, NUM_FEERATES,
 			       update_feerates, topo);
 }
+
+static void json_feerates(struct command *cmd,
+			    const char *buffer, const jsmntok_t *params)
+{
+	struct chain_topology *topo = cmd->ld->topology;
+	struct json_result *response;
+	u32 *urgent, *normal, *slow, feerates[NUM_FEERATES];
+	bool missing;
+	const jsmntok_t *style;
+	bool bitcoind_style;
+
+	if (!param(cmd, buffer, params,
+		   p_req("style", json_tok_tok, &style),
+		   p_opt("urgent", json_tok_number, &urgent),
+		   p_opt("normal", json_tok_number, &normal),
+		   p_opt("slow", json_tok_number, &slow),
+		   NULL))
+		return;
+
+	/* update_feerates uses 0 as "don't know" */
+	feerates[FEERATE_URGENT] = urgent ? *urgent : 0;
+	feerates[FEERATE_NORMAL] = normal ? *normal : 0;
+	feerates[FEERATE_SLOW] = slow ? *slow : 0;
+
+	if (json_tok_streq(buffer, style, "sipa"))
+		bitcoind_style = false;
+	else if (json_tok_streq(buffer, style, "bitcoind")) {
+		/* Everyone uses satoshi per kbyte, but we use satoshi per ksipa
+		 * (don't round down to zero though)! */
+		for (size_t i = 0; i < ARRAY_SIZE(feerates); i++)
+			feerates[i] = (feerates[i] + 3) / 4;
+		bitcoind_style = true;
+	} else {
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "invalid style");
+		return;
+	}
+
+	log_info(topo->log,
+		 "feerates: inserting feerates in sipa/kb %u/%u/%u",
+		 feerates[FEERATE_URGENT],
+		 feerates[FEERATE_NORMAL],
+		 feerates[FEERATE_SLOW]);
+
+	update_feerates(topo->bitcoind, feerates, topo);
+
+	missing = false;
+	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
+		feerates[i] = try_get_feerate(topo, i);
+		if (!feerates[i])
+			missing = true;
+		if (bitcoind_style)
+			feerates[i] *= 4;
+	}
+
+	response = new_json_result(cmd);
+	json_object_start(response, NULL);
+	json_object_start(response, bitcoind_style ? "bitcoind" : "sipa");
+	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
+		if (!feerates[i])
+			continue;
+		json_add_num(response, feerate_name(i), feerates[i]);
+	}
+	json_object_end(response);
+
+	if (missing)
+		json_add_string(response, "warning",
+				"Some fee estimates unavailable: bitcoind startup?");
+	json_object_end(response);
+
+	command_success(cmd, response);
+}
+
+static const struct json_command feerates_command = {
+	"feerates",
+	json_feerates,
+	"Add/query feerate estimates, either satoshi-per-kw ({style} sipa) or satoshi-per-kb ({style} bitcoind) for {urgent}, {normal} and {slow}."
+};
+AUTODATA(json_command, &feerates_command);
 
 static void next_updatefee_timer(struct chain_topology *topo)
 {

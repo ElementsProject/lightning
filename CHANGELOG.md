@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Config: `--conf` option to set config file.
 - JSON API: Added description to invoices and payments (#1740).
 - pylightning: RpcError now has `method` and `payload` fields.
+- JSON API: `feerates` command to inject fee estimates manually.
 
 ### Changed
 
@@ -38,6 +39,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   their capacity or their `htlc_minimum_msat` parameter (#1777)
 - We now try to connect to all known addresses for a peer, not just
   the one given or the first one announced.
+- We will no longer allow withdrawing funds or funding channels if we
+  do not have a fee estimate (eg. bitcoind not synced).
 
 ### Deprecated
 
@@ -52,7 +55,7 @@ changes.
   used to exist and set to `GOSSIPING` before we opened a channel).
   `connected` will indicate if we're connected, and the `channels`
   array indicates individual channel states (if any).
-- Options: `default-fee-rate` is no longer available.
+- Options: `default-fee-rate` is no longer available; use `feerates`.
 - Removed all Deprecated options from 0.6.
 
 ### Fixed
