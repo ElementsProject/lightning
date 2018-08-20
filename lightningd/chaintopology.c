@@ -266,7 +266,7 @@ static void update_feerates(struct bitcoind *bitcoind,
 			continue;
 
 		/* Initial smoothed feerate is the polled feerate */
-		if (topo->feerate_uninitialized) {
+		if (!topo->feerate[i]) {
 			old_feerates[i] = feerate;
 			log_debug(topo->log,
 					  "Smoothed feerate estimate for %s initialized to polled estimate %u",
@@ -277,6 +277,7 @@ static void update_feerates(struct bitcoind *bitcoind,
 		u32 feerate_smooth = feerate * alpha + old_feerates[i] * (1 - alpha);
 		/* But to avoid updating forever, only apply smoothing when its
 		 * effect is more then 10 percent */
+
 		if (abs((int)feerate - (int)feerate_smooth) > (0.1 * feerate)) {
 			feerate = feerate_smooth;
 			log_debug(topo->log,
