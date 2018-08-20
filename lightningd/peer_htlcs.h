@@ -59,4 +59,6 @@ void onchain_fulfilled_htlc(struct channel *channel,
 			    const struct preimage *preimage);
 
 void htlcs_notify_new_block(struct lightningd *ld, u32 height);
+
+void try_update_feerates(struct lightningd *ld, struct channel *channel);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_HTLCS_H */
