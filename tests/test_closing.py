@@ -917,7 +917,6 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log('onchaind complete, forgetting peer')
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_fail")
 def test_onchain_different_fees(node_factory, bitcoind, executor):
     """Onchain handling when we've had a range of fees"""
