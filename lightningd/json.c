@@ -1,6 +1,7 @@
 #include "json.h"
 #include <arpa/inet.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/json.h>
 #include <common/type_to_string.h>
@@ -98,12 +99,12 @@ bool json_tok_bool(struct command *cmd, const char *name,
 	*b = tal(cmd, bool);
 	if (tok->type == JSMN_PRIMITIVE) {
 		if (tok->end - tok->start == strlen("true")
-		    && !memcmp(buffer + tok->start, "true", strlen("true"))) {
+		    && memeqstr(buffer + tok->start, strlen("true"), "true")) {
 			**b = true;
 			return true;
 		}
 		if (tok->end - tok->start == strlen("false")
-		    && !memcmp(buffer + tok->start, "false", strlen("false"))) {
+		    && memeqstr(buffer + tok->start, strlen("false"), "false")) {
 			**b = false;
 			return true;
 		}
@@ -213,8 +214,7 @@ bool json_tok_short_channel_id(struct command *cmd, const char *name,
 			       struct short_channel_id **scid)
 {
 	*scid = tal(cmd, struct short_channel_id);
-	if (short_channel_id_from_str(buffer + tok->start,
-				      tok->end - tok->start, *scid))
+	if (json_to_short_channel_id(buffer, tok, *scid))
 		return true;
 
 	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
