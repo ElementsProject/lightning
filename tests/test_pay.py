@@ -94,9 +94,9 @@ def test_pay_disconnect(node_factory, bitcoind):
     route = l1.rpc.getroute(l2.info['id'], 123000, 1)["route"]
 
     # Make l2 upset by asking for crazy fee.
-    l1.rpc.dev_setfees('150000')
-    # Wait for l1 notice
-    l1.daemon.wait_for_log(r'Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 150000 outside range 1875-75000')
+    l1.set_feerates((250000, 7500, 3750))
+    # Wait for l2 to notice
+    l1.daemon.wait_for_log(r'Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee [0-9]* outside range 1875-75000')
 
     # Can't pay while its offline.
     with pytest.raises(RpcError):

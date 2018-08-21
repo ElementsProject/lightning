@@ -401,29 +401,6 @@ static void config_register_opts(struct lightningd *ld)
 }
 
 #if DEVELOPER
-static char *opt_set_fee_rates(const char *arg, struct chain_topology *topo)
-{
-	tal_free(topo->dev_override_fee_rate);
-	topo->dev_override_fee_rate = tal_arr(topo, u32, 3);
-
-	for (size_t i = 0; i < tal_count(topo->dev_override_fee_rate); i++) {
-		char *endp;
-		char term;
-
-		if (i == tal_count(topo->dev_override_fee_rate)-1)
-			term = '\0';
-		else
-			term = '/';
-		topo->dev_override_fee_rate[i] = strtol(arg, &endp, 10);
-		if (endp == arg || *endp != term)
-			return tal_fmt(NULL,
-				       "Feerates must be <num>/<num>/<num>");
-
-		arg = endp + 1;
-	}
-	return NULL;
-}
-
 static void dev_register_opts(struct lightningd *ld)
 {
 	opt_register_noarg("--dev-no-reconnect", opt_set_invbool,
@@ -451,9 +428,6 @@ static void dev_register_opts(struct lightningd *ld)
 			 "will cause channels to be closed more often due to "
 			 "fee fluctuations, large values may result in large "
 			 "fees.");
-	opt_register_arg("--dev-override-fee-rates", opt_set_fee_rates, NULL,
-			 ld->topology,
-			 "Force a specific rates (immediate/normal/slow) in satoshis per kw regardless of estimated fees");
 
 	opt_register_arg(
 	    "--dev-channel-update-interval=<s>", opt_set_u32, opt_show_u32,

@@ -111,11 +111,6 @@ struct chain_topology {
 	/* Transactions/txos we are watching. */
 	struct txwatch_hash txwatches;
 	struct txowatch_hash txowatches;
-
-#if DEVELOPER
-	/* Force a particular fee rate regardless of estimatefee (satoshis/kw) */
-	u32 *dev_override_fee_rate;
-#endif
 };
 
 /* Information relevant to locating a TX in a blockchain. */
