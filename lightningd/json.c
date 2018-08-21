@@ -120,13 +120,13 @@ bool json_tok_double(struct command *cmd, const char *name,
 		     double **num)
 {
 	*num = tal(cmd, double);
-	if (!json_to_double(buffer, tok, *num)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%s' should be a double, not '%.*s'",
-			     name, tok->end - tok->start, buffer + tok->start);
-		return false;
-	}
-	return true;
+	if (json_to_double(buffer, tok, *num))
+		return true;
+
+	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		     "'%s' should be a double, not '%.*s'",
+		     name, tok->end - tok->start, buffer + tok->start);
+	return false;
 }
 
 bool json_tok_number(struct command *cmd, const char *name,
@@ -134,13 +134,13 @@ bool json_tok_number(struct command *cmd, const char *name,
 		     unsigned int **num)
 {
 	*num = tal(cmd, unsigned int);
-	if (!json_to_number(buffer, tok, *num)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%s' should be an integer, not '%.*s'",
-			     name, tok->end - tok->start, buffer + tok->start);
-		return false;
-	}
-	return true;
+	if (json_to_number(buffer, tok, *num))
+		return true;
+
+	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		     "'%s' should be an integer, not '%.*s'",
+		     name, tok->end - tok->start, buffer + tok->start);
+	return false;
 }
 
 bool json_tok_sha256(struct command *cmd, const char *name,
@@ -164,13 +164,13 @@ bool json_tok_u64(struct command *cmd, const char *name,
 		  uint64_t **num)
 {
 	*num = tal(cmd, uint64_t);
-	if (!json_to_u64(buffer, tok, *num)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%s' should be an unsigned 64 bit integer, not '%.*s'",
-			     name, tok->end - tok->start, buffer + tok->start);
-		return false;
-	}
-	return true;
+	if (json_to_u64(buffer, tok, *num))
+		return true;
+
+	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		     "'%s' should be an unsigned 64 bit integer, not '%.*s'",
+		     name, tok->end - tok->start, buffer + tok->start);
+	return false;
 }
 
 bool json_to_pubkey(const char *buffer, const jsmntok_t *tok,
