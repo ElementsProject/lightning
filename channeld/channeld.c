@@ -2606,6 +2606,13 @@ static void init_channel(struct peer *peer)
 		     feerate_per_kw[LOCAL], feerate_per_kw[REMOTE],
 		     peer->feerate_min, peer->feerate_max);
 
+	/* BOLT #2:
+	 *
+	 * The receiver:
+	 *  - if the `chain_hash` value... is set to a hash of a chain that is
+	 *    unknown to the receiver:
+	 *    - MUST reject the channel.
+	 */
 	peer->chain_params = chainparams_by_hash(&peer->chain_hash);
 	if (peer->chain_params == NULL)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
