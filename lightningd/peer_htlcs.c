@@ -1662,33 +1662,6 @@ void htlcs_notify_new_block(struct lightningd *ld, u32 height)
 	} while (removed);
 }
 
-void notify_feerate_change(struct lightningd *ld)
-{
-	struct peer *peer;
-
-	/* FIXME: We should notify onchaind about NORMAL fee change in case
-	 * it's going to generate more txs. */
-	list_for_each(&ld->peers, peer, list) {
-		struct channel *channel = peer_active_channel(peer);
-		u8 *msg;
-
-		if (!channel || !channel_fees_can_change(channel))
-			continue;
-
-		/* FIXME: We choose not to drop to chain if we can't contact
-		 * peer.  We *could* do so, however. */
-		if (!channel->owner)
-			continue;
-
-		msg = towire_channel_feerates(channel,
-					      get_feerate(ld->topology,
-							  FEERATE_IMMEDIATE),
-					      feerate_min(ld),
-					      feerate_max(ld));
-		subd_send_msg(channel->owner, take(msg));
-	}
-}
-
 #if DEVELOPER
 static void json_dev_ignore_htlcs(struct command *cmd, const char *buffer,
 				  const jsmntok_t *params)

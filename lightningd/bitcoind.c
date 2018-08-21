@@ -280,7 +280,7 @@ start_bitcoin_cli(struct bitcoind *bitcoind,
 
 static bool extract_feerate(struct bitcoin_cli *bcli,
 			    const char *output, size_t output_bytes,
-			    double *feerate)
+			    u64 *feerate)
 {
 	const jsmntok_t *tokens, *feeratetok;
 	bool valid;
@@ -303,7 +303,7 @@ static bool extract_feerate(struct bitcoin_cli *bcli,
 	if (!feeratetok)
 		return false;
 
-	return json_to_double(output, feeratetok, feerate);
+	return json_tok_bitcoin_amount(output, feeratetok, feerate);
 }
 
 struct estimatefee {
@@ -322,7 +322,7 @@ static void do_one_estimatefee(struct bitcoind *bitcoind,
 
 static bool process_estimatefee(struct bitcoin_cli *bcli)
 {
-	double feerate;
+	u64 feerate;
 	struct estimatefee *efee = bcli->cb_arg;
 
 	/* FIXME: We could trawl recent blocks for median fee... */
@@ -332,7 +332,7 @@ static bool process_estimatefee(struct bitcoin_cli *bcli)
 		efee->satoshi_per_kw[efee->i] = 0;
 	} else
 		/* Rate in satoshi per kw. */
-		efee->satoshi_per_kw[efee->i] = feerate * 100000000 / 4;
+		efee->satoshi_per_kw[efee->i] = feerate / 4;
 
 	efee->i++;
 	if (efee->i == tal_count(efee->satoshi_per_kw)) {

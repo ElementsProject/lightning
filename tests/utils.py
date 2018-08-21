@@ -299,7 +299,6 @@ class LightningD(TailableProc):
             'lightning-dir': lightning_dir,
             'addr': '127.0.0.1:{}'.format(port),
             'allow-deprecated-apis': 'false',
-            'default-fee-rate': 15000,
             'network': 'regtest',
             'ignore-fee-limits': 'false',
         }
@@ -319,16 +318,6 @@ class LightningD(TailableProc):
             self.opts['dev-broadcast-interval'] = 1000
             self.opts['dev-bitcoind-poll'] = 1
         self.prefix = 'lightningd-%d' % (node_id)
-
-        filters = [
-            "Unable to estimate",
-            "No fee estimate",
-            "Connected json input",
-            "Forcing fee rate, ignoring estimate",
-        ]
-
-        filter_re = re.compile(r'({})'.format("|".join(filters)))
-        self.log_filter = lambda line: filter_re.search(line) is not None
 
     def cleanup(self):
         # To force blackhole to exit, disconnect file must be truncated!
@@ -438,8 +427,10 @@ class LightningNode(object):
 
     def start(self):
         self.daemon.start()
+        # Cache `getinfo`, we'll be using it a lot
+        self.info = self.rpc.getinfo()
         # This shortcut is sufficient for our simple tests.
-        self.port = self.rpc.getinfo()['binding'][0]['port']
+        self.port = self.info['binding'][0]['port']
 
     def stop(self, timeout=10):
         """ Attempt to do a clean shutdown, but kill if it hangs
@@ -601,15 +592,33 @@ class LightningNode(object):
         # wait for sendpay to comply
         self.rpc.waitsendpay(rhash)
 
-    def fake_bitcoind_fail(self, exitcode):
+    def bitcoind_cmd_override(self, failscript='exit 1', cmd=None):
         # Create and rename, for atomicity.
         f = os.path.join(self.daemon.lightning_dir, "bitcoin-cli-fail.tmp")
         with open(f, "w") as text_file:
-            text_file.write("%d" % exitcode)
-        os.rename(f, os.path.join(self.daemon.lightning_dir, "bitcoin-cli-fail"))
+            text_file.write(failscript)
+        os.chmod(f, os.stat(f).st_mode | stat.S_IEXEC)
+        if cmd:
+            failfile = "bitcoin-cli-fail-{}".format(cmd)
+        else:
+            failfile = "bitcoin-cli-fail"
+        os.rename(f, os.path.join(self.daemon.lightning_dir, failfile))
 
-    def fake_bitcoind_unfail(self):
-        os.remove(os.path.join(self.daemon.lightning_dir, "bitcoin-cli-fail"))
+    def bitcoind_cmd_remove_override(self, cmd=None):
+        if cmd:
+            failfile = "bitcoin-cli-fail-{}".format(cmd)
+        else:
+            failfile = "bitcoin-cli-fail"
+        os.remove(os.path.join(self.daemon.lightning_dir, failfile))
+
+    # Note: this feeds through the smoother in update_feerate, so changing
+    # it on a running daemon may not give expected result!
+    def set_feerates(self, feerates, wait_for_effect=True):
+        # (bitcoind returns bitcoin per kb, so these are * 4)
+        self.bitcoind_cmd_override("""case "$*" in *2\ CONSERVATIVE*) FEERATE={};; *4\ ECONOMICAL*) FEERATE={};; *100\ ECONOMICAL*) FEERATE={};; *) exit 98;; esac; echo '{{ "feerate": '$(printf 0.%08u $FEERATE)' }}'; exit 0""".format(feerates[0] * 4, feerates[1] * 4, feerates[2] * 4),
+                                   'estimatesmartfee')
+        if wait_for_effect:
+            self.daemon.wait_for_log('Feerate estimate for .* set to')
 
 
 class NodeFactory(object):
@@ -636,7 +645,6 @@ class NodeFactory(object):
             'may_fail',
             'may_reconnect',
             'random_hsm',
-            'fake_bitcoin_cli'
         ]
         node_opts = {k: v for k, v in opts.items() if k in node_opt_keys}
         cli_opts = {k: v for k, v in opts.items() if k not in node_opt_keys}
@@ -665,8 +673,7 @@ class NodeFactory(object):
 
         return [j.result() for j in jobs]
 
-    def get_node(self, disconnect=None, options=None, may_fail=False, may_reconnect=False, random_hsm=False,
-                 fake_bitcoin_cli=False):
+    def get_node(self, disconnect=None, options=None, may_fail=False, may_reconnect=False, random_hsm=False, feerates=(15000, 7500, 3750), start=True):
         with self.lock:
             node_id = self.next_id
             self.next_id += 1
@@ -697,14 +704,16 @@ class NodeFactory(object):
             if not may_reconnect:
                 daemon.opts["dev-no-reconnect"] = None
 
-        if fake_bitcoin_cli:
-            cli = os.path.join(lightning_dir, "fake-bitcoin-cli")
-            with open(cli, "w") as text_file:
-                text_file.write('#! /bin/sh\n'
-                                '! [ -f bitcoin-cli-fail ] || exit `cat bitcoin-cli-fail`\n'
-                                'exec bitcoin-cli "$@"\n')
-            os.chmod(cli, os.stat(cli).st_mode | stat.S_IEXEC)
-            daemon.opts['bitcoin-cli'] = cli
+        cli = os.path.join(lightning_dir, "fake-bitcoin-cli")
+        with open(cli, "w") as text_file:
+            text_file.write('#! /bin/sh\n'
+                            '! [ -x bitcoin-cli-fail ] || exec ./bitcoin-cli-fail "$@"\n'
+                            'for a in "$@"; do\n'
+                            '\t! [ -x bitcoin-cli-fail-"$a" ] || exec ./bitcoin-cli-fail-"$a" "$@"\n'
+                            'done\n'
+                            'exec bitcoin-cli "$@"\n')
+        os.chmod(cli, os.stat(cli).st_mode | stat.S_IEXEC)
+        daemon.opts['bitcoin-cli'] = cli
 
         if options is not None:
             daemon.opts.update(options)
@@ -713,6 +722,10 @@ class NodeFactory(object):
 
         node = LightningNode(daemon, rpc, self.bitcoind, self.executor, may_fail=may_fail,
                              may_reconnect=may_reconnect)
+
+        # Regtest estimatefee are unusable, so override.
+        node.set_feerates(feerates, False)
+
         self.nodes.append(node)
         if VALGRIND:
             node.daemon.cmd_prefix = [
@@ -724,14 +737,12 @@ class NodeFactory(object):
                 '--log-file={}/valgrind-errors.%p'.format(node.daemon.lightning_dir)
             ]
 
-        try:
-            node.start()
-        except Exception:
-            node.daemon.stop()
-            raise
-
-        # Cache `getinfo`, we'll be using it a lot
-        node.info = node.rpc.getinfo()
+        if start:
+            try:
+                node.start()
+            except Exception:
+                node.daemon.stop()
+                raise
         return node
 
     def line_graph(self, num_nodes, fundchannel=True, fundamount=10**6, announce=False, opts=None):

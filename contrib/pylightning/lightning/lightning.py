@@ -108,19 +108,6 @@ class LightningRpc(UnixDomainSocketRpc):
         res = self.call("listpeers", payload)
         return res.get("peers") and res["peers"][0] or None
 
-    def dev_setfees(self, immediate=None, normal=None, slow=None):
-        """
-        Set feerate in satoshi-per-kw for {immediate}, {normal} and {slow}
-        (each is optional, when set, separate by spaces) and show the value
-        of those three feerates
-        """
-        payload = {
-            "immediate": immediate,
-            "normal": normal,
-            "slow": slow
-        }
-        return self.call("dev-setfees", payload)
-
     def listnodes(self, node_id=None):
         """
         Show all nodes in our local network view, filter on node {id}
@@ -461,3 +448,15 @@ class LightningRpc(UnixDomainSocketRpc):
             "id": peer_id,
         }
         return self.call("disconnect", payload)
+
+    def feerates(self, style, urgent=None, normal=None, slow=None):
+        """
+        Supply feerate estimates manually.
+        """
+        payload = {
+            "style": style,
+            "urgent": urgent,
+            "normal": normal,
+            "slow": slow
+        }
+        return self.call("feerates", payload)

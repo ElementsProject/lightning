@@ -86,9 +86,6 @@ Bitcoin control options:
 *bitcoin-rpcport*='PORT'::
     The bitcoind(1) RPC port to connect to.
 
-*default-fee-rate*='SATOSHIKSIPA'::
-    Satoshis per 1000 transaction weight if bitcoind can't estimate fees.
-
 *rescan*='BLOCKS'::
     Number of blocks to rescan from the current head, or absolute blockheight
     if negative. This is only needed if something goes badly wrong.

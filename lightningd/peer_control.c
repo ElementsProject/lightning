@@ -179,37 +179,6 @@ u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
 	return scriptpubkey_p2wpkh(ctx, &shutdownkey);
 }
 
-u32 feerate_min(struct lightningd *ld)
-{
-	u32 min;
-
-	/* We can't allow less than feerate_floor, since that won't relay */
-	if (ld->config.ignore_fee_limits)
-		min = 1;
-	else
-		/* Set this to half of slow rate.*/
-		min = get_feerate(ld->topology, FEERATE_SLOW) / 2;
-
-	if (min < feerate_floor())
-		return feerate_floor();
-	return min;
-}
-
-/* BOLT #2:
- *
- * Given the variance in fees, and the fact that the transaction may be
- * spent in the future, it's a good idea for the fee payer to keep a good
- * margin (say 5x the expected fee requirement)
- */
-u32 feerate_max(struct lightningd *ld)
-{
-	if (ld->config.ignore_fee_limits)
-		return UINT_MAX;
-
-	return get_feerate(ld->topology, FEERATE_IMMEDIATE) *
-	       ld->config.max_fee_multiplier;
-}
-
 static void sign_last_tx(struct channel *channel)
 {
 	struct lightningd *ld = channel->peer->ld;

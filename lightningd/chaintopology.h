@@ -20,11 +20,14 @@ struct peer;
 struct txwatch;
 
 enum feerate {
-	FEERATE_IMMEDIATE, /* Aka: aim for next block. */
+	FEERATE_URGENT, /* Aka: aim for next block. */
 	FEERATE_NORMAL, /* Aka: next 4 blocks or so. */
 	FEERATE_SLOW, /* Aka: next 100 blocks or so. */
 };
 #define NUM_FEERATES (FEERATE_SLOW+1)
+
+/* We keep the last three in case there are outliers (for min/max) */
+#define FEE_HISTORY_NUM 3
 
 /* Off topology->outgoing_txs */
 struct outgoing_tx {
@@ -82,7 +85,8 @@ struct chain_topology {
 	struct block *prev_tip, *tip;
 	struct block_map block_map;
 	u32 feerate[NUM_FEERATES];
-	bool startup;
+	bool feerate_uninitialized;
+	u32 feehistory[NUM_FEERATES][FEE_HISTORY_NUM];
 
 	/* Where to store blockchain info. */
 	struct wallet *wallet;
@@ -105,17 +109,9 @@ struct chain_topology {
 	/* Bitcoin transactions we're broadcasting */
 	struct list_head outgoing_txs;
 
-	/* What fee we use if estimatefee fails (satoshis/kw) */
-	u32 default_fee_rate;
-
 	/* Transactions/txos we are watching. */
 	struct txwatch_hash txwatches;
 	struct txowatch_hash txowatches;
-
-#if DEVELOPER
-	/* Force a particular fee rate regardless of estimatefee (satoshis/kw) */
-	u32 *dev_override_fee_rate;
-#endif
 };
 
 /* Information relevant to locating a TX in a blockchain. */
@@ -136,8 +132,17 @@ size_t get_tx_depth(const struct chain_topology *topo,
 /* Get highest block number. */
 u32 get_block_height(const struct chain_topology *topo);
 
-/* Get fee rate in satoshi per kiloweight. */
-u32 get_feerate(const struct chain_topology *topo, enum feerate feerate);
+/* Get fee rate in satoshi per kiloweight, or 0 if unavailable! */
+u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate);
+
+/* Get range of feerates to insist other side abide by for normal channels.
+ * If we have to guess, sets *unknown to true, otherwise false. */
+u32 feerate_min(struct lightningd *ld, bool *unknown);
+u32 feerate_max(struct lightningd *ld, bool *unknown);
+
+u32 mutual_close_feerate(struct chain_topology *topo);
+u32 opening_feerate(struct chain_topology *topo);
+u32 unilateral_feerate(struct chain_topology *topo);
 
 /* Broadcast a single tx, and rebroadcast as reqd (copies tx).
  * If failed is non-NULL, call that and don't rebroadcast. */
@@ -155,6 +160,7 @@ void begin_topology(struct chain_topology *topo);
 
 struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo, const struct bitcoin_txid *txid);
 
+/* In channel_control.c */
 void notify_feerate_change(struct lightningd *ld);
 
 #if DEVELOPER

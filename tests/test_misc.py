@@ -83,12 +83,12 @@ def test_db_upgrade(node_factory):
 
 
 def test_bitcoin_failure(node_factory, bitcoind):
-    l1 = node_factory.get_node(fake_bitcoin_cli=True)
+    l1 = node_factory.get_node()
 
     # Make sure we're not failing it between getblockhash and getblock.
     sync_blockheight(bitcoind, [l1])
 
-    l1.fake_bitcoind_fail(1)
+    l1.bitcoind_cmd_override('exit 1')
 
     # This should cause both estimatefee and getblockhash fail
     l1.daemon.wait_for_logs(['estimatesmartfee .* exited with status 1',
@@ -99,7 +99,7 @@ def test_bitcoin_failure(node_factory, bitcoind):
                              'getblockhash .* exited with status 1'])
 
     # Restore, then it should recover and get blockheight.
-    l1.fake_bitcoind_unfail()
+    l1.bitcoind_cmd_remove_override()
     bitcoind.generate_block(5)
     sync_blockheight(bitcoind, [l1])
 
@@ -153,7 +153,9 @@ def test_ping(node_factory):
 def test_htlc_sig_persistence(node_factory, executor):
     """Interrupt a payment between two peers, then fail and recover funds using the HTLC sig.
     """
-    l1 = node_factory.get_node(options={'dev-no-reconnect': None})
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(options={'dev-no-reconnect': None},
+                               feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -201,8 +203,10 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
 
     # HTLC 1->2, 1 fails after it's irrevocably committed, can't reconnect
     disconnects = ['@WIRE_REVOKE_AND_ACK']
+    # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects,
-                               options={'dev-no-reconnect': None})
+                               options={'dev-no-reconnect': None},
+                               feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -258,8 +262,10 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
 
     # HTLC 1->2, 1 fails after 2 has sent committed the fulfill
     disconnects = ['-WIRE_REVOKE_AND_ACK*2']
+    # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects,
-                               options={'dev-no-reconnect': None})
+                               options={'dev-no-reconnect': None},
+                               feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -780,7 +786,9 @@ def test_reserve_enforcement(node_factory, executor):
 @unittest.skipIf(not DEVELOPER, "needs dev_disconnect")
 def test_htlc_send_timeout(node_factory, bitcoind):
     """Test that we don't commit an HTLC to an unreachable node."""
-    l1 = node_factory.get_node(options={'log-level': 'io'})
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(options={'log-level': 'io'},
+                               feerates=(7500, 7500, 7500))
     # Blackhole it after it sends HTLC_ADD to l3.
     l2 = node_factory.get_node(disconnect=['0WIRE_UPDATE_ADD_HTLC'],
                                options={'log-level': 'io'})
@@ -846,3 +854,82 @@ def test_ipv4_and_ipv6(node_factory):
         assert bind[0]['type'] == 'ipv4'
         assert bind[0]['address'] == '0.0.0.0'
         assert int(bind[0]['port']) == port
+
+
+def test_feerates(node_factory):
+    l1 = node_factory.get_node(options={'log-level': 'io'}, start=False)
+    l1.bitcoind_cmd_override(cmd='estimatesmartfee',
+                             failscript="""echo '{ "errors": [ "Insufficient data or no feerate found" ], "blocks": 0 }'; exit 0""")
+    l1.start()
+
+    # Query feerates (shouldn't give any!)
+    feerates = l1.rpc.feerates('sipa')
+    assert len(feerates['sipa']) == 2
+    assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
+    assert 'bitcoind' not in feerates
+    assert feerates['sipa']['max_acceptable'] == 2**32 - 1
+    assert feerates['sipa']['min_acceptable'] == 253
+
+    feerates = l1.rpc.feerates('bitcoind')
+    assert len(feerates['bitcoind']) == 2
+    assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
+    assert 'sipa' not in feerates
+    assert feerates['bitcoind']['max_acceptable'] == (2**32 - 1) * 4
+    assert feerates['bitcoind']['min_acceptable'] == 253 * 4
+
+    # Now try setting them, one at a time.
+    feerates = l1.rpc.feerates('sipa', 15000)
+    assert len(feerates['sipa']) == 3
+    assert feerates['sipa']['urgent'] == 15000
+    assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
+    assert 'bitcoind' not in feerates
+    assert feerates['sipa']['max_acceptable'] == 15000 * 10
+    assert feerates['sipa']['min_acceptable'] == 253
+
+    feerates = l1.rpc.feerates('bitcoind', normal=25000)
+    assert len(feerates['bitcoind']) == 4
+    assert feerates['bitcoind']['urgent'] == 15000 * 4
+    assert feerates['bitcoind']['normal'] == 25000
+    assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
+    assert 'sipa' not in feerates
+    assert feerates['bitcoind']['max_acceptable'] == 15000 * 4 * 10
+    assert feerates['bitcoind']['min_acceptable'] == 253 * 4
+
+    feerates = l1.rpc.feerates('sipa', None, None, 5000)
+    assert len(feerates['sipa']) == 5
+    assert feerates['sipa']['urgent'] == 15000
+    assert feerates['sipa']['normal'] == 25000 // 4
+    assert feerates['sipa']['slow'] == 5000
+    assert 'warning' not in feerates
+    assert 'bitcoind' not in feerates
+    assert feerates['sipa']['max_acceptable'] == 15000 * 10
+    assert feerates['sipa']['min_acceptable'] == 5000 // 2
+
+    # Now, outliers effect min and max, not so much the smoothed avg.
+    feerates = l1.rpc.feerates('sipa', 30000, None, 600)
+    assert len(feerates['sipa']) == 5
+    assert feerates['sipa']['urgent'] > 15000
+    assert feerates['sipa']['urgent'] < 30000
+    assert feerates['sipa']['normal'] == 25000 // 4
+    assert feerates['sipa']['slow'] < 5000
+    assert feerates['sipa']['slow'] > 600
+    assert 'warning' not in feerates
+    assert 'bitcoind' not in feerates
+    assert feerates['sipa']['max_acceptable'] == 30000 * 10
+    assert feerates['sipa']['min_acceptable'] == 600 // 2
+
+    # Forgotten after 3 more values inserted.
+    feerates = l1.rpc.feerates('sipa', 15000, 25000 // 4, 5000)
+    assert feerates['sipa']['max_acceptable'] == 30000 * 10
+    assert feerates['sipa']['min_acceptable'] == 600 // 2
+    feerates = l1.rpc.feerates('sipa', 15000, 25000 // 4, 5000)
+    assert feerates['sipa']['max_acceptable'] == 30000 * 10
+    assert feerates['sipa']['min_acceptable'] == 600 // 2
+    feerates = l1.rpc.feerates('sipa', 15000, 25000 // 4, 5000)
+    assert feerates['sipa']['max_acceptable'] == 15000 * 10
+    assert feerates['sipa']['min_acceptable'] == 5000 // 2
+
+    assert len(feerates['onchain_fee_estimates']) == 3
+    assert feerates['onchain_fee_estimates']['opening_channel_satoshis'] == feerates['sipa']['normal'] * 702
+    assert feerates['onchain_fee_estimates']['mutual_close_satoshis'] == feerates['sipa']['normal'] * 673
+    assert feerates['onchain_fee_estimates']['unilateral_close_satoshis'] == feerates['sipa']['urgent'] * 598

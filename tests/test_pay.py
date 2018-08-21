@@ -94,9 +94,9 @@ def test_pay_disconnect(node_factory, bitcoind):
     route = l1.rpc.getroute(l2.info['id'], 123000, 1)["route"]
 
     # Make l2 upset by asking for crazy fee.
-    l1.rpc.dev_setfees('150000')
-    # Wait for l1 notice
-    l1.daemon.wait_for_log(r'Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 150000 outside range 1875-75000')
+    l1.set_feerates((250000, 7500, 3750))
+    # Wait for l2 to notice
+    l1.daemon.wait_for_log(r'Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee [0-9]* outside range 1875-75000')
 
     # Can't pay while its offline.
     with pytest.raises(RpcError):
@@ -182,9 +182,11 @@ def test_pay_optional_args(node_factory):
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_payment_success_persistence(node_factory, executor):
     # Start two nodes and open a channel.. die during payment.
+    # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'],
                                options={'dev-no-reconnect': None},
-                               may_reconnect=True)
+                               may_reconnect=True,
+                               feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -226,9 +228,11 @@ def test_payment_success_persistence(node_factory, executor):
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_payment_failed_persistence(node_factory, executor):
     # Start two nodes and open a channel.. die during payment.
+    # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'],
                                options={'dev-no-reconnect': None},
-                               may_reconnect=True)
+                               may_reconnect=True,
+                               feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -443,7 +447,7 @@ def test_sendpay_cant_afford(node_factory):
         pay(l1, l2, 10**9 + 1)
 
     # This is the fee, which needs to be taken into account for l1.
-    available = 10**9 - 6720
+    available = 10**9 - 13440
     # Reserve is 1%.
     reserve = 10**7
 
