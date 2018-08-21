@@ -233,7 +233,8 @@ class SimpleBitcoinProxy:
         # Create a callable to do the actual call
         proxy = BitcoinProxy(btc_conf_file=self.__btc_conf_file__)
 
-        f = lambda *args: proxy._call(name, *args)
+        def f(*args):
+            return proxy._call(name, *args)
 
         # Make debuggers show <function bitcoin.rpc.name> rather than <function
         # bitcoin.rpc.<lambda>>
