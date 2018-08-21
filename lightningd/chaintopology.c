@@ -302,14 +302,14 @@ static void update_feerates(struct bitcoind *bitcoind,
 		u32 feerate = satoshi_per_kw[i];
 
 		/* Takes into account override_fee_rate */
-		old_feerates[i] = get_feerate(topo, i);
+		old_feerates[i] = try_get_feerate(topo, i);
 
 		/* If estimatefee failed, don't do anything. */
 		if (!feerate)
 			continue;
 
 		/* Initial smoothed feerate is the polled feerate */
-		if (!topo->feerate[i]) {
+		if (!old_feerates[i]) {
 			old_feerates[i] = feerate;
 			log_debug(topo->log,
 					  "Smoothed feerate estimate for %s initialized to polled estimate %u",
@@ -361,7 +361,7 @@ static void update_feerates(struct bitcoind *bitcoind,
 				topo->feerate[j] = topo->feerate[i];
 			}
 		}
-		if (get_feerate(topo, i) != old_feerates[i])
+		if (try_get_feerate(topo, i) != old_feerates[i])
 			changed = true;
 	}
 
@@ -618,39 +618,8 @@ u32 get_block_height(const struct chain_topology *topo)
 	return topo->tip->height;
 }
 
-/* We may only have estimate for 2 blocks, for example.  Extrapolate. */
-static u32 guess_feerate(const struct chain_topology *topo, enum feerate feerate)
+u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate)
 {
-	size_t i = 0;
-	u32 rate = 0;
-
-	/* We assume each one is half the previous. */
-	for (i = 0; i < feerate; i++) {
-		if (topo->feerate[i]) {
-			log_info(topo->log,
-				 "No fee estimate for %s: basing on %s rate",
-				 feerate_name(feerate),
-				 feerate_name(i));
-			rate = topo->feerate[i];
-		}
-		rate /= 2;
-	}
-
-	if (rate == 0) {
-		rate = topo->default_fee_rate >> feerate;
-		log_info(topo->log,
-			 "No fee estimate for %s: basing on default fee rate",
-			 feerate_name(feerate));
-	}
-
-	return rate;
-}
-
-u32 get_feerate(const struct chain_topology *topo, enum feerate feerate)
-{
-	if (topo->feerate[feerate] == 0) {
-		return guess_feerate(topo, feerate);
-	}
 	return topo->feerate[feerate];
 }
 
