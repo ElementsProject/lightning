@@ -287,7 +287,7 @@ class BitcoinD(TailableProc):
 
 
 class LightningD(TailableProc):
-    def __init__(self, lightning_dir, bitcoin_dir, port=9735, random_hsm=False, node_id=0):
+    def __init__(self, lightning_dir, bitcoin_dir, port=9735, random_hsm=False, node_id=0, bitcoin_rpcport=18332):
         TailableProc.__init__(self, lightning_dir)
         self.lightning_dir = lightning_dir
         self.port = port
@@ -296,12 +296,14 @@ class LightningD(TailableProc):
 
         self.opts = LIGHTNINGD_CONFIG.copy()
         opts = {
-            'bitcoin-datadir': bitcoin_dir,
             'lightning-dir': lightning_dir,
             'addr': '127.0.0.1:{}'.format(port),
             'allow-deprecated-apis': 'false',
             'network': 'regtest',
             'ignore-fee-limits': 'false',
+            'bitcoin-rpcport': bitcoin_rpcport,
+            'bitcoin-rpcuser': BITCOIND_CONFIG['rpcuser'],
+            'bitcoin-rpcpassword': BITCOIND_CONFIG['rpcpassword'],
         }
 
         for k, v in opts.items():
@@ -689,7 +691,8 @@ class NodeFactory(object):
         socket_path = os.path.join(lightning_dir, "lightning-rpc").format(node_id)
         daemon = LightningD(
             lightning_dir, self.bitcoind.bitcoin_dir,
-            port=port, random_hsm=random_hsm, node_id=node_id
+            port=port, random_hsm=random_hsm, node_id=node_id,
+            bitcoin_rpcport=self.bitcoind.rpcport
         )
         # If we have a disconnect string, dump it to a file for daemon.
         if disconnect:
