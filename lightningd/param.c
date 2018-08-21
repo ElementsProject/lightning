@@ -45,7 +45,7 @@ static bool make_callback(struct command *cmd,
 	return def->cbx(cmd, def->name, buffer, tok, def->arg);
 }
 
-static struct param *post_check(struct command *cmd, struct param *params)
+static bool post_check(struct command *cmd, struct param *params)
 {
 	struct param *first = params;
 	struct param *last = first + tal_count(params);
@@ -56,11 +56,11 @@ static struct param *post_check(struct command *cmd, struct param *params)
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "missing required parameter: '%s'",
 				     first->name);
-			return NULL;
+			return false;
 		}
 		first++;
 	}
-	return params;
+	return true;
 }
 
 static bool parse_by_position(struct command *cmd,
