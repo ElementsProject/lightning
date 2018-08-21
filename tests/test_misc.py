@@ -570,8 +570,6 @@ def test_listconfigs(node_factory, bitcoind):
 
     configs = l1.rpc.listconfigs()
     # See utils.py
-    assert configs['bitcoin-datadir'] == bitcoind.bitcoin_dir
-    assert configs['lightning-dir'] == l1.daemon.lightning_dir
     assert configs['allow-deprecated-apis'] is False
     assert configs['network'] == 'regtest'
     assert configs['ignore-fee-limits'] is False

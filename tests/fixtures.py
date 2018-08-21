@@ -1,4 +1,5 @@
 from concurrent import futures
+from btcproxy import ProxiedBitcoinD
 from utils import NodeFactory
 
 import logging
@@ -8,7 +9,6 @@ import re
 import shutil
 import sys
 import tempfile
-import utils
 
 
 with open('config.vars') as configfile:
@@ -69,7 +69,7 @@ def test_name(request):
 
 @pytest.fixture
 def bitcoind(directory):
-    bitcoind = utils.BitcoinD(bitcoin_dir=directory, rpcport=None)
+    bitcoind = ProxiedBitcoinD(bitcoin_dir=directory)
     try:
         bitcoind.start()
     except Exception:

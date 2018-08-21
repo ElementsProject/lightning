@@ -3,3 +3,5 @@ ephemeral-port-reserve==1.1.0
 pytest-forked==0.2
 pytest-xdist==1.22.2
 flaky==3.4.0
+CherryPy==17.3.0
+Flask==1.0.2
