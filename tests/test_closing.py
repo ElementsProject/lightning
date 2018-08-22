@@ -200,11 +200,7 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
     peers = []
     for feerate in feerates:
         for amount in amounts:
-            p = node_factory.get_node(options={
-                'dev-override-fee-rates': '{}/{}/{}'.format(feerate[0],
-                                                            feerate[1],
-                                                            feerate[2])
-            })
+            p = node_factory.get_node(feerates=feerate)
             p.feerate = feerate
             p.amount = amount
             l1.rpc.connect(p.info['id'], 'localhost', p.port)
@@ -896,8 +892,9 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log('permfail')
     l2.daemon.wait_for_log('sendrawtx exit 0')
 
-    # Make l1's fees really high.
-    l1.rpc.dev_setfees('100000', '100000', '100000')
+    # Make l1's fees really high (and wait for it to exceed 50000)
+    l1.set_feerates((100000, 100000, 100000))
+    l1.daemon.wait_for_log('Feerate estimate for Normal set to [56789][0-9]{4}')
 
     bitcoind.generate_block(1)
     l1.daemon.wait_for_log(' to ONCHAIN')
