@@ -792,7 +792,8 @@ def test_htlc_send_timeout(node_factory, bitcoind):
                                feerates=(7500, 7500, 7500))
     # Blackhole it after it sends HTLC_ADD to l3.
     l2 = node_factory.get_node(disconnect=['0WIRE_UPDATE_ADD_HTLC'],
-                               options={'log-level': 'io'})
+                               options={'log-level': 'io'},
+                               feerates=(7500, 7500, 7500))
     l3 = node_factory.get_node()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
