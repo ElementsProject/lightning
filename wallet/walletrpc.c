@@ -90,7 +90,7 @@ static void json_withdraw(struct command *cmd,
 	const jsmntok_t *desttok, *sattok;
 	struct withdrawal *withdraw = tal(cmd, struct withdrawal);
 
-	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
+	u32 feerate_per_kw = try_get_feerate(cmd->ld->topology, FEERATE_NORMAL);
 	struct bitcoin_tx *tx;
 
 	enum address_parse_result addr_parse;
@@ -106,6 +106,11 @@ static void json_withdraw(struct command *cmd,
 
 	if (!json_tok_wtx(&withdraw->wtx, buffer, sattok, -1ULL))
 		return;
+
+	if (!feerate_per_kw) {
+		command_fail(cmd, LIGHTNINGD, "Cannot estimate fees");
+		return;
+	}
 
 	/* Parse address. */
 	addr_parse = json_tok_address_scriptpubkey(cmd,

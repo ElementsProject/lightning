@@ -1,3 +1,4 @@
+#include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
 #include <closingd/gen_closing_wire.h>
 #include <common/close_tx.h>
@@ -24,7 +25,9 @@ static bool better_closing_fee(struct lightningd *ld,
 			       const struct bitcoin_tx *tx)
 {
 	u64 weight, fee, last_fee, min_fee;
+	u32 min_feerate;
 	size_t i;
+	bool feerate_unknown;
 
 	/* Calculate actual fee (adds in eliminated outputs) */
 	fee = channel->funding_satoshi;
@@ -41,17 +44,25 @@ static bool better_closing_fee(struct lightningd *ld,
 	/* Weight once we add in sigs. */
 	weight = measure_tx_weight(tx) + 74 * 2;
 
-	min_fee = get_feerate(ld->topology, FEERATE_SLOW) * weight / 1000;
+	/* If we don't have a feerate estimate, this gives feerate_floor */
+	min_feerate = feerate_min(ld, &feerate_unknown);
+
+	min_fee = min_feerate * weight / 1000;
 	if (fee < min_fee) {
 		log_debug(channel->log, "... That's below our min %"PRIu64
 			 " for weight %"PRIu64" at feerate %u",
-			 min_fee, weight,
-			 get_feerate(ld->topology, FEERATE_SLOW));
+			 min_fee, weight, min_feerate);
 		return false;
 	}
 
-	/* Prefer lower fee: in case of a tie, prefer new over old: this
-	 * covers the preference for a mutual close over a unilateral one. */
+	/* In case of a tie, prefer new over old: this covers the preference
+	 * for a mutual close over a unilateral one. */
+
+	/* If we don't know the feerate, prefer higher fee. */
+	if (feerate_unknown)
+		return fee >= last_fee;
+
+	/* Otherwise prefer lower fee. */
 	return fee <= last_fee;
 }
 
@@ -131,6 +142,7 @@ void peer_start_closingd(struct channel *channel,
 			 const u8 *channel_reestablish)
 {
 	u8 *initmsg;
+	u32 feerate;
 	u64 minfee, startfee, feelimit;
 	u64 num_revocations;
 	u64 funding_msatoshi, our_msatoshi, their_msatoshi;
@@ -175,9 +187,17 @@ void peer_start_closingd(struct channel *channel,
 	feelimit = commit_tx_base_fee(channel->channel_info.feerate_per_kw[LOCAL],
 				      0);
 
-	minfee = commit_tx_base_fee(get_feerate(ld->topology, FEERATE_SLOW), 0);
-	startfee = commit_tx_base_fee(get_feerate(ld->topology, FEERATE_NORMAL),
-				      0);
+	/* Pick some value above slow feerate (or min possible if unknown) */
+	minfee = commit_tx_base_fee(feerate_min(ld, NULL), 0);
+
+	/* If we can't determine feerate, start at half unilateral feerate. */
+	feerate = try_get_feerate(ld->topology, FEERATE_NORMAL);
+	if (!feerate) {
+		feerate = channel->channel_info.feerate_per_kw[LOCAL] / 2;
+		if (feerate < feerate_floor())
+			feerate = feerate_floor();
+	}
+	startfee = commit_tx_base_fee(feerate, 0);
 
 	if (startfee > feelimit)
 		startfee = feelimit;

@@ -82,7 +82,7 @@ struct chain_topology {
 	struct block *prev_tip, *tip;
 	struct block_map block_map;
 	u32 feerate[NUM_FEERATES];
-	bool startup;
+	bool feerate_uninitialized;
 
 	/* Where to store blockchain info. */
 	struct wallet *wallet;
@@ -111,11 +111,6 @@ struct chain_topology {
 	/* Transactions/txos we are watching. */
 	struct txwatch_hash txwatches;
 	struct txowatch_hash txowatches;
-
-#if DEVELOPER
-	/* Force a particular fee rate regardless of estimatefee (satoshis/kw) */
-	u32 *dev_override_fee_rate;
-#endif
 };
 
 /* Information relevant to locating a TX in a blockchain. */
@@ -136,8 +131,8 @@ size_t get_tx_depth(const struct chain_topology *topo,
 /* Get highest block number. */
 u32 get_block_height(const struct chain_topology *topo);
 
-/* Get fee rate in satoshi per kiloweight. */
-u32 get_feerate(const struct chain_topology *topo, enum feerate feerate);
+/* Get fee rate in satoshi per kiloweight, or 0 if unavailable! */
+u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate);
 
 /* Broadcast a single tx, and rebroadcast as reqd (copies tx).
  * If failed is non-NULL, call that and don't rebroadcast. */
@@ -155,6 +150,7 @@ void begin_topology(struct chain_topology *topo);
 
 struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo, const struct bitcoin_txid *txid);
 
+/* In channel_control.c */
 void notify_feerate_change(struct lightningd *ld);
 
 #if DEVELOPER

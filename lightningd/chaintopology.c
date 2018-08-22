@@ -25,6 +25,17 @@
 /* Mutual recursion via timer. */
 static void try_extend_tip(struct chain_topology *topo);
 
+/* get_init_blockhash sets topo->root, start_fee_estimate clears
+ * feerate_uninitialized (even if unsuccessful) */
+static void maybe_completed_init(struct chain_topology *topo)
+{
+	if (topo->feerate_uninitialized)
+		return;
+	if (!topo->root)
+		return;
+	io_break(topo);
+}
+
 static void next_topology_timer(struct chain_topology *topo)
 {
 	/* This takes care of its own lifetime. */
@@ -291,14 +302,14 @@ static void update_feerates(struct bitcoind *bitcoind,
 		u32 feerate = satoshi_per_kw[i];
 
 		/* Takes into account override_fee_rate */
-		old_feerates[i] = get_feerate(topo, i);
+		old_feerates[i] = try_get_feerate(topo, i);
 
 		/* If estimatefee failed, don't do anything. */
 		if (!feerate)
 			continue;
 
 		/* Initial smoothed feerate is the polled feerate */
-		if (topo->startup) {
+		if (!old_feerates[i]) {
 			old_feerates[i] = feerate;
 			log_debug(topo->log,
 					  "Smoothed feerate estimate for %s initialized to polled estimate %u",
@@ -331,9 +342,13 @@ static void update_feerates(struct bitcoind *bitcoind,
 		}
 		topo->feerate[i] = feerate;
 	}
-	/* Moving this forward in time is ok, but feerate smoothing is effectively
-	 * disabled until topo->startup is set to false */
-	topo->startup = false;
+
+	if (topo->feerate_uninitialized) {
+		/* Moving this forward in time is ok, but feerate smoothing is effectively
+		 * disabled until topo->startup is set to false */
+		topo->feerate_uninitialized = false;
+		maybe_completed_init(topo);
+	}
 
 	/* Make sure fee rates are in order. */
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
@@ -346,7 +361,7 @@ static void update_feerates(struct bitcoind *bitcoind,
 				topo->feerate[j] = topo->feerate[i];
 			}
 		}
-		if (get_feerate(topo, i) != old_feerates[i])
+		if (try_get_feerate(topo, i) != old_feerates[i])
 			changed = true;
 	}
 
@@ -551,7 +566,7 @@ static void init_topo(struct bitcoind *bitcoind UNUSED,
 	db_set_intvar(topo->bitcoind->ld->wallet->db,
 		      "last_processed_block", topo->tip->height);
 
-	io_break(topo);
+	maybe_completed_init(topo);
 }
 
 static void get_init_block(struct bitcoind *bitcoind,
@@ -603,105 +618,12 @@ u32 get_block_height(const struct chain_topology *topo)
 	return topo->tip->height;
 }
 
-/* We may only have estimate for 2 blocks, for example.  Extrapolate. */
-static u32 guess_feerate(const struct chain_topology *topo, enum feerate feerate)
+u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate)
 {
-	size_t i = 0;
-	u32 rate = 0;
-
-	/* We assume each one is half the previous. */
-	for (i = 0; i < feerate; i++) {
-		if (topo->feerate[i]) {
-			log_info(topo->log,
-				 "No fee estimate for %s: basing on %s rate",
-				 feerate_name(feerate),
-				 feerate_name(i));
-			rate = topo->feerate[i];
-		}
-		rate /= 2;
-	}
-
-	if (rate == 0) {
-		rate = topo->default_fee_rate >> feerate;
-		log_info(topo->log,
-			 "No fee estimate for %s: basing on default fee rate",
-			 feerate_name(feerate));
-	}
-
-	return rate;
-}
-
-u32 get_feerate(const struct chain_topology *topo, enum feerate feerate)
-{
-#if DEVELOPER
-	if (topo->dev_override_fee_rate) {
-		log_debug(topo->log, "Forcing fee rate, ignoring estimate");
-		return topo->dev_override_fee_rate[feerate];
-	}
-#endif
-	if (topo->feerate[feerate] == 0) {
-		return guess_feerate(topo, feerate);
-	}
 	return topo->feerate[feerate];
 }
 
 #if DEVELOPER
-static void json_dev_setfees(struct command *cmd,
-			     const char *buffer, const jsmntok_t *params)
-{
-	struct chain_topology *topo = cmd->ld->topology;
-	struct json_result *response;
-	u32 *imm, *norm, *slow;
-
-	if (!topo->dev_override_fee_rate) {
-		u32 fees[NUM_FEERATES];
-		for (size_t i = 0; i < ARRAY_SIZE(fees); i++)
-			fees[i] = get_feerate(topo, i);
-		topo->dev_override_fee_rate = tal_dup_arr(topo, u32, fees,
-							  ARRAY_SIZE(fees), 0);
-	}
-
-	if (!param(cmd, buffer, params,
-		   p_opt("immediate", json_tok_number, &imm),
-		   p_opt("normal", json_tok_number, &norm),
-		   p_opt("slow", json_tok_number, &slow),
-		   NULL))
-		return;
-
-	if (imm)
-		topo->dev_override_fee_rate[FEERATE_IMMEDIATE] = *imm;
-	if (norm)
-		topo->dev_override_fee_rate[FEERATE_NORMAL] = *norm;
-	if (slow)
-		topo->dev_override_fee_rate[FEERATE_SLOW] = *slow;
-
-	log_debug(topo->log,
-		  "dev-setfees: fees now %u/%u/%u",
-		  topo->dev_override_fee_rate[FEERATE_IMMEDIATE],
-		  topo->dev_override_fee_rate[FEERATE_NORMAL],
-		  topo->dev_override_fee_rate[FEERATE_SLOW]);
-
-	notify_feerate_change(cmd->ld);
-
-	response = new_json_result(cmd);
-	json_object_start(response, NULL);
-	json_add_num(response, "immediate",
-		     topo->dev_override_fee_rate[FEERATE_IMMEDIATE]);
-	json_add_num(response, "normal",
-		     topo->dev_override_fee_rate[FEERATE_NORMAL]);
-	json_add_num(response, "slow",
-		     topo->dev_override_fee_rate[FEERATE_SLOW]);
-	json_object_end(response);
-	command_success(cmd, response);
-}
-
-static const struct json_command dev_setfees_command = {
-	"dev-setfees",
-	json_dev_setfees,
-	"Set feerate in satoshi-per-kw for {immediate}, {normal} and {slow} (each is optional, when set, separate by spaces) and show the value of those three feerates"
-};
-AUTODATA(json_command, &dev_setfees_command);
-
 void chaintopology_mark_pointers_used(struct htable *memtable,
 				      const struct chain_topology *topo)
 {
@@ -747,10 +669,8 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 	topo->bitcoind = new_bitcoind(topo, ld, log);
 	topo->wallet = ld->wallet;
 	topo->poll_seconds = 30;
-	topo->startup = true;
-#if DEVELOPER
-	topo->dev_override_fee_rate = NULL;
-#endif
+	topo->feerate_uninitialized = true;
+	topo->root = NULL;
 	return topo;
 }
 
@@ -771,23 +691,13 @@ void setup_topology(struct chain_topology *topo,
 
 	tal_add_destructor(topo, destroy_chain_topology);
 
+	start_fee_estimate(topo);
+
 	/* Once it gets initial block, it calls io_break() and we return. */
 	io_loop(NULL, NULL);
 }
 
 void begin_topology(struct chain_topology *topo)
 {
-#if DEVELOPER
-    if (topo->dev_override_fee_rate) {
-        log_info(topo->log, "Fee estimation disabled because: "
-                 "--dev-override-fee-rates");
-    } else {
-        /* Begin fee estimation. */
-        start_fee_estimate(topo);
-    }
-#else
-	start_fee_estimate(topo);
-#endif
-
 	try_extend_tip(topo);
 }

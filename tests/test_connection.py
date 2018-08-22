@@ -375,8 +375,10 @@ def test_reconnect_sender_add1(node_factory):
                    '+WIRE_UPDATE_ADD_HTLC-nocommit',
                    '@WIRE_UPDATE_ADD_HTLC-nocommit']
 
+    # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects,
-                               may_reconnect=True)
+                               may_reconnect=True,
+                               feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -408,8 +410,10 @@ def test_reconnect_sender_add(node_factory):
                    '-WIRE_REVOKE_AND_ACK',
                    '@WIRE_REVOKE_AND_ACK',
                    '+WIRE_REVOKE_AND_ACK']
+    # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects,
-                               may_reconnect=True)
+                               may_reconnect=True,
+                               feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -436,7 +440,8 @@ def test_reconnect_receiver_add(node_factory):
                    '-WIRE_REVOKE_AND_ACK',
                    '@WIRE_REVOKE_AND_ACK',
                    '+WIRE_REVOKE_AND_ACK']
-    l1 = node_factory.get_node(may_reconnect=True)
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(may_reconnect=True, feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=disconnects,
                                may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -719,7 +724,8 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     # Start two nodes and open a channel (to remember). l2 will
     # mysteriously die while committing the first HTLC so we can
     # check that HTLCs reloaded from the DB work.
-    l1 = node_factory.get_node(may_reconnect=True)
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(may_reconnect=True, feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
                                may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -810,7 +816,7 @@ def test_update_fee(node_factory, bitcoind):
     chanid = l1.get_channel_scid(l2)
 
     # Make l1 send out feechange.
-    l1.rpc.dev_setfees('14000')
+    l1.set_feerates((14000, 7500, 3750))
     l2.daemon.wait_for_log('peer updated fee to 14000')
 
     # Now make sure an HTLC works.
@@ -843,61 +849,35 @@ def test_update_fee(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
-def test_update_all_fees(node_factory):
-    l1, l2 = node_factory.line_graph(2, fundchannel=True)
-
-    # Set all fees as positional parameters.
-    l1.rpc.dev_setfees('12345', '6789', '123')
-    l1.daemon.wait_for_log('dev-setfees: fees now 12345/6789/123')
-    l2.daemon.wait_for_log('peer updated fee to 12345')
-
-    # Call setfees with fees passed as named parameters in different order.
-    l1.rpc.dev_setfees(slow='123', normal='4567', immediate='8901')
-    l1.daemon.wait_for_log('dev-setfees: fees now 8901/4567/123')
-    l2.daemon.wait_for_log('peer updated fee to 8901')
-
-    # Set one value at a time.
-    l1.rpc.dev_setfees(slow='321')
-    l1.daemon.wait_for_log('dev-setfees: fees now 8901/4567/321')
-    l1.rpc.dev_setfees(normal='7654')
-    l1.daemon.wait_for_log('dev-setfees: fees now 8901/7654/321')
-    l1.rpc.dev_setfees(immediate='21098')
-    l1.daemon.wait_for_log('dev-setfees: fees now 21098/7654/321')
-    l2.daemon.wait_for_log('peer updated fee to 21098')
-
-    # Verify that all fees are indeed optional in setfees call.
-    l1.rpc.dev_setfees()
-    l1.daemon.wait_for_log('dev-setfees: fees now 21098/7654/321')
-
-    # This should return finish closing.
-    l1.rpc.close(l1.get_channel_scid(l2))
-
-
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_fee_limits(node_factory):
     # FIXME: Test case where opening denied.
-    l1, l2 = node_factory.line_graph(2, opts={'dev-max-fee-multiplier': 5}, fundchannel=True)
+    l1, l2 = node_factory.line_graph(2, opts={'dev-max-fee-multiplier': 5, 'may_reconnect': True}, fundchannel=True)
 
-    # L1 asks for stupid low fees
-    l1.rpc.dev_setfees(15)
+    # L1 asks for stupid low fee (will actually hit the floor of 253)
+    l1.stop()
+    l1.set_feerates((15, 15, 15), False)
+    l1.start()
 
-    l1.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 15 outside range 1875-75000')
+    l1.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 253 outside range 1875-75000')
     # Make sure the resolution of this one doesn't interfere with the next!
     # Note: may succeed, may fail with insufficient fee, depending on how
     # bitcoind feels!
     l1.daemon.wait_for_log('sendrawtx exit')
 
     # Restore to normal.
-    l1.rpc.dev_setfees(15000)
+    l1.stop()
+    l1.set_feerates((15000, 7500, 3750), False)
+    l1.start()
 
     # Try with node which sets --ignore-fee-limits
-    l3 = node_factory.get_node(options={'ignore-fee-limits': 'true'})
+    l3 = node_factory.get_node(options={'ignore-fee-limits': 'true'}, may_reconnect=True)
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
-
     chan = l1.fund_channel(l3, 10**6)
 
     # Try stupid high fees
-    l1.rpc.dev_setfees(15000 * 10)
+    l1.stop()
+    l1.set_feerates((15000 * 10, 7500, 3750), False)
+    l1.start()
 
     l3.daemon.wait_for_log('peer_in WIRE_UPDATE_FEE')
     l3.daemon.wait_for_log('peer_in WIRE_COMMITMENT_SIGNED')
@@ -915,13 +895,18 @@ def test_fee_limits(node_factory):
 def test_update_fee_reconnect(node_factory, bitcoind):
     # Disconnect after first commitsig.
     disconnects = ['+WIRE_COMMITMENT_SIGNED']
-    l1 = node_factory.get_node(disconnect=disconnects, may_reconnect=True)
-    l2 = node_factory.get_node(may_reconnect=True)
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(disconnect=disconnects, may_reconnect=True,
+                               feerates=(15000, 15000, 3750))
+    # We match l2's later feerate, so we agree on same closing tx for simplicity.
+    l2 = node_factory.get_node(may_reconnect=True,
+                               feerates=(14000, 14000, 3750))
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     chan = l1.fund_channel(l2, 10**6)
 
     # Make l1 send out feechange; triggers disconnect/reconnect.
-    l1.rpc.dev_setfees('14000')
+    # (Note: < 10% change, so no smoothing here!)
+    l1.set_feerates((14000, 14000, 3750))
     l1.daemon.wait_for_log('Setting REMOTE feerate to 14000')
     l2.daemon.wait_for_log('Setting LOCAL feerate to 14000')
     l1.daemon.wait_for_log('dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
@@ -1083,7 +1068,7 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     # blocks.
     blocks = 200
     # funder
-    l1 = node_factory.get_node(fake_bitcoin_cli=True)
+    l1 = node_factory.get_node()
     # fundee
     l2 = node_factory.get_node(options={"dev-max-funding-unconfirmed-blocks": blocks})
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1094,13 +1079,13 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     time.sleep(1)
 
     # Prevent funder from broadcasting funding tx.
-    l1.fake_bitcoind_fail(1)
+    l1.bitcoind_cmd_override('exit 1')
     # Fund the channel.
     # The process will complete, but funder will be unable
     # to broadcast and confirm funding tx.
     l1.rpc.fundchannel(l2.info['id'], 10**6)
     # Prevent l1 from timing out bitcoin-cli.
-    l1.fake_bitcoind_unfail()
+    l1.bitcoind_cmd_remove_override()
     # Generate blocks until unconfirmed.
     bitcoind.generate_block(blocks)
 
@@ -1108,3 +1093,54 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     l2.daemon.wait_for_log('Forgetting channel: It has been {} blocks'.format(blocks))
     # fundee will also forget and disconnect from peer.
     assert len(l2.rpc.listpeers(l1.info['id'])['peers']) == 0
+
+
+@unittest.skipIf(not DEVELOPER, "needs dev_fail")
+def test_no_fee_estimate(node_factory, bitcoind, executor):
+    l1 = node_factory.get_node(start=False)
+    l1.bitcoind_cmd_override(cmd='estimatesmartfee',
+                             failscript="""echo '{ "errors": [ "Insufficient data or no feerate found" ], "blocks": 0 }'; exit 0""")
+    l1.start()
+
+    l2 = node_factory.get_node()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Can't fund a channel.
+    l1.fundwallet(10**7)
+    with pytest.raises(RpcError, match=r'Cannot estimate fees'):
+        l1.rpc.fundchannel(l2.info['id'], 10**6)
+
+    # Can't withdraw either.
+    with pytest.raises(RpcError, match=r'Cannot estimate fees'):
+        l1.rpc.withdraw(l2.rpc.newaddr()['address'], 'all')
+
+    # But can accept incoming connections.
+    l2.fund_channel(l1, 10**6)
+
+    # Can do HTLCs.
+    l2.pay(l1, 10**5)
+
+    # Can do mutual close.
+    l1.rpc.close(l2.info['id'])
+    bitcoind.generate_block(100)
+
+    # Can do unilateral close.
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l2.fund_channel(l1, 10**6)
+    l2.pay(l1, 10**9 // 2)
+    l1.rpc.dev_fail(l2.info['id'])
+    l1.daemon.wait_for_log('sendrawtx exit 0')
+    bitcoind.generate_block(5)
+    l1.daemon.wait_for_log('sendrawtx exit 0')
+    bitcoind.generate_block(100)
+
+    # Restart estimatesmartfee, wait for it to pass 5000
+    l1.set_feerates((15000, 7500, 3750), True)
+    l1.daemon.wait_for_log('Feerate estimate for Normal set to [567][0-9]{3}')
+
+    # Can now fund a channel.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.fundchannel(l2.info['id'], 10**6)
+
+    # Can withdraw.
+    l1.rpc.withdraw(l2.rpc.newaddr()['address'], 'all')

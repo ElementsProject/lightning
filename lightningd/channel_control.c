@@ -17,6 +17,52 @@
 #include <lightningd/subd.h>
 #include <wire/wire_sync.h>
 
+static void update_feerates(struct lightningd *ld, struct channel *channel)
+{
+	u8 *msg;
+	u32 feerate = try_get_feerate(ld->topology, FEERATE_IMMEDIATE);
+
+	/* Nothing to do if we don't know feerate. */
+	if (!feerate)
+		return;
+
+	msg = towire_channel_feerates(NULL, feerate,
+				      feerate_min(ld, NULL),
+				      feerate_max(ld, NULL));
+	subd_send_msg(channel->owner, take(msg));
+}
+
+static void try_update_feerates(struct lightningd *ld, struct channel *channel)
+{
+	/* No point until funding locked in */
+	if (!channel_fees_can_change(channel))
+		return;
+
+	/* Can't if no daemon listening. */
+	if (!channel->owner)
+		return;
+
+	update_feerates(ld, channel);
+}
+
+void notify_feerate_change(struct lightningd *ld)
+{
+	struct peer *peer;
+
+	/* FIXME: We should notify onchaind about NORMAL fee change in case
+	 * it's going to generate more txs. */
+	list_for_each(&ld->peers, peer, list) {
+		struct channel *channel = peer_active_channel(peer);
+
+		if (!channel)
+			continue;
+
+		/* FIXME: We choose not to drop to chain if we can't contact
+		 * peer.  We *could* do so, however. */
+		try_update_feerates(ld, channel);
+	}
+}
+
 static void lockin_complete(struct channel *channel)
 {
 	/* We set this once we're locked in. */
@@ -24,6 +70,10 @@ static void lockin_complete(struct channel *channel)
 	/* We set this once they're locked in. */
 	assert(channel->remote_funding_locked);
 	channel_set_state(channel, CHANNELD_AWAITING_LOCKIN, CHANNELD_NORMAL);
+
+	/* Fees might have changed (and we use IMMEDIATE once we're funded),
+	 * so update now. */
+	try_update_feerates(channel->peer->ld, channel);
 }
 
 /* We were informed by channeld that it announced the channel and sent
@@ -247,8 +297,8 @@ void peer_start_channeld(struct channel *channel,
 				      &channel->our_config,
 				      &channel->channel_info.their_config,
 				      channel->channel_info.feerate_per_kw,
-				      feerate_min(ld),
-				      feerate_max(ld),
+				      feerate_min(ld, NULL),
+				      feerate_max(ld, NULL),
 				      &channel->last_sig,
 				      cs,
 				      &channel->channel_info.remote_fundingkey,
@@ -288,6 +338,10 @@ void peer_start_channeld(struct channel *channel,
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));
+
+	/* On restart, feerate might not be what we expect: adjust now. */
+	if (channel->funder == LOCAL)
+		try_update_feerates(ld, channel);
 }
 
 bool channel_tell_funding_locked(struct lightningd *ld,
