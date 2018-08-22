@@ -1168,11 +1168,13 @@ def test_dataloss_protection(node_factory, bitcoind):
                            # channel_id
                            "[0-9a-f]{64}"
                            # next_local_commitment_number
-                           "0000000000000001"
+                           "000000000000000[1-9]"
                            # next_remote_revocation_number
-                           "0000000000000000"
-                           # your_last_per_commitment_secret (unknown == zeroes)
-                           "0{64}"
+                           "000000000000000[0-9]"
+                           # your_last_per_commitment_secret (funding_depth may
+                           # trigger a fee-update and commit, hence this may not
+                           # be zero)
+                           "[0-9a-f]{64}"
                            # my_current_per_commitment_point
                            "0[23][0-9a-f]{64}")
     # After an htlc, we should get different results (two more commits)
@@ -1190,9 +1192,9 @@ def test_dataloss_protection(node_factory, bitcoind):
                            # channel_id
                            "[0-9a-f]{64}"
                            # next_local_commitment_number
-                           "0000000000000003"
+                           "000000000000000[1-9]"
                            # next_remote_revocation_number
-                           "0000000000000002"
+                           "000000000000000[1-9]"
                            # your_last_per_commitment_secret
                            "[0-9a-f]{64}"
                            # my_current_per_commitment_point
@@ -1219,12 +1221,12 @@ def test_dataloss_protection(node_factory, bitcoind):
     # l2 should still recover something!
     bitcoind.generate_block(1)
 
-    l2.daemon.wait_for_log("ERROR: Unknown commitment #2, recovering our funds!")
+    l2.daemon.wait_for_log("ERROR: Unknown commitment #[0-9], recovering our funds!")
 
     # Restarting l2, and it should remember from db.
     l2.restart()
 
-    l2.daemon.wait_for_log("ERROR: Unknown commitment #2, recovering our funds!")
+    l2.daemon.wait_for_log("ERROR: Unknown commitment #[0-9], recovering our funds!")
     bitcoind.generate_block(100)
     l2.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')
 
