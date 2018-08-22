@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   their capacity or their `htlc_minimum_msat` parameter (#1777)
 - We now try to connect to all known addresses for a peer, not just
   the one given or the first one announced.
+- Crash logs are now placed one-per file like `crash.log.20180822233752`
 
 ### Deprecated
 

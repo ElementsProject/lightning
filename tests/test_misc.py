@@ -875,8 +875,11 @@ def test_logging(node_factory):
 def test_crashlog(node_factory):
     l1 = node_factory.get_node(may_fail=True)
 
-    crashpath = os.path.join(l1.daemon.lightning_dir,
-                             'crash.log.{}'.format(l1.daemon.proc.pid))
-    assert not os.path.exists(crashpath)
+    def has_crash_log(n):
+        files = os.listdir(n.daemon.lightning_dir)
+        crashfiles = [f for f in files if 'crash.log' in f]
+        return len(crashfiles) > 0
+
+    assert not has_crash_log(l1)
     l1.daemon.proc.send_signal(signal.SIGSEGV)
-    wait_for(lambda: os.path.exists(crashpath))
+    wait_for(lambda: has_crash_log(l1))
