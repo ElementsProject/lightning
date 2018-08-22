@@ -333,6 +333,10 @@ void peer_start_channeld(struct channel *channel,
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));
+
+	/* On restart, feerate might not be what we expect: adjust now. */
+	if (channel->funder == LOCAL)
+		try_update_feerates(ld, channel);
 }
 
 bool channel_tell_funding_locked(struct lightningd *ld,
