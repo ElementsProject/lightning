@@ -569,18 +569,22 @@ static void log_dump_to_file(int fd, const struct log_book *lr)
 void log_backtrace_exit(void)
 {
 	int fd;
-	char logfile[sizeof("/tmp/lightning-crash.log.%u") + STR_MAX_CHARS(int)];
+	char timebuf[sizeof("YYYYmmddHHMMSS")];
+	char logfile[sizeof("/tmp/lightning-crash.log.") + sizeof(timebuf)];
+	struct timeabs time = time_now();
+
+	strftime(timebuf, sizeof(timebuf), "%Y%m%d%H%M%S", gmtime(&time.ts.tv_sec));
 
 	if (!crashlog)
 		return;
 
 	/* We expect to be in config dir. */
-	snprintf(logfile, sizeof(logfile), "crash.log.%u", getpid());
+	snprintf(logfile, sizeof(logfile), "crash.log.%s", timebuf);
 
 	fd = open(logfile, O_WRONLY|O_CREAT|O_TRUNC, 0600);
 	if (fd < 0) {
 		snprintf(logfile, sizeof(logfile),
-			 "/tmp/lightning-crash.log.%u", getpid());
+			 "/tmp/lightning-crash.log.%s", timebuf);
 		fd = open(logfile, O_WRONLY|O_CREAT|O_TRUNC, 0600);
 	}
 
