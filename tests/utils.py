@@ -620,6 +620,15 @@ class LightningNode(object):
             failfile = "bitcoin-cli-fail"
         os.remove(os.path.join(self.daemon.lightning_dir, failfile))
 
+    # Note: this feeds through the smoother in update_feerate, so changing
+    # it on a running daemon may not give expected result!
+    def set_feerates(self, feerates, wait_for_effect=True):
+        # (bitcoind returns bitcoin per kb, so these are * 4)
+        self.bitcoind_cmd_override("""case "$*" in *2\ CONSERVATIVE*) FEERATE={};; *4\ ECONOMICAL*) FEERATE={};; *100\ ECONOMICAL*) FEERATE={};; *) exit 98;; esac; echo '{{ "feerate": '$(printf 0.%08u $FEERATE)' }}'; exit 0""".format(feerates[0] * 4, feerates[1] * 4, feerates[2] * 4),
+                                   'estimatesmartfee')
+        if wait_for_effect:
+            self.daemon.wait_for_log('Feerate estimate for .* set to')
+
 
 class NodeFactory(object):
     """A factory to setup and start `lightningd` daemons.
@@ -673,7 +682,7 @@ class NodeFactory(object):
 
         return [j.result() for j in jobs]
 
-    def get_node(self, disconnect=None, options=None, may_fail=False, may_reconnect=False, random_hsm=False):
+    def get_node(self, disconnect=None, options=None, may_fail=False, may_reconnect=False, random_hsm=False, feerates=(15000, 7500, 3750)):
         with self.lock:
             node_id = self.next_id
             self.next_id += 1
@@ -722,6 +731,10 @@ class NodeFactory(object):
 
         node = LightningNode(daemon, rpc, self.bitcoind, self.executor, may_fail=may_fail,
                              may_reconnect=may_reconnect)
+
+        # Regtest estimatefee are unusable, so override.
+        node.set_feerates(feerates, False)
+
         self.nodes.append(node)
         if VALGRIND:
             node.daemon.cmd_prefix = [
