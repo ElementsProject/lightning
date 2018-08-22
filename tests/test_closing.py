@@ -917,20 +917,26 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log('onchaind complete, forgetting peer')
 
 
+@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_fail")
 def test_onchain_different_fees(node_factory, bitcoind, executor):
     """Onchain handling when we've had a range of fees"""
-    l1, l2 = node_factory.line_graph(2, fundchannel=True, fundamount=10**7)
+    l1, l2 = node_factory.line_graph(2, fundchannel=True, fundamount=10**7,
+                                     opts={'may_reconnect': True})
 
     l2.rpc.dev_ignore_htlcs(id=l1.info['id'], ignore=True)
     p1 = executor.submit(l1.pay, l2, 1000000000)
     l1.daemon.wait_for_log('htlc 0: RCVD_ADD_ACK_COMMIT->SENT_ADD_ACK_REVOCATION')
 
-    l1.rpc.dev_setfees('14000')
+    l1.set_feerates((16000, 7500, 3750))
     p2 = executor.submit(l1.pay, l2, 900000000)
     l1.daemon.wait_for_log('htlc 1: RCVD_ADD_ACK_COMMIT->SENT_ADD_ACK_REVOCATION')
 
-    l1.rpc.dev_setfees('5000')
+    # Restart with different feerate for second HTLC.
+    l1.set_feerates((5000, 5000, 3750))
+    l1.restart()
+    l1.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE')
+
     p3 = executor.submit(l1.pay, l2, 800000000)
     l1.daemon.wait_for_log('htlc 2: RCVD_ADD_ACK_COMMIT->SENT_ADD_ACK_REVOCATION')
 
@@ -945,11 +951,11 @@ def test_onchain_different_fees(node_factory, bitcoind, executor):
     # Both sides should have correct feerate
     assert l1.db_query('SELECT min_possible_feerate, max_possible_feerate FROM channels;') == [{
         'min_possible_feerate': 5000,
-        'max_possible_feerate': 14000
+        'max_possible_feerate': 16000
     }]
     assert l2.db_query('SELECT min_possible_feerate, max_possible_feerate FROM channels;') == [{
         'min_possible_feerate': 5000,
-        'max_possible_feerate': 14000
+        'max_possible_feerate': 16000
     }]
 
     bitcoind.generate_block(5)
