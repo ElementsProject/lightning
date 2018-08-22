@@ -816,7 +816,7 @@ def test_update_fee(node_factory, bitcoind):
     chanid = l1.get_channel_scid(l2)
 
     # Make l1 send out feechange.
-    l1.rpc.dev_setfees('14000')
+    l1.set_feerates((14000, 7500, 3750))
     l2.daemon.wait_for_log('peer updated fee to 14000')
 
     # Now make sure an HTLC works.
@@ -849,61 +849,35 @@ def test_update_fee(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
-def test_update_all_fees(node_factory):
-    l1, l2 = node_factory.line_graph(2, fundchannel=True)
-
-    # Set all fees as positional parameters.
-    l1.rpc.dev_setfees('12345', '6789', '123')
-    l1.daemon.wait_for_log('dev-setfees: fees now 12345/6789/123')
-    l2.daemon.wait_for_log('peer updated fee to 12345')
-
-    # Call setfees with fees passed as named parameters in different order.
-    l1.rpc.dev_setfees(slow='123', normal='4567', immediate='8901')
-    l1.daemon.wait_for_log('dev-setfees: fees now 8901/4567/123')
-    l2.daemon.wait_for_log('peer updated fee to 8901')
-
-    # Set one value at a time.
-    l1.rpc.dev_setfees(slow='321')
-    l1.daemon.wait_for_log('dev-setfees: fees now 8901/4567/321')
-    l1.rpc.dev_setfees(normal='7654')
-    l1.daemon.wait_for_log('dev-setfees: fees now 8901/7654/321')
-    l1.rpc.dev_setfees(immediate='21098')
-    l1.daemon.wait_for_log('dev-setfees: fees now 21098/7654/321')
-    l2.daemon.wait_for_log('peer updated fee to 21098')
-
-    # Verify that all fees are indeed optional in setfees call.
-    l1.rpc.dev_setfees()
-    l1.daemon.wait_for_log('dev-setfees: fees now 21098/7654/321')
-
-    # This should return finish closing.
-    l1.rpc.close(l1.get_channel_scid(l2))
-
-
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_fee_limits(node_factory):
     # FIXME: Test case where opening denied.
-    l1, l2 = node_factory.line_graph(2, opts={'dev-max-fee-multiplier': 5}, fundchannel=True)
+    l1, l2 = node_factory.line_graph(2, opts={'dev-max-fee-multiplier': 5, 'may_reconnect': True}, fundchannel=True)
 
-    # L1 asks for stupid low fees
-    l1.rpc.dev_setfees(15)
+    # L1 asks for stupid low fee (will actually hit the floor of 253)
+    l1.stop()
+    l1.set_feerates((15, 15, 15), False)
+    l1.start()
 
-    l1.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 15 outside range 1875-75000')
+    l1.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 253 outside range 1875-75000')
     # Make sure the resolution of this one doesn't interfere with the next!
     # Note: may succeed, may fail with insufficient fee, depending on how
     # bitcoind feels!
     l1.daemon.wait_for_log('sendrawtx exit')
 
     # Restore to normal.
-    l1.rpc.dev_setfees(15000)
+    l1.stop()
+    l1.set_feerates((15000, 7500, 3750), False)
+    l1.start()
 
     # Try with node which sets --ignore-fee-limits
-    l3 = node_factory.get_node(options={'ignore-fee-limits': 'true'})
+    l3 = node_factory.get_node(options={'ignore-fee-limits': 'true'}, may_reconnect=True)
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
-
     chan = l1.fund_channel(l3, 10**6)
 
     # Try stupid high fees
-    l1.rpc.dev_setfees(15000 * 10)
+    l1.stop()
+    l1.set_feerates((15000 * 10, 7500, 3750), False)
+    l1.start()
 
     l3.daemon.wait_for_log('peer_in WIRE_UPDATE_FEE')
     l3.daemon.wait_for_log('peer_in WIRE_COMMITMENT_SIGNED')
@@ -923,13 +897,16 @@ def test_update_fee_reconnect(node_factory, bitcoind):
     disconnects = ['+WIRE_COMMITMENT_SIGNED']
     # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects, may_reconnect=True,
-                               feerates=(7500, 7500, 7500))
-    l2 = node_factory.get_node(may_reconnect=True)
+                               feerates=(15000, 15000, 3750))
+    # We match l2's later feerate, so we agree on same closing tx for simplicity.
+    l2 = node_factory.get_node(may_reconnect=True,
+                               feerates=(14000, 14000, 3750))
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     chan = l1.fund_channel(l2, 10**6)
 
     # Make l1 send out feechange; triggers disconnect/reconnect.
-    l1.rpc.dev_setfees('14000')
+    # (Note: < 10% change, so no smoothing here!)
+    l1.set_feerates((14000, 14000, 3750))
     l1.daemon.wait_for_log('Setting REMOTE feerate to 14000')
     l2.daemon.wait_for_log('Setting LOCAL feerate to 14000')
     l1.daemon.wait_for_log('dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
