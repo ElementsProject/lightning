@@ -154,7 +154,9 @@ def test_ping(node_factory):
 def test_htlc_sig_persistence(node_factory, executor):
     """Interrupt a payment between two peers, then fail and recover funds using the HTLC sig.
     """
-    l1 = node_factory.get_node(options={'dev-no-reconnect': None})
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(options={'dev-no-reconnect': None},
+                               feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -202,8 +204,10 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
 
     # HTLC 1->2, 1 fails after it's irrevocably committed, can't reconnect
     disconnects = ['@WIRE_REVOKE_AND_ACK']
+    # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects,
-                               options={'dev-no-reconnect': None})
+                               options={'dev-no-reconnect': None},
+                               feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -259,8 +263,10 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
 
     # HTLC 1->2, 1 fails after 2 has sent committed the fulfill
     disconnects = ['-WIRE_REVOKE_AND_ACK*2']
+    # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects,
-                               options={'dev-no-reconnect': None})
+                               options={'dev-no-reconnect': None},
+                               feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -781,7 +787,9 @@ def test_reserve_enforcement(node_factory, executor):
 @unittest.skipIf(not DEVELOPER, "needs dev_disconnect")
 def test_htlc_send_timeout(node_factory, bitcoind):
     """Test that we don't commit an HTLC to an unreachable node."""
-    l1 = node_factory.get_node(options={'log-level': 'io'})
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(options={'log-level': 'io'},
+                               feerates=(7500, 7500, 7500))
     # Blackhole it after it sends HTLC_ADD to l3.
     l2 = node_factory.get_node(disconnect=['0WIRE_UPDATE_ADD_HTLC'],
                                options={'log-level': 'io'})

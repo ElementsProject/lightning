@@ -189,9 +189,11 @@ def test_pay_optional_args(node_factory):
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_payment_success_persistence(node_factory, executor):
     # Start two nodes and open a channel.. die during payment.
+    # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'],
                                options={'dev-no-reconnect': None},
-                               may_reconnect=True)
+                               may_reconnect=True,
+                               feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -233,9 +235,11 @@ def test_payment_success_persistence(node_factory, executor):
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_payment_failed_persistence(node_factory, executor):
     # Start two nodes and open a channel.. die during payment.
+    # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'],
                                options={'dev-no-reconnect': None},
-                               may_reconnect=True)
+                               may_reconnect=True,
+                               feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -450,7 +454,7 @@ def test_sendpay_cant_afford(node_factory):
         pay(l1, l2, 10**9 + 1)
 
     # This is the fee, which needs to be taken into account for l1.
-    available = 10**9 - 6720
+    available = 10**9 - 13440
     # Reserve is 1%.
     reserve = 10**7
 

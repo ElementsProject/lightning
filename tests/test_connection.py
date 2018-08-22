@@ -375,8 +375,10 @@ def test_reconnect_sender_add1(node_factory):
                    '+WIRE_UPDATE_ADD_HTLC-nocommit',
                    '@WIRE_UPDATE_ADD_HTLC-nocommit']
 
+    # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects,
-                               may_reconnect=True)
+                               may_reconnect=True,
+                               feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -408,8 +410,10 @@ def test_reconnect_sender_add(node_factory):
                    '-WIRE_REVOKE_AND_ACK',
                    '@WIRE_REVOKE_AND_ACK',
                    '+WIRE_REVOKE_AND_ACK']
+    # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects,
-                               may_reconnect=True)
+                               may_reconnect=True,
+                               feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -436,7 +440,8 @@ def test_reconnect_receiver_add(node_factory):
                    '-WIRE_REVOKE_AND_ACK',
                    '@WIRE_REVOKE_AND_ACK',
                    '+WIRE_REVOKE_AND_ACK']
-    l1 = node_factory.get_node(may_reconnect=True)
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(may_reconnect=True, feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=disconnects,
                                may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -719,7 +724,8 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     # Start two nodes and open a channel (to remember). l2 will
     # mysteriously die while committing the first HTLC so we can
     # check that HTLCs reloaded from the DB work.
-    l1 = node_factory.get_node(may_reconnect=True)
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(may_reconnect=True, feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
                                may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -915,7 +921,9 @@ def test_fee_limits(node_factory):
 def test_update_fee_reconnect(node_factory, bitcoind):
     # Disconnect after first commitsig.
     disconnects = ['+WIRE_COMMITMENT_SIGNED']
-    l1 = node_factory.get_node(disconnect=disconnects, may_reconnect=True)
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(disconnect=disconnects, may_reconnect=True,
+                               feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     chan = l1.fund_channel(l2, 10**6)
@@ -1129,7 +1137,8 @@ def test_funder_feerate_reconnect(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fund_channel(l2, 10**6)
 
-    l1.rpc.dev_setfees('14000')
+    # lockin will cause fee update, causing disconnect.
+    bitcoind.generate_block(5)
     l2.daemon.wait_for_log('dev_disconnect: \-WIRE_COMMITMENT_SIGNED')
 
     # Wait until they reconnect.
