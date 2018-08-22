@@ -309,7 +309,7 @@ static void update_feerates(struct bitcoind *bitcoind,
 			continue;
 
 		/* Initial smoothed feerate is the polled feerate */
-		if (topo->feerate_uninitialized) {
+		if (!topo->feerate[i]) {
 			old_feerates[i] = feerate;
 			log_debug(topo->log,
 					  "Smoothed feerate estimate for %s initialized to polled estimate %u",
