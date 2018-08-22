@@ -548,9 +548,6 @@ static void log_dump_to_file(int fd, const struct log_book *lr)
 	struct log_data data;
 	time_t start;
 
-	write_all(fd, "Start of new crash log\n",
-		  strlen("Start of new crash log\n"));
-
 	i = list_top(&lr->log, const struct log_entry, list);
 	if (!i) {
 		write_all(fd, "0 bytes:\n\n", strlen("0 bytes:\n\n"));
@@ -571,28 +568,27 @@ static void log_dump_to_file(int fd, const struct log_book *lr)
 /* FIXME: Dump peer logs! */
 void log_backtrace_exit(void)
 {
+	int fd;
+	char logfile[sizeof("/tmp/lightning-crash.log.%u") + STR_MAX_CHARS(int)];
+
 	if (!crashlog)
 		return;
 
-	/* If we're not already pointing at a log file, make one */
-	if (crashlog->lr->print == log_to_stdout) {
-		const char *logfile = NULL;
-		int fd;
+	/* We expect to be in config dir. */
+	snprintf(logfile, sizeof(logfile), "crash.log.%u", getpid());
 
-		/* We expect to be in config dir. */
-		logfile = "crash.log";
-		fd = open(logfile, O_WRONLY|O_CREAT|O_APPEND, 0600);
-		if (fd < 0) {
-			logfile = "/tmp/lightning-crash.log";
-			fd = open(logfile, O_WRONLY|O_CREAT, 0600);
-		}
+	fd = open(logfile, O_WRONLY|O_CREAT|O_TRUNC, 0600);
+	if (fd < 0) {
+		snprintf(logfile, sizeof(logfile),
+			 "/tmp/lightning-crash.log.%u", getpid());
+		fd = open(logfile, O_WRONLY|O_CREAT|O_TRUNC, 0600);
+	}
 
-		/* Dump entire log. */
-		if (fd >= 0) {
-			log_dump_to_file(fd, crashlog->lr);
-			close(fd);
-			fprintf(stderr, "Log dumped in %s\n", logfile);
-		}
+	/* Dump entire log. */
+	if (fd >= 0) {
+		log_dump_to_file(fd, crashlog->lr);
+		close(fd);
+		fprintf(stderr, "Log dumped in %s\n", logfile);
 	}
 }
 
