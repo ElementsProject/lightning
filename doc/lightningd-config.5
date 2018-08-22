@@ -156,7 +156,7 @@ Prefix for log lines: this can be customized if you want to merge logs with mult
 .PP
 \fBlog\-file\fR=\fIPATH\fR
 .RS 4
-Log to this file instead of stdout\&.
+Log to this file instead of stdout\&. Sending lightningd(1) SIGHUP will cause it to reopen this file (useful for log rotation)\&.
 .RE
 .PP
 \fBrpc\-file\fR=\fIPATH\fR

@@ -2,12 +2,13 @@ from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky
 from lightning import RpcError
-from utils import DEVELOPER, sync_blockheight, only_one, wait_for
+from utils import DEVELOPER, sync_blockheight, only_one, wait_for, TailableProc
 from ephemeral_port_reserve import reserve
 
 import json
 import os
 import pytest
+import shutil
 import signal
 import socket
 import subprocess
@@ -846,3 +847,24 @@ def test_ipv4_and_ipv6(node_factory):
         assert bind[0]['type'] == 'ipv4'
         assert bind[0]['address'] == '0.0.0.0'
         assert int(bind[0]['port']) == port
+
+
+def test_logging(node_factory):
+    # Since we redirect, node.start() will fail: do manually.
+    l1 = node_factory.get_node(options={'log-file': 'logfile'}, may_fail=True, start=False)
+    logpath = os.path.join(l1.daemon.lightning_dir, 'logfile')
+    logpath_moved = os.path.join(l1.daemon.lightning_dir, 'logfile_moved')
+
+    TailableProc.start(l1.daemon)
+    wait_for(lambda: os.path.exists(logpath))
+
+    shutil.move(logpath, logpath_moved)
+    l1.daemon.proc.send_signal(signal.SIGHUP)
+    wait_for(lambda: os.path.exists(logpath_moved))
+    wait_for(lambda: os.path.exists(logpath))
+
+    log1 = open(logpath_moved).readlines()
+    log2 = open(logpath).readlines()
+
+    assert log1[-1].endswith("Ending log due to SIGHUP\n")
+    assert log2[0].endswith("Started log due to SIGHUP\n")
