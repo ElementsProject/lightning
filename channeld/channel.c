@@ -1272,7 +1272,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 		dump_htlcs(peer->channel, "receiving commit_sig");
 		peer_failed(&peer->cs,
 			    &peer->channel_id,
-			    "Bad commit_sig signature %"PRIu64" %s for tx %s wscript %s key %s",
+			    "Bad commit_sig signature %"PRIu64" %s for tx %s wscript %s key %s feerate %u",
 			    peer->next_index[LOCAL],
 			    type_to_string(msg, secp256k1_ecdsa_signature,
 					   &commit_sig),
@@ -1280,7 +1280,8 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 			    tal_hex(msg, wscripts[0]),
 			    type_to_string(msg, struct pubkey,
 					   &peer->channel->funding_pubkey
-					   [REMOTE]));
+					   [REMOTE]),
+			    peer->channel->view[LOCAL].feerate_per_kw);
 	}
 
 	/* BOLT #2:
@@ -1332,7 +1333,8 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
 			  const struct secret *per_commitment_secret,
 			  const struct pubkey *next_per_commit_point,
-			  const struct htlc **changed_htlcs)
+			  const struct htlc **changed_htlcs,
+			  u32 feerate)
 {
 	u8 *msg;
 	struct changed_htlc *changed = tal_arr(tmpctx, struct changed_htlc, 0);
@@ -1350,7 +1352,7 @@ static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
 	}
 
 	msg = towire_channel_got_revoke(ctx, revoke_num, per_commitment_secret,
-					next_per_commit_point, changed);
+					next_per_commit_point, feerate, changed);
 	return msg;
 }
 
@@ -1409,7 +1411,8 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	/* Tell master about things this locks in, wait for response */
 	msg = got_revoke_msg(NULL, peer->revocations_received++,
 			     &old_commit_secret, &next_per_commit,
-			     changed_htlcs);
+			     changed_htlcs,
+			     channel_feerate(peer->channel, LOCAL));
 	master_wait_sync_reply(tmpctx, peer, take(msg),
 			       WIRE_CHANNEL_GOT_REVOKE_REPLY);
 
@@ -1748,6 +1751,10 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 	size_t i;
 	struct commit_sigs *commit_sigs;
 	u8 *msg;
+
+	status_trace("Retransmitting commitment, feerate LOCAL=%u REMOTE=%u",
+		     channel_feerate(peer->channel, LOCAL),
+		     channel_feerate(peer->channel, REMOTE));
 
 	/* BOLT #2:
 	 *
