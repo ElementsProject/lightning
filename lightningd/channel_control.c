@@ -18,6 +18,47 @@
 #include <lightningd/subd.h>
 #include <wire/wire_sync.h>
 
+static void update_feerates(struct lightningd *ld, struct channel *channel)
+{
+	u8 *msg = towire_channel_feerates(NULL,
+					  get_feerate(ld->topology,
+						      FEERATE_IMMEDIATE),
+					  feerate_min(ld),
+					  feerate_max(ld));
+	subd_send_msg(channel->owner, take(msg));
+}
+
+static void try_update_feerates(struct lightningd *ld, struct channel *channel)
+{
+	/* No point until funding locked in */
+	if (!channel_fees_can_change(channel))
+		return;
+
+	/* Can't if no daemon listening. */
+	if (!channel->owner)
+		return;
+
+	update_feerates(ld, channel);
+}
+
+void notify_feerate_change(struct lightningd *ld)
+{
+	struct peer *peer;
+
+	/* FIXME: We should notify onchaind about NORMAL fee change in case
+	 * it's going to generate more txs. */
+	list_for_each(&ld->peers, peer, list) {
+		struct channel *channel = peer_active_channel(peer);
+
+		if (!channel)
+			continue;
+
+		/* FIXME: We choose not to drop to chain if we can't contact
+		 * peer.  We *could* do so, however. */
+		try_update_feerates(ld, channel);
+	}
+}
+
 static void lockin_complete(struct channel *channel)
 {
 	/* We set this once we're locked in. */

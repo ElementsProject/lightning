@@ -155,6 +155,7 @@ void begin_topology(struct chain_topology *topo);
 
 struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo, const struct bitcoin_txid *txid);
 
+/* In channel_control.c */
 void notify_feerate_change(struct lightningd *ld);
 
 #if DEVELOPER
