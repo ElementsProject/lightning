@@ -20,11 +20,16 @@
 
 static void update_feerates(struct lightningd *ld, struct channel *channel)
 {
-	u8 *msg = towire_channel_feerates(NULL,
-					  get_feerate(ld->topology,
-						      FEERATE_IMMEDIATE),
-					  feerate_min(ld),
-					  feerate_max(ld));
+	u8 *msg;
+	u32 feerate = try_get_feerate(ld->topology, FEERATE_IMMEDIATE);
+
+	/* Nothing to do if we don't know feerate. */
+	if (!feerate)
+		return;
+
+	msg = towire_channel_feerates(NULL, feerate,
+				      feerate_min(ld, NULL),
+				      feerate_max(ld, NULL));
 	subd_send_msg(channel->owner, take(msg));
 }
 
@@ -336,8 +341,8 @@ void peer_start_channeld(struct channel *channel,
 				      &channel->our_config,
 				      &channel->channel_info.their_config,
 				      channel->channel_info.feerate_per_kw,
-				      feerate_min(ld),
-				      feerate_max(ld),
+				      feerate_min(ld, NULL),
+				      feerate_max(ld, NULL),
 				      &channel->last_sig,
 				      cs,
 				      &channel->channel_info.remote_fundingkey,

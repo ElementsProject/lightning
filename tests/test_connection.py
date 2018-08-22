@@ -1105,6 +1105,57 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     assert len(l2.rpc.listpeers(l1.info['id'])['peers']) == 0
 
 
+@unittest.skipIf(not DEVELOPER, "needs dev_fail")
+def test_no_fee_estimate(node_factory, bitcoind, executor):
+    l1 = node_factory.get_node(start=False)
+    l1.bitcoind_cmd_override(cmd='estimatesmartfee',
+                             failscript="""echo '{ "errors": [ "Insufficient data or no feerate found" ], "blocks": 0 }'; exit 0""")
+    l1.start()
+
+    l2 = node_factory.get_node()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Can't fund a channel.
+    l1.fundwallet(10**7)
+    with pytest.raises(RpcError, match=r'Cannot estimate fees'):
+        l1.rpc.fundchannel(l2.info['id'], 10**6)
+
+    # Can't withdraw either.
+    with pytest.raises(RpcError, match=r'Cannot estimate fees'):
+        l1.rpc.withdraw(l2.rpc.newaddr()['address'], 'all')
+
+    # But can accept incoming connections.
+    l2.fund_channel(l1, 10**6)
+
+    # Can do HTLCs.
+    l2.pay(l1, 10**5)
+
+    # Can do mutual close.
+    l1.rpc.close(l2.info['id'])
+    bitcoind.generate_block(100)
+
+    # Can do unilateral close.
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l2.fund_channel(l1, 10**6)
+    l2.pay(l1, 10**9 // 2)
+    l1.rpc.dev_fail(l2.info['id'])
+    l1.daemon.wait_for_log('sendrawtx exit 0')
+    bitcoind.generate_block(5)
+    l1.daemon.wait_for_log('sendrawtx exit 0')
+    bitcoind.generate_block(100)
+
+    # Restart estimatesmartfee, wait for it to pass 5000
+    l1.set_feerates((15000, 7500, 3750), True)
+    l1.daemon.wait_for_log('Feerate estimate for Normal set to [567][0-9]{3}')
+
+    # Can now fund a channel.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.fundchannel(l2.info['id'], 10**6)
+
+    # Can withdraw.
+    l1.rpc.withdraw(l2.rpc.newaddr()['address'], 'all')
+
+
 @unittest.skipIf(not DEVELOPER, "needs --dev-disconnect")
 def test_funder_feerate_reconnect(node_factory, bitcoind):
     # l1 updates fees, then reconnect so l2 retransmits commitment_signed.

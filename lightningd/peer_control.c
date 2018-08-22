@@ -189,16 +189,24 @@ u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
 	return scriptpubkey_p2wpkh(ctx, &shutdownkey);
 }
 
-u32 feerate_min(struct lightningd *ld)
+u32 feerate_min(struct lightningd *ld, bool *unknown)
 {
 	u32 min;
+
+	if (unknown)
+		*unknown = false;
 
 	/* We can't allow less than feerate_floor, since that won't relay */
 	if (ld->config.ignore_fee_limits)
 		min = 1;
-	else
-		/* Set this to half of slow rate.*/
-		min = get_feerate(ld->topology, FEERATE_SLOW) / 2;
+	else {
+		u32 feerate = try_get_feerate(ld->topology, FEERATE_SLOW);
+		if (!feerate && unknown)
+			*unknown = true;
+
+		/* Set this to half of slow rate (if unknown, will be floor) */
+		min = feerate / 2;
+	}
 
 	if (min < feerate_floor())
 		return feerate_floor();
@@ -211,13 +219,25 @@ u32 feerate_min(struct lightningd *ld)
  * spent in the future, it's a good idea for the fee payer to keep a good
  * margin (say 5x the expected fee requirement)
  */
-u32 feerate_max(struct lightningd *ld)
+u32 feerate_max(struct lightningd *ld, bool *unknown)
 {
+	u32 feerate;
+
+	if (unknown)
+		*unknown = false;
+
 	if (ld->config.ignore_fee_limits)
 		return UINT_MAX;
 
-	return get_feerate(ld->topology, FEERATE_IMMEDIATE) *
-	       ld->config.max_fee_multiplier;
+	/* If we don't know feerate, don't limit other side. */
+	feerate = try_get_feerate(ld->topology, FEERATE_IMMEDIATE);
+	if (!feerate) {
+		if (unknown)
+			*unknown = true;
+		return UINT_MAX;
+	}
+
+	return feerate * ld->config.max_fee_multiplier;
 }
 
 static void sign_last_tx(struct channel *channel)
