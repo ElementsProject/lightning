@@ -25,6 +25,17 @@
 /* Mutual recursion via timer. */
 static void try_extend_tip(struct chain_topology *topo);
 
+/* get_init_blockhash sets topo->root, start_fee_estimate clears
+ * feerate_uninitialized (even if unsuccessful) */
+static void maybe_completed_init(struct chain_topology *topo)
+{
+	if (topo->feerate_uninitialized)
+		return;
+	if (!topo->root)
+		return;
+	io_break(topo);
+}
+
 static void next_topology_timer(struct chain_topology *topo)
 {
 	/* This takes care of its own lifetime. */
@@ -298,7 +309,7 @@ static void update_feerates(struct bitcoind *bitcoind,
 			continue;
 
 		/* Initial smoothed feerate is the polled feerate */
-		if (topo->startup) {
+		if (topo->feerate_uninitialized) {
 			old_feerates[i] = feerate;
 			log_debug(topo->log,
 					  "Smoothed feerate estimate for %s initialized to polled estimate %u",
@@ -331,9 +342,13 @@ static void update_feerates(struct bitcoind *bitcoind,
 		}
 		topo->feerate[i] = feerate;
 	}
-	/* Moving this forward in time is ok, but feerate smoothing is effectively
-	 * disabled until topo->startup is set to false */
-	topo->startup = false;
+
+	if (topo->feerate_uninitialized) {
+		/* Moving this forward in time is ok, but feerate smoothing is effectively
+		 * disabled until topo->startup is set to false */
+		topo->feerate_uninitialized = false;
+		maybe_completed_init(topo);
+	}
 
 	/* Make sure fee rates are in order. */
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
@@ -551,7 +566,7 @@ static void init_topo(struct bitcoind *bitcoind UNUSED,
 	db_set_intvar(topo->bitcoind->ld->wallet->db,
 		      "last_processed_block", topo->tip->height);
 
-	io_break(topo);
+	maybe_completed_init(topo);
 }
 
 static void get_init_block(struct bitcoind *bitcoind,
@@ -747,7 +762,8 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 	topo->bitcoind = new_bitcoind(topo, ld, log);
 	topo->wallet = ld->wallet;
 	topo->poll_seconds = 30;
-	topo->startup = true;
+	topo->feerate_uninitialized = true;
+	topo->root = NULL;
 #if DEVELOPER
 	topo->dev_override_fee_rate = NULL;
 #endif
@@ -771,23 +787,24 @@ void setup_topology(struct chain_topology *topo,
 
 	tal_add_destructor(topo, destroy_chain_topology);
 
+#if DEVELOPER
+	if (topo->dev_override_fee_rate) {
+		log_info(topo->log, "Fee estimation disabled because: "
+			 "--dev-override-fee-rates");
+		topo->feerate_uninitialized = false;
+	} else {
+		/* Begin fee estimation. */
+		start_fee_estimate(topo);
+	}
+#else
+	start_fee_estimate(topo);
+#endif
+
 	/* Once it gets initial block, it calls io_break() and we return. */
 	io_loop(NULL, NULL);
 }
 
 void begin_topology(struct chain_topology *topo)
 {
-#if DEVELOPER
-    if (topo->dev_override_fee_rate) {
-        log_info(topo->log, "Fee estimation disabled because: "
-                 "--dev-override-fee-rates");
-    } else {
-        /* Begin fee estimation. */
-        start_fee_estimate(topo);
-    }
-#else
-	start_fee_estimate(topo);
-#endif
-
 	try_extend_tip(topo);
 }
