@@ -1108,3 +1108,24 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     l2.daemon.wait_for_log('Forgetting channel: It has been {} blocks'.format(blocks))
     # fundee will also forget and disconnect from peer.
     assert len(l2.rpc.listpeers(l1.info['id'])['peers']) == 0
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "needs --dev-disconnect")
+def test_funder_feerate_reconnect(node_factory, bitcoind):
+    # l1 updates fees, then reconnect so l2 retransmits commitment_signed.
+    disconnects = ['-WIRE_COMMITMENT_SIGNED']
+    l1 = node_factory.get_node(may_reconnect=True)
+    l2 = node_factory.get_node(disconnect=disconnects, may_reconnect=True)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fund_channel(l2, 10**6)
+
+    l1.rpc.dev_setfees('14000')
+    l2.daemon.wait_for_log('dev_disconnect: \-WIRE_COMMITMENT_SIGNED')
+
+    # Wait until they reconnect.
+    l1.daemon.wait_for_log('Peer transient failure in CHANNELD_NORMAL')
+    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'])
+
+    # Should work normally.
+    l1.pay(l2, 200000000)
