@@ -601,15 +601,23 @@ class LightningNode(object):
         # wait for sendpay to comply
         self.rpc.waitsendpay(rhash)
 
-    def fake_bitcoind_fail(self, exitcode):
+    def fake_bitcoind_fail(self, failscript='exit 1', cmd=None):
         # Create and rename, for atomicity.
         f = os.path.join(self.daemon.lightning_dir, "bitcoin-cli-fail.tmp")
         with open(f, "w") as text_file:
-            text_file.write("%d" % exitcode)
-        os.rename(f, os.path.join(self.daemon.lightning_dir, "bitcoin-cli-fail"))
+            text_file.write(failscript)
+        if cmd:
+            failfile = "bitcoin-cli-fail-{}".format(cmd)
+        else:
+            failfile = "bitcoin-cli-fail"
+        os.rename(f, os.path.join(self.daemon.lightning_dir, failfile))
 
-    def fake_bitcoind_unfail(self):
-        os.remove(os.path.join(self.daemon.lightning_dir, "bitcoin-cli-fail"))
+    def fake_bitcoind_unfail(self, cmd=None):
+        if cmd:
+            failfile = "bitcoin-cli-fail-{}".format(cmd)
+        else:
+            failfile = "bitcoin-cli-fail"
+        os.remove(os.path.join(self.daemon.lightning_dir, failfile))
 
 
 class NodeFactory(object):
@@ -701,8 +709,12 @@ class NodeFactory(object):
             cli = os.path.join(lightning_dir, "fake-bitcoin-cli")
             with open(cli, "w") as text_file:
                 text_file.write('#! /bin/sh\n'
-                                '! [ -f bitcoin-cli-fail ] || exit `cat bitcoin-cli-fail`\n'
-                                'exec bitcoin-cli "$@"\n')
+                                '! [ -f bitcoin-cli-fail ] || . {ldir}/bitcoin-cli-fail\n'
+                                'for a in "$@"; do\n'
+                                '\t! [ -f bitcoin-cli-fail-"$a" ] || . {ldir}/bitcoin-cli-fail-"$a"\n'
+                                'done\n'
+                                'exec bitcoin-cli "$@"\n'
+                                .format(ldir=lightning_dir))
             os.chmod(cli, os.stat(cli).st_mode | stat.S_IEXEC)
             daemon.opts['bitcoin-cli'] = cli
 

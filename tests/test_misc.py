@@ -88,7 +88,7 @@ def test_bitcoin_failure(node_factory, bitcoind):
     # Make sure we're not failing it between getblockhash and getblock.
     sync_blockheight(bitcoind, [l1])
 
-    l1.fake_bitcoind_fail(1)
+    l1.fake_bitcoind_fail('exit 1')
 
     # This should cause both estimatefee and getblockhash fail
     l1.daemon.wait_for_logs(['estimatesmartfee .* exited with status 1',

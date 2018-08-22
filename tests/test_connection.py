@@ -1094,7 +1094,7 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     time.sleep(1)
 
     # Prevent funder from broadcasting funding tx.
-    l1.fake_bitcoind_fail(1)
+    l1.fake_bitcoind_fail('exit 1')
     # Fund the channel.
     # The process will complete, but funder will be unable
     # to broadcast and confirm funding tx.
