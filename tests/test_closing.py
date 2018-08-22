@@ -284,7 +284,8 @@ def test_closing_negotiation_reconnect(node_factory, bitcoind):
 def test_penalty_inhtlc(node_factory, bitcoind, executor):
     """Test penalty transaction with an incoming HTLC"""
     # We suppress each one after first commit; HTLC gets added not fulfilled.
-    l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'], may_fail=True)
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'], may_fail=True, feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -355,7 +356,8 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor):
 def test_penalty_outhtlc(node_factory, bitcoind, executor):
     """Test penalty transaction with an outgoing HTLC"""
     # First we need to get funds to l2, so suppress after second.
-    l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED*3-nocommit'], may_fail=True)
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED*3-nocommit'], may_fail=True, feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED*3-nocommit'])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -522,7 +524,8 @@ def test_onchain_unwatch(node_factory, bitcoind):
 def test_onchaind_replay(node_factory, bitcoind):
     disconnects = ['+WIRE_REVOKE_AND_ACK', 'permfail']
     options = {'watchtime-blocks': 201, 'cltv-delta': 101}
-    l1 = node_factory.get_node(options=options, disconnect=disconnects)
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(options=options, disconnect=disconnects, feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(options=options)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -574,7 +577,8 @@ def test_onchain_dust_out(node_factory, bitcoind, executor):
     """Onchain handling of outgoing dust htlcs (they should fail)"""
     # HTLC 1->2, 1 fails after it's irrevocably committed
     disconnects = ['@WIRE_REVOKE_AND_ACK', 'permfail']
-    l1 = node_factory.get_node(disconnect=disconnects)
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(disconnect=disconnects, feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -638,7 +642,8 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
     """Onchain handling of outgoing failed htlcs"""
     # HTLC 1->2, 1 fails just after it's irrevocably committed
     disconnects = ['+WIRE_REVOKE_AND_ACK', 'permfail']
-    l1 = node_factory.get_node(disconnect=disconnects)
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(disconnect=disconnects, feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node()
     l2 = node_factory.get_node()
 
@@ -869,7 +874,8 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
     # We need 2 to drop to chain, because then 1's HTLC timeout tx
     # is generated on-the-fly, and is thus feerate sensitive.
     disconnects = ['-WIRE_UPDATE_FAIL_HTLC', 'permfail']
-    l1 = node_factory.get_node(options={'dev-no-reconnect': None})
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(options={'dev-no-reconnect': None}, feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=disconnects)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -985,7 +991,8 @@ def test_onchain_different_fees(node_factory, bitcoind, executor):
 def test_permfail_new_commit(node_factory, bitcoind, executor):
     # Test case where we have two possible commits: it will use new one.
     disconnects = ['-WIRE_REVOKE_AND_ACK', 'permfail']
-    l1 = node_factory.get_node(options={'dev-no-reconnect': None})
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(options={'dev-no-reconnect': None}, feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=disconnects)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1022,7 +1029,8 @@ def test_permfail_new_commit(node_factory, bitcoind, executor):
 def test_permfail_htlc_in(node_factory, bitcoind, executor):
     # Test case where we fail with unsettled incoming HTLC.
     disconnects = ['-WIRE_UPDATE_FULFILL_HTLC', 'permfail']
-    l1 = node_factory.get_node(options={'dev-no-reconnect': None})
+    # Feerates identical so we don't get gratuitous commit to update them
+    l1 = node_factory.get_node(options={'dev-no-reconnect': None}, feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=disconnects)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1066,7 +1074,8 @@ def test_permfail_htlc_out(node_factory, bitcoind, executor):
     # Test case where we fail with unsettled outgoing HTLC.
     disconnects = ['+WIRE_REVOKE_AND_ACK', 'permfail']
     l1 = node_factory.get_node(options={'dev-no-reconnect': None})
-    l2 = node_factory.get_node(disconnect=disconnects)
+    # Feerates identical so we don't get gratuitous commit to update them
+    l2 = node_factory.get_node(disconnect=disconnects, feerates=(7500, 7500, 7500))
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.daemon.wait_for_log('openingd-{} chan #1: Handed peer, entering loop'.format(l1.info['id']))
@@ -1127,9 +1136,11 @@ def test_permfail(node_factory, bitcoind):
     l1.pay(l2, 200000000)
 
     # Make sure l2 has received sig with 0 htlcs!
+    l2.daemon.wait_for_log('Received commit_sig with 1 htlc sigs')
     l2.daemon.wait_for_log('Received commit_sig with 0 htlc sigs')
 
     # Make sure l1 has final revocation.
+    l1.daemon.wait_for_log('Sending commit_sig with 1 htlc sigs')
     l1.daemon.wait_for_log('Sending commit_sig with 0 htlc sigs')
     l1.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
 

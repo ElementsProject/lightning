@@ -25,6 +25,10 @@ static void lockin_complete(struct channel *channel)
 	/* We set this once they're locked in. */
 	assert(channel->remote_funding_locked);
 	channel_set_state(channel, CHANNELD_AWAITING_LOCKIN, CHANNELD_NORMAL);
+
+	/* Fees might have changed (and we use IMMEDIATE once we're funded),
+	 * so update now. */
+	try_update_feerates(channel->peer->ld, channel);
 }
 
 /* We were informed by channeld that it announced the channel and sent
