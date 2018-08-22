@@ -1283,10 +1283,12 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	enum onion_type *failcodes;
 	size_t i;
 	struct lightningd *ld = channel->peer->ld;
+	u32 feerate;
 
 	if (!fromwire_channel_got_revoke(msg, msg,
 					 &revokenum, &per_commitment_secret,
 					 &next_per_commitment_point,
+					 &feerate,
 					 &changed)) {
 		channel_internal_error(channel, "bad fromwire_channel_got_revoke %s",
 				    tal_hex(channel, msg));
@@ -1344,6 +1346,10 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 				    revokenum);
 		return;
 	}
+
+	/* Update feerate: if we are funder, their revoke_and_ack has set
+	 * this for local feerate. */
+	channel->channel_info.feerate_per_kw[LOCAL] = feerate;
 
 	/* FIXME: Check per_commitment_secret -> per_commit_point */
 	update_per_commit_point(channel, &next_per_commitment_point);

@@ -1110,7 +1110,6 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     assert len(l2.rpc.listpeers(l1.info['id'])['peers']) == 0
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs --dev-disconnect")
 def test_funder_feerate_reconnect(node_factory, bitcoind):
     # l1 updates fees, then reconnect so l2 retransmits commitment_signed.
