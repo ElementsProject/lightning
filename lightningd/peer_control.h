@@ -88,9 +88,10 @@ void activate_peers(struct lightningd *ld);
 
 void drop_to_chain(struct lightningd *ld, struct channel *channel, bool cooperative);
 
-/* Get range of feerates to insist other side abide by for normal channels. */
-u32 feerate_min(struct lightningd *ld);
-u32 feerate_max(struct lightningd *ld);
+/* Get range of feerates to insist other side abide by for normal channels.
+ * If we have to guess, sets *unknown to true, otherwise false. */
+u32 feerate_min(struct lightningd *ld, bool *unknown);
+u32 feerate_max(struct lightningd *ld, bool *unknown);
 
 void channel_watch_funding(struct lightningd *ld, struct channel *channel);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_CONTROL_H */

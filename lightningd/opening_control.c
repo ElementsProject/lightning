@@ -737,7 +737,8 @@ void peer_start_openingd(struct peer *peer,
 				  cs, &uc->local_basepoints,
 				  &uc->local_funding_pubkey,
 				  uc->minimum_depth,
-				  feerate_min(peer->ld), feerate_max(peer->ld),
+				  feerate_min(peer->ld, NULL),
+				  feerate_max(peer->ld, NULL),
 				  !peer_active_channel(peer),
 				  send_msg);
 	subd_send_msg(uc->openingd, take(msg));
@@ -763,7 +764,7 @@ static void json_fund_channel(struct command *cmd,
 	struct pubkey *id;
 	struct peer *peer;
 	struct channel *channel;
-	u32 feerate_per_kw = get_feerate(cmd->ld->topology, FEERATE_NORMAL);
+	u32 feerate_per_kw = try_get_feerate(cmd->ld->topology, FEERATE_NORMAL);
 	u8 *msg;
 
 	fc->cmd = cmd;
@@ -777,6 +778,11 @@ static void json_fund_channel(struct command *cmd,
 
 	if (!json_tok_wtx(&fc->wtx, buffer, sattok, MAX_FUNDING_SATOSHI))
 		return;
+
+	if (!feerate_per_kw) {
+		command_fail(cmd, LIGHTNINGD, "Cannot estimate fees");
+		return;
+	}
 
 	peer = peer_by_id(cmd->ld, id);
 	if (!peer) {
@@ -817,8 +823,7 @@ static void json_fund_channel(struct command *cmd,
 	msg = towire_opening_funder(NULL,
 				    fc->wtx.amount,
 				    fc->push_msat,
-				    get_feerate(cmd->ld->topology,
-						FEERATE_NORMAL),
+				    feerate_per_kw,
 				    fc->wtx.change,
 				    fc->wtx.change_key_index,
 				    fc->channel_flags,
