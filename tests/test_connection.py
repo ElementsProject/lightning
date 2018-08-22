@@ -1083,7 +1083,7 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     # blocks.
     blocks = 200
     # funder
-    l1 = node_factory.get_node(fake_bitcoin_cli=True)
+    l1 = node_factory.get_node()
     # fundee
     l2 = node_factory.get_node(options={"dev-max-funding-unconfirmed-blocks": blocks})
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1094,13 +1094,13 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
     time.sleep(1)
 
     # Prevent funder from broadcasting funding tx.
-    l1.fake_bitcoind_fail('exit 1')
+    l1.bitcoind_cmd_override('exit 1')
     # Fund the channel.
     # The process will complete, but funder will be unable
     # to broadcast and confirm funding tx.
     l1.rpc.fundchannel(l2.info['id'], 10**6)
     # Prevent l1 from timing out bitcoin-cli.
-    l1.fake_bitcoind_unfail()
+    l1.bitcoind_cmd_remove_override()
     # Generate blocks until unconfirmed.
     bitcoind.generate_block(blocks)
 
