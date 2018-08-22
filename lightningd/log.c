@@ -2,6 +2,8 @@
 #include <backtrace-supported.h>
 #include <backtrace.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/err/err.h>
+#include <ccan/io/io.h>
 #include <ccan/list/list.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
@@ -444,6 +446,59 @@ static void show_log_prefix(char buf[OPT_SHOW_LEN], const struct log *log)
 	strncpy(buf, log->prefix, OPT_SHOW_LEN);
 }
 
+static int signalfds[2];
+
+static void handle_sighup(int sig)
+{
+	/* Writes a single 0x00 byte to the signalfds pipe. This may fail if
+	 * we're hammered with SIGHUP.  We don't care. */
+	if (write(signalfds[1], "", 1))
+		;
+}
+
+/* Mutual recursion */
+static struct io_plan *setup_read(struct io_conn *conn, struct lightningd *ld);
+
+static struct io_plan *rotate_log(struct io_conn *conn, struct lightningd *ld)
+{
+	FILE *logf;
+
+	log_info(ld->log, "Ending log due to SIGHUP");
+	fclose(ld->log->lr->print_arg);
+
+	logf = fopen(ld->logfile, "a");
+	if (!logf)
+		err(1, "failed to reopen log file %s", ld->logfile);
+	set_log_outfn(ld->log->lr, log_to_file, logf);
+
+	log_info(ld->log, "Started log due to SIGHUP");
+	return setup_read(conn, ld);
+}
+
+static struct io_plan *setup_read(struct io_conn *conn, struct lightningd *ld)
+{
+	/* We read and discard. */
+	static char discard;
+	return io_read(conn, &discard, 1, rotate_log, ld);
+}
+
+static void setup_log_rotation(struct lightningd *ld)
+{
+	struct sigaction act;
+	if (pipe(signalfds) != 0)
+		errx(1, "Pipe for signalfds");
+
+	notleak(io_new_conn(ld, signalfds[0], setup_read, ld));
+
+	io_fd_block(signalfds[1], false);
+	memset(&act, 0, sizeof(act));
+	act.sa_handler = handle_sighup;
+	act.sa_flags = SA_RESETHAND;
+
+	if (sigaction(SIGHUP, &act, NULL) != 0)
+		err(1, "Setting up SIGHUP handler");
+}
+
 char *arg_log_to_file(const char *arg, struct lightningd *ld)
 {
 	FILE *logf;
@@ -451,7 +506,9 @@ char *arg_log_to_file(const char *arg, struct lightningd *ld)
 	if (ld->logfile) {
 		fclose(ld->log->lr->print_arg);
 		ld->logfile = tal_free(ld->logfile);
-	}
+	} else
+		setup_log_rotation(ld);
+
 	ld->logfile = tal_strdup(ld, arg);
 	logf = fopen(arg, "a");
 	if (!logf)

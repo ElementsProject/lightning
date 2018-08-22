@@ -109,7 +109,8 @@ Lightning daemon options:
     multiple daemons.
 
 *log-file*='PATH'::
-    Log to this file instead of stdout.
+    Log to this file instead of stdout.  Sending lightningd(1) SIGHUP will cause
+    it to reopen this file (useful for log rotation).
 
 *rpc-file*='PATH'::
     Set JSON-RPC socket (or /dev/tty), such as for lightning-cli(1).
