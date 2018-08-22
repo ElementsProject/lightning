@@ -2,7 +2,7 @@ from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky
 from lightning import RpcError
-from utils import DEVELOPER, sync_blockheight, only_one, wait_for, TailableProc
+from utils import DEVELOPER, VALGRIND, sync_blockheight, only_one, wait_for, TailableProc
 from ephemeral_port_reserve import reserve
 
 import json
@@ -868,3 +868,15 @@ def test_logging(node_factory):
 
     assert log1[-1].endswith("Ending log due to SIGHUP\n")
     assert log2[0].endswith("Started log due to SIGHUP\n")
+
+
+@unittest.skipIf(VALGRIND and not DEVELOPER,
+                 "Backtrace upsets valgrind: only suppressed in DEVELOPER mode")
+def test_crashlog(node_factory):
+    l1 = node_factory.get_node(may_fail=True)
+
+    crashpath = os.path.join(l1.daemon.lightning_dir,
+                             'crash.log.{}'.format(l1.daemon.proc.pid))
+    assert not os.path.exists(crashpath)
+    l1.daemon.proc.send_signal(signal.SIGSEGV)
+    wait_for(lambda: os.path.exists(crashpath))
