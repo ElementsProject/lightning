@@ -2175,7 +2175,6 @@ static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 						    tx->output[i].amount,
 						    tx_blockheight));
 			to_us_output = i;
-			continue;
 		}
 	}
 
