@@ -1160,13 +1160,14 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
 def test_funder_feerate_reconnect(node_factory, bitcoind):
     # l1 updates fees, then reconnect so l2 retransmits commitment_signed.
     disconnects = ['-WIRE_COMMITMENT_SIGNED']
-    l1 = node_factory.get_node(may_reconnect=True)
+    l1 = node_factory.get_node(may_reconnect=True,
+                               feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=disconnects, may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fund_channel(l2, 10**6)
 
-    # lockin will cause fee update, causing disconnect.
-    bitcoind.generate_block(5)
+    # create fee update, causing disconnect.
+    l1.set_feerates((15000, 7500, 3750))
     l2.daemon.wait_for_log('dev_disconnect: \-WIRE_COMMITMENT_SIGNED')
 
     # Wait until they reconnect.
