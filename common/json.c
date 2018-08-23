@@ -119,6 +119,17 @@ bool json_tok_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 	return true;
 }
 
+bool json_tok_is_num(const char *buffer, const jsmntok_t *tok)
+{
+	if (tok->type != JSMN_PRIMITIVE)
+		return false;
+
+	for (int i = tok->start; i < tok->end; i++)
+		if (!cisdigit(buffer[i]))
+			return false;
+	return true;
+}
+
 bool json_tok_is_null(const char *buffer, const jsmntok_t *tok)
 {
 	if (tok->type != JSMN_PRIMITIVE)
