@@ -975,54 +975,25 @@ static void json_sendpay(struct command *cmd,
 	route = tal_arr(cmd, struct route_hop, n_hops);
 
 	for (t = routetok + 1; t < end; t = json_next(t)) {
-		/* FIXME: Use param() to handle parsing each route? -- @wythe */
-		const jsmntok_t *amttok, *idtok, *delaytok, *chantok;
+		u64 *amount;
+		struct pubkey *id;
+		struct short_channel_id *channel;
+		unsigned *delay;
 
-		if (t->type != JSMN_OBJECT) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "Route %zu '%.*s' is not an object",
-				     n_hops,
-				     t->end - t->start,
-				     buffer + t->start);
+		if (!param(cmd, buffer, t,
+			   p_req("msatoshi", json_tok_u64, &amount),
+			   p_req("id", json_tok_pubkey, &id),
+			   p_req("delay", json_tok_number, &delay),
+			   p_req("channel", json_tok_short_channel_id, &channel),
+			   NULL))
 			return;
-		}
-		amttok = json_get_member(buffer, t, "msatoshi");
-		idtok = json_get_member(buffer, t, "id");
-		delaytok = json_get_member(buffer, t, "delay");
-		chantok = json_get_member(buffer, t, "channel");
-		if (!amttok || !idtok || !delaytok || !chantok) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "Route %zu needs msatoshi/id/channel/delay",
-				     n_hops);
-			return;
-		}
 
 		tal_resize(&route, n_hops + 1);
 
-		/* What that hop will forward */
-		if (!json_to_u64(buffer, amttok, &route[n_hops].amount)) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "Route %zu invalid msatoshi",
-				     n_hops);
-			return;
-		}
-
-		if (!json_to_short_channel_id(buffer, chantok,
-					      &route[n_hops].channel_id)) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "Route %zu invalid channel_id", n_hops);
-			return;
-		}
-		if (!json_to_pubkey(buffer, idtok, &route[n_hops].nodeid)) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "Route %zu invalid id", n_hops);
-			return;
-		}
-		if (!json_to_number(buffer, delaytok, &route[n_hops].delay)) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "Route %zu invalid delay", n_hops);
-			return;
-		}
+		route[n_hops].amount = *amount;
+		route[n_hops].nodeid = *id;
+		route[n_hops].delay = *delay;
+		route[n_hops].channel_id = *channel;
 		n_hops++;
 	}
 
