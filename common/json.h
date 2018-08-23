@@ -39,6 +39,9 @@ bool json_to_double(const char *buffer, const jsmntok_t *tok, double *num);
 bool json_tok_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 			     uint64_t *satoshi);
 
+/* Is this a number? [0..9]+ */
+bool json_tok_is_num(const char *buffer, const jsmntok_t *tok);
+
 /* Is this the null primitive? */
 bool json_tok_is_null(const char *buffer, const jsmntok_t *tok);
 

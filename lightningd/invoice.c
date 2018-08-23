@@ -102,27 +102,24 @@ static bool hsm_sign_b11(const u5 *u5bytes,
 	return true;
 }
 
-/* We allow a string, or a literal number, for labels */
-static struct json_escaped *json_tok_label(const tal_t *ctx,
-					   const char *buffer,
-					   const jsmntok_t *tok)
+static bool json_tok_label(struct command *cmd, const char *name,
+			   const char * buffer, const jsmntok_t *tok,
+			   struct json_escaped **label)
 {
-	struct json_escaped *label;
 
-	label = json_tok_escaped_string(ctx, buffer, tok);
-	if (label)
-		return label;
+	if ((*label = json_tok_escaped_string(cmd, buffer, tok)))
+		return true;
 
 	/* Allow literal numbers */
-	if (tok->type != JSMN_PRIMITIVE)
-		return NULL;
+	if (json_tok_is_num(buffer, tok) &&
+		((*label = json_escaped_string_(cmd, buffer + tok->start,
+						tok->end - tok->start))))
+		return true;
 
-	for (int i = tok->start; i < tok->end; i++)
-		if (!cisdigit(buffer[i]))
-			return NULL;
-
-	return json_escaped_string_(ctx, buffer + tok->start,
-				    tok->end - tok->start);
+	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		     "'%s' should be a string or number, not '%.*s'",
+		     name, tok->end - tok->start, buffer + tok->start);
+	return false;
 }
 
 static bool parse_fallback(struct command *cmd,
@@ -154,10 +151,10 @@ static void json_invoice(struct command *cmd,
 {
 	struct invoice invoice;
 	const struct invoice_details *details;
-	const jsmntok_t *msatoshi, *label, *desctok, *fallbacks;
+	const jsmntok_t *msatoshi, *desctok, *fallbacks;
 	const jsmntok_t *preimagetok;
 	u64 *msatoshi_val;
-	const struct json_escaped *label_val, *desc;
+	struct json_escaped *label_val, *desc;
 	const char *desc_val;
 	struct json_result *response = new_json_result(cmd);
 	struct wallet *wallet = cmd->ld->wallet;
@@ -169,7 +166,7 @@ static void json_invoice(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("msatoshi", json_tok_tok, &msatoshi),
-		   p_req("label", json_tok_tok, &label),
+		   p_req("label", json_tok_label, &label_val),
 		   p_req("description", json_tok_tok, &desctok),
 		   p_opt_def("expiry", json_tok_u64, &expiry, 3600),
 		   p_opt("fallbacks", json_tok_tok, &fallbacks),
@@ -191,14 +188,6 @@ static void json_invoice(struct command *cmd,
 				     buffer + msatoshi->start);
 			return;
 		}
-	}
-	/* label */
-	label_val = json_tok_label(cmd, buffer, label);
-	if (!label_val) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "label '%.*s' not a string or number",
-			     label->end - label->start, buffer + label->start);
-		return;
 	}
 	if (wallet_invoice_find_by_label(wallet, &invoice, label_val)) {
 		command_fail(cmd, INVOICE_LABEL_ALREADY_EXISTS,
@@ -366,28 +355,13 @@ static void json_add_invoices(struct json_result *response,
 static void json_listinvoices(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
-	const jsmntok_t *labeltok;
 	struct json_escaped *label;
 	struct json_result *response = new_json_result(cmd);
 	struct wallet *wallet = cmd->ld->wallet;
-
 	if (!param(cmd, buffer, params,
-		   p_opt("label", json_tok_tok, &labeltok),
+		   p_opt("label", json_tok_label, &label),
 		   NULL))
 		return;
-
-	if (labeltok) {
-		label = json_tok_label(cmd, buffer, labeltok);
-		if (!label) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "label '%.*s' is not a string or number",
-				     labeltok->end - labeltok->start,
-				     buffer + labeltok->start);
-			return;
-		}
-	} else
-		label = NULL;
-
 	json_object_start(response, NULL);
 	json_array_start(response, "invoices");
 	json_add_invoices(response, wallet, label);
@@ -408,26 +382,18 @@ static void json_delinvoice(struct command *cmd,
 {
 	struct invoice i;
 	const struct invoice_details *details;
-	const jsmntok_t *labeltok, *statustok;
+	const jsmntok_t *statustok;
 	struct json_result *response = new_json_result(cmd);
 	const char *status, *actual_status;
 	struct json_escaped *label;
 	struct wallet *wallet = cmd->ld->wallet;
 
 	if (!param(cmd, buffer, params,
-		   p_req("label", json_tok_tok, &labeltok),
+		   p_req("label", json_tok_label, &label),
 		   p_req("status", json_tok_tok, &statustok),
 		   NULL))
 		return;
 
-	label = json_tok_label(cmd, buffer, labeltok);
-	if (!label) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "label '%.*s' is not a string or number",
-			     labeltok->end - labeltok->start,
-			     buffer + labeltok->start);
-		return;
-	}
 	if (!wallet_invoice_find_by_label(wallet, &i, label)) {
 		command_fail(cmd, LIGHTNINGD, "Unknown invoice");
 		return;
@@ -564,23 +530,12 @@ static void json_waitinvoice(struct command *cmd,
 	struct invoice i;
 	const struct invoice_details *details;
 	struct wallet *wallet = cmd->ld->wallet;
-	const jsmntok_t *labeltok;
 	struct json_escaped *label;
 
 	if (!param(cmd, buffer, params,
-		   p_req("label", json_tok_tok, &labeltok),
+		   p_req("label", json_tok_label, &label),
 		   NULL))
 		return;
-
-	/* Search for invoice */
-	label = json_tok_label(cmd, buffer, labeltok);
-	if (!label) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "label '%.*s' is not a string or number",
-			     labeltok->end - labeltok->start,
-			     buffer + labeltok->start);
-		return;
-	}
 
 	if (!wallet_invoice_find_by_label(wallet, &i, label)) {
 		command_fail(cmd, LIGHTNINGD, "Label not found");
