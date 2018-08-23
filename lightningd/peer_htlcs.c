@@ -408,6 +408,9 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 
 static void htlc_offer_timeout(struct channel *channel)
 {
+	/* Unset this in case we reconnect and start again. */
+	channel->htlc_timeout = NULL;
+
 	/* If owner died, we should already be taken care of. */
 	if (!channel->owner || channel->state != CHANNELD_NORMAL)
 		return;
