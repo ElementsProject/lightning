@@ -105,7 +105,6 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 static void channel_fail_fallen_behind(struct channel *channel, const u8 *msg)
 {
 	struct pubkey per_commitment_point;
-	struct channel_id cid;
 
 	if (!fromwire_channel_fail_fallen_behind(msg, &per_commitment_point)) {
 		channel_internal_error(channel,
@@ -117,17 +116,8 @@ static void channel_fail_fallen_behind(struct channel *channel, const u8 *msg)
 	channel->future_per_commitment_point
 		= tal_dup(channel, struct pubkey, &per_commitment_point);
 
-	/* TODO(cdecker) Selectively save updated fields to DB */
-	wallet_channel_save(channel->peer->ld->wallet, channel);
-
-	/* We don't fail yet, since we want daemon to send them an error
-	 * to trigger rebroadcasting.  But make sure we set error now in
-	 * case something else goes wrong! */
-	derive_channel_id(&cid,
-			  &channel->funding_txid,
-			  channel->funding_outnum);
-	channel->error = towire_errorfmt(channel, &cid,
-					 "Catastrophic failure: please close channel");
+	/* Peer sees this, so send a generic msg about unilateral close. */
+	channel_fail_permanent(channel,	"Awaiting unilateral close");
 }
 
 static void peer_start_closingd_after_shutdown(struct channel *channel,

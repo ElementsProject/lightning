@@ -1205,7 +1205,7 @@ def test_dataloss_protection(node_factory, bitcoind):
     l2.start()
 
     # l2 should freak out!
-    l2.daemon.wait_for_log("Catastrophic failure: please close channel")
+    l2.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL: Awaiting unilateral close")
 
     # l1 should drop to chain.
     l1.daemon.wait_for_log('sendrawtx exit 0')

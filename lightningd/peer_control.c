@@ -503,6 +503,19 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			/* Channel is supposed to be active! */
 			abort();
 
+		/* We consider this "active" but we only send an error */
+		case AWAITING_UNILATERAL: {
+			struct channel_id cid;
+			derive_channel_id(&cid,
+					  &channel->funding_txid,
+					  channel->funding_outnum);
+			/* channel->error is not saved in db, so this can
+			 * happen if we restart. */
+			error = towire_errorfmt(tmpctx, &cid,
+						"Awaiting unilateral close");
+			goto send_error;
+		}
+
 		case CHANNELD_AWAITING_LOCKIN:
 		case CHANNELD_NORMAL:
 		case CHANNELD_SHUTTING_DOWN:
