@@ -1386,9 +1386,14 @@ int main(int argc, char *argv[])
 	setup_locale();
 
 	struct client *client;
+	struct daemon_conn *status_conn = tal(NULL, struct daemon_conn);
 
 	subdaemon_setup(argc, argv);
-	status_setup_sync(STDIN_FILENO);
+
+	/* A trivial daemon_conn just for writing. */
+	daemon_conn_init(status_conn, status_conn, STDIN_FILENO,
+			 (void *)io_never, NULL);
+	status_setup_async(status_conn);
 
 	client = new_client(NULL, NULL, 0, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP, handle_client, REQ_FD);
 
