@@ -344,8 +344,8 @@ static void update_feerates(struct bitcoind *bitcoind,
 	}
 
 	if (topo->feerate_uninitialized) {
-		/* Moving this forward in time is ok, but feerate smoothing is effectively
-		 * disabled until topo->startup is set to false */
+		/* This doesn't mean we *have* a fee estimate, but it does
+		 * mean we tried. */
 		topo->feerate_uninitialized = false;
 		maybe_completed_init(topo);
 	}
