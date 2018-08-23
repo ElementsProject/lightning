@@ -85,7 +85,8 @@ def test_pay0(node_factory):
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_pay_disconnect(node_factory, bitcoind):
     """If the remote node has disconnected, we fail payment, but can try again when it reconnects"""
-    l1, l2 = node_factory.line_graph(2, opts={'dev-max-fee-multiplier': 5})
+    l1, l2 = node_factory.line_graph(2, opts={'dev-max-fee-multiplier': 5,
+                                              'may_reconnect': True})
 
     inv = l2.rpc.invoice(123000, 'test_pay_disconnect', 'description')
     rhash = inv['payment_hash']
@@ -93,21 +94,27 @@ def test_pay_disconnect(node_factory, bitcoind):
     # Can't use `pay` since that'd notice that we can't route, due to disabling channel_update
     route = l1.rpc.getroute(l2.info['id'], 123000, 1)["route"]
 
-    # Make l2 upset by asking for crazy fee.
-    l1.rpc.dev_setfees('150000')
-    # Wait for l1 notice
-    l1.daemon.wait_for_log(r'Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 150000 outside range 1875-75000')
+    l2.stop()
+    l1.daemon.wait_for_log('Disabling channel .*, active 1 -> 0')
 
     # Can't pay while its offline.
     with pytest.raises(RpcError):
         l1.rpc.sendpay(route, rhash)
     l1.daemon.wait_for_log('failed: WIRE_TEMPORARY_CHANNEL_FAILURE \\(First peer not ready\\)')
 
-    # Should fail due to temporary channel fail
+    l2.start()
+    l1.daemon.wait_for_log('peer_out WIRE_CHANNEL_REESTABLISH')
+
+    # Make l2 upset by asking for crazy fee.
+    l1.rpc.dev_setfees('150000')
+    # Wait for l1 notice
+    l1.daemon.wait_for_log(r'Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee 150000 outside range 1875-75000')
+
+    # Should fail due to permenant channel fail
     with pytest.raises(RpcError):
         l1.rpc.sendpay(route, rhash)
 
-    l1.daemon.wait_for_log('failed: WIRE_TEMPORARY_CHANNEL_FAILURE \\(First peer not ready\\)')
+    l1.daemon.wait_for_log('failed: WIRE_UNKNOWN_NEXT_PEER \\(First peer not ready\\)')
     assert not l1.daemon.is_in_log('Payment is still in progress')
 
     # After it sees block, someone should close channel.

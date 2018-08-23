@@ -19,6 +19,9 @@ enum channel_state {
 	/* Waiting for onchain event. */
 	CLOSINGD_COMPLETE,
 
+	/* Waiting for unilateral close to hit blockchain. */
+	AWAITING_UNILATERAL,
+
 	/* We've seen the funding spent, we're waiting for onchaind. */
 	FUNDING_SPEND_SEEN,
 

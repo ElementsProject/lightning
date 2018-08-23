@@ -356,6 +356,10 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 	channel_set_owner(channel, NULL, false);
 	/* Drop non-cooperatively (unilateral) to chain. */
 	drop_to_chain(ld, channel, false);
+
+	if (channel_active(channel))
+		channel_set_state(channel, channel->state, AWAITING_UNILATERAL);
+
 	tal_free(why);
 }
 

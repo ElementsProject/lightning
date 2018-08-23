@@ -1894,8 +1894,7 @@ static void check_future_dataloss_fields(struct peer *peer,
 				       remote_current_per_commitment_point)));
 
 	/* We have to send them an error to trigger dropping to chain. */
-	peer_failed(&peer->cs, &peer->channel_id,
-		    "Catastrophic failure: please close channel");
+	peer_failed(&peer->cs, &peer->channel_id, "Awaiting unilateral close");
 }
 
 /* BOLT #2:
