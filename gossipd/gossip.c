@@ -119,10 +119,10 @@ struct daemon {
 };
 
 struct peer {
-	struct daemon *daemon;
-
 	/* daemon->peers */
 	struct list_node list;
+
+	struct daemon *daemon;
 
 	/* The ID of the peer (not necessarily unique, in transit!) */
 	struct pubkey id;
@@ -2260,9 +2260,6 @@ int main(int argc, char *argv[])
 	hsm_setup(HSM_FD);
 	daemon_conn_init(daemon, &daemon->connectd, CONNECTD_FD, connectd_req,
 			 NULL);
-
-	/* When conn closes, everything is freed. */
-	tal_steal(daemon->master.conn, daemon);
 
 	for (;;) {
 		struct timer *expired = NULL;
