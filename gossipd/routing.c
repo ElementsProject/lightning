@@ -871,7 +871,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	}
 
 	status_trace("Received channel_announcement for channel %s",
-		     type_to_string(pending, struct short_channel_id,
+		     type_to_string(tmpctx, struct short_channel_id,
 				    &pending->short_channel_id));
 
 	/* Add both endpoints to the pending_node_map so we can stash
