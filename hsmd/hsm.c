@@ -3,11 +3,13 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/container_of/container_of.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/endian/endian.h>
 #include <ccan/fdpass/fdpass.h>
+#include <ccan/intmap/intmap.h>
 #include <ccan/io/fdpass/fdpass.h>
 #include <ccan/io/io.h>
 #include <ccan/noerr/noerr.h>
@@ -61,6 +63,12 @@ struct client {
 	u64 capabilities;
 };
 
+/* We keep a map of nonzero dbid -> clients */
+static UINTMAP(struct client *) clients;
+/* We get three zero-dbid clients: master, gossipd and connnectd. */
+static struct client *dbid_zero_clients[3];
+static size_t num_dbid_zero_clients;
+
 /* Function declarations for later */
 static struct io_plan *handle_client(struct io_conn *conn,
 				     struct daemon_conn *dc);
@@ -93,6 +101,13 @@ static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 					     node_privkey->secret.data));
 }
 
+static void destroy_client(struct client *c)
+{
+	if (!uintmap_del(&clients, c->dbid))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed to remove client dbid %"PRIu64, c->dbid);
+}
+
 static struct client *new_client(struct daemon_conn *master,
 				 const struct pubkey *id,
 				 u64 dbid,
@@ -116,6 +131,23 @@ static struct client *new_client(struct daemon_conn *master,
 	tal_steal(master, c->dc.conn);
 	/* Free client when connection freed. */
 	tal_steal(c->dc.conn, c);
+
+	if (dbid == 0) {
+		assert(num_dbid_zero_clients < ARRAY_SIZE(dbid_zero_clients));
+		dbid_zero_clients[num_dbid_zero_clients++] = c;
+	} else {
+		struct client *old_client = uintmap_get(&clients, dbid);
+
+		/* Close conn and free any old client of this dbid. */
+		if (old_client)
+			io_close(old_client->dc.conn);
+
+		if (!uintmap_add(&clients, dbid, c))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Failed inserting dbid %"PRIu64, dbid);
+		tal_add_destructor(c, destroy_client);
+	}
+
 	return c;
 }
 
@@ -1448,6 +1480,7 @@ int main(int argc, char *argv[])
 	daemon_conn_init(status_conn, status_conn, STDIN_FILENO,
 			 (void *)io_never, NULL);
 	status_setup_async(status_conn);
+	uintmap_init(&clients);
 
 	master = new_client(NULL, NULL, 0, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP,
 			    REQ_FD);
