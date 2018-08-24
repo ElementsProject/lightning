@@ -41,8 +41,6 @@
 
 char *bitcoin_datadir;
 
-struct backtrace_state *backtrace_state;
-
 int pid_fd;
 
 static struct lightningd *new_lightningd(const tal_t *ctx)
@@ -56,7 +54,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_allow_localhost = false;
 
 	if (getenv("LIGHTNINGD_DEV_MEMLEAK"))
-		memleak_init(ld, backtrace_state);
+		memleak_init(ld);
 #endif
 
 	list_head_init(&ld->peers);

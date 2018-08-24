@@ -21,10 +21,9 @@
 void *notleak_(const void *ptr, bool plus_children);
 
 struct htable;
-struct backtrace_state;
 
 /* Initialize memleak detection, with this as the root */
-void memleak_init(const tal_t *root, struct backtrace_state *bstate);
+void memleak_init(const tal_t *root);
 
 /* Free memleak detection. */
 void memleak_cleanup(void);
