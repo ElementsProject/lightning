@@ -54,7 +54,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_allow_localhost = false;
 
 	if (getenv("LIGHTNINGD_DEV_MEMLEAK"))
-		memleak_init(ld);
+		memleak_init();
 #endif
 
 	list_head_init(&ld->peers);
