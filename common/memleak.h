@@ -47,7 +47,8 @@ struct intmap;
 void memleak_remove_intmap_(struct htable *memtable, const struct intmap *m);
 
 /* Mark this pointer as being referenced, and search within for more. */
-void memleak_scan_region(struct htable *memtable, const void *p);
+void memleak_scan_region(struct htable *memtable,
+			 const void *p, size_t bytelen);
 
 /* Get (and remove) a leak from memtable, or NULL */
 const void *memleak_get(struct htable *memtable, const uintptr_t **backtrace);
