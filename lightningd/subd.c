@@ -10,6 +10,7 @@
 #include <common/crypto_state.h>
 #include <common/gen_peer_status_wire.h>
 #include <common/gen_status_wire.h>
+#include <common/memleak.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/lightningd.h>
@@ -91,7 +92,7 @@ static void add_req(const tal_t *ctx,
 	 * case where ctx is freed between request and reply.  Hence this
 	 * trick. */
 	if (ctx) {
-		sr->disabler = tal(ctx, char);
+		sr->disabler = notleak(tal(ctx, char));
 		tal_add_destructor2(sr->disabler, disable_cb, sr);
 	} else
 		sr->disabler = NULL;
