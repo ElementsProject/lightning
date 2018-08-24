@@ -22,9 +22,11 @@ again:
 	msg = msg_dequeue(&dc->out);
 	if (msg) {
 		int fd = msg_extract_fd(msg);
-		if (fd >= 0)
+		if (fd >= 0) {
+			tal_free(msg);
 			return io_send_fd(conn, fd, true,
 					  daemon_conn_write_next, dc);
+		}
 		return io_write_wire(conn, take(msg), daemon_conn_write_next,
 				     dc);
 	} else if (dc->msg_queue_cleared_cb) {
@@ -52,6 +54,7 @@ bool daemon_conn_sync_flush(struct daemon_conn *dc)
 	while ((msg = msg_dequeue(&dc->out)) != NULL) {
 		int fd = msg_extract_fd(msg);
 		if (fd >= 0) {
+			tal_free(msg);
 			if (!fdpass_send(daemon_fd, fd))
 				break;
 		} else if (!wire_sync_write(daemon_fd, take(msg)))
