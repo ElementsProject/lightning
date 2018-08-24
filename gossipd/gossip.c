@@ -317,11 +317,11 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 				    secp256k1_ecdsa_signature *sig,
 				    u32 timestamp)
 {
-	u8 *addresses = tal_arr(ctx, u8, 0);
+	u8 *addresses = tal_arr(tmpctx, u8, 0);
 	u8 *announcement;
 	size_t i;
 	if (!sig) {
-		sig = tal(ctx, secp256k1_ecdsa_signature);
+		sig = tal(tmpctx, secp256k1_ecdsa_signature);
 		memset(sig, 0, sizeof(*sig));
 	}
 	for (i = 0; i < tal_count(daemon->announcable); i++)
