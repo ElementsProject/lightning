@@ -36,6 +36,16 @@ struct htable *memleak_enter_allocations(const tal_t *ctx,
 /* Remove any pointers to memory under root */
 void memleak_remove_referenced(struct htable *memtable, const void *root);
 
+/* Remove any pointers inside this htable (which is opaque to memleak). */
+void memleak_remove_htable(struct htable *memtable, const struct htable *ht);
+
+/* Remove any pointers inside this uintmap (which is opaque to memleak). */
+#define memleak_remove_uintmap(memtable, umap)		\
+	memleak_remove_intmap_(memtable, uintmap_unwrap_(umap))
+
+struct intmap;
+void memleak_remove_intmap_(struct htable *memtable, const struct intmap *m);
+
 /* Mark this pointer as being referenced, and search within for more. */
 void memleak_scan_region(struct htable *memtable, const void *p);
 

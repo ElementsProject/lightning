@@ -116,9 +116,10 @@ static void scan_mem(struct command *cmd,
 	memtable = memleak_enter_allocations(cmd, cmd, cmd->jcon);
 
 	/* First delete known false positives. */
-	chaintopology_mark_pointers_used(memtable, ld->topology);
-	htlc_inmap_mark_pointers_used(memtable, &ld->htlcs_in);
-	htlc_outmap_mark_pointers_used(memtable, &ld->htlcs_out);
+	memleak_remove_htable(memtable, &ld->topology->txwatches.raw);
+	memleak_remove_htable(memtable, &ld->topology->txowatches.raw);
+	memleak_remove_htable(memtable, &ld->htlcs_in.raw);
+	memleak_remove_htable(memtable, &ld->htlcs_out.raw);
 
 	/* Now delete ld and those which it has pointers to. */
 	memleak_remove_referenced(memtable, ld);
