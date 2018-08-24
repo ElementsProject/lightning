@@ -1024,7 +1024,7 @@ static u8 *create_channel_update(const tal_t *ctx,
 	if (disable)
 		flags |= ROUTING_FLAGS_DISABLED;
 
-	update = towire_channel_update(tmpctx, &dummy_sig,
+	update = towire_channel_update(ctx, &dummy_sig,
 				       &rstate->chain_hash,
 				       &chan->scid,
 				       timestamp,
