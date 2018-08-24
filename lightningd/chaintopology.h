@@ -131,6 +131,11 @@ u32 get_block_height(const struct chain_topology *topo);
 /* Get fee rate in satoshi per kiloweight, or 0 if unavailable! */
 u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate);
 
+/* Get range of feerates to insist other side abide by for normal channels.
+ * If we have to guess, sets *unknown to true, otherwise false. */
+u32 feerate_min(struct lightningd *ld, bool *unknown);
+u32 feerate_max(struct lightningd *ld, bool *unknown);
+
 /* Broadcast a single tx, and rebroadcast as reqd (copies tx).
  * If failed is non-NULL, call that and don't rebroadcast. */
 void broadcast_tx(struct chain_topology *topo,
