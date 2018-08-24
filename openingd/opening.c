@@ -951,7 +951,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 
 static u8 *handle_peer_in(struct state *state)
 {
-	u8 *msg = sync_crypto_read(NULL, &state->cs, PEER_FD);
+	u8 *msg = sync_crypto_read(tmpctx, &state->cs, PEER_FD);
 	enum wire_type t = fromwire_peektype(msg);
 	struct channel_id channel_id;
 
