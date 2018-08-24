@@ -118,25 +118,27 @@ struct htable *memleak_enter_allocations(const tal_t *ctx,
 	return memtable;
 }
 
-static void scan_for_pointers(struct htable *memtable, const tal_t *p)
+static void scan_for_pointers(struct htable *memtable,
+			      const tal_t *p, size_t bytelen)
 {
 	size_t i, n;
 
 	/* Search for (aligned) pointers. */
-	n = tal_bytelen(p) / sizeof(void *);
+	n = bytelen / sizeof(void *);
 	for (i = 0; i < n; i++) {
 		void *ptr;
 
 		memcpy(&ptr, (char *)p + i * sizeof(void *), sizeof(ptr));
 		if (pointer_referenced(memtable, ptr))
-			scan_for_pointers(memtable, ptr);
+			scan_for_pointers(memtable, ptr, tal_bytelen(ptr));
 	}
 }
 
-void memleak_scan_region(struct htable *memtable, const void *ptr)
+void memleak_scan_region(struct htable *memtable,
+			 const void *ptr, size_t bytelen)
 {
 	pointer_referenced(memtable, ptr);
-	scan_for_pointers(memtable, ptr);
+	scan_for_pointers(memtable, ptr, bytelen);
 }
 
 static void remove_with_children(struct htable *memtable, const tal_t *p)
@@ -153,8 +155,8 @@ void memleak_remove_referenced(struct htable *memtable, const void *root)
 	size_t i;
 
 	/* Now delete the ones which are referenced. */
-	memleak_scan_region(memtable, root);
-	memleak_scan_region(memtable, notleaks);
+	memleak_scan_region(memtable, root, tal_bytelen(root));
+	memleak_scan_region(memtable, notleaks, tal_bytelen(notleaks));
 
 	/* Those who asked tal children to be removed, do so. */
 	for (i = 0; i < tal_count(notleaks); i++)
@@ -175,7 +177,7 @@ void memleak_remove_htable(struct htable *memtable, const struct htable *ht)
 	const void *p;
 
 	for (p = htable_first(ht, &i); p; p = htable_next(ht, &i))
-		memleak_scan_region(memtable, p);
+		memleak_scan_region(memtable, p, tal_bytelen(p));
 }
 
 /* FIXME: If uintmap used tal, this wouldn't be necessary! */
@@ -185,7 +187,7 @@ void memleak_remove_intmap_(struct htable *memtable, const struct intmap *m)
 	intmap_index_t i;
 
 	for (p = intmap_first_(m, &i); p; p = intmap_after_(m, &i))
-		memleak_scan_region(memtable, p);
+		memleak_scan_region(memtable, p, tal_bytelen(p));
 }
 
 static bool ptr_match(const void *candidate, void *ptr)
