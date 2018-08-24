@@ -239,6 +239,7 @@ void gossip_store_add_channel_delete(struct gossip_store *gs,
 {
 	u8 *msg = towire_gossip_store_channel_delete(NULL, scid);
 	gossip_store_append(gs->fd, gs->rstate, msg);
+	tal_free(msg);
 }
 
 void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
