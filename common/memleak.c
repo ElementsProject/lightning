@@ -247,14 +247,22 @@ static void add_backtrace(tal_t *parent UNUSED, enum tal_notify_type type UNNEED
 	tal_add_notifier(child, TAL_NOTIFY_ADD_CHILD, add_backtrace);
 }
 
-void memleak_init(const tal_t *root)
+static void add_backtrace_notifiers(const tal_t *root)
+{
+	tal_add_notifier(root, TAL_NOTIFY_ADD_CHILD, add_backtrace);
+
+	for (tal_t *i = tal_first(root); i; i = tal_next(i))
+		add_backtrace_notifiers(i);
+}
+
+void memleak_init(void)
 {
 	assert(!notleaks);
 	notleaks = tal_arr(NULL, const void *, 0);
 	notleak_children = tal_arr(notleaks, bool, 0);
 
 	if (backtrace_state)
-		tal_add_notifier(root, TAL_NOTIFY_ADD_CHILD, add_backtrace);
+		add_backtrace_notifiers(NULL);
 }
 
 void memleak_cleanup(void)
