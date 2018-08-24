@@ -105,9 +105,6 @@ struct chain_topology {
 	/* Bitcoin transactions we're broadcasting */
 	struct list_head outgoing_txs;
 
-	/* What fee we use if estimatefee fails (satoshis/kw) */
-	u32 default_fee_rate;
-
 	/* Transactions/txos we are watching. */
 	struct txwatch_hash txwatches;
 	struct txowatch_hash txowatches;

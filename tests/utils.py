@@ -299,7 +299,6 @@ class LightningD(TailableProc):
             'lightning-dir': lightning_dir,
             'addr': '127.0.0.1:{}'.format(port),
             'allow-deprecated-apis': 'false',
-            'default-fee-rate': 15000,
             'network': 'regtest',
             'ignore-fee-limits': 'false',
         }
@@ -319,16 +318,6 @@ class LightningD(TailableProc):
             self.opts['dev-broadcast-interval'] = 1000
             self.opts['dev-bitcoind-poll'] = 1
         self.prefix = 'lightningd-%d' % (node_id)
-
-        filters = [
-            "Unable to estimate",
-            "No fee estimate",
-            "Connected json input",
-            "Forcing fee rate, ignoring estimate",
-        ]
-
-        filter_re = re.compile(r'({})'.format("|".join(filters)))
-        self.log_filter = lambda line: filter_re.search(line) is not None
 
     def cleanup(self):
         # To force blackhole to exit, disconnect file must be truncated!
