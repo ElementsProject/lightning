@@ -152,9 +152,4 @@ struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo, 
 
 /* In channel_control.c */
 void notify_feerate_change(struct lightningd *ld);
-
-#if DEVELOPER
-void chaintopology_mark_pointers_used(struct htable *memtable,
-				      const struct chain_topology *topo);
-#endif
 #endif /* LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H */

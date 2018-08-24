@@ -138,11 +138,4 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 				const char *abortstr);
 struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr);
 
-#if DEVELOPER
-struct htable;
-void htlc_inmap_mark_pointers_used(struct htable *memtable,
-				   const struct htlc_in_map *map);
-void htlc_outmap_mark_pointers_used(struct htable *memtable,
-				   const struct htlc_out_map *map);
-#endif /* DEVELOPER */
 #endif /* LIGHTNING_LIGHTNINGD_HTLC_END_H */

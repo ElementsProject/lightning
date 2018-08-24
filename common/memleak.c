@@ -2,6 +2,7 @@
 #include <backtrace.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable.h>
+#include <ccan/intmap/intmap.h>
 #include <common/daemon.h>
 #include <common/memleak.h>
 
@@ -165,6 +166,26 @@ void memleak_remove_referenced(struct htable *memtable, const void *root)
 
 	/* Remove memtable itself */
 	pointer_referenced(memtable, memtable);
+}
+
+/* memleak can't see inside hash tables, so do them manually */
+void memleak_remove_htable(struct htable *memtable, const struct htable *ht)
+{
+	struct htable_iter i;
+	const void *p;
+
+	for (p = htable_first(ht, &i); p; p = htable_next(ht, &i))
+		memleak_scan_region(memtable, p);
+}
+
+/* FIXME: If uintmap used tal, this wouldn't be necessary! */
+void memleak_remove_intmap_(struct htable *memtable, const struct intmap *m)
+{
+	void *p;
+	intmap_index_t i;
+
+	for (p = intmap_first_(m, &i); p; p = intmap_after_(m, &i))
+		memleak_scan_region(memtable, p);
 }
 
 static bool ptr_match(const void *candidate, void *ptr)

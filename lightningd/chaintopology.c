@@ -623,28 +623,6 @@ u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate)
 	return topo->feerate[feerate];
 }
 
-#if DEVELOPER
-void chaintopology_mark_pointers_used(struct htable *memtable,
-				      const struct chain_topology *topo)
-{
-	struct txwatch_hash_iter wit;
-	struct txwatch *w;
-	struct txowatch_hash_iter owit;
-	struct txowatch *ow;
-
-	/* memleak can't see inside hash tables, so do them manually */
-	for (w = txwatch_hash_first(&topo->txwatches, &wit);
-	     w;
-	     w = txwatch_hash_next(&topo->txwatches, &wit))
-		memleak_scan_region(memtable, w);
-
-	for (ow = txowatch_hash_first(&topo->txowatches, &owit);
-	     ow;
-	     ow = txowatch_hash_next(&topo->txowatches, &owit))
-		memleak_scan_region(memtable, ow);
-}
-#endif /* DEVELOPER */
-
 /* On shutdown, channels get deleted last.  That frees from our list, so
  * do it now instead. */
 static void destroy_chain_topology(struct chain_topology *topo)
