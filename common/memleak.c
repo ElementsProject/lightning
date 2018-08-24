@@ -78,8 +78,8 @@ static void children_into_htable(const void *exclude1, const void *exclude2,
 	for (i = tal_first(p); i; i = tal_next(i)) {
 		const char *name = tal_name(i);
 
-		if (p == exclude1 || p == exclude2)
-			continue;
+		if (i == exclude1 || i == exclude2)
+			return;
 
 		if (name) {
 			/* Don't add backtrace objects. */
