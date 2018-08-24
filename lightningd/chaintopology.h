@@ -26,6 +26,9 @@ enum feerate {
 };
 #define NUM_FEERATES (FEERATE_SLOW+1)
 
+/* We keep the last three in case there are outliers (for min/max) */
+#define FEE_HISTORY_NUM 3
+
 /* Off topology->outgoing_txs */
 struct outgoing_tx {
 	struct list_node list;
@@ -83,6 +86,7 @@ struct chain_topology {
 	struct block_map block_map;
 	u32 feerate[NUM_FEERATES];
 	bool feerate_uninitialized;
+	u32 feehistory[NUM_FEERATES][FEE_HISTORY_NUM];
 
 	/* Where to store blockchain info. */
 	struct wallet *wallet;

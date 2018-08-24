@@ -866,36 +866,70 @@ def test_feerates(node_factory):
 
     # Query feerates (shouldn't give any!)
     feerates = l1.rpc.feerates('sipa')
-    assert len(feerates['sipa']) == 0
+    assert len(feerates['sipa']) == 2
     assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'bitcoind' not in feerates
+    assert feerates['sipa']['max_acceptable'] == 2**32 - 1
+    assert feerates['sipa']['min_acceptable'] == 253
 
     feerates = l1.rpc.feerates('bitcoind')
-    assert len(feerates['bitcoind']) == 0
+    assert len(feerates['bitcoind']) == 2
     assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'sipa' not in feerates
+    assert feerates['bitcoind']['max_acceptable'] == (2**32 - 1) * 4
+    assert feerates['bitcoind']['min_acceptable'] == 253 * 4
 
     # Now try setting them, one at a time.
     feerates = l1.rpc.feerates('sipa', 15000)
-    assert len(feerates['sipa']) == 1
+    assert len(feerates['sipa']) == 3
     assert feerates['sipa']['urgent'] == 15000
     assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'bitcoind' not in feerates
+    assert feerates['sipa']['max_acceptable'] == 15000 * 10
+    assert feerates['sipa']['min_acceptable'] == 253
 
     feerates = l1.rpc.feerates('bitcoind', normal=25000)
-    assert len(feerates['bitcoind']) == 2
+    assert len(feerates['bitcoind']) == 4
     assert feerates['bitcoind']['urgent'] == 15000 * 4
     assert feerates['bitcoind']['normal'] == 25000
     assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'sipa' not in feerates
+    assert feerates['bitcoind']['max_acceptable'] == 15000 * 4 * 10
+    assert feerates['bitcoind']['min_acceptable'] == 253 * 4
 
     feerates = l1.rpc.feerates('sipa', None, None, 5000)
-    assert len(feerates['sipa']) == 3
+    assert len(feerates['sipa']) == 5
     assert feerates['sipa']['urgent'] == 15000
     assert feerates['sipa']['normal'] == 25000 // 4
     assert feerates['sipa']['slow'] == 5000
     assert 'warning' not in feerates
     assert 'bitcoind' not in feerates
+    assert feerates['sipa']['max_acceptable'] == 15000 * 10
+    assert feerates['sipa']['min_acceptable'] == 5000 // 2
+
+    # Now, outliers effect min and max, not so much the smoothed avg.
+    feerates = l1.rpc.feerates('sipa', 30000, None, 600)
+    assert len(feerates['sipa']) == 5
+    assert feerates['sipa']['urgent'] > 15000
+    assert feerates['sipa']['urgent'] < 30000
+    assert feerates['sipa']['normal'] == 25000 // 4
+    assert feerates['sipa']['slow'] < 5000
+    assert feerates['sipa']['slow'] > 600
+    assert 'warning' not in feerates
+    assert 'bitcoind' not in feerates
+    assert feerates['sipa']['max_acceptable'] == 30000 * 10
+    assert feerates['sipa']['min_acceptable'] == 600 // 2
+
+    # Forgotten after 3 more values inserted.
+    feerates = l1.rpc.feerates('sipa', 15000, 25000 // 4, 5000)
+    assert feerates['sipa']['max_acceptable'] == 30000 * 10
+    assert feerates['sipa']['min_acceptable'] == 600 // 2
+    feerates = l1.rpc.feerates('sipa', 15000, 25000 // 4, 5000)
+    assert feerates['sipa']['max_acceptable'] == 30000 * 10
+    assert feerates['sipa']['min_acceptable'] == 600 // 2
+    feerates = l1.rpc.feerates('sipa', 15000, 25000 // 4, 5000)
+    assert feerates['sipa']['max_acceptable'] == 15000 * 10
+    assert feerates['sipa']['min_acceptable'] == 5000 // 2
 
 
 def test_logging(node_factory):
