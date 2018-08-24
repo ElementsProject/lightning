@@ -21,7 +21,7 @@
 static void update_feerates(struct lightningd *ld, struct channel *channel)
 {
 	u8 *msg;
-	u32 feerate = try_get_feerate(ld->topology, FEERATE_URGENT);
+	u32 feerate = unilateral_feerate(ld->topology);
 
 	/* Nothing to do if we don't know feerate. */
 	if (!feerate)

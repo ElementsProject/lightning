@@ -931,6 +931,11 @@ def test_feerates(node_factory):
     assert feerates['sipa']['max_acceptable'] == 15000 * 10
     assert feerates['sipa']['min_acceptable'] == 5000 // 2
 
+    assert len(feerates['onchain_fee_estimates']) == 3
+    assert feerates['onchain_fee_estimates']['opening_channel_satoshis'] == feerates['sipa']['normal'] * 702 // 1000
+    assert feerates['onchain_fee_estimates']['mutual_close_satoshis'] == feerates['sipa']['normal'] * 673 // 1000
+    assert feerates['onchain_fee_estimates']['unilateral_close_satoshis'] == feerates['sipa']['urgent'] * 598 // 1000
+
 
 def test_logging(node_factory):
     # Since we redirect, node.start() will fail: do manually.
