@@ -448,3 +448,15 @@ class LightningRpc(UnixDomainSocketRpc):
             "id": peer_id,
         }
         return self.call("disconnect", payload)
+
+    def feerates(self, style, urgent=None, normal=None, slow=None):
+        """
+        Supply feerate estimates manually.
+        """
+        payload = {
+            "style": style,
+            "urgent": urgent,
+            "normal": normal,
+            "slow": slow
+        }
+        return self.call("feerates", payload)

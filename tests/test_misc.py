@@ -858,6 +858,46 @@ def test_ipv4_and_ipv6(node_factory):
         assert int(bind[0]['port']) == port
 
 
+def test_feerates(node_factory):
+    l1 = node_factory.get_node(options={'log-level': 'io'}, start=False)
+    l1.bitcoind_cmd_override(cmd='estimatesmartfee',
+                             failscript="""echo '{ "errors": [ "Insufficient data or no feerate found" ], "blocks": 0 }'; exit 0""")
+    l1.start()
+
+    # Query feerates (shouldn't give any!)
+    feerates = l1.rpc.feerates('sipa')
+    assert len(feerates['sipa']) == 0
+    assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
+    assert 'bitcoind' not in feerates
+
+    feerates = l1.rpc.feerates('bitcoind')
+    assert len(feerates['bitcoind']) == 0
+    assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
+    assert 'sipa' not in feerates
+
+    # Now try setting them, one at a time.
+    feerates = l1.rpc.feerates('sipa', 15000)
+    assert len(feerates['sipa']) == 1
+    assert feerates['sipa']['urgent'] == 15000
+    assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
+    assert 'bitcoind' not in feerates
+
+    feerates = l1.rpc.feerates('bitcoind', normal=25000)
+    assert len(feerates['bitcoind']) == 2
+    assert feerates['bitcoind']['urgent'] == 15000 * 4
+    assert feerates['bitcoind']['normal'] == 25000
+    assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
+    assert 'sipa' not in feerates
+
+    feerates = l1.rpc.feerates('sipa', None, None, 5000)
+    assert len(feerates['sipa']) == 3
+    assert feerates['sipa']['urgent'] == 15000
+    assert feerates['sipa']['normal'] == 25000 // 4
+    assert feerates['sipa']['slow'] == 5000
+    assert 'warning' not in feerates
+    assert 'bitcoind' not in feerates
+
+
 def test_logging(node_factory):
     # Since we redirect, node.start() will fail: do manually.
     l1 = node_factory.get_node(options={'log-file': 'logfile'}, may_fail=True, start=False)
