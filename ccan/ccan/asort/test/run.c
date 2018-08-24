@@ -35,7 +35,7 @@ static bool is_reverse_sorted(const int arr[], unsigned int size)
 	return true;
 }
 
-static void psuedo_random_array(int arr[], unsigned int size)
+static void pseudo_random_array(int arr[], unsigned int size)
 {
 	unsigned int i;
 
@@ -52,14 +52,14 @@ int main(void)
 
 	plan_tests(4);
 
-	psuedo_random_array(tmparr, TEST_SIZE);
+	pseudo_random_array(tmparr, TEST_SIZE);
 	ok1(!is_sorted(tmparr, TEST_SIZE));
 	ok1(!is_reverse_sorted(tmparr, TEST_SIZE));
 
 	asort(tmparr, TEST_SIZE, test_cmp, &multiplier);
 	ok1(is_sorted(tmparr, TEST_SIZE));
 
-	psuedo_random_array(tmparr, TEST_SIZE);
+	pseudo_random_array(tmparr, TEST_SIZE);
 	multiplier = -1;
 	asort(tmparr, TEST_SIZE, test_cmp, &multiplier);
 	ok1(is_reverse_sorted(tmparr, TEST_SIZE));

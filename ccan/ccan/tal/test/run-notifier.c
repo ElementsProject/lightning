@@ -5,7 +5,7 @@
 static enum tal_notify_type expect;
 static void *expect_info;
 static char *ctx;
-static unsigned int notified1, notified2;
+static unsigned int notified1, notified2, notified_null;
 
 /* Make sure we always move on resize. */
 static void *my_realloc(void *old, size_t size)
@@ -20,9 +20,9 @@ static void *my_realloc(void *old, size_t size)
 	return new;
 }
 
-static void notify1(char *p UNNEEDED, enum tal_notify_type notify, void *info)
+static void notify1(char *p, enum tal_notify_type notify, void *info)
 {
-	ok1(ctx == ctx);
+	ok1(p == ctx);
 	ok1(notify == expect);
 	if (expect_info == &expect_info)
 		expect_info = info;
@@ -36,6 +36,17 @@ static void notify2(char *ctx UNNEEDED,
 		    void *info UNNEEDED)
 {
 	notified2++;
+}
+
+static void notify_null(void *p, enum tal_notify_type notify, void *info)
+{
+	ok1(p == NULL);
+	ok1(notify == expect);
+	if (expect_info == &expect_info)
+		expect_info = info;
+	else
+		ok1(info == expect_info);
+	notified_null++;
 }
 
 static bool seen_move, seen_resize;
@@ -62,7 +73,7 @@ int main(void)
 {
 	char *child, *new_ctx;
 
-	plan_tests(56);
+	plan_tests(65);
 
 	ctx = tal(NULL, char);
 	ok1(tal_add_notifier(ctx, 511, notify1));
@@ -118,6 +129,20 @@ int main(void)
 	tal_free(ctx);
 	ok1(notified1 == 7);
 	ok1(notified2 == 1);
+
+	/* Notifiers on NULL work, too. */
+	ok1(tal_add_notifier(NULL, TAL_NOTIFY_ADD_CHILD|TAL_NOTIFY_DEL_CHILD,
+			     notify_null));
+	expect = TAL_NOTIFY_ADD_CHILD;
+	expect_info = &expect_info;
+	child = tal(NULL, char);
+	ok1(notified_null == 1);
+
+	expect = TAL_NOTIFY_DEL_CHILD;
+	expect_info = child;
+	tal_free(child);
+	ok1(notified_null == 2);
+	ok1(tal_del_notifier(NULL, notify_null));
 
 	tal_set_backend(NULL, my_realloc, NULL, NULL);
 	ctx = new_ctx = tal(NULL, char);

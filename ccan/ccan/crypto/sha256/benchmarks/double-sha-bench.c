@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 	       block.h.u.u8[3], block.h.u.u8[4], block.h.u.u8[5],
 	       (unsigned long long)time_to_nsec(diff));
 
-	/* Now, don't re-initalize every time; use Transform */
+	/* Now, don't re-initialize every time; use Transform */
 	memset(&block, 0, sizeof(block));
 	sha256(&block.h, &n, sizeof(n));
 	block.u8[sizeof(block.h)] = 0x80;

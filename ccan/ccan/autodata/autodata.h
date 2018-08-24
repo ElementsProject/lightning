@@ -12,7 +12,7 @@
  * @name: the name for this set of autodata
  * @type: the type this autodata points to
  *
- * This macro is usually placed in a header: it must preceed any
+ * This macro is usually placed in a header: it must precede any
  * autodata functions in the file.
  *
  * Example:
