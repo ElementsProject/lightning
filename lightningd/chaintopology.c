@@ -278,8 +278,12 @@ static void watch_for_utxo_reconfirmation(struct chain_topology *topo,
 
 static const char *feerate_name(enum feerate feerate)
 {
-	return feerate == FEERATE_IMMEDIATE ? "Immediate"
-		: feerate == FEERATE_NORMAL ? "Normal" : "Slow";
+	switch (feerate) {
+	case FEERATE_URGENT: return "urgent";
+	case FEERATE_NORMAL: return "normal";
+	case FEERATE_SLOW: return "slow";
+	}
+	abort();
 }
 
 /* Mutual recursion via timer. */
