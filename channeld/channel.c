@@ -1458,7 +1458,6 @@ static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
 	e = channel_fulfill_htlc(peer->channel, LOCAL, id, &preimage, &h);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
-		h->r = tal_dup(h, struct preimage, &preimage);
 		/* FIXME: We could send preimages to master immediately. */
 		start_commit_timer(peer);
 		return;
@@ -2382,8 +2381,6 @@ static void handle_preimage(struct peer *peer, const u8 *inmsg)
 				     &fulfilled_htlc.payment_preimage,
 				     &h)) {
 	case CHANNEL_ERR_REMOVE_OK:
-		h->r = tal_dup(h, struct preimage,
-			       &fulfilled_htlc.payment_preimage);
 		send_fail_or_fulfill(peer, h);
 		start_commit_timer(peer);
 		return;
