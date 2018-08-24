@@ -642,7 +642,6 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 	txwatch_hash_init(&topo->txwatches);
 	txowatch_hash_init(&topo->txowatches);
 	topo->log = log;
-	topo->default_fee_rate = 40000;
 	memset(topo->feerate, 0, sizeof(topo->feerate));
 	topo->bitcoind = new_bitcoind(topo, ld, log);
 	topo->wallet = ld->wallet;

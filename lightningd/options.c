@@ -317,9 +317,6 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--commit-fee=<percent>", opt_set_u32, opt_show_u32,
 			 &ld->config.commitment_fee_percent,
 			 "Percentage of fee to request for their commitment");
-	opt_register_arg("--default-fee-rate", opt_set_u32, opt_show_u32,
-			 &ld->topology->default_fee_rate,
-			 "Satoshis per kw if can't estimate fees");
 	opt_register_arg("--cltv-delta", opt_set_u32, opt_show_u32,
 			 &ld->config.cltv_expiry_delta,
 			 "Number of blocks for ctlv_expiry_delta");
