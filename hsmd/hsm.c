@@ -56,13 +56,14 @@ struct client {
 
 	struct pubkey id;
 	u64 dbid;
-	struct io_plan *(*handle)(struct io_conn *, struct daemon_conn *);
 
 	/* What is this client allowed to ask for? */
 	u64 capabilities;
 };
 
 /* Function declarations for later */
+static struct io_plan *handle_client(struct io_conn *conn,
+				     struct daemon_conn *dc);
 static void init_hsm(struct daemon_conn *master, const u8 *msg);
 static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg);
 static void sign_funding_tx(struct daemon_conn *master, const u8 *msg);
@@ -96,8 +97,6 @@ static struct client *new_client(struct daemon_conn *master,
 				 const struct pubkey *id,
 				 u64 dbid,
 				 const u64 capabilities,
-				 struct io_plan *(*handle)(struct io_conn *,
-							   struct daemon_conn *),
 				 int fd)
 {
 	struct client *c = tal(master, struct client);
@@ -109,10 +108,9 @@ static struct client *new_client(struct daemon_conn *master,
 	}
 	c->dbid = dbid;
 
-	c->handle = handle;
 	c->master = master;
 	c->capabilities = capabilities;
-	daemon_conn_init(c, &c->dc, fd, handle, NULL);
+	daemon_conn_init(c, &c->dc, fd, handle_client, NULL);
 
 	/* Free the connection if we exit everything. */
 	tal_steal(master, c->dc.conn);
@@ -1153,7 +1151,7 @@ static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg)
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR, "creating fds: %s", strerror(errno));
 
-	new_client(master, &id, dbid, capabilities, handle_client, fds[0]);
+	new_client(master, &id, dbid, capabilities, fds[0]);
 	daemon_conn_send(master,
 			 take(towire_hsm_client_hsmfd_reply(NULL)));
 	daemon_conn_send_fd(master, fds[1]);
@@ -1432,16 +1430,17 @@ void dev_disconnect_init(int fd UNUSED)
 
 static void master_gone(struct io_conn *unused UNUSED, struct daemon_conn *dc UNUSED)
 {
+	daemon_shutdown();
 	/* Can't tell master, it's gone. */
 	exit(2);
 }
 
 int main(int argc, char *argv[])
 {
-	setup_locale();
-
-	struct client *client;
+	struct client *master;
 	struct daemon_conn *status_conn = tal(NULL, struct daemon_conn);
+
+	setup_locale();
 
 	subdaemon_setup(argc, argv);
 
@@ -1450,17 +1449,16 @@ int main(int argc, char *argv[])
 			 (void *)io_never, NULL);
 	status_setup_async(status_conn);
 
-	client = new_client(NULL, NULL, 0, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP, handle_client, REQ_FD);
+	master = new_client(NULL, NULL, 0, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP,
+			    REQ_FD);
 
 	/* We're our own master! */
-	client->master = &client->dc;
-	io_set_finish(client->dc.conn, master_gone, &client->dc);
+	master->master = &master->dc;
 
 	/* When conn closes, everything is freed. */
-	tal_steal(client->dc.conn, client);
-	io_loop(NULL, NULL);
-	daemon_shutdown();
+	io_set_finish(master->dc.conn, master_gone, &master->dc);
 
-	return 0;
+	io_loop(NULL, NULL);
+	abort();
 }
 #endif
