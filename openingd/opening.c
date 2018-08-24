@@ -1043,7 +1043,7 @@ static void fail_if_all_error(const u8 *inner)
 
 static u8 *handle_master_in(struct state *state)
 {
-	u8 *msg = wire_sync_read(state, REQ_FD);
+	u8 *msg = wire_sync_read(tmpctx, REQ_FD);
 	enum opening_wire_type t = fromwire_peektype(msg);
 	u64 change_satoshis;
 	u32 change_keyindex;
