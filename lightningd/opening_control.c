@@ -764,7 +764,7 @@ static void json_fund_channel(struct command *cmd,
 	struct pubkey *id;
 	struct peer *peer;
 	struct channel *channel;
-	u32 feerate_per_kw = try_get_feerate(cmd->ld->topology, FEERATE_NORMAL);
+	u32 feerate_per_kw = opening_feerate(cmd->ld->topology);
 	u8 *msg;
 
 	fc->cmd = cmd;

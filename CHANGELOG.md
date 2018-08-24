@@ -22,7 +22,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Sending lightningd a SIGHUP will make it reopen its `log-file`, if any.
 - Protocol: `option_data_loss_protect` now supported to protect peers
   against being out-of-date.
-- JSON API: `feerates` command to inject fee estimates manually.
+- JSON API: `feerates` command to inject fee estimates manually, and retrieve
+  current estimates.
 
 ### Changed
 
