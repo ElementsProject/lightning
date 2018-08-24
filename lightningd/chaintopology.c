@@ -446,10 +446,10 @@ static void json_feerates(struct command *cmd,
 	feerates[FEERATE_NORMAL] = normal ? *normal : 0;
 	feerates[FEERATE_SLOW] = slow ? *slow : 0;
 
-	if (json_tok_streq(buffer, style, "sipa")) {
+	if (json_tok_streq(buffer, style, "perkw")) {
 		bitcoind_style = false;
 		mulfactor = 1;
-	} else if (json_tok_streq(buffer, style, "bitcoind")) {
+	} else if (json_tok_streq(buffer, style, "perkb")) {
 		/* Everyone uses satoshi per kbyte, but we use satoshi per ksipa
 		 * (don't round down to zero though)! */
 		for (size_t i = 0; i < ARRAY_SIZE(feerates); i++)
@@ -478,7 +478,7 @@ static void json_feerates(struct command *cmd,
 
 	response = new_json_result(cmd);
 	json_object_start(response, NULL);
-	json_object_start(response, bitcoind_style ? "bitcoind" : "sipa");
+	json_object_start(response, bitcoind_style ? "perkb" : "perkw");
 	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
 		if (!feerates[i])
 			continue;
