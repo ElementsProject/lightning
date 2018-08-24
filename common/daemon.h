@@ -10,4 +10,6 @@ void daemon_setup(const char *argv0,
 /* Shutdown for a valgrind-clean exit (frees everything) */
 void daemon_shutdown(void);
 
+struct backtrace_state *backtrace_state;
+
 #endif /* LIGHTNING_COMMON_DAEMON_H */

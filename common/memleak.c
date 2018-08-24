@@ -2,10 +2,10 @@
 #include <backtrace.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable.h>
+#include <common/daemon.h>
 #include <common/memleak.h>
 
 #if DEVELOPER
-static struct backtrace_state *backtrace_state;
 static const void **notleaks;
 static bool *notleak_children;
 
@@ -226,10 +226,9 @@ static void add_backtrace(tal_t *parent UNUSED, enum tal_notify_type type UNNEED
 	tal_add_notifier(child, TAL_NOTIFY_ADD_CHILD, add_backtrace);
 }
 
-void memleak_init(const tal_t *root, struct backtrace_state *bstate)
+void memleak_init(const tal_t *root)
 {
 	assert(!notleaks);
-	backtrace_state = bstate;
 	notleaks = tal_arr(NULL, const void *, 0);
 	notleak_children = tal_arr(notleaks, bool, 0);
 

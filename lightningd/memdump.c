@@ -3,6 +3,7 @@
 #if DEVELOPER
 #include <backtrace.h>
 #include <ccan/tal/str/str.h>
+#include <common/daemon.h>
 #include <common/memleak.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
