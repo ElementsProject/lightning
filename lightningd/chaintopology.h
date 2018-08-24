@@ -20,7 +20,7 @@ struct peer;
 struct txwatch;
 
 enum feerate {
-	FEERATE_IMMEDIATE, /* Aka: aim for next block. */
+	FEERATE_URGENT, /* Aka: aim for next block. */
 	FEERATE_NORMAL, /* Aka: next 4 blocks or so. */
 	FEERATE_SLOW, /* Aka: next 100 blocks or so. */
 };
