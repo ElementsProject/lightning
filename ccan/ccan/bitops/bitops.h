@@ -15,7 +15,7 @@
 /**
  * bitops_ffs32: find first set bit in a uint32_t
  *
- * Returns 1 for least signficant bit, 32 for most significant bit, 0
+ * Returns 1 for least significant bit, 32 for most significant bit, 0
  * for no bits set.
  */
 static inline int bitops_ffs32(uint32_t u)
@@ -26,7 +26,7 @@ static inline int bitops_ffs32(uint32_t u)
 /**
  * bitops_ffs64: find lowest set bit in a uint64_t
  *
- * Returns 1 for least signficant bit, 32 for most significant bit, 0
+ * Returns 1 for least significant bit, 32 for most significant bit, 0
  * for no bits set.
  */
 static inline int bitops_ffs64(uint64_t u)
@@ -46,8 +46,8 @@ int bitops_ffs64(uint64_t u);
 /**
  * bitops_clz32: count leading zeros in a uint32_t (must not be 0)
  *
- * Returns 0 if most signficant bit is set, 31 if only least
- * signficant bit is set.
+ * Returns 0 if most significant bit is set, 31 if only least
+ * significant bit is set.
  */
 static inline int bitops_clz32(uint32_t u)
 {
@@ -58,8 +58,8 @@ static inline int bitops_clz32(uint32_t u)
 /**
  * bitops_clz64: count leading zeros in a uint64_t (must not be 0)
  *
- * Returns 0 if most signficant bit is set, 63 if only least
- * signficant bit is set.
+ * Returns 0 if most significant bit is set, 63 if only least
+ * significant bit is set.
  */
 static inline int bitops_clz64(uint64_t u)
 {
@@ -79,8 +79,8 @@ int bitops_clz64(uint64_t u);
 /**
  * bitops_ctz32: count trailing zeros in a uint32_t (must not be 0)
  *
- * Returns 0 if least signficant bit is set, 31 if only most
- * signficant bit is set.
+ * Returns 0 if least significant bit is set, 31 if only most
+ * significant bit is set.
  */
 static inline int bitops_ctz32(uint32_t u)
 {
@@ -91,8 +91,8 @@ static inline int bitops_ctz32(uint32_t u)
 /**
  * bitops_ctz64: count trailing zeros in a uint64_t (must not be 0)
  *
- * Returns 0 if least signficant bit is set, 63 if only most
- * signficant bit is set.
+ * Returns 0 if least significant bit is set, 63 if only most
+ * significant bit is set.
  */
 static inline int bitops_ctz64(uint64_t u)
 {
@@ -111,7 +111,7 @@ int bitops_ctz64(uint64_t u);
 /**
  * bitops_ls32: find lowest set bit in a uint32_t (must not be zero)
  *
- * Returns 0 for least signficant bit, 31 for most significant bit.
+ * Returns 0 for least significant bit, 31 for most significant bit.
  */
 static inline int bitops_ls32(uint32_t u)
 {
@@ -122,7 +122,7 @@ static inline int bitops_ls32(uint32_t u)
 /**
  * bitops_ls64: find lowest set bit in a uint64_t (must not be zero)
  *
- * Returns 0 for least signficant bit, 63 for most significant bit.
+ * Returns 0 for least significant bit, 63 for most significant bit.
  */
 static inline int bitops_ls64(uint64_t u)
 {
@@ -133,7 +133,7 @@ static inline int bitops_ls64(uint64_t u)
 /**
  * bitops_hs32: find highest set bit in a uint32_t (must not be zero)
  *
- * Returns 0 for least signficant bit, 31 for most significant bit.
+ * Returns 0 for least significant bit, 31 for most significant bit.
  */
 static inline int bitops_hs32(uint32_t u)
 {
@@ -144,7 +144,7 @@ static inline int bitops_hs32(uint32_t u)
 /**
  * bitops_hs64: find highest set bit in a uint64_t (must not be zero)
  *
- * Returns 0 for least signficant bit, 63 for most significant bit.
+ * Returns 0 for least significant bit, 63 for most significant bit.
  */
 static inline int bitops_hs64(uint64_t u)
 {
@@ -155,7 +155,7 @@ static inline int bitops_hs64(uint64_t u)
 /**
  * bitops_lc32: find lowest clear bit in a uint32_t (must not be 0xFFFFFFFF)
  *
- * Returns 0 for least signficant bit, 31 for most significant bit.
+ * Returns 0 for least significant bit, 31 for most significant bit.
  */
 static inline int bitops_lc32(uint32_t u)
 {
@@ -165,7 +165,7 @@ static inline int bitops_lc32(uint32_t u)
 /**
  * bitops_lc64: find lowest clear bit in a uint64_t (must not be 0xFFFFFFFFFFFFFFFF)
  *
- * Returns 0 for least signficant bit, 63 for most significant bit.
+ * Returns 0 for least significant bit, 63 for most significant bit.
  */
 static inline int bitops_lc64(uint64_t u)
 {
@@ -175,7 +175,7 @@ static inline int bitops_lc64(uint64_t u)
 /**
  * bitops_hc32: find highest clear bit in a uint32_t (must not be 0xFFFFFFFF)
  *
- * Returns 0 for least signficant bit, 31 for most significant bit.
+ * Returns 0 for least significant bit, 31 for most significant bit.
  */
 static inline int bitops_hc32(uint32_t u)
 {
@@ -185,7 +185,7 @@ static inline int bitops_hc32(uint32_t u)
 /**
  * bitops_hc64: find highest clear bit in a uint64_t (must not be 0xFFFFFFFFFFFFFFFF)
  *
- * Returns 0 for least signficant bit, 63 for most significant bit.
+ * Returns 0 for least significant bit, 63 for most significant bit.
  */
 static inline int bitops_hc64(uint64_t u)
 {

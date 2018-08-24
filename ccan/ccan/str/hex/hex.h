@@ -7,7 +7,7 @@
 
 /**
  * hex_decode - Unpack a hex string.
- * @str: the hexidecimal string
+ * @str: the hexadecimal string
  * @slen: the length of @str
  * @buf: the buffer to write the data into
  * @bufsize: the length of @buf

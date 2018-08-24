@@ -227,7 +227,7 @@ enum tal_notify_type {
 
 /**
  * tal_add_notifier - add a callback function when this context changes.
- * @ptr: The tal allocated object.
+ * @ptr: The tal allocated object, or NULL.
  * @types: Bitwise OR of the types the callback is interested in.
  * @callback: the function to call.
  *

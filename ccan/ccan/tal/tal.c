@@ -191,14 +191,14 @@ static void *from_tal_hdr(const struct tal_hdr *hdr)
 	return (void *)(hdr + 1);
 }
 
-#ifdef TAL_DEBUG
-static void *from_tal_hdr_or_null(struct tal_hdr *hdr)
+static void *from_tal_hdr_or_null(const struct tal_hdr *hdr)
 {
 	if (hdr == &null_parent.hdr)
 		return NULL;
 	return from_tal_hdr(hdr);
 }
 
+#ifdef TAL_DEBUG
 static struct tal_hdr *debug_tal(struct tal_hdr *tal)
 {
 	tal_check(from_tal_hdr_or_null(tal), "TAL_DEBUG ");
@@ -234,7 +234,7 @@ static void notify(const struct tal_hdr *ctx,
 				else
 					n->u.destroy(from_tal_hdr(ctx));
 			} else
-				n->u.notifyfn(from_tal_hdr(ctx), type,
+				n->u.notifyfn(from_tal_hdr_or_null(ctx), type,
 					      (void *)info);
 		}
 	}
@@ -495,7 +495,7 @@ void *tal_steal_(const tal_t *new_parent, const tal_t *ctx)
 		old_parent = ignore_destroying_bit(t->parent_child)->parent;
 
                 if (unlikely(!add_child(newpar, t))) {
-			/* We can always add to old parent, becuase it has a
+			/* We can always add to old parent, because it has a
 			 * children property already. */
 			if (!add_child(old_parent, t))
 				abort();
@@ -528,7 +528,7 @@ bool tal_add_destructor2_(const tal_t *ctx, void (*destroy)(void *me, void *arg)
 bool tal_add_notifier_(const tal_t *ctx, enum tal_notify_type types,
 		       void (*callback)(tal_t *, enum tal_notify_type, void *))
 {
-	tal_t *t = debug_tal(to_tal_hdr(ctx));
+	struct tal_hdr *t = debug_tal(to_tal_hdr_or_null(ctx));
 	struct notifier *n;
 
 	assert(types);
@@ -556,7 +556,7 @@ bool tal_del_notifier_(const tal_t *ctx,
 		       void (*callback)(tal_t *, enum tal_notify_type, void *),
 		       bool match_extra_arg, void *extra_arg)
 {
-	struct tal_hdr *t = debug_tal(to_tal_hdr(ctx));
+	struct tal_hdr *t = debug_tal(to_tal_hdr_or_null(ctx));
 	enum tal_notify_type types;
 
         types = del_notifier_property(t, callback, match_extra_arg, extra_arg);

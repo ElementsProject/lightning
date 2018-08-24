@@ -286,7 +286,7 @@ void *intmap_first_(const struct intmap *map, intmap_index_t *indexp);
 /**
  * uintmap_after - get the closest following index in an unsigned intmap
  * @umap: the typed intmap to iterate through.
- * @indexp: the preceeding index (may not exist)
+ * @indexp: the preceding index (may not exist)
  *
  * Returns NULL if the there is no entry > @indexp, otherwise
  * populates *@indexp and returns the lowest entry > @indexp.
@@ -300,7 +300,7 @@ void *intmap_after_(const struct intmap *map, intmap_index_t *indexp);
 /**
  * sintmap_after - get the closest following index in a signed intmap
  * @smap: the typed intmap to iterate through.
- * @indexp: the preceeding index (may not exist)
+ * @indexp: the preceding index (may not exist)
  *
  * Returns NULL if the there is no entry > @indexp, otherwise
  * populates *@indexp and returns the lowest entry > @indexp.

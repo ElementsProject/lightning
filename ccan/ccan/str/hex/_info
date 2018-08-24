@@ -5,7 +5,7 @@
 /**
  * str/hex - hex-to-string conversions and vice-versa
  *
- * This code contains simple routines for hexidecimal strings.
+ * This code contains simple routines for hexadecimal strings.
  *
  * License: CC0 (Public domain)
  * Author: Rusty Russell <rusty@rustcorp.com.au>

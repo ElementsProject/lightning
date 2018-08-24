@@ -42,7 +42,7 @@ struct timerel {
 };
 
 /**
- * struct timeabs - an absolue time.
+ * struct timeabs - an absolute time.
  * @ts: the actual timespec value.
  *
  * For example, Midnight UTC January 1st, 1970: ts.tv_sec = 0, ts.tv_nsec = 0
