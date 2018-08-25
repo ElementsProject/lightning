@@ -100,6 +100,10 @@ struct chain_topology {
 	/* How often to poll. */
 	u32 poll_seconds;
 
+	/* FIXME can we use this instead of poll_seconds=0 as flag indicating polling
+	 * in that case we don't have to touch poll_seconds */
+	struct oneshot *fee_timer;
+
 	/* The bitcoind. */
 	struct bitcoind *bitcoind;
 

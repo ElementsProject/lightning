@@ -317,6 +317,10 @@ static void update_feerates(struct bitcoind *bitcoind,
 	 * 2 minutes. The following will do that in a polling interval
 	 * independent manner. */
 	double alpha = 1 - pow(0.1,(double)topo->poll_seconds / 120);
+    /* manual feerates disables smoothing */
+    if (topo->poll_seconds == 0) {
+        alpha = 1;
+    }
 
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
 		u32 feerate = satoshi_per_kw[i];
@@ -430,9 +434,10 @@ static void json_feerates(struct command *cmd,
 	u32 *urgent, *normal, *slow, feerates[NUM_FEERATES];
 	bool missing;
 	const jsmntok_t *style;
-	bool bitcoind_style;
+	bool bitcoind_style, inject_feerates, restart_polling;
 	u64 mulfactor;
 
+	 /* TODO use proper token for restart-polling */
 	if (!param(cmd, buffer, params,
 		   p_req("style", json_tok_tok, &style),
 		   p_opt("urgent", json_tok_number, &urgent),
@@ -440,6 +445,9 @@ static void json_feerates(struct command *cmd,
 		   p_opt("slow", json_tok_number, &slow),
 		   NULL))
 		return;
+
+	inject_feerates = (urgent && normal && slow && !json_tok_streq(buffer,
+			  style, "restart-polling"));
 
 	/* update_feerates uses 0 as "don't know" */
 	feerates[FEERATE_URGENT] = urgent ? *urgent : 0;
@@ -456,18 +464,35 @@ static void json_feerates(struct command *cmd,
 			feerates[i] = (feerates[i] + 3) / 4;
 		bitcoind_style = true;
 		mulfactor = 4;
+	} else if (json_tok_streq(buffer, style, "restart-polling")) {
+		/* restart polling */
+		restart_polling = true;
 	} else {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "invalid style");
 		return;
 	}
 
-	log_info(topo->log,
-		 "feerates: inserting feerates in sipa/kb %u/%u/%u",
-		 feerates[FEERATE_URGENT],
-		 feerates[FEERATE_NORMAL],
-		 feerates[FEERATE_SLOW]);
+	if (inject_feerates) {
+		/* disable/kill current timer */
+	        tal_free(topo->fee_timer);
+		log_info(topo->log,
+			 "feerates: polling disabled");
+		log_info(topo->log,
+			 "feerates: inserting feerates in sipa/kb %u/%u/%u",
+			 feerates[FEERATE_URGENT],
+			 feerates[FEERATE_NORMAL],
+			 feerates[FEERATE_SLOW]);
 
-	update_feerates(topo->bitcoind, feerates, topo);
+		/* do not start a new timer (loop) and disable smoothing
+		 * FIXME add seperate flag to topo instead of poll_seconds=0 */
+		topo->poll_seconds = 0;
+		update_feerates(topo->bitcoind, feerates, topo);
+	} else if (restart_polling) {
+		/* FIXME check for running timers */
+		topo->poll_seconds = 30;
+		start_fee_estimate(topo);
+		log_info(topo->log, "feerates: polling enabled");
+	}
 
 	missing = false;
 	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
@@ -515,14 +540,21 @@ static void json_feerates(struct command *cmd,
 static const struct json_command feerates_command = {
 	"feerates",
 	json_feerates,
-	"Add/query feerate estimates, either satoshi-per-kw ({style} sipa) or satoshi-per-kb ({style} bitcoind) for {urgent}, {normal} and {slow}."
+	"Add/query feerate estimates, either satoshi-per-kw ({style} sipa) or satoshi-per-kb ({style} bitcoind) for {urgent}, {normal} and {slow}. Adding feerates stops automatic polling and smoothing of feerate estimates, to restart it again, use ({style} restart-polling)."
 };
 AUTODATA(json_command, &feerates_command);
 
 static void next_updatefee_timer(struct chain_topology *topo)
 {
+    /* this means manual feerate override */
+    if (topo->poll_seconds == 0)
+        return;
+
 	/* This takes care of its own lifetime. */
-	notleak(new_reltimer(topo->timers, topo,
+// 	notleak(new_reltimer(topo->timers, topo->fee_timer_ctx,
+// 			     time_from_sec(topo->poll_seconds),
+// 			     start_fee_estimate, topo));
+	topo->fee_timer = notleak(new_reltimer(topo->timers, topo,
 			     time_from_sec(topo->poll_seconds),
 			     start_fee_estimate, topo));
 }
@@ -848,6 +880,7 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 	topo->wallet = ld->wallet;
 	topo->poll_seconds = 30;
 	topo->feerate_uninitialized = true;
+	topo->fee_timer = NULL;
 	topo->root = NULL;
 	return topo;
 }
