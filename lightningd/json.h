@@ -63,6 +63,11 @@ bool json_tok_sha256(struct command *cmd, const char *name,
 		     const char *buffer, const jsmntok_t *tok,
 		     struct sha256 **hash);
 
+/* Extract double in range [0.0, 100.0] */
+bool json_tok_percent(struct command *cmd, const char *name,
+		      const char *buffer, const jsmntok_t *tok,
+		      double **num);
+
 /* Extract a pubkey from this */
 bool json_to_pubkey(const char *buffer, const jsmntok_t *tok,
 		    struct pubkey *pubkey);
