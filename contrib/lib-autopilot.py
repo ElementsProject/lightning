@@ -14,6 +14,7 @@ currently it can generate potential nodes according to 4 different strategies:
 the programm needs the following dependencies:
 pip install networkx pylightning
 '''
+from networkx.classes.function import neighbors
 
 """
 ideas: 
@@ -25,6 +26,12 @@ ideas:
 * exchange algorithms if the network grows.
 * include better handling for duplicates and existing channels
 * cap number of channels for well connected nodes. 
+
+#heuristics:
+* spend at most half of nodes balance (actually the average channel balance might be a good starting point)
+* connect to nodes which are far away (does not matter if it is the first connection)
+# generate some statistics first
+
 """
 
 import logging
@@ -52,6 +59,8 @@ class Autopilot():
         self.__add_logger()
         #FIXME: find out where the config file is placed:
         self.__rpc_interface = LightningRpc(expanduser("~")+"/.lightning/lightning-rpc")
+        #FIXME: do we have seed nodes?
+        self.__rpc_interface.connect("024a8228d764091fce2ed67e1a7404f83e38ea3c7cb42030a2789e73cf3b341365")
 
         try:
             self.__logger.info("Try to load graph from file system at: data/networkx_graph")
@@ -63,9 +72,9 @@ class Autopilot():
         
             self.G = nx.Graph()
             if self.__load_nodes()==False:
-                self.__logger.info("can not download nodes from the network and initialize the networkx Graph")
+                self.__logger.info("cannot download nodes from the network and initialize the networkx Graph")
             if self.__load_edges()==False:
-                self.__logger.info("cann not download the channels from the network and initialize the networkx Graph")
+                self.__logger.info("cannot download the channels from the network and initialize the networkx Graph")
             else:
                 with open("data/networkx_graph", "wb") as outfile:
                     pickle.dump(self.G,outfile,pickle.HIGHEST_PROTOCOL)
@@ -94,14 +103,13 @@ class Autopilot():
             while len(nodes) == 0: 
                 peers = self.__rpc_interface.listpeers()["peers"]
                 if len(peers) < 1:
-                    #FIXME: do we have seed nodes?
-                    self.__rpc_interface.connect("024a8228d764091fce2ed67e1a7404f83e38ea3c7cb42030a2789e73cf3b341365")
                     time.sleep(2)
                 nodes = self.__rpc_interface.listnodes()["nodes"]
         except ValueError as e:
             self.__logger.info("Node list could not be retrieved from the peers of the lightning network")
             self.__logger.debug("RPC error: " + str(e))
             return False
+        
         self.__logger.info("Number of nodes found: {}".format(len(nodes)))
 
         for node in nodes:
@@ -174,7 +182,7 @@ class Autopilot():
         """
             generates a set of nodes that are very well connected (such nodes with low degree will be prefered)
             uses the betweenness centrality. 
-            #FIXME: not sure if this is even helpfull. I imagein that one would not want to connect to those. it is good since it keeps diameter small but it is bad as it makes the network depend on those
+            #FIXME: not sure if this is even helpful. I imagine that one would not want to connect to those. it is good since it keeps diameter small but it is bad as it makes the network depend on those
         """
         if k < 3:
             k = 3
@@ -202,7 +210,7 @@ class Autopilot():
         
         return random.sample(self.G.nodes(),k)
     
-    def __generate_connicticity_increasing_canidates(self,k=3):
+    def __generate_connecticity_increasing_canidates(self,k=3):
         """
             generates a set of nodes that are not well connected
             for this the start end end nodes of longest paths are retrieved
@@ -246,16 +254,11 @@ class Autopilot():
             for destination,path in paths.items():
                 yield (len(path),path)
                     
-    
-    def __display_nodes(self,nodes):
-        for node in nodes:
-            if "alias" in self.G.node[node]:
-                print(self.G.node[node]["alias"])
-            else:
-                print(node)
+                    
     def get_candidates(self,k=10):
         sub_k = math.ceil(k/4)
-        self.__logger.info("GENERATE CANDIDATES: Try to generate up to {} nodes with 4 strategies: (random, central, network Improvement, liquidity)")
+        self.__logger.info("GENERATE CANDIDATES: Try to generate up to {} nodes with 4 strategies: (random, central, network Improvement, liquidity)".format(k))
+        #FIXME: should remember from where nodes are known
         candidats = set()
         res = self.__generate_random_nodes(sub_k)
         candidats=candidats.union(set(res))
@@ -263,7 +266,7 @@ class Autopilot():
         candidats=candidats.union(set(res))
         res = self.__generate_rich_nodes(sub_k)
         candidats=candidats.union(set(res))
-        res = self.__generate_connicticity_increasing_canidates(sub_k)
+        res = self.__generate_connecticity_increasing_canidates(sub_k)
         candidats=candidats.union(set(res))
 
         if len(candidats) > k:
@@ -273,17 +276,87 @@ class Autopilot():
         
         self.__logger.info("GENERATE CANDIDATES: Found {} nodes with which channel creation is suggested".format(len(candidats)))
         return candidats
-            
     
-    def run(self):
-        self.__logger.info("running the autopilot on a graph with {} nodes and {} edges.".format(len(self.G.nodes()), len(self.G.edges())))
-        candidates = self.get_candidates(k=21)
-        time.sleep(1)
-        self.__display_nodes(list(candidates))
+    def __calculate_statistics(self, candidates):
+        """
+        computes statistics of the candidate set about connectivity, wealth and returns a probability density function (pdf) which 
+        encodes which percentage of the funds should be used for each channel with each candidate node
         
+        the pdf is proportional to the average balance of each candidate and smoothed with a uniform distribtuion currently the
+        smoothing is just a weighted arithmetic mean with a weight of 0.3 for the uniform distribution. 
+        """
+        pdf = {}
+        for candidate in candidates:
+            neighbors = list(self.G.neighbors(candidate))
+            capacity = sum([self.G.get_edge_data(candidate, n)["satoshis"] for n in neighbors])
+            average = capacity / len(neighbors)
+            pdf[candidate] = average
+        cumsum = sum(pdf.values())
+        pdf = {k:v/cumsum for k,v in pdf.items()}
+        w = 0.7
+        print("percentage   smoothed percentage    capacity    numchannels     alias")
+        print("----------------------------------------------------------------------")
+        res_pdf = {}
+        for k,v in pdf.items():
+            neighbors = list(self.G.neighbors(k))
+            capacity = sum([self.G.get_edge_data(k, n)["satoshis"] for n in neighbors])
+            name = k
+            if "alias" in self.G.node[k]:
+                name = self.G.node[k]["alias"]
+            print("{:12.2f}  ".format(100*v), "{:12.2f}     ".format(100*(w * v + (1-w)/len(candidates))) ,"{:10} {:10}     ".format( capacity, len(neighbors)), name)
+            res_pdf[k] = (w * v + (1-w)/len(candidates))
+        return res_pdf
+    
+    def __calculate_proposed_channel_capacities(self,pdf, balance = 1000000):
+        minimal_channel_balance = 20000 #lnd uses 20k satoshi which seems reasonble
+        
+        min_probability = min(pdf.values())
+        needed_total_balance = math.ceil(minimal_channel_balance / min_probability)
+        self.__logger.info("Need at least a balance of {} satoshi to open {} channels".format(needed_total_balance,len(candidates)))
+        while needed_total_balance > balance: 
+            min_val = min(pdf.values())
+            k = [k for k, v in pdf.items() if v == min_val][0]
+            self.__logger.info("Not enough balance to open {} channels. Remove node: {} and rebalance pdf for channel balances".format(len(pdf),k))
+            del pdf[k]
+            
+            s = sum(pdf.values())
+            pdf = {k:v/s for k,v in pdf.items()}
+            
+            min_probability = min(pdf.values())
+            needed_total_balance = math.ceil(minimal_channel_balance / min_probability)
+            self.__logger.info("Need at least a balance of {} satoshi to open {} channels".format(needed_total_balance,len(pdf)))
+                    
+        return pdf
+        
+        
+    
+    def connect(self,candidates, balance = 1000000):
+        pdf = self.__calculate_statistics(candidates)
+        connection_dict = self.__calculate_proposed_channel_capacities(pdf,balance)
+        for nodeid, fraction in connection_dict.items():
+            try:
+                satoshis = math.ceil(balance * fraction)
+                self.__logger.info("Try to open channel with a capacity of {} to node {}".format(satoshis,nodeid))
+                self.__rpc_interface.fundchannel(nodeid, satoshis)
+            except ValueError as e:
+                self.__logger.info("Could not open a channel to {} with capacity of {}. Error: {}".format(nodeid,satoshis,str(e)))
+        
+    
+    def find_candidates(self,k=10):
+        self.__logger.info("running the autopilot on a graph with {} nodes and {} edges.".format(len(self.G.nodes()), len(self.G.edges())))
+        candidates = self.get_candidates(k)
+        time.sleep(1)
 
-
+        #FIXME: Temprorary for coding so that candidates don't have to be calculated all the time
+        #with open("data/candidates","wb") as outfile:
+        #    pickle.dump(candidates,outfile,pickle.HIGHEST_PROTOCOL)
+        return candidates
 
 if __name__ == '__main__':
     autopilot = Autopilot()
-    autopilot.run()
+    candidates = autopilot.find_candidates(21)
+    #FIXME: Temporary for debugging
+    #with open("data/candidates","rb") as f:
+    #    candidates = pickle.load(f)
+    autopilot.connect(candidates,1000000)
+    print("autopilot finished. We hope it did a good job for you (and the lightning network). Thanks for using it.")
