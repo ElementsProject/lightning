@@ -2,12 +2,12 @@
 .\"     Title: lightning-withdraw
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 06/15/2018
+.\"      Date: 08/27/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-WITHDRAW" "7" "06/15/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-WITHDRAW" "7" "08/27/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,7 +31,7 @@
 lightning-withdraw \- Command for withdrawing funds from the internal wallet\&.
 .SH "SYNOPSIS"
 .sp
-\fBwithdraw\fR \fIdestination\fR \fIsatoshi\fR
+\fBwithdraw\fR \fIdestination\fR \fIsatoshi\fR [\fIfeerate\fR \fIfeeratestyle\fR]
 .SH "DESCRIPTION"
 .sp
 The \fBwithdraw\fR RPC command sends funds from c\-lightning\(cqs internal wallet to the address specified in \fIdestination\fR\&.
@@ -39,13 +39,15 @@ The \fBwithdraw\fR RPC command sends funds from c\-lightning\(cqs internal walle
 The address can be of any Bitcoin accepted type, including bech32\&.
 .sp
 \fIsatoshi\fR is the amount to be withdrawn from the internal wallet (expressed, as name suggests, in satoshi)\&. The string \fIall\fR can be used to specify withdrawal of all available funds\&.
+.sp
+\fIfeerate\fR is an optional feerate to use, overriding lightningd\(cqs internal estimate\&. If specified, \fIfeeratestyle\fR must be either \fI"perkw"\fR for if \fIfeerate\fR is in satoshi\-per\-kilosipa (weight), or \fI"perkb"\fR for if \fIfeerate\fR is in bitcoind\-style satoshi\-per\-kilobyte\&.
 .SH "RETURN VALUE"
 .sp
 On success, an object with attributes \fItx\fR and \fItxid\fR will be returned\&.
 .sp
 \fItx\fR represents the raw bitcoin, fully signed, transaction and \fItxid\fR represent the bitcoin transaction id\&.
 .sp
-On failure, an error is reported and the withdrawal transaction is not created.\&.
+On failure, an error is reported and the withdrawal transaction is not created\&.
 .sp
 The following error codes may occur:
 .sp
