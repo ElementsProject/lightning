@@ -596,22 +596,6 @@ static void json_pay_stop_retrying(struct pay *pay)
 	json_pay_failure(pay, sr);
 }
 
-/* Extract double in range [0.0, 100.0] */
-static bool json_tok_percent(struct command *cmd, const char *name,
-			     const char *buffer, const jsmntok_t *tok,
-			     double **num)
-{
-	*num = tal(cmd, double);
-	if (json_to_double(buffer, tok, *num))
-		if (**num >= 0.0 && **num >= 100.0)
-			return true;
-
-	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-		     "'%s' should be a double in range [0.0, 100.0], not '%.*s'",
-		     name, tok->end - tok->start, buffer + tok->start);
-	return false;
-}
-
 static void json_pay(struct command *cmd,
 		     const char *buffer, const jsmntok_t *params)
 {

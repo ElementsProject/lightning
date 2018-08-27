@@ -293,16 +293,10 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 		   p_opt_def("cltv", json_tok_number, &cltv, 9),
 		   p_opt_def("fromid", json_tok_pubkey, &source, ld->id),
 		   p_opt("seed", json_tok_tok, &seedtok),
-		   p_opt_def("fuzzpercent", json_tok_double, &fuzz, 75.0),
+		   p_opt_def("fuzzpercent", json_tok_percent, &fuzz, 75.0),
 		   NULL))
 		return;
 
-	if (!(0.0 <= *fuzz && *fuzz <= 100.0)) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "fuzz must be in range 0.0 <= %f <= 100.0",
-			     *fuzz);
-		return;
-	}
 	/* Convert from percentage */
 	*fuzz = *fuzz / 100.0;
 
