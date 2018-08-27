@@ -22,6 +22,7 @@ This release named by ZmnSCPxj.
 - JSON API: `ping` command to send a ping to a connected peer.
 - JSON API: `feerates` command to inject fee estimates manually, and retrieve
   current estimates.
+- JSON API: `withdraw` and `fundchannel` can be given manual feerate.
 - Config: `--conf` option to set config file.
 - Documentation: Added CHANGELOG.md
 - pylightning: RpcError now has `method` and `payload` fields.

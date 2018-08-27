@@ -8,7 +8,7 @@ lightning-fundchannel - Command for establishing a lightning channel.
 
 SYNOPSIS
 --------
-*fundchannel* 'id' 'satoshi'
+*fundchannel* 'id' 'satoshi' ['feerate' 'feeratestyle']
 
 DESCRIPTION
 -----------
@@ -26,6 +26,11 @@ for the channel.
 The string 'all' can be used to specify all available funds (or 16777215 satoshi if more is available).
 The value cannot be less than the dust limit, currently set to 546, nor more
 than 16777215 satoshi.
+
+'feerate' is an optional feerate to use, overriding lightningd's
+internal estimate.  If specified, 'feeratestyle' must be either
+'"perkw"' for if 'feerate' is in satoshi-per-kilosipa (weight),
+or '"perkb"' for if 'feerate' is in bitcoind-style satoshi-per-kilobyte.
 
 RETURN VALUE
 ------------
