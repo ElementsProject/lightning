@@ -151,7 +151,7 @@ static void json_invoice(struct command *cmd,
 {
 	struct invoice invoice;
 	const struct invoice_details *details;
-	const jsmntok_t *msatoshi, *desctok, *fallbacks;
+	const jsmntok_t *desctok, *fallbacks;
 	const jsmntok_t *preimagetok;
 	u64 *msatoshi_val;
 	struct json_escaped *label_val, *desc;
@@ -165,7 +165,7 @@ static void json_invoice(struct command *cmd,
 	bool result;
 
 	if (!param(cmd, buffer, params,
-		   p_req("msatoshi", json_tok_tok, &msatoshi),
+		   p_req("msatoshi", json_tok_msat, &msatoshi_val),
 		   p_req("label", json_tok_label, &label_val),
 		   p_req("description", json_tok_tok, &desctok),
 		   p_opt_def("expiry", json_tok_u64, &expiry, 3600),
@@ -174,21 +174,6 @@ static void json_invoice(struct command *cmd,
 		   NULL))
 		return;
 
-	/* Get arguments. */
-	/* msatoshi */
-	if (json_tok_streq(buffer, msatoshi, "any"))
-		msatoshi_val = NULL;
-	else {
-		msatoshi_val = tal(cmd, u64);
-		if (!json_to_u64(buffer, msatoshi, msatoshi_val)
-		    || *msatoshi_val == 0) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "'%.*s' is not a valid positive number",
-				     msatoshi->end - msatoshi->start,
-				     buffer + msatoshi->start);
-			return;
-		}
-	}
 	if (wallet_invoice_find_by_label(wallet, &invoice, label_val)) {
 		command_fail(cmd, INVOICE_LABEL_ALREADY_EXISTS,
 			     "Duplicate label '%s'", label_val->s);

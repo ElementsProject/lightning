@@ -413,29 +413,6 @@ static void sendpay_nulltok(void)
 	assert(msatoshi == NULL);
 }
 
-static bool json_tok_msat(struct command *cmd,
-			  const char *name,
-			  const char *buffer,
-			  const jsmntok_t * tok,
-			  u64 **msatoshi_val)
-{
-	if (json_tok_streq(buffer, tok, "any")) {
-		*msatoshi_val = NULL;
-		return true;
-	}
-	*msatoshi_val = tal(cmd, u64);
-
-	if (json_to_u64(buffer, tok, *msatoshi_val) && *msatoshi_val != 0)
-		return true;
-
-	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-		     "'%s' should be a positive number or 'any', not '%.*s'",
-		     name,
-		     tok->end - tok->start,
-		     buffer + tok->start);
-	return false;
-}
-
 /*
  * New version of json_tok_label conforming to advanced style. This can eventually
  * replace the existing json_tok_label.

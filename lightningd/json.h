@@ -63,6 +63,11 @@ bool json_tok_sha256(struct command *cmd, const char *name,
 		     const char *buffer, const jsmntok_t *tok,
 		     struct sha256 **hash);
 
+/* Extract positive integer, or NULL if tok is 'any'. */
+bool json_tok_msat(struct command *cmd, const char *name,
+		   const char *buffer, const jsmntok_t * tok,
+		   u64 **msatoshi_val);
+
 /* Extract double in range [0.0, 100.0] */
 bool json_tok_percent(struct command *cmd, const char *name,
 		      const char *buffer, const jsmntok_t *tok,
