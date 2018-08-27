@@ -223,6 +223,41 @@ bool json_tok_short_channel_id(struct command *cmd, const char *name,
 	return false;
 }
 
+const char *json_feerate_style_name(enum feerate_style style)
+{
+	switch (style) {
+	case FEERATE_PER_KBYTE:
+		return "perkb";
+	case FEERATE_PER_KSIPA:
+		return "perkw";
+	}
+	abort();
+}
+
+bool json_tok_feerate_style(struct command *cmd, const char *name,
+			    const char *buffer, const jsmntok_t *tok,
+			    enum feerate_style **style)
+{
+	*style = tal(cmd, enum feerate_style);
+	if (json_tok_streq(buffer, tok,
+			   json_feerate_style_name(FEERATE_PER_KSIPA))) {
+		**style = FEERATE_PER_KSIPA;
+		return true;
+	} else if (json_tok_streq(buffer, tok,
+				  json_feerate_style_name(FEERATE_PER_KBYTE))) {
+		**style = FEERATE_PER_KBYTE;
+		return true;
+	}
+
+	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		     "'%s' should be '%s' or '%s', not '%.*s'",
+		     name,
+		     json_feerate_style_name(FEERATE_PER_KSIPA),
+		     json_feerate_style_name(FEERATE_PER_KBYTE),
+		     tok->end - tok->start, buffer + tok->start);
+	return false;
+}
+
 bool
 json_tok_channel_id(const char *buffer, const jsmntok_t *tok,
 		    struct channel_id *cid)

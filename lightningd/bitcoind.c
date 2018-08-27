@@ -332,7 +332,8 @@ static bool process_estimatefee(struct bitcoin_cli *bcli)
 		efee->satoshi_per_kw[efee->i] = 0;
 	} else
 		/* Rate in satoshi per kw. */
-		efee->satoshi_per_kw[efee->i] = feerate / 4;
+		efee->satoshi_per_kw[efee->i]
+			= feerate_from_style(feerate, FEERATE_PER_KBYTE);
 
 	efee->i++;
 	if (efee->i == tal_count(efee->satoshi_per_kw)) {
