@@ -876,7 +876,7 @@ def test_feerates(node_factory):
     assert len(feerates['perkb']) == 2
     assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'perkw' not in feerates
-    assert feerates['perkb']['max_acceptable'] == (2**32 - 1) * 4
+    assert feerates['perkb']['max_acceptable'] == (2**32 - 1)
     assert feerates['perkb']['min_acceptable'] == 253 * 4
 
     # Now try setting them, one at a time.

@@ -8,6 +8,7 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/time/time.h>
 #include <jsmn.h>
+#include <lightningd/json.h>
 #include <lightningd/watch.h>
 #include <math.h>
 #include <stddef.h>
@@ -19,6 +20,7 @@ struct lightningd;
 struct peer;
 struct txwatch;
 
+/* FIXME: move all feerate stuff out to new lightningd/feerate.[ch] files */
 enum feerate {
 	FEERATE_URGENT, /* Aka: aim for next block. */
 	FEERATE_NORMAL, /* Aka: next 4 blocks or so. */
@@ -143,6 +145,10 @@ u32 feerate_max(struct lightningd *ld, bool *unknown);
 u32 mutual_close_feerate(struct chain_topology *topo);
 u32 opening_feerate(struct chain_topology *topo);
 u32 unilateral_feerate(struct chain_topology *topo);
+
+/* We always use feerate-per-ksipa, ie. perkw */
+u32 feerate_from_style(u32 feerate, enum feerate_style style);
+u32 feerate_to_style(u32 feerate_perkw, enum feerate_style style);
 
 /* Broadcast a single tx, and rebroadcast as reqd (copies tx).
  * If failed is non-NULL, call that and don't rebroadcast. */

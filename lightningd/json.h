@@ -83,6 +83,18 @@ bool json_tok_u64(struct command *cmd, const char *name,
 		  const char *buffer, const jsmntok_t *tok,
 		  uint64_t **num);
 
+enum feerate_style {
+	FEERATE_PER_KSIPA,
+	FEERATE_PER_KBYTE
+};
+
+/* Extract a feerate style. */
+bool json_tok_feerate_style(struct command *cmd, const char *name,
+			    const char *buffer, const jsmntok_t *tok,
+			    enum feerate_style **style);
+
+const char *json_feerate_style_name(enum feerate_style style);
+
 /* '"fieldname" : "1234:5:6"' */
 void json_add_short_channel_id(struct json_result *response,
 			       const char *fieldname,

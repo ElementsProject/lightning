@@ -19,7 +19,6 @@
 #include <inttypes.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/gossip_control.h>
-#include <lightningd/json.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/param.h>
 
@@ -422,6 +421,32 @@ u32 unilateral_feerate(struct chain_topology *topo)
 	return try_get_feerate(topo, FEERATE_URGENT);
 }
 
+u32 feerate_from_style(u32 feerate, enum feerate_style style)
+{
+	switch (style) {
+	case FEERATE_PER_KSIPA:
+		return feerate;
+	case FEERATE_PER_KBYTE:
+		/* Everyone uses satoshi per kbyte, but we use satoshi per ksipa
+		 * (don't round down to zero though)! */
+		return (feerate + 3) / 4;
+	}
+	abort();
+}
+
+u32 feerate_to_style(u32 feerate_perkw, enum feerate_style style)
+{
+	switch (style) {
+	case FEERATE_PER_KSIPA:
+		return feerate_perkw;
+	case FEERATE_PER_KBYTE:
+		if ((u64)feerate_perkw * 4 > UINT_MAX)
+			return UINT_MAX;
+		return feerate_perkw * 4;
+	}
+	abort();
+}
+
 static void json_feerates(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
 {
@@ -429,12 +454,10 @@ static void json_feerates(struct command *cmd,
 	struct json_result *response;
 	u32 *urgent, *normal, *slow, feerates[NUM_FEERATES];
 	bool missing;
-	const jsmntok_t *style;
-	bool bitcoind_style;
-	u64 mulfactor;
+	enum feerate_style *style;
 
 	if (!param(cmd, buffer, params,
-		   p_req("style", json_tok_tok, &style),
+		   p_req("style", json_tok_feerate_style, &style),
 		   p_opt("urgent", json_tok_number, &urgent),
 		   p_opt("normal", json_tok_number, &normal),
 		   p_opt("slow", json_tok_number, &slow),
@@ -446,20 +469,8 @@ static void json_feerates(struct command *cmd,
 	feerates[FEERATE_NORMAL] = normal ? *normal : 0;
 	feerates[FEERATE_SLOW] = slow ? *slow : 0;
 
-	if (json_tok_streq(buffer, style, "perkw")) {
-		bitcoind_style = false;
-		mulfactor = 1;
-	} else if (json_tok_streq(buffer, style, "perkb")) {
-		/* Everyone uses satoshi per kbyte, but we use satoshi per ksipa
-		 * (don't round down to zero though)! */
-		for (size_t i = 0; i < ARRAY_SIZE(feerates); i++)
-			feerates[i] = (feerates[i] + 3) / 4;
-		bitcoind_style = true;
-		mulfactor = 4;
-	} else {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS, "invalid style");
-		return;
-	}
+	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++)
+		feerates[i] = feerate_from_style(feerates[i], *style);
 
 	log_info(topo->log,
 		 "feerates: inserting feerates in sipa/kb %u/%u/%u",
@@ -478,16 +489,17 @@ static void json_feerates(struct command *cmd,
 
 	response = new_json_result(cmd);
 	json_object_start(response, NULL);
-	json_object_start(response, bitcoind_style ? "perkb" : "perkw");
+	json_object_start(response, json_feerate_style_name(*style));
 	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
 		if (!feerates[i])
 			continue;
-		json_add_num(response, feerate_name(i), feerates[i] * mulfactor);
+		json_add_num(response, feerate_name(i),
+			     feerate_to_style(feerates[i], *style));
 	}
 	json_add_u64(response, "min_acceptable",
-		     feerate_min(cmd->ld, NULL) * mulfactor);
+		     feerate_to_style(feerate_min(cmd->ld, NULL), *style));
 	json_add_u64(response, "max_acceptable",
-		     feerate_max(cmd->ld, NULL) * mulfactor);
+		     feerate_to_style(feerate_max(cmd->ld, NULL), *style));
 	json_object_end(response);
 
 	if (missing)
