@@ -89,10 +89,10 @@ static void json_withdraw(struct command *cmd,
 {
 	const jsmntok_t *desttok, *sattok;
 	struct withdrawal *withdraw = tal(cmd, struct withdrawal);
-
-	u32 feerate_per_kw = try_get_feerate(cmd->ld->topology, FEERATE_NORMAL);
+	u32 feerate_per_kw;
+	unsigned int *feerate;
+	enum feerate_style *style;
 	struct bitcoin_tx *tx;
-
 	enum address_parse_result addr_parse;
 
 	withdraw->cmd = cmd;
@@ -101,16 +101,19 @@ static void json_withdraw(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_req("destination", json_tok_tok, &desttok),
 		   p_req("satoshi", json_tok_tok, &sattok),
+		   p_opt("feerate", json_tok_number, &feerate),
+		   p_opt("feeratestyle", json_tok_feerate_style, &style),
 		   NULL))
 		return;
 
 	if (!json_tok_wtx(&withdraw->wtx, buffer, sattok, -1ULL))
 		return;
 
-	if (!feerate_per_kw) {
-		command_fail(cmd, LIGHTNINGD, "Cannot estimate fees");
+	if (!json_feerate_and_style(cmd, feerate, style,
+				    try_get_feerate(cmd->ld->topology,
+						    FEERATE_NORMAL),
+				    &feerate_per_kw))
 		return;
-	}
 
 	/* Parse address. */
 	addr_parse = json_tok_address_scriptpubkey(cmd,
@@ -163,7 +166,7 @@ static void json_withdraw(struct command *cmd,
 static const struct json_command withdraw_command = {
 	"withdraw",
 	json_withdraw,
-	"Send to {destination} address {satoshi} (or 'all') amount via Bitcoin transaction",
+	"Send to {destination} address {satoshi} (or 'all') amount via Bitcoin transaction, at optional {feerate}",
 	false, "Send funds from the internal wallet to the specified address. Either specify a number of satoshis to send or 'all' to sweep all funds in the internal wallet to the address."
 };
 AUTODATA(json_command, &withdraw_command);

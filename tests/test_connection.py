@@ -1124,7 +1124,20 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
     with pytest.raises(RpcError, match=r'Cannot estimate fees'):
         l1.rpc.withdraw(l2.rpc.newaddr()['address'], 'all')
 
+    # Can with manual feerate.
+    l1.rpc.withdraw(l2.rpc.newaddr()['address'], 10000, 1500, 'perkb')
+    l1.rpc.fundchannel(l2.info['id'], 10**6, 2000, 'perkw')
+
+    # Make sure we clean up cahnnel for later attempt.
+    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.rpc.dev_fail(l2.info['id'])
+    l1.daemon.wait_for_log('sendrawtx exit 0')
+    bitcoind.generate_block(6)
+    wait_for(lambda: only_one(l1.rpc.getpeer(l2.info['id'])['channels'])['state'] == 'ONCHAIN')
+    wait_for(lambda: only_one(l2.rpc.getpeer(l1.info['id'])['channels'])['state'] == 'ONCHAIN')
+
     # But can accept incoming connections.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.fund_channel(l1, 10**6)
 
     # Can do HTLCs.
