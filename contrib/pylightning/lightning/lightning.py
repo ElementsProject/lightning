@@ -331,12 +331,12 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listpeers", payload)
 
-    def fundchannel(self, channel_id, satoshi):
+    def fundchannel(self, node_id, satoshi):
         """
         Fund channel with {id} using {satoshi} satoshis"
         """
         payload = {
-            "id": channel_id,
+            "id": node_id,
             "satoshi": satoshi
         }
         return self.call("fundchannel", payload)
