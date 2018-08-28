@@ -1125,8 +1125,8 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
         l1.rpc.withdraw(l2.rpc.newaddr()['address'], 'all')
 
     # Can with manual feerate.
-    l1.rpc.withdraw(l2.rpc.newaddr()['address'], 10000, 1500, 'perkb')
-    l1.rpc.fundchannel(l2.info['id'], 10**6, 2000, 'perkw')
+    l1.rpc.withdraw(l2.rpc.newaddr()['address'], 10000, '1500perkb')
+    l1.rpc.fundchannel(l2.info['id'], 10**6, '2000perkw')
 
     # Make sure we clean up cahnnel for later attempt.
     l1.daemon.wait_for_log('sendrawtx exit 0')

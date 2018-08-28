@@ -258,6 +258,50 @@ bool json_tok_feerate_style(struct command *cmd, const char *name,
 	return false;
 }
 
+bool json_tok_feerate(struct command *cmd, const char *name,
+		      const char *buffer, const jsmntok_t *tok,
+		      u32 **feerate)
+{
+	jsmntok_t base = *tok, suffix = *tok;
+	enum feerate_style style;
+	unsigned int num;
+
+	/* We have to split the number and suffix. */
+	suffix.start = suffix.end;
+	while (suffix.start > base.start && !isdigit(buffer[suffix.start-1])) {
+		suffix.start--;
+		base.end--;
+	}
+
+	if (!json_to_number(buffer, &base, &num)) {
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%s' prefix should be an integer, not '%.*s'",
+			     name, base.end - base.start, buffer + base.start);
+		return false;
+	}
+
+	if (json_tok_streq(buffer, &suffix, "")
+	    || json_tok_streq(buffer, &suffix,
+			      json_feerate_style_name(FEERATE_PER_KBYTE))) {
+		style = FEERATE_PER_KBYTE;
+	} else if (json_tok_streq(buffer, &suffix,
+				json_feerate_style_name(FEERATE_PER_KSIPA))) {
+		style = FEERATE_PER_KSIPA;
+	} else {
+		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			     "'%s' suffix should be '%s' or '%s', not '%.*s'",
+			     name,
+			     json_feerate_style_name(FEERATE_PER_KSIPA),
+			     json_feerate_style_name(FEERATE_PER_KBYTE),
+			     suffix.end - suffix.start, buffer + suffix.start);
+		return false;
+	}
+
+	*feerate = tal(cmd, u32);
+	**feerate = feerate_from_style(num, style);
+	return true;
+}
+
 bool
 json_tok_channel_id(const char *buffer, const jsmntok_t *tok,
 		    struct channel_id *cid)

@@ -5,6 +5,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_JSON_H
 #define LIGHTNING_LIGHTNINGD_JSON_H
 #include "config.h"
+#include <ccan/short_types/short_types.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -94,6 +95,11 @@ bool json_tok_feerate_style(struct command *cmd, const char *name,
 			    enum feerate_style **style);
 
 const char *json_feerate_style_name(enum feerate_style style);
+
+/* Extract a feerate with optional style suffix. */
+bool json_tok_feerate(struct command *cmd, const char *name,
+		      const char *buffer, const jsmntok_t *tok,
+		      u32 **feerate);
 
 /* '"fieldname" : "1234:5:6"' */
 void json_add_short_channel_id(struct json_result *response,

@@ -764,9 +764,7 @@ static void json_fund_channel(struct command *cmd,
 	struct pubkey *id;
 	struct peer *peer;
 	struct channel *channel;
-	unsigned int *feerate;
-	enum feerate_style *style;
-	u32 feerate_per_kw;
+	u32 *feerate_per_kw;
 	u8 *msg;
 
 	fc->cmd = cmd;
@@ -775,18 +773,21 @@ static void json_fund_channel(struct command *cmd,
 	if (!param(fc->cmd, buffer, params,
 		   p_req("id", json_tok_pubkey, &id),
 		   p_req("satoshi", json_tok_tok, &sattok),
-		   p_opt("feerate", json_tok_number, &feerate),
-		   p_opt("feeratestyle", json_tok_feerate_style, &style),
+		   p_opt("feerate", json_tok_feerate, &feerate_per_kw),
 		   NULL))
 		return;
 
 	if (!json_tok_wtx(&fc->wtx, buffer, sattok, MAX_FUNDING_SATOSHI))
 		return;
 
-	if (!json_feerate_and_style(cmd, feerate, style,
-				    opening_feerate(cmd->ld->topology),
-				    &feerate_per_kw))
-		return;
+	if (!feerate_per_kw) {
+		feerate_per_kw = tal(cmd, u32);
+		*feerate_per_kw = opening_feerate(cmd->ld->topology);
+		if (!*feerate_per_kw) {
+			command_fail(cmd, LIGHTNINGD, "Cannot estimate fees");
+			return;
+		}
+	}
 
 	peer = peer_by_id(cmd->ld, id);
 	if (!peer) {
@@ -815,7 +816,7 @@ static void json_fund_channel(struct command *cmd,
 	fc->push_msat = 0;
 	fc->channel_flags = OUR_CHANNEL_FLAGS;
 
-	if (!wtx_select_utxos(&fc->wtx, feerate_per_kw,
+	if (!wtx_select_utxos(&fc->wtx, *feerate_per_kw,
 			      BITCOIN_SCRIPTPUBKEY_P2WSH_LEN))
 		return;
 
@@ -827,7 +828,7 @@ static void json_fund_channel(struct command *cmd,
 	msg = towire_opening_funder(NULL,
 				    fc->wtx.amount,
 				    fc->push_msat,
-				    feerate_per_kw,
+				    *feerate_per_kw,
 				    fc->wtx.change,
 				    fc->wtx.change_key_index,
 				    fc->channel_flags,
