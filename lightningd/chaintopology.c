@@ -464,33 +464,14 @@ static void json_feerates(struct command *cmd,
 {
 	struct chain_topology *topo = cmd->ld->topology;
 	struct json_result *response;
-	u32 *urgent, *normal, *slow, feerates[NUM_FEERATES];
+	u32 feerates[NUM_FEERATES];
 	bool missing;
 	enum feerate_style *style;
 
 	if (!param(cmd, buffer, params,
 		   p_req("style", json_tok_feerate_style, &style),
-		   p_opt("urgent", json_tok_number, &urgent),
-		   p_opt("normal", json_tok_number, &normal),
-		   p_opt("slow", json_tok_number, &slow),
 		   NULL))
 		return;
-
-	/* update_feerates uses 0 as "don't know" */
-	feerates[FEERATE_URGENT] = urgent ? *urgent : 0;
-	feerates[FEERATE_NORMAL] = normal ? *normal : 0;
-	feerates[FEERATE_SLOW] = slow ? *slow : 0;
-
-	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++)
-		feerates[i] = feerate_from_style(feerates[i], *style);
-
-	log_info(topo->log,
-		 "feerates: inserting feerates in sipa/kb %u/%u/%u",
-		 feerates[FEERATE_URGENT],
-		 feerates[FEERATE_NORMAL],
-		 feerates[FEERATE_SLOW]);
-
-	update_feerates(topo->bitcoind, feerates, topo);
 
 	missing = false;
 	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
@@ -539,7 +520,7 @@ static void json_feerates(struct command *cmd,
 static const struct json_command feerates_command = {
 	"feerates",
 	json_feerates,
-	"Add/query feerate estimates, either satoshi-per-kw ({style} sipa) or satoshi-per-kb ({style} bitcoind) for {urgent}, {normal} and {slow}."
+	"Return feerate estimates, either satoshi-per-kw ({style} perkw) or satoshi-per-kb ({style} perkb)."
 };
 AUTODATA(json_command, &feerates_command);
 
