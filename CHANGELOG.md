@@ -20,8 +20,7 @@ This release named by ZmnSCPxj.
 - JSON API: `listpeers` has new fields `global_features` and `local_features`.
 - JSON API: `listnodes` has new field `global_features`.
 - JSON API: `ping` command to send a ping to a connected peer.
-- JSON API: `feerates` command to inject fee estimates manually, and retrieve
-  current estimates.
+- JSON API: `feerates` command to retrieve current fee estimates.
 - JSON API: `withdraw` and `fundchannel` can be given manual feerate.
 - Config: `--conf` option to set config file.
 - Documentation: Added CHANGELOG.md
@@ -48,7 +47,7 @@ This release named by ZmnSCPxj.
   the one given or the first one announced.
 - Crash logs are now placed one-per file like `crash.log.20180822233752`
 - We will no longer allow withdrawing funds or funding channels if we
-  do not have a fee estimate (eg. bitcoind not synced).
+  do not have a fee estimate (eg. bitcoind not synced); use new `feerate` arg.
 
 ### Deprecated
 
@@ -63,7 +62,8 @@ changes.
   used to exist and set to `GOSSIPING` before we opened a channel).
   `connected` will indicate if we're connected, and the `channels`
   array indicates individual channel states (if any).
-- Config: `default-fee-rate` is no longer available; use `feerates`.
+- Config: `default-fee-rate` is no longer available; use explicit `feerate`
+  option if necessary.
 - Removed all Deprecated options from 0.6.
 
 ### Fixed

@@ -880,7 +880,8 @@ def test_feerates(node_factory):
     assert feerates['perkb']['min_acceptable'] == 253 * 4
 
     # Now try setting them, one at a time.
-    feerates = l1.rpc.feerates('perkw', 15000)
+    l1.set_feerates((15000, 0, 0), True)
+    feerates = l1.rpc.feerates('perkw')
     assert len(feerates['perkw']) == 3
     assert feerates['perkw']['urgent'] == 15000
     assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
@@ -888,7 +889,8 @@ def test_feerates(node_factory):
     assert feerates['perkw']['max_acceptable'] == 15000 * 10
     assert feerates['perkw']['min_acceptable'] == 253
 
-    feerates = l1.rpc.feerates('perkb', normal=25000)
+    l1.set_feerates((15000, 6250, 0), True)
+    feerates = l1.rpc.feerates('perkb')
     assert len(feerates['perkb']) == 4
     assert feerates['perkb']['urgent'] == 15000 * 4
     assert feerates['perkb']['normal'] == 25000
@@ -897,37 +899,14 @@ def test_feerates(node_factory):
     assert feerates['perkb']['max_acceptable'] == 15000 * 4 * 10
     assert feerates['perkb']['min_acceptable'] == 253 * 4
 
-    feerates = l1.rpc.feerates('perkw', None, None, 5000)
+    l1.set_feerates((15000, 6250, 5000), True)
+    feerates = l1.rpc.feerates('perkw')
     assert len(feerates['perkw']) == 5
     assert feerates['perkw']['urgent'] == 15000
     assert feerates['perkw']['normal'] == 25000 // 4
     assert feerates['perkw']['slow'] == 5000
     assert 'warning' not in feerates
     assert 'perkb' not in feerates
-    assert feerates['perkw']['max_acceptable'] == 15000 * 10
-    assert feerates['perkw']['min_acceptable'] == 5000 // 2
-
-    # Now, outliers effect min and max, not so much the smoothed avg.
-    feerates = l1.rpc.feerates('perkw', 30000, None, 600)
-    assert len(feerates['perkw']) == 5
-    assert feerates['perkw']['urgent'] > 15000
-    assert feerates['perkw']['urgent'] < 30000
-    assert feerates['perkw']['normal'] == 25000 // 4
-    assert feerates['perkw']['slow'] < 5000
-    assert feerates['perkw']['slow'] > 600
-    assert 'warning' not in feerates
-    assert 'perkb' not in feerates
-    assert feerates['perkw']['max_acceptable'] == 30000 * 10
-    assert feerates['perkw']['min_acceptable'] == 600 // 2
-
-    # Forgotten after 3 more values inserted.
-    feerates = l1.rpc.feerates('perkw', 15000, 25000 // 4, 5000)
-    assert feerates['perkw']['max_acceptable'] == 30000 * 10
-    assert feerates['perkw']['min_acceptable'] == 600 // 2
-    feerates = l1.rpc.feerates('perkw', 15000, 25000 // 4, 5000)
-    assert feerates['perkw']['max_acceptable'] == 30000 * 10
-    assert feerates['perkw']['min_acceptable'] == 600 // 2
-    feerates = l1.rpc.feerates('perkw', 15000, 25000 // 4, 5000)
     assert feerates['perkw']['max_acceptable'] == 15000 * 10
     assert feerates['perkw']['min_acceptable'] == 5000 // 2
 
