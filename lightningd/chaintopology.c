@@ -276,7 +276,7 @@ static void watch_for_utxo_reconfirmation(struct chain_topology *topo,
 	}
 }
 
-static const char *feerate_name(enum feerate feerate)
+const char *feerate_name(enum feerate feerate)
 {
 	switch (feerate) {
 	case FEERATE_URGENT: return "urgent";
@@ -284,6 +284,18 @@ static const char *feerate_name(enum feerate feerate)
 	case FEERATE_SLOW: return "slow";
 	}
 	abort();
+}
+
+bool json_feerate_estimate(struct command *cmd,
+			   u32 **feerate_per_kw, enum feerate feerate)
+{
+	*feerate_per_kw = tal(cmd, u32);
+	**feerate_per_kw = try_get_feerate(cmd->ld->topology, feerate);
+	if (!**feerate_per_kw) {
+		command_fail(cmd, LIGHTNINGD, "Cannot estimate fees");
+		return false;
+	}
+	return true;
 }
 
 /* Mutual recursion via timer. */

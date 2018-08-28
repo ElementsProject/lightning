@@ -107,13 +107,8 @@ static void json_withdraw(struct command *cmd,
 		return;
 
 	if (!feerate_per_kw) {
-		feerate_per_kw = tal(cmd, u32);
-		*feerate_per_kw
-			= try_get_feerate(cmd->ld->topology, FEERATE_NORMAL);
-		if (!*feerate_per_kw) {
-			command_fail(cmd, LIGHTNINGD, "Cannot estimate fees");
+		if (!json_feerate_estimate(cmd, &feerate_per_kw, FEERATE_NORMAL))
 			return;
-		}
 	}
 
 	/* Parse address. */
