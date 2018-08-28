@@ -8,7 +8,7 @@ lightning-fundchannel - Command for establishing a lightning channel.
 
 SYNOPSIS
 --------
-*fundchannel* 'id' 'satoshi' ['feerate' 'feeratestyle']
+*fundchannel* 'id' 'satoshi' ['feerate']
 
 DESCRIPTION
 -----------
@@ -28,9 +28,10 @@ The value cannot be less than the dust limit, currently set to 546, nor more
 than 16777215 satoshi.
 
 'feerate' is an optional feerate to use, overriding lightningd's
-internal estimate.  If specified, 'feeratestyle' must be either
-'"perkw"' for if 'feerate' is in satoshi-per-kilosipa (weight),
-or '"perkb"' for if 'feerate' is in bitcoind-style satoshi-per-kilobyte.
+internal estimate.  'feerate' is a number, with an optional suffix:
+'perkw' means the number is interpreted as satoshi-per-kilosipa
+(weight), and 'perkb' means it is interpreted bitcoind-style as
+satoshi-per-kilobyte.  Omitting the suffix is equivalent to 'perkb'.
 
 RETURN VALUE
 ------------

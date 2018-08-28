@@ -447,36 +447,6 @@ u32 feerate_to_style(u32 feerate_perkw, enum feerate_style style)
 	abort();
 }
 
-/* If we have both feerate and style, use that, otherwise use inbuilt if avail.
- * Return false if we failed command, otherwise fills in feerate_perkw. */
-bool json_feerate_and_style(struct command *cmd,
-			    const u32 *feerate, enum feerate_style *style,
-			    u32 fallback_feerate_per_kw,
-			    u32 *feerate_per_kw)
-{
-	if (feerate) {
-		if (!style) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "'feerate' requires 'feeratestyle'");
-			return false;
-		}
-		*feerate_per_kw = feerate_from_style(*feerate, *style);
-		return true;
-	} else {
-		if (style) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "'feeratestyle' requires 'feerate'");
-			return false;
-		}
-		*feerate_per_kw = fallback_feerate_per_kw;
-		if (!*feerate_per_kw) {
-			command_fail(cmd, LIGHTNINGD, "Cannot estimate fees");
-			return false;
-		}
-		return true;
-	}
-}
-
 static void json_feerates(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
 {

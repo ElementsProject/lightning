@@ -9,7 +9,7 @@ internal wallet.
 
 SYNOPSIS
 --------
-*withdraw* 'destination' 'satoshi' ['feerate' 'feeratestyle']
+*withdraw* 'destination' 'satoshi' ['feerate']
 
 DESCRIPTION
 -----------
@@ -25,9 +25,10 @@ The string 'all' can be used to specify withdrawal of all
 available funds.
 
 'feerate' is an optional feerate to use, overriding lightningd's
-internal estimate.  If specified, 'feeratestyle' must be either
-'"perkw"' for if 'feerate' is in satoshi-per-kilosipa (weight),
-or '"perkb"' for if 'feerate' is in bitcoind-style satoshi-per-kilobyte.
+internal estimate.  'feerate' is a number, with an optional suffix:
+'perkw' means the number is interpreted as satoshi-per-kilosipa
+(weight), and 'perkb' means it is interpreted bitcoind-style as
+satoshi-per-kilobyte.  Omitting the suffix is equivalent to 'perkb'.
 
 RETURN VALUE
 ------------
