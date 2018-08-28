@@ -26,7 +26,6 @@
 #include <channeld/full_channel.h>
 #include <channeld/gen_channel_wire.h>
 #include <common/crypto_sync.h>
-#include <common/derive_basepoints.h>
 #include <common/dev_disconnect.h>
 #include <common/htlc_tx.h>
 #include <common/key_derive.h>
