@@ -40,7 +40,9 @@ The address can be of any Bitcoin accepted type, including bech32\&.
 .sp
 \fIsatoshi\fR is the amount to be withdrawn from the internal wallet (expressed, as name suggests, in satoshi)\&. The string \fIall\fR can be used to specify withdrawal of all available funds\&.
 .sp
-\fIfeerate\fR is an optional feerate to use, overriding lightningd\(cqs internal estimate\&. \fIfeerate\fR is a number, with an optional suffix: \fIperkw\fR means the number is interpreted as satoshi\-per\-kilosipa (weight), and \fIperkb\fR means it is interpreted bitcoind\-style as satoshi\-per\-kilobyte\&. Omitting the suffix is equivalent to \fIperkb\fR\&.
+\fIfeerate\fR is an optional feerate to use\&. It can be one of the strings \fIurgent\fR, \fInormal\fR or \fIslow\fR to use lightningd\(cqs internal estimates: \fInormal\fR is the default\&.
+.sp
+Otherwise, \fIfeerate\fR is a number, with an optional suffix: \fIperkw\fR means the number is interpreted as satoshi\-per\-kilosipa (weight), and \fIperkb\fR means it is interpreted bitcoind\-style as satoshi\-per\-kilobyte\&. Omitting the suffix is equivalent to \fIperkb\fR\&.
 .SH "RETURN VALUE"
 .sp
 On success, an object with attributes \fItx\fR and \fItxid\fR will be returned\&.

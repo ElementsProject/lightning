@@ -40,7 +40,9 @@ The \fBfundchannel\fR RPC command opens a payment channel with a peer by commiti
 .sp
 \fIsatoshi\fR is the amount in satoshis taken from the internal wallet to fund the channel\&. The string \fIall\fR can be used to specify all available funds (or 16777215 satoshi if more is available)\&. The value cannot be less than the dust limit, currently set to 546, nor more than 16777215 satoshi\&.
 .sp
-\fIfeerate\fR is an optional feerate to use, overriding lightningd\(cqs internal estimate\&. \fIfeerate\fR is a number, with an optional suffix: \fIperkw\fR means the number is interpreted as satoshi\-per\-kilosipa (weight), and \fIperkb\fR means it is interpreted bitcoind\-style as satoshi\-per\-kilobyte\&. Omitting the suffix is equivalent to \fIperkb\fR\&.
+\fIfeerate\fR is an optional feerate to use\&. It can be one of the strings \fIurgent\fR, \fInormal\fR or \fIslow\fR to use lightningd\(cqs internal estimates: \fInormal\fR is the default\&.
+.sp
+Otherwise, \fIfeerate\fR is a number, with an optional suffix: \fIperkw\fR means the number is interpreted as satoshi\-per\-kilosipa (weight), and \fIperkb\fR means it is interpreted bitcoind\-style as satoshi\-per\-kilobyte\&. Omitting the suffix is equivalent to \fIperkb\fR\&.
 .SH "RETURN VALUE"
 .sp
 On success, the \fItx\fR and \fItxid\fR of the transaction is returned, as well as the \fIchannel_id\fR of the newly created channel\&. On failure, an error is reported and the channel is not funded\&.

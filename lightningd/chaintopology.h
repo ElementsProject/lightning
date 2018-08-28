@@ -150,6 +150,12 @@ u32 unilateral_feerate(struct chain_topology *topo);
 u32 feerate_from_style(u32 feerate, enum feerate_style style);
 u32 feerate_to_style(u32 feerate_perkw, enum feerate_style style);
 
+const char *feerate_name(enum feerate feerate);
+
+/* Set feerate_per_kw to this estimate, or fail cmd */
+bool json_feerate_estimate(struct command *cmd,
+			   u32 **feerate_per_kw, enum feerate feerate);
+
 /* Broadcast a single tx, and rebroadcast as reqd (copies tx).
  * If failed is non-NULL, call that and don't rebroadcast. */
 void broadcast_tx(struct chain_topology *topo,

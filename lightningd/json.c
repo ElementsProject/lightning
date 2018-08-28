@@ -266,6 +266,11 @@ bool json_tok_feerate(struct command *cmd, const char *name,
 	enum feerate_style style;
 	unsigned int num;
 
+	for (size_t i = 0; i < NUM_FEERATES; i++) {
+		if (json_tok_streq(buffer, tok, feerate_name(i)))
+			return json_feerate_estimate(cmd, feerate, i);
+	}
+
 	/* We have to split the number and suffix. */
 	suffix.start = suffix.end;
 	while (suffix.start > base.start && !isdigit(buffer[suffix.start-1])) {

@@ -27,8 +27,11 @@ The string 'all' can be used to specify all available funds (or 16777215 satoshi
 The value cannot be less than the dust limit, currently set to 546, nor more
 than 16777215 satoshi.
 
-'feerate' is an optional feerate to use, overriding lightningd's
-internal estimate.  'feerate' is a number, with an optional suffix:
+'feerate' is an optional feerate to use.  It can be one of the strings
+'urgent', 'normal' or 'slow' to use lightningd's internal estimates:
+'normal' is the default.
+
+Otherwise, 'feerate' is a number, with an optional suffix:
 'perkw' means the number is interpreted as satoshi-per-kilosipa
 (weight), and 'perkb' means it is interpreted bitcoind-style as
 satoshi-per-kilobyte.  Omitting the suffix is equivalent to 'perkb'.
