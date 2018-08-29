@@ -17,9 +17,9 @@ struct json_escaped *json_partial_escape(const tal_t *ctx,
 					 const char *str TAKES);
 
 /* Extract a JSON-escaped string. */
-struct json_escaped *json_tok_escaped_string(const tal_t *ctx,
-					     const char *buffer,
-					     const jsmntok_t *tok);
+struct json_escaped *json_to_escaped_string(const tal_t *ctx,
+					    const char *buffer,
+					    const jsmntok_t *tok);
 
 /* Are two escaped json strings identical? */
 bool json_escaped_eq(const struct json_escaped *a,

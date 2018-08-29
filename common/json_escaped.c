@@ -13,9 +13,9 @@ struct json_escaped *json_escaped_string_(const tal_t *ctx,
 	return esc;
 }
 
-struct json_escaped *json_tok_escaped_string(const tal_t *ctx,
-					     const char *buffer,
-					     const jsmntok_t *tok)
+struct json_escaped *json_to_escaped_string(const tal_t *ctx,
+					    const char *buffer,
+					    const jsmntok_t *tok)
 {
 	if (tok->type != JSMN_STRING)
 		return NULL;
