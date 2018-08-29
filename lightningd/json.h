@@ -16,6 +16,7 @@
 struct bitcoin_txid;
 struct channel_id;
 struct command;
+struct json_escaped;
 struct json_result;
 struct pubkey;
 struct route_hop;
@@ -52,6 +53,11 @@ bool json_tok_bool(struct command *cmd, const char *name,
 bool json_tok_double(struct command *cmd, const char *name,
 		     const char *buffer, const jsmntok_t *tok,
 		     double **num);
+
+/* Extract a label. It is either an escaped string or a number. */
+bool json_tok_label(struct command *cmd, const char *name,
+		    const char * buffer, const jsmntok_t *tok,
+		    struct json_escaped **label);
 
 /* Extract number from this (may be a string, or a number literal) */
 bool json_tok_number(struct command *cmd, const char *name,
