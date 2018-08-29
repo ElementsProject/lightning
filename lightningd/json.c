@@ -129,11 +129,28 @@ bool json_tok_double(struct command *cmd, const char *name,
 	return false;
 }
 
+bool json_tok_escaped_string(struct command *cmd, const char *name,
+			     const char * buffer, const jsmntok_t *tok,
+			     const char **str)
+{
+	struct json_escaped *esc = json_to_escaped_string(cmd, buffer, tok);
+	if (esc)
+		if ((*str = json_escaped_unescape(cmd, esc)))
+			return true;
+
+	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		     "'%s' should be a string, not '%.*s'"
+		     " (note, we don't allow \\u)",
+		     name,
+		     tok->end - tok->start, buffer + tok->start);
+	return false;
+}
+
 bool json_tok_label(struct command *cmd, const char *name,
 		    const char * buffer, const jsmntok_t *tok,
 		    struct json_escaped **label)
 {
-	if ((*label = json_tok_escaped_string(cmd, buffer, tok)))
+	if ((*label = json_to_escaped_string(cmd, buffer, tok)))
 		return true;
 
 	/* Allow literal numbers */

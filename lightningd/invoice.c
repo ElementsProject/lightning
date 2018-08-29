@@ -131,10 +131,10 @@ static void json_invoice(struct command *cmd,
 {
 	struct invoice invoice;
 	const struct invoice_details *details;
-	const jsmntok_t *desctok, *fallbacks;
+	const jsmntok_t *fallbacks;
 	const jsmntok_t *preimagetok;
 	u64 *msatoshi_val;
-	struct json_escaped *label_val, *desc;
+	struct json_escaped *label_val;
 	const char *desc_val;
 	struct json_result *response = new_json_result(cmd);
 	struct wallet *wallet = cmd->ld->wallet;
@@ -147,7 +147,7 @@ static void json_invoice(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_req("msatoshi", json_tok_msat, &msatoshi_val),
 		   p_req("label", json_tok_label, &label_val),
-		   p_req("description", json_tok_tok, &desctok),
+		   p_req("description", json_tok_escaped_string, &desc_val),
 		   p_opt_def("expiry", json_tok_u64, &expiry, 3600),
 		   p_opt("fallbacks", json_tok_tok, &fallbacks),
 		   p_opt("preimage", json_tok_tok, &preimagetok),
@@ -166,23 +166,6 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 
-	desc = json_tok_escaped_string(cmd, buffer, desctok);
-	if (!desc) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "description '%.*s' not a string",
-			     desctok->end - desctok->start,
-			     buffer + desctok->start);
-		return;
-	}
-	desc_val = json_escaped_unescape(cmd, desc);
-	if (!desc_val) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "description '%s' is invalid"
-			     " (note: we don't allow \\u)",
-			     desc->s);
-		return;
-	}
-	/* description */
 	if (strlen(desc_val) >= BOLT11_FIELD_BYTE_LIMIT) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "Descriptions greater than %d bytes "

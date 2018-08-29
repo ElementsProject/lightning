@@ -54,6 +54,11 @@ bool json_tok_double(struct command *cmd, const char *name,
 		     const char *buffer, const jsmntok_t *tok,
 		     double **num);
 
+/* Extract an escaped string (and unescape it) */
+bool json_tok_escaped_string(struct command *cmd, const char *name,
+			     const char * buffer, const jsmntok_t *tok,
+			     const char **str);
+
 /* Extract a label. It is either an escaped string or a number. */
 bool json_tok_label(struct command *cmd, const char *name,
 		    const char * buffer, const jsmntok_t *tok,
