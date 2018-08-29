@@ -403,38 +403,6 @@ static void sendpay_nulltok(void)
 	assert(msatoshi == NULL);
 }
 
-/*
- * New version of json_tok_label conforming to advanced style. This can eventually
- * replace the existing json_tok_label.
- */
-static bool json_tok_label_x(struct command *cmd,
-			     const char *name,
-			     const char *buffer,
-			     const jsmntok_t *tok,
-			     struct json_escaped **label)
-{
-	if ((*label = json_tok_escaped_string(cmd, buffer, tok)))
-		return true;
-
-	/* Allow literal numbers */
-	if (tok->type != JSMN_PRIMITIVE)
-		goto fail;
-
-	for (int i = tok->start; i < tok->end; i++)
-		if (!cisdigit(buffer[i]))
-			goto fail;
-
-	if ((*label = json_escaped_string_(cmd, buffer + tok->start,
-					   tok->end - tok->start)))
-		return true;
-
-fail:
-	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-		     "'%s' should be a string or number, not '%.*s'",
-		     name, tok->end - tok->start, buffer + tok->start);
-	return false;
-}
-
 static void advanced(void)
 {
 	{
@@ -446,7 +414,7 @@ static void advanced(void)
 		const jsmntok_t *tok;
 
 		assert(param(cmd, j->buffer, j->toks,
-			     p_req("description", json_tok_label_x, &label),
+			     p_req("description", json_tok_label, &label),
 			     p_req("msat", json_tok_msat, &msat),
 			     p_req("tok", json_tok_tok, &tok),
 			     p_opt("msat_opt1", json_tok_msat, &msat_opt1),
@@ -464,8 +432,8 @@ static void advanced(void)
 		struct json *j = json_parse(cmd, "[ 3 'foo' ]");
 		struct json_escaped *label, *foo;
 		assert(param(cmd, j->buffer, j->toks,
-			      p_req("label", json_tok_label_x, &label),
-			      p_opt("foo", json_tok_label_x, &foo),
+			      p_req("label", json_tok_label, &label),
+			      p_opt("foo", json_tok_label, &foo),
 			      NULL));
 		assert(!strcmp(label->s, "3"));
 		assert(!strcmp(foo->s, "foo"));

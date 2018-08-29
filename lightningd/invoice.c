@@ -102,26 +102,6 @@ static bool hsm_sign_b11(const u5 *u5bytes,
 	return true;
 }
 
-static bool json_tok_label(struct command *cmd, const char *name,
-			   const char * buffer, const jsmntok_t *tok,
-			   struct json_escaped **label)
-{
-
-	if ((*label = json_tok_escaped_string(cmd, buffer, tok)))
-		return true;
-
-	/* Allow literal numbers */
-	if (json_tok_is_num(buffer, tok) &&
-		((*label = json_escaped_string_(cmd, buffer + tok->start,
-						tok->end - tok->start))))
-		return true;
-
-	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-		     "'%s' should be a string or number, not '%.*s'",
-		     name, tok->end - tok->start, buffer + tok->start);
-	return false;
-}
-
 static bool parse_fallback(struct command *cmd,
 			   const char *buffer, const jsmntok_t *fallback,
 			   const u8 **fallback_script)
