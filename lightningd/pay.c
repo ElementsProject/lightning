@@ -954,20 +954,12 @@ static void json_sendpay(struct command *cmd,
 	const char *description;
 
 	if (!param(cmd, buffer, params,
-		   p_req("route", json_tok_tok, &routetok),
+		   p_req("route", json_tok_array, &routetok),
 		   p_req("payment_hash", json_tok_sha256, &rhash),
 		   p_opt("description", json_tok_escaped_string, &description),
 		   p_opt("msatoshi", json_tok_u64, &msatoshi),
 		   NULL))
 		return;
-
-	if (routetok->type != JSMN_ARRAY) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%.*s' is not an array",
-			     routetok->end - routetok->start,
-			     buffer + routetok->start);
-		return;
-	}
 
 	end = json_next(routetok);
 	n_hops = 0;
