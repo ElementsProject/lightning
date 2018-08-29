@@ -29,11 +29,20 @@ class ProxiedBitcoinD(BitcoinD):
         self.app = Flask("BitcoindProxy")
         self.app.add_url_rule("/", "API entrypoint", self.proxy, methods=['POST'])
         self.proxyport = proxyport
+        self.mocks = {}
 
     def proxy(self):
         r = json.loads(request.data.decode('ASCII'))
         conf_file = os.path.join(self.bitcoin_dir, 'bitcoin.conf')
         brpc = BitcoinProxy(btc_conf_file=conf_file)
+        method = r['method']
+
+        # If we have set a mock for this method reply with that instead of
+        # forwarding the request.
+        if method in self.mocks and type(method) == dict:
+            return self.mocks[method]
+        elif method in self.mocks and callable(self.mocks[method]):
+            return self.mocks[method](r)
 
         try:
             reply = {
@@ -71,6 +80,19 @@ class ProxiedBitcoinD(BitcoinD):
         BitcoinD.stop(self)
         self.server.stop()
         self.proxy_thread.join()
+
+    def mock_rpc(self, method, response=None):
+        """Mock the response to a future RPC call of @method
+
+        The response can either be a dict with the full JSON-RPC response, or a
+        function that returns such a response. If the response is None the mock
+        is removed and future calls will be passed through to bitcoind again.
+
+        """
+        if response is not None:
+            self.mocks[method] = response
+        elif method in self.mocks:
+            del self.mocks[method]
 
 
 # The main entrypoint is mainly used to test the proxy. It is not used during
