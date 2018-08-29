@@ -159,6 +159,15 @@ bool json_tok_escaped_string(struct command *cmd, const char *name,
 	return false;
 }
 
+bool json_tok_string(struct command *cmd, const char *name,
+		     const char * buffer, const jsmntok_t *tok,
+		     const char **str)
+{
+	*str = tal_strndup(cmd, buffer + tok->start,
+			   tok->end - tok->start);
+	return true;
+}
+
 bool json_tok_label(struct command *cmd, const char *name,
 		    const char * buffer, const jsmntok_t *tok,
 		    struct json_escaped **label)

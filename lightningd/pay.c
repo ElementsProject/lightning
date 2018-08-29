@@ -1061,28 +1061,27 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 {
 	const struct wallet_payment **payments;
 	struct json_result *response = new_json_result(cmd);
-	const jsmntok_t *bolt11tok, *rhashtok;
+	const jsmntok_t *rhashtok;
 	struct sha256 *rhash = NULL;
+	const char *b11str;
 
 	if (!param(cmd, buffer, params,
-		   p_opt("bolt11", json_tok_tok, &bolt11tok),
+		   p_opt("bolt11", json_tok_string, &b11str),
 		   p_opt("payment_hash", json_tok_tok, &rhashtok),
 		   NULL))
 		return;
 
-	if (rhashtok && bolt11tok) {
+	if (rhashtok && b11str) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "Can only specify one of"
 			     " {bolt11} or {payment_hash}");
 		return;
 	}
 
-	if (bolt11tok) {
+	if (b11str) {
 		struct bolt11 *b11;
-		char *b11str, *fail;
+		char *fail;
 
-		b11str = tal_strndup(cmd, buffer + bolt11tok->start,
-				     bolt11tok->end - bolt11tok->start);
 		b11 = bolt11_decode(cmd, b11str, NULL, &fail);
 		if (!b11) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
