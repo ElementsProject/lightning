@@ -149,7 +149,7 @@ static void json_invoice(struct command *cmd,
 		   p_req("label", json_tok_label, &label_val),
 		   p_req("description", json_tok_escaped_string, &desc_val),
 		   p_opt_def("expiry", json_tok_u64, &expiry, 3600),
-		   p_opt("fallbacks", json_tok_tok, &fallbacks),
+		   p_opt("fallbacks", json_tok_array, &fallbacks),
 		   p_opt("preimage", json_tok_tok, &preimagetok),
 		   NULL))
 		return;
@@ -180,11 +180,6 @@ static void json_invoice(struct command *cmd,
 		const jsmntok_t *i, *end = json_next(fallbacks);
 		size_t n = 0;
 
-		if (fallbacks->type != JSMN_ARRAY) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "fallback must be an array");
-			return;
-		}
 		fallback_scripts = tal_arr(cmd, const u8 *, n);
 		for (i = fallbacks + 1; i < end; i = json_next(i)) {
 			tal_resize(&fallback_scripts, n+1);

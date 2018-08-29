@@ -431,17 +431,9 @@ static void json_dev_query_scids(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", json_tok_pubkey, &id),
-		   p_req("scids", json_tok_tok, &scidstok),
+		   p_req("scids", json_tok_array, &scidstok),
 		   NULL))
 		return;
-
-	if (scidstok->type != JSMN_ARRAY) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%.*s' is not an array",
-			     scidstok->end - scidstok->start,
-			     buffer + scidstok->start);
-		return;
-	}
 
 	scids = tal_arr(cmd, struct short_channel_id, scidstok->size);
 	end = json_next(scidstok);

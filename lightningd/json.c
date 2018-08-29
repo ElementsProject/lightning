@@ -92,6 +92,19 @@ void json_add_txid(struct json_result *result, const char *fieldname,
 	json_add_string(result, fieldname, hex);
 }
 
+bool json_tok_array(struct command *cmd, const char *name,
+		    const char *buffer, const jsmntok_t *tok,
+		    const jsmntok_t **arr)
+{
+	if (tok->type == JSMN_ARRAY)
+		return (*arr = tok);
+
+	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		     "'%s' should be an array, not '%.*s'",
+		     name, tok->end - tok->start, buffer + tok->start);
+	return false;
+}
+
 bool json_tok_bool(struct command *cmd, const char *name,
 		   const char *buffer, const jsmntok_t *tok,
 		   bool **b)
