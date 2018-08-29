@@ -1142,6 +1142,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
     # Make sure we clean up cahnnel for later attempt.
     l1.daemon.wait_for_log('sendrawtx exit 0')
     l1.rpc.dev_fail(l2.info['id'])
+    l1.daemon.wait_for_log('Failing due to dev-fail command')
     l1.daemon.wait_for_log('sendrawtx exit 0')
     bitcoind.generate_block(6)
     wait_for(lambda: only_one(l1.rpc.getpeer(l2.info['id'])['channels'])['state'] == 'ONCHAIN')
@@ -1163,14 +1164,14 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
     l2.fund_channel(l1, 10**6)
     l2.pay(l1, 10**9 // 2)
     l1.rpc.dev_fail(l2.info['id'])
+    l1.daemon.wait_for_log('Failing due to dev-fail command')
     l1.daemon.wait_for_log('sendrawtx exit 0')
     bitcoind.generate_block(5)
     l1.daemon.wait_for_log('sendrawtx exit 0')
     bitcoind.generate_block(100)
 
-    # Restart estimatesmartfee, wait for it to pass 5000
+    # Start estimatesmartfee.
     l1.set_feerates((15000, 7500, 3750), True)
-    l1.daemon.wait_for_log('Feerate estimate for normal set to [567][0-9]{3}')
 
     # Can now fund a channel (as a test, use slow feerate).
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
