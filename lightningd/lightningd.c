@@ -475,6 +475,9 @@ int main(int argc, char *argv[])
 	close(pid_fd);
 	remove(ld->pidfile);
 
+	/* FIXME: pay can have children off tmpctx which unlink from
+	 * ld->payments, so clean that up. */
+	clean_tmpctx();
 	tal_free(ld);
 	opt_free_table();
 
