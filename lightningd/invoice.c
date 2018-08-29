@@ -325,7 +325,6 @@ static void json_delinvoice(struct command *cmd,
 {
 	struct invoice i;
 	const struct invoice_details *details;
-	const jsmntok_t *statustok;
 	struct json_result *response = new_json_result(cmd);
 	const char *status, *actual_status;
 	struct json_escaped *label;
@@ -333,7 +332,7 @@ static void json_delinvoice(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("label", json_tok_label, &label),
-		   p_req("status", json_tok_tok, &statustok),
+		   p_req("status", json_tok_string, &status),
 		   NULL))
 		return;
 
@@ -344,8 +343,6 @@ static void json_delinvoice(struct command *cmd,
 
 	details = wallet_invoice_details(cmd, cmd->ld->wallet, i);
 
-	status = tal_strndup(cmd, buffer + statustok->start,
-			     statustok->end - statustok->start);
 	/* This is time-sensitive, so only call once; otherwise error msg
 	 * might not make sense if it changed! */
 	actual_status = invoice_status_str(details);
@@ -543,25 +540,16 @@ static void json_add_fallback(struct json_result *response,
 static void json_decodepay(struct command *cmd,
                            const char *buffer, const jsmntok_t *params)
 {
-	const jsmntok_t *bolt11tok, *desctok;
 	struct bolt11 *b11;
 	struct json_result *response;
-        char *str, *desc, *fail;
+        const char *str, *desc;
+        char *fail;
 
 	if (!param(cmd, buffer, params,
-		   p_req("bolt11", json_tok_tok, &bolt11tok),
-		   p_opt("description", json_tok_tok, &desctok),
+		   p_req("bolt11", json_tok_string, &str),
+		   p_opt("description", json_tok_string, &desc),
 		   NULL))
 		return;
-
-        str = tal_strndup(cmd, buffer + bolt11tok->start,
-                          bolt11tok->end - bolt11tok->start);
-
-        if (desctok)
-                desc = tal_strndup(cmd, buffer + desctok->start,
-                                   desctok->end - desctok->start);
-        else
-                desc = NULL;
 
 	b11 = bolt11_decode(cmd, str, desc, &fail);
 

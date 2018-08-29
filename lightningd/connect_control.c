@@ -74,7 +74,6 @@ static void connect_cmd_succeed(struct command *cmd, const struct pubkey *id)
 static void json_connect(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
-	const jsmntok_t *hosttok;
 	u32 *port;
 	jsmntok_t *idtok;
 	struct pubkey id;
@@ -89,7 +88,7 @@ static void json_connect(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", json_tok_tok, (const jsmntok_t **) &idtok),
-		   p_opt("host", json_tok_tok, &hosttok),
+		   p_opt("host", json_tok_string, &name),
 		   p_opt("port", json_tok_number, &port),
 		   NULL))
 		return;
@@ -113,7 +112,7 @@ static void json_connect(struct command *cmd,
 		return;
 	}
 
-	if (hosttok && ataddr) {
+	if (name && ataddr) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "Can't specify host as both xxx@yyy "
 			     "and separate argument");
@@ -121,13 +120,8 @@ static void json_connect(struct command *cmd,
 	}
 
 	/* Get parseable host if provided somehow */
-	if (hosttok)
-		name = tal_strndup(cmd, buffer + hosttok->start,
-				   hosttok->end - hosttok->start);
-	else if (ataddr)
+	if (!name && ataddr)
 		name = ataddr;
-	else
-		name = NULL;
 
 	/* Port without host name? */
 	if (port && !name) {
