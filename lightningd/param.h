@@ -2,26 +2,33 @@
 #define LIGHTNING_LIGHTNINGD_PARAM_H
 #include "config.h"
 
-/*
-  Typesafe callback system for unmarshalling and validating json parameters.
-
-  Typical usage:
-	unsigned *cltv;
-	u64 *msatoshi;
-	const jsmntok_t *note;
-	u64 *expiry;
-
-	if (!param(cmd, buffer, params,
-		   p_req("cltv", json_tok_number, &cltv),
-		   p_opt("msatoshi", json_tok_u64, &msatoshi),
-		   p_opt_tok("note", &note),
-		   p_opt_def("expiry", json_tok_u64, &expiry, 3600),
-		   NULL))
-		return;
-
-  See json_invoice() for a good example.  The common callbacks can be found in
-  lightningd/json.c.  Use them as an example for writing your own custom
-  callbacks.
+/*~ Greetings adventurer!
+ *
+ * Do you want to automatically validate json input and unmarshall it into
+ * local variables, all using typesafe callbacks?  And on error,
+ * call command_fail with a proper error message? Then you've come to the
+ * right place!
+ *
+ * Here is a simple example of using the system:
+ *
+ * 	unsigned *cltv;
+ * 	u64 *msatoshi;
+ * 	const jsmntok_t *note;
+ * 	u64 *expiry;
+ *
+ * 	if (!param(cmd, buffer, params,
+ * 		   p_req("cltv", json_tok_number, &cltv),
+ * 		   p_opt("msatoshi", json_tok_u64, &msatoshi),
+ * 		   p_opt("note", json_tok_tok, &note),
+ * 		   p_opt_def("expiry", json_tok_u64, &expiry, 3600),
+ * 		   NULL))
+ * 		return;
+ *
+ * If param() returns true then you're good to go.
+ *
+ * All the command handlers throughout the code use this system.
+ * json_invoice() is a great example.  The common callbacks can be found in
+ * lightningd/json.c.  Use them directly or feel free to write your own.
  */
 
 /*
