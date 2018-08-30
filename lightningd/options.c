@@ -356,7 +356,8 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_early_arg("--network", opt_set_network, opt_show_network,
 			       ld,
 			       "Select the network parameters (bitcoin, testnet,"
-			       " regtest, litecoin or litecoin-testnet)");
+			       " regtest, litecoin, litecoin-testnet, litecoin-regtest,"
+				   " groestlcoin, groestlcoin-testnet or groestlcoin-regtest)");
 	opt_register_early_noarg("--testnet", opt_set_testnet, ld,
 				 "Alias for --network=testnet");
 	opt_register_early_noarg("--mainnet", opt_set_mainnet, ld,
