@@ -11,6 +11,8 @@
 /**
  * gossip_store -- On-disk storage related information
  */
+#define GOSSIP_STORE_VERSION 2
+
 struct gossip_store;
 struct routing_state;
 
