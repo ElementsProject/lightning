@@ -31,8 +31,7 @@ class ProxiedBitcoinD(BitcoinD):
         self.proxyport = proxyport
         self.mocks = {}
 
-    def proxy(self):
-        r = json.loads(request.data.decode('ASCII'))
+    def _handle_request(self, r):
         conf_file = os.path.join(self.bitcoin_dir, 'bitcoin.conf')
         brpc = BitcoinProxy(btc_conf_file=conf_file)
         method = r['method']
@@ -55,6 +54,16 @@ class ProxiedBitcoinD(BitcoinD):
                 "error": e.error,
                 "id": r['id']
             }
+        return reply
+
+    def proxy(self):
+        r = json.loads(request.data.decode('ASCII'))
+
+        if isinstance(r, list):
+            reply = [self._handle_request(subreq) for subreq in r]
+        else:
+            reply = self._handle_request(subreq)
+
         return json.dumps(reply, cls=DecimalEncoder)
 
     def start(self):
