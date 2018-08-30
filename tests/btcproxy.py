@@ -8,6 +8,7 @@ from cheroot.wsgi import Server
 from cheroot.wsgi import PathInfoDispatcher
 
 import decimal
+import flask
 import json
 import logging
 import os
@@ -62,9 +63,11 @@ class ProxiedBitcoinD(BitcoinD):
         if isinstance(r, list):
             reply = [self._handle_request(subreq) for subreq in r]
         else:
-            reply = self._handle_request(subreq)
+            reply = self._handle_request(r)
 
-        return json.dumps(reply, cls=DecimalEncoder)
+        response = flask.Response(json.dumps(reply, cls=DecimalEncoder))
+        response.headers['Content-Type'] = 'application/json'
+        return response
 
     def start(self):
         d = PathInfoDispatcher({'/': self.app})
