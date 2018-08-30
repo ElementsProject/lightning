@@ -55,6 +55,18 @@ RUN mkdir /opt/litecoin && cd /opt/litecoin \
     && tar -xzvf litecoin.tar.gz $BD/litecoin-cli --strip-components=1 --exclude=*-qt \
     && rm litecoin.tar.gz
 
+ENV GROESTLCOIN_VERSION 2.16.0
+ENV GROESTLCOIN_URL https://github.com/Groestlcoin/groestlcoin/releases/download/v2.16.0/groestlcoin-2.16.0-x86_64-linux-gnu.tar.gz
+ENV GROESTLCOIN_SHA256 4e7683bbc6f3b7899761d1360f52a91f417e2b7e6c56b75b522d95b86ca46628
+
+# install groestlcoin binaries
+RUN mkdir /opt/groestlcoin && cd /opt/groestlcoin \
+    && wget -qO groestlcoin.tar.gz "$GROESTLCOIN_URL" \
+    && echo "$GROESTLCOIN_SHA256  groestlcoin.tar.gz" | sha256sum -c - \
+    && BD=groestlcoin-$GROESTLCOIN_VERSION/bin \
+    && tar -xzvf groestlcoin.tar.gz $BD/groestlcoin-cli --strip-components=1 --exclude=*-qt \
+    && rm groestlcoin.tar.gz
+
 ENV LIGHTNINGD_VERSION=master
 
 WORKDIR /opt/lightningd
@@ -98,6 +110,7 @@ COPY --from=builder /opt/lightningd/cli/lightning-cli /usr/bin
 COPY --from=builder /opt/lightningd/lightningd/lightning* /usr/bin/
 COPY --from=builder /opt/bitcoin/bin /usr/bin
 COPY --from=builder /opt/litecoin/bin /usr/bin
+COPY --from=builder /opt/groestlcoin/bin /usr/bin
 COPY tools/docker-entrypoint.sh entrypoint.sh
 
 EXPOSE 9735 9835
