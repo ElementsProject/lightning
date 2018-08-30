@@ -1061,17 +1061,16 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 {
 	const struct wallet_payment **payments;
 	struct json_result *response = new_json_result(cmd);
-	const jsmntok_t *rhashtok;
-	struct sha256 *rhash = NULL;
+	struct sha256 *rhash;
 	const char *b11str;
 
 	if (!param(cmd, buffer, params,
 		   p_opt("bolt11", json_tok_string, &b11str),
-		   p_opt("payment_hash", json_tok_tok, &rhashtok),
+		   p_opt("payment_hash", json_tok_sha256, &rhash),
 		   NULL))
 		return;
 
-	if (rhashtok && b11str) {
+	if (rhash && b11str) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "Can only specify one of"
 			     " {bolt11} or {payment_hash}");
@@ -1089,17 +1088,6 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 			return;
 		}
 		rhash = &b11->payment_hash;
-	} else if (rhashtok) {
-		rhash = tal(cmd, struct sha256);
-		if (!hex_decode(buffer + rhashtok->start,
-				rhashtok->end - rhashtok->start,
-				rhash, sizeof(*rhash))) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "'%.*s' is not a valid sha256 hash",
-				     rhashtok->end - rhashtok->start,
-				     buffer + rhashtok->start);
-			return;
-		}
 	}
 
 	payments = wallet_payment_list(cmd, cmd->ld->wallet, rhash);
