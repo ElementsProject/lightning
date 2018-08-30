@@ -1,3 +1,4 @@
 bolt11-cli
 decodemsg
 onion
+dump-gossipstore

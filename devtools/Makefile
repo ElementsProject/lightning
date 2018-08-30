@@ -1,6 +1,6 @@
 DEVTOOLS_SRC := devtools/gen_print_wire.c devtools/gen_print_onion_wire.c devtools/print_wire.c
 DEVTOOLS_OBJS := $(DEVTOOLS_SRC:.c=.o)
-DEVTOOLS_TOOL_SRC := devtools/bolt11-cli.c devtools/decodemsg.c devtools/onion.c
+DEVTOOLS_TOOL_SRC := devtools/bolt11-cli.c devtools/decodemsg.c devtools/onion.c devtools/dump-gossipstore.c
 DEVTOOLS_TOOL_OBJS := $(DEVTOOLS_TOOL_SRC:.c=.o)
 
 DEVTOOLS_COMMON_OBJS :=				\
@@ -15,7 +15,7 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/version.o			\
 	common/wireaddr.o
 
-devtools-all: devtools/bolt11-cli devtools/decodemsg devtools/onion
+devtools-all: devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore
 
 devtools/gen_print_wire.h: $(WIRE_GEN) wire/gen_peer_wire_csv
 	$(WIRE_GEN) --bolt --printwire --header $@ wire_type < wire/gen_peer_wire_csv > $@
@@ -33,6 +33,9 @@ devtools/bolt11-cli: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCA
 
 devtools/decodemsg: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/decodemsg.o
 
+devtools/dump-gossipstore: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/dump-gossipstore.o gossipd/gen_gossip_store.o
+
+devtools/dump-gossipstore.o: gossipd/gen_gossip_store.h
 devtools/onion.c: ccan/config.h
 
 devtools/onion: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/onion.o common/sphinx.o
@@ -42,7 +45,7 @@ devtools/gen_print_wire.o: devtools/gen_print_wire.h wire/gen_peer_wire.h devtoo
 devtools/gen_print_onion_wire.o: devtools/gen_print_onion_wire.h devtools/print_wire.h
 
 # Make sure these depend on everything.
-ALL_PROGRAMS += devtools/bolt11-cli devtools/decodemsg devtools/onion
+ALL_PROGRAMS += devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore
 ALL_OBJS += $(DEVTOOLS_OBJS) $(DEVTOOLS_TOOL_OBJS)
 
 check-source: $(DEVTOOLS_SRC:%=check-src-include-order/%) $(DEVTOOLS_TOOLS_SRC:%=check-src-include-order/%)

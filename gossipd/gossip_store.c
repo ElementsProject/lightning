@@ -16,7 +16,6 @@
 
 #define GOSSIP_STORE_FILENAME "gossip_store"
 #define GOSSIP_STORE_TEMP_FILENAME "gossip_store.tmp"
-static u8 gossip_store_version = 0x02;
 
 struct gossip_store {
 	int fd;
@@ -62,17 +61,17 @@ struct gossip_store *gossip_store_new(const tal_t *ctx,
 	if (read(gs->fd, &gs->version, sizeof(gs->version))
 	    == sizeof(gs->version)) {
 		/* Version match?  All good */
-		if (gs->version == gossip_store_version)
+		if (gs->version == GOSSIP_STORE_VERSION)
 			return gs;
 
 		status_unusual("Gossip store version %u not %u: removing",
-			       gs->version, gossip_store_version);
+			       gs->version, GOSSIP_STORE_VERSION);
 		if (ftruncate(gs->fd, 0) != 0)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Truncating store: %s", strerror(errno));
 	}
 	/* Empty file, write version byte */
-	gs->version = gossip_store_version;
+	gs->version = GOSSIP_STORE_VERSION;
 	if (write(gs->fd, &gs->version, sizeof(gs->version))
 	    != sizeof(gs->version))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -177,8 +176,8 @@ static void gossip_store_compact(struct gossip_store *gs)
 		goto disable;
 	}
 
-	if (write(fd, &gossip_store_version, sizeof(gossip_store_version))
-	    != sizeof(gossip_store_version)) {
+	if (write(fd, &gs->version, sizeof(gs->version))
+	    != sizeof(gs->version)) {
 		status_broken("Writing version to store: %s", strerror(errno));
 		goto unlink_disable;
 	}
