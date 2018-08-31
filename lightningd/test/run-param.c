@@ -466,6 +466,36 @@ static void advanced_fail(void)
 	}
 }
 
+#define test_cb(cb, T, json_, value, pass) \
+{ \
+	struct json *j = json_parse(cmd, json_); \
+	T *v; \
+	bool ret = cb(cmd, "name", j->buffer, j->toks + 1, &v); \
+	assert(ret == pass); \
+	if (ret) { \
+		assert(v); \
+		assert(*v == value); \
+	} \
+}
+
+static void json_tok_tests(void)
+{
+	test_cb(json_tok_bool, bool, "[ true ]", true, true);
+	test_cb(json_tok_bool, bool, "[ false ]", false, true);
+	test_cb(json_tok_bool, bool, "[ tru ]", false, false);
+	test_cb(json_tok_bool, bool, "[ 1 ]", false, false);
+
+	test_cb(json_tok_percent, double, "[ -0.01 ]", 0, false);
+	test_cb(json_tok_percent, double, "[ 0.00 ]", 0, true);
+	test_cb(json_tok_percent, double, "[ 1 ]", 1, true);
+	test_cb(json_tok_percent, double, "[ 1.1 ]", 1.1, true);
+	test_cb(json_tok_percent, double, "[ 1.01 ]", 1.01, true);
+	test_cb(json_tok_percent, double, "[ 99.99 ]", 99.99, true);
+	test_cb(json_tok_percent, double, "[ 100.0 ]", 100, true);
+	test_cb(json_tok_percent, double, "[ 100.001 ]", 0, false);
+	test_cb(json_tok_percent, double, "[ 1000 ]", 0, false);
+	test_cb(json_tok_percent, double, "[ 'wow' ]", 0, false);
+}
 
 int main(void)
 {
@@ -487,6 +517,7 @@ int main(void)
 	sendpay_nulltok();
 	advanced();
 	advanced_fail();
+	json_tok_tests();
 	tal_free(tmpctx);
 	printf("run-params ok\n");
 }
