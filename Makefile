@@ -307,7 +307,7 @@ ncc: external/libwally-core/src/libwallycore.la
 
 # Ignore test/ directories.
 TAGS: FORCE
-	$(RM) TAGS; find * -name test -type d -prune -o -name '*.[ch]' -print | xargs etags --append
+	$(RM) TAGS; find * -name test -type d -prune -o -name '*.[ch]' -print -o -name '*.py' -print | xargs etags --append
 FORCE::
 
 ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDUMP_OBJS) $(CCAN_OBJS)
