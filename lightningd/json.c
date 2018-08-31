@@ -111,13 +111,11 @@ bool json_tok_bool(struct command *cmd, const char *name,
 {
 	*b = tal(cmd, bool);
 	if (tok->type == JSMN_PRIMITIVE) {
-		if (tok->end - tok->start == strlen("true")
-		    && memeqstr(buffer + tok->start, strlen("true"), "true")) {
+		if (memeqstr(buffer + tok->start, tok->end - tok->start, "true")) {
 			**b = true;
 			return true;
 		}
-		if (tok->end - tok->start == strlen("false")
-		    && memeqstr(buffer + tok->start, strlen("false"), "false")) {
+		if (memeqstr(buffer + tok->start, tok->end - tok->start, "false")) {
 			**b = false;
 			return true;
 		}
@@ -147,10 +145,11 @@ bool json_tok_escaped_string(struct command *cmd, const char *name,
 			     const char **str)
 {
 	struct json_escaped *esc = json_to_escaped_string(cmd, buffer, tok);
-	if (esc)
-		if ((*str = json_escaped_unescape(cmd, esc)))
+	if (esc) {
+		*str = json_escaped_unescape(cmd, esc);
+		if (*str)
 			return true;
-
+	}
 	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 		     "'%s' should be a string, not '%.*s'"
 		     " (note, we don't allow \\u)",
@@ -172,14 +171,10 @@ bool json_tok_label(struct command *cmd, const char *name,
 		    const char * buffer, const jsmntok_t *tok,
 		    struct json_escaped **label)
 {
-	if ((*label = json_to_escaped_string(cmd, buffer, tok)))
-		return true;
-
-	/* Allow literal numbers */
-	if (json_tok_is_num(buffer, tok) &&
-		((*label = json_escaped_string_(cmd, buffer + tok->start,
-						tok->end - tok->start))))
-		return true;
+	/* We accept both strings and number literals here. */
+	*label = json_escaped_string_(cmd, buffer + tok->start, tok->end - tok->start);
+	if (*label && (tok->type == JSMN_STRING || json_tok_is_num(buffer, tok)))
+		    return true;
 
 	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 		     "'%s' should be a string or number, not '%.*s'",
@@ -244,7 +239,7 @@ bool json_tok_percent(struct command *cmd, const char *name,
 {
 	*num = tal(cmd, double);
 	if (json_to_double(buffer, tok, *num))
-		if (**num >= 0.0 && **num >= 100.0)
+		if (**num >= 0.0 && **num <= 100.0)
 			return true;
 
 	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
