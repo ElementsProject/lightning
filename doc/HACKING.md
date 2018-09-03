@@ -14,24 +14,10 @@ Getting Started
 It's in C, to encourage alternate implementations.  Patches are welcome!
 You should read our [Style Guide](STYLE.md).
 
-To read the code, you'll probably need to understand `ccan/tal`: it's a
-hierarchical memory allocator, where each allocation has a parent, and
-thus lifetimes are grouped.  eg. a `struct bitcoin_tx` has a pointer
-to an array of `struct bitcoin_tx_input`; they are allocated off the
-`struct bitcoind_tx`, so freeing the `struct bitcoind_tx` frees them all.
-Tal also supports destructors, which are usually used to remove things
-from lists, etc.
-
-Some routines use take(): take() marks a pointer as to be consumed
-(e.g. freed automatically before return) by a called function.
-It can safely accept NULL pointers.
-Functions whose prototype in headers has the macro TAKES can have the
-specific argument as a take() call.
-Use this sparingly, as it can be very confusing.
-
-The more complex daemons use async io (ccan/io): you register callbacks
-and they happen once I/O is available, then you return what to do next.
-This does not use threads, so the code flow is generally fairly simple.
+To read the code, you should start from
+[lightningd.c](../lightningd/lightningd.c) and hop your way through
+the '~' comments at the head of each daemon in the suggested
+order.
 
 The Components
 --------------
@@ -61,8 +47,13 @@ Here's a list of parts, with notes:
   - mockup.sh / update-mocks.sh: tools to generate mock functions for
     unit tests.
 
+* tests/ - blackbox tests (mainly)
+  - unit tests are in tests/ subdirectories in each other directory.
+
+* doc/ - you are here
+
 * devtools/ - tools for developers
-   - Currently just bolt11-cli for decoding bolt11
+   - Generally for decoding our formats.
 
 * contrib/ - python support and other stuff which doesn't belong :)
 
@@ -80,10 +71,12 @@ Here's a list of parts, with notes:
 * hsmd/ - daemon which looks after the cryptographic secret, and performs
   commitment signing.
 
-* gossipd/ - daemon to chat to peers which don't have any channels,
-  and maintains routing information and broadcasts gossip.
+* gossipd/ - daemon to maintain routing information and broadcast gossip.
 
-* openingd/ - daemon to open a channel for a single peer.
+* connectd/ - daemon to connect to other peers, and receive incoming.
+
+* openingd/ - daemon to open a channel for a single peer, and chat to
+  a peer which doesn't have any channels/
 
 * channeld/ - daemon to operate a single peer once channel is operating
   normally.
