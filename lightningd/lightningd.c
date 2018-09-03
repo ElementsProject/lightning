@@ -12,7 +12,7 @@
  *
  * Comments beginning with a ~ (like this one!) are part of our shared
  * adventure through the source, so they're more meta than normal code
- * comments, and mean to be read in a certain order.
+ * comments, and meant to be read in a certain order.
  */
 
 /*~ Notice how includes are in ASCII order: this is actually enforced by
@@ -87,7 +87,9 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/*~ tal: each allocation is a child of an existing object (or NULL,
 	 * the top-level object).  When an object is freed, all the objects
 	 * `tallocated` off it are also freed.  We use it in place of malloc
-	 * and free.
+	 * and free.  For the technically inclined: tal allocations usually
+	 * build a tree, and tal_freeing any node in the tree will result in
+	 * the entire subtree rooted at that node to be freed.
 	 *
 	 * It's incredibly useful for grouping object lifetimes, as we'll see.
 	 * For example, a `struct bitcoin_tx` has a pointer to an array of
@@ -142,7 +144,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 
 	/*~ These are hash tables of incoming and outgoing HTLCs (contracts),
 	 * defined as `struct htlc_in` and `struct htlc_out`in htlc_end.h.
-	 * The hash tables are declared ther using the very ugly
+	 * The hash tables are declared there using the very ugly
 	 * HTABLE_DEFINE_TYPE macro.  The key is the channel the HTLC is in
 	 * and the 64-bit htlc-id which is unique for that channel and
 	 * direction.  That htlc-id is used in the inter-peer wire protocol,
@@ -258,7 +260,7 @@ void test_subdaemons(const struct lightningd *ld)
 		/*~ Our logging system: spam goes in at log_debug level, but
 		 * logging is mainly added by developer necessity and removed
 		 * by developer/user complaints .  The only strong convention
-		 * is that log_broken() is used for "should never happen". 
+		 * is that log_broken() is used for "should never happen".
 		 *
 		 * Note, however, that logging takes care to preserve the
 		 * global `errno` which is set above. */
