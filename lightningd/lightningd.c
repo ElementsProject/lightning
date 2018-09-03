@@ -330,9 +330,6 @@ int main(int argc, char *argv[])
 	/* Handle options and config; move to .lightningd */
 	handle_opts(ld, argc, argv);
 
-	/* Ignore SIGPIPE: we look at our write return values*/
-	signal(SIGPIPE, SIG_IGN);
-
 	/* Make sure we can reach other daemons, and versions match. */
 	test_subdaemons(ld);
 
