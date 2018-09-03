@@ -822,3 +822,53 @@ bool dev_disconnect_permanent(struct lightningd *ld)
 	return false;
 }
 #endif /* DEVELOPER */
+
+/* Ugly helper to get full pathname of the current binary. */
+const char *find_my_abspath(const tal_t *ctx, const char *argv0)
+{
+	char *me;
+
+	/* A command containing / is run relative to the current directory,
+	 * not searched through the path.  The shell sets argv0 to the command
+	 * run, though something else could set it to a arbitrary value and
+	 * this logic would be wrong. */
+	if (strchr(argv0, PATH_SEP)) {
+		const char *path;
+		/* Absolute paths are easy. */
+		if (strstarts(argv0, PATH_SEP_STR))
+			path = argv0;
+		/* It contains a '/', it's relative to current dir. */
+		else
+			path = path_join(tmpctx, path_cwd(tmpctx), argv0);
+
+		me = path_canon(ctx, path);
+		if (!me || access(me, X_OK) != 0)
+			errx(1, "I cannot find myself at %s based on my name %s",
+			     path, argv0);
+	} else {
+		/* No /, search path */
+		char **pathdirs;
+		const char *pathenv = getenv("PATH");
+		size_t i;
+
+		/* This replicates the standard shell path search algorithm */
+		if (!pathenv)
+			errx(1, "Cannot find myself: no $PATH set");
+
+		pathdirs = tal_strsplit(tmpctx, pathenv, ":", STR_NO_EMPTY);
+		me = NULL;
+		for (i = 0; pathdirs[i]; i++) {
+			/* This returns NULL if it doesn't exist. */
+			me = path_canon(ctx,
+					path_join(tmpctx, pathdirs[i], argv0));
+			if (me && access(me, X_OK) == 0)
+				break;
+			/* Nope, try again. */
+			me = tal_free(me);
+		}
+		if (!me)
+			errx(1, "Cannot find %s in $PATH", argv0);
+	}
+
+	return me;
+}
