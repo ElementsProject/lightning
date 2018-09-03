@@ -366,26 +366,8 @@ int main(int argc, char *argv[])
 				 ld->ini_autocleaninvoice_cycle,
 				 ld->ini_autocleaninvoice_expiredby);
 
-	/* Load peers from database */
-	if (!wallet_channels_load_active(ld, ld->wallet))
-		fatal("Could not load channels from the database");
-
-	/* TODO(cdecker) Move this into common location for initialization */
-	struct peer *peer;
-	list_for_each(&ld->peers, peer, list) {
-		struct channel *channel;
-
-		list_for_each(&peer->channels, channel, list) {
-			if (!wallet_htlcs_load_for_channel(ld->wallet,
-							   channel,
-							   &ld->htlcs_in,
-							   &ld->htlcs_out)) {
-				fatal("could not load htlcs for channel");
-			}
-		}
-	}
-	if (!wallet_htlcs_reconnect(ld->wallet, &ld->htlcs_in, &ld->htlcs_out))
-		fatal("could not reconnect htlcs loaded from wallet, wallet may be inconsistent.");
+	/* Pull peers, channels and HTLCs from db. */
+	load_channels_from_wallet(ld);
 
 	/* Get the blockheight we are currently at, UINT32_MAX is used to signal
 	 * an unitialized wallet and that we should start off of bitcoind's

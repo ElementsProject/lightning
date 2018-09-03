@@ -71,6 +71,9 @@ void htlcs_notify_new_block(struct lightningd *ld UNNEEDED, u32 height UNNEEDED)
 /* Generated stub for json_escape */
 struct json_escaped *json_escape(const tal_t *ctx UNNEEDED, const char *str TAKES UNNEEDED)
 { fprintf(stderr, "json_escape called!\n"); abort(); }
+/* Generated stub for load_channels_from_wallet */
+void load_channels_from_wallet(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "load_channels_from_wallet called!\n"); abort(); }
 /* Generated stub for log_ */
 void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED, const char *fmt UNNEEDED, ...)
 
@@ -126,20 +129,6 @@ const char *version(void)
 /* Generated stub for wallet_blocks_heights */
 void wallet_blocks_heights(struct wallet *w UNNEEDED, u32 def UNNEEDED, u32 *min UNNEEDED, u32 *max UNNEEDED)
 { fprintf(stderr, "wallet_blocks_heights called!\n"); abort(); }
-/* Generated stub for wallet_channels_load_active */
-bool wallet_channels_load_active(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED)
-{ fprintf(stderr, "wallet_channels_load_active called!\n"); abort(); }
-/* Generated stub for wallet_htlcs_load_for_channel */
-bool wallet_htlcs_load_for_channel(struct wallet *wallet UNNEEDED,
-				   struct channel *chan UNNEEDED,
-				   struct htlc_in_map *htlcs_in UNNEEDED,
-				   struct htlc_out_map *htlcs_out UNNEEDED)
-{ fprintf(stderr, "wallet_htlcs_load_for_channel called!\n"); abort(); }
-/* Generated stub for wallet_htlcs_reconnect */
-bool wallet_htlcs_reconnect(struct wallet *wallet UNNEEDED,
-			    struct htlc_in_map *htlcs_in UNNEEDED,
-			    struct htlc_out_map *htlcs_out UNNEEDED)
-{ fprintf(stderr, "wallet_htlcs_reconnect called!\n"); abort(); }
 /* Generated stub for wallet_invoice_autoclean */
 void wallet_invoice_autoclean(struct wallet * wallet UNNEEDED,
 			      u64 cycle_seconds UNNEEDED,
