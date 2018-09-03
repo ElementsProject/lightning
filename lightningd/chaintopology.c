@@ -386,11 +386,15 @@ static void update_feerates(struct bitcoind *bitcoind,
 		maybe_completed_init(topo);
 	}
 
-	/* Make sure fee rates are in order. */
+	/* Make sure (known) fee rates are in order. */
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
+		if (!topo->feerate[i])
+			continue;
 		for (size_t j = 0; j < i; j++) {
+			if (!topo->feerate[j])
+				continue;
 			if (topo->feerate[j] < topo->feerate[i]) {
-				log_debug(topo->log,
+				log_unusual(topo->log,
 					  "Feerate estimate for %s (%u) above %s (%u)",
 					  feerate_name(i), topo->feerate[i],
 					  feerate_name(j), topo->feerate[j]);
