@@ -30,7 +30,7 @@
 #include <common/version.h>
 #include <common/wire_error.h>
 #include <common/wireaddr.h>
-#include <connectd/connect.h>
+#include <connectd/connectd.h>
 #include <connectd/gen_connect_gossip_wire.h>
 #include <connectd/gen_connect_wire.h>
 #include <connectd/handshake.h>
