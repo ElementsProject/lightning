@@ -1671,6 +1671,48 @@ void htlcs_notify_new_block(struct lightningd *ld, u32 height)
 	} while (removed);
 }
 
+/**
+ * htlcs_reconnect -- Link outgoing HTLCs to their origins after initial db load
+ *
+ * For each outgoing HTLC find the incoming HTLC that triggered it. If
+ * we are the origin of the transfer then we cannot resolve the
+ * incoming HTLC in which case we just leave it `NULL`.
+ */
+void htlcs_reconnect(struct lightningd *ld,
+		     struct htlc_in_map *htlcs_in,
+		     struct htlc_out_map *htlcs_out)
+{
+	struct htlc_in_map_iter ini;
+	struct htlc_out_map_iter outi;
+	struct htlc_in *hin;
+	struct htlc_out *hout;
+
+	for (hout = htlc_out_map_first(htlcs_out, &outi); hout;
+	     hout = htlc_out_map_next(htlcs_out, &outi)) {
+
+		if (hout->origin_htlc_id == 0) {
+			continue;
+		}
+
+		for (hin = htlc_in_map_first(htlcs_in, &ini); hin;
+		     hin = htlc_in_map_next(htlcs_in, &ini)) {
+			if (hout->origin_htlc_id == hin->dbid) {
+				log_debug(ld->log,
+					  "Found corresponding htlc_in %" PRIu64
+					  " for htlc_out %" PRIu64,
+					  hin->dbid, hout->dbid);
+				hout->in = hin;
+				break;
+			}
+		}
+
+		if (!hout->in)
+			fatal("Unable to find corresponding htlc_in %"PRIu64" for htlc_out %"PRIu64,
+			      hout->origin_htlc_id, hout->dbid);
+	}
+}
+
+
 #if DEVELOPER
 static void json_dev_ignore_htlcs(struct command *cmd, const char *buffer,
 				  const jsmntok_t *params)

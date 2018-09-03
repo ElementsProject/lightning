@@ -480,7 +480,7 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
  * may not have been loaded yet. In the latter case the pay_command
  * does not exist anymore since we restarted.
  *
- * Use `wallet_htlcs_reconnect` to wire htlc_out instances to the
+ * Use `htlcs_reconnect` to wire htlc_out instances to the
  * corresponding htlc_in after loading all channels.
  */
 bool wallet_htlcs_load_for_channel(struct wallet *wallet,
@@ -488,16 +488,6 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 				   struct htlc_in_map *htlcs_in,
 				   struct htlc_out_map *htlcs_out);
 
-/**
- * wallet_htlcs_reconnect -- Link outgoing HTLCs to their origins
- *
- * For each outgoing HTLC find the incoming HTLC that triggered it. If
- * we are the origin of the transfer then we cannot resolve the
- * incoming HTLC in which case we just leave it `NULL`.
- */
-bool wallet_htlcs_reconnect(struct wallet *wallet,
-			    struct htlc_in_map *htlcs_in,
-			    struct htlc_out_map *htlcs_out);
 
 /* /!\ This is a DB ENUM, please do not change the numbering of any
  * already defined elements (adding is ok) /!\ */

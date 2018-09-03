@@ -945,6 +945,33 @@ void activate_peers(struct lightningd *ld)
 		activate_peer(p);
 }
 
+/* Pull peers, channels and HTLCs from db, and wire them up. */
+void load_channels_from_wallet(struct lightningd *ld)
+{
+	struct peer *peer;
+
+	/* Load peers from database */
+	if (!wallet_channels_load_active(ld, ld->wallet))
+		fatal("Could not load channels from the database");
+
+	/* This is a poor-man's db join :( */
+	list_for_each(&ld->peers, peer, list) {
+		struct channel *channel;
+
+		list_for_each(&peer->channels, channel, list) {
+			if (!wallet_htlcs_load_for_channel(ld->wallet,
+							   channel,
+							   &ld->htlcs_in,
+							   &ld->htlcs_out)) {
+				fatal("could not load htlcs for channel");
+			}
+		}
+	}
+
+	/* Now connect HTLC pointers together */
+	htlcs_reconnect(ld, &ld->htlcs_in, &ld->htlcs_out);
+}
+
 static void json_disconnect(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
