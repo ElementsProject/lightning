@@ -76,6 +76,8 @@ struct lightningd {
 	/* Are we told to run in the background. */
 	bool daemon;
 
+	int pid_fd;
+
 	/* Our config dir, and rpc file */
 	char *config_dir;
 
