@@ -83,15 +83,13 @@ static inline bool block_eq(const struct block *b, const struct bitcoin_blkid *k
 HTABLE_DEFINE_TYPE(struct block, keyof_block_map, hash_sha, block_eq, block_map);
 
 struct chain_topology {
+	struct lightningd *ld;
 	struct block *root;
 	struct block *prev_tip, *tip;
 	struct block_map block_map;
 	u32 feerate[NUM_FEERATES];
 	bool feerate_uninitialized;
 	u32 feehistory[NUM_FEERATES][FEE_HISTORY_NUM];
-
-	/* Where to store blockchain info. */
-	struct wallet *wallet;
 
 	/* Where to log things. */
 	struct log *log;
