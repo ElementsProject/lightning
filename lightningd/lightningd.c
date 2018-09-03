@@ -7,7 +7,8 @@
  * The role of this daemon is to start the subdaemons, shuffle peers
  * between them, handle the JSON RPC requests, bitcoind, the database
  * and centralize logging.  In theory, it doesn't trust the other
- * daemons, though we expect hsmd to be responsive.
+ * daemons, though we expect `hsmd` (which holds secret keys) to be
+ * responsive.
  *
  * Comments beginning with a ~ (like this one!) are part of our shared
  * adventure through the source, so they're more meta than normal code
@@ -15,7 +16,7 @@
  */
 
 /*~ Notice how includes are in ASCII order: this is actually enforced by
- * the build system under 'make check-source'.  It avoids merge conflicts
+ * the build system under `make check-source`.  It avoids merge conflicts
  * and keeps things consistent. */
 #include "gossip_control.h"
 #include "hsm_control.h"
@@ -33,7 +34,11 @@
  * It's another one of Rusty's projects, and we copy and paste it
  * automatically into the source tree here, so you should never edit
  * it.  There's a Makefile target update-ccan to update it (and add modules
- * if CCAN_NEW is specified). */
+ * if CCAN_NEW is specified).
+ *
+ * The most used of these are `ccan/tal` and `ccan/take`, which we'll describe
+ * in detail below.
+ */
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
@@ -49,7 +54,8 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 
-/*~ This is common code: routines shared by one or more programs. */
+/*~ This is common code: routines shared by one or more executables
+ *  (separate daemons, or the lightning-cli program). */
 #include <common/daemon.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
@@ -74,18 +80,29 @@
 
 /*~ The core lightning object: it's passed everywhere, and is basically a
  * global variable.  This new_xxx pattern is something we'll see often:
- * it allocates and initializes a new structure, using *tal*, the heirarchitcal
+ * it allocates and initializes a new structure, using *tal*, the hierarchical
  * allocator. */
 static struct lightningd *new_lightningd(const tal_t *ctx)
 {
 	/*~ tal: each allocation is a child of an existing object (or NULL,
 	 * the top-level object).  When an object is freed, all the objects
-	 * 'tallocated' off it are also freed.  In this case, freeing 'ctx'
-	 * will free 'ld'.
+	 * `tallocated` off it are also freed.  We use it in place of malloc
+	 * and free.
 	 *
 	 * It's incredibly useful for grouping object lifetimes, as we'll see.
+	 * For example, a `struct bitcoin_tx` has a pointer to an array of
+	 * `struct bitcoin_tx_input`; they are allocated off the `struct
+	 * bitcoind_tx`, so freeing the `struct bitcoind_tx` frees them all.
+	 *
+	 * In this case, freeing `ctx` will free `ld`:
 	 */
 	struct lightningd *ld = tal(ctx, struct lightningd);
+
+	/*~ Style note: `ctx` is declared `const`, yet we can `tallocate` from
+	 * it.  Adding/removing children is not considered to change an
+	 * object; nor, in fact, is freeing it with tal_free().  This allows
+	 * us to use const more liberally: the style rule here is that you
+	 * should use 'const' on pointers if you can. */
 
 	/*~ Note that we generally EXPLICITLY #if-wrap DEVELOPER code.  This
 	 * is a nod to keeping it minimal and explicit: we need this code for
@@ -99,8 +116,9 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 
 	/*~ Behaving differently depending on environment variables is a hack,
 	 * *but* hacks are allowed for dev-mode stuff.  In this case, there's
-	 * a significant overhead to the memory leak detection stuff, and
-	 * we can't use it under valgrind, so the test harness uses this var
+	 * a significant overhead to the memory leak detection stuff, and we
+	 * can't use it under valgrind (an awesome runtime memory usage
+	 * detector for C and C++ programs), so the test harness uses this var
 	 * to disable it in that case. */
 	if (getenv("LIGHTNINGD_DEV_MEMLEAK"))
 		memleak_init();
@@ -108,15 +126,39 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 
 	/*~ These are CCAN lists: an embedded double-linked list.  It's not
 	 * really typesafe, but relies on convention to access the contents.
-	 * It's inspired by the closely-related Linux kernel list.h. */
+	 * It's inspired by the closely-related Linux kernel list.h.
+	 *
+	 * You declare them as a `struct list_head` (or use the LIST_HEAD()
+	 * macro which doesn't work on dynamically-allocated objects like `ld`
+	 * here).  The item which will go into the list must declared a
+	 * `struct list_node` for each list it can be in.
+	 *
+	 * The most common operations are list_head_init(), list_add(),
+	 * list_del() and list_for_each().
+	 *
+	 * This method of manually declaring the list hooks avoids dynamic
+	 * allocations to put things into a list. */
 	list_head_init(&ld->peers);
 
-	/*~ These are hash tables of incoming and outgoing HTLCs (contracts) */
+	/*~ These are hash tables of incoming and outgoing HTLCs (contracts),
+	 * defined as `struct htlc_in` and `struct htlc_out`in htlc_end.h.
+	 * The hash tables are declared ther using the very ugly
+	 * HTABLE_DEFINE_TYPE macro.  The key is the channel the HTLC is in
+	 * and the 64-bit htlc-id which is unique for that channel and
+	 * direction.  That htlc-id is used in the inter-peer wire protocol,
+	 * so it is the logical key.
+	 *
+	 * There aren't usually many HTLCs, so we could have just used a linked
+	 * list attached to the channel structure itself, or even left them in
+	 * the database rather than making an in-memory version.  Obviously
+	 * I was in a premature optimization mood when I wrote this: */
 	htlc_in_map_init(&ld->htlcs_in);
 	htlc_out_map_init(&ld->htlcs_out);
 
-	/*~ We have a log-book infrastructure: we define a 20MB log book and
-	 * point our log objects into it. */
+	/*~ We have a two-level log-book infrastructure: we define a 20MB log
+	 * book to hold all the entries (and trims as necessary), and multiple
+	 * log objects which each can write into it, each with a unique
+	 * prefix. */
 	ld->log_book = new_log_book(20*1024*1024, LOG_INFORM);
 	/*~ Note the tal context arg (by convention, the first argument to any
 	 * allocation function): ld->log will be implicitly freed when ld
@@ -136,9 +178,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/*~ Tal also explicitly supports arrays: it stores the number of
 	 * elements, which can be accessed with tal_count() (or tal_bytelen()
 	 * for raw bytecount).  It's common for simple arrays to use
-	 * tal_resize(), which is a typesafe realloc function, but as all
-	 * talocations need a parent, we start with an empty array rather than
-	 * NULL. */
+	 * tal_resize() to expand, which does not work on NULL.  So we start
+	 * with an zero-length array. */
 	ld->proposed_wireaddr = tal_arr(ld, struct wireaddr_internal, 0);
 	ld->proposed_listen_announce = tal_arr(ld, enum addr_listen_announce, 0);
 	ld->portnum = DEFAULT_PORT;
@@ -146,9 +187,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->autolisten = true;
 	ld->reconnect = true;
 
-	/*~ This is from ccan/timer: a scalable timer system which has a
-	 * fascinating implementation you should read if you have a spare
-	 * few hours */
+	/*~ This is from ccan/timer: it is efficient for the case where timers
+	 * are deleted before expiry (as is common with timeouts) using an
+	 * ingenious bucket system which more precisely sorts timers as they
+	 * approach expiry.  It's a fascinating implementation you should read
+	 * if you have a spare few hours. */
 	timers_init(&ld->timers, time_mono());
 
 	/*~ This is detailed in chaintopology.c */
@@ -184,23 +227,50 @@ void test_subdaemons(const struct lightningd *ld)
 {
 	size_t i;
 
-	/*~ CCAN's ARRAY_SIZE() should always be used on defined arrays: it will
-	 * fail to build if the argument is actually a pointer, not an array! */
+	/*~ CCAN's ARRAY_SIZE() should always be used on defined arrays like
+	 * the subdaemons array above.  You can calculate the number of
+	 * elements it has using `sizeof(subdaemons)/sizeof(subdaemons[0])`
+	 * but if `subdaemons` were refactored into a pointer (eg. to make
+	 * it a dynamic array) that would erroneously evaluate to `1`.
+	 *
+	 * ARRAY_SIZE will cause a compiler error if the argument is actually
+	 * a pointer, not an array. */
 	for (i = 0; i < ARRAY_SIZE(subdaemons); i++) {
 		int outfd;
-		/*~ CCAN's path module uses tal, so wants a context to allocate
-		 * from.  We have a magic context 'tmpctx' which is freed in
-		 * the event loop for transient allocations like this. */
+		/*~ CCAN's path module uses tal, so wants a context to
+		 * allocate from.  We have a magic convenience context
+		 * `tmpctx` for temporary allocations like this.
+		 *
+		 * Because all our daemons at their core are of form `while
+		 * (!stopped) handle_events();` (an event loop pattern), we
+		 * can free `tmpctx` in that top-level loop after each event
+		 * is handled.
+		 */
 		const char *dpath = path_join(tmpctx, ld->daemon_dir, subdaemons[i]);
 		const char *verstring;
-		/*~ CCAN's pipecmd module is like popen for grownups. */
+		/*~ CCAN's pipecmd module is like popen for grownups: it
+		 * takes pointers to fill in stdout, stdin and stderr file
+		 * descriptors if desired, and the remainder of arguments
+		 * are the command and its argument. */
 		pid_t pid = pipecmd(&outfd, NULL, &outfd,
 				    dpath, "--version", NULL);
 
-		/*~ Our logging system: spam goes in at log_debug level */
+		/*~ Our logging system: spam goes in at log_debug level, but
+		 * logging is mainly added by developer necessity and removed
+		 * by developer/user complaints .  The only strong convention
+		 * is that log_broken() is used for "should never happen". 
+		 *
+		 * Note, however, that logging takes care to preserve the
+		 * global `errno` which is set above. */
 		log_debug(ld->log, "testing %s", dpath);
+
+		/*~ ccan/err is a wrapper around BSD's err.h, which defines
+		 * the convenience functions err() (error with message
+		 * followed by a string based on errno) and errx() (same,
+		 * but no errno string). */
 		if (pid == -1)
 			err(1, "Could not run %s", dpath);
+
 		/*~ CCAN's grab_file module contains a routine to read into a
 		 * tallocated buffer until EOF */
 		verstring = grab_fd(tmpctx, outfd);
@@ -217,7 +287,7 @@ void test_subdaemons(const struct lightningd *ld)
 }
 
 /* Check if all subdaemons exist in specified directory. */
-static bool has_all_subdaemons(const char* daemon_dir)
+static bool has_all_subdaemons(const char *daemon_dir)
 {
 	size_t i;
 	bool missing_daemon = false;
@@ -255,13 +325,24 @@ static const char *find_my_directory(const tal_t *ctx, const char *argv0)
 }
 
 /*~ This returns the PKGLIBEXEC path which is where binaries get installed.
- * Note the 'TAKES' annotation which is merely documentation that it will
- * take ownership of 'my_path' if the caller hands take() there.
+ * Note the `TAKES` annotation which indicates that the `my_path` parameter
+ * can be take(); in which case, this function will handle freeing it.
+ *
+ * TAKES is only a convention unfortunately, and ignored by the compiler.
  */
 static const char *find_my_pkglibexec_path(const tal_t *ctx,
 					   const char *my_path TAKES)
 {
 	const char *pkglibexecdir;
+
+	/*~`path_join` is declared in ccan/path/path.h as:
+	 *
+	 *     char *path_join(const tal_t *ctx,
+	 *                     const char *base TAKES, const char *a TAKES);
+	 *
+	 * So, as we promised with 'TAKES' in our own declaration, if the
+	 * caller has called `take()` the `my_path` parameter, path_join()
+	 * will free it. */
 	pkglibexecdir = path_join(ctx, my_path, BINTOPKGLIBEXECDIR);
 
 	/*~ Sometimes take() can be more efficient, since the routine can
@@ -288,16 +369,20 @@ static void shutdown_subdaemons(struct lightningd *ld)
 {
 	struct peer *p;
 
-	/*~ Because tal objects can be free indirectly, by freeing their parents
-	 * it turns out to be vital to be able to add *destructors* to objects.
-	 * As a result, freeing them may cause callbacks; in this case, some
-	 * objects freed here can cause database writes, which must be inside
-	 * a transaction */
+	/*~ tal supports *destructors* using `tal_add_destructor()`; the most
+	 * common use is for an object to delete itself from a linked list
+	 * when it's freed.
+	 *
+	 * As a result, freeing an object (which frees any tal objects
+	 * allocated off it, and any allocated off them, etc) may cause
+	 * callbacks; in this case, some objects freed here can cause database
+	 * writes, which must be inside a transaction. */
 	db_begin_transaction(ld->wallet->db);
 
 	/* Let everyone shutdown cleanly. */
 	close(ld->hsm_fd);
-	/*~ The three "global" daemons, which we shutdown explicitly. */
+	/*~ The three "global" daemons, which we shutdown explicitly: we
+	 * give them 10 seconds to exit gracefully before killing them.  */
 	subd_shutdown(ld->connectd, 10);
 	subd_shutdown(ld->gossip, 10);
 	subd_shutdown(ld->hsm, 10);
@@ -305,9 +390,9 @@ static void shutdown_subdaemons(struct lightningd *ld)
 	/* Now we free all the HTLCs */
 	free_htlcs(ld, NULL);
 
-	/*~ For every peer, we free every channel.  Note that the peer has a
-	 * destructor (by convention, called destroy_peer) which removes it
-	 * from the list.  Thus we use list_top() not list_pop() here. */
+	/*~ For every peer, we free every channel.  On allocation the peer was
+	 * given a destructor (`destroy_peer`) which removes itself from the
+	 * list.  Thus we use list_top() not list_pop() here. */
 	while ((p = list_top(&ld->peers, struct peer, list)) != NULL) {
 		struct channel *c;
 
@@ -343,14 +428,15 @@ static void shutdown_subdaemons(struct lightningd *ld)
  * saves lots of struggles with our 80-column guideline! */
 const struct chainparams *get_chainparams(const struct lightningd *ld)
 {
-	/* "The lightningd is connected to the chain topology."
-	 * "The chain topology is connected to the bitcoind API."
+	/* "The lightningd is connected to the blockchain."
+	 * "The blockchain is connected to the bitcoind API."
 	 * "The bitcoind API is connected chain parameters."
 	 * -- Worst childhood song ever. */
 	return ld->topology->bitcoind->chainparams;
 }
 
-/*~ Our wallet logic needs to know what outputs we might be interested in: we
+/*~ Our wallet logic needs to know what outputs we might be interested in.  We
+ * use BIP32 (a.k.a. "HD wallet") to generate keys from a single seed, so we
  * keep the maximum-ever-used key index in the db, and add them all to the
  * filter here. */
 static void init_txfilter(struct wallet *w, struct txfilter *filter)
@@ -415,7 +501,7 @@ static void pidfile_create(const struct lightningd *ld)
 	if (pid_fd < 0)
 		err(1, "Failed to open PID file");
 
-	/* Lock PID file: this will stay locked until we exit. */
+	/* Lock PID file, so future lockf will fail. */
 	if (lockf(pid_fd, F_TLOCK, 0) < 0)
 		/* Problem locking file */
 		err(1, "lightningd already running? Error locking PID file");
@@ -429,7 +515,8 @@ static void pidfile_create(const struct lightningd *ld)
 	 * to ignore the result without jumping through hoops. */
 	write_all(pid_fd, pid, strlen(pid));
 
-	/* Leave file open: we close it implicitly when we exit */
+	/*~ As closing the file will remove the lock, we need to keep it open;
+	 * the OS will close it implicitly when we exit for any reason. */
 }
 
 /*~ ccan/io allows overriding the poll() function that is the very core
@@ -472,7 +559,7 @@ int main(int argc, char *argv[])
 	/*~ There's always a battle between what a constructor like this
 	 * should do, and what should be added later by the caller.  In
 	 * general, because we use valgrind heavily for testing, we prefer not
-	 * to intialize unused fields which we expect the caller to set:
+	 * to initialize unused fields which we expect the caller to set:
 	 * valgrind will warn us if we make decisions based on uninitialized
 	 * variables. */
 	ld = new_lightningd(NULL);
@@ -493,7 +580,8 @@ int main(int argc, char *argv[])
 	test_subdaemons(ld);
 
 	/*~ Our "wallet" code really wraps the db, which is more than a simple
-	 * bitcoin wallet (though it's that too). */
+	 * bitcoin wallet (though it's that too).  It also stores channel
+	 * states, invoices, payments, blocks and bitcoin transactions. */
 	ld->wallet = wallet_new(ld, ld->log, &ld->timers);
 
 	/*~ We keep a filter of scriptpubkeys we're interested in. */
@@ -502,7 +590,13 @@ int main(int argc, char *argv[])
 	/*~ This is the ccan/io central poll override from above. */
 	io_poll_override(io_poll_lightningd);
 
-	/*~ Set up HSM: it knows our node secret key, so tells us who we are. */
+	/*~ Set up the HSM daemon, which knows our node secret key, so tells
+	 *  us who we are.
+	 *
+	 * HSM stands for Hardware Security Module, which is the industry
+	 * standard of key storage; ours is in software for now, so the name
+	 * doesn't really make sense, but we can't call it the Badly-named
+	 * Daemon Software Module. */
 	hsm_init(ld);
 
 	/*~ Our default color and alias are derived from our node id, so we
@@ -545,7 +639,7 @@ int main(int argc, char *argv[])
 	load_channels_from_wallet(ld);
 
 	/*~ Get the blockheight we are currently at, UINT32_MAX is used to signal
-	 * an unitialized wallet and that we should start off of bitcoind's
+	 * an uninitialized wallet and that we should start off of bitcoind's
 	 * current height */
 	wallet_blocks_heights(ld->wallet, UINT32_MAX,
 			      &min_blockheight, &max_blockheight);
@@ -568,7 +662,8 @@ int main(int argc, char *argv[])
 	setup_topology(ld->topology, &ld->timers,
 		       min_blockheight, max_blockheight);
 
-	/*~ Create RPC socket (if any): now we can talk to clients. */
+	/*~ Create RPC socket: now lightning-cli can send us JSON RPC commands
+	 *  over a UNIX domain socket specified by `ld->rpc_filename`. */
 	setup_jsonrpc(ld, ld->rpc_filename);
 
 	/*~ We defer --daemon until we've completed most initialization: that
@@ -620,10 +715,16 @@ int main(int argc, char *argv[])
 	 * a backtrace if we fail during startup. */
 	crashlog = ld->log;
 
-	/*~ The root of every backtrace (almost). */
+	/*~ The root of every backtrace (almost).  This is our main event
+	 *  loop. */
 	for (;;) {
-		/* ~io_loop returns if there's an expired timer, *or* someone
-		 * calls io_break, or if there are no more IO connections
+		/* ~ccan/io's io_loop() continuously calls
+		 * io_poll_lightningd() for all file descriptors registered
+		 * with it, then calls their callbacks or closes them if they
+		 * fail, as appropriate.
+		 *
+		 * It will only exit if there's an expired timer, *or* someone
+		 * calls io_break, or if there are no more file descriptors
 		 * (which never happens in our code). */
 		struct timer *expired;
 		void *v = io_loop(&ld->timers, &expired);
@@ -663,6 +764,6 @@ int main(int argc, char *argv[])
 #endif
 	daemon_shutdown();
 
-	/*~ Farewell.  Next stop: hsmd/hsm.c. */
+	/*~ Farewell.  Next stop: hsmd/hsmd.c. */
 	return 0;
 }
