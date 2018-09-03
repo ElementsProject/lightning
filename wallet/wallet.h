@@ -566,20 +566,6 @@ struct invoice {
 #define INVOICE_MAX_LABEL_LEN 128
 
 /**
- * wallet_invoice_load - Load the invoices from the database
- *
- * @wallet - the wallet whose invoices are to be loaded.
- *
- * All other wallet_invoice_* functions cannot be called
- * until this function is called.
- * As a database operation it must be called within
- * db_begin_transaction .. db_commit_transaction
- * (all other invoice functions also have this requirement).
- * Returns true if loaded successfully.
- */
-bool wallet_invoice_load(struct wallet *wallet);
-
-/**
  * wallet_invoice_create - Create a new invoice.
  *
  * @wallet - the wallet to create the invoice in.

@@ -128,6 +128,23 @@ static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
 	return dtl;
 }
 
+/* Update expirations. */
+static void update_db_expirations(struct invoices *invoices, u64 now)
+{
+	sqlite3_stmt *stmt;
+	stmt = db_prepare(invoices->db,
+			  "UPDATE invoices"
+			  "   SET state = ?"
+			  " WHERE state = ?"
+			  "   AND expiry_time <= ?;");
+	sqlite3_bind_int(stmt, 1, EXPIRED);
+	sqlite3_bind_int(stmt, 2, UNPAID);
+	sqlite3_bind_int64(stmt, 3, now);
+	db_exec_prepared(invoices->db, stmt);
+}
+
+static void install_expiration_timer(struct invoices *invoices);
+
 struct invoices *invoices_new(const tal_t *ctx,
 			      struct db *db,
 			      struct log *log,
@@ -144,22 +161,9 @@ struct invoices *invoices_new(const tal_t *ctx,
 	invs->expiration_timer = NULL;
 	invs->autoclean_timer = NULL;
 
+	update_db_expirations(invs, time_now().ts.tv_sec);
+	install_expiration_timer(invs);
 	return invs;
-}
-
-/* Update expirations. */
-static void update_db_expirations(struct invoices *invoices, u64 now)
-{
-	sqlite3_stmt *stmt;
-	stmt = db_prepare(invoices->db,
-			  "UPDATE invoices"
-			  "   SET state = ?"
-			  " WHERE state = ?"
-			  "   AND expiry_time <= ?;");
-	sqlite3_bind_int(stmt, 1, EXPIRED);
-	sqlite3_bind_int(stmt, 2, UNPAID);
-	sqlite3_bind_int64(stmt, 3, now);
-	db_exec_prepared(invoices->db, stmt);
 }
 
 struct invoice_id_node {
@@ -167,7 +171,6 @@ struct invoice_id_node {
 	u64 id;
 };
 
-static void install_expiration_timer(struct invoices *invoices);
 static void trigger_expiration(struct invoices *invoices)
 {
 	struct list_head idlist;
@@ -252,17 +255,6 @@ static void install_expiration_timer(struct invoices *invoices)
 						  rel,
 						  &trigger_expiration,
 						  invoices);
-}
-
-bool invoices_load(struct invoices *invoices)
-{
-	u64 now = time_now().ts.tv_sec;
-
-	update_db_expirations(invoices, now);
-
-	install_expiration_timer(invoices);
-
-	return true;
 }
 
 bool invoices_create(struct invoices *invoices,

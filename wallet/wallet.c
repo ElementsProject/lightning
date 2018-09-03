@@ -52,10 +52,10 @@ struct wallet *wallet_new(struct lightningd *ld,
 	wallet->db = db_setup(wallet, log);
 	wallet->log = log;
 	wallet->bip32_base = NULL;
-	wallet->invoices = invoices_new(wallet, wallet->db, log, timers);
 	list_head_init(&wallet->unstored_payments);
 
 	db_begin_transaction(wallet->db);
+	wallet->invoices = invoices_new(wallet, wallet->db, log, timers);
 	outpointfilters_init(wallet);
 	db_commit_transaction(wallet->db);
 	return wallet;
@@ -1422,12 +1422,6 @@ bool wallet_htlcs_reconnect(struct wallet *wallet,
 	return true;
 }
 
-/* Almost all wallet_invoice_* functions delegate to the
- * appropriate invoices_* function. */
-bool wallet_invoice_load(struct wallet *wallet)
-{
-	return invoices_load(wallet->invoices);
-}
 bool wallet_invoice_create(struct wallet *wallet,
 			   struct invoice *pinvoice,
 			   u64 *msatoshi TAKES,

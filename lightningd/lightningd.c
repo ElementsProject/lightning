@@ -361,11 +361,6 @@ int main(int argc, char *argv[])
 	/* Initialize the transaction filter with our pubkeys. */
 	init_txfilter(ld->wallet, ld->owned_txfilter);
 
-        /* Check invoices loaded from the database */
-	if (!wallet_invoice_load(ld->wallet)) {
-		fatal("Could not load invoices from the database");
-	}
-
 	/* Set up invoice autoclean. */
 	wallet_invoice_autoclean(ld->wallet,
 				 ld->ini_autocleaninvoice_cycle,
