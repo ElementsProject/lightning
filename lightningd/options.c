@@ -678,9 +678,9 @@ static void opt_parse_from_config(struct lightningd *ld)
 	tal_free(contents);
 }
 
-static char *test_daemons_and_exit(struct lightningd *ld)
+static char *test_subdaemons_and_exit(struct lightningd *ld)
 {
-	test_daemons(ld);
+	test_subdaemons(ld);
 	exit(0);
 	return NULL;
 }
@@ -705,7 +705,7 @@ void register_opts(struct lightningd *ld)
 	opt_register_early_noarg("--help|-h", opt_lightningd_usage, ld,
 				 "Print this message.");
 	opt_register_early_noarg("--test-daemons-only",
-				 test_daemons_and_exit,
+				 test_subdaemons_and_exit,
 				 ld, opt_hidden);
 
 	opt_register_arg("--bitcoin-datadir", opt_set_talstr, NULL,
@@ -885,7 +885,7 @@ static void add_config(struct lightningd *ld,
 		    || opt->cb == (void *)opt_set_testnet
 		    || opt->cb == (void *)opt_set_mainnet
 		    || opt->cb == (void *)opt_lightningd_usage
-		    || opt->cb == (void *)test_daemons_and_exit) {
+		    || opt->cb == (void *)test_subdaemons_and_exit) {
 			/* These are not important */
 		} else if (opt->cb == (void *)opt_set_bool) {
 			const bool *b = opt->u.carg;

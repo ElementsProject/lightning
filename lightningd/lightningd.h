@@ -207,7 +207,7 @@ struct lightningd {
 const struct chainparams *get_chainparams(const struct lightningd *ld);
 
 /* Check we can run subdaemons, and check their versions */
-void test_daemons(const struct lightningd *ld);
+void test_subdaemons(const struct lightningd *ld);
 
 /* Notify lightningd about new blocks. */
 void notify_new_block(struct lightningd *ld, u32 block_height);
