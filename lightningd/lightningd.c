@@ -336,7 +336,6 @@ int main(int argc, char *argv[])
 	/* Initialize wallet, now that we are in the correct directory */
 	ld->wallet = wallet_new(ld, ld->log, &ld->timers);
 	ld->owned_txfilter = txfilter_new(ld);
-	ld->topology->wallet = ld->wallet;
 
 	/* We do extra checks in io_loop. */
 	io_poll_debug = io_poll_override(io_poll_lightningd);
