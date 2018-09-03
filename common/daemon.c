@@ -7,7 +7,6 @@
 #include <common/status.h>
 #include <common/utils.h>
 #include <common/version.h>
-#include <poll.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,7 +65,7 @@ static void crashlog_activate(void)
 }
 #endif
 
-static int daemon_poll(struct pollfd *fds, nfds_t nfds, int timeout)
+int daemon_poll(struct pollfd *fds, nfds_t nfds, int timeout)
 {
 	const char *t;
 

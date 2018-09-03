@@ -232,62 +232,24 @@ static bool has_all_subdaemons(const char* daemon_dir)
 	return !missing_daemon;
 }
 
-/* This routine tries to determine what path the lightningd binary is in.
- * It's not actually that simple! */
-static const char *find_my_path(const tal_t *ctx, const char *argv0)
+/* Returns the directory this executable is running from */
+static const char *find_my_directory(const tal_t *ctx, const char *argv0)
 {
-	char *me;
-
-	/* A command containing / is run relative to the current directory,
-	 * not searched through the path.  The shell sets argv0 to the command
-	 * run, though something else could set it to a arbitrary value and
-	 * this logic would be wrong. */
-	if (strchr(argv0, PATH_SEP)) {
-		const char *path;
-		/* Absolute paths are easy. */
-		if (strstarts(argv0, PATH_SEP_STR))
-			path = argv0;
-		/* It contains a '/', it's relative to current dir. */
-		else
-			path = path_join(tmpctx, path_cwd(tmpctx), argv0);
-
-		me = path_canon(ctx, path);
-		if (!me || access(me, X_OK) != 0)
-			errx(1, "I cannot find myself at %s based on my name %s",
-			     path, argv0);
-	} else {
-		/* No /, search path */
-		char **pathdirs;
-		const char *pathenv = getenv("PATH");
-		size_t i;
-
-		/* This replicates the standard shell path search algorithm */
-		if (!pathenv)
-			errx(1, "Cannot find myself: no $PATH set");
-
-		pathdirs = tal_strsplit(tmpctx, pathenv, ":", STR_NO_EMPTY);
-		me = NULL;
-		for (i = 0; pathdirs[i]; i++) {
-			/* This returns NULL if it doesn't exist. */
-			me = path_canon(ctx,
-					path_join(tmpctx, pathdirs[i], argv0));
-			if (me && access(me, X_OK) == 0)
-				break;
-			/* Nope, try again. */
-			me = tal_free(me);
-		}
-		if (!me)
-			errx(1, "Cannot find %s in $PATH", argv0);
-	}
+	/* find_my_abspath simply exits on failure, so never returns NULL. */
+	const char *me = find_my_abspath(NULL, argv0);
 
 	/*~ The caller just wants the directory we're in.
 	 *
-	 * Note the magic "take()" macro here: it annotates a pointer as "to
+	 * Note the magic `take()` macro here: it annotates a pointer as "to
 	 * be taken", and the recipient is expected to take ownership of the
-	 * pointer.
+	 * pointer.  This improves efficiency because the recipient might
+	 * choose to use or even keep it rather than make a copy (or it
+	 * might just free it).
 	 *
-	 * Many CCAN and our own routines support this, but if you hand a take()
-	 * to a non-take routine unfortunately you don't get a compile error.
+	 * Many CCAN and our own routines support this, but if you hand a
+	 * `take()` to a routine which *doesn't* expect it, unfortunately you
+	 * don't get a compile error (we have runtime detection for this
+	 * case, however).
 	 */
 	return path_dirname(ctx, take(me));
 }
@@ -310,7 +272,7 @@ static const char *find_my_pkglibexec_path(const tal_t *ctx,
 /* Determine the correct daemon dir. */
 static const char *find_daemon_dir(const tal_t *ctx, const char *argv0)
 {
-	const char *my_path = find_my_path(ctx, argv0);
+	const char *my_path = find_my_directory(ctx, argv0);
 	/* If we're running in-tree, all the subdaemons are with lightningd. */
 	if (has_all_subdaemons(my_path))
 		return my_path;
@@ -470,19 +432,17 @@ static void pidfile_create(const struct lightningd *ld)
 	/* Leave file open: we close it implicitly when we exit */
 }
 
-/*~ Yuck, we need a global here.
- *
- * ccan/io allows overriding the poll() function for special effects: for
- * lightningd, we make sure we haven't left a db transaction open.  All
- * daemons which use ccan/io add sanity checks in this loop, so we chain
- * that after our own override.
- */
-static int (*io_poll_debug)(struct pollfd *, nfds_t, int);
+/*~ ccan/io allows overriding the poll() function that is the very core
+ * of the event loop it runs for us.  We override it so that we can do
+ * extra sanity checks, and it's also a good point to free the tmpctx. */
 static int io_poll_lightningd(struct pollfd *fds, nfds_t nfds, int timeout)
 {
+	/*~ In particular, we should *not* have left a database transaction
+	 * open! */
 	db_assert_no_outstanding_statements();
 
-	return io_poll_debug(fds, nfds, timeout);
+	/* The other checks and freeing tmpctx are common to all daemons. */
+	return daemon_poll(fds, nfds, timeout);
 }
 
 /*~ Ever had one of those functions which doesn't quite fit anywhere?  Me too.
@@ -540,7 +500,7 @@ int main(int argc, char *argv[])
 	ld->owned_txfilter = txfilter_new(ld);
 
 	/*~ This is the ccan/io central poll override from above. */
-	io_poll_debug = io_poll_override(io_poll_lightningd);
+	io_poll_override(io_poll_lightningd);
 
 	/*~ Set up HSM: it knows our node secret key, so tells us who we are. */
 	hsm_init(ld);
