@@ -39,10 +39,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-char *bitcoin_datadir;
-
-int pid_fd;
-
 static struct lightningd *new_lightningd(const tal_t *ctx)
 {
 	struct lightningd *ld = tal(ctx, struct lightningd);
@@ -277,6 +273,7 @@ static void daemonize_but_keep_dir(struct lightningd *ld)
 static void pidfile_create(const struct lightningd *ld)
 {
 	char *pid;
+	int pid_fd;
 
 	/* Create PID file */
 	pid_fd = open(ld->pidfile, O_WRONLY|O_CREAT, 0640);
@@ -291,6 +288,8 @@ static void pidfile_create(const struct lightningd *ld)
 	/* Get current PID and write to PID fie */
 	pid = tal_fmt(tmpctx, "%d\n", getpid());
 	write_all(pid_fd, pid, strlen(pid));
+
+	/* Leave file open: we close it implicitly when we exit */
 }
 
 /* Yuck, we need globals here. */
@@ -472,7 +471,6 @@ int main(int argc, char *argv[])
 	tal_free(ld->rpc_listener);
 	db_commit_transaction(ld->wallet->db);
 
-	close(pid_fd);
 	remove(ld->pidfile);
 
 	/* FIXME: pay can have children off tmpctx which unlink from
