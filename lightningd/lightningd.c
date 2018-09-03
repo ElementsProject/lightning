@@ -664,10 +664,6 @@ int main(int argc, char *argv[])
 	setup_topology(ld->topology, &ld->timers,
 		       min_blockheight, max_blockheight);
 
-	/*~ Create RPC socket: now lightning-cli can send us JSON RPC commands
-	 *  over a UNIX domain socket specified by `ld->rpc_filename`. */
-	setup_jsonrpc(ld, ld->rpc_filename);
-
 	/*~ We defer --daemon until we've completed most initialization: that
 	 *  way we'll exit with an error rather than silently exiting 0, then
 	 *  realizing we can't start and forcing the confused user to read the
@@ -678,6 +674,10 @@ int main(int argc, char *argv[])
 	/*~ Now create the PID file: this has to be after daemonize, since that
 	 * changes our pid! */
 	pidfile_create(ld);
+
+	/*~ Create RPC socket: now lightning-cli can send us JSON RPC commands
+	 *  over a UNIX domain socket specified by `ld->rpc_filename`. */
+	setup_jsonrpc(ld, ld->rpc_filename);
 
 	/*~ Activate connect daemon.  Needs to be after the initialization of
 	 * chaintopology, otherwise peers may connect and ask for
