@@ -145,9 +145,6 @@ void wallet_invoice_autoclean(struct wallet * wallet UNNEEDED,
 			      u64 cycle_seconds UNNEEDED,
 			      u64 expired_by UNNEEDED)
 { fprintf(stderr, "wallet_invoice_autoclean called!\n"); abort(); }
-/* Generated stub for wallet_invoice_load */
-bool wallet_invoice_load(struct wallet *wallet UNNEEDED)
-{ fprintf(stderr, "wallet_invoice_load called!\n"); abort(); }
 /* Generated stub for wallet_network_check */
 bool wallet_network_check(struct wallet *w UNNEEDED,
 			  const struct chainparams *chainparams UNNEEDED)

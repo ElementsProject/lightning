@@ -128,9 +128,6 @@ const struct invoice_details *invoices_iterator_deref(
 	const tal_t *ctx UNNEEDED, struct invoices *invoices UNNEEDED,
 	const struct invoice_iterator *it UNNEEDED)
 { fprintf(stderr, "invoices_iterator_deref called!\n"); abort(); }
-/* Generated stub for invoices_load */
-bool invoices_load(struct invoices *invoices UNNEEDED)
-{ fprintf(stderr, "invoices_load called!\n"); abort(); }
 /* Generated stub for invoices_new */
 struct invoices *invoices_new(const tal_t *ctx UNNEEDED,
 			      struct db *db UNNEEDED,

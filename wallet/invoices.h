@@ -30,14 +30,6 @@ struct invoices *invoices_new(const tal_t *ctx,
 			      struct timers *timers);
 
 /**
- * invoices_load - Second-stage constructor for invoice handler.
- * Must be called before the other functions are called
- *
- * @invoices - the invoice handler.
- */
-bool invoices_load(struct invoices *invoices);
-
-/**
  * invoices_create - Create a new invoice.
  *
  * @invoices - the invoice handler.
