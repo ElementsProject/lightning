@@ -35,7 +35,6 @@
 #include <fcntl.h>
 #include <gossipd/broadcast.h>
 #include <gossipd/gen_gossip_wire.h>
-#include <gossipd/gossip.h>
 #include <gossipd/routing.h>
 #include <hsmd/client.h>
 #include <hsmd/gen_hsm_client_wire.h>

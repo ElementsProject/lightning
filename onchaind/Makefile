@@ -22,7 +22,7 @@ LIGHTNINGD_ONCHAIN_HEADERS_NOGEN :=			\
 
 LIGHTNINGD_ONCHAIN_HEADERS := $(LIGHTNINGD_ONCHAIN_HEADERS_GEN) $(LIGHTNINGD_ONCHAIN_HEADERS_NOGEN)
 
-LIGHTNINGD_ONCHAIN_SRC := onchaind/onchain.c	\
+LIGHTNINGD_ONCHAIN_SRC := onchaind/onchaind.c	\
 	onchaind/gen_onchain_wire.c		\
 	onchaind/onchain_wire.c
 
