@@ -87,7 +87,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	return ld;
 }
 
-static const char *daemons[] = {
+static const char *subdaemons[] = {
 	"lightning_channeld",
 	"lightning_closingd",
 	"lightning_connectd",
@@ -98,12 +98,12 @@ static const char *daemons[] = {
 };
 
 /* Check we can run them, and check their versions */
-void test_daemons(const struct lightningd *ld)
+void test_subdaemons(const struct lightningd *ld)
 {
 	size_t i;
-	for (i = 0; i < ARRAY_SIZE(daemons); i++) {
+	for (i = 0; i < ARRAY_SIZE(subdaemons); i++) {
 		int outfd;
-		const char *dpath = path_join(tmpctx, ld->daemon_dir, daemons[i]);
+		const char *dpath = path_join(tmpctx, ld->daemon_dir, subdaemons[i]);
 		const char *verstring;
 		pid_t pid = pipecmd(&outfd, NULL, &outfd,
 				    dpath, "--version", NULL);
@@ -116,17 +116,18 @@ void test_daemons(const struct lightningd *ld)
 			err(1, "Could not get output from %s", dpath);
 		if (!strstarts(verstring, version())
 		    || verstring[strlen(version())] != '\n')
-			errx(1, "%s: bad version '%s'", daemons[i], verstring);
+			errx(1, "%s: bad version '%s'",
+			     subdaemons[i], verstring);
 	}
 }
-/* Check if all daemons exist in specified directory. */
-static bool has_all_daemons(const char* daemon_dir)
+/* Check if all subdaemons exist in specified directory. */
+static bool has_all_subdaemons(const char* daemon_dir)
 {
 	size_t i;
 	bool missing_daemon = false;
 
-	for (i = 0; i < ARRAY_SIZE(daemons); ++i) {
-		if (!path_is_file(path_join(tmpctx, daemon_dir, daemons[i]))) {
+	for (i = 0; i < ARRAY_SIZE(subdaemons); ++i) {
+		if (!path_is_file(path_join(tmpctx, daemon_dir, subdaemons[i]))) {
 			missing_daemon = true;
 			break;
 		}
@@ -189,7 +190,7 @@ static const char *find_my_pkglibexec_path(const tal_t *ctx,
 static const char *find_daemon_dir(const tal_t *ctx, const char *argv0)
 {
 	const char *my_path = find_my_path(ctx, argv0);
-	if (has_all_daemons(my_path))
+	if (has_all_subdaemons(my_path))
 		return my_path;
 	return find_my_pkglibexec_path(ctx, take(my_path));
 }
@@ -333,7 +334,7 @@ int main(int argc, char *argv[])
 	signal(SIGPIPE, SIG_IGN);
 
 	/* Make sure we can reach other daemons, and versions match. */
-	test_daemons(ld);
+	test_subdaemons(ld);
 
 	/* Initialize wallet, now that we are in the correct directory */
 	ld->wallet = wallet_new(ld, ld->log, &ld->timers);
