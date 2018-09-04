@@ -19,7 +19,7 @@ class DecimalEncoder(json.JSONEncoder):
     """
     def default(self, o):
         if isinstance(o, decimal.Decimal):
-            return str(o)
+            return "{:.8f}".format(float(o))
         return super(DecimalEncoder, self).default(o)
 
 

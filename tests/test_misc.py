@@ -858,8 +858,9 @@ def test_ipv4_and_ipv6(node_factory):
 
 def test_feerates(node_factory):
     l1 = node_factory.get_node(options={'log-level': 'io'}, start=False)
-    l1.bitcoind_cmd_override(cmd='estimatesmartfee',
-                             failscript="""echo '{ "errors": [ "Insufficient data or no feerate found" ], "blocks": 0 }'; exit 0""")
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', {
+        'error': {"errors": ["Insufficient data or no feerate found"], "blocks": 0}
+    })
     l1.start()
 
     # Query feerates (shouldn't give any!)
