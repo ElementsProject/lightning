@@ -406,7 +406,7 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_noarg("--dev-fail-on-subdaemon-fail", opt_set_bool,
 			   &ld->dev_subdaemon_fail, opt_hidden);
 	opt_register_arg("--dev-debugger=<subdaemon>", opt_subd_debug, NULL,
-			 ld, "Wait for gdb attach at start of <subdaemon>");
+			 ld, "Invoke gdb at start of <subdaemon>");
 	opt_register_arg("--dev-broadcast-interval=<ms>", opt_set_uintval,
 			 opt_show_uintval, &ld->config.broadcast_interval,
 			 "Time between gossip broadcasts in milliseconds");
