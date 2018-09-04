@@ -1276,7 +1276,9 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 	return wireaddrs;
 }
 
-bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg TAKES)
+bool routing_add_node_announcement(struct routing_state *rstate,
+				   const u8 *msg TAKES,
+				   bool *unknown_node)
 {
 	struct node *node;
 	secp256k1_ecdsa_signature signature;
@@ -1290,15 +1292,21 @@ bool routing_add_node_announcement(struct routing_state *rstate, const u8 *msg T
 	if (!fromwire_node_announcement(tmpctx, msg,
 					&signature, &features, &timestamp,
 					&node_id, rgb_color, alias,
-					&addresses))
+					&addresses)) {
+		if (unknown_node)
+			*unknown_node = false;
 		return false;
+	}
 
 	node = get_node(rstate, &node_id);
 
 	/* May happen if we accepted the node_announcement due to a local
 	* channel, for which we didn't have the announcement yet. */
-	if (node == NULL)
+	if (node == NULL) {
+		if (unknown_node)
+			*unknown_node = true;
 		return false;
+	}
 
 	wireaddrs = read_addresses(tmpctx, addresses);
 	tal_free(node->addresses);
@@ -1451,7 +1459,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	status_trace("Received node_announcement for node %s",
 		     type_to_string(tmpctx, struct pubkey, &node_id));
 
-	applied = routing_add_node_announcement(rstate, serialized);
+	applied = routing_add_node_announcement(rstate, serialized, NULL);
 	assert(applied);
 	return NULL;
 }

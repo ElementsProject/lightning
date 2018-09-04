@@ -815,3 +815,27 @@ def test_gossip_addresses(node_factory, bitcoind):
         {'type': 'torv2', 'address': '3fyb44wdhnd2ghhl.onion', 'port': 1234},
         {'type': 'torv3', 'address': 'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion', 'port': 9735}
     ]
+
+
+def test_gossip_store_load(node_factory):
+    """Make sure we can read canned gossip store"""
+    l1 = node_factory.get_node(start=False)
+    with open(os.path.join(l1.daemon.lightning_dir, 'gossip_store'), 'wb') as f:
+        f.write(bytearray.fromhex("02"  # GOSSIP_VERSION
+                                  "00000099"  # len
+                                  "12abbbba"  # csum
+                                  "1002"  # WIRE_GOSSIP_STORE_NODE_ANNOUNCEMENT
+                                  "00950101cf5d870bc7ecabcb7cd16898ef66891e5f0c6c5851bd85b670f03d325bc44d7544d367cd852e18ec03f7f4ff369b06860a3b12b07b29f36fb318ca11348bf8ec00005aab817c03f113414ebdc6c1fb0f33c99cd5a1d09dd79e7fdf2468cf1fe1af6674361695d23974b250757a7a6c6549544300000000000000000000000000000000000000000000000007010566933e2607"
+                                  "000001bc"  # len
+                                  "521ef598"  # csum
+                                  "1000"  # WIRE_GOSSIP_STORE_CHANNEL_ANNOUNCEMENT
+                                  "01b00100bb8d7b6998cca3c2b3ce12a6bd73a8872c808bb48de2a30c5ad9cdf835905d1e27505755087e675fb517bbac6beb227629b694ea68f49d357458327138978ebfd7adfde1c69d0d2f497154256f6d5567a5cf2317c589e0046c0cc2b3e986cf9b6d3b44742bd57bce32d72cd1180a7f657795976130b20508b239976d3d4cdc4d0d6e6fbb9ab6471f664a662972e406f519eab8bce87a8c0365646df5acbc04c91540b4c7c518cec680a4a6af14dae1aca0fd5525220f7f0e96fcd2adef3c803ac9427fe71034b55a50536638820ef21903d09ccddd38396675b598587fa886ca711415c813fc6d69f46552b9a0a539c18f265debd0e2e286980a118ba349c216000043497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea33090000000013a63c0000b50001021bf3de4e84e3d52f9a3e36fbdcd2c4e8dbf203b9ce4fc07c2f03be6c21d0c67503f113414ebdc6c1fb0f33c99cd5a1d09dd79e7fdf2468cf1fe1af6674361695d203801fd8ab98032f11cc9e4916dd940417082727077609d5c7f8cc6e9a3ad25dd102517164b97ab46cee3826160841a36c46a2b7b9c74da37bdc070ed41ba172033a0000000001000000"
+                                  "00000086"  # len
+                                  "88c703c8"  # csum
+                                  "1001"  # WIRE_GOSSIP_STORE_CHANNEL_UPDATE
+                                  "008201021ea7c2eadf8a29eb8690511a519b5656e29aa0a853771c4e38e65c5abf43d907295a915e69e451f4c7a0c3dc13dd943cfbe3ae88c0b96667cd7d58955dbfedcf43497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea33090000000013a63c0000b500015b8d9b440000009000000000000003e8000003e800000001"))
+
+    l1.start()
+    # May preceed the Started msg waited for in 'start'.
+    wait_for(lambda: l1.daemon.is_in_log('gossip_store: Read 1/1/1/0 cannounce/cupdate/nannounce/cdelete from store in 744 bytes'))
+    assert not l1.daemon.is_in_log('gossip_store.*truncating')

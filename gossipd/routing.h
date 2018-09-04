@@ -300,9 +300,13 @@ bool routing_add_channel_update(struct routing_state *rstate,
  * Directly add the node being announced to the network view, without verifying
  * it. This must be from a trusted source, e.g., gossip_store. For untrusted
  * sources (peers) please use @see{handle_node_announcement}.
+ *
+ * Populates *unknown_node if it isn't NULL and this returns false to indicate
+ * if failure was due to an unknown node_id.
  */
 bool routing_add_node_announcement(struct routing_state *rstate,
-                                  const u8 *msg TAKES);
+				   const u8 *msg TAKES,
+				   bool *unknown_node);
 
 
 /**
