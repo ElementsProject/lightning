@@ -703,6 +703,8 @@ class NodeFactory(object):
         if DEVELOPER:
             daemon.opts["dev-fail-on-subdaemon-fail"] = None
             daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
+            if os.getenv("DEBUG_SUBD"):
+                daemon.opts["dev-debugger"] = os.getenv("DEBUG_SUBD")
             if VALGRIND:
                 daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
             if not may_reconnect:
