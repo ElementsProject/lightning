@@ -174,7 +174,7 @@ A modern desktop can build and run through all the tests in a couple of minutes 
 
     make -j12 check PYTEST_PAR=24 DEVELOPER=1 VALGRIND=0
 
-Adust `-j` and `PYTEST_PAR` accordingly for your hardware.
+Adjust `-j` and `PYTEST_PAR` accordingly for your hardware.
 
 There are three kinds of tests:
 
@@ -200,7 +200,9 @@ There are three kinds of tests:
 
   `PYTHONPATH=contrib/pylightning py.test -v tests/`.
 
-  You can also append `-k TESTNAME` to run a single test.
+  You can also append `-k TESTNAME` to run a single test.  Environment variables
+  `DEBUG_SUBD=<subdaemon>` and `TIMEOUT=<seconds>` can be useful for debugging
+  subdaemons on individual tests.
 
 Our Travis CI instance (see `.travis.yml`) runs all these for each
 pull request.
