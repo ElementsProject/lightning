@@ -337,6 +337,8 @@ char *dbmigrations[] = {
     "ALTER TABLE payments ADD description TEXT;",
     /* future_per_commitment_point if other side proves we're out of date -- */
     "ALTER TABLE channels ADD future_per_commitment_point BLOB;",
+    /* last_sent_commit array fix */
+    "ALTER TABLE channels ADD last_sent_commit BLOB;",
     NULL,
 };
 
