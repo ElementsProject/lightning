@@ -623,8 +623,26 @@ class LightningNode(object):
     # it on a running daemon may not give expected result!
     def set_feerates(self, feerates, wait_for_effect=True):
         # (bitcoind returns bitcoin per kb, so these are * 4)
-        self.bitcoind_cmd_override("""case "$*" in *2\ CONSERVATIVE*) FEERATE={};; *4\ ECONOMICAL*) FEERATE={};; *100\ ECONOMICAL*) FEERATE={};; *) exit 98;; esac; echo '{{ "feerate": '$(printf 0.%08u $FEERATE)' }}'; exit 0""".format(feerates[0] * 4, feerates[1] * 4, feerates[2] * 4),
-                                   'estimatesmartfee')
+
+        def mock_estimatesmartfee(r):
+            params = r['params']
+            if params == [2, 'CONSERVATIVE']:
+                feerate = feerates[0] * 4
+            elif params == [4, 'ECONOMICAL']:
+                feerate = feerates[1] * 4
+            elif params == [100, 'ECONOMICAL']:
+                feerate = feerates[2] * 4
+            else:
+                raise ValueError()
+            return {
+                'id': r['id'],
+                'error': None,
+                'result': {
+                    'feerate': Decimal(feerate) / 10**8
+                },
+            }
+        self.daemon.rpcproxy.mock_rpc('estimatesmartfee', mock_estimatesmartfee)
+
         if wait_for_effect:
             self.daemon.wait_for_log('Feerate estimate for .* set to')
 

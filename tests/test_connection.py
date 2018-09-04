@@ -1108,8 +1108,11 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
 @unittest.skipIf(not DEVELOPER, "needs dev_fail")
 def test_no_fee_estimate(node_factory, bitcoind, executor):
     l1 = node_factory.get_node(start=False)
-    l1.bitcoind_cmd_override(cmd='estimatesmartfee',
-                             failscript="""echo '{ "errors": [ "Insufficient data or no feerate found" ], "blocks": 0 }'; exit 0""")
+
+    # Fail any fee estimation requests until we allow them further down
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', {
+        'error': {"errors": ["Insufficient data or no feerate found"], "blocks": 0}
+    })
     l1.start()
 
     l2 = node_factory.get_node()
