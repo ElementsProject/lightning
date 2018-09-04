@@ -71,6 +71,11 @@ find_pytest()
 	    return
 	fi
     done
+
+    if python3 -c "import pytest" ; then
+        echo "python3 -m pytest"
+        return
+    fi
 }
 
 PYTEST=${PYTEST:-`find_pytest`}
