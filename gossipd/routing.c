@@ -199,7 +199,7 @@ static bool remove_channel_from_array(struct chan ***chans, const struct chan *c
 static bool node_announce_predates_channels(const struct node *node)
 {
 	for (size_t i = 0; i < tal_count(node->chans); i++) {
-		if (!is_chan_public(node->chans[i]))
+		if (!is_chan_announced(node->chans[i]))
 			continue;
 
 		if (node->chans[i]->channel_announcement_index
