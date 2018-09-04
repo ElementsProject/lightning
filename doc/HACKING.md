@@ -92,15 +92,15 @@ Debugging
 You can build c-lightning with DEVELOPER=1 to use dev commands listed in ``cli/lightning-cli help``. ``./configure --enable-developer`` will do that. You can log console messages with log_info() in lightningd and status_trace() in other subdaemons.
 
 You can debug crashing subdaemons with the argument
-`--dev-debugger=lightning_channeld`, where `channeld` is the subdaemon name.
-It will print out (to stderr) a command such as:
+`--dev-debugger=channeld`, where `channeld` is the subdaemon name.  It
+will run `gnome-terminal` by default with a gdb attached to the
+subdaemon when it starts.  You can change the terminal used by setting
+the `DEBUG_TERM` environment variable, such as `DEBUG_TERM="xterm -e"`
+or `DEBUG_TERM="konsole -e"`.
 
-    gdb -ex 'attach 22398' -ex 'p debugger_connected=1' \
-      lightningd/lightning_hsmd
-
-Run this command to start debugging.
-You may need to type `return` one more time to exit the infinite while
-loop, otherwise you can type `continue` to begin.
+It will also print out (to stderr) the gdb command for manual connection.  The
+subdaemon will be stopped (it sends itself a SIGSTOP); you'll need to
+`continue` in gdb.
 
 Database
 --------
