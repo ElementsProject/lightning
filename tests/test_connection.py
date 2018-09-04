@@ -1295,3 +1295,31 @@ def test_dataloss_protection(node_factory, bitcoind):
 
     # l2 should have it in wallet.
     assert (closetxid, "confirmed") in set([(o['txid'], o['status']) for o in l2.rpc.listfunds()['outputs']])
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "needs dev_disconnect")
+def test_restart_multi_htlc_rexmit(node_factory, bitcoind, executor):
+    # l1 disables commit timer once we send first htlc, dies on commit
+    disconnects = ['=WIRE_UPDATE_ADD_HTLC-nocommit',
+                   '-WIRE_COMMITMENT_SIGNED']
+    l1, l2 = node_factory.line_graph(2, opts=[{'disconnect': disconnects,
+                                               'may_reconnect': True},
+                                              {'may_reconnect': True}])
+
+    executor.submit(l1.pay, l2, 20000)
+    executor.submit(l1.pay, l2, 30000)
+
+    l1.daemon.wait_for_logs(['peer_out WIRE_UPDATE_ADD_HTLC'] * 2)
+    l1.rpc.dev_reenable_commit(l2.info['id'])
+    l1.daemon.wait_for_log('dev_disconnect: -WIRE_COMMITMENT_SIGNED')
+
+    # This will make it reconnect
+    l1.stop()
+    # Clear the disconnect so we can proceed normally
+    del l1.daemon.opts['dev-disconnect']
+    l1.start()
+
+    # Payments will fail due to restart, but we can see results in listpayments.
+    print(l1.rpc.listpayments())
+    wait_for(lambda: [p['status'] for p in l1.rpc.listpayments()['payments']] == ['complete', 'complete'])
