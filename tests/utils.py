@@ -10,11 +10,11 @@ import subprocess
 import threading
 import time
 
+from btcproxy import BitcoinRpcProxy
 from bitcoin.rpc import RawProxy as BitcoinProxy
 from decimal import Decimal
 from ephemeral_port_reserve import reserve
 from lightning import LightningRpc
-
 
 BITCOIND_CONFIG = {
     "regtest": 1,
@@ -287,12 +287,14 @@ class BitcoinD(TailableProc):
 
 
 class LightningD(TailableProc):
-    def __init__(self, lightning_dir, bitcoin_dir, port=9735, random_hsm=False, node_id=0, bitcoin_rpcport=18332):
+    def __init__(self, lightning_dir, bitcoind, port=9735, random_hsm=False, node_id=0):
         TailableProc.__init__(self, lightning_dir)
         self.lightning_dir = lightning_dir
         self.port = port
         self.cmd_prefix = []
         self.disconnect_file = None
+
+        self.rpcproxy = BitcoinRpcProxy(bitcoind)
 
         self.opts = LIGHTNINGD_CONFIG.copy()
         opts = {
@@ -301,7 +303,6 @@ class LightningD(TailableProc):
             'allow-deprecated-apis': 'false',
             'network': 'regtest',
             'ignore-fee-limits': 'false',
-            'bitcoin-rpcport': bitcoin_rpcport,
             'bitcoin-rpcuser': BITCOIND_CONFIG['rpcuser'],
             'bitcoin-rpcpassword': BITCOIND_CONFIG['rpcpassword'],
         }
@@ -344,6 +345,9 @@ class LightningD(TailableProc):
         return self.cmd_prefix + ['lightningd/lightningd'] + opts
 
     def start(self):
+        self.rpcproxy.start()
+
+        self.opts['bitcoin-rpcport'] = self.rpcproxy.rpcport
         TailableProc.start(self)
         self.wait_for_log("Server started with public key")
         logging.info("LightningD started")
@@ -355,6 +359,7 @@ class LightningD(TailableProc):
         not return before the timeout triggers.
         """
         self.proc.wait(timeout)
+        self.rpcproxy.stop()
         return self.proc.returncode
 
 
@@ -690,9 +695,8 @@ class NodeFactory(object):
 
         socket_path = os.path.join(lightning_dir, "lightning-rpc").format(node_id)
         daemon = LightningD(
-            lightning_dir, self.bitcoind.bitcoin_dir,
-            port=port, random_hsm=random_hsm, node_id=node_id,
-            bitcoin_rpcport=self.bitcoind.rpcport
+            lightning_dir, self.bitcoind,
+            port=port, random_hsm=random_hsm, node_id=node_id
         )
         # If we have a disconnect string, dump it to a file for daemon.
         if disconnect:

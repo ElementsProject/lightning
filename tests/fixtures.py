@@ -1,6 +1,5 @@
 from concurrent import futures
-from btcproxy import ProxiedBitcoinD
-from utils import NodeFactory
+from utils import NodeFactory, BitcoinD
 
 import logging
 import os
@@ -69,7 +68,7 @@ def test_name(request):
 
 @pytest.fixture
 def bitcoind(directory):
-    bitcoind = ProxiedBitcoinD(bitcoin_dir=directory)
+    bitcoind = BitcoinD(bitcoin_dir=directory)
     try:
         bitcoind.start()
     except Exception:
