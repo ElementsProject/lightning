@@ -747,9 +747,10 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 
 	CHECK(c1->our_config.id != 0 && c1->our_config.id == c2->our_config.id);
 	CHECK((lc1 != NULL) ==  (lc2 != NULL));
-	if(lc1) {
-		CHECK(lc1->newstate == lc2->newstate);
-		CHECK(lc1->id == lc2->id);
+	CHECK(tal_count(lc1) == tal_count(lc2));
+	for (size_t i = 0; i < tal_count(lc1); i++) {
+		CHECK(lc1[i].newstate == lc2[i].newstate);
+		CHECK(lc1[i].id == lc2[i].id);
 	}
 
 	CHECK((c1->last_tx != NULL) ==  (c2->last_tx != NULL));
@@ -795,7 +796,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	struct channel_info *ci = &c1.channel_info;
 	struct bitcoin_txid *hash = tal(w, struct bitcoin_txid);
 	struct pubkey pk;
-	struct changed_htlc last_commit;
+	struct changed_htlc *last_commit;
 	secp256k1_ecdsa_signature *sig = tal(w, secp256k1_ecdsa_signature);
 	u8 *scriptpubkey = tal_arr(ctx, u8, 100);
 
@@ -804,7 +805,8 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	memset(ci, 3, sizeof(*ci));
 	mempat(hash, sizeof(*hash));
 	mempat(sig, sizeof(*sig));
-	mempat(&last_commit, sizeof(last_commit));
+	last_commit = tal_arr(w, struct changed_htlc, 2);
+	mempat(last_commit, tal_bytelen(last_commit));
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
 	ci->feerate_per_kw[LOCAL] = ci->feerate_per_kw[REMOTE] = 31337;
 	mempat(scriptpubkey, tal_count(scriptpubkey));
@@ -864,7 +866,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK(c1.their_shachain.id == 1);
 
 	/* Variant 3: update with last_commit_sent */
-	c1.last_sent_commit = &last_commit;
+	c1.last_sent_commit = last_commit;
 	wallet_channel_save(w, &c1);
 	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(c2 = wallet_channel_load(w, c1.dbid), tal_fmt(w, "Load from DB"));

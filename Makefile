@@ -35,7 +35,7 @@ endif
 
 ifeq ($(COMPAT),1)
 # We support compatibility with pre-0.6.
-COMPAT_CFLAGS=-DCOMPAT_V052=1
+COMPAT_CFLAGS=-DCOMPAT_V052=1 -DCOMPAT_V060=1
 endif
 
 PYTEST_OPTS := -v -x

@@ -609,13 +609,26 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 	remote_shutdown_scriptpubkey = sqlite3_column_arr(tmpctx, stmt, 28, u8);
 
 	/* Do we have a last_sent_commit, if yes, populate */
-	if (sqlite3_column_type(stmt, 30) != SQLITE_NULL) {
+	if (sqlite3_column_type(stmt, 41) != SQLITE_NULL) {
+		const u8 *cursor = sqlite3_column_blob(stmt, 41);
+		size_t len = sqlite3_column_bytes(stmt, 41);
+		size_t n = 0;
+		last_sent_commit = tal_arr(tmpctx, struct changed_htlc, n);
+		while (len) {
+			tal_resize(&last_sent_commit, n+1);
+			fromwire_changed_htlc(&cursor, &len,
+					      &last_sent_commit[n++]);
+		}
+	} else
+		last_sent_commit = NULL;
+
+#ifdef COMPAT_V060
+	if (!last_sent_commit && sqlite3_column_type(stmt, 30) != SQLITE_NULL) {
 		last_sent_commit = tal(tmpctx, struct changed_htlc);
 		last_sent_commit->newstate = sqlite3_column_int64(stmt, 30);
 		last_sent_commit->id = sqlite3_column_int64(stmt, 31);
-	} else {
-		last_sent_commit = NULL;
 	}
+#endif
 
 	if (sqlite3_column_type(stmt, 40) != SQLITE_NULL) {
 		future_per_commitment_point = tal(tmpctx, struct pubkey);
@@ -715,7 +728,8 @@ static const char *channel_fields =
     /*30*/ "last_sent_commit_state, last_sent_commit_id, "
     /*32*/ "last_tx, last_sig, last_was_revoke, first_blocknum, "
     /*36*/ "min_possible_feerate, max_possible_feerate, "
-    /*38*/ "msatoshi_to_us_min, msatoshi_to_us_max, future_per_commitment_point ";
+    /*38*/ "msatoshi_to_us_min, msatoshi_to_us_max, future_per_commitment_point, "
+    /*41*/ "last_sent_commit";
 
 bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
 {
@@ -893,6 +907,7 @@ u64 wallet_get_channel_dbid(struct wallet *wallet)
 void wallet_channel_save(struct wallet *w, struct channel *chan)
 {
 	sqlite3_stmt *stmt;
+	u8 *last_sent_commit;
 	assert(chan->first_blocknum);
 
 	wallet_channel_config_save(w, &chan->our_config);
@@ -996,17 +1011,23 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_exec_prepared(w->db, stmt);
 
 	/* If we have a last_sent_commit, store it */
-	if (chan->last_sent_commit) {
-		stmt = db_prepare(w->db,
-				  "UPDATE channels SET"
-				  "  last_sent_commit_state=?,"
-				  "  last_sent_commit_id=?"
-				  " WHERE id=?");
-		sqlite3_bind_int(stmt, 1, chan->last_sent_commit->newstate);
-		sqlite3_bind_int64(stmt, 2, chan->last_sent_commit->id);
-		sqlite3_bind_int64(stmt, 3, chan->dbid);
-		db_exec_prepared(w->db, stmt);
-	}
+	last_sent_commit = tal_arr(tmpctx, u8, 0);
+	for (size_t i = 0; i < tal_count(chan->last_sent_commit); i++)
+		towire_changed_htlc(&last_sent_commit,
+				    &chan->last_sent_commit[i]);
+
+	stmt = db_prepare(w->db,
+			  "UPDATE channels SET"
+			  "  last_sent_commit=?"
+			  " WHERE id=?");
+	if (tal_count(last_sent_commit))
+		sqlite3_bind_blob(stmt, 1,
+				  last_sent_commit, tal_count(last_sent_commit),
+				  SQLITE_TRANSIENT);
+	else
+		sqlite3_bind_null(stmt, 1);
+	sqlite3_bind_int64(stmt, 2, chan->dbid);
+	db_exec_prepared(w->db, stmt);
 }
 
 void wallet_channel_insert(struct wallet *w, struct channel *chan)
