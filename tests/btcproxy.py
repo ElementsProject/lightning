@@ -3,7 +3,6 @@
 from flask import Flask, request
 from bitcoin.rpc import JSONRPCError
 from bitcoin.rpc import RawProxy as BitcoinProxy
-from utils import BitcoinD
 from cheroot.wsgi import Server
 from cheroot.wsgi import PathInfoDispatcher
 
@@ -24,16 +23,17 @@ class DecimalEncoder(json.JSONEncoder):
         return super(DecimalEncoder, self).default(o)
 
 
-class ProxiedBitcoinD(BitcoinD):
-    def __init__(self, bitcoin_dir, proxyport=0):
-        BitcoinD.__init__(self, bitcoin_dir, rpcport=None)
+class BitcoinRpcProxy(object):
+    def __init__(self, bitcoind, rpcport=0):
         self.app = Flask("BitcoindProxy")
         self.app.add_url_rule("/", "API entrypoint", self.proxy, methods=['POST'])
-        self.proxyport = proxyport
+        self.rpcport = rpcport
         self.mocks = {}
+        self.bitcoind = bitcoind
+        self.request_count = 0
 
     def _handle_request(self, r):
-        conf_file = os.path.join(self.bitcoin_dir, 'bitcoin.conf')
+        conf_file = os.path.join(self.bitcoind.bitcoin_dir, 'bitcoin.conf')
         brpc = BitcoinProxy(btc_conf_file=conf_file)
         method = r['method']
 
@@ -55,6 +55,7 @@ class ProxiedBitcoinD(BitcoinD):
                 "error": e.error,
                 "id": r['id']
             }
+        self.request_count += 1
         return reply
 
     def proxy(self):
@@ -71,27 +72,23 @@ class ProxiedBitcoinD(BitcoinD):
 
     def start(self):
         d = PathInfoDispatcher({'/': self.app})
-        self.server = Server(('0.0.0.0', self.proxyport), d)
+        self.server = Server(('0.0.0.0', self.rpcport), d)
         self.proxy_thread = threading.Thread(target=self.server.start)
         self.proxy_thread.daemon = True
         self.proxy_thread.start()
-        BitcoinD.start(self)
 
         # Now that bitcoind is running on the real rpcport, let's tell all
         # future callers to talk to the proxyport. We use the bind_addr as a
         # signal that the port is bound and accepting connections.
         while self.server.bind_addr[1] == 0:
             pass
-        self.proxiedport = self.rpcport
         self.rpcport = self.server.bind_addr[1]
-        logging.debug("bitcoind reverse proxy listening on {}, forwarding to {}".format(
-            self.rpcport, self.proxiedport
-        ))
+        logging.debug("BitcoinRpcProxy proxying incoming port {} to {}".format(self.rpcport, self.bitcoind.rpcport))
 
     def stop(self):
-        BitcoinD.stop(self)
         self.server.stop()
         self.proxy_thread.join()
+        logging.debug("BitcoinRpcProxy shut down after processing {} requests".format(self.request_count))
 
     def mock_rpc(self, method, response=None):
         """Mock the response to a future RPC call of @method
@@ -105,11 +102,3 @@ class ProxiedBitcoinD(BitcoinD):
             self.mocks[method] = response
         elif method in self.mocks:
             del self.mocks[method]
-
-
-# The main entrypoint is mainly used to test the proxy. It is not used during
-# lightningd testing.
-if __name__ == "__main__":
-    p = ProxiedBitcoinD(bitcoin_dir='/tmp/bitcoind-test/', proxyport=5000)
-    p.start()
-    p.proxy_thread.join()
