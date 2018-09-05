@@ -38,7 +38,7 @@ ifeq ($(COMPAT),1)
 COMPAT_CFLAGS=-DCOMPAT_V052=1 -DCOMPAT_V060=1
 endif
 
-PYTEST_OPTS := -v -x
+PYTEST_OPTS := -v
 
 # This is where we add new features as bitcoin adds them.
 FEATURES :=
@@ -205,8 +205,14 @@ ifneq ($(TEST_GROUP_COUNT),)
 PYTEST_OPTS += --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT)
 endif
 
+# If we run the tests in parallel we can speed testing up by a lot, however we
+# then don't exit on the first error, since that'd kill the other tester
+# processes and result in loads in loads of output. So we only tell py.test to
+# abort early if we aren't running in parallel.
 ifneq ($(PYTEST_PAR),)
 PYTEST_OPTS += -n=$(PYTEST_PAR)
+else
+PYTEST_OPTS += -x
 endif
 
 check:
