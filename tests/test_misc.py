@@ -89,7 +89,12 @@ def test_bitcoin_failure(node_factory, bitcoind):
     # Make sure we're not failing it between getblockhash and getblock.
     sync_blockheight(bitcoind, [l1])
 
-    l1.bitcoind_cmd_override('exit 1')
+    def crash_bitcoincli(r):
+        return {'error': 'go away'}
+
+    # This is not a JSON-RPC response by purpose
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', crash_bitcoincli)
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', crash_bitcoincli)
 
     # This should cause both estimatefee and getblockhash fail
     l1.daemon.wait_for_logs(['estimatesmartfee .* exited with status 1',
@@ -100,7 +105,9 @@ def test_bitcoin_failure(node_factory, bitcoind):
                              'getblockhash .* exited with status 1'])
 
     # Restore, then it should recover and get blockheight.
-    l1.bitcoind_cmd_remove_override()
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', None)
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', None)
+
     bitcoind.generate_block(5)
     sync_blockheight(bitcoind, [l1])
 
@@ -921,6 +928,8 @@ def test_logging(node_factory):
     logpath = os.path.join(l1.daemon.lightning_dir, 'logfile')
     logpath_moved = os.path.join(l1.daemon.lightning_dir, 'logfile_moved')
 
+    l1.daemon.rpcproxy.start()
+    l1.daemon.opts['bitcoin-rpcport'] = l1.daemon.rpcproxy.rpcport
     TailableProc.start(l1.daemon)
     wait_for(lambda: os.path.exists(logpath))
 
