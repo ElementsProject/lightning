@@ -4,7 +4,6 @@ import random
 import re
 import shutil
 import sqlite3
-import stat
 import string
 import subprocess
 import threading
@@ -600,25 +599,6 @@ class LightningNode(object):
         # wait for sendpay to comply
         self.rpc.waitsendpay(rhash)
 
-    def bitcoind_cmd_override(self, failscript='exit 1', cmd=None):
-        # Create and rename, for atomicity.
-        f = os.path.join(self.daemon.lightning_dir, "bitcoin-cli-fail.tmp")
-        with open(f, "w") as text_file:
-            text_file.write(failscript)
-        os.chmod(f, os.stat(f).st_mode | stat.S_IEXEC)
-        if cmd:
-            failfile = "bitcoin-cli-fail-{}".format(cmd)
-        else:
-            failfile = "bitcoin-cli-fail"
-        os.rename(f, os.path.join(self.daemon.lightning_dir, failfile))
-
-    def bitcoind_cmd_remove_override(self, cmd=None):
-        if cmd:
-            failfile = "bitcoin-cli-fail-{}".format(cmd)
-        else:
-            failfile = "bitcoin-cli-fail"
-        os.remove(os.path.join(self.daemon.lightning_dir, failfile))
-
     # Note: this feeds through the smoother in update_feerate, so changing
     # it on a running daemon may not give expected result!
     def set_feerates(self, feerates, wait_for_effect=True):
@@ -699,7 +679,9 @@ class NodeFactory(object):
 
         return [j.result() for j in jobs]
 
-    def get_node(self, disconnect=None, options=None, may_fail=False, may_reconnect=False, random_hsm=False, feerates=(15000, 7500, 3750), start=True, fake_bitcoin_cli=False, log_all_io=False):
+    def get_node(self, disconnect=None, options=None, may_fail=False,
+                 may_reconnect=False, random_hsm=False,
+                 feerates=(15000, 7500, 3750), start=True, log_all_io=False):
         with self.lock:
             node_id = self.next_id
             self.next_id += 1
@@ -735,17 +717,6 @@ class NodeFactory(object):
                 daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
             if not may_reconnect:
                 daemon.opts["dev-no-reconnect"] = None
-
-        cli = os.path.join(lightning_dir, "fake-bitcoin-cli")
-        with open(cli, "w") as text_file:
-            text_file.write('#! /bin/sh\n'
-                            '! [ -x bitcoin-cli-fail ] || exec ./bitcoin-cli-fail "$@"\n'
-                            'for a in "$@"; do\n'
-                            '\t! [ -x bitcoin-cli-fail-"$a" ] || exec ./bitcoin-cli-fail-"$a" "$@"\n'
-                            'done\n'
-                            'exec bitcoin-cli "$@"\n')
-        os.chmod(cli, os.stat(cli).st_mode | stat.S_IEXEC)
-        daemon.opts['bitcoin-cli'] = cli
 
         if options is not None:
             daemon.opts.update(options)
