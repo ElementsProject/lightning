@@ -216,7 +216,7 @@ check:
 
 pytest: $(ALL_PROGRAMS)
 ifndef PYTEST
-	@echo "py.test is required to run the integration tests, please install using 'pip3 install -r tests/requirements.txt'"
+	@echo "py.test is required to run the integration tests, please install using 'pip3 install -r tests/requirements.txt', and rerun 'configure'."
 	exit 1
 else
 # Explicitly hand DEVELOPER and VALGRIND so you can override on make cmd line.

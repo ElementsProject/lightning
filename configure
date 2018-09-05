@@ -71,6 +71,17 @@ find_pytest()
 	    return
 	fi
     done
+
+    PYTHON_BINS="python python3"
+    for p in $PYTHON_BINS; do
+        if [ "$(which $p)" != "" ] ; then
+            $p --version 2>&1 | grep -q "Python 3." || continue
+            if $p -c "import pytest" ; then
+                echo "$p -m pytest"
+                return
+            fi
+        fi
+    done
 }
 
 PYTEST=${PYTEST:-`find_pytest`}
