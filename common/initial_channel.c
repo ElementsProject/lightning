@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <bitcoin/chainparams.h>
 #include <bitcoin/script.h>
 #include <ccan/tal/str/str.h>
 #include <common/initial_channel.h>
@@ -8,6 +9,7 @@
 #include <inttypes.h>
 
 struct channel *new_initial_channel(const tal_t *ctx,
+				    const struct bitcoin_blkid *chain_hash,
 				    const struct bitcoin_txid *funding_txid,
 				    unsigned int funding_txout,
 				    u64 funding_satoshis,
@@ -58,6 +60,8 @@ struct channel *new_initial_channel(const tal_t *ctx,
 	channel->commitment_number_obscurer
 		= commit_number_obscurer(&channel->basepoints[funder].payment,
 					 &channel->basepoints[!funder].payment);
+	channel->chainparams = chainparams_by_chainhash(chain_hash);
+	assert(channel->chainparams != NULL);
 
 	return channel;
 }

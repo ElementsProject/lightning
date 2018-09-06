@@ -27,6 +27,7 @@
  * Returns state, or NULL if malformed.
  */
 struct channel *new_full_channel(const tal_t *ctx,
+				 const struct bitcoin_blkid *chain_hash,
 				 const struct bitcoin_txid *funding_txid,
 				 unsigned int funding_txout,
 				 u64 funding_satoshis,

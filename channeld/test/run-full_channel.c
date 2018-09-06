@@ -336,6 +336,7 @@ int main(void)
 	const struct htlc **htlc_map, **htlcs;
 	const u8 *funding_wscript, **wscripts;
 	size_t i;
+	const struct chainparams *chainparams = chainparams_for_network("bitcoin");
 
 	secp256k1_ctx = wally_get_secp_context();
 	setup_tmpctx();
@@ -443,7 +444,9 @@ int main(void)
 	to_local_msat = 7000000000;
 	to_remote_msat = 3000000000;
 	feerate_per_kw[LOCAL] = feerate_per_kw[REMOTE] = 15000;
-	lchannel = new_full_channel(tmpctx, &funding_txid, funding_output_index,
+	lchannel = new_full_channel(tmpctx,
+				    &chainparams->genesis_blockhash,
+				    &funding_txid, funding_output_index,
 				    funding_amount_satoshi, to_local_msat,
 				    feerate_per_kw,
 				    local_config,
@@ -452,7 +455,9 @@ int main(void)
 				    &local_funding_pubkey,
 				    &remote_funding_pubkey,
 				    LOCAL);
-	rchannel = new_full_channel(tmpctx, &funding_txid, funding_output_index,
+	rchannel = new_full_channel(tmpctx,
+				    &chainparams->genesis_blockhash,
+				    &funding_txid, funding_output_index,
 				    funding_amount_satoshi, to_remote_msat,
 				    feerate_per_kw,
 				    remote_config,

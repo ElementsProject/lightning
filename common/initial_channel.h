@@ -57,6 +57,9 @@ struct channel {
 
 	/* What it looks like to each side. */
 	struct channel_view view[NUM_SIDES];
+
+	/* Chain params to check against */
+	const struct chainparams *chainparams;
 };
 
 /* Some requirements are self-specified (eg. my dust limit), others
@@ -125,6 +128,7 @@ static inline u16 to_self_delay(const struct channel *channel, enum side side)
 /**
  * new_initial_channel: Given initial fees and funding, what is initial state?
  * @ctx: tal context to allocate return value from.
+ * @chain_hash: Which blockchain are we talking about?
  * @funding_txid: The commitment transaction id.
  * @funding_txout: The commitment transaction output number.
  * @funding_satoshis: The commitment transaction amount.
@@ -142,6 +146,7 @@ static inline u16 to_self_delay(const struct channel *channel, enum side side)
  * Returns channel, or NULL if malformed.
  */
 struct channel *new_initial_channel(const tal_t *ctx,
+				    const struct bitcoin_blkid *chain_hash,
 				    const struct bitcoin_txid *funding_txid,
 				    unsigned int funding_txout,
 				    u64 funding_satoshis,
