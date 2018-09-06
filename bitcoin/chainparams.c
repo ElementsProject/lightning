@@ -12,6 +12,8 @@ const struct chainparams networks[] = {
      .cli = "bitcoin-cli",
      .cli_args = NULL,
      .dust_limit = 546,
+     .max_funding_satoshi = (1 << 24) - 1,
+     .max_payment_msat = 0xFFFFFFFFULL,
      /* "Lightning Charge Powers Developers & Blockstream Store" */
      .when_lightning_became_cool = 504500,
      .testnet = false},
@@ -23,6 +25,8 @@ const struct chainparams networks[] = {
      .cli = "bitcoin-cli",
      .cli_args = "-regtest",
      .dust_limit = 546,
+     .max_funding_satoshi = (1 << 24) - 1,
+     .max_payment_msat = 0xFFFFFFFFULL,
      .when_lightning_became_cool = 1,
      .testnet = true},
     {.index = 2,
@@ -33,6 +37,8 @@ const struct chainparams networks[] = {
      .cli = "bitcoin-cli",
      .cli_args = "-testnet",
      .dust_limit = 546,
+     .max_funding_satoshi = (1 << 24) - 1,
+     .max_payment_msat = 0xFFFFFFFFULL,
      .testnet = true},
     {.index = 3,
      .network_name = "litecoin",
@@ -42,6 +48,8 @@ const struct chainparams networks[] = {
      .cli = "litecoin-cli",
      .cli_args = NULL,
      .dust_limit = 100000,
+     .max_funding_satoshi = 60 * ((1 << 24) - 1),
+     .max_payment_msat = 60 * 0xFFFFFFFFULL,
      .when_lightning_became_cool = 1320000,
      .testnet = false},
     {.index = 4,
@@ -52,6 +60,8 @@ const struct chainparams networks[] = {
      .cli = "litecoin-cli",
      .cli_args = "-testnet",
      .dust_limit = 100000,
+     .max_funding_satoshi = 60 * ((1 << 24) - 1),
+     .max_payment_msat = 60 * 0xFFFFFFFFULL,
      .when_lightning_became_cool = 1,
      .testnet = true}
 };
@@ -73,6 +83,16 @@ const struct chainparams *chainparams_by_index(const int index)
 	} else {
 		return &networks[index];
 	}
+}
+
+const struct chainparams *chainparams_by_chainhash(const struct bitcoin_blkid *chain_hash)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(networks); i++) {
+		if (bitcoin_blkid_eq(chain_hash, &networks[i].genesis_blockhash)) {
+			return &networks[i];
+		}
+	}
+	return NULL;
 }
 
 const struct chainparams *chainparams_by_bip173(const char *bip173_name)
