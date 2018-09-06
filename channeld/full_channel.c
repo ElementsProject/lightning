@@ -363,7 +363,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 * - for channels with `chain_hash` identifying the Bitcoin blockchain:
 	 *    - MUST set the four most significant bytes of `amount_msat` to 0.
 	 */
-	if (htlc->msatoshi & 0xFFFFFFFF00000000ULL) {
+	if (htlc->msatoshi > channel->chainparams->max_payment_msat) {
 		return CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
 	}
 

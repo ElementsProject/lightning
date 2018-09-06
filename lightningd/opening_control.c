@@ -766,6 +766,7 @@ static void json_fund_channel(struct command *cmd,
 	struct channel *channel;
 	u32 *feerate_per_kw;
 	u8 *msg;
+	u64 max_funding_satoshi = get_chainparams(cmd->ld)->max_funding_satoshi;
 
 	fc->cmd = cmd;
 	fc->uc = NULL;
@@ -777,7 +778,7 @@ static void json_fund_channel(struct command *cmd,
 		   NULL))
 		return;
 
-	if (!json_tok_wtx(&fc->wtx, buffer, sattok, MAX_FUNDING_SATOSHI))
+	if (!json_tok_wtx(&fc->wtx, buffer, sattok, max_funding_satoshi))
 		return;
 
 	if (!feerate_per_kw) {
@@ -820,7 +821,7 @@ static void json_fund_channel(struct command *cmd,
 			      BITCOIN_SCRIPTPUBKEY_P2WSH_LEN))
 		return;
 
-	assert(fc->wtx.amount <= MAX_FUNDING_SATOSHI);
+	assert(fc->wtx.amount <= max_funding_satoshi);
 
 	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
 	fc->uc = peer->uncommitted_channel;
