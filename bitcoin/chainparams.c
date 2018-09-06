@@ -12,6 +12,12 @@ const struct chainparams networks[] = {
      .cli = "bitcoin-cli",
      .cli_args = NULL,
      .dust_limit = 546,
+     /* BOLT #2:
+      *
+      * The sending node:
+      *...
+      *   - MUST set `funding_satoshis` to less than 2^24 satoshi.
+      */
      .max_funding_satoshi = (1 << 24) - 1,
      .max_payment_msat = 0xFFFFFFFFULL,
      /* "Lightning Charge Powers Developers & Blockstream Store" */
