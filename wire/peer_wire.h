@@ -29,12 +29,4 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id);
  * the network, as detailed within [BOLT #7]
  */
 #define CHANNEL_FLAGS_ANNOUNCE_CHANNEL 1
-
-/* BOLT #2:
- *
- * The sending node:
- *...
- *   - MUST set `funding_satoshis` to less than 2^24 satoshi.
- */
-#define MAX_FUNDING_SATOSHI ((1 << 24) - 1)
 #endif /* LIGHTNING_WIRE_PEER_WIRE_H */
