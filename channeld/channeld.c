@@ -2614,7 +2614,9 @@ static void init_channel(struct peer *peer)
 	/* channel_id is set from funding txout */
 	derive_channel_id(&peer->channel_id, &funding_txid, funding_txout);
 
-	peer->channel = new_full_channel(peer, &funding_txid, funding_txout,
+	peer->channel = new_full_channel(peer,
+					 &peer->chain_hash,
+					 &funding_txid, funding_txout,
 					 funding_satoshi,
 					 local_msatoshi,
 					 feerate_per_kw,

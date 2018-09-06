@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <bitcoin/chainparams.h>
 #include <bitcoin/preimage.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
@@ -22,6 +23,7 @@
   #include "gen_full_channel_error_names.h"
 
 struct channel *new_full_channel(const tal_t *ctx,
+				 const struct bitcoin_blkid *chain_hash,
 				 const struct bitcoin_txid *funding_txid,
 				 unsigned int funding_txout,
 				 u64 funding_satoshis,
@@ -35,7 +37,9 @@ struct channel *new_full_channel(const tal_t *ctx,
 				 const struct pubkey *remote_funding_pubkey,
 				 enum side funder)
 {
-	struct channel *channel = new_initial_channel(ctx, funding_txid,
+	struct channel *channel = new_initial_channel(ctx,
+						      chain_hash,
+						      funding_txid,
 						      funding_txout,
 						      funding_satoshis,
 						      local_msatoshi,
