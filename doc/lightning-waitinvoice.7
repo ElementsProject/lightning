@@ -2,12 +2,12 @@
 .\"     Title: lightning-waitinvoice
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 04/26/2018
+.\"      Date: 09/07/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-WAITINVOI" "7" "04/26/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-WAITINVOI" "7" "09/07/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,7 +41,7 @@ On success, an invoice description will be returned as per lightning\-listinvoic
 .sp
 If the invoice is deleted while unpaid, or the invoice does not exist, this command will return with an error with code \-1\&.
 .sp
-If the invoice expires before being pad, or is already expired, this command will return with an error with code \-2, with the data being the invoice data as per \fBlistinvoice\fR\&.
+If the invoice expires before being paid, or is already expired, this command will return with an error with code \-2, with the data being the invoice data as per \fBlistinvoice\fR\&.
 .SH "AUTHOR"
 .sp
 Christian Decker <decker\&.christian@gmail\&.com> is mainly responsible\&.

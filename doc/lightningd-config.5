@@ -2,12 +2,12 @@
 .\"     Title: lightningd-config
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 08/15/2018
+.\"      Date: 09/07/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNINGD\-CONFIG" "5" "08/15/2018" "\ \&" "\ \&"
+.TH "LIGHTNINGD\-CONFIG" "5" "09/07/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,7 +36,7 @@ lightningd-config \- Lightning daemon configuration file
 .sp
 lightningd(8) reads a configuration file called \fIconfig\fR, if it exists, when it starts up\&. The location of this file defaults to \fB\&.lightning\fR in the home directory, but can be overridden by the \fI\-\-lightning\-dir\fR option on the lightningd(8) command line\&.
 .sp
-Configuration file options are processsed first, then command line options: later options override earlier ones except \fIaddr\fR options which accumulate\&.
+Configuration file options are processed first, then command line options: later options override earlier ones except \fIaddr\fR options which accumulate\&.
 .sp
 All these options are mirrored as commandline arguments to lightningd(8), so \fI\-\-foo\fR becomes simply \fIfoo\fR in the configuration file, and \fI\-\-foo=bar\fR becomes \fIfoo=bar\fR in the configuration file\&.
 .sp
@@ -316,7 +316,7 @@ or \*(AqTORIPADDRESS\*(Aq\&.
 .PP
 \fBbind\-addr\fR=\fI[IPADDRESS[:PORT]]|SOCKETPATH\fR
 .RS 4
-Set an IP address or UNIX domain socket to listen to, but do not announce\&. A UNIX domain socket is distingished from an IP address by beginning with a
+Set an IP address or UNIX domain socket to listen to, but do not announce\&. A UNIX domain socket is distinguished from an IP address by beginning with a
 \fI/\fR\&.
 .sp
 .if n \{\
@@ -436,7 +436,7 @@ to authenticate to the Tor control port\&.
 .RE
 .SH "BUGS"
 .sp
-You should report bugs on our github issues page, and maybe submit a fix to gain our eternal gratutide!
+You should report bugs on our github issues page, and maybe submit a fix to gain our eternal gratitude!
 .SH "AUTHOR"
 .sp
 Rusty Russell <rusty@rustcorp\&.com\&.au> wrote this man page, and much of the configuration language, but many others did the hard work of actually implementing these options\&.
