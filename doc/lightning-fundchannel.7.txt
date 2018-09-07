@@ -12,7 +12,7 @@ SYNOPSIS
 
 DESCRIPTION
 -----------
-The *fundchannel* RPC command opens a payment channel with a peer by commiting
+The *fundchannel* RPC command opens a payment channel with a peer by committing
 a funding transaction to the blockchain as defined in BOLT #2.
 *fundchannel* by itself does not attempt to open a connection.
 A connection must first be established using *connect*.
