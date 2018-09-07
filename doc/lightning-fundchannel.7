@@ -2,12 +2,12 @@
 .\"     Title: lightning-fundchannel
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 08/29/2018
+.\"      Date: 09/07/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-FUNDCHANN" "7" "08/29/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-FUNDCHANN" "7" "09/07/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -34,7 +34,7 @@ lightning-fundchannel \- Command for establishing a lightning channel\&.
 \fBfundchannel\fR \fIid\fR \fIsatoshi\fR [\fIfeerate\fR]
 .SH "DESCRIPTION"
 .sp
-The \fBfundchannel\fR RPC command opens a payment channel with a peer by commiting a funding transaction to the blockchain as defined in BOLT #2\&. \fBfundchannel\fR by itself does not attempt to open a connection\&. A connection must first be established using \fBconnect\fR\&. Once the transaction is confirmed, normal channel operations may begin\&. Readiness is indicated by \fBlistpeers\fR reporting a \fIstate\fR of CHANNELD_NORMAL for the channel\&.
+The \fBfundchannel\fR RPC command opens a payment channel with a peer by committing a funding transaction to the blockchain as defined in BOLT #2\&. \fBfundchannel\fR by itself does not attempt to open a connection\&. A connection must first be established using \fBconnect\fR\&. Once the transaction is confirmed, normal channel operations may begin\&. Readiness is indicated by \fBlistpeers\fR reporting a \fIstate\fR of CHANNELD_NORMAL for the channel\&.
 .sp
 \fIid\fR is the peer id obtained from \fBconnect\fR\&.
 .sp

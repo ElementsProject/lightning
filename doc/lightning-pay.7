@@ -2,12 +2,12 @@
 .\"     Title: lightning-pay
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 07/28/2018
+.\"      Date: 09/07/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-PAY" "7" "07/28/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-PAY" "7" "09/07/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -34,7 +34,7 @@ lightning-pay \- Command for sending a payment to a BOLT11 invoice
 \fBpay\fR \fIbolt11\fR [\fImsatoshi\fR] [\fIdescription\fR] [\fIriskfactor\fR] [\fImaxfeepercent\fR] [\fIretry_for\fR] [\fImaxdelay\fR]
 .SH "DESCRIPTION"
 .sp
-The \fBpay\fR RPC command attempts to find a route to the given destination, and send the funds it asks for\&. If the \fIbolt11\fR does not contain an amount, \fImsatoshi\fR is required, otherwise if it is specified it must be \fInull\fR\&. If \fIbolt11\fR contains a description hash (\fIh\fR field) \fIdescription\fR is required, otherwise it is unused\&. The \fIriskfactor\fR is described in detail in lightning\-getroute(7), and defaults to 1\&.0\&. The \fImaxfeepercent\fR limits the money paid in fees, and defaults to 0\&.5\&. The maxfeepercent\*(Aq is a percentage of the amount that is to be paid\&. The `exemptfee option can be used for tiny payments which would be dominated by the fee leveraged by forwarding nodes\&. Setting exemptfee allows the maxfeepercent check to be skipped on fees that are smaller than exemptfee (default: 5000 millsatoshi)\&.
+The \fBpay\fR RPC command attempts to find a route to the given destination, and send the funds it asks for\&. If the \fIbolt11\fR does not contain an amount, \fImsatoshi\fR is required, otherwise if it is specified it must be \fInull\fR\&. If \fIbolt11\fR contains a description hash (\fIh\fR field) \fIdescription\fR is required, otherwise it is unused\&. The \fIriskfactor\fR is described in detail in lightning\-getroute(7), and defaults to 1\&.0\&. The \fImaxfeepercent\fR limits the money paid in fees, and defaults to 0\&.5\&. The maxfeepercent\*(Aq is a percentage of the amount that is to be paid\&. The `exemptfee option can be used for tiny payments which would be dominated by the fee leveraged by forwarding nodes\&. Setting exemptfee allows the maxfeepercent check to be skipped on fees that are smaller than exemptfee (default: 5000 millisatoshi)\&.
 .sp
 The \fBpay\fR RPC command will randomize routes slightly, as long as the route achieves the targeted \fImaxfeepercent\fR and \fImaxdelay\fR\&.
 .sp
