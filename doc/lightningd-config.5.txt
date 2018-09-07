@@ -18,7 +18,7 @@ exists, when it starts up.  The location of this file defaults to
 *.lightning* in the home directory, but can be overridden by the
 '--lightning-dir' option on the lightningd(8) command line.
 
-Configuration file options are processsed first, then command line
+Configuration file options are processed first, then command line
 options: later options override earlier ones except 'addr' options
 which accumulate.
 
@@ -235,7 +235,7 @@ or precisely control where to bind and what to announce with the
 *bind-addr*='[IPADDRESS[:PORT]]|SOCKETPATH'::
 
     Set an IP address or UNIX domain socket to listen to, but do not
-    announce.  A UNIX domain socket is distingished from an IP address
+    announce.  A UNIX domain socket is distinguished from an IP address
     by beginning with a '/'.
 
     An empty 'IPADDRESS' is a special value meaning bind to IPv4 and/or
@@ -294,7 +294,7 @@ or precisely control where to bind and what to announce with the
 BUGS
 ----
 You should report bugs on our github issues page, and maybe submit a
-fix to gain our eternal gratutide!
+fix to gain our eternal gratitude!
 
 AUTHOR
 ------

@@ -43,10 +43,10 @@ Each entry in 'channels' will include:
 number and output index of the channel funding transaction).
 
 - 'channel_sat' - available satoshis on our node's end of the channel 
-(values rounded to the nearest satoshi as internal storage is in milisatoshi).
+(values rounded to the nearest satoshi as internal storage is in millisatoshi).
 
 - 'channel_total_sat' - total channel value in satoshi 
-(values rounded to the nearest satoshi as internal storage is in milisatoshi). 
+(values rounded to the nearest satoshi as internal storage is in millisatoshi). 
 
 - 'funding_txid' - funding transaction id.
 
