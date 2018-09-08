@@ -7,7 +7,6 @@
 #include <stdbool.h>
 
 struct chainparams {
-	const int index;
 	const char *network_name;
 	const char *bip173_name;
 	const struct bitcoin_blkid genesis_blockhash;
