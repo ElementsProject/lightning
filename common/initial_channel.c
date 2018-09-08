@@ -61,7 +61,8 @@ struct channel *new_initial_channel(const tal_t *ctx,
 		= commit_number_obscurer(&channel->basepoints[funder].payment,
 					 &channel->basepoints[!funder].payment);
 	channel->chainparams = chainparams_by_chainhash(chain_hash);
-	assert(channel->chainparams != NULL);
+	if (channel->chainparams == NULL)
+		return tal_free(channel);
 
 	return channel;
 }
