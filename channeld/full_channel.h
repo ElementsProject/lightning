@@ -2,6 +2,7 @@
 #ifndef LIGHTNING_CHANNELD_FULL_CHANNEL_H
 #define LIGHTNING_CHANNELD_FULL_CHANNEL_H
 #include "config.h"
+#include <bitcoin/chainparams.h>
 #include <channeld/channeld_htlc.h>
 #include <channeld/full_channel_error.h>
 #include <common/initial_channel.h>
@@ -81,6 +82,7 @@ u32 actual_feerate(const struct channel *channel,
 /**
  * channel_add_htlc: append an HTLC to channel if it can afford it
  * @channel: The channel
+ * @chain_params: parameters of the target blockchain
  * @offerer: the side offering the HTLC (to the other side).
  * @id: unique HTLC id.
  * @msatoshi: amount in millisatoshi.
@@ -94,6 +96,7 @@ u32 actual_feerate(const struct channel *channel,
  * is changed.
  */
 enum channel_add_err channel_add_htlc(struct channel *channel,
+				      const struct chainparams *chain_params,
 				      enum side sender,
 				      u64 id,
 				      u64 msatoshi,
@@ -223,6 +226,7 @@ size_t num_channel_htlcs(const struct channel *channel);
 /**
  * channel_force_htlcs: force these htlcs into the (new) channel
  * @channel: the channel
+ * @chain_params: parameters of the target blockchain
  * @htlcs: the htlcs to add (tal_arr)
  * @hstates: the states for the htlcs (tal_arr of same size)
  * @fulfilled: htlcs of those which are fulfilled
@@ -233,6 +237,7 @@ size_t num_channel_htlcs(const struct channel *channel);
  * This is used for restoring a channel state.
  */
 bool channel_force_htlcs(struct channel *channel,
+			 const struct chainparams *chain_params,
 			 const struct added_htlc *htlcs,
 			 const enum htlc_state *hstates,
 			 const struct fulfilled_htlc *fulfilled,

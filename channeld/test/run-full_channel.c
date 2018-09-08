@@ -143,8 +143,10 @@ static const struct htlc **include_htlcs(struct channel *channel, enum side side
 
 		memset(&preimage, i, sizeof(preimage));
 		sha256(&hash, &preimage, sizeof(preimage));
-		e = channel_add_htlc(channel, sender, i, msatoshi, 500+i, &hash,
-				     dummy_routing, NULL);
+		e = channel_add_htlc(channel,
+				     chainparams_for_network("bitcoin"),
+				     sender, i, msatoshi, 500+i,
+				     &hash, dummy_routing, NULL);
 		assert(e == CHANNEL_ERR_ADD_OK);
 		htlcs[i] = channel_get_htlc(channel, sender, i);
 	}
@@ -235,8 +237,10 @@ static void send_and_fulfill_htlc(struct channel *channel,
 	memset(&r, 0, sizeof(r));
 	sha256(&rhash, &r, sizeof(r));
 
-	assert(channel_add_htlc(channel, sender, 1337, msatoshi, 900, &rhash,
-				dummy_routing, NULL) == CHANNEL_ERR_ADD_OK);
+	assert(channel_add_htlc(channel,
+				chainparams_for_network("bitcoin"),
+				sender, 1337, msatoshi, 900,
+				&rhash, dummy_routing, NULL) == CHANNEL_ERR_ADD_OK);
 
 	changed_htlcs = tal_arr(channel, const struct htlc *, 0);
 

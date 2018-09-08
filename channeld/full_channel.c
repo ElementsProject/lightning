@@ -284,6 +284,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 }
 
 static enum channel_add_err add_htlc(struct channel *channel,
+				     const struct chainparams *chain_params,
 				     enum htlc_state state,
 				     u64 id, u64 msatoshi, u32 cltv_expiry,
 				     const struct sha256 *payment_hash,
@@ -359,7 +360,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 * - for channels with `chain_hash` identifying the Bitcoin blockchain:
 	 *    - MUST set the four most significant bytes of `amount_msat` to 0.
 	 */
-	if (htlc->msatoshi & 0xFFFFFFFF00000000ULL) {
+	if (htlc->msatoshi > chain_params->max_payment_msat) {
 		return CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
 	}
 
@@ -465,6 +466,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 }
 
 enum channel_add_err channel_add_htlc(struct channel *channel,
+				      const struct chainparams *chain_params,
 				      enum side sender,
 				      u64 id,
 				      u64 msatoshi,
@@ -481,7 +483,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 		state = RCVD_ADD_HTLC;
 
 	/* FIXME: check expiry etc. against config. */
-	return add_htlc(channel, state, id, msatoshi, cltv_expiry,
+	return add_htlc(channel, chain_params, state, id, msatoshi, cltv_expiry,
 			payment_hash, routing, htlcp, true);
 }
 
@@ -919,6 +921,7 @@ static bool adjust_balance(struct channel *channel, struct htlc *htlc)
 }
 
 bool channel_force_htlcs(struct channel *channel,
+			 const struct chainparams *chain_params,
 			 const struct added_htlc *htlcs,
 			 const enum htlc_state *hstates,
 			 const struct fulfilled_htlc *fulfilled,
@@ -958,7 +961,7 @@ bool channel_force_htlcs(struct channel *channel,
 			     type_to_string(tmpctx, struct sha256,
 					    &htlcs[i].payment_hash));
 
-		e = add_htlc(channel, hstates[i],
+		e = add_htlc(channel, chain_params, hstates[i],
 			     htlcs[i].id, htlcs[i].amount_msat,
 			     htlcs[i].cltv_expiry,
 			     &htlcs[i].payment_hash,

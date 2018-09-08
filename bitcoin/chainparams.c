@@ -3,6 +3,21 @@
 #include <ccan/str/str.h>
 #include <string.h>
 
+/* BOLT #2:
+ *
+ * The sending node:
+ *...
+ *   - MUST set `funding_satoshis` to less than 2^24 satoshi.
+ */
+#define MAX_FUNDING_SATOSHI ((1 << 24) - 1)
+
+/* BOLT #2:
+ *
+ * - for channels with `chain_hash` identifying the Bitcoin blockchain:
+ *    - MUST set the four most significant bytes of `amount_msat` to 0.
+ */
+#define MAX_PAYMENT_MSAT 0xFFFFFFFFULL
+
 const struct chainparams networks[] = {
     {.index = 0,
      .network_name = "bitcoin",
@@ -12,6 +27,8 @@ const struct chainparams networks[] = {
      .cli = "bitcoin-cli",
      .cli_args = NULL,
      .dust_limit = 546,
+     .max_funding_satoshi = MAX_FUNDING_SATOSHI,
+     .max_payment_msat = MAX_PAYMENT_MSAT,
      /* "Lightning Charge Powers Developers & Blockstream Store" */
      .when_lightning_became_cool = 504500,
      .testnet = false},
@@ -23,6 +40,8 @@ const struct chainparams networks[] = {
      .cli = "bitcoin-cli",
      .cli_args = "-regtest",
      .dust_limit = 546,
+     .max_funding_satoshi = MAX_FUNDING_SATOSHI,
+     .max_payment_msat = MAX_PAYMENT_MSAT,
      .when_lightning_became_cool = 1,
      .testnet = true},
     {.index = 2,
@@ -33,6 +52,8 @@ const struct chainparams networks[] = {
      .cli = "bitcoin-cli",
      .cli_args = "-testnet",
      .dust_limit = 546,
+     .max_funding_satoshi = MAX_FUNDING_SATOSHI,
+     .max_payment_msat = MAX_PAYMENT_MSAT,
      .testnet = true},
     {.index = 3,
      .network_name = "litecoin",
@@ -42,6 +63,8 @@ const struct chainparams networks[] = {
      .cli = "litecoin-cli",
      .cli_args = NULL,
      .dust_limit = 100000,
+     .max_funding_satoshi = 60 * MAX_FUNDING_SATOSHI,
+     .max_payment_msat = 60 * MAX_PAYMENT_MSAT,
      .when_lightning_became_cool = 1320000,
      .testnet = false},
     {.index = 4,
@@ -52,6 +75,8 @@ const struct chainparams networks[] = {
      .cli = "litecoin-cli",
      .cli_args = "-testnet",
      .dust_limit = 100000,
+     .max_funding_satoshi = 60 * MAX_FUNDING_SATOSHI,
+     .max_payment_msat = 60 * MAX_PAYMENT_MSAT,
      .when_lightning_became_cool = 1,
      .testnet = true}
 };
@@ -79,6 +104,16 @@ const struct chainparams *chainparams_by_bip173(const char *bip173_name)
 {
 	for (size_t i = 0; i < ARRAY_SIZE(networks); i++) {
 		if (streq(bip173_name, networks[i].bip173_name)) {
+			return &networks[i];
+		}
+	}
+	return NULL;
+}
+
+const struct chainparams *chainparams_by_hash(const struct bitcoin_blkid *hash)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(networks); i++) {
+		if (bitcoin_blkid_eq(hash, &networks[i].genesis_blockhash)) {
 			return &networks[i];
 		}
 	}
