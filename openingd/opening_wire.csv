@@ -3,8 +3,8 @@
 #include <common/derive_basepoints.h>
 
 opening_init,6000
-# Which network are we configured for (as index into the chainparams)?
-opening_init,,network_index,u32
+# Which network are we configured for?
+opening_init,,chain_hash,struct bitcoin_blkid
 # Base configuration we'll offer (channel reserve will vary with amount)
 opening_init,,our_config,struct channel_config
 # Minimum/maximum configuration values we'll accept

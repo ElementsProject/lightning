@@ -82,15 +82,6 @@ const struct chainparams *chainparams_for_network(const char *network_name)
 	return NULL;
 }
 
-const struct chainparams *chainparams_by_index(const int index)
-{
-	if (index >= ARRAY_SIZE(networks) || index < 0) {
-		return NULL;
-	} else {
-		return &networks[index];
-	}
-}
-
 const struct chainparams *chainparams_by_chainhash(const struct bitcoin_blkid *chain_hash)
 {
 	for (size_t i = 0; i < ARRAY_SIZE(networks); i++) {

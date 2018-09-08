@@ -1095,7 +1095,7 @@ int main(int argc, char *argv[])
 	u8 *msg, *inner;
 	struct pollfd pollfd[3];
 	struct state *state = tal(NULL, struct state);
-	u32 network_index;
+	struct bitcoin_blkid chain_hash;
 	struct secret *none;
 
 	subdaemon_setup(argc, argv);
@@ -1104,7 +1104,7 @@ int main(int argc, char *argv[])
 
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_opening_init(tmpctx, msg,
-				   &network_index,
+				   &chain_hash,
 				   &state->localconf,
 				   &state->max_to_self_delay,
 				   &state->min_effective_htlc_capacity_msat,
@@ -1125,7 +1125,7 @@ int main(int argc, char *argv[])
 		fail_if_all_error(inner);
 	}
 
-	state->chainparams = chainparams_by_index(network_index);
+	state->chainparams = chainparams_by_chainhash(&chain_hash);
 	/* Initially we're not associated with a channel, but
 	 * handle_peer_gossip_or_error wants this. */
 	memset(&state->channel_id, 0, sizeof(state->channel_id));
