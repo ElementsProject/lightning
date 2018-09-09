@@ -13,6 +13,7 @@ RUN apt-get -qq update && \
 	automake \
 	clang \
 	cppcheck \
+	docbook-xml \
 	shellcheck \
 	eatmydata \
 	software-properties-common \
@@ -34,6 +35,7 @@ RUN apt-get -qq update && \
 	shellcheck \
 	libxml2-utils \
 	wget \
+	xsltproc \
 	zlib1g-dev && \
 	rm -rf /var/lib/apt/lists/*
 
