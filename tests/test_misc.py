@@ -931,10 +931,12 @@ def test_logging(node_factory):
     wait_for(lambda: os.path.exists(logpath))
 
     log1 = open(logpath_moved).readlines()
-    log2 = open(logpath).readlines()
-
     assert log1[-1].endswith("Ending log due to SIGHUP\n")
-    assert log2[0].endswith("Started log due to SIGHUP\n")
+
+    def check_new_log():
+        log2 = open(logpath).readlines()
+        return len(log2) > 1 and log2[0].endswith("Started log due to SIGHUP\n")
+    wait_for(check_new_log)
 
 
 @unittest.skipIf(VALGRIND and not DEVELOPER,
