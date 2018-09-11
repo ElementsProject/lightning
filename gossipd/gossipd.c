@@ -648,7 +648,7 @@ static void handle_pong(struct peer *peer, const u8 *pong)
 	}
 
 	daemon_conn_send(&peer->daemon->master,
-			 take(towire_gossip_ping_reply(NULL, true,
+			 take(towire_gossip_ping_reply(NULL, &peer->id, true,
 						       tal_count(pong))));
 }
 
@@ -1557,7 +1557,8 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 	peer = find_peer(daemon, &id);
 	if (!peer) {
 		daemon_conn_send(&daemon->master,
-				 take(towire_gossip_ping_reply(NULL, false, 0)));
+				 take(towire_gossip_ping_reply(NULL, &id,
+							       false, 0)));
 		goto out;
 	}
 
@@ -1581,7 +1582,8 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 	 */
 	if (num_pong_bytes >= 65532)
 		daemon_conn_send(&daemon->master,
-				 take(towire_gossip_ping_reply(NULL, true, 0)));
+				 take(towire_gossip_ping_reply(NULL, &id,
+							       true, 0)));
 	else
 		peer->num_pings_outstanding++;
 
