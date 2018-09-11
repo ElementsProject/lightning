@@ -186,7 +186,6 @@ include external/Makefile
 include bitcoin/Makefile
 include common/Makefile
 include wire/Makefile
-include wallet/Makefile
 include hsmd/Makefile
 include gossipd/Makefile
 include openingd/Makefile
