@@ -50,12 +50,13 @@ def directory(request, test_base_dir, test_name):
     # Auto set value if it isn't in the dict yet
     __attempts[test_name] = __attempts.get(test_name, 0) + 1
     directory = os.path.join(test_base_dir, "{}_{}".format(test_name, __attempts[test_name]))
+    request.node.has_errors = False
 
     yield directory
 
     # This uses the status set in conftest.pytest_runtest_makereport to
     # determine whether we succeeded or failed.
-    if request.node.rep_call.outcome == 'passed':
+    if not request.node.has_errors and request.node.rep_call.outcome == 'passed':
         shutil.rmtree(directory)
     else:
         logging.debug("Test execution failed, leaving the test directory {} intact.".format(directory))
@@ -100,36 +101,42 @@ def bitcoind(directory):
 
 
 @pytest.fixture
-def node_factory(directory, test_name, bitcoind, executor):
+def node_factory(request, directory, test_name, bitcoind, executor):
     nf = NodeFactory(test_name, bitcoind, executor, directory=directory)
     yield nf
     err_count = 0
     ok = nf.killall([not n.may_fail for n in nf.nodes])
+
+    def check_errors(request, err_count, msg):
+        """Just a simple helper to format a message, set flags on request and then raise
+        """
+        if err_count:
+            request.node.has_errors = True
+            raise ValueError(msg.format(err_count))
+
     if VALGRIND:
         for node in nf.nodes:
             err_count += printValgrindErrors(node)
-        if err_count:
-            raise ValueError("{} nodes reported valgrind errors".format(err_count))
+        check_errors(request, err_count, "{} nodes reported valgrind errors")
 
     for node in nf.nodes:
         err_count += printCrashLog(node)
-    if err_count:
-        raise ValueError("{} nodes had crash.log files".format(err_count))
+    check_errors(request, err_count, "{} nodes had crash.log files")
+
     for node in nf.nodes:
         err_count += checkReconnect(node)
-    if err_count:
-        raise ValueError("{} nodes had unexpected reconnections".format(err_count))
+    check_errors(request, err_count, "{} nodes had unexpected reconnections")
+
     for node in nf.nodes:
         err_count += checkBadGossipOrder(node)
-    if err_count:
-        raise ValueError("{} nodes had bad gossip order".format(err_count))
+    check_errors(request, err_count, "{} nodes had bad gossip order")
 
     for node in nf.nodes:
         err_count += checkBadReestablish(node)
-    if err_count:
-        raise ValueError("{} nodes had bad reestablish".format(err_count))
+    check_errors(request, err_count, "{} nodes had bad reestablish")
 
     if not ok:
+        request.node.has_errors = True
         raise Exception("At least one lightning exited with unexpected non-zero return code")
 
 
