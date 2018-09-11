@@ -457,7 +457,7 @@ static void json_dev_query_scids(struct command *cmd,
 static const struct json_command dev_query_scids_command = {
 	"dev-query-scids",
 	json_dev_query_scids,
-	"Query {peerid} for [scids]"
+	"Query peer {id} for [scids]"
 };
 AUTODATA(json_command, &dev_query_scids_command);
 
@@ -487,7 +487,7 @@ static void json_dev_send_timestamp_filter(struct command *cmd,
 static const struct json_command dev_send_timestamp_filter = {
 	"dev-send-timestamp-filter",
 	json_dev_send_timestamp_filter,
-	"Send {peerid} the timestamp filter {first} {range}"
+	"Send peer {id} the timestamp filter {first} {range}"
 };
 AUTODATA(json_command, &dev_send_timestamp_filter);
 
@@ -554,7 +554,7 @@ static void json_dev_query_channel_range(struct command *cmd,
 static const struct json_command dev_query_channel_range_command = {
 	"dev-query-channel-range",
 	json_dev_query_channel_range,
-	"Query {peerid} for short_channel_ids for {first} block + {num} blocks"
+	"Query peer {id} for short_channel_ids for {first} block + {num} blocks"
 };
 AUTODATA(json_command, &dev_query_channel_range_command);
 
