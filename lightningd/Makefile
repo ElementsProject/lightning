@@ -75,12 +75,12 @@ LIGHTNINGD_SRC :=				\
 	lightningd/payalgo.c			\
 	lightningd/peer_control.c		\
 	lightningd/peer_htlcs.c			\
+	lightningd/ping.c			\
 	lightningd/subd.c			\
 	lightningd/watch.c
 
 # Source files without corresponding headers
 LIGHTNINGD_SRC_NOHDR :=				\
-	lightningd/ping.c			\
 	lightningd/memdump.c
 
 LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o) $(LIGHTNINGD_SRC_NOHDR:.c=.o)

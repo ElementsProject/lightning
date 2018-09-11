@@ -52,6 +52,7 @@ gossip_ping,,num_pong_bytes,u16
 gossip_ping,,len,u16
 
 gossip_ping_reply,3108
+gossip_ping_reply,,id,struct pubkey
 # False if id in gossip_ping was unknown.
 gossip_ping_reply,,sent,bool
 # 0 == no pong expected
