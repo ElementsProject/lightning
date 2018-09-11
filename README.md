@@ -213,6 +213,7 @@ that `state` is `CHANNELD_NORMAL`; after 6 confirmations you can use
 * `FUNDING_SPEND_SEEN` means we've seen the funding transaction spent.
 * `ONCHAIN` means that the `lightning_onchaind` is tracking the onchain
   closing of the channel.
+* `AWAITING_UNILATERAL` means that we're waiting for a unilateral close to hit the blockchain.
 
 All these states have more information about what's going on in the
 `status` field in `listpeers`.
