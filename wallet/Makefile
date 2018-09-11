@@ -15,7 +15,9 @@ WALLET_LIB_OBJS := $(WALLET_LIB_SRC:.c=.o)
 WALLET_LIB_HEADERS := $(WALLET_LIB_SRC:.c=.h)
 
 # Make sure these depend on everything.
-ALL_OBJS += $(LIGHTNINGD_OBJS)
+ALL_OBJS += $(WALLET_LIB_OBJS)
+
+$(WALLET_LIB_OBJS): $(LIGHTNINGD_HEADERS_NOGEN) $(WALLET_LIB_HEADERS)
 
 check-whitespace: $(WALLET_LIB_SRC:%=check-whitespace/%) $(WALLET_LIB_HEADERS:%=check-whitespace/%)
 check-source: $(WALLET_LIB_SRC:%=check-src-include-order/%)
