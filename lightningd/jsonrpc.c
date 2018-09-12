@@ -442,6 +442,7 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	c->id = tal_strndup(c,
 			    json_tok_contents(jcon->buffer, id),
 			    json_tok_len(id));
+	c->mode = CMD_NORMAL;
 	list_add(&jcon->commands, &c->list);
 	tal_add_destructor(c, destroy_cmd);
 
