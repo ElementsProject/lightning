@@ -1,3 +1,50 @@
+lightningd (0.6.1-1) stable; urgency=medium
+
+  * Protocol: gossipd now deliberately delays spamming with channel_update.
+  * Protocol: liveness ping when we commit changes but peer is idle: speeds up failures and reduces forced closures.
+  * Protocol: option_data_loss_protect now supported to protect peers against being out-of-date.
+  * JSON API: Added description to invoices and payments (#1740).
+  * JSON API: getinfo has new fields alias and color.
+  * JSON API: listpeers has new fields global_features and local_features.
+  * JSON API: listnodes has new field global_features.
+  * JSON API: ping command to send a ping to a connected peer.
+  * JSON API: feerates command to retrieve current fee estimates.
+  * JSON API: withdraw and fundchannel can be given manual feerate.
+  * Config: --conf option to set config file.
+  * Documentation: Added CHANGELOG.md
+  * pylightning: RpcError now has method and payload fields.
+  * Sending lightningd a SIGHUP will make it reopen its log-file, if any.
+  * Protocol: Fee estimates are now smoothed over time, to avoid sudden jumps.
+  * Config: You can only announce one address if each type (IPv4, IPv6, TORv2, TORv3).
+  * lightning-cli: the help command for a specific command now runs the man command.
+  * HSM: The HSM daemon now maintains the per-peer secrets, rather than handing them out. It's still lax in what it signs though.
+  * connectd: A new daemon lightning_connectd handles connecting to/from peers, instead of gossipd doing that itself. lightning_openingd now handles peers immediately, even if they never actually open a channel.
+  * Test: python-xdist is now a dependency for tests.
+  * Logging: JSON connections no longer spam debug logs.
+  * Routing: We no longer consider channels that are not usable either because of their capacity or their htlc_minimum_msat parameter (#1777)
+  * We now try to connect to all known addresses for a peer, not just the one given or the first one announced.
+  * Crash logs are now placed one-per file like crash.log.20180822233752
+  * We will no longer allow withdrawing funds or funding channels if we do not have a fee estimate (eg. bitcoind not synced); use new feerate arg.
+  * JSON API: listpeers results no long have alias and color fields; they're in listnodes (we used to internally merge the information).
+  * JSON API: listpeers will never have state field (it accidentally used to exist and set to GOSSIPING before we opened a channel). connected will indicate if we're connected, and the channels array indicates individual channel states (if any).
+  * Config: default-fee-rate is no longer available; use explicit feerate option if necessary.
+  * Removed all Deprecated options from 0.6.
+  * Protocol: node_announcement multiple addresses are correctly ordered and uniquified.
+  * Protocol: if we can't estimate feerate, be almost infinitely tolerant of other side setting fees to avoid unilateral close.
+  * JSON API: listnodes: now displays node aliases and colors even if they don't advertise a network address
+  * JSON API: fundchannel all: now restricts to 2^24-1 satoshis rather than failing.
+  * JSON API: listnodes: now correctly prints addresses if more than one is advertised.
+  * Config: bind-addr of a publicly accessible network address was announced.
+  * When we reconnect and have to retransmit failing HTLCs, the errors weren't encrypted by us.
+  * lightningd_config man page is now installed by make install.
+  * Fixed crash when shutting down during opening a channel (#1737)
+  * Don't lose track of our own output when applying penalty transaction (#1738)
+  * Protocol: channel_update inside error messages now refers to correct channel.
+  * Stripping type prefix from channel_updates that are nested in an onion reply to be compatible with eclair and lnd (#1730).
+  * Failing tests no longer delete the test directory, to allow easier debugging (Issue: #1599)
+
+ -- Christian Decker <decker.christian@gmail.com>  Wed, 12 Sep 2018 01:24:00 +0000
+
 lightningd (0.6-1) stable; urgency=medium
 
   * While there are far too many new features in the 0.6 release to list, the following are the most interesting and impactful: Lightweight nodes: Previous releases required a full bitcoind node running alongside c-lightning, to provide access to the Bitcoin network. Thisrelease still requires the bitcoin-cli utility to be present, but it can now talk to remote nodes as well, including some lightweight nodes such as spruned. This makes it possible to run a c-lightning node on Raspberry Pis as well as other low-powered devices.
