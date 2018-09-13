@@ -520,7 +520,7 @@ char *arg_log_to_file(const char *arg, struct lightningd *ld)
 void opt_register_logging(struct lightningd *ld)
 {
 	opt_register_arg("--log-level", arg_log_level, show_log_level, ld->log,
-			 "log level (debug, info, unusual, broken)");
+			 "log level (io, debug, info, unusual, broken)");
 	opt_register_arg("--log-prefix", arg_log_prefix, show_log_prefix,
 			 ld->log,
 			 "log prefix");
