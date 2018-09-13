@@ -62,7 +62,7 @@ static void json_help(struct command *cmd,
 static const struct json_command help_command = {
 	"help",
 	json_help,
-	"List available commands, or give verbose help on one command.",
+	"List available commands, or give verbose help on one {command}.",
 
 	.verbose = "help [command]\n"
 	"Without [command]:\n"
@@ -196,7 +196,10 @@ static void json_help(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 	struct json_command **cmdlist = get_cmdlist();
 	const jsmntok_t *cmdtok;
+	char *usage;
 
+	/* FIXME: This is never called with a command parameter because lightning-cli
+	 * attempts to launch the man page and then exits. */
 	if (!param(cmd, buffer, params,
 		   p_opt("command", json_tok_tok, &cmdtok),
 		   NULL))
@@ -231,11 +234,15 @@ static void json_help(struct command *cmd,
 		return;
 	}
 
+	cmd->mode = CMD_USAGE;
 	json_array_start(response, "help");
 	for (i = 0; i < num_cmdlist; i++) {
+		cmdlist[i]->dispatch(cmd, NULL, NULL);
+		usage = tal_fmt(cmd, "%s %s", cmdlist[i]->name,
+			cmd->usage);
 		json_add_object(response,
 				"command", JSMN_STRING,
-				cmdlist[i]->name,
+				usage,
 				"description", JSMN_STRING,
 				cmdlist[i]->description,
 				NULL);
