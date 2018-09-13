@@ -34,6 +34,7 @@ open_channel,252,htlc_basepoint,33
 open_channel,285,first_per_commitment_point,33
 open_channel,318,channel_flags,1
 open_channel,319,shutdown_len,2,option_upfront_shutdown_script
+open_channel,321,shutdown_scriptpubkey,shutdown_len,option_upfront_shutdown_script
 accept_channel,33
 accept_channel,0,temporary_channel_id,32
 accept_channel,32,dust_limit_satoshis,8
@@ -50,6 +51,7 @@ accept_channel,171,delayed_payment_basepoint,33
 accept_channel,204,htlc_basepoint,33
 accept_channel,237,first_per_commitment_point,33
 accept_channel,270,shutdown_len,2,option_upfront_shutdown_script
+accept_channel,272,shutdown_scriptpubkey,shutdown_len,option_upfront_shutdown_script
 funding_created,34
 funding_created,0,temporary_channel_id,32
 funding_created,32,funding_txid,32
@@ -106,8 +108,8 @@ channel_reestablish,136
 channel_reestablish,0,channel_id,32
 channel_reestablish,32,next_local_commitment_number,8
 channel_reestablish,40,next_remote_revocation_number,8
-channel_reestablish,48,your_last_per_commitment_secret,32,option-data-loss-protect
-channel_reestablish,80,my_current_per_commitment_point,33,option-data-loss-protect
+channel_reestablish,48,your_last_per_commitment_secret,32,option_data_loss_protect
+channel_reestablish,80,my_current_per_commitment_point,33,option_data_loss_protect
 announcement_signatures,259
 announcement_signatures,0,channel_id,32
 announcement_signatures,32,short_channel_id,8
