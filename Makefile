@@ -240,8 +240,10 @@ check-makefile:
 bolt-check/%: % bolt-precheck tools/check-bolt
 	@[ ! -d .tmp.lightningrfc ] || tools/check-bolt .tmp.lightningrfc $<
 
+LOCAL_BOLTDIR=.tmp.lightningrfc
+
 bolt-precheck:
-	@rm -rf .tmp.lightningrfc; if [ ! -d $(BOLTDIR) ]; then echo Not checking BOLT references: BOLTDIR $(BOLTDIR) does not exist >&2; exit 0; fi; set -e; if [ -n "$(BOLTVERSION)" ]; then git clone -q $(BOLTDIR) .tmp.lightningrfc && cd .tmp.lightningrfc && git checkout -q $(BOLTVERSION); else cp -a $(BOLTDIR) .tmp.lightningrfc; fi
+	@rm -rf $(LOCAL_BOLTDIR); if [ ! -d $(BOLTDIR) ]; then echo Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist >&2; exit 0; fi; set -e; if [ -n "$(BOLTVERSION)" ]; then git clone -q $(BOLTDIR) $(LOCAL_BOLTDIR) && cd $(LOCAL_BOLTDIR) && git checkout -q $(BOLTVERSION); else cp -a $(BOLTDIR) $(LOCAL_BOLTDIR); fi
 
 check-source-bolt: $(ALL_TEST_PROGRAMS:%=bolt-check/%.c)
 
