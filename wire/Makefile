@@ -4,7 +4,8 @@
 wire-wrongdir:
 	$(MAKE) -C .. wire-all
 
-WIRE_HEADERS_NOGEN := wire/peer_wire.h		\
+WIRE_HEADERS_NOGEN := wire/onion_defs.h		\
+		wire/peer_wire.h		\
 		wire/wire.h			\
 		wire/wire_sync.h		\
 		wire/wire_io.h
