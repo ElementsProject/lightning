@@ -253,6 +253,16 @@ static void null_params(void)
 	assert(*intptrs[6] == 888);
 }
 
+static void no_params(void)
+{
+	struct json *j = json_parse(cmd, "[]");
+	assert(param(cmd, j->buffer, j->toks, NULL));
+
+	j = json_parse(cmd, "[ 'unexpected' ]");
+	assert(!param(cmd, j->buffer, j->toks, NULL));
+}
+
+
 #if DEVELOPER
 /*
  * Check to make sure there are no programming mistakes.
@@ -560,12 +570,14 @@ int main(void)
 	setup_locale();
 	setup_tmpctx();
 	cmd = tal(tmpctx, struct command);
+	cmd->mode = CMD_NORMAL;
 	fail_msg = tal_arr(cmd, char, 10000);
 
 	zero_params();
 	sanity();
 	tok_tok();
 	null_params();
+	no_params();
 #if DEVELOPER
 	bad_programmer();
 #endif

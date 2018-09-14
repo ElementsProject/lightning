@@ -388,6 +388,10 @@ static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 	    wallet_get_utxos(cmd, cmd->ld->wallet, output_state_available);
 	char* out;
 	struct pubkey funding_pubkey;
+
+	if (!param(cmd, buffer, params, NULL))
+		return;
+
 	json_object_start(response, NULL);
 	json_array_start(response, "outputs");
 	for (size_t i = 0; i < tal_count(utxos); i++) {
@@ -505,6 +509,10 @@ static void json_dev_rescan_outputs(struct command *cmd,
 				    const jsmntok_t *params UNUSED)
 {
 	struct txo_rescan *rescan = tal(cmd, struct txo_rescan);
+
+	if (!param(cmd, buffer, params, NULL))
+		return;
+
 	rescan->response = new_json_result(cmd);
 	rescan->cmd = cmd;
 
