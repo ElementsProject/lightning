@@ -10,6 +10,7 @@
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/param.h>
 #include <stdio.h>
 
 static void json_add_ptr(struct json_result *response, const char *name,
@@ -56,6 +57,9 @@ static void json_memdump(struct command *cmd,
 			 const jsmntok_t *params UNNEEDED)
 {
 	struct json_result *response = new_json_result(cmd);
+
+	if (!param(cmd, buffer, params, NULL))
+		return;
 
 	add_memdump(response, NULL, NULL, cmd);
 
@@ -150,6 +154,9 @@ static void json_memleak(struct command *cmd,
 			 const jsmntok_t *params UNNEEDED)
 {
 	struct json_result *response = new_json_result(cmd);
+
+	if (!param(cmd, buffer, params, NULL))
+		return;
 
 	if (!getenv("LIGHTNINGD_DEV_MEMLEAK")) {
 		command_fail(cmd, LIGHTNINGD,

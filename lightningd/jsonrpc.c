@@ -78,6 +78,9 @@ static void json_stop(struct command *cmd,
 {
 	struct json_result *response = new_json_result(cmd);
 
+	if (!param(cmd, buffer, params, NULL))
+		return;
+
 	/* This can't have closed yet! */
 	cmd->jcon->stop = true;
 	json_add_string(response, NULL, "Shutting down");
@@ -121,6 +124,9 @@ AUTODATA(json_command, &dev_rhash_command);
 static void json_crash(struct command *cmd UNUSED,
 		       const char *buffer UNUSED, const jsmntok_t *params UNUSED)
 {
+	if (!param(cmd, buffer, params, NULL))
+		return;
+
 	fatal("Crash at user request");
 }
 
@@ -136,6 +142,9 @@ static void json_getinfo(struct command *cmd,
 			 const char *buffer UNUSED, const jsmntok_t *params UNUSED)
 {
 	struct json_result *response = new_json_result(cmd);
+
+	if (!param(cmd, buffer, params, NULL))
+		return;
 
 	json_object_start(response, NULL);
 	json_add_pubkey(response, "id", &cmd->ld->id);
