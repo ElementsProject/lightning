@@ -493,9 +493,8 @@ static void daemonize_but_keep_dir(struct lightningd *ld)
  * file-lock a pidfile.  This not only prevents accidentally running multiple
  * daemons on the same database at once, but lets nosy sysadmins see what pid
  * the currently-running daemon is supposed to be. */
-static void pidfile_create(const struct lightningd *ld)
+static int pidfile_create(const struct lightningd *ld)
 {
-	char *pid;
 	int pid_fd;
 
 	/* Create PID file */
@@ -508,6 +507,18 @@ static void pidfile_create(const struct lightningd *ld)
 		/* Problem locking file */
 		err(1, "lightningd already running? Error locking PID file");
 
+	/*~ As closing the file will remove the lock, we need to keep it open;
+	 * the OS will close it implicitly when we exit for any reason. */
+	return pid_fd;
+}
+
+/*~ Writing the pid into the lockfile provides a useful clue to users as to
+ * what created it; however, we can't do that until we've got a stable process
+ * id, and if --daemon is specified, that's quite late. */
+static void pidfile_write(const struct lightningd *ld, int pid_fd)
+{
+	char *pid;
+
 	/*~ Note that tal_fmt() is what asprintf() dreams of being. */
 	pid = tal_fmt(tmpctx, "%d\n", getpid());
 	/*~ CCAN's write_all writes to a file descriptor, looping if necessary
@@ -516,9 +527,6 @@ static void pidfile_create(const struct lightningd *ld)
 	 * which write() is when FORTIFY_SOURCE is defined, so we're allowed
 	 * to ignore the result without jumping through hoops. */
 	write_all(pid_fd, pid, strlen(pid));
-
-	/*~ As closing the file will remove the lock, we need to keep it open;
-	 * the OS will close it implicitly when we exit for any reason. */
 }
 
 /*~ ccan/io allows overriding the poll() function that is the very core
@@ -550,7 +558,7 @@ int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
 	u32 min_blockheight, max_blockheight;
-	int connectd_gossipd_fd;
+	int connectd_gossipd_fd, pid_fd;
 
 	/*~ What happens in strange locales should stay there. */
 	setup_locale();
@@ -664,6 +672,14 @@ int main(int argc, char *argv[])
 	setup_topology(ld->topology, &ld->timers,
 		       min_blockheight, max_blockheight);
 
+	/*~ Now create the PID file: this errors out if there's already a
+	 * daemon running, so we call before trying to create an RPC socket. */
+	pid_fd = pidfile_create(ld);
+
+	/*~ Create RPC socket: now lightning-cli can send us JSON RPC commands
+	 *  over a UNIX domain socket specified by `ld->rpc_filename`. */
+	setup_jsonrpc(ld, ld->rpc_filename);
+
 	/*~ We defer --daemon until we've completed most initialization: that
 	 *  way we'll exit with an error rather than silently exiting 0, then
 	 *  realizing we can't start and forcing the confused user to read the
@@ -671,13 +687,8 @@ int main(int argc, char *argv[])
 	if (ld->daemon)
 		daemonize_but_keep_dir(ld);
 
-	/*~ Now create the PID file: this has to be after daemonize, since that
-	 * changes our pid! */
-	pidfile_create(ld);
-
-	/*~ Create RPC socket: now lightning-cli can send us JSON RPC commands
-	 *  over a UNIX domain socket specified by `ld->rpc_filename`. */
-	setup_jsonrpc(ld, ld->rpc_filename);
+	/*~ We have to do this after daemonize, since that changes our pid! */
+	pidfile_write(ld, pid_fd);
 
 	/*~ Activate connect daemon.  Needs to be after the initialization of
 	 * chaintopology, otherwise peers may connect and ask for
