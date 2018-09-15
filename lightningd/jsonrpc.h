@@ -37,6 +37,7 @@ struct command {
 	enum command_mode mode;
 	/* This is created if mode is CMD_USAGE */
 	const char *usage;
+	bool *ok;
 };
 
 struct json_connection {

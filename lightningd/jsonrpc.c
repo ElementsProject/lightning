@@ -282,6 +282,8 @@ static void connection_complete_ok(struct json_connection *jcon,
 {
 	assert(id != NULL);
 	assert(result != NULL);
+	if (cmd->ok)
+		*(cmd->ok) = true;
 
 	/* This JSON is simple enough that we build manually */
 	json_done(jcon, cmd, take(tal_fmt(jcon,
@@ -309,6 +311,9 @@ static void connection_complete_error(struct json_connection *jcon,
 		data_str = "";
 
 	assert(id != NULL);
+
+	if (cmd->ok)
+		*(cmd->ok) = false;
 
 	json_done(jcon, cmd, take(tal_fmt(tmpctx,
 					  "{ \"jsonrpc\": \"2.0\", "
@@ -452,6 +457,7 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 			    json_tok_contents(jcon->buffer, id),
 			    json_tok_len(id));
 	c->mode = CMD_NORMAL;
+	c->ok = NULL;
 	list_add(&jcon->commands, &c->list);
 	tal_add_destructor(c, destroy_cmd);
 
