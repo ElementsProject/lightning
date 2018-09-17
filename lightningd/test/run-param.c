@@ -502,8 +502,8 @@ static void json_tok_tests(void)
 	test_cb(json_tok_percent, double, "[ 1.01 ]", 1.01, true);
 	test_cb(json_tok_percent, double, "[ 99.99 ]", 99.99, true);
 	test_cb(json_tok_percent, double, "[ 100.0 ]", 100, true);
-	test_cb(json_tok_percent, double, "[ 100.001 ]", 0, false);
-	test_cb(json_tok_percent, double, "[ 1000 ]", 0, false);
+	test_cb(json_tok_percent, double, "[ 100.001 ]", 100.001, true);
+	test_cb(json_tok_percent, double, "[ 1000 ]", 1000, true);
 	test_cb(json_tok_percent, double, "[ 'wow' ]", 0, false);
 }
 
