@@ -2,12 +2,12 @@
 .\"     Title: lightning-getroute
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 04/26/2018
+.\"      Date: 09/17/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-GETROUTE" "7" "04/26/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-GETROUTE" "7" "09/17/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -42,7 +42,7 @@ For example, if you thought there was a 1% chance that a node would fail, and it
 .sp
 If you didn\(cqt care about risk, \fIriskfactor\fR would be zero\&.
 .sp
-The \fIfuzzpercent\fR is a floating\-point number, between 0\&.0 to 100\&.0, unit of percent\&. The \fIfuzzpercent\fR is used to distort computed fees along each channel, to provide some randomization to the route generated\&. 0\&.0 means the exact fee of that channel is used, while 100\&.0 means the fee used might be from 0 to twice the actual fee\&. The default is 5\&.0, or up to 5% fee distortion\&.
+The \fIfuzzpercent\fR is a positive floating\-point number, representing a percentage of the actual fee\&. The \fIfuzzpercent\fR is used to distort computed fees along each channel, to provide some randomization to the route generated\&. 0\&.0 means the exact fee of that channel is used, while 100\&.0 means the fee used might be from 0 to twice the actual fee\&. The default is 5\&.0, or up to 5% fee distortion\&.
 .sp
 The \fIseed\fR is a string whose bytes are used to seed the RNG for the route randomization\&. If not specified, a random string is used\&.
 .SH "RISKFACTOR EFFECT ON ROUTING"

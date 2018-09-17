@@ -29,8 +29,7 @@ fail, and it would cost you 20% per annum if that happened,
 
 If you didn't care about risk, 'riskfactor' would be zero.
 
-The 'fuzzpercent' is a floating-point number, between 0.0 to 100.0,
-unit of percent.
+The 'fuzzpercent' is a positive floating-point number, representing a percentage of the actual fee.
 The 'fuzzpercent' is used to distort computed fees along each channel,
 to provide some randomization to the route generated.
 0.0 means the exact fee of that channel is used,
