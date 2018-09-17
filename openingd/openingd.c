@@ -1157,10 +1157,11 @@ int main(int argc, char *argv[])
 		 * don't try to service more than one fd per loop. */
 		if (pollfd[0].revents & POLLIN)
 			msg = handle_master_in(state);
-		else if (pollfd[1].revents & POLLIN)
-			handle_gossip_in(state);
 		else if (pollfd[2].revents & POLLIN)
 			msg = handle_peer_in(state);
+		else if (pollfd[1].revents & POLLIN)
+			handle_gossip_in(state);
+
 		clean_tmpctx();
 	}
 
