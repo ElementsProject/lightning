@@ -24,6 +24,12 @@ enum bitcoind_mode {
 	BITCOIND_REGTEST
 };
 
+enum bitcoind_prio {
+	BITCOIND_LOW_PRIO,
+	BITCOIND_HIGH_PRIO
+};
+#define BITCOIND_NUM_PRIO (BITCOIND_HIGH_PRIO+1)
+
 struct bitcoind {
 	/* eg. "bitcoin-cli" */
 	char *cli;
@@ -37,11 +43,11 @@ struct bitcoind {
 	/* Main lightningd structure */
 	struct lightningd *ld;
 
-	/* Are we currently running a bitcoind request (it's ratelimited) */
-	struct bitcoin_cli *current;
+	/* How many high/low prio requests are we running (it's ratelimited) */
+	size_t num_requests[BITCOIND_NUM_PRIO];
 
-	/* Pending requests. */
-	struct list_head pending;
+	/* Pending requests (high and low prio). */
+	struct list_head pending[BITCOIND_NUM_PRIO];
 
 	/* What network are we on? */
 	const struct chainparams *chainparams;
