@@ -391,9 +391,8 @@ def test_reconnect_sender_add1(node_factory):
     route = [{'msatoshi': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1:1:1'}]
 
     for i in range(0, len(disconnects)):
-        l1.rpc.sendpay(route, rhash)
         with pytest.raises(RpcError):
-            l1.rpc.waitsendpay(rhash)
+            l1.rpc.sendpay(route, rhash)
 
         # Wait for reconnection.
         l1.daemon.wait_for_log('Already have funding locked in')

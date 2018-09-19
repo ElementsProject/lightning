@@ -72,23 +72,32 @@ add_waitsendpay_waiter(const tal_t *cxt,
 	tal_add_destructor(pc, destroy_sendpay_command);
 }
 
-/* Caller responsible for freeing ctx. */
-static void waitsendpay_resolve(const tal_t *ctx,
-				struct lightningd *ld,
-				const struct sha256 *payment_hash,
-				const struct sendpay_result *result)
+static void sendpay_resolve(struct lightningd *ld,
+			    const struct sha256 *payment_hash,
+			    const struct sendpay_result *result)
 {
+	const tal_t *freeme = tal(NULL, char);
 	struct sendpay_command *pc;
 	struct sendpay_command *next;
+
 	list_for_each_safe(&ld->waitsendpay_commands, pc, next, list) {
 		if (!sha256_eq(payment_hash, &pc->payment_hash))
 			continue;
 
-		/* Delete later (in our own caller) if callback did
-		 * not delete. */
-		tal_steal(ctx, pc);
+		/* Delete later if callback did not delete. */
+		tal_steal(freeme, pc);
 		pc->cb(result, pc->cbarg);
 	}
+
+	list_for_each_safe(&ld->sendpay_commands, pc, next, list) {
+		if (!sha256_eq(payment_hash, &pc->payment_hash))
+			continue;
+
+		/* Delete later if callback did not delete. */
+		tal_steal(freeme, pc);
+		pc->cb(result, pc->cbarg);
+	}
+	tal_free(freeme);
 }
 
 static struct sendpay_result*
@@ -114,7 +123,7 @@ static void payment_trigger_success(struct lightningd *ld,
 
 	result = sendpay_result_success(tmpctx, payment->payment_preimage, payment);
 
-	waitsendpay_resolve(tmpctx, ld, payment_hash, result);
+	sendpay_resolve(ld, payment_hash, result);
 }
 
 static struct sendpay_result*
@@ -151,7 +160,7 @@ static void payment_route_failure(struct lightningd *ld,
 					      onionreply,
 					      details);
 
-	waitsendpay_resolve(tmpctx, ld, payment_hash, result);
+	sendpay_resolve(ld, payment_hash, result);
 }
 
 static struct sendpay_result *
@@ -420,28 +429,7 @@ static void report_routing_failure(struct log *log,
 void payment_store(struct lightningd *ld,
 		   const struct sha256 *payment_hash)
 {
-	struct sendpay_command *pc;
-	struct sendpay_command *next;
-	struct sendpay_result *result;
-	const struct wallet_payment *payment;
-
 	wallet_payment_store(ld->wallet, payment_hash);
-	payment = wallet_payment_by_hash(tmpctx, ld->wallet, payment_hash);
-	assert(payment);
-
-	/* Invent a sendpay result with PAY_IN_PROGRESS. */
-	result = sendpay_result_in_progress(tmpctx, payment,
-					    "Payment is still in progress");
-
-	/* Trigger any sendpay commands waiting for the store to occur. */
-	list_for_each_safe(&ld->sendpay_commands, pc, next, list) {
-		if (!sha256_eq(payment_hash, &pc->payment_hash))
-			continue;
-
-		/* Delete later if callback did not delete. */
-		tal_steal(tmpctx, pc);
-		pc->cb(result, pc->cbarg);
-	}
 }
 
 void payment_failed(struct lightningd *ld, const struct htlc_out *hout,

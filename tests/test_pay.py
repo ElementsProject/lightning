@@ -77,9 +77,8 @@ def test_pay0(node_factory):
     }
 
     # Amount must be nonzero!
-    l1.rpc.sendpay([routestep], rhash)
     with pytest.raises(RpcError, match=r'WIRE_AMOUNT_BELOW_MINIMUM'):
-        l1.rpc.waitsendpay(rhash)
+        l1.rpc.sendpay([routestep], rhash)
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -149,9 +148,8 @@ def test_pay_get_error_with_update(node_factory):
     # Make sure that l2 has processed the local update which disables.
     l2.daemon.wait_for_log('Received channel_update for channel {}\(.*\) now DISABLED was ACTIVE \(from apply_delayed_local_update\)'.format(chanid2))
 
-    l1.rpc.sendpay(route, inv['payment_hash'])
     with pytest.raises(RpcError, match=r'WIRE_TEMPORARY_CHANNEL_FAILURE'):
-        l1.rpc.waitsendpay(inv['payment_hash'])
+        l1.rpc.sendpay(route, inv['payment_hash'])
 
     # Make sure we get an onionreply, without the type prefix of the nested
     # channel_update, and it should patch it to include a type prefix. The
@@ -339,7 +337,6 @@ def test_sendpay(node_factory):
         rs = copy.deepcopy(routestep)
         rs['msatoshi'] = rs['msatoshi'] - 1
         l1.rpc.sendpay([rs], rhash)
-        l1.rpc.waitsendpay(rhash)
     assert invoice_unpaid(l2, 'testpayment2')
 
     # Gross overpayment (more than factor of 2)
@@ -347,7 +344,6 @@ def test_sendpay(node_factory):
         rs = copy.deepcopy(routestep)
         rs['msatoshi'] = rs['msatoshi'] * 2 + 1
         l1.rpc.sendpay([rs], rhash)
-        l1.rpc.waitsendpay(rhash)
     assert invoice_unpaid(l2, 'testpayment2')
 
     # Insufficient delay.
@@ -355,7 +351,6 @@ def test_sendpay(node_factory):
         rs = copy.deepcopy(routestep)
         rs['delay'] = rs['delay'] - 2
         l1.rpc.sendpay([rs], rhash)
-        l1.rpc.waitsendpay(rhash)
     assert invoice_unpaid(l2, 'testpayment2')
 
     # Bad ID.
@@ -773,23 +768,20 @@ def test_forward(node_factory, bitcoind):
     # Unknown other peer
     route = copy.deepcopy(baseroute)
     route[1]['id'] = '031a8dc444e41bb989653a4501e11175a488a57439b0c4947704fd6e3de5dca607'
-    l1.rpc.sendpay(route, rhash)
     with pytest.raises(RpcError):
-        l1.rpc.waitsendpay(rhash)
+        l1.rpc.sendpay(route, rhash)
 
     # Delay too short (we always add one internally anyway, so subtract 2 here).
     route = copy.deepcopy(baseroute)
     route[0]['delay'] = 8
-    l1.rpc.sendpay(route, rhash)
     with pytest.raises(RpcError):
-        l1.rpc.waitsendpay(rhash)
+        l1.rpc.sendpay(route, rhash)
 
     # Final delay too short
     route = copy.deepcopy(baseroute)
     route[1]['delay'] = 3
-    l1.rpc.sendpay(route, rhash)
     with pytest.raises(RpcError):
-        l1.rpc.waitsendpay(rhash)
+        l1.rpc.sendpay(route, rhash)
 
     # This one works
     route = copy.deepcopy(baseroute)
@@ -983,7 +975,6 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     assert only_one(l3.rpc.listinvoices('test_forward_pad_fees_and_cltv')['invoices'])['status'] == 'paid'
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs dev_disconnect")
 def test_payfail_on_channeld_close(node_factory, bitcoind):
     """Test that we get an immediate failure if we lose connection before commit"""
