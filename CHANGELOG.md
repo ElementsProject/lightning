@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+### Changed
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for
+changes.
+
+### Removed
+
+### Fixed
+
+### Security
+
 ## [0.6.1] - 2018-09-11: "Principled Opposition To Segwit"
 
 This release named by ZmnSCPxj.
@@ -50,9 +67,6 @@ This release named by ZmnSCPxj.
   do not have a fee estimate (eg. bitcoind not synced); use new `feerate` arg.
 
 ### Deprecated
-
-Note: You should always set `allow-deprecated-apis=false` to test for
-changes.
 
 ### Removed
 
