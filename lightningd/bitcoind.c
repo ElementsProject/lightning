@@ -74,6 +74,7 @@ struct bitcoin_cli {
 	int *exitstatus;
 	pid_t pid;
 	const char **args;
+	struct timeabs start;
 	char *output;
 	size_t output_bytes;
 	size_t new_output;
@@ -157,6 +158,10 @@ static void bcli_finished(struct io_conn *conn UNUSED, struct bitcoin_cli *bcli)
 	struct bitcoind *bitcoind = bcli->bitcoind;
 	bool ok;
 
+	log_debug(bitcoind->log, "bitcoin-cli: finished %s (%"PRIu64" ms)",
+		  bcli_args(tmpctx, bcli),
+		  time_to_msec(time_between(time_now(), bcli->start)));
+
 	/* FIXME: If we waited for SIGCHILD, this could never hang! */
 	while ((ret = waitpid(bcli->pid, &status, 0)) < 0 && errno == EINTR);
 	if (ret != bcli->pid)
@@ -211,10 +216,14 @@ static void next_bcli(struct bitcoind *bitcoind)
 	if (!bcli)
 		return;
 
+	log_debug(bitcoind->log, "bitcoin-cli: starting %s",
+		  bcli_args(tmpctx, bcli));
 	bcli->pid = pipecmdarr(&bcli->fd, NULL, &bcli->fd,
 			       cast_const2(char **, bcli->args));
 	if (bcli->pid < 0)
 		fatal("%s exec failed: %s", bcli->args[0], strerror(errno));
+
+	bcli->start = time_now();
 
 	bitcoind->current = bcli;
 	/* This lifetime is attached to bitcoind command fd */
