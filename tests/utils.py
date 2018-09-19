@@ -560,6 +560,10 @@ class LightningNode(object):
         active = [(c['short_channel_id'], c['flags']) for c in channels if c['active']]
         return (chanid, 0) in active and (chanid, 1) in active
 
+    def wait_for_channel_onchain(self, peerid):
+        txid = only_one(only_one(self.rpc.listpeers(peerid)['peers'])['channels'])['scratch_txid']
+        wait_for(lambda: txid in self.bitcoin.rpc.getrawmempool())
+
     def wait_channel_active(self, chanid):
         wait_for(lambda: self.is_channel_active(chanid), interval=1)
 
