@@ -247,6 +247,7 @@ start_bitcoin_cli(struct bitcoind *bitcoind,
 		  const tal_t *ctx,
 		  bool (*process)(struct bitcoin_cli *),
 		  bool nonzero_exit_ok,
+		  bool high_prio,
 		  void *cb, void *cb_arg,
 		  char *cmd, ...)
 {
@@ -274,7 +275,10 @@ start_bitcoin_cli(struct bitcoind *bitcoind,
 	bcli->args = gather_args(bitcoind, bcli, cmd, ap);
 	va_end(ap);
 
-	list_add_tail(&bitcoind->pending, &bcli->list);
+	if (high_prio)
+		list_add(&bitcoind->pending, &bcli->list);
+	else
+		list_add_tail(&bitcoind->pending, &bcli->list);
 	next_bcli(bitcoind);
 }
 
@@ -352,7 +356,8 @@ static void do_one_estimatefee(struct bitcoind *bitcoind,
 	char blockstr[STR_MAX_CHARS(u32)];
 
 	snprintf(blockstr, sizeof(blockstr), "%u", efee->blocks[efee->i]);
-	start_bitcoin_cli(bitcoind, NULL, process_estimatefee, false, NULL, efee,
+	start_bitcoin_cli(bitcoind, NULL, process_estimatefee, false, false,
+			  NULL, efee,
 			  "estimatesmartfee", blockstr, efee->estmode[efee->i],
 			  NULL);
 }
@@ -398,7 +403,8 @@ void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
 			 void *arg)
 {
 	log_debug(bitcoind->log, "sendrawtransaction: %s", hextx);
-	start_bitcoin_cli(bitcoind, NULL, process_sendrawtx, true, cb, arg,
+	start_bitcoin_cli(bitcoind, NULL, process_sendrawtx, true, true,
+			  cb, arg,
 			  "sendrawtransaction", hextx, NULL);
 }
 
@@ -429,7 +435,8 @@ void bitcoind_getrawblock_(struct bitcoind *bitcoind,
 	char hex[hex_str_size(sizeof(*blockid))];
 
 	bitcoin_blkid_to_hex(blockid, hex, sizeof(hex));
-	start_bitcoin_cli(bitcoind, NULL, process_rawblock, false, cb, arg,
+	start_bitcoin_cli(bitcoind, NULL, process_rawblock, false, true,
+			  cb, arg,
 			  "getblock", hex, "false", NULL);
 }
 
@@ -457,7 +464,8 @@ void bitcoind_getblockcount_(struct bitcoind *bitcoind,
 					 void *arg),
 			      void *arg)
 {
-	start_bitcoin_cli(bitcoind, NULL, process_getblockcount, false, cb, arg,
+	start_bitcoin_cli(bitcoind, NULL, process_getblockcount, false, true,
+			  cb, arg,
 			  "getblockcount", NULL);
 }
 
@@ -619,7 +627,8 @@ static bool process_getblockhash_for_txout(struct bitcoin_cli *bcli)
 	/* Strip the newline at the end of the previous output */
 	blockhash = tal_strndup(NULL, bcli->output, bcli->output_bytes-1);
 
-	start_bitcoin_cli(bcli->bitcoind, NULL, process_getblock, false, cb, go,
+	start_bitcoin_cli(bcli->bitcoind, NULL, process_getblock, false, false,
+			  cb, go,
 			  "getblock", take(blockhash), NULL);
 	return true;
 }
@@ -640,7 +649,7 @@ void bitcoind_getoutput_(struct bitcoind *bitcoind,
 
 	/* We may not have topology ourselves that far back, so ask bitcoind */
 	start_bitcoin_cli(bitcoind, NULL, process_getblockhash_for_txout,
-			  true, cb, go,
+			  true, false, cb, go,
 			  "getblockhash", take(tal_fmt(NULL, "%u", blocknum)),
 			  NULL);
 
@@ -685,7 +694,8 @@ void bitcoind_getblockhash_(struct bitcoind *bitcoind,
 	char str[STR_MAX_CHARS(height)];
 	snprintf(str, sizeof(str), "%u", height);
 
-	start_bitcoin_cli(bitcoind, NULL, process_getblockhash, true, cb, arg,
+	start_bitcoin_cli(bitcoind, NULL, process_getblockhash, true, true,
+			  cb, arg,
 			  "getblockhash", str, NULL);
 }
 
@@ -697,7 +707,7 @@ void bitcoind_gettxout(struct bitcoind *bitcoind,
 		       void *arg)
 {
 	start_bitcoin_cli(bitcoind, NULL,
-			  process_gettxout, true, cb, arg,
+			  process_gettxout, true, false, cb, arg,
 			  "gettxout",
 			  take(type_to_string(NULL, struct bitcoin_txid, txid)),
 			  take(tal_fmt(NULL, "%u", outnum)),
