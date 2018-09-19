@@ -430,6 +430,16 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 		return true;
 	}
 
+	/* 'autotor:' is a special prefix meaning talk to Tor to create
+	 * an onion address. */
+	if (strstarts(arg, "autotor:")) {
+		addr->itype = ADDR_INTERNAL_AUTOTOR;
+		return parse_wireaddr(arg + strlen("autotor:"),
+				      &addr->u.torservice, 9051,
+				      dns_ok ? NULL : &needed_dns,
+				      err_msg);
+	}
+
 	splitport = port;
 	if (!separate_address_and_port(tmpctx, arg, &ip, &splitport)) {
 		if (err_msg) {
@@ -444,16 +454,6 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 		addr->itype = ADDR_INTERNAL_ALLPROTO;
 		addr->u.port = splitport;
 		return true;
-	}
-
-	/* 'autotor:' is a special prefix meaning talk to Tor to create
-	 * an onion address. */
-	if (strstarts(arg, "autotor:")) {
-		addr->itype = ADDR_INTERNAL_AUTOTOR;
-		return parse_wireaddr(arg + strlen("autotor:"),
-				      &addr->u.torservice, 9051,
-				      dns_ok ? NULL : &needed_dns,
-				      err_msg);
 	}
 
 	addr->itype = ADDR_INTERNAL_WIREADDR;
