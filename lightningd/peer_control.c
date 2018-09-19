@@ -642,6 +642,12 @@ static void json_add_peer(struct lightningd *ld,
 		json_object_start(response, NULL);
 		json_add_string(response, "state",
 				channel_state_name(channel));
+		if (channel->last_tx) {
+			struct bitcoin_txid txid;
+			bitcoin_txid(channel->last_tx, &txid);
+
+			json_add_txid(response, "scratch_txid", &txid);
+		}
 		if (channel->owner)
 			json_add_string(response, "owner",
 					channel->owner->name);

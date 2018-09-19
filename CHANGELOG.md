@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
+- JSON API: `listpeers` has new field `scratch_txid`: the latest tx in channel.
+
 ### Changed
 
 ### Deprecated
