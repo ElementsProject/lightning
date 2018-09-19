@@ -78,6 +78,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/peer_control.c		\
 	lightningd/peer_htlcs.c			\
 	lightningd/ping.c			\
+	lightningd/plugin.c			\
 	lightningd/subd.c			\
 	lightningd/watch.c
 
