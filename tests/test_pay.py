@@ -981,3 +981,23 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     l1.rpc.sendpay(route, rhash)
     l1.rpc.waitsendpay(rhash)
     assert only_one(l3.rpc.listinvoices('test_forward_pad_fees_and_cltv')['invoices'])['status'] == 'paid'
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "needs dev_disconnect")
+def test_payfail_on_channeld_close(node_factory, bitcoind):
+    """Test that we get an immediate failure if we lose connection before commit"""
+
+    # We close on it before commit.
+    l1 = node_factory.get_node(disconnect=['-WIRE_UPDATE_ADD_HTLC'])
+    l2 = node_factory.get_node()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fund_channel(l2, 100000)
+
+    inv = l2.rpc.invoice(123000, 'test_pay_disconnect', 'description')
+    rhash = inv['payment_hash']
+    route = l1.rpc.getroute(l2.info['id'], 123000, 1)["route"]
+
+    with pytest.raises(RpcError):
+           l1.rpc.sendpay(route, rhash)
