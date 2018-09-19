@@ -783,7 +783,7 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     # Now make sure l1 is watching for unilateral closes
     l2.rpc.dev_fail(l1.info['id'])
     l2.daemon.wait_for_log('Failing due to dev-fail command')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
+    l2.wait_for_channel_onchain(l1.info['id'])
     bitcoind.generate_block(1)
 
     # L1 must notice.
@@ -836,8 +836,8 @@ def test_update_fee(node_factory, bitcoind):
     l2.daemon.wait_for_log(' to CLOSINGD_COMPLETE')
 
     # And should put closing into mempool.
-    l1.daemon.wait_for_log('sendrawtx exit 0')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_channel_onchain(l2.info['id'])
+    l2.wait_for_channel_onchain(l1.info['id'])
 
     bitcoind.generate_block(1)
     l1.daemon.wait_for_log(' to ONCHAIN')
@@ -925,8 +925,8 @@ def test_update_fee_reconnect(node_factory, bitcoind):
     l1.rpc.close(chan)
 
     # And should put closing into mempool.
-    l1.daemon.wait_for_log('sendrawtx exit 0')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_channel_onchain(l2.info['id'])
+    l2.wait_for_channel_onchain(l1.info['id'])
 
     bitcoind.generate_block(1)
     l1.daemon.wait_for_log(' to ONCHAIN')
@@ -1150,7 +1150,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log('sendrawtx exit 0')
     l1.rpc.dev_fail(l2.info['id'])
     l1.daemon.wait_for_log('Failing due to dev-fail command')
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_channel_onchain(l2.info['id'])
     bitcoind.generate_block(6)
     wait_for(lambda: only_one(l1.rpc.getpeer(l2.info['id'])['channels'])['state'] == 'ONCHAIN')
     wait_for(lambda: only_one(l2.rpc.getpeer(l1.info['id'])['channels'])['state'] == 'ONCHAIN')
@@ -1172,9 +1172,9 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
     l2.pay(l1, 10**9 // 2)
     l1.rpc.dev_fail(l2.info['id'])
     l1.daemon.wait_for_log('Failing due to dev-fail command')
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_channel_onchain(l2.info['id'])
     bitcoind.generate_block(5)
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) > 0)
     bitcoind.generate_block(100)
 
     # Start estimatesmartfee.
@@ -1280,7 +1280,7 @@ def test_dataloss_protection(node_factory, bitcoind):
     l2.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL: Awaiting unilateral close")
 
     # l1 should drop to chain.
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_channel_onchain(l2.info['id'])
 
     # l2 must NOT drop to chain.
     l2.daemon.wait_for_log("Cannot broadcast our commitment tx: they have a future one")

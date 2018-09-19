@@ -475,7 +475,7 @@ def test_onchain_unwatch(node_factory, bitcoind):
 
     l1.rpc.dev_fail(l2.info['id'])
     l1.daemon.wait_for_log('Failing due to dev-fail command')
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_channel_onchain(l2.info['id'])
 
     l1.bitcoin.generate_block(1)
     l1.daemon.wait_for_log(' to ONCHAIN')
@@ -594,7 +594,7 @@ def test_onchain_dust_out(node_factory, bitcoind, executor):
 
     # l1 will drop to chain.
     l1.daemon.wait_for_log('permfail')
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_channel_onchain(l2.info['id'])
     l1.bitcoin.generate_block(1)
     l1.daemon.wait_for_log(' to ONCHAIN')
     l2.daemon.wait_for_log(' to ONCHAIN')
@@ -662,7 +662,7 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
 
     # l1 will drop to chain.
     l1.daemon.wait_for_log('permfail')
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_channel_onchain(l2.info['id'])
     l1.bitcoin.generate_block(1)
     l1.daemon.wait_for_log(' to ONCHAIN')
     l2.daemon.wait_for_log(' to ONCHAIN')
@@ -814,7 +814,7 @@ def test_onchain_feechange(node_factory, bitcoind, executor):
 
     # l2 will drop to chain.
     l2.daemon.wait_for_log('permfail')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
+    l2.wait_for_channel_onchain(l1.info['id'])
     bitcoind.generate_block(1)
     l1.daemon.wait_for_log(' to ONCHAIN')
     l2.daemon.wait_for_log(' to ONCHAIN')
@@ -890,7 +890,7 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
 
     # l2 will drop to chain.
     l2.daemon.wait_for_log('permfail')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
+    l2.wait_for_channel_onchain(l1.info['id'])
 
     # Make l1's fees really high (and wait for it to exceed 50000)
     l1.set_feerates((100000, 100000, 100000))
@@ -944,7 +944,7 @@ def test_onchain_different_fees(node_factory, bitcoind, executor):
 
     # Drop to chain
     l1.rpc.dev_fail(l2.info['id'])
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_channel_onchain(l2.info['id'])
 
     bitcoind.generate_block(1)
     l1.daemon.wait_for_log(' to ONCHAIN')
@@ -999,7 +999,7 @@ def test_permfail_new_commit(node_factory, bitcoind, executor):
     t = executor.submit(l1.pay, l2, 200000000)
 
     l2.daemon.wait_for_log('dev_disconnect permfail')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
+    l2.wait_for_channel_onchain(l1.info['id'])
     bitcoind.generate_block(1)
     l1.daemon.wait_for_log('Their unilateral tx, new commit point')
     l1.daemon.wait_for_log(' to ONCHAIN')
@@ -1037,7 +1037,7 @@ def test_permfail_htlc_in(node_factory, bitcoind, executor):
     t = executor.submit(l1.pay, l2, 200000000)
 
     l2.daemon.wait_for_log('dev_disconnect permfail')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
+    l2.wait_for_channel_onchain(l1.info['id'])
     bitcoind.generate_block(1)
     l1.daemon.wait_for_log('Their unilateral tx, old commit point')
     l1.daemon.wait_for_log(' to ONCHAIN')
@@ -1082,7 +1082,7 @@ def test_permfail_htlc_out(node_factory, bitcoind, executor):
     t = executor.submit(l2.pay, l1, 200000000)
 
     l2.daemon.wait_for_log('dev_disconnect permfail')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
+    l2.wait_for_channel_onchain(l1.info['id'])
     bitcoind.generate_block(1)
     l1.daemon.wait_for_log('Their unilateral tx, old commit point')
     l1.daemon.wait_for_log(' to ONCHAIN')
@@ -1144,7 +1144,7 @@ def test_permfail(node_factory, bitcoind):
     # We fail l2, so l1 will reconnect to it.
     l2.rpc.dev_fail(l1.info['id'])
     l2.daemon.wait_for_log('Failing due to dev-fail command')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
+    l2.wait_for_channel_onchain(l1.info['id'])
 
     assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
 
