@@ -42,6 +42,24 @@ int hsm_get_client_fd(struct lightningd *ld,
 	return hsm_fd;
 }
 
+static unsigned int hsm_msg(struct subd *hsmd,
+			    const u8 *msg, const int *fds UNUSED)
+{
+	/* We only expect one thing from the HSM that's not a STATUS message */
+	struct pubkey client_id;
+	u8 *bad_msg;
+
+	if (!fromwire_hsmstatus_client_bad_request(tmpctx, msg, &client_id,
+						   &bad_msg))
+		fatal("Bad status message from hsmd: %s", tal_hex(tmpctx, msg));
+
+	/* This should, of course, never happen. */
+	log_broken(hsmd->log, "client %s sent bad hsm request %s",
+		   type_to_string(tmpctx, struct pubkey, &client_id),
+		   tal_hex(tmpctx, bad_msg));
+	return 0;
+}
+
 void hsm_init(struct lightningd *ld)
 {
 	u8 *msg;
@@ -51,7 +69,9 @@ void hsm_init(struct lightningd *ld)
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0)
 		err(1, "Could not create hsm socketpair");
 
-	ld->hsm = new_global_subd(ld, "lightning_hsmd", NULL, NULL,
+	ld->hsm = new_global_subd(ld, "lightning_hsmd",
+				  hsm_client_wire_type_name,
+				  hsm_msg,
 				  take(&fds[1]), NULL);
 	if (!ld->hsm)
 		err(1, "Could not subd hsm");

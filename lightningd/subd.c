@@ -400,6 +400,8 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 	struct subd_req *sr;
 	struct db *db = sd->ld->wallet->db;
 	struct io_plan *plan;
+	unsigned int i;
+	bool freed = false;
 
 	/* Everything we do, we wrap in a database transaction */
 	db_begin_transaction(db);
@@ -464,29 +466,25 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 	}
 
 	log_debug(sd->log, "UPDATE %s", sd->msgname(type));
-	if (sd->msgcb) {
-		unsigned int i;
-		bool freed = false;
 
-		/* Might free sd (if returns negative); save/restore sd->conn */
-		sd->conn = NULL;
-		tal_add_destructor2(sd, mark_freed, &freed);
+	/* Might free sd (if returns negative); save/restore sd->conn */
+	sd->conn = NULL;
+	tal_add_destructor2(sd, mark_freed, &freed);
 
-		i = sd->msgcb(sd, sd->msg_in, sd->fds_in);
-		if (freed)
-			goto close;
-		tal_del_destructor2(sd, mark_freed, &freed);
+	i = sd->msgcb(sd, sd->msg_in, sd->fds_in);
+	if (freed)
+		goto close;
+	tal_del_destructor2(sd, mark_freed, &freed);
 
-		sd->conn = conn;
+	sd->conn = conn;
 
-		if (i != 0) {
-			/* Don't ask for fds twice! */
-			assert(!sd->fds_in);
-			/* Don't free msg_in: we go around again. */
-			tal_steal(sd, sd->msg_in);
-			plan = sd_collect_fds(conn, sd, i);
-			goto out;
-		}
+	if (i != 0) {
+		/* Don't ask for fds twice! */
+		assert(!sd->fds_in);
+		/* Don't free msg_in: we go around again. */
+		tal_steal(sd, sd->msg_in);
+		plan = sd_collect_fds(conn, sd, i);
+		goto out;
 	}
 
 next:
@@ -651,7 +649,9 @@ static struct subd *new_subd(struct lightningd *ld,
 	sd->must_not_exit = false;
 	sd->talks_to_peer = talks_to_peer;
 	sd->msgname = msgname;
+	assert(msgname);
 	sd->msgcb = msgcb;
+	assert(msgcb);
 	sd->errcb = errcb;
 	sd->billboardcb = billboardcb;
 	sd->fds_in = NULL;

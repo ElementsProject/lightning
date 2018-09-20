@@ -76,7 +76,7 @@ struct subd {
  * @ld: global state
  * @name: basename of daemon
  * @msgname: function to get name from messages
- * @msgcb: function to call (inside db transaction) when non-fatal message received (or NULL)
+ * @msgcb: function to call (inside db transaction) when non-fatal message received
  * @...: NULL-terminated list of pointers to  fds to hand as fd 3, 4...
  *	(can be take, if so, set to -1)
  *
