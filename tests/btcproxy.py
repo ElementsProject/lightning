@@ -29,6 +29,7 @@ class BitcoinRpcProxy(object):
         self.app.add_url_rule("/", "API entrypoint", self.proxy, methods=['POST'])
         self.rpcport = rpcport
         self.mocks = {}
+        self.mock_counts = {}
         self.bitcoind = bitcoind
         self.request_count = 0
 
@@ -40,8 +41,10 @@ class BitcoinRpcProxy(object):
         # If we have set a mock for this method reply with that instead of
         # forwarding the request.
         if method in self.mocks and type(method) == dict:
+            self.mock_counts[method] += 1
             return self.mocks[method]
         elif method in self.mocks and callable(self.mocks[method]):
+            self.mock_counts[method] += 1
             return self.mocks[method](r)
 
         try:
@@ -100,5 +103,6 @@ class BitcoinRpcProxy(object):
         """
         if response is not None:
             self.mocks[method] = response
+            self.mock_counts[method] = 0
         elif method in self.mocks:
             del self.mocks[method]

@@ -627,8 +627,10 @@ class LightningNode(object):
             }
         self.daemon.rpcproxy.mock_rpc('estimatesmartfee', mock_estimatesmartfee)
 
+        # Technically, this waits until it's called, not until it's processed.
+        # We wait until all three levels have been called.
         if wait_for_effect:
-            self.daemon.wait_for_log('Feerate estimate for .* set to')
+            wait_for(lambda: self.daemon.rpcproxy.mock_counts['estimatesmartfee'] >= 3)
 
 
 class NodeFactory(object):
