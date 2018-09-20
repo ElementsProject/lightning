@@ -31,7 +31,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <hsmd/capabilities.h>
-#include <hsmd/client.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <secp256k1_ecdh.h>

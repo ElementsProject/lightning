@@ -36,7 +36,6 @@
 #include <gossipd/broadcast.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <gossipd/routing.h>
-#include <hsmd/client.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/gossip_msg.h>
@@ -2258,7 +2257,6 @@ int main(int argc, char *argv[])
 	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req,
 			 master_gone);
 	status_setup_async(&daemon->master);
-	hsm_setup(HSM_FD);
 	daemon_conn_init(daemon, &daemon->connectd, CONNECTD_FD, connectd_req,
 			 NULL);
 

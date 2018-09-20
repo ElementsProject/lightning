@@ -13,7 +13,6 @@
 #include <common/wireaddr.h>
 #include <connectd/handshake.h>
 #include <errno.h>
-#include <hsmd/client.h>
 #include <secp256k1.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>

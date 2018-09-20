@@ -39,7 +39,6 @@
 #include <connectd/tor_autoservice.h>
 #include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
-#include <hsmd/client.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/gossip_msg.h>
@@ -1286,6 +1285,21 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		      t, tal_hex(tmpctx, master->msg_in));
 }
 
+/* Helper for handshake.c */
+bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point)
+{
+	u8 *req = towire_hsm_ecdh_req(tmpctx, point), *resp;
+
+	if (!wire_sync_write(HSM_FD, req))
+		return false;
+	resp = wire_sync_read(req, HSM_FD);
+	if (!resp)
+		return false;
+	if (!fromwire_hsm_ecdh_resp(resp, ss))
+		return false;
+	return true;
+}
+
 #ifndef TESTING
 static void master_gone(struct io_conn *unused UNUSED, struct daemon_conn *dc UNUSED)
 {
@@ -1312,7 +1326,6 @@ int main(int argc, char *argv[])
 	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req,
 			 master_gone);
 	status_setup_async(&daemon->master);
-	hsm_setup(HSM_FD);
 
 	/* When conn closes, everything is freed. */
 	tal_steal(daemon->master.conn, daemon);

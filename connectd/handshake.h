@@ -51,4 +51,6 @@ struct io_plan *responder_handshake_(struct io_conn *conn,
 							   void *cbarg),
 				     void *cbarg);
 
+/* helper which is defined in connect.c */
+bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point);
 #endif /* LIGHTNING_CONNECTD_HANDSHAKE_H */

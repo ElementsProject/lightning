@@ -72,6 +72,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/wire_error.o			\
 	common/wireaddr.o			\
 	gossipd/gen_gossip_wire.o		\
+	hsmd/gen_hsm_client_wire.o		\
 	lightningd/gossip_msg.o
 
 closingd/gen_closing_wire.h: $(WIRE_GEN) closingd/closing_wire.csv
