@@ -22,7 +22,8 @@ struct gossip_getchannels_entry {
 	struct pubkey source, destination;
 	u64 satoshis;
 	struct short_channel_id short_channel_id;
-	u16 flags;
+	u8 message_flags;
+	u8 channel_flags;
 	bool public;
 	bool local_disabled;
 	u32 last_update_timestamp;

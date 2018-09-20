@@ -123,7 +123,8 @@ struct msg_revoke_and_ack {
 struct msg_channel_update {
 	secp256k1_ecdsa_signature signature;
 	u32 timestamp;
-	u16 flags;
+	u8 message_flags;
+	u8 channel_flags;
 	u16 expiry;
 	u64 htlc_minimum_msat;
 	u32 fee_base_msat;
@@ -376,7 +377,8 @@ static void *towire_struct_channel_update(const tal_t *ctx,
 				     &s->chain_hash,
 				     &s->short_channel_id,
 				     s->timestamp,
-				     s->flags,
+				     s->message_flags,
+				     s->channel_flags,
 				     s->expiry,
 				     s->htlc_minimum_msat,
 				     s->fee_base_msat,
@@ -392,7 +394,8 @@ static struct msg_channel_update *fromwire_struct_channel_update(const tal_t *ct
 				    &s->chain_hash,
 				    &s->short_channel_id,
 				    &s->timestamp,
-				    &s->flags,
+				    &s->message_flags,
+				    &s->channel_flags,
 				    &s->expiry,
 				    &s->htlc_minimum_msat,
 				    &s->fee_base_msat,

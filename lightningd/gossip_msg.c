@@ -84,7 +84,8 @@ void fromwire_gossip_getchannels_entry(const u8 **pptr, size_t *max,
 	fromwire_pubkey(pptr, max, &entry->source);
 	fromwire_pubkey(pptr, max, &entry->destination);
 	entry->satoshis = fromwire_u64(pptr, max);
-	entry->flags = fromwire_u16(pptr, max);
+	entry->message_flags = fromwire_u8(pptr, max);
+	entry->channel_flags = fromwire_u8(pptr, max);
 	entry->public = fromwire_bool(pptr, max);
 	entry->local_disabled = fromwire_bool(pptr, max);
 	entry->last_update_timestamp = fromwire_u32(pptr, max);
@@ -100,7 +101,8 @@ void towire_gossip_getchannels_entry(u8 **pptr,
 	towire_pubkey(pptr, &entry->source);
 	towire_pubkey(pptr, &entry->destination);
 	towire_u64(pptr, entry->satoshis);
-	towire_u16(pptr, entry->flags);
+	towire_u8(pptr, entry->message_flags);
+	towire_u8(pptr, entry->channel_flags);
 	towire_bool(pptr, entry->public);
 	towire_bool(pptr, entry->local_disabled);
 	towire_u32(pptr, entry->last_update_timestamp);
