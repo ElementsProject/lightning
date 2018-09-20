@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/take/take.h>
 #include <ccan/tal/tal.h>
+#include <lightningd/jsonrpc.h>
 
 /**
  * A collection of plugins, and some associated information.
@@ -33,5 +34,14 @@ void plugins_init(struct plugins *plugins);
  * @param path: The path of the executable for this plugin
  */
 void plugin_register(struct plugins *plugins, const char* path TAKES);
+
+/**
+ * Add the plugin option and their respective options to listconfigs.
+ *
+ * This adds a dict that maps the plugin name to a dict of configuration options
+ * for the corresponding plugins.
+ */
+void json_add_opt_plugins(struct json_result *response,
+			  const struct plugins *plugins);
 
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */
