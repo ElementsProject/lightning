@@ -630,6 +630,20 @@ class LightningNode(object):
         if wait_for_effect:
             self.daemon.wait_for_log('Feerate estimate for .* set to')
 
+    def wait_for_onchaind_broadcast(self, name, resolve=None):
+        """Wait for onchaind to drop tx name to resolve (if any)"""
+        if resolve:
+            r = self.daemon.wait_for_log('Broadcasting {} .* to resolve {}'
+                                         .format(name, resolve))
+        else:
+            r = self.daemon.wait_for_log('Broadcasting {} .* to resolve '
+                                         .format(name))
+
+        rawtx = re.search('.* \(([0-9a-fA-F]*)\) ', r).group(1)
+        txid = self.bitcoin.rpc.decoderawtransaction(rawtx, True)['txid']
+
+        wait_for(lambda: txid in self.bitcoin.rpc.getrawmempool())
+
 
 class NodeFactory(object):
     """A factory to setup and start `lightningd` daemons.
