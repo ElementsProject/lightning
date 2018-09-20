@@ -157,7 +157,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *
 	 * 5. If the `to_local` amount is greater or equal to
 	 *    `dust_limit_satoshis`, add a [`to_local`
-	 *    output](#to-local-output).
+	 *    output](#to_local-output).
 	 */
 	if (self_pay_msat / 1000 >= dust_limit_satoshis) {
 		u8 *wscript = to_self_wscript(tmpctx, to_self_delay,keyset);
@@ -170,7 +170,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *
 	 * 6. If the `to_remote` amount is greater or equal to
 	 *    `dust_limit_satoshis`, add a [`to_remote`
-	 *    output](#to-remote-output).
+	 *    output](#to_remote-output).
 	 */
 	if (other_pay_msat / 1000 >= dust_limit_satoshis) {
 		/* BOLT #3:
