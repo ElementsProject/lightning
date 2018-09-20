@@ -2,6 +2,8 @@
 
 #include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
+#include <lightningd/json.h>
+#include <unistd.h>
 
 struct plugin {
 	int stdin, stdout;
@@ -32,4 +34,17 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 
 void plugins_init(struct plugins *plugins)
 {
+}
+
+void json_add_opt_plugins(struct json_stream *response,
+			  const struct plugins *plugins)
+{
+	struct plugin *p;
+	json_object_start(response, "plugin");
+	for (size_t i=0; i<tal_count(plugins->plugins); i++) {
+		p = plugins->plugins[i];
+		json_object_start(response, p->cmd);
+		json_object_end(response);
+	}
+	json_object_end(response);
 }

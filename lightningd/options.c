@@ -971,7 +971,7 @@ static void add_config(struct lightningd *ld,
 			if (ld->proxyaddr)
 				answer = fmt_wireaddr(name0, ld->proxyaddr);
 		} else if (opt->cb_arg == (void *)opt_add_plugin) {
-			/* FIXME: Actually add the plugin options */
+			json_add_opt_plugins(response, ld->plugins);
 #if DEVELOPER
 		} else if (strstarts(name, "dev-")) {
 			/* Ignore dev settings */
