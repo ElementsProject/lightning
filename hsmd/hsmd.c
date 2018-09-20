@@ -103,15 +103,14 @@ static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 }
 
 /**
- * hsm_peer_secret_base -- Derive the base secret seed for per-peer seeds
+ * hsm_channel_secret_base -- Derive the base secret seed for per-channel seeds
  *
- * This secret is shared by all channels/peers for the client. The
- * per-peer seeds will be generated from it by mixing in the
- * channel_id and the peer node_id.
+ * This secret is the basis for all per-channel secrets: the per-channel seeds
+ * will be generated mixing in the channel_id and the peer node_id.
  */
-static void hsm_peer_secret_base(struct secret *peer_seed_base)
+static void hsm_channel_secret_base(struct secret *channel_seed_base)
 {
-	hkdf_sha256(peer_seed_base, sizeof(struct secret), NULL, 0,
+	hkdf_sha256(channel_seed_base, sizeof(struct secret), NULL, 0,
 		    &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret),
 		    "peer seed", strlen("peer seed"));
 }
@@ -119,17 +118,17 @@ static void hsm_peer_secret_base(struct secret *peer_seed_base)
 static void get_channel_seed(const struct pubkey *peer_id, u64 dbid,
 			     struct secret *channel_seed)
 {
-	struct secret peer_base;
+	struct secret channel_base;
 	u8 input[PUBKEY_DER_LEN + sizeof(dbid)];
 	const char *info = "per-peer seed";
 
-	hsm_peer_secret_base(&peer_base);
+	hsm_channel_secret_base(&channel_base);
 	pubkey_to_der(input, peer_id);
 	memcpy(input + PUBKEY_DER_LEN, &dbid, sizeof(dbid));
 
 	hkdf_sha256(channel_seed, sizeof(*channel_seed),
 		    input, sizeof(input),
-		    &peer_base, sizeof(peer_base),
+		    &channel_base, sizeof(channel_base),
 		    info, strlen(info));
 }
 
@@ -970,29 +969,15 @@ static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg)
 }
 
 
-static void derive_peer_seed(struct secret *peer_seed, struct secret *peer_seed_base,
-		      const struct pubkey *peer_id, const u64 channel_id)
-{
-	u8 input[PUBKEY_DER_LEN + sizeof(channel_id)];
-	char *info = "per-peer seed";
-	pubkey_to_der(input, peer_id);
-	memcpy(input + PUBKEY_DER_LEN, &channel_id, sizeof(channel_id));
-
-	hkdf_sha256(peer_seed, sizeof(*peer_seed),
-		    input, sizeof(input),
-		    peer_seed_base, sizeof(*peer_seed_base),
-		    info, strlen(info));
-}
-
 static void hsm_unilateral_close_privkey(struct privkey *dst,
 					 struct unilateral_close_info *info)
 {
-	struct secret peer_seed, peer_seed_base;
+	struct secret channel_seed;
 	struct basepoints basepoints;
 	struct secrets secrets;
-	hsm_peer_secret_base(&peer_seed_base);
-	derive_peer_seed(&peer_seed, &peer_seed_base, &info->peer_id, info->channel_id);
-	derive_basepoints(&peer_seed, NULL, &basepoints, &secrets, NULL);
+
+	get_channel_seed(&info->peer_id, info->channel_id, &channel_seed);
+	derive_basepoints(&channel_seed, NULL, &basepoints, &secrets, NULL);
 
 	if (!derive_simple_privkey(&secrets.payment_basepoint_secret,
 				   &basepoints.payment, &info->commitment_point,
