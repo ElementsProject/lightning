@@ -31,7 +31,11 @@ struct half_chan {
 
 	/* Flags as specified by the `channel_update`s, among other
 	 * things indicated direction wrt the `channel_id` */
-	u16 flags;
+	u8 channel_flags;
+
+	/* Flags as specified by the `channel_update`s, indicates
+	 * optional fields.  */
+	u8 message_flags;
 
 	/* If greater than current time, this connection should not
 	 * be used for routing. */
@@ -81,7 +85,7 @@ static inline bool is_halfchan_defined(const struct half_chan *hc)
 
 static inline bool is_halfchan_enabled(const struct half_chan *hc)
 {
-	return is_halfchan_defined(hc) && !(hc->flags & ROUTING_FLAGS_DISABLED);
+	return is_halfchan_defined(hc) && !(hc->channel_flags & ROUTING_FLAGS_DISABLED);
 }
 
 struct node {

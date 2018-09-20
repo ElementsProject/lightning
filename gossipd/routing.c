@@ -259,13 +259,17 @@ static void destroy_chan(struct chan *chan, struct routing_state *rstate)
 
 static void init_half_chan(struct routing_state *rstate,
 				 struct chan *chan,
-				 int idx)
+				 int channel_idx)
 {
-	struct half_chan *c = &chan->half[idx];
+	struct half_chan *c = &chan->half[channel_idx];
 
 	c->channel_update = NULL;
 	c->unroutable_until = 0;
-	c->flags = idx;
+
+	/* Set the channel direction */
+	c->channel_flags = channel_idx;
+	// TODO: wireup message_flags
+	c->message_flags = 0;
 	/* We haven't seen channel_update: make it halfway to prune time,
 	 * which should be older than any update we'd see. */
 	c->last_timestamp = time_now().ts.tv_sec - rstate->prune_timeout/2;
@@ -1003,7 +1007,8 @@ static void set_connection_values(struct chan *chan,
 				  u32 base_fee,
 				  u32 proportional_fee,
 				  u32 delay,
-				  u16 flags,
+				  u8 message_flags,
+				  u8 channel_flags,
 				  u64 timestamp,
 				  u32 htlc_minimum_msat)
 {
@@ -1013,9 +1018,10 @@ static void set_connection_values(struct chan *chan,
 	c->htlc_minimum_msat = htlc_minimum_msat;
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
-	c->flags = flags;
+	c->message_flags = message_flags;
+	c->channel_flags = channel_flags;
 	c->last_timestamp = timestamp;
-	assert((c->flags & ROUTING_FLAGS_DIRECTION) == idx);
+	assert((c->channel_flags & ROUTING_FLAGS_DIRECTION) == idx);
 
 	/* If it was temporarily unroutable, re-enable */
 	c->unroutable_until = 0;
@@ -1031,7 +1037,7 @@ static void set_connection_values(struct chan *chan,
 					    &chan->scid),
 			     idx,
 			     c->proportional_fee);
-		c->flags |= ROUTING_FLAGS_DISABLED;
+		c->channel_flags |= ROUTING_FLAGS_DISABLED;
 	}
 }
 
@@ -1041,7 +1047,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	secp256k1_ecdsa_signature signature;
 	struct short_channel_id short_channel_id;
 	u32 timestamp;
-	u16 flags;
+	u8 message_flags, channel_flags;
 	u16 expiry;
 	u64 htlc_minimum_msat;
 	u32 fee_base_msat;
@@ -1052,7 +1058,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	bool have_broadcast_announce;
 
 	if (!fromwire_channel_update(update, &signature, &chain_hash,
-				     &short_channel_id, &timestamp, &flags,
+				     &short_channel_id, &timestamp,
+				     &message_flags, &channel_flags,
 				     &expiry, &htlc_minimum_msat, &fee_base_msat,
 				     &fee_proportional_millionths))
 		return false;
@@ -1064,10 +1071,11 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	have_broadcast_announce = is_halfchan_defined(&chan->half[0])
 		|| is_halfchan_defined(&chan->half[1]);
 
-	direction = flags & 0x1;
+	direction = channel_flags & 0x1;
 	set_connection_values(chan, direction, fee_base_msat,
 			      fee_proportional_millionths, expiry,
-			      flags, timestamp, htlc_minimum_msat);
+			      message_flags, channel_flags,
+			      timestamp, htlc_minimum_msat);
 
 	/* Replace any old one. */
 	tal_free(chan->half[direction].channel_update);
@@ -1101,7 +1109,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 	secp256k1_ecdsa_signature signature;
 	struct short_channel_id short_channel_id;
 	u32 timestamp;
-	u16 flags;
+	u8 message_flags, channel_flags;
 	u16 expiry;
 	u64 htlc_minimum_msat;
 	u32 fee_base_msat;
@@ -1115,7 +1123,8 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 	serialized = tal_dup_arr(tmpctx, u8, update, len, 0);
 	if (!fromwire_channel_update(serialized, &signature,
 				     &chain_hash, &short_channel_id,
-				     &timestamp, &flags, &expiry,
+				     &timestamp, &message_flags,
+				     &channel_flags, &expiry,
 				     &htlc_minimum_msat, &fee_base_msat,
 				     &fee_proportional_millionths)) {
 		err = towire_errorfmt(rstate, NULL,
@@ -1123,7 +1132,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 				      tal_hex(tmpctx, serialized));
 		return err;
 	}
-	direction = flags & 0x1;
+	direction = channel_flags & 0x1;
 
 	/* BOLT #7:
 	 *
@@ -1160,7 +1169,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 						 type_to_string(tmpctx,
 							struct short_channel_id,
 							&short_channel_id),
-						 flags));
+						 channel_flags));
 			return NULL;
 		}
 	}
@@ -1198,7 +1207,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 				       type_to_string(tmpctx,
 						      struct short_channel_id,
 						      &short_channel_id),
-				       flags,
+				       channel_flags,
 				       tal_hex(tmpctx, c->channel_update),
 				       tal_hex(tmpctx, serialized));
 		}
@@ -1224,10 +1233,10 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
 	status_trace("Received channel_update for channel %s(%d) now %s was %s (from %s)",
 		     type_to_string(tmpctx, struct short_channel_id,
 				    &short_channel_id),
-		     flags & 0x01,
-		     flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE",
+		     channel_flags & 0x01,
+		     channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE",
 		     is_halfchan_defined(c)
-		     ? (c->flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE")
+		     ? (c->channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE")
 		     : "UNDEFINED",
 		     source);
 

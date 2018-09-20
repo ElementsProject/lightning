@@ -557,7 +557,7 @@ class LightningNode(object):
 
     def is_channel_active(self, chanid):
         channels = self.rpc.listchannels()['channels']
-        active = [(c['short_channel_id'], c['flags']) for c in channels if c['active']]
+        active = [(c['short_channel_id'], c['channel_flags']) for c in channels if c['active']]
         return (chanid, 0) in active and (chanid, 1) in active
 
     def wait_for_channel_onchain(self, peerid):

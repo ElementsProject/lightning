@@ -143,7 +143,8 @@ channel_update,0,signature,64
 channel_update,64,chain_hash,32
 channel_update,96,short_channel_id,8
 channel_update,104,timestamp,4
-channel_update,108,flags,2
+channel_update,108,message_flags,1
+channel_update,109,channel_flags,1
 channel_update,110,cltv_expiry_delta,2
 channel_update,112,htlc_minimum_msat,8
 channel_update,120,fee_base_msat,4

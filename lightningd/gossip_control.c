@@ -26,6 +26,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/log.h>
+#include <lightningd/options.h>
 #include <lightningd/param.h>
 #include <lightningd/ping.h>
 #include <sodium/randombytes.h>
@@ -346,9 +347,13 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 					       &entries[i].short_channel_id));
 		json_add_bool(response, "public", entries[i].public);
 		json_add_u64(response, "satoshis", entries[i].satoshis);
-		json_add_num(response, "flags", entries[i].flags);
+		json_add_num(response, "message_flags", entries[i].message_flags);
+		json_add_num(response, "channel_flags", entries[i].channel_flags);
+		/* Prior to spec v0891374d47ddffa64c5a2e6ad151247e3d6b7a59, these two were a single u16 field */
+		if (deprecated_apis)
+			json_add_num(response, "flags", ((u16)entries[i].message_flags << 8) | entries[i].channel_flags);
 		json_add_bool(response, "active",
-			      !(entries[i].flags & ROUTING_FLAGS_DISABLED)
+			      !(entries[i].channel_flags & ROUTING_FLAGS_DISABLED)
 			      && !entries[i].local_disabled);
 		json_add_num(response, "last_update",
 			     entries[i].last_update_timestamp);
