@@ -46,7 +46,6 @@ methods = {
     'ping': json_ping,
 }
 
-
 partial = ""
 for l in sys.stdin:
     partial += l
