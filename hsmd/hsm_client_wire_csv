@@ -1,6 +1,7 @@
 # Clients should not give a bad request but not the HSM's decision to crash.
 hsmstatus_client_bad_request,1000
 hsmstatus_client_bad_request,,id,struct pubkey
+hsmstatus_client_bad_request,,description,wirestring
 hsmstatus_client_bad_request,,len,u16
 hsmstatus_client_bad_request,,msg,len*u8
 

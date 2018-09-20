@@ -48,15 +48,16 @@ static unsigned int hsm_msg(struct subd *hsmd,
 	/* We only expect one thing from the HSM that's not a STATUS message */
 	struct pubkey client_id;
 	u8 *bad_msg;
+	char *desc;
 
 	if (!fromwire_hsmstatus_client_bad_request(tmpctx, msg, &client_id,
-						   &bad_msg))
+						   &desc, &bad_msg))
 		fatal("Bad status message from hsmd: %s", tal_hex(tmpctx, msg));
 
 	/* This should, of course, never happen. */
-	log_broken(hsmd->log, "client %s sent bad hsm request %s",
+	log_broken(hsmd->log, "client %s %s (request %s)",
 		   type_to_string(tmpctx, struct pubkey, &client_id),
-		   tal_hex(tmpctx, bad_msg));
+		   desc, tal_hex(tmpctx, bad_msg));
 	return 0;
 }
 

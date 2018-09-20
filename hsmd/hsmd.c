@@ -69,6 +69,9 @@ static UINTMAP(struct client *) clients;
 static struct client *dbid_zero_clients[3];
 static size_t num_dbid_zero_clients;
 
+/* For reporting issues. */
+static struct daemon_conn *status_conn;
+
 /* FIXME: This is used by debug.c, but doesn't apply to us. */
 extern void dev_disconnect_init(int fd);
 void dev_disconnect_init(int fd UNUSED) { }
@@ -79,6 +82,48 @@ static struct client *new_client(struct daemon_conn *master,
 				 u64 dbid,
 				 const u64 capabilities,
 				 int fd);
+
+static PRINTF_FMT(4,5)
+	struct io_plan *bad_req_fmt(struct io_conn *conn,
+				    struct client *c,
+				    const u8 *msg_in,
+				    const char *fmt, ...)
+{
+	va_list ap;
+	char *str;
+
+	va_start(ap, fmt);
+	str = tal_fmt(tmpctx, fmt, ap);
+	va_end(ap);
+
+	/* If the client was actually lightningd, it's Game Over. */
+	if (&c->dc == c->master) {
+		status_broken("%s", str);
+		master_badmsg(fromwire_peektype(msg_in), msg_in);
+	}
+
+	daemon_conn_send(status_conn,
+			 take(towire_hsmstatus_client_bad_request(NULL,
+								  &c->id,
+								  str,
+								  msg_in)));
+	return io_close(conn);
+}
+
+static struct io_plan *bad_req(struct io_conn *conn,
+			       struct client *c,
+			       const u8 *msg_in)
+{
+	return bad_req_fmt(conn, c, msg_in, "could not parse request");
+}
+
+static struct io_plan *req_reply(struct io_conn *conn,
+				 struct client *c,
+				 const u8 *msg_out TAKES)
+{
+	daemon_conn_send(&c->dc, msg_out);
+	return daemon_conn_read_next(conn, &c->dc);
+}
 
 static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 {
@@ -130,17 +175,6 @@ static void get_channel_seed(const struct pubkey *peer_id, u64 dbid,
 		    input, sizeof(input),
 		    &channel_base, sizeof(channel_base),
 		    info, strlen(info));
-}
-
-static void send_init_response(struct daemon_conn *master)
-{
-	struct pubkey node_id;
-	u8 *msg;
-
-	node_key(NULL, &node_id);
-
-	msg = towire_hsm_init_reply(NULL, &node_id, &secretstuff.bip32);
-	daemon_conn_send(master, take(msg));
 }
 
 static void populate_secretstuff(void)
@@ -273,52 +307,51 @@ static void load_hsm(void)
 	populate_secretstuff();
 }
 
-static void init_hsm(struct daemon_conn *master, const u8 *msg)
+static struct io_plan *init_hsm(struct io_conn *conn,
+				struct client *c,
+				const u8 *msg_in)
 {
-	if (!fromwire_hsm_init(msg))
-		master_badmsg(WIRE_HSM_INIT, msg);
+	struct pubkey node_id;
+
+	/* This must be the master. */
+	assert(&c->dc == c->master);
+
+	if (!fromwire_hsm_init(msg_in))
+		return bad_req(conn, c, msg_in);
 
 	maybe_create_new_hsm();
 	load_hsm();
 
-	send_init_response(master);
+	node_key(NULL, &node_id);
+	return req_reply(conn, c,
+			 take(towire_hsm_init_reply(NULL, &node_id,
+						    &secretstuff.bip32)));
 }
 
-static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
+static struct io_plan *handle_ecdh(struct io_conn *conn,
+				   struct client *c,
+				   const u8 *msg_in)
 {
-	struct client *c = container_of(dc, struct client, dc);
 	struct privkey privkey;
 	struct pubkey point;
 	struct secret ss;
 
-	if (!fromwire_hsm_ecdh_req(dc->msg_in, &point)) {
-		daemon_conn_send(c->master,
-				 take(towire_hsmstatus_client_bad_request(NULL,
-								&c->id,
-								dc->msg_in)));
-		return io_close(conn);
-	}
+	if (!fromwire_hsm_ecdh_req(msg_in, &point))
+		return bad_req(conn, c, msg_in);
 
 	node_key(&privkey, NULL);
 	if (secp256k1_ecdh(secp256k1_ctx, ss.data, &point.pubkey,
 			   privkey.secret.data) != 1) {
-		status_broken("secp256k1_ecdh fail for client %s",
-			      type_to_string(tmpctx, struct pubkey, &c->id));
-		daemon_conn_send(c->master,
-				 take(towire_hsmstatus_client_bad_request(NULL,
-								&c->id,
-								dc->msg_in)));
-		return io_close(conn);
+		return bad_req_fmt(conn, c, msg_in, "secp256k1_ecdh fail");
 	}
 
-	daemon_conn_send(dc, take(towire_hsm_ecdh_resp(NULL, &ss)));
-	return daemon_conn_read_next(conn, dc);
+	return req_reply(conn, c, take(towire_hsm_ecdh_resp(NULL, &ss)));
 }
 
 static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
-						struct client *c)
+						struct client *c,
+						const u8 *msg_in)
 {
-	struct daemon_conn *dc = &c->dc;
 	/* First 2 + 256 byte are the signatures and msg type, skip them */
 	size_t offset = 258;
 	struct privkey node_pkey;
@@ -334,16 +367,13 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 	derive_funding_key(&channel_seed, &funding_pubkey, &funding_privkey);
 
-	if (!fromwire_hsm_cannouncement_sig_req(tmpctx, dc->msg_in, &ca)) {
-		status_broken("Failed to parse cannouncement_sig_req: %s",
-			      tal_hex(tmpctx, dc->msg_in));
-		return io_close(conn);
-	}
+	if (!fromwire_hsm_cannouncement_sig_req(tmpctx, msg_in, &ca))
+		return bad_req(conn, c, msg_in);
 
-	if (tal_count(ca) < offset) {
-		status_broken("bad cannounce length %zu", tal_count(ca));
-		return io_close(conn);
-	}
+	if (tal_count(ca) < offset)
+		return bad_req_fmt(conn, c, msg_in,
+				   "bad cannounce length %zu",
+				   tal_count(ca));
 
 	/* TODO(cdecker) Check that this is actually a valid
 	 * channel_announcement */
@@ -355,13 +385,12 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 
 	reply = towire_hsm_cannouncement_sig_reply(NULL, &node_sig,
 						   &bitcoin_sig);
-	daemon_conn_send(dc, take(reply));
-
-	return daemon_conn_read_next(conn, dc);
+	return req_reply(conn, c, take(reply));
 }
 
 static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
-						 struct daemon_conn *dc)
+						 struct client *c,
+						 const u8 *msg_in)
 {
 	/* 2 bytes msg type + 64 bytes signature */
 	size_t offset = 66;
@@ -375,26 +404,18 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 	struct bitcoin_blkid chain_hash;
 	u8 *cu;
 
-	if (!fromwire_hsm_cupdate_sig_req(tmpctx, dc->msg_in, &cu)) {
-		status_broken("Failed to parse %s: %s",
-			      hsm_client_wire_type_name(fromwire_peektype(dc->msg_in)),
-			      tal_hex(tmpctx, dc->msg_in));
-		return io_close(conn);
-	}
+	if (!fromwire_hsm_cupdate_sig_req(tmpctx, msg_in, &cu))
+		return bad_req(conn, c, msg_in);
 
 	if (!fromwire_channel_update(cu, &sig, &chain_hash,
 				     &scid, &timestamp, &flags,
 				     &cltv_expiry_delta, &htlc_minimum_msat,
 				     &fee_base_msat, &fee_proportional_mill)) {
-		status_broken("Failed to parse inner channel_update: %s",
-			      tal_hex(tmpctx, dc->msg_in));
-		return io_close(conn);
+		return bad_req_fmt(conn, c, msg_in, "Bad inner channel_update");
 	}
-	if (tal_count(cu) < offset) {
-		status_broken("inner channel_update too short: %s",
-			      tal_hex(tmpctx, dc->msg_in));
-		return io_close(conn);
-	}
+	if (tal_count(cu) < offset)
+		return bad_req_fmt(conn, c, msg_in,
+				   "inner channel_update too short");
 
 	node_key(&node_pkey, NULL);
 	sha256_double(&hash, cu + offset, tal_count(cu) - offset);
@@ -405,13 +426,12 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 				   &scid, timestamp, flags,
 				   cltv_expiry_delta, htlc_minimum_msat,
 				   fee_base_msat, fee_proportional_mill);
-
-	daemon_conn_send(dc, take(towire_hsm_cupdate_sig_reply(NULL, cu)));
-	return daemon_conn_read_next(conn, dc);
+	return req_reply(conn, c, take(towire_hsm_cupdate_sig_reply(NULL, cu)));
 }
 
 static struct io_plan *handle_get_channel_basepoints(struct io_conn *conn,
-						     struct daemon_conn *dc)
+						     struct client *c,
+						     const u8 *msg_in)
 {
 	struct pubkey peer_id;
 	u64 dbid;
@@ -419,22 +439,22 @@ static struct io_plan *handle_get_channel_basepoints(struct io_conn *conn,
 	struct basepoints basepoints;
 	struct pubkey funding_pubkey;
 
-	if (!fromwire_hsm_get_channel_basepoints(dc->msg_in, &peer_id, &dbid))
-		master_badmsg(WIRE_HSM_GET_CHANNEL_BASEPOINTS, dc->msg_in);
+	if (!fromwire_hsm_get_channel_basepoints(msg_in, &peer_id, &dbid))
+		return bad_req(conn, c, msg_in);
 
 	get_channel_seed(&peer_id, dbid, &seed);
 	derive_basepoints(&seed, &funding_pubkey, &basepoints, NULL, NULL);
 
-	daemon_conn_send(dc,
+	return req_reply(conn, c,
 			 take(towire_hsm_get_channel_basepoints_reply(NULL,
 							      &basepoints,
 							      &funding_pubkey)));
-	return daemon_conn_read_next(conn, dc);
 }
 
 /* FIXME: Ensure HSM never does this twice for same dbid! */
 static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
-						 struct daemon_conn *dc)
+						 struct client *c,
+						 const u8 *msg_in)
 {
 	struct pubkey peer_id, remote_funding_pubkey, local_funding_pubkey;
 	u64 dbid, funding_amount;
@@ -444,12 +464,12 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 	struct secrets secrets;
 	const u8 *funding_wscript;
 
-	if (!fromwire_hsm_sign_commitment_tx(tmpctx, dc->msg_in,
+	if (!fromwire_hsm_sign_commitment_tx(tmpctx, msg_in,
 					     &peer_id, &dbid,
 					     &tx,
 					     &remote_funding_pubkey,
 					     &funding_amount))
-		master_badmsg(WIRE_HSM_SIGN_COMMITMENT_TX, dc->msg_in);
+		return bad_req(conn, c, msg_in);
 
 	get_channel_seed(&peer_id, dbid, &channel_seed);
 	derive_basepoints(&channel_seed,
@@ -465,37 +485,15 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 		      &local_funding_pubkey,
 		      &sig);
 
-	daemon_conn_send(dc,
+	return req_reply(conn, c,
 			 take(towire_hsm_sign_commitment_tx_reply(NULL, &sig)));
-	return daemon_conn_read_next(conn, dc);
-}
-
-static PRINTF_FMT(3,4)
-	struct io_plan *bad_sign_request(struct io_conn *conn,
-					 struct client *c,
-					 const char *fmt, ...)
-{
-	va_list ap;
-	char *str;
-
-	va_start(ap, fmt);
-	str = tal_fmt(tmpctx, fmt, ap);
-	status_broken("Client %s bad sign request: %s",
-		      type_to_string(tmpctx, struct pubkey, &c->id), str);
-	va_end(ap);
-
-	daemon_conn_send(c->master,
-			 take(towire_hsmstatus_client_bad_request(NULL,
-							  &c->id,
-							  c->dc.msg_in)));
-	return io_close(conn);
 }
 
 /* FIXME: make sure it meets some criteria? */
 static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
-							struct client *c)
+							struct client *c,
+							const u8 *msg_in)
 {
-	struct daemon_conn *dc = &c->dc;
 	struct pubkey remote_funding_pubkey, local_funding_pubkey;
 	u64 funding_amount;
 	struct secret channel_seed;
@@ -504,11 +502,11 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 	struct secrets secrets;
 	const u8 *funding_wscript;
 
-	if (!fromwire_hsm_sign_remote_commitment_tx(tmpctx, dc->msg_in,
+	if (!fromwire_hsm_sign_remote_commitment_tx(tmpctx, msg_in,
 						    &tx,
 						    &remote_funding_pubkey,
 						    &funding_amount))
-		master_badmsg(WIRE_HSM_SIGN_REMOTE_COMMITMENT_TX, dc->msg_in);
+		bad_req(conn, c, msg_in);
 
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 	derive_basepoints(&channel_seed,
@@ -524,13 +522,13 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 		      &local_funding_pubkey,
 		      &sig);
 
-	daemon_conn_send(dc, take(towire_hsm_sign_tx_reply(NULL, &sig)));
-	return daemon_conn_read_next(conn, dc);
+	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
 
 /* FIXME: Derive output address for this client, and check it here! */
 static struct io_plan *handle_sign_to_us_tx(struct io_conn *conn,
 					    struct client *c,
+					    const u8 *msg_in,
 					    struct bitcoin_tx *tx,
 					    const struct privkey *privkey,
 					    const u8 *wscript,
@@ -540,20 +538,20 @@ static struct io_plan *handle_sign_to_us_tx(struct io_conn *conn,
 	struct pubkey pubkey;
 
 	if (!pubkey_from_privkey(privkey, &pubkey))
-		return bad_sign_request(conn, c, "bad pubkey_from_privkey");
+		return bad_req_fmt(conn, c, msg_in, "bad pubkey_from_privkey");
 
 	if (tal_count(tx->input) != 1)
-		return bad_sign_request(conn, c, "bad txinput count");
+		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
 
 	tx->input[0].amount = tal_dup(tx->input, u64, &input_amount);
 	sign_tx_input(tx, 0, NULL, wscript, privkey, &pubkey, &sig);
 
-	daemon_conn_send(&c->dc, take(towire_hsm_sign_tx_reply(NULL, &sig)));
-	return daemon_conn_read_next(conn, &c->dc);
+	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
 
 static struct io_plan *handle_sign_delayed_payment_to_us(struct io_conn *conn,
-							 struct client *c)
+							 struct client *c,
+							 const u8 *msg_in)
 {
 	u64 commit_num, input_amount;
 	struct secret channel_seed, basepoint_secret;
@@ -564,40 +562,40 @@ static struct io_plan *handle_sign_delayed_payment_to_us(struct io_conn *conn,
 	struct privkey privkey;
 	u8 *wscript;
 
-	if (!fromwire_hsm_sign_delayed_payment_to_us(tmpctx, c->dc.msg_in,
+	if (!fromwire_hsm_sign_delayed_payment_to_us(tmpctx, msg_in,
 						     &commit_num,
 						     &tx, &wscript,
 						     &input_amount))
-		return bad_sign_request(conn, c,
-					"malformed hsm_sign_delayed_payment");
+		return bad_req(conn, c, msg_in);
 
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 
 	if (!derive_shaseed(&channel_seed, &shaseed))
-		return bad_sign_request(conn, c, "bad derive_shaseed");
+		return bad_req_fmt(conn, c, msg_in, "bad derive_shaseed");
 
 	if (!per_commit_point(&shaseed, &per_commitment_point, commit_num))
-		return bad_sign_request(conn, c,
-					"bad per_commitment_point %"PRIu64,
-					commit_num);
+		return bad_req_fmt(conn, c, msg_in,
+				   "bad per_commitment_point %"PRIu64,
+				   commit_num);
 
 	if (!derive_delayed_payment_basepoint(&channel_seed,
 					      &basepoint,
 					      &basepoint_secret))
-		return bad_sign_request(conn, c, "failed deriving basepoint");
+		return bad_req_fmt(conn, c, msg_in, "failed deriving basepoint");
 
 	if (!derive_simple_privkey(&basepoint_secret,
 				   &basepoint,
 				   &per_commitment_point,
 				   &privkey))
-		return bad_sign_request(conn, c, "failed deriving privkey");
+		return bad_req_fmt(conn, c, msg_in, "failed deriving privkey");
 
-	return handle_sign_to_us_tx(conn, c, tx, &privkey, wscript,
-				    input_amount);
+	return handle_sign_to_us_tx(conn, c, msg_in,
+				    tx, &privkey, wscript, input_amount);
 }
 
 static struct io_plan *handle_sign_remote_htlc_to_us(struct io_conn *conn,
-						     struct client *c)
+						     struct client *c,
+						     const u8 *msg_in)
 {
 	u64 input_amount;
 	struct secret channel_seed, htlc_basepoint_secret;
@@ -607,33 +605,33 @@ static struct io_plan *handle_sign_remote_htlc_to_us(struct io_conn *conn,
 	struct privkey privkey;
 	u8 *wscript;
 
-	if (!fromwire_hsm_sign_remote_htlc_to_us(tmpctx, c->dc.msg_in,
+	if (!fromwire_hsm_sign_remote_htlc_to_us(tmpctx, msg_in,
 						 &remote_per_commitment_point,
 						 &tx, &wscript,
 						 &input_amount))
-		return bad_sign_request(conn, c,
-					"malformed hsm_sign_remote_htlc_to_us");
+		return bad_req(conn, c, msg_in);
 
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 
 	if (!derive_htlc_basepoint(&channel_seed, &htlc_basepoint,
 				   &htlc_basepoint_secret))
-		return bad_sign_request(conn, c,
-					"Failed derive_htlc_basepoint");
+		return bad_req_fmt(conn, c, msg_in,
+				   "Failed derive_htlc_basepoint");
 
 	if (!derive_simple_privkey(&htlc_basepoint_secret,
 				   &htlc_basepoint,
 				   &remote_per_commitment_point,
 				   &privkey))
-		return bad_sign_request(conn, c,
-					"Failed deriving htlc privkey");
+		return bad_req_fmt(conn, c, msg_in,
+				   "Failed deriving htlc privkey");
 
-	return handle_sign_to_us_tx(conn, c, tx, &privkey, wscript,
-				    input_amount);
+	return handle_sign_to_us_tx(conn, c, msg_in,
+				    tx, &privkey, wscript, input_amount);
 }
 
 static struct io_plan *handle_sign_penalty_to_us(struct io_conn *conn,
-						 struct client *c)
+						 struct client *c,
+						 const u8 *msg_in)
 {
 	u64 input_amount;
 	struct secret channel_seed, revocation_secret, revocation_basepoint_secret;
@@ -643,38 +641,37 @@ static struct io_plan *handle_sign_penalty_to_us(struct io_conn *conn,
 	struct privkey privkey;
 	u8 *wscript;
 
-	if (!fromwire_hsm_sign_penalty_to_us(tmpctx, c->dc.msg_in,
+	if (!fromwire_hsm_sign_penalty_to_us(tmpctx, msg_in,
 					     &revocation_secret,
 					     &tx, &wscript,
 					     &input_amount))
-		return bad_sign_request(conn, c,
-					"malformed hsm_sign_penalty_to_us");
+		return bad_req(conn, c, msg_in);
 
 	if (!pubkey_from_secret(&revocation_secret, &point))
-		return bad_sign_request(conn, c,
-					"Failed deriving pubkey");
+		return bad_req_fmt(conn, c, msg_in, "Failed deriving pubkey");
 
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 	if (!derive_revocation_basepoint(&channel_seed,
 					 &revocation_basepoint,
 					 &revocation_basepoint_secret))
-		return bad_sign_request(conn, c,
-					"Failed deriving revocation basepoint");
+		return bad_req_fmt(conn, c, msg_in,
+				   "Failed deriving revocation basepoint");
 
 	if (!derive_revocation_privkey(&revocation_basepoint_secret,
 				       &revocation_secret,
 				       &revocation_basepoint,
 				       &point,
 				       &privkey))
-		return bad_sign_request(conn, c,
-					"Failed deriving revocation privkey");
+		return bad_req_fmt(conn, c, msg_in,
+				   "Failed deriving revocation privkey");
 
-	return handle_sign_to_us_tx(conn, c, tx, &privkey, wscript,
-				    input_amount);
+	return handle_sign_to_us_tx(conn, c, msg_in,
+				    tx, &privkey, wscript, input_amount);
 }
 
 static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
-						 struct client *c)
+						 struct client *c,
+						 const u8 *msg_in)
 {
 	u64 commit_num, input_amount;
 	struct secret channel_seed, htlc_basepoint_secret;
@@ -686,151 +683,113 @@ static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
 	struct privkey htlc_privkey;
 	struct pubkey htlc_pubkey;
 
-	if (!fromwire_hsm_sign_local_htlc_tx(tmpctx, c->dc.msg_in,
+	if (!fromwire_hsm_sign_local_htlc_tx(tmpctx, msg_in,
 					     &commit_num, &tx, &wscript,
 					     &input_amount))
-		return bad_sign_request(conn, c,
-					"malformed hsm_sign_local_htlc_tx");
+		return bad_req(conn, c, msg_in);
 
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 
 	if (!derive_shaseed(&channel_seed, &shaseed))
-		return bad_sign_request(conn, c, "bad derive_shaseed");
+		return bad_req_fmt(conn, c, msg_in, "bad derive_shaseed");
 
 	if (!per_commit_point(&shaseed, &per_commitment_point, commit_num))
-		return bad_sign_request(conn, c,
-					"bad per_commitment_point %"PRIu64,
-					commit_num);
+		return bad_req_fmt(conn, c, msg_in,
+				   "bad per_commitment_point %"PRIu64,
+				   commit_num);
 
 	if (!derive_htlc_basepoint(&channel_seed,
 				   &htlc_basepoint,
 				   &htlc_basepoint_secret))
-		return bad_sign_request(conn, c,
-					"Failed deriving htlc basepoint");
+		return bad_req_fmt(conn, c, msg_in,
+				   "Failed deriving htlc basepoint");
 
 	if (!derive_simple_privkey(&htlc_basepoint_secret,
 				   &htlc_basepoint,
 				   &per_commitment_point,
 				   &htlc_privkey))
-		return bad_sign_request(conn, c,
-					"Failed deriving htlc privkey");
+		return bad_req_fmt(conn, c, msg_in,
+				   "Failed deriving htlc privkey");
 
 	if (!pubkey_from_privkey(&htlc_privkey, &htlc_pubkey))
-		return bad_sign_request(conn, c, "bad pubkey_from_privkey");
+		return bad_req_fmt(conn, c, msg_in, "bad pubkey_from_privkey");
 
 	if (tal_count(tx->input) != 1)
-		return bad_sign_request(conn, c, "bad txinput count");
+		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
 
 	/* FIXME: Check that output script is correct! */
 	tx->input[0].amount = tal_dup(tx->input, u64, &input_amount);
 	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey, &sig);
 
-	daemon_conn_send(&c->dc, take(towire_hsm_sign_tx_reply(NULL, &sig)));
-	return daemon_conn_read_next(conn, &c->dc);
+	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
 
-static struct io_plan *
-handle_get_per_commitment_point(struct io_conn *conn, struct client *c)
+static struct io_plan *handle_get_per_commitment_point(struct io_conn *conn,
+						       struct client *c,
+						       const u8 *msg_in)
 {
-	struct daemon_conn *dc = &c->dc;
 	struct secret channel_seed;
 	struct sha256 shaseed;
 	struct pubkey per_commitment_point;
 	u64 n;
 	struct secret *old_secret;
 
-	if (!fromwire_hsm_get_per_commitment_point(dc->msg_in, &n)) {
-		status_broken("bad get_per_commitment_point for client %s",
-			      type_to_string(tmpctx, struct pubkey, &c->id));
-		goto fail;
-	}
+	if (!fromwire_hsm_get_per_commitment_point(msg_in, &n))
+		return bad_req(conn, c, msg_in);
 
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
-	if (!derive_shaseed(&channel_seed, &shaseed)) {
-		status_broken("bad derive_shaseed for client %s",
-			      type_to_string(tmpctx, struct pubkey, &c->id));
-		goto fail;
-	}
+	if (!derive_shaseed(&channel_seed, &shaseed))
+		return bad_req_fmt(conn, c, msg_in, "bad derive_shaseed");
 
-	if (!per_commit_point(&shaseed, &per_commitment_point, n)) {
-		status_broken("bad per_commit_point %"PRIu64" for client %s",
-			      n, type_to_string(tmpctx, struct pubkey, &c->id));
-		goto fail;
-	}
+	if (!per_commit_point(&shaseed, &per_commitment_point, n))
+		return bad_req_fmt(conn, c, msg_in,
+				   "bad per_commit_point %"PRIu64, n);
 
 	if (n >= 2) {
 		old_secret = tal(tmpctx, struct secret);
 		if (!per_commit_secret(&shaseed, old_secret, n - 2)) {
-			status_broken("Cannot derive secret %"PRIu64
-				      " for client %s",
-				      n - 1,
-				      type_to_string(tmpctx,
-						     struct pubkey, &c->id));
-			goto fail;
+			return bad_req_fmt(conn, c, msg_in,
+					   "Cannot derive secret %"PRIu64,
+					   n - 2);
 		}
 	} else
 		old_secret = NULL;
 
-	daemon_conn_send(&c->dc,
+	return req_reply(conn, c,
 			 take(towire_hsm_get_per_commitment_point_reply(NULL,
 									&per_commitment_point,
 									old_secret)));
-	return daemon_conn_read_next(conn, &c->dc);
-
-fail:
-	daemon_conn_send(c->master,
-			 take(towire_hsmstatus_client_bad_request(NULL,
-							  &c->id,
-							  c->dc.msg_in)));
-	return io_close(conn);
 }
 
 static struct io_plan *handle_check_future_secret(struct io_conn *conn,
-						  struct client *c)
+						  struct client *c,
+						  const u8 *msg_in)
 {
-	struct daemon_conn *dc = &c->dc;
 	struct secret channel_seed;
 	struct sha256 shaseed;
 	u64 n;
 	struct secret secret, suggested;
 
-	if (!fromwire_hsm_check_future_secret(dc->msg_in, &n,
-							     &suggested)) {
-		status_broken("bad check_future_secret for client %s",
-			      type_to_string(tmpctx, struct pubkey, &c->id));
-		goto fail;
-	}
+	if (!fromwire_hsm_check_future_secret(msg_in, &n, &suggested))
+		return bad_req(conn, c, msg_in);
 
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
-	if (!derive_shaseed(&channel_seed, &shaseed)) {
-		status_broken("bad derive_shaseed for client %s",
-			      type_to_string(tmpctx, struct pubkey, &c->id));
-		goto fail;
-	}
+	if (!derive_shaseed(&channel_seed, &shaseed))
+		return bad_req_fmt(conn, c, msg_in, "bad derive_shaseed");
 
-	if (!per_commit_secret(&shaseed, &secret, n)) {
-		status_broken("bad commit secret #%"PRIu64" for client %s",
-			      n, type_to_string(tmpctx, struct pubkey, &c->id));
-		goto fail;
-	}
+	if (!per_commit_secret(&shaseed, &secret, n))
+		return bad_req_fmt(conn, c, msg_in,
+				   "bad commit secret #%"PRIu64, n);
 
-	daemon_conn_send(&c->dc,
+	return req_reply(conn, c,
 			 take(towire_hsm_check_future_secret_reply(NULL,
 				   secret_eq_consttime(&secret, &suggested))));
-	return daemon_conn_read_next(conn, &c->dc);
-
-fail:
-	daemon_conn_send(c->master,
-			 take(towire_hsmstatus_client_bad_request(NULL,
-							  &c->id,
-							  c->dc.msg_in)));
-	return io_close(conn);
 }
 
 static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
-						  struct client *c)
+						  struct client *c,
+						  const u8 *msg_in)
 {
-	struct daemon_conn *dc = &c->dc;
 	struct secret channel_seed;
 	struct bitcoin_tx *tx;
 	secp256k1_ecdsa_signature sig;
@@ -842,13 +801,10 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 	struct privkey htlc_privkey;
 	struct pubkey htlc_pubkey;
 
-	if (!fromwire_hsm_sign_remote_htlc_tx(tmpctx, dc->msg_in,
-				       &tx, &wscript, &amount,
-				       &remote_per_commit_point)) {
-		status_broken("bad hsm_sign_remote_htlc_tx for client %s",
-			      type_to_string(tmpctx, struct pubkey, &c->id));
-		goto fail;
-	}
+	if (!fromwire_hsm_sign_remote_htlc_tx(tmpctx, msg_in,
+					      &tx, &wscript, &amount,
+					      &remote_per_commit_point))
+		return bad_req(conn, c, msg_in);
 
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 	derive_basepoints(&channel_seed, NULL, &basepoints, &secrets, NULL);
@@ -856,40 +812,27 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 	if (!derive_simple_privkey(&secrets.htlc_basepoint_secret,
 				   &basepoints.htlc,
 				   &remote_per_commit_point,
-				   &htlc_privkey)) {
-		status_broken("Failed deriving htlc privkey for client %s",
-			      type_to_string(tmpctx, struct pubkey, &c->id));
-		goto fail;
-	}
+				   &htlc_privkey))
+		return bad_req_fmt(conn, c, msg_in,
+				   "Failed deriving htlc privkey");
 
 	if (!derive_simple_key(&basepoints.htlc,
 			       &remote_per_commit_point,
-			       &htlc_pubkey)) {
-		status_broken("Failed deriving htlc pubkey for client %s",
-			      type_to_string(tmpctx, struct pubkey, &c->id));
-		goto fail;
-	}
+			       &htlc_pubkey))
+		return bad_req_fmt(conn, c, msg_in,
+				   "Failed deriving htlc pubkey");
 
 	/* Need input amount for signing */
 	tx->input[0].amount = tal_dup(tx->input, u64, &amount);
-	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
-		      &sig);
+	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey, &sig);
 
-	daemon_conn_send(dc, take(towire_hsm_sign_tx_reply(NULL, &sig)));
-	return daemon_conn_read_next(conn, dc);
-
-fail:
-	daemon_conn_send(c->master,
-			 take(towire_hsmstatus_client_bad_request(NULL,
-							  &c->id,
-							  c->dc.msg_in)));
-	return io_close(conn);
+	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
 
 static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
-						   struct client *c)
+						   struct client *c,
+						   const u8 *msg_in)
 {
-	struct daemon_conn *dc = &c->dc;
 	struct secret channel_seed;
 	struct bitcoin_tx *tx;
 	struct pubkey remote_funding_pubkey, local_funding_pubkey;
@@ -898,14 +841,11 @@ static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
 	u64 funding_amount;
 	const u8 *funding_wscript;
 
-	if (!fromwire_hsm_sign_mutual_close_tx(tmpctx, dc->msg_in,
+	if (!fromwire_hsm_sign_mutual_close_tx(tmpctx, msg_in,
 					       &tx,
 					       &remote_funding_pubkey,
-					       &funding_amount)) {
-		status_broken("bad hsm_sign_htlc_mutual_close_tx for client %s",
-			      type_to_string(tmpctx, struct pubkey, &c->id));
-		goto fail;
-	}
+					       &funding_amount))
+		return bad_req(conn, c, msg_in);
 
 	/* FIXME: We should know dust level, decent fee range and
 	 * balances, and final_keyindex, and thus be able to check tx
@@ -924,35 +864,31 @@ static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
 		      &local_funding_pubkey,
 		      &sig);
 
-	daemon_conn_send(dc, take(towire_hsm_sign_tx_reply(NULL, &sig)));
-	return daemon_conn_read_next(conn, dc);
-
-fail:
-	daemon_conn_send(c->master,
-			 take(towire_hsmstatus_client_bad_request(NULL,
-							  &c->id,
-							  dc->msg_in)));
-	return io_close(conn);
+	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
 
-static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg)
+static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
+					 struct client *c,
+					 const u8 *msg_in)
 {
 	int fds[2];
 	u64 dbid, capabilities;
 	struct pubkey id;
 
-	if (!fromwire_hsm_client_hsmfd(msg, &id, &dbid, &capabilities))
-		master_badmsg(WIRE_HSM_CLIENT_HSMFD, msg);
+	/* This must be the master. */
+	assert(&c->dc == c->master);
+
+	if (!fromwire_hsm_client_hsmfd(msg_in, &id, &dbid, &capabilities))
+		return bad_req(conn, c, msg_in);
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR, "creating fds: %s", strerror(errno));
 
-	new_client(master, &id, dbid, capabilities, fds[0]);
-	daemon_conn_send(master,
-			 take(towire_hsm_client_hsmfd_reply(NULL)));
-	daemon_conn_send_fd(master, fds[1]);
+	new_client(&c->dc, &id, dbid, capabilities, fds[0]);
+	daemon_conn_send(&c->dc, take(towire_hsm_client_hsmfd_reply(NULL)));
+	daemon_conn_send_fd(&c->dc, fds[1]);
+	return daemon_conn_read_next(conn, &c->dc);
 }
-
 
 static void hsm_unilateral_close_privkey(struct privkey *dst,
 					 struct unilateral_close_info *info)
@@ -993,7 +929,9 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
 
 /* Note that it's the main daemon that asks for the funding signature so it
  * can broadcast it. */
-static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
+static struct io_plan *handle_sign_funding_tx(struct io_conn *conn,
+					      struct client *c,
+					      const u8 *msg_in)
 {
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
@@ -1006,11 +944,11 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	u8 **scriptSigs;
 
 	/* FIXME: Check fee is "reasonable" */
-	if (!fromwire_hsm_sign_funding(tmpctx, msg,
+	if (!fromwire_hsm_sign_funding(tmpctx, msg_in,
 				       &satoshi_out, &change_out,
 				       &change_keyindex, &local_pubkey,
 				       &remote_pubkey, &utxomap))
-		master_badmsg(WIRE_HSM_SIGN_FUNDING, msg);
+		return bad_req(conn, c, msg_in);
 
 	if (change_out) {
 		changekey = tal(tmpctx, struct pubkey);
@@ -1055,14 +993,15 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	for (size_t i=0; i<tal_count(utxomap); i++)
 		tx->input[i].script = scriptSigs[i];
 
-	daemon_conn_send(master,
-			 take(towire_hsm_sign_funding_reply(NULL, tx)));
+	return req_reply(conn, c, take(towire_hsm_sign_funding_reply(NULL, tx)));
 }
 
 /**
  * sign_withdrawal_tx - Generate and sign a withdrawal transaction from the master
  */
-static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
+static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
+						 struct client *c,
+						 const u8 *msg_in)
 {
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
@@ -1073,20 +1012,15 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	struct pubkey changekey;
 	u8 *scriptpubkey;
 
-	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg, &satoshi_out,
+	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg_in, &satoshi_out,
 					  &change_out, &change_keyindex,
-					  &scriptpubkey, &utxos)) {
-		status_broken("Failed to parse sign_withdrawal: %s",
-			      tal_hex(tmpctx, msg));
-		return;
-	}
+					  &scriptpubkey, &utxos))
+		return bad_req(conn, c, msg_in);
 
 	if (bip32_key_from_parent(&secretstuff.bip32, change_keyindex,
-				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
-		status_broken("Failed to parse sign_withdrawal: %s",
-			      tal_hex(tmpctx, msg));
-		return;
-	}
+				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK)
+		return bad_req_fmt(conn, c, msg_in,
+				   "Failed to get key %u", change_keyindex);
 
 	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
 	tx = withdraw_tx(
@@ -1125,14 +1059,16 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	for (size_t i=0; i<tal_count(utxos); i++)
 		tx->input[i].script = scriptSigs[i];
 
-	daemon_conn_send(master,
+	return req_reply(conn, c,
 			 take(towire_hsm_sign_withdrawal_reply(NULL, tx)));
 }
 
 /**
  * sign_invoice - Sign an invoice with our key.
  */
-static void sign_invoice(struct daemon_conn *master, const u8 *msg)
+static struct io_plan *handle_sign_invoice(struct io_conn *conn,
+					   struct client *c,
+					   const u8 *msg_in)
 {
 	u5 *u5bytes;
 	u8 *hrpu8;
@@ -1142,11 +1078,8 @@ static void sign_invoice(struct daemon_conn *master, const u8 *msg)
 	struct hash_u5 hu5;
 	struct privkey node_pkey;
 
-	if (!fromwire_hsm_sign_invoice(tmpctx, msg, &u5bytes, &hrpu8)) {
-		status_broken("Failed to parse sign_invoice: %s",
-			      tal_hex(tmpctx, msg));
-		return;
-	}
+	if (!fromwire_hsm_sign_invoice(tmpctx, msg_in, &u5bytes, &hrpu8))
+		return bad_req(conn, c, msg_in);
 
 	/* FIXME: Check invoice! */
 
@@ -1162,16 +1095,16 @@ static void sign_invoice(struct daemon_conn *master, const u8 *msg)
                                               (const u8 *)&sha,
                                               node_pkey.secret.data,
                                               NULL, NULL)) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed to sign invoice: %s",
-			      tal_hex(tmpctx, msg));
+		return bad_req_fmt(conn, c, msg_in, "Failed to sign invoice");
 	}
 
-	daemon_conn_send(master,
+	return req_reply(conn, c,
 			 take(towire_hsm_sign_invoice_reply(NULL, &rsig)));
 }
 
-static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
+static struct io_plan *handle_sign_node_announcement(struct io_conn *conn,
+						     struct client *c,
+						     const u8 *msg_in)
 {
 	/* 2 bytes msg type + 64 bytes signature */
 	size_t offset = 66;
@@ -1181,17 +1114,12 @@ static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 	u8 *reply;
 	u8 *ann;
 
-	if (!fromwire_hsm_node_announcement_sig_req(msg, msg, &ann)) {
-		status_failed(STATUS_FAIL_GOSSIP_IO,
-			      "Failed to parse node_announcement_sig_req: %s",
-			     tal_hex(tmpctx, msg));
-	}
+	if (!fromwire_hsm_node_announcement_sig_req(tmpctx, msg_in, &ann))
+		return bad_req(conn, c, msg_in);
 
-	if (tal_count(ann) < offset) {
-		status_failed(STATUS_FAIL_GOSSIP_IO,
-			      "Node announcement too short: %s",
-			      tal_hex(tmpctx, msg));
-	}
+	if (tal_count(ann) < offset)
+		return bad_req_fmt(conn, c, msg_in,
+				   "Node announcement too short");
 
 	/* FIXME(cdecker) Check the node announcement's content */
 	node_key(&node_pkey, NULL);
@@ -1200,7 +1128,7 @@ static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 	sign_hash(&node_pkey, &hash, &sig);
 
 	reply = towire_hsm_node_announcement_sig_reply(NULL, &sig);
-	daemon_conn_send(master, take(reply));
+	return req_reply(conn, c, take(reply));
 }
 
 static bool check_client_capabilities(struct client *client,
@@ -1272,81 +1200,71 @@ static struct io_plan *handle_client(struct io_conn *conn,
 
 	/* Before we do anything else, is this client allowed to do
 	 * what he asks for? */
-	if (!check_client_capabilities(c, t)) {
-		status_broken("Client does not have the required capability to run %d", t);
-		daemon_conn_send(c->master,
-				 take(towire_hsmstatus_client_bad_request(
-				     NULL, &c->id, dc->msg_in)));
-		return io_close(conn);
-	}
+	if (!check_client_capabilities(c, t))
+		return bad_req_fmt(conn, c, dc->msg_in,
+				   "does not have capability to run %d", t);
 
 	/* Now actually go and do what the client asked for */
 	switch (t) {
 	case WIRE_HSM_INIT:
-		init_hsm(dc, dc->msg_in);
-		return daemon_conn_read_next(conn, dc);
+		return init_hsm(conn, c, dc->msg_in);
 
 	case WIRE_HSM_CLIENT_HSMFD:
-		pass_client_hsmfd(dc, dc->msg_in);
-		return daemon_conn_read_next(conn, dc);
+		return pass_client_hsmfd(conn, c, dc->msg_in);
 
 	case WIRE_HSM_GET_CHANNEL_BASEPOINTS:
-		return handle_get_channel_basepoints(conn, dc);
+		return handle_get_channel_basepoints(conn, c, dc->msg_in);
 
 	case WIRE_HSM_ECDH_REQ:
-		return handle_ecdh(conn, dc);
+		return handle_ecdh(conn, c, dc->msg_in);
 
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REQ:
-		return handle_cannouncement_sig(conn, c);
+		return handle_cannouncement_sig(conn, c, dc->msg_in);
 
 	case WIRE_HSM_CUPDATE_SIG_REQ:
-		return handle_channel_update_sig(conn, dc);
+		return handle_channel_update_sig(conn, c, dc->msg_in);
 
 	case WIRE_HSM_SIGN_FUNDING:
-		sign_funding_tx(dc, dc->msg_in);
-		return daemon_conn_read_next(conn, dc);
+		return handle_sign_funding_tx(conn, c, dc->msg_in);
 
 	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REQ:
-		sign_node_announcement(dc, dc->msg_in);
-		return daemon_conn_read_next(conn, dc);
+		return handle_sign_node_announcement(conn, c, dc->msg_in);
 
 	case WIRE_HSM_SIGN_INVOICE:
-		sign_invoice(dc, dc->msg_in);
-		return daemon_conn_read_next(conn, dc);
+		return handle_sign_invoice(conn, c, dc->msg_in);
 
 	case WIRE_HSM_SIGN_WITHDRAWAL:
-		sign_withdrawal_tx(dc, dc->msg_in);
-		return daemon_conn_read_next(conn, dc);
+		return handle_sign_withdrawal_tx(conn, c, dc->msg_in);
 
 	case WIRE_HSM_SIGN_COMMITMENT_TX:
-		return handle_sign_commitment_tx(conn, dc);
+		return handle_sign_commitment_tx(conn, c, dc->msg_in);
 
 	case WIRE_HSM_SIGN_DELAYED_PAYMENT_TO_US:
-		return handle_sign_delayed_payment_to_us(conn, c);
+		return handle_sign_delayed_payment_to_us(conn, c, dc->msg_in);
 
 	case WIRE_HSM_SIGN_REMOTE_HTLC_TO_US:
-		return handle_sign_remote_htlc_to_us(conn, c);
+		return handle_sign_remote_htlc_to_us(conn, c, dc->msg_in);
 
 	case WIRE_HSM_SIGN_PENALTY_TO_US:
-		return handle_sign_penalty_to_us(conn, c);
+		return handle_sign_penalty_to_us(conn, c, dc->msg_in);
 
 	case WIRE_HSM_SIGN_LOCAL_HTLC_TX:
-		return handle_sign_local_htlc_tx(conn, c);
+		return handle_sign_local_htlc_tx(conn, c, dc->msg_in);
 
 	case WIRE_HSM_GET_PER_COMMITMENT_POINT:
-		return handle_get_per_commitment_point(conn, c);
+		return handle_get_per_commitment_point(conn, c, dc->msg_in);
 
 	case WIRE_HSM_CHECK_FUTURE_SECRET:
-		return handle_check_future_secret(conn, c);
+		return handle_check_future_secret(conn, c, dc->msg_in);
 
 	case WIRE_HSM_SIGN_REMOTE_COMMITMENT_TX:
-		return handle_sign_remote_commitment_tx(conn, c);
+		return handle_sign_remote_commitment_tx(conn, c, dc->msg_in);
 
 	case WIRE_HSM_SIGN_REMOTE_HTLC_TX:
-		return handle_sign_remote_htlc_tx(conn, c);
+		return handle_sign_remote_htlc_tx(conn, c, dc->msg_in);
 
 	case WIRE_HSM_SIGN_MUTUAL_CLOSE_TX:
-		return handle_sign_mutual_close_tx(conn, c);
+		return handle_sign_mutual_close_tx(conn, c, dc->msg_in);
 
 	case WIRE_HSM_ECDH_RESP:
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
@@ -1366,11 +1284,7 @@ static struct io_plan *handle_client(struct io_conn *conn,
 		break;
 	}
 
-	daemon_conn_send(c->master,
-			 take(towire_hsmstatus_client_bad_request(NULL,
-								  &c->id,
-								  dc->msg_in)));
-	return io_close(conn);
+	return bad_req_fmt(conn, c, dc->msg_in, "Unknown request");
 }
 
 static void destroy_client(struct client *c)
@@ -1433,13 +1347,13 @@ static void master_gone(struct io_conn *unused UNUSED, struct daemon_conn *dc UN
 int main(int argc, char *argv[])
 {
 	struct client *master;
-	struct daemon_conn *status_conn = tal(NULL, struct daemon_conn);
 
 	setup_locale();
 
 	subdaemon_setup(argc, argv);
 
 	/* A trivial daemon_conn just for writing. */
+	status_conn = tal(NULL, struct daemon_conn);
 	daemon_conn_init(status_conn, status_conn, STDIN_FILENO,
 			 (void *)io_never, NULL);
 	status_setup_async(status_conn);
