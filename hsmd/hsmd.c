@@ -112,11 +112,6 @@ extern void dev_disconnect_init(int fd);
 void dev_disconnect_init(int fd UNUSED) { }
 
 /* Pre-declare this, due to mutual recursion */
-static struct client *new_client(struct client *master,
-				 const struct pubkey *id,
-				 u64 dbid,
-				 const u64 capabilities,
-				 int fd);
 static struct io_plan *handle_client(struct io_conn *conn, struct client *c);
 
 /*~ ccan/compiler.h defines PRINTF_FMT as the gcc compiler hint so it will
@@ -177,6 +172,73 @@ static struct io_plan *bad_req(struct io_conn *conn,
 static struct io_plan *client_read_next(struct io_conn *conn, struct client *c)
 {
 	return io_read_wire(conn, c, &c->msg_in, handle_client, c);
+}
+
+/*~ This is the destructor on our client: we may call it manually, but
+ * generally it's called because the io_conn associated with the client is
+ * closed by the other end. */
+static void destroy_client(struct client *c)
+{
+	if (!uintmap_del(&clients, c->dbid))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed to remove client dbid %"PRIu64, c->dbid);
+}
+
+static struct client *new_client(struct client *master,
+				 const struct pubkey *id,
+				 u64 dbid,
+				 const u64 capabilities,
+				 int fd)
+{
+	struct client *c = tal(master, struct client);
+
+	/*~ All-zero pubkey is used for the initial master connection */
+	if (id) {
+		c->id = *id;
+	} else {
+		memset(&c->id, 0, sizeof(c->id));
+	}
+	c->dbid = dbid;
+
+	c->master = master;
+	c->capabilities = capabilities;
+	/*~ This is the core of ccan/io: the connection creation calls a
+	 * callback which returns the initial plan to execute: in our case,
+	 * read a message.*/
+	c->conn = io_new_conn(master, fd, client_read_next, c);
+
+	/*~ tal_steal() moves a pointer to a new parent.  At this point, the
+	 * hierarchy is:
+	 *
+	 *   master -> c
+	 *   master -> c->conn
+	 *
+	 * We want to the c->conn to own 'c', so that if the io_conn closes,
+	 * the client is freed:
+	 *
+	 *   master -> c->conn -> c.
+	 */
+	tal_steal(c->conn, c);
+
+	/* We put the special zero-db HSM connections into an array, the rest
+	 * go into the map. */
+	if (dbid == 0) {
+		assert(num_dbid_zero_clients < ARRAY_SIZE(dbid_zero_clients));
+		dbid_zero_clients[num_dbid_zero_clients++] = c;
+	} else {
+		struct client *old_client = uintmap_get(&clients, dbid);
+
+		/* Close conn and free any old client of this dbid. */
+		if (old_client)
+			io_close(old_client->conn);
+
+		if (!uintmap_add(&clients, dbid, c))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Failed inserting dbid %"PRIu64, dbid);
+		tal_add_destructor(c, destroy_client);
+	}
+
+	return c;
 }
 
 /* This is the common pattern for the tail of each handler in this file. */
@@ -1639,73 +1701,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	}
 
 	return bad_req_fmt(conn, c, c->msg_in, "Unknown request");
-}
-
-/*~ This is the destructor on our client: we may call it manually, but
- * generally it's called because the io_conn associated with the client is
- * closed by the other end. */
-static void destroy_client(struct client *c)
-{
-	if (!uintmap_del(&clients, c->dbid))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed to remove client dbid %"PRIu64, c->dbid);
-}
-
-static struct client *new_client(struct client *master,
-				 const struct pubkey *id,
-				 u64 dbid,
-				 const u64 capabilities,
-				 int fd)
-{
-	struct client *c = tal(master, struct client);
-
-	/*~ All-zero pubkey is used for the initial master connection */
-	if (id) {
-		c->id = *id;
-	} else {
-		memset(&c->id, 0, sizeof(c->id));
-	}
-	c->dbid = dbid;
-
-	c->master = master;
-	c->capabilities = capabilities;
-	/*~ This is the core of ccan/io: the connection creation calls a
-	 * callback which returns the initial plan to execute: in our case,
-	 * read a message.*/
-	c->conn = io_new_conn(master, fd, client_read_next, c);
-
-	/*~ tal_steal() moves a pointer to a new parent.  At this point, the
-	 * hierarchy is:
-	 *
-	 *   master -> c
-	 *   master -> c->conn
-	 *
-	 * We want to the c->conn to own 'c', so that if the io_conn closes,
-	 * the client is freed:
-	 *
-	 *   master -> c->conn -> c.
-	 */
-	tal_steal(c->conn, c);
-
-	/* We put the special zero-db HSM connections into an array, the rest
-	 * go into the map. */
-	if (dbid == 0) {
-		assert(num_dbid_zero_clients < ARRAY_SIZE(dbid_zero_clients));
-		dbid_zero_clients[num_dbid_zero_clients++] = c;
-	} else {
-		struct client *old_client = uintmap_get(&clients, dbid);
-
-		/* Close conn and free any old client of this dbid. */
-		if (old_client)
-			io_close(old_client->conn);
-
-		if (!uintmap_add(&clients, dbid, c))
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "Failed inserting dbid %"PRIu64, dbid);
-		tal_add_destructor(c, destroy_client);
-	}
-
-	return c;
 }
 
 static void master_gone(struct io_conn *unused UNUSED, struct client *c UNUSED)
