@@ -7,7 +7,7 @@
 #include <common/wire_error.h>
 #include <errno.h>
 #include <gossipd/gossip_constants.h>
-#include <hsmd/gen_hsm_client_wire.h>
+#include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>

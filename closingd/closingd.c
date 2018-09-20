@@ -15,7 +15,7 @@
 #include <common/version.h>
 #include <common/wire_error.h>
 #include <errno.h>
-#include <hsmd/gen_hsm_client_wire.h>
+#include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <unistd.h>

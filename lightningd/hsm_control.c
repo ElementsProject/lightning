@@ -8,7 +8,7 @@
 #include <common/status.h>
 #include <common/utils.h>
 #include <errno.h>
-#include <hsmd/gen_hsm_client_wire.h>
+#include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/log.h>
@@ -71,7 +71,7 @@ void hsm_init(struct lightningd *ld)
 		err(1, "Could not create hsm socketpair");
 
 	ld->hsm = new_global_subd(ld, "lightning_hsmd",
-				  hsm_client_wire_type_name,
+				  hsm_wire_type_name,
 				  hsm_msg,
 				  take(&fds[1]), NULL);
 	if (!ld->hsm)

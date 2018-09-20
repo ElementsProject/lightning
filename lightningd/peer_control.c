@@ -23,7 +23,7 @@
 #include <connectd/gen_connect_wire.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <hsmd/gen_hsm_client_wire.h>
+#include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>

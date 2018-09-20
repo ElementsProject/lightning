@@ -11,7 +11,7 @@
 #include <connectd/gen_connect_wire.h>
 #include <errno.h>
 #include <hsmd/capabilities.h>
-#include <hsmd/gen_hsm_client_wire.h>
+#include <hsmd/gen_hsm_wire.h>
 #include <lightningd/channel.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/json.h>
