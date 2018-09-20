@@ -8,7 +8,7 @@
 #include <common/wire_error.h>
 #include <connectd/gen_connect_wire.h>
 #include <errno.h>
-#include <hsmd/gen_hsm_client_wire.h>
+#include <hsmd/gen_hsm_wire.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>

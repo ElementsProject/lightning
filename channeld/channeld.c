@@ -45,7 +45,7 @@
 #include <fcntl.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <gossipd/gossip_constants.h>
-#include <hsmd/gen_hsm_client_wire.h>
+#include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <secp256k1.h>
 #include <stdio.h>
@@ -223,14 +223,14 @@ static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 	if (!wire_sync_write(HSM_FD, req))
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Writing %s to HSM: %s",
-			      hsm_client_wire_type_name(type),
+			      hsm_wire_type_name(type),
 			      strerror(errno));
 
 	msg = wire_sync_read(ctx, HSM_FD);
 	if (!msg)
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading resp to %s: %s",
-			      hsm_client_wire_type_name(type),
+			      hsm_wire_type_name(type),
 			      strerror(errno));
 
 	return msg;

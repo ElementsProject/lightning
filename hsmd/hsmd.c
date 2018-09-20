@@ -31,7 +31,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <hsmd/capabilities.h>
-#include <hsmd/gen_hsm_client_wire.h>
+#include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/randombytes.h>
@@ -1131,7 +1131,7 @@ static struct io_plan *handle_sign_node_announcement(struct io_conn *conn,
 }
 
 static bool check_client_capabilities(struct client *client,
-				      enum hsm_client_wire_type t)
+				      enum hsm_wire_type t)
 {
 	switch (t) {
 	case WIRE_HSM_ECDH_REQ:
@@ -1193,7 +1193,7 @@ static struct io_plan *handle_client(struct io_conn *conn,
 				     struct daemon_conn *dc)
 {
 	struct client *c = container_of(dc, struct client, dc);
-	enum hsm_client_wire_type t = fromwire_peektype(dc->msg_in);
+	enum hsm_wire_type t = fromwire_peektype(dc->msg_in);
 
 	status_debug("Client: Received message %d from client", t);
 

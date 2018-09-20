@@ -49,7 +49,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/wire_error.o			\
 	common/wireaddr.o			\
 	common/withdraw_tx.o			\
-	hsmd/gen_hsm_client_wire.o
+	hsmd/gen_hsm_wire.o
 
 LIGHTNINGD_SRC :=				\
 	lightningd/bitcoind.c			\

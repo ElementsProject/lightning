@@ -36,7 +36,7 @@
 #include <gossipd/broadcast.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <gossipd/routing.h>
-#include <hsmd/gen_hsm_client_wire.h>
+#include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <lightningd/gossip_msg.h>
 #include <netdb.h>
