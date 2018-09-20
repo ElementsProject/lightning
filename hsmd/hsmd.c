@@ -69,15 +69,16 @@ static UINTMAP(struct client *) clients;
 static struct client *dbid_zero_clients[3];
 static size_t num_dbid_zero_clients;
 
-/* Function declarations for later */
-static struct io_plan *handle_client(struct io_conn *conn,
-				     struct daemon_conn *dc);
-static void init_hsm(struct daemon_conn *master, const u8 *msg);
-static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg);
-static void sign_funding_tx(struct daemon_conn *master, const u8 *msg);
-static void sign_invoice(struct daemon_conn *master, const u8 *msg);
-static void sign_node_announcement(struct daemon_conn *master, const u8 *msg);
-static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg);
+/* FIXME: This is used by debug.c, but doesn't apply to us. */
+extern void dev_disconnect_init(int fd);
+void dev_disconnect_init(int fd UNUSED) { }
+
+/* Pre-declare this, due to mutual recursion */
+static struct client *new_client(struct daemon_conn *master,
+				 const struct pubkey *id,
+				 u64 dbid,
+				 const u64 capabilities,
+				 int fd);
 
 static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 {
@@ -99,56 +100,6 @@ static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 		salt++;
 	} while (!secp256k1_ec_pubkey_create(secp256k1_ctx, &node_id->pubkey,
 					     node_privkey->secret.data));
-}
-
-static void destroy_client(struct client *c)
-{
-	if (!uintmap_del(&clients, c->dbid))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed to remove client dbid %"PRIu64, c->dbid);
-}
-
-static struct client *new_client(struct daemon_conn *master,
-				 const struct pubkey *id,
-				 u64 dbid,
-				 const u64 capabilities,
-				 int fd)
-{
-	struct client *c = tal(master, struct client);
-
-	if (id) {
-		c->id = *id;
-	} else {
-		memset(&c->id, 0, sizeof(c->id));
-	}
-	c->dbid = dbid;
-
-	c->master = master;
-	c->capabilities = capabilities;
-	daemon_conn_init(c, &c->dc, fd, handle_client, NULL);
-
-	/* Free the connection if we exit everything. */
-	tal_steal(master, c->dc.conn);
-	/* Free client when connection freed. */
-	tal_steal(c->dc.conn, c);
-
-	if (dbid == 0) {
-		assert(num_dbid_zero_clients < ARRAY_SIZE(dbid_zero_clients));
-		dbid_zero_clients[num_dbid_zero_clients++] = c;
-	} else {
-		struct client *old_client = uintmap_get(&clients, dbid);
-
-		/* Close conn and free any old client of this dbid. */
-		if (old_client)
-			io_close(old_client->dc.conn);
-
-		if (!uintmap_add(&clients, dbid, c))
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "Failed inserting dbid %"PRIu64, dbid);
-		tal_add_destructor(c, destroy_client);
-	}
-
-	return c;
 }
 
 /**
@@ -180,6 +131,173 @@ static void get_channel_seed(const struct pubkey *peer_id, u64 dbid,
 		    input, sizeof(input),
 		    &peer_base, sizeof(peer_base),
 		    info, strlen(info));
+}
+
+static void send_init_response(struct daemon_conn *master)
+{
+	struct pubkey node_id;
+	u8 *msg;
+
+	node_key(NULL, &node_id);
+
+	msg = towire_hsm_init_reply(NULL, &node_id, &secretstuff.bip32);
+	daemon_conn_send(master, take(msg));
+}
+
+static void populate_secretstuff(void)
+{
+	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
+	u32 salt = 0;
+	struct ext_key master_extkey, child_extkey;
+
+	/* Fill in the BIP32 tree for bitcoin addresses. */
+	do {
+		hkdf_sha256(bip32_seed, sizeof(bip32_seed),
+			    &salt, sizeof(salt),
+			    &secretstuff.hsm_secret,
+			    sizeof(secretstuff.hsm_secret),
+			    "bip32 seed", strlen("bip32 seed"));
+		salt++;
+	} while (bip32_key_from_seed(bip32_seed, sizeof(bip32_seed),
+				     BIP32_VER_TEST_PRIVATE,
+				     0, &master_extkey) != WALLY_OK);
+
+	/* BIP 32:
+	 *
+	 * The default wallet layout
+	 *
+	 * An HDW is organized as several 'accounts'. Accounts are numbered,
+	 * the default account ("") being number 0. Clients are not required
+	 * to support more than one account - if not, they only use the
+	 * default account.
+	 *
+	 * Each account is composed of two keypair chains: an internal and an
+	 * external one. The external keychain is used to generate new public
+	 * addresses, while the internal keychain is used for all other
+	 * operations (change addresses, generation addresses, ..., anything
+	 * that doesn't need to be communicated). Clients that do not support
+	 * separate keychains for these should use the external one for
+	 * everything.
+	 *
+	 *  - m/iH/0/k corresponds to the k'th keypair of the external chain of account number i of the HDW derived from master m.
+	 */
+	/* Hence child 0, then child 0 again to get extkey to derive from. */
+	if (bip32_key_from_parent(&master_extkey, 0, BIP32_FLAG_KEY_PRIVATE,
+				  &child_extkey) != WALLY_OK)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't derive child bip32 key");
+
+	if (bip32_key_from_parent(&child_extkey, 0, BIP32_FLAG_KEY_PRIVATE,
+				  &secretstuff.bip32) != WALLY_OK)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't derive private bip32 key");
+}
+
+static void bitcoin_pubkey(struct pubkey *pubkey, u32 index)
+{
+	struct ext_key ext;
+
+	if (index >= BIP32_INITIAL_HARDENED_CHILD)
+		status_failed(STATUS_FAIL_MASTER_IO,
+			      "Index %u too great", index);
+
+	if (bip32_key_from_parent(&secretstuff.bip32, index,
+				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "BIP32 of %u failed", index);
+
+	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey->pubkey,
+				       ext.pub_key, sizeof(ext.pub_key)))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Parse of BIP32 child %u pubkey failed", index);
+}
+
+static void bitcoin_keypair(struct privkey *privkey,
+			    struct pubkey *pubkey,
+			    u32 index)
+{
+	struct ext_key ext;
+
+	if (index >= BIP32_INITIAL_HARDENED_CHILD)
+		status_failed(STATUS_FAIL_MASTER_IO,
+			      "Index %u too great", index);
+
+	if (bip32_key_from_parent(&secretstuff.bip32, index,
+				  BIP32_FLAG_KEY_PRIVATE, &ext) != WALLY_OK)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "BIP32 of %u failed", index);
+
+	/* libwally says: The private key with prefix byte 0 */
+	memcpy(privkey->secret.data, ext.priv_key+1, 32);
+	if (!secp256k1_ec_pubkey_create(secp256k1_ctx, &pubkey->pubkey,
+					privkey->secret.data))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "BIP32 pubkey %u create failed", index);
+}
+
+static void maybe_create_new_hsm(void)
+{
+	int fd = open("hsm_secret", O_CREAT|O_EXCL|O_WRONLY, 0400);
+	if (fd < 0) {
+		if (errno == EEXIST)
+			return;
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "creating: %s", strerror(errno));
+	}
+
+	randombytes_buf(&secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret));
+	if (!write_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret))) {
+		unlink_noerr("hsm_secret");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "writing: %s", strerror(errno));
+	}
+	if (fsync(fd) != 0) {
+		unlink_noerr("hsm_secret");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "fsync: %s", strerror(errno));
+	}
+	if (close(fd) != 0) {
+		unlink_noerr("hsm_secret");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "closing: %s", strerror(errno));
+	}
+	fd = open(".", O_RDONLY);
+	if (fd < 0) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "opening: %s", strerror(errno));
+	}
+	if (fsync(fd) != 0) {
+		unlink_noerr("hsm_secret");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "fsyncdir: %s", strerror(errno));
+	}
+	close(fd);
+	status_unusual("HSM: created new hsm_secret file");
+}
+
+static void load_hsm(void)
+{
+	int fd = open("hsm_secret", O_RDONLY);
+	if (fd < 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "opening: %s", strerror(errno));
+	if (!read_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret)))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "reading: %s", strerror(errno));
+	close(fd);
+
+	populate_secretstuff();
+}
+
+static void init_hsm(struct daemon_conn *master, const u8 *msg)
+{
+	if (!fromwire_hsm_init(msg))
+		master_badmsg(WIRE_HSM_INIT, msg);
+
+	maybe_create_new_hsm();
+	load_hsm();
+
+	send_init_response(master);
 }
 
 static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
@@ -833,344 +951,6 @@ fail:
 	return io_close(conn);
 }
 
-static bool check_client_capabilities(struct client *client,
-				      enum hsm_client_wire_type t)
-{
-	switch (t) {
-	case WIRE_HSM_ECDH_REQ:
-		return (client->capabilities & HSM_CAP_ECDH) != 0;
-
-	case WIRE_HSM_CANNOUNCEMENT_SIG_REQ:
-	case WIRE_HSM_CUPDATE_SIG_REQ:
-	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REQ:
-		return (client->capabilities & HSM_CAP_SIGN_GOSSIP) != 0;
-
-	case WIRE_HSM_SIGN_DELAYED_PAYMENT_TO_US:
-	case WIRE_HSM_SIGN_REMOTE_HTLC_TO_US:
-	case WIRE_HSM_SIGN_PENALTY_TO_US:
-	case WIRE_HSM_SIGN_LOCAL_HTLC_TX:
-		return (client->capabilities & HSM_CAP_SIGN_ONCHAIN_TX) != 0;
-
-	case WIRE_HSM_GET_PER_COMMITMENT_POINT:
-	case WIRE_HSM_CHECK_FUTURE_SECRET:
-		return (client->capabilities & HSM_CAP_COMMITMENT_POINT) != 0;
-
-	case WIRE_HSM_SIGN_REMOTE_COMMITMENT_TX:
-	case WIRE_HSM_SIGN_REMOTE_HTLC_TX:
-		return (client->capabilities & HSM_CAP_SIGN_REMOTE_TX) != 0;
-
-	case WIRE_HSM_SIGN_MUTUAL_CLOSE_TX:
-		return (client->capabilities & HSM_CAP_SIGN_CLOSING_TX) != 0;
-
-	case WIRE_HSM_INIT:
-	case WIRE_HSM_CLIENT_HSMFD:
-	case WIRE_HSM_SIGN_FUNDING:
-	case WIRE_HSM_SIGN_WITHDRAWAL:
-	case WIRE_HSM_SIGN_INVOICE:
-	case WIRE_HSM_SIGN_COMMITMENT_TX:
-	case WIRE_HSM_GET_CHANNEL_BASEPOINTS:
-		return (client->capabilities & HSM_CAP_MASTER) != 0;
-
-	/* These are messages sent by the HSM so we should never receive them */
-	case WIRE_HSM_ECDH_RESP:
-	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
-	case WIRE_HSM_CUPDATE_SIG_REPLY:
-	case WIRE_HSM_CLIENT_HSMFD_REPLY:
-	case WIRE_HSM_SIGN_FUNDING_REPLY:
-	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REPLY:
-	case WIRE_HSM_SIGN_WITHDRAWAL_REPLY:
-	case WIRE_HSM_SIGN_INVOICE_REPLY:
-	case WIRE_HSM_INIT_REPLY:
-	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
-	case WIRE_HSM_SIGN_COMMITMENT_TX_REPLY:
-	case WIRE_HSM_SIGN_TX_REPLY:
-	case WIRE_HSM_GET_PER_COMMITMENT_POINT_REPLY:
-	case WIRE_HSM_CHECK_FUTURE_SECRET_REPLY:
-	case WIRE_HSM_GET_CHANNEL_BASEPOINTS_REPLY:
-		break;
-	}
-	return false;
-}
-
-static struct io_plan *handle_client(struct io_conn *conn,
-				     struct daemon_conn *dc)
-{
-	struct client *c = container_of(dc, struct client, dc);
-	enum hsm_client_wire_type t = fromwire_peektype(dc->msg_in);
-
-	status_debug("Client: Received message %d from client", t);
-
-	/* Before we do anything else, is this client allowed to do
-	 * what he asks for? */
-	if (!check_client_capabilities(c, t)) {
-		status_broken("Client does not have the required capability to run %d", t);
-		daemon_conn_send(c->master,
-				 take(towire_hsmstatus_client_bad_request(
-				     NULL, &c->id, dc->msg_in)));
-		return io_close(conn);
-	}
-
-	/* Now actually go and do what the client asked for */
-	switch (t) {
-	case WIRE_HSM_INIT:
-		init_hsm(dc, dc->msg_in);
-		return daemon_conn_read_next(conn, dc);
-
-	case WIRE_HSM_CLIENT_HSMFD:
-		pass_client_hsmfd(dc, dc->msg_in);
-		return daemon_conn_read_next(conn, dc);
-
-	case WIRE_HSM_GET_CHANNEL_BASEPOINTS:
-		return handle_get_channel_basepoints(conn, dc);
-
-	case WIRE_HSM_ECDH_REQ:
-		return handle_ecdh(conn, dc);
-
-	case WIRE_HSM_CANNOUNCEMENT_SIG_REQ:
-		return handle_cannouncement_sig(conn, c);
-
-	case WIRE_HSM_CUPDATE_SIG_REQ:
-		return handle_channel_update_sig(conn, dc);
-
-	case WIRE_HSM_SIGN_FUNDING:
-		sign_funding_tx(dc, dc->msg_in);
-		return daemon_conn_read_next(conn, dc);
-
-	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REQ:
-		sign_node_announcement(dc, dc->msg_in);
-		return daemon_conn_read_next(conn, dc);
-
-	case WIRE_HSM_SIGN_INVOICE:
-		sign_invoice(dc, dc->msg_in);
-		return daemon_conn_read_next(conn, dc);
-
-	case WIRE_HSM_SIGN_WITHDRAWAL:
-		sign_withdrawal_tx(dc, dc->msg_in);
-		return daemon_conn_read_next(conn, dc);
-
-	case WIRE_HSM_SIGN_COMMITMENT_TX:
-		return handle_sign_commitment_tx(conn, dc);
-
-	case WIRE_HSM_SIGN_DELAYED_PAYMENT_TO_US:
-		return handle_sign_delayed_payment_to_us(conn, c);
-
-	case WIRE_HSM_SIGN_REMOTE_HTLC_TO_US:
-		return handle_sign_remote_htlc_to_us(conn, c);
-
-	case WIRE_HSM_SIGN_PENALTY_TO_US:
-		return handle_sign_penalty_to_us(conn, c);
-
-	case WIRE_HSM_SIGN_LOCAL_HTLC_TX:
-		return handle_sign_local_htlc_tx(conn, c);
-
-	case WIRE_HSM_GET_PER_COMMITMENT_POINT:
-		return handle_get_per_commitment_point(conn, c);
-
-	case WIRE_HSM_CHECK_FUTURE_SECRET:
-		return handle_check_future_secret(conn, c);
-
-	case WIRE_HSM_SIGN_REMOTE_COMMITMENT_TX:
-		return handle_sign_remote_commitment_tx(conn, c);
-
-	case WIRE_HSM_SIGN_REMOTE_HTLC_TX:
-		return handle_sign_remote_htlc_tx(conn, c);
-
-	case WIRE_HSM_SIGN_MUTUAL_CLOSE_TX:
-		return handle_sign_mutual_close_tx(conn, c);
-
-	case WIRE_HSM_ECDH_RESP:
-	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
-	case WIRE_HSM_CUPDATE_SIG_REPLY:
-	case WIRE_HSM_CLIENT_HSMFD_REPLY:
-	case WIRE_HSM_SIGN_FUNDING_REPLY:
-	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REPLY:
-	case WIRE_HSM_SIGN_WITHDRAWAL_REPLY:
-	case WIRE_HSM_SIGN_INVOICE_REPLY:
-	case WIRE_HSM_INIT_REPLY:
-	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
-	case WIRE_HSM_SIGN_COMMITMENT_TX_REPLY:
-	case WIRE_HSM_SIGN_TX_REPLY:
-	case WIRE_HSM_GET_PER_COMMITMENT_POINT_REPLY:
-	case WIRE_HSM_CHECK_FUTURE_SECRET_REPLY:
-	case WIRE_HSM_GET_CHANNEL_BASEPOINTS_REPLY:
-		break;
-	}
-
-	daemon_conn_send(c->master,
-			 take(towire_hsmstatus_client_bad_request(NULL,
-								  &c->id,
-								  dc->msg_in)));
-	return io_close(conn);
-}
-
-static void send_init_response(struct daemon_conn *master)
-{
-	struct pubkey node_id;
-	u8 *msg;
-
-	node_key(NULL, &node_id);
-
-	msg = towire_hsm_init_reply(NULL, &node_id, &secretstuff.bip32);
-	daemon_conn_send(master, take(msg));
-}
-
-static void populate_secretstuff(void)
-{
-	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
-	u32 salt = 0;
-	struct ext_key master_extkey, child_extkey;
-
-	/* Fill in the BIP32 tree for bitcoin addresses. */
-	do {
-		hkdf_sha256(bip32_seed, sizeof(bip32_seed),
-			    &salt, sizeof(salt),
-			    &secretstuff.hsm_secret,
-			    sizeof(secretstuff.hsm_secret),
-			    "bip32 seed", strlen("bip32 seed"));
-		salt++;
-	} while (bip32_key_from_seed(bip32_seed, sizeof(bip32_seed),
-				     BIP32_VER_TEST_PRIVATE,
-				     0, &master_extkey) != WALLY_OK);
-
-	/* BIP 32:
-	 *
-	 * The default wallet layout
-	 *
-	 * An HDW is organized as several 'accounts'. Accounts are numbered,
-	 * the default account ("") being number 0. Clients are not required
-	 * to support more than one account - if not, they only use the
-	 * default account.
-	 *
-	 * Each account is composed of two keypair chains: an internal and an
-	 * external one. The external keychain is used to generate new public
-	 * addresses, while the internal keychain is used for all other
-	 * operations (change addresses, generation addresses, ..., anything
-	 * that doesn't need to be communicated). Clients that do not support
-	 * separate keychains for these should use the external one for
-	 * everything.
-	 *
-	 *  - m/iH/0/k corresponds to the k'th keypair of the external chain of account number i of the HDW derived from master m.
-	 */
-	/* Hence child 0, then child 0 again to get extkey to derive from. */
-	if (bip32_key_from_parent(&master_extkey, 0, BIP32_FLAG_KEY_PRIVATE,
-				  &child_extkey) != WALLY_OK)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't derive child bip32 key");
-
-	if (bip32_key_from_parent(&child_extkey, 0, BIP32_FLAG_KEY_PRIVATE,
-				  &secretstuff.bip32) != WALLY_OK)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't derive private bip32 key");
-}
-
-static void bitcoin_pubkey(struct pubkey *pubkey, u32 index)
-{
-	struct ext_key ext;
-
-	if (index >= BIP32_INITIAL_HARDENED_CHILD)
-		status_failed(STATUS_FAIL_MASTER_IO,
-			      "Index %u too great", index);
-
-	if (bip32_key_from_parent(&secretstuff.bip32, index,
-				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "BIP32 of %u failed", index);
-
-	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey->pubkey,
-				       ext.pub_key, sizeof(ext.pub_key)))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Parse of BIP32 child %u pubkey failed", index);
-}
-
-static void bitcoin_keypair(struct privkey *privkey,
-			    struct pubkey *pubkey,
-			    u32 index)
-{
-	struct ext_key ext;
-
-	if (index >= BIP32_INITIAL_HARDENED_CHILD)
-		status_failed(STATUS_FAIL_MASTER_IO,
-			      "Index %u too great", index);
-
-	if (bip32_key_from_parent(&secretstuff.bip32, index,
-				  BIP32_FLAG_KEY_PRIVATE, &ext) != WALLY_OK)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "BIP32 of %u failed", index);
-
-	/* libwally says: The private key with prefix byte 0 */
-	memcpy(privkey->secret.data, ext.priv_key+1, 32);
-	if (!secp256k1_ec_pubkey_create(secp256k1_ctx, &pubkey->pubkey,
-					privkey->secret.data))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "BIP32 pubkey %u create failed", index);
-}
-
-static void maybe_create_new_hsm(void)
-{
-	int fd = open("hsm_secret", O_CREAT|O_EXCL|O_WRONLY, 0400);
-	if (fd < 0) {
-		if (errno == EEXIST)
-			return;
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "creating: %s", strerror(errno));
-	}
-
-	randombytes_buf(&secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret));
-	if (!write_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret))) {
-		unlink_noerr("hsm_secret");
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "writing: %s", strerror(errno));
-	}
-	if (fsync(fd) != 0) {
-		unlink_noerr("hsm_secret");
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "fsync: %s", strerror(errno));
-	}
-	if (close(fd) != 0) {
-		unlink_noerr("hsm_secret");
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "closing: %s", strerror(errno));
-	}
-	fd = open(".", O_RDONLY);
-	if (fd < 0) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "opening: %s", strerror(errno));
-	}
-	if (fsync(fd) != 0) {
-		unlink_noerr("hsm_secret");
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "fsyncdir: %s", strerror(errno));
-	}
-	close(fd);
-	status_unusual("HSM: created new hsm_secret file");
-}
-
-static void load_hsm(void)
-{
-	int fd = open("hsm_secret", O_RDONLY);
-	if (fd < 0)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "opening: %s", strerror(errno));
-	if (!read_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret)))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "reading: %s", strerror(errno));
-	close(fd);
-
-	populate_secretstuff();
-}
-
-static void init_hsm(struct daemon_conn *master, const u8 *msg)
-{
-
-	if (!fromwire_hsm_init(msg))
-		master_badmsg(WIRE_HSM_INIT, msg);
-
-	maybe_create_new_hsm();
-	load_hsm();
-
-	send_init_response(master);
-}
-
 static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg)
 {
 	int fds[2];
@@ -1453,11 +1233,224 @@ static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 	daemon_conn_send(master, take(reply));
 }
 
-#ifndef TESTING
-/* FIXME: This is used by debug.c, but doesn't apply to us. */
-extern void dev_disconnect_init(int fd);
-void dev_disconnect_init(int fd UNUSED)
+static bool check_client_capabilities(struct client *client,
+				      enum hsm_client_wire_type t)
 {
+	switch (t) {
+	case WIRE_HSM_ECDH_REQ:
+		return (client->capabilities & HSM_CAP_ECDH) != 0;
+
+	case WIRE_HSM_CANNOUNCEMENT_SIG_REQ:
+	case WIRE_HSM_CUPDATE_SIG_REQ:
+	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REQ:
+		return (client->capabilities & HSM_CAP_SIGN_GOSSIP) != 0;
+
+	case WIRE_HSM_SIGN_DELAYED_PAYMENT_TO_US:
+	case WIRE_HSM_SIGN_REMOTE_HTLC_TO_US:
+	case WIRE_HSM_SIGN_PENALTY_TO_US:
+	case WIRE_HSM_SIGN_LOCAL_HTLC_TX:
+		return (client->capabilities & HSM_CAP_SIGN_ONCHAIN_TX) != 0;
+
+	case WIRE_HSM_GET_PER_COMMITMENT_POINT:
+	case WIRE_HSM_CHECK_FUTURE_SECRET:
+		return (client->capabilities & HSM_CAP_COMMITMENT_POINT) != 0;
+
+	case WIRE_HSM_SIGN_REMOTE_COMMITMENT_TX:
+	case WIRE_HSM_SIGN_REMOTE_HTLC_TX:
+		return (client->capabilities & HSM_CAP_SIGN_REMOTE_TX) != 0;
+
+	case WIRE_HSM_SIGN_MUTUAL_CLOSE_TX:
+		return (client->capabilities & HSM_CAP_SIGN_CLOSING_TX) != 0;
+
+	case WIRE_HSM_INIT:
+	case WIRE_HSM_CLIENT_HSMFD:
+	case WIRE_HSM_SIGN_FUNDING:
+	case WIRE_HSM_SIGN_WITHDRAWAL:
+	case WIRE_HSM_SIGN_INVOICE:
+	case WIRE_HSM_SIGN_COMMITMENT_TX:
+	case WIRE_HSM_GET_CHANNEL_BASEPOINTS:
+		return (client->capabilities & HSM_CAP_MASTER) != 0;
+
+	/* These are messages sent by the HSM so we should never receive them */
+	case WIRE_HSM_ECDH_RESP:
+	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
+	case WIRE_HSM_CUPDATE_SIG_REPLY:
+	case WIRE_HSM_CLIENT_HSMFD_REPLY:
+	case WIRE_HSM_SIGN_FUNDING_REPLY:
+	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REPLY:
+	case WIRE_HSM_SIGN_WITHDRAWAL_REPLY:
+	case WIRE_HSM_SIGN_INVOICE_REPLY:
+	case WIRE_HSM_INIT_REPLY:
+	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
+	case WIRE_HSM_SIGN_COMMITMENT_TX_REPLY:
+	case WIRE_HSM_SIGN_TX_REPLY:
+	case WIRE_HSM_GET_PER_COMMITMENT_POINT_REPLY:
+	case WIRE_HSM_CHECK_FUTURE_SECRET_REPLY:
+	case WIRE_HSM_GET_CHANNEL_BASEPOINTS_REPLY:
+		break;
+	}
+	return false;
+}
+
+static struct io_plan *handle_client(struct io_conn *conn,
+				     struct daemon_conn *dc)
+{
+	struct client *c = container_of(dc, struct client, dc);
+	enum hsm_client_wire_type t = fromwire_peektype(dc->msg_in);
+
+	status_debug("Client: Received message %d from client", t);
+
+	/* Before we do anything else, is this client allowed to do
+	 * what he asks for? */
+	if (!check_client_capabilities(c, t)) {
+		status_broken("Client does not have the required capability to run %d", t);
+		daemon_conn_send(c->master,
+				 take(towire_hsmstatus_client_bad_request(
+				     NULL, &c->id, dc->msg_in)));
+		return io_close(conn);
+	}
+
+	/* Now actually go and do what the client asked for */
+	switch (t) {
+	case WIRE_HSM_INIT:
+		init_hsm(dc, dc->msg_in);
+		return daemon_conn_read_next(conn, dc);
+
+	case WIRE_HSM_CLIENT_HSMFD:
+		pass_client_hsmfd(dc, dc->msg_in);
+		return daemon_conn_read_next(conn, dc);
+
+	case WIRE_HSM_GET_CHANNEL_BASEPOINTS:
+		return handle_get_channel_basepoints(conn, dc);
+
+	case WIRE_HSM_ECDH_REQ:
+		return handle_ecdh(conn, dc);
+
+	case WIRE_HSM_CANNOUNCEMENT_SIG_REQ:
+		return handle_cannouncement_sig(conn, c);
+
+	case WIRE_HSM_CUPDATE_SIG_REQ:
+		return handle_channel_update_sig(conn, dc);
+
+	case WIRE_HSM_SIGN_FUNDING:
+		sign_funding_tx(dc, dc->msg_in);
+		return daemon_conn_read_next(conn, dc);
+
+	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REQ:
+		sign_node_announcement(dc, dc->msg_in);
+		return daemon_conn_read_next(conn, dc);
+
+	case WIRE_HSM_SIGN_INVOICE:
+		sign_invoice(dc, dc->msg_in);
+		return daemon_conn_read_next(conn, dc);
+
+	case WIRE_HSM_SIGN_WITHDRAWAL:
+		sign_withdrawal_tx(dc, dc->msg_in);
+		return daemon_conn_read_next(conn, dc);
+
+	case WIRE_HSM_SIGN_COMMITMENT_TX:
+		return handle_sign_commitment_tx(conn, dc);
+
+	case WIRE_HSM_SIGN_DELAYED_PAYMENT_TO_US:
+		return handle_sign_delayed_payment_to_us(conn, c);
+
+	case WIRE_HSM_SIGN_REMOTE_HTLC_TO_US:
+		return handle_sign_remote_htlc_to_us(conn, c);
+
+	case WIRE_HSM_SIGN_PENALTY_TO_US:
+		return handle_sign_penalty_to_us(conn, c);
+
+	case WIRE_HSM_SIGN_LOCAL_HTLC_TX:
+		return handle_sign_local_htlc_tx(conn, c);
+
+	case WIRE_HSM_GET_PER_COMMITMENT_POINT:
+		return handle_get_per_commitment_point(conn, c);
+
+	case WIRE_HSM_CHECK_FUTURE_SECRET:
+		return handle_check_future_secret(conn, c);
+
+	case WIRE_HSM_SIGN_REMOTE_COMMITMENT_TX:
+		return handle_sign_remote_commitment_tx(conn, c);
+
+	case WIRE_HSM_SIGN_REMOTE_HTLC_TX:
+		return handle_sign_remote_htlc_tx(conn, c);
+
+	case WIRE_HSM_SIGN_MUTUAL_CLOSE_TX:
+		return handle_sign_mutual_close_tx(conn, c);
+
+	case WIRE_HSM_ECDH_RESP:
+	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
+	case WIRE_HSM_CUPDATE_SIG_REPLY:
+	case WIRE_HSM_CLIENT_HSMFD_REPLY:
+	case WIRE_HSM_SIGN_FUNDING_REPLY:
+	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REPLY:
+	case WIRE_HSM_SIGN_WITHDRAWAL_REPLY:
+	case WIRE_HSM_SIGN_INVOICE_REPLY:
+	case WIRE_HSM_INIT_REPLY:
+	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
+	case WIRE_HSM_SIGN_COMMITMENT_TX_REPLY:
+	case WIRE_HSM_SIGN_TX_REPLY:
+	case WIRE_HSM_GET_PER_COMMITMENT_POINT_REPLY:
+	case WIRE_HSM_CHECK_FUTURE_SECRET_REPLY:
+	case WIRE_HSM_GET_CHANNEL_BASEPOINTS_REPLY:
+		break;
+	}
+
+	daemon_conn_send(c->master,
+			 take(towire_hsmstatus_client_bad_request(NULL,
+								  &c->id,
+								  dc->msg_in)));
+	return io_close(conn);
+}
+
+static void destroy_client(struct client *c)
+{
+	if (!uintmap_del(&clients, c->dbid))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed to remove client dbid %"PRIu64, c->dbid);
+}
+
+static struct client *new_client(struct daemon_conn *master,
+				 const struct pubkey *id,
+				 u64 dbid,
+				 const u64 capabilities,
+				 int fd)
+{
+	struct client *c = tal(master, struct client);
+
+	if (id) {
+		c->id = *id;
+	} else {
+		memset(&c->id, 0, sizeof(c->id));
+	}
+	c->dbid = dbid;
+
+	c->master = master;
+	c->capabilities = capabilities;
+	daemon_conn_init(c, &c->dc, fd, handle_client, NULL);
+
+	/* Free the connection if we exit everything. */
+	tal_steal(master, c->dc.conn);
+	/* Free client when connection freed. */
+	tal_steal(c->dc.conn, c);
+
+	if (dbid == 0) {
+		assert(num_dbid_zero_clients < ARRAY_SIZE(dbid_zero_clients));
+		dbid_zero_clients[num_dbid_zero_clients++] = c;
+	} else {
+		struct client *old_client = uintmap_get(&clients, dbid);
+
+		/* Close conn and free any old client of this dbid. */
+		if (old_client)
+			io_close(old_client->dc.conn);
+
+		if (!uintmap_add(&clients, dbid, c))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Failed inserting dbid %"PRIu64, dbid);
+		tal_add_destructor(c, destroy_client);
+	}
+
+	return c;
 }
 
 static void master_gone(struct io_conn *unused UNUSED, struct daemon_conn *dc UNUSED)
@@ -1494,4 +1487,3 @@ int main(int argc, char *argv[])
 	io_loop(NULL, NULL);
 	abort();
 }
-#endif
