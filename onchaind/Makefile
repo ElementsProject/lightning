@@ -68,7 +68,8 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/utxo.o				\
-	common/version.o
+	common/version.o			\
+	hsmd/gen_hsm_client_wire.o
 
 onchaind/gen_onchain_wire.h: $(WIRE_GEN) onchaind/onchain_wire.csv
 	$(WIRE_GEN) --header $@ onchain_wire_type < onchaind/onchain_wire.csv > $@

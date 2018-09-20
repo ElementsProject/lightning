@@ -6,16 +6,9 @@ hsmd-wrongdir:
 
 default: hsmd-all
 
-# Clients use this:
-LIGHTNINGD_HSM_CLIENT_HEADERS := hsmd/client.h
-LIGHTNINGD_HSM_CLIENT_SRC := hsmd/client.c hsmd/gen_hsm_client_wire.c
-LIGHTNINGD_HSM_CLIENT_OBJS := $(LIGHTNINGD_HSM_CLIENT_SRC:.c=.o)
-
-# lightningd/hsm needs these:
-LIGHTNINGD_HSM_HEADERS := hsmd/gen_hsm_client_wire.h
-
 LIGHTNINGD_HSM_SRC := hsmd/hsmd.c	\
-	$(LIGHTNINGD_HSM_HEADERS:.h=.c)
+	hsmd/gen_hsm_client_wire.c
+LIGHTNINGD_HSM_HEADERS := hsmd/gen_hsm_client_wire.h
 LIGHTNINGD_HSM_OBJS := $(LIGHTNINGD_HSM_SRC:.c=.o)
 
 # Common source we use.
@@ -40,20 +33,17 @@ HSMD_COMMON_OBJS :=				\
 	common/withdraw_tx.o
 
 # For checking
-LIGHTNINGD_HSM_ALLSRC_NOGEN := $(filter-out hsmd/gen_%, $(LIGHTNINGD_HSM_CLIENT_SRC) $(LIGHTNINGD_HSM_SRC))
-LIGHTNINGD_HSM_ALLHEADERS_NOGEN := $(filter-out hsmd/gen_%, $(LIGHTNINGD_HSM_CLIENT_HEADERS) $(LIGHTNINGD_HSM_HEADERS))
+LIGHTNINGD_HSM_ALLSRC_NOGEN := $(filter-out hsmd/gen_%, $(LIGHTNINGD_HSM_SRC) $(LIGHTNINGD_HSM_SRC))
+LIGHTNINGD_HSM_ALLHEADERS_NOGEN := $(filter-out hsmd/gen_%, $(LIGHTNINGD_HSM_HEADERS))
 
-# Add to headers which any object might need.
-LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_HSM_HEADERS) $(LIGHTNINGD_HSM_CLIENT_HEADERS)
-
-$(LIGHTNINGD_HSM_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS): $(LIGHTNINGD_HEADERS)
+$(LIGHTNINGD_HSM_OBJS): $(LIGHTNINGD_HEADERS)
 
 # Make sure these depend on everything.
-ALL_OBJS += $(LIGHTNINGD_HSM_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
+ALL_OBJS += $(LIGHTNINGD_HSM_OBJS)
 ALL_PROGRAMS += lightningd/lightning_hsmd
-ALL_GEN_HEADERS += $(LIGHTNINGD_HSM_HEADERS)
+ALL_GEN_HEADERS += hsmd/gen_hsm_client_wire.h
 
-hsmd-all: lightningd/lightning_hsmd $(LIGHTNINGD_HSM_CLIENT_OBJS)
+hsmd-all: lightningd/lightning_hsmd
 
 lightningd/lightning_hsmd: $(LIGHTNINGD_HSM_OBJS) $(LIGHTNINGD_LIB_OBJS) $(HSMD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS)
 
@@ -70,7 +60,7 @@ hsmd/gen_hsm_wire.c: $(WIRE_GEN) hsmd/hsm_wire.csv
 	$(WIRE_GEN) ${@:.c=.h} hsm_wire_type < hsmd/hsm_wire.csv > $@
 
 check-source: $(LIGHTNINGD_HSM_ALLSRC_NOGEN:%=check-src-include-order/%) $(LIGHTNINGD_HSM_ALLHEADERS_NOGEN:%=check-hdr-include-order/%)
-check-source-bolt: $(LIGHTNINGD_HSM_SRC:%=bolt-check/%) $(LIGHTNINGD_HSM_HEADERS:%=bolt-check/%)
+check-source-bolt: $(LIGHTNINGD_HSM_SRC:%=bolt-check/%)
 
 check-whitespace: $(LIGHTNINGD_HSM_ALLSRC_NOGEN:%=check-whitespace/%) $(LIGHTNINGD_HSM_ALLHEADERS_NOGEN:%=check-whitespace/%)
 
