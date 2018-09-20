@@ -124,6 +124,11 @@ Lightning daemon options:
     (we allow missing files in the default case).
     Using this inside a configuration file is meaningless.
 
+*plugin*='PATH'::
+    Specify a plugin to run as part of c-lightning. This can be specified
+    multiple times and may enable additional configuration options and JSON-RPC
+    methods, depending on the plugin.
+
 Lightning node customization options:
 
 *rgb*='RRGGBB'::

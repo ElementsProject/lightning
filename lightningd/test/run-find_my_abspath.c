@@ -119,6 +119,9 @@ struct chain_topology *new_topology(struct lightningd *ld UNNEEDED, struct log *
 /* Generated stub for onchaind_replay_channels */
 void onchaind_replay_channels(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "onchaind_replay_channels called!\n"); abort(); }
+/* Generated stub for plugins_new */
+struct plugins *plugins_new(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "plugins_new called!\n"); abort(); }
 /* Generated stub for register_opts */
 void register_opts(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "register_opts called!\n"); abort(); }
