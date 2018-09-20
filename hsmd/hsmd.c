@@ -926,6 +926,39 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
 	}
 }
 
+static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
+{
+	u8 **scriptSigs = tal_arr(tmpctx, u8 *, tal_count(utxos));
+
+	assert(tal_count(tx->input) == tal_count(utxos));
+	for (size_t i = 0; i < tal_count(utxos); i++) {
+		struct pubkey inkey;
+		struct privkey inprivkey;
+		const struct utxo *in = utxos[i];
+		u8 *subscript, *wscript;
+		secp256k1_ecdsa_signature sig;
+
+		hsm_key_for_utxo(&inprivkey, &inkey, in);
+
+		wscript = p2wpkh_scriptcode(tmpctx, &inkey);
+		if (in->is_p2sh) {
+			subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
+			scriptSigs[i] = bitcoin_scriptsig_p2sh_p2wpkh(tx, &inkey);
+		} else {
+			subscript = NULL;
+			scriptSigs[i] = NULL;
+		}
+		sign_tx_input(tx, i, subscript, wscript, &inprivkey, &inkey,
+			      &sig);
+
+		tx->input[i].witness = bitcoin_witness_p2wpkh(tx, &sig, &inkey);
+	}
+
+	/* Now complete the transaction by attaching the scriptSigs where necessary */
+	for (size_t i = 0; i < tal_count(utxos); i++)
+		tx->input[i].script = scriptSigs[i];
+}
+
 /* Note that it's the main daemon that asks for the funding signature so it
  * can broadcast it. */
 static struct io_plan *handle_sign_funding_tx(struct io_conn *conn,
@@ -935,18 +968,16 @@ static struct io_plan *handle_sign_funding_tx(struct io_conn *conn,
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
 	struct pubkey local_pubkey, remote_pubkey;
-	struct utxo **utxomap;
+	struct utxo **utxos;
 	struct bitcoin_tx *tx;
 	u16 outnum;
-	size_t i;
 	struct pubkey *changekey;
-	u8 **scriptSigs;
 
 	/* FIXME: Check fee is "reasonable" */
 	if (!fromwire_hsm_sign_funding(tmpctx, msg_in,
 				       &satoshi_out, &change_out,
 				       &change_keyindex, &local_pubkey,
-				       &remote_pubkey, &utxomap))
+				       &remote_pubkey, &utxos))
 		return bad_req(conn, c, msg_in);
 
 	if (change_out) {
@@ -956,42 +987,12 @@ static struct io_plan *handle_sign_funding_tx(struct io_conn *conn,
 		changekey = NULL;
 
 	tx = funding_tx(tmpctx, &outnum,
-			cast_const2(const struct utxo **, utxomap),
+			cast_const2(const struct utxo **, utxos),
 			satoshi_out, &local_pubkey, &remote_pubkey,
 			change_out, changekey,
 			NULL);
 
-	scriptSigs = tal_arr(tmpctx, u8*, tal_count(utxomap));
-	for (i = 0; i < tal_count(utxomap); i++) {
-		struct pubkey inkey;
-		struct privkey inprivkey;
-		const struct utxo *in = utxomap[i];
-		u8 *subscript;
-		secp256k1_ecdsa_signature sig;
-
-		hsm_key_for_utxo(&inprivkey, &inkey, in);
-
-		if (in->is_p2sh)
-			subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
-		else
-			subscript = NULL;
-		u8 *wscript = p2wpkh_scriptcode(tmpctx, &inkey);
-
-		sign_tx_input(tx, i, subscript, wscript, &inprivkey, &inkey,
-			      &sig);
-
-		tx->input[i].witness = bitcoin_witness_p2wpkh(tx, &sig, &inkey);
-
-		if (utxomap[i]->is_p2sh)
-			scriptSigs[i] = bitcoin_scriptsig_p2sh_p2wpkh(tx, &inkey);
-		else
-			scriptSigs[i] = NULL;
-	}
-
-	/* Now complete the transaction by attaching the scriptSigs where necessary */
-	for (size_t i=0; i<tal_count(utxomap); i++)
-		tx->input[i].script = scriptSigs[i];
-
+	sign_all_inputs(tx, utxos);
 	return req_reply(conn, c, take(towire_hsm_sign_funding_reply(NULL, tx)));
 }
 
@@ -1005,7 +1006,6 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
 	struct utxo **utxos;
-	u8 **scriptSigs;
 	struct bitcoin_tx *tx;
 	struct ext_key ext;
 	struct pubkey changekey;
@@ -1022,41 +1022,11 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 				   "Failed to get key %u", change_keyindex);
 
 	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
-	tx = withdraw_tx(
-		tmpctx, cast_const2(const struct utxo **, utxos),
-		scriptpubkey, satoshi_out,
-		&changekey, change_out, NULL);
+	tx = withdraw_tx(tmpctx, cast_const2(const struct utxo **, utxos),
+			 scriptpubkey, satoshi_out,
+			 &changekey, change_out, NULL);
 
-	scriptSigs = tal_arr(tmpctx, u8*, tal_count(utxos));
-	for (size_t i = 0; i < tal_count(utxos); i++) {
-		struct pubkey inkey;
-		struct privkey inprivkey;
-		const struct utxo *in = utxos[i];
-		u8 *subscript;
-		secp256k1_ecdsa_signature sig;
-
-		hsm_key_for_utxo(&inprivkey, &inkey, in);
-
-		if (in->is_p2sh || in->close_info != NULL)
-			subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
-		else
-			subscript = NULL;
-		u8 *wscript = p2wpkh_scriptcode(tmpctx, &inkey);
-
-		sign_tx_input(tx, i, subscript, wscript, &inprivkey, &inkey,
-			      &sig);
-
-		tx->input[i].witness = bitcoin_witness_p2wpkh(tx, &sig, &inkey);
-
-		if (utxos[i]->is_p2sh)
-			scriptSigs[i] = bitcoin_scriptsig_p2sh_p2wpkh(tx, &inkey);
-		else
-			scriptSigs[i] = NULL;
-	}
-
-	/* Now complete the transaction by attaching the scriptSigs where necessary */
-	for (size_t i=0; i<tal_count(utxos); i++)
-		tx->input[i].script = scriptSigs[i];
+	sign_all_inputs(tx, utxos);
 
 	return req_reply(conn, c,
 			 take(towire_hsm_sign_withdrawal_reply(NULL, tx)));
