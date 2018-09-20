@@ -327,12 +327,12 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor):
 
     # l2 should spend all of the outputs (except to-us).
     # Could happen in any order, depending on commitment tx.
-    l2.daemon.wait_for_logs([
-        'Propose handling THEIR_REVOKED_UNILATERAL/DELAYED_OUTPUT_TO_THEM by OUR_PENALTY_TX .* after 0 blocks',
-        'sendrawtx exit 0',
-        'Propose handling THEIR_REVOKED_UNILATERAL/THEIR_HTLC by OUR_PENALTY_TX .* after 0 blocks',
-        'sendrawtx exit 0'
-    ])
+    needle = l2.daemon.logsearch_start
+    l2.wait_for_onchaind_broadcast('OUR_PENALTY_TX',
+                                   'THEIR_REVOKED_UNILATERAL/DELAYED_OUTPUT_TO_THEM')
+    l2.daemon.logsearch_start = needle
+    l2.wait_for_onchaind_broadcast('OUR_PENALTY_TX',
+                                   'THEIR_REVOKED_UNILATERAL/THEIR_HTLC')
 
     # FIXME: test HTLC tx race!
 
@@ -403,13 +403,15 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor):
 
     # l2 should spend all of the outputs (except to-us).
     # Could happen in any order, depending on commitment tx.
-    l2.daemon.wait_for_logs([
-        'Ignoring output.*: THEIR_REVOKED_UNILATERAL/OUTPUT_TO_US',
-        'Propose handling THEIR_REVOKED_UNILATERAL/DELAYED_OUTPUT_TO_THEM by OUR_PENALTY_TX .* after 0 blocks',
-        'sendrawtx exit 0',
-        'Propose handling THEIR_REVOKED_UNILATERAL/OUR_HTLC by OUR_PENALTY_TX .* after 0 blocks',
-        'sendrawtx exit 0'
-    ])
+    needle = l2.daemon.logsearch_start
+    l2.wait_for_onchaind_broadcast('OUR_PENALTY_TX',
+                                   'THEIR_REVOKED_UNILATERAL/DELAYED_OUTPUT_TO_THEM')
+    l2.daemon.logsearch_start = needle
+    l2.wait_for_onchaind_broadcast('OUR_PENALTY_TX',
+                                   'THEIR_REVOKED_UNILATERAL/OUR_HTLC')
+
+    l2.daemon.logsearch_start = needle
+    l2.daemon.wait_for_log('Ignoring output.*: THEIR_REVOKED_UNILATERAL/OUTPUT_TO_US')
 
     # FIXME: test HTLC tx race!
 
@@ -452,10 +454,8 @@ def test_onchain_first_commit(node_factory, bitcoind):
 
     # 10 later, l1 should collect its to-self payment.
     bitcoind.generate_block(10)
-    l1.daemon.wait_for_logs([
-        'Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US',
-        'sendrawtx exit 0'
-    ])
+    l1.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
+                                   'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
 
     # 94 later, l2 is done.
     bitcoind.generate_block(94)
@@ -483,9 +483,8 @@ def test_onchain_unwatch(node_factory, bitcoind):
 
     # 10 later, l1 should collect its to-self payment.
     bitcoind.generate_block(10)
-    l1.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve '
-                           'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
+                                   'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
 
     # First time it sees it, onchaind cares.
     bitcoind.generate_block(1)
@@ -615,8 +614,8 @@ def test_onchain_dust_out(node_factory, bitcoind, executor):
 
     # 6 later, l1 should collect its to-self payment.
     bitcoind.generate_block(6)
-    l1.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
+                                   'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
 
     # 94 later, l2 is done.
     bitcoind.generate_block(94)
@@ -672,10 +671,12 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
                              'Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TX .* after 6 blocks'])
     bitcoind.generate_block(4)
 
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
+                                   'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
 
     bitcoind.generate_block(1)
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TX',
+                                   'OUR_UNILATERAL/OUR_HTLC')
 
     # We use 3 blocks for "reasonable depth"
     bitcoind.generate_block(3)
@@ -688,8 +689,8 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
 
     # 2 later, l1 spends HTLC (5 blocks total).
     bitcoind.generate_block(2)
-    l1.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US')
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
+                                   'OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US')
 
     # 89 later, l2 is done.
     bitcoind.generate_block(89)
@@ -755,8 +756,8 @@ def test_onchain_middleman(node_factory, bitcoind):
     l2.daemon.wait_for_log('OUR_UNILATERAL/THEIR_HTLC')
 
     # l2 should fulfill HTLC onchain, and spend to-us (any order)
-    l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* after 0 blocks')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
+    l2.wait_for_onchaind_broadcast('OUR_HTLC_SUCCESS_TX',
+                                   'OUR_UNILATERAL/THEIR_HTLC')
 
     # Payment should succeed.
     l1.bitcoin.generate_block(1)
@@ -770,17 +771,13 @@ def test_onchain_middleman(node_factory, bitcoind):
 
     # Three more, l2 can spend to-us.
     bitcoind.generate_block(3)
-    l2.daemon.wait_for_logs([
-        'Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US',
-        'sendrawtx exit 0'
-    ])
+    l2.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
+                                   'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
 
     # One more block, HTLC tx is now spendable.
     l1.bitcoin.generate_block(1)
-    l2.daemon.wait_for_logs([
-        'Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US',
-        'sendrawtx exit 0'
-    ])
+    l2.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
+                                   'OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US')
 
     # 100 blocks after last spend, l2 should be done.
     l1.bitcoin.generate_block(100)
@@ -823,7 +820,8 @@ def test_onchain_feechange(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US .* after 6 blocks')
     bitcoind.generate_block(6)
 
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TO_US',
+                                   'THEIR_UNILATERAL/OUR_HTLC')
 
     # Make sure that gets included.
 
@@ -904,9 +902,9 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by IGNORING_TINY_PAYMENT .* after 6 blocks')
     bitcoind.generate_block(5)
 
-    l1.daemon.wait_for_logs(['Broadcasting IGNORING_TINY_PAYMENT .* to resolve THEIR_UNILATERAL/OUR_HTLC',
-                             'sendrawtx exit 0',
-                             'Ignoring output 0 of .*: THEIR_UNILATERAL/OUR_HTLC'])
+    l1.wait_for_onchaind_broadcast('IGNORING_TINY_PAYMENT',
+                                   'THEIR_UNILATERAL/OUR_HTLC')
+    l1.daemon.wait_for_log('Ignoring output 0 of .*: THEIR_UNILATERAL/OUR_HTLC')
 
     # 100 deep and l2 forgets.
     bitcoind.generate_block(93)
@@ -1009,7 +1007,9 @@ def test_permfail_new_commit(node_factory, bitcoind, executor):
 
     # OK, time out HTLC.
     bitcoind.generate_block(5)
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TO_US',
+                                   'THEIR_UNILATERAL/OUR_HTLC')
+
     bitcoind.generate_block(1)
     l1.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TO_US')
     l2.daemon.wait_for_log('Ignoring output.*: OUR_UNILATERAL/THEIR_HTLC')
@@ -1045,16 +1045,17 @@ def test_permfail_htlc_in(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) after 6 blocks')
     l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US (.*) after 6 blocks')
     # l2 then gets preimage, uses it instead of ignoring
-    l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* after 0 blocks')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
+    l2.wait_for_onchaind_broadcast('OUR_HTLC_SUCCESS_TX',
+                                   'OUR_UNILATERAL/THEIR_HTLC')
     bitcoind.generate_block(1)
 
     # OK, l1 sees l2 fulfill htlc.
     l1.daemon.wait_for_log('THEIR_UNILATERAL/OUR_HTLC gave us preimage')
     l2.daemon.wait_for_log('Propose handling OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks')
-    bitcoind.generate_block(6)
+    bitcoind.generate_block(5)
 
-    l2.daemon.wait_for_log('sendrawtx exit 0')
+    l2.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
+                                   'OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US')
 
     t.cancel()
 
@@ -1094,8 +1095,8 @@ def test_permfail_htlc_out(node_factory, bitcoind, executor):
 
     l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) after 6 blocks')
     # l1 then gets preimage, uses it instead of ignoring
-    l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_FULFILL_TO_US .* after 0 blocks')
-    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.wait_for_onchaind_broadcast('THEIR_HTLC_FULFILL_TO_US',
+                                   'THEIR_UNILATERAL/THEIR_HTLC')
 
     # l2 sees l1 fulfill tx.
     bitcoind.generate_block(1)
@@ -1105,8 +1106,8 @@ def test_permfail_htlc_out(node_factory, bitcoind, executor):
 
     # l2 can send OUR_DELAYED_RETURN_TO_WALLET after 3 more blocks.
     bitcoind.generate_block(3)
-    l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
+    l2.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
+                                   'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
 
     # Now, 100 blocks they should be done.
     bitcoind.generate_block(95)
@@ -1184,8 +1185,8 @@ def test_permfail(node_factory, bitcoind):
     wait_for(lambda: (closetxid, "confirmed") in set([(o['txid'], o['status']) for o in l1.rpc.listfunds()['outputs']]))
 
     # It should send the to-wallet tx.
-    l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
+    l2.wait_for_onchaind_broadcast('OUR_DELAYED_RETURN_TO_WALLET',
+                                   'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
 
     # 100 after l1 sees tx, it should be done.
     bitcoind.generate_block(95)
