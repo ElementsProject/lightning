@@ -19,7 +19,7 @@
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
 
-int hsm_get_client_fd(struct lightningd *ld,
+static int hsm_get_fd(struct lightningd *ld,
 		      const struct pubkey *id,
 		      u64 dbid,
 		      int capabilities)
@@ -27,7 +27,6 @@ int hsm_get_client_fd(struct lightningd *ld,
 	int hsm_fd;
 	u8 *msg;
 
-	assert(dbid);
 	msg = towire_hsm_client_hsmfd(NULL, id, dbid, capabilities);
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
@@ -40,6 +39,21 @@ int hsm_get_client_fd(struct lightningd *ld,
 	if (hsm_fd < 0)
 		fatal("Could not read fd from HSM: %s", strerror(errno));
 	return hsm_fd;
+}
+
+int hsm_get_client_fd(struct lightningd *ld,
+		      const struct pubkey *id,
+		      u64 dbid,
+		      int capabilities)
+{
+	assert(dbid);
+
+	return hsm_get_fd(ld, id, dbid, capabilities);
+}
+
+int hsm_get_global_fd(struct lightningd *ld, int capabilities)
+{
+	return hsm_get_fd(ld, &ld->id, 0, capabilities);
 }
 
 static unsigned int hsm_msg(struct subd *hsmd,

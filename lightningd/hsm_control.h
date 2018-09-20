@@ -15,5 +15,8 @@ int hsm_get_client_fd(struct lightningd *ld,
 		      u64 dbid,
 		      int capabilities);
 
+/* Ask HSM for an fd for a global subdaemon to use (gossipd, connectd) */
+int hsm_get_global_fd(struct lightningd *ld, int capabilities);
+
 void hsm_init(struct lightningd *ld);
 #endif /* LIGHTNING_LIGHTNINGD_HSM_CONTROL_H */
