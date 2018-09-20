@@ -148,19 +148,8 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 {
 	u8 *msg;
 	int hsmfd;
-	u64 capabilities = HSM_CAP_SIGN_GOSSIP;
 
-	msg = towire_hsm_client_hsmfd(tmpctx, &ld->id, 0, capabilities);
-	if (!wire_sync_write(ld->hsm_fd, msg))
-		fatal("Could not write to HSM: %s", strerror(errno));
-
-	msg = wire_sync_read(tmpctx, ld->hsm_fd);
-	if (!fromwire_hsm_client_hsmfd_reply(msg))
-		fatal("Malformed hsmfd response: %s", tal_hex(msg, msg));
-
-	hsmfd = fdpass_recv(ld->hsm_fd);
-	if (hsmfd < 0)
-		fatal("Could not read fd from HSM: %s", strerror(errno));
+	hsmfd = hsm_get_global_fd(ld, HSM_CAP_SIGN_GOSSIP);
 
 	ld->gossip = new_global_subd(ld, "lightning_gossipd",
 				     gossip_wire_type_name, gossip_msg,
