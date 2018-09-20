@@ -498,7 +498,8 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 
         /* BOLT #11:
          *
-         * A reader MUST fail if it does not understand the `prefix`.
+         * A reader:
+         *   - MUST fail if it does not understand the `prefix`
          */
         if (!strstarts(prefix, "ln"))
                 return decode_fail(b11, fail,
@@ -510,14 +511,13 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 
         /* BOLT #11:
          *
-         * A reader SHOULD fail if `amount` contains a non-digit or
-         * is followed by anything except a `multiplier` in the table
-         * above. */
+         *   - If the `amount` is empty:
+         * */
         amountstr = tal_strdup(tmpctx, hrp + strlen(prefix));
         if (streq(amountstr, "")) {
                 /* BOLT #11:
                  *
-                 * A reader SHOULD indicate if amount is unspecified
+	         * - SHOULD indicate if amount is unspecified
                  */
                 b11->msatoshi = NULL;
         } else {
@@ -537,10 +537,9 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 
                 /* BOLT #11:
                  *
-                 * A reader SHOULD fail if `amount` contains a non-digit or
-                 * is followed by anything except a `multiplier` in the table
-                 * above.
-                 */
+                 * MUST fail if `amount` contains a non-digit or is followed by
+                 * anything except a `multiplier` in the table above
+                 **/
                 amount = strtoull(amountstr, &end, 10);
                 if (amount == ULLONG_MAX && errno == ERANGE)
                         return decode_fail(b11, fail,
@@ -549,7 +548,12 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
                         return decode_fail(b11, fail,
                                            "Invalid amount postfix '%s'", end);
 
-                /* Convert to millisatoshis. */
+                /* BOLT #11:
+                 *
+                 * - If the `multiplier` is present:
+                 *   - MUST multiply `amount` by the `multiplier`
+                 *   value to derive the amount required for payment
+                 **/
                 b11->msatoshi = tal(b11, u64);
                 *b11->msatoshi = amount * m10 / 10;
         }
@@ -873,9 +877,15 @@ char *bolt11_encode_(const tal_t *ctx,
 
         /* BOLT #11:
          *
-         * A writer MUST encode `amount` as a positive decimal integer
-         * with no leading zeroes and SHOULD use the shortest representation
-	 * possible.
+         * A writer:
+         *   - MUST encode `prefix` using the currency it requires
+         *   for successful payment
+         *   - If it requires a specific minimum amount for successful payment:
+	 *     - MUST include that `amount`
+	 *     - MUST encode `amount` as a positive decimal integer
+         *     with no leading zeroes
+	 *     - SHOULD use the shortest representation possible by
+         *     using the largest multiplier or omitting the multiplier
          */
         if (b11->msatoshi) {
                 char postfix;
