@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 - JSON API: `listpeers` has new field `scratch_txid`: the latest tx in channel.
+- Bitcoind: more parallelism in requests, for very slow nodes.
+- Testing: fixed logging, cleaner interception of bitcoind, minor fixes.
 
 ### Changed
 
@@ -20,6 +22,12 @@ changes.
 ### Removed
 
 ### Fixed
+
+- Startup: more coherent complaint if daemon already running.
+- JSON RPC: `getinfo` now shows correct Tor port.
+- JSON RPC: `ping` now works even after one peer fails to respond.
+- JSON RPC: `getroute` `fuzzpercent` and `pay` `maxfeepercent` can now be > 100.
+- Protocol: fix occasional deadlock when both peers flood with gossip.
 
 ### Security
 
