@@ -192,30 +192,15 @@ static void populate_secretstuff(void)
 			      "Can't derive private bip32 key");
 }
 
-static void bitcoin_pubkey(struct pubkey *pubkey, u32 index)
+/* If privkey is NULL, we don't fill it in */
+static void bitcoin_key(struct privkey *privkey, struct pubkey *pubkey,
+			u32 index)
 {
 	struct ext_key ext;
+	struct privkey unused_priv;
 
-	if (index >= BIP32_INITIAL_HARDENED_CHILD)
-		status_failed(STATUS_FAIL_MASTER_IO,
-			      "Index %u too great", index);
-
-	if (bip32_key_from_parent(&secretstuff.bip32, index,
-				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "BIP32 of %u failed", index);
-
-	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey->pubkey,
-				       ext.pub_key, sizeof(ext.pub_key)))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Parse of BIP32 child %u pubkey failed", index);
-}
-
-static void bitcoin_keypair(struct privkey *privkey,
-			    struct pubkey *pubkey,
-			    u32 index)
-{
-	struct ext_key ext;
+	if (privkey == NULL)
+		privkey = &unused_priv;
 
 	if (index >= BIP32_INITIAL_HARDENED_CHILD)
 		status_failed(STATUS_FAIL_MASTER_IO,
@@ -1002,7 +987,7 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
 		status_debug("Derived public key %s from unilateral close", type_to_string(tmpctx, struct pubkey, pubkey));
 	} else {
 		/* Simple case: just get derive via HD-derivation */
-		bitcoin_keypair(privkey, pubkey, utxo->keyindex);
+		bitcoin_key(privkey, pubkey, utxo->keyindex);
 	}
 }
 
@@ -1029,7 +1014,7 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 
 	if (change_out) {
 		changekey = tal(tmpctx, struct pubkey);
-		bitcoin_pubkey(changekey, change_keyindex);
+		bitcoin_key(NULL, changekey, change_keyindex);
 	} else
 		changekey = NULL;
 
