@@ -176,6 +176,11 @@ Sets configuration file (default:
 \fIPATH\fR
 must exist and be readable (we allow missing files in the default case)\&. Using this inside a configuration file is meaningless\&.
 .RE
+.PP
+\fBplugin\fR=\fIPATH\fR
+.RS 4
+Specify a plugin to run as part of c\-lightning\&. This can be specified multiple times and may enable additional configuration options and JSON\-RPC methods, depending on the plugin\&.
+.RE
 .sp
 Lightning node customization options:
 .PP

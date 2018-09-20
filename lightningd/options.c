@@ -26,6 +26,7 @@
 #include <lightningd/log.h>
 #include <lightningd/options.h>
 #include <lightningd/param.h>
+#include <lightningd/plugin.h>
 #include <lightningd/subd.h>
 #include <stdio.h>
 #include <string.h>
@@ -286,11 +287,23 @@ static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_add_plugin(const char *arg, struct lightningd *ld)
+{
+	plugin_register(ld->plugins, arg);
+	return NULL;
+}
+
 static void config_register_opts(struct lightningd *ld)
 {
 	opt_register_early_arg("--conf=<file>", opt_set_talstr, NULL,
 		&ld->config_filename,
 		"Specify configuration file. Relative paths will be prefixed by lightning-dir location. (default: config)");
+
+	/* Register plugins as an early argc, so we can initialize them and have
+	 * them register more command line options */
+	opt_register_early_arg("--plugin", opt_add_plugin, NULL, ld,
+			       "Add a plugin to be run.");
+
 	opt_register_noarg("--daemon", opt_set_bool, &ld->daemon,
 			 "Run in the background, suppress stdout/stderr");
 	opt_register_arg("--ignore-fee-limits", opt_set_bool_arg, opt_show_bool,
@@ -957,6 +970,8 @@ static void add_config(struct lightningd *ld,
 		} else if (opt->cb_arg == (void *)opt_add_proxy_addr) {
 			if (ld->proxyaddr)
 				answer = fmt_wireaddr(name0, ld->proxyaddr);
+		} else if (opt->cb_arg == (void *)opt_add_plugin) {
+			/* FIXME: Actually add the plugin options */
 #if DEVELOPER
 		} else if (strstarts(name, "dev-")) {
 			/* Ignore dev settings */

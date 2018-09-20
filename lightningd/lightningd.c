@@ -211,6 +211,14 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->tor_service_password = NULL;
 	ld->max_funding_unconfirmed = 2016;
 
+	/*~ We run a number of plugins (subprocesses that we talk JSON-RPC with)
+	 *alongside this process. This allows us to have an easy way for users
+	 *to add their own tools without having to modify the c-lightning source
+	 *code. Here we initialize the context that will keep track and control
+	 *the plugins.
+	 */
+	ld->plugins = plugins_new(ld);
+
 	return ld;
 }
 
