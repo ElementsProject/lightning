@@ -525,6 +525,49 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
 
+static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
+						  struct client *c,
+						  const u8 *msg_in)
+{
+	struct secret channel_seed;
+	struct bitcoin_tx *tx;
+	secp256k1_ecdsa_signature sig;
+	struct secrets secrets;
+	struct basepoints basepoints;
+	struct pubkey remote_per_commit_point;
+	u64 amount;
+	u8 *wscript;
+	struct privkey htlc_privkey;
+	struct pubkey htlc_pubkey;
+
+	if (!fromwire_hsm_sign_remote_htlc_tx(tmpctx, msg_in,
+					      &tx, &wscript, &amount,
+					      &remote_per_commit_point))
+		return bad_req(conn, c, msg_in);
+
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	derive_basepoints(&channel_seed, NULL, &basepoints, &secrets, NULL);
+
+	if (!derive_simple_privkey(&secrets.htlc_basepoint_secret,
+				   &basepoints.htlc,
+				   &remote_per_commit_point,
+				   &htlc_privkey))
+		return bad_req_fmt(conn, c, msg_in,
+				   "Failed deriving htlc privkey");
+
+	if (!derive_simple_key(&basepoints.htlc,
+			       &remote_per_commit_point,
+			       &htlc_pubkey))
+		return bad_req_fmt(conn, c, msg_in,
+				   "Failed deriving htlc pubkey");
+
+	/* Need input amount for signing */
+	tx->input[0].amount = tal_dup(tx->input, u64, &amount);
+	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey, &sig);
+
+	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
+}
+
 /* FIXME: Derive output address for this client, and check it here! */
 static struct io_plan *handle_sign_to_us_tx(struct io_conn *conn,
 					    struct client *c,
@@ -784,49 +827,6 @@ static struct io_plan *handle_check_future_secret(struct io_conn *conn,
 	return req_reply(conn, c,
 			 take(towire_hsm_check_future_secret_reply(NULL,
 				   secret_eq_consttime(&secret, &suggested))));
-}
-
-static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
-						  struct client *c,
-						  const u8 *msg_in)
-{
-	struct secret channel_seed;
-	struct bitcoin_tx *tx;
-	secp256k1_ecdsa_signature sig;
-	struct secrets secrets;
-	struct basepoints basepoints;
-	struct pubkey remote_per_commit_point;
-	u64 amount;
-	u8 *wscript;
-	struct privkey htlc_privkey;
-	struct pubkey htlc_pubkey;
-
-	if (!fromwire_hsm_sign_remote_htlc_tx(tmpctx, msg_in,
-					      &tx, &wscript, &amount,
-					      &remote_per_commit_point))
-		return bad_req(conn, c, msg_in);
-
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-	derive_basepoints(&channel_seed, NULL, &basepoints, &secrets, NULL);
-
-	if (!derive_simple_privkey(&secrets.htlc_basepoint_secret,
-				   &basepoints.htlc,
-				   &remote_per_commit_point,
-				   &htlc_privkey))
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed deriving htlc privkey");
-
-	if (!derive_simple_key(&basepoints.htlc,
-			       &remote_per_commit_point,
-			       &htlc_pubkey))
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed deriving htlc pubkey");
-
-	/* Need input amount for signing */
-	tx->input[0].amount = tal_dup(tx->input, u64, &amount);
-	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey, &sig);
-
-	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
 
 static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
