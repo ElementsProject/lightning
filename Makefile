@@ -243,12 +243,12 @@ check-makefile:
 
 # Any mention of BOLT# must be followed by an exact quote, modulo whitespace.
 bolt-check/%: % bolt-precheck tools/check-bolt
-	@[ ! -d .tmp.lightningrfc ] || tools/check-bolt .tmp.lightningrfc $<
+	@if [ -d .tmp.lightningrfc ]; then tools/check-bolt .tmp.lightningrfc $<; else Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist >&2; fi
 
 LOCAL_BOLTDIR=.tmp.lightningrfc
 
 bolt-precheck:
-	@rm -rf $(LOCAL_BOLTDIR); if [ ! -d $(BOLTDIR) ]; then echo Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist >&2; exit 0; fi; set -e; if [ -n "$(BOLTVERSION)" ]; then git clone -q $(BOLTDIR) $(LOCAL_BOLTDIR) && cd $(LOCAL_BOLTDIR) && git checkout -q $(BOLTVERSION); else cp -a $(BOLTDIR) $(LOCAL_BOLTDIR); fi
+	@[ -d $(BOLTDIR) ] || exit 0; set -e; if [ -z "$(BOLTVERSION)" ]; then rm -rf $(LOCAL_BOLTDIR); ln -sf $(BOLTDIR) $(LOCAL_BOLTDIR); exit 0; fi; [ "$$(git -C $(LOCAL_BOLTDIR) rev-list --max-count=1 HEAD 2>/dev/null)" != "$(BOLTVERSION)" ] || exit 0; rm -rf $(LOCAL_BOLTDIR) && git clone -q $(BOLTDIR) $(LOCAL_BOLTDIR) && cd $(LOCAL_BOLTDIR) && git checkout -q $(BOLTVERSION)
 
 check-source-bolt: $(ALL_TEST_PROGRAMS:%=bolt-check/%.c)
 
