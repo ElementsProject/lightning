@@ -104,7 +104,7 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 					 const struct pubkey *them,
 					 const struct wireaddr_internal *addr,
 					 const struct crypto_state *orig_cs,
-					 void *unused)
+					 char **args)
 {
 	u8 *msg;
 	struct crypto_state cs = *orig_cs;
@@ -121,6 +121,15 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 	sync_crypto_write(&cs, conn->fd, take(msg));
 	/* Ignore their init message. */
 	tal_free(sync_crypto_read(NULL, &cs, conn->fd));
+
+	/* Did they ask us to send any messages?  Do so now. */
+	while (*args) {
+		u8 *m = tal_hexdata(NULL, *args, strlen(*args));
+		if (!m)
+			errx(1, "Invalid hexdata '%s'", *args);
+		sync_crypto_write(&cs, conn->fd, take(m));
+		args++;
+	}
 
 	/* Now write out whatever we get. */
 	while ((msg = sync_crypto_read(NULL, &cs, conn->fd)) != NULL) {
@@ -157,12 +166,12 @@ int main(int argc, char *argv[])
 			 &max_messages,
 			 "Terminate after reading this many messages (> 0)");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "id@addr[:port]\n"
+			   "id@addr[:port] [hex-msg-tosend...]\n"
 			   "Connect to a lightning peer and relay gossip messages from it",
 			   "Print this message.");
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
-	if (argc != 2)
+	if (argc < 2)
 		opt_usage_exit_fail("Need an id@addr to connect to");
 	at = strchr(argv[1], '@');
 	if (!at)
@@ -214,7 +223,7 @@ int main(int argc, char *argv[])
 	if (connect(conn->fd, ai->ai_addr, ai->ai_addrlen) != 0)
 		err(1, "Connecting to %s", at+1);
 
-	initiator_handshake(conn, &us, &them, &addr, handshake_success, NULL);
+	initiator_handshake(conn, &us, &them, &addr, handshake_success, argv+2);
 	exit(0);
 }
 
