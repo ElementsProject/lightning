@@ -823,10 +823,6 @@ def test_gossip_store_load(node_factory):
     l1 = node_factory.get_node(start=False)
     with open(os.path.join(l1.daemon.lightning_dir, 'gossip_store'), 'wb') as f:
         f.write(bytearray.fromhex("03"  # GOSSIP_VERSION
-                                  "00000099"  # len
-                                  "12abbbba"  # csum
-                                  "1002"  # WIRE_GOSSIP_STORE_NODE_ANNOUNCEMENT
-                                  "00950101cf5d870bc7ecabcb7cd16898ef66891e5f0c6c5851bd85b670f03d325bc44d7544d367cd852e18ec03f7f4ff369b06860a3b12b07b29f36fb318ca11348bf8ec00005aab817c03f113414ebdc6c1fb0f33c99cd5a1d09dd79e7fdf2468cf1fe1af6674361695d23974b250757a7a6c6549544300000000000000000000000000000000000000000000000007010566933e2607"
                                   "000001bc"  # len
                                   "521ef598"  # csum
                                   "1000"  # WIRE_GOSSIP_STORE_CHANNEL_ANNOUNCEMENT
@@ -834,7 +830,11 @@ def test_gossip_store_load(node_factory):
                                   "00000086"  # len
                                   "88c703c8"  # csum
                                   "1001"  # WIRE_GOSSIP_STORE_CHANNEL_UPDATE
-                                  "008201021ea7c2eadf8a29eb8690511a519b5656e29aa0a853771c4e38e65c5abf43d907295a915e69e451f4c7a0c3dc13dd943cfbe3ae88c0b96667cd7d58955dbfedcf43497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea33090000000013a63c0000b500015b8d9b440000009000000000000003e8000003e800000001"))
+                                  "008201021ea7c2eadf8a29eb8690511a519b5656e29aa0a853771c4e38e65c5abf43d907295a915e69e451f4c7a0c3dc13dd943cfbe3ae88c0b96667cd7d58955dbfedcf43497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea33090000000013a63c0000b500015b8d9b440000009000000000000003e8000003e800000001"
+                                  "00000099"  # len
+                                  "12abbbba"  # csum
+                                  "1002"  # WIRE_GOSSIP_STORE_NODE_ANNOUNCEMENT
+                                  "00950101cf5d870bc7ecabcb7cd16898ef66891e5f0c6c5851bd85b670f03d325bc44d7544d367cd852e18ec03f7f4ff369b06860a3b12b07b29f36fb318ca11348bf8ec00005aab817c03f113414ebdc6c1fb0f33c99cd5a1d09dd79e7fdf2468cf1fe1af6674361695d23974b250757a7a6c6549544300000000000000000000000000000000000000000000000007010566933e2607"))
 
     l1.start()
     # May preceed the Started msg waited for in 'start'.
