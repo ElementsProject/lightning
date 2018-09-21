@@ -1,5 +1,5 @@
 from fixtures import *  # noqa: F401,F403
-from utils import wait_for, TIMEOUT
+from utils import wait_for, TIMEOUT, only_one
 
 import json
 import logging
@@ -862,3 +862,28 @@ def test_gossipwith(node_factory):
 
     # one channel announcement, two channel_updates, two node announcements.
     assert num_msgs == 5
+
+
+def test_gossip_notices_close(node_factory, bitcoind):
+    l1 = node_factory.get_node()
+    l2, l3 = node_factory.line_graph(2)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    bitcoind.generate_block(5)
+
+    # Make sure l1 learns about channel.
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
+    wait_for(lambda: len(l1.rpc.listnodes()['nodes']) == 2)
+    l1.rpc.disconnect(l2.info['id'])
+
+    l2.rpc.close(l3.info['id'])
+    wait_for(lambda: only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
+    bitcoind.generate_block(1)
+
+    wait_for(lambda: l1.rpc.listchannels()['channels'] == [])
+    wait_for(lambda: l1.rpc.listnodes()['nodes'] == [])
+
+    l1.stop()
+    l1.start()
+    assert(l1.rpc.listchannels()['channels'] == [])
+    assert(l1.rpc.listnodes()['nodes'] == [])
