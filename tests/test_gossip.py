@@ -1,9 +1,10 @@
 from fixtures import *  # noqa: F401,F403
-from utils import wait_for
+from utils import wait_for, TIMEOUT
 
 import json
 import logging
 import os
+import struct
 import subprocess
 import time
 import unittest
@@ -839,3 +840,25 @@ def test_gossip_store_load(node_factory):
     # May preceed the Started msg waited for in 'start'.
     wait_for(lambda: l1.daemon.is_in_log('gossip_store: Read 1/1/1/0 cannounce/cupdate/nannounce/cdelete from store in 744 bytes'))
     assert not l1.daemon.is_in_log('gossip_store.*truncating')
+
+
+def test_gossipwith(node_factory):
+    l1, l2 = node_factory.line_graph(2, announce=True)
+
+    out = subprocess.run(['devtools/gossipwith',
+                          '--initial-sync',
+                          '--max-messages=5',
+                          '{}@localhost:{}'.format(l1.info['id'], l1.port)],
+                         check=True,
+                         timeout=TIMEOUT, stdout=subprocess.PIPE).stdout
+
+    num_msgs = 0
+    while len(out):
+        l, t = struct.unpack('>HH', out[0:4])
+        # channel_announcement node_announcement or channel_update
+        assert t == 256 or t == 257 or t == 258
+        out = out[2 + l:]
+        num_msgs += 1
+
+    # one channel announcement, two channel_updates, two node announcements.
+    assert num_msgs == 5
