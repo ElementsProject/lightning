@@ -2139,7 +2139,8 @@ struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 			  "FROM utxoset "
 			  "WHERE blockheight = ?"
 			  " AND txindex = ?"
-			  " AND outnum = ?");
+			  " AND outnum = ?"
+			  " AND spendheight IS NULL");
 	sqlite3_bind_int(stmt, 1, short_channel_id_blocknum(scid));
 	sqlite3_bind_int(stmt, 2, short_channel_id_txnum(scid));
 	sqlite3_bind_int(stmt, 3, short_channel_id_outnum(scid));
