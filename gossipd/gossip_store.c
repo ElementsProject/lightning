@@ -251,12 +251,9 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 	/* We set/check version byte on creation */
 	off_t known_good = 1;
 	const char *bad;
-	size_t stats[] = {0, 0, 0, 0, 0};
+	size_t stats[] = {0, 0, 0, 0};
 	int fd = gs->fd;
 	gs->fd = -1;
-	bool unknown_node;
-	size_t num_delayed_na = 0;
-	u8 **delayed_na = tal_arr(tmpctx, u8 *, num_delayed_na);
 
 	if (lseek(fd, known_good, SEEK_SET) < 0) {
 		status_unusual("gossip_store: lseek failure");
@@ -297,18 +294,11 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 			stats[1]++;
 		} else if (fromwire_gossip_store_node_announcement(msg, msg,
 								   &gossip_msg)) {
-			if (!routing_add_node_announcement(rstate, gossip_msg,
-							   &unknown_node)) {
-				if (!unknown_node) {
-					bad = "Bad node_announcement";
-					goto truncate;
-				}
-				/* Defer until later. */
-				tal_resize(&delayed_na, num_delayed_na+1);
-				delayed_na[num_delayed_na++]
-					= tal_steal(delayed_na, gossip_msg);
-			} else
-				stats[2]++;
+			if (!routing_add_node_announcement(rstate, gossip_msg)) {
+				bad = "Bad node_announcement";
+				goto truncate;
+			}
+			stats[2]++;
 		} else if (fromwire_gossip_store_channel_delete(msg, &scid)) {
 			struct chan *c = get_channel(rstate, &scid);
 			if (!c) {
@@ -328,15 +318,6 @@ void gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		gs->count++;
 		tal_free(msg);
 	}
-
-	for (size_t i = 0; i < tal_count(delayed_na); i++) {
-		if (routing_add_node_announcement(rstate, delayed_na[i], NULL)) {
-			stats[2]++;
-			stats[4]++;
-		}
-	}
-	status_trace("Successfully processed %zu/%zu unknown node_announcement",
-		     stats[4], tal_count(delayed_na));
 	goto out;
 
 truncate:
