@@ -4,7 +4,6 @@ from utils import wait_for, TIMEOUT, only_one
 import json
 import logging
 import os
-import pytest
 import struct
 import subprocess
 import time
@@ -865,7 +864,6 @@ def test_gossipwith(node_factory):
     assert num_msgs == 5
 
 
-@pytest.mark.xfail(strict=True)
 def test_gossip_notices_close(node_factory, bitcoind):
     # We want IO logging so we can replay a channel_announce to l1.
     l1 = node_factory.get_node(options={'log-level': 'io'})
