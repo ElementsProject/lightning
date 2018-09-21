@@ -4,6 +4,7 @@ from utils import wait_for, TIMEOUT, only_one
 import json
 import logging
 import os
+import pytest
 import struct
 import subprocess
 import time
@@ -864,10 +865,15 @@ def test_gossipwith(node_factory):
     assert num_msgs == 5
 
 
+@pytest.mark.xfail(strict=True)
 def test_gossip_notices_close(node_factory, bitcoind):
-    l1 = node_factory.get_node()
+    # We want IO logging so we can replay a channel_announce to l1.
+    l1 = node_factory.get_node(options={'log-level': 'io'})
     l2, l3 = node_factory.line_graph(2)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # FIXME: sending SIGUSR1 immediately may kill it before handler installed.
+    l1.daemon.wait_for_log('Handed peer, entering loop')
+    subprocess.run(['kill', '-USR1', l1.subd_pid('openingd')])
 
     bitcoind.generate_block(5)
 
@@ -876,12 +882,33 @@ def test_gossip_notices_close(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listnodes()['nodes']) == 2)
     l1.rpc.disconnect(l2.info['id'])
 
+    # Grab channel_announcement from io logs (ends in ')
+    channel_announcement = l1.daemon.is_in_log('\[IN\] 0100').split(' ')[-1][:-1]
+    channel_update = l1.daemon.is_in_log('\[IN\] 0102').split(' ')[-1][:-1]
+    node_announcement = l1.daemon.is_in_log('\[IN\] 0101').split(' ')[-1][:-1]
+
     l2.rpc.close(l3.info['id'])
     wait_for(lambda: only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
     bitcoind.generate_block(1)
 
     wait_for(lambda: l1.rpc.listchannels()['channels'] == [])
     wait_for(lambda: l1.rpc.listnodes()['nodes'] == [])
+
+    # FIXME: This is a hack: we should have a framework for canned conversations
+    # This doesn't naturally terminate, so we give it 5 seconds.
+    try:
+        subprocess.run(['devtools/gossipwith',
+                        '{}@localhost:{}'.format(l1.info['id'], l1.port),
+                        channel_announcement,
+                        channel_update,
+                        node_announcement],
+                       timeout=5, stdout=subprocess.PIPE)
+    except subprocess.TimeoutExpired:
+        pass
+
+    # l1 should reject it.
+    assert(l1.rpc.listchannels()['channels'] == [])
+    assert(l1.rpc.listnodes()['nodes'] == [])
 
     l1.stop()
     l1.start()
