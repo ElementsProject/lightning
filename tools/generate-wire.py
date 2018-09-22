@@ -401,7 +401,7 @@ class Message(object):
                                     .format(f.name, f.name, f.fieldtype.name,
                                             basetype, f.name))
                 elif f.is_assignable():
-                    subcalls.append("//3th case {name}".format(name=f.name))
+                    subcalls.append("//3rd case {name}".format(name=f.name))
                     if f.is_len_var:
                         subcalls.append('{} = fromwire_{}(&cursor, &plen);'
                                         .format(f.name, basetype))
