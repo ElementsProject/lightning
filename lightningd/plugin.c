@@ -156,14 +156,14 @@ void plugins_init(struct plugins *plugins)
 		cmd[1] = NULL;
 		p->pid = pipecmdarr(&p->stdout, &p->stdin, NULL, cmd);
 
+		list_head_init(&p->output);
+		p->buffer = tal_arr(p, char, 64);
+		p->used = 0;
+
 		/* Create two connections, one read-only on top of p->stdin, and one
 		 * write-only on p->stdout */
 		io_new_conn(p, p->stdout, plugin_conn_init, p);
 		io_new_conn(p, p->stdin, plugin_conn_init, p);
-
-		list_head_init(&p->output);
-		p->buffer = tal_arr(p, char, 64);
-		p->used = 0;
 	}
 }
 
