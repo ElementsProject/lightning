@@ -27,6 +27,9 @@ bool fromwire_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNE
 /* Generated stub for fromwire_channel_update */
 bool fromwire_channel_update(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED, struct bitcoin_blkid *chain_hash UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, u32 *timestamp UNNEEDED, u8 *message_flags UNNEEDED, u8 *channel_flags UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, u64 *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED)
 { fprintf(stderr, "fromwire_channel_update called!\n"); abort(); }
+/* Generated stub for fromwire_channel_update_option_channel_htlc_max */
+bool fromwire_channel_update_option_channel_htlc_max(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED, struct bitcoin_blkid *chain_hash UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, u32 *timestamp UNNEEDED, u8 *message_flags UNNEEDED, u8 *channel_flags UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, u64 *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED, u64 *htlc_maximum_msat UNNEEDED)
+{ fprintf(stderr, "fromwire_channel_update_option_channel_htlc_max called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_local_add_channel */
 bool fromwire_gossip_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct pubkey *remote_node_id UNNEEDED, u64 *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_local_add_channel called!\n"); abort(); }
@@ -112,6 +115,7 @@ static void add_connection(struct routing_state *rstate,
 	struct short_channel_id scid;
 	struct half_chan *c;
 	struct chan *chan;
+	int satoshis = 100000;
 
 	/* Make a unique scid. */
 	memcpy(&scid, from, sizeof(scid) / 2);
@@ -119,7 +123,7 @@ static void add_connection(struct routing_state *rstate,
 
 	chan = get_channel(rstate, &scid);
 	if (!chan)
-		chan = new_chan(rstate, &scid, from, to, 100000);
+		chan = new_chan(rstate, &scid, from, to, satoshis);
 
 	c = &chan->half[pubkey_idx(from, to)];
 	/* Make sure it's seen as initialized (update non-NULL). */
@@ -129,6 +133,7 @@ static void add_connection(struct routing_state *rstate,
 	c->delay = delay;
 	c->channel_flags = get_channel_direction(from, to);
 	c->htlc_minimum_msat = 0;
+	c->htlc_maximum_msat = satoshis * 1000;
 }
 
 /* Returns chan connecting from and to: *idx set to refer

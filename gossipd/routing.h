@@ -29,6 +29,9 @@ struct half_chan {
 	/* Minimum number of msatoshi in an HTLC */
 	u32 htlc_minimum_msat;
 
+	/* Maximum number of msatoshis in an HTLC */
+	u64 htlc_maximum_msat;
+
 	/* Flags as specified by the `channel_update`s, among other
 	 * things indicated direction wrt the `channel_id` */
 	u8 channel_flags;

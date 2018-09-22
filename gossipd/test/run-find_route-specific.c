@@ -29,6 +29,9 @@ bool fromwire_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNE
 /* Generated stub for fromwire_channel_update */
 bool fromwire_channel_update(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED, struct bitcoin_blkid *chain_hash UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, u32 *timestamp UNNEEDED, u8 *message_flags UNNEEDED, u8 *channel_flags UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, u64 *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED)
 { fprintf(stderr, "fromwire_channel_update called!\n"); abort(); }
+/* Generated stub for fromwire_channel_update_option_channel_htlc_max */
+bool fromwire_channel_update_option_channel_htlc_max(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED, struct bitcoin_blkid *chain_hash UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, u32 *timestamp UNNEEDED, u8 *message_flags UNNEEDED, u8 *channel_flags UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, u64 *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED, u64 *htlc_maximum_msat UNNEEDED)
+{ fprintf(stderr, "fromwire_channel_update_option_channel_htlc_max called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_local_add_channel */
 bool fromwire_gossip_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct pubkey *remote_node_id UNNEEDED, u64 *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_local_add_channel called!\n"); abort(); }
@@ -126,8 +129,9 @@ get_or_make_connection(struct routing_state *rstate,
 	/* Make sure it's seen as initialized (update non-NULL). */
 	chan->half[idx].channel_update = (void *)chan;
 	chan->half[idx].htlc_minimum_msat = 0;
+	chan->half[idx].htlc_maximum_msat = satoshis * 1000;
 
-	return &chan->half[pubkey_idx(from_id, to_id)];
+	return &chan->half[idx];
 }
 
 static bool channel_is_between(const struct chan *chan,
@@ -151,7 +155,7 @@ int main(void)
 	static const struct bitcoin_blkid zerohash;
 	struct half_chan *nc;
 	struct routing_state *rstate;
-	struct pubkey a, b, c;
+	struct pubkey a, b, c, d;
 	u64 fee;
 	struct chan **route;
 	const double riskfactor = 1.0 / BLOCKS_PER_YEAR / 10000;
@@ -169,6 +173,9 @@ int main(void)
 	pubkey_from_hexstr("02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06",
 			   strlen("02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06"),
 			   &c);
+	pubkey_from_hexstr("02cca6c5c966fcf61d121e3a70e03a1cd9eeeea024b26ea666ce974d43b242e636",
+			   strlen("02cca6c5c966fcf61d121e3a70e03a1cd9eeeea024b26ea666ce974d43b242e636"),
+			   &d);
 
 	rstate = new_routing_state(tmpctx, &zerohash, &a, 0);
 
@@ -226,9 +233,29 @@ int main(void)
 	route = find_route(tmpctx, rstate, &a, &c, 999999, riskfactor, 0.0, NULL, &fee);
 	assert(!route);
 
-	/* This should fail to returns a route because it is smaller than these
+	/* This should fail to return a route because it is smaller than these
 	 * htlc_minimum_msat on the last channel. */
 	route = find_route(tmpctx, rstate, &a, &c, 1, riskfactor, 0.0, NULL, &fee);
+	assert(!route);
+
+	/* {'active': True, 'short_id': '6990:2:1/0', 'fee_per_kw': 10, 'delay': 5, 'message_flags': 1, 'htlc_maximum_msat': 500000, 'htlc_minimum_msat': 100, 'channel_flags': 0, 'destination': '02cca6c5c966fcf61d121e3a70e03a1cd9eeeea024b26ea666ce974d43b242e636', 'source': '03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf', 'last_update': 1504064344}, */
+	nc = get_or_make_connection(rstate, &a, &d, "6991:2:1", 1000);
+	nc->base_fee = 0;
+	nc->proportional_fee = 0;
+	nc->delay = 5;
+	nc->channel_flags = 0;
+	nc->message_flags = 1;
+	nc->last_timestamp = 1504064344;
+	nc->htlc_minimum_msat = 100;
+	nc->htlc_maximum_msat = 500000; /* half capacity */
+
+	/* This should route correctly at the max_msat level */
+	route = find_route(tmpctx, rstate, &a, &d, 500000, riskfactor, 0.0, NULL, &fee);
+	assert(route);
+
+	/* This should fail to return a route because it's larger than the
+	 * htlc_maximum_msat on the last channel. */
+	route = find_route(tmpctx, rstate, &a, &d, 500001, riskfactor, 0.0, NULL, &fee);
 	assert(!route);
 
 	tal_free(tmpctx);
