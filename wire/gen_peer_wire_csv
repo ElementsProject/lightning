@@ -149,6 +149,7 @@ channel_update,110,cltv_expiry_delta,2
 channel_update,112,htlc_minimum_msat,8
 channel_update,120,fee_base_msat,4
 channel_update,124,fee_proportional_millionths,4
+channel_update,128,htlc_maximum_msat,8,option_channel_htlc_max
 query_short_channel_ids,261
 query_short_channel_ids,0,chain_hash,32
 query_short_channel_ids,32,len,2

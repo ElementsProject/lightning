@@ -25,6 +25,16 @@
 
 /* BOLT #7:
  *
+ * The `message_flags` bitfield is used to indicate the presence of optional
+ * fields in the `channel_update` message:
+ * | Bit Position  | Name                      | Field                |
+ * | ------------- | ------------------------- | -------------------- |
+ * | 0             | `option_channel_htlc_max` | `htlc_maximum_msat`  |
+ */
+#define ROUTING_OPT_HTLC_MAX_MSAT (1 << 0)
+
+/* BOLT #7:
+ *
  * - MUST NOT send `announcement_signatures` messages until `funding_locked`
  *   has been sent AND the funding transaction has at least six confirmations.
  */

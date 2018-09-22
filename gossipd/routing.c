@@ -361,6 +361,15 @@ static u64 risk_fee(u64 amount, u32 delay, double riskfactor)
 	return 1 + amount * delay * riskfactor;
 }
 
+/* Check that we can fit through this channel's indicated
+ * maximum_ and minimum_msat requirements.
+ */
+static bool hc_can_carry(const struct half_chan *hc, u64 requiredcap)
+{
+	return hc->htlc_maximum_msat >= requiredcap &&
+		hc->htlc_minimum_msat <= requiredcap;
+}
+
 /* We track totals, rather than costs.  That's because the fee depends
  * on the current amount passing through. */
 static void bfg_one_edge(struct node *node,
@@ -398,13 +407,9 @@ static void bfg_one_edge(struct node *node,
 		risk = node->bfg[h].risk +
 		       risk_fee(requiredcap, c->delay, riskfactor);
 
-		if (requiredcap > chan->satoshis * 1000) {
-			/* Skip this edge if the channel has insufficient
-			 * capacity to route the required amount */
-			continue;
-		} else if (requiredcap < c->htlc_minimum_msat) {
-			/* Skip a channels if it indicated that it won't route
-			 * the requeuested amount. */
+		if (!hc_can_carry(c, requiredcap)) {
+			/* Skip a channel if it indicated that it won't route
+			 * the requested amount. */
 			continue;
 		} else if (requiredcap >= MAX_MSATOSHI) {
 			SUPERVERBOSE("...extreme %"PRIu64
@@ -1009,12 +1014,14 @@ static void set_connection_values(struct chan *chan,
 				  u8 message_flags,
 				  u8 channel_flags,
 				  u64 timestamp,
-				  u32 htlc_minimum_msat)
+				  u64 htlc_minimum_msat,
+				  u64 htlc_maximum_msat)
 {
 	struct half_chan *c = &chan->half[idx];
 
 	c->delay = delay;
 	c->htlc_minimum_msat = htlc_minimum_msat;
+	c->htlc_maximum_msat = htlc_maximum_msat;
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->message_flags = message_flags;
@@ -1051,15 +1058,17 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	u64 htlc_minimum_msat;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
+	u64 htlc_maximum_msat;
 	struct bitcoin_blkid chain_hash;
 	struct chan *chan;
 	u8 direction;
 
-	if (!fromwire_channel_update(update, &signature, &chain_hash,
+	if (!fromwire_channel_update_option_channel_htlc_max(update, &signature, &chain_hash,
 				     &short_channel_id, &timestamp,
 				     &message_flags, &channel_flags,
 				     &expiry, &htlc_minimum_msat, &fee_base_msat,
-				     &fee_proportional_millionths))
+				     &fee_proportional_millionths,
+				     &htlc_maximum_msat))
 		return false;
 	chan = get_channel(rstate, &short_channel_id);
 	if (!chan)
@@ -1069,7 +1078,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	set_connection_values(chan, direction, fee_base_msat,
 			      fee_proportional_millionths, expiry,
 			      message_flags, channel_flags,
-			      timestamp, htlc_minimum_msat);
+			      timestamp, htlc_minimum_msat,
+			      htlc_maximum_msat);
 
 	/* Replace any old one. */
 	tal_free(chan->half[direction].channel_update);
