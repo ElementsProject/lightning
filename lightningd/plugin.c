@@ -147,10 +147,14 @@ static struct io_plan *plugin_conn_init(struct io_conn *conn,
 void plugins_init(struct plugins *plugins)
 {
 	struct plugin *p;
+	char **cmd;
 	/* Spawn the plugin processes before entering the io_loop */
 	for (size_t i=0; i<tal_count(plugins->plugins); i++) {
 		p = &plugins->plugins[i];
-		p->pid = pipecmd(&p->stdout, &p->stdin, NULL, p->cmd);
+		cmd = tal_arr(p, char *, 2);
+		cmd[0] = p->cmd;
+		cmd[1] = NULL;
+		p->pid = pipecmdarr(&p->stdout, &p->stdin, NULL, cmd);
 
 		/* Create two connections, one read-only on top of p->stdin, and one
 		 * write-only on p->stdout */
