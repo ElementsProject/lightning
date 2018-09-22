@@ -187,7 +187,10 @@ jsmntok_t *json_parse_input(const char *input, int len, bool *valid)
 	jsmntok_t *toks;
 	int ret;
 
-	toks = tal_arr(input, jsmntok_t, 10);
+	/* Zero out so we can count elements correctly even on incomplete reads
+	 * (when jsmn_parse returns -1). This results in all toks being of type
+	 * JSMN_UNDEFINED which we can recognize. */
+	toks = tal_arrz(input, jsmntok_t, 10);
 
 again:
 	jsmn_init(&parser);
@@ -197,12 +200,25 @@ again:
 	case JSMN_ERROR_INVAL:
 		*valid = false;
 		return tal_free(toks);
-	case JSMN_ERROR_PART:
+	case JSMN_ERROR_NOMEM:
+		tal_resizez(&toks, tal_count(toks) * 2);
+		goto again;
+	}
+
+	/* Check whether we read at least one full root element, i.e., root
+	 * element has its end set. */
+	if (toks[0].type == JSMN_UNDEFINED || toks[0].end == -1) {
 		*valid = true;
 		return tal_free(toks);
-	case JSMN_ERROR_NOMEM:
-		tal_resize(&toks, tal_count(toks) * 2);
-		goto again;
+	}
+
+	/* If we read a partial element at the end of the stream we'll get a
+	 * ret=JSMN_ERROR_PART, but due to the previous check we know we read at
+	 * least one full element, so count tokens that are part of this root
+	 * element. */
+	for (ret=0; ret < tal_count(toks)-1; ret++) {
+		if (toks[ret].type == JSMN_UNDEFINED || toks[ret].start >= toks[0].end)
+			break;
 	}
 
 	/* Cut to length and return. */

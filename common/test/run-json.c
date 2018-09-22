@@ -145,6 +145,37 @@ static void test_json_partial(void)
 	tal_free(ctx);
 }
 
+/* Test that we can segment and parse a stream of json objects correctly. */
+static void test_json_stream(void)
+{
+	bool valid;
+	char *input, *talstr;
+	jsmntok_t *toks;
+
+	/* Multiple full messages in a single buffer (happens when buffer
+	 * boundary coincides with message boundary, or read returned after
+	 * timeout. */
+	input = "{\"x\":\"x\"}{\"y\":\"y\"}";
+	talstr = tal_strndup(NULL, input, strlen(input));
+	toks = json_parse_input(talstr, strlen(talstr), &valid);
+	assert(toks);
+	assert(tal_count(toks) == 4);
+	assert(toks[0].start == 0 && toks[0].end == 9);
+	assert(valid);
+	tal_free(talstr);
+
+	/* Multiple messages, and the last one is partial, far more likely than
+	 * accidentally getting the boundaries to match. */
+	input = "{\"x\":\"x\"}{\"y\":\"y\"}{\"z\":\"z";
+	talstr = tal_strndup(NULL, input, strlen(input));
+	toks = json_parse_input(talstr, strlen(talstr), &valid);
+	assert(toks);
+	assert(tal_count(toks) == 4);
+	assert(toks[0].start == 0 && toks[0].end == 9);
+	assert(valid);
+	tal_free(talstr);
+}
+
 int main(void)
 {
 	setup_locale();
@@ -153,6 +184,7 @@ int main(void)
 	test_json_filter();
 	test_json_escape();
 	test_json_partial();
+	test_json_stream();
 	assert(!taken_any());
 	take_cleanup();
 }
