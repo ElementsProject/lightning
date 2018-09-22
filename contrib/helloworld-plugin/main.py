@@ -46,6 +46,11 @@ methods = {
     'ping': json_ping,
 }
 
+for i in range(100):
+    json.dump({'hello': 'world'}, fp=sys.stdout)
+    sys.stdout.write('\n')
+    sys.stdout.flush()
+
 
 partial = ""
 for l in sys.stdin:

@@ -47,8 +47,6 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 	p->cmd = tal_strdup(p, path);
 }
 
-
-
 /**
  * Try to parse a complete message from the plugin's buffer.
  *
@@ -88,13 +86,15 @@ static bool plugin_read_json_one(struct plugin *plugin)
 static struct io_plan *plugin_read_json(struct io_conn *conn UNUSED,
 					struct plugin *plugin)
 {
+	bool success;
 	plugin->used += plugin->len_read;
 	if (plugin->used == tal_count(plugin->buffer))
 		tal_resize(&plugin->buffer, plugin->used * 2);
 
 	/* Read and process all messages from the connection */
-	while (plugin_read_json_one(plugin))
-		;
+	do {
+		success = plugin_read_json_one(plugin);
+	} while (success);
 
 	/* Now read more from the connection */
 	return io_read_partial(plugin->stdout_conn,
