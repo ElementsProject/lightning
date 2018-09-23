@@ -148,6 +148,16 @@ const jsmntok_t *json_next(const jsmntok_t *tok)
 	return t;
 }
 
+const jsmntok_t *json_last_toks(const jsmntok_t *tok)
+{
+	const jsmntok_t *t = tok;
+	for (size_t i=0; i<tok->size; i++) {
+		t++;
+		t = json_last_toks(t);
+	}
+	return t;
+}
+
 const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 				 const char *label)
 {
@@ -187,13 +197,11 @@ jsmntok_t *json_parse_input(const char *input, int len, bool *valid)
 	jsmntok_t *toks;
 	int ret;
 
-	/* Zero out so we can count elements correctly even on incomplete reads
-	 * (when jsmn_parse returns -1). This results in all toks being of type
-	 * JSMN_UNDEFINED which we can recognize. */
-	toks = tal_arrz(input, jsmntok_t, 10);
+	toks = tal_arr(input, jsmntok_t, 10);
+	toks[0].type = JSMN_UNDEFINED;
 
-again:
 	jsmn_init(&parser);
+again:
 	ret = jsmn_parse(&parser, input, len, toks, tal_count(toks) - 1);
 
 	switch (ret) {
@@ -201,7 +209,7 @@ again:
 		*valid = false;
 		return tal_free(toks);
 	case JSMN_ERROR_NOMEM:
-		tal_resizez(&toks, tal_count(toks) * 2);
+		tal_resize(&toks, tal_count(toks) * 2);
 		goto again;
 	}
 
@@ -216,10 +224,7 @@ again:
 	 * ret=JSMN_ERROR_PART, but due to the previous check we know we read at
 	 * least one full element, so count tokens that are part of this root
 	 * element. */
-	for (ret=0; ret < tal_count(toks)-1; ret++) {
-		if (toks[ret].type == JSMN_UNDEFINED || toks[ret].start >= toks[0].end)
-			break;
-	}
+	ret = json_last_toks(toks) - toks + 1;
 
 	/* Cut to length and return. */
 	*valid = true;

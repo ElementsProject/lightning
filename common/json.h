@@ -106,5 +106,9 @@ void json_add_hex_talarr(struct json_result *result,
 			 const tal_t *data);
 void json_add_object(struct json_result *result, ...);
 
+/* Get a pointer to the last child element of this object */
+const jsmntok_t *json_last_toks(const jsmntok_t *tok);
+
+
 const char *json_result_string(const struct json_result *result);
 #endif /* LIGHTNING_COMMON_JSON_H */
