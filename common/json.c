@@ -148,16 +148,6 @@ const jsmntok_t *json_next(const jsmntok_t *tok)
 	return t;
 }
 
-const jsmntok_t *json_last_toks(const jsmntok_t *tok)
-{
-	const jsmntok_t *t = tok;
-	for (size_t i=0; i<tok->size; i++) {
-		t++;
-		t = json_last_toks(t);
-	}
-	return t;
-}
-
 const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 				 const char *label)
 {
@@ -224,7 +214,7 @@ again:
 	 * ret=JSMN_ERROR_PART, but due to the previous check we know we read at
 	 * least one full element, so count tokens that are part of this root
 	 * element. */
-	ret = json_last_toks(toks) - toks + 1;
+	ret = json_next(toks) - toks;
 
 	/* Cut to length and return. */
 	*valid = true;
