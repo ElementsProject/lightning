@@ -110,8 +110,8 @@ struct node {
 		struct chan *prev;
 	} bfg[ROUTING_MAX_HOPS+1];
 
-	/* UTF-8 encoded alias as tal_arr, not zero terminated */
-	u8 *alias;
+	/* UTF-8 encoded alias, not zero terminated */
+	u8 alias[32];
 
 	/* Color to be used when displaying the name */
 	u8 rgb_color[3];

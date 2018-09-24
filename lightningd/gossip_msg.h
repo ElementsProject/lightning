@@ -16,7 +16,7 @@ struct gossip_getnodes_entry {
 	u8 *globalfeatures;
 	s64 last_timestamp; /* -1 means never: following fields ignored */
 	struct wireaddr *addresses;
-	u8 *alias;
+	u8 alias[32];
 	u8 color[3];
 };
 

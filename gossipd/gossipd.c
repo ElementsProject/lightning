@@ -1,3 +1,4 @@
+#include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/cast/cast.h>
@@ -84,7 +85,7 @@ struct daemon {
 	/* Global features to list in node_announcement. */
 	u8 *globalfeatures;
 
-	u8 alias[33];
+	u8 alias[32];
 	u8 rgb[3];
 
 	/* What we can actually announce. */
@@ -1410,8 +1411,10 @@ static void append_node(const struct gossip_getnodes_entry ***nodes,
 	} else {
 		new->last_timestamp = n->last_timestamp;
 		new->addresses = n->addresses;
-		new->alias = n->alias;
-		memcpy(new->color, n->rgb_color, 3);
+		BUILD_ASSERT(ARRAY_SIZE(new->alias) == ARRAY_SIZE(n->alias));
+		BUILD_ASSERT(ARRAY_SIZE(new->color) == ARRAY_SIZE(n->rgb_color));
+		memcpy(new->alias, n->alias, ARRAY_SIZE(new->alias));
+		memcpy(new->color, n->rgb_color, ARRAY_SIZE(new->color));
 	}
 	*tal_arr_expand(nodes) = new;
 }

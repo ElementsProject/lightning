@@ -1,3 +1,4 @@
+#include <ccan/array_size/array_size.h>
 #include <common/bolt11.h>
 #include <common/wireaddr.h>
 #include <lightningd/gossip_msg.h>
@@ -20,7 +21,6 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 	entry->last_timestamp = fromwire_u64(pptr, max);
 	if (entry->last_timestamp < 0) {
 		entry->addresses = NULL;
-		entry->alias = NULL;
 		return entry;
 	}
 	numaddresses = fromwire_u8(pptr, max);
@@ -33,10 +33,8 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 			return NULL;
 		}
 	}
-	/* Make sure alias is NUL terminated */
-	entry->alias = tal_arrz(entry, u8, fromwire_u8(pptr, max)+1);
-	fromwire(pptr, max, entry->alias, tal_count(entry->alias)-1);
-	fromwire(pptr, max, entry->color, sizeof(entry->color));
+	fromwire(pptr, max, entry->alias, ARRAY_SIZE(entry->alias));
+	fromwire(pptr, max, entry->color, ARRAY_SIZE(entry->color));
 
 	return entry;
 }
@@ -58,9 +56,8 @@ void towire_gossip_getnodes_entry(u8 **pptr,
 	for (i=0; i<numaddresses; i++) {
 		towire_wireaddr(pptr, &entry->addresses[i]);
 	}
-	towire_u8(pptr, tal_count(entry->alias));
-	towire(pptr, entry->alias, tal_count(entry->alias));
-	towire(pptr, entry->color, sizeof(entry->color));
+	towire(pptr, entry->alias, ARRAY_SIZE(entry->alias));
+	towire(pptr, entry->color, ARRAY_SIZE(entry->color));
 }
 
 void fromwire_route_hop(const u8 **pptr, size_t *max, struct route_hop *entry)

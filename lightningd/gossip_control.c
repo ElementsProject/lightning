@@ -202,7 +202,10 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 			json_object_end(response);
 			continue;
 		}
-		esc = json_escape(NULL, (const char *)nodes[i]->alias);
+		esc = json_escape(NULL,
+				  take(tal_strndup(NULL,
+						   (const char *)nodes[i]->alias,
+						   ARRAY_SIZE(nodes[i]->alias))));
 		json_add_escaped_string(response, "alias", take(esc));
 		json_add_hex(response, "color",
 			     nodes[i]->color, ARRAY_SIZE(nodes[i]->color));
