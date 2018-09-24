@@ -61,6 +61,8 @@ struct wireaddr {
 	u16 port;
 };
 
+bool wireaddr_eq(const struct wireaddr *a, const struct wireaddr *b);
+
 /* We use wireaddr to tell gossipd both what to listen on, and what to
  * announce */
 enum addr_listen_announce {
