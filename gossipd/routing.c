@@ -753,11 +753,16 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	/* Channel is now public. */
 	chan->channel_announce = tal_dup_arr(chan, u8, msg, tal_count(msg), 0);
 
-	/* Clear any private updates: new updates will trigger broadcast of
-	 * this channel_announce. */
-	for (size_t i = 0; i < ARRAY_SIZE(chan->half); i++)
-		chan->half[i].channel_update
-			= tal_free(chan->half[i].channel_update);
+	/* Apply any private updates. */
+	for (size_t i = 0; i < ARRAY_SIZE(chan->half); i++) {
+		const u8 *update = chan->half[i].channel_update;
+		if (!update)
+			continue;
+
+		/* Remove from channel, otherwise it will be freed! */
+		chan->half[i].channel_update = NULL;
+		routing_add_channel_update(rstate, take(update));
+	}
 
 	return true;
 }
