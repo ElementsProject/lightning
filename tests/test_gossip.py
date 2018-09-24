@@ -4,6 +4,7 @@ from utils import wait_for, TIMEOUT, only_one
 import json
 import logging
 import os
+import pytest
 import struct
 import subprocess
 import time
@@ -842,19 +843,34 @@ def test_gossip_store_load(node_factory):
     assert not l1.daemon.is_in_log('gossip_store.*truncating')
 
 
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "Needs fast gossip propagation")
 def test_node_reannounce(node_factory, bitcoind):
     "Test that we reannounce a node when parameters change"
-    l1, l2, l3 = node_factory.line_graph(3, opts={'may_reconnect': True})
-
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True,
+                                              'log_all_io': True})
     bitcoind.generate_block(5)
 
-    wait_for(lambda: l3.rpc.listnodes(l1.info['id'])['nodes'] != [])
-    assert only_one(l3.rpc.listnodes(l1.info['id'])['nodes'])['alias'].startswith('JUNIORBEAM')
+    # Wait for node_announcement for l1.
+    l2.daemon.wait_for_log('\[IN\] 0101.*{}'.format(l1.info['id']))
+    # Wait for it to process it.
+    wait_for(lambda: l2.rpc.listnodes(l1.info['id'])['nodes'] != [])
+    wait_for(lambda: 'alias' in only_one(l2.rpc.listnodes(l1.info['id'])['nodes']))
+    assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['alias'].startswith('JUNIORBEAM')
 
     l1.stop()
     l1.daemon.opts['alias'] = 'SENIORBEAM'
     l1.start()
-    wait_for(lambda: only_one(l3.rpc.listnodes(l1.info['id'])['nodes'])['alias'] == 'SENIORBEAM')
+
+    # Wait for l1 to send us its own node_announcement.
+    nannouncement = l2.daemon.wait_for_log('{}.*\[IN\] 0101.*{}'.format(l1.info['id'], l1.info['id'])).split('[IN] ')[1]
+    wait_for(lambda: only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['alias'] == 'SENIORBEAM')
+
+    # Restart should re-xmit exact same update on reconnect.
+    l1.restart()
+
+    # l1 should retransmit it exactly the same (no timestamp change!)
+    l2.daemon.wait_for_log('{}.*\[IN\] {}'.format(l1.info['id'], nannouncement))
 
 
 def test_gossipwith(node_factory):
