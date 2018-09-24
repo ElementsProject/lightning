@@ -1055,7 +1055,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	struct bitcoin_blkid chain_hash;
 	struct chan *chan;
 	u8 direction;
-	bool have_broadcast_announce;
 
 	if (!fromwire_channel_update(update, &signature, &chain_hash,
 				     &short_channel_id, &timestamp,
@@ -1066,10 +1065,6 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	chan = get_channel(rstate, &short_channel_id);
 	if (!chan)
 		return false;
-
-	/* We broadcast announce once we have one update */
-	have_broadcast_announce = is_halfchan_defined(&chan->half[0])
-		|| is_halfchan_defined(&chan->half[1]);
 
 	direction = channel_flags & 0x1;
 	set_connection_values(chan, direction, fee_base_msat,
@@ -1093,7 +1088,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	 *   - MUST consider whether to send the `channel_announcement` after
 	 *     receiving the first corresponding `channel_update`.
 	 */
-	if (!have_broadcast_announce)
+	if (chan->channel_announcement_index == 0)
 		add_channel_announce_to_broadcast(rstate, chan, timestamp);
 
 	persistent_broadcast(rstate, chan->half[direction].channel_update,
