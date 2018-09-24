@@ -17,6 +17,15 @@
 #include <unistd.h>
 #include <wire/wire.h>
 
+bool wireaddr_eq(const struct wireaddr *a, const struct wireaddr *b)
+{
+	if (a->type != b->type)
+		return false;
+	if (a->port != b->port)
+		return false;
+	return memeq(a->addr, a->addrlen, b->addr, b->addrlen);
+}
+
 /* Returns false if we didn't parse it, and *cursor == NULL if malformed. */
 bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr)
 {
