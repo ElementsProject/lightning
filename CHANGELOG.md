@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 
 - Protocol: `channel_update` sent to disable channel only if we reject an HTLC.
+- Protocol: we don't send redundant `node_announcement` on every new channel.
 
 ### Deprecated
 
