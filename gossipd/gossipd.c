@@ -1803,6 +1803,10 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	/* Now disable all local channels, they can't be connected yet. */
 	gossip_disable_local_channels(daemon);
 
+	/* If that announced channels, we can announce ourselves (options
+	 * or addresses might have changed!) */
+	maybe_send_own_node_announce(daemon);
+
 	new_reltimer(&daemon->timers, daemon,
 		     time_from_sec(daemon->rstate->prune_timeout/4),
 		     gossip_refresh_network, daemon);

@@ -842,7 +842,6 @@ def test_gossip_store_load(node_factory):
     assert not l1.daemon.is_in_log('gossip_store.*truncating')
 
 
-@pytest.mark.xfail(strict=True)
 def test_node_reannounce(node_factory, bitcoind):
     "Test that we reannounce a node when parameters change"
     l1, l2, l3 = node_factory.line_graph(3, opts={'may_reconnect': True})
