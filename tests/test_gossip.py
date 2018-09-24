@@ -282,7 +282,7 @@ def test_gossip_jsonrpc(node_factory):
                              'peer_in WIRE_ANNOUNCEMENT_SIGNATURES'])
 
     # Just wait for the update to kick off and then check the effect
-    needle = "Received channel_update for channel"
+    needle = "Received node_announcement for node"
     l1.daemon.wait_for_log(needle)
     l2.daemon.wait_for_log(needle)
     # Need to increase timeout, intervals cannot be shortened with DEVELOPER=0
