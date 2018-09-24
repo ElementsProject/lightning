@@ -4,7 +4,6 @@ from utils import wait_for, TIMEOUT, only_one
 import json
 import logging
 import os
-import pytest
 import struct
 import subprocess
 import time
@@ -843,7 +842,6 @@ def test_gossip_store_load(node_factory):
     assert not l1.daemon.is_in_log('gossip_store.*truncating')
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "Needs fast gossip propagation")
 def test_node_reannounce(node_factory, bitcoind):
     "Test that we reannounce a node when parameters change"

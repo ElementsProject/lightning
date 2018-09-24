@@ -339,13 +339,49 @@ static void send_node_announcement(struct daemon *daemon)
 			      tal_hex(tmpctx, err));
 }
 
+/* Return true if the only change would be the timestamp. */
+static bool node_announcement_redundant(struct daemon *daemon)
+{
+	struct node *n = get_node(daemon->rstate, &daemon->id);
+	if (!n)
+		return false;
+
+	if (n->last_timestamp == -1)
+		return false;
+
+	if (tal_count(n->addresses) != tal_count(daemon->announcable))
+		return false;
+
+	for (size_t i = 0; i < tal_count(n->addresses); i++)
+		if (!wireaddr_eq(&n->addresses[i], &daemon->announcable[i]))
+			return false;
+
+	BUILD_ASSERT(ARRAY_SIZE(daemon->alias) == ARRAY_SIZE(n->alias));
+	if (!memeq(daemon->alias, ARRAY_SIZE(daemon->alias),
+		   n->alias, ARRAY_SIZE(n->alias)))
+		return false;
+
+	BUILD_ASSERT(ARRAY_SIZE(daemon->rgb) == ARRAY_SIZE(n->rgb_color));
+	if (!memeq(daemon->rgb, ARRAY_SIZE(daemon->rgb),
+		   n->rgb_color, ARRAY_SIZE(n->rgb_color)))
+		return false;
+
+	if (!memeq(daemon->globalfeatures, tal_count(daemon->globalfeatures),
+		   n->gfeatures, tal_count(n->gfeatures)))
+		return false;
+
+	return true;
+}
+
 /* Should we announce our own node? */
 static void maybe_send_own_node_announce(struct daemon *daemon)
 {
 	if (!daemon->rstate->local_channel_announced)
 		return;
 
-	/* FIXME: We may not need to retransmit here, if previous still valid. */
+	if (node_announcement_redundant(daemon))
+		return;
+
 	send_node_announcement(daemon);
 	daemon->rstate->local_channel_announced = false;
 }
