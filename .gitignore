@@ -21,32 +21,11 @@ __pycache__
 config.vars
 
 # Ignore some generated binaries
-lightningd/test/run-channel
-lightningd/test/run-cryptomsg
-lightningd/test/run-commit_tx
-lightningd/test/run-find_my_path
-lightningd/test/run-funding_tx
-lightningd/test/run-param
-lightningd/test/run-key_derive
-common/test/run-ip_port_parsing
-wire/test/run-peer-wire
-bitcoin/test/run-tx-encode
-channeld/test/run-full_channel
-common/test/run-bolt11
-common/test/run-derive_basepoints
-common/test/run-features
-common/test/run-json
-common/test/run-sphinx
-connectd/test/run-initiator-success
-connectd/test/run-responder-success
-daemon/test/run-maxfee
+*/test/run-*
+!*/test/run-*.c
 external/libbacktrace-build/
 external/libbacktrace.a
 external/libbacktrace.la
-gossipd/test/run-find_route-specific
-gossipd/test/run-initiator-success
-gossipd/test/run-responder-success
-onchaind/test/run-grind_feerate
 test/test_protocol
 test/test_sphinx
 tests/.pytest.restart
