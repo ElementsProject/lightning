@@ -947,8 +947,8 @@ def test_logging(node_factory):
     wait_for(check_new_log)
 
 
-@unittest.skipIf(VALGRIND and not DEVELOPER,
-                 "Backtrace upsets valgrind: only suppressed in DEVELOPER mode")
+@unittest.skipIf(VALGRIND,
+                 "Valgrind sometimes fails assert on injected SEGV")
 def test_crashlog(node_factory):
     l1 = node_factory.get_node(may_fail=True)
 
