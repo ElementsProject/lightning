@@ -91,11 +91,13 @@ def test_pay_disconnect(node_factory, bitcoind):
     inv = l2.rpc.invoice(123000, 'test_pay_disconnect', 'description')
     rhash = inv['payment_hash']
 
+    wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True, True])
+
     # Can't use `pay` since that'd notice that we can't route, due to disabling channel_update
     route = l1.rpc.getroute(l2.info['id'], 123000, 1)["route"]
 
     l2.stop()
-    l1.daemon.wait_for_log('Disabling channel .*, active 1 -> 0')
+    wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [False, False])
 
     # Can't pay while its offline.
     with pytest.raises(RpcError):
@@ -146,8 +148,8 @@ def test_pay_get_error_with_update(node_factory):
     l2.rpc.dev_suppress_gossip()
     l3.stop()
 
-    # Make sure that l2 has processed the local update which disables.
-    l2.daemon.wait_for_log('Received channel_update for channel {}\(.*\) now DISABLED was ACTIVE \(from apply_delayed_local_update\)'.format(chanid2))
+    # Make sure that l2 has seen disconnect, considers channel disabled.
+    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels(chanid2)['channels']] == [False, False])
 
     l1.rpc.sendpay(route, inv['payment_hash'])
     with pytest.raises(RpcError, match=r'WIRE_TEMPORARY_CHANNEL_FAILURE'):

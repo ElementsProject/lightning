@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 
+- Protocol: `channel_update` sent to disable channel only if we reject an HTLC.
+
 ### Deprecated
 
 Note: You should always set `allow-deprecated-apis=false` to test for
