@@ -1101,7 +1101,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	return true;
 }
 
-u8 *handle_channel_update(struct routing_state *rstate, const u8 *update,
+u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 			  const char *source)
 {
 	u8 *serialized;
