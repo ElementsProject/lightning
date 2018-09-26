@@ -4,10 +4,8 @@ from time import time
 from tqdm import tqdm
 
 
-import logging
 import pytest
 import random
-import utils
 
 
 num_workers = 480
