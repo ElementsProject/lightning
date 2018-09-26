@@ -4,6 +4,7 @@
 #include <bitcoin/chainparams.h>
 #include <ccan/autodata/autodata.h>
 #include <ccan/list/list.h>
+#include <common/io_lock.h>
 #include <common/json.h>
 
 struct bitcoin_txid;
@@ -64,6 +65,7 @@ struct json_connection {
 
 	struct list_head output;
 	const char *outbuf;
+	struct io_lock *lock;
 };
 
 struct json_command {

@@ -510,6 +510,9 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		assert(c->pending);
 }
 
+static struct io_plan *locked_write_json(struct io_conn *conn,
+					 struct json_connection *jcon);
+
 static struct io_plan *write_json(struct io_conn *conn,
 				  struct json_connection *jcon)
 {
@@ -524,8 +527,9 @@ static struct io_plan *write_json(struct io_conn *conn,
 			return io_close(conn);
 		}
 
+		io_lock_release(jcon->lock);
 		/* Wait for more output. */
-		return io_out_wait(conn, jcon, write_json, jcon);
+		return io_out_wait(conn, jcon, locked_write_json, jcon);
 	}
 
 	jcon->outbuf = tal_steal(jcon, out->json);
@@ -534,6 +538,12 @@ static struct io_plan *write_json(struct io_conn *conn,
 	log_io(jcon->log, LOG_IO_OUT, "", jcon->outbuf, strlen(jcon->outbuf));
 	return io_write(conn,
 			jcon->outbuf, strlen(jcon->outbuf), write_json, jcon);
+}
+
+static struct io_plan *locked_write_json(struct io_conn *conn,
+					   struct json_connection *jcon)
+{
+	return io_lock_acquire_out(conn, jcon->lock, write_json, jcon);
 }
 
 static struct io_plan *read_json(struct io_conn *conn,
@@ -600,6 +610,7 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	jcon->used = 0;
 	jcon->buffer = tal_arr(jcon, char, 64);
 	jcon->stop = false;
+	jcon->lock = io_lock_new(jcon);
 	list_head_init(&jcon->commands);
 
 	/* We want to log on destruction, so we free this in destructor. */
@@ -613,7 +624,7 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 			 io_read_partial(conn, jcon->buffer,
 					 tal_count(jcon->buffer),
 					 &jcon->len_read, read_json, jcon),
-			 write_json(conn, jcon));
+			 locked_write_json(conn, jcon));
 }
 
 static struct io_plan *incoming_jcon_connected(struct io_conn *conn,
