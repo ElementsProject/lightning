@@ -10,6 +10,7 @@
 *.rej
 .cppcheck-suppress
 TAGS
+tags
 ccan/tools/configurator/configurator
 ccan/ccan/cdump/tools/cdump-enumstr
 gen_*
