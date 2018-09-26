@@ -21,25 +21,6 @@ def executor():
     ex.shutdown(wait=False)
 
 
-@pytest.fixture(scope="module")
-def bitcoind():
-    bitcoind = utils.BitcoinD(rpcport=28332)
-    bitcoind.start()
-    info = bitcoind.rpc.getblockchaininfo()
-    # Make sure we have segwit and some funds
-    if info['blocks'] < 432:
-        logging.debug("SegWit not active, generating some more blocks")
-        bitcoind.generate_block(432 - info['blocks'])
-
-    yield bitcoind
-
-    try:
-        bitcoind.rpc.stop()
-    except Exception:
-        bitcoind.proc.kill()
-    bitcoind.proc.wait()
-
-
 def test_single_hop(node_factory, executor):
     l1 = node_factory.get_node()
     l2 = node_factory.get_node()
@@ -73,10 +54,7 @@ def test_single_hop(node_factory, executor):
 
 
 def test_single_payment(node_factory, benchmark):
-    l1 = node_factory.get_node()
-    l2 = node_factory.get_node()
-    l1.rpc.connect(l2.rpc.getinfo()['id'], 'localhost:%d' % l2.port)
-    l1.openchannel(l2, 4000000)
+    l1, l2 = node_factory.line_graph(2)
 
     def do_pay(l1, l2):
         invoice = l2.rpc.invoice(1000, 'invoice-{}'.format(random.random()), 'desc')['bolt11']
@@ -95,10 +73,7 @@ def test_invoice(node_factory, benchmark):
 
 
 def test_pay(node_factory, benchmark):
-    l1 = node_factory.get_node()
-    l2 = node_factory.get_node()
-    l1.rpc.connect(l2.rpc.getinfo()['id'], 'localhost:%d' % l2.port)
-    l1.openchannel(l2, 4000000)
+    l1, l2 = node_factory.line_graph(2)
 
     invoices = []
     for _ in range(1, 100):
