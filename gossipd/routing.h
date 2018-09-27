@@ -140,7 +140,8 @@ static inline int pubkey_idx(const struct pubkey *id1, const struct pubkey *id2)
 }
 
 /* Fast versions: if you know n is one end of the channel */
-static inline struct node *other_node(const struct node *n, struct chan *chan)
+static inline struct node *other_node(const struct node *n,
+				      const struct chan *chan)
 {
 	int idx = (chan->nodes[1] == n);
 
@@ -159,7 +160,7 @@ static inline struct half_chan *half_chan_from(const struct node *n,
 }
 
 /* If you know n is one end of the channel, get index dst == n */
-static inline int half_chan_to(const struct node *n, struct chan *chan)
+static inline int half_chan_to(const struct node *n, const struct chan *chan)
 {
 	int idx = (chan->nodes[1] == n);
 
