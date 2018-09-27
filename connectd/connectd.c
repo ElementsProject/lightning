@@ -57,7 +57,7 @@
 #include <wire/wire_sync.h>
 #include <zlib.h>
 
-#define CONNECT_MAX_REACH_ATTEMPTS 10
+#define MAX_CONNECT_ATTEMPTS 10
 
 #define HSM_FD 3
 #define GOSSIPCTL_FD 4
@@ -89,7 +89,7 @@ struct daemon {
 	struct pubkey_set peers;
 
 	/* Peers we are trying to reach */
-	struct list_head reaching;
+	struct list_head connecting;
 
 	/* Connection to main daemon. */
 	struct daemon_conn master;
@@ -114,9 +114,9 @@ struct daemon {
 	struct listen_fd *listen_fds;
 };
 
-/* Peers we're trying to reach. */
-struct reaching {
-	/* daemon->reaching */
+/* Peers we're trying to connect. */
+struct connecting {
+	/* daemon->connecting */
 	struct list_node list;
 
 	struct daemon *daemon;
@@ -142,7 +142,7 @@ struct reaching {
 };
 
 /* Mutual recursion */
-static void try_reach_one_addr(struct reaching *reach);
+static void try_connect_one_addr(struct connecting *connect);
 
 /**
  * Some ISP resolvers will reply with a dummy IP to queries that would otherwise
@@ -174,38 +174,33 @@ static bool broken_resolver(struct daemon *daemon)
 	return daemon->broken_resolver_response != NULL;
 }
 
-static void destroy_reaching(struct reaching *reach)
+static void destroy_connecting(struct connecting *connect)
 {
-	list_del_from(&reach->daemon->reaching, &reach->list);
+	list_del_from(&connect->daemon->connecting, &connect->list);
 }
 
-static struct reaching *find_reaching(struct daemon *daemon,
-				      const struct pubkey *id)
+static struct connecting *find_connecting(struct daemon *daemon,
+					  const struct pubkey *id)
 {
-	struct reaching *r;
+	struct connecting *i;
 
-	list_for_each(&daemon->reaching, r, list)
-		if (pubkey_eq(id, &r->id))
-			return r;
+	list_for_each(&daemon->connecting, i, list)
+		if (pubkey_eq(id, &i->id))
+			return i;
 	return NULL;
 }
 
-static void reached_peer(struct io_conn *conn,
-			 struct daemon *daemon,
-			 const struct pubkey *id)
+static void connected_to_peer(struct daemon *daemon,
+			      struct io_conn *conn,
+			      const struct pubkey *id)
 {
-	/* OK, we've reached the peer successfully, tell everyone. */
-	struct reaching *r = find_reaching(daemon, id);
-
-	if (!r)
-		return;
-
 	/* Don't call destroy_io_conn */
 	io_set_finish(conn, NULL, NULL);
 
-	/* Don't free conn with reach */
+	/* Don't free conn with connect */
 	tal_steal(daemon, conn);
-	tal_free(r);
+
+	tal_free(find_connecting(daemon, id));
 }
 
 static int get_gossipfd(struct daemon *daemon,
@@ -299,7 +294,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 		return io_wait(conn, key, retry_peer_connected, r);
 	}
 
-	reached_peer(conn, daemon, id);
+	connected_to_peer(daemon, conn, id);
 
 	gossip_fd = get_gossipfd(daemon, id, lfeatures);
 
@@ -745,24 +740,24 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 					     const struct pubkey *id,
 					     const struct wireaddr_internal *addr,
 					     const struct crypto_state *cs,
-					     struct reaching *reach)
+					     struct connecting *connect)
 {
-	reach->connstate = "Exchanging init messages";
+	connect->connstate = "Exchanging init messages";
 	status_trace("Connect OUT to %s",
 		     type_to_string(tmpctx, struct pubkey, id));
-	return peer_exchange_initmsg(conn, reach->daemon, cs, id, addr);
+	return peer_exchange_initmsg(conn, connect->daemon, cs, id, addr);
 }
 
-struct io_plan *connection_out(struct io_conn *conn, struct reaching *reach)
+struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
 {
 	/* FIXME: Timeout */
 	status_trace("Connected out for %s",
-		     type_to_string(tmpctx, struct pubkey, &reach->id));
+		     type_to_string(tmpctx, struct pubkey, &connect->id));
 
-	reach->connstate = "Cryptographic handshake";
-	return initiator_handshake(conn, &reach->daemon->id, &reach->id,
-				   &reach->addrs[reach->addrnum],
-				   handshake_out_success, reach);
+	connect->connstate = "Cryptographic handshake";
+	return initiator_handshake(conn, &connect->daemon->id, &connect->id,
+				   &connect->addrs[connect->addrnum],
+				   handshake_out_success, connect);
 }
 
 static void PRINTF_FMT(5,6)
@@ -798,21 +793,22 @@ static void PRINTF_FMT(5,6)
 		     err);
 }
 
-static void destroy_io_conn(struct io_conn *conn, struct reaching *reach)
+static void destroy_io_conn(struct io_conn *conn, struct connecting *connect)
 {
-	tal_append_fmt(&reach->errors,
+	tal_append_fmt(&connect->errors,
 		       "%s: %s: %s. ",
 		       type_to_string(tmpctx, struct wireaddr_internal,
-				      &reach->addrs[reach->addrnum]),
-		       reach->connstate, strerror(errno));
-	reach->addrnum++;
-	try_reach_one_addr(reach);
+				      &connect->addrs[connect->addrnum]),
+		       connect->connstate, strerror(errno));
+	connect->addrnum++;
+	try_connect_one_addr(connect);
 }
 
-static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
+static struct io_plan *conn_init(struct io_conn *conn,
+				 struct connecting *connect)
 {
 	struct addrinfo *ai = NULL;
-	const struct wireaddr_internal *addr = &reach->addrs[reach->addrnum];
+	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
 
 	switch (addr->itype) {
 	case ADDR_INTERNAL_SOCKNAME:
@@ -820,15 +816,15 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 		break;
 	case ADDR_INTERNAL_ALLPROTO:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't reach to all protocols");
+			      "Can't connect to all protocols");
 		break;
 	case ADDR_INTERNAL_AUTOTOR:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't reach to autotor address");
+			      "Can't connect to autotor address");
 		break;
 	case ADDR_INTERNAL_FORPROXY:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't reach to forproxy address");
+			      "Can't connect to forproxy address");
 		break;
 	case ADDR_INTERNAL_WIREADDR:
 		/* If it was a Tor address, we wouldn't be here. */
@@ -837,16 +833,16 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 	}
 	assert(ai);
 
-	io_set_finish(conn, destroy_io_conn, reach);
-	return io_connect(conn, ai, connection_out, reach);
+	io_set_finish(conn, destroy_io_conn, connect);
+	return io_connect(conn, ai, connection_out, connect);
 }
 
 static struct io_plan *conn_proxy_init(struct io_conn *conn,
-				       struct reaching *reach)
+				       struct connecting *connect)
 {
 	const char *host = NULL;
 	u16 port;
-	const struct wireaddr_internal *addr = &reach->addrs[reach->addrnum];
+	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
 
 	switch (addr->itype) {
 	case ADDR_INTERNAL_FORPROXY:
@@ -865,10 +861,11 @@ static struct io_plan *conn_proxy_init(struct io_conn *conn,
 
 	if (!host)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't reach to %u address", addr->itype);
+			      "Can't connect to %u address", addr->itype);
 
-	io_set_finish(conn, destroy_io_conn, reach);
-	return io_tor_connect(conn, reach->daemon->proxyaddr, host, port, reach);
+	io_set_finish(conn, destroy_io_conn, connect);
+	return io_tor_connect(conn, connect->daemon->proxyaddr, host, port,
+			      connect);
 }
 
 static const char *seedname(const tal_t *ctx, const struct pubkey *id)
@@ -933,16 +930,17 @@ static void add_gossip_addrs(struct wireaddr_internal **addrs,
 	}
 }
 
-static void try_reach_one_addr(struct reaching *reach)
+static void try_connect_one_addr(struct connecting *connect)
 {
  	int fd, af;
-	bool use_proxy = reach->daemon->use_proxy_always;
-	const struct wireaddr_internal *addr = &reach->addrs[reach->addrnum];
+	bool use_proxy = connect->daemon->use_proxy_always;
+	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
 
-	if (reach->addrnum == tal_count(reach->addrs)) {
-		connect_failed(reach->daemon, &reach->id, reach->seconds_waited,
-			       reach->addrhint, "%s", reach->errors);
-		tal_free(reach);
+	if (connect->addrnum == tal_count(connect->addrs)) {
+		connect_failed(connect->daemon, &connect->id,
+			       connect->seconds_waited,
+			       connect->addrhint, "%s", connect->errors);
+		tal_free(connect);
 		return;
 	}
 
@@ -957,10 +955,10 @@ static void try_reach_one_addr(struct reaching *reach)
 		break;
 	case ADDR_INTERNAL_ALLPROTO:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't reach ALLPROTO");
+			      "Can't connect ALLPROTO");
 	case ADDR_INTERNAL_AUTOTOR:
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't reach AUTOTOR");
+			      "Can't connect AUTOTOR");
 	case ADDR_INTERNAL_FORPROXY:
 		use_proxy = true;
 		break;
@@ -983,11 +981,11 @@ static void try_reach_one_addr(struct reaching *reach)
 
 	/* If we have to use proxy but we don't have one, we fail. */
 	if (use_proxy) {
-		if (!reach->daemon->proxyaddr) {
+		if (!connect->daemon->proxyaddr) {
 			status_debug("Need proxy");
 			af = -1;
 		} else
-			af = reach->daemon->proxyaddr->ai_family;
+			af = connect->daemon->proxyaddr->ai_family;
 	}
 
 	if (af == -1) {
@@ -997,38 +995,38 @@ static void try_reach_one_addr(struct reaching *reach)
 		fd = socket(af, SOCK_STREAM, 0);
 
 	if (fd < 0) {
-		tal_append_fmt(&reach->errors,
+		tal_append_fmt(&connect->errors,
 			       "%s: opening %i socket gave %s. ",
 			       type_to_string(tmpctx, struct wireaddr_internal,
 					      addr),
 			       af, strerror(errno));
-		reach->addrnum++;
-		try_reach_one_addr(reach);
+		connect->addrnum++;
+		try_connect_one_addr(connect);
 		return;
 	}
 
 	if (use_proxy)
-		io_new_conn(reach, fd, conn_proxy_init, reach);
+		io_new_conn(connect, fd, conn_proxy_init, connect);
 	else
-		io_new_conn(reach, fd, conn_init, reach);
+		io_new_conn(connect, fd, conn_init, connect);
 }
 
 /* Consumes addrhint if not NULL */
-static void try_reach_peer(struct daemon *daemon,
+static void try_connect_peer(struct daemon *daemon,
 			   const struct pubkey *id,
 			   u32 seconds_waited,
 			   struct wireaddr_internal *addrhint)
 {
 	struct wireaddr_internal *addrs;
 	bool use_proxy = daemon->use_proxy_always;
-	struct reaching *reach;
+	struct connecting *connect;
 
 	/* Already done?  May happen with timer. */
 	if (pubkey_set_get(&daemon->peers, id))
 		return;
 
-	/* If we're trying to reach it right now, that's OK. */
-	if (find_reaching(daemon, id))
+	/* If we're trying to connect it right now, that's OK. */
+	if (find_connecting(daemon, id))
 		return;
 
 	addrs = tal_arr(tmpctx, struct wireaddr_internal, 0);
@@ -1058,19 +1056,19 @@ static void try_reach_peer(struct daemon *daemon,
 	}
 
 	/* Start connecting to it */
-	reach = tal(daemon, struct reaching);
-	reach->daemon = daemon;
-	reach->id = *id;
-	reach->addrs = tal_steal(reach, addrs);
-	reach->addrnum = 0;
-	reach->connstate = "Connection establishment";
-	reach->seconds_waited = seconds_waited;
-	reach->addrhint = tal_steal(reach, addrhint);
-	reach->errors = tal_strdup(reach, "");
-	list_add_tail(&daemon->reaching, &reach->list);
-	tal_add_destructor(reach, destroy_reaching);
+	connect = tal(daemon, struct connecting);
+	connect->daemon = daemon;
+	connect->id = *id;
+	connect->addrs = tal_steal(connect, addrs);
+	connect->addrnum = 0;
+	connect->connstate = "Connection establishment";
+	connect->seconds_waited = seconds_waited;
+	connect->addrhint = tal_steal(connect, addrhint);
+	connect->errors = tal_strdup(connect, "");
+	list_add_tail(&daemon->connecting, &connect->list);
+	tal_add_destructor(connect, destroy_connecting);
 
-	try_reach_one_addr(reach);
+	try_connect_one_addr(connect);
 }
 
 static struct io_plan *connect_to_peer(struct io_conn *conn,
@@ -1085,7 +1083,7 @@ static struct io_plan *connect_to_peer(struct io_conn *conn,
 						 &addrhint))
 		master_badmsg(WIRE_CONNECTCTL_CONNECT_TO_PEER, msg);
 
-	try_reach_peer(daemon, &id, seconds_waited, addrhint);
+	try_connect_peer(daemon, &id, seconds_waited, addrhint);
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
@@ -1177,7 +1175,7 @@ int main(int argc, char *argv[])
 
 	daemon = tal(NULL, struct daemon);
 	pubkey_set_init(&daemon->peers);
-	list_head_init(&daemon->reaching);
+	list_head_init(&daemon->connecting);
 	daemon->listen_fds = tal_arr(daemon, struct listen_fd, 0);
 	/* stdin == control */
 	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req,

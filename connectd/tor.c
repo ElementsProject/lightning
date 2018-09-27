@@ -33,130 +33,131 @@
 /* some crufts can not forward ipv6*/
 #undef BIND_FIRST_TO_IPV6
 
-struct reaching_socks {
+struct connecting_socks {
 	u8 buffer[MAX_SIZE_OF_SOCKS5_REQ_OR_RESP];
 	size_t hlen;
 	in_port_t port;
 	char *host;
-	struct reaching *reach;
+	struct connecting *connect;
 };
 
 static struct io_plan *connect_finish2(struct io_conn *conn,
-				       struct reaching_socks *reach)
+				       struct connecting_socks *connect)
 {
 	status_io(LOG_IO_IN, "proxy",
-		  (reach->buffer + SIZE_OF_RESPONSE - SIZE_OF_IPV4_RESPONSE),
+		  (connect->buffer + SIZE_OF_RESPONSE - SIZE_OF_IPV4_RESPONSE),
 		  SIZE_OF_IPV6_RESPONSE - SIZE_OF_RESPONSE - SIZE_OF_IPV4_RESPONSE);
-	status_trace("Now try LN connect out for host %s", reach->host);
-	return connection_out(conn, reach->reach);
+	status_trace("Now try LN connect out for host %s", connect->host);
+	return connection_out(conn, connect->connect);
 }
 
 static struct io_plan *connect_finish(struct io_conn *conn,
-				      struct reaching_socks *reach)
+				      struct connecting_socks *connect)
 {
 	status_io(LOG_IO_IN, "proxy",
-		  reach->buffer, SIZE_OF_IPV4_RESPONSE + SIZE_OF_RESPONSE);
+		  connect->buffer, SIZE_OF_IPV4_RESPONSE + SIZE_OF_RESPONSE);
 
-	if ( reach->buffer[1] == '\0') {
-		if ( reach->buffer[3] == SOCKS_TYP_IPV6) {
+	if ( connect->buffer[1] == '\0') {
+		if ( connect->buffer[3] == SOCKS_TYP_IPV6) {
 			return io_read(conn,
-				       (reach->buffer + SIZE_OF_RESPONSE -
+				       (connect->buffer + SIZE_OF_RESPONSE -
 					SIZE_OF_IPV4_RESPONSE),
 				       SIZE_OF_IPV6_RESPONSE -
 				       SIZE_OF_RESPONSE - SIZE_OF_IPV4_RESPONSE,
-				       &connect_finish2, reach);
+				       &connect_finish2, connect);
 
-		} else if ( reach->buffer[3] == SOCKS_TYP_IPV4) {
+		} else if ( connect->buffer[3] == SOCKS_TYP_IPV4) {
 			status_trace("Now try LN connect out for host %s",
-				     reach->host);
-			return connection_out(conn, reach->reach);
+				     connect->host);
+			return connection_out(conn, connect->connect);
 		} else {
 			status_trace
 			    ("Tor connect out for host %s error invalid type return ",
-			     reach->host);
+			     connect->host);
 			return io_close(conn);
 		}
 	} else {
 		status_trace("Tor connect out for host %s error: %x ",
-			     reach->host, reach->buffer[1]);
+			     connect->host, connect->buffer[1]);
 		return io_close(conn);
 	}
 }
 
 /* called when TOR responds */
 static struct io_plan *connect_out(struct io_conn *conn,
-				   struct reaching_socks *reach)
+				   struct connecting_socks *connect)
 {
-	return io_read(conn, reach->buffer,
+	return io_read(conn, connect->buffer,
 		       SIZE_OF_IPV4_RESPONSE + SIZE_OF_RESPONSE,
-		       &connect_finish, reach);
+		       &connect_finish, connect);
 
 }
 
 static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
 							    *conn,
 							    struct
-							    reaching_socks
-							    *reach)
+							    connecting_socks
+							    *connect)
 {
-	status_io(LOG_IO_IN, "proxy", reach->buffer, 2);
+	status_io(LOG_IO_IN, "proxy", connect->buffer, 2);
 
-	if (reach->buffer[1] == SOCKS_ERROR) {
-		status_trace("Connected out for %s error", reach->host);
+	if (connect->buffer[1] == SOCKS_ERROR) {
+		status_trace("Connected out for %s error", connect->host);
 		return io_close(conn);
 	}
 	/* make the V5 request */
-	reach->hlen = strlen(reach->host);
-	reach->buffer[0] = SOCKS_V5;
-	reach->buffer[1] = SOCKS_CONNECT;
-	reach->buffer[2] = 0;
-	reach->buffer[3] = SOCKS_DOMAIN;
-	reach->buffer[4] = reach->hlen;
+	connect->hlen = strlen(connect->host);
+	connect->buffer[0] = SOCKS_V5;
+	connect->buffer[1] = SOCKS_CONNECT;
+	connect->buffer[2] = 0;
+	connect->buffer[3] = SOCKS_DOMAIN;
+	connect->buffer[4] = connect->hlen;
 
-	memcpy(reach->buffer + SOCK_REQ_V5_LEN, reach->host, reach->hlen);
-	memcpy(reach->buffer + SOCK_REQ_V5_LEN + strlen(reach->host),
-	       &(reach->port), sizeof reach->port);
+	memcpy(connect->buffer + SOCK_REQ_V5_LEN, connect->host, connect->hlen);
+	memcpy(connect->buffer + SOCK_REQ_V5_LEN + strlen(connect->host),
+	       &(connect->port), sizeof connect->port);
 
-	status_io(LOG_IO_OUT, "proxy", reach->buffer,
-		  SOCK_REQ_V5_HEADER_LEN + reach->hlen);
-	return io_write(conn, reach->buffer,
-			SOCK_REQ_V5_HEADER_LEN + reach->hlen,
-			connect_out, reach);
+	status_io(LOG_IO_OUT, "proxy", connect->buffer,
+		  SOCK_REQ_V5_HEADER_LEN + connect->hlen);
+	return io_write(conn, connect->buffer,
+			SOCK_REQ_V5_HEADER_LEN + connect->hlen,
+			connect_out, connect);
 }
 
 static struct io_plan *io_tor_connect_after_req_to_connect(struct io_conn *conn,
-							   struct reaching_socks
-							   *reach)
+							   struct connecting_socks
+							   *connect)
 {
-	return io_read(conn, reach->buffer, 2,
-		       &io_tor_connect_after_resp_to_connect, reach);
+	return io_read(conn, connect->buffer, 2,
+		       &io_tor_connect_after_resp_to_connect, connect);
 }
 
 static struct io_plan *io_tor_connect_do_req(struct io_conn *conn,
-					     struct reaching_socks *reach)
+					     struct connecting_socks *connect)
 {
 	/* make the init request */
-	reach->buffer[0] = SOCKS_V5;
-	reach->buffer[1] = 1;
-	reach->buffer[2] = SOCKS_NOAUTH;
+	connect->buffer[0] = SOCKS_V5;
+	connect->buffer[1] = 1;
+	connect->buffer[2] = SOCKS_NOAUTH;
 
-	status_io(LOG_IO_OUT, "proxy", reach->buffer, SOCK_REQ_METH_LEN);
-	return io_write(conn, reach->buffer, SOCK_REQ_METH_LEN,
-			&io_tor_connect_after_req_to_connect, reach);
+	status_io(LOG_IO_OUT, "proxy", connect->buffer, SOCK_REQ_METH_LEN);
+	return io_write(conn, connect->buffer, SOCK_REQ_METH_LEN,
+			&io_tor_connect_after_req_to_connect, connect);
 }
 
 // called when we want to connect to TOR SOCKS5
 struct io_plan *io_tor_connect(struct io_conn *conn,
 			       const struct addrinfo *tor_proxyaddr,
 			       const char *host, u16 port,
-			       struct reaching *reach)
+			       struct connecting *connect)
 {
-	struct reaching_socks *reach_tor = tal(reach, struct reaching_socks);
+	struct connecting_socks *connect_tor = tal(connect,
+						   struct connecting_socks);
 
-	reach_tor->port = htons(port);
-	reach_tor->host = tal_strdup(reach_tor, host);
-	reach_tor->reach = reach;
+	connect_tor->port = htons(port);
+	connect_tor->host = tal_strdup(connect_tor, host);
+	connect_tor->connect = connect;
 
 	return io_connect(conn, tor_proxyaddr,
-			  &io_tor_connect_do_req, reach_tor);
+			  &io_tor_connect_do_req, connect_tor);
 }

@@ -5,12 +5,11 @@
 #include <common/crypto_state.h>
 
 struct io_conn;
-struct peer;
-struct reaching;
+struct connecting;
 struct daemon;
 
 /* Called by io_tor_connect once it has a connection out. */
-struct io_plan *connection_out(struct io_conn *conn, struct reaching *reach);
+struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect);
 
 /* Called by peer_exchange_initmsg if successful. */
 struct io_plan *peer_connected(struct io_conn *conn,
