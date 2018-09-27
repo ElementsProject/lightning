@@ -36,6 +36,22 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 				   const u8 *msg,
 				   struct io_plan *(*next)(struct io_conn *,
 							   struct peer *));
+/* BOLT #8:
+ *
+ * ### Receiving and Decrypting Messages
+ *
+ * In order to decrypt the _next_ message in the network stream, the
+ * following steps are completed:
+ *
+ *  1. Read _exactly_ 18 bytes from the network buffer.
+ */
+#define CRYPTOMSG_HDR_SIZE 18
+
+/* BOLT #8:
+ *
+ * 4. Read _exactly_ `l+16` bytes from the network buffer
+ */
+#define CRYPTOMSG_BODY_OVERHEAD 16
 
 /* Low-level functions for sync comms: doesn't discard unknowns! */
 u8 *cryptomsg_encrypt_msg(const tal_t *ctx,

@@ -15,6 +15,7 @@ LIGHTNINGD_CONNECT_CONTROL_OBJS := $(LIGHTNINGD_CONNECT_CONTROL_SRC:.c=.o)
 LIGHTNINGD_CONNECT_HEADERS := connectd/gen_connect_wire.h \
 	connectd/gen_connect_gossip_wire.h		\
 	connectd/connectd.h				\
+	connectd/peer_exchange_initmsg.h		\
 	connectd/handshake.h				\
 	connectd/netaddress.h				\
 	connectd/tor_autoservice.h			\
