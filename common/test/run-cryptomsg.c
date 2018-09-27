@@ -69,7 +69,9 @@ enum dev_disconnect dev_disconnect(int pkt_type UNUSED)
 /* We test what look like unknown messages. */
 #define is_unknown_msg_discardable(x) 0
 
-#include "../../common/cryptomsg.c"
+#define fromwire_peektype(msg) 0
+
+#include "../cryptomsg.c"
 
 const void *trc;
 
