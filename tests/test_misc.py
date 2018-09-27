@@ -871,15 +871,15 @@ def test_feerates(node_factory):
     l1.start()
 
     # Query feerates (shouldn't give any!)
+    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) == 2)
     feerates = l1.rpc.feerates('perkw')
-    assert len(feerates['perkw']) == 2
     assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'perkb' not in feerates
     assert feerates['perkw']['max_acceptable'] == 2**32 - 1
     assert feerates['perkw']['min_acceptable'] == 253
 
+    wait_for(lambda: len(l1.rpc.feerates('perkb')['perkb']) == 2)
     feerates = l1.rpc.feerates('perkb')
-    assert len(feerates['perkb']) == 2
     assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'perkw' not in feerates
     assert feerates['perkb']['max_acceptable'] == (2**32 - 1)
@@ -887,8 +887,8 @@ def test_feerates(node_factory):
 
     # Now try setting them, one at a time.
     l1.set_feerates((15000, 0, 0), True)
+    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) == 3)
     feerates = l1.rpc.feerates('perkw')
-    assert len(feerates['perkw']) == 3
     assert feerates['perkw']['urgent'] == 15000
     assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'perkb' not in feerates
@@ -896,8 +896,8 @@ def test_feerates(node_factory):
     assert feerates['perkw']['min_acceptable'] == 253
 
     l1.set_feerates((15000, 6250, 0), True)
+    wait_for(lambda: len(l1.rpc.feerates('perkb')['perkb']) == 4)
     feerates = l1.rpc.feerates('perkb')
-    assert len(feerates['perkb']) == 4
     assert feerates['perkb']['urgent'] == 15000 * 4
     assert feerates['perkb']['normal'] == 25000
     assert feerates['warning'] == 'Some fee estimates unavailable: bitcoind startup?'
@@ -906,8 +906,8 @@ def test_feerates(node_factory):
     assert feerates['perkb']['min_acceptable'] == 253 * 4
 
     l1.set_feerates((15000, 6250, 5000), True)
+    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) == 5)
     feerates = l1.rpc.feerates('perkw')
-    assert len(feerates['perkw']) == 5
     assert feerates['perkw']['urgent'] == 15000
     assert feerates['perkw']['normal'] == 25000 // 4
     assert feerates['perkw']['slow'] == 5000
