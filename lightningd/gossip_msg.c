@@ -1,3 +1,4 @@
+#include <common/bolt11.h>
 #include <common/wireaddr.h>
 #include <lightningd/gossip_msg.h>
 #include <wire/wire.h>
@@ -75,6 +76,24 @@ void towire_route_hop(u8 **pptr, const struct route_hop *entry)
 	towire_short_channel_id(pptr, &entry->channel_id);
 	towire_u64(pptr, entry->amount);
 	towire_u32(pptr, entry->delay);
+}
+
+void fromwire_route_info(const u8 **pptr, size_t *max, struct route_info *entry)
+{
+	fromwire_pubkey(pptr, max, &entry->pubkey);
+	fromwire_short_channel_id(pptr, max, &entry->short_channel_id);
+	entry->fee_base_msat = fromwire_u32(pptr, max);
+	entry->fee_proportional_millionths = fromwire_u32(pptr, max);
+	entry->cltv_expiry_delta = fromwire_u16(pptr, max);
+}
+
+void towire_route_info(u8 **pptr, const struct route_info *entry)
+{
+	towire_pubkey(pptr, &entry->pubkey);
+	towire_short_channel_id(pptr, &entry->short_channel_id);
+	towire_u32(pptr, entry->fee_base_msat);
+	towire_u32(pptr, entry->fee_proportional_millionths);
+	towire_u16(pptr, entry->cltv_expiry_delta);
 }
 
 void fromwire_gossip_getchannels_entry(const u8 **pptr, size_t *max,
