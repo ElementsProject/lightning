@@ -4,6 +4,8 @@
 #include <bitcoin/pubkey.h>
 #include <gossipd/routing.h>
 
+struct route_info;
+
 struct peer_features {
 	u8 *localfeatures;
 	u8 *globalfeatures;
@@ -43,6 +45,9 @@ void towire_peer_features(u8 **pptr, const struct peer_features *features);
 
 void fromwire_route_hop(const u8 **pprt, size_t *max, struct route_hop *entry);
 void towire_route_hop(u8 **pprt, const struct route_hop *entry);
+
+void fromwire_route_info(const u8 **pprt, size_t *max, struct route_info *entry);
+void towire_route_info(u8 **pprt, const struct route_info *entry);
 
 void fromwire_gossip_getchannels_entry(const u8 **pptr, size_t *max,
 				       struct gossip_getchannels_entry *entry);
