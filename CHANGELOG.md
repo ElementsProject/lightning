@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 - JSON API: `listpeers` has new field `scratch_txid`: the latest tx in channel.
+- JSON API: `listpeers` has new array `htlcs`: the current live payments.
 - JSON API: `listchannels` has two new fields: `message_flags` and `channel_flags`. This replaces `flags`.
 - Bitcoind: more parallelism in requests, for very slow nodes.
 - Testing: fixed logging, cleaner interception of bitcoind, minor fixes.
