@@ -593,6 +593,56 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 		  funding_spent);
 }
 
+static void json_add_htlcs(struct lightningd *ld,
+			   struct json_result *response,
+			   const struct channel *channel)
+{
+	/* FIXME: make per-channel htlc maps! */
+	const struct htlc_in *hin;
+	struct htlc_in_map_iter ini;
+	const struct htlc_out *hout;
+	struct htlc_out_map_iter outi;
+
+	/* FIXME: Add more fields. */
+	json_array_start(response, "htlcs");
+	for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
+	     hin;
+	     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
+		if (hin->key.channel != channel)
+			continue;
+
+		json_object_start(response, NULL);
+		json_add_string(response, "direction", "in");
+		json_add_u64(response, "id", hin->key.id);
+		json_add_u64(response, "msatoshi", hin->msatoshi);
+		json_add_u64(response, "expiry", hin->cltv_expiry);
+		json_add_hex(response, "payment_hash",
+			     &hin->payment_hash, sizeof(hin->payment_hash));
+		json_add_string(response, "state",
+				htlc_state_name(hin->hstate));
+		json_object_end(response);
+	}
+
+	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
+	     hout;
+	     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
+		if (hout->key.channel != channel)
+			continue;
+
+		json_object_start(response, NULL);
+		json_add_string(response, "direction", "out");
+		json_add_u64(response, "id", hout->key.id);
+		json_add_u64(response, "msatoshi", hout->msatoshi);
+		json_add_u64(response, "expiry", hout->cltv_expiry);
+		json_add_hex(response, "payment_hash",
+			     &hout->payment_hash, sizeof(hout->payment_hash));
+		json_add_string(response, "state",
+				htlc_state_name(hout->hstate));
+		json_object_end(response);
+	}
+	json_array_end(response);
+}
+
 static void json_add_peer(struct lightningd *ld,
 			  struct json_result *response,
 			  struct peer *p,
@@ -744,6 +794,7 @@ static void json_add_peer(struct lightningd *ld,
 		json_add_u64(response, "out_msatoshi_fulfilled",
 			     channel_stats.out_msatoshi_fulfilled);
 
+		json_add_htlcs(ld, response, channel);
 		json_object_end(response);
 	}
 	json_array_end(response);
