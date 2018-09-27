@@ -5,37 +5,6 @@
 #include <ccan/tal/tal.h>
 #include <common/crypto_state.h>
 
-struct io_conn;
-struct peer;
-
-struct peer_crypto_state {
-	struct crypto_state cs;
-
-	/* Peer who owns us: peer->crypto_state == this */
-	struct peer *peer;
-
-	/* Output and input buffers. */
-	u8 *out, *in;
-	struct io_plan *(*next_in)(struct io_conn *, struct peer *, u8 *);
-	struct io_plan *(*next_out)(struct io_conn *, struct peer *);
-};
-
-/* Initializes peer->cs (still need to read in cs->cs) */
-void init_peer_crypto_state(struct peer *peer, struct peer_crypto_state *pcs);
-
-/* Get decrypted message: ignores unknown odd messages. */
-struct io_plan *peer_read_message(struct io_conn *conn,
-				  struct peer_crypto_state *cs,
-				  struct io_plan *(*next)(struct io_conn *,
-							  struct peer *,
-							  u8 *msg));
-
-/* Sends message: frees if taken(msg). */
-struct io_plan *peer_write_message(struct io_conn *conn,
-				   struct peer_crypto_state *cs,
-				   const u8 *msg,
-				   struct io_plan *(*next)(struct io_conn *,
-							   struct peer *));
 /* BOLT #8:
  *
  * ### Receiving and Decrypting Messages
