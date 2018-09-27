@@ -1491,6 +1491,43 @@ out:
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+static struct io_plan *get_incoming_channels(struct io_conn *conn,
+					     struct daemon *daemon,
+					     const u8 *msg)
+{
+	struct node *node;
+	struct route_info *r = tal_arr(tmpctx, struct route_info, 0);
+
+	if (!fromwire_gossip_get_incoming_channels(msg))
+		master_badmsg(WIRE_GOSSIP_GET_INCOMING_CHANNELS, msg);
+
+	node = get_node(daemon->rstate, &daemon->rstate->local_id);
+	if (node) {
+		for (size_t i = 0; i < tal_count(node->chans); i++) {
+			const struct chan *c = node->chans[i];
+			const struct half_chan *hc;
+			struct route_info *ri;
+
+			hc = &c->half[half_chan_to(node, c)];
+
+			if (!is_halfchan_enabled(hc))
+				continue;
+
+			ri = tal_arr_expand(&r);
+			ri->pubkey = other_node(node, c)->id;
+			ri->short_channel_id = c->scid;
+			ri->fee_base_msat = hc->base_fee;
+			ri->fee_proportional_millionths = hc->proportional_fee;
+			ri->cltv_expiry_delta = hc->delay;
+		}
+	}
+
+	msg = towire_gossip_get_incoming_channels_reply(NULL, r);
+	daemon_conn_send(&daemon->master, take(msg));
+
+	return daemon_conn_read_next(conn, &daemon->master);
+}
+
 #if DEVELOPER
 static struct io_plan *query_scids_req(struct io_conn *conn,
 				       struct daemon *daemon,
@@ -1947,6 +1984,10 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_PING:
 		return ping_req(conn, daemon, daemon->master.msg_in);
 
+	case WIRE_GOSSIP_GET_INCOMING_CHANNELS:
+		return get_incoming_channels(conn, daemon,
+					     daemon->master.msg_in);
+
 #if DEVELOPER
 	case WIRE_GOSSIP_QUERY_SCIDS:
 		return query_scids_req(conn, daemon, daemon->master.msg_in);
@@ -1980,6 +2021,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_SCIDS_REPLY:
 	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE_REPLY:
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REPLY:
+	case WIRE_GOSSIP_GET_INCOMING_CHANNELS_REPLY:
 	case WIRE_GOSSIP_GET_UPDATE:
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
 	case WIRE_GOSSIP_SEND_GOSSIP:
