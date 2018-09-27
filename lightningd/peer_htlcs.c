@@ -1377,14 +1377,6 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	wallet_channel_save(ld->wallet, channel);
 }
 
-static void *tal_arr_append_(void **p, size_t size)
-{
-	size_t n = tal_bytelen(*p) / size;
-	tal_resize_(p, size, n+1, false);
-	return (char *)(*p) + n * size;
-}
-#define tal_arr_append(p) tal_arr_append_((void **)(p), sizeof(**(p)))
-
 static void add_htlc(struct added_htlc **htlcs,
 		     enum htlc_state **htlc_states,
 		     u64 id,
@@ -1397,8 +1389,8 @@ static void add_htlc(struct added_htlc **htlcs,
 	struct added_htlc *a;
 	enum htlc_state *h;
 
-	a = tal_arr_append(htlcs);
-	h = tal_arr_append(htlc_states);
+	a = tal_arr_expand(htlcs);
+	h = tal_arr_expand(htlc_states);
 
 	a->id = id;
 	a->amount_msat = amount_msat;
@@ -1417,8 +1409,8 @@ static void add_fulfill(u64 id, enum side side,
 	struct fulfilled_htlc *f;
 	enum side *s;
 
-	f = tal_arr_append(fulfilled_htlcs);
-	s = tal_arr_append(fulfilled_sides);
+	f = tal_arr_expand(fulfilled_htlcs);
+	s = tal_arr_expand(fulfilled_sides);
 	f->id = id;
 	f->payment_preimage = *payment_preimage;
 	*s = side;
@@ -1431,28 +1423,26 @@ static void add_fail(u64 id, enum side side,
 		     const struct failed_htlc ***failed_htlcs,
 		     enum side **failed_sides)
 {
-	struct failed_htlc **f;
-	enum side *s;
+	struct failed_htlc *newf;
 
-	f = tal_arr_append(failed_htlcs);
-	s = tal_arr_append(failed_sides);
-
-	*f = tal(*failed_htlcs, struct failed_htlc);
-	(*f)->id = id;
-	(*f)->failcode = failcode;
+	newf = tal(*failed_htlcs, struct failed_htlc);
+	newf->id = id;
+	newf->failcode = failcode;
 	if (failcode & UPDATE) {
 		assert(failing_channel);
-		(*f)->scid = tal_dup(*f, struct short_channel_id,
+		newf->scid = tal_dup(newf, struct short_channel_id,
 				     failing_channel);
 	} else
-		(*f)->scid = NULL;
+		newf->scid = NULL;
 
 	if (failuremsg)
-		(*f)->failreason
-			= tal_dup_arr(*f, u8, failuremsg, tal_count(failuremsg), 0);
+		newf->failreason
+			= tal_dup_arr(newf, u8, failuremsg, tal_count(failuremsg), 0);
 	else
-		(*f)->failreason = NULL;
-	*s = side;
+		newf->failreason = NULL;
+
+	*tal_arr_expand(failed_htlcs) = newf;
+	*tal_arr_expand(failed_sides) = side;
 }
 
 /* FIXME: Load direct from db. */

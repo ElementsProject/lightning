@@ -108,11 +108,10 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 
 /**
  * wallet_stmt2output - Extract data from stmt and fill an UTXO
- *
- * Returns true on success.
  */
-static bool wallet_stmt2output(sqlite3_stmt *stmt, struct utxo *utxo)
+static struct utxo *wallet_stmt2output(const tal_t *ctx, sqlite3_stmt *stmt)
 {
+	struct utxo *utxo = tal(ctx, struct utxo);
 	u32 *blockheight, *spendheight;
 	sqlite3_column_sha256_double(stmt, 0, &utxo->txid.shad);
 	utxo->outnum = sqlite3_column_int(stmt, 1);
@@ -144,7 +143,7 @@ static bool wallet_stmt2output(sqlite3_stmt *stmt, struct utxo *utxo)
 		utxo->spendheight = spendheight;
 	}
 
-	return true;
+	return utxo;
 }
 
 bool wallet_update_output_status(struct wallet *w,
@@ -188,10 +187,10 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 
 	results = tal_arr(ctx, struct utxo*, 0);
 	for (i=0; sqlite3_step(stmt) == SQLITE_ROW; i++) {
-		tal_resize(&results, i+1);
-		results[i] = tal(results, struct utxo);
-		wallet_stmt2output(stmt, results[i]);
+		struct utxo *u = wallet_stmt2output(results, stmt);
+		*tal_arr_expand(&results) = u;
 	}
+
 	db_stmt_done(stmt);
 
 	return results;
@@ -208,9 +207,8 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx, struct wa
 
        	results = tal_arr(ctx, struct utxo*, 0);
 	for (i=0; sqlite3_step(stmt) == SQLITE_ROW; i++) {
-		tal_resize(&results, i+1);
-		results[i] = tal(results, struct utxo);
-		wallet_stmt2output(stmt, results[i]);
+		struct utxo *u = wallet_stmt2output(results, stmt);
+		*tal_arr_expand(&results) = u;
 	}
 	db_stmt_done(stmt);
 
@@ -281,9 +279,9 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 
 	for (i = 0; i < tal_count(available); i++) {
 		size_t input_weight;
+		struct utxo *u = tal_steal(utxos, available[i]);
 
-		tal_resize(&utxos, i + 1);
-		utxos[i] = tal_steal(utxos, available[i]);
+		*tal_arr_expand(&utxos) = u;
 
 		if (!wallet_update_output_status(
 			w, &available[i]->txid, available[i]->outnum,
@@ -297,7 +295,7 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 		input_weight += 1 * 4;
 
 		/* P2SH variants include push of <0 <20-byte-key-hash>> */
-		if (utxos[i]->is_p2sh)
+		if (u->is_p2sh)
 			input_weight += 23 * 4;
 
 		/* Account for witness (1 byte count + sig + key) */
@@ -553,15 +551,13 @@ wallet_htlc_sigs_load(const tal_t *ctx, struct wallet *w, u64 channelid)
 	sqlite3_stmt *stmt = db_prepare(w->db, "SELECT signature FROM htlc_sigs WHERE channelid = ?");
 	secp256k1_ecdsa_signature *htlc_sigs = tal_arr(ctx, secp256k1_ecdsa_signature, 0);
 	sqlite3_bind_int64(stmt, 1, channelid);
-	size_t n = 0;
 
-	while (stmt && sqlite3_step(stmt) == SQLITE_ROW) {
-		tal_resize(&htlc_sigs, n+1);
-		sqlite3_column_signature(stmt, 0, &htlc_sigs[n]);
-		n++;
-	}
+	while (stmt && sqlite3_step(stmt) == SQLITE_ROW)
+		sqlite3_column_signature(stmt, 0, tal_arr_expand(&htlc_sigs));
+
 	db_stmt_done(stmt);
-	log_debug(w->log, "Loaded %zu HTLC signatures from DB", n);
+	log_debug(w->log, "Loaded %zu HTLC signatures from DB",
+		  tal_count(htlc_sigs));
 	return htlc_sigs;
 }
 
@@ -1502,17 +1498,16 @@ struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 	stubs = tal_arr(ctx, struct htlc_stub, 0);
 
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		int n = tal_count(stubs);
-		tal_resize(&stubs, n+1);
+		struct htlc_stub *stub = tal_arr_expand(&stubs);
 
 		assert(sqlite3_column_int64(stmt, 0) == chan->dbid);
 
 		/* FIXME: merge these two enums */
-		stubs[n].owner = sqlite3_column_int(stmt, 1)==DIRECTION_INCOMING?REMOTE:LOCAL;
-		stubs[n].cltv_expiry = sqlite3_column_int(stmt, 2);
+		stub->owner = sqlite3_column_int(stmt, 1)==DIRECTION_INCOMING?REMOTE:LOCAL;
+		stub->cltv_expiry = sqlite3_column_int(stmt, 2);
 
 		sqlite3_column_sha256(stmt, 3, &payment_hash);
-		ripemd160(&stubs[n].ripemd, payment_hash.u.u8, sizeof(payment_hash.u));
+		ripemd160(&stub->ripemd, payment_hash.u.u8, sizeof(payment_hash.u));
 	}
 	db_stmt_done(stmt);
 	return stubs;

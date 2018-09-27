@@ -541,10 +541,9 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 
 static void add_listen_fd(struct daemon *daemon, int fd, bool mayfail)
 {
-	size_t n = tal_count(daemon->listen_fds);
-	tal_resize(&daemon->listen_fds, n+1);
-	daemon->listen_fds[n].fd = fd;
-	daemon->listen_fds[n].mayfail = mayfail;
+	struct listen_fd *l = tal_arr_expand(&daemon->listen_fds);
+	l->fd = fd;
+	l->mayfail = mayfail;
 }
 
 /* Return true if it created socket successfully. */
@@ -601,17 +600,13 @@ static bool public_address(struct daemon *daemon, struct wireaddr *wireaddr)
 static void add_announcable(struct wireaddr **announcable,
 			    const struct wireaddr *addr)
 {
-	size_t n = tal_count(*announcable);
-	tal_resize(announcable, n+1);
-	(*announcable)[n] = *addr;
+	*tal_arr_expand(announcable) = *addr;
 }
 
 static void add_binding(struct wireaddr_internal **binding,
 			const struct wireaddr_internal *addr)
 {
-	size_t n = tal_count(*binding);
-	tal_resize(binding, n+1);
-	(*binding)[n] = *addr;
+	*tal_arr_expand(binding) = *addr;
 }
 
 static int wireaddr_cmp_type(const struct wireaddr *a,
@@ -999,14 +994,6 @@ static struct io_plan *conn_proxy_init(struct io_conn *conn,
 	return io_tor_connect(conn, reach->daemon->proxyaddr, host, port, reach);
 }
 
-static void append_addr(struct wireaddr_internal **addrs,
-			const struct wireaddr_internal *addr)
-{
-	size_t n = tal_count(*addrs);
-	tal_resize(addrs, n+1);
-	(*addrs)[n] = *addr;
-}
-
 static const char *seedname(const tal_t *ctx, const struct pubkey *id)
 {
 	char bech32[100];
@@ -1038,7 +1025,7 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 		status_trace("Resolved %s to %s", addr,
 			     type_to_string(tmpctx, struct wireaddr,
 					    &a.u.wireaddr));
-		append_addr(addrs, &a);
+		*tal_arr_expand(addrs) = a;
 	}
 }
 
@@ -1065,7 +1052,7 @@ static void add_gossip_addrs(struct wireaddr_internal **addrs,
 		struct wireaddr_internal addr;
 		addr.itype = ADDR_INTERNAL_WIREADDR;
 		addr.u.wireaddr = normal_addrs[i];
-		append_addr(addrs, &addr);
+		*tal_arr_expand(addrs) = addr;
 	}
 }
 
@@ -1169,7 +1156,7 @@ static void try_reach_peer(struct daemon *daemon,
 
 	addrs = tal_arr(tmpctx, struct wireaddr_internal, 0);
 	if (addrhint)
-		append_addr(&addrs, addrhint);
+		*tal_arr_expand(&addrs) = *addrhint;
 
 	add_gossip_addrs(&addrs, id);
 
@@ -1180,7 +1167,7 @@ static void try_reach_peer(struct daemon *daemon,
 			wireaddr_from_unresolved(&unresolved,
 						 seedname(tmpctx, id),
 						 DEFAULT_PORT);
-			append_addr(&addrs, &unresolved);
+			*tal_arr_expand(&addrs) = unresolved;
 		} else if (daemon->use_dns) {
 			add_seed_addrs(&addrs, id,
 				       daemon->broken_resolver_response);

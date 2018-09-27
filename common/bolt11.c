@@ -422,18 +422,13 @@ static char *decode_r(struct bolt11 *b11,
         pull_bits_certain(hu5, data, data_len, r8, data_length * 5, false);
 
         do {
-                tal_resize(&r, n+1);
-                if (!fromwire_route_info(&cursor, &rlen, &r[n])) {
+                if (!fromwire_route_info(&cursor, &rlen, tal_arr_expand(&r))) {
                         return tal_fmt(b11, "r: hop %zu truncated", n);
                 }
-                n++;
         } while (rlen);
 
         /* Append route */
-        n = tal_count(b11->routes);
-        tal_resize(&b11->routes, n+1);
-        b11->routes[n] = tal_steal(b11, r);
-
+	*tal_arr_expand(&b11->routes) = tal_steal(b11, r);
         return NULL;
 }
 

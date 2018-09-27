@@ -5,6 +5,7 @@
 #include <ccan/intmap/intmap.h>
 #include <common/daemon.h>
 #include <common/memleak.h>
+#include <common/utils.h>
 
 #if DEVELOPER
 static const void **notleaks;
@@ -43,17 +44,12 @@ static void notleak_change(tal_t *ctx,
 
 void *notleak_(const void *ptr, bool plus_children)
 {
-	size_t nleaks;
-
 	/* If we're not tracking, don't do anything. */
 	if (!notleaks)
 		return cast_const(void *, ptr);
 
-	nleaks = tal_count(notleaks);
-	tal_resize(&notleaks, nleaks+1);
-	tal_resize(&notleak_children, nleaks+1);
-	notleaks[nleaks] = ptr;
-	notleak_children[nleaks] = plus_children;
+	*tal_arr_expand(&notleaks) = ptr;
+	*tal_arr_expand(&notleak_children) = plus_children;
 
 	tal_add_notifier(ptr, TAL_NOTIFY_FREE|TAL_NOTIFY_MOVE, notleak_change);
 	return cast_const(void *, ptr);

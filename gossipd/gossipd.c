@@ -1334,14 +1334,11 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 {
 	const struct half_chan *c = &chan->half[idx];
 	struct gossip_getchannels_entry *e;
-	size_t n;
 
 	if (!is_halfchan_defined(c))
 		return;
 
-	n = tal_count(*entries);
-	tal_resize(entries, n+1);
-	e = &(*entries)[n];
+	e = tal_arr_expand(entries);
 
 	e->source = chan->nodes[idx]->id;
 	e->destination = chan->nodes[!idx]->id;
@@ -1401,7 +1398,6 @@ static void append_node(const struct gossip_getnodes_entry ***nodes,
 			const struct node *n)
 {
 	struct gossip_getnodes_entry *new;
-	size_t num_nodes = tal_count(*nodes);
 
 	new = tal(*nodes, struct gossip_getnodes_entry);
 	new->nodeid = *nodeid;
@@ -1416,8 +1412,7 @@ static void append_node(const struct gossip_getnodes_entry ***nodes,
 		new->alias = n->alias;
 		memcpy(new->color, n->rgb_color, 3);
 	}
-	tal_resize(nodes, num_nodes + 1);
-	(*nodes)[num_nodes] = new;
+	*tal_arr_expand(nodes) = new;
 }
 
 static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,

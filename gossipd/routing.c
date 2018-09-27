@@ -291,7 +291,6 @@ struct chan *new_chan(struct routing_state *rstate,
 {
 	struct chan *chan = tal(rstate, struct chan);
 	int n1idx = pubkey_idx(id1, id2);
-	size_t n;
 	struct node *n1, *n2;
 
 	/* We should never add a channel twice */
@@ -314,12 +313,8 @@ struct chan *new_chan(struct routing_state *rstate,
 	chan->satoshis = satoshis;
 	chan->local_disabled = false;
 
-	n = tal_count(n2->chans);
-	tal_resize(&n2->chans, n+1);
-	n2->chans[n] = chan;
-	n = tal_count(n1->chans);
-	tal_resize(&n1->chans, n+1);
-	n1->chans[n] = chan;
+	*tal_arr_expand(&n2->chans) = chan;
+	*tal_arr_expand(&n1->chans) = chan;
 
 	/* Populate with (inactive) connections */
 	init_half_chan(rstate, chan, n1idx);
@@ -1252,7 +1247,6 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 	const u8 *cursor = ser;
 	size_t len = tal_count(ser);
 	struct wireaddr *wireaddrs = tal_arr(ctx, struct wireaddr, 0);
-	int numaddrs = 0;
 
 	while (cursor && len) {
 		struct wireaddr wireaddr;
@@ -1278,9 +1272,7 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 			break;
 		}
 
-		tal_resize(&wireaddrs, numaddrs+1);
-		wireaddrs[numaddrs] = wireaddr;
-		numaddrs++;
+		*tal_arr_expand(&wireaddrs) = wireaddr;
 	}
 	return wireaddrs;
 }

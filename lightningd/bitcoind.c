@@ -31,9 +31,7 @@
 /* Add the n'th arg to *args, incrementing n and keeping args of size n+1 */
 static void add_arg(const char ***args, const char *arg)
 {
-	size_t n = tal_count(*args);
-	tal_resize(args, n + 1);
-	(*args)[n] = arg;
+	*tal_arr_expand(args) = arg;
 }
 
 static const char **gather_args(const struct bitcoind *bitcoind,
