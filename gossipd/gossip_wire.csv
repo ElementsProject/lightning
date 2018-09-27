@@ -165,3 +165,13 @@ gossip_outpoint_spent,,short_channel_id,struct short_channel_id
 
 # master -> gossipd: stop gossip timers.
 gossip_dev_suppress,3032
+
+#include <common/bolt11.h>
+
+# master -> gossipd: get route_info for our incoming channels
+gossip_get_incoming_channels,3025
+
+# gossipd -> master: here they are.
+gossip_get_incoming_channels_reply,3125
+gossip_get_incoming_channels_reply,,num,u16
+gossip_get_incoming_channels_reply,,route_info,num*struct route_info
