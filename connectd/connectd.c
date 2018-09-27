@@ -208,7 +208,7 @@ static bool broken_resolver(struct daemon *daemon)
 {
 	struct addrinfo *addrinfo;
 	struct addrinfo hints;
-	char *hostname = "nxdomain-test.doesntexist";
+	const char *hostname = "nxdomain-test.doesntexist";
 	int err;
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
@@ -216,17 +216,16 @@ static bool broken_resolver(struct daemon *daemon)
 	hints.ai_protocol = 0;
 	hints.ai_flags = AI_ADDRCONFIG;
 	err = getaddrinfo(hostname, tal_fmt(tmpctx, "%d", 42),
-			      &hints, &addrinfo);
-
-	daemon->broken_resolver_response =
-	    tal_free(daemon->broken_resolver_response);
+			  &hints, &addrinfo);
 
 	if (err == 0) {
-		daemon->broken_resolver_response = tal_dup(daemon, struct sockaddr, addrinfo->ai_addr);
+		daemon->broken_resolver_response
+			= tal_dup(daemon, struct sockaddr, addrinfo->ai_addr);
 		freeaddrinfo(addrinfo);
-	}
+	} else
+		daemon->broken_resolver_response = NULL;
 
-	return 	daemon->broken_resolver_response != NULL;
+	return daemon->broken_resolver_response != NULL;
 }
 
 static struct peer *new_peer(struct io_conn *conn,
@@ -1300,7 +1299,6 @@ int main(int argc, char *argv[])
 	pubkey_set_init(&daemon->peers);
 	list_head_init(&daemon->reconnecting);
 	list_head_init(&daemon->reaching);
-	daemon->broken_resolver_response = NULL;
 	daemon->listen_fds = tal_arr(daemon, struct listen_fd, 0);
 	/* stdin == control */
 	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req,
