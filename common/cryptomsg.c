@@ -126,40 +126,6 @@ u8 *cryptomsg_decrypt_body(const tal_t *ctx,
 	return decrypted;
 }
 
-static struct io_plan *peer_decrypt_body(struct io_conn *conn,
-					 struct peer_crypto_state *pcs)
-{
-	struct io_plan *plan;
-	u8 *in, *decrypted;
-
-	decrypted = cryptomsg_decrypt_body(pcs->in, &pcs->cs, pcs->in);
-	if (!decrypted)
-		return io_close(conn);
-
-	status_peer_io(LOG_IO_IN, decrypted);
-
-	/* BOLT #1:
-	 *
-	 * A receiving node:
-	 *   - upon receiving a message of _odd_, unknown type:
-	 *     - MUST ignore the received message.
-	 */
-	if (unlikely(is_unknown_msg_discardable(decrypted))) {
-		pcs->in = tal_free(pcs->in);
-		return peer_read_message(conn, pcs, pcs->next_in);
-	}
-
-	/* Steal cs->in: we free it after, and decrypted too unless
-	 * they steal but be careful not to touch anything after
-	 * next_in (could free itself) */
-	in = tal_steal(NULL, pcs->in);
-	pcs->in = NULL;
-
-	plan = pcs->next_in(conn, pcs->peer, decrypted);
-	tal_free(in);
-	return plan;
-}
-
 bool cryptomsg_decrypt_header(struct crypto_state *cs, u8 hdr[18], u16 *lenp)
 {
 	unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
@@ -188,54 +154,6 @@ bool cryptomsg_decrypt_header(struct crypto_state *cs, u8 hdr[18], u16 *lenp)
 	assert(mlen == sizeof(len));
 	*lenp = be16_to_cpu(len);
 	return true;
-}
-
-static struct io_plan *peer_decrypt_header(struct io_conn *conn,
-					   struct peer_crypto_state *pcs)
-{
-	u16 len;
-
-	if (!cryptomsg_decrypt_header(&pcs->cs, pcs->in, &len))
-		return io_close(conn);
-
-	tal_free(pcs->in);
-
-	/* BOLT #8:
-	 *
-	 * 4. Read _exactly_ `l+16` bytes from the network buffer, and let
-	 *    the bytes be known as `c`.
-	 */
-	pcs->in = tal_arr(conn, u8, (u32)len + 16);
-	return io_read(conn, pcs->in, tal_count(pcs->in), peer_decrypt_body,
-		       pcs);
-}
-
-struct io_plan *peer_read_message(struct io_conn *conn,
-				  struct peer_crypto_state *pcs,
-				  struct io_plan *(*next)(struct io_conn *,
-							  struct peer *,
-							  u8 *msg))
-{
-	assert(!pcs->in);
-	/* BOLT #8:
-	 *
-	 * ### Receiving and Decrypting Messages
-	 *
-	 * In order to decrypt the _next_ message in the network
-	 * stream, the following steps are completed:
-	 *
-	 *  1. Read _exactly_ 18 bytes from the network buffer.
-	 */
-	pcs->in = tal_arr(conn, u8, 18);
-	pcs->next_in = next;
-	return io_read(conn, pcs->in, 18, peer_decrypt_header, pcs);
-}
-
-static struct io_plan *peer_write_done(struct io_conn *conn,
-				       struct peer_crypto_state *pcs)
-{
-	pcs->out = tal_free(pcs->out);
-	return pcs->next_out(conn, pcs->peer);
 }
 
 u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
@@ -323,64 +241,4 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 	if (taken(msg))
 		tal_free(msg);
 	return out;
-}
-
-#if DEVELOPER
-static struct io_plan *peer_write_postclose(struct io_conn *conn,
-					    struct peer_crypto_state *pcs)
-{
-	pcs->out = tal_free(pcs->out);
-	dev_sabotage_fd(io_conn_fd(conn));
-	return pcs->next_out(conn, pcs->peer);
-}
-#endif
-
-struct io_plan *peer_write_message(struct io_conn *conn,
-				   struct peer_crypto_state *pcs,
-				   const u8 *msg,
-				   struct io_plan *(*next)(struct io_conn *,
-							   struct peer *))
-{
-	struct io_plan *(*post)(struct io_conn *, struct peer_crypto_state *);
-#if DEVELOPER
-	int type = fromwire_peektype(msg);
-#endif
-
-	assert(!pcs->out);
-
-	/* Important: this doesn't take msg! */
-	status_peer_io(LOG_IO_OUT, msg);
-	pcs->out = cryptomsg_encrypt_msg(conn, &pcs->cs, msg);
-	pcs->next_out = next;
-
-	post = peer_write_done;
-
-#if DEVELOPER
-	switch (dev_disconnect(type)) {
-	case DEV_DISCONNECT_BEFORE:
-		dev_sabotage_fd(io_conn_fd(conn));
-		break;
-	case DEV_DISCONNECT_DROPPKT:
-		pcs->out = NULL; /* FALL THRU */
-	case DEV_DISCONNECT_AFTER:
-		post = peer_write_postclose;
-		break;
-	case DEV_DISCONNECT_BLACKHOLE:
-		dev_blackhole_fd(io_conn_fd(conn));
-		break;
-	case DEV_DISCONNECT_NORMAL:
-		break;
-	}
-#endif /* DEVELOPER */
-
-	/* BOLT #8:
-	 *   5. Send `lc || c` over the network buffer.
-	 */
-	return io_write(conn, pcs->out, tal_count(pcs->out), post, pcs);
-}
-
-void init_peer_crypto_state(struct peer *peer, struct peer_crypto_state *pcs)
-{
-	pcs->peer = peer;
-	pcs->out = pcs->in = NULL;
 }
