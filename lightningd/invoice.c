@@ -11,15 +11,20 @@
 #include <common/bech32.h>
 #include <common/bolt11.h>
 #include <common/json_escaped.h>
+#include <common/pseudorand.h>
 #include <common/utils.h>
 #include <errno.h>
+#include <gossipd/gen_gossip_wire.h>
 #include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
+#include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
 #include <lightningd/param.h>
+#include <lightningd/peer_control.h>
+#include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 #include <wire/wire_sync.h>
 
@@ -126,27 +131,179 @@ static bool parse_fallback(struct command *cmd,
 	return true;
 }
 
+/* BOLT11 struct wants an array of arrays (can provide multiple routes) */
+static struct route_info **select_inchan(const tal_t *ctx,
+					 struct lightningd *ld,
+					 u64 capacity_needed,
+					 const struct route_info *inchans,
+					 bool *any_offline)
+{
+	const struct route_info *r = NULL;
+	struct route_info **ret;
+
+	*any_offline = false;
+
+	/* Weighted reservoir sampling.
+	 * Based on https://en.wikipedia.org/wiki/Reservoir_sampling
+	 *	 Algorithm A-Chao
+	 */
+	u64 wsum = 0;
+	for (size_t i = 0; i < tal_count(inchans); i++) {
+		struct peer *peer;
+		struct channel *c;
+		u64 msatoshi_avail;
+
+		/* Do we know about this peer? */
+		peer = peer_by_id(ld, &inchans[i].pubkey);
+		if (!peer)
+			continue;
+
+		/* Does it have a channel in state CHANNELD_NORMAL */
+		c = peer_normal_channel(peer);
+		if (!c)
+			continue;
+
+		/* Does it have sufficient capacity. */
+		msatoshi_avail = c->funding_satoshi * 1000 - c->our_msatoshi;
+
+		/* Even after reserve taken into account */
+		if (c->our_config.channel_reserve_satoshis * 1000
+		    > msatoshi_avail)
+			continue;
+
+		msatoshi_avail -= c->our_config.channel_reserve_satoshis * 1000;
+		if (msatoshi_avail < capacity_needed)
+			continue;
+
+		/* Is it offline? */
+		if (c->owner == NULL) {
+			*any_offline = true;
+			continue;
+		}
+
+		/* Avoid divide-by-zero corner case. */
+		wsum += (msatoshi_avail - capacity_needed + 1);
+		if (pseudorand(1ULL << 32)
+		    <= ((msatoshi_avail - capacity_needed + 1) << 32) / wsum)
+			r = &inchans[i];
+	}
+
+	if (!r)
+		return NULL;
+
+	ret = tal_arr(ctx, struct route_info *, 1);
+	ret[0] = tal_dup(ret, struct route_info, r);
+	return ret;
+}
+
+/* Encapsulating struct while we wait for gossipd to give us incoming channels */
+struct invoice_info {
+	struct command *cmd;
+	struct preimage payment_preimage;
+	struct bolt11 *b11;
+	struct json_escaped *label;
+};
+
+static void gossipd_incoming_channels_reply(struct subd *gossipd,
+					    const u8 *msg,
+					    const int *fs,
+					    struct invoice_info *info)
+{
+	struct json_result *response = new_json_result(info->cmd);
+	struct route_info *inchans;
+	bool any_offline;
+	struct invoice invoice;
+	char *b11enc;
+	const struct invoice_details *details;
+	struct wallet *wallet = info->cmd->ld->wallet;
+
+	if (!fromwire_gossip_get_incoming_channels_reply(tmpctx, msg, &inchans))
+		fatal("Gossip gave bad GOSSIP_GET_INCOMING_CHANNELS_REPLY %s",
+		      tal_hex(msg, msg));
+
+	info->b11->routes
+		= select_inchan(info->b11,
+				info->cmd->ld,
+				info->b11->msatoshi ? *info->b11->msatoshi : 1,
+				inchans,
+				&any_offline);
+
+	/* FIXME: add private routes if necessary! */
+	b11enc = bolt11_encode(info, info->b11, false,
+			       hsm_sign_b11, info->cmd->ld);
+
+	/* Check duplicate preimage (unlikely unless they specified it!) */
+	if (wallet_invoice_find_by_rhash(wallet,
+					 &invoice, &info->b11->payment_hash)) {
+		command_fail(info->cmd, INVOICE_PREIMAGE_ALREADY_EXISTS,
+			     "preimage already used");
+		return;
+	}
+
+	if (!wallet_invoice_create(wallet,
+				   &invoice,
+				   info->b11->msatoshi,
+				   info->label,
+				   info->b11->expiry,
+				   b11enc,
+				   info->b11->description,
+				   &info->payment_preimage,
+				   &info->b11->payment_hash)) {
+		command_fail(info->cmd, INVOICE_LABEL_ALREADY_EXISTS,
+			     "Duplicate label '%s'", info->label->s);
+		return;
+	}
+
+	/* Get details */
+	details = wallet_invoice_details(info, wallet, invoice);
+
+	json_object_start(response, NULL);
+	json_add_hex(response, "payment_hash", details->rhash.u.u8,
+		     sizeof(details->rhash));
+	json_add_u64(response, "expires_at", details->expiry_time);
+	json_add_string(response, "bolt11", details->bolt11);
+
+	/* Warn if there's not sufficient incoming capacity. */
+	if (tal_count(info->b11->routes) == 0) {
+		log_unusual(info->cmd->ld->log,
+			    "invoice: insufficient incoming capacity for %"PRIu64
+			    " msatoshis%s",
+			    info->b11->msatoshi ? *info->b11->msatoshi : 0,
+			    any_offline
+			    ? " (among currently connected peers)" : "");
+
+		if (any_offline)
+			json_add_string(response, "warning_offline",
+					"No peers with sufficient"
+					" incoming capacity are connected");
+		else
+			json_add_string(response, "warning_capacity",
+					"No channels have sufficient"
+					" incoming capacity");
+	}
+	json_object_end(response);
+
+	command_success(info->cmd, response);
+}
+
 static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
-	struct invoice invoice;
-	const struct invoice_details *details;
 	const jsmntok_t *fallbacks;
 	const jsmntok_t *preimagetok;
 	u64 *msatoshi_val;
-	struct json_escaped *label_val;
+	struct invoice_info *info;
 	const char *desc_val;
-	struct json_result *response = new_json_result(cmd);
-	struct wallet *wallet = cmd->ld->wallet;
-	struct bolt11 *b11;
-	char *b11enc;
 	const u8 **fallback_scripts = NULL;
 	u64 *expiry;
-	bool result;
+	struct sha256 rhash;
+
+	info = tal(cmd, struct invoice_info);
+	info->cmd = cmd;
 
 	if (!param(cmd, buffer, params,
 		   p_req("msatoshi", json_tok_msat, &msatoshi_val),
-		   p_req("label", json_tok_label, &label_val),
+		   p_req("label", json_tok_label, &info->label),
 		   p_req("description", json_tok_escaped_string, &desc_val),
 		   p_opt_def("expiry", json_tok_u64, &expiry, 3600),
 		   p_opt("fallbacks", json_tok_array, &fallbacks),
@@ -154,14 +311,9 @@ static void json_invoice(struct command *cmd,
 		   NULL))
 		return;
 
-	if (wallet_invoice_find_by_label(wallet, &invoice, label_val)) {
-		command_fail(cmd, INVOICE_LABEL_ALREADY_EXISTS,
-			     "Duplicate label '%s'", label_val->s);
-		return;
-	}
-	if (strlen(label_val->s) > INVOICE_MAX_LABEL_LEN) {
+	if (strlen(info->label->s) > INVOICE_MAX_LABEL_LEN) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "Label '%s' over %u bytes", label_val->s,
+			     "Label '%s' over %u bytes", info->label->s,
 			     INVOICE_MAX_LABEL_LEN);
 		return;
 	}
@@ -187,78 +339,42 @@ static void json_invoice(struct command *cmd,
 		}
 	}
 
-	struct preimage r;
-	struct sha256 rhash;
-
 	if (preimagetok) {
 		/* Get secret preimage from user. */
 		if (!hex_decode(buffer + preimagetok->start,
 				preimagetok->end - preimagetok->start,
-				r.r, sizeof(r.r))) {
+				&info->payment_preimage,
+				sizeof(info->payment_preimage))) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "preimage must be 64 hex digits");
 			return;
 		}
 	} else
 		/* Generate random secret preimage. */
-		randombytes_buf(r.r, sizeof(r.r));
+		randombytes_buf(&info->payment_preimage,
+				sizeof(info->payment_preimage));
 	/* Generate preimage hash. */
-	sha256(&rhash, r.r, sizeof(r.r));
-
-	/* Check duplicate preimage if explicitly specified.
-	 * We do not check when it is randomly generated, since
-	 * the probability of that matching is very low.
-	 */
-	if (preimagetok &&
-	    wallet_invoice_find_by_rhash(cmd->ld->wallet, &invoice, &rhash)) {
-		command_fail(cmd, INVOICE_PREIMAGE_ALREADY_EXISTS,
-			     "preimage already used");
-		return;
-	}
+	sha256(&rhash, &info->payment_preimage, sizeof(info->payment_preimage));
 
 	/* Construct bolt11 string. */
-	b11 = new_bolt11(cmd, msatoshi_val);
-	b11->chain = get_chainparams(cmd->ld);
-	b11->timestamp = time_now().ts.tv_sec;
-	b11->payment_hash = rhash;
-	b11->receiver_id = cmd->ld->id;
-	b11->min_final_cltv_expiry = cmd->ld->config.cltv_final;
-	b11->expiry = *expiry;
-	b11->description = tal_steal(b11, desc_val);
-	b11->description_hash = NULL;
+	info->b11 = new_bolt11(info, msatoshi_val);
+	info->b11->chain = get_chainparams(cmd->ld);
+	info->b11->timestamp = time_now().ts.tv_sec;
+	info->b11->payment_hash = rhash;
+	info->b11->receiver_id = cmd->ld->id;
+	info->b11->min_final_cltv_expiry = cmd->ld->config.cltv_final;
+	info->b11->expiry = *expiry;
+	info->b11->description = tal_steal(info->b11, desc_val);
+	info->b11->description_hash = NULL;
+
 	if (fallback_scripts)
-		b11->fallbacks = tal_steal(b11, fallback_scripts);
+		info->b11->fallbacks = tal_steal(info->b11, fallback_scripts);
 
-	/* FIXME: add private routes if necessary! */
-	b11enc = bolt11_encode(cmd, b11, false, hsm_sign_b11, cmd->ld);
+	subd_req(cmd, cmd->ld->gossip,
+		 take(towire_gossip_get_incoming_channels(NULL)),
+		 -1, 0, gossipd_incoming_channels_reply, info);
 
-	result = wallet_invoice_create(cmd->ld->wallet,
-				       &invoice,
-				       take(msatoshi_val),
-				       take(label_val),
-				       *expiry,
-				       b11enc,
-				       b11->description,
-				       &r,
-				       &rhash);
-
-	if (!result) {
-		command_fail(cmd, LIGHTNINGD,
-			     "Failed to create invoice on database");
-		   return;
-	}
-
-	/* Get details */
-	details = wallet_invoice_details(cmd, cmd->ld->wallet, invoice);
-
-	json_object_start(response, NULL);
-	json_add_hex(response, "payment_hash", details->rhash.u.u8,
-		     sizeof(details->rhash));
-	json_add_u64(response, "expires_at", details->expiry_time);
-	json_add_string(response, "bolt11", details->bolt11);
-	json_object_end(response);
-
-	command_success(cmd, response);
+	command_still_pending(cmd);
 }
 
 static const struct json_command invoice_command = {

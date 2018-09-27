@@ -178,6 +178,9 @@ void channel_set_state(struct channel *channel,
 /* Find a channel which is not onchain, if any */
 struct channel *peer_active_channel(struct peer *peer);
 
+/* Find a channel which is in state CHANNELD_NORMAL, if any */
+struct channel *peer_normal_channel(struct peer *peer);
+
 /* Get active channel for peer, optionally any uncommitted_channel. */
 struct channel *active_channel_by_id(struct lightningd *ld,
 				     const struct pubkey *id,

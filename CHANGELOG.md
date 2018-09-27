@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - JSON API: `listchannels` has two new fields: `message_flags` and `channel_flags`. This replaces `flags`.
 - Bitcoind: more parallelism in requests, for very slow nodes.
 - Testing: fixed logging, cleaner interception of bitcoind, minor fixes.
+- JSON API: `invoice` now adds route hint to invoices for incoming capacity (RouteBoost), and warns if insufficient capacity.
 
 ### Changed
 

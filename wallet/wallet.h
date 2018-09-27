@@ -683,8 +683,8 @@ bool wallet_invoice_iterate(struct wallet *wallet,
  * @iterator - the iterator object to use.
  * @return pointer to the invoice details allocated off of `ctx`.
  */
-const struct invoice_details *
-wallet_invoice_iterator_deref(const tal_t *ctx, struct wallet *wallet,
+const struct invoice_details *wallet_invoice_iterator_deref(const tal_t *ctx,
+			      struct wallet *wallet,
 			      const struct invoice_iterator *it);
 
 /**
