@@ -762,7 +762,6 @@ sqlite3_column_short_channel_id_array(const tal_t *ctx,
 	const u8 *ser;
 	size_t len;
 	struct short_channel_id *ret;
-	size_t n;
 
 	/* Handle nulls early. */
 	if (sqlite3_column_type(stmt, col) == SQLITE_NULL)
@@ -771,13 +770,9 @@ sqlite3_column_short_channel_id_array(const tal_t *ctx,
 	ser = sqlite3_column_blob(stmt, col);
 	len = sqlite3_column_bytes(stmt, col);
 	ret = tal_arr(ctx, struct short_channel_id, 0);
-	n = 0;
 
-	while (len != 0) {
-		tal_resize(&ret, n + 1);
-		fromwire_short_channel_id(&ser, &len, &ret[n]);
-		++n;
-	}
+	while (len != 0)
+		fromwire_short_channel_id(&ser, &len, tal_arr_expand(&ret));
 
 	return ret;
 }

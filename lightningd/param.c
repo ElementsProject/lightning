@@ -23,10 +23,7 @@ static bool param_add(struct param **params,
 	if (!(name && cbx && arg))
 		return false;
 #endif
-	struct param *last;
-
-	tal_resize(params, tal_count(*params) + 1);
-	last = &(*params)[tal_count(*params) - 1];
+	struct param *last = tal_arr_expand(params);
 
 	last->is_set = false;
 	last->name = name;

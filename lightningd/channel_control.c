@@ -471,9 +471,7 @@ void channel_notify_new_block(struct lightningd *ld,
 	list_for_each (&ld->peers, peer, list) {
 		list_for_each (&peer->channels, channel, list)
 			if (is_fundee_should_forget(ld, channel, block_height)) {
-				i = tal_count(to_forget);
-				tal_resize(&to_forget, i + 1);
-				to_forget[i] = channel;
+				*tal_arr_expand(&to_forget) = channel;
 			}
 	}
 

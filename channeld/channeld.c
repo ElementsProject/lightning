@@ -206,15 +206,6 @@ static void billboard_update(const struct peer *peer)
 		       announce_status, shutdown_status);
 }
 
-/* Returns a pointer to the new end */
-static void *tal_arr_append_(void **p, size_t size)
-{
-	size_t n = tal_bytelen(*p) / size;
-	tal_resize_(p, size, n+1, false);
-	return (char *)(*p) + n * size;
-}
-#define tal_arr_append(p) tal_arr_append_((void **)(p), sizeof(**(p)))
-
 static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 {
 	u8 *msg;
@@ -1171,8 +1162,8 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
 		const struct htlc *htlc = changed_htlcs[i];
 		if (htlc->state == RCVD_ADD_COMMIT) {
-			struct added_htlc *a = tal_arr_append(&added);
-			struct secret *s = tal_arr_append(&shared_secret);
+			struct added_htlc *a = tal_arr_expand(&added);
+			struct secret *s = tal_arr_expand(&shared_secret);
 			a->id = htlc->id;
 			a->amount_msat = htlc->msatoshi;
 			a->payment_hash = htlc->rhash;
@@ -1185,22 +1176,22 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 			if (htlc->r) {
 				struct fulfilled_htlc *f;
 				assert(!htlc->fail);
-				f = tal_arr_append(&fulfilled);
+				f = tal_arr_expand(&fulfilled);
 				f->id = htlc->id;
 				f->payment_preimage = *htlc->r;
 			} else {
-				struct failed_htlc **f;
+				struct failed_htlc *f;
 				assert(htlc->fail);
-				f = tal_arr_append(&failed);
-				*f = tal(failed, struct failed_htlc);
-				(*f)->id = htlc->id;
-				(*f)->failcode = htlc->failcode;
-				(*f)->failreason = cast_const(u8 *, htlc->fail);
-				(*f)->scid = cast_const(struct short_channel_id *,
+				f = tal(failed, struct failed_htlc);
+				f->id = htlc->id;
+				f->failcode = htlc->failcode;
+				f->failreason = cast_const(u8 *, htlc->fail);
+				f->scid = cast_const(struct short_channel_id *,
 							htlc->failed_scid);
+				*tal_arr_expand(&failed) = f;
 			}
 		} else {
-			struct changed_htlc *c = tal_arr_append(&changed);
+			struct changed_htlc *c = tal_arr_expand(&changed);
 			assert(htlc->state == RCVD_REMOVE_ACK_COMMIT
 			       || htlc->state == RCVD_ADD_ACK_COMMIT);
 
@@ -1351,7 +1342,7 @@ static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
 	struct changed_htlc *changed = tal_arr(tmpctx, struct changed_htlc, 0);
 
 	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
-		struct changed_htlc *c = tal_arr_append(&changed);
+		struct changed_htlc *c = tal_arr_expand(&changed);
 		const struct htlc *htlc = changed_htlcs[i];
 
 		status_trace("HTLC %"PRIu64"[%s] => %s",

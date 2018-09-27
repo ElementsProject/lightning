@@ -397,7 +397,6 @@ static struct tracked_output *
 			   const u8 *wscript,
 			   const secp256k1_ecdsa_signature *remote_htlc_sig)
 {
-	size_t n = tal_count(*outs);
 	struct tracked_output *out = tal(*outs, struct tracked_output);
 
 	status_trace("Tracking output %u of %s: %s/%s",
@@ -419,8 +418,7 @@ static struct tracked_output *
 	out->wscript = wscript;
 	out->remote_htlc_sig = remote_htlc_sig;
 
-	tal_resize(outs, n+1);
-	(*outs)[n] = out;
+	*tal_arr_expand(outs) = out;
 
 	return out;
 }
@@ -1421,11 +1419,8 @@ static void note_missing_htlcs(u8 **htlc_scripts,
 							 &htlcs[i]);
 		if (tell_immediately[i])
 			wire_sync_write(REQ_FD, take(msg));
-		else {
-			size_t n = tal_count(missing_htlc_msgs);
-			tal_resize(&missing_htlc_msgs, n+1);
-			missing_htlc_msgs[n] = msg;
-		}
+		else
+			*tal_arr_expand(&missing_htlc_msgs) = msg;
 	}
 }
 

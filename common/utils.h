@@ -19,6 +19,16 @@ char *tal_hex(const tal_t *ctx, const tal_t *data);
 /* Allocate and fill a buffer with the data of this hex string. */
 u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len);
 
+/* Helper macro to extend tal_arr and return pointer new last element. */
+#if HAVE_STATEMENT_EXPR
+/* More efficient version calls tal_count() once */
+#define tal_arr_expand(p)					\
+	({ size_t n = tal_count(*p); tal_resize((p), n+1); *(p) + n; })
+#else
+#define tal_arr_expand(p) \
+	(tal_resize((p), tal_count(*(p))+1), (*p) + tal_count(*(p))-1)
+#endif
+
 /* Use the POSIX C locale. */
 void setup_locale(void);
 

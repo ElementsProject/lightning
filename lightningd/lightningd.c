@@ -181,8 +181,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/*~ Tal also explicitly supports arrays: it stores the number of
 	 * elements, which can be accessed with tal_count() (or tal_bytelen()
 	 * for raw bytecount).  It's common for simple arrays to use
-	 * tal_resize() to expand, which does not work on NULL.  So we start
-	 * with an zero-length array. */
+	 * tal_resize() (or tal_arr_expand) to expand, which does not work on
+	 * NULL.  So we start with an zero-length array. */
 	ld->proposed_wireaddr = tal_arr(ld, struct wireaddr_internal, 0);
 	ld->proposed_listen_announce = tal_arr(ld, enum addr_listen_announce, 0);
 	ld->portnum = DEFAULT_PORT;

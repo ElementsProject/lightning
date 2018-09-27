@@ -54,9 +54,8 @@ struct txfilter *txfilter_new(const tal_t *ctx)
 
 void txfilter_add_scriptpubkey(struct txfilter *filter, const u8 *script TAKES)
 {
-	size_t count = tal_count(filter->scriptpubkeys);
-	tal_resize(&filter->scriptpubkeys, count + 1);
-	filter->scriptpubkeys[count] = tal_dup_arr(filter, u8, script, tal_count(script), 0);
+	*tal_arr_expand(&filter->scriptpubkeys)
+		= tal_dup_arr(filter, u8, script, tal_count(script), 0);
 }
 
 void txfilter_add_derkey(struct txfilter *filter,

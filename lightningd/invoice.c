@@ -178,15 +178,12 @@ static void json_invoice(struct command *cmd,
 
 	if (fallbacks) {
 		const jsmntok_t *i, *end = json_next(fallbacks);
-		size_t n = 0;
 
-		fallback_scripts = tal_arr(cmd, const u8 *, n);
+		fallback_scripts = tal_arr(cmd, const u8 *, 0);
 		for (i = fallbacks + 1; i < end; i = json_next(i)) {
-			tal_resize(&fallback_scripts, n+1);
 			if (!parse_fallback(cmd, buffer, i,
-					    &fallback_scripts[n]))
+					    tal_arr_expand(&fallback_scripts)))
 				return;
-			n++;
 		}
 	}
 

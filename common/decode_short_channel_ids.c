@@ -24,7 +24,7 @@ static u8 *unzlib(const tal_t *ctx, const u8 *encoded, size_t len)
 struct short_channel_id *decode_short_ids(const tal_t *ctx, const u8 *encoded)
 {
 	struct short_channel_id *scids;
-	size_t max = tal_count(encoded), n;
+	size_t max = tal_count(encoded);
 	enum scid_encode_types type;
 
 	/* BOLT #7:
@@ -46,11 +46,10 @@ struct short_channel_id *decode_short_ids(const tal_t *ctx, const u8 *encoded)
 		max = tal_count(encoded);
 		/* fall thru */
 	case SHORTIDS_UNCOMPRESSED:
-		n = 0;
-		scids = tal_arr(ctx, struct short_channel_id, n);
+		scids = tal_arr(ctx, struct short_channel_id, 0);
 		while (max) {
-			tal_resize(&scids, n+1);
-			fromwire_short_channel_id(&encoded, &max, &scids[n++]);
+			fromwire_short_channel_id(&encoded, &max,
+						  tal_arr_expand(&scids));
 		}
 
 		/* encoded is set to NULL if we ran over */

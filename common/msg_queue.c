@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <ccan/take/take.h>
 #include <common/msg_queue.h>
+#include <common/utils.h>
 #include <wire/wire.h>
 
 void msg_queue_init(struct msg_queue *q, const tal_t *ctx)
@@ -11,9 +12,7 @@ void msg_queue_init(struct msg_queue *q, const tal_t *ctx)
 
 static void do_enqueue(struct msg_queue *q, const u8 *add)
 {
-	size_t n = tal_count(q->q);
-	tal_resize(&q->q, n+1);
-	q->q[n] = tal_dup_arr(q->ctx, u8, add, tal_count(add), 0);
+	*tal_arr_expand(&q->q) = tal_dup_arr(q->ctx, u8, add, tal_count(add), 0);
 
 	/* In case someone is waiting */
 	io_wake(q);

@@ -126,16 +126,13 @@ static char *opt_add_addr_withtype(const char *arg,
 				   enum addr_listen_announce ala,
 				   bool wildcard_ok)
 {
-	size_t n = tal_count(ld->proposed_wireaddr);
 	char const *err_msg;
 
 	assert(arg != NULL);
 
-	tal_resize(&ld->proposed_wireaddr, n+1);
-	tal_resize(&ld->proposed_listen_announce, n+1);
-	ld->proposed_listen_announce[n] = ala;
-
-	if (!parse_wireaddr_internal(arg, &ld->proposed_wireaddr[n], ld->portnum,
+	*tal_arr_expand(&ld->proposed_listen_announce) = ala;
+	if (!parse_wireaddr_internal(arg, tal_arr_expand(&ld->proposed_wireaddr),
+				     ld->portnum,
 				     wildcard_ok, !ld->use_proxy_always, false,
 				     &err_msg)) {
 		return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);

@@ -153,7 +153,6 @@ static void broadcast_remainder(struct bitcoind *bitcoind,
 static void rebroadcast_txs(struct chain_topology *topo, struct command *cmd)
 {
 	/* Copy txs now (peers may go away, and they own txs). */
-	size_t num_txs = 0;
 	struct txs_to_broadcast *txs;
 	struct outgoing_tx *otx;
 
@@ -166,9 +165,7 @@ static void rebroadcast_txs(struct chain_topology *topo, struct command *cmd)
 		if (wallet_transaction_height(topo->ld->wallet, &otx->txid))
 			continue;
 
-		tal_resize(&txs->txs, num_txs+1);
-		txs->txs[num_txs] = tal_strdup(txs, otx->hextx);
-		num_txs++;
+		*tal_arr_expand(&txs->txs) = tal_strdup(txs, otx->hextx);
 	}
 
 	/* Let this do the dirty work. */
