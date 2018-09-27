@@ -132,8 +132,6 @@ static struct io_plan *peer_decrypt_body(struct io_conn *conn,
 	struct io_plan *plan;
 	u8 *in, *decrypted;
 
-	pcs->reading_body = false;
-
 	decrypted = cryptomsg_decrypt_body(pcs->in, &pcs->cs, pcs->in);
 	if (!decrypted)
 		return io_close(conn);
@@ -202,8 +200,6 @@ static struct io_plan *peer_decrypt_header(struct io_conn *conn,
 
 	tal_free(pcs->in);
 
-	pcs->reading_body = true;
-
 	/* BOLT #8:
 	 *
 	 * 4. Read _exactly_ `l+16` bytes from the network buffer, and let
@@ -230,7 +226,6 @@ struct io_plan *peer_read_message(struct io_conn *conn,
 	 *
 	 *  1. Read _exactly_ 18 bytes from the network buffer.
 	 */
-	pcs->reading_body = false;
 	pcs->in = tal_arr(conn, u8, 18);
 	pcs->next_in = next;
 	return io_read(conn, pcs->in, 18, peer_decrypt_header, pcs);
@@ -384,16 +379,8 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 	return io_write(conn, pcs->out, tal_count(pcs->out), post, pcs);
 }
 
-/* We read in two parts, so we might have started body. */
-bool peer_in_started(const struct io_conn *conn,
-		     const struct peer_crypto_state *cs)
-{
-	return io_plan_in_started(conn) || cs->reading_body;
-}
-
 void init_peer_crypto_state(struct peer *peer, struct peer_crypto_state *pcs)
 {
 	pcs->peer = peer;
 	pcs->out = pcs->in = NULL;
-	pcs->reading_body = false;
 }
