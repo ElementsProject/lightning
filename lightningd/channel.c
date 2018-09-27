@@ -270,6 +270,17 @@ struct channel *peer_active_channel(struct peer *peer)
 	return NULL;
 }
 
+struct channel *peer_normal_channel(struct peer *peer)
+{
+	struct channel *channel;
+
+	list_for_each(&peer->channels, channel, list) {
+		if (channel->state == CHANNELD_NORMAL)
+			return channel;
+	}
+	return NULL;
+}
+
 struct channel *active_channel_by_id(struct lightningd *ld,
 				     const struct pubkey *id,
 				     struct uncommitted_channel **uc)

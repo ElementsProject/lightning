@@ -1,6 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from lightning import RpcError
-from utils import only_one, DEVELOPER
+from utils import only_one, DEVELOPER, wait_for, wait_channel_quiescent
 
 
 import pytest
@@ -29,6 +29,9 @@ def test_invoice(node_factory):
     assert b11['fallbacks'][0]['type'] == 'P2WPKH'
     assert b11['fallbacks'][1]['addr'] == addr2
     assert b11['fallbacks'][1]['type'] == 'P2SH'
+    # There's no incoming channel, so no routeboost
+    assert 'routes' not in b11
+    assert 'warning_capacity' in inv
 
     # Check pay_index is null
     outputs = l1.db_query('SELECT pay_index IS NULL AS q FROM invoices WHERE label="label";')
@@ -45,6 +48,9 @@ def test_invoice(node_factory):
     # to match the "lnbcrt1" above with the '1' digit as the
     # separator, and not for example "lnbcrt1m1....".
     assert b11.count('1') == 1
+    # There's no incoming channel, so no routeboost
+    assert 'routes' not in b11
+    assert 'warning_capacity' in inv
 
 
 def test_invoice_weirdstring(node_factory):
@@ -109,6 +115,46 @@ def test_invoice_preimage(node_factory):
     # Creating a new invoice with same preimage should error.
     with pytest.raises(RpcError, match=r'preimage already used'):
         l2.rpc.invoice(123456, 'inv2', '?', preimage=invoice_preimage)
+
+
+def test_invoice_routeboost(node_factory):
+    """Test routeboost 'r' hint in bolt11 invoice.
+    """
+    l1, l2 = node_factory.line_graph(2, announce=True, fundamount=10**4)
+
+    # Make sure we've seen channel_update from peer.
+    wait_for(lambda: [a['active'] for a in l2.rpc.listchannels()['channels']] == [True, True])
+
+    # Make invoice and pay it
+    inv = l2.rpc.invoice(msatoshi=123456, label="inv1", description="?")
+    # Check routeboost.
+    assert 'warning_capacity' not in inv
+    assert 'warning_offline' not in inv
+    # Route array has single route with single element.
+    r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
+    assert r['pubkey'] == l1.info['id']
+    assert r['short_channel_id'] == l1.rpc.listchannels()['channels'][0]['short_channel_id']
+    assert r['fee_base_msat'] == 1
+    assert r['fee_proportional_millionths'] == 10
+    assert r['cltv_expiry_delta'] == 6
+
+    # Pay it (and make sure it's fully resolved before we take l1 offline!)
+    l1.rpc.pay(inv['bolt11'])
+    wait_channel_quiescent(l1, l2)
+
+    # Due to reserve, l1 doesn't have capacity to pay this.
+    inv = l2.rpc.invoice(msatoshi=10**7 - 123456, label="inv2", description="?")
+    # Check warning
+    assert 'warning_capacity' in inv
+    assert 'warning_offline' not in inv
+
+    l1.stop()
+    wait_for(lambda: not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
+
+    inv = l2.rpc.invoice(123456, label="inv3", description="?")
+    # Check warning.
+    assert 'warning_capacity' not in inv
+    assert 'warning_offline' in inv
 
 
 def test_invoice_expiry(node_factory, executor):

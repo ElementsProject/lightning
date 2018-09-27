@@ -102,8 +102,7 @@ enum address_parse_result {
 /* Return result of address parsing and fills in *scriptpubkey
  * allocated off ctx if ADDRESS_PARSE_SUCCESS
  */
-enum address_parse_result
-json_tok_address_scriptpubkey(const tal_t *ctx,
+enum address_parse_result json_tok_address_scriptpubkey(const tal_t *ctx,
 			      const struct chainparams *chainparams,
 			      const char *buffer,
 			      const jsmntok_t *tok, const u8 **scriptpubkey);
