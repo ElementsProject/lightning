@@ -2,12 +2,12 @@
 .\"     Title: lightning-invoice
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 04/26/2018
+.\"      Date: 09/27/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-INVOICE" "7" "04/26/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-INVOICE" "7" "09/27/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -49,7 +49,9 @@ The \fIfallbacks\fR array is one or more fallback addresses to include in the in
 The \fIpreimage\fR is a 64\-digit hex string to be used as payment preimage for the created invoice\&. By default, if unspecified, lightningd will generate a secure pseudorandom preimage seeded from an appropriate entropy source on your system\&. \fBIMPORTANT\fR: if you specify the \fIpreimage\fR, you are responsible, to ensure appropriate care for generating using a secure pseudorandom generator seeded with sufficient entropy, and keeping the preimage secret\&. This parameter is an advanced feature intended for use with cutting\-edge cryptographic protocols and should not be used unless explicitly needed\&.
 .SH "RETURN VALUE"
 .sp
-On success, a hash is returned as \fIpayment_hash\fR to be given to the payer, and the \fIexpiry_time\fR as a UNIX timestamp\&. It also returns a BOLT11 invoice as \fIbolt11\fR to be given to the payer\&. On failure, an error is returned and no invoice is created\&. If the lightning process fails before responding, the caller should use lightning\-listinvoice(7) to query whether this invoice was created or not\&.
+On success, a hash is returned as \fIpayment_hash\fR to be given to the payer, and the \fIexpiry_time\fR as a UNIX timestamp\&. It also returns a BOLT11 invoice as \fIbolt11\fR to be given to the payer\&.
+.sp
+On failure, an error is returned and no invoice is created\&. If the lightning process fails before responding, the caller should use lightning\-listinvoice(7) to query whether this invoice was created or not\&.
 .sp
 The following error codes may occur:
 .sp
@@ -88,6 +90,32 @@ already exists\&.
 901\&. An invoice with the given
 \fIpreimage\fR
 already exists\&.
+.RE
+.sp
+One of the following warnings may occur (on success):
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIwarning_offline\fR
+if no channel with a currently connected peer has the incoming capacity to pay this invoice
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIwarning_capacity\fR
+if there is no channel at all with sufficient incoming capacity to pay this invoice\&.
 .RE
 .SH "AUTHOR"
 .sp
