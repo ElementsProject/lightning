@@ -282,11 +282,10 @@ def test_waitanyinvoice_reversed(node_factory, executor):
 def test_autocleaninvoice(node_factory):
     l1 = node_factory.get_node()
 
-    start_time = time.time()
-    l1.rpc.autocleaninvoice(cycle_seconds=8, expired_by=2)
-
     l1.rpc.invoice(msatoshi=12300, label='inv1', description='description1', expiry=4)
     l1.rpc.invoice(msatoshi=12300, label='inv2', description='description2', expiry=12)
+    l1.rpc.autocleaninvoice(cycle_seconds=8, expired_by=2)
+    start_time = time.time()
 
     # time 0
     # Both should still be there.
