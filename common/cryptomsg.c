@@ -315,7 +315,7 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 		     tal_hexstr(trc, msg, mlen),
 		     tal_hexstr(trc, npub, sizeof(npub)),
 		     tal_hexstr(trc, &cs->sk, sizeof(cs->sk)),
-		     tal_hexstr(trc, out + 18, clen));
+		     tal_hexstr(trc, out + CRYPTOMSG_HDR_SIZE, clen));
 #endif
 
 	maybe_rotate_key(&cs->sn, &cs->sk, &cs->s_ck);

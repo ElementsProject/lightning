@@ -33,6 +33,7 @@
 #include <connectd/gen_connect_wire.h>
 #include <connectd/handshake.h>
 #include <connectd/netaddress.h>
+#include <connectd/peer_exchange_initmsg.h>
 #include <connectd/tor.h>
 #include <connectd/tor_autoservice.h>
 #include <errno.h>
@@ -140,27 +141,6 @@ struct reaching {
 	u32 seconds_waited;
 };
 
-/* This is a transitory structure: we hand off to the master daemon as soon
- * as we've completed INIT read/write. */
-struct peer {
-	struct daemon *daemon;
-
-	/* The ID of the peer */
-	struct pubkey id;
-
-	/* Where it's connected to. */
-	struct wireaddr_internal addr;
-
-	/* Feature bitmaps. */
-	u8 *gfeatures, *lfeatures;
-
-	/* Cryptostate */
-	struct peer_crypto_state pcs;
-
-	/* Our connection (and owner) */
-	struct io_conn *conn;
-};
-
 /* Mutual recursion */
 static void try_reach_one_addr(struct reaching *reach);
 
@@ -194,24 +174,6 @@ static bool broken_resolver(struct daemon *daemon)
 	return daemon->broken_resolver_response != NULL;
 }
 
-static struct peer *new_peer(struct io_conn *conn,
-			     struct daemon *daemon,
-			     const struct pubkey *their_id,
-			     const struct wireaddr_internal *addr,
-			     const struct crypto_state *cs)
-{
-	struct peer *peer = tal(conn, struct peer);
-
-	peer->conn = conn;
-	peer->id = *their_id;
-	peer->addr = *addr;
-	peer->daemon = daemon;
-	init_peer_crypto_state(peer, &peer->pcs);
-	peer->pcs.cs = *cs;
-
-	return peer;
-}
-
 static void destroy_reaching(struct reaching *reach)
 {
 	list_del_from(&reach->daemon->reaching, &reach->list);
@@ -228,10 +190,12 @@ static struct reaching *find_reaching(struct daemon *daemon,
 	return NULL;
 }
 
-static void reached_peer(struct peer *peer, struct io_conn *conn)
+static void reached_peer(struct io_conn *conn,
+			 struct daemon *daemon,
+			 const struct pubkey *id)
 {
 	/* OK, we've reached the peer successfully, tell everyone. */
-	struct reaching *r = find_reaching(peer->daemon, &peer->id);
+	struct reaching *r = find_reaching(daemon, id);
 
 	if (!r)
 		return;
@@ -240,164 +204,120 @@ static void reached_peer(struct peer *peer, struct io_conn *conn)
 	io_set_finish(conn, NULL, NULL);
 
 	/* Don't free conn with reach */
-	tal_steal(peer->daemon, conn);
+	tal_steal(daemon, conn);
 	tal_free(r);
 }
 
-static int get_gossipfd(struct peer *peer)
+static int get_gossipfd(struct daemon *daemon,
+			const struct pubkey *id,
+			const u8 *lfeatures)
 {
 	bool gossip_queries_feature, initial_routing_sync, success;
 	u8 *msg;
 
 	gossip_queries_feature
-		= feature_offered(peer->lfeatures, LOCAL_GOSSIP_QUERIES)
-		&& feature_offered(peer->daemon->localfeatures,
+		= feature_offered(lfeatures, LOCAL_GOSSIP_QUERIES)
+		&& feature_offered(daemon->localfeatures,
 				   LOCAL_GOSSIP_QUERIES);
 	initial_routing_sync
-		= feature_offered(peer->lfeatures, LOCAL_INITIAL_ROUTING_SYNC);
+		= feature_offered(lfeatures, LOCAL_INITIAL_ROUTING_SYNC);
 
 	/* We do this communication sync. */
-	msg = towire_gossip_new_peer(NULL, &peer->id, gossip_queries_feature,
+	msg = towire_gossip_new_peer(NULL, id, gossip_queries_feature,
 				     initial_routing_sync);
 	if (!wire_sync_write(GOSSIPCTL_FD, take(msg)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed writing to gossipctl: %s",
 			      strerror(errno));
 
-	msg = wire_sync_read(peer, GOSSIPCTL_FD);
+	msg = wire_sync_read(tmpctx, GOSSIPCTL_FD);
 	if (!fromwire_gossip_new_peer_reply(msg, &success))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed parsing msg gossipctl: %s",
 			      tal_hex(tmpctx, msg));
 	if (!success) {
 		status_broken("Gossipd did not give us an fd: losing peer %s",
-			      type_to_string(tmpctx, struct pubkey, &peer->id));
+			      type_to_string(tmpctx, struct pubkey, id));
 		return -1;
 	}
 	return fdpass_recv(GOSSIPCTL_FD);
 }
 
-static struct io_plan *peer_close_after_error(struct io_conn *conn,
-					      struct peer *peer)
-{
-	status_trace("%s: we sent them a fatal error, closing",
-		     type_to_string(tmpctx, struct pubkey, &peer->id));
-	return io_close(conn);
-}
+struct peer_reconnected {
+	struct daemon *daemon;
+	struct pubkey id;
+	const u8 *peer_connected_msg;
+	const u8 *lfeatures;
+};
 
-/* Mutual recursion */
-static struct io_plan *peer_connected(struct io_conn *conn, struct peer *peer);
 static struct io_plan *retry_peer_connected(struct io_conn *conn,
-					    struct peer *peer)
+					    struct peer_reconnected *pr)
 {
-	status_trace("peer %s: processing now old peer gone",
-		     type_to_string(tmpctx, struct pubkey, &peer->id));
+	struct io_plan *plan;
 
-	return peer_connected(conn, peer);
+	status_trace("peer %s: processing now old peer gone",
+		     type_to_string(tmpctx, struct pubkey, &pr->id));
+
+	plan = peer_connected(conn, pr->daemon, &pr->id,
+			      take(pr->peer_connected_msg),
+			      take(pr->lfeatures));
+	tal_free(pr);
+	return plan;
 }
 
-static struct io_plan *peer_connected(struct io_conn *conn, struct peer *peer)
+struct io_plan *peer_connected(struct io_conn *conn,
+			       struct daemon *daemon,
+			       const struct pubkey *id TAKES,
+			       const u8 *peer_connected_msg TAKES,
+			       const u8 *lfeatures TAKES)
 {
-	struct daemon *daemon = peer->daemon;
-	u8 *msg;
-	int gossip_fd;
 	struct pubkey *key;
+	int gossip_fd;
 
 	/* FIXME: We could do this before exchanging init msgs. */
-	key = pubkey_set_get(&daemon->peers, &peer->id);
+	key = pubkey_set_get(&daemon->peers, id);
 	if (key) {
+		u8 *msg;
+		struct peer_reconnected *r;
+
 		status_trace("peer %s: reconnect",
-			     type_to_string(tmpctx, struct pubkey, &peer->id));
+			     type_to_string(tmpctx, struct pubkey, id));
 
 		/* Tell master to kill it: will send peer_disconnect */
-		msg = towire_connect_reconnected(NULL, &peer->id);
+		msg = towire_connect_reconnected(NULL, id);
 		daemon_conn_send(&daemon->master, take(msg));
-		return io_wait(conn, key, retry_peer_connected, peer);
+
+		/* Save arguments for next time. */
+		r = tal(daemon, struct peer_reconnected);
+		r->daemon = daemon;
+		r->id = *id;
+		r->peer_connected_msg
+			= tal_dup_arr(r, u8, peer_connected_msg,
+				      tal_count(peer_connected_msg), 0);
+		r->lfeatures
+			= tal_dup_arr(r, u8, lfeatures, tal_count(lfeatures), 0);
+		return io_wait(conn, key, retry_peer_connected, r);
 	}
 
-	reached_peer(peer, conn);
+	reached_peer(conn, daemon, id);
 
-	gossip_fd = get_gossipfd(peer);
+	gossip_fd = get_gossipfd(daemon, id, lfeatures);
+
+	/* We promised we'd take it. */
+	if (taken(lfeatures))
+		tal_free(lfeatures);
+
 	if (gossip_fd < 0)
 		return io_close(conn);
 
-	msg = towire_connect_peer_connected(tmpctx, &peer->id, &peer->addr,
-					    &peer->pcs.cs,
-					    peer->gfeatures, peer->lfeatures);
-	daemon_conn_send(&daemon->master, msg);
+	daemon_conn_send(&daemon->master, peer_connected_msg);
 	daemon_conn_send_fd(&daemon->master, io_conn_fd(conn));
 	daemon_conn_send_fd(&daemon->master, gossip_fd);
 
-	pubkey_set_add(&daemon->peers,
-		       tal_dup(daemon, struct pubkey, &peer->id));
+	pubkey_set_add(&daemon->peers, tal_dup(daemon, struct pubkey, id));
 
 	/* This frees the peer. */
 	return io_close_taken_fd(conn);
-}
-
-static struct io_plan *peer_init_received(struct io_conn *conn,
-					  struct peer *peer,
-					  u8 *msg)
-{
-	if (!fromwire_init(peer, msg, &peer->gfeatures, &peer->lfeatures)) {
-		status_trace("peer %s bad fromwire_init '%s', closing",
-			     type_to_string(tmpctx, struct pubkey, &peer->id),
-			     tal_hex(tmpctx, msg));
-		return io_close(conn);
-	}
-
-	if (!features_supported(peer->gfeatures, peer->lfeatures)) {
-		const u8 *global_features = get_offered_global_features(msg);
-		const u8 *local_features = get_offered_local_features(msg);
-		msg = towire_errorfmt(NULL, NULL, "Unsupported features %s/%s:"
-				      " we only offer globalfeatures %s"
-				      " and localfeatures %s",
-				      tal_hex(msg, peer->gfeatures),
-				      tal_hex(msg, peer->lfeatures),
-				      tal_hexstr(msg,
-						 global_features,
-						 tal_count(global_features)),
-				      tal_hexstr(msg,
-						 local_features,
-						 tal_count(local_features)));
-		return peer_write_message(conn, &peer->pcs, take(msg),
-					  peer_close_after_error);
-	}
-
-	return peer_connected(conn, peer);
-}
-
-static struct io_plan *read_init(struct io_conn *conn, struct peer *peer)
-{
-	/* BOLT #1:
-	 *
-	 * The receiving node:
-	 *  - MUST wait to receive `init` before sending any other messages.
-	 */
-	return peer_read_message(conn, &peer->pcs, peer_init_received);
-}
-
-/* This creates a temporary peer which is not in the list and is owner
- * by the connection; it's placed in the list and owned by daemon once
- * we have the features. */
-static struct io_plan *init_new_peer(struct io_conn *conn,
-				     const struct pubkey *their_id,
-				     const struct wireaddr_internal *addr,
-				     const struct crypto_state *cs,
-				     struct daemon *daemon)
-{
-	struct peer *peer = new_peer(conn, daemon, their_id, addr, cs);
-	u8 *initmsg;
-
-	/* BOLT #1:
-	 *
-	 * The sending node:
-	 *   - MUST send `init` as the first Lightning message for any
-	 *     connection.
-	 */
-	initmsg = towire_init(NULL,
-			      daemon->globalfeatures, daemon->localfeatures);
-	return peer_write_message(conn, &peer->pcs, take(initmsg), read_init);
 }
 
 struct listen_fd {
@@ -456,7 +376,7 @@ static struct io_plan *handshake_in_success(struct io_conn *conn,
 {
 	status_trace("Connect IN from %s",
 		     type_to_string(tmpctx, struct pubkey, id));
-	return init_new_peer(conn, id, addr, cs, daemon);
+	return peer_exchange_initmsg(conn, daemon, cs, id, addr);
 }
 
 static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon)
@@ -830,7 +750,7 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 	reach->connstate = "Exchanging init messages";
 	status_trace("Connect OUT to %s",
 		     type_to_string(tmpctx, struct pubkey, id));
-	return init_new_peer(conn, id, addr, cs, reach->daemon);
+	return peer_exchange_initmsg(conn, reach->daemon, cs, id, addr);
 }
 
 struct io_plan *connection_out(struct io_conn *conn, struct reaching *reach)
