@@ -13,7 +13,6 @@
 #include <ccan/noerr/noerr.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/timer/timer.h>
 #include <common/bech32.h>
 #include <common/bech32_util.h>
 #include <common/cryptomsg.h>
@@ -24,7 +23,6 @@
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
-#include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/version.h>
@@ -97,8 +95,6 @@ struct daemon {
 
 	/* Connection to main daemon. */
 	struct daemon_conn master;
-
-	struct timers timers;
 
 	/* Local and global features to offer to peers. */
 	u8 *localfeatures, *globalfeatures;
@@ -1304,7 +1300,6 @@ int main(int argc, char *argv[])
 	pubkey_set_init(&daemon->peers);
 	list_head_init(&daemon->reconnecting);
 	list_head_init(&daemon->reaching);
-	timers_init(&daemon->timers, time_mono());
 	daemon->broken_resolver_response = NULL;
 	daemon->listen_fds = tal_arr(daemon, struct listen_fd, 0);
 	/* stdin == control */
@@ -1312,19 +1307,7 @@ int main(int argc, char *argv[])
 			 master_gone);
 	status_setup_async(&daemon->master);
 
-	/* When conn closes, everything is freed. */
-	tal_steal(daemon->master.conn, daemon);
-
-	for (;;) {
-		struct timer *expired = NULL;
-		io_loop(&daemon->timers, &expired);
-
-		if (!expired) {
-			break;
-		} else {
-			timer_expired(daemon, expired);
-		}
-	}
-	daemon_shutdown();
-	return 0;
+	/* Should never exit. */
+	io_loop(NULL, NULL);
+	abort();
 }
