@@ -70,6 +70,11 @@ def sync_blockheight(bitcoind, nodes):
         wait_for(lambda: n.rpc.getinfo()['blockheight'] == height)
 
 
+def wait_channel_quiescent(n1, n2):
+    wait_for(lambda: only_one(only_one(n1.rpc.listpeers(n2.info['id'])['peers'])['channels'])['htlcs'] == [])
+    wait_for(lambda: only_one(only_one(n2.rpc.listpeers(n1.info['id'])['peers'])['channels'])['htlcs'] == [])
+
+
 class TailableProc(object):
     """A monitorable process that we can start, stop and tail.
 
