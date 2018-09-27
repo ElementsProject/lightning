@@ -66,17 +66,7 @@
 #define INITIAL_WAIT_SECONDS	1
 #define MAX_WAIT_SECONDS	300
 
-struct listen_fd {
-	int fd;
-	/* If we bind() IPv6 then IPv4 to same port, we *may* fail to listen()
-	 * on the IPv4 socket: under Linux, by default, the IPv6 listen()
-	 * covers IPv4 too.  Normally we'd consider failing to listen on a
-	 * port to be fatal, so we note this when setting up addresses. */
-	bool mayfail;
-};
-
-static const struct pubkey *
-pubkey_keyof(const struct pubkey *pk)
+static const struct pubkey *pubkey_keyof(const struct pubkey *pk)
 {
 	return pk;
 }
@@ -451,6 +441,15 @@ static struct io_plan *init_new_peer(struct io_conn *conn,
 			      daemon->globalfeatures, daemon->localfeatures);
 	return peer_write_message(conn, &peer->pcs, take(initmsg), read_init);
 }
+
+struct listen_fd {
+	int fd;
+	/* If we bind() IPv6 then IPv4 to same port, we *may* fail to listen()
+	 * on the IPv4 socket: under Linux, by default, the IPv6 listen()
+	 * covers IPv4 too.  Normally we'd consider failing to listen on a
+	 * port to be fatal, so we note this when setting up addresses. */
+	bool mayfail;
+};
 
 static int make_listen_fd(int domain, void *addr, socklen_t len, bool mayfail)
 {
@@ -1287,7 +1286,6 @@ bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point)
 	return true;
 }
 
-#ifndef TESTING
 static void master_gone(struct io_conn *unused UNUSED, struct daemon_conn *dc UNUSED)
 {
 	/* Can't tell master, it's gone. */
@@ -1330,4 +1328,3 @@ int main(int argc, char *argv[])
 	daemon_shutdown();
 	return 0;
 }
-#endif
