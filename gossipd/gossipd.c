@@ -809,7 +809,7 @@ static bool create_next_scid_reply(struct peer *peer)
 		struct chan *chan;
 
 		chan = get_channel(rstate, &peer->scid_queries[i]);
-		if (!chan || !is_chan_public(chan))
+		if (!chan || !is_chan_announced(chan))
 			continue;
 
 		queue_peer_msg(peer, chan->channel_announce);
@@ -841,7 +841,7 @@ static bool create_next_scid_reply(struct peer *peer)
 		const struct node *n;
 
 		n = get_node(rstate, &peer->scid_query_nodes[i]);
-		if (!n || !n->node_announcement || !n->node_announcement_index)
+		if (!n || !n->node_announcement_index)
 			continue;
 
 		queue_peer_msg(peer, n->node_announcement);
