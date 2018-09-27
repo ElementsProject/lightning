@@ -55,6 +55,7 @@ On success, a hash is returned as 'payment_hash' to be given to the payer,
 and the 'expiry_time' as a UNIX timestamp.
 It also returns a BOLT11 invoice as 'bolt11' to be given to the
 payer.
+
 On failure, an error is returned and no invoice is created.  If the
 lightning process fails before responding, the caller should use
 lightning-listinvoice(7) to query whether this invoice was created or not.
@@ -64,6 +65,13 @@ The following error codes may occur:
 * -1. Catchall nonspecific error.
 * 900. An invoice with the given 'label' already exists.
 * 901. An invoice with the given 'preimage' already exists.
+
+One of the following warnings may occur (on success):
+
+* 'warning_offline' if no channel with a currently
+  connected peer has the incoming capacity to pay this invoice
+* 'warning_capacity' if there is no channel at all with sufficient
+  incoming capacity to pay this invoice.
 
 AUTHOR
 ------
