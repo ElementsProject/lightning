@@ -6,11 +6,11 @@
 struct addrinfo;
 struct wireaddr;
 struct io_conn;
-struct reaching;
+struct connecting;
 
 struct io_plan *io_tor_connect(struct io_conn *conn,
 			       const struct addrinfo *tor_proxyaddr,
 			       const char *host, u16 port,
-			       struct reaching *reach);
+			       struct connecting *connect);
 
 #endif /* LIGHTNING_CONNECTD_TOR_H */
