@@ -87,9 +87,6 @@ struct daemon {
 	/* Peers we know of */
 	struct pubkey_set peers;
 
-	/* Peers reconnecting now (waiting for current peer to die). */
-	struct list_head reconnecting;
-
 	/* Peers we are trying to reach */
 	struct list_head reaching;
 
@@ -146,9 +143,6 @@ struct reaching {
 /* This is a transitory structure: we hand off to the master daemon as soon
  * as we've completed INIT read/write. */
 struct peer {
-	/* For reconnecting peers, this is in daemon->reconnecting. */
-	struct list_node list;
-
 	struct daemon *daemon;
 
 	/* The ID of the peer */
@@ -169,34 +163,6 @@ struct peer {
 
 /* Mutual recursion */
 static void try_reach_one_addr(struct reaching *reach);
-
-static struct peer *find_reconnecting_peer(struct daemon *daemon,
-					   const struct pubkey *id)
-{
-	struct peer *peer;
-
-	list_for_each(&daemon->reconnecting, peer, list)
-		if (pubkey_eq(&peer->id, id))
-			return peer;
-	return NULL;
-}
-
-static void destroy_reconnecting_peer(struct peer *peer)
-{
-	list_del_from(&peer->daemon->reconnecting, &peer->list);
-	/* This is safe even if we're being destroyed because of peer->conn,
-	 * since tal_free protects against loops. */
-	io_close(peer->conn);
-}
-
-static void add_reconnecting_peer(struct daemon *daemon, struct peer *peer)
-{
-	/* Drop any previous connecting peer */
-	tal_free(find_reconnecting_peer(peer->daemon, &peer->id));
-
-	list_add_tail(&daemon->reconnecting, &peer->list);
-	tal_add_destructor(peer, destroy_reconnecting_peer);
-}
 
 /**
  * Some ISP resolvers will reply with a dummy IP to queries that would otherwise
@@ -327,10 +293,6 @@ static struct io_plan *retry_peer_connected(struct io_conn *conn,
 	status_trace("peer %s: processing now old peer gone",
 		     type_to_string(tmpctx, struct pubkey, &peer->id));
 
-	/* Clean up reconnecting state, try again */
-	list_del_from(&peer->daemon->reconnecting, &peer->list);
-	tal_del_destructor(peer, destroy_reconnecting_peer);
-
 	return peer_connected(conn, peer);
 }
 
@@ -339,17 +301,18 @@ static struct io_plan *peer_connected(struct io_conn *conn, struct peer *peer)
 	struct daemon *daemon = peer->daemon;
 	u8 *msg;
 	int gossip_fd;
+	struct pubkey *key;
 
 	/* FIXME: We could do this before exchanging init msgs. */
-	if (pubkey_set_get(&daemon->peers, &peer->id)) {
+	key = pubkey_set_get(&daemon->peers, &peer->id);
+	if (key) {
 		status_trace("peer %s: reconnect",
 			     type_to_string(tmpctx, struct pubkey, &peer->id));
 
 		/* Tell master to kill it: will send peer_disconnect */
 		msg = towire_connect_reconnected(NULL, &peer->id);
 		daemon_conn_send(&daemon->master, take(msg));
-		add_reconnecting_peer(daemon, peer);
-		return io_wait(conn, peer, retry_peer_connected, peer);
+		return io_wait(conn, key, retry_peer_connected, peer);
 	}
 
 	reached_peer(peer, conn);
@@ -1210,7 +1173,6 @@ static struct io_plan *peer_disconnected(struct io_conn *conn,
 					 struct daemon *daemon, const u8 *msg)
 {
 	struct pubkey id, *key;
-	struct peer *peer;
 
 	if (!fromwire_connectctl_peer_disconnected(msg, &id))
 		master_badmsg(WIRE_CONNECTCTL_PEER_DISCONNECTED, msg);
@@ -1221,15 +1183,13 @@ static struct io_plan *peer_disconnected(struct io_conn *conn,
 			      "peer_disconnected unknown peer: %s",
 			      type_to_string(tmpctx, struct pubkey, &id));
 	pubkey_set_del(&daemon->peers, key);
+
+	/* Wake up in case there's a reconnecting peer waiting. */
+	io_wake(key);
 	tal_free(key);
 
 	status_trace("Forgetting peer %s",
 		     type_to_string(tmpctx, struct pubkey, &id));
-
-	/* If there was a connecting peer waiting, wake it now */
-	peer = find_reconnecting_peer(daemon, &id);
-	if (peer)
-		io_wake(peer);
 
 	return daemon_conn_read_next(conn, &daemon->master);
 }
@@ -1297,7 +1257,6 @@ int main(int argc, char *argv[])
 
 	daemon = tal(NULL, struct daemon);
 	pubkey_set_init(&daemon->peers);
-	list_head_init(&daemon->reconnecting);
 	list_head_init(&daemon->reaching);
 	daemon->listen_fds = tal_arr(daemon, struct listen_fd, 0);
 	/* stdin == control */
