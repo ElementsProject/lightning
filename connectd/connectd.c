@@ -315,54 +315,6 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	return io_close_taken_fd(conn);
 }
 
-struct listen_fd {
-	int fd;
-	/* If we bind() IPv6 then IPv4 to same port, we *may* fail to listen()
-	 * on the IPv4 socket: under Linux, by default, the IPv6 listen()
-	 * covers IPv4 too.  Normally we'd consider failing to listen on a
-	 * port to be fatal, so we note this when setting up addresses. */
-	bool mayfail;
-};
-
-static int make_listen_fd(int domain, void *addr, socklen_t len, bool mayfail)
-{
-	int fd = socket(domain, SOCK_STREAM, 0);
-	if (fd < 0) {
-		if (!mayfail)
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "Failed to create %u socket: %s",
-				      domain, strerror(errno));
-		status_trace("Failed to create %u socket: %s",
-			     domain, strerror(errno));
-		return -1;
-	}
-
-	if (addr) {
-		int on = 1;
-
-		/* Re-use, please.. */
-		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)))
-			status_unusual("Failed setting socket reuse: %s",
-				       strerror(errno));
-
-		if (bind(fd, addr, len) != 0) {
-			if (!mayfail)
-				status_failed(STATUS_FAIL_INTERNAL_ERROR,
-					      "Failed to bind on %u socket: %s",
-					      domain, strerror(errno));
-			status_trace("Failed to create %u socket: %s",
-				     domain, strerror(errno));
-			goto fail;
-		}
-	}
-
-	return fd;
-
-fail:
-	close_noerr(fd);
-	return -1;
-}
-
 static struct io_plan *handshake_in_success(struct io_conn *conn,
 					    const struct pubkey *id,
 					    const struct wireaddr_internal *addr,
@@ -411,11 +363,272 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 				   handshake_in_success, daemon);
 }
 
+static struct io_plan *handshake_out_success(struct io_conn *conn,
+					     const struct pubkey *id,
+					     const struct wireaddr_internal *addr,
+					     const struct crypto_state *cs,
+					     struct connecting *connect)
+{
+	connect->connstate = "Exchanging init messages";
+	status_trace("Connect OUT to %s",
+		     type_to_string(tmpctx, struct pubkey, id));
+	return peer_exchange_initmsg(conn, connect->daemon, cs, id, addr);
+}
+
+struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
+{
+	/* FIXME: Timeout */
+	status_trace("Connected out for %s",
+		     type_to_string(tmpctx, struct pubkey, &connect->id));
+
+	connect->connstate = "Cryptographic handshake";
+	return initiator_handshake(conn, &connect->daemon->id, &connect->id,
+				   &connect->addrs[connect->addrnum],
+				   handshake_out_success, connect);
+}
+
+static void PRINTF_FMT(5,6)
+	connect_failed(struct daemon *daemon,
+		       const struct pubkey *id,
+		       u32 seconds_waited,
+		       const struct wireaddr_internal *addrhint,
+		       const char *errfmt, ...)
+{
+	u8 *msg;
+	va_list ap;
+	char *err;
+	u32 wait_seconds;
+
+	va_start(ap, errfmt);
+	err = tal_vfmt(tmpctx, errfmt, ap);
+	va_end(ap);
+
+	/* Wait twice as long to reconnect, between min and max. */
+	wait_seconds = seconds_waited * 2;
+	if (wait_seconds > MAX_WAIT_SECONDS)
+		wait_seconds = MAX_WAIT_SECONDS;
+	if (wait_seconds < INITIAL_WAIT_SECONDS)
+		wait_seconds = INITIAL_WAIT_SECONDS;
+
+	/* Tell any connect command what happened. */
+	msg = towire_connectctl_connect_failed(NULL, id, err, wait_seconds,
+					       addrhint);
+	daemon_conn_send(&daemon->master, take(msg));
+
+	status_trace("Failed connected out for %s: %s",
+		     type_to_string(tmpctx, struct pubkey, id),
+		     err);
+}
+
+static void destroy_io_conn(struct io_conn *conn, struct connecting *connect)
+{
+	tal_append_fmt(&connect->errors,
+		       "%s: %s: %s. ",
+		       type_to_string(tmpctx, struct wireaddr_internal,
+				      &connect->addrs[connect->addrnum]),
+		       connect->connstate, strerror(errno));
+	connect->addrnum++;
+	try_connect_one_addr(connect);
+}
+
+static struct io_plan *conn_init(struct io_conn *conn,
+				 struct connecting *connect)
+{
+	struct addrinfo *ai = NULL;
+	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
+
+	switch (addr->itype) {
+	case ADDR_INTERNAL_SOCKNAME:
+		ai = wireaddr_internal_to_addrinfo(tmpctx, addr);
+		break;
+	case ADDR_INTERNAL_ALLPROTO:
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't connect to all protocols");
+		break;
+	case ADDR_INTERNAL_AUTOTOR:
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't connect to autotor address");
+		break;
+	case ADDR_INTERNAL_FORPROXY:
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't connect to forproxy address");
+		break;
+	case ADDR_INTERNAL_WIREADDR:
+		/* If it was a Tor address, we wouldn't be here. */
+		ai = wireaddr_to_addrinfo(tmpctx, &addr->u.wireaddr);
+		break;
+	}
+	assert(ai);
+
+	io_set_finish(conn, destroy_io_conn, connect);
+	return io_connect(conn, ai, connection_out, connect);
+}
+
+static struct io_plan *conn_proxy_init(struct io_conn *conn,
+				       struct connecting *connect)
+{
+	const char *host = NULL;
+	u16 port;
+	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
+
+	switch (addr->itype) {
+	case ADDR_INTERNAL_FORPROXY:
+		host = addr->u.unresolved.name;
+		port = addr->u.unresolved.port;
+		break;
+	case ADDR_INTERNAL_WIREADDR:
+		host = fmt_wireaddr_without_port(tmpctx, &addr->u.wireaddr);
+		port = addr->u.wireaddr.port;
+		break;
+	case ADDR_INTERNAL_SOCKNAME:
+	case ADDR_INTERNAL_ALLPROTO:
+	case ADDR_INTERNAL_AUTOTOR:
+		break;
+	}
+
+	if (!host)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't connect to %u address", addr->itype);
+
+	io_set_finish(conn, destroy_io_conn, connect);
+	return io_tor_connect(conn, connect->daemon->proxyaddr, host, port,
+			      connect);
+}
+
+static void try_connect_one_addr(struct connecting *connect)
+{
+ 	int fd, af;
+	bool use_proxy = connect->daemon->use_proxy_always;
+	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
+
+	if (connect->addrnum == tal_count(connect->addrs)) {
+		connect_failed(connect->daemon, &connect->id,
+			       connect->seconds_waited,
+			       connect->addrhint, "%s", connect->errors);
+		tal_free(connect);
+		return;
+	}
+
+ 	/* Might not even be able to create eg. IPv6 sockets */
+ 	af = -1;
+
+	switch (addr->itype) {
+	case ADDR_INTERNAL_SOCKNAME:
+		af = AF_LOCAL;
+		/* Local sockets don't use tor proxy */
+		use_proxy = false;
+		break;
+	case ADDR_INTERNAL_ALLPROTO:
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't connect ALLPROTO");
+	case ADDR_INTERNAL_AUTOTOR:
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't connect AUTOTOR");
+	case ADDR_INTERNAL_FORPROXY:
+		use_proxy = true;
+		break;
+	case ADDR_INTERNAL_WIREADDR:
+		switch (addr->u.wireaddr.type) {
+		case ADDR_TYPE_TOR_V2:
+		case ADDR_TYPE_TOR_V3:
+			use_proxy = true;
+			break;
+		case ADDR_TYPE_IPV4:
+			af = AF_INET;
+			break;
+		case ADDR_TYPE_IPV6:
+			af = AF_INET6;
+			break;
+		case ADDR_TYPE_PADDING:
+			break;
+		}
+	}
+
+	/* If we have to use proxy but we don't have one, we fail. */
+	if (use_proxy) {
+		if (!connect->daemon->proxyaddr) {
+			status_debug("Need proxy");
+			af = -1;
+		} else
+			af = connect->daemon->proxyaddr->ai_family;
+	}
+
+	if (af == -1) {
+		fd = -1;
+		errno = EPROTONOSUPPORT;
+	} else
+		fd = socket(af, SOCK_STREAM, 0);
+
+	if (fd < 0) {
+		tal_append_fmt(&connect->errors,
+			       "%s: opening %i socket gave %s. ",
+			       type_to_string(tmpctx, struct wireaddr_internal,
+					      addr),
+			       af, strerror(errno));
+		connect->addrnum++;
+		try_connect_one_addr(connect);
+		return;
+	}
+
+	if (use_proxy)
+		io_new_conn(connect, fd, conn_proxy_init, connect);
+	else
+		io_new_conn(connect, fd, conn_init, connect);
+}
+
+struct listen_fd {
+	int fd;
+	/* If we bind() IPv6 then IPv4 to same port, we *may* fail to listen()
+	 * on the IPv4 socket: under Linux, by default, the IPv6 listen()
+	 * covers IPv4 too.  Normally we'd consider failing to listen on a
+	 * port to be fatal, so we note this when setting up addresses. */
+	bool mayfail;
+};
+
 static void add_listen_fd(struct daemon *daemon, int fd, bool mayfail)
 {
 	struct listen_fd *l = tal_arr_expand(&daemon->listen_fds);
 	l->fd = fd;
 	l->mayfail = mayfail;
+}
+
+static int make_listen_fd(int domain, void *addr, socklen_t len, bool mayfail)
+{
+	int fd = socket(domain, SOCK_STREAM, 0);
+	if (fd < 0) {
+		if (!mayfail)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Failed to create %u socket: %s",
+				      domain, strerror(errno));
+		status_trace("Failed to create %u socket: %s",
+			     domain, strerror(errno));
+		return -1;
+	}
+
+	if (addr) {
+		int on = 1;
+
+		/* Re-use, please.. */
+		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)))
+			status_unusual("Failed setting socket reuse: %s",
+				       strerror(errno));
+
+		if (bind(fd, addr, len) != 0) {
+			if (!mayfail)
+				status_failed(STATUS_FAIL_INTERNAL_ERROR,
+					      "Failed to bind on %u socket: %s",
+					      domain, strerror(errno));
+			status_trace("Failed to create %u socket: %s",
+				     domain, strerror(errno));
+			goto fail;
+		}
+	}
+
+	return fd;
+
+fail:
+	close_noerr(fd);
+	return -1;
 }
 
 /* Return true if it created socket successfully. */
@@ -736,138 +949,6 @@ static struct io_plan *connect_activate(struct daemon_conn *master,
 	return daemon_conn_read_next(master->conn, master);
 }
 
-static struct io_plan *handshake_out_success(struct io_conn *conn,
-					     const struct pubkey *id,
-					     const struct wireaddr_internal *addr,
-					     const struct crypto_state *cs,
-					     struct connecting *connect)
-{
-	connect->connstate = "Exchanging init messages";
-	status_trace("Connect OUT to %s",
-		     type_to_string(tmpctx, struct pubkey, id));
-	return peer_exchange_initmsg(conn, connect->daemon, cs, id, addr);
-}
-
-struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
-{
-	/* FIXME: Timeout */
-	status_trace("Connected out for %s",
-		     type_to_string(tmpctx, struct pubkey, &connect->id));
-
-	connect->connstate = "Cryptographic handshake";
-	return initiator_handshake(conn, &connect->daemon->id, &connect->id,
-				   &connect->addrs[connect->addrnum],
-				   handshake_out_success, connect);
-}
-
-static void PRINTF_FMT(5,6)
-	connect_failed(struct daemon *daemon,
-		       const struct pubkey *id,
-		       u32 seconds_waited,
-		       const struct wireaddr_internal *addrhint,
-		       const char *errfmt, ...)
-{
-	u8 *msg;
-	va_list ap;
-	char *err;
-	u32 wait_seconds;
-
-	va_start(ap, errfmt);
-	err = tal_vfmt(tmpctx, errfmt, ap);
-	va_end(ap);
-
-	/* Wait twice as long to reconnect, between min and max. */
-	wait_seconds = seconds_waited * 2;
-	if (wait_seconds > MAX_WAIT_SECONDS)
-		wait_seconds = MAX_WAIT_SECONDS;
-	if (wait_seconds < INITIAL_WAIT_SECONDS)
-		wait_seconds = INITIAL_WAIT_SECONDS;
-
-	/* Tell any connect command what happened. */
-	msg = towire_connectctl_connect_failed(NULL, id, err, wait_seconds,
-					       addrhint);
-	daemon_conn_send(&daemon->master, take(msg));
-
-	status_trace("Failed connected out for %s: %s",
-		     type_to_string(tmpctx, struct pubkey, id),
-		     err);
-}
-
-static void destroy_io_conn(struct io_conn *conn, struct connecting *connect)
-{
-	tal_append_fmt(&connect->errors,
-		       "%s: %s: %s. ",
-		       type_to_string(tmpctx, struct wireaddr_internal,
-				      &connect->addrs[connect->addrnum]),
-		       connect->connstate, strerror(errno));
-	connect->addrnum++;
-	try_connect_one_addr(connect);
-}
-
-static struct io_plan *conn_init(struct io_conn *conn,
-				 struct connecting *connect)
-{
-	struct addrinfo *ai = NULL;
-	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
-
-	switch (addr->itype) {
-	case ADDR_INTERNAL_SOCKNAME:
-		ai = wireaddr_internal_to_addrinfo(tmpctx, addr);
-		break;
-	case ADDR_INTERNAL_ALLPROTO:
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't connect to all protocols");
-		break;
-	case ADDR_INTERNAL_AUTOTOR:
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't connect to autotor address");
-		break;
-	case ADDR_INTERNAL_FORPROXY:
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't connect to forproxy address");
-		break;
-	case ADDR_INTERNAL_WIREADDR:
-		/* If it was a Tor address, we wouldn't be here. */
-		ai = wireaddr_to_addrinfo(tmpctx, &addr->u.wireaddr);
-		break;
-	}
-	assert(ai);
-
-	io_set_finish(conn, destroy_io_conn, connect);
-	return io_connect(conn, ai, connection_out, connect);
-}
-
-static struct io_plan *conn_proxy_init(struct io_conn *conn,
-				       struct connecting *connect)
-{
-	const char *host = NULL;
-	u16 port;
-	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
-
-	switch (addr->itype) {
-	case ADDR_INTERNAL_FORPROXY:
-		host = addr->u.unresolved.name;
-		port = addr->u.unresolved.port;
-		break;
-	case ADDR_INTERNAL_WIREADDR:
-		host = fmt_wireaddr_without_port(tmpctx, &addr->u.wireaddr);
-		port = addr->u.wireaddr.port;
-		break;
-	case ADDR_INTERNAL_SOCKNAME:
-	case ADDR_INTERNAL_ALLPROTO:
-	case ADDR_INTERNAL_AUTOTOR:
-		break;
-	}
-
-	if (!host)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't connect to %u address", addr->itype);
-
-	io_set_finish(conn, destroy_io_conn, connect);
-	return io_tor_connect(conn, connect->daemon->proxyaddr, host, port,
-			      connect);
-}
-
 static const char *seedname(const tal_t *ctx, const struct pubkey *id)
 {
 	char bech32[100];
@@ -928,87 +1009,6 @@ static void add_gossip_addrs(struct wireaddr_internal **addrs,
 		addr.u.wireaddr = normal_addrs[i];
 		*tal_arr_expand(addrs) = addr;
 	}
-}
-
-static void try_connect_one_addr(struct connecting *connect)
-{
- 	int fd, af;
-	bool use_proxy = connect->daemon->use_proxy_always;
-	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
-
-	if (connect->addrnum == tal_count(connect->addrs)) {
-		connect_failed(connect->daemon, &connect->id,
-			       connect->seconds_waited,
-			       connect->addrhint, "%s", connect->errors);
-		tal_free(connect);
-		return;
-	}
-
- 	/* Might not even be able to create eg. IPv6 sockets */
- 	af = -1;
-
-	switch (addr->itype) {
-	case ADDR_INTERNAL_SOCKNAME:
-		af = AF_LOCAL;
-		/* Local sockets don't use tor proxy */
-		use_proxy = false;
-		break;
-	case ADDR_INTERNAL_ALLPROTO:
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't connect ALLPROTO");
-	case ADDR_INTERNAL_AUTOTOR:
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't connect AUTOTOR");
-	case ADDR_INTERNAL_FORPROXY:
-		use_proxy = true;
-		break;
-	case ADDR_INTERNAL_WIREADDR:
-		switch (addr->u.wireaddr.type) {
-		case ADDR_TYPE_TOR_V2:
-		case ADDR_TYPE_TOR_V3:
-			use_proxy = true;
-			break;
-		case ADDR_TYPE_IPV4:
-			af = AF_INET;
-			break;
-		case ADDR_TYPE_IPV6:
-			af = AF_INET6;
-			break;
-		case ADDR_TYPE_PADDING:
-			break;
-		}
-	}
-
-	/* If we have to use proxy but we don't have one, we fail. */
-	if (use_proxy) {
-		if (!connect->daemon->proxyaddr) {
-			status_debug("Need proxy");
-			af = -1;
-		} else
-			af = connect->daemon->proxyaddr->ai_family;
-	}
-
-	if (af == -1) {
-		fd = -1;
-		errno = EPROTONOSUPPORT;
-	} else
-		fd = socket(af, SOCK_STREAM, 0);
-
-	if (fd < 0) {
-		tal_append_fmt(&connect->errors,
-			       "%s: opening %i socket gave %s. ",
-			       type_to_string(tmpctx, struct wireaddr_internal,
-					      addr),
-			       af, strerror(errno));
-		connect->addrnum++;
-		try_connect_one_addr(connect);
-		return;
-	}
-
-	if (use_proxy)
-		io_new_conn(connect, fd, conn_proxy_init, connect);
-	else
-		io_new_conn(connect, fd, conn_init, connect);
 }
 
 /* Consumes addrhint if not NULL */
