@@ -42,7 +42,7 @@ struct peer {
 	struct wireaddr_internal addr;
 
 	/* We keep a copy of their feature bits */
-	const u8 *local_features, *global_features;
+	const u8 *localfeatures, *globalfeatures;
 
 	/* If we open a channel our direction will be this */
 	u8 direction;
@@ -58,7 +58,8 @@ struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid);
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct pubkey *id,
 		      const struct wireaddr_internal *addr,
-		      const u8 *gfeatures TAKES, const u8 *lfeatures TAKES);
+		      const u8 *globalfeatures TAKES,
+		      const u8 *localfeatures TAKES);
 
 /* Last one out deletes peer.  Also removes from db. */
 void maybe_delete_peer(struct peer *peer);

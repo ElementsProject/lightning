@@ -3,13 +3,13 @@
 #include <ccan/array_size/array_size.h>
 #include <wire/peer_wire.h>
 
-static const u32 local_features[] = {
+static const u32 our_localfeatures[] = {
 	LOCAL_DATA_LOSS_PROTECT,
 	LOCAL_INITIAL_ROUTING_SYNC,
 	LOCAL_GOSSIP_QUERIES
 };
 
-static const u32 global_features[] = {
+static const u32 our_globalfeatures[] = {
 };
 
 /* BOLT #1:
@@ -46,14 +46,16 @@ static u8 *mkfeatures(const tal_t *ctx, const u32 *arr, size_t n)
 	return f;
 }
 
-u8 *get_offered_global_features(const tal_t *ctx)
+u8 *get_offered_globalfeatures(const tal_t *ctx)
 {
-	return mkfeatures(ctx, global_features, ARRAY_SIZE(global_features));
+	return mkfeatures(ctx,
+			  our_globalfeatures, ARRAY_SIZE(our_globalfeatures));
 }
 
-u8 *get_offered_local_features(const tal_t *ctx)
+u8 *get_offered_localfeatures(const tal_t *ctx)
 {
-	return mkfeatures(ctx, local_features, ARRAY_SIZE(local_features));
+	return mkfeatures(ctx,
+			  our_localfeatures, ARRAY_SIZE(our_localfeatures));
 }
 
 static bool feature_set(const u8 *features, size_t bit)
@@ -115,19 +117,19 @@ static bool all_supported_features(const u8 *bitmap,
 	return true;
 }
 
-bool features_supported(const u8 *gfeatures, const u8 *lfeatures)
+bool features_supported(const u8 *globalfeatures, const u8 *localfeatures)
 {
 	/* BIT 2 would logically be "compulsory initial_routing_sync", but
 	 * that does not exist, so we special case it. */
-	if (feature_set(lfeatures,
+	if (feature_set(localfeatures,
 			COMPULSORY_FEATURE(LOCAL_INITIAL_ROUTING_SYNC)))
 		return false;
 
-	return all_supported_features(gfeatures,
-				      global_features,
-				      ARRAY_SIZE(global_features))
-		&& all_supported_features(lfeatures,
-					  local_features,
-					  ARRAY_SIZE(local_features));
+	return all_supported_features(globalfeatures,
+				      our_globalfeatures,
+				      ARRAY_SIZE(our_globalfeatures))
+		&& all_supported_features(localfeatures,
+					  our_localfeatures,
+					  ARRAY_SIZE(our_localfeatures));
 }
 

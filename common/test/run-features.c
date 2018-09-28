@@ -64,8 +64,8 @@ int main(void)
 	assert(features_supported(bits, bits));
 
 	/* We must support our own features. */
-	lf = get_offered_global_features(tmpctx);
-	gf = get_offered_global_features(tmpctx);
+	lf = get_offered_globalfeatures(tmpctx);
+	gf = get_offered_globalfeatures(tmpctx);
 	assert(features_supported(gf, lf));
 
 	/* We can add random odd features, no problem. */
@@ -89,15 +89,15 @@ int main(void)
 			assert(!features_supported(gf, bits));
 		} else {
 			assert(features_supported(gf, bits)
-			       == feature_supported(i, local_features,
-						    ARRAY_SIZE(local_features)));
+			       == feature_supported(i, our_localfeatures,
+						    ARRAY_SIZE(our_localfeatures)));
 		}
 
 		bits = tal_dup_arr(tmpctx, u8, gf, tal_count(gf), 0);
 		set_bit(&bits, i);
 		assert(features_supported(bits, lf)
-		       == feature_supported(i, global_features,
-					    ARRAY_SIZE(global_features)));
+		       == feature_supported(i, our_globalfeatures,
+					    ARRAY_SIZE(our_globalfeatures)));
 	}
 
 	wally_cleanup(0);

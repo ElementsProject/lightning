@@ -33,7 +33,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 					  struct peer *peer)
 {
 	u8 *msg = cryptomsg_decrypt_body(peer, &peer->cs, peer->msg);
-	u8 *gfeatures, *lfeatures;
+	u8 *globalfeatures, *localfeatures;
 
 	if (!msg)
 		return io_close(conn);
@@ -49,7 +49,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	if (unlikely(is_unknown_msg_discardable(msg)))
 		return read_init(conn, peer);
 
-	if (!fromwire_init(peer, msg, &gfeatures, &lfeatures)) {
+	if (!fromwire_init(peer, msg, &globalfeatures, &localfeatures)) {
 		status_trace("peer %s bad fromwire_init '%s', closing",
 			     type_to_string(tmpctx, struct pubkey, &peer->id),
 			     tal_hex(tmpctx, msg));
@@ -65,28 +65,29 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	 *  - upon receiving unknown _even_ feature bits that are non-zero:
 	 *    - MUST fail the connection.
 	 */
-	if (!features_supported(gfeatures, lfeatures)) {
-		const u8 *global_features = get_offered_global_features(msg);
-		const u8 *local_features = get_offered_local_features(msg);
+	if (!features_supported(globalfeatures, localfeatures)) {
+		const u8 *our_globalfeatures = get_offered_globalfeatures(msg);
+		const u8 *our_localfeatures = get_offered_localfeatures(msg);
 		msg = towire_errorfmt(NULL, NULL, "Unsupported features %s/%s:"
 				      " we only offer globalfeatures %s"
 				      " and localfeatures %s",
-				      tal_hex(msg, gfeatures),
-				      tal_hex(msg, lfeatures),
-				      tal_hex(msg, global_features),
-				      tal_hex(msg, local_features));
+				      tal_hex(msg, globalfeatures),
+				      tal_hex(msg, localfeatures),
+				      tal_hex(msg, our_globalfeatures),
+				      tal_hex(msg, our_localfeatures));
 		msg = cryptomsg_encrypt_msg(NULL, &peer->cs, take(msg));
 		return io_write(conn, msg, tal_count(msg), io_close_cb, NULL);
 	}
 
 	/* Create message to tell master peer has connected. */
 	msg = towire_connect_peer_connected(NULL, &peer->id, &peer->addr,
-					    &peer->cs, gfeatures, lfeatures);
+					    &peer->cs,
+					    globalfeatures, localfeatures);
 
 	/* Usually return io_close_taken_fd, but may wait for old peer to
 	 * be disconnected if it's a reconnect. */
 	return peer_connected(conn, peer->daemon, &peer->id,
-			      take(msg), take(lfeatures));
+			      take(msg), take(localfeatures));
 }
 
 static struct io_plan *peer_init_hdr_received(struct io_conn *conn,
@@ -149,8 +150,8 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	 *     connection.
 	 */
 	peer->msg = towire_init(NULL,
-				get_offered_global_features(tmpctx),
-				get_offered_local_features(tmpctx));
+				get_offered_globalfeatures(tmpctx),
+				get_offered_localfeatures(tmpctx));
 	status_peer_io(LOG_IO_OUT, peer->msg);
 	peer->msg = cryptomsg_encrypt_msg(peer, &peer->cs, take(peer->msg));
 

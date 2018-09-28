@@ -161,7 +161,7 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	msg = towire_gossipctl_init(
 	    tmpctx, ld->config.broadcast_interval,
 	    &get_chainparams(ld)->genesis_blockhash, &ld->id,
-	    get_offered_global_features(tmpctx),
+	    get_offered_globalfeatures(tmpctx),
 	    ld->rgb,
 	    ld->alias, ld->config.channel_update_interval,
 	    ld->announcable);
@@ -207,7 +207,7 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 		json_add_u64(response, "last_timestamp",
 			     nodes[i]->last_timestamp);
 		json_add_hex_talarr(response, "global_features",
-				    nodes[i]->global_features);
+				    nodes[i]->globalfeatures);
 		json_array_start(response, "addresses");
 		for (j=0; j<tal_count(nodes[i]->addresses); j++) {
 			json_add_address(response, NULL, &nodes[i]->addresses[j]);
