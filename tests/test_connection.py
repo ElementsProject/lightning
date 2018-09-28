@@ -305,7 +305,7 @@ def test_reconnect_gossiping(node_factory):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     l2.rpc.ping(l1.info['id'], 1, 65532)
-    l1.daemon.wait_for_log('Forgetting peer')
+    wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.daemon.wait_for_log('processing now old peer gone')
@@ -1023,7 +1023,9 @@ def test_peerinfo(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'Channel close negotiation not finished'):
         l1.rpc.close(chan, False, 0)
 
-    l1.daemon.wait_for_log('Forgetting peer')
+    wait_for(lambda: not only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
+    wait_for(lambda: not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
+
     bitcoind.generate_block(100)
     l1.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')
     l2.daemon.wait_for_log('WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED')

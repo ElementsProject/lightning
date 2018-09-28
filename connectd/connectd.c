@@ -1111,9 +1111,6 @@ static struct io_plan *peer_disconnected(struct io_conn *conn,
 	io_wake(key);
 	tal_free(key);
 
-	status_trace("Forgetting peer %s",
-		     type_to_string(tmpctx, struct pubkey, &id));
-
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
