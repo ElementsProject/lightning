@@ -79,21 +79,24 @@ static void copy_to_parent_log(const char *prefix,
 }
 
 static void peer_update_features(struct peer *peer,
-				 const u8 *gfeatures TAKES,
-				 const u8 *lfeatures TAKES)
+				 const u8 *globalfeatures TAKES,
+				 const u8 *localfeatures TAKES)
 {
-	tal_free(peer->global_features);
-	tal_free(peer->local_features);
-	peer->global_features = tal_dup_arr(peer, u8,
-					    gfeatures, tal_count(gfeatures), 0);
-	peer->local_features = tal_dup_arr(peer, u8,
-					   lfeatures, tal_count(lfeatures), 0);
+	tal_free(peer->globalfeatures);
+	tal_free(peer->localfeatures);
+	peer->globalfeatures = tal_dup_arr(peer, u8,
+					   globalfeatures,
+					   tal_count(globalfeatures), 0);
+	peer->localfeatures = tal_dup_arr(peer, u8,
+					  localfeatures,
+					  tal_count(localfeatures), 0);
 }
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct pubkey *id,
 		      const struct wireaddr_internal *addr,
-		      const u8 *gfeatures TAKES, const u8 *lfeatures TAKES)
+		      const u8 *globalfeatures TAKES,
+		      const u8 *localfeatures TAKES)
 {
 	/* We are owned by our channels, and freed manually by destroy_channel */
 	struct peer *peer = tal(NULL, struct peer);
@@ -109,8 +112,8 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		peer->addr.itype = ADDR_INTERNAL_WIREADDR;
 		peer->addr.u.wireaddr.type = ADDR_TYPE_PADDING;
 	}
-	peer->global_features = peer->local_features = NULL;
-	peer_update_features(peer, gfeatures, lfeatures);
+	peer->globalfeatures = peer->localfeatures = NULL;
+	peer_update_features(peer, globalfeatures, localfeatures);
 	list_head_init(&peer->channels);
 	peer->direction = get_channel_direction(&peer->ld->id, &peer->id);
 
@@ -419,7 +422,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 {
 	struct pubkey id;
 	struct crypto_state cs;
-	u8 *gfeatures, *lfeatures;
+	u8 *globalfeatures, *localfeatures;
 	u8 *error;
 	struct channel *channel;
 	struct wireaddr_internal addr;
@@ -427,7 +430,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 
 	if (!fromwire_connect_peer_connected(msg, msg,
 					     &id, &addr, &cs,
-					     &gfeatures, &lfeatures))
+					     &globalfeatures, &localfeatures))
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
 
@@ -438,9 +441,10 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	 * subdaemon.  Otherwise, we'll hand to openingd to wait there. */
 	peer = peer_by_id(ld, &id);
 	if (!peer)
-		peer = new_peer(ld, 0, &id, &addr, gfeatures, lfeatures);
+		peer = new_peer(ld, 0, &id, &addr,
+				globalfeatures, localfeatures);
 	else
-		peer_update_features(peer, gfeatures, lfeatures);
+		peer_update_features(peer, globalfeatures, localfeatures);
 
 	/* Can't be opening, since we wouldn't have sent peer_disconnected. */
 	assert(!peer->uncommitted_channel);
@@ -676,10 +680,10 @@ static void json_add_peer(struct lightningd *ld,
 						       &p->addr));
 		json_array_end(response);
 		json_add_hex_talarr(response, "global_features",
-				    p->global_features);
+				    p->globalfeatures);
 
 		json_add_hex_talarr(response, "local_features",
-				    p->local_features);
+				    p->localfeatures);
 	}
 
 	json_array_start(response, "channels");

@@ -274,12 +274,12 @@ static void connected_to_peer(struct daemon *daemon,
  * it to forward gossip to/from the peer.  The gossip daemon needs to know a
  * few of the features of the peer and its id (for reporting).
  *
- * The 'lfeatures' refers to 'local features', which indicate the properties
- * when you're connected to it like we are: there are also 'global features'
+ * The 'localfeatures' is a field in the `init` message, indicating properties
+ * when you're connected to it like we are: there are also 'globalfeatures'
  * which specify requirements to route a payment through a node. */
 static int get_gossipfd(struct daemon *daemon,
 			const struct pubkey *id,
-			const u8 *lfeatures)
+			const u8 *localfeatures)
 {
 	bool gossip_queries_feature, initial_routing_sync, success;
 	u8 *msg;
@@ -287,7 +287,7 @@ static int get_gossipfd(struct daemon *daemon,
 	/*~ The way features generally work is that both sides need to offer it;
 	 * we always offer `gossip_queries`, but this check is explicit. */
 	gossip_queries_feature
-		= feature_offered(lfeatures, LOCAL_GOSSIP_QUERIES)
+		= feature_offered(localfeatures, LOCAL_GOSSIP_QUERIES)
 		&& feature_offered(daemon->localfeatures,
 				   LOCAL_GOSSIP_QUERIES);
 
@@ -295,7 +295,7 @@ static int get_gossipfd(struct daemon *daemon,
 	 * the initial lightning specification: it means the peer wants the
 	 * backlog of existing gossip. */
 	initial_routing_sync
-		= feature_offered(lfeatures, LOCAL_INITIAL_ROUTING_SYNC);
+		= feature_offered(localfeatures, LOCAL_INITIAL_ROUTING_SYNC);
 
 	/*~ We do this communication sync, since gossipd is our friend and
 	 * it's easier.  If gossipd fails, we fail. */
@@ -331,7 +331,7 @@ struct peer_reconnected {
 	struct daemon *daemon;
 	struct pubkey id;
 	const u8 *peer_connected_msg;
-	const u8 *lfeatures;
+	const u8 *localfeatures;
 };
 
 /*~ For simplicity, lightningd only ever deals with a single connection per
@@ -350,7 +350,7 @@ static struct io_plan *retry_peer_connected(struct io_conn *conn,
 	 * our temporary structure. */
 	plan = peer_connected(conn, pr->daemon, &pr->id,
 			      take(pr->peer_connected_msg),
-			      take(pr->lfeatures));
+			      take(pr->localfeatures));
 	tal_free(pr);
 	return plan;
 }
@@ -361,7 +361,7 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 					struct daemon *daemon,
 					const struct pubkey *id,
 					const u8 *peer_connected_msg TAKES,
-					const u8 *lfeatures TAKES)
+					const u8 *localfeatures TAKES)
 {
 	u8 *msg;
 	struct peer_reconnected *r;
@@ -379,13 +379,13 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	r->id = *id;
 
 	/*~ Note that tal_dup_arr() will do handle the take() of
-	 * peer_connected_msg and lfeatures (turning it into a simply
+	 * peer_connected_msg and localfeatures (turning it into a simply
 	 * tal_steal() in those cases). */
 	r->peer_connected_msg
 		= tal_dup_arr(r, u8, peer_connected_msg,
 			      tal_count(peer_connected_msg), 0);
-	r->lfeatures
-		= tal_dup_arr(r, u8, lfeatures, tal_count(lfeatures), 0);
+	r->localfeatures
+		= tal_dup_arr(r, u8, localfeatures, tal_count(localfeatures), 0);
 
 	/*~ ccan/io supports waiting on an address: in this case, the key in
 	 * the peer set.  When someone calls `io_wake()` on that address, it
@@ -400,22 +400,22 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       struct daemon *daemon,
 			       const struct pubkey *id,
 			       const u8 *peer_connected_msg TAKES,
-			       const u8 *lfeatures TAKES)
+			       const u8 *localfeatures TAKES)
 {
 	int gossip_fd;
 
 	if (pubkey_set_get(&daemon->peers, id))
 		return peer_reconnected(conn, daemon, id, peer_connected_msg,
-					lfeatures);
+					localfeatures);
 
 	/* We've successfully connected. */
 	connected_to_peer(daemon, conn, id);
 
-	gossip_fd = get_gossipfd(daemon, id, lfeatures);
+	gossip_fd = get_gossipfd(daemon, id, localfeatures);
 
 	/* We promised we'd take it by marking it TAKEN above; simply free it. */
-	if (taken(lfeatures))
-		tal_free(lfeatures);
+	if (taken(localfeatures))
+		tal_free(localfeatures);
 
 	/* If gossipd can't give us a file descriptor, we give up connecting. */
 	if (gossip_fd < 0)

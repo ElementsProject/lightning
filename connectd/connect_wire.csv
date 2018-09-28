@@ -5,9 +5,9 @@
 connectctl_init,2000
 connectctl_init,,id,struct pubkey
 connectctl_init,,gflen,u16
-connectctl_init,,gfeatures,gflen*u8
+connectctl_init,,globalfeatures,gflen*u8
 connectctl_init,,lflen,u16
-connectctl_init,,lfeatures,lflen*u8
+connectctl_init,,localfeatures,lflen*u8
 connectctl_init,,num_wireaddrs,u16
 connectctl_init,,wireaddrs,num_wireaddrs*struct wireaddr_internal
 connectctl_init,,listen_announce,num_wireaddrs*enum addr_listen_announce
@@ -55,9 +55,9 @@ connect_peer_connected,,id,struct pubkey
 connect_peer_connected,,addr,struct wireaddr_internal
 connect_peer_connected,,crypto_state,struct crypto_state
 connect_peer_connected,,gflen,u16
-connect_peer_connected,,gfeatures,gflen*u8
+connect_peer_connected,,globalfeatures,gflen*u8
 connect_peer_connected,,lflen,u16
-connect_peer_connected,,lfeatures,lflen*u8
+connect_peer_connected,,localfeatures,lflen*u8
 
 # master -> connectd: peer has disconnected.
 connectctl_peer_disconnected,2015

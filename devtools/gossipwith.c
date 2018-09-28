@@ -108,15 +108,15 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 {
 	u8 *msg;
 	struct crypto_state cs = *orig_cs;
-	u8 *local_features;
+	u8 *localfeatures;
 
 	if (initial_sync) {
-		local_features = tal(conn, u8);
-		local_features[0] = (1 << 3);
+		localfeatures = tal(conn, u8);
+		localfeatures[0] = (1 << 3);
 	} else
-		local_features = NULL;
+		localfeatures = NULL;
 
-	msg = towire_init(NULL, NULL, local_features);
+	msg = towire_init(NULL, NULL, localfeatures);
 
 	sync_crypto_write(&cs, conn->fd, take(msg));
 	/* Ignore their init message. */

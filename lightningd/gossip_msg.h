@@ -5,13 +5,13 @@
 #include <gossipd/routing.h>
 
 struct peer_features {
-	u8 *local_features;
-	u8 *global_features;
+	u8 *localfeatures;
+	u8 *globalfeatures;
 };
 
 struct gossip_getnodes_entry {
 	struct pubkey nodeid;
-	u8 *global_features;
+	u8 *globalfeatures;
 	s64 last_timestamp; /* -1 means never: following fields ignored */
 	struct wireaddr *addresses;
 	u8 *alias;

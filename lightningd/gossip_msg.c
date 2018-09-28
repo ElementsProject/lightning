@@ -13,8 +13,8 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 	fromwire_pubkey(pptr, max, &entry->nodeid);
 
 	flen = fromwire_u16(pptr, max);
-	entry->global_features = tal_arr(entry, u8, flen);
-	fromwire_u8_array(pptr, max, entry->global_features, flen);
+	entry->globalfeatures = tal_arr(entry, u8, flen);
+	fromwire_u8_array(pptr, max, entry->globalfeatures, flen);
 
 	entry->last_timestamp = fromwire_u64(pptr, max);
 	if (entry->last_timestamp < 0) {
@@ -45,9 +45,9 @@ void towire_gossip_getnodes_entry(u8 **pptr,
 {
 	u8 i, numaddresses = tal_count(entry->addresses);
 	towire_pubkey(pptr, &entry->nodeid);
-	towire_u16(pptr, tal_count(entry->global_features));
-	towire_u8_array(pptr, entry->global_features,
-			tal_count(entry->global_features));
+	towire_u16(pptr, tal_count(entry->globalfeatures));
+	towire_u8_array(pptr, entry->globalfeatures,
+			tal_count(entry->globalfeatures));
 	towire_u64(pptr, entry->last_timestamp);
 
 	if (entry->last_timestamp < 0)
@@ -118,19 +118,19 @@ fromwire_peer_features(const tal_t *ctx, const u8 **pptr, size_t *max)
 	size_t len;
 
 	len = fromwire_u16(pptr, max);
-	pf->local_features = tal_arr(pf, u8, len);
-	fromwire_u8_array(pptr, max, pf->local_features, len);
+	pf->localfeatures = tal_arr(pf, u8, len);
+	fromwire_u8_array(pptr, max, pf->localfeatures, len);
 
 	len = fromwire_u16(pptr, max);
-	pf->global_features = tal_arr(pf, u8, len);
-	fromwire_u8_array(pptr, max, pf->global_features, len);
+	pf->globalfeatures = tal_arr(pf, u8, len);
+	fromwire_u8_array(pptr, max, pf->globalfeatures, len);
 	return pf;
 }
 
 void towire_peer_features(u8 **pptr, const struct peer_features *pf)
 {
-	towire_u16(pptr, tal_count(pf->local_features));
-	towire_u8_array(pptr, pf->local_features, tal_count(pf->local_features));
-	towire_u16(pptr, tal_count(pf->global_features));
-	towire_u8_array(pptr, pf->global_features, tal_count(pf->global_features));
+	towire_u16(pptr, tal_count(pf->localfeatures));
+	towire_u8_array(pptr, pf->localfeatures, tal_count(pf->localfeatures));
+	towire_u16(pptr, tal_count(pf->globalfeatures));
+	towire_u8_array(pptr, pf->globalfeatures, tal_count(pf->globalfeatures));
 }

@@ -364,8 +364,8 @@ int connectd_init(struct lightningd *ld)
 
 	msg = towire_connectctl_init(
 	    tmpctx, &ld->id,
-	    get_offered_global_features(tmpctx),
-	    get_offered_local_features(tmpctx), wireaddrs,
+	    get_offered_globalfeatures(tmpctx),
+	    get_offered_localfeatures(tmpctx), wireaddrs,
 	    listen_announce,
 	    ld->proxyaddr, ld->use_proxy_always || ld->pure_tor_setup,
 	    allow_localhost, ld->config.use_dns,
