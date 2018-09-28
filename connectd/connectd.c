@@ -156,6 +156,12 @@ static bool broken_resolver(struct daemon *daemon)
 	struct addrinfo hints;
 	const char *hostname = "nxdomain-test.doesntexist";
 	int err;
+
+	if (!daemon->use_dns) {
+		daemon->broken_resolver_response = NULL;
+		return false;
+	}
+
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
