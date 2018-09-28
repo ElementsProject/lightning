@@ -35,6 +35,7 @@ changes.
 - JSON RPC: `ping` now works even after one peer fails to respond.
 - JSON RPC: `getroute` `fuzzpercent` and `pay` `maxfeepercent` can now be > 100.
 - Protocol: fix occasional deadlock when both peers flood with gossip.
+- Protocol: fix occasional long delay on sending `reply_short_channel_ids_end`.
 
 ### Security
 

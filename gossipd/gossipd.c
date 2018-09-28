@@ -865,6 +865,7 @@ static bool create_next_scid_reply(struct peer *peer)
 							     &rstate->chain_hash,
 							     true);
 		queue_peer_msg(peer, take(end));
+		sent = true;
 		peer->scid_queries = tal_free(peer->scid_queries);
 		peer->scid_query_idx = 0;
 		peer->scid_query_nodes = tal_free(peer->scid_query_nodes);
