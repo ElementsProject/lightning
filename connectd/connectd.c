@@ -74,7 +74,7 @@
 #define GOSSIPCTL_FD 4
 
 /*~ In C convention, constants are UPPERCASE macros.  Not everything needs to
- * be a constant, but if soothes the programmer's conscience to encapsulate
+ * be a constant, but it soothes the programmer's conscience to encapsulate
  * arbitrary decisions like these in one place. */
 #define MAX_CONNECT_ATTEMPTS 10
 #define INITIAL_WAIT_SECONDS	1
@@ -82,7 +82,7 @@
 
 /*~ We keep a hash table (ccan/htable) of public keys, which tells us what
  * peers are already connected.  The HTABLE_DEFINE_TYPE() macro needs a
- * keyof() function to extract the key.  For this simple use, that's the
+ * keyof() function to extract the key.  For this simple use case, that's the
  * identity function: */
 static const struct pubkey *pubkey_keyof(const struct pubkey *pk)
 {
@@ -355,49 +355,60 @@ static struct io_plan *retry_peer_connected(struct io_conn *conn,
 	return plan;
 }
 
+/*~ If we already know about this peer, we tell lightningd and it disconnects
+ * the old one.  We wait until it tells us that's happened. */
+static struct io_plan *peer_reconnected(struct io_conn *conn,
+					struct daemon *daemon,
+					const struct pubkey *id,
+					const u8 *peer_connected_msg TAKES,
+					const u8 *lfeatures TAKES)
+{
+	u8 *msg;
+	struct peer_reconnected *r;
+
+	status_trace("peer %s: reconnect",
+		     type_to_string(tmpctx, struct pubkey, id));
+
+	/* Tell master to kill it: will send peer_disconnect */
+	msg = towire_connect_reconnected(NULL, id);
+	daemon_conn_send(&daemon->master, take(msg));
+
+	/* Save arguments for next time. */
+	r = tal(daemon, struct peer_reconnected);
+	r->daemon = daemon;
+	r->id = *id;
+
+	/*~ Note that tal_dup_arr() will do handle the take() of
+	 * peer_connected_msg and lfeatures (turning it into a simply
+	 * tal_steal() in those cases). */
+	r->peer_connected_msg
+		= tal_dup_arr(r, u8, peer_connected_msg,
+			      tal_count(peer_connected_msg), 0);
+	r->lfeatures
+		= tal_dup_arr(r, u8, lfeatures, tal_count(lfeatures), 0);
+
+	/*~ ccan/io supports waiting on an address: in this case, the key in
+	 * the peer set.  When someone calls `io_wake()` on that address, it
+	 * will call retry_peer_connected above. */
+	return io_wait(conn, pubkey_set_get(&daemon->peers, id),
+		       retry_peer_connected, r);
+}
+
 /*~ Note the lack of static: this is called by peer_exchange_initmsg.c once the
  * INIT messages are exchanged, and also by the retry code above. */
 struct io_plan *peer_connected(struct io_conn *conn,
 			       struct daemon *daemon,
-			       const struct pubkey *id TAKES,
+			       const struct pubkey *id,
 			       const u8 *peer_connected_msg TAKES,
 			       const u8 *lfeatures TAKES)
 {
-	struct pubkey *key;
 	int gossip_fd;
 
-	/* FIXME: We could do this before exchanging init msgs. */
-	key = pubkey_set_get(&daemon->peers, id);
-	if (key) {
-		u8 *msg;
-		struct peer_reconnected *r;
+	if (pubkey_set_get(&daemon->peers, id))
+		return peer_reconnected(conn, daemon, id, peer_connected_msg,
+					lfeatures);
 
-		status_trace("peer %s: reconnect",
-			     type_to_string(tmpctx, struct pubkey, id));
-
-		/* Tell master to kill it: will send peer_disconnect */
-		msg = towire_connect_reconnected(NULL, id);
-		daemon_conn_send(&daemon->master, take(msg));
-
-		/* Save arguments for next time. */
-		r = tal(daemon, struct peer_reconnected);
-		r->daemon = daemon;
-		r->id = *id;
-		/*~ Note that tal_dup_arr() will do handle the take() of
-		 * peer_connected_msg and lfeatures (turning it into a simply
-		 * tal_steal() in those cases). */
-		r->peer_connected_msg
-			= tal_dup_arr(r, u8, peer_connected_msg,
-				      tal_count(peer_connected_msg), 0);
-		r->lfeatures
-			= tal_dup_arr(r, u8, lfeatures, tal_count(lfeatures), 0);
-
-		/*~ ccan/io supports waiting on an address: in this case, `key`.
-		 * When someone calls `io_wake()` on that address, it will
-		 * call retry_peer_connected above. */
-		return io_wait(conn, key, retry_peer_connected, r);
-	}
-
+	/* We've successfully connected. */
 	connected_to_peer(daemon, conn, id);
 
 	gossip_fd = get_gossipfd(daemon, id, lfeatures);
@@ -441,7 +452,7 @@ static struct io_plan *handshake_in_success(struct io_conn *conn,
 	return peer_exchange_initmsg(conn, daemon, cs, id, addr);
 }
 
-/*~ When we get a connection in we set up its network address the call
+/*~ When we get a connection in we set up its network address then call
  * handshake.c to set up the crypto state. */
 static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon)
 {
@@ -551,7 +562,7 @@ static void PRINTF_FMT(5,6)
  *
  * This is a specialized form of destructor which takes an extra argument;
  * it set up by either the creatively-named tal_add_destructor2(), or by
- * the ccan/io-specific io_set_finish() on a connection. */
+ * the ccan/io's io_set_finish() on a connection. */
 static void destroy_io_conn(struct io_conn *conn, struct connecting *connect)
 {
 	/*~ tal_append_fmt appends to a tal string.  It's terribly convenient */
