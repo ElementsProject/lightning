@@ -595,6 +595,8 @@ static void add_listen_fd(struct daemon *daemon, int fd, bool mayfail)
 static int make_listen_fd(int domain, void *addr, socklen_t len, bool mayfail)
 {
 	int fd = socket(domain, SOCK_STREAM, 0);
+	int on = 1;
+
 	if (fd < 0) {
 		if (!mayfail)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -605,23 +607,20 @@ static int make_listen_fd(int domain, void *addr, socklen_t len, bool mayfail)
 		return -1;
 	}
 
-	if (addr) {
-		int on = 1;
 
-		/* Re-use, please.. */
-		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)))
-			status_unusual("Failed setting socket reuse: %s",
-				       strerror(errno));
+	/* Re-use, please.. */
+	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)))
+		status_unusual("Failed setting socket reuse: %s",
+			       strerror(errno));
 
-		if (bind(fd, addr, len) != 0) {
-			if (!mayfail)
-				status_failed(STATUS_FAIL_INTERNAL_ERROR,
-					      "Failed to bind on %u socket: %s",
-					      domain, strerror(errno));
-			status_trace("Failed to create %u socket: %s",
-				     domain, strerror(errno));
-			goto fail;
-		}
+	if (bind(fd, addr, len) != 0) {
+		if (!mayfail)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Failed to bind on %u socket: %s",
+				      domain, strerror(errno));
+		status_trace("Failed to create %u socket: %s",
+			     domain, strerror(errno));
+		goto fail;
 	}
 
 	return fd;
