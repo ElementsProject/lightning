@@ -991,8 +991,8 @@ def test_peerinfo(node_factory, bitcoind):
     # Gossiping but no node announcement yet
     assert l1.rpc.getpeer(l2.info['id'])['connected']
     assert len(l1.rpc.getpeer(l2.info['id'])['channels']) == 0
-    assert l1.rpc.getpeer(l2.info['id'])['local_features'] == '8a'
-    assert l1.rpc.getpeer(l2.info['id'])['global_features'] == ''
+    assert l1.rpc.getpeer(l2.info['id'])['localfeatures'] == '8a'
+    assert l1.rpc.getpeer(l2.info['id'])['globalfeatures'] == ''
 
     # Fund a channel to force a node announcement
     chan = l1.fund_channel(l2, 10**6)
@@ -1006,18 +1006,18 @@ def test_peerinfo(node_factory, bitcoind):
     nodes2 = l2.rpc.listnodes(l2.info['id'])['nodes']
     peer1 = l1.rpc.getpeer(l2.info['id'])
     peer2 = l2.rpc.getpeer(l1.info['id'])
-    assert only_one(nodes1)['global_features'] == peer1['global_features']
-    assert only_one(nodes2)['global_features'] == peer2['global_features']
+    assert only_one(nodes1)['globalfeatures'] == peer1['globalfeatures']
+    assert only_one(nodes2)['globalfeatures'] == peer2['globalfeatures']
 
-    assert l1.rpc.getpeer(l2.info['id'])['local_features'] == '8a'
-    assert l2.rpc.getpeer(l1.info['id'])['local_features'] == '8a'
+    assert l1.rpc.getpeer(l2.info['id'])['localfeatures'] == '8a'
+    assert l2.rpc.getpeer(l1.info['id'])['localfeatures'] == '8a'
 
     # If it reconnects after db load, it should know features.
     l1.restart()
     wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'])
     wait_for(lambda: l2.rpc.getpeer(l1.info['id'])['connected'])
-    assert l1.rpc.getpeer(l2.info['id'])['local_features'] == '8a'
-    assert l2.rpc.getpeer(l1.info['id'])['local_features'] == '8a'
+    assert l1.rpc.getpeer(l2.info['id'])['localfeatures'] == '8a'
+    assert l2.rpc.getpeer(l1.info['id'])['localfeatures'] == '8a'
 
     # Close the channel to forget the peer
     with pytest.raises(RpcError, match=r'Channel close negotiation not finished'):
