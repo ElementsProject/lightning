@@ -24,6 +24,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for
 changes.
 
 - JSON RPC: `listchannels`' `flags` field. This has been split into two fields, see Added.
+- JSON RPC: `global_features` and `local_features` fields: use `globalfeatures` and `localfeatures` as per BOLT #1.
 
 ### Removed
 
