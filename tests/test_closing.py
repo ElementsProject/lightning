@@ -125,8 +125,8 @@ def test_closing_id(node_factory):
     l1.fund_channel(l2, 10**6)
     cid = l2.rpc.listpeers()['peers'][0]['channels'][0]['channel_id']
     l2.rpc.close(cid)
-    l1.daemon.wait_for_log("Forgetting peer .*")
-    l2.daemon.wait_for_log("Forgetting peer .*")
+    wait_for(lambda: not only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
+    wait_for(lambda: not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
 
     # Close by peer ID.
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
@@ -134,8 +134,8 @@ def test_closing_id(node_factory):
     l2.fund_channel(l1, 10**6)
     pid = l1.info['id']
     l2.rpc.close(pid)
-    l1.daemon.wait_for_log("Forgetting peer .*")
-    l2.daemon.wait_for_log("Forgetting peer .*")
+    wait_for(lambda: not only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
+    wait_for(lambda: not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
 
 
 @unittest.skipIf(not DEVELOPER, "needs dev-rescan-outputs")
