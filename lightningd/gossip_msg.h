@@ -13,8 +13,8 @@ struct peer_features {
 
 struct gossip_getnodes_entry {
 	struct pubkey nodeid;
-	u8 *globalfeatures;
 	s64 last_timestamp; /* -1 means never: following fields ignored */
+	u8 *globalfeatures;
 	struct wireaddr *addresses;
 	u8 alias[32];
 	u8 color[3];
