@@ -117,7 +117,7 @@ struct node {
 	u8 rgb_color[3];
 
 	/* (Global) features */
-	u8 *gfeatures;
+	u8 *globalfeatures;
 
 	/* Cached `node_announcement` we might forward to new peers (or NULL). */
 	const u8 *node_announcement;

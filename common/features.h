@@ -5,7 +5,7 @@
 #include <ccan/tal/tal.h>
 
 /* Returns true if we're OK with all these offered features. */
-bool features_supported(const u8 *gfeatures, const u8 *lfeatures);
+bool features_supported(const u8 *globalfeatures, const u8 *localfeatures);
 
 /* For sending our features: tal_count() returns length. */
 u8 *get_offered_globalfeatures(const tal_t *ctx);
