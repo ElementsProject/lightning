@@ -777,16 +777,16 @@ void setup_color_and_alias(struct lightningd *ld)
 		adjective %= ARRAY_SIZE(codename_adjective);
 
 		/* Only use 32 characters */
-		name = tal_fmt(ld, "%s%s-",
+		name = tal_fmt(ld, "%s%s",
 			       codename_adjective[adjective],
 			       codename_noun[noun]);
 #if DEVELOPER
 		assert(strlen(name) < 32);
-		int taillen = 32 - strlen(name);
+		int taillen = 31 - strlen(name);
 		if (taillen > strlen(version()))
 			taillen = strlen(version());
 		/* Fit as much of end of version() as possible */
-		tal_append_fmt(&name, "%s",
+		tal_append_fmt(&name, "-%s",
 			       version() + strlen(version()) - taillen);
 #endif
 		assert(strlen(name) <= 32);
