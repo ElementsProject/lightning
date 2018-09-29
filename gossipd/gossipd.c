@@ -1340,10 +1340,12 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	double fuzz;
 	struct siphash_seed seed;
 
-	fromwire_gossip_getroute_request(msg,
-					 &source, &destination,
-					 &msatoshi, &riskfactor, &final_cltv,
-					 &fuzz, &seed);
+	if (!fromwire_gossip_getroute_request(msg,
+					      &source, &destination,
+					      &msatoshi, &riskfactor,
+					      &final_cltv, &fuzz, &seed))
+		master_badmsg(WIRE_GOSSIP_GETROUTE_REQUEST, msg);
+
 	status_trace("Trying to find a route from %s to %s for %"PRIu64" msatoshi",
 		     pubkey_to_hexstr(tmpctx, &source),
 		     pubkey_to_hexstr(tmpctx, &destination), msatoshi);
@@ -1398,7 +1400,8 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 	struct chan *chan;
 	struct short_channel_id *scid;
 
-	fromwire_gossip_getchannels_request(msg, msg, &scid);
+	if (!fromwire_gossip_getchannels_request(msg, msg, &scid))
+		master_badmsg(WIRE_GOSSIP_GETCHANNELS_REQUEST, msg);
 
 	entries = tal_arr(tmpctx, struct gossip_getchannels_entry, 0);
 	if (scid) {
@@ -1449,7 +1452,8 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 	const struct gossip_getnodes_entry **nodes;
 	struct pubkey *id;
 
-	fromwire_gossip_getnodes_request(tmpctx, msg, &id);
+	if (!fromwire_gossip_getnodes_request(tmpctx, msg, &id))
+		master_badmsg(WIRE_GOSSIP_GETNODES_REQUEST, msg);
 
 	nodes = tal_arr(tmpctx, const struct gossip_getnodes_entry *, 0);
 	if (id) {
@@ -1789,14 +1793,13 @@ static void gossip_refresh_network(struct daemon *daemon)
 static void gossip_disable_local_channels(struct daemon *daemon)
 {
 	struct node *local_node = get_node(daemon->rstate, &daemon->id);
-	size_t i;
 
 	/* We don't have a local_node, so we don't have any channels yet
 	 * either */
 	if (!local_node)
 		return;
 
-	for (i = 0; i < tal_count(local_node->chans); i++)
+	for (size_t i = 0; i < tal_count(local_node->chans); i++)
 		local_node->chans[i]->local_disabled = true;
 }
 
