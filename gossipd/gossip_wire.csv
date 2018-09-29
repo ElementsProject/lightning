@@ -8,7 +8,7 @@ gossipctl_init,,broadcast_interval,u32
 gossipctl_init,,chain_hash,struct bitcoin_blkid
 gossipctl_init,,id,struct pubkey
 gossipctl_init,,gflen,u16
-gossipctl_init,,gfeatures,gflen*u8
+gossipctl_init,,globalfeatures,gflen*u8
 gossipctl_init,,rgb,3*u8
 gossipctl_init,,alias,32*u8
 gossipctl_init,,update_channel_interval,u32
