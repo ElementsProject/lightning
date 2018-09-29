@@ -1351,7 +1351,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 		     pubkey_to_hexstr(tmpctx, &destination), msatoshi);
 
 	hops = get_route(tmpctx, daemon->rstate, &source, &destination,
-			 msatoshi, 1, final_cltv,
+			 msatoshi, riskfactor, final_cltv,
 			 fuzz, &seed);
 
 	out = towire_gossip_getroute_reply(msg, hops);
