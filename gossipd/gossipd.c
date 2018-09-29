@@ -782,15 +782,6 @@ static void handle_reply_channel_range(struct peer *peer, u8 *msg)
 	peer->query_channel_blocks = tal_free(peer->query_channel_blocks);
 }
 
-/* We keep a simple array of node ids while we're sending channel info */
-static void append_query_node(struct peer *peer, const struct pubkey *id)
-{
-	size_t n;
-	n = tal_count(peer->scid_query_nodes);
-	tal_resize(&peer->scid_query_nodes, n+1);
-	peer->scid_query_nodes[n] = *id;
-}
-
 /* Arbitrary ordering function of pubkeys.
  *
  * Note that we could use memcmp() here: even if they had somehow different
@@ -856,8 +847,8 @@ static bool create_next_scid_reply(struct peer *peer)
 			queue_peer_msg(peer, chan->half[1].channel_update);
 
 		/* Record node ids for later transmission of node_announcement */
-		append_query_node(peer, &chan->nodes[0]->id);
-		append_query_node(peer, &chan->nodes[1]->id);
+		*tal_arr_expand(&peer->scid_query_nodes) = chan->nodes[0]->id;
+		*tal_arr_expand(&peer->scid_query_nodes) = chan->nodes[1]->id;
 		sent = true;
 	}
 
