@@ -516,14 +516,14 @@ class LightningNode(object):
 
         # We wait until gossipd sees both local updates, as well as status NORMAL,
         # so it can definitely route through.
-        self.daemon.wait_for_logs(['update for channel {}\(0\) now ACTIVE'
+        self.daemon.wait_for_logs([r'update for channel {}\(0\) now ACTIVE'
                                    .format(scid),
-                                   'update for channel {}\(1\) now ACTIVE'
+                                   r'update for channel {}\(1\) now ACTIVE'
                                    .format(scid),
                                    'to CHANNELD_NORMAL'])
-        l2.daemon.wait_for_logs(['update for channel {}\(0\) now ACTIVE'
+        l2.daemon.wait_for_logs([r'update for channel {}\(0\) now ACTIVE'
                                  .format(scid),
-                                 'update for channel {}\(1\) now ACTIVE'
+                                 r'update for channel {}\(1\) now ACTIVE'
                                  .format(scid),
                                  'to CHANNELD_NORMAL'])
         return scid
@@ -646,7 +646,7 @@ class LightningNode(object):
             r = self.daemon.wait_for_log('Broadcasting {} .* to resolve '
                                          .format(name))
 
-        rawtx = re.search('.* \(([0-9a-fA-F]*)\) ', r).group(1)
+        rawtx = re.search(r'.* \(([0-9a-fA-F]*)\) ', r).group(1)
         txid = self.bitcoin.rpc.decoderawtransaction(rawtx, True)['txid']
 
         wait_for(lambda: txid in self.bitcoin.rpc.getrawmempool())

@@ -131,7 +131,7 @@ def test_announce_address(node_factory, bitcoind):
     l2.wait_channel_active(scid)
 
     # We should see it send node announce (257 = 0x0101)
-    l1.daemon.wait_for_log("\[OUT\] 0101.*004d010102030404d202000000000000000000000000000000002607039216a8b803f3acd758aa260704e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba50230032607'")
+    l1.daemon.wait_for_log(r"\[OUT\] 0101.*004d010102030404d202000000000000000000000000000000002607039216a8b803f3acd758aa260704e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba50230032607'")
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -174,15 +174,15 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
     # 0x0102 = channel_update
     # 0x0101 = node_announcement
     # The order of node_announcements relative to others is undefined.
-    l1.daemon.wait_for_logs(['\[IN\] 0102',
-                             '\[IN\] 0102',
-                             '\[IN\] 0100',
-                             '\[IN\] 0100',
-                             '\[IN\] 0102',
-                             '\[IN\] 0102',
-                             '\[IN\] 0101',
-                             '\[IN\] 0101',
-                             '\[IN\] 0101'])
+    l1.daemon.wait_for_logs([r'\[IN\] 0102',
+                             r'\[IN\] 0102',
+                             r'\[IN\] 0100',
+                             r'\[IN\] 0100',
+                             r'\[IN\] 0102',
+                             r'\[IN\] 0102',
+                             r'\[IN\] 0101',
+                             r'\[IN\] 0101',
+                             r'\[IN\] 0101'])
 
     # Now timestamp which doesn't overlap (gives nothing).
     before_sendfilter = l1.daemon.logsearch_start
@@ -190,29 +190,29 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
                                      first=0,
                                      range=before_anything)
     time.sleep(1)
-    assert not l1.daemon.is_in_log('\[IN\] 0100', before_sendfilter)
+    assert not l1.daemon.is_in_log(r'\[IN\] 0100', before_sendfilter)
 
     # Now choose range which will only give first update.
     l1.rpc.dev_send_timestamp_filter(id=l2.info['id'],
                                      first=before_anything,
                                      range=after_12 - before_anything + 1)
     # 0x0100 = channel_announcement
-    l1.daemon.wait_for_log('\[IN\] 0100')
+    l1.daemon.wait_for_log(r'\[IN\] 0100')
     # 0x0102 = channel_update
     # (Node announcement may have any timestamp)
-    l1.daemon.wait_for_log('\[IN\] 0102')
-    l1.daemon.wait_for_log('\[IN\] 0102')
+    l1.daemon.wait_for_log(r'\[IN\] 0102')
+    l1.daemon.wait_for_log(r'\[IN\] 0102')
 
     # Now choose range which will only give second update.
     l1.rpc.dev_send_timestamp_filter(id=l2.info['id'],
                                      first=after_12,
                                      range=after_23 - after_12 + 1)
     # 0x0100 = channel_announcement
-    l1.daemon.wait_for_log('\[IN\] 0100')
+    l1.daemon.wait_for_log(r'\[IN\] 0100')
     # 0x0102 = channel_update
     # (Node announcement may have any timestamp)
-    l1.daemon.wait_for_log('\[IN\] 0102')
-    l1.daemon.wait_for_log('\[IN\] 0102')
+    l1.daemon.wait_for_log(r'\[IN\] 0102')
+    l1.daemon.wait_for_log(r'\[IN\] 0102')
 
 
 @unittest.skipIf(not DEVELOPER, "needs --dev-allow-localhost")
@@ -495,7 +495,7 @@ def test_gossip_no_empty_announcements(node_factory, bitcoind):
     bitcoind.generate_block(5)
 
     # 0x0100 = channel_announcement, which goes to l2 before l3 dies.
-    l2.daemon.wait_for_log('\[IN\] 0100')
+    l2.daemon.wait_for_log(r'\[IN\] 0100')
 
     # l3 actually disconnects from l4 *and* l2!  That means we never see
     # the (delayed) channel_update from l4.
@@ -504,7 +504,7 @@ def test_gossip_no_empty_announcements(node_factory, bitcoind):
 
     # But it never goes to l1, as there's no channel_update.
     time.sleep(2)
-    assert not l1.daemon.is_in_log('\[IN\] 0100')
+    assert not l1.daemon.is_in_log(r'\[IN\] 0100')
     assert len(l1.rpc.listchannels()['channels']) == 0
 
     # If we reconnect, gossip will now flow.
@@ -666,7 +666,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
                                          num=65535)
     l1.daemon.wait_for_log(
         # WIRE_REPLY_CHANNEL_RANGE
-        '\[IN\] 0108' +
+        r'\[IN\] 0108' +
         # chain_hash
         '................................................................' +
         # first_blocknum
@@ -749,7 +749,7 @@ def test_query_short_channel_id(node_factory, bitcoind):
     # Empty result tests.
     reply = l1.rpc.dev_query_scids(l2.info['id'], ['1:1:1', '2:2:2'])
     # 0x0105 = query_short_channel_ids
-    l1.daemon.wait_for_log('\[OUT\] 0105.*0000000100000100010000020000020002')
+    l1.daemon.wait_for_log(r'\[OUT\] 0105.*0000000100000100010000020000020002')
     assert reply['complete']
 
     # Make channels public.
@@ -764,34 +764,34 @@ def test_query_short_channel_id(node_factory, bitcoind):
     # This query should get channel announcements, channel updates, and node announcements.
     reply = l1.rpc.dev_query_scids(l2.info['id'], [scid23])
     # 0x0105 = query_short_channel_ids
-    l1.daemon.wait_for_log('\[OUT\] 0105')
+    l1.daemon.wait_for_log(r'\[OUT\] 0105')
     assert reply['complete']
 
     # 0x0100 = channel_announcement
-    l1.daemon.wait_for_log('\[IN\] 0100')
+    l1.daemon.wait_for_log(r'\[IN\] 0100')
     # 0x0102 = channel_update
-    l1.daemon.wait_for_log('\[IN\] 0102')
-    l1.daemon.wait_for_log('\[IN\] 0102')
+    l1.daemon.wait_for_log(r'\[IN\] 0102')
+    l1.daemon.wait_for_log(r'\[IN\] 0102')
     # 0x0101 = node_announcement
-    l1.daemon.wait_for_log('\[IN\] 0101')
-    l1.daemon.wait_for_log('\[IN\] 0101')
+    l1.daemon.wait_for_log(r'\[IN\] 0101')
+    l1.daemon.wait_for_log(r'\[IN\] 0101')
 
     reply = l1.rpc.dev_query_scids(l2.info['id'], [scid12, scid23])
     assert reply['complete']
     # Technically, this order could be different, but this matches code.
     # 0x0100 = channel_announcement
-    l1.daemon.wait_for_log('\[IN\] 0100')
+    l1.daemon.wait_for_log(r'\[IN\] 0100')
     # 0x0102 = channel_update
-    l1.daemon.wait_for_log('\[IN\] 0102')
-    l1.daemon.wait_for_log('\[IN\] 0102')
+    l1.daemon.wait_for_log(r'\[IN\] 0102')
+    l1.daemon.wait_for_log(r'\[IN\] 0102')
     # 0x0100 = channel_announcement
-    l1.daemon.wait_for_log('\[IN\] 0100')
+    l1.daemon.wait_for_log(r'\[IN\] 0100')
     # 0x0102 = channel_update
-    l1.daemon.wait_for_log('\[IN\] 0102')
-    l1.daemon.wait_for_log('\[IN\] 0102')
+    l1.daemon.wait_for_log(r'\[IN\] 0102')
+    l1.daemon.wait_for_log(r'\[IN\] 0102')
     # 0x0101 = node_announcement
-    l1.daemon.wait_for_log('\[IN\] 0101')
-    l1.daemon.wait_for_log('\[IN\] 0101')
+    l1.daemon.wait_for_log(r'\[IN\] 0101')
+    l1.daemon.wait_for_log(r'\[IN\] 0101')
 
 
 def test_gossip_addresses(node_factory, bitcoind):
@@ -850,7 +850,7 @@ def test_node_reannounce(node_factory, bitcoind):
     bitcoind.generate_block(5)
 
     # Wait for node_announcement for l1.
-    l2.daemon.wait_for_log('\[IN\] 0101.*{}'.format(l1.info['id']))
+    l2.daemon.wait_for_log(r'\[IN\] 0101.*{}'.format(l1.info['id']))
     # Wait for it to process it.
     wait_for(lambda: l2.rpc.listnodes(l1.info['id'])['nodes'] != [])
     wait_for(lambda: 'alias' in only_one(l2.rpc.listnodes(l1.info['id'])['nodes']))
@@ -861,14 +861,14 @@ def test_node_reannounce(node_factory, bitcoind):
     l1.start()
 
     # Wait for l1 to send us its own node_announcement.
-    nannouncement = l2.daemon.wait_for_log('{}.*\[IN\] 0101.*{}'.format(l1.info['id'], l1.info['id'])).split('[IN] ')[1]
+    nannouncement = l2.daemon.wait_for_log(r'{}.*\[IN\] 0101.*{}'.format(l1.info['id'], l1.info['id'])).split('[IN] ')[1]
     wait_for(lambda: only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['alias'] == 'SENIORBEAM')
 
     # Restart should re-xmit exact same update on reconnect.
     l1.restart()
 
     # l1 should retransmit it exactly the same (no timestamp change!)
-    l2.daemon.wait_for_log('{}.*\[IN\] {}'.format(l1.info['id'], nannouncement))
+    l2.daemon.wait_for_log(r'{}.*\[IN\] {}'.format(l1.info['id'], nannouncement))
 
 
 def test_gossipwith(node_factory):
@@ -910,9 +910,9 @@ def test_gossip_notices_close(node_factory, bitcoind):
     l1.rpc.disconnect(l2.info['id'])
 
     # Grab channel_announcement from io logs (ends in ')
-    channel_announcement = l1.daemon.is_in_log('\[IN\] 0100').split(' ')[-1][:-1]
-    channel_update = l1.daemon.is_in_log('\[IN\] 0102').split(' ')[-1][:-1]
-    node_announcement = l1.daemon.is_in_log('\[IN\] 0101').split(' ')[-1][:-1]
+    channel_announcement = l1.daemon.is_in_log(r'\[IN\] 0100').split(' ')[-1][:-1]
+    channel_update = l1.daemon.is_in_log(r'\[IN\] 0102').split(' ')[-1][:-1]
+    node_announcement = l1.daemon.is_in_log(r'\[IN\] 0101').split(' ')[-1][:-1]
 
     l2.rpc.close(l3.info['id'])
     wait_for(lambda: only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
