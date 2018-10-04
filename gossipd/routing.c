@@ -1063,12 +1063,22 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	struct chan *chan;
 	u8 direction;
 
-	if (!fromwire_channel_update_option_channel_htlc_max(update, &signature, &chain_hash,
+	if (!fromwire_channel_update(update, &signature, &chain_hash,
 				     &short_channel_id, &timestamp,
 				     &message_flags, &channel_flags,
 				     &expiry, &htlc_minimum_msat, &fee_base_msat,
-				     &fee_proportional_millionths,
-				     &htlc_maximum_msat))
+				     &fee_proportional_millionths))
+		return false;
+	/* If it's flagged as containing the optional field, reparse for
+	 * the optional field */
+	if ((message_flags & ROUTING_OPT_HTLC_MAX_MSAT) &&
+			!fromwire_channel_update_option_channel_htlc_max(
+				update, &signature, &chain_hash,
+				&short_channel_id, &timestamp,
+				&message_flags, &channel_flags,
+				&expiry, &htlc_minimum_msat, &fee_base_msat,
+				&fee_proportional_millionths,
+				&htlc_maximum_msat))
 		return false;
 	chan = get_channel(rstate, &short_channel_id);
 	if (!chan)
