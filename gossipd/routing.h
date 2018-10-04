@@ -27,7 +27,7 @@ struct half_chan {
 	s64 last_timestamp;
 
 	/* Minimum number of msatoshi in an HTLC */
-	u32 htlc_minimum_msat;
+	u64 htlc_minimum_msat;
 
 	/* Maximum number of msatoshis in an HTLC */
 	u64 htlc_maximum_msat;
