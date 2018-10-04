@@ -146,7 +146,7 @@ def node_factory(request, directory, test_name, bitcoind, executor):
 
 def getValgrindErrors(node):
     for error_file in os.listdir(node.daemon.lightning_dir):
-        if not re.fullmatch("valgrind-errors.\d+", error_file):
+        if not re.fullmatch(r"valgrind-errors.\d+", error_file):
             continue
         with open(os.path.join(node.daemon.lightning_dir, error_file), 'r') as f:
             errors = f.read().strip()
