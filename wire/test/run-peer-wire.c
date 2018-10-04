@@ -132,6 +132,19 @@ struct msg_channel_update {
 	struct bitcoin_blkid chain_hash;
 	struct short_channel_id short_channel_id;
 };
+struct msg_channel_update_opt_htlc_max {
+	secp256k1_ecdsa_signature signature;
+	u32 timestamp;
+	u8 message_flags;
+	u8 channel_flags;
+	u16 expiry;
+	u64 htlc_minimum_msat;
+	u32 fee_base_msat;
+	u32 fee_proportional_millionths;
+	u64 htlc_maximum_msat;
+	struct bitcoin_blkid chain_hash;
+	struct short_channel_id short_channel_id;
+};
 struct msg_funding_locked {
 	struct channel_id channel_id;
 	struct pubkey next_per_commitment_point;
@@ -385,6 +398,22 @@ static void *towire_struct_channel_update(const tal_t *ctx,
 				     s->fee_proportional_millionths);
 }
 
+static void *towire_struct_channel_update_opt_htlc_max(const tal_t *ctx,
+				      const struct msg_channel_update_opt_htlc_max *s)
+{
+	return towire_channel_update_option_channel_htlc_max(ctx,
+				     &s->signature,
+				     &s->chain_hash,
+				     &s->short_channel_id,
+				     s->timestamp,
+				     s->message_flags,
+				     s->channel_flags,
+				     s->expiry,
+				     s->htlc_minimum_msat,
+				     s->fee_base_msat,
+				     s->fee_proportional_millionths,
+				     s->htlc_maximum_msat);
+}
 static struct msg_channel_update *fromwire_struct_channel_update(const tal_t *ctx, const void *p)
 {
 	struct msg_channel_update *s = tal(ctx, struct msg_channel_update);
@@ -400,6 +429,27 @@ static struct msg_channel_update *fromwire_struct_channel_update(const tal_t *ct
 				    &s->htlc_minimum_msat,
 				    &s->fee_base_msat,
 				    &s->fee_proportional_millionths))
+		return s;
+	return tal_free(s);
+}
+
+static struct msg_channel_update_opt_htlc_max
+*fromwire_struct_channel_update_opt_htlc_max(const tal_t *ctx, const void *p)
+{
+	struct msg_channel_update_opt_htlc_max *s = tal(ctx, struct msg_channel_update_opt_htlc_max);
+
+	if (fromwire_channel_update_option_channel_htlc_max(p,
+				    &s->signature,
+				    &s->chain_hash,
+				    &s->short_channel_id,
+				    &s->timestamp,
+				    &s->message_flags,
+				    &s->channel_flags,
+				    &s->expiry,
+				    &s->htlc_minimum_msat,
+				    &s->fee_base_msat,
+				    &s->fee_proportional_millionths,
+				    &s->htlc_maximum_msat))
 		return s;
 	return tal_free(s);
 }
@@ -810,6 +860,13 @@ static bool channel_update_eq(const struct msg_channel_update *a,
 		short_channel_id_eq(&a->short_channel_id, &b->short_channel_id);
 }
 
+static bool channel_update_opt_htlc_max_eq(const struct msg_channel_update_opt_htlc_max *a,
+			      const struct msg_channel_update_opt_htlc_max *b)
+{
+	return eq_upto(a, b, short_channel_id) &&
+		short_channel_id_eq(&a->short_channel_id, &b->short_channel_id);
+}
+
 static bool accept_channel_eq(const struct msg_accept_channel *a,
 			      const struct msg_accept_channel *b)
 {
@@ -865,6 +922,7 @@ int main(void)
 	struct msg_revoke_and_ack raa, *raa2;
 	struct msg_open_channel oc, *oc2;
 	struct msg_channel_update cu, *cu2;
+	struct msg_channel_update_opt_htlc_max cu_opt_htlc_max, *cu_opt_htlc_max2;
 	struct msg_accept_channel ac, *ac2;
 	struct msg_update_add_htlc uah, *uah2;
 	struct msg_node_announcement na, *na2;
@@ -1012,6 +1070,13 @@ int main(void)
 	cu2 = fromwire_struct_channel_update(ctx, msg);
 	assert(channel_update_eq(&cu, cu2));
 	test_corruption(&cu, cu2, channel_update);
+
+	memset(&cu_opt_htlc_max, 2, sizeof(cu_opt_htlc_max));
+
+	msg = towire_struct_channel_update_opt_htlc_max(ctx, &cu_opt_htlc_max);
+	cu_opt_htlc_max2 = fromwire_struct_channel_update_opt_htlc_max(ctx, msg);
+	assert(channel_update_opt_htlc_max_eq(&cu_opt_htlc_max, cu_opt_htlc_max2));
+	test_corruption(&cu_opt_htlc_max, cu_opt_htlc_max2, channel_update_opt_htlc_max);
 
 	memset(&ac, 2, sizeof(ac));
 	set_pubkey(&ac.funding_pubkey);
