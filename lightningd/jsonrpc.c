@@ -319,6 +319,7 @@ static void connection_complete_error(struct json_connection *jcon,
 
 	assert(id != NULL);
 
+	assert(cmd);
 	if (cmd->ok)
 		*(cmd->ok) = false;
 
