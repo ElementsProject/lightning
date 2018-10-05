@@ -1084,6 +1084,16 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (!chan)
 		return false;
 
+	if (message_flags & ROUTING_OPT_HTLC_MAX_MSAT) {
+		/* Reject update if the `htlc_maximum_msat` is greater
+		 * than the total available channel satoshis */
+		if (htlc_maximum_msat > chan->satoshis * 1000)
+			return false;
+	} else {
+		/* If not indicated, set htlc_max_msat to channel capacity */
+		htlc_maximum_msat = chan->satoshis * 1000;
+	}
+
 	direction = channel_flags & 0x1;
 	set_connection_values(chan, direction, fee_base_msat,
 			      fee_proportional_millionths, expiry,
