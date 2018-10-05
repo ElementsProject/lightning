@@ -158,7 +158,7 @@ Testing
 Install `valgrind` and the python dependencies for best results:
 
 ```
-sudo apt install valgrind
+sudo apt install valgrind cppcheck shellcheck
 pip3 install -r tests/requirements.txt
 ```
 
