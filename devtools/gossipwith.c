@@ -150,11 +150,11 @@ int main(int argc, char *argv[])
 {
 	struct io_conn *conn = tal(NULL, struct io_conn);
 	struct wireaddr_internal addr;
-	int af;
+	int af = -1;
 	struct pubkey us, them;
 	const char *err_msg;
 	const char *at;
-	struct addrinfo *ai;
+	struct addrinfo *ai = NULL;
 
 	setup_locale();
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY |
@@ -212,6 +212,10 @@ int main(int argc, char *argv[])
 		}
 		ai = wireaddr_to_addrinfo(tmpctx, &addr.u.wireaddr);
 	}
+
+	if (af == -1 || ai == NULL)
+		err(1, "Initializing socket");
+
 	conn->fd = socket(af, SOCK_STREAM, 0);
 	if (conn->fd < 0)
 		err(1, "Creating socket");
