@@ -860,8 +860,8 @@ void onchain_failed_our_htlc(const struct channel *channel,
 	struct lightningd *ld = channel->peer->ld;
 	struct htlc_out *hout = find_htlc_out_by_ripemd(channel, &htlc->ripemd);
 
-	/* Don't fail twice! */
-	if (hout->failuremsg || hout->failcode)
+	/* Don't fail twice (or if already succeeded)! */
+	if (hout->failuremsg || hout->failcode || hout->preimage)
 		return;
 
 	hout->failcode = WIRE_PERMANENT_CHANNEL_FAILURE;
