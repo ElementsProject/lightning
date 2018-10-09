@@ -87,6 +87,23 @@ struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr)
 	else if (hin->failuremsg && (hin->failcode & BADONION))
 		return corrupt(abortstr, "Both failed and malformed");
 
+	/* Can't have a resolution while still being added. */
+	if (hin->hstate >= RCVD_ADD_HTLC
+	    && hin->hstate <= RCVD_ADD_ACK_REVOCATION) {
+		if (hin->preimage)
+			return corrupt(abortstr, "Still adding, has preimage");
+		if (hin->failuremsg)
+			return corrupt(abortstr, "Still adding, has failmsg");
+		if (hin->failcode)
+			return corrupt(abortstr, "Still adding, has failcode");
+	} else if (hin->hstate >= SENT_REMOVE_HTLC
+		   && hin->hstate <= SENT_REMOVE_ACK_REVOCATION) {
+		if (!hin->preimage && !hin->failuremsg && !hin->failcode)
+			return corrupt(abortstr, "Removing, no resolution");
+	} else
+		return corrupt(abortstr, "Bad state %s",
+			       htlc_state_name(hin->hstate));
+
 	return cast_const(struct htlc_in *, hin);
 }
 
@@ -171,9 +188,24 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 				return corrupt(abortstr,
 					       "Output unresolved, input failcode");
 		}
-
-		/* FIXME: Check hout->in->hstate. */
 	}
+
+	/* Can't have a resolution while still being added. */
+	if (hout->hstate >= SENT_ADD_HTLC
+	    && hout->hstate <= SENT_ADD_ACK_REVOCATION) {
+		if (hout->preimage)
+			return corrupt(abortstr, "Still adding, has preimage");
+		if (hout->failuremsg)
+			return corrupt(abortstr, "Still adding, has failmsg");
+		if (hout->failcode)
+			return corrupt(abortstr, "Still adding, has failcode");
+	} else if (hout->hstate >= RCVD_REMOVE_HTLC
+		   && hout->hstate <= RCVD_REMOVE_ACK_REVOCATION) {
+		if (!hout->preimage && !hout->failuremsg && !hout->failcode)
+			return corrupt(abortstr, "Removing, no resolution");
+	} else
+		return corrupt(abortstr, "Bad state %s",
+			       htlc_state_name(hout->hstate));
 
 	return cast_const(struct htlc_out *, hout);
 }
