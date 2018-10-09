@@ -1248,7 +1248,8 @@ void wallet_htlc_save_out(struct wallet *wallet,
 
 void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			const enum htlc_state new_state,
-			const struct preimage *payment_key)
+			const struct preimage *payment_key,
+			enum onion_type failcode, const u8 *failuremsg)
 {
 	sqlite3_stmt *stmt;
 
@@ -1257,16 +1258,24 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 	assert(htlc_dbid);
 	stmt = db_prepare(
 		wallet->db,
-		"UPDATE channel_htlcs SET hstate=?, payment_key=? WHERE id=?");
+		"UPDATE channel_htlcs SET hstate=?, payment_key=?, malformed_onion=?, failuremsg=? WHERE id=?");
 
 	/* FIXME: htlc_state_in_db */
 	sqlite3_bind_int(stmt, 1, new_state);
-	sqlite3_bind_int64(stmt, 3, htlc_dbid);
+	sqlite3_bind_int64(stmt, 5, htlc_dbid);
 
 	if (payment_key)
 		sqlite3_bind_preimage(stmt, 2, payment_key);
 	else
 		sqlite3_bind_null(stmt, 2);
+
+	sqlite3_bind_int(stmt, 3, failcode);
+	if (failuremsg)
+		sqlite3_bind_blob(stmt, 4,
+				  failuremsg, tal_bytelen(failuremsg),
+				  SQLITE_TRANSIENT);
+	else
+		sqlite3_bind_null(stmt, 4);
 
 	db_exec_prepared(wallet->db, stmt);
 }
@@ -1353,6 +1362,7 @@ static bool wallet_stmt2htlc_out(struct channel *channel,
 	return ok;
 }
 
+#ifdef COMPAT_V061
 /* We didn't used to save failcore, failuremsg... */
 static void fixup_hin(struct wallet *wallet, struct htlc_in *hin)
 {
@@ -1380,6 +1390,7 @@ static void fixup_hin(struct wallet *wallet, struct htlc_in *hin)
 		   type_to_string(tmpctx, struct pubkey,
 				  &hin->key.channel->peer->id));
 }
+#endif
 
 bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 				   struct channel *chan,
@@ -1405,7 +1416,9 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 		struct htlc_in *in = tal(chan, struct htlc_in);
 		ok &= wallet_stmt2htlc_in(chan, stmt, in);
 		connect_htlc_in(htlcs_in, in);
+#ifdef COMPAT_V061
 		fixup_hin(wallet, in);
+#endif
 		ok &= htlc_in_check(in, NULL) != NULL;
 		incount++;
 	}

@@ -62,7 +62,8 @@ static bool htlc_in_update_state(struct channel *channel,
 		return false;
 
 	wallet_htlc_update(channel->peer->ld->wallet,
-			   hin->dbid, newstate, hin->preimage);
+			   hin->dbid, newstate, hin->preimage,
+			   hin->failcode, hin->failuremsg);
 
 	hin->hstate = newstate;
 	return true;
@@ -77,7 +78,7 @@ static bool htlc_out_update_state(struct channel *channel,
 		return false;
 
 	wallet_htlc_update(channel->peer->ld->wallet, hout->dbid, newstate,
-			   hout->preimage);
+			   hout->preimage, hout->failcode, hout->failuremsg);
 
 	hout->hstate = newstate;
 	return true;
@@ -727,7 +728,8 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 	hout->preimage = tal_dup(hout, struct preimage, preimage);
 	htlc_out_check(hout, __func__);
 
-	wallet_htlc_update(ld->wallet, hout->dbid, hout->hstate, preimage);
+	wallet_htlc_update(ld->wallet, hout->dbid, hout->hstate,
+			   hout->preimage, hout->failcode, hout->failuremsg);
 	/* Update channel stats */
 	wallet_channel_stats_incr_out_fulfilled(ld->wallet,
 						channel->dbid,
@@ -868,9 +870,9 @@ void onchain_failed_our_htlc(const struct channel *channel,
 
 	/* Force state to something which expects a failure, and save to db */
 	hout->hstate = RCVD_REMOVE_HTLC;
-	wallet_htlc_update(channel->peer->ld->wallet, hout->dbid, hout->hstate,
-			   NULL);
 	htlc_out_check(hout, __func__);
+	wallet_htlc_update(channel->peer->ld->wallet, hout->dbid, hout->hstate,
+			   hout->preimage, hout->failcode, hout->failuremsg);
 
 	if (hout->local) {
 		assert(why != NULL);
@@ -1679,6 +1681,7 @@ void htlcs_notify_new_block(struct lightningd *ld, u32 height)
 	} while (removed);
 }
 
+#ifdef COMPAT_V061
 static void fixup_hout(struct lightningd *ld, struct htlc_out *hout)
 {
 	const char *fix;
@@ -1724,6 +1727,7 @@ static void fixup_hout(struct lightningd *ld, struct htlc_out *hout)
 				  &hout->key.channel->peer->id),
 		   fix);
 }
+#endif /* COMPAT_V061 */
 
 /**
  * htlcs_reconnect -- Link outgoing HTLCs to their origins after initial db load
@@ -1774,7 +1778,9 @@ void htlcs_reconnect(struct lightningd *ld,
 			      hout->origin_htlc_id, hout->dbid);
 #endif
 		}
+#ifdef COMPAT_V061
 		fixup_hout(ld, hout);
+#endif
 
 	}
 }
