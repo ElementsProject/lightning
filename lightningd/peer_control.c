@@ -995,6 +995,7 @@ static void activate_peer(struct peer *peer)
 		msg = towire_connectctl_connect_to_peer(NULL, &peer->id, 0,
 							&peer->addr);
 		subd_send_msg(ld->connectd, take(msg));
+		channel_set_billboard(channel, false, "Attempting to reconnect");
 	}
 
 	list_for_each(&peer->channels, channel, list) {
