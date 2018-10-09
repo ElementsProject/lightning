@@ -764,10 +764,10 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 1)
 
     # Wait for the restored HTLC to finish
-    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'][0]['channels'])['msatoshi_to_us'] == 99990000, interval=1)
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'][0]['channels'])['msatoshi_to_us'] == 99990000)
 
-    wait_for(lambda: len([p for p in l1.rpc.listpeers()['peers'] if p['connected']]), interval=1)
-    wait_for(lambda: len([p for p in l2.rpc.listpeers()['peers'] if p['connected']]), interval=1)
+    wait_for(lambda: len([p for p in l1.rpc.listpeers()['peers'] if p['connected']]))
+    wait_for(lambda: len([p for p in l2.rpc.listpeers()['peers'] if p['connected']]))
 
     # Now make sure this is really functional by sending a payment
     l1.pay(l2, 10000)

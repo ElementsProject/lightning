@@ -39,10 +39,14 @@ TIMEOUT = int(os.getenv("TIMEOUT", "60"))
 VALGRIND = os.getenv("VALGRIND", config['VALGRIND']) == "1"
 
 
-def wait_for(success, timeout=TIMEOUT, interval=0.1):
+def wait_for(success, timeout=TIMEOUT):
     start_time = time.time()
+    interval = 0.25
     while not success() and time.time() < start_time + timeout:
         time.sleep(interval)
+        interval *= 2
+        if interval > 5:
+            interval = 5
     if time.time() > start_time + timeout:
         raise ValueError("Error waiting for {}", success)
 
@@ -570,7 +574,7 @@ class LightningNode(object):
         wait_for(lambda: txid in self.bitcoin.rpc.getrawmempool())
 
     def wait_channel_active(self, chanid):
-        wait_for(lambda: self.is_channel_active(chanid), interval=1)
+        wait_for(lambda: self.is_channel_active(chanid))
 
     # This waits until gossipd sees channel_update in both directions
     # (or for local channels, at least a local announcement)
