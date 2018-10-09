@@ -943,7 +943,7 @@ def test_logging(node_factory):
 
     def check_new_log():
         log2 = open(logpath).readlines()
-        return len(log2) > 1 and log2[0].endswith("Started log due to SIGHUP\n")
+        return len(log2) > 0 and log2[0].endswith("Started log due to SIGHUP\n")
     wait_for(check_new_log)
 
 

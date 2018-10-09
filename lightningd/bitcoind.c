@@ -164,10 +164,14 @@ static void bcli_finished(struct io_conn *conn UNUSED, struct bitcoin_cli *bcli)
 	struct bitcoind *bitcoind = bcli->bitcoind;
 	enum bitcoind_prio prio = bcli->prio;
 	bool ok;
+	u64 msec = time_to_msec(time_between(time_now(), bcli->start));
 
-	log_debug(bitcoind->log, "bitcoin-cli: finished %s (%"PRIu64" ms)",
-		  bcli_args(tmpctx, bcli),
-		  time_to_msec(time_between(time_now(), bcli->start)));
+	/* If it took over 10 seconds, that's rather strange. */
+	if (msec > 10000)
+		log_unusual(bitcoind->log,
+			    "bitcoin-cli: finished %s (%"PRIu64" ms)",
+			    bcli_args(tmpctx, bcli), msec);
+
 	assert(bitcoind->num_requests[prio] > 0);
 
 	/* FIXME: If we waited for SIGCHILD, this could never hang! */
@@ -224,8 +228,6 @@ static void next_bcli(struct bitcoind *bitcoind, enum bitcoind_prio prio)
 	if (!bcli)
 		return;
 
-	log_debug(bitcoind->log, "bitcoin-cli: starting %s",
-		  bcli_args(tmpctx, bcli));
 	bcli->pid = pipecmdarr(&bcli->fd, NULL, &bcli->fd,
 			       cast_const2(char **, bcli->args));
 	if (bcli->pid < 0)
