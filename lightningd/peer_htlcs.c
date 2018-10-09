@@ -100,8 +100,6 @@ static void fail_in_htlc(struct htlc_in *hin,
 	/* We need this set, since we send it to channeld. */
 	if (hin->failcode & UPDATE)
 		hin->failoutchannel = *out_channelid;
-	else
-		memset(&hin->failoutchannel, 0, sizeof(hin->failoutchannel));
 
 	/* We update state now to signal it's in progress, for persistence. */
 	htlc_in_update_state(hin->key.channel, hin, SENT_REMOVE_HTLC);

@@ -1362,10 +1362,17 @@ static bool wallet_stmt2htlc_out(struct channel *channel,
 	return ok;
 }
 
-#ifdef COMPAT_V061
-/* We didn't used to save failcore, failuremsg... */
 static void fixup_hin(struct wallet *wallet, struct htlc_in *hin)
 {
+	/* We don't save the outgoing channel which failed; probably not worth
+	 * it for this corner case.  So we can't set hin->failoutchannel to
+	 * tell channeld what update to send, thus we turn those into a
+	 * WIRE_TEMPORARY_NODE_FAILURE. */
+	if (hin->failcode & UPDATE)
+		hin->failcode = WIRE_TEMPORARY_NODE_FAILURE;
+
+	/* We didn't used to save failcore, failuremsg... */
+#ifdef COMPAT_V061
 	/* We care about HTLCs being removed only, not those being added. */
 	if (hin->hstate < SENT_REMOVE_HTLC)
 		return;
@@ -1378,19 +1385,20 @@ static void fixup_hin(struct wallet *wallet, struct htlc_in *hin)
 	if (hin->failcode || hin->failuremsg)
 		return;
 
-	hin->failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
+	hin->failcode = WIRE_TEMPORARY_NODE_FAILURE;
 
 	log_broken(wallet->log, "HTLC #%"PRIu64" (%s) "
 		   " for amount %"PRIu64
 		   " from %s"
 		   " is missing a resolution:"
-		   " subsituting temporary channel failure",
+		   " subsituting temporary node failure",
 		   hin->key.id, htlc_state_name(hin->hstate),
 		   hin->msatoshi,
 		   type_to_string(tmpctx, struct pubkey,
 				  &hin->key.channel->peer->id));
-}
 #endif
+}
+
 
 bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 				   struct channel *chan,
@@ -1416,9 +1424,7 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 		struct htlc_in *in = tal(chan, struct htlc_in);
 		ok &= wallet_stmt2htlc_in(chan, stmt, in);
 		connect_htlc_in(htlcs_in, in);
-#ifdef COMPAT_V061
 		fixup_hin(wallet, in);
-#endif
 		ok &= htlc_in_check(in, NULL) != NULL;
 		incount++;
 	}
