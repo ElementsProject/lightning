@@ -133,15 +133,6 @@ def test_pay_get_error_with_update(node_factory):
 
     inv = l3.rpc.invoice(123000, 'test_pay_get_error_with_update', 'description')
 
-    def try_route(src, dst):
-        try:
-            src.rpc.getroute(dst.info['id'], 1, 1)
-            return True
-        except Exception:
-            return False
-
-    wait_for(lambda: try_route(l1, l3))
-
     route = l1.rpc.getroute(l3.info['id'], 12300, 1)["route"]
 
     # Make sure l2 doesn't tell l1 directly that channel is disabled.

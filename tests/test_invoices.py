@@ -122,9 +122,6 @@ def test_invoice_routeboost(node_factory):
     """
     l1, l2 = node_factory.line_graph(2, announce=True, fundamount=10**4)
 
-    # Make sure we've seen channel_update from peer.
-    wait_for(lambda: [a['active'] for a in l2.rpc.listchannels()['channels']] == [True, True])
-
     # Make invoice and pay it
     inv = l2.rpc.invoice(msatoshi=123456, label="inv1", description="?")
     # Check routeboost.
