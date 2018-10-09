@@ -77,7 +77,7 @@ static bool htlc_out_update_state(struct channel *channel,
 		return false;
 
 	wallet_htlc_update(channel->peer->ld->wallet, hout->dbid, newstate,
-			   NULL);
+			   hout->preimage);
 
 	hout->hstate = newstate;
 	return true;
@@ -1718,10 +1718,15 @@ void htlcs_reconnect(struct lightningd *ld,
 		}
 
 		if (!hout->in && !hout->preimage) {
-			/* FIXME: COMPAT_V061 only */
+#ifdef COMPAT_V061
 			log_broken(ld->log,
 				   "Missing preimage for orphaned HTLC; replacing with zeros");
 			hout->preimage = talz(hout, struct preimage);
+#else
+			fatal("Unable to find corresponding htlc_in %"PRIu64
+			      " for unfulfilled htlc_out %"PRIu64,
+			      hout->origin_htlc_id, hout->dbid);
+#endif
 		}
 	}
 }
