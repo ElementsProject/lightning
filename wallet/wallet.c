@@ -1349,10 +1349,10 @@ static bool wallet_stmt2htlc_out(struct channel *channel,
 
 	if (sqlite3_column_type(stmt, 10) != SQLITE_NULL) {
 		out->origin_htlc_id = sqlite3_column_int64(stmt, 10);
-		out->local = false;
+		out->am_origin = false;
 	} else {
 		out->origin_htlc_id = 0;
-		out->local = true;
+		out->am_origin = true;
 	}
 
 	/* Need to defer wiring until we can look up all incoming
@@ -1398,7 +1398,6 @@ static void fixup_hin(struct wallet *wallet, struct htlc_in *hin)
 				  &hin->key.channel->peer->id));
 #endif
 }
-
 
 bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 				   struct channel *chan,
