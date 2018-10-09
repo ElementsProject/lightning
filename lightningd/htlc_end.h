@@ -138,6 +138,9 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 void connect_htlc_in(struct htlc_in_map *map, struct htlc_in *hin);
 void connect_htlc_out(struct htlc_out_map *map, struct htlc_out *hout);
 
+/* Set up hout->in to be hin (non-NULL), and clear if hin freed. */
+void htlc_out_connect_htlc_in(struct htlc_out *hout, struct htlc_in *hin);
+
 struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 				const char *abortstr);
 struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr);
