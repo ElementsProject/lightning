@@ -1,3 +1,4 @@
+from collections import namedtuple
 from fixtures import *  # noqa: F401,F403
 from lightning import RpcError
 from utils import DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND
@@ -1341,7 +1342,7 @@ def test_fulfill_incoming_first(node_factory, bitcoind):
     # We agree on fee change first, then add HTLC, then remove; stop after remove.
     disconnects = ['+WIRE_COMMITMENT_SIGNED*3']
     # We manually reconnect l2 & l3, after 100 blocks; hence allowing manual
-    # reconnect, but disabling auto coneect, and massive cltv so 2/3 doesn't
+    # reconnect, but disabling auto connect, and massive cltv so 2/3 doesn't
     # time out.
     l1, l2, l3 = node_factory.line_graph(3, opts=[{},
                                                   {'may_reconnect': True,
@@ -1400,37 +1401,41 @@ def test_restart_many_payments(node_factory):
         outchans.append(l1.fund_channel(n, 10**6))
 
     # Manually create routes, get invoices
-    route = []
-    payment_hash = []
+    Payment = namedtuple('Payment', ['innode', 'route', 'payment_hash'])
+
+    to_pay = []
     for i in range(len(innodes)):
         # This one will cause WIRE_INCORRECT_CLTV_EXPIRY from l1.
-        route.append([{'msatoshi': 100001001,
-                       'id': l1.info['id'],
-                       'delay': 10,
-                       'channel': inchans[i]},
-                      {'msatoshi': 100000000,
-                       'id': outnodes[i].info['id'],
-                       'delay': 5,
-                       'channel': outchans[i]}])
-        payment_hash.append(outnodes[i].rpc.invoice(100000000, "invoice", "invoice")['payment_hash'])
+        route = [{'msatoshi': 100001001,
+                  'id': l1.info['id'],
+                  'delay': 10,
+                  'channel': inchans[i]},
+                 {'msatoshi': 100000000,
+                  'id': outnodes[i].info['id'],
+                  'delay': 5,
+                  'channel': outchans[i]}]
+        payment_hash = outnodes[i].rpc.invoice(100000000, "invoice", "invoice")['payment_hash']
+        to_pay.append(Payment(innodes[i], route, payment_hash))
+
         # This one should be routed through to the outnode.
-        route.append([{'msatoshi': 100001001,
-                       'id': l1.info['id'],
-                       'delay': 11,
-                       'channel': inchans[i]},
-                      {'msatoshi': 100000000,
-                       'id': outnodes[i].info['id'],
-                       'delay': 5,
-                       'channel': outchans[i]}])
-        payment_hash.append(outnodes[i].rpc.invoice(100000000, "invoice2", "invoice2")['payment_hash'])
+        route = [{'msatoshi': 100001001,
+                  'id': l1.info['id'],
+                  'delay': 11,
+                  'channel': inchans[i]},
+                 {'msatoshi': 100000000,
+                  'id': outnodes[i].info['id'],
+                  'delay': 5,
+                  'channel': outchans[i]}]
+        payment_hash = outnodes[i].rpc.invoice(100000000, "invoice2", "invoice2")['payment_hash']
+        to_pay.append(Payment(innodes[i], route, payment_hash))
 
     # sendpay is async.
-    for i in range(len(payment_hash)):
-        innodes[i // 2].rpc.sendpay(route[i], payment_hash[i])
+    for p in to_pay:
+        p.innode.rpc.sendpay(p.route, p.payment_hash)
 
     # Now restart l1 while traffic is flowing...
     l1.restart()
 
     # Wait for them to finish.
-    for i in range(len(innodes)):
-        wait_for(lambda: 'pending' not in [p['status'] for p in innodes[i].rpc.listpayments()['payments']])
+    for n in innodes:
+        wait_for(lambda: 'pending' not in [p['status'] for p in n.rpc.listpayments()['payments']])
