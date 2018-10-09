@@ -804,6 +804,9 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 
 	/* Get any configdir/testnet options first. */
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
+	
+	/* Now look for config file */
+	opt_parse_from_config(ld);
 
 	/* Move to config dir, to save ourselves the hassle of path manip. */
 	if (chdir(ld->config_dir) != 0) {
@@ -816,9 +819,6 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 			fatal("Could not change directory %s: %s",
 			      ld->config_dir, strerror(errno));
 	}
-
-	/* Now look for config file */
-	opt_parse_from_config(ld);
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc != 1)
