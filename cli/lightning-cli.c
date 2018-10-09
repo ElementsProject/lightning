@@ -14,6 +14,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #define NO_ERROR 0
@@ -171,9 +172,23 @@ static void add_input(char **cmd, const char *input,
 }
 
 static void
-exec_man (const char *page) {
-	execlp("man", "man", page, (char *)NULL);
-	err(1, "Running man command");
+try_exec_man (const char *page) {
+	int status;
+
+	switch (fork()) {
+	case -1:
+		err(1, "Forking man command");
+	case 0:
+		/* child, run man command. */
+		execlp("man", "man", page, (char *)NULL);
+		err(1, "Running man command");
+	default:
+		break;
+	}
+
+	wait(&status);
+	if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
+		exit(0);
 }
 
 int main(int argc, char *argv[])
@@ -192,6 +207,7 @@ int main(int argc, char *argv[])
 	int parserr;
 	enum format format = DEFAULT_FORMAT;
 	enum input input = DEFAULT_INPUT;
+	char *command = NULL;
 
 	err_set_progname(argv[0]);
 	jsmn_init(&parser);
@@ -234,9 +250,10 @@ int main(int argc, char *argv[])
 	/* Launch a manpage if we have a help command with an argument. We do
 	 * not need to have lightningd running in this case. */
 	if (streq(method, "help") && format == HUMAN && argc >= 3) {
-		char command[strlen(argv[2]) + sizeof("lightning-")];
-		snprintf(command, sizeof(command), "lightning-%s", argv[2]);
-		exec_man(command);
+		command = argv[2];
+		char page[strlen(command) + sizeof("lightning-")];
+		snprintf(page, sizeof(page), "lightning-%s", command);
+		try_exec_man(page);
 	}
 
 	if (chdir(lightning_dir) != 0)
