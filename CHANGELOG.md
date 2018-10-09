@@ -33,6 +33,7 @@ changes.
 ### Fixed
 
 - Startup: more coherent complaint if daemon already running.
+- Lightningd: correctly save full HTLCs across restarts; fixup old databases.
 - JSON RPC: `getinfo` now shows correct Tor port.
 - JSON RPC: `ping` now works even after one peer fails to respond.
 - JSON RPC: `getroute` `fuzzpercent` and `pay` `maxfeepercent` can now be > 100.
