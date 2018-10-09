@@ -1271,6 +1271,13 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 	db_exec_prepared(wallet->db, stmt);
 }
 
+/* origin_htlc is htlc_out only, shared_secret is htlc_in only */
+#define HTLC_FIELDS						\
+	"id, channel_htlc_id, msatoshi, cltv_expiry, hstate, "	\
+	"payment_hash, payment_key, routing_onion, "		\
+	"failuremsg, malformed_onion,"				\
+	"origin_htlc, shared_secret"
+
 static bool wallet_stmt2htlc_in(struct channel *channel,
 				sqlite3_stmt *stmt, struct htlc_in *in)
 {
@@ -1284,27 +1291,27 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 
 	sqlite3_column_sha256(stmt, 5, &in->payment_hash);
 
-	assert(sqlite3_column_bytes(stmt, 6) == sizeof(struct secret));
-	memcpy(&in->shared_secret, sqlite3_column_blob(stmt, 6),
-	       sizeof(struct secret));
-
-	if (sqlite3_column_type(stmt, 7) != SQLITE_NULL) {
+	if (sqlite3_column_type(stmt, 6) != SQLITE_NULL) {
 		in->preimage = tal(in, struct preimage);
-		sqlite3_column_preimage(stmt, 7, in->preimage);
+		sqlite3_column_preimage(stmt, 6, in->preimage);
 	} else {
 		in->preimage = NULL;
 	}
 
-	assert(sqlite3_column_bytes(stmt, 8) == sizeof(in->onion_routing_packet));
-	memcpy(&in->onion_routing_packet, sqlite3_column_blob(stmt, 8),
+	assert(sqlite3_column_bytes(stmt, 7) == sizeof(in->onion_routing_packet));
+	memcpy(&in->onion_routing_packet, sqlite3_column_blob(stmt, 7),
 	       sizeof(in->onion_routing_packet));
 
-	/* FIXME: These need to be saved in db! */
-	in->failuremsg = NULL;
-	in->failcode = 0;
+	in->failuremsg = sqlite3_column_arr(in, stmt, 8, u8);
+	in->failcode = sqlite3_column_int(stmt, 9);
+
+	assert(sqlite3_column_bytes(stmt, 11) == sizeof(struct secret));
+	memcpy(&in->shared_secret, sqlite3_column_blob(stmt, 11),
+	       sizeof(struct secret));
 
 	return ok;
 }
+
 static bool wallet_stmt2htlc_out(struct channel *channel,
 				sqlite3_stmt *stmt, struct htlc_out *out)
 {
@@ -1318,26 +1325,26 @@ static bool wallet_stmt2htlc_out(struct channel *channel,
 	sqlite3_column_sha256(stmt, 5, &out->payment_hash);
 
 	if (sqlite3_column_type(stmt, 6) != SQLITE_NULL) {
-		out->origin_htlc_id = sqlite3_column_int64(stmt, 6);
+		out->preimage = tal(out, struct preimage);
+		sqlite3_column_preimage(stmt, 6, out->preimage);
+	} else {
+		out->preimage = NULL;
+	}
+
+	assert(sqlite3_column_bytes(stmt, 7) == sizeof(out->onion_routing_packet));
+	memcpy(&out->onion_routing_packet, sqlite3_column_blob(stmt, 7),
+	       sizeof(out->onion_routing_packet));
+
+	out->failuremsg = sqlite3_column_arr(out, stmt, 8, u8);
+	out->failcode = sqlite3_column_int(stmt, 9);
+
+	if (sqlite3_column_type(stmt, 10) != SQLITE_NULL) {
+		out->origin_htlc_id = sqlite3_column_int64(stmt, 10);
 		out->local = false;
 	} else {
 		out->origin_htlc_id = 0;
 		out->local = true;
 	}
-
-	if (sqlite3_column_type(stmt, 7) != SQLITE_NULL) {
-		out->preimage = tal(out, struct preimage);
-		sqlite3_column_preimage(stmt, 7, out->preimage);
-	} else {
-		out->preimage = NULL;
-	}
-
-	assert(sqlite3_column_bytes(stmt, 8) == sizeof(out->onion_routing_packet));
-	memcpy(&out->onion_routing_packet, sqlite3_column_blob(stmt, 8),
-	       sizeof(out->onion_routing_packet));
-
-	out->failuremsg = NULL;
-	out->failcode = 0;
 
 	/* Need to defer wiring until we can look up all incoming
 	 * htlcs, will wire using origin_htlc_id */
@@ -1385,8 +1392,7 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 	log_debug(wallet->log, "Loading HTLCs for channel %"PRIu64, chan->dbid);
 	sqlite3_stmt *stmt = db_query(
 	    wallet->db,
-	    "SELECT id, channel_htlc_id, msatoshi, cltv_expiry, hstate, "
-	    "payment_hash, shared_secret, payment_key, routing_onion FROM channel_htlcs WHERE "
+	    "SELECT " HTLC_FIELDS " FROM channel_htlcs WHERE "
 	    "direction=%d AND channel_id=%" PRIu64 " AND hstate != %d",
 	    DIRECTION_INCOMING, chan->dbid, SENT_REMOVE_ACK_REVOCATION);
 
@@ -1407,8 +1413,7 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 
 	stmt = db_query(
 	    wallet->db,
-	    "SELECT id, channel_htlc_id, msatoshi, cltv_expiry, hstate, "
-	    "payment_hash, origin_htlc, payment_key, routing_onion FROM channel_htlcs WHERE "
+	    "SELECT " HTLC_FIELDS " FROM channel_htlcs WHERE "
 	    "direction=%d AND channel_id=%" PRIu64 " AND hstate != %d",
 	    DIRECTION_OUTGOING, chan->dbid, RCVD_REMOVE_ACK_REVOCATION);
 
