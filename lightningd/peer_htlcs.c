@@ -139,7 +139,7 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 {
 	htlc_out_check(hout, __func__);
 	assert(hout->failcode || hout->failuremsg);
-	if (hout->local) {
+	if (hout->am_origin) {
 		payment_failed(hout->key.channel->peer->ld, hout, localfail);
 	} else if (hout->in) {
 		fail_in_htlc(hout->in, hout->failcode, hout->failuremsg,
@@ -381,7 +381,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 
 	if (failure_code) {
 		hout->failcode = (enum onion_type) failure_code;
-		if (hout->local) {
+		if (hout->am_origin) {
 			char *localfail = tal_fmt(msg, "%s: %.*s",
 						  onion_type_name(failure_code),
 						  (int)tal_count(failurestr),
@@ -733,7 +733,7 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 						channel->dbid,
 						hout->msatoshi);
 
-	if (hout->local)
+	if (hout->am_origin)
 		payment_succeeded(ld, hout, preimage);
 	else if (hout->in)
 		fulfill_htlc(hout->in, preimage);
@@ -872,7 +872,7 @@ void onchain_failed_our_htlc(const struct channel *channel,
 	wallet_htlc_update(channel->peer->ld->wallet, hout->dbid, hout->hstate,
 			   hout->preimage, hout->failcode, hout->failuremsg);
 
-	if (hout->local) {
+	if (hout->am_origin) {
 		assert(why != NULL);
 		char *localfail = tal_fmt(channel, "%s: %s",
 					  onion_type_name(WIRE_PERMANENT_CHANNEL_FAILURE),
@@ -1746,7 +1746,7 @@ void htlcs_reconnect(struct lightningd *ld,
 	for (hout = htlc_out_map_first(htlcs_out, &outi); hout;
 	     hout = htlc_out_map_next(htlcs_out, &outi)) {
 
-		if (hout->local) {
+		if (hout->am_origin) {
 			continue;
 		}
 

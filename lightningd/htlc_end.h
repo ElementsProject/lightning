@@ -71,10 +71,11 @@ struct htlc_out {
 	const u8 *failuremsg;
 
 	/* If we fulfilled, here's the preimage. */
+	/* FIXME: This is basically unused, except as a bool! */
 	struct preimage *preimage;
 
-	/* Is this local?  Implies ->in is NULL. */
-	bool local;
+	/* Is this a locally-generated payment?  Implies ->in is NULL. */
+	bool am_origin;
 
 	/* Where it's from, if not going to us. */
 	struct htlc_in *in;
@@ -132,7 +133,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      u64 msatoshi, u32 cltv_expiry,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
-			      bool local,
+			      bool am_origin,
 			      struct htlc_in *in);
 
 void connect_htlc_in(struct htlc_in_map *map, struct htlc_in *hin);
