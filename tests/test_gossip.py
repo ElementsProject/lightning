@@ -543,7 +543,7 @@ def test_routing_gossip(node_factory, bitcoind):
         return len(missing) == 0
 
     for n in nodes:
-        wait_for(lambda: check_gossip(n), interval=1)
+        wait_for(lambda: check_gossip(n))
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
