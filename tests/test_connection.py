@@ -1376,7 +1376,6 @@ def test_fulfill_incoming_first(node_factory, bitcoind):
     l3.daemon.wait_for_log('onchaind complete, forgetting peer')
 
 
-@pytest.mark.xfail(strict=True)
 def test_restart_many_payments(node_factory):
     l1 = node_factory.get_node(may_reconnect=True)
 

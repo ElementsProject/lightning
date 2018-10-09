@@ -1346,6 +1346,34 @@ static bool wallet_stmt2htlc_out(struct channel *channel,
 	return ok;
 }
 
+/* We didn't used to save failcore, failuremsg... */
+static void fixup_hin(struct wallet *wallet, struct htlc_in *hin)
+{
+	/* We care about HTLCs being removed only, not those being added. */
+	if (hin->hstate < SENT_REMOVE_HTLC)
+		return;
+
+	/* Successful ones are fine. */
+	if (hin->preimage)
+		return;
+
+	/* Failed ones (only happens after db fixed!) OK. */
+	if (hin->failcode || hin->failuremsg)
+		return;
+
+	hin->failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
+
+	log_broken(wallet->log, "HTLC #%"PRIu64" (%s) "
+		   " for amount %"PRIu64
+		   " from %s"
+		   " is missing a resolution:"
+		   " subsituting temporary channel failure",
+		   hin->key.id, htlc_state_name(hin->hstate),
+		   hin->msatoshi,
+		   type_to_string(tmpctx, struct pubkey,
+				  &hin->key.channel->peer->id));
+}
+
 bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 				   struct channel *chan,
 				   struct htlc_in_map *htlcs_in,
@@ -1371,7 +1399,8 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 		struct htlc_in *in = tal(chan, struct htlc_in);
 		ok &= wallet_stmt2htlc_in(chan, stmt, in);
 		connect_htlc_in(htlcs_in, in);
-		ok &=  htlc_in_check(in, "wallet_htlcs_load") != NULL;
+		fixup_hin(wallet, in);
+		ok &= htlc_in_check(in, NULL) != NULL;
 		incount++;
 	}
 	db_stmt_done(stmt);
