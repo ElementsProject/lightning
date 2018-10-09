@@ -1,6 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from lightning import RpcError
-from utils import DEVELOPER, only_one, wait_for, sync_blockheight
+from utils import DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND
 
 
 import os
@@ -1374,3 +1374,64 @@ def test_fulfill_incoming_first(node_factory, bitcoind):
     bitcoind.generate_block(100)
     l2.daemon.wait_for_log('onchaind complete, forgetting peer')
     l3.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+
+@pytest.mark.xfail(strict=True)
+def test_restart_many_payments(node_factory):
+    l1 = node_factory.get_node(may_reconnect=True)
+
+    # On my laptop, these take 74 seconds and 44 seconds (with restart commented out)
+    if VALGRIND:
+        num = 2
+    else:
+        num = 5
+
+    # Nodes with channels into the main node
+    innodes = node_factory.get_nodes(num, opts={'may_reconnect': True})
+    inchans = []
+    for n in innodes:
+        n.rpc.connect(l1.info['id'], 'localhost', l1.port)
+        inchans.append(n.fund_channel(l1, 10**6))
+
+    # Nodes with channels out of the main node
+    outnodes = node_factory.get_nodes(len(innodes), opts={'may_reconnect': True})
+    outchans = []
+    for n in outnodes:
+        n.rpc.connect(l1.info['id'], 'localhost', l1.port)
+        outchans.append(l1.fund_channel(n, 10**6))
+
+    # Manually create routes, get invoices
+    route = []
+    payment_hash = []
+    for i in range(len(innodes)):
+        # This one will cause WIRE_INCORRECT_CLTV_EXPIRY from l1.
+        route.append([{'msatoshi': 100001001,
+                       'id': l1.info['id'],
+                       'delay': 10,
+                       'channel': inchans[i]},
+                      {'msatoshi': 100000000,
+                       'id': outnodes[i].info['id'],
+                       'delay': 5,
+                       'channel': outchans[i]}])
+        payment_hash.append(outnodes[i].rpc.invoice(100000000, "invoice", "invoice")['payment_hash'])
+        # This one should be routed through to the outnode.
+        route.append([{'msatoshi': 100001001,
+                       'id': l1.info['id'],
+                       'delay': 11,
+                       'channel': inchans[i]},
+                      {'msatoshi': 100000000,
+                       'id': outnodes[i].info['id'],
+                       'delay': 5,
+                       'channel': outchans[i]}])
+        payment_hash.append(outnodes[i].rpc.invoice(100000000, "invoice2", "invoice2")['payment_hash'])
+
+    # sendpay is async.
+    for i in range(len(payment_hash)):
+        innodes[i // 2].rpc.sendpay(route[i], payment_hash[i])
+
+    # Now restart l1 while traffic is flowing...
+    l1.restart()
+
+    # Wait for them to finish.
+    for i in range(len(innodes)):
+        wait_for(lambda: 'pending' not in [p['status'] for p in innodes[i].rpc.listpayments()['payments']])
