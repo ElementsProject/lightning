@@ -1712,7 +1712,7 @@ void htlcs_reconnect(struct lightningd *ld,
 					  "Found corresponding htlc_in %" PRIu64
 					  " for htlc_out %" PRIu64,
 					  hin->dbid, hout->dbid);
-				hout->in = hin;
+				htlc_out_connect_htlc_in(hout, hin);
 				break;
 			}
 		}

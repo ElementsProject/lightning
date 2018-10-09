@@ -213,6 +213,27 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 	return cast_const(struct htlc_out *, hout);
 }
 
+static void htlc_out_clear_hin(struct htlc_in *hin, struct htlc_out *hout)
+{
+	assert(hout->in == hin);
+	hout->in = NULL;
+}
+
+static void destroy_htlc_out_with_hin(struct htlc_out *hout)
+{
+	/* Don't try to clear our ptr if we're freed before hin! */
+	if (hout->in)
+		tal_del_destructor2(hout->in, htlc_out_clear_hin, hout);
+}
+
+void htlc_out_connect_htlc_in(struct htlc_out *hout, struct htlc_in *hin)
+{
+	assert(!hout->in);
+	hout->in = hin;
+	tal_add_destructor2(hin, htlc_out_clear_hin, hout);
+	tal_add_destructor(hout, destroy_htlc_out_with_hin);
+}
+
 /* You need to set the ID, then connect_htlc_out this! */
 struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      struct channel *channel,
@@ -241,7 +262,9 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	hout->preimage = NULL;
 
 	hout->local = local;
-	hout->in = in;
+	hout->in = NULL;
+	if (in)
+		htlc_out_connect_htlc_in(hout, in);
 
 	return htlc_out_check(hout, "new_htlc_out");
 }
