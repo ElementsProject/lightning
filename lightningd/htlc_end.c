@@ -126,6 +126,55 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 	else if (hout->failuremsg && hout->preimage)
 		return corrupt(abortstr, "Both failed and succeeded");
 
+	if (hout->in) {
+		if (hout->in->msatoshi < hout->msatoshi)
+			return corrupt(abortstr, "Input msatoshi %"PRIu64
+				       " less than %"PRIu64,
+				       hout->in->msatoshi, hout->msatoshi);
+		if (hout->in->cltv_expiry <= hout->cltv_expiry)
+			return corrupt(abortstr, "Input ctlv_expiry %u"
+				       " less than %u",
+				       hout->in->cltv_expiry, hout->cltv_expiry);
+		if (!sha256_eq(&hout->in->payment_hash, &hout->payment_hash))
+			return corrupt(abortstr, "Input hash != output hash");
+		/* If output is resolved, input must be resolved same
+		 * way (or not resolved yet). */
+		if (hout->failuremsg) {
+			if (hout->in->failcode)
+				return corrupt(abortstr,
+					       "Output failmsg, input failcode");
+			if (hout->in->preimage)
+				return corrupt(abortstr,
+					       "Output failmsg, input preimage");
+		} else if (hout->failcode) {
+			if (hout->in->failuremsg)
+				return corrupt(abortstr,
+					       "Output failcode, input failmsg");
+			if (hout->in->preimage)
+				return corrupt(abortstr,
+					       "Output failcode, input preimage");
+		} else if (hout->preimage) {
+			if (hout->in->failuremsg)
+				return corrupt(abortstr,
+					       "Output preimage, input failmsg");
+			if (hout->in->failcode)
+				return corrupt(abortstr,
+					       "Output preimage, input failcode");
+		} else {
+			if (hout->in->preimage)
+				return corrupt(abortstr,
+					       "Output unresolved, input preimage");
+			if (hout->in->failuremsg)
+				return corrupt(abortstr,
+					       "Output unresovled, input failmsg");
+			if (hout->in->failcode)
+				return corrupt(abortstr,
+					       "Output unresolved, input failcode");
+		}
+
+		/* FIXME: Check hout->in->hstate. */
+	}
+
 	return cast_const(struct htlc_out *, hout);
 }
 
