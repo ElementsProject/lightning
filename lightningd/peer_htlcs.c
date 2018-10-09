@@ -1704,7 +1704,7 @@ void htlcs_reconnect(struct lightningd *ld,
 
 		/* For fulfilled HTLCs, we fulfill incoming before outgoing is
 		 * completely resolved, so it's possible that we don't find
-		 * the incoming.  FIXME: iff hout->preimage! */
+		 * the incoming. */
 		for (hin = htlc_in_map_first(htlcs_in, &ini); hin;
 		     hin = htlc_in_map_next(htlcs_in, &ini)) {
 			if (hout->origin_htlc_id == hin->dbid) {
@@ -1715,6 +1715,13 @@ void htlcs_reconnect(struct lightningd *ld,
 				htlc_out_connect_htlc_in(hout, hin);
 				break;
 			}
+		}
+
+		if (!hout->in && !hout->preimage) {
+			/* FIXME: COMPAT_V061 only */
+			log_broken(ld->log,
+				   "Missing preimage for orphaned HTLC; replacing with zeros");
+			hout->preimage = talz(hout, struct preimage);
 		}
 	}
 }
