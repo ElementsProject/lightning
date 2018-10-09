@@ -65,7 +65,6 @@ static bool htlc_in_update_state(struct channel *channel,
 			   hin->dbid, newstate, hin->preimage);
 
 	hin->hstate = newstate;
-	htlc_in_check(hin, __func__);
 	return true;
 }
 
@@ -81,7 +80,6 @@ static bool htlc_out_update_state(struct channel *channel,
 			   NULL);
 
 	hout->hstate = newstate;
-	htlc_out_check(hout, __func__);
 	return true;
 }
 
@@ -106,6 +104,7 @@ static void fail_in_htlc(struct htlc_in *hin,
 
 	/* We update state now to signal it's in progress, for persistence. */
 	htlc_in_update_state(hin->key.channel, hin, SENT_REMOVE_HTLC);
+	htlc_in_check(hin, __func__);
 
 	/* Tell peer, if we can. */
 	if (!hin->key.channel->owner)
@@ -215,10 +214,12 @@ static void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 	struct wallet *wallet = channel->peer->ld->wallet;
 
 	hin->preimage = tal_dup(hin, struct preimage, preimage);
-	htlc_in_check(hin, __func__);
 
 	/* We update state now to signal it's in progress, for persistence. */
 	htlc_in_update_state(channel, hin, SENT_REMOVE_HTLC);
+
+	htlc_in_check(hin, __func__);
+
 	/* Update channel stats */
 	wallet_channel_stats_incr_in_fulfilled(wallet,
 					       channel->dbid,
@@ -351,6 +352,12 @@ static void destroy_hout_subd_died(struct htlc_out *hout)
 		  hout->key.id);
 
 	hout->failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
+
+	/* Assign a temporary state (we're about to free it!) so checks
+	 * are happy that it has a failure code */
+	assert(hout->hstate == SENT_ADD_HTLC);
+	hout->hstate = RCVD_REMOVE_HTLC;
+
 	fail_out_htlc(hout, "Outgoing subdaemon died");
 }
 
@@ -615,6 +622,7 @@ static bool peer_accepted_htlc(struct channel *channel,
 
 	if (!htlc_in_update_state(channel, hin, RCVD_ADD_ACK_REVOCATION))
 		return false;
+	htlc_in_check(hin, __func__);
 
 #if DEVELOPER
 	if (channel->peer->ignore_htlcs) {
@@ -779,8 +787,11 @@ void onchain_fulfilled_htlc(struct channel *channel,
 
 		/* We may have already fulfilled before going onchain, or
 		 * we can fulfill onchain multiple times. */
-		if (!hout->preimage)
+		if (!hout->preimage) {
+			/* Force state to something which allows a preimage */
+			hout->hstate = RCVD_REMOVE_HTLC;
 			fulfill_our_htlc_out(channel, hout, preimage);
+		}
 
 		/* We keep going: this is something of a leak, but onchain
 		 * we have no real way of distinguishing HTLCs anyway */
@@ -854,6 +865,12 @@ void onchain_failed_our_htlc(const struct channel *channel,
 		return;
 
 	hout->failcode = WIRE_PERMANENT_CHANNEL_FAILURE;
+
+	/* Force state to something which expects a failure, and save to db */
+	hout->hstate = RCVD_REMOVE_HTLC;
+	wallet_htlc_update(channel->peer->ld->wallet, hout->dbid, hout->hstate,
+			   NULL);
+	htlc_out_check(hout, __func__);
 
 	if (!hout->in) {
 		assert(why != NULL);
@@ -932,6 +949,7 @@ static bool update_in_htlc(struct channel *channel,
 	if (!htlc_in_update_state(channel, hin, newstate))
 		return false;
 
+	htlc_in_check(hin, __func__);
 	if (newstate == SENT_REMOVE_ACK_REVOCATION)
 		remove_htlc_in(channel, hin);
 
