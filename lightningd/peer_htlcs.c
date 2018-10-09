@@ -140,11 +140,11 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 {
 	htlc_out_check(hout, __func__);
 	assert(hout->failcode || hout->failuremsg);
-	if (hout->in) {
+	if (hout->local) {
+		payment_failed(hout->key.channel->peer->ld, hout, localfail);
+	} else if (hout->in) {
 		fail_in_htlc(hout->in, hout->failcode, hout->failuremsg,
 			     hout->key.channel->scid);
-	} else {
-		payment_failed(hout->key.channel->peer->ld, hout, localfail);
 	}
 }
 
@@ -382,13 +382,13 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 
 	if (failure_code) {
 		hout->failcode = (enum onion_type) failure_code;
-		if (!hout->in) {
+		if (hout->local) {
 			char *localfail = tal_fmt(msg, "%s: %.*s",
 						  onion_type_name(failure_code),
 						  (int)tal_count(failurestr),
 						  (const char *)failurestr);
 			payment_failed(ld, hout, localfail);
-		} else
+		} else if (hout->in)
 			local_fail_htlc(hout->in, failure_code,
 					hout->key.channel->scid);
 		/* Prevent hout from being failed twice. */
@@ -452,7 +452,7 @@ enum onion_type send_htlc_out(struct channel *out, u64 amount, u32 cltv,
 
 	/* Make peer's daemon own it, catch if it dies. */
 	hout = new_htlc_out(out->owner, out, amount, cltv,
-			    payment_hash, onion_routing_packet, in);
+			    payment_hash, onion_routing_packet, in == NULL, in);
 	tal_add_destructor(hout, destroy_hout_subd_died);
 
 	/* Give channel 30 seconds to commit (first) htlc. */
@@ -733,10 +733,10 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 						channel->dbid,
 						hout->msatoshi);
 
-	if (hout->in)
-		fulfill_htlc(hout->in, preimage);
-	else
+	if (hout->local)
 		payment_succeeded(ld, hout, preimage);
+	else if (hout->in)
+		fulfill_htlc(hout->in, preimage);
 }
 
 static bool peer_fulfilled_our_htlc(struct channel *channel,
@@ -872,14 +872,14 @@ void onchain_failed_our_htlc(const struct channel *channel,
 			   NULL);
 	htlc_out_check(hout, __func__);
 
-	if (!hout->in) {
+	if (hout->local) {
 		assert(why != NULL);
 		char *localfail = tal_fmt(channel, "%s: %s",
 					  onion_type_name(WIRE_PERMANENT_CHANNEL_FAILURE),
 					  why);
 		payment_failed(ld, hout, localfail);
 		tal_free(localfail);
-	} else
+	} else if (hout->in)
 		local_fail_htlc(hout->in, WIRE_PERMANENT_CHANNEL_FAILURE,
 				hout->key.channel->scid);
 }
@@ -1698,10 +1698,13 @@ void htlcs_reconnect(struct lightningd *ld,
 	for (hout = htlc_out_map_first(htlcs_out, &outi); hout;
 	     hout = htlc_out_map_next(htlcs_out, &outi)) {
 
-		if (hout->origin_htlc_id == 0) {
+		if (hout->local) {
 			continue;
 		}
 
+		/* For fulfilled HTLCs, we fulfill incoming before outgoing is
+		 * completely resolved, so it's possible that we don't find
+		 * the incoming.  FIXME: iff hout->preimage! */
 		for (hin = htlc_in_map_first(htlcs_in, &ini); hin;
 		     hin = htlc_in_map_next(htlcs_in, &ini)) {
 			if (hout->origin_htlc_id == hin->dbid) {
@@ -1713,10 +1716,6 @@ void htlcs_reconnect(struct lightningd *ld,
 				break;
 			}
 		}
-
-		if (!hout->in)
-			fatal("Unable to find corresponding htlc_in %"PRIu64" for htlc_out %"PRIu64,
-			      hout->origin_htlc_id, hout->dbid);
 	}
 }
 

@@ -143,6 +143,9 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 	else if (hout->failuremsg && hout->preimage)
 		return corrupt(abortstr, "Both failed and succeeded");
 
+	if (hout->local && hout->in)
+		return corrupt(abortstr, "Both local and incoming");
+
 	if (hout->in) {
 		if (hout->in->msatoshi < hout->msatoshi)
 			return corrupt(abortstr, "Input msatoshi %"PRIu64
@@ -216,6 +219,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      u64 msatoshi, u32 cltv_expiry,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
+			      bool local,
 			      struct htlc_in *in)
 {
 	struct htlc_out *hout = tal(ctx, struct htlc_out);
@@ -236,6 +240,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	hout->failuremsg = NULL;
 	hout->preimage = NULL;
 
+	hout->local = local;
 	hout->in = in;
 
 	return htlc_out_check(hout, "new_htlc_out");
