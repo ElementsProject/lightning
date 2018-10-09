@@ -89,22 +89,24 @@ static size_t human_readable(const char *buffer, const jsmntok_t *t, char term)
 	abort();
 }
 
-static void human_help(const char *buffer, const jsmntok_t *result) {
+static void human_help(const char *buffer, const jsmntok_t *result, bool has_command) {
 	int i;
 	const jsmntok_t * help_array = result + 2;
 	/* the first command object */
 	const jsmntok_t * curr = help_array + 1;
 	/* iterate through all commands, printing the name and description */
-	for (i = 0; i<help_array->size; i++) {
+	for (i = 0; i < help_array->size; i++) {
 		curr += 2;
 		printf("%.*s\n", curr->end - curr->start, buffer + curr->start);
 		curr += 2;
 		printf("    %.*s\n\n", curr->end - curr->start, buffer + curr->start);
+		curr += 2;
 		/* advance to next command */
 		curr++;
 	}
 
-	printf("---\nrun `lightning-cli help <command>` for more information on a specific command\n");
+	if (!has_command)
+		printf("---\nrun `lightning-cli help <command>` for more information on a specific command\n");
 }
 
 enum format {
@@ -363,9 +365,12 @@ int main(int argc, char *argv[])
 		     json_tok_len(id), json_tok_contents(resp, id));
 
 	if (!error || json_tok_is_null(resp, error)) {
+		// if we have specific help command
 		if (format == HUMAN)
-			if (streq(method, "help")) human_help(resp, result);
-			else human_readable(resp, result, '\n');
+			if (streq(method, "help") && command == NULL)
+				human_help(resp, result, false);
+			else
+				human_readable(resp, result, '\n');
 		else
 			printf("%.*s\n",
 			       json_tok_len(result),
