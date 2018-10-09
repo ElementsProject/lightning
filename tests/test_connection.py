@@ -1331,3 +1331,37 @@ def test_restart_multi_htlc_rexmit(node_factory, bitcoind, executor):
     # Payments will fail due to restart, but we can see results in listpayments.
     print(l1.rpc.listpayments())
     wait_for(lambda: [p['status'] for p in l1.rpc.listpayments()['payments']] == ['complete', 'complete'])
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "needs dev-disconnect")
+def test_fulfill_incoming_first(node_factory, bitcoind):
+    """Test that we handle the case where we completely resolve incoming htlc
+    before fulfilled outgoing htlc"""
+
+    # We agree on fee change first, then add HTLC, then remove; stop after remove.
+    disconnects = ['+WIRE_COMMITMENT_SIGNED*3']
+    # We manually reconnect l2 & l3, after 100 blocks; hence allowing manual
+    # reconnect, but disabling auto coneect, and massive cltv so 2/3 doesn't
+    # time out.
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{},
+                                                  {'may_reconnect': True,
+                                                   'dev-no-reconnect': None},
+                                                  {'may_reconnect': True,
+                                                   'dev-no-reconnect': None,
+                                                   'disconnect': disconnects,
+                                                   'cltv-final': 200}],
+                                         announce=True)
+
+    # This succeeds.
+    l1.rpc.pay(l3.rpc.invoice(200000000, 'test_fulfill_incoming_first', 'desc')['bolt11'])
+
+    # l1 can shutdown, fine.
+    l1.rpc.close(l2.info['id'])
+    l1.wait_for_channel_onchain(l2.info['id'])
+    bitcoind.generate_block(100)
+    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+    # Now, l2 should restore from DB fine, even though outgoing HTLC no longer
+    # has an incoming.
+    l2.restart()
