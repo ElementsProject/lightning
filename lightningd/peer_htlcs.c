@@ -1679,6 +1679,52 @@ void htlcs_notify_new_block(struct lightningd *ld, u32 height)
 	} while (removed);
 }
 
+static void fixup_hout(struct lightningd *ld, struct htlc_out *hout)
+{
+	const char *fix;
+
+	/* We didn't save HTLC failure information to the database.  So when
+	 * busy nodes restarted (y'know, our most important users!) they would
+	 * find themselves with missing fields.
+	 *
+	 * Fortunately, most of the network is honest: re-sending an old HTLC
+	 * just causes failure (though we assert() when we try to push the
+	 * failure to the incoming HTLC which has already succeeded!).
+	 */
+
+	/* We care about HTLCs being removed only, not those being added. */
+	if (hout->hstate < RCVD_REMOVE_HTLC)
+		return;
+
+	/* Successful ones are fine. */
+	if (hout->preimage)
+		return;
+
+	/* Failed ones (only happens after db fixed!) OK. */
+	if (hout->failcode || hout->failuremsg)
+		return;
+
+	/* payment_preimage for HTLC in *was* stored, so look for that. */
+	if (hout->in && hout->in->preimage) {
+		hout->preimage = tal_dup(hout, struct preimage,
+					 hout->in->preimage);
+		fix = "restoring preimage from incoming HTLC";
+	} else {
+		hout->failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
+		fix = "subsituting temporary channel failure";
+	}
+
+	log_broken(ld->log, "HTLC #%"PRIu64" (%s) "
+		   " for amount %"PRIu64
+		   " to %s"
+		   " is missing a resolution: %s.",
+		   hout->key.id, htlc_state_name(hout->hstate),
+		   hout->msatoshi,
+		   type_to_string(tmpctx, struct pubkey,
+				  &hout->key.channel->peer->id),
+		   fix);
+}
+
 /**
  * htlcs_reconnect -- Link outgoing HTLCs to their origins after initial db load
  *
@@ -1728,6 +1774,8 @@ void htlcs_reconnect(struct lightningd *ld,
 			      hout->origin_htlc_id, hout->dbid);
 #endif
 		}
+		fixup_hout(ld, hout);
+
 	}
 }
 
