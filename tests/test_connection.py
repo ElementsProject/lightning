@@ -1333,7 +1333,6 @@ def test_restart_multi_htlc_rexmit(node_factory, bitcoind, executor):
     wait_for(lambda: [p['status'] for p in l1.rpc.listpayments()['payments']] == ['complete', 'complete'])
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs dev-disconnect")
 def test_fulfill_incoming_first(node_factory, bitcoind):
     """Test that we handle the case where we completely resolve incoming htlc

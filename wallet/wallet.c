@@ -1319,8 +1319,10 @@ static bool wallet_stmt2htlc_out(struct channel *channel,
 
 	if (sqlite3_column_type(stmt, 6) != SQLITE_NULL) {
 		out->origin_htlc_id = sqlite3_column_int64(stmt, 6);
+		out->local = false;
 	} else {
 		out->origin_htlc_id = 0;
+		out->local = true;
 	}
 
 	if (sqlite3_column_type(stmt, 7) != SQLITE_NULL) {
