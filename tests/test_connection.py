@@ -1333,6 +1333,7 @@ def test_restart_multi_htlc_rexmit(node_factory, bitcoind, executor):
     wait_for(lambda: [p['status'] for p in l1.rpc.listpayments()['payments']] == ['complete', 'complete'])
 
 
+@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs dev-disconnect")
 def test_fulfill_incoming_first(node_factory, bitcoind):
     """Test that we handle the case where we completely resolve incoming htlc
@@ -1364,3 +1365,13 @@ def test_fulfill_incoming_first(node_factory, bitcoind):
     # Now, l2 should restore from DB fine, even though outgoing HTLC no longer
     # has an incoming.
     l2.restart()
+
+    # Manually reconnect l2->l3.
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+    # Fulfill should be retransmitted OK (ignored result).
+    l2.rpc.close(l3.info['id'])
+    l2.wait_for_channel_onchain(l3.info['id'])
+    bitcoind.generate_block(100)
+    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+    l3.daemon.wait_for_log('onchaind complete, forgetting peer')
