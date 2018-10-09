@@ -804,7 +804,7 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 
 	/* Get any configdir/testnet options first. */
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
-	
+
 	/* Now look for config file */
 	opt_parse_from_config(ld);
 
