@@ -204,7 +204,8 @@ static u8 *patch_channel_update(const tal_t *ctx, u8 *channel_update TAKES)
 			tal_free(channel_update);
 		return fixed;
 	} else {
-		return channel_update;
+		return tal_dup_arr(ctx, u8,
+				   channel_update, tal_count(channel_update), 0);
 	}
 }
 
