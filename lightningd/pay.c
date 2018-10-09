@@ -482,6 +482,9 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 					  PAYMENT_FAILED, NULL);
 		return;
 	}
+#else
+	assert(payment);
+	assert(payment->route_channels);
 #endif
 
 	/* This gives more details than a generic failure message */
