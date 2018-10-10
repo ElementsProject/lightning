@@ -72,7 +72,7 @@ static void htlc_arr_append(const struct htlc ***arr, const struct htlc *htlc)
 static s64 balance_adding_htlc(const struct htlc *htlc, enum side side)
 {
 	if (htlc_owner(htlc) == side)
-		return -htlc->msatoshi;
+		return -(s64)htlc->msatoshi;
 	return 0;
 }
 
