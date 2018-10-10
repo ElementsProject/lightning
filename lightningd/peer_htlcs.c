@@ -1742,6 +1742,20 @@ void htlcs_reconnect(struct lightningd *ld,
 	struct htlc_out_map_iter outi;
 	struct htlc_in *hin;
 	struct htlc_out *hout;
+	struct htlc_in_map unprocessed;
+
+	/* Any HTLCs which happened to be incoming and weren't forwarded before
+	 * we shutdown/crashed: fail them now.
+	 *
+	 * Note that since we do local processing synchronously, so this never
+	 * captures local payments.  But if it did, it would be a tiny corner
+	 * case. */
+	htlc_in_map_init(&unprocessed);
+	for (hin = htlc_in_map_first(htlcs_in, &ini); hin;
+	     hin = htlc_in_map_next(htlcs_in, &ini)) {
+		if (hin->hstate == RCVD_ADD_ACK_REVOCATION)
+			htlc_in_map_add(&unprocessed, hin);
+	}
 
 	for (hout = htlc_out_map_first(htlcs_out, &outi); hout;
 	     hout = htlc_out_map_next(htlcs_out, &outi)) {
@@ -1780,7 +1794,21 @@ void htlcs_reconnect(struct lightningd *ld,
 		fixup_hout(ld, hout);
 #endif
 
+		if (hout->in)
+			htlc_in_map_del(&unprocessed, hout->in);
 	}
+
+	/* Now fail any which were stuck. */
+	for (hin = htlc_in_map_first(&unprocessed, &ini); hin;
+	     hin = htlc_in_map_next(&unprocessed, &ini)) {
+		log_unusual(hin->key.channel->log,
+			    "Failing old unprocessed HTLC #%"PRIu64,
+			    hin->key.id);
+		fail_in_htlc(hin, WIRE_TEMPORARY_NODE_FAILURE, NULL, NULL);
+	}
+
+	/* Don't leak memory! */
+	htlc_in_map_clear(&unprocessed);
 }
 
 
