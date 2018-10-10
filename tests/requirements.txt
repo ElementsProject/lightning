@@ -1,9 +1,10 @@
-python-bitcoinlib==0.7.0
-ephemeral-port-reserve==1.1.0
-pytest-forked==0.2
-pytest-xdist==1.22.2
-flaky==3.4.0
 CherryPy==17.3.0
 Flask==1.0.2
+cheroot==6.5.2
+ephemeral-port-reserve==1.1.0
+flaky==3.4.0
 pytest-benchmark==3.1.1
+pytest-forked==0.2
+pytest-xdist==1.22.2
+python-bitcoinlib==0.7.0
 tqdm==4.26.0
