@@ -1,3 +1,4 @@
+#include "bitcoin/feerate.h"
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
 #include <ccan/tal/str/str.h>
@@ -789,6 +790,11 @@ static void json_fund_channel(struct command *cmd,
 			command_fail(cmd, LIGHTNINGD, "Cannot estimate fees");
 			return;
 		}
+	}
+
+	if (*feerate_per_kw < feerate_floor()) {
+		command_fail(cmd, LIGHTNINGD, "Feerate below feerate floor");
+			return;
 	}
 
 	peer = peer_by_id(cmd->ld, id);
