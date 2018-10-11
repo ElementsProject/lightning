@@ -613,11 +613,22 @@ static void opt_parse_from_config(struct lightningd *ld)
 	char **all_args; /*For each line: either argument string or NULL*/
 	char *argv[3];
 	int i, argc;
+	char *filename;
 
 	if (ld->config_filename != NULL) {
-		contents = grab_file(ld, ld->config_filename);
-	} else
-		contents = grab_file(ld, "config");
+		/* All paths, including this, are lightning-dir relative,
+		 * but we're not there yet! */
+		if (path_is_abs(ld->config_filename))
+			filename = ld->config_filename;
+		else
+			filename = path_join(tmpctx,
+					     ld->config_dir,
+					     ld->config_filename);
+	} else {
+		filename = path_join(tmpctx, ld->config_dir, "config");
+	}
+	contents = grab_file(ld, filename);
+
 	/* The default config doesn't have to exist, but if the config was
 	 * specified on the command line it has to exist. */
 	if (!contents) {
