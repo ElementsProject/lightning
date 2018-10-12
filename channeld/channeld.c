@@ -1630,7 +1630,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	if (!peer->funding_locked[REMOTE]) {
 		if (type != WIRE_FUNDING_LOCKED
 		    && type != WIRE_PONG
-		    && type != WIRE_SHUTDOWN) {
+		    && type != WIRE_SHUTDOWN
+		    /* lnd sends this early; it's harmless. */
+		    && type != WIRE_ANNOUNCEMENT_SIGNATURES) {
 			peer_failed(&peer->cs,
 				    &peer->channel_id,
 				    "%s (%u) before funding locked",
