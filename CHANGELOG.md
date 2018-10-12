@@ -40,6 +40,7 @@ changes.
 - JSON RPC: `ping` now works even after one peer fails to respond.
 - JSON RPC: `getroute` `fuzzpercent` and `pay` `maxfeepercent` can now be > 100.
 - JSON RPC: `riskfactor` in `pay` and `getroute` no longer always treated as 1.
+- JSON-RPC: `listpeers` was always reporting 0 for all stats.
 - Protocol: fix occasional deadlock when both peers flood with gossip.
 - Protocol: fix occasional long delay on sending `reply_short_channel_ids_end`.
 - Protocol: re-send `node_announcement` when address/alias/color etc change.

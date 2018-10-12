@@ -798,6 +798,7 @@ void wallet_channel_stats_load(struct wallet *w,
 			       struct channel_stats *stats)
 {
 	sqlite3_stmt *stmt;
+	int res;
 	stmt = db_prepare(w->db,
 			  "SELECT  in_payments_offered,  in_payments_fulfilled"
 			  "     ,  in_msatoshi_offered,  in_msatoshi_fulfilled"
@@ -806,6 +807,12 @@ void wallet_channel_stats_load(struct wallet *w,
 			  "  FROM channels"
 			  " WHERE id = ?");
 	sqlite3_bind_int64(stmt, 1, id);
+
+	res = sqlite3_step(stmt);
+
+	/* This must succeed, since we know the channel exists */
+	assert(res == SQLITE_ROW);
+
 	stats->in_payments_offered = sqlite3_column_int64(stmt, 0);
 	stats->in_payments_fulfilled = sqlite3_column_int64(stmt, 1);
 	stats->in_msatoshi_offered = sqlite3_column_int64(stmt, 2);

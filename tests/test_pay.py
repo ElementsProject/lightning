@@ -976,7 +976,6 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     assert only_one(l3.rpc.listinvoices('test_forward_pad_fees_and_cltv')['invoices'])['status'] == 'paid'
 
 
-@pytest.mark.xfail(strict=True)
 def test_forward_stats(node_factory):
     l1, l2, l3 = node_factory.line_graph(3, announce=True)
 
