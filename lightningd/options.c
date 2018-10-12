@@ -615,26 +615,19 @@ static void opt_parse_from_config(struct lightningd *ld)
 	int i, argc;
 	char *filename;
 
-	if (ld->config_filename != NULL) {
-		/* All paths, including this, are lightning-dir relative,
-		 * but we're not there yet! */
-		if (path_is_abs(ld->config_filename))
-			filename = ld->config_filename;
-		else
-			filename = path_join(tmpctx,
-					     ld->config_dir,
-					     ld->config_filename);
-	} else {
+	if (ld->config_filename != NULL)
+		filename = ld->config_filename;
+	else
 		filename = path_join(tmpctx, ld->config_dir, "config");
-	}
+
 	contents = grab_file(ld, filename);
 
 	/* The default config doesn't have to exist, but if the config was
 	 * specified on the command line it has to exist. */
 	if (!contents) {
 		if ((errno != ENOENT) || (ld->config_filename != NULL))
-			fatal("Opening and reading config: %s",
-			      strerror(errno));
+			fatal("Opening and reading %s: %s",
+			      filename, strerror(errno));
 		/* Now we can set up defaults, since no config file. */
 		setup_default_config(ld);
 		return;
