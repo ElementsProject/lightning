@@ -388,8 +388,10 @@ bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w);
  */
 void wallet_channel_stats_incr_in_offered(struct wallet *w, u64 cdbid, u64 msatoshi);
 void wallet_channel_stats_incr_in_fulfilled(struct wallet *w, u64 cdbid, u64 msatoshi);
+void wallet_channel_stats_incr_in_fee(struct wallet *w, u64 id, u64 m);
 void wallet_channel_stats_incr_out_offered(struct wallet *w, u64 cdbid, u64 msatoshi);
 void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 cdbid, u64 msatoshi);
+void wallet_channel_stats_incr_out_fee(struct wallet *w, u64 id, u64 m);
 
 /**
  * wallet_channel_stats_load - Load channel statistics

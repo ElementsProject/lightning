@@ -788,6 +788,16 @@ void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 id, u64 m)
 	wallet_channel_counter_incr(w, id, "out_msatoshi_fulfilled", m);
 }
 
+void wallet_channel_stats_incr_in_fee(struct wallet *w, u64 id, u64 m)
+{
+	wallet_channel_counter_incr(w, id, "in_msatoshi_fee", 1);
+}
+
+void wallet_channel_stats_incr_out_fee(struct wallet *w, u64 id, u64 m)
+{
+	wallet_channel_counter_incr(w, id, "out_msatoshi_fee", 1);
+}
+
 void wallet_channel_stats_load(struct wallet *w,
 			       u64 id,
 			       struct channel_stats *stats)

@@ -339,6 +339,8 @@ char *dbmigrations[] = {
     "ALTER TABLE channels ADD future_per_commitment_point BLOB;",
     /* last_sent_commit array fix */
     "ALTER TABLE channels ADD last_sent_commit BLOB;",
+    "ALTER TABLE channels ADD in_msatoshi_fee INTEGER NOT NULL DEFAULT 0;",
+    "ALTER TABLE channels ADD out_msatoshi_fee INTEGER NOT NULL DEFAULT 0;",
     NULL,
 };
 
