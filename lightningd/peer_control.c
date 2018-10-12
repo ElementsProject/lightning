@@ -647,6 +647,56 @@ static void json_add_htlcs(struct lightningd *ld,
 	json_array_end(response);
 }
 
+static void json_channel_add_stats(struct lightningd *ld,
+				struct json_result *response, u64 channel_id)
+{
+	struct channel_stats channel_stats;
+	/* Provide channel statistics */
+	wallet_channel_stats_load(ld->wallet, channel_id, &channel_stats);
+
+	if (deprecated_apis) {
+		json_add_u64(response, "in_payments_offered",
+			     channel_stats.in_payments_offered);
+		json_add_u64(response, "in_msatoshi_offered",
+			     channel_stats.in_msatoshi_offered);
+		json_add_u64(response, "in_payments_fulfilled",
+			     channel_stats.in_payments_fulfilled);
+		json_add_u64(response, "in_msatoshi_fulfilled",
+			     channel_stats.in_msatoshi_fulfilled);
+		json_add_u64(response, "out_payments_offered",
+			     channel_stats.out_payments_offered);
+		json_add_u64(response, "out_msatoshi_offered",
+			     channel_stats.out_msatoshi_offered);
+		json_add_u64(response, "out_payments_fulfilled",
+			     channel_stats.out_payments_fulfilled);
+		json_add_u64(response, "out_msatoshi_fulfilled",
+			     channel_stats.out_msatoshi_fulfilled);
+	}
+
+	json_object_start(response, "stats");
+	json_add_u64(response, "in_payments_offered",
+		     channel_stats.in_payments_offered);
+	json_add_u64(response, "in_msatoshi_offered",
+		     channel_stats.in_msatoshi_offered);
+	json_add_u64(response, "in_payments_fulfilled",
+		     channel_stats.in_payments_fulfilled);
+	json_add_u64(response, "in_msatoshi_fulfilled",
+		     channel_stats.in_msatoshi_fulfilled);
+	json_add_u64(response, "in_msatoshi_fee",
+		     channel_stats.in_msatoshi_fee);
+	json_add_u64(response, "out_payments_offered",
+		     channel_stats.out_payments_offered);
+	json_add_u64(response, "out_msatoshi_offered",
+		     channel_stats.out_msatoshi_offered);
+	json_add_u64(response, "out_payments_fulfilled",
+		     channel_stats.out_payments_fulfilled);
+	json_add_u64(response, "out_msatoshi_fulfilled",
+		     channel_stats.out_msatoshi_fulfilled);
+	json_add_u64(response, "out_msatoshi_fee",
+		     channel_stats.out_msatoshi_fee);
+	json_object_end(response);
+}
+
 static void json_add_peer(struct lightningd *ld,
 			  struct json_result *response,
 			  struct peer *p,
@@ -696,7 +746,6 @@ static void json_add_peer(struct lightningd *ld,
 
 	list_for_each(&p->channels, channel, list) {
 		struct channel_id cid;
-		struct channel_stats channel_stats;
 		u64 our_reserve_msat = channel->channel_info.their_config.channel_reserve_satoshis * 1000;
 		json_object_start(response, NULL);
 		json_add_string(response, "state",
@@ -782,26 +831,7 @@ static void json_add_peer(struct lightningd *ld,
 					channel->billboard.transient);
 		json_array_end(response);
 
-		/* Provide channel statistics */
-		wallet_channel_stats_load(ld->wallet,
-					  channel->dbid,
-					  &channel_stats);
-		json_add_u64(response, "in_payments_offered",
-			     channel_stats.in_payments_offered);
-		json_add_u64(response, "in_msatoshi_offered",
-			     channel_stats.in_msatoshi_offered);
-		json_add_u64(response, "in_payments_fulfilled",
-			     channel_stats.in_payments_fulfilled);
-		json_add_u64(response, "in_msatoshi_fulfilled",
-			     channel_stats.in_msatoshi_fulfilled);
-		json_add_u64(response, "out_payments_offered",
-			     channel_stats.out_payments_offered);
-		json_add_u64(response, "out_msatoshi_offered",
-			     channel_stats.out_msatoshi_offered);
-		json_add_u64(response, "out_payments_fulfilled",
-			     channel_stats.out_payments_fulfilled);
-		json_add_u64(response, "out_msatoshi_fulfilled",
-			     channel_stats.out_msatoshi_fulfilled);
+		json_channel_add_stats(ld, response, channel->dbid);
 
 		json_add_htlcs(ld, response, channel);
 		json_object_end(response);

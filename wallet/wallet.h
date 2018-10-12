@@ -193,9 +193,9 @@ struct outpoint {
 /* Statistics for a channel */
 struct channel_stats {
 	u64  in_payments_offered,  in_payments_fulfilled;
-	u64  in_msatoshi_offered,  in_msatoshi_fulfilled;
+	u64  in_msatoshi_offered,  in_msatoshi_fulfilled,  in_msatoshi_fee;
 	u64 out_payments_offered, out_payments_fulfilled;
-	u64 out_msatoshi_offered, out_msatoshi_fulfilled;
+	u64 out_msatoshi_offered, out_msatoshi_fulfilled, out_msatoshi_fee;
 };
 
 struct channeltx {

@@ -982,14 +982,8 @@ def test_forward_stats(node_factory):
     inv = l3.rpc.invoice(100000, "first", "desc")['bolt11']
     l1.rpc.pay(inv)
 
-    inchan = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]
-    outchan = l2.rpc.listpeers(l3.info['id'])['peers'][0]['channels'][0]
-
-    def extract_stats(c):
-        return {k: v for k, v in c.items() if 'in_' in k or 'out_' in k}
-
-    instats = extract_stats(inchan)
-    outstats = extract_stats(outchan)
+    instats = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['stats']
+    outstats = l2.rpc.listpeers(l3.info['id'])['peers'][0]['channels'][0]['stats']
 
     # Check that we correctly account channel changes
     assert instats['in_payments_offered'] == 1

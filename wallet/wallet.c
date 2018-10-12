@@ -809,6 +809,7 @@ void wallet_channel_stats_load(struct wallet *w,
 			  "     ,  in_msatoshi_offered,  in_msatoshi_fulfilled"
 			  "     , out_payments_offered, out_payments_fulfilled"
 			  "     , out_msatoshi_offered, out_msatoshi_fulfilled"
+			  "     , in_msatoshi_fee, out_msatoshi_fee"
 			  "  FROM channels"
 			  " WHERE id = ?");
 	sqlite3_bind_int64(stmt, 1, id);
@@ -826,6 +827,8 @@ void wallet_channel_stats_load(struct wallet *w,
 	stats->out_payments_fulfilled = sqlite3_column_int64(stmt, 5);
 	stats->out_msatoshi_offered = sqlite3_column_int64(stmt, 6);
 	stats->out_msatoshi_fulfilled = sqlite3_column_int64(stmt, 7);
+	stats->in_msatoshi_fee = sqlite3_column_int64(stmt, 8);
+	stats->out_msatoshi_fee = sqlite3_column_int64(stmt, 9);
 	db_stmt_done(stmt);
 }
 
