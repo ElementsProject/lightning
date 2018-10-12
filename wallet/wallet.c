@@ -754,43 +754,38 @@ bool wallet_channels_load_active(const tal_t *ctx, struct wallet *w)
 	return ok;
 }
 
-static
-void wallet_channel_stats_incr_x(struct wallet *w,
-				 char const *dir,
-				 char const *typ,
-				 u64 cdbid,
-				 u64 msatoshi)
+static void wallet_channel_counter_incr(struct wallet *w, u64 channel_id,
+					const char *counter_name, u64 increment)
 {
-	char const *payments_stat = tal_fmt(tmpctx, "%s_payments_%s",
-					    dir, typ);
-	char const *msatoshi_stat = tal_fmt(tmpctx, "%s_msatoshi_%s",
-					    dir, typ);
-	char const *qry = tal_fmt(tmpctx,
-				  "UPDATE channels"
-				  "   SET %s = COALESCE(%s, 0) + 1"
-				  "     , %s = COALESCE(%s, 0) + %"PRIu64""
-				  " WHERE id = %"PRIu64";",
-				  payments_stat, payments_stat,
-				  msatoshi_stat, msatoshi_stat, msatoshi,
-				  cdbid);
+	char const *qry =
+	    tal_fmt(tmpctx,
+		    "UPDATE channels"
+		    "   SET %s = COALESCE(%s, 0) + %" PRIu64 ""
+		    " WHERE id = %" PRIu64 ";",
+		    counter_name, counter_name, increment, channel_id);
 	sqlite3_stmt *stmt = db_prepare(w->db, qry);
 	db_exec_prepared(w->db, stmt);
 }
+
 void wallet_channel_stats_incr_in_offered(struct wallet *w, u64 id, u64 m)
 {
-	wallet_channel_stats_incr_x(w, "in", "offered", id, m);
+	wallet_channel_counter_incr(w, id, "in_payments_offered", 1);
+	wallet_channel_counter_incr(w, id, "in_msatoshi_offered", m);
 }
 void wallet_channel_stats_incr_in_fulfilled(struct wallet *w, u64 id, u64 m)
 {
-	wallet_channel_stats_incr_x(w, "in", "fulfilled", id, m);
+	wallet_channel_counter_incr(w, id, "in_payments_fulfilled", 1);
+	wallet_channel_counter_incr(w, id, "in_msatoshi_fulfilled", m);
 }
 void wallet_channel_stats_incr_out_offered(struct wallet *w, u64 id, u64 m)
 {
-	wallet_channel_stats_incr_x(w, "out", "offered", id, m);
+	wallet_channel_counter_incr(w, id, "out_payments_offered", 1);
+	wallet_channel_counter_incr(w, id, "out_msatoshi_offered", m);
 }
 void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 id, u64 m)
 {
-	wallet_channel_stats_incr_x(w, "out", "fulfilled", id, m);
+	wallet_channel_counter_incr(w, id, "out_payments_fulfilled", 1);
+	wallet_channel_counter_incr(w, id, "out_msatoshi_fulfilled", m);
 }
 
 void wallet_channel_stats_load(struct wallet *w,
