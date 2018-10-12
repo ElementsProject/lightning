@@ -721,6 +721,7 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 				 const struct preimage *preimage)
 {
 	struct lightningd *ld = channel->peer->ld;
+	u64 fee;
 
 	assert(!hout->preimage);
 	hout->preimage = tal_dup(hout, struct preimage, preimage);
@@ -732,6 +733,16 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 	wallet_channel_stats_incr_out_fulfilled(ld->wallet,
 						channel->dbid,
 						hout->msatoshi);
+
+	/* If this is a forward account for it on both incoming as
+	 * well as outgoing side */
+	if (hout->in) {
+		fee = hout->in->msatoshi - hout->msatoshi;
+		wallet_channel_stats_incr_out_fee(ld->wallet, channel->dbid,
+						  fee);
+		wallet_channel_stats_incr_in_fee(
+		    ld->wallet, hout->in->key.channel->dbid, fee);
+	}
 
 	if (hout->am_origin)
 		payment_succeeded(ld, hout, preimage);
