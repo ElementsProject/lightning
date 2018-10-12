@@ -279,6 +279,7 @@ static void json_done(struct json_connection *jcon,
 	struct json_output *out = tal(jcon, struct json_output);
 	out->json = tal_strdup(out, json);
 
+	/* Can be NULL if we failed to parse! */
 	tal_free(cmd);
 
 	/* Queue for writing, and wake writer. */
@@ -323,8 +324,8 @@ static void connection_complete_error(struct json_connection *jcon,
 
 	assert(id != NULL);
 
-	assert(cmd);
-	if (cmd->ok)
+	/* cmd *can be* NULL if we failed to parse! */
+	if (cmd && cmd->ok)
 		*(cmd->ok) = false;
 
 	json_done(jcon, cmd, take(tal_fmt(tmpctx,
