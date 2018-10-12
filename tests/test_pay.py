@@ -974,3 +974,33 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     l1.rpc.sendpay(route, rhash)
     l1.rpc.waitsendpay(rhash)
     assert only_one(l3.rpc.listinvoices('test_forward_pad_fees_and_cltv')['invoices'])['status'] == 'paid'
+
+
+@pytest.mark.xfail(strict=True)
+def test_forward_stats(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3, announce=True)
+
+    inv = l3.rpc.invoice(100000, "first", "desc")['bolt11']
+    l1.rpc.pay(inv)
+
+    inchan = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]
+    outchan = l2.rpc.listpeers(l3.info['id'])['peers'][0]['channels'][0]
+
+    def extract_stats(c):
+        return {k: v for k, v in c.items() if 'in_' in k or 'out_' in k}
+
+    instats = extract_stats(inchan)
+    outstats = extract_stats(outchan)
+
+    # Check that we correctly account channel changes
+    assert instats['in_payments_offered'] == 1
+    assert instats['in_payments_fulfilled'] == 1
+    assert instats['in_msatoshi_offered'] >= 100000
+    assert instats['in_msatoshi_offered'] == instats['in_msatoshi_fulfilled']
+
+    assert outstats['out_payments_offered'] == 1
+    assert outstats['out_payments_fulfilled'] == 1
+    assert outstats['out_msatoshi_offered'] >= 100000
+    assert outstats['out_msatoshi_offered'] == outstats['out_msatoshi_fulfilled']
+
+    assert outstats['out_msatoshi_fulfilled'] < instats['in_msatoshi_fulfilled']
