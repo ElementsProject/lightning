@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Protocol: `channel_update` sent to disable channel only if we reject an HTLC.
 - Protocol: we don't send redundant `node_announcement` on every new channel.
+- Config: config file can override `lightning-dir` (makes sense with `--conf`).
+- Config: `--conf` option is now relative to current directory, not `lightning-dir`.
 
 ### Deprecated
 

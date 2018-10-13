@@ -13,10 +13,11 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-lightningd(8) reads a configuration file called 'config', if it
-exists, when it starts up.  The location of this file defaults to
-*.lightning* in the home directory, but can be overridden by the
-'--lightning-dir' option on the lightningd(8) command line.
+When lightningd(8) starts up, it reads a configuration file.  By
+default that is 'config' in the *.lightning* subdirectory of the home
+directory (if it exists), but that can be changes by the
+'--lightning-dir' or '--conf' options on the lightningd(8) command
+line.
 
 Configuration file options are processed first, then command line
 options: later options override earlier ones except 'addr' options
@@ -93,7 +94,8 @@ Bitcoin control options:
 Lightning daemon options:
 
 *lightning-dir*='DIR'::
-    Sets the working directory. All other files are relative to this.
+    Sets the working directory. All files (except '--conf' on the command
+    line) are relative to this.
 
 *pid-file*='PATH'::
     Specify pid file to write to.
@@ -116,7 +118,11 @@ Lightning daemon options:
     Run in the background, suppress stdout and stderr.
 
 *conf*='PATH'::
-    Sets configuration file. Relative paths will be prefixed by lightning-dir location. (default: config)
+    Sets configuration file (default: *lightning-dir*/'config' ).  If this is
+    a relative path, it is relative to the starting directory, not
+    *lightning-dir* (unlike other paths).  'PATH' must exist and be readable
+    (we allow missing files in the default case).
+    Using this inside a configuration file is meaningless.
 
 Lightning node customization options:
 

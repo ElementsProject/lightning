@@ -2,12 +2,12 @@
 .\"     Title: lightningd-config
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 09/07/2018
+.\"      Date: 10/12/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNINGD\-CONFIG" "5" "09/07/2018" "\ \&" "\ \&"
+.TH "LIGHTNINGD\-CONFIG" "5" "10/12/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -34,7 +34,7 @@ lightningd-config \- Lightning daemon configuration file
 \fB~/\&.lightningd/config\fR
 .SH "DESCRIPTION"
 .sp
-lightningd(8) reads a configuration file called \fIconfig\fR, if it exists, when it starts up\&. The location of this file defaults to \fB\&.lightning\fR in the home directory, but can be overridden by the \fI\-\-lightning\-dir\fR option on the lightningd(8) command line\&.
+When lightningd(8) starts up, it reads a configuration file\&. By default that is \fIconfig\fR in the \fB\&.lightning\fR subdirectory of the home directory (if it exists), but that can be changes by the \fI\-\-lightning\-dir\fR or \fI\-\-conf\fR options on the lightningd(8) command line\&.
 .sp
 Configuration file options are processed first, then command line options: later options override earlier ones except \fIaddr\fR options which accumulate\&.
 .sp
@@ -131,7 +131,9 @@ Lightning daemon options:
 .PP
 \fBlightning\-dir\fR=\fIDIR\fR
 .RS 4
-Sets the working directory\&. All other files are relative to this\&.
+Sets the working directory\&. All files (except
+\fI\-\-conf\fR
+on the command line) are relative to this\&.
 .RE
 .PP
 \fBpid\-file\fR=\fIPATH\fR
@@ -166,7 +168,13 @@ Run in the background, suppress stdout and stderr\&.
 .PP
 \fBconf\fR=\fIPATH\fR
 .RS 4
-Sets configuration file\&. Relative paths will be prefixed by lightning\-dir location\&. (default: config)
+Sets configuration file (default:
+\fBlightning\-dir\fR/\fIconfig\fR
+)\&. If this is a relative path, it is relative to the starting directory, not
+\fBlightning\-dir\fR
+(unlike other paths)\&.
+\fIPATH\fR
+must exist and be readable (we allow missing files in the default case)\&. Using this inside a configuration file is meaningless\&.
 .RE
 .sp
 Lightning node customization options:

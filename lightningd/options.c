@@ -613,17 +613,21 @@ static void opt_parse_from_config(struct lightningd *ld)
 	char **all_args; /*For each line: either argument string or NULL*/
 	char *argv[3];
 	int i, argc;
+	char *filename;
 
-	if (ld->config_filename != NULL) {
-		contents = grab_file(ld, ld->config_filename);
-	} else
-		contents = grab_file(ld, "config");
+	if (ld->config_filename != NULL)
+		filename = ld->config_filename;
+	else
+		filename = path_join(tmpctx, ld->config_dir, "config");
+
+	contents = grab_file(ld, filename);
+
 	/* The default config doesn't have to exist, but if the config was
 	 * specified on the command line it has to exist. */
 	if (!contents) {
 		if ((errno != ENOENT) || (ld->config_filename != NULL))
-			fatal("Opening and reading config: %s",
-			      strerror(errno));
+			fatal("Opening and reading %s: %s",
+			      filename, strerror(errno));
 		/* Now we can set up defaults, since no config file. */
 		setup_default_config(ld);
 		return;
@@ -805,6 +809,9 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 	/* Get any configdir/testnet options first. */
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
 
+	/* Now look for config file */
+	opt_parse_from_config(ld);
+
 	/* Move to config dir, to save ourselves the hassle of path manip. */
 	if (chdir(ld->config_dir) != 0) {
 		log_unusual(ld->log, "Creating configuration directory %s",
@@ -816,9 +823,6 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 			fatal("Could not change directory %s: %s",
 			      ld->config_dir, strerror(errno));
 	}
-
-	/* Now look for config file */
-	opt_parse_from_config(ld);
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc != 1)
