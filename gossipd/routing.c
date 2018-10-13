@@ -1071,7 +1071,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		return false;
 	/* If it's flagged as containing the optional field, reparse for
 	 * the optional field */
-	if ((message_flags & ROUTING_OPT_HTLC_MAX_MSAT) &&
+	bool contains_htlc_max_msat = message_flags & ROUTING_OPT_HTLC_MAX_MSAT;
+	if (contains_htlc_max_msat &&
 			!fromwire_channel_update_option_channel_htlc_max(
 				update, &signature, &chain_hash,
 				&short_channel_id, &timestamp,
@@ -1084,7 +1085,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (!chan)
 		return false;
 
-	if (message_flags & ROUTING_OPT_HTLC_MAX_MSAT) {
+	if (contains_htlc_max_msat) {
 		/* Reject update if the `htlc_maximum_msat` is greater
 		 * than the total available channel satoshis */
 		if (htlc_maximum_msat > chan->satoshis * 1000)
