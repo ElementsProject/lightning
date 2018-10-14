@@ -79,7 +79,7 @@ Here is an example of a docker-compose file with bitcoind and c-lightning on `te
 version: "3"
 services:
   bitcoind:
-    image: nicolasdorier/docker-bitcoin:0.16.0
+    image: nicolasdorier/docker-bitcoin:0.16.3
     container_name: bitcoind
     environment:
       BITCOIN_EXTRA_ARGS: |
