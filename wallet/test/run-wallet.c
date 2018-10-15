@@ -85,9 +85,9 @@ bool fromwire_channel_sending_commitsig(const tal_t *ctx UNNEEDED, const void *p
 /* Generated stub for fromwire_connect_peer_connected */
 bool fromwire_connect_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct crypto_state *crypto_state UNNEEDED, u8 **globalfeatures UNNEEDED, u8 **localfeatures UNNEEDED)
 { fprintf(stderr, "fromwire_connect_peer_connected called!\n"); abort(); }
-/* Generated stub for fromwire_gossip_resolve_channel_reply */
-bool fromwire_gossip_resolve_channel_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey **keys UNNEEDED)
-{ fprintf(stderr, "fromwire_gossip_resolve_channel_reply called!\n"); abort(); }
+/* Generated stub for fromwire_gossip_get_channel_peer_reply */
+bool fromwire_gossip_get_channel_peer_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct pubkey **peer_id UNNEEDED)
+{ fprintf(stderr, "fromwire_gossip_get_channel_peer_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsm_sign_commitment_tx_reply */
 bool fromwire_hsm_sign_commitment_tx_reply(const void *p UNNEEDED, secp256k1_ecdsa_signature *sig UNNEEDED)
 { fprintf(stderr, "fromwire_hsm_sign_commitment_tx_reply called!\n"); abort(); }
@@ -424,9 +424,9 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const struct channel_id *channel UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
-/* Generated stub for towire_gossip_resolve_channel_request */
-u8 *towire_gossip_resolve_channel_request(const tal_t *ctx UNNEEDED, const struct short_channel_id *channel_id UNNEEDED)
-{ fprintf(stderr, "towire_gossip_resolve_channel_request called!\n"); abort(); }
+/* Generated stub for towire_gossip_get_channel_peer */
+u8 *towire_gossip_get_channel_peer(const tal_t *ctx UNNEEDED, const struct short_channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "towire_gossip_get_channel_peer called!\n"); abort(); }
 /* Generated stub for towire_hsm_sign_commitment_tx */
 u8 *towire_hsm_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct pubkey *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED, u64 funding_amount UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_commitment_tx called!\n"); abort(); }

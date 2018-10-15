@@ -1846,32 +1846,32 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	return daemon_conn_read_next(master->conn, master);
 }
 
-static struct io_plan *resolve_channel_req(struct io_conn *conn,
-					   struct daemon *daemon, const u8 *msg)
+static struct io_plan *get_channel_peer(struct io_conn *conn,
+					struct daemon *daemon, const u8 *msg)
 {
 	struct short_channel_id scid;
 	struct chan *chan;
-	struct pubkey *keys;
+	const struct pubkey *key;
+	int direction;
 
-	if (!fromwire_gossip_resolve_channel_request(msg, &scid))
-		master_badmsg(WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST, msg);
+	if (!fromwire_gossip_get_channel_peer(msg, &scid))
+		master_badmsg(WIRE_GOSSIP_GET_CHANNEL_PEER, msg);
 
 	chan = get_channel(daemon->rstate, &scid);
 	if (!chan) {
 		status_trace("Failed to resolve channel %s",
 			     type_to_string(tmpctx, struct short_channel_id, &scid));
-		keys = NULL;
+		key = NULL;
+	} else if (local_direction(daemon, chan, &direction)) {
+		key = &chan->nodes[!direction]->id;
 	} else {
-		keys = tal_arr(msg, struct pubkey, 2);
-		keys[0] = chan->nodes[0]->id;
-		keys[1] = chan->nodes[1]->id;
-		status_trace("Resolved channel %s %s<->%s",
-			     type_to_string(tmpctx, struct short_channel_id, &scid),
-			     type_to_string(tmpctx, struct pubkey, &keys[0]),
-			     type_to_string(tmpctx, struct pubkey, &keys[1]));
+		status_trace("Resolved channel %s was not local",
+			     type_to_string(tmpctx, struct short_channel_id,
+					    &scid));
+		key = NULL;
 	}
 	daemon_conn_send(&daemon->master,
-			 take(towire_gossip_resolve_channel_reply(NULL, keys)));
+			 take(towire_gossip_get_channel_peer_reply(NULL, key)));
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
@@ -2000,8 +2000,8 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
 		return getchannels_req(conn, daemon, daemon->master.msg_in);
 
-	case WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST:
-		return resolve_channel_req(conn, daemon, daemon->master.msg_in);
+	case WIRE_GOSSIP_GET_CHANNEL_PEER:
+		return get_channel_peer(conn, daemon, daemon->master.msg_in);
 
 	case WIRE_GOSSIP_GET_TXOUT_REPLY:
 		return handle_txout_reply(conn, daemon, master->msg_in);
@@ -2057,7 +2057,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_PING_REPLY:
 	case WIRE_GOSSIP_SCIDS_REPLY:
 	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE_REPLY:
-	case WIRE_GOSSIP_RESOLVE_CHANNEL_REPLY:
+	case WIRE_GOSSIP_GET_CHANNEL_PEER_REPLY:
 	case WIRE_GOSSIP_GET_INCOMING_CHANNELS_REPLY:
 	case WIRE_GOSSIP_GET_UPDATE:
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:

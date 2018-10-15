@@ -569,30 +569,18 @@ struct gossip_resolve {
 static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
 				  const int *fds UNUSED, struct gossip_resolve *gr)
 {
-	struct pubkey *nodes, *peer_id;
+	struct pubkey *peer_id;
 
-	if (!fromwire_gossip_resolve_channel_reply(msg, msg, &nodes)) {
+	if (!fromwire_gossip_get_channel_peer_reply(msg, msg, &peer_id)) {
 		log_broken(gossip->log,
-			   "bad fromwire_gossip_resolve_channel_reply %s",
+			   "bad fromwire_gossip_get_channel_peer_reply %s",
 			   tal_hex(msg, msg));
 		return;
 	}
 
-	if (tal_count(nodes) == 0) {
+	if (!peer_id) {
 		local_fail_htlc(gr->hin, WIRE_UNKNOWN_NEXT_PEER, NULL);
 		return;
-	} else if (tal_count(nodes) != 2) {
-		log_broken(gossip->log,
-			   "fromwire_gossip_resolve_channel_reply has %zu nodes",
-			   tal_count(nodes));
-		return;
-	}
-
-	/* Get the other peer matching the id that is not us */
-	if (pubkey_cmp(&nodes[0], &gossip->ld->id) == 0) {
-		peer_id = &nodes[1];
-	} else {
-		peer_id = &nodes[0];
 	}
 
 	forward_htlc(gr->hin, gr->hin->cltv_expiry,
@@ -697,8 +685,7 @@ static bool peer_accepted_htlc(struct channel *channel,
 		gr->outgoing_cltv_value = rs->hop_data.outgoing_cltv;
 		gr->hin = hin;
 
-		req = towire_gossip_resolve_channel_request(tmpctx,
-							    &gr->next_channel);
+		req = towire_gossip_get_channel_peer(tmpctx, &gr->next_channel);
 		log_debug(channel->log, "Asking gossip to resolve channel %s",
 			  type_to_string(tmpctx, struct short_channel_id,
 					 &gr->next_channel));

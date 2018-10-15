@@ -106,7 +106,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_GETROUTE_REQUEST:
 	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
 	case WIRE_GOSSIP_PING:
-	case WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST:
+	case WIRE_GOSSIP_GET_CHANNEL_PEER:
 	case WIRE_GOSSIP_GET_UPDATE:
 	case WIRE_GOSSIP_SEND_GOSSIP:
 	case WIRE_GOSSIP_GET_TXOUT_REPLY:
@@ -126,7 +126,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:
 	case WIRE_GOSSIP_SCIDS_REPLY:
 	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE_REPLY:
-	case WIRE_GOSSIP_RESOLVE_CHANNEL_REPLY:
+	case WIRE_GOSSIP_GET_CHANNEL_PEER_REPLY:
 	case WIRE_GOSSIP_GET_INCOMING_CHANNELS_REPLY:
 	/* These are inter-daemon messages, not received by us */
 	case WIRE_GOSSIP_LOCAL_ADD_CHANNEL:
