@@ -405,7 +405,7 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_arg("--dev-debugger=<subdaemon>", opt_subd_debug, NULL,
 			 ld, "Invoke gdb at start of <subdaemon>");
 	opt_register_arg("--dev-broadcast-interval=<ms>", opt_set_uintval,
-			 opt_show_uintval, &ld->config.broadcast_interval,
+			 opt_show_uintval, &ld->config.broadcast_interval_msec,
 			 "Time between gossip broadcasts in milliseconds");
 	opt_register_arg("--dev-disconnect=<filename>", opt_subd_dev_disconnect,
 			 NULL, ld, "File containing disconnection points");
@@ -465,7 +465,7 @@ static const struct config testnet_config = {
 	 *   - SHOULD flush outgoing gossip messages once every 60
 	 *     seconds, independently of the arrival times of the messages.
 	 */
-	.broadcast_interval = 60000,
+	.broadcast_interval_msec = 60000,
 
 	/* Send a keepalive update at least every week, prune every twice that */
 	.channel_update_interval = 1209600/2,
@@ -528,7 +528,7 @@ static const struct config mainnet_config = {
 	 *   - SHOULD flush outgoing gossip messages once every 60
 	 *     seconds, independently of the arrival times of the messages.
 	 */
-	.broadcast_interval = 60000,
+	.broadcast_interval_msec = 60000,
 
 	/* Send a keepalive update at least every week, prune every twice that */
 	.channel_update_interval = 1209600/2,

@@ -4,7 +4,7 @@
 
 # Initialize the gossip daemon.
 gossipctl_init,3000
-gossipctl_init,,broadcast_interval,u32
+gossipctl_init,,broadcast_interval_msec,u32
 gossipctl_init,,chain_hash,struct bitcoin_blkid
 gossipctl_init,,id,struct pubkey
 gossipctl_init,,gflen,u16

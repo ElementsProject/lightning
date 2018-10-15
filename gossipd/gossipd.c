@@ -80,7 +80,7 @@ struct daemon {
 
 	struct timers timers;
 
-	u32 broadcast_interval;
+	u32 broadcast_interval_msec;
 
 	/* Global features to list in node_announcement. */
 	u8 *globalfeatures;
@@ -929,7 +929,7 @@ static bool maybe_queue_gossip(struct peer *peer)
 	/* Gossip is drained.  Wait for next timer. */
 	peer->gossip_timer
 		= new_reltimer(&peer->daemon->timers, peer,
-			       time_from_msec(peer->daemon->broadcast_interval),
+			       time_from_msec(peer->daemon->broadcast_interval_msec),
 			       wake_gossip_out, peer);
 	return false;
 }
@@ -1818,7 +1818,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	u32 update_channel_interval;
 
 	if (!fromwire_gossipctl_init(
-		daemon, msg, &daemon->broadcast_interval, &chain_hash,
+		daemon, msg, &daemon->broadcast_interval_msec, &chain_hash,
 		&daemon->id, &daemon->globalfeatures,
 		daemon->rgb,
 		daemon->alias, &update_channel_interval,
@@ -2140,7 +2140,6 @@ int main(int argc, char *argv[])
 	daemon = tal(NULL, struct daemon);
 	list_head_init(&daemon->peers);
 	timers_init(&daemon->timers, time_mono());
-	daemon->broadcast_interval = 30000;
 	daemon->last_announce_timestamp = 0;
 
 	/* stdin == control */
