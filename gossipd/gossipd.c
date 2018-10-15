@@ -1538,6 +1538,10 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 			const struct half_chan *hc;
 			struct route_info *ri;
 
+			/* Don't leak private channels. */
+			if (!is_chan_public(c))
+				continue;
+
 			hc = &c->half[half_chan_to(node, c)];
 
 			if (!is_halfchan_enabled(hc))

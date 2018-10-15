@@ -117,11 +117,19 @@ def test_invoice_preimage(node_factory):
         l2.rpc.invoice(123456, 'inv2', '?', preimage=invoice_preimage)
 
 
-def test_invoice_routeboost(node_factory):
+def test_invoice_routeboost(node_factory, bitcoind):
     """Test routeboost 'r' hint in bolt11 invoice.
     """
-    l1, l2 = node_factory.line_graph(2, announce=True, fundamount=10**4)
+    l1, l2 = node_factory.line_graph(2, fundamount=10**4)
 
+    # Won't get reference to route until channel is public.
+    inv = l2.rpc.invoice(msatoshi=123456, label="inv0", description="?")
+    assert 'warning_capacity' in inv
+
+    bitcoind.generate_block(5)
+    wait_for(lambda: [c['public'] for c in l2.rpc.listchannels()['channels']] == [True, True])
+
+    # Check routeboost.
     # Make invoice and pay it
     inv = l2.rpc.invoice(msatoshi=123456, label="inv1", description="?")
     # Check routeboost.
