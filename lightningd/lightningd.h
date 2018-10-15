@@ -46,7 +46,7 @@ struct config {
 	u32 commit_time_ms;
 
 	/* How often to broadcast gossip (msec) */
-	u32 broadcast_interval;
+	u32 broadcast_interval_msec;
 
 	/* Channel update interval */
 	u32 channel_update_interval;
