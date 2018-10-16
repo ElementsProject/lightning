@@ -109,7 +109,7 @@ static inline u64 channel_reserve_msat(const struct channel *channel,
  *
  * `htlc_minimum_msat` indicates the smallest value HTLC this node will accept.
  */
-static inline u32 htlc_minimum_msat(const struct channel *channel,
+static inline u64 htlc_minimum_msat(const struct channel *channel,
 				    enum side recipient)
 {
 	return channel->config[recipient]->htlc_minimum_msat;
