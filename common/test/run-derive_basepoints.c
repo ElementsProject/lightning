@@ -54,6 +54,7 @@ int main(void)
 	const tal_t *ctx = tal(NULL, char);
 	struct info *baseline, *info;
 
+	wally_init(0);
 	secp256k1_ctx = wally_get_secp_context();
 	baseline = new_info(ctx);
 	assert(derive_basepoints(&baseline->seed, &baseline->funding_pubkey,

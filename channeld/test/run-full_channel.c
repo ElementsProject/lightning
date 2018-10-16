@@ -338,6 +338,7 @@ int main(void)
 	size_t i;
 	const struct chainparams *chainparams = chainparams_for_network("bitcoin");
 
+	wally_init(0);
 	secp256k1_ctx = wally_get_secp_context();
 	setup_tmpctx();
 

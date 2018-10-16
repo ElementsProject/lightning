@@ -1073,6 +1073,7 @@ int main(void)
 	struct lightningd *ld;
 
 	setup_tmpctx();
+	wally_init(0);
 	secp256k1_ctx = wally_get_secp_context();
 	ld = tal(tmpctx, struct lightningd);
 
