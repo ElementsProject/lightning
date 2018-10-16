@@ -45,6 +45,7 @@ changes.
 - Protocol: fix occasional deadlock when both peers flood with gossip.
 - Protocol: fix occasional long delay on sending `reply_short_channel_ids_end`.
 - Protocol: re-send `node_announcement` when address/alias/color etc change.
+- Options: 'autotor' defaults to port 9051 if not specified.
 
 ### Security
 
