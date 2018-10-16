@@ -118,6 +118,34 @@ static inline enum wallet_output_type wallet_output_type_in_db(enum wallet_outpu
 	fatal("%s: %u is invalid", __func__, w);
 }
 
+/**
+ * Possible states for forwards
+ *
+ */
+/* /!\ This is a DB ENUM, please do not change the numbering of any
+ * already defined elements (adding is ok) /!\ */
+enum forward_status {
+	FORWARD_OFFERED = 0,
+	FORWARD_SETTLED = 1,
+	FORWARD_FAILED = 2
+};
+
+static inline enum forward_status wallet_forward_status_in_db(enum forward_status s)
+{
+	switch (s) {
+	case FORWARD_OFFERED:
+		BUILD_ASSERT(FORWARD_OFFERED == 0);
+		return s;
+	case FORWARD_SETTLED:
+		BUILD_ASSERT(FORWARD_SETTLED == 1);
+		return s;
+	case FORWARD_FAILED:
+		BUILD_ASSERT(FORWARD_FAILED == 2);
+		return s;
+	}
+	fatal("%s: %u is invalid", __func__, s);
+}
+
 /* A database backed shachain struct. The datastructure is
  * writethrough, reads are performed from an in-memory version, all
  * writes are passed through to the DB. */

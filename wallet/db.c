@@ -339,6 +339,21 @@ char *dbmigrations[] = {
     "ALTER TABLE channels ADD future_per_commitment_point BLOB;",
     /* last_sent_commit array fix */
     "ALTER TABLE channels ADD last_sent_commit BLOB;",
+
+    /* Stats table to track forwarded HTLCs. The values in the HTLCs
+     * and their states are replicated here and the entries are not
+     * deleted when the HTLC entries or the channel entries are
+     * deleted to avoid unexpected drops in statistics. */
+    "CREATE TABLE forwarded_payments ("
+    "  in_htlc_id INTEGER REFERENCES channel_htlcs(id) ON DELETE SET NULL"
+    ", out_htlc_id INTEGER REFERENCES channel_htlcs(id) ON DELETE SET NULL"
+    ", in_channel_scid INTEGER"
+    ", out_channel_scid INTEGER"
+    ", in_msatoshi INTEGER"
+    ", out_msatoshi INTEGER"
+    ", state INTEGER"
+    ", UNIQUE(in_htlc_id, out_htlc_id)"
+    ");",
     NULL,
 };
 
