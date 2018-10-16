@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Protocol: we don't send redundant `node_announcement` on every new channel.
 - Config: config file can override `lightning-dir` (makes sense with `--conf`).
 - Config: `--conf` option is now relative to current directory, not `lightning-dir`.
+- lightning-cli: `help <cmd>` prints basic information even if no man page found.
 
 ### Deprecated
 
