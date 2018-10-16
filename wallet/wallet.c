@@ -2405,3 +2405,28 @@ struct channeltx *wallet_channeltxs_get(struct wallet *w, const tal_t *ctx,
 	db_stmt_done(stmt);
 	return res;
 }
+
+void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
+				  const struct htlc_out *out,
+				  enum forward_status state)
+{
+	sqlite3_stmt *stmt;
+	stmt = db_prepare(
+		w->db,
+		"INSERT OR REPLACE INTO forwarded_payments ("
+		"  in_htlc_id"
+		", out_htlc_id"
+		", in_channel_scid"
+		", out_channel_scid"
+		", in_msatoshi"
+		", out_msatoshi"
+		", state) VALUES (?, ?, ?, ?, ?, ?, ?);");
+	sqlite3_bind_int64(stmt, 1, in->dbid);
+	sqlite3_bind_int64(stmt, 2, out->dbid);
+	sqlite3_bind_int64(stmt, 3, in->key.channel->scid->u64);
+	sqlite3_bind_int64(stmt, 4, out->key.channel->scid->u64);
+	sqlite3_bind_int64(stmt, 5, in->msatoshi);
+	sqlite3_bind_int64(stmt, 6, out->msatoshi);
+	sqlite3_bind_int(stmt, 7, state);
+	db_exec_prepared(w->db, stmt);
+}

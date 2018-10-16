@@ -995,4 +995,8 @@ u32 *wallet_onchaind_channels(struct wallet *w,
 struct channeltx *wallet_channeltxs_get(struct wallet *w, const tal_t *ctx,
 					u32 channel_id);
 
+void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
+				  const struct htlc_out *out,
+				  enum forward_status state);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */
