@@ -90,9 +90,6 @@ struct daemon {
 
 	/* What we can actually announce. */
 	struct wireaddr *announcable;
-
-	/* To make sure our node_announcement timestamps increase */
-	u32 last_announce_timestamp;
 };
 
 struct peer {
@@ -313,11 +310,17 @@ static void send_node_announcement(struct daemon *daemon)
 	u32 timestamp = time_now().ts.tv_sec;
 	secp256k1_ecdsa_signature sig;
 	u8 *msg, *nannounce, *err;
+	s64 last_timestamp;
+	struct node *self = get_node(daemon->rstate, &daemon->id);
+
+	if (self)
+		last_timestamp = self->last_timestamp;
+	else
+		last_timestamp = -1;
 
 	/* Timestamps must move forward, or announce will be ignored! */
-	if (timestamp <= daemon->last_announce_timestamp)
-		timestamp = daemon->last_announce_timestamp + 1;
-	daemon->last_announce_timestamp = timestamp;
+	if (timestamp <= last_timestamp)
+		timestamp = last_timestamp + 1;
 
 	nannounce = create_node_announcement(tmpctx, daemon, NULL, timestamp);
 
@@ -2149,7 +2152,6 @@ int main(int argc, char *argv[])
 	daemon = tal(NULL, struct daemon);
 	list_head_init(&daemon->peers);
 	timers_init(&daemon->timers, time_mono());
-	daemon->last_announce_timestamp = 0;
 
 	/* stdin == control */
 	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req,
