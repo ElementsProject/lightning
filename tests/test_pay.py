@@ -150,7 +150,7 @@ def test_pay_get_error_with_update(node_factory):
     # channel_update, and it should patch it to include a type prefix. The
     # prefix 0x0102 should be in the channel_update, but not in the
     # onionreply (negation of 0x0102 in the RE)
-    l1.daemon.wait_for_log(r'Extracted channel_update 0102.*from onionreply 10070080(?!.*0102)')
+    l1.daemon.wait_for_log(r'Extracted channel_update 0102.*from onionreply 10070088[0-9a-fA-F]{88}')
 
     # And now monitor for l1 to apply the channel_update we just extracted
     l1.daemon.wait_for_log('Received channel_update for channel {}\(.\) now DISABLED was ACTIVE \(from error\)'.format(chanid2))

@@ -942,16 +942,13 @@ static void update_local_channel(struct daemon *daemon,
 				 u64 htlc_minimum_msat,
 				 u32 fee_base_msat,
 				 u32 fee_proportional_millionths,
+				 u64 htlc_maximum_msat,
 				 const char *caller)
 {
 	secp256k1_ecdsa_signature dummy_sig;
 	u8 *update, *msg;
 	u32 timestamp = time_now().ts.tv_sec;
 	u8 message_flags, channel_flags;
-
-	/* `message_flags` are optional.
-	 * Currently, not set by c-lightning */
-	message_flags = 0;
 
 	/* So valgrind doesn't complain */
 	memset(&dummy_sig, 0, sizeof(dummy_sig));
@@ -965,7 +962,10 @@ static void update_local_channel(struct daemon *daemon,
 	if (disable)
 		channel_flags |= ROUTING_FLAGS_DISABLED;
 
-	update = towire_channel_update(tmpctx, &dummy_sig,
+	// We set the htlc_maximum_msat value
+	message_flags = 0 | ROUTING_OPT_HTLC_MAX_MSAT;
+
+	update = towire_channel_update_option_channel_htlc_max(tmpctx, &dummy_sig,
 				       &daemon->rstate->chain_hash,
 				       &chan->scid,
 				       timestamp,
@@ -973,7 +973,8 @@ static void update_local_channel(struct daemon *daemon,
 				       cltv_expiry_delta,
 				       htlc_minimum_msat,
 				       fee_base_msat,
-				       fee_proportional_millionths);
+				       fee_proportional_millionths,
+				       htlc_maximum_msat);
 
 	if (!wire_sync_write(HSM_FD,
 			     towire_hsm_cupdate_sig_req(tmpctx, update))) {
@@ -1026,6 +1027,7 @@ static void maybe_update_local_channel(struct daemon *daemon,
 			     hc->htlc_minimum_msat,
 			     hc->base_fee,
 			     hc->proportional_fee,
+			     hc->htlc_maximum_msat,
 			     __func__);
 }
 
@@ -1093,7 +1095,8 @@ out:
 /* Return true if the information has changed. */
 static bool halfchan_new_info(const struct half_chan *hc,
 			      u16 cltv_delta, u64 htlc_minimum_msat,
-			      u32 fee_base_msat, u32 fee_proportional_millionths)
+			      u32 fee_base_msat, u32 fee_proportional_millionths,
+			      u64 htlc_maximum_msat)
 {
 	if (!is_halfchan_defined(hc))
 		return true;
@@ -1101,7 +1104,8 @@ static bool halfchan_new_info(const struct half_chan *hc,
 	return hc->delay != cltv_delta
 		|| hc->htlc_minimum_msat != htlc_minimum_msat
 		|| hc->base_fee != fee_base_msat
-		|| hc->proportional_fee != fee_proportional_millionths;
+		|| hc->proportional_fee != fee_proportional_millionths
+		|| hc->htlc_maximum_msat != htlc_maximum_msat;
 }
 
 static void handle_local_channel_update(struct peer *peer, const u8 *msg)
@@ -1111,6 +1115,7 @@ static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 	bool disable;
 	u16 cltv_expiry_delta;
 	u64 htlc_minimum_msat;
+	u64 htlc_maximum_msat;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
 	int direction;
@@ -1121,7 +1126,8 @@ static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 						  &cltv_expiry_delta,
 						  &htlc_minimum_msat,
 						  &fee_base_msat,
-						  &fee_proportional_millionths)) {
+						  &fee_proportional_millionths,
+						  &htlc_maximum_msat)) {
 		status_broken("peer %s bad local_channel_update %s",
 			      type_to_string(tmpctx, struct pubkey, &peer->id),
 			      tal_hex(tmpctx, msg));
@@ -1151,7 +1157,8 @@ static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 	 * Or, if it's an unannounced channel (only sending to peer). */
 	if (halfchan_new_info(&chan->half[direction],
 			      cltv_expiry_delta, htlc_minimum_msat,
-			      fee_base_msat, fee_proportional_millionths)
+			      fee_base_msat, fee_proportional_millionths,
+			      htlc_maximum_msat)
 	    || ((chan->half[direction].channel_flags & ROUTING_FLAGS_DISABLED)
 		&& !disable)
 	    || !is_chan_public(chan)) {
@@ -1161,6 +1168,7 @@ static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 				     htlc_minimum_msat,
 				     fee_base_msat,
 				     fee_proportional_millionths,
+				     htlc_maximum_msat,
 				     __func__);
 	}
 
@@ -1748,6 +1756,7 @@ static void gossip_send_keepalive_update(struct daemon *daemon,
 			     hc->htlc_minimum_msat,
 			     hc->base_fee,
 			     hc->proportional_fee,
+			     hc->htlc_maximum_msat,
 			     __func__);
 }
 

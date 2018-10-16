@@ -130,6 +130,7 @@ gossip_local_channel_update,,cltv_expiry_delta,u16
 gossip_local_channel_update,,htlc_minimum_msat,u64
 gossip_local_channel_update,,fee_base_msat,u32
 gossip_local_channel_update,,fee_proportional_millionths,u32
+gossip_local_channel_update,,htlc_maximum_msat,u64
 
 gossip_local_channel_close,3027
 gossip_local_channel_close,,short_channel_id,struct short_channel_id

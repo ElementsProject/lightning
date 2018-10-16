@@ -60,6 +60,7 @@
 #define PEER_FD 3
 #define GOSSIP_FD 4
 #define HSM_FD 5
+#define min(x, y) ((x) < (y) ? (x) : (y))
 
 struct commit_sigs {
 	struct peer *peer;
@@ -227,6 +228,25 @@ static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 	return msg;
 }
 
+/*
+ * The maximum msat that this node will accept for an htlc.
+ * It's flagged as an optional field in `channel_update`.
+ *
+ * We advertise the maximum value possible, defined as the smaller
+ * of the remote's maximum in-flight HTLC or the total channel
+ * capacity minus the cumulative reserve.
+ * FIXME: does this need fuzz?
+ */
+static const u64 advertised_htlc_max(const u64 funding_msat,
+		const struct channel_config *our_config,
+		const struct channel_config *remote_config)
+{
+	u64 cumulative_reserve_msat = (our_config->channel_reserve_satoshis +
+		remote_config->channel_reserve_satoshis) * 1000;
+	return min(remote_config->max_htlc_value_in_flight_msat,
+			funding_msat - cumulative_reserve_msat);
+}
+
 /* Create and send channel_update to gossipd (and maybe peer) */
 static void send_channel_update(struct peer *peer, int disable_flag)
 {
@@ -247,7 +267,11 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 						 peer->cltv_delta,
 						 peer->conf[REMOTE].htlc_minimum_msat,
 						 peer->fee_base,
-						 peer->fee_per_satoshi);
+						 peer->fee_per_satoshi,
+						 advertised_htlc_max(
+							 peer->channel->funding_msat,
+							 &peer->conf[LOCAL],
+							 &peer->conf[REMOTE]));
 	wire_sync_write(GOSSIP_FD, take(msg));
 }
 
@@ -2306,7 +2330,6 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 
 	/* FIXME: Fuzz the boundaries a bit to avoid probing? */
 	case CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED:
-		/* FIXME: We should advertise this? */
 		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
 		failmsg = tal_fmt(inmsg, "Maximum value exceeded");
 		goto failed;
