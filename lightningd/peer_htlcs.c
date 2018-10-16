@@ -722,8 +722,11 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 
 	if (hout->am_origin)
 		payment_succeeded(ld, hout, preimage);
-	else if (hout->in)
+	else if (hout->in) {
 		fulfill_htlc(hout->in, preimage);
+		wallet_forwarded_payment_add(ld->wallet, hout->in, hout,
+					     FORWARD_SETTLED);
+	}
 }
 
 static bool peer_fulfilled_our_htlc(struct channel *channel,
@@ -813,6 +816,10 @@ static bool peer_failed_our_htlc(struct channel *channel,
 	log_debug(channel->log, "Our HTLC %"PRIu64" failed (%u)", failed->id,
 		  hout->failcode);
 	htlc_out_check(hout, __func__);
+
+	if (hout->in)
+		wallet_forwarded_payment_add(ld->wallet, hout->in, hout, FORWARD_FAILED);
+
 	return true;
 }
 
@@ -961,6 +968,10 @@ static bool update_out_htlc(struct channel *channel,
 		wallet_channel_stats_incr_out_offered(ld->wallet,
 						      channel->dbid,
 						      hout->msatoshi);
+
+		if (hout->in)
+			wallet_forwarded_payment_add(ld->wallet, hout->in, hout,
+						     FORWARD_OFFERED);
 
 		/* For our own HTLCs, we commit payment to db lazily */
 		if (hout->origin_htlc_id == 0)
