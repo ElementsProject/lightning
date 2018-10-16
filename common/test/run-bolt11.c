@@ -123,6 +123,7 @@ int main(void)
 	u64 msatoshi;
 	const char *badstr;
 
+	wally_init(0);
 	secp256k1_ctx = wally_get_secp_context();
 	setup_tmpctx();
 
