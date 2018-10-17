@@ -162,7 +162,7 @@ static inline const char* forward_status_name(enum forward_status status)
 struct forwarding {
 	struct short_channel_id channel_in, channel_out;
 	u64 msatoshi_in, msatoshi_out, fee;
-	struct sha256_double payment_hash;
+	struct sha256_double *payment_hash;
 	enum forward_status status;
 };
 
