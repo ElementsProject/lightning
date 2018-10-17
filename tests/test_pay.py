@@ -985,7 +985,7 @@ def test_forward_stats(node_factory, bitcoind):
     hash) and l5 will keep the HTLC dangling by disconnecting.
 
     """
-    amount = 10**4
+    amount = 10**5
     l1, l2, l3 = node_factory.line_graph(3, announce=False)
     l4 = node_factory.get_node()
     l5 = node_factory.get_node(may_fail=True)
@@ -1046,3 +1046,7 @@ def test_forward_stats(node_factory, bitcoind):
     assert outchan['out_msatoshi_offered'] == outchan['out_msatoshi_fulfilled']
 
     assert outchan['out_msatoshi_fulfilled'] < inchan['in_msatoshi_fulfilled']
+
+    stats = l2.rpc.getroutestats()
+
+    assert [f['status'] for f in stats['forwards']] == ['settled', 'failed', 'offered']

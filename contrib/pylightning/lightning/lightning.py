@@ -428,6 +428,15 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self.call("listfunds")
 
+    def getroutestats(self, details=True):
+        """Get statistics about routed payments.
+
+        If @details is True, this'll include the individual forwarded
+        payments.
+
+        """
+        return self.call("getroutestats", payload={'details': details})
+
     def dev_rescan_outputs(self):
         """
         Synchronize the state of our funds with bitcoind
