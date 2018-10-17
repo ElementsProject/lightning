@@ -2430,3 +2430,63 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 	sqlite3_bind_int(stmt, 7, state);
 	db_exec_prepared(w->db, stmt);
 }
+
+const struct forwarding_stats *wallet_forwarded_payments_stats(struct wallet *w,
+							      const tal_t *ctx)
+{
+	struct forwarding_stats *stats = talz(ctx, struct forwarding_stats);
+	sqlite3_stmt *stmt;
+	stmt = db_prepare(w->db,
+			  "SELECT"
+			  "  state"
+			  ", COUNT(*)"
+			  ", SUM(out_msatoshi) as total"
+			  ", SUM(in_msatoshi - out_msatoshi) as fee "
+			  "FROM forwarded_payments "
+			  "GROUP BY state;");
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		enum forward_status state = sqlite3_column_int(stmt, 0);
+		stats->count[state] = sqlite3_column_int64(stmt, 1);
+		stats->msatoshi[state] = sqlite3_column_int64(stmt, 2);
+		stats->fee[state] = sqlite3_column_int64(stmt, 3);
+	}
+
+	db_stmt_done(stmt);
+
+	return stats;
+}
+
+const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
+						       const tal_t *ctx)
+{
+	struct forwarding *results = tal_arr(ctx, struct forwarding, 0);
+	size_t count = 0;
+	sqlite3_stmt *stmt;
+	stmt = db_prepare(w->db,
+			  "SELECT"
+			  "  f.state"
+			  ", in_msatoshi"
+			  ", out_msatoshi"
+			  ", hin.payment_hash as payment_hash"
+			  ", in_channel_scid"
+			  ", out_channel_scid "
+			  "FROM forwarded_payments f "
+			  "LEFT JOIN channel_htlcs hin ON (f.in_htlc_id == hin.id)");
+
+	for (count=0; sqlite3_step(stmt) == SQLITE_ROW; count++) {
+		tal_resize(&results, count+1);
+		struct forwarding *cur = &results[count];
+		cur->status = sqlite3_column_int(stmt, 0);
+		cur->msatoshi_in = sqlite3_column_int64(stmt, 1);
+		cur->msatoshi_out = sqlite3_column_int64(stmt, 2);
+		cur->fee = cur->msatoshi_in - cur->msatoshi_out;
+		sqlite3_column_sha256_double(stmt, 3, &cur->payment_hash);
+		sqlite3_column_short_channel_id(stmt, 4, &cur->channel_in);
+		sqlite3_column_short_channel_id(stmt, 5, &cur->channel_out);
+	}
+
+	db_stmt_done(stmt);
+
+	return results;
+}
