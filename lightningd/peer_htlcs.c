@@ -1880,6 +1880,7 @@ static void listforwardings_add_forwardings(struct json_result *response, struct
 	for (size_t i=0; i<tal_count(forwardings); i++) {
 		const struct forwarding *cur = &forwardings[i];
 		json_object_start(response, NULL);
+
 		json_add_short_channel_id(response, "in_channel", &cur->channel_in);
 		json_add_short_channel_id(response, "out_channel", &cur->channel_out);
 		json_add_num(response, "in_msatoshi", cur->msatoshi_in);

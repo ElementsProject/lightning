@@ -2481,9 +2481,16 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 		cur->msatoshi_in = sqlite3_column_int64(stmt, 1);
 		cur->msatoshi_out = sqlite3_column_int64(stmt, 2);
 		cur->fee = cur->msatoshi_in - cur->msatoshi_out;
-		sqlite3_column_sha256_double(stmt, 3, &cur->payment_hash);
-		sqlite3_column_short_channel_id(stmt, 4, &cur->channel_in);
-		sqlite3_column_short_channel_id(stmt, 5, &cur->channel_out);
+
+		if (sqlite3_column_type(stmt, 3) != SQLITE_NULL) {
+			cur->payment_hash = tal(ctx, struct sha256_double);
+			sqlite3_column_sha256_double(stmt, 3, cur->payment_hash);
+		} else {
+			cur->payment_hash = NULL;
+		}
+
+		cur->channel_in.u64 = sqlite3_column_int64(stmt, 4);
+		cur->channel_out.u64 = sqlite3_column_int64(stmt, 5);
 	}
 
 	db_stmt_done(stmt);
