@@ -976,30 +976,73 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     assert only_one(l3.rpc.listinvoices('test_forward_pad_fees_and_cltv')['invoices'])['status'] == 'paid'
 
 
-def test_forward_stats(node_factory):
-    l1, l2, l3 = node_factory.line_graph(3, announce=True)
+def test_forward_stats(node_factory, bitcoind):
+    """Check that we track forwarded payments correctly.
 
-    inv = l3.rpc.invoice(100000, "first", "desc")['bolt11']
-    l1.rpc.pay(inv)
+    We wire up the network to have l1 as payment initiator, l2 as
+    forwarded (the one we check) and l3-l5 as payment recipients. l3
+    accepts correctly, l4 refects (because it doesn't know the payment
+    hash) and l5 will keep the HTLC dangling by disconnecting.
+
+    """
+    amount = 10**4
+    l1, l2, l3 = node_factory.line_graph(3, announce=False)
+    l4 = node_factory.get_node()
+    l5 = node_factory.get_node(may_fail=True)
+    l2.openchannel(l4, 10**6, announce=False)
+    l2.openchannel(l5, 10**6, announce=True)
+
+    bitcoind.generate_block(5)
+
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 8)
+
+    payment_hash = l3.rpc.invoice(amount, "first", "desc")['payment_hash']
+    route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
+
+    l1.rpc.sendpay(route, payment_hash)
+    l1.rpc.waitsendpay(payment_hash)
+
+    # l4 rejects since it doesn't know the payment_hash
+    route = l1.rpc.getroute(l4.info['id'], amount, 1)['route']
+    payment_hash = "F" * 64
+    with pytest.raises(RpcError):
+        l1.rpc.sendpay(route, payment_hash)
+        l1.rpc.waitsendpay(payment_hash)
+
+    # l5 will hold the HTLC hostage and walk away
+    route = l1.rpc.getroute(l5.info['id'], amount, 1)['route']
+    payment_hash = l5.rpc.invoice(amount, "first", "desc")['payment_hash']
+    l1.rpc.sendpay(route, payment_hash)
+
+    # Wait for the HTLC to be added, then try to kill it to keep the
+    # HTLC pending. This is racy but there seems to be no good
+    # alternative
+    l5.daemon.wait_for_log(r'RCVD_ADD_HTLC/SENT_ADD_HTLC')
+    l5.daemon.wait_for_log(r'peer_out WIRE_COMMITMENT_SIGNED')
+    l5.daemon.kill()
+    print("Killed!")
+
+    # Select all forwardings, ordered by htlc_id to ensure the order
+    # matches below
+    forwardings = l2.db_query("SELECT *, in_msatoshi - out_msatoshi as fee "
+                              "FROM forwarded_payments "
+                              "ORDER BY in_htlc_id;")
+    assert(len(forwardings) == 3)
+    states = [f['state'] for f in forwardings]
+    assert(states == [1, 2, 0])  # settled, failed, offered
 
     inchan = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]
     outchan = l2.rpc.listpeers(l3.info['id'])['peers'][0]['channels'][0]
 
-    def extract_stats(c):
-        return {k: v for k, v in c.items() if 'in_' in k or 'out_' in k}
-
-    instats = extract_stats(inchan)
-    outstats = extract_stats(outchan)
-
     # Check that we correctly account channel changes
-    assert instats['in_payments_offered'] == 1
-    assert instats['in_payments_fulfilled'] == 1
-    assert instats['in_msatoshi_offered'] >= 100000
-    assert instats['in_msatoshi_offered'] == instats['in_msatoshi_fulfilled']
+    assert inchan['in_payments_offered'] == 3
+    assert inchan['in_payments_fulfilled'] == 1
+    assert inchan['in_msatoshi_offered'] >= 3 * amount
+    assert inchan['in_msatoshi_fulfilled'] >= amount
 
-    assert outstats['out_payments_offered'] == 1
-    assert outstats['out_payments_fulfilled'] == 1
-    assert outstats['out_msatoshi_offered'] >= 100000
-    assert outstats['out_msatoshi_offered'] == outstats['out_msatoshi_fulfilled']
+    assert outchan['out_payments_offered'] == 1
+    assert outchan['out_payments_fulfilled'] == 1
+    assert outchan['out_msatoshi_offered'] >= amount
+    assert outchan['out_msatoshi_offered'] == outchan['out_msatoshi_fulfilled']
 
-    assert outstats['out_msatoshi_fulfilled'] < instats['in_msatoshi_fulfilled']
+    assert outchan['out_msatoshi_fulfilled'] < inchan['in_msatoshi_fulfilled']
