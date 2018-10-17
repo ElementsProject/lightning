@@ -153,7 +153,7 @@ def test_pay_get_error_with_update(node_factory):
     l1.daemon.wait_for_log(r'Extracted channel_update 0102.*from onionreply 10070088[0-9a-fA-F]{88}')
 
     # And now monitor for l1 to apply the channel_update we just extracted
-    l1.daemon.wait_for_log('Received channel_update for channel {}\(.\) now DISABLED was ACTIVE \(from error\)'.format(chanid2))
+    l1.daemon.wait_for_log(r'Received channel_update for channel {}\(.\) now DISABLED was ACTIVE \(from error\)'.format(chanid2))
 
 
 def test_pay_optional_args(node_factory):
@@ -198,7 +198,7 @@ def test_payment_success_persistence(node_factory, executor):
     # Fire off a pay request, it'll get interrupted by a restart
     executor.submit(l1.rpc.pay, inv1['bolt11'])
 
-    l1.daemon.wait_for_log('dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
+    l1.daemon.wait_for_log(r'dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
 
     print("Killing l1 in mid HTLC")
     l1.daemon.kill()
@@ -245,7 +245,7 @@ def test_payment_failed_persistence(node_factory, executor):
     # Fire off a pay request, it'll get interrupted by a restart
     executor.submit(l1.rpc.pay, inv1['bolt11'])
 
-    l1.daemon.wait_for_log('dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
+    l1.daemon.wait_for_log(r'dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
 
     print("Killing l1 in mid HTLC")
     l1.daemon.kill()
