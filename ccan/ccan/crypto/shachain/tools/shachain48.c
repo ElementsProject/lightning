@@ -16,9 +16,9 @@ int main(int argc, char *argv[])
 		char *p;
 
 		shachain_init(&s);
-		rbuf_init(&rbuf, STDIN_FILENO, malloc(size), size);
+		rbuf_init(&rbuf, STDIN_FILENO, malloc(size), size, membuf_realloc);
 
-		while ((p = rbuf_read_str(&rbuf, '\n', realloc)) != NULL) {
+		while ((p = rbuf_read_str(&rbuf, '\n')) != NULL) {
 			struct sha256 hash;
 			unsigned long long idx;
 

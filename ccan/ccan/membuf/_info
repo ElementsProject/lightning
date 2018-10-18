@@ -1,0 +1,51 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * membuf - simple linear memory buffer routines.
+ *
+ * It's common to want a linear memory buffer, where you can get memory on
+ * the end, and consume memory from the start.  The details of actually
+ * when to enlarge or move the buffer are slightly nontrivial, so they're
+ * encapsulated here.
+ *
+ * License: BSD-MIT
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ *
+ * Example:
+ * #include <ccan/membuf/membuf.h>
+ * #include <string.h>
+ * #include <stdio.h>
+ *
+ * // Given "hello world" outputs helloworld
+ * // Given "hello there world" outputs hellothereworld
+ * int main(int argc, char *argv[])
+ * {
+ *	MEMBUF(char) charbuf;
+ *
+ *	membuf_init(&charbuf, malloc(10), 10, membuf_realloc);
+ *
+ *	for (int i = 1; i < argc; i++)
+ *		strcpy(membuf_add(&charbuf, strlen(argv[i])), argv[i]);
+ *
+ *	// This is dumb, we could do all at once, but shows technique.
+ *	while (membuf_num_elems(&charbuf) > 0)
+ *		printf("%c", *(char *)membuf_consume(&charbuf, 1));
+ *	printf("\n");
+ *	return 0;
+ * }
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/tcon\n");
+		return 0;
+	}
+
+	return 1;
+}

@@ -23,19 +23,19 @@
  *		char *word;
  *
  *		if (argv[1]) {
- *			if (!rbuf_open(&in, argv[1], NULL, 0))
+ *			if (!rbuf_open(&in, argv[1], NULL, 0, membuf_realloc))
  *				err(1, "Failed opening %s", argv[1]);
  *		} else
- *			rbuf_init(&in, STDIN_FILENO, NULL, 0);
+ *			rbuf_init(&in, STDIN_FILENO, NULL, 0, membuf_realloc);
  *
- *		while ((word = rbuf_read_str(&in, ' ', realloc)) != NULL)
+ *		while ((word = rbuf_read_str(&in, ' ')) != NULL)
  *			printf("%s*", word);
  *
  *		if (errno)
  *			err(1, "Reading %s", argv[1] ? argv[1] : "<stdin>");
  *
  *		// Free the buffer, just because we can.
- *		free(in.buf);
+ *		free(rbuf_cleanup(&in));
  *		return 0;
  *	}
  */
@@ -46,6 +46,7 @@ int main(int argc, char *argv[])
 		return 1;
 
 	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/membuf\n");
 		return 0;
 	}
 

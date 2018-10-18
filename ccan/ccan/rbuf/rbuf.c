@@ -7,19 +7,15 @@
 #include <string.h>
 #include <fcntl.h>
 
-bool rbuf_open(struct rbuf *rbuf, const char *name, char *buf, size_t buf_max)
+bool rbuf_open(struct rbuf *rbuf, const char *name, char *buf, size_t buf_max,
+	       void *(*expandfn)(struct membuf *, void *, size_t))
 {
 	int fd = open(name, O_RDONLY);
 	if (fd >= 0) {
-		rbuf_init(rbuf, fd, buf, buf_max);
+		rbuf_init(rbuf, fd, buf, buf_max, expandfn);
 		return true;
 	}
 	return false;
-}
-
-static size_t rem(const struct rbuf *buf)
-{
-	return buf->buf_end - (buf->start + buf->len);
 }
 
 size_t rbuf_good_size(int fd)
@@ -31,100 +27,78 @@ size_t rbuf_good_size(int fd)
 	return 4096;
 }
 
-static bool enlarge_buf(struct rbuf *buf, size_t len,
-			void *(*resize)(void *buf, size_t len))
-{
-	char *new;
-	if (!resize) {
-		errno = ENOMEM;
-		return false;
-	}
-	if (!len)
-		len = rbuf_good_size(buf->fd);
-	new = resize(buf->buf, len);
-	if (!new)
-		return false;
-	buf->start += (new - buf->buf);
-	buf->buf = new;
-	buf->buf_end = new + len;
-	return true;
-}
-
-static ssize_t get_more(struct rbuf *rbuf,
-			void *(*resize)(void *buf, size_t len))
-{
-	size_t r;
-
-	if (rbuf->start + rbuf->len == rbuf->buf_end) {
-		if (!enlarge_buf(rbuf, (rbuf->buf_end - rbuf->buf) * 2, resize))
-			return -1;
-	}
-
-	r = read(rbuf->fd, rbuf->start + rbuf->len, rem(rbuf));
-	if (r <= 0)
-		return r;
-
-	rbuf->len += r;
-	return r;
-}
-
-void *rbuf_fill_all(struct rbuf *rbuf, void *(*resize)(void *buf, size_t len))
+static ssize_t get_more(struct rbuf *rbuf)
 {
 	ssize_t r;
 
-	/* Move back to start of buffer if we're empty. */
-	if (!rbuf->len)
-		rbuf->start = rbuf->buf;
+	/* This is so we only call rbuf_good_size once. */
+	if (tcon_unwrap(&rbuf->m)->max_elems == 0)
+		membuf_prepare_space(&rbuf->m, rbuf_good_size(rbuf->fd));
+	else /* membuf doubles internally, so just ask for anything. */
+		membuf_prepare_space(&rbuf->m, 1);
 
-	while ((r = get_more(rbuf, resize)) != 0)
+	/* This happens if realloc fails (errno already ENOMEM) */
+	if (!membuf_num_space(&rbuf->m))
+		return -1;
+
+	r = read(rbuf->fd, membuf_space(&rbuf->m), membuf_num_space(&rbuf->m));
+	if (r <= 0)
+		return r;
+
+	membuf_add(&rbuf->m, r);
+	return r;
+}
+
+void *rbuf_fill_all(struct rbuf *rbuf)
+{
+	ssize_t r;
+
+	while ((r = get_more(rbuf)) != 0)
 		if (r < 0)
 			return NULL;
-	return rbuf->start;
+	return rbuf_start(rbuf);
 }
 
-void *rbuf_fill(struct rbuf *rbuf, void *(*resize)(void *buf, size_t len))
+void *rbuf_fill(struct rbuf *rbuf)
 {
-	if (!rbuf->len) {
-		rbuf->start = rbuf->buf;
-		if (get_more(rbuf, resize) < 0)
+	if (!rbuf_len(rbuf)) {
+		if (get_more(rbuf) < 0)
 			return NULL;
 	}
-	return rbuf->start;
+	return rbuf_start(rbuf);
 }
 
-char *rbuf_read_str(struct rbuf *rbuf, char term,
-		    void *(*resize)(void *buf, size_t len))
+char *rbuf_read_str(struct rbuf *rbuf, char term)
 {
-	char *p, *ret;
+	char *p;
 	ssize_t r = 0;
 	size_t prev = 0;
 
-	/* Move back to start of buffer if we're empty. */
-	if (!rbuf->len)
-		rbuf->start = rbuf->buf;
-
-	while (!(p = memchr(rbuf->start + prev, term, rbuf->len - prev))) {
+	while (!(p = memchr(membuf_elems(&rbuf->m) + prev,
+			    term,
+			    membuf_num_elems(&rbuf->m) - prev))) {
 		prev += r;
-		r = get_more(rbuf, resize);
+		r = get_more(rbuf);
 		if (r < 0)
 			return NULL;
 		/* EOF with no term. */
 		if (r == 0) {
+			char *ret;
+			size_t len = rbuf_len(rbuf);
+
 			/* Nothing read at all? */
-			if (!rbuf->len && term) {
+			if (!len && term) {
 				errno = 0;
 				return NULL;
 			}
+
 			/* Put term after input (get_more made room). */
-			assert(rbuf->start + rbuf->len < rbuf->buf_end);
-			rbuf->start[rbuf->len] = '\0';
-			ret = rbuf->start;
-			rbuf_consume(rbuf, rbuf->len);
+			assert(membuf_num_space(&rbuf->m) > 0);
+			ret = membuf_consume(&rbuf->m, len);
+			ret[len] = '\0';
 			return ret;
 		}
 	}
 	*p = '\0';
-	ret = rbuf->start;
-	rbuf_consume(rbuf, p + 1 - ret);
-	return ret;
+	return membuf_consume(&rbuf->m, p + 1 - (char *)rbuf_start(rbuf));
 }
