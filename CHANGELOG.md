@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Bitcoind: more parallelism in requests, for very slow nodes.
 - Testing: fixed logging, cleaner interception of bitcoind, minor fixes.
 - Protocol: we set and handle the new `htlc_maximum_msat` channel_update field.
+- JSON API: `invoice` now adds route hint to invoices for incoming capacity (RouteBoost), and warns if insufficient capacity.
+- JSON API: `listforwards` lists all forwarded payments, their associated channels, and fees.
 
 ### Changed
 
@@ -23,6 +25,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Config: config file can override `lightning-dir` (makes sense with `--conf`).
 - Config: `--conf` option is now relative to current directory, not `lightning-dir`.
 - lightning-cli: `help <cmd>` prints basic information even if no man page found.
+- JSON API: `getinfo` now reports global statistics about forwarded payments, including total fees earned and amounts routed.
 
 ### Deprecated
 
