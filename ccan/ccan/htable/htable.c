@@ -2,6 +2,7 @@
 #include <ccan/htable/htable.h>
 #include <ccan/compiler/compiler.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <assert.h>
@@ -78,6 +79,7 @@ bool htable_init_sized(struct htable *ht,
 		return false;
 	}
 	htable_adjust_capacity(ht);
+	(void)htable_debug(ht, HTABLE_LOC);
 	return true;
 }
 	
@@ -88,7 +90,7 @@ void htable_clear(struct htable *ht)
 	htable_init(ht, ht->rehash, ht->priv);
 }
 
-bool htable_copy(struct htable *dst, const struct htable *src)
+bool htable_copy_(struct htable *dst, const struct htable *src)
 {
 	uintptr_t *htable = malloc(sizeof(size_t) << src->bits);
 
@@ -122,21 +124,21 @@ static void *htable_val(const struct htable *ht,
 	return NULL;
 }
 
-void *htable_firstval(const struct htable *ht,
-		      struct htable_iter *i, size_t hash)
+void *htable_firstval_(const struct htable *ht,
+		       struct htable_iter *i, size_t hash)
 {
 	i->off = hash_bucket(ht, hash);
 	return htable_val(ht, i, hash, ht->perfect_bit);
 }
 
-void *htable_nextval(const struct htable *ht,
-		     struct htable_iter *i, size_t hash)
+void *htable_nextval_(const struct htable *ht,
+		      struct htable_iter *i, size_t hash)
 {
 	i->off = (i->off + 1) & ((1 << ht->bits)-1);
 	return htable_val(ht, i, hash, 0);
 }
 
-void *htable_first(const struct htable *ht, struct htable_iter *i)
+void *htable_first_(const struct htable *ht, struct htable_iter *i)
 {
 	for (i->off = 0; i->off < (size_t)1 << ht->bits; i->off++) {
 		if (entry_is_valid(ht->table[i->off]))
@@ -145,7 +147,7 @@ void *htable_first(const struct htable *ht, struct htable_iter *i)
 	return NULL;
 }
 
-void *htable_next(const struct htable *ht, struct htable_iter *i)
+void *htable_next_(const struct htable *ht, struct htable_iter *i)
 {
 	for (i->off++; i->off < (size_t)1 << ht->bits; i->off++) {
 		if (entry_is_valid(ht->table[i->off]))
@@ -154,7 +156,7 @@ void *htable_next(const struct htable *ht, struct htable_iter *i)
 	return NULL;
 }
 
-void *htable_prev(const struct htable *ht, struct htable_iter *i)
+void *htable_prev_(const struct htable *ht, struct htable_iter *i)
 {
 	for (;;) {
 		if (!i->off)
@@ -215,6 +217,8 @@ static COLD bool double_table(struct htable *ht)
 		free(oldtable);
 	}
 	ht->deleted = 0;
+
+	(void)htable_debug(ht, HTABLE_LOC);
 	return true;
 }
 
@@ -240,6 +244,7 @@ static COLD void rehash_table(struct htable *ht)
 		}
 	}
 	ht->deleted = 0;
+	(void)htable_debug(ht, HTABLE_LOC);
 }
 
 /* We stole some bits, now we need to put them back... */
@@ -261,6 +266,7 @@ static COLD void update_common(struct htable *ht, const void *p)
 		ht->common_mask = ~((uintptr_t)1 << i);
 		ht->common_bits = ((uintptr_t)p & ht->common_mask);
 		ht->perfect_bit = 1;
+		(void)htable_debug(ht, HTABLE_LOC);
 		return;
 	}
 
@@ -283,9 +289,10 @@ static COLD void update_common(struct htable *ht, const void *p)
 	ht->common_mask &= ~maskdiff;
 	ht->common_bits &= ~maskdiff;
 	ht->perfect_bit &= ~maskdiff;
+	(void)htable_debug(ht, HTABLE_LOC);
 }
 
-bool htable_add(struct htable *ht, size_t hash, const void *p)
+bool htable_add_(struct htable *ht, size_t hash, const void *p)
 {
 	if (ht->elems+1 > ht->max && !double_table(ht))
 		return false;
@@ -300,7 +307,7 @@ bool htable_add(struct htable *ht, size_t hash, const void *p)
 	return true;
 }
 
-bool htable_del(struct htable *ht, size_t h, const void *p)
+bool htable_del_(struct htable *ht, size_t h, const void *p)
 {
 	struct htable_iter i;
 	void *c;
@@ -314,7 +321,7 @@ bool htable_del(struct htable *ht, size_t h, const void *p)
 	return false;
 }
 
-void htable_delval(struct htable *ht, struct htable_iter *i)
+void htable_delval_(struct htable *ht, struct htable_iter *i)
 {
 	assert(i->off < (size_t)1 << ht->bits);
 	assert(entry_is_valid(ht->table[i->off]));
@@ -322,4 +329,54 @@ void htable_delval(struct htable *ht, struct htable_iter *i)
 	ht->elems--;
 	ht->table[i->off] = HTABLE_DELETED;
 	ht->deleted++;
+}
+
+struct htable *htable_check(const struct htable *ht, const char *abortstr)
+{
+	void *p;
+	struct htable_iter i;
+	size_t n = 0;
+
+	/* Use non-DEBUG versions here, to avoid infinite recursion with
+	 * CCAN_HTABLE_DEBUG! */
+	for (p = htable_first_(ht, &i); p; p = htable_next_(ht, &i)) {
+		struct htable_iter i2;
+		void *c;
+		size_t h = ht->rehash(p, ht->priv);
+		bool found = false;
+
+		n++;
+
+		/* Open-code htable_get to avoid CCAN_HTABLE_DEBUG */
+		for (c = htable_firstval_(ht, &i2, h);
+		     c;
+		     c = htable_nextval_(ht, &i2, h)) {
+			if (c == p) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found) {
+			if (abortstr) {
+				fprintf(stderr,
+					"%s: element %p in position %zu"
+					" cannot find itself\n",
+					abortstr, p, i.off);
+				abort();
+			}
+			return NULL;
+		}
+	}
+	if (n != ht->elems) {
+		if (abortstr) {
+			fprintf(stderr,
+				"%s: found %zu elems, expected %zu\n",
+				abortstr, n, ht->elems);
+			abort();
+		}
+		return NULL;
+	}
+
+	return (struct htable *)ht;
 }

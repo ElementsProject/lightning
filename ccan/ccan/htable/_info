@@ -41,7 +41,7 @@
  *	}
  *
  *	// Comparison function.
- *	static bool streq(const void *e, void *string)
+ *	static bool nameeq(const void *e, void *string)
  *	{
  *		return strcmp(((struct name_to_digit *)e)->name, string) == 0;
  *	}
@@ -49,13 +49,13 @@
  *	// We let them add their own aliases, eg. --alias=v=5
  *	static void add_alias(struct htable *ht, const char *alias)
  *	{
- *		char *eq;
+ *		char *eq, *name;
  *		struct name_to_digit *n;
  *
  *		n = malloc(sizeof(*n));
- *		n->name = strdup(alias);
+ *		n->name = name = strdup(alias);
  *
- *		eq = strchr(n->name, '=');
+ *		eq = strchr(name, '=');
  *		if (!eq || ((n->val = atoi(eq+1)) == 0 && !strcmp(eq+1, "0")))
  *			errx(1, "Usage: --alias=<name>=<value>");
  *		*eq = '\0';
@@ -89,7 +89,7 @@
  *		for (val = 0; i < argc; i++) {
  *			struct name_to_digit *n;
  *			n = htable_get(&ht, hash_string(argv[i]),
- *				       streq, argv[i]);
+ *				       nameeq, argv[i]);
  *			if (!n)
  *				errx(1, "Invalid digit name %s", argv[i]);
  *			// Append it to the value we are building up.
@@ -110,6 +110,7 @@ int main(int argc, char *argv[])
 
 	if (strcmp(argv[1], "depends") == 0) {
 		printf("ccan/compiler\n");
+		printf("ccan/str\n");
 		return 0;
 	}
 

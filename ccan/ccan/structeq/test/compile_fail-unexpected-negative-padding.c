@@ -5,9 +5,9 @@ struct mydata {
 	int pad;
 };
 #ifdef FAIL
-#define PADDING -1 /* We have more than 1 byte padding */
+#define PADDING -1
 #else
-#define PADDING sizeof(int)
+#define PADDING -(int)sizeof(int)
 #endif
 
 STRUCTEQ_DEF(mydata, PADDING, start, end);
