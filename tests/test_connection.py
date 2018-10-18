@@ -41,7 +41,7 @@ def test_connect(node_factory):
         l1.rpc.connect('032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'localhost', 1)
 
     # Should get reasonable error if wrong key for peer.
-    with pytest.raises(RpcError, match=r'Cryptographic handshake: '):
+    with pytest.raises(RpcError, match=r'Cryptographic handshake: peer closed connection \(wrong key\?\)'):
         l1.rpc.connect('032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'localhost', l2.port)
 
 
