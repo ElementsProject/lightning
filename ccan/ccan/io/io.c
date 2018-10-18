@@ -202,8 +202,12 @@ struct io_plan *io_write_(struct io_conn *conn, const void *data, size_t len,
 static int do_read(int fd, struct io_plan_arg *arg)
 {
 	ssize_t ret = read(fd, arg->u1.cp, arg->u2.s);
-	if (ret <= 0)
+	if (ret <= 0) {
+		/* Errno isn't set if we hit EOF, so set it to distinct value */
+		if (ret == 0)
+			errno = 0;
 		return -1;
+	}
 
 	arg->u1.cp += ret;
 	arg->u2.s -= ret;
@@ -230,8 +234,12 @@ struct io_plan *io_read_(struct io_conn *conn,
 static int do_read_partial(int fd, struct io_plan_arg *arg)
 {
 	ssize_t ret = read(fd, arg->u1.cp, *(size_t *)arg->u2.vp);
-	if (ret <= 0)
+	if (ret <= 0) {
+		/* Errno isn't set if we hit EOF, so set it to distinct value */
+		if (ret == 0)
+			errno = 0;
 		return -1;
+	}
 
 	*(size_t *)arg->u2.vp = ret;
 	return 1;

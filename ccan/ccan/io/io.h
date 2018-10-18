@@ -223,7 +223,8 @@ struct io_plan *io_write_(struct io_conn *conn,
  *
  * This creates a plan to read data into a buffer.  Once it's all
  * read, the @next function will be called: on an error, the finish
- * function is called instead.
+ * function is called instead.  If read() returns 0 (EOF) errno is set
+ * to 0.
  *
  * Note that the I/O may actually be done immediately.
  *
@@ -256,7 +257,8 @@ struct io_plan *io_read_(struct io_conn *conn,
  *
  * This creates a plan to read data into a buffer.  Once any data is
  * read, @len is updated and the @next function will be called: on an
- * error, the finish function is called instead.
+ * error, the finish function is called instead.  If read() returns 0 (EOF)
+ * errno is set to 0.
  *
  * Note that the I/O may actually be done immediately.
  *
