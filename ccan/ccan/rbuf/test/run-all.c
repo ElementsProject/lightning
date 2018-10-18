@@ -7,6 +7,14 @@
 #include <fcntl.h>
 #include <stdlib.h>
 
+static bool test_realloc_fail;
+static void *test_realloc(struct membuf *mb, void *buf, size_t n)
+{
+	if (test_realloc_fail)
+		return NULL;
+	return realloc(buf, n);
+}
+
 int main(void)
 {
 	struct rbuf in;
@@ -24,25 +32,29 @@ int main(void)
 	}
 	close(fd);
 
-	ok1(rbuf_open(&in, "run-all-file", NULL, 0));
-	/* Can't fill without realloc. */
-	ok1(!rbuf_fill(&in, NULL));
+	ok1(rbuf_open(&in, "run-all-file", NULL, 0, test_realloc));
+	/* Can't fill if realloc fails. */
+	test_realloc_fail = true;
+	ok1(!rbuf_fill(&in));
 	ok1(errno == ENOMEM);
-	ok1(rbuf_fill(&in, realloc));
+	test_realloc_fail = false;
+	ok1(rbuf_fill(&in));
 	/* But can't load in whole file. */
-	ok1(!rbuf_fill_all(&in, NULL));
+	test_realloc_fail = true;
+	ok1(!rbuf_fill_all(&in));
 	ok1(errno == ENOMEM);
-	ok1(rbuf_fill_all(&in, realloc));
-	ok1(in.len == size);
+	test_realloc_fail = false;
+	ok1(rbuf_fill_all(&in));
+	ok1(rbuf_len(&in) == size);
 	for (i = 0; i * sizeof(buf) < size; i++) {
 		memset(buf, 0x42 + i, sizeof(buf));
-		if (memcmp(buf, in.start, sizeof(buf)) != 0) {
+		if (memcmp(buf, rbuf_start(&in), sizeof(buf)) != 0) {
 			fail("Bad buffer contents");
 			break;
 		}
 		rbuf_consume(&in, sizeof(buf));
 	}
-	free(in.buf);
+	free(rbuf_cleanup(&in));
 
 	/* This exits depending on whether all tests passed */
 	return exit_status();

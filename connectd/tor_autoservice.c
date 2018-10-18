@@ -26,7 +26,7 @@
 #define MAX_TOR_ONION_V2_ADDR_LEN 16
 #define MAX_TOR_ONION_V3_ADDR_LEN 56
 
-static void *buf_resize(void *buf, size_t len)
+static void *buf_resize(struct membuf *mb, void *buf, size_t len)
 {
 	tal_resize(&buf, len);
 	return buf;
@@ -49,7 +49,7 @@ static char *tor_response_line(struct rbuf *rbuf)
 {
 	char *line;
 
-	while ((line = rbuf_read_str(rbuf, '\n', buf_resize)) != NULL) {
+	while ((line = rbuf_read_str(rbuf, '\n')) != NULL) {
 		status_io(LOG_IO_IN, "torcontrol", line, strlen(line));
 
 		/* Weird response */
@@ -222,7 +222,7 @@ struct wireaddr *tor_autoservice(const tal_t *ctx,
 		err(1, "Connecting stream socket to Tor service");
 
 	buffer = tal_arr(tmpctx, char, rbuf_good_size(fd));
-	rbuf_init(&rbuf, fd, buffer, tal_count(buffer));
+	rbuf_init(&rbuf, fd, buffer, tal_count(buffer), buf_resize);
 
 	negotiate_auth(&rbuf, tor_password);
 	onion = make_onion(ctx, &rbuf, laddr);

@@ -68,6 +68,7 @@ CCAN_OBJS :=					\
 	ccan-isaac64.o				\
 	ccan-list.o				\
 	ccan-mem.o				\
+	ccan-membuf.o				\
 	ccan-noerr.o				\
 	ccan-opt-helpers.o			\
 	ccan-opt-parse.o			\
@@ -129,6 +130,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/likely/likely.h			\
 	$(CCANDIR)/ccan/list/list.h			\
 	$(CCANDIR)/ccan/mem/mem.h			\
+	$(CCANDIR)/ccan/membuf/membuf.h			\
 	$(CCANDIR)/ccan/noerr/noerr.h			\
 	$(CCANDIR)/ccan/opt/opt.h			\
 	$(CCANDIR)/ccan/opt/private.h			\
@@ -600,4 +602,6 @@ ccan-rbuf.o: $(CCANDIR)/ccan/rbuf/rbuf.c
 ccan-str-base32.o: $(CCANDIR)/ccan/str/base32/base32.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-utf8.o: $(CCANDIR)/ccan/utf8/utf8.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-membuf.o: $(CCANDIR)/ccan/membuf/membuf.c
 	$(CC) $(CFLAGS) -c -o $@ $<

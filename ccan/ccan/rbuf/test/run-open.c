@@ -14,9 +14,9 @@ int main(void)
 	/* This is how many tests you plan to run */
 	plan_tests(5);
 
-	ok1(!rbuf_open(&in, "nonexistent-file", NULL, 0));
+	ok1(!rbuf_open(&in, "nonexistent-file", NULL, 0, NULL));
 	ok1(errno == ENOENT);
-	ok1(rbuf_open(&in, "test/run-open.c", NULL, 0));
+	ok1(rbuf_open(&in, "test/run-open.c", NULL, 0, NULL));
 	ok1(close(in.fd) == 0);
 	/* If this fails to stat, it should fall back */
 	ok1(rbuf_good_size(in.fd) == 4096);
