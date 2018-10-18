@@ -1843,34 +1843,6 @@ static const struct json_command dev_ignore_htlcs = {
 AUTODATA(json_command, &dev_ignore_htlcs);
 #endif /* DEVELOPER */
 
-static void listforwardings_add_stats(struct json_result *response, struct wallet *wallet)
-{
-	const struct forwarding_stats *stats;
-	stats = wallet_forwarded_payments_stats(wallet, tmpctx);
-
-	json_object_start(response, "stats");
-	json_object_start(response, "settled");
-	json_add_num(response, "fee_msatoshis", stats->fee[FORWARD_SETTLED]);
-	json_add_num(response, "count", stats->count[FORWARD_SETTLED]);
-	json_add_num(response, "msatoshi", stats->msatoshi[FORWARD_SETTLED]);
-	json_object_end(response);
-
-	json_object_start(response, "failed");
-	json_add_num(response, "fee_msatoshis", stats->fee[FORWARD_FAILED]);
-	json_add_num(response, "count", stats->count[FORWARD_FAILED]);
-	json_add_num(response, "msatoshi", stats->msatoshi[FORWARD_FAILED]);
-	json_object_end(response);
-
-	json_object_start(response, "pending");
-	json_add_num(response, "fee_msatoshis", stats->fee[FORWARD_OFFERED]);
-	json_add_num(response, "count", stats->count[FORWARD_FAILED]);
-	json_add_num(response, "msatoshi", stats->msatoshi[FORWARD_FAILED]);
-	json_object_end(response);
-	json_object_end(response);
-
-	tal_free(stats);
-}
-
 static void listforwardings_add_forwardings(struct json_result *response, struct wallet *wallet)
 {
 	const struct forwarding *forwardings;
@@ -1894,31 +1866,24 @@ static void listforwardings_add_forwardings(struct json_result *response, struct
 	tal_free(forwardings);
 }
 
-static void json_getroutestats(struct command *cmd, const char *buffer,
+static void json_listforwards(struct command *cmd, const char *buffer,
 			       const jsmntok_t *params)
 {
 	struct json_result *response = new_json_result(cmd);
-	bool *details;
 
-	if (!param(cmd, buffer, params,
-		   p_opt_def("details", json_tok_bool, &details, true),
-		   NULL))
+	if (!param(cmd, buffer, params, NULL))
 		return;
 
 	json_object_start(response, NULL);
-	listforwardings_add_stats(response, cmd->ld->wallet);
-
-	if (*details)
-		listforwardings_add_forwardings(response, cmd->ld->wallet);
-
+	listforwardings_add_forwardings(response, cmd->ld->wallet);
 	json_object_end(response);
 
 	command_success(cmd, response);
 }
 
-static const struct json_command getroutestats_command = {
-	"getroutestats", json_getroutestats,
-	"Get statistics about routed / forwarded payments", false,
-	"Get statistics about routed payments, i.e., the ones we aren't the initiator or recipient, including a detailed list if {details} is true."
+static const struct json_command listforwards_command = {
+	"listforwards", json_listforwards,
+	"List all forwarded payments and their information", false,
+	"List all forwarded payments and their information"
 };
-AUTODATA(json_command, &getroutestats_command);
+AUTODATA(json_command, &listforwards_command);
