@@ -20,6 +20,7 @@
 #include <ccan/list/list.h>
 #include <ccan/mem/mem.h>
 #include <ccan/noerr/noerr.h>
+#include <ccan/str/str.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
@@ -566,11 +567,18 @@ static void PRINTF_FMT(5,6)
 static void destroy_io_conn(struct io_conn *conn, struct connecting *connect)
 {
 	/*~ tal_append_fmt appends to a tal string.  It's terribly convenient */
+	const char *errstr = strerror(errno);
+	/* errno 0 means they hung up on us. */
+	if (errno == 0) {
+		errstr = "peer closed connection";
+		if (streq(connect->connstate, "Cryptographic handshake"))
+			errstr = "peer closed connection (wrong key?)";
+	}
 	tal_append_fmt(&connect->errors,
 		       "%s: %s: %s. ",
 		       type_to_string(tmpctx, struct wireaddr_internal,
 				      &connect->addrs[connect->addrnum]),
-		       connect->connstate, strerror(errno));
+		       connect->connstate, errstr);
 	connect->addrnum++;
 	try_connect_one_addr(connect);
 }
