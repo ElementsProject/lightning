@@ -1047,6 +1047,6 @@ def test_forward_stats(node_factory, bitcoind):
 
     assert outchan['out_msatoshi_fulfilled'] < inchan['in_msatoshi_fulfilled']
 
-    stats = l2.rpc.getroutestats()
+    stats = l2.rpc.listforwards()
 
     assert [f['status'] for f in stats['forwards']] == ['settled', 'failed', 'offered']

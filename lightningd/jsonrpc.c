@@ -138,6 +138,35 @@ static const struct json_command dev_crash_command = {
 AUTODATA(json_command, &dev_crash_command);
 #endif /* DEVELOPER */
 
+static void getinfo_add_routestats(struct json_result *response,
+				   struct wallet *wallet)
+{
+	const struct forwarding_stats *stats;
+	stats = wallet_forwarded_payments_stats(wallet, tmpctx);
+
+	json_object_start(response, "routestats");
+	json_object_start(response, "settled");
+	json_add_num(response, "fee_msatoshis", stats->fee[FORWARD_SETTLED]);
+	json_add_num(response, "count", stats->count[FORWARD_SETTLED]);
+	json_add_num(response, "msatoshi", stats->msatoshi[FORWARD_SETTLED]);
+	json_object_end(response);
+
+	json_object_start(response, "failed");
+	json_add_num(response, "fee_msatoshis", stats->fee[FORWARD_FAILED]);
+	json_add_num(response, "count", stats->count[FORWARD_FAILED]);
+	json_add_num(response, "msatoshi", stats->msatoshi[FORWARD_FAILED]);
+	json_object_end(response);
+
+	json_object_start(response, "pending");
+	json_add_num(response, "fee_msatoshis", stats->fee[FORWARD_OFFERED]);
+	json_add_num(response, "count", stats->count[FORWARD_FAILED]);
+	json_add_num(response, "msatoshi", stats->msatoshi[FORWARD_FAILED]);
+	json_object_end(response);
+	json_object_end(response);
+
+	tal_free(stats);
+}
+
 static void json_getinfo(struct command *cmd,
 			 const char *buffer UNUSED, const jsmntok_t *params UNUSED)
 {
@@ -167,6 +196,7 @@ static void json_getinfo(struct command *cmd,
 	json_add_string(response, "version", version());
 	json_add_num(response, "blockheight", get_block_height(cmd->ld->topology));
 	json_add_string(response, "network", get_chainparams(cmd->ld)->network_name);
+	getinfo_add_routestats(response, cmd->ld->wallet);
 	json_object_end(response);
 	command_success(cmd, response);
 }

@@ -428,14 +428,10 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self.call("listfunds")
 
-    def getroutestats(self, details=True):
-        """Get statistics about routed payments.
-
-        If @details is True, this'll include the individual forwarded
-        payments.
-
+    def listforwards(self):
+        """List all forwarded payments and their information
         """
-        return self.call("getroutestats", payload={'details': details})
+        return self.call("listforwards")
 
     def dev_rescan_outputs(self):
         """
