@@ -48,12 +48,9 @@ bool channel_tell_funding_locked(struct lightningd *ld UNNEEDED,
 void  command_fail(struct command *cmd UNNEEDED, int code UNNEEDED,
 				   const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "command_fail called!\n"); abort(); }
-/* Generated stub for command_fail_detailed */
-void  command_fail_detailed(struct command *cmd UNNEEDED,
-					     int code UNNEEDED,
-					     const struct json_result *data UNNEEDED,
-					     const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "command_fail_detailed called!\n"); abort(); }
+/* Generated stub for command_failed */
+void command_failed(struct command *cmd UNNEEDED, struct json_result *result UNNEEDED)
+{ fprintf(stderr, "command_failed called!\n"); abort(); }
 /* Generated stub for command_still_pending */
 void command_still_pending(struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_still_pending called!\n"); abort(); }
@@ -162,6 +159,14 @@ void json_object_end(struct json_result *ptr UNNEEDED)
 /* Generated stub for json_object_start */
 void json_object_start(struct json_result *ptr UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_object_start called!\n"); abort(); }
+/* Generated stub for json_stream_fail */
+struct json_result *json_stream_fail(struct command *cmd UNNEEDED,
+				     int code UNNEEDED,
+				     const char *errmsg UNNEEDED)
+{ fprintf(stderr, "json_stream_fail called!\n"); abort(); }
+/* Generated stub for json_stream_success */
+struct json_result *json_stream_success(struct command *cmd UNNEEDED)
+{ fprintf(stderr, "json_stream_success called!\n"); abort(); }
 /* Generated stub for json_tok_address_scriptpubkey */
 enum address_parse_result json_tok_address_scriptpubkey(const tal_t *ctx UNNEEDED,
 			      const struct chainparams *chainparams UNNEEDED,
@@ -258,9 +263,6 @@ void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED, const char *c
 /* Generated stub for new_bolt11 */
 struct bolt11 *new_bolt11(const tal_t *ctx UNNEEDED, u64 *msatoshi UNNEEDED)
 { fprintf(stderr, "new_bolt11 called!\n"); abort(); }
-/* Generated stub for new_json_result */
-struct json_result *new_json_result(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "new_json_result called!\n"); abort(); }
 /* Generated stub for new_log */
 struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "new_log called!\n"); abort(); }
@@ -275,7 +277,7 @@ struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 			      void (*cb)(void *) UNNEEDED, void *arg UNNEEDED)
 { fprintf(stderr, "new_reltimer_ called!\n"); abort(); }
 /* Generated stub for null_response */
-struct json_result *null_response(const tal_t *ctx UNNEEDED)
+struct json_result *null_response(struct command *cmd UNNEEDED)
 { fprintf(stderr, "null_response called!\n"); abort(); }
 /* Generated stub for onchaind_funding_spent */
 enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,

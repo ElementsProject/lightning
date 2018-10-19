@@ -70,7 +70,8 @@ bool deprecated_apis;
 
 static int test_json_filter(void)
 {
-	struct json_result *result = new_json_result(NULL);
+	struct command *cmd = talz(NULL, struct command);
+	struct json_result *result = json_stream_success(cmd);
 	jsmntok_t *toks;
 	const jsmntok_t *x;
 	bool valid;
@@ -105,7 +106,7 @@ static int test_json_filter(void)
 		assert((unsigned)str[i] >= ' ');
 		assert((unsigned)str[i] != 127);
 	}
-	tal_free(result);
+	tal_free(cmd);
 	return 0;
 }
 
@@ -115,7 +116,8 @@ static void test_json_escape(void)
 
 	for (i = 1; i < 256; i++) {
 		char badstr[2];
-		struct json_result *result = new_json_result(NULL);
+		struct command *cmd = talz(NULL, struct command);
+		struct json_result *result = json_stream_success(cmd);
 		struct json_escaped *esc;
 
 		badstr[0] = i;
@@ -138,7 +140,7 @@ static void test_json_escape(void)
 			expect[11] = i;
 			assert(streq(str, expect));
 		}
-		tal_free(result);
+		tal_free(cmd);
 	}
 }
 

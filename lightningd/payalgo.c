@@ -196,7 +196,7 @@ json_pay_success(struct pay *pay,
 	struct command *cmd = pay->cmd;
 	struct json_result *response;
 
-	response = new_json_result(cmd);
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_add_payment_fields(response, r->payment);
 	json_add_num(response, "getroute_tries", pay->getroute_tries);
@@ -212,42 +212,44 @@ static void json_pay_failure(struct pay *pay,
 			     const struct sendpay_result *r)
 {
 	struct json_result *data;
-	const char *msg = NULL;
 	struct routing_failure *fail;
 
 	assert(!r->succeeded);
 
-	data = new_json_result(pay);
-
 	switch (r->errorcode) {
 	case PAY_IN_PROGRESS:
+		data = json_stream_fail(pay->cmd, r->errorcode, r->details);
 		json_object_start(data, NULL);
 		json_add_num(data, "getroute_tries", pay->getroute_tries);
 		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
 		json_add_payment_fields(data, r->payment);
 		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
-		msg = r->details;
-		break;
+		return;
 
 	case PAY_RHASH_ALREADY_USED:
 	case PAY_STOPPED_RETRYING:
+		data = json_stream_fail(pay->cmd, r->errorcode, r->details);
 		json_object_start(data, NULL);
 		json_add_num(data, "getroute_tries", pay->getroute_tries);
 		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
 		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
-		msg = r->details;
-		break;
+		return;
 
 	case PAY_UNPARSEABLE_ONION:
 		/* Impossible case */
 		abort();
-		break;
 
 	case PAY_DESTINATION_PERM_FAIL:
 		fail = r->routing_failure;
+		assert(r->details != NULL);
 
+		data = json_stream_fail(pay->cmd,
+					r->errorcode,
+					tal_fmt(tmpctx, "failed: %s (%s)",
+						onion_type_name(fail->failcode),
+						r->details));
 		json_object_start(data, NULL);
 		json_add_num(data, "erring_index",
 			     fail->erring_index);
@@ -261,23 +263,14 @@ static void json_pay_failure(struct pay *pay,
 					    fail->channel_update);
 		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
-
-		assert(r->details != NULL);
-		msg = tal_fmt(pay,
-			      "failed: %s (%s)",
-			      onion_type_name(fail->failcode),
-			      r->details);
-
-		break;
+		return;
 
 	case PAY_TRY_OTHER_ROUTE:
 		/* Impossible case */
 		abort();
-		break;
+		return;
 	}
-
-	assert(msg);
-	command_fail_detailed(pay->cmd, r->errorcode, data, "%s", msg);
+	abort();
 }
 
 /* Determine if we should delay before retrying. Return a reason
@@ -422,14 +415,14 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	fromwire_gossip_getroute_reply(reply, reply, &route);
 
 	if (tal_count(route) == 0) {
-		data = new_json_result(pay);
+		data = json_stream_fail(pay->cmd, PAY_ROUTE_NOT_FOUND,
+					"Could not find a route");
 		json_object_start(data, NULL);
 		json_add_num(data, "getroute_tries", pay->getroute_tries);
 		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
 		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
-		command_fail_detailed(pay->cmd, PAY_ROUTE_NOT_FOUND, data,
-				      "Could not find a route");
+		command_failed(pay->cmd, data);
 		return;
 	}
 
@@ -444,21 +437,6 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	delay_too_high = (route[0].delay > pay->maxdelay);
 	/* compare fuzz to range */
 	if ((fee_too_high || delay_too_high) && pay->fuzz < 0.01) {
-		data = new_json_result(pay);
-		json_object_start(data, NULL);
-		json_add_u64(data, "msatoshi", pay->msatoshi);
-		json_add_u64(data, "fee", fee);
-		json_add_double(data, "feepercent", feepercent);
-		json_add_double(data, "maxfeepercent", pay->maxfeepercent);
-		json_add_u64(data, "delay", (u64) route[0].delay);
-		json_add_num(data, "maxdelay", pay->maxdelay);
-		json_add_num(data, "getroute_tries", pay->getroute_tries);
-		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
-		json_add_route(data, "route",
-			       route, tal_count(route));
-		json_add_failures(data, "failures", &pay->pay_failures);
-		json_object_end(data);
-
 		err = "";
 		if (fee_too_high)
 			err = tal_fmt(pay,
@@ -477,9 +455,22 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 				      "max delay requested is %u.",
 				      err, route[0].delay, pay->maxdelay);
 
+		data = json_stream_fail(pay->cmd, PAY_ROUTE_TOO_EXPENSIVE, err);
+		json_object_start(data, NULL);
+		json_add_u64(data, "msatoshi", pay->msatoshi);
+		json_add_u64(data, "fee", fee);
+		json_add_double(data, "feepercent", feepercent);
+		json_add_double(data, "maxfeepercent", pay->maxfeepercent);
+		json_add_u64(data, "delay", (u64) route[0].delay);
+		json_add_num(data, "maxdelay", pay->maxdelay);
+		json_add_num(data, "getroute_tries", pay->getroute_tries);
+		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
+		json_add_route(data, "route",
+			       route, tal_count(route));
+		json_add_failures(data, "failures", &pay->pay_failures);
+		json_object_end(data);
 
-		command_fail_detailed(pay->cmd, PAY_ROUTE_TOO_EXPENSIVE,
-				      data, "%s", err);
+		command_failed(pay->cmd, data);
 		return;
 	}
 	if (fee_too_high || delay_too_high) {
@@ -519,7 +510,9 @@ static bool json_pay_try(struct pay *pay)
 
 	/* If too late anyway, fail now. */
 	if (time_after(now, pay->expiry)) {
-		struct json_result *data = new_json_result(cmd);
+		struct json_result *data
+			= json_stream_fail(cmd, PAY_INVOICE_EXPIRED,
+					   "Invoice expired");
 		json_object_start(data, NULL);
 		json_add_num(data, "now", now.ts.tv_sec);
 		json_add_num(data, "expiry", pay->expiry.ts.tv_sec);
@@ -527,8 +520,7 @@ static bool json_pay_try(struct pay *pay)
 		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
 		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
-		command_fail_detailed(cmd, PAY_INVOICE_EXPIRED, data,
-				      "Invoice expired");
+		command_failed(cmd, data);
 		return false;
 	}
 

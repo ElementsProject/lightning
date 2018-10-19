@@ -38,6 +38,12 @@ struct command {
 	/* This is created if mode is CMD_USAGE */
 	const char *usage;
 	bool *ok;
+	/* Have we started a json stream already?  For debugging. */
+	bool have_json_stream;
+
+	/* FIXME: Temporary. */
+	int failcode;
+	const char *errmsg;
 };
 
 struct json_connection {
@@ -79,14 +85,11 @@ struct json_command {
 	const char *verbose;
 };
 
-struct json_result *null_response(const tal_t *ctx);
+struct json_result *null_response(struct command *cmd);
 void command_success(struct command *cmd, struct json_result *response);
+void command_failed(struct command *cmd, struct json_result *result);
 void PRINTF_FMT(3, 4) command_fail(struct command *cmd, int code,
 				   const char *fmt, ...);
-void PRINTF_FMT(4, 5) command_fail_detailed(struct command *cmd,
-					     int code,
-					     const struct json_result *data,
-					     const char *fmt, ...);
 
 /* Mainly for documentation, that we plan to close this later. */
 void command_still_pending(struct command *cmd);

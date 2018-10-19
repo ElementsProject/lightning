@@ -483,7 +483,7 @@ static void json_feerates(struct command *cmd,
 			missing = true;
 	}
 
-	response = new_json_result(cmd);
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_object_start(response, json_feerate_style_name(*style));
 	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {

@@ -377,7 +377,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 
 	wallet_confirm_utxos(ld->wallet, fc->wtx.utxos);
 
-	response = new_json_result(fc->cmd);
+	response = json_stream_success(fc->cmd);
 	json_object_start(response, NULL);
 	linear = linearize_tx(response, fundingtx);
 	json_add_hex_talarr(response, "tx", linear);
