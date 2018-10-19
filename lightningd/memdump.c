@@ -56,11 +56,12 @@ static void json_memdump(struct command *cmd,
 			 const char *buffer UNNEEDED,
 			 const jsmntok_t *params UNNEEDED)
 {
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 
 	if (!param(cmd, buffer, params, NULL))
 		return;
 
+	response = json_stream_success(cmd);
 	add_memdump(response, NULL, NULL, cmd);
 
 	command_success(cmd, response);
@@ -153,7 +154,7 @@ static void json_memleak(struct command *cmd,
 			 const char *buffer UNNEEDED,
 			 const jsmntok_t *params UNNEEDED)
 {
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 
 	if (!param(cmd, buffer, params, NULL))
 		return;
@@ -164,6 +165,7 @@ static void json_memleak(struct command *cmd,
 		return;
 	}
 
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	scan_mem(cmd, response, cmd->ld);
 	json_object_end(response);

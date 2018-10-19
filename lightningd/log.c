@@ -718,7 +718,7 @@ bool json_tok_loglevel(struct command *cmd, const char *name,
 static void json_getlog(struct command *cmd,
 			const char *buffer, const jsmntok_t * params)
 {
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 	enum log_level *minlevel;
 	struct log_book *lr = cmd->ld->log_book;
 
@@ -728,6 +728,7 @@ static void json_getlog(struct command *cmd,
 		   NULL))
 		return;
 
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_add_time(response, "created_at", log_init_time(lr)->ts);
 	json_add_num(response, "bytes_used", (unsigned int) log_used(lr));

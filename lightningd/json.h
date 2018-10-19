@@ -170,7 +170,27 @@ void json_array_end(struct json_result *ptr);
 /* ' }, ' */
 void json_object_end(struct json_result *ptr);
 
-struct json_result *new_json_result(const tal_t *ctx);
+/**
+ * json_stream_success - start streaming a successful json result.
+ * @cmd: the command we're running.
+ *
+ * The returned value should go to command_success() when done.
+ * json_add_* will be placed into the 'result' field of the JSON reply.
+ */
+struct json_result *json_stream_success(struct command *cmd);
+
+/**
+ * json_stream_fail - start streaming a failed json result.
+ * @cmd: the command we're running.
+ * @code: the error code from lightningd/jsonrpc_errors.h
+ * @errmsg: the error string.
+ *
+ * The returned value should go to command_failed() when done;
+ * json_add_* will be placed into the 'data' field of the 'error' JSON reply.
+ */
+struct json_result *json_stream_fail(struct command *cmd,
+				     int code,
+				     const char *errmsg);
 
 /* '"fieldname" : "value"' or '"value"' if fieldname is NULL.  Turns
  * any non-printable chars into JSON escapes, but leaves existing escapes alone.

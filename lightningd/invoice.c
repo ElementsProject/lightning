@@ -64,19 +64,23 @@ static void json_add_invoice(struct json_result *response,
 
 static void tell_waiter(struct command *cmd, const struct invoice *inv)
 {
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 	const struct invoice_details *details;
 
 	details = wallet_invoice_details(cmd, cmd->ld->wallet, *inv);
-	json_add_invoice(response, details);
-	if (details->state == PAID)
+	if (details->state == PAID) {
+		response = json_stream_success(cmd);
+		json_add_invoice(response, details);
 		command_success(cmd, response);
-	else {
+	} else {
 		/* FIXME: -2 should be a constant in jsonrpc_errors.h.  */
-		command_fail_detailed(cmd, -2, response,
-				      "invoice expired during wait");
+		response = json_stream_fail(cmd, -2,
+					    "invoice expired during wait");
+		json_add_invoice(response, details);
+		command_failed(cmd, response);
 	}
 }
+
 static void tell_waiter_deleted(struct command *cmd)
 {
 	command_fail(cmd, LIGHTNINGD, "Invoice deleted during wait");
@@ -209,7 +213,7 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 					    const int *fs,
 					    struct invoice_info *info)
 {
-	struct json_result *response = new_json_result(info->cmd);
+	struct json_result *response;
 	struct route_info *inchans;
 	bool any_offline;
 	struct invoice invoice;
@@ -257,6 +261,7 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	/* Get details */
 	details = wallet_invoice_details(info, wallet, invoice);
 
+	response = json_stream_success(info->cmd);
 	json_object_start(response, NULL);
 	json_add_hex(response, "payment_hash", details->rhash.u.u8,
 		     sizeof(details->rhash));
@@ -413,12 +418,13 @@ static void json_listinvoices(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
 	struct json_escaped *label;
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 	struct wallet *wallet = cmd->ld->wallet;
 	if (!param(cmd, buffer, params,
 		   p_opt("label", json_tok_label, &label),
 		   NULL))
 		return;
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_array_start(response, "invoices");
 	json_add_invoices(response, wallet, label);
@@ -439,7 +445,7 @@ static void json_delinvoice(struct command *cmd,
 {
 	struct invoice i;
 	const struct invoice_details *details;
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 	const char *status, *actual_status;
 	struct json_escaped *label;
 	struct wallet *wallet = cmd->ld->wallet;
@@ -466,10 +472,6 @@ static void json_delinvoice(struct command *cmd,
 		return;
 	}
 
-	/* Get invoice details before attempting to delete, as
-	 * otherwise the invoice will be freed. */
-	json_add_invoice(response, details);
-
 	if (!wallet_invoice_delete(wallet, i)) {
 		log_broken(cmd->ld->log,
 			   "Error attempting to remove invoice %"PRIu64,
@@ -478,6 +480,8 @@ static void json_delinvoice(struct command *cmd,
 		return;
 	}
 
+	response = json_stream_success(cmd);
+	json_add_invoice(response, details);
 	command_success(cmd, response);
 }
 
@@ -492,7 +496,6 @@ static void json_delexpiredinvoice(struct command *cmd, const char *buffer,
 				   const jsmntok_t *params)
 {
 	u64 *maxexpirytime;
-	struct json_result *result;
 
 	if (!param(cmd, buffer, params,
 		   p_opt_def("maxexpirytime", json_tok_u64, &maxexpirytime,
@@ -502,10 +505,7 @@ static void json_delexpiredinvoice(struct command *cmd, const char *buffer,
 
 	wallet_invoice_delete_expired(cmd->ld->wallet, *maxexpirytime);
 
-	result = new_json_result(cmd);
-	json_object_start(result, NULL);
-	json_object_end(result);
-	command_success(cmd, result);
+	command_success(cmd, null_response(cmd));
 }
 static const struct json_command delexpiredinvoice_command = {
 	"delexpiredinvoice",
@@ -520,7 +520,6 @@ static void json_autocleaninvoice(struct command *cmd,
 {
 	u64 *cycle;
 	u64 *exby;
-	struct json_result *result;
 
 	if (!param(cmd, buffer, params,
 		   p_opt_def("cycle_seconds", json_tok_u64, &cycle, 3600),
@@ -530,10 +529,7 @@ static void json_autocleaninvoice(struct command *cmd,
 
 	wallet_invoice_autoclean(cmd->ld->wallet, *cycle, *exby);
 
-	result = new_json_result(cmd);
-	json_object_start(result, NULL);
-	json_object_end(result);
-	command_success(cmd, result);
+	command_success(cmd, null_response(cmd));
 }
 static const struct json_command autocleaninvoice_command = {
 	"autocleaninvoice",
@@ -656,8 +652,8 @@ static void json_decodepay(struct command *cmd,
 {
 	struct bolt11 *b11;
 	struct json_result *response;
-        const char *str, *desc;
-        char *fail;
+	const char *str, *desc;
+	char *fail;
 
 	if (!param(cmd, buffer, params,
 		   p_req("bolt11", json_tok_string, &str),
@@ -672,7 +668,7 @@ static void json_decodepay(struct command *cmd,
 		return;
 	}
 
-	response = new_json_result(cmd);
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 
 	json_add_string(response, "currency", b11->chain->bip173_name);

@@ -73,13 +73,14 @@ AUTODATA(json_command, &help_command);
 static void json_stop(struct command *cmd,
 		      const char *buffer UNUSED, const jsmntok_t *params UNUSED)
 {
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 
 	if (!param(cmd, buffer, params, NULL))
 		return;
 
 	/* This can't have closed yet! */
 	cmd->jcon->stop = true;
+	response = json_stream_success(cmd);
 	json_add_string(response, NULL, "Shutting down");
 	command_success(cmd, response);
 }
@@ -95,7 +96,7 @@ AUTODATA(json_command, &stop_command);
 static void json_rhash(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)
 {
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 	struct sha256 *secret;
 
 	if (!param(cmd, buffer, params,
@@ -105,6 +106,7 @@ static void json_rhash(struct command *cmd,
 
 	/* Hash in place. */
 	sha256(secret, secret, sizeof(*secret));
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_add_hex(response, "rhash", secret, sizeof(*secret));
 	json_object_end(response);
@@ -138,11 +140,12 @@ AUTODATA(json_command, &dev_crash_command);
 static void json_getinfo(struct command *cmd,
 			 const char *buffer UNUSED, const jsmntok_t *params UNUSED)
 {
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 
 	if (!param(cmd, buffer, params, NULL))
 		return;
 
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_add_pubkey(response, "id", &cmd->ld->id);
 	json_add_string(response, "alias", (const char *)cmd->ld->alias);
@@ -220,7 +223,7 @@ static void json_help(struct command *cmd,
 		      const char *buffer, const jsmntok_t *params)
 {
 	unsigned int i;
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 	struct json_command **cmdlist = get_cmdlist();
 	const jsmntok_t *cmdtok;
 
@@ -232,6 +235,7 @@ static void json_help(struct command *cmd,
 	if (cmdtok) {
 		for (i = 0; i < num_cmdlist; i++) {
 			if (json_tok_streq(buffer, cmdtok, cmdlist[i]->name)) {
+				response = json_stream_success(cmd);
 				json_add_help_command(cmd, response, cmdlist[i]);
 				goto done;
 			}
@@ -243,6 +247,7 @@ static void json_help(struct command *cmd,
 		return;
 	}
 
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_array_start(response, "help");
 	for (i = 0; i < num_cmdlist; i++) {
@@ -339,11 +344,11 @@ static void connection_complete_error(struct json_connection *jcon,
 					  id)));
 }
 
-struct json_result *null_response(const tal_t *ctx)
+struct json_result *null_response(struct command *cmd)
 {
 	struct json_result *response;
 
-	response = new_json_result(ctx);
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_object_end(response);
 	return response;
@@ -363,12 +368,11 @@ void command_success(struct command *cmd, struct json_result *result)
 	connection_complete_ok(jcon, cmd, cmd->id, result);
 }
 
-static void command_fail_v(struct command *cmd,
-			   int code,
-			   const struct json_result *data,
-			   const char *fmt, va_list ap)
+static void command_fail_generic(struct command *cmd,
+				 int code,
+				 const struct json_result *data,
+				 const char *error)
 {
-	char *error;
 	struct json_connection *jcon = cmd->jcon;
 
 	if (!jcon) {
@@ -379,8 +383,6 @@ static void command_fail_v(struct command *cmd,
 		return;
 	}
 
-	error = tal_vfmt(cmd, fmt, ap);
-
 	/* cmd->json_cmd can be NULL, if we're failing for command not found! */
 	log_debug(jcon->log, "Failing %s: %s",
 		  cmd->json_cmd ? cmd->json_cmd->name : "invalid cmd",
@@ -390,21 +392,18 @@ static void command_fail_v(struct command *cmd,
 	connection_complete_error(jcon, cmd, cmd->id, error, code, data);
 }
 
-void command_fail(struct command *cmd, int code, const char *fmt, ...)
+void command_failed(struct command *cmd, struct json_result *result)
 {
-	va_list ap;
-	va_start(ap, fmt);
-	command_fail_v(cmd, code, NULL, fmt, ap);
-	va_end(ap);
+	assert(cmd->failcode != 0);
+	command_fail_generic(cmd, cmd->failcode, result, cmd->errmsg);
 }
 
-void command_fail_detailed(struct command *cmd,
-			   int code, const struct json_result *data,
-			   const char *fmt, ...)
+void PRINTF_FMT(3, 4) command_fail(struct command *cmd, int code,
+				   const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	command_fail_v(cmd, code, data, fmt, ap);
+	command_fail_generic(cmd, code, NULL, tal_vfmt(cmd, fmt, ap));
 	va_end(ap);
 }
 
@@ -455,6 +454,7 @@ static bool parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	c->jcon = jcon;
 	c->ld = jcon->ld;
 	c->pending = false;
+	c->have_json_stream = false;
 	c->id = tal_strndup(c,
 			    json_tok_contents(jcon->buffer, id),
 			    json_tok_len(id));

@@ -182,7 +182,7 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 				struct command *cmd)
 {
 	struct gossip_getnodes_entry **nodes;
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 	size_t i, j;
 
 	if (!fromwire_gossip_getnodes_reply(reply, reply, &nodes)) {
@@ -190,6 +190,7 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 		return;
 	}
 
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_array_start(response, "nodes");
 
@@ -264,7 +265,7 @@ static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, con
 		return;
 	}
 
-	response = new_json_result(cmd);
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_add_route(response, "route", hops, tal_count(hops));
 	json_object_end(response);
@@ -336,13 +337,14 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 {
 	size_t i;
 	struct gossip_getchannels_entry *entries;
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 
 	if (!fromwire_gossip_getchannels_reply(reply, reply, &entries)) {
 		command_fail(cmd, LIGHTNINGD, "Invalid reply from gossipd");
 		return;
 	}
 
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_array_start(response, "channels");
 	for (i = 0; i < tal_count(entries); i++) {
@@ -405,7 +407,7 @@ static void json_scids_reply(struct subd *gossip UNUSED, const u8 *reply,
 			     const int *fds UNUSED, struct command *cmd)
 {
 	bool ok, complete;
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 
 	if (!fromwire_gossip_scids_reply(reply, &ok, &complete)) {
 		command_fail(cmd, LIGHTNINGD,
@@ -419,6 +421,7 @@ static void json_scids_reply(struct subd *gossip UNUSED, const u8 *reply,
 		return;
 	}
 
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_add_bool(response, "complete", complete);
 	json_object_end(response);
@@ -500,7 +503,7 @@ AUTODATA(json_command, &dev_send_timestamp_filter);
 static void json_channel_range_reply(struct subd *gossip UNUSED, const u8 *reply,
 				     const int *fds UNUSED, struct command *cmd)
 {
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 	u32 final_first_block, final_num_blocks;
 	bool final_complete;
 	struct short_channel_id *scids;
@@ -521,6 +524,7 @@ static void json_channel_range_reply(struct subd *gossip UNUSED, const u8 *reply
 		return;
 	}
 
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	/* As this is a dev interface, we don't bother saving and
 	 * returning all the replies, just the final one. */

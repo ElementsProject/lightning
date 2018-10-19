@@ -232,7 +232,7 @@ static void remove_sig(struct bitcoin_tx *signed_tx)
 static void
 resolve_one_close_command(struct close_command *cc, bool cooperative)
 {
-	struct json_result *result = new_json_result(cc);
+	struct json_result *result = json_stream_success(cc->cmd);
 	u8 *tx = linearize_tx(result, cc->channel->last_tx);
 	struct bitcoin_txid txid;
 
@@ -818,7 +818,7 @@ static void json_listpeers(struct command *cmd,
 	enum log_level *ll;
 	struct pubkey *specific_id;
 	struct peer *peer;
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 
 	if (!param(cmd, buffer, params,
 		   p_opt("id", json_tok_pubkey, &specific_id),
@@ -826,6 +826,7 @@ static void json_listpeers(struct command *cmd,
 		   NULL))
 		return;
 
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_array_start(response, "peers");
 	if (specific_id) {
@@ -1082,7 +1083,7 @@ static void json_sign_last_tx(struct command *cmd,
 {
 	struct pubkey *peerid;
 	struct peer *peer;
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 	u8 *linear;
 	struct channel *channel;
 
@@ -1104,6 +1105,7 @@ static void json_sign_last_tx(struct command *cmd,
 		return;
 	}
 
+	response = json_stream_success(cmd);
 	log_debug(channel->log, "dev-sign-last-tx: signing tx with %zu outputs",
 		  tal_count(channel->last_tx->output));
 	sign_last_tx(channel);
@@ -1243,7 +1245,7 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 			     "channel");
 		return;
 	}
-	response = new_json_result(forget->cmd);
+	response = json_stream_success(forget->cmd);
 	json_object_start(response, NULL);
 	json_add_bool(response, "forced", forget->force);
 	json_add_bool(response, "funding_unspent", txout != NULL);

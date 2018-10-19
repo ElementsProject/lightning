@@ -851,7 +851,7 @@ json_sendpay_success(struct command *cmd,
 
 	assert(r->payment->status == PAYMENT_COMPLETE);
 
-	response = new_json_result(cmd);
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_add_payment_fields(response, r->payment);
 	json_object_end(response);
@@ -863,13 +863,13 @@ static void json_waitsendpay_on_resolve(const struct sendpay_result *r,
 {
 	struct command *cmd = (struct command*) vcmd;
 
-	struct json_result *data = NULL;
 	const char *msg = NULL;
 	struct routing_failure *fail;
 
 	if (r->succeeded)
 		json_sendpay_success(cmd, r);
 	else {
+		struct json_result *data;
 		switch (r->errorcode) {
 			/* We will never handle this case */
 		case PAY_IN_PROGRESS:
@@ -878,28 +878,30 @@ static void json_waitsendpay_on_resolve(const struct sendpay_result *r,
 		case PAY_RHASH_ALREADY_USED:
 		case PAY_UNSPECIFIED_ERROR:
 		case PAY_NO_SUCH_PAYMENT:
-			data = NULL;
-			msg = r->details;
-			break;
+			command_fail(cmd, r->errorcode, "%s", r->details);
+			return;
 
 		case PAY_UNPARSEABLE_ONION:
-			data = new_json_result(cmd);
-			json_object_start(data, NULL);
-			json_add_hex_talarr(data, "onionreply", r->onionreply);
-			json_object_end(data);
-
-			assert(r->details != NULL);
-			msg = tal_fmt(cmd,
+			msg = tal_fmt(tmpctx,
 				      "failed: WIRE_PERMANENT_NODE_FAILURE "
 				      "(%s)",
 				      r->details);
 
-			break;
+			data = json_stream_fail(cmd, r->errorcode, msg);
+			json_object_start(data, NULL);
+			json_add_hex_talarr(data, "onionreply", r->onionreply);
+			json_object_end(data);
+			command_failed(cmd, data);
+			return;
 
 		case PAY_DESTINATION_PERM_FAIL:
 		case PAY_TRY_OTHER_ROUTE:
 			fail = r->routing_failure;
-			data = new_json_result(cmd);
+			msg = tal_fmt(cmd,
+				      "failed: %s (%s)",
+				      onion_type_name(fail->failcode),
+				      r->details);
+			data = json_stream_fail(cmd, r->errorcode, msg);
 
 			json_object_start(data, NULL);
 			json_add_num(data, "erring_index",
@@ -913,18 +915,10 @@ static void json_waitsendpay_on_resolve(const struct sendpay_result *r,
 				json_add_hex_talarr(data, "channel_update",
 						    fail->channel_update);
 			json_object_end(data);
-
-			assert(r->details != NULL);
-			msg = tal_fmt(cmd,
-				      "failed: %s (%s)",
-				      onion_type_name(fail->failcode),
-				      r->details);
-
-			break;
+			command_failed(cmd, data);
+			return;
 		}
-
-		assert(msg);
-		command_fail_detailed(cmd, r->errorcode, data, "%s", msg);
+		abort();
 	}
 }
 
@@ -935,7 +929,7 @@ static void json_sendpay_on_resolve(const struct sendpay_result* r,
 
 	if (!r->succeeded && r->errorcode == PAY_IN_PROGRESS) {
 		/* This is normal for sendpay. Succeed. */
-		struct json_result *response = new_json_result(cmd);
+		struct json_result *response = json_stream_success(cmd);
 		json_object_start(response, NULL);
 		json_add_string(response, "message",
 				"Monitor status with listpayments or waitsendpay");
@@ -1064,7 +1058,7 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 			       const jsmntok_t *params)
 {
 	const struct wallet_payment **payments;
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 	struct sha256 *rhash;
 	const char *b11str;
 
@@ -1096,6 +1090,7 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 
 	payments = wallet_payment_list(cmd, cmd->ld->wallet, rhash);
 
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 
 	json_array_start(response, "payments");

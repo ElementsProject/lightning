@@ -65,7 +65,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 		 * not if we're actually making a payment to ourselves! */
 		assert(change_satoshi >= withdraw->wtx.change);
 
-		struct json_result *response = new_json_result(cmd);
+		struct json_result *response = json_stream_success(cmd);
 		json_object_start(response, NULL);
 		json_add_string(response, "tx", withdraw->hextx);
 		json_add_string(response, "txid", output);
@@ -242,7 +242,7 @@ static bool json_tok_newaddr(struct command *cmd, const char *name,
 static void json_newaddr(struct command *cmd, const char *buffer UNUSED,
 			 const jsmntok_t *params UNUSED)
 {
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 	struct ext_key ext;
 	struct pubkey pubkey;
 	bool *is_p2wpkh;
@@ -283,6 +283,7 @@ static void json_newaddr(struct command *cmd, const char *buffer UNUSED,
 		return;
 	}
 
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_add_string(response, "address", out);
 	json_object_end(response);
@@ -300,7 +301,7 @@ AUTODATA(json_command, &newaddr_command);
 static void json_listaddrs(struct command *cmd,
 			   const char *buffer, const jsmntok_t *params)
 {
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 	struct ext_key ext;
 	struct pubkey pubkey;
 	u64 *bip32_max_index;
@@ -312,6 +313,7 @@ static void json_listaddrs(struct command *cmd,
 		   NULL))
 		return;
 
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_array_start(response, "addresses");
 
@@ -323,15 +325,12 @@ static void json_listaddrs(struct command *cmd,
 
 		if (bip32_key_from_parent(cmd->ld->wallet->bip32_base, keyidx,
 					  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
-			command_fail(cmd, LIGHTNINGD,
-				     "Keys generation failure");
-			return;
+			abort();
 		}
 
 		if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey.pubkey,
 					       ext.pub_key, sizeof(ext.pub_key))) {
-			command_fail(cmd, LIGHTNINGD, "Key parsing failure");
-			return;
+			abort();
 		}
 
 		// p2sh
@@ -348,9 +347,7 @@ static void json_listaddrs(struct command *cmd,
 							 false,
 							 &redeemscript_p2wpkh);
 		if (!out_p2wpkh) {
-			command_fail(cmd, LIGHTNINGD,
-				     "p2wpkh address encoding failure.");
-			return;
+			abort();
 		}
 
 		// outputs
@@ -382,16 +379,17 @@ AUTODATA(json_command, &listaddrs_command);
 static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 			   const jsmntok_t *params UNUSED)
 {
-	struct json_result *response = new_json_result(cmd);
+	struct json_result *response;
 	struct peer *p;
-	struct utxo **utxos =
-	    wallet_get_utxos(cmd, cmd->ld->wallet, output_state_available);
+	struct utxo **utxos;
 	char* out;
 	struct pubkey funding_pubkey;
 
 	if (!param(cmd, buffer, params, NULL))
 		return;
 
+	utxos = wallet_get_utxos(cmd, cmd->ld->wallet, output_state_available);
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_array_start(response, "outputs");
 	for (size_t i = 0; i < tal_count(utxos); i++) {
@@ -513,7 +511,7 @@ static void json_dev_rescan_outputs(struct command *cmd,
 	if (!param(cmd, buffer, params, NULL))
 		return;
 
-	rescan->response = new_json_result(cmd);
+	rescan->response = json_stream_success(cmd);
 	rescan->cmd = cmd;
 
 	/* Open the result structure so we can incrementally add results */

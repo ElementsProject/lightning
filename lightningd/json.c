@@ -703,9 +703,9 @@ void json_add_escaped_string(struct json_result *result, const char *fieldname,
 		tal_free(esc);
 }
 
-struct json_result *new_json_result(const tal_t *ctx)
+static struct json_result *new_json_stream(struct command *cmd)
 {
-	struct json_result *r = tal(ctx, struct json_result);
+	struct json_result *r = tal(cmd, struct json_result);
 
 	r->s = tal_strdup(r, "");
 #if DEVELOPER
@@ -713,7 +713,27 @@ struct json_result *new_json_result(const tal_t *ctx)
 #endif
 	r->indent = 0;
 	r->empty = true;
+
+	assert(!cmd->have_json_stream);
+	cmd->have_json_stream = true;
 	return r;
+}
+
+struct json_result *json_stream_success(struct command *cmd)
+{
+	cmd->failcode = 0;
+	return new_json_stream(cmd);
+}
+
+struct json_result *json_stream_fail(struct command *cmd,
+				     int code,
+				     const char *errmsg)
+{
+	assert(code);
+	assert(errmsg);
+	cmd->failcode = code;
+	cmd->errmsg = tal_strdup(cmd, errmsg);
+	return new_json_stream(cmd);
 }
 
 const char *json_result_string(const struct json_result *result)
