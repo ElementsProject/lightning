@@ -177,6 +177,24 @@ void gossipd_notify_spend(struct lightningd *ld,
 	subd_send_msg(ld->gossip, msg);
 }
 
+/* Gossipd shouldn't give us bad pubkeys, but don't abort if they do */
+static void json_add_raw_pubkey(struct json_result *response,
+			 const char *fieldname,
+			 const u8 raw_pubkey[sizeof(struct pubkey)])
+{
+	secp256k1_pubkey pubkey;
+	u8 der[PUBKEY_DER_LEN];
+	size_t outlen = PUBKEY_DER_LEN;
+
+	memcpy(&pubkey, raw_pubkey, sizeof(pubkey));
+	if (!secp256k1_ec_pubkey_serialize(secp256k1_ctx, der, &outlen,
+					   &pubkey,
+					   SECP256K1_EC_COMPRESSED))
+		json_add_string(response, fieldname, "INVALID PUBKEY");
+	else
+		json_add_hex(response, fieldname, der, sizeof(der));
+}
+
 static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 				const int *fds UNUSED,
 				struct command *cmd)
@@ -198,7 +216,7 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 		struct json_escaped *esc;
 
 		json_object_start(response, NULL);
-		json_add_pubkey(response, "nodeid", &nodes[i]->nodeid);
+		json_add_raw_pubkey(response, "nodeid", nodes[i]->nodeid);
 		if (nodes[i]->last_timestamp < 0) {
 			json_object_end(response);
 			continue;
@@ -349,9 +367,9 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 	json_array_start(response, "channels");
 	for (i = 0; i < tal_count(entries); i++) {
 		json_object_start(response, NULL);
-		json_add_pubkey(response, "source", &entries[i].source);
-		json_add_pubkey(response, "destination",
-				&entries[i].destination);
+		json_add_raw_pubkey(response, "source", entries[i].source);
+		json_add_raw_pubkey(response, "destination",
+				    entries[i].destination);
 		json_add_string(response, "short_channel_id",
 				type_to_string(reply, struct short_channel_id,
 					       &entries[i].short_channel_id));

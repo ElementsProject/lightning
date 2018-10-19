@@ -1370,6 +1370,11 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+#define raw_pubkey(arr, id)				\
+	do { BUILD_ASSERT(sizeof(arr) == sizeof(*id));	\
+		memcpy(arr, id, sizeof(*id));		\
+	} while(0)
+
 static void append_half_channel(struct gossip_getchannels_entry **entries,
 				const struct chan *chan,
 				int idx)
@@ -1382,8 +1387,8 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 
 	e = tal_arr_expand(entries);
 
-	e->source = chan->nodes[idx]->id;
-	e->destination = chan->nodes[!idx]->id;
+	raw_pubkey(e->source, &chan->nodes[idx]->id);
+	raw_pubkey(e->destination, &chan->nodes[!idx]->id);
 	e->satoshis = chan->satoshis;
 	e->channel_flags = c->channel_flags;
 	e->message_flags = c->message_flags;
@@ -1442,7 +1447,7 @@ static void append_node(const struct gossip_getnodes_entry ***entries,
 
 	*tal_arr_expand(entries) = e
 		= tal(*entries, struct gossip_getnodes_entry);
-	e->nodeid = n->id;
+	raw_pubkey(e->nodeid, &n->id);
 	e->last_timestamp = n->last_timestamp;
 	if (e->last_timestamp < 0)
 		return;
