@@ -12,11 +12,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - JSON API: `listpeers` has new array `htlcs`: the current live payments.
 - JSON API: `listchannels` has two new fields: `message_flags` and `channel_flags`. This replaces `flags`.
 - JSON API: `invoice` now adds route hint to invoices for incoming capacity (RouteBoost), and warns if insufficient capacity.
+- JSON API: `listforwards` lists all forwarded payments, their associated channels, and fees.
+- JSON API: `getinfo` shows forwarding fees earnt as `msatoshi_fees_collected`.
 - Bitcoind: more parallelism in requests, for very slow nodes.
 - Testing: fixed logging, cleaner interception of bitcoind, minor fixes.
 - Protocol: we set and handle the new `htlc_maximum_msat` channel_update field.
-- JSON API: `invoice` now adds route hint to invoices for incoming capacity (RouteBoost), and warns if insufficient capacity.
-- JSON API: `listforwards` lists all forwarded payments, their associated channels, and fees.
 
 ### Changed
 
