@@ -12,7 +12,7 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 	u16 flen;
 
 	entry = tal(ctx, struct gossip_getnodes_entry);
-	fromwire_pubkey(pptr, max, &entry->nodeid);
+	fromwire(pptr, max, entry->nodeid, sizeof(entry->nodeid));
 
 	entry->last_timestamp = fromwire_u64(pptr, max);
 	if (entry->last_timestamp < 0) {
@@ -43,7 +43,7 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 void towire_gossip_getnodes_entry(u8 **pptr,
 				  const struct gossip_getnodes_entry *entry)
 {
-	towire_pubkey(pptr, &entry->nodeid);
+	towire(pptr, entry->nodeid, sizeof(entry->nodeid));
 	towire_u64(pptr, entry->last_timestamp);
 
 	if (entry->last_timestamp < 0)
@@ -97,8 +97,8 @@ void fromwire_gossip_getchannels_entry(const u8 **pptr, size_t *max,
 				       struct gossip_getchannels_entry *entry)
 {
 	fromwire_short_channel_id(pptr, max, &entry->short_channel_id);
-	fromwire_pubkey(pptr, max, &entry->source);
-	fromwire_pubkey(pptr, max, &entry->destination);
+	fromwire(pptr, max, entry->source, sizeof(entry->source));
+	fromwire(pptr, max, entry->destination, sizeof(entry->destination));
 	entry->satoshis = fromwire_u64(pptr, max);
 	entry->message_flags = fromwire_u8(pptr, max);
 	entry->channel_flags = fromwire_u8(pptr, max);
@@ -114,8 +114,8 @@ void towire_gossip_getchannels_entry(u8 **pptr,
 				     const struct gossip_getchannels_entry *entry)
 {
 	towire_short_channel_id(pptr, &entry->short_channel_id);
-	towire_pubkey(pptr, &entry->source);
-	towire_pubkey(pptr, &entry->destination);
+	towire(pptr, entry->source, sizeof(entry->source));
+	towire(pptr, entry->destination, sizeof(entry->destination));
 	towire_u64(pptr, entry->satoshis);
 	towire_u8(pptr, entry->message_flags);
 	towire_u8(pptr, entry->channel_flags);
