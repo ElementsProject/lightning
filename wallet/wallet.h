@@ -166,11 +166,6 @@ struct forwarding {
 	enum forward_status status;
 };
 
-struct forwarding_stats {
-	/* One entry for each of the forward_statuses */
-	u64 count[3], msatoshi[3], fee[3];
-};
-
 /* A database backed shachain struct. The datastructure is
  * writethrough, reads are performed from an in-memory version, all
  * writes are passed through to the DB. */
@@ -1028,10 +1023,9 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 				  enum forward_status state);
 
 /**
- * Retrieve global stats about all forwarded_payments
+ * Retrieve summary of successful forwarded payments' fees
  */
-const struct forwarding_stats *wallet_forwarded_payments_stats(struct wallet *w,
-							       const tal_t *ctx);
+u64 wallet_total_forward_fees(struct wallet *w);
 
 /**
  * Retrieve a list of all forwarded_payments

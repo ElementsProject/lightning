@@ -1050,3 +1050,6 @@ def test_forward_stats(node_factory, bitcoind):
     stats = l2.rpc.listforwards()
 
     assert [f['status'] for f in stats['forwards']] == ['settled', 'failed', 'offered']
+    assert l2.rpc.getinfo()['msatoshi_fees_collected'] == 1 + amount // 100000
+    assert l1.rpc.getinfo()['msatoshi_fees_collected'] == 0
+    assert l3.rpc.getinfo()['msatoshi_fees_collected'] == 0
