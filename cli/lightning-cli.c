@@ -8,6 +8,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/json.h>
+#include <common/memleak.h>
 #include <common/utils.h>
 #include <common/version.h>
 #include <stdio.h>
