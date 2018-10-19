@@ -100,9 +100,8 @@ def test_pay_disconnect(node_factory, bitcoind):
     wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [False, False])
 
     # Can't pay while its offline.
-    with pytest.raises(RpcError):
+    with pytest.raises(RpcError, match=r'failed: WIRE_TEMPORARY_CHANNEL_FAILURE \(First peer not ready\)'):
         l1.rpc.sendpay(route, rhash)
-    l1.daemon.wait_for_log('failed: WIRE_TEMPORARY_CHANNEL_FAILURE \\(First peer not ready\\)')
 
     l2.start()
     l1.daemon.wait_for_log('peer_out WIRE_CHANNEL_REESTABLISH')
@@ -114,10 +113,9 @@ def test_pay_disconnect(node_factory, bitcoind):
     l1.daemon.wait_for_log(r'Peer permanent failure in CHANNELD_NORMAL: lightning_channeld: received ERROR channel .*: update_fee \d+ outside range 1875-75000')
 
     # Should fail due to permenant channel fail
-    with pytest.raises(RpcError):
+    with pytest.raises(RpcError, match=r'failed: WIRE_UNKNOWN_NEXT_PEER \(First peer not ready\)'):
         l1.rpc.sendpay(route, rhash)
 
-    l1.daemon.wait_for_log('failed: WIRE_UNKNOWN_NEXT_PEER \\(First peer not ready\\)')
     assert not l1.daemon.is_in_log('Payment is still in progress')
 
     # After it sees block, someone should close channel.

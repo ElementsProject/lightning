@@ -27,18 +27,6 @@ u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 /* Generated stub for get_chainparams */
 const struct chainparams *get_chainparams(const struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "get_chainparams called!\n"); abort(); }
-/* Generated stub for io_lock_acquire_out_ */
-struct io_plan *io_lock_acquire_out_(struct io_conn *conn UNNEEDED, struct io_lock *lock UNNEEDED,
-				     struct io_plan *(*next)(struct io_conn * UNNEEDED,
-							     void *) UNNEEDED,
-				     void *arg UNNEEDED)
-{ fprintf(stderr, "io_lock_acquire_out_ called!\n"); abort(); }
-/* Generated stub for io_lock_new */
-struct io_lock *io_lock_new(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "io_lock_new called!\n"); abort(); }
-/* Generated stub for io_lock_release */
-void io_lock_release(struct io_lock *lock UNNEEDED)
-{ fprintf(stderr, "io_lock_release called!\n"); abort(); }
 /* Generated stub for json_feerate_estimate */
 bool json_feerate_estimate(struct command *cmd UNNEEDED,
 			   u32 **feerate_per_kw UNNEEDED, enum feerate feerate UNNEEDED)
@@ -71,6 +59,7 @@ bool deprecated_apis;
 static int test_json_filter(void)
 {
 	struct command *cmd = talz(NULL, struct command);
+	struct json_connection *jcon = talz(cmd, struct json_connection);
 	struct json_result *result = json_stream_success(cmd);
 	jsmntok_t *toks;
 	const jsmntok_t *x;
@@ -78,6 +67,12 @@ static int test_json_filter(void)
 	int i;
 	char *badstr = tal_arr(result, char, 256);
 	const char *str;
+
+	/* We need to initialize membuf so we can gather results. */
+	cmd->jcon = jcon;
+	jcon->lock = io_lock_new(jcon);
+	membuf_init(&jcon->outbuf,
+		    tal_arr(cmd, char, 64), 64, membuf_tal_realloc);
 
 	/* Fill with junk, and nul-terminate (256 -> 0) */
 	for (i = 1; i < 257; i++)
@@ -88,7 +83,8 @@ static int test_json_filter(void)
 	json_object_end(result);
 
 	/* Parse back in, make sure nothing crazy. */
-	str = json_result_string(result);
+	str = tal_strndup(cmd, membuf_elems(&jcon->outbuf),
+			  membuf_num_elems(&jcon->outbuf));
 
 	toks = json_parse_input(str, strlen(str), &valid);
 	assert(valid);
@@ -117,18 +113,26 @@ static void test_json_escape(void)
 	for (i = 1; i < 256; i++) {
 		char badstr[2];
 		struct command *cmd = talz(NULL, struct command);
+		struct json_connection *jcon = talz(cmd, struct json_connection);
 		struct json_result *result = json_stream_success(cmd);
 		struct json_escaped *esc;
 
 		badstr[0] = i;
 		badstr[1] = 0;
 
+		/* We need to initialize membuf so we can gather results. */
+		cmd->jcon = jcon;
+		jcon->lock = io_lock_new(jcon);
+		membuf_init(&jcon->outbuf,
+			    tal_arr(cmd, char, 64), 64, membuf_tal_realloc);
+
 		json_object_start(result, NULL);
 		esc = json_escape(NULL, badstr);
 		json_add_escaped_string(result, "x", take(esc));
 		json_object_end(result);
 
-		const char *str = json_result_string(result);
+		const char *str = tal_strndup(cmd, membuf_elems(&jcon->outbuf),
+					      membuf_num_elems(&jcon->outbuf));
 		if (i == '\\' || i == '"'
 		    || i == '\n' || i == '\r' || i == '\b'
 		    || i == '\t' || i == '\f')

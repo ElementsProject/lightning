@@ -159,7 +159,7 @@ bool json_tok_tok(struct command *cmd, const char *name,
 		  const jsmntok_t **out);
 
 
-/* Creating JSON strings */
+/* Creating JSON output */
 
 /* '"fieldname" : [ ' or '[ ' if fieldname is NULL */
 void json_array_start(struct json_result *ptr, const char *fieldname);
@@ -191,6 +191,18 @@ struct json_result *json_stream_success(struct command *cmd);
 struct json_result *json_stream_fail(struct command *cmd,
 				     int code,
 				     const char *errmsg);
+
+/**
+ * json_stream_fail_nodata - start streaming a failed json result.
+ * @cmd: the command we're running.
+ * @code: the error code from lightningd/jsonrpc_errors.h
+ * @errmsg: the error string.
+ *
+ * This is used by command_fail(), which doesn't add any JSON data.
+ */
+struct json_result *json_stream_fail_nodata(struct command *cmd,
+					    int code,
+					    const char *errmsg);
 
 /* '"fieldname" : "value"' or '"value"' if fieldname is NULL.  Turns
  * any non-printable chars into JSON escapes, but leaves existing escapes alone.
@@ -227,5 +239,4 @@ void json_add_hex_talarr(struct json_result *result,
 			 const tal_t *data);
 void json_add_object(struct json_result *result, ...);
 
-const char *json_result_string(const struct json_result *result);
 #endif /* LIGHTNING_LIGHTNINGD_JSON_H */
