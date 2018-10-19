@@ -976,6 +976,7 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     assert only_one(l3.rpc.listinvoices('test_forward_pad_fees_and_cltv')['invoices'])['status'] == 'paid'
 
 
+@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_ignore_htlcs")
 def test_forward_stats(node_factory, bitcoind):
     """Check that we track forwarded payments correctly.
 
@@ -1009,18 +1010,13 @@ def test_forward_stats(node_factory, bitcoind):
         l1.rpc.sendpay(route, payment_hash)
         l1.rpc.waitsendpay(payment_hash)
 
-    # l5 will hold the HTLC hostage and walk away
+    # l5 will hold the HTLC hostage.
+    l5.rpc.dev_ignore_htlcs(id=l2.info['id'], ignore=True)
     route = l1.rpc.getroute(l5.info['id'], amount, 1)['route']
     payment_hash = l5.rpc.invoice(amount, "first", "desc")['payment_hash']
     l1.rpc.sendpay(route, payment_hash)
 
-    # Wait for the HTLC to be added, then try to kill it to keep the
-    # HTLC pending. This is racy but there seems to be no good
-    # alternative
-    l5.daemon.wait_for_log(r'RCVD_ADD_HTLC/SENT_ADD_HTLC')
-    l5.daemon.wait_for_log(r'peer_out WIRE_COMMITMENT_SIGNED')
-    l5.daemon.kill()
-    print("Killed!")
+    l5.daemon.wait_for_log(r'their htlc .* dev_ignore_htlcs')
 
     # Select all forwardings, ordered by htlc_id to ensure the order
     # matches below
