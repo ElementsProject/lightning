@@ -323,13 +323,17 @@ static void bad_programmer(void)
 #endif
 
 static void add_members(struct param **params,
-			struct json_result *obj,
-			struct json_result *arr, unsigned int **ints)
+			char **obj,
+			char **arr, unsigned int **ints)
 {
 	for (int i = 0; i < tal_count(ints); ++i) {
-		char *name = tal_fmt(tmpctx, "%i", i);
-		json_add_num(obj, name, i);
-		json_add_num(arr, NULL, i);
+		const char *name = tal_fmt(*params, "%i", i);
+		if (i != 0) {
+			tal_append_fmt(obj, ", ");
+			tal_append_fmt(arr, ", ");
+		}
+		tal_append_fmt(obj, "\"%i\" : %i", i, i);
+		tal_append_fmt(arr, "%i", i);
 		param_add(params, name, true,
 			  typesafe_cb_preargs(bool, void **,
 					      json_tok_number,
@@ -351,16 +355,14 @@ static void five_hundred_params(void)
 	struct param *params = tal_arr(NULL, struct param, 0);
 
 	unsigned int **ints = tal_arr(params, unsigned int*, 500);
-	struct json_result *obj = new_json_result(params);
-	struct json_result *arr = new_json_result(params);
-	json_object_start(obj, NULL);
-	json_array_start(arr, NULL);
-	add_members(&params, obj, arr, ints);
-	json_object_end(obj);
-	json_array_end(arr);
+	char *obj = tal_fmt(params, "{ ");
+	char *arr = tal_fmt(params, "[ ");
+	add_members(&params, &obj, &arr, ints);
+	tal_append_fmt(&obj, "}");
+	tal_append_fmt(&arr, "]");
 
 	/* first test object version */
-	struct json *j = json_parse(params, obj->s);
+	struct json *j = json_parse(params, obj);
 	assert(param_arr(cmd, j->buffer, j->toks, params));
 	for (int i = 0; i < tal_count(ints); ++i) {
 		assert(ints[i]);
@@ -369,7 +371,7 @@ static void five_hundred_params(void)
 	}
 
 	/* now test array */
-	j = json_parse(params, arr->s);
+	j = json_parse(params, arr);
 	assert(param_arr(cmd, j->buffer, j->toks, params));
 	for (int i = 0; i < tal_count(ints); ++i) {
 		assert(*ints[i] == i);
