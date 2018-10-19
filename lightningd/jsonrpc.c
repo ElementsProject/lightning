@@ -6,6 +6,7 @@
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
+#include <ccan/io/backend.h>
 #include <ccan/io/io.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
@@ -51,6 +52,12 @@ static void destroy_jcon(struct json_connection *jcon)
 
 	/* Make sure this happens last! */
 	tal_free(jcon->log);
+}
+
+/* FIXME: This, or something prettier (io_replan?) belong in ccan/io! */
+static UNNEEDED void adjust_io_write(struct io_conn *conn, ptrdiff_t delta)
+{
+	conn->plan[IO_OUT].arg.u1.cp += delta;
 }
 
 static void json_help(struct command *cmd,
