@@ -409,7 +409,8 @@ static void json_command_malformed(struct json_connection *jcon,
 					 JSONRPC2_INVALID_REQUEST, NULL);
 }
 
-static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
+/* Returns true if command already completed. */
+static bool parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 {
 	const jsmntok_t *method, *id, *params;
 	struct command *c;
@@ -417,7 +418,7 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	if (tok[0].type != JSMN_OBJECT) {
 		json_command_malformed(jcon, "null",
 				       "Expected {} for json command");
-		return;
+		return true;
 	}
 
 	method = json_get_member(jcon->buffer, tok, "method");
@@ -426,12 +427,12 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 
 	if (!id) {
 		json_command_malformed(jcon, "null", "No id");
-		return;
+		return true;
 	}
 	if (id->type != JSMN_STRING && id->type != JSMN_PRIMITIVE) {
 		json_command_malformed(jcon, "null",
 				       "Expected string/primitive for id");
-		return;
+		return true;
 	}
 
 	/* This is a convenient tal parent for duration of command
@@ -450,13 +451,13 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	if (!method || !params) {
 		command_fail(c, JSONRPC2_INVALID_REQUEST,
 			     method ? "No params" : "No method");
-		return;
+		return true;
 	}
 
 	if (method->type != JSMN_STRING) {
 		command_fail(c, JSONRPC2_INVALID_REQUEST,
 			     "Expected string for method");
-		return;
+		return true;
 	}
 
 	c->json_cmd = find_cmd(jcon->buffer, method);
@@ -465,14 +466,14 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 			     "Unknown command '%.*s'",
 			     method->end - method->start,
 			     jcon->buffer + method->start);
-		return;
+		return true;
 	}
 	if (c->json_cmd->deprecated && !deprecated_apis) {
 		command_fail(c, JSONRPC2_METHOD_NOT_FOUND,
 			     "Command '%.*s' is deprecated",
 			      method->end - method->start,
 			      jcon->buffer + method->start);
-		return;
+		return true;
 	}
 
 	db_begin_transaction(jcon->ld->wallet->db);
@@ -482,6 +483,8 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	/* If they didn't complete it, they must call command_still_pending */
 	if (jcon->command == c)
 		assert(c->pending);
+
+	return jcon->command == NULL;
 }
 
 /* Mutual recursion */
@@ -525,7 +528,7 @@ static struct io_plan *read_json(struct io_conn *conn,
 				 struct json_connection *jcon)
 {
 	jsmntok_t *toks;
-	bool valid;
+	bool valid, completed;
 
 	if (jcon->len_read)
 		log_io(jcon->log, LOG_IO_IN, "",
@@ -539,7 +542,7 @@ static struct io_plan *read_json(struct io_conn *conn,
 	toks = json_parse_input(jcon->buffer, jcon->used, &valid);
 	if (!toks) {
 		if (!valid) {
-			log_unusual(jcon->ld->log,
+			log_unusual(jcon->log,
 				    "Invalid token in json input: '%.*s'",
 				    (int)jcon->used, jcon->buffer);
 			json_command_malformed(
@@ -557,17 +560,28 @@ static struct io_plan *read_json(struct io_conn *conn,
 		goto read_more;
 	}
 
-	parse_request(jcon, toks);
+	completed = parse_request(jcon, toks);
 
 	/* Remove first {}. */
 	memmove(jcon->buffer, jcon->buffer + toks[0].end,
 		tal_count(jcon->buffer) - toks[0].end);
 	jcon->used -= toks[0].end;
-	tal_free(toks);
 
-	/* We will get woken by cmd completion. */
+	/* If we haven't completed, wait for cmd completion. */
 	jcon->len_read = 0;
-	return io_wait(conn, conn, read_json, jcon);
+	if (!completed) {
+		tal_free(toks);
+		return io_wait(conn, conn, read_json, jcon);
+	}
+
+	/* If we have more to process, try again.  FIXME: this still gets
+	 * first priority in io_loop, so can starve others.  Hack would be
+	 * a (non-zero) timer, but better would be to have io_loop avoid
+	 * such livelock */
+	if (jcon->used) {
+		tal_free(toks);
+		return io_always(conn, read_json, jcon);
+	}
 
 read_more:
 	tal_free(toks);
