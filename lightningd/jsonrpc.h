@@ -4,6 +4,7 @@
 #include <bitcoin/chainparams.h>
 #include <ccan/autodata/autodata.h>
 #include <ccan/list/list.h>
+#include <ccan/membuf/membuf.h>
 #include <common/io_lock.h>
 #include <common/json.h>
 
@@ -62,7 +63,10 @@ struct json_connection {
 	struct command *command;
 
 	/* Current command's output. */
-	const char *outbuf;
+	MEMBUF(char) outbuf;
+
+	/* How much we're writing right now. */
+	size_t out_amount;
 	struct io_lock *lock;
 };
 
