@@ -602,10 +602,8 @@ def test_onchain_dust_out(node_factory, bitcoind, executor):
     bitcoind.generate_block(3)
 
     # It should fail.
-    with pytest.raises(RpcError):
+    with pytest.raises(RpcError, match=r'WIRE_PERMANENT_CHANNEL_FAILURE: missing in commitment tx'):
         payfuture.result(5)
-
-    l1.daemon.wait_for_log('WIRE_PERMANENT_CHANNEL_FAILURE: missing in commitment tx')
 
     # Retry payment, this should fail (and, as a side-effect, tickle a
     # bug).
@@ -682,10 +680,8 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
     bitcoind.generate_block(3)
 
     # It should fail.
-    with pytest.raises(RpcError):
+    with pytest.raises(RpcError, match=r'WIRE_PERMANENT_CHANNEL_FAILURE: timed out'):
         payfuture.result(5)
-
-    l1.daemon.wait_for_log('WIRE_PERMANENT_CHANNEL_FAILURE: timed out')
 
     # 2 later, l1 spends HTLC (5 blocks total).
     bitcoind.generate_block(2)

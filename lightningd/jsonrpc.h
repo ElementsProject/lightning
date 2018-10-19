@@ -7,6 +7,7 @@
 #include <ccan/membuf/membuf.h>
 #include <common/io_lock.h>
 #include <common/json.h>
+#include <stdarg.h>
 
 struct bitcoin_txid;
 struct wireaddr;
@@ -40,10 +41,6 @@ struct command {
 	bool *ok;
 	/* Have we started a json stream already?  For debugging. */
 	bool have_json_stream;
-
-	/* FIXME: Temporary. */
-	int failcode;
-	const char *errmsg;
 };
 
 struct json_connection {
@@ -97,6 +94,9 @@ void PRINTF_FMT(3, 4) command_fail(struct command *cmd, int code,
 /* Mainly for documentation, that we plan to close this later. */
 void command_still_pending(struct command *cmd);
 
+/* Low level jcon routines. */
+void jcon_append(struct json_connection *jcon, const char *str);
+void jcon_append_vfmt(struct json_connection *jcon, const char *fmt, va_list ap);
 
 /* For initialization */
 void setup_jsonrpc(struct lightningd *ld, const char *rpc_filename);

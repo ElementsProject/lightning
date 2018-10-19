@@ -11,6 +11,7 @@ LIGHTNINGD_TEST_COMMON_OBJS :=			\
 	common/bech32.o				\
 	common/daemon_conn.o			\
 	common/htlc_state.o			\
+	common/io_lock.o			\
 	common/json.o				\
 	common/pseudorand.o			\
 	common/memleak.o			\

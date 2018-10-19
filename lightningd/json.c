@@ -491,31 +491,33 @@ struct json_result {
 	/* True if we haven't yet put an element in current wrapping */
 	bool empty;
 
-	/* tal_count() of this is strlen() + 1 */
-	char *s;
+	/* The command we're attached to */
+	struct command *cmd;
 };
 
 static void result_append(struct json_result *res, const char *str)
 {
-	size_t len = tal_count(res->s) - 1;
+	struct json_connection *jcon = res->cmd->jcon;
 
-	tal_resize(&res->s, len + strlen(str) + 1);
-	strcpy(res->s + len, str);
+	/* Don't do anything if they're disconnected. */
+	if (!jcon)
+		return;
+
+	jcon_append(jcon, str);
 }
 
 static void PRINTF_FMT(2,3)
 result_append_fmt(struct json_result *res, const char *fmt, ...)
 {
-	size_t len = tal_count(res->s) - 1, fmtlen;
+	struct json_connection *jcon = res->cmd->jcon;
 	va_list ap;
 
-	va_start(ap, fmt);
-	fmtlen = vsnprintf(NULL, 0, fmt, ap);
-	va_end(ap);
+	/* Don't do anything if they're disconnected. */
+	if (!jcon)
+		return;
 
-	tal_resize(&res->s, len + fmtlen + 1);
 	va_start(ap, fmt);
-	vsprintf(res->s + len, fmt, ap);
+	jcon_append_vfmt(jcon, fmt, ap);
 	va_end(ap);
 }
 
@@ -707,7 +709,7 @@ static struct json_result *new_json_stream(struct command *cmd)
 {
 	struct json_result *r = tal(cmd, struct json_result);
 
-	r->s = tal_strdup(r, "");
+	r->cmd = cmd;
 #if DEVELOPER
 	r->wrapping = tal_arr(r, jsmntype_t, 0);
 #endif
@@ -721,27 +723,33 @@ static struct json_result *new_json_stream(struct command *cmd)
 
 struct json_result *json_stream_success(struct command *cmd)
 {
-	cmd->failcode = 0;
-	return new_json_stream(cmd);
+	struct json_result *r;
+	r = new_json_stream(cmd);
+	result_append(r, "\"result\" : ");
+	return r;
+}
+
+struct json_result *json_stream_fail_nodata(struct command *cmd,
+					    int code,
+					    const char *errmsg)
+{
+	struct json_result *r = new_json_stream(cmd);
+
+	assert(code);
+	assert(errmsg);
+
+	result_append_fmt(r, " \"error\" : "
+			  "{ \"code\" : %d,"
+			  " \"message\" : \"%s\"", code, errmsg);
+	return r;
 }
 
 struct json_result *json_stream_fail(struct command *cmd,
 				     int code,
 				     const char *errmsg)
 {
-	assert(code);
-	assert(errmsg);
-	cmd->failcode = code;
-	cmd->errmsg = tal_strdup(cmd, errmsg);
-	return new_json_stream(cmd);
-}
+	struct json_result *r = json_stream_fail_nodata(cmd, code, errmsg);
 
-const char *json_result_string(const struct json_result *result)
-{
-#if DEVELOPER
-	assert(tal_count(result->wrapping) == 0);
-#endif
-	assert(result->indent == 0);
-	assert(tal_count(result->s) == strlen(result->s) + 1);
-	return result->s;
+	result_append(r, ", \"data\" : ");
+	return r;
 }
