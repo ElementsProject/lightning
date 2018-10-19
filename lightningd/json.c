@@ -4,6 +4,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/json.h>
+#include <common/memleak.h>
 #include <common/type_to_string.h>
 #include <common/wireaddr.h>
 #include <gossipd/routing.h>
@@ -480,8 +481,12 @@ bool json_tok_tok(struct command *cmd, const char *name,
 }
 
 struct json_result {
+#if DEVELOPER
 	/* tal_arr of types (JSMN_OBJECT/JSMN_ARRAY) we're enclosed in. */
 	jsmntype_t *wrapping;
+#endif
+	/* How far to indent. */
+	size_t indent;
 
 	/* True if we haven't yet put an element in current wrapping */
 	bool empty;
@@ -517,6 +522,7 @@ result_append_fmt(struct json_result *res, const char *fmt, ...)
 static void check_fieldname(const struct json_result *result,
 			    const char *fieldname)
 {
+#if DEVELOPER
 	size_t n = tal_count(result->wrapping);
 	if (n == 0)
 		/* Can't have a fieldname if not in anything! */
@@ -527,9 +533,22 @@ static void check_fieldname(const struct json_result *result,
 	else
 		/* Must have fieldnames in objects. */
 		assert(fieldname);
+#endif
 }
 
-static void result_add_indent(struct json_result *result);
+static void result_append_indent(struct json_result *result)
+{
+	static const char indent_buf[] = "                                ";
+	size_t len;
+
+	for (size_t i = 0; i < result->indent * 2; i += len) {
+		len = result->indent * 2;
+		if (len > sizeof(indent_buf)-1)
+			len = sizeof(indent_buf)-1;
+		/* Use tail of indent_buf string. */
+		result_append(result, indent_buf + sizeof(indent_buf) - 1 - len);
+	}
+}
 
 static void json_start_member(struct json_result *result, const char *fieldname)
 {
@@ -539,7 +558,7 @@ static void json_start_member(struct json_result *result, const char *fieldname)
 	else
 		result_append(result, "\n");
 
-	result_add_indent(result);
+	result_append_indent(result);
 
 	check_fieldname(result, fieldname);
 	if (fieldname)
@@ -547,45 +566,39 @@ static void json_start_member(struct json_result *result, const char *fieldname)
 	result->empty = false;
 }
 
-static void result_add_indent(struct json_result *result)
+static void result_indent(struct json_result *result, jsmntype_t type)
 {
-	size_t i, indent = tal_count(result->wrapping);
-
-	if (!indent)
-		return;
-
-	for (i = 0; i < indent; i++)
-		result_append(result, "  ");
-}
-
-static void result_add_wrap(struct json_result *result, jsmntype_t type)
-{
+#if DEVELOPER
 	*tal_arr_expand(&result->wrapping) = type;
+#endif
 	result->empty = true;
+	result->indent++;
 }
 
-static void result_pop_wrap(struct json_result *result, jsmntype_t type)
+static void result_unindent(struct json_result *result, jsmntype_t type)
 {
-	size_t indent = tal_count(result->wrapping);
-
-	assert(indent);
-	assert(result->wrapping[indent-1] == type);
-	tal_resize(&result->wrapping, indent-1);
+	assert(result->indent);
+#if DEVELOPER
+	assert(tal_count(result->wrapping) == result->indent);
+	assert(result->wrapping[result->indent-1] == type);
+	tal_resize(&result->wrapping, result->indent-1);
+#endif
 	result->empty = false;
+	result->indent--;
 }
 
 void json_array_start(struct json_result *result, const char *fieldname)
 {
 	json_start_member(result, fieldname);
 	result_append(result, "[");
-	result_add_wrap(result, JSMN_ARRAY);
+	result_indent(result, JSMN_ARRAY);
 }
 
 void json_array_end(struct json_result *result)
 {
 	result_append(result, "\n");
-	result_pop_wrap(result, JSMN_ARRAY);
-	result_add_indent(result);
+	result_unindent(result, JSMN_ARRAY);
+	result_append_indent(result);
 	result_append(result, "]");
 }
 
@@ -593,14 +606,14 @@ void json_object_start(struct json_result *result, const char *fieldname)
 {
 	json_start_member(result, fieldname);
 	result_append(result, "{");
-	result_add_wrap(result, JSMN_OBJECT);
+	result_indent(result, JSMN_OBJECT);
 }
 
 void json_object_end(struct json_result *result)
 {
 	result_append(result, "\n");
-	result_pop_wrap(result, JSMN_OBJECT);
-	result_add_indent(result);
+	result_unindent(result, JSMN_OBJECT);
+	result_append_indent(result);
 	result_append(result, "}");
 }
 
@@ -695,14 +708,20 @@ struct json_result *new_json_result(const tal_t *ctx)
 	struct json_result *r = tal(ctx, struct json_result);
 
 	r->s = tal_strdup(r, "");
+#if DEVELOPER
 	r->wrapping = tal_arr(r, jsmntype_t, 0);
+#endif
+	r->indent = 0;
 	r->empty = true;
 	return r;
 }
 
 const char *json_result_string(const struct json_result *result)
 {
+#if DEVELOPER
 	assert(tal_count(result->wrapping) == 0);
+#endif
+	assert(result->indent == 0);
 	assert(tal_count(result->s) == strlen(result->s) + 1);
 	return result->s;
 }
