@@ -480,8 +480,11 @@ bool json_tok_tok(struct command *cmd, const char *name,
 }
 
 struct json_result {
-	/* tal_arr of types we're enclosed in. */
+	/* tal_arr of types (JSMN_OBJECT/JSMN_ARRAY) we're enclosed in. */
 	jsmntype_t *wrapping;
+
+	/* True if we haven't yet put an element in current wrapping */
+	bool empty;
 
 	/* tal_count() of this is strlen() + 1 */
 	char *s;
@@ -511,15 +514,6 @@ result_append_fmt(struct json_result *res, const char *fmt, ...)
 	va_end(ap);
 }
 
-static bool result_ends_with(struct json_result *res, const char *str)
-{
-	size_t len = tal_count(res->s) - 1;
-
-	if (strlen(str) > len)
-		return false;
-	return streq(res->s + len - strlen(str), str);
-}
-
 static void check_fieldname(const struct json_result *result,
 			    const char *fieldname)
 {
@@ -537,12 +531,10 @@ static void check_fieldname(const struct json_result *result,
 
 static void result_add_indent(struct json_result *result);
 
-	static void json_start_member(struct json_result *result, const char *fieldname)
+static void json_start_member(struct json_result *result, const char *fieldname)
 {
 	/* Prepend comma if required. */
-	if (result->s[0]
-	    && !result_ends_with(result, "{")
-	    && !result_ends_with(result, "["))
+	if (!result->empty)
 		result_append(result, ", \n");
 	else
 		result_append(result, "\n");
@@ -552,6 +544,7 @@ static void result_add_indent(struct json_result *result);
 	check_fieldname(result, fieldname);
 	if (fieldname)
 		result_append_fmt(result, "\"%s\": ", fieldname);
+	result->empty = false;
 }
 
 static void result_add_indent(struct json_result *result)
@@ -567,10 +560,8 @@ static void result_add_indent(struct json_result *result)
 
 static void result_add_wrap(struct json_result *result, jsmntype_t type)
 {
-	size_t indent = tal_count(result->wrapping);
-
-	tal_resize(&result->wrapping, indent+1);
-	result->wrapping[indent] = type;
+	*tal_arr_expand(&result->wrapping) = type;
+	result->empty = true;
 }
 
 static void result_pop_wrap(struct json_result *result, jsmntype_t type)
@@ -580,6 +571,7 @@ static void result_pop_wrap(struct json_result *result, jsmntype_t type)
 	assert(indent);
 	assert(result->wrapping[indent-1] == type);
 	tal_resize(&result->wrapping, indent-1);
+	result->empty = false;
 }
 
 void json_array_start(struct json_result *result, const char *fieldname)
@@ -702,9 +694,9 @@ struct json_result *new_json_result(const tal_t *ctx)
 {
 	struct json_result *r = tal(ctx, struct json_result);
 
-	/* Using tal_arr means that it has a valid count. */
-	r->s = tal_arrz(r, char, 1);
+	r->s = tal_strdup(r, "");
 	r->wrapping = tal_arr(r, jsmntype_t, 0);
+	r->empty = true;
 	return r;
 }
 
