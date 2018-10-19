@@ -156,9 +156,6 @@ void json_array_start(struct json_result *ptr UNNEEDED, const char *fieldname UN
 /* Generated stub for json_escape */
 struct json_escaped *json_escape(const tal_t *ctx UNNEEDED, const char *str TAKES UNNEEDED)
 { fprintf(stderr, "json_escape called!\n"); abort(); }
-/* Generated stub for json_next */
-const jsmntok_t *json_next(const jsmntok_t *tok UNNEEDED)
-{ fprintf(stderr, "json_next called!\n"); abort(); }
 /* Generated stub for json_object_end */
 void json_object_end(struct json_result *ptr UNNEEDED)
 { fprintf(stderr, "json_object_end called!\n"); abort(); }

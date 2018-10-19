@@ -10,7 +10,6 @@
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
-#include <common/json_escaped.h>
 #include <common/pseudorand.h>
 #include <common/utils.h>
 #include <errno.h>
@@ -19,6 +18,7 @@
 #include <inttypes.h>
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/json_escaped.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>

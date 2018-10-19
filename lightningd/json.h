@@ -6,6 +6,7 @@
 #define LIGHTNING_LIGHTNINGD_JSON_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <ccan/tal/tal.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -157,4 +158,54 @@ bool json_tok_tok(struct command *cmd, const char *name,
 		  const char *buffer, const jsmntok_t * tok,
 		  const jsmntok_t **out);
 
+
+/* Creating JSON strings */
+
+/* '"fieldname" : [ ' or '[ ' if fieldname is NULL */
+void json_array_start(struct json_result *ptr, const char *fieldname);
+/* '"fieldname" : { ' or '{ ' if fieldname is NULL */
+void json_object_start(struct json_result *ptr, const char *fieldname);
+/* ' ], ' */
+void json_array_end(struct json_result *ptr);
+/* ' }, ' */
+void json_object_end(struct json_result *ptr);
+
+struct json_result *new_json_result(const tal_t *ctx);
+
+/* '"fieldname" : "value"' or '"value"' if fieldname is NULL.  Turns
+ * any non-printable chars into JSON escapes, but leaves existing escapes alone.
+ */
+void json_add_string(struct json_result *result, const char *fieldname, const char *value);
+
+/* '"fieldname" : "value"' or '"value"' if fieldname is NULL.  String must
+ * already be JSON escaped as necessary. */
+void json_add_escaped_string(struct json_result *result,
+			     const char *fieldname,
+			     const struct json_escaped *esc TAKES);
+
+/* '"fieldname" : literal' or 'literal' if fieldname is NULL*/
+void json_add_literal(struct json_result *result, const char *fieldname,
+		      const char *literal, int len);
+/* '"fieldname" : value' or 'value' if fieldname is NULL */
+void json_add_double(struct json_result *result, const char *fieldname,
+		     double value);
+/* '"fieldname" : value' or 'value' if fieldname is NULL */
+void json_add_num(struct json_result *result, const char *fieldname,
+		  unsigned int value);
+/* '"fieldname" : value' or 'value' if fieldname is NULL */
+void json_add_u64(struct json_result *result, const char *fieldname,
+		  uint64_t value);
+/* '"fieldname" : true|false' or 'true|false' if fieldname is NULL */
+void json_add_bool(struct json_result *result, const char *fieldname,
+		   bool value);
+/* '"fieldname" : "0189abcdef..."' or "0189abcdef..." if fieldname is NULL */
+void json_add_hex(struct json_result *result, const char *fieldname,
+		  const void *data, size_t len);
+/* '"fieldname" : "0189abcdef..."' or "0189abcdef..." if fieldname is NULL */
+void json_add_hex_talarr(struct json_result *result,
+			 const char *fieldname,
+			 const tal_t *data);
+void json_add_object(struct json_result *result, ...);
+
+const char *json_result_string(const struct json_result *result);
 #endif /* LIGHTNING_LIGHTNINGD_JSON_H */

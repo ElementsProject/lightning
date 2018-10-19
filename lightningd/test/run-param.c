@@ -1,14 +1,12 @@
-#include "config.h"
-#include <signal.h>
-#include <setjmp.h>
-#include <lightningd/jsonrpc.h>
-
-#include <lightningd/json.c>
-#include <lightningd/param.c>
-#include <common/json.c>
-#include <common/json_escaped.c>
+#include "../json.c"
+#include "../json_escaped.c"
+#include "../param.c"
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
+#include <common/json.h>
+#include <lightningd/jsonrpc.h>
+#include <setjmp.h>
+#include <signal.h>
 #include <unistd.h>
 
 char *fail_msg = NULL;
