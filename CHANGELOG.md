@@ -43,6 +43,8 @@ changes.
 - JSON RPC: `getroute` `fuzzpercent` and `pay` `maxfeepercent` can now be > 100.
 - JSON RPC: `riskfactor` in `pay` and `getroute` no longer always treated as 1.
 - JSON-RPC: `listpeers` was always reporting 0 for all stats.
+- JSON RPC: `withdraw all` says `Cannot afford transaction` if you have
+             absolutely no funds, rather than `Output 0 satoshis would be dust`.
 - Protocol: don't send gossip about closed channels.
 - Protocol: fix occasional deadlock when both peers flood with gossip.
 - Protocol: fix occasional long delay on sending `reply_short_channel_ids_end`.

@@ -14,7 +14,7 @@ void wtx_init(struct command *cmd, struct wallet_tx * wtx)
 
 static bool check_amount(const struct wallet_tx *tx, u64 amount)
 {
-	if (!tx->utxos) {
+	if (tal_count(tx->utxos) == 0) {
 		command_fail(tx->cmd, FUND_CANNOT_AFFORD,
 			     "Cannot afford transaction");
 		return false;
