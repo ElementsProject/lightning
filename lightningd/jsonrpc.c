@@ -619,6 +619,7 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	struct json_connection *jcon;
 
 	jcon = tal(conn, struct json_connection);
+	jcon->conn = conn;
 	jcon->ld = ld;
 	jcon->used = 0;
 	jcon->buffer = tal_arr(jcon, char, 64);

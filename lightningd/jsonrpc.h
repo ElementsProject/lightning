@@ -50,6 +50,9 @@ struct json_connection {
 	/* The global state */
 	struct lightningd *ld;
 
+	/* This io_conn (and our owner!) */
+	struct io_conn *conn;
+
 	/* Logging for this json connection. */
 	struct log *log;
 
