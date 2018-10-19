@@ -47,4 +47,9 @@ struct io_plan *io_lock_acquire_in_(struct io_conn *conn, struct io_lock *lock,
  */
 void io_lock_release(struct io_lock *lock);
 
+/**
+ * Is this lock acquired?
+ */
+bool io_lock_taken(const struct io_lock *lock);
+
 #endif /* LIGHTNING_COMMON_IO_LOCK_H */
