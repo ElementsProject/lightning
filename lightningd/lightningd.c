@@ -69,6 +69,7 @@
 #include <lightningd/channel_control.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/invoice.h>
+#include <lightningd/json_escaped.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
 #include <lightningd/onchain_control.h>

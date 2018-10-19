@@ -1,4 +1,4 @@
-#include <common/json_escaped.h>
+#include <lightningd/json_escaped.h>
 #include <stdio.h>
 
 struct json_escaped *json_escaped_string_(const tal_t *ctx,

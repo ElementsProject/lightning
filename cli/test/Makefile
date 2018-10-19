@@ -12,7 +12,6 @@ CLI_TEST_COMMON_OBJS :=				\
 	common/daemon_conn.o			\
 	common/htlc_state.o			\
 	common/json.o				\
-	common/json_escaped.o			\
 	common/pseudorand.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\

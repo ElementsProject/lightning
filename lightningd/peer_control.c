@@ -15,7 +15,6 @@
 #include <common/dev_disconnect.h>
 #include <common/features.h>
 #include <common/initial_commit_tx.h>
-#include <common/json_escaped.h>
 #include <common/key_derive.h>
 #include <common/status.h>
 #include <common/timeout.h>

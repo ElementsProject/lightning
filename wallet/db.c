@@ -1,9 +1,9 @@
 #include "db.h"
 
 #include <ccan/tal/str/str.h>
-#include <common/json_escaped.h>
 #include <common/version.h>
 #include <inttypes.h>
+#include <lightningd/json_escaped.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 
