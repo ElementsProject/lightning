@@ -65,7 +65,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 		 * not if we're actually making a payment to ourselves! */
 		assert(change_satoshi >= withdraw->wtx.change);
 
-		struct json_result *response = json_stream_success(cmd);
+		struct json_stream *response = json_stream_success(cmd);
 		json_object_start(response, NULL);
 		json_add_string(response, "tx", withdraw->hextx);
 		json_add_string(response, "txid", output);
@@ -242,7 +242,7 @@ static bool json_tok_newaddr(struct command *cmd, const char *name,
 static void json_newaddr(struct command *cmd, const char *buffer UNUSED,
 			 const jsmntok_t *params UNUSED)
 {
-	struct json_result *response;
+	struct json_stream *response;
 	struct ext_key ext;
 	struct pubkey pubkey;
 	bool *is_p2wpkh;
@@ -301,7 +301,7 @@ AUTODATA(json_command, &newaddr_command);
 static void json_listaddrs(struct command *cmd,
 			   const char *buffer, const jsmntok_t *params)
 {
-	struct json_result *response;
+	struct json_stream *response;
 	struct ext_key ext;
 	struct pubkey pubkey;
 	u64 *bip32_max_index;
@@ -379,7 +379,7 @@ AUTODATA(json_command, &listaddrs_command);
 static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
 			   const jsmntok_t *params UNUSED)
 {
-	struct json_result *response;
+	struct json_stream *response;
 	struct peer *p;
 	struct utxo **utxos;
 	char* out;
@@ -464,7 +464,7 @@ AUTODATA(json_command, &listfunds_command);
 struct txo_rescan {
 	struct command *cmd;
 	struct utxo **utxos;
-	struct json_result *response;
+	struct json_stream *response;
 };
 
 static void process_utxo_result(struct bitcoind *bitcoind,
@@ -472,7 +472,7 @@ static void process_utxo_result(struct bitcoind *bitcoind,
 				void *arg)
 {
 	struct txo_rescan *rescan = arg;
-	struct json_result *response = rescan->response;
+	struct json_stream *response = rescan->response;
 	struct utxo *u = rescan->utxos[0];
 	enum output_status newstate =
 	    txout == NULL ? output_state_spent : output_state_available;

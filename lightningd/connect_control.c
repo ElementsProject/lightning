@@ -65,7 +65,7 @@ static struct connect *find_connect(struct lightningd *ld,
 
 static void connect_cmd_succeed(struct command *cmd, const struct pubkey *id)
 {
-	struct json_result *response = json_stream_success(cmd);
+	struct json_stream *response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_add_pubkey(response, "id", id);
 	json_object_end(response);

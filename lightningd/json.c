@@ -18,7 +18,7 @@
 
 /* Output a route hop */
 static void
-json_add_route_hop(struct json_result *r, char const *n,
+json_add_route_hop(struct json_stream *r, char const *n,
 		   const struct route_hop *h)
 {
 	/* Imitate what getroute/sendpay use */
@@ -33,7 +33,7 @@ json_add_route_hop(struct json_result *r, char const *n,
 
 /* Output a route */
 void
-json_add_route(struct json_result *r, char const *n,
+json_add_route(struct json_stream *r, char const *n,
 	       const struct route_hop *hops, size_t hops_len)
 {
 	size_t i;
@@ -46,7 +46,7 @@ json_add_route(struct json_result *r, char const *n,
 
 /* Outputs fields, not a separate object*/
 void
-json_add_payment_fields(struct json_result *response,
+json_add_payment_fields(struct json_stream *response,
 			const struct wallet_payment *t)
 {
 	json_add_u64(response, "id", t->id);
@@ -75,7 +75,7 @@ json_add_payment_fields(struct json_result *response,
 		json_add_string(response, "description", t->description);
 }
 
-void json_add_pubkey(struct json_result *response,
+void json_add_pubkey(struct json_stream *response,
 		     const char *fieldname,
 		     const struct pubkey *key)
 {
@@ -85,7 +85,7 @@ void json_add_pubkey(struct json_result *response,
 	json_add_hex(response, fieldname, der, sizeof(der));
 }
 
-void json_add_txid(struct json_result *result, const char *fieldname,
+void json_add_txid(struct json_stream *result, const char *fieldname,
 		   const struct bitcoin_txid *txid)
 {
 	char hex[hex_str_size(sizeof(*txid))];
@@ -284,7 +284,7 @@ bool json_tok_pubkey(struct command *cmd, const char *name,
 	return false;
 }
 
-void json_add_short_channel_id(struct json_result *response,
+void json_add_short_channel_id(struct json_stream *response,
 			       const char *fieldname,
 			       const struct short_channel_id *id)
 {
@@ -405,7 +405,7 @@ json_tok_channel_id(const char *buffer, const jsmntok_t *tok,
 			  cid, sizeof(*cid));
 }
 
-void json_add_address(struct json_result *response, const char *fieldname,
+void json_add_address(struct json_stream *response, const char *fieldname,
 		      const struct wireaddr *addr)
 {
 	/* No need to print padding */
@@ -436,7 +436,7 @@ void json_add_address(struct json_result *response, const char *fieldname,
 	json_object_end(response);
 }
 
-void json_add_address_internal(struct json_result *response,
+void json_add_address_internal(struct json_stream *response,
 			       const char *fieldname,
 			       const struct wireaddr_internal *addr)
 {
@@ -480,7 +480,7 @@ bool json_tok_tok(struct command *cmd, const char *name,
 	return (*out = tok);
 }
 
-struct json_result {
+struct json_stream {
 #if DEVELOPER
 	/* tal_arr of types (JSMN_OBJECT/JSMN_ARRAY) we're enclosed in. */
 	jsmntype_t *wrapping;
@@ -495,7 +495,7 @@ struct json_result {
 	struct command *cmd;
 };
 
-static void result_append(struct json_result *res, const char *str)
+static void result_append(struct json_stream *res, const char *str)
 {
 	struct json_connection *jcon = res->cmd->jcon;
 
@@ -507,7 +507,7 @@ static void result_append(struct json_result *res, const char *str)
 }
 
 static void PRINTF_FMT(2,3)
-result_append_fmt(struct json_result *res, const char *fmt, ...)
+result_append_fmt(struct json_stream *res, const char *fmt, ...)
 {
 	struct json_connection *jcon = res->cmd->jcon;
 	va_list ap;
@@ -521,7 +521,7 @@ result_append_fmt(struct json_result *res, const char *fmt, ...)
 	va_end(ap);
 }
 
-static void check_fieldname(const struct json_result *result,
+static void check_fieldname(const struct json_stream *result,
 			    const char *fieldname)
 {
 #if DEVELOPER
@@ -538,7 +538,7 @@ static void check_fieldname(const struct json_result *result,
 #endif
 }
 
-static void result_append_indent(struct json_result *result)
+static void result_append_indent(struct json_stream *result)
 {
 	static const char indent_buf[] = "                                ";
 	size_t len;
@@ -552,7 +552,7 @@ static void result_append_indent(struct json_result *result)
 	}
 }
 
-static void json_start_member(struct json_result *result, const char *fieldname)
+static void json_start_member(struct json_stream *result, const char *fieldname)
 {
 	/* Prepend comma if required. */
 	if (!result->empty)
@@ -568,7 +568,7 @@ static void json_start_member(struct json_result *result, const char *fieldname)
 	result->empty = false;
 }
 
-static void result_indent(struct json_result *result, jsmntype_t type)
+static void result_indent(struct json_stream *result, jsmntype_t type)
 {
 #if DEVELOPER
 	*tal_arr_expand(&result->wrapping) = type;
@@ -577,7 +577,7 @@ static void result_indent(struct json_result *result, jsmntype_t type)
 	result->indent++;
 }
 
-static void result_unindent(struct json_result *result, jsmntype_t type)
+static void result_unindent(struct json_stream *result, jsmntype_t type)
 {
 	assert(result->indent);
 #if DEVELOPER
@@ -589,14 +589,14 @@ static void result_unindent(struct json_result *result, jsmntype_t type)
 	result->indent--;
 }
 
-void json_array_start(struct json_result *result, const char *fieldname)
+void json_array_start(struct json_stream *result, const char *fieldname)
 {
 	json_start_member(result, fieldname);
 	result_append(result, "[");
 	result_indent(result, JSMN_ARRAY);
 }
 
-void json_array_end(struct json_result *result)
+void json_array_end(struct json_stream *result)
 {
 	result_append(result, "\n");
 	result_unindent(result, JSMN_ARRAY);
@@ -604,14 +604,14 @@ void json_array_end(struct json_result *result)
 	result_append(result, "]");
 }
 
-void json_object_start(struct json_result *result, const char *fieldname)
+void json_object_start(struct json_stream *result, const char *fieldname)
 {
 	json_start_member(result, fieldname);
 	result_append(result, "{");
 	result_indent(result, JSMN_OBJECT);
 }
 
-void json_object_end(struct json_result *result)
+void json_object_end(struct json_stream *result)
 {
 	result_append(result, "\n");
 	result_unindent(result, JSMN_OBJECT);
@@ -619,33 +619,33 @@ void json_object_end(struct json_result *result)
 	result_append(result, "}");
 }
 
-void json_add_num(struct json_result *result, const char *fieldname, unsigned int value)
+void json_add_num(struct json_stream *result, const char *fieldname, unsigned int value)
 {
 	json_start_member(result, fieldname);
 	result_append_fmt(result, "%u", value);
 }
 
-void json_add_double(struct json_result *result, const char *fieldname, double value)
+void json_add_double(struct json_stream *result, const char *fieldname, double value)
 {
 	json_start_member(result, fieldname);
 	result_append_fmt(result, "%f", value);
 }
 
-void json_add_u64(struct json_result *result, const char *fieldname,
+void json_add_u64(struct json_stream *result, const char *fieldname,
 		  uint64_t value)
 {
 	json_start_member(result, fieldname);
 	result_append_fmt(result, "%"PRIu64, value);
 }
 
-void json_add_literal(struct json_result *result, const char *fieldname,
+void json_add_literal(struct json_stream *result, const char *fieldname,
 		      const char *literal, int len)
 {
 	json_start_member(result, fieldname);
 	result_append_fmt(result, "%.*s", len, literal);
 }
 
-void json_add_string(struct json_result *result, const char *fieldname, const char *value)
+void json_add_string(struct json_stream *result, const char *fieldname, const char *value)
 {
 	struct json_escaped *esc = json_partial_escape(NULL, value);
 
@@ -654,13 +654,13 @@ void json_add_string(struct json_result *result, const char *fieldname, const ch
 	tal_free(esc);
 }
 
-void json_add_bool(struct json_result *result, const char *fieldname, bool value)
+void json_add_bool(struct json_stream *result, const char *fieldname, bool value)
 {
 	json_start_member(result, fieldname);
 	result_append(result, value ? "true" : "false");
 }
 
-void json_add_hex(struct json_result *result, const char *fieldname,
+void json_add_hex(struct json_stream *result, const char *fieldname,
 		  const void *data, size_t len)
 {
 	char *hex = tal_arr(NULL, char, hex_str_size(len));
@@ -670,14 +670,14 @@ void json_add_hex(struct json_result *result, const char *fieldname,
 	tal_free(hex);
 }
 
-void json_add_hex_talarr(struct json_result *result,
+void json_add_hex_talarr(struct json_stream *result,
 			 const char *fieldname,
 			 const tal_t *data)
 {
 	json_add_hex(result, fieldname, data, tal_bytelen(data));
 }
 
-void json_add_object(struct json_result *result, ...)
+void json_add_object(struct json_stream *result, ...)
 {
 	va_list ap;
 	const char *field;
@@ -696,7 +696,7 @@ void json_add_object(struct json_result *result, ...)
 	va_end(ap);
 }
 
-void json_add_escaped_string(struct json_result *result, const char *fieldname,
+void json_add_escaped_string(struct json_stream *result, const char *fieldname,
 			     const struct json_escaped *esc TAKES)
 {
 	json_start_member(result, fieldname);
@@ -705,9 +705,9 @@ void json_add_escaped_string(struct json_result *result, const char *fieldname,
 		tal_free(esc);
 }
 
-static struct json_result *new_json_stream(struct command *cmd)
+static struct json_stream *new_json_stream(struct command *cmd)
 {
-	struct json_result *r = tal(cmd, struct json_result);
+	struct json_stream *r = tal(cmd, struct json_stream);
 
 	r->cmd = cmd;
 #if DEVELOPER
@@ -721,19 +721,19 @@ static struct json_result *new_json_stream(struct command *cmd)
 	return r;
 }
 
-struct json_result *json_stream_success(struct command *cmd)
+struct json_stream *json_stream_success(struct command *cmd)
 {
-	struct json_result *r;
+	struct json_stream *r;
 	r = new_json_stream(cmd);
 	result_append(r, "\"result\" : ");
 	return r;
 }
 
-struct json_result *json_stream_fail_nodata(struct command *cmd,
+struct json_stream *json_stream_fail_nodata(struct command *cmd,
 					    int code,
 					    const char *errmsg)
 {
-	struct json_result *r = new_json_stream(cmd);
+	struct json_stream *r = new_json_stream(cmd);
 
 	assert(code);
 	assert(errmsg);
@@ -744,11 +744,11 @@ struct json_result *json_stream_fail_nodata(struct command *cmd,
 	return r;
 }
 
-struct json_result *json_stream_fail(struct command *cmd,
+struct json_stream *json_stream_fail(struct command *cmd,
 				     int code,
 				     const char *errmsg)
 {
-	struct json_result *r = json_stream_fail_nodata(cmd, code, errmsg);
+	struct json_stream *r = json_stream_fail_nodata(cmd, code, errmsg);
 
 	result_append(r, ", \"data\" : ");
 	return r;

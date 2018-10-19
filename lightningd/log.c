@@ -616,7 +616,7 @@ void fatal(const char *fmt, ...)
 
 struct log_info {
 	enum log_level level;
-	struct json_result *response;
+	struct json_stream *response;
 	unsigned int num_skipped;
 };
 
@@ -631,7 +631,7 @@ static void add_skipped(struct log_info *info)
 	}
 }
 
-static void json_add_time(struct json_result *result, const char *fieldname,
+static void json_add_time(struct json_stream *result, const char *fieldname,
 			  struct timespec ts)
 {
 	char timebuf[100];
@@ -677,7 +677,7 @@ static void log_to_json(unsigned int skipped,
 	json_object_end(info->response);
 }
 
-void json_add_log(struct json_result *response,
+void json_add_log(struct json_stream *response,
 		  const struct log_book *lr, enum log_level minlevel)
 {
 	struct log_info info;
@@ -718,7 +718,7 @@ bool json_tok_loglevel(struct command *cmd, const char *name,
 static void json_getlog(struct command *cmd,
 			const char *buffer, const jsmntok_t * params)
 {
-	struct json_result *response;
+	struct json_stream *response;
 	enum log_level *minlevel;
 	struct log_book *lr = cmd->ld->log_book;
 

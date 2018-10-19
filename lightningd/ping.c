@@ -69,7 +69,7 @@ void ping_reply(struct subd *subd, const u8 *msg)
 	else if (!sent)
 		command_fail(pc->cmd, LIGHTNINGD, "Unknown peer");
 	else {
-		struct json_result *response = json_stream_success(pc->cmd);
+		struct json_stream *response = json_stream_success(pc->cmd);
 
 		json_object_start(response, NULL);
 		json_add_num(response, "totlen", totlen);

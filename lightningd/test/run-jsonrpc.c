@@ -60,7 +60,7 @@ static int test_json_filter(void)
 {
 	struct command *cmd = talz(NULL, struct command);
 	struct json_connection *jcon = talz(cmd, struct json_connection);
-	struct json_result *result = json_stream_success(cmd);
+	struct json_stream *result = json_stream_success(cmd);
 	jsmntok_t *toks;
 	const jsmntok_t *x;
 	bool valid;
@@ -114,7 +114,7 @@ static void test_json_escape(void)
 		char badstr[2];
 		struct command *cmd = talz(NULL, struct command);
 		struct json_connection *jcon = talz(cmd, struct json_connection);
-		struct json_result *result = json_stream_success(cmd);
+		struct json_stream *result = json_stream_success(cmd);
 		struct json_escaped *esc;
 
 		badstr[0] = i;

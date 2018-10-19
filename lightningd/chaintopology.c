@@ -466,7 +466,7 @@ static void json_feerates(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
 {
 	struct chain_topology *topo = cmd->ld->topology;
-	struct json_result *response;
+	struct json_stream *response;
 	u32 feerates[NUM_FEERATES];
 	bool missing;
 	enum feerate_style *style;

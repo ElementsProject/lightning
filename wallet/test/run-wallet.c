@@ -58,7 +58,7 @@ void  command_fail(struct command *cmd UNNEEDED, int code UNNEEDED,
 void command_still_pending(struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_still_pending called!\n"); abort(); }
 /* Generated stub for command_success */
-void command_success(struct command *cmd UNNEEDED, struct json_result *response UNNEEDED)
+void command_success(struct command *cmd UNNEEDED, struct json_stream *response UNNEEDED)
 { fprintf(stderr, "command_success called!\n"); abort(); }
 /* Generated stub for connect_succeeded */
 void connect_succeeded(struct lightningd *ld UNNEEDED, const struct pubkey *id UNNEEDED)
@@ -173,69 +173,69 @@ void invoices_waitone(const tal_t *ctx UNNEEDED,
 		      void *cbarg UNNEEDED)
 { fprintf(stderr, "invoices_waitone called!\n"); abort(); }
 /* Generated stub for json_add_bool */
-void json_add_bool(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
+void json_add_bool(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		   bool value UNNEEDED)
 { fprintf(stderr, "json_add_bool called!\n"); abort(); }
 /* Generated stub for json_add_hex */
-void json_add_hex(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
+void json_add_hex(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "json_add_hex called!\n"); abort(); }
 /* Generated stub for json_add_hex_talarr */
-void json_add_hex_talarr(struct json_result *result UNNEEDED,
+void json_add_hex_talarr(struct json_stream *result UNNEEDED,
 			 const char *fieldname UNNEEDED,
 			 const tal_t *data UNNEEDED)
 { fprintf(stderr, "json_add_hex_talarr called!\n"); abort(); }
 /* Generated stub for json_add_log */
-void json_add_log(struct json_result *result UNNEEDED,
+void json_add_log(struct json_stream *result UNNEEDED,
 		  const struct log_book *lr UNNEEDED, enum log_level minlevel UNNEEDED)
 { fprintf(stderr, "json_add_log called!\n"); abort(); }
 /* Generated stub for json_add_num */
-void json_add_num(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
+void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  unsigned int value UNNEEDED)
 { fprintf(stderr, "json_add_num called!\n"); abort(); }
 /* Generated stub for json_add_pubkey */
-void json_add_pubkey(struct json_result *response UNNEEDED,
+void json_add_pubkey(struct json_stream *response UNNEEDED,
 		     const char *fieldname UNNEEDED,
 		     const struct pubkey *key UNNEEDED)
 { fprintf(stderr, "json_add_pubkey called!\n"); abort(); }
 /* Generated stub for json_add_short_channel_id */
-void json_add_short_channel_id(struct json_result *response UNNEEDED,
+void json_add_short_channel_id(struct json_stream *response UNNEEDED,
 			       const char *fieldname UNNEEDED,
 			       const struct short_channel_id *id UNNEEDED)
 { fprintf(stderr, "json_add_short_channel_id called!\n"); abort(); }
 /* Generated stub for json_add_string */
-void json_add_string(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED, const char *value UNNEEDED)
+void json_add_string(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED, const char *value UNNEEDED)
 { fprintf(stderr, "json_add_string called!\n"); abort(); }
 /* Generated stub for json_add_txid */
-void json_add_txid(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
+void json_add_txid(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		   const struct bitcoin_txid *txid UNNEEDED)
 { fprintf(stderr, "json_add_txid called!\n"); abort(); }
 /* Generated stub for json_add_u64 */
-void json_add_u64(struct json_result *result UNNEEDED, const char *fieldname UNNEEDED,
+void json_add_u64(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  uint64_t value UNNEEDED)
 { fprintf(stderr, "json_add_u64 called!\n"); abort(); }
 /* Generated stub for json_add_uncommitted_channel */
-void json_add_uncommitted_channel(struct json_result *response UNNEEDED,
+void json_add_uncommitted_channel(struct json_stream *response UNNEEDED,
 				  const struct uncommitted_channel *uc UNNEEDED)
 { fprintf(stderr, "json_add_uncommitted_channel called!\n"); abort(); }
 /* Generated stub for json_array_end */
-void json_array_end(struct json_result *ptr UNNEEDED)
+void json_array_end(struct json_stream *ptr UNNEEDED)
 { fprintf(stderr, "json_array_end called!\n"); abort(); }
 /* Generated stub for json_array_start */
-void json_array_start(struct json_result *ptr UNNEEDED, const char *fieldname UNNEEDED)
+void json_array_start(struct json_stream *ptr UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_array_start called!\n"); abort(); }
 /* Generated stub for json_escaped_string_ */
 struct json_escaped *json_escaped_string_(const tal_t *ctx UNNEEDED,
 					  const void *bytes UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "json_escaped_string_ called!\n"); abort(); }
 /* Generated stub for json_object_end */
-void json_object_end(struct json_result *ptr UNNEEDED)
+void json_object_end(struct json_stream *ptr UNNEEDED)
 { fprintf(stderr, "json_object_end called!\n"); abort(); }
 /* Generated stub for json_object_start */
-void json_object_start(struct json_result *ptr UNNEEDED, const char *fieldname UNNEEDED)
+void json_object_start(struct json_stream *ptr UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_object_start called!\n"); abort(); }
 /* Generated stub for json_stream_success */
-struct json_result *json_stream_success(struct command *cmd UNNEEDED)
+struct json_stream *json_stream_success(struct command *cmd UNNEEDED)
 { fprintf(stderr, "json_stream_success called!\n"); abort(); }
 /* Generated stub for json_tok_bool */
 bool json_tok_bool(struct command *cmd UNNEEDED, const char *name UNNEEDED,
@@ -291,7 +291,7 @@ void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED, const char *c
 	    const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "log_io called!\n"); abort(); }
 /* Generated stub for null_response */
-struct json_result *null_response(struct command *cmd UNNEEDED)
+struct json_stream *null_response(struct command *cmd UNNEEDED)
 { fprintf(stderr, "null_response called!\n"); abort(); }
 /* Generated stub for onchaind_funding_spent */
 enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,

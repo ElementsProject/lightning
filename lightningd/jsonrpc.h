@@ -85,9 +85,9 @@ struct json_command {
 	const char *verbose;
 };
 
-struct json_result *null_response(struct command *cmd);
-void command_success(struct command *cmd, struct json_result *response);
-void command_failed(struct command *cmd, struct json_result *result);
+struct json_stream *null_response(struct command *cmd);
+void command_success(struct command *cmd, struct json_stream *response);
+void command_failed(struct command *cmd, struct json_stream *result);
 void PRINTF_FMT(3, 4) command_fail(struct command *cmd, int code,
 				   const char *fmt, ...);
 

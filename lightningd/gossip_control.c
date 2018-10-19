@@ -178,7 +178,7 @@ void gossipd_notify_spend(struct lightningd *ld,
 }
 
 /* Gossipd shouldn't give us bad pubkeys, but don't abort if they do */
-static void json_add_raw_pubkey(struct json_result *response,
+static void json_add_raw_pubkey(struct json_stream *response,
 			 const char *fieldname,
 			 const u8 raw_pubkey[sizeof(struct pubkey)])
 {
@@ -200,7 +200,7 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 				struct command *cmd)
 {
 	struct gossip_getnodes_entry **nodes;
-	struct json_result *response;
+	struct json_stream *response;
 	size_t i, j;
 
 	if (!fromwire_gossip_getnodes_reply(reply, reply, &nodes)) {
@@ -273,7 +273,7 @@ AUTODATA(json_command, &listnodes_command);
 static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, const int *fds UNUSED,
 				struct command *cmd)
 {
-	struct json_result *response;
+	struct json_stream *response;
 	struct route_hop *hops;
 
 	fromwire_gossip_getroute_reply(reply, reply, &hops);
@@ -355,7 +355,7 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 {
 	size_t i;
 	struct gossip_getchannels_entry *entries;
-	struct json_result *response;
+	struct json_stream *response;
 
 	if (!fromwire_gossip_getchannels_reply(reply, reply, &entries)) {
 		command_fail(cmd, LIGHTNINGD, "Invalid reply from gossipd");
@@ -425,7 +425,7 @@ static void json_scids_reply(struct subd *gossip UNUSED, const u8 *reply,
 			     const int *fds UNUSED, struct command *cmd)
 {
 	bool ok, complete;
-	struct json_result *response;
+	struct json_stream *response;
 
 	if (!fromwire_gossip_scids_reply(reply, &ok, &complete)) {
 		command_fail(cmd, LIGHTNINGD,
@@ -521,7 +521,7 @@ AUTODATA(json_command, &dev_send_timestamp_filter);
 static void json_channel_range_reply(struct subd *gossip UNUSED, const u8 *reply,
 				     const int *fds UNUSED, struct command *cmd)
 {
-	struct json_result *response;
+	struct json_stream *response;
 	u32 final_first_block, final_num_blocks;
 	bool final_complete;
 	struct short_channel_id *scids;
