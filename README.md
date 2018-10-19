@@ -64,7 +64,7 @@ For the impatient here's the gist of it for Ubuntu and Debian:
     ./configure
     make
 
-Or if you like to throw `docker` into the mix, you can use the offial docker image either directly or as a base layer for more complex images.
+Or if you like to throw `docker` into the mix, you can use the official docker image either directly or as a base layer for more complex images.
 The docker image is [elementsproject/lightningd](https://hub.docker.com/r/elementsproject/lightningd/) (from this [Dockerfile](Dockerfile)).
 Image tags with `-dev` at the end are images built with `DEVELOPER=1`.
 If you build the image yourself, you can use the build arg `DEVELOPER=1` to build c-lightning in developer mode.
@@ -73,7 +73,7 @@ It has the following environment variable:
 
 * `EXPOSE_TCP` default to false, if true, use expose c-lightning RPC on port 9835. (Use this only for testing)
 
-Here is an example of a docker-compose file with bitcoind and c-lightning on `testnet` which expose bitcoind's rpc interface on default ports `18332` and c-lightning API on port `9735`:
+Here is an example of a docker-compose file with bitcoind and c-lightning on `testnet` which expose bitcoind's RPC interface on default ports `18332` and c-lightning API on port `9735`:
 
 ```
 version: "3"
@@ -186,7 +186,7 @@ cli/lightning-cli fundchannel <node_id> <amount_in_satoshis>
 
 This opens a connection and, on top of that connection, then opens
 a channel.
-The funding transaction needs 1 confirmations in order for the channel
+The funding transaction needs 1 confirmation in order for the channel
 to be usable, and 6 to be broadcast for others to use.
 You can check the status of the channel using `cli/lightning-cli
 listpeers`, which after 3 confirmations (1 on testnet) should say
@@ -252,7 +252,7 @@ Command line options will always override the values in the configuration
 file.
 
 To use a configuration file, create a file named "config" within your
-".lightning" directory. Usually this will be ~/.lightning/config
+".lightning" directory. Usually, this will be ~/.lightning/config
 
 Configuration options are set using a key=value pair on each line of
 the file, for example:
