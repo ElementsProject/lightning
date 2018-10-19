@@ -13,7 +13,7 @@
 #include <lightningd/param.h>
 #include <stdio.h>
 
-static void json_add_ptr(struct json_result *response, const char *name,
+static void json_add_ptr(struct json_stream *response, const char *name,
 			 const void *ptr)
 {
 	char ptrstr[STR_MAX_CHARS(void *)];
@@ -21,7 +21,7 @@ static void json_add_ptr(struct json_result *response, const char *name,
 	json_add_string(response, name, ptrstr);
 }
 
-static void add_memdump(struct json_result *response,
+static void add_memdump(struct json_stream *response,
 			const char *name, const tal_t *root,
 			struct command *cmd)
 {
@@ -56,7 +56,7 @@ static void json_memdump(struct command *cmd,
 			 const char *buffer UNNEEDED,
 			 const jsmntok_t *params UNNEEDED)
 {
-	struct json_result *response;
+	struct json_stream *response;
 
 	if (!param(cmd, buffer, params, NULL))
 		return;
@@ -78,7 +78,7 @@ static int json_add_syminfo(void *data, uintptr_t pc UNUSED,
 			    const char *filename, int lineno,
 			    const char *function)
 {
-	struct json_result *response = data;
+	struct json_stream *response = data;
 	char *str;
 
 	/* This can happen in backtraces. */
@@ -91,7 +91,7 @@ static int json_add_syminfo(void *data, uintptr_t pc UNUSED,
 	return 0;
 }
 
-static void json_add_backtrace(struct json_result *response,
+static void json_add_backtrace(struct json_stream *response,
 			       const uintptr_t *bt)
 {
 	size_t i;
@@ -110,7 +110,7 @@ static void json_add_backtrace(struct json_result *response,
 }
 
 static void scan_mem(struct command *cmd,
-		     struct json_result *response,
+		     struct json_stream *response,
 		     struct lightningd *ld)
 {
 	struct htable *memtable;
@@ -154,7 +154,7 @@ static void json_memleak(struct command *cmd,
 			 const char *buffer UNNEEDED,
 			 const jsmntok_t *params UNNEEDED)
 {
-	struct json_result *response;
+	struct json_stream *response;
 
 	if (!param(cmd, buffer, params, NULL))
 		return;

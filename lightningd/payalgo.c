@@ -47,7 +47,7 @@ struct pay_failure {
 
 /* Output a pay failure */
 static void
-json_add_failure(struct json_result *r, char const *n,
+json_add_failure(struct json_stream *r, char const *n,
 		 const struct pay_failure *f)
 {
 	struct routing_failure *rf;
@@ -78,7 +78,7 @@ json_add_failure(struct json_result *r, char const *n,
 
 /* Output an array of payment failures. */
 static void
-json_add_failures(struct json_result *r, char const *n,
+json_add_failures(struct json_stream *r, char const *n,
 		  const struct list_head *fs)
 {
 	struct pay_failure *f;
@@ -194,7 +194,7 @@ json_pay_success(struct pay *pay,
 		 const struct sendpay_result *r)
 {
 	struct command *cmd = pay->cmd;
-	struct json_result *response;
+	struct json_stream *response;
 
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
@@ -211,7 +211,7 @@ json_pay_success(struct pay *pay,
 static void json_pay_failure(struct pay *pay,
 			     const struct sendpay_result *r)
 {
-	struct json_result *data;
+	struct json_stream *data;
 	struct routing_failure *fail;
 
 	assert(!r->succeeded);
@@ -409,7 +409,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 	double feepercent;
 	bool fee_too_high;
 	bool delay_too_high;
-	struct json_result *data;
+	struct json_stream *data;
 	char const *err;
 
 	fromwire_gossip_getroute_reply(reply, reply, &route);
@@ -510,7 +510,7 @@ static bool json_pay_try(struct pay *pay)
 
 	/* If too late anyway, fail now. */
 	if (time_after(now, pay->expiry)) {
-		struct json_result *data
+		struct json_stream *data
 			= json_stream_fail(cmd, PAY_INVOICE_EXPIRED,
 					   "Invoice expired");
 		json_object_start(data, NULL);

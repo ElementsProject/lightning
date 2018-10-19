@@ -80,7 +80,7 @@ AUTODATA(json_command, &help_command);
 static void json_stop(struct command *cmd,
 		      const char *buffer UNUSED, const jsmntok_t *params UNUSED)
 {
-	struct json_result *response;
+	struct json_stream *response;
 
 	if (!param(cmd, buffer, params, NULL))
 		return;
@@ -103,7 +103,7 @@ AUTODATA(json_command, &stop_command);
 static void json_rhash(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)
 {
-	struct json_result *response;
+	struct json_stream *response;
 	struct sha256 *secret;
 
 	if (!param(cmd, buffer, params,
@@ -147,7 +147,7 @@ AUTODATA(json_command, &dev_crash_command);
 static void json_getinfo(struct command *cmd,
 			 const char *buffer UNUSED, const jsmntok_t *params UNUSED)
 {
-	struct json_result *response;
+	struct json_stream *response;
 
 	if (!param(cmd, buffer, params, NULL))
 		return;
@@ -199,7 +199,7 @@ static struct json_command **get_cmdlist(void)
 }
 
 static void json_add_help_command(struct command *cmd,
-				  struct json_result *response,
+				  struct json_stream *response,
 				  struct json_command *json_command)
 {
 	char *usage;
@@ -232,7 +232,7 @@ static void json_help(struct command *cmd,
 		      const char *buffer, const jsmntok_t *params)
 {
 	unsigned int i;
-	struct json_result *response;
+	struct json_stream *response;
 	struct json_command **cmdlist = get_cmdlist();
 	const jsmntok_t *cmdtok;
 
@@ -334,9 +334,9 @@ void jcon_append_vfmt(struct json_connection *jcon, const char *fmt, va_list ap)
 	io_wake(jcon);
 }
 
-struct json_result *null_response(struct command *cmd)
+struct json_stream *null_response(struct command *cmd)
 {
-	struct json_result *response;
+	struct json_stream *response;
 
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
@@ -358,7 +358,7 @@ static void destroy_command(struct command *cmd)
 }
 
 /* FIXME: Remove result arg here! */
-void command_success(struct command *cmd, struct json_result *result)
+void command_success(struct command *cmd, struct json_stream *result)
 {
 	assert(cmd);
 	assert(cmd->have_json_stream);
@@ -370,7 +370,7 @@ void command_success(struct command *cmd, struct json_result *result)
 }
 
 /* FIXME: Remove result arg here! */
-void command_failed(struct command *cmd, struct json_result *result)
+void command_failed(struct command *cmd, struct json_stream *result)
 {
 	assert(cmd->have_json_stream);
 	/* Have to close error */
@@ -385,7 +385,7 @@ void PRINTF_FMT(3, 4) command_fail(struct command *cmd, int code,
 				   const char *fmt, ...)
 {
 	const char *errmsg;
-	struct json_result *r;
+	struct json_stream *r;
 	va_list ap;
 
 	va_start(ap, fmt);

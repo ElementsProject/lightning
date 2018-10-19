@@ -10,7 +10,7 @@
 #include <stdarg.h>
 
 struct command;
-struct json_result;
+struct json_stream;
 struct lightningd;
 struct timerel;
 
@@ -100,7 +100,7 @@ void log_backtrace_print(const char *fmt, ...);
 void log_backtrace_exit(void);
 
 /* Adds an array showing log entries */
-void json_add_log(struct json_result *result,
+void json_add_log(struct json_stream *result,
 		  const struct log_book *lr, enum log_level minlevel);
 
 bool json_tok_loglevel(struct command *cmd, const char *name,

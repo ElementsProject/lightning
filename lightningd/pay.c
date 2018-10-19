@@ -847,7 +847,7 @@ static void
 json_sendpay_success(struct command *cmd,
 		     const struct sendpay_result *r)
 {
-	struct json_result *response;
+	struct json_stream *response;
 
 	assert(r->payment->status == PAYMENT_COMPLETE);
 
@@ -869,7 +869,7 @@ static void json_waitsendpay_on_resolve(const struct sendpay_result *r,
 	if (r->succeeded)
 		json_sendpay_success(cmd, r);
 	else {
-		struct json_result *data;
+		struct json_stream *data;
 		switch (r->errorcode) {
 			/* We will never handle this case */
 		case PAY_IN_PROGRESS:
@@ -929,7 +929,7 @@ static void json_sendpay_on_resolve(const struct sendpay_result* r,
 
 	if (!r->succeeded && r->errorcode == PAY_IN_PROGRESS) {
 		/* This is normal for sendpay. Succeed. */
-		struct json_result *response = json_stream_success(cmd);
+		struct json_stream *response = json_stream_success(cmd);
 		json_object_start(response, NULL);
 		json_add_string(response, "message",
 				"Monitor status with listpayments or waitsendpay");
@@ -1058,7 +1058,7 @@ static void json_listpayments(struct command *cmd, const char *buffer,
 			       const jsmntok_t *params)
 {
 	const struct wallet_payment **payments;
-	struct json_result *response;
+	struct json_stream *response;
 	struct sha256 *rhash;
 	const char *b11str;
 

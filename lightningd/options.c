@@ -856,7 +856,7 @@ static const char *next_name(const char *names, unsigned *len)
 	return first_name(names + 1, len);
 }
 
-static void json_add_opt_addrs(struct json_result *response,
+static void json_add_opt_addrs(struct json_stream *response,
 			       const char *name0,
 			       const struct wireaddr_internal *wireaddrs,
 			       const enum addr_listen_announce *listen_announce,
@@ -872,7 +872,7 @@ static void json_add_opt_addrs(struct json_result *response,
 }
 
 static void add_config(struct lightningd *ld,
-		       struct json_result *response,
+		       struct json_stream *response,
 		       const struct opt_table *opt,
 		       const char *name, size_t len)
 {
@@ -978,7 +978,7 @@ static void json_listconfigs(struct command *cmd,
 			     const char *buffer, const jsmntok_t *params)
 {
 	size_t i;
-	struct json_result *response = NULL;
+	struct json_stream *response = NULL;
 	const jsmntok_t *configtok;
 
 	if (!param(cmd, buffer, params,
