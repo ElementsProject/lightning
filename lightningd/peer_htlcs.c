@@ -1843,7 +1843,7 @@ static const struct json_command dev_ignore_htlcs = {
 AUTODATA(json_command, &dev_ignore_htlcs);
 #endif /* DEVELOPER */
 
-static void listforwardings_add_forwardings(struct json_result *response, struct wallet *wallet)
+static void listforwardings_add_forwardings(struct json_stream *response, struct wallet *wallet)
 {
 	const struct forwarding *forwardings;
 	forwardings = wallet_forwarded_payments_get(wallet, tmpctx);
@@ -1869,11 +1869,12 @@ static void listforwardings_add_forwardings(struct json_result *response, struct
 static void json_listforwards(struct command *cmd, const char *buffer,
 			       const jsmntok_t *params)
 {
-	struct json_result *response = new_json_result(cmd);
+	struct json_stream *response;
 
 	if (!param(cmd, buffer, params, NULL))
 		return;
 
+	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	listforwardings_add_forwardings(response, cmd->ld->wallet);
 	json_object_end(response);
