@@ -132,7 +132,7 @@ static struct io_plan *plugin_conn_init(struct io_conn *conn,
 		/* We read from their stdout */
 		plugin->stdout_conn = conn;
 		return io_read_partial(plugin->stdout_conn, plugin->buffer,
-				       tal_count(plugin->buffer),
+				       tal_bytelen(plugin->buffer),
 				       &plugin->len_read, plugin_read_json,
 				       plugin);
 	} else {
