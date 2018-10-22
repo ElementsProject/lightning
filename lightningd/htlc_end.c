@@ -152,7 +152,7 @@ struct htlc_out *htlc_out_check(const struct htlc_out *hout,
 				       " less than %"PRIu64,
 				       hout->in->msatoshi, hout->msatoshi);
 		if (hout->in->cltv_expiry <= hout->cltv_expiry)
-			return corrupt(abortstr, "Input ctlv_expiry %u"
+			return corrupt(abortstr, "Input cltv_expiry %u"
 				       " less than %u",
 				       hout->in->cltv_expiry, hout->cltv_expiry);
 		if (!sha256_eq(&hout->in->payment_hash, &hout->payment_hash))

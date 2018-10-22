@@ -291,7 +291,7 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
     # l1 will disconnect and not reconnect.
     l1.daemon.wait_for_log('dev_disconnect: -WIRE_REVOKE_AND_ACK')
 
-    # Deadline HTLC expiry minus 1/2 cltv-expiry delta (rounded up) (== cltv - 3).  ctlv is 5+1.
+    # Deadline HTLC expiry minus 1/2 cltv-expiry delta (rounded up) (== cltv - 3).  cltv is 5+1.
     bitcoind.generate_block(2)
     assert not l2.daemon.is_in_log('hit deadline')
     bitcoind.generate_block(1)
