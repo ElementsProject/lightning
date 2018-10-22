@@ -54,10 +54,11 @@ static void swap_inputs(struct bitcoin_tx_input *inputs,
 	}
 }
 
-void permute_inputs(struct bitcoin_tx_input *inputs, size_t num_inputs,
+void permute_inputs(struct bitcoin_tx_input *inputs,
 		    const void **map)
 {
 	size_t i;
+	size_t num_inputs = tal_count(inputs);
 
 	/* We can't permute nothing! */
 	if (num_inputs == 0)
@@ -73,10 +74,10 @@ void permute_inputs(struct bitcoin_tx_input *inputs, size_t num_inputs,
 
 static void swap_outputs(struct bitcoin_tx_output *outputs,
 			 const void **map,
+			 u32 *cltvs,
 			 size_t i1, size_t i2)
 {
 	struct bitcoin_tx_output tmpoutput;
-	const void *tmp;
 
 	if (i1 == i2)
 		return;
@@ -86,49 +87,74 @@ static void swap_outputs(struct bitcoin_tx_output *outputs,
 	outputs[i2] = tmpoutput;
 
 	if (map) {
-		tmp = map[i1];
+		const void *tmp = map[i1];
 		map[i1] = map[i2];
 		map[i2] = tmp;
+	}
+
+	if (cltvs) {
+		u32 tmp = cltvs[i1];
+		cltvs[i1] = cltvs[i2];
+		cltvs[i2] = tmp;
 	}
 }
 
 static bool output_better(const struct bitcoin_tx_output *a,
-			  const struct bitcoin_tx_output *b)
+			  u32 cltv_a,
+			  const struct bitcoin_tx_output *b,
+			  u32 cltv_b)
 {
-	size_t len;
+	size_t len, lena, lenb;
 	int ret;
 
 	if (a->amount != b->amount)
 		return a->amount < b->amount;
 
 	/* Lexicographical sort. */
-	if (tal_count(a->script) < tal_count(b->script))
-		len = tal_count(a->script);
+	lena = tal_count(a->script);
+	lenb = tal_count(b->script);
+	if (lena < lenb)
+		len = lena;
 	else
-		len = tal_count(b->script);
+		len = lenb;
 
 	ret = memcmp(a->script, b->script, len);
 	if (ret != 0)
 		return ret < 0;
 
-	return tal_count(a->script) < tal_count(b->script);
+	if (lena != lenb)
+		return lena < lenb;
+
+	return cltv_a < cltv_b;
 }
 
-static size_t find_best_out(struct bitcoin_tx_output *outputs, size_t num)
+static u32 cltv_of(const u32 *cltvs, size_t idx)
+{
+	if (!cltvs)
+		return 0;
+	return cltvs[idx];
+}
+
+static size_t find_best_out(struct bitcoin_tx_output *outputs,
+			    const u32 *cltvs,
+			    size_t num)
 {
 	size_t i, best = 0;
 
 	for (i = 1; i < num; i++) {
-		if (output_better(&outputs[i], &outputs[best]))
+		if (output_better(&outputs[i], cltv_of(cltvs, i),
+				  &outputs[best], cltv_of(cltvs, best)))
 			best = i;
 	}
 	return best;
 }
 
-void permute_outputs(struct bitcoin_tx_output *outputs, size_t num_outputs,
+void permute_outputs(struct bitcoin_tx_output *outputs,
+		     u32 *cltvs,
 		     const void **map)
 {
 	size_t i;
+	size_t num_outputs = tal_count(outputs);
 
 	/* We can't permute nothing! */
 	if (num_outputs == 0)
@@ -137,7 +163,9 @@ void permute_outputs(struct bitcoin_tx_output *outputs, size_t num_outputs,
 	/* Now do a dumb sort (num_outputs is small). */
 	for (i = 0; i < num_outputs-1; i++) {
 		/* Swap best into first place. */
-		swap_outputs(outputs, map,
-			     i, i + find_best_out(outputs + i, num_outputs - i));
+		swap_outputs(outputs, map, cltvs,
+			     i, i + find_best_out(outputs + i,
+						  cltvs ? cltvs + i : NULL,
+						  num_outputs - i));
 	}
 }

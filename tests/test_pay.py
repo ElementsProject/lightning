@@ -1049,7 +1049,6 @@ def test_forward_stats(node_factory, bitcoind):
     assert l3.rpc.getinfo()['msatoshi_fees_collected'] == 0
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_ignore_htlcs")
 def test_htlcs_cltv_only_difference(node_factory, bitcoind):
     # l1 -> l2 -> l3 -> l4
