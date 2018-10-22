@@ -261,14 +261,14 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self.call("getinfo")
 
-    def sendpay(self, route, payment_hash, description=""):
+    def sendpay(self, route, payment_hash, msatoshi=None):
         """
         Send along {route} in return for preimage of {payment_hash}
         """
         payload = {
             "route": route,
-            "payment_hash": payment_hash,
-            "description": description,
+            "hash": payment_hash,
+            "msatoshi": msatoshi,
         }
         return self.call("sendpay", payload)
 
