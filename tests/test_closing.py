@@ -630,17 +630,15 @@ def test_onchain_dust_out(node_factory, bitcoind, executor):
     assert only_one(l2.rpc.listinvoices('onchain_dust_out')['invoices'])['status'] == 'unpaid'
 
 
+@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_onchain_timeout(node_factory, bitcoind, executor):
     """Onchain handling of outgoing failed htlcs"""
     # HTLC 1->2, 1 fails just after it's irrevocably committed
-    disconnects = ['+WIRE_REVOKE_AND_ACK', 'permfail']
+    disconnects = ['+WIRE_REVOKE_AND_ACK*3', 'permfail']
     # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects, feerates=(7500, 7500, 7500))
     l2 = node_factory.get_node()
-    l2 = node_factory.get_node()
-
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fund_channel(l2, 10**6)
@@ -654,6 +652,15 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
         'channel': '1:1:1'
     }
 
+    l1.rpc.sendpay([routestep], rhash)
+    with pytest.raises(RpcError):
+        l1.rpc.waitsendpay(rhash)
+
+    # Make sure CLTVs are different, in case it confuses onchaind.
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1])
+
+    # Second one will cause drop to chain.
     l1.rpc.sendpay([routestep], rhash)
     payfuture = executor.submit(l1.rpc.waitsendpay, rhash)
 
