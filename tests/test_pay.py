@@ -1047,3 +1047,57 @@ def test_forward_stats(node_factory, bitcoind):
     assert l2.rpc.getinfo()['msatoshi_fees_collected'] == 1 + amount // 100000
     assert l1.rpc.getinfo()['msatoshi_fees_collected'] == 0
     assert l3.rpc.getinfo()['msatoshi_fees_collected'] == 0
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_ignore_htlcs")
+def test_htlcs_cltv_only_difference(node_factory, bitcoind):
+    # l1 -> l2 -> l3 -> l4
+    # l4 ignores htlcs, so they stay.
+    # l3 will see a reconnect from l4 when l4 restarts.
+    l1, l2, l3, l4 = node_factory.line_graph(4, announce=True, opts=[{}] * 2 + [{'dev-no-reconnect': None, 'may_reconnect': True}] * 2)
+
+    h = l4.rpc.invoice(msatoshi=10**8, label='x', description='desc')['payment_hash']
+    l4.rpc.dev_ignore_htlcs(id=l3.info['id'], ignore=True)
+
+    # L2 tries to pay
+    r = l2.rpc.getroute(l4.info['id'], 10**8, 1)["route"]
+    l2.rpc.sendpay(r, h)
+
+    # Now increment CLTV
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1, l2, l3, l4])
+
+    # L1 tries to pay
+    r = l1.rpc.getroute(l4.info['id'], 10**8, 1)["route"]
+    l1.rpc.sendpay(r, h)
+
+    # Now increment CLTV
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1, l2, l3, l4])
+
+    # L3 tries to pay
+    r = l3.rpc.getroute(l4.info['id'], 10**8, 1)["route"]
+    l3.rpc.sendpay(r, h)
+
+    # Give them time to go through.
+    time.sleep(5)
+
+    # Will all be connected OK.
+    assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected']
+    assert only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['connected']
+    assert only_one(l3.rpc.listpeers(l4.info['id'])['peers'])['connected']
+
+    # Restarting tail node will stop it ignoring HTLCs (it will actually
+    # fail them immediately).
+    l4.restart()
+    l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
+
+    wait_for(lambda: only_one(l1.rpc.listpayments()['payments'])['status'] == 'failed')
+    wait_for(lambda: only_one(l2.rpc.listpayments()['payments'])['status'] == 'failed')
+    wait_for(lambda: only_one(l3.rpc.listpayments()['payments'])['status'] == 'failed')
+
+    # Should all still be connected.
+    assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected']
+    assert only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['connected']
+    assert only_one(l3.rpc.listpeers(l4.info['id'])['peers'])['connected']
