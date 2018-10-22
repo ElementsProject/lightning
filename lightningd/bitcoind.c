@@ -1,6 +1,7 @@
 /* Code for talking to bitcoind.  We use bitcoin-cli. */
 #include "bitcoin/base58.h"
 #include "bitcoin/block.h"
+#include "bitcoin/feerate.h"
 #include "bitcoin/shadouble.h"
 #include "bitcoind.h"
 #include "lightningd.h"
@@ -352,7 +353,21 @@ static bool process_estimatefee(struct bitcoin_cli *bcli)
 	if (!extract_feerate(bcli, bcli->output, bcli->output_bytes, &feerate)) {
 		log_unusual(bcli->bitcoind->log, "Unable to estimate %s/%u fee",
 			    efee->estmode[efee->i], efee->blocks[efee->i]);
+
+#if DEVELOPER
+		/* This is needed to test for failed feerate estimates
+		 * in DEVELOPER mode */
 		efee->satoshi_per_kw[efee->i] = 0;
+#else
+		/* If we are in testnet mode we want to allow payments
+		 * with the minimal fee even if the estimate didn't
+		 * work out. This is less disruptive than erring out
+		 * all the time. */
+		if (get_chainparams(bcli->bitcoind->ld)->testnet)
+			efee->satoshi_per_kw[efee->i] = FEERATE_FLOOR;
+		else
+			efee->satoshi_per_kw[efee->i] = 0;
+#endif
 	} else
 		/* Rate in satoshi per kw. */
 		efee->satoshi_per_kw[efee->i]
