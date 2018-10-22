@@ -823,36 +823,16 @@ static bool peer_failed_our_htlc(struct channel *channel,
 	return true;
 }
 
-/* FIXME: Crazy slow! */
-struct htlc_out *find_htlc_out_by_ripemd(const struct channel *channel,
-					 const struct ripemd160 *ripemd)
-{
-	struct htlc_out_map_iter outi;
-	struct htlc_out *hout;
-	struct lightningd *ld = channel->peer->ld;
-
-	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
-	     hout;
-	     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
-		struct ripemd160 hash;
-
-		if (hout->key.channel != channel)
-			continue;
-
-		ripemd160(&hash,
-			  &hout->payment_hash, sizeof(hout->payment_hash));
-		if (ripemd160_eq(&hash, ripemd))
-			return hout;
-	}
-	return NULL;
-}
-
 void onchain_failed_our_htlc(const struct channel *channel,
 			     const struct htlc_stub *htlc,
 			     const char *why)
 {
 	struct lightningd *ld = channel->peer->ld;
-	struct htlc_out *hout = find_htlc_out_by_ripemd(channel, &htlc->ripemd);
+	struct htlc_out *hout;
+
+	hout = find_htlc_out(&ld->htlcs_out, channel, htlc->id);
+	if (!hout)
+		return;
 
 	/* Don't fail twice (or if already succeeded)! */
 	if (hout->failuremsg || hout->failcode || hout->preimage)
@@ -863,7 +843,7 @@ void onchain_failed_our_htlc(const struct channel *channel,
 	/* Force state to something which expects a failure, and save to db */
 	hout->hstate = RCVD_REMOVE_HTLC;
 	htlc_out_check(hout, __func__);
-	wallet_htlc_update(channel->peer->ld->wallet, hout->dbid, hout->hstate,
+	wallet_htlc_update(ld->wallet, hout->dbid, hout->hstate,
 			   hout->preimage, hout->failcode, hout->failuremsg);
 
 	if (hout->am_origin) {
