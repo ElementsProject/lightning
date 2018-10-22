@@ -144,18 +144,10 @@ static u64 grind_htlc_tx_fee(struct bitcoin_tx *tx,
 
 		return fee;
 	}
-	status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		      "grind_fee failed from %u - %u"
-		      " for tx %s, inputamount %"PRIu64", signature %s, wscript %s, multiplier %"PRIu64,
-		      min_possible_feerate, max_possible_feerate,
-		      type_to_string(tmpctx, struct bitcoin_tx, tx),
-		      input_amount,
-		      type_to_string(tmpctx, secp256k1_ecdsa_signature, remotesig),
-		      tal_hex(tmpctx, wscript),
-		      multiplier);
+	return UINT64_MAX;
 }
 
-static void set_htlc_timeout_fee(struct bitcoin_tx *tx,
+static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 				 const secp256k1_ecdsa_signature *remotesig,
 				 const u8 *wscript)
 {
@@ -170,21 +162,12 @@ static void set_htlc_timeout_fee(struct bitcoin_tx *tx,
 	 */
 	if (fee == UINT64_MAX) {
 		fee = grind_htlc_tx_fee(tx, remotesig, wscript, 663);
-		return;
+		return fee != UINT64_MAX;
 	}
 
 	tx->output[0].amount = *tx->input[0].amount - fee;
-	if (check_tx_sig(tx, 0, NULL, wscript,
-			 &keyset->other_htlc_key, remotesig))
-		return;
-
-	status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		      "htlc_timeout_fee %"PRIu64" failed sigcheck "
-		      " for tx %s, signature %s, wscript %s",
-		      fee,
-		      type_to_string(tmpctx, struct bitcoin_tx, tx),
-		      type_to_string(tmpctx, secp256k1_ecdsa_signature, remotesig),
-		      tal_hex(tmpctx, wscript));
+	return check_tx_sig(tx, 0, NULL, wscript,
+			    &keyset->other_htlc_key, remotesig);
 }
 
 static void set_htlc_success_fee(struct bitcoin_tx *tx,
@@ -1305,42 +1288,105 @@ static u8 **derive_htlc_scripts(const struct htlc_stub *htlcs, enum side side)
 	return htlc_scripts;
 }
 
-static void resolve_our_htlc_ourcommit(struct tracked_output *out)
+static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
+					 const size_t *matches,
+					 const struct htlc_stub *htlcs,
+					 u8 **htlc_scripts)
 {
 	struct bitcoin_tx *tx;
 	secp256k1_ecdsa_signature localsig;
+	size_t i;
 
-	/* BOLT #5:
-	 *
-	 * ## HTLC Output Handling: Local Commitment, Local Offers
-	 * ...
-	 *  - if the commitment transaction HTLC output has *timed out* and
-	 *  hasn't been *resolved*:
-	 *    - MUST *resolve* the output by spending it using the HTLC-timeout
-	 *    transaction.
-	 */
-	tx = htlc_timeout_tx(out, &out->txid, out->outnum, out->satoshi * 1000,
-			     out->htlc->cltv_expiry,
-			     to_self_delay[LOCAL], 0, keyset);
+	assert(tal_count(matches));
 
-	set_htlc_timeout_fee(tx, out->remote_htlc_sig, out->wscript);
+	/* These htlcs are all possibilities, but signature will only match
+	 * one with the correct cltv: check which that is. */
+	for (i = 0; i < tal_count(matches); i++) {
+		/* BOLT #5:
+		 *
+		 * ## HTLC Output Handling: Local Commitment, Local Offers
+		 * ...
+		 *  - if the commitment transaction HTLC output has *timed out*
+		 *  and hasn't been *resolved*:
+		 *    - MUST *resolve* the output by spending it using the
+		 *    HTLC-timeout transaction.
+		 */
+		tx = htlc_timeout_tx(tmpctx, &out->txid, out->outnum,
+				     out->satoshi * 1000,
+				     htlcs[matches[i]].cltv_expiry,
+				     to_self_delay[LOCAL], 0, keyset);
 
-	hsm_sign_local_htlc_tx(tx, out->wscript, &localsig);
+		if (set_htlc_timeout_fee(tx, out->remote_htlc_sig,
+					 htlc_scripts[matches[i]]))
+			break;
+	}
+
+	/* Since there's been trouble with this before, we go to some length
+	 * to give details here! */
+	if (i == tal_count(matches)) {
+		char *cltvs, *wscripts;
+
+		cltvs = tal_fmt(tmpctx, "%u", htlcs[matches[0]].cltv_expiry);
+		wscripts = tal_hex(tmpctx, htlc_scripts[matches[0]]);
+
+		for (i = 1; i < tal_count(matches); i++) {
+			tal_append_fmt(&cltvs, "/%u",
+				       htlcs[matches[i]].cltv_expiry);
+			tal_append_fmt(&wscripts, "/%s",
+				       tal_hex(tmpctx, htlc_scripts[matches[i]]));
+		}
+
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "No valid signature found for %zu htlc_timeout_txs"
+			      " feerate %u-%u,"
+			      " last tx %s, inputamount %"PRIu64", signature %s,"
+			      " cltvs %s wscripts %s",
+			      tal_count(matches),
+			      min_possible_feerate, max_possible_feerate,
+			      type_to_string(tmpctx, struct bitcoin_tx, tx),
+			      out->satoshi,
+			      type_to_string(tmpctx, secp256k1_ecdsa_signature,
+					     out->remote_htlc_sig),
+			      cltvs, wscripts);
+	}
+
+	hsm_sign_local_htlc_tx(tx, htlc_scripts[matches[i]], &localsig);
 
 	tx->input[0].witness
 		= bitcoin_witness_htlc_timeout_tx(tx->input,
 						  &localsig,
 						  out->remote_htlc_sig,
-						  out->wscript);
+						  htlc_scripts[matches[i]]);
 
-	propose_resolution_at_block(out, tx, out->htlc->cltv_expiry,
+	/* Steals tx onto out */
+	propose_resolution_at_block(out, tx, htlcs[matches[i]].cltv_expiry,
 				    OUR_HTLC_TIMEOUT_TX);
+
+	return matches[i];
 }
 
-static void resolve_our_htlc_theircommit(struct tracked_output *out)
+/* wscript for *received* htlcs (ie. our htlcs in their commit tx, or their
+ * htlcs in our commit tx) includes cltv, so they must be the same for all
+ * matching htlcs.  Unless, of course, they've found a sha256 clash. */
+static u32 matches_cltv(const size_t *matches,
+			const struct htlc_stub *htlcs)
+{
+	for (size_t i = 1; i < tal_count(matches); i++) {
+		assert(matches[i] < tal_count(htlcs));
+		assert(htlcs[matches[i]].cltv_expiry
+		       == htlcs[matches[i-1]].cltv_expiry);
+	}
+	return htlcs[matches[0]].cltv_expiry;
+}
+
+static size_t resolve_our_htlc_theircommit(struct tracked_output *out,
+					   const size_t *matches,
+					   const struct htlc_stub *htlcs,
+					   u8 **htlc_scripts)
 {
 	struct bitcoin_tx *tx;
 	enum tx_type tx_type = OUR_HTLC_TIMEOUT_TO_US;
+	u32 cltv_expiry = matches_cltv(matches, htlcs);
 
 	/* BOLT #5:
 	 *
@@ -1353,15 +1399,24 @@ static void resolve_our_htlc_theircommit(struct tracked_output *out)
 	 *       address.
 	 */
 	tx = tx_to_us(out, remote_htlc_to_us,
-		      out, 0, out->htlc->cltv_expiry, NULL, 0,
-		      out->wscript,
+		      out, 0, cltv_expiry, NULL, 0,
+		      htlc_scripts[matches[0]],
 		      &tx_type);
 
-	propose_resolution_at_block(out, tx, out->htlc->cltv_expiry, tx_type);
+	propose_resolution_at_block(out, tx, cltv_expiry, tx_type);
+
+	/* They're all equivalent: might as well use first one. */
+	return matches[0];
 }
 
-static void resolve_their_htlc(struct tracked_output *out)
+/* Returns which htlcs it chose to use of matches[] */
+static size_t resolve_their_htlc(struct tracked_output *out,
+				 const size_t *matches,
+				 const struct htlc_stub *htlcs,
+				 u8 **htlc_scripts)
 {
+	size_t which_htlc;
+
 	/* BOLT #5:
 	 *
 	 * ## HTLC Output Handling: Remote Commitment, Remote Offers
@@ -1371,18 +1426,45 @@ static void resolve_their_htlc(struct tracked_output *out)
 	 * If not otherwise resolved, once the HTLC output has expired, it is
 	 * considered *irrevocably resolved*.
 	 */
+
+	/* BOLT #5:
+	 *
+	 * ## HTLC Output Handling: Local Commitment, Remote Offers
+	 *...
+	 * ### Requirements
+	 *...
+	 * If not otherwise resolved, once the HTLC output has expired, it is
+	 * considered *irrevocably resolved*.
+	 */
+
+	/* The two cases are identical as far as default handling goes.
+	 * But in the remote commitment / remote offer (ie. caller is
+	 * handle_their_unilateral), htlcs which match may have different cltvs.
+	 * So wait until the worst case (largest HTLC). */
+	assert(tal_count(matches));
+	which_htlc = matches[0];
+	for (size_t i = 1; i < tal_count(matches); i++) {
+		if (htlcs[matches[i]].cltv_expiry > htlcs[which_htlc].cltv_expiry)
+			which_htlc = matches[i];
+	}
+
 	/* If we hit timeout depth, resolve by ignoring. */
-	propose_resolution_at_block(out, NULL, out->htlc->cltv_expiry,
+	propose_resolution_at_block(out, NULL, htlcs[which_htlc].cltv_expiry,
 				    THEIR_HTLC_TIMEOUT_TO_THEM);
+	return which_htlc;
 }
 
-static int match_htlc_output(const struct bitcoin_tx *tx,
-			     unsigned int outnum,
-			     u8 **htlc_scripts)
+/* Return tal_arr of htlc indexes. */
+static const size_t *match_htlc_output(const tal_t *ctx,
+				 const struct bitcoin_tx *tx,
+				 unsigned int outnum,
+				 u8 **htlc_scripts)
 {
+	size_t *matches = tal_arr(ctx, size_t, 0);
+
 	/* Must be a p2wsh output */
 	if (!is_p2wsh(tx->output[outnum].script, NULL))
-		return -1;
+		return matches;
 
 	for (size_t i = 0; i < tal_count(htlc_scripts); i++) {
 		struct sha256 sha;
@@ -1393,9 +1475,21 @@ static int match_htlc_output(const struct bitcoin_tx *tx,
 		if (memeq(tx->output[outnum].script + 2,
 			  tal_count(tx->output[outnum].script) - 2,
 			  &sha, sizeof(sha)))
-			return i;
+			*tal_arr_expand(&matches) = i;
 	}
-	return -1;
+	return matches;
+}
+
+/* They must all be in the same direction, since the scripts are different for
+ * each dir.  Unless, of course, they've found a sha256 clash. */
+static enum side matches_direction(const size_t *matches,
+				   const struct htlc_stub *htlcs)
+{
+	for (size_t i = 1; i < tal_count(matches); i++) {
+		assert(matches[i] < tal_count(htlcs));
+		assert(htlcs[matches[i]].owner == htlcs[matches[i-1]].owner);
+	}
+	return htlcs[matches[0]].owner;
 }
 
 /* Tell master about any we didn't use, if it wants to know. */
@@ -1508,7 +1602,8 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 
 	for (i = 0; i < tal_count(tx->output); i++) {
 		struct tracked_output *out;
-		int j;
+		const size_t *matches;
+		size_t which_htlc;
 
 		if (script[LOCAL]
 		    && scripteq(tx->output[i].script, script[LOCAL])) {
@@ -1577,14 +1672,14 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			continue;
 		}
 
+		matches = match_htlc_output(tmpctx, tx, i, htlc_scripts);
 		/* FIXME: limp along when this happens! */
-		j = match_htlc_output(tx, i, htlc_scripts);
-		if (j == -1)
+		if (tal_count(matches) == 0)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not find resolution for output %zu",
 				      i);
 
-		if (htlcs[j].owner == LOCAL) {
+		if (matches_direction(matches, htlcs) == LOCAL) {
 			/* BOLT #5:
 			 *
 			 *     - MUST handle HTLCs offered by itself as specified
@@ -1596,17 +1691,19 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 						 OUR_UNILATERAL, i,
 						 tx->output[i].amount,
 						 OUR_HTLC,
-						 &htlcs[j], htlc_scripts[j],
+						 NULL, NULL,
 						 remote_htlc_sigs);
-			resolve_our_htlc_ourcommit(out);
+			/* Tells us which htlc to use */
+			which_htlc = resolve_our_htlc_ourcommit(out, matches,
+								htlcs,
+								htlc_scripts);
 		} else {
 			out = new_tracked_output(&outs, txid,
 						 tx_blockheight,
 						 OUR_UNILATERAL, i,
 						 tx->output[i].amount,
 						 THEIR_HTLC,
-						 &htlcs[j],
-						 htlc_scripts[j],
+						 NULL, NULL,
 						 remote_htlc_sigs);
 			/* BOLT #5:
 			 *
@@ -1614,13 +1711,17 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			 *     as specified in [HTLC Output Handling: Local
 			 *     Commitment, Remote Offers]
 			 */
-			resolve_their_htlc(out);
+			/* Tells us which htlc to use */
+			which_htlc = resolve_their_htlc(out, matches, htlcs,
+							htlc_scripts);
 		}
+		out->htlc = &htlcs[which_htlc];
+		out->wscript = htlc_scripts[which_htlc];
 
 		/* Each of these consumes one HTLC signature */
 		remote_htlc_sigs++;
 		/* We've matched this HTLC, can't do again. */
-		htlc_scripts[j] = NULL;
+		htlc_scripts[which_htlc] = NULL;
 
 	}
 
@@ -1809,7 +1910,8 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 
 	for (i = 0; i < tal_count(tx->output); i++) {
 		struct tracked_output *out;
-		int j;
+		const size_t *matches;
+		size_t which_htlc;
 
 		if (script[LOCAL]
 		    && scripteq(tx->output[i].script, script[LOCAL])) {
@@ -1854,13 +1956,16 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			continue;
 		}
 
-		j = match_htlc_output(tx, i, htlc_scripts);
-		if (j == -1)
+		matches = match_htlc_output(tmpctx, tx, i, htlc_scripts);
+		if (tal_count(matches) == 0)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not find resolution for output %zu",
 				      i);
 
-		if (htlcs[j].owner == LOCAL) {
+		/* In this case, we don't care which HTLC we choose; so pick
+		   first one */
+		which_htlc = matches[0];
+		if (matches_direction(matches, htlcs) == LOCAL) {
 			/* BOLT #5:
 			 *
 			 *  - MUST *resolve* the _local node's offered HTLCs_
@@ -1877,7 +1982,8 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 						 THEIR_REVOKED_UNILATERAL, i,
 						 tx->output[i].amount,
 						 OUR_HTLC,
-						 &htlcs[j], htlc_scripts[j],
+						 &htlcs[which_htlc],
+						 htlc_scripts[which_htlc],
 						 NULL);
 			steal_htlc(out);
 		} else {
@@ -1886,7 +1992,8 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 						 THEIR_REVOKED_UNILATERAL, i,
 						 tx->output[i].amount,
 						 THEIR_HTLC,
-						 &htlcs[j], htlc_scripts[j],
+						 &htlcs[which_htlc],
+						 htlc_scripts[which_htlc],
 						 NULL);
 			/* BOLT #5:
 			 *
@@ -1899,7 +2006,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			 */
 			steal_htlc(out);
 		}
-		htlc_scripts[j] = NULL;
+		htlc_scripts[which_htlc] = NULL;
 	}
 
 	note_missing_htlcs(htlc_scripts, htlcs,
@@ -2021,7 +2128,8 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 
 	for (i = 0; i < tal_count(tx->output); i++) {
 		struct tracked_output *out;
-		int j;
+		const size_t *matches;
+		size_t which_htlc;
 
 		if (script[LOCAL]
 		    && scripteq(tx->output[i].script, script[LOCAL])) {
@@ -2068,12 +2176,13 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			continue;
 		}
 
-		j = match_htlc_output(tx, i, htlc_scripts);
-		if (j == -1)
+		matches = match_htlc_output(tmpctx, tx, i, htlc_scripts);
+		if (tal_count(matches) == 0)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not find resolution for output %zu",
 				      i);
-		if (htlcs[j].owner == LOCAL) {
+
+		if (matches_direction(matches, htlcs) == LOCAL) {
 			/* BOLT #5:
 			 *
 			 * - MUST handle HTLCs offered by itself as specified in
@@ -2085,16 +2194,19 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 						 THEIR_UNILATERAL, i,
 						 tx->output[i].amount,
 						 OUR_HTLC,
-						 &htlcs[j], htlc_scripts[j],
+						 NULL, NULL,
 						 NULL);
-			resolve_our_htlc_theircommit(out);
+			which_htlc = resolve_our_htlc_theircommit(out,
+								  matches,
+								  htlcs,
+								  htlc_scripts);
 		} else {
 			out = new_tracked_output(&outs, txid,
 						 tx_blockheight,
 						 THEIR_UNILATERAL, i,
 						 tx->output[i].amount,
 						 THEIR_HTLC,
-						 &htlcs[j], htlc_scripts[j],
+						 NULL, NULL,
 						 NULL);
 			/* BOLT #5:
 			 *
@@ -2102,9 +2214,12 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			 *   specified in [HTLC Output Handling: Remote
 			 *   Commitment, Remote Offers]
 			 */
-			resolve_their_htlc(out);
+			which_htlc = resolve_their_htlc(out, matches, htlcs,
+							htlc_scripts);
 		}
-		htlc_scripts[j] = NULL;
+		out->htlc = &htlcs[which_htlc];
+		out->wscript = htlc_scripts[which_htlc];
+		htlc_scripts[which_htlc] = NULL;
 	}
 
 	note_missing_htlcs(htlc_scripts, htlcs,
