@@ -33,7 +33,7 @@ size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
  * @self_pay_msat: amount to pay directly to self
  * @other_pay_msat: amount to pay directly to the other side
  * @htlcs: tal_arr of htlcs committed by transaction (some may be trimmed)
- * @htlc_map: outputed map of outnum->HTLC (NULL for direct outputs), or NULL.
+ * @htlc_map: outputed map of outnum->HTLC (NULL for direct outputs).
  * @obscured_commitment_number: number to encode in commitment transaction
  * @side: side to generate commitment transaction for.
  *

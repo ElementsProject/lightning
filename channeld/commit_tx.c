@@ -158,9 +158,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	tx = bitcoin_tx(ctx, 1, untrimmed + 2);
 
 	/* We keep track of which outputs have which HTLCs */
-	if (htlcmap)
-		*htlcmap = tal_arr(tx, const struct htlc *,
-				   tal_count(tx->output));
+	*htlcmap = tal_arr(tx, const struct htlc *, tal_count(tx->output));
 
 	/* This could be done in a single loop, but we follow the BOLT
 	 * literally to make comments in test vectors clearer. */
@@ -177,8 +175,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		if (trim(htlcs[i], feerate_per_kw, dust_limit_satoshis, side))
 			continue;
 		add_offered_htlc_out(tx, n, htlcs[i], keyset);
-		if (htlcmap)
-			(*htlcmap)[n++] = htlcs[i];
+		(*htlcmap)[n] = htlcs[i];
+		n++;
 	}
 
 	/* BOLT #3:
@@ -192,8 +190,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		if (trim(htlcs[i], feerate_per_kw, dust_limit_satoshis, side))
 			continue;
 		add_received_htlc_out(tx, n, htlcs[i], keyset);
-		if (htlcmap)
-			(*htlcmap)[n++] = htlcs[i];
+		(*htlcmap)[n] = htlcs[i];
+		n++;
 	}
 
 	/* BOLT #3:
@@ -206,8 +204,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		u8 *wscript = to_self_wscript(tmpctx, to_self_delay,keyset);
 		tx->output[n].amount = self_pay_msat / 1000;
 		tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
-		if (htlcmap)
-			(*htlcmap)[n] = NULL;
+		(*htlcmap)[n] = NULL;
 		SUPERVERBOSE("# to-local amount %"PRIu64" wscript %s\n",
 			     tx->output[n].amount,
 			     tal_hex(tmpctx, wscript));
@@ -231,8 +228,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		tx->output[n].amount = other_pay_msat / 1000;
 		tx->output[n].script = scriptpubkey_p2wpkh(tx,
 						   &keyset->other_payment_key);
-		if (htlcmap)
-			(*htlcmap)[n] = NULL;
+		(*htlcmap)[n] = NULL;
 		SUPERVERBOSE("# to-remote amount %"PRIu64" P2WPKH(%s)\n",
 			     tx->output[n].amount,
 			     type_to_string(tmpctx, struct pubkey,
@@ -242,8 +238,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 	assert(n <= tal_count(tx->output));
 	tal_resize(&tx->output, n);
-	if (htlcmap)
-		tal_resize(htlcmap, n);
+	tal_resize(htlcmap, n);
 
 	/* BOLT #3:
 	 *
@@ -251,7 +246,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 *    order](#transaction-input-and-output-ordering)
 	 */
 	permute_outputs(tx->output, tal_count(tx->output),
-			htlcmap ? (const void **)*htlcmap : NULL);
+			(const void **)*htlcmap);
 
 	/* BOLT #3:
 	 *
