@@ -107,6 +107,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	u64 base_fee_msat;
 	struct bitcoin_tx *tx;
 	size_t i, n, untrimmed;
+	u32 *cltvs;
 
 	assert(self_pay_msat + other_pay_msat <= funding_satoshis * 1000);
 
@@ -160,6 +161,10 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	/* We keep track of which outputs have which HTLCs */
 	*htlcmap = tal_arr(tx, const struct htlc *, tal_count(tx->output));
 
+	/* We keep cltvs for tie-breaking HTLC outputs; we use the same order
+	 * for sending the htlc txs, so it may matter. */
+	cltvs = tal_arr(tmpctx, u32, tal_count(tx->output));
+
 	/* This could be done in a single loop, but we follow the BOLT
 	 * literally to make comments in test vectors clearer. */
 
@@ -176,6 +181,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			continue;
 		add_offered_htlc_out(tx, n, htlcs[i], keyset);
 		(*htlcmap)[n] = htlcs[i];
+		cltvs[n] = abs_locktime_to_blocks(&htlcs[i]->expiry);
 		n++;
 	}
 
@@ -191,6 +197,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			continue;
 		add_received_htlc_out(tx, n, htlcs[i], keyset);
 		(*htlcmap)[n] = htlcs[i];
+		cltvs[n] = abs_locktime_to_blocks(&htlcs[i]->expiry);
 		n++;
 	}
 
@@ -205,6 +212,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		tx->output[n].amount = self_pay_msat / 1000;
 		tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
 		(*htlcmap)[n] = NULL;
+		/* We don't assign cltvs[n]: if we use it, order doesn't matter.
+		 * However, valgrind will warn us something wierd is happening */
 		SUPERVERBOSE("# to-local amount %"PRIu64" wscript %s\n",
 			     tx->output[n].amount,
 			     tal_hex(tmpctx, wscript));
@@ -229,6 +238,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		tx->output[n].script = scriptpubkey_p2wpkh(tx,
 						   &keyset->other_payment_key);
 		(*htlcmap)[n] = NULL;
+		/* We don't assign cltvs[n]: if we use it, order doesn't matter.
+		 * However, valgrind will warn us something wierd is happening */
 		SUPERVERBOSE("# to-remote amount %"PRIu64" P2WPKH(%s)\n",
 			     tx->output[n].amount,
 			     type_to_string(tmpctx, struct pubkey,
@@ -245,8 +256,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 * 7. Sort the outputs into [BIP 69
 	 *    order](#transaction-input-and-output-ordering)
 	 */
-	permute_outputs(tx->output, tal_count(tx->output),
-			(const void **)*htlcmap);
+	permute_outputs(tx->output, cltvs, (const void **)*htlcmap);
 
 	/* BOLT #3:
 	 *

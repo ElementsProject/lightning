@@ -38,9 +38,9 @@ struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 		map[1] = int2ptr(1);
 		tx->output[1].script = scriptpubkey_p2wpkh(tx, changekey);
 		tx->output[1].amount = changesat;
-		permute_outputs(tx->output, tal_count(tx->output), map);
+		permute_outputs(tx->output, NULL, map);
 	}
-	permute_inputs(tx->input, tal_count(tx->input), (const void **)utxos);
+	permute_inputs(tx->input, (const void **)utxos);
 	return tx;
 }
 
