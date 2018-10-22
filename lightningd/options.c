@@ -316,10 +316,10 @@ static void config_register_opts(struct lightningd *ld)
 			 "Percentage of fee to request for their commitment");
 	opt_register_arg("--cltv-delta", opt_set_u32, opt_show_u32,
 			 &ld->config.cltv_expiry_delta,
-			 "Number of blocks for ctlv_expiry_delta");
+			 "Number of blocks for cltv_expiry_delta");
 	opt_register_arg("--cltv-final", opt_set_u32, opt_show_u32,
 			 &ld->config.cltv_final,
-			 "Number of blocks for final ctlv_expiry");
+			 "Number of blocks for final cltv_expiry");
 	opt_register_arg("--commit-time=<millseconds>",
 			 opt_set_u32, opt_show_u32,
 			 &ld->config.commit_time_ms,
