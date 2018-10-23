@@ -343,8 +343,12 @@ static bool tell_if_missing(const struct channel *channel,
 	/* Keep valgrind happy. */
 	*tell_immediate = false;
 
-	/* Is it a current HTLC? */
-	hout = find_htlc_out_by_ripemd(channel, &stub->ripemd);
+	/* Don't care about incoming HTLCs, just ones we offered. */
+	if (stub->owner == REMOTE)
+		return false;
+
+	/* Might not be a current HTLC. */
+	hout = find_htlc_out(&channel->peer->ld->htlcs_out, channel, stub->id);
 	if (!hout)
 		return false;
 

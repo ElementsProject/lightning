@@ -50,8 +50,6 @@ enum onion_type send_htlc_out(struct channel *out, u64 amount, u32 cltv,
 			      struct htlc_in *in,
 			      struct htlc_out **houtp);
 
-struct htlc_out *find_htlc_out_by_ripemd(const struct channel *channel,
-					 const struct ripemd160 *ripemd160);
 void onchain_failed_our_htlc(const struct channel *channel,
 			     const struct htlc_stub *htlc,
 			     const char *why);
