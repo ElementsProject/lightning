@@ -225,6 +225,7 @@ static void json_pay_failure(struct pay *pay,
 		json_add_payment_fields(data, r->payment);
 		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
+		command_failed(pay->cmd, data);
 		return;
 
 	case PAY_RHASH_ALREADY_USED:
@@ -235,6 +236,7 @@ static void json_pay_failure(struct pay *pay,
 		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
 		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
+		command_failed(pay->cmd, data);
 		return;
 
 	case PAY_UNPARSEABLE_ONION:
@@ -263,6 +265,7 @@ static void json_pay_failure(struct pay *pay,
 					    fail->channel_update);
 		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
+		command_failed(pay->cmd, data);
 		return;
 
 	case PAY_TRY_OTHER_ROUTE:
