@@ -8,16 +8,16 @@ lightning-sendpay - Command for sending a payment via a route.
 
 SYNOPSIS
 --------
-*sendpay* 'route' 'hash' ['msatoshi']
+*sendpay* 'route' 'payment_hash' ['description'] ['msatoshi']
 
 DESCRIPTION
 -----------
 
 The *sendpay* RPC command attempts to send funds associated with the
-given 'hash', along a route to the final destination in the route.
+given payment_'hash', along a route to the final destination in the route.
 
-Generally, a client would call getroute(7) to resolve a route, then
-use *sendpay* to send it.  If it fails, it would call getroute(7)
+Generally, a client would call lightning-getroute(7) to resolve a route, then
+use *sendpay* to send it.  If it fails, it would call lightning-getroute(7)
 again to retry.
 
 The response will occur when the payment is on its way to the
@@ -26,6 +26,9 @@ The *sendpay* RPC command does not wait for definite success or
 definite failure of the payment.
 Instead, use the *waitsendpay* RPC command to poll or wait for
 definite success or definite failure.
+
+The 'description' parameter, if provided, will be returned in
+'waitsendpay' and 'listpayments' results.
 
 The 'msatoshi' amount, if provided, is the amount that will be
 recorded as the target payment value.
@@ -38,10 +41,10 @@ the destination;
 the actual target payment is what should be specified as the
 'msatoshi' argument.
 
-Once a payment has succeeded, calls to *sendpay* with the same 'hash'
+Once a payment has succeeded, calls to *sendpay* with the same 'payment_hash'
 but a different 'msatoshi' or destination will fail; this prevents
 accidental multiple payments.
-Calls to *sendpay* with the same 'hash', 'msatoshi', and destination as a
+Calls to *sendpay* with the same 'payment_hash', 'msatoshi', and destination as a
 previous successful payment (even if a different route) will return
 immediately with success.
 
@@ -55,7 +58,7 @@ string '"pending"', but may be '"complete"' if the payment was
 already performed successfully.
 
 On error, if the error occurred from a node other than the final
-destination, the route table will be updated so that getroute(7)
+destination, the route table will be updated so that lightning-getroute(7)
 should return an alternate route (if any).  An error from the final
 destination implies the payment should not be retried.
 

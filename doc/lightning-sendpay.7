@@ -2,12 +2,12 @@
 .\"     Title: lightning-sendpay
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 03/22/2018
+.\"      Date: 10/23/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-SENDPAY" "7" "03/22/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-SENDPAY" "7" "10/23/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,23 +31,25 @@
 lightning-sendpay \- Command for sending a payment via a route\&.
 .SH "SYNOPSIS"
 .sp
-\fBsendpay\fR \fIroute\fR \fIhash\fR [\fImsatoshi\fR]
+\fBsendpay\fR \fIroute\fR \fIpayment_hash\fR [\fIdescription\fR] [\fImsatoshi\fR]
 .SH "DESCRIPTION"
 .sp
-The \fBsendpay\fR RPC command attempts to send funds associated with the given \fIhash\fR, along a route to the final destination in the route\&.
+The \fBsendpay\fR RPC command attempts to send funds associated with the given payment_\(cqhash\*(Aq, along a route to the final destination in the route\&.
 .sp
-Generally, a client would call getroute(7) to resolve a route, then use \fBsendpay\fR to send it\&. If it fails, it would call getroute(7) again to retry\&.
+Generally, a client would call lightning\-getroute(7) to resolve a route, then use \fBsendpay\fR to send it\&. If it fails, it would call lightning\-getroute(7) again to retry\&.
 .sp
 The response will occur when the payment is on its way to the destination\&. The \fBsendpay\fR RPC command does not wait for definite success or definite failure of the payment\&. Instead, use the \fBwaitsendpay\fR RPC command to poll or wait for definite success or definite failure\&.
 .sp
+The \fIdescription\fR parameter, if provided, will be returned in \fIwaitsendpay\fR and \fIlistpayments\fR results\&.
+.sp
 The \fImsatoshi\fR amount, if provided, is the amount that will be recorded as the target payment value\&. If not specified, it will be the final amount to the destination\&. If specified, then the final amount at the destination must be from the specified \fImsatoshi\fR to twice the specified \fImsatoshi\fR, inclusive\&. This is intended to obscure payments by overpaying slightly at the destination; the actual target payment is what should be specified as the \fImsatoshi\fR argument\&.
 .sp
-Once a payment has succeeded, calls to \fBsendpay\fR with the same \fIhash\fR but a different \fImsatoshi\fR or destination will fail; this prevents accidental multiple payments\&. Calls to \fBsendpay\fR with the same \fIhash\fR, \fImsatoshi\fR, and destination as a previous successful payment (even if a different route) will return immediately with success\&.
+Once a payment has succeeded, calls to \fBsendpay\fR with the same \fIpayment_hash\fR but a different \fImsatoshi\fR or destination will fail; this prevents accidental multiple payments\&. Calls to \fBsendpay\fR with the same \fIpayment_hash\fR, \fImsatoshi\fR, and destination as a previous successful payment (even if a different route) will return immediately with success\&.
 .SH "RETURN VALUE"
 .sp
 On success, an object similar to the output of \fBlistpayments\fR will be returned\&. This object will have a \fIstatus\fR field that is typically the string \fI"pending"\fR, but may be \fI"complete"\fR if the payment was already performed successfully\&.
 .sp
-On error, if the error occurred from a node other than the final destination, the route table will be updated so that getroute(7) should return an alternate route (if any)\&. An error from the final destination implies the payment should not be retried\&.
+On error, if the error occurred from a node other than the final destination, the route table will be updated so that lightning\-getroute(7) should return an alternate route (if any)\&. An error from the final destination implies the payment should not be retried\&.
 .sp
 The following error codes may occur:
 .sp
