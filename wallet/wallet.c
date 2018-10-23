@@ -1551,7 +1551,7 @@ struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 	struct htlc_stub *stubs;
 	struct sha256 payment_hash;
 	sqlite3_stmt *stmt = db_prepare(wallet->db,
-		"SELECT channel_id, direction, cltv_expiry, payment_hash "
+		"SELECT channel_id, direction, cltv_expiry, channel_htlc_id, payment_hash "
 		"FROM channel_htlcs WHERE channel_id = ?;");
 
 	sqlite3_bind_int64(stmt, 1, chan->dbid);
@@ -1566,8 +1566,9 @@ struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 		/* FIXME: merge these two enums */
 		stub->owner = sqlite3_column_int(stmt, 1)==DIRECTION_INCOMING?REMOTE:LOCAL;
 		stub->cltv_expiry = sqlite3_column_int(stmt, 2);
+		stub->id = sqlite3_column_int(stmt, 3);
 
-		sqlite3_column_sha256(stmt, 3, &payment_hash);
+		sqlite3_column_sha256(stmt, 4, &payment_hash);
 		ripemd160(&stub->ripemd, payment_hash.u.u8, sizeof(payment_hash.u));
 	}
 	db_stmt_done(stmt);
