@@ -630,7 +630,6 @@ def test_onchain_dust_out(node_factory, bitcoind, executor):
     assert only_one(l2.rpc.listinvoices('onchain_dust_out')['invoices'])['status'] == 'unpaid'
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_onchain_timeout(node_factory, bitcoind, executor):
     """Onchain handling of outgoing failed htlcs"""
@@ -1094,7 +1093,6 @@ def setup_multihtlc_test(node_factory, bitcoind):
     return h, nodes
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_ignore_htlcs")
 def test_onchain_multihtlc_our_unilateral(node_factory, bitcoind):
     """Node pushes a channel onchain with multiple HTLCs with same payment_hash """
@@ -1182,7 +1180,6 @@ def test_onchain_multihtlc_our_unilateral(node_factory, bitcoind):
             assert only_one(nodes[i].rpc.listpeers(nodes[i + 1].info['id'])['peers'])['connected']
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_ignore_htlcs")
 def test_onchain_multihtlc_their_unilateral(node_factory, bitcoind):
     """Node pushes a channel onchain with multiple HTLCs with same payment_hash """
