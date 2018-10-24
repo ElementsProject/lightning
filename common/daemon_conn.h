@@ -6,49 +6,30 @@
 #include <ccan/short_types/short_types.h>
 #include <common/msg_queue.h>
 
-struct daemon_conn {
-	/* Context to tallocate all things from, possibly the
-	 * container of this connection. */
-	tal_t *ctx;
-
-	/* Last message we received */
-	u8 *msg_in;
-
-	/* Queue of outgoing messages */
-	struct msg_queue out;
-
-	/* Underlying connection */
-	struct io_conn *conn;
-
-	/* Callback for incoming messages */
-	struct io_plan *(*daemon_conn_recv)(struct io_conn *conn,
-					    struct daemon_conn *);
-
-	/* Called whenever we've cleared the msg_out queue. If it returns
-	 * true, it has added packets to msg_out queue. */
-	bool (*msg_queue_cleared_cb)(struct io_conn *, struct daemon_conn *);
-};
-
 /**
- * daemon_conn_init - Initialize a new daemon connection
+ * daemon_conn_new - Allocate a new daemon connection
  *
- * @ctx: context to allocate from
- * @dc: daemon_conn to initialize
+ * @ctx: context to allocate the daemon_conn's conn from
  * @fd: socket file descriptor to wrap
- * @daemon_conn_recv: callback function to be called upon receiving a message
+ * @recv: callback function to be called upon receiving a message
+ * @outq_empty: callback function to be called when queue is empty: returns
+ *     true if it added something to the queue.  Can be NULL.
  */
-void daemon_conn_init(tal_t *ctx, struct daemon_conn *dc, int fd,
-		      struct io_plan *(*daemon_conn_recv)(
-			  struct io_conn *, struct daemon_conn *));
+#define daemon_conn_new(ctx, fd, recv, outq_empty, arg)		       \
+	daemon_conn_new_((ctx), (fd),				       \
+			 typesafe_cb_preargs(struct io_plan *, void *, \
+					     (recv), (arg), 	       \
+					     struct io_conn *,		\
+					     const u8 *),		\
+			 typesafe_cb(bool, void *,  (outq_empty), (arg)), \
+			 arg)
 
-/**
- * daemon_conn_clear - discard a daemon conn without triggering finish.
- * @dc: the daemon_conn to clean up.
- *
- * This is used by gossipd when a peer is handed back, and we no longer
- * want to deal with it via daemon_conn.  @dc must not be used after this!
- */
-void daemon_conn_clear(struct daemon_conn *dc);
+struct daemon_conn *daemon_conn_new_(const tal_t *ctx, int fd,
+				     struct io_plan *(*recv)(struct io_conn *,
+							     const u8 *,
+							     void *),
+				     bool (*outq_empty)(void *),
+				     void *arg);
 
 /**
  * daemon_conn_send - Enqueue an outgoing message to be sent
