@@ -1227,13 +1227,6 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 	return daemon_conn_read_next(conn, dc);
 }
 
-static void free_peer(struct io_conn *conn, struct daemon_conn *dc)
-{
-	struct peer *peer = dc->ctx;
-
-	tal_free(peer);
-}
-
 static struct io_plan *connectd_new_peer(struct io_conn *conn,
 					 struct daemon *daemon,
 					 const u8 *msg)
@@ -1262,7 +1255,9 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 
 	peer->daemon = daemon;
 	peer->remote = tal(peer, struct daemon_conn);
-	daemon_conn_init(peer, peer->remote, fds[0], owner_msg_in, free_peer);
+	daemon_conn_init(peer, peer->remote, fds[0], owner_msg_in);
+	/* Free peer if conn closed. */
+	tal_steal(peer->remote->conn, peer);
 	peer->remote->msg_queue_cleared_cb = nonlocal_dump_gossip;
 
 	peer->scid_queries = NULL;
@@ -2140,7 +2135,7 @@ static struct io_plan *connectd_req(struct io_conn *conn,
 }
 
 #ifndef TESTING
-static void master_gone(struct io_conn *unused UNUSED, struct daemon_conn *dc UNUSED)
+static void master_gone(struct io_conn *unused UNUSED, struct daemon *daemon UNUSED)
 {
 	/* Can't tell master, it's gone. */
 	exit(2);
@@ -2159,11 +2154,11 @@ int main(int argc, char *argv[])
 	timers_init(&daemon->timers, time_mono());
 
 	/* stdin == control */
-	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req,
-			 master_gone);
+	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req);
+	io_set_finish(daemon->master.conn, master_gone, daemon);
+
 	status_setup_async(&daemon->master);
-	daemon_conn_init(daemon, &daemon->connectd, CONNECTD_FD, connectd_req,
-			 NULL);
+	daemon_conn_init(daemon, &daemon->connectd, CONNECTD_FD, connectd_req);
 
 	for (;;) {
 		struct timer *expired = NULL;

@@ -36,12 +36,10 @@ struct daemon_conn {
  * @dc: daemon_conn to initialize
  * @fd: socket file descriptor to wrap
  * @daemon_conn_recv: callback function to be called upon receiving a message
- * @finish: finish function if connection is closed (can be NULL)
  */
 void daemon_conn_init(tal_t *ctx, struct daemon_conn *dc, int fd,
 		      struct io_plan *(*daemon_conn_recv)(
-			  struct io_conn *, struct daemon_conn *),
-		      void (*finish)(struct io_conn *, struct daemon_conn *));
+			  struct io_conn *, struct daemon_conn *));
 
 /**
  * daemon_conn_clear - discard a daemon conn without triggering finish.

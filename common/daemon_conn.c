@@ -69,27 +69,21 @@ bool daemon_conn_sync_flush(struct daemon_conn *dc)
 static struct io_plan *daemon_conn_start(struct io_conn *conn,
 					 struct daemon_conn *dc)
 {
-	dc->conn = conn;
 	return io_duplex(conn, daemon_conn_read_next(conn, dc),
 			 daemon_conn_write_next(conn, dc));
 }
 
 void daemon_conn_init(tal_t *ctx, struct daemon_conn *dc, int fd,
 		      struct io_plan *(*daemon_conn_recv)(struct io_conn *,
-							  struct daemon_conn *),
-		      void (*finish)(struct io_conn *, struct daemon_conn *dc))
+							  struct daemon_conn *))
 {
-	struct io_conn *conn;
-
 	dc->daemon_conn_recv = daemon_conn_recv;
 
 	dc->ctx = ctx;
 	dc->msg_in = NULL;
 	msg_queue_init(&dc->out, dc->ctx);
 	dc->msg_queue_cleared_cb = NULL;
-	conn = io_new_conn(ctx, fd, daemon_conn_start, dc);
-	if (finish)
-		io_set_finish(conn, finish, dc);
+	dc->conn = io_new_conn(ctx, fd, daemon_conn_start, dc);
 }
 
 void daemon_conn_clear(struct daemon_conn *dc)
