@@ -833,6 +833,11 @@ class NodeFactory(object):
         wait_for(lambda: both_dirs_ready(nodes[0], scids[-1]))
         wait_for(lambda: both_dirs_ready(nodes[-1], scids[0]))
 
+        # Make sure we have all node announcements, too (just check ends)
+        for n in nodes:
+            for end in (nodes[0], nodes[-1]):
+                wait_for(lambda: 'alias' in only_one(end.rpc.listnodes(n.info['id'])['nodes']))
+
         return nodes
 
     def killall(self, expected_successes):
