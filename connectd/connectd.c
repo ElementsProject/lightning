@@ -121,7 +121,7 @@ struct daemon {
 	struct list_head connecting;
 
 	/* Connection to main daemon. */
-	struct daemon_conn master;
+	struct daemon_conn *master;
 
 	/* Local and global features to offer to peers. */
 	u8 *localfeatures, *globalfeatures;
@@ -372,7 +372,7 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 
 	/* Tell master to kill it: will send peer_disconnect */
 	msg = towire_connect_reconnected(NULL, id);
-	daemon_conn_send(&daemon->master, take(msg));
+	daemon_conn_send(daemon->master, take(msg));
 
 	/* Save arguments for next time. */
 	r = tal(daemon, struct peer_reconnected);
@@ -425,10 +425,10 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
 	 * queue up the `connect_peer_connected` message to tell lightningd
 	 * we have connected, and give the the peer and gossip fds. */
-	daemon_conn_send(&daemon->master, peer_connected_msg);
+	daemon_conn_send(daemon->master, peer_connected_msg);
 	/* io_conn_fd() extracts the fd from ccan/io's io_conn */
-	daemon_conn_send_fd(&daemon->master, io_conn_fd(conn));
-	daemon_conn_send_fd(&daemon->master, gossip_fd);
+	daemon_conn_send_fd(daemon->master, io_conn_fd(conn));
+	daemon_conn_send_fd(daemon->master, gossip_fd);
 
 	/*~ Finally, we add it to the set of pubkeys: tal_dup will handle
 	 * take() args for us, by simply tal_steal()ing it. */
@@ -550,7 +550,7 @@ static void PRINTF_FMT(5,6)
 	 * asking. */
 	msg = towire_connectctl_connect_failed(NULL, id, err, wait_seconds,
 					       addrhint);
-	daemon_conn_send(&daemon->master, take(msg));
+	daemon_conn_send(daemon->master, take(msg));
 
 	status_trace("Failed connected out for %s: %s",
 		     type_to_string(tmpctx, struct pubkey, id),
@@ -1080,9 +1080,9 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 /*~ Parse the incoming connect init message from lightningd ("master") and
  * assign config variables to the daemon; it should be the first message we
  * get. */
-static struct io_plan *connect_init(struct daemon_conn *master,
-				   struct daemon *daemon,
-				   const u8 *msg)
+static struct io_plan *connect_init(struct io_conn *conn,
+				    struct daemon *daemon,
+				    const u8 *msg)
 {
 	struct wireaddr *proxyaddr;
 	struct wireaddr_internal *binding;
@@ -1127,19 +1127,19 @@ static struct io_plan *connect_init(struct daemon_conn *master,
 				  &announcable);
 
 	/* Tell it we're ready, handing it the addresses we have. */
-	daemon_conn_send(&daemon->master,
+	daemon_conn_send(daemon->master,
 			 take(towire_connectctl_init_reply(NULL,
 							   binding,
 							   announcable)));
 
 	/* Read the next message. */
-	return daemon_conn_read_next(master->conn, master);
+	return daemon_conn_read_next(conn, daemon->master);
 }
 
 /*~ lightningd tells us to go! */
-static struct io_plan *connect_activate(struct daemon_conn *master,
-				       struct daemon *daemon,
-				       const u8 *msg)
+static struct io_plan *connect_activate(struct io_conn *conn,
+					struct daemon *daemon,
+					const u8 *msg)
 {
 	bool do_listen;
 
@@ -1166,9 +1166,9 @@ static struct io_plan *connect_activate(struct daemon_conn *master,
 	daemon->listen_fds = tal_free(daemon->listen_fds);
 
 	/* OK, we're ready! */
-	daemon_conn_send(&daemon->master,
+	daemon_conn_send(daemon->master,
 			 take(towire_connectctl_activate_reply(NULL)));
-	return daemon_conn_read_next(master->conn, master);
+	return daemon_conn_read_next(conn, daemon->master);
 }
 
 /*~ This is where we'd put a BOLT #10 reference, but it doesn't exist :( */
@@ -1334,7 +1334,7 @@ static struct io_plan *connect_to_peer(struct io_conn *conn,
 		master_badmsg(WIRE_CONNECTCTL_CONNECT_TO_PEER, msg);
 
 	try_connect_peer(daemon, &id, seconds_waited, addrhint);
-	return daemon_conn_read_next(conn, &daemon->master);
+	return daemon_conn_read_next(conn, daemon->master);
 }
 
 /* lightningd tells us a peer has disconnected. */
@@ -1362,28 +1362,29 @@ static struct io_plan *peer_disconnected(struct io_conn *conn,
 	tal_free(key);
 
 	/* Read the next message from lightningd. */
-	return daemon_conn_read_next(conn, &daemon->master);
+	return daemon_conn_read_next(conn, daemon->master);
 }
 
-static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
+static struct io_plan *recv_req(struct io_conn *conn,
+				const u8 *msg,
+				struct daemon *daemon)
 {
-	struct daemon *daemon = container_of(master, struct daemon, master);
-	enum connect_wire_type t = fromwire_peektype(master->msg_in);
+	enum connect_wire_type t = fromwire_peektype(msg);
 
 	/* Demux requests from lightningd: we expect INIT then ACTIVATE, then
 	 * connect requests and disconnected messages. */
 	switch (t) {
 	case WIRE_CONNECTCTL_INIT:
-		return connect_init(master, daemon, master->msg_in);
+		return connect_init(conn, daemon, msg);
 
 	case WIRE_CONNECTCTL_ACTIVATE:
-		return connect_activate(master, daemon, master->msg_in);
+		return connect_activate(conn, daemon, msg);
 
 	case WIRE_CONNECTCTL_CONNECT_TO_PEER:
-		return connect_to_peer(conn, daemon, master->msg_in);
+		return connect_to_peer(conn, daemon, msg);
 
 	case WIRE_CONNECTCTL_PEER_DISCONNECTED:
-		return peer_disconnected(conn, daemon, master->msg_in);
+		return peer_disconnected(conn, daemon, msg);
 
 	/* We send these, we don't receive them */
 	case WIRE_CONNECTCTL_INIT_REPLY:
@@ -1396,7 +1397,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 
 	/* Master shouldn't give bad requests. */
 	status_failed(STATUS_FAIL_MASTER_IO, "%i: %s",
-		      t, tal_hex(tmpctx, master->msg_in));
+		      t, tal_hex(tmpctx, msg));
 }
 
 /*~ Helper for handshake.c: we ask `hsmd` to do the ECDH to get the shared
@@ -1424,8 +1425,7 @@ bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point)
  *
  * The C++ method of omitting unused parameter names is *much* neater, and I
  * hope we'll eventually see it in a C standard. */
-static void master_gone(struct io_conn *unused UNUSED,
-			struct daemon *daemon UNUSED)
+static void master_gone(struct daemon_conn *master UNUSED)
 {
 	/* Can't tell master, it's gone. */
 	exit(2);
@@ -1446,12 +1446,13 @@ int main(int argc, char *argv[])
 	list_head_init(&daemon->connecting);
 	daemon->listen_fds = tal_arr(daemon, struct listen_fd, 0);
 	/* stdin == control */
-	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req);
-	io_set_finish(daemon->master.conn, master_gone, daemon);
+	daemon->master = daemon_conn_new(daemon, STDIN_FILENO, recv_req, NULL,
+					 daemon);
+	tal_add_destructor(daemon->master, master_gone);
 
 	/* This tells the status_* subsystem to use this connection to send
 	 * our status_ and failed messages. */
-	status_setup_async(&daemon->master);
+	status_setup_async(daemon->master);
 
 	/* Should never exit. */
 	io_loop(NULL, NULL);

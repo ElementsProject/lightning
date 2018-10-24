@@ -1726,9 +1726,7 @@ int main(int argc, char *argv[])
 	subdaemon_setup(argc, argv);
 
 	/* A trivial daemon_conn just for writing. */
-	status_conn = tal(NULL, struct daemon_conn);
-	daemon_conn_init(status_conn, status_conn, STDIN_FILENO,
-			 (void *)io_never);
+	status_conn = daemon_conn_new(NULL, STDIN_FILENO, NULL, NULL, NULL);
 	status_setup_async(status_conn);
 	uintmap_init(&clients);
 

@@ -5,12 +5,40 @@
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
+struct daemon_conn {
+	/* Last message we received */
+	u8 *msg_in;
+
+	/* Queue of outgoing messages */
+	struct msg_queue out;
+
+	/* Underlying connection: we're freed if it closes, and vice versa */
+	struct io_conn *conn;
+
+	/* Callback for incoming messages */
+	struct io_plan *(*recv)(struct io_conn *conn, const u8 *, void *);
+
+	/* Called whenever we've cleared the msg_out queue. If it returns
+	 * true, it has added packets to msg_out queue. */
+	bool (*outq_empty)(void *);
+
+	/* Arg for both callbacks. */
+	void *arg;
+};
+
+static struct io_plan *handle_read(struct io_conn *conn,
+				      struct daemon_conn *dc)
+{
+	return dc->recv(conn, dc->msg_in, dc->arg);
+}
+
 struct io_plan *daemon_conn_read_next(struct io_conn *conn,
 				      struct daemon_conn *dc)
 {
-	dc->msg_in = tal_free(dc->msg_in);
-	return io_read_wire(conn, dc->ctx, &dc->msg_in, dc->daemon_conn_recv,
-			    dc);
+	/* FIXME: We could use disposable parent instead, and recv() could
+	 * tal_steal() it?  If they did that now, we'd free it here. */
+	tal_free(dc->msg_in);
+	return io_read_wire(conn, dc, &dc->msg_in, handle_read, dc);
 }
 
 static struct io_plan *daemon_conn_write_next(struct io_conn *conn,
@@ -29,8 +57,8 @@ again:
 		}
 		return io_write_wire(conn, take(msg), daemon_conn_write_next,
 				     dc);
-	} else if (dc->msg_queue_cleared_cb) {
-		if (dc->msg_queue_cleared_cb(conn, dc))
+	} else if (dc->outq_empty) {
+		if (dc->outq_empty(dc->arg))
 			goto again;
 	}
 	return msg_queue_wait(conn, &dc->out, daemon_conn_write_next, dc);
@@ -70,26 +98,36 @@ static struct io_plan *daemon_conn_start(struct io_conn *conn,
 					 struct daemon_conn *dc)
 {
 	return io_duplex(conn, daemon_conn_read_next(conn, dc),
-			 daemon_conn_write_next(conn, dc));
+			 /* Could call daemon_conn_write_next, but we don't
+			  * want it to call empty_cb just yet! */
+			 msg_queue_wait(conn, dc->out,
+					daemon_conn_write_next, dc));
 }
 
-void daemon_conn_init(tal_t *ctx, struct daemon_conn *dc, int fd,
-		      struct io_plan *(*daemon_conn_recv)(struct io_conn *,
-							  struct daemon_conn *))
+static void destroy_dc_from_conn(struct io_conn *conn, struct daemon_conn *dc)
 {
-	dc->daemon_conn_recv = daemon_conn_recv;
+	/* Harmless free loop if conn is being destroyed because dc freed */
+	tal_free(dc);
+}
 
-	dc->ctx = ctx;
+struct daemon_conn *daemon_conn_new_(const tal_t *ctx, int fd,
+				     struct io_plan *(*recv)(struct io_conn *,
+							     const u8 *,
+							     void *),
+				     bool (*outq_empty)(void *),
+				     void *arg)
+{
+	struct daemon_conn *dc = tal(NULL, struct daemon_conn);
+
+	dc->recv = recv;
+	dc->outq_empty = outq_empty;
+	dc->arg = arg;
 	dc->msg_in = NULL;
-	msg_queue_init(&dc->out, dc->ctx);
-	dc->msg_queue_cleared_cb = NULL;
-	dc->conn = io_new_conn(ctx, fd, daemon_conn_start, dc);
-}
+	msg_queue_init(&dc->out, dc);
 
-void daemon_conn_clear(struct daemon_conn *dc)
-{
-	io_set_finish(dc->conn, NULL, NULL);
-	io_close(dc->conn);
+	dc->conn = io_new_conn(dc, fd, daemon_conn_start, dc);
+	tal_add_destructor2(dc->conn, destroy_dc_from_conn, dc);
+	return dc;
 }
 
 void daemon_conn_send(struct daemon_conn *dc, const u8 *msg)
