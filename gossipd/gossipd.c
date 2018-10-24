@@ -154,6 +154,10 @@ static void destroy_peer(struct peer *peer)
 	node = get_node(peer->daemon->rstate, &peer->id);
 	if (node)
 		peer_disable_channels(peer->daemon, node);
+
+	/* In case we've been manually freed, close conn (our parent: if
+	 * it is freed, this will be a noop). */
+	io_close(peer->remote->conn);
 }
 
 static struct peer *find_peer(struct daemon *daemon, const struct pubkey *id)
