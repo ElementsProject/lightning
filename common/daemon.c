@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <backtrace-supported.h>
 #include <backtrace.h>
 #include <ccan/err/err.h>
@@ -78,6 +79,33 @@ int daemon_poll(struct pollfd *fds, nfds_t nfds, int timeout)
 	return poll(fds, nfds, timeout);
 }
 
+#if DEVELOPER
+static void steal_notify(tal_t *child, enum tal_notify_type n, tal_t *newparent)
+{
+	tal_t *p = newparent;
+
+	assert(tal_parent(child) == newparent);
+	while ((p = tal_parent(p)) != NULL)
+		assert(p != child);
+}
+
+static void add_steal_notifier(tal_t *parent UNUSED,
+			       enum tal_notify_type type UNNEEDED,
+			       void *child)
+{
+	tal_add_notifier(child, TAL_NOTIFY_ADD_CHILD, add_steal_notifier);
+	tal_add_notifier(child, TAL_NOTIFY_STEAL, steal_notify);
+}
+
+static void add_steal_notifiers(const tal_t *root)
+{
+	tal_add_notifier(root, TAL_NOTIFY_ADD_CHILD, add_steal_notifier);
+
+	for (const tal_t *i = tal_first(root); i; i = tal_next(i))
+		add_steal_notifiers(i);
+}
+#endif
+
 void daemon_setup(const char *argv0,
 		  void (*backtrace_print)(const char *fmt, ...),
 		  void (*backtrace_exit)(void))
@@ -91,6 +119,7 @@ void daemon_setup(const char *argv0,
 	/* Suppresses backtrace (breaks valgrind) */
 	if (!getenv("LIGHTNINGD_DEV_NO_BACKTRACE"))
 		backtrace_state = backtrace_create_state(argv0, 0, NULL, NULL);
+	add_steal_notifiers(NULL);
 #else
 	backtrace_state = backtrace_create_state(argv0, 0, NULL, NULL);
 #endif
