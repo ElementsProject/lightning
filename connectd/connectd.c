@@ -1424,7 +1424,8 @@ bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point)
  *
  * The C++ method of omitting unused parameter names is *much* neater, and I
  * hope we'll eventually see it in a C standard. */
-static void master_gone(struct io_conn *unused UNUSED, struct daemon_conn *dc UNUSED)
+static void master_gone(struct io_conn *unused UNUSED,
+			struct daemon *daemon UNUSED)
 {
 	/* Can't tell master, it's gone. */
 	exit(2);
@@ -1445,8 +1446,8 @@ int main(int argc, char *argv[])
 	list_head_init(&daemon->connecting);
 	daemon->listen_fds = tal_arr(daemon, struct listen_fd, 0);
 	/* stdin == control */
-	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req,
-			 master_gone);
+	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req);
+	io_set_finish(daemon->master.conn, master_gone, daemon);
 
 	/* This tells the status_* subsystem to use this connection to send
 	 * our status_ and failed messages. */
