@@ -10,7 +10,7 @@ struct daemon_conn {
 	u8 *msg_in;
 
 	/* Queue of outgoing messages */
-	struct msg_queue out;
+	struct msg_queue *out;
 
 	/* Underlying connection: we're freed if it closes, and vice versa */
 	struct io_conn *conn;
@@ -47,7 +47,7 @@ static struct io_plan *daemon_conn_write_next(struct io_conn *conn,
 	const u8 *msg;
 
 again:
-	msg = msg_dequeue(&dc->out);
+	msg = msg_dequeue(dc->out);
 	if (msg) {
 		int fd = msg_extract_fd(msg);
 		if (fd >= 0) {
@@ -61,7 +61,7 @@ again:
 		if (dc->outq_empty(dc->arg))
 			goto again;
 	}
-	return msg_queue_wait(conn, &dc->out, daemon_conn_write_next, dc);
+	return msg_queue_wait(conn, dc->out, daemon_conn_write_next, dc);
 }
 
 bool daemon_conn_sync_flush(struct daemon_conn *dc)
@@ -79,7 +79,7 @@ bool daemon_conn_sync_flush(struct daemon_conn *dc)
 		return false;
 
 	/* Flush existing messages. */
-	while ((msg = msg_dequeue(&dc->out)) != NULL) {
+	while ((msg = msg_dequeue(dc->out)) != NULL) {
 		int fd = msg_extract_fd(msg);
 		if (fd >= 0) {
 			tal_free(msg);
@@ -123,7 +123,7 @@ struct daemon_conn *daemon_conn_new_(const tal_t *ctx, int fd,
 	dc->outq_empty = outq_empty;
 	dc->arg = arg;
 	dc->msg_in = NULL;
-	msg_queue_init(&dc->out, dc);
+	dc->out = msg_queue_new(dc);
 
 	dc->conn = io_new_conn(dc, fd, daemon_conn_start, dc);
 	tal_add_destructor2(dc->conn, destroy_dc_from_conn, dc);
@@ -132,15 +132,15 @@ struct daemon_conn *daemon_conn_new_(const tal_t *ctx, int fd,
 
 void daemon_conn_send(struct daemon_conn *dc, const u8 *msg)
 {
-	msg_enqueue(&dc->out, msg);
+	msg_enqueue(dc->out, msg);
 }
 
 void daemon_conn_send_fd(struct daemon_conn *dc, int fd)
 {
-	msg_enqueue_fd(&dc->out, fd);
+	msg_enqueue_fd(dc->out, fd);
 }
 
 void daemon_conn_wake(struct daemon_conn *dc)
 {
-	msg_wake(&dc->out);
+	msg_wake(dc->out);
 }

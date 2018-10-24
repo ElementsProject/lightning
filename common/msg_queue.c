@@ -1,18 +1,22 @@
 #include <assert.h>
-#include <ccan/take/take.h>
 #include <common/msg_queue.h>
 #include <common/utils.h>
 #include <wire/wire.h>
 
-void msg_queue_init(struct msg_queue *q, const tal_t *ctx)
+struct msg_queue {
+	const u8 **q;
+};
+
+struct msg_queue *msg_queue_new(const tal_t *ctx)
 {
-	q->q = tal_arr(ctx, const u8 *, 0);
-	q->ctx = ctx;
+	struct msg_queue *q = tal(ctx, struct msg_queue);
+	q->q = tal_arr(q, const u8 *, 0);
+	return q;
 }
 
-static void do_enqueue(struct msg_queue *q, const u8 *add)
+static void do_enqueue(struct msg_queue *q, const u8 *add TAKES)
 {
-	*tal_arr_expand(&q->q) = tal_dup_arr(q->ctx, u8, add, tal_count(add), 0);
+	*tal_arr_expand(&q->q) = tal_dup_arr(q, u8, add, tal_count(add), 0);
 
 	/* In case someone is waiting */
 	io_wake(q);
@@ -26,7 +30,7 @@ void msg_enqueue(struct msg_queue *q, const u8 *add)
 
 void msg_enqueue_fd(struct msg_queue *q, int fd)
 {
-	u8 *fdmsg = tal_arr(q->ctx, u8, 0);
+	u8 *fdmsg = tal_arr(q, u8, 0);
 	towire_u16(&fdmsg, MSG_PASS_FD);
 	towire_u32(&fdmsg, fd);
 	do_enqueue(q, take(fdmsg));

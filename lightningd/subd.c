@@ -577,12 +577,12 @@ static void destroy_subd(struct subd *sd)
 
 static struct io_plan *msg_send_next(struct io_conn *conn, struct subd *sd)
 {
-	const u8 *msg = msg_dequeue(&sd->outq);
+	const u8 *msg = msg_dequeue(sd->outq);
 	int fd;
 
 	/* Nothing to do?  Wait for msg_enqueue. */
 	if (!msg)
-		return msg_queue_wait(conn, &sd->outq, msg_send_next, sd);
+		return msg_queue_wait(conn, sd->outq, msg_send_next, sd);
 
 	fd = msg_extract_fd(msg);
 	if (fd >= 0) {
@@ -655,7 +655,7 @@ static struct subd *new_subd(struct lightningd *ld,
 	sd->errcb = errcb;
 	sd->billboardcb = billboardcb;
 	sd->fds_in = NULL;
-	msg_queue_init(&sd->outq, sd);
+	sd->outq = msg_queue_new(sd);
 	tal_add_destructor(sd, destroy_subd);
 	list_head_init(&sd->reqs);
 	sd->channel = channel;
@@ -723,12 +723,12 @@ void subd_send_msg(struct subd *sd, const u8 *msg_out)
 	/* FIXME: We should use unique upper bits for each daemon, then
 	 * have generate-wire.py add them, just assert here. */
 	assert(!strstarts(sd->msgname(fromwire_peektype(msg_out)), "INVALID"));
-	msg_enqueue(&sd->outq, msg_out);
+	msg_enqueue(sd->outq, msg_out);
 }
 
 void subd_send_fd(struct subd *sd, int fd)
 {
-	msg_enqueue_fd(&sd->outq, fd);
+	msg_enqueue_fd(sd->outq, fd);
 }
 
 void subd_req_(const tal_t *ctx,
