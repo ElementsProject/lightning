@@ -105,7 +105,7 @@ struct peer {
 
 	/* Messages from master / gossipd: we queue them since we
 	 * might be waiting for a specific reply. */
-	struct msg_queue from_master, from_gossipd;
+	struct msg_queue *from_master, *from_gossipd;
 
 	struct timers timers;
 	struct oneshot *commit_timer;
@@ -736,7 +736,7 @@ static u8 *master_wait_sync_reply(const tal_t *ctx,
 				  enum channel_wire_type replytype)
 {
 	return wait_sync_reply(ctx, msg, replytype,
-			       MASTER_FD, &peer->from_master, "master");
+			       MASTER_FD, peer->from_master, "master");
 }
 
 static u8 *gossipd_wait_sync_reply(const tal_t *ctx,
@@ -744,7 +744,7 @@ static u8 *gossipd_wait_sync_reply(const tal_t *ctx,
 				   enum gossip_wire_type replytype)
 {
 	return wait_sync_reply(ctx, msg, replytype,
-			       GOSSIP_FD, &peer->from_gossipd, "gossipd");
+			       GOSSIP_FD, peer->from_gossipd, "gossipd");
 }
 
 static u8 *foreign_channel_update(const tal_t *ctx,
@@ -2704,8 +2704,8 @@ int main(int argc, char *argv[])
 	peer->have_sigs[LOCAL] = peer->have_sigs[REMOTE] = false;
 	peer->announce_depth_reached = false;
 	peer->channel_local_active = false;
-	msg_queue_init(&peer->from_master, peer);
-	msg_queue_init(&peer->from_gossipd, peer);
+	peer->from_master = msg_queue_new(peer);
+	peer->from_gossipd = msg_queue_new(peer);
 	peer->next_commit_sigs = NULL;
 	peer->shutdown_sent[LOCAL] = false;
 	peer->last_update_timestamp = 0;
@@ -2745,7 +2745,7 @@ int main(int argc, char *argv[])
 		clean_tmpctx();
 
 		/* For simplicity, we process one event at a time. */
-		msg = msg_dequeue(&peer->from_master);
+		msg = msg_dequeue(peer->from_master);
 		if (msg) {
 			status_trace("Now dealing with deferred %s",
 				     channel_wire_type_name(
@@ -2761,7 +2761,7 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
-		msg = msg_dequeue(&peer->from_gossipd);
+		msg = msg_dequeue(peer->from_gossipd);
 		if (msg) {
 			status_trace("Now dealing with deferred gossip %u",
 				     fromwire_peektype(msg));

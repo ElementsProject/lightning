@@ -65,7 +65,7 @@ struct subd {
 	bool talks_to_peer;
 
 	/* Messages queue up here. */
-	struct msg_queue outq;
+	struct msg_queue *outq;
 
 	/* Callbacks for replies. */
 	struct list_head reqs;
