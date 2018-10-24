@@ -66,15 +66,6 @@ void daemon_conn_wake(struct daemon_conn *dc);
 void daemon_conn_send_fd(struct daemon_conn *dc, int fd);
 
 /**
- * daemon_conn_write_next - Continue writing from the msg-queue
- *
- * Exposed here so that, if `msg_queue_cleared_cb` is used to break
- * out of the write-loop, we can get back in.
- */
-struct io_plan *daemon_conn_write_next(struct io_conn *conn,
-				       struct daemon_conn *dc);
-
-/**
  * daemon_conn_read_next - Read the next message
  */
 struct io_plan *daemon_conn_read_next(struct io_conn *conn,

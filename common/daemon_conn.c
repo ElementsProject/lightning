@@ -13,8 +13,8 @@ struct io_plan *daemon_conn_read_next(struct io_conn *conn,
 			    dc);
 }
 
-struct io_plan *daemon_conn_write_next(struct io_conn *conn,
-				       struct daemon_conn *dc)
+static struct io_plan *daemon_conn_write_next(struct io_conn *conn,
+					      struct daemon_conn *dc)
 {
 	const u8 *msg;
 
