@@ -158,7 +158,7 @@ static bool IsLocal(const struct wireaddr *addr)
 
 static bool IsInternal(const struct wireaddr *addr)
 {
-    return addr->type == ADDR_TYPE_PADDING;
+    return false;
 }
 
 static bool IsValid(const struct wireaddr *addr)

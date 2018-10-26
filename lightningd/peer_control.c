@@ -661,12 +661,10 @@ static void json_add_peer(struct lightningd *ld,
 	 * their features *last* time they connected. */
 	if (connected) {
 		json_array_start(response, "netaddr");
-		if (p->addr.itype != ADDR_INTERNAL_WIREADDR
-		    || p->addr.u.wireaddr.type != ADDR_TYPE_PADDING)
-			json_add_string(response, NULL,
-					type_to_string(response,
-						       struct wireaddr_internal,
-						       &p->addr));
+		json_add_string(response, NULL,
+				type_to_string(response,
+					       struct wireaddr_internal,
+					       &p->addr));
 		json_array_end(response);
 		if (deprecated_apis) {
 			json_add_hex_talarr(response, "global_features",
