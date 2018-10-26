@@ -274,7 +274,8 @@ PYSRC=$(shell git ls-files "*.py") contrib/pylightning/lightning-pay
 check-python:
 	@# E501 line too long (N > 79 characters)
 	@# E731 do not assign a lambda expression, use a def
-	@flake8 --ignore=E501,E731 --exclude=contrib/pylightning/lightning/__init__.py ${PYSRC}
+	@# W503: line break before binary operator
+	@flake8 --ignore=E501,E731,W503 --exclude=contrib/pylightning/lightning/__init__.py ${PYSRC}
 
 check-includes:
 	@tools/check-includes.sh

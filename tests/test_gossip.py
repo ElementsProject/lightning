@@ -666,19 +666,19 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
                                          num=65535)
     l1.daemon.wait_for_log(
         # WIRE_REPLY_CHANNEL_RANGE
-        r'\[IN\] 0108' +
+        r'\[IN\] 0108'
         # chain_hash
-        '................................................................' +
+        + '................................................................'
         # first_blocknum
-        '00000000' +
+        + '00000000'
         # number_of_blocks
-        '0000ffff' +
+        + '0000ffff'
         # complete
-        '01' +
+        + '01'
         # length
-        '....' +
+        + '....'
         # encoding
-        '01'
+        + '01'
     )
 
 

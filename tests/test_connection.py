@@ -910,7 +910,7 @@ def test_update_fee_reconnect(node_factory, bitcoind):
     l1.set_feerates((14000, 14000, 3750))
     l1.daemon.wait_for_log('Setting REMOTE feerate to 14000')
     l2.daemon.wait_for_log('Setting LOCAL feerate to 14000')
-    l1.daemon.wait_for_log('dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
+    l1.daemon.wait_for_log(r'dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
 
     # Wait for reconnect....
     l1.daemon.wait_for_log('Applying feerate 14000 to LOCAL')
@@ -1203,7 +1203,7 @@ def test_funder_feerate_reconnect(node_factory, bitcoind):
 
     # create fee update, causing disconnect.
     l1.set_feerates((15000, 7500, 3750))
-    l2.daemon.wait_for_log('dev_disconnect: \-WIRE_COMMITMENT_SIGNED')
+    l2.daemon.wait_for_log(r'dev_disconnect: \-WIRE_COMMITMENT_SIGNED')
 
     # Wait until they reconnect.
     l1.daemon.wait_for_log('Peer transient failure in CHANNELD_NORMAL')
@@ -1220,7 +1220,7 @@ def test_dataloss_protection(node_factory, bitcoind):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 should send out WIRE_INIT (0010)
-    l1.daemon.wait_for_log("\[OUT\] 0010"
+    l1.daemon.wait_for_log(r"\[OUT\] 0010"
                            # gflen == 0
                            "0000"
                            # lflen == 1
@@ -1237,7 +1237,7 @@ def test_dataloss_protection(node_factory, bitcoind):
     l2.start()
 
     # l1 should have sent WIRE_CHANNEL_REESTABLISH with option_data_loss_protect.
-    l1.daemon.wait_for_log("\[OUT\] 0088"
+    l1.daemon.wait_for_log(r"\[OUT\] 0088"
                            # channel_id
                            "[0-9a-f]{64}"
                            # next_local_commitment_number
@@ -1255,13 +1255,13 @@ def test_dataloss_protection(node_factory, bitcoind):
 
     # Make sure both sides consider it completely settled (has received both
     # REVOKE_AND_ACK)
-    l1.daemon.wait_for_logs(["\[IN\] 0085"] * 2)
-    l2.daemon.wait_for_logs(["\[IN\] 0085"] * 2)
+    l1.daemon.wait_for_logs([r"\[IN\] 0085"] * 2)
+    l2.daemon.wait_for_logs([r"\[IN\] 0085"] * 2)
 
     l2.restart()
 
     # l1 should have sent WIRE_CHANNEL_REESTABLISH with option_data_loss_protect.
-    l1.daemon.wait_for_log("\[OUT\] 0088"
+    l1.daemon.wait_for_log(r"\[OUT\] 0088"
                            # channel_id
                            "[0-9a-f]{64}"
                            # next_local_commitment_number
