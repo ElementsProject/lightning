@@ -408,10 +408,6 @@ json_tok_channel_id(const char *buffer, const jsmntok_t *tok,
 void json_add_address(struct json_stream *response, const char *fieldname,
 		      const struct wireaddr *addr)
 {
-	/* No need to print padding */
-	if (addr->type == ADDR_TYPE_PADDING)
-		return;
-
 	json_object_start(response, fieldname);
 	char *addrstr = tal_arr(response, char, INET6_ADDRSTRLEN);
 	if (addr->type == ADDR_TYPE_IPV4) {

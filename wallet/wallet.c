@@ -1037,13 +1037,9 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan)
 		/* Need to create the peer first */
 		stmt = db_prepare(w->db, "INSERT INTO peers (node_id, address) VALUES (?, ?);");
 		sqlite3_bind_pubkey(stmt, 1, &chan->peer->id);
-		if (chan->peer->addr.itype == ADDR_INTERNAL_WIREADDR
-		    && chan->peer->addr.u.wireaddr.type == ADDR_TYPE_PADDING)
-			sqlite3_bind_null(stmt, 2);
-		else
-			sqlite3_bind_text(stmt, 2,
-					  type_to_string(tmpctx, struct wireaddr_internal, &chan->peer->addr),
-					  -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 2,
+				  type_to_string(tmpctx, struct wireaddr_internal, &chan->peer->addr),
+				  -1, SQLITE_TRANSIENT);
 		db_exec_prepared(w->db, stmt);
 		chan->peer->dbid = sqlite3_last_insert_rowid(w->db->sql);
 	}
