@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [0.6.2-rc1] - 2018-10-20: "The Consensus Loving Nasal Daemon"
+## [0.6.2] - 2018-10-20: "The Consensus Loving Nasal Daemon"
 
 This release named by practicalswift.
 
@@ -185,8 +185,8 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
-[Unreleased]: https://github.com/ElementsProject/lightning/compare/v0.6.1...HEAD
-[0.6.2-rc1]: https://github.com/ElementsProject/lightning/releases/tag/v0.6.2-rc1
+[Unreleased]: https://github.com/ElementsProject/lightning/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.6.2
 [0.6.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.6.1
 [0.6]: https://github.com/ElementsProject/lightning/releases/tag/v0.6
 [0.5.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.5.2-2016-11-21
