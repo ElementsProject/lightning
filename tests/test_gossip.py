@@ -29,7 +29,7 @@ def test_gossip_pruning(node_factory, bitcoind):
     scid1 = l1.fund_channel(l2, 10**6)
     scid2 = l2.fund_channel(l3, 10**6)
 
-    bitcoind.rpc.generate(6)
+    bitcoind.generate_block(6)
 
     # Channels should be activated locally
     wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [True] * 4)
@@ -78,7 +78,7 @@ def test_gossip_disable_channels(node_factory, bitcoind):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     scid = l1.fund_channel(l2, 10**6)
-    bitcoind.rpc.generate(5)
+    bitcoind.generate_block(5)
 
     def count_active(node):
         chans = node.rpc.listchannels()['channels']
@@ -358,7 +358,7 @@ def test_gossip_weirdalias(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.daemon.wait_for_log('openingd-{} chan #1: Handed peer, entering loop'.format(l1.info['id']))
     l2.fund_channel(l1, 10**6)
-    bitcoind.rpc.generate(6)
+    bitcoind.generate_block(6)
 
     # They should gossip together.
     l1.daemon.wait_for_log('Received node_announcement for node {}'
@@ -390,9 +390,9 @@ def test_gossip_persistence(node_factory, bitcoind):
     l2.fund_channel(l3, 10**6)
 
     # Make channels public, except for l3 -> l4, which is kept local-only for now
-    bitcoind.rpc.generate(5)
+    bitcoind.generate_block(5)
     l3.fund_channel(l4, 10**6)
-    l1.bitcoin.rpc.generate(1)
+    bitcoind.generate_block(1)
 
     def count_active(node):
         chans = node.rpc.listchannels()['channels']
@@ -418,7 +418,7 @@ def test_gossip_persistence(node_factory, bitcoind):
     # channel from their network view
     l1.rpc.dev_fail(l2.info['id'])
     time.sleep(1)
-    l1.bitcoin.rpc.generate(1)
+    bitcoind.generate_block(1)
 
     wait_for(lambda: count_active(l1) == 2)
     wait_for(lambda: count_active(l2) == 2)
