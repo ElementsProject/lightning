@@ -585,9 +585,9 @@ class LightningNode(object):
     def wait_for_routes(self, channel_ids):
         # Could happen in any order...
         self.daemon.wait_for_logs(['Received channel_update for channel {}\\(0\\)'.format(c)
-                                   for c in channel_ids] +
-                                  ['Received channel_update for channel {}\\(1\\)'.format(c)
-                                   for c in channel_ids])
+                                   for c in channel_ids]
+                                  + ['Received channel_update for channel {}\\(1\\)'.format(c)
+                                     for c in channel_ids])
 
     def pay(self, dst, amt, label=None):
         if not label:

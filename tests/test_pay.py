@@ -385,10 +385,10 @@ def test_sendpay(node_factory):
         p1 = l1.rpc.getpeer(l2.info['id'], 'info')
         p2 = l2.rpc.getpeer(l1.info['id'], 'info')
         return (
-            only_one(p1['channels'])['msatoshi_to_us'] == 10**6 * 1000 - amt and
-            only_one(p1['channels'])['msatoshi_total'] == 10**6 * 1000 and
-            only_one(p2['channels'])['msatoshi_to_us'] == amt and
-            only_one(p2['channels'])['msatoshi_total'] == 10**6 * 1000
+            only_one(p1['channels'])['msatoshi_to_us'] == 10**6 * 1000 - amt
+            and only_one(p1['channels'])['msatoshi_total'] == 10**6 * 1000
+            and only_one(p2['channels'])['msatoshi_to_us'] == amt
+            and only_one(p2['channels'])['msatoshi_total'] == 10**6 * 1000
         )
     wait_for(check_balances)
 

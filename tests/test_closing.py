@@ -214,8 +214,8 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
     bitcoind.generate_block(6)
 
     # Now wait for them all to hit normal state, do payments
-    l1.daemon.wait_for_logs(['update for channel .* now ACTIVE'] * num_peers +
-                            ['to CHANNELD_NORMAL'] * num_peers)
+    l1.daemon.wait_for_logs(['update for channel .* now ACTIVE'] * num_peers
+                            + ['to CHANNELD_NORMAL'] * num_peers)
     for p in peers:
         if p.amount != 0:
             l1.pay(p, 100000000)
@@ -1413,16 +1413,16 @@ def test_permfail(node_factory, bitcoind):
     l2.daemon.wait_for_log(' to ONCHAIN')
     l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET (.*) after 5 blocks')
 
-    wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status'] ==
-             ['ONCHAIN:Tracking their unilateral close',
-              'ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel'])
+    wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status']
+             == ['ONCHAIN:Tracking their unilateral close',
+                 'ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel'])
 
     def check_billboard():
         billboard = only_one(l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'])['status']
         return (
-            len(billboard) == 2 and
-            billboard[0] == 'ONCHAIN:Tracking our own unilateral close' and
-            re.fullmatch('ONCHAIN:.* outputs unresolved: in 4 blocks will spend DELAYED_OUTPUT_TO_US \(.*:0\) using OUR_DELAYED_RETURN_TO_WALLET', billboard[1])
+            len(billboard) == 2
+            and billboard[0] == 'ONCHAIN:Tracking our own unilateral close'
+            and re.fullmatch(r'ONCHAIN:.* outputs unresolved: in 4 blocks will spend DELAYED_OUTPUT_TO_US \(.*:0\) using OUR_DELAYED_RETURN_TO_WALLET', billboard[1])
         )
     wait_for(check_billboard)
 

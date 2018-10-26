@@ -55,7 +55,7 @@ def test_names(node_factory):
 
     for key, alias, color in configs:
         n = node_factory.get_node()
-        assert n.daemon.is_in_log('public key {}, alias {}.* \(color #{}\)'
+        assert n.daemon.is_in_log(r'public key {}, alias {}.* \(color #{}\)'
                                   .format(key, alias, color))
 
 
@@ -145,7 +145,7 @@ def test_ping(node_factory):
     # Test gossip pinging.
     ping_tests(l1, l2)
     if DEVELOPER:
-        l1.daemon.wait_for_log('Got pong 1000 bytes \({}\.\.\.\)'
+        l1.daemon.wait_for_log(r'Got pong 1000 bytes \({}\.\.\.\)'
                                .format(l2.info['version']), timeout=1)
 
     l1.fund_channel(l2, 10**5)
@@ -153,7 +153,7 @@ def test_ping(node_factory):
     # channeld pinging
     ping_tests(l1, l2)
     if DEVELOPER:
-        l1.daemon.wait_for_log('Got pong 1000 bytes \({}\.\.\.\)'
+        l1.daemon.wait_for_log(r'Got pong 1000 bytes \({}\.\.\.\)'
                                .format(l2.info['version']))
 
 
@@ -819,7 +819,7 @@ def test_htlc_send_timeout(node_factory, bitcoind):
     timedout = False
     while not timedout:
         try:
-            l2.daemon.wait_for_log('channeld-{} chan #[0-9]*:\[IN\] 0101'.format(l3.info['id']), timeout=30)
+            l2.daemon.wait_for_log(r'channeld-{} chan #[0-9]*:\[IN\] 0101'.format(l3.info['id']), timeout=30)
         except TimeoutError:
             timedout = True
 
@@ -836,9 +836,9 @@ def test_htlc_send_timeout(node_factory, bitcoind):
     assert only_one(err.error['data']['failures'])['erring_channel'] == chanid2
 
     # L2 should send ping, but never receive pong so never send commitment.
-    l2.daemon.wait_for_log('channeld.*:\[OUT\] 0012')
-    assert not l2.daemon.is_in_log('channeld.*:\[IN\] 0013')
-    assert not l2.daemon.is_in_log('channeld.*:\[OUT\] 0084')
+    l2.daemon.wait_for_log(r'channeld.*:\[OUT\] 0012')
+    assert not l2.daemon.is_in_log(r'channeld.*:\[IN\] 0013')
+    assert not l2.daemon.is_in_log(r'channeld.*:\[OUT\] 0084')
     # L2 killed the channel with l3 because it was too slow.
     l2.daemon.wait_for_log('channeld-{}.*Adding HTLC too slow: killing channel'.format(l3.info['id']))
 
