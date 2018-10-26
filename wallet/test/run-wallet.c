@@ -796,6 +796,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 {
 	struct wallet *w = create_test_wallet(ld, ctx);
 	struct channel c1, *c2 = tal(w, struct channel);
+	struct wireaddr_internal addr;
 	struct peer *p;
 	struct channel_info *ci = &c1.channel_info;
 	struct bitcoin_txid *hash = tal(w, struct bitcoin_txid);
@@ -815,8 +816,10 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	ci->feerate_per_kw[LOCAL] = ci->feerate_per_kw[REMOTE] = 31337;
 	mempat(scriptpubkey, tal_count(scriptpubkey));
 	c1.first_blocknum = 1;
+	parse_wireaddr_internal("localhost:1234", &addr, 0, false, false, false,
+				NULL);
 	c1.final_key_idx = 1337;
-	p = new_peer(ld, 0, &pk, NULL, NULL, NULL);
+	p = new_peer(ld, 0, &pk, &addr);
 	c1.peer = p;
 	c1.dbid = wallet_get_channel_dbid(w);
 	c1.state = CHANNELD_NORMAL;
