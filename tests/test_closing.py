@@ -24,7 +24,7 @@ def test_closing(node_factory, bitcoind):
     billboard = only_one(l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'])['status']
     assert billboard == ['CHANNELD_NORMAL:Funding transaction locked.']
 
-    bitcoind.rpc.generate(5)
+    bitcoind.generate_block(5)
 
     # Only wait for the channels to activate with DEVELOPER=1,
     # otherwise it's going to take too long because of the missing
@@ -62,7 +62,7 @@ def test_closing(node_factory, bitcoind):
 
     billboard = only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status']
     assert billboard == ['CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 5430 satoshi']
-    bitcoind.rpc.generate(1)
+    bitcoind.generate_block(1)
 
     l1.daemon.wait_for_log(r'Owning output .* txid %s' % closetxid)
     l2.daemon.wait_for_log(r'Owning output .* txid %s' % closetxid)
@@ -77,7 +77,7 @@ def test_closing(node_factory, bitcoind):
         'ONCHAIN:All outputs resolved: waiting 99 more blocks before forgetting channel'
     ])
 
-    bitcoind.rpc.generate(9)
+    bitcoind.generate_block(9)
     wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'])['status'] == [
         'CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 5430 satoshi',
         'ONCHAIN:Tracking mutual close transaction',
@@ -85,7 +85,7 @@ def test_closing(node_factory, bitcoind):
     ])
 
     # Make sure both have forgotten about it
-    bitcoind.rpc.generate(90)
+    bitcoind.generate_block(90)
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 0)
     wait_for(lambda: len(l2.rpc.listchannels()['channels']) == 0)
 
@@ -110,7 +110,7 @@ def test_closing_while_disconnected(node_factory, bitcoind):
     l1.daemon.wait_for_log('sendrawtx exit 0')
     l2.daemon.wait_for_log('sendrawtx exit 0')
 
-    bitcoind.rpc.generate(101)
+    bitcoind.generate_block(101)
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 0)
     wait_for(lambda: len(l2.rpc.listchannels()['channels']) == 0)
 
@@ -535,7 +535,7 @@ def test_onchaind_replay(node_factory, bitcoind):
     }
     l1.rpc.sendpay([routestep], rhash)
     l1.daemon.wait_for_log('sendrawtx exit 0')
-    bitcoind.rpc.generate(1)
+    bitcoind.generate_block(1)
 
     # Wait for nodes to notice the failure, this seach needle is after the
     # DB commit so we're sure the tx entries in onchaindtxs have been added
@@ -548,7 +548,7 @@ def test_onchaind_replay(node_factory, bitcoind):
 
     # Generate some blocks so we restart the onchaind from DB (we rescan
     # last_height - 100)
-    bitcoind.rpc.generate(100)
+    bitcoind.generate_block(100)
     sync_blockheight(bitcoind, [l1, l2])
 
     # l1 should still have a running onchaind
@@ -563,7 +563,7 @@ def test_onchaind_replay(node_factory, bitcoind):
     # l1 should still notice that the funding was spent and that we should react to it
     l1.daemon.wait_for_log("Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET")
     sync_blockheight(bitcoind, [l1])
-    bitcoind.rpc.generate(10)
+    bitcoind.generate_block(10)
     sync_blockheight(bitcoind, [l1])
 
 

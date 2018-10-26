@@ -291,7 +291,7 @@ class BitcoinD(TailableProc):
 
     def generate_block(self, numblocks=1):
         # As of 0.16, generate() is removed; use generatetoaddress.
-        self.rpc.generatetoaddress(numblocks, self.rpc.getnewaddress())
+        return self.rpc.generatetoaddress(numblocks, self.rpc.getnewaddress())
 
 
 class LightningD(TailableProc):

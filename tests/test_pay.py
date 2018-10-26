@@ -179,7 +179,7 @@ def test_pay_optional_args(node_factory):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
-def test_payment_success_persistence(node_factory, executor):
+def test_payment_success_persistence(node_factory, bitcoind, executor):
     # Start two nodes and open a channel.. die during payment.
     # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=['+WIRE_COMMITMENT_SIGNED'],
@@ -216,7 +216,7 @@ def test_payment_success_persistence(node_factory, executor):
     assert len(invoices) == 1 and invoices[0]['status'] == 'paid'
 
     # FIXME: We should re-add pre-announced routes on startup!
-    l1.bitcoin.rpc.generate(5)
+    bitcoind.generate_block(5)
     l1.wait_channel_active(chanid)
 
     # A duplicate should succeed immediately (nop) and return correct preimage.

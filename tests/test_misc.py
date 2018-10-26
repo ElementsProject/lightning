@@ -158,7 +158,7 @@ def test_ping(node_factory):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
-def test_htlc_sig_persistence(node_factory, executor):
+def test_htlc_sig_persistence(node_factory, bitcoind, executor):
     """Interrupt a payment between two peers, then fail and recover funds using the HTLC sig.
     """
     # Feerates identical so we don't get gratuitous commit to update them
@@ -184,7 +184,7 @@ def test_htlc_sig_persistence(node_factory, executor):
     # Make sure it broadcasts to chain.
     l2.wait_for_channel_onchain(l1.info['id'])
     l2.stop()
-    l1.bitcoin.rpc.generate(1)
+    bitcoind.generate_block(1)
     l1.start()
 
     assert l1.daemon.is_in_log(r'Loaded 1 HTLC signatures from DB')
@@ -192,10 +192,10 @@ def test_htlc_sig_persistence(node_factory, executor):
         r'Peer permanent failure in CHANNELD_NORMAL: Funding transaction spent',
         r'Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US'
     ])
-    l1.bitcoin.rpc.generate(5)
+    bitcoind.generate_block(5)
     l1.daemon.wait_for_log("Broadcasting OUR_HTLC_TIMEOUT_TO_US")
     time.sleep(3)
-    l1.bitcoin.rpc.generate(1)
+    bitcoind.generate_block(1)
     l1.daemon.wait_for_logs([
         r'Owning output . (\d+) .SEGWIT. txid',
     ])
@@ -388,7 +388,7 @@ def test_withdraw(node_factory, bitcoind):
     # lightningd uses P2SH-P2WPKH
     waddr = l2.rpc.newaddr('bech32')['address']
     l1.rpc.withdraw(waddr, 2 * amount)
-    l1.bitcoin.rpc.generate(1)
+    bitcoind.generate_block(1)
 
     # Make sure l2 received the withdrawal.
     wait_for(lambda: len(l2.rpc.listfunds()['outputs']) == 1)
@@ -408,7 +408,7 @@ def test_withdraw(node_factory, bitcoind):
     with pytest.raises(RpcError):
         l1.rpc.withdraw('tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxxxxxx', 2 * amount)
     l1.rpc.withdraw(waddr, 2 * amount)
-    l1.bitcoin.rpc.generate(1)
+    bitcoind.generate_block(1)
     # Now make sure additional two of them were marked as spent
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 6
 
@@ -422,7 +422,7 @@ def test_withdraw(node_factory, bitcoind):
     with pytest.raises(RpcError):
         l1.rpc.withdraw('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qxxxxxx', 2 * amount)
     l1.rpc.withdraw(waddr, 2 * amount)
-    l1.bitcoin.rpc.generate(1)
+    bitcoind.generate_block(1)
     # Now make sure additional two of them were marked as spent
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 8
 
@@ -457,7 +457,7 @@ def test_withdraw(node_factory, bitcoind):
 
     # Test withdrawal to self.
     l1.rpc.withdraw(l1.rpc.newaddr('bech32')['address'], 'all')
-    bitcoind.rpc.generate(1)
+    bitcoind.generate_block(1)
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 1
 
     l1.rpc.withdraw(waddr, 'all')
@@ -476,7 +476,7 @@ def test_addfunds_from_block(node_factory, bitcoind):
 
     addr = l1.rpc.newaddr()['address']
     bitcoind.rpc.sendtoaddress(addr, 0.1)
-    bitcoind.rpc.generate(1)
+    bitcoind.generate_block(1)
 
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
 
@@ -490,7 +490,7 @@ def test_addfunds_from_block(node_factory, bitcoind):
     # Send all our money to a P2WPKH address this time.
     addr = l1.rpc.newaddr("bech32")['address']
     l1.rpc.withdraw(addr, "all")
-    bitcoind.rpc.generate(1)
+    bitcoind.generate_block(1)
     time.sleep(1)
 
     # The address we detect must match what was paid to.
@@ -700,10 +700,10 @@ def test_blockchaintrack(node_factory, bitcoind):
     height = bitcoind.rpc.getblockcount()
 
     # At height 111 we receive an incoming payment
-    hashes = bitcoind.rpc.generate(9)
+    hashes = bitcoind.generate_block(9)
     bitcoind.rpc.sendtoaddress(addr, 1)
     time.sleep(1)  # mempool is still unpredictable
-    bitcoind.rpc.generate(1)
+    bitcoind.generate_block(1)
 
     l1.daemon.wait_for_log(r'Owning')
     outputs = l1.rpc.listfunds()['outputs']
@@ -711,14 +711,14 @@ def test_blockchaintrack(node_factory, bitcoind):
 
     ######################################################################
     # Second failure scenario: perform a 20 block reorg
-    bitcoind.rpc.generate(10)
+    bitcoind.generate_block(10)
     l1.daemon.wait_for_log('Adding block {}: '.format(height + 20))
 
     # Now reorg out with a longer fork of 21 blocks
     bitcoind.rpc.invalidateblock(hashes[0])
     bitcoind.wait_for_log(r'InvalidChainFound: invalid block=.*  height={}'
                           .format(height + 1))
-    hashes = bitcoind.rpc.generate(30)
+    hashes = bitcoind.generate_block(30)
     time.sleep(1)
 
     bitcoind.rpc.getblockcount()
@@ -756,7 +756,7 @@ def test_rescan(node_factory, bitcoind):
     # the current height
     l1.daemon.opts['rescan'] = -500000
     l1.stop()
-    bitcoind.rpc.generate(4)
+    bitcoind.generate_block(4)
     l1.start()
     l1.daemon.wait_for_log(r'Adding block 105')
     assert not l1.daemon.is_in_log(r'Adding block 102')
