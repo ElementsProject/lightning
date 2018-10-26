@@ -36,6 +36,6 @@ final_expiry_too_soon,17
 final_incorrect_cltv_expiry,18
 final_incorrect_cltv_expiry,0,cltv_expiry,4
 final_incorrect_htlc_amount,19
-final_incorrect_htlc_amount,0,incoming_htlc_amt,4
+final_incorrect_htlc_amount,0,incoming_htlc_amt,8
 channel_disabled,UPDATE|20
 expiry_too_far,21
