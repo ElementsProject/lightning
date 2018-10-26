@@ -93,9 +93,7 @@ static void peer_update_features(struct peer *peer,
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct pubkey *id,
-		      const struct wireaddr_internal *addr,
-		      const u8 *globalfeatures TAKES,
-		      const u8 *localfeatures TAKES)
+		      const struct wireaddr_internal *addr)
 {
 	/* We are owned by our channels, and freed manually by destroy_channel */
 	struct peer *peer = tal(NULL, struct peer);
@@ -104,15 +102,8 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->dbid = dbid;
 	peer->id = *id;
 	peer->uncommitted_channel = NULL;
-	/* FIXME: This is always set, right? */
-	if (addr)
-		peer->addr = *addr;
-	else {
-		peer->addr.itype = ADDR_INTERNAL_WIREADDR;
-		peer->addr.u.wireaddr.type = ADDR_TYPE_PADDING;
-	}
+	peer->addr = *addr;
 	peer->globalfeatures = peer->localfeatures = NULL;
-	peer_update_features(peer, globalfeatures, localfeatures);
 	list_head_init(&peer->channels);
 	peer->direction = get_channel_direction(&peer->ld->id, &peer->id);
 
@@ -440,10 +431,9 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	 * subdaemon.  Otherwise, we'll hand to openingd to wait there. */
 	peer = peer_by_id(ld, &id);
 	if (!peer)
-		peer = new_peer(ld, 0, &id, &addr,
-				globalfeatures, localfeatures);
-	else
-		peer_update_features(peer, globalfeatures, localfeatures);
+		peer = new_peer(ld, 0, &id, &addr);
+
+	peer_update_features(peer, globalfeatures, localfeatures);
 
 	/* Can't be opening, since we wouldn't have sent peer_disconnected. */
 	assert(!peer->uncommitted_channel);

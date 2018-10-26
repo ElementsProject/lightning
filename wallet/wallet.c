@@ -514,7 +514,7 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 	const unsigned char *addrstr;
 	struct peer *peer;
 	struct pubkey id;
-	struct wireaddr_internal *addrp, addr;
+	struct wireaddr_internal addr;
 
 	sqlite3_stmt *stmt =
 		db_query(w->db,
@@ -529,17 +529,13 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 		return NULL;
 	}
 	addrstr = sqlite3_column_text(stmt, 2);
-	if (addrstr) {
-		addrp = &addr;
-		if (!parse_wireaddr_internal((const char*)addrstr, addrp, DEFAULT_PORT, false, false, true, NULL)) {
-			db_stmt_done(stmt);
-			return NULL;
-		}
-	} else
-		addrp = NULL;
+	if (!parse_wireaddr_internal((const char*)addrstr, &addr, DEFAULT_PORT, false, false, true, NULL)) {
+		db_stmt_done(stmt);
+		return NULL;
+	}
 
 	peer = new_peer(w->ld, sqlite3_column_int64(stmt, 0),
-			&id, addrp, NULL, NULL);
+			&id, &addr);
 	db_stmt_done(stmt);
 
 	return peer;
