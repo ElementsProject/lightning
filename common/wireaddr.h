@@ -27,7 +27,6 @@ struct sockaddr_un;
  *
  * The following `address descriptor` types are defined:
  *
- *   * `0`: padding; data = none (length 0)
  *   * `1`: ipv4; data = `[4:ipv4_addr][2:port]` (length 6)
  *   * `2`: ipv6; data = `[16:ipv6_addr][2:port]` (length 18)
  *   * `3`: Tor v2 onion service; data = `[10:onion_addr][2:port]` (length 12)
@@ -46,7 +45,6 @@ struct sockaddr_un;
 #define	LARGEST_ADDRLEN TOR_V3_ADDRLEN
 
 enum wire_addr_type {
-	ADDR_TYPE_PADDING = 0,
 	ADDR_TYPE_IPV4 = 1,
 	ADDR_TYPE_IPV6 = 2,
 	ADDR_TYPE_TOR_V2 = 3,
@@ -71,7 +69,6 @@ enum addr_listen_announce {
 	ADDR_LISTEN_AND_ANNOUNCE = ADDR_LISTEN|ADDR_ANNOUNCE
 };
 
-/* Inserts a single ADDR_TYPE_PADDING if addr is NULL */
 void towire_wireaddr(u8 **pptr, const struct wireaddr *addr);
 bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr);
 
