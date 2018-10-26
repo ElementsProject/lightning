@@ -207,8 +207,6 @@ int main(int argc, char *argv[])
 		case ADDR_TYPE_IPV6:
 			af = AF_INET6;
 			break;
-		case ADDR_TYPE_PADDING:
-			abort();
 		}
 		ai = wireaddr_to_addrinfo(tmpctx, &addr.u.wireaddr);
 	}

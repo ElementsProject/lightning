@@ -182,7 +182,6 @@ bool wireaddr_is_wildcard(const struct wireaddr *addr)
 	case ADDR_TYPE_IPV6:
 	case ADDR_TYPE_IPV4:
 		return memeqzero(addr->addr, addr->addrlen);
-	case ADDR_TYPE_PADDING:
 	case ADDR_TYPE_TOR_V2:
 	case ADDR_TYPE_TOR_V3:
 		return false;
@@ -229,8 +228,6 @@ char *fmt_wireaddr_without_port(const tal_t * ctx, const struct wireaddr *a)
 	case ADDR_TYPE_TOR_V3:
 		return tal_fmt(ctx, "%s.onion",
 			       b32_encode(tmpctx, a->addr, a->addrlen));
-	case ADDR_TYPE_PADDING:
-		break;
 	}
 
 	hex = tal_hexstr(ctx, a->addr, a->addrlen);
@@ -562,7 +559,6 @@ struct addrinfo *wireaddr_to_addrinfo(const tal_t *ctx,
 		return ai;
 	case ADDR_TYPE_TOR_V2:
 	case ADDR_TYPE_TOR_V3:
-	case ADDR_TYPE_PADDING:
 		break;
 	}
 	abort();
@@ -587,7 +583,6 @@ bool all_tor_addresses(const struct wireaddr_internal *wireaddr)
 				return false;
 			case ADDR_TYPE_TOR_V2:
 			case ADDR_TYPE_TOR_V3:
-			case ADDR_TYPE_PADDING:
 				continue;
 			}
 		}

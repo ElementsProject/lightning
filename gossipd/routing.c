@@ -1280,10 +1280,6 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 	while (cursor && len) {
 		struct wireaddr wireaddr;
 
-		/* Skip any padding */
-		while (len && cursor[0] == ADDR_TYPE_PADDING)
-			fromwire_u8(&cursor, &len);
-
 		/* BOLT #7:
 		 *
 		 * The final node:

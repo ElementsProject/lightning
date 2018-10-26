@@ -703,8 +703,6 @@ static void try_connect_one_addr(struct connecting *connect)
 		case ADDR_TYPE_IPV6:
 			af = AF_INET6;
 			break;
-		case ADDR_TYPE_PADDING:
-			break;
 		}
 	}
 
@@ -852,7 +850,6 @@ static bool handle_wireaddr_listen(struct daemon *daemon,
 			return true;
 		}
 		return false;
-	case ADDR_TYPE_PADDING:
 	case ADDR_TYPE_TOR_V2:
 	case ADDR_TYPE_TOR_V3:
 		break;
@@ -905,8 +902,6 @@ static void finalize_announcable(struct wireaddr **announcable)
 	/* BOLT #7:
 	 *
 	 * The origin node:
-	 *...
-	 *   - MUST place non-zero typed address descriptors in ascending order.
 	 *...
 	 *   - MUST NOT include more than one `address descriptor` of the same
 	 *     type.
