@@ -26,6 +26,7 @@ env:
 script:
   - docker pull cdecker/lightning-ci:${ARCH}bit | tee
   - env | grep -E '^[A-Z_]+\=' | tee /tmp/envlist
+  - echo SLOW_MACHINE=1 >> /tmp/envlist
   - docker run --rm=true --env-file=/tmp/envlist -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit ./configure CC=${COMPILER:-gcc}
   - $SOURCE_CHECK_ONLY || docker run --rm=true --env-file=/tmp/envlist -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make -j3
   - $SOURCE_CHECK_ONLY || docker run --rm=true --env-file=/tmp/envlist -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check
