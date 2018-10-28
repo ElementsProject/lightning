@@ -946,9 +946,11 @@ static void json_close(struct command *cmd,
 	if (channel->state != CHANNELD_NORMAL &&
 	    channel->state != CHANNELD_AWAITING_LOCKIN &&
 	    channel->state != CHANNELD_SHUTTING_DOWN &&
-	    channel->state != CLOSINGD_SIGEXCHANGE)
+	    channel->state != CLOSINGD_SIGEXCHANGE) {
 		command_fail(cmd, LIGHTNINGD, "Channel is in state %s",
 			     channel_state_name(channel));
+		return;
+	}
 
 	/* If normal or locking in, transition to shutting down
 	 * state.
