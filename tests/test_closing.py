@@ -1,6 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from lightning import RpcError
-from utils import only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT, VALGRIND
+from utils import only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT, VALGRIND, SLOW_MACHINE
 
 
 import queue
@@ -143,13 +143,21 @@ def test_closing_torture(node_factory, executor, bitcoind):
     l1, l2 = node_factory.get_nodes(2)
     amount = 10**6
 
-    # The range below of 15 is unsatisfactory.
     # Before the fix was applied, 15 would often pass.
     # However, increasing the number of tries would
     # take longer in VALGRIND mode, triggering a CI
     # failure since the test does not print any
     # output.
-    for i in range(15):
+    # On my laptop, VALGRIND is about 4x slower than native, hence
+    # the approximations below:
+
+    iterations = 50
+    if VALGRIND:
+        iterations //= 4
+    if SLOW_MACHINE:
+        iterations //= 2
+
+    for i in range(iterations):
         # Reduce probability that spurious sendrawtx error will occur
         l1.rpc.dev_rescan_outputs()
 
@@ -181,6 +189,7 @@ def test_closing_torture(node_factory, executor, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "needs dev-override-feerates")
+@unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
 def test_closing_different_fees(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
 
@@ -1094,6 +1103,7 @@ def setup_multihtlc_test(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_ignore_htlcs")
+@unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
 def test_onchain_multihtlc_our_unilateral(node_factory, bitcoind):
     """Node pushes a channel onchain with multiple HTLCs with same payment_hash """
     h, nodes = setup_multihtlc_test(node_factory, bitcoind)
@@ -1181,6 +1191,7 @@ def test_onchain_multihtlc_our_unilateral(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_ignore_htlcs")
+@unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
 def test_onchain_multihtlc_their_unilateral(node_factory, bitcoind):
     """Node pushes a channel onchain with multiple HTLCs with same payment_hash """
     h, nodes = setup_multihtlc_test(node_factory, bitcoind)

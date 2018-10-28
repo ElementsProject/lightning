@@ -37,6 +37,7 @@ with open('config.vars') as configfile:
 DEVELOPER = os.getenv("DEVELOPER", config['DEVELOPER']) == "1"
 TIMEOUT = int(os.getenv("TIMEOUT", "60"))
 VALGRIND = os.getenv("VALGRIND", config['VALGRIND']) == "1"
+SLOW_MACHINE = os.getenv("SLOW_MACHINE", "0") == "1"
 
 
 def wait_for(success, timeout=TIMEOUT):
