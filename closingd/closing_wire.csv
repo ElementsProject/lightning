@@ -25,6 +25,8 @@ closing_init,,next_index_remote,u64
 closing_init,,revocations_received,u64
 closing_init,,channel_reestablish_len,u16
 closing_init,,channel_reestablish,channel_reestablish_len*u8
+closing_init,,final_scriptpubkey_len,u16
+closing_init,,final_scriptpubkey,final_scriptpubkey_len*u8
 
 # We received an offer, save signature.
 closing_received_signature,2002

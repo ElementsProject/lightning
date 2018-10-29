@@ -236,7 +236,9 @@ void peer_start_closingd(struct channel *channel,
 				      channel->next_index[LOCAL],
 				      channel->next_index[REMOTE],
 				      num_revocations,
-				      channel_reestablish);
+				      channel_reestablish,
+				      p2wpkh_for_keyidx(tmpctx, ld,
+							channel->final_key_idx));
 
 	/* We don't expect a response: it will give us feedback on
 	 * signatures sent and received, then closing_complete. */

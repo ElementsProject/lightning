@@ -103,7 +103,8 @@ static void do_reconnect(struct crypto_state *cs,
 			 const struct channel_id *channel_id,
 			 const u64 next_index[NUM_SIDES],
 			 u64 revocations_received,
-			 const u8 *channel_reestablish)
+			 const u8 *channel_reestablish,
+			 const u8 *final_scriptpubkey)
 {
 	u8 *msg;
 	struct channel_id their_channel_id;
@@ -146,6 +147,17 @@ static void do_reconnect(struct crypto_state *cs,
 	status_trace("Got reestablish commit=%"PRIu64" revoke=%"PRIu64,
 		     next_local_commitment_number,
 		     next_remote_revocation_number);
+
+	/* BOLT #2:
+	 *
+	 * A node:
+	 *...
+	 *   - upon reconnection:
+	 *     - if it has sent a previous `shutdown`:
+	 *       - MUST retransmit `shutdown`.
+	 */
+	msg = towire_shutdown(NULL, channel_id, final_scriptpubkey);
+	sync_crypto_write(cs, PEER_FD, take(msg));
 
 	/* FIXME: Spec says to re-xmit funding_locked here if we haven't
 	 * done any updates. */
@@ -429,7 +441,7 @@ int main(int argc, char *argv[])
 	u64 min_fee_to_accept, commitment_fee, offer[NUM_SIDES];
 	struct feerange feerange;
 	enum side funder;
-	u8 *scriptpubkey[NUM_SIDES], *funding_wscript;
+	u8 *scriptpubkey[NUM_SIDES], *funding_wscript, *final_scriptpubkey;
 	struct channel_id channel_id;
 	bool reconnected;
 	u64 next_index[NUM_SIDES], revocations_received;
@@ -459,7 +471,8 @@ int main(int argc, char *argv[])
 				   &next_index[LOCAL],
 				   &next_index[REMOTE],
 				   &revocations_received,
-				   &channel_reestablish))
+				   &channel_reestablish,
+				   &final_scriptpubkey))
 		master_badmsg(WIRE_CLOSING_INIT, msg);
 
 	status_trace("satoshi_out = %"PRIu64"/%"PRIu64,
@@ -475,7 +488,7 @@ int main(int argc, char *argv[])
 	if (reconnected)
 		do_reconnect(&cs, &channel_id,
 			     next_index, revocations_received,
-			     channel_reestablish);
+			     channel_reestablish, final_scriptpubkey);
 
 	peer_billboard(true, "Negotiating closing fee between %"PRIu64
 		       " and %"PRIu64" satoshi (ideal %"PRIu64")",
