@@ -4,6 +4,7 @@
 #include <ccan/list/list.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/tal/str/str.h>
+#include <lightningd/json.h>
 #include <unistd.h>
 
 struct plugin {
@@ -167,7 +168,7 @@ void plugins_init(struct plugins *plugins)
 	}
 }
 
-void json_add_opt_plugins(struct json_result *response,
+void json_add_opt_plugins(struct json_stream *response,
 			  const struct plugins *plugins)
 {
 	struct plugin *p;

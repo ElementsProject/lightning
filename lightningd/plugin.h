@@ -41,7 +41,7 @@ void plugin_register(struct plugins *plugins, const char* path TAKES);
  * This adds a dict that maps the plugin name to a dict of configuration options
  * for the corresponding plugins.
  */
-void json_add_opt_plugins(struct json_result *response,
+void json_add_opt_plugins(struct json_stream *response,
 			  const struct plugins *plugins);
 
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */
