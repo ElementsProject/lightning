@@ -248,13 +248,13 @@ bool derive_revocation_privkey(const struct secret *base_secret,
 bool bip32_pubkey(const struct ext_key *bip32_base,
 		  struct pubkey *pubkey, u32 index)
 {
+	const uint32_t flags = BIP32_FLAG_KEY_PUBLIC | BIP32_FLAG_SKIP_HASH;
 	struct ext_key ext;
 
 	if (index >= BIP32_INITIAL_HARDENED_CHILD)
 		return false;
 
-	if (bip32_key_from_parent(bip32_base, index,
-				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK)
+	if (bip32_key_from_parent(bip32_base, index, flags, &ext) != WALLY_OK)
 		return false;
 
 	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey->pubkey,
