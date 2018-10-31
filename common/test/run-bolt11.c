@@ -107,10 +107,11 @@ static void test_b11(const char *b11str,
 	/* Re-encode to check */
 	reproduce = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
 	for (size_t i = 0; i < strlen(reproduce); i++) {
-		if (reproduce[i] != b11str[i])
+		if (reproduce[i] != b11str[i]
+		    && reproduce[i] != tolower(b11str[i]))
 			abort();
 	}
-	assert(streq(reproduce, b11str));
+	assert(strlen(reproduce) == strlen(b11str));
 }
 
 int main(void)
@@ -249,6 +250,20 @@ int main(void)
 		       || strstr(fail, "Invoices must start with ln"));
 	}
 
+	/* ALL UPPERCASE is allowed (useful for QR codes) */
+	msatoshi = 2500 * (1000ULL * 100000000) / 1000000;
+	b11 = new_bolt11(tmpctx, &msatoshi);
+	b11->chain = chainparams_for_network("bitcoin");
+	b11->timestamp = 1496314658;
+	if (!hex_decode("0001020304050607080900010203040506070809000102030405060708090102",
+			strlen("0001020304050607080900010203040506070809000102030405060708090102"),
+			&b11->payment_hash, sizeof(b11->payment_hash)))
+		abort();
+	b11->receiver_id = node;
+	b11->description = "1 cup coffee";
+	b11->expiry = 60;
+
+	test_b11("LNBC2500U1PVJLUEZPP5QQQSYQCYQ5RQWZQFQQQSYQCYQ5RQWZQFQQQSYQCYQ5RQWZQFQYPQDQ5XYSXXATSYP3K7ENXV4JSXQZPUAZTRNWNGZN3KDZW5HYDLZF03QDGM2HDQ27CQV3AGM2AWHZ5SE903VRUATFHQ77W3LS4EVS3CH9ZW97J25EMUDUPQ63NYW24CG27H2RSPFJ9SRP", b11, NULL);
 	/* FIXME: Test the others! */
 	wally_cleanup(0);
 	tal_free(tmpctx);
