@@ -55,7 +55,7 @@ struct peer {
 
 struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid);
 
-struct peer *new_peer(struct lightningd *ld, u64 dbid,
+struct peer *peer_new(struct lightningd *ld, u64 dbid,
 		      const struct pubkey *id,
 		      const struct wireaddr_internal *addr);
 

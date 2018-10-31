@@ -8,13 +8,13 @@
 #include <ccan/typesafe_cb/typesafe_cb.h>
 
 /* tal_free this to disable timer. */
-struct oneshot *new_reltimer_(struct timers *timers,
+struct oneshot *reltimer_new_(struct timers *timers,
 			      const tal_t *ctx,
 			      struct timerel expire,
 			      void (*cb)(void *), void *arg);
 
-#define new_reltimer(timers, ctx, relexpire, func, arg)		\
-	new_reltimer_((timers), (ctx), (relexpire),			\
+#define reltimer_new(timers, ctx, relexpire, func, arg)		\
+	reltimer_new_((timers), (ctx), (relexpire),			\
 		      typesafe_cb(void, void *, (func), (arg)), (arg))
 
 void timer_expired(tal_t *ctx, struct timer *timer);

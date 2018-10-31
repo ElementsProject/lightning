@@ -362,7 +362,7 @@ static void json_invoice(struct command *cmd,
 	sha256(&rhash, &info->payment_preimage, sizeof(info->payment_preimage));
 
 	/* Construct bolt11 string. */
-	info->b11 = new_bolt11(info, msatoshi_val);
+	info->b11 = bolt11_new(info, msatoshi_val);
 	info->b11->chain = get_chainparams(cmd->ld);
 	info->b11->timestamp = time_now().ts.tv_sec;
 	info->b11->payment_hash = rhash;

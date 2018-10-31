@@ -8,7 +8,7 @@
 #include <common/type_to_string.h>
 #include <inttypes.h>
 
-struct channel *new_initial_channel(const tal_t *ctx,
+struct channel *initial_channel_new(const tal_t *ctx,
 				    const struct bitcoin_blkid *chain_hash,
 				    const struct bitcoin_txid *funding_txid,
 				    unsigned int funding_txout,

@@ -31,6 +31,9 @@ char *bolt11_encode_(const tal_t *ctx UNNEEDED,
 				  void *arg) UNNEEDED,
 		     void *arg UNNEEDED)
 { fprintf(stderr, "bolt11_encode_ called!\n"); abort(); }
+/* Generated stub for bolt11_new */
+struct bolt11 *bolt11_new(const tal_t *ctx UNNEEDED, u64 *msatoshi UNNEEDED)
+{ fprintf(stderr, "bolt11_new called!\n"); abort(); }
 /* Generated stub for broadcast_tx */
 void broadcast_tx(struct chain_topology *topo UNNEEDED,
 		  struct channel *channel UNNEEDED, const struct bitcoin_tx *tx UNNEEDED,
@@ -256,26 +259,17 @@ void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED, const char *f
 /* Generated stub for log_add */
 void log_add(struct log *log UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "log_add called!\n"); abort(); }
+/* Generated stub for log_book_new */
+struct log_book *log_book_new(size_t max_mem UNNEEDED,
+			      enum log_level printlevel UNNEEDED)
+{ fprintf(stderr, "log_book_new called!\n"); abort(); }
 /* Generated stub for log_io */
 void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED, const char *comment UNNEEDED,
 	    const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "log_io called!\n"); abort(); }
-/* Generated stub for new_bolt11 */
-struct bolt11 *new_bolt11(const tal_t *ctx UNNEEDED, u64 *msatoshi UNNEEDED)
-{ fprintf(stderr, "new_bolt11 called!\n"); abort(); }
-/* Generated stub for new_log */
-struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "new_log called!\n"); abort(); }
-/* Generated stub for new_log_book */
-struct log_book *new_log_book(size_t max_mem UNNEEDED,
-			      enum log_level printlevel UNNEEDED)
-{ fprintf(stderr, "new_log_book called!\n"); abort(); }
-/* Generated stub for new_reltimer_ */
-struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
-			      const tal_t *ctx UNNEEDED,
-			      struct timerel expire UNNEEDED,
-			      void (*cb)(void *) UNNEEDED, void *arg UNNEEDED)
-{ fprintf(stderr, "new_reltimer_ called!\n"); abort(); }
+/* Generated stub for log_new */
+struct log *log_new(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "log_new called!\n"); abort(); }
 /* Generated stub for null_response */
 struct json_stream *null_response(struct command *cmd UNNEEDED)
 { fprintf(stderr, "null_response called!\n"); abort(); }
@@ -311,6 +305,12 @@ void peer_start_openingd(struct peer *peer UNNEEDED,
 			 int peer_fd UNNEEDED, int gossip_fd UNNEEDED,
 			 const u8 *msg UNNEEDED)
 { fprintf(stderr, "peer_start_openingd called!\n"); abort(); }
+/* Generated stub for reltimer_new_ */
+struct oneshot *reltimer_new_(struct timers *timers UNNEEDED,
+			      const tal_t *ctx UNNEEDED,
+			      struct timerel expire UNNEEDED,
+			      void (*cb)(void *) UNNEEDED, void *arg UNNEEDED)
+{ fprintf(stderr, "reltimer_new_ called!\n"); abort(); }
 /* Generated stub for set_log_outfn_ */
 void set_log_outfn_(struct log_book *lr UNNEEDED,
 		    void (*print)(const char *prefix UNNEEDED,

@@ -39,7 +39,7 @@ static void maybe_completed_init(struct chain_topology *topo)
 static void next_topology_timer(struct chain_topology *topo)
 {
 	/* This takes care of its own lifetime. */
-	notleak(new_reltimer(topo->timers, topo,
+	notleak(reltimer_new(topo->timers, topo,
 			     time_from_sec(topo->poll_seconds),
 			     try_extend_tip, topo));
 }
@@ -530,7 +530,7 @@ AUTODATA(json_command, &feerates_command);
 static void next_updatefee_timer(struct chain_topology *topo)
 {
 	/* This takes care of its own lifetime. */
-	notleak(new_reltimer(topo->timers, topo,
+	notleak(reltimer_new(topo->timers, topo,
 			     time_from_sec(topo->poll_seconds),
 			     start_fee_estimate, topo));
 }
@@ -614,7 +614,7 @@ static void add_tip(struct chain_topology *topo, struct block *b)
 	topo->max_blockheight = b->height;
 }
 
-static struct block *new_block(struct chain_topology *topo,
+static struct block *block_new(struct chain_topology *topo,
 			       struct bitcoin_block *blk,
 			       unsigned int height)
 {
@@ -673,7 +673,7 @@ static void have_new_block(struct bitcoind *bitcoind UNUSED,
 	if (!bitcoin_blkid_eq(&topo->tip->blkid, &blk->hdr.prev_hash))
 		remove_tip(topo);
 	else
-		add_tip(topo, new_block(topo, blk, topo->tip->height + 1));
+		add_tip(topo, block_new(topo, blk, topo->tip->height + 1));
 
 	/* Try for next one. */
 	try_extend_tip(topo);
@@ -701,7 +701,7 @@ static void init_topo(struct bitcoind *bitcoind UNUSED,
 		      struct bitcoin_block *blk,
 		      struct chain_topology *topo)
 {
-	topo->root = new_block(topo, blk, topo->max_blockheight);
+	topo->root = block_new(topo, blk, topo->max_blockheight);
 	block_map_add(&topo->block_map, topo->root);
 	topo->tip = topo->prev_tip = topo->root;
 
@@ -842,7 +842,7 @@ static void destroy_chain_topology(struct chain_topology *topo)
 		tal_free(otx);
 }
 
-struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
+struct chain_topology *topology_new(struct lightningd *ld, struct log *log)
 {
 	struct chain_topology *topo = tal(ld, struct chain_topology);
 
@@ -853,7 +853,7 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 	txowatch_hash_init(&topo->txowatches);
 	topo->log = log;
 	memset(topo->feerate, 0, sizeof(topo->feerate));
-	topo->bitcoind = new_bitcoind(topo, ld, log);
+	topo->bitcoind = bitcoind_new(topo, ld, log);
 	topo->poll_seconds = 30;
 	topo->feerate_uninitialized = true;
 	topo->root = NULL;

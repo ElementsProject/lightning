@@ -387,7 +387,7 @@ static struct io_plan *handshake_succeeded(struct io_conn *conn,
 	return cb(conn, &their_id, &addr, &cs, cbarg);
 }
 
-static struct handshake *new_handshake(const tal_t *ctx,
+static struct handshake *handshake_new(const tal_t *ctx,
 				       const struct pubkey *responder_id)
 {
 	struct handshake *handshake = tal(ctx, struct handshake);
@@ -970,7 +970,7 @@ struct io_plan *responder_handshake_(struct io_conn *conn,
 							   void *cbarg),
 				     void *cbarg)
 {
-	struct handshake *h = new_handshake(conn, my_id);
+	struct handshake *h = handshake_new(conn, my_id);
 
 	h->side = RESPONDER;
 	h->my_id = *my_id;
@@ -992,7 +992,7 @@ struct io_plan *initiator_handshake_(struct io_conn *conn,
 							   void *cbarg),
 				     void *cbarg)
 {
-	struct handshake *h = new_handshake(conn, their_id);
+	struct handshake *h = handshake_new(conn, their_id);
 
 	h->side = INITIATOR;
 	h->my_id = *my_id;

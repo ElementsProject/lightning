@@ -1300,7 +1300,7 @@ static void try_connect_peer(struct daemon *daemon,
 	}
 
 	/* Start connecting to it: since this is the only place we allocate
-	 * a 'struct connecting' we don't write a separate new_connecting(). */
+	 * a 'struct connecting' we don't write a separate connecting_new(). */
 	connect = tal(daemon, struct connecting);
 	connect->daemon = daemon;
 	connect->id = *id;

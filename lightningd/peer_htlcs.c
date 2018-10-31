@@ -450,13 +450,13 @@ enum onion_type send_htlc_out(struct channel *out, u64 amount, u32 cltv,
 	}
 
 	/* Make peer's daemon own it, catch if it dies. */
-	hout = new_htlc_out(out->owner, out, amount, cltv,
+	hout = htlc_out_new(out->owner, out, amount, cltv,
 			    payment_hash, onion_routing_packet, in == NULL, in);
 	tal_add_destructor(hout, destroy_hout_subd_died);
 
 	/* Give channel 30 seconds to commit (first) htlc. */
 	if (!out->htlc_timeout)
-		out->htlc_timeout = new_reltimer(&out->peer->ld->timers,
+		out->htlc_timeout = reltimer_new(&out->peer->ld->timers,
 						 out, time_from_sec(30),
 						 htlc_offer_timeout,
 						 out);
@@ -1116,7 +1116,7 @@ static bool channel_added_their_htlc(struct channel *channel,
 
 	/* This stays around even if we fail it immediately: it *is*
 	 * part of the current commitment. */
-	hin = new_htlc_in(channel, channel, added->id, added->amount_msat,
+	hin = htlc_in_new(channel, channel, added->id, added->amount_msat,
 			  added->cltv_expiry, &added->payment_hash,
 			  shared_secret, added->onion_routing_packet);
 

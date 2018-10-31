@@ -502,7 +502,7 @@ static u8 *funder_channel(struct state *state,
 			     bip32_base);
 	bitcoin_txid(funding, &state->funding_txid);
 
-	state->channel = new_initial_channel(state,
+	state->channel = initial_channel_new(state,
 					     &state->chainparams->genesis_blockhash,
 					     &state->funding_txid,
 					     state->funding_txout,
@@ -842,7 +842,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					   &state->channel_id),
 			    type_to_string(msg, struct channel_id, &id_in));
 
-	state->channel = new_initial_channel(state,
+	state->channel = initial_channel_new(state,
 					     &chain_hash,
 					     &state->funding_txid,
 					     state->funding_txout,

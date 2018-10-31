@@ -100,22 +100,19 @@ void log_backtrace_exit(void)
 /* Generated stub for log_backtrace_print */
 void log_backtrace_print(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "log_backtrace_print called!\n"); abort(); }
+/* Generated stub for log_book_new */
+struct log_book *log_book_new(size_t max_mem UNNEEDED,
+			      enum log_level printlevel UNNEEDED)
+{ fprintf(stderr, "log_book_new called!\n"); abort(); }
+/* Generated stub for log_new */
+struct log *log_new(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "log_new called!\n"); abort(); }
 /* Generated stub for log_prefix */
 const char *log_prefix(const struct log *log UNNEEDED)
 { fprintf(stderr, "log_prefix called!\n"); abort(); }
 /* Generated stub for log_status_msg */
 bool log_status_msg(struct log *log UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "log_status_msg called!\n"); abort(); }
-/* Generated stub for new_log */
-struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "new_log called!\n"); abort(); }
-/* Generated stub for new_log_book */
-struct log_book *new_log_book(size_t max_mem UNNEEDED,
-			      enum log_level printlevel UNNEEDED)
-{ fprintf(stderr, "new_log_book called!\n"); abort(); }
-/* Generated stub for new_topology */
-struct chain_topology *new_topology(struct lightningd *ld UNNEEDED, struct log *log UNNEEDED)
-{ fprintf(stderr, "new_topology called!\n"); abort(); }
 /* Generated stub for onchaind_replay_channels */
 void onchaind_replay_channels(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "onchaind_replay_channels called!\n"); abort(); }
@@ -135,6 +132,9 @@ void setup_topology(struct chain_topology *topology UNNEEDED, struct timers *tim
 /* Generated stub for timer_expired */
 void timer_expired(tal_t *ctx UNNEEDED, struct timer *timer UNNEEDED)
 { fprintf(stderr, "timer_expired called!\n"); abort(); }
+/* Generated stub for topology_new */
+struct chain_topology *topology_new(struct lightningd *ld UNNEEDED, struct log *log UNNEEDED)
+{ fprintf(stderr, "topology_new called!\n"); abort(); }
 /* Generated stub for txfilter_add_derkey */
 void txfilter_add_derkey(struct txfilter *filter UNNEEDED,
 			 const u8 derkey[PUBKEY_DER_LEN])

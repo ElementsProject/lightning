@@ -129,7 +129,7 @@ void get_channel_basepoints(struct lightningd *ld,
 		      tal_hex(msg, msg));
 }
 
-struct channel *new_channel(struct peer *peer, u64 dbid,
+struct channel *channel_new(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct wallet_shachain *their_shachain,
 			    enum channel_state state,
@@ -196,7 +196,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		/* FIXME: update log prefix when we get scid */
 		/* FIXME: Use minimal unique pubkey prefix for logs! */
 		char *idname = type_to_string(peer, struct pubkey, &peer->id);
-		channel->log = new_log(channel,
+		channel->log = log_new(channel,
 				       peer->log_book, "%s chan #%"PRIu64":",
 				       idname, dbid);
 		tal_free(idname);

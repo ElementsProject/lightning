@@ -70,7 +70,7 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 			     const char *description, char **fail);
 
 /* Initialize an empty bolt11 struct with optional amount */
-struct bolt11 *new_bolt11(const tal_t *ctx, u64 *msatoshi);
+struct bolt11 *bolt11_new(const tal_t *ctx, u64 *msatoshi);
 
 /* Encodes and signs, even if it's nonsense. */
 char *bolt11_encode_(const tal_t *ctx,

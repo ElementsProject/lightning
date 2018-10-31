@@ -15,7 +15,7 @@ struct broadcast_state {
 	size_t count;
 };
 
-struct broadcast_state *new_broadcast_state(tal_t *ctx);
+struct broadcast_state *broadcast_state_new(tal_t *ctx);
 
 /* Append a queued message for broadcast.  Freeing the msg will remove it. */
 u64 insert_broadcast(struct broadcast_state *bstate, const u8 *msg,

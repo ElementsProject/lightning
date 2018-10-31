@@ -355,7 +355,7 @@ static void json_pay_sendpay_resolve(const struct sendpay_result *r,
 
 		/* Delay for 3 seconds if needed. FIXME: random
 		 * exponential backoff */
-		new_reltimer(&pay->cmd->ld->timers, pay->try_parent,
+		reltimer_new(&pay->cmd->ld->timers, pay->try_parent,
 			     time_from_sec(3),
 			     &do_pay_try, pay);
 	} else
@@ -688,7 +688,7 @@ static void json_pay(struct command *cmd,
 		return;
 
 	/* Set up timeout. */
-	new_reltimer(&cmd->ld->timers, pay, time_from_sec(*retryfor),
+	reltimer_new(&cmd->ld->timers, pay, time_from_sec(*retryfor),
 		     &json_pay_stop_retrying, pay);
 }
 

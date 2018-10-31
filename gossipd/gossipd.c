@@ -934,7 +934,7 @@ static bool maybe_queue_gossip(struct peer *peer)
 
 	/* Gossip is drained.  Wait for next timer. */
 	peer->gossip_timer
-		= new_reltimer(&peer->daemon->timers, peer,
+		= reltimer_new(&peer->daemon->timers, peer,
 			       time_from_msec(peer->daemon->broadcast_interval_msec),
 			       wake_gossip_out, peer);
 	return false;
@@ -1770,7 +1770,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 	struct node *n;
 
 	/* Schedule next run now */
-	new_reltimer(&daemon->timers, daemon,
+	reltimer_new(&daemon->timers, daemon,
 		     time_from_sec(daemon->rstate->prune_timeout/4),
 		     gossip_refresh_network, daemon);
 
@@ -1837,7 +1837,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
 	/* Prune time is twice update time */
-	daemon->rstate = new_routing_state(daemon, &chain_hash, &daemon->id,
+	daemon->rstate = routing_state_new(daemon, &chain_hash, &daemon->id,
 					   update_channel_interval * 2);
 
 	/* Load stored gossip messages */
@@ -1850,7 +1850,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 	 * or addresses might have changed!) */
 	maybe_send_own_node_announce(daemon);
 
-	new_reltimer(&daemon->timers, daemon,
+	reltimer_new(&daemon->timers, daemon,
 		     time_from_sec(daemon->rstate->prune_timeout/4),
 		     gossip_refresh_network, daemon);
 

@@ -701,7 +701,7 @@ void json_add_escaped_string(struct json_stream *result, const char *fieldname,
 		tal_free(esc);
 }
 
-static struct json_stream *new_json_stream(struct command *cmd)
+static struct json_stream *json_stream_new(struct command *cmd)
 {
 	struct json_stream *r = tal(cmd, struct json_stream);
 
@@ -720,7 +720,7 @@ static struct json_stream *new_json_stream(struct command *cmd)
 struct json_stream *json_stream_success(struct command *cmd)
 {
 	struct json_stream *r;
-	r = new_json_stream(cmd);
+	r = json_stream_new(cmd);
 	result_append(r, "\"result\" : ");
 	return r;
 }
@@ -729,7 +729,7 @@ struct json_stream *json_stream_fail_nodata(struct command *cmd,
 					    int code,
 					    const char *errmsg)
 {
-	struct json_stream *r = new_json_stream(cmd);
+	struct json_stream *r = json_stream_new(cmd);
 
 	assert(code);
 	assert(errmsg);

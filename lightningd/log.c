@@ -130,7 +130,7 @@ static size_t prune_log(struct log_book *log)
 	return deleted;
 }
 
-struct log_book *new_log_book(size_t max_mem,
+struct log_book *log_book_new(size_t max_mem,
 			      enum log_level printlevel)
 {
 	struct log_book *lr = tal_linkable(tal(NULL, struct log_book));
@@ -149,7 +149,7 @@ struct log_book *new_log_book(size_t max_mem,
 
 /* With different entry points */
 struct log *PRINTF_FMT(3,4)
-new_log(const tal_t *ctx, struct log_book *record, const char *fmt, ...)
+log_new(const tal_t *ctx, struct log_book *record, const char *fmt, ...)
 {
 	struct log *log = tal(ctx, struct log);
 	va_list ap;
@@ -230,7 +230,7 @@ static void add_entry(struct log *log, struct log_entry *l)
 	}
 }
 
-static struct log_entry *new_log_entry(struct log *log, enum log_level level)
+static struct log_entry *log_entry_new(struct log *log, enum log_level level)
 {
 	struct log_entry *l = tal(log->lr, struct log_entry);
 
@@ -255,7 +255,7 @@ static void maybe_print(const struct log *log, const struct log_entry *l,
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 {
 	int save_errno = errno;
-	struct log_entry *l = new_log_entry(log, level);
+	struct log_entry *l = log_entry_new(log, level);
 
 	l->log = tal_vfmt(l, fmt, ap);
 
@@ -277,7 +277,7 @@ void log_io(struct log *log, enum log_level dir,
 	    const void *data TAKES, size_t len)
 {
 	int save_errno = errno;
-	struct log_entry *l = new_log_entry(log, dir);
+	struct log_entry *l = log_entry_new(log, dir);
 
 	assert(dir == LOG_IO_IN || dir == LOG_IO_OUT);
 

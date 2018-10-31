@@ -159,7 +159,7 @@ int main(void)
 	 * * `8rkx3yf5tcsyz3d73gafnh3cax9rn449d9p5uxz9ezhhypd0elx87sjle52x86fux2ypatgddc6k63n7erqz25le42c4u4ecky03ylcq`: signature
 	 * * `ca784w`: Bech32 checksum
 	 */
-	b11 = new_bolt11(tmpctx, NULL);
+	b11 = bolt11_new(tmpctx, NULL);
 	b11->chain = chainparams_for_network("bitcoin");
 	b11->timestamp = 1496314658;
 	if (!hex_decode("0001020304050607080900010203040506070809000102030405060708090102",
@@ -193,7 +193,7 @@ int main(void)
 	 * * `fj9srp`: Bech32 checksum
 	 */
 	msatoshi = 2500 * (1000ULL * 100000000) / 1000000;
-	b11 = new_bolt11(tmpctx, &msatoshi);
+	b11 = bolt11_new(tmpctx, &msatoshi);
 	b11->chain = chainparams_for_network("bitcoin");
 	b11->timestamp = 1496314658;
 	if (!hex_decode("0001020304050607080900010203040506070809000102030405060708090102",
@@ -225,7 +225,7 @@ int main(void)
 	 * * `2yxxz7`: Bech32 checksum
 	 */
 	msatoshi = 20 * (1000ULL * 100000000) / 1000;
-	b11 = new_bolt11(tmpctx, &msatoshi);
+	b11 = bolt11_new(tmpctx, &msatoshi);
 	b11->chain = chainparams_for_network("bitcoin");
 	b11->timestamp = 1496314658;
 	if (!hex_decode("0001020304050607080900010203040506070809000102030405060708090102",

@@ -534,8 +534,7 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 		return NULL;
 	}
 
-	peer = new_peer(w->ld, sqlite3_column_int64(stmt, 0),
-			&id, &addr);
+	peer = peer_new(w->ld, sqlite3_column_int64(stmt, 0), &id, &addr);
 	db_stmt_done(stmt);
 
 	return peer;
@@ -660,7 +659,7 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 
 	get_channel_basepoints(w->ld, &peer->id, sqlite3_column_int64(stmt, 0),
 			       &local_basepoints, &local_funding_pubkey);
-	chan = new_channel(peer, sqlite3_column_int64(stmt, 0),
+	chan = channel_new(peer, sqlite3_column_int64(stmt, 0),
 			   &wshachain,
 			   sqlite3_column_int(stmt, 5),
 			   sqlite3_column_int(stmt, 6),

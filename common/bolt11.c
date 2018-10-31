@@ -432,7 +432,7 @@ static char *decode_r(struct bolt11 *b11,
         return NULL;
 }
 
-struct bolt11 *new_bolt11(const tal_t *ctx, u64 *msatoshi)
+struct bolt11 *bolt11_new(const tal_t *ctx, u64 *msatoshi)
 {
         struct bolt11 *b11 = tal(ctx, struct bolt11);
 
@@ -457,7 +457,7 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
         char *hrp, *amountstr, *prefix;
         u5 *data;
         size_t data_len;
-        struct bolt11 *b11 = new_bolt11(ctx, NULL);
+        struct bolt11 *b11 = bolt11_new(ctx, NULL);
         u8 sig_and_recid[65];
         secp256k1_ecdsa_recoverable_signature sig;
         struct hash_u5 hu5;

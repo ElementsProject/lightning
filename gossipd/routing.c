@@ -83,14 +83,14 @@ static struct node_map *empty_node_map(const tal_t *ctx)
 	return map;
 }
 
-struct routing_state *new_routing_state(const tal_t *ctx,
+struct routing_state *routing_state_new(const tal_t *ctx,
 					const struct bitcoin_blkid *chain_hash,
 					const struct pubkey *local_id,
 					u32 prune_timeout)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->nodes = empty_node_map(rstate);
-	rstate->broadcasts = new_broadcast_state(rstate);
+	rstate->broadcasts = broadcast_state_new(rstate);
 	rstate->chain_hash = *chain_hash;
 	rstate->local_id = *local_id;
 	rstate->prune_timeout = prune_timeout;
@@ -135,7 +135,7 @@ struct node *get_node(struct routing_state *rstate, const struct pubkey *id)
 	return node_map_get(rstate->nodes, id);
 }
 
-static struct node *new_node(struct routing_state *rstate,
+static struct node *node_new(struct routing_state *rstate,
 			     const struct pubkey *id)
 {
 	struct node *n;
@@ -282,7 +282,7 @@ static void bad_gossip_order(const u8 *msg, const char *source,
 		     details);
 }
 
-struct chan *new_chan(struct routing_state *rstate,
+struct chan *chan_new(struct routing_state *rstate,
 		      const struct short_channel_id *scid,
 		      const struct pubkey *id1,
 		      const struct pubkey *id2,
@@ -298,10 +298,10 @@ struct chan *new_chan(struct routing_state *rstate,
 	/* Create nodes on demand */
 	n1 = get_node(rstate, id1);
 	if (!n1)
-		n1 = new_node(rstate, id1);
+		n1 = node_new(rstate, id1);
 	n2 = get_node(rstate, id2);
 	if (!n2)
-		n2 = new_node(rstate, id2);
+		n2 = node_new(rstate, id2);
 
 	chan->scid = *scid;
 	chan->nodes[n1idx] = n1;
@@ -747,7 +747,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	 * channel_announcements.  See handle_channel_announcement. */
 	chan = get_channel(rstate, &scid);
 	if (!chan)
-		chan = new_chan(rstate, &scid, &node_id_1, &node_id_2, satoshis);
+		chan = chan_new(rstate, &scid, &node_id_1, &node_id_2, satoshis);
 
 	/* Channel is now public. */
 	chan->channel_announce = tal_dup_arr(chan, u8, msg, tal_count(msg), 0);
@@ -1729,5 +1729,5 @@ void handle_local_add_channel(struct routing_state *rstate, const u8 *msg)
 		     type_to_string(tmpctx, struct short_channel_id, &scid));
 
 	/* Create new (unannounced) channel */
-	new_chan(rstate, &scid, &rstate->local_id, &remote_node_id, satoshis);
+	chan_new(rstate, &scid, &rstate->local_id, &remote_node_id, satoshis);
 }

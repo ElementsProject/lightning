@@ -14,7 +14,7 @@
 #include "../routing.c"
 #include "../gossip_store.c"
 
-struct broadcast_state *new_broadcast_state(tal_t *ctx UNNEEDED)
+struct broadcast_state *broadcast_state_new(tal_t *ctx UNNEEDED)
 {
 	return NULL;
 }
@@ -124,7 +124,7 @@ get_or_make_connection(struct routing_state *rstate,
 		abort();
 	chan = get_channel(rstate, &scid);
 	if (!chan)
-		chan = new_chan(rstate, &scid, from_id, to_id, satoshis);
+		chan = chan_new(rstate, &scid, from_id, to_id, satoshis);
 
 	/* Make sure it's seen as initialized (update non-NULL). */
 	chan->half[idx].channel_update = (void *)chan;
@@ -177,7 +177,7 @@ int main(void)
 			   strlen("02cca6c5c966fcf61d121e3a70e03a1cd9eeeea024b26ea666ce974d43b242e636"),
 			   &d);
 
-	rstate = new_routing_state(tmpctx, &zerohash, &a, 0);
+	rstate = routing_state_new(tmpctx, &zerohash, &a, 0);
 
 	/* [{'active': True, 'short_id': '6990:2:1/1', 'fee_per_kw': 10, 'delay': 5, 'message_flags': 0, 'channel_flags': 1, 'destination': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'source': '02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06', 'last_update': 1504064344}, */
 

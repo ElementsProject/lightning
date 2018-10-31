@@ -50,7 +50,7 @@ static int fake_pubkey_cmp(const struct pubkey *a, const struct pubkey *b)
 #include "../gossip_store.c"
 #undef type_to_string_
 
-struct broadcast_state *new_broadcast_state(tal_t *ctx UNNEEDED)
+struct broadcast_state *broadcast_state_new(tal_t *ctx UNNEEDED)
 {
 	return NULL;
 }
@@ -157,7 +157,7 @@ static void add_connection(struct routing_state *rstate,
 	memset(&scid, 0, sizeof(scid));
 	chan = get_channel(rstate, &scid);
 	if (!chan)
-		chan = new_chan(rstate, &scid, from, to, 1000000);
+		chan = chan_new(rstate, &scid, from, to, 1000000);
 
 	c = &chan->half[pubkey_idx(from, to)];
 	c->base_fee = base_fee;
@@ -232,7 +232,7 @@ int main(int argc, char *argv[])
 						 | SECP256K1_CONTEXT_SIGN);
 	setup_tmpctx();
 
-	rstate = new_routing_state(tmpctx, &zerohash, &me, 0);
+	rstate = routing_state_new(tmpctx, &zerohash, &me, 0);
 	opt_register_noarg("--perfme", opt_set_bool, &perfme,
 			   "Run perfme-start and perfme-stop around benchmark");
 

@@ -512,12 +512,12 @@ enum log_level get_log_level(struct log_book *lr UNNEEDED)
 	return LOG_DBG;
 }
 
-struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
+struct log *log_new(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
 {
 	return NULL;
 }
 
-struct log_book *new_log_book(size_t max_mem UNNEEDED,
+struct log_book *log_book_new(size_t max_mem UNNEEDED,
 			      enum log_level printlevel UNNEEDED)
 {
 	return NULL;
@@ -819,7 +819,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	parse_wireaddr_internal("localhost:1234", &addr, 0, false, false, false,
 				NULL);
 	c1.final_key_idx = 1337;
-	p = new_peer(ld, 0, &pk, &addr);
+	p = peer_new(ld, 0, &pk, &addr);
 	c1.peer = p;
 	c1.dbid = wallet_get_channel_dbid(w);
 	c1.state = CHANNELD_NORMAL;

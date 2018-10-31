@@ -107,7 +107,7 @@ struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr)
 	return cast_const(struct htlc_in *, hin);
 }
 
-struct htlc_in *new_htlc_in(const tal_t *ctx,
+struct htlc_in *htlc_in_new(const tal_t *ctx,
 			    struct channel *channel, u64 id,
 			    u64 msatoshi, u32 cltv_expiry,
 			    const struct sha256 *payment_hash,
@@ -131,7 +131,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	hin->failuremsg = NULL;
 	hin->preimage = NULL;
 
-	return htlc_in_check(hin, "new_htlc_in");
+	return htlc_in_check(hin, "htlc_in_new");
 }
 
 struct htlc_out *htlc_out_check(const struct htlc_out *hout,
@@ -235,7 +235,7 @@ void htlc_out_connect_htlc_in(struct htlc_out *hout, struct htlc_in *hin)
 }
 
 /* You need to set the ID, then connect_htlc_out this! */
-struct htlc_out *new_htlc_out(const tal_t *ctx,
+struct htlc_out *htlc_out_new(const tal_t *ctx,
 			      struct channel *channel,
 			      u64 msatoshi, u32 cltv_expiry,
 			      const struct sha256 *payment_hash,
@@ -266,5 +266,5 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	if (in)
 		htlc_out_connect_htlc_in(hout, in);
 
-	return htlc_out_check(hout, "new_htlc_out");
+	return htlc_out_check(hout, "htlc_out_new");
 }

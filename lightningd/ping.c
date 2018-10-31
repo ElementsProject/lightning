@@ -36,7 +36,7 @@ static void destroy_ping_command(struct ping_command *pc)
 	list_del(&pc->list);
 }
 
-static struct ping_command *new_ping_command(const tal_t *ctx,
+static struct ping_command *ping_command_new(const tal_t *ctx,
 					     struct lightningd *ld,
 					     const struct pubkey *peer_id,
 					     struct command *cmd)
@@ -120,7 +120,7 @@ static void json_ping(struct command *cmd,
 	}
 
 	/* parent is cmd, so when we complete cmd, we free this. */
-	new_ping_command(cmd, cmd->ld, id, cmd);
+	ping_command_new(cmd, cmd->ld, id, cmd);
 
 	/* gossipd handles all pinging, even if it's in another daemon. */
 	msg = towire_gossip_ping(NULL, id, *pongbytes, *len);

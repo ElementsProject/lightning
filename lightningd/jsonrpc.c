@@ -636,7 +636,7 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	jcon->command = NULL;
 
 	/* We want to log on destruction, so we free this in destructor. */
-	jcon->log = new_log(ld->log_book, ld->log_book, "%sjcon fd %i:",
+	jcon->log = log_new(ld->log_book, ld->log_book, "%sjcon fd %i:",
 			    log_prefix(ld->log), io_conn_fd(conn));
 
 	tal_add_destructor(jcon, destroy_jcon);

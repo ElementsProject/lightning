@@ -16,11 +16,11 @@ struct timerel;
 
 /* We can have a single log book, with multiple logs in it: it's freed by
  * the last struct log itself. */
-struct log_book *new_log_book(size_t max_mem,
+struct log_book *log_book_new(size_t max_mem,
 			      enum log_level printlevel);
 
 /* With different entry points */
-struct log *new_log(const tal_t *ctx, struct log_book *record, const char *fmt, ...) PRINTF_FMT(3,4);
+struct log *log_new(const tal_t *ctx, struct log_book *record, const char *fmt, ...) PRINTF_FMT(3,4);
 
 #define log_debug(log, ...) log_((log), LOG_DBG, __VA_ARGS__)
 #define log_info(log, ...) log_((log), LOG_INFORM, __VA_ARGS__)

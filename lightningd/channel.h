@@ -111,7 +111,7 @@ struct channel {
 	const struct pubkey *future_per_commitment_point;
 };
 
-struct channel *new_channel(struct peer *peer, u64 dbid,
+struct channel *channel_new(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct wallet_shachain *their_shachain,
 			    enum channel_state state,

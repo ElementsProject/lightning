@@ -369,7 +369,7 @@ static void hsm_get_per_commitment_point(struct pubkey *per_commitment_point)
 }
 
 static struct tracked_output *
-	new_tracked_output(struct tracked_output ***outs,
+	tracked_output_new(struct tracked_output ***outs,
 			   const struct bitcoin_txid *txid,
 			   u32 tx_blockheight,
 			   enum tx_type tx_type,
@@ -853,7 +853,7 @@ static void resolve_htlc_tx(struct tracked_output ***outs,
 	 *         `to_self_delay` field) before spending that HTLC-timeout
 	 *         output.
 	 */
-	out = new_tracked_output(outs, htlc_txid, tx_blockheight,
+	out = tracked_output_new(outs, htlc_txid, tx_blockheight,
 				 (*outs)[out_index]->resolved->tx_type,
 				 0, htlc_tx->output[0].amount,
 				 DELAYED_OUTPUT_TO_US,
@@ -1622,7 +1622,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			 *       node's `to_self_delay` field) before spending
 			 *       the output.
 			 */
-			out = new_tracked_output(&outs, txid, tx_blockheight,
+			out = tracked_output_new(&outs, txid, tx_blockheight,
 						 OUR_UNILATERAL, i,
 						 tx->output[i].amount,
 						 DELAYED_OUTPUT_TO_US,
@@ -1662,7 +1662,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			 *       node, as `to_remote` is considered *resolved*
 			 *       by the commitment transaction itself.
 			 */
-			out = new_tracked_output(&outs, txid, tx_blockheight,
+			out = tracked_output_new(&outs, txid, tx_blockheight,
 						 OUR_UNILATERAL, i,
 						 tx->output[i].amount,
 						 OUTPUT_TO_THEM,
@@ -1686,7 +1686,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			 *       in [HTLC Output Handling: Local Commitment,
 			 *       Local Offers]
 			 */
-			out = new_tracked_output(&outs, txid,
+			out = tracked_output_new(&outs, txid,
 						 tx_blockheight,
 						 OUR_UNILATERAL, i,
 						 tx->output[i].amount,
@@ -1698,7 +1698,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 								htlcs,
 								htlc_scripts);
 		} else {
-			out = new_tracked_output(&outs, txid,
+			out = tracked_output_new(&outs, txid,
 						 tx_blockheight,
 						 OUR_UNILATERAL, i,
 						 tx->output[i].amount,
@@ -1923,7 +1923,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			 *     - Note: this output is considered *resolved* by
 			 *       the commitment transaction itself.
 			 */
-			out = new_tracked_output(&outs, txid, tx_blockheight,
+			out = tracked_output_new(&outs, txid, tx_blockheight,
 						 THEIR_REVOKED_UNILATERAL,
 						 i, tx->output[i].amount,
 						 OUTPUT_TO_US, NULL, NULL, NULL);
@@ -1946,7 +1946,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			 *   - MUST *resolve* the _remote node's main output_ by
 			 *     spending it using the revocation private key.
 			*/
-			out = new_tracked_output(&outs, txid, tx_blockheight,
+			out = tracked_output_new(&outs, txid, tx_blockheight,
 						 THEIR_REVOKED_UNILATERAL, i,
 						 tx->output[i].amount,
 						 DELAYED_OUTPUT_TO_THEM,
@@ -1977,7 +1977,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			 *    * spend the *HTLC-timeout tx*, if the remote node
 			 *      has published it.
 			 */
-			out = new_tracked_output(&outs, txid,
+			out = tracked_output_new(&outs, txid,
 						 tx_blockheight,
 						 THEIR_REVOKED_UNILATERAL, i,
 						 tx->output[i].amount,
@@ -1987,7 +1987,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 						 NULL);
 			steal_htlc(out);
 		} else {
-			out = new_tracked_output(&outs, txid,
+			out = tracked_output_new(&outs, txid,
 						 tx_blockheight,
 						 THEIR_REVOKED_UNILATERAL, i,
 						 tx->output[i].amount,
@@ -2141,7 +2141,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			 *   - Note: `to_remote` is considered *resolved* by the
 			 *     commitment transaction itself.
 			 */
-			out = new_tracked_output(&outs, txid, tx_blockheight,
+			out = tracked_output_new(&outs, txid, tx_blockheight,
 						 THEIR_UNILATERAL,
 						 i, tx->output[i].amount,
 						 OUTPUT_TO_US, NULL, NULL, NULL);
@@ -2167,7 +2167,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			 *   - Note: `to_local` is considered *resolved* by the
 			 *     commitment transaction itself.
 			 */
-			out = new_tracked_output(&outs, txid, tx_blockheight,
+			out = tracked_output_new(&outs, txid, tx_blockheight,
 						 THEIR_UNILATERAL, i,
 						 tx->output[i].amount,
 						 DELAYED_OUTPUT_TO_THEM,
@@ -2189,7 +2189,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			 *   [HTLC Output Handling: Remote Commitment,
 			 *   Local Offers]
 			 */
-			out = new_tracked_output(&outs, txid,
+			out = tracked_output_new(&outs, txid,
 						 tx_blockheight,
 						 THEIR_UNILATERAL, i,
 						 tx->output[i].amount,
@@ -2201,7 +2201,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 								  htlcs,
 								  htlc_scripts);
 		} else {
-			out = new_tracked_output(&outs, txid,
+			out = tracked_output_new(&outs, txid,
 						 tx_blockheight,
 						 THEIR_UNILATERAL, i,
 						 tx->output[i].amount,
@@ -2270,7 +2270,7 @@ static void handle_unknown_commitment(const struct bitcoin_tx *tx,
 			 *   - Note: `to_remote` is considered *resolved* by the
 			 *     commitment transaction itself.
 			 */
-			out = new_tracked_output(&outs, txid, tx_blockheight,
+			out = tracked_output_new(&outs, txid, tx_blockheight,
 						 UNKNOWN_UNILATERAL,
 						 i, tx->output[i].amount,
 						 OUTPUT_TO_US, NULL, NULL, NULL);
@@ -2388,7 +2388,7 @@ int main(int argc, char *argv[])
 	}
 
 	outs = tal_arr(ctx, struct tracked_output *, 0);
-	new_tracked_output(&outs, &tx->input[0].txid,
+	tracked_output_new(&outs, &tx->input[0].txid,
 			   0, /* We don't care about funding blockheight */
 			   FUNDING_TRANSACTION,
 			   tx->input[0].index,

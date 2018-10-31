@@ -126,7 +126,7 @@ static inline u16 to_self_delay(const struct channel *channel, enum side side)
 
 
 /**
- * new_initial_channel: Given initial fees and funding, what is initial state?
+ * initial_channel_new: Given initial fees and funding, what is initial state?
  * @ctx: tal context to allocate return value from.
  * @chain_hash: Which blockchain are we talking about?
  * @funding_txid: The commitment transaction id.
@@ -145,7 +145,7 @@ static inline u16 to_self_delay(const struct channel *channel, enum side side)
  *
  * Returns channel, or NULL if malformed.
  */
-struct channel *new_initial_channel(const tal_t *ctx,
+struct channel *initial_channel_new(const tal_t *ctx,
 				    const struct bitcoin_blkid *chain_hash,
 				    const struct bitcoin_txid *funding_txid,
 				    unsigned int funding_txout,

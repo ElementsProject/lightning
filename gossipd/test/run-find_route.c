@@ -2,7 +2,7 @@
 #include "../gossip_store.c"
 #include <stdio.h>
 
-struct broadcast_state *new_broadcast_state(tal_t *ctx UNNEEDED)
+struct broadcast_state *broadcast_state_new(tal_t *ctx UNNEEDED)
 {
 	return NULL;
 }
@@ -123,7 +123,7 @@ static void add_connection(struct routing_state *rstate,
 
 	chan = get_channel(rstate, &scid);
 	if (!chan)
-		chan = new_chan(rstate, &scid, from, to, satoshis);
+		chan = chan_new(rstate, &scid, from, to, satoshis);
 
 	c = &chan->half[pubkey_idx(from, to)];
 	/* Make sure it's seen as initialized (update non-NULL). */
@@ -206,13 +206,13 @@ int main(void)
 
 	memset(&tmp, 'a', sizeof(tmp));
 	pubkey_from_privkey(&tmp, &a);
-	rstate = new_routing_state(tmpctx, &zerohash, &a, 0);
+	rstate = routing_state_new(tmpctx, &zerohash, &a, 0);
 
-	new_node(rstate, &a);
+	node_new(rstate, &a);
 
 	memset(&tmp, 'b', sizeof(tmp));
 	pubkey_from_privkey(&tmp, &b);
-	new_node(rstate, &b);
+	node_new(rstate, &b);
 
 	/* A<->B */
 	add_connection(rstate, &a, &b, 1, 1, 1);
@@ -225,7 +225,7 @@ int main(void)
 	/* A<->B<->C */
 	memset(&tmp, 'c', sizeof(tmp));
 	pubkey_from_privkey(&tmp, &c);
-	new_node(rstate, &c);
+	node_new(rstate, &c);
 
 	status_trace("A = %s", type_to_string(tmpctx, struct pubkey, &a));
 	status_trace("B = %s", type_to_string(tmpctx, struct pubkey, &b));
@@ -240,7 +240,7 @@ int main(void)
 	/* A<->D<->C: Lower base, higher percentage. */
 	memset(&tmp, 'd', sizeof(tmp));
 	pubkey_from_privkey(&tmp, &d);
-	new_node(rstate, &d);
+	node_new(rstate, &d);
 	status_trace("D = %s", type_to_string(tmpctx, struct pubkey, &d));
 
 	add_connection(rstate, &a, &d, 0, 2, 1);

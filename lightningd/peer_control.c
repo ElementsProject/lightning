@@ -91,7 +91,7 @@ static void peer_update_features(struct peer *peer,
 					  tal_count(localfeatures), 0);
 }
 
-struct peer *new_peer(struct lightningd *ld, u64 dbid,
+struct peer *peer_new(struct lightningd *ld, u64 dbid,
 		      const struct pubkey *id,
 		      const struct wireaddr_internal *addr)
 {
@@ -112,7 +112,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 #endif
 
 	/* Max 128k per peer. */
-	peer->log_book = new_log_book(128*1024, get_log_level(ld->log_book));
+	peer->log_book = log_book_new(128*1024, get_log_level(ld->log_book));
 	set_log_outfn(peer->log_book, copy_to_parent_log, ld->log);
 	list_add_tail(&ld->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);
@@ -325,7 +325,7 @@ register_close_command(struct lightningd *ld,
 	tal_add_destructor2(channel,
 			    &destroy_close_command_on_channel_destroy,
 			    cc);
-	new_reltimer(&ld->timers, cc, time_from_sec(timeout),
+	reltimer_new(&ld->timers, cc, time_from_sec(timeout),
 		     &close_command_timeout, cc);
 }
 
@@ -431,7 +431,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	 * subdaemon.  Otherwise, we'll hand to openingd to wait there. */
 	peer = peer_by_id(ld, &id);
 	if (!peer)
-		peer = new_peer(ld, 0, &id, &addr);
+		peer = peer_new(ld, 0, &id, &addr);
 
 	peer_update_features(peer, globalfeatures, localfeatures);
 

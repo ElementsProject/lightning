@@ -53,7 +53,7 @@ struct uncommitted_channel {
 	/* Public key for funding tx. */
 	struct pubkey local_funding_pubkey;
 
-	/* These are *not* filled in by new_uncommitted_channel: */
+	/* These are *not* filled in by uncommitted_channel_new: */
 
 	/* Minimum funding depth (if funder == REMOTE). */
 	u32 minimum_depth;
@@ -166,7 +166,7 @@ wallet_commit_channel(struct lightningd *ld,
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
 
-	channel = new_channel(uc->peer, uc->dbid,
+	channel = channel_new(uc->peer, uc->dbid,
 			      NULL, /* No shachain yet */
 			      CHANNELD_AWAITING_LOCKIN,
 			      uc->fc ? LOCAL : REMOTE,
@@ -563,7 +563,7 @@ static void destroy_uncommitted_channel(struct uncommitted_channel *uc)
 }
 
 static struct uncommitted_channel *
-new_uncommitted_channel(struct peer *peer)
+uncommitted_channel_new(struct peer *peer)
 {
 	struct lightningd *ld = peer->ld;
 	struct uncommitted_channel *uc = tal(ld, struct uncommitted_channel);
@@ -576,7 +576,7 @@ new_uncommitted_channel(struct peer *peer)
 	uc->dbid = wallet_get_channel_dbid(ld->wallet);
 
 	idname = type_to_string(uc, struct pubkey, &uc->peer->id);
-	uc->log = new_log(uc, uc->peer->log_book, "%s chan #%"PRIu64":",
+	uc->log = log_new(uc, uc->peer->log_book, "%s chan #%"PRIu64":",
 			  idname, uc->dbid);
 	tal_free(idname);
 
@@ -696,13 +696,13 @@ void peer_start_openingd(struct peer *peer,
 
 	assert(!peer->uncommitted_channel);
 
-	uc = peer->uncommitted_channel = new_uncommitted_channel(peer);
+	uc = peer->uncommitted_channel = uncommitted_channel_new(peer);
 
 	hsmfd = hsm_get_client_fd(peer->ld, &uc->peer->id, uc->dbid,
 				  HSM_CAP_COMMITMENT_POINT
 				  | HSM_CAP_SIGN_REMOTE_TX);
 
-	uc->openingd = new_channel_subd(peer->ld,
+	uc->openingd = channel_subd_new(peer->ld,
 					"lightning_openingd",
 					uc, uc->log,
 					true, opening_wire_type_name,

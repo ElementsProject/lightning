@@ -217,7 +217,7 @@ struct route_hop {
 	u32 delay;
 };
 
-struct routing_state *new_routing_state(const tal_t *ctx,
+struct routing_state *routing_state_new(const tal_t *ctx,
 					const struct bitcoin_blkid *chain_hash,
 					const struct pubkey *local_id,
 					u32 prune_timeout);
@@ -228,7 +228,7 @@ struct routing_state *new_routing_state(const tal_t *ctx,
  * already exist, and might create the node entries for the two endpoints, if
  * they do not exist yet.
  */
-struct chan *new_chan(struct routing_state *rstate,
+struct chan *chan_new(struct routing_state *rstate,
 		      const struct short_channel_id *scid,
 		      const struct pubkey *id1,
 		      const struct pubkey *id2,

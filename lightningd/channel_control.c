@@ -270,7 +270,7 @@ void peer_start_channeld(struct channel *channel,
 				  | HSM_CAP_SIGN_REMOTE_TX);
 
 	channel_set_owner(channel,
-			  new_channel_subd(ld,
+			  channel_subd_new(ld,
 					   "lightning_channeld", channel,
 					   channel->log, true,
 					   channel_wire_type_name,

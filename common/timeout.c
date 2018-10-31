@@ -13,7 +13,7 @@ static void destroy_timer(struct oneshot *t)
 	timer_del(t->timers, &t->timer);
 }
 
-struct oneshot *new_reltimer_(struct timers *timers,
+struct oneshot *reltimer_new_(struct timers *timers,
 			      const tal_t *ctx,
 			      struct timerel relexpiry,
 			      void (*cb)(void *), void *arg)

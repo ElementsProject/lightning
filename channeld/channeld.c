@@ -1100,7 +1100,7 @@ static void start_commit_timer(struct peer *peer)
 		return;
 
 	peer->commit_timer_attempts = 0;
-	peer->commit_timer = new_reltimer(&peer->timers, peer,
+	peer->commit_timer = reltimer_new(&peer->timers, peer,
 					  time_from_msec(peer->commit_msec),
 					  send_commit, peer);
 }
@@ -2632,7 +2632,7 @@ static void init_channel(struct peer *peer)
 	/* channel_id is set from funding txout */
 	derive_channel_id(&peer->channel_id, &funding_txid, funding_txout);
 
-	peer->channel = new_full_channel(peer,
+	peer->channel = full_channel_new(peer,
 					 &peer->chain_hash,
 					 &funding_txid, funding_txout,
 					 funding_satoshi,

@@ -22,7 +22,7 @@
   /* Needs to be at end, since it doesn't include its own hdrs */
   #include "gen_full_channel_error_names.h"
 
-struct channel *new_full_channel(const tal_t *ctx,
+struct channel *full_channel_new(const tal_t *ctx,
 				 const struct bitcoin_blkid *chain_hash,
 				 const struct bitcoin_txid *funding_txid,
 				 unsigned int funding_txout,
@@ -37,7 +37,7 @@ struct channel *new_full_channel(const tal_t *ctx,
 				 const struct pubkey *remote_funding_pubkey,
 				 enum side funder)
 {
-	struct channel *channel = new_initial_channel(ctx,
+	struct channel *channel = initial_channel_new(ctx,
 						      chain_hash,
 						      funding_txid,
 						      funding_txout,

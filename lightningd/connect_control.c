@@ -38,7 +38,7 @@ static void destroy_connect(struct connect *c)
 	list_del(&c->list);
 }
 
-static struct connect *new_connect(struct lightningd *ld,
+static struct connect *connect_new(struct lightningd *ld,
 				   const struct pubkey *id,
 				   struct command *cmd)
 {
@@ -167,7 +167,7 @@ static void json_connect(struct command *cmd,
 	subd_send_msg(cmd->ld->connectd, take(msg));
 
 	/* Leave this here for peer_connected or connect_failed. */
-	new_connect(cmd->ld, &id, cmd);
+	connect_new(cmd->ld, &id, cmd);
 	command_still_pending(cmd);
 }
 
@@ -221,7 +221,7 @@ void delay_then_reconnect(struct channel *channel, u32 seconds_delay,
 
 	/* We fuzz the timer by up to 1 second, to avoid getting into
 	 * simultanous-reconnect deadlocks with peer. */
-	notleak(new_reltimer(&ld->timers, d,
+	notleak(reltimer_new(&ld->timers, d,
 			     timerel_add(time_from_sec(seconds_delay),
 					 time_from_usec(pseudorand(1000000))),
 			     maybe_reconnect, d));
@@ -347,7 +347,7 @@ int connectd_init(struct lightningd *ld)
 
 	hsmfd = hsm_get_global_fd(ld, HSM_CAP_ECDH);
 
-	ld->connectd = new_global_subd(ld, "lightning_connectd",
+	ld->connectd = global_subd_new(ld, "lightning_connectd",
 				       connect_wire_type_name, connectd_msg,
 				       take(&hsmfd), take(&fds[1]), NULL);
 	if (!ld->connectd)

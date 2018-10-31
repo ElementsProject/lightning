@@ -187,7 +187,7 @@ static void destroy_client(struct client *c)
 			      "Failed to remove client dbid %"PRIu64, c->dbid);
 }
 
-static struct client *new_client(const tal_t *ctx,
+static struct client *client_new(const tal_t *ctx,
 				 const struct pubkey *id,
 				 u64 dbid,
 				 const u64 capabilities,
@@ -1246,7 +1246,7 @@ static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
 			      strerror(errno));
 
 	status_trace("new_client: %"PRIu64, dbid);
-	new_client(c, &id, dbid, capabilities, fds[0]);
+	client_new(c, &id, dbid, capabilities, fds[0]);
 
 	/*~ We stash this in a global, because we need to get both the fd and
 	 * the client pointer to the callback.  The other way would be to
@@ -1730,7 +1730,7 @@ int main(int argc, char *argv[])
 	status_setup_async(status_conn);
 	uintmap_init(&clients);
 
-	master = new_client(NULL, NULL, 0, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP,
+	master = client_new(NULL, NULL, 0, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP,
 			    REQ_FD);
 
 	/* First client == lightningd. */

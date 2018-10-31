@@ -84,7 +84,7 @@ void hsm_init(struct lightningd *ld)
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0)
 		err(1, "Could not create hsm socketpair");
 
-	ld->hsm = new_global_subd(ld, "lightning_hsmd",
+	ld->hsm = global_subd_new(ld, "lightning_hsmd",
 				  hsm_wire_type_name,
 				  hsm_msg,
 				  take(&fds[1]), NULL);

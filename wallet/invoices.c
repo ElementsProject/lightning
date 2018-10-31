@@ -250,7 +250,7 @@ static void install_expiration_timer(struct invoices *invoices)
 	rel = time_between(expiry, now);
 
 	/* Have it called at indicated timerel. */
-	invoices->expiration_timer = new_reltimer(invoices->timers,
+	invoices->expiration_timer = reltimer_new(invoices->timers,
 						  invoices,
 						  rel,
 						  &trigger_expiration,
@@ -441,7 +441,7 @@ static void refresh_autoclean(struct invoices *invoices)
 {
 	struct timerel rel = time_from_sec(invoices->autoclean_cycle_seconds);
 	invoices->autoclean_timer = tal_free(invoices->autoclean_timer);
-	invoices->autoclean_timer = new_reltimer(invoices->timers,
+	invoices->autoclean_timer = reltimer_new(invoices->timers,
 						 invoices,
 						 rel,
 						 &trigger_autoclean,

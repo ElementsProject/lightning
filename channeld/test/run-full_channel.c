@@ -444,7 +444,7 @@ int main(void)
 	to_local_msat = 7000000000;
 	to_remote_msat = 3000000000;
 	feerate_per_kw[LOCAL] = feerate_per_kw[REMOTE] = 15000;
-	lchannel = new_full_channel(tmpctx,
+	lchannel = full_channel_new(tmpctx,
 				    &chainparams->genesis_blockhash,
 				    &funding_txid, funding_output_index,
 				    funding_amount_satoshi, to_local_msat,
@@ -455,7 +455,7 @@ int main(void)
 				    &local_funding_pubkey,
 				    &remote_funding_pubkey,
 				    LOCAL);
-	rchannel = new_full_channel(tmpctx,
+	rchannel = full_channel_new(tmpctx,
 				    &chainparams->genesis_blockhash,
 				    &funding_txid, funding_output_index,
 				    funding_amount_satoshi, to_remote_msat,

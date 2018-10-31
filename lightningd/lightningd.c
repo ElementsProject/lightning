@@ -80,10 +80,13 @@
 #include <unistd.h>
 
 /*~ The core lightning object: it's passed everywhere, and is basically a
- * global variable.  This new_xxx pattern is something we'll see often:
+ * global variable.  This xxx_new pattern is something we'll see often:
  * it allocates and initializes a new structure, using *tal*, the hierarchical
- * allocator. */
-static struct lightningd *new_lightningd(const tal_t *ctx)
+ * allocator.  While my fingers always want to type `new_xxx` instead a-la
+ * C++, C doesn't have namespaces so approximating them by common prefixes is
+ * a good rule.  This is what CCAN uses and so Christian finally convinced me
+ * we should be consistent. */
+static struct lightningd *lightningd_new(const tal_t *ctx)
 {
 	/*~ tal: each allocation is a child of an existing object (or NULL,
 	 * the top-level object).  When an object is freed, all the objects
@@ -162,11 +165,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * book to hold all the entries (and trims as necessary), and multiple
 	 * log objects which each can write into it, each with a unique
 	 * prefix. */
-	ld->log_book = new_log_book(20*1024*1024, LOG_INFORM);
+	ld->log_book = log_book_new(20*1024*1024, LOG_INFORM);
 	/*~ Note the tal context arg (by convention, the first argument to any
 	 * allocation function): ld->log will be implicitly freed when ld
 	 * is. */
-	ld->log = new_log(ld, ld->log_book, "lightningd(%u):", (int)getpid());
+	ld->log = log_new(ld, ld->log_book, "lightningd(%u):", (int)getpid());
 	ld->logfile = NULL;
 
 	/*~ We explicitly set these to NULL: if they're still NULL after option
@@ -199,7 +202,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	timers_init(&ld->timers, time_mono());
 
 	/*~ This is detailed in chaintopology.c */
-	ld->topology = new_topology(ld, ld->log);
+	ld->topology = topology_new(ld, ld->log);
 	ld->daemon = false;
 	ld->config_filename = NULL;
 	ld->pidfile = NULL;
@@ -574,7 +577,7 @@ int main(int argc, char *argv[])
 	 * to initialize unused fields which we expect the caller to set:
 	 * valgrind will warn us if we make decisions based on uninitialized
 	 * variables. */
-	ld = new_lightningd(NULL);
+	ld = lightningd_new(NULL);
 
 	/* Figure out where our daemons are first. */
 	ld->daemon_dir = find_daemon_dir(ld, argv[0]);

@@ -21,7 +21,7 @@ struct queued_message {
 	const u8 *payload;
 };
 
-struct broadcast_state *new_broadcast_state(tal_t *ctx)
+struct broadcast_state *broadcast_state_new(tal_t *ctx)
 {
 	struct broadcast_state *bstate = tal(ctx, struct broadcast_state);
 	uintmap_init(&bstate->broadcasts);
@@ -48,7 +48,7 @@ static void destroy_queued_message(struct queued_message *msg,
 	bstate->count--;
 }
 
-static struct queued_message *new_queued_message(const tal_t *ctx,
+static struct queued_message *queued_message_new(const tal_t *ctx,
 						 struct broadcast_state *bstate,
 						 const u8 *payload,
 						 u32 timestamp,
@@ -69,7 +69,7 @@ u64 insert_broadcast(struct broadcast_state *bstate,
 		      const u8 *payload, u32 timestamp)
 {
 	/* Free payload, free index. */
-	new_queued_message(payload, bstate, payload, timestamp,
+	queued_message_new(payload, bstate, payload, timestamp,
 			   bstate->next_index);
 	broadcast_state_check(bstate, "insert_broadcast");
 	return bstate->next_index++;

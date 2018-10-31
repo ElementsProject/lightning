@@ -39,12 +39,12 @@ void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED, const char *f
 void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED, const char *comment UNNEEDED,
 	    const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "log_io called!\n"); abort(); }
+/* Generated stub for log_new */
+struct log *log_new(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "log_new called!\n"); abort(); }
 /* Generated stub for log_prefix */
 const char *log_prefix(const struct log *log UNNEEDED)
 { fprintf(stderr, "log_prefix called!\n"); abort(); }
-/* Generated stub for new_log */
-struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "new_log called!\n"); abort(); }
 /* Generated stub for param */
 bool param(struct command *cmd UNNEEDED, const char *buffer UNNEEDED,
 	   const jsmntok_t params[] UNNEEDED, ...)

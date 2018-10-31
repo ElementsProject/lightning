@@ -63,7 +63,7 @@ struct bitcoind {
 	char *rpcuser, *rpcpass, *rpcconnect, *rpcport;
 };
 
-struct bitcoind *new_bitcoind(const tal_t *ctx,
+struct bitcoind *bitcoind_new(const tal_t *ctx,
 			      struct lightningd *ld,
 			      struct log *log);
 

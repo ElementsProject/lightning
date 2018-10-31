@@ -155,7 +155,7 @@ static void bcli_failure(struct bitcoind *bitcoind,
 	bitcoind->error_count++;
 
 	/* Retry in 1 second (not a leak!) */
-	new_reltimer(&bitcoind->ld->timers, notleak(bcli), time_from_sec(1),
+	reltimer_new(&bitcoind->ld->timers, notleak(bcli), time_from_sec(1),
 		     retry_bcli, bcli);
 }
 
@@ -850,7 +850,7 @@ void wait_for_bitcoind(struct bitcoind *bitcoind)
 	tal_free(cmd);
 }
 
-struct bitcoind *new_bitcoind(const tal_t *ctx,
+struct bitcoind *bitcoind_new(const tal_t *ctx,
 			      struct lightningd *ld,
 			      struct log *log)
 {

@@ -599,7 +599,7 @@ static struct io_plan *msg_setup(struct io_conn *conn, struct subd *sd)
 			 msg_send_next(conn, sd));
 }
 
-static struct subd *new_subd(struct lightningd *ld,
+static struct subd *subd_new(struct lightningd *ld,
 			     const char *name,
 			     void *channel,
 			     struct log *base_log,
@@ -639,10 +639,10 @@ static struct subd *new_subd(struct lightningd *ld,
 	}
 	sd->ld = ld;
 	if (base_log) {
-		sd->log = new_log(sd, get_log_book(base_log), "%s-%s", name,
+		sd->log = log_new(sd, get_log_book(base_log), "%s-%s", name,
 				  log_prefix(base_log));
 	} else {
-		sd->log = new_log(sd, ld->log_book, "%s(%u):", name, sd->pid);
+		sd->log = log_new(sd, ld->log_book, "%s(%u):", name, sd->pid);
 	}
 
 	sd->name = name;
@@ -672,7 +672,7 @@ static struct subd *new_subd(struct lightningd *ld,
 	return sd;
 }
 
-struct subd *new_global_subd(struct lightningd *ld,
+struct subd *global_subd_new(struct lightningd *ld,
 			     const char *name,
 			     const char *(*msgname)(int msgtype),
 			     unsigned int (*msgcb)(struct subd *, const u8 *,
@@ -683,14 +683,14 @@ struct subd *new_global_subd(struct lightningd *ld,
 	struct subd *sd;
 
 	va_start(ap, msgcb);
-	sd = new_subd(ld, name, NULL, NULL, false, msgname, msgcb, NULL, NULL, &ap);
+	sd = subd_new(ld, name, NULL, NULL, false, msgname, msgcb, NULL, NULL, &ap);
 	va_end(ap);
 
 	sd->must_not_exit = true;
 	return sd;
 }
 
-struct subd *new_channel_subd_(struct lightningd *ld,
+struct subd *channel_subd_new_(struct lightningd *ld,
 			       const char *name,
 			       void *channel,
 			       struct log *base_log,
@@ -712,7 +712,7 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 	struct subd *sd;
 
 	va_start(ap, billboardcb);
-	sd = new_subd(ld, name, channel, base_log, talks_to_peer, msgname,
+	sd = subd_new(ld, name, channel, base_log, talks_to_peer, msgname,
 		      msgcb, errcb, billboardcb, &ap);
 	va_end(ap);
 	return sd;

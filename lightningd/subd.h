@@ -72,7 +72,7 @@ struct subd {
 };
 
 /**
- * new_global_subd - create a new global subdaemon.
+ * global_subd_new - create a new global subdaemon.
  * @ld: global state
  * @name: basename of daemon
  * @msgname: function to get name from messages
@@ -84,7 +84,7 @@ struct subd {
  * that many @fds are received before calling again.  @msgcb can free subd
  * to shut it down.
  */
-struct subd *new_global_subd(struct lightningd *ld,
+struct subd *global_subd_new(struct lightningd *ld,
 			     const char *name,
 			     const char *(*msgname)(int msgtype),
 			     unsigned int (*msgcb)(struct subd *, const u8 *,
@@ -92,7 +92,7 @@ struct subd *new_global_subd(struct lightningd *ld,
 			     ...);
 
 /**
- * new_channel_subd - create a new subdaemon for a specific channel.
+ * channel_subd_new - create a new subdaemon for a specific channel.
  * @ld: global state
  * @name: basename of daemon
  * @channel: channel to associate.
@@ -108,7 +108,7 @@ struct subd *new_global_subd(struct lightningd *ld,
  * that many @fds are received before calling again.  If it returns -1, the
  * subdaemon is shutdown.
  */
-struct subd *new_channel_subd_(struct lightningd *ld,
+struct subd *channel_subd_new_(struct lightningd *ld,
 			       const char *name,
 			       void *channel,
 			       struct log *base_log,
@@ -126,9 +126,9 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 						   const char *happenings),
 			       ...);
 
-#define new_channel_subd(ld, name, channel, log, talks_to_peer, msgname, \
+#define channel_subd_new(ld, name, channel, log, talks_to_peer, msgname, \
 			 msgcb, errcb, billboardcb, ...)		\
-	new_channel_subd_((ld), (name), (channel), (log), (talks_to_peer), \
+	channel_subd_new_((ld), (name), (channel), (log), (talks_to_peer), \
 			  (msgname), (msgcb),				\
 			  typesafe_cb_postargs(void, void *, (errcb),	\
 					       (channel), int, int,	\
