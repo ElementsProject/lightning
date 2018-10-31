@@ -593,12 +593,19 @@ int main(int argc, char *argv[])
 	 *  mimic this API here, even though they're on separate lines.*/
 	register_opts(ld);
 
+	/*~ Handle early options, but don't move to --lightning-dir
+	 *  just yet. Plugins may add new options, which is why we are
+	 *  splitting between early args (including --plugin
+	 *  registration) and non-early opts. */
+	handle_early_opts(ld, argc, argv);
+
+	/*~ Initialize all the plugins we just registered, so they can
+	 *  do their thing and tell us about themselves (including
+	 *  options registration). */
+	plugins_init(ld->plugins);
+
 	/*~ Handle options and config; move to .lightningd (--lightning-dir) */
 	handle_opts(ld, argc, argv);
-
-	/*~ Initialize all the plugins we just registered, so they can do their
-	 *  thing and tell us about themselves */
-	plugins_init(ld->plugins);
 
 	/*~ Make sure we can reach the subdaemons, and versions match. */
 	test_subdaemons(ld);
