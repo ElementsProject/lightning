@@ -22,7 +22,7 @@ static bool input_better(const struct bitcoin_tx_input *a,
 	return a->sequence_number < b->sequence_number;
 }
 
-static size_t find_best_in(struct bitcoin_tx_input *inputs, size_t num)
+static size_t best_in_find(struct bitcoin_tx_input *inputs, size_t num)
 {
 	size_t i, best = 0;
 
@@ -68,7 +68,7 @@ void permute_inputs(struct bitcoin_tx_input *inputs,
 	for (i = 0; i < num_inputs-1; i++) {
 		/* Swap best into first place. */
 		swap_inputs(inputs, map,
-			    i, i + find_best_in(inputs + i, num_inputs - i));
+			    i, i + best_in_find(inputs + i, num_inputs - i));
 	}
 }
 
@@ -135,7 +135,7 @@ static u32 cltv_of(const u32 *cltvs, size_t idx)
 	return cltvs[idx];
 }
 
-static size_t find_best_out(struct bitcoin_tx_output *outputs,
+static size_t best_out_find(struct bitcoin_tx_output *outputs,
 			    const u32 *cltvs,
 			    size_t num)
 {
@@ -164,7 +164,7 @@ void permute_outputs(struct bitcoin_tx_output *outputs,
 	for (i = 0; i < num_outputs-1; i++) {
 		/* Swap best into first place. */
 		swap_outputs(outputs, map, cltvs,
-			     i, i + find_best_out(outputs + i,
+			     i, i + best_out_find(outputs + i,
 						  cltvs ? cltvs + i : NULL,
 						  num_outputs - i));
 	}

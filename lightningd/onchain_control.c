@@ -186,7 +186,7 @@ static void handle_onchain_unwatch_tx(struct channel *channel, const u8 *msg)
 	}
 
 	/* Frees the txo watches, too: see watch_tx_and_outputs() */
-	txw = find_txwatch(channel->peer->ld->topology, &txid, channel);
+	txw = txwatch_find(channel->peer->ld->topology, &txid, channel);
 	if (!txw)
 		log_unusual(channel->log, "Can't unwatch txid %s",
 			    type_to_string(tmpctx, struct bitcoin_txid, &txid));
@@ -348,7 +348,7 @@ static bool tell_if_missing(const struct channel *channel,
 		return false;
 
 	/* Might not be a current HTLC. */
-	hout = find_htlc_out(&channel->peer->ld->htlcs_out, channel, stub->id);
+	hout = htlc_out_find(&channel->peer->ld->htlcs_out, channel, stub->id);
 	if (!hout)
 		return false;
 

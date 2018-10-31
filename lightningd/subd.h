@@ -203,7 +203,7 @@ void subd_release_channel(struct subd *owner, void *channel);
 void subd_shutdown(struct subd *subd, unsigned int seconds);
 
 /* Ugly helper to get full pathname of the current binary. */
-const char *find_my_abspath(const tal_t *ctx, const char *argv0);
+const char *my_abspath_find(const tal_t *ctx, const char *argv0);
 
 #if DEVELOPER
 char *opt_subd_debug(const char *optarg, struct lightningd *ld);

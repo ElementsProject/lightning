@@ -267,7 +267,7 @@ static void watch_for_utxo_reconfirmation(struct chain_topology *topo,
 		assert(unconfirmed[i]->close_info != NULL);
 		assert(unconfirmed[i]->blockheight == NULL);
 
-		if (find_txwatch(topo, &unconfirmed[i]->txid, NULL))
+		if (txwatch_find(topo, &unconfirmed[i]->txid, NULL))
 			continue;
 
 		notleak(watch_txid(topo, topo, NULL, &unconfirmed[i]->txid,

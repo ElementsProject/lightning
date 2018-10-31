@@ -111,11 +111,11 @@ HTABLE_DEFINE_TYPE(struct htlc_in, keyof_htlc_in, hash_htlc_key, htlc_in_eq,
 HTABLE_DEFINE_TYPE(struct htlc_out, keyof_htlc_out, hash_htlc_key, htlc_out_eq,
 		   htlc_out_map);
 
-struct htlc_in *find_htlc_in(const struct htlc_in_map *map,
+struct htlc_in *htlc_in_find(const struct htlc_in_map *map,
 			     const struct channel *channel,
 			     u64 htlc_id);
 
-struct htlc_out *find_htlc_out(const struct htlc_out_map *map,
+struct htlc_out *htlc_out_find(const struct htlc_out_map *map,
 			       const struct channel *channel,
 			       u64 htlc_id);
 

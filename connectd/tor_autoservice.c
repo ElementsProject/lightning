@@ -185,7 +185,7 @@ static void negotiate_auth(struct rbuf *rbuf, const char *tor_password)
 
 /* We need to have a bound address we can tell Tor to connect to */
 static const struct wireaddr *
-find_local_address(const struct wireaddr_internal *bindings)
+local_address_find(const struct wireaddr_internal *bindings)
 {
 	for (size_t i = 0; i < tal_count(bindings); i++) {
 		if (bindings[i].itype != ADDR_INTERNAL_WIREADDR)
@@ -211,7 +211,7 @@ struct wireaddr *tor_autoservice(const tal_t *ctx,
 	struct rbuf rbuf;
 	char *buffer;
 
-	laddr = find_local_address(bindings);
+	laddr = local_address_find(bindings);
 	ai_tor = wireaddr_to_addrinfo(tmpctx, tor_serviceaddr);
 
 	fd = socket(ai_tor->ai_family, SOCK_STREAM, 0);

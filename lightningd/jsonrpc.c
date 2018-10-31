@@ -269,7 +269,7 @@ done:
 	command_success(cmd, response);
 }
 
-static const struct json_command *find_cmd(const char *buffer,
+static const struct json_command *cmd_find(const char *buffer,
 					   const jsmntok_t *tok)
 {
 	unsigned int i;
@@ -478,7 +478,7 @@ static bool parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		return true;
 	}
 
-	c->json_cmd = find_cmd(jcon->buffer, method);
+	c->json_cmd = cmd_find(jcon->buffer, method);
 	if (!c->json_cmd) {
 		command_fail(c, JSONRPC2_METHOD_NOT_FOUND,
 			     "Unknown command '%.*s'",

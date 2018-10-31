@@ -444,7 +444,7 @@ static bool hc_is_routable(const struct chan *chan, int idx, time_t now)
 
 /* riskfactor is already scaled to per-block amount */
 static struct chan **
-find_route(const tal_t *ctx, struct routing_state *rstate,
+route_find(const tal_t *ctx, struct routing_state *rstate,
 	   const struct pubkey *from, const struct pubkey *to, u64 msatoshi,
 	   double riskfactor,
 	   double fuzz, const struct siphash_seed *base_seed,
@@ -465,21 +465,21 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	src = get_node(rstate, to);
 
 	if (!src) {
-		status_info("find_route: cannot find %s",
+		status_info("route_find: cannot find %s",
 			    type_to_string(tmpctx, struct pubkey, to));
 		return NULL;
 	} else if (!dst) {
-		status_info("find_route: cannot find myself (%s)",
+		status_info("route_find: cannot find myself (%s)",
 			    type_to_string(tmpctx, struct pubkey, to));
 		return NULL;
 	} else if (dst == src) {
-		status_info("find_route: this is %s, refusing to create empty route",
+		status_info("route_find: this is %s, refusing to create empty route",
 			    type_to_string(tmpctx, struct pubkey, to));
 		return NULL;
 	}
 
 	if (msatoshi >= MAX_MSATOSHI) {
-		status_info("find_route: can't route huge amount %"PRIu64,
+		status_info("route_find: can't route huge amount %"PRIu64,
 			    msatoshi);
 		return NULL;
 	}
@@ -530,7 +530,7 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 
 	/* No route? */
 	if (dst->bfg[best].total >= INFINITE) {
-		status_trace("find_route: No route to %s",
+		status_trace("route_find: No route to %s",
 			     type_to_string(tmpctx, struct pubkey, to));
 		return NULL;
 	}
@@ -676,7 +676,7 @@ static void process_pending_node_announcement(struct routing_state *rstate,
 }
 
 static struct pending_cannouncement *
-find_pending_cannouncement(struct routing_state *rstate,
+pending_cannouncement_find(struct routing_state *rstate,
 			   const struct short_channel_id *scid)
 {
 	struct pending_cannouncement *i;
@@ -815,7 +815,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 
 	/* We don't replace previous ones, since we might validate that and
 	 * think this one is OK! */
-	if (find_pending_cannouncement(rstate, &pending->short_channel_id)) {
+	if (pending_cannouncement_find(rstate, &pending->short_channel_id)) {
 		SUPERVERBOSE("%s: %s already has pending cannouncement",
 			     __func__,
 			     type_to_string(tmpctx, struct short_channel_id,
@@ -932,7 +932,7 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 	const u8 *s;
 	struct pending_cannouncement *pending;
 
-	pending = find_pending_cannouncement(rstate, scid);
+	pending = pending_cannouncement_find(rstate, scid);
 	if (!pending)
 		return;
 
@@ -1179,7 +1179,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	if (!chan || !is_chan_public(chan)) {
 		struct pending_cannouncement *pending;
 
-		pending = find_pending_cannouncement(rstate, &short_channel_id);
+		pending = pending_cannouncement_find(rstate, &short_channel_id);
 		if (pending) {
 			update_pending(pending,
 				       timestamp, serialized, direction);
@@ -1496,7 +1496,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 	int i;
 	struct node *n;
 
-	route = find_route(ctx, rstate, source, destination, msatoshi,
+	route = route_find(ctx, rstate, source, destination, msatoshi,
 			   riskfactor / BLOCKS_PER_YEAR / 10000,
 			   fuzz, base_seed, &fee);
 

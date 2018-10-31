@@ -90,7 +90,7 @@ static bool parse_by_position(struct command *cmd,
 	return post_check(cmd, params);
 }
 
-static struct param *find_param(struct param *params, const char *start,
+static struct param *param_find(struct param *params, const char *start,
 				size_t n)
 {
 	struct param *first = params;
@@ -114,7 +114,7 @@ static bool parse_by_name(struct command *cmd,
 	const jsmntok_t *last = json_next(tokens);
 
 	while (first != last) {
-		struct param *p = find_param(params, buffer + first->start,
+		struct param *p = param_find(params, buffer + first->start,
 					     first->end - first->start);
 		if (!p) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,

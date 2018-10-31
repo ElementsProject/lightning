@@ -19,7 +19,7 @@ struct ping_command {
 	struct command *cmd;
 };
 
-static struct ping_command *find_ping_cmd(struct lightningd *ld,
+static struct ping_command *ping_cmd_find(struct lightningd *ld,
 					  const struct pubkey *id)
 {
 	struct ping_command *i;
@@ -61,7 +61,7 @@ void ping_reply(struct subd *subd, const u8 *msg)
 	log_debug(subd->ld->log, "Got ping reply!");
 	ok = fromwire_gossip_ping_reply(msg, &id, &sent, &totlen);
 
-	pc = find_ping_cmd(subd->ld, &id);
+	pc = ping_cmd_find(subd->ld, &id);
 	assert(pc);
 
 	if (!ok)

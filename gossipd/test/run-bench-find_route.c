@@ -261,7 +261,7 @@ int main(int argc, char *argv[])
 		u64 fee;
 		struct chan **route;
 
-		route = find_route(tmpctx, rstate, &from, &to,
+		route = route_find(tmpctx, rstate, &from, &to,
 				  pseudorand(100000),
 				  riskfactor,
 				  0.75, &base_seed,

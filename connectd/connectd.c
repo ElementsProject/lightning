@@ -236,9 +236,9 @@ static void connecting_destroy(struct connecting *connect)
 	list_del_from(&connect->daemon->connecting, &connect->list);
 }
 
-/*~ Most simple search functions start with find_; in this case, search
+/*~ Most simple search functions end with _find; in this case, search
  * for an existing attempt to connect the given peer id. */
-static struct connecting *find_connecting(struct daemon *daemon,
+static struct connecting *connecting_find(struct daemon *daemon,
 					  const struct pubkey *id)
 {
 	struct connecting *i;
@@ -269,7 +269,7 @@ static void connected_to_peer(struct daemon *daemon,
 	tal_steal(daemon, conn);
 
 	/* Now free the 'connecting' struct. */
-	tal_free(find_connecting(daemon, id));
+	tal_free(connecting_find(daemon, id));
 }
 
 /*~ Every per-peer daemon needs a connection to the gossip daemon; this allows
@@ -1264,7 +1264,7 @@ static void try_connect_peer(struct daemon *daemon,
 		return;
 
 	/* If we're trying to connect it right now, that's OK. */
-	if (find_connecting(daemon, id))
+	if (connecting_find(daemon, id))
 		return;
 
 	/* Start an array of addresses to try. */

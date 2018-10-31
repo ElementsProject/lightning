@@ -140,7 +140,7 @@ void maybe_delete_peer(struct peer *peer)
 	delete_peer(peer);
 }
 
-struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid)
+struct peer *peer_find_by_dbid(struct lightningd *ld, u64 dbid)
 {
 	struct peer *p;
 

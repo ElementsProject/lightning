@@ -20,7 +20,7 @@ size_t hash_htlc_key(const struct htlc_key *k)
 	return siphash24_done(&ctx);
 }
 
-struct htlc_in *find_htlc_in(const struct htlc_in_map *map,
+struct htlc_in *htlc_in_find(const struct htlc_in_map *map,
 			       const struct channel *channel,
 			       u64 htlc_id)
 {
@@ -39,7 +39,7 @@ void connect_htlc_in(struct htlc_in_map *map, struct htlc_in *hend)
 	htlc_in_map_add(map, hend);
 }
 
-struct htlc_out *find_htlc_out(const struct htlc_out_map *map,
+struct htlc_out *htlc_out_find(const struct htlc_out_map *map,
 			       const struct channel *channel,
 			       u64 htlc_id)
 {

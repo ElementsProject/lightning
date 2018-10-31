@@ -95,7 +95,7 @@ static struct bolt_file *get_bolt_files(const char *dir)
 	return bolts;
 }
 
-static char *find_bolt_ref(char **p, size_t *len)
+static char *bolt_ref_find(char **p, size_t *len)
 {
 	for (;;) {
 		char *bolt, *end;
@@ -231,7 +231,7 @@ static void fail_nobolt(const char *filename,
 	exit(1);
 }
 
-static struct bolt_file *find_bolt(const char *bolt_prefix,
+static struct bolt_file *bolt_find(const char *bolt_prefix,
 				   struct bolt_file *bolts)
 {
 	size_t i, n = tal_count(bolts);
@@ -285,9 +285,9 @@ int main(int argc, char *argv[])
 			printf("Checking %s...\n", argv[i]);
 
 		p = f;
-		while ((bolt = find_bolt_ref(&p, &len)) != NULL) {
+		while ((bolt = bolt_ref_find(&p, &len)) != NULL) {
 			char *pattern = code_to_regex(p, len, true);
-			struct bolt_file *b = find_bolt(bolt, bolts);
+			struct bolt_file *b = bolt_find(bolt, bolts);
 			if (!b)
 				fail_nobolt(argv[i], f, p, bolt);
 			if (!tal_strreg(f, b->contents, pattern, NULL))

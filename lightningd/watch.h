@@ -68,7 +68,7 @@ struct txowatch *watch_txo(const tal_t *ctx,
 						   size_t input_num,
 						   const struct block *block));
 
-struct txwatch *find_txwatch(struct chain_topology *topo,
+struct txwatch *txwatch_find(struct chain_topology *topo,
 			     const struct bitcoin_txid *txid,
 			     const struct channel *channel);
 

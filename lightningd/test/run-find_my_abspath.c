@@ -183,18 +183,18 @@ int main(int argc UNUSED, char *argv[] UNUSED)
 	unsetenv("PATH");
 
 	/* Absolute path. */
-	assert(streq(find_my_abspath(tmpctx, argv0), answer));
+	assert(streq(my_abspath_find(tmpctx, argv0), answer));
 
 	/* Relative to cwd. */
 	argv0 = "lightningd/test/run-find_my_abspath";
-	assert(streq(find_my_abspath(tmpctx, argv0), answer));
+	assert(streq(my_abspath_find(tmpctx, argv0), answer));
 
 	/* Using $PATH */
 	setenv("PATH", path_join(tmpctx,
 				 path_cwd(tmpctx), "lightningd/test"), 1);
 	argv0 = "run-find_my_abspath";
 
-	assert(streq(find_my_abspath(tmpctx, argv0), answer));
+	assert(streq(my_abspath_find(tmpctx, argv0), answer));
 
 	/* Even with dummy things in path. */
 	char **pathelems = tal_arr(tmpctx, char *, 4);
@@ -204,7 +204,7 @@ int main(int argc UNUSED, char *argv[] UNUSED)
 	pathelems[3] = NULL;
 
 	setenv("PATH", tal_strjoin(tmpctx, pathelems, ":", STR_NO_TRAIL), 1);
-	assert(streq(find_my_abspath(tmpctx, argv0), answer));
+	assert(streq(my_abspath_find(tmpctx, argv0), answer));
 
 	assert(!taken_any());
 	take_cleanup();

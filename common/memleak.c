@@ -11,7 +11,7 @@
 static const void **notleaks;
 static bool *notleak_children;
 
-static size_t find_notleak(const tal_t *ptr)
+static size_t notleak_find(const tal_t *ptr)
 {
 	size_t i, nleaks = tal_count(notleaks);
 
@@ -28,7 +28,7 @@ static void notleak_change(tal_t *ctx,
 	size_t i;
 
 	if (type == TAL_NOTIFY_FREE) {
-		i = find_notleak(ctx);
+		i = notleak_find(ctx);
 		memmove(notleaks + i, notleaks + i + 1,
 			sizeof(*notleaks) * (tal_count(notleaks) - i - 1));
 		memmove(notleak_children + i, notleak_children + i + 1,
@@ -37,7 +37,7 @@ static void notleak_change(tal_t *ctx,
 		tal_resize(&notleaks, tal_count(notleaks) - 1);
 		tal_resize(&notleak_children, tal_count(notleak_children) - 1);
 	} else if (type == TAL_NOTIFY_MOVE) {
-		i = find_notleak(info);
+		i = notleak_find(info);
 		notleaks[i] = ctx;
 	}
 }

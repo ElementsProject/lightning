@@ -396,7 +396,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 		return;
 	}
 
-	if (find_htlc_out(&subd->ld->htlcs_out, hout->key.channel, hout->key.id)
+	if (htlc_out_find(&subd->ld->htlcs_out, hout->key.channel, hout->key.id)
 	    || hout->key.id == HTLC_INVALID_ID) {
 		channel_internal_error(subd->channel,
 				    "Bad offer_htlc_reply HTLC id %"PRIu64
@@ -600,7 +600,7 @@ static bool peer_accepted_htlc(struct channel *channel,
 	struct onionpacket *op;
 	struct lightningd *ld = channel->peer->ld;
 
-	hin = find_htlc_in(&ld->htlcs_in, channel, id);
+	hin = htlc_in_find(&ld->htlcs_in, channel, id);
 	if (!hin) {
 		channel_internal_error(channel,
 				    "peer_got_revoke unknown htlc %"PRIu64, id);
@@ -735,7 +735,7 @@ static bool peer_fulfilled_our_htlc(struct channel *channel,
 	struct lightningd *ld = channel->peer->ld;
 	struct htlc_out *hout;
 
-	hout = find_htlc_out(&ld->htlcs_out, channel, fulfilled->id);
+	hout = htlc_out_find(&ld->htlcs_out, channel, fulfilled->id);
 	if (!hout) {
 		channel_internal_error(channel,
 				    "fulfilled_our_htlc unknown htlc %"PRIu64,
@@ -794,7 +794,7 @@ static bool peer_failed_our_htlc(struct channel *channel,
 	struct htlc_out *hout;
 	struct lightningd *ld = channel->peer->ld;
 
-	hout = find_htlc_out(&ld->htlcs_out, channel, failed->id);
+	hout = htlc_out_find(&ld->htlcs_out, channel, failed->id);
 	if (!hout) {
 		channel_internal_error(channel,
 				    "failed_our_htlc unknown htlc %"PRIu64,
@@ -830,7 +830,7 @@ void onchain_failed_our_htlc(const struct channel *channel,
 	struct lightningd *ld = channel->peer->ld;
 	struct htlc_out *hout;
 
-	hout = find_htlc_out(&ld->htlcs_out, channel, htlc->id);
+	hout = htlc_out_find(&ld->htlcs_out, channel, htlc->id);
 	if (!hout)
 		return;
 
@@ -914,7 +914,7 @@ static bool update_in_htlc(struct channel *channel,
 	struct htlc_in *hin;
 	struct lightningd *ld = channel->peer->ld;
 
-	hin = find_htlc_in(&ld->htlcs_in, channel, id);
+	hin = htlc_in_find(&ld->htlcs_in, channel, id);
 	if (!hin) {
 		channel_internal_error(channel, "Can't find in HTLC %"PRIu64, id);
 		return false;
@@ -936,7 +936,7 @@ static bool update_out_htlc(struct channel *channel,
 	struct lightningd *ld = channel->peer->ld;
 	struct htlc_out *hout;
 
-	hout = find_htlc_out(&ld->htlcs_out, channel, id);
+	hout = htlc_out_find(&ld->htlcs_out, channel, id);
 	if (!hout) {
 		channel_internal_error(channel, "Can't find out HTLC %"PRIu64, id);
 		return false;
@@ -1367,7 +1367,7 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 		/* These are all errors before finding next hop. */
 		assert(!(failcodes[i] & UPDATE));
 
-		hin = find_htlc_in(&ld->htlcs_in, channel, changed[i].id);
+		hin = htlc_in_find(&ld->htlcs_in, channel, changed[i].id);
 		local_fail_htlc(hin, failcodes[i], NULL);
 	}
 	wallet_channel_save(ld->wallet, channel);

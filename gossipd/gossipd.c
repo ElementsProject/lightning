@@ -159,7 +159,7 @@ static void peer_destroy(struct peer *peer)
 	tal_free(peer->dc);
 }
 
-static struct peer *find_peer(struct daemon *daemon, const struct pubkey *id)
+static struct peer *peer_find(struct daemon *daemon, const struct pubkey *id)
 {
 	struct peer *peer;
 
@@ -997,7 +997,7 @@ static void update_local_channel(struct daemon *daemon,
 
 	/* We always tell peer, even if it's not public yet */
 	if (!is_chan_public(chan)) {
-		struct peer *peer = find_peer(daemon,
+		struct peer *peer = peer_find(daemon,
 					      &chan->nodes[!direction]->id);
 		if (peer)
 			queue_peer_msg(peer, update);
@@ -1254,7 +1254,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	}
 
 	/* We might not have noticed old peer is dead; kill it now. */
-	tal_free(find_peer(daemon, &peer->id));
+	tal_free(peer_find(daemon, &peer->id));
 
 	peer->daemon = daemon;
 	peer->scid_queries = NULL;
@@ -1494,7 +1494,7 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 	if (!fromwire_gossip_ping(msg, &id, &num_pong_bytes, &len))
 		master_badmsg(WIRE_GOSSIP_PING, msg);
 
-	peer = find_peer(daemon, &id);
+	peer = peer_find(daemon, &id);
 	if (!peer) {
 		daemon_conn_send(daemon->master,
 				 take(towire_gossip_ping_reply(NULL, &id,
@@ -1595,7 +1595,7 @@ static struct io_plan *query_scids_req(struct io_conn *conn,
 	if (!fromwire_gossip_query_scids(msg, msg, &id, &scids))
 		master_badmsg(WIRE_GOSSIP_QUERY_SCIDS, msg);
 
-	peer = find_peer(daemon, &id);
+	peer = peer_find(daemon, &id);
 	if (!peer) {
 		status_broken("query_scids: unknown peer %s",
 			      type_to_string(tmpctx, struct pubkey, &id));
@@ -1644,7 +1644,7 @@ static struct io_plan *send_timestamp_filter(struct io_conn *conn,
 	if (!fromwire_gossip_send_timestamp_filter(msg, &id, &first, &range))
 		master_badmsg(WIRE_GOSSIP_SEND_TIMESTAMP_FILTER, msg);
 
-	peer = find_peer(daemon, &id);
+	peer = peer_find(daemon, &id);
 	if (!peer) {
 		status_broken("send_timestamp_filter: unknown peer %s",
 			      type_to_string(tmpctx, struct pubkey, &id));
@@ -1676,7 +1676,7 @@ static struct io_plan *query_channel_range(struct io_conn *conn,
 						 &number_of_blocks))
 		master_badmsg(WIRE_GOSSIP_QUERY_SCIDS, msg);
 
-	peer = find_peer(daemon, &id);
+	peer = peer_find(daemon, &id);
 	if (!peer) {
 		status_broken("query_channel_range: unknown peer %s",
 			      type_to_string(tmpctx, struct pubkey, &id));

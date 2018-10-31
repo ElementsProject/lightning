@@ -217,7 +217,7 @@ int main(void)
 	nc->message_flags = 0;
 	nc->last_timestamp = 1504064344;
 
-	route = find_route(tmpctx, rstate, &a, &c, 100000, riskfactor, 0.0, NULL, &fee);
+	route = route_find(tmpctx, rstate, &a, &c, 100000, riskfactor, 0.0, NULL, &fee);
 	assert(route);
 	assert(tal_count(route) == 2);
 	assert(channel_is_between(route[0], &a, &b));
@@ -225,17 +225,17 @@ int main(void)
 
 
 	/* We should not be able to find a route that exceeds our own capacity */
-	route = find_route(tmpctx, rstate, &a, &c, 1000001, riskfactor, 0.0, NULL, &fee);
+	route = route_find(tmpctx, rstate, &a, &c, 1000001, riskfactor, 0.0, NULL, &fee);
 	assert(!route);
 
 	/* Now test with a query that exceeds the channel capacity after adding
 	 * some fees */
-	route = find_route(tmpctx, rstate, &a, &c, 999999, riskfactor, 0.0, NULL, &fee);
+	route = route_find(tmpctx, rstate, &a, &c, 999999, riskfactor, 0.0, NULL, &fee);
 	assert(!route);
 
 	/* This should fail to return a route because it is smaller than these
 	 * htlc_minimum_msat on the last channel. */
-	route = find_route(tmpctx, rstate, &a, &c, 1, riskfactor, 0.0, NULL, &fee);
+	route = route_find(tmpctx, rstate, &a, &c, 1, riskfactor, 0.0, NULL, &fee);
 	assert(!route);
 
 	/* {'active': True, 'short_id': '6990:2:1/0', 'fee_per_kw': 10, 'delay': 5, 'message_flags': 1, 'htlc_maximum_msat': 500000, 'htlc_minimum_msat': 100, 'channel_flags': 0, 'destination': '02cca6c5c966fcf61d121e3a70e03a1cd9eeeea024b26ea666ce974d43b242e636', 'source': '03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf', 'last_update': 1504064344}, */
@@ -250,12 +250,12 @@ int main(void)
 	nc->htlc_maximum_msat = 500000; /* half capacity */
 
 	/* This should route correctly at the max_msat level */
-	route = find_route(tmpctx, rstate, &a, &d, 500000, riskfactor, 0.0, NULL, &fee);
+	route = route_find(tmpctx, rstate, &a, &d, 500000, riskfactor, 0.0, NULL, &fee);
 	assert(route);
 
 	/* This should fail to return a route because it's larger than the
 	 * htlc_maximum_msat on the last channel. */
-	route = find_route(tmpctx, rstate, &a, &d, 500001, riskfactor, 0.0, NULL, &fee);
+	route = route_find(tmpctx, rstate, &a, &d, 500001, riskfactor, 0.0, NULL, &fee);
 	assert(!route);
 
 	tal_free(tmpctx);

@@ -53,7 +53,7 @@ struct peer {
 #endif
 };
 
-struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid);
+struct peer *peer_find_by_dbid(struct lightningd *ld, u64 dbid);
 
 struct peer *peer_new(struct lightningd *ld, u64 dbid,
 		      const struct pubkey *id,

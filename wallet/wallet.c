@@ -579,7 +579,7 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 	struct pubkey *future_per_commitment_point;
 
 	peer_dbid = sqlite3_column_int64(stmt, 1);
-	peer = find_peer_by_dbid(w->ld, peer_dbid);
+	peer = peer_find_by_dbid(w->ld, peer_dbid);
 	if (!peer) {
 		peer = wallet_peer_load(w, peer_dbid);
 		if (!peer) {
@@ -1585,7 +1585,7 @@ void wallet_local_htlc_out_delete(struct wallet *wallet,
 }
 
 static struct wallet_payment *
-find_unstored_payment(struct wallet *wallet, const struct sha256 *payment_hash)
+unstored_payment_find(struct wallet *wallet, const struct sha256 *payment_hash)
 {
 	struct wallet_payment *i;
 
@@ -1603,7 +1603,7 @@ static void unstored_payment_destroy(struct wallet_payment *payment)
 
 void wallet_payment_setup(struct wallet *wallet, struct wallet_payment *payment)
 {
-	assert(!find_unstored_payment(wallet, &payment->payment_hash));
+	assert(!unstored_payment_find(wallet, &payment->payment_hash));
 
 	list_add_tail(&wallet->unstored_payments, &payment->list);
 	tal_add_destructor(payment, unstored_payment_destroy);
@@ -1615,7 +1615,7 @@ void wallet_payment_store(struct wallet *wallet,
 	sqlite3_stmt *stmt;
 	struct wallet_payment *payment;
 
-	payment = find_unstored_payment(wallet, payment_hash);
+	payment = unstored_payment_find(wallet, payment_hash);
 	if (!payment) {
 		/* Already stored on-disk */
 #if DEVELOPER
@@ -1683,7 +1683,7 @@ void wallet_payment_delete(struct wallet *wallet,
 	sqlite3_stmt *stmt;
 	struct wallet_payment *payment;
 
-	payment = find_unstored_payment(wallet, payment_hash);
+	payment = unstored_payment_find(wallet, payment_hash);
 	if (payment) {
 		tal_free(payment);
 		return;
@@ -1748,7 +1748,7 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 	struct wallet_payment *payment;
 
 	/* Present the illusion that it's in the db... */
-	payment = find_unstored_payment(wallet, payment_hash);
+	payment = unstored_payment_find(wallet, payment_hash);
 	if (payment)
 		return payment;
 
@@ -1772,7 +1772,7 @@ void wallet_payment_set_status(struct wallet *wallet,
 	struct wallet_payment *payment;
 
 	/* We can only fail an unstored payment! */
-	payment = find_unstored_payment(wallet, payment_hash);
+	payment = unstored_payment_find(wallet, payment_hash);
 	if (payment) {
 		assert(newstatus == PAYMENT_FAILED);
 		tal_free(payment);

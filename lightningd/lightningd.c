@@ -310,10 +310,10 @@ static bool has_all_subdaemons(const char *daemon_dir)
 }
 
 /* Returns the directory this executable is running from */
-static const char *find_my_directory(const tal_t *ctx, const char *argv0)
+static const char *my_directory_find(const tal_t *ctx, const char *argv0)
 {
-	/* find_my_abspath simply exits on failure, so never returns NULL. */
-	const char *me = find_my_abspath(NULL, argv0);
+	/* my_abspath_find simply exits on failure, so never returns NULL. */
+	const char *me = my_abspath_find(NULL, argv0);
 
 	/*~ The caller just wants the directory we're in.
 	 *
@@ -337,7 +337,7 @@ static const char *find_my_directory(const tal_t *ctx, const char *argv0)
  *
  * TAKES is only a convention unfortunately, and ignored by the compiler.
  */
-static const char *find_my_pkglibexec_path(const tal_t *ctx,
+static const char *my_pkglibexec_path_find(const tal_t *ctx,
 					   const char *my_path TAKES)
 {
 	const char *pkglibexecdir;
@@ -358,15 +358,15 @@ static const char *find_my_pkglibexec_path(const tal_t *ctx,
 }
 
 /* Determine the correct daemon dir. */
-static const char *find_daemon_dir(const tal_t *ctx, const char *argv0)
+static const char *daemon_dir_find(const tal_t *ctx, const char *argv0)
 {
-	const char *my_path = find_my_directory(ctx, argv0);
+	const char *my_path = my_directory_find(ctx, argv0);
 	/* If we're running in-tree, all the subdaemons are with lightningd. */
 	if (has_all_subdaemons(my_path))
 		return my_path;
 
 	/* Otherwise we assume they're in the installed dir. */
-	return find_my_pkglibexec_path(ctx, take(my_path));
+	return my_pkglibexec_path_find(ctx, take(my_path));
 }
 
 /*~ We like to free everything on exit, so valgrind doesn't complain.  In some
@@ -580,7 +580,7 @@ int main(int argc, char *argv[])
 	ld = lightningd_new(NULL);
 
 	/* Figure out where our daemons are first. */
-	ld->daemon_dir = find_daemon_dir(ld, argv[0]);
+	ld->daemon_dir = daemon_dir_find(ld, argv[0]);
 	if (!ld->daemon_dir)
 		errx(1, "Could not find daemons");
 

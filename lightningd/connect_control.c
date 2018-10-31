@@ -51,7 +51,7 @@ static struct connect *connect_new(struct lightningd *ld,
 }
 
 /* Finds first command which matches. */
-static struct connect *find_connect(struct lightningd *ld,
+static struct connect *connect_find(struct lightningd *ld,
 				    const struct pubkey *id)
 {
 	struct connect *i;
@@ -242,7 +242,7 @@ static void connect_failed(struct lightningd *ld, const u8 *msg)
 		      tal_hex(msg, msg));
 
 	/* We can have multiple connect commands: fail them all */
-	while ((c = find_connect(ld, &id)) != NULL) {
+	while ((c = connect_find(ld, &id)) != NULL) {
 		/* They delete themselves from list */
 		command_fail(c->cmd, LIGHTNINGD, "%s", err);
 	}
@@ -258,7 +258,7 @@ void connect_succeeded(struct lightningd *ld, const struct pubkey *id)
 	struct connect *c;
 
 	/* We can have multiple connect commands: fail them all */
-	while ((c = find_connect(ld, id)) != NULL) {
+	while ((c = connect_find(ld, id)) != NULL) {
 		/* They delete themselves from list */
 		connect_cmd_succeed(c->cmd, id);
 	}

@@ -368,7 +368,7 @@ struct db_statement {
 	const char *origin;
 };
 
-static struct db_statement *find_statement(sqlite3_stmt *stmt)
+static struct db_statement *statement_find(sqlite3_stmt *stmt)
 {
 	struct db_statement *i;
 
@@ -398,7 +398,7 @@ static void dev_statement_start(sqlite3_stmt *stmt, const char *origin)
 
 static void dev_statement_end(sqlite3_stmt *stmt)
 {
-	struct db_statement *dbstat = find_statement(stmt);
+	struct db_statement *dbstat = statement_find(stmt);
 	list_del_from(&db_statements, &dbstat->list);
 	tal_free(dbstat);
 }
