@@ -120,6 +120,7 @@ int main(void)
 	struct bolt11 *b11;
 	struct pubkey node;
 	u64 msatoshi;
+	const char *badstr;
 
 	secp256k1_ctx = wally_get_secp_context();
 	setup_tmpctx();
@@ -235,6 +236,18 @@ int main(void)
 	b11->receiver_id = node;
 	b11->description_hash = tal(b11, struct sha256);
 	test_b11("lnbc20m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqscc6gd6ql3jrc5yzme8v4ntcewwz5cnw92tz0pc8qcuufvq7khhr8wpald05e92xw006sq94mg8v2ndf4sefvf9sygkshp5zfem29trqq2yxxz7", b11, "One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon");
+
+	/* Malformed bolt11 strings (no '1'). */
+	badstr = "lnbc20mpvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqscc6gd6ql3jrc5yzme8v4ntcewwz5cnw92tz0pc8qcuufvq7khhr8wpald05e92xw006sq94mg8v2ndf4sefvf9sygkshp5zfem29trqq2yxxz7";
+
+	for (size_t i = 0; i <= strlen(badstr); i++) {
+		char *fail;
+		if (bolt11_decode(tmpctx, tal_strndup(tmpctx, badstr, i),
+				  NULL, &fail))
+			abort();
+		assert(strstr(fail, "Bad bech32")
+		       || strstr(fail, "Invoices must start with ln"));
+	}
 
 	/* FIXME: Test the others! */
 	wally_cleanup(0);
