@@ -619,8 +619,11 @@ static void config_log_stderr_exit(const char *fmt, ...)
 	fatal("%s", msg);
 }
 
-/* We turn the config file into cmdline arguments. */
-static void opt_parse_from_config(struct lightningd *ld)
+/**
+ * We turn the config file into cmdline arguments. @early tells us
+ * whether to parse early options only, or the non-early options.
+ */
+static void opt_parse_from_config(struct lightningd *ld, bool early)
 {
 	char *contents, **lines;
 	char **all_args; /*For each line: either argument string or NULL*/
@@ -669,23 +672,28 @@ static void opt_parse_from_config(struct lightningd *ld)
 	argv[0] = "lightning config file";
 	argv[argc] = NULL;
 
-	for (i = 0; i < tal_count(all_args); i++) {
-		if(all_args[i] != NULL) {
-			config_parse_line_number = i + 1;
-			argv[1] = all_args[i];
-			opt_early_parse(argc, argv, config_log_stderr_exit);
+	if (early) {
+		for (i = 0; i < tal_count(all_args); i++) {
+			if (all_args[i] != NULL) {
+				config_parse_line_number = i + 1;
+				argv[1] = all_args[i];
+				opt_early_parse(argc, argv,
+						config_log_stderr_exit);
+			}
 		}
-	}
 
-	/* Now we can set up defaults, depending on whether testnet or not */
-	setup_default_config(ld);
+		/* Now we can set up defaults, depending on whether testnet or
+		 * not */
+		setup_default_config(ld);
+	} else {
 
-	for (i = 0; i < tal_count(all_args); i++) {
-		if(all_args[i] != NULL) {
-			config_parse_line_number = i + 1;
-			argv[1] = all_args[i];
-			opt_parse(&argc, argv, config_log_stderr_exit);
-			argc = 2; /* opt_parse might have changed it  */
+		for (i = 0; i < tal_count(all_args); i++) {
+			if (all_args[i] != NULL) {
+				config_parse_line_number = i + 1;
+				argv[1] = all_args[i];
+				opt_parse(&argc, argv, config_log_stderr_exit);
+				argc = 2; /* opt_parse might have changed it  */
+			}
 		}
 	}
 
@@ -813,18 +821,22 @@ void setup_color_and_alias(struct lightningd *ld)
 	}
 }
 
-void handle_opts(struct lightningd *ld, int argc, char *argv[])
+void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 {
 	/* Load defaults. The actual values loaded here will be overwritten
 	 * later by opt_parse_from_config. */
 	setup_default_config(ld);
 
 	/* Get any configdir/testnet options first. */
-	opt_early_parse(argc, argv, opt_log_stderr_exit);
+	opt_early_parse_incomplete(argc, argv, opt_log_stderr_exit);
 
-	/* Now look for config file */
-	opt_parse_from_config(ld);
+	/* Now look for config file, but only handle the early
+	 * options, others may be added on-demand */
+	opt_parse_from_config(ld, true);
+}
 
+void handle_opts(struct lightningd *ld, int argc, char *argv[])
+{
 	/* Move to config dir, to save ourselves the hassle of path manip. */
 	if (chdir(ld->config_dir) != 0) {
 		log_unusual(ld->log, "Creating configuration directory %s",
@@ -836,6 +848,11 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 			fatal("Could not change directory %s: %s",
 			      ld->config_dir, strerror(errno));
 	}
+
+	/* Now look for config file, but only handle non-early
+	 * options, early ones have been parsed in
+	 * handle_early_opts */
+	opt_parse_from_config(ld, false);
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc != 1)
