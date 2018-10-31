@@ -514,7 +514,7 @@ sqlite3_stmt *PRINTF_FMT(3, 4)
 	return stmt;
 }
 
-static void destroy_db(struct db *db)
+static void db_destroy(struct db *db)
 {
 	db_assert_no_outstanding_statements();
 	sqlite3_close(db->sql);
@@ -561,7 +561,7 @@ static struct db *db_open(const tal_t *ctx, char *filename)
 	db = tal(ctx, struct db);
 	db->filename = tal_dup_arr(db, char, filename, strlen(filename), 0);
 	db->sql = sql;
-	tal_add_destructor(db, destroy_db);
+	tal_add_destructor(db, db_destroy);
 	db->in_transaction = NULL;
 	db_do_exec(__func__, db, "PRAGMA foreign_keys = ON;");
 

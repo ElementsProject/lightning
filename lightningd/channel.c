@@ -78,7 +78,7 @@ struct htlc_in *channel_has_htlc_in(struct channel *channel)
 	return NULL;
 }
 
-static void destroy_channel(struct channel *channel)
+static void channel_destroy(struct channel *channel)
 {
 	/* Must not have any HTLCs! */
 	struct htlc_out *hout = channel_has_htlc_out(channel);
@@ -236,7 +236,7 @@ struct channel *channel_new(struct peer *peer, u64 dbid,
 		= tal_steal(channel, future_per_commitment_point);
 
 	list_add_tail(&peer->channels, &channel->list);
-	tal_add_destructor(channel, destroy_channel);
+	tal_add_destructor(channel, channel_destroy);
 
 	/* Make sure we see any spends using this key */
 	txfilter_add_scriptpubkey(peer->ld->owned_txfilter,

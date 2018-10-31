@@ -180,7 +180,7 @@ static struct io_plan *client_read_next(struct io_conn *conn, struct client *c)
 /*~ This is the destructor on our client: we may call it manually, but
  * generally it's called because the io_conn associated with the client is
  * closed by the other end. */
-static void destroy_client(struct client *c)
+static void client_destroy(struct client *c)
 {
 	if (!uintmap_del(&clients, c->dbid))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -237,7 +237,7 @@ static struct client *client_new(const tal_t *ctx,
 		if (!uintmap_add(&clients, dbid, c))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Failed inserting dbid %"PRIu64, dbid);
-		tal_add_destructor(c, destroy_client);
+		tal_add_destructor(c, client_destroy);
 	}
 
 	return c;

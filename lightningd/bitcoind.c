@@ -763,7 +763,7 @@ void bitcoind_gettxout(struct bitcoind *bitcoind,
 			  NULL);
 }
 
-static void destroy_bitcoind(struct bitcoind *bitcoind)
+static void bitcoind_destroy(struct bitcoind *bitcoind)
 {
 	/* Suppresses the callbacks from bcli_finished as we free conns. */
 	bitcoind->shutdown = true;
@@ -872,7 +872,7 @@ struct bitcoind *bitcoind_new(const tal_t *ctx,
 	bitcoind->rpcpass = NULL;
 	bitcoind->rpcconnect = NULL;
 	bitcoind->rpcport = NULL;
-	tal_add_destructor(bitcoind, destroy_bitcoind);
+	tal_add_destructor(bitcoind, bitcoind_destroy);
 
 	return bitcoind;
 }

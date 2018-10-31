@@ -41,7 +41,7 @@ void broadcast_del(struct broadcast_state *bstate, u64 index, const u8 *payload)
 	}
 }
 
-static void destroy_queued_message(struct queued_message *msg,
+static void queued_message_destroy(struct queued_message *msg,
 				   struct broadcast_state *bstate)
 {
 	broadcast_del(bstate, msg->index, msg->payload);
@@ -60,7 +60,7 @@ static struct queued_message *queued_message_new(const tal_t *ctx,
 	msg->index = index;
 	msg->timestamp = timestamp;
 	uintmap_add(&bstate->broadcasts, index, msg);
-	tal_add_destructor2(msg, destroy_queued_message, bstate);
+	tal_add_destructor2(msg, queued_message_destroy, bstate);
 	bstate->count++;
 	return msg;
 }

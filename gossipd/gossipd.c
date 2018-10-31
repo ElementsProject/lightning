@@ -143,7 +143,7 @@ static void peer_disable_channels(struct daemon *daemon, struct node *node)
 	}
 }
 
-static void destroy_peer(struct peer *peer)
+static void peer_destroy(struct peer *peer)
 {
 	struct node *node;
 
@@ -1267,7 +1267,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	peer->gossip_timer = NULL;
 
 	list_add_tail(&peer->daemon->peers, &peer->list);
-	tal_add_destructor(peer, destroy_peer);
+	tal_add_destructor(peer, peer_destroy);
 
 	/* BOLT #7:
 	 *
@@ -1302,7 +1302,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 
 	peer->dc = daemon_conn_new(daemon, fds[0],
 				   owner_msg_in, dump_gossip, peer);
-	/* Free peer if conn closed (destroy_peer closes conn if peer freed) */
+	/* Free peer if conn closed (peer_destroy closes conn if peer freed) */
 	tal_steal(peer->dc, peer);
 
 	setup_gossip_range(peer);

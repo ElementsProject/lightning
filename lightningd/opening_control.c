@@ -545,7 +545,7 @@ static void opening_channel_set_billboard(struct uncommitted_channel *uc,
 		uc->transient_billboard = tal_strdup(uc, happenings);
 }
 
-static void destroy_uncommitted_channel(struct uncommitted_channel *uc)
+static void uncommitted_channel_destroy(struct uncommitted_channel *uc)
 {
 	if (uc->openingd) {
 		struct subd *openingd = uc->openingd;
@@ -587,7 +587,7 @@ uncommitted_channel_new(struct peer *peer)
 			       &uc->local_basepoints, &uc->local_funding_pubkey);
 
 	uc->peer->uncommitted_channel = uc;
-	tal_add_destructor(uc, destroy_uncommitted_channel);
+	tal_add_destructor(uc, uncommitted_channel_destroy);
 
 	return uc;
 }

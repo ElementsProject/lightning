@@ -43,7 +43,7 @@ static void *membuf_tal_realloc(struct membuf *mb,
 }
 
 /* jcon and cmd have separate lifetimes: we detach them on either destruction */
-static void destroy_jcon(struct json_connection *jcon)
+static void jcon_destroy(struct json_connection *jcon)
 {
 	if (jcon->command) {
 		log_debug(jcon->log, "Abandoning command");
@@ -345,7 +345,7 @@ struct json_stream *null_response(struct command *cmd)
 }
 
 /* This can be called directly on shutdown, even with unfinished cmd */
-static void destroy_command(struct command *cmd)
+static void command_destroy(struct command *cmd)
 {
 	if (!cmd->jcon) {
 		log_debug(cmd->ld->log,
@@ -461,7 +461,7 @@ static bool parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	c->mode = CMD_NORMAL;
 	c->ok = NULL;
 	jcon->command = c;
-	tal_add_destructor(c, destroy_command);
+	tal_add_destructor(c, command_destroy);
 
 	/* Write start of response: rest will be appended directly. */
 	jcon_start(jcon, c->id);
@@ -639,7 +639,7 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	jcon->log = log_new(ld->log_book, ld->log_book, "%sjcon fd %i:",
 			    log_prefix(ld->log), io_conn_fd(conn));
 
-	tal_add_destructor(jcon, destroy_jcon);
+	tal_add_destructor(jcon, jcon_destroy);
 
 	/* Note that write_json and read_json alternate manually, by waking
 	 * each other.  It would be simpler to not use a duplex io, and have

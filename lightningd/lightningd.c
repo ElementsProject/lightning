@@ -398,7 +398,7 @@ static void shutdown_subdaemons(struct lightningd *ld)
 	free_htlcs(ld, NULL);
 
 	/*~ For every peer, we free every channel.  On allocation the peer was
-	 * given a destructor (`destroy_peer`) which removes itself from the
+	 * given a destructor (`peer_destroy`) which removes itself from the
 	 * list.  Thus we use list_top() not list_pop() here. */
 	while ((p = list_top(&ld->peers, struct peer, list)) != NULL) {
 		struct channel *c;
@@ -416,7 +416,7 @@ static void shutdown_subdaemons(struct lightningd *ld)
 		if (p->uncommitted_channel) {
 			struct uncommitted_channel *uc = p->uncommitted_channel;
 
-			/* Setting to NULL stops destroy_uncommitted_channel
+			/* Setting to NULL stops uncommitted_channel_destroy
 			 * from trying to remove peer from db! */
 			p->uncommitted_channel = NULL;
 			tal_free(uc);

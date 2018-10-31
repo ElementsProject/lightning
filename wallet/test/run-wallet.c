@@ -894,7 +894,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 
 	db_commit_transaction(w->db);
 	CHECK(!wallet_err);
-	/* Normally freed by destroy_channel, but we don't call that */
+	/* Normally freed by channel_destroy, but we don't call that */
 	tal_free(p);
 	return true;
 }

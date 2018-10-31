@@ -173,7 +173,7 @@ static void rebroadcast_txs(struct chain_topology *topo, struct command *cmd)
 	broadcast_remainder(topo->bitcoind, 0, "", txs);
 }
 
-static void destroy_outgoing_tx(struct outgoing_tx *otx)
+static void outgoing_tx_destroy(struct outgoing_tx *otx)
 {
 	list_del(&otx->list);
 }
@@ -205,7 +205,7 @@ static void broadcast_done(struct bitcoind *bitcoind,
 		/* For continual rebroadcasting, until channel freed. */
 		tal_steal(otx->channel, otx);
 		list_add_tail(&bitcoind->ld->topology->outgoing_txs, &otx->list);
-		tal_add_destructor(otx, destroy_outgoing_tx);
+		tal_add_destructor(otx, outgoing_tx_destroy);
 	}
 }
 
@@ -834,7 +834,7 @@ u32 feerate_max(struct lightningd *ld, bool *unknown)
 
 /* On shutdown, channels get deleted last.  That frees from our list, so
  * do it now instead. */
-static void destroy_chain_topology(struct chain_topology *topo)
+static void chain_topology_destroy(struct chain_topology *topo)
 {
 	struct outgoing_tx *otx;
 
@@ -875,7 +875,7 @@ void setup_topology(struct chain_topology *topo,
 
 	bitcoind_getblockcount(topo->bitcoind, get_init_blockhash, topo);
 
-	tal_add_destructor(topo, destroy_chain_topology);
+	tal_add_destructor(topo, chain_topology_destroy);
 
 	start_fee_estimate(topo);
 

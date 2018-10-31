@@ -50,7 +50,7 @@ struct subd_req {
 	void *disabler;
 };
 
-static void destroy_subd_req(struct subd_req *sr)
+static void subd_req_destroy(struct subd_req *sr)
 {
 	list_del(&sr->list);
 	/* Don't disable once we're freed! */
@@ -100,7 +100,7 @@ static void add_req(const tal_t *ctx,
 
 	/* Keep in FIFO order: we sent in order, so replies will be too. */
 	list_add_tail(&sd->reqs, &sr->list);
-	tal_add_destructor(sr, destroy_subd_req);
+	tal_add_destructor(sr, subd_req_destroy);
 }
 
 /* Caller must free. */
@@ -262,7 +262,7 @@ static struct io_plan *sd_msg_reply(struct io_conn *conn, struct subd *sd,
 	log_debug(sd->log, "REPLY %s with %zu fds",
 		  sd->msgname(type), tal_count(sd->fds_in));
 
-	/* Callback could free sd!  Make sure destroy_subd() won't free conn */
+	/* Callback could free sd!  Make sure subd_destroy() won't free conn */
 	sd->conn = NULL;
 
 	/* We want to free the msg_in, unless they tal_steal() it. */
@@ -504,7 +504,7 @@ out:
 }
 
 
-static void destroy_subd(struct subd *sd)
+static void subd_destroy(struct subd *sd)
 {
 	int status;
 	bool fail_if_subd_fails = false;
@@ -656,7 +656,7 @@ static struct subd *subd_new(struct lightningd *ld,
 	sd->billboardcb = billboardcb;
 	sd->fds_in = NULL;
 	sd->outq = msg_queue_new(sd);
-	tal_add_destructor(sd, destroy_subd);
+	tal_add_destructor(sd, subd_destroy);
 	list_head_init(&sd->reqs);
 	sd->channel = channel;
 
@@ -752,7 +752,7 @@ void subd_shutdown(struct subd *sd, unsigned int seconds)
 {
 	log_debug(sd->log, "Shutting down");
 
-	tal_del_destructor(sd, destroy_subd);
+	tal_del_destructor(sd, subd_destroy);
 
 	/* This should make it exit; steal so it stays around. */
 	tal_steal(sd->ld, sd);
@@ -769,7 +769,7 @@ void subd_shutdown(struct subd *sd, unsigned int seconds)
 
 	/* Didn't die?  This will kill it harder */
 	sd->must_not_exit = false;
-	destroy_subd(sd);
+	subd_destroy(sd);
 	tal_free(sd);
 }
 

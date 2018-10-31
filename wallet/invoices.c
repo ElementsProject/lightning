@@ -537,7 +537,7 @@ void invoices_resolve(struct invoices *invoices,
 }
 
 /* Called when an invoice waiter is destructed. */
-static void destroy_invoice_waiter(struct invoice_waiter *w)
+static void invoice_waiter_destroy(struct invoice_waiter *w)
 {
 	/* Already triggered. */
 	if (w->triggered)
@@ -560,7 +560,7 @@ static void add_invoice_waiter(const tal_t *ctx,
 	list_add_tail(waiters, &w->list);
 	w->cb = cb;
 	w->cbarg = cbarg;
-	tal_add_destructor(w, &destroy_invoice_waiter);
+	tal_add_destructor(w, &invoice_waiter_destroy);
 }
 
 

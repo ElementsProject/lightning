@@ -28,14 +28,14 @@ struct htlc_in *find_htlc_in(const struct htlc_in_map *map,
 	return htlc_in_map_get(map, &key);
 }
 
-static void destroy_htlc_in(struct htlc_in *hend, struct htlc_in_map *map)
+static void htlc_in_destroy(struct htlc_in *hend, struct htlc_in_map *map)
 {
 	htlc_in_map_del(map, hend);
 }
 
 void connect_htlc_in(struct htlc_in_map *map, struct htlc_in *hend)
 {
-	tal_add_destructor2(hend, destroy_htlc_in, map);
+	tal_add_destructor2(hend, htlc_in_destroy, map);
 	htlc_in_map_add(map, hend);
 }
 
@@ -47,14 +47,14 @@ struct htlc_out *find_htlc_out(const struct htlc_out_map *map,
 	return htlc_out_map_get(map, &key);
 }
 
-static void destroy_htlc_out(struct htlc_out *hend, struct htlc_out_map *map)
+static void htlc_out_destroy(struct htlc_out *hend, struct htlc_out_map *map)
 {
 	htlc_out_map_del(map, hend);
 }
 
 void connect_htlc_out(struct htlc_out_map *map, struct htlc_out *hend)
 {
-	tal_add_destructor2(hend, destroy_htlc_out, map);
+	tal_add_destructor2(hend, htlc_out_destroy, map);
 	htlc_out_map_add(map, hend);
 }
 
@@ -219,7 +219,7 @@ static void htlc_out_clear_hin(struct htlc_in *hin, struct htlc_out *hout)
 	hout->in = NULL;
 }
 
-static void destroy_htlc_out_with_hin(struct htlc_out *hout)
+static void htlc_out_with_hin_destroy(struct htlc_out *hout)
 {
 	/* Don't try to clear our ptr if we're freed before hin! */
 	if (hout->in)
@@ -231,7 +231,7 @@ void htlc_out_connect_htlc_in(struct htlc_out *hout, struct htlc_in *hin)
 	assert(!hout->in);
 	hout->in = hin;
 	tal_add_destructor2(hin, htlc_out_clear_hin, hout);
-	tal_add_destructor(hout, destroy_htlc_out_with_hin);
+	tal_add_destructor(hout, htlc_out_with_hin_destroy);
 }
 
 /* You need to set the ID, then connect_htlc_out this! */

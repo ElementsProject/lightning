@@ -92,7 +92,7 @@ bool txowatch_eq(const struct txowatch *w, const struct txwatch_output *out)
 		&& w->out.index == out->index;
 }
 
-static void destroy_txowatch(struct txowatch *w)
+static void txowatch_destroy(struct txowatch *w)
 {
 	txowatch_hash_del(&w->topo->txowatches, w);
 }
@@ -113,7 +113,7 @@ bool txwatch_eq(const struct txwatch *w, const struct bitcoin_txid *txid)
 	return bitcoin_txid_eq(&w->txid, txid);
 }
 
-static void destroy_txwatch(struct txwatch *w)
+static void txwatch_destroy(struct txwatch *w)
 {
 	txwatch_hash_del(&w->topo->txwatches, w);
 }
@@ -137,7 +137,7 @@ struct txwatch *watch_txid(const tal_t *ctx,
 	w->cb = cb;
 
 	txwatch_hash_add(&w->topo->txwatches, w);
-	tal_add_destructor(w, destroy_txwatch);
+	tal_add_destructor(w, txwatch_destroy);
 
 	return w;
 }
@@ -200,7 +200,7 @@ struct txowatch *watch_txo(const tal_t *ctx,
 	w->cb = cb;
 
 	txowatch_hash_add(&w->topo->txowatches, w);
-	tal_add_destructor(w, destroy_txowatch);
+	tal_add_destructor(w, txowatch_destroy);
 
 	return w;
 }

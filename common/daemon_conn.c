@@ -104,7 +104,7 @@ static struct io_plan *daemon_conn_start(struct io_conn *conn,
 					daemon_conn_write_next, dc));
 }
 
-static void destroy_dc_from_conn(struct io_conn *conn, struct daemon_conn *dc)
+static void dc_from_conn_destroy(struct io_conn *conn, struct daemon_conn *dc)
 {
 	/* Harmless free loop if conn is being destroyed because dc freed */
 	tal_free(dc);
@@ -126,7 +126,7 @@ struct daemon_conn *daemon_conn_new_(const tal_t *ctx, int fd,
 	dc->out = msg_queue_new(dc);
 
 	dc->conn = io_new_conn(dc, fd, daemon_conn_start, dc);
-	tal_add_destructor2(dc->conn, destroy_dc_from_conn, dc);
+	tal_add_destructor2(dc->conn, dc_from_conn_destroy, dc);
 	return dc;
 }
 

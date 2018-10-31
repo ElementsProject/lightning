@@ -31,7 +31,7 @@ struct sendpay_command {
 	void *cbarg;
 };
 
-static void destroy_sendpay_command(struct sendpay_command *pc)
+static void sendpay_command_destroy(struct sendpay_command *pc)
 {
 	list_del(&pc->list);
 }
@@ -51,7 +51,7 @@ add_sendpay_waiter(const tal_t *cxt,
 	pc->cb = cb;
 	pc->cbarg = cbarg;
 	list_add(&ld->sendpay_commands, &pc->list);
-	tal_add_destructor(pc, destroy_sendpay_command);
+	tal_add_destructor(pc, sendpay_command_destroy);
 }
 
 /* Owned by cxt; if cxt is deleted, then cb will
@@ -69,7 +69,7 @@ add_waitsendpay_waiter(const tal_t *cxt,
 	pc->cb = cb;
 	pc->cbarg = cbarg;
 	list_add(&ld->waitsendpay_commands, &pc->list);
-	tal_add_destructor(pc, destroy_sendpay_command);
+	tal_add_destructor(pc, sendpay_command_destroy);
 }
 
 /* Caller responsible for freeing ctx. */

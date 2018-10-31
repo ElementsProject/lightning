@@ -344,7 +344,7 @@ fail:
  *
  * We could queue this and wait for it to come back, but this is simple.
  */
-static void destroy_hout_subd_died(struct htlc_out *hout)
+static void hout_subd_died_destroy(struct htlc_out *hout)
 {
 	log_debug(hout->key.channel->log,
 		  "Failing HTLC %"PRIu64" due to peer death",
@@ -391,7 +391,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 			local_fail_htlc(hout->in, failure_code,
 					hout->key.channel->scid);
 		/* Prevent hout from being failed twice. */
-		tal_del_destructor(hout, destroy_hout_subd_died);
+		tal_del_destructor(hout, hout_subd_died_destroy);
 		tal_free(hout);
 		return;
 	}
@@ -452,7 +452,7 @@ enum onion_type send_htlc_out(struct channel *out, u64 amount, u32 cltv,
 	/* Make peer's daemon own it, catch if it dies. */
 	hout = htlc_out_new(out->owner, out, amount, cltv,
 			    payment_hash, onion_routing_packet, in == NULL, in);
-	tal_add_destructor(hout, destroy_hout_subd_died);
+	tal_add_destructor(hout, hout_subd_died_destroy);
 
 	/* Give channel 30 seconds to commit (first) htlc. */
 	if (!out->htlc_timeout)
@@ -964,7 +964,7 @@ static bool update_out_htlc(struct channel *channel,
 
 	/* First transition into commitment; now it outlives peer. */
 	if (newstate == SENT_ADD_COMMIT) {
-		tal_del_destructor(hout, destroy_hout_subd_died);
+		tal_del_destructor(hout, hout_subd_died_destroy);
 		tal_steal(ld, hout);
 
 	} else if (newstate == RCVD_REMOVE_ACK_REVOCATION) {

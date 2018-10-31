@@ -55,7 +55,7 @@ struct close_command {
 	bool force;
 };
 
-static void destroy_peer(struct peer *peer)
+static void peer_destroy(struct peer *peer)
 {
 	list_del_from(&peer->ld->peers, &peer->list);
 }
@@ -95,7 +95,7 @@ struct peer *peer_new(struct lightningd *ld, u64 dbid,
 		      const struct pubkey *id,
 		      const struct wireaddr_internal *addr)
 {
-	/* We are owned by our channels, and freed manually by destroy_channel */
+	/* We are owned by our channels, and freed manually by channel_destroy */
 	struct peer *peer = tal(NULL, struct peer);
 
 	peer->ld = ld;
@@ -115,7 +115,7 @@ struct peer *peer_new(struct lightningd *ld, u64 dbid,
 	peer->log_book = log_book_new(128*1024, get_log_level(ld->log_book));
 	set_log_outfn(peer->log_book, copy_to_parent_log, ld->log);
 	list_add_tail(&ld->peers, &peer->list);
-	tal_add_destructor(peer, destroy_peer);
+	tal_add_destructor(peer, peer_destroy);
 	return peer;
 }
 
@@ -259,11 +259,11 @@ resolve_close_command(struct lightningd *ld, struct channel *channel,
 /* Destroy the close command structure in reaction to the
  * channel being destroyed. */
 static void
-destroy_close_command_on_channel_destroy(struct channel *_ UNUSED,
+close_command_on_channel_destroy_destroy(struct channel *_ UNUSED,
 					 struct close_command *cc)
 {
 	/* The cc has the command as parent, so resolving the
-	 * command destroys the cc and triggers destroy_close_command.
+	 * command destroys the cc and triggers close_command_destroy.
 	 * Clear the cc->channel first so that we will not try to
 	 * remove a destructor. */
 	cc->channel = NULL;
@@ -273,17 +273,17 @@ destroy_close_command_on_channel_destroy(struct channel *_ UNUSED,
 
 /* Destroy the close command structure. */
 static void
-destroy_close_command(struct close_command *cc)
+close_command_destroy(struct close_command *cc)
 {
 	list_del(&cc->list);
-	/* If destroy_close_command_on_channel_destroy was
+	/* If close_command_on_channel_destroy_destroy was
 	 * triggered beforehand, it will have cleared
 	 * the channel field, preventing us from removing it
 	 * from an already-destroyed channel. */
 	if (!cc->channel)
 		return;
 	tal_del_destructor2(cc->channel,
-			    &destroy_close_command_on_channel_destroy,
+			    &close_command_on_channel_destroy_destroy,
 			    cc);
 }
 
@@ -306,12 +306,11 @@ close_command_timeout(struct close_command *cc)
 }
 
 /* Construct a close command structure and add to ld. */
-static void
-register_close_command(struct lightningd *ld,
-		       struct command *cmd,
-		       struct channel *channel,
-		       unsigned int timeout,
-		       bool force)
+static void register_close_command(struct lightningd *ld,
+				   struct command *cmd,
+				   struct channel *channel,
+				   unsigned int timeout,
+				   bool force)
 {
 	struct close_command *cc;
 	assert(channel);
@@ -321,9 +320,9 @@ register_close_command(struct lightningd *ld,
 	cc->cmd = cmd;
 	cc->channel = channel;
 	cc->force = force;
-	tal_add_destructor(cc, &destroy_close_command);
+	tal_add_destructor(cc, &close_command_destroy);
 	tal_add_destructor2(channel,
-			    &destroy_close_command_on_channel_destroy,
+			    &close_command_on_channel_destroy_destroy,
 			    cc);
 	reltimer_new(&ld->timers, cc, time_from_sec(timeout),
 		     &close_command_timeout, cc);

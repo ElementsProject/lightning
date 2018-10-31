@@ -33,7 +33,7 @@ struct connect {
 	struct command *cmd;
 };
 
-static void destroy_connect(struct connect *c)
+static void connect_destroy(struct connect *c)
 {
 	list_del(&c->list);
 }
@@ -46,7 +46,7 @@ static struct connect *connect_new(struct lightningd *ld,
 	c->id = *id;
 	c->cmd = cmd;
 	list_add_tail(&ld->connects, &c->list);
-	tal_add_destructor(c, destroy_connect);
+	tal_add_destructor(c, connect_destroy);
 	return c;
 }
 

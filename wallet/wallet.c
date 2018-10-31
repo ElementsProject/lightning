@@ -228,9 +228,9 @@ static void unreserve_utxo(struct wallet *w, const struct utxo *unres)
 }
 
 /**
- * destroy_utxos - Destructor for an array of pointers to utxo
+ * utxos_destroy - Destructor for an array of pointers to utxo
  */
-static void destroy_utxos(const struct utxo **utxos, struct wallet *w)
+static void utxos_destroy(const struct utxo **utxos, struct wallet *w)
 {
 	for (size_t i = 0; i < tal_count(utxos); i++)
 		unreserve_utxo(w, utxos[i]);
@@ -238,7 +238,7 @@ static void destroy_utxos(const struct utxo **utxos, struct wallet *w)
 
 void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos)
 {
-	tal_del_destructor2(utxos, destroy_utxos, w);
+	tal_del_destructor2(utxos, utxos_destroy, w);
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		if (!wallet_update_output_status(
 			w, &utxos[i]->txid, utxos[i]->outnum,
@@ -260,7 +260,7 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 	struct utxo **available;
 	u64 weight;
 	const struct utxo **utxos = tal_arr(ctx, const struct utxo *, 0);
-	tal_add_destructor2(utxos, destroy_utxos, w);
+	tal_add_destructor2(utxos, utxos_destroy, w);
 
 	/* version, input count, output count, locktime */
 	weight = (4 + 1 + 1 + 4) * 4;
@@ -1596,7 +1596,7 @@ find_unstored_payment(struct wallet *wallet, const struct sha256 *payment_hash)
 	return NULL;
 }
 
-static void destroy_unstored_payment(struct wallet_payment *payment)
+static void unstored_payment_destroy(struct wallet_payment *payment)
 {
 	list_del(&payment->list);
 }
@@ -1606,7 +1606,7 @@ void wallet_payment_setup(struct wallet *wallet, struct wallet_payment *payment)
 	assert(!find_unstored_payment(wallet, &payment->payment_hash));
 
 	list_add_tail(&wallet->unstored_payments, &payment->list);
-	tal_add_destructor(payment, destroy_unstored_payment);
+	tal_add_destructor(payment, unstored_payment_destroy);
 }
 
 void wallet_payment_store(struct wallet *wallet,

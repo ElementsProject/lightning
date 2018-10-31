@@ -222,8 +222,9 @@ static bool broken_resolver(struct daemon *daemon)
 }
 
 /*~ Here we see our first tal destructor: in this case the 'struct connect'
- * simply removes itself from the list of all 'connect' structs. */
-static void destroy_connecting(struct connecting *connect)
+ * simply removes itself from the list of all 'connect' structs.  By convention,
+ * these are called `xxx_destroy`. */
+static void connecting_destroy(struct connecting *connect)
 {
 	/*~ We don't *need* the list_head here; `list_del(&connect->list)`
 	 * would work.  But we have access to it, and `list_del_from()` is
@@ -259,7 +260,7 @@ static void connected_to_peer(struct daemon *daemon,
 			      struct io_conn *conn,
 			      const struct pubkey *id)
 {
-	/* Don't call destroy_io_conn */
+	/* Don't call io_conn_destroy */
 	io_set_finish(conn, NULL, NULL);
 
 	/* We allocate 'conn' as a child of 'connect': we don't want to free
@@ -564,7 +565,7 @@ static void PRINTF_FMT(5,6)
  * This is a specialized form of destructor which takes an extra argument;
  * it set up by either the creatively-named tal_add_destructor2(), or by
  * the ccan/io's io_set_finish() on a connection. */
-static void destroy_io_conn(struct io_conn *conn, struct connecting *connect)
+static void io_conn_destroy(struct io_conn *conn, struct connecting *connect)
 {
 	/*~ tal_append_fmt appends to a tal string.  It's terribly convenient */
 	const char *errstr = strerror(errno);
@@ -620,7 +621,7 @@ static struct io_plan *conn_init(struct io_conn *conn,
 	}
 	assert(ai);
 
-	io_set_finish(conn, destroy_io_conn, connect);
+	io_set_finish(conn, io_conn_destroy, connect);
 	return io_connect(conn, ai, connection_out, connect);
 }
 
@@ -652,7 +653,7 @@ static struct io_plan *conn_proxy_init(struct io_conn *conn,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Can't connect to %u address", addr->itype);
 
-	io_set_finish(conn, destroy_io_conn, connect);
+	io_set_finish(conn, io_conn_destroy, connect);
 	return io_tor_connect(conn, connect->daemon->proxyaddr, host, port,
 			      connect);
 }
@@ -1314,7 +1315,7 @@ static void try_connect_peer(struct daemon *daemon,
 	connect->addrhint = tal_steal(connect, addrhint);
 	connect->errors = tal_strdup(connect, "");
 	list_add_tail(&daemon->connecting, &connect->list);
-	tal_add_destructor(connect, destroy_connecting);
+	tal_add_destructor(connect, connecting_destroy);
 
 	/* Now we kick it off by trying connect->addrs[connect->addrnum] */
 	try_connect_one_addr(connect);

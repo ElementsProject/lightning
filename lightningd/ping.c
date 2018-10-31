@@ -31,7 +31,7 @@ static struct ping_command *find_ping_cmd(struct lightningd *ld,
 	return NULL;
 }
 
-static void destroy_ping_command(struct ping_command *pc)
+static void ping_command_destroy(struct ping_command *pc)
 {
 	list_del(&pc->list);
 }
@@ -46,7 +46,7 @@ static struct ping_command *ping_command_new(const tal_t *ctx,
 	pc->id = *peer_id;
 	pc->cmd = cmd;
 	list_add_tail(&ld->ping_commands, &pc->list);
-	tal_add_destructor(pc, destroy_ping_command);
+	tal_add_destructor(pc, ping_command_destroy);
 
 	return pc;
 }

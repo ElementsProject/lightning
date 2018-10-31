@@ -121,7 +121,7 @@ bool node_map_node_eq(const struct node *n, const struct pubkey *key)
 	return pubkey_eq(&n->id, key);
 }
 
-static void destroy_node(struct node *node, struct routing_state *rstate)
+static void node_destroy(struct node *node, struct routing_state *rstate)
 {
 	node_map_del(rstate->nodes, node);
 
@@ -151,7 +151,7 @@ static struct node *node_new(struct routing_state *rstate,
 	n->last_timestamp = -1;
 	n->addresses = tal_arr(n, struct wireaddr, 0);
 	node_map_add(rstate->nodes, n);
-	tal_add_destructor2(n, destroy_node, rstate);
+	tal_add_destructor2(n, node_destroy, rstate);
 
 	return n;
 }
@@ -248,7 +248,7 @@ static void remove_chan_from_node(struct routing_state *rstate,
 	}
 }
 
-static void destroy_chan(struct chan *chan, struct routing_state *rstate)
+static void chan_destroy(struct chan *chan, struct routing_state *rstate)
 {
 	remove_chan_from_node(rstate, chan->nodes[0], chan);
 	remove_chan_from_node(rstate, chan->nodes[1], chan);
@@ -321,7 +321,7 @@ struct chan *chan_new(struct routing_state *rstate,
 
 	uintmap_add(&rstate->chanmap, scid->u64, chan);
 
-	tal_add_destructor2(chan, destroy_chan, rstate);
+	tal_add_destructor2(chan, chan_destroy, rstate);
 	return chan;
 }
 
@@ -688,7 +688,7 @@ find_pending_cannouncement(struct routing_state *rstate,
 	return NULL;
 }
 
-static void destroy_pending_cannouncement(struct pending_cannouncement *pending,
+static void pending_cannouncement_destroy(struct pending_cannouncement *pending,
 					  struct routing_state *rstate)
 {
 	list_del_from(&rstate->pending_cannouncement, &pending->list);
@@ -888,7 +888,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	add_pending_node_announcement(rstate, &pending->node_id_2);
 
 	list_add_tail(&rstate->pending_cannouncement, &pending->list);
-	tal_add_destructor2(pending, destroy_pending_cannouncement, rstate);
+	tal_add_destructor2(pending, pending_cannouncement_destroy, rstate);
 
 	/* Success */
 	*scid = &pending->short_channel_id;
