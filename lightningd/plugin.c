@@ -23,6 +23,8 @@ struct plugin {
 	/* Stuff we write */
 	struct list_head output;
 	const char *outbuf;
+
+	struct log *log;
 };
 
 struct plugin_request {
@@ -46,6 +48,7 @@ struct plugins {
 
 	/* Currently pending requests by their request ID */
 	UINTMAP(struct plugin_request *) pending_requests;
+	struct log *log;
 };
 
 struct json_output {
@@ -53,10 +56,11 @@ struct json_output {
 	const char *json;
 };
 
-struct plugins *plugins_new(const tal_t *ctx){
+struct plugins *plugins_new(const tal_t *ctx, struct log *log){
 	struct plugins *p;
 	p = tal(ctx, struct plugins);
 	p->plugins = tal_arr(p, struct plugin *, 0);
+	p->log = log;
 	return p;
 }
 
@@ -69,6 +73,18 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 	plugins->plugins[n] = p;
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
+	p->log = plugins->log;
+}
+
+/**
+ * Kill a plugin process, with an error message.
+ */
+static void plugin_kill(struct plugin *plugin, char *msg)
+{
+	log_broken(plugin->log, "Killing plugin: %s", msg);
+	plugin->stop = true;
+	io_wake(plugin);
+	kill(plugin->pid, SIGKILL);
 }
 
 /**
@@ -91,8 +107,8 @@ static bool plugin_read_json_one(struct plugin *plugin)
 	toks = json_parse_input(plugin->buffer, plugin->used, &valid);
 	if (!toks) {
 		if (!valid) {
-			/* FIXME (cdecker) Print error and kill the plugin */
-			return io_close(plugin->stdout_conn);
+			plugin_kill(plugin, "Failed to parse JSON response");
+			return false;
 		}
 		/* We need more. */
 		return false;
@@ -108,23 +124,24 @@ static bool plugin_read_json_one(struct plugin *plugin)
 	errortok = json_get_member(plugin->buffer, toks, "error");
 	idtok = json_get_member(plugin->buffer, toks, "id");
 
-	/* FIXME(cdecker) Kill the plugin if either of these fails */
 	if (!idtok) {
+		plugin_kill(plugin, "JSON-RPC response does not contain an \"id\"-field");
 		return false;
 	} else if (!resulttok && !errortok) {
+		plugin_kill(plugin, "JSON-RPC response does not contain a \"result\" or \"error\" field");
 		return false;
 	}
 
 	/* We only send u64 ids, so if this fails it's a critical error */
 	if (!json_to_u64(plugin->buffer, idtok, &id)) {
-		/* FIXME (cdecker) Log an error message and kill the plugin */
+		plugin_kill(plugin, "JSON-RPC response \"id\"-field is not a u64");
 		return false;
 	}
 
 	request = uintmap_get(&plugin->plugins->pending_requests, id);
 
 	if (!request) {
-		/* FIXME(cdecker) Log an error and kill the plugin */
+		plugin_kill(plugin, "Received a JSON-RPC response for non-existent request");
 		return false;
 	}
 
@@ -154,6 +171,9 @@ static struct io_plan *plugin_read_json(struct io_conn *conn UNUSED,
 	do {
 		success = plugin_read_json_one(plugin);
 	} while (success);
+
+	if (plugin->stop)
+		return io_close(plugin->stdout_conn);
 
 	/* Now read more from the connection */
 	return io_read_partial(plugin->stdout_conn,

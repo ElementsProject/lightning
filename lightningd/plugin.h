@@ -4,6 +4,7 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/tal.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/log.h>
 
 /**
  * A collection of plugins, and some associated information.
@@ -15,7 +16,7 @@ struct plugins;
 /**
  * Create a new plugins context.
  */
-struct plugins *plugins_new(const tal_t *ctx);
+struct plugins *plugins_new(const tal_t *ctx, struct log *log);
 
 /**
  * Initialize the registered plugins.
