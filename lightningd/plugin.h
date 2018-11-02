@@ -38,6 +38,15 @@ void plugins_init(struct plugins *plugins);
 void plugin_register(struct plugins *plugins, const char* path TAKES);
 
 /**
+ * Send the configure message to all plugins.
+ *
+ * Once we've collected all the command line arguments we can go ahead
+ * and send them over to the plugin. This finalizes the initialization
+ * of the plugins and signals that lightningd is now ready to process
+ * incoming JSON-RPC calls and messages.
+ */
+void plugins_config(struct plugins *plugins);
+/**
  * Add the plugin option and their respective options to listconfigs.
  *
  * This adds a dict that maps the plugin name to a dict of configuration options
