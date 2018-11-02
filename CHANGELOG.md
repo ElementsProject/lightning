@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+### Changed
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for
+changes.
+
+### Removed
+
+### Fixed
+
+- JSON API: uppercase invoices now parsed correctly (broken in 0.6.2).
+
+### Security
+
+
 ## [0.6.2] - 2018-10-20: "The Consensus Loving Nasal Daemon"
 
 This release named by practicalswift.
