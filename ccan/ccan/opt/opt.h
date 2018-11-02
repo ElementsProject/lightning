@@ -287,6 +287,30 @@ bool opt_early_parse(int argc, char *argv[],
 		     void (*errlog)(const char *fmt, ...));
 
 /**
+ * opt_early_parse_incomplete - parse early arguments, ignoring unknown ones.
+ * @argc: argc
+ * @argv: argv array.
+ * @errlog: the function to print errors
+ *
+ * If you have plugins, you might need to do early parsing (eg. to find the
+ * plugin directory) but you don't know what options the plugins will want.
+ *
+ * Thus, this function is just like opt_early_parse, but ignores unknown options.
+ *
+ * Example:
+ *	if (!opt_early_parse_incomplete(argc, argv, opt_log_stderr)) {
+ *		printf("You screwed up, aborting!\n");
+ *		exit(1);
+ *	}
+ *
+ * See Also:
+ *	opt_early_parse()
+ */
+bool opt_early_parse_incomplete(int argc, char *argv[],
+				void (*errlog)(const char *fmt, ...));
+
+
+/**
  * opt_free_table - reset the opt library.
  *
  * This frees the internal memory and returns counters to zero.  Call
