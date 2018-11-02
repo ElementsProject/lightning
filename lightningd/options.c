@@ -724,7 +724,7 @@ void register_opts(struct lightningd *ld)
 {
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 
-	opt_register_early_noarg("--help|-h", opt_lightningd_usage, ld,
+	opt_register_noarg("--help|-h", opt_lightningd_usage, ld,
 				 "Print this message.");
 	opt_register_early_noarg("--test-daemons-only",
 				 test_subdaemons_and_exit,

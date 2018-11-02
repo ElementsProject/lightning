@@ -3,6 +3,7 @@
 #include <ccan/intmap/intmap.h>
 #include <ccan/io/io.h>
 #include <ccan/list/list.h>
+#include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/tal/str/str.h>
 #include <lightningd/json.h>
@@ -25,17 +26,22 @@ struct plugin {
 	const char *outbuf;
 
 	struct log *log;
+
+	/* List of options that this plugin registered */
+	struct list_head plugin_opts;
 };
 
 struct plugin_request {
 	u64 id;
+	struct plugin *plugin;
+
 	/* Method to be called */
 	const char *method;
 
 	/* JSON encoded params, either a dict or an array */
 	const char *json_params;
 	const char *response;
-	const jsmntok_t *resulttok, *errortok;
+	const jsmntok_t *resulttok, *errortok, *toks;
 
 	/* The response handler to be called on success or error */
 	void (*cb)(const struct plugin_request *, void *);
@@ -56,6 +62,15 @@ struct json_output {
 	const char *json;
 };
 
+/* Simple storage for plugin options inbetween registering them on the
+ * command line and passing them off to the plugin */
+struct plugin_opt {
+	struct list_node list;
+	const char *name;
+	const char *description;
+	char *value;
+};
+
 struct plugins *plugins_new(const tal_t *ctx, struct log *log){
 	struct plugins *p;
 	p = tal(ctx, struct plugins);
@@ -74,6 +89,7 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
 	p->log = plugins->log;
+	list_head_init(&p->plugin_opts);
 }
 
 /**
@@ -149,6 +165,7 @@ static bool plugin_read_json_one(struct plugin *plugin)
 	request->response = plugin->buffer;
 	request->errortok = errortok;
 	request->resulttok = resulttok;
+	request->toks = toks;
 	request->cb(request, request->arg);
 
 	/* Move this object out of the buffer */
@@ -217,6 +234,7 @@ static void plugin_request_send_(
 	req->json_params = tal_strdup(req, params);
 	req->cb = cb;
 	req->arg = arg;
+	req->plugin = plugin;
 
 	/* Add to map so we can find it later when routing the response */
 	uintmap_add(&plugin->plugins->pending_requests, req->id, req);
@@ -261,6 +279,90 @@ static struct io_plan *plugin_conn_init(struct io_conn *conn,
 	}
 }
 
+/* Callback called when parsing options. It just stores the value in
+ * the plugin_opt */
+static char *plugin_opt_set(const char *arg, struct plugin_opt *popt)
+{
+	popt->value = tal_strdup(popt, arg);
+	return NULL;
+}
+
+/* Add a single plugin option to the plugin as well as registering it with the
+ * command line options. */
+static bool plugin_opt_add(struct plugin *plugin, const char *buffer,
+			   const jsmntok_t *opt)
+{
+	const jsmntok_t *nametok, *typetok, *defaulttok, *desctok;
+	struct plugin_opt *popt;
+	nametok = json_get_member(buffer, opt, "name");
+	typetok = json_get_member(buffer, opt, "type");
+	desctok = json_get_member(buffer, opt, "description");
+	defaulttok = json_get_member(buffer, opt, "default");
+
+	if (!typetok || !nametok || !desctok) {
+		plugin_kill(plugin,
+			    "An option is missing either \"name\", \"description\" or \"type\"");
+		return false;
+	}
+
+	/* FIXME(cdecker) Support numeric and boolean options as well */
+	if (!json_tok_streq(buffer, typetok, "string")) {
+		plugin_kill(plugin,
+			    "Only \"string\" options currently supported");
+		return false;
+	}
+
+	popt = tal(plugin, struct plugin_opt);
+
+	popt->name = tal_fmt(plugin, "--%.*s", nametok->end - nametok->start,
+			     buffer + nametok->start);
+	popt->value = NULL;
+	if (defaulttok) {
+		popt->value = tal_strndup(plugin, buffer + defaulttok->start,
+					  defaulttok->end - defaulttok->start);
+		popt->description = tal_fmt(
+		    plugin, "%.*s (default: %s)", desctok->end - desctok->start,
+		    buffer + desctok->start, popt->value);
+	} else {
+		popt->description = tal_strndup(plugin, buffer + desctok->start,
+						desctok->end - desctok->start);
+	}
+
+	list_add_tail(&plugin->plugin_opts, &popt->list);
+
+	opt_register_arg(popt->name, plugin_opt_set, NULL, popt,
+			 popt->description);
+	return true;
+}
+
+/* Iterate through the options in the init response, and add them to
+ * the plugin and the command line options */
+static bool plugin_opts_add(const struct plugin_request *req)
+{
+	const char *buffer = req->plugin->buffer;
+	const jsmntok_t *cur, *options;
+
+	/* This is the parent for all elements in the "options" array */
+	int optpos;
+	options =
+	    json_get_member(req->plugin->buffer, req->resulttok, "options");
+	if (!options)
+		return false;
+
+	optpos = options - req->toks;
+
+	if (options->type != JSMN_ARRAY) {
+		plugin_kill(req->plugin, "\"result.options\" is not an array");
+		return false;
+	}
+
+	for (cur = options + 1; cur->parent == optpos; cur = json_next(cur))
+		if (!plugin_opt_add(req->plugin, buffer, cur))
+			return false;
+
+	return true;
+}
+
 /**
  * Callback for the plugin_init request.
  */
@@ -270,6 +372,14 @@ static void plugin_init_cb(const struct plugin_request *req, struct plugin *plug
 	plugin->plugins->pending_init--;
 	if (plugin->plugins->pending_init == 0)
 		io_break(plugin->plugins);
+
+	if (req->resulttok->type != JSMN_OBJECT) {
+		plugin_kill(plugin, "\"init\" response is not an object");
+		return;
+	}
+
+	if (!plugin_opts_add(req))
+		return;
 }
 
 void plugins_init(struct plugins *plugins)
