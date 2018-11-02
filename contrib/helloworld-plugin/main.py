@@ -19,7 +19,10 @@ def json_hello(request):
 def json_init(request):
     return {
         "options": [
-            {"name": "greeting", "type": "string", "default": "World"},
+            {"name": "greeting",
+             "type": "string",
+             "default": "World",
+             "description": "What name should I call you?"},
         ],
         "rpcmethods": [
             {
