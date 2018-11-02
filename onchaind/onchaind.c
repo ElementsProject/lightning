@@ -1293,7 +1293,7 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 					 const struct htlc_stub *htlcs,
 					 u8 **htlc_scripts)
 {
-	struct bitcoin_tx *tx;
+	struct bitcoin_tx *tx = NULL;
 	secp256k1_ecdsa_signature localsig;
 	size_t i;
 
