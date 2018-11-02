@@ -411,6 +411,10 @@ void plugins_init(struct plugins *plugins)
 		io_loop(NULL, NULL);
 }
 
+void plugins_config(struct plugins *plugins)
+{
+}
+
 void json_add_opt_plugins(struct json_stream *response,
 			  const struct plugins *plugins)
 {
