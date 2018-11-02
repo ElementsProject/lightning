@@ -207,14 +207,15 @@ bool opt_parse(int *argc, char *argv[], void (*errlog)(const char *fmt, ...))
 	/* This helps opt_usage. */
 	opt_argv0 = argv[0];
 
-	while ((ret = parse_one(argc, argv, 0, &offset, errlog)) == 1);
+	while ((ret = parse_one(argc, argv, 0, &offset, errlog, false)) == 1);
 
 	/* parse_one returns 0 on finish, -1 on error */
 	return (ret == 0);
 }
 
-bool opt_early_parse(int argc, char *argv[],
-		     void (*errlog)(const char *fmt, ...))
+static bool early_parse(int argc, char *argv[],
+			void (*errlog)(const char *fmt, ...),
+			bool ignore_unknown)
 {
 	int ret;
 	unsigned off = 0;
@@ -226,12 +227,24 @@ bool opt_early_parse(int argc, char *argv[],
 	/* This helps opt_usage. */
 	opt_argv0 = argv[0];
 
-	while ((ret = parse_one(&argc, tmpargv, OPT_EARLY, &off, errlog)) == 1);
+	while ((ret = parse_one(&argc, tmpargv, OPT_EARLY, &off, errlog, ignore_unknown)) == 1);
 
 	opt_alloc.free(tmpargv);
 
 	/* parse_one returns 0 on finish, -1 on error */
 	return (ret == 0);
+}
+
+bool opt_early_parse(int argc, char *argv[],
+		     void (*errlog)(const char *fmt, ...))
+{
+	return early_parse(argc, argv, errlog, false);
+}
+
+bool opt_early_parse_incomplete(int argc, char *argv[],
+				void (*errlog)(const char *fmt, ...))
+{
+	return early_parse(argc, argv, errlog, true);
 }
 
 void opt_free_table(void)
