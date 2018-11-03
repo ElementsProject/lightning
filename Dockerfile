@@ -21,16 +21,16 @@ RUN apk add --no-cache \
 
 WORKDIR /opt
 
-ARG BITCOIN_VERSION=0.17.0
-ENV BITCOIN_TARBALL bitcoin-$BITCOIN_VERSION-$(uname -m)-linux-gnu.tar.gz
-ENV BITCOIN_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/$BITCOIN_TARBALL
+ENV BITCOIN_VERSION=0.17.0
 ENV BITCOIN_ASC_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/SHA256SUMS.asc
 ENV BITCOIN_PGP_KEY 01EA5486DE18A882D4C2684590C8019E36C2E964
 
-RUN mkdir /opt/bitcoin && cd /opt/bitcoin \
-    && wget -qO $BITCOIN_TARBALL "$BITCOIN_URL" \
+RUN set -ex \
+    && mkdir /opt/bitcoin && cd /opt/bitcoin \
+    && BITCOIN_TARBALL=bitcoin-${BITCOIN_VERSION}-$(uname -m)-linux-gnu.tar.gz \
+    && wget -q https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/${BITCOIN_TARBALL} \
     && gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "$BITCOIN_PGP_KEY" \
-    && wget -qO bitcoin.asc "$BITCOIN_ASC_URL" \
+    && wget -q bitcoin.asc "$BITCOIN_ASC_URL" \
     && gpg --verify bitcoin.asc \
     && grep $BITCOIN_TARBALL bitcoin.asc | tee SHA256SUMS.asc \
     && sha256sum -c SHA256SUMS.asc \
@@ -39,17 +39,18 @@ RUN mkdir /opt/bitcoin && cd /opt/bitcoin \
     && rm $BITCOIN_TARBALL
 
 ENV LITECOIN_VERSION 0.14.2
-ENV LITECOIN_URL https://download.litecoin.org/litecoin-0.14.2/linux/litecoin-0.14.2-$(uname -m)-linux-gnu.tar.gz
 ENV LITECOIN_SHA256 05f409ee57ce83124f2463a3277dc8d46fca18637052d1021130e4deaca07b3c
 ENV LITECOIN_ASC_URL https://download.litecoin.org/litecoin-0.14.2/linux/litecoin-0.14.2-linux-signatures.asc
 ENV LITECOIN_PGP_KEY FE3348877809386C
 
 # install litecoin binaries
-RUN mkdir /opt/litecoin && cd /opt/litecoin \
-    && wget -qO litecoin.tar.gz "$LITECOIN_URL" \
+RUN set -ex \
+    && mkdir /opt/litecoin && cd /opt/litecoin \
+    && LITECOIN_TARBALL=litecoin-${LITECOIN_VERSION}-$(uname -m)-linux-gnu.tar.gz \
+    && wget -q litecoin.tar.gz https://download.litecoin.org/litecoin-${LITECOIN_VERSION}/linux/${LITECOIN_TARBALL} \
     && echo "$LITECOIN_SHA256  litecoin.tar.gz" | sha256sum -c - \
     && gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "$LITECOIN_PGP_KEY" \
-    && wget -qO litecoin.asc "$LITECOIN_ASC_URL" \
+    && wget -q litecoin.asc "$LITECOIN_ASC_URL" \
     && gpg --verify litecoin.asc \
     && BD=litecoin-$LITECOIN_VERSION/bin \
     && tar -xzvf litecoin.tar.gz $BD/litecoin-cli --strip-components=1 --exclude=*-qt \
