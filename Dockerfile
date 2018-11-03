@@ -22,7 +22,7 @@ RUN apk add --no-cache \
 WORKDIR /opt
 
 ARG BITCOIN_VERSION=0.17.0
-ENV BITCOIN_TARBALL bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.gz
+ENV BITCOIN_TARBALL bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz
 ENV BITCOIN_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/$BITCOIN_TARBALL
 ENV BITCOIN_ASC_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/SHA256SUMS.asc
 ENV BITCOIN_PGP_KEY 01EA5486DE18A882D4C2684590C8019E36C2E964
@@ -39,15 +39,13 @@ RUN mkdir /opt/bitcoin && cd /opt/bitcoin \
     && rm $BITCOIN_TARBALL
 
 ENV LITECOIN_VERSION 0.16.3
-ENV LITECOIN_URL https://download.litecoin.org/litecoin-0.16.3/linux/litecoin-0.16.3-x86_64-linux-gnu.tar.gz
-ENV LITECOIN_SHA256 686d99d1746528648c2c54a1363d046436fd172beadaceea80bdc93043805994
-ENV LITECOIN_ASC_URL https://download.litecoin.org/litecoin-0.16.3/linux/litecoin-0.16.3-linux-signatures.asc
 ENV LITECOIN_PGP_KEY FE3348877809386C
+ENV LITECOIN_URL https://download.litecoin.org/litecoin-${LITECOIN_VERSION}/linux/litecoin-${LITECOIN_VERSION}-x86_64-linux-gnu.tar.gz
+ENV LITECOIN_ASC_URL https://download.litecoin.org/litecoin-${LITECOIN_VERSION}/linux/litecoin-${LITECOIN_VERSION}-linux-signatures.asc
 
 # install litecoin binaries
 RUN mkdir /opt/litecoin && cd /opt/litecoin \
     && wget -qO litecoin.tar.gz "$LITECOIN_URL" \
-    && echo "$LITECOIN_SHA256  litecoin.tar.gz" | sha256sum -c - \
     && gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "$LITECOIN_PGP_KEY" \
     && wget -qO litecoin.asc "$LITECOIN_ASC_URL" \
     && gpg --verify litecoin.asc \
