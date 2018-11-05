@@ -11,17 +11,21 @@ import json
 import sys
 
 
+greeting = "World"
+
+
 def json_hello(request):
     greeting = "Hello {}".format(request['params']['name'])
     return greeting
 
 
 def json_init(request):
+    global greeting
     return {
         "options": [
             {"name": "greeting",
              "type": "string",
-             "default": "World",
+             "default": greeting,
              "description": "What name should I call you?"},
         ],
         "rpcmethods": [
@@ -36,7 +40,10 @@ def json_init(request):
 def json_configure(request):
     """The main daemon is telling us the relevant cli options
     """
-    return None
+    global greeting
+
+    greeting = request['params']['options']['greeting']
+    return "ok"
 
 
 def json_ping(request):
@@ -47,6 +54,7 @@ methods = {
     'hello': json_hello,
     'init': json_init,
     'ping': json_ping,
+    'configure': json_configure,
 }
 
 partial = ""
