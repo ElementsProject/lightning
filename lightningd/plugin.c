@@ -413,8 +413,38 @@ void plugins_init(struct plugins *plugins)
 		io_loop(NULL, NULL);
 }
 
+static void plugin_config_cb(const struct plugin_request *req,
+			     struct plugin *plugin)
+{
+	/* Nothing to be done here, this is just a report */
+}
+
+/* FIXME(cdecker) This just builds a string for the request because
+ * the json_stream is tightly bound to the command interface. It
+ * should probably be generalized and fixed up. */
+static void plugin_config(struct plugin *plugin)
+{
+	struct plugin_opt *opt;
+	bool first = true;
+	const char *name, *sep;
+	char *conf = tal_fmt(tmpctx, "{\n  \"options\": {");
+	list_for_each(&plugin->plugin_opts, opt, list) {
+		/* Trim the `--` that we added before */
+		name = opt->name + 2;
+		/* Separator between elements in the same object */
+		sep = first?"":",";
+		first = false;
+		tal_append_fmt(&conf, "%s\n    \"%s\": \"%s\"", sep, name, opt->value);
+	}
+	tal_append_fmt(&conf, "\n  }\n}");
+	plugin_request_send(plugin, "configure", conf, plugin_config_cb, plugin);
+}
+
 void plugins_config(struct plugins *plugins)
 {
+	for (size_t i=0; i<tal_count(plugins->plugins); i++) {
+		plugin_config(plugins->plugins[i]);
+	}
 }
 
 void json_add_opt_plugins(struct json_stream *response,

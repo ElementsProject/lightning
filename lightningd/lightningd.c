@@ -607,6 +607,11 @@ int main(int argc, char *argv[])
 	/*~ Handle options and config; move to .lightningd (--lightning-dir) */
 	handle_opts(ld, argc, argv);
 
+	/*~ Now that we have collected all the early options, gave
+	 *  plugins a chance to register theirs and collected all
+	 *  remaining options it's time to tell the plugins. */
+	plugins_config(ld->plugins);
+
 	/*~ Make sure we can reach the subdaemons, and versions match. */
 	test_subdaemons(ld);
 
