@@ -46,6 +46,7 @@ FEATURES :=
 CCAN_OBJS :=					\
 	ccan-asort.o				\
 	ccan-autodata.o				\
+	ccan-bitmap.o				\
 	ccan-bitops.o				\
 	ccan-breakpoint.o			\
 	ccan-crc.o				\
@@ -97,6 +98,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/array_size/array_size.h		\
 	$(CCANDIR)/ccan/asort/asort.h			\
 	$(CCANDIR)/ccan/autodata/autodata.h		\
+	$(CCANDIR)/ccan/bitmap/bitmap.h			\
 	$(CCANDIR)/ccan/bitops/bitops.h			\
 	$(CCANDIR)/ccan/breakpoint/breakpoint.h		\
 	$(CCANDIR)/ccan/build_assert/build_assert.h	\
@@ -603,6 +605,8 @@ ccan-rbuf.o: $(CCANDIR)/ccan/rbuf/rbuf.c
 ccan-str-base32.o: $(CCANDIR)/ccan/str/base32/base32.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-utf8.o: $(CCANDIR)/ccan/utf8/utf8.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-bitmap.o: $(CCANDIR)/ccan/bitmap/bitmap.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-membuf.o: $(CCANDIR)/ccan/membuf/membuf.c
 	$(CC) $(CFLAGS) -c -o $@ $<
