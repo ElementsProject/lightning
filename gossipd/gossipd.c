@@ -186,22 +186,6 @@ static void wake_gossip_out(struct peer *peer)
 	daemon_conn_wake(peer->dc);
 }
 
-static void peer_error(struct peer *peer, const char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
-	status_trace("peer %s: %s",
-		     type_to_string(tmpctx, struct pubkey, &peer->id),
-		     tal_vfmt(tmpctx, fmt, ap));
-	va_end(ap);
-
-	/* Send error: we'll close after writing this. */
-	va_start(ap, fmt);
-	queue_peer_msg(peer, take(towire_errorfmtv(peer, NULL, fmt, ap)));
-	va_end(ap);
-}
-
 static u8 *encode_short_channel_ids_start(const tal_t *ctx)
 {
 	u8 *encoded = tal_arr(ctx, u8, 0);
@@ -390,54 +374,34 @@ static void maybe_send_own_node_announce(struct daemon *daemon)
 	daemon->rstate->local_channel_announced = false;
 }
 
-/**
- * Handle an incoming gossip message
- *
- * Returns wire formatted error if handling failed. The error contains the
- * details of the failures. The caller is expected to return the error to the
- * peer, or drop the error if the message did not come from a peer.
- */
-static u8 *handle_gossip_msg(struct daemon *daemon, const u8 *msg,
-			     const char *source)
+static const u8 *handle_channel_announcement_msg(struct peer *peer,
+						 const u8 *msg)
 {
-	struct routing_state *rstate = daemon->rstate;
-	int t = fromwire_peektype(msg);
-	u8 *err;
+	const struct short_channel_id *scid;
+	const u8 *err;
 
-	switch(t) {
-	case WIRE_CHANNEL_ANNOUNCEMENT: {
-		const struct short_channel_id *scid;
-		/* If it's OK, tells us the short_channel_id to lookup */
-		err = handle_channel_announcement(rstate, msg, &scid);
-		if (err)
-			return err;
-		else if (scid)
-			daemon_conn_send(daemon->master,
-					 take(towire_gossip_get_txout(NULL,
-								      scid)));
-		break;
-	}
-
-	case WIRE_NODE_ANNOUNCEMENT:
-		err = handle_node_announcement(rstate, msg);
-		if (err)
-			return err;
-		break;
-
-	case WIRE_CHANNEL_UPDATE:
-		err = handle_channel_update(rstate, msg, source);
-		if (err)
-			return err;
-		/* In case we just announced a new local channel. */
-		maybe_send_own_node_announce(daemon);
-		break;
-	}
-
-	/* All good, no error to report */
+	/* If it's OK, tells us the short_channel_id to lookup */
+	err = handle_channel_announcement(peer->daemon->rstate, msg, &scid);
+	if (err)
+		return err;
+	else if (scid)
+		daemon_conn_send(peer->daemon->master,
+				 take(towire_gossip_get_txout(NULL, scid)));
 	return NULL;
 }
 
-static void handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
+static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
+{
+	u8 *err = handle_channel_update(peer->daemon->rstate, msg, "subdaemon");
+	if (err)
+		return err;
+
+	/* In case we just announced a new local channel. */
+	maybe_send_own_node_announce(peer->daemon);
+	return NULL;
+}
+
+static const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 {
 	struct routing_state *rstate = peer->daemon->rstate;
 	struct bitcoin_blkid chain;
@@ -445,16 +409,16 @@ static void handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 	struct short_channel_id *scids;
 
 	if (!fromwire_query_short_channel_ids(tmpctx, msg, &chain, &encoded)) {
-		peer_error(peer, "Bad query_short_channel_ids %s",
-			   tal_hex(tmpctx, msg));
-		return;
+		return towire_errorfmt(peer, NULL,
+				       "Bad query_short_channel_ids %s",
+				       tal_hex(tmpctx, msg));
 	}
 
 	if (!bitcoin_blkid_eq(&rstate->chain_hash, &chain)) {
 		status_trace("%s sent query_short_channel_ids chainhash %s",
 			     type_to_string(tmpctx, struct pubkey, &peer->id),
 			     type_to_string(tmpctx, struct bitcoin_blkid, &chain));
-		return;
+		return NULL;
 	}
 
 	/* BOLT #7:
@@ -465,15 +429,15 @@ static void handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 	 *    - MAY fail the connection.
 	 */
 	if (peer->scid_queries || peer->scid_query_nodes) {
-		peer_error(peer, "Bad concurrent query_short_channel_ids");
-		return;
+		return towire_errorfmt(peer, NULL,
+				       "Bad concurrent query_short_channel_ids");
 	}
 
 	scids = decode_short_ids(tmpctx, encoded);
 	if (!scids) {
-		peer_error(peer, "Bad query_short_channel_ids encoding %s",
-			   tal_hex(tmpctx, encoded));
-		return;
+		return towire_errorfmt(peer, NULL,
+				       "Bad query_short_channel_ids encoding %s",
+				       tal_hex(tmpctx, encoded));
 	}
 
 	/* BOLT #7:
@@ -489,9 +453,10 @@ static void handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 
 	/* Notify the daemon_conn-write loop */
 	daemon_conn_wake(peer->dc);
+	return NULL;
 }
 
-static void handle_gossip_timestamp_filter(struct peer *peer, const u8 *msg)
+static u8 *handle_gossip_timestamp_filter(struct peer *peer, const u8 *msg)
 {
 	struct bitcoin_blkid chain_hash;
 	u32 first_timestamp, timestamp_range;
@@ -499,9 +464,9 @@ static void handle_gossip_timestamp_filter(struct peer *peer, const u8 *msg)
 	if (!fromwire_gossip_timestamp_filter(msg, &chain_hash,
 					      &first_timestamp,
 					      &timestamp_range)) {
-		peer_error(peer, "Bad gossip_timestamp_filter %s",
-			   tal_hex(tmpctx, msg));
-		return;
+		return towire_errorfmt(peer, NULL,
+				       "Bad gossip_timestamp_filter %s",
+				       tal_hex(tmpctx, msg));
 	}
 
 	if (!bitcoin_blkid_eq(&peer->daemon->rstate->chain_hash, &chain_hash)) {
@@ -509,7 +474,7 @@ static void handle_gossip_timestamp_filter(struct peer *peer, const u8 *msg)
 			     type_to_string(tmpctx, struct pubkey, &peer->id),
 			     type_to_string(tmpctx, struct bitcoin_blkid,
 					    &chain_hash));
-		return;
+		return NULL;
 	}
 
 	/* First time, start gossip sync immediately. */
@@ -523,6 +488,7 @@ static void handle_gossip_timestamp_filter(struct peer *peer, const u8 *msg)
 	if (peer->gossip_timestamp_max < peer->gossip_timestamp_min)
 		peer->gossip_timestamp_max = UINT32_MAX;
 	peer->broadcast_index = 0;
+	return NULL;
 }
 
 static void reply_channel_range(struct peer *peer,
@@ -612,16 +578,16 @@ static void queue_channel_ranges(struct peer *peer,
 			     number_of_blocks - number_of_blocks / 2);
 }
 
-static void handle_query_channel_range(struct peer *peer, const u8 *msg)
+static u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 {
 	struct bitcoin_blkid chain_hash;
 	u32 first_blocknum, number_of_blocks;
 
 	if (!fromwire_query_channel_range(msg, &chain_hash,
 					  &first_blocknum, &number_of_blocks)) {
-		peer_error(peer, "Bad query_channel_range %s",
-			   tal_hex(tmpctx, msg));
-		return;
+		return towire_errorfmt(peer, NULL,
+				       "Bad query_channel_range %s",
+				       tal_hex(tmpctx, msg));
 	}
 
 	if (!bitcoin_blkid_eq(&peer->daemon->rstate->chain_hash, &chain_hash)) {
@@ -629,18 +595,20 @@ static void handle_query_channel_range(struct peer *peer, const u8 *msg)
 			     type_to_string(tmpctx, struct pubkey, &peer->id),
 			     type_to_string(tmpctx, struct bitcoin_blkid,
 					    &chain_hash));
-		return;
+		return NULL;
 	}
 
 	if (first_blocknum + number_of_blocks < first_blocknum) {
-		peer_error(peer, "query_channel_range overflow %u+%u",
-			   first_blocknum, number_of_blocks);
-		return;
+		return towire_errorfmt(peer, NULL,
+				       "query_channel_range overflow %u+%u",
+				       first_blocknum, number_of_blocks);
 	}
+
 	queue_channel_ranges(peer, first_blocknum, number_of_blocks);
+	return NULL;
 }
 
-static void handle_reply_channel_range(struct peer *peer, const u8 *msg)
+static const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 {
 	struct bitcoin_blkid chain;
 	u8 complete;
@@ -652,52 +620,52 @@ static void handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	if (!fromwire_reply_channel_range(tmpctx, msg, &chain, &first_blocknum,
 					  &number_of_blocks, &complete,
 					  &encoded)) {
-		peer_error(peer, "Bad reply_channel_range %s",
-			   tal_hex(tmpctx, msg));
-		return;
+		return towire_errorfmt(peer, NULL,
+				       "Bad reply_channel_range %s",
+				       tal_hex(tmpctx, msg));
 	}
 
 	if (!bitcoin_blkid_eq(&peer->daemon->rstate->chain_hash, &chain)) {
-		peer_error(peer, "reply_channel_range for bad chain: %s",
-			   tal_hex(tmpctx, msg));
-		return;
+		return towire_errorfmt(peer, NULL,
+				       "reply_channel_range for bad chain: %s",
+				       tal_hex(tmpctx, msg));
 	}
 
 	if (!peer->query_channel_blocks) {
-		peer_error(peer, "reply_channel_range without query: %s",
-			   tal_hex(tmpctx, msg));
-		return;
+		return towire_errorfmt(peer, NULL,
+				       "reply_channel_range without query: %s",
+				       tal_hex(tmpctx, msg));
 	}
 
 	if (first_blocknum + number_of_blocks < first_blocknum) {
-		peer_error(peer, "reply_channel_range invalid %u+%u",
-			   first_blocknum, number_of_blocks);
-		return;
+		return towire_errorfmt(peer, NULL,
+				       "reply_channel_range invalid %u+%u",
+				       first_blocknum, number_of_blocks);
 	}
 
 	scids = decode_short_ids(tmpctx, encoded);
 	if (!scids) {
-		peer_error(peer, "Bad reply_channel_range encoding %s",
-			   tal_hex(tmpctx, encoded));
-		return;
+		return towire_errorfmt(peer, NULL,
+				       "Bad reply_channel_range encoding %s",
+				       tal_hex(tmpctx, encoded));
 	}
 
 	n = first_blocknum - peer->first_channel_range;
 	if (first_blocknum < peer->first_channel_range
 	    || n + number_of_blocks > tal_count(peer->query_channel_blocks)) {
-		peer_error(peer, "reply_channel_range invalid %u+%u for query %u+%u",
-			   first_blocknum, number_of_blocks,
-			   peer->first_channel_range,
-			   tal_count(peer->query_channel_blocks));
-		return;
+		return towire_errorfmt(peer, NULL,
+				       "reply_channel_range invalid %u+%u for query %u+%zu",
+				       first_blocknum, number_of_blocks,
+				       peer->first_channel_range,
+				       tal_count(peer->query_channel_blocks));
 	}
 
 	p = memchr(peer->query_channel_blocks + n, 1, number_of_blocks);
 	if (p) {
-		peer_error(peer, "reply_channel_range %u+%u already have block %zu",
-			   first_blocknum, number_of_blocks,
-			   peer->first_channel_range + (p - peer->query_channel_blocks));
-		return;
+		return towire_errorfmt(peer, NULL,
+				       "reply_channel_range %u+%u already have block %zu",
+					first_blocknum, number_of_blocks,
+					peer->first_channel_range + (p - peer->query_channel_blocks));
 	}
 
 	/* Mark these blocks received */
@@ -718,7 +686,7 @@ static void handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	/* Still more to go? */
 	if (memchr(peer->query_channel_blocks, 0,
 		   tal_count(peer->query_channel_blocks)))
-		return;
+		return NULL;
 
 	/* All done, send reply */
 	msg = towire_gossip_query_channel_range_reply(NULL,
@@ -729,61 +697,61 @@ static void handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	daemon_conn_send(peer->daemon->master, take(msg));
 	peer->query_channel_scids = tal_free(peer->query_channel_scids);
 	peer->query_channel_blocks = tal_free(peer->query_channel_blocks);
+	return NULL;
 }
 
-static void handle_ping(struct peer *peer, const u8 *ping)
+static u8 *handle_ping(struct peer *peer, const u8 *ping)
 {
 	u8 *pong;
 
-	if (!check_ping_make_pong(NULL, ping, &pong)) {
-		peer_error(peer, "Bad ping");
-		return;
-	}
+	if (!check_ping_make_pong(NULL, ping, &pong))
+		return towire_errorfmt(peer, NULL, "Bad ping");
 
 	if (pong)
 		queue_peer_msg(peer, take(pong));
+	return NULL;
 }
 
-static void handle_pong(struct peer *peer, const u8 *pong)
+static const u8 *handle_pong(struct peer *peer, const u8 *pong)
 {
 	const char *err = got_pong(pong, &peer->num_pings_outstanding);
 
-	if (err) {
-		peer_error(peer, "%s", err);
-		return;
-	}
+	if (err)
+		return towire_errorfmt(peer, NULL, "%s", err);
 
 	daemon_conn_send(peer->daemon->master,
 			 take(towire_gossip_ping_reply(NULL, &peer->id, true,
 						       tal_count(pong))));
+	return NULL;
 }
 
-static void handle_reply_short_channel_ids_end(struct peer *peer, const u8 *msg)
+static u8 *handle_reply_short_channel_ids_end(struct peer *peer, const u8 *msg)
 {
 	struct bitcoin_blkid chain;
 	u8 complete;
 
 	if (!fromwire_reply_short_channel_ids_end(msg, &chain, &complete)) {
-		peer_error(peer, "Bad reply_short_channel_ids_end %s",
-			   tal_hex(tmpctx, msg));
-		return;
+		return towire_errorfmt(peer, NULL,
+				       "Bad reply_short_channel_ids_end %s",
+				       tal_hex(tmpctx, msg));
 	}
 
 	if (!bitcoin_blkid_eq(&peer->daemon->rstate->chain_hash, &chain)) {
-		peer_error(peer, "reply_short_channel_ids_end for bad chain: %s",
-			   tal_hex(tmpctx, msg));
-		return;
+		return towire_errorfmt(peer, NULL,
+				       "reply_short_channel_ids_end for bad chain: %s",
+				       tal_hex(tmpctx, msg));
 	}
 
 	if (peer->num_scid_queries_outstanding == 0) {
-		peer_error(peer, "unexpected reply_short_channel_ids_end: %s",
-			   tal_hex(tmpctx, msg));
-		return;
+		return towire_errorfmt(peer, NULL,
+				       "unexpected reply_short_channel_ids_end: %s",
+				       tal_hex(tmpctx, msg));
 	}
 
 	peer->num_scid_queries_outstanding--;
 	msg = towire_gossip_scids_reply(msg, true, complete);
 	daemon_conn_send(peer->daemon->master, take(msg));
+	return NULL;
 }
 
 /* Arbitrary ordering function of pubkeys.
@@ -1059,7 +1027,7 @@ static bool local_direction(struct daemon *daemon,
 	return false;
 }
 
-static void handle_get_update(struct peer *peer, const u8 *msg)
+static bool handle_get_update(struct peer *peer, const u8 *msg)
 {
 	struct short_channel_id scid;
 	struct chan *chan;
@@ -1068,10 +1036,10 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 	int direction;
 
 	if (!fromwire_gossip_get_update(msg, &scid)) {
-		status_trace("peer %s sent bad gossip_get_update %s",
-			     type_to_string(tmpctx, struct pubkey, &peer->id),
-			     tal_hex(tmpctx, msg));
-		return;
+		status_broken("peer %s sent bad gossip_get_update %s",
+			      type_to_string(tmpctx, struct pubkey, &peer->id),
+			      tal_hex(tmpctx, msg));
+		return false;
 	}
 
 	chan = get_channel(rstate, &scid);
@@ -1107,6 +1075,7 @@ out:
 
 	msg = towire_gossip_get_update_reply(NULL, update);
 	daemon_conn_send(peer->dc, take(msg));
+	return true;
 }
 
 /* Return true if the information has changed. */
@@ -1125,7 +1094,7 @@ static bool halfchan_new_info(const struct half_chan *hc,
 		|| hc->htlc_maximum_msat != htlc_maximum_msat;
 }
 
-static void handle_local_channel_update(struct peer *peer, const u8 *msg)
+static bool handle_local_channel_update(struct peer *peer, const u8 *msg)
 {
 	struct chan *chan;
 	struct short_channel_id scid;
@@ -1148,7 +1117,7 @@ static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 		status_broken("peer %s bad local_channel_update %s",
 			      type_to_string(tmpctx, struct pubkey, &peer->id),
 			      tal_hex(tmpctx, msg));
-		return;
+		return false;
 	}
 
 	/* Can theoretically happen if channel just closed. */
@@ -1158,7 +1127,7 @@ static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 			      type_to_string(tmpctx, struct pubkey, &peer->id),
 			      type_to_string(tmpctx, struct short_channel_id,
 					     &scid));
-		return;
+		return true;
 	}
 
 	if (!local_direction(peer->daemon, chan, &direction)) {
@@ -1166,7 +1135,7 @@ static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 			      type_to_string(tmpctx, struct pubkey, &peer->id),
 			      type_to_string(tmpctx, struct short_channel_id,
 					     &scid));
-		return;
+		return false;
 	}
 
 	/* We could change configuration on restart; update immediately.
@@ -1192,52 +1161,132 @@ static void handle_local_channel_update(struct peer *peer, const u8 *msg)
 	/* Normal case: just toggle local_disabled, and generate broadcast in
 	 * maybe_update_local_channel when/if someone asks about it. */
 	chan->local_disabled = disable;
+	return true;
 }
 
 /**
- * owner_msg_in - Called by the `peer->remote` upon receiving a
- * message
+ * peer_msg_in - Called by the peer->dc upon receiving a message
  */
-static struct io_plan *owner_msg_in(struct io_conn *conn,
+static struct io_plan *peer_msg_in(struct io_conn *conn,
 				    const u8 *msg,
 				    struct peer *peer)
 {
-	u8 *err;
+	const u8 *err;
+	bool ok;
 
-	int type = fromwire_peektype(msg);
-	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
-	    type == WIRE_NODE_ANNOUNCEMENT) {
-		err = handle_gossip_msg(peer->daemon, msg, "subdaemon");
-		if (err)
-			queue_peer_msg(peer, take(err));
-	} else if (type == WIRE_QUERY_SHORT_CHANNEL_IDS) {
-		handle_query_short_channel_ids(peer, msg);
-	} else if (type == WIRE_REPLY_SHORT_CHANNEL_IDS_END) {
-		handle_reply_short_channel_ids_end(peer, msg);
-	} else if (type == WIRE_GOSSIP_TIMESTAMP_FILTER) {
-		handle_gossip_timestamp_filter(peer, msg);
-	} else if (type == WIRE_GOSSIP_GET_UPDATE) {
-		handle_get_update(peer, msg);
-	} else if (type == WIRE_GOSSIP_LOCAL_ADD_CHANNEL) {
-		gossip_store_add(peer->daemon->rstate->store, msg);
-		handle_local_add_channel(peer->daemon->rstate, msg);
-	} else if (type == WIRE_GOSSIP_LOCAL_CHANNEL_UPDATE) {
-		handle_local_channel_update(peer, msg);
-	} else if (type == WIRE_QUERY_CHANNEL_RANGE) {
-		handle_query_channel_range(peer, msg);
-	} else if (type == WIRE_REPLY_CHANNEL_RANGE) {
-		handle_reply_channel_range(peer, msg);
-	} else if (type == WIRE_PING) {
-		handle_ping(peer, msg);
-	} else if (type == WIRE_PONG) {
-		handle_pong(peer, msg);
-	} else {
-		status_broken("peer %s: send us unknown msg of type %s",
+	/* These are messages relayed from peer */
+	switch ((enum wire_type)fromwire_peektype(msg)) {
+	case WIRE_CHANNEL_ANNOUNCEMENT:
+		err = handle_channel_announcement_msg(peer, msg);
+		goto handled_relay;
+	case WIRE_CHANNEL_UPDATE:
+		err = handle_channel_update_msg(peer, msg);
+		goto handled_relay;
+	case WIRE_NODE_ANNOUNCEMENT:
+		err = handle_node_announcement(peer->daemon->rstate, msg);
+		goto handled_relay;
+	case WIRE_QUERY_CHANNEL_RANGE:
+		err = handle_query_channel_range(peer, msg);
+		goto handled_relay;
+	case WIRE_REPLY_CHANNEL_RANGE:
+		err = handle_reply_channel_range(peer, msg);
+		goto handled_relay;
+	case WIRE_QUERY_SHORT_CHANNEL_IDS:
+		err = handle_query_short_channel_ids(peer, msg);
+		goto handled_relay;
+	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
+		err = handle_reply_short_channel_ids_end(peer, msg);
+		goto handled_relay;
+	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+		err = handle_gossip_timestamp_filter(peer, msg);
+		goto handled_relay;
+	case WIRE_PING:
+		err = handle_ping(peer, msg);
+		goto handled_relay;
+	case WIRE_PONG:
+		err = handle_pong(peer, msg);
+		goto handled_relay;
+	case WIRE_INIT:
+	case WIRE_ERROR:
+	case WIRE_OPEN_CHANNEL:
+	case WIRE_ACCEPT_CHANNEL:
+	case WIRE_FUNDING_CREATED:
+	case WIRE_FUNDING_SIGNED:
+	case WIRE_FUNDING_LOCKED:
+	case WIRE_SHUTDOWN:
+	case WIRE_CLOSING_SIGNED:
+	case WIRE_UPDATE_ADD_HTLC:
+	case WIRE_UPDATE_FULFILL_HTLC:
+	case WIRE_UPDATE_FAIL_HTLC:
+	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+	case WIRE_COMMITMENT_SIGNED:
+	case WIRE_REVOKE_AND_ACK:
+	case WIRE_UPDATE_FEE:
+	case WIRE_CHANNEL_REESTABLISH:
+	case WIRE_ANNOUNCEMENT_SIGNATURES:
+		status_broken("peer %s: relayed unexpected msg of type %s",
 			      type_to_string(tmpctx, struct pubkey, &peer->id),
-			      gossip_wire_type_name(type));
+			      wire_type_name(fromwire_peektype(msg)));
 		return io_close(conn);
 	}
 
+	/* Must be a gossip_wire_type asking us to do something. */
+	switch ((enum gossip_wire_type)fromwire_peektype(msg)) {
+	case WIRE_GOSSIP_GET_UPDATE:
+		ok = handle_get_update(peer, msg);
+		goto handled_cmd;
+	case WIRE_GOSSIP_LOCAL_ADD_CHANNEL:
+		ok = handle_local_add_channel(peer->daemon->rstate, msg);
+		if (ok)
+			gossip_store_add(peer->daemon->rstate->store, msg);
+		goto handled_cmd;
+	case WIRE_GOSSIP_LOCAL_CHANNEL_UPDATE:
+		ok = handle_local_channel_update(peer, msg);
+		goto handled_cmd;
+	case WIRE_GOSSIPCTL_INIT:
+	case WIRE_GOSSIP_GETNODES_REQUEST:
+	case WIRE_GOSSIP_GETNODES_REPLY:
+	case WIRE_GOSSIP_GETROUTE_REQUEST:
+	case WIRE_GOSSIP_GETROUTE_REPLY:
+	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
+	case WIRE_GOSSIP_GETCHANNELS_REPLY:
+	case WIRE_GOSSIP_PING:
+	case WIRE_GOSSIP_PING_REPLY:
+	case WIRE_GOSSIP_QUERY_SCIDS:
+	case WIRE_GOSSIP_SCIDS_REPLY:
+	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
+	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
+	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE_REPLY:
+	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
+	case WIRE_GOSSIP_GET_CHANNEL_PEER:
+	case WIRE_GOSSIP_GET_CHANNEL_PEER_REPLY:
+	case WIRE_GOSSIP_GET_INCOMING_CHANNELS:
+	case WIRE_GOSSIP_GET_INCOMING_CHANNELS_REPLY:
+	case WIRE_GOSSIP_GET_UPDATE_REPLY:
+	case WIRE_GOSSIP_SEND_GOSSIP:
+	case WIRE_GOSSIP_LOCAL_CHANNEL_CLOSE:
+	case WIRE_GOSSIP_GET_TXOUT:
+	case WIRE_GOSSIP_GET_TXOUT_REPLY:
+	case WIRE_GOSSIP_ROUTING_FAILURE:
+	case WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE:
+	case WIRE_GOSSIP_OUTPOINT_SPENT:
+	case WIRE_GOSSIP_DEV_SUPPRESS:
+		break;
+	}
+	status_broken("peer %s: unexpected cmd of type %s",
+		      type_to_string(tmpctx, struct pubkey, &peer->id),
+		      gossip_wire_type_name(fromwire_peektype(msg)));
+	return io_close(conn);
+
+handled_cmd:
+	if (!ok)
+		return io_close(conn);
+	goto done;
+
+handled_relay:
+	if (err)
+		queue_peer_msg(peer, take(err));
+done:
 	return daemon_conn_read_next(conn, peer->dc);
 }
 
@@ -1312,7 +1361,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	}
 
 	peer->dc = daemon_conn_new(daemon, fds[0],
-				   owner_msg_in, dump_gossip, peer);
+				   peer_msg_in, dump_gossip, peer);
 	/* Free peer if conn closed (destroy_peer closes conn if peer freed) */
 	tal_steal(peer->dc, peer);
 
