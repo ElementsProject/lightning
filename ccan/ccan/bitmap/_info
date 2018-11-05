@@ -1,0 +1,32 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * bitmap - bitmap handling
+ *
+ * This code handles manipulation of bitmaps, arbitrary length arrays
+ * of bits.
+ *
+ * License: LGPL (v2.1 or any later version)
+ * Author: David Gibson <david@gibson.dropbear.id.au>
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/endian\n");
+		return 0;
+	}
+
+        if (strcmp(argv[1], "testdepends") == 0) {
+                printf("ccan/array_size\n");
+		printf("ccan/foreach\n");
+                return 0;
+        }
+
+	return 1;
+}
