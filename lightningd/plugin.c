@@ -239,12 +239,14 @@ static void plugin_request_send_(
 	/* Add to map so we can find it later when routing the response */
 	uintmap_add(&plugin->plugins->pending_requests, req->id, req);
 
-	/* Wrap the request in the JSON-RPC request object */
+	/* Wrap the request in the JSON-RPC request object. Terminate
+	 * with an empty line that serves as a hint that the JSON
+	 * object is done. */
 	out->json = tal_fmt(out, "{"
 			    "\"jsonrpc\": \"2.0\", "
 			    "\"method\": \"%s\", "
 			    "\"params\" : %s, "
-			    "\"id\" : %" PRIu64 " }\n",
+			    "\"id\" : %" PRIu64 " }\n\n",
 			    method, params, request_id);
 
 	/* Queue and notify the writer */
