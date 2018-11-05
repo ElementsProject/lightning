@@ -43,7 +43,10 @@ void subdaemon_setup(int argc, char *argv[])
 		if (streq(argv[i], "--debugger")) {
 			char *cmd = tal_fmt(NULL, "${DEBUG_TERM:-gnome-terminal --} gdb -ex 'attach %u' %s &", getpid(), argv[0]);
 			fprintf(stderr, "Running %s\n", cmd);
-			system(cmd);
+			/* warn_unused_result is fascist bullshit.
+			 * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=66425 */
+			if (system(cmd))
+				;
 			/* Continue in the debugger. */
 			kill(getpid(), SIGSTOP);
 		}
