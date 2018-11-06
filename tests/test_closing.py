@@ -188,7 +188,6 @@ def test_closing_torture(node_factory, executor, bitcoind):
         wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
 
 
-@unittest.skipIf(not DEVELOPER, "needs dev-override-feerates")
 @unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
 def test_closing_different_fees(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
