@@ -51,7 +51,7 @@ struct plugin_request {
 
 struct plugins {
 	struct list_head plugins;
-	size_t pending_init;
+	size_t pending_manifests;
 
 	/* Currently pending requests by their request ID */
 	UINTMAP(struct plugin_request *) pending_requests;
@@ -335,8 +335,8 @@ static bool plugin_opt_add(struct plugin *plugin, const char *buffer,
 	return true;
 }
 
-/* Iterate through the options in the init response, and add them to
- * the plugin and the command line options */
+/* Iterate through the options in the manifest response, and add them
+ * to the plugin and the command line options */
 static bool plugin_opts_add(const struct plugin_request *req)
 {
 	const char *buffer = req->plugin->buffer;
@@ -364,17 +364,19 @@ static bool plugin_opts_add(const struct plugin_request *req)
 }
 
 /**
- * Callback for the plugin_init request.
+ * Callback for the plugin_manifest request.
  */
-static void plugin_init_cb(const struct plugin_request *req, struct plugin *plugin)
+static void plugin_manifest_cb(const struct plugin_request *req, struct plugin *plugin)
 {
-	/* Check if all plugins are initialized, and break if they are */
-	plugin->plugins->pending_init--;
-	if (plugin->plugins->pending_init == 0)
+	/* Check if all plugins have replied to getmanifest, and break
+	 * if they are */
+	plugin->plugins->pending_manifests--;
+	if (plugin->plugins->pending_manifests == 0)
 		io_break(plugin->plugins);
 
 	if (req->resulttok->type != JSMN_OBJECT) {
-		plugin_kill(plugin, "\"init\" response is not an object");
+		plugin_kill(plugin,
+			    "\"getmanifest\" response is not an object");
 		return;
 	}
 
@@ -387,7 +389,7 @@ void plugins_init(struct plugins *plugins)
 	struct plugin *p;
 	char **cmd;
 	int stdin, stdout;
-	plugins->pending_init = 0;
+	plugins->pending_manifests = 0;
 	uintmap_init(&plugins->pending_requests);
 
 	/* Spawn the plugin processes before entering the io_loop */
@@ -406,10 +408,10 @@ void plugins_init(struct plugins *plugins)
 		 * write-only on p->stdout */
 		io_new_conn(p, stdout, plugin_stdout_conn_init, p);
 		io_new_conn(p, stdin, plugin_stdin_conn_init, p);
-		plugin_request_send(p, "init", "[]", plugin_init_cb, p);
-		plugins->pending_init++;
+		plugin_request_send(p, "getmanifest", "[]", plugin_manifest_cb, p);
+		plugins->pending_manifests++;
 	}
-	if (plugins->pending_init > 0)
+	if (plugins->pending_manifests > 0)
 		io_loop(NULL, NULL);
 }
 
@@ -437,7 +439,7 @@ static void plugin_config(struct plugin *plugin)
 		tal_append_fmt(&conf, "%s\n    \"%s\": \"%s\"", sep, name, opt->value);
 	}
 	tal_append_fmt(&conf, "\n  }\n}");
-	plugin_request_send(plugin, "configure", conf, plugin_config_cb, plugin);
+	plugin_request_send(plugin, "init", conf, plugin_config_cb, plugin);
 }
 
 void plugins_config(struct plugins *plugins)
