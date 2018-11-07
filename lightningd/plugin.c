@@ -28,6 +28,8 @@ struct plugin {
 
 	/* List of options that this plugin registered */
 	struct list_head plugin_opts;
+
+	struct list_node list;
 };
 
 struct plugin_request {
@@ -48,7 +50,7 @@ struct plugin_request {
 };
 
 struct plugins {
-	struct plugin **plugins;
+	struct list_head plugins;
 	size_t pending_init;
 
 	/* Currently pending requests by their request ID */
@@ -73,7 +75,7 @@ struct plugin_opt {
 struct plugins *plugins_new(const tal_t *ctx, struct log *log){
 	struct plugins *p;
 	p = tal(ctx, struct plugins);
-	p->plugins = tal_arr(p, struct plugin *, 0);
+	list_head_init(&p->plugins);
 	p->log = log;
 	return p;
 }
@@ -81,10 +83,8 @@ struct plugins *plugins_new(const tal_t *ctx, struct log *log){
 void plugin_register(struct plugins *plugins, const char* path TAKES)
 {
 	struct plugin *p;
-	size_t n = tal_count(plugins->plugins);
-	tal_resize(&plugins->plugins, n+1);
 	p = tal(plugins, struct plugin);
-	plugins->plugins[n] = p;
+	list_add_tail(&plugins->plugins, &p->list);
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
 	p->log = plugins->log;
@@ -387,12 +387,11 @@ void plugins_init(struct plugins *plugins)
 	struct plugin *p;
 	char **cmd;
 	int stdin, stdout;
-	plugins->pending_init = tal_count(plugins->plugins);
+	plugins->pending_init = 0;
 	uintmap_init(&plugins->pending_requests);
 
 	/* Spawn the plugin processes before entering the io_loop */
-	for (size_t i=0; i<tal_count(plugins->plugins); i++) {
-		p = plugins->plugins[i];
+	list_for_each(&plugins->plugins, p, list) {
 		cmd = tal_arr(p, char *, 2);
 		cmd[0] = p->cmd;
 		cmd[1] = NULL;
@@ -408,6 +407,7 @@ void plugins_init(struct plugins *plugins)
 		io_new_conn(p, stdout, plugin_stdout_conn_init, p);
 		io_new_conn(p, stdin, plugin_stdin_conn_init, p);
 		plugin_request_send(p, "init", "[]", plugin_init_cb, p);
+		plugins->pending_init++;
 	}
 	if (plugins->pending_init > 0)
 		io_loop(NULL, NULL);
@@ -442,8 +442,9 @@ static void plugin_config(struct plugin *plugin)
 
 void plugins_config(struct plugins *plugins)
 {
-	for (size_t i=0; i<tal_count(plugins->plugins); i++) {
-		plugin_config(plugins->plugins[i]);
+	struct plugin *p;
+	list_for_each(&plugins->plugins, p, list) {
+		plugin_config(p);
 	}
 }
 
@@ -451,11 +452,7 @@ void json_add_opt_plugins(struct json_stream *response,
 			  const struct plugins *plugins)
 {
 	struct plugin *p;
-	json_object_start(response, "plugin");
-	for (size_t i=0; i<tal_count(plugins->plugins); i++) {
-		p = plugins->plugins[i];
-		json_object_start(response, p->cmd);
-		json_object_end(response);
+	list_for_each(&plugins->plugins, p, list) {
+		json_add_string(response, "plugin", p->cmd);
 	}
-	json_object_end(response);
 }
