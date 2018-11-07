@@ -10,7 +10,6 @@
 #include <unistd.h>
 
 struct plugin {
-	int stdin, stdout;
 	pid_t pid;
 	char *cmd;
 	struct io_conn *stdin_conn, *stdout_conn;
@@ -261,24 +260,23 @@ static void plugin_request_send_(
 				const struct plugin_request *),                \
 	    (arg))
 
-static struct io_plan *plugin_conn_init(struct io_conn *conn,
-					struct plugin *plugin)
+static struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
+					      struct plugin *plugin)
 {
-	plugin->stop = false;
-	if (plugin->stdout == io_conn_fd(conn)) {
-		/* We read from their stdout */
-		plugin->stdout_conn = conn;
-		return io_read_partial(plugin->stdout_conn, plugin->buffer,
-				       tal_bytelen(plugin->buffer),
-				       &plugin->len_read, plugin_read_json,
-				       plugin);
-	} else {
-		/* We write to their stdin */
-		plugin->stdin_conn = conn;
-		/* We don't have anything queued yet, wait for notification */
-		return io_wait(plugin->stdin_conn, plugin, plugin_write_json,
-			       plugin);
-	}
+	/* We write to their stdin */
+	/* We don't have anything queued yet, wait for notification */
+	plugin->stdin_conn = conn;
+	return io_wait(plugin->stdin_conn, plugin, plugin_write_json, plugin);
+}
+
+static struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
+					       struct plugin *plugin)
+{
+	/* We read from their stdout */
+	plugin->stdout_conn = conn;
+	return io_read_partial(plugin->stdout_conn, plugin->buffer,
+			       tal_bytelen(plugin->buffer), &plugin->len_read,
+			       plugin_read_json, plugin);
 }
 
 /* Callback called when parsing options. It just stores the value in
@@ -388,6 +386,7 @@ void plugins_init(struct plugins *plugins)
 {
 	struct plugin *p;
 	char **cmd;
+	int stdin, stdout;
 	plugins->pending_init = tal_count(plugins->plugins);
 	uintmap_init(&plugins->pending_requests);
 
@@ -397,16 +396,17 @@ void plugins_init(struct plugins *plugins)
 		cmd = tal_arr(p, char *, 2);
 		cmd[0] = p->cmd;
 		cmd[1] = NULL;
-		p->pid = pipecmdarr(&p->stdout, &p->stdin, NULL, cmd);
+		p->pid = pipecmdarr(&stdout, &stdin, NULL, cmd);
 
 		list_head_init(&p->output);
 		p->buffer = tal_arr(p, char, 64);
 		p->used = 0;
+		p->stop = false;
 
 		/* Create two connections, one read-only on top of p->stdin, and one
 		 * write-only on p->stdout */
-		io_new_conn(p, p->stdout, plugin_conn_init, p);
-		io_new_conn(p, p->stdin, plugin_conn_init, p);
+		io_new_conn(p, stdout, plugin_stdout_conn_init, p);
+		io_new_conn(p, stdin, plugin_stdin_conn_init, p);
 		plugin_request_send(p, "init", "[]", plugin_init_cb, p);
 	}
 	if (plugins->pending_init > 0)
