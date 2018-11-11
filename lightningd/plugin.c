@@ -56,6 +56,7 @@ struct plugins {
 	/* Currently pending requests by their request ID */
 	UINTMAP(struct plugin_request *) pending_requests;
 	struct log *log;
+	struct log_book *log_book;
 };
 
 struct json_output {
@@ -72,21 +73,29 @@ struct plugin_opt {
 	char *value;
 };
 
-struct plugins *plugins_new(const tal_t *ctx, struct log *log){
+struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book){
 	struct plugins *p;
 	p = tal(ctx, struct plugins);
 	list_head_init(&p->plugins);
-	p->log = log;
+	p->log_book = log_book;
+	p->log = new_log(p, log_book, "plugin-manager");
 	return p;
 }
 
 void plugin_register(struct plugins *plugins, const char* path TAKES)
 {
 	struct plugin *p;
+	static size_t plugin_count = 0;
 	p = tal(plugins, struct plugin);
 	list_add_tail(&plugins->plugins, &p->list);
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
+
+	/* FIXME(cdecker): Referring to plugin by their registration
+	number might not be that useful, come up with a naming scheme
+	that makes more sense. */
+	plugin_count++;
+	p->log = new_log(p, plugins->log_book, "plugin-%zu", plugin_count);
 	p->log = plugins->log;
 	list_head_init(&p->plugin_opts);
 }
