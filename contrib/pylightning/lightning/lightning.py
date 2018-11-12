@@ -285,8 +285,8 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def pay(self, bolt11, msatoshi=None, description=None, riskfactor=None):
         """
-        Send payment specified by {bolt11} with optional {msatoshi}
-        (if and only if {bolt11} does not have amount),
+        Send payment specified by {bolt11} with {msatoshi}
+        (ignored if {bolt11} has an amount),
 
         {description} (required if {bolt11} uses description hash)
         and {riskfactor} (default 1.0)
