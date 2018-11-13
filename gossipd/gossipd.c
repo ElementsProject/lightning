@@ -2166,6 +2166,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 
 static void master_gone(struct daemon_conn *master UNUSED)
 {
+	daemon_shutdown();
 	/* Can't tell master, it's gone. */
 	exit(2);
 }
@@ -2195,12 +2196,6 @@ int main(int argc, char *argv[])
 		struct timer *expired = NULL;
 		io_loop(&daemon->timers, &expired);
 
-		if (!expired) {
-			break;
-		} else {
-			timer_expired(daemon, expired);
-		}
+		timer_expired(daemon, expired);
 	}
-	daemon_shutdown();
-	return 0;
 }
