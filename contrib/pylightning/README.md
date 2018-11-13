@@ -14,9 +14,12 @@ pylightning is available on pip
 pip install pylightning
 ```
 
-### Example
+### Examples
 
 ```py
+"""
+Generate invoice on one daemon and pay it on the other
+"""
 from lightning import LightningRpc
 import random
 
@@ -37,4 +40,12 @@ print(route)
 
 # Pay invoice
 print(l1.sendpay(route['route'], invoice['payment_hash']))
+```
+
+Also see the included [lightning-pay](./lightning-pay) script, which uses the client library to pay invoices
+
+```sh
+lightning-pay <bolt11 invoice>
+# or explicitly with
+lightning-pay <destination_id> <amount in millisatoshi> <payment_hash> <min_final_cltv_expiry>
 ```
