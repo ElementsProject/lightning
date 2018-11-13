@@ -21,14 +21,14 @@
 					     (recv), (arg), 	       \
 					     struct io_conn *,		\
 					     const u8 *),		\
-			 typesafe_cb(bool, void *,  (outq_empty), (arg)), \
+			 typesafe_cb(void, void *,  (outq_empty), (arg)), \
 			 arg)
 
 struct daemon_conn *daemon_conn_new_(const tal_t *ctx, int fd,
 				     struct io_plan *(*recv)(struct io_conn *,
 							     const u8 *,
 							     void *),
-				     bool (*outq_empty)(void *),
+				     void (*outq_empty)(void *),
 				     void *arg);
 
 /**

@@ -18,9 +18,8 @@ struct daemon_conn {
 	/* Callback for incoming messages */
 	struct io_plan *(*recv)(struct io_conn *conn, const u8 *, void *);
 
-	/* Called whenever we've cleared the msg_out queue. If it returns
-	 * true, it has added packets to msg_out queue. */
-	bool (*outq_empty)(void *);
+	/* Called whenever we've cleared the msg_out queue. */
+	void (*outq_empty)(void *);
 
 	/* Arg for both callbacks. */
 	void *arg;
@@ -46,8 +45,14 @@ static struct io_plan *daemon_conn_write_next(struct io_conn *conn,
 {
 	const u8 *msg;
 
-again:
 	msg = msg_dequeue(dc->out);
+
+	/* If nothing in queue, give empty callback a chance to queue somthing */
+	if (!msg && dc->outq_empty) {
+		dc->outq_empty(dc->arg);
+		msg = msg_dequeue(dc->out);
+	}
+
 	if (msg) {
 		int fd = msg_extract_fd(msg);
 		if (fd >= 0) {
@@ -57,9 +62,6 @@ again:
 		}
 		return io_write_wire(conn, take(msg), daemon_conn_write_next,
 				     dc);
-	} else if (dc->outq_empty) {
-		if (dc->outq_empty(dc->arg))
-			goto again;
 	}
 	return msg_queue_wait(conn, dc->out, daemon_conn_write_next, dc);
 }
@@ -114,7 +116,7 @@ struct daemon_conn *daemon_conn_new_(const tal_t *ctx, int fd,
 				     struct io_plan *(*recv)(struct io_conn *,
 							     const u8 *,
 							     void *),
-				     bool (*outq_empty)(void *),
+				     void (*outq_empty)(void *),
 				     void *arg)
 {
 	struct daemon_conn *dc = tal(NULL, struct daemon_conn);
