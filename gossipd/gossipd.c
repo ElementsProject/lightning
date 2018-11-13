@@ -808,7 +808,7 @@ static void uniquify_node_ids(struct pubkey **ids)
 	tal_resize(ids, dst);
 }
 
-static bool create_next_scid_reply(struct peer *peer)
+static void maybe_create_next_scid_reply(struct peer *peer)
 {
 	struct routing_state *rstate = peer->daemon->rstate;
 	size_t i, num;
@@ -883,27 +883,24 @@ static bool create_next_scid_reply(struct peer *peer)
 							     &rstate->chain_hash,
 							     true);
 		queue_peer_msg(peer, take(end));
-		sent = true;
 		peer->scid_queries = tal_free(peer->scid_queries);
 		peer->scid_query_idx = 0;
 		peer->scid_query_nodes = tal_free(peer->scid_query_nodes);
 		peer->scid_query_nodes_idx = 0;
 	}
-
-	return sent;
 }
 
 /* If we're supposed to be sending gossip, do so now. */
-static bool maybe_queue_gossip(struct peer *peer)
+static void maybe_queue_gossip(struct peer *peer)
 {
 	const u8 *next;
 
 	if (peer->gossip_timer)
-		return false;
+		return;
 
 #if DEVELOPER
 	if (suppress_gossip)
-		return false;
+		return;
 #endif
 
 	next = next_broadcast(peer->daemon->rstate->broadcasts,
@@ -913,7 +910,7 @@ static bool maybe_queue_gossip(struct peer *peer)
 
 	if (next) {
 		queue_peer_msg(peer, next);
-		return true;
+		return;
 	}
 
 	/* Gossip is drained.  Wait for next timer. */
@@ -921,20 +918,18 @@ static bool maybe_queue_gossip(struct peer *peer)
 		= new_reltimer(&peer->daemon->timers, peer,
 			       time_from_msec(peer->daemon->broadcast_interval_msec),
 			       wake_gossip_out, peer);
-	return false;
 }
 
 /**
  * dump_gossip - catch the peer up with the latest gossip.
  */
-static bool dump_gossip(struct peer *peer)
+static void dump_gossip(struct peer *peer)
 {
 	/* Do we have scid query replies to send? */
-	if (create_next_scid_reply(peer))
-		return true;
+	maybe_create_next_scid_reply(peer);
 
-	/* Otherwise queue any gossip we want to send */
-	return maybe_queue_gossip(peer);
+	/* Queue any gossip we want to send */
+	maybe_queue_gossip(peer);
 }
 
 static void update_local_channel(struct daemon *daemon,
