@@ -1559,8 +1559,8 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 			 msatoshi, riskfactor, final_cltv,
 			 fuzz, &seed);
 
-	out = towire_gossip_getroute_reply(msg, hops);
-	daemon_conn_send(daemon->master, out);
+	out = towire_gossip_getroute_reply(NULL, hops);
+	daemon_conn_send(daemon->master, take(out));
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
