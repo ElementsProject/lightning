@@ -40,4 +40,8 @@
  */
 #define ANNOUNCE_MIN_DEPTH 6
 
+/* Utility function that, given a source and a destination, gives us
+ * the direction bit the matching channel should get */
+#define get_channel_direction(from, to) (pubkey_cmp(from, to) > 0)
+
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_CONSTANTS_H */

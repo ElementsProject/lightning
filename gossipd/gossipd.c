@@ -36,6 +36,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/broadcast.h>
+#include <gossipd/gen_gossip_peerd_wire.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <gossipd/routing.h>
 #include <hsmd/gen_hsm_wire.h>
@@ -174,7 +175,7 @@ static struct peer *find_peer(struct daemon *daemon, const struct pubkey *id)
 
 static void queue_peer_msg(struct peer *peer, const u8 *msg TAKES)
 {
-	const u8 *send = towire_gossip_send_gossip(NULL, msg);
+	const u8 *send = towire_gossipd_send_gossip(NULL, msg);
 	if (taken(msg))
 		tal_free(msg);
 	daemon_conn_send(peer->dc, take(send));
@@ -1048,7 +1049,7 @@ static bool handle_get_update(struct peer *peer, const u8 *msg)
 	struct routing_state *rstate = peer->daemon->rstate;
 	int direction;
 
-	if (!fromwire_gossip_get_update(msg, &scid)) {
+	if (!fromwire_gossipd_get_update(msg, &scid)) {
 		status_broken("peer %s sent bad gossip_get_update %s",
 			      type_to_string(tmpctx, struct pubkey, &peer->id),
 			      tal_hex(tmpctx, msg));
@@ -1086,7 +1087,7 @@ out:
 		     type_to_string(tmpctx, struct short_channel_id, &scid),
 		     update ? "got" : "no");
 
-	msg = towire_gossip_get_update_reply(NULL, update);
+	msg = towire_gossipd_get_update_reply(NULL, update);
 	daemon_conn_send(peer->dc, take(msg));
 	return true;
 }
@@ -1119,14 +1120,14 @@ static bool handle_local_channel_update(struct peer *peer, const u8 *msg)
 	u32 fee_proportional_millionths;
 	int direction;
 
-	if (!fromwire_gossip_local_channel_update(msg,
-						  &scid,
-						  &disable,
-						  &cltv_expiry_delta,
-						  &htlc_minimum_msat,
-						  &fee_base_msat,
-						  &fee_proportional_millionths,
-						  &htlc_maximum_msat)) {
+	if (!fromwire_gossipd_local_channel_update(msg,
+						   &scid,
+						   &disable,
+						   &cltv_expiry_delta,
+						   &htlc_minimum_msat,
+						   &fee_base_msat,
+						   &fee_proportional_millionths,
+						   &htlc_maximum_msat)) {
 		status_broken("peer %s bad local_channel_update %s",
 			      type_to_string(tmpctx, struct pubkey, &peer->id),
 			      tal_hex(tmpctx, msg));
@@ -1244,51 +1245,26 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	}
 
 	/* Must be a gossip_wire_type asking us to do something. */
-	switch ((enum gossip_wire_type)fromwire_peektype(msg)) {
-	case WIRE_GOSSIP_GET_UPDATE:
+	switch ((enum gossip_peerd_wire_type)fromwire_peektype(msg)) {
+	case WIRE_GOSSIPD_GET_UPDATE:
 		ok = handle_get_update(peer, msg);
 		goto handled_cmd;
-	case WIRE_GOSSIP_LOCAL_ADD_CHANNEL:
+	case WIRE_GOSSIPD_LOCAL_ADD_CHANNEL:
 		ok = handle_local_add_channel(peer->daemon->rstate, msg);
 		if (ok)
 			gossip_store_add(peer->daemon->rstate->store, msg);
 		goto handled_cmd;
-	case WIRE_GOSSIP_LOCAL_CHANNEL_UPDATE:
+	case WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE:
 		ok = handle_local_channel_update(peer, msg);
 		goto handled_cmd;
-	case WIRE_GOSSIPCTL_INIT:
-	case WIRE_GOSSIP_GETNODES_REQUEST:
-	case WIRE_GOSSIP_GETNODES_REPLY:
-	case WIRE_GOSSIP_GETROUTE_REQUEST:
-	case WIRE_GOSSIP_GETROUTE_REPLY:
-	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
-	case WIRE_GOSSIP_GETCHANNELS_REPLY:
-	case WIRE_GOSSIP_PING:
-	case WIRE_GOSSIP_PING_REPLY:
-	case WIRE_GOSSIP_QUERY_SCIDS:
-	case WIRE_GOSSIP_SCIDS_REPLY:
-	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
-	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
-	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE_REPLY:
-	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
-	case WIRE_GOSSIP_GET_CHANNEL_PEER:
-	case WIRE_GOSSIP_GET_CHANNEL_PEER_REPLY:
-	case WIRE_GOSSIP_GET_INCOMING_CHANNELS:
-	case WIRE_GOSSIP_GET_INCOMING_CHANNELS_REPLY:
-	case WIRE_GOSSIP_GET_UPDATE_REPLY:
-	case WIRE_GOSSIP_SEND_GOSSIP:
-	case WIRE_GOSSIP_LOCAL_CHANNEL_CLOSE:
-	case WIRE_GOSSIP_GET_TXOUT:
-	case WIRE_GOSSIP_GET_TXOUT_REPLY:
-	case WIRE_GOSSIP_ROUTING_FAILURE:
-	case WIRE_GOSSIP_MARK_CHANNEL_UNROUTABLE:
-	case WIRE_GOSSIP_OUTPOINT_SPENT:
-	case WIRE_GOSSIP_DEV_SUPPRESS:
+	case WIRE_GOSSIPD_GET_UPDATE_REPLY:
+	case WIRE_GOSSIPD_SEND_GOSSIP:
 		break;
 	}
-	status_broken("peer %s: unexpected cmd of type %s",
+	status_broken("peer %s: unexpected cmd of type %i %s",
 		      type_to_string(tmpctx, struct pubkey, &peer->id),
-		      gossip_wire_type_name(fromwire_peektype(msg)));
+		      fromwire_peektype(msg),
+		      gossip_peerd_wire_type_name(fromwire_peektype(msg)));
 	return io_close(conn);
 
 handled_cmd:
@@ -2179,11 +2155,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE_REPLY:
 	case WIRE_GOSSIP_GET_CHANNEL_PEER_REPLY:
 	case WIRE_GOSSIP_GET_INCOMING_CHANNELS_REPLY:
-	case WIRE_GOSSIP_GET_UPDATE:
-	case WIRE_GOSSIP_GET_UPDATE_REPLY:
-	case WIRE_GOSSIP_SEND_GOSSIP:
-	case WIRE_GOSSIP_LOCAL_ADD_CHANNEL:
-	case WIRE_GOSSIP_LOCAL_CHANNEL_UPDATE:
 	case WIRE_GOSSIP_GET_TXOUT:
 		break;
 	}

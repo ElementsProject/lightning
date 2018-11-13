@@ -6,7 +6,7 @@
 #include <common/utils.h>
 #include <common/wire_error.h>
 #include <errno.h>
-#include <gossipd/gen_gossip_wire.h>
+#include <gossipd/gen_gossip_peerd_wire.h>
 #include <sys/select.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
@@ -84,7 +84,7 @@ void handle_gossip_msg(int peer_fd, struct crypto_state *cs, const u8 *msg TAKES
 {
 	u8 *gossip;
 
-	if (!fromwire_gossip_send_gossip(tmpctx, msg, &gossip)) {
+	if (!fromwire_gossipd_send_gossip(tmpctx, msg, &gossip)) {
 		status_broken("Got bad message from gossipd: %s",
 			      tal_hex(msg, msg));
 		peer_failed_connection_lost();
