@@ -43,7 +43,7 @@
 #include <common/wire_error.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <gossipd/gen_gossip_wire.h>
+#include <gossipd/gen_gossip_peerd_wire.h>
 #include <gossipd/gossip_constants.h>
 #include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
@@ -260,15 +260,15 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 
 	assert(peer->short_channel_ids[LOCAL].u64);
 
-	msg = towire_gossip_local_channel_update(NULL,
-						 &peer->short_channel_ids[LOCAL],
-						 disable_flag
-						 == ROUTING_FLAGS_DISABLED,
-						 peer->cltv_delta,
-						 peer->conf[REMOTE].htlc_minimum_msat,
-						 peer->fee_base,
-						 peer->fee_per_satoshi,
-						 advertised_htlc_max(
+	msg = towire_gossipd_local_channel_update(NULL,
+						  &peer->short_channel_ids[LOCAL],
+						  disable_flag
+						  == ROUTING_FLAGS_DISABLED,
+						  peer->cltv_delta,
+						  peer->conf[REMOTE].htlc_minimum_msat,
+						  peer->fee_base,
+						  peer->fee_per_satoshi,
+						  advertised_htlc_max(
 							 peer->channel->funding_msat,
 							 &peer->conf[LOCAL],
 							 &peer->conf[REMOTE]));
@@ -290,10 +290,10 @@ static void make_channel_local_active(struct peer *peer)
 	u8 *msg;
 
 	/* Tell gossipd about local channel. */
-	msg = towire_gossip_local_add_channel(NULL,
-					      &peer->short_channel_ids[LOCAL],
-					      &peer->node_ids[REMOTE],
-					      peer->channel->funding_msat / 1000);
+	msg = towire_gossipd_local_add_channel(NULL,
+					       &peer->short_channel_ids[LOCAL],
+					       &peer->node_ids[REMOTE],
+					       peer->channel->funding_msat / 1000);
  	wire_sync_write(GOSSIP_FD, take(msg));
 
 	/* Tell gossipd and the other side what parameters we expect should
@@ -741,7 +741,7 @@ static u8 *master_wait_sync_reply(const tal_t *ctx,
 
 static u8 *gossipd_wait_sync_reply(const tal_t *ctx,
 				   struct peer *peer, const u8 *msg,
-				   enum gossip_wire_type replytype)
+				   enum gossip_peerd_wire_type replytype)
 {
 	return wait_sync_reply(ctx, msg, replytype,
 			       GOSSIP_FD, peer->from_gossipd, "gossipd");
@@ -753,10 +753,10 @@ static u8 *foreign_channel_update(const tal_t *ctx,
 {
 	u8 *msg, *update, *channel_update;
 
-	msg = towire_gossip_get_update(NULL, scid);
+	msg = towire_gossipd_get_update(NULL, scid);
 	msg = gossipd_wait_sync_reply(tmpctx, peer, take(msg),
-				      WIRE_GOSSIP_GET_UPDATE_REPLY);
-	if (!fromwire_gossip_get_update_reply(ctx, msg, &update))
+				      WIRE_GOSSIPD_GET_UPDATE_REPLY);
+	if (!fromwire_gossipd_get_update_reply(ctx, msg, &update))
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Invalid update reply");
 

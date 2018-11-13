@@ -12,6 +12,7 @@
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <common/wireaddr.h>
+#include <gossipd/gen_gossip_peerd_wire.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <inttypes.h>
 #include <wire/gen_peer_wire.h>
@@ -1712,8 +1713,8 @@ bool handle_local_add_channel(struct routing_state *rstate, const u8 *msg)
 	struct pubkey remote_node_id;
 	u64 satoshis;
 
-	if (!fromwire_gossip_local_add_channel(msg, &scid, &remote_node_id,
-					       &satoshis)) {
+	if (!fromwire_gossipd_local_add_channel(msg, &scid, &remote_node_id,
+						&satoshis)) {
 		status_broken("Unable to parse local_add_channel message: %s",
 			      tal_hex(msg, msg));
 		return false;

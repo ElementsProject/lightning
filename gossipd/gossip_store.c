@@ -7,6 +7,7 @@
 #include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <gossipd/gen_gossip_peerd_wire.h>
 #include <gossipd/gen_gossip_store.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <stdio.h>
@@ -130,7 +131,7 @@ static bool gossip_store_append(int fd, struct routing_state *rstate, const u8 *
 		msg = towire_gossip_store_channel_update(tmpctx, gossip_msg);
 	else if(t == WIRE_NODE_ANNOUNCEMENT)
 		msg = towire_gossip_store_node_announcement(tmpctx, gossip_msg);
-	else if(t == WIRE_GOSSIP_LOCAL_ADD_CHANNEL)
+	else if(t == WIRE_GOSSIPD_LOCAL_ADD_CHANNEL)
 		msg = towire_gossip_store_local_add_channel(tmpctx, gossip_msg);
 	else if(t == WIRE_GOSSIP_STORE_CHANNEL_DELETE)
 		msg = gossip_msg;

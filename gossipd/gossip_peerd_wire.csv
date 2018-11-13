@@ -1,0 +1,32 @@
+# Channel daemon can ask for updates for a specific channel, for sending
+# errors.  Must be distinct from WIRE_CHANNEL_ANNOUNCEMENT etc. gossip msgs!
+gossipd_get_update,3501
+gossipd_get_update,,short_channel_id,struct short_channel_id
+
+# If channel isn't known, update will be empty.
+gossipd_get_update_reply,3601
+gossipd_get_update_reply,,len,u16
+gossipd_get_update_reply,,update,len*u8
+
+# Gossipd can tell channeld etc about gossip to fwd.
+gossipd_send_gossip,3502
+gossipd_send_gossip,,len,u16
+gossipd_send_gossip,,gossip,len*u8
+
+# Both sides have seen the funding tx being locked, but we have not
+# yet reached the announcement depth. So we add the channel locally so
+# we (and peer) can update it already.
+gossipd_local_add_channel,3503
+gossipd_local_add_channel,,short_channel_id,struct short_channel_id
+gossipd_local_add_channel,,remote_node_id,struct pubkey
+gossipd_local_add_channel,,satoshis,u64
+
+# Send this channel_update.
+gossipd_local_channel_update,3504
+gossipd_local_channel_update,,short_channel_id,struct short_channel_id
+gossipd_local_channel_update,,disable,bool
+gossipd_local_channel_update,,cltv_expiry_delta,u16
+gossipd_local_channel_update,,htlc_minimum_msat,u64
+gossipd_local_channel_update,,fee_base_msat,u32
+gossipd_local_channel_update,,fee_proportional_millionths,u32
+gossipd_local_channel_update,,htlc_maximum_msat,u64

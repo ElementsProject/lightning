@@ -285,10 +285,6 @@ void mark_channel_unroutable(struct routing_state *rstate,
 
 void route_prune(struct routing_state *rstate);
 
-/* Utility function that, given a source and a destination, gives us
- * the direction bit the matching channel should get */
-#define get_channel_direction(from, to) (pubkey_cmp(from, to) > 0)
-
 /**
  * Add a channel_announcement to the network view without checking it
  *
