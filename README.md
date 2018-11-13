@@ -271,6 +271,11 @@ lightningd/lightningd --help
 
 ## Further information
 
+### Developers
+Developers wishing to contribute should start with the developer guide [here](doc/HACKING.md). 
+
+
+### JSON RPC
 JSON-RPC interface is documented in the following manual pages:
 
 * [invoice](doc/lightning-invoice.7.txt)
