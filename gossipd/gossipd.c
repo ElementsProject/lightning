@@ -1,5 +1,6 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
+#include <ccan/bitmap/bitmap.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/cast/cast.h>
 #include <ccan/container_of/container_of.h>
@@ -127,8 +128,10 @@ struct peer {
 	size_t num_pings_outstanding;
 
 	/* Map of outstanding channel_range requests. */
-	u8 *query_channel_blocks;
-	u32 first_channel_range;
+	bitmap *query_channel_blocks;
+	/* What we're querying: [range_first_blocknum, range_end_blocknum) */
+	u32 range_first_blocknum, range_end_blocknum;
+	u32 range_blocks_remaining;
 	struct short_channel_id *query_channel_scids;
 
 	struct daemon_conn *dc;
@@ -612,10 +615,11 @@ static const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 {
 	struct bitcoin_blkid chain;
 	u8 complete;
-	u32 first_blocknum, number_of_blocks;
-	u8 *encoded, *p;
+	u32 first_blocknum, number_of_blocks, start, end;
+	u8 *encoded;
 	struct short_channel_id *scids;
 	size_t n;
+	unsigned long b;
 
 	if (!fromwire_reply_channel_range(tmpctx, msg, &chain, &first_blocknum,
 					  &number_of_blocks, &complete,
@@ -650,45 +654,59 @@ static const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 				       tal_hex(tmpctx, encoded));
 	}
 
-	n = first_blocknum - peer->first_channel_range;
-	if (first_blocknum < peer->first_channel_range
-	    || n + number_of_blocks > tal_count(peer->query_channel_blocks)) {
+	status_debug("peer %s reply_channel_range %u+%u (of %u+%u) %zu scids",
+		     type_to_string(tmpctx, struct pubkey, &peer->id),
+		     first_blocknum, number_of_blocks,
+		     peer->range_first_blocknum,
+		     peer->range_end_blocknum - peer->range_first_blocknum,
+		     tal_count(scids));
+
+	/* They can be outside range we asked, but they must overlap! */
+	if (first_blocknum + number_of_blocks <= peer->range_first_blocknum
+	    || first_blocknum >= peer->range_end_blocknum) {
 		return towire_errorfmt(peer, NULL,
-				       "reply_channel_range invalid %u+%u for query %u+%zu",
+				       "reply_channel_range invalid %u+%u for query %u+%u",
 				       first_blocknum, number_of_blocks,
-				       peer->first_channel_range,
-				       tal_count(peer->query_channel_blocks));
+				       peer->range_first_blocknum,
+				       peer->range_end_blocknum
+				       - peer->range_first_blocknum);
 	}
 
-	p = memchr(peer->query_channel_blocks + n, 1, number_of_blocks);
-	if (p) {
+	start = first_blocknum;
+	end = first_blocknum + number_of_blocks;
+	/* Trim to make it a subset of what we want. */
+	if (start < peer->range_first_blocknum)
+		start = peer->range_first_blocknum;
+	if (end > peer->range_end_blocknum)
+		end = peer->range_end_blocknum;
+
+	/* Bitmap starts at peer->range_first_blocknum */
+	b = bitmap_ffs(peer->query_channel_blocks,
+		       start - peer->range_first_blocknum,
+		       end - peer->range_first_blocknum);
+	if (b != end - peer->range_first_blocknum) {
 		return towire_errorfmt(peer, NULL,
-				       "reply_channel_range %u+%u already have block %zu",
-					first_blocknum, number_of_blocks,
-					peer->first_channel_range + (p - peer->query_channel_blocks));
+				       "reply_channel_range %u+%u already have block %lu",
+				       first_blocknum, number_of_blocks,
+				       peer->range_first_blocknum + b);
 	}
 
 	/* Mark these blocks received */
-	memset(peer->query_channel_blocks + n, 1, number_of_blocks);
+	bitmap_fill_range(peer->query_channel_blocks,
+		       start - peer->range_first_blocknum,
+		       end - peer->range_first_blocknum);
+	peer->range_blocks_remaining -= end - start;
 
 	/* Add scids */
 	n = tal_count(peer->query_channel_scids);
 	tal_resize(&peer->query_channel_scids, n + tal_count(scids));
 	memcpy(peer->query_channel_scids + n, scids, tal_bytelen(scids));
 
-	status_debug("peer %s reply_channel_range %u+%u (of %u+%zu) %zu scids",
-		     type_to_string(tmpctx, struct pubkey, &peer->id),
-		     first_blocknum, number_of_blocks,
-		     peer->first_channel_range,
-		     tal_count(peer->query_channel_blocks),
-		     tal_count(scids));
-
 	/* Still more to go? */
-	if (memchr(peer->query_channel_blocks, 0,
-		   tal_count(peer->query_channel_blocks)))
+	if (peer->range_blocks_remaining)
 		return NULL;
 
-	/* All done, send reply */
+	/* All done, send reply to lightningd */
 	msg = towire_gossip_query_channel_range_reply(NULL,
 						      first_blocknum,
 						      number_of_blocks,
@@ -1911,9 +1929,11 @@ static struct io_plan *query_channel_range(struct io_conn *conn,
 	msg = towire_query_channel_range(NULL, &daemon->rstate->chain_hash,
 					 first_blocknum, number_of_blocks);
 	queue_peer_msg(peer, take(msg));
-	peer->first_channel_range = first_blocknum;
-	/* This uses 8 times as much as it needs to, but it's only for dev */
-	peer->query_channel_blocks = tal_arrz(peer, u8, number_of_blocks);
+	peer->range_first_blocknum = first_blocknum;
+	peer->range_end_blocknum = first_blocknum + number_of_blocks;
+	peer->range_blocks_remaining = number_of_blocks;
+	peer->query_channel_blocks = tal_arrz(peer, bitmap,
+					      BITMAP_NWORDS(number_of_blocks));
 	peer->query_channel_scids = tal_arr(peer, struct short_channel_id, 0);
 
 out:
