@@ -695,7 +695,7 @@ int main(int argc, char *argv[])
 
 	/*~ Create RPC socket: now lightning-cli can send us JSON RPC commands
 	 *  over a UNIX domain socket specified by `ld->rpc_filename`. */
-	setup_jsonrpc(ld, ld->rpc_filename);
+	ld->jsonrpc = setup_jsonrpc(ld);
 
 	/*~ We defer --daemon until we've completed most initialization: that
 	 *  way we'll exit with an error rather than silently exiting 0, then
@@ -778,7 +778,7 @@ int main(int argc, char *argv[])
 	 * it might actually be touching the DB in some destructors, e.g.,
 	 * unreserving UTXOs (see #1737) */
 	db_begin_transaction(ld->wallet->db);
-	tal_free(ld->rpc_listener);
+	tal_free(ld->jsonrpc);
 	db_commit_transaction(ld->wallet->db);
 
 	remove(ld->pidfile);

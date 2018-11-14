@@ -138,7 +138,7 @@ void register_opts(struct lightningd *ld UNNEEDED)
 void setup_color_and_alias(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "setup_color_and_alias called!\n"); abort(); }
 /* Generated stub for setup_jsonrpc */
-void setup_jsonrpc(struct lightningd *ld UNNEEDED, const char *rpc_filename UNNEEDED)
+struct jsonrpc *setup_jsonrpc(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "setup_jsonrpc called!\n"); abort(); }
 /* Generated stub for setup_topology */
 void setup_topology(struct chain_topology *topology UNNEEDED, struct timers *timers UNNEEDED,
