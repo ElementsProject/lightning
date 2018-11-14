@@ -6,6 +6,7 @@
 #include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/tal/str/str.h>
+#include <errno.h>
 #include <lightningd/json.h>
 #include <unistd.h>
 
@@ -407,6 +408,10 @@ void plugins_init(struct plugins *plugins)
 		cmd[0] = p->cmd;
 		cmd[1] = NULL;
 		p->pid = pipecmdarr(&stdout, &stdin, NULL, cmd);
+
+		if (p->pid == -1)
+			fatal("error starting plugin '%s': %s", p->cmd,
+			      strerror(errno));
 
 		list_head_init(&p->output);
 		p->buffer = tal_arr(p, char, 64);
