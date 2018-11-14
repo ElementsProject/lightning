@@ -84,10 +84,11 @@ struct lightningd {
 	/* Location of the RPC socket. */
 	char *rpc_filename;
 
-	/* The listener for the RPC socket. Can be shut down separately from the
-	 * rest of the daemon to allow a clean shutdown, which frees all pending
-	 * cmds in a DB transaction. */
-	struct io_listener *rpc_listener;
+	/* The root of the jsonrpc interface. Can be shut down
+	 * separately from the rest of the daemon to allow a clean
+	 * shutdown, which frees all pending cmds in a DB
+	 * transaction. */
+	struct jsonrpc *jsonrpc;
 
 	/* Configuration file name */
 	char *config_filename;
