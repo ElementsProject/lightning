@@ -195,8 +195,6 @@ that `state` is `CHANNELD_NORMAL`; after 6 confirmations you can use
 `true`.
 
 ### Different states
-* `GOSSIPING` means that you are connected to a peer but there is no
-  payment channel yet.
 * `OPENINGD` means that `lightning_openingd` is negotiating channel
   opening.
 * `CHANNELD_AWAITING_LOCKIN` means that `lightning_channeld` is waiting
