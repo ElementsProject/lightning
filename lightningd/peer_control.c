@@ -18,6 +18,7 @@
 #include <common/key_derive.h>
 #include <common/status.h>
 #include <common/timeout.h>
+#include <common/version.h>
 #include <common/wire_error.h>
 #include <connectd/gen_connect_wire.h>
 #include <errno.h>
@@ -1068,6 +1069,50 @@ static const struct json_command disconnect_command = {
 };
 AUTODATA(json_command, &disconnect_command);
 
+static void json_getinfo(struct command *cmd,
+             const char *buffer UNUSED, const jsmntok_t *params UNUSED)
+{
+    struct json_stream *response;
+    if (!param(cmd, buffer, params, NULL))
+        return;
+
+    response = json_stream_success(cmd);
+    json_object_start(response, NULL);
+    json_add_pubkey(response, "id", &cmd->ld->id);
+    json_add_string(response, "alias", (const char *)cmd->ld->alias);
+    json_add_hex_talarr(response, "color", cmd->ld->rgb);
+
+    /* Add network info */
+    if (cmd->ld->listen) {
+        /* These are the addresses we're announcing */
+        json_array_start(response, "address");
+        for (size_t i = 0; i < tal_count(cmd->ld->announcable); i++)
+            json_add_address(response, NULL, cmd->ld->announcable+i);
+        json_array_end(response);
+
+        /* This is what we're actually bound to. */
+        json_array_start(response, "binding");
+        for (size_t i = 0; i < tal_count(cmd->ld->binding); i++)
+            json_add_address_internal(response, NULL,
+                          cmd->ld->binding+i);
+        json_array_end(response);
+    }
+    json_add_string(response, "version", version());
+    json_add_num(response, "blockheight", get_block_height(cmd->ld->topology));
+    json_add_string(response, "network", get_chainparams(cmd->ld)->network_name);
+    json_add_u64(response, "msatoshi_fees_collected",
+             wallet_total_forward_fees(cmd->ld->wallet));
+    json_object_end(response);
+    command_success(cmd, response);
+}
+
+static const struct json_command getinfo_command = {
+    "getinfo",
+    json_getinfo,
+    "Show information about this node"
+};
+AUTODATA(json_command, &getinfo_command);
+
 #if DEVELOPER
 static void json_sign_last_tx(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
@@ -1323,3 +1368,4 @@ static const struct json_command dev_forget_channel_command = {
 };
 AUTODATA(json_command, &dev_forget_channel_command);
 #endif /* DEVELOPER */
+
