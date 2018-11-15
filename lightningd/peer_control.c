@@ -1073,6 +1073,11 @@ static void json_getinfo(struct command *cmd,
              const char *buffer UNUSED, const jsmntok_t *params UNUSED)
 {
     struct json_stream *response;
+    struct peer *peer;
+    struct channel *channel;
+    unsigned int pending_channels = 0, active_channels = 0,
+            inactive_channels = 0, num_peers = 0;
+
     if (!param(cmd, buffer, params, NULL))
         return;
 
@@ -1081,6 +1086,29 @@ static void json_getinfo(struct command *cmd,
     json_add_pubkey(response, "id", &cmd->ld->id);
     json_add_string(response, "alias", (const char *)cmd->ld->alias);
     json_add_hex_talarr(response, "color", cmd->ld->rgb);
+
+    /* Add some peer and channel stats */
+    list_for_each(&cmd->ld->peers, peer, list) {
+        num_peers++;
+        /* Count towards pending? */
+        if (peer->uncommitted_channel) {
+            pending_channels++;
+        }
+
+        list_for_each(&peer->channels, channel, list) {
+            if (channel->state == CHANNELD_AWAITING_LOCKIN) {
+                pending_channels++;
+            } else if (channel_active(channel)) {
+                active_channels++;
+            } else {
+                inactive_channels++;
+            }
+        }
+    }
+    json_add_num(response, "num_peers", num_peers);
+    json_add_num(response, "num_pending_channels", pending_channels);
+    json_add_num(response, "num_active_channels", active_channels);
+    json_add_num(response, "num_inactive_channels", inactive_channels);
 
     /* Add network info */
     if (cmd->ld->listen) {
