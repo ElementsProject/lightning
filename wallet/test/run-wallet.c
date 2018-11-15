@@ -94,6 +94,9 @@ bool fromwire_hsm_sign_commitment_tx_reply(const void *p UNNEEDED, secp256k1_ecd
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
+/* Generated stub for get_chainparams */
+const struct chainparams *get_chainparams(const struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "get_chainparams called!\n"); abort(); }
 /* Generated stub for invoices_autoclean_set */
 void invoices_autoclean_set(struct invoices *invoices UNNEEDED,
 			    u64 cycle_seconds UNNEEDED,
@@ -172,6 +175,15 @@ void invoices_waitone(const tal_t *ctx UNNEEDED,
 		      void (*cb)(const struct invoice * UNNEEDED, void*) UNNEEDED,
 		      void *cbarg UNNEEDED)
 { fprintf(stderr, "invoices_waitone called!\n"); abort(); }
+/* Generated stub for json_add_address */
+void json_add_address(struct json_stream *response UNNEEDED, const char *fieldname UNNEEDED,
+		      const struct wireaddr *addr UNNEEDED)
+{ fprintf(stderr, "json_add_address called!\n"); abort(); }
+/* Generated stub for json_add_address_internal */
+void json_add_address_internal(struct json_stream *response UNNEEDED,
+			       const char *fieldname UNNEEDED,
+			       const struct wireaddr_internal *addr UNNEEDED)
+{ fprintf(stderr, "json_add_address_internal called!\n"); abort(); }
 /* Generated stub for json_add_bool */
 void json_add_bool(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		   bool value UNNEEDED)

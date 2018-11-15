@@ -82,6 +82,9 @@ bool fromwire_hsm_sign_commitment_tx_reply(const void *p UNNEEDED, secp256k1_ecd
 /* Generated stub for fromwire_hsm_sign_invoice_reply */
 bool fromwire_hsm_sign_invoice_reply(const void *p UNNEEDED, secp256k1_ecdsa_recoverable_signature *sig UNNEEDED)
 { fprintf(stderr, "fromwire_hsm_sign_invoice_reply called!\n"); abort(); }
+/* Generated stub for get_block_height */
+u32 get_block_height(const struct chain_topology *topo UNNEEDED)
+{ fprintf(stderr, "get_block_height called!\n"); abort(); }
 /* Generated stub for get_chainparams */
 const struct chainparams *get_chainparams(const struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "get_chainparams called!\n"); abort(); }
@@ -93,6 +96,15 @@ void htlcs_reconnect(struct lightningd *ld UNNEEDED,
 		     struct htlc_in_map *htlcs_in UNNEEDED,
 		     struct htlc_out_map *htlcs_out UNNEEDED)
 { fprintf(stderr, "htlcs_reconnect called!\n"); abort(); }
+/* Generated stub for json_add_address */
+void json_add_address(struct json_stream *response UNNEEDED, const char *fieldname UNNEEDED,
+		      const struct wireaddr *addr UNNEEDED)
+{ fprintf(stderr, "json_add_address called!\n"); abort(); }
+/* Generated stub for json_add_address_internal */
+void json_add_address_internal(struct json_stream *response UNNEEDED,
+			       const char *fieldname UNNEEDED,
+			       const struct wireaddr_internal *addr UNNEEDED)
+{ fprintf(stderr, "json_add_address_internal called!\n"); abort(); }
 /* Generated stub for json_add_bool */
 void json_add_bool(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		   bool value UNNEEDED)
@@ -368,6 +380,9 @@ u8 *towire_hsm_sign_invoice(const tal_t *ctx UNNEEDED, const u8 *u5bytes UNNEEDE
 /* Generated stub for txfilter_add_scriptpubkey */
 void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *script TAKES UNNEEDED)
 { fprintf(stderr, "txfilter_add_scriptpubkey called!\n"); abort(); }
+/* Generated stub for version */
+const char *version(void)
+{ fprintf(stderr, "version called!\n"); abort(); }
 /* Generated stub for wallet_channel_delete */
 void wallet_channel_delete(struct wallet *w UNNEEDED, u64 wallet_id UNNEEDED)
 { fprintf(stderr, "wallet_channel_delete called!\n"); abort(); }
@@ -456,6 +471,9 @@ void wallet_invoice_waitone(const tal_t *ctx UNNEEDED,
 /* Generated stub for wallet_peer_delete */
 void wallet_peer_delete(struct wallet *w UNNEEDED, u64 peer_dbid UNNEEDED)
 { fprintf(stderr, "wallet_peer_delete called!\n"); abort(); }
+/* Generated stub for wallet_total_forward_fees */
+u64 wallet_total_forward_fees(struct wallet *w UNNEEDED)
+{ fprintf(stderr, "wallet_total_forward_fees called!\n"); abort(); }
 /* Generated stub for wallet_transaction_locate */
 struct txlocator *wallet_transaction_locate(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED,
 					    const struct bitcoin_txid *txid UNNEEDED)
