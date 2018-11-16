@@ -8,7 +8,7 @@ def test_option_passthrough(node_factory):
 
     First attempts without the plugin and then with the plugin.
     """
-    plugin_path = 'contrib/helloworld-plugin/main.py'
+    plugin_path = 'contrib/plugins/helloworld.py'
 
     help_out = subprocess.check_output([
         'lightningd/lightningd',
