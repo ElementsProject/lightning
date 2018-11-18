@@ -363,7 +363,7 @@ void command_success(struct command *cmd, struct json_stream *result)
 	assert(cmd);
 	assert(cmd->have_json_stream);
 	if (cmd->jcon)
-		jcon_append(cmd->jcon, " }\n");
+		jcon_append(cmd->jcon, " }\n\n");
 	if (cmd->ok)
 		*(cmd->ok) = true;
 	tal_free(cmd);
@@ -375,7 +375,7 @@ void command_failed(struct command *cmd, struct json_stream *result)
 	assert(cmd->have_json_stream);
 	/* Have to close error */
 	if (cmd->jcon)
-		jcon_append(cmd->jcon, " } }\n");
+		jcon_append(cmd->jcon, " } }\n\n");
 	if (cmd->ok)
 		*(cmd->ok) = false;
 	tal_free(cmd);
@@ -418,7 +418,7 @@ static void json_command_malformed(struct json_connection *jcon,
 	jcon_append(jcon,
 		    tal_fmt(tmpctx, " \"error\" : "
 			    "{ \"code\" : %d,"
-			    " \"message\" : \"%s\" } }\n",
+			    " \"message\" : \"%s\" } }\n\n",
 			    JSONRPC2_INVALID_REQUEST, error));
 }
 

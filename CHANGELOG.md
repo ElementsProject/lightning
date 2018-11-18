@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
+- JSON API: use `\n\n` to terminate responses, for simplified parsing.
+
 ### Changed
 
 ### Deprecated
@@ -21,6 +23,7 @@ changes.
 
 - JSON API: uppercase invoices now parsed correctly (broken in 0.6.2).
 - pylightning: handle multiple simultanous RPC replies reliably.
+
 
 ### Security
 
