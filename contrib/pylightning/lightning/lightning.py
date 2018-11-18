@@ -28,19 +28,17 @@ class UnixDomainSocketRpc(object):
     def _readobj(self, sock, buff=b''):
         """Read a JSON object, starting with buff; returns object and any buffer left over"""
         while True:
-            try:
-                # Convert late to UTF-8 so glyphs split across recvs do not
-                # impact us
-                objs, len_used = self.decoder.raw_decode(buff.decode("UTF-8"))
-                return objs, buff[len_used:].lstrip()
-            except ValueError:
-                # Probably didn't read enough
-                pass
-
-            b = sock.recv(1024)
-            buff += b
-            if len(b) == 0:
-                return {'error': 'Connection to RPC server lost.'}, buff.lstrip()
+            parts = buff.split(b'\n\n', 1)
+            if len(parts) == 1:
+                # Didn't read enough.
+                b = sock.recv(1024)
+                buff += b
+                if len(b) == 0:
+                    return {'error': 'Connection to RPC server lost.'}, buff
+            else:
+                buff = parts[1]
+                obj, _ = self.decoder.raw_decode(parts[0].decode("UTF-8"))
+                return obj, buff
 
     def __getattr__(self, name):
         """Intercept any call that is not explicitly defined and call @call
