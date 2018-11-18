@@ -20,6 +20,7 @@ changes.
 ### Fixed
 
 - JSON API: uppercase invoices now parsed correctly (broken in 0.6.2).
+- pylightning: handle multiple simultanous RPC replies reliably.
 
 ### Security
 

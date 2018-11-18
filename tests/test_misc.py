@@ -611,8 +611,9 @@ def test_multirpc(node_factory):
 
     sock.sendall(b'\n'.join(commands))
 
+    buff = b''
     for i in commands:
-        l1.rpc._readobj(sock)
+        _, buff = l1.rpc._readobj(sock, buff)
     sock.close()
 
 
