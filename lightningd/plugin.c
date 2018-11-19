@@ -6,6 +6,7 @@
 #include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/tal/str/str.h>
+#include <common/memleak.h>
 #include <errno.h>
 #include <lightningd/json.h>
 #include <signal.h>
@@ -383,6 +384,107 @@ static bool plugin_opts_add(const struct plugin_request *req)
 	return true;
 }
 
+static void plugin_rpcmethod_destroy(struct json_command *cmd)
+{
+}
+
+static void plugin_rpcmethod_dispatch(struct command *cmd, const char *buffer,
+				      const jsmntok_t *params)
+{
+	// FIXME: We could avoid parsing the buffer again if we were
+	// to also pass in the method name.
+	cmd->usage = "[params]";
+	command_still_pending(cmd);
+}
+
+static bool plugin_rpcmethod_add(struct plugin *plugin, const char *buffer,
+				 const jsmntok_t *meth)
+{
+	const jsmntok_t *nametok, *desctok, *longdesctok;
+	struct json_command *cmd;
+
+	nametok = json_get_member(buffer, meth, "name");
+	desctok = json_get_member(buffer, meth, "description");
+	longdesctok = json_get_member(buffer, meth, "long_description");
+
+	if (!nametok || nametok->type != JSMN_STRING) {
+		plugin_kill(
+		    plugin,
+		    tal_fmt(plugin,
+			    "rpcmethod does not have a string \"name\": %.*s",
+			    meth->end - meth->start, buffer + meth->start));
+		return false;
+	}
+
+	if (!desctok || desctok->type != JSMN_STRING) {
+		plugin_kill(plugin, tal_fmt(plugin,
+					    "rpcmethod does not have a string "
+					    "\"description\": %.*s",
+					    meth->end - meth->start,
+					    buffer + meth->start));
+		return false;
+	}
+
+	if (longdesctok && longdesctok->type != JSMN_STRING) {
+		plugin_kill(
+		    plugin,
+		    tal_fmt(plugin,
+			    "\"long_description\" is not a string: %.*s",
+			    meth->end - meth->start, buffer + meth->start));
+		return false;
+	}
+
+	cmd = notleak(tal(plugin, struct json_command));
+	cmd->name = tal_strndup(cmd, buffer + nametok->start,
+				nametok->end - nametok->start);
+	cmd->description = tal_strndup(cmd, buffer + desctok->start,
+				       desctok->end - desctok->start);
+	if (longdesctok)
+		cmd->verbose =
+		    tal_strndup(cmd, buffer + longdesctok->start,
+				longdesctok->end - longdesctok->start);
+	else
+		cmd->verbose = cmd->description;
+
+	cmd->deprecated = false;
+	cmd->dispatch = plugin_rpcmethod_dispatch;
+	tal_add_destructor(cmd, plugin_rpcmethod_destroy);
+	if (!jsonrpc_command_add(plugin->plugins->rpc, cmd)) {
+		log_broken(plugin->log,
+			   "Could not register method \"%s\", a method with "
+			   "that name is already registered",
+			   cmd->name);
+		return false;
+	}
+	return true;
+}
+
+static bool plugin_rpcmethods_add(const struct plugin_request *req)
+{
+	const char *buffer = req->plugin->buffer;
+	const jsmntok_t *cur, *methods;
+
+	/* This is the parent for all elements in the "options" array */
+	int methpos;
+
+	methods =
+	    json_get_member(req->plugin->buffer, req->resulttok, "rpcmethods");
+	if (!methods)
+		return false;
+
+	methpos = methods - req->toks;
+
+	if (methods->type != JSMN_ARRAY) {
+		plugin_kill(req->plugin, "\"result.rpcmethods\" is not an array");
+		return false;
+	}
+
+	for (cur = methods + 1; cur->parent == methpos; cur = json_next(cur))
+		if (!plugin_rpcmethod_add(req->plugin, buffer, cur))
+			return false;
+	return true;
+}
+
 /**
  * Callback for the plugin_manifest request.
  */
@@ -400,8 +502,8 @@ static void plugin_manifest_cb(const struct plugin_request *req, struct plugin *
 		return;
 	}
 
-	if (!plugin_opts_add(req))
-		return;
+	if (!plugin_opts_add(req) || !plugin_rpcmethods_add(req))
+		plugin_kill(plugin, "Failed to register options or methods");
 }
 
 void plugins_init(struct plugins *plugins)
