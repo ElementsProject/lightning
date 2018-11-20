@@ -361,6 +361,63 @@ static void json_command_malformed(struct json_connection *jcon,
 	json_stream_close(jcon->js, NULL);
 }
 
+static struct json_stream *attach_json_stream(struct command *cmd)
+{
+	struct json_stream *js = new_json_stream(cmd, cmd);
+
+	/* If they still care about the result, wake them */
+	if (cmd->jcon) {
+		/* FIXME: We only allow one command at a time */
+		assert(!cmd->jcon->js);
+		cmd->jcon->js = js;
+		io_wake(cmd->jcon);
+	}
+	assert(!cmd->have_json_stream);
+	cmd->have_json_stream = true;
+	return js;
+}
+
+static struct json_stream *json_start(struct command *cmd)
+{
+	struct json_stream *js = attach_json_stream(cmd);
+
+	json_stream_append_fmt(js, "{ \"jsonrpc\": \"2.0\", \"id\" : %s, ",
+			       cmd->id);
+	return js;
+}
+
+struct json_stream *json_stream_success(struct command *cmd)
+{
+	struct json_stream *r = json_start(cmd);
+	json_stream_append(r, "\"result\" : ");
+	return r;
+}
+
+struct json_stream *json_stream_fail_nodata(struct command *cmd,
+					    int code,
+					    const char *errmsg)
+{
+	struct json_stream *r = json_start(cmd);
+
+	assert(code);
+	assert(errmsg);
+
+	json_stream_append_fmt(r, " \"error\" : "
+			  "{ \"code\" : %d,"
+			  " \"message\" : \"%s\"", code, errmsg);
+	return r;
+}
+
+struct json_stream *json_stream_fail(struct command *cmd,
+				     int code,
+				     const char *errmsg)
+{
+	struct json_stream *r = json_stream_fail_nodata(cmd, code, errmsg);
+
+	json_stream_append(r, ", \"data\" : ");
+	return r;
+}
+
 /* Returns true if command already completed. */
 static bool parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 {

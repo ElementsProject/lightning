@@ -529,86 +529,10 @@ void json_add_hex_talarr(struct json_stream *result,
 	json_add_hex(result, fieldname, data, tal_bytelen(data));
 }
 
-void json_add_object(struct json_stream *result, ...)
-{
-	va_list ap;
-	const char *field;
-
-	va_start(ap, result);
-	json_object_start(result, NULL);
-	while ((field = va_arg(ap, const char *)) != NULL) {
-		jsmntype_t type = va_arg(ap, jsmntype_t);
-		const char *value = va_arg(ap, const char *);
-		if (type == JSMN_STRING)
-			json_add_string(result, field, value);
-		else
-			json_add_literal(result, field, value, strlen(value));
-	}
-	json_object_end(result);
-	va_end(ap);
-}
-
 void json_add_escaped_string(struct json_stream *result, const char *fieldname,
 			     const struct json_escaped *esc TAKES)
 {
 	json_add_member(result, fieldname, "\"%s\"", esc->s);
 	if (taken(esc))
 		tal_free(esc);
-}
-
-static struct json_stream *attach_json_stream(struct command *cmd)
-{
-	struct json_stream *js = new_json_stream(cmd, cmd);
-
-	/* If they still care about the result, wake them */
-	if (cmd->jcon) {
-		/* FIXME: We only allow one command at a time */
-		assert(!cmd->jcon->js);
-		cmd->jcon->js = js;
-		io_wake(cmd->jcon);
-	}
-	assert(!cmd->have_json_stream);
-	cmd->have_json_stream = true;
-	return js;
-}
-
-static struct json_stream *json_start(struct command *cmd)
-{
-	struct json_stream *js = attach_json_stream(cmd);
-
-	json_stream_append_fmt(js, "{ \"jsonrpc\": \"2.0\", \"id\" : %s, ",
-			       cmd->id);
-	return js;
-}
-
-struct json_stream *json_stream_success(struct command *cmd)
-{
-	struct json_stream *r = json_start(cmd);
-	json_stream_append(r, "\"result\" : ");
-	return r;
-}
-
-struct json_stream *json_stream_fail_nodata(struct command *cmd,
-					    int code,
-					    const char *errmsg)
-{
-	struct json_stream *r = json_start(cmd);
-
-	assert(code);
-	assert(errmsg);
-
-	json_stream_append_fmt(r, " \"error\" : "
-			  "{ \"code\" : %d,"
-			  " \"message\" : \"%s\"", code, errmsg);
-	return r;
-}
-
-struct json_stream *json_stream_fail(struct command *cmd,
-				     int code,
-				     const char *errmsg)
-{
-	struct json_stream *r = json_stream_fail_nodata(cmd, code, errmsg);
-
-	json_stream_append(r, ", \"data\" : ");
-	return r;
 }

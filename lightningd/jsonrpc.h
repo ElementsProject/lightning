@@ -8,10 +8,6 @@
 #include <lightningd/json_stream.h>
 #include <stdarg.h>
 
-struct bitcoin_txid;
-struct wireaddr;
-struct wallet_tx;
-
 /* The command mode tells param() how to process. */
 enum command_mode {
 	/* Normal command processing */
@@ -80,6 +76,40 @@ struct json_command {
 	const char *verbose;
 };
 
+/**
+ * json_stream_success - start streaming a successful json result.
+ * @cmd: the command we're running.
+ *
+ * The returned value should go to command_success() when done.
+ * json_add_* will be placed into the 'result' field of the JSON reply.
+ */
+struct json_stream *json_stream_success(struct command *cmd);
+
+/**
+ * json_stream_fail - start streaming a failed json result.
+ * @cmd: the command we're running.
+ * @code: the error code from lightningd/jsonrpc_errors.h
+ * @errmsg: the error string.
+ *
+ * The returned value should go to command_failed() when done;
+ * json_add_* will be placed into the 'data' field of the 'error' JSON reply.
+ */
+struct json_stream *json_stream_fail(struct command *cmd,
+				     int code,
+				     const char *errmsg);
+
+/**
+ * json_stream_fail_nodata - start streaming a failed json result.
+ * @cmd: the command we're running.
+ * @code: the error code from lightningd/jsonrpc_errors.h
+ * @errmsg: the error string.
+ *
+ * This is used by command_fail(), which doesn't add any JSON data.
+ */
+struct json_stream *json_stream_fail_nodata(struct command *cmd,
+					    int code,
+					    const char *errmsg);
+
 struct json_stream *null_response(struct command *cmd);
 void command_success(struct command *cmd, struct json_stream *response);
 void command_failed(struct command *cmd, struct json_stream *result);
@@ -91,26 +121,6 @@ void command_still_pending(struct command *cmd);
 
 /* For initialization */
 void setup_jsonrpc(struct lightningd *ld, const char *rpc_filename);
-
-enum address_parse_result {
-	/* Not recognized as an onchain address */
-	ADDRESS_PARSE_UNRECOGNIZED,
-	/* Recognized as an onchain address, but targets wrong network */
-	ADDRESS_PARSE_WRONG_NETWORK,
-	/* Recognized and succeeds */
-	ADDRESS_PARSE_SUCCESS,
-};
-/* Return result of address parsing and fills in *scriptpubkey
- * allocated off ctx if ADDRESS_PARSE_SUCCESS
- */
-enum address_parse_result json_tok_address_scriptpubkey(const tal_t *ctx,
-			      const struct chainparams *chainparams,
-			      const char *buffer,
-			      const jsmntok_t *tok, const u8 **scriptpubkey);
-
-/* Parse the satoshi token in wallet_tx. */
-bool json_tok_wtx(struct wallet_tx * tx, const char * buffer,
-		  const jsmntok_t * sattok, u64 max);
 
 AUTODATA_TYPE(json_command, struct json_command);
 #endif /* LIGHTNING_LIGHTNINGD_JSONRPC_H */
