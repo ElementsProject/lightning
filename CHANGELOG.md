@@ -22,8 +22,8 @@ changes.
 ### Fixed
 
 - JSON API: uppercase invoices now parsed correctly (broken in 0.6.2).
+- JSON API: commands are once again read even if one hasn't responded yet (broken in 0.6.2).
 - pylightning: handle multiple simultanous RPC replies reliably.
-
 
 ### Security
 

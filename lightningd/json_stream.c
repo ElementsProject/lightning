@@ -23,7 +23,9 @@ struct json_stream {
 
 	/* Who is io_writing from this buffer now: NULL if nobody is. */
 	struct io_conn *reader;
-	struct io_plan *(*reader_cb)(struct io_conn *conn, void *arg);
+	struct io_plan *(*reader_cb)(struct io_conn *conn,
+				     struct json_stream *js,
+				     void *arg);
 	void *reader_arg;
 	size_t len_read;
 
@@ -263,7 +265,7 @@ static struct io_plan *json_stream_output_write(struct io_conn *conn,
 		/* We're not doing io_write now, unset. */
 		js->reader = NULL;
 		if (!json_stream_still_writing(js))
-			return js->reader_cb(conn, js->reader_arg);
+			return js->reader_cb(conn, js, js->reader_arg);
 		return io_out_wait(conn, js, json_stream_output_write, js);
 	}
 
@@ -276,6 +278,7 @@ static struct io_plan *json_stream_output_write(struct io_conn *conn,
 struct io_plan *json_stream_output_(struct json_stream *js,
 				    struct io_conn *conn,
 				    struct io_plan *(*cb)(struct io_conn *conn,
+							  struct json_stream *js,
 							  void *arg),
 				    void *arg)
 {

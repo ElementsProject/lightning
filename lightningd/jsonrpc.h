@@ -3,7 +3,7 @@
 #include "config.h"
 #include <bitcoin/chainparams.h>
 #include <ccan/autodata/autodata.h>
-#include <common/io_lock.h>
+#include <ccan/list/list.h>
 #include <common/json.h>
 #include <lightningd/json_stream.h>
 #include <stdarg.h>
@@ -19,6 +19,8 @@ enum command_mode {
 /* Context for a command (from JSON, but might outlive the connection!). */
 /* FIXME: move definition into jsonrpc.c */
 struct command {
+	/* Off json_cmd->commands */
+	struct list_node list;
 	/* The global state */
 	struct lightningd *ld;
 	/* The 'id' which we need to include in the response. */

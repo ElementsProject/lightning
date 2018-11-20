@@ -85,12 +85,14 @@ json_add_member(struct json_stream *js, const char *fieldname,
 			    typesafe_cb_preargs(struct io_plan *,	\
 						void *,			\
 						(cb), (arg),		\
-						struct io_conn *),	\
+						struct io_conn *,	\
+						struct json_stream *), \
 			    (arg))
 
 struct io_plan *json_stream_output_(struct json_stream *js,
 				    struct io_conn *conn,
 				    struct io_plan *(*cb)(struct io_conn *conn,
+							  struct json_stream *js,
 							  void *arg),
 				    void *arg);
 
