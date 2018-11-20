@@ -31,6 +31,35 @@
 #include <sys/types.h>
 #include <sys/un.h>
 
+struct json_connection {
+	/* The global state */
+	struct lightningd *ld;
+
+	/* This io_conn (and our owner!) */
+	struct io_conn *conn;
+
+	/* Logging for this json connection. */
+	struct log *log;
+
+	/* The buffer (required to interpret tokens). */
+	char *buffer;
+
+	/* Internal state: */
+	/* How much is already filled. */
+	size_t used;
+	/* How much has just been filled. */
+	size_t len_read;
+
+	/* We've been told to stop. */
+	bool stop;
+
+	/* Current command. */
+	struct command *command;
+
+	/* Our json_stream */
+	struct json_stream *js;
+};
+
 /* jcon and cmd have separate lifetimes: we detach them on either destruction */
 static void destroy_jcon(struct json_connection *jcon)
 {

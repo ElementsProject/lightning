@@ -16,8 +16,8 @@ enum command_mode {
 	CMD_USAGE
 };
 
-/* Context for a command (from JSON, but might outlive the connection!)
- * You can allocate off this for temporary objects. */
+/* Context for a command (from JSON, but might outlive the connection!). */
+/* FIXME: move definition into jsonrpc.c */
 struct command {
 	/* The global state */
 	struct lightningd *ld;
@@ -36,35 +36,6 @@ struct command {
 	bool *ok;
 	/* Have we started a json stream already?  For debugging. */
 	bool have_json_stream;
-};
-
-struct json_connection {
-	/* The global state */
-	struct lightningd *ld;
-
-	/* This io_conn (and our owner!) */
-	struct io_conn *conn;
-
-	/* Logging for this json connection. */
-	struct log *log;
-
-	/* The buffer (required to interpret tokens). */
-	char *buffer;
-
-	/* Internal state: */
-	/* How much is already filled. */
-	size_t used;
-	/* How much has just been filled. */
-	size_t len_read;
-
-	/* We've been told to stop. */
-	bool stop;
-
-	/* Current command. */
-	struct command *command;
-
-	/* Our json_stream */
-	struct json_stream *js;
 };
 
 struct json_command {
