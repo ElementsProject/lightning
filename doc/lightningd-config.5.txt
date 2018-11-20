@@ -218,7 +218,8 @@ will announce it to peers if it's seems like a public address.
 
 You can instead use 'addr' to override this (eg. to change the port),
 or precisely control where to bind and what to announce with the
-'bind-addr' and 'announce-addr' options.
+'bind-addr' and 'announce-addr' options.  These will *disable* the
+'autolisten' logic, so you must specifiy exactly what you want!
 
 *addr*='[IPADDRESS[:PORT]]|autotor:TORIPADDRESS[:TORPORT]'::
 

@@ -2,12 +2,12 @@
 .\"     Title: lightningd-config
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 10/12/2018
+.\"      Date: 11/21/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNINGD\-CONFIG" "5" "10/12/2018" "\ \&" "\ \&"
+.TH "LIGHTNINGD\-CONFIG" "5" "11/21/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -278,7 +278,7 @@ Networking options:
 .sp
 Note that for simple setups, the implicit \fIautolisten\fR option does the right thing: it will try to bind to port 9735 on IPv4 and IPv6, and will announce it to peers if it\(cqs seems like a public address\&.
 .sp
-You can instead use \fIaddr\fR to override this (eg\&. to change the port), or precisely control where to bind and what to announce with the \fIbind\-addr\fR and \fIannounce\-addr\fR options\&.
+You can instead use \fIaddr\fR to override this (eg\&. to change the port), or precisely control where to bind and what to announce with the \fIbind\-addr\fR and \fIannounce\-addr\fR options\&. These will \fBdisable\fR the \fIautolisten\fR logic, so you must specifiy exactly what you want!
 .PP
 \fBaddr\fR=\fI[IPADDRESS[:PORT]]|autotor:TORIPADDRESS[:TORPORT]\fR
 .RS 4
