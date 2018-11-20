@@ -1,4 +1,17 @@
-/* Code for JSON_RPC API */
+/* Code for JSON_RPC API.
+ *
+ * Each socket connection is represented by a `struct json_connection`.
+ *
+ * This can have zero, one or more `struct command` in progress at a time:
+ * because the json_connection can be closed at any point, these `struct command`
+ * have a independent lifetimes.
+ *
+ * Each `struct command` writes into a `struct json_stream`, which is created
+ * the moment they start writing output (see attach_json_stream).  Initially
+ * the struct command owns it since they're writing into it.  When they're
+ * done, the `json_connection` needs to drain it (if it's still around).  At
+ * that point, the `json_connection` becomes the owner (or it's simply freed).
+ */
 /* eg: { "method" : "dev-echo", "params" : [ "hello", "Arabella!" ], "id" : "1" } */
 #include <arpa/inet.h>
 #include <bitcoin/address.h>
