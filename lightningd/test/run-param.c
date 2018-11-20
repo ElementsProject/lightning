@@ -1,5 +1,7 @@
+#include "config.h"
 #include "../json.c"
 #include "../json_escaped.c"
+#include "../json_stream.c"
 #include "../param.c"
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
@@ -40,12 +42,6 @@ const char *feerate_name(enum feerate feerate UNNEEDED)
 /* Generated stub for fmt_wireaddr_without_port */
 char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
 { fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
-/* Generated stub for jcon_append */
-void jcon_append(struct json_connection *jcon UNNEEDED, const char *str UNNEEDED)
-{ fprintf(stderr, "jcon_append called!\n"); abort(); }
-/* Generated stub for jcon_append_vfmt */
-void jcon_append_vfmt(struct json_connection *jcon UNNEEDED, const char *fmt UNNEEDED, va_list ap UNNEEDED)
-{ fprintf(stderr, "jcon_append_vfmt called!\n"); abort(); }
 /* Generated stub for json_feerate_estimate */
 bool json_feerate_estimate(struct command *cmd UNNEEDED,
 			   u32 **feerate_per_kw UNNEEDED, enum feerate feerate UNNEEDED)

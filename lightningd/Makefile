@@ -65,6 +65,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/invoice.c			\
 	lightningd/json.c			\
 	lightningd/json_escaped.c		\
+	lightningd/json_stream.c		\
 	lightningd/jsonrpc.c			\
 	lightningd/lightningd.c			\
 	lightningd/log.c			\

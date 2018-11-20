@@ -1,4 +1,3 @@
-#include "json.h"
 #include <arpa/inet.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
@@ -8,7 +7,9 @@
 #include <common/type_to_string.h>
 #include <common/wireaddr.h>
 #include <gossipd/routing.h>
+#include <lightningd/json.h>
 #include <lightningd/json_escaped.h>
+#include <lightningd/json_stream.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/options.h>
@@ -476,184 +477,39 @@ bool json_tok_tok(struct command *cmd, const char *name,
 	return (*out = tok);
 }
 
-struct json_stream {
-#if DEVELOPER
-	/* tal_arr of types (JSMN_OBJECT/JSMN_ARRAY) we're enclosed in. */
-	jsmntype_t *wrapping;
-#endif
-	/* How far to indent. */
-	size_t indent;
-
-	/* True if we haven't yet put an element in current wrapping */
-	bool empty;
-
-	/* The command we're attached to */
-	struct command *cmd;
-};
-
-static void result_append(struct json_stream *res, const char *str)
-{
-	struct json_connection *jcon = res->cmd->jcon;
-
-	/* Don't do anything if they're disconnected. */
-	if (!jcon)
-		return;
-
-	jcon_append(jcon, str);
-}
-
-static void PRINTF_FMT(2,3)
-result_append_fmt(struct json_stream *res, const char *fmt, ...)
-{
-	struct json_connection *jcon = res->cmd->jcon;
-	va_list ap;
-
-	/* Don't do anything if they're disconnected. */
-	if (!jcon)
-		return;
-
-	va_start(ap, fmt);
-	jcon_append_vfmt(jcon, fmt, ap);
-	va_end(ap);
-}
-
-static void check_fieldname(const struct json_stream *result,
-			    const char *fieldname)
-{
-#if DEVELOPER
-	size_t n = tal_count(result->wrapping);
-	if (n == 0)
-		/* Can't have a fieldname if not in anything! */
-		assert(!fieldname);
-	else if (result->wrapping[n-1] == JSMN_ARRAY)
-		/* No fieldnames in arrays. */
-		assert(!fieldname);
-	else
-		/* Must have fieldnames in objects. */
-		assert(fieldname);
-#endif
-}
-
-static void result_append_indent(struct json_stream *result)
-{
-	static const char indent_buf[] = "                                ";
-	size_t len;
-
-	for (size_t i = 0; i < result->indent * 2; i += len) {
-		len = result->indent * 2;
-		if (len > sizeof(indent_buf)-1)
-			len = sizeof(indent_buf)-1;
-		/* Use tail of indent_buf string. */
-		result_append(result, indent_buf + sizeof(indent_buf) - 1 - len);
-	}
-}
-
-static void json_start_member(struct json_stream *result, const char *fieldname)
-{
-	/* Prepend comma if required. */
-	if (!result->empty)
-		result_append(result, ", \n");
-	else
-		result_append(result, "\n");
-
-	result_append_indent(result);
-
-	check_fieldname(result, fieldname);
-	if (fieldname)
-		result_append_fmt(result, "\"%s\": ", fieldname);
-	result->empty = false;
-}
-
-static void result_indent(struct json_stream *result, jsmntype_t type)
-{
-#if DEVELOPER
-	*tal_arr_expand(&result->wrapping) = type;
-#endif
-	result->empty = true;
-	result->indent++;
-}
-
-static void result_unindent(struct json_stream *result, jsmntype_t type)
-{
-	assert(result->indent);
-#if DEVELOPER
-	assert(tal_count(result->wrapping) == result->indent);
-	assert(result->wrapping[result->indent-1] == type);
-	tal_resize(&result->wrapping, result->indent-1);
-#endif
-	result->empty = false;
-	result->indent--;
-}
-
-void json_array_start(struct json_stream *result, const char *fieldname)
-{
-	json_start_member(result, fieldname);
-	result_append(result, "[");
-	result_indent(result, JSMN_ARRAY);
-}
-
-void json_array_end(struct json_stream *result)
-{
-	result_append(result, "\n");
-	result_unindent(result, JSMN_ARRAY);
-	result_append_indent(result);
-	result_append(result, "]");
-}
-
-void json_object_start(struct json_stream *result, const char *fieldname)
-{
-	json_start_member(result, fieldname);
-	result_append(result, "{");
-	result_indent(result, JSMN_OBJECT);
-}
-
-void json_object_end(struct json_stream *result)
-{
-	result_append(result, "\n");
-	result_unindent(result, JSMN_OBJECT);
-	result_append_indent(result);
-	result_append(result, "}");
-}
-
 void json_add_num(struct json_stream *result, const char *fieldname, unsigned int value)
 {
-	json_start_member(result, fieldname);
-	result_append_fmt(result, "%u", value);
+	json_add_member(result, fieldname, "%u", value);
 }
 
 void json_add_double(struct json_stream *result, const char *fieldname, double value)
 {
-	json_start_member(result, fieldname);
-	result_append_fmt(result, "%f", value);
+	json_add_member(result, fieldname, "%f", value);
 }
 
 void json_add_u64(struct json_stream *result, const char *fieldname,
 		  uint64_t value)
 {
-	json_start_member(result, fieldname);
-	result_append_fmt(result, "%"PRIu64, value);
+	json_add_member(result, fieldname, "%"PRIu64, value);
 }
 
 void json_add_literal(struct json_stream *result, const char *fieldname,
 		      const char *literal, int len)
 {
-	json_start_member(result, fieldname);
-	result_append_fmt(result, "%.*s", len, literal);
+	json_add_member(result, fieldname, "%.*s", len, literal);
 }
 
 void json_add_string(struct json_stream *result, const char *fieldname, const char *value)
 {
 	struct json_escaped *esc = json_partial_escape(NULL, value);
 
-	json_start_member(result, fieldname);
-	result_append_fmt(result, "\"%s\"", esc->s);
+	json_add_member(result, fieldname, "\"%s\"", esc->s);
 	tal_free(esc);
 }
 
 void json_add_bool(struct json_stream *result, const char *fieldname, bool value)
 {
-	json_start_member(result, fieldname);
-	result_append(result, value ? "true" : "false");
+	json_add_member(result, fieldname, value ? "true" : "false");
 }
 
 void json_add_hex(struct json_stream *result, const char *fieldname,
@@ -695,33 +551,40 @@ void json_add_object(struct json_stream *result, ...)
 void json_add_escaped_string(struct json_stream *result, const char *fieldname,
 			     const struct json_escaped *esc TAKES)
 {
-	json_start_member(result, fieldname);
-	result_append_fmt(result, "\"%s\"", esc->s);
+	json_add_member(result, fieldname, "\"%s\"", esc->s);
 	if (taken(esc))
 		tal_free(esc);
 }
 
-static struct json_stream *new_json_stream(struct command *cmd)
+static struct json_stream *attach_json_stream(struct command *cmd)
 {
-	struct json_stream *r = tal(cmd, struct json_stream);
+	struct json_stream *js = new_json_stream(cmd, cmd);
 
-	r->cmd = cmd;
-#if DEVELOPER
-	r->wrapping = tal_arr(r, jsmntype_t, 0);
-#endif
-	r->indent = 0;
-	r->empty = true;
-
+	/* If they still care about the result, wake them */
+	if (cmd->jcon) {
+		/* FIXME: We only allow one command at a time */
+		assert(!cmd->jcon->js);
+		cmd->jcon->js = js;
+		io_wake(cmd->jcon);
+	}
 	assert(!cmd->have_json_stream);
 	cmd->have_json_stream = true;
-	return r;
+	return js;
+}
+
+static struct json_stream *json_start(struct command *cmd)
+{
+	struct json_stream *js = attach_json_stream(cmd);
+
+	json_stream_append_fmt(js, "{ \"jsonrpc\": \"2.0\", \"id\" : %s, ",
+			       cmd->id);
+	return js;
 }
 
 struct json_stream *json_stream_success(struct command *cmd)
 {
-	struct json_stream *r;
-	r = new_json_stream(cmd);
-	result_append(r, "\"result\" : ");
+	struct json_stream *r = json_start(cmd);
+	json_stream_append(r, "\"result\" : ");
 	return r;
 }
 
@@ -729,12 +592,12 @@ struct json_stream *json_stream_fail_nodata(struct command *cmd,
 					    int code,
 					    const char *errmsg)
 {
-	struct json_stream *r = new_json_stream(cmd);
+	struct json_stream *r = json_start(cmd);
 
 	assert(code);
 	assert(errmsg);
 
-	result_append_fmt(r, " \"error\" : "
+	json_stream_append_fmt(r, " \"error\" : "
 			  "{ \"code\" : %d,"
 			  " \"message\" : \"%s\"", code, errmsg);
 	return r;
@@ -746,6 +609,6 @@ struct json_stream *json_stream_fail(struct command *cmd,
 {
 	struct json_stream *r = json_stream_fail_nodata(cmd, code, errmsg);
 
-	result_append(r, ", \"data\" : ");
+	json_stream_append(r, ", \"data\" : ");
 	return r;
 }

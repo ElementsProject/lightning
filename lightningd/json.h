@@ -159,17 +159,6 @@ bool json_tok_tok(struct command *cmd, const char *name,
 		  const jsmntok_t **out);
 
 
-/* Creating JSON output */
-
-/* '"fieldname" : [ ' or '[ ' if fieldname is NULL */
-void json_array_start(struct json_stream *ptr, const char *fieldname);
-/* '"fieldname" : { ' or '{ ' if fieldname is NULL */
-void json_object_start(struct json_stream *ptr, const char *fieldname);
-/* ' ], ' */
-void json_array_end(struct json_stream *ptr);
-/* ' }, ' */
-void json_object_end(struct json_stream *ptr);
-
 /**
  * json_stream_success - start streaming a successful json result.
  * @cmd: the command we're running.
