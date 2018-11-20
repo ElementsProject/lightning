@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
-- JSON API: use `\n\n` to terminate responses, for simplified parsing.
+- JSON API: use `\n\n` to terminate responses, for simplified parsing (pylightning now relies on this)
 
 ### Changed
 
