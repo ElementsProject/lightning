@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 
+- JSON API: `pay` and `decodepay` accept and ignore `lightning:` prefixes.
+
 ### Deprecated
 
 Note: You should always set `allow-deprecated-apis=false` to test for

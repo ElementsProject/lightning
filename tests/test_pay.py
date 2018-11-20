@@ -1100,3 +1100,22 @@ def test_htlcs_cltv_only_difference(node_factory, bitcoind):
     assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected']
     assert only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['connected']
     assert only_one(l3.rpc.listpeers(l4.info['id'])['peers'])['connected']
+
+
+def test_pay_variants(node_factory):
+    l1, l2 = node_factory.line_graph(2)
+
+    # Upper case is allowed
+    b11 = l2.rpc.invoice(123000, 'test_pay_variants upper', 'description')['bolt11'].upper()
+    l1.rpc.decodepay(b11)
+    l1.rpc.pay(b11)
+
+    # lightning: prefix is allowed
+    b11 = 'lightning:' + l2.rpc.invoice(123000, 'test_pay_variants with prefix', 'description')['bolt11']
+    l1.rpc.decodepay(b11)
+    l1.rpc.pay(b11)
+
+    # BOTH is allowed.
+    b11 = 'LIGHTNING:' + l2.rpc.invoice(123000, 'test_pay_variants upper with prefix', 'description')['bolt11'].upper()
+    l1.rpc.decodepay(b11)
+    l1.rpc.pay(b11)
