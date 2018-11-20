@@ -11,6 +11,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/memleak.h>
+#include <common/timeout.h>
 #include <common/version.h>
 #include <common/wallet_tx.h>
 #include <common/wireaddr.h>
@@ -174,6 +175,49 @@ static const struct json_command dev_rhash_command = {
 	"Show SHA256 of {secret}"
 };
 AUTODATA(json_command, &dev_rhash_command);
+
+struct slowcmd {
+	struct command *cmd;
+	unsigned *msec;
+	struct json_stream *js;
+};
+
+static void slowcmd_finish(struct slowcmd *sc)
+{
+	json_object_start(sc->js, NULL);
+	json_add_num(sc->js, "msec", *sc->msec);
+	json_object_end(sc->js);
+	command_success(sc->cmd, sc->js);
+}
+
+static void slowcmd_start(struct slowcmd *sc)
+{
+	sc->js = json_stream_success(sc->cmd);
+	new_reltimer(&sc->cmd->ld->timers, sc, time_from_msec(*sc->msec),
+		     slowcmd_finish, sc);
+}
+
+static void json_slowcmd(struct command *cmd,
+			 const char *buffer, const jsmntok_t *params)
+{
+	struct slowcmd *sc = tal(cmd, struct slowcmd);
+
+	sc->cmd = cmd;
+	if (!param(cmd, buffer, params,
+		   p_opt_def("msec", json_tok_number, &sc->msec, 1000),
+		   NULL))
+		return;
+
+	new_reltimer(&cmd->ld->timers, sc, time_from_msec(0), slowcmd_start, sc);
+	command_still_pending(cmd);
+}
+
+static const struct json_command dev_slowcmd_command = {
+	"dev-slowcmd",
+	json_slowcmd,
+	"Torture test for slow commands, optional {msec}"
+};
+AUTODATA(json_command, &dev_slowcmd_command);
 
 static void json_crash(struct command *cmd UNUSED,
 		       const char *buffer UNUSED, const jsmntok_t *params UNUSED)
