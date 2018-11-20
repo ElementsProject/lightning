@@ -649,6 +649,46 @@ def test_multiplexed_rpc(node_factory):
     sock.close()
 
 
+def test_malformed_rpc(node_factory):
+    """Test that we get a correct response to malformed RPC commands"""
+    l1 = node_factory.get_node()
+
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.connect(l1.rpc.socket_path)
+
+    # No ID
+    sock.sendall(b'{"jsonrpc":"2.0","method":"getinfo","params":[]}')
+    obj, _ = l1.rpc._readobj(sock, b'')
+    assert obj['error']['code'] == -32600
+
+    # No method
+    sock.sendall(b'{"id":1, "jsonrpc":"2.0","params":[]}')
+    obj, _ = l1.rpc._readobj(sock, b'')
+    assert obj['error']['code'] == -32600
+
+    # Complete crap
+    sock.sendall(b'[]')
+    obj, _ = l1.rpc._readobj(sock, b'')
+    assert obj['error']['code'] == -32600
+
+    # Bad ID
+    sock.sendall(b'{"id":{}, "jsonrpc":"2.0","method":"getinfo","params":[]}')
+    obj, _ = l1.rpc._readobj(sock, b'')
+    assert obj['error']['code'] == -32600
+
+    # Bad method
+    sock.sendall(b'{"id":1, "method": 12, "jsonrpc":"2.0","params":[]}')
+    obj, _ = l1.rpc._readobj(sock, b'')
+    assert obj['error']['code'] == -32600
+
+    # Unknown method
+    sock.sendall(b'{"id":1, "method": "unknown", "jsonrpc":"2.0","params":[]}')
+    obj, _ = l1.rpc._readobj(sock, b'')
+    assert obj['error']['code'] == -32601
+
+    sock.close()
+
+
 def test_cli(node_factory):
     l1 = node_factory.get_node()
 
