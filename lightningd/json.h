@@ -15,6 +15,7 @@
 # include <external/jsmn/jsmn.h>
 
 struct bitcoin_txid;
+struct chainparams;
 struct channel_id;
 struct command;
 struct json_escaped;
@@ -24,6 +25,7 @@ struct route_hop;
 struct sha256;
 struct short_channel_id;
 struct wallet_payment;
+struct wallet_tx;
 struct wireaddr;
 struct wireaddr_internal;
 
@@ -159,40 +161,6 @@ bool json_tok_tok(struct command *cmd, const char *name,
 		  const jsmntok_t **out);
 
 
-/**
- * json_stream_success - start streaming a successful json result.
- * @cmd: the command we're running.
- *
- * The returned value should go to command_success() when done.
- * json_add_* will be placed into the 'result' field of the JSON reply.
- */
-struct json_stream *json_stream_success(struct command *cmd);
-
-/**
- * json_stream_fail - start streaming a failed json result.
- * @cmd: the command we're running.
- * @code: the error code from lightningd/jsonrpc_errors.h
- * @errmsg: the error string.
- *
- * The returned value should go to command_failed() when done;
- * json_add_* will be placed into the 'data' field of the 'error' JSON reply.
- */
-struct json_stream *json_stream_fail(struct command *cmd,
-				     int code,
-				     const char *errmsg);
-
-/**
- * json_stream_fail_nodata - start streaming a failed json result.
- * @cmd: the command we're running.
- * @code: the error code from lightningd/jsonrpc_errors.h
- * @errmsg: the error string.
- *
- * This is used by command_fail(), which doesn't add any JSON data.
- */
-struct json_stream *json_stream_fail_nodata(struct command *cmd,
-					    int code,
-					    const char *errmsg);
-
 /* '"fieldname" : "value"' or '"value"' if fieldname is NULL.  Turns
  * any non-printable chars into JSON escapes, but leaves existing escapes alone.
  */
@@ -226,6 +194,25 @@ void json_add_hex(struct json_stream *result, const char *fieldname,
 void json_add_hex_talarr(struct json_stream *result,
 			 const char *fieldname,
 			 const tal_t *data);
-void json_add_object(struct json_stream *result, ...);
+
+enum address_parse_result {
+	/* Not recognized as an onchain address */
+	ADDRESS_PARSE_UNRECOGNIZED,
+	/* Recognized as an onchain address, but targets wrong network */
+	ADDRESS_PARSE_WRONG_NETWORK,
+	/* Recognized and succeeds */
+	ADDRESS_PARSE_SUCCESS,
+};
+/* Return result of address parsing and fills in *scriptpubkey
+ * allocated off ctx if ADDRESS_PARSE_SUCCESS
+ */
+enum address_parse_result json_tok_address_scriptpubkey(const tal_t *ctx,
+			      const struct chainparams *chainparams,
+			      const char *buffer,
+			      const jsmntok_t *tok, const u8 **scriptpubkey);
+
+/* Parse the satoshi token in wallet_tx. */
+bool json_tok_wtx(struct wallet_tx * tx, const char * buffer,
+		  const jsmntok_t * sattok, u64 max);
 
 #endif /* LIGHTNING_LIGHTNINGD_JSON_H */
