@@ -3,10 +3,9 @@
 #include "config.h"
 #include <bitcoin/chainparams.h>
 #include <ccan/autodata/autodata.h>
-#include <ccan/list/list.h>
-#include <ccan/membuf/membuf.h>
 #include <common/io_lock.h>
 #include <common/json.h>
+#include <lightningd/json_stream.h>
 #include <stdarg.h>
 
 struct bitcoin_txid;
@@ -68,12 +67,8 @@ struct json_connection {
 	/* Current command. */
 	struct command *command;
 
-	/* Current command's output. */
-	MEMBUF(char) outbuf;
-
-	/* How much we're writing right now. */
-	size_t out_amount;
-	struct io_lock *lock;
+	/* Our json_stream */
+	struct json_stream *js;
 };
 
 struct json_command {
@@ -93,10 +88,6 @@ void PRINTF_FMT(3, 4) command_fail(struct command *cmd, int code,
 
 /* Mainly for documentation, that we plan to close this later. */
 void command_still_pending(struct command *cmd);
-
-/* Low level jcon routines. */
-void jcon_append(struct json_connection *jcon, const char *str);
-void jcon_append_vfmt(struct json_connection *jcon, const char *fmt, va_list ap);
 
 /* For initialization */
 void setup_jsonrpc(struct lightningd *ld, const char *rpc_filename);

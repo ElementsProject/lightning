@@ -1,4 +1,5 @@
 #include "../json_escaped.c"
+#include "../json_stream.c"
 #include "../jsonrpc.c"
 #include "../json.c"
 
@@ -61,21 +62,13 @@ bool deprecated_apis;
 
 static int test_json_filter(void)
 {
-	struct command *cmd = talz(NULL, struct command);
-	struct json_connection *jcon = talz(cmd, struct json_connection);
-	struct json_stream *result = json_stream_success(cmd);
+	struct json_stream *result = new_json_stream(NULL, NULL);
 	jsmntok_t *toks;
 	const jsmntok_t *x;
 	bool valid;
 	int i;
 	char *badstr = tal_arr(result, char, 256);
 	const char *str;
-
-	/* We need to initialize membuf so we can gather results. */
-	cmd->jcon = jcon;
-	jcon->lock = io_lock_new(jcon);
-	membuf_init(&jcon->outbuf,
-		    tal_arr(cmd, char, 64), 64, membuf_tal_realloc);
 
 	/* Fill with junk, and nul-terminate (256 -> 0) */
 	for (i = 1; i < 257; i++)
@@ -86,8 +79,8 @@ static int test_json_filter(void)
 	json_object_end(result);
 
 	/* Parse back in, make sure nothing crazy. */
-	str = tal_strndup(cmd, membuf_elems(&jcon->outbuf),
-			  membuf_num_elems(&jcon->outbuf));
+	str = tal_strndup(result, membuf_elems(&result->outbuf),
+			  membuf_num_elems(&result->outbuf));
 
 	toks = json_parse_input(str, strlen(str), &valid);
 	assert(valid);
@@ -105,7 +98,7 @@ static int test_json_filter(void)
 		assert((unsigned)str[i] >= ' ');
 		assert((unsigned)str[i] != 127);
 	}
-	tal_free(cmd);
+	tal_free(result);
 	return 0;
 }
 
@@ -115,27 +108,19 @@ static void test_json_escape(void)
 
 	for (i = 1; i < 256; i++) {
 		char badstr[2];
-		struct command *cmd = talz(NULL, struct command);
-		struct json_connection *jcon = talz(cmd, struct json_connection);
-		struct json_stream *result = json_stream_success(cmd);
+		struct json_stream *result = new_json_stream(NULL, NULL);
 		struct json_escaped *esc;
 
 		badstr[0] = i;
 		badstr[1] = 0;
-
-		/* We need to initialize membuf so we can gather results. */
-		cmd->jcon = jcon;
-		jcon->lock = io_lock_new(jcon);
-		membuf_init(&jcon->outbuf,
-			    tal_arr(cmd, char, 64), 64, membuf_tal_realloc);
 
 		json_object_start(result, NULL);
 		esc = json_escape(NULL, badstr);
 		json_add_escaped_string(result, "x", take(esc));
 		json_object_end(result);
 
-		const char *str = tal_strndup(cmd, membuf_elems(&jcon->outbuf),
-					      membuf_num_elems(&jcon->outbuf));
+		const char *str = tal_strndup(result, membuf_elems(&result->outbuf),
+					      membuf_num_elems(&result->outbuf));
 		if (i == '\\' || i == '"'
 		    || i == '\n' || i == '\r' || i == '\b'
 		    || i == '\t' || i == '\f')
@@ -147,7 +132,7 @@ static void test_json_escape(void)
 			expect[11] = i;
 			assert(streq(str, expect));
 		}
-		tal_free(cmd);
+		tal_free(result);
 	}
 }
 
