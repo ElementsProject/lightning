@@ -617,6 +617,38 @@ def test_multirpc(node_factory):
     sock.close()
 
 
+@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+def test_multiplexed_rpc(node_factory):
+    """Test that we can do multiple RPCs which exit in different orders"""
+    l1 = node_factory.get_node()
+
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.connect(l1.rpc.socket_path)
+
+    # Neighbouring ones may be in or out of order.
+    commands = [
+        b'{"id":1,"jsonrpc":"2.0","method":"dev-slowcmd","params":[2000]}',
+        b'{"id":1,"jsonrpc":"2.0","method":"dev-slowcmd","params":[2000]}',
+        b'{"id":2,"jsonrpc":"2.0","method":"dev-slowcmd","params":[1500]}',
+        b'{"id":2,"jsonrpc":"2.0","method":"dev-slowcmd","params":[1500]}',
+        b'{"id":3,"jsonrpc":"2.0","method":"dev-slowcmd","params":[1000]}',
+        b'{"id":3,"jsonrpc":"2.0","method":"dev-slowcmd","params":[1000]}',
+        b'{"id":4,"jsonrpc":"2.0","method":"dev-slowcmd","params":[500]}',
+        b'{"id":4,"jsonrpc":"2.0","method":"dev-slowcmd","params":[500]}'
+    ]
+
+    sock.sendall(b'\n'.join(commands))
+
+    buff = b''
+
+    # They will return in the same order, since they start immediately
+    # (delaying completion should mean we don't see the other commands intermingled).
+    for i in commands:
+        obj, buff = l1.rpc._readobj(sock, buff)
+        assert obj['id'] == l1.rpc.decoder.decode(i.decode("UTF-8"))['id']
+    sock.close()
+
+
 def test_cli(node_factory):
     l1 = node_factory.get_node()
 
