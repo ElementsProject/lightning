@@ -46,6 +46,12 @@ const char *log_prefix(const struct log *log UNNEEDED)
 /* Generated stub for new_log */
 struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "new_log called!\n"); abort(); }
+/* Generated stub for new_reltimer_ */
+struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
+			      const tal_t *ctx UNNEEDED,
+			      struct timerel expire UNNEEDED,
+			      void (*cb)(void *) UNNEEDED, void *arg UNNEEDED)
+{ fprintf(stderr, "new_reltimer_ called!\n"); abort(); }
 /* Generated stub for param */
 bool param(struct command *cmd UNNEEDED, const char *buffer UNNEEDED,
 	   const jsmntok_t params[] UNNEEDED, ...)
