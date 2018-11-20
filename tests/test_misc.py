@@ -1036,3 +1036,26 @@ def test_crashlog(node_factory):
     assert not has_crash_log(l1)
     l1.daemon.proc.send_signal(signal.SIGSEGV)
     wait_for(lambda: has_crash_log(l1))
+
+
+def test_configfile_before_chdir(node_factory):
+    """Must read config file before chdir into lightning dir"""
+    l1 = node_factory.get_node()
+    l1.stop()
+
+    olddir = os.getcwd()
+    # as lightning_dir ends in /, basename and dirname don't work as expected.
+    os.chdir(os.path.dirname(l1.daemon.lightning_dir[:-1]))
+    config = os.path.join(os.path.basename(l1.daemon.lightning_dir[:-1]), "test_configfile")
+    # Test both an early arg and a normal arg.
+    with open(config, 'wb') as f:
+        f.write(b'always-use-proxy=true\n')
+        f.write(b'proxy=127.0.0.1:100\n')
+    l1.daemon.opts['conf'] = config
+
+    # Update executable to point to right place
+    l1.daemon.executable = os.path.join(olddir, l1.daemon.executable)
+    l1.start()
+    assert l1.rpc.listconfigs()['always-use-proxy']
+    assert l1.rpc.listconfigs()['proxy'] == '127.0.0.1:100'
+    os.chdir(olddir)
