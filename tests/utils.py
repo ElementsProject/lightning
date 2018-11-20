@@ -298,6 +298,7 @@ class BitcoinD(TailableProc):
 class LightningD(TailableProc):
     def __init__(self, lightning_dir, bitcoind, port=9735, random_hsm=False, node_id=0):
         TailableProc.__init__(self, lightning_dir)
+        self.executable = 'lightningd/lightningd'
         self.lightning_dir = lightning_dir
         self.port = port
         self.cmd_prefix = []
@@ -351,7 +352,7 @@ class LightningD(TailableProc):
             else:
                 opts.append("--{}={}".format(k, v))
 
-        return self.cmd_prefix + ['lightningd/lightningd'] + opts
+        return self.cmd_prefix + [self.executable] + opts
 
     def start(self):
         self.rpcproxy.start()
