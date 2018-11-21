@@ -32,7 +32,7 @@ static struct io_plan *read_init(struct io_conn *conn, struct peer *peer);
 static struct io_plan *peer_init_received(struct io_conn *conn,
 					  struct peer *peer)
 {
-	u8 *msg = cryptomsg_decrypt_body(peer, &peer->cs, peer->msg);
+	u8 *msg = cryptomsg_decrypt_body(tmpctx, &peer->cs, peer->msg);
 	u8 *globalfeatures, *localfeatures;
 
 	if (!msg)
