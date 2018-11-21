@@ -7,6 +7,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/features.h>
+#include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
@@ -1714,6 +1715,16 @@ void route_prune(struct routing_state *rstate)
 	/* This frees all the chans and maybe even nodes. */
 	tal_free(pruned);
 }
+
+#if DEVELOPER
+void memleak_remove_routing_tables(struct htable *memtable,
+				   const struct routing_state *rstate)
+{
+	memleak_remove_htable(memtable, &rstate->nodes->raw);
+	memleak_remove_htable(memtable, &rstate->pending_node_map->raw);
+	memleak_remove_uintmap(memtable, &rstate->broadcasts->broadcasts);
+}
+#endif /* DEVELOPER */
 
 bool handle_local_add_channel(struct routing_state *rstate, const u8 *msg)
 {

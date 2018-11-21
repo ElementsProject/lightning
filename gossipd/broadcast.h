@@ -35,4 +35,5 @@ const u8 *next_broadcast(struct broadcast_state *bstate,
  * NULL. */
 struct broadcast_state *broadcast_state_check(struct broadcast_state *b,
 					      const char *abortstr);
+
 #endif /* LIGHTNING_GOSSIPD_BROADCAST_H */

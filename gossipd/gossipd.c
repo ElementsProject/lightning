@@ -2342,6 +2342,26 @@ static struct io_plan *dev_gossip_suppress(struct io_conn *conn,
 	suppress_gossip = true;
 	return daemon_conn_read_next(conn, daemon->master);
 }
+
+static struct io_plan *dev_gossip_memleak(struct io_conn *conn,
+					  struct daemon *daemon,
+					  const u8 *msg)
+{
+	struct htable *memtable;
+	bool found_leak;
+
+	memtable = memleak_enter_allocations(tmpctx, msg, msg);
+
+	/* Now delete daemon and those which it has pointers to. */
+	memleak_remove_referenced(memtable, daemon);
+	memleak_remove_routing_tables(memtable, daemon->rstate);
+
+	found_leak = dump_memleak(memtable);
+	daemon_conn_send(daemon->master,
+			 take(towire_gossip_dev_memleak_reply(NULL,
+							      found_leak)));
+	return daemon_conn_read_next(conn, daemon->master);
+}
 #endif /* DEVELOPER */
 
 /*~ lightningd: so, tell me about this channel, so we can forward to it. */
@@ -2556,12 +2576,15 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		return dev_set_max_scids_encode_size(conn, daemon, msg);
 	case WIRE_GOSSIP_DEV_SUPPRESS:
 		return dev_gossip_suppress(conn, daemon, msg);
+	case WIRE_GOSSIP_DEV_MEMLEAK:
+		return dev_gossip_memleak(conn, daemon, msg);
 #else
 	case WIRE_GOSSIP_QUERY_SCIDS:
 	case WIRE_GOSSIP_SEND_TIMESTAMP_FILTER:
 	case WIRE_GOSSIP_QUERY_CHANNEL_RANGE:
 	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 	case WIRE_GOSSIP_DEV_SUPPRESS:
+	case WIRE_GOSSIP_DEV_MEMLEAK:
 		break;
 #endif /* !DEVELOPER */
 
@@ -2575,6 +2598,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIP_GET_CHANNEL_PEER_REPLY:
 	case WIRE_GOSSIP_GET_INCOMING_CHANNELS_REPLY:
 	case WIRE_GOSSIP_GET_TXOUT:
+	case WIRE_GOSSIP_DEV_MEMLEAK_REPLY:
 		break;
 	}
 
