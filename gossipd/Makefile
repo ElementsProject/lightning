@@ -49,6 +49,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/dev_disconnect.o			\
 	common/features.o			\
 	common/gen_status_wire.o		\
+	common/memleak.o			\
 	common/msg_queue.o			\
 	common/ping.o				\
 	common/pseudorand.o			\

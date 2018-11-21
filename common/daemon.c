@@ -5,6 +5,7 @@
 #include <ccan/io/io.h>
 #include <ccan/str/str.h>
 #include <common/daemon.h>
+#include <common/memleak.h>
 #include <common/status.h>
 #include <common/utils.h>
 #include <common/version.h>
@@ -126,6 +127,12 @@ void daemon_setup(const char *argv0,
 	crashlog_activate();
 #endif
 
+#if DEVELOPER
+	/* This has significant overhead, so we only enable it if told */
+	if (getenv("LIGHTNINGD_DEV_MEMLEAK"))
+		memleak_init();
+#endif
+
 	/* We handle write returning errors! */
 	signal(SIGPIPE, SIG_IGN);
 	wally_init(0);
@@ -137,6 +144,9 @@ void daemon_setup(const char *argv0,
 
 void daemon_shutdown(void)
 {
+#if DEVELOPER
+	memleak_cleanup();
+#endif
 	tal_free(tmpctx);
 	wally_cleanup(0);
 }
