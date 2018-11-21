@@ -135,6 +135,12 @@ gossip_outpoint_spent,,short_channel_id,struct short_channel_id
 # master -> gossipd: stop gossip timers.
 gossip_dev_suppress,3032
 
+# master -> gossipd: do you have a memleak?
+gossip_dev_memleak,3033
+
+gossip_dev_memleak_reply,3133
+gossip_dev_memleak_reply,,leak,bool
+
 #include <common/bolt11.h>
 
 # master -> gossipd: get route_info for our incoming channels

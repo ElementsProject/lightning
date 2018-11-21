@@ -4,6 +4,7 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/mem/mem.h>
+#include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
