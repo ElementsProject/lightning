@@ -172,6 +172,9 @@ static inline int half_chan_to(const struct node *n, const struct chan *chan)
 }
 
 struct routing_state {
+	/* Which chain we're on */
+	const struct chainparams *chainparams;
+
 	/* All known nodes. */
 	struct node_map *nodes;
 
@@ -183,8 +186,6 @@ struct routing_state {
 	struct list_head pending_cannouncement;
 
 	struct broadcast_state *broadcasts;
-
-	struct bitcoin_blkid chain_hash;
 
 	/* Our own ID so we can identify local channels */
 	struct pubkey local_id;
@@ -218,7 +219,7 @@ struct route_hop {
 };
 
 struct routing_state *new_routing_state(const tal_t *ctx,
-					const struct bitcoin_blkid *chain_hash,
+					const struct chainparams *chainparams,
 					const struct pubkey *local_id,
 					u32 prune_timeout);
 
