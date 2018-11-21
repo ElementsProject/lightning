@@ -10,6 +10,7 @@
  *    reading and writing synchronously we could deadlock if we hit buffer
  *    limits, unlikely as that is.
  */
+#include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
 #include <ccan/cast/cast.h>
@@ -60,7 +61,6 @@
 #define PEER_FD 3
 #define GOSSIP_FD 4
 #define HSM_FD 5
-#define min(x, y) ((x) < (y) ? (x) : (y))
 
 struct commit_sigs {
 	struct peer *peer;
@@ -236,12 +236,22 @@ static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
  * capacity minus the cumulative reserve.
  * FIXME: does this need fuzz?
  */
-static const u64 advertised_htlc_max(const struct channel *channel)
+static u64 advertised_htlc_max(const struct channel *channel)
 {
-	u64 cumulative_reserve_msat = (channel->config[LOCAL].channel_reserve_satoshis +
-		channel->config[REMOTE].channel_reserve_satoshis) * 1000;
-	return min(channel->config[REMOTE].max_htlc_value_in_flight_msat,
-		   channel->funding_msat - cumulative_reserve_msat);
+	u64 lower_bound;
+	u64 cumulative_reserve_msat;
+
+	cumulative_reserve_msat =
+		(channel->config[LOCAL].channel_reserve_satoshis +
+		 channel->config[REMOTE].channel_reserve_satoshis) * 1000;
+
+	lower_bound = channel->config[REMOTE].max_htlc_value_in_flight_msat;
+	if (channel->funding_msat - cumulative_reserve_msat < lower_bound)
+		lower_bound = channel->funding_msat - cumulative_reserve_msat;
+	/* FIXME BOLT QUOTE: https://github.com/lightningnetwork/lightning-rfc/pull/512 once merged */
+	if (channel->chainparams->max_payment_msat < lower_bound)
+		lower_bound = channel->chainparams->max_payment_msat;
+	return lower_bound;
 }
 
 /* Create and send channel_update to gossipd (and maybe peer) */
