@@ -1,3 +1,10 @@
+from bitcoin.rpc import RawProxy as BitcoinProxy
+from btcproxy import BitcoinRpcProxy
+from decimal import Decimal
+from ephemeral_port_reserve import reserve
+from lightning import LightningRpc
+
+import json
 import logging
 import os
 import random
@@ -8,12 +15,6 @@ import string
 import subprocess
 import threading
 import time
-
-from btcproxy import BitcoinRpcProxy
-from bitcoin.rpc import RawProxy as BitcoinProxy
-from decimal import Decimal
-from ephemeral_port_reserve import reserve
-from lightning import LightningRpc
 
 BITCOIND_CONFIG = {
     "regtest": 1,
@@ -864,7 +865,9 @@ class NodeFactory(object):
                     unexpected_fail = True
 
             if leaks is not None and len(leaks) != 0:
-                raise Exception("Node {} has memory leaks: {}"
-                                .format(self.nodes[i].daemon.lightning_dir, leaks))
+                raise Exception("Node {} has memory leaks: {}".format(
+                    self.nodes[i].daemon.lightning_dir,
+                    json.dumps(leaks, sort_keys=True, indent=4)
+                ))
 
         return not unexpected_fail
