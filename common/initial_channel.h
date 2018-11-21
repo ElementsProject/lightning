@@ -41,7 +41,7 @@ struct channel {
 	enum side funder;
 
 	/* Limits and settings on this channel. */
-	const struct channel_config *config[NUM_SIDES];
+	struct channel_config config[NUM_SIDES];
 
 	/* Basepoints for deriving keys. */
 	struct basepoints basepoints[NUM_SIDES];
@@ -67,7 +67,7 @@ struct channel {
 static inline u64 channel_reserve_msat(const struct channel *channel,
 				       enum side side)
 {
-	return channel->config[!side]->channel_reserve_satoshis * 1000;
+	return channel->config[!side].channel_reserve_satoshis * 1000;
 }
 
 /**

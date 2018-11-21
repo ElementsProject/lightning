@@ -35,8 +35,8 @@ struct channel *new_initial_channel(const tal_t *ctx,
 		return tal_free(channel);
 
 	channel->funder = funder;
-	channel->config[LOCAL] = local;
-	channel->config[REMOTE] = remote;
+	channel->config[LOCAL] = *local;
+	channel->config[REMOTE] = *remote;
 	channel->funding_pubkey[LOCAL] = *local_funding_pubkey;
 	channel->funding_pubkey[REMOTE] = *remote_funding_pubkey;
 	channel->htlcs = NULL;
@@ -94,10 +94,10 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				 channel->funding_msat / 1000,
 				 channel->funder,
 				 /* They specify our to_self_delay and v.v. */
-				 channel->config[!side]->to_self_delay,
+				 channel->config[!side].to_self_delay,
 				 &keyset,
 				 channel->view[side].feerate_per_kw,
-				 channel->config[side]->dust_limit_satoshis,
+				 channel->config[side].dust_limit_satoshis,
 				 channel->view[side].owed_msat[side],
 				 channel->view[side].owed_msat[!side],
 				 channel_reserve_msat(channel, side),
