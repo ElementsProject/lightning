@@ -35,6 +35,7 @@
 #include <common/daemon_conn.h>
 #include <common/decode_short_channel_ids.h>
 #include <common/features.h>
+#include <common/memleak.h>
 #include <common/ping.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
@@ -1762,9 +1763,9 @@ static void gossip_refresh_network(struct daemon *daemon)
 	struct node *n;
 
 	/* Schedule next run now (prune_timeout is 2 weeks) */
-	new_reltimer(&daemon->timers, daemon,
-		     time_from_sec(daemon->rstate->prune_timeout/4),
-		     gossip_refresh_network, daemon);
+	notleak(new_reltimer(&daemon->timers, daemon,
+			     time_from_sec(daemon->rstate->prune_timeout/4),
+			     gossip_refresh_network, daemon));
 
 	/* Find myself in the network */
 	n = get_node(daemon->rstate, &daemon->id);
@@ -1852,9 +1853,9 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 	maybe_send_own_node_announce(daemon);
 
 	/* Start the weekly refresh timer. */
-	new_reltimer(&daemon->timers, daemon,
-		     time_from_sec(daemon->rstate->prune_timeout/4),
-		     gossip_refresh_network, daemon);
+	notleak(new_reltimer(&daemon->timers, daemon,
+			     time_from_sec(daemon->rstate->prune_timeout/4),
+			     gossip_refresh_network, daemon));
 
 	return daemon_conn_read_next(conn, daemon->master);
 }
