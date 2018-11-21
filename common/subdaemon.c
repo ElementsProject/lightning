@@ -60,3 +60,57 @@ void subdaemon_setup(int argc, char *argv[])
 	daemon_setup(argv[0], status_backtrace_print, status_backtrace_exit);
 }
 
+#if DEVELOPER
+ // Indented to avoid header-order check
+ #include <backtrace.h>
+ #include <common/memleak.h>
+
+static int dump_syminfo(void *data UNUSED, uintptr_t pc UNUSED,
+			const char *filename, int lineno,
+			const char *function)
+{
+	/* This can happen in backtraces. */
+	if (!filename || !function)
+		return 0;
+
+	status_trace("    %s:%u (%s)", filename, lineno, function);
+	return 0;
+}
+
+static void dump_leak_backtrace(const uintptr_t *bt)
+{
+	if (!bt)
+		return;
+
+	/* First one serves as counter. */
+	status_trace("  backtrace:");
+	for (size_t i = 1; i < bt[0]; i++) {
+		backtrace_pcinfo(backtrace_state,
+				 bt[i], dump_syminfo,
+				 NULL, NULL);
+	}
+}
+
+bool dump_memleak(struct htable *memtable)
+{
+	const tal_t *i;
+	const uintptr_t *backtrace;
+	bool found_leak = false;
+
+	while ((i = memleak_get(memtable, &backtrace)) != NULL) {
+		status_broken("MEMLEAK: %p", i);
+		if (tal_name(i))
+			status_broken("  label=%s", tal_name(i));
+
+		dump_leak_backtrace(backtrace);
+		status_broken("  parents:");
+		for (tal_t *p = tal_parent(i); p; p = tal_parent(p)) {
+			status_broken("    %s", tal_name(p));
+			p = tal_parent(p);
+		}
+		found_leak = true;
+	}
+
+	return found_leak;
+}
+#endif /* DEVELOPER */

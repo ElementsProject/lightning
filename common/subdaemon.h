@@ -6,4 +6,10 @@
 /* daemon_setup, but for subdaemons */
 void subdaemon_setup(int argc, char *argv[]);
 
+#if DEVELOPER
+struct htable;
+
+bool dump_memleak(struct htable *memtable);
+#endif
+
 #endif /* LIGHTNING_COMMON_SUBDAEMON_H */
