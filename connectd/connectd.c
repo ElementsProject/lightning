@@ -365,7 +365,7 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 					const u8 *localfeatures TAKES)
 {
 	u8 *msg;
-	struct peer_reconnected *r;
+	struct peer_reconnected *pr;
 
 	status_trace("peer %s: reconnect",
 		     type_to_string(tmpctx, struct pubkey, id));
@@ -375,24 +375,24 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	daemon_conn_send(daemon->master, take(msg));
 
 	/* Save arguments for next time. */
-	r = tal(daemon, struct peer_reconnected);
-	r->daemon = daemon;
-	r->id = *id;
+	pr = tal(daemon, struct peer_reconnected);
+	pr->daemon = daemon;
+	pr->id = *id;
 
 	/*~ Note that tal_dup_arr() will do handle the take() of
 	 * peer_connected_msg and localfeatures (turning it into a simply
 	 * tal_steal() in those cases). */
-	r->peer_connected_msg
-		= tal_dup_arr(r, u8, peer_connected_msg,
+	pr->peer_connected_msg
+		= tal_dup_arr(pr, u8, peer_connected_msg,
 			      tal_count(peer_connected_msg), 0);
-	r->localfeatures
-		= tal_dup_arr(r, u8, localfeatures, tal_count(localfeatures), 0);
+	pr->localfeatures
+		= tal_dup_arr(pr, u8, localfeatures, tal_count(localfeatures), 0);
 
 	/*~ ccan/io supports waiting on an address: in this case, the key in
 	 * the peer set.  When someone calls `io_wake()` on that address, it
 	 * will call retry_peer_connected above. */
 	return io_wait(conn, pubkey_set_get(&daemon->peers, id),
-		       retry_peer_connected, r);
+		       retry_peer_connected, pr);
 }
 
 /*~ Note the lack of static: this is called by peer_exchange_initmsg.c once the
