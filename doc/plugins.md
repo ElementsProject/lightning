@@ -68,7 +68,7 @@ this example:
 		{
 			"name": "gettime",
 			"description": "Returns the current time in {timezone}",
-			"params": ["timezone"]
+			"long_description": "Returns the current time in the timezone that is given as the only parameter.\nThis description may be quite long and is allowed to span multiple lines."
 		}
 	]
 }
