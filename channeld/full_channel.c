@@ -202,7 +202,7 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 			tx = htlc_timeout_tx(*txs, &txid, i,
 					     htlc->msatoshi,
 					     htlc->expiry.locktime,
-					     to_self_delay(channel, side),
+					     channel->config[!side]->to_self_delay,
 					     feerate_per_kw,
 					     keyset);
 			wscript	= bitcoin_wscript_htlc_offer(*wscripts,
@@ -213,7 +213,7 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 		} else {
 			tx = htlc_success_tx(*txs, &txid, i,
 					     htlc->msatoshi,
-					     to_self_delay(channel, side),
+					     channel->config[!side]->to_self_delay,
 					     feerate_per_kw,
 					     keyset);
 			wscript	= bitcoin_wscript_htlc_receive(*wscripts,
@@ -259,10 +259,10 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 		       channel->funding_txout,
 		       channel->funding_msat / 1000,
 		       channel->funder,
-		       to_self_delay(channel, side),
+		       channel->config[!side]->to_self_delay,
 		       &keyset,
 		       channel->view[side].feerate_per_kw,
-		       dust_limit_satoshis(channel, side),
+		       channel->config[side]->dust_limit_satoshis,
 		       channel->view[side].owed_msat[side],
 		       channel->view[side].owed_msat[!side],
 		       committed,
@@ -348,7 +348,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	if (htlc->msatoshi == 0) {
 		return CHANNEL_ERR_HTLC_BELOW_MINIMUM;
 	}
-	if (htlc->msatoshi < htlc_minimum_msat(channel, recipient)) {
+	if (htlc->msatoshi < channel->config[recipient]->htlc_minimum_msat) {
 		return CHANNEL_ERR_HTLC_BELOW_MINIMUM;
 	}
 
@@ -373,7 +373,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 */
 	if (enforce_aggregate_limits
 	    && tal_count(committed) - tal_count(removing) + tal_count(adding)
-	    > max_accepted_htlcs(channel, recipient)) {
+	    > channel->config[recipient]->max_accepted_htlcs) {
 		return CHANNEL_ERR_TOO_MANY_HTLCS;
 	}
 
@@ -389,7 +389,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 *     - SHOULD fail the channel.
 	 */
 	if (enforce_aggregate_limits
-	    && msat_in_htlcs > max_htlc_value_in_flight_msat(channel, recipient)) {
+	    && msat_in_htlcs > channel->config[recipient]->max_htlc_value_in_flight_msat) {
 		return CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
 	}
 
@@ -404,7 +404,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 */
 	if (channel->funder == htlc_owner(htlc)) {
 		u32 feerate = view->feerate_per_kw;
-		u64 dust = dust_limit_satoshis(channel, recipient);
+		u64 dust = channel->config[recipient]->dust_limit_satoshis;
 		size_t untrimmed;
 
 		untrimmed = commit_tx_num_untrimmed(committed, feerate, dust,
@@ -701,7 +701,7 @@ u32 approx_max_feerate(const struct channel *channel)
 
 bool can_funder_afford_feerate(const struct channel *channel, u32 feerate_per_kw)
 {
-	u64 fee_msat, dust = dust_limit_satoshis(channel, !channel->funder);
+	u64 fee_msat, dust = channel->config[!channel->funder]->dust_limit_satoshis;
 	size_t untrimmed;
 	const struct htlc **committed, **adding, **removing;
 	gather_htlcs(tmpctx, channel, !channel->funder,

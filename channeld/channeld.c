@@ -2340,7 +2340,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	case CHANNEL_ERR_HTLC_BELOW_MINIMUM:
 		failcode = WIRE_AMOUNT_BELOW_MINIMUM;
 		failmsg = tal_fmt(inmsg, "HTLC too small (%"PRIu64" minimum)",
-				  htlc_minimum_msat(peer->channel, REMOTE));
+				  peer->channel->config[REMOTE]->htlc_minimum_msat);
 		goto failed;
 	case CHANNEL_ERR_TOO_MANY_HTLCS:
 		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
