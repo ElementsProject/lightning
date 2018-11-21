@@ -836,6 +836,7 @@ def test_rescan(node_factory, bitcoind):
     assert not l1.daemon.is_in_log(r'Adding block 102')
 
 
+@flaky
 def test_reserve_enforcement(node_factory, executor):
     """Channeld should disallow you spending into your reserve"""
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
