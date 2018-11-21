@@ -189,7 +189,6 @@ int main(void)
 {
 	setup_locale();
 
-	static const struct bitcoin_blkid zerohash;
 	struct routing_state *rstate;
 	struct pubkey a, b, c, d;
 	struct privkey tmp;
@@ -203,7 +202,7 @@ int main(void)
 
 	memset(&tmp, 'a', sizeof(tmp));
 	pubkey_from_privkey(&tmp, &a);
-	rstate = new_routing_state(tmpctx, &zerohash, &a, 0);
+	rstate = new_routing_state(tmpctx, NULL, &a, 0);
 
 	new_node(rstate, &a);
 

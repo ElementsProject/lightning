@@ -215,7 +215,6 @@ int main(int argc, char *argv[])
 {
 	setup_locale();
 
-	static const struct bitcoin_blkid zerohash;
 	struct routing_state *rstate;
 	size_t num_nodes = 100, num_runs = 1;
 	struct timemono start, end;
@@ -229,7 +228,7 @@ int main(int argc, char *argv[])
 						 | SECP256K1_CONTEXT_SIGN);
 	setup_tmpctx();
 
-	rstate = new_routing_state(tmpctx, &zerohash, &me, 0);
+	rstate = new_routing_state(tmpctx, NULL, &me, 0);
 	opt_register_noarg("--perfme", opt_set_bool, &perfme,
 			   "Run perfme-start and perfme-stop around benchmark");
 

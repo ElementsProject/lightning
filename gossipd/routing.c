@@ -85,14 +85,14 @@ static struct node_map *empty_node_map(const tal_t *ctx)
 }
 
 struct routing_state *new_routing_state(const tal_t *ctx,
-					const struct bitcoin_blkid *chain_hash,
+					const struct chainparams *chainparams,
 					const struct pubkey *local_id,
 					u32 prune_timeout)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->nodes = empty_node_map(rstate);
 	rstate->broadcasts = new_broadcast_state(rstate);
-	rstate->chain_hash = *chain_hash;
+	rstate->chainparams = chainparams;
 	rstate->local_id = *local_id;
 	rstate->prune_timeout = prune_timeout;
 	rstate->store = gossip_store_new(rstate, rstate, rstate->broadcasts);
@@ -849,7 +849,8 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	 *  - if the specified `chain_hash` is unknown to the receiver:
 	 *    - MUST ignore the message.
 	 */
-	if (!bitcoin_blkid_eq(&chain_hash, &rstate->chain_hash)) {
+	if (!bitcoin_blkid_eq(&chain_hash,
+			      &rstate->chainparams->genesis_blockhash)) {
 		status_trace(
 		    "Received channel_announcement %s for unknown chain %s",
 		    type_to_string(pending, struct short_channel_id,
@@ -1167,7 +1168,8 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	 *    active on the specified chain):
 	 *    - MUST ignore the channel update.
 	 */
-	if (!bitcoin_blkid_eq(&chain_hash, &rstate->chain_hash)) {
+	if (!bitcoin_blkid_eq(&chain_hash,
+			      &rstate->chainparams->genesis_blockhash)) {
 		status_trace("Received channel_update for unknown chain %s",
 			     type_to_string(tmpctx, struct bitcoin_blkid,
 					    &chain_hash));
