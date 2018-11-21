@@ -57,7 +57,6 @@
 /*~ This is common code: routines shared by one or more executables
  *  (separate daemons, or the lightning-cli program). */
 #include <common/daemon.h>
-#include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <common/version.h>
@@ -116,15 +115,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_disconnect_fd = -1;
 	ld->dev_subdaemon_fail = false;
 	ld->dev_allow_localhost = false;
-
-	/*~ Behaving differently depending on environment variables is a hack,
-	 * *but* hacks are allowed for dev-mode stuff.  In this case, there's
-	 * a significant overhead to the memory leak detection stuff, and we
-	 * can't use it under valgrind (an awesome runtime memory usage
-	 * detector for C and C++ programs), so the test harness uses this var
-	 * to disable it in that case. */
-	if (getenv("LIGHTNINGD_DEV_MEMLEAK"))
-		memleak_init();
 #endif
 
 	/*~ These are CCAN lists: an embedded double-linked list.  It's not
@@ -374,9 +364,10 @@ static const char *find_daemon_dir(const tal_t *ctx, const char *argv0)
 	return find_my_pkglibexec_path(ctx, take(my_path));
 }
 
-/*~ We like to free everything on exit, so valgrind doesn't complain.  In some
- * ways it would be neater not to do this, but it turns out some transient
- * objects still need cleaning. */
+/*~ We like to free everything on exit, so valgrind doesn't complain (valgrind
+ * is an awesome runtime memory usage detector for C and C++ programs). In
+ * some ways it would be neater not to do this, but it turns out some
+ * transient objects still need cleaning. */
 static void shutdown_subdaemons(struct lightningd *ld)
 {
 	struct peer *p;
@@ -798,9 +789,6 @@ int main(int argc, char *argv[])
 	tal_free(ld);
 	opt_free_table();
 
-#if DEVELOPER
-	memleak_cleanup();
-#endif
 	daemon_shutdown();
 
 	/*~ Farewell.  Next stop: hsmd/hsmd.c. */
