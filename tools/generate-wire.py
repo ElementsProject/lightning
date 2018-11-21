@@ -325,7 +325,7 @@ class Message(object):
             self.has_variable_fields = True
         self.fields.append(field)
 
-    def print_fromwire_array(self, subcalls, basetype, f, name, num_elems):
+    def print_fromwire_array(self, ctx, subcalls, basetype, f, name, num_elems):
         if f.has_array_helper():
             subcalls.append('fromwire_{}_array(&cursor, &plen, {}, {});'
                             .format(basetype, name, num_elems))
@@ -336,8 +336,8 @@ class Message(object):
                 subcalls.append('({})[i] = fromwire_{}(&cursor, &plen);'
                                 .format(name, basetype))
             elif basetype in varlen_structs:
-                subcalls.append('({})[i] = fromwire_{}(ctx, &cursor, &plen);'
-                                .format(name, basetype))
+                subcalls.append('({})[i] = fromwire_{}({}, &cursor, &plen);'
+                                .format(name, basetype, ctx))
             else:
                 subcalls.append('fromwire_{}(&cursor, &plen, {} + i);'
                                 .format(basetype, name))
@@ -377,7 +377,7 @@ class Message(object):
                 subcalls.append('fromwire_pad(&cursor, &plen, {});'
                                 .format(f.num_elems))
             elif f.is_array():
-                self.print_fromwire_array(subcalls, basetype, f, f.name,
+                self.print_fromwire_array('ctx', subcalls, basetype, f, f.name,
                                           f.num_elems)
             elif f.is_variable_size():
                 subcalls.append("//2nd case {name}".format(name=f.name))
@@ -388,8 +388,9 @@ class Message(object):
                 subcalls.append('*{} = {} ? tal_arr(ctx, {}, {}) : NULL;'
                                 .format(f.name, f.lenvar, typename, f.lenvar))
 
-                self.print_fromwire_array(subcalls, basetype, f, '*' + f.name,
-                                          f.lenvar)
+                # Allocate these off the array itself, if they need alloc.
+                self.print_fromwire_array('*' + f.name, subcalls, basetype, f,
+                                          '*' + f.name, f.lenvar)
             else:
                 if f.optional:
                     subcalls.append("if (!fromwire_bool(&cursor, &plen))\n"
