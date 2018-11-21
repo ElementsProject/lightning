@@ -34,11 +34,43 @@
 struct channel_config {
 	/* Database ID */
 	u64 id;
+	/* BOLT #2:
+	 *
+	 * `dust_limit_satoshis` is the threshold below which outputs should
+	 * not be generated for this node's commitment or HTLC transaction */
 	u64 dust_limit_satoshis;
+
+	/* BOLT #2:
+	 *
+	 * `max_htlc_value_in_flight_msat` is a cap on total value of
+	 * outstanding HTLCs, which allows a node to limit its exposure to
+	 * HTLCs */
 	u64 max_htlc_value_in_flight_msat;
+
+	/* BOLT #2:
+	 *
+	 * `channel_reserve_satoshis` is the minimum amount that the other
+	 * node is to keep as a direct payment. */
 	u64 channel_reserve_satoshis;
+
+	/* BOLT #2:
+	 *
+	 * `htlc_minimum_msat` indicates the smallest value HTLC this node
+	 * will accept.
+	 */
 	u64 htlc_minimum_msat;
+
+	/* BOLT #2:
+	 *
+	 * `to_self_delay` is the number of blocks that the other node's
+	 * to-self outputs must be delayed, using `OP_CHECKSEQUENCEVERIFY`
+	 * delays */
 	u16 to_self_delay;
+
+	/* BOLT #2:
+	 *
+	 * similarly, `max_accepted_htlcs` limits the number of outstanding
+	 * HTLCs the other node can offer. */
 	u16 max_accepted_htlcs;
 };
 
