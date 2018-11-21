@@ -70,7 +70,6 @@ struct commit_sigs {
 
 struct peer {
 	struct crypto_state cs;
-	struct channel_config conf[NUM_SIDES];
 	bool funding_locked[NUM_SIDES];
 	u64 next_index[NUM_SIDES];
 
@@ -237,14 +236,12 @@ static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
  * capacity minus the cumulative reserve.
  * FIXME: does this need fuzz?
  */
-static const u64 advertised_htlc_max(const u64 funding_msat,
-		const struct channel_config *our_config,
-		const struct channel_config *remote_config)
+static const u64 advertised_htlc_max(const struct channel *channel)
 {
-	u64 cumulative_reserve_msat = (our_config->channel_reserve_satoshis +
-		remote_config->channel_reserve_satoshis) * 1000;
-	return min(remote_config->max_htlc_value_in_flight_msat,
-			funding_msat - cumulative_reserve_msat);
+	u64 cumulative_reserve_msat = (channel->config[LOCAL].channel_reserve_satoshis +
+		channel->config[REMOTE].channel_reserve_satoshis) * 1000;
+	return min(channel->config[REMOTE].max_htlc_value_in_flight_msat,
+		   channel->funding_msat - cumulative_reserve_msat);
 }
 
 /* Create and send channel_update to gossipd (and maybe peer) */
@@ -265,13 +262,10 @@ static void send_channel_update(struct peer *peer, int disable_flag)
 						  disable_flag
 						  == ROUTING_FLAGS_DISABLED,
 						  peer->cltv_delta,
-						  peer->conf[REMOTE].htlc_minimum_msat,
+						  peer->channel->config[REMOTE].htlc_minimum_msat,
 						  peer->fee_base,
 						  peer->fee_per_satoshi,
-						  advertised_htlc_max(
-							 peer->channel->funding_msat,
-							 &peer->conf[LOCAL],
-							 &peer->conf[REMOTE]));
+						  advertised_htlc_max(peer->channel));
 	wire_sync_write(GOSSIP_FD, take(msg));
 }
 
@@ -2539,6 +2533,7 @@ static void init_channel(struct peer *peer)
 	u16 funding_txout;
 	u64 local_msatoshi;
 	struct pubkey funding_pubkey[NUM_SIDES];
+	struct channel_config conf[NUM_SIDES];
 	struct bitcoin_txid funding_txid;
 	enum side funder;
 	enum htlc_state *hstates;
@@ -2562,7 +2557,7 @@ static void init_channel(struct peer *peer)
 				   &peer->chain_hash,
 				   &funding_txid, &funding_txout,
 				   &funding_satoshi,
-				   &peer->conf[LOCAL], &peer->conf[REMOTE],
+				   &conf[LOCAL], &conf[REMOTE],
 				   feerate_per_kw,
 				   &peer->feerate_min, &peer->feerate_max,
 				   &peer->their_commit_sig,
@@ -2638,7 +2633,7 @@ static void init_channel(struct peer *peer)
 					 funding_satoshi,
 					 local_msatoshi,
 					 feerate_per_kw,
-					 &peer->conf[LOCAL], &peer->conf[REMOTE],
+					 &conf[LOCAL], &conf[REMOTE],
 					 &points[LOCAL], &points[REMOTE],
 					 &funding_pubkey[LOCAL],
 					 &funding_pubkey[REMOTE],
