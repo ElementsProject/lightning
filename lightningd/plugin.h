@@ -16,7 +16,8 @@ struct plugins;
 /**
  * Create a new plugins context.
  */
-struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book);
+struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
+			    struct jsonrpc *rpc);
 
 /**
  * Initialize the registered plugins.

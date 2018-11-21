@@ -58,6 +58,9 @@ struct plugins {
 	UINTMAP(struct plugin_request *) pending_requests;
 	struct log *log;
 	struct log_book *log_book;
+
+	/* RPC interface to bind JSON-RPC methods to */
+	struct jsonrpc *rpc;
 };
 
 struct json_output {
@@ -74,12 +77,15 @@ struct plugin_opt {
 	char *value;
 };
 
-struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book){
+struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
+			    struct jsonrpc *rpc)
+{
 	struct plugins *p;
 	p = tal(ctx, struct plugins);
 	list_head_init(&p->plugins);
 	p->log_book = log_book;
 	p->log = new_log(p, log_book, "plugin-manager");
+	p->rpc = rpc;
 	return p;
 }
 
