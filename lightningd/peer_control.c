@@ -1455,7 +1455,7 @@ static void peer_memleak_req_next(struct command *cmd, struct channel *prev)
 			if (prev != NULL)
 				continue;
 
-			/* FIXME: handle closingd here */
+			/* Note: closingd does its own checking automatically */
 			if (streq(c->owner->name, "lightning_channeld")) {
 				subd_req(c, c->owner,
 					 take(towire_channel_dev_memleak(NULL)),

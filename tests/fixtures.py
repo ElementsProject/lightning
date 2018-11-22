@@ -139,6 +139,11 @@ def node_factory(request, directory, test_name, bitcoind, executor):
     if err_count:
         raise ValueError("{} nodes had bad hsm requests".format(err_count))
 
+    for node in nf.nodes:
+        err_count += checkMemleak(node)
+    if err_count:
+        raise ValueError("{} nodes had memleak messages".format(err_count))
+
     if not ok:
         request.node.has_errors = True
         raise Exception("At least one lightning exited with unexpected non-zero return code")
@@ -208,6 +213,12 @@ def checkBadReestablish(node):
 
 def checkBadHSMRequest(node):
     if node.daemon.is_in_log('bad hsm request'):
+        return 1
+    return 0
+
+
+def checkMemleak(node):
+    if node.daemon.is_in_log('MEMLEAK:'):
         return 1
     return 0
 
