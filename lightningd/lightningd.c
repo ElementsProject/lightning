@@ -201,6 +201,13 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->tor_service_password = NULL;
 	ld->max_funding_unconfirmed = 2016;
 
+	/*~ In the next step we will initialize the plugins. This will
+	 *  also populate the JSON-RPC with passthrough methods, hence
+	 *  lightningd needs to have something to put those in. This
+	 *  is that :-)
+	 */
+	ld->jsonrpc = jsonrpc_new(ld, ld);
+
 	/*~ We run a number of plugins (subprocesses that we talk JSON-RPC with)
 	 *alongside this process. This allows us to have an easy way for users
 	 *to add their own tools without having to modify the c-lightning source
@@ -695,7 +702,7 @@ int main(int argc, char *argv[])
 
 	/*~ Create RPC socket: now lightning-cli can send us JSON RPC commands
 	 *  over a UNIX domain socket specified by `ld->rpc_filename`. */
-	ld->jsonrpc = setup_jsonrpc(ld);
+	jsonrpc_listen(ld->jsonrpc, ld);
 
 	/*~ We defer --daemon until we've completed most initialization: that
 	 *  way we'll exit with an error rather than silently exiting 0, then
