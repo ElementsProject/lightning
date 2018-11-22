@@ -1611,7 +1611,7 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 	/* Disable the channel. */
 	send_channel_update(peer, ROUTING_FLAGS_DISABLED);
 
-	if (!fromwire_shutdown(peer, shutdown, &channel_id, &scriptpubkey))
+	if (!fromwire_shutdown(tmpctx, shutdown, &channel_id, &scriptpubkey))
 		peer_failed(&peer->cs,
 			    &peer->channel_id,
 			    "Bad shutdown %s", tal_hex(peer, shutdown));
@@ -2054,12 +2054,12 @@ static void peer_reconnect(struct peer *peer,
 	 * before we've reestablished channel). */
 	do {
 		clean_tmpctx();
-		msg = sync_crypto_read(peer, &peer->cs, PEER_FD);
+		msg = sync_crypto_read(tmpctx, &peer->cs, PEER_FD);
 	} while (handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD, &peer->cs,
 					     &peer->channel_id, msg));
 
-	remote_current_per_commitment_point = tal(peer, struct pubkey);
-	last_local_per_commitment_secret = tal(peer, struct secret);
+	remote_current_per_commitment_point = tal(tmpctx, struct pubkey);
+	last_local_per_commitment_secret = tal(tmpctx, struct secret);
 
 	/* We support option, so check for theirs. */
 	if (!fromwire_channel_reestablish_option_data_loss_protect(msg,
@@ -2562,7 +2562,7 @@ static void init_channel(struct peer *peer)
 
 	status_setup_sync(MASTER_FD);
 
-	msg = wire_sync_read(peer, MASTER_FD);
+	msg = wire_sync_read(tmpctx, MASTER_FD);
 	if (!fromwire_channel_init(peer, msg,
 				   &peer->chain_hash,
 				   &funding_txid, &funding_txout,
@@ -2660,6 +2660,14 @@ static void init_channel(struct peer *peer)
 	/* We derive shared secrets for each remote HTLC, so we can
 	 * create error packet if necessary. */
 	init_shared_secrets(peer->channel, htlcs, hstates);
+
+	/* We don't need these any more, so free them. */
+	tal_free(htlcs);
+	tal_free(hstates);
+	tal_free(fulfilled);
+	tal_free(fulfilled_sides);
+	tal_free(failed);
+	tal_free(failed_sides);
 
 	peer->channel_direction = get_channel_direction(
 	    &peer->node_ids[LOCAL], &peer->node_ids[REMOTE]);
