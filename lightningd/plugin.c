@@ -116,6 +116,7 @@ static void plugin_kill(struct plugin *plugin, char *msg)
 	plugin->stop = true;
 	io_wake(plugin);
 	kill(plugin->pid, SIGKILL);
+	tal_free(plugin);
 }
 
 /**
@@ -379,8 +380,10 @@ static bool plugin_opts_add(const struct plugin_request *req)
 	return true;
 }
 
-static void plugin_rpcmethod_destroy(struct json_command *cmd)
+static void plugin_rpcmethod_destroy(struct json_command *cmd,
+				     struct jsonrpc *rpc)
 {
+	jsonrpc_command_remove(rpc, cmd->name);
 }
 
 static void plugin_rpcmethod_dispatch(struct command *cmd, const char *buffer,
@@ -443,7 +446,7 @@ static bool plugin_rpcmethod_add(struct plugin *plugin, const char *buffer,
 
 	cmd->deprecated = false;
 	cmd->dispatch = plugin_rpcmethod_dispatch;
-	tal_add_destructor(cmd, plugin_rpcmethod_destroy);
+	tal_add_destructor2(cmd, plugin_rpcmethod_destroy, plugin->plugins->rpc);
 	jsonrpc_command_add(plugin->plugins->rpc, cmd);
 	return true;
 }
