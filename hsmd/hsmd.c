@@ -30,6 +30,7 @@
 #include <common/funding_tx.h>
 #include <common/hash_u5.h>
 #include <common/key_derive.h>
+#include <common/memleak.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/type_to_string.h>
@@ -101,7 +102,8 @@ static UINTMAP(struct client *) clients;
 static struct client *dbid_zero_clients[3];
 static size_t num_dbid_zero_clients;
 
-/*~ We need this deep inside bad_req_fmt, so we make it a global. */
+/*~ We need this deep inside bad_req_fmt, and for memleak, so we make it a
+ * global. */
 static struct daemon_conn *status_conn;
 
 /* This is used for various assertions and error cases. */
@@ -1537,6 +1539,30 @@ static struct io_plan *handle_sign_node_announcement(struct io_conn *conn,
 	return req_reply(conn, c, take(reply));
 }
 
+#if DEVELOPER
+static struct io_plan *handle_memleak(struct io_conn *conn,
+				      struct client *c,
+				      const u8 *msg_in)
+{
+	struct htable *memtable;
+	bool found_leak;
+	u8 *reply;
+
+	memtable = memleak_enter_allocations(tmpctx, msg_in, msg_in);
+
+	/* Now delete clients and anything they point to. */
+	memleak_remove_referenced(memtable, c);
+	memleak_scan_region(memtable,
+			    dbid_zero_clients, sizeof(dbid_zero_clients));
+	memleak_remove_uintmap(memtable, &clients);
+	memleak_scan_region(memtable, status_conn, tal_bytelen(status_conn));
+
+	found_leak = dump_memleak(memtable);
+	reply = towire_hsm_dev_memleak_reply(NULL, found_leak);
+	return req_reply(conn, c, take(reply));
+}
+#endif /* DEVELOPER */
+
 /*~ This routine checks that a client is allowed to call the handler. */
 static bool check_client_capabilities(struct client *client,
 				      enum hsm_wire_type t)
@@ -1588,6 +1614,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_SIGN_INVOICE:
 	case WIRE_HSM_SIGN_COMMITMENT_TX:
 	case WIRE_HSM_GET_CHANNEL_BASEPOINTS:
+	case WIRE_HSM_DEV_MEMLEAK:
 		return (client->capabilities & HSM_CAP_MASTER) != 0;
 
 	/*~ These are messages sent by the HSM so we should never receive them.
@@ -1608,6 +1635,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_GET_PER_COMMITMENT_POINT_REPLY:
 	case WIRE_HSM_CHECK_FUTURE_SECRET_REPLY:
 	case WIRE_HSM_GET_CHANNEL_BASEPOINTS_REPLY:
+	case WIRE_HSM_DEV_MEMLEAK_REPLY:
 		break;
 	}
 	return false;
@@ -1688,6 +1716,12 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSM_SIGN_MUTUAL_CLOSE_TX:
 		return handle_sign_mutual_close_tx(conn, c, c->msg_in);
 
+#if DEVELOPER
+	case WIRE_HSM_DEV_MEMLEAK:
+		return handle_memleak(conn, c, c->msg_in);
+#else
+	case WIRE_HSM_DEV_MEMLEAK:
+#endif /* DEVELOPER */
 	case WIRE_HSM_ECDH_RESP:
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_CUPDATE_SIG_REPLY:
@@ -1703,6 +1737,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSM_GET_PER_COMMITMENT_POINT_REPLY:
 	case WIRE_HSM_CHECK_FUTURE_SECRET_REPLY:
 	case WIRE_HSM_GET_CHANNEL_BASEPOINTS_REPLY:
+	case WIRE_HSM_DEV_MEMLEAK_REPLY:
 		break;
 	}
 
