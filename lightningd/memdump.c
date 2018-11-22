@@ -1,5 +1,5 @@
 /* Only possible if we're in developer mode. */
-#include "config.h"
+#include "memdump.h"
 #if DEVELOPER
 #include <backtrace.h>
 #include <ccan/tal/str/str.h>
@@ -15,6 +15,7 @@
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/opening_control.h>
 #include <lightningd/param.h>
 #include <lightningd/subd.h>
 #include <stdio.h>
@@ -254,13 +255,26 @@ static void hsm_dev_memleak_done(struct subd *hsmd,
 		 -1, 0, connect_dev_memleak_done, cmd);
 }
 
+void opening_memleak_done(struct command *cmd, struct subd *leaker)
+{
+	if (leaker)
+		report_leak_info(cmd, leaker);
+	else {
+		/* No leak there, try hsmd (we talk to hsm sync) */
+		u8 *msg = towire_hsm_dev_memleak(NULL);
+		if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
+			fatal("Could not write to HSM: %s", strerror(errno));
+
+		hsm_dev_memleak_done(cmd->ld->hsm,
+				     wire_sync_read(tmpctx, cmd->ld->hsm_fd),
+				     cmd);
+	}
+}
+
 static void json_memleak(struct command *cmd,
 			 const char *buffer UNNEEDED,
 			 const jsmntok_t *params UNNEEDED)
 {
-	struct lightningd *ld = cmd->ld;
-	u8 *msg;
-
 	if (!param(cmd, buffer, params, NULL))
 		return;
 
@@ -274,12 +288,8 @@ static void json_memleak(struct command *cmd,
 	 * immediately. */
 	command_still_pending(cmd);
 
-	/* We talk to hsm sync. */
-	msg = towire_hsm_dev_memleak(NULL);
-	if (!wire_sync_write(ld->hsm_fd, take(msg)))
-		fatal("Could not write to HSM: %s", strerror(errno));
-
-	hsm_dev_memleak_done(ld->hsm, wire_sync_read(tmpctx, ld->hsm_fd), cmd);
+	/* This calls opening_memleak_done() async when all done. */
+	opening_dev_memleak(cmd);
 }
 
 static const struct json_command dev_memleak_command = {

@@ -22,4 +22,10 @@ void opening_peer_no_active_channels(struct peer *peer);
 void kill_uncommitted_channel(struct uncommitted_channel *uc,
 			      const char *why);
 
+#if DEVELOPER
+struct command;
+/* Calls report_leak_info() async. */
+void opening_dev_memleak(struct command *cmd);
+#endif
+
 #endif /* LIGHTNING_LIGHTNINGD_OPENING_CONTROL_H */

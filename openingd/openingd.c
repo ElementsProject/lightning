@@ -13,6 +13,7 @@
 #include <common/gen_peer_status_wire.h>
 #include <common/initial_channel.h>
 #include <common/key_derive.h>
+#include <common/memleak.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/pseudorand.h>
@@ -1043,6 +1044,24 @@ static void fail_if_all_error(const u8 *inner)
 	exit(0);
 }
 
+#if DEVELOPER
+static void handle_dev_memleak(struct state *state, const u8 *msg)
+{
+	struct htable *memtable;
+	bool found_leak;
+
+	memtable = memleak_enter_allocations(tmpctx, msg, msg);
+
+	/* Now delete state and things it has pointers to. */
+	memleak_remove_referenced(memtable, state);
+
+	found_leak = dump_memleak(memtable);
+	wire_sync_write(REQ_FD,
+			take(towire_opening_dev_memleak_reply(NULL,
+							      found_leak)));
+}
+#endif /* DEVELOPER */
+
 static u8 *handle_master_in(struct state *state)
 {
 	u8 *msg = wire_sync_read(tmpctx, REQ_FD);
@@ -1076,6 +1095,12 @@ static u8 *handle_master_in(struct state *state)
 		state->can_accept_channel = true;
 		return NULL;
 
+	case WIRE_OPENING_DEV_MEMLEAK:
+#if DEVELOPER
+		handle_dev_memleak(state, msg);
+		return NULL;
+#endif
+	case WIRE_OPENING_DEV_MEMLEAK_REPLY:
 	case WIRE_OPENING_INIT:
 	case WIRE_OPENING_FUNDER_REPLY:
 	case WIRE_OPENING_FUNDEE:
