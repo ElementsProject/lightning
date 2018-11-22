@@ -70,6 +70,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/lightningd.c			\
 	lightningd/log.c			\
 	lightningd/log_status.c			\
+	lightningd/memdump.c			\
 	lightningd/onchain_control.c		\
 	lightningd/opening_control.c		\
 	lightningd/options.c			\
@@ -83,11 +84,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/subd.c			\
 	lightningd/watch.c
 
-# Source files without corresponding headers
-LIGHTNINGD_SRC_NOHDR :=				\
-	lightningd/memdump.c
-
-LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o) $(LIGHTNINGD_SRC_NOHDR:.c=.o)
+LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o)
 
 # Make sure these depend on everything.
 ALL_OBJS += $(LIGHTNINGD_OBJS)

@@ -85,3 +85,9 @@ opening_fundee,,feerate_per_kw,u32
 opening_fundee,,msglen,u16
 opening_fundee,,funding_signed_msg,msglen*u8
 opening_fundee,,our_channel_reserve_satoshis,u64
+
+# master -> openingd: do you have a memleak?
+opening_dev_memleak,6033
+
+opening_dev_memleak_reply,6133
+opening_dev_memleak_reply,,leak,bool
