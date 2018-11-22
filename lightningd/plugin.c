@@ -33,6 +33,8 @@ struct plugin {
 	struct list_head plugin_opts;
 
 	struct list_node list;
+
+	const char **methods;
 };
 
 struct plugin_request {
@@ -106,6 +108,7 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 	plugin_count++;
 	p->log = new_log(p, plugins->log_book, "plugin-%zu", plugin_count);
 	p->log = plugins->log;
+	p->methods = tal_arr(p, const char *, 0);
 	list_head_init(&p->plugin_opts);
 }
 
@@ -460,6 +463,7 @@ static bool plugin_rpcmethod_add(struct plugin *plugin, const char *buffer,
 			   cmd->name);
 		return false;
 	}
+	*tal_arr_expand(&plugin->methods) = cmd->name;
 	return true;
 }
 
