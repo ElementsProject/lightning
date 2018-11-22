@@ -92,8 +92,22 @@ void PRINTF_FMT(3, 4) command_fail(struct command *cmd, int code,
 /* Mainly for documentation, that we plan to close this later. */
 void command_still_pending(struct command *cmd);
 
-/* For initialization */
-struct jsonrpc *setup_jsonrpc(struct lightningd *ld);
+/**
+ * Create a new jsonrpc to wrap all related information.
+ *
+ * This doesn't setup the listener yet, see `jsonrpc_listen` for
+ * that. This just creates the container for all jsonrpc-related
+ * information so we can start gathering it before actually starting.
+ */
+struct jsonrpc *jsonrpc_new(const tal_t *ctx, struct lightningd *ld);
+
+
+/**
+ * Start listeing on ld->rpc_filename.
+ *
+ * Sets up the listener effectively starting the RPC interface.
+ */
+void jsonrpc_listen(struct jsonrpc *rpc, struct lightningd *ld);
 
 /**
  * Add a new command/method to the JSON-RPC interface.

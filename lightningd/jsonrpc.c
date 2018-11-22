@@ -739,7 +739,7 @@ bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command)
 	return true;
 }
 
-static struct jsonrpc *jsonrpc_new(const tal_t *ctx, struct lightningd *ld, int fd)
+struct jsonrpc *jsonrpc_new(const tal_t *ctx, struct lightningd *ld)
 {
 	struct jsonrpc *jsonrpc = tal(ctx, struct jsonrpc);
 	struct json_command **commands = get_cmdlist();
@@ -749,17 +749,18 @@ static struct jsonrpc *jsonrpc_new(const tal_t *ctx, struct lightningd *ld, int 
 	for (size_t i=0; i<num_cmdlist; i++) {
 		jsonrpc_command_add(jsonrpc, commands[i]);
 	}
-	jsonrpc->rpc_listener = io_new_listener(
-		ld->rpc_filename, fd, incoming_jcon_connected, ld);
-	log_debug(jsonrpc->log, "Listening on '%s'", ld->rpc_filename);
+	jsonrpc->rpc_listener = NULL;
 	return jsonrpc;
 }
 
-struct jsonrpc *setup_jsonrpc(struct lightningd *ld)
+void jsonrpc_listen(struct jsonrpc *jsonrpc, struct lightningd *ld)
 {
 	struct sockaddr_un addr;
 	int fd, old_umask;
 	const char *rpc_filename = ld->rpc_filename;
+
+	/* Should not initialize it twice. */
+	assert(!jsonrpc->rpc_listener);
 
 	if (streq(rpc_filename, "/dev/tty")) {
 		fd = open(rpc_filename, O_RDWR);
@@ -767,7 +768,7 @@ struct jsonrpc *setup_jsonrpc(struct lightningd *ld)
 			err(1, "Opening %s", rpc_filename);
 		/* Technically this is a leak, but there's only one */
 		notleak(io_new_conn(ld, fd, jcon_connected, ld));
-		return jsonrpc_new(ld, ld, fd);
+		return;
 	}
 
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -792,8 +793,9 @@ struct jsonrpc *setup_jsonrpc(struct lightningd *ld)
 
 	if (listen(fd, 1) != 0)
 		err(1, "Listening on '%s'", rpc_filename);
-
-	return jsonrpc_new(ld, ld, fd);
+	jsonrpc->rpc_listener = io_new_listener(
+		ld->rpc_filename, fd, incoming_jcon_connected, ld);
+	log_debug(jsonrpc->log, "Listening on '%s'", ld->rpc_filename);
 }
 
 /**
