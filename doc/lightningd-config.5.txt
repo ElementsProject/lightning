@@ -8,7 +8,7 @@ lightningd-config - Lightning daemon configuration file
 
 SYNOPSIS
 --------
-*~/.lightningd/config*
+*~/.lightning/config*
 
 DESCRIPTION
 -----------
