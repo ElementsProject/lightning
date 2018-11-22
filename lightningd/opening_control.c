@@ -863,6 +863,13 @@ AUTODATA(json_command, &fund_channel_command);
  /* Indented to avoid include ordering check */
  #include <lightningd/memdump.h>
 
+static void opening_died_forget_memleak(struct subd *openingd,
+					struct command *cmd)
+{
+	/* FIXME: We ignore the remaining openingds in this case. */
+	opening_memleak_done(cmd, NULL);
+}
+
 /* Mutual recursion */
 static void opening_memleak_req_next(struct command *cmd, struct peer *prev);
 static void opening_memleak_req_done(struct subd *openingd,
@@ -872,6 +879,7 @@ static void opening_memleak_req_done(struct subd *openingd,
 	bool found_leak;
 	struct uncommitted_channel *uc = openingd->channel;
 
+	tal_del_destructor2(openingd, opening_died_forget_memleak, cmd);
 	if (!fromwire_opening_dev_memleak_reply(msg, &found_leak)) {
 		command_fail(cmd, LIGHTNINGD, "Bad opening_dev_memleak");
 		return;
@@ -898,11 +906,13 @@ static void opening_memleak_req_next(struct command *cmd, struct peer *prev)
 		if (prev != NULL)
 			continue;
 
-		/* FIXME: If openingd dies, we'll get stuck here! */
 		subd_req(p,
 			 p->uncommitted_channel->openingd,
 			 take(towire_opening_dev_memleak(NULL)),
 			 -1, 0, opening_memleak_req_done, cmd);
+		/* Just in case it dies before replying! */
+		tal_add_destructor2(p->uncommitted_channel->openingd,
+				    opening_died_forget_memleak, cmd);
 		return;
 	}
 	opening_memleak_done(cmd, NULL);

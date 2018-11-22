@@ -1397,6 +1397,12 @@ static const struct json_command dev_forget_channel_command = {
 };
 AUTODATA(json_command, &dev_forget_channel_command);
 
+static void subd_died_forget_memleak(struct subd *openingd, struct command *cmd)
+{
+	/* FIXME: We ignore the remaining per-peer daemons in this case. */
+	peer_memleak_done(cmd, NULL);
+}
+
 /* Mutual recursion */
 static void peer_memleak_req_next(struct command *cmd, struct channel *prev);
 static void peer_memleak_req_done(struct subd *subd, bool found_leak,
@@ -1416,6 +1422,7 @@ static void channeld_memleak_req_done(struct subd *channeld,
 {
 	bool found_leak;
 
+	tal_del_destructor2(channeld, subd_died_forget_memleak, cmd);
 	if (!fromwire_channel_dev_memleak_reply(msg, &found_leak)) {
 		command_fail(cmd, LIGHTNINGD, "Bad channel_dev_memleak");
 		return;
@@ -1429,6 +1436,7 @@ static void onchaind_memleak_req_done(struct subd *onchaind,
 {
 	bool found_leak;
 
+	tal_del_destructor2(onchaind, subd_died_forget_memleak, cmd);
 	if (!fromwire_onchain_dev_memleak_reply(msg, &found_leak)) {
 		command_fail(cmd, LIGHTNINGD, "Bad onchain_dev_memleak");
 		return;
@@ -1460,12 +1468,18 @@ static void peer_memleak_req_next(struct command *cmd, struct channel *prev)
 				subd_req(c, c->owner,
 					 take(towire_channel_dev_memleak(NULL)),
 					 -1, 0, channeld_memleak_req_done, cmd);
+				tal_add_destructor2(c->owner,
+						    subd_died_forget_memleak,
+						    cmd);
 				return;
 			}
 			if (streq(c->owner->name, "lightning_onchaind")) {
 				subd_req(c, c->owner,
 					 take(towire_onchain_dev_memleak(NULL)),
 					 -1, 0, onchaind_memleak_req_done, cmd);
+				tal_add_destructor2(c->owner,
+						    subd_died_forget_memleak,
+						    cmd);
 				return;
 			}
 		}
