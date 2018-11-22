@@ -493,7 +493,7 @@ class LightningNode(object):
 
         self.start()
 
-    def fund_channel(self, l2, amount):
+    def fund_channel(self, l2, amount, wait_for_active=True):
 
         # Give yourself some funds to work with
         addr = self.rpc.newaddr()['address']
@@ -524,18 +524,19 @@ class LightningNode(object):
             decoded2 = self.bitcoin.rpc.decoderawtransaction(tx)
             raise ValueError("Can't find {} payment in {} (1={} 2={})".format(amount, tx, decoded, decoded2))
 
-        # We wait until gossipd sees both local updates, as well as status NORMAL,
-        # so it can definitely route through.
-        self.daemon.wait_for_logs([r'update for channel {}\(0\) now ACTIVE'
-                                   .format(scid),
-                                   r'update for channel {}\(1\) now ACTIVE'
-                                   .format(scid),
-                                   'to CHANNELD_NORMAL'])
-        l2.daemon.wait_for_logs([r'update for channel {}\(0\) now ACTIVE'
-                                 .format(scid),
-                                 r'update for channel {}\(1\) now ACTIVE'
-                                 .format(scid),
-                                 'to CHANNELD_NORMAL'])
+        if wait_for_active:
+            # We wait until gossipd sees both local updates, as well as status NORMAL,
+            # so it can definitely route through.
+            self.daemon.wait_for_logs([r'update for channel {}\(0\) now ACTIVE'
+                                       .format(scid),
+                                       r'update for channel {}\(1\) now ACTIVE'
+                                       .format(scid),
+                                       'to CHANNELD_NORMAL'])
+            l2.daemon.wait_for_logs([r'update for channel {}\(0\) now ACTIVE'
+                                     .format(scid),
+                                     r'update for channel {}\(1\) now ACTIVE'
+                                     .format(scid),
+                                     'to CHANNELD_NORMAL'])
         return scid
 
     def subd_pid(self, subd):
