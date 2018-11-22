@@ -1111,6 +1111,7 @@ static struct io_plan *connect_init(struct io_conn *conn,
 		status_trace("Proxy address: %s",
 			     fmt_wireaddr(tmpctx, proxyaddr));
 		daemon->proxyaddr = wireaddr_to_addrinfo(daemon, proxyaddr);
+		tal_free(proxyaddr);
 	} else
 		daemon->proxyaddr = NULL;
 
