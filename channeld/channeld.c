@@ -30,6 +30,7 @@
 #include <common/dev_disconnect.h>
 #include <common/htlc_tx.h>
 #include <common/key_derive.h>
+#include <common/memleak.h>
 #include <common/msg_queue.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
@@ -2470,7 +2471,24 @@ static void handle_dev_reenable_commit(struct peer *peer)
 	wire_sync_write(MASTER_FD,
 			take(towire_channel_dev_reenable_commit_reply(NULL)));
 }
-#endif
+
+static void handle_dev_memleak(struct peer *peer, const u8 *msg)
+{
+	struct htable *memtable;
+	bool found_leak;
+
+	memtable = memleak_enter_allocations(tmpctx, msg, msg);
+
+	/* Now delete peer and things it has pointers to. */
+	memleak_remove_referenced(memtable, peer);
+	memleak_remove_htable(memtable, &peer->channel->htlcs->raw);
+
+	found_leak = dump_memleak(memtable);
+	wire_sync_write(MASTER_FD,
+			 take(towire_channel_dev_memleak_reply(NULL,
+							       found_leak)));
+}
+#endif /* DEVELOPER */
 
 static void req_in(struct peer *peer, const u8 *msg)
 {
@@ -2495,10 +2513,16 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_SEND_SHUTDOWN:
 		handle_shutdown_cmd(peer, msg);
 		return;
-	case WIRE_CHANNEL_DEV_REENABLE_COMMIT:
 #if DEVELOPER
+	case WIRE_CHANNEL_DEV_REENABLE_COMMIT:
 		handle_dev_reenable_commit(peer);
 		return;
+	case WIRE_CHANNEL_DEV_MEMLEAK:
+		handle_dev_memleak(peer, msg);
+		return;
+#else
+	case WIRE_CHANNEL_DEV_REENABLE_COMMIT:
+	case WIRE_CHANNEL_DEV_MEMLEAK:
 #endif /* DEVELOPER */
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
@@ -2513,6 +2537,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_SHUTDOWN_COMPLETE:
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT_REPLY:
 	case WIRE_CHANNEL_FAIL_FALLEN_BEHIND:
+	case WIRE_CHANNEL_DEV_MEMLEAK_REPLY:
 		break;
 	}
 	master_badmsg(-1, msg);

@@ -166,6 +166,12 @@ channel_feerates,,feerate,u32
 channel_feerates,,min_feerate,u32
 channel_feerates,,max_feerate,u32
 
+# master -> channeld: do you have a memleak?
+channel_dev_memleak,1033
+
+channel_dev_memleak_reply,1133
+channel_dev_memleak_reply,,leak,bool
+
 # Peer presented proof it was from the future.
 channel_fail_fallen_behind,1028
 channel_fail_fallen_behind,,remote_per_commitment_point,struct pubkey
