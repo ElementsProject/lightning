@@ -62,3 +62,9 @@ connect_peer_connected,,localfeatures,lflen*u8
 # master -> connectd: peer has disconnected.
 connectctl_peer_disconnected,2015
 connectctl_peer_disconnected,,id,struct pubkey
+
+# master -> connectd: do you have a memleak?
+connect_dev_memleak,2033
+
+connect_dev_memleak_reply,2133
+connect_dev_memleak_reply,,leak,bool

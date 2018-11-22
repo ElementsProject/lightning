@@ -29,6 +29,7 @@
 #include <common/daemon_conn.h>
 #include <common/decode_short_channel_ids.h>
 #include <common/features.h>
+#include <common/memleak.h>
 #include <common/ping.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
@@ -392,7 +393,11 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	 * the peer set.  When someone calls `io_wake()` on that address, it
 	 * will call retry_peer_connected above. */
 	return io_wait(conn, pubkey_set_get(&daemon->peers, id),
-		       retry_peer_connected, pr);
+		       /*~ The notleak() wrapper is a DEVELOPER-mode hack so
+			* that our memory leak detection doesn't consider 'pr'
+			* (which is not referenced from our code) to be a
+			* memory leak. */
+		       retry_peer_connected, notleak(pr));
 }
 
 /*~ Note the lack of static: this is called by peer_exchange_initmsg.c once the
@@ -490,8 +495,11 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 
 	/* FIXME: Timeout */
 	/*~ The crypto handshake differs depending on whether you received or
-	 * initiated the socket connection, so there are two entry points. */
-	return responder_handshake(conn, &daemon->id, &addr,
+	 * initiated the socket connection, so there are two entry points.
+	 * Note, again, the notleak() to avoid our simplistic leak detection
+	 * code from thinking `conn` (which we don't keep a pointer to) is
+	 * leaked */
+	return responder_handshake(notleak(conn), &daemon->id, &addr,
 				   handshake_in_success, daemon);
 }
 
@@ -738,9 +746,9 @@ static void try_connect_one_addr(struct connecting *connect)
 	/* This creates the new connection using our fd, with the initialization
 	 * function one of the above. */
 	if (use_proxy)
-		io_new_conn(connect, fd, conn_proxy_init, connect);
+		notleak(io_new_conn(connect, fd, conn_proxy_init, connect));
 	else
-		io_new_conn(connect, fd, conn_init, connect);
+		notleak(io_new_conn(connect, fd, conn_init, connect));
 }
 
 /*~ connectd is responsible for incoming connections, but it's the process of
@@ -1127,6 +1135,11 @@ static struct io_plan *connect_init(struct io_conn *conn,
 				  tor_password,
 				  &announcable);
 
+	/* Free up old allocations */
+	tal_free(proposed_wireaddr);
+	tal_free(proposed_listen_announce);
+	tal_free(tor_password);
+
 	/* Tell it we're ready, handing it the addresses we have. */
 	daemon_conn_send(daemon->master,
 			 take(towire_connectctl_init_reply(NULL,
@@ -1159,8 +1172,9 @@ static struct io_plan *connect_activate(struct io_conn *conn,
 					      "Failed to listen on socket: %s",
 					      strerror(errno));
 			}
-			io_new_listener(daemon, daemon->listen_fds[i].fd,
-					connection_in, daemon);
+			notleak(io_new_listener(daemon,
+						daemon->listen_fds[i].fd,
+						connection_in, daemon));
 		}
 	}
 	/* Free, with NULL assignment just as an extra sanity check. */
@@ -1366,6 +1380,28 @@ static struct io_plan *peer_disconnected(struct io_conn *conn,
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
+#if DEVELOPER
+static struct io_plan *dev_connect_memleak(struct io_conn *conn,
+					   struct daemon *daemon,
+					   const u8 *msg)
+{
+	struct htable *memtable;
+	bool found_leak;
+
+	memtable = memleak_enter_allocations(tmpctx, msg, msg);
+
+	/* Now delete daemon and those which it has pointers to. */
+	memleak_remove_referenced(memtable, daemon);
+	memleak_remove_htable(memtable, &daemon->peers.raw);
+
+	found_leak = dump_memleak(memtable);
+	daemon_conn_send(daemon->master,
+			 take(towire_connect_dev_memleak_reply(NULL,
+							      found_leak)));
+	return daemon_conn_read_next(conn, daemon->master);
+}
+#endif /* DEVELOPER */
+
 static struct io_plan *recv_req(struct io_conn *conn,
 				const u8 *msg,
 				struct daemon *daemon)
@@ -1387,12 +1423,17 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTCTL_PEER_DISCONNECTED:
 		return peer_disconnected(conn, daemon, msg);
 
+	case WIRE_CONNECT_DEV_MEMLEAK:
+#if DEVELOPER
+		return dev_connect_memleak(conn, daemon, msg);
+#endif
 	/* We send these, we don't receive them */
 	case WIRE_CONNECTCTL_INIT_REPLY:
 	case WIRE_CONNECTCTL_ACTIVATE_REPLY:
 	case WIRE_CONNECT_PEER_CONNECTED:
 	case WIRE_CONNECT_RECONNECTED:
 	case WIRE_CONNECTCTL_CONNECT_FAILED:
+	case WIRE_CONNECT_DEV_MEMLEAK_REPLY:
 		break;
 	}
 

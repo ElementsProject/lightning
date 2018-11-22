@@ -291,9 +291,11 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTCTL_ACTIVATE:
 	case WIRE_CONNECTCTL_CONNECT_TO_PEER:
 	case WIRE_CONNECTCTL_PEER_DISCONNECTED:
+	case WIRE_CONNECT_DEV_MEMLEAK:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_CONNECTCTL_INIT_REPLY:
 	case WIRE_CONNECTCTL_ACTIVATE_REPLY:
+	case WIRE_CONNECT_DEV_MEMLEAK_REPLY:
 		break;
 
 	case WIRE_CONNECT_RECONNECTED:

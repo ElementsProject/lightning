@@ -6,6 +6,7 @@
 #include <common/daemon.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
+#include <connectd/gen_connect_wire.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
@@ -204,6 +205,29 @@ static void gossip_dev_memleak_done(struct subd *gossipd,
 	report_leak_info(cmd, found_leak ? gossipd : NULL);
 }
 
+static void connect_dev_memleak_done(struct subd *connectd,
+				     const u8 *reply,
+				     const int *fds UNUSED,
+				     struct command *cmd)
+{
+	struct lightningd *ld = cmd->ld;
+	bool found_leak;
+
+	if (!fromwire_connect_dev_memleak_reply(reply, &found_leak)) {
+		command_fail(cmd, LIGHTNINGD, "Bad connect_dev_memleak");
+		return;
+	}
+
+	if (found_leak) {
+		report_leak_info(cmd, connectd);
+		return;
+	}
+
+	/* No leak?  Ask gossipd. */
+	subd_req(ld->gossip, ld->gossip, take(towire_gossip_dev_memleak(NULL)),
+		 -1, 0, gossip_dev_memleak_done, cmd);
+}
+
 static void json_memleak(struct command *cmd,
 			 const char *buffer UNNEEDED,
 			 const jsmntok_t *params UNNEEDED)
@@ -219,8 +243,9 @@ static void json_memleak(struct command *cmd,
 		return;
 	}
 
-	subd_req(ld->gossip, ld->gossip, take(towire_gossip_dev_memleak(NULL)),
-		 -1, 0, gossip_dev_memleak_done, cmd);
+	subd_req(ld->connectd, ld->connectd,
+		 take(towire_connect_dev_memleak(NULL)),
+		 -1, 0, connect_dev_memleak_done, cmd);
 	command_still_pending(cmd);
 }
 
