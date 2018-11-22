@@ -7,7 +7,9 @@
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <connectd/gen_connect_wire.h>
+#include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
+#include <hsmd/gen_hsm_wire.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/jsonrpc_errors.h>
@@ -16,6 +18,7 @@
 #include <lightningd/param.h>
 #include <lightningd/subd.h>
 #include <stdio.h>
+#include <wire/wire_sync.h>
 
 static void json_add_ptr(struct json_stream *response, const char *name,
 			 const void *ptr)
@@ -228,11 +231,35 @@ static void connect_dev_memleak_done(struct subd *connectd,
 		 -1, 0, gossip_dev_memleak_done, cmd);
 }
 
+static void hsm_dev_memleak_done(struct subd *hsmd,
+				 const u8 *reply,
+				 struct command *cmd)
+{
+	struct lightningd *ld = cmd->ld;
+	bool found_leak;
+
+	if (!fromwire_hsm_dev_memleak_reply(reply, &found_leak)) {
+		command_fail(cmd, LIGHTNINGD, "Bad hsm_dev_memleak");
+		return;
+	}
+
+	if (found_leak) {
+		report_leak_info(cmd, hsmd);
+		return;
+	}
+
+	/* No leak?  Ask connectd. */
+	subd_req(ld->connectd, ld->connectd,
+		 take(towire_connect_dev_memleak(NULL)),
+		 -1, 0, connect_dev_memleak_done, cmd);
+}
+
 static void json_memleak(struct command *cmd,
 			 const char *buffer UNNEEDED,
 			 const jsmntok_t *params UNNEEDED)
 {
 	struct lightningd *ld = cmd->ld;
+	u8 *msg;
 
 	if (!param(cmd, buffer, params, NULL))
 		return;
@@ -243,10 +270,16 @@ static void json_memleak(struct command *cmd,
 		return;
 	}
 
-	subd_req(ld->connectd, ld->connectd,
-		 take(towire_connect_dev_memleak(NULL)),
-		 -1, 0, connect_dev_memleak_done, cmd);
+	/* For simplicity, we mark pending, though an error may complete it
+	 * immediately. */
 	command_still_pending(cmd);
+
+	/* We talk to hsm sync. */
+	msg = towire_hsm_dev_memleak(NULL);
+	if (!wire_sync_write(ld->hsm_fd, take(msg)))
+		fatal("Could not write to HSM: %s", strerror(errno));
+
+	hsm_dev_memleak_done(ld->hsm, wire_sync_read(tmpctx, ld->hsm_fd), cmd);
 }
 
 static const struct json_command dev_memleak_command = {

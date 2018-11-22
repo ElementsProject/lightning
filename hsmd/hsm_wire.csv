@@ -176,6 +176,12 @@ hsm_get_per_commitment_point_reply,118
 hsm_get_per_commitment_point_reply,,per_commitment_point,struct pubkey
 hsm_get_per_commitment_point_reply,,old_commitment_secret,?struct secret
 
+# master -> hsmd: do you have a memleak?
+hsm_dev_memleak,33
+
+hsm_dev_memleak_reply,133
+hsm_dev_memleak_reply,,leak,bool
+
 # channeld asks to check if claimed future commitment_secret is correct.
 hsm_check_future_secret,22
 hsm_check_future_secret,,n,u64
