@@ -8,6 +8,7 @@
 #include <ccan/tal/str/str.h>
 #include <errno.h>
 #include <lightningd/json.h>
+#include <lightningd/lightningd.h>
 #include <unistd.h>
 
 struct plugin {
@@ -68,6 +69,20 @@ struct plugins {
 struct json_output {
 	struct list_node list;
 	const char *json;
+};
+
+/* Represents a pending JSON-RPC request that was forwarded to a
+ * plugin and is currently waiting for it to return the result. */
+struct plugin_rpc_request {
+	/* The json-serialized ID as it was passed to us by the
+	 * client, will be used to return the result */
+	const char *id;
+
+	const char *method;
+	const char *params;
+
+	struct plugin *plugin;
+	struct command *cmd;
 };
 
 /* Simple storage for plugin options inbetween registering them on the
@@ -389,12 +404,67 @@ static void plugin_rpcmethod_destroy(struct json_command *cmd,
 	jsonrpc_command_remove(rpc, cmd->name);
 }
 
+static void plugin_rpcmethod_cb(const struct plugin_request *req,
+				struct plugin_rpc_request *rpc_req)
+{
+	// Parse
+	// Extract results or error
+	// Construct reply
+	// Return result with appropriate return code.
+}
+
 static void plugin_rpcmethod_dispatch(struct command *cmd, const char *buffer,
 				      const jsmntok_t *params)
 {
-	// FIXME: We could avoid parsing the buffer again if we were
-	// to also pass in the method name.
-	cmd->usage = "[params]";
+	const jsmntok_t *toks = params, *methtok, *idtok;
+	struct plugin_rpc_request *request;
+	struct plugins *plugins = cmd->ld->plugins;
+	struct plugin *plugin;
+
+	if (cmd->mode == CMD_USAGE) {
+		cmd->usage = "[params]";
+		return;
+	}
+
+	/* We're given the params, but we need to walk back to the
+	 * root object, so just walk backwards until the current
+	 * element has no parents, that's going to be the root
+	 * element. */
+	while (toks->parent != -1)
+		toks--;
+
+	methtok = json_get_member(buffer, toks, "method");
+	idtok = json_get_member(buffer, toks, "id");
+	/* We've parsed them before, these should not fail! */
+	assert(idtok != NULL && methtok != NULL);
+
+	request = tal(NULL, struct plugin_rpc_request);
+	request->method = tal_strndup(request, buffer + methtok->start,
+				      methtok->end - methtok->start);
+	request->id = tal_strndup(request, buffer + idtok->start,
+				      idtok->end - idtok->start);
+	request->params = tal_strndup(request, buffer + params->start,
+				      params->end - params->start);
+	request->plugin = NULL;
+	request->cmd = cmd;
+
+	/* Find the plugin that registered this RPC call */
+	list_for_each(&plugins->plugins, plugin, list) {
+		for (size_t i=0; i<tal_count(plugin->methods); i++) {
+			if (streq(request->method, plugin->methods[i])) {
+				request->plugin = plugin;
+				break;
+			}
+		}
+	}
+
+	/* This should never happen, it'd mean that a plugin didn't
+	 * cleanup after dying */
+	assert(request->plugin);
+
+	tal_steal(request->plugin, request);
+	plugin_request_send(request->plugin, request->method, request->params, plugin_rpcmethod_cb, request);
+
 	command_still_pending(cmd);
 }
 
