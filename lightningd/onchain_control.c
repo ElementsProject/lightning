@@ -327,6 +327,8 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 	case WIRE_ONCHAIN_DEPTH:
 	case WIRE_ONCHAIN_HTLC:
 	case WIRE_ONCHAIN_KNOWN_PREIMAGE:
+	case WIRE_ONCHAIN_DEV_MEMLEAK:
+	case WIRE_ONCHAIN_DEV_MEMLEAK_REPLY:
 		break;
 	}
 

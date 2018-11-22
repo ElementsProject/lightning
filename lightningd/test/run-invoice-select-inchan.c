@@ -85,6 +85,9 @@ bool fromwire_hsm_sign_commitment_tx_reply(const void *p UNNEEDED, secp256k1_ecd
 /* Generated stub for fromwire_hsm_sign_invoice_reply */
 bool fromwire_hsm_sign_invoice_reply(const void *p UNNEEDED, secp256k1_ecdsa_recoverable_signature *sig UNNEEDED)
 { fprintf(stderr, "fromwire_hsm_sign_invoice_reply called!\n"); abort(); }
+/* Generated stub for fromwire_onchain_dev_memleak_reply */
+bool fromwire_onchain_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
+{ fprintf(stderr, "fromwire_onchain_dev_memleak_reply called!\n"); abort(); }
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
@@ -386,6 +389,9 @@ u8 *towire_hsm_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct pubkey
 /* Generated stub for towire_hsm_sign_invoice */
 u8 *towire_hsm_sign_invoice(const tal_t *ctx UNNEEDED, const u8 *u5bytes UNNEEDED, const u8 *hrp UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_invoice called!\n"); abort(); }
+/* Generated stub for towire_onchain_dev_memleak */
+u8 *towire_onchain_dev_memleak(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "towire_onchain_dev_memleak called!\n"); abort(); }
 /* Generated stub for txfilter_add_scriptpubkey */
 void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *script TAKES UNNEEDED)
 { fprintf(stderr, "txfilter_add_scriptpubkey called!\n"); abort(); }
