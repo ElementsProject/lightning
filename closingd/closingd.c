@@ -4,6 +4,7 @@
 #include <common/crypto_sync.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc.h>
+#include <common/memleak.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/read_peer_msg.h>
@@ -426,6 +427,27 @@ static u64 adjust_offer(struct crypto_state *cs,
 	return (feerange->max + min_fee_to_accept)/2;
 }
 
+#if DEVELOPER
+/* FIXME: We should talk to lightningd anyway, rather than doing this */
+static void closing_dev_memleak(const tal_t *ctx,
+				u8 *scriptpubkey[NUM_SIDES],
+				const u8 *funding_wscript)
+{
+	struct htable *memtable;
+
+	memtable = memleak_enter_allocations(tmpctx,
+					     scriptpubkey[LOCAL],
+					     scriptpubkey[REMOTE]);
+
+	/* Now delete known pointers (these aren't really roots, just
+	 * pointers we know are referenced).*/
+	memleak_remove_referenced(memtable, ctx);
+	memleak_remove_referenced(memtable, funding_wscript);
+
+	dump_memleak(memtable);
+}
+#endif /* DEVELOPER */
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -489,6 +511,9 @@ int main(int argc, char *argv[])
 		do_reconnect(&cs, &channel_id,
 			     next_index, revocations_received,
 			     channel_reestablish, final_scriptpubkey);
+
+	/* We don't need this any more */
+	tal_free(final_scriptpubkey);
 
 	peer_billboard(true, "Negotiating closing fee between %"PRIu64
 		       " and %"PRIu64" satoshi (ideal %"PRIu64")",
@@ -576,6 +601,11 @@ int main(int argc, char *argv[])
 
 	peer_billboard(true, "We agreed on a closing fee of %"PRIu64" satoshi",
 		       offer[LOCAL]);
+
+#if DEVELOPER
+	/* We don't listen for master commands, so always check memleak here */
+	closing_dev_memleak(ctx, scriptpubkey, funding_wscript);
+#endif
 
 	/* We're done! */
 	/* Properly close the channel first. */
