@@ -1660,7 +1660,8 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		if (type != WIRE_FUNDING_LOCKED
 		    && type != WIRE_PONG
 		    && type != WIRE_SHUTDOWN
-		    /* lnd sends this early; it's harmless. */
+		    /* lnd sends these early; it's harmless. */
+		    && type != WIRE_UPDATE_FEE
 		    && type != WIRE_ANNOUNCEMENT_SIGNATURES) {
 			peer_failed(&peer->cs,
 				    &peer->channel_id,
