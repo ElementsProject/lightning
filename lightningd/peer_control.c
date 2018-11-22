@@ -1399,23 +1399,41 @@ AUTODATA(json_command, &dev_forget_channel_command);
 
 /* Mutual recursion */
 static void peer_memleak_req_next(struct command *cmd, struct channel *prev);
+static void peer_memleak_req_done(struct subd *subd, bool found_leak,
+				  struct command *cmd)
+{
+	struct channel *c = subd->channel;
+
+	if (found_leak)
+		peer_memleak_done(cmd, subd);
+	else
+		peer_memleak_req_next(cmd, c);
+}
+
 static void channeld_memleak_req_done(struct subd *channeld,
 				      const u8 *msg, const int *fds UNUSED,
 				      struct command *cmd)
 {
-	struct channel *c = channeld->channel;
 	bool found_leak;
 
 	if (!fromwire_channel_dev_memleak_reply(msg, &found_leak)) {
 		command_fail(cmd, LIGHTNINGD, "Bad channel_dev_memleak");
 		return;
 	}
+	peer_memleak_req_done(channeld, found_leak, cmd);
+}
 
-	if (found_leak) {
-		peer_memleak_done(cmd, channeld);
+static void onchaind_memleak_req_done(struct subd *onchaind,
+				      const u8 *msg, const int *fds UNUSED,
+				      struct command *cmd)
+{
+	bool found_leak;
+
+	if (!fromwire_onchain_dev_memleak_reply(msg, &found_leak)) {
+		command_fail(cmd, LIGHTNINGD, "Bad onchain_dev_memleak");
 		return;
 	}
-	peer_memleak_req_next(cmd, c);
+	peer_memleak_req_done(onchaind, found_leak, cmd);
 }
 
 static void peer_memleak_req_next(struct command *cmd, struct channel *prev)
@@ -1437,12 +1455,17 @@ static void peer_memleak_req_next(struct command *cmd, struct channel *prev)
 			if (prev != NULL)
 				continue;
 
-			/* FIXME: handle onchaind here */
 			/* FIXME: handle closingd here */
 			if (streq(c->owner->name, "lightning_channeld")) {
 				subd_req(c, c->owner,
 					 take(towire_channel_dev_memleak(NULL)),
 					 -1, 0, channeld_memleak_req_done, cmd);
+				return;
+			}
+			if (streq(c->owner->name, "lightning_onchaind")) {
+				subd_req(c, c->owner,
+					 take(towire_onchain_dev_memleak(NULL)),
+					 -1, 0, onchaind_memleak_req_done, cmd);
 				return;
 			}
 		}
