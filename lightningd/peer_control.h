@@ -91,4 +91,9 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel);
 
 /* Pull peers, channels and HTLCs from db, and wire them up. */
 void load_channels_from_wallet(struct lightningd *ld);
+
+#if DEVELOPER
+void peer_dev_memleak(struct command *cmd);
+#endif /* DEVELOPER */
+
 #endif /* LIGHTNING_LIGHTNINGD_PEER_CONTROL_H */

@@ -8,4 +8,5 @@ struct command;
 struct subd;
 
 void opening_memleak_done(struct command *cmd, struct subd *leaker);
+void peer_memleak_done(struct command *cmd, struct subd *leaker);
 #endif /* LIGHTNING_LIGHTNINGD_MEMDUMP_H */

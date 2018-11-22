@@ -17,6 +17,7 @@
 #include <lightningd/log.h>
 #include <lightningd/opening_control.h>
 #include <lightningd/param.h>
+#include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <stdio.h>
 #include <wire/wire_sync.h>
@@ -255,7 +256,7 @@ static void hsm_dev_memleak_done(struct subd *hsmd,
 		 -1, 0, connect_dev_memleak_done, cmd);
 }
 
-void opening_memleak_done(struct command *cmd, struct subd *leaker)
+void peer_memleak_done(struct command *cmd, struct subd *leaker)
 {
 	if (leaker)
 		report_leak_info(cmd, leaker);
@@ -268,6 +269,16 @@ void opening_memleak_done(struct command *cmd, struct subd *leaker)
 		hsm_dev_memleak_done(cmd->ld->hsm,
 				     wire_sync_read(tmpctx, cmd->ld->hsm_fd),
 				     cmd);
+	}
+}
+
+void opening_memleak_done(struct command *cmd, struct subd *leaker)
+{
+	if (leaker)
+		report_leak_info(cmd, leaker);
+	else {
+		/* No leak there, try normal peers. */
+		peer_dev_memleak(cmd);
 	}
 }
 
