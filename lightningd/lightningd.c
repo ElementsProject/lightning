@@ -781,6 +781,8 @@ int main(int argc, char *argv[])
 
 	shutdown_subdaemons(ld);
 
+	tal_free(ld->plugins);
+
 	/* Clean up the JSON-RPC. This needs to happen in a DB transaction since
 	 * it might actually be touching the DB in some destructors, e.g.,
 	 * unreserving UTXOs (see #1737) */
@@ -788,7 +790,6 @@ int main(int argc, char *argv[])
 	tal_free(ld->jsonrpc);
 	db_commit_transaction(ld->wallet->db);
 
-	tal_free(ld->plugins);
 	remove(ld->pidfile);
 
 	/* FIXME: pay can have children off tmpctx which unlink from

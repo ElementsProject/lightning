@@ -117,5 +117,13 @@ void jsonrpc_listen(struct jsonrpc *rpc, struct lightningd *ld);
  */
 bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command);
 
+/**
+ * Remove a command/method from the JSON-RPC.
+ *
+ * Used to dynamically remove a `struct json_command` from the
+ * JSON-RPC dispatch table by its name.
+ */
+void jsonrpc_command_remove(struct jsonrpc *rpc, const char *method);
+
 AUTODATA_TYPE(json_command, struct json_command);
 #endif /* LIGHTNING_LIGHTNINGD_JSONRPC_H */
