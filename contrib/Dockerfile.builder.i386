@@ -51,4 +51,19 @@ RUN cd /tmp/ && \
     rm -rf bitcoin.tar.gz /tmp/bitcoin-$BITCOIN_VERSION
 
 RUN pip3 install --upgrade pip && \
-    python3 -m pip install python-bitcoinlib==0.7.0 pytest==3.0.5 setuptools==36.6.0 pytest-test-groups==1.0.3 flake8==3.5.0 pytest-rerunfailures==3.1 ephemeral-port-reserve==1.1.0 pytest-xdist==1.22.2 flaky==3.4.0 CherryPy==17.3.0 Flask==1.0.2
+    python3 -m pip install \
+	CherryPy==17.3.0 \
+	Flask==1.0.2 \
+	cheroot==6.5.2 \
+	ephemeral-port-reserve==1.1.0 \
+	flaky==3.4.0 \
+	pytest-benchmark==3.1.1 \
+        pytest-forked==0.2 \
+	pytest-timeout==1.3.3 \
+	pytest-xdist==1.22.2 \
+	pytest==3.8.1 \
+	python-bitcoinlib==0.7.0 \
+	tqdm==4.26.0 \
+	pytest-test-groups==1.0.3 \
+	flake8==3.5.0 \
+	pytest-rerunfailures==3.1
