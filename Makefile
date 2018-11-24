@@ -38,7 +38,9 @@ ifeq ($(COMPAT),1)
 COMPAT_CFLAGS=-DCOMPAT_V052=1 -DCOMPAT_V060=1 -DCOMPAT_V061=1
 endif
 
-PYTEST_OPTS := -v
+# Timeout shortly before the 600 second travis silence timeout
+# (method=thread to support xdist)
+PYTEST_OPTS := -v --timeout=550 --timeout_method=thread
 
 # This is where we add new features as bitcoin adds them.
 FEATURES :=
