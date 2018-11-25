@@ -8,7 +8,7 @@ lightning-pay - Command for sending a payment to a BOLT11 invoice
 
 SYNOPSIS
 --------
-*pay* 'bolt11' ['msatoshi'] ['description'] ['riskfactor'] ['maxfeepercent'] ['retry_for'] ['maxdelay']
+*pay* 'bolt11' ['msatoshi'] ['description'] ['riskfactor'] ['maxfeepercent'] ['retry_for'] ['maxdelay'] ['exemptfee']
 
 DESCRIPTION
 -----------
@@ -27,9 +27,6 @@ the fee leveraged by forwarding nodes. Setting `exemptfee` allows the
 `maxfeepercent` check to be skipped on fees that are smaller than `exemptfee`
 (default: 5000 millisatoshi).
 
-The *pay* RPC command will randomize routes slightly, as long as the
-route achieves the targeted 'maxfeepercent' and 'maxdelay'.
-
 The response will occur when the payment fails or succeeds.  Once a
 payment has succeeded, calls to *pay* with the same 'bolt11' will
 succeed immediately.
@@ -43,6 +40,32 @@ ongoing, which you need to monitor with *listpayments* or *waitsendpay*.
 When using 'lightning-cli', you may skip optional parameters by using
 'null'.
 Alternatively, use *-k* option to provide parameters by name.
+
+RANDOMIZATION
+-------------
+
+To protect user privacy, the payment algorithm performs some randomization.
+
+1. Route Randomization
+2. Value Randomization
+
+Route randomization means the payment algorithm
+does not always use the lowest-fee or shortest route.
+This prevents some highly-connected node
+from learning all of the user payments
+by reducing their fees below
+the network average.
+
+Value randomization means the payment algorithm
+will add a small random amount to the actual value
+paid to the destination.
+This prevents intervening nodes
+from identifying exactly how much is being transacted.
+
+Both randomizations respect 'maxfeepercent'.
+Route randomization plus the random value in value randomization
+will never exceed 'maxfeepercent' of the payment.
+Route randomization will not take routes that would exceed 'maxdelay'.
 
 RETURN VALUE
 ------------
