@@ -13,6 +13,8 @@
 #include <unistd.h>
 
 struct plugin {
+	struct list_node list;
+
 	pid_t pid;
 	char *cmd;
 	struct io_conn *stdin_conn, *stdout_conn;
@@ -31,8 +33,6 @@ struct plugin {
 
 	/* List of options that this plugin registered */
 	struct list_head plugin_opts;
-
-	struct list_node list;
 
 	const char **methods;
 };
@@ -101,13 +101,13 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 	list_add_tail(&plugins->plugins, &p->list);
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
+	p->outbuf = NULL;
 
 	/* FIXME(cdecker): Referring to plugin by their registration
 	number might not be that useful, come up with a naming scheme
 	that makes more sense. */
 	plugin_count++;
 	p->log = new_log(p, plugins->log_book, "plugin-%zu", plugin_count);
-	p->log = plugins->log;
 	p->methods = tal_arr(p, const char *, 0);
 	list_head_init(&p->plugin_opts);
 }
@@ -228,6 +228,9 @@ static struct io_plan *plugin_write_json(struct io_conn *conn UNUSED,
 					 struct plugin *plugin)
 {
 	struct json_output *out;
+	if (plugin->outbuf)
+		plugin->outbuf = tal_free(plugin->outbuf);
+
 	out = list_pop(&plugin->output, struct json_output, list);
 	if (!out) {
 		if (plugin->stop) {
@@ -309,6 +312,7 @@ static struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
  * the plugin_opt */
 static char *plugin_opt_set(const char *arg, struct plugin_opt *popt)
 {
+	tal_free(popt->value);
 	popt->value = tal_strdup(popt, arg);
 	return NULL;
 }
@@ -344,13 +348,13 @@ static bool plugin_opt_add(struct plugin *plugin, const char *buffer,
 			     buffer + nametok->start);
 	popt->value = NULL;
 	if (defaulttok) {
-		popt->value = tal_strndup(plugin, buffer + defaulttok->start,
+		popt->value = tal_strndup(popt, buffer + defaulttok->start,
 					  defaulttok->end - defaulttok->start);
 		popt->description = tal_fmt(
-		    plugin, "%.*s (default: %s)", desctok->end - desctok->start,
+		    popt, "%.*s (default: %s)", desctok->end - desctok->start,
 		    buffer + desctok->start, popt->value);
 	} else {
-		popt->description = tal_strndup(plugin, buffer + desctok->start,
+		popt->description = tal_strndup(popt, buffer + desctok->start,
 						desctok->end - desctok->start);
 	}
 
@@ -544,6 +548,7 @@ void plugins_init(struct plugins *plugins)
 		io_new_conn(p, stdin, plugin_stdin_conn_init, p);
 		plugin_request_send(p, "getmanifest", "[]", plugin_manifest_cb, p);
 		plugins->pending_manifests++;
+		tal_free(cmd);
 	}
 	if (plugins->pending_manifests > 0)
 		io_loop(NULL, NULL);
