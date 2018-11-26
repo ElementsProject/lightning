@@ -283,5 +283,9 @@ bool param(struct command *cmd, const char *buffer,
 		return false;
 	}
 
-	return param_arr(cmd, buffer, tokens, params);
+	/* Always return false for CMD_USAGE and CMD_CHECK, signaling the caller
+	 * to return immediately.  For CMD_NORMAL, return true if all parameters
+	 * are valid.
+	 */
+	return param_arr(cmd, buffer, tokens, params) && cmd->mode == CMD_NORMAL;
 }
