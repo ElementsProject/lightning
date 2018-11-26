@@ -19,6 +19,9 @@
 /* Developer error in the parameters to param() call */
 #define PARAM_DEV_ERROR                 -2
 
+/* Plugin returned an error */
+#define PLUGIN_ERROR                    -3
+
 /* Errors from `pay`, `sendpay`, or `waitsendpay` commands */
 #define PAY_IN_PROGRESS			200
 #define PAY_RHASH_ALREADY_USED		201

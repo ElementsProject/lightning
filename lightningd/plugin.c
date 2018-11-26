@@ -9,6 +9,7 @@
 #include <common/memleak.h>
 #include <errno.h>
 #include <lightningd/json.h>
+#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <signal.h>
 #include <unistd.h>
@@ -417,10 +418,26 @@ static void plugin_rpcmethod_destroy(struct json_command *cmd,
 static void plugin_rpcmethod_cb(const struct plugin_request *req,
 				struct plugin_rpc_request *rpc_req)
 {
-	// Parse
-	// Extract results or error
-	// Construct reply
-	// Return result with appropriate return code.
+	struct json_stream *response;
+	const jsmntok_t *res;
+	assert(req->resulttok || req->errortok);
+
+	if (req->errortok) {
+		res = req->errortok;
+		command_fail(rpc_req->cmd, PLUGIN_ERROR, "%.*s",
+			     res->end - res->start, req->response + res->start);
+		tal_free(rpc_req);
+		return;
+	}
+
+	res = req->resulttok;
+	response = json_stream_success(rpc_req->cmd);
+
+	json_add_member(response, NULL, "%.*s", json_tok_len(res),
+			json_tok_contents(req->response, res));
+
+	command_success(rpc_req->cmd, response);
+	tal_free(rpc_req);
 }
 
 static void plugin_rpcmethod_dispatch(struct command *cmd, const char *buffer,
