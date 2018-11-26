@@ -9,6 +9,12 @@
 #include <lightningd/json.h>
 #include <unistd.h>
 
+#if defined(__APPLE__) && defined(__MACH__)
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#endif
+
 struct plugin {
 	pid_t pid;
 	char *cmd;
