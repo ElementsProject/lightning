@@ -80,7 +80,7 @@ int daemon_poll(struct pollfd *fds, nfds_t nfds, int timeout)
 	return poll(fds, nfds, timeout);
 }
 
-#if DEVELOPER
+#if DEVELOPER && BACKTRACE_SUPPORTED
 static void steal_notify(tal_t *child, enum tal_notify_type n, tal_t *newparent)
 {
 	tal_t *p = newparent;
