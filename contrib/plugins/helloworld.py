@@ -19,6 +19,10 @@ def json_hello(request, name):
     return greeting
 
 
+def json_fail(request):
+    raise ValueError("This will fail")
+
+
 def json_getmanifest(request):
     global greeting
     return {
@@ -32,6 +36,10 @@ def json_getmanifest(request):
             {
                 "name": "hello",
                 "description": "Returns a personalized greeting for {name}",
+            },
+            {
+                "name": "fail",
+                "description": "Always returns a failure for testing",
             },
         ]
     }
@@ -48,6 +56,7 @@ def json_init(request, options):
 
 methods = {
     'hello': json_hello,
+    'fail': json_fail,
     'getmanifest': json_getmanifest,
     'init': json_init,
 }
@@ -55,25 +64,33 @@ methods = {
 
 partial = ""
 for l in sys.stdin:
-    partial += l
     try:
+        partial += l
         request = json.loads(partial)
-        result = None
-        method = methods[request['method']]
-        params = request['params']
+    except Exception:
+        continue
+
+    result = None
+    method = methods[request['method']]
+    params = request['params']
+    try:
         if isinstance(params, dict):
             result = method(request, **params)
         else:
             result = method(request, *params)
-
         result = {
             "jsonrpc": "2.0",
             "result": result,
             "id": request['id']
         }
-        json.dump(result, fp=sys.stdout)
-        sys.stdout.write('\n')
-        sys.stdout.flush()
-        partial = ""
-    except Exception:
-        pass
+    except Exception as e:
+        result = {
+            "jsonrpc": "2.0",
+            "error": "Error while processing {}".format(request['method']),
+            "id": request['id']
+        }
+
+    json.dump(result, fp=sys.stdout)
+    sys.stdout.write('\n')
+    sys.stdout.flush()
+    partial = ""
