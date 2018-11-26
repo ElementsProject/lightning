@@ -11,8 +11,7 @@ struct chainparams {
 	const char *bip173_name;
 	const struct bitcoin_blkid genesis_blockhash;
 	const int rpc_port;
-	const char *cli;
-	const char *cli_args;
+	const char *rpc_args;
 	const u64 dust_limit;
 	const u64 max_funding_satoshi;
 	const u64 max_payment_msat;
