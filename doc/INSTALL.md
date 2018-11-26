@@ -36,7 +36,7 @@ Get dependencies:
     sudo apt-get update
     sudo apt-get install -y \
       autoconf automake build-essential git libtool libgmp-dev \
-      libsqlite3-dev python python3 net-tools zlib1g-dev
+      libsqlite3-dev python python3 net-tools zlib1g-dev libevent-dev 
 
 If you don't have Bitcoin installed locally you'll need to install that
 as well:
@@ -93,7 +93,8 @@ $ sudo dnf update -y && \
                 net-tools \
                 valgrind \
                 wget \
-                zlib-devel && \
+                zlib-devel \
+                libevent-dev && \
         sudo dnf clean all
 ```
 
