@@ -536,3 +536,14 @@ void json_add_escaped_string(struct json_stream *result, const char *fieldname,
 	if (taken(esc))
 		tal_free(esc);
 }
+
+void json_add_raw(struct json_stream *js, const char *fieldname,
+		  const jsmntok_t *tok, const char *buffer)
+{
+	if (tok->type == JSMN_STRING)
+		json_add_member(js, fieldname, "\"%.*s\"",
+				tok->end - tok->start, buffer + tok->start);
+	else
+		json_add_member(js, fieldname, "%.*s", tok->end - tok->start,
+				buffer + tok->start);
+}

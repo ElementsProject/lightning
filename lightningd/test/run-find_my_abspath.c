@@ -136,7 +136,7 @@ void plugins_init(struct plugins *plugins UNNEEDED)
 { fprintf(stderr, "plugins_init called!\n"); abort(); }
 /* Generated stub for plugins_new */
 struct plugins *plugins_new(const tal_t *ctx UNNEEDED, struct log_book *log_book UNNEEDED,
-			    struct jsonrpc *rpc UNNEEDED)
+			    struct jsonrpc *rpc UNNEEDED, struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "plugins_new called!\n"); abort(); }
 /* Generated stub for register_opts */
 void register_opts(struct lightningd *ld UNNEEDED)

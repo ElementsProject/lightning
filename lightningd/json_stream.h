@@ -7,6 +7,7 @@
 #include <ccan/membuf/membuf.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <ccan/tal/str/str.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -95,5 +96,11 @@ struct io_plan *json_stream_output_(struct json_stream *js,
 							  struct json_stream *js,
 							  void *arg),
 				    void *arg);
+
+
+/**
+ * Retrieve the raw contents of the json_stream.
+ */
+const char *json_stream_contents(const tal_t *ctx, struct json_stream *js);
 
 #endif /* LIGHTNING_LIGHTNINGD_JSON_STREAM_H */

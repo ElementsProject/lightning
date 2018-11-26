@@ -290,3 +290,9 @@ struct io_plan *json_stream_output_(struct json_stream *js,
 	js->len_read = 0;
 	return json_stream_output_write(conn, js);
 }
+
+const char *json_stream_contents(const tal_t *ctx, struct json_stream *js)
+{
+	return tal_strndup(ctx, membuf_elems(&js->outbuf),
+			   membuf_num_elems(&js->outbuf));
+}

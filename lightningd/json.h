@@ -195,6 +195,16 @@ void json_add_hex_talarr(struct json_stream *result,
 			 const char *fieldname,
 			 const tal_t *data);
 
+/**
+ * Given a token in an existing JSON buffer, add it to result.
+ *
+ * Used mainly to transcribe one JSON buffer into another, this is
+ * copies the fields over with correct quotation if needed, e.g., for
+ * raw strings.
+ */
+void json_add_raw(struct json_stream *result, const char *fieldname,
+		  const jsmntok_t *tok, const char *buffer);
+
 enum address_parse_result {
 	/* Not recognized as an onchain address */
 	ADDRESS_PARSE_UNRECOGNIZED,

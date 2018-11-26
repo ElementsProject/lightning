@@ -48,6 +48,7 @@ struct plugin_request {
 	const char *json_params;
 	const char *response;
 	const jsmntok_t *resulttok, *errortok, *toks;
+	struct json_stream *stream;
 
 	/* The response handler to be called on success or error */
 	void (*cb)(const struct plugin_request *, void *);
@@ -65,6 +66,8 @@ struct plugins {
 
 	/* RPC interface to bind JSON-RPC methods to */
 	struct jsonrpc *rpc;
+
+	struct lightningd *ld;
 };
 
 struct json_output {
@@ -96,7 +99,7 @@ struct plugin_opt {
 };
 
 struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
-			    struct jsonrpc *rpc)
+			    struct jsonrpc *rpc, struct lightningd *ld)
 {
 	struct plugins *p;
 	p = tal(ctx, struct plugins);
@@ -104,6 +107,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->log_book = log_book;
 	p->log = new_log(p, log_book, "plugin-manager");
 	p->rpc = rpc;
+	p->ld = ld;
 	return p;
 }
 
@@ -422,16 +426,7 @@ static void plugin_rpcmethod_cb(const struct plugin_request *req,
 	res = req->resulttok;
 	response = json_stream_success(rpc_req->cmd);
 
-	/* If this is a raw string result we'd be cropping the quotes from the
-	 * result, so add them back */
-	if (req->resulttok->type == JSMN_STRING)
-		json_add_member(response, NULL, "\"%.*s\"",
-				res->end - res->start,
-				req->response + res->start);
-	else
-		json_add_member(response, NULL, "%.*s", res->end - res->start,
-				req->response + res->start);
-
+	json_add_raw(response, NULL, res, req->response);
 	command_success(rpc_req->cmd, response);
 }
 
@@ -635,25 +630,99 @@ static void plugin_config_cb(const struct plugin_request *req,
 	/* Nothing to be done here, this is just a report */
 }
 
+/**
+ * Create the header of a JSON-RPC request and return open stream.
+ */
+static struct plugin_request *
+plugin_request_start_(struct plugin *plugin, const char *method,
+		      void (*cb)(const struct plugin_request *, void *),
+		      void *arg)
+{
+	static u64 next_request_id = 0;
+	struct plugin_request *req = tal(plugin, struct plugin_request);
+	//struct json_output *out = tal(plugin, struct json_output);
+	u64 request_id = next_request_id++;
+
+	req->id = request_id;
+	req->method = tal_strdup(req, method);
+	req->cb = cb;
+	req->arg = arg;
+	req->plugin = plugin;
+	/* We will not concurrently drain, if we do we must set the
+	 * writer to non-NULL */
+	req->stream = new_json_stream(req, NULL);
+
+	/* Add to map so we can find it later when routing the response */
+	uintmap_add(&plugin->plugins->pending_requests, req->id, req);
+
+	json_object_start(req->stream, NULL);
+	json_add_string(req->stream, "jsonrpc", "2.0");
+	json_add_string(req->stream, "method", method);
+	json_add_u64(req->stream, "id", request_id);
+	
+	/* Wrap the request in the JSON-RPC request object. Terminate
+	 * with an empty line that serves as a hint that the JSON
+	 * object is done. */
+	/*
+	out->json = tal_fmt(out, "{"
+			    "\"jsonrpc\": \"2.0\", "
+			    "\"method\": \"%s\", "
+			    "\"params\" : %s, "
+			    "\"id\" : %" PRIu64 " }\n\n",
+			    method, params, request_id);
+	*/
+	/* Queue and notify the writer */
+	//list_add_tail(&plugin->output, &out->list);
+	//io_wake(plugin);
+	return req;
+}
+
+/**
+ * Given a request, send it to the plugin.
+ */
+static void plugin_request_finish(struct plugin_request *req)
+{
+	io_wake(req->plugin);
+}
+
+#define plugin_request_start(plugin, method, cb, arg)                          \
+	plugin_request_start_(                                                 \
+	    (plugin), (method),                                                \
+	    typesafe_cb_preargs(void, void *, (cb), (arg),                     \
+				const struct plugin_request *),                \
+	    (arg))
+
 /* FIXME(cdecker) This just builds a string for the request because
  * the json_stream is tightly bound to the command interface. It
  * should probably be generalized and fixed up. */
 static void plugin_config(struct plugin *plugin)
 {
 	struct plugin_opt *opt;
-	bool first = true;
-	const char *name, *sep;
-	char *conf = tal_fmt(tmpctx, "{\n  \"options\": {");
+	const char *name;
+	struct plugin_request *req;
+	struct lightningd *ld = plugin->plugins->ld;
+
+	/* No writer since we don't flush concurrently. */
+	req = plugin_request_start(plugin, "init", plugin_config_cb, plugin);
+
+	json_object_start(req->stream, NULL);
+	json_object_start(req->stream, "options");
 	list_for_each(&plugin->plugin_opts, opt, list) {
 		/* Trim the `--` that we added before */
 		name = opt->name + 2;
-		/* Separator between elements in the same object */
-		sep = first?"":",";
-		first = false;
-		tal_append_fmt(&conf, "%s\n    \"%s\": \"%s\"", sep, name, opt->value);
+		json_add_string(req->stream, name, opt->value);
 	}
-	tal_append_fmt(&conf, "\n  }\n}");
-	plugin_request_send(plugin, "init", conf, plugin_config_cb, plugin);
+	json_object_end(req->stream); /* end of options */
+
+	json_object_start(req->stream, "configuration");
+
+	json_add_string(req->stream, "lightning-dir", ld->config_dir);
+	json_add_string(req->stream, "rpc-filename", ld->rpc_filename);
+
+	json_object_end(req->stream); /* end of configuration */
+	json_object_end(req->stream); /* end of result */
+
+	plugin_request_finish(req);
 }
 
 void plugins_config(struct plugins *plugins)
