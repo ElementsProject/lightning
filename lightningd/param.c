@@ -79,7 +79,7 @@ static bool parse_by_position(struct command *cmd,
 	}
 
 	/* check for unexpected trailing params */
-	if (tok != end) {
+	if (!cmd->allow_unused && tok != end) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "too many parameters:"
 			     " got %u, expected %zu",
@@ -117,21 +117,23 @@ static bool parse_by_name(struct command *cmd,
 		struct param *p = find_param(params, buffer + first->start,
 					     first->end - first->start);
 		if (!p) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "unknown parameter: '%.*s'",
-				     first->end - first->start,
-				     buffer + first->start);
-			return false;
-		}
+			if (!cmd->allow_unused) {
+				command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					     "unknown parameter: '%.*s'",
+					     first->end - first->start,
+					     buffer + first->start);
+				return false;
+			}
+		} else {
+			if (p->is_set) {
+				command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					     "duplicate json names: '%s'", p->name);
+				return false;
+			}
 
-		if (p->is_set) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "duplicate json names: '%s'", p->name);
-			return false;
+			if (!make_callback(cmd, p, buffer, first + 1))
+				return false;
 		}
-
-		if (!make_callback(cmd, p, buffer, first + 1))
-			return false;
 		first = json_next(first + 1);
 	}
 	return post_check(cmd, params);

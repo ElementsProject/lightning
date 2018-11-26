@@ -540,6 +540,7 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 			    json_tok_len(id));
 	c->mode = CMD_NORMAL;
 	c->ok = NULL;
+	c->allow_unused = false;
 	list_add_tail(&jcon->commands, &c->list);
 	tal_add_destructor(c, destroy_command);
 
