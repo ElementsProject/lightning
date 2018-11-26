@@ -8,6 +8,7 @@
 #include <ccan/tal/str/str.h>
 #include <errno.h>
 #include <lightningd/json.h>
+#include <signal.h>
 #include <unistd.h>
 
 struct plugin {
