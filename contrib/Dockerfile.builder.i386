@@ -36,7 +36,8 @@ RUN apt-get -qq update && \
 	libxml2-utils \
 	wget \
 	xsltproc \
-	zlib1g-dev && \
+	zlib1g-dev \
+	libevent-dev && \
 	rm -rf /var/lib/apt/lists/*
 
 ENV LANGUAGE=en_US.UTF-8
