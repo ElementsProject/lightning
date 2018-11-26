@@ -31,10 +31,7 @@ enum bitcoind_prio {
 #define BITCOIND_NUM_PRIO (BITCOIND_HIGH_PRIO+1)
 
 struct bitcoind {
-	/* eg. "bitcoin-cli" */
-	char *cli;
-
-	/* -datadir arg for bitcoin-cli. */
+	/* -datadir arg for bitcoind. */
 	char *datadir;
 
 	/* Where to do logging. */
@@ -59,9 +56,12 @@ struct bitcoind {
 	/* Ignore results, we're shutting down. */
 	bool shutdown;
 
-	/* Passthrough parameters for bitcoin-cli */
-	char *rpcuser, *rpcpass, *rpcconnect, *rpcport;
+	/* Passthrough parameters for bitcoin-rpc*/
+	char *rpccookiefile;
+	char *rpcuser, *rpcpass, *rpcconnect;
+	u32 rpcport;
 };
+
 
 struct bitcoind *new_bitcoind(const tal_t *ctx,
 			      struct lightningd *ld,

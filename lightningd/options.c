@@ -759,25 +759,25 @@ void register_opts(struct lightningd *ld)
 
 	opt_register_arg("--bitcoin-datadir", opt_set_talstr, NULL,
 			 &ld->topology->bitcoind->datadir,
-			 "-datadir arg for bitcoin-cli");
+			 "-datadir arg for bitcoin rpc");
 	opt_register_arg("--rgb", opt_set_rgb, NULL, ld,
 			 "RRGGBB hex color for node");
 	opt_register_arg("--alias", opt_set_alias, NULL, ld,
 			 "Up to 32-byte alias for node");
 
-	opt_register_arg("--bitcoin-cli", opt_set_talstr, NULL,
-			 &ld->topology->bitcoind->cli,
-			 "bitcoin-cli pathname");
+	opt_register_arg("--bitcoin-rpccookiefile", opt_set_talstr, NULL,
+			 &ld->topology->bitcoind->rpccookiefile,
+			 "bitcoind RPC auth cookie");
 	opt_register_arg("--bitcoin-rpcuser", opt_set_talstr, NULL,
 			 &ld->topology->bitcoind->rpcuser,
 			 "bitcoind RPC username");
 	opt_register_arg("--bitcoin-rpcpassword", opt_set_talstr, NULL,
 			 &ld->topology->bitcoind->rpcpass,
 			 "bitcoind RPC password");
-	opt_register_arg("--bitcoin-rpcconnect", opt_set_talstr, NULL,
+	opt_register_arg("--bitcoin-rpcconnect", opt_set_talstr, opt_show_charp,
 			 &ld->topology->bitcoind->rpcconnect,
 			 "bitcoind RPC host to connect to");
-	opt_register_arg("--bitcoin-rpcport", opt_set_talstr, NULL,
+	opt_register_arg("--bitcoin-rpcport", opt_set_u32, opt_show_u32,
 			 &ld->topology->bitcoind->rpcport,
 			 "bitcoind RPC port");
 	opt_register_arg("--pid-file=<file>", opt_set_talstr, opt_show_charp,
