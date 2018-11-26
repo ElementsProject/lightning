@@ -937,3 +937,71 @@ bool json_tok_wtx(struct wallet_tx * tx, const char * buffer,
 	}
         return true;
 }
+
+static bool json_tok_command(struct command *cmd, const char *name,
+			     const char *buffer, const jsmntok_t *tok,
+			     const jsmntok_t **out)
+{
+	cmd->json_cmd = find_cmd(cmd->jcon->ld->jsonrpc, buffer, tok);
+	if (cmd->json_cmd)
+		return (*out = tok);
+
+	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		     "'%s' of '%.*s' is invalid",
+		     name, tok->end - tok->start, buffer + tok->start);
+	return false;
+}
+
+static void json_check(struct command *cmd,
+		       const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *mod_params;
+	const jsmntok_t *name_tok;
+	bool ok;
+	struct json_stream *response;
+
+	if (cmd->mode == CMD_USAGE) {
+		mod_params = NULL;
+	} else {
+		mod_params = json_tok_copy(cmd, params);
+		cmd->allow_unused = true;
+	}
+
+	if (!param(cmd, buffer, mod_params,
+		   p_req("command_to_check", json_tok_command, &name_tok),
+		   NULL))
+		return;
+
+	/* Point name_tok to the name, not the value */
+	if (params->type == JSMN_OBJECT)
+		name_tok--;
+
+	json_tok_remove(&mod_params, (jsmntok_t *)name_tok, 1);
+
+	cmd->mode = CMD_CHECK;
+	cmd->allow_unused = false;
+	/* FIXME(wythe): Maybe change "ok" to "failed" since that's really what
+	 * we're after and would be more clear. */
+	ok = true;
+	cmd->ok = &ok;
+	cmd->json_cmd->dispatch(cmd, buffer, mod_params);
+
+	if (!ok)
+		return;
+
+	response = json_stream_success(cmd);
+	json_object_start(response, NULL);
+	json_add_string(response, "command", cmd->json_cmd->name);
+	json_add_string(response, "parameters", "ok");
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+static const struct json_command check_command = {
+	"check",
+	json_check,
+	"Don't run {command_to_check}, just verify parameters.",
+	.verbose = "check command_to_check [parameters...]\n"
+};
+
+AUTODATA(json_command, &check_command);

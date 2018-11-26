@@ -13,7 +13,9 @@ enum command_mode {
 	/* Normal command processing */
 	CMD_NORMAL,
 	/* Create command usage string, nothing else. */
-	CMD_USAGE
+	CMD_USAGE,
+	/* Check parameters, nothing else. */
+	CMD_CHECK
 };
 
 /* Context for a command (from JSON, but might outlive the connection!). */
