@@ -178,6 +178,9 @@ static bool plugin_read_json_one(struct plugin *plugin)
 	request->toks = toks;
 	request->cb(request, request->arg);
 
+	tal_free(request);
+	uintmap_del(&plugin->plugins->pending_requests, id);
+
 	/* Move this object out of the buffer */
 	memmove(plugin->buffer, plugin->buffer + toks[0].end,
 		tal_count(plugin->buffer) - toks[0].end);
