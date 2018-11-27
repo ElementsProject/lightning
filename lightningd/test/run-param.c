@@ -561,6 +561,7 @@ int main(void)
 	setup_tmpctx();
 	cmd = tal(tmpctx, struct command);
 	cmd->mode = CMD_NORMAL;
+	cmd->allow_unused = false;
 	fail_msg = tal_arr(cmd, char, 10000);
 
 	zero_params();
