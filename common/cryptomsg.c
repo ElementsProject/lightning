@@ -15,7 +15,7 @@
 #include <wire/wire.h>
 #include <wire/wire_io.h>
 
-#if DEVELOPER
+#if DISSECTOR
 static bool write_sk(char *sk)
 {
 	FILE *fp;
@@ -232,7 +232,7 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 		     tal_hexstr(trc, out, clen));
 #endif
 
-#if DEVELOPER
+#if DISSECTOR
 	/* only update when sk changed */
 	if (cs->sn == 1) {
 	char *sk = tal_hexstr(NULL, &cs->sk, sizeof(cs->sk));
