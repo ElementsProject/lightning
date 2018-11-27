@@ -10,9 +10,28 @@
 #include <common/status.h>
 #include <common/utils.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
+#include <stdio.h>
 #include <wire/peer_wire.h>
 #include <wire/wire.h>
 #include <wire/wire_io.h>
+
+#if DEVELOPER
+static bool write_sk(char *sk)
+{
+	FILE *fp;
+	char *filename="keys.log";
+
+	fp = fopen(filename, "w+");
+	if (fp == NULL)
+		return false;
+
+	if (fputs(sk, fp) == -1)
+		return false;
+
+	fclose(fp);
+	return true;
+}
+#endif
 
 static void hkdf_two_keys(struct secret *out1, struct secret *out2,
 			  const struct secret *in1,
@@ -156,6 +175,8 @@ bool cryptomsg_decrypt_header(struct crypto_state *cs, u8 hdr[18], u16 *lenp)
 	return true;
 }
 
+
+
 u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 			  struct crypto_state *cs,
 			  const u8 *msg TAKES)
@@ -211,6 +232,15 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 		     tal_hexstr(trc, out, clen));
 #endif
 
+#if DEVELOPER
+	/* only update when sk changed */
+	if (cs->sn == 1) {
+	char *sk = tal_hexstr(NULL, &cs->sk, sizeof(cs->sk));
+	write_sk(sk);
+	tal_free(sk);
+	}
+#endif
+
 	/* BOLT #8:
 	 *
 	 *   4. Finally, encrypt the message itself (`m`) using the same
@@ -235,6 +265,7 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 		     tal_hexstr(trc, &cs->sk, sizeof(cs->sk)),
 		     tal_hexstr(trc, out + CRYPTOMSG_HDR_SIZE, clen));
 #endif
+
 
 	maybe_rotate_key(&cs->sn, &cs->sk, &cs->s_ck);
 
