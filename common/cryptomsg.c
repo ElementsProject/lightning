@@ -235,9 +235,13 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 #if DISSECTOR
 	/* only update when sk changed */
 	if (cs->sn == 1) {
-	char *sk = tal_hexstr(NULL, &cs->sk, sizeof(cs->sk));
-	write_sk(sk);
-	tal_free(sk);
+	char *mac = tal_hexstr(NULL, out+2, 16);
+	char *sec = tal_hexstr(NULL, &cs->sk, sizeof(cs->sk));
+	char ss[200] = {0};
+	sprintf(ss, "%s %s\n", mac, sec);
+	write_sk(ss);
+	tal_free(mac);
+	tal_free(sec);
 	}
 #endif
 
