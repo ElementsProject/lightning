@@ -9,6 +9,7 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/utf8/utf8.h>
 #include <common/memleak.h>
+#include <common/timeout.h>
 #include <dirent.h>
 #include <errno.h>
 #include <lightningd/json.h>
@@ -18,6 +19,14 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+/* How many seconds may the plugin take to reply to the `getmanifest
+ * call`? This is the maximum delay to `lightningd --help` and until
+ * we can start the main `io_loop` to communicate with peers. If this
+ * hangs we can't do much, so we put an upper bound on the time we're
+ * willing to wait. Plugins shouldn't do any initialization in the
+ * `getmanifest` call anyway, that's what `init `is for. */
+#define PLUGIN_MANIFEST_TIMEOUT 10
 
 struct plugin {
 	struct list_node list;
@@ -43,6 +52,10 @@ struct plugin {
 	struct list_head plugin_opts;
 
 	const char **methods;
+
+	/* Timer to add a timeout to some plugin RPC calls. Used to
+	 * guarantee that `getmanifest` doesn't block indefinitely. */
+	const struct oneshot *timeout_timer;
 };
 
 struct plugin_request {
@@ -73,6 +86,8 @@ struct plugins {
 
 	/* RPC interface to bind JSON-RPC methods to */
 	struct jsonrpc *rpc;
+
+	struct timers timers;
 };
 
 struct json_output {
@@ -112,6 +127,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->log_book = log_book;
 	p->log = new_log(p, log_book, "plugin-manager");
 	p->rpc = rpc;
+	timers_init(&p->timers, time_mono());
 	return p;
 }
 
@@ -618,6 +634,12 @@ static bool plugin_rpcmethods_add(const struct plugin_request *req)
 	return true;
 }
 
+static void plugin_manifest_timeout(struct plugin *plugin)
+{
+	log_broken(plugin->log, "The plugin failed to respond to \"getmanifest\" in time, terminating.");
+	fatal("Can't recover from plugin failure, terminating.");
+}
+
 /**
  * Callback for the plugin_manifest request.
  */
@@ -637,6 +659,8 @@ static void plugin_manifest_cb(const struct plugin_request *req, struct plugin *
 
 	if (!plugin_opts_add(req) || !plugin_rpcmethods_add(req))
 		plugin_kill(plugin, "Failed to register options or methods");
+	/* Reset timer, it'd kill us otherwise. */
+	tal_free(plugin->timeout_timer);
 }
 
 /* If this is a valid plugin return full path name, otherwise NULL */
@@ -710,6 +734,7 @@ void plugins_init(struct plugins *plugins)
 	struct plugin *p;
 	char **cmd;
 	int stdin, stdout;
+	struct timer *expired;
 	plugins->pending_manifests = 0;
 	uintmap_init(&plugins->pending_requests);
 
@@ -735,10 +760,19 @@ void plugins_init(struct plugins *plugins)
 		io_new_conn(p, stdin, plugin_stdin_conn_init, p);
 		plugin_request_send(p, "getmanifest", "[]", plugin_manifest_cb, p);
 		plugins->pending_manifests++;
+		p->timeout_timer = new_reltimer(
+		    &plugins->timers, p, time_from_sec(PLUGIN_MANIFEST_TIMEOUT),
+		    plugin_manifest_timeout, p);
 		tal_free(cmd);
 	}
-	if (plugins->pending_manifests > 0)
-		io_loop(NULL, NULL);
+
+	while (plugins->pending_manifests > 0) {
+		void *v = io_loop(&plugins->timers, &expired);
+		if (v == plugins)
+			break;
+		if (expired)
+			timer_expired(plugins, expired);
+	}
 }
 
 static void plugin_config_cb(const struct plugin_request *req,
