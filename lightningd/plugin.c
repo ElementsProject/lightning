@@ -393,24 +393,22 @@ static bool plugin_opt_add(struct plugin *plugin, const char *buffer,
 static bool plugin_opts_add(const struct plugin_request *req)
 {
 	const char *buffer = req->plugin->buffer;
-	const jsmntok_t *cur, *options;
-
-	/* This is the parent for all elements in the "options" array */
-	int optpos;
-	options =
+	const jsmntok_t *options =
 	    json_get_member(req->plugin->buffer, req->resulttok, "options");
-	if (!options)
-		return false;
 
-	optpos = options - req->toks;
+	if (!options) {
+		plugin_kill(req->plugin,
+			    "\"result.options\" was not found in the manifest");
+		return false;
+	}
 
 	if (options->type != JSMN_ARRAY) {
 		plugin_kill(req->plugin, "\"result.options\" is not an array");
 		return false;
 	}
 
-	for (cur = options + 1; cur->parent == optpos; cur = json_next(cur))
-		if (!plugin_opt_add(req->plugin, buffer, cur))
+	for (size_t i = 0; i < options->size; i++)
+		if (!plugin_opt_add(req->plugin, buffer, json_get_arr(options, i)))
 			return false;
 
 	return true;
@@ -564,25 +562,21 @@ static bool plugin_rpcmethod_add(struct plugin *plugin, const char *buffer,
 static bool plugin_rpcmethods_add(const struct plugin_request *req)
 {
 	const char *buffer = req->plugin->buffer;
-	const jsmntok_t *cur, *methods;
-
-	/* This is the parent for all elements in the "options" array */
-	int methpos;
-
-	methods =
+	const jsmntok_t *methods =
 	    json_get_member(req->plugin->buffer, req->resulttok, "rpcmethods");
+
 	if (!methods)
 		return false;
 
-	methpos = methods - req->toks;
-
 	if (methods->type != JSMN_ARRAY) {
-		plugin_kill(req->plugin, "\"result.rpcmethods\" is not an array");
+		plugin_kill(req->plugin,
+			    "\"result.rpcmethods\" is not an array");
 		return false;
 	}
 
-	for (cur = methods + 1; cur->parent == methpos; cur = json_next(cur))
-		if (!plugin_rpcmethod_add(req->plugin, buffer, cur))
+	for (size_t i = 0; i < methods->size; i++)
+		if (!plugin_rpcmethod_add(req->plugin, buffer,
+					  json_get_arr(methods, i)))
 			return false;
 	return true;
 }
