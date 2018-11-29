@@ -82,7 +82,15 @@ currently only string options are supported.*
 The `rpcmethods` are methods that will be exposed via `lightningd`'s
 JSON-RPC over Unix-Socket interface, just like the builtin
 commands. Any parameters given to the JSON-RPC calls will be passed
-through verbatim.
+through verbatim. Notice that the `name` and the `description` fields
+are mandatory, while the `long_description` can be omitted (it'll be
+set to `description` if it was not provided).
+
+Plugins are free to register any `name` for their `rpcmethod` as long
+as the name was not previously registered. This includes both built-in
+methods, such as `help` and `getinfo`, as well as methods registered
+by other plugins. If there is a conflict then `lightningd` will report
+an error and exit.
 
 ### The `init` method
 
