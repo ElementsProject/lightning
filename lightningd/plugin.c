@@ -131,8 +131,15 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 /**
  * Kill a plugin process, with an error message.
  */
-static void plugin_kill(struct plugin *plugin, char *msg)
+static void PRINTF_FMT(2,3) plugin_kill(struct plugin *plugin, char *fmt, ...)
 {
+	char *msg;
+	va_list ap;
+
+	va_start(ap, fmt);
+	msg = tal_vfmt(plugin, fmt, ap);
+	va_end(ap);
+
 	log_broken(plugin->log, "Killing plugin: %s", msg);
 	plugin->stop = true;
 	io_wake(plugin);
@@ -507,29 +514,24 @@ static bool plugin_rpcmethod_add(struct plugin *plugin, const char *buffer,
 	longdesctok = json_get_member(buffer, meth, "long_description");
 
 	if (!nametok || nametok->type != JSMN_STRING) {
-		plugin_kill(
-		    plugin,
-		    tal_fmt(plugin,
+		plugin_kill(plugin,
 			    "rpcmethod does not have a string \"name\": %.*s",
-			    meth->end - meth->start, buffer + meth->start));
+			    meth->end - meth->start, buffer + meth->start);
 		return false;
 	}
 
 	if (!desctok || desctok->type != JSMN_STRING) {
-		plugin_kill(plugin, tal_fmt(plugin,
-					    "rpcmethod does not have a string "
-					    "\"description\": %.*s",
-					    meth->end - meth->start,
-					    buffer + meth->start));
+		plugin_kill(plugin,
+			    "rpcmethod does not have a string "
+			    "\"description\": %.*s",
+			    meth->end - meth->start, buffer + meth->start);
 		return false;
 	}
 
 	if (longdesctok && longdesctok->type != JSMN_STRING) {
-		plugin_kill(
-		    plugin,
-		    tal_fmt(plugin,
+		plugin_kill(plugin,
 			    "\"long_description\" is not a string: %.*s",
-			    meth->end - meth->start, buffer + meth->start));
+			    meth->end - meth->start, buffer + meth->start);
 		return false;
 	}
 
