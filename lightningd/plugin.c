@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <lightningd/json.h>
 #include <unistd.h>
+#include <signal.h>
 
 struct plugin {
 	pid_t pid;
