@@ -731,7 +731,7 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 	u64 dbid, funding_amount;
 	struct secret channel_seed;
 	struct bitcoin_tx *tx;
-	secp256k1_ecdsa_signature sig;
+	struct bitcoin_signature sig;
 	struct secrets secrets;
 	const u8 *funding_wscript;
 
@@ -762,6 +762,7 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 	sign_tx_input(tx, 0, NULL, funding_wscript,
 		      &secrets.funding_privkey,
 		      &local_funding_pubkey,
+		      SIGHASH_ALL,
 		      &sig);
 
 	return req_reply(conn, c,
@@ -784,7 +785,7 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 	u64 funding_amount;
 	struct secret channel_seed;
 	struct bitcoin_tx *tx;
-	secp256k1_ecdsa_signature sig;
+	struct bitcoin_signature sig;
 	struct secrets secrets;
 	const u8 *funding_wscript;
 
@@ -806,6 +807,7 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 	sign_tx_input(tx, 0, NULL, funding_wscript,
 		      &secrets.funding_privkey,
 		      &local_funding_pubkey,
+		      SIGHASH_ALL,
 		      &sig);
 
 	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
@@ -819,7 +821,7 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 {
 	struct secret channel_seed;
 	struct bitcoin_tx *tx;
-	secp256k1_ecdsa_signature sig;
+	struct bitcoin_signature sig;
 	struct secrets secrets;
 	struct basepoints basepoints;
 	struct pubkey remote_per_commit_point;
@@ -851,7 +853,8 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 
 	/* Need input amount for signing */
 	tx->input[0].amount = tal_dup(tx->input, u64, &amount);
-	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey, &sig);
+	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
+		      SIGHASH_ALL, &sig);
 
 	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
@@ -867,7 +870,7 @@ static struct io_plan *handle_sign_to_us_tx(struct io_conn *conn,
 					    const u8 *wscript,
 					    u64 input_amount)
 {
-	secp256k1_ecdsa_signature sig;
+	struct bitcoin_signature sig;
 	struct pubkey pubkey;
 
 	if (!pubkey_from_privkey(privkey, &pubkey))
@@ -877,7 +880,7 @@ static struct io_plan *handle_sign_to_us_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
 
 	tx->input[0].amount = tal_dup(tx->input, u64, &input_amount);
-	sign_tx_input(tx, 0, NULL, wscript, privkey, &pubkey, &sig);
+	sign_tx_input(tx, 0, NULL, wscript, privkey, &pubkey, SIGHASH_ALL, &sig);
 
 	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
@@ -1034,7 +1037,7 @@ static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
 	struct pubkey per_commitment_point, htlc_basepoint;
 	struct bitcoin_tx *tx;
 	u8 *wscript;
-	secp256k1_ecdsa_signature sig;
+	struct bitcoin_signature sig;
 	struct privkey htlc_privkey;
 	struct pubkey htlc_pubkey;
 
@@ -1074,7 +1077,8 @@ static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
 
 	/* FIXME: Check that output script is correct! */
 	tx->input[0].amount = tal_dup(tx->input, u64, &input_amount);
-	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey, &sig);
+	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
+		      SIGHASH_ALL, &sig);
 
 	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
@@ -1165,7 +1169,7 @@ static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
 	struct secret channel_seed;
 	struct bitcoin_tx *tx;
 	struct pubkey remote_funding_pubkey, local_funding_pubkey;
-	secp256k1_ecdsa_signature sig;
+	struct bitcoin_signature sig;
 	struct secrets secrets;
 	u64 funding_amount;
 	const u8 *funding_wscript;
@@ -1191,7 +1195,7 @@ static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
 	sign_tx_input(tx, 0, NULL, funding_wscript,
 		      &secrets.funding_privkey,
 		      &local_funding_pubkey,
-		      &sig);
+		      SIGHASH_ALL, &sig);
 
 	return req_reply(conn, c, take(towire_hsm_sign_tx_reply(NULL, &sig)));
 }
@@ -1327,7 +1331,7 @@ static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
 		struct privkey inprivkey;
 		const struct utxo *in = utxos[i];
 		u8 *subscript, *wscript;
-		secp256k1_ecdsa_signature sig;
+		struct bitcoin_signature sig;
 
 		/* Figure out keys to spend this. */
 		hsm_key_for_utxo(&inprivkey, &inkey, in);
@@ -1348,7 +1352,7 @@ static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
 		}
 		/* This is the core crypto magic. */
 		sign_tx_input(tx, i, subscript, wscript, &inprivkey, &inkey,
-			      &sig);
+			      SIGHASH_ALL, &sig);
 
 		/* The witness is [sig] [key] */
 		tx->input[i].witness = bitcoin_witness_p2wpkh(tx, &sig, &inkey);

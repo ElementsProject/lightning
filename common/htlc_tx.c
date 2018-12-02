@@ -95,8 +95,8 @@ void htlc_success_tx_add_witness(struct bitcoin_tx *htlc_success,
 				 const struct abs_locktime *htlc_abstimeout,
 				 const struct pubkey *localhtlckey,
 				 const struct pubkey *remotehtlckey,
-				 const secp256k1_ecdsa_signature *localhtlcsig,
-				 const secp256k1_ecdsa_signature *remotehtlcsig,
+				 const struct bitcoin_signature *localhtlcsig,
+				 const struct bitcoin_signature *remotehtlcsig,
 				 const struct preimage *payment_preimage,
 				 const struct pubkey *revocationkey)
 {
@@ -143,8 +143,8 @@ void htlc_timeout_tx_add_witness(struct bitcoin_tx *htlc_timeout,
 				 const struct pubkey *remotehtlckey,
 				 const struct sha256 *payment_hash,
 				 const struct pubkey *revocationkey,
-				 const secp256k1_ecdsa_signature *localhtlcsig,
-				 const secp256k1_ecdsa_signature *remotehtlcsig)
+				 const struct bitcoin_signature *localhtlcsig,
+				 const struct bitcoin_signature *remotehtlcsig)
 {
 	u8 *wscript = bitcoin_wscript_htlc_offer(htlc_timeout,
 						 localhtlckey, remotehtlckey,

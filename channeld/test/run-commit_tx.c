@@ -187,12 +187,12 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 	size_t i, n;
 	struct bitcoin_txid txid;
 	struct bitcoin_tx **htlc_tx;
-	secp256k1_ecdsa_signature *remotehtlcsig;
+	struct bitcoin_signature *remotehtlcsig;
 	struct keyset keyset;
 	u8 **wscript;
 
 	htlc_tx = tal_arrz(tmpctx, struct bitcoin_tx *, tal_count(htlc_map));
-	remotehtlcsig = tal_arr(tmpctx, secp256k1_ecdsa_signature,
+	remotehtlcsig = tal_arr(tmpctx, struct bitcoin_signature,
 				tal_count(htlc_map));
 	wscript = tal_arr(tmpctx, u8 *, tal_count(htlc_map));
 
@@ -249,16 +249,17 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 			      NULL,
 			      wscript[i],
 			      x_remote_htlcsecretkey, remote_htlckey,
+			      SIGHASH_ALL,
 			      &remotehtlcsig[i]);
 		printf("# signature for output %zi (htlc %"PRIu64")\n", i, htlc->id);
 		printf("remote_htlc_signature = %s\n",
-		       type_to_string(tmpctx, secp256k1_ecdsa_signature,
+		       type_to_string(tmpctx, struct bitcoin_signature,
 				      &remotehtlcsig[i]));
 	}
 
 	/* For any HTLC outputs, produce htlc_tx */
 	for (i = 0; i < tal_count(htlc_map); i++) {
-		secp256k1_ecdsa_signature localhtlcsig;
+		struct bitcoin_signature localhtlcsig;
 		const struct htlc *htlc = htlc_map[i];
 
 		if (!htlc)
@@ -268,9 +269,10 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 			      NULL,
 			      wscript[i],
 			      local_htlcsecretkey, local_htlckey,
+			      SIGHASH_ALL,
 			      &localhtlcsig);
 		printf("# local_signature = %s\n",
-		       type_to_string(tmpctx, secp256k1_ecdsa_signature,
+		       type_to_string(tmpctx, struct bitcoin_signature,
 				      &localhtlcsig));
 		if (htlc_owner(htlc) == LOCAL) {
 			htlc_timeout_tx_add_witness(htlc_tx[i],
@@ -316,22 +318,24 @@ static void report(struct bitcoin_tx *tx,
 		   const struct htlc **htlc_map)
 {
 	char *txhex;
-	secp256k1_ecdsa_signature localsig, remotesig;
+	struct bitcoin_signature localsig, remotesig;
 
 	sign_tx_input(tx, 0,
 		      NULL,
 		      wscript,
 		      x_remote_funding_privkey, remote_funding_pubkey,
+		      SIGHASH_ALL,
 		      &remotesig);
 	printf("remote_signature = %s\n",
-	       type_to_string(tmpctx, secp256k1_ecdsa_signature, &remotesig));
+	       type_to_string(tmpctx, struct bitcoin_signature, &remotesig));
 	sign_tx_input(tx, 0,
 		      NULL,
 		      wscript,
 		      local_funding_privkey, local_funding_pubkey,
+		      SIGHASH_ALL,
 		      &localsig);
 	printf("# local_signature = %s\n",
-	       type_to_string(tmpctx, secp256k1_ecdsa_signature, &localsig));
+	       type_to_string(tmpctx, struct bitcoin_signature, &localsig));
 	tx->input[0].witness = bitcoin_witness_2of2(tx->input,
 						    &localsig, &remotesig,
 						    local_funding_pubkey,

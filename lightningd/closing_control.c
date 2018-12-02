@@ -69,7 +69,7 @@ static bool better_closing_fee(struct lightningd *ld,
 static void peer_received_closing_signature(struct channel *channel,
 					    const u8 *msg)
 {
-	secp256k1_ecdsa_signature sig;
+	struct bitcoin_signature sig;
 	struct bitcoin_tx *tx;
 	struct lightningd *ld = channel->peer->ld;
 

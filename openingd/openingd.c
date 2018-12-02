@@ -345,7 +345,7 @@ static u8 *funder_channel(struct state *state,
 	struct basepoints theirs;
 	struct pubkey their_funding_pubkey;
 	struct pubkey *changekey;
-	secp256k1_ecdsa_signature sig;
+	struct bitcoin_signature sig;
 	u32 minimum_depth;
 	const u8 *wscript;
 	struct bitcoin_tx *funding;
@@ -551,7 +551,7 @@ static u8 *funder_channel(struct state *state,
 			      tal_hex(tmpctx, msg));
 
 	status_trace("signature %s on tx %s using key %s",
-		     type_to_string(tmpctx, secp256k1_ecdsa_signature, &sig),
+		     type_to_string(tmpctx, struct bitcoin_signature, &sig),
 		     type_to_string(tmpctx, struct bitcoin_tx, tx),
 		     type_to_string(tmpctx, struct pubkey,
 				    &state->our_funding_pubkey));
@@ -559,7 +559,7 @@ static u8 *funder_channel(struct state *state,
 	msg = towire_funding_created(state, &state->channel_id,
 				     &state->funding_txid,
 				     state->funding_txout,
-				     &sig);
+				     &sig.s);
 	sync_crypto_write(&state->cs, PEER_FD, msg);
 
 	/* BOLT #2:
@@ -577,7 +577,8 @@ static u8 *funder_channel(struct state *state,
 	if (!msg)
 		return NULL;
 
-	if (!fromwire_funding_signed(msg, &id_in, &sig))
+	sig.sighash_type = SIGHASH_ALL;
+	if (!fromwire_funding_signed(msg, &id_in, &sig.s))
 		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "Parsing funding_signed: %s", tal_hex(msg, msg));
@@ -618,7 +619,7 @@ static u8 *funder_channel(struct state *state,
 		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "Bad signature %s on tx %s using key %s",
-			    type_to_string(tmpctx, secp256k1_ecdsa_signature,
+			    type_to_string(tmpctx, struct bitcoin_signature,
 					   &sig),
 			    type_to_string(tmpctx, struct bitcoin_tx, tx),
 			    type_to_string(tmpctx, struct pubkey,
@@ -656,7 +657,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	struct channel_id id_in;
 	struct basepoints theirs;
 	struct pubkey their_funding_pubkey;
-	secp256k1_ecdsa_signature theirsig, sig;
+	struct bitcoin_signature theirsig, sig;
 	struct bitcoin_tx *local_commit, *remote_commit;
 	struct bitcoin_blkid chain_hash;
 	u8 *msg;
@@ -823,10 +824,11 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	if (!msg)
 		return NULL;
 
+	theirsig.sighash_type = SIGHASH_ALL;
 	if (!fromwire_funding_created(msg, &id_in,
 				      &state->funding_txid,
 				      &state->funding_txout,
-				      &theirsig))
+				      &theirsig.s))
 		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "Parsing funding_created");
@@ -880,7 +882,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "Bad signature %s on tx %s using key %s",
-			    type_to_string(tmpctx, secp256k1_ecdsa_signature,
+			    type_to_string(tmpctx, struct bitcoin_signature,
 					   &theirsig),
 			    type_to_string(tmpctx, struct bitcoin_tx, local_commit),
 			    type_to_string(tmpctx, struct pubkey,
@@ -929,7 +931,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 
 	/* We don't send this ourselves: channeld does, because master needs
 	 * to save state to disk before doing so. */
-	msg = towire_funding_signed(state, &state->channel_id, &sig);
+	assert(sig.sighash_type == SIGHASH_ALL);
+	msg = towire_funding_signed(state, &state->channel_id, &sig.s);
 
 	return towire_opening_fundee(state,
 				     &state->remoteconf,

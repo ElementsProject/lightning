@@ -177,7 +177,7 @@ static void send_offer(struct crypto_state *cs,
 		       uint64_t fee_to_offer)
 {
 	struct bitcoin_tx *tx;
-	secp256k1_ecdsa_signature our_sig;
+	struct bitcoin_signature our_sig;
 	u8 *msg;
 
 	/* BOLT #2:
@@ -215,11 +215,12 @@ static void send_offer(struct crypto_state *cs,
 
 	status_trace("sending fee offer %"PRIu64, fee_to_offer);
 
-	msg = towire_closing_signed(NULL, channel_id, fee_to_offer, &our_sig);
+	assert(our_sig.sighash_type == SIGHASH_ALL);
+	msg = towire_closing_signed(NULL, channel_id, fee_to_offer, &our_sig.s);
 	sync_crypto_write(cs, PEER_FD, take(msg));
 }
 
-static void tell_master_their_offer(const secp256k1_ecdsa_signature *their_sig,
+static void tell_master_their_offer(const struct bitcoin_signature *their_sig,
 				    const struct bitcoin_tx *tx)
 {
 	u8 *msg = towire_closing_received_signature(NULL, their_sig, tx);
@@ -252,7 +253,7 @@ static uint64_t receive_offer(struct crypto_state *cs,
 	u8 *msg;
 	struct channel_id their_channel_id;
 	u64 received_fee;
-	secp256k1_ecdsa_signature their_sig;
+	struct bitcoin_signature their_sig;
 	struct bitcoin_tx *tx;
 
 	/* Wait for them to say something interesting */
@@ -276,8 +277,9 @@ static uint64_t receive_offer(struct crypto_state *cs,
 			msg = tal_free(msg);
 	} while (!msg);
 
+	their_sig.sighash_type = SIGHASH_ALL;
 	if (!fromwire_closing_signed(msg, &their_channel_id,
-				     &received_fee, &their_sig))
+				     &received_fee, &their_sig.s))
 		peer_failed(cs, channel_id,
 			    "Expected closing_signed: %s",
 			    tal_hex(tmpctx, msg));

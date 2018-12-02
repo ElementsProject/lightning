@@ -14,7 +14,7 @@ channel_init,,their_config,struct channel_config
 channel_init,,feerate_per_kw,2*u32
 channel_init,,feerate_min,u32
 channel_init,,feerate_max,u32
-channel_init,,first_commit_sig,secp256k1_ecdsa_signature
+channel_init,,first_commit_sig,struct bitcoin_signature
 channel_init,,crypto_state,struct crypto_state
 channel_init,,remote_fundingkey,struct pubkey
 channel_init,,remote_basepoints,struct basepoints
@@ -100,7 +100,7 @@ channel_sending_commitsig,,feerate,u32
 # SENT_ADD_COMMIT, SENT_REMOVE_ACK_COMMIT, SENT_ADD_ACK_COMMIT, SENT_REMOVE_COMMIT
 channel_sending_commitsig,,num_changed,u16
 channel_sending_commitsig,,changed,num_changed*struct changed_htlc
-channel_sending_commitsig,,commit_sig,secp256k1_ecdsa_signature
+channel_sending_commitsig,,commit_sig,struct bitcoin_signature
 channel_sending_commitsig,,num_htlc_sigs,u16
 channel_sending_commitsig,,htlc_sigs,num_htlc_sigs*secp256k1_ecdsa_signature
 
@@ -111,7 +111,7 @@ channel_sending_commitsig_reply,1120
 channel_got_commitsig,1021
 channel_got_commitsig,,commitnum,u64
 channel_got_commitsig,,feerate,u32
-channel_got_commitsig,,signature,secp256k1_ecdsa_signature
+channel_got_commitsig,,signature,struct bitcoin_signature
 channel_got_commitsig,,num_htlcs,u16
 channel_got_commitsig,,htlc_signature,num_htlcs*secp256k1_ecdsa_signature
 # RCVD_ADD_COMMIT: we're now committed to their new offered HTLCs.

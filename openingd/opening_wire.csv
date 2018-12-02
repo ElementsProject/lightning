@@ -45,7 +45,7 @@ opening_funder,,bip32,struct ext_key
 opening_funder_reply,6101
 opening_funder_reply,,their_config,struct channel_config
 opening_funder_reply,,first_commit,struct bitcoin_tx
-opening_funder_reply,,first_commit_sig,secp256k1_ecdsa_signature
+opening_funder_reply,,first_commit_sig,struct bitcoin_signature
 opening_funder_reply,,crypto_state,struct crypto_state
 opening_funder_reply,,revocation_basepoint,struct pubkey
 opening_funder_reply,,payment_basepoint,struct pubkey
@@ -67,7 +67,7 @@ opening_funder_failed,,reason,wirestring
 opening_fundee,6003
 opening_fundee,,their_config,struct channel_config
 opening_fundee,,first_commit,struct bitcoin_tx
-opening_fundee,,first_commit_sig,secp256k1_ecdsa_signature
+opening_fundee,,first_commit_sig,struct bitcoin_signature
 opening_fundee,,crypto_state,struct crypto_state
 opening_fundee,,revocation_basepoint,struct pubkey
 opening_fundee,,payment_basepoint,struct pubkey
