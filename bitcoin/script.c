@@ -188,6 +188,7 @@ u8 *scriptpubkey_p2sh_hash(const tal_t *ctx, const struct ripemd160 *redeemhash)
 	add_op(&script, OP_HASH160);
 	add_push_bytes(&script, redeemhash->u.u8, sizeof(redeemhash->u.u8));
 	add_op(&script, OP_EQUAL);
+	assert(tal_count(script) == BITCOIN_SCRIPTPUBKEY_P2SH_LEN);
 	return script;
 }
 
@@ -210,6 +211,7 @@ u8 *scriptpubkey_p2pkh(const tal_t *ctx, const struct bitcoin_address *addr)
 	add_push_bytes(&script, &addr->addr, sizeof(addr->addr));
 	add_op(&script, OP_EQUALVERIFY);
 	add_op(&script, OP_CHECKSIG);
+	assert(tal_count(script) == BITCOIN_SCRIPTPUBKEY_P2PKH_LEN);
 	return script;
 }
 
@@ -244,6 +246,8 @@ u8 *bitcoin_redeem_p2sh_p2wpkh(const tal_t *ctx, const struct pubkey *key)
 	add_number(&script, 0);
 	pubkey_to_hash160(key, &keyhash);
 	add_push_bytes(&script, &keyhash, sizeof(keyhash));
+
+	assert(tal_count(script) == BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
 	return script;
 }
 
@@ -283,6 +287,7 @@ u8 *scriptpubkey_p2wsh(const tal_t *ctx, const u8 *witnessscript)
 	add_op(&script, OP_0);
 	sha256(&h, witnessscript, tal_count(witnessscript));
 	add_push_bytes(&script, h.u.u8, sizeof(h.u.u8));
+	assert(tal_count(script) == BITCOIN_SCRIPTPUBKEY_P2WSH_LEN);
 	return script;
 }
 
