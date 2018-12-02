@@ -480,13 +480,13 @@ struct json_stream *json_stream_fail_nodata(struct command *cmd,
 					    const char *errmsg)
 {
 	struct json_stream *r = json_start(cmd);
+	struct json_escaped *e = json_partial_escape(tmpctx, errmsg);
 
 	assert(code);
-	assert(errmsg);
 
 	json_stream_append_fmt(r, " \"error\" : "
 			  "{ \"code\" : %d,"
-			  " \"message\" : \"%s\"", code, errmsg);
+			  " \"message\" : \"%s\"", code, e->s);
 	return r;
 }
 
