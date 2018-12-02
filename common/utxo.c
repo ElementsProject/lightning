@@ -1,3 +1,5 @@
+#include <bitcoin/script.h>
+#include <common/key_derive.h>
 #include <common/utxo.h>
 #include <wire/wire.h>
 
@@ -38,4 +40,27 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 		utxo->close_info = NULL;
 	}
 	return utxo;
+}
+
+struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
+				     const struct utxo **utxos,
+				     const struct ext_key *bip32_base,
+				     bool add_change_output)
+{
+	struct bitcoin_tx *tx =
+	    bitcoin_tx(ctx, tal_count(utxos), add_change_output ? 2 : 1);
+
+	for (size_t i = 0; i < tal_count(utxos); i++) {
+		tx->input[i].txid = utxos[i]->txid;
+		tx->input[i].index = utxos[i]->outnum;
+		tx->input[i].amount = tal_dup(tx, u64, &utxos[i]->amount);
+		if (utxos[i]->is_p2sh && bip32_base) {
+			struct pubkey key;
+			bip32_pubkey(bip32_base, &key, utxos[i]->keyindex);
+			tx->input[i].script =
+				bitcoin_scriptsig_p2sh_p2wpkh(tx, &key);
+		}
+	}
+
+	return tx;
 }

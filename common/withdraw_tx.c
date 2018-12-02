@@ -2,7 +2,6 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
 #include <ccan/ptrint/ptrint.h>
-#include <common/key_derive.h>
 #include <common/permute_tx.h>
 #include <common/utxo.h>
 #include <string.h>
@@ -16,19 +15,10 @@ struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       const u64 changesat,
 			       const struct ext_key *bip32_base)
 {
-	struct bitcoin_tx *tx =
-	    bitcoin_tx(ctx, tal_count(utxos), changesat ? 2 : 1);
-	for (size_t i = 0; i < tal_count(utxos); i++) {
-		tx->input[i].txid = utxos[i]->txid;
-		tx->input[i].index = utxos[i]->outnum;
-		tx->input[i].amount = tal_dup(tx, u64, &utxos[i]->amount);
-		if (utxos[i]->is_p2sh && bip32_base) {
-			struct pubkey key;
-			bip32_pubkey(bip32_base, &key, utxos[i]->keyindex);
-			tx->input[i].script =
-				bitcoin_scriptsig_p2sh_p2wpkh(tx, &key);
-		}
-	}
+	struct bitcoin_tx *tx;
+
+	tx = tx_spending_utxos(ctx, utxos, bip32_base, changesat != 0);
+
 	tx->output[0].amount = withdraw_amount;
 	tx->output[0].script = destination;
 
