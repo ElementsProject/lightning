@@ -55,6 +55,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/gen_peer_status_wire.o		\
 	common/gen_status_wire.o		\
 	common/htlc_wire.o			\
+	common/key_derive.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
 	common/peer_billboard.o			\
