@@ -1310,10 +1310,6 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
 /* This completes the tx by filling in the input scripts with signatures. */
 static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
 {
-	/* FIXME: sign_tx_input is dumb and needs all input->script to be
-	 * NULL, so we gather these here and assign them at the end */
-	u8 **scriptSigs = tal_arr(tmpctx, u8 *, tal_count(utxos));
-
 	/*~ Deep in my mind there's a continuous battle: should arrays be
 	 * named as singular or plural?  Is consistency the sign of a weak
 	 * mind?
@@ -1343,12 +1339,14 @@ static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
 			/* For P2SH-wrapped Segwit, the (implied) redeemScript
 			 * is defined in BIP141 */
 			subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
-			scriptSigs[i] = bitcoin_scriptsig_p2sh_p2wpkh(tx, &inkey);
+			tx->input[i].script
+				= bitcoin_scriptsig_p2sh_p2wpkh(tx->input,
+								&inkey);
 		} else {
 			/* Pure segwit uses an empty inputScript; NULL has
 			 * tal_count() == 0, so it works great here. */
 			subscript = NULL;
-			scriptSigs[i] = NULL;
+			tx->input[i].script = NULL;
 		}
 		/* This is the core crypto magic. */
 		sign_tx_input(tx, i, subscript, wscript, &inprivkey, &inkey,
@@ -1357,10 +1355,6 @@ static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
 		/* The witness is [sig] [key] */
 		tx->input[i].witness = bitcoin_witness_p2wpkh(tx, &sig, &inkey);
 	}
-
-	/* Now complete the transaction by attaching the scriptSigs */
-	for (size_t i = 0; i < tal_count(utxos); i++)
-		tx->input[i].script = scriptSigs[i];
 }
 
 /*~ lightningd asks us to sign the transaction to fund a channel; it feeds us
