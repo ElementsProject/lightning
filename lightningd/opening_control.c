@@ -133,7 +133,7 @@ static struct channel *
 wallet_commit_channel(struct lightningd *ld,
 		      struct uncommitted_channel *uc,
 		      struct bitcoin_tx *remote_commit,
-		      secp256k1_ecdsa_signature *remote_commit_sig,
+		      struct bitcoin_signature *remote_commit_sig,
 		      const struct bitcoin_txid *funding_txid,
 		      u16 funding_outnum,
 		      u64 funding_satoshi,
@@ -230,7 +230,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	struct bitcoin_txid funding_txid, expected_txid;
 	struct pubkey changekey;
 	struct crypto_state cs;
-	secp256k1_ecdsa_signature remote_commit_sig;
+	struct bitcoin_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
 	u16 funding_outnum;
 	u32 feerate;
@@ -412,7 +412,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	u8 *funding_signed;
 	struct channel_info channel_info;
 	struct crypto_state cs;
-	secp256k1_ecdsa_signature remote_commit_sig;
+	struct bitcoin_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
 	struct lightningd *ld = openingd->ld;
 	struct bitcoin_txid funding_txid;

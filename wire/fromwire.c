@@ -178,6 +178,15 @@ void fromwire_bitcoin_txid(const u8 **cursor, size_t *max,
 	fromwire_sha256_double(cursor, max, &txid->shad);
 }
 
+void fromwire_bitcoin_signature(const u8 **cursor, size_t *max,
+				struct bitcoin_signature *sig)
+{
+	fromwire_secp256k1_ecdsa_signature(cursor, max, &sig->s);
+	sig->sighash_type = fromwire_u8(cursor, max);
+	if (!sighash_type_valid(sig->sighash_type))
+		fromwire_fail(cursor, max);
+}
+
 void fromwire_bitcoin_blkid(const u8 **cursor, size_t *max,
 			    struct bitcoin_blkid *blkid)
 {

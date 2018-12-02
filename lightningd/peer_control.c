@@ -187,7 +187,7 @@ u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
 static void sign_last_tx(struct channel *channel)
 {
 	struct lightningd *ld = channel->peer->ld;
-	secp256k1_ecdsa_signature sig;
+	struct bitcoin_signature sig;
 	u8 *msg;
 
 	assert(!channel->last_tx->input[0].witness);

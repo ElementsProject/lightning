@@ -20,6 +20,7 @@ struct channel_id {
 STRUCTEQ_DEF(channel_id, 0, id);
 
 struct bitcoin_blkid;
+struct bitcoin_signature;
 struct bitcoin_txid;
 struct preimage;
 struct ripemd160;
@@ -49,6 +50,7 @@ void towire_short_channel_id(u8 **pptr,
 void towire_sha256(u8 **pptr, const struct sha256 *sha256);
 void towire_sha256_double(u8 **pptr, const struct sha256_double *sha256d);
 void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid);
+void towire_bitcoin_signature(u8 **pptr, const struct bitcoin_signature *sig);
 void towire_bitcoin_blkid(u8 **pptr, const struct bitcoin_blkid *blkid);
 void towire_preimage(u8 **pptr, const struct preimage *preimage);
 void towire_ripemd160(u8 **pptr, const struct ripemd160 *ripemd);
@@ -88,6 +90,8 @@ void fromwire_short_channel_id(const u8 **cursor, size_t *max,
 void fromwire_sha256(const u8 **cursor, size_t *max, struct sha256 *sha256);
 void fromwire_sha256_double(const u8 **cursor, size_t *max,
 			    struct sha256_double *sha256d);
+void fromwire_bitcoin_signature(const u8 **cursor, size_t *max,
+				struct bitcoin_signature *sig);
 void fromwire_bitcoin_txid(const u8 **cursor, size_t *max,
 			   struct bitcoin_txid *txid);
 void fromwire_bitcoin_blkid(const u8 **cursor, size_t *max,

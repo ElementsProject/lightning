@@ -1,4 +1,5 @@
 #include "wire.h"
+#include <assert.h>
 #include <bitcoin/preimage.h>
 #include <bitcoin/shadouble.h>
 #include <bitcoin/tx.h>
@@ -121,6 +122,13 @@ void towire_sha256_double(u8 **pptr, const struct sha256_double *sha256d)
 void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid)
 {
 	towire_sha256_double(pptr, &txid->shad);
+}
+
+void towire_bitcoin_signature(u8 **pptr, const struct bitcoin_signature *sig)
+{
+	assert(sighash_type_valid(sig->sighash_type));
+	towire_secp256k1_ecdsa_signature(pptr, &sig->s);
+	towire_u8(pptr, sig->sighash_type);
 }
 
 void towire_bitcoin_blkid(u8 **pptr, const struct bitcoin_blkid *blkid)

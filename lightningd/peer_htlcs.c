@@ -984,7 +984,7 @@ static bool changed_htlc(struct channel *channel,
 
 static bool peer_save_commitsig_received(struct channel *channel, u64 commitnum,
 					 struct bitcoin_tx *tx,
-					 const secp256k1_ecdsa_signature *commit_sig)
+					 const struct bitcoin_signature *commit_sig)
 {
 	if (commitnum != channel->next_index[LOCAL]) {
 		channel_internal_error(channel,
@@ -1027,7 +1027,7 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 	u32 feerate;
 	struct changed_htlc *changed_htlcs;
 	size_t i, maxid = 0, num_local_added = 0;
-	secp256k1_ecdsa_signature commit_sig;
+	struct bitcoin_signature commit_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
 	struct lightningd *ld = channel->peer->ld;
 
@@ -1175,7 +1175,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 {
 	u64 commitnum;
 	u32 feerate;
-	secp256k1_ecdsa_signature commit_sig;
+	struct bitcoin_signature commit_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
 	struct added_htlc *added;
 	struct secret *shared_secrets;

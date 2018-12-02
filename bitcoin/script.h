@@ -34,7 +34,7 @@ u8 *scriptpubkey_opreturn(const tal_t *ctx);
 
 /* Create an input script which spends p2pkh */
 u8 *bitcoin_redeem_p2pkh(const tal_t *ctx, const struct pubkey *pubkey,
-			 const secp256k1_ecdsa_signature *sig);
+			 const struct bitcoin_signature *sig);
 
 /* Create the redeemscript for a P2SH + P2WPKH. */
 u8 *bitcoin_redeem_p2sh_p2wpkh(const tal_t *ctx, const struct pubkey *key);
@@ -60,19 +60,19 @@ u8 *scriptpubkey_witness_raw(const tal_t *ctx, u8 version,
 
 /* Create a witness which spends the 2of2. */
 u8 **bitcoin_witness_2of2(const tal_t *ctx,
-			  const secp256k1_ecdsa_signature *sig1,
-			  const secp256k1_ecdsa_signature *sig2,
+			  const struct bitcoin_signature *sig1,
+			  const struct bitcoin_signature *sig2,
 			  const struct pubkey *key1,
 			  const struct pubkey *key2);
 
 /* Create a witness which spends a p2wpkh. */
 u8 **bitcoin_witness_p2wpkh(const tal_t *ctx,
-			    const secp256k1_ecdsa_signature *sig,
+			    const struct bitcoin_signature *sig,
 			    const struct pubkey *key);
 
 /* Create a witness which contains sig, another entry, and the witnessscript */
 u8 **bitcoin_witness_sig_and_element(const tal_t *ctx,
-				     const secp256k1_ecdsa_signature *sig,
+				     const struct bitcoin_signature *sig,
 				     const void *elem, size_t elemsize,
 				     const u8 *witnessscript);
 
@@ -89,8 +89,8 @@ u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
 			       const struct sha256 *payment_hash,
 			       const struct pubkey *revocationkey);
 u8 **bitcoin_witness_htlc_timeout_tx(const tal_t *ctx,
-				     const secp256k1_ecdsa_signature *localsig,
-				     const secp256k1_ecdsa_signature *remotesig,
+				     const struct bitcoin_signature *localsig,
+				     const struct bitcoin_signature *remotesig,
 				     const u8 *wscript);
 u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
 				 const struct abs_locktime *htlc_abstimeout,
@@ -99,8 +99,8 @@ u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
 				 const struct sha256 *payment_hash,
 				 const struct pubkey *revocationkey);
 u8 **bitcoin_witness_htlc_success_tx(const tal_t *ctx,
-				     const secp256k1_ecdsa_signature *localsig,
-				     const secp256k1_ecdsa_signature *remotesig,
+				     const struct bitcoin_signature *localsig,
+				     const struct bitcoin_signature *remotesig,
 				     const struct preimage *preimage,
 				     const u8 *wscript);
 

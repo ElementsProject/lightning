@@ -91,7 +91,7 @@ int main(void)
 	u64 funding_satoshis;
 	u16 funding_outnum;
 	u8 *subscript;
-	secp256k1_ecdsa_signature sig;
+	struct bitcoin_signature sig;
 	struct bitcoin_address addr;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
@@ -165,7 +165,7 @@ int main(void)
 	pubkey_to_hash160(&inputkey, &addr.addr);
 	subscript = scriptpubkey_p2pkh(funding, &addr);
 	sign_tx_input(funding, 0, subscript, NULL, &input_privkey, &inputkey,
-		      &sig);
+		      SIGHASH_ALL, &sig);
 
 	funding->input[0].script = bitcoin_redeem_p2pkh(funding, &inputkey,
 							&sig);

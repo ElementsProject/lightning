@@ -155,7 +155,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u64 msatoshi_to_us_max,
 			    /* Stolen */
 			    struct bitcoin_tx *last_tx,
-			    const secp256k1_ecdsa_signature *last_sig,
+			    const struct bitcoin_signature *last_sig,
 			    /* NULL or stolen */
 			    secp256k1_ecdsa_signature *last_htlc_sigs,
 			    const struct channel_info *channel_info,
@@ -312,7 +312,7 @@ struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid)
 
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
-			 const secp256k1_ecdsa_signature *sig)
+			 const struct bitcoin_signature *sig)
 {
 	channel->last_sig = *sig;
 	tal_free(channel->last_tx);

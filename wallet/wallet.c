@@ -571,7 +571,7 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 	struct wallet_shachain wshachain;
 	struct channel_config our_config;
 	struct bitcoin_txid funding_txid;
-	secp256k1_ecdsa_signature last_sig;
+	struct bitcoin_signature last_sig;
 	u8 *remote_shutdown_scriptpubkey;
 	struct changed_htlc *last_sent_commit;
 	s64 final_key_idx;
@@ -633,7 +633,8 @@ static struct channel *wallet_stmt2channel(const tal_t *ctx, struct wallet *w, s
 					 &our_config);
 	ok &= sqlite3_column_sha256_double(stmt, 12, &funding_txid.shad);
 
-	ok &= sqlite3_column_signature(stmt, 33, &last_sig);
+	ok &= sqlite3_column_signature(stmt, 33, &last_sig.s);
+	last_sig.sighash_type = SIGHASH_ALL;
 
 	/* Populate channel_info */
 	ok &= sqlite3_column_pubkey(stmt, 18, &channel_info.remote_fundingkey);
@@ -969,7 +970,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	sqlite3_bind_int64(stmt, 17, chan->final_key_idx);
 	sqlite3_bind_int64(stmt, 18, chan->our_config.id);
 	sqlite3_bind_tx(stmt, 19, chan->last_tx);
-	sqlite3_bind_signature(stmt, 20, &chan->last_sig);
+	sqlite3_bind_signature(stmt, 20, &chan->last_sig.s);
 	sqlite3_bind_int(stmt, 21, chan->last_was_revoke);
 	sqlite3_bind_int(stmt, 22, chan->min_possible_feerate);
 	sqlite3_bind_int(stmt, 23, chan->max_possible_feerate);

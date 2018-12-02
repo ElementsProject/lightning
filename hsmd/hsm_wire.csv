@@ -110,7 +110,7 @@ hsm_sign_commitment_tx,,remote_funding_key,struct pubkey
 hsm_sign_commitment_tx,,funding_amount,u64
 
 hsm_sign_commitment_tx_reply,105
-hsm_sign_commitment_tx_reply,,sig,secp256k1_ecdsa_signature
+hsm_sign_commitment_tx_reply,,sig,struct bitcoin_signature
 
 # Onchaind asks HSM to sign a spend to-us.  Four variants, since each set
 # of keys is derived differently...
@@ -166,7 +166,7 @@ hsm_sign_mutual_close_tx,,funding_amount,u64
 
 # Reply for all the above requests.
 hsm_sign_tx_reply,112
-hsm_sign_tx_reply,,sig,secp256k1_ecdsa_signature
+hsm_sign_tx_reply,,sig,struct bitcoin_signature
 
 # Openingd/channeld/onchaind asks for Nth per_commitment_point, if > 2, gets N-2 secret.
 hsm_get_per_commitment_point,18

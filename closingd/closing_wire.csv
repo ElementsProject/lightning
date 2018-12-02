@@ -30,7 +30,7 @@ closing_init,,final_scriptpubkey,final_scriptpubkey_len*u8
 
 # We received an offer, save signature.
 closing_received_signature,2002
-closing_received_signature,,signature,secp256k1_ecdsa_signature
+closing_received_signature,,signature,struct bitcoin_signature
 closing_received_signature,,tx,struct bitcoin_tx
 
 closing_received_signature_reply,2102

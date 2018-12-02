@@ -82,7 +82,7 @@ struct peer {
 	struct pubkey old_remote_per_commit;
 
 	/* Their sig for current commit. */
-	secp256k1_ecdsa_signature their_commit_sig;
+	struct bitcoin_signature their_commit_sig;
 
 	/* BOLT #2:
 	 *
@@ -638,7 +638,7 @@ static u8 *sending_commitsig_msg(const tal_t *ctx,
 				 u64 remote_commit_index,
 				 u32 remote_feerate,
 				 const struct htlc **changed_htlcs,
-				 const secp256k1_ecdsa_signature *commit_sig,
+				 const struct bitcoin_signature *commit_sig,
 				 const secp256k1_ecdsa_signature *htlc_sigs)
 {
 	struct changed_htlc *changed;
@@ -864,7 +864,7 @@ done:
 static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 						  const struct peer *peer,
 						  u64 commit_index,
-						  secp256k1_ecdsa_signature *commit_sig)
+						  struct bitcoin_signature *commit_sig)
 {
 	size_t i;
 	struct bitcoin_tx **txs;
@@ -891,7 +891,7 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 
 	status_trace("Creating commit_sig signature %"PRIu64" %s for tx %s wscript %s key %s",
 		     commit_index,
-		     type_to_string(tmpctx, secp256k1_ecdsa_signature,
+		     type_to_string(tmpctx, struct bitcoin_signature,
 				    commit_sig),
 		     type_to_string(tmpctx, struct bitcoin_tx, txs[0]),
 		     tal_hex(tmpctx, wscripts[0]),
@@ -916,27 +916,29 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 	htlc_sigs = tal_arr(ctx, secp256k1_ecdsa_signature, tal_count(txs) - 1);
 
 	for (i = 0; i < tal_count(htlc_sigs); i++) {
+		struct bitcoin_signature sig;
 		msg = towire_hsm_sign_remote_htlc_tx(NULL, txs[i + 1],
 						     wscripts[i + 1],
 						     *txs[i+1]->input[0].amount,
 						     &peer->remote_per_commit);
 
 		msg = hsm_req(tmpctx, take(msg));
-		if (!fromwire_hsm_sign_tx_reply(msg, &htlc_sigs[i]))
+		if (!fromwire_hsm_sign_tx_reply(msg, &sig))
 			status_failed(STATUS_FAIL_HSM_IO,
 				      "Bad sign_remote_htlc_tx reply: %s",
 				      tal_hex(tmpctx, msg));
 
+		htlc_sigs[i] = sig.s;
 		status_trace("Creating HTLC signature %s for tx %s wscript %s key %s",
-			     type_to_string(tmpctx, secp256k1_ecdsa_signature,
-					    &htlc_sigs[i]),
+			     type_to_string(tmpctx, struct bitcoin_signature,
+					    &sig),
 			     type_to_string(tmpctx, struct bitcoin_tx, txs[1+i]),
 			     tal_hex(tmpctx, wscripts[1+i]),
 			     type_to_string(tmpctx, struct pubkey,
 					    &local_htlckey));
 		assert(check_tx_sig(txs[1+i], 0, NULL, wscripts[1+i],
 				    &local_htlckey,
-				    &htlc_sigs[i]));
+				    &sig));
 	}
 
 	return htlc_sigs;
@@ -968,7 +970,8 @@ static void send_commit(struct peer *peer)
 {
 	u8 *msg;
 	const struct htlc **changed_htlcs;
-	secp256k1_ecdsa_signature *htlc_sigs, commit_sig;
+	struct bitcoin_signature commit_sig;
+	secp256k1_ecdsa_signature *htlc_sigs;
 
 #if DEVELOPER
 	/* Hack to suppress all commit sends if dev_disconnect says to */
@@ -1076,7 +1079,7 @@ static void send_commit(struct peer *peer)
 	peer->next_index[REMOTE]++;
 
 	msg = towire_commitment_signed(NULL, &peer->channel_id,
-				       &commit_sig,
+				       &commit_sig.s,
 				       htlc_sigs);
 	sync_crypto_write_no_delay(&peer->cs, PEER_FD, take(msg));
 
@@ -1162,7 +1165,7 @@ static void send_revocation(struct peer *peer)
 static u8 *got_commitsig_msg(const tal_t *ctx,
 			     u64 local_commit_index,
 			     u32 local_feerate,
-			     const secp256k1_ecdsa_signature *commit_sig,
+			     const struct bitcoin_signature *commit_sig,
 			     const secp256k1_ecdsa_signature *htlc_sigs,
 			     const struct htlc **changed_htlcs,
 			     const struct bitcoin_tx *committx)
@@ -1237,7 +1240,8 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 {
 	struct channel_id channel_id;
-	secp256k1_ecdsa_signature commit_sig, *htlc_sigs;
+	struct bitcoin_signature commit_sig;
+	secp256k1_ecdsa_signature *htlc_sigs;
 	struct pubkey remote_htlckey;
 	struct bitcoin_tx **txs;
 	const struct htlc **htlc_map, **changed_htlcs;
@@ -1264,10 +1268,12 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 						 .feerate_per_kw));
 
 	if (!fromwire_commitment_signed(tmpctx, msg,
-					&channel_id, &commit_sig, &htlc_sigs))
+					&channel_id, &commit_sig.s, &htlc_sigs))
 		peer_failed(&peer->cs,
 			    &peer->channel_id,
 			    "Bad commit_sig %s", tal_hex(msg, msg));
+	/* SIGHASH_ALL is implied. */
+	commit_sig.sighash_type = SIGHASH_ALL;
 
 	txs = channel_txs(tmpctx, &htlc_map, &wscripts, peer->channel,
 			  &peer->next_local_per_commit,
@@ -1297,7 +1303,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 			    &peer->channel_id,
 			    "Bad commit_sig signature %"PRIu64" %s for tx %s wscript %s key %s feerate %u",
 			    peer->next_index[LOCAL],
-			    type_to_string(msg, secp256k1_ecdsa_signature,
+			    type_to_string(msg, struct bitcoin_signature,
 					   &commit_sig),
 			    type_to_string(msg, struct bitcoin_tx, txs[0]),
 			    tal_hex(msg, wscripts[0]),
@@ -1328,12 +1334,18 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	 *     - MUST fail the channel.
 	 */
 	for (i = 0; i < tal_count(htlc_sigs); i++) {
+		struct bitcoin_signature sig;
+
+		/* SIGHASH_ALL is implied. */
+		sig.s = htlc_sigs[i];
+		sig.sighash_type = SIGHASH_ALL;
+
 		if (!check_tx_sig(txs[1+i], 0, NULL, wscripts[1+i],
-				  &remote_htlckey, &htlc_sigs[i]))
+				  &remote_htlckey, &sig))
 			peer_failed(&peer->cs,
 				    &peer->channel_id,
 				    "Bad commit_sig signature %s for htlc %s wscript %s key %s",
-				    type_to_string(msg, secp256k1_ecdsa_signature, &htlc_sigs[i]),
+				    type_to_string(msg, struct bitcoin_signature, &sig),
 				    type_to_string(msg, struct bitcoin_tx, txs[1+i]),
 				    tal_hex(msg, wscripts[1+i]),
 				    type_to_string(msg, struct pubkey,
@@ -1774,7 +1786,8 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 static void resend_commitment(struct peer *peer, const struct changed_htlc *last)
 {
 	size_t i;
-	secp256k1_ecdsa_signature commit_sig, *htlc_sigs;
+	struct bitcoin_signature commit_sig;
+	secp256k1_ecdsa_signature *htlc_sigs;
 	u8 *msg;
 
 	status_trace("Retransmitting commitment, feerate LOCAL=%u REMOTE=%u",
@@ -1830,7 +1843,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 	htlc_sigs = calc_commitsigs(tmpctx, peer, peer->next_index[REMOTE]-1,
 				    &commit_sig);
 	msg = towire_commitment_signed(NULL, &peer->channel_id,
-				       &commit_sig, htlc_sigs);
+				       &commit_sig.s, htlc_sigs);
 	sync_crypto_write(&peer->cs, PEER_FD, take(msg));
 
 	/* If we have already received the revocation for the previous, the

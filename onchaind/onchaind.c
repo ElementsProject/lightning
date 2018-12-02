@@ -97,7 +97,7 @@ struct tracked_output {
 	const u8 *wscript;
 
 	/* If it's an HTLC off our unilateral, this is their sig for htlc_tx */
-	const secp256k1_ecdsa_signature *remote_htlc_sig;
+	const struct bitcoin_signature *remote_htlc_sig;
 
 	/* Our proposed solution (if any) */
 	struct proposed_resolution *proposal;
@@ -108,7 +108,7 @@ struct tracked_output {
 
 /* We vary feerate until signature they offered matches. */
 static u64 grind_htlc_tx_fee(struct bitcoin_tx *tx,
-			     const secp256k1_ecdsa_signature *remotesig,
+			     const struct bitcoin_signature *remotesig,
 			     const u8 *wscript,
 			     u64 multiplier)
 {
@@ -149,7 +149,7 @@ static u64 grind_htlc_tx_fee(struct bitcoin_tx *tx,
 }
 
 static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
-				 const secp256k1_ecdsa_signature *remotesig,
+				 const struct bitcoin_signature *remotesig,
 				 const u8 *wscript)
 {
 	static u64 fee = UINT64_MAX;
@@ -172,7 +172,7 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 }
 
 static void set_htlc_success_fee(struct bitcoin_tx *tx,
-				 const secp256k1_ecdsa_signature *remotesig,
+				 const struct bitcoin_signature *remotesig,
 				 const u8 *wscript)
 {
 	static u64 fee = UINT64_MAX;
@@ -199,7 +199,7 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 		      " for tx %s, signature %s, wscript %s",
 		      fee,
 		      type_to_string(tmpctx, struct bitcoin_tx, tx),
-		      type_to_string(tmpctx, secp256k1_ecdsa_signature, remotesig),
+		      type_to_string(tmpctx, struct bitcoin_signature, remotesig),
 		      tal_hex(tmpctx, wscript));
 }
 
@@ -273,7 +273,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 {
 	struct bitcoin_tx *tx;
 	u64 fee;
-	secp256k1_ecdsa_signature sig;
+	struct bitcoin_signature sig;
 	u8 *msg;
 
 	tx = bitcoin_tx(ctx, 1, 1);
@@ -336,7 +336,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 
 static void hsm_sign_local_htlc_tx(struct bitcoin_tx *tx,
 				   const u8 *wscript,
-				   secp256k1_ecdsa_signature *sig)
+				   struct bitcoin_signature *sig)
 {
 	u8 *msg = towire_hsm_sign_local_htlc_tx(NULL, commit_num,
 					  tx, wscript,
@@ -401,7 +401,14 @@ static struct tracked_output *
 	if (htlc)
 		out->htlc = *htlc;
 	out->wscript = tal_steal(out, wscript);
-	out->remote_htlc_sig = remote_htlc_sig;
+	if (remote_htlc_sig) {
+		struct bitcoin_signature *sig;
+		sig = tal(out, struct bitcoin_signature);
+		sig->s = *remote_htlc_sig;
+		sig->sighash_type = SIGHASH_ALL;
+		out->remote_htlc_sig = sig;
+	} else
+		out->remote_htlc_sig = NULL;
 
 	*tal_arr_expand(outs) = out;
 
@@ -487,14 +494,8 @@ static void propose_resolution_at_block(struct tracked_output *out,
 
 static bool is_valid_sig(const u8 *e)
 {
-	secp256k1_ecdsa_signature sig;
-	size_t len = tal_count(e);
-
-	/* Last byte is sighash flags */
-	if (len < 1)
-		return false;
-
-	return signature_from_der(e, len-1, &sig);
+	struct bitcoin_signature sig;
+	return signature_from_der(e, tal_count(e), &sig);
 }
 
 /* We ignore things which look like signatures. */
@@ -1120,7 +1121,7 @@ static void handle_preimage(struct tracked_output **outs,
 
 	for (i = 0; i < tal_count(outs); i++) {
 		struct bitcoin_tx *tx;
-		secp256k1_ecdsa_signature sig;
+		struct bitcoin_signature sig;
 
 		if (outs[i]->output_type != THEIR_HTLC)
 			continue;
@@ -1345,7 +1346,7 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 					 u8 **htlc_scripts)
 {
 	struct bitcoin_tx *tx = NULL;
-	secp256k1_ecdsa_signature localsig;
+	struct bitcoin_signature localsig;
 	size_t i;
 
 	assert(tal_count(matches));
@@ -1396,7 +1397,7 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 			      min_possible_feerate, max_possible_feerate,
 			      type_to_string(tmpctx, struct bitcoin_tx, tx),
 			      out->satoshi,
-			      type_to_string(tmpctx, secp256k1_ecdsa_signature,
+			      type_to_string(tmpctx, struct bitcoin_signature,
 					     out->remote_htlc_sig),
 			      cltvs, wscripts);
 	}
