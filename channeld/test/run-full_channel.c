@@ -1,10 +1,7 @@
-#include "../../common/key_derive.c"
-#include "../../common/keyset.c"
 #include "../../common/initial_channel.c"
-#include "../../channeld/full_channel.c"
-#include "../../common/initial_commit_tx.c"
-#include "../../channeld/commit_tx.c"
-#include "../../common/htlc_tx.c"
+#include "../../common/keyset.c"
+#include "../full_channel.c"
+#include "../commit_tx.c"
 #include <bitcoin/preimage.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
@@ -13,6 +10,7 @@
 #include <common/sphinx.h>
 #include <common/type_to_string.h>
 #include <stdio.h>
+#include <wally_core.h>
 
 void status_fmt(enum log_level level UNUSED, const char *fmt, ...)
 {

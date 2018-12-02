@@ -10,6 +10,9 @@ ALL_OBJS += $(CHANNELD_TEST_OBJS)
 CHANNELD_TEST_COMMON_OBJS :=			\
 	common/daemon_conn.o			\
 	common/htlc_state.o			\
+	common/htlc_tx.o			\
+	common/initial_commit_tx.o		\
+	common/key_derive.o			\
 	common/pseudorand.o			\
 	common/msg_queue.o			\
 	common/utils.o				\

@@ -9,9 +9,11 @@
 #include <inttypes.h>
 #include <stdio.h>
 #define SUPERVERBOSE printf
-  #include "../../common/funding_tx.c"
+  #include "../funding_tx.c"
 #undef SUPERVERBOSE
-  #include "../../common/key_derive.c"
+  #include "../key_derive.c"
+  #include "../type_to_string.c"
+  #include "../permute_tx.c"
 
 #if 0
 static struct sha256 sha256_from_hex(const char *hex)

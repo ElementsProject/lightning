@@ -2,10 +2,10 @@
 
 #include <assert.h>
 #include <ccan/str/hex/hex.h>
-#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <stdio.h>
-#include "../../common/key_derive.c"
+#include "../type_to_string.c"
+#include "../key_derive.c"
 
 static struct secret secret_from_hex(const char *hex)
 {
