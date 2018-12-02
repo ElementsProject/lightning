@@ -4,10 +4,6 @@
 
 connectctl_init,2000
 connectctl_init,,id,struct pubkey
-connectctl_init,,gflen,u16
-connectctl_init,,globalfeatures,gflen*u8
-connectctl_init,,lflen,u16
-connectctl_init,,localfeatures,lflen*u8
 connectctl_init,,num_wireaddrs,u16
 connectctl_init,,wireaddrs,num_wireaddrs*struct wireaddr_internal
 connectctl_init,,listen_announce,num_wireaddrs*enum addr_listen_announce

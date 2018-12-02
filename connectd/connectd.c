@@ -124,9 +124,6 @@ struct daemon {
 	/* Connection to main daemon. */
 	struct daemon_conn *master;
 
-	/* Local and global features to offer to peers. */
-	u8 *localfeatures, *globalfeatures;
-
 	/* Allow localhost to be considered "public": DEVELOPER-only option,
 	 * but for simplicity we don't #if DEVELOPER-wrap it here. */
 	bool dev_allow_localhost;
@@ -289,9 +286,7 @@ static int get_gossipfd(struct daemon *daemon,
 	/*~ The way features generally work is that both sides need to offer it;
 	 * we always offer `gossip_queries`, but this check is explicit. */
 	gossip_queries_feature
-		= feature_offered(localfeatures, LOCAL_GOSSIP_QUERIES)
-		&& feature_offered(daemon->localfeatures,
-				   LOCAL_GOSSIP_QUERIES);
+		= local_feature_negotiated(localfeatures, LOCAL_GOSSIP_QUERIES);
 
 	/*~ `initial_routing_sync is supported by every node, since it was in
 	 * the initial lightning specification: it means the peer wants the
@@ -1102,8 +1097,8 @@ static struct io_plan *connect_init(struct io_conn *conn,
 	/* Fields which require allocation are allocated off daemon */
 	if (!fromwire_connectctl_init(
 		daemon, msg,
-		&daemon->id, &daemon->globalfeatures,
-		&daemon->localfeatures, &proposed_wireaddr,
+		&daemon->id,
+		&proposed_wireaddr,
 		&proposed_listen_announce,
 		&proxyaddr, &daemon->use_proxy_always,
 		&daemon->dev_allow_localhost, &daemon->use_dns,
