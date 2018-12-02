@@ -88,30 +88,19 @@ void sign_hash(const struct privkey *privkey,
 }
 
 /* Only does SIGHASH_ALL */
-static void sha256_tx_one_input(struct bitcoin_tx *tx,
+static void sha256_tx_one_input(const struct bitcoin_tx *tx,
 				size_t input_num,
 				const u8 *script,
 				const u8 *witness_script,
 				struct sha256_double *hash)
 {
-	size_t i;
-
 	assert(input_num < tal_count(tx->input));
 
-	/* You must have all inputs zeroed to start. */
-	for (i = 0; i < tal_count(tx->input); i++)
-		assert(!tx->input[i].script);
-
-	tx->input[input_num].script = cast_const(u8 *, script);
-
-	sha256_tx_for_sig(hash, tx, input_num, witness_script);
-
-	/* Reset it for next time. */
-	tx->input[input_num].script = NULL;
+	sha256_tx_for_sig(hash, tx, input_num, script, witness_script);
 }
 
 /* Only does SIGHASH_ALL */
-void sign_tx_input(struct bitcoin_tx *tx,
+void sign_tx_input(const struct bitcoin_tx *tx,
 		   unsigned int in,
 		   const u8 *subscript,
 		   const u8 *witness_script,
@@ -137,7 +126,7 @@ bool check_signed_hash(const struct sha256_double *hash,
 	return ret == 1;
 }
 
-bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
+bool check_tx_sig(const struct bitcoin_tx *tx, size_t input_num,
 		  const u8 *redeemscript,
 		  const u8 *witness_script,
 		  const struct pubkey *key,
