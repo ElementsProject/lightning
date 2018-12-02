@@ -13,6 +13,7 @@ LIGHTNINGD_TEST_COMMON_OBJS :=			\
 	common/htlc_state.o			\
 	common/io_lock.o			\
 	common/json.o				\
+	common/key_derive.o			\
 	common/pseudorand.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\

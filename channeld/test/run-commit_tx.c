@@ -1,4 +1,3 @@
-#include "../../common/key_derive.c"
 #include <inttypes.h>
 #include <stdio.h>
 #include <common/type_to_string.h>
@@ -6,15 +5,15 @@ static bool print_superverbose;
 #define SUPERVERBOSE(...)					\
 	do { if (print_superverbose) printf(__VA_ARGS__); } while(0)
 #define PRINT_ACTUAL_FEE
-#include "../../channeld/commit_tx.c"
-#include "../../common/initial_commit_tx.c"
-#include "../../common/htlc_tx.c"
+#include "../commit_tx.c"
 #include <bitcoin/preimage.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
+#include <common/key_derive.h>
+#include <common/status.h>
 
 /* Turn this on to brute-force fee values */
 /*#define DEBUG */
