@@ -43,11 +43,13 @@ struct bitcoin_tx_input {
 /* SHA256^2 the tx: simpler than sha256_tx */
 void bitcoin_txid(const struct bitcoin_tx *tx, struct bitcoin_txid *txid);
 
-/* Useful for signature code. */
+/* Useful for signature code.  Only supports SIGHASH_ALL and
+ * (for segwit) SIGHASH_SINGLE|SIGHASH_ANYONECANPAY. */
 void sha256_tx_for_sig(struct sha256_double *h, const struct bitcoin_tx *tx,
 		       unsigned int input_num,
 		       const u8 *script,
-		       const u8 *witness_script);
+		       const u8 *witness_script,
+		       enum sighash_type sighash_type);
 
 /* Linear bytes of tx. */
 u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx);

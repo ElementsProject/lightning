@@ -18,10 +18,23 @@ enum sighash_type {
     SIGHASH_ANYONECANPAY = 0x80
 };
 
+#define SIGHASH_MASK 0x7F
+
+static inline bool sighash_single(enum sighash_type sighash_type)
+{
+	return (sighash_type & SIGHASH_MASK) == SIGHASH_SINGLE;
+}
+
+static inline bool sighash_anyonecanpay(enum sighash_type sighash_type)
+{
+	return (sighash_type & SIGHASH_ANYONECANPAY) == SIGHASH_ANYONECANPAY;
+}
+
 /* We only support a limited range of sighash_type */
 static inline bool sighash_type_valid(const enum sighash_type sighash_type)
 {
-	return sighash_type == SIGHASH_ALL;
+	return sighash_type == SIGHASH_ALL
+		|| sighash_type == (SIGHASH_SINGLE|SIGHASH_ANYONECANPAY);
 }
 
 /**
