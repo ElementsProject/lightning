@@ -133,3 +133,18 @@ bool features_supported(const u8 *globalfeatures, const u8 *localfeatures)
 					  ARRAY_SIZE(our_localfeatures));
 }
 
+bool local_feature_negotiated(const u8 *lfeatures, size_t f)
+{
+	if (!feature_offered(lfeatures, f))
+		return false;
+	return feature_supported(f, our_localfeatures,
+				 ARRAY_SIZE(our_localfeatures));
+}
+
+bool global_feature_negotiated(const u8 *gfeatures, size_t f)
+{
+	if (!feature_offered(gfeatures, f))
+		return false;
+	return feature_supported(f, our_globalfeatures,
+				 ARRAY_SIZE(our_globalfeatures));
+}

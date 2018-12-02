@@ -14,6 +14,10 @@ u8 *get_offered_localfeatures(const tal_t *ctx);
 /* Is this feature bit requested? (Either compulsory or optional) */
 bool feature_offered(const u8 *features, size_t f);
 
+/* Was this feature bit offered by them and us? */
+bool local_feature_negotiated(const u8 *lfeatures, size_t f);
+bool global_feature_negotiated(const u8 *gfeatures, size_t f);
+
 #define COMPULSORY_FEATURE(x)	(x)
 #define OPTIONAL_FEATURE(x)	((x)+1)
 
