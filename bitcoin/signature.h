@@ -26,8 +26,7 @@ bool check_signed_hash(const struct sha256_double *hash,
 		       const secp256k1_ecdsa_signature *signature,
 		       const struct pubkey *key);
 
-/* All tx input scripts must be set to 0 len. */
-void sign_tx_input(struct bitcoin_tx *tx,
+void sign_tx_input(const struct bitcoin_tx *tx,
 		   unsigned int in,
 		   const u8 *subscript,
 		   const u8 *witness,
@@ -35,7 +34,7 @@ void sign_tx_input(struct bitcoin_tx *tx,
 		   secp256k1_ecdsa_signature *sig);
 
 /* Does this sig sign the tx with this input for this pubkey. */
-bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
+bool check_tx_sig(const struct bitcoin_tx *tx, size_t input_num,
 		  const u8 *redeemscript,
 		  const u8 *witness,
 		  const struct pubkey *key,
