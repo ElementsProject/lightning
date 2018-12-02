@@ -88,19 +88,19 @@ void sign_hash(const struct privkey *privkey,
 	assert(ok);
 }
 
-/* Only does SIGHASH_ALL */
 static void sha256_tx_one_input(const struct bitcoin_tx *tx,
 				size_t input_num,
 				const u8 *script,
 				const u8 *witness_script,
+				enum sighash_type sighash_type,
 				struct sha256_double *hash)
 {
 	assert(input_num < tal_count(tx->input));
 
-	sha256_tx_for_sig(hash, tx, input_num, script, witness_script);
+	sha256_tx_for_sig(hash, tx, input_num, script, witness_script,
+			  sighash_type);
 }
 
-/* Only does SIGHASH_ALL */
 void sign_tx_input(const struct bitcoin_tx *tx,
 		   unsigned int in,
 		   const u8 *subscript,
@@ -113,7 +113,8 @@ void sign_tx_input(const struct bitcoin_tx *tx,
 
 	assert(sighash_type_valid(sighash_type));
 	sig->sighash_type = sighash_type;
-	sha256_tx_one_input(tx, in, subscript, witness_script, &hash);
+	sha256_tx_one_input(tx, in, subscript, witness_script,
+			    sighash_type, &hash);
 	dump_tx("Signing", tx, in, subscript, key, &hash);
 	sign_hash(privkey, &hash, &sig->s);
 }
@@ -139,10 +140,17 @@ bool check_tx_sig(const struct bitcoin_tx *tx, size_t input_num,
 	struct sha256_double hash;
 	bool ret;
 
-	assert(sig->sighash_type == SIGHASH_ALL);
+	/* We only support a limited subset of sighash types. */
+	if (sig->sighash_type != SIGHASH_ALL) {
+		if (!witness_script)
+			return false;
+		if (sig->sighash_type != (SIGHASH_SINGLE|SIGHASH_ANYONECANPAY))
+			return false;
+	}
 	assert(input_num < tal_count(tx->input));
 
-	sha256_tx_one_input(tx, input_num, redeemscript, witness_script, &hash);
+	sha256_tx_one_input(tx, input_num, redeemscript, witness_script,
+			    sig->sighash_type, &hash);
 
 	ret = check_signed_hash(&hash, &sig->s, key);
 	if (!ret)
