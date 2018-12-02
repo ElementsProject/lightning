@@ -37,6 +37,7 @@ with open('config.vars') as configfile:
     config = dict([(line.rstrip().split('=', 1)) for line in configfile])
 
 DEVELOPER = os.getenv("DEVELOPER", config['DEVELOPER']) == "1"
+EXPERIMENTAL_FEATURES = os.getenv("EXPERIMENTAL_FEATURES", config['EXPERIMENTAL_FEATURES']) == "1"
 TIMEOUT = int(os.getenv("TIMEOUT", "60"))
 VALGRIND = os.getenv("VALGRIND", config['VALGRIND']) == "1"
 SLOW_MACHINE = os.getenv("SLOW_MACHINE", "0") == "1"

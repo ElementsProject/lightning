@@ -47,6 +47,8 @@ usage()
     echo "    Prefix for make install"
     usage_with_default "--enable/disable-developer" "$DEVELOPER" "enable" "disable"
     echo "    Developer mode, good for testing"
+    usage_with_default "--enable/disable-experimental-features" "$EXPERIMENTAL_FEATURES" "enable" "disable (unless developer)"
+    echo "    Developer mode, good for testing"
     usage_with_default "--enable/disable-compat" "$COMPAT" "enable" "disable"
     echo "    Compatibility mode, good to disable to see if your software breaks"
     usage_with_default "--enable/disable-valgrind" "(autodetect)"
@@ -101,6 +103,8 @@ for opt in "$@"; do
 	--prefix=*) PREFIX="${opt#--prefix=}";;
 	--enable-developer) DEVELOPER=1;;
 	--disable-developer) DEVELOPER=0;;
+	--enable-experimental-features) EXPERIMENTAL_FEATURES=1;;
+	--disable-experimental-features) EXPERIMENTAL_FEATURES=0;;
 	--enable-compat) COMPAT=1;;
 	--disable-compat) COMPAT=0;;
 	--enable-valgrind) VALGRIND=1;;
@@ -112,6 +116,9 @@ for opt in "$@"; do
 	    ;;
     esac
 done
+
+# If EXPERIMENTAL_FEATURES not set, set it to same as DEVELOPER
+EXPERIMENTAL_FEATURES=${EXPERIMENTAL_FEATURES:-$DEVELOPER}
 
 echo -n "Compiling $CONFIGURATOR..."
 $CC $CWARNFLAGS $CDEBUGFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
@@ -136,6 +143,7 @@ add_var CWARNFLAGS "$CWARNFLAGS"
 add_var CDEBUGFLAGS "$CDEBUGFLAGS"
 add_var VALGRIND "$VALGRIND"
 add_var DEVELOPER "$DEVELOPER" $CONFIG_HEADER
+add_var EXPERIMENTAL_FEATURES "$EXPERIMENTAL_FEATURES" $CONFIG_HEADER
 add_var COMPAT "$COMPAT" $CONFIG_HEADER
 add_var PYTEST "$PYTEST"
 
