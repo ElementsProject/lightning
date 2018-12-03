@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: lightningd-config
 .\"    Author: [see the "AUTHOR" section]
-.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: 11/22/2018
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 12/03/2018
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNINGD\-CONFIG" "5" "11/22/2018" "\ \&" "\ \&"
+.TH "LIGHTNINGD\-CONFIG" "5" "12/03/2018" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -47,8 +47,7 @@ Blank lines and lines beginning with \fI#\fR are ignored\&.
 .sp
 The lightning\-listconfigs(7) command will output a valid configuration file using the current settings\&.
 .SH "OPTIONS"
-.sp
-General options:
+.SS "General options"
 .PP
 \fBallow\-deprecated\-apis\fR=\fIBOOL\fR
 .RS 4
@@ -126,8 +125,7 @@ The bitcoind(1) RPC port to connect to\&.
 .RS 4
 Number of blocks to rescan from the current head, or absolute blockheight if negative\&. This is only needed if something goes badly wrong\&.
 .RE
-.sp
-Lightning daemon options:
+.SS "Lightning daemon options"
 .PP
 \fBlightning\-dir\fR=\fIDIR\fR
 .RS 4
@@ -181,8 +179,7 @@ must exist and be readable (we allow missing files in the default case)\&. Using
 .RS 4
 Specify a plugin to run as part of c\-lightning\&. This can be specified multiple times and may enable additional configuration options and JSON\-RPC methods, depending on the plugin\&.
 .RE
-.sp
-Lightning node customization options:
+.SS "Lightning node customization options"
 .PP
 \fBrgb\fR=\fIRRGGBB\fR
 .RS 4
@@ -213,8 +210,7 @@ Allow nodes which establish channels to us to set any fee they want\&. This may 
 .RS 4
 How long to wait before sending commitment messages to the peer: in theory increasing this would reduce load, but your node would have to be extremely busy node for you to even notice\&.
 .RE
-.sp
-Lightning channel and HTLC options:
+.SS "Lightning channel and HTLC options"
 .PP
 \fBwatchtime\-blocks\fR=\fIBLOCKS\fR
 .RS 4
@@ -273,10 +269,9 @@ Control how long invoices must have been expired before they are cleaned (if
 \fIautocleaninvoice\-cycle\fR
 is non\-zero)\&.
 .RE
+.SS "Networking options"
 .sp
-Networking options:
-.sp
-Note that for simple setups, the implicit \fIautolisten\fR option does the right thing: it will try to bind to port 9735 on IPv4 and IPv6, and will announce it to peers if it\(cqs seems like a public address\&.
+Note that for simple setups, the implicit \fIautolisten\fR option does the right thing: it will try to bind to port 9735 on IPv4 and IPv6, and will announce it to peers if it seems like a public address\&.
 .sp
 You can instead use \fIaddr\fR to override this (eg\&. to change the port), or precisely control where to bind and what to announce with the \fIbind\-addr\fR and \fIannounce\-addr\fR options\&. These will \fBdisable\fR the \fIautolisten\fR logic, so you must specifiy exactly what you want!
 .PP
