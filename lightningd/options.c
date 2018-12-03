@@ -293,6 +293,11 @@ static char *opt_add_plugin(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_add_plugin_dir(const char *arg, struct lightningd *ld)
+{
+	return add_plugin_dir(ld->plugins, arg);
+}
+
 static void config_register_opts(struct lightningd *ld)
 {
 	opt_register_early_arg("--conf=<file>", opt_set_talstr, NULL,
@@ -302,7 +307,10 @@ static void config_register_opts(struct lightningd *ld)
 	/* Register plugins as an early argc, so we can initialize them and have
 	 * them register more command line options */
 	opt_register_early_arg("--plugin", opt_add_plugin, NULL, ld,
-			       "Add a plugin to be run.");
+			       "Add a plugin to be run (can be used multiple times)");
+	opt_register_early_arg("--plugin-dir", opt_add_plugin_dir,
+			       NULL, ld,
+			       "Add a directory to load plugins from (can be used multiple times)");
 
 	opt_register_noarg("--daemon", opt_set_bool, &ld->daemon,
 			 "Run in the background, suppress stdout/stderr");
@@ -989,6 +997,9 @@ static void add_config(struct lightningd *ld,
 				answer = fmt_wireaddr(name0, ld->proxyaddr);
 		} else if (opt->cb_arg == (void *)opt_add_plugin) {
 			json_add_opt_plugins(response, ld->plugins);
+		} else if (opt->cb_arg == (void *)opt_add_plugin_dir) {
+			/* FIXME: We actually treat it as if they specified
+			 * --plugin for each one, so ignore this */
 #if DEVELOPER
 		} else if (strstarts(name, "dev-")) {
 			/* Ignore dev settings */

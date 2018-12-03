@@ -5,13 +5,18 @@
 #include <ccan/list/list.h>
 #include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
+#include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/utf8/utf8.h>
 #include <common/memleak.h>
+#include <dirent.h>
 #include <errno.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <signal.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 struct plugin {
@@ -22,6 +27,7 @@ struct plugin {
 	struct io_conn *stdin_conn, *stdout_conn;
 	bool stop;
 	struct plugins *plugins;
+	const char **plugin_path;
 
 	/* Stuff we read */
 	char *buffer;
@@ -600,6 +606,56 @@ static void plugin_manifest_cb(const struct plugin_request *req, struct plugin *
 
 	if (!plugin_opts_add(req) || !plugin_rpcmethods_add(req))
 		plugin_kill(plugin, "Failed to register options or methods");
+}
+
+/* If this is a valid plugin return full path name, otherwise NULL */
+static const char *plugin_fullpath(const tal_t *ctx, const char *dir,
+				   const char *basename)
+{
+	struct stat st;
+	const char *fullname;
+	struct utf8_state utf8 = UTF8_STATE_INIT;
+
+	for (size_t i = 0; basename[i]; i++) {
+		if (!utf8_decode(&utf8, basename[i]))
+			continue;
+		/* Not valid UTF8?  Let's not go there... */
+		if (errno != 0)
+			return NULL;
+		if (utf8.used_len != 1)
+			continue;
+		if (!cispunct(utf8.c))
+			continue;
+		if (utf8.c != '-' && utf8.c != '_' && utf8.c != '.')
+			return NULL;
+	}
+
+	fullname = path_join(ctx, dir, basename);
+	if (stat(fullname, &st) != 0)
+		return tal_free(fullname);
+	if (!(st.st_mode & (S_IXUSR|S_IXGRP|S_IXOTH)))
+		return tal_free(fullname);
+	return fullname;
+}
+
+char *add_plugin_dir(struct plugins *plugins, const char *dir)
+{
+	struct dirent *di;
+	DIR *d = opendir(dir);
+	if (!d)
+		return tal_fmt("Failed to open plugin-dir %s: %s",
+			       dir, strerror(errno));
+
+	while ((di = readdir(d)) != NULL) {
+		const char *fullpath;
+
+		if (streq(di->d_name, ".") || streq(di->d_name, ".."))
+			continue;
+		fullpath = plugin_fullpath(NULL, dir, di->d_name);
+		if (fullpath)
+			plugin_register(plugins, take(fullpath));
+	}
+	return NULL;
 }
 
 void plugins_init(struct plugins *plugins)
