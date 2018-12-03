@@ -1,0 +1,84 @@
+'\" t
+.\"     Title: lightning-disconnect
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 12/04/2018
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LIGHTNING\-DISCONNEC" "7" "12/04/2018" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lightning-disconnect \- Command for disconnecting from another lightning node\&.
+.SH "SYNOPSIS"
+.sp
+\fBdisconnect\fR \fIid\fR
+.SH "DESCRIPTION"
+.sp
+The disconnect RPC command closes an existing connection to a peer, identified by \fIid\fR, in the Lightning Network, as long as it doesn\(cqt have an active channel\&.
+.sp
+The \fIid\fR can be discovered in the output of the listpeers command, which returns a set of peers:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+{
+     "peers": [
+          {
+               "id": "0563aea81\&.\&.\&.",
+               "connected": true,
+               \&.\&.\&.
+          }
+     ]
+}
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Passing the \fIid\fR attribute of a peer to lightning\-disconnect will terminate the connection\&.
+.SH "RETURN VALUE"
+.sp
+On success, an empty object is returned\&.
+.SH "ERRORS"
+.sp
+If \fIid\fR is invalid, an error message will be returned:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+{ "code" : \-1, "message" : "Peer not connected" }
+.fi
+.if n \{\
+.RE
+.\}
+.SH "AUTHOR"
+.sp
+Michael Hawkins <michael\&.hawkins@protonmail\&.com>\&.
+.SH "SEE ALSO"
+.sp
+lightning\-connect(1), lightning\-listpeers(1)
+.SH "RESOURCES"
+.sp
+Main web site: https://github\&.com/ElementsProject/lightning
