@@ -196,7 +196,6 @@ static void PRINTF_FMT(2,3) plugin_kill(struct plugin *plugin, char *fmt, ...)
 	io_wake(plugin);
 	kill(plugin->pid, SIGKILL);
 	list_del(&plugin->list);
-	tal_free(plugin);
 }
 
 /**
@@ -372,9 +371,28 @@ static struct io_plan *plugin_write_json(struct io_conn *conn,
 {
 	if (tal_count(plugin->js_arr)) {
 		return json_stream_output(plugin->js_arr[0], plugin->stdin_conn, plugin_stream_complete, plugin);
+	} else if (plugin->stop) {
+		return io_close(conn);
 	}
 
 	return io_out_wait(conn, plugin, plugin_write_json, plugin);
+}
+
+/**
+ * Finalizer for both stdin and stdout connections.
+ *
+ * Takes care of final cleanup, once the plugin is definitely dead.
+ */
+static void plugin_conn_finish(struct io_conn *conn, struct plugin *plugin)
+{
+	if (conn == plugin->stdin_conn)
+		plugin->stdin_conn = NULL;
+
+	else if (conn == plugin->stdout_conn)
+		plugin->stdout_conn = NULL;
+
+	if (plugin->stdin_conn == NULL && plugin->stdout_conn == NULL)
+		tal_free(plugin);
 }
 
 static struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
@@ -383,6 +401,7 @@ static struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
 	/* We write to their stdin */
 	/* We don't have anything queued yet, wait for notification */
 	plugin->stdin_conn = conn;
+	io_set_finish(conn, plugin_conn_finish, plugin);
 	return io_wait(plugin->stdin_conn, plugin, plugin_write_json, plugin);
 }
 
@@ -391,6 +410,7 @@ static struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
 {
 	/* We read from their stdout */
 	plugin->stdout_conn = conn;
+	io_set_finish(conn, plugin_conn_finish, plugin);
 	return io_read_partial(plugin->stdout_conn, plugin->buffer,
 			       tal_bytelen(plugin->buffer), &plugin->len_read,
 			       plugin_read_json, plugin);
