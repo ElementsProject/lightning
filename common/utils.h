@@ -29,6 +29,15 @@ u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len);
 	(tal_resize((p), tal_count(*(p))+1), (*p) + tal_count(*(p))-1)
 #endif
 
+/**
+ * Remove an element from an array
+ *
+ * This will shift the elements past the removed element, changing
+ * their position in memory, so only use this for arrays of pointers.
+ */
+#define tal_arr_remove(p, n) tal_arr_remove_((p), sizeof(**p), (n))
+void tal_arr_remove_(void *p, size_t elemsize, size_t n);
+
 /* Use the POSIX C locale. */
 void setup_locale(void);
 
