@@ -77,3 +77,18 @@ def test_plugin_disable(node_factory):
                                                     'helloworld.py')]))
     with pytest.raises(RpcError):
         n.rpc.hello(name='Sun')
+
+
+def test_failing_plugins():
+    fail_plugins = [
+        'contrib/plugins/fail/failtimeout.py',
+        'contrib/plugins/fail/doesnotexist.py',
+    ]
+
+    for p in fail_plugins:
+        with pytest.raises(subprocess.CalledProcessError):
+            subprocess.check_output([
+                'lightningd/lightningd',
+                '--plugin={}'.format(p),
+                '--help',
+            ])
