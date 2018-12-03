@@ -360,11 +360,9 @@ static struct io_plan *plugin_write_json(struct io_conn *conn,
 
 static struct io_plan *plugin_stream_complete(struct io_conn *conn, struct json_stream *js, struct plugin *plugin)
 {
-	size_t pending = tal_count(plugin->js_arr);
+	assert(tal_count(plugin->js_arr) > 0);
 	/* Remove js and shift all remainig over */
-	tal_free(plugin->js_arr[0]);
-	memmove(plugin->js_arr, plugin->js_arr + 1, (pending - 1) * sizeof(plugin->js_arr[0]));
-	tal_resize(&plugin->js_arr, pending-1);
+	tal_arr_remove(&plugin->js_arr, 0);
 
 	return plugin_write_json(conn, plugin);
 }

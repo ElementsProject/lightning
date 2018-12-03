@@ -347,11 +347,8 @@ static const struct json_command *find_cmd(const struct jsonrpc *rpc,
 {
 	struct json_command **commands = rpc->commands;
 
-	/* commands[i] can be NULL if the plugin that registered it
-	 * was killed, commands[i]->name can be NULL in test code. */
 	for (size_t i = 0; i < tal_count(commands); i++)
-		if (commands[i] && commands[i]->name &&
-		    json_tok_streq(buffer, tok, commands[i]->name))
+		if (json_tok_streq(buffer, tok, commands[i]->name))
 			return commands[i];
 	return NULL;
 }
@@ -731,8 +728,7 @@ bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command)
 
 	/* Check that we don't clobber a method */
 	for (size_t i = 0; i < count; i++)
-		if (rpc->commands[i] != NULL &&
-		    streq(rpc->commands[i]->name, command->name))
+		if (streq(rpc->commands[i]->name, command->name))
 			return false;
 
 	*tal_arr_expand(&rpc->commands) = command;
@@ -741,12 +737,12 @@ bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command)
 
 void jsonrpc_command_remove(struct jsonrpc *rpc, const char *method)
 {
-	// FIXME: Currently leaves NULL entries in the table, if we
-	// restart plugins we should shift them out.
 	for (size_t i=0; i<tal_count(rpc->commands); i++) {
 		struct json_command *cmd = rpc->commands[i];
-		if (cmd && streq(cmd->name, method)) {
-			rpc->commands[i] = tal_free(cmd);
+		if (streq(cmd->name, method)) {
+			tal_arr_remove(&rpc->commands, i);
+			tal_free(cmd);
+			break;
 		}
 	}
 }
