@@ -56,4 +56,10 @@ void plugins_config(struct plugins *plugins);
 void json_add_opt_plugins(struct json_stream *response,
 			  const struct plugins *plugins);
 
+
+/**
+ * Add a directory to the plugin path to automatically load plugins.
+ */
+char *add_plugin_dir(struct plugins *plugins, const char *dir);
+
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */

@@ -51,3 +51,9 @@ def test_rpc_passthrough(node_factory):
     assert(greet == "Hello Sun")
     with pytest.raises(RpcError):
         n.rpc.fail()
+
+
+def test_plugin_dir(node_factory):
+    """--plugin-dir works"""
+    plugin_dir = 'contrib/plugins'
+    node_factory.get_node(options={'plugin-dir': plugin_dir, 'greeting': 'Mars'})
