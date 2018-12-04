@@ -118,18 +118,14 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 void plugin_register(struct plugins *plugins, const char* path TAKES)
 {
 	struct plugin *p;
-	static size_t plugin_count = 0;
 	p = tal(plugins, struct plugin);
 	list_add_tail(&plugins->plugins, &p->list);
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
 	p->outbuf = NULL;
 
-	/* FIXME(cdecker): Referring to plugin by their registration
-	number might not be that useful, come up with a naming scheme
-	that makes more sense. */
-	plugin_count++;
-	p->log = new_log(p, plugins->log_book, "plugin-%zu", plugin_count);
+	p->log = new_log(p, plugins->log_book, "plugin-%s",
+			 path_basename(tmpctx, p->cmd));
 	p->methods = tal_arr(p, const char *, 0);
 	list_head_init(&p->plugin_opts);
 }
