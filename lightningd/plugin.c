@@ -134,6 +134,41 @@ void plugin_register(struct plugins *plugins, const char* path TAKES)
 	list_head_init(&p->plugin_opts);
 }
 
+static bool paths_match(const char *cmd, const char *name)
+{
+	if (strchr(name, PATH_SEP)) {
+		const char *cmd_canon, *name_canon;
+
+		if (streq(cmd, name))
+			return true;
+
+		/* These return NULL path doesn't exist */
+		cmd_canon = path_canon(tmpctx, cmd);
+		name_canon = path_canon(tmpctx, name);
+		return cmd_canon && name_canon && streq(name_canon, cmd_canon);
+	} else {
+		/* No path separator means a basename match. */
+		const char *base = path_basename(tmpctx, cmd);
+
+		return streq(base, name);
+	}
+}
+
+bool plugin_remove(struct plugins *plugins, const char *name)
+{
+	struct plugin *p, *next;
+	bool removed = false;
+
+	list_for_each_safe(&plugins->plugins, p, next, list) {
+		if (paths_match(p->cmd, name)) {
+			list_del_from(&plugins->plugins, &p->list);
+			tal_free(p);
+			removed = true;
+		}
+	}
+	return removed;
+}
+
 /**
  * Kill a plugin process, with an error message.
  */
@@ -638,13 +673,16 @@ static const char *plugin_fullpath(const tal_t *ctx, const char *dir,
 	return fullname;
 }
 
-char *add_plugin_dir(struct plugins *plugins, const char *dir)
+char *add_plugin_dir(struct plugins *plugins, const char *dir, bool nonexist_ok)
 {
 	struct dirent *di;
 	DIR *d = opendir(dir);
-	if (!d)
+	if (!d) {
+		if (nonexist_ok && errno == ENOENT)
+			return NULL;
 		return tal_fmt("Failed to open plugin-dir %s: %s",
 			       dir, strerror(errno));
+	}
 
 	while ((di = readdir(d)) != NULL) {
 		const char *fullpath;
@@ -656,6 +694,15 @@ char *add_plugin_dir(struct plugins *plugins, const char *dir)
 			plugin_register(plugins, take(fullpath));
 	}
 	return NULL;
+}
+
+void clear_plugins(struct plugins *plugins)
+{
+	struct plugin *p;
+
+	log_info(plugins->log, "clear-plugins removing all plugins");
+	while ((p = list_pop(&plugins->plugins, struct plugin, list)) != NULL)
+		tal_free(p);
 }
 
 void plugins_init(struct plugins *plugins)
