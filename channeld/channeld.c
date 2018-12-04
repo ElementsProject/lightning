@@ -158,6 +158,10 @@ struct peer {
 
 	/* Make sure peer is live. */
 	struct timeabs last_recv;
+
+	/* A channel_update that we received from the other side,
+	 * before we can process it. */
+	u8 *stashed_channel_update;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -300,6 +304,11 @@ static void make_channel_local_active(struct peer *peer)
 					       &peer->node_ids[REMOTE],
 					       peer->channel->funding_msat / 1000);
  	wire_sync_write(GOSSIP_FD, take(msg));
+
+	if (peer->stashed_channel_update) {
+		wire_sync_write(GOSSIP_FD, peer->stashed_channel_update);
+		peer->stashed_channel_update = tal_free(peer->stashed_channel_update);
+	}
 
 	/* Tell gossipd and the other side what parameters we expect should
 	 * they route through us */
@@ -1650,6 +1659,14 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		return;
 	}
 
+	/* We might need to stash a channel update if we aren't ready
+	 * to process it just yet (because we haven't told gossipd
+	 * about it). */
+	if (type == WIRE_CHANNEL_UPDATE && !peer->channel_local_active) {
+		peer->stashed_channel_update = tal_dup_arr(peer, u8, msg, tal_bytelen(msg), 0);
+		return;
+	}
+
 	if (handle_peer_gossip_or_error(PEER_FD, GOSSIP_FD,
 					&peer->cs,
 					&peer->channel_id, msg))
@@ -2750,6 +2767,7 @@ int main(int argc, char *argv[])
 	peer->last_update_timestamp = 0;
 	/* We actually received it in the previous daemon, but near enough */
 	peer->last_recv = time_now();
+	peer->stashed_channel_update = NULL;
 
 	/* We send these to HSM to get real signatures; don't have valgrind
 	 * complain. */
