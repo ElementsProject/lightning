@@ -293,9 +293,22 @@ static char *opt_add_plugin(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_disable_plugin(const char *arg, struct lightningd *ld)
+{
+	if (plugin_remove(ld->plugins, arg))
+		return NULL;
+	return tal_fmt(NULL, "Could not find plugin %s", arg);
+}
+
 static char *opt_add_plugin_dir(const char *arg, struct lightningd *ld)
 {
-	return add_plugin_dir(ld->plugins, arg);
+	return add_plugin_dir(ld->plugins, arg, false);
+}
+
+static char *opt_clear_plugins(struct lightningd *ld)
+{
+	clear_plugins(ld->plugins);
+	return NULL;
 }
 
 static void config_register_opts(struct lightningd *ld)
@@ -304,13 +317,19 @@ static void config_register_opts(struct lightningd *ld)
 		&ld->config_filename,
 		"Specify configuration file. Relative paths will be prefixed by lightning-dir location. (default: config)");
 
-	/* Register plugins as an early argc, so we can initialize them and have
+	/* Register plugins as an early args, so we can initialize them and have
 	 * them register more command line options */
 	opt_register_early_arg("--plugin", opt_add_plugin, NULL, ld,
 			       "Add a plugin to be run (can be used multiple times)");
 	opt_register_early_arg("--plugin-dir", opt_add_plugin_dir,
 			       NULL, ld,
 			       "Add a directory to load plugins from (can be used multiple times)");
+	opt_register_early_noarg("--clear-plugins", opt_clear_plugins,
+				 ld,
+				 "Remove all plugins added before this option");
+	opt_register_early_arg("--disable-plugin", opt_disable_plugin,
+			       NULL, ld,
+			       "Disable a particular plugin by filename/name");
 
 	opt_register_noarg("--daemon", opt_set_bool, &ld->daemon,
 			 "Run in the background, suppress stdout/stderr");
@@ -924,7 +943,9 @@ static void add_config(struct lightningd *ld,
 		    || opt->cb == (void *)opt_set_testnet
 		    || opt->cb == (void *)opt_set_mainnet
 		    || opt->cb == (void *)opt_lightningd_usage
-		    || opt->cb == (void *)test_subdaemons_and_exit) {
+		    || opt->cb == (void *)test_subdaemons_and_exit
+		    /* FIXME: we can't recover this. */
+		    || opt->cb == (void *)opt_clear_plugins) {
 			/* These are not important */
 		} else if (opt->cb == (void *)opt_set_bool) {
 			const bool *b = opt->u.carg;
@@ -997,9 +1018,10 @@ static void add_config(struct lightningd *ld,
 				answer = fmt_wireaddr(name0, ld->proxyaddr);
 		} else if (opt->cb_arg == (void *)opt_add_plugin) {
 			json_add_opt_plugins(response, ld->plugins);
-		} else if (opt->cb_arg == (void *)opt_add_plugin_dir) {
+		} else if (opt->cb_arg == (void *)opt_add_plugin_dir
+			   || opt->cb_arg == (void *)opt_disable_plugin) {
 			/* FIXME: We actually treat it as if they specified
-			 * --plugin for each one, so ignore this */
+			 * --plugin for each one, so ignore these */
 #if DEVELOPER
 		} else if (strstarts(name, "dev-")) {
 			/* Ignore dev settings */

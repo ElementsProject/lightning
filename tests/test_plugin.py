@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from fixtures import *  # noqa: F401,F403
 from lightning import RpcError
 
@@ -57,3 +58,22 @@ def test_plugin_dir(node_factory):
     """--plugin-dir works"""
     plugin_dir = 'contrib/plugins'
     node_factory.get_node(options={'plugin-dir': plugin_dir, 'greeting': 'Mars'})
+
+
+def test_plugin_disable(node_factory):
+    """--disable-plugin works"""
+    plugin_dir = 'contrib/plugins'
+    # We need plugin-dir before disable-plugin!
+    n = node_factory.get_node(options=OrderedDict([('plugin-dir', plugin_dir),
+                                                   ('disable-plugin',
+                                                    '{}/helloworld.py'
+                                                    .format(plugin_dir))]))
+    with pytest.raises(RpcError):
+        n.rpc.hello(name='Sun')
+
+    # Also works by basename.
+    n = node_factory.get_node(options=OrderedDict([('plugin-dir', plugin_dir),
+                                                   ('disable-plugin',
+                                                    'helloworld.py')]))
+    with pytest.raises(RpcError):
+        n.rpc.hello(name='Sun')

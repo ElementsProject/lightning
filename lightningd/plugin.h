@@ -38,6 +38,15 @@ void plugins_init(struct plugins *plugins);
  */
 void plugin_register(struct plugins *plugins, const char* path TAKES);
 
+
+/**
+ * Remove a plugin registered for initialization.
+ *
+ * @param plugins: Plugin context
+ * @param arg: The basename or fullname of the executable for this plugin
+ */
+bool plugin_remove(struct plugins *plugins, const char *name);
+
 /**
  * Send the configure message to all plugins.
  *
@@ -60,6 +69,12 @@ void json_add_opt_plugins(struct json_stream *response,
 /**
  * Add a directory to the plugin path to automatically load plugins.
  */
-char *add_plugin_dir(struct plugins *plugins, const char *dir);
+char *add_plugin_dir(struct plugins *plugins, const char *dir,
+		     bool nonexist_ok);
+
+/**
+ * Clear all plugins registered so far.
+ */
+void clear_plugins(struct plugins *plugins);
 
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */
