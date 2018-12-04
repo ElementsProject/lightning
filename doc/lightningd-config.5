@@ -174,11 +174,6 @@ Sets configuration file (default:
 \fIPATH\fR
 must exist and be readable (we allow missing files in the default case)\&. Using this inside a configuration file is meaningless\&.
 .RE
-.PP
-\fBplugin\fR=\fIPATH\fR
-.RS 4
-Specify a plugin to run as part of c\-lightning\&. This can be specified multiple times and may enable additional configuration options and JSON\-RPC methods, depending on the plugin\&.
-.RE
 .SS "Lightning node customization options"
 .PP
 \fBrgb\fR=\fIRRGGBB\fR
@@ -441,6 +436,47 @@ Disable the DNS bootstrapping mechanism to find a node by its node ID\&.
 Set a Tor control password, which may be needed for
 \fIautotor:\fR
 to authenticate to the Tor control port\&.
+.RE
+.SS "Lightning Plugins"
+.sp
+lightningd(8) supports plugins, which offer additional configuration options and JSON\-RPC methods, depending on the plugin\&. Some are supplied by default (usually located in \fBlibexec/c\-lightning/plugins\fR), but you can add your own, too\&.
+.PP
+\fBplugin\fR=\fIPATH\fR
+.RS 4
+Specify a plugin to run as part of c\-lightning\&. This can be specified multiple times to add multiple plugins\&.
+.RE
+.PP
+\fBplugin\-dir\fR=\fIDIRECTORY\fR
+.RS 4
+Specify a directory to look for plugins; all files beginning with
+\fIlplugin_\fR
+in
+\fIDIRECTORY\fR
+are loaded\&.
+\fIDIRECTORY\fR
+must exist; this can be specified multiple times to add multiple directories\&.
+.RE
+.PP
+\fBclear\-plugins\fR
+.RS 4
+This option clears all
+\fIplugin\fR
+and
+\fIplugin\-dir\fR
+options preceeding it, including the default built\-in plugin directory\&. You can still add
+\fIplugin\-dir\fR
+and
+\fIplugin\fR
+options following this and they will have the normal effect\&.
+.RE
+.PP
+\fBdisable\-plugin\fR=\fIPLUGIN\fR
+.RS 4
+If
+\fIPLUGIN\fR
+contains a /, plugins with the same path as
+\fIPLUGIN\fR
+are disabled\&. Otherwise, any plugin with that base name is disabled, whatever directory it is in\&.
 .RE
 .SH "BUGS"
 .sp
