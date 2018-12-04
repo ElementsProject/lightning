@@ -126,11 +126,6 @@ Lightning daemon options
     (we allow missing files in the default case).
     Using this inside a configuration file is meaningless.
 
-*plugin*='PATH'::
-    Specify a plugin to run as part of c-lightning. This can be specified
-    multiple times and may enable additional configuration options and JSON-RPC
-    methods, depending on the plugin.
-
 Lightning node customization options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -307,6 +302,36 @@ or precisely control where to bind and what to announce with the
 *tor-service-password*='PASSWORD'::
     Set a Tor control password, which may be needed for 'autotor:' to
     authenticate to the Tor control port.
+
+
+Lightning Plugins
+~~~~~~~~~~~~~~~~~
+
+lightningd(8) supports plugins, which offer additional configuration
+options and JSON-RPC methods, depending on the plugin.  Some are
+supplied by default (usually located in
+*libexec/c-lightning/plugins/*), but you can add your own, too.
+
+*plugin*='PATH'::
+    Specify a plugin to run as part of c-lightning. This can be specified
+    multiple times to add multiple plugins.
+
+*plugin-dir*='DIRECTORY'::
+    Specify a directory to look for plugins; all executable files
+    not containing punctuation (other than '.', '-' or '_) in 'DIRECTORY'
+    are loaded. 'DIRECTORY' must exist;
+    this can be specified multiple times to add multiple directories.
+
+*clear-plugins*::
+    This option clears all 'plugin' and 'plugin-dir' options
+    preceeding it, including the default built-in plugin directory.
+    You can still add 'plugin-dir' and 'plugin' options following
+    this and they will have the normal effect.
+
+*disable-plugin*='PLUGIN'::
+    If 'PLUGIN' contains a /, plugins with the same path as 'PLUGIN'
+    are disabled.  Otherwise, any plugin with that base name is
+    disabled, whatever directory it is in.
 
 BUGS
 ----
