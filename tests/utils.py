@@ -1,5 +1,6 @@
 from bitcoin.rpc import RawProxy as BitcoinProxy
 from btcproxy import BitcoinRpcProxy
+from collections import OrderedDict
 from decimal import Decimal
 from ephemeral_port_reserve import reserve
 from lightning import LightningRpc
@@ -23,14 +24,14 @@ BITCOIND_CONFIG = {
 }
 
 
-LIGHTNINGD_CONFIG = {
+LIGHTNINGD_CONFIG = OrderedDict({
     "log-level": "debug",
     "cltv-delta": 6,
     "cltv-final": 5,
     "watchtime-blocks": 5,
     "rescan": 1,
     'disable-dns': None,
-}
+})
 
 with open('config.vars') as configfile:
     config = dict([(line.rstrip().split('=', 1)) for line in configfile])
@@ -344,7 +345,7 @@ class LightningD(TailableProc):
     def cmd_line(self):
 
         opts = []
-        for k, v in sorted(self.opts.items()):
+        for k, v in self.opts.items():
             if v is None:
                 opts.append("--{}".format(k))
             elif isinstance(v, list):
