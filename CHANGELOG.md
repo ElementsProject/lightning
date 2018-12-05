@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - JSON API: `pay` and `decodepay` accept and ignore `lightning:` prefixes.
 - pylightning: Allow either keyword arguments or positional arguments.
+- JSON-RPC: messages are now separated by 2 consecutive newlines. The pylightning client library has temporary support for both separators, but will eventually drop the single newline separator, which may cause it to stop working on older clients (see #2135 for details).
 
 ### Deprecated
 

@@ -20,10 +20,37 @@ class UnixDomainSocketRpc(object):
         self.executor = executor
         self.logger = logger
 
+        # Do we require the compatibility mode?
+        self._compat = True
+
     @staticmethod
     def _writeobj(sock, obj):
         s = json.dumps(obj)
         sock.sendall(bytearray(s, 'UTF-8'))
+
+    def _readobj_compat(self, sock, buff=b''):
+        if not self._compat:
+            return self._readobj(sock, buff)
+        while True:
+            try:
+                b = sock.recv(1024)
+                buff += b
+
+                if b'\n\n' in buff:
+                    # The next read will use the non-compatible read instead
+                    self._compat = False
+
+                if len(b) == 0:
+                    return {'error': 'Connection to RPC server lost.'}
+                if b' }\n' not in buff:
+                    continue
+                # Convert late to UTF-8 so glyphs split across recvs do not
+                # impact us
+                objs, len_used = self.decoder.raw_decode(buff.decode("UTF-8"))
+                return objs, buff[len_used:].lstrip()
+            except ValueError:
+                # Probably didn't read enough
+                pass
 
     def _readobj(self, sock, buff=b''):
         """Read a JSON object, starting with buff; returns object and any buffer left over"""
@@ -74,7 +101,7 @@ class UnixDomainSocketRpc(object):
             "params": payload,
             "id": 0
         })
-        resp, _ = self._readobj(sock)
+        resp, _ = self._readobj_compat(sock)
         sock.close()
 
         self.logger.debug("Received response for %s call: %r", method, resp)
