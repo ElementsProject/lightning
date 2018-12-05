@@ -1070,3 +1070,68 @@ def test_json_error(node_factory):
 
     # Should not corrupt following RPC
     l1.rpc.getinfo()
+
+
+def test_check_command(node_factory):
+    l1 = node_factory.get_node()
+
+    l1.rpc.check(command_to_check='help')
+    l1.rpc.check(command_to_check='help', command='check')
+    # Note: this just checks form, not whether it's valid!
+    l1.rpc.check(command_to_check='help', command='badcommand')
+    with pytest.raises(RpcError, match=r'is invalid'):
+        l1.rpc.check(command_to_check='badcommand')
+    with pytest.raises(RpcError, match=r'unknown parameter'):
+        l1.rpc.check(command_to_check='help', badarg='x')
+
+    # Ensures we have compulsory parameters.
+    with pytest.raises(RpcError, match=r'missing required parameter'):
+        l1.rpc.check(command_to_check='connect')
+    # Even with optional parameters.
+    with pytest.raises(RpcError, match=r'missing required parameter'):
+        l1.rpc.check(command_to_check='connect', host='x', port=77)
+    # Makes sure parameter types are correct.
+    with pytest.raises(RpcError, match=r'should be an integer'):
+        l1.rpc.check(command_to_check='connect', id='test', host='x', port="abcd")
+
+    # FIXME: python wrapper doesn't let us test array params.
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.connect(l1.rpc.socket_path)
+
+    sock.sendall(b'{"id":1, "jsonrpc":"2.0","method":"check","params":["help"]}')
+    obj, _ = l1.rpc._readobj(sock, b'')
+    assert obj['id'] == 1
+    assert 'result' in obj
+    assert 'error' not in obj
+
+    sock.sendall(b'{"id":1, "jsonrpc":"2.0","method":"check","params":["help", "check"]}')
+    obj, _ = l1.rpc._readobj(sock, b'')
+    assert obj['id'] == 1
+    assert 'result' in obj
+    assert 'error' not in obj
+
+    sock.sendall(b'{"id":1, "jsonrpc":"2.0","method":"check","params":["help", "a", "b"]}')
+    obj, _ = l1.rpc._readobj(sock, b'')
+    assert obj['id'] == 1
+    assert 'result' not in obj
+    assert 'error' in obj
+
+    sock.sendall(b'{"id":1, "jsonrpc":"2.0","method":"check","params":["badcommand"]}')
+    obj, _ = l1.rpc._readobj(sock, b'')
+    assert obj['id'] == 1
+    assert 'result' not in obj
+    assert 'error' in obj
+
+    sock.sendall(b'{"id":1, "jsonrpc":"2.0","method":"check","params":["connect"]}')
+    obj, _ = l1.rpc._readobj(sock, b'')
+    assert obj['id'] == 1
+    assert 'result' not in obj
+    assert 'error' in obj
+
+    sock.sendall(b'{"id":1, "jsonrpc":"2.0","method":"check","params":["connect", "test", "x", "abcd"]}')
+    obj, _ = l1.rpc._readobj(sock, b'')
+    assert obj['id'] == 1
+    assert 'result' not in obj
+    assert 'error' in obj
+
+    sock.close()
