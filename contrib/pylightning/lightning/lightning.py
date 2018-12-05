@@ -48,8 +48,13 @@ class UnixDomainSocketRpc(object):
         """
         name = name.replace('_', '-')
 
-        def wrapper(**kwargs):
-            return self.call(name, payload=kwargs)
+        def wrapper(*args, **kwargs):
+            if len(args) != 0 and len(kwargs) != 0:
+                raise RpcError("Cannot mix positional and non-positional arguments")
+            elif len(args) != 0:
+                return self.call(name, payload=args)
+            else:
+                return self.call(name, payload=kwargs)
         return wrapper
 
     def call(self, method, payload=None):
@@ -58,7 +63,8 @@ class UnixDomainSocketRpc(object):
         if payload is None:
             payload = {}
         # Filter out arguments that are None
-        payload = {k: v for k, v in payload.items() if v is not None}
+        if isinstance(payload, dict):
+            payload = {k: v for k, v in payload.items() if v is not None}
 
         # FIXME: we open a new socket for every readobj call...
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
