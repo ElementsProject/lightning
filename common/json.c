@@ -251,17 +251,7 @@ void json_tok_print(const char *buffer, const jsmntok_t *tok)
 
 jsmntok_t *json_tok_copy(const tal_t *ctx, const jsmntok_t *tok)
 {
-	const jsmntok_t *first = tok;
-	const jsmntok_t *last = json_next(tok);
-
-	if (!tok)
-		return NULL;
-	jsmntok_t *arr = tal_arr(ctx, jsmntok_t, last - first);
-	jsmntok_t *dest = arr;
-	while (first != last)
-		*dest++ = *first++;
-
-	return arr;
+	return tal_dup_arr(ctx, jsmntok_t, tok, json_next(tok) - tok, 0);
 }
 
 void json_tok_remove(jsmntok_t **tokens, jsmntok_t *tok, size_t num)
