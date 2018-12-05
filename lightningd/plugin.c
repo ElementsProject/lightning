@@ -664,7 +664,11 @@ static const char *plugin_fullpath(const tal_t *ctx, const char *dir,
 	fullname = path_join(ctx, dir, basename);
 	if (stat(fullname, &st) != 0)
 		return tal_free(fullname);
-	if (!(st.st_mode & (S_IXUSR|S_IXGRP|S_IXOTH)))
+	if (!(st.st_mode & (S_IXUSR|S_IXGRP|S_IXOTH)) || st.st_mode & S_IFDIR)
+		return tal_free(fullname);
+
+	/* Ignore directories, they have exec mode, but aren't executable. */
+	if (st.st_mode & S_IFDIR)
 		return tal_free(fullname);
 	return fullname;
 }
