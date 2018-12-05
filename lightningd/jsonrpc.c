@@ -991,8 +991,7 @@ static void json_check(struct command *cmd,
 
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
-	json_add_string(response, "command", cmd->json_cmd->name);
-	json_add_string(response, "parameters", "ok");
+	json_add_string(response, "command_to_check", cmd->json_cmd->name);
 	json_object_end(response);
 	command_success(cmd, response);
 }
