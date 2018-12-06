@@ -780,6 +780,12 @@ void register_opts(struct lightningd *ld)
 	opt_register_arg("--bitcoin-rpcport", opt_set_u32, opt_show_u32,
 			 &ld->topology->bitcoind->rpcport,
 			 "bitcoind RPC port");
+	opt_register_arg("--bitcoin-rpcclienttimeout", opt_set_u32, opt_show_u32,
+			 &ld->topology->bitcoind->rpcclienttimeout,
+			 "bitcoind RPC timeout");
+	opt_register_arg("--bitcoin-rpcthreads", opt_set_u32, opt_show_u32,
+			 &ld->topology->bitcoind->rpcthreads,
+			 "bitcoind RPC thread numbers");
 	opt_register_arg("--pid-file=<file>", opt_set_talstr, opt_show_charp,
 			 &ld->pidfile,
 			 "Specify pid file");

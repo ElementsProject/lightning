@@ -60,6 +60,8 @@ struct bitcoind {
 	char *rpccookiefile;
 	char *rpcuser, *rpcpass, *rpcconnect;
 	u32 rpcport;
+	u32 rpcclienttimeout;
+	u32 rpcthreads;
 };
 
 

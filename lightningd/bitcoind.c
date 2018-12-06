@@ -39,6 +39,7 @@
 #define BITCOIND_MAX_PARALLEL 4
 
 #define DEFAULT_RPCCONNECT "127.0.0.1"
+#define DEFAULT_HTTP_CLIENT_TIMEOUT 900
 
 static void next_brpc(struct bitcoind *bitcoind, enum bitcoind_prio prio);
 
@@ -149,7 +150,7 @@ static void next_brpc(struct bitcoind *bitcoind, enum bitcoind_prio prio)
 	bool ret;
 	int fds[2];
 
-	if (bitcoind->num_requests[prio] >= BITCOIND_MAX_PARALLEL)
+	if (bitcoind->num_requests[prio] >= bitcoind->rpcthreads)
 		return;
 
 	brpc = list_pop(&bitcoind->pending[prio], struct bitcoin_rpc, list);
@@ -794,6 +795,8 @@ struct bitcoind *new_bitcoind(const tal_t *ctx, struct lightningd *ld,
 	bitcoind->rpcpass = NULL;
 	bitcoind->rpcconnect = tal_fmt(bitcoind, DEFAULT_RPCCONNECT);
 	bitcoind->rpcport = bitcoind->chainparams->rpc_port;
+	bitcoind->rpcclienttimeout = DEFAULT_HTTP_CLIENT_TIMEOUT;
+	bitcoind->rpcthreads = BITCOIND_MAX_PARALLEL;
 
 	tal_add_destructor(bitcoind, destroy_bitcoind);
 

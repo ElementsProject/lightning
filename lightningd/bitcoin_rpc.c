@@ -263,7 +263,7 @@ bool rpc_request(struct bitcoin_rpc *brpc)
 		log_unusual(bitcoind->log, "create http connect failed");
 		return false;
 	}
-	evhttp_connection_set_timeout(evcon, DEFAULT_HTTP_CLIENT_TIMEOUT);
+	evhttp_connection_set_timeout(evcon, bitcoind->rpcclienttimeout);
 	brpc->evcon = (void *)evcon;
 
 	struct evhttp_request *req =
