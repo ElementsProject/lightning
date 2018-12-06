@@ -89,6 +89,12 @@ Bitcoin control options:
 *bitcoin-rpcport*='PORT'::
     The bitcoind(1) RPC port to connect to.
 
+*bitcoin-rpcclienttimeout*='SECONDS'::
+    The bitcoind(1) RPC timeout.
+
+*bitcoin-rpcthreads*='NUMBERS'::
+    The bitcoind(1) RPC thread numbers.
+
 *rescan*='BLOCKS'::
     Number of blocks to rescan from the current head, or absolute blockheight
     if negative. This is only needed if something goes badly wrong.
