@@ -45,12 +45,27 @@ def json_getmanifest(request):
     }
 
 
+def plugin_log(message, level="info"):
+    payload = {
+        "jsonrpc": "2.0",
+        "method": "log",
+        "params": {
+            "level": level,
+            "message": message,
+        }
+    }
+    json.dump(payload, fp=sys.stdout)
+    sys.stdout.write('\n\n')
+    sys.stdout.flush()
+
+
 def json_init(request, options, configuration):
     """The main daemon is telling us the relevant cli options
     """
     global greeting
-
     greeting = request['params']['options']['greeting']
+    plugin_log("Plugin helloworld.py initialized with greeting \"{}\"".format(greeting), "debug")
+
     return "ok"
 
 
