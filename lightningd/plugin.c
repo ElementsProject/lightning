@@ -234,6 +234,66 @@ static void plugin_request_queue(struct plugin *plugin,
 	io_wake(plugin);
 }
 
+static void plugin_notification_handle(struct plugin *plugin,
+				       const jsmntok_t *toks)
+{
+	const jsmntok_t *methtok, *paramstok;
+
+	methtok = json_get_member(plugin->buffer, toks, "method");
+	paramstok = json_get_member(plugin->buffer, toks, "params");
+
+	if (!methtok || !paramstok) {
+		plugin_kill(plugin,
+			    "Malformed JSON-RPC notification missing "
+			    "\"method\" or \"params\": %.*s",
+			    toks->end - toks->start,
+			    plugin->buffer + toks->start);
+		return;
+	}
+
+	/* Dispatch incoming notifications. This is currently limited
+	 * to just a few method types, should this ever become
+	 * unwieldy we can switch to the AUTODATA construction to
+	 * register notification handlers in a variety of places. */
+	if (json_tok_streq(plugin->buffer, methtok, "log")) {
+		plugin_log_handle(plugin, paramstok);
+	} else {
+		plugin_kill(plugin, "Unknown notification method %.*s",
+			    json_tok_len(methtok),
+			    json_tok_contents(plugin->buffer, methtok));
+	}
+}
+
+static void plugin_response_handle(struct plugin *plugin,
+				   const jsmntok_t *toks,
+				   const jsmntok_t *idtok)
+{
+	struct plugin_request *request;
+	u64 id;
+	/* We only send u64 ids, so if this fails it's a critical error (note
+	 * that this also works if id is inside a JSON string!). */
+	if (!json_to_u64(plugin->buffer, idtok, &id)) {
+		plugin_kill(plugin,
+			    "JSON-RPC response \"id\"-field is not a u64");
+		return;
+	}
+
+	request = uintmap_get(&plugin->plugins->pending_requests, id);
+
+	if (!request) {
+		plugin_kill(
+		    plugin,
+		    "Received a JSON-RPC response for non-existent request");
+		return;
+	}
+
+	/* We expect the request->cb to copy if needed */
+	request->cb(request, plugin->buffer, toks, idtok, request->arg);
+
+	uintmap_del(&plugin->plugins->pending_requests, id);
+	tal_free(request);
+}
+
 /**
  * Try to parse a complete message from the plugin's buffer.
  *
@@ -242,11 +302,8 @@ static void plugin_request_queue(struct plugin *plugin,
  */
 static bool plugin_read_json_one(struct plugin *plugin)
 {
-	jsmntok_t *toks;
 	bool valid;
-	u64 id;
-	const jsmntok_t *idtok;
-	struct plugin_request *request;
+	const jsmntok_t *toks, *jrtok, *idtok;
 
 	/* FIXME: This could be done more efficiently by storing the
 	 * toks and doing an incremental parse, like lightning-cli
@@ -269,31 +326,60 @@ static bool plugin_read_json_one(struct plugin *plugin)
 		return false;
 	}
 
+	jrtok = json_get_member(plugin->buffer, toks, "jsonrpc");
 	idtok = json_get_member(plugin->buffer, toks, "id");
 
+	if (!jrtok) {
+		plugin_kill(
+		    plugin,
+		    "JSON-RPC message does not contain \"jsonrpc\" field");
+		return false;
+	}
+
 	if (!idtok) {
-		plugin_kill(plugin, "JSON-RPC response does not contain an \"id\"-field");
-		return false;
+		/* A Notification is a Request object without an "id"
+		 * member. A Request object that is a Notification
+		 * signifies the Client's lack of interest in the
+		 * corresponding Response object, and as such no
+		 * Response object needs to be returned to the
+		 * client. The Server MUST NOT reply to a
+		 * Notification, including those that are within a
+		 * batch request.
+		 *
+		 * https://www.jsonrpc.org/specification#notification
+		 */
+		plugin_notification_handle(plugin, toks);
+
+	} else {
+		/* When a rpc call is made, the Server MUST reply with
+		 * a Response, except for in the case of
+		 * Notifications. The Response is expressed as a
+		 * single JSON Object, with the following members:
+		 *
+		 * - jsonrpc: A String specifying the version of the
+		 *   JSON-RPC protocol. MUST be exactly "2.0".
+		 *
+		 * - result: This member is REQUIRED on success. This
+		 *   member MUST NOT exist if there was an error
+		 *   invoking the method. The value of this member is
+		 *   determined by the method invoked on the Server.
+		 *
+		 * - error: This member is REQUIRED on error. This
+		 *   member MUST NOT exist if there was no error
+		 *   triggered during invocation.
+		 *
+		 * - id: This member is REQUIRED. It MUST be the same
+		 *   as the value of the id member in the Request
+		 *   Object. If there was an error in detecting the id
+		 *   in the Request object (e.g. Parse error/Invalid
+		 *   Request), it MUST be Null. Either the result
+		 *   member or error member MUST be included, but both
+		 *   members MUST NOT be included.
+		 *
+		 * https://www.jsonrpc.org/specification#response_object
+		 */
+		plugin_response_handle(plugin, toks, idtok);
 	}
-
-	/* We only send u64 ids, so if this fails it's a critical error (note
-	 * that this also works if id is inside a JSON string!). */
-	if (!json_to_u64(plugin->buffer, idtok, &id)) {
-		plugin_kill(plugin, "JSON-RPC response \"id\"-field is not a u64");
-		return false;
-	}
-
-	request = uintmap_get(&plugin->plugins->pending_requests, id);
-
-	if (!request) {
-		plugin_kill(plugin, "Received a JSON-RPC response for non-existent request");
-		return false;
-	}
-
-	/* We expect the request->cb to copy if needed */
-	request->cb(request, plugin->buffer, toks, idtok, request->arg);
-	tal_free(request);
-	uintmap_del(&plugin->plugins->pending_requests, id);
 
 	/* Move this object out of the buffer */
 	memmove(plugin->buffer, plugin->buffer + toks[0].end,
@@ -314,10 +400,12 @@ static struct io_plan *plugin_read_json(struct io_conn *conn UNUSED,
 	/* Read and process all messages from the connection */
 	do {
 		success = plugin_read_json_one(plugin);
-	} while (success);
 
-	if (plugin->stop)
-		return io_close(plugin->stdout_conn);
+		/* Processing the message from the plugin might have
+		 * resulted in it stopping, so let's check. */
+		if (plugin->stop)
+			return io_close(plugin->stdout_conn);
+	} while (success);
 
 	/* Now read more from the connection */
 	return io_read_partial(plugin->stdout_conn,
