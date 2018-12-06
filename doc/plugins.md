@@ -22,7 +22,8 @@ is implemented, the other features are under active development.*
 A plugin may be written in any language, and communicates with
 `lightningd` through the plugin's `stdin` and `stdout`. JSON-RPCv2 is
 used as protocol on top of the two streams, with the plugin acting as
-server and `lightningd` acting as client.
+server and `lightningd` acting as client. The plugin file needs to be
+executable (e.g. use `chmod a+x plugin_name`)
 
 ## A day in the life of a plugin
 
