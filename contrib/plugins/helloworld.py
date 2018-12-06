@@ -45,7 +45,7 @@ def json_getmanifest(request):
     }
 
 
-def json_init(request, options):
+def json_init(request, options, configuration):
     """The main daemon is telling us the relevant cli options
     """
     global greeting

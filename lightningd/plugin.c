@@ -90,6 +90,7 @@ struct plugins {
 	struct jsonrpc *rpc;
 
 	struct timers timers;
+	struct lightningd *ld;
 };
 
 /* Represents a pending JSON-RPC request that was forwarded to a
@@ -116,7 +117,7 @@ struct plugin_opt {
 };
 
 struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
-			    struct jsonrpc *rpc)
+			    struct jsonrpc *rpc, struct lightningd *ld)
 {
 	struct plugins *p;
 	p = tal(ctx, struct plugins);
@@ -125,6 +126,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->log = new_log(p, log_book, "plugin-manager");
 	p->rpc = rpc;
 	timers_init(&p->timers, time_mono());
+	p->ld = ld;
 	return p;
 }
 
@@ -825,6 +827,7 @@ static void plugin_config(struct plugin *plugin)
 	struct plugin_opt *opt;
 	const char *name;
 	struct plugin_request *req;
+	struct lightningd *ld = plugin->plugins->ld;
 
 	/* No writer since we don't flush concurrently. */
 	req = plugin_request_new(plugin, "init", plugin_config_cb, plugin);
@@ -838,6 +841,12 @@ static void plugin_config(struct plugin *plugin)
 		json_add_string(req->stream, name, opt->value);
 	}
 	json_object_end(req->stream); /* end of .params.options */
+
+	/* Add .params.configuration */
+	json_object_start(req->stream, "configuration");
+	json_add_string(req->stream, "lightning-dir", ld->config_dir);
+	json_add_string(req->stream, "rpc-file", ld->rpc_filename);
+	json_object_end(req->stream);
 
 	json_object_end(req->stream); /* end of .params */
 
