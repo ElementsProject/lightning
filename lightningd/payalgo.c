@@ -13,6 +13,7 @@
 #include <common/type_to_string.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <gossipd/routing.h>
+#include <lightningd/channel.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
@@ -118,6 +119,9 @@ struct pay {
 	 * freed, then allocated at the start of each pay
 	 * attempt to ensure no leaks across long pay attempts */
 	char *try_parent;
+
+	/* Whether we have tried a direct route or not. */
+	bool tried_direct_route;
 
 	/* Current route being attempted. */
 	struct route_hop *route;
@@ -403,6 +407,21 @@ static void json_pay_sendpay_resume(const struct sendpay_result *r,
 	}
 }
 
+static void json_pay_sendpay(struct pay *pay)
+{
+	assert(pay->route);
+
+	++pay->sendpay_tries;
+	log_route(pay, pay->route);
+
+	pay->in_sendpay = true;
+	send_payment(pay->try_parent,
+		     pay->cmd->ld, &pay->payment_hash, pay->route,
+		     pay->msatoshi,
+		     pay->description,
+		     &json_pay_sendpay_resume, pay);
+}
+
 static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 				    const u8 *reply, const int *fds UNUSED,
 				    struct pay *pay)
@@ -486,19 +505,10 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 		return;
 	}
 
-	++pay->sendpay_tries;
-
-	log_route(pay, route);
 	assert(!pay->route);
 	pay->route = tal_dup_arr(pay, struct route_hop, route,
 				 tal_count(route), 0);
-
-	pay->in_sendpay = true;
-	send_payment(pay->try_parent,
-		     pay->cmd->ld, &pay->payment_hash, route,
-		     pay->msatoshi,
-		     pay->description,
-		     &json_pay_sendpay_resume, pay);
+	json_pay_sendpay(pay);
 }
 
 /* Start a payment attempt. Return true if deferred,
@@ -511,6 +521,10 @@ static bool json_pay_try(struct pay *pay)
 	struct siphash_seed seed;
 	u64 maxoverpayment;
 	u64 overpayment;
+
+	struct channel *direct_channel = NULL;
+	struct route_hop *direct_route = NULL;
+	bool direct_channel_ok;
 
 	/* If too late anyway, fail now. */
 	if (time_after(now, pay->expiry)) {
@@ -552,6 +566,52 @@ static bool json_pay_try(struct pay *pay)
 		overpayment = pseudorand(maxoverpayment);
 	} else
 		overpayment = 0;
+
+	/* Try a direct route first if possible. */
+	if (!pay->tried_direct_route) {
+		/* Only try direct route once. */
+		pay->tried_direct_route = true;
+
+		/* Find a direct channel. */
+		direct_channel = normal_channel_by_id(cmd->ld,
+						      &pay->receiver_id);
+		/* Did we find one? */
+		direct_channel_ok = direct_channel && direct_channel->scid;
+		/* Check channel can serve this payment. */
+		if (direct_channel_ok) {
+			u64 reserve = direct_channel->channel_info.their_config.channel_reserve_satoshis * 1000;
+			if (direct_channel->our_msatoshi <= reserve)
+				/* Cannot spend. */
+				direct_channel_ok = false;
+			else if (direct_channel->our_msatoshi - reserve <
+				 pay->msatoshi + overpayment)
+				/* Not enough spendable. */
+				direct_channel_ok = false;
+		}
+		if (direct_channel_ok) {
+			/* Generate a direct route
+			 * with the direct channel. */
+			direct_route = tal_arr(pay,
+					       struct route_hop,
+					       1);
+			direct_route[0].channel_id = *direct_channel->scid;
+			direct_route[0].nodeid = pay->receiver_id;
+			direct_route[0].amount = pay->msatoshi
+					       + overpayment;
+			direct_route[0].delay = pay->min_final_cltv_expiry;
+
+			assert(!pay->route);
+			pay->route = direct_route;
+
+			/* Defer; this simplifies handling of
+			 * command_still_pending.
+			 */
+			new_reltimer(&cmd->ld->timers, pay->try_parent,
+				     time_from_sec(0),
+				     &json_pay_sendpay, pay);
+			return true;
+		}
+	}
 
 	++pay->getroute_tries;
 
@@ -677,6 +737,8 @@ static void json_pay(struct command *cmd,
 	 * improve privacy somewhat. */
 	pay->fuzz = 0.75;
 	pay->try_parent = NULL;
+	/* Start not having tried direct route. */
+	pay->tried_direct_route = false;
 	/* Start with no route */
 	pay->route = NULL;
 	/* Start with no failures */

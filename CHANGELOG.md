@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - JSON API: `pay` and `decodepay` accept and ignore `lightning:` prefixes.
 - pylightning: Allow either keyword arguments or positional arguments.
 - JSON-RPC: messages are now separated by 2 consecutive newlines.
+- JSON API: `pay` now tries a direct channel first if one exists.
 
 ### Deprecated
 

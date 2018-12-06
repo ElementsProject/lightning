@@ -185,6 +185,9 @@ struct channel *peer_normal_channel(struct peer *peer);
 struct channel *active_channel_by_id(struct lightningd *ld,
 				     const struct pubkey *id,
 				     struct uncommitted_channel **uc);
+/* Get CHANNELD_NORMAL channel for a peer, if any. */
+struct channel *normal_channel_by_id(struct lightningd *ld,
+				     const struct pubkey *id);
 
 struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid);
 

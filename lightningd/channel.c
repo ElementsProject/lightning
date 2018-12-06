@@ -297,6 +297,16 @@ struct channel *active_channel_by_id(struct lightningd *ld,
 	return peer_active_channel(peer);
 }
 
+struct channel *normal_channel_by_id(struct lightningd *ld,
+				     const struct pubkey *id)
+{
+	struct peer *peer = peer_by_id(ld, id);
+	if (!peer)
+		return NULL;
+
+	return peer_normal_channel(peer);
+}
+
 struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid)
 {
 	struct peer *p;
