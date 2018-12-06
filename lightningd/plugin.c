@@ -234,6 +234,40 @@ static void plugin_request_queue(struct plugin *plugin,
 	io_wake(plugin);
 }
 
+static void plugin_log_handle(struct plugin *plugin, const jsmntok_t *paramstok)
+{
+	const jsmntok_t *msgtok, *leveltok;
+	enum log_level level;
+	msgtok = json_get_member(plugin->buffer, paramstok, "message");
+	leveltok = json_get_member(plugin->buffer, paramstok, "level");
+
+	if (!msgtok || msgtok->type != JSMN_STRING) {
+		plugin_kill(plugin, "Log notification from plugin doesn't have "
+				    "a string \"message\" field");
+		return;
+	}
+
+	if (!leveltok || json_tok_streq(plugin->buffer, leveltok, "info"))
+		level = LOG_INFORM;
+	else if (json_tok_streq(plugin->buffer, leveltok, "debug"))
+		level = LOG_DBG;
+	else if (json_tok_streq(plugin->buffer, leveltok, "warn"))
+		level = LOG_UNUSUAL;
+	else if (json_tok_streq(plugin->buffer, leveltok, "error"))
+		level = LOG_BROKEN;
+	else {
+		plugin_kill(plugin,
+			    "Unknown log-level %.*s, valid values are "
+			    "\"debug\", \"info\", \"warn\", or \"error\".",
+			    json_tok_len(leveltok),
+			    json_tok_contents(plugin->buffer, leveltok));
+		return;
+	}
+
+	log_(plugin->log, level, "%.*s", msgtok->end - msgtok->start,
+	     plugin->buffer + msgtok->start);
+}
+
 static void plugin_notification_handle(struct plugin *plugin,
 				       const jsmntok_t *toks)
 {
