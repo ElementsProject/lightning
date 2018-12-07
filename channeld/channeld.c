@@ -426,6 +426,22 @@ static void channel_announcement_negotiate(struct peer *peer)
 		peer->channel_local_active = true;
 		make_channel_local_active(peer);
 	}
+
+	/* BOLT #7:
+	 *
+	 * A node:
+	 *   - if the `open_channel` message has the `announce_channel` bit set
+	 *     AND a `shutdown` message has not been sent:
+	 *     - MUST send the `announcement_signatures` message.
+	 *       - MUST NOT send `announcement_signatures` messages until
+	 *         `funding_locked` has been sent AND the funding transaction has
+	 *         at least six confirmations.
+	 *   - otherwise:
+	 *     - MUST NOT send the `announcement_signatures` message.
+	 */
+	if (!(peer->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
+		return;
+
 	/* BOLT #7:
 	 *
 	 *      - MUST NOT send `announcement_signatures` messages until

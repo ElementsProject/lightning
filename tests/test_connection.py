@@ -791,6 +791,21 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log(' to ONCHAIN')
 
 
+def test_private_channel(node_factory):
+    l1, l2 = node_factory.line_graph(2, announce_channels=False, wait_for_announce=False)
+    l3, l4 = node_factory.line_graph(2, announce_channels=True, wait_for_announce=True)
+
+    assert l1.daemon.is_in_log('Will open private channel with node {}'.format(l2.info['id']))
+    assert not l2.daemon.is_in_log('Will open private channel with node {}'.format(l1.info['id']))
+    assert not l3.daemon.is_in_log('Will open private channel with node {}'.format(l4.info['id']))
+
+    l3.daemon.wait_for_log('Received node_announcement for node {}'.format(l4.info['id']))
+    l4.daemon.wait_for_log('Received node_announcement for node {}'.format(l3.info['id']))
+
+    assert not l1.daemon.is_in_log('Received node_announcement for node {}'.format(l2.info['id']))
+    assert not l2.daemon.is_in_log('Received node_announcement for node {}'.format(l1.info['id']))
+
+
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
 def test_channel_reenable(node_factory):
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True}, fundchannel=True, wait_for_announce=True)
