@@ -8,7 +8,7 @@ lightning-fundchannel - Command for establishing a lightning channel.
 
 SYNOPSIS
 --------
-*fundchannel* 'id' 'satoshi' ['feerate']
+*fundchannel* 'id' 'satoshi' ['feerate' 'announce']
 
 DESCRIPTION
 -----------
@@ -30,6 +30,10 @@ than 16777215 satoshi.
 'feerate' is an optional feerate to use.  It can be one of the strings
 'urgent', 'normal' or 'slow' to use lightningd's internal estimates:
 'normal' is the default.
+
+'announce' is an optional flag that triggers whether to announce
+this channel or not. Defaults to `true`. An unannounced channel
+is considered private.
 
 Otherwise, 'feerate' is a number, with an optional suffix:
 'perkw' means the number is interpreted as satoshi-per-kilosipa
