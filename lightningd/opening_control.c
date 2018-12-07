@@ -770,6 +770,7 @@ static void json_fund_channel(struct command *cmd,
 	struct peer *peer;
 	struct channel *channel;
 	u32 *feerate_per_kw;
+	bool *announce_channel;
 	u8 *msg;
 	u64 max_funding_satoshi = get_chainparams(cmd->ld)->max_funding_satoshi;
 
@@ -780,6 +781,7 @@ static void json_fund_channel(struct command *cmd,
 		   p_req("id", json_tok_pubkey, &id),
 		   p_req("satoshi", json_tok_tok, &sattok),
 		   p_opt("feerate", json_tok_feerate, &feerate_per_kw),
+		   p_opt_def("announce", json_tok_bool, &announce_channel, true),
 		   NULL))
 		return;
 
@@ -826,6 +828,11 @@ static void json_fund_channel(struct command *cmd,
 	/* FIXME: Support push_msat? */
 	fc->push_msat = 0;
 	fc->channel_flags = OUR_CHANNEL_FLAGS;
+	if (!*announce_channel) {
+		fc->channel_flags &= ~CHANNEL_FLAGS_ANNOUNCE_CHANNEL;
+		log_info(peer->ld->log, "Will open private channel with node %s",
+			type_to_string(fc, struct pubkey, id));
+	}
 
 	if (!wtx_select_utxos(&fc->wtx, *feerate_per_kw,
 			      BITCOIN_SCRIPTPUBKEY_P2WSH_LEN))

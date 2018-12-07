@@ -788,9 +788,10 @@ class NodeFactory(object):
                 raise
         return node
 
-    def line_graph(self, num_nodes, fundchannel=True, fundamount=10**6, wait_for_announce=False, opts=None):
+    def line_graph(self, num_nodes, fundchannel=True, fundamount=10**6, wait_for_announce=False, opts=None, announce_channels=True):
         """ Create nodes, connect them and optionally fund channels.
         """
+        assert not (wait_for_announce and not announce_channels), "You've asked to wait for an announcement that's not coming. (wait_for_announce=True,announce_channels=False)"
         nodes = self.get_nodes(num_nodes, opts=opts)
         bitcoin = nodes[0].bitcoin
         connections = [(nodes[i], nodes[i + 1]) for i in range(0, num_nodes - 1)]
@@ -813,7 +814,7 @@ class NodeFactory(object):
         bitcoin.generate_block(1)
         for src, dst in connections:
             wait_for(lambda: len(src.rpc.listfunds()['outputs']) > 0)
-            tx = src.rpc.fundchannel(dst.info['id'], fundamount)
+            tx = src.rpc.fundchannel(dst.info['id'], fundamount, announce=announce_channels)
             wait_for(lambda: tx['txid'] in bitcoin.rpc.getrawmempool())
 
         # Confirm all channels and wait for them to become usable

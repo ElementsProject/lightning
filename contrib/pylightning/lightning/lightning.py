@@ -361,14 +361,17 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listpeers", payload)
 
-    def fundchannel(self, node_id, satoshi, feerate=None):
+    def fundchannel(self, node_id, satoshi, feerate=None, announce=True):
         """
-        Fund channel with {id} using {satoshi} satoshis"
+        Fund channel with {id} using {satoshi} satoshis
+        with feerate of {feerate} (uses default feerate if unset).
+        If {announce} is False, don't send channel announcements.
         """
         payload = {
             "id": node_id,
             "satoshi": satoshi,
-            "feerate": feerate
+            "feerate": feerate,
+            "announce": announce
         }
         return self.call("fundchannel", payload)
 
