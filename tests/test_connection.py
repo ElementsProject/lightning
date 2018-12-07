@@ -793,7 +793,7 @@ def test_channel_persistence(node_factory, bitcoind, executor):
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
 def test_channel_reenable(node_factory):
-    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True}, fundchannel=True, announce=True)
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True}, fundchannel=True, wait_for_announce=True)
 
     l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l2.info['id']))
     l2.daemon.wait_for_log('Received node_announcement for node {}'.format(l1.info['id']))
@@ -1351,7 +1351,7 @@ def test_fulfill_incoming_first(node_factory, bitcoind):
                                                    'dev-no-reconnect': None,
                                                    'disconnect': disconnects,
                                                    'cltv-final': 200}],
-                                         announce=True)
+                                         wait_for_announce=True)
 
     # This succeeds.
     l1.rpc.pay(l3.rpc.invoice(200000000, 'test_fulfill_incoming_first', 'desc')['bolt11'])

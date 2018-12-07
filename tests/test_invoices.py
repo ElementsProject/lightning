@@ -99,7 +99,7 @@ def test_invoice_weirdstring(node_factory):
 def test_invoice_preimage(node_factory):
     """Test explicit invoice 'preimage'.
     """
-    l1, l2 = node_factory.line_graph(2, announce=True)
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
 
     # I promise the below number is randomly generated
     invoice_preimage = "17b08f669513b7379728fc1abcea5eaf3448bc1eba55a68ca2cd1843409cdc04"

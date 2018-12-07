@@ -252,7 +252,7 @@ def test_connect_by_gossip(node_factory, bitcoind):
 
 @unittest.skipIf(not DEVELOPER, "DEVELOPER=1 needed to speed up gossip propagation, would be too long otherwise")
 def test_gossip_jsonrpc(node_factory):
-    l1, l2 = node_factory.line_graph(2, fundchannel=True, announce=False)
+    l1, l2 = node_factory.line_graph(2, fundchannel=True, wait_for_announce=False)
 
     # Shouldn't send announce signatures until 6 deep.
     assert not l1.daemon.is_in_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
@@ -872,7 +872,7 @@ def test_node_reannounce(node_factory, bitcoind):
 
 
 def test_gossipwith(node_factory):
-    l1, l2 = node_factory.line_graph(2, announce=True)
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
 
     out = subprocess.run(['devtools/gossipwith',
                           '--initial-sync',
