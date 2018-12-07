@@ -1040,7 +1040,7 @@ def setup_multihtlc_test(node_factory, bitcoind):
     #   1 failed (CLTV2)
     #   2 live (CLTV2)
     #   1 live (CLTV3)
-    nodes = node_factory.line_graph(7, announce=True,
+    nodes = node_factory.line_graph(7, wait_for_announce=True,
                                     opts={'dev-no-reconnect': None,
                                           'may_reconnect': True})
 

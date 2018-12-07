@@ -385,7 +385,7 @@ class LightningNode(object):
         self.may_fail = may_fail
         self.may_reconnect = may_reconnect
 
-    def openchannel(self, remote_node, capacity, addrtype="p2sh-segwit", confirm=True, announce=True, connect=True):
+    def openchannel(self, remote_node, capacity, addrtype="p2sh-segwit", confirm=True, wait_for_announce=True, connect=True):
         addr, wallettxid = self.fundwallet(10 * capacity, addrtype)
 
         if connect and remote_node.info['id'] not in [p['id'] for p in self.rpc.listpeers()['peers']]:
@@ -396,13 +396,13 @@ class LightningNode(object):
         # Wait for the funding transaction to be in bitcoind's mempool
         wait_for(lambda: fundingtx['txid'] in self.bitcoin.rpc.getrawmempool())
 
-        if confirm or announce:
+        if confirm or wait_for_announce:
             self.bitcoin.generate_block(1)
 
-        if announce:
+        if wait_for_announce:
             self.bitcoin.generate_block(5)
 
-        if confirm or announce:
+        if confirm or wait_for_announce:
             self.daemon.wait_for_log(
                 r'Funding tx {} depth'.format(fundingtx['txid']))
         return {'address': addr, 'wallettxid': wallettxid, 'fundingtx': fundingtx}
@@ -788,7 +788,7 @@ class NodeFactory(object):
                 raise
         return node
 
-    def line_graph(self, num_nodes, fundchannel=True, fundamount=10**6, announce=False, opts=None):
+    def line_graph(self, num_nodes, fundchannel=True, fundamount=10**6, wait_for_announce=False, opts=None):
         """ Create nodes, connect them and optionally fund channels.
         """
         nodes = self.get_nodes(num_nodes, opts=opts)
@@ -825,7 +825,7 @@ class NodeFactory(object):
             src.daemon.wait_for_log(r'Received channel_update for channel {scid}\(.\) now ACTIVE'.format(scid=scid))
             scids.append(scid)
 
-        if not announce:
+        if not wait_for_announce:
             return nodes
 
         bitcoin.generate_block(5)

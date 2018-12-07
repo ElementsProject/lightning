@@ -126,7 +126,7 @@ def test_pay_disconnect(node_factory, bitcoind):
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_suppress_gossip")
 def test_pay_get_error_with_update(node_factory):
     """We should process an update inside a temporary_channel_failure"""
-    l1, l2, l3 = node_factory.line_graph(3, opts={'log-level': 'io'}, fundchannel=True, announce=True)
+    l1, l2, l3 = node_factory.line_graph(3, opts={'log-level': 'io'}, fundchannel=True, wait_for_announce=True)
     chanid2 = l2.get_channel_scid(l3)
 
     inv = l3.rpc.invoice(123000, 'test_pay_get_error_with_update', 'description')
@@ -985,11 +985,11 @@ def test_forward_stats(node_factory, bitcoind):
 
     """
     amount = 10**5
-    l1, l2, l3 = node_factory.line_graph(3, announce=False)
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=False)
     l4 = node_factory.get_node()
     l5 = node_factory.get_node(may_fail=True)
-    l2.openchannel(l4, 10**6, announce=False)
-    l2.openchannel(l5, 10**6, announce=True)
+    l2.openchannel(l4, 10**6, wait_for_announce=False)
+    l2.openchannel(l5, 10**6, wait_for_announce=True)
 
     bitcoind.generate_block(5)
 
@@ -1054,7 +1054,7 @@ def test_htlcs_cltv_only_difference(node_factory, bitcoind):
     # l1 -> l2 -> l3 -> l4
     # l4 ignores htlcs, so they stay.
     # l3 will see a reconnect from l4 when l4 restarts.
-    l1, l2, l3, l4 = node_factory.line_graph(4, announce=True, opts=[{}] * 2 + [{'dev-no-reconnect': None, 'may_reconnect': True}] * 2)
+    l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True, opts=[{}] * 2 + [{'dev-no-reconnect': None, 'may_reconnect': True}] * 2)
 
     h = l4.rpc.invoice(msatoshi=10**8, label='x', description='desc')['payment_hash']
     l4.rpc.dev_ignore_htlcs(id=l3.info['id'], ignore=True)
