@@ -1,0 +1,52 @@
+'\" t
+.\"     Title: lightning-check
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 12/07/2018
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LIGHTNING\-CHECK" "7" "12/07/2018" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lightning-check \- Command for verifying parameters\&.
+.SH "SYNOPSIS"
+.sp
+\fBcheck\fR \fIcommand_to_check\fR [\fIparameters\fR]
+.SH "DESCRIPTION"
+.sp
+The \fBcheck\fR command verifies another command\(cqs parameters without running it\&.
+.sp
+The \fIcommand_to_check\fR is the name of the relevant command\&.
+.sp
+\fIparameters\fR is the command\(cqs parameters\&.
+.sp
+This does not guarantee successful execution of the command in all cases\&. For example, a call to \fBgetroute\fR may still fail to find a route even if checking the parameters succeeds\&.
+.SH "RETURN VALUE"
+.sp
+On success, the \fIcommand_to_check\fR is returned\&. On failure, the relevant RPC error is returned\&.
+.SH "AUTHOR"
+.sp
+Mark Beckwith <wythe@intrig\&.com> and Rusty Russell <rusty@rustcorp\&.com\&.au> are mainly responsible\&.
+.SH "RESOURCES"
+.sp
+Main web site: https://github\&.com/ElementsProject/lightning
