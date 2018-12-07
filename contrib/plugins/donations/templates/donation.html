@@ -1,0 +1,79 @@
+{% extends 'bootstrap/base.html' %}
+{% import 'bootstrap/wtf.html' as wtf %}
+
+{% block title %}
+    Lightning Donations
+{% endblock %}
+
+{% block navbar %}
+    <nav class="navbar navbar-default">
+        ... navigation bar here (see complete code on GitHub) ...
+    </nav>
+{% endblock %}
+
+{% block content %}
+    <div class="container">
+      <h1>Leave a donation to support my work!</h1>
+      {% if bolt11 %}
+      <div id="target_div">
+	<div>
+	  <input type="text" value="{{bolt11}}" id="bolt11">
+	  <button onclick="copyFunction()">Copy invoice</button>
+	</div>
+	<div>
+	  <img src="data:image/png;base64,{{qr}}" />
+	</div>
+      </div>
+  {% else %}
+	{{ wtf.quick_form(form) }}
+  {% endif %}
+  <h2>Most recent donations & comments</h2>
+  <ul>
+    {% for item in donations %}
+        <li>{{ item[1] }} Satoshi. Message: {{ item[2] }}</a></li>
+    {% endfor %}
+</ul>
+<p>The above texts come from a community of unknown users. If you think they violate against your copyrite please <a href="https://www.rene-pickhardt.de/imprint" rel="nofollow"> contact me</a> so that I can remove those comments. According to the German law I am not responsible for Copyright violations rising from user generated content unless you notify me and I don't react.</p>
+
+<hr>
+<p>
+  c-lightning invoice query service for donations and spontanious payments is brought to you by
+  <a href="https://ln.rene-pickhardt.de">Rene Pickhardt</a>.</p>
+
+<p>
+If you want to learn more about the Lightning network (for beginners and for developers) check out
+  <a href="https://www.youtube.com/user/RenePickhardt">his youtube channel</a>.
+</p>
+<p>
+  Find the source code for this plugin at: <a href="https://github.com/ElementsProject/lightning/tree/master/contrib/plugins/donations">https://github.com/ElementsProject/lightning/tree/master/contrib/plugins/donations</a>
+</p>
+</div>
+{% endblock %}
+{% block scripts %}
+{{super()}}
+<script>
+var interval = null;
+$(document).on('ready',function(){
+    interval = setInterval(updateDiv,3000);
+});
+
+function updateDiv(){
+    $.ajax({
+        url: '/is_invoice_paid/{{label}}',
+        success: function(data){
+               if (data != "waiting") {
+                            var tc = document.getElementById("target_div");
+                            tc.innerHTML = data;
+                            clearInterval(interval);
+                        }
+        }
+    });
+}
+
+function copyFunction() {
+    document.getElementById("bolt11").select();
+    document.execCommand("copy");
+    alert("Copied invoice to clipboard.");
+}
+</script>
+{% endblock %}
