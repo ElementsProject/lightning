@@ -946,9 +946,9 @@ static bool json_tok_command(struct command *cmd, const char *name,
 	if (cmd->json_cmd)
 		return (*out = tok);
 
-	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-		     "'%s' of '%.*s' is invalid",
-		     name, tok->end - tok->start, buffer + tok->start);
+	command_fail(cmd, JSONRPC2_METHOD_NOT_FOUND,
+		     "Unknown command '%.*s'",
+		     tok->end - tok->start, buffer + tok->start);
 	return false;
 }
 
