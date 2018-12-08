@@ -803,7 +803,9 @@ static void json_add_peer(struct lightningd *ld,
 }
 
 static void json_listpeers(struct command *cmd,
-			  const char *buffer, const jsmntok_t *params)
+			   const char *buffer,
+			   const jsmntok_t *obj UNNEEDED,
+			   const jsmntok_t *params)
 {
 	enum log_level *ll;
 	struct pubkey *specific_id;
@@ -890,7 +892,9 @@ command_find_channel(struct command *cmd,
 }
 
 static void json_close(struct command *cmd,
-		       const char *buffer, const jsmntok_t *params)
+		       const char *buffer,
+		       const jsmntok_t *obj UNNEEDED,
+		       const jsmntok_t *params)
 {
 	const jsmntok_t *idtok;
 	struct peer *peer;
@@ -1032,7 +1036,9 @@ void load_channels_from_wallet(struct lightningd *ld)
 }
 
 static void json_disconnect(struct command *cmd,
-			 const char *buffer, const jsmntok_t *params)
+			    const char *buffer,
+			    const jsmntok_t *obj UNNEEDED,
+			    const jsmntok_t *params)
 {
 	struct pubkey *id;
 	struct peer *peer;
@@ -1071,7 +1077,9 @@ static const struct json_command disconnect_command = {
 AUTODATA(json_command, &disconnect_command);
 
 static void json_getinfo(struct command *cmd,
-             const char *buffer UNUSED, const jsmntok_t *params UNUSED)
+			 const char *buffer,
+			 const jsmntok_t *obj UNNEEDED,
+			 const jsmntok_t *params)
 {
     struct json_stream *response;
     struct peer *peer;
@@ -1144,7 +1152,9 @@ AUTODATA(json_command, &getinfo_command);
 
 #if DEVELOPER
 static void json_sign_last_tx(struct command *cmd,
-			      const char *buffer, const jsmntok_t *params)
+			      const char *buffer,
+			      const jsmntok_t *obj UNNEEDED,
+			      const jsmntok_t *params)
 {
 	struct pubkey *peerid;
 	struct peer *peer;
@@ -1191,7 +1201,9 @@ static const struct json_command dev_sign_last_tx = {
 AUTODATA(json_command, &dev_sign_last_tx);
 
 static void json_dev_fail(struct command *cmd,
-			  const char *buffer, const jsmntok_t *params)
+			  const char *buffer,
+			  const jsmntok_t *obj UNNEEDED,
+			  const jsmntok_t *params)
 {
 	struct pubkey *peerid;
 	struct peer *peer;
@@ -1236,7 +1248,9 @@ static void dev_reenable_commit_finished(struct subd *channeld UNUSED,
 }
 
 static void json_dev_reenable_commit(struct command *cmd,
-				     const char *buffer, const jsmntok_t *params)
+				     const char *buffer,
+				     const jsmntok_t *obj UNNEEDED,
+				     const jsmntok_t *params)
 {
 	struct pubkey *peerid;
 	struct peer *peer;
@@ -1325,7 +1339,9 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 	command_success(forget->cmd, response);
 }
 
-static void json_dev_forget_channel(struct command *cmd, const char *buffer,
+static void json_dev_forget_channel(struct command *cmd,
+				    const char *buffer,
+				    const jsmntok_t *obj UNNEEDED,
 				    const jsmntok_t *params)
 {
 	struct pubkey *peerid;

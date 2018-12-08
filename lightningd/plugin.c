@@ -534,6 +534,7 @@ static void plugin_rpcmethod_cb(const struct plugin_request *req,
 }
 
 static void plugin_rpcmethod_dispatch(struct command *cmd, const char *buffer,
+				      const jsmntok_t *obj UNNEEDED,
 				      const jsmntok_t *params)
 {
 	const jsmntok_t *toks = params, *methtok, *idtok;

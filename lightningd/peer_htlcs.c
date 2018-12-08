@@ -1791,7 +1791,9 @@ void htlcs_reconnect(struct lightningd *ld,
 
 
 #if DEVELOPER
-static void json_dev_ignore_htlcs(struct command *cmd, const char *buffer,
+static void json_dev_ignore_htlcs(struct command *cmd,
+				  const char *buffer,
+				  const jsmntok_t *obj UNNEEDED,
 				  const jsmntok_t *params)
 {
 	struct pubkey *peerid;
@@ -1846,8 +1848,10 @@ static void listforwardings_add_forwardings(struct json_stream *response, struct
 	tal_free(forwardings);
 }
 
-static void json_listforwards(struct command *cmd, const char *buffer,
-			       const jsmntok_t *params)
+static void json_listforwards(struct command *cmd,
+			      const char *buffer,
+			      const jsmntok_t *obj UNNEEDED,
+			      const jsmntok_t *params)
 {
 	struct json_stream *response;
 

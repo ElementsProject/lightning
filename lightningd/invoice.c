@@ -292,7 +292,9 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 }
 
 static void json_invoice(struct command *cmd,
-			 const char *buffer, const jsmntok_t *params)
+			 const char *buffer,
+			 const jsmntok_t *obj UNNEEDED,
+			 const jsmntok_t *params)
 {
 	const jsmntok_t *fallbacks;
 	const jsmntok_t *preimagetok;
@@ -415,7 +417,9 @@ static void json_add_invoices(struct json_stream *response,
 }
 
 static void json_listinvoices(struct command *cmd,
-			      const char *buffer, const jsmntok_t *params)
+			      const char *buffer,
+			      const jsmntok_t *obj UNNEEDED,
+			      const jsmntok_t *params)
 {
 	struct json_escaped *label;
 	struct json_stream *response;
@@ -441,7 +445,9 @@ static const struct json_command listinvoices_command = {
 AUTODATA(json_command, &listinvoices_command);
 
 static void json_delinvoice(struct command *cmd,
-			    const char *buffer, const jsmntok_t *params)
+			    const char *buffer,
+			    const jsmntok_t *obj UNNEEDED,
+			    const jsmntok_t *params)
 {
 	struct invoice i;
 	const struct invoice_details *details;
@@ -492,7 +498,9 @@ static const struct json_command delinvoice_command = {
 };
 AUTODATA(json_command, &delinvoice_command);
 
-static void json_delexpiredinvoice(struct command *cmd, const char *buffer,
+static void json_delexpiredinvoice(struct command *cmd,
+				   const char *buffer,
+				   const jsmntok_t *obj UNNEEDED,
 				   const jsmntok_t *params)
 {
 	u64 *maxexpirytime;
@@ -516,6 +524,7 @@ AUTODATA(json_command, &delexpiredinvoice_command);
 
 static void json_autocleaninvoice(struct command *cmd,
 				  const char *buffer,
+				  const jsmntok_t *obj UNNEEDED,
 				  const jsmntok_t *params)
 {
 	u64 *cycle;
@@ -541,7 +550,9 @@ static const struct json_command autocleaninvoice_command = {
 AUTODATA(json_command, &autocleaninvoice_command);
 
 static void json_waitanyinvoice(struct command *cmd,
-			    const char *buffer, const jsmntok_t *params)
+				const char *buffer,
+				const jsmntok_t *obj UNNEEDED,
+				const jsmntok_t *params)
 {
 	u64 *pay_index;
 	struct wallet *wallet = cmd->ld->wallet;
@@ -575,7 +586,9 @@ AUTODATA(json_command, &waitanyinvoice_command);
  * waiters, if the payment is still pending.
  */
 static void json_waitinvoice(struct command *cmd,
-			      const char *buffer, const jsmntok_t *params)
+			     const char *buffer,
+			     const jsmntok_t *obj UNNEEDED,
+			     const jsmntok_t *params)
 {
 	struct invoice i;
 	const struct invoice_details *details;
@@ -648,7 +661,9 @@ static void json_add_fallback(struct json_stream *response,
 }
 
 static void json_decodepay(struct command *cmd,
-                           const char *buffer, const jsmntok_t *params)
+                           const char *buffer,
+			   const jsmntok_t *obj UNNEEDED,
+			   const jsmntok_t *params)
 {
 	struct bolt11 *b11;
 	struct json_stream *response;

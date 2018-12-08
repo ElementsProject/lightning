@@ -85,7 +85,9 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
  * the HSM to generate the signatures.
  */
 static void json_withdraw(struct command *cmd,
-			  const char *buffer, const jsmntok_t *params)
+			  const char *buffer,
+			  const jsmntok_t *obj UNNEEDED,
+			  const jsmntok_t *params)
 {
 	const jsmntok_t *desttok, *sattok;
 	struct withdrawal *withdraw = tal(cmd, struct withdrawal);
@@ -239,8 +241,10 @@ static bool json_tok_newaddr(struct command *cmd, const char *name,
 	return false;
 }
 
-static void json_newaddr(struct command *cmd, const char *buffer UNUSED,
-			 const jsmntok_t *params UNUSED)
+static void json_newaddr(struct command *cmd,
+			 const char *buffer,
+			 const jsmntok_t *obj UNNEEDED,
+			 const jsmntok_t *params)
 {
 	struct json_stream *response;
 	struct ext_key ext;
@@ -299,7 +303,9 @@ static const struct json_command newaddr_command = {
 AUTODATA(json_command, &newaddr_command);
 
 static void json_listaddrs(struct command *cmd,
-			   const char *buffer, const jsmntok_t *params)
+			   const char *buffer,
+			   const jsmntok_t *obj UNNEEDED,
+			   const jsmntok_t *params)
 {
 	struct json_stream *response;
 	struct ext_key ext;
@@ -376,8 +382,10 @@ static const struct json_command listaddrs_command = {
 };
 AUTODATA(json_command, &listaddrs_command);
 
-static void json_listfunds(struct command *cmd, const char *buffer UNUSED,
-			   const jsmntok_t *params UNUSED)
+static void json_listfunds(struct command *cmd,
+			   const char *buffer,
+			   const jsmntok_t *obj UNNEEDED,
+			   const jsmntok_t *params)
 {
 	struct json_stream *response;
 	struct peer *p;
@@ -503,8 +511,9 @@ static void process_utxo_result(struct bitcoind *bitcoind,
 }
 
 static void json_dev_rescan_outputs(struct command *cmd,
-				    const char *buffer UNUSED,
-				    const jsmntok_t *params UNUSED)
+				    const char *buffer,
+				    const jsmntok_t *obj UNNEEDED,
+				    const jsmntok_t *params)
 {
 	struct txo_rescan *rescan = tal(cmd, struct txo_rescan);
 

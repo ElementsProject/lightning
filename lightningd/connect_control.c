@@ -74,7 +74,9 @@ static void connect_cmd_succeed(struct command *cmd, const struct pubkey *id)
 }
 
 static void json_connect(struct command *cmd,
-			 const char *buffer, const jsmntok_t *params)
+			 const char *buffer,
+			 const jsmntok_t *obj UNNEEDED,
+			 const jsmntok_t *params)
 {
 	u32 *port;
 	jsmntok_t *idtok;

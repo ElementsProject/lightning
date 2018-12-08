@@ -134,7 +134,9 @@ static void destroy_jcon(struct json_connection *jcon)
 }
 
 static void json_help(struct command *cmd,
-		      const char *buffer, const jsmntok_t *params);
+		      const char *buffer,
+		      const jsmntok_t *obj UNNEEDED,
+		      const jsmntok_t *params);
 
 static const struct json_command help_command = {
 	"help",
@@ -151,7 +153,9 @@ static const struct json_command help_command = {
 AUTODATA(json_command, &help_command);
 
 static void json_stop(struct command *cmd,
-		      const char *buffer UNUSED, const jsmntok_t *params UNUSED)
+		      const char *buffer,
+		      const jsmntok_t *obj UNNEEDED,
+		      const jsmntok_t *params)
 {
 	struct json_stream *response;
 
@@ -174,7 +178,9 @@ AUTODATA(json_command, &stop_command);
 
 #if DEVELOPER
 static void json_rhash(struct command *cmd,
-		       const char *buffer, const jsmntok_t *params)
+		       const char *buffer,
+		       const jsmntok_t *obj UNUSED,
+		       const jsmntok_t *params)
 {
 	struct json_stream *response;
 	struct sha256 *secret;
@@ -222,7 +228,9 @@ static void slowcmd_start(struct slowcmd *sc)
 }
 
 static void json_slowcmd(struct command *cmd,
-			 const char *buffer, const jsmntok_t *params)
+			 const char *buffer,
+			 const jsmntok_t *obj UNUSED,
+			 const jsmntok_t *params)
 {
 	struct slowcmd *sc = tal(cmd, struct slowcmd);
 
@@ -244,7 +252,9 @@ static const struct json_command dev_slowcmd_command = {
 AUTODATA(json_command, &dev_slowcmd_command);
 
 static void json_crash(struct command *cmd UNUSED,
-		       const char *buffer UNUSED, const jsmntok_t *params UNUSED)
+		       const char *buffer,
+		       const jsmntok_t *obj UNNEEDED,
+		       const jsmntok_t *params)
 {
 	if (!param(cmd, buffer, params, NULL))
 		return;
@@ -277,7 +287,7 @@ static void json_add_help_command(struct command *cmd,
 {
 	char *usage;
 	cmd->mode = CMD_USAGE;
-	json_command->dispatch(cmd, NULL, NULL);
+	json_command->dispatch(cmd, NULL, NULL, NULL);
 	usage = tal_fmt(cmd, "%s %s", json_command->name, cmd->usage);
 
 	json_object_start(response, NULL);
@@ -302,7 +312,9 @@ static void json_add_help_command(struct command *cmd,
 }
 
 static void json_help(struct command *cmd,
-		      const char *buffer, const jsmntok_t *params)
+		      const char *buffer,
+		      const jsmntok_t *obj UNNEEDED,
+		      const jsmntok_t *params)
 {
 	struct json_stream *response;
 	const jsmntok_t *cmdtok;
@@ -570,7 +582,7 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	}
 
 	db_begin_transaction(jcon->ld->wallet->db);
-	c->json_cmd->dispatch(c, jcon->buffer, params);
+	c->json_cmd->dispatch(c, jcon->buffer, tok, params);
 	db_commit_transaction(jcon->ld->wallet->db);
 
 	/* If they didn't complete it, they must call command_still_pending.
@@ -953,7 +965,9 @@ static bool json_tok_command(struct command *cmd, const char *name,
 }
 
 static void json_check(struct command *cmd,
-		       const char *buffer, const jsmntok_t *params)
+		       const char *buffer,
+		       const jsmntok_t *obj UNNEEDED,
+		       const jsmntok_t *params)
 {
 	jsmntok_t *mod_params;
 	const jsmntok_t *name_tok;
@@ -984,7 +998,7 @@ static void json_check(struct command *cmd,
 	 * we're after and would be more clear. */
 	ok = true;
 	cmd->ok = &ok;
-	cmd->json_cmd->dispatch(cmd, buffer, mod_params);
+	cmd->json_cmd->dispatch(cmd, buffer, mod_params, mod_params);
 
 	if (!ok)
 		return;

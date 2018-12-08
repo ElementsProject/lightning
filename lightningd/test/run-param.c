@@ -507,7 +507,9 @@ static void json_tok_tests(void)
 	test_cb(json_tok_percent, double, "[ 'wow' ]", 0, false);
 }
 
-static void test_invoice(struct command *cmd, const char *buffer,
+static void test_invoice(struct command *cmd,
+			 const char *buffer,
+			 const jsmntok_t *obj UNNEEDED,
 			 const jsmntok_t *params)
 {
 	u64 *msatoshi_val;
@@ -546,7 +548,7 @@ static void usage(void)
 	cmd->mode = CMD_USAGE;
 	cmd->json_cmd = &invoice_command;
 
-	cmd->json_cmd->dispatch(cmd, NULL, NULL);
+	cmd->json_cmd->dispatch(cmd, NULL, NULL, NULL);
 
 	assert(streq(cmd->usage,
 		     "msatoshi label description "

@@ -592,7 +592,9 @@ static void json_pay_stop_retrying(struct pay *pay)
 }
 
 static void json_pay(struct command *cmd,
-		     const char *buffer, const jsmntok_t *params)
+		     const char *buffer,
+		     const jsmntok_t *obj UNNEEDED,
+		     const jsmntok_t *params)
 {
 	double *riskfactor;
 	double *maxfeepercent;
