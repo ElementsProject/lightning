@@ -98,6 +98,10 @@ void PRINTF_FMT(3, 4) command_fail(struct command *cmd, int code,
 /* Mainly for documentation, that we plan to close this later. */
 void command_still_pending(struct command *cmd);
 
+/* For low-level JSON stream access: */
+struct json_stream *json_stream_raw_for_cmd(struct command *cmd);
+void command_raw_complete(struct command *cmd, struct json_stream *result);
+
 /**
  * Create a new jsonrpc to wrap all related information.
  *

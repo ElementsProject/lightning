@@ -56,6 +56,15 @@ void json_object_end(struct json_stream *js);
 void json_stream_append(struct json_stream *js, const char *str);
 
 /**
+ * json_stream_append_part - literally insert part of string into json_stream.
+ * @js: the json_stream.
+ * @str: the string.
+ * @len: the length to append (<= strlen(str)).
+ */
+void json_stream_append_part(struct json_stream *js, const char *str,
+			     size_t len);
+
+/**
  * json_stream_append_fmt - insert formatted string into the json_stream.
  * @js: the json_stream.
  * @fmt...: the printf-style format

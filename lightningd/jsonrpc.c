@@ -386,14 +386,9 @@ static void destroy_command(struct command *cmd)
 	list_del_from(&cmd->jcon->commands, &cmd->list);
 }
 
-void command_success(struct command *cmd, struct json_stream *result)
+void command_raw_complete(struct command *cmd, struct json_stream *result)
 {
-	assert(cmd);
-	assert(cmd->have_json_stream);
-	json_stream_append(result, " }\n\n");
 	json_stream_close(result, cmd);
-	if (cmd->ok)
-		*(cmd->ok) = true;
 
 	/* If we have a jcon, it will free result for us. */
 	if (cmd->jcon)
@@ -402,19 +397,26 @@ void command_success(struct command *cmd, struct json_stream *result)
 	tal_free(cmd);
 }
 
+void command_success(struct command *cmd, struct json_stream *result)
+{
+	assert(cmd);
+	assert(cmd->have_json_stream);
+	json_stream_append(result, " }\n\n");
+	if (cmd->ok)
+		*(cmd->ok) = true;
+
+	command_raw_complete(cmd, result);
+}
+
 void command_failed(struct command *cmd, struct json_stream *result)
 {
 	assert(cmd->have_json_stream);
 	/* Have to close error */
 	json_stream_append(result, " } }\n\n");
-	json_stream_close(result, cmd);
 	if (cmd->ok)
 		*(cmd->ok) = false;
-	/* If we have a jcon, it will free result for us. */
-	if (cmd->jcon)
-		tal_steal(cmd->jcon, result);
 
-	tal_free(cmd);
+	command_raw_complete(cmd, result);
 }
 
 void PRINTF_FMT(3, 4) command_fail(struct command *cmd, int code,
@@ -456,7 +458,7 @@ static void json_command_malformed(struct json_connection *jcon,
 	json_stream_close(js, NULL);
 }
 
-static struct json_stream *attach_json_stream(struct command *cmd)
+struct json_stream *json_stream_raw_for_cmd(struct command *cmd)
 {
 	struct json_stream *js;
 
@@ -473,7 +475,7 @@ static struct json_stream *attach_json_stream(struct command *cmd)
 
 static struct json_stream *json_start(struct command *cmd)
 {
-	struct json_stream *js = attach_json_stream(cmd);
+	struct json_stream *js = json_stream_raw_for_cmd(cmd);
 
 	json_stream_append_fmt(js, "{ \"jsonrpc\": \"2.0\", \"id\" : %s, ",
 			       cmd->id);
