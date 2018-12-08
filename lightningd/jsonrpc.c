@@ -403,8 +403,6 @@ void command_success(struct command *cmd, struct json_stream *result)
 	assert(cmd);
 	assert(cmd->have_json_stream);
 	json_stream_append(result, " }\n\n");
-	if (cmd->ok)
-		*(cmd->ok) = true;
 
 	command_raw_complete(cmd, result);
 }
@@ -414,8 +412,6 @@ void command_failed(struct command *cmd, struct json_stream *result)
 	assert(cmd->have_json_stream);
 	/* Have to close error */
 	json_stream_append(result, " } }\n\n");
-	if (cmd->ok)
-		*(cmd->ok) = false;
 
 	command_raw_complete(cmd, result);
 }
@@ -551,7 +547,6 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 			    json_tok_contents(jcon->buffer, id),
 			    json_tok_len(id));
 	c->mode = CMD_NORMAL;
-	c->ok = NULL;
 	list_add_tail(&jcon->commands, &c->list);
 	tal_add_destructor(c, destroy_command);
 
@@ -981,6 +976,12 @@ static bool json_tok_command(struct command *cmd, const char *name,
 	return false;
 }
 
+/* We add this destructor as a canary to detect cmd failing. */
+static void destroy_command_canary(struct command *cmd, bool *failed)
+{
+	*failed = true;
+}
+
 static void json_check(struct command *cmd,
 		       const char *buffer,
 		       const jsmntok_t *obj UNNEEDED,
@@ -988,7 +989,7 @@ static void json_check(struct command *cmd,
 {
 	jsmntok_t *mod_params;
 	const jsmntok_t *name_tok;
-	bool ok;
+	bool failed;
 	struct json_stream *response;
 
 	if (cmd->mode == CMD_USAGE) {
@@ -1010,13 +1011,11 @@ static void json_check(struct command *cmd,
 	json_tok_remove(&mod_params, (jsmntok_t *)name_tok, 1);
 
 	cmd->mode = CMD_CHECK;
-	/* FIXME(wythe): Maybe change "ok" to "failed" since that's really what
-	 * we're after and would be more clear. */
-	ok = true;
-	cmd->ok = &ok;
+	failed = false;
+	tal_add_destructor2(cmd, destroy_command_canary, &failed);
 	cmd->json_cmd->dispatch(cmd, buffer, mod_params, mod_params);
 
-	if (!ok)
+	if (failed)
 		return;
 
 	response = json_stream_success(cmd);
