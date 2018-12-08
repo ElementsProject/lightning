@@ -766,7 +766,7 @@ void clear_plugins(struct plugins *plugins)
 		tal_free(p);
 }
 
-void plugins_init(struct plugins *plugins)
+void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 {
 	struct plugin *p;
 	char **cmd;
@@ -778,9 +778,13 @@ void plugins_init(struct plugins *plugins)
 
 	/* Spawn the plugin processes before entering the io_loop */
 	list_for_each(&plugins->plugins, p, list) {
-		cmd = tal_arr(p, char *, 2);
+		bool debug;
+
+		debug = dev_plugin_debug && strends(p->cmd, dev_plugin_debug);
+		cmd = tal_arrz(p, char *, 2 + debug);
 		cmd[0] = p->cmd;
-		cmd[1] = NULL;
+		if (debug)
+			cmd[1] = "--debugger";
 		p->pid = pipecmdarr(&stdout, &stdin, NULL, cmd);
 
 		if (p->pid == -1)
@@ -798,9 +802,15 @@ void plugins_init(struct plugins *plugins)
 		json_array_end(req->stream);
 		plugin_request_queue(req);
 		plugins->pending_manifests++;
-		p->timeout_timer = new_reltimer(
-		    &plugins->timers, p, time_from_sec(PLUGIN_MANIFEST_TIMEOUT),
-		    plugin_manifest_timeout, p);
+		/* Don't timeout if they're running a debugger. */
+		if (debug)
+			p->timeout_timer = NULL;
+		else {
+			p->timeout_timer
+				= new_reltimer(&plugins->timers, p,
+					       time_from_sec(PLUGIN_MANIFEST_TIMEOUT),
+					       plugin_manifest_timeout, p);
+		}
 		tal_free(cmd);
 	}
 

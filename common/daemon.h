@@ -14,6 +14,9 @@ int daemon_poll(struct pollfd *fds, nfds_t nfds, int timeout);
 /* Shutdown for a valgrind-clean exit (frees everything) */
 void daemon_shutdown(void);
 
+/* Kick in a debugger if they set --debugger */
+void daemon_maybe_debug(int argc, char *argv[]);
+
 struct backtrace_state *backtrace_state;
 
 #endif /* LIGHTNING_COMMON_DAEMON_H */

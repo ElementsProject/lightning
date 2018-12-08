@@ -37,19 +37,10 @@ void subdaemon_setup(int argc, char *argv[])
 			logging_io = true;
 	}
 
+	daemon_maybe_debug(argc, argv);
+
 #if DEVELOPER
-	/* From debugger, set debugger_spin to 0. */
 	for (int i = 1; i < argc; i++) {
-		if (streq(argv[i], "--debugger")) {
-			char *cmd = tal_fmt(NULL, "${DEBUG_TERM:-gnome-terminal --} gdb -ex 'attach %u' %s &", getpid(), argv[0]);
-			fprintf(stderr, "Running %s\n", cmd);
-			/* warn_unused_result is fascist bullshit.
-			 * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=66425 */
-			if (system(cmd))
-				;
-			/* Continue in the debugger. */
-			kill(getpid(), SIGSTOP);
-		}
 		if (strstarts(argv[i], "--dev-disconnect=")) {
 			dev_disconnect_init(atoi(argv[i]
 						 + strlen("--dev-disconnect=")));

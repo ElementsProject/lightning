@@ -206,7 +206,6 @@ void subd_shutdown(struct subd *subd, unsigned int seconds);
 const char *find_my_abspath(const tal_t *ctx, const char *argv0);
 
 #if DEVELOPER
-char *opt_subd_debug(const char *optarg, struct lightningd *ld);
 char *opt_subd_dev_disconnect(const char *optarg, struct lightningd *ld);
 
 bool dev_disconnect_permanent(struct lightningd *ld);

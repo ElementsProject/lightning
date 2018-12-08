@@ -626,7 +626,7 @@ static struct subd *new_subd(struct lightningd *ld,
 	assert(name != NULL);
 
 #if DEVELOPER
-	debug_subd = ld->dev_debug_subdaemon;
+	debug_subd = ld->dev_debug_subprocess;
 	disconnect_fd = ld->dev_disconnect_fd;
 #endif /* DEVELOPER */
 
@@ -784,12 +784,6 @@ void subd_release_channel(struct subd *owner, void *channel)
 }
 
 #if DEVELOPER
-char *opt_subd_debug(const char *optarg, struct lightningd *ld)
-{
-	ld->dev_debug_subdaemon = optarg;
-	return NULL;
-}
-
 char *opt_subd_dev_disconnect(const char *optarg, struct lightningd *ld)
 {
 	ld->dev_disconnect_fd = open(optarg, O_RDONLY);
