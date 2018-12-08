@@ -37,7 +37,6 @@ struct command {
 	enum command_mode mode;
 	/* This is created if mode is CMD_USAGE */
 	const char *usage;
-	bool *ok;
 	/* Have we started a json stream already?  For debugging. */
 	bool have_json_stream;
 };
