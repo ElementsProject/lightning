@@ -90,4 +90,6 @@ typedef bool(*param_cbx)(struct command *cmd,
 				   (const jsmntok_t *)NULL,	    \
 				   (arg)) == true); })
 
+/* Special flag for 'check' which allows any parameters. */
+#define p_opt_any() "", false, NULL, NULL
 #endif /* LIGHTNING_LIGHTNINGD_PARAM_H */
