@@ -184,7 +184,7 @@ LDLIBS = -L/usr/local/lib -lm -lgmp -lsqlite3 -lz $(COVFLAGS)
 
 default: all-programs all-test-programs
 
-config.vars ccan/config.h: configure
+config.vars ccan/config.h: configure ccan/tools/configurator/configurator.c
 	@if [ ! -f config.vars ]; then echo 'The 1990s are calling: use ./configure!' >&2; exit 1; fi
 	./configure --reconfigure
 

@@ -258,10 +258,10 @@ void test_subdaemons(const struct lightningd *ld)
 		const char *dpath = path_join(tmpctx, ld->daemon_dir, subdaemons[i]);
 		const char *verstring;
 		/*~ CCAN's pipecmd module is like popen for grownups: it
-		 * takes pointers to fill in stdout, stdin and stderr file
+		 * takes pointers to fill in stdin, stdout and stderr file
 		 * descriptors if desired, and the remainder of arguments
 		 * are the command and its argument. */
-		pid_t pid = pipecmd(&outfd, NULL, &outfd,
+		pid_t pid = pipecmd(NULL, &outfd, &outfd,
 				    dpath, "--version", NULL);
 
 		/*~ Our logging system: spam goes in at log_debug level, but

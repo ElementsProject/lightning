@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+int pipecmd_preserve;
+
 static char **gather_args(const char *arg0, va_list ap)
 {
 	size_t n = 1;
@@ -26,7 +28,7 @@ static char **gather_args(const char *arg0, va_list ap)
 	return arr;
 }
 
-pid_t pipecmdv(int *fd_fromchild, int *fd_tochild, int *fd_errfromchild,
+pid_t pipecmdv(int *fd_tochild, int *fd_fromchild, int *fd_errfromchild,
 	       const char *cmd, va_list ap)
 {
 	char **arr = gather_args(cmd, ap);
@@ -36,12 +38,12 @@ pid_t pipecmdv(int *fd_fromchild, int *fd_tochild, int *fd_errfromchild,
 		errno = ENOMEM;
 		return -1;
 	}
-	ret = pipecmdarr(fd_fromchild, fd_tochild, fd_errfromchild, arr);
+	ret = pipecmdarr(fd_tochild, fd_fromchild, fd_errfromchild, arr);
 	free_noerr(arr);
 	return ret;
 }
 
-pid_t pipecmdarr(int *fd_fromchild, int *fd_tochild, int *fd_errfromchild,
+pid_t pipecmdarr(int *fd_tochild, int *fd_fromchild, int *fd_errfromchild,
 		 char *const *arr)
 {
 	int tochild[2], fromchild[2], errfromchild[2], execfail[2];
@@ -49,7 +51,10 @@ pid_t pipecmdarr(int *fd_fromchild, int *fd_tochild, int *fd_errfromchild,
 	int err;
 
 	if (fd_tochild) {
-		if (pipe(tochild) != 0)
+		if (fd_tochild == &pipecmd_preserve) {
+			tochild[0] = STDIN_FILENO;
+			fd_tochild = NULL;
+		} else if (pipe(tochild) != 0)
 			goto fail;
 	} else {
 		tochild[0] = open("/dev/null", O_RDONLY);
@@ -57,7 +62,10 @@ pid_t pipecmdarr(int *fd_fromchild, int *fd_tochild, int *fd_errfromchild,
 			goto fail;
 	}
 	if (fd_fromchild) {
-		if (pipe(fromchild) != 0)
+		if (fd_fromchild == &pipecmd_preserve) {
+			fromchild[1] = STDOUT_FILENO;
+			fd_fromchild = NULL;
+		} else if (pipe(fromchild) != 0)
 			goto close_tochild_fail;
 	} else {
 		fromchild[1] = open("/dev/null", O_WRONLY);
@@ -65,7 +73,10 @@ pid_t pipecmdarr(int *fd_fromchild, int *fd_tochild, int *fd_errfromchild,
 			goto close_tochild_fail;
 	}
 	if (fd_errfromchild) {
-		if (fd_errfromchild == fd_fromchild) {
+		if (fd_errfromchild == &pipecmd_preserve) {
+			errfromchild[1] = STDERR_FILENO;
+			fd_errfromchild = NULL;
+		} else if (fd_errfromchild == fd_fromchild) {
 			errfromchild[0] = fromchild[0];
 			errfromchild[1] = fromchild[1];
 		} else {
@@ -77,7 +88,7 @@ pid_t pipecmdarr(int *fd_fromchild, int *fd_tochild, int *fd_errfromchild,
 		if (errfromchild[1] < 0)
 			goto close_fromchild_fail;
 	}
-		
+
 	if (pipe(execfail) != 0)
 		goto close_errfromchild_fail;
 
@@ -168,14 +179,14 @@ fail:
 	return -1;
 }
 
-pid_t pipecmd(int *fd_fromchild, int *fd_tochild, int *fd_errfromchild,
+pid_t pipecmd(int *fd_tochild, int *fd_fromchild, int *fd_errfromchild,
 	      const char *cmd, ...)
 {
 	pid_t childpid;
 
 	va_list ap;
 	va_start(ap, cmd);
-	childpid = pipecmdv(fd_fromchild, fd_tochild, fd_errfromchild, cmd, ap);
+	childpid = pipecmdv(fd_tochild, fd_fromchild, fd_errfromchild, cmd, ap);
 	va_end(ap);
 
 	return childpid;

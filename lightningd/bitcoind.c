@@ -229,7 +229,7 @@ static void next_bcli(struct bitcoind *bitcoind, enum bitcoind_prio prio)
 	if (!bcli)
 		return;
 
-	bcli->pid = pipecmdarr(&bcli->fd, NULL, &bcli->fd,
+	bcli->pid = pipecmdarr(NULL, &bcli->fd, &bcli->fd,
 			       cast_const2(char **, bcli->args));
 	if (bcli->pid < 0)
 		fatal("%s exec failed: %s", bcli->args[0], strerror(errno));
@@ -806,7 +806,7 @@ void wait_for_bitcoind(struct bitcoind *bitcoind)
 	bool printed = false;
 
 	for (;;) {
-		child = pipecmdarr(&from, NULL, &from, cast_const2(char **,cmd));
+		child = pipecmdarr(NULL, &from, &from, cast_const2(char **,cmd));
 		if (child < 0) {
 			if (errno == ENOENT) {
 				fatal_bitcoind_failure(bitcoind, "bitcoin-cli not found. Is bitcoin-cli (part of Bitcoin Core) available in your PATH?");
