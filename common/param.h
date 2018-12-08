@@ -1,6 +1,9 @@
-#ifndef LIGHTNING_LIGHTNINGD_PARAM_H
-#define LIGHTNING_LIGHTNINGD_PARAM_H
+#ifndef LIGHTNING_COMMON_PARAM_H
+#define LIGHTNING_COMMON_PARAM_H
 #include "config.h"
+#include <common/json.h>
+#include <common/json_tok.h>
+#include <stdbool.h>
 
 /*~ Greetings adventurer!
  *
@@ -28,8 +31,9 @@
  *
  * All the command handlers throughout the code use this system.
  * json_invoice() is a great example.  The common callbacks can be found in
- * lightningd/json.c.  Use them directly or feel free to write your own.
+ * common/json_tok.c.  Use them directly or feel free to write your own.
  */
+struct command;
 
 /*
  * Parse the json tokens.  @params can be an array of values or an object
@@ -92,4 +96,4 @@ typedef bool(*param_cbx)(struct command *cmd,
 
 /* Special flag for 'check' which allows any parameters. */
 #define p_opt_any() "", false, NULL, NULL
-#endif /* LIGHTNING_LIGHTNINGD_PARAM_H */
+#endif /* LIGHTNING_COMMON_PARAM_H */

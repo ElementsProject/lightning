@@ -164,9 +164,6 @@ void json_array_end(struct json_stream *js UNNEEDED)
 /* Generated stub for json_array_start */
 void json_array_start(struct json_stream *js UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_array_start called!\n"); abort(); }
-/* Generated stub for json_escape */
-struct json_escaped *json_escape(const tal_t *ctx UNNEEDED, const char *str TAKES UNNEEDED)
-{ fprintf(stderr, "json_escape called!\n"); abort(); }
 /* Generated stub for json_object_end */
 void json_object_end(struct json_stream *js UNNEEDED)
 { fprintf(stderr, "json_object_end called!\n"); abort(); }

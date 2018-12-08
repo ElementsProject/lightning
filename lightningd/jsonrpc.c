@@ -24,7 +24,10 @@
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/json_command.h>
+#include <common/json_escaped.h>
+#include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
+#include <common/param.h>
 #include <common/timeout.h>
 #include <common/version.h>
 #include <common/wallet_tx.h>
@@ -33,12 +36,9 @@
 #include <fcntl.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/json.h>
-#include <lightningd/json_escaped.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
-#include <lightningd/param.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/stat.h>

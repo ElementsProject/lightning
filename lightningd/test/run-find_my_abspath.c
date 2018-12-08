@@ -91,9 +91,6 @@ void hsm_init(struct lightningd *ld UNNEEDED)
 /* Generated stub for htlcs_notify_new_block */
 void htlcs_notify_new_block(struct lightningd *ld UNNEEDED, u32 height UNNEEDED)
 { fprintf(stderr, "htlcs_notify_new_block called!\n"); abort(); }
-/* Generated stub for json_escape */
-struct json_escaped *json_escape(const tal_t *ctx UNNEEDED, const char *str TAKES UNNEEDED)
-{ fprintf(stderr, "json_escape called!\n"); abort(); }
 /* Generated stub for jsonrpc_listen */
 void jsonrpc_listen(struct jsonrpc *rpc UNNEEDED, struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "jsonrpc_listen called!\n"); abort(); }

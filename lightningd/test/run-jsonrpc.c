@@ -1,4 +1,3 @@
-#include "../json_escaped.c"
 #include "../json_stream.c"
 #include "../jsonrpc.c"
 #include "../json.c"
@@ -26,6 +25,21 @@ char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr
 bool json_feerate_estimate(struct command *cmd UNNEEDED,
 			   u32 **feerate_per_kw UNNEEDED, enum feerate feerate UNNEEDED)
 { fprintf(stderr, "json_feerate_estimate called!\n"); abort(); }
+/* Generated stub for json_tok_number */
+bool json_tok_number(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+		     const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		     unsigned int **num UNNEEDED)
+{ fprintf(stderr, "json_tok_number called!\n"); abort(); }
+/* Generated stub for json_tok_sha256 */
+bool json_tok_sha256(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+		     const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		     struct sha256 **hash UNNEEDED)
+{ fprintf(stderr, "json_tok_sha256 called!\n"); abort(); }
+/* Generated stub for json_tok_tok */
+bool json_tok_tok(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+		  const char *buffer UNNEEDED, const jsmntok_t * tok UNNEEDED,
+		  const jsmntok_t **out UNNEEDED)
+{ fprintf(stderr, "json_tok_tok called!\n"); abort(); }
 /* Generated stub for log_ */
 void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED, const char *fmt UNNEEDED, ...)
 

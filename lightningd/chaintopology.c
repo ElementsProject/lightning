@@ -13,14 +13,15 @@
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
+#include <common/json_command.h>
+#include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
+#include <common/param.h>
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <inttypes.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/gossip_control.h>
-#include <lightningd/jsonrpc_errors.h>
-#include <lightningd/param.h>
 
 /* Mutual recursion via timer. */
 static void try_extend_tip(struct chain_topology *topo);

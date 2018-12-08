@@ -3,7 +3,10 @@
 #include <bitcoin/script.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
+#include <common/json_command.h>
+#include <common/jsonrpc_errors.h>
 #include <common/key_derive.h>
+#include <common/param.h>
 #include <common/status.h>
 #include <common/utxo.h>
 #include <common/wallet_tx.h>
@@ -16,10 +19,8 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
-#include <lightningd/param.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wally_bip32.h>

@@ -64,7 +64,7 @@ struct json_stream *json_stream_success(struct command *cmd);
 /**
  * json_stream_fail - start streaming a failed json result.
  * @cmd: the command we're running.
- * @code: the error code from lightningd/jsonrpc_errors.h
+ * @code: the error code from common/jsonrpc_errors.h
  * @errmsg: the error string.
  *
  * The returned value should go to command_failed() when done;
@@ -77,7 +77,7 @@ struct json_stream *json_stream_fail(struct command *cmd,
 /**
  * json_stream_fail_nodata - start streaming a failed json result.
  * @cmd: the command we're running.
- * @code: the error code from lightningd/jsonrpc_errors.h
+ * @code: the error code from common/jsonrpc_errors.h
  * @errmsg: the error string.
  *
  * This is used by command_fail(), which doesn't add any JSON data.
@@ -89,8 +89,6 @@ struct json_stream *json_stream_fail_nodata(struct command *cmd,
 struct json_stream *null_response(struct command *cmd);
 void command_success(struct command *cmd, struct json_stream *response);
 void command_failed(struct command *cmd, struct json_stream *result);
-void PRINTF_FMT(3, 4) command_fail(struct command *cmd, int code,
-				   const char *fmt, ...);
 
 /* Mainly for documentation, that we plan to close this later. */
 void command_still_pending(struct command *cmd);
