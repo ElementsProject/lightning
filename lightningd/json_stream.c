@@ -95,13 +95,16 @@ static void js_written_some(struct json_stream *js)
 	io_wake(js);
 }
 
-void json_stream_append(struct json_stream *js, const char *str)
+void json_stream_append_part(struct json_stream *js, const char *str, size_t len)
 {
-	size_t len = strlen(str);
-
 	mkroom(js, len);
 	memcpy(membuf_add(&js->outbuf, len), str, len);
 	js_written_some(js);
+}
+
+void json_stream_append(struct json_stream *js, const char *str)
+{
+	json_stream_append_part(js, str, strlen(str));
 }
 
 static void json_stream_append_vfmt(struct json_stream *js,
