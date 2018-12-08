@@ -82,8 +82,8 @@ bool json_to_number(const char *buffer, const jsmntok_t *tok,
 	return true;
 }
 
-bool json_tok_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
-			     uint64_t *satoshi)
+bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
+			    uint64_t *satoshi)
 {
 	char *end;
 	unsigned long btc, sat;
