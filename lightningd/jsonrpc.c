@@ -23,6 +23,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
+#include <common/json_command.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/version.h>
@@ -551,7 +552,6 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 			    json_tok_len(id));
 	c->mode = CMD_NORMAL;
 	c->ok = NULL;
-	c->allow_unused = false;
 	list_add_tail(&jcon->commands, &c->list);
 	tal_add_destructor(c, destroy_command);
 
@@ -776,6 +776,21 @@ struct jsonrpc *jsonrpc_new(const tal_t *ctx, struct lightningd *ld)
 	return jsonrpc;
 }
 
+bool command_usage_only(const struct command *cmd)
+{
+	return cmd->mode == CMD_USAGE;
+}
+
+void command_set_usage(struct command *cmd, const char *usage)
+{
+	cmd->usage = usage;
+}
+
+bool command_check_only(const struct command *cmd)
+{
+	return cmd->mode == CMD_CHECK;
+}
+
 void jsonrpc_listen(struct jsonrpc *jsonrpc, struct lightningd *ld)
 {
 	struct sockaddr_un addr;
@@ -980,11 +995,11 @@ static void json_check(struct command *cmd,
 		mod_params = NULL;
 	} else {
 		mod_params = json_tok_copy(cmd, params);
-		cmd->allow_unused = true;
 	}
 
 	if (!param(cmd, buffer, mod_params,
 		   p_req("command_to_check", json_tok_command, &name_tok),
+		   p_opt_any(),
 		   NULL))
 		return;
 
@@ -995,7 +1010,6 @@ static void json_check(struct command *cmd,
 	json_tok_remove(&mod_params, (jsmntok_t *)name_tok, 1);
 
 	cmd->mode = CMD_CHECK;
-	cmd->allow_unused = false;
 	/* FIXME(wythe): Maybe change "ok" to "failed" since that's really what
 	 * we're after and would be more clear. */
 	ok = true;

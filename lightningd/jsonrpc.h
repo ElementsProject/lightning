@@ -38,8 +38,6 @@ struct command {
 	/* This is created if mode is CMD_USAGE */
 	const char *usage;
 	bool *ok;
-	/* Do not report unused parameters as errors (default false). */
-	bool allow_unused;
 	/* Have we started a json stream already?  For debugging. */
 	bool have_json_stream;
 };
