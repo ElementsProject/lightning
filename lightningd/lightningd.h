@@ -183,10 +183,10 @@ struct lightningd {
 	 * if we are the fundee. */
 	u32 max_funding_unconfirmed;
 
-#if DEVELOPER
-	/* If we want to debug a subdaemon. */
-	const char *dev_debug_subdaemon;
+	/* If we want to debug a subdaemon/plugin. */
+	const char *dev_debug_subprocess;
 
+#if DEVELOPER
 	/* If we have a --dev-disconnect file */
 	int dev_disconnect_fd;
 

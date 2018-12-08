@@ -435,6 +435,12 @@ static void config_register_opts(struct lightningd *ld)
 }
 
 #if DEVELOPER
+static char *opt_subprocess_debug(const char *optarg, struct lightningd *ld)
+{
+	ld->dev_debug_subprocess = optarg;
+	return NULL;
+}
+
 static void dev_register_opts(struct lightningd *ld)
 {
 	opt_register_noarg("--dev-no-reconnect", opt_set_invbool,
@@ -442,8 +448,8 @@ static void dev_register_opts(struct lightningd *ld)
 			   "Disable automatic reconnect attempts");
 	opt_register_noarg("--dev-fail-on-subdaemon-fail", opt_set_bool,
 			   &ld->dev_subdaemon_fail, opt_hidden);
-	opt_register_arg("--dev-debugger=<subdaemon>", opt_subd_debug, NULL,
-			 ld, "Invoke gdb at start of <subdaemon>");
+	opt_register_early_arg("--dev-debugger=<subprocess>", opt_subprocess_debug, NULL,
+			 ld, "Invoke gdb at start of <subprocess>");
 	opt_register_arg("--dev-broadcast-interval=<ms>", opt_set_uintval,
 			 opt_show_uintval, &ld->config.broadcast_interval_msec,
 			 "Time between gossip broadcasts in milliseconds");

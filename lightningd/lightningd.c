@@ -110,8 +110,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * is a nod to keeping it minimal and explicit: we need this code for
 	 * testing, but its existence means we're not actually testing the
 	 * same exact code users will be running. */
+	ld->dev_debug_subprocess = NULL;
 #if DEVELOPER
-	ld->dev_debug_subdaemon = NULL;
 	ld->dev_disconnect_fd = -1;
 	ld->dev_subdaemon_fail = false;
 	ld->dev_allow_localhost = false;
@@ -611,7 +611,7 @@ int main(int argc, char *argv[])
 	/*~ Initialize all the plugins we just registered, so they can
 	 *  do their thing and tell us about themselves (including
 	 *  options registration). */
-	plugins_init(ld->plugins);
+	plugins_init(ld->plugins, ld->dev_debug_subprocess);
 
 	/*~ Handle options and config; move to .lightningd (--lightning-dir) */
 	handle_opts(ld, argc, argv);

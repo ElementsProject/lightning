@@ -4,6 +4,7 @@
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/str/str.h>
+#include <ccan/tal/str/str.h>
 #include <common/daemon.h>
 #include <common/memleak.h>
 #include <common/status.h>
@@ -149,4 +150,24 @@ void daemon_shutdown(void)
 #endif
 	tal_free(tmpctx);
 	wally_cleanup(0);
+}
+
+void daemon_maybe_debug(int argc, char *argv[])
+{
+#if DEVELOPER
+	for (int i = 1; i < argc; i++) {
+		if (!streq(argv[i], "--debugger"))
+			continue;
+
+		/* Don't let this mess up stdout, so redir to /dev/null */
+		char *cmd = tal_fmt(NULL, "${DEBUG_TERM:-gnome-terminal --} gdb -ex 'attach %u' %s >/dev/null &", getpid(), argv[0]);
+		fprintf(stderr, "Running %s\n", cmd);
+		/* warn_unused_result is fascist bullshit.
+		 * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=66425 */
+		if (system(cmd))
+			;
+		/* Continue in the debugger. */
+		kill(getpid(), SIGSTOP);
+	}
+#endif /* DEVELOPER */
 }

@@ -27,8 +27,10 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
  * arguments. In order to read the getmanifest reply from the plugins
  * we spin up our own io_loop that exits once all plugins have
  * responded.
+ *
+ * The dev_plugin_debug arg comes from --dev-debugger if DEVELOPER.
  */
-void plugins_init(struct plugins *plugins);
+void plugins_init(struct plugins *plugins, const char *dev_plugin_debug);
 
 /**
  * Register a plugin for initialization and execution.
