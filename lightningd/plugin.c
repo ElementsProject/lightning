@@ -725,11 +725,11 @@ static const char *plugin_fullpath(const tal_t *ctx, const char *dir,
 	fullname = path_join(ctx, dir, basename);
 	if (stat(fullname, &st) != 0)
 		return tal_free(fullname);
-	if (!(st.st_mode & (S_IXUSR|S_IXGRP|S_IXOTH)) || st.st_mode & S_IFDIR)
+	/* Only regular files please (or symlinks to such: stat not lstat!) */
+	if ((st.st_mode & S_IFMT) != S_IFREG)
 		return tal_free(fullname);
-
-	/* Ignore directories, they have exec mode, but aren't executable. */
-	if (st.st_mode & S_IFDIR)
+	/* Must be executable by someone. */
+	if (!(st.st_mode & (S_IXUSR|S_IXGRP|S_IXOTH)))
 		return tal_free(fullname);
 	return fullname;
 }
