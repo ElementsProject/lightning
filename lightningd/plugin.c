@@ -276,7 +276,8 @@ static bool plugin_read_json_one(struct plugin *plugin)
 	toks = json_parse_input(plugin->buffer, plugin->used, &valid);
 	if (!toks) {
 		if (!valid) {
-			plugin_kill(plugin, "Failed to parse JSON response");
+			plugin_kill(plugin, "Failed to parse JSON response '%.*s'",
+				    (int)plugin->used, plugin->buffer);
 			return false;
 		}
 		/* We need more. */
