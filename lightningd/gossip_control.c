@@ -243,8 +243,10 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 	command_success(cmd, response);
 }
 
-static void json_listnodes(struct command *cmd, const char *buffer,
-			  const jsmntok_t *params)
+static void json_listnodes(struct command *cmd,
+			   const char *buffer,
+			   const jsmntok_t *obj UNNEEDED,
+			   const jsmntok_t *params)
 {
 	u8 *req;
 	struct pubkey *id;
@@ -286,7 +288,10 @@ static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, con
 	command_success(cmd, response);
 }
 
-static void json_getroute(struct command *cmd, const char *buffer, const jsmntok_t *params)
+static void json_getroute(struct command *cmd,
+			  const char *buffer,
+			  const jsmntok_t *obj UNNEEDED,
+			  const jsmntok_t *params)
 {
 	struct lightningd *ld = cmd->ld;
 	struct pubkey *destination;
@@ -393,8 +398,10 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 	command_success(cmd, response);
 }
 
-static void json_listchannels(struct command *cmd, const char *buffer,
-			     const jsmntok_t *params)
+static void json_listchannels(struct command *cmd,
+			      const char *buffer,
+			      const jsmntok_t *obj UNNEEDED,
+			      const jsmntok_t *params)
 {
 	u8 *req;
 	struct short_channel_id *id;
@@ -443,7 +450,9 @@ static void json_scids_reply(struct subd *gossip UNUSED, const u8 *reply,
 }
 
 static void json_dev_query_scids(struct command *cmd,
-				 const char *buffer, const jsmntok_t *params)
+				 const char *buffer,
+				 const jsmntok_t *obj UNNEEDED,
+				 const jsmntok_t *params)
 {
 	u8 *msg;
 	const jsmntok_t *scidstok;
@@ -486,6 +495,7 @@ AUTODATA(json_command, &dev_query_scids_command);
 
 static void json_dev_send_timestamp_filter(struct command *cmd,
 					   const char *buffer,
+					   const jsmntok_t *obj UNNEEDED,
 					   const jsmntok_t *params)
 {
 	u8 *msg;
@@ -555,6 +565,7 @@ static void json_channel_range_reply(struct subd *gossip UNUSED, const u8 *reply
 
 static void json_dev_query_channel_range(struct command *cmd,
 					 const char *buffer,
+					 const jsmntok_t *obj UNNEEDED,
 					 const jsmntok_t *params)
 {
 	u8 *msg;
@@ -584,6 +595,7 @@ AUTODATA(json_command, &dev_query_channel_range_command);
 
 static void json_dev_set_max_scids_encode_size(struct command *cmd,
 					       const char *buffer,
+					       const jsmntok_t *obj UNNEEDED,
 					       const jsmntok_t *params)
 {
 	u8 *msg;
@@ -609,6 +621,7 @@ AUTODATA(json_command, &dev_set_max_scids_encode_size);
 
 static void json_dev_suppress_gossip(struct command *cmd,
 				     const char *buffer,
+				     const jsmntok_t *obj UNNEEDED,
 				     const jsmntok_t *params)
 {
 	if (!param(cmd, buffer, params, NULL))

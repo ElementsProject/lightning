@@ -79,7 +79,9 @@ void ping_reply(struct subd *subd, const u8 *msg)
 }
 
 static void json_ping(struct command *cmd,
-		      const char *buffer, const jsmntok_t *params)
+		      const char *buffer,
+		      const jsmntok_t *obj UNNEEDED,
+		      const jsmntok_t *params)
 {
 	u8 *msg;
 	unsigned int *len, *pongbytes;

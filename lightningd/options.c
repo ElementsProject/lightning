@@ -1046,7 +1046,9 @@ static void add_config(struct lightningd *ld,
 }
 
 static void json_listconfigs(struct command *cmd,
-			     const char *buffer, const jsmntok_t *params)
+			     const char *buffer,
+			     const jsmntok_t *obj UNNEEDED,
+			     const jsmntok_t *params)
 {
 	size_t i;
 	struct json_stream *response = NULL;

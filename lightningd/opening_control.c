@@ -762,7 +762,9 @@ void opening_peer_no_active_channels(struct peer *peer)
  * json_fund_channel - Entrypoint for funding a channel
  */
 static void json_fund_channel(struct command *cmd,
-			      const char *buffer, const jsmntok_t *params)
+			      const char *buffer,
+			      const jsmntok_t *obj UNNEEDED,
+			      const jsmntok_t *params)
 {
 	const jsmntok_t *sattok;
 	struct funding_channel * fc = tal(cmd, struct funding_channel);

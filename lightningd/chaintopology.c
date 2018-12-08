@@ -463,7 +463,9 @@ u32 feerate_to_style(u32 feerate_perkw, enum feerate_style style)
 }
 
 static void json_feerates(struct command *cmd,
-			    const char *buffer, const jsmntok_t *params)
+			  const char *buffer,
+			  const jsmntok_t *obj UNNEEDED,
+			  const jsmntok_t *params)
 {
 	struct chain_topology *topo = cmd->ld->topology;
 	struct json_stream *response;

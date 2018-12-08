@@ -716,7 +716,9 @@ bool json_tok_loglevel(struct command *cmd, const char *name,
 }
 
 static void json_getlog(struct command *cmd,
-			const char *buffer, const jsmntok_t * params)
+			const char *buffer,
+			const jsmntok_t *obj UNNEEDED,
+			const jsmntok_t * params)
 {
 	struct json_stream *response;
 	enum log_level *minlevel;

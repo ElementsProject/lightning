@@ -47,7 +47,9 @@ struct command {
 struct json_command {
 	const char *name;
 	void (*dispatch)(struct command *,
-			 const char *buffer, const jsmntok_t *params);
+			 const char *buffer,
+			 const jsmntok_t *obj,
+			 const jsmntok_t *params);
 	const char *description;
 	bool deprecated;
 	const char *verbose;
