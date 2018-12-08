@@ -249,7 +249,8 @@ static bool plugin_read_json_one(struct plugin *plugin)
 	/* FIXME: This could be done more efficiently by storing the
 	 * toks and doing an incremental parse, like lightning-cli
 	 * does. */
-	toks = json_parse_input(plugin->buffer, plugin->used, &valid);
+	toks = json_parse_input(plugin->buffer, plugin->buffer, plugin->used,
+				&valid);
 	if (!toks) {
 		if (!valid) {
 			plugin_kill(plugin, "Failed to parse JSON response '%.*s'",

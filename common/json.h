@@ -55,7 +55,8 @@ const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index);
 
 /* If input is complete and valid, return tokens. */
-jsmntok_t *json_parse_input(const char *input, int len, bool *valid);
+jsmntok_t *json_parse_input(const tal_t *ctx,
+			    const char *input, int len, bool *valid);
 
 /* Convert a jsmntype_t enum to a human readable string. */
 const char *jsmntype_to_string(jsmntype_t t);
