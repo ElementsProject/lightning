@@ -4,7 +4,10 @@
 #include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
 #include <common/features.h>
+#include <common/json_command.h>
+#include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
+#include <common/param.h>
 #include <common/pseudorand.h>
 #include <common/timeout.h>
 #include <common/wireaddr.h>
@@ -18,11 +21,9 @@
 #include <lightningd/json.h>
 #include <lightningd/json_stream.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/opening_control.h>
-#include <lightningd/param.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wire/gen_peer_wire.h>

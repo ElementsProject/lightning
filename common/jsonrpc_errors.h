@@ -1,8 +1,8 @@
-/* lightningd/jsonrpc_errors.h
+/* common/jsonrpc_errors.h
  * Lists error codes for JSON-RPC.
  */
-#ifndef LIGHTNING_LIGHTNINGD_JSONRPC_ERRORS_H
-#define LIGHTNING_LIGHTNINGD_JSONRPC_ERRORS_H
+#ifndef LIGHTNING_COMMON_JSONRPC_ERRORS_H
+#define LIGHTNING_COMMON_JSONRPC_ERRORS_H
 #include "config.h"
 
 /* Standard errors defined by JSON-RPC 2.0 standard */
@@ -44,4 +44,4 @@
 #define INVOICE_LABEL_ALREADY_EXISTS	900
 #define INVOICE_PREIMAGE_ALREADY_EXISTS	901
 
-#endif /* LIGHTNING_LIGHTNINGD_JSONRPC_ERRORS_H */
+#endif /* LIGHTNING_COMMON_JSONRPC_ERRORS_H */

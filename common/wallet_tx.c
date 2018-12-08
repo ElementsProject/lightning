@@ -1,6 +1,7 @@
+#include <common/json_command.h>
+#include <common/jsonrpc_errors.h>
 #include <common/wallet_tx.h>
 #include <inttypes.h>
-#include <lightningd/jsonrpc_errors.h>
 #include <wallet/wallet.h>
 
 void wtx_init(struct command *cmd, struct wallet_tx * wtx)

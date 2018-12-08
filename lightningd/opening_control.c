@@ -4,7 +4,10 @@
 #include <ccan/tal/str/str.h>
 #include <common/channel_config.h>
 #include <common/funding_tx.h>
+#include <common/json_command.h>
+#include <common/jsonrpc_errors.h>
 #include <common/key_derive.h>
+#include <common/param.h>
 #include <common/wallet_tx.h>
 #include <common/wire_error.h>
 #include <connectd/gen_connect_wire.h>
@@ -16,11 +19,9 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/opening_control.h>
-#include <lightningd/param.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <openingd/gen_opening_wire.h>

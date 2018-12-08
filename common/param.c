@@ -1,12 +1,9 @@
 #include <ccan/asort/asort.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>
+#include <common/jsonrpc_errors.h>
+#include <common/param.h>
 #include <common/utils.h>
-#include <lightningd/json.h>
-#include <lightningd/jsonrpc.h>
-#include <lightningd/jsonrpc_errors.h>
-#include <lightningd/lightningd.h>
-#include <lightningd/param.h>
 
 struct param {
 	const char *name;

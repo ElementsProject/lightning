@@ -1,14 +1,15 @@
 #include <channeld/gen_channel_wire.h>
+#include <common/json_command.h>
+#include <common/jsonrpc_errors.h>
+#include <common/param.h>
 #include <common/sphinx.h>
 #include <common/utils.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
-#include <lightningd/param.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/ping.h>
 #include <lightningd/subd.h>

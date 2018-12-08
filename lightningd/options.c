@@ -10,7 +10,11 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
+#include <common/json_command.h>
+#include <common/json_escaped.h>
+#include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
+#include <common/param.h>
 #include <common/version.h>
 #include <common/wireaddr.h>
 #include <errno.h>
@@ -19,13 +23,10 @@
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/json.h>
-#include <lightningd/json_escaped.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
-#include <lightningd/param.h>
 #include <lightningd/plugin.h>
 #include <lightningd/subd.h>
 #include <stdio.h>

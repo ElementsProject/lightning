@@ -1,7 +1,6 @@
 #include "invoice.h"
 #include "json.h"
 #include "jsonrpc.h"
-#include "jsonrpc_errors.h"
 #include "lightningd.h"
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
@@ -10,6 +9,10 @@
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
+#include <common/json_command.h>
+#include <common/json_escaped.h>
+#include <common/jsonrpc_errors.h>
+#include <common/param.h>
 #include <common/pseudorand.h>
 #include <common/utils.h>
 #include <errno.h>
@@ -18,11 +21,8 @@
 #include <inttypes.h>
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
-#include <lightningd/json_escaped.h>
-#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
-#include <lightningd/param.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>

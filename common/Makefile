@@ -25,10 +25,13 @@ COMMON_SRC_NOGEN :=				\
 	common/initial_commit_tx.c		\
 	common/io_lock.c			\
 	common/json.c				\
+	common/json_escaped.c			\
+	common/json_tok.c			\
 	common/key_derive.c			\
 	common/keyset.c				\
 	common/memleak.c			\
 	common/msg_queue.c			\
+	common/param.c				\
 	common/peer_billboard.c			\
 	common/peer_failed.c			\
 	common/permute_tx.c			\
@@ -52,7 +55,7 @@ COMMON_SRC_NOGEN :=				\
 
 COMMON_SRC_GEN := common/gen_status_wire.c common/gen_peer_status_wire.c
 
-COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h) common/overflows.h common/htlc.h common/status_levels.h common/json_command.h
+COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h) common/overflows.h common/htlc.h common/status_levels.h common/json_command.h common/jsonrpc_errors.h
 COMMON_HEADERS_GEN := common/gen_htlc_state_names.h common/gen_status_wire.h common/gen_peer_status_wire.h
 
 COMMON_HEADERS := $(COMMON_HEADERS_GEN) $(COMMON_HEADERS_NOGEN)

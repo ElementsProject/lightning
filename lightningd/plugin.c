@@ -9,12 +9,14 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/utf8/utf8.h>
+#include <common/json_command.h>
+#include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
+#include <common/param.h>
 #include <common/timeout.h>
 #include <dirent.h>
 #include <errno.h>
 #include <lightningd/json.h>
-#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <signal.h>
 #include <sys/stat.h>

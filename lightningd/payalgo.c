@@ -5,6 +5,9 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/bolt11.h>
+#include <common/json_command.h>
+#include <common/jsonrpc_errors.h>
+#include <common/param.h>
 #include <common/pseudorand.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
@@ -12,10 +15,8 @@
 #include <gossipd/routing.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
-#include <lightningd/param.h>
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 #include <wallet/wallet.h>

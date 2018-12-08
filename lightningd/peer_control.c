@@ -15,7 +15,10 @@
 #include <common/dev_disconnect.h>
 #include <common/features.h>
 #include <common/initial_commit_tx.h>
+#include <common/json_command.h>
+#include <common/jsonrpc_errors.h>
 #include <common/key_derive.h>
+#include <common/param.h>
 #include <common/status.h>
 #include <common/timeout.h>
 #include <common/version.h>
@@ -33,13 +36,11 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/log.h>
 #include <lightningd/memdump.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/opening_control.h>
 #include <lightningd/options.h>
-#include <lightningd/param.h>
 #include <lightningd/peer_htlcs.h>
 #include <unistd.h>
 #include <wally_bip32.h>

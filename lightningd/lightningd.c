@@ -57,6 +57,7 @@
 /*~ This is common code: routines shared by one or more executables
  *  (separate daemons, or the lightning-cli program). */
 #include <common/daemon.h>
+#include <common/json_escaped.h>
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <common/version.h>
@@ -68,7 +69,6 @@
 #include <lightningd/channel_control.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/invoice.h>
-#include <lightningd/json_escaped.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
 #include <lightningd/onchain_control.h>

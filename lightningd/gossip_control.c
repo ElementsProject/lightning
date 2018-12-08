@@ -11,6 +11,10 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <common/features.h>
+#include <common/json_command.h>
+#include <common/json_escaped.h>
+#include <common/jsonrpc_errors.h>
+#include <common/param.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <errno.h>
@@ -22,12 +26,9 @@
 #include <lightningd/gossip_msg.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
-#include <lightningd/json_escaped.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/jsonrpc_errors.h>
 #include <lightningd/log.h>
 #include <lightningd/options.h>
-#include <lightningd/param.h>
 #include <lightningd/ping.h>
 #include <sodium/randombytes.h>
 #include <string.h>
