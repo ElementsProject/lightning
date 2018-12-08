@@ -652,7 +652,7 @@ static struct io_plan *read_json(struct io_conn *conn,
 		return io_wait(conn, conn, read_json, jcon);
 	}
 
-	toks = json_parse_input(jcon->buffer, jcon->used, &valid);
+	toks = json_parse_input(jcon->buffer, jcon->buffer, jcon->used, &valid);
 	if (!toks) {
 		if (!valid) {
 			log_unusual(jcon->log,

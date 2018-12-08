@@ -172,13 +172,14 @@ const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index)
 	return NULL;
 }
 
-jsmntok_t *json_parse_input(const char *input, int len, bool *valid)
+jsmntok_t *json_parse_input(const tal_t *ctx,
+			    const char *input, int len, bool *valid)
 {
 	jsmn_parser parser;
 	jsmntok_t *toks;
 	int ret;
 
-	toks = tal_arr(input, jsmntok_t, 10);
+	toks = tal_arr(ctx, jsmntok_t, 10);
 	toks[0].type = JSMN_UNDEFINED;
 
 	jsmn_init(&parser);

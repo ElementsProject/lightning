@@ -25,7 +25,7 @@ static struct json *json_parse(const tal_t * ctx, const char *str)
 	j->buffer = tal_strdup(j, str);
 	convert_quotes(j->buffer);
 	bool ok;
-	j->toks = json_parse_input(j->buffer, strlen(j->buffer), &ok);
+	j->toks = json_parse_input(j, j->buffer, strlen(j->buffer), &ok);
 	assert(ok);
 	j->toks = json_tok_copy(j, j->toks);
 	return j;

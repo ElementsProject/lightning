@@ -309,7 +309,7 @@ static bool extract_feerate(struct bitcoin_cli *bcli,
 	const jsmntok_t *tokens, *feeratetok;
 	bool valid;
 
-	tokens = json_parse_input(output, output_bytes, &valid);
+	tokens = json_parse_input(output, output, output_bytes, &valid);
 	if (!tokens)
 		fatal("%s: %s response",
 		      bcli_args(tmpctx, bcli),
@@ -541,7 +541,8 @@ static bool process_gettxout(struct bitcoin_cli *bcli)
 		return true;
 	}
 
-	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
+	tokens = json_parse_input(bcli->output, bcli->output, bcli->output_bytes,
+				  &valid);
 	if (!tokens)
 		fatal("%s: %s response",
 		      bcli_args(tmpctx, bcli), valid ? "partial" : "invalid");
@@ -601,7 +602,8 @@ static bool process_getblock(struct bitcoin_cli *bcli)
 	struct bitcoin_txid txid;
 	bool valid;
 
-	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
+	tokens = json_parse_input(bcli->output, bcli->output, bcli->output_bytes,
+				  &valid);
 	if (!tokens) {
 		/* Most likely we are running on a pruned node, call
 		 * the callback with NULL to indicate failure */

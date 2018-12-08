@@ -76,7 +76,7 @@ static int test_json_filter(void)
 	str = tal_strndup(result, membuf_elems(&result->outbuf),
 			  membuf_num_elems(&result->outbuf));
 
-	toks = json_parse_input(str, strlen(str), &valid);
+	toks = json_parse_input(str, str, strlen(str), &valid);
 	assert(valid);
 	assert(toks);
 
@@ -174,7 +174,7 @@ static void test_json_stream(void)
 	 * timeout. */
 	input = "{\"x\":\"x\"}{\"y\":\"y\"}";
 	talstr = tal_strndup(NULL, input, strlen(input));
-	toks = json_parse_input(talstr, strlen(talstr), &valid);
+	toks = json_parse_input(talstr, talstr, strlen(talstr), &valid);
 	assert(toks);
 	assert(tal_count(toks) == 4);
 	assert(toks[0].start == 0 && toks[0].end == 9);
@@ -185,7 +185,7 @@ static void test_json_stream(void)
 	 * accidentally getting the boundaries to match. */
 	input = "{\"x\":\"x\"}{\"y\":\"y\"}{\"z\":\"z";
 	talstr = tal_strndup(NULL, input, strlen(input));
-	toks = json_parse_input(talstr, strlen(talstr), &valid);
+	toks = json_parse_input(talstr, talstr, strlen(talstr), &valid);
 	assert(toks);
 	assert(tal_count(toks) == 4);
 	assert(toks[0].start == 0 && toks[0].end == 9);
