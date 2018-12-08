@@ -327,7 +327,7 @@ static bool extract_feerate(struct bitcoin_cli *bcli,
 	if (!feeratetok)
 		return false;
 
-	return json_tok_bitcoin_amount(output, feeratetok, feerate);
+	return json_to_bitcoin_amount(output, feeratetok, feerate);
 }
 
 struct estimatefee {
@@ -558,7 +558,7 @@ static bool process_gettxout(struct bitcoin_cli *bcli)
 		      bcli_args(tmpctx, bcli),
 		      (int)bcli->output_bytes, bcli->output);
 
-	if (!json_tok_bitcoin_amount(bcli->output, valuetok, &out.amount))
+	if (!json_to_bitcoin_amount(bcli->output, valuetok, &out.amount))
 		fatal("%s: had bad value (%.*s)?",
 		      bcli_args(tmpctx, bcli),
 		      (int)bcli->output_bytes, bcli->output);
