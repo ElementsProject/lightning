@@ -785,7 +785,7 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 		cmd[0] = p->cmd;
 		if (debug)
 			cmd[1] = "--debugger";
-		p->pid = pipecmdarr(&stdout, &stdin, NULL, cmd);
+		p->pid = pipecmdarr(&stdin, &stdout, NULL, cmd);
 
 		if (p->pid == -1)
 			fatal("error starting plugin '%s': %s", p->cmd,

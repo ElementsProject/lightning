@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
 
 	/* This is how many tests you plan to run */
 	plan_tests(13);
-	child = pipecmd(&outfd, NULL, NULL, argv[0], "out", NULL);
+	child = pipecmd(NULL, &outfd, NULL, argv[0], "out", NULL);
 	if (!ok1(child > 0))
 		exit(1);
 	ok1(read(outfd, buf, sizeof(buf)) == sizeof(buf));

@@ -32,7 +32,7 @@
  *			exit(1);
  *		exit(0);
  *	}
- *	child = pipecmd(&outputfd, NULL, NULL, argv[0], "ignoredarg", NULL);
+ *	child = pipecmd(NULL, &outputfd, NULL, argv[0], "ignoredarg", NULL);
  *	if (child < 0)
  *		err(1, "Creating child");
  *	if (read(outputfd, input, sizeof(input)) != sizeof(input))
