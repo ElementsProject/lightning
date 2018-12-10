@@ -1037,9 +1037,11 @@ static void json_disconnect(struct command *cmd,
 	struct pubkey *id;
 	struct peer *peer;
 	struct channel *channel;
+	bool *force;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", json_tok_pubkey, &id),
+		   p_opt_def("force", json_tok_bool, &force, false),
 		   NULL))
 		return;
 
@@ -1050,6 +1052,12 @@ static void json_disconnect(struct command *cmd,
 	}
 	channel = peer_active_channel(peer);
 	if (channel) {
+		if (*force) {
+			channel_fail_transient(channel,
+					       "disconnect command force=true");
+			command_success(cmd, null_response(cmd));
+			return;
+		}
 		command_fail(cmd, LIGHTNINGD, "Peer is in state %s",
 			     channel_state_name(channel));
 		return;
@@ -1066,7 +1074,7 @@ static void json_disconnect(struct command *cmd,
 static const struct json_command disconnect_command = {
 	"disconnect",
 	json_disconnect,
-	"Disconnect from {id} that has previously been connected to using connect"
+	"Disconnect from {id} that has previously been connected to using connect; with {force} set, even if it has a current channel"
 };
 AUTODATA(json_command, &disconnect_command);
 
