@@ -616,11 +616,6 @@ int main(int argc, char *argv[])
 	/*~ Handle options and config; move to .lightningd (--lightning-dir) */
 	handle_opts(ld, argc, argv);
 
-	/*~ Now that we have collected all the early options, gave
-	 *  plugins a chance to register theirs and collected all
-	 *  remaining options it's time to tell the plugins. */
-	plugins_config(ld->plugins);
-
 	/*~ Make sure we can reach the subdaemons, and versions match. */
 	test_subdaemons(ld);
 
@@ -714,6 +709,10 @@ int main(int argc, char *argv[])
 	/*~ Create RPC socket: now lightning-cli can send us JSON RPC commands
 	 *  over a UNIX domain socket specified by `ld->rpc_filename`. */
 	jsonrpc_listen(ld->jsonrpc, ld);
+
+	/*~ Now that the rpc path exists, we can start the plugins and they
+	 * can start talking to us. */
+	plugins_config(ld->plugins);
 
 	/*~ We defer --daemon until we've completed most initialization: that
 	 *  way we'll exit with an error rather than silently exiting 0, then
