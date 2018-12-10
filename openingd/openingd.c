@@ -392,7 +392,7 @@ static u8 *funder_channel(struct state *state,
 			      "push-msat must be < %"PRIu64,
 			      1000 * state->funding_satoshis);
 
-	msg = towire_open_channel(state,
+	msg = towire_open_channel(NULL,
 				  &state->chainparams->genesis_blockhash,
 				  &state->channel_id,
 				  state->funding_satoshis, state->push_msat,
@@ -410,7 +410,7 @@ static u8 *funder_channel(struct state *state,
 				  &state->our_points.htlc,
 				  &state->first_per_commitment_point[LOCAL],
 				  channel_flags);
-	sync_crypto_write(&state->cs, PEER_FD, msg);
+	sync_crypto_write(&state->cs, PEER_FD, take(msg));
 
 	peer_billboard(false,
 		       "Funding channel: offered, now waiting for accept_channel");
@@ -821,7 +821,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	if (!check_config_bounds(state, &state->remoteconf, false))
 		return NULL;
 
-	msg = towire_accept_channel(state, &state->channel_id,
+	msg = towire_accept_channel(NULL, &state->channel_id,
 				    state->localconf.dust_limit_satoshis,
 				    state->localconf
 				      .max_htlc_value_in_flight_msat,
