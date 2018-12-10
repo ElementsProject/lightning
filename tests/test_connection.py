@@ -1228,6 +1228,24 @@ def test_funder_feerate_reconnect(node_factory, bitcoind):
     l1.pay(l2, 200000000)
 
 
+def test_funder_simple_reconnect(node_factory, bitcoind):
+    """Sanity check that reconnection works with completely unused channels"""
+    # Set fees even so it doesn't send any commitments.
+    l1 = node_factory.get_node(may_reconnect=True,
+                               feerates=(7500, 7500, 7500))
+    l2 = node_factory.get_node(may_reconnect=True)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fund_channel(l2, 10**6)
+
+    l1.rpc.disconnect(l2.info['id'], True)
+
+    # Wait until they reconnect.
+    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'])
+
+    # Should work normally.
+    l1.pay(l2, 200000000)
+
+
 @unittest.skipIf(not DEVELOPER, "needs LIGHTNINGD_DEV_LOG_IO")
 def test_dataloss_protection(node_factory, bitcoind):
     l1 = node_factory.get_node(may_reconnect=True, log_all_io=True)
