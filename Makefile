@@ -180,7 +180,7 @@ CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLU
 CONFIGURATOR_CC := $(CC)
 
 LDFLAGS = $(PIE_LDFLAGS)
-LDLIBS = -L/usr/local/lib -lm -lgmp -lsqlite3 -lz $(COVFLAGS)
+LDLIBS = -Wl,-dn -lsqlite3 -Wl,-dy -L/usr/local/lib -lgmp -lm -lz -lpthread -ldl $(COVFLAGS)
 
 default: all-programs all-test-programs
 
