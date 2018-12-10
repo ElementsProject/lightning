@@ -356,7 +356,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 static u8 *funder_channel(struct state *state,
 			  u64 change_satoshis, u32 change_keyindex,
 			  u8 channel_flags,
-			  struct utxo **utxos,
+			  struct utxo **utxos TAKES,
 			  const struct ext_key *bip32_base)
 {
 	struct channel_id id_in;
@@ -416,7 +416,7 @@ static u8 *funder_channel(struct state *state,
 		       "Funding channel: offered, now waiting for accept_channel");
 	msg = opening_negotiate_msg(tmpctx, state, true);
 	if (!msg)
-		return NULL;
+		goto fail;
 
 	/* BOLT #2:
 	 *
@@ -468,7 +468,7 @@ static u8 *funder_channel(struct state *state,
 		negotiation_failed(state, true,
 				   "minimum_depth %u larger than %u",
 				   minimum_depth, 10);
-		return NULL;
+		goto fail;
 	}
 
 	/* BOLT #2:
@@ -490,7 +490,7 @@ static u8 *funder_channel(struct state *state,
 				   " would be below our dust %"PRIu64,
 				   state->remoteconf.channel_reserve_satoshis,
 				   state->localconf.dust_limit_satoshis);
-		return NULL;
+		goto fail;
 	}
 	if (state->localconf.channel_reserve_satoshis
 	    < state->remoteconf.dust_limit_satoshis) {
@@ -499,11 +499,11 @@ static u8 *funder_channel(struct state *state,
 				   " would be above our reserve %"PRIu64,
 				   state->remoteconf.dust_limit_satoshis,
 				   state->localconf.channel_reserve_satoshis);
-		return NULL;
+		goto fail;
 	}
 
 	if (!check_config_bounds(state, &state->remoteconf, true))
-		return NULL;
+		goto fail;
 
 	/* Now, ask create funding transaction to pay those two addresses. */
 	if (change_satoshis) {
@@ -557,7 +557,7 @@ static u8 *funder_channel(struct state *state,
 	if (!tx) {
 		negotiation_failed(state, true,
 				   "Could not meet their fees and reserve");
-		return NULL;
+		goto fail;
 	}
 
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
@@ -596,7 +596,7 @@ static u8 *funder_channel(struct state *state,
 
 	msg = opening_negotiate_msg(tmpctx, state, true);
 	if (!msg)
-		return NULL;
+		goto fail;
 
 	sig.sighash_type = SIGHASH_ALL;
 	if (!fromwire_funding_signed(msg, &id_in, &sig.s))
@@ -634,7 +634,7 @@ static u8 *funder_channel(struct state *state,
 	if (!tx) {
 		negotiation_failed(state, true,
 				   "Could not meet our fees and reserve");
-		return NULL;
+		goto fail;
 	}
 
 	if (!check_tx_sig(tx, 0, NULL, wscript, &their_funding_pubkey, &sig)) {
@@ -672,6 +672,11 @@ static u8 *funder_channel(struct state *state,
 					   &state->funding_txid,
 					   state->feerate_per_kw,
 					   state->localconf.channel_reserve_satoshis);
+
+fail:
+	if (taken(utxos))
+		tal_free(utxos);
+	return NULL;
 }
 
 static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
@@ -1112,7 +1117,7 @@ static u8 *handle_master_in(struct state *state)
 		msg = funder_channel(state,
 				     change_satoshis,
 				     change_keyindex, channel_flags,
-				     utxos, &bip32_base);
+				     take(utxos), &bip32_base);
 		return msg;
 
 	case WIRE_OPENING_CAN_ACCEPT_CHANNEL:
