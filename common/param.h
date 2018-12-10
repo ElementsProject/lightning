@@ -7,7 +7,7 @@
 
 /*~ Greetings adventurer!
  *
- * Do you want to automatically validate json input and unmarshall it into
+ * Do you want to automatically validate json input and unmarshal it into
  * local variables, all using typesafe callbacks?  And on error,
  * call command_fail with a proper error message? Then you've come to the
  * right place!
