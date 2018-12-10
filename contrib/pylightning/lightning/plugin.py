@@ -17,6 +17,7 @@ class Plugin(object):
     def __init__(self, stdout=None, stdin=None, autopatch=True):
         self.methods = {}
         self.options = {}
+        self.option_values = {}
 
         if not stdout:
             self.stdout = sys.stdout
@@ -59,6 +60,32 @@ class Plugin(object):
 
         # Register the function with the name
         self.methods[name] = func
+
+    def add_option(self, name, default, description):
+        """Add an option that we'd like to register with lightningd.
+
+        Needs to be called before `Plugin.run`, otherwise we might not
+        end up getting it set.
+
+        """
+        if name in self.options:
+            raise ValueError(
+                "Name {} is already used by another option".format(name)
+            )
+        self.options[name] = {
+            'name': name,
+            'default': default,
+            'description': description,
+            'type': 'string',
+        }
+
+    def get_option(self, name):
+        if name in self.option_values:
+            return self.option_values[name]
+        elif name in self.options:
+            return self.options[name]['default']
+        else:
+            raise ValueError("No option with name {} registered".format(name))
 
     def method(self, method_name, *args, **kwargs):
         """Decorator to add a plugin method to the dispatch table.
@@ -172,11 +199,16 @@ class Plugin(object):
             })
 
         return {
-            'options': [],
+            'options': list(self.options.values()),
             'rpcmethods': methods,
         }
 
     def _init(self, options, configuration, request):
+        self.rpc_filename = configuration['rpc-file']
+        self.lightning_dir = configuration['lightning-dir']
+        for name, value in options.items():
+            self.option_values[name] = value
+
         # Swap the registered `init` method handler back in and
         # re-dispatch
         if self.init:
