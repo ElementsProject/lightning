@@ -899,6 +899,7 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 	plugins->pending_manifests = 0;
 	uintmap_init(&plugins->pending_requests);
 
+	setenv("LIGHTNINGD_PLUGIN", "1", 1);
 	/* Spawn the plugin processes before entering the io_loop */
 	list_for_each(&plugins->plugins, p, list) {
 		bool debug;
