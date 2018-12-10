@@ -44,12 +44,16 @@
 
 struct state {
 	struct crypto_state cs;
-	struct pubkey next_per_commit[NUM_SIDES];
 
 	/* Constriants on a channel they open. */
 	u32 minimum_depth;
 	u32 min_feerate, max_feerate;
 
+	/* Limits on what remote config we accept */
+	u32 max_to_self_delay;
+	u64 min_effective_htlc_capacity_msat;
+
+	struct pubkey first_per_commitment_point[NUM_SIDES];
 	struct basepoints our_points;
 	struct pubkey our_funding_pubkey;
 
@@ -63,10 +67,6 @@ struct state {
 	u16 funding_txout;
 
 	struct channel_config localconf, remoteconf;
-
-	/* Limits on what remote config we accept */
-	u32 max_to_self_delay;
-	u64 min_effective_htlc_capacity_msat;
 
 	struct channel *channel;
 
@@ -388,7 +388,7 @@ static u8 *funder_channel(struct state *state,
 				  &state->our_points.payment,
 				  &state->our_points.delayed_payment,
 				  &state->our_points.htlc,
-				  &state->next_per_commit[LOCAL],
+				  &state->first_per_commitment_point[LOCAL],
 				  channel_flags);
 	sync_crypto_write(&state->cs, PEER_FD, msg);
 
@@ -421,7 +421,7 @@ static u8 *funder_channel(struct state *state,
 				     &theirs.payment,
 				     &theirs.delayed_payment,
 				     &theirs.htlc,
-				     &state->next_per_commit[REMOTE]))
+				     &state->first_per_commitment_point[REMOTE]))
 		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "Parsing accept_channel %s", tal_hex(msg, msg));
@@ -532,7 +532,8 @@ static u8 *funder_channel(struct state *state,
 	 * transaction.
 	 */
 	tx = initial_channel_tx(state, &wscript, state->channel,
-				&state->next_per_commit[REMOTE], REMOTE);
+				&state->first_per_commitment_point[REMOTE],
+				REMOTE);
 	if (!tx) {
 		negotiation_failed(state, true,
 				   "Could not meet their fees and reserve");
@@ -608,7 +609,8 @@ static u8 *funder_channel(struct state *state,
 	 *     - MUST fail the channel.
 	 */
 	tx = initial_channel_tx(state, &wscript, state->channel,
-				&state->next_per_commit[LOCAL], LOCAL);
+				&state->first_per_commitment_point[LOCAL],
+				LOCAL);
 	if (!tx) {
 		negotiation_failed(state, true,
 				   "Could not meet our fees and reserve");
@@ -644,7 +646,7 @@ static u8 *funder_channel(struct state *state,
 					   &theirs.payment,
 					   &theirs.htlc,
 					   &theirs.delayed_payment,
-					   &state->next_per_commit[REMOTE],
+					   &state->first_per_commitment_point[REMOTE],
 					   minimum_depth,
 					   &their_funding_pubkey,
 					   &state->funding_txid,
@@ -687,7 +689,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				   &theirs.payment,
 				   &theirs.delayed_payment,
 				   &theirs.htlc,
-				   &state->next_per_commit[REMOTE],
+				   &state->first_per_commitment_point[REMOTE],
 				   &channel_flags))
 		peer_failed(&state->cs, NULL,
 			    "Bad open_channel %s",
@@ -813,7 +815,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				    &state->our_points.payment,
 				    &state->our_points.delayed_payment,
 				    &state->our_points.htlc,
-				    &state->next_per_commit[LOCAL]);
+				    &state->first_per_commitment_point[LOCAL]);
 
 	sync_crypto_write(&state->cs, PEER_FD, take(msg));
 
@@ -870,7 +872,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 *     - MUST fail the channel.
 	 */
 	local_commit = initial_channel_tx(state, &wscript, state->channel,
-					  &state->next_per_commit[LOCAL], LOCAL);
+					  &state->first_per_commitment_point[LOCAL],
+					  LOCAL);
 	if (!local_commit) {
 		negotiation_failed(state, false,
 				   "Could not meet our fees and reserve");
@@ -908,7 +911,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 * that funds can be redeemed, if need be.
 	 */
 	remote_commit = initial_channel_tx(state, &wscript, state->channel,
-					   &state->next_per_commit[REMOTE],
+					   &state->first_per_commitment_point[REMOTE],
 					   REMOTE);
 	if (!remote_commit) {
 		negotiation_failed(state, false,
@@ -943,7 +946,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				     &theirs.payment,
 				     &theirs.htlc,
 				     &theirs.delayed_payment,
-				     &state->next_per_commit[REMOTE],
+				     &state->first_per_commitment_point[REMOTE],
 				     &their_funding_pubkey,
 				     &state->funding_txid,
 				     state->funding_txout,
@@ -1162,7 +1165,7 @@ int main(int argc, char *argv[])
 			take(towire_hsm_get_per_commitment_point(NULL, 0)));
 	msg = wire_sync_read(tmpctx, HSM_FD);
 	if (!fromwire_hsm_get_per_commitment_point_reply(tmpctx, msg,
-							 &state->next_per_commit[LOCAL],
+							 &state->first_per_commitment_point[LOCAL],
 							 &none))
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Bad get_per_commitment_point_reply %s",
