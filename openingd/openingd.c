@@ -57,7 +57,7 @@ struct state {
 	/* Cryptographic state needed to exchange messages with the peer */
 	struct crypto_state cs;
 
-	/* Constriants on a channel they open. */
+	/* Constraints on a channel they open. */
 	u32 minimum_depth;
 	u32 min_feerate, max_feerate;
 	u64 min_effective_htlc_capacity_msat;
@@ -110,7 +110,7 @@ static void negotiation_aborted(struct state *state, bool am_funder,
 	status_debug("aborted opening negotiation: %s", why);
 	/*~ The "billboard" (exposed as "status" in the JSON listpeers RPC
 	 * call) is a transient per-channel area which indicates important
-	 * information about what is happening.  It has a "permenant" area for
+	 * information about what is happening.  It has a "permanent" area for
 	 * each state, which can be used to indicate what went wrong in that
 	 * state (such as here), and a single transient area for current
 	 * status. */
@@ -330,7 +330,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 				 bool am_funder)
 {
 	/* This is an event loop of its own.  That's generally considered poor
-	 * for, but we use it in a very limited way. */
+	 * form, but we use it in a very limited way. */
 	for (;;) {
 		u8 *msg;
 		bool from_gossipd;
