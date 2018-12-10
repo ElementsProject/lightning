@@ -68,6 +68,9 @@ struct peer {
 	bool funding_locked[NUM_SIDES];
 	u64 next_index[NUM_SIDES];
 
+	/* Features peer supports. */
+	u8 *localfeatures;
+
 	/* Tolerable amounts for feerate (only relevant for fundee). */
 	u32 feerate_min, feerate_max;
 
@@ -2654,7 +2657,8 @@ static void init_channel(struct peer *peer)
 				   &peer->channel_flags,
 				   &funding_signed,
 				   &peer->announce_depth_reached,
-				   &last_remote_per_commit_secret))
+				   &last_remote_per_commit_secret,
+				   &peer->localfeatures))
 		master_badmsg(WIRE_CHANNEL_INIT, msg);
 
 	status_trace("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
