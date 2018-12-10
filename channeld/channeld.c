@@ -1986,7 +1986,6 @@ static void check_current_dataloss_fields(struct peer *peer,
 			    type_to_string(tmpctx, struct secret,
 					   &old_commit_secret));
 
-#if 0 /* FIXME: This isn't reliable! */
 	/* FIXME: We don't keep really old per_commit numbers, so we can't
 	 * check this 'needs retransmit' case! */
 	if (next_remote_revocation_number == peer->next_index[REMOTE]) {
@@ -2010,7 +2009,6 @@ static void check_current_dataloss_fields(struct peer *peer,
 					    remote_current_per_commitment_point),
 			     next_remote_revocation_number,
 			     peer->next_index[REMOTE]);
-#endif
 
 	status_trace("option_data_loss_protect: fields are correct");
 }
