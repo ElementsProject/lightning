@@ -54,7 +54,8 @@
 
 /* Global state structure.  This is only for the one specific peer and channel */
 struct state {
-	/* Cryptographic state needed to exchange messages with the peer */
+	/* Cryptographic state needed to exchange messages with the peer (as
+	 * featured in BOLT #8) */
 	struct crypto_state cs;
 
 	/* Constraints on a channel they open. */
@@ -662,7 +663,7 @@ static u8 *funder_channel(struct state *state,
 	/* We ask the HSM to sign their commitment transaction for us: it knows
 	 * our funding key, it just needs the remote funding key to create the
 	 * witness script.  It also needs the amount of the funding output,
-	 * as segwit signatures commit to that as well, even thought it doesn't
+	 * as segwit signatures commit to that as well, even though it doesn't
 	 * explicitly appear in the transaction itself. */
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
 						   tx,
@@ -702,7 +703,7 @@ static u8 *funder_channel(struct state *state,
 	peer_billboard(false,
 		       "Funding channel: create first tx, now waiting for their signature");
 
-	/* Now we they send us their signature for that first commitment
+	/* Now they send us their signature for that first commitment
 	 * transaction. */
 	msg = opening_negotiate_msg(tmpctx, state, true);
 	if (!msg)
@@ -729,11 +730,11 @@ static u8 *funder_channel(struct state *state,
 	 * soon) that we put it into the first version of the protocol
 	 * because it would be painful to add in later.
 	 *
-	 * My logic was seemed sound: we treat new connections as an
-	 * implication that the old connection has disconnected, which happens
-	 * more often than you'd hope on modern networks.  However, supporting
-	 * multiple channels via multiple connections would be far easier for
-	 * us to support with our (introduced-since) separate daemon model.
+	 * My logic seemed sound: we treat new connections as an implication
+	 * that the old connection has disconnected, which happens more often
+	 * than you'd hope on modern networks.  However, supporting multiple
+	 * channels via multiple connections would be far easier for us to
+	 * support with our (introduced-since) separate daemon model.
 	 *
 	 * Let this be a lesson: beware premature specification, even if you
 	 * suspect "we'll need it later!". */
@@ -1345,8 +1346,8 @@ int main(int argc, char *argv[])
 				   &inner))
 		master_badmsg(WIRE_OPENING_INIT, msg);
 
-	/*~ If they wanted to send an msg, do so before we waste time doing
-	 * work.  If it's a global error, we'll close immediately. */
+	/*~ If lightningd wanted us to send a msg, do so before we waste time
+	 * doing work.  If it's a global error, we'll close immediately. */
 	if (inner != NULL) {
 		sync_crypto_write(&state->cs, PEER_FD, inner);
 		fail_if_all_error(inner);
