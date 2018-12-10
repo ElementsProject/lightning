@@ -131,7 +131,10 @@ class Plugin(object):
         self.stdout.flush()
 
     def log(self, message, level='info'):
-        self.notify('log', {'level': level, 'message': message})
+        # Split the log into multiple lines and print them
+        # individually. Makes tracebacks much easier to read.
+        for line in message.split('\n'):
+            self.notify('log', {'level': level, 'message': line})
 
     def _multi_dispatch(self, msgs):
         """We received a couple of messages, now try to dispatch them all.
