@@ -1,7 +1,7 @@
 from collections import namedtuple
 from fixtures import *  # noqa: F401,F403
 from lightning import RpcError
-from utils import DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND
+from utils import DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND, EXPERIMENTAL_FEATURES
 
 
 import os
@@ -1004,11 +1004,14 @@ def test_forget_channel(node_factory):
 
 def test_peerinfo(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True})
+    if EXPERIMENTAL_FEATURES:
+        lfeatures = '8a'
+    else:
+        lfeatures = '88'
     # Gossiping but no node announcement yet
     assert l1.rpc.getpeer(l2.info['id'])['connected']
     assert len(l1.rpc.getpeer(l2.info['id'])['channels']) == 0
-    assert l1.rpc.getpeer(l2.info['id'])['localfeatures'] == '8a'
-    assert l1.rpc.getpeer(l2.info['id'])['globalfeatures'] == ''
+    assert l1.rpc.getpeer(l2.info['id'])['localfeatures'] == lfeatures
 
     # Fund a channel to force a node announcement
     chan = l1.fund_channel(l2, 10**6)
@@ -1025,15 +1028,15 @@ def test_peerinfo(node_factory, bitcoind):
     assert only_one(nodes1)['globalfeatures'] == peer1['globalfeatures']
     assert only_one(nodes2)['globalfeatures'] == peer2['globalfeatures']
 
-    assert l1.rpc.getpeer(l2.info['id'])['localfeatures'] == '8a'
-    assert l2.rpc.getpeer(l1.info['id'])['localfeatures'] == '8a'
+    assert l1.rpc.getpeer(l2.info['id'])['localfeatures'] == lfeatures
+    assert l2.rpc.getpeer(l1.info['id'])['localfeatures'] == lfeatures
 
     # If it reconnects after db load, it should know features.
     l1.restart()
     wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'])
     wait_for(lambda: l2.rpc.getpeer(l1.info['id'])['connected'])
-    assert l1.rpc.getpeer(l2.info['id'])['localfeatures'] == '8a'
-    assert l2.rpc.getpeer(l1.info['id'])['localfeatures'] == '8a'
+    assert l1.rpc.getpeer(l2.info['id'])['localfeatures'] == lfeatures
+    assert l2.rpc.getpeer(l1.info['id'])['localfeatures'] == lfeatures
 
     # Close the channel to forget the peer
     with pytest.raises(RpcError, match=r'Channel close negotiation not finished'):
@@ -1247,6 +1250,7 @@ def test_funder_simple_reconnect(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "needs LIGHTNINGD_DEV_LOG_IO")
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "needs option_dataloss_protect")
 def test_dataloss_protection(node_factory, bitcoind):
     l1 = node_factory.get_node(may_reconnect=True, log_all_io=True)
     l2 = node_factory.get_node(may_reconnect=True, log_all_io=True)

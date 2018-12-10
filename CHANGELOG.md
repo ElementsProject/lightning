@@ -30,6 +30,8 @@ changes.
 
 ### Removed
 
+- option_data_loss_protect is now only offered if EXPERIMENTAL_FEATURES is enabled, since it seems incompatible with lnd and has known bugs.
+
 ### Fixed
 
 - JSON API: uppercase invoices now parsed correctly (broken in 0.6.2).
