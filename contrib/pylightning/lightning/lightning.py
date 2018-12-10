@@ -480,12 +480,13 @@ class LightningRpc(UnixDomainSocketRpc):
             payload={"id": peerid, "force": force}
         )
 
-    def disconnect(self, peer_id):
+    def disconnect(self, peer_id, force=False):
         """
-        Disconnect from peer with {peer_id}
+        Disconnect from peer with {peer_id}, optional {force} even if has active channel
         """
         payload = {
             "id": peer_id,
+            "force": force,
         }
         return self.call("disconnect", payload)
 
