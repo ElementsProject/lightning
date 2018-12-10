@@ -319,15 +319,17 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 				tal_free(msg);
 				continue;
 			}
-			if (am_funder) {
-				msg = towire_opening_funder_failed(NULL, err);
-				wire_sync_write(REQ_FD, take(msg));
-			}
 			/* Close connection on all_channels error. */
-			if (all_channels)
+			if (all_channels) {
+				if (am_funder) {
+					msg = towire_opening_funder_failed(NULL,
+									   err);
+					wire_sync_write(REQ_FD, take(msg));
+				}
 				peer_failed_received_errmsg(PEER_FD, GOSSIP_FD,
 							    &state->cs, err,
 							    NULL);
+			}
 			negotiation_aborted(state, am_funder,
 					    tal_fmt(tmpctx, "They sent error %s",
 						    err));
