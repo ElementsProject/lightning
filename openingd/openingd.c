@@ -14,6 +14,7 @@
 #include <common/initial_channel.h>
 #include <common/key_derive.h>
 #include <common/memleak.h>
+#include <common/overflows.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/pseudorand.h>
@@ -143,27 +144,44 @@ static bool check_config_bounds(struct state *state,
 	 */
 	/* We accumulate this into an effective bandwidth minimum. */
 
-	/* Overflow check before capacity calc. */
-	if (remoteconf->channel_reserve_satoshis > state->funding_satoshis) {
+	/* Add both reserves to deduct from capacity. */
+	if (mul_overflows_u64(remoteconf->channel_reserve_satoshis, 1000)
+	    || add_overflows_u64(remoteconf->channel_reserve_satoshis * 1000,
+				 state->localconf.channel_reserve_satoshis * 1000)) {
 		negotiation_failed(state, am_funder,
 				   "channel_reserve_satoshis %"PRIu64
-				   " too large for funding_satoshis %"PRIu64,
+				   " too large",
+				   remoteconf->channel_reserve_satoshis);
+		return false;
+	}
+	reserve_msat = remoteconf->channel_reserve_satoshis * 1000
+		+ state->localconf.channel_reserve_satoshis * 1000;
+
+	/* We checked this before, or it's ours. */
+	assert(!mul_overflows_u64(state->funding_satoshis, 1000));
+
+	/* If reserves are larger than total msat, we fail. */
+	if (reserve_msat > state->funding_satoshis * 1000) {
+		negotiation_failed(state, am_funder,
+				   "channel_reserve_satoshis %"PRIu64
+				   " and %"PRIu64" too large for funding_satoshis %"PRIu64,
 				   remoteconf->channel_reserve_satoshis,
+				   state->localconf.channel_reserve_satoshis,
 				   state->funding_satoshis);
 		return false;
 	}
 
-	/* Consider highest reserve. */
-	reserve_msat = remoteconf->channel_reserve_satoshis * 1000;
-	if (state->localconf.channel_reserve_satoshis * 1000 > reserve_msat)
-		reserve_msat = state->localconf.channel_reserve_satoshis * 1000;
-
 	capacity_msat = state->funding_satoshis * 1000 - reserve_msat;
 
+	/* If they set the max HTLC value to less than that number, it caps
+	 * the channel capacity. */
 	if (remoteconf->max_htlc_value_in_flight_msat < capacity_msat)
 		capacity_msat = remoteconf->max_htlc_value_in_flight_msat;
 
-	if (remoteconf->htlc_minimum_msat * (u64)1000 > capacity_msat) {
+	/* If the minimum htlc is greater than the capacity, the channel is
+	 * useless. */
+	if (mul_overflows_u64(remoteconf->htlc_minimum_msat, 1000)
+	    || remoteconf->htlc_minimum_msat * (u64)1000 > capacity_msat) {
 		negotiation_failed(state, am_funder,
 				   "htlc_minimum_msat %"PRIu64
 				   " too large for funding_satoshis %"PRIu64
