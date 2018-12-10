@@ -40,7 +40,7 @@ struct command;
  * of named values.
  */
 bool param(struct command *cmd, const char *buffer,
-	   const jsmntok_t params[], ...);
+	   const jsmntok_t params[], ...) LAST_ARG_NULL;
 
 /*
  * The callback signature.  Callbacks must return true on success.  On failure they
