@@ -64,6 +64,9 @@ bool json_tok_u64(struct command *cmd, const char *name,
 /*
  * Set the address of @out to @tok.  Used as a callback by handlers that
  * want to unmarshal @tok themselves.
+ *
+ * Usage of this is discouraged.  Writing a local static bespoke handler is
+ * preferred.
  */
 bool json_tok_tok(struct command *cmd, const char *name,
 		  const char *buffer, const jsmntok_t * tok,
