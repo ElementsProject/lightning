@@ -10,5 +10,10 @@ wallet/                 @cdecker
 wallet/invoices.*       @ZmnSCPxj
 lightningd/payalgo.*    @ZmnSCPxj
 
+common/param.*          @wythe
+common/json.*           @wythe
+common/json_tok.*       @wythe
+common/wallet_tx.*      @wythe
+
 # See https://help.github.com/articles/about-codeowners/ for more
 # information
