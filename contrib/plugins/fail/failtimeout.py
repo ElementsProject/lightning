@@ -45,7 +45,7 @@ for l in sys.stdin:
             "result": result,
             "id": request['id']
         }
-    except Exception as e:
+    except Exception:
         result = {
             "jsonrpc": "2.0",
             "error": "Error while processing {}".format(request['method']),
