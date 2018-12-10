@@ -1054,21 +1054,15 @@ static void handle_gossip_in(struct state *state)
 	handle_gossip_msg(PEER_FD, &state->cs, take(msg));
 }
 
-static bool is_all_channel_error(const u8 *msg)
+static void fail_if_all_error(const u8 *inner)
 {
 	struct channel_id channel_id;
 	u8 *data;
 
-	if (!fromwire_error(msg, msg, &channel_id, &data))
-		return false;
-	tal_free(data);
-	return channel_id_is_all(&channel_id);
-}
-
-static void fail_if_all_error(const u8 *inner)
-{
-	if (!is_all_channel_error(inner))
+	if (!fromwire_error(tmpctx, inner, &channel_id, &data)
+	    || !channel_id_is_all(&channel_id)) {
 		return;
+	}
 
 	status_info("Master said send err: %s",
 		    sanitize_error(tmpctx, inner, NULL));
