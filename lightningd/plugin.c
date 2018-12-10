@@ -484,13 +484,18 @@ static void json_stream_forward_change_id(struct json_stream *stream,
 					  const jsmntok_t *idtok,
 					  const char *new_id)
 {
-	/* We copy everything, but replace the id (maybe inside a string, we
-	 * don't care) */
+	/* We copy everything, but replace the id. Special care has to
+	 * be taken when the id that is being replaced is a string. If
+	 * we don't crop the quotes off we'll transform a numeric
+	 * new_id into a string, or even worse, quote a string id
+	 * twice. */
+	size_t offset = idtok->type==JSMN_STRING?1:0;
 	json_stream_append_part(stream, buffer + toks->start,
-				idtok->start - toks->start);
+				idtok->start - toks->start - offset);
+
 	json_stream_append(stream, new_id);
-	json_stream_append_part(stream, buffer + idtok->end,
-				toks->end - idtok->end);
+	json_stream_append_part(stream, buffer + idtok->end + offset,
+				toks->end - idtok->end - offset);
 
 	/* We promise it will end in '\n\n' */
 	/* It's an object (with an id!): definitely can't be less that "{}" */
