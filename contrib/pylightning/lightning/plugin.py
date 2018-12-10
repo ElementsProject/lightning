@@ -180,7 +180,6 @@ class Plugin(object):
 
     def _getmanifest(self):
         methods = []
-
         for name, func in self.methods.items():
             # Skip the builtin ones, they don't get reported
             if name in ['getmanifest', 'init']:
