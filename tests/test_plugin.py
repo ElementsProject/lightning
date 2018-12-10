@@ -28,7 +28,7 @@ def test_option_passthrough(node_factory):
 
     # Now try to see if it gets accepted, would fail to start if the
     # option didn't exist
-    n = node_factory.get_node(options={'plugin': plugin_path, 'greeting': 'Mars'})
+    n = node_factory.get_node(options={'plugin': plugin_path, 'greeting': 'Ciao'})
     n.stop()
 
 
@@ -40,7 +40,7 @@ def test_rpc_passthrough(node_factory):
 
     """
     plugin_path = 'contrib/plugins/helloworld.py'
-    n = node_factory.get_node(options={'plugin': plugin_path, 'greeting': 'Mars'})
+    n = node_factory.get_node(options={'plugin': plugin_path, 'greeting': 'Ciao'})
 
     # Make sure that the 'hello' command that the helloworld.py plugin
     # has registered is available.
@@ -52,8 +52,8 @@ def test_rpc_passthrough(node_factory):
     assert n.daemon.is_in_log('Plugin helloworld.py initialized')
 
     # Now try to call it and see what it returns:
-    greet = n.rpc.hello(name='Sun')
-    assert(greet == "Hello Sun")
+    greet = n.rpc.hello(name='World')
+    assert(greet == "Ciao World")
     with pytest.raises(RpcError):
         n.rpc.fail()
 
