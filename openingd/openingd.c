@@ -1,3 +1,12 @@
+/*~ Welcome to the opening daemon: gateway to channels!
+ *
+ * This daemon handles a single peer.  It's happy to trade gossip with the
+ * peer until either lightningd asks it to fund a channel, or the peer itself
+ * asks to fund a channel.  Then it goes through with the channel opening
+ * negotiations.  It's important to note that until this negotiation is complete,
+ * there's nothing permanent about the channel: lightningd will only have to
+ * commit to the database once openingd succeeds.
+ */
 #include <bitcoin/block.h>
 #include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
@@ -37,26 +46,33 @@
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
 
-/* stdin == requests, 3 == peer, 4 == gossip */
+/* stdin == lightningd, 3 == peer, 4 == gossipd, 5 = hsmd */
 #define REQ_FD STDIN_FILENO
 #define PEER_FD 3
 #define GOSSIP_FD 4
 #define HSM_FD 5
 
+/* Global state structure.  This is only for the one specific peer and channel */
 struct state {
+	/* Cryptographic state needed to exchange messages with the peer */
 	struct crypto_state cs;
 
 	/* Constriants on a channel they open. */
 	u32 minimum_depth;
 	u32 min_feerate, max_feerate;
-
-	/* Limits on what remote config we accept */
-	u32 max_to_self_delay;
 	u64 min_effective_htlc_capacity_msat;
 
-	struct pubkey first_per_commitment_point[NUM_SIDES];
+	/* Limits on what remote config we accept. */
+	u32 max_to_self_delay;
+
+	/* These are the points lightningd told us to use when accepting or
+	 * opening a channel. */
 	struct basepoints our_points;
 	struct pubkey our_funding_pubkey;
+
+	/* hsmd gives is our first per-commitment point, and peer tells us
+	 * theirs */
+	struct pubkey first_per_commitment_point[NUM_SIDES];
 
 	/* Initially temporary, then final channel id. */
 	struct channel_id channel_id;
@@ -67,18 +83,37 @@ struct state {
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
 
+	/* This is a cluster of fields in open_channel and accept_channel which
+	 * indicate the restrictions each side places on the channel. */
 	struct channel_config localconf, remoteconf;
 
+	/* The channel structure, as defined in common/initial_channel.h.  While
+	 * the structure has room for HTLCs, those routines are channeld-specific
+	 * as initial channels never have HTLCs. */
 	struct channel *channel;
 
+	/*~ We only allow one active channel at a time per peer.  Otherwise
+	 * all our per-peer daemons would have to handle multiple channels,
+	 * or we would need some other daemon to demux the messages.
+	 * Thus, lightningd tells is if/when there's no active channel. */
 	bool can_accept_channel;
+
+	/* Which chain we're on, so we can check/set `chain_hash` fields */
 	const struct chainparams *chainparams;
 };
 
+/*~ If we can't agree on parameters, we fail to open the channel.  If we're
+ * the funder, we need to tell lightningd, otherwise it never really notices. */
 static void negotiation_aborted(struct state *state, bool am_funder,
 				const char *why)
 {
-	status_debug("aborted opening negotiaion: %s", why);
+	status_debug("aborted opening negotiation: %s", why);
+	/*~ The "billboard" (exposed as "status" in the JSON listpeers RPC
+	 * call) is a transient per-channel area which indicates important
+	 * information about what is happening.  It has a "permenant" area for
+	 * each state, which can be used to indicate what went wrong in that
+	 * state (such as here), and a single transient area for current
+	 * status. */
 	peer_billboard(true, why);
 
 	/* If necessary, tell master that funding failed. */
@@ -87,12 +122,13 @@ static void negotiation_aborted(struct state *state, bool am_funder,
 		wire_sync_write(REQ_FD, take(msg));
 	}
 
-	/* Reset state. */
+	/*~ Reset state.  We keep gossipping with them, even though this open
+	* failed. */
 	memset(&state->channel_id, 0, sizeof(state->channel_id));
 	state->channel = tal_free(state->channel);
 }
 
-/* For negotiation failures: we tell them it's their fault. */
+/*~ For negotiation failures: we tell them the parameter we didn't like. */
 static void negotiation_failed(struct state *state, bool am_funder,
 			       const char *fmt, ...)
 {
@@ -111,6 +147,9 @@ static void negotiation_failed(struct state *state, bool am_funder,
 	negotiation_aborted(state, am_funder, errmsg);
 }
 
+/*~ This is the key function that checks that their configuration is reasonable:
+ * it applied for both the case where they're trying to open a channel, and when
+ * they've accepted our open. */
 static bool check_config_bounds(struct state *state,
 				const struct channel_config *remoteconf,
 				bool am_funder)
@@ -192,6 +231,8 @@ static bool check_config_bounds(struct state *state,
 		return false;
 	}
 
+	/* If the resulting channel doesn't meet our minimum "effective capacity"
+	 * set by lightningd, don't bother opening it. */
 	if (capacity_msat < state->min_effective_htlc_capacity_msat) {
 		negotiation_failed(state, am_funder,
 				   "channel capacity with funding %"PRIu64" msat,"
@@ -278,15 +319,18 @@ static void temporary_channel_id(struct channel_id *channel_id)
 {
 	size_t i;
 
+	/* Randomness FTW. */
 	for (i = 0; i < sizeof(*channel_id); i++)
 		channel_id->id[i] = pseudorand(256);
 }
 
-/* Handle random messages we might get during opening negotiation,
+/*~ Handle random messages we might get during opening negotiation, (eg. gossip)
  * returning the first non-handled one, or NULL if we aborted negotiation. */
 static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 				 bool am_funder)
 {
+	/* This is an event loop of its own.  That's generally considered poor
+	 * for, but we use it in a very limited way. */
 	for (;;) {
 		u8 *msg;
 		bool from_gossipd;
@@ -294,19 +338,27 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 		bool all_channels;
 		struct channel_id actual;
 
+		/* The event loop is responsible for freeing tmpctx, so our
+		 * temporary allocations don't grow unbounded. */
 		clean_tmpctx();
+
+		/* This helper routine polls both the peer and gossipd. */
 		msg = peer_or_gossip_sync_read(ctx, PEER_FD, GOSSIP_FD,
 					       &state->cs, &from_gossipd);
+		/* Use standard helper for gossip msgs (forwards, if it's an
+		 * error, exits). */
 		if (from_gossipd) {
 			handle_gossip_msg(PEER_FD, &state->cs, take(msg));
 			continue;
 		}
 
+		/* Some messages go straight to gossipd. */
 		if (is_msg_for_gossipd(msg)) {
 			wire_sync_write(GOSSIP_FD, take(msg));
 			continue;
 		}
 
+		/* A helper which decodes an error. */
 		if (is_peer_error(tmpctx, msg, &state->channel_id,
 				  &err, &all_channels)) {
 			/* BOLT #1:
@@ -315,6 +367,8 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 			 *    message:
 			 *    - MUST ignore the message.
 			 */
+			/* In this case, is_peer_error returns true, but sets
+			 * err to NULL */
 			if (!err) {
 				tal_free(msg);
 				continue;
@@ -337,6 +391,12 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 			return NULL;
 		}
 
+		/*~ We do not support multiple "live" channels, though the
+		 * protocol has a "channel_id" field in all non-gossip messages
+		 * so it's possible.  Our one-process-one-channel mechanism
+		 * keeps things simple: if we wanted to change this, we would
+		 * probably be best with another daemon to de-multipliex them;
+		 * this could be connectd itself, in fact. */
 		if (is_wrong_channel(msg, &state->channel_id, &actual)) {
 			status_trace("Rejecting %s for unknown channel_id %s",
 				     wire_type_name(fromwire_peektype(msg)),
@@ -350,9 +410,13 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 			continue;
 		}
 
+		/* If we get here, it's an interesting message. */
 		return msg;
 	}
 }
+
+/*~ OK, let's fund a channel!  Returns the reply for lightningd on success,
+ * or NULL if something goes wrong. */
 static u8 *funder_channel(struct state *state,
 			  u64 change_satoshis, u32 change_keyindex,
 			  u8 channel_flags,
@@ -370,10 +434,20 @@ static u8 *funder_channel(struct state *state,
 	const u8 *wscript;
 	struct bitcoin_tx *funding;
 
+	/*~ For symmetry, we calculate our own reserve even though lightningd
+	 * could do it for the we-are-funding case. */
 	set_reserve(state);
 
+	/*~ Grab a random ID until the funding tx is created (we can't do that
+	 * until we know their funding_pubkey) */
 	temporary_channel_id(&state->channel_id);
 
+	/* BOLT #2:
+	 *
+	 * The sending node:
+	 *...
+	 *   - MUST set `funding_satoshis` to less than 2^24 satoshi.
+	 */
 	if (state->funding_satoshis > state->chainparams->max_funding_satoshi)
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "funding_satoshis must be < %"PRIu64", not %"PRIu64,
@@ -412,8 +486,10 @@ static u8 *funder_channel(struct state *state,
 				  channel_flags);
 	sync_crypto_write(&state->cs, PEER_FD, take(msg));
 
+	/* This is usually a very transient state... */
 	peer_billboard(false,
 		       "Funding channel: offered, now waiting for accept_channel");
+	/* ... since their reply should be immediate. */
 	msg = opening_negotiate_msg(tmpctx, state, true);
 	if (!msg)
 		goto fail;
@@ -451,6 +527,7 @@ static u8 *funder_channel(struct state *state,
 	 * The `temporary_channel_id` MUST be the same as the
 	 * `temporary_channel_id` in the `open_channel` message. */
 	if (!channel_id_eq(&id_in, &state->channel_id))
+		/* In this case we exit, since we don't know what's going on. */
 		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "accept_channel ids don't match: sent %s got %s",
@@ -465,6 +542,8 @@ static u8 *funder_channel(struct state *state,
 	 *    - MAY reject the channel.
 	 */
 	if (minimum_depth > 10) {
+		/* negotiation_failed just tells peer and lightningd
+		 * (hence fundchannel call) that this opening failed. */
 		negotiation_failed(state, true,
 				   "minimum_depth %u larger than %u",
 				   minimum_depth, 10);
@@ -505,7 +584,8 @@ static u8 *funder_channel(struct state *state,
 	if (!check_config_bounds(state, &state->remoteconf, true))
 		goto fail;
 
-	/* Now, ask create funding transaction to pay those two addresses. */
+	/*~ If lightningd told us to create change, use change index to do
+	 * that. */
 	if (change_satoshis) {
 		changekey = tal(tmpctx, struct pubkey);
 		if (!bip32_pubkey(bip32_base, changekey, change_keyindex))
@@ -514,6 +594,11 @@ static u8 *funder_channel(struct state *state,
 	} else
 		changekey = NULL;
 
+	/*~ We (and they) actually just need the funding txid and output
+	 * number, so we can create the commitment transaction which spends
+	 * it; lightningd will recreate it (and have the HSM sign it) when
+	 * we've completed opening negotiation.
+	 */
 	funding = funding_tx(state, &state->funding_txout,
 			     cast_const2(const struct utxo **, utxos),
 			     state->funding_satoshis,
@@ -523,6 +608,14 @@ static u8 *funder_channel(struct state *state,
 			     bip32_base);
 	bitcoin_txid(funding, &state->funding_txid);
 
+	/*~ Now we can initialize the `struct channel`.  This represents
+	 * the current channel state and is how we can generate the current
+	 * commitment transaction.
+	 *
+	 * The routines to support `struct channel` are split into a common
+	 * part (common/initial_channel) which doesn't support HTLCs and is
+	 * enough for us hgere, and the complete channel support required by
+	 * `channeld` which lives in channeld/full_channel. */
 	state->channel = new_initial_channel(state,
 					     &state->chainparams->genesis_blockhash,
 					     &state->funding_txid,
@@ -536,7 +629,10 @@ static u8 *funder_channel(struct state *state,
 					     &state->our_points, &theirs,
 					     &state->our_funding_pubkey,
 					     &their_funding_pubkey,
+					     /* Funder is local */
 					     LOCAL);
+	/* We were supposed to do enough checks above, but just in case,
+	 * new_initial_channel will fail to create absurd channels */
 	if (!state->channel)
 		peer_failed(&state->cs,
 			    &state->channel_id,
@@ -551,15 +647,23 @@ static u8 *funder_channel(struct state *state,
 	 * peer's signature, via `funding_signed`, it will broadcast the funding
 	 * transaction.
 	 */
+	/* This gives us their first commitment transaction. */
 	tx = initial_channel_tx(state, &wscript, state->channel,
 				&state->first_per_commitment_point[REMOTE],
 				REMOTE);
 	if (!tx) {
+		/* This should not happen: we should never create channels we
+		 * can't afford the fees for after reserve. */
 		negotiation_failed(state, true,
 				   "Could not meet their fees and reserve");
 		goto fail;
 	}
 
+	/* We ask the HSM to sign their commitment transaction for us: it knows
+	 * our funding key, it just needs the remote funding key to create the
+	 * witness script.  It also needs the amount of the funding output,
+	 * as segwit signatures commit to that as well, even thought it doesn't
+	 * explicitly appear in the transaction itself. */
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
 						   tx,
 						   &state->channel->funding_pubkey[REMOTE],
@@ -571,12 +675,16 @@ static u8 *funder_channel(struct state *state,
 		status_failed(STATUS_FAIL_HSM_IO, "Bad sign_tx_reply %s",
 			      tal_hex(tmpctx, msg));
 
+	/* You can tell this has been a problem before, since there's a debug
+	 * message here: */
 	status_trace("signature %s on tx %s using key %s",
 		     type_to_string(tmpctx, struct bitcoin_signature, &sig),
 		     type_to_string(tmpctx, struct bitcoin_tx, tx),
 		     type_to_string(tmpctx, struct pubkey,
 				    &state->our_funding_pubkey));
 
+	/* Now we give our peer the signature for their first commitment
+	 * transaction. */
 	msg = towire_funding_created(state, &state->channel_id,
 				     &state->funding_txid,
 				     state->funding_txout,
@@ -594,6 +702,8 @@ static u8 *funder_channel(struct state *state,
 	peer_billboard(false,
 		       "Funding channel: create first tx, now waiting for their signature");
 
+	/* Now we they send us their signature for that first commitment
+	 * transaction. */
 	msg = opening_negotiate_msg(tmpctx, state, true);
 	if (!msg)
 		goto fail;
@@ -612,6 +722,21 @@ static u8 *funder_channel(struct state *state,
 	 * exclusive-OR (i.e. `funding_output_index` alters the last 2
 	 * bytes).
 	 */
+
+	/*~ Back in Milan, we chose to allow multiple channels between peers in
+	 * the protocol.  I insisted that we multiplex these over the same
+	 * socket, and (even though I didn't plan on implementing it anytime
+	 * soon) that we put it into the first version of the protocol
+	 * because it would be painful to add in later.
+	 *
+	 * My logic was seemed sound: we treat new connections as an
+	 * implication that the old connection has disconnected, which happens
+	 * more often than you'd hope on modern networks.  However, supporting
+	 * multiple channels via multiple connections would be far easier for
+	 * us to support with our (introduced-since) separate daemon model.
+	 *
+	 * Let this be a lesson: beware premature specification, even if you
+	 * suspect "we'll need it later!". */
 	derive_channel_id(&state->channel_id,
 			  &state->funding_txid, state->funding_txout);
 
@@ -628,6 +753,8 @@ static u8 *funder_channel(struct state *state,
 	 *   - if `signature` is incorrect:
 	 *     - MUST fail the channel.
 	 */
+	/* So we create *our* initial commitment transaction, and check the
+	 * signature they sent against that. */
 	tx = initial_channel_tx(state, &wscript, state->channel,
 				&state->first_per_commitment_point[LOCAL],
 				LOCAL);
@@ -657,6 +784,8 @@ static u8 *funder_channel(struct state *state,
 	 *   - on receipt of a valid `funding_signed`:
 	 *     - SHOULD broadcast the funding transaction.
 	 */
+	/*~ lightningd will save the new channel to the database, and
+	 *  broadcast the tx. */
 	return towire_opening_funder_reply(state,
 					   &state->remoteconf,
 					   tx,
@@ -679,6 +808,7 @@ fail:
 	return NULL;
 }
 
+/*~ The peer sent us an `open_channel`, that means we're the fundee. */
 static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 {
 	struct channel_id id_in;
@@ -793,6 +923,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		return NULL;
 	}
 
+	/* This reserves 1% of the channel (rounded up) */
 	set_reserve(state);
 
 	/* BOLT #2:
@@ -823,9 +954,11 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		return NULL;
 	}
 
+	/* These checks are the same whether we're funder or fundee... */
 	if (!check_config_bounds(state, &state->remoteconf, false))
 		return NULL;
 
+	/* OK, we accept! */
 	msg = towire_accept_channel(NULL, &state->channel_id,
 				    state->localconf.dust_limit_satoshis,
 				    state->localconf
@@ -847,10 +980,13 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	peer_billboard(false,
 		       "Incoming channel: accepted, now waiting for them to create funding tx");
 
+	/* This is a loop which handles gossip until we get a non-gossip msg */
 	msg = opening_negotiate_msg(tmpctx, state, false);
 	if (!msg)
 		return NULL;
 
+	/* The message should be "funding_created" which tells us what funding
+	 * tx they generated; the sighash type is implied, so we set it here. */
 	theirsig.sighash_type = SIGHASH_ALL;
 	if (!fromwire_funding_created(msg, &id_in,
 				      &state->funding_txid,
@@ -872,6 +1008,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					   &state->channel_id),
 			    type_to_string(msg, struct channel_id, &id_in));
 
+	/* Now we can create the channel structure. */
 	state->channel = new_initial_channel(state,
 					     &chain_hash,
 					     &state->funding_txid,
@@ -885,6 +1022,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					     &state->our_funding_pubkey,
 					     &their_funding_pubkey,
 					     REMOTE);
+	/* We don't expect this to fail, but it does do some additional
+	 * internal sanity checks. */
 	if (!state->channel)
 		peer_failed(&state->cs,
 			    &state->channel_id,
@@ -899,6 +1038,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	local_commit = initial_channel_tx(state, &wscript, state->channel,
 					  &state->first_per_commitment_point[LOCAL],
 					  LOCAL);
+	/* This shouldn't happen either, AFAICT. */
 	if (!local_commit) {
 		negotiation_failed(state, false,
 				   "Could not meet our fees and reserve");
@@ -907,6 +1047,19 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 
 	if (!check_tx_sig(local_commit, 0, NULL, wscript, &their_funding_pubkey,
 			  &theirsig)) {
+		/* BOLT #1:
+		 *
+		 * ### The `error` Message
+		 *...
+		 * - when failure was caused by an invalid signature check:
+		 *    - SHOULD include the raw, hex-encoded transaction in reply
+		 *      to a `funding_created`, `funding_signed`,
+		 *      `closing_signed`, or `commitment_signed` message.
+		 */
+		/*~ This verbosity is not only useful for our own testing, but
+		 * a courtesy to other implementaters whose brains may be so
+		 * twisted by coding in Go, Scala and Rust that they can no
+		 * longer read C code. */
 		peer_failed(&state->cs,
 			    &state->channel_id,
 			    "Bad signature %s on tx %s using key %s",
@@ -927,6 +1080,13 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	derive_channel_id(&state->channel_id,
 			  &state->funding_txid, state->funding_txout);
 
+	/*~ We generate the `funding_signed` message here, since we have all
+	 * the data and it's only applicable in the fundee case.
+	 *
+	 * FIXME: Perhaps we should have channeld generate this, so we
+	 * can't possibly send before channel committed to disk?
+	 */
+
 	/* BOLT #2:
 	 *
 	 * ### The `funding_signed` Message
@@ -944,8 +1104,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		return NULL;
 	}
 
-	/* FIXME: Perhaps we should have channeld generate this, so we
-	 * can't possibly send before channel committed? */
+	/* Make HSM sign it */
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
 						   remote_commit,
 						   &state->channel->funding_pubkey[REMOTE],
@@ -983,6 +1142,9 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				     state->localconf.channel_reserve_satoshis);
 }
 
+/*~ Standard "peer sent a message, handle it" demuxer.  Though it really only
+ * handles one message, we use the standard form as principle of least
+ * surprise. */
 static u8 *handle_peer_in(struct state *state)
 {
 	u8 *msg = sync_crypto_read(tmpctx, &state->cs, PEER_FD);
@@ -1043,6 +1205,8 @@ static u8 *handle_peer_in(struct state *state)
 	peer_failed_connection_lost();
 }
 
+/*~ If we see the GOSSIP_FD readable, we read a whole message.  Sure, we might
+ * block, but we trust gossipd. */
 static void handle_gossip_in(struct state *state)
 {
 	u8 *msg = wire_sync_read(NULL, GOSSIP_FD);
@@ -1054,6 +1218,9 @@ static void handle_gossip_in(struct state *state)
 	handle_gossip_msg(PEER_FD, &state->cs, take(msg));
 }
 
+/*~ Is this message of type `error` with the special zero-id
+ * "fail-everything"?  If lightningd asked us to send such a thing, we're
+ * done. */
 static void fail_if_all_error(const u8 *inner)
 {
 	struct channel_id channel_id;
@@ -1069,17 +1236,24 @@ static void fail_if_all_error(const u8 *inner)
 	exit(0);
 }
 
+/* Memory leak detection is DEVELOPER-only because we go to great lengths to
+ * record the backtrace when allocations occur: without that, the leak
+ * detection tends to be useless for diagnosing where the leak came from, but
+ * it has significant overhead. */
 #if DEVELOPER
 static void handle_dev_memleak(struct state *state, const u8 *msg)
 {
 	struct htable *memtable;
 	bool found_leak;
 
+	/* Populate a hash table with all our allocations (except msg, which
+	 * is in use right now). */
 	memtable = memleak_enter_allocations(tmpctx, msg, msg);
 
 	/* Now delete state and things it has pointers to. */
 	memleak_remove_referenced(memtable, state);
 
+	/* If there's anything left, dump it to logs, and return true. */
 	found_leak = dump_memleak(memtable);
 	wire_sync_write(REQ_FD,
 			take(towire_opening_dev_memleak_reply(NULL,
@@ -1087,6 +1261,8 @@ static void handle_dev_memleak(struct state *state, const u8 *msg)
 }
 #endif /* DEVELOPER */
 
+/* Standard lightningd-fd-is-ready-to-read demux code.  Again, we could hang
+ * here, but if we can't trust our parent, who can we trust? */
 static u8 *handle_master_in(struct state *state)
 {
 	u8 *msg = wire_sync_read(tmpctx, REQ_FD);
@@ -1149,8 +1325,11 @@ int main(int argc, char *argv[])
 
 	subdaemon_setup(argc, argv);
 
+	/*~ This makes status_failed, status_debug etc work synchronously by
+	 * writing to REQ_FD */
 	status_setup_sync(REQ_FD);
 
+	/*~ The very first thing we read from lightningd is our init msg */
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_opening_init(tmpctx, msg,
 				   &chain_hash,
@@ -1166,20 +1345,25 @@ int main(int argc, char *argv[])
 				   &inner))
 		master_badmsg(WIRE_OPENING_INIT, msg);
 
-	/* If they wanted to send an msg, do so before we waste time
-	 * doing work.  If it's a global error, we'll close
-	 * immediately. */
+	/*~ If they wanted to send an msg, do so before we waste time doing
+	 * work.  If it's a global error, we'll close immediately. */
 	if (inner != NULL) {
 		sync_crypto_write(&state->cs, PEER_FD, inner);
 		fail_if_all_error(inner);
 	}
 
+	/*~ Even though I only care about bitcoin, there's still testnet and
+	 * regtest modes, so we have a general "parameters for this chain"
+	 * function. */
 	state->chainparams = chainparams_by_chainhash(&chain_hash);
-	/* Initially we're not associated with a channel, but
-	 * handle_peer_gossip_or_error wants this. */
+	/*~ Initially we're not associated with a channel, but
+	 * handle_peer_gossip_or_error compares this. */
 	memset(&state->channel_id, 0, sizeof(state->channel_id));
 	state->channel = NULL;
 
+	/*~ We need an initial per-commitment point whether we're funding or
+	 * they are, and lightningd has reserved a unique dbid for us already,
+	 * so we might as well get the hsm daemon to generate it now. */
 	wire_sync_write(HSM_FD,
 			take(towire_hsm_get_per_commitment_point(NULL, 0)));
 	msg = wire_sync_read(tmpctx, HSM_FD);
@@ -1189,9 +1373,14 @@ int main(int argc, char *argv[])
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Bad get_per_commitment_point_reply %s",
 			      tal_hex(tmpctx, msg));
+	/*~ The HSM gives us the N-2'th per-commitment secret when we get the
+	 * N'th per-commitment point.  But since N=0, it won't give us one. */
 	assert(none == NULL);
+
+	/*~ Turns out this is useful for testing, to make sure we're ready. */
 	status_trace("Handed peer, entering loop");
 
+	/*~ We manually run a little poll() loop here.  With only three fds */
 	pollfd[0].fd = REQ_FD;
 	pollfd[0].events = POLLIN;
 	pollfd[1].fd = GOSSIP_FD;
@@ -1199,28 +1388,47 @@ int main(int argc, char *argv[])
 	pollfd[2].fd = PEER_FD;
 	pollfd[2].events = POLLIN;
 
+	/* We exit when we get a conclusion to write to lightningd: either
+	 * opening_funder_reply or opening_fundee. */
 	msg = NULL;
 	while (!msg) {
 		poll(pollfd, ARRAY_SIZE(pollfd), -1);
 		/* Subtle: handle_master_in can do its own poll loop, so
 		 * don't try to service more than one fd per loop. */
+		/* First priority: messages from lightningd. */
 		if (pollfd[0].revents & POLLIN)
 			msg = handle_master_in(state);
+		/* Second priority: messages from peer. */
 		else if (pollfd[2].revents & POLLIN)
 			msg = handle_peer_in(state);
+		/* Last priority: chit-chat from gossipd. */
 		else if (pollfd[1].revents & POLLIN)
 			handle_gossip_in(state);
 
+		/* Since we're the top-level event loop, we clean up */
 		clean_tmpctx();
 	}
 
-	/* Write message and hand back the fd. */
+	/*~ Write message and hand back the peer fd and gossipd fd.  This also
+	 * means that if the peer or gossipd wrote us any messages we didn't
+	 * read yet, it will simply be read by the next daemon. */
 	wire_sync_write(REQ_FD, msg);
 	fdpass_send(REQ_FD, PEER_FD);
 	fdpass_send(REQ_FD, GOSSIP_FD);
 	status_trace("Sent %s with fd",
 		     opening_wire_type_name(fromwire_peektype(msg)));
+
+	/* This frees the entire tal tree. */
 	tal_free(state);
+
+	/* This frees up everything else. */
 	daemon_shutdown();
 	return 0;
 }
+
+/*~ Note that there are no other source files in openingd: it really is a fairly
+ * straight-line daemon.
+ *
+ * From here the channel is established: lightningd hands the peer off to
+ * channeld/channeld.c which runs the normal channel routine for this peer.
+ */
