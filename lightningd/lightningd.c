@@ -64,6 +64,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <gen_header_versions.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel_control.h>
@@ -581,6 +582,17 @@ int main(int argc, char *argv[])
 
 	/*~ What happens in strange locales should stay there. */
 	setup_locale();
+
+	/*~ This checks that the system-installed libraries (usually
+	 * dynamically linked) actually are compatible with the ones we
+	 * compiled with.
+	 *
+	 * The header itself is auto-generated every time the version of the
+	 * installed libraries changes, as we had an sqlite3 version update
+	 * which broke people, and "make" didn't think there was any work to
+	 * do, so rebuilding didn't fix it. */
+	check_linked_library_versions();
+
 	/*~ Every daemon calls this in some form: the hooks are for dumping
 	 * backtraces when we crash (if supported on this platform). */
 	daemon_setup(argv[0], log_backtrace_print, log_backtrace_exit);
