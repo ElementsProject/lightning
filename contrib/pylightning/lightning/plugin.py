@@ -17,6 +17,9 @@ class Plugin(object):
     def __init__(self, stdout=None, stdin=None, autopatch=True):
         self.methods = {}
         self.options = {}
+
+        # A dict from topics to handler functions
+        self.subscriptions = {}
         self.option_values = {}
 
         if not stdout:
@@ -60,6 +63,33 @@ class Plugin(object):
 
         # Register the function with the name
         self.methods[name] = func
+
+    def add_subscription(self, topic, func):
+        """Add a subscription to our list of subscriptions.
+
+        A subscription is an association between a topic and a handler
+        function. Adding a subscription means that we will
+        automatically subscribe to events from that topic with
+        `lightningd` and, upon receiving a matching notification, we
+        will call the associated handler. Notice that in order for the
+        automatic subscriptions to work, the handlers need to be
+        registered before we send our manifest, hence before
+        `Plugin.run` is called.
+
+        """
+        if topic in self.subscriptions:
+            raise ValueError(
+                "Topic {} already has a handler".format(topic)
+            )
+        self.subscriptions[topic] = func
+
+    def subscribe(self, topic):
+        """Function decorator to register a notification handler.
+        """
+        def decorator(f):
+            self.add_subscription(topic, f)
+            return f
+        return decorator
 
     def add_option(self, name, default, description):
         """Add an option that we'd like to register with lightningd.
@@ -224,6 +254,7 @@ class Plugin(object):
         return {
             'options': list(self.options.values()),
             'rpcmethods': methods,
+            'subscriptions': list(self.subscriptions.keys()),
         }
 
     def _init(self, options, configuration, request):
