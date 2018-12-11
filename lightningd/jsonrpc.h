@@ -58,6 +58,14 @@ struct json_command {
 	const char *verbose;
 };
 
+struct jsonrpc_notification {
+	/* The topic that this notification is for. Internally this
+	 * will be serialized as "method", hence the different name
+	 * here */
+	const char *method;
+	struct json_stream *stream;
+};
+
 /**
  * json_stream_success - start streaming a successful json result.
  * @cmd: the command we're running.
@@ -161,6 +169,19 @@ bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command);
  * JSON-RPC dispatch table by its name.
  */
 void jsonrpc_command_remove(struct jsonrpc *rpc, const char *method);
+
+/**
+ * Begin a JSON-RPC notification with the specified topic.
+ *
+ * Automatically starts the `params` object, hence only key-value
+ * based params are supported at the moment.
+ */
+struct jsonrpc_notification *jsonrpc_notification_start(const tal_t *ctx, const char *topic);
+
+/**
+ * Counterpart to jsonrpc_notification_start.
+ */
+void jsonrpc_notification_end(struct jsonrpc_notification *n);
 
 AUTODATA_TYPE(json_command, struct json_command);
 #endif /* LIGHTNING_LIGHTNINGD_JSONRPC_H */
