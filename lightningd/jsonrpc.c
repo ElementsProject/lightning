@@ -976,6 +976,24 @@ static bool json_tok_command(struct command *cmd, const char *name,
 	return false;
 }
 
+struct jsonrpc_notification *jsonrpc_notification_start(const tal_t *ctx, const char *method)
+{
+	struct jsonrpc_notification *n = tal(ctx, struct jsonrpc_notification);
+	n->method = tal_strdup(n, method);
+	n->stream = new_json_stream(n, NULL);
+	json_object_start(n->stream, NULL);
+	json_add_string(n->stream, "jsonrpc", "2.0");
+	json_add_string(n->stream, "method", method);
+
+	return n;
+}
+
+void jsonrpc_notification_end(struct jsonrpc_notification *n)
+{
+	json_object_end(n->stream);
+	json_stream_append(n->stream, "\n\n");
+}
+
 /* We add this destructor as a canary to detect cmd failing. */
 static void destroy_command_canary(struct command *cmd, bool *failed)
 {
