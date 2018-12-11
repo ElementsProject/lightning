@@ -1121,7 +1121,6 @@ def test_pay_variants(node_factory):
     l1.rpc.pay(b11)
 
 
-@unittest.expectedFailure()
 def test_pay_direct(node_factory, bitcoind):
     """Check that we prefer the direct route.
     """

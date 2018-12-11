@@ -344,12 +344,32 @@ static void clear_bfg(struct node_map *nodes)
 	}
 }
 
-static u64 connection_fee(const struct half_chan *c, u64 msatoshi)
+/**
+ * @brief connection_fee
+ *        Compute the fee for the connection.
+ *
+ * @param from - the node that is the ultimate source of the
+ *        payment.
+ * @param chan - the channel to consider.
+ * @param idx - which direction (half_chan) of the channel to consider. 0 or 1.
+ * @param msatoshi - the value to transport over this channel.
+ */
+static u64 connection_fee(const struct node *from,
+			  const struct chan *chan, int idx, u64 msatoshi)
 {
 	u64 fee;
+	const struct half_chan *c;
 
+	assert(idx == 0 || idx == 1);
 	assert(msatoshi < MAX_MSATOSHI);
+
+	c = &chan->half[idx];
+
 	assert(c->proportional_fee < MAX_PROPORTIONAL_FEE);
+
+	/* The ultimate source never charges fees. */
+	if (chan->nodes[idx] == from)
+		return 0;
 
 	fee = (c->proportional_fee * msatoshi) / 1000000;
 	/* This can't overflow: c->base_fee is a u32 */
@@ -374,7 +394,8 @@ static bool hc_can_carry(const struct half_chan *hc, u64 requiredcap)
 
 /* We track totals, rather than costs.  That's because the fee depends
  * on the current amount passing through. */
-static void bfg_one_edge(struct node *node,
+static void bfg_one_edge(const struct node *from,
+			 struct node *node,
 			 struct chan *chan, int idx,
 			 double riskfactor,
 			 double fuzz, const struct siphash_seed *base_seed)
@@ -404,7 +425,8 @@ static void bfg_one_edge(struct node *node,
 		if (node->bfg[h].total == INFINITE)
 			continue;
 
-		fee = connection_fee(c, node->bfg[h].total) * fee_scale;
+		fee = connection_fee(from, chan, idx, node->bfg[h].total)
+		    * fee_scale;
 		requiredcap = node->bfg[h].total + fee;
 		risk = node->bfg[h].risk +
 		       risk_fee(requiredcap, c->delay, riskfactor);
@@ -517,7 +539,8 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 						     chan->half[idx].unroutable_until >= now);
 					continue;
 				}
-				bfg_one_edge(n, chan, idx,
+				/* dst is the "from" node. */
+				bfg_one_edge(dst, n, chan, idx,
 					     riskfactor, fuzz, base_seed);
 				SUPERVERBOSE("...done");
 			}
@@ -1502,6 +1525,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 	u64 total_amount;
 	unsigned int total_delay;
 	u64 fee;
+	struct node *sourcenode;
 	struct route_hop *hops;
 	int i;
 	struct node *n;
@@ -1519,6 +1543,9 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 	total_amount = msatoshi;
 	total_delay = final_cltv;
 
+	/* Get source node. */
+	sourcenode = get_node(rstate, source);
+
 	/* Start at destination node. */
 	n = get_node(rstate, destination);
 	for (i = tal_count(route) - 1; i >= 0; i--) {
@@ -1529,10 +1556,11 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 		hops[i].nodeid = n->id;
 		hops[i].amount = total_amount;
 		hops[i].delay = total_delay;
-		total_amount += connection_fee(c, total_amount);
+		total_amount += connection_fee(sourcenode, route[i], idx, total_amount);
 		total_delay += c->delay;
 		n = other_node(n, route[i]);
 	}
+	assert(total_amount == hops[0].amount);
 	assert(pubkey_eq(&n->id, source));
 
 	/* FIXME: Shadow route! */
