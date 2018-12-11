@@ -342,8 +342,11 @@ tools/headerversions: FORCE tools/headerversions.o $(CCAN_OBJS)
 gen_header_versions.h: tools/headerversions
 	@tools/headerversions $@
 
-# All binaries require the external libs, ccan and external library versions.
-$(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS): $(EXTERNAL_LIBS) $(CCAN_OBJS) gen_header_versions.h
+# Rebuild the world if this changes.
+ALL_GEN_HEADERS += gen_header_versions.h
+
+# All binaries require the external libs, ccan and system library versions.
+$(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS): $(EXTERNAL_LIBS) $(CCAN_OBJS)
 
 # Each test program depends on its own object.
 $(ALL_TEST_PROGRAMS): %: %.o
