@@ -71,7 +71,7 @@ struct state {
 	struct basepoints our_points;
 	struct pubkey our_funding_pubkey;
 
-	/* hsmd gives is our first per-commitment point, and peer tells us
+	/* hsmd gives us our first per-commitment point, and peer tells us
 	 * theirs */
 	struct pubkey first_per_commitment_point[NUM_SIDES];
 
@@ -396,7 +396,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 		 * protocol has a "channel_id" field in all non-gossip messages
 		 * so it's possible.  Our one-process-one-channel mechanism
 		 * keeps things simple: if we wanted to change this, we would
-		 * probably be best with another daemon to de-multipliex them;
+		 * probably be best with another daemon to de-multiplex them;
 		 * this could be connectd itself, in fact. */
 		if (is_wrong_channel(msg, &state->channel_id, &actual)) {
 			status_trace("Rejecting %s for unknown channel_id %s",
