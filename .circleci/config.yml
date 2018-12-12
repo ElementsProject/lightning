@@ -1,0 +1,69 @@
+version: 2
+jobs:
+  # publish jobs require $DOCKERHUB_REPO, $DOCKERHUB_USER, $DOCKERHUB_PASS defined
+  publish_docker_linuxamd64:
+    machine:
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          command: |
+            LATEST_TAG=${CIRCLE_TAG:8} #trim "basedon-" from tag
+            #
+            sudo docker build --pull -t $DOCKERHUB_REPO:$LATEST_TAG-amd64 -t $DOCKERHUB_REPO:$LATEST_TAG -f Dockerfile .
+            sudo docker login --username=$DOCKERHUB_USER --password=$DOCKERHUB_PASS
+            sudo docker push $DOCKERHUB_REPO:$LATEST_TAG-amd64
+            sudo docker push $DOCKERHUB_REPO:$LATEST_TAG
+  publish_docker_dev:
+    machine:
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          command: |
+            LATEST_TAG=${CIRCLE_TAG:8} #trim "basedon-" from tag
+            #
+            sudo docker build --build-arg "DEVELOPER=1" --build-arg "TRACE_TOOLS=false" -t "$DOCKERHUB_REPO:$LATEST_TAG-dev" .
+            sudo docker login --username=$DOCKERHUB_USER --password=$DOCKERHUB_PASS
+            sudo docker push $DOCKERHUB_REPO:$LATEST_TAG-dev
+  publish_docker_bench:
+    machine:
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          command: |
+            LATEST_TAG=${CIRCLE_TAG:8} #trim "basedon-" from tag
+            #
+            sudo docker build --build-arg "DEVELOPER=1" --build-arg "TRACE_TOOLS=true" -t "$DOCKERHUB_REPO:$LATEST_TAG-bench" .
+            sudo docker login --username=$DOCKERHUB_USER --password=$DOCKERHUB_PASS
+            sudo docker push $DOCKERHUB_REPO:$LATEST_TAG-bench
+
+workflows:
+  version: 2
+  publish:
+    jobs:
+      - publish_docker_linuxamd64:
+          filters:
+            # ignore any commit on any branch by default
+            branches:
+              ignore: /.*/
+            # only act on version tags
+            tags:
+              only: /basedon-.+/
+      - publish_docker_dev:
+          filters:
+            # ignore any commit on any branch by default
+            branches:
+              ignore: /.*/
+            # only act on version tags
+            tags:
+              only: /basedon-.+/
+      - publish_docker_bench:
+          filters:
+            # ignore any commit on any branch by default
+            branches:
+              ignore: /.*/
+            # only act on version tags
+            tags:
+              only: /basedon-.+/
