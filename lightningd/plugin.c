@@ -229,12 +229,12 @@ plugin_request_new_(struct plugin *plugin,
 	    (arg))
 
 /**
- * Given a request, send it to the plugin.
+ * Send a JSON-RPC message (request or notification) to the plugin.
  */
-static void plugin_request_queue(struct plugin *plugin,
-				 struct plugin_request *req)
+static void plugin_send(struct plugin *plugin, struct json_stream *stream)
 {
-	*tal_arr_expand(&plugin->js_arr) = req->stream;
+	tal_steal(plugin->js_arr, stream);
+	*tal_arr_expand(&plugin->js_arr) = stream;
 	io_wake(plugin);
 }
 
@@ -462,6 +462,9 @@ static struct io_plan *plugin_stream_complete(struct io_conn *conn, struct json_
 	/* Remove js and shift all remainig over */
 	tal_arr_remove(&plugin->js_arr, 0);
 
+	/* It got dropped off the queue, free it. */
+	tal_free(js);
+
 	return plugin_write_json(conn, plugin);
 }
 
@@ -686,7 +689,8 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	snprintf(id, ARRAY_SIZE(id), "%"PRIu64, req->id);
 
 	json_stream_forward_change_id(req->stream, buffer, toks, idtok, id);
-	plugin_request_queue(plugin, req);
+	plugin_send(plugin, req->stream);
+	req->stream = NULL;
 
 	return command_still_pending(cmd);
 }
@@ -928,7 +932,8 @@ static void end_simple_request(struct plugin *plugin, struct plugin_request *req
 {
 	json_object_end(req->stream);
 	json_stream_append(req->stream, "\n\n");
-	plugin_request_queue(plugin, req);
+	plugin_send(plugin, req->stream);
+	req->stream = NULL;
 }
 
 void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
