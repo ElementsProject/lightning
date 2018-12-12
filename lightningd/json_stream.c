@@ -59,6 +59,17 @@ struct json_stream *new_json_stream(const tal_t *ctx, struct command *writer)
 	return js;
 }
 
+struct json_stream *json_stream_dup(const tal_t *ctx, struct json_stream *original)
+{
+	size_t num_elems = membuf_num_elems(&original->outbuf);
+	char *elems = membuf_elems(&original->outbuf);
+	struct json_stream *js = tal_dup(ctx, struct json_stream, original);
+	membuf_init(&js->outbuf, tal_dup_arr(js, char, elems, num_elems, 0),
+		    num_elems, membuf_tal_realloc);
+	membuf_added(&js->outbuf, num_elems);
+	return js;
+}
+
 bool json_stream_still_writing(const struct json_stream *js)
 {
 	return js->writer != NULL;
