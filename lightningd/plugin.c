@@ -18,6 +18,7 @@
 #include <errno.h>
 #include <lightningd/json.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/notification.h>
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -60,6 +61,9 @@ struct plugin {
 	/* Timer to add a timeout to some plugin RPC calls. Used to
 	 * guarantee that `getmanifest` doesn't block indefinitely. */
 	const struct oneshot *timeout_timer;
+
+	/* An array of subscribed topics */
+	char **subscriptions;
 };
 
 struct plugin_request {
@@ -770,6 +774,47 @@ static bool plugin_rpcmethods_add(struct plugin *plugin,
 	return true;
 }
 
+static bool plugin_subscriptions_add(struct plugin *plugin, const char *buffer,
+				     const jsmntok_t *resulttok)
+{
+	const jsmntok_t *subscriptions =
+	    json_get_member(buffer, resulttok, "subscriptions");
+
+	if (!subscriptions) {
+		plugin->subscriptions = NULL;
+		return true;
+	}
+	plugin->subscriptions = tal_arr(plugin, char *, 0);
+	if (subscriptions->type != JSMN_ARRAY) {
+		plugin_kill(plugin, "\"result.subscriptions\" is not an array");
+		return false;
+	}
+
+	for (int i = 0; i < subscriptions->size; i++) {
+		char *topic;
+		const jsmntok_t *s = json_get_arr(subscriptions, i);
+		if (s->type != JSMN_STRING) {
+			plugin_kill(
+			    plugin,
+			    "result.subscriptions[%d] is not a string: %s", i,
+			    plugin->buffer);
+			return false;
+		}
+		topic = tal_strndup(
+		    plugin, plugin->buffer + s->start, s->end - s->start);
+
+		if (!notifications_have_topic(topic)) {
+			plugin_kill(
+			    plugin,
+			    "topic %s is not a know notification topic", topic);
+			return false;
+		}
+
+		*tal_arr_expand(&plugin->subscriptions) = topic;
+	}
+	return true;
+}
+
 static void plugin_manifest_timeout(struct plugin *plugin)
 {
 	log_broken(plugin->log, "The plugin failed to respond to \"getmanifest\" in time, terminating.");
@@ -801,7 +846,8 @@ static void plugin_manifest_cb(const struct plugin_request *req,
 	}
 
 	if (!plugin_opts_add(plugin, buffer, resulttok)
-	    || !plugin_rpcmethods_add(plugin, buffer, resulttok))
+	    || !plugin_rpcmethods_add(plugin, buffer, resulttok)
+	    || !plugin_subscriptions_add(plugin, buffer, resulttok))
 		plugin_kill(plugin, "Failed to register options or methods");
 	/* Reset timer, it'd kill us otherwise. */
 	tal_free(plugin->timeout_timer);
