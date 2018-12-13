@@ -38,6 +38,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
 #include <lightningd/memdump.h>
+#include <lightningd/notification.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/opening_control.h>
 #include <lightningd/options.h>
@@ -503,6 +504,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		}
 		abort();
 	}
+
+	notify_connect(ld, &id, &addr);
 
 	/* No err, all good. */
 	error = NULL;
