@@ -248,9 +248,12 @@ Build with:
 To cross-compile for Raspberry Pi
 --------------------
 
-Obtain the [official Raspberry Pi toolchains](https://github.com/raspberrypi/tools). This document assumes compilation will occur towards the Raspberry Pi 3 (arm-linux-gnueabihf as of Mar. 2018). In addition, obtain and install cross-compiled versions of sqlite 3 and gmp.
+Obtain the [official Raspberry Pi toolchains](https://github.com/raspberrypi/tools).
+This document assumes compilation will occur towards the Raspberry Pi 3 
+(arm-linux-gnueabihf as of Mar. 2018).
 
-Depending on your toolchain location and target arch, source env variables will need to be set. They can be set from the command line as such:
+Depending on your toolchain location and target arch, source env variables
+will need to be set. They can be set from the command line as such:
 
     export PATH=$PATH:/path/to/arm-linux-gnueabihf/bin
     # Change next line depending on specific Raspberry Pi device
@@ -262,16 +265,45 @@ Depending on your toolchain location and target arch, source env variables will 
     export LD=$target_host-ld
     export STRIP=$target_host-strip
 
-Install the `qemu-user` package. This will allow you to properly configure the build for the target device environment. Then, build with the following commands. (A 64-bit build system is assumed here.)
+Install the `qemu-user` package. This will allow you to properly configure the
+build for the target device environment.
+Config the arm elf interpreter prefix:
 
-    make CC=gcc clean ccan/tools/configurator/configurator
-    BUILD=x86_64 MAKE_HOST=arm-linux-gnueabihf make PIE=1 DEVELOPER=0 CONFIGURATOR_CC="arm-linux-gnueabihf-gcc -static" LDFLAGS="-L/path/to/gmp-and-sqlite/lib" CFLAGS="-std=gnu11 -I /path/to/gmp-and-sqlite/include -I . -I ccan -I external/libwally-core/src/secp256k1/include -I external/libsodium/src/libsodium/include -I external/jsmn -I external/libwally-core/include -I external/libbacktrace -I external/libbase58"
+    export QEMU_LD_PREFIX=/path/to/raspberry/arm-bcm2708/arm-rpi-4.9.3-linux-gnueabihf/arm-linux-gnueabihf/sysroot/
 
-The compilation will eventually fail due to a compile error in the `cdump` CCAN module. Recompile the module, and then re-run the make system.
+Obtain and install cross-compiled versions of sqlite3, gmp and zlib:
 
-    make clean -C ccan/ccan/cdump/tools
-    make CC=gcc -C ccan/ccan/cdump/tools
-    BUILD=x86_64 MAKE_HOST=arm-linux-gnueabihf make PIE=1 DEVELOPER=0 CONFIGURATOR_CC="arm-linux-gnueabihf-gcc -static" LDFLAGS="-L/path/to/gmp-and-sqlite/lib" CFLAGS="-std=gnu11 -I /path/to/gmp-and-sqlite/include -I . -I ccan -I external/libwally-core/src/secp256k1/include -I external/libsodium/src/libsodium/include -I external/jsmn -I external/libwally-core/include -I external/libbacktrace -I external/libbase58"
+Download and build zlib:
+
+    wget https://zlib.net/zlib-1.2.11.tar.gz
+    tar xvf zlib-1.2.11.tar.gz
+    cd zlib-1.2.11
+    ./configure --prefix=$QEMU_LD_PREFIX
+    make
+    make install
+
+Download and build sqlite3:
+
+    wget https://www.sqlite.org/2018/sqlite-src-3260000.zip
+    unzip sqlite-src-3260000.zip
+    cd sqlite-src-3260000
+    ./configure --enable-static --disable-readline --disable-threadsafe --disable-load-extension --host=$target_host --prefix=$QEMU_LD_PREFIX
+    make
+    make install
+
+Download and build gmp:
+
+    wget https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz
+    tar xvf gmp-6.1.2.tar.xz 
+    cd gmp-6.1.2
+    ./configure --disable-assembly --prefix=$QEMU_LD_PREFIX
+    make
+    make install
+
+Then, build c-lightning with the following commands:
+
+    ./configure
+    make
 
 To compile for Armbian
 --------------------
