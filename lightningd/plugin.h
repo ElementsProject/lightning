@@ -79,4 +79,7 @@ char *add_plugin_dir(struct plugins *plugins, const char *dir,
  */
 void clear_plugins(struct plugins *plugins);
 
+void plugins_notify(struct plugins *plugins,
+		    const struct jsonrpc_notification *n TAKES);
+
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */
