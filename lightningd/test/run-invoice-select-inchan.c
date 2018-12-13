@@ -240,6 +240,13 @@ struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 			      struct timerel expire UNNEEDED,
 			      void (*cb)(void *) UNNEEDED, void *arg UNNEEDED)
 { fprintf(stderr, "new_reltimer_ called!\n"); abort(); }
+/* Generated stub for notify_connect */
+void notify_connect(struct lightningd *ld UNNEEDED, struct pubkey *nodeid UNNEEDED,
+		    struct wireaddr_internal *addr UNNEEDED)
+{ fprintf(stderr, "notify_connect called!\n"); abort(); }
+/* Generated stub for notify_disconnect */
+void notify_disconnect(struct lightningd *ld UNNEEDED, struct pubkey *nodeid UNNEEDED)
+{ fprintf(stderr, "notify_disconnect called!\n"); abort(); }
 /* Generated stub for null_response */
 struct json_stream *null_response(struct command *cmd UNNEEDED)
 { fprintf(stderr, "null_response called!\n"); abort(); }

@@ -2,8 +2,13 @@
 #define LIGHTNING_LIGHTNINGD_NOTIFICATION_H
 #include "config.h"
 #include <lightningd/jsonrpc.h>
+#include <lightningd/lightningd.h>
 #include <lightningd/plugin.h>
 
 bool notifications_have_topic(const char *topic);
+
+void notify_connect(struct lightningd *ld, struct pubkey *nodeid,
+		    struct wireaddr_internal *addr);
+void notify_disconnect(struct lightningd *ld, struct pubkey *nodeid);
 
 #endif /* LIGHTNING_LIGHTNINGD_NOTIFICATION_H */

@@ -21,6 +21,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/notification.h>
 #include <lightningd/opening_control.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
@@ -85,6 +86,7 @@ static void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
 	subd_send_msg(uc->peer->ld->connectd, msg);
 	if (uc->fc)
 		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
+	notify_disconnect(uc->peer->ld, &uc->peer->id);
 }
 
 void kill_uncommitted_channel(struct uncommitted_channel *uc,
