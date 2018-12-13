@@ -1054,3 +1054,28 @@ void json_add_opt_plugins(struct json_stream *response,
 		json_add_string(response, "plugin", p->cmd);
 	}
 }
+
+/**
+ * Determine whether a plugin is subscribed to a given topic/method.
+ */
+static bool plugin_subscriptions_contains(struct plugin *plugin,
+					  const char *method)
+{
+	for (size_t i = 0; i < tal_count(plugin->subscriptions); i++)
+		if (streq(method, plugin->subscriptions[i]))
+			return true;
+
+	return false;
+}
+
+void plugins_notify(struct plugins *plugins,
+		    const struct jsonrpc_notification *n TAKES)
+{
+	struct plugin *p;
+	list_for_each(&plugins->plugins, p, list) {
+		if (plugin_subscriptions_contains(p, n->method))
+			plugin_send(p, json_stream_dup(p, n->stream));
+	}
+	if (taken(n))
+		tal_free(n);
+}
