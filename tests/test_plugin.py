@@ -83,6 +83,18 @@ def test_plugin_disable(node_factory):
         n.rpc.hello(name='Sun')
 
 
+def test_plugin_notifications(node_factory):
+    l1, l2 = node_factory.get_nodes(2, opts={'plugin': 'contrib/plugins/helloworld.py'})
+
+    l1.connect(l2)
+    l1.daemon.wait_for_log(r'Received connect event')
+    l2.daemon.wait_for_log(r'Received connect event')
+
+    l2.rpc.disconnect(l1.info['id'])
+    l1.daemon.wait_for_log(r'Received disconnect event')
+    l2.daemon.wait_for_log(r'Received disconnect event')
+
+
 def test_failing_plugins():
     fail_plugins = [
         'contrib/plugins/fail/failtimeout.py',
