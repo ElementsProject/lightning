@@ -385,11 +385,17 @@ class LightningNode(object):
         self.may_fail = may_fail
         self.may_reconnect = may_reconnect
 
+    def connect(self, remote_node):
+            self.rpc.connect(remote_node.info['id'], '127.0.0.1', remote_node.daemon.port)
+
+    def is_connected(self, remote_node):
+        return remote_node.info['id'] in [p['id'] for p in self.rpc.listpeers()['peers']]
+
     def openchannel(self, remote_node, capacity, addrtype="p2sh-segwit", confirm=True, wait_for_announce=True, connect=True):
         addr, wallettxid = self.fundwallet(10 * capacity, addrtype)
 
-        if connect and remote_node.info['id'] not in [p['id'] for p in self.rpc.listpeers()['peers']]:
-            self.rpc.connect(remote_node.info['id'], '127.0.0.1', remote_node.daemon.port)
+        if connect and not self.is_connected(remote_node):
+            self.connect(remote_node)
 
         fundingtx = self.rpc.fundchannel(remote_node.info['id'], capacity)
 
