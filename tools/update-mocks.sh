@@ -27,7 +27,9 @@ if [ -n "$START" ]; then
 	fi
 	sed -n 's,.*Generated stub for \(.*\) .*,\t\1,p' < "${BASE}.stubs"
 	head -n "$START" "${BASE}.old" > "$FILE"
-	cat "${BASE}.stubs" >> "$FILE"
+	# Now add the stubs, but drop LAST_ARG_NULL which is not
+	# permitted by GCC
+	cat "${BASE}.stubs" | sed 's/ LAST_ARG_NULL//g' >> "$FILE"
 	tail -n +"$END" "${BASE}.old" >> "$FILE"
     else
 	echo "...build succeeded without stubs"
