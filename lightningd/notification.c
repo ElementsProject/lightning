@@ -2,6 +2,8 @@
 #include <ccan/array_size/array_size.h>
 
 const char *notification_topics[] = {
+	"connect",
+	"disconnect",
 };
 
 bool notifications_have_topic(const char *topic)
@@ -10,4 +12,24 @@ bool notifications_have_topic(const char *topic)
 		if (streq(topic, notification_topics[i]))
 			return true;
 	return false;
+}
+
+void notify_connect(struct lightningd *ld, struct pubkey *nodeid,
+		    struct wireaddr_internal *addr)
+{
+	struct jsonrpc_notification *n =
+	    jsonrpc_notification_start(NULL, notification_topics[0]);
+	json_add_pubkey(n->stream, "id", nodeid);
+	json_add_address_internal(n->stream, "address", addr);
+	jsonrpc_notification_end(n);
+	plugins_notify(ld->plugins, take(n));
+}
+
+void notify_disconnect(struct lightningd *ld, struct pubkey *nodeid)
+{
+	struct jsonrpc_notification *n =
+	    jsonrpc_notification_start(NULL, notification_topics[1]);
+	json_add_pubkey(n->stream, "id", nodeid);
+	jsonrpc_notification_end(n);
+	plugins_notify(ld->plugins, take(n));
 }

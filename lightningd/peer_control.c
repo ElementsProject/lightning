@@ -38,6 +38,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
 #include <lightningd/memdump.h>
+#include <lightningd/notification.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/opening_control.h>
 #include <lightningd/options.h>
@@ -381,6 +382,7 @@ void channel_errmsg(struct channel *channel,
 
 	/* Make sure channel_fail_permanent doesn't tell connectd we died! */
 	channel->connected = false;
+	notify_disconnect(channel->peer->ld, &channel->peer->id);
 
 	/* BOLT #1:
 	 *
@@ -503,6 +505,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		}
 		abort();
 	}
+
+	notify_connect(ld, &id, &addr);
 
 	/* No err, all good. */
 	error = NULL;
