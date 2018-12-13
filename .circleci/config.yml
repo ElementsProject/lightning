@@ -10,10 +10,24 @@ jobs:
           command: |
             LATEST_TAG=${CIRCLE_TAG:8} #trim "basedon-" from tag
             #
-            sudo docker build --pull -t $DOCKERHUB_REPO:$LATEST_TAG-amd64 -t $DOCKERHUB_REPO:$LATEST_TAG -f Dockerfile .
+            sudo docker build --pull -t $DOCKERHUB_REPO:$LATEST_TAG-amd64 -f Dockerfile .
             sudo docker login --username=$DOCKERHUB_USER --password=$DOCKERHUB_PASS
             sudo docker push $DOCKERHUB_REPO:$LATEST_TAG-amd64
-            sudo docker push $DOCKERHUB_REPO:$LATEST_TAG
+  publish_docker_linuxarm32v7:
+    machine:
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          command: |
+            LATEST_TAG=${CIRCLE_TAG:8} #trim "basedon-" from tag
+            # Make sure the builder is copy the arm emulator
+            sudo docker run --rm --privileged multiarch/qemu-user-static:register --reset
+            sed -i -e 's/#EnableQEMU //g' "linuxarm32v7.Dockerfile"
+            #
+            sudo docker build --pull -t $DOCKERHUB_REPO:$LATEST_TAG-arm32v7 -f linuxarm32v7.Dockerfile .
+            sudo docker login --username=$DOCKERHUB_USER --password=$DOCKERHUB_PASS
+            sudo docker push $DOCKERHUB_REPO:$LATEST_TAG-arm32v7
   publish_docker_dev:
     machine:
       docker_layer_caching: true
@@ -38,12 +52,38 @@ jobs:
             sudo docker build --build-arg "DEVELOPER=1" --build-arg "TRACE_TOOLS=true" -t "$DOCKERHUB_REPO:$LATEST_TAG-bench" .
             sudo docker login --username=$DOCKERHUB_USER --password=$DOCKERHUB_PASS
             sudo docker push $DOCKERHUB_REPO:$LATEST_TAG-bench
+  publish_docker_multiarch:
+    machine:
+      enabled: true
+      image: circleci/classic:201808-01
+    steps:
+      - run:
+          command: |
+            # Turn on Experimental features
+            sudo mkdir $HOME/.docker
+            sudo sh -c 'echo "{ \"experimental\": \"enabled\" }" >> $HOME/.docker/config.json'
+            #
+            sudo docker login --username=$DOCKERHUB_USER --password=$DOCKERHUB_PASS
+            #
+            LATEST_TAG=${CIRCLE_TAG:8} #trim "basedon-" from tag
+            sudo docker manifest create --amend $DOCKERHUB_REPO:$LATEST_TAG $DOCKERHUB_REPO:$LATEST_TAG-amd64 $DOCKERHUB_REPO:$LATEST_TAG-arm32v7
+            sudo docker manifest annotate $DOCKERHUB_REPO:$LATEST_TAG $DOCKERHUB_REPO:$LATEST_TAG-amd64 --os linux --arch amd64
+            sudo docker manifest annotate $DOCKERHUB_REPO:$LATEST_TAG $DOCKERHUB_REPO:$LATEST_TAG-arm32v7 --os linux --arch arm --variant v7
+            sudo docker manifest push $DOCKERHUB_REPO:$LATEST_TAG -p
 
 workflows:
   version: 2
   publish:
     jobs:
       - publish_docker_linuxamd64:
+          filters:
+            # ignore any commit on any branch by default
+            branches:
+              ignore: /.*/
+            # only act on version tags
+            tags:
+              only: /basedon-.+/
+      - publish_docker_linuxarm32v7:
           filters:
             # ignore any commit on any branch by default
             branches:
@@ -67,3 +107,13 @@ workflows:
             # only act on version tags
             tags:
               only: /basedon-.+/
+      - publish_docker_multiarch:
+          requires:
+            - publish_docker_linuxamd64
+            - publish_docker_linuxarm32v7
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /basedon-.+/
+

@@ -61,13 +61,14 @@ COPY . .
 ARG DEVELOPER=0
 RUN ./configure && make -j3 DEVELOPER=${DEVELOPER} && cp lightningd/lightning* cli/lightning-cli /usr/bin/
 
-FROM microsoft/dotnet:2.1.403-sdk-alpine3.7 AS dotnetbuilder
+# This is a manifest image, will pull the image with the same arch as the builder machine
+FROM microsoft/dotnet:2.1.500-sdk AS dotnetbuilder
 
-RUN apk add --no-cache git
+RUN apt-get -y update && apt-get -y install git
 
 WORKDIR /source
 
-RUN git clone https://github.com/dgarage/NBXplorer && cd NBXplorer && git checkout 88a8db8be3911f59b4b6109845b547368c5f02fb
+RUN git clone https://github.com/dgarage/NBXplorer && cd NBXplorer && git checkout v2.0.0.2
 
 # Cache some dependencies
 RUN cd NBXplorer/NBXplorer.NodeWaiter && dotnet restore && cd ..
