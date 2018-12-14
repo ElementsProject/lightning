@@ -17,7 +17,6 @@ class Plugin(object):
     def __init__(self, stdout=None, stdin=None, autopatch=True):
         self.methods = {}
         self.options = {}
-        self.option_values = {}
 
         if not stdout:
             self.stdout = sys.stdout
@@ -77,15 +76,17 @@ class Plugin(object):
             'default': default,
             'description': description,
             'type': 'string',
+            'value': None,
         }
 
     def get_option(self, name):
-        if name in self.option_values:
-            return self.option_values[name]
-        elif name in self.options:
-            return self.options[name]['default']
-        else:
+        if name not in self.options:
             raise ValueError("No option with name {} registered".format(name))
+
+        if self.options[name]['value'] is not None:
+            return self.options[name]['value']
+        else:
+            return self.options[name]['default']
 
     def method(self, method_name, *args, **kwargs):
         """Decorator to add a plugin method to the dispatch table.
@@ -209,7 +210,7 @@ class Plugin(object):
         self.rpc_filename = configuration['rpc-file']
         self.lightning_dir = configuration['lightning-dir']
         for name, value in options.items():
-            self.option_values[name] = value
+            self.options[name]['value'] = value
 
         # Swap the registered `init` method handler back in and
         # re-dispatch
