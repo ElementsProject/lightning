@@ -34,12 +34,45 @@ RUN mkdir /opt/litecoin && cd /opt/litecoin \
     && tar -xzvf litecoin.tar.gz $BD/litecoin-cli --strip-components=1 --exclude=*-qt \
     && rm litecoin.tar.gz
 
-FROM arm32v7/debian:stretch-slim as builder
+FROM debian:stretch-slim as builder
 
 COPY --from=downloader /usr/bin/qemu-arm-static /usr/bin/qemu-arm-static
 ENV LIGHTNINGD_VERSION=master
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates autoconf automake build-essential git libtool python python3 wget gnupg dirmngr git \
-  libgmp-dev libsqlite3-dev zlib1g-dev
+  libc6-armhf-cross gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+
+ENV target_host=arm-linux-gnueabihf
+
+ENV AR=${target_host}-ar \
+AS=${target_host}-as \
+CC=${target_host}-gcc \
+CXX=${target_host}-g++ \
+LD=${target_host}-ld \
+STRIP=${target_host}-strip \
+QEMU_LD_PREFIX=/usr/${target_host} \
+HOST=${target_host}
+
+RUN wget -q https://zlib.net/zlib-1.2.11.tar.gz \
+&& tar xvf zlib-1.2.11.tar.gz \
+&& cd zlib-1.2.11 \
+&& ./configure --prefix=$QEMU_LD_PREFIX \
+&& make \
+&& make install && cd .. && rm zlib-1.2.11.tar.gz && rm -rf zlib-1.2.11
+
+RUN apt-get install -y --no-install-recommends unzip tclsh \
+&& wget -q https://www.sqlite.org/2018/sqlite-src-3260000.zip \
+&& unzip sqlite-src-3260000.zip \
+&& cd sqlite-src-3260000 \
+&& ./configure --enable-static --disable-readline --disable-threadsafe --disable-load-extension --host=${target_host} --prefix=$QEMU_LD_PREFIX \
+&& make \
+&& make install && cd .. && rm sqlite-src-3260000.zip && rm -rf sqlite-src-3260000
+
+RUN wget -q https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz \
+&& tar xvf gmp-6.1.2.tar.xz \
+&& cd gmp-6.1.2 \
+&& ./configure --disable-assembly --prefix=$QEMU_LD_PREFIX --host=${target_host} \
+&& make \
+&& make install && cd .. && rm gmp-6.1.2.tar.xz && rm -rf gmp-6.1.2
 
 WORKDIR /opt/lightningd
 COPY . .
@@ -62,7 +95,7 @@ RUN cd NBXplorer/NBXplorer.NodeWaiter && \
 
 FROM microsoft/dotnet:2.1.6-runtime-stretch-slim-arm32v7 as final
 COPY --from=downloader /usr/bin/qemu-arm-static /usr/bin/qemu-arm-static
-RUN apt-get update && apt-get install -y --no-install-recommends socat libgmp-dev inotify-tools libsqlite3-dev \
+RUN apt-get update && apt-get install -y --no-install-recommends socat inotify-tools \
     && rm -rf /var/lib/apt/lists/* 
 
 ENV LIGHTNINGD_DATA=/root/.lightning
