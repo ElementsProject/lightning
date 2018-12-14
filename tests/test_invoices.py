@@ -120,7 +120,7 @@ def test_invoice_preimage(node_factory):
 def test_invoice_routeboost(node_factory, bitcoind):
     """Test routeboost 'r' hint in bolt11 invoice.
     """
-    l1, l2 = node_factory.line_graph(2, fundamount=10**4)
+    l1, l2 = node_factory.line_graph(2, fundamount=2 * (10**4))
 
     # Won't get reference to route until channel is public.
     inv = l2.rpc.invoice(msatoshi=123456, label="inv0", description="?")
@@ -147,8 +147,8 @@ def test_invoice_routeboost(node_factory, bitcoind):
     l1.rpc.pay(inv['bolt11'])
     wait_channel_quiescent(l1, l2)
 
-    # Due to reserve, l1 doesn't have capacity to pay this.
-    inv = l2.rpc.invoice(msatoshi=10**7 - 123456, label="inv2", description="?")
+    # Due to reserve & fees, l1 doesn't have capacity to pay this.
+    inv = l2.rpc.invoice(msatoshi=2 * (10**7) - 123456, label="inv2", description="?")
     # Check warning
     assert 'warning_capacity' in inv
     assert 'warning_offline' not in inv

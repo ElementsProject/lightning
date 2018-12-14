@@ -414,7 +414,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 			- commit_tx_num_untrimmed(removing, feerate, dust,
 						  recipient);
 
-		fee_msat = commit_tx_base_fee(feerate, untrimmed);
+		fee_msat = commit_tx_base_fee(feerate, untrimmed) * 1000;
 	} else
 		fee_msat = 0;
 
@@ -684,7 +684,7 @@ static int change_htlcs(struct channel *channel,
 u32 approx_max_feerate(const struct channel *channel)
 {
 	size_t num;
-	u64 weight;
+	u64 weight, avail_msat;
 	const struct htlc **committed, **adding, **removing;
 
 	gather_htlcs(tmpctx, channel, !channel->funder,
@@ -695,8 +695,12 @@ u32 approx_max_feerate(const struct channel *channel)
 
 	weight = 724 + 172 * num;
 
-	return channel->view[!channel->funder].owed_msat[channel->funder]
-		/ weight * 1000;
+	/* We should never go below reserve. */
+	avail_msat = channel->view[!channel->funder].owed_msat[channel->funder]
+		- channel_reserve_msat(channel, channel->funder);
+
+	/* We have to pay fee from onchain funds, so it's in satoshi. */
+	return avail_msat / 1000 / weight * 1000;
 }
 
 bool can_funder_afford_feerate(const struct channel *channel, u32 feerate_per_kw)
@@ -714,7 +718,7 @@ bool can_funder_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 			- commit_tx_num_untrimmed(removing, feerate_per_kw, dust,
 						  !channel->funder);
 
-	fee_msat = commit_tx_base_fee(feerate_per_kw, untrimmed);
+	fee_msat = commit_tx_base_fee(feerate_per_kw, untrimmed) * 1000;
 
 	/* BOLT #2:
 	 *
