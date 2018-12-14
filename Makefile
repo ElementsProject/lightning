@@ -181,7 +181,7 @@ CONFIGURATOR_CC := $(CC)
 
 LDFLAGS = $(PIE_LDFLAGS)
 ifeq ($(STATIC),1)
-LDLIBS = -static -L/usr/local/lib -lgmp -lsqlite3 -lm -lz -lpthread -ldl $(COVFLAGS)
+LDLIBS = -L/usr/local/lib -Wl,-dn -lgmp -lsqlite3 -lz -Wl,-dy -lm -lpthread -ldl $(COVFLAGS)
 else
 LDLIBS = -L/usr/local/lib -lm -lgmp -lsqlite3 -lz $(COVFLAGS)
 endif
