@@ -92,7 +92,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 * 2. Calculate the base [commitment transaction
 	 * fee](#fee-calculation).
 	 */
-	base_fee_msat = commit_tx_base_fee(feerate_per_kw, untrimmed) * 1000;
+	base_fee_msat = commit_tx_base_fee_msat(feerate_per_kw, untrimmed);
 
 	/* BOLT #3:
 	 *

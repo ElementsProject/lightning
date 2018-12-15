@@ -916,8 +916,7 @@ int main(void)
 	/* Now make sure we cover case where funder can't afford the fee;
 	 * its output cannot go negative! */
 	for (;;) {
-		u64 base_fee_msat = commit_tx_base_fee(feerate_per_kw, 0)
-			* 1000;
+		u64 base_fee_msat = commit_tx_base_fee_msat(feerate_per_kw, 0);
 
 		if (base_fee_msat <= to_local_msat) {
 			feerate_per_kw++;

@@ -18,8 +18,8 @@ u64 commit_number_obscurer(const struct pubkey *opener_payment_basepoint,
 			   const struct pubkey *accepter_payment_basepoint);
 
 /* Helper to calculate the base fee if we have this many htlc outputs */
-static inline u64 commit_tx_base_fee(u32 feerate_per_kw,
-				     size_t num_untrimmed_htlcs)
+static inline u64 commit_tx_base_fee_sat(u32 feerate_per_kw,
+					 size_t num_untrimmed_htlcs)
 {
 	u64 weight;
 
@@ -44,7 +44,14 @@ static inline u64 commit_tx_base_fee(u32 feerate_per_kw,
 	 *    3. Multiply `feerate_per_kw` by `weight`, divide by 1000 (rounding
 	 *    down).
 	 */
-	return feerate_per_kw * weight / 1000;
+	return (feerate_per_kw * weight / 1000);
+}
+
+static inline u64 commit_tx_base_fee_msat(u32 feerate_per_kw,
+					  size_t num_untrimmed_htlcs)
+{
+	return commit_tx_base_fee_sat(feerate_per_kw, num_untrimmed_htlcs)
+		* 1000;
 }
 
 /**

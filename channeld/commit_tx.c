@@ -125,7 +125,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 * 2. Calculate the base [commitment transaction
 	 * fee](#fee-calculation).
 	 */
-	base_fee_msat = commit_tx_base_fee(feerate_per_kw, untrimmed) * 1000;
+	base_fee_msat = commit_tx_base_fee_msat(feerate_per_kw, untrimmed);
 
 	SUPERVERBOSE("# base commitment transaction fee = %"PRIu64"\n",
 		     base_fee_msat / 1000);
