@@ -848,7 +848,7 @@ char *add_plugin_dir(struct plugins *plugins, const char *dir, bool nonexist_ok)
 	if (!d) {
 		if (nonexist_ok && errno == ENOENT)
 			return NULL;
-		return tal_fmt("Failed to open plugin-dir %s: %s",
+		return tal_fmt(NULL, "Failed to open plugin-dir %s: %s",
 			       dir, strerror(errno));
 	}
 
