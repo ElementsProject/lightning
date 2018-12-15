@@ -414,7 +414,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 			- commit_tx_num_untrimmed(removing, feerate, dust,
 						  recipient);
 
-		fee_msat = commit_tx_base_fee(feerate, untrimmed) * 1000;
+		fee_msat = commit_tx_base_fee_msat(feerate, untrimmed);
 	} else
 		fee_msat = 0;
 
@@ -718,7 +718,7 @@ bool can_funder_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 			- commit_tx_num_untrimmed(removing, feerate_per_kw, dust,
 						  !channel->funder);
 
-	fee_msat = commit_tx_base_fee(feerate_per_kw, untrimmed) * 1000;
+	fee_msat = commit_tx_base_fee_msat(feerate_per_kw, untrimmed);
 
 	/* BOLT #2:
 	 *

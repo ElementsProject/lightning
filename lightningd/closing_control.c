@@ -184,11 +184,11 @@ void peer_start_closingd(struct channel *channel,
 	 *    fee of the final commitment transaction, as calculated in
 	 *    [BOLT #3](03-transactions.md#fee-calculation).
 	 */
-	feelimit = commit_tx_base_fee(channel->channel_info.feerate_per_kw[LOCAL],
-				      0);
+	feelimit = commit_tx_base_fee_sat(channel->channel_info.feerate_per_kw[LOCAL],
+					  0);
 
 	/* Pick some value above slow feerate (or min possible if unknown) */
-	minfee = commit_tx_base_fee(feerate_min(ld, NULL), 0);
+	minfee = commit_tx_base_fee_sat(feerate_min(ld, NULL), 0);
 
 	/* If we can't determine feerate, start at half unilateral feerate. */
 	feerate = mutual_close_feerate(ld->topology);
@@ -197,7 +197,7 @@ void peer_start_closingd(struct channel *channel,
 		if (feerate < feerate_floor())
 			feerate = feerate_floor();
 	}
-	startfee = commit_tx_base_fee(feerate, 0);
+	startfee = commit_tx_base_fee_sat(feerate, 0);
 
 	if (startfee > feelimit)
 		startfee = feelimit;
