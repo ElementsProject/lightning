@@ -7,10 +7,12 @@
 #include <stdbool.h>
 
 struct command;
+struct command_result;
 
 /* Caller supplied this: param assumes it can call it. */
-void PRINTF_FMT(3, 4) command_fail(struct command *cmd, int code,
-				   const char *fmt, ...);
+struct command_result *command_fail(struct command *cmd, int code,
+				    const char *fmt, ...)
+	PRINTF_FMT(3, 4);
 
 /* Also caller supplied: is this invoked simply to get usage? */
 bool command_usage_only(const struct command *cmd);

@@ -51,14 +51,16 @@ bool channel_tell_funding_locked(struct lightningd *ld UNNEEDED,
 				 u32 depth UNNEEDED)
 { fprintf(stderr, "channel_tell_funding_locked called!\n"); abort(); }
 /* Generated stub for command_fail */
-void  command_fail(struct command *cmd UNNEEDED, int code UNNEEDED,
-				   const char *fmt UNNEEDED, ...)
+struct command_result *command_fail(struct command *cmd UNNEEDED, int code UNNEEDED,
+				    const char *fmt UNNEEDED, ...)
+
 { fprintf(stderr, "command_fail called!\n"); abort(); }
 /* Generated stub for command_still_pending */
-void command_still_pending(struct command *cmd UNNEEDED)
+struct command_result *command_still_pending(struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_still_pending called!\n"); abort(); }
 /* Generated stub for command_success */
-void command_success(struct command *cmd UNNEEDED, struct json_stream *response UNNEEDED)
+struct command_result *command_success(struct command *cmd UNNEEDED,
+				       struct json_stream *response UNNEEDED)
 { fprintf(stderr, "command_success called!\n"); abort(); }
 /* Generated stub for connect_succeeded */
 void connect_succeeded(struct lightningd *ld UNNEEDED, const struct pubkey *id UNNEEDED)
@@ -264,6 +266,12 @@ bool json_tok_bool(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 bool json_tok_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			 struct channel_id *cid UNNEEDED)
 { fprintf(stderr, "json_tok_channel_id called!\n"); abort(); }
+/* Generated stub for json_tok_full */
+const char *json_tok_full(const char *buffer UNNEEDED, const jsmntok_t *t UNNEEDED)
+{ fprintf(stderr, "json_tok_full called!\n"); abort(); }
+/* Generated stub for json_tok_full_len */
+int json_tok_full_len(const jsmntok_t *t UNNEEDED)
+{ fprintf(stderr, "json_tok_full_len called!\n"); abort(); }
 /* Generated stub for json_tok_loglevel */
 bool json_tok_loglevel(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 		       const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
