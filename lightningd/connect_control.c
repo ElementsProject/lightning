@@ -111,8 +111,8 @@ static void json_connect(struct command *cmd,
 	if (!json_to_pubkey(buffer, idtok, &id)) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "id %.*s not valid",
-			     idtok->end - idtok->start,
-			     buffer + idtok->start);
+			     json_tok_full_len(idtok),
+			     json_tok_full(buffer, idtok));
 		return;
 	}
 

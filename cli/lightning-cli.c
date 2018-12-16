@@ -363,7 +363,7 @@ int main(int argc, char *argv[])
 	if (!json_tok_streq(resp, id, idstr))
 		errx(ERROR_TALKING_TO_LIGHTNINGD,
 		     "Incorrect 'id' in response: %.*s",
-		     json_tok_len(id), json_tok_contents(resp, id));
+		     json_tok_full_len(id), json_tok_full(resp, id));
 
 	if (!error || json_tok_is_null(resp, error)) {
 		// if we have specific help command
@@ -374,8 +374,8 @@ int main(int argc, char *argv[])
 				human_readable(resp, result, '\n');
 		else
 			printf("%.*s\n",
-			       json_tok_len(result),
-			       json_tok_contents(resp, result));
+			       json_tok_full_len(result),
+			       json_tok_full(resp, result));
 		tal_free(lightning_dir);
 		tal_free(rpc_filename);
 		tal_free(ctx);
@@ -384,7 +384,7 @@ int main(int argc, char *argv[])
 	}
 
 	printf("%.*s\n",
-	       json_tok_len(error), json_tok_contents(resp, error));
+	       json_tok_full_len(error), json_tok_full(resp, error));
 	tal_free(lightning_dir);
 	tal_free(rpc_filename);
 	tal_free(ctx);

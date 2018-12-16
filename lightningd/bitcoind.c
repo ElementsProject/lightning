@@ -646,8 +646,8 @@ static bool process_getblock(struct bitcoin_cli *bcli)
 				   &txid))
 		fatal("%s: had bad txid (%.*s)?",
 		      bcli_args(tmpctx, bcli),
-		      txidtok->end - txidtok->start,
-		      bcli->output + txidtok->start);
+		      json_tok_full_len(txidtok),
+		      json_tok_full(bcli->output, txidtok));
 
 	go->cb = cb;
 	/* Now get the raw tx output. */

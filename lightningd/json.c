@@ -114,7 +114,7 @@ bool json_tok_pubkey(struct command *cmd, const char *name,
 
 	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 		     "'%s' should be a pubkey, not '%.*s'",
-		     name, tok->end - tok->start, buffer + tok->start);
+		     name, json_tok_full_len(tok), json_tok_full(buffer, tok));
 	return false;
 }
 
@@ -143,7 +143,7 @@ bool json_tok_short_channel_id(struct command *cmd, const char *name,
 
 	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 		     "'%s' should be a short channel id, not '%.*s'",
-		     name, tok->end - tok->start, buffer + tok->start);
+		     name, json_tok_full_len(tok), json_tok_full(buffer, tok));
 	return false;
 }
 
@@ -178,7 +178,7 @@ bool json_tok_feerate_style(struct command *cmd, const char *name,
 		     name,
 		     json_feerate_style_name(FEERATE_PER_KSIPA),
 		     json_feerate_style_name(FEERATE_PER_KBYTE),
-		     tok->end - tok->start, buffer + tok->start);
+		     json_tok_full_len(tok), json_tok_full(buffer, tok));
 	return false;
 }
 

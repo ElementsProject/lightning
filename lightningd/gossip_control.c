@@ -474,8 +474,8 @@ static void json_dev_query_scids(struct command *cmd,
 		if (!json_to_short_channel_id(buffer, t, &scids[i])) {
 			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				     "scid %zu '%.*s' is not an scid",
-				     i, t->end - t->start,
-				     buffer + t->start);
+				     i, json_tok_full_len(t),
+				     json_tok_full(buffer, t));
 			return;
 		}
 	}
