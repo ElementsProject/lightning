@@ -1,4 +1,3 @@
-#include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>
@@ -25,16 +24,8 @@ bool json_tok_bool(struct command *cmd, const char *name,
 		   bool **b)
 {
 	*b = tal(cmd, bool);
-	if (tok->type == JSMN_PRIMITIVE) {
-		if (memeqstr(buffer + tok->start, tok->end - tok->start, "true")) {
-			**b = true;
-			return true;
-		}
-		if (memeqstr(buffer + tok->start, tok->end - tok->start, "false")) {
-			**b = false;
-			return true;
-		}
-	}
+	if (json_to_bool(buffer, tok, *b))
+		return true;
 	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 		     "'%s' should be 'true' or 'false', not '%.*s'",
 		     name, tok->end - tok->start, buffer + tok->start);
