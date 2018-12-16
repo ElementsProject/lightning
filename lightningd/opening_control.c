@@ -84,7 +84,7 @@ static void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
 	log_info(uc->log, "%s", desc);
 	subd_send_msg(uc->peer->ld->connectd, msg);
 	if (uc->fc)
-		command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc);
+		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
 }
 
 void kill_uncommitted_channel(struct uncommitted_channel *uc,
@@ -264,8 +264,9 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		log_broken(fc->uc->log,
 			   "bad OPENING_FUNDER_REPLY %s",
 			   tal_hex(resp, resp));
-		command_fail(fc->cmd, LIGHTNINGD, "bad OPENING_FUNDER_REPLY %s",
-			     tal_hex(fc->cmd, resp));
+		was_pending(command_fail(fc->cmd, LIGHTNINGD,
+					 "bad OPENING_FUNDER_REPLY %s",
+					 tal_hex(fc->cmd, resp)));
 		goto failed;
 	}
 	log_debug(ld->log,
@@ -311,17 +312,18 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					  &fc->uc->local_funding_pubkey),
 			   type_to_string(fc, struct pubkey,
 					  &channel_info.remote_fundingkey));
-		command_fail(fc->cmd, JSONRPC2_INVALID_PARAMS,
-			     "Funding txid mismatch:"
-			     " satoshi %"PRIu64" change %"PRIu64
-			     " changeidx %u"
-			     " localkey %s remotekey %s",
-			     fc->wtx.amount,
-			     fc->wtx.change, fc->wtx.change_key_index,
-			     type_to_string(fc, struct pubkey,
-					    &fc->uc->local_funding_pubkey),
-			     type_to_string(fc, struct pubkey,
-					    &channel_info.remote_fundingkey));
+		was_pending(command_fail(fc->cmd, JSONRPC2_INVALID_PARAMS,
+					 "Funding txid mismatch:"
+					 " satoshi %"PRIu64" change %"PRIu64
+					 " changeidx %u"
+					 " localkey %s remotekey %s",
+					 fc->wtx.amount,
+					 fc->wtx.change,
+					 fc->wtx.change_key_index,
+					 type_to_string(fc, struct pubkey,
+							&fc->uc->local_funding_pubkey),
+					 type_to_string(fc, struct pubkey,
+							&channel_info.remote_fundingkey)));
 		goto failed;
 	}
 
@@ -337,8 +339,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					&channel_info,
 					feerate);
 	if (!channel) {
-		command_fail(fc->cmd, LIGHTNINGD,
-			     "Key generation failure");
+		was_pending(command_fail(fc->cmd, LIGHTNINGD,
+					 "Key generation failure"));
 		goto failed;
 	}
 
@@ -387,7 +389,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	json_add_string(response, "channel_id",
 			type_to_string(tmpctx, struct channel_id, &cid));
 	json_object_end(response);
-	command_success(fc->cmd, response);
+	was_pending(command_success(fc->cmd, response));
 
 	subd_release_channel(openingd, fc->uc);
 	fc->uc->openingd = NULL;
@@ -507,14 +509,14 @@ static void opening_funder_failed(struct subd *openingd, const u8 *msg,
 		log_broken(uc->log,
 			   "bad OPENING_FUNDER_FAILED %s",
 			   tal_hex(tmpctx, msg));
-		command_fail(uc->fc->cmd, LIGHTNINGD,
-			     "bad OPENING_FUNDER_FAILED %s",
-			     tal_hex(uc->fc->cmd, msg));
+		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD,
+					 "bad OPENING_FUNDER_FAILED %s",
+					 tal_hex(uc->fc->cmd, msg)));
 		tal_free(uc);
 		return;
 	}
 
-	command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc);
+	was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
 
 	/* Clear uc->fc, so we can try again, and so we don't fail twice
 	 * if they close. */
@@ -890,7 +892,8 @@ static void opening_memleak_req_done(struct subd *openingd,
 
 	tal_del_destructor2(openingd, opening_died_forget_memleak, cmd);
 	if (!fromwire_opening_dev_memleak_reply(msg, &found_leak)) {
-		command_fail(cmd, LIGHTNINGD, "Bad opening_dev_memleak");
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "Bad opening_dev_memleak"));
 		return;
 	}
 

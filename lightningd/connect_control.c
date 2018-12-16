@@ -245,7 +245,7 @@ static void connect_failed(struct lightningd *ld, const u8 *msg)
 	/* We can have multiple connect commands: fail them all */
 	while ((c = find_connect(ld, &id)) != NULL) {
 		/* They delete themselves from list */
-		command_fail(c->cmd, LIGHTNINGD, "%s", err);
+		was_pending(command_fail(c->cmd, LIGHTNINGD, "%s", err));
 	}
 
 	/* If we have an active channel, then reconnect. */

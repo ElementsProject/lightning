@@ -181,7 +181,7 @@ static void report_leak_info2(struct leak_info *leak_info)
 	scan_mem(leak_info->cmd, response, leak_info->cmd->ld, leak_info->leaker);
 	json_object_end(response);
 
-	command_success(leak_info->cmd, response);
+	was_pending(command_success(leak_info->cmd, response));
 }
 
 static void report_leak_info(struct command *cmd, struct subd *leaker)
@@ -205,7 +205,8 @@ static void gossip_dev_memleak_done(struct subd *gossipd,
 	bool found_leak;
 
 	if (!fromwire_gossip_dev_memleak_reply(reply, &found_leak)) {
-		command_fail(cmd, LIGHTNINGD, "Bad gossip_dev_memleak");
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "Bad gossip_dev_memleak"));
 		return;
 	}
 
@@ -221,7 +222,8 @@ static void connect_dev_memleak_done(struct subd *connectd,
 	bool found_leak;
 
 	if (!fromwire_connect_dev_memleak_reply(reply, &found_leak)) {
-		command_fail(cmd, LIGHTNINGD, "Bad connect_dev_memleak");
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "Bad connect_dev_memleak"));
 		return;
 	}
 
@@ -243,7 +245,8 @@ static void hsm_dev_memleak_done(struct subd *hsmd,
 	bool found_leak;
 
 	if (!fromwire_hsm_dev_memleak_reply(reply, &found_leak)) {
-		command_fail(cmd, LIGHTNINGD, "Bad hsm_dev_memleak");
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "Bad hsm_dev_memleak"));
 		return;
 	}
 
@@ -299,7 +302,7 @@ static struct command_result *json_memleak(struct command *cmd,
 
 	/* For simplicity, we mark pending, though an error may complete it
 	 * immediately. */
-	command_still_pending(cmd);
+	fixme_ignore(command_still_pending(cmd));
 
 	/* This calls opening_memleak_done() async when all done. */
 	opening_dev_memleak(cmd);

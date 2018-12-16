@@ -66,16 +66,17 @@ void ping_reply(struct subd *subd, const u8 *msg)
 	assert(pc);
 
 	if (!ok)
-		command_fail(pc->cmd, LIGHTNINGD, "Bad reply message");
+		was_pending(command_fail(pc->cmd, LIGHTNINGD,
+					 "Bad reply message"));
 	else if (!sent)
-		command_fail(pc->cmd, LIGHTNINGD, "Unknown peer");
+		was_pending(command_fail(pc->cmd, LIGHTNINGD, "Unknown peer"));
 	else {
 		struct json_stream *response = json_stream_success(pc->cmd);
 
 		json_object_start(response, NULL);
 		json_add_num(response, "totlen", totlen);
 		json_object_end(response);
-		command_success(pc->cmd, response);
+		was_pending(command_success(pc->cmd, response));
 	}
 }
 

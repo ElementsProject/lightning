@@ -96,12 +96,15 @@ struct json_stream *null_response(struct command *cmd);
 
 /* These returned values are never NULL. */
 struct command_result *command_success(struct command *cmd,
-				       struct json_stream *response);
+				       struct json_stream *response)
+	 WARN_UNUSED_RESULT;
 struct command_result *command_failed(struct command *cmd,
-				      struct json_stream *result);
+				      struct json_stream *result)
+	 WARN_UNUSED_RESULT;
 
 /* Mainly for documentation, that we plan to close this later. */
-struct command_result *command_still_pending(struct command *cmd);
+struct command_result *command_still_pending(struct command *cmd)
+	 WARN_UNUSED_RESULT;
 
 /* For low-level JSON stream access: */
 struct json_stream *json_stream_raw_for_cmd(struct command *cmd);
@@ -109,7 +112,8 @@ struct command_result *command_raw_complete(struct command *cmd,
 					    struct json_stream *result);
 
 /* To return if param() fails. */
-extern struct command_result *command_param_failed(void);
+extern struct command_result *command_param_failed(void)
+	 WARN_UNUSED_RESULT;
 
 /* Wrapper for pending commands (ignores return) */
 static inline void was_pending(const struct command_result *res)

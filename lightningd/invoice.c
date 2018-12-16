@@ -84,7 +84,8 @@ static struct command_result *tell_waiter(struct command *cmd,
 
 static void tell_waiter_deleted(struct command *cmd)
 {
-	command_fail(cmd, LIGHTNINGD, "Invoice deleted during wait");
+	was_pending(command_fail(cmd, LIGHTNINGD,
+				 "Invoice deleted during wait"));
 }
 static void wait_on_invoice(const struct invoice *invoice, void *cmd)
 {
@@ -240,8 +241,9 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	/* Check duplicate preimage (unlikely unless they specified it!) */
 	if (wallet_invoice_find_by_rhash(wallet,
 					 &invoice, &info->b11->payment_hash)) {
-		command_fail(info->cmd, INVOICE_PREIMAGE_ALREADY_EXISTS,
-			     "preimage already used");
+		was_pending(command_fail(info->cmd,
+					 INVOICE_PREIMAGE_ALREADY_EXISTS,
+					 "preimage already used"));
 		return;
 	}
 
@@ -254,8 +256,9 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 				   info->b11->description,
 				   &info->payment_preimage,
 				   &info->b11->payment_hash)) {
-		command_fail(info->cmd, INVOICE_LABEL_ALREADY_EXISTS,
-			     "Duplicate label '%s'", info->label->s);
+		was_pending(command_fail(info->cmd, INVOICE_LABEL_ALREADY_EXISTS,
+					 "Duplicate label '%s'",
+					 info->label->s));
 		return;
 	}
 
@@ -289,7 +292,7 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	}
 	json_object_end(response);
 
-	command_success(info->cmd, response);
+	was_pending(command_success(info->cmd, response));
 }
 
 static struct command_result *json_invoice(struct command *cmd,
@@ -563,7 +566,7 @@ static struct command_result *json_waitanyinvoice(struct command *cmd,
 	/* Set command as pending. We do not know if
 	 * wallet_invoice_waitany will return immediately
 	 * or not, so indicating pending is safest.  */
-	command_still_pending(cmd);
+	fixme_ignore(command_still_pending(cmd));
 
 	/* Find next paid invoice. */
 	wallet_invoice_waitany(cmd, wallet, *pay_index,
@@ -610,7 +613,7 @@ static struct command_result *json_waitinvoice(struct command *cmd,
 		return tell_waiter(cmd, &i);
 	} else {
 		/* There is an unpaid one matching, let's wait... */
-		command_still_pending(cmd);
+		fixme_ignore(command_still_pending(cmd));
 		wallet_invoice_waitone(cmd, wallet, i,
 				       &wait_on_invoice, (void *) cmd);
 		return command_its_complicated();

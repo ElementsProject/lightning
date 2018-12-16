@@ -139,7 +139,8 @@ static void broadcast_remainder(struct bitcoind *bitcoind,
 	txs->cursor++;
 	if (txs->cursor == tal_count(txs->txs)) {
 		if (txs->cmd)
-			command_success(txs->cmd, null_response(txs->cmd));
+			was_pending(command_success(txs->cmd,
+						    null_response(txs->cmd)));
 		tal_free(txs);
 		return;
 	}
