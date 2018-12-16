@@ -430,7 +430,6 @@ void PRINTF_FMT(3, 4) command_fail(struct command *cmd, int code,
 void command_still_pending(struct command *cmd)
 {
 	notleak_with_children(cmd);
-	notleak(cmd->jcon);
 	cmd->pending = true;
 }
 
@@ -694,7 +693,8 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 {
 	struct json_connection *jcon;
 
-	jcon = tal(conn, struct json_connection);
+	/* We live as long as the connection, so we're not a leak. */
+	jcon = notleak(tal(conn, struct json_connection));
 	jcon->conn = conn;
 	jcon->ld = ld;
 	jcon->used = 0;
