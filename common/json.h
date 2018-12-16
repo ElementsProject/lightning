@@ -23,6 +23,9 @@ int json_tok_len(const jsmntok_t *t);
 /* Is this a string equal to str? */
 bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str);
 
+/* Allocate a tal string copy */
+char *json_strdup(const tal_t *ctx, const char *buffer, const jsmntok_t *tok);
+
 /* Extract number from this (may be a string, or a number literal) */
 bool json_to_number(const char *buffer, const jsmntok_t *tok,
 		    unsigned int *num);

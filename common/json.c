@@ -35,6 +35,11 @@ bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str)
 	return strncmp(buffer + tok->start, str, tok->end - tok->start) == 0;
 }
 
+char *json_strdup(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
+{
+	return tal_strndup(ctx, buffer + tok->start, tok->end - tok->start);
+}
+
 bool json_to_u64(const char *buffer, const jsmntok_t *tok,
 		  uint64_t *num)
 {
