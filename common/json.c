@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 
-const char *json_tok_contents(const char *buffer, const jsmntok_t *t)
+const char *json_tok_full(const char *buffer, const jsmntok_t *t)
 {
 	if (t->type == JSMN_STRING)
 		return buffer + t->start - 1;
@@ -20,7 +20,7 @@ const char *json_tok_contents(const char *buffer, const jsmntok_t *t)
 }
 
 /* Include " if it's a string. */
-int json_tok_len(const jsmntok_t *t)
+int json_tok_full_len(const jsmntok_t *t)
 {
 	if (t->type == JSMN_STRING)
 		return t->end - t->start + 2;

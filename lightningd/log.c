@@ -719,7 +719,8 @@ bool json_tok_loglevel(struct command *cmd, const char *name,
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "'%s' should be 'io', 'debug', 'info', or "
 			     "'unusual', not '%.*s'",
-			     name, tok->end - tok->start, buffer + tok->start);
+			     name,
+			     json_tok_full_len(tok), json_tok_full(buffer, tok));
 		return false;
 	}
 	return true;

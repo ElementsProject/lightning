@@ -15,10 +15,10 @@ struct json_escaped;
 struct short_channel_id;
 
 /* Include " if it's a string. */
-const char *json_tok_contents(const char *buffer, const jsmntok_t *t);
+const char *json_tok_full(const char *buffer, const jsmntok_t *t);
 
 /* Include " if it's a string. */
-int json_tok_len(const jsmntok_t *t);
+int json_tok_full_len(const jsmntok_t *t);
 
 /* Is this a string equal to str? */
 bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str);

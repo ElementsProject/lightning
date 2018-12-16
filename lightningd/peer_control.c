@@ -886,8 +886,7 @@ command_find_channel(struct command *cmd,
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "Given id is not a channel ID or "
 			     "short channel ID: '%.*s'",
-			     tok->end - tok->start,
-			     buffer + tok->start);
+			     json_tok_full_len(tok), json_tok_full(buffer, tok));
 		return NULL;
 	}
 }

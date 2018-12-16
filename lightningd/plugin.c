@@ -259,8 +259,8 @@ static void plugin_log_handle(struct plugin *plugin, const jsmntok_t *paramstok)
 		plugin_kill(plugin,
 			    "Unknown log-level %.*s, valid values are "
 			    "\"debug\", \"info\", \"warn\", or \"error\".",
-			    json_tok_len(leveltok),
-			    json_tok_contents(plugin->buffer, leveltok));
+			    json_tok_full_len(leveltok),
+			    json_tok_full(plugin->buffer, leveltok));
 		return;
 	}
 
@@ -293,8 +293,8 @@ static void plugin_notification_handle(struct plugin *plugin,
 		plugin_log_handle(plugin, paramstok);
 	} else {
 		plugin_kill(plugin, "Unknown notification method %.*s",
-			    json_tok_len(methtok),
-			    json_tok_contents(plugin->buffer, methtok));
+			    json_tok_full_len(methtok),
+			    json_tok_full(plugin->buffer, methtok));
 	}
 }
 

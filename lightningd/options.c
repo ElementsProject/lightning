@@ -1099,8 +1099,8 @@ static void json_listconfigs(struct command *cmd,
 	if (configtok && !response) {
 		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			     "Unknown config option '%.*s'",
-			     configtok->end - configtok->start,
-			     buffer + configtok->start);
+			     json_tok_full_len(configtok),
+			     json_tok_full(buffer, configtok));
 		return;
 	}
 	json_object_end(response);
