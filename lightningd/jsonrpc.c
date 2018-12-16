@@ -110,11 +110,7 @@ static void jcon_remove_json_stream(struct json_connection *jcon,
 		if (js != jcon->js_arr[i])
 			continue;
 
-		memmove(jcon->js_arr + i,
-			jcon->js_arr + i + 1,
-			(tal_count(jcon->js_arr) - i - 1)
-			* sizeof(jcon->js_arr[i]));
-		tal_resize(&jcon->js_arr, tal_count(jcon->js_arr)-1);
+		tal_arr_remove(&jcon->js_arr, i);
 		return;
 	}
 	abort();
