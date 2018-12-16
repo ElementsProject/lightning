@@ -62,7 +62,8 @@ static void json_add_invoice(struct json_stream *response,
 	json_object_end(response);
 }
 
-static void tell_waiter(struct command *cmd, const struct invoice *inv)
+static struct command_result *tell_waiter(struct command *cmd,
+					  const struct invoice *inv)
 {
 	struct json_stream *response;
 	const struct invoice_details *details;
@@ -71,13 +72,13 @@ static void tell_waiter(struct command *cmd, const struct invoice *inv)
 	if (details->state == PAID) {
 		response = json_stream_success(cmd);
 		json_add_invoice(response, details);
-		command_success(cmd, response);
+		return command_success(cmd, response);
 	} else {
 		/* FIXME: -2 should be a constant in jsonrpc_errors.h.  */
 		response = json_stream_fail(cmd, -2,
 					    "invoice expired during wait");
 		json_add_invoice(response, details);
-		command_failed(cmd, response);
+		return command_failed(cmd, response);
 	}
 }
 
@@ -111,9 +112,10 @@ static bool hsm_sign_b11(const u5 *u5bytes,
 	return true;
 }
 
-static bool parse_fallback(struct command *cmd,
-			   const char *buffer, const jsmntok_t *fallback,
-			   const u8 **fallback_script)
+static struct command_result *parse_fallback(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *fallback,
+					     const u8 **fallback_script)
 
 {
 	enum address_parse_result fallback_parse;
@@ -124,15 +126,14 @@ static bool parse_fallback(struct command *cmd,
 						buffer, fallback,
 						fallback_script);
 	if (fallback_parse == ADDRESS_PARSE_UNRECOGNIZED) {
-		command_fail(cmd, LIGHTNINGD, "Fallback address not valid");
-		return false;
+		return command_fail(cmd, LIGHTNINGD,
+				    "Fallback address not valid");
 	} else if (fallback_parse == ADDRESS_PARSE_WRONG_NETWORK) {
-		command_fail(cmd, LIGHTNINGD,
-			     "Fallback address does not match our network %s",
-			     get_chainparams(cmd->ld)->network_name);
-		return false;
+		return command_fail(cmd, LIGHTNINGD,
+				    "Fallback address does not match our network %s",
+				    get_chainparams(cmd->ld)->network_name);
 	}
-	return true;
+	return NULL;
 }
 
 /* BOLT11 struct wants an array of arrays (can provide multiple routes) */
@@ -291,10 +292,10 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	command_success(info->cmd, response);
 }
 
-static void json_invoice(struct command *cmd,
-			 const char *buffer,
-			 const jsmntok_t *obj UNNEEDED,
-			 const jsmntok_t *params)
+static struct command_result *json_invoice(struct command *cmd,
+					   const char *buffer,
+					   const jsmntok_t *obj UNNEEDED,
+					   const jsmntok_t *params)
 {
 	const jsmntok_t *fallbacks;
 	const jsmntok_t *preimagetok;
@@ -316,23 +317,21 @@ static void json_invoice(struct command *cmd,
 		   p_opt("fallbacks", param_array, &fallbacks),
 		   p_opt("preimage", param_tok, &preimagetok),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	if (strlen(info->label->s) > INVOICE_MAX_LABEL_LEN) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "Label '%s' over %u bytes", info->label->s,
-			     INVOICE_MAX_LABEL_LEN);
-		return;
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Label '%s' over %u bytes", info->label->s,
+				    INVOICE_MAX_LABEL_LEN);
 	}
 
 	if (strlen(desc_val) >= BOLT11_FIELD_BYTE_LIMIT) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "Descriptions greater than %d bytes "
-			     "not yet supported "
-			     "(description length %zu)",
-			     BOLT11_FIELD_BYTE_LIMIT,
-			     strlen(desc_val));
-		return;
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Descriptions greater than %d bytes "
+				    "not yet supported "
+				    "(description length %zu)",
+				    BOLT11_FIELD_BYTE_LIMIT,
+				    strlen(desc_val));
 	}
 
 	if (fallbacks) {
@@ -340,9 +339,11 @@ static void json_invoice(struct command *cmd,
 
 		fallback_scripts = tal_arr(cmd, const u8 *, 0);
 		for (i = fallbacks + 1; i < end; i = json_next(i)) {
-			if (!parse_fallback(cmd, buffer, i,
-					    tal_arr_expand(&fallback_scripts)))
-				return;
+			struct command_result *r;
+			r = parse_fallback(cmd, buffer, i,
+					   tal_arr_expand(&fallback_scripts));
+			if (r)
+				return r;
 		}
 	}
 
@@ -352,9 +353,8 @@ static void json_invoice(struct command *cmd,
 				preimagetok->end - preimagetok->start,
 				&info->payment_preimage,
 				sizeof(info->payment_preimage))) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "preimage must be 64 hex digits");
-			return;
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "preimage must be 64 hex digits");
 		}
 	} else
 		/* Generate random secret preimage. */
@@ -381,7 +381,7 @@ static void json_invoice(struct command *cmd,
 		 take(towire_gossip_get_incoming_channels(NULL)),
 		 -1, 0, gossipd_incoming_channels_reply, info);
 
-	command_still_pending(cmd);
+	return command_still_pending(cmd);
 }
 
 static const struct json_command invoice_command = {
@@ -416,10 +416,10 @@ static void json_add_invoices(struct json_stream *response,
 	}
 }
 
-static void json_listinvoices(struct command *cmd,
-			      const char *buffer,
-			      const jsmntok_t *obj UNNEEDED,
-			      const jsmntok_t *params)
+static struct command_result *json_listinvoices(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *obj UNNEEDED,
+						const jsmntok_t *params)
 {
 	struct json_escaped *label;
 	struct json_stream *response;
@@ -427,14 +427,14 @@ static void json_listinvoices(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_opt("label", param_label, &label),
 		   NULL))
-		return;
+		return command_param_failed();
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_array_start(response, "invoices");
 	json_add_invoices(response, wallet, label);
 	json_array_end(response);
 	json_object_end(response);
-	command_success(cmd, response);
+	return command_success(cmd, response);
 }
 
 static const struct json_command listinvoices_command = {
@@ -444,10 +444,10 @@ static const struct json_command listinvoices_command = {
 };
 AUTODATA(json_command, &listinvoices_command);
 
-static void json_delinvoice(struct command *cmd,
-			    const char *buffer,
-			    const jsmntok_t *obj UNNEEDED,
-			    const jsmntok_t *params)
+static struct command_result *json_delinvoice(struct command *cmd,
+					      const char *buffer,
+					      const jsmntok_t *obj UNNEEDED,
+					      const jsmntok_t *params)
 {
 	struct invoice i;
 	const struct invoice_details *details;
@@ -460,11 +460,10 @@ static void json_delinvoice(struct command *cmd,
 		   p_req("label", param_label, &label),
 		   p_req("status", param_string, &status),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	if (!wallet_invoice_find_by_label(wallet, &i, label)) {
-		command_fail(cmd, LIGHTNINGD, "Unknown invoice");
-		return;
+		return command_fail(cmd, LIGHTNINGD, "Unknown invoice");
 	}
 
 	details = wallet_invoice_details(cmd, cmd->ld->wallet, i);
@@ -473,22 +472,21 @@ static void json_delinvoice(struct command *cmd,
 	 * might not make sense if it changed! */
 	actual_status = invoice_status_str(details);
 	if (!streq(actual_status, status)) {
-		command_fail(cmd, LIGHTNINGD, "Invoice status is %s not %s",
-			     actual_status, status);
-		return;
+		return command_fail(cmd, LIGHTNINGD,
+				    "Invoice status is %s not %s",
+				    actual_status, status);
 	}
 
 	if (!wallet_invoice_delete(wallet, i)) {
 		log_broken(cmd->ld->log,
 			   "Error attempting to remove invoice %"PRIu64,
 			   i.id);
-		command_fail(cmd, LIGHTNINGD, "Database error");
-		return;
+		return command_fail(cmd, LIGHTNINGD, "Database error");
 	}
 
 	response = json_stream_success(cmd);
 	json_add_invoice(response, details);
-	command_success(cmd, response);
+	return command_success(cmd, response);
 }
 
 static const struct json_command delinvoice_command = {
@@ -498,10 +496,10 @@ static const struct json_command delinvoice_command = {
 };
 AUTODATA(json_command, &delinvoice_command);
 
-static void json_delexpiredinvoice(struct command *cmd,
-				   const char *buffer,
-				   const jsmntok_t *obj UNNEEDED,
-				   const jsmntok_t *params)
+static struct command_result *json_delexpiredinvoice(struct command *cmd,
+						     const char *buffer,
+						     const jsmntok_t *obj UNNEEDED,
+						     const jsmntok_t *params)
 {
 	u64 *maxexpirytime;
 
@@ -509,11 +507,11 @@ static void json_delexpiredinvoice(struct command *cmd,
 		   p_opt_def("maxexpirytime", param_u64, &maxexpirytime,
 				 time_now().ts.tv_sec),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	wallet_invoice_delete_expired(cmd->ld->wallet, *maxexpirytime);
 
-	command_success(cmd, null_response(cmd));
+	return command_success(cmd, null_response(cmd));
 }
 static const struct json_command delexpiredinvoice_command = {
 	"delexpiredinvoice",
@@ -522,10 +520,10 @@ static const struct json_command delexpiredinvoice_command = {
 };
 AUTODATA(json_command, &delexpiredinvoice_command);
 
-static void json_autocleaninvoice(struct command *cmd,
-				  const char *buffer,
-				  const jsmntok_t *obj UNNEEDED,
-				  const jsmntok_t *params)
+static struct command_result *json_autocleaninvoice(struct command *cmd,
+						    const char *buffer,
+						    const jsmntok_t *obj UNNEEDED,
+						    const jsmntok_t *params)
 {
 	u64 *cycle;
 	u64 *exby;
@@ -534,11 +532,11 @@ static void json_autocleaninvoice(struct command *cmd,
 		   p_opt_def("cycle_seconds", param_u64, &cycle, 3600),
 		   p_opt_def("expired_by", param_u64, &exby, 86400),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	wallet_invoice_autoclean(cmd->ld->wallet, *cycle, *exby);
 
-	command_success(cmd, null_response(cmd));
+	return command_success(cmd, null_response(cmd));
 }
 static const struct json_command autocleaninvoice_command = {
 	"autocleaninvoice",
@@ -549,10 +547,10 @@ static const struct json_command autocleaninvoice_command = {
 };
 AUTODATA(json_command, &autocleaninvoice_command);
 
-static void json_waitanyinvoice(struct command *cmd,
-				const char *buffer,
-				const jsmntok_t *obj UNNEEDED,
-				const jsmntok_t *params)
+static struct command_result *json_waitanyinvoice(struct command *cmd,
+						  const char *buffer,
+						  const jsmntok_t *obj UNNEEDED,
+						  const jsmntok_t *params)
 {
 	u64 *pay_index;
 	struct wallet *wallet = cmd->ld->wallet;
@@ -560,7 +558,7 @@ static void json_waitanyinvoice(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_opt_def("lastpay_index", param_u64, &pay_index, 0),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	/* Set command as pending. We do not know if
 	 * wallet_invoice_waitany will return immediately
@@ -570,6 +568,8 @@ static void json_waitanyinvoice(struct command *cmd,
 	/* Find next paid invoice. */
 	wallet_invoice_waitany(cmd, wallet, *pay_index,
 			       &wait_on_invoice, (void*) cmd);
+
+	return command_its_complicated();
 }
 
 static const struct json_command waitanyinvoice_command = {
@@ -585,10 +585,10 @@ AUTODATA(json_command, &waitanyinvoice_command);
  * already been received or it may add the `cmd` to the list of
  * waiters, if the payment is still pending.
  */
-static void json_waitinvoice(struct command *cmd,
-			     const char *buffer,
-			     const jsmntok_t *obj UNNEEDED,
-			     const jsmntok_t *params)
+static struct command_result *json_waitinvoice(struct command *cmd,
+					       const char *buffer,
+					       const jsmntok_t *obj UNNEEDED,
+					       const jsmntok_t *params)
 {
 	struct invoice i;
 	const struct invoice_details *details;
@@ -598,23 +598,22 @@ static void json_waitinvoice(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_req("label", param_label, &label),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	if (!wallet_invoice_find_by_label(wallet, &i, label)) {
-		command_fail(cmd, LIGHTNINGD, "Label not found");
-		return;
+		return command_fail(cmd, LIGHTNINGD, "Label not found");
 	}
 	details = wallet_invoice_details(cmd, cmd->ld->wallet, i);
 
 	/* If paid or expired return immediately */
 	if (details->state == PAID || details->state == EXPIRED) {
-		tell_waiter(cmd, &i);
-		return;
+		return tell_waiter(cmd, &i);
 	} else {
 		/* There is an unpaid one matching, let's wait... */
 		command_still_pending(cmd);
 		wallet_invoice_waitone(cmd, wallet, i,
 				       &wait_on_invoice, (void *) cmd);
+		return command_its_complicated();
 	}
 }
 
@@ -660,10 +659,10 @@ static void json_add_fallback(struct json_stream *response,
 	json_object_end(response);
 }
 
-static void json_decodepay(struct command *cmd,
-                           const char *buffer,
-			   const jsmntok_t *obj UNNEEDED,
-			   const jsmntok_t *params)
+static struct command_result *json_decodepay(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *obj UNNEEDED,
+					     const jsmntok_t *params)
 {
 	struct bolt11 *b11;
 	struct json_stream *response;
@@ -674,13 +673,12 @@ static void json_decodepay(struct command *cmd,
 		   p_req("bolt11", param_string, &str),
 		   p_opt("description", param_string, &desc),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	b11 = bolt11_decode(cmd, str, desc, &fail);
 
 	if (!b11) {
-		command_fail(cmd, LIGHTNINGD, "Invalid bolt11: %s", fail);
-		return;
+		return command_fail(cmd, LIGHTNINGD, "Invalid bolt11: %s", fail);
 	}
 
 	response = json_stream_success(cmd);
@@ -766,7 +764,7 @@ static void json_decodepay(struct command *cmd,
                         type_to_string(cmd, secp256k1_ecdsa_signature,
                                        &b11->sig));
 	json_object_end(response);
-	command_success(cmd, response);
+	return command_success(cmd, response);
 }
 
 static const struct json_command decodepay_command = {

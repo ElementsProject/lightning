@@ -244,10 +244,10 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 	command_success(cmd, response);
 }
 
-static void json_listnodes(struct command *cmd,
-			   const char *buffer,
-			   const jsmntok_t *obj UNNEEDED,
-			   const jsmntok_t *params)
+static struct command_result *json_listnodes(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *obj UNNEEDED,
+					     const jsmntok_t *params)
 {
 	u8 *req;
 	struct pubkey *id;
@@ -255,11 +255,11 @@ static void json_listnodes(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_opt("id", param_pubkey, &id),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	req = towire_gossip_getnodes_request(cmd, id);
 	subd_req(cmd, cmd->ld->gossip, req, -1, 0, json_getnodes_reply, cmd);
-	command_still_pending(cmd);
+	return command_still_pending(cmd);
 }
 
 static const struct json_command listnodes_command = {
@@ -289,10 +289,10 @@ static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, con
 	command_success(cmd, response);
 }
 
-static void json_getroute(struct command *cmd,
-			  const char *buffer,
-			  const jsmntok_t *obj UNNEEDED,
-			  const jsmntok_t *params)
+static struct command_result *json_getroute(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *obj UNNEEDED,
+					    const jsmntok_t *params)
 {
 	struct lightningd *ld = cmd->ld;
 	struct pubkey *destination;
@@ -318,7 +318,7 @@ static void json_getroute(struct command *cmd,
 		   p_opt("seed", param_tok, &seedtok),
 		   p_opt_def("fuzzpercent", param_percent, &fuzz, 75.0),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	/* Convert from percentage */
 	*fuzz = *fuzz / 100.0;
@@ -338,7 +338,7 @@ static void json_getroute(struct command *cmd,
 						 *msatoshi, *riskfactor * 1000,
 						 *cltv, fuzz, &seed);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
-	command_still_pending(cmd);
+	return command_still_pending(cmd);
 }
 
 static const struct json_command getroute_command = {
@@ -399,22 +399,22 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 	command_success(cmd, response);
 }
 
-static void json_listchannels(struct command *cmd,
-			      const char *buffer,
-			      const jsmntok_t *obj UNNEEDED,
-			      const jsmntok_t *params)
+static struct command_result *json_listchannels(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *obj UNNEEDED,
+						const jsmntok_t *params)
 {
 	u8 *req;
 	struct short_channel_id *id;
 	if (!param(cmd, buffer, params,
 		   p_opt("short_channel_id", param_short_channel_id, &id),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	req = towire_gossip_getchannels_request(cmd, id);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
 		 req, -1, 0, json_listchannels_reply, cmd);
-	command_still_pending(cmd);
+	return command_still_pending(cmd);
 }
 
 static const struct json_command listchannels_command = {
@@ -450,10 +450,10 @@ static void json_scids_reply(struct subd *gossip UNUSED, const u8 *reply,
 	command_success(cmd, response);
 }
 
-static void json_dev_query_scids(struct command *cmd,
-				 const char *buffer,
-				 const jsmntok_t *obj UNNEEDED,
-				 const jsmntok_t *params)
+static struct command_result *json_dev_query_scids(struct command *cmd,
+						   const char *buffer,
+						   const jsmntok_t *obj UNNEEDED,
+						   const jsmntok_t *params)
 {
 	u8 *msg;
 	const jsmntok_t *scidstok;
@@ -466,17 +466,16 @@ static void json_dev_query_scids(struct command *cmd,
 		   p_req("id", param_pubkey, &id),
 		   p_req("scids", param_array, &scidstok),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	scids = tal_arr(cmd, struct short_channel_id, scidstok->size);
 	end = json_next(scidstok);
 	for (i = 0, t = scidstok + 1; t < end; t = json_next(t), i++) {
 		if (!json_to_short_channel_id(buffer, t, &scids[i])) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "scid %zu '%.*s' is not an scid",
-				     i, json_tok_full_len(t),
-				     json_tok_full(buffer, t));
-			return;
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "scid %zu '%.*s' is not an scid",
+					    i, json_tok_full_len(t),
+					    json_tok_full(buffer, t));
 		}
 	}
 
@@ -484,7 +483,7 @@ static void json_dev_query_scids(struct command *cmd,
 	msg = towire_gossip_query_scids(cmd, id, scids);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
 		 take(msg), -1, 0, json_scids_reply, cmd);
-	command_still_pending(cmd);
+	return command_still_pending(cmd);
 }
 
 static const struct json_command dev_query_scids_command = {
@@ -494,10 +493,11 @@ static const struct json_command dev_query_scids_command = {
 };
 AUTODATA(json_command, &dev_query_scids_command);
 
-static void json_dev_send_timestamp_filter(struct command *cmd,
-					   const char *buffer,
-					   const jsmntok_t *obj UNNEEDED,
-					   const jsmntok_t *params)
+static struct command_result *
+json_dev_send_timestamp_filter(struct command *cmd,
+			       const char *buffer,
+			       const jsmntok_t *obj UNNEEDED,
+			       const jsmntok_t *params)
 {
 	u8 *msg;
 	struct pubkey *id;
@@ -508,14 +508,14 @@ static void json_dev_send_timestamp_filter(struct command *cmd,
 		   p_req("first", param_number, &first),
 		   p_req("range", param_number, &range),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	log_debug(cmd->ld->log, "Setting timestamp range %u+%u", *first, *range);
 	/* Tell gossipd, since this is a gossip query. */
 	msg = towire_gossip_send_timestamp_filter(NULL, id, *first, *range);
 	subd_send_msg(cmd->ld->gossip, take(msg));
 
-	command_success(cmd, null_response(cmd));
+	return command_success(cmd, null_response(cmd));
 }
 
 static const struct json_command dev_send_timestamp_filter = {
@@ -564,7 +564,7 @@ static void json_channel_range_reply(struct subd *gossip UNUSED, const u8 *reply
 	command_success(cmd, response);
 }
 
-static void json_dev_query_channel_range(struct command *cmd,
+static struct command_result *json_dev_query_channel_range(struct command *cmd,
 					 const char *buffer,
 					 const jsmntok_t *obj UNNEEDED,
 					 const jsmntok_t *params)
@@ -578,13 +578,13 @@ static void json_dev_query_channel_range(struct command *cmd,
 		   p_req("first", param_number, &first),
 		   p_req("num", param_number, &num),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	/* Tell gossipd, since this is a gossip query. */
 	msg = towire_gossip_query_channel_range(cmd, id, *first, *num);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
 		 take(msg), -1, 0, json_channel_range_reply, cmd);
-	command_still_pending(cmd);
+	return command_still_pending(cmd);
 }
 
 static const struct json_command dev_query_channel_range_command = {
@@ -594,10 +594,11 @@ static const struct json_command dev_query_channel_range_command = {
 };
 AUTODATA(json_command, &dev_query_channel_range_command);
 
-static void json_dev_set_max_scids_encode_size(struct command *cmd,
-					       const char *buffer,
-					       const jsmntok_t *obj UNNEEDED,
-					       const jsmntok_t *params)
+static struct command_result *
+json_dev_set_max_scids_encode_size(struct command *cmd,
+				   const char *buffer,
+				   const jsmntok_t *obj UNNEEDED,
+				   const jsmntok_t *params)
 {
 	u8 *msg;
 	u32 *max;
@@ -605,12 +606,12 @@ static void json_dev_set_max_scids_encode_size(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_req("max", param_number, &max),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	msg = towire_gossip_dev_set_max_scids_encode_size(NULL, *max);
 	subd_send_msg(cmd->ld->gossip, take(msg));
 
-	command_success(cmd, null_response(cmd));
+	return command_success(cmd, null_response(cmd));
 }
 
 static const struct json_command dev_set_max_scids_encode_size = {
@@ -620,17 +621,17 @@ static const struct json_command dev_set_max_scids_encode_size = {
 };
 AUTODATA(json_command, &dev_set_max_scids_encode_size);
 
-static void json_dev_suppress_gossip(struct command *cmd,
-				     const char *buffer,
-				     const jsmntok_t *obj UNNEEDED,
-				     const jsmntok_t *params)
+static struct command_result *json_dev_suppress_gossip(struct command *cmd,
+						       const char *buffer,
+						       const jsmntok_t *obj UNNEEDED,
+						       const jsmntok_t *params)
 {
 	if (!param(cmd, buffer, params, NULL))
-		return;
+		return command_param_failed();
 
 	subd_send_msg(cmd->ld->gossip, take(towire_gossip_dev_suppress(NULL)));
 
-	command_success(cmd, null_response(cmd));
+	return command_success(cmd, null_response(cmd));
 }
 
 static const struct json_command dev_suppress_gossip = {

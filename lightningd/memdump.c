@@ -62,20 +62,20 @@ static void add_memdump(struct json_stream *response,
 	json_array_end(response);
 }
 
-static void json_memdump(struct command *cmd,
-			 const char *buffer,
-			 const jsmntok_t *obj UNNEEDED,
-			 const jsmntok_t *params)
+static struct command_result *json_memdump(struct command *cmd,
+					   const char *buffer,
+					   const jsmntok_t *obj UNNEEDED,
+					   const jsmntok_t *params)
 {
 	struct json_stream *response;
 
 	if (!param(cmd, buffer, params, NULL))
-		return;
+		return command_param_failed();
 
 	response = json_stream_success(cmd);
 	add_memdump(response, NULL, NULL, cmd);
 
-	command_success(cmd, response);
+	return command_success(cmd, response);
 }
 
 static const struct json_command dev_memdump_command = {
@@ -284,18 +284,17 @@ void opening_memleak_done(struct command *cmd, struct subd *leaker)
 	}
 }
 
-static void json_memleak(struct command *cmd,
-			 const char *buffer,
-			 const jsmntok_t *obj UNNEEDED,
-			 const jsmntok_t *params)
+static struct command_result *json_memleak(struct command *cmd,
+					   const char *buffer,
+					   const jsmntok_t *obj UNNEEDED,
+					   const jsmntok_t *params)
 {
 	if (!param(cmd, buffer, params, NULL))
-		return;
+		return command_param_failed();
 
 	if (!getenv("LIGHTNINGD_DEV_MEMLEAK")) {
-		command_fail(cmd, LIGHTNINGD,
-			     "Leak detection needs $LIGHTNINGD_DEV_MEMLEAK");
-		return;
+		return command_fail(cmd, LIGHTNINGD,
+				    "Leak detection needs $LIGHTNINGD_DEV_MEMLEAK");
 	}
 
 	/* For simplicity, we mark pending, though an error may complete it
@@ -304,6 +303,8 @@ static void json_memleak(struct command *cmd,
 
 	/* This calls opening_memleak_done() async when all done. */
 	opening_dev_memleak(cmd);
+
+	return command_its_complicated();
 }
 
 static const struct json_command dev_memleak_command = {

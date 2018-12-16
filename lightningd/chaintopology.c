@@ -463,10 +463,10 @@ u32 feerate_to_style(u32 feerate_perkw, enum feerate_style style)
 	abort();
 }
 
-static void json_feerates(struct command *cmd,
-			  const char *buffer,
-			  const jsmntok_t *obj UNNEEDED,
-			  const jsmntok_t *params)
+static struct command_result *json_feerates(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *obj UNNEEDED,
+					    const jsmntok_t *params)
 {
 	struct chain_topology *topo = cmd->ld->topology;
 	struct json_stream *response;
@@ -477,7 +477,7 @@ static void json_feerates(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_req("style", param_feerate_style, &style),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	missing = false;
 	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
@@ -520,7 +520,7 @@ static void json_feerates(struct command *cmd,
 
 	json_object_end(response);
 
-	command_success(cmd, response);
+	return command_success(cmd, response);
 }
 
 static const struct json_command feerates_command = {

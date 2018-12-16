@@ -719,10 +719,10 @@ struct command_result *param_loglevel(struct command *cmd,
 	return NULL;
 }
 
-static void json_getlog(struct command *cmd,
-			const char *buffer,
-			const jsmntok_t *obj UNNEEDED,
-			const jsmntok_t * params)
+static struct command_result *json_getlog(struct command *cmd,
+					  const char *buffer,
+					  const jsmntok_t *obj UNNEEDED,
+					  const jsmntok_t * params)
 {
 	struct json_stream *response;
 	enum log_level *minlevel;
@@ -731,7 +731,7 @@ static void json_getlog(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_opt_def("level", param_loglevel, &minlevel, LOG_INFORM),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
@@ -740,7 +740,7 @@ static void json_getlog(struct command *cmd,
 	json_add_num(response, "bytes_max", (unsigned int) log_max_mem(lr));
 	json_add_log(response, lr, *minlevel);
 	json_object_end(response);
-	command_success(cmd, response);
+	return command_success(cmd, response);
 }
 
 static const struct json_command getlog_command = {

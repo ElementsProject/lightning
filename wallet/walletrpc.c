@@ -85,10 +85,10 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
  * request, select coins and a change key. Then send the request to
  * the HSM to generate the signatures.
  */
-static void json_withdraw(struct command *cmd,
-			  const char *buffer,
-			  const jsmntok_t *obj UNNEEDED,
-			  const jsmntok_t *params)
+static struct command_result *json_withdraw(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *obj UNNEEDED,
+					    const jsmntok_t *params)
 {
 	const jsmntok_t *desttok, *sattok;
 	struct withdrawal *withdraw = tal(cmd, struct withdrawal);
@@ -105,17 +105,17 @@ static void json_withdraw(struct command *cmd,
 		   p_req("satoshi", param_tok, &sattok),
 		   p_opt("feerate", param_feerate, &feerate_per_kw),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	res = param_wtx(&withdraw->wtx, buffer, sattok, -1ULL);
 	if (res)
-		return;
+		return res;
 
 	if (!feerate_per_kw) {
 		res = param_feerate_estimate(cmd, &feerate_per_kw,
 					     FEERATE_NORMAL);
 		if (res)
-			return;
+			return res;
 	}
 
 	/* Parse address. */
@@ -126,22 +126,21 @@ static void json_withdraw(struct command *cmd,
 
 	/* Check that destination address could be understood. */
 	if (addr_parse == ADDRESS_PARSE_UNRECOGNIZED) {
-		command_fail(cmd, LIGHTNINGD, "Could not parse destination address");
-		return;
+		return command_fail(cmd, LIGHTNINGD,
+				    "Could not parse destination address");
 	}
 
 	/* Check address given is compatible with the chain we are on. */
 	if (addr_parse == ADDRESS_PARSE_WRONG_NETWORK) {
-		command_fail(cmd, LIGHTNINGD,
-			     "Destination address is not on network %s",
-			     get_chainparams(cmd->ld)->network_name);
-		return;
+		return command_fail(cmd, LIGHTNINGD,
+				    "Destination address is not on network %s",
+				    get_chainparams(cmd->ld)->network_name);
 	}
 
 	res = wtx_select_utxos(&withdraw->wtx, *feerate_per_kw,
 			       tal_count(withdraw->destination));
 	if (res)
-		return;
+		return res;
 
 	u8 *msg = towire_hsm_sign_withdrawal(cmd,
 					     withdraw->wtx.amount,
@@ -164,7 +163,7 @@ static void json_withdraw(struct command *cmd,
 	withdraw->hextx = tal_hex(withdraw, linearize_tx(cmd, tx));
 	bitcoind_sendrawtx(cmd->ld->topology->bitcoind, withdraw->hextx,
 			   wallet_withdrawal_broadcast, withdraw);
-	command_still_pending(cmd);
+	return command_still_pending(cmd);
 }
 
 static const struct json_command withdraw_command = {
@@ -248,10 +247,10 @@ static struct command_result *param_newaddr(struct command *cmd,
 			    name, tok->end - tok->start, buffer + tok->start);
 }
 
-static void json_newaddr(struct command *cmd,
-			 const char *buffer,
-			 const jsmntok_t *obj UNNEEDED,
-			 const jsmntok_t *params)
+static struct command_result *json_newaddr(struct command *cmd,
+					   const char *buffer,
+					   const jsmntok_t *obj UNNEEDED,
+					   const jsmntok_t *params)
 {
 	struct json_stream *response;
 	struct ext_key ext;
@@ -263,24 +262,21 @@ static void json_newaddr(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_opt_def("addresstype", param_newaddr, &is_p2wpkh, true),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	keyidx = wallet_get_newindex(cmd->ld);
 	if (keyidx < 0) {
-		command_fail(cmd, LIGHTNINGD, "Keys exhausted ");
-		return;
+		return command_fail(cmd, LIGHTNINGD, "Keys exhausted ");
 	}
 
 	if (bip32_key_from_parent(cmd->ld->wallet->bip32_base, keyidx,
 				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
-		command_fail(cmd, LIGHTNINGD, "Keys generation failure");
-		return;
+		return command_fail(cmd, LIGHTNINGD, "Keys generation failure");
 	}
 
 	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey.pubkey,
 				       ext.pub_key, sizeof(ext.pub_key))) {
-		command_fail(cmd, LIGHTNINGD, "Key parsing failure");
-		return;
+		return command_fail(cmd, LIGHTNINGD, "Key parsing failure");
 	}
 
 	txfilter_add_derkey(cmd->ld->owned_txfilter, ext.pub_key);
@@ -289,16 +285,15 @@ static void json_newaddr(struct command *cmd,
 				    &pubkey, !*is_p2wpkh,
 				    NULL);
 	if (!out) {
-		command_fail(cmd, LIGHTNINGD,
-			     "p2wpkh address encoding failure.");
-		return;
+		return command_fail(cmd, LIGHTNINGD,
+				    "p2wpkh address encoding failure.");
 	}
 
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
 	json_add_string(response, "address", out);
 	json_object_end(response);
-	command_success(cmd, response);
+	return command_success(cmd, response);
 }
 
 static const struct json_command newaddr_command = {
@@ -309,10 +304,10 @@ static const struct json_command newaddr_command = {
 };
 AUTODATA(json_command, &newaddr_command);
 
-static void json_listaddrs(struct command *cmd,
-			   const char *buffer,
-			   const jsmntok_t *obj UNNEEDED,
-			   const jsmntok_t *params)
+static struct command_result *json_listaddrs(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *obj UNNEEDED,
+					     const jsmntok_t *params)
 {
 	struct json_stream *response;
 	struct ext_key ext;
@@ -324,7 +319,7 @@ static void json_listaddrs(struct command *cmd,
 				 db_get_intvar(cmd->ld->wallet->db,
 				 "bip32_max_index", 0)),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
@@ -377,7 +372,7 @@ static void json_listaddrs(struct command *cmd,
 	}
 	json_array_end(response);
 	json_object_end(response);
-	command_success(cmd, response);
+	return command_success(cmd, response);
 }
 
 static const struct json_command listaddrs_command = {
@@ -389,10 +384,10 @@ static const struct json_command listaddrs_command = {
 };
 AUTODATA(json_command, &listaddrs_command);
 
-static void json_listfunds(struct command *cmd,
-			   const char *buffer,
-			   const jsmntok_t *obj UNNEEDED,
-			   const jsmntok_t *params)
+static struct command_result *json_listfunds(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *obj UNNEEDED,
+					     const jsmntok_t *params)
 {
 	struct json_stream *response;
 	struct peer *p;
@@ -401,7 +396,7 @@ static void json_listfunds(struct command *cmd,
 	struct pubkey funding_pubkey;
 
 	if (!param(cmd, buffer, params, NULL))
-		return;
+		return command_param_failed();
 
 	utxos = wallet_get_utxos(cmd, cmd->ld->wallet, output_state_available);
 	response = json_stream_success(cmd);
@@ -422,9 +417,8 @@ static void json_listfunds(struct command *cmd,
 						    utxos[i]->is_p2sh,
 						    NULL);
 			if (!out) {
-				command_fail(cmd, LIGHTNINGD,
-					     "p2wpkh address encoding failure.");
-				return;
+				return command_fail(cmd, LIGHTNINGD,
+						    "p2wpkh address encoding failure.");
 			}
 		        json_add_string(response, "address", out);
 		}
@@ -464,7 +458,7 @@ static void json_listfunds(struct command *cmd,
 	json_array_end(response);
 	json_object_end(response);
 
-	command_success(cmd, response);
+	return command_success(cmd, response);
 }
 
 static const struct json_command listfunds_command = {
@@ -517,15 +511,15 @@ static void process_utxo_result(struct bitcoind *bitcoind,
 	}
 }
 
-static void json_dev_rescan_outputs(struct command *cmd,
-				    const char *buffer,
-				    const jsmntok_t *obj UNNEEDED,
-				    const jsmntok_t *params)
+static struct command_result *json_dev_rescan_outputs(struct command *cmd,
+						      const char *buffer,
+						      const jsmntok_t *obj UNNEEDED,
+						      const jsmntok_t *params)
 {
 	struct txo_rescan *rescan = tal(cmd, struct txo_rescan);
 
 	if (!param(cmd, buffer, params, NULL))
-		return;
+		return command_param_failed();
 
 	rescan->response = json_stream_success(cmd);
 	rescan->cmd = cmd;
@@ -537,13 +531,12 @@ static void json_dev_rescan_outputs(struct command *cmd,
 	if (tal_count(rescan->utxos) == 0) {
 		json_array_end(rescan->response);
 		json_object_end(rescan->response);
-		command_success(cmd, rescan->response);
-		return;
+		return command_success(cmd, rescan->response);
 	}
 	bitcoind_gettxout(cmd->ld->topology->bitcoind, &rescan->utxos[0]->txid,
 			  rescan->utxos[0]->outnum, process_utxo_result,
 			  rescan);
-	command_still_pending(cmd);
+	return command_still_pending(cmd);
 }
 
 static const struct json_command dev_rescan_output_command = {

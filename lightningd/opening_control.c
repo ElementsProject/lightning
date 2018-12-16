@@ -762,10 +762,10 @@ void opening_peer_no_active_channels(struct peer *peer)
 /**
  * json_fund_channel - Entrypoint for funding a channel
  */
-static void json_fund_channel(struct command *cmd,
-			      const char *buffer,
-			      const jsmntok_t *obj UNNEEDED,
-			      const jsmntok_t *params)
+static struct command_result *json_fund_channel(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *obj UNNEEDED,
+						const jsmntok_t *params)
 {
 	struct command_result *res;
 	const jsmntok_t *sattok;
@@ -787,47 +787,43 @@ static void json_fund_channel(struct command *cmd,
 		   p_opt("feerate", param_feerate, &feerate_per_kw),
 		   p_opt_def("announce", param_bool, &announce_channel, true),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	res = param_wtx(&fc->wtx, buffer, sattok, max_funding_satoshi);
 	if (res)
-		return;
+		return res;
 
 	if (!feerate_per_kw) {
 		feerate_per_kw = tal(cmd, u32);
 		*feerate_per_kw = opening_feerate(cmd->ld->topology);
 		if (!*feerate_per_kw) {
-			command_fail(cmd, LIGHTNINGD, "Cannot estimate fees");
-			return;
+			return command_fail(cmd, LIGHTNINGD,
+					    "Cannot estimate fees");
 		}
 	}
 
 	if (*feerate_per_kw < feerate_floor()) {
-		command_fail(cmd, LIGHTNINGD, "Feerate below feerate floor");
-			return;
+		return command_fail(cmd, LIGHTNINGD,
+				    "Feerate below feerate floor");
 	}
 
 	peer = peer_by_id(cmd->ld, id);
 	if (!peer) {
-		command_fail(cmd, LIGHTNINGD, "Unknown peer");
-		return;
+		return command_fail(cmd, LIGHTNINGD, "Unknown peer");
 	}
 
 	channel = peer_active_channel(peer);
 	if (channel) {
-		command_fail(cmd, LIGHTNINGD, "Peer already %s",
-			     channel_state_name(channel));
-		return;
+		return command_fail(cmd, LIGHTNINGD, "Peer already %s",
+				    channel_state_name(channel));
 	}
 
 	if (!peer->uncommitted_channel) {
-		command_fail(cmd, LIGHTNINGD, "Peer not connected");
-		return;
+		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 	}
 
 	if (peer->uncommitted_channel->fc) {
-		command_fail(cmd, LIGHTNINGD, "Already funding channel");
-		return;
+		return command_fail(cmd, LIGHTNINGD, "Already funding channel");
 	}
 
 	/* FIXME: Support push_msat? */
@@ -842,7 +838,7 @@ static void json_fund_channel(struct command *cmd,
 	res = wtx_select_utxos(&fc->wtx, *feerate_per_kw,
 			       BITCOIN_SCRIPTPUBKEY_P2WSH_LEN);
 	if (res)
-		return;
+		return res;
 
 	assert(fc->wtx.amount <= max_funding_satoshi);
 
@@ -862,7 +858,7 @@ static void json_fund_channel(struct command *cmd,
 	/* Openingd will either succeed, or fail, or tell us the other side
 	 * funded first. */
 	subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
-	command_still_pending(cmd);
+	return command_still_pending(cmd);
 }
 
 static const struct json_command fund_channel_command = {
