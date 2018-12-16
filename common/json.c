@@ -88,6 +88,29 @@ bool json_to_number(const char *buffer, const jsmntok_t *tok,
 	return true;
 }
 
+bool json_to_int(const char *buffer, const jsmntok_t *tok, int *num)
+{
+	char *end;
+	long l;
+
+	l = strtol(buffer + tok->start, &end, 0);
+	if (end != buffer + tok->end)
+		return false;
+
+	BUILD_ASSERT(sizeof(l) >= sizeof(*num));
+	*num = l;
+
+	/* Check for overflow/underflow */
+	if ((l == LONG_MAX || l == LONG_MIN) && errno == ERANGE)
+		return false;
+
+	/* Check for truncation */
+	if (*num != l)
+		return false;
+
+	return true;
+}
+
 bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 			    uint64_t *satoshi)
 {

@@ -37,6 +37,9 @@ bool json_to_u64(const char *buffer, const jsmntok_t *tok,
 /* Extract double from this (must be a number literal) */
 bool json_to_double(const char *buffer, const jsmntok_t *tok, double *num);
 
+/* Extract signed integer from this (may be a string, or a number literal) */
+bool json_to_int(const char *buffer, const jsmntok_t *tok, int *num);
+
 /* Extract satoshis from this (may be a string, or a decimal number literal) */
 bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 			    uint64_t *satoshi);
