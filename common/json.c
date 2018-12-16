@@ -2,6 +2,7 @@
 #include "json.h"
 #include <assert.h>
 #include <ccan/build_assert/build_assert.h>
+#include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/utils.h>
@@ -109,6 +110,21 @@ bool json_to_int(const char *buffer, const jsmntok_t *tok, int *num)
 		return false;
 
 	return true;
+}
+
+bool json_to_bool(const char *buffer, const jsmntok_t *tok, bool *b)
+{
+	if (tok->type != JSMN_PRIMITIVE)
+		return false;
+	if (memeqstr(buffer + tok->start, tok->end - tok->start, "true")) {
+		*b = true;
+		return true;
+	}
+	if (memeqstr(buffer + tok->start, tok->end - tok->start, "false")) {
+		*b = false;
+		return true;
+	}
+	return false;
 }
 
 bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
