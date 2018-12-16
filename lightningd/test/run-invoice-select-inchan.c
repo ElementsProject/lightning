@@ -41,17 +41,20 @@ bool channel_tell_funding_locked(struct lightningd *ld UNNEEDED,
 				 u32 depth UNNEEDED)
 { fprintf(stderr, "channel_tell_funding_locked called!\n"); abort(); }
 /* Generated stub for command_fail */
-void  command_fail(struct command *cmd UNNEEDED, int code UNNEEDED,
-				   const char *fmt UNNEEDED, ...)
+struct command_result *command_fail(struct command *cmd UNNEEDED, int code UNNEEDED,
+				    const char *fmt UNNEEDED, ...)
+
 { fprintf(stderr, "command_fail called!\n"); abort(); }
 /* Generated stub for command_failed */
-void command_failed(struct command *cmd UNNEEDED, struct json_stream *result UNNEEDED)
+struct command_result *command_failed(struct command *cmd UNNEEDED,
+				      struct json_stream *result UNNEEDED)
 { fprintf(stderr, "command_failed called!\n"); abort(); }
 /* Generated stub for command_still_pending */
-void command_still_pending(struct command *cmd UNNEEDED)
+struct command_result *command_still_pending(struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_still_pending called!\n"); abort(); }
 /* Generated stub for command_success */
-void command_success(struct command *cmd UNNEEDED, struct json_stream *response UNNEEDED)
+struct command_result *command_success(struct command *cmd UNNEEDED,
+				       struct json_stream *response UNNEEDED)
 { fprintf(stderr, "command_success called!\n"); abort(); }
 /* Generated stub for connect_succeeded */
 void connect_succeeded(struct lightningd *ld UNNEEDED, const struct pubkey *id UNNEEDED)

@@ -45,6 +45,23 @@
 #include <sys/types.h>
 #include <sys/un.h>
 
+/* Dummy structure. */
+struct command_result {
+	char c;
+};
+
+static struct command_result param_failed, complete, pending, unknown;
+
+struct command_result *command_param_failed(void)
+{
+	return &param_failed;
+}
+
+struct command_result *command_its_complicated(void)
+{
+	return &unknown;
+}
+
 /* This represents a JSON RPC connection.  It can invoke multiple commands, but
  * a command can outlive the connection, which could close any time. */
 struct json_connection {
@@ -383,7 +400,8 @@ static void destroy_command(struct command *cmd)
 	list_del_from(&cmd->jcon->commands, &cmd->list);
 }
 
-void command_raw_complete(struct command *cmd, struct json_stream *result)
+struct command_result *command_raw_complete(struct command *cmd,
+					    struct json_stream *result)
 {
 	json_stream_close(result, cmd);
 
@@ -392,28 +410,31 @@ void command_raw_complete(struct command *cmd, struct json_stream *result)
 		tal_steal(cmd->jcon, result);
 
 	tal_free(cmd);
+	return &complete;
 }
 
-void command_success(struct command *cmd, struct json_stream *result)
+struct command_result *command_success(struct command *cmd,
+				       struct json_stream *result)
 {
 	assert(cmd);
 	assert(cmd->have_json_stream);
 	json_stream_append(result, " }\n\n");
 
-	command_raw_complete(cmd, result);
+	return command_raw_complete(cmd, result);
 }
 
-void command_failed(struct command *cmd, struct json_stream *result)
+struct command_result *command_failed(struct command *cmd,
+				      struct json_stream *result)
 {
 	assert(cmd->have_json_stream);
 	/* Have to close error */
 	json_stream_append(result, " } }\n\n");
 
-	command_raw_complete(cmd, result);
+	return command_raw_complete(cmd, result);
 }
 
-void PRINTF_FMT(3, 4) command_fail(struct command *cmd, int code,
-				   const char *fmt, ...)
+struct command_result *command_fail(struct command *cmd, int code,
+				    const char *fmt, ...)
 {
 	const char *errmsg;
 	struct json_stream *r;
@@ -424,13 +445,14 @@ void PRINTF_FMT(3, 4) command_fail(struct command *cmd, int code,
 	va_end(ap);
 	r = json_stream_fail_nodata(cmd, code, errmsg);
 
-	command_failed(cmd, r);
+	return command_failed(cmd, r);
 }
 
-void command_still_pending(struct command *cmd)
+struct command_result *command_still_pending(struct command *cmd)
 {
 	notleak_with_children(cmd);
 	cmd->pending = true;
+	return &pending;
 }
 
 static void json_command_malformed(struct json_connection *jcon,

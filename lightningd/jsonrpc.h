@@ -41,6 +41,12 @@ struct command {
 	bool have_json_stream;
 };
 
+/**
+ * Dummy structure to make sure you call one of
+ * command_success / command_failed / command_still_pending.
+ */
+struct command_result;
+
 struct json_command {
 	const char *name;
 	void (*dispatch)(struct command *,
@@ -87,15 +93,37 @@ struct json_stream *json_stream_fail_nodata(struct command *cmd,
 					    const char *errmsg);
 
 struct json_stream *null_response(struct command *cmd);
-void command_success(struct command *cmd, struct json_stream *response);
-void command_failed(struct command *cmd, struct json_stream *result);
+
+/* These returned values are never NULL. */
+struct command_result *command_success(struct command *cmd,
+				       struct json_stream *response);
+struct command_result *command_failed(struct command *cmd,
+				      struct json_stream *result);
 
 /* Mainly for documentation, that we plan to close this later. */
-void command_still_pending(struct command *cmd);
+struct command_result *command_still_pending(struct command *cmd);
 
 /* For low-level JSON stream access: */
 struct json_stream *json_stream_raw_for_cmd(struct command *cmd);
-void command_raw_complete(struct command *cmd, struct json_stream *result);
+struct command_result *command_raw_complete(struct command *cmd,
+					    struct json_stream *result);
+
+/* To return if param() fails. */
+extern struct command_result *command_param_failed(void);
+
+/* Wrapper for pending commands (ignores return) */
+static inline void was_pending(const struct command_result *res)
+{
+	assert(res);
+}
+
+/* Transition for ignoring command */
+static inline void fixme_ignore(const struct command_result *res)
+{
+}
+
+/* FIXME: For the few cases where return value is indeterminate */
+struct command_result *command_its_complicated(void);
 
 /**
  * Create a new jsonrpc to wrap all related information.
