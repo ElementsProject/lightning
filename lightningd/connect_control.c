@@ -99,8 +99,7 @@ static void json_connect(struct command *cmd,
 		return;
 
 	/* Check for id@addrport form */
-	id_str = tal_strndup(cmd, buffer + idtok->start,
-			     idtok->end - idtok->start);
+	id_str = json_strdup(cmd, buffer, idtok);
 	atptr = strchr(id_str, '@');
 	if (atptr) {
 		int atidx = atptr - id_str;

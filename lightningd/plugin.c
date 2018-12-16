@@ -551,14 +551,12 @@ static bool plugin_opt_add(struct plugin *plugin, const char *buffer,
 			     buffer + nametok->start);
 	popt->value = NULL;
 	if (defaulttok) {
-		popt->value = tal_strndup(popt, buffer + defaulttok->start,
-					  defaulttok->end - defaulttok->start);
+		popt->value = json_strdup(popt, buffer, defaulttok);
 		popt->description = tal_fmt(
 		    popt, "%.*s (default: %s)", desctok->end - desctok->start,
 		    buffer + desctok->start, popt->value);
 	} else {
-		popt->description = tal_strndup(popt, buffer + desctok->start,
-						desctok->end - desctok->start);
+		popt->description = json_strdup(popt, buffer, desctok);
 	}
 
 	list_add_tail(&plugin->plugin_opts, &popt->list);
@@ -722,14 +720,10 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 	}
 
 	cmd = notleak(tal(plugin, struct json_command));
-	cmd->name = tal_strndup(cmd, buffer + nametok->start,
-				nametok->end - nametok->start);
-	cmd->description = tal_strndup(cmd, buffer + desctok->start,
-				       desctok->end - desctok->start);
+	cmd->name = json_strdup(cmd, buffer, nametok);
+	cmd->description = json_strdup(cmd, buffer, desctok);
 	if (longdesctok)
-		cmd->verbose =
-		    tal_strndup(cmd, buffer + longdesctok->start,
-				longdesctok->end - longdesctok->start);
+		cmd->verbose = json_strdup(cmd, buffer, longdesctok);
 	else
 		cmd->verbose = cmd->description;
 
