@@ -13,25 +13,26 @@ void wtx_init(struct command *cmd, struct wallet_tx * wtx)
 	wtx->all_funds = false;
 }
 
-static bool check_amount(const struct wallet_tx *tx, u64 amount)
+static struct command_result *check_amount(const struct wallet_tx *tx,
+					   u64 amount)
 {
 	if (tal_count(tx->utxos) == 0) {
-		command_fail(tx->cmd, FUND_CANNOT_AFFORD,
-			     "Cannot afford transaction");
-		return false;
+		return command_fail(tx->cmd, FUND_CANNOT_AFFORD,
+				    "Cannot afford transaction");
 	}
 	if (amount < 546) {
-		command_fail(tx->cmd, FUND_OUTPUT_IS_DUST,
-			     "Output %"PRIu64" satoshis would be dust",
-			     amount);
-		return false;
+		return command_fail(tx->cmd, FUND_OUTPUT_IS_DUST,
+				    "Output %"PRIu64" satoshis would be dust",
+				    amount);
 	}
-	return true;
+	return NULL;
 }
 
-bool wtx_select_utxos(struct wallet_tx * tx, u32 fee_rate_per_kw,
-	              size_t out_len)
+struct command_result *wtx_select_utxos(struct wallet_tx *tx,
+					u32 fee_rate_per_kw,
+					size_t out_len)
 {
+	struct command_result *res;
 	u64 fee_estimate;
 	if (tx->all_funds) {
 		u64 amount;
@@ -39,13 +40,14 @@ bool wtx_select_utxos(struct wallet_tx * tx, u32 fee_rate_per_kw,
 					      fee_rate_per_kw, out_len,
 					      &amount,
 					      &fee_estimate);
-		if (!check_amount(tx, amount))
-			return false;
+		res = check_amount(tx, amount);
+		if (res)
+			return res;
 
 		if (amount <= tx->amount) {
 			tx->change = 0;
 			tx->amount = amount;
-			return true;
+			return NULL;
 		}
 
 		/* Too much?  Try again, but ask for limit instead. */
@@ -57,8 +59,9 @@ bool wtx_select_utxos(struct wallet_tx * tx, u32 fee_rate_per_kw,
 					tx->amount,
 					fee_rate_per_kw, out_len,
 					&fee_estimate, &tx->change);
-	if (!check_amount(tx, tx->amount))
-		return false;
+	res = check_amount(tx, tx->amount);
+	if (res)
+		return res;
 
 	if (tx->change < 546) {
 		tx->change = 0;
@@ -66,5 +69,5 @@ bool wtx_select_utxos(struct wallet_tx * tx, u32 fee_rate_per_kw,
 	} else {
 		tx->change_key_index = wallet_get_newindex(tx->cmd->ld);
 	}
-	return true;
+	return NULL;
 }
