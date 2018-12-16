@@ -839,8 +839,9 @@ static void json_fund_channel(struct command *cmd,
 			type_to_string(fc, struct pubkey, id));
 	}
 
-	if (!wtx_select_utxos(&fc->wtx, *feerate_per_kw,
-			      BITCOIN_SCRIPTPUBKEY_P2WSH_LEN))
+	res = wtx_select_utxos(&fc->wtx, *feerate_per_kw,
+			       BITCOIN_SCRIPTPUBKEY_P2WSH_LEN);
+	if (res)
 		return;
 
 	assert(fc->wtx.amount <= max_funding_satoshi);
