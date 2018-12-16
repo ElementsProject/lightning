@@ -656,9 +656,10 @@ static struct plugin *find_plugin_for_command(struct command *cmd)
 	abort();
 }
 
-static void plugin_rpcmethod_dispatch(struct command *cmd, const char *buffer,
-				      const jsmntok_t *toks,
-				      const jsmntok_t *params UNNEEDED)
+static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
+							const char *buffer,
+							const jsmntok_t *toks,
+							const jsmntok_t *params UNNEEDED)
 {
 	const jsmntok_t *idtok;
 	struct plugin *plugin;
@@ -668,7 +669,7 @@ static void plugin_rpcmethod_dispatch(struct command *cmd, const char *buffer,
 	if (cmd->mode == CMD_USAGE) {
 		/* FIXME! */
 		cmd->usage = "[params]";
-		return;
+		return command_param_failed();
 	}
 
 	plugin = find_plugin_for_command(cmd);
@@ -683,7 +684,7 @@ static void plugin_rpcmethod_dispatch(struct command *cmd, const char *buffer,
 	json_stream_forward_change_id(req->stream, buffer, toks, idtok, id);
 	plugin_request_queue(plugin, req);
 
-	command_still_pending(cmd);
+	return command_still_pending(cmd);
 }
 
 static bool plugin_rpcmethod_add(struct plugin *plugin,

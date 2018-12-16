@@ -1046,10 +1046,10 @@ static void add_config(struct lightningd *ld,
 	tal_free(name0);
 }
 
-static void json_listconfigs(struct command *cmd,
-			     const char *buffer,
-			     const jsmntok_t *obj UNNEEDED,
-			     const jsmntok_t *params)
+static struct command_result *json_listconfigs(struct command *cmd,
+					       const char *buffer,
+					       const jsmntok_t *obj UNNEEDED,
+					       const jsmntok_t *params)
 {
 	size_t i;
 	struct json_stream *response = NULL;
@@ -1058,7 +1058,7 @@ static void json_listconfigs(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_opt("config", param_tok, &configtok),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	if (!configtok) {
 		response = json_stream_success(cmd);
@@ -1097,14 +1097,13 @@ static void json_listconfigs(struct command *cmd,
 	}
 
 	if (configtok && !response) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "Unknown config option '%.*s'",
-			     json_tok_full_len(configtok),
-			     json_tok_full(buffer, configtok));
-		return;
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Unknown config option '%.*s'",
+				    json_tok_full_len(configtok),
+				    json_tok_full(buffer, configtok));
 	}
 	json_object_end(response);
-	command_success(cmd, response);
+	return command_success(cmd, response);
 }
 
 static const struct json_command listconfigs_command = {

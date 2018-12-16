@@ -79,10 +79,10 @@ void ping_reply(struct subd *subd, const u8 *msg)
 	}
 }
 
-static void json_ping(struct command *cmd,
-		      const char *buffer,
-		      const jsmntok_t *obj UNNEEDED,
-		      const jsmntok_t *params)
+static struct command_result *json_ping(struct command *cmd,
+					const char *buffer,
+					const jsmntok_t *obj UNNEEDED,
+					const jsmntok_t *params)
 {
 	u8 *msg;
 	unsigned int *len, *pongbytes;
@@ -93,7 +93,7 @@ static void json_ping(struct command *cmd,
 		   p_opt_def("len", param_number, &len, 128),
 		   p_opt_def("pongbytes", param_number, &pongbytes, 128),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	/* BOLT #1:
 	 *
@@ -110,16 +110,14 @@ static void json_ping(struct command *cmd,
 	 *    * [`byteslen`:`ignored`]
 	 */
 	if (*len > 65535 - 2 - 2 - 2) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "%u would result in oversize ping", *len);
-		return;
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "%u would result in oversize ping", *len);
 	}
 
 	/* Note that > 65531 is valid: it means "no pong reply" */
 	if (*pongbytes > 65535) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "pongbytes %u > 65535", *pongbytes);
-		return;
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "pongbytes %u > 65535", *pongbytes);
 	}
 
 	/* parent is cmd, so when we complete cmd, we free this. */
@@ -128,7 +126,7 @@ static void json_ping(struct command *cmd,
 	/* gossipd handles all pinging, even if it's in another daemon. */
 	msg = towire_gossip_ping(NULL, id, *pongbytes, *len);
 	subd_send_msg(cmd->ld->gossip, take(msg));
-	command_still_pending(cmd);
+	return command_still_pending(cmd);
 }
 
 static const struct json_command ping_command = {

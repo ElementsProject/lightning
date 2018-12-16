@@ -592,10 +592,10 @@ static void json_pay_stop_retrying(struct pay *pay)
 	json_pay_failure(pay, sr);
 }
 
-static void json_pay(struct command *cmd,
-		     const char *buffer,
-		     const jsmntok_t *obj UNNEEDED,
-		     const jsmntok_t *params)
+static struct command_result *json_pay(struct command *cmd,
+				       const char *buffer,
+				       const jsmntok_t *obj UNNEEDED,
+				       const jsmntok_t *params)
 {
 	double *riskfactor;
 	double *maxfeepercent;
@@ -619,13 +619,12 @@ static void json_pay(struct command *cmd,
 			     cmd->ld->config.locktime_max),
 		   p_opt_def("exemptfee", param_number, &exemptfee, 5000),
 		   NULL))
-		return;
+		return command_param_failed();
 
 	b11 = bolt11_decode(pay, b11str, desc, &fail);
 	if (!b11) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "Invalid bolt11: %s", fail);
-		return;
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Invalid bolt11: %s", fail);
 	}
 
 	pay->cmd = cmd;
@@ -638,16 +637,14 @@ static void json_pay(struct command *cmd,
 
 	if (b11->msatoshi) {
 		if (msatoshi) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "msatoshi parameter unnecessary");
-			return;
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "msatoshi parameter unnecessary");
 		}
 		msatoshi = b11->msatoshi;
 	} else {
 		if (!msatoshi) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "msatoshi parameter required");
-			return;
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "msatoshi parameter required");
 		}
 	}
 	pay->msatoshi = *msatoshi;
@@ -655,12 +652,11 @@ static void json_pay(struct command *cmd,
 	pay->maxfeepercent = *maxfeepercent;
 
 	if (*maxdelay < pay->min_final_cltv_expiry) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "maxdelay (%u) must be greater than "
-			     "min_final_cltv_expiry (%"PRIu32") of "
-			     "invoice",
-			     *maxdelay, pay->min_final_cltv_expiry);
-		return;
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "maxdelay (%u) must be greater than "
+				    "min_final_cltv_expiry (%"PRIu32") of "
+				    "invoice",
+				    *maxdelay, pay->min_final_cltv_expiry);
 	}
 	pay->maxdelay = *maxdelay;
 
@@ -688,11 +684,12 @@ static void json_pay(struct command *cmd,
 	if (json_pay_try(pay))
 		command_still_pending(cmd);
 	else
-		return;
+		return command_its_complicated();
 
 	/* Set up timeout. */
 	new_reltimer(&cmd->ld->timers, pay, time_from_sec(*retryfor),
 		     &json_pay_stop_retrying, pay);
+	return command_its_complicated();
 }
 
 static const struct json_command pay_command = {
