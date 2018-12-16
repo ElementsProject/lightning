@@ -614,6 +614,7 @@ static struct io_plan *stream_out_complete(struct io_conn *conn,
 					   struct json_connection *jcon)
 {
 	jcon_remove_json_stream(jcon, js);
+	tal_free(js);
 
 	if (jcon->stop) {
 		log_unusual(jcon->log, "JSON-RPC shutdown");
