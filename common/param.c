@@ -280,8 +280,10 @@ bool param(struct command *cmd, const char *buffer,
 			continue;
 		}
 		if  (!param_add(&params, name, required, cbx, arg)) {
-			command_fail(cmd, PARAM_DEV_ERROR,
-				     "developer error: param_add %s", name);
+			/* We really do ignore this return! */
+			if (command_fail(cmd, PARAM_DEV_ERROR,
+					 "developer error: param_add %s", name))
+				;
 			va_end(ap);
 			return false;
 		}

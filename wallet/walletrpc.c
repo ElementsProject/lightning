@@ -71,10 +71,11 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 		json_add_string(response, "tx", withdraw->hextx);
 		json_add_string(response, "txid", output);
 		json_object_end(response);
-		command_success(cmd, response);
+		was_pending(command_success(cmd, response));
 	} else {
-		command_fail(cmd, LIGHTNINGD,
-			     "Error broadcasting transaction: %s", output);
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "Error broadcasting transaction: %s",
+					 output));
 	}
 }
 
@@ -503,7 +504,7 @@ static void process_utxo_result(struct bitcoind *bitcoind,
 		/* Complete the response */
 		json_array_end(rescan->response);
 		json_object_end(rescan->response);
-		command_success(rescan->cmd, rescan->response);
+		was_pending(command_success(rescan->cmd, rescan->response));
 	} else {
 		bitcoind_gettxout(
 		    bitcoind->ld->topology->bitcoind, &rescan->utxos[0]->txid,

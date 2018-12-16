@@ -206,7 +206,7 @@ json_pay_success(struct pay *pay,
 		       pay->route, tal_count(pay->route));
 	json_add_failures(response, "failures", &pay->pay_failures);
 	json_object_end(response);
-	command_success(cmd, response);
+	was_pending(command_success(cmd, response));
 }
 
 static void json_pay_failure(struct pay *pay,
@@ -226,7 +226,7 @@ static void json_pay_failure(struct pay *pay,
 		json_add_payment_fields(data, r->payment);
 		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
-		command_failed(pay->cmd, data);
+		was_pending(command_failed(pay->cmd, data));
 		return;
 
 	case PAY_RHASH_ALREADY_USED:
@@ -237,7 +237,7 @@ static void json_pay_failure(struct pay *pay,
 		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
 		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
-		command_failed(pay->cmd, data);
+		was_pending(command_failed(pay->cmd, data));
 		return;
 
 	case PAY_UNPARSEABLE_ONION:
@@ -266,7 +266,7 @@ static void json_pay_failure(struct pay *pay,
 					    fail->channel_update);
 		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
-		command_failed(pay->cmd, data);
+		was_pending(command_failed(pay->cmd, data));
 		return;
 
 	case PAY_TRY_OTHER_ROUTE:
@@ -305,7 +305,7 @@ static const char *should_delay_retry(const tal_t *ctx,
 }
 
 /* Start a payment attempt. */
-static bool json_pay_try(struct pay *pay);
+static struct command_result *json_pay_try(struct pay *pay);
 
 /* Used when delaying. */
 static void do_pay_try(struct pay *pay)
@@ -426,7 +426,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
 		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
-		command_failed(pay->cmd, data);
+		was_pending(command_failed(pay->cmd, data));
 		return;
 	}
 
@@ -474,7 +474,7 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
 
-		command_failed(pay->cmd, data);
+		was_pending(command_failed(pay->cmd, data));
 		return;
 	}
 	if (fee_too_high || delay_too_high) {
@@ -501,9 +501,9 @@ static void json_pay_getroute_reply(struct subd *gossip UNUSED,
 		     &json_pay_sendpay_resume, pay);
 }
 
-/* Start a payment attempt. Return true if deferred,
- * false if resolved now. */
-static bool json_pay_try(struct pay *pay)
+/* Start a payment attempt. Return NULL if deferred, otherwise
+ * command_failed(). */
+static struct command_result *json_pay_try(struct pay *pay)
 {
 	u8 *req;
 	struct command *cmd = pay->cmd;
@@ -524,8 +524,7 @@ static bool json_pay_try(struct pay *pay)
 		json_add_num(data, "sendpay_tries", pay->sendpay_tries);
 		json_add_failures(data, "failures", &pay->pay_failures);
 		json_object_end(data);
-		command_failed(cmd, data);
-		return false;
+		return command_failed(cmd, data);
 	}
 
 	/* Clear previous try memory. */
@@ -566,7 +565,7 @@ static bool json_pay_try(struct pay *pay)
 					     &seed);
 	subd_req(pay->try_parent, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
 
-	return true;
+	return NULL;
 }
 
 static void json_pay_stop_retrying(struct pay *pay)
@@ -607,6 +606,7 @@ static struct command_result *json_pay(struct command *cmd,
 	unsigned int *retryfor;
 	unsigned int *maxdelay;
 	unsigned int *exemptfee;
+	struct command_result *res;
 
 	if (!param(cmd, buffer, params,
 		   p_req("bolt11", param_string, &b11str),
@@ -681,15 +681,14 @@ static struct command_result *json_pay(struct command *cmd,
 	pay->description = b11->description;
 
 	/* Initiate payment */
-	if (json_pay_try(pay))
-		command_still_pending(cmd);
-	else
-		return command_its_complicated();
+	res = json_pay_try(pay);
+	if (res)
+		return res;
 
 	/* Set up timeout. */
 	new_reltimer(&cmd->ld->timers, pay, time_from_sec(*retryfor),
 		     &json_pay_stop_retrying, pay);
-	return command_its_complicated();
+	return command_still_pending(cmd);
 }
 
 static const struct json_command pay_command = {

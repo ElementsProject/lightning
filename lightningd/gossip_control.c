@@ -201,7 +201,8 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 	size_t i, j;
 
 	if (!fromwire_gossip_getnodes_reply(reply, reply, &nodes)) {
-		command_fail(cmd, LIGHTNINGD, "Malformed gossip_getnodes response");
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "Malformed gossip_getnodes response"));
 		return;
 	}
 
@@ -241,7 +242,7 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 	}
 	json_array_end(response);
 	json_object_end(response);
-	command_success(cmd, response);
+	was_pending(command_success(cmd, response));
 }
 
 static struct command_result *json_listnodes(struct command *cmd,
@@ -278,7 +279,8 @@ static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, con
 	fromwire_gossip_getroute_reply(reply, reply, &hops);
 
 	if (tal_count(hops) == 0) {
-		command_fail(cmd, LIGHTNINGD, "Could not find a route");
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "Could not find a route"));
 		return;
 	}
 
@@ -286,7 +288,7 @@ static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, con
 	json_object_start(response, NULL);
 	json_add_route(response, "route", hops, tal_count(hops));
 	json_object_end(response);
-	command_success(cmd, response);
+	was_pending(command_success(cmd, response));
 }
 
 static struct command_result *json_getroute(struct command *cmd,
@@ -325,8 +327,9 @@ static struct command_result *json_getroute(struct command *cmd,
 
 	if (seedtok) {
 		if (seedtok->end - seedtok->start > sizeof(seed))
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "seed must be < %zu bytes", sizeof(seed));
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "seed must be < %zu bytes",
+					    sizeof(seed));
 
 		memset(&seed, 0, sizeof(seed));
 		memcpy(&seed, buffer + seedtok->start,
@@ -360,7 +363,8 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 	struct json_stream *response;
 
 	if (!fromwire_gossip_getchannels_reply(reply, reply, &entries)) {
-		command_fail(cmd, LIGHTNINGD, "Invalid reply from gossipd");
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "Invalid reply from gossipd"));
 		return;
 	}
 
@@ -396,7 +400,7 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 	}
 	json_array_end(response);
 	json_object_end(response);
-	command_success(cmd, response);
+	was_pending(command_success(cmd, response));
 }
 
 static struct command_result *json_listchannels(struct command *cmd,
@@ -432,14 +436,14 @@ static void json_scids_reply(struct subd *gossip UNUSED, const u8 *reply,
 	struct json_stream *response;
 
 	if (!fromwire_gossip_scids_reply(reply, &ok, &complete)) {
-		command_fail(cmd, LIGHTNINGD,
-			     "Gossip gave bad gossip_scids_reply");
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "Gossip gave bad gossip_scids_reply"));
 		return;
 	}
 
 	if (!ok) {
-		command_fail(cmd, LIGHTNINGD,
-			     "Gossip refused to query peer");
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "Gossip refused to query peer"));
 		return;
 	}
 
@@ -447,7 +451,7 @@ static void json_scids_reply(struct subd *gossip UNUSED, const u8 *reply,
 	json_object_start(response, NULL);
 	json_add_bool(response, "complete", complete);
 	json_object_end(response);
-	command_success(cmd, response);
+	was_pending(command_success(cmd, response));
 }
 
 static struct command_result *json_dev_query_scids(struct command *cmd,
@@ -538,14 +542,14 @@ static void json_channel_range_reply(struct subd *gossip UNUSED, const u8 *reply
 						       &final_num_blocks,
 						       &final_complete,
 						       &scids)) {
-		command_fail(cmd, LIGHTNINGD,
-			     "Gossip gave bad gossip_query_channel_range_reply");
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "Gossip gave bad gossip_query_channel_range_reply"));
 		return;
 	}
 
 	if (final_num_blocks == 0 && final_num_blocks == 0 && !final_complete) {
-		command_fail(cmd, LIGHTNINGD,
-			     "Gossip refused to query peer");
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "Gossip refused to query peer"));
 		return;
 	}
 
@@ -561,7 +565,7 @@ static void json_channel_range_reply(struct subd *gossip UNUSED, const u8 *reply
 		json_add_short_channel_id(response, NULL, &scids[i]);
 	json_array_end(response);
 	json_object_end(response);
-	command_success(cmd, response);
+	was_pending(command_success(cmd, response));
 }
 
 static struct command_result *json_dev_query_channel_range(struct command *cmd,

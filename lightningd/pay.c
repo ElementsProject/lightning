@@ -856,7 +856,7 @@ json_sendpay_success(struct command *cmd,
 	json_object_start(response, NULL);
 	json_add_payment_fields(response, r->payment);
 	json_object_end(response);
-	command_success(cmd, response);
+	was_pending(command_success(cmd, response));
 }
 
 static void json_waitsendpay_on_resolve(const struct sendpay_result *r,
@@ -879,7 +879,8 @@ static void json_waitsendpay_on_resolve(const struct sendpay_result *r,
 		case PAY_RHASH_ALREADY_USED:
 		case PAY_UNSPECIFIED_ERROR:
 		case PAY_NO_SUCH_PAYMENT:
-			command_fail(cmd, r->errorcode, "%s", r->details);
+			was_pending(command_fail(cmd, r->errorcode, "%s",
+						 r->details));
 			return;
 
 		case PAY_UNPARSEABLE_ONION:
@@ -892,7 +893,7 @@ static void json_waitsendpay_on_resolve(const struct sendpay_result *r,
 			json_object_start(data, NULL);
 			json_add_hex_talarr(data, "onionreply", r->onionreply);
 			json_object_end(data);
-			command_failed(cmd, data);
+			was_pending(command_failed(cmd, data));
 			return;
 
 		case PAY_DESTINATION_PERM_FAIL:
@@ -916,7 +917,7 @@ static void json_waitsendpay_on_resolve(const struct sendpay_result *r,
 				json_add_hex_talarr(data, "channel_update",
 						    fail->channel_update);
 			json_object_end(data);
-			command_failed(cmd, data);
+			was_pending(command_failed(cmd, data));
 			return;
 		}
 		abort();
@@ -936,7 +937,7 @@ static void json_sendpay_on_resolve(const struct sendpay_result* r,
 				"Monitor status with listpayments or waitsendpay");
 		json_add_payment_fields(response, r->payment);
 		json_object_end(response);
-		command_success(cmd, response);
+		was_pending(command_success(cmd, response));
 	} else
 		json_waitsendpay_on_resolve(r, cmd);
 }
@@ -1024,7 +1025,8 @@ AUTODATA(json_command, &sendpay_command);
 
 static void waitsendpay_timeout(struct command *cmd)
 {
-	command_fail(cmd, PAY_IN_PROGRESS, "Timed out while waiting");
+	was_pending(command_fail(cmd, PAY_IN_PROGRESS,
+				 "Timed out while waiting"));
 }
 
 static struct command_result *json_waitsendpay(struct command *cmd,
