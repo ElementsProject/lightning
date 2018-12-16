@@ -35,6 +35,10 @@
  */
 struct command;
 
+/* A dummy type returned by command_ functions, to ensure you return them
+ * immediately */
+struct command_result;
+
 /*
  * Parse the json tokens.  @params can be an array of values or an object
  * of named values.
@@ -43,14 +47,16 @@ bool param(struct command *cmd, const char *buffer,
 	   const jsmntok_t params[], ...) LAST_ARG_NULL;
 
 /*
- * The callback signature.  Callbacks must return true on success.  On failure they
- * must call comand_fail and return false.
+ * The callback signature.
+ *
+ * Callbacks must return NULL on success.  On failure they
+ * must return command_fail(...).
  */
-typedef bool(*param_cbx)(struct command *cmd,
-			 const char *name,
-			 const char *buffer,
-			 const jsmntok_t *tok,
-			 void **arg);
+typedef struct command_result *(*param_cbx)(struct command *cmd,
+					    const char *name,
+					    const char *buffer,
+					    const jsmntok_t *tok,
+					    void **arg);
 
 /*
  * Add a required parameter.
@@ -63,7 +69,7 @@ typedef bool(*param_cbx)(struct command *cmd,
 			       (const char *)NULL,           \
 			       (const char *)NULL,           \
 			       (const jsmntok_t *)NULL,      \
-			       (arg)) == true)
+			       (arg)) == (struct command_result *)NULL)
 
 /*
  * Add an optional parameter.  *arg is set to NULL if it isn't found.
@@ -77,7 +83,7 @@ typedef bool(*param_cbx)(struct command *cmd,
 		                  (const char *)NULL,           \
 				  (const char *)NULL,           \
 				  (const jsmntok_t *)NULL,      \
-				  (arg)) == true); })
+				  (arg)) == (struct command_result *)NULL); })
 
 /*
  * Add an optional parameter.  *arg is set to @def if it isn't found.
@@ -92,7 +98,7 @@ typedef bool(*param_cbx)(struct command *cmd,
 				   (const char *)NULL,		    \
 				   (const char *)NULL,		    \
 				   (const jsmntok_t *)NULL,	    \
-				   (arg)) == true); })
+				   (arg)) == (struct command_result *)NULL); })
 
 /* Special flag for 'check' which allows any parameters. */
 #define p_opt_any() "", false, NULL, NULL

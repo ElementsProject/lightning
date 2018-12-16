@@ -51,17 +51,19 @@ void json_add_txid(struct json_stream *result, const char *fieldname,
 bool json_to_pubkey(const char *buffer, const jsmntok_t *tok,
 		    struct pubkey *pubkey);
 
-bool json_tok_pubkey(struct command *cmd, const char *name,
-		     const char *buffer, const jsmntok_t *tok,
-		     struct pubkey **pubkey);
+struct command_result *param_pubkey(struct command *cmd, const char *name,
+				    const char *buffer, const jsmntok_t *tok,
+				    struct pubkey **pubkey);
 
 /* Extract a short_channel_id from this */
 bool json_to_short_channel_id(const char *buffer, const jsmntok_t *tok,
 			      struct short_channel_id *scid);
 
-bool json_tok_short_channel_id(struct command *cmd, const char *name,
-			       const char *buffer, const jsmntok_t *tok,
-			       struct short_channel_id **scid);
+struct command_result *param_short_channel_id(struct command *cmd,
+					      const char *name,
+					      const char *buffer,
+					      const jsmntok_t *tok,
+					      struct short_channel_id **scid);
 
 enum feerate_style {
 	FEERATE_PER_KSIPA,
@@ -69,16 +71,18 @@ enum feerate_style {
 };
 
 /* Extract a feerate style. */
-bool json_tok_feerate_style(struct command *cmd, const char *name,
-			    const char *buffer, const jsmntok_t *tok,
-			    enum feerate_style **style);
+struct command_result *param_feerate_style(struct command *cmd,
+					   const char *name,
+					   const char *buffer,
+					   const jsmntok_t *tok,
+					   enum feerate_style **style);
 
 const char *json_feerate_style_name(enum feerate_style style);
 
 /* Extract a feerate with optional style suffix. */
-bool json_tok_feerate(struct command *cmd, const char *name,
-		      const char *buffer, const jsmntok_t *tok,
-		      u32 **feerate);
+struct command_result *param_feerate(struct command *cmd, const char *name,
+				     const char *buffer, const jsmntok_t *tok,
+				     u32 **feerate);
 
 /* '"fieldname" : "1234:5:6"' */
 void json_add_short_channel_id(struct json_stream *response,
@@ -144,12 +148,12 @@ enum address_parse_result {
  * allocated off ctx if ADDRESS_PARSE_SUCCESS
  */
 enum address_parse_result json_tok_address_scriptpubkey(const tal_t *ctx,
-			      const struct chainparams *chainparams,
-			      const char *buffer,
-			      const jsmntok_t *tok, const u8 **scriptpubkey);
+			     const struct chainparams *chainparams,
+			     const char *buffer,
+			     const jsmntok_t *tok, const u8 **scriptpubkey);
 
 /* Parse the satoshi token in wallet_tx. */
-bool json_tok_wtx(struct wallet_tx * tx, const char * buffer,
-		  const jsmntok_t * sattok, u64 max);
+struct command_result *param_wtx(struct wallet_tx * tx, const char * buffer,
+				 const jsmntok_t * sattok, u64 max);
 
 #endif /* LIGHTNING_LIGHTNINGD_JSON_H */

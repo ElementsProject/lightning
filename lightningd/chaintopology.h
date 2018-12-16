@@ -150,9 +150,10 @@ u32 feerate_to_style(u32 feerate_perkw, enum feerate_style style);
 
 const char *feerate_name(enum feerate feerate);
 
-/* Set feerate_per_kw to this estimate, or fail cmd */
-bool json_feerate_estimate(struct command *cmd,
-			   u32 **feerate_per_kw, enum feerate feerate);
+/* Set feerate_per_kw to this estimate & return NULL, or fail cmd */
+struct command_result *param_feerate_estimate(struct command *cmd,
+					      u32 **feerate_per_kw,
+					      enum feerate feerate);
 
 /* Broadcast a single tx, and rebroadcast as reqd (copies tx).
  * If failed is non-NULL, call that and don't rebroadcast. */

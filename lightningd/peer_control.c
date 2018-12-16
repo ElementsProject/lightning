@@ -814,8 +814,8 @@ static void json_listpeers(struct command *cmd,
 	struct json_stream *response;
 
 	if (!param(cmd, buffer, params,
-		   p_opt("id", json_tok_pubkey, &specific_id),
-		   p_opt("level", json_tok_loglevel, &ll),
+		   p_opt("id", param_pubkey, &specific_id),
+		   p_opt("level", param_loglevel, &ll),
 		   NULL))
 		return;
 
@@ -903,9 +903,9 @@ static void json_close(struct command *cmd,
 	bool *force;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_tok, &idtok),
-		   p_opt_def("force", json_tok_bool, &force, false),
-		   p_opt_def("timeout", json_tok_number, &timeout, 30),
+		   p_req("id", param_tok, &idtok),
+		   p_opt_def("force", param_bool, &force, false),
+		   p_opt_def("timeout", param_number, &timeout, 30),
 		   NULL))
 		return;
 
@@ -1046,8 +1046,8 @@ static void json_disconnect(struct command *cmd,
 	bool *force;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &id),
-		   p_opt_def("force", json_tok_bool, &force, false),
+		   p_req("id", param_pubkey, &id),
+		   p_opt_def("force", param_bool, &force, false),
 		   NULL))
 		return;
 
@@ -1171,7 +1171,7 @@ static void json_sign_last_tx(struct command *cmd,
 	struct channel *channel;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &peerid),
+		   p_req("id", param_pubkey, &peerid),
 		   NULL))
 		return;
 
@@ -1218,7 +1218,7 @@ static void json_dev_fail(struct command *cmd,
 	struct channel *channel;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &peerid),
+		   p_req("id", param_pubkey, &peerid),
 		   NULL))
 		return;
 
@@ -1266,7 +1266,7 @@ static void json_dev_reenable_commit(struct command *cmd,
 	struct channel *channel;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &peerid),
+		   p_req("id", param_pubkey, &peerid),
 		   NULL))
 		return;
 
@@ -1361,9 +1361,9 @@ static void json_dev_forget_channel(struct command *cmd,
 
 	bool *force;
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &peerid),
-		   p_opt("short_channel_id", json_tok_short_channel_id, &scid),
-		   p_opt_def("force", json_tok_bool, &force, false),
+		   p_req("id", param_pubkey, &peerid),
+		   p_opt("short_channel_id", param_short_channel_id, &scid),
+		   p_opt_def("force", param_bool, &force, false),
 		   NULL))
 		return;
 

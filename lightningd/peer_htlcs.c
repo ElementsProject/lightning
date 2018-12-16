@@ -1802,8 +1802,8 @@ static void json_dev_ignore_htlcs(struct command *cmd,
 	bool *ignore;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &peerid),
-		   p_req("ignore", json_tok_bool, &ignore),
+		   p_req("id", param_pubkey, &peerid),
+		   p_req("ignore", param_bool, &ignore),
 		   NULL))
 		return;
 

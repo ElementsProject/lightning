@@ -286,16 +286,16 @@ const char *feerate_name(enum feerate feerate)
 	abort();
 }
 
-bool json_feerate_estimate(struct command *cmd,
-			   u32 **feerate_per_kw, enum feerate feerate)
+struct command_result *param_feerate_estimate(struct command *cmd,
+					      u32 **feerate_per_kw,
+					      enum feerate feerate)
 {
 	*feerate_per_kw = tal(cmd, u32);
 	**feerate_per_kw = try_get_feerate(cmd->ld->topology, feerate);
-	if (!**feerate_per_kw) {
-		command_fail(cmd, LIGHTNINGD, "Cannot estimate fees");
-		return false;
-	}
-	return true;
+	if (!**feerate_per_kw)
+		return command_fail(cmd, LIGHTNINGD, "Cannot estimate fees");
+
+	return NULL;
 }
 
 /* Mutual recursion via timer. */
@@ -475,7 +475,7 @@ static void json_feerates(struct command *cmd,
 	enum feerate_style *style;
 
 	if (!param(cmd, buffer, params,
-		   p_req("style", json_tok_feerate_style, &style),
+		   p_req("style", param_feerate_style, &style),
 		   NULL))
 		return;
 

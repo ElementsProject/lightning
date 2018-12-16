@@ -955,10 +955,10 @@ static void json_sendpay(struct command *cmd,
 	const char *description;
 
 	if (!param(cmd, buffer, params,
-		   p_req("route", json_tok_array, &routetok),
-		   p_req("payment_hash", json_tok_sha256, &rhash),
-		   p_opt("description", json_tok_escaped_string, &description),
-		   p_opt("msatoshi", json_tok_u64, &msatoshi),
+		   p_req("route", param_array, &routetok),
+		   p_req("payment_hash", param_sha256, &rhash),
+		   p_opt("description", param_escaped_string, &description),
+		   p_opt("msatoshi", param_u64, &msatoshi),
 		   NULL))
 		return;
 
@@ -973,10 +973,10 @@ static void json_sendpay(struct command *cmd,
 		unsigned *delay;
 
 		if (!param(cmd, buffer, t,
-			   p_req("msatoshi", json_tok_u64, &amount),
-			   p_req("id", json_tok_pubkey, &id),
-			   p_req("delay", json_tok_number, &delay),
-			   p_req("channel", json_tok_short_channel_id, &channel),
+			   p_req("msatoshi", param_u64, &amount),
+			   p_req("id", param_pubkey, &id),
+			   p_req("delay", param_number, &delay),
+			   p_req("channel", param_short_channel_id, &channel),
 			   NULL))
 			return;
 
@@ -1037,8 +1037,8 @@ static void json_waitsendpay(struct command *cmd,
 	unsigned int *timeout;
 
 	if (!param(cmd, buffer, params,
-		   p_req("payment_hash", json_tok_sha256, &rhash),
-		   p_opt("timeout", json_tok_number, &timeout),
+		   p_req("payment_hash", param_sha256, &rhash),
+		   p_opt("timeout", param_number, &timeout),
 		   NULL))
 		return;
 
@@ -1070,8 +1070,8 @@ static void json_listpayments(struct command *cmd,
 	const char *b11str;
 
 	if (!param(cmd, buffer, params,
-		   p_opt("bolt11", json_tok_string, &b11str),
-		   p_opt("payment_hash", json_tok_sha256, &rhash),
+		   p_opt("bolt11", param_string, &b11str),
+		   p_opt("payment_hash", param_sha256, &rhash),
 		   NULL))
 		return;
 

@@ -200,7 +200,7 @@ static void json_rhash(struct command *cmd,
 	struct sha256 *secret;
 
 	if (!param(cmd, buffer, params,
-		   p_req("secret", json_tok_sha256, &secret),
+		   p_req("secret", param_sha256, &secret),
 		   NULL))
 		return;
 
@@ -250,7 +250,7 @@ static void json_slowcmd(struct command *cmd,
 
 	sc->cmd = cmd;
 	if (!param(cmd, buffer, params,
-		   p_opt_def("msec", json_tok_number, &sc->msec, 1000),
+		   p_opt_def("msec", param_number, &sc->msec, 1000),
 		   NULL))
 		return;
 
@@ -335,7 +335,7 @@ static void json_help(struct command *cmd,
 	struct json_command **commands = cmd->ld->jsonrpc->commands;
 
 	if (!param(cmd, buffer, params,
-		   p_opt("command", json_tok_tok, &cmdtok),
+		   p_opt("command", param_tok, &cmdtok),
 		   NULL))
 		return;
 
@@ -963,36 +963,37 @@ json_tok_address_scriptpubkey(const tal_t *cxt,
 	return ADDRESS_PARSE_UNRECOGNIZED;
 }
 
-bool json_tok_wtx(struct wallet_tx * tx, const char * buffer,
-                  const jsmntok_t *sattok, u64 max)
+struct command_result *param_wtx(struct wallet_tx * tx, const char * buffer,
+				 const jsmntok_t *sattok, u64 max)
 {
         if (json_tok_streq(buffer, sattok, "all")) {
                 tx->all_funds = true;
 		tx->amount = max;
         } else if (!json_to_u64(buffer, sattok, &tx->amount)) {
-                command_fail(tx->cmd, JSONRPC2_INVALID_PARAMS,
-			     "Invalid satoshis");
-                return false;
+                return command_fail(tx->cmd, JSONRPC2_INVALID_PARAMS,
+				    "Invalid satoshis");
 	} else if (tx->amount > max) {
-                command_fail(tx->cmd, FUND_MAX_EXCEEDED,
-			     "Amount exceeded %"PRIu64, max);
-                return false;
+                return command_fail(tx->cmd, FUND_MAX_EXCEEDED,
+				    "Amount exceeded %"PRIu64, max);
 	}
-        return true;
+        return NULL;
 }
 
-static bool json_tok_command(struct command *cmd, const char *name,
-			     const char *buffer, const jsmntok_t *tok,
-			     const jsmntok_t **out)
+static struct command_result *param_command(struct command *cmd,
+					    const char *name,
+					    const char *buffer,
+					    const jsmntok_t *tok,
+					    const jsmntok_t **out)
 {
 	cmd->json_cmd = find_cmd(cmd->jcon->ld->jsonrpc, buffer, tok);
-	if (cmd->json_cmd)
-		return (*out = tok);
+	if (cmd->json_cmd) {
+		*out = tok;
+		return NULL;
+	}
 
-	command_fail(cmd, JSONRPC2_METHOD_NOT_FOUND,
-		     "Unknown command '%.*s'",
-		     tok->end - tok->start, buffer + tok->start);
-	return false;
+	return command_fail(cmd, JSONRPC2_METHOD_NOT_FOUND,
+			    "Unknown command '%.*s'",
+			    tok->end - tok->start, buffer + tok->start);
 }
 
 /* We add this destructor as a canary to detect cmd failing. */
@@ -1018,7 +1019,7 @@ static void json_check(struct command *cmd,
 	}
 
 	if (!param(cmd, buffer, mod_params,
-		   p_req("command_to_check", json_tok_command, &name_tok),
+		   p_req("command_to_check", param_command, &name_tok),
 		   p_opt_any(),
 		   NULL))
 		return;
