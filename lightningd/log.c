@@ -702,9 +702,11 @@ void json_add_log(struct json_stream *response,
 	json_array_end(info.response);
 }
 
-bool json_tok_loglevel(struct command *cmd, const char *name,
-		       const char *buffer, const jsmntok_t *tok,
-		       enum log_level **level)
+struct command_result *param_loglevel(struct command *cmd,
+				      const char *name,
+				      const char *buffer,
+				      const jsmntok_t *tok,
+				      enum log_level **level)
 {
 	*level = tal(cmd, enum log_level);
 	if (json_tok_streq(buffer, tok, "io"))
@@ -716,14 +718,14 @@ bool json_tok_loglevel(struct command *cmd, const char *name,
 	else if (json_tok_streq(buffer, tok, "unusual"))
 		**level = LOG_UNUSUAL;
 	else {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "'%s' should be 'io', 'debug', 'info', or "
-			     "'unusual', not '%.*s'",
-			     name,
-			     json_tok_full_len(tok), json_tok_full(buffer, tok));
-		return false;
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "'%s' should be 'io', 'debug', 'info', or "
+				    "'unusual', not '%.*s'",
+				    name,
+				    json_tok_full_len(tok),
+				    json_tok_full(buffer, tok));
 	}
-	return true;
+	return NULL;
 }
 
 static void json_getlog(struct command *cmd,
@@ -736,8 +738,7 @@ static void json_getlog(struct command *cmd,
 	struct log_book *lr = cmd->ld->log_book;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("level", json_tok_loglevel, &minlevel,
-				 LOG_INFORM),
+		   p_opt_def("level", param_loglevel, &minlevel, LOG_INFORM),
 		   NULL))
 		return;
 

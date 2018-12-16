@@ -95,22 +95,26 @@ static void json_withdraw(struct command *cmd,
 	u32 *feerate_per_kw;
 	struct bitcoin_tx *tx;
 	enum address_parse_result addr_parse;
+	struct command_result *res;
 
 	withdraw->cmd = cmd;
 	wtx_init(cmd, &withdraw->wtx);
 
 	if (!param(cmd, buffer, params,
-		   p_req("destination", json_tok_tok, &desttok),
-		   p_req("satoshi", json_tok_tok, &sattok),
-		   p_opt("feerate", json_tok_feerate, &feerate_per_kw),
+		   p_req("destination", param_tok, &desttok),
+		   p_req("satoshi", param_tok, &sattok),
+		   p_opt("feerate", param_feerate, &feerate_per_kw),
 		   NULL))
 		return;
 
-	if (!json_tok_wtx(&withdraw->wtx, buffer, sattok, -1ULL))
+	res = param_wtx(&withdraw->wtx, buffer, sattok, -1ULL);
+	if (res)
 		return;
 
 	if (!feerate_per_kw) {
-		if (!json_feerate_estimate(cmd, &feerate_per_kw, FEERATE_NORMAL))
+		res = param_feerate_estimate(cmd, &feerate_per_kw,
+					     FEERATE_NORMAL);
+		if (res)
 			return;
 	}
 
@@ -223,23 +227,24 @@ encode_pubkey_to_addr(const tal_t *ctx,
 }
 
 /* Extract a bool indicating "p2sh-segwit" or "bech32" */
-static bool json_tok_newaddr(struct command *cmd, const char *name,
-			     const char *buffer, const jsmntok_t *tok,
-			     bool **is_p2wpkh)
+static struct command_result *param_newaddr(struct command *cmd,
+					    const char *name,
+					    const char *buffer,
+					    const jsmntok_t *tok,
+					    bool **is_p2wpkh)
 {
 	*is_p2wpkh = tal(cmd, bool);
 	if (json_tok_streq(buffer, tok, "p2sh-segwit")) {
 		**is_p2wpkh = false;
-		return true;
+		return NULL;
 	}
 	if (json_tok_streq(buffer, tok, "bech32")) {
 		**is_p2wpkh = true;
-		return true;
+		return NULL;
 	}
-	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-		     "'%s' should be 'bech32' or 'p2sh-segwit', not '%.*s'",
-		     name, tok->end - tok->start, buffer + tok->start);
-	return false;
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "'%s' should be 'bech32' or 'p2sh-segwit', not '%.*s'",
+			    name, tok->end - tok->start, buffer + tok->start);
 }
 
 static void json_newaddr(struct command *cmd,
@@ -255,7 +260,7 @@ static void json_newaddr(struct command *cmd,
 	char *out;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("addresstype", json_tok_newaddr, &is_p2wpkh, true),
+		   p_opt_def("addresstype", param_newaddr, &is_p2wpkh, true),
 		   NULL))
 		return;
 
@@ -314,7 +319,7 @@ static void json_listaddrs(struct command *cmd,
 	u64 *bip32_max_index;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("bip32_max_index", json_tok_u64, &bip32_max_index,
+		   p_opt_def("bip32_max_index", param_u64, &bip32_max_index,
 				 db_get_intvar(cmd->ld->wallet->db,
 				 "bip32_max_index", 0)),
 		   NULL))

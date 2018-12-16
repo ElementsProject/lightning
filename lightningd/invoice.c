@@ -309,12 +309,12 @@ static void json_invoice(struct command *cmd,
 	info->cmd = cmd;
 
 	if (!param(cmd, buffer, params,
-		   p_req("msatoshi", json_tok_msat, &msatoshi_val),
-		   p_req("label", json_tok_label, &info->label),
-		   p_req("description", json_tok_escaped_string, &desc_val),
-		   p_opt_def("expiry", json_tok_u64, &expiry, 3600),
-		   p_opt("fallbacks", json_tok_array, &fallbacks),
-		   p_opt("preimage", json_tok_tok, &preimagetok),
+		   p_req("msatoshi", param_msat, &msatoshi_val),
+		   p_req("label", param_label, &info->label),
+		   p_req("description", param_escaped_string, &desc_val),
+		   p_opt_def("expiry", param_u64, &expiry, 3600),
+		   p_opt("fallbacks", param_array, &fallbacks),
+		   p_opt("preimage", param_tok, &preimagetok),
 		   NULL))
 		return;
 
@@ -425,7 +425,7 @@ static void json_listinvoices(struct command *cmd,
 	struct json_stream *response;
 	struct wallet *wallet = cmd->ld->wallet;
 	if (!param(cmd, buffer, params,
-		   p_opt("label", json_tok_label, &label),
+		   p_opt("label", param_label, &label),
 		   NULL))
 		return;
 	response = json_stream_success(cmd);
@@ -457,8 +457,8 @@ static void json_delinvoice(struct command *cmd,
 	struct wallet *wallet = cmd->ld->wallet;
 
 	if (!param(cmd, buffer, params,
-		   p_req("label", json_tok_label, &label),
-		   p_req("status", json_tok_string, &status),
+		   p_req("label", param_label, &label),
+		   p_req("status", param_string, &status),
 		   NULL))
 		return;
 
@@ -506,7 +506,7 @@ static void json_delexpiredinvoice(struct command *cmd,
 	u64 *maxexpirytime;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("maxexpirytime", json_tok_u64, &maxexpirytime,
+		   p_opt_def("maxexpirytime", param_u64, &maxexpirytime,
 				 time_now().ts.tv_sec),
 		   NULL))
 		return;
@@ -531,8 +531,8 @@ static void json_autocleaninvoice(struct command *cmd,
 	u64 *exby;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("cycle_seconds", json_tok_u64, &cycle, 3600),
-		   p_opt_def("expired_by", json_tok_u64, &exby, 86400),
+		   p_opt_def("cycle_seconds", param_u64, &cycle, 3600),
+		   p_opt_def("expired_by", param_u64, &exby, 86400),
 		   NULL))
 		return;
 
@@ -558,7 +558,7 @@ static void json_waitanyinvoice(struct command *cmd,
 	struct wallet *wallet = cmd->ld->wallet;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("lastpay_index", json_tok_u64, &pay_index, 0),
+		   p_opt_def("lastpay_index", param_u64, &pay_index, 0),
 		   NULL))
 		return;
 
@@ -596,7 +596,7 @@ static void json_waitinvoice(struct command *cmd,
 	struct json_escaped *label;
 
 	if (!param(cmd, buffer, params,
-		   p_req("label", json_tok_label, &label),
+		   p_req("label", param_label, &label),
 		   NULL))
 		return;
 
@@ -671,8 +671,8 @@ static void json_decodepay(struct command *cmd,
 	char *fail;
 
 	if (!param(cmd, buffer, params,
-		   p_req("bolt11", json_tok_string, &str),
-		   p_opt("description", json_tok_string, &desc),
+		   p_req("bolt11", param_string, &str),
+		   p_opt("description", param_string, &desc),
 		   NULL))
 		return;
 

@@ -609,15 +609,15 @@ static void json_pay(struct command *cmd,
 	unsigned int *exemptfee;
 
 	if (!param(cmd, buffer, params,
-		   p_req("bolt11", json_tok_string, &b11str),
-		   p_opt("msatoshi", json_tok_u64, &msatoshi),
-		   p_opt("description", json_tok_string, &desc),
-		   p_opt_def("riskfactor", json_tok_double, &riskfactor, 1.0),
-		   p_opt_def("maxfeepercent", json_tok_percent, &maxfeepercent, 0.5),
-		   p_opt_def("retry_for", json_tok_number, &retryfor, 60),
-		   p_opt_def("maxdelay", json_tok_number, &maxdelay,
+		   p_req("bolt11", param_string, &b11str),
+		   p_opt("msatoshi", param_u64, &msatoshi),
+		   p_opt("description", param_string, &desc),
+		   p_opt_def("riskfactor", param_double, &riskfactor, 1.0),
+		   p_opt_def("maxfeepercent", param_percent, &maxfeepercent, 0.5),
+		   p_opt_def("retry_for", param_number, &retryfor, 60),
+		   p_opt_def("maxdelay", param_number, &maxdelay,
 			     cmd->ld->config.locktime_max),
-		   p_opt_def("exemptfee", json_tok_number, &exemptfee, 5000),
+		   p_opt_def("exemptfee", param_number, &exemptfee, 5000),
 		   NULL))
 		return;
 

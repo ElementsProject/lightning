@@ -767,6 +767,7 @@ static void json_fund_channel(struct command *cmd,
 			      const jsmntok_t *obj UNNEEDED,
 			      const jsmntok_t *params)
 {
+	struct command_result *res;
 	const jsmntok_t *sattok;
 	struct funding_channel * fc = tal(cmd, struct funding_channel);
 	struct pubkey *id;
@@ -781,14 +782,15 @@ static void json_fund_channel(struct command *cmd,
 	fc->uc = NULL;
 	wtx_init(cmd, &fc->wtx);
 	if (!param(fc->cmd, buffer, params,
-		   p_req("id", json_tok_pubkey, &id),
-		   p_req("satoshi", json_tok_tok, &sattok),
-		   p_opt("feerate", json_tok_feerate, &feerate_per_kw),
-		   p_opt_def("announce", json_tok_bool, &announce_channel, true),
+		   p_req("id", param_pubkey, &id),
+		   p_req("satoshi", param_tok, &sattok),
+		   p_opt("feerate", param_feerate, &feerate_per_kw),
+		   p_opt_def("announce", param_bool, &announce_channel, true),
 		   NULL))
 		return;
 
-	if (!json_tok_wtx(&fc->wtx, buffer, sattok, max_funding_satoshi))
+	res = param_wtx(&fc->wtx, buffer, sattok, max_funding_satoshi);
+	if (res)
 		return;
 
 	if (!feerate_per_kw) {

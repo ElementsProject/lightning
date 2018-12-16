@@ -31,16 +31,18 @@ static bool param_add(struct param **params,
 	return true;
 }
 
-static bool make_callback(struct command *cmd,
-			  struct param *def,
-			  const char *buffer, const jsmntok_t *tok)
+static struct command_result *make_callback(struct command *cmd,
+					     struct param *def,
+					     const char *buffer,
+					     const jsmntok_t *tok)
 {
 	def->is_set = true;
 
 	return def->cbx(cmd, def->name, buffer, tok, def->arg);
 }
 
-static bool post_check(struct command *cmd, struct param *params)
+static struct command_result *post_check(struct command *cmd,
+					 struct param *params)
 {
 	struct param *first = params;
 	struct param *last = first + tal_count(params);
@@ -48,42 +50,43 @@ static bool post_check(struct command *cmd, struct param *params)
 	/* Make sure required params were provided. */
 	while (first != last && first->required) {
 		if (!first->is_set) {
-			command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				     "missing required parameter: '%s'",
-				     first->name);
-			return false;
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "missing required parameter: '%s'",
+					    first->name);
 		}
 		first++;
 	}
-	return true;
+	return NULL;
 }
 
-static bool parse_by_position(struct command *cmd,
-			      struct param *params,
-			      const char *buffer,
-			      const jsmntok_t tokens[],
-			      bool allow_extra)
+static struct command_result *parse_by_position(struct command *cmd,
+						struct param *params,
+						const char *buffer,
+						const jsmntok_t tokens[],
+						bool allow_extra)
 {
+	struct command_result *res;
 	const jsmntok_t *tok = tokens + 1;
 	const jsmntok_t *end = json_next(tokens);
 	struct param *first = params;
 	struct param *last = first + tal_count(params);
 
 	while (first != last && tok != end) {
-		if (!json_tok_is_null(buffer, tok))
-			if (!make_callback(cmd, first, buffer, tok))
-				return NULL;
+		if (!json_tok_is_null(buffer, tok)) {
+			res = make_callback(cmd, first, buffer, tok);
+			if (res)
+				return res;
+		}
 		tok = json_next(tok);
 		first++;
 	}
 
 	/* check for unexpected trailing params */
 	if (!allow_extra && tok != end) {
-		command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			     "too many parameters:"
-			     " got %u, expected %zu",
-			     tokens->size, tal_count(params));
-		return false;
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "too many parameters:"
+				    " got %u, expected %zu",
+				    tokens->size, tal_count(params));
 	}
 
 	return post_check(cmd, params);
@@ -104,11 +107,11 @@ static struct param *find_param(struct param *params, const char *start,
 	return NULL;
 }
 
-static bool parse_by_name(struct command *cmd,
-			  struct param *params,
-			  const char *buffer,
-			  const jsmntok_t tokens[],
-			  bool allow_extra)
+static struct command_result *parse_by_name(struct command *cmd,
+					    struct param *params,
+					    const char *buffer,
+					    const jsmntok_t tokens[],
+					    bool allow_extra)
 {
 	const jsmntok_t *first = tokens + 1;
 	const jsmntok_t *last = json_next(tokens);
@@ -118,21 +121,23 @@ static bool parse_by_name(struct command *cmd,
 					     first->end - first->start);
 		if (!p) {
 			if (!allow_extra) {
-				command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					     "unknown parameter: '%.*s'",
-					     first->end - first->start,
-					     buffer + first->start);
-				return false;
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "unknown parameter: '%.*s'",
+						    first->end - first->start,
+						    buffer + first->start);
 			}
 		} else {
+			struct command_result *res;
+
 			if (p->is_set) {
-				command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					     "duplicate json names: '%s'", p->name);
-				return false;
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "duplicate json names: '%s'",
+						    p->name);
 			}
 
-			if (!make_callback(cmd, p, buffer, first + 1))
-				return false;
+			res = make_callback(cmd, p, buffer, first + 1);
+			if (res)
+				return res;
 		}
 		first = json_next(first + 1);
 	}
@@ -237,15 +242,15 @@ static char *param_usage(const tal_t *ctx,
 	return usage;
 }
 
-static bool param_arr(struct command *cmd, const char *buffer,
-		      const jsmntok_t tokens[],
-		      struct param *params,
-		      bool allow_extra)
+static struct command_result *param_arr(struct command *cmd, const char *buffer,
+					const jsmntok_t tokens[],
+					struct param *params,
+					bool allow_extra)
 {
 #if DEVELOPER
 	if (!check_params(params)) {
-		command_fail(cmd, PARAM_DEV_ERROR, "developer error: check_params");
-		return false;
+		return command_fail(cmd, PARAM_DEV_ERROR,
+				    "developer error: check_params");
 	}
 #endif
 	if (tokens->type == JSMN_ARRAY)
@@ -253,9 +258,8 @@ static bool param_arr(struct command *cmd, const char *buffer,
 	else if (tokens->type == JSMN_OBJECT)
 		return parse_by_name(cmd, params, buffer, tokens, allow_extra);
 
-	command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-		     "Expected array or object for params");
-	return false;
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "Expected array or object for params");
 }
 
 bool param(struct command *cmd, const char *buffer,
@@ -291,6 +295,6 @@ bool param(struct command *cmd, const char *buffer,
 
 	/* Always return false if we're simply checking command parameters;
 	 * normally this returns true if all parameters are valid. */
-	return param_arr(cmd, buffer, tokens, params, allow_extra)
+	return param_arr(cmd, buffer, tokens, params, allow_extra) == NULL
 		&& !command_check_only(cmd);
 }

@@ -92,9 +92,9 @@ static void json_connect(struct command *cmd,
 	struct peer *peer;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", json_tok_tok, (const jsmntok_t **) &idtok),
-		   p_opt("host", json_tok_string, &name),
-		   p_opt("port", json_tok_number, &port),
+		   p_req("id", param_tok, (const jsmntok_t **) &idtok),
+		   p_opt("host", param_string, &name),
+		   p_opt("port", param_number, &port),
 		   NULL))
 		return;
 

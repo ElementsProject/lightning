@@ -103,8 +103,10 @@ void log_backtrace_exit(void);
 void json_add_log(struct json_stream *result,
 		  const struct log_book *lr, enum log_level minlevel);
 
-bool json_tok_loglevel(struct command *cmd, const char *name,
-		       const char *buffer, const jsmntok_t *tok,
-		       enum log_level **level);
+struct command_result *param_loglevel(struct command *cmd,
+				      const char *name,
+				      const char *buffer,
+				      const jsmntok_t *tok,
+				      enum log_level **level);
 
 #endif /* LIGHTNING_LIGHTNINGD_LOG_H */
