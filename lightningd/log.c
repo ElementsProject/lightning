@@ -502,6 +502,7 @@ static void setup_log_rotation(struct lightningd *ld)
 
 char *arg_log_to_file(const char *arg, struct lightningd *ld)
 {
+	const struct log_entry *i;
 	FILE *logf;
 
 	if (ld->logfile) {
@@ -515,6 +516,12 @@ char *arg_log_to_file(const char *arg, struct lightningd *ld)
 	if (!logf)
 		return tal_fmt(NULL, "Failed to open: %s", strerror(errno));
 	set_log_outfn(ld->log->lr, log_to_file, logf);
+
+	/* Catch up */
+	list_for_each(&ld->log->lr->log, i, list)
+		maybe_print(ld->log, i, 0);
+
+	log_debug(ld->log, "Opened log file %s", arg);
 	return NULL;
 }
 
