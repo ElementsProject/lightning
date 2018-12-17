@@ -33,7 +33,7 @@ class UnixDomainSocketRpc(object):
             return self._readobj(sock, buff)
         while True:
             try:
-                b = sock.recv(1024)
+                b = sock.recv(max(1024, len(buff)))
                 buff += b
 
                 if b'\n\n' in buff:
@@ -58,7 +58,7 @@ class UnixDomainSocketRpc(object):
             parts = buff.split(b'\n\n', 1)
             if len(parts) == 1:
                 # Didn't read enough.
-                b = sock.recv(1024)
+                b = sock.recv(max(1024, len(buff)))
                 buff += b
                 if len(b) == 0:
                     return {'error': 'Connection to RPC server lost.'}, buff
