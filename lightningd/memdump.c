@@ -218,7 +218,6 @@ static void connect_dev_memleak_done(struct subd *connectd,
 				     const int *fds UNUSED,
 				     struct command *cmd)
 {
-	struct lightningd *ld = cmd->ld;
 	bool found_leak;
 
 	if (!fromwire_connect_dev_memleak_reply(reply, &found_leak)) {
@@ -232,9 +231,8 @@ static void connect_dev_memleak_done(struct subd *connectd,
 		return;
 	}
 
-	/* No leak?  Ask gossipd. */
-	subd_req(ld->gossip, ld->gossip, take(towire_gossip_dev_memleak(NULL)),
-		 -1, 0, gossip_dev_memleak_done, cmd);
+	/* No leak?  Ask openingd. */
+	opening_dev_memleak(cmd);
 }
 
 static void hsm_dev_memleak_done(struct subd *hsmd,
@@ -255,10 +253,9 @@ static void hsm_dev_memleak_done(struct subd *hsmd,
 		return;
 	}
 
-	/* No leak?  Ask connectd. */
-	subd_req(ld->connectd, ld->connectd,
-		 take(towire_connect_dev_memleak(NULL)),
-		 -1, 0, connect_dev_memleak_done, cmd);
+	/* No leak?  Ask gossipd. */
+	subd_req(ld->gossip, ld->gossip, take(towire_gossip_dev_memleak(NULL)),
+		 -1, 0, gossip_dev_memleak_done, cmd);
 }
 
 void peer_memleak_done(struct command *cmd, struct subd *leaker)
@@ -292,6 +289,8 @@ static struct command_result *json_memleak(struct command *cmd,
 					   const jsmntok_t *obj UNNEEDED,
 					   const jsmntok_t *params)
 {
+	struct lightningd *ld = cmd->ld;
+
 	if (!param(cmd, buffer, params, NULL))
 		return command_param_failed();
 
@@ -300,14 +299,12 @@ static struct command_result *json_memleak(struct command *cmd,
 				    "Leak detection needs $LIGHTNINGD_DEV_MEMLEAK");
 	}
 
-	/* For simplicity, we mark pending, though an error may complete it
-	 * immediately. */
-	fixme_ignore(command_still_pending(cmd));
+	/* Start by asking connectd, which is always async. */
+	subd_req(ld->connectd, ld->connectd,
+		 take(towire_connect_dev_memleak(NULL)),
+		 -1, 0, connect_dev_memleak_done, cmd);
 
-	/* This calls opening_memleak_done() async when all done. */
-	opening_dev_memleak(cmd);
-
-	return command_its_complicated();
+	return command_still_pending(cmd);
 }
 
 static const struct json_command dev_memleak_command = {
