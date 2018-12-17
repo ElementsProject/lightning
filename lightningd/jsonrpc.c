@@ -1018,6 +1018,7 @@ static struct command_result *json_check(struct command *cmd,
 	const jsmntok_t *name_tok;
 	bool failed;
 	struct json_stream *response;
+	struct command_result *res;
 
 	if (cmd->mode == CMD_USAGE) {
 		mod_params = NULL;
@@ -1040,10 +1041,13 @@ static struct command_result *json_check(struct command *cmd,
 	cmd->mode = CMD_CHECK;
 	failed = false;
 	tal_add_destructor2(cmd, destroy_command_canary, &failed);
-	cmd->json_cmd->dispatch(cmd, buffer, mod_params, mod_params);
+	res = cmd->json_cmd->dispatch(cmd, buffer, mod_params, mod_params);
+
+	/* CMD_CHECK always makes it "fail" parameter parsing. */
+	assert(res == &param_failed);
 
 	if (failed)
-		return command_its_complicated();
+		return res;
 
 	response = json_stream_success(cmd);
 	json_object_start(response, NULL);
