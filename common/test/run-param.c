@@ -458,7 +458,7 @@ static void advanced(void)
 		assert(msat_opt2 == NULL);
 	}
 	{
-		struct json *j = json_parse(cmd, "[ 3 'foo' ]");
+		struct json *j = json_parse(cmd, "[ 3, 'foo' ]");
 		struct json_escaped *label, *foo;
 		assert(param(cmd, j->buffer, j->toks,
 			      p_req("label", param_label, &label),
