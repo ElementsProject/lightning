@@ -385,6 +385,8 @@ static void del_tree(struct tal_hdr *t, const tal_t *orig, int saved_errno)
 {
 	struct prop_hdr **prop, *p, *next;
 
+	assert(!taken(from_tal_hdr(t)));
+
         /* Already being destroyed?  Don't loop. */
         if (unlikely(get_destroying_bit(t->parent_child)))
                 return;
@@ -709,6 +711,10 @@ bool tal_resize_(tal_t **ctxp, size_t size, size_t count, bool clear)
         if (t != old_t) {
 		/* Fix up linked list pointers. */
 		t->list.next->prev = t->list.prev->next = &t->list;
+
+		/* Copy take() property. */
+		if (taken(from_tal_hdr(old_t)))
+			take(from_tal_hdr(t));
 
 		/* Fix up child property's parent pointer. */
 		child = find_property(t, CHILDREN);

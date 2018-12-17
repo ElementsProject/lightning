@@ -106,6 +106,9 @@ void *tal_free(const tal_t *p);
  * This returns true on success (and may move *@p), or false on failure.
  * On success, tal_count() of *@p will be @count.
  *
+ * Note: if *p is take(), it will still be take() upon return, even if it
+ * has been moved.
+ *
  * Example:
  *	tal_resize(&p, 100);
  */
