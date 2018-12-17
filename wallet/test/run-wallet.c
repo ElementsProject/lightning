@@ -55,18 +55,18 @@ struct command_result *command_fail(struct command *cmd UNNEEDED, int code UNNEE
 				    const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "command_fail called!\n"); abort(); }
-/* Generated stub for command_its_complicated */
-struct command_result *command_its_complicated(void)
-{ fprintf(stderr, "command_its_complicated called!\n"); abort(); }
 /* Generated stub for command_param_failed */
 struct command_result *command_param_failed(void)
+
 { fprintf(stderr, "command_param_failed called!\n"); abort(); }
 /* Generated stub for command_still_pending */
-struct command_result *command_still_pending(struct command *cmd UNNEEDED)
+struct command_result *command_still_pending(struct command *cmd)
+
 { fprintf(stderr, "command_still_pending called!\n"); abort(); }
 /* Generated stub for command_success */
 struct command_result *command_success(struct command *cmd UNNEEDED,
-				       struct json_stream *response UNNEEDED)
+				       struct json_stream *response)
+
 { fprintf(stderr, "command_success called!\n"); abort(); }
 /* Generated stub for connect_succeeded */
 void connect_succeeded(struct lightningd *ld UNNEEDED, const struct pubkey *id UNNEEDED)
