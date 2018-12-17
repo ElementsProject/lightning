@@ -57,7 +57,8 @@ struct command_result *command_param_failed(void)
 	return &param_failed;
 }
 
-struct command_result *command_its_complicated(void)
+struct command_result *command_its_complicated(const char *relationship_details
+					       UNNEEDED)
 {
 	return &unknown;
 }

@@ -1013,7 +1013,8 @@ static struct command_result *json_sendpay(struct command *cmd,
 			 description,
 			 &json_sendpay_on_resolve, cmd))
 		return command_still_pending(cmd);
-	return command_its_complicated();
+	return command_its_complicated("send_payment is called in multiple paths,"
+				       " patching return value through is hard");
 }
 
 static const struct json_command sendpay_command = {
@@ -1044,7 +1045,9 @@ static struct command_result *json_waitsendpay(struct command *cmd,
 		return command_param_failed();
 
 	if (!wait_payment(cmd, cmd->ld, rhash, &json_waitsendpay_on_resolve, cmd))
-		return command_its_complicated();
+		return command_its_complicated("wait_payment called in multiple"
+					       " paths, patching return value"
+					       " through is hard");
 
 	if (timeout)
 		new_reltimer(&cmd->ld->timers, cmd, time_from_sec(*timeout),

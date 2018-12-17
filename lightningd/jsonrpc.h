@@ -127,7 +127,7 @@ static inline void fixme_ignore(const struct command_result *res)
 }
 
 /* FIXME: For the few cases where return value is indeterminate */
-struct command_result *command_its_complicated(void);
+struct command_result *command_its_complicated(const char *why);
 
 /**
  * Create a new jsonrpc to wrap all related information.

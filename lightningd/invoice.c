@@ -572,7 +572,10 @@ static struct command_result *json_waitanyinvoice(struct command *cmd,
 	wallet_invoice_waitany(cmd, wallet, *pay_index,
 			       &wait_on_invoice, (void*) cmd);
 
-	return command_its_complicated();
+	return command_its_complicated("wallet_invoice_waitany might complete"
+				       " immediately, but we also call it as a"
+				       " callback so plumbing through the return"
+				       " is non-trivial.");
 }
 
 static const struct json_command waitanyinvoice_command = {
@@ -616,7 +619,8 @@ static struct command_result *json_waitinvoice(struct command *cmd,
 		fixme_ignore(command_still_pending(cmd));
 		wallet_invoice_waitone(cmd, wallet, i,
 				       &wait_on_invoice, (void *) cmd);
-		return command_its_complicated();
+		return command_its_complicated("wallet_invoice_waitone might"
+					       " complete immediately");
 	}
 }
 
