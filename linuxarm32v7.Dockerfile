@@ -36,7 +36,6 @@ RUN mkdir /opt/litecoin && cd /opt/litecoin \
 
 FROM debian:stretch-slim as builder
 
-COPY --from=downloader /usr/bin/qemu-arm-static /usr/bin/qemu-arm-static
 ENV LIGHTNINGD_VERSION=master
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates autoconf automake build-essential git libtool python python3 wget gnupg dirmngr git \
   libc6-armhf-cross gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
@@ -73,11 +72,11 @@ RUN wget -q https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz \
 && ./configure --disable-assembly --prefix=$QEMU_LD_PREFIX --host=${target_host} \
 && make \
 && make install && cd .. && rm gmp-6.1.2.tar.xz && rm -rf gmp-6.1.2
-
+COPY --from=downloader /usr/bin/qemu-arm-static /usr/bin/qemu-arm-static
 WORKDIR /opt/lightningd
 COPY . .
 ARG DEVELOPER=0
-RUN ./configure && make -j3 DEVELOPER=${DEVELOPER} && cp lightningd/lightning* cli/lightning-cli /usr/bin/
+RUN ./configure --enable-static && make -j3 DEVELOPER=${DEVELOPER} && cp lightningd/lightning* cli/lightning-cli /usr/bin/
 
 # This is a manifest image, will pull the image with the same arch as the builder machine
 FROM microsoft/dotnet:2.1.500-sdk AS dotnetbuilder
