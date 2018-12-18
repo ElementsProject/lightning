@@ -230,7 +230,7 @@ check:
 	$(MAKE) pytest
 
 pytest: $(ALL_PROGRAMS)
-ifndef PYTEST
+ifeq ($(PYTEST),)
 	@echo "py.test is required to run the integration tests, please install using 'pip3 install -r tests/requirements.txt', and rerun 'configure'."
 	exit 1
 else
