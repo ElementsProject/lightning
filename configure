@@ -62,7 +62,11 @@ usage()
 
 add_var()
 {
-    echo "Setting $1... $2"
+    if [ -n "$2" ]; then
+        echo "Setting $1... $2"
+    else
+        echo "$1 not found"
+    fi
     echo "$1=$2" >> $CONFIG_VAR_FILE
     [ -z "$3" ] || echo "#define $1 $2" >> "$3"
 }
