@@ -82,7 +82,7 @@ find_pytest()
     for p in $PYTHON_BINS; do
         if [ "$(which $p)" != "" ] ; then
             $p --version 2>&1 | grep -q "Python 3." || continue
-            if $p -c "import pytest" ; then
+            if $p -c "import pytest" 2>/dev/null ; then
                 echo "$p -m pytest"
                 return
             fi
