@@ -293,6 +293,10 @@ void test_subdaemons(const struct lightningd *ld)
 		    || verstring[strlen(version())] != '\n')
 			errx(1, "%s: bad version '%s'",
 			     subdaemons[i], verstring);
+
+		/*~ finally reap the child process, freeing all OS
+		 *  resources that go with it */
+		waitpid(pid, NULL, 0);
 	}
 }
 
