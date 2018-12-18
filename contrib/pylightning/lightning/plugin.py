@@ -1,9 +1,15 @@
+from enum import Enum
 import sys
 import os
 import json
 import inspect
 import re
 import traceback
+
+
+class MethodType(Enum):
+    RPCMETHOD = 0
+    HOOK = 1
 
 
 class Plugin(object):
@@ -62,7 +68,7 @@ class Plugin(object):
             )
 
         # Register the function with the name
-        self.methods[name] = func
+        self.methods[name] = (func, MethodType.RPCMETHOD)
 
     def add_subscription(self, topic, func):
         """Add a subscription to our list of subscriptions.
@@ -129,6 +135,25 @@ class Plugin(object):
             return f
         return decorator
 
+    def add_hook(self, name, func):
+        """Register a hook that is called synchronously by lightningd on events
+        """
+        if name in self.methods:
+            raise ValueError(
+                "A hook for method {} was already registered".format(name, self.methods[name])
+            )
+        self.methods[name] = (func, MethodType.HOOK)
+
+    def hook(self, method_name):
+        """Decorator to add a plugin hook to the dispatch table.
+
+        Internally uses add_hook.
+        """
+        def decorator(f):
+            self.add_hook(method_name, f)
+            return f
+        return decorator
+
     def _exec_func(self, func, request):
         params = request['params']
         args = params.copy() if isinstance(params, list) else []
@@ -151,7 +176,7 @@ class Plugin(object):
 
         if name not in self.methods:
             raise ValueError("No method {} found.".format(name))
-        func = self.methods[name]
+        func, _ = self.methods[name]
 
         try:
             result = {
@@ -222,7 +247,7 @@ class Plugin(object):
         # then unstash this and call it.
         if 'init' in self.methods:
             self.init = self.methods['init']
-            self.methods['init'] = self._init
+            self.methods['init'] = (self._init, MethodType.RPCMETHOD)
 
         partial = ""
         for l in self.stdin:
@@ -236,9 +261,15 @@ class Plugin(object):
 
     def _getmanifest(self):
         methods = []
-        for name, func in self.methods.items():
+        hooks = []
+        for name, entry in self.methods.items():
+            func, typ = entry
             # Skip the builtin ones, they don't get reported
             if name in ['getmanifest', 'init']:
+                continue
+
+            if typ == MethodType.HOOK:
+                hooks.append(name)
                 continue
 
             doc = inspect.getdoc(func)
@@ -258,6 +289,7 @@ class Plugin(object):
             'options': list(self.options.values()),
             'rpcmethods': methods,
             'subscriptions': list(self.subscriptions.keys()),
+            'hooks': hooks,
         }
 
     def _init(self, options, configuration, request):
@@ -269,7 +301,7 @@ class Plugin(object):
         # Swap the registered `init` method handler back in and
         # re-dispatch
         if self.init:
-            self.methods['init'] = self.init
+            self.methods['init'], _ = self.init
             self.init = None
             return self._exec_func(self.methods['init'], request)
         return None
