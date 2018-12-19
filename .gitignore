@@ -33,3 +33,4 @@ tests/.pytest.restart
 gossip_store
 .pytest_cache
 tools/headerversions
+.tmp.lightningrfc/
