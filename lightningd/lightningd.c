@@ -573,6 +573,38 @@ void notify_new_block(struct lightningd *ld, u32 block_height)
 	channel_notify_new_block(ld, block_height);
 }
 
+static void on_sigint(int _ UNUSED)
+{
+        static const char *msg = "lightningd: SIGINT caught, exiting.\n";
+        write(STDERR_FILENO, msg, strlen(msg));
+        _exit(1);
+}
+
+static void on_sigterm(int _ UNUSED)
+{
+        static const char *msg = "lightningd: SIGTERM caught, exiting.\n";
+        write(STDERR_FILENO, msg, strlen(msg));
+        _exit(1);
+}
+
+/*~ We only need to handle SIGTERM and SIGINT for the case we are PID 1 of
+ * docker container since Linux makes special this PID and requires that
+ * some handler exist. */
+static void setup_sig_handlers(void)
+{
+	struct sigaction sigint, sigterm;
+	memset(&sigint, 0, sizeof(struct sigaction));
+	memset(&sigterm, 0, sizeof(struct sigaction));
+
+	sigint.sa_handler = on_sigint;
+	sigterm.sa_handler = on_sigterm;
+
+	if (1 == getpid()) {
+		sigaction(SIGINT, &sigint, NULL);
+		sigaction(SIGTERM, &sigterm, NULL);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
@@ -581,6 +613,9 @@ int main(int argc, char *argv[])
 
 	/*~ What happens in strange locales should stay there. */
 	setup_locale();
+
+	setup_sig_handlers();
+
 	/*~ Every daemon calls this in some form: the hooks are for dumping
 	 * backtraces when we crash (if supported on this platform). */
 	daemon_setup(argv[0], log_backtrace_print, log_backtrace_exit);
