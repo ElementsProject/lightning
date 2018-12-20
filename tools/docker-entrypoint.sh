@@ -15,5 +15,5 @@ if [ "$EXPOSE_TCP" == "true" ]; then
     socat "TCP4-listen:$LIGHTNINGD_RPC_PORT,fork,reuseaddr" "UNIX-CONNECT:$LIGHTNINGD_DATA/lightning-rpc" &
     fg %-
 else
-    lightningd "$@"
+    exec lightningd "$@"
 fi
