@@ -14,6 +14,11 @@
 struct plugins;
 
 /**
+ * A plugin, exposed as a stub so we can pass it as an argument.
+ */
+struct plugin;
+
+/**
  * Create a new plugins context.
  */
 struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
