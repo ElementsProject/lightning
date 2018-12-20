@@ -71,8 +71,7 @@ struct plugin_request {
 	struct json_stream *stream;
 
 	/* The response handler to be called when plugin gives us an object. */
-	void (*cb)(const struct plugin_request *,
-		   const char *buffer,
+	void (*cb)(const char *buffer,
 		   const jsmntok_t *toks,
 		   const jsmntok_t *idtok,
 		   void *);
@@ -195,8 +194,7 @@ static void PRINTF_FMT(2,3) plugin_kill(struct plugin *plugin, char *fmt, ...)
  */
 static struct plugin_request *
 plugin_request_new_(struct plugin *plugin,
-		    void (*cb)(const struct plugin_request *,
-			       const char *buffer,
+		    void (*cb)(const char *buffer,
 			       const jsmntok_t *toks,
 			       const jsmntok_t *idtok,
 			       void *),
@@ -222,7 +220,6 @@ plugin_request_new_(struct plugin *plugin,
 	plugin_request_new_(					\
 	    (plugin),						\
 	    typesafe_cb_preargs(void, void *, (cb), (arg),	\
-				const struct plugin_request *,	\
 				const char *buffer,		\
 				const jsmntok_t *toks,		\
 				const jsmntok_t *idtok),	\
@@ -326,7 +323,7 @@ static void plugin_response_handle(struct plugin *plugin,
 	}
 
 	/* We expect the request->cb to copy if needed */
-	request->cb(request, plugin->buffer, toks, idtok, request->arg);
+	request->cb(plugin->buffer, toks, idtok, request->arg);
 
 	uintmap_del(&plugin->plugins->pending_requests, id);
 	tal_free(request);
@@ -633,8 +630,7 @@ static void json_stream_forward_change_id(struct json_stream *stream,
 		json_stream_append(stream, "\n");
 }
 
-static void plugin_rpcmethod_cb(const struct plugin_request *req,
-				const char *buffer,
+static void plugin_rpcmethod_cb(const char *buffer,
 				const jsmntok_t *toks,
 				const jsmntok_t *idtok,
 				struct command *cmd)
@@ -822,8 +818,7 @@ static void plugin_manifest_timeout(struct plugin *plugin)
 /**
  * Callback for the plugin_manifest request.
  */
-static void plugin_manifest_cb(const struct plugin_request *req,
-			       const char *buffer,
+static void plugin_manifest_cb(const char *buffer,
 			       const jsmntok_t *toks,
 			       const jsmntok_t *idtok,
 			       struct plugin *plugin)
@@ -995,8 +990,7 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 	}
 }
 
-static void plugin_config_cb(const struct plugin_request *req,
-			     const char *buffer,
+static void plugin_config_cb(const char *buffer,
 			     const jsmntok_t *toks,
 			     const jsmntok_t *idtok,
 			     struct plugin *plugin)
