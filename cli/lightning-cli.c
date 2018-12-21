@@ -275,7 +275,7 @@ int main(int argc, char *argv[])
 
 	idstr = tal_fmt(ctx, "lightning-cli-%i", getpid());
 	cmd = tal_fmt(ctx,
-		      "{ \"method\" : \"%s\", \"id\" : \"%s\", \"params\" : ",
+		      "{ \"jsonrpc\" : \"2.0\", \"method\" : \"%s\", \"id\" : \"%s\", \"params\" :",
 		      method, idstr);
 
 	if (input == DEFAULT_INPUT) {

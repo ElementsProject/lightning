@@ -12,7 +12,7 @@
  * done, the `json_connection` needs to drain it (if it's still around).  At
  * that point, the `json_connection` becomes the owner (or it's simply freed).
  */
-/* eg: { "method" : "dev-echo", "params" : [ "hello", "Arabella!" ], "id" : "1" } */
+/* eg: { "jsonrpc":"2.0", "method" : "dev-echo", "params" : [ "hello", "Arabella!" ], "id" : "1" } */
 #include <arpa/inet.h>
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
