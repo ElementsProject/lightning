@@ -1024,6 +1024,42 @@ void jsonrpc_notification_end(struct jsonrpc_notification *n)
 	json_stream_append(n->stream, "\n\n");
 }
 
+struct jsonrpc_request *jsonrpc_request_start_(
+    const tal_t *ctx, const char *method,
+    void (*response_cb)(const char *buffer, const jsmntok_t *toks,
+			const jsmntok_t *idtok, void *),
+    void *response_cb_arg)
+{
+	struct jsonrpc_request *r = tal(ctx, struct jsonrpc_request);
+	static u64 next_request_id = 0;
+	r->id = next_request_id++;
+	r->response_cb = response_cb;
+	r->response_cb_arg = response_cb_arg;
+	r->method = NULL;
+	r->stream = new_json_stream(r, NULL);
+
+	/* If no method is specified we don't prefill the JSON-RPC
+	 * request with the header. This serves as an escape hatch to
+	 * get a raw request, but get a valid request-id assigned. */
+	if (method != NULL) {
+		r->method = tal_strdup(r, method);
+		json_object_start(r->stream, NULL);
+		json_add_string(r->stream, "jsonrpc", "2.0");
+		json_add_u64(r->stream, "id", r->id);
+		json_add_string(r->stream, "method", method);
+		json_object_start(r->stream, "params");
+	}
+
+	return r;
+}
+
+void jsonrpc_request_end(struct jsonrpc_request *r)
+{
+	json_object_end(r->stream); /* closes '.params' */
+	json_object_end(r->stream); /* closes '.' */
+	json_stream_append(r->stream, "\n\n");
+}
+
 /* We add this destructor as a canary to detect cmd failing. */
 static void destroy_command_canary(struct command *cmd, bool *failed)
 {
