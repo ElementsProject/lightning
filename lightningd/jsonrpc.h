@@ -66,6 +66,15 @@ struct jsonrpc_notification {
 	struct json_stream *stream;
 };
 
+struct jsonrpc_request {
+	u64 id;
+	const char *method;
+	struct json_stream *stream;
+	void (*response_cb)(const char *buffer, const jsmntok_t *toks,
+			    const jsmntok_t *idtok, void *);
+	void *response_cb_arg;
+};
+
 /**
  * json_stream_success - start streaming a successful json result.
  * @cmd: the command we're running.
@@ -182,6 +191,23 @@ struct jsonrpc_notification *jsonrpc_notification_start(const tal_t *ctx, const 
  * Counterpart to jsonrpc_notification_start.
  */
 void jsonrpc_notification_end(struct jsonrpc_notification *n);
+
+#define jsonrpc_request_start(ctx, method, response_cb, response_cb_arg)			\
+	jsonrpc_request_start_(					\
+		(ctx), (method),					\
+	    typesafe_cb_preargs(void, void *, (response_cb), (response_cb_arg),	\
+				const char *buffer,		\
+				const jsmntok_t *toks,		\
+				const jsmntok_t *idtok),	\
+	    (response_cb_arg))
+
+struct jsonrpc_request *jsonrpc_request_start_(
+    const tal_t *ctx, const char *method,
+    void (*response_cb)(const char *buffer, const jsmntok_t *toks,
+			const jsmntok_t *idtok, void *),
+    void *response_cb_arg);
+
+void jsonrpc_request_end(struct jsonrpc_request *request);
 
 AUTODATA_TYPE(json_command, struct json_command);
 #endif /* LIGHTNING_LIGHTNINGD_JSONRPC_H */
