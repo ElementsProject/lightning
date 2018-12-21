@@ -666,7 +666,7 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	struct plugin_request *req;
 	char id[STR_MAX_CHARS(u64)];
 
-	if (cmd->mode == CMD_USAGE) {
+	if (cmd->mode == CMD_USAGE || cmd->mode == CMD_CHECK) {
 		/* FIXME! */
 		cmd->usage = "[params]";
 		return command_param_failed();
