@@ -778,6 +778,9 @@ static u8 *funder_channel(struct state *state,
 
 	peer_billboard(false, "Funding channel: opening negotiation succeeded");
 
+	if (taken(utxos))
+		tal_free(utxos);
+
 	/* BOLT #2:
 	 *
 	 * The recipient:
