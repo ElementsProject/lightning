@@ -10,6 +10,7 @@
 #include <sqlite3.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 #include <zlib.h>
 
 static const char template[] =
