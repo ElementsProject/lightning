@@ -73,7 +73,7 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
  */
 /* FIXME: Find a way to avoid back-to-back declaration and definition */
 #define PLUGIN_HOOK_CALL_DEF(name, payload_type, response_cb_arg_type)         \
-	static inline void plugin_hook_call_##name(                            \
+	UNNEEDED static inline void plugin_hook_call_##name(                   \
 	    struct lightningd *ld, payload_type payload,                       \
 	    response_cb_arg_type cb_arg)                                       \
 	{                                                                      \
