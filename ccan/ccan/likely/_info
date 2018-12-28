@@ -1,0 +1,57 @@
+#include "config.h"
+#include <string.h>
+#include <stdio.h>
+
+/**
+ * likely - macros for annotating likely/unlikely branches in the code
+ *
+ * Inspired by Andi Kleen's macros for the Linux Kernel, these macros
+ * help you annotate rare paths in your code for the convenience of the
+ * compiler and the reader.
+ *
+ * With CCAN_LIKELY_DEBUG defined, it provides statistics for each
+ * likely()/unlikely() call (but note that this requires LGPL dependencies).
+ *
+ * License: CC0 (Public domain)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ *
+ * Example:
+ *	#include <ccan/likely/likely.h>
+ *	#include <stdio.h>
+ *
+ *	int main(int argc, char *argv[])
+ *	{
+ *		// This example is silly: the compiler knows exit() is unlikely.
+ *		if (unlikely(argc == 1)) {
+ *			fprintf(stderr, "Usage: %s <args>...\n", argv[0]);
+ *			return 1;
+ *		}
+ *		for (argc++; argv[argc]; argc++)
+ *			printf("%s\n", argv[argc]);
+ *		return 0;
+ *	}
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+#ifdef CCAN_LIKELY_DEBUG
+		printf("ccan/str\n");
+		printf("ccan/htable\n");
+		printf("ccan/hash\n");
+#endif
+		return 0;
+	}
+	if (strcmp(argv[1], "testdepends") == 0) {
+#ifndef CCAN_LIKELY_DEBUG
+		printf("ccan/str\n");
+		printf("ccan/htable\n");
+		printf("ccan/hash\n");
+#endif
+		return 0;
+	}
+	return 1;
+}

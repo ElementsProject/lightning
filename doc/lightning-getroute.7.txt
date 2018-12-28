@@ -1,0 +1,121 @@
+LIGHTNING-GETROUTE(7)
+=====================
+:doctype: manpage
+
+NAME
+----
+lightning-getroute - Command for routing a payment (low-level).
+
+
+SYNOPSIS
+--------
+*getroute* 'id' 'msatoshi' 'riskfactor' ['cltv'] ['fuzzpercent'] ['seed']
+
+DESCRIPTION
+-----------
+The *getroute* RPC command attempts to find the best route for the payment
+of 'msatoshi' to lightning node 'id', such that the payment will arrive
+at 'id' with 'cltv'-blocks to spare (default 9).
+
+There are two considerations for how good a route is: how low the
+fees are, and how long your payment will get stuck if a node goes down
+during the process.  The 'riskfactor' floating-point field controls
+this tradeoff; it is the annual cost of your funds being stuck (as a
+percentage), multiplied by the percentage chance of each node failing.
+
+For example, if you thought there was a 1% chance that a node would
+fail, and it would cost you 20% per annum if that happened,
+'riskfactor' would be 20.
+
+If you didn't care about risk, 'riskfactor' would be zero.
+
+The 'fuzzpercent' is a positive floating-point number, representing a percentage of the actual fee.
+The 'fuzzpercent' is used to distort computed fees along each channel,
+to provide some randomization to the route generated.
+0.0 means the exact fee of that channel is used,
+while 100.0 means the fee used might be from 0 to twice the actual fee.
+The default is 5.0, or up to 5% fee distortion.
+
+The 'seed' is a string whose bytes are used to seed the RNG for
+the route randomization.
+If not specified, a random string is used.
+
+
+RISKFACTOR EFFECT ON ROUTING
+----------------------------
+The risk factor is treated as if it were an additional fee on the route,
+for the purposes of comparing routes.
+
+The formula used is the following approximation:
+----
+hop-risk = num-hops x per-hop-risk
+timeout-cost = blocks-timeout x per-block-cost
+risk-fee = amount x hop-risk x timeout-cost
+----
+
+We are given a 'riskfactor'; expressed as two multiplied percentages
+is the same as fractions multiplied by 10000.  There are 52596 blocks
+per year, thus 'per-block-cost' x 'per-hop-risk' is riskfactor'
+divided by 5,259,600,000.
+
+The final result is:
+----
+risk-fee = amount x num-hops x blocks-timeout x riskfactor / 5259600000
+----
+
+Here are the risk fees as a percentage of the amount sent, using
+various parameters.  For comparison with actual fees, we assume nodes
+charge 0.05%:
+
+[options="header"]
+|=======================
+|Riskfactor	|Nodes | Delay per node        |Risk Fee %	|Route fee %
+|0.001          |5	| 6			|0		|0.25
+|1		|5	| 6			|0		|0.25
+|1000	        |5	| 6			|0.0029		|0.25
+
+|0.001		|10	| 72			|0		|0.5
+|1	        |10	| 72			|0.0001		|0.5
+|1000		|10	| 72			|0.1369		|0.5
+
+|0.001		|20	| 1008			|0		|1.0
+|1		|20	| 1008			|0.0077		|1.0
+|1000		|20	| 1008			|7.6660		|1.0
+|=======================
+
+RECOMMENDED RISKFACTOR VALUES
+-----------------------------
+0.001 is a value for tie-breaking in favor of shorter routes, but not really
+costing in any risk.
+
+1 is a conservative value for a stable lightning network with very few
+failures.
+
+1000 is an aggressive value for trying to minimize timeouts at all
+costs.
+
+RETURN VALUE
+------------
+
+On success, a "route" array is returned.  Each array element contains
+{id} (the node being routed through), {msatoshi} (the millisatoshis
+sent), and {delay} (the number of blocks to timeout at this node).
+
+The final {id} will be the destination {id} given in the input.  The
+difference between the first {msatoshi} minus the {msatoshi} given in
+the input is the fee.  The first {delay} is the very worst case
+timeout for the payment failure, in blocks.
+
+//FIXME:Enumerate errors
+
+AUTHOR
+------
+Rusty Russell <rusty@rustcorp.com.au> is mainly responsible.
+
+SEE ALSO
+--------
+lightning-pay(7), lightning-sendpay(7).
+
+RESOURCES
+---------
+Main web site: https://github.com/ElementsProject/lightning

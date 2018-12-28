@@ -1,0 +1,60 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * ptrint - Encoding integers in pointer values
+ *
+ * Library (standard or ccan) functions which take user supplied
+ * callbacks usually have the callback supplied with a void * context
+ * pointer.  For simple cases, it's sometimes sufficient to pass a
+ * simple integer cast into a void *, rather than having to allocate a
+ * context structure.  This module provides some helper macros to do
+ * this relatively safely and portably.
+ *
+ * The key characteristics of these functions are:
+ *	ptr2int(int2ptr(val)) == val
+ * and
+ *      !int2ptr(val) == !val
+ * (i.e. the transformation preserves truth value).
+ *
+ * Example:
+ *	#include <ccan/ptrint/ptrint.h>
+ *
+ *	static void callback(void *opaque)
+ *	{
+ *		int val = ptr2int(opaque);
+ *		printf("Value is %d\n", val);
+ *	}
+ *
+ *	void (*cb)(void *opaque) = callback;
+ *
+ *	int main(void)
+ *	{
+ *		int val = 17;
+ *
+ *		(*cb)(int2ptr(val));
+ *		exit(0);
+ *	}
+ *
+ * License: CC0 (Public domain)
+ * Author: David Gibson <david@gibson.dropbear.id.au>
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/build_assert\n");
+		printf("ccan/compiler\n");
+		return 0;
+	}
+	if (strcmp(argv[1], "testdepends") == 0) {
+		printf("ccan/array_size\n");
+		return 0;
+	}
+
+	return 1;
+}

@@ -1,0 +1,118 @@
+#include "config.h"
+#include <string.h>
+#include <stdio.h>
+
+/**
+ * htable - hash table routines
+ *
+ * A hash table is an efficient structure for looking up keys.  This version
+ * grows with usage and allows efficient deletion.
+ *
+ * Example:
+ *	#include <ccan/htable/htable.h>
+ *	#include <ccan/hash/hash.h>
+ *	#include <stdio.h>
+ *	#include <err.h>
+ *	#include <string.h>
+ *
+ *	struct name_to_digit {
+ *		const char *name;
+ *		unsigned int val;
+ *	};
+ *
+ *	static struct name_to_digit map[] = {
+ *		{ "zero", 0},
+ *		{ "one", 1 },
+ *		{ "two", 2 },
+ *		{ "three", 3 },
+ *		{ "four", 4 },
+ *		{ "five", 5 },
+ *		{ "six", 6 },
+ *		{ "seven", 7 },
+ *		{ "eight", 8 },
+ *		{ "nine", 9 }
+ *	};
+ *
+ *	// Wrapper for rehash function pointer.
+ *	static size_t rehash(const void *e, void *unused)
+ *	{
+ *		(void)unused;
+ *		return hash_string(((struct name_to_digit *)e)->name);
+ *	}
+ *
+ *	// Comparison function.
+ *	static bool nameeq(const void *e, void *string)
+ *	{
+ *		return strcmp(((struct name_to_digit *)e)->name, string) == 0;
+ *	}
+ *
+ *	// We let them add their own aliases, eg. --alias=v=5
+ *	static void add_alias(struct htable *ht, const char *alias)
+ *	{
+ *		char *eq, *name;
+ *		struct name_to_digit *n;
+ *
+ *		n = malloc(sizeof(*n));
+ *		n->name = name = strdup(alias);
+ *
+ *		eq = strchr(name, '=');
+ *		if (!eq || ((n->val = atoi(eq+1)) == 0 && !strcmp(eq+1, "0")))
+ *			errx(1, "Usage: --alias=<name>=<value>");
+ *		*eq = '\0';
+ *		htable_add(ht, hash_string(n->name), n);
+ *	}
+ *
+ *	int main(int argc, char *argv[])
+ *	{
+ *		struct htable ht;
+ *		int i;
+ *		unsigned long val;
+ *
+ *		if (argc < 2)
+ *			errx(1, "Usage: %s [--alias=<name>=<val>]... <str>...",
+ *			     argv[0]);
+ *
+ *		// Create and populate hash table.
+ *		htable_init(&ht, rehash, NULL);
+ *		for (i = 0; i < (int)(sizeof(map)/sizeof(map[0])); i++)
+ *			htable_add(&ht, hash_string(map[i].name), &map[i]);
+ *
+ *		// Add any aliases to the hash table.
+ *		for (i = 1; i < argc; i++) {
+ *			if (!strncmp(argv[i], "--alias=", strlen("--alias=")))
+ *				add_alias(&ht, argv[i] + strlen("--alias="));
+ *			else
+ *				break;
+ *		}
+ *
+ *		// Find the other args in the hash table.
+ *		for (val = 0; i < argc; i++) {
+ *			struct name_to_digit *n;
+ *			n = htable_get(&ht, hash_string(argv[i]),
+ *				       nameeq, argv[i]);
+ *			if (!n)
+ *				errx(1, "Invalid digit name %s", argv[i]);
+ *			// Append it to the value we are building up.
+ *			val *= 10;
+ *			val += n->val;
+ *		}
+ *		printf("%lu\n", val);
+ *		return 0;
+ *	}
+ *
+ * License: LGPL (v2.1 or any later version)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ */
+int main(int argc, char *argv[])
+{
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/compiler\n");
+		printf("ccan/str\n");
+		return 0;
+	}
+
+	return 1;
+}

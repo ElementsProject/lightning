@@ -1,0 +1,58 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * tal/grab_file - file helper routines
+ *
+ * This contains simple functions for getting the contents of a file.
+ *
+ * Example:
+ *	#include <err.h>
+ *	#include <stdio.h>
+ *	#include <string.h>
+ *	#include <ccan/tal/grab_file/grab_file.h>
+ *	#include <ccan/tal/tal.h> // for tal_free
+ *
+ *	int main(int argc, char *argv[])
+ *	{
+ *		char *file;
+ *
+ *		if (argc > 2)
+ *			err(1, "Takes 0 or 1 arguments");
+ *		file = grab_file(NULL, argv[1]);
+ *		if (!file)
+ *			err(1, "Could not read file %s", argv[1]);
+ *		if (strlen(file)+1 != tal_count(file))
+ *			printf("File contains NUL characters\n");
+ *		else if (tal_count(file) == 1)
+ *			printf("File contains nothing\n");
+ *		else if (strchr(file, '\n'))
+ *			printf("File contains multiple lines\n");
+ *		else
+ *			printf("File contains one line\n");
+ *		tal_free(file);
+ *
+ *		return 0;
+ *	}
+ *
+ * License: LGPL (v2.1 or any later version)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ */
+int main(int argc, char *argv[])
+{
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/tal\n");
+		printf("ccan/noerr\n");
+		return 0;
+	}
+	if (strcmp(argv[1], "testdepends") == 0) {
+		printf("ccan/tal/str\n");
+		return 0;
+	}
+
+	return 1;
+}

@@ -1,0 +1,95 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * cdump - routines to parse simple C structures.
+ *
+ * This code is designed to produce data structures summarizing C code.
+ * It only operates on simple, well-formed C code (eg. specific headers
+ * which you want to autogenerate from), but it should be fairly easy to
+ * enhance if desired.
+ *
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ * License: BSD-MIT
+ *
+ * Example:
+ * // Creates a simple print function for a structure.
+ * #include <ccan/cdump/cdump.h>
+ * #include <ccan/tal/grab_file/grab_file.h>
+ * #include <ccan/err/err.h>
+ *
+ * static void print_as(const char *fmt, const char *member_name)
+ * {
+ * 	printf("\tprintf(\"%%s:%s\\n\", \"%s\", s->%s);\n",
+ * 	       fmt, member_name, member_name);
+ * }
+ *
+ * int main(int argc, char *argv[])
+ * {
+ * 	char *code, *problems;
+ * 	struct cdump_definitions *defs;
+ * 	int i;
+ *	size_t j;
+ *
+ * 	// Read code from stdin.
+ * 	code = grab_file(NULL, NULL);
+ *
+ * 	defs = cdump_extract(NULL, code, &problems);
+ * 	if (!defs)
+ * 		errx(1, "Parsing stdin: %s", problems);
+ *
+ * 	for (i = 1; i < argc; i++) {
+ * 		struct cdump_type *t = strmap_get(&defs->structs, argv[i]);
+ * 		if (!t)
+ * 			errx(1, "Could not find struct %s", argv[i]);
+ *
+ * 		printf("void print_struct_%s(const struct %s *s)\n"
+ * 			"{\n", argv[i], argv[i]);
+ * 		for (j = 0; j < tal_count(t->u.members); j++) {
+ * 			const struct cdump_member *m = t->u.members + j;
+ * 			switch (m->type->kind) {
+ * 			case CDUMP_STRUCT:
+ * 			case CDUMP_UNION:
+ * 			case CDUMP_ARRAY:
+ * 				// Too hard for this simple example.
+ * 				printf("\tprintf(\"%%s:???\\n\", \"%s\");\n",
+ * 				       m->name);
+ * 				break;
+ * 			case CDUMP_ENUM:
+ * 				print_as("%i", m->name);
+ * 				break;
+ * 			case CDUMP_POINTER:
+ * 				print_as("%p", m->name);
+ * 				break;
+ * 			case CDUMP_UNKNOWN:
+ * 				if (!strcmp(m->type->name, "int"))
+ * 					print_as("%i", m->name);
+ * 				else if (!strcmp(m->type->name, "long int"))
+ * 					print_as("%li", m->name);
+ * 				else if (!strcmp(m->type->name, "unsigned int"))
+ * 					print_as("%u", m->name);
+ * 				// etc...
+ * 				break;
+ * 			}
+ * 		}
+ * 		printf("}\n");
+ * 	}
+ * 	return 0;
+ * }
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/tal\n");
+		printf("ccan/tal/str\n");
+		printf("ccan/strmap\n");
+		return 0;
+	}
+
+	return 1;
+}

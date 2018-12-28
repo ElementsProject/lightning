@@ -1,0 +1,209 @@
+'\" t
+.\"     Title: lightning-waitsendpay
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 04/26/2018
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LIGHTNING\-WAITSENDP" "7" "04/26/2018" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lightning-waitsendpay \- Command for sending a payment via a route\&.
+.SH "SYNOPSIS"
+.sp
+\fBwaitsendpay\fR \fIpayment_hash\fR [\fItimeout\fR]
+.SH "DESCRIPTION"
+.sp
+The \fBwaitsendpay\fR RPC command polls or waits for the status of an outgoing payment that was initiated by a previous \fBsendpay\fR invocation\&.
+.sp
+Optionally the client may provide a \fItimeout\fR, an integer in seconds, for this RPC command to return\&. If the \fItimeout\fR is provided and the given amount of time passes without the payment definitely succeeding or definitely failing, this command returns with a 200 error code (payment still in progress)\&. If \fItimeout\fR is not provided this call will wait indefinitely\&.
+.sp
+Indicating a \fItimeout\fR of 0 effectively makes this call a pollable query of the status of the payment\&.
+.sp
+If the payment completed with success, this command returns with success\&. Otherwise, if the payment completed with failure, this command returns an error\&.
+.SH "RETURN VALUE"
+.sp
+On success, an object similar to the output of \fBlistpayments\fR will be returned\&. This object will have a \fIstatus\fR field that is the string \fI"complete"\fR\&.
+.sp
+On error, if the error occurred from a node other than the final destination, the route table will be updated so that getroute(7) should return an alternate route (if any)\&. An error from the final destination implies the payment should not be retried\&.
+.sp
+The following error codes may occur:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\-1\&. Catchall nonspecific error\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+200\&. Timed out before the payment could complete\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+202\&. Unparseable onion reply\&. The
+\fIdata\fR
+field of the error will have an
+\fIonionreply\fR
+field, a hex string representation of the raw onion reply\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+203\&. Permanent failure at destination\&. The
+\fIdata\fR
+field of the error will be routing failure object\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+204\&. Failure along route; retry a different route\&. The
+\fIdata\fR
+field of the error will be routing failure object\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+208\&. A payment for
+\fIpayment_hash\fR
+was never made and there is nothing to wait for\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+209\&. The payment already failed, but the reason for failure was not stored\&. This should only occur when querying failed payments on very old databases\&.
+.RE
+.sp
+A routing failure object has the fields below:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIerring_index\fR\&. The index of the node along the route that reported the error\&. 0 for the local node, 1 for the first hop, and so on\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIerring_node\fR\&. The hex string of the pubkey id of the node that reported the error\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIerring_channel\fR\&. The short channel ID of the channel that has the error, or
+\fI0:0:0\fR
+if the destination node raised the error\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIfailcode\fR\&. The failure code, as per BOLT #4\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIchannel_update\fR\&. The hex string of the
+\fIchannel_update\fR
+message received from the remote node\&. Only present if error is from the remote node and the
+\fIfailcode\fR
+has the UPDATE bit set, as per BOLT #4\&.
+.RE
+.SH "AUTHOR"
+.sp
+ZmnSCPxj <ZmnSCPxj@protonmail\&.com> is mainly responsible\&.
+.SH "SEE ALSO"
+.sp
+lightning\-sendpay(7), lightning\-pay(7)\&.
+.SH "RESOURCES"
+.sp
+Main web site: https://github\&.com/ElementsProject/lightning

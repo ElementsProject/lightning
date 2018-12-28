@@ -1,0 +1,95 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * io/fdpass - IO helper for passing file descriptors across local sockets
+ *
+ * This code adds the ability to pass file descriptors to ccan/io.
+ *
+ * License: LGPL (v2.1 or any later version)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ *
+ * Example:
+ *	// Given "hello" outputs hello
+ *	#include <ccan/io/fdpass/fdpass.h>
+ *	#include <sys/types.h>
+ *	#include <sys/socket.h>
+ *	#include <sys/un.h>
+ *	#include <stdio.h>
+ *	#include <stdlib.h>
+ *	#include <unistd.h>
+ *
+ *	// Child reads stdin into the buffer, prints it out.
+ *	struct buf {
+ *		size_t used;
+ *		char c[100];
+ *	};
+ *	static struct io_plan *read_more(struct io_conn *conn, struct buf *buf)
+ *	{
+ *		printf("%.*s", (int)buf->used, buf->c);
+ *		return io_read_partial(conn, buf->c, sizeof(buf->c), &buf->used,
+ *					read_more, buf);
+ *	}
+ *
+ *	// Child has received fd, start reading loop.
+ *	static struct io_plan *got_infd(struct io_conn *conn, int *infd)
+ *	{
+ *		struct buf *buf = calloc(1, sizeof(*buf));
+ *
+ *		io_new_conn(NULL, *infd, read_more, buf);
+ *		return io_close(conn);
+ *	}
+ *	// Child is receiving the fd to read into. 
+ *	static struct io_plan *recv_infd(struct io_conn *conn, int *infd)
+ *	{
+ *		return io_recv_fd(conn, infd, got_infd, infd);
+ *	}
+ *
+ *	// Gets passed fd (stdin), which it reads from.
+ *	static void child(int sockfd)
+ *	{
+ *		int infd;
+ *
+ *		io_new_conn(NULL, sockfd, recv_infd, &infd);
+ *		io_loop(NULL, NULL);
+ *		exit(0);
+ *	}
+ *
+ *	static struct io_plan *send_stdin(struct io_conn *conn, void *unused)
+ *	{
+ *		return io_send_fd(conn, STDIN_FILENO, false, io_close_cb, NULL);
+ *	}
+ *
+ *	static void parent(int sockfd)
+ *	{
+ *		io_new_conn(NULL, sockfd, send_stdin, NULL);
+ *		io_loop(NULL, NULL);
+ *		exit(0);
+ *	}
+ *	
+ *	int main(void)
+ *	{
+ *		int sv[2];
+ *	
+ *		socketpair(AF_UNIX, SOCK_STREAM, 0, sv);
+ *		if (fork() == 0)
+ *			child(sv[0]);
+ *		else
+ *			parent(sv[1]);
+ *	}
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/fdpass\n");
+		printf("ccan/io\n");
+		return 0;
+	}
+
+	return 1;
+}

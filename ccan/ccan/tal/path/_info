@@ -1,0 +1,63 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * tal/path - routines to manipulate paths
+ *
+ * This code helps manage paths.
+ *
+ * License: BSD-MIT
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ *
+ * Example:
+ *	// Program to print out full path names, recursively.
+ *	#include <ccan/tal/path/path.h>
+ *	#include <sys/types.h>
+ *	#include <dirent.h>
+ *	#include <stdio.h>
+ *	#include <ccan/err/err.h>
+ *
+ *	static void dump(const char *dir)
+ *	{
+ *		struct dirent *di;
+ *		DIR *d = opendir(dir);
+ *		if (!d) {
+ *			warn("Failed to open %s", dir);
+ *			return;
+ *		}
+ *		printf("%s\n", dir);
+ *		while ((di = readdir(d)) != NULL) {
+ *			char *path;
+ *			if (streq(di->d_name, ".") || streq(di->d_name, ".."))
+ *				continue;
+ *			path = path_join(NULL, dir, di->d_name);
+ *			if (path_is_dir(path))
+ *				dump(path);
+ *			tal_free(path);
+ *		}
+ *		closedir(d);
+ *	}
+ *
+ *	int main(void)
+ *	{
+ *		dump(path_cwd(NULL));
+ *		return 0;
+ *	}
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/str\n");
+		printf("ccan/take\n");
+		printf("ccan/tal\n");
+		printf("ccan/tal/str\n");
+		return 0;
+	}
+
+	return 1;
+}

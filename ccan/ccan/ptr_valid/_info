@@ -1,0 +1,29 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * ptr_valid - test whether a pointer is safe to dereference.
+ *
+ * This little helper tells you if an address is mapped; it doesn't tell you
+ * if it's read-only (or execute only).
+ *
+ * License: BSD-MIT
+ *
+ * Ccanlint:
+ *	// Our child actually crashes, but that's OK!
+ *	tests_pass_valgrind test/run.c:--child-silent-after-fork=yes
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/noerr\n");
+		return 0;
+	}
+
+	return 1;
+}

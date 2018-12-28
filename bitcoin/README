@@ -1,0 +1,6 @@
+These are standard bitcoin manipulation routines which should be
+provided by any normal bitcoin library in whatever language you choose.
+
+The ones here are standalone ones taken from bitcoin core and some I
+wrote, many taken from bitcoin-iterate and pasted in here.
+

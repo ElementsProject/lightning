@@ -1,0 +1,22 @@
+#include <common/status_wire.h>
+
+status_log,0xFFF0
+status_log,,level,enum log_level
+status_log,,entry,wirestring
+
+status_io,0xFFF1
+status_io,,iodir,enum log_level
+status_io,,who,wirestring
+status_io,,len,u16
+status_io,,data,len*u8
+
+status_fail,0xFFF2
+status_fail,,failreason,enum status_failreason
+status_fail,,desc,wirestring
+
+status_peer_connection_lost,0xFFF3
+
+status_peer_billboard,0xFFF5
+status_peer_billboard,,perm,bool
+status_peer_billboard,,happenings,wirestring
+# Note: 0xFFFF is reserved for MSG_PASS_FD!

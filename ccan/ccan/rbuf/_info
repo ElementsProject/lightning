@@ -1,0 +1,54 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * rbuf - buffered I/O input primitive.
+ *
+ * This code is like stdio, only simpler and more transparent to the user.
+ *
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ * License: BSD-MIT
+ *
+ * Example:
+ *	#include <ccan/rbuf/rbuf.h>
+ *	#include <ccan/err/err.h>
+ *	#include <stdlib.h>
+ *	#include <unistd.h>
+ *
+ *	// Dumb demo program to replace ' ' with '*'.
+ *	int main(int argc, char *argv[])
+ *	{
+ *		struct rbuf in;
+ *		char *word;
+ *
+ *		if (argv[1]) {
+ *			if (!rbuf_open(&in, argv[1], NULL, 0, membuf_realloc))
+ *				err(1, "Failed opening %s", argv[1]);
+ *		} else
+ *			rbuf_init(&in, STDIN_FILENO, NULL, 0, membuf_realloc);
+ *
+ *		while ((word = rbuf_read_str(&in, ' ')) != NULL)
+ *			printf("%s*", word);
+ *
+ *		if (errno)
+ *			err(1, "Reading %s", argv[1] ? argv[1] : "<stdin>");
+ *
+ *		// Free the buffer, just because we can.
+ *		free(rbuf_cleanup(&in));
+ *		return 0;
+ *	}
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/membuf\n");
+		return 0;
+	}
+
+	return 1;
+}

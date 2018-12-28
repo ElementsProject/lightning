@@ -1,0 +1,33 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * order - Simple, common value comparison functions
+ *
+ * This implements a number of commonly useful comparison functions in
+ * a form which can be used with qsort() and bsearch() in the standard
+ * library, or asort() and asearch() in ccan amongst other places.
+ *
+ * License: CC0
+ * Author: David Gibson <david@gibson.dropbear.id.au>
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/typesafe_cb\n");
+		printf("ccan/ptrint\n");
+		return 0;
+	}
+	if (strcmp(argv[1], "testdepends") == 0) {
+		printf("ccan/array_size\n");
+		printf("ccan/asort\n");
+		return 0;
+	}
+
+	return 1;
+}

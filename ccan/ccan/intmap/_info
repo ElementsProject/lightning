@@ -1,0 +1,34 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * intmap - ordered map integers to various types
+ *
+ * This code an ordered map of strings to values
+ *
+ * This code implements an ordered map of strings as a critbit tree. See:
+ *
+ *  http://cr.yp.to/critbit.html
+ *  http://github.com/agl/critbit (which this code is based on)
+ *
+ * License: CC0
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/bitops\n"
+		       "ccan/short_types\n"
+		       "ccan/str\n"
+		       "ccan/tcon\n"
+		       "ccan/typesafe_cb\n");
+		return 0;
+	}
+
+	return 1;
+}

@@ -1,0 +1,30 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * crypto/hkdf_sha256 - RFC5869 Hardened Key Derivation Functions using SHA256
+ *
+ * This code implements the hkdf described in RFC5869.
+ *
+ * License: BSD-MIT
+ * Maintainer: Rusty Russell <rusty@rustcorp.com.au>
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/crypto/hmac_sha256\n");
+		return 0;
+	}
+
+	if (strcmp(argv[1], "testdepends") == 0) {
+		printf("ccan/str/hex\n");
+		return 0;
+	}
+
+	return 1;
+}

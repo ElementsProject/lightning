@@ -1,0 +1,43 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * bitops - bit counting routines
+ *
+ * These offer convenience wrappers around (and, as necessary,
+ * replacements for) the builtin bit testing/counting routines.
+ *
+ * Example:
+ * #include <ccan/bitops/bitops.h>
+ * #include <stdio.h>
+ *
+ * int main(int argc, char *argv[])
+ * {
+ *	unsigned int v = atoi(argv[1]);
+ *
+ *	printf("Number of 1 bits: %i\n", bitops_weight32(v));
+ *	if (v != 0) {
+ *		printf("Least-significant set bit: %i\n", bitops_ls32(v));
+ *		printf("Most-significant set bit: %i\n", bitops_hs32(v));
+ *		printf("Least-significant clear bit: %i\n", bitops_lc32(v));
+ *		printf("Most-significant clear bit: %i\n", bitops_hc32(v));
+ *	}
+ *	return 0;
+ * }
+ *
+ * License: CC0 (Public Domain)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		return 0;
+	}
+
+	return 1;
+}

@@ -1,0 +1,70 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * asort - typesafe array sort (qsort)
+ *
+ * qsort() is the standard routine for sorting an array of objects.
+ * Unfortunately, it has two problems:
+ *     1) It isn't typesafe,
+ *     2) The comparison function doesn't take a context pointer.
+ *
+ * asort does both.
+ *
+ * License: LGPL (v2.1 or any later version)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ *
+ * Example:
+ *	#include <ccan/asort/asort.h>
+ *	#include <stdio.h>
+ *	#include <string.h>
+ *	
+ *	static int cmp(char *const *a, char *const *n, bool *casefold)
+ *	{
+ *		if (*casefold)
+ *			return strcasecmp(*a, *n);
+ *		else
+ *			return strcmp(*a, *n);
+ *	}
+ *	
+ *	int main(int argc, char *argv[])
+ *	{
+ *		bool casefold = false;
+ *		int i;
+ *	
+ *		if (argc < 2) {
+ *			fprintf(stderr, "Usage: %s [-i] <list>...\n"
+ *				"Sort arguments (-i = ignore case)\n",
+ *				argv[0]);
+ *			exit(1);
+ *		}
+ *	
+ *		if (strcmp(argv[1], "-i") == 0) {
+ *			casefold = true;
+ *			argc--;
+ *			argv++;
+ *		}
+ *		asort(&argv[1], argc-1, cmp, &casefold);
+ *		for (i = 1; i < argc; i++)
+ *			printf("%s ", argv[i]);
+ *		printf("\n");
+ *		return 0;
+ *	}
+ */
+int main(int argc, char *argv[])
+{
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/order\n");
+		return 0;
+	}
+	if (strcmp(argv[1], "testdepends") == 0) {
+		printf("ccan/array_size\n");
+		return 0;
+	}
+
+	return 1;
+}

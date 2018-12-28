@@ -1,0 +1,44 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * read_write_all - read_all and write_all routines.
+ *
+ * Successful read and write calls may only partly complete if a
+ * signal is received or they are not operating on a normal file.
+ *
+ * read_all() and write_all() do the looping for you.
+ *
+ * Example:
+ *	#include <err.h>
+ *	#include <stdio.h>
+ *	#include <unistd.h>
+ *	#include <ccan/read_write_all/read_write_all.h>
+ *
+ *	#define BUFFER_SIZE 10
+ *	int main(void)
+ *	{
+ *		char buffer[BUFFER_SIZE+1];
+ *
+ *		if (!read_all(STDIN_FILENO, buffer, BUFFER_SIZE))
+ *			err(1, "Could not read %u characters", BUFFER_SIZE);
+ *		buffer[BUFFER_SIZE] = '\0';
+ *		printf("I read '%.*s'\n", BUFFER_SIZE, buffer);
+ *		return 0;
+ *	}
+ *
+ * License: LGPL (v2.1 or any later version)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ */
+int main(int argc, char *argv[])
+{
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		return 0;
+	}
+
+	return 1;
+}

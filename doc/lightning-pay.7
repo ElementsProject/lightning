@@ -1,0 +1,271 @@
+'\" t
+.\"     Title: lightning-pay
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 11/26/2018
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LIGHTNING\-PAY" "7" "11/26/2018" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lightning-pay \- Command for sending a payment to a BOLT11 invoice
+.SH "SYNOPSIS"
+.sp
+\fBpay\fR \fIbolt11\fR [\fImsatoshi\fR] [\fIdescription\fR] [\fIriskfactor\fR] [\fImaxfeepercent\fR] [\fIretry_for\fR] [\fImaxdelay\fR] [\fIexemptfee\fR]
+.SH "DESCRIPTION"
+.sp
+The \fBpay\fR RPC command attempts to find a route to the given destination, and send the funds it asks for\&. If the \fIbolt11\fR does not contain an amount, \fImsatoshi\fR is required, otherwise if it is specified it must be \fInull\fR\&. If \fIbolt11\fR contains a description hash (\fIh\fR field) \fIdescription\fR is required, otherwise it is unused\&. The \fIriskfactor\fR is described in detail in lightning\-getroute(7), and defaults to 1\&.0\&. The \fImaxfeepercent\fR limits the money paid in fees, and defaults to 0\&.5\&. The maxfeepercent\*(Aq is a percentage of the amount that is to be paid\&. The `exemptfee option can be used for tiny payments which would be dominated by the fee leveraged by forwarding nodes\&. Setting exemptfee allows the maxfeepercent check to be skipped on fees that are smaller than exemptfee (default: 5000 millisatoshi)\&.
+.sp
+The response will occur when the payment fails or succeeds\&. Once a payment has succeeded, calls to \fBpay\fR with the same \fIbolt11\fR will succeed immediately\&.
+.sp
+The command will keep finding routes and retrying the payment until it succeeds, or the given \fIretry_for\fR seconds passes\&. Note that the command may stop retrying while a pending payment is ongoing, which you need to monitor with \fBlistpayments\fR or \fBwaitsendpay\fR\&. \fIretry_for\fR defaults to 60 seconds and can only be an integer\&.
+.sp
+When using \fIlightning\-cli\fR, you may skip optional parameters by using \fInull\fR\&. Alternatively, use \fB\-k\fR option to provide parameters by name\&.
+.SH "RANDOMIZATION"
+.sp
+To protect user privacy, the payment algorithm performs some randomization\&.
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 1.\h'+01'\c
+.\}
+.el \{\
+.sp -1
+.IP "  1." 4.2
+.\}
+Route Randomization
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 2.\h'+01'\c
+.\}
+.el \{\
+.sp -1
+.IP "  2." 4.2
+.\}
+Value Randomization
+.RE
+.sp
+Route randomization means the payment algorithm does not always use the lowest\-fee or shortest route\&. This prevents some highly\-connected node from learning all of the user payments by reducing their fees below the network average\&.
+.sp
+Value randomization means the payment algorithm will add a small random amount to the actual value paid to the destination\&. This prevents intervening nodes from identifying exactly how much is being transacted\&.
+.sp
+Both randomizations respect \fImaxfeepercent\fR\&. Route randomization plus the random value in value randomization will never exceed \fImaxfeepercent\fR of the payment\&. Route randomization will not take routes that would exceed \fImaxdelay\fR\&.
+.SH "RETURN VALUE"
+.sp
+On success, this returns the payment \fIpreimage\fR which hashes to the \fIpayment_hash\fR to prove that the payment was successful\&. It will also return, a \fIgetroute_tries\fR and a \fIsendpay_tries\fR statistics for the number of times it internally called \fBgetroute\fR and \fBsendpay\fR\&.
+.sp
+On error, if the error occurred from a node other than the final destination, the route table will be updated so that getroute(7) should return an alternate route (if any)\&. An error from the final destination implies the payment should not be retried\&.
+.sp
+The following error codes may occur:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\-1\&. Catchall nonspecific error\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+200\&. Payment timed out while a payment is in progress\&. Monitor the status of that payment with
+\fIlistpayments\fR
+command, or wait for that payment to complete with
+\fIpay\fR
+command\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+201\&. Already paid with this
+\fIhash\fR
+using different amount or destination\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+203\&. Permanent failure at destination\&. The
+\fIdata\fR
+field of the error will be routing failure object\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+205\&. Unable to find a route\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+206\&. Route too expensive\&. Either the fee or the needed total locktime for the route exceeds your
+\fImaxfeepercent\fR
+or
+\fImaxdelay\fR
+settings, respectively\&. The
+\fIdata\fR
+field of the error will indicate the actual
+\fIfee\fR
+as well as the
+\fIfeepercent\fR
+percentage that the fee has of the destination payment amount\&. It will also indicate the actual
+\fIdelay\fR
+along the route\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+207\&. Invoice expired\&. Payment took too long before expiration, or already expired at the time you initiated payment\&. The
+\fIdata\fR
+field of the error indicates
+\fInow\fR
+(the current time) and
+\fIexpiry\fR
+(the invoice expiration) as UNIX epoch time in seconds\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+210\&. Payment timed out without a payment in progress\&.
+.RE
+.sp
+Error codes 202 and 204 will only get reported at \fBsendpay\fR; in \fBpay\fR we will keep retrying if we would have gotten those errors\&.
+.sp
+A routing failure object has the fields below:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIerring_index\fR\&. The index of the node along the route that reported the error\&. 0 for the local node, 1 for the first hop, and so on\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIerring_node\fR\&. The hex string of the pubkey id of the node that reported the error\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIerring_channel\fR\&. The short channel ID of the channel that has the error, or
+\fI0:0:0\fR
+if the destination node raised the error\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIfailcode\fR\&. The failure code, as per BOLT #4\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIchannel_update\fR\&. The hex string of the
+\fIchannel_update\fR
+message received from the remote node\&. Only present if error is from the remote node and the
+\fIfailcode\fR
+has the UPDATE bit set, as per BOLT #4\&.
+.RE
+.sp
+The \fIdata\fR field of errors will include statistics \fIgetroute_tries\fR and \fIsendpay_tries\fR\&. It will also contain a \fIfailures\fR field with detailed data about routing errors\&.
+.SH "AUTHOR"
+.sp
+Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.
+.SH "SEE ALSO"
+.sp
+lightning\-listpayments(7), lightning\-decodepay(7), lightning\-listinvoice(7), lightning\-delinvoice(7), lightning\-getroute(7), lightning\-invoice(7)\&.
+.SH "RESOURCES"
+.sp
+Main web site: https://github\&.com/ElementsProject/lightning

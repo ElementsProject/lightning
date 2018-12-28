@@ -1,0 +1,76 @@
+Cascading timer design.
+
+Inspired by the Linux kernel approach, documented roughly at:
+	https://lwn.net/Articles/152436/
+
+For easy description, we use whole seconds and powers of 10: in the
+implementation, we use powers of 2 (eg. 256 entries) and smaller
+granularities.
+
+We start with a simple data structure:
+
+struct timer_level {
+	struct timer_level *next;
+
+	/* Ten buckets: 	[0] [1] [2] [3] [4] [5] [6] [7] [8] [9] */
+	struct list_head bucket[10];
+};
+
+struct timers {
+	/* We can never have a timer before this, aka "now". */
+	time_t offset;
+
+	struct timer_level *level;
+
+	/* Anything too far in the future. */
+	struct list_head far;
+}
+
+The first level of timers holds anything which will happen in the next
+10 seconds.  The next level holds things which will happen in the next
+100 seconds.  And so on.
+
+When we want to add a new timer into the structure, we need to figure
+out first what level it goes into, and second, which bucket.  Say our
+offset is 500,000,001 (about Tue Nov 5, 1985 in Unix time).  And our
+timer is set to go off in 5 seconds, ie. 500,000,006.
+
+The level is easy: the difference between the timer and the offset is
+5, and that's less than 10, so it's in the first level.  The position,
+however, depends on the absolute time, in this case the last digit 6,
+so it's in bucket 6.
+
+Adding a timer at 500,000,123?  The difference is > 100 and < 1000, so
+it's in the third level.  The bucket is 1.  If there's no third level,
+we just add it to the 'far' list for stuff which is in the far future.
+
+Deleting a timer is as simple as removing it; there is no external
+bookkeeping in this scheme.  This matters, since timers used for
+timeouts are almost always deleted before they expire.
+
+Now, when a second passes, we need to know if there are any timers
+which are due.  We increment the offset to 500,000,002, and look in
+the first level, bucket 2 for any timers, so lookup is simple.
+
+We do this eight more times, and we increment the offset to
+500,000,010.  We've swept around back to bucket 0, though it may not
+be empty if we added more timers as we were going.
+
+But we need to look into the next level since a timer at 500,000,010
+added when the offset was 500,000,000 would have gone up there.  We
+empty bucket 1 (due to the '1' in 500,000,010) into these buckets,
+which will contain timers between 500,000,010 and 500,000,019, which
+all now are less than 10 seconds away, so belong in the bottom level.
+
+Similarly, at 500,000,020 we will empty bucket 1 of the second level
+into the first level.  And at 500,000,100 we will empty bucket 1 of
+the third level into the second level then bucket 0 of the second
+level into the first level.  We do it in this order, since emptying
+bucket 1 on the third level (500,000,100 - 500,000,199) may put more
+entries (500,000,100 - 500,000,109) into bucket 0 on the second level.
+
+When we get to 500,001,000 we should empty the fourth level.  If there
+is no fourth level, that's when we sort through the 'far' list and
+empty any which are less than 500,002,000.  If there are many entries
+in the far list, we should add more levels to reduce the number, or at
+least the frequency we have to check it.

@@ -1,0 +1,39 @@
+#include <common/cryptomsg.h>
+#include <common/htlc_wire.h>
+# Begin!  (passes peer fd, gossipd-client fd)
+closing_init,2001
+closing_init,,crypto_state,struct crypto_state
+closing_init,,funding_txid,struct bitcoin_txid
+closing_init,,funding_txout,u16
+closing_init,,funding_satoshi,u64
+closing_init,,local_fundingkey,struct pubkey
+closing_init,,remote_fundingkey,struct pubkey
+closing_init,,funder,enum side
+closing_init,,local_msatoshi,u64
+closing_init,,remote_msatoshi,u64
+closing_init,,our_dust_limit,u64
+closing_init,,min_fee_satoshi,u64
+closing_init,,fee_limit_satoshi,u64
+closing_init,,initial_fee_satoshi,u64
+closing_init,,local_scriptpubkey_len,u16
+closing_init,,local_scriptpubkey,local_scriptpubkey_len*u8
+closing_init,,remote_scriptpubkey_len,u16
+closing_init,,remote_scriptpubkey,remote_scriptpubkey_len*u8
+closing_init,,reconnected,bool
+closing_init,,next_index_local,u64
+closing_init,,next_index_remote,u64
+closing_init,,revocations_received,u64
+closing_init,,channel_reestablish_len,u16
+closing_init,,channel_reestablish,channel_reestablish_len*u8
+closing_init,,final_scriptpubkey_len,u16
+closing_init,,final_scriptpubkey,final_scriptpubkey_len*u8
+
+# We received an offer, save signature.
+closing_received_signature,2002
+closing_received_signature,,signature,struct bitcoin_signature
+closing_received_signature,,tx,struct bitcoin_tx
+
+closing_received_signature_reply,2102
+
+# Negotiations complete, we're exiting.
+closing_complete,2004

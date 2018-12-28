@@ -1,0 +1,88 @@
+Simple:
+	step1(conn): read(conn), then step2
+	step2(conn): write(conn), then close
+
+Pass-through:
+	step1(conn): read(conn), then step2
+	step2(conn): write(otherconn), then step1
+
+Pass-through-and-connect:
+	step1(conn): read(conn), then step2
+	step2(conn): connect(otherconn), then step3
+	step3(conn): write(otherconn), then step1
+
+Chatroom:
+	step1(conn): read(conn), then step2
+	step2(conn): for c in allcons: write(c).  goto step1
+
+Simple:
+
+void event(struct io_event *done)
+{
+	char *buf = done->priv;
+	struct io_event *e;
+
+	e = queue_read(done, done->conn, buf, 100);
+	e = queue_write(e, done->conn, buf, 100);
+	queue_close(e, done->conn);
+}
+
+Pass-through:
+struct passthru {
+	char buf[100];
+	struct conn *rconn, *wconn;
+};
+
+void event(struct io_event *done)
+{
+	struct passthru *p = done->priv;
+	struct io_event *e;
+
+	e = queue_read(done, p->rconn, p->buf, 100);
+	e = queue_write(e, p->wconn, buf, 100);
+	queue_event(e, event);
+}
+
+Chatroom:
+struct list_head clients;
+
+struct buffer {
+	char buf[100];
+	unsigned int ref;
+};
+
+struct client {
+	struct list_node list;
+	struct connection *conn;
+	struct buffer *rbuf, *wbuf;
+};
+
+void broadcast(struct io_event *done)
+{
+	struct client *i, *c = done->conn->priv;
+	struct io_event *e;
+
+	list_for_each(&clients, i, list) {
+		e = queue_write(done, i->conn, c->buf->buf, 100);
+		e->priv = c->buf;
+		c->buf->ref++;
+		queue_event(e, drop_ref);
+	}
+
+
+
+void event(struct io_event *done)
+{
+	struct client *c = done->conn->priv;
+	struct io_event *e;
+
+	assert(c->conn == done->conn);
+	c->buf = malloc(sizeof(*c->buf));
+	c->buf->ref = 0;
+	e = queue_read(done, c->conn, c->buf->buf, 100);
+	e = queue_event(e, broadcast);
+}
+
+
+	step1(conn): read(conn), then step2
+	step2(conn): for c in allcons: write(c).  goto step1

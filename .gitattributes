@@ -1,0 +1,6 @@
+# Declare files that will always have CRLF line endings on checkout.
+*.sh text eol=lf
+*.py text eol=lf
+Makefile text eol=lf
+configure text eol=lf
+.gitmodules text eol=lf

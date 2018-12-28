@@ -1,0 +1,65 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * fdpass - routines to pass a file descriptor over a socket.
+ *
+ * This code handles all the hairy details of fd passing.
+ *
+ * License: CC0 (Public domain)
+ * Maintainer: Rusty Russell <rusty@rustcorp.com.au>
+ *
+ * Example:
+ *	// Outputs hello!
+ *	#include <ccan/fdpass/fdpass.h>
+ *	#include <sys/socket.h>
+ *	#include <sys/un.h>
+ *	#include <stdio.h>
+ *	#include <stdlib.h>
+ *	#include <unistd.h>
+ *	
+ *	static void child(int sockfd)
+ *	{
+ *		char buffer[6];
+ *		int newfd = fdpass_recv(sockfd);
+ *		read(newfd, buffer, sizeof(buffer));
+ *		printf("%.*s\n", (int)sizeof(buffer), buffer);
+ *		exit(0);
+ *	}
+ *	
+ *	static void parent(int sockfd)
+ *	{
+ *		int pfds[2];
+ *	
+ *		pipe(pfds);
+ *		fdpass_send(sockfd, pfds[0]);
+ *		close(pfds[0]);
+ *		write(pfds[1], "hello!", 6);
+ *		exit(0);
+ *	}
+ *	
+ *	int main(void)
+ *	{
+ *		int sv[2];
+ *	
+ *		socketpair(AF_UNIX, SOCK_STREAM, 0, sv);
+ *		if (fork() == 0)
+ *			child(sv[0]);
+ *		else
+ *			parent(sv[1]);
+ *	}
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0)
+		return 0;
+
+	return 1;
+}
+
+

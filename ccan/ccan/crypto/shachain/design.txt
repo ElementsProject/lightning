@@ -1,0 +1,122 @@
+Efficient Chains Of Unpredictable Numbers
+=========================================
+
+The Problem
+-----------
+
+The Lightning Network wants a chain of (say 1 million) unguessable 256
+bit values; we generate them and send them one at a time to a remote
+node.  We don't want the remote node to have to store all the values,
+so it's better if they can derive them once they see them.
+
+A Simple Solution
+-----------------
+
+A simple system is a hash chain: we select a random seed value, the
+hash it 1,000,000 times.  This gives the first "random" number.
+Hashed 999,999 times gives the second number, etc. ie:
+
+    R(0) = seed
+    R(N+1) = SHA256(R(N))
+
+This way the remote node needs only to remember the last R(N) it was
+given, and it can calculate any R for N+1 or above.
+
+However, this means we need to generate 1 million hashes up front, and
+then do almost as many hashes to derive the next number.  That's slow.
+
+A Tree Solution
+---------------
+
+A better solution is to use a binary tree, with the seed at the root.
+The left child is the same as the parent, the right child is the
+SHA256() of the parent with one bit flipped (corresponding to the
+height).
+
+This gives a tree like so:
+
+                      seed
+                    /      \
+                  /          \
+                /              \
+              /                  \
+            seed                   SHA256(seed^1)
+           /    \                  /             \
+       seed    SHA256(seed^2)  SHA256(seed^1)  SHA256(SHA256(seed^1)^2)
+Index:  0         1                2                  3
+
+Clearly, giving R(2) allows you to derive R(3), giving R(1) allows you
+to derive nothing new (you still have to remember R(2)), and giving
+R(0) allows you to derive everything.
+
+In pseudocode, this looks like the following for a 64 bit tree:
+
+generate_from_seed(index):
+    value = seed
+    for bit in 0 to 63:
+        if bit set in index:
+            flip(bit) in value
+            value = SHA256(value)
+    return value
+
+
+The Receiver's Tree
+-------------------
+
+To derive the value for a index N, you need to have the root of a tree
+which contains it.  That is the same as needing an index I which is N
+rounded down in binary: eg. if N is 0b001100001, you need 0b001100000,
+0b001000000 or 0b000000000.
+
+Pseudocode:
+
+# Can we derive the value for to_index from from_index?
+can_derive(from_index, to_index):
+    # to_index must be a subtree under from_index; this is the same as
+    # saying that to_index must be the same as from_index up to the
+    # trailing zeros in from_index.
+    for bit in count_trailing_zeroes(from_index)..63:
+        if bit set in from_index != bit set in to_index:
+            return false
+    return true
+
+# Derive a value from a lesser index: generalization of generate_from_seed()
+derive(from_index, to_index, from_value):
+    assert(can_derive(from_index, to_index))
+    value = from_value
+    for bit in 0..63:
+        if bit set in to_index and not bit set in from_index:
+            flip bit in value
+            value = SHA256(value)
+    return value
+
+If you are receiving values (in reverse order), you need to remember
+up to 64 of them to derive all previous values.  The simplest method
+is to keep an array, indexed by the number of trailing zeroes in the
+received index:
+
+# Receive a new value (assumes we receive them in order)
+receive_value(index, value):
+    pos = count_trailing_zeroes(index)
+    # We should be able to generate every lesser value, otherwise invalid
+    for i in 0..pos-1:
+       if derive(index, value, known[i].index) != known[i].value:
+            return false
+    known[pos].index = index
+    known[pos].value = value
+    return true
+
+To derive a previous value, find an element in that array from which
+you can derive the value you want, eg:
+
+# Find an old value
+regenerate_value(index):
+    for i in known:
+        if can_derive(i.index, index):
+            return derive(i.index, i.value, index)
+    fail
+
+You can see the implementation for more optimized variants of the
+above code.
+
+Rusty Russell <rusty@rustcorp.com.au>

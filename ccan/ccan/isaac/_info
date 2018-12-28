@@ -1,0 +1,132 @@
+/**
+ * isaac - A fast, high-quality pseudo-random number generator.
+ *
+ * ISAAC (Indirect, Shift, Accumulate, Add, and Count) is the most advanced of
+ * a series of pseudo-random number generators designed by Robert J. Jenkins
+ * Jr. in 1996: http://www.burtleburtle.net/bob/rand/isaac.html
+ *
+ * To quote:
+ *   No efficient method is known for deducing their internal states.
+ *   ISAAC requires an amortized 18.75 instructions to produce a 32-bit value.
+ *   There are no cycles in ISAAC shorter than 2**40 values.
+ *   The expected cycle length is 2**8295 values.
+ *   ...
+ *   ISAAC-64 generates a different sequence than ISAAC, but it uses the same
+ *   principles.
+ *   It uses 64-bit arithmetic.
+ *   It generates a 64-bit result every 19 instructions.
+ *   All cycles are at least 2**72 values, and the average cycle length is
+ *    2**16583.
+ *
+ * An additional, important comment from Bob Jenkins in 2006:
+ *
+ *   Seeding a random number generator is essentially the same problem as
+ *   encrypting the seed with a block cipher.
+ *   ISAAC should be initialized with the encryption of the seed by some
+ *   secure cipher.
+ *   I've provided a seeding routine in my implementations, which nobody has
+ *   broken so far, but I have less faith in that initialization routine than
+ *   I have in ISAAC.
+ *
+ * A number of attacks on ISAAC have been published.
+ *
+ * [Pudo01] can recover the entire internal state and has expected running time
+ * less than the square root of the number of states, or 2**4121 (4.67E+1240).
+ *
+ *   @MISC{Pudo01,
+ *     author="Marina Pudovkina",
+ *     title="A Known Plaintext Attack on the {ISAAC} Keystream Generator",
+ *     howpublished="Cryptology ePrint Archive, Report 2001/049",
+ *     year=2001,
+ *     note="\url{http://eprint.iacr.org/2001/049}",
+ *   }
+ *
+ * [Auma06] reveals a large set of weak states, consisting of those for which
+ * the first value is repeated one or more times elsewhere in the state
+ * vector.
+ *
+ *   @MISC{Auma06,
+ *     author="Jean-Philippe Aumasson",
+ *     title="On the Pseudo-Random Generator {ISAAC}",
+ *     howpublished="Cryptology ePrint Archive, Report 2006/438",
+ *     year=2006,
+ *     note="\url{http://eprint.iacr.org/2006/438}",
+ *   }
+ *
+ * These induce a bias in the output relative to the repeated value.
+ *
+ * The seed values used as input below are scrambled before being used, so any
+ * duplicates in them do not imply duplicates in the resulting internal state,
+ * however the chances of some duplicate existing elsewhere in a random state
+ * are just over 255/2**32, or merely 1 in 16 million.
+ *
+ * Such states are, of course, much rarer in ISAAC-64.
+ *
+ * It is not clear if an attacker can tell from just the output if ISAAC is in
+ * a weak state, or deduce the full internal state in any case except that
+ * where all or almost all of the entries in the state vector are identical.
+ *
+ * Even if one does not trust the security of this PRNG (and, without a good
+ * source of entropy to seed it, one should not), ISAAC is an excellent source
+ * of high-quality random numbers for Monte Carlo simulations, etc.
+ *
+ * It is the fastest 32-bit generator among all of those that pass the
+ * statistical tests in the recent survey
+ * http://www.iro.umontreal.ca/~simardr/testu01/tu01.html, with the exception
+ * of Marsa-LFIB4, and it is quite competitive on 64-bit archtectures.
+ *
+ * Unlike Marsa-LFIB4 (and all other LFib generators), there are no linear
+ * dependencies between successive values, and unlike many generators found in
+ * libc implementations, there are no small periods in the least significant
+ * bits, or seeds which lead to very small periods in general.
+ *
+ * Example:
+ *  #include <stdio.h>
+ *  #include <time.h>
+ *  #include <ccan/isaac/isaac.h>
+ *
+ *  int main(void){
+ *    static const char *CHEESE[3]={"Cheddar","Provolone","Camembert"};
+ *    isaac_ctx     isaac;
+ *    unsigned char seed[8];
+ *    time_t        now;
+ *    int           i;
+ *    //N.B.: time() is not a good source of entropy.
+ *    //Do not use it for cryptogrpahic purposes.
+ *    time(&now);
+ *    //Print it out so we can reproduce problems if needed.
+ *    printf("Seed: 0x%016llX\n",(long long)now);
+ *    //And convert the time to a byte array so that we can reproduce the same
+ *    // seed on platforms with different endianesses.
+ *    for(i=0;i<8;i++){
+ *      seed[i]=(unsigned char)(now&0xFF);
+ *      now>>=8;
+ *    }
+ *    isaac_init(&isaac,seed,8);
+ *    printf("0x%08lX\n",(long)isaac_next_uint32(&isaac));
+ *    printf("%s\n",CHEESE[isaac_next_uint(&isaac,3)]);
+ *    printf("%0.8G\n",isaac_next_float(&isaac));
+ *    printf("%0.8G\n",isaac_next_signed_float(&isaac));
+ *    printf("%0.18G\n",isaac_next_double(&isaac));
+ *    printf("%0.18G\n",isaac_next_signed_double(&isaac));
+ *    return 0;
+ *  }
+ *
+ * License: CC0 (Public domain)
+ * Ccanlint:
+ *	// We actually depend on the LGPL ilog routines, so not PD :(
+ *	license_depends_compat FAIL
+ */
+#include "config.h"
+#include <string.h>
+#include <stdio.h>
+
+int main(int _argc,const char *_argv[]){
+  /*Expect exactly one argument.*/
+  if(_argc!=2)return 1;
+  if(strcmp(_argv[1],"depends")==0){
+    printf("ccan/ilog\n");
+    return 0;
+  }
+  return 1;
+}

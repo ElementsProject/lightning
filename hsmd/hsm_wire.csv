@@ -1,0 +1,191 @@
+# Clients should not give a bad request but not the HSM's decision to crash.
+hsmstatus_client_bad_request,1000
+hsmstatus_client_bad_request,,id,struct pubkey
+hsmstatus_client_bad_request,,description,wirestring
+hsmstatus_client_bad_request,,len,u16
+hsmstatus_client_bad_request,,msg,len*u8
+
+# Start the HSM.
+hsm_init,11
+
+#include <common/bip32.h>
+hsm_init_reply,111
+hsm_init_reply,,node_id,struct pubkey
+hsm_init_reply,,bip32,struct ext_key
+
+# Get a new HSM FD, with the specified capabilities
+hsm_client_hsmfd,9
+hsm_client_hsmfd,,pubkey,struct pubkey  # Which identity to use for requests
+# Database id for this client, if any.
+hsm_client_hsmfd,,dbid,u64
+hsm_client_hsmfd,,capabilities,u64
+
+# No content, just an fd.
+hsm_client_hsmfd_reply,109
+
+#include <common/derive_basepoints.h>
+# Get the basepoints and funding key for this specific channel.
+hsm_get_channel_basepoints,10
+hsm_get_channel_basepoints,,peerid,struct pubkey
+hsm_get_channel_basepoints,,dbid,u64
+
+hsm_get_channel_basepoints_reply,110
+hsm_get_channel_basepoints_reply,,basepoints,struct basepoints
+hsm_get_channel_basepoints_reply,,funding_pubkey,struct pubkey
+
+# Return signature for a funding tx.
+#include <common/utxo.h>
+# FIXME: This should also take their commit sig & details, to verify.
+hsm_sign_funding,4
+hsm_sign_funding,,satoshi_out,u64
+hsm_sign_funding,,change_out,u64
+hsm_sign_funding,,change_keyindex,u32
+hsm_sign_funding,,our_pubkey,struct pubkey
+hsm_sign_funding,,their_pubkey,struct pubkey
+hsm_sign_funding,,num_inputs,u16
+hsm_sign_funding,,inputs,num_inputs*struct utxo
+
+hsm_sign_funding_reply,104
+hsm_sign_funding_reply,,tx,struct bitcoin_tx
+
+# Master asks the HSM to sign a node_announcement
+hsm_node_announcement_sig_req,6
+hsm_node_announcement_sig_req,,annlen,u16
+hsm_node_announcement_sig_req,,announcement,annlen*u8
+
+hsm_node_announcement_sig_reply,106
+hsm_node_announcement_sig_reply,,signature,secp256k1_ecdsa_signature
+
+# Sign a withdrawal request
+hsm_sign_withdrawal,7
+hsm_sign_withdrawal,,satoshi_out,u64
+hsm_sign_withdrawal,,change_out,u64
+hsm_sign_withdrawal,,change_keyindex,u32
+hsm_sign_withdrawal,,scriptpubkey_len,u16
+hsm_sign_withdrawal,,scriptpubkey,scriptpubkey_len*u8
+hsm_sign_withdrawal,,num_inputs,u16
+hsm_sign_withdrawal,,inputs,num_inputs*struct utxo
+
+hsm_sign_withdrawal_reply,107
+hsm_sign_withdrawal_reply,,tx,struct bitcoin_tx
+
+# Sign an invoice
+hsm_sign_invoice,8
+hsm_sign_invoice,,len,u16
+hsm_sign_invoice,,u5bytes,len*u8
+hsm_sign_invoice,,hrplen,u16
+hsm_sign_invoice,,hrp,hrplen*u8
+
+hsm_sign_invoice_reply,108
+hsm_sign_invoice_reply,,sig,secp256k1_ecdsa_recoverable_signature
+
+# Give me ECDH(node-id-secret,point)
+hsm_ecdh_req,1
+hsm_ecdh_req,,point,struct pubkey
+hsm_ecdh_resp,100
+hsm_ecdh_resp,,ss,struct secret
+
+hsm_cannouncement_sig_req,2
+hsm_cannouncement_sig_req,,calen,u16
+hsm_cannouncement_sig_req,,ca,calen*u8
+
+hsm_cannouncement_sig_reply,102
+hsm_cannouncement_sig_reply,,node_signature,secp256k1_ecdsa_signature
+hsm_cannouncement_sig_reply,,bitcoin_signature,secp256k1_ecdsa_signature
+
+hsm_cupdate_sig_req,3
+hsm_cupdate_sig_req,,culen,u16
+hsm_cupdate_sig_req,,cu,culen*u8
+
+hsm_cupdate_sig_reply,103
+hsm_cupdate_sig_reply,,culen,u16
+hsm_cupdate_sig_reply,,cu,culen*u8
+
+# Master asks HSM to sign a commitment transaction.
+hsm_sign_commitment_tx,5
+hsm_sign_commitment_tx,,peer_id,struct pubkey
+hsm_sign_commitment_tx,,channel_dbid,u64
+hsm_sign_commitment_tx,,tx,struct bitcoin_tx
+hsm_sign_commitment_tx,,remote_funding_key,struct pubkey
+hsm_sign_commitment_tx,,funding_amount,u64
+
+hsm_sign_commitment_tx_reply,105
+hsm_sign_commitment_tx_reply,,sig,struct bitcoin_signature
+
+# Onchaind asks HSM to sign a spend to-us.  Four variants, since each set
+# of keys is derived differently...
+# FIXME: Have master tell hsmd the keyindex, so it can validate output!
+hsm_sign_delayed_payment_to_us,12
+hsm_sign_delayed_payment_to_us,,commit_num,u64
+hsm_sign_delayed_payment_to_us,,tx,struct bitcoin_tx
+hsm_sign_delayed_payment_to_us,,wscript_len,u16
+hsm_sign_delayed_payment_to_us,,wscript,wscript_len*u8
+hsm_sign_delayed_payment_to_us,,input_amount,u64
+
+hsm_sign_remote_htlc_to_us,13
+hsm_sign_remote_htlc_to_us,,remote_per_commitment_point,struct pubkey
+hsm_sign_remote_htlc_to_us,,tx,struct bitcoin_tx
+hsm_sign_remote_htlc_to_us,,wscript_len,u16
+hsm_sign_remote_htlc_to_us,,wscript,wscript_len*u8
+hsm_sign_remote_htlc_to_us,,input_amount,u64
+
+hsm_sign_penalty_to_us,14
+hsm_sign_penalty_to_us,,revocation_secret,struct secret
+hsm_sign_penalty_to_us,,tx,struct bitcoin_tx
+hsm_sign_penalty_to_us,,wscript_len,u16
+hsm_sign_penalty_to_us,,wscript,wscript_len*u8
+hsm_sign_penalty_to_us,,input_amount,u64
+
+# Onchaind asks HSM to sign a local HTLC success or HTLC timeout tx.
+hsm_sign_local_htlc_tx,16
+hsm_sign_local_htlc_tx,,commit_num,u64
+hsm_sign_local_htlc_tx,,tx,struct bitcoin_tx
+hsm_sign_local_htlc_tx,,wscript_len,u16
+hsm_sign_local_htlc_tx,,wscript,wscript_len*u8
+hsm_sign_local_htlc_tx,,input_amount,u64
+
+# Openingd/channeld asks HSM to sign the other sides' commitment tx.
+hsm_sign_remote_commitment_tx,19
+hsm_sign_remote_commitment_tx,,tx,struct bitcoin_tx
+hsm_sign_remote_commitment_tx,,remote_funding_key,struct pubkey
+hsm_sign_remote_commitment_tx,,funding_amount,u64
+
+# channeld asks HSM to sign remote HTLC tx.
+hsm_sign_remote_htlc_tx,20
+hsm_sign_remote_htlc_tx,,tx,struct bitcoin_tx
+hsm_sign_remote_htlc_tx,,len,u16
+hsm_sign_remote_htlc_tx,,wscript,len*u8
+hsm_sign_remote_htlc_tx,,amounts_satoshi,u64
+hsm_sign_remote_htlc_tx,,remote_per_commit_point,struct pubkey
+
+# closingd asks HSM to sign mutual close tx.
+hsm_sign_mutual_close_tx,21
+hsm_sign_mutual_close_tx,,tx,struct bitcoin_tx
+hsm_sign_mutual_close_tx,,remote_funding_key,struct pubkey
+hsm_sign_mutual_close_tx,,funding_amount,u64
+
+# Reply for all the above requests.
+hsm_sign_tx_reply,112
+hsm_sign_tx_reply,,sig,struct bitcoin_signature
+
+# Openingd/channeld/onchaind asks for Nth per_commitment_point, if > 2, gets N-2 secret.
+hsm_get_per_commitment_point,18
+hsm_get_per_commitment_point,,n,u64
+
+hsm_get_per_commitment_point_reply,118
+hsm_get_per_commitment_point_reply,,per_commitment_point,struct pubkey
+hsm_get_per_commitment_point_reply,,old_commitment_secret,?struct secret
+
+# master -> hsmd: do you have a memleak?
+hsm_dev_memleak,33
+
+hsm_dev_memleak_reply,133
+hsm_dev_memleak_reply,,leak,bool
+
+# channeld asks to check if claimed future commitment_secret is correct.
+hsm_check_future_secret,22
+hsm_check_future_secret,,n,u64
+hsm_check_future_secret,,commitment_secret,struct secret
+
+hsm_check_future_secret_reply,122
+hsm_check_future_secret_reply,,correct,bool

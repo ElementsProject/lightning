@@ -1,0 +1,80 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * tcon - routines for creating typesafe generic containers
+ *
+ * This code lets users create a structure with a typecanary; your API
+ * is then a set of macros which check the type canary before calling
+ * the generic routines.
+ *
+ * Example:
+ *	#include <ccan/tcon/tcon.h>
+ *	#include <stdio.h>
+ *
+ *	// A simple container class.  Can only contain one thing though!
+ *	struct container {
+ *		void *contents;
+ *	};
+ *	static inline void container_add_raw(struct container *c, void *p)
+ *	{
+ *		c->contents = p;
+ *	}
+ *	static inline void *container_get_raw(struct container *c)
+ *	{
+ *		return c->contents;
+ *	}
+ *
+ *	// This lets the user define their container type; includes a
+ *	// "type canary" to check types against.
+ *	#define DEFINE_TYPED_CONTAINER_STRUCT(name, type) \
+ *		struct name { struct container raw; TCON(type canary); }
+ *
+ *	// These macros make sure the container type and pointer match.
+ *	#define container_add(c, p) \
+ *		container_add_raw(&tcon_check((c), canary, (p))->raw, (p))
+ *	#define container_get(c) \
+ *		tcon_cast((c), canary, container_get_raw(&(c)->raw))
+ *
+ *	// Now, let's define two different containers.
+ *	DEFINE_TYPED_CONTAINER_STRUCT(int_container, int *);
+ *	DEFINE_TYPED_CONTAINER_STRUCT(string_container, char *);
+ *
+ *	int main(int argc, char *argv[])
+ *	{
+ *		struct int_container ic;
+ *		struct string_container sc;
+ *
+ *		// We would get a warning if we used the wrong types...
+ *		container_add(&ic, &argc);
+ *		container_add(&sc, argv[argc-1]);
+ *
+ *		printf("Last arg is %s of %i arguments\n",
+ *		       container_get(&sc), *container_get(&ic) - 1);
+ *		return 0;
+ *	}
+ *	// Given "foo" outputs "Last arg is foo of 1 arguments\n"
+ *	// Given "foo bar" outputs "Last arg is bar of 2 arguments\n"
+ *
+ * License: CC0 (Public domain)
+ *
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		return 0;
+	}
+
+	if (strcmp(argv[1], "testdepends") == 0) {
+		printf("ccan/build_assert\n");
+		return 0;
+	}
+
+	return 1;
+}

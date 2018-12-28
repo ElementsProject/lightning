@@ -1,0 +1,64 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * strmap - an ordered map of strings to values
+ *
+ * This code implements an ordered map of strings as a critbit tree. See:
+ *
+ *  http://cr.yp.to/critbit.html
+ *  http://github.com/agl/critbit (which this code is based on)
+ *
+ * License: CC0 (but some dependencies are LGPL!)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ * Ccanlint:
+ *	license_depends_compat FAIL
+ *
+ * Example:
+ * #include <ccan/compiler/compiler.h>
+ * #include <ccan/strmap/strmap.h>
+ * #include <stdio.h>
+ *
+ * static bool dump(const char *member, size_t value, void *unused UNNEEDED)
+ * {
+ * 	printf("%s at %zu. ", member, value);
+ * 	// true means keep going with iteration.
+ * 	return true;
+ * }
+ *
+ * int main(int argc, char *argv[])
+ * {
+ * 	size_t i;
+ * 	STRMAP(size_t) map;
+ *
+ * 	strmap_init(&map);
+ * 	for (i = 1; i < (size_t)argc; i++)
+ *		// This only adds the first time for this arg.
+ * 		strmap_add(&map, argv[i], i);
+ *
+ * 	strmap_iterate(&map, dump, NULL);
+ *	printf("\n");
+ * 	return 0;
+ * }
+ * // Given "foo" outputs "foo at 1. \n"
+ * // Given "foo bar" outputs "bar at 2. foo at 1. \n"
+ * // Given "foo foo bar zebra" outputs "bar at 3. foo at 1. zebra at 4. \n"
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/ilog\n"
+		       "ccan/short_types\n"
+		       "ccan/str\n"
+		       "ccan/tcon\n"
+		       "ccan/typesafe_cb\n");
+		return 0;
+	}
+
+	return 1;
+}

@@ -1,0 +1,57 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * structeq - bitwise comparison of structs.
+ *
+ * This is a replacement for memcmp, which checks the argument types are the
+ * same, and takes into account padding in the structure.  When there is no
+ * padding, it becomes a memcmp at compile time (assuming a
+ * constant-optimizing compiler).
+ *
+ * License: BSD-MIT
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ *
+ * Example:
+ *	#include <ccan/structeq/structeq.h>
+ *	#include <ccan/build_assert/build_assert.h>
+ *	#include <assert.h>
+ *	
+ *	struct mydata {
+ *		int start, end;
+ *	};
+ *	// Defines mydata_eq(a, b)
+ *	STRUCTEQ_DEF(mydata, 0, start, end);
+ *	
+ *	int main(void)
+ *	{
+ *		struct mydata a, b;
+ *	
+ *		a.start = 100;
+ *		a.end = 101;
+ *	
+ *		// They are equal.
+ *		assert(mydata_eq(&a, &b));
+ *	
+ *		b.end++;
+ *		// Now they are not.
+ *		assert(!mydata_eq(&a, &b));
+ *	
+ *		return 0;
+ *	}
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/build_assert\n");
+		printf("ccan/cppmagic\n");
+		return 0;
+	}
+
+	return 1;
+}

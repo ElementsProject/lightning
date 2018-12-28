@@ -1,0 +1,32 @@
+FROM fedora:28
+
+ENV BITCOIN_VERSION 0.17.0
+WORKDIR /tmp
+
+RUN dnf update -y && \
+	dnf groupinstall -y \
+		'C Development Tools and Libraries' \
+		'Development Tools' && \
+	dnf install -y \
+		clang \
+		gmp-devel \
+		libsq3-devel \
+		python2-devel \
+		python3-devel \
+		python3-pip \
+		python3-setuptools \
+		redhat-lsb \
+		net-tools \
+		valgrind \
+		wget \
+		xz \
+		zlib-devel && \
+	dnf clean all
+
+RUN wget https://bitcoin.org/bin/bitcoin-core-$BITCOIN_VERSION/bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.gz -O bitcoin.tar.gz && \
+    tar -xvzf bitcoin.tar.gz && \
+    mv bitcoin-$BITCOIN_VERSION/bin/bitcoin* /usr/local/bin/ && \
+    rm -rf bitcoin.tar.gz bitcoin-$BITCOIN_VERSION
+
+RUN python3 -m pip install --upgrade pip && \
+    python3 -m pip install python-bitcoinlib==0.7.0 pytest==3.0.5 setuptools==36.6.0 pytest-test-groups==1.0.3 flake8==3.5.0 pytest-rerunfailures==3.1 ephemeral-port-reserve==1.1.0

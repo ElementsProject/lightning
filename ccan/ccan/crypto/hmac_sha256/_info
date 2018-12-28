@@ -1,0 +1,52 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * crypto/hmac_sha256 - RFC2104 HMAC using SHA256.
+ *
+ * This code implements RFC2104, which is a fairly standard HMAC.
+ *
+ * License: BSD-MIT
+ * Maintainer: Rusty Russell <rusty@rustcorp.com.au>
+ *
+ * Example:
+ *	#include <ccan/crypto/hmac_sha256/hmac_sha256.h>
+ *	#include <err.h>
+ *	#include <stdio.h>
+ *	#include <string.h>
+ *
+ *	// Simple demonstration: idential strings will have the same hash, but
+ *	// two different strings will not.
+ *	int main(int argc, char *argv[])
+ *	{
+ *		struct hmac_sha256 hash1, hash2;
+ *
+ *		if (argc != 3)
+ *			errx(1, "Usage: %s <string1> <string2>", argv[0]);
+ *
+ *		hmac_sha256(&hash1, "key", 3, argv[1], strlen(argv[1]));
+ *		hmac_sha256(&hash2, "key", 3, argv[2], strlen(argv[2]));
+ *		printf("Hash is %s\n", memcmp(&hash1, &hash2, sizeof(hash1))
+ *			? "different" : "same");
+ *		return 0;
+ *	}
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/crypto/sha256\n");
+		return 0;
+	}
+
+	if (strcmp(argv[1], "testdepends") == 0) {
+		printf("ccan/str/hex\n");
+		return 0;
+	}
+
+	return 1;
+}

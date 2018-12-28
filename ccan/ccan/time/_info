@@ -1,0 +1,57 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * time - routines for dealing with time
+ *
+ * This code provides convenient functions for working with time, in the
+ * form of 'struct timerel' for durations and 'struct timeabs' for timestamps
+ * which are light wrappers around struct timespec.
+ *
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ * License: BSD-MIT
+ *
+ * Example:
+ *	#include <ccan/time/time.h>
+ *	#include <stdlib.h>
+ *	#include <stdio.h>
+ *	#include <err.h>
+ *
+ *	int main(int argc, char *argv[])
+ *	{
+ *		struct timeabs t;
+ *
+ *		if (argc != 2)
+ *			errx(1, "Usage: %s <diff in millisec>", argv[0]);
+ *
+ *		t = time_now();
+ *		if (argv[1][0] == '-')
+ *			t = timeabs_sub(t, time_from_msec(atol(argv[1]+1)));
+ *		else
+ *			t = timeabs_add(t, time_from_msec(atol(argv[1])));
+ *
+ *		printf("%lu.%09u\n",
+ *		       (unsigned long)t.ts.tv_sec, (unsigned)t.ts.tv_nsec);
+ *		return 0;
+ *	}
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		return 0;
+	}
+
+#if HAVE_CLOCK_GETTIME_IN_LIBRT
+	if (strcmp(argv[1], "libs") == 0) {
+		printf("rt\n");
+		return 0;
+	}
+#endif
+
+	return 1;
+}

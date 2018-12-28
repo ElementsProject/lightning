@@ -1,0 +1,71 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * opt - simple command line parsing
+ *
+ * Simple but powerful command line parsing.
+ *
+ * See Also:
+ *	ccan/autodata
+ *
+ * Example:
+ * #include <ccan/opt/opt.h>
+ * #include <stdio.h>
+ * #include <stdlib.h>
+ * 
+ * static bool someflag;
+ * static int verbose;
+ * static char *somestring;
+ * 
+ * static struct opt_table opts[] = {
+ * 	OPT_WITHOUT_ARG("--verbose|-v", opt_inc_intval, &verbose,
+ *			"Verbose mode (can be specified more than once)"),
+ * 	OPT_WITHOUT_ARG("--someflag", opt_set_bool, &someflag,
+ *			"Set someflag"),
+ * 	OPT_WITH_ARG("--somefile=<filename>", opt_set_charp, opt_show_charp,
+ *		     &somestring, "Set somefile to <filename>"),
+ * 	OPT_WITHOUT_ARG("--usage|--help|-h", opt_usage_and_exit,
+ * 			"args...\nA silly test program.",
+ *			"Print this message."),
+ * 	OPT_ENDTABLE
+ * };
+ * 
+ * int main(int argc, char *argv[])
+ * {
+ * 	int i;
+ * 
+ * 	opt_register_table(opts, NULL);
+ * 	// For fun, register an extra one.
+ * 	opt_register_noarg("--no-someflag", opt_set_invbool, &someflag,
+ * 			   "Unset someflag");
+ * 	if (!opt_parse(&argc, argv, opt_log_stderr))
+ * 		exit(1);
+ * 
+ * 	printf("someflag = %i, verbose = %i, somestring = %s\n",
+ * 	       someflag, verbose, somestring);
+ * 	printf("%u args left over:", argc - 1);
+ * 	for (i = 1; i < argc; i++)
+ * 		printf(" %s", argv[i]);
+ * 	printf("\n");
+ * 	return 0;
+ * }
+ *
+ * License: GPL (v2 or any later version)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ */
+int main(int argc, char *argv[])
+{
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/cast\n");
+		printf("ccan/compiler\n");
+		printf("ccan/typesafe_cb\n");
+		return 0;
+	}
+
+	return 1;
+}

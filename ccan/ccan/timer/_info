@@ -1,0 +1,79 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * timer - efficient implementation of rarely-expiring timers.
+ *
+ * This is a lazy implementation of timers: you can add and delete timers
+ * very quickly, and they are only sorted as their expiry approaches.
+ *
+ * This is a common case for timeouts, which must often be set, but
+ * rarely expire.
+ *
+ * Example:
+ *	// Silly example which outputs strings until timers expire.
+ *	#include <ccan/timer/timer.h>
+ *	#include <ccan/time/time.h>
+ *	#include <stdlib.h>
+ *	#include <stdio.h>
+ *
+ *	struct timed_string {
+ *		struct list_node node;
+ *		struct timer timer;
+ *		const char *string;
+ *	};
+ *
+ *	int main(int argc, char *argv[])
+ *	{
+ *		struct timers timers;
+ *		struct list_head strings;
+ *		struct timer *t;
+ *		struct timed_string *s;
+ *
+ *		(void)argc;
+ *		timers_init(&timers, time_mono());
+ *		list_head_init(&strings);
+ *
+ *		while (argv[1]) {
+ *			s = malloc(sizeof(*s));
+ *			s->string = argv[1];
+ *			timer_addrel(&timers, &s->timer,
+ *				     time_from_msec(atol(argv[2])));
+ *			list_add_tail(&strings, &s->node);
+ *			argv += 2;
+ *		}
+ *
+ *		while (!list_empty(&strings)) {
+ *			struct timemono now = time_mono();
+ *			list_for_each(&strings, s, node)
+ *				printf("%s", s->string);
+ *			while ((t = timers_expire(&timers, now)) != NULL) {
+ *				s = container_of(t, struct timed_string, timer);
+ *				list_del_from(&strings, &s->node);
+ *				free(s);
+ *			}
+ *		}
+ *
+ *		exit(0);
+ *	}
+ *
+ * License: LGPL (v2.1 or any later version)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/array_size\n");
+		printf("ccan/ilog\n");
+		printf("ccan/list\n");
+		printf("ccan/time\n");
+		return 0;
+	}
+
+	return 1;
+}

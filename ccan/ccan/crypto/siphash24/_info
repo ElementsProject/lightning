@@ -1,0 +1,60 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * crypto/siphash24 - implementation of SipHash-2-4.
+ *
+ * SipHash was designed as a mitigation to hash-flooding DoS
+ * attacks. It is now used in the hash tables implementation of
+ * Python, Ruby, Perl 5, etc.
+ *
+ * SipHash was designed by Jean-Philippe Aumasson and Daniel J. Bernstein. 
+ *
+ * License: CC0
+ * Maintainer: Rusty Russell <rusty@rustcorp.com.au>
+ *
+ * Example:
+ * // Dumb example to print siphash of words, and all strung together.
+ * #include <ccan/crypto/siphash24/siphash24.h>
+ * #include <stdio.h>
+ * #include <stdlib.h>
+ * #include <string.h>
+ * #include <inttypes.h>
+ *
+ * int main(int argc, char *argv[])
+ * {
+ *	struct siphash_seed seed;
+ *	struct siphash24_ctx ctx;
+ *	int i;
+ *
+ *	if (argc < 3) {
+ *		fprintf(stderr, "Need at least seed1 and seed2 arguments");
+ *		exit(1);
+ *	}
+ *
+ *	seed.u.u64[0] = atoi(argv[1]);
+ *	seed.u.u64[1] = atoi(argv[2]);
+ *	siphash24_init(&ctx, &seed);
+ *	for (i = 3; i < argc; i++) {
+ *		printf("Hash of '%s' = %"PRIu64,
+ *			argv[i], siphash24(&seed, argv[i], strlen(argv[i])));
+ *		siphash24_update(&ctx, argv[i], strlen(argv[i]));
+ *	}
+ *	printf("Hash of concatenated args = %"PRIu64, siphash24_done(&ctx));
+ *	return 0;
+ * }
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/endian\n");
+		return 0;
+	}
+
+	return 1;
+}

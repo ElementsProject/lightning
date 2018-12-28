@@ -1,0 +1,61 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * tal/str - string helper routines which use tal
+ *
+ * This is a grab bag of functions for string operations, designed to enhance
+ * the standard string.h; these are separated from the non-tal-needing
+ * string utilities in "str.h".  Each string created by this library
+ * will have tal_count() equal to strlen() + 1 (assuming you didn't create
+ * a string containing a NUL, such as using tal_fmt("%c", 0)).
+ *
+ * Example:
+ *	#include <ccan/tal/str/str.h>
+ *	#include <ccan/tal/grab_file/grab_file.h>
+ *	#include <err.h>
+ *
+ *	// Dumb demo program to double-linespace a file.
+ *	int main(int argc, char *argv[])
+ *	{
+ *		char *textfile;
+ *		char **lines;
+ *
+ *		if (argc > 2)
+ *			errx(1, "Takes 0 or 1 arguments");
+ *		// Grab lines in file.
+ *		textfile = grab_file(NULL, argv[1]);
+ *		if (!textfile)
+ *			err(1, "Failed reading %s", argv[1]);
+ *		lines = tal_strsplit(textfile, textfile, "\n", STR_EMPTY_OK);
+ *
+ *		// Join them back together with two linefeeds.
+ *		printf("%s", tal_strjoin(textfile, lines, "\n\n", STR_TRAIL));
+ *
+ *		// Free everything, just because we can.
+ *		tal_free(textfile);
+ *		return 0;
+ *	}
+ *
+ * License: BSD-MIT
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ */
+int main(int argc, char *argv[])
+{
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/str\n");
+#ifdef TAL_USE_TALLOC
+		printf("ccan/tal/talloc\n");
+#else
+		printf("ccan/tal\n");
+#endif
+		printf("ccan/take\n");
+		return 0;
+	}
+
+	return 1;
+}

@@ -1,0 +1,61 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * take - routines to mark pointers to be consumed by called functions.
+ *
+ * This code helps to implement ownership transfer on a per-arg basis:
+ * the caller wraps the pointer argument in take() and the callee checks
+ * taken() to see if it should consume it.
+ *
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ * License: CC0 (Public domain)
+ *
+ * Example:
+ *	// Given "foo/bar.c" outputs basename is bar.c
+ *	#include <ccan/take/take.h>
+ *	#include <string.h>
+ *
+ *	// Dumb basename program and driver.
+ *	static char *base(const char *file TAKES)
+ *	{
+ *		const char *p = strrchr(file, '/');
+ *		if (!p) 
+ *			p = file;
+ *		else
+ *			p++;
+ *
+ *		// Use arg in place if we're allowed.
+ *		if (taken(file))
+ *			return memmove((char *)file, p, strlen(p)+1);
+ *		else
+ *			return strdup(p);
+ *	}
+ *
+ *	int main(int argc, char *argv[])
+ *	{
+ *		char *b;
+ *
+ *		if (argc > 1) // Mangle in place.
+ *			b = base(take(argv[1]));
+ *		else
+ *			b = base("test/string");
+ *
+ *		printf("basename is %s\n", b);
+ *		return 0;
+ *	}
+ */
+int main(int argc, char *argv[])
+{
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/likely\n");
+		printf("ccan/str\n");
+		return 0;
+	}
+
+	return 1;
+}

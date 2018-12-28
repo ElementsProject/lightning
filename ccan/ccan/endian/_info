@@ -1,0 +1,55 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * endian - endian conversion macros for simple types
+ *
+ * Portable protocols (such as on-disk formats, or network protocols)
+ * are often defined to be a particular endian: little-endian (least
+ * significant bytes first) or big-endian (most significant bytes
+ * first).
+ *
+ * Similarly, some CPUs lay out values in memory in little-endian
+ * order (most commonly, Intel's 8086 and derivatives), or big-endian
+ * order (almost everyone else).
+ *
+ * This module provides conversion routines, inspired by the linux kernel.
+ * It also provides leint32_t, beint32_t etc typedefs, which are annotated for
+ * the sparse checker.
+ *
+ * Example:
+ *	#include <stdio.h>
+ *	#include <err.h>
+ *	#include <ccan/endian/endian.h>
+ *
+ *	// 
+ *	int main(int argc, char *argv[])
+ *	{
+ *		uint32_t value;
+ *
+ *		if (argc != 2)
+ *			errx(1, "Usage: %s <value>", argv[0]);
+ *
+ *		value = atoi(argv[1]);
+ *		printf("native:        %08x\n", value);
+ *		printf("little-endian: %08x\n", cpu_to_le32(value));
+ *		printf("big-endian:    %08x\n", cpu_to_be32(value));
+ *		printf("byte-reversed: %08x\n", bswap_32(value));
+ *		exit(0);
+ *	}
+ *
+ * License: License: CC0 (Public domain)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ */
+int main(int argc, char *argv[])
+{
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0)
+		/* Nothing */
+		return 0;
+
+	return 1;
+}
