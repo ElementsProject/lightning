@@ -2,6 +2,7 @@ import sys
 import os
 import json
 import inspect
+import re
 import traceback
 
 
@@ -241,6 +242,7 @@ class Plugin(object):
                 continue
 
             doc = inspect.getdoc(func)
+            doc = re.sub('\n+', ' ', doc)
             if not doc:
                 self.log(
                     'RPC method \'{}\' does not have a docstring.'.format(name)
