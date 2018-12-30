@@ -577,14 +577,14 @@ void notify_new_block(struct lightningd *ld, u32 block_height)
 static void on_sigint(int _ UNUSED)
 {
         static const char *msg = "lightningd: SIGINT caught, exiting.\n";
-        write(STDERR_FILENO, msg, strlen(msg));
+        write_all(STDERR_FILENO, msg, strlen(msg));
         _exit(1);
 }
 
 static void on_sigterm(int _ UNUSED)
 {
         static const char *msg = "lightningd: SIGTERM caught, exiting.\n";
-        write(STDERR_FILENO, msg, strlen(msg));
+        write_all(STDERR_FILENO, msg, strlen(msg));
         _exit(1);
 }
 
