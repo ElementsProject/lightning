@@ -901,7 +901,7 @@ static struct command_result *json_close(struct command *cmd,
 {
 	const jsmntok_t *idtok;
 	struct peer *peer;
-	struct channel *channel;
+	struct channel *channel = NULL;
 	unsigned int *timeout;
 	bool *force;
 
