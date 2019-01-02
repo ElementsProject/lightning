@@ -34,5 +34,11 @@ def on_disconnect(id, plugin):
     plugin.log("Received disconnect event for peer {}".format(id))
 
 
+@plugin.hook("testhook")
+def testhook(*args, **kwargs):
+    plugin.log("testhook called with {} {}".format(args, kwargs))
+    return {'response': 'hi'}
+
+
 plugin.add_option('greeting', 'Hello', 'The greeting I should use.')
 plugin.run()

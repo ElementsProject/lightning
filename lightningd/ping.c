@@ -12,6 +12,7 @@
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/ping.h>
+#include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
 
 struct ping_command {
@@ -80,6 +81,34 @@ void ping_reply(struct subd *subd, const u8 *msg)
 	}
 }
 
+struct testhook_cb_arg {
+};
+struct testhook_response {
+};
+struct testhook_payload {
+};
+
+static void testhook_cb(struct testhook_cb_arg *arg, struct testhook_response *r)
+{
+	printf("testhook_cb called with %p %p\n", arg, r);
+}
+
+static void testhook_serialize_payload(struct testhook_payload *payload, struct json_stream *s)
+{
+	printf("testhook_serialize_payload called\n");
+}
+
+static struct testhook_response *testhook_deserialize_response(const tal_t *ctx, const char *buffer, const jsmntok_t *toks)
+{
+	printf("testhook_deserialize_payload called\n");
+	return NULL;
+}
+
+REGISTER_PLUGIN_HOOK(testhook, testhook_cb, struct testhook_cb_arg*,
+		     testhook_serialize_payload, struct testhook_payload*,
+		     testhook_deserialize_response, struct testhook_response*);
+
+
 static struct command_result *json_ping(struct command *cmd,
 					const char *buffer,
 					const jsmntok_t *obj UNNEEDED,
@@ -88,6 +117,8 @@ static struct command_result *json_ping(struct command *cmd,
 	u8 *msg;
 	unsigned int *len, *pongbytes;
 	struct pubkey *id;
+
+	plugin_hook_call_testhook(cmd->ld->plugins, tal(cmd, struct testhook_payload), tal(cmd, struct testhook_cb_arg));
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_pubkey, &id),
