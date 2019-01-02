@@ -177,34 +177,6 @@ static void PRINTF_FMT(2,3) plugin_kill(struct plugin *plugin, char *fmt, ...)
 }
 
 /**
- * Create the header of a JSON-RPC request and return open stream.
- *
- * The caller needs to add the request to req->stream.
- */
-static struct jsonrpc_request *
-plugin_request_new_(struct plugin *plugin,
-		    const char *method,
-		    void (*cb)(const char *buffer,
-			       const jsmntok_t *toks,
-			       const jsmntok_t *idtok,
-			       void *),
-		    void *arg)
-{
-	struct jsonrpc_request *req = jsonrpc_request_start(plugin, method, cb, arg);
-
-	/* Add to map so we can find it later when routing the response */
-	uintmap_add(&plugin->plugins->pending_requests, req->id, req);
-	return req;
-}
-#define plugin_request_new(plugin, method, response_cb, response_cb_arg)       \
-	plugin_request_new_((plugin), (method),                                \
-			    typesafe_cb_preargs(void, void *, (response_cb),   \
-						(response_cb_arg),             \
-						const char *buffer,            \
-						const jsmntok_t *toks,         \
-						const jsmntok_t *idtok),       \
-			    (response_cb_arg))
-/**
  * Send a JSON-RPC message (request or notification) to the plugin.
  */
 static void plugin_send(struct plugin *plugin, struct json_stream *stream)
@@ -660,11 +632,11 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	idtok = json_get_member(buffer, toks, "id");
 	assert(idtok != NULL);
 
-	req = plugin_request_new(plugin, NULL, plugin_rpcmethod_cb, cmd);
+	req = jsonrpc_request_start(plugin, NULL, plugin_rpcmethod_cb, cmd);
 	snprintf(id, ARRAY_SIZE(id), "%"PRIu64, req->id);
 
 	json_stream_forward_change_id(req->stream, buffer, toks, idtok, id);
-	plugin_send(plugin, req->stream);
+	plugin_request_send(plugin, req);
 	req->stream = NULL;
 
 	return command_still_pending(cmd);
@@ -950,9 +922,9 @@ void plugins_init(struct plugins *plugins, const char *dev_plugin_debug)
 		 * write-only on p->stdout */
 		io_new_conn(p, stdout, plugin_stdout_conn_init, p);
 		io_new_conn(p, stdin, plugin_stdin_conn_init, p);
-		req = plugin_request_new(p, "getmanifest", plugin_manifest_cb, p);
+		req = jsonrpc_request_start(p, "getmanifest", plugin_manifest_cb, p);
 		jsonrpc_request_end(req);
-		plugin_send(p, req->stream);
+		plugin_request_send(p, req);
 
 		plugins->pending_manifests++;
 		/* Don't timeout if they're running a debugger. */
@@ -993,9 +965,7 @@ static void plugin_config(struct plugin *plugin)
 	const char *name;
 	struct jsonrpc_request *req;
 	struct lightningd *ld = plugin->plugins->ld;
-
-	/* No writer since we don't flush concurrently. */
-	req = plugin_request_new(plugin, "init", plugin_config_cb, plugin);
+	req = jsonrpc_request_start(plugin, "init", plugin_config_cb, plugin);
 
 	/* Add .params.options */
 	json_object_start(req->stream, "options");
@@ -1013,7 +983,7 @@ static void plugin_config(struct plugin *plugin)
 	json_object_end(req->stream);
 
 	jsonrpc_request_end(req);
-	plugin_send(plugin, req->stream);
+	plugin_request_send(plugin, req);
 }
 
 void plugins_config(struct plugins *plugins)
@@ -1056,4 +1026,16 @@ void plugins_notify(struct plugins *plugins,
 	}
 	if (taken(n))
 		tal_free(n);
+}
+
+void plugin_request_send(struct plugin *plugin,
+			 struct jsonrpc_request *req TAKES)
+{
+	/* Add to map so we can find it later when routing the response */
+	tal_steal(plugin, req);
+	uintmap_add(&plugin->plugins->pending_requests, req->id, req);
+	plugin_send(plugin, req->stream);
+	/* plugin_send steals the stream, so remove the dangling
+	 * pointer here */
+	req->stream = NULL;
 }
