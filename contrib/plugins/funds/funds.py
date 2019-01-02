@@ -4,20 +4,38 @@
 Instead of calling listfunds and adding all outputs and channels
 this plugin does that for you.
 
-Author: Rene Pickhardt (https://ln.rene-pickhardt.de)
+Activate the plugin with: 
+`lightningd --plugin=PATH/TO/LIGHTNING/contrib/plugins/funds/funds.py`
 
+Call the plugin with: 
+`lightning-cli funds`
+
+
+Author: Rene Pickhardt (https://ln.rene-pickhardt.de)
+Development of the plugin was sponsored by fulmo.org
 """
 
 import json
-import sys
 
 from lightning.lightning import LightningRpc
+from lightning.plugin import Plugin
 from os.path import join
 
 rpc_interface = None
+plugin = Plugin(autopatch=True)
 
 
-def json_get_funds(request, unit="s"):
+@plugin.method("funds")
+def funds(plugin, unit="s"):
+    """Lists the total funds the lightning node owns off- and onchain in {unit}.
+
+{unit} can take the following values:
+s, satoshi, satoshis to depict satoshis
+b, bit, bits to depict bits
+m, milli, btc to depict milliBitcoin
+B, bitcoin, btc to depict Bitcoins
+
+When not using Satoshis (default) the comma values are rounded off."""
 
     switcher = {
         "bitcoin": "BTC",
@@ -63,81 +81,20 @@ def json_get_funds(request, unit="s"):
     }
 
 
-def json_getmanifest(request):
-
-    verbose = """Lists the total funds the lightning node owns off- and onchain in {unit}.
-
-{unit} can take the following values:
-s, satoshi, satoshis to depict satoshis
-b, bit, bits to depict bits
-m, milli, btc to depict milliBitcoin
-B, bitcoin, btc to depict Bitcoins
-
-When not using Satoshis (default) the comma values are rounded off."""
-
-    return {
-        "options": [
-        ],
-        "rpcmethods": [
-            {
-                "name": "funds",
-                "description": "Lists the total funds the lightning node owns off- and onchain in {unit}",
-                "long_description": verbose
-            },
-        ]
-    }
-
-
-def json_init(request, options, configuration):
-    """The main daemon is telling us the relevant cli options
-    """
+@plugin.method("init")
+def init(options, configuration, plugin):
     global rpc_interface
-
-    basedir = request['params']['configuration']['lightning-dir']
-    rpc_filename = request['params']['configuration']['rpc-filename']
+    plugin.log("start initialization of the funds plugin")
+    print(configuration)
+    basedir = configuration['lightning-dir']
+    rpc_filename = configuration['rpc-file']
     path = join(basedir, rpc_filename)
-
+    plugin.log("rpc interface located at {}".format(path))
     rpc_interface = LightningRpc(path)
 
-    return "ok"
+    plugin.log("Funds Plugin successfully initialezed")
 
 
-methods = {
-    'getmanifest': json_getmanifest,
-    'init': json_init,
-    'funds': json_get_funds,
-}
-
-
-partial = ""
-for l in sys.stdin:
-    try:
-        partial += l
-        request = json.loads(partial)
-    except Exception:
-        continue
-
-    result = None
-    method = methods[request['method']]
-    params = request['params']
-    try:
-        if isinstance(params, dict):
-            result = method(request, **params)
-        else:
-            result = method(request, *params)
-        result = {
-            "jsonrpc": "2.0",
-            "result": result,
-            "id": request['id']
-        }
-    except Exception as e:
-        result = {
-            "jsonrpc": "2.0",
-            "error": "Error while processing {}".format(request['method']),
-            "id": request['id']
-        }
-
-    json.dump(result, fp=sys.stdout)
-    sys.stdout.write('\n')
-    sys.stdout.flush()
-    partial = ""
+plugin.add_option('funds', 'funds',
+                  'Lists the total funds the lightning node owns off- and onchina in {units}')
+plugin.run()
