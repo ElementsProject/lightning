@@ -6,7 +6,7 @@ plugin = Plugin(autopatch=True)
 
 
 @plugin.method("hello")
-def hello(name, plugin):
+def hello(plugin, name="world"):
     """This is the documentation string for the hello-function.
 
     It gets reported as the description when registering the function
@@ -25,12 +25,12 @@ def init(options, configuration, plugin):
 
 
 @plugin.subscribe("connect")
-def on_connect(id, address, plugin):
+def on_connect(plugin, id, address):
     plugin.log("Received connect event for peer {}".format(id))
 
 
 @plugin.subscribe("disconnect")
-def on_disconnect(id, plugin):
+def on_disconnect(plugin, id):
     plugin.log("Received disconnect event for peer {}".format(id))
 
 
