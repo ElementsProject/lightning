@@ -87,4 +87,10 @@ void clear_plugins(struct plugins *plugins);
 void plugins_notify(struct plugins *plugins,
 		    const struct jsonrpc_notification *n TAKES);
 
+/**
+ * Send a jsonrpc_request to the specified plugin
+ */
+void plugin_request_send(struct plugin *plugin,
+			 struct jsonrpc_request *req TAKES);
+
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */
