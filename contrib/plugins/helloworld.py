@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from lightning import Plugin
+from lightning.plugin import Plugin
 
 
 plugin = Plugin(autopatch=True)
