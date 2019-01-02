@@ -188,9 +188,12 @@ endif
 
 default: all-programs all-test-programs
 
-config.vars ccan/config.h: configure ccan/tools/configurator/configurator.c
-	@if [ ! -f config.vars ]; then echo 'The 1990s are calling: use ./configure!' >&2; exit 1; fi
+ccan/config.h: config.vars configure ccan/tools/configurator/configurator.c
 	./configure --reconfigure
+
+config.vars:
+	@echo 'File config.vars not found: you must run ./configure before running make.' >&2
+	@exit 1
 
 include external/Makefile
 include bitcoin/Makefile
