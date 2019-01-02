@@ -6,7 +6,7 @@ plugin = Plugin(autopatch=True)
 
 
 @plugin.method("hello")
-def hello(plugin,name = "world"):
+def hello(plugin, name="world"):
     """This is the documentation string for the hello-function.
 
     It gets reported as the description when registering the function
