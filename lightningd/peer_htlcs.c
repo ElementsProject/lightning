@@ -22,6 +22,7 @@
 #include <lightningd/pay.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
+#include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
 #include <onchaind/gen_onchain_wire.h>
 #include <onchaind/onchain_wire.h>
@@ -590,16 +591,89 @@ static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
 	tal_free(gr);
 }
 
+/**
+ * Data passed to the plugin, and as the context for the hook callback
+ */
+struct htlc_accepted_hook_payload {
+	struct route_step *route_step;
+	struct htlc_in *hin;
+	struct channel *channel;
+	struct lightningd *ld;
+};
+
+/**
+ * Response type from the plugin
+ */
+struct htlc_accepted_hook_response {
+};
+
+/**
+ * Parses the JSON-RPC response into a struct understood by the callback.
+ */
+static struct htlc_accepted_hook_response *
+htlc_accepted_hook_deserialize(const tal_t *ctx, const char *buffer,
+			       const jsmntok_t *toks)
+{
+	return NULL;
+}
+
+static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
+					 struct json_stream *s)
+{
+}
+
+/**
+ * Callback when a plugin answers to the htlc_accepted hook
+ */
+static void
+htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
+			    struct htlc_accepted_hook_response *response)
+{
+	struct route_step *rs = request->route_step;
+	struct htlc_in *hin = request->hin;
+	struct channel *channel = request->channel;
+	struct lightningd *ld = request->ld;
+	u8 *req;
+
+	if (rs->nextcase == ONION_FORWARD) {
+		struct gossip_resolve *gr = tal(ld, struct gossip_resolve);
+
+		gr->next_onion = serialize_onionpacket(gr, rs->next);
+		gr->next_channel = rs->hop_data.channel_id;
+		gr->amt_to_forward = rs->hop_data.amt_forward;
+		gr->outgoing_cltv_value = rs->hop_data.outgoing_cltv;
+		gr->hin = hin;
+
+		req = towire_gossip_get_channel_peer(tmpctx, &gr->next_channel);
+		log_debug(channel->log, "Asking gossip to resolve channel %s",
+			  type_to_string(tmpctx, struct short_channel_id,
+					 &gr->next_channel));
+		subd_req(hin, ld->gossip, req, -1, 0,
+			 channel_resolve_reply, gr);
+	} else
+		handle_localpay(hin, hin->cltv_expiry, &hin->payment_hash,
+				rs->hop_data.amt_forward,
+				rs->hop_data.outgoing_cltv);
+	tal_free(request);
+}
+
+REGISTER_PLUGIN_HOOK(htlc_accepted, htlc_accepted_hook_callback,
+		     struct htlc_accepted_hook_payload *,
+		     htlc_accepted_hook_serialize,
+		     struct htlc_accepted_hook_payload *,
+		     htlc_accepted_hook_deserialize,
+		     struct htlc_accepted_hook_response *);
+
 /* Everyone is committed to this htlc of theirs */
 static bool peer_accepted_htlc(struct channel *channel,
 			       u64 id,
 			       enum onion_type *failcode)
 {
 	struct htlc_in *hin;
-	u8 *req;
 	struct route_step *rs;
 	struct onionpacket *op;
 	struct lightningd *ld = channel->peer->ld;
+	struct htlc_accepted_hook_payload *hook_payload;
 
 	hin = find_htlc_in(&ld->htlcs_in, channel, id);
 	if (!hin) {
@@ -672,31 +746,23 @@ static bool peer_accepted_htlc(struct channel *channel,
 	}
 
 	/* Unknown realm isn't a bad onion, it's a normal failure. */
+	/* FIXME: if we want hooks to handle foreign realms we should
+	 * move this check to the hook callback. */
 	if (rs->hop_data.realm != 0) {
 		*failcode = WIRE_INVALID_REALM;
 		goto out;
 	}
 
-	if (rs->nextcase == ONION_FORWARD) {
-		struct gossip_resolve *gr = tal(ld, struct gossip_resolve);
+	/* It's time to package up all the information and call the
+	 * hook so plugins can interject if they want */
+	hook_payload = tal(hin, struct htlc_accepted_hook_payload);
+	hook_payload->route_step = tal_steal(hook_payload, rs);
+	hook_payload->ld = ld;
+	hook_payload->hin = hin;
+	hook_payload->channel = channel;
+	plugin_hook_call_htlc_accepted(ld->plugins, hook_payload, hook_payload);
 
-		gr->next_onion = serialize_onionpacket(gr, rs->next);
-		gr->next_channel = rs->hop_data.channel_id;
-		gr->amt_to_forward = rs->hop_data.amt_forward;
-		gr->outgoing_cltv_value = rs->hop_data.outgoing_cltv;
-		gr->hin = hin;
-
-		req = towire_gossip_get_channel_peer(tmpctx, &gr->next_channel);
-		log_debug(channel->log, "Asking gossip to resolve channel %s",
-			  type_to_string(tmpctx, struct short_channel_id,
-					 &gr->next_channel));
-		subd_req(hin, ld->gossip, req, -1, 0,
-			 channel_resolve_reply, gr);
-	} else
-		handle_localpay(hin, hin->cltv_expiry, &hin->payment_hash,
-				rs->hop_data.amt_forward,
-				rs->hop_data.outgoing_cltv);
-
+	/* Falling through here is ok, after all the HTLC locked */
 	*failcode = 0;
 out:
 	log_debug(channel->log, "their htlc %"PRIu64" %s",
