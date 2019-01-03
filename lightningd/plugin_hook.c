@@ -1,12 +1,14 @@
 #include <common/memleak.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/plugin_hook.h>
+#include <wallet/db.h>
 
 /* Struct containing all the information needed to deserialize and
  * dispatch an eventual plugin_hook response. */
 struct plugin_hook_request {
 	const struct plugin_hook *hook;
 	void *cb_arg;
+	struct db *db;
 };
 
 static struct plugin_hook *plugin_hook_by_name(const char *name)
@@ -47,7 +49,9 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 				 struct plugin_hook_request *r)
 {
 	void *response = r->hook->deserialize_response(r, buffer, toks);
+	db_begin_transaction(r->db);
 	r->hook->response_cb(r->cb_arg, response);
+	db_commit_transaction(r->db);
 	tal_free(r);
 }
 
@@ -67,6 +71,7 @@ void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 					    plugin_hook_callback, ph_req);
 		ph_req->hook = hook;
 		ph_req->cb_arg = cb_arg;
+		ph_req->db = ld->db;
 		hook->serialize_payload(payload, req->stream);
 		jsonrpc_request_end(req);
 		plugin_request_send(hook->plugin, req);
