@@ -36,9 +36,6 @@ bool plugin_hook_register(struct plugin *plugin, const char *method)
 	return true;
 }
 
-/* FIXME(cdecker): Remove dummy hook, once we have a real one */
-REGISTER_PLUGIN_HOOK(hello, NULL, void *, NULL, void *, NULL, void *);
-
 /**
  * Callback to be passed to the jsonrpc_request.
  *
