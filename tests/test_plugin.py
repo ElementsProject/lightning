@@ -106,6 +106,26 @@ def test_plugin_disable(node_factory):
         n.rpc.hello(name='Sun')
 
 
+def test_plugin_hook(node_factory, executor):
+    """The helloworld plugin registers a htlc_accepted hook.
+
+    The hook will sleep for a few seconds and log a
+    message. `lightningd` should wait for the response and only then
+    complete the payment.
+
+    """
+    l1, l2 = node_factory.line_graph(2, opts={'plugin': 'contrib/plugins/helloworld.py'})
+    start_time = time.time()
+    f = executor.submit(l1.pay, l2, 100000)
+    l2.daemon.wait_for_log(r'on_htlc_accepted called')
+
+    # The hook will sleep for 20 seconds before answering, so `f`
+    # should take at least that long.
+    f.result()
+    end_time = time.time()
+    assert(end_time >= start_time + 20)
+
+
 def test_plugin_notifications(node_factory):
     l1, l2 = node_factory.get_nodes(2, opts={'plugin': 'contrib/plugins/helloworld.py'})
 
