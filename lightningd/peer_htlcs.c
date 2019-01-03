@@ -198,7 +198,7 @@ static bool check_amount(struct htlc_in *hin,
 static bool check_cltv(struct htlc_in *hin,
 		       u32 cltv_expiry, u32 outgoing_cltv_value, u32 delta)
 {
-	if (cltv_expiry - delta >= outgoing_cltv_value)
+	if (delta < cltv_expiry && cltv_expiry - delta >= outgoing_cltv_value)
 		return true;
 	log_debug(hin->key.channel->log, "HTLC %"PRIu64" incorrect CLTV:"
 		  " %u in, %u out, delta reqd %u",
