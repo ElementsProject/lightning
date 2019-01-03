@@ -51,7 +51,7 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 	tal_free(r);
 }
 
-void plugin_hook_call_(struct plugins *plugins, const struct plugin_hook *hook,
+void plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		       void *payload, void *cb_arg)
 {
 	struct jsonrpc_request *req;
