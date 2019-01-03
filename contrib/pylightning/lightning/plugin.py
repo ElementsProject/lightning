@@ -1,10 +1,11 @@
 from collections import OrderedDict
+from lightning import LightningRpc
 
-import sys
-import os
-import json
 import inspect
+import json
+import os
 import re
+import sys
 import traceback
 
 
@@ -35,6 +36,7 @@ class Plugin(object):
         self.add_method("getmanifest", self._getmanifest)
         self.rpc_filename = None
         self.lightning_dir = None
+        self.rpc = None
         self.init = None
 
     def add_method(self, name, func):
@@ -283,6 +285,8 @@ class Plugin(object):
     def _init(self, options, configuration, request):
         self.rpc_filename = configuration['rpc-file']
         self.lightning_dir = configuration['lightning-dir']
+        path = os.path.join(self.lightning_dir, self.rpc_filename)
+        self.rpc = LightningRpc(path)
         for name, value in options.items():
             self.options[name]['value'] = value
 
