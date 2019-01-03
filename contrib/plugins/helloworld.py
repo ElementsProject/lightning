@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from lightning import Plugin
-
+import time
 
 plugin = Plugin()
 
@@ -32,6 +32,13 @@ def on_connect(plugin, id, address):
 @plugin.subscribe("disconnect")
 def on_disconnect(plugin, id):
     plugin.log("Received disconnect event for peer {}".format(id))
+
+
+@plugin.hook("htlc_accepted")
+def on_htlc_accepted(plugin):
+    plugin.log('on_htlc_accepted called')
+    time.sleep(20)
+    return None
 
 
 plugin.add_option('greeting', 'Hello', 'The greeting I should use.')
