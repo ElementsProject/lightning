@@ -8,7 +8,7 @@ const char *notification_topics[] = {
 
 bool notifications_have_topic(const char *topic)
 {
-	for (size_t i=0; ARRAY_SIZE(notification_topics); i++)
+	for (size_t i=0; i<ARRAY_SIZE(notification_topics); i++)
 		if (streq(topic, notification_topics[i]))
 			return true;
 	return false;
