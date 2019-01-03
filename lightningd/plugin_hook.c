@@ -1,5 +1,5 @@
-#include "common/memleak.h"
-#include "lightningd/jsonrpc.h"
+#include <common/memleak.h>
+#include <lightningd/jsonrpc.h>
 #include <lightningd/plugin_hook.h>
 
 /* Struct containing all the information needed to deserialize and
