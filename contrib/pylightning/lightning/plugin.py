@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 import sys
 import os
 import json
@@ -131,18 +133,36 @@ class Plugin(object):
 
     def _exec_func(self, func, request):
         params = request['params']
-        args = params.copy() if isinstance(params, list) else []
-        kwargs = params.copy() if isinstance(params, dict) else {}
-
         sig = inspect.signature(func)
 
-        if 'plugin' in sig.parameters:
-            kwargs['plugin'] = self
+        arguments = OrderedDict()
+        for name, value in sig.parameters.items():
+            arguments[name] = inspect.Signature.empty
 
-        if 'request' in sig.parameters:
-            kwargs['request'] = request
+        # Fill in any injected parameters
+        if 'plugin' in arguments:
+            arguments['plugin'] = self
 
-        ba = sig.bind(*args, **kwargs)
+        if 'request' in arguments:
+            arguments['request'] = request
+
+        # Now zip the provided arguments and the prefilled a together
+        if isinstance(params, dict):
+            arguments.update(params)
+        else:
+            pos = 0
+            for k, v in arguments.items():
+                if v is not inspect.Signature.empty:
+                    continue
+                if pos < len(params):
+                    # Apply positional args if we have them
+                    arguments[k] = params[pos]
+                else:
+                    # For the remainder apply default args
+                    arguments[k] = sig.parameters[k].default
+                pos += 1
+
+        ba = sig.bind(**arguments)
         ba.apply_defaults()
         return func(*ba.args, **ba.kwargs)
 
