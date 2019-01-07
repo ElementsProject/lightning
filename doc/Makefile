@@ -17,6 +17,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-fundchannel.7 \
 	doc/lightning-getroute.7 \
 	doc/lightning-invoice.7 \
+	doc/lightning-listchannels.7 \
 	doc/lightning-listfunds.7 \
 	doc/lightning-listinvoices.7 \
 	doc/lightning-listpayments.7 \
