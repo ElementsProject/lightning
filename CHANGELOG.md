@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   `num_active_channels` and `num_inactive_channels` fields.
 - JSON API: use `\n\n` to terminate responses, for simplified parsing (pylightning now relies on this)
 - JSON API: `fundchannel` now includes an `announce` option, when false it will keep channel private. Defaults to true.
+- JSON API: `listpeers`'s `channels` now includes a `private` flag to indicate if channel is announced or not.
 - Plugins: Added plugins to `lightningd`, including option passthrough and JSON-RPC passthrough.
 
 ### Changed

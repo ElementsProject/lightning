@@ -716,6 +716,8 @@ static void json_add_peer(struct lightningd *ld,
 		json_add_txid(response,
 			      "funding_txid",
 			      &channel->funding_txid);
+		json_add_bool(response, "private",
+				!(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL));
 		json_add_u64(response, "msatoshi_to_us",
 			     channel->our_msatoshi);
 		json_add_u64(response, "msatoshi_to_us_min",
