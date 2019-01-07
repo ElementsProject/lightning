@@ -805,6 +805,11 @@ def test_private_channel(node_factory):
     assert not l1.daemon.is_in_log('Received node_announcement for node {}'.format(l2.info['id']))
     assert not l2.daemon.is_in_log('Received node_announcement for node {}'.format(l1.info['id']))
 
+    # test for 'private' flag in rpc output
+    assert only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])['private']
+    # check non-private channel
+    assert not only_one(only_one(l4.rpc.listpeers(l3.info['id'])['peers'])['channels'])['private']
+
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
 def test_channel_reenable(node_factory):
