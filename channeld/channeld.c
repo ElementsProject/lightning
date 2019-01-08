@@ -805,7 +805,8 @@ static u8 *make_failmsg(const tal_t *ctx,
 			struct peer *peer,
 			const struct htlc *htlc,
 			enum onion_type failcode,
-			const struct short_channel_id *scid)
+			const struct short_channel_id *scid,
+			const struct sha256 *sha256)
 {
 	u8 *msg, *channel_update = NULL;
 	u32 cltv_expiry = abs_locktime_to_blocks(&htlc->expiry);
@@ -877,9 +878,14 @@ static u8 *make_failmsg(const tal_t *ctx,
 		msg = towire_final_incorrect_htlc_amount(ctx, htlc->msatoshi);
 		goto done;
 	case WIRE_INVALID_ONION_VERSION:
+		msg = towire_invalid_onion_version(ctx, sha256);
+		goto done;
 	case WIRE_INVALID_ONION_HMAC:
+		msg = towire_invalid_onion_hmac(ctx, sha256);
+		goto done;
 	case WIRE_INVALID_ONION_KEY:
-		break;
+		msg = towire_invalid_onion_key(ctx, sha256);
+		goto done;
 	}
 	status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		      "Asked to create failmsg %u (%s)",
@@ -1783,20 +1789,30 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 {
 	u8 *msg;
 
-	if (h->failcode & BADONION) {
-		/* Malformed: use special reply since we can't onion. */
+	/* Note that if h->shared_secret is NULL, it means that we knew
+	 * this HTLC was invalid, but we still needed to hand it to lightningd
+	 * for the db, etc.  So in that case, we use our own saved failcode.
+	 *
+	 * This also lets us distinguish between "we can't decode onion" and
+	 * "next hop said it can't decode onion".  That second case is the
+	 * only case where we use a failcode for a non-local error. */
+	/* Malformed: use special reply since we can't onion. */
+	if (!h->shared_secret) {
 		struct sha256 sha256_of_onion;
 		sha256(&sha256_of_onion, h->routing, tal_count(h->routing));
 
 		msg = towire_update_fail_malformed_htlc(NULL, &peer->channel_id,
 							h->id, &sha256_of_onion,
-							h->failcode);
+							h->why_bad_onion);
 	} else if (h->failcode || h->fail) {
 		const u8 *onion;
 		if (h->failcode) {
+			/* FIXME: we need sha256_of_onion from peer. */
+			struct sha256 dummy;
+			memset(&dummy, 0, sizeof(dummy));
 			/* Local failure, make a message. */
 			u8 *failmsg = make_failmsg(tmpctx, peer, h, h->failcode,
-						   h->failed_scid);
+						   h->failed_scid, &dummy);
 			onion = create_onionreply(tmpctx, h->shared_secret,
 						  failmsg);
 		} else /* Remote failure, just forward. */
