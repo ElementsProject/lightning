@@ -528,18 +528,18 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 }
 
 static struct secret *get_shared_secret(const tal_t *ctx,
-					const struct htlc *htlc)
+					const struct htlc *htlc,
+					enum onion_type *why_bad)
 {
 	struct pubkey ephemeral;
 	struct onionpacket *op;
 	struct secret *secret = tal(ctx, struct secret);
 	const u8 *msg;
-	/* FIXME: Use this! */
-	enum onion_type why_bad;
+	struct route_step *rs;
 
 	/* We unwrap the onion now. */
 	op = parse_onionpacket(tmpctx, htlc->routing, TOTAL_PACKET_SIZE,
-			       &why_bad);
+			       why_bad);
 	if (!op)
 		return tal_free(secret);
 
@@ -548,6 +548,16 @@ static struct secret *get_shared_secret(const tal_t *ctx,
 	msg = hsm_req(tmpctx, towire_hsm_ecdh_req(tmpctx, &ephemeral));
 	if (!fromwire_hsm_ecdh_resp(msg, secret))
 		status_failed(STATUS_FAIL_HSM_IO, "Reading ecdh response");
+
+	/* We make sure we can parse onion packet, so we know if shared secret
+	 * is actually valid (this checks hmac). */
+	rs = process_onionpacket(tmpctx, op, secret->data,
+				 htlc->rhash.u.u8,
+				 sizeof(htlc->rhash));
+	if (!rs) {
+		*why_bad = WIRE_INVALID_ONION_HMAC;
+		return tal_free(secret);
+	}
 
 	return secret;
 }
@@ -581,7 +591,8 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 
 	/* If this is wrong, we don't complain yet; when it's confirmed we'll
 	 * send it to the master which handles all HTLC failures. */
-	htlc->shared_secret = get_shared_secret(htlc, htlc);
+	htlc->shared_secret = get_shared_secret(htlc, htlc,
+						&htlc->why_bad_onion);
 }
 
 static void handle_peer_feechange(struct peer *peer, const u8 *msg)
@@ -2593,7 +2604,8 @@ static void init_shared_secrets(struct channel *channel,
 			continue;
 
 		htlc = channel_get_htlc(channel, REMOTE, htlcs[i].id);
-		htlc->shared_secret = get_shared_secret(htlc, htlc);
+		htlc->shared_secret = get_shared_secret(htlc, htlc,
+							&htlc->why_bad_onion);
 	}
 }
 
