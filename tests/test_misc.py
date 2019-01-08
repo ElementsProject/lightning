@@ -1135,3 +1135,44 @@ def test_check_command(node_factory):
     assert 'error' in obj
 
     sock.close()
+
+
+@pytest.mark.xfail(strict=True)
+def test_bad_onion(node_factory, bitcoind):
+    """Test that we get a reasonable error from sendpay when an onion is bad"""
+    l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
+
+    h = l4.rpc.invoice(123000, 'test_bad_onion', 'description')['payment_hash']
+    route = l1.rpc.getroute(l4.info['id'], 123000, 1)['route']
+
+    assert len(route) == 3
+
+    mangled_nodeid = '0265b6ab5ec860cd257865d61ef0bbf5b3339c36cbda8b26b74e7f1dca490b6518'
+
+    # Replace id with a different pubkey, so onion encoded badly at third hop.
+    route[2]['id'] = mangled_nodeid
+    l1.rpc.sendpay(route, h)
+    with pytest.raises(RpcError) as err:
+        l1.rpc.waitsendpay(h)
+
+    # FIXME: #define PAY_TRY_OTHER_ROUTE		204
+    PAY_TRY_OTHER_ROUTE = 204
+    assert err.value.error['code'] == PAY_TRY_OTHER_ROUTE
+    # FIXME: WIRE_INVALID_ONION_HMAC = BADONION|PERM|5
+    WIRE_INVALID_ONION_HMAC = 0x8000 | 0x4000 | 5
+    assert err.value.error['data']['failcode'] == WIRE_INVALID_ONION_HMAC
+    assert err.value.error['data']['erring_node'] == mangled_nodeid
+    assert err.value.error['data']['erring_channel'] == route[2]['channel']
+
+    # Replace id with a different pubkey, so onion encoded badly at second hop.
+    route[1]['id'] = mangled_nodeid
+    l1.rpc.sendpay(route, h)
+    with pytest.raises(RpcError) as err:
+        l1.rpc.waitsendpay(h)
+
+    # FIXME: #define PAY_TRY_OTHER_ROUTE		204
+    PAY_TRY_OTHER_ROUTE = 204
+    assert err.value.error['code'] == PAY_TRY_OTHER_ROUTE
+    assert err.value.error['data']['failcode'] == WIRE_INVALID_ONION_HMAC
+    assert err.value.error['data']['erring_node'] == mangled_nodeid
+    assert err.value.error['data']['erring_channel'] == route[1]['channel']
