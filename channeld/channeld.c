@@ -529,7 +529,8 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 
 static struct secret *get_shared_secret(const tal_t *ctx,
 					const struct htlc *htlc,
-					enum onion_type *why_bad)
+					enum onion_type *why_bad,
+					struct sha256 *next_onion_sha)
 {
 	struct pubkey ephemeral;
 	struct onionpacket *op;
@@ -558,6 +559,10 @@ static struct secret *get_shared_secret(const tal_t *ctx,
 		*why_bad = WIRE_INVALID_ONION_HMAC;
 		return tal_free(secret);
 	}
+
+	/* Calculate sha256 we'll hand to next peer, in case they complain. */
+	msg = serialize_onionpacket(tmpctx, rs->next);
+	sha256(next_onion_sha, msg, tal_bytelen(msg));
 
 	return secret;
 }
@@ -592,7 +597,8 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 	/* If this is wrong, we don't complain yet; when it's confirmed we'll
 	 * send it to the master which handles all HTLC failures. */
 	htlc->shared_secret = get_shared_secret(htlc, htlc,
-						&htlc->why_bad_onion);
+						&htlc->why_bad_onion,
+						&htlc->next_onion_sha);
 }
 
 static void handle_peer_feechange(struct peer *peer, const u8 *msg)
@@ -1799,12 +1805,10 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 	} else if (h->failcode || h->fail) {
 		const u8 *onion;
 		if (h->failcode) {
-			/* FIXME: we need sha256_of_onion from peer. */
-			struct sha256 dummy;
-			memset(&dummy, 0, sizeof(dummy));
 			/* Local failure, make a message. */
 			u8 *failmsg = make_failmsg(tmpctx, peer, h, h->failcode,
-						   h->failed_scid, &dummy);
+						   h->failed_scid,
+						   &h->next_onion_sha);
 			onion = create_onionreply(tmpctx, h->shared_secret,
 						  failmsg);
 		} else /* Remote failure, just forward. */
@@ -2613,7 +2617,8 @@ static void init_shared_secrets(struct channel *channel,
 
 		htlc = channel_get_htlc(channel, REMOTE, htlcs[i].id);
 		htlc->shared_secret = get_shared_secret(htlc, htlc,
-							&htlc->why_bad_onion);
+							&htlc->why_bad_onion,
+							&htlc->next_onion_sha);
 	}
 }
 

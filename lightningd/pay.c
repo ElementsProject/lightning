@@ -359,10 +359,8 @@ remote_routing_failure(const tal_t *ctx,
 		/* If the error is a BADONION, then it's on behalf of the
 		 * following node. */
 		if (failcode & BADONION) {
-			log_debug(log, "failcode %u => erring_node %s",
-			    failcode,
-			    type_to_string(tmpctx, struct pubkey,
-					   &route_nodes[origin_index + 1]));
+			log_debug(log, "failcode %u from onionreply %s",
+				  failcode, tal_hex(tmpctx, failure->msg));
 			erring_node = &route_nodes[origin_index + 1];
 		} else
 			erring_node = &route_nodes[origin_index];
