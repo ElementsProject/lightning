@@ -1605,16 +1605,23 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 	 *    `update_fail_malformed_htlc`:
 	 *      - MUST fail the channel.
 	 */
-	/* We only handle these cases. */
-	if (failure_code != WIRE_INVALID_ONION_VERSION
-	    && failure_code != WIRE_INVALID_ONION_HMAC
-	    && failure_code != WIRE_INVALID_ONION_KEY) {
+	if (!(failure_code & BADONION)) {
 		peer_failed(&peer->cs,
 			    &peer->channel_id,
 			    "Bad update_fail_malformed_htlc failure code %u",
 			    failure_code);
 	}
-	assert(failure_code & BADONION);
+
+	/* We only handle these cases in make_failmsg, so convert any
+	 * (future?) unknown one. */
+	if (failure_code != WIRE_INVALID_ONION_VERSION
+	    && failure_code != WIRE_INVALID_ONION_HMAC
+	    && failure_code != WIRE_INVALID_ONION_KEY) {
+		status_unusual("Unknown update_fail_malformed_htlc code %u:"
+			       " sending temporary_channel_failure",
+			       failure_code);
+		failure_code = WIRE_TEMPORARY_CHANNEL_FAILURE;
+	}
 
 	e = channel_fail_htlc(peer->channel, LOCAL, id, &htlc);
 	switch (e) {
