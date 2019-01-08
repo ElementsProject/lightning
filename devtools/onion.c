@@ -66,6 +66,7 @@ static void do_decode(int argc, char **argv)
 	memset(hextemp, 0, sizeof(hextemp));
 	u8 shared_secret[32];
 	u8 assocdata[32];
+	enum onion_type why_bad;
 
 	memset(&assocdata, 'B', sizeof(assocdata));
 
@@ -82,10 +83,10 @@ static void do_decode(int argc, char **argv)
 		errx(1, "Invalid onion hex '%s'", hextemp);
 	}
 
-	msg = parse_onionpacket(ctx, serialized, sizeof(serialized));
+	msg = parse_onionpacket(ctx, serialized, sizeof(serialized), &why_bad);
 
 	if (!msg)
-		errx(1, "Error parsing message.");
+		errx(1, "Error parsing message: %s", onion_type_name(why_bad));
 
 	if (!onion_shared_secret(shared_secret, msg, &seckey))
 		errx(1, "Error creating shared secret.");

@@ -534,9 +534,12 @@ static struct secret *get_shared_secret(const tal_t *ctx,
 	struct onionpacket *op;
 	struct secret *secret = tal(ctx, struct secret);
 	const u8 *msg;
+	/* FIXME: Use this! */
+	enum onion_type why_bad;
 
 	/* We unwrap the onion now. */
-	op = parse_onionpacket(tmpctx, htlc->routing, TOTAL_PACKET_SIZE);
+	op = parse_onionpacket(tmpctx, htlc->routing, TOTAL_PACKET_SIZE,
+			       &why_bad);
 	if (!op)
 		return tal_free(secret);
 

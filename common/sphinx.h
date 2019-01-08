@@ -9,6 +9,7 @@
 #include <ccan/tal/tal.h>
 #include <secp256k1.h>
 #include <sodium/randombytes.h>
+#include <wire/gen_onion_wire.h>
 #include <wire/wire.h>
 
 #define SECURITY_PARAMETER 32
@@ -148,13 +149,13 @@ u8 *serialize_onionpacket(
  *
  * @ctx: tal context to allocate from
  * @src: buffer to read the packet from
- * @srclen: length of the @src
+ * @srclen: length of the @src (must be TOTAL_PACKET_SIZE)
+ * @why_bad: if NULL return, this is what was wrong with the packet.
  */
-struct onionpacket *parse_onionpacket(
-	const tal_t *ctx,
-	const void *src,
-	const size_t srclen
-	);
+struct onionpacket *parse_onionpacket(const tal_t *ctx,
+				      const void *src,
+				      const size_t srclen,
+				      enum onion_type *why_bad);
 
 struct onionreply {
 	/* Node index in the path that is replying */

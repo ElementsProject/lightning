@@ -648,7 +648,8 @@ static bool peer_accepted_htlc(struct channel *channel,
 
 	/* channeld tests this, so it should pass. */
 	op = parse_onionpacket(tmpctx, hin->onion_routing_packet,
-			       sizeof(hin->onion_routing_packet));
+			       sizeof(hin->onion_routing_packet),
+			       failcode);
 	if (!op) {
 		channel_internal_error(channel,
 				       "bad onion in got_revoke: %s",
