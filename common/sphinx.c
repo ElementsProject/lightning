@@ -75,30 +75,31 @@ u8 *serialize_onionpacket(
 	return dst;
 }
 
-struct onionpacket *parse_onionpacket(
-	const tal_t *ctx,
-	const void *src,
-	const size_t srclen
-	)
+struct onionpacket *parse_onionpacket(const tal_t *ctx,
+				      const void *src,
+				      const size_t srclen,
+				      enum onion_type *why_bad)
 {
 	struct onionpacket *m;
 	int p = 0;
 	u8 rawEphemeralkey[33];
 
-	if (srclen != TOTAL_PACKET_SIZE)
-		return NULL;
+	assert(srclen == TOTAL_PACKET_SIZE);
 
 	m = talz(ctx, struct onionpacket);
 
 	read_buffer(&m->version, src, 1, &p);
 	if (m->version != 0x00) {
 		// FIXME add logging
+		*why_bad = WIRE_INVALID_ONION_VERSION;
 		return tal_free(m);
 	}
 	read_buffer(rawEphemeralkey, src, 33, &p);
 
-	if (secp256k1_ec_pubkey_parse(secp256k1_ctx, &m->ephemeralkey, rawEphemeralkey, 33) != 1)
+	if (secp256k1_ec_pubkey_parse(secp256k1_ctx, &m->ephemeralkey, rawEphemeralkey, 33) != 1) {
+		*why_bad = WIRE_INVALID_ONION_KEY;
 		return tal_free(m);
+	}
 
 	read_buffer(&m->routinginfo, src, ROUTING_INFO_SIZE, &p);
 	read_buffer(&m->mac, src, SECURITY_PARAMETER, &p);
