@@ -1137,7 +1137,6 @@ def test_check_command(node_factory):
     sock.close()
 
 
-@pytest.mark.xfail(strict=True)
 def test_bad_onion(node_factory, bitcoind):
     """Test that we get a reasonable error from sendpay when an onion is bad"""
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)

@@ -351,11 +351,22 @@ remote_routing_failure(const tal_t *ctx,
 			report_to_gossipd = true;
 		else
 			report_to_gossipd = false;
-	} else
+		erring_node = &route_nodes[origin_index];
+	} else {
 		/* Report the *next* channel as failing. */
 		erring_channel = &route_channels[origin_index + 1];
 
-	erring_node = &route_nodes[origin_index];
+		/* If the error is a BADONION, then it's on behalf of the
+		 * following node. */
+		if (failcode & BADONION) {
+			log_debug(log, "failcode %u => erring_node %s",
+			    failcode,
+			    type_to_string(tmpctx, struct pubkey,
+					   &route_nodes[origin_index + 1]));
+			erring_node = &route_nodes[origin_index + 1];
+		} else
+			erring_node = &route_nodes[origin_index];
+	}
 
 	routing_failure->erring_index = (unsigned int) (origin_index + 1);
 	routing_failure->failcode = failcode;
