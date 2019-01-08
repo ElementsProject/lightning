@@ -720,6 +720,21 @@ static void json_add_peer(struct lightningd *ld,
 			      &channel->funding_txid);
 		json_add_bool(response, "private",
 				!(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL));
+
+		// FIXME @conscott : Modify this when dual-funded channels
+		// are implemented
+		json_object_start(response, "funding_allocation_msat");
+		if (channel->funder == LOCAL) {
+			json_add_u64(response, pubkey_to_hexstr(tmpctx, &p->id), 0);
+			json_add_u64(response, pubkey_to_hexstr(tmpctx, &ld->id),
+					channel->funding_satoshi * 1000);
+		} else {
+			json_add_u64(response, pubkey_to_hexstr(tmpctx, &ld->id), 0);
+			json_add_u64(response, pubkey_to_hexstr(tmpctx, &p->id),
+					channel->funding_satoshi * 1000);
+		}
+		json_object_end(response);
+
 		json_add_u64(response, "msatoshi_to_us",
 			     channel->our_msatoshi);
 		json_add_u64(response, "msatoshi_to_us_min",
