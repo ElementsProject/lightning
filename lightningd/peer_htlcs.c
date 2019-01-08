@@ -646,6 +646,8 @@ static bool peer_accepted_htlc(struct channel *channel,
 		goto out;
 	}
 
+	/* FIXME: Have channeld hand through just the route_step! */
+
 	/* channeld tests this, so it should pass. */
 	op = parse_onionpacket(tmpctx, hin->onion_routing_packet,
 			       sizeof(hin->onion_routing_packet),
@@ -663,8 +665,11 @@ static bool peer_accepted_htlc(struct channel *channel,
 				 hin->payment_hash.u.u8,
 				 sizeof(hin->payment_hash));
 	if (!rs) {
-		*failcode = WIRE_INVALID_ONION_HMAC;
-		goto out;
+		channel_internal_error(channel,
+				       "bad process_onionpacket in got_revoke: %s",
+				       tal_hexstr(channel, hin->onion_routing_packet,
+						  sizeof(hin->onion_routing_packet)));
+		return false;
 	}
 
 	/* Unknown realm isn't a bad onion, it's a normal failure. */

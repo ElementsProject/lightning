@@ -23,6 +23,8 @@ struct htlc {
 
 	/* The routing shared secret (only for incoming) */
 	struct secret *shared_secret;
+	/* If incoming HTLC has shared_secret, this is which BADONION error */
+	enum onion_type why_bad_onion;
 
 	/* FIXME: We could union these together: */
 	/* Routing information sent with this HTLC. */
