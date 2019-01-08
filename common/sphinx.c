@@ -1,5 +1,6 @@
 #include <assert.h>
 
+#include <ccan/array_size/array_size.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/mem/mem.h>
@@ -24,7 +25,7 @@
 struct hop_params {
 	u8 secret[SHARED_SECRET_SIZE];
 	u8 blind[BLINDING_FACTOR_SIZE];
-	secp256k1_pubkey ephemeralkey;
+	struct pubkey ephemeralkey;
 };
 
 struct keyset {
@@ -58,18 +59,12 @@ u8 *serialize_onionpacket(
 {
 	u8 *dst = tal_arr(ctx, u8, TOTAL_PACKET_SIZE);
 
-	u8 der[33];
-	size_t outputlen = 33;
+	u8 der[PUBKEY_DER_LEN];
 	int p = 0;
 
-	secp256k1_ec_pubkey_serialize(secp256k1_ctx,
-				      der,
-				      &outputlen,
-				      &m->ephemeralkey,
-				      SECP256K1_EC_COMPRESSED);
-
+	pubkey_to_der(der, &m->ephemeralkey);
 	write_buffer(dst, &m->version, 1, &p);
-	write_buffer(dst, der, outputlen, &p);
+	write_buffer(dst, der, sizeof(der), &p);
 	write_buffer(dst, m->routinginfo, ROUTING_INFO_SIZE, &p);
 	write_buffer(dst, m->mac, sizeof(m->mac), &p);
 	return dst;
@@ -82,7 +77,7 @@ struct onionpacket *parse_onionpacket(const tal_t *ctx,
 {
 	struct onionpacket *m;
 	int p = 0;
-	u8 rawEphemeralkey[33];
+	u8 rawEphemeralkey[PUBKEY_DER_LEN];
 
 	assert(srclen == TOTAL_PACKET_SIZE);
 
@@ -94,9 +89,10 @@ struct onionpacket *parse_onionpacket(const tal_t *ctx,
 		*why_bad = WIRE_INVALID_ONION_VERSION;
 		return tal_free(m);
 	}
-	read_buffer(rawEphemeralkey, src, 33, &p);
+	read_buffer(rawEphemeralkey, src, sizeof(rawEphemeralkey), &p);
 
-	if (secp256k1_ec_pubkey_parse(secp256k1_ctx, &m->ephemeralkey, rawEphemeralkey, 33) != 1) {
+	if (!pubkey_from_der(rawEphemeralkey, sizeof(rawEphemeralkey),
+			     &m->ephemeralkey)) {
 		*why_bad = WIRE_INVALID_ONION_KEY;
 		return tal_free(m);
 	}
@@ -185,17 +181,15 @@ static bool generate_header_padding(
 	return true;
 }
 
-static void compute_blinding_factor(const secp256k1_pubkey *key,
+static void compute_blinding_factor(const struct pubkey *key,
 				    const u8 sharedsecret[SHARED_SECRET_SIZE],
 				    u8 res[BLINDING_FACTOR_SIZE])
 {
 	struct sha256_ctx ctx;
-	u8 der[33];
-	size_t outputlen = 33;
+	u8 der[PUBKEY_DER_LEN];
 	struct sha256 temp;
 
-	secp256k1_ec_pubkey_serialize(secp256k1_ctx, der, &outputlen, key,
-				      SECP256K1_EC_COMPRESSED);
+	pubkey_to_der(der, key);
 	sha256_init(&ctx);
 	sha256_update(&ctx, der, sizeof(der));
 	sha256_update(&ctx, sharedsecret, SHARED_SECRET_SIZE);
@@ -204,25 +198,26 @@ static void compute_blinding_factor(const secp256k1_pubkey *key,
 }
 
 static bool blind_group_element(
-	secp256k1_pubkey *blindedelement,
-	const secp256k1_pubkey *pubkey,
+	struct pubkey *blindedelement,
+	const struct pubkey *pubkey,
 	const u8 blind[BLINDING_FACTOR_SIZE])
 {
 	/* tweak_mul is inplace so copy first. */
 	if (pubkey != blindedelement)
 		*blindedelement = *pubkey;
-	if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx, blindedelement, blind) != 1)
+	if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx, &blindedelement->pubkey, blind) != 1)
 		return false;
 	return true;
 }
 
 static bool create_shared_secret(
 	u8 *secret,
-	const secp256k1_pubkey *pubkey,
+	const struct pubkey *pubkey,
 	const u8 *sessionkey)
 {
 
-	if (secp256k1_ecdh(secp256k1_ctx, secret, pubkey, sessionkey) != 1)
+	if (secp256k1_ecdh(secp256k1_ctx, secret, &pubkey->pubkey, sessionkey)
+	    != 1)
 		return false;
 	return true;
 }
@@ -251,17 +246,16 @@ static struct hop_params *generate_hop_params(
 	struct pubkey path[])
 {
 	int i, j, num_hops = tal_count(path);
-	secp256k1_pubkey temp;
+	struct pubkey temp;
 	u8 blind[BLINDING_FACTOR_SIZE];
 	struct hop_params *params = tal_arr(ctx, struct hop_params, num_hops);
 
 	/* Initialize the first hop with the raw information */
 	if (secp256k1_ec_pubkey_create(
-		    secp256k1_ctx, &params[0].ephemeralkey, sessionkey) != 1)
+		    secp256k1_ctx, &params[0].ephemeralkey.pubkey, sessionkey) != 1)
 		return NULL;
 
-	if (!create_shared_secret(
-		    params[0].secret, &path[0].pubkey, sessionkey))
+	if (!create_shared_secret(params[0].secret, &path[0], sessionkey))
 		return NULL;
 
 	compute_blinding_factor(
@@ -282,7 +276,7 @@ static struct hop_params *generate_hop_params(
 		 * Order is indifferent, multiplication is commutative.
 		 */
 		memcpy(&blind, sessionkey, 32);
-		temp = path[i].pubkey;
+		temp = path[i];
 		if (!blind_group_element(&temp, &temp, blind))
 			return NULL;
 		for (j = 0; j < i; j++)
@@ -295,11 +289,8 @@ static struct hop_params *generate_hop_params(
 		/* Now hash temp and store it. This requires us to
 		 * DER-serialize first and then skip the sign byte.
 		 */
-		u8 der[33];
-		size_t outputlen = 33;
-		secp256k1_ec_pubkey_serialize(
-			secp256k1_ctx, der, &outputlen, &temp,
-			SECP256K1_EC_COMPRESSED);
+		u8 der[PUBKEY_DER_LEN];
+		pubkey_to_der(der, &temp);
 		struct sha256 h;
 		sha256(&h, der, sizeof(der));
 		memcpy(&params[i].secret, &h, sizeof(h));

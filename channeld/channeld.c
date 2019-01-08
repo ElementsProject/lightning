@@ -532,7 +532,6 @@ static struct secret *get_shared_secret(const tal_t *ctx,
 					enum onion_type *why_bad,
 					struct sha256 *next_onion_sha)
 {
-	struct pubkey ephemeral;
 	struct onionpacket *op;
 	struct secret *secret = tal(ctx, struct secret);
 	const u8 *msg;
@@ -545,8 +544,7 @@ static struct secret *get_shared_secret(const tal_t *ctx,
 		return tal_free(secret);
 
 	/* Because wire takes struct pubkey. */
-	ephemeral.pubkey = op->ephemeralkey;
-	msg = hsm_req(tmpctx, towire_hsm_ecdh_req(tmpctx, &ephemeral));
+	msg = hsm_req(tmpctx, towire_hsm_ecdh_req(tmpctx, &op->ephemeralkey));
 	if (!fromwire_hsm_ecdh_resp(msg, secret))
 		status_failed(STATUS_FAIL_HSM_IO, "Reading ecdh response");
 

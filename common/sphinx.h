@@ -23,7 +23,7 @@ struct onionpacket {
 	/* Cleartext information */
 	u8 version;
 	u8 mac[SECURITY_PARAMETER];
-	secp256k1_pubkey ephemeralkey;
+	struct pubkey ephemeralkey;
 
 	/* Encrypted information */
 	u8 routinginfo[ROUTING_INFO_SIZE];
