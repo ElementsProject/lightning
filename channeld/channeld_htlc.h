@@ -25,6 +25,8 @@ struct htlc {
 	struct secret *shared_secret;
 	/* If incoming HTLC has shared_secret, this is which BADONION error */
 	enum onion_type why_bad_onion;
+	/* sha256 of next_onion, in case peer says it was malformed. */
+	struct sha256 next_onion_sha;
 
 	/* FIXME: We could union these together: */
 	/* Routing information sent with this HTLC. */
