@@ -1445,18 +1445,24 @@ static struct io_plan *recv_req(struct io_conn *conn,
  * knowledge of the HSM, but also at one stage I made a hacky gossip vampire
  * tool which used the handshake code, so it's nice to keep that
  * standalone. */
-bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point)
+struct secret *hsm_do_ecdh(const tal_t *ctx, const struct pubkey *point)
 {
 	u8 *req = towire_hsm_ecdh_req(tmpctx, point), *resp;
+	struct secret *secret = tal(ctx, struct secret);
 
 	if (!wire_sync_write(HSM_FD, req))
-		return false;
+		return tal_free(secret);
 	resp = wire_sync_read(req, HSM_FD);
 	if (!resp)
-		return false;
-	if (!fromwire_hsm_ecdh_resp(resp, ss))
-		return false;
-	return true;
+		return tal_free(secret);
+
+	/* Note: hsmd will actually hang up on us if it can't ECDH: that implies
+	 * that our node private key is invalid, and we shouldn't have made
+	 * it this far.  */
+	if (!fromwire_hsm_ecdh_resp(resp, secret))
+		return tal_free(secret);
+
+	return secret;
 }
 
 /*~ UNUSED is defined to an __attribute__ for GCC; at one stage we tried to use
