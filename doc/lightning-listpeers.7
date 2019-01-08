@@ -2,12 +2,12 @@
 .\"     Title: lightning-listpeers
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 12/07/2018
+.\"      Date: 01/08/2019
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "LIGHTNING\-LISTPEERS" "7" "12/07/2018" "\ \&" "\ \&"
+.TH "LIGHTNING\-LISTPEERS" "7" "01/08/2019" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,7 +31,7 @@
 lightning-listpeers \- Command for returning data on connected lightning nodes\&.
 .SH "SYNOPSIS"
 .sp
-\fBlistpeers\fR [\fIid\fR]
+\fBlistpeers\fR [\fIid\fR] [\fIlevel\fR]
 .SH "DESCRIPTION"
 .sp
 The \fBlistpeers\fR RPC command returns data on nodes that are connected or are not connected but have open channels with this node\&.
@@ -41,6 +41,8 @@ Once a connection to another lightning node has been established, using the \fBc
 If no \fIid\fR is supplied, then data on all lightning nodes that are connected, or not connected but have open channels with this node, are returned\&.
 .sp
 Supplying \fIid\fR will filter the results to only return data on a node with a matching \fIid\fR, if one exists\&.
+.sp
+Supplying \fIlevel\fR will show log entries related to that peer at the given log level\&. Valid log levels are "io", "debug", "info", and "unusual"\&.
 .sp
 If a channel is open with a node and the connection has been lost, then the node will still appear in the output of the command and the value of the \fIconnected\fR attribute of the node will be "false"\&.
 .sp
@@ -123,6 +125,21 @@ Each object in the list contains the following data:
 : An list of channel id\(cqs open on the peer
 .RE
 .sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIlog\fR
+: Only present if
+\fIlevel\fR
+is set\&. List logs related to the peer at the specified
+\fIlevel\fR
+.RE
+.sp
 If \fIid\fR is supplied and no matching nodes are found, a "peers" object with an empty list is returned\&.
 .SH "ERRORS"
 .sp
@@ -133,6 +150,18 @@ If \fIid\fR is not a valid public key, an error message will be returned:
 .\}
 .nf
 { "code" : \-32602, "message" : "\*(Aqid\*(Aq should be a pubkey, not \*(Aq\&.\&.\&.\*(Aq" }
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+If \fIlevel\fR is not a valid log level, an error message will be returned:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+{ "code" : \-32602, "message" "\*(Aqlevel\*(Aq should be \*(Aqio\*(Aq, \*(Aqdebug\*(Aq, \*(Aqinfo\*(Aq, or \*(Aqunusual\*(Aq, not \*(Aq\&.\&.\&.\*(Aq" }
 .fi
 .if n \{\
 .RE
