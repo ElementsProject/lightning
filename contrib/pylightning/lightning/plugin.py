@@ -269,7 +269,7 @@ class Plugin(object):
         # then unstash this and call it.
         if 'init' in self.methods:
             self.init = self.methods['init']
-            self.methods['init'] = (self._init, MethodType.RPCMETHOD)
+        self.methods['init'] = (self._init, MethodType.RPCMETHOD)
 
         partial = ""
         for l in self.stdin:
@@ -295,12 +295,12 @@ class Plugin(object):
                 continue
 
             doc = inspect.getdoc(func)
-            doc = re.sub('\n+', ' ', doc)
             if not doc:
                 self.log(
                     'RPC method \'{}\' does not have a docstring.'.format(name)
                 )
                 doc = "Undocumented RPC method from a plugin."
+            doc = re.sub('\n+', ' ', doc)
 
             methods.append({
                 'name': name,
