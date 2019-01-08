@@ -527,29 +527,26 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 	channel_announcement_negotiate(peer);
 }
 
-static bool get_shared_secret(const struct htlc *htlc,
-			      struct secret *shared_secret)
+static struct secret *get_shared_secret(const tal_t *ctx,
+					const struct htlc *htlc)
 {
 	struct pubkey ephemeral;
 	struct onionpacket *op;
+	struct secret *secret = tal(ctx, struct secret);
 	const u8 *msg;
 
 	/* We unwrap the onion now. */
 	op = parse_onionpacket(tmpctx, htlc->routing, TOTAL_PACKET_SIZE);
-	if (!op) {
-		/* Return an invalid shared secret. */
-		memset(shared_secret, 0, sizeof(*shared_secret));
-		return false;
-	}
+	if (!op)
+		return tal_free(secret);
 
 	/* Because wire takes struct pubkey. */
 	ephemeral.pubkey = op->ephemeralkey;
 	msg = hsm_req(tmpctx, towire_hsm_ecdh_req(tmpctx, &ephemeral));
-	if (!fromwire_hsm_ecdh_resp(msg, shared_secret))
+	if (!fromwire_hsm_ecdh_resp(msg, secret))
 		status_failed(STATUS_FAIL_HSM_IO, "Reading ecdh response");
 
-	/* Gives all-zero shares_secret if it was invalid. */
-	return !memeqzero(shared_secret, sizeof(*shared_secret));
+	return secret;
 }
 
 static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
@@ -581,8 +578,7 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 
 	/* If this is wrong, we don't complain yet; when it's confirmed we'll
 	 * send it to the master which handles all HTLC failures. */
-	htlc->shared_secret = tal(htlc, struct secret);
-	get_shared_secret(htlc, htlc->shared_secret);
+	htlc->shared_secret = get_shared_secret(htlc, htlc);
 }
 
 static void handle_peer_feechange(struct peer *peer, const u8 *msg)
@@ -1215,7 +1211,12 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 			memcpy(a->onion_routing_packet,
 			       htlc->routing,
 			       sizeof(a->onion_routing_packet));
-			*s = *htlc->shared_secret;
+			/* Invalid shared secret gets set to all-zero: our
+			 * code generator can't make arrays of optional values */
+			if (!htlc->shared_secret)
+				memset(s, 0, sizeof(*s));
+			else
+				*s = *htlc->shared_secret;
 		} else if (htlc->state == RCVD_REMOVE_COMMIT) {
 			if (htlc->r) {
 				struct fulfilled_htlc *f;
@@ -2589,8 +2590,7 @@ static void init_shared_secrets(struct channel *channel,
 			continue;
 
 		htlc = channel_get_htlc(channel, REMOTE, htlcs[i].id);
-		htlc->shared_secret = tal(htlc, struct secret);
-		get_shared_secret(htlc, htlc->shared_secret);
+		htlc->shared_secret = get_shared_secret(htlc, htlc);
 	}
 }
 

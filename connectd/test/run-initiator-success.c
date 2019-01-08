@@ -190,10 +190,13 @@ static struct io_plan *success(struct io_conn *conn UNUSED,
 	exit(0);
 }
 
-bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point)
+struct secret *hsm_do_ecdh(const tal_t *ctx, const struct pubkey *point)
 {
-	return secp256k1_ecdh(secp256k1_ctx, ss->data, &point->pubkey,
-			      ls_priv.secret.data) == 1;
+	struct secret *ss = tal(ctx, struct secret);
+	if (secp256k1_ecdh(secp256k1_ctx, ss->data, &point->pubkey,
+			   ls_priv.secret.data) != 1)
+		return tal_free(ss);
+	return ss;
 }
 
 int main(void)

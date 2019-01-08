@@ -159,7 +159,7 @@ struct handshake {
 	struct secret temp_k;
 	struct sha256 h;
 	struct keypair e;
-	struct secret ss;
+	struct secret *ss;
 
 	/* Used between the Acts */
 	struct pubkey re;
@@ -473,10 +473,11 @@ static struct io_plan *act_three_initiator(struct io_conn *conn,
 	 *     * where `re` is the ephemeral public key of the responder
 	 *
 	 */
-	if (!hsm_do_ecdh(&h->ss, &h->re))
+	h->ss = hsm_do_ecdh(h, &h->re);
+	if (!h->ss)
 		return handshake_failed(conn, h);
 
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, &h->ss, sizeof(h->ss)));
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
 
 	/* BOLT #8:
 	 *
@@ -484,7 +485,7 @@ static struct io_plan *act_three_initiator(struct io_conn *conn,
 	 *     * The final intermediate shared secret is mixed into the running
 	 *       chaining key.
 	 */
-	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
+	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k3=0x%s,0x%s",
 		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
 		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
@@ -549,11 +550,11 @@ static struct io_plan *act_two_initiator2(struct io_conn *conn,
 	 * 5. `ss = ECDH(re, e.priv)`
 	 *    * where `re` is the responder's ephemeral public key
 	 */
-	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data, &h->re.pubkey,
+	if (!secp256k1_ecdh(secp256k1_ctx, h->ss->data, &h->re.pubkey,
 			    h->e.priv.secret.data))
 		return handshake_failed(conn, h);
 
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, &h->ss, sizeof(h->ss)));
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
 
 	/* BOLT #8:
 	 *
@@ -561,7 +562,7 @@ static struct io_plan *act_two_initiator2(struct io_conn *conn,
 	 *     * A new temporary encryption key is generated, which is
 	 *       used to generate the authenticating MAC.
 	 */
-	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
+	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k2=0x%s,0x%s",
 		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
 		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
@@ -639,11 +640,12 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 	 *     * The initiator performs an ECDH between its newly generated
 	 *       ephemeral key and the remote node's static public key.
 	 */
-	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data,
+	h->ss = tal(h, struct secret);
+	if (!secp256k1_ecdh(secp256k1_ctx, h->ss->data,
 			    &h->their_id.pubkey, h->e.priv.secret.data))
 		return handshake_failed(conn, h);
 
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss.data, sizeof(h->ss.data)));
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss->data, sizeof(h->ss->data)));
 
 	/* BOLT #8:
 	 *
@@ -651,7 +653,7 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 	 *     * A new temporary encryption key is generated, which is
 	 *       used to generate the authenticating MAC.
 	 */
-	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
+	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k1=0x%s,0x%s",
 		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
 		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
@@ -740,16 +742,16 @@ static struct io_plan *act_three_responder2(struct io_conn *conn,
 	 * 6. `ss = ECDH(rs, e.priv)`
 	 *      * where `e` is the responder's original ephemeral key
 	 */
-	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data, &h->their_id.pubkey,
+	if (!secp256k1_ecdh(secp256k1_ctx, h->ss->data, &h->their_id.pubkey,
 			    h->e.priv.secret.data))
 		return handshake_failed(conn, h);
 
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, &h->ss, sizeof(h->ss)));
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
 
 	/* BOLT #8:
 	 * 7. `ck, temp_k3 = HKDF(ck, ss)`
 	 */
-	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
+	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k3=0x%s,0x%s",
 		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
 		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
@@ -815,10 +817,10 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 	 *      * where `re` is the ephemeral key of the initiator, which was
 	 *        received during Act One
 	 */
-	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data, &h->re.pubkey,
+	if (!secp256k1_ecdh(secp256k1_ctx, h->ss->data, &h->re.pubkey,
 			    h->e.priv.secret.data))
 		return handshake_failed(conn, h);
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, &h->ss, sizeof(h->ss)));
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
 
 	/* BOLT #8:
 	 *
@@ -826,7 +828,7 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 	 *     * A new temporary encryption key is generated, which is
 	 *       used to generate the authenticating MAC.
 	 */
-	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
+	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k2=0x%s,0x%s",
 		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
 		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));
@@ -902,10 +904,11 @@ static struct io_plan *act_one_responder2(struct io_conn *conn,
 	 *    * The responder performs an ECDH between its static private key and
 	 *      the initiator's ephemeral public key.
 	 */
-	if (!hsm_do_ecdh(&h->ss, &h->re))
+	h->ss = hsm_do_ecdh(h, &h->re);
+	if (!h->ss)
 		return handshake_failed(conn, h);
 
-	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, &h->ss, sizeof(h->ss)));
+	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
 
 	/* BOLT #8:
 	 *
@@ -913,7 +916,7 @@ static struct io_plan *act_one_responder2(struct io_conn *conn,
 	 *    * A new temporary encryption key is generated, which will
 	 *      shortly be used to check the authenticating MAC.
 	 */
-	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, &h->ss, sizeof(h->ss));
+	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k1=0x%s,0x%s",
 		     tal_hexstr(tmpctx, &h->ck, sizeof(h->ck)),
 		     tal_hexstr(tmpctx, &h->temp_k, sizeof(h->temp_k)));

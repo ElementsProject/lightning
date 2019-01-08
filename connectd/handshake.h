@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_CONNECTD_HANDSHAKE_H
 #define LIGHTNING_CONNECTD_HANDSHAKE_H
 #include "config.h"
+#include <ccan/tal/tal.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
 
 struct crypto_state;
@@ -52,5 +53,5 @@ struct io_plan *responder_handshake_(struct io_conn *conn,
 				     void *cbarg);
 
 /* helper which is defined in connect.c */
-bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point);
+struct secret *hsm_do_ecdh(const tal_t *ctx, const struct pubkey *point);
 #endif /* LIGHTNING_CONNECTD_HANDSHAKE_H */
