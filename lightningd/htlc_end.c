@@ -111,7 +111,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    struct channel *channel, u64 id,
 			    u64 msatoshi, u32 cltv_expiry,
 			    const struct sha256 *payment_hash,
-			    const struct secret *shared_secret,
+			    const struct secret *shared_secret TAKES,
 			    const u8 *onion_routing_packet)
 {
 	struct htlc_in *hin = tal(ctx, struct htlc_in);
@@ -122,7 +122,10 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	hin->msatoshi = msatoshi;
 	hin->cltv_expiry = cltv_expiry;
 	hin->payment_hash = *payment_hash;
-	hin->shared_secret = *shared_secret;
+	if (shared_secret)
+		hin->shared_secret = tal_dup(hin, struct secret, shared_secret);
+	else
+		hin->shared_secret = NULL;
 	memcpy(hin->onion_routing_packet, onion_routing_packet,
 	       sizeof(hin->onion_routing_packet));
 

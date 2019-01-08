@@ -2,6 +2,7 @@
 #include "wallet.h"
 
 #include <bitcoin/script.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/key_derive.h>
 #include <common/wireaddr.h>
@@ -1186,8 +1187,11 @@ void wallet_htlc_save_in(struct wallet *wallet,
 		sqlite3_bind_null(stmt, 7);
 	sqlite3_bind_int(stmt, 8, in->hstate);
 
-	sqlite3_bind_blob(stmt, 9, &in->shared_secret,
-			  sizeof(in->shared_secret), SQLITE_TRANSIENT);
+	if (!in->shared_secret)
+		sqlite3_bind_null(stmt, 9);
+	else
+		sqlite3_bind_blob(stmt, 9, in->shared_secret,
+				  sizeof(*in->shared_secret), SQLITE_TRANSIENT);
 
 	sqlite3_bind_blob(stmt, 10, &in->onion_routing_packet,
 			  sizeof(in->onion_routing_packet), SQLITE_TRANSIENT);
@@ -1314,9 +1318,18 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 	in->failuremsg = sqlite3_column_arr(in, stmt, 8, u8);
 	in->failcode = sqlite3_column_int(stmt, 9);
 
-	assert(sqlite3_column_bytes(stmt, 11) == sizeof(struct secret));
-	memcpy(&in->shared_secret, sqlite3_column_blob(stmt, 11),
-	       sizeof(struct secret));
+	if (sqlite3_column_type(stmt, 11) == SQLITE_NULL) {
+		in->shared_secret = NULL;
+	} else {
+		assert(sqlite3_column_bytes(stmt, 11) == sizeof(struct secret));
+		in->shared_secret = tal(in, struct secret);
+		memcpy(in->shared_secret, sqlite3_column_blob(stmt, 11),
+		       sizeof(struct secret));
+#ifdef COMPAT_V062
+		if (memeqzero(in->shared_secret, sizeof(*in->shared_secret)))
+			in->shared_secret = tal_free(in->shared_secret);
+#endif
+	}
 
 	return ok;
 }

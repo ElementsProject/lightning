@@ -31,8 +31,8 @@ struct htlc_in {
 	/* Onion information */
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
 
-	/* Shared secret for us to send any failure message. */
-	struct secret shared_secret;
+	/* Shared secret for us to send any failure message (NULL if malformed) */
+	struct secret *shared_secret;
 
 	/* If a local error, this is non-zero. */
 	enum onion_type failcode;
@@ -124,7 +124,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    struct channel *channel, u64 id,
 			    u64 msatoshi, u32 cltv_expiry,
 			    const struct sha256 *payment_hash,
-			    const struct secret *shared_secret,
+			    const struct secret *shared_secret TAKES,
 			    const u8 *onion_routing_packet);
 
 /* You need to set the ID, then connect_htlc_out this! */
