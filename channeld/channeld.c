@@ -1240,13 +1240,13 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 		} else if (htlc->state == RCVD_REMOVE_COMMIT) {
 			if (htlc->r) {
 				struct fulfilled_htlc *f;
-				assert(!htlc->fail);
+				assert(!htlc->fail && !htlc->failcode);
 				f = tal_arr_expand(&fulfilled);
 				f->id = htlc->id;
 				f->payment_preimage = *htlc->r;
 			} else {
 				struct failed_htlc *f;
-				assert(htlc->fail);
+				assert(htlc->fail || htlc->failcode);
 				f = tal(failed, struct failed_htlc);
 				f->id = htlc->id;
 				f->failcode = htlc->failcode;
@@ -1585,7 +1585,6 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 	struct sha256 sha256_of_onion;
 	u16 failure_code;
 	struct htlc *htlc;
-	u8 *fail;
 
 	if (!fromwire_update_fail_malformed_htlc(msg, &channel_id, &id,
 						 &sha256_of_onion,
@@ -1602,12 +1601,16 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 	 *    `update_fail_malformed_htlc`:
 	 *      - MUST fail the channel.
 	 */
-	if (!(failure_code & BADONION)) {
+	/* We only handle these cases. */
+	if (failure_code != WIRE_INVALID_ONION_VERSION
+	    && failure_code != WIRE_INVALID_ONION_HMAC
+	    && failure_code != WIRE_INVALID_ONION_KEY) {
 		peer_failed(&peer->cs,
 			    &peer->channel_id,
 			    "Bad update_fail_malformed_htlc failure code %u",
 			    failure_code);
 	}
+	assert(failure_code & BADONION);
 
 	e = channel_fail_htlc(peer->channel, LOCAL, id, &htlc);
 	switch (e) {
@@ -1620,20 +1623,9 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 		 *    - MAY retry or choose an alternate error response.
 		 */
 
-		/* BOLT #2:
-		 *
-		 *  - otherwise, a receiving node which has an outgoing HTLC
-		 * canceled by `update_fail_malformed_htlc`:
-		 *
-		 *    - MUST return an error in the `update_fail_htlc` sent to
-		 *      the link which originally sent the HTLC, using the
-		 *      `failure_code` given and setting the data to
-		 *      `sha256_of_onion`.
-		 */
-		fail = tal_arr(htlc, u8, 0);
-		towire_u16(&fail, failure_code);
-		towire_sha256(&fail, &sha256_of_onion);
-		htlc->fail = fail;
+		/* This is the only case where we set failcode for a non-local
+		 * failure; in a way, it is, since we have to report it. */
+		htlc->failcode = failure_code;
 		start_commit_timer(peer);
 		return;
 	case CHANNEL_ERR_NO_SUCH_ID:

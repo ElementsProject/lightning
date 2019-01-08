@@ -40,6 +40,7 @@ changes.
 - JSON API: commands are once again read even if one hasn't responded yet (broken in 0.6.2).
 - Protocol: allow lnd to send `update_fee` before `funding_locked`.
 - Protocol: fix limit on how much funder can send (fee was 1000x too small)
+- Protocol: don't send invalid onion errors if peer says onion was bad.
 - pylightning: handle multiple simultanous RPC replies reliably.
 
 
