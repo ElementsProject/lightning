@@ -35,7 +35,7 @@ def on_disconnect(plugin, id):
 
 
 @plugin.hook("htlc_accepted")
-def on_htlc_accepted(plugin):
+def on_htlc_accepted(onion, htlc, plugin):
     plugin.log('on_htlc_accepted called')
     time.sleep(20)
     return None
