@@ -296,6 +296,9 @@ void json_object_start(struct json_stream *ks UNNEEDED, const char *fieldname UN
 /* Generated stub for json_stream_success */
 struct json_stream *json_stream_success(struct command *cmd UNNEEDED)
 { fprintf(stderr, "json_stream_success called!\n"); abort(); }
+/* Generated stub for json_tok_bin_from_hex */
+u8 *json_tok_bin_from_hex(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
+{ fprintf(stderr, "json_tok_bin_from_hex called!\n"); abort(); }
 /* Generated stub for json_tok_channel_id */
 bool json_tok_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			 struct channel_id *cid UNNEEDED)
@@ -313,6 +316,17 @@ bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, 
 bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			       struct node_id *id UNNEEDED)
 { fprintf(stderr, "json_to_node_id called!\n"); abort(); }
+/* Generated stub for json_to_number */
+bool json_to_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		    unsigned int *num UNNEEDED)
+{ fprintf(stderr, "json_to_number called!\n"); abort(); }
+/* Generated stub for json_to_preimage */
+bool json_to_preimage(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, struct preimage *preimage UNNEEDED)
+{ fprintf(stderr, "json_to_preimage called!\n"); abort(); }
+/* Generated stub for json_to_pubkey */
+bool json_to_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		    struct pubkey *pubkey UNNEEDED)
+{ fprintf(stderr, "json_to_pubkey called!\n"); abort(); }
 /* Generated stub for json_to_short_channel_id */
 bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			      struct short_channel_id *scid UNNEEDED,

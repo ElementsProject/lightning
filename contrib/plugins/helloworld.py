@@ -38,7 +38,7 @@ def on_disconnect(plugin, id):
 def on_htlc_accepted(onion, htlc, plugin):
     plugin.log('on_htlc_accepted called')
     time.sleep(20)
-    return None
+    return {'result': 'continue'}
 
 
 plugin.add_option('greeting', 'Hello', 'The greeting I should use.')
