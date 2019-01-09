@@ -128,6 +128,26 @@ bool json_to_bool(const char *buffer, const jsmntok_t *tok, bool *b)
 	return false;
 }
 
+u8 *json_tok_bin_from_hex(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
+{
+	u8 *result;
+	size_t hexlen, rawlen;
+	hexlen = tok->end - tok->start;
+	rawlen = hex_data_size(hexlen);
+
+	result = tal_arr(ctx, u8, rawlen);
+	if (!hex_decode(buffer + tok->start, hexlen, result, rawlen))
+		return tal_free(result);
+
+	return result;
+}
+
+bool json_to_preimage(const char *buffer, const jsmntok_t *tok, struct preimage *preimage)
+{
+	size_t hexlen = tok->end - tok->start;
+	return hex_decode(buffer + tok->start, hexlen, preimage->r, sizeof(preimage->r));
+}
+
 bool json_tok_is_num(const char *buffer, const jsmntok_t *tok)
 {
 	if (tok->type != JSMN_PRIMITIVE)
