@@ -621,6 +621,7 @@ struct htlc_accepted_hook_payload {
 	struct htlc_in *hin;
 	struct channel *channel;
 	struct lightningd *ld;
+	u8 *next_onion;
 };
 
 /**
@@ -642,6 +643,28 @@ htlc_accepted_hook_deserialize(const tal_t *ctx, const char *buffer,
 static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 					 struct json_stream *s)
 {
+	const struct route_step *rs = p->route_step;
+	const struct htlc_in *hin = p->hin;
+	json_object_start(s, "onion");
+
+	if (rs->hop_data.realm == 0x00) {
+		json_object_start(s, "per_hop_v0");
+		json_add_hex(s, "realm", &rs->hop_data.realm, 1);
+		json_add_short_channel_id(s, "short_channel_id", &rs->hop_data.channel_id);
+		json_add_amount_msat_only(s, "forward_amount", rs->hop_data.amt_forward);
+		json_add_u64(s, "outgoing_cltv_value", rs->hop_data.outgoing_cltv);
+		json_object_end(s);
+	}
+
+	json_add_hex_talarr(s, "next_onion", p->next_onion);
+	json_add_hex(s, "shared_secret", &hin->shared_secret, sizeof(hin->shared_secret));
+	json_object_end(s);
+
+	json_object_start(s, "htlc");
+	json_add_amount_msat_only(s, "amount", hin->msat);
+	json_add_u64(s, "cltv_expiry", hin->cltv_expiry);
+	json_add_hex(s, "payment_hash", hin->payment_hash.u.u8, sizeof(hin->payment_hash));
+	json_object_end(s);
 }
 
 /**
@@ -663,7 +686,7 @@ htlc_accepted_hook_callback(struct htlc_accepted_hook_payload *request,
 	if (rs->nextcase == ONION_FORWARD) {
 		struct gossip_resolve *gr = tal(ld, struct gossip_resolve);
 
-		gr->next_onion = serialize_onionpacket(gr, rs->next);
+		gr->next_onion = tal_steal(gr, request->next_onion);
 		gr->next_channel = rs->hop_data.channel_id;
 		gr->amt_to_forward = rs->hop_data.amt_forward;
 		gr->outgoing_cltv_value = rs->hop_data.outgoing_cltv;
@@ -784,6 +807,8 @@ static bool peer_accepted_htlc(struct channel *channel,
 	hook_payload->ld = ld;
 	hook_payload->hin = hin;
 	hook_payload->channel = channel;
+	hook_payload->next_onion = serialize_onionpacket(hook_payload, rs->next);
+
 	plugin_hook_call_htlc_accepted(ld, hook_payload, hook_payload);
 
 	/* Falling through here is ok, after all the HTLC locked */
