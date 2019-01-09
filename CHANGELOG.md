@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.3-rc1] - 2019-01-09
 
 ### Added
 
@@ -41,6 +41,7 @@ changes.
 - Protocol: allow lnd to send `update_fee` before `funding_locked`.
 - Protocol: fix limit on how much funder can send (fee was 1000x too small)
 - Protocol: don't send invalid onion errors if peer says onion was bad.
+- Protocol: don't crash when peer sends a 0-block-expiry HTLC.
 - pylightning: handle multiple simultanous RPC replies reliably.
 
 
@@ -229,6 +230,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
 [Unreleased]: https://github.com/ElementsProject/lightning/compare/v0.6.2...HEAD
+[0.6.3-rc1]: https://github.com/ElementsProject/lightning/compare/v0.6.3-rc1...HEAD
 [0.6.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.6.2
 [0.6.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.6.1
 [0.6]: https://github.com/ElementsProject/lightning/releases/tag/v0.6
