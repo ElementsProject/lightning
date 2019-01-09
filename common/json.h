@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_JSON_H
 #define LIGHTNING_COMMON_JSON_H
 #include "config.h"
+#include <bitcoin/preimage.h>
 #include <ccan/tal/tal.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -20,6 +21,12 @@ bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str);
 
 /* Allocate a tal string copy */
 char *json_strdup(const tal_t *ctx, const char *buffer, const jsmntok_t *tok);
+
+/* Decode a hex-encoded binary */
+u8 *json_tok_bin_from_hex(const tal_t *ctx, const char *buffer, const jsmntok_t *tok);
+
+/* Decode a hex-encoded payment preimage */
+bool json_to_preimage(const char *buffer, const jsmntok_t *tok, struct preimage *preimage);
 
 /* Extract number from this (may be a string, or a number literal) */
 bool json_to_number(const char *buffer, const jsmntok_t *tok,
