@@ -17,7 +17,6 @@ VALGRIND = os.getenv("VALGRIND", config['VALGRIND']) == "1"
 DEVELOPER = os.getenv("DEVELOPER", config['DEVELOPER']) == "1"
 TEST_DEBUG = os.getenv("TEST_DEBUG", "0") == "1"
 
-
 if TEST_DEBUG:
     logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 
