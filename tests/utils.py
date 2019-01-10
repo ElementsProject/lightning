@@ -526,7 +526,7 @@ class LightningNode(object):
         for out in decoded['vout']:
             if out['scriptPubKey']['type'] == 'witness_v0_scripthash':
                 if out['value'] == Decimal(amount) / 10**8:
-                    scid = "{}:1:{}".format(self.bitcoin.rpc.getblockcount(), out['n'])
+                    scid = "{}x1x{}".format(self.bitcoin.rpc.getblockcount(), out['n'])
                     break
 
         if not scid:
@@ -614,7 +614,7 @@ class LightningNode(object):
             'msatoshi': amt,
             'id': dst.info['id'],
             'delay': 5,
-            'channel': '1:1:1'
+            'channel': '1x1x1'
         }
 
         def wait_pay():

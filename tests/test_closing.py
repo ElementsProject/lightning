@@ -539,7 +539,7 @@ def test_onchaind_replay(node_factory, bitcoind):
         'msatoshi': 10**8 - 1,
         'id': l2.info['id'],
         'delay': 101,
-        'channel': '1:1:1'
+        'channel': '1x1x1'
     }
     l1.rpc.sendpay([routestep], rhash)
     l1.daemon.wait_for_log('sendrawtx exit 0')
@@ -593,7 +593,7 @@ def test_onchain_dust_out(node_factory, bitcoind, executor):
         'msatoshi': 1,
         'id': l2.info['id'],
         'delay': 5,
-        'channel': '1:1:1'
+        'channel': '1x1x1'
     }
 
     l1.rpc.sendpay([routestep], rhash)
@@ -656,7 +656,7 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
         'msatoshi': 10**8 - 1,
         'id': l2.info['id'],
         'delay': 5,
-        'channel': '1:1:1'
+        'channel': '1x1x1'
     }
 
     l1.rpc.sendpay([routestep], rhash)
@@ -814,7 +814,7 @@ def test_onchain_feechange(node_factory, bitcoind, executor):
         'msatoshi': 10**8 - 1,
         'id': l2.info['id'],
         'delay': 5,
-        'channel': '1:1:1'
+        'channel': '1x1x1'
     }
 
     executor.submit(l1.rpc.sendpay, [routestep], rhash)
@@ -891,7 +891,7 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
         'msatoshi': 10**7 - 1,
         'id': l2.info['id'],
         'delay': 5,
-        'channel': '1:1:1'
+        'channel': '1x1x1'
     }
 
     executor.submit(l1.rpc.sendpay, [routestep], rhash)

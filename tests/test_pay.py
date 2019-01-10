@@ -322,7 +322,7 @@ def test_sendpay(node_factory):
         'msatoshi': amt,
         'id': l2.info['id'],
         'delay': 5,
-        'channel': '1:1:1'
+        'channel': '1x1x1'
     }
 
     # Insufficient funds.
@@ -405,7 +405,7 @@ def test_sendpay(node_factory):
     # Overpaying by "only" a factor of 2 succeeds.
     rhash = l2.rpc.invoice(amt, 'testpayment3', 'desc')['payment_hash']
     assert only_one(l2.rpc.listinvoices('testpayment3')['invoices'])['status'] == 'unpaid'
-    routestep = {'msatoshi': amt * 2, 'id': l2.info['id'], 'delay': 5, 'channel': '1:1:1'}
+    routestep = {'msatoshi': amt * 2, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}
     l1.rpc.sendpay([routestep], rhash)
     preimage3 = l1.rpc.waitsendpay(rhash)['payment_preimage']
     assert only_one(l2.rpc.listinvoices('testpayment3')['invoices'])['status'] == 'paid'
@@ -438,7 +438,7 @@ def test_sendpay_cant_afford(node_factory):
         if not label:
             label = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
         rhash = ldst.rpc.invoice(amt, label, label)['payment_hash']
-        routestep = {'msatoshi': amt, 'id': ldst.info['id'], 'delay': 5, 'channel': '1:1:1'}
+        routestep = {'msatoshi': amt, 'id': ldst.info['id'], 'delay': 5, 'channel': '1x1x1'}
         lsrc.rpc.sendpay([routestep], rhash)
         lsrc.rpc.waitsendpay(rhash)
 
@@ -634,14 +634,14 @@ def test_decodepay(node_factory):
     assert len(b11['routes'][0]) == 2
     assert b11['routes'][0][0]['pubkey'] == '029e03a901b85534ff1e92c43c74431f7ce72046060fcf7a95c37e148f78c77255'
     # 0x010203:0x040506:0x0708
-    assert b11['routes'][0][0]['short_channel_id'] == '66051:263430:1800'
+    assert b11['routes'][0][0]['short_channel_id'] == '66051x263430x1800'
     assert b11['routes'][0][0]['fee_base_msat'] == 1
     assert b11['routes'][0][0]['fee_proportional_millionths'] == 20
     assert b11['routes'][0][0]['cltv_expiry_delta'] == 3
 
     assert b11['routes'][0][1]['pubkey'] == '039e03a901b85534ff1e92c43c74431f7ce72046060fcf7a95c37e148f78c77255'
     # 0x030405:0x060708:0x090a
-    assert b11['routes'][0][1]['short_channel_id'] == '197637:395016:2314'
+    assert b11['routes'][0][1]['short_channel_id'] == '197637x395016x2314'
     assert b11['routes'][0][1]['fee_base_msat'] == 2
     assert b11['routes'][0][1]['fee_proportional_millionths'] == 30
     assert b11['routes'][0][1]['cltv_expiry_delta'] == 4

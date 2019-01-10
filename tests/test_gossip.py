@@ -553,9 +553,9 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
 
     # Make public channels.
     scid12 = l1.fund_channel(l2, 10**5)
-    block12 = int(scid12.split(':')[0])
+    block12 = int(scid12.split('x')[0])
     scid23 = l2.fund_channel(l3, 10**5)
-    block23 = int(scid23.split(':')[0])
+    block23 = int(scid23.split('x')[0])
     bitcoind.generate_block(5)
 
     # Make sure l2 has received all the gossip.
@@ -747,7 +747,7 @@ def test_query_short_channel_id(node_factory, bitcoind):
     subprocess.run(['kill', '-USR1', l1.subd_pid('openingd')])
 
     # Empty result tests.
-    reply = l1.rpc.dev_query_scids(l2.info['id'], ['1:1:1', '2:2:2'])
+    reply = l1.rpc.dev_query_scids(l2.info['id'], ['1x1x1', '2x2x2'])
     # 0x0105 = query_short_channel_ids
     l1.daemon.wait_for_log(r'\[OUT\] 0105.*0000000100000100010000020000020002')
     assert reply['complete']

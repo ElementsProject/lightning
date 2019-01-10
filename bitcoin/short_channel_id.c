@@ -22,14 +22,22 @@ bool short_channel_id_from_str(const char *str, size_t strlen,
 	memcpy(buf, str, strlen);
 	buf[strlen] = 0;
 
-	matches = sscanf(buf, "%u:%u:%hu", &blocknum, &txnum, &outnum);
+#ifdef COMPAT_V062
+	/* Pre-adelaide format vs. post-adelaide format */
+	if (strchr(buf, ':'))
+		matches = sscanf(buf, "%u:%u:%hu", &blocknum, &txnum, &outnum);
+	else
+		matches = sscanf(buf, "%ux%ux%hu", &blocknum, &txnum, &outnum);
+#else
+	matches = sscanf(buf, "%ux%ux%hu", &blocknum, &txnum, &outnum);
+#endif
 	mk_short_channel_id(dst, blocknum, txnum, outnum);
 	return matches == 3;
 }
 
 char *short_channel_id_to_str(const tal_t *ctx, const struct short_channel_id *scid)
 {
-	return tal_fmt(ctx, "%d:%d:%d",
+	return tal_fmt(ctx, "%dx%dx%d",
 		       short_channel_id_blocknum(scid),
 		       short_channel_id_txnum(scid),
 		       short_channel_id_outnum(scid));
