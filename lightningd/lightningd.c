@@ -215,8 +215,9 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 *code. Here we initialize the context that will keep track and control
 	 *the plugins.
 	 */
+#ifdef PLUGINS
 	ld->plugins = plugins_new(ld, ld->log_book, ld->jsonrpc, ld);
-
+#endif
 	return ld;
 }
 
@@ -361,10 +362,11 @@ static const char *find_my_pkglibexec_path(struct lightningd *ld,
 
 	/*~ The plugin dir is in ../libexec/c-lightning/plugins, which (unlike
 	 * those given on the command line) does not need to exist. */
+#ifdef PLUGINS
 	add_plugin_dir(ld->plugins,
 		       path_join(tmpctx, pkglibexecdir, "plugins"),
 		       true);
-
+#endif
 	/*~ Sometimes take() can be more efficient, since the routine can
 	 * manipulate the string in place.  This is the case here. */
 	return path_simplify(ld, take(pkglibexecdir));
@@ -377,9 +379,11 @@ static const char *find_daemon_dir(struct lightningd *ld, const char *argv0)
 	/* If we're running in-tree, all the subdaemons are with lightningd. */
 	if (has_all_subdaemons(my_path)) {
 		/* In this case, look in ../plugins */
+#ifdef PLUGINS
 		add_plugin_dir(ld->plugins,
 			       path_join(tmpctx, my_path, "../plugins"),
 			       true);
+#endif
 		return my_path;
 	}
 
@@ -661,8 +665,9 @@ int main(int argc, char *argv[])
 	/*~ Initialize all the plugins we just registered, so they can
 	 *  do their thing and tell us about themselves (including
 	 *  options registration). */
+#ifdef PLUGINS
 	plugins_init(ld->plugins, ld->dev_debug_subprocess);
-
+#endif
 	/*~ Handle options and config; move to .lightningd (--lightning-dir) */
 	handle_opts(ld, argc, argv);
 
@@ -762,8 +767,9 @@ int main(int argc, char *argv[])
 
 	/*~ Now that the rpc path exists, we can start the plugins and they
 	 * can start talking to us. */
+#ifdef PLUGINS
 	plugins_config(ld->plugins);
-
+#endif
 	/*~ We defer --daemon until we've completed most initialization: that
 	 *  way we'll exit with an error rather than silently exiting 0, then
 	 *  realizing we can't start and forcing the confused user to read the
