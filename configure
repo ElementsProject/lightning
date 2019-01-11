@@ -10,7 +10,6 @@ CWARNFLAGS=${CWARNFLAGS:--Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-de
 CDEBUGFLAGS=${CDEBUGFLAGS:--std=gnu11 -g -fstack-protector}
 DEVELOPER=${DEVELOPER:-0}
 EXPERIMENTAL_FEATURES=${EXPERIMENTAL_FEATURES:-0}
-PLUGINS=${PLUGINS:-0}
 COMPAT=${COMPAT:-1}
 STATIC=${STATIC:-0}
 CONFIGURATOR_CC=${CONFIGURATOR_CC:-$CC}
@@ -56,10 +55,6 @@ usage()
     echo "    Compatibility mode, good to disable to see if your software breaks"
     usage_with_default "--enable/disable-valgrind" "(autodetect)"
     echo "    Valgrind binary to use for tests"
-    usage_with_default "--enable/disable-experimental-features" "disable"
-    echo "    Experimental features (not for network use!)"
-    usage_with_default "--enable/disable-plugins" "disable"
-    echo "    Support for plugins"
     usage_with_default "--enable/disable-static" "$STATIC" "enable" "disable" 
     echo "    Static link binary"
     exit 1
@@ -118,8 +113,6 @@ for opt in "$@"; do
 	--disable-developer) DEVELOPER=0;;
 	--enable-experimental-features) EXPERIMENTAL_FEATURES=1;;
 	--disable-experimental-features) EXPERIMENTAL_FEATURES=0;;
-	--enable-plugins) PLUGINS=1;;
-	--disable-plugins) PLUGINS=0;;
 	--enable-compat) COMPAT=1;;
 	--disable-compat) COMPAT=0;;
 	--enable-valgrind) VALGRIND=1;;
@@ -158,7 +151,6 @@ add_var CDEBUGFLAGS "$CDEBUGFLAGS"
 add_var VALGRIND "$VALGRIND"
 add_var DEVELOPER "$DEVELOPER" $CONFIG_HEADER
 add_var EXPERIMENTAL_FEATURES "$EXPERIMENTAL_FEATURES" $CONFIG_HEADER
-add_var PLUGINS "$PLUGINS" $CONFIG_HEADER
 add_var COMPAT "$COMPAT" $CONFIG_HEADER
 add_var PYTEST "$PYTEST"
 add_var STATIC "$STATIC"
