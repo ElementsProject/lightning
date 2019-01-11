@@ -288,3 +288,56 @@ def test_invoice_payment_hook(node_factory):
     l2.daemon.wait_for_log('label=label2')
     l2.daemon.wait_for_log('msat=')
     l2.daemon.wait_for_log('preimage=' + '0' * 64)
+
+
+def test_htlc_accepted_hook_fail(node_factory):
+    """Send payments from l1 to l2, but l2 just declines everything.
+
+    l2 is configured with a plugin that'll hook into htlc_accepted and
+    always return failures. The same should also work for forwarded
+    htlcs in the second half.
+
+    """
+    l1, l2, l3 = node_factory.line_graph(3, opts=[
+        {},
+        {'plugin': 'tests/plugins/fail_htlcs.py'},
+        {}
+    ], wait_for_announce=True)
+
+    # This must fail
+    inv = l2.rpc.invoice(1000, "lbl", "desc")['bolt11']
+    with pytest.raises(RpcError) as excinfo:
+        l1.rpc.pay(inv)
+    assert excinfo.value.error['data']['failcode'] == 16399
+    assert excinfo.value.error['data']['erring_index'] == 1
+
+    # And the invoice must still be unpaid
+    inv = l2.rpc.listinvoices("lbl")['invoices']
+    assert len(inv) == 1 and inv[0]['status'] == 'unpaid'
+
+    # Now try with forwarded HTLCs: l2 should still fail them
+    # This must fail
+    inv = l3.rpc.invoice(1000, "lbl", "desc")['bolt11']
+    with pytest.raises(RpcError) as excinfo:
+        l1.rpc.pay(inv)
+
+    # And the invoice must still be unpaid
+    inv = l3.rpc.listinvoices("lbl")['invoices']
+    assert len(inv) == 1 and inv[0]['status'] == 'unpaid'
+
+
+def test_htlc_accepted_hook_resolve(node_factory):
+    """l3 creates an invoice, l2 knows the preimage and will shortcircuit.
+    """
+    l1, l2, l3 = node_factory.line_graph(3, opts=[
+        {},
+        {'plugin': 'tests/plugins/shortcircuit.py'},
+        {}
+    ], wait_for_announce=True)
+
+    inv = l3.rpc.invoice(msatoshi=1000, label="lbl", description="desc", preimage="00" * 32)['bolt11']
+    l1.rpc.pay(inv)
+
+    # And the invoice must still be unpaid
+    inv = l3.rpc.listinvoices("lbl")['invoices']
+    assert len(inv) == 1 and inv[0]['status'] == 'unpaid'
