@@ -1,0 +1,129 @@
+'\" t
+.\"     Title: lightning-listforwards
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 05/23/2019
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LIGHTNING\-LISTFORWA" "7" "05/23/2019" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lightning-listforwards \- Command showing all htlcs and their information\&.
+.SH "SYNOPSIS"
+.sp
+\fBlistforwards\fR
+.SH "DESCRIPTION"
+.sp
+The \fBlistforwards\fR RPC command displays all htlcs that have been attempted to be forwarded by the c\-lightning node\&.
+.SH "RETURN VALUE"
+.sp
+On success one array will be returned: \fIforwards\fR with htlcs that have been processed
+.sp
+Each entry in \fIforwards\fR will include:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIin_channel\fR
+\- the short_channel_id of the channel that recieved the incoming htlc\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIout_channel\fR
+\- the short_channel_id of to which the outgoing htlc is supposed to be forwarded\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIin_msatoshi\fR
+\- amount of msatoshis that are forwarded to this node\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIout_msatoshi\fR
+\- amount of msatoshis to be forwarded\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIfee\fR
+\- fee offered for forwarding the htlc in msatoshi\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fIstatus\fR
+\- status can be either
+\fIoffered\fR
+if the routing process is still ongoing,
+\fIsettled\fR
+if the routing process is completed or
+\fIfailed\fR
+if the routing process could not be completed\&.
+.RE
+.SH "AUTHOR"
+.sp
+Rene Pickhardt <r\&.pickhardt@gmail\&.com> is mainly responsible\&.
+.SH "SEE ALSO"
+.sp
+lightning\-getinfo(7)
+.SH "RESOURCES"
+.sp
+Main web site: https://github\&.com/ElementsProject/lightning
