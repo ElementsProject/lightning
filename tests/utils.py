@@ -41,7 +41,6 @@ EXPERIMENTAL_FEATURES = os.getenv("EXPERIMENTAL_FEATURES", config['EXPERIMENTAL_
 TIMEOUT = int(os.getenv("TIMEOUT", "60"))
 VALGRIND = os.getenv("VALGRIND", config['VALGRIND']) == "1"
 SLOW_MACHINE = os.getenv("SLOW_MACHINE", "0") == "1"
-PLUGINS = os.getenv("PLUGINS", config['PLUGINS']) == "1"
 
 
 def wait_for(success, timeout=TIMEOUT):
