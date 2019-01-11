@@ -5,6 +5,9 @@ if [ $# = 0 ]; then
     exit 1
 fi
 
+# If no git dir, forget it.
+[ -d .git ] || exit 0
+
 # git submodule can't run in parallel.  Really.
 if ! mkdir .refresh-submodules 2>/dev/null ; then
     exit 0
