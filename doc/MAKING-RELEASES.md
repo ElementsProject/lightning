@@ -30,11 +30,12 @@ Here's a checklist for the release process.
    [Unreleased] footnote URL from the previous version to the
    about-to-be-released version.
 2. Commit that, then `git tag -s v<VERSION>  && git push --tags`.
-3. Run `contrib/build-release.sh` to create the images and `SHA256SUMS`.
-4. Upload the files resulting files the release notes to github and
+3. Run `tools/build-release.sh` to create the images, `SHA256SUMS` and
+   signatures into release/.
+4. Upload the files resulting files to github and
    save as a draft.
    (https://github.com/ElementsProject/lightning/releases/)
-5. Ping the rest of the team to check the SHA256SUMS file and then
+5. Ping the rest of the team to check the SHA256SUMS file and have them
    `gpg -sb --armor SHA256SUMS`.
 6. Append the signatures into a file called `SHA256SUMS.asc`, verify
    with `gpg --verify SHA256SUMS.asc` and include the file in the draft
