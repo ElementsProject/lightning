@@ -49,7 +49,13 @@ for platform in Fedora-28-amd64 Ubuntu-16.04-amd64 Ubuntu-16.04-i386; do
     docker run --rm=true -w /build $TAG rm -rf /"$VERSION-$platform" /build
 done
 
-git archive --format=zip -o release/clightning-"$VERSION".zip --prefix=lightning-master/ master
+# git archive won't go into submodules :(
+ln -sf .. "release/clightning-$VERSION"
+FILES=$(git ls-files --recurse-submodules | sed "s,^,clightning-$VERSION/,")
+# shellcheck disable=SC2086
+(cd release && zip "clightning-$VERSION.zip" $FILES)
+rm "release/clightning-$VERSION"
+exit 0
 
 sha256sum release/clightning-"$VERSION"* > release/SHA256SUMS
 gpg -sb --armor -o release/SHA256SUMS.asc-"$(gpgconf --list-options gpg | awk -F: '$1 == "default-key" {print $10}' | tr -d '"')" release/SHA256SUMS
