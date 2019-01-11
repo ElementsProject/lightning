@@ -1,4 +1,28 @@
-lightningd (0.6.2rc1-1) stable; urgency=low
+lightningd (0.6.3-1) stable; urgency=low
+
+  * JSON API: New command check checks the validity of a JSON API call without running it.
+  * JSON API: getinfo now returns num_peers num_pending_channels, num_active_channels and num_inactive_channels fields.
+  * JSON API: use \n\n to terminate responses, for simplified parsing (pylightning now relies on this)
+  * JSON API: fundchannel now includes an announce option, when false it will keep channel private. Defaults to true.
+  * JSON API: listpeers's channels now includes a private flag to indicate if channel is announced or not.
+  * Plugins: experimental plugin support for lightningd, including option passthrough and JSON-RPC passthrough.
+  * JSON API: pay and decodepay accept and ignore lightning: prefixes.
+  * pylightning: Allow either keyword arguments or positional arguments.
+  * JSON-RPC: messages are now separated by 2 consecutive newlines.
+  * JSON-RPC: jsonrpc:2.0 now included in json-rpc command calls. complies with spec.
+  * pylightning: Support for pre-2-newline JSON-RPC (<= 0.6.2 lightningd) is deprecated.
+  * option_data_loss_protect is now only offered if EXPERIMENTAL_FEATURES is enabled, since it seems incompatible with lnd and has known bugs.
+  * JSON API: uppercase invoices now parsed correctly (broken in 0.6.2).
+  * JSON API: commands are once again read even if one hasn't responded yet (broken in 0.6.2).
+  * Protocol: allow lnd to send update_fee before funding_locked.
+  * Protocol: fix limit on how much funder can send (fee was 1000x too small)
+  * Protocol: don't send invalid onion errors if peer says onion was bad.
+  * Protocol: don't crash when peer sends a 0-block-expiry HTLC.
+  * pylightning: handle multiple simultanous RPC replies reliably.
+
+ -- Christian Decker <decker.christian@gmail.com>  Fri, 11 Jan 2019 10:36:00 -0400
+
+lightningd (0.6.2-1) stable; urgency=low
 
   * JSON API: listpeers has new field scratch_txid: the latest tx in channel.
   * JSON API: listpeers has new array htlcs: the current live payments.
