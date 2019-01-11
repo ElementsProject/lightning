@@ -195,8 +195,10 @@ static void bcli_finished(struct io_conn *conn UNUSED, struct bitcoin_cli *bcli)
 	} else
 		*bcli->exitstatus = WEXITSTATUS(status);
 
-	if (WEXITSTATUS(status) == 0)
+	if (WEXITSTATUS(status) == 0) {
 		bitcoind->error_count = 0;
+		bitcoind->first_error_time = 0;
+	}
 
 	bitcoind->num_requests[bcli->prio]--;
 
@@ -870,6 +872,7 @@ struct bitcoind *new_bitcoind(const tal_t *ctx,
 	}
 	bitcoind->shutdown = false;
 	bitcoind->error_count = 0;
+	bitcoind->first_error_time = 0;
 	bitcoind->rpcuser = NULL;
 	bitcoind->rpcpass = NULL;
 	bitcoind->rpcconnect = NULL;
