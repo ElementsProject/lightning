@@ -11,6 +11,7 @@
 #include <common/memleak.h>
 #include <common/utils.h>
 #include <common/version.h>
+#include <libgen.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -175,7 +176,7 @@ static void add_input(char **cmd, const char *input,
 }
 
 static void
-try_exec_man (const char *page) {
+try_exec_man (const char *page, char *relative_to) {
 	int status;
 
 	switch (fork()) {
@@ -183,7 +184,14 @@ try_exec_man (const char *page) {
 		err(1, "Forking man command");
 	case 0:
 		/* child, run man command. */
-		execlp("man", "man", page, (char *)NULL);
+		if (relative_to != NULL) {
+			page = tal_fmt(page, "%s/../doc/%s.7", relative_to, page);
+			execlp("man", "man", "-l", page, (char *)NULL);
+		}
+		else {
+			execlp("man", "man", page, (char *)NULL);
+		}
+
 		err(1, "Running man command");
 	default:
 		break;
@@ -254,9 +262,16 @@ int main(int argc, char *argv[])
 	 * not need to have lightningd running in this case. */
 	if (streq(method, "help") && format == HUMAN && argc >= 3) {
 		command = argv[2];
-		char page[strlen(command) + sizeof("lightning-")];
-		snprintf(page, sizeof(page), "lightning-%s", command);
-		try_exec_man(page);
+		char *page = tal_fmt(ctx, "lightning-%s", command);
+
+		try_exec_man(page, NULL);
+
+		/* Try to find the page relative to this executable.
+		 * This handles the common scenario where lightning-cli
+		 * was built from source and hasn't been installed yet */
+		try_exec_man(page, dirname(argv[0]));
+
+		tal_free(page);
 	}
 
 	if (chdir(lightning_dir) != 0)
