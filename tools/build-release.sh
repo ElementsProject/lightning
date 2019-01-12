@@ -50,10 +50,10 @@ for platform in Fedora-28-amd64 Ubuntu-16.04-amd64 Ubuntu-16.04-i386; do
 done
 
 # git archive won't go into submodules :(
-ln -sf .. release/clightning-$VERSION
-FILES=`git ls-files --recurse-submodules | sed "s,^,clightning-$VERSION/,"`
-(cd release && zip clightning-$VERSION.zip $FILES)
-rm release/clightning-$VERSION
+ln -sf .. "release/clightning-$VERSION"
+FILES=$(git ls-files --recurse-submodules | sed "s,^,clightning-$VERSION/,")
+(cd release && zip "clightning-$VERSION.zip" "$FILES")
+rm "release/clightning-$VERSION"
 exit 0
 
 sha256sum release/clightning-"$VERSION"* > release/SHA256SUMS
