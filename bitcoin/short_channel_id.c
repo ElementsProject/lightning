@@ -3,6 +3,25 @@
 #include <stdio.h>
 #include <string.h>
 
+/* BOLT#07:
+ *
+ * The `short_channel_id` is the unique description of the funding
+ * transaction. It is constructed as follows:
+
+ * 1. the most significant 3 bytes: indicating the block height
+ * 2. the next 3 bytes: indicating the transaction index within the block
+ * 3. the least significant 2 bytes: indicating the output index that pays to the channel.
+ *
+ * The standard human readable format for `short_channel_id` is created
+ * by printing the above components, in the order: block height,
+ * transaction index, and output index. Each component is printed as a
+ * decimal number, and separated from each other by the small letter
+ * `x`. For example, a `short_channel_id` might be written as
+ * `539268x845x1`, indicating a channel on the output 1 of the
+ * transaction at index 845 of the block at height 539268.
+*/
+
+
 void mk_short_channel_id(struct short_channel_id *scid,
 			 u32 blocknum, u32 txnum, u16 outnum)
 {
