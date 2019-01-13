@@ -675,7 +675,7 @@ static bool process_getblockhash_for_txout(struct bitcoin_cli *bcli)
 	/* Strip the newline at the end of the previous output */
 	blockhash = tal_strndup(NULL, bcli->output, bcli->output_bytes-1);
 
-	start_bitcoin_cli(bcli->bitcoind, NULL, process_getblock, false,
+	start_bitcoin_cli(bcli->bitcoind, NULL, process_getblock, true,
 			  BITCOIND_LOW_PRIO,
 			  cb, go,
 			  "getblock", take(blockhash), NULL);
