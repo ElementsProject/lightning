@@ -901,7 +901,7 @@ char *add_plugin_dir(struct plugins *plugins, const char *dir, bool nonexist_ok)
 	while ((di = readdir(d)) != NULL) {
 		const char *fullpath;
 
-		if (streq(di->d_name, ".") || streq(di->d_name, ".."))
+		if (streq(di->d_name, ".") || streq(di->d_name, "..") || streq(di->d_name, "README.md"))
 			continue;
 		fullpath = plugin_fullpath(NULL, dir, di->d_name);
 		if (fullpath)
