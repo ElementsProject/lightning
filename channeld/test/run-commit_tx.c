@@ -497,25 +497,25 @@ int main(void)
 
 	/* BOLT #3:
 	 *
-	 * <!-- The test vector values are derived, as per Key Derivation,
-	 *      though it's not required for this test. They're included here
-	 *      for completeness and in case someone wants to reproduce the
-	 *      test vectors themselves:
-         *
-         * INTERNAL: remote_funding_privkey: 1552dfba4f6cf29a62a0af13c8d6981d36d0ef8d61ba10fb0fe90da7634d7e130101
-         * INTERNAL: local_payment_basepoint_secret: 111111111111111111111111111111111111111111111111111111111111111101
-         * INTERNAL: remote_revocation_basepoint_secret: 222222222222222222222222222222222222222222222222222222222222222201
-         * INTERNAL: local_delayed_payment_basepoint_secret: 333333333333333333333333333333333333333333333333333333333333333301
-         * INTERNAL: remote_payment_basepoint_secret: 444444444444444444444444444444444444444444444444444444444444444401
-         * x_local_per_commitment_secret: 1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a0908070605040302010001
-         * # From remote_revocation_basepoint_secret
-         * INTERNAL: remote_revocation_basepoint: 02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27
-         * # From local_delayed_payment_basepoint_secret
-         * INTERNAL: local_delayed_payment_basepoint: 023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1
-         * INTERNAL: local_per_commitment_point: 025f7117a78150fe2ef97db7cfc83bd57b2e2c0d0dd25eaf467a4a1c2a45ce1486
-         * INTERNAL: remote_privkey: 8deba327a7cc6d638ab0eb025770400a6184afcba6713c210d8d10e199ff2fda01
-         * # From local_delayed_payment_basepoint_secret, local_per_commitment_point and local_delayed_payment_basepoint
-         * INTERNAL: local_delayed_privkey: adf3464ce9c2f230fd2582fda4c6965e4993ca5524e8c9580e3df0cf226981ad01
+	 * <!-- The test vector values are derived, as per Key Derivation, though it's not
+	 * required for this test. They're included here for completeness and
+	 * in case someone wants to reproduce the test vectors themselves:
+	 *
+	 * INTERNAL: remote_funding_privkey: 1552dfba4f6cf29a62a0af13c8d6981d36d0ef8d61ba10fb0fe90da7634d7e1301
+	 * INTERNAL: local_payment_basepoint_secret: 111111111111111111111111111111111111111111111111111111111111111101
+	 * INTERNAL: remote_revocation_basepoint_secret: 222222222222222222222222222222222222222222222222222222222222222201
+	 * INTERNAL: local_delayed_payment_basepoint_secret: 333333333333333333333333333333333333333333333333333333333333333301
+	 * INTERNAL: remote_payment_basepoint_secret: 444444444444444444444444444444444444444444444444444444444444444401
+	 * x_local_per_commitment_secret: 1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a0908070605040302010001
+	 * # From remote_revocation_basepoint_secret
+	 * INTERNAL: remote_revocation_basepoint: 02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27
+	 * # From local_delayed_payment_basepoint_secret
+	 * INTERNAL: local_delayed_payment_basepoint: 023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1
+	 * INTERNAL: local_per_commitment_point: 025f7117a78150fe2ef97db7cfc83bd57b2e2c0d0dd25eaf467a4a1c2a45ce1486
+	 * INTERNAL: remote_privkey: 8deba327a7cc6d638ab0eb025770400a6184afcba6713c210d8d10e199ff2fda01
+	 * # From local_delayed_payment_basepoint_secret, local_per_commitment_point and local_delayed_payment_basepoint
+	 * INTERNAL: local_delayed_privkey: adf3464ce9c2f230fd2582fda4c6965e4993ca5524e8c9580e3df0cf226981ad01
+	 * -->
 	 */
 	local_funding_privkey.secret = secret_from_hex("30ff4956bbdd3222d44cc5e8a1261dab1e07957bdac5ae88fe3261ef321f374901");
 	x_remote_funding_privkey.secret = secret_from_hex("1552dfba4f6cf29a62a0af13c8d6981d36d0ef8d61ba10fb0fe90da7634d7e1301");

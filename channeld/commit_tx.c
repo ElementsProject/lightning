@@ -268,8 +268,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 	/* BOLT #3:
 	 *
-	 * * locktime: upper 8 bits are 0x20, lower 24 bits are the lower
-	 *   24 bits of the obscured commitment transaction number
+	 * * locktime: upper 8 bits are 0x20, lower 24 bits are the lower 24 bits of the obscured commitment number
 	 */
 	tx->lock_time
 		= (0x20000000 | (obscured_commitment_number & 0xFFFFFF));
@@ -285,8 +284,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 	/* BOLT #3:
 	 *
-	 *    * `txin[0]` sequence: upper 8 bits are 0x80, lower 24 bits are
-	 *       upper 24 bits of the obscured commitment transaction number
+	 *    * `txin[0]` sequence: upper 8 bits are 0x80, lower 24 bits are upper 24 bits of the obscured commitment number
 	 */
 	tx->input[0].sequence_number
 		= (0x80000000 | ((obscured_commitment_number>>24) & 0xFFFFFF));

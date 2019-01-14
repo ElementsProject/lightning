@@ -425,12 +425,10 @@ static void channel_announcement_negotiate(struct peer *peer)
 	/* BOLT #7:
 	 *
 	 * A node:
-	 *   - if the `open_channel` message has the `announce_channel` bit set
-	 *     AND a `shutdown` message has not been sent:
+	 *   - if the `open_channel` message has the `announce_channel` bit set AND a `shutdown` message has not been sent:
 	 *     - MUST send the `announcement_signatures` message.
-	 *       - MUST NOT send `announcement_signatures` messages until
-	 *         `funding_locked` has been sent AND the funding transaction has
-	 *         at least six confirmations.
+	 *       - MUST NOT send `announcement_signatures` messages until `funding_locked`
+	 *       has been sent and received AND the funding transaction has at least six confirmations.
 	 *   - otherwise:
 	 *     - MUST NOT send the `announcement_signatures` message.
 	 */
@@ -439,10 +437,9 @@ static void channel_announcement_negotiate(struct peer *peer)
 
 	/* BOLT #7:
 	 *
-	 *      - MUST NOT send `announcement_signatures` messages until
-	 *      `funding_locked` has been sent AND the funding transaction has
-	 *      at least six confirmations.
-	 */
+	 *      - MUST NOT send `announcement_signatures` messages until `funding_locked`
+	 *      has been sent and received AND the funding transaction has at least six confirmations.
+ 	 */
 	if (peer->announce_depth_reached && !peer->have_sigs[LOCAL]) {
 		send_announcement_signatures(peer);
 		peer->have_sigs[LOCAL] = true;
