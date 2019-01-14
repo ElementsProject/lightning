@@ -1297,11 +1297,10 @@ static void handle_mutual_close(const struct bitcoin_txid *txid,
 
 	/* BOLT #5:
 	 *
-	 * A mutual close transaction *resolves* the funding transaction output.
+	 * A closing transaction *resolves* the funding transaction output.
 	 *
-	 * In the case of a mutual close, a node need not do anything else, as
-	 * it has already agreed to the output, which is sent to its specified
-	 * `scriptpubkey`
+	 * In the case of a mutual close, a node need not do anything else, as it has
+	 * already agreed to the output, which is sent to its specified `scriptpubkey`
 	 */
 	resolved_by_other(outs[0], txid, MUTUAL_CLOSE);
 
@@ -2015,14 +2014,10 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		if (matches_direction(matches, htlcs) == LOCAL) {
 			/* BOLT #5:
 			 *
-			 *  - MUST *resolve* the _local node's offered HTLCs_
-			 *    in one of three ways:
-			 *    * spend the *commitment tx* using the payment
-			 *      revocation private key.
-			 *    * spend the *commitment tx* using the payment
-			 *      preimage (if known).
-			 *    * spend the *HTLC-timeout tx*, if the remote node
-			 *      has published it.
+			 *   - MUST *resolve* the _local node's offered HTLCs_ in one of three ways:
+			 *     * spend the *commitment tx* using the payment revocation private key.
+			 *     * spend the *commitment tx* once the HTLC timeout has passed.
+			 *     * spend the *HTLC-success tx*, if the remote node has published it.
 			 */
 			out = new_tracked_output(&outs, txid,
 						 tx_blockheight,
@@ -2044,12 +2039,10 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 						 NULL);
 			/* BOLT #5:
 			 *
-			 *  - MUST *resolve* the _remote node's offered HTLCs_
-			 *    in one of two ways:
-			 *     * spend the *commitment tx* using the payment
-			 *       revocation key.
-			 *     * spend the *commitment tx* once the HTLC timeout
-			 *       has passed.
+			 *   - MUST *resolve* the _remote node's offered HTLCs_ in one of three ways:
+			 *     * spend the *commitment tx* using the payment revocation private key.
+			 *     * spend the *commitment tx* using the payment preimage (if known).
+			 *     * spend the *HTLC-timeout tx*, if the remote node has published it.
 			 */
 			steal_htlc(out);
 		}

@@ -1210,7 +1210,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	/* BOLT #7:
 	 *
 	 *  - if the `timestamp` is unreasonably far in the future:
-	 *    - MAY discard the `channel_announcement`.
+	 *    - MAY discard the `channel_update`.
 	 */
 	if (timestamp > time_now().ts.tv_sec + rstate->prune_timeout) {
 		status_debug("Received channel_update for %s with far time %u",

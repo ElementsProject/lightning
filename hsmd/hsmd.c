@@ -1459,12 +1459,13 @@ static struct io_plan *handle_sign_invoice(struct io_conn *conn,
 
 	/* BOLT #11:
 	 *
-	 * A writer MUST set `signature` to a valid 512-bit secp256k1
-	 * signature of the SHA2 256-bit hash of the human-readable part,
-	 * represented as UTF-8 bytes, concatenated with the data part
-	 * (excluding the signature) with zero bits appended to pad the data
-	 * to the next byte boundary, with a trailing byte containing the
-	 * recovery ID (0, 1, 2 or 3).
+	 * A writer... MUST set `signature` to a valid 512-bit
+	 * secp256k1 signature of the SHA2 256-bit hash of the
+	 * human-readable part, represented as UTF-8 bytes,
+	 * concatenated with the data part (excluding the signature)
+	 * with 0 bits appended to pad the data to the next byte
+	 * boundary, with a trailing byte containing the recovery ID
+	 * (0, 1, 2, or 3).
 	 */
 
 	/* FIXME: Check invoice! */

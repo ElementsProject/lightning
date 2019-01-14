@@ -109,10 +109,9 @@ static inline void check_act_three(const struct act_three *act3)
 {
 	/* BOLT #8:
 	 *
-	 * 1 byte for the handshake version, 33 bytes for the ephemeral
-	 * public key encrypted with the `ChaCha20` stream cipher, 16 bytes
-	 * for the encrypted public key's tag generated via the AEAD
-	 * construction, and 16 bytes for a final authenticating tag.
+	 * 1 byte for the handshake version, 33 bytes for the
+	 * compressed ephemeral public key of the initiator, and 16
+	 * bytes for the `poly1305` tag.
 	 */
 	BUILD_ASSERT(sizeof(act3->v) == 1);
 	BUILD_ASSERT(sizeof(act3->ciphertext) == 33 + 16);
