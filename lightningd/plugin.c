@@ -884,6 +884,12 @@ static const char *plugin_fullpath(const tal_t *ctx, const char *dir,
 	/* Must be executable by someone. */
 	if (!(st.st_mode & (S_IXUSR|S_IXGRP|S_IXOTH)))
 		return tal_free(fullname);
+
+	/* Someone actually runs this on NTFS, where everything apparently is
+	 * executable!  This prevents the most obvious damage. */
+	if (streq(basename, "README.md"))
+		return tal_free(fullname);
+
 	return fullname;
 }
 
@@ -901,7 +907,7 @@ char *add_plugin_dir(struct plugins *plugins, const char *dir, bool nonexist_ok)
 	while ((di = readdir(d)) != NULL) {
 		const char *fullpath;
 
-		if (streq(di->d_name, ".") || streq(di->d_name, "..") || streq(di->d_name, "README.md"))
+		if (streq(di->d_name, ".") || streq(di->d_name, ".."))
 			continue;
 		fullpath = plugin_fullpath(NULL, dir, di->d_name);
 		if (fullpath)
