@@ -281,7 +281,7 @@ static void handle_localpay(struct htlc_in *hin,
 	}
 
 	if (!wallet_invoice_find_unpaid(ld->wallet, &invoice, payment_hash)) {
-		failcode = WIRE_UNKNOWN_PAYMENT_HASH;
+		failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
 		goto fail;
 	}
 	details = wallet_invoice_details(tmpctx, ld->wallet, invoice);
@@ -292,19 +292,19 @@ static void handle_localpay(struct htlc_in *hin,
 	 *...
 	 *   - if the amount paid is less than the amount expected:
 	 *     - MUST fail the HTLC.
-	 *...
-	 *   - if the amount paid is more than twice the amount expected:
-	 *     - SHOULD fail the HTLC.
-	 *     - SHOULD return an `incorrect_payment_amount` error.
-	 *       - Note: this allows the origin node to reduce information
-	 *         leakage by altering the amount while not allowing for
-	 *         accidental gross overpayment.
 	 */
 	if (details->msatoshi != NULL && hin->msatoshi < *details->msatoshi) {
-		failcode = WIRE_INCORRECT_PAYMENT_AMOUNT;
+		failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
 		goto fail;
 	} else if (details->msatoshi != NULL && hin->msatoshi > *details->msatoshi * 2) {
-		failcode = WIRE_INCORRECT_PAYMENT_AMOUNT;
+		/* FIXME: bolt update fixes this quote! */
+		/* BOLT #4:
+		 *
+		 *   - if the amount paid is more than twice the amount expected:
+		 *     - SHOULD fail the HTLC.
+		 *     - SHOULD return an `incorrect_payment_amount` error.
+		 */
+		failcode = WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS;
 		goto fail;
 	}
 
