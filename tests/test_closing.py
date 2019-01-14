@@ -1060,12 +1060,12 @@ def setup_multihtlc_test(node_factory, bitcoind):
     # First, the failed attempts (paying wrong node).  CLTV1
     r = nodes[0].rpc.getroute(nodes[-2].info['id'], 10**8, 1)["route"]
     nodes[0].rpc.sendpay(r, h)
-    with pytest.raises(RpcError, match=r'UNKNOWN_PAYMENT_HASH'):
+    with pytest.raises(RpcError, match=r'INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
         nodes[0].rpc.waitsendpay(h)
 
     r = nodes[-1].rpc.getroute(nodes[1].info['id'], 10**8, 1)["route"]
     nodes[-1].rpc.sendpay(r, h)
-    with pytest.raises(RpcError, match=r'UNKNOWN_PAYMENT_HASH'):
+    with pytest.raises(RpcError, match=r'INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
         nodes[-1].rpc.waitsendpay(h)
 
     # Now increment CLTV -> CLTV2

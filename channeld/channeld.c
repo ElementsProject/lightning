@@ -863,11 +863,9 @@ static u8 *make_failmsg(const tal_t *ctx,
 	case WIRE_EXPIRY_TOO_FAR:
 		msg = towire_expiry_too_far(ctx);
 		goto done;
-	case WIRE_UNKNOWN_PAYMENT_HASH:
-		msg = towire_unknown_payment_hash(ctx);
-		goto done;
-	case WIRE_INCORRECT_PAYMENT_AMOUNT:
-		msg = towire_incorrect_payment_amount(ctx);
+	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
+		msg = towire_incorrect_or_unknown_payment_details(
+		    ctx, htlc->msatoshi);
 		goto done;
 	case WIRE_FINAL_EXPIRY_TOO_SOON:
 		msg = towire_final_expiry_too_soon(ctx);
@@ -887,6 +885,9 @@ static u8 *make_failmsg(const tal_t *ctx,
 	case WIRE_INVALID_ONION_KEY:
 		msg = towire_invalid_onion_key(ctx, sha256);
 		goto done;
+	case WIRE_INCORRECT_PAYMENT_AMOUNT:
+		/* Deprecated: we should never make this any more! */
+		break;
 	}
 	status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		      "Asked to create failmsg %u (%s)",
