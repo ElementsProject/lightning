@@ -287,8 +287,8 @@ static uint64_t receive_offer(struct crypto_state *cs,
 	/* BOLT #2:
 	 *
 	 * The receiving node:
-	 *   - if the `signature` is not valid for either variant of close
-	 *     transaction specified in [BOLT #3](03-transactions.md#closing-transaction):
+	 *   - if the `signature` is not valid for either variant of closing transaction
+	 *   specified in [BOLT #3](03-transactions.md#closing-transaction):
 	 *     - MUST fail the connection.
 	 */
 	tx = close_tx(tmpctx, cs, channel_id,

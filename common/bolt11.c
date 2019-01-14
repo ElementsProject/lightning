@@ -150,8 +150,8 @@ static void decode_p(struct bolt11 *b11,
 {
         /* BOLT #11:
          *
-         * A payer SHOULD use the first `p` field that it did not skip as the
-         * payment hash.
+         * A payer... SHOULD use the first `p` field that it did NOT
+         * skip as the payment hash.
          */
         if (*have_p) {
                 unknown_field(b11, hu5, data, data_len, 'p', data_length);
@@ -160,9 +160,10 @@ static void decode_p(struct bolt11 *b11,
 
         /* BOLT #11:
          *
-         * A reader MUST skip over unknown fields, an `f` field with unknown
-         * `version`, or a `p`, `h`, or `n` field that does not have
-         * `data_length` 52, 52, or 53 respectively. */
+         * A reader... MUST skip over unknown fields, OR an `f` field
+	 * with unknown `version`, OR `p`, `h`, or `n` fields that do
+	 * NOT have `data_length`s of 52, 52, or 53, respectively.
+	*/
         if (data_length != 52) {
                 unknown_field(b11, hu5, data, data_len, 'p', data_length);
                 return;
@@ -211,10 +212,10 @@ static void decode_h(struct bolt11 *b11,
         }
 
         /* BOLT #11:
-         *
-         * A reader MUST skip over unknown fields, an `f` field with unknown
-         * `version`, or a `p`, `h`, or `n` field that does not have
-         * `data_length` 52, 52, or 53 respectively. */
+	 *
+	 * A reader... MUST skip over unknown fields, OR an `f` field
+	 * with unknown `version`, OR `p`, `h`, or `n` fields that do
+	 * NOT have `data_length`s of 52, 52, or 53, respectively. */
         if (data_length != 52) {
                 unknown_field(b11, hu5, data, data_len, 'h', data_length);
                 return;
@@ -288,10 +289,10 @@ static char *decode_n(struct bolt11 *b11,
                                      data_length);
 
         /* BOLT #11:
-         *
-         * A reader MUST skip over unknown fields, an `f` field with unknown
-         * `version`, or a `p`, `h`, or `n` field that does not have
-         * `data_length` 52, 52, or 53 respectively. */
+	 *
+	 * A reader... MUST skip over unknown fields, OR an `f` field
+	 * with unknown `version`, OR `p`, `h`, or `n` fields that do
+	 * NOT have `data_length`s of 52, 52, or 53, respectively. */
         if (data_length != 53)
                 return unknown_field(b11, hu5, data, data_len, 'n',
                                      data_length);
@@ -307,9 +308,9 @@ static char *decode_n(struct bolt11 *b11,
 
 /* BOLT #11:
  *
- * `f` (9): `data_length` variable, depending on version. Fallback on-chain
- * address: for bitcoin, this starts with a 5-bit `version` and contains a
- * witness program or P2PKH or P2SH address.
+ * `f` (9): `data_length` variable, depending on version. Fallback
+ * on-chain address: for Bitcoin, this starts with a 5-bit `version`
+ * and contains a witness program or P2PKH or P2SH address.
  */
 static char *decode_f(struct bolt11 *b11,
                       struct hash_u5 *hu5,
@@ -325,9 +326,10 @@ static char *decode_f(struct bolt11 *b11,
 
         /* BOLT #11:
          *
-         * For bitcoin payments, a writer MUST set an `f` field to a
-         * valid witness version and program, or `17` followed by a
-         * public key hash, or `18` followed by a script hash. */
+	 * for Bitcoin payments... MUST set an `f` field to a valid
+	 * witness version and program, OR to `17` followed by a
+	 * public key hash, OR to `18` followed by a script hash.
+	*/
         if (version == 17) {
                 /* Pay to pubkey hash (P2PKH) */
                 struct bitcoin_address pkhash;
@@ -489,21 +491,18 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 
         /* BOLT #11:
          *
-         * The human-readable part of a Lightning invoice consists of two
-	 * sections:
-	 * 1. `prefix`: `ln` + BIP-0173 currency prefix (e.g. `lnbc` for bitcoin
-	 *     mainnet, `lntb` for bitcoin testnet and `lnbcrt` for bitcoin
-	 *     regtest)
-         * 1. `amount`: optional number in that currency, followed by an optional
-         *    `multiplier` letter
-         */
+	 * The human-readable part of a Lightning invoice consists of two sections:
+	 * 1. `prefix`: `ln` + BIP-0173 currency prefix (e.g. `lnbc` for Bitcoin mainnet,
+	 *    `lntb` for Bitcoin testnet, and `lnbcrt` for Bitcoin regtest)
+	 * 1. `amount`: optional number in that currency, followed by an optional
+	 *    `multiplier` letter. The unit encoded here is the 'social' convention of a payment unit -- in the case of Bitcoin the unit is 'bitcoin' NOT satoshis.
+	*/
         prefix = tal_strndup(tmpctx, hrp, strcspn(hrp, "0123456789"));
 
         /* BOLT #11:
          *
-         * A reader:
-         *   - MUST fail if it does not understand the `prefix`
-         */
+	 * A reader...if it does NOT understand the `prefix`... MUST fail the payment.
+	 */
         if (!strstarts(prefix, "ln"))
                 return decode_fail(b11, fail,
                                    "Prefix '%s' does not start with ln", prefix);
@@ -514,13 +513,13 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 
         /* BOLT #11:
          *
-         *   - If the `amount` is empty:
+         *   - if the `amount` is empty:
          * */
         amountstr = tal_strdup(tmpctx, hrp + strlen(prefix));
         if (streq(amountstr, "")) {
                 /* BOLT #11:
                  *
-	         * - SHOULD indicate if amount is unspecified
+	         * - SHOULD indicate to the payer that amount is unspecified.
                  */
                 b11->msatoshi = NULL;
         } else {
@@ -540,8 +539,9 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 
                 /* BOLT #11:
                  *
-                 * MUST fail if `amount` contains a non-digit or is followed by
-                 * anything except a `multiplier` in the table above
+                 * if `amount` contains a non-digit OR is followed by
+		 * anything except a `multiplier` (see table above)... MUST fail the
+		 * payment.
                  **/
                 amount = strtoull(amountstr, &end, 10);
                 if (amount == ULLONG_MAX && errno == ERANGE)
@@ -553,22 +553,22 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 
                 /* BOLT #11:
                  *
-                 * - If the `multiplier` is present:
-                 *   - MUST multiply `amount` by the `multiplier`
-                 *   value to derive the amount required for payment
-                 **/
+                 * if the `multiplier` is present...  MUST multiply
+		 * `amount` by the `multiplier` value to derive the
+		 * amount required for payment.
+		*/
                 b11->msatoshi = tal(b11, u64);
                 *b11->msatoshi = amount * m10 / 10;
         }
 
         /* BOLT #11:
          *
-         * The data part of a Lightning invoice consists of multiple sections:
-         *
-         * 1. `timestamp`: seconds-since-1970 (35 bits, big-endian)
-         * 1. zero or more tagged parts
-         * 1. `signature`: bitcoin-style signature of above (520 bits)
-         */
+	 * The data part of a Lightning invoice consists of multiple sections:
+	 *
+	 * 1. `timestamp`: seconds-since-1970 (35 bits, big-endian)
+	 * 1. zero or more tagged parts
+	 * 1. `signature`: Bitcoin-style signature of above (520 bits)
+	 */
         if (!pull_uint(&hu5, &data, &data_len, &b11->timestamp, 35))
                 return decode_fail(b11, fail, "Can't get 35-bit timestamp");
 
@@ -651,9 +651,10 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
                 struct sha256 sha;
 
                 /* BOLT #11:
-                 *
-                 * A reader MUST check that the SHA-2 256 in the `h` field
-                 * exactly matches the hashed description.
+		 *
+                 * A reader... MUST check that the SHA2 256-bit hash
+		 * in the `h` field exactly matches the hashed
+		 * description.
                  */
                 if (!description)
                         return decode_fail(b11, fail,
@@ -668,13 +669,14 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 
         /* BOLT #11:
          *
-         * A writer MUST set `signature` to a valid 512-bit secp256k1
-         * signature of the SHA2 256-bit hash of the human-readable part,
-         * represented as UTF-8 bytes, concatenated with the data part
-         * (excluding the signature) with zero bits appended to pad the data
-         * to the next byte boundary, with a trailing byte containing the
-         * recovery ID (0, 1, 2 or 3).
-         */
+         * A writer...MUST set `signature` to a valid 512-bit
+	 * secp256k1 signature of the SHA2 256-bit hash of the
+	 * human-readable part, represented as UTF-8 bytes,
+	 * concatenated with the data part (excluding the signature)
+	 * with 0 bits appended to pad the data to the next byte
+	 * boundary, with a trailing byte containing the recovery ID
+	 * (0, 1, 2, or 3).
+	 */
         if (!pull_bits(NULL, &data, &data_len, sig_and_recid, 520, false))
                 return decode_fail(b11, fail, "signature truncated");
 
@@ -688,13 +690,12 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
                                                       &b11->sig, &sig);
 
         /* BOLT #11:
-         *
-         * A reader MUST check that the `signature` is valid (see the `n`
-         * tagged field specified below).
-         *...
-         * A reader MUST use the `n` field to validate the signature instead of
-         * performing signature recovery if a valid `n` field is provided.
-         */
+	 *
+         * A reader...  MUST check that the `signature` is valid (see
+	 * the `n` tagged field specified below). ... A reader...
+	 * MUST use the `n` field to validate the signature instead of
+	 * performing signature recovery.
+	 */
         if (!have_n) {
                 if (!secp256k1_ecdsa_recover(secp256k1_ctx,
                                              &b11->receiver_id.pubkey,
@@ -757,9 +758,8 @@ static void push_varlen_field(u5 **data, char type, u64 val)
 
 /* BOLT #11:
  *
- * `f` (9): `data_length` variable, depending on version.
- *
- * Fallback on-chain address: for bitcoin, this starts with a 5-bit `version`
+ * `f` (9): `data_length` variable, depending on version. Fallback
+ * on-chain address: for Bitcoin, this starts with a 5-bit `version`
  * and contains a witness program or P2PKH or P2SH address.
  */
 static void push_fallback_addr(u5 **data, u5 version, const void *addr, u16 addr_len)
@@ -811,9 +811,9 @@ static void encode_f(u5 **data, const u8 *fallback)
 
         /* BOLT #11:
          *
-         * For bitcoin payments, a writer MUST set an `f` field to a valid
-         * witness version and program, or `17` followed by a public key hash,
-         * or `18` followed by a script hash.
+	 * for Bitcoin payments... MUST set an `f` field to a valid
+	 * witness version and program, OR to `17` followed by a
+	 * public key hash, OR to `18` followed by a script hash.
          */
         if (is_p2pkh(fallback, &pkh)) {
                 push_fallback_addr(data, 17, &pkh, sizeof(pkh));
@@ -880,16 +880,13 @@ char *bolt11_encode_(const tal_t *ctx,
 
         /* BOLT #11:
          *
-         * A writer:
-         *   - MUST encode `prefix` using the currency it requires
-         *   for successful payment
-         *   - If it requires a specific minimum amount for successful payment:
-	 *     - MUST include that `amount`
-	 *     - MUST encode `amount` as a positive decimal integer
-         *     with no leading zeroes
-	 *     - SHOULD use the shortest representation possible by
-         *     using the largest multiplier or omitting the multiplier
-         */
+	 * A writer:
+	 * - MUST encode `prefix` using the currency required for successful payment.
+	 * - if a specific minimum `amount` is required for successful payment:
+	 *   - MUST include that `amount`.
+	 * - MUST encode `amount` as a positive decimal integer with no leading 0s.
+	 * - SHOULD use the shortest representation possible, by using the largest multiplier or omitting the multiplier.
+	 */
         if (b11->msatoshi) {
                 char postfix;
                 if (*b11->msatoshi % MSAT_PER_BTC == 0) {
@@ -911,18 +908,18 @@ char *bolt11_encode_(const tal_t *ctx,
 
         /* BOLT #11:
          *
-         * 1. `timestamp`: seconds-since-1970 (35 bits, big-endian)
-         * 1. zero or more tagged parts
-         * 1. `signature`: bitcoin-style signature of above (520 bits)
+	 * 1. `timestamp`: seconds-since-1970 (35 bits, big-endian)
+	 * 1. zero or more tagged parts
+	 * 1. `signature`: Bitcoin-style signature of above (520 bits)
          */
         push_varlen_uint(&data, b11->timestamp, 35);
 
         /* BOLT #11:
          *
-         * If a writer offers more than one of any field type, it MUST
-         * specify the most-preferred field first, followed by
-         * less-preferred fields in order.
-         */
+	 * if a writer offers more than one of any field type,
+	 * it... MUST specify the most-preferred field first, followed
+	 * by less-preferred fields, in order.
+	 */
         /* Thus we do built-in fields, then extras last. */
         encode_p(&data, &b11->payment_hash);
 
