@@ -403,7 +403,7 @@ int main(void)
 	 *
 	 * local_payment_basepoint: 034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa
 	 * remote_payment_basepoint: 032c0b7cf95324a07d05398b240174dc0c2be444d96b159aa6c7f7b1e668680991
-	 * # obscured commitment transaction number = 0x2bb038521914 ^ 42
+	 * # obscured commitment number = 0x2bb038521914 ^ 42
 	 */
 	localbase.payment = pubkey_from_hex("034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa");
 	remotebase.payment = pubkey_from_hex("032c0b7cf95324a07d05398b240174dc0c2be444d96b159aa6c7f7b1e668680991");

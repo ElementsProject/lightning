@@ -138,21 +138,21 @@ struct keypair {
  * Throughout the handshake process, each side maintains these variables:
  *
  *  * `ck`: the **chaining key**. This value is the accumulated hash of all
- *    previous ECDH outputs. At the end of the handshake, `ck` is used to
- *    derive the encryption keys for Lightning messages.
+ *    previous ECDH outputs. At the end of the handshake, `ck` is used to derive
+ *    the encryption keys for Lightning messages.
  *
  *  * `h`: the **handshake hash**. This value is the accumulated hash of _all_
- *    handshake data that has been sent and received so far during the
- *    handshake process.
+ *    handshake data that has been sent and received so far during the handshake
+ *    process.
  *
- * * `temp_k1`, `temp_k2`, `temp_k3`: the **intermediate keys**. These are used to
- *    encrypt and decrypt the zero-length AEAD payloads at the end of each
- *    handshake message.
+ *  * `temp_k1`, `temp_k2`, `temp_k3`: the **intermediate keys**. These are used to
+ *    encrypt and decrypt the zero-length AEAD payloads at the end of each handshake
+ *    message.
  *
- *  * `e`: a party's **ephemeral keypair**. For each session, a node MUST
- *    generate a new ephemeral key with strong cryptographic randomness.
+ *  * `e`: a party's **ephemeral keypair**. For each session, a node MUST generate a
+ *    new ephemeral key with strong cryptographic randomness.
  *
- *  * `s`: a party's **static public key** (`ls` for local, `rs` for remote)
+ *  * `s`: a party's **static keypair** (`ls` for local, `rs` for remote)
  */
 struct handshake {
 	struct secret ck;
@@ -469,9 +469,8 @@ static struct io_plan *act_three_initiator(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 3. `ss = ECDH(re, s.priv)`
+	 * 3. `se = ECDH(s.priv, re)`
 	 *     * where `re` is the ephemeral public key of the responder
-	 *
 	 */
 	h->ss = hsm_do_ecdh(h, &h->re);
 	if (!h->ss)
@@ -481,9 +480,8 @@ static struct io_plan *act_three_initiator(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 4. `ck, temp_k3 = HKDF(ck, ss)`
-	 *     * The final intermediate shared secret is mixed into the running
-	 *       chaining key.
+	 * 4. `ck, temp_k3 = HKDF(ck, se)`
+	 *     * The final intermediate shared secret is mixed into the running chaining key.
 	 */
 	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k3=0x%s,0x%s",
@@ -547,8 +545,7 @@ static struct io_plan *act_two_initiator2(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 5. `ss = ECDH(re, e.priv)`
-	 *    * where `re` is the responder's ephemeral public key
+	 * 5. `es = ECDH(s.priv, re)`
 	 */
 	if (!secp256k1_ecdh(secp256k1_ctx, h->ss->data, &h->re.pubkey,
 			    h->e.priv.secret.data))
@@ -558,9 +555,9 @@ static struct io_plan *act_two_initiator2(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 6. `ck, temp_k2 = HKDF(ck, ss)`
-	 *     * A new temporary encryption key is generated, which is
-	 *       used to generate the authenticating MAC.
+	 * 6. `ck, temp_k2 = HKDF(ck, ee)`
+	 *      * A new temporary encryption key is generated, which is
+	 *        used to generate the authenticating MAC.
 	 */
 	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k2=0x%s,0x%s",
@@ -636,9 +633,9 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 3. `ss = ECDH(rs, e.priv)`
-	 *     * The initiator performs an ECDH between its newly generated
-	 *       ephemeral key and the remote node's static public key.
+	 * 3. `es = ECDH(e.priv, rs)`
+	 *      * The initiator performs an ECDH between its newly generated ephemeral
+	 *        key and the remote node's static public key.
 	 */
 	h->ss = tal(h, struct secret);
 	if (!secp256k1_ecdh(secp256k1_ctx, h->ss->data,
@@ -649,9 +646,9 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 4. `ck, temp_k1 = HKDF(ck, ss)`
-	 *     * A new temporary encryption key is generated, which is
-	 *       used to generate the authenticating MAC.
+	 * 4. `ck, temp_k1 = HKDF(ck, es)`
+	 *      * A new temporary encryption key is generated, which is
+	 *        used to generate the authenticating MAC.
 	 */
 	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k1=0x%s,0x%s",
@@ -739,7 +736,7 @@ static struct io_plan *act_three_responder2(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 6. `ss = ECDH(rs, e.priv)`
+	 * 6. `se = ECDH(e.priv, rs)`
 	 *      * where `e` is the responder's original ephemeral key
 	 */
 	if (!secp256k1_ecdh(secp256k1_ctx, h->ss->data, &h->their_id.pubkey,
@@ -749,7 +746,7 @@ static struct io_plan *act_three_responder2(struct io_conn *conn,
 	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
 
 	/* BOLT #8:
-	 * 7. `ck, temp_k3 = HKDF(ck, ss)`
+	 * 7. `ck, temp_k3 = HKDF(ck, se)`
 	 */
 	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k3=0x%s,0x%s",
@@ -813,9 +810,9 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 3. `ss = ECDH(re, e.priv)`
-	 *      * where `re` is the ephemeral key of the initiator, which was
-	 *        received during Act One
+	 * 3. `ee = ECDH(e.priv, re)`
+	 *      * where `re` is the ephemeral key of the initiator, which was received
+	 *        during Act One
 	 */
 	if (!secp256k1_ecdh(secp256k1_ctx, h->ss->data, &h->re.pubkey,
 			    h->e.priv.secret.data))
@@ -824,8 +821,8 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 4. `ck, temp_k2 = HKDF(ck, ss)`
-	 *     * A new temporary encryption key is generated, which is
+	 * 4. `ck, temp_k2 = HKDF(ck, ee)`
+	 *      * A new temporary encryption key is generated, which is
 	 *       used to generate the authenticating MAC.
 	 */
 	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
@@ -879,8 +876,9 @@ static struct io_plan *act_one_responder2(struct io_conn *conn,
 		return handshake_failed(conn, h);
 
 	/* BOLT #8:
+	 *
 	 *     * The raw bytes of the remote party's ephemeral public key
-	 *       (`e`) are to be deserialized into a point on the curve using
+	 *       (`re`) are to be deserialized into a point on the curve using
 	 *       affine coordinates as encoded by the key's serialized
 	 *       composed format.
 	 */
@@ -900,7 +898,8 @@ static struct io_plan *act_one_responder2(struct io_conn *conn,
 	SUPERVERBOSE("# h=0x%s", tal_hexstr(tmpctx, &h->h, sizeof(h->h)));
 
 	/* BOLT #8:
-	 * 5. `ss = ECDH(re, s.priv)`
+	 *
+	 * 5. `es = ECDH(s.priv, re)`
 	 *    * The responder performs an ECDH between its static private key and
 	 *      the initiator's ephemeral public key.
 	 */
@@ -912,9 +911,9 @@ static struct io_plan *act_one_responder2(struct io_conn *conn,
 
 	/* BOLT #8:
 	 *
-	 * 6. `ck, temp_k1 = HKDF(ck, ss)`
-	 *    * A new temporary encryption key is generated, which will
-	 *      shortly be used to check the authenticating MAC.
+	 * 6. `ck, temp_k1 = HKDF(ck, es)`
+	 *     * A new temporary encryption key is generated, which will
+	 *       shortly be used to check the authenticating MAC.
 	 */
 	hkdf_two_keys(&h->ck, &h->temp_k, &h->ck, h->ss, sizeof(*h->ss));
 	SUPERVERBOSE("# ck,temp_k1=0x%s,0x%s",

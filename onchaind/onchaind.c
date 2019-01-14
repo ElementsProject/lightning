@@ -613,20 +613,15 @@ static u64 unmask_commit_number(const struct bitcoin_tx *tx,
 
 	/* BOLT #3:
 	 *
-	 * The 48-bit commitment transaction number is obscured by
-	 * `XOR` with the lower 48 bits of...
+	 * The 48-bit commitment number is obscured by `XOR` with the lower 48 bits of...
 	 */
 	obscurer = commit_number_obscurer(keys[funder], keys[!funder]);
 
 	/* BOLT #3:
 	 *
-	 * * locktime: upper 8 bits are 0x20, lower 24 bits are the
-	 *             lower 24 bits of the obscured commitment transaction
-	 *             number
+	 * * locktime: upper 8 bits are 0x20, lower 24 bits are the lower 24 bits of the obscured commitment number
 	 *...
-	 * * `txin[0]` sequence: upper 8 bits are 0x80, lower 24 bits
-	 *                are upper 24 bits of the obscured commitment
-	 *                transaction number
+	 * * `txin[0]` sequence: upper 8 bits are 0x80, lower 24 bits are upper 24 bits of the obscured commitment number
 	 */
 	return ((tx->lock_time & 0x00FFFFFF)
 		| (tx->input[0].sequence_number & (u64)0x00FFFFFF) << 24)

@@ -844,8 +844,7 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 	}
 
 	/* BOLT #7:
-	 *
-	 * The final node:
+	 * The receiving node:
 	 *...
 	 *  - if the specified `chain_hash` is unknown to the receiver:
 	 *    - MUST ignore the message.
@@ -941,7 +940,7 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 
 	/* BOLT #7:
 	 *
-	 * The final node:
+	 * The receiving node:
 	 *...
 	 *   - if the `short_channel_id`'s output... is spent:
 	 *    - MUST ignore the message.
@@ -956,7 +955,7 @@ void handle_pending_cannouncement(struct routing_state *rstate,
 
 	/* BOLT #7:
 	 *
-	 * The final node:
+	 * The receiving node:
 	 *...
 	 *   - if the `short_channel_id`'s output does NOT correspond to a P2WSH
 	 *     (using `bitcoin_key_1` and `bitcoin_key_2`, as specified in
@@ -1169,7 +1168,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 
 	/* BOLT #7:
 	 *
-	 * The final node:
+	 * The receiving node:
 	 *...
 	 *  - if the specified `chain_hash` value is unknown (meaning it isn't
 	 *    active on the specified chain):
@@ -1292,7 +1291,7 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 
 		/* BOLT #7:
 		 *
-		 * The final node:
+		 * The receiving node:
 		 *...
 		 *   - SHOULD ignore the first `address descriptor` that does
 		 *     NOT match the types defined above.
@@ -1392,7 +1391,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 
 	/* BOLT #7:
 	 *
-	 * The final node:
+	 * The receiving node:
 	 *...
 	 *  - if `features` field contains _unknown even bits_:
 	 *    - MUST NOT parse the remainder of the message.
@@ -1410,12 +1409,13 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann)
 	if (!check_signed_hash(&hash, &signature, &node_id)) {
 		/* BOLT #7:
 		 *
-		 * - if `signature` is NOT a valid signature (using `node_id`
-		 *  of the double-SHA256 of the entire message following the
-		 *  `signature` field, including unknown fields following
-		 *  `alias`):
-		 *    - SHOULD fail the connection.
+		 * - if `signature` is not a valid signature, using
+                 *   `node_id` of the double-SHA256 of the entire
+                 *   message following the `signature` field
+                 *   (including unknown fields following
+                 *   `fee_proportional_millionths`):
 		 *    - MUST NOT process the message further.
+		 *    - SHOULD fail the connection.
 		 */
 		u8 *err = towire_errorfmt(rstate, NULL,
 					  "Bad signature for %s hash %s"

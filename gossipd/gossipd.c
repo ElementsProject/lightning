@@ -328,7 +328,7 @@ check_length:
 
 /* BOLT #7:
  *
- * An endpoint node:
+ * A node:
  *   - if the `gossip_queries` feature is negotiated:
  * 	- MUST NOT relay any gossip messages unless explicitly requested.
  */
@@ -570,8 +570,8 @@ static const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg
 
 	/* BOLT #7:
 	 *
-	 * - MUST respond to each known `short_channel_id` with a
-	 *   `channel_announcement` and the latest `channel_update`s for each end
+	 * - MUST respond to each known `short_channel_id` with a `channel_announcement`
+	 *   and the latest `channel_update` for each end
 	 *    - SHOULD NOT wait for the next outgoing gossip flush to send
 	 *      these.
 	 */
@@ -1002,8 +1002,7 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 	/* BOLT #7:
 	 *
 	 *   - MUST respond to each known `short_channel_id` with a
-	 *     `channel_announcement` and the latest `channel_update`s for
-	 *     each end
+	 *     `channel_announcement` and the latest `channel_update` for each end
 	 *     - SHOULD NOT wait for the next outgoing gossip flush
 	 *       to send these.
 	 */
@@ -1116,7 +1115,7 @@ static void maybe_queue_gossip(struct peer *peer)
 
 	/* BOLT #7:
 	 *
-	 * An endpoint node:
+	 * A node:
 	 *...
 	 *  - SHOULD flush outgoing gossip messages once every 60 seconds,
 	 *    independently of the arrival times of the messages.
@@ -1238,9 +1237,9 @@ static void update_local_channel(struct daemon *daemon,
 	/* BOLT #7:
 	 *
 	 * The origin node:
-	 *   - MAY create a `channel_update` to communicate the channel
-	 *   parameters to the final node, even though the channel has not yet
-	 *   been announced
+	 *  - MAY create a `channel_update` to communicate the channel parameters to the
+	 *    channel peer, even though the channel has not yet been announced (i.e. the
+	 *    `announce_channel` bit was not set).
 	 */
 	if (!is_chan_public(chan)) {
 		/* handle_channel_update will not put private updates in the
@@ -1749,7 +1748,7 @@ static void gossip_send_keepalive_update(struct daemon *daemon,
 
 /* BOLT #7:
  *
- * An endpoint node:
+ * A node:
  *  - if a channel's latest `channel_update`s `timestamp` is older than two weeks
  *    (1209600 seconds):
  *     - MAY prune the channel.
