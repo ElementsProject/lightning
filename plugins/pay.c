@@ -7,6 +7,7 @@
 #include <common/type_to_string.h>
 #include <gossipd/gossip_constants.h>
 #include <plugins/libplugin.h>
+#include <stdio.h>
 
 /* Public key of this node. */
 static struct pubkey my_id;
@@ -110,10 +111,23 @@ PRINTF_FMT(2,3) static void attempt_failed_fmt(struct pay_command *pc, const cha
 }
 
 static void attempt_failed_tok(struct pay_command *pc, const char *method,
-			       const char *buf, const jsmntok_t *tok)
+			       const char *buf, const jsmntok_t *errtok)
 {
-	attempt_failed_fmt(pc, "Call to %s gave error %.*s",
-			   method, tok->end - tok->start, buf + tok->start);
+	const jsmntok_t *msg = json_get_member(buf, errtok, "message");
+
+	if (msg)
+		attempt_failed_fmt(pc, "%.*sCall to %s:%.*s",
+				   msg->start - errtok->start,
+				   buf + errtok->start,
+				   method,
+				   errtok->end - msg->start,
+				   buf + msg->start);
+	else
+		attempt_failed_fmt(pc,
+				   "{ 'message': 'Call to %s failed', %.*s",
+				   method,
+				   errtok->end - errtok->start - 1,
+				   buf + errtok->start + 1);
 }
 
 static struct command_result *start_pay_attempt(struct command *cmd,
@@ -146,12 +160,12 @@ static struct command_result *waitsendpay_expired(struct command *cmd,
 	data = tal_strdup(pc, "'attempts': [ ");
 	for (size_t i = 0; i < tal_count(pc->ps->attempts); i++) {
 		if (pc->ps->attempts[i].route)
-			tal_append_fmt(&data, "%s { 'route': %s,\n 'failure': '%s'\n }",
+			tal_append_fmt(&data, "%s { 'route': %s,\n 'failure': %s\n }",
 				       i == 0 ? "" : ",",
 				       pc->ps->attempts[i].route,
 				       pc->ps->attempts[i].failure);
 		else
-			tal_append_fmt(&data, "%s { 'failure': '%s'\n }",
+			tal_append_fmt(&data, "%s { 'failure': %s\n }",
 				       i == 0 ? "" : ",",
 				       pc->ps->attempts[i].failure);
 	}
@@ -358,7 +372,7 @@ static struct command_result *getroute_done(struct command *cmd,
 	feepercent = ((double)fee) * 100.0 / ((double) pc->msatoshi);
 
 	if (fee > pc->exemptfee && feepercent > pc->maxfeepercent) {
-		attempt_failed_fmt(pc, "Route wanted fee of %"PRIu64" msatoshis", fee);
+		attempt_failed_fmt(pc, "{ 'message': 'Route wanted fee of %"PRIu64" msatoshis' }", fee);
 
 		if (tal_count(pc->routehints) != 0)
 			return next_routehint(cmd, pc);
@@ -369,7 +383,7 @@ static struct command_result *getroute_done(struct command *cmd,
 	}
 
 	if (delay > pc->maxdelay) {
-		attempt_failed_fmt(pc, "Route wanted delay %u blocks", delay);
+		attempt_failed_fmt(pc, "{ 'message': 'Route wanted delay %u blocks' }", delay);
 
 		if (tal_count(pc->routehints) != 0)
 			return next_routehint(cmd, pc);
@@ -764,6 +778,139 @@ static struct command_result *handle_pay(struct command *cmd,
 			   " ");
 }
 
+/* FIXME: Add this to ccan/time? */
+#define UTC_TIMELEN (sizeof("YYYY-mm-ddTHH:MM:SS.nnnZ"))
+static void utc_timestring(const struct timeabs *time, char str[UTC_TIMELEN])
+{
+	char iso8601_msec_fmt[sizeof("YYYY-mm-ddTHH:MM:SS.%03dZ")];
+
+	strftime(iso8601_msec_fmt, sizeof(iso8601_msec_fmt), "%FT%T.%%03dZ",
+		 gmtime(&time->ts.tv_sec));
+	snprintf(str, UTC_TIMELEN, iso8601_msec_fmt,
+		 (int) time->ts.tv_nsec / 1000000);
+}
+
+static void add_attempt(char **ret,
+			const struct pay_status *ps,
+			const struct pay_attempt *attempt)
+{
+	char timestr[UTC_TIMELEN];
+
+	utc_timestring(&attempt->start, timestr);
+
+	tal_append_fmt(ret, "{ 'start_time': '%s',"
+		       " 'age_in_seconds': %"PRIu64,
+		       timestr,
+		       time_to_sec(time_between(time_now(), attempt->start)));
+	if (attempt->result || attempt->failure) {
+		utc_timestring(&attempt->end, timestr);
+		tal_append_fmt(ret, ", 'end_time': '%s'"
+			       ", 'duration_in_seconds': %"PRIu64,
+			       timestr,
+			       time_to_sec(time_between(attempt->end,
+							attempt->start)));
+	}
+	if (tal_count(attempt->routehint)) {
+		tal_append_fmt(ret, ", 'routehint': [");
+		for (size_t i = 0; i < tal_count(attempt->routehint); i++) {
+			tal_append_fmt(ret, "%s{"
+				       " 'id': '%s',"
+				       " 'channel': '%s',"
+				       " 'msatoshi': %"PRIu64","
+				       " 'delay': %u }",
+				       i == 0 ? "" : ", ",
+				       type_to_string(tmpctx, struct pubkey,
+						      &attempt->routehint[i].pubkey),
+				       type_to_string(tmpctx,
+						      struct short_channel_id,
+						      &attempt->routehint[i].short_channel_id),
+				       route_msatoshi(ps->msatoshi,
+						      attempt->routehint + i,
+						      tal_count(attempt->routehint) - i),
+				       route_cltv(ps->final_cltv,
+						  attempt->routehint + i,
+						  tal_count(attempt->routehint) - i));
+		}
+		tal_append_fmt(ret, "]");
+	}
+	if (tal_count(attempt->excludes)) {
+		for (size_t i = 0; i < tal_count(attempt->excludes); i++) {
+			if (i == 0)
+				tal_append_fmt(ret, ", 'excluded_channels': [");
+			else
+				tal_append_fmt(ret, ", ");
+			tal_append_fmt(ret, "'%s'", attempt->excludes[i]);
+		}
+		tal_append_fmt(ret, "]");
+	}
+
+	if (attempt->route)
+		tal_append_fmt(ret, ", 'route': %s", attempt->route);
+
+	if (attempt->failure)
+		tal_append_fmt(ret, ", 'failure': %s", attempt->failure);
+
+	if (attempt->result)
+		tal_append_fmt(ret, ", 'success': %s", attempt->result);
+
+	tal_append_fmt(ret, "}");
+}
+
+static struct command_result *handle_paystatus(struct command *cmd,
+						const char *buf,
+						const jsmntok_t *params)
+{
+	struct pay_status *ps;
+	const char *b11str;
+	char *ret;
+	bool some = false;
+
+	if (!param(cmd, buf, params,
+		   p_opt("bolt11", param_string, &b11str),
+		   NULL))
+		return NULL;
+
+	ret = tal_fmt(cmd, "{ 'pay': [");
+	/* FIXME: Index by bolt11 string! */
+	list_for_each(&pay_status, ps, list) {
+		if (b11str && !streq(b11str, ps->bolt11))
+			continue;
+
+		if (some)
+			tal_append_fmt(&ret, ",\n");
+		some = true;
+
+		tal_append_fmt(&ret, "{ 'bolt11': '%s',"
+			       " 'msatoshi': %"PRIu64", "
+			       " 'destination': '%s'",
+			       ps->bolt11, ps->msatoshi, ps->dest);
+		if (ps->desc)
+			tal_append_fmt(&ret, ", 'description': '%s'", ps->desc);
+		if (ps->routehint_modifications)
+			tal_append_fmt(&ret, ", 'routehint_modifications': '%s'",
+				       ps->routehint_modifications);
+		if (ps->shadow && !streq(ps->shadow, ""))
+			tal_append_fmt(&ret, ", 'shadow': '%s'", ps->shadow);
+		if (ps->exclusions)
+			tal_append_fmt(&ret, ", 'local_exclusions': '%s'",
+				       ps->exclusions);
+
+		assert(tal_count(ps->attempts));
+		for (size_t i = 0; i < tal_count(ps->attempts); i++) {
+			if (i == 0)
+				tal_append_fmt(&ret, ", 'attempts': [");
+			else
+				tal_append_fmt(&ret, ",");
+
+			add_attempt(&ret, ps, &ps->attempts[i]);
+		}
+		tal_append_fmt(&ret, "] }");
+	}
+	tal_append_fmt(&ret, "] }");
+
+	return command_success(cmd, ret);
+}
+
 static void init(struct plugin_conn *rpc)
 {
 	const char *field;
@@ -783,6 +930,11 @@ static const struct plugin_command commands[] = { {
 		"Send payment specified by {bolt11} with {msatoshi}",
 		"Try to send a payment, retrying {retry_for} seconds before giving up",
 		handle_pay
+	}, {
+		"paystatus",
+		"Detail status of attempts to pay {bolt11}, or all",
+		"Covers both old payments and current ones.",
+		handle_paystatus
 	}
 };
 
