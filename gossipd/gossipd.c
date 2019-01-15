@@ -2119,6 +2119,18 @@ static bool node_has_public_channels(const struct node *peer,
 	return false;
 }
 
+/*~ The `exposeprivate` flag is a trinary: NULL == dynamic, otherwise
+ * value decides.  Thus, we provide two wrappers for clarity: */
+static bool never_expose(bool *exposeprivate)
+{
+	return exposeprivate && !*exposeprivate;
+}
+
+static bool always_expose(bool *exposeprivate)
+{
+	return exposeprivate && *exposeprivate;
+}
+
 /*~ For routeboost, we offer payers a hint of what incoming channels might
  * have capacity for their payment.  To do this, lightningd asks for the
  * information about all channels to this node; but gossipd doesn't know about
@@ -2130,10 +2142,19 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 	struct node *node;
 	struct route_info *public = tal_arr(tmpctx, struct route_info, 0);
 	struct route_info *private = tal_arr(tmpctx, struct route_info, 0);
-	bool has_public = false;
+	bool has_public;
+	bool *exposeprivate;
 
-	if (!fromwire_gossip_get_incoming_channels(msg))
+	if (!fromwire_gossip_get_incoming_channels(tmpctx, msg, &exposeprivate))
 		master_badmsg(WIRE_GOSSIP_GET_INCOMING_CHANNELS, msg);
+
+	status_trace("exposeprivate = %s",
+		     exposeprivate ? (*exposeprivate ? "TRUE" : "FALSE") : "NULL");
+	status_trace("msg = %s", tal_hex(tmpctx, msg));
+	status_trace("always_expose = %u, never_expose = %u",
+		     always_expose(exposeprivate), never_expose(exposeprivate));
+
+	has_public = always_expose(exposeprivate);
 
 	node = get_node(daemon->rstate, &daemon->rstate->local_id);
 	if (node) {
@@ -2160,7 +2181,7 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 			if (!node_has_public_channels(other_node(node, c), c))
 				continue;
 
-			if (is_chan_public(c))
+			if (always_expose(exposeprivate) || is_chan_public(c))
 				tal_arr_expand(&public, ri);
 			else
 				tal_arr_expand(&private, ri);
@@ -2168,7 +2189,7 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 	}
 
 	/* If no public channels (even deadend ones!), share private ones. */
-	if (!has_public)
+	if (!has_public && !never_expose(exposeprivate))
 		msg = towire_gossip_get_incoming_channels_reply(NULL, private);
 	else
 		msg = towire_gossip_get_incoming_channels_reply(NULL, public);

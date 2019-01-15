@@ -393,28 +393,33 @@ class Message(object):
                                           '*' + f.name, f.lenvar)
             else:
                 if f.optional:
+                    assignable = f.fieldtype.is_assignable()
+                    deref = '*'
+                else:
+                    deref = ''
+                    assignable = f.is_assignable()
+
+                if assignable:
+                    if f.is_len_var:
+                        s = '{} = fromwire_{}(&cursor, &plen);'.format(f.name, basetype)
+                    else:
+                        s = '{}*{} = fromwire_{}(&cursor, &plen);'.format(deref, f.name, basetype)
+                elif basetype in varlen_structs:
+                    s = '{}*{} = fromwire_{}(ctx, &cursor, &plen);'.format(deref, f.name, basetype)
+                else:
+                    s = 'fromwire_{}(&cursor, &plen, {}{});'.format(basetype, deref, f.name)
+
+                if f.optional:
                     subcalls.append("if (!fromwire_bool(&cursor, &plen))\n"
                                     "*{} = NULL;\n"
                                     "else {{\n"
                                     "*{} = tal(ctx, {});\n"
-                                    "fromwire_{}(&cursor, &plen, *{});\n"
+                                    "{}\n"
                                     "}}"
                                     .format(f.name, f.name, f.fieldtype.name,
-                                            basetype, f.name))
-                elif f.is_assignable():
-                    subcalls.append("//3rd case {name}".format(name=f.name))
-                    if f.is_len_var:
-                        subcalls.append('{} = fromwire_{}(&cursor, &plen);'
-                                        .format(f.name, basetype))
-                    else:
-                        subcalls.append('*{} = fromwire_{}(&cursor, &plen);'
-                                        .format(f.name, basetype))
-                elif basetype in varlen_structs:
-                    subcalls.append('*{} = fromwire_{}(ctx, &cursor, &plen);'
-                                    .format(f.name, basetype))
+                                            s))
                 else:
-                    subcalls.append('fromwire_{}(&cursor, &plen, {});'
-                                    .format(basetype, f.name))
+                    subcalls.append(s)
 
         return template.format(
             name=self.name,
@@ -481,12 +486,16 @@ class Message(object):
                 self.print_towire_array(subcalls, basetype, f, f.lenvar)
             else:
                 if f.optional:
+                    if f.fieldtype.is_assignable():
+                        deref = '*'
+                    else:
+                        deref = ''
                     subcalls.append("if (!{})\n"
                                     "towire_bool(&p, false);\n"
                                     "else {{\n"
                                     "towire_bool(&p, true);\n"
-                                    "towire_{}(&p, {});\n"
-                                    "}}".format(f.name, basetype, f.name))
+                                    "towire_{}(&p, {}{});\n"
+                                    "}}".format(f.name, basetype, deref, f.name))
                 else:
                     subcalls.append('towire_{}(&p, {});'
                                     .format(basetype, f.name))
