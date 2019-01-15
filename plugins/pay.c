@@ -81,6 +81,9 @@ struct pay_command {
 	/* Chatty description of attempts. */
 	struct pay_status *ps;
 
+	/* Error to use if getroute says it can't find route. */
+	const char *expensive_route;
+
 	/* Time to stop retrying. */
 	struct timeabs stoptime;
 
@@ -334,6 +337,50 @@ static struct command_result *next_routehint(struct command *cmd,
 	return start_pay_attempt(cmd, pc);
 }
 
+static const jsmntok_t *find_worst_channel(const char *buf,
+					   const jsmntok_t *route,
+					   const char *fieldname,
+					   u64 final)
+{
+	u64 prev = final, worstval = 0;
+	const jsmntok_t *worst = NULL, *end;
+
+	end = json_next(route);
+	for (route = route + 1; route < end; route = json_next(route)) {
+		u64 val;
+
+		json_to_u64(buf, json_get_member(buf, route, fieldname), &val);
+		if (worst == NULL || val - prev > worstval) {
+			worst = route;
+			worstval = val - prev;
+		}
+		prev = val;
+	}
+
+	return worst;
+}
+
+/* Can't exclude if it's in routehint itself. */
+static bool maybe_exclude(struct pay_command *pc,
+			  const char *buf, const jsmntok_t *route)
+{
+	const jsmntok_t *scid, *dir;
+
+	scid = json_get_member(buf, route, "channel");
+
+	if (tal_count(pc->routehints) != 0
+	    && channel_in_routehint(pc->routehints[0], buf, scid))
+		return false;
+
+	dir = json_get_member(buf, route, "direction");
+	tal_arr_expand(&pc->excludes,
+		       tal_fmt(pc->excludes, "%.*s/%c",
+			       scid->end - scid->start,
+			       buf + scid->start,
+			       buf[dir->start]));
+	return true;
+}
+
 static struct command_result *getroute_done(struct command *cmd,
 					    const char *buf,
 					    const jsmntok_t *result,
@@ -372,24 +419,56 @@ static struct command_result *getroute_done(struct command *cmd,
 	feepercent = ((double)fee) * 100.0 / ((double) pc->msatoshi);
 
 	if (fee > pc->exemptfee && feepercent > pc->maxfeepercent) {
+		const jsmntok_t *charger;
+
 		attempt_failed_fmt(pc, "{ 'message': 'Route wanted fee of %"PRIu64" msatoshis' }", fee);
+
+		/* Remember this if we eliminating this causes us to have no
+		 * routes at all! */
+		if (!pc->expensive_route)
+			pc->expensive_route
+				= tal_fmt(pc, "Route wanted fee of %"PRIu64
+					  " msatoshis", fee);
+
+		/* Try excluding most fee-charging channel (unless it's in
+		 * routeboost). */
+		charger = find_worst_channel(buf, t, "msatoshi", pc->msatoshi);
+		if (maybe_exclude(pc, buf, charger))
+			return start_pay_attempt(cmd, pc);
 
 		if (tal_count(pc->routehints) != 0)
 			return next_routehint(cmd, pc);
 
 		return command_fail(cmd, PAY_ROUTE_TOO_EXPENSIVE,
-				    "Route wanted fee of %"PRIu64" msatoshis",
-				    fee);
+				    "%s", pc->expensive_route);
 	}
 
 	if (delay > pc->maxdelay) {
-		attempt_failed_fmt(pc, "{ 'message': 'Route wanted delay %u blocks' }", delay);
+		const jsmntok_t *delayer;
+
+		attempt_failed_fmt(pc,
+				   "{ 'message': 'Route wanted delay of %u blocks' }",
+				   delay);
+
+		/* Remember this if we eliminating this causes us to have no
+		 * routes at all! */
+		if (!pc->expensive_route)
+			pc->expensive_route
+				= tal_fmt(pc, "Route wanted delay of %u blocks",
+					  delay);
+
+		delayer = find_worst_channel(buf, t, "delay", pc->final_cltv);
+
+		/* Try excluding most delaying channel (unless it's in
+		 * routeboost). */
+		if (maybe_exclude(pc, buf, delayer))
+			return start_pay_attempt(cmd, pc);
 
 		if (tal_count(pc->routehints) != 0)
 			return next_routehint(cmd, pc);
 
 		return command_fail(cmd, PAY_ROUTE_TOO_EXPENSIVE,
-				    "Route wanted delay of %u blocks", delay);
+				    "%s", pc->expensive_route);
 	}
 
 	if (pc->desc)
@@ -415,6 +494,11 @@ static struct command_result *getroute_error(struct command *cmd,
 	/* If we were trying to use a routehint, remove and try again. */
 	if (tal_count(pc->routehints) != 0)
 		return next_routehint(cmd, pc);
+
+	/* If we've run out of routes, there might be a good reason. */
+	if (pc->expensive_route)
+		return command_fail(cmd, PAY_ROUTE_TOO_EXPENSIVE,
+				    "%s", pc->expensive_route);
 
 	return forward_error(cmd, buf, error, pc);
 }
@@ -772,6 +856,7 @@ static struct command_result *handle_pay(struct command *cmd,
 	pc->excludes = tal_arr(cmd, const char *, 0);
 	pc->ps = add_pay_status(pc, b11str);
 	pc->routehints = filter_routehints(pc, b11->routes);
+	pc->expensive_route = NULL;
 
 	/* Get capacities of local channels. */
 	return send_outreq(cmd, "listpeers", listpeers_done, forward_error, pc,

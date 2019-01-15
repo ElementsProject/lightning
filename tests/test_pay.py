@@ -74,14 +74,20 @@ def test_pay_limits(node_factory):
 
     assert err.value.error['code'] == PAY_ROUTE_TOO_EXPENSIVE
 
+    # It should have retried (once without routehint, too)
+    assert len(l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][0]['attempts']) == 3
+    
     # Delay too high.
     with pytest.raises(RpcError, match=r'Route wanted delay of .* blocks') as err:
         l1.rpc.call('pay', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxdelay': 0})
 
     assert err.value.error['code'] == PAY_ROUTE_TOO_EXPENSIVE
+    # Should also have retried.
+    assert len(l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][1]['attempts']) == 3
 
     # This works, because fee is less than exemptfee.
     l1.rpc.call('pay', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxfeepercent': 0.0001, 'exemptfee': 2000})
+    assert len(l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][2]['attempts']) == 1
 
 
 def test_pay0(node_factory):
