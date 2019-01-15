@@ -15,6 +15,8 @@ static unsigned int maxdelay_default;
 static LIST_HEAD(pay_status);
 
 struct pay_attempt {
+	/* What we changed when starting this attempt. */
+	const char *why;
 	/* Time we started & finished attempt */
 	struct timeabs start, end;
 	/* Route hint we were using (if any) */
@@ -134,7 +136,8 @@ static void attempt_failed_tok(struct pay_command *pc, const char *method,
 }
 
 static struct command_result *start_pay_attempt(struct command *cmd,
-						struct pay_command *pc);
+						struct pay_command *pc,
+						const char *fmt, ...);
 
 /* Is this (erring) channel within the routehint itself? */
 static bool channel_in_routehint(const struct route_info *routehint,
@@ -176,6 +179,14 @@ static struct command_result *waitsendpay_expired(struct command *cmd,
 	return command_done_err(cmd, PAY_STOPPED_RETRYING, errmsg, data);
 }
 
+/* Try again with the next routehint (or none if that was the last) */
+static struct command_result *next_routehint(struct command *cmd,
+					     struct pay_command *pc)
+{
+	tal_arr_remove(&pc->routehints, 0);
+	return start_pay_attempt(cmd, pc, "Removed route hint");
+}
+
 static struct command_result *waitsendpay_error(struct command *cmd,
 						const char *buf,
 						const jsmntok_t *error,
@@ -207,25 +218,24 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 		plugin_err("waitsendpay error no erring_direction '%.*s'",
 			   error->end - error->start, buf + error->start);
 
-	/* If failure is in routehint part, eliminate that */
-	if (tal_count(pc->routehints) != 0
-	    && channel_in_routehint(pc->routehints[0], buf, scidtok)) {
-		tal_arr_remove(&pc->routehints, 0);
-	} else {
-		/* Otherwise, add erring channel to exclusion list. */
-		tal_arr_expand(&pc->excludes,
-			       tal_fmt(pc->excludes, "%.*s/%c",
-				       scidtok->end - scidtok->start,
-				       buf + scidtok->start,
-				       buf[dirtok->start]));
-	}
-
 	if (time_after(time_now(), pc->stoptime)) {
 		return waitsendpay_expired(cmd, pc);
 	}
 
+	/* If failure is in routehint part, eliminate that */
+	if (tal_count(pc->routehints) != 0
+	    && channel_in_routehint(pc->routehints[0], buf, scidtok))
+		return next_routehint(cmd, pc);
+
+	/* Otherwise, add erring channel to exclusion list. */
+	tal_arr_expand(&pc->excludes,
+		       tal_fmt(pc->excludes, "%.*s/%c",
+			       scidtok->end - scidtok->start,
+			       buf + scidtok->start,
+			       buf[dirtok->start]));
 	/* Try again. */
-	return start_pay_attempt(cmd, pc);
+	return start_pay_attempt(cmd, pc, "Excluded channel %s",
+				 pc->excludes[tal_count(pc->excludes)-1]);
 }
 
 static struct command_result *waitsendpay_done(struct command *cmd,
@@ -329,14 +339,6 @@ static struct command_result *sendpay_error(struct command *cmd,
 	return forward_error(cmd, buf, error, pc);
 }
 
-/* Try again with the next routehint (or none if that was the last) */
-static struct command_result *next_routehint(struct command *cmd,
-					     struct pay_command *pc)
-{
-	tal_arr_remove(&pc->routehints, 0);
-	return start_pay_attempt(cmd, pc);
-}
-
 static const jsmntok_t *find_worst_channel(const char *buf,
 					   const jsmntok_t *route,
 					   const char *fieldname,
@@ -433,8 +435,11 @@ static struct command_result *getroute_done(struct command *cmd,
 		/* Try excluding most fee-charging channel (unless it's in
 		 * routeboost). */
 		charger = find_worst_channel(buf, t, "msatoshi", pc->msatoshi);
-		if (maybe_exclude(pc, buf, charger))
-			return start_pay_attempt(cmd, pc);
+		if (maybe_exclude(pc, buf, charger)) {
+			return start_pay_attempt(cmd, pc,
+						 "Excluded expensive channel %s",
+						 pc->excludes[tal_count(pc->excludes)-1]);
+		}
 
 		if (tal_count(pc->routehints) != 0)
 			return next_routehint(cmd, pc);
@@ -461,8 +466,11 @@ static struct command_result *getroute_done(struct command *cmd,
 
 		/* Try excluding most delaying channel (unless it's in
 		 * routeboost). */
-		if (maybe_exclude(pc, buf, delayer))
-			return start_pay_attempt(cmd, pc);
+		if (maybe_exclude(pc, buf, delayer)) {
+			return start_pay_attempt(cmd, pc,
+						 "Excluded delaying channel %s",
+						 pc->excludes[tal_count(pc->excludes)-1]);
+		}
 
 		if (tal_count(pc->routehints) != 0)
 			return next_routehint(cmd, pc);
@@ -514,7 +522,8 @@ static const char **dup_excludes(const tal_t *ctx, const char **excludes)
 }
 
 static struct command_result *start_pay_attempt(struct command *cmd,
-						struct pay_command *pc)
+						struct pay_command *pc,
+						const char *fmt, ...)
 {
 	char *exclude;
 	u64 amount;
@@ -522,7 +531,9 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 	size_t max_hops = ROUTING_MAX_HOPS;
 	u32 cltv;
 	struct pay_attempt attempt;
+	va_list ap;
 
+	va_start(ap, fmt);
 	attempt.start = time_now();
 	/* Mark it unfinished */
 	attempt.end.ts.tv_sec = -1;
@@ -530,6 +541,9 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 	attempt.route = NULL;
 	attempt.failure = NULL;
 	attempt.result = NULL;
+	attempt.why = tal_vfmt(pc->ps, fmt, ap);
+	va_end(ap);
+
 	/* routehint set below. */
 
 	if (tal_count(pc->excludes) != 0) {
@@ -631,7 +645,7 @@ static struct command_result *add_shadow_route(struct command *cmd,
 		tal_append_fmt(&pc->ps->shadow,
 			       "No suitable channels found to %s. ",
 			       pc->shadow);
-		return start_pay_attempt(cmd, pc);
+		return start_pay_attempt(cmd, pc, "Initial attempt");
 	}
 
 	pc->final_cltv += best_cltv;
@@ -646,7 +660,7 @@ static struct command_result *shadow_route(struct command *cmd,
 					   struct pay_command *pc)
 {
 	if (pseudorand(2) == 0)
-		return start_pay_attempt(cmd, pc);
+		return start_pay_attempt(cmd, pc, "Initial attempt");
 
 	return send_outreq(cmd, "listchannels",
 			   add_shadow_route, forward_error, pc,
@@ -883,8 +897,10 @@ static void add_attempt(char **ret,
 
 	utc_timestring(&attempt->start, timestr);
 
-	tal_append_fmt(ret, "{ 'start_time': '%s',"
+	tal_append_fmt(ret, "{ 'strategy': '%s',"
+		       " 'start_time': '%s',"
 		       " 'age_in_seconds': %"PRIu64,
+		       attempt->why,
 		       timestr,
 		       time_to_sec(time_between(time_now(), attempt->start)));
 	if (attempt->result || attempt->failure) {
