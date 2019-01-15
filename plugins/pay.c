@@ -4,6 +4,7 @@
 #include <ccan/time/time.h>
 #include <common/bolt11.h>
 #include <common/type_to_string.h>
+#include <gossipd/gossip_constants.h>
 #include <plugins/libplugin.h>
 
 /* Public key of this node. */
@@ -43,6 +44,9 @@ struct pay_command {
 
 	/* Channels which have failed us. */
 	const char **excludes;
+
+	/* Any routehints to use. */
+	struct route_info **routehints;
 };
 
 static struct command_result *start_pay_attempt(struct command *cmd,
@@ -123,6 +127,73 @@ static struct command_result *sendpay_done(struct command *cmd,
 			   pc->payment_hash);
 }
 
+/* Calculate how many millisatoshi we need at the start of this route
+ * to get msatoshi to the end. */
+static u64 route_msatoshi(u64 msatoshi,
+			  const struct route_info *route, size_t num_route)
+{
+	for (ssize_t i = num_route - 1; i >= 0; i--) {
+		u64 fee;
+
+		fee = route[i].fee_base_msat;
+		fee += (route[i].fee_proportional_millionths * msatoshi) / 1000000;
+		msatoshi += fee;
+	}
+	return msatoshi;
+}
+
+/* Calculate cltv we need at the start of this route to get cltv at the end. */
+static u32 route_cltv(u32 cltv,
+		      const struct route_info *route, size_t num_route)
+{
+	for (size_t i = 0; i < num_route; i++)
+		cltv += route[i].cltv_expiry_delta;
+	return cltv;
+}
+
+/* The pubkey to use is the destination of this routehint. */
+static const char *route_pubkey(const tal_t *ctx,
+				const struct pay_command *pc,
+				const struct route_info *routehint,
+				size_t n)
+{
+	if (n == tal_count(routehint))
+		return pc->dest;
+	return type_to_string(ctx, struct pubkey, &routehint[n].pubkey);
+}
+
+static const char *join_routehint(const tal_t *ctx,
+				  const char *buf,
+				  const jsmntok_t *route,
+				  const struct pay_command *pc,
+				  const struct route_info *routehint)
+{
+	char *ret;
+
+	/* Truncate closing ] from route */
+	ret = tal_strndup(ctx, buf + route->start, route->end - route->start - 1);
+	for (size_t i = 0; i < tal_count(routehint); i++) {
+		tal_append_fmt(&ret, ", {"
+			       " 'id': '%s',"
+			       " 'channel': '%s',"
+			       " 'msatoshi': %"PRIu64","
+			       " 'delay': %u }",
+			       /* pubkey of *destination* */
+			       route_pubkey(tmpctx, pc, routehint, i + 1),
+			       type_to_string(tmpctx, struct short_channel_id,
+					      &routehint[i].short_channel_id),
+			       /* amount to be received by *destination* */
+			       route_msatoshi(pc->msatoshi, routehint + i + 1,
+					      tal_count(routehint) - i - 1),
+			       /* cltv for *destination* */
+			       route_cltv(pc->final_cltv, routehint + i + 1,
+					  tal_count(routehint) - i - 1));
+	}
+	/* Put ] back */
+	tal_append_fmt(&ret, "]");
+	return ret;
+}
+
 static struct command_result *getroute_done(struct command *cmd,
 					    const char *buf,
 					    const jsmntok_t *result,
@@ -165,7 +236,11 @@ static struct command_result *getroute_done(struct command *cmd,
 				    "Route wanted delay of %u blocks", delay);
 	}
 
-	attempt.route = json_strdup(pc->attempts, buf, result);
+	if (tal_count(pc->routehints))
+		attempt.route = join_routehint(pc->attempts, buf, t,
+					       pc, pc->routehints[0]);
+	else
+		attempt.route = json_strdup(pc->attempts, buf, t);
 	tal_arr_expand(&pc->attempts, attempt);
 
 	if (pc->desc)
@@ -174,8 +249,8 @@ static struct command_result *getroute_done(struct command *cmd,
 		json_desc = "";
 
 	return send_outreq(cmd, "sendpay", sendpay_done, forward_error, pc,
-			   "'route': %.*s, 'payment_hash': '%s'%s",
-			   t->end - t->start, buf + t->start,
+			   "'route': %s, 'payment_hash': '%s'%s",
+			   attempt.route,
 			   pc->payment_hash,
 			   json_desc);
 }
@@ -184,6 +259,10 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 						struct pay_command *pc)
 {
 	char *exclude;
+	u64 amount;
+	const char *dest;
+	size_t max_hops = ROUTING_MAX_HOPS;
+	u32 cltv;
 
 	if (tal_count(pc->excludes) != 0) {
 		exclude = tal_strdup(tmpctx, ",'exclude': [");
@@ -196,14 +275,32 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 	} else
 		exclude = "";
 
+	/* If we have a routehint, try that first; we need to do extra
+	 * checks that it meets our criteria though. */
+	if (tal_count(pc->routehints)) {
+		amount = route_msatoshi(pc->msatoshi,
+					pc->routehints[0],
+					tal_count(pc->routehints[0]));
+		dest = type_to_string(tmpctx, struct pubkey,
+				      &pc->routehints[0][0].pubkey);
+		max_hops -= tal_count(pc->routehints[0]);
+		cltv = route_cltv(pc->final_cltv,
+				  pc->routehints[0],
+				  tal_count(pc->routehints[0]));
+	} else {
+		amount = pc->msatoshi;
+		dest = pc->dest;
+		cltv = pc->final_cltv;
+	}
+
 	/* OK, ask for route to destination */
 	return send_outreq(cmd, "getroute", getroute_done, forward_error, pc,
 			   "'id': '%s',"
 			   "'msatoshi': %"PRIu64","
 			   "'cltv': %u,"
+			   "'maxhops': %zu,"
 			   "'riskfactor': %f%s",
-			   pc->dest, pc->msatoshi, pc->final_cltv, pc->riskfactor,
-			   exclude);
+			   dest, amount, cltv, max_hops, pc->riskfactor, exclude);
 }
 
 /* gossipd doesn't know much about the current state of channels; here we
@@ -261,6 +358,40 @@ static struct command_result *listpeers_done(struct command *cmd,
 	return start_pay_attempt(cmd, pc);
 }
 
+/* Trim route to this length by taking from the *front* of route
+ * (end points to destination, so we need that bit!) */
+static void trim_route(struct route_info **route, size_t n)
+{
+	size_t remove = tal_count(*route) - n;
+	memmove(*route, *route + remove, sizeof(**route) * n);
+	tal_resize(route, n);
+}
+
+/* Make sure routehints are reasonable length, and (since we assume we
+ * can append), not directly to us.  Note: untrusted data! */
+static struct route_info **filter_routehints(struct pay_command *pc,
+					     struct route_info **hints)
+{
+	for (size_t i = 0; i < tal_count(hints); i++) {
+		/* Trim any routehint > 10 hops */
+		size_t max_hops = ROUTING_MAX_HOPS / 2;
+		if (tal_count(hints[i]) > max_hops)
+			trim_route(&hints[i], max_hops);
+
+		/* If we are first hop, trim. */
+		if (tal_count(hints[i]) > 0
+		    && pubkey_eq(&hints[i][0].pubkey, &my_id))
+			trim_route(&hints[i], tal_count(hints[i])-1);
+
+		/* If route is empty, remove altogether. */
+		if (tal_count(hints[i]) == 0) {
+			tal_arr_remove(&hints, i);
+			i--;
+		}
+	}
+	return tal_steal(pc, hints);
+}
+
 static struct command_result *handle_pay(struct command *cmd,
 					 const char *buf,
 					 const jsmntok_t *params)
@@ -315,6 +446,7 @@ static struct command_result *handle_pay(struct command *cmd,
 		pc->msatoshi = *msatoshi;
 	}
 
+	pc->routehints = filter_routehints(pc, b11->routes);
 	pc->maxfeepercent = *maxfeepercent;
 	pc->maxdelay = *maxdelay;
 	pc->exemptfee = *exemptfee;
