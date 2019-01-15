@@ -234,8 +234,7 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log('dev_disconnect: @WIRE_REVOKE_AND_ACK')
 
     # Takes 6 blocks to timeout (cltv-final + 1), but we also give grace period of 1 block.
-    # FIXME: pay plugin uses default value of 9...
-    bitcoind.generate_block(9 + 1)
+    bitcoind.generate_block(5 + 1)
     time.sleep(3)
     assert not l1.daemon.is_in_log('hit deadline')
     bitcoind.generate_block(1)

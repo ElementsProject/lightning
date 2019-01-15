@@ -22,6 +22,7 @@ struct pay_command {
 	/* How much we're paying, and what riskfactor for routing. */
 	u64 msatoshi;
 	double riskfactor;
+	unsigned int final_cltv;
 
 	/* Limits on what routes we'll accept. */
 	double maxfeepercent;
@@ -199,8 +200,10 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 	return send_outreq(cmd, "getroute", getroute_done, forward_error, pc,
 			   "'id': '%s',"
 			   "'msatoshi': %"PRIu64","
+			   "'cltv': %u,"
 			   "'riskfactor': %f%s",
-			   pc->dest, pc->msatoshi, pc->riskfactor, exclude);
+			   pc->dest, pc->msatoshi, pc->final_cltv, pc->riskfactor,
+			   exclude);
 }
 
 /* gossipd doesn't know much about the current state of channels; here we
@@ -316,6 +319,7 @@ static struct command_result *handle_pay(struct command *cmd,
 	pc->maxdelay = *maxdelay;
 	pc->exemptfee = *exemptfee;
 	pc->riskfactor = *riskfactor;
+	pc->final_cltv = b11->min_final_cltv_expiry;
 	pc->dest = type_to_string(cmd, struct pubkey, &b11->receiver_id);
 	pc->payment_hash = type_to_string(pc, struct sha256,
 					  &b11->payment_hash);
