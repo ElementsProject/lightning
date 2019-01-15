@@ -70,18 +70,18 @@ def test_pay_limits(node_factory):
 
     # Fee too high.
     with pytest.raises(RpcError, match=r'Route wanted fee of .* msatoshis') as err:
-        l1.rpc.call('pay2', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxfeepercent': 0.0001, 'exemptfee': 0})
+        l1.rpc.call('pay', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxfeepercent': 0.0001, 'exemptfee': 0})
 
     assert err.value.error['code'] == PAY_ROUTE_TOO_EXPENSIVE
 
     # Delay too high.
     with pytest.raises(RpcError, match=r'Route wanted delay of .* blocks') as err:
-        l1.rpc.call('pay2', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxdelay': 0})
+        l1.rpc.call('pay', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxdelay': 0})
 
     assert err.value.error['code'] == PAY_ROUTE_TOO_EXPENSIVE
 
     # This works, because fee is less than exemptfee.
-    l1.rpc.call('pay2', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxfeepercent': 0.0001, 'exemptfee': 2000})
+    l1.rpc.call('pay', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxfeepercent': 0.0001, 'exemptfee': 2000})
 
 
 def test_pay0(node_factory):

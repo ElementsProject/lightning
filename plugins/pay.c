@@ -926,7 +926,7 @@ static void init(struct plugin_conn *rpc)
 }
 
 static const struct plugin_command commands[] = { {
-		"pay2",
+		"pay",
 		"Send payment specified by {bolt11} with {msatoshi}",
 		"Try to send a payment, retrying {retry_for} seconds before giving up",
 		handle_pay

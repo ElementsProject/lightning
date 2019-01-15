@@ -329,7 +329,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "description": description,
             "riskfactor": riskfactor
         }
-        return self.call("pay2", payload)
+        return self.call("pay", payload)
 
     def listpayments(self, bolt11=None, payment_hash=None):
         """
