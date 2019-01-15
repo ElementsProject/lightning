@@ -52,6 +52,23 @@ struct pay_command {
 static struct command_result *start_pay_attempt(struct command *cmd,
 						struct pay_command *pc);
 
+/* Is this (erring) channel within the routehint itself? */
+static bool channel_in_routehint(const struct route_info *routehint,
+				 const char *buf, const jsmntok_t *scidtok)
+{
+	struct short_channel_id scid;
+
+	if (!json_to_short_channel_id(buf, scidtok, &scid))
+		plugin_err("bad erring_channel '%.*s'",
+			   scidtok->end - scidtok->start, buf + scidtok->start);
+
+	for (size_t i = 0; i < tal_count(routehint); i++)
+		if (short_channel_id_eq(&scid, &routehint[i].short_channel_id))
+			return true;
+
+	return false;
+}
+
 static struct command_result *waitsendpay_expired(struct command *cmd,
 						  struct pay_command *pc)
 {
@@ -99,14 +116,21 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 		plugin_err("waitsendpay error no erring_direction '%.*s'",
 			   error->end - error->start, buf + error->start);
 
-	/* Add erring channel to exclusion list. */
-	tal_arr_expand(&pc->excludes, tal_fmt(pc->excludes, "%.*s/%c",
-					      scidtok->end - scidtok->start,
-					      buf + scidtok->start,
-					      buf[dirtok->start]));
-
 	attempt = &pc->attempts[tal_count(pc->attempts)-1];
 	attempt->failure = json_strdup(pc->attempts, buf, error);
+
+	/* If failure is in routehint part, eliminate that */
+	if (tal_count(pc->routehints) != 0
+	    && channel_in_routehint(pc->routehints[0], buf, scidtok)) {
+		tal_arr_remove(&pc->routehints, 0);
+	} else {
+		/* Otherwise, add erring channel to exclusion list. */
+		tal_arr_expand(&pc->excludes,
+			       tal_fmt(pc->excludes, "%.*s/%c",
+				       scidtok->end - scidtok->start,
+				       buf + scidtok->start,
+				       buf[dirtok->start]));
+	}
 
 	if (time_after(time_now(), pc->stoptime)) {
 		return waitsendpay_expired(cmd, pc);
@@ -194,6 +218,14 @@ static const char *join_routehint(const tal_t *ctx,
 	return ret;
 }
 
+/* Try again with the next routehint (or none if that was the last) */
+static struct command_result *next_routehint(struct command *cmd,
+					     struct pay_command *pc)
+{
+	tal_arr_remove(&pc->routehints, 0);
+	return start_pay_attempt(cmd, pc);
+}
+
 static struct command_result *getroute_done(struct command *cmd,
 					    const char *buf,
 					    const jsmntok_t *result,
@@ -226,12 +258,18 @@ static struct command_result *getroute_done(struct command *cmd,
 	feepercent = ((double)fee) * 100.0 / ((double) pc->msatoshi);
 
 	if (fee > pc->exemptfee && feepercent > pc->maxfeepercent) {
+		if (tal_count(pc->routehints) != 0)
+			return next_routehint(cmd, pc);
+
 		return command_fail(cmd, PAY_ROUTE_TOO_EXPENSIVE,
 				    "Route wanted fee of %"PRIu64" msatoshis",
 				    fee);
 	}
 
 	if (delay > pc->maxdelay) {
+		if (tal_count(pc->routehints) != 0)
+			return next_routehint(cmd, pc);
+
 		return command_fail(cmd, PAY_ROUTE_TOO_EXPENSIVE,
 				    "Route wanted delay of %u blocks", delay);
 	}
@@ -253,6 +291,19 @@ static struct command_result *getroute_done(struct command *cmd,
 			   attempt.route,
 			   pc->payment_hash,
 			   json_desc);
+
+}
+
+static struct command_result *getroute_error(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *result,
+					     struct pay_command *pc)
+{
+	/* If we were trying to use a routehint, remove and try again. */
+	if (tal_count(pc->routehints) != 0)
+		return next_routehint(cmd, pc);
+
+	return forward_error(cmd, buf, result, pc);
 }
 
 static struct command_result *start_pay_attempt(struct command *cmd,
@@ -294,7 +345,7 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 	}
 
 	/* OK, ask for route to destination */
-	return send_outreq(cmd, "getroute", getroute_done, forward_error, pc,
+	return send_outreq(cmd, "getroute", getroute_done, getroute_error, pc,
 			   "'id': '%s',"
 			   "'msatoshi': %"PRIu64","
 			   "'cltv': %u,"

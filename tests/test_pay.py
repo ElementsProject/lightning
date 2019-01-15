@@ -1237,18 +1237,58 @@ def test_pay_routeboost(node_factory, bitcoind):
     if DEVELOPER:
         scid34 = only_one(l3.rpc.listpeers(l4.info['id'])['peers'])['channels'][0]['short_channel_id']
         scid45 = only_one(l4.rpc.listpeers(l5.info['id'])['peers'])['channels'][0]['short_channel_id']
-        route = [{'id': l3.info['id'],
-                  'short_channel_id': scid34,
-                  'fee_base_msat': 1000,
-                  'fee_proportional_millionths': 10,
-                  'cltv_expiry_delta': 6},
-                 {'id': l4.info['id'],
-                  'short_channel_id': scid45,
-                  'fee_base_msat': 1000,
-                  'fee_proportional_millionths': 10,
-                  'cltv_expiry_delta': 6}]
+        routel3l4l5 = [{'id': l3.info['id'],
+                        'short_channel_id': scid34,
+                        'fee_base_msat': 1000,
+                        'fee_proportional_millionths': 10,
+                        'cltv_expiry_delta': 6},
+                       {'id': l4.info['id'],
+                        'short_channel_id': scid45,
+                        'fee_base_msat': 1000,
+                        'fee_proportional_millionths': 10,
+                        'cltv_expiry_delta': 6}]
         inv = l5.rpc.call('invoice', {'msatoshi': 10**5,
                                       'label': 'test_pay_routeboost2',
                                       'description': 'test_pay_routeboost2',
-                                      'dev-routes': [route]})
+                                      'dev-routes': [routel3l4l5]})
+        l1.rpc.pay(inv['bolt11'])
+
+        # Now test that it falls back correctly to not using routeboost
+        # if it can't route to the node mentioned
+        routel4l3 = [{'id': l4.info['id'],
+                      'short_channel_id': scid34,
+                      'fee_base_msat': 1000,
+                      'fee_proportional_millionths': 10,
+                      'cltv_expiry_delta': 6}]
+        inv = l3.rpc.call('invoice', {'msatoshi': 10**5,
+                                      'label': 'test_pay_routeboost3',
+                                      'description': 'test_pay_routeboost3',
+                                      'dev-routes': [routel4l3]})
+        l1.rpc.pay(inv['bolt11'])
+
+        # Similarly if it can route, but payment fails.
+        routel2bad = [{'id': l2.info['id'],
+                       'short_channel_id': scid34,  # Invalid scid
+                       'fee_base_msat': 1000,
+                       'fee_proportional_millionths': 10,
+                       'cltv_expiry_delta': 6}]
+        inv = l3.rpc.call('invoice', {'msatoshi': 10**5,
+                                      'label': 'test_pay_routeboost4',
+                                      'description': 'test_pay_routeboost4',
+                                      'dev-routes': [routel2bad]})
+        l1.rpc.pay(inv['bolt11'])
+
+        # Finally, it should fall back to second routehint if first fails.
+        # (Note, this is not public because it's not 6 deep)
+        l3.rpc.connect(l5.info['id'], 'localhost', l5.port)
+        scid35 = l3.fund_channel(l5, 10**6)
+        routel3l5 = [{'id': l3.info['id'],
+                      'short_channel_id': scid35,
+                      'fee_base_msat': 1000,
+                      'fee_proportional_millionths': 10,
+                      'cltv_expiry_delta': 6}]
+        inv = l5.rpc.call('invoice', {'msatoshi': 10**5,
+                                      'label': 'test_pay_routeboost5',
+                                      'description': 'test_pay_routeboost5',
+                                      'dev-routes': [routel3l4l5, routel3l5]})
         l1.rpc.pay(inv['bolt11'])
