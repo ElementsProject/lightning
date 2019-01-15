@@ -45,6 +45,12 @@ void pubkey_to_der(u8 der[PUBKEY_DER_LEN], const struct pubkey *key);
 /* Compare the keys `a` and `b`. Return <0 if `a`<`b`, 0 if equal and >0 otherwise */
 int pubkey_cmp(const struct pubkey *a, const struct pubkey *b);
 
+/* If the two nodes[] are id1 and id2, which index would id1 be? */
+static inline int pubkey_idx(const struct pubkey *id1, const struct pubkey *id2)
+{
+	return pubkey_cmp(id1, id2) > 0;
+}
+
 /**
  * pubkey_to_hash160 - Get the hash for p2pkh payments for a given pubkey
  */

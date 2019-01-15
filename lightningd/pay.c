@@ -252,7 +252,8 @@ static struct routing_failure*
 immediate_routing_failure(const tal_t *ctx,
 			  const struct lightningd *ld,
 			  enum onion_type failcode,
-			  const struct short_channel_id *channel0)
+			  const struct short_channel_id *channel0,
+			  const struct pubkey *dstid)
 {
 	struct routing_failure *routing_failure;
 
@@ -263,6 +264,11 @@ immediate_routing_failure(const tal_t *ctx,
 	routing_failure->failcode = failcode;
 	routing_failure->erring_node = ld->id;
 	routing_failure->erring_channel = *channel0;
+	if (dstid)
+		routing_failure->channel_dir = pubkey_idx(&ld->id, dstid);
+	/* FIXME: Don't set at all unless we know. */
+	else
+		routing_failure->channel_dir = 0;
 	routing_failure->channel_update = NULL;
 
 	return routing_failure;
@@ -285,6 +291,8 @@ local_routing_failure(const tal_t *ctx,
 	routing_failure->failcode = hout->failcode;
 	routing_failure->erring_node = ld->id;
 	routing_failure->erring_channel = payment->route_channels[0];
+	routing_failure->channel_dir = pubkey_idx(&ld->id,
+						  &payment->route_nodes[0]);
 	routing_failure->channel_update = NULL;
 
 	return routing_failure;
@@ -313,6 +321,7 @@ remote_routing_failure(const tal_t *ctx,
 	int origin_index;
 	bool retry_plausible;
 	bool report_to_gossipd;
+	int dir;
 
 	routing_failure = tal(ctx, struct routing_failure);
 	route_nodes = payment->route_nodes;
@@ -333,7 +342,10 @@ remote_routing_failure(const tal_t *ctx,
 
 	/* Check if at destination. */
 	if (origin_index == tal_count(route_nodes) - 1) {
+		/* FIXME: Don't set erring_channel or dir in this case! */
 		erring_channel = &dummy_channel;
+		dir = 0;
+
 		/* BOLT #4:
 		 *
 		 * - if the _final node_ is returning the error:
@@ -356,6 +368,9 @@ remote_routing_failure(const tal_t *ctx,
 		/* Report the *next* channel as failing. */
 		erring_channel = &route_channels[origin_index + 1];
 
+		dir = pubkey_idx(&route_nodes[origin_index],
+				 &route_nodes[origin_index+1]);
+
 		/* If the error is a BADONION, then it's on behalf of the
 		 * following node. */
 		if (failcode & BADONION) {
@@ -371,6 +386,7 @@ remote_routing_failure(const tal_t *ctx,
 	routing_failure->erring_node = *erring_node;
 	routing_failure->erring_channel = *erring_channel;
 	routing_failure->channel_update = channel_update;
+	routing_failure->channel_dir = dir;
 
 	*p_retry_plausible = retry_plausible;
 	*p_report_to_gossipd = report_to_gossipd;
@@ -559,7 +575,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 				    fail ? &fail->erring_node : NULL,
 				    fail ? &fail->erring_channel : NULL,
 				    fail ? fail->channel_update : NULL,
-				    failmsg);
+				    failmsg,
+				    fail ? fail->channel_dir : 0);
 
 	/* Report to gossipd if we decided we should. */
 	if (report_to_gossipd)
@@ -595,6 +612,7 @@ bool wait_payment(const tal_t *cxt,
 	u8 *failupdate;
 	char *faildetail;
 	struct routing_failure *fail;
+	int faildirection;
 
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet, payment_hash);
 	if (!payment) {
@@ -634,7 +652,8 @@ bool wait_payment(const tal_t *cxt,
 					    &failnode,
 					    &failchannel,
 					    &failupdate,
-					    &faildetail);
+					    &faildetail,
+					    &faildirection);
 		/* Old DB might not save failure information */
 		if (!failonionreply && !failnode)
 			result = sendpay_result_simple_fail(tmpctx,
@@ -653,6 +672,7 @@ bool wait_payment(const tal_t *cxt,
 			fail->erring_node = *failnode;
 			fail->erring_channel = *failchannel;
 			fail->channel_update = failupdate;
+			fail->channel_dir = faildirection;
 			result = sendpay_result_route_failure(tmpctx, !faildestperm, fail, NULL, faildetail);
 		}
 
@@ -770,7 +790,8 @@ send_payment(const tal_t *ctx,
 		/* Report routing failure to gossipd */
 		fail = immediate_routing_failure(ctx, ld,
 						 WIRE_UNKNOWN_NEXT_PEER,
-						 &route[0].channel_id);
+						 &route[0].channel_id,
+						 0);
 		report_routing_failure(ld->log, ld->gossip, fail);
 
 		/* Report routing failure to caller */
@@ -798,7 +819,8 @@ send_payment(const tal_t *ctx,
 		/* Report routing failure to gossipd */
 		fail = immediate_routing_failure(ctx, ld,
 						 failcode,
-						 &route[0].channel_id);
+						 &route[0].channel_id,
+						 &channel->peer->id);
 		report_routing_failure(ld->log, ld->gossip, fail);
 
 		/* Report routing failure to caller */
@@ -922,6 +944,8 @@ static void json_waitsendpay_on_resolve(const struct sendpay_result *r,
 			json_add_pubkey(data, "erring_node", &fail->erring_node);
 			json_add_short_channel_id(data, "erring_channel",
 						  &fail->erring_channel);
+			json_add_num(data, "erring_channel_direction",
+				     fail->channel_dir);
 			if (fail->channel_update)
 				json_add_hex_talarr(data, "channel_update",
 						    fail->channel_update);

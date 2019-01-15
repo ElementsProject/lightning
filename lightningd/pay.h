@@ -19,6 +19,7 @@ struct routing_failure {
 	enum onion_type failcode;
 	struct pubkey erring_node;
 	struct short_channel_id erring_channel;
+	int channel_dir;
 	u8 *channel_update;
 };
 

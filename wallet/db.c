@@ -354,6 +354,8 @@ char *dbmigrations[] = {
     ", state INTEGER"
     ", UNIQUE(in_htlc_id, out_htlc_id)"
     ");",
+    /* Add a direction for failed payments. */
+    "ALTER TABLE payments ADD faildirection INTEGER;", /* erring_direction */
     NULL,
 };
 
