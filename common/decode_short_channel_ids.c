@@ -48,8 +48,9 @@ struct short_channel_id *decode_short_ids(const tal_t *ctx, const u8 *encoded)
 	case SHORTIDS_UNCOMPRESSED:
 		scids = tal_arr(ctx, struct short_channel_id, 0);
 		while (max) {
-			fromwire_short_channel_id(&encoded, &max,
-						  tal_arr_expand(&scids));
+			struct short_channel_id scid;
+			fromwire_short_channel_id(&encoded, &max, &scid);
+			tal_arr_expand(&scids, scid);
 		}
 
 		/* encoded is set to NULL if we ran over */

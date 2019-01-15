@@ -314,8 +314,8 @@ struct chan *new_chan(struct routing_state *rstate,
 	chan->satoshis = satoshis;
 	chan->local_disabled = false;
 
-	*tal_arr_expand(&n2->chans) = chan;
-	*tal_arr_expand(&n1->chans) = chan;
+	tal_arr_expand(&n2->chans, chan);
+	tal_arr_expand(&n1->chans, chan);
 
 	/* Populate with (inactive) connections */
 	init_half_chan(rstate, chan, n1idx);
@@ -1306,7 +1306,7 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 			break;
 		}
 
-		*tal_arr_expand(&wireaddrs) = wireaddr;
+		tal_arr_expand(&wireaddrs, wireaddr);
 	}
 	return wireaddrs;
 }

@@ -1224,28 +1224,31 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
 		const struct htlc *htlc = changed_htlcs[i];
 		if (htlc->state == RCVD_ADD_COMMIT) {
-			struct added_htlc *a = tal_arr_expand(&added);
-			struct secret *s = tal_arr_expand(&shared_secret);
-			a->id = htlc->id;
-			a->amount_msat = htlc->msatoshi;
-			a->payment_hash = htlc->rhash;
-			a->cltv_expiry = abs_locktime_to_blocks(&htlc->expiry);
-			memcpy(a->onion_routing_packet,
+			struct added_htlc a;
+			struct secret s;
+
+			a.id = htlc->id;
+			a.amount_msat = htlc->msatoshi;
+			a.payment_hash = htlc->rhash;
+			a.cltv_expiry = abs_locktime_to_blocks(&htlc->expiry);
+			memcpy(a.onion_routing_packet,
 			       htlc->routing,
-			       sizeof(a->onion_routing_packet));
+			       sizeof(a.onion_routing_packet));
 			/* Invalid shared secret gets set to all-zero: our
 			 * code generator can't make arrays of optional values */
 			if (!htlc->shared_secret)
-				memset(s, 0, sizeof(*s));
+				memset(&s, 0, sizeof(s));
 			else
-				*s = *htlc->shared_secret;
+				s = *htlc->shared_secret;
+			tal_arr_expand(&added, a);
+			tal_arr_expand(&shared_secret, s);
 		} else if (htlc->state == RCVD_REMOVE_COMMIT) {
 			if (htlc->r) {
-				struct fulfilled_htlc *f;
+				struct fulfilled_htlc f;
 				assert(!htlc->fail && !htlc->failcode);
-				f = tal_arr_expand(&fulfilled);
-				f->id = htlc->id;
-				f->payment_preimage = *htlc->r;
+				f.id = htlc->id;
+				f.payment_preimage = *htlc->r;
+				tal_arr_expand(&fulfilled, f);
 			} else {
 				struct failed_htlc *f;
 				assert(htlc->fail || htlc->failcode);
@@ -1255,15 +1258,16 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 				f->failreason = cast_const(u8 *, htlc->fail);
 				f->scid = cast_const(struct short_channel_id *,
 							htlc->failed_scid);
-				*tal_arr_expand(&failed) = f;
+				tal_arr_expand(&failed, f);
 			}
 		} else {
-			struct changed_htlc *c = tal_arr_expand(&changed);
+			struct changed_htlc c;
 			assert(htlc->state == RCVD_REMOVE_ACK_COMMIT
 			       || htlc->state == RCVD_ADD_ACK_COMMIT);
 
-			c->id = htlc->id;
-			c->newstate = htlc->state;
+			c.id = htlc->id;
+			c.newstate = htlc->state;
+			tal_arr_expand(&changed, c);
 		}
 	}
 
@@ -1418,15 +1422,16 @@ static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
 	struct changed_htlc *changed = tal_arr(tmpctx, struct changed_htlc, 0);
 
 	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
-		struct changed_htlc *c = tal_arr_expand(&changed);
+		struct changed_htlc c;
 		const struct htlc *htlc = changed_htlcs[i];
 
 		status_trace("HTLC %"PRIu64"[%s] => %s",
 			     htlc->id, side_to_str(htlc_owner(htlc)),
 			     htlc_state_name(htlc->state));
 
-		c->id = changed_htlcs[i]->id;
-		c->newstate = changed_htlcs[i]->state;
+		c.id = changed_htlcs[i]->id;
+		c.newstate = changed_htlcs[i]->state;
+		tal_arr_expand(&changed, c);
 	}
 
 	msg = towire_channel_got_revoke(ctx, revoke_num, per_commitment_secret,

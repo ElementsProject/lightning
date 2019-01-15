@@ -767,9 +767,10 @@ static void add_listen_fd(struct daemon *daemon, int fd, bool mayfail)
 	/*~ utils.h contains a convenience macro tal_arr_expand which
 	 * reallocates a tal_arr to make it one longer, then returns a pointer
 	 * to the (new) last element. */
-	struct listen_fd *l = tal_arr_expand(&daemon->listen_fds);
-	l->fd = fd;
-	l->mayfail = mayfail;
+	struct listen_fd l;
+	l.fd = fd;
+	l.mayfail = mayfail;
+	tal_arr_expand(&daemon->listen_fds, l);
 }
 
 /*~ Helper routine to create and bind a socket of a given type; like many
@@ -876,13 +877,13 @@ static bool public_address(struct daemon *daemon, struct wireaddr *wireaddr)
 static void add_announcable(struct wireaddr **announcable,
 			    const struct wireaddr *addr)
 {
-	*tal_arr_expand(announcable) = *addr;
+	tal_arr_expand(announcable, *addr);
 }
 
 static void add_binding(struct wireaddr_internal **binding,
 			const struct wireaddr_internal *addr)
 {
-	*tal_arr_expand(binding) = *addr;
+	tal_arr_expand(binding, *addr);
 }
 
 /*~ ccan/asort provides a type-safe sorting function; it requires a comparison
@@ -1223,7 +1224,7 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 		status_trace("Resolved %s to %s", addr,
 			     type_to_string(tmpctx, struct wireaddr,
 					    &a.u.wireaddr));
-		*tal_arr_expand(addrs) = a;
+		tal_arr_expand(addrs, a);
 	}
 }
 
@@ -1254,7 +1255,7 @@ static void add_gossip_addrs(struct wireaddr_internal **addrs,
 		struct wireaddr_internal addr;
 		addr.itype = ADDR_INTERNAL_WIREADDR;
 		addr.u.wireaddr = normal_addrs[i];
-		*tal_arr_expand(addrs) = addr;
+		tal_arr_expand(addrs, addr);
 	}
 }
 
@@ -1284,7 +1285,7 @@ static void try_connect_peer(struct daemon *daemon,
 
 	/* They can supply an optional address for the connect RPC */
 	if (addrhint)
-		*tal_arr_expand(&addrs) = *addrhint;
+		tal_arr_expand(&addrs, *addrhint);
 
 	add_gossip_addrs(&addrs, id);
 
@@ -1297,7 +1298,7 @@ static void try_connect_peer(struct daemon *daemon,
 			wireaddr_from_unresolved(&unresolved,
 						 seedname(tmpctx, id),
 						 DEFAULT_PORT);
-			*tal_arr_expand(&addrs) = unresolved;
+			tal_arr_expand(&addrs, unresolved);
 		} else if (daemon->use_dns) {
 			add_seed_addrs(&addrs, id,
 				       daemon->broken_resolver_response);

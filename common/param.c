@@ -21,13 +21,15 @@ static bool param_add(struct param **params,
 	if (!(name && cbx && arg))
 		return false;
 #endif
-	struct param *last = tal_arr_expand(params);
+	struct param last;
 
-	last->is_set = false;
-	last->name = name;
-	last->required = required;
-	last->cbx = cbx;
-	last->arg = arg;
+	last.is_set = false;
+	last.name = name;
+	last.required = required;
+	last.cbx = cbx;
+	last.arg = arg;
+
+	tal_arr_expand(params, last);
 	return true;
 }
 

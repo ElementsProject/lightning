@@ -234,7 +234,7 @@ plugin_request_new_(struct plugin *plugin,
 static void plugin_send(struct plugin *plugin, struct json_stream *stream)
 {
 	tal_steal(plugin->js_arr, stream);
-	*tal_arr_expand(&plugin->js_arr) = stream;
+	tal_arr_expand(&plugin->js_arr, stream);
 	io_wake(plugin);
 }
 
@@ -746,7 +746,7 @@ static bool plugin_rpcmethod_add(struct plugin *plugin,
 			   cmd->name);
 		return false;
 	}
-	*tal_arr_expand(&plugin->methods) = cmd->name;
+	tal_arr_expand(&plugin->methods, cmd->name);
 	return true;
 }
 
@@ -808,7 +808,7 @@ static bool plugin_subscriptions_add(struct plugin *plugin, const char *buffer,
 			return false;
 		}
 
-		*tal_arr_expand(&plugin->subscriptions) = topic;
+		tal_arr_expand(&plugin->subscriptions, topic);
 	}
 	return true;
 }

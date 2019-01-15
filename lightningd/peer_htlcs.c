@@ -1389,19 +1389,17 @@ static void add_htlc(struct added_htlc **htlcs,
 		     const u8 onion_routing_packet[TOTAL_PACKET_SIZE],
 		     enum htlc_state state)
 {
-	struct added_htlc *a;
-	enum htlc_state *h;
+	struct added_htlc a;
 
-	a = tal_arr_expand(htlcs);
-	h = tal_arr_expand(htlc_states);
+	a.id = id;
+	a.amount_msat = amount_msat;
+	a.payment_hash = *payment_hash;
+	a.cltv_expiry = cltv_expiry;
+	memcpy(a.onion_routing_packet, onion_routing_packet,
+	       sizeof(a.onion_routing_packet));
 
-	a->id = id;
-	a->amount_msat = amount_msat;
-	a->payment_hash = *payment_hash;
-	a->cltv_expiry = cltv_expiry;
-	memcpy(a->onion_routing_packet, onion_routing_packet,
-	       sizeof(a->onion_routing_packet));
-	*h = state;
+	tal_arr_expand(htlcs, a);
+	tal_arr_expand(htlc_states, state);
 }
 
 static void add_fulfill(u64 id, enum side side,
@@ -1409,14 +1407,13 @@ static void add_fulfill(u64 id, enum side side,
 			struct fulfilled_htlc **fulfilled_htlcs,
 			enum side **fulfilled_sides)
 {
-	struct fulfilled_htlc *f;
-	enum side *s;
+	struct fulfilled_htlc f;
 
-	f = tal_arr_expand(fulfilled_htlcs);
-	s = tal_arr_expand(fulfilled_sides);
-	f->id = id;
-	f->payment_preimage = *payment_preimage;
-	*s = side;
+	f.id = id;
+	f.payment_preimage = *payment_preimage;
+
+	tal_arr_expand(fulfilled_htlcs, f);
+	tal_arr_expand(fulfilled_sides, side);
 }
 
 static void add_fail(u64 id, enum side side,
@@ -1444,8 +1441,8 @@ static void add_fail(u64 id, enum side side,
 	else
 		newf->failreason = NULL;
 
-	*tal_arr_expand(failed_htlcs) = newf;
-	*tal_arr_expand(failed_sides) = side;
+	tal_arr_expand(failed_htlcs, newf);
+	tal_arr_expand(failed_sides, side);
 }
 
 /* FIXME: Load direct from db. */

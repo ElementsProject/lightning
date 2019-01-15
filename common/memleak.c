@@ -48,8 +48,8 @@ void *notleak_(const void *ptr, bool plus_children)
 	if (!notleaks)
 		return cast_const(void *, ptr);
 
-	*tal_arr_expand(&notleaks) = ptr;
-	*tal_arr_expand(&notleak_children) = plus_children;
+	tal_arr_expand(&notleaks, ptr);
+	tal_arr_expand(&notleak_children, plus_children);
 
 	tal_add_notifier(ptr, TAL_NOTIFY_FREE|TAL_NOTIFY_MOVE, notleak_change);
 	return cast_const(void *, ptr);
