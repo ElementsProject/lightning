@@ -280,7 +280,7 @@ static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, con
 	fromwire_gossip_getroute_reply(reply, reply, &hops);
 
 	if (tal_count(hops) == 0) {
-		was_pending(command_fail(cmd, LIGHTNINGD,
+		was_pending(command_fail(cmd, PAY_ROUTE_NOT_FOUND,
 					 "Could not find a route"));
 		return;
 	}
