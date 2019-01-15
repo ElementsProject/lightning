@@ -73,9 +73,9 @@ void status_send(const u8 *msg TAKES)
 {
 	report_logging_io("SIGUSR1");
 	if (status_fd >= 0) {
-		int type =fromwire_peektype(msg);
 		if (!wire_sync_write(status_fd, msg))
-			err(1, "Writing out status %i", type);
+			/* No point printing error if lightningd is dead. */
+			exit(1);
 	} else {
 		daemon_conn_send(status_conn, msg);
 	}
