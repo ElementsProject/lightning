@@ -120,14 +120,7 @@ def test_invoice_preimage(node_factory):
 def test_invoice_routeboost(node_factory, bitcoind):
     """Test routeboost 'r' hint in bolt11 invoice.
     """
-    l1, l2 = node_factory.line_graph(2, fundamount=2 * (10**4))
-
-    # Won't get reference to route until channel is public.
-    inv = l2.rpc.invoice(msatoshi=123456, label="inv0", description="?")
-    assert 'warning_capacity' in inv
-
-    bitcoind.generate_block(5)
-    wait_for(lambda: [c['public'] for c in l2.rpc.listchannels()['channels']] == [True, True])
+    l1, l2 = node_factory.line_graph(2, fundamount=2 * (10**4), wait_for_announce=True)
 
     # Check routeboost.
     # Make invoice and pay it
@@ -160,6 +153,38 @@ def test_invoice_routeboost(node_factory, bitcoind):
     # Check warning.
     assert 'warning_capacity' not in inv
     assert 'warning_offline' in inv
+
+
+def test_invoice_routeboost_private(node_factory, bitcoind):
+    """Test routeboost 'r' hint in bolt11 invoice for private channels
+    """
+    l1, l2 = node_factory.line_graph(2, fundamount=10**6, announce_channels=False)
+
+    # Since there's only one route, it will reluctantly hint that even
+    # though it's private
+    inv = l2.rpc.invoice(msatoshi=123456, label="inv0", description="?")
+    assert 'warning_capacity' not in inv
+    assert 'warning_offline' not in inv
+    # Route array has single route with single element.
+    r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
+    assert r['pubkey'] == l1.info['id']
+    assert r['short_channel_id'] == l1.rpc.listchannels()['channels'][0]['short_channel_id']
+    assert r['fee_base_msat'] == 1
+    assert r['fee_proportional_millionths'] == 10
+    assert r['cltv_expiry_delta'] == 6
+
+    # The existence of a public channel, even without capacity, will suppress
+    # the exposure of private channels.
+    l3 = node_factory.get_node()
+    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    scid = l3.fund_channel(l2, 2 * (10**4))
+    bitcoind.generate_block(5)
+
+    # Make sure channel is totally public.
+    wait_for(lambda: [c['public'] for c in l3.rpc.listchannels(scid)['channels']] == [True, True])
+
+    inv = l2.rpc.invoice(msatoshi=123456000, label="inv1", description="?")
+    assert 'warning_capacity' in inv
 
 
 def test_invoice_expiry(node_factory, executor):
