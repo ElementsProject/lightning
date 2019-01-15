@@ -1202,7 +1202,7 @@ def test_pay_retry(node_factory, bitcoind):
         l1.rpc.pay(l5.rpc.invoice(10**8, 'test_retry2', 'test_retry2')['bolt11'])
 
 
-@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 otherwise gossip takes 5 minutes!")
 def test_pay_routeboost(node_factory, bitcoind):
     """Make sure we can use routeboost information. """
     # l1->l2->l3--private-->l4
