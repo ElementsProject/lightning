@@ -489,7 +489,8 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	}
 
 	if (max_hops > ROUTING_MAX_HOPS) {
-		status_info("find_route: max_hops huge amount %zu", max_hops);
+		status_info("find_route: max_hops huge amount %zu > %u",
+			    max_hops, ROUTING_MAX_HOPS);
 		return NULL;
 	}
 

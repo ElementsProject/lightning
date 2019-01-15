@@ -368,7 +368,7 @@ static struct command_result *json_getroute(struct command *cmd,
 							       &excluded_dir[i])) {
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						    "%.*s is not a valid"
-						    " id+direction",
+						    " short_channel_id/direction",
 						    t->end - t->start,
 						    buffer + t->start);
 			}
