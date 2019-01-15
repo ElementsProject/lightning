@@ -11,6 +11,7 @@
 #include <common/bolt11.h>
 #include <common/json_command.h>
 #include <common/json_escaped.h>
+#include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/param.h>
 #include <common/pseudorand.h>
@@ -227,6 +228,10 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 		fatal("Gossip gave bad GOSSIP_GET_INCOMING_CHANNELS_REPLY %s",
 		      tal_hex(msg, msg));
 
+#if DEVELOPER
+	/* dev-routes overrides this. */
+	if (!info->b11->routes)
+#endif
 	info->b11->routes
 		= select_inchan(info->b11,
 				info->cmd->ld,
@@ -295,6 +300,64 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	was_pending(command_success(info->cmd, response));
 }
 
+#if DEVELOPER
+/* Since this is a dev-only option, we will crash if dev-routes is not
+ * an array-of-arrays-of-correct-items. */
+static struct route_info *unpack_route(const tal_t *ctx,
+				       const char *buffer,
+				       const jsmntok_t *routetok)
+{
+	const jsmntok_t *t, *end;
+	struct route_info *route = tal_arr(ctx, struct route_info, 0);
+
+	end = json_next(routetok);
+	for (t = routetok + 1; t < end; t = json_next(t)) {
+		const jsmntok_t *pubkey, *fee_base, *fee_prop, *scid, *cltv;
+		struct route_info r;
+		u32 cltv_u32;
+
+		pubkey = json_get_member(buffer, t, "id");
+		scid = json_get_member(buffer, t, "short_channel_id");
+		fee_base = json_get_member(buffer, t, "fee_base_msat");
+		fee_prop = json_get_member(buffer, t,
+					   "fee_proportional_millionths");
+		cltv = json_get_member(buffer, t, "cltv_expiry_delta");
+
+		if (!json_to_pubkey(buffer, pubkey, &r.pubkey)
+		    || !json_to_short_channel_id(buffer, scid,
+						 &r.short_channel_id)
+		    || !json_to_number(buffer, fee_base, &r.fee_base_msat)
+		    || !json_to_number(buffer, fee_prop,
+				       &r.fee_proportional_millionths)
+		    || !json_to_number(buffer, cltv, &cltv_u32))
+			abort();
+		/* We don't have a json_to_u16 */
+		r.cltv_expiry_delta = cltv_u32;
+		tal_arr_expand(&route, r);
+	}
+	return route;
+}
+
+static struct route_info **unpack_routes(const tal_t *ctx,
+					 const char *buffer,
+					 const jsmntok_t *routestok)
+{
+	struct route_info **routes;
+	const jsmntok_t *t, *end;
+
+	if (!routestok)
+		return NULL;
+
+	routes = tal_arr(ctx, struct route_info *, 0);
+	end = json_next(routestok);
+	for (t = routestok + 1; t < end; t = json_next(t)) {
+		struct route_info *r = unpack_route(routes, buffer, t);
+		tal_arr_expand(&routes, r);
+	}
+	return routes;
+}
+#endif /* DEVELOPER */
+
 static struct command_result *json_invoice(struct command *cmd,
 					   const char *buffer,
 					   const jsmntok_t *obj UNNEEDED,
@@ -309,6 +372,9 @@ static struct command_result *json_invoice(struct command *cmd,
 	u64 *expiry;
 	struct sha256 rhash;
 	bool *exposeprivate;
+#if DEVELOPER
+	const jsmntok_t *routes;
+#endif
 
 	info = tal(cmd, struct invoice_info);
 	info->cmd = cmd;
@@ -321,6 +387,9 @@ static struct command_result *json_invoice(struct command *cmd,
 		   p_opt("fallbacks", param_array, &fallbacks),
 		   p_opt("preimage", param_tok, &preimagetok),
 		   p_opt("exposeprivatechannels", param_bool, &exposeprivate),
+#if DEVELOPER
+		   p_opt("dev-routes", param_array, &routes),
+#endif
 		   NULL))
 		return command_param_failed();
 
@@ -380,6 +449,9 @@ static struct command_result *json_invoice(struct command *cmd,
 	info->b11->description = tal_steal(info->b11, desc_val);
 	info->b11->description_hash = NULL;
 
+#if DEVELOPER
+	info->b11->routes = unpack_routes(info->b11, buffer, routes);
+#endif
 	if (fallback_scripts)
 		info->b11->fallbacks = tal_steal(info->b11, fallback_scripts);
 
