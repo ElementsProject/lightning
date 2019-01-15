@@ -978,9 +978,9 @@ def test_getroute_exclude(node_factory, bitcoind):
     bitcoind.generate_block(5)
 
     # We don't wait above, because we care about it hitting l1.
-    l1.daemon.wait_for_logs([r'update for channel {}\(0\) now ACTIVE'
+    l1.daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
                              .format(scid),
-                             r'update for channel {}\(1\) now ACTIVE'
+                             r'update for channel {}/1 now ACTIVE'
                              .format(scid)])
 
     # l3 id is > l2 id, so 1 means l3->l2

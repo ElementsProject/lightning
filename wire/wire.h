@@ -47,6 +47,8 @@ void towire_secp256k1_ecdsa_recoverable_signature(u8 **pptr,
 void towire_channel_id(u8 **pptr, const struct channel_id *channel_id);
 void towire_short_channel_id(u8 **pptr,
 			     const struct short_channel_id *short_channel_id);
+void towire_short_channel_id_dir(u8 **pptr,
+				 const struct short_channel_id_dir *scidd);
 void towire_sha256(u8 **pptr, const struct sha256 *sha256);
 void towire_sha256_double(u8 **pptr, const struct sha256_double *sha256d);
 void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid);
@@ -87,6 +89,8 @@ void fromwire_channel_id(const u8 **cursor, size_t *max,
 			 struct channel_id *channel_id);
 void fromwire_short_channel_id(const u8 **cursor, size_t *max,
 			       struct short_channel_id *short_channel_id);
+void fromwire_short_channel_id_dir(const u8 **cursor, size_t *max,
+				   struct short_channel_id_dir *scidd);
 void fromwire_sha256(const u8 **cursor, size_t *max, struct sha256 *sha256);
 void fromwire_sha256_double(const u8 **cursor, size_t *max,
 			    struct sha256_double *sha256d);

@@ -292,27 +292,6 @@ static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, con
 	was_pending(command_success(cmd, response));
 }
 
-static bool json_to_short_channel_id_with_dir(const char *buffer,
-					      const jsmntok_t *tok,
-					      struct short_channel_id *scid,
-					      bool *dir)
-{
-	/* Ends in /0 or /1 */
-	if (tok->end - tok->start < 2)
-		return false;
-	if (buffer[tok->end - 2] != '/')
-		return false;
-	if (buffer[tok->end - 1] == '0')
-		*dir = false;
-	else if (buffer[tok->end - 1] == '1')
-		*dir = true;
-	else
-		return false;
-
-	return short_channel_id_from_str(buffer + tok->start,
-					 tok->end - tok->start - 2, scid);
-}
-
 static struct command_result *json_getroute(struct command *cmd,
 					    const char *buffer,
 					    const jsmntok_t *obj UNNEEDED,
@@ -325,8 +304,7 @@ static struct command_result *json_getroute(struct command *cmd,
 	u64 *msatoshi;
 	unsigned *cltv;
 	double *riskfactor;
-	struct short_channel_id *excluded;
-	bool *excluded_dir;
+	struct short_channel_id_dir *excluded;
 	u32 *max_hops;
 
 	/* Higher fuzz means that some high-fee paths can be discounted
@@ -356,16 +334,15 @@ static struct command_result *json_getroute(struct command *cmd,
 		const jsmntok_t *t, *end = json_next(excludetok);
 		size_t i;
 
-		excluded = tal_arr(cmd, struct short_channel_id,
+		excluded = tal_arr(cmd, struct short_channel_id_dir,
 				   excludetok->size);
-		excluded_dir = tal_arr(cmd, bool, excludetok->size);
 
 		for (i = 0, t = excludetok + 1;
 		     t < end;
 		     t = json_next(t), i++) {
-			if (!json_to_short_channel_id_with_dir(buffer, t,
-							       &excluded[i],
-							       &excluded_dir[i])) {
+			if (!short_channel_id_dir_from_str(buffer + t->start,
+							   t->end - t->start,
+							   &excluded[i])) {
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						    "%.*s is not a valid"
 						    " short_channel_id/direction",
@@ -375,13 +352,12 @@ static struct command_result *json_getroute(struct command *cmd,
 		}
 	} else {
 		excluded = NULL;
-		excluded_dir = NULL;
 	}
 
 	u8 *req = towire_gossip_getroute_request(cmd, source, destination,
 						 *msatoshi, *riskfactor * 1000,
 						 *cltv, fuzz,
-						 excluded, excluded_dir,
+						 excluded,
 						 *max_hops);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 	return command_still_pending(cmd);

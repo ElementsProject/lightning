@@ -1003,7 +1003,7 @@ static void update_pending(struct pending_cannouncement *pending,
 			   u32 timestamp, const u8 *update,
 			   const u8 direction)
 {
-	SUPERVERBOSE("Deferring update for pending channel %s(%d)",
+	SUPERVERBOSE("Deferring update for pending channel %s/%d",
 		     type_to_string(tmpctx, struct short_channel_id,
 				    &pending->short_channel_id), direction);
 
@@ -1043,12 +1043,12 @@ static void set_connection_values(struct chan *chan,
 	/* If it was temporarily unroutable, re-enable */
 	c->unroutable_until = 0;
 
-	SUPERVERBOSE("Channel %s(%d) was updated.",
+	SUPERVERBOSE("Channel %s/%d was updated.",
 		     type_to_string(tmpctx, struct short_channel_id, &chan->scid),
 		     idx);
 
 	if (c->proportional_fee >= MAX_PROPORTIONAL_FEE) {
-		status_trace("Channel %s(%d) massive proportional fee %u:"
+		status_trace("Channel %s/%d massive proportional fee %u:"
 			     " disabling.",
 			     type_to_string(tmpctx, struct short_channel_id,
 					    &chan->scid),
@@ -1272,7 +1272,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		return err;
 	}
 
-	status_trace("Received channel_update for channel %s(%d) now %s was %s (from %s)",
+	status_trace("Received channel_update for channel %s/%d now %s was %s (from %s)",
 		     type_to_string(tmpctx, struct short_channel_id,
 				    &short_channel_id),
 		     channel_flags & 0x01,
@@ -1506,8 +1506,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    const u64 msatoshi, double riskfactor,
 			    u32 final_cltv,
 			    double fuzz, const struct siphash_seed *base_seed,
-			    const struct short_channel_id *excluded,
-			    const bool *excluded_dir,
+			    const struct short_channel_id_dir *excluded,
 			    size_t max_hops)
 {
 	struct chan **route;
@@ -1518,17 +1517,16 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 	struct node *n;
 	u64 *saved_capacity;
 
-	assert(tal_count(excluded) == tal_count(excluded_dir));
 	saved_capacity = tal_arr(tmpctx, u64, tal_count(excluded));
 
 	/* Temporarily set excluded channels' capacity to zero. */
 	for (size_t i = 0; i < tal_count(excluded); i++) {
-		struct chan *chan = get_channel(rstate, &excluded[i]);
+		struct chan *chan = get_channel(rstate, &excluded[i].scid);
 		if (!chan)
 			continue;
 		saved_capacity[i]
-			= chan->half[excluded_dir[i]].htlc_maximum_msat;
-		chan->half[excluded_dir[i]].htlc_maximum_msat = 0;
+			= chan->half[excluded[i].dir].htlc_maximum_msat;
+		chan->half[excluded[i].dir].htlc_maximum_msat = 0;
 	}
 
 	route = find_route(ctx, rstate, source, destination, msatoshi,
@@ -1537,10 +1535,10 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 
 	/* Now restore the capacity. */
 	for (size_t i = 0; i < tal_count(excluded); i++) {
-		struct chan *chan = get_channel(rstate, &excluded[i]);
+		struct chan *chan = get_channel(rstate, &excluded[i].scid);
 		if (!chan)
 			continue;
-		chan->half[excluded_dir[i]].htlc_maximum_msat
+		chan->half[excluded[i].dir].htlc_maximum_msat
 			= saved_capacity[i];
 	}
 

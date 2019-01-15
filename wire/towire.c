@@ -109,6 +109,13 @@ void towire_short_channel_id(u8 **pptr,
 	towire_u64(pptr, short_channel_id->u64);
 }
 
+void towire_short_channel_id_dir(u8 **pptr,
+				 const struct short_channel_id_dir *scidd)
+{
+	towire_short_channel_id(pptr, &scidd->scid);
+	towire_bool(pptr, scidd->dir);
+}
+
 void towire_sha256(u8 **pptr, const struct sha256 *sha256)
 {
 	towire(pptr, sha256, sizeof(*sha256));
