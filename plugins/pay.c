@@ -8,6 +8,7 @@
 
 /* Public key of this node. */
 static struct pubkey my_id;
+static unsigned int maxdelay_default;
 
 struct pay_attempt {
 	const char *route;
@@ -282,8 +283,7 @@ static struct command_result *handle_pay(struct command *cmd,
 		   p_opt_def("maxfeepercent", param_percent, &maxfeepercent, 0.5),
 		   p_opt_def("retry_for", param_number, &retryfor, 60),
 		   p_opt_def("maxdelay", param_number, &maxdelay,
-			     /* FIXME! */
-			     14 * 24 * 6),
+			     maxdelay_default),
 		   p_opt_def("exemptfee", param_u64, &exemptfee, 5000),
 		   NULL))
 		return NULL;
@@ -335,6 +335,11 @@ static void init(struct plugin_conn *rpc)
 	field = rpc_delve(tmpctx, "getinfo", "", rpc, ".id");
 	if (!pubkey_from_hexstr(field, strlen(field), &my_id))
 		plugin_err("getinfo didn't contain valid id: '%s'", field);
+
+	field = rpc_delve(tmpctx, "listconfigs",
+			  "'config': 'max-locktime-blocks'",
+			  rpc, ".max-locktime-blocks");
+	maxdelay_default = atoi(field);
 }
 
 static const struct plugin_command commands[] = { {
