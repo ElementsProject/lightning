@@ -164,6 +164,61 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 			   pc->dest, pc->msatoshi, pc->riskfactor, exclude);
 }
 
+/* gossipd doesn't know much about the current state of channels; here we
+ * manually exclude peers which are disconnected and channels which lack
+ * current capacity (it will eliminate those without total capacity). */
+static struct command_result *listpeers_done(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *result,
+					     struct pay_command *pc)
+{
+	const jsmntok_t *peer, *peers_end;
+
+	peer = json_get_member(buf, result, "peers");
+	if (!peer)
+		plugin_err("listpeers gave no 'peers'? '%.*s'",
+			   result->end - result->start, buf);
+
+	peers_end = json_next(peer);
+	for (peer = peer + 1; peer < peers_end; peer = json_next(peer)) {
+		const jsmntok_t *chan, *chans_end;
+		bool connected;
+
+		json_to_bool(buf, json_get_member(buf, peer, "connected"),
+			     &connected);
+		chan = json_get_member(buf, peer, "channels");
+		chans_end = json_next(chan);
+		for (chan = chan + 1; chan < chans_end; chan = json_next(chan)) {
+			const jsmntok_t *state, *spendable, *scid, *dir;
+			u64 capacity;
+
+			/* gossipd will only consider things in state NORMAL
+			 * anyway; we don't need to exclude others. */
+			state = json_get_member(buf, chan, "state");
+			if (!json_tok_streq(buf, state, "CHANNELD_NORMAL"))
+				continue;
+
+			spendable = json_get_member(buf, chan,
+						    "spendable_msatoshi");
+			json_to_u64(buf, spendable, &capacity);
+
+			if (connected && capacity >= pc->msatoshi)
+				continue;
+
+			/* Exclude this disconnected or low-capacity channel */
+			scid = json_get_member(buf, chan, "short_channel_id");
+			dir = json_get_member(buf, chan, "direction");
+			tal_arr_expand(&pc->excludes,
+				       tal_fmt(pc->excludes, "%.*s/%c",
+					       scid->end - scid->start,
+					       buf + scid->start,
+					       buf[dir->start]));
+		}
+	}
+
+	return start_pay_attempt(cmd, pc);
+}
+
 static struct command_result *handle_pay(struct command *cmd,
 					 const char *buf,
 					 const jsmntok_t *params)
@@ -229,7 +284,9 @@ static struct command_result *handle_pay(struct command *cmd,
 	pc->attempts = tal_arr(cmd, struct pay_attempt, 0);
 	pc->excludes = tal_arr(cmd, const char *, 0);
 
-	return start_pay_attempt(cmd, pc);
+	/* Get capacities of local channels. */
+	return send_outreq(cmd, "listpeers", listpeers_done, forward_error, pc,
+			   " ");
 }
 
 static const struct plugin_command commands[] = { {
