@@ -2114,7 +2114,8 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 					     const u8 *msg)
 {
 	struct node *node;
-	struct route_info *r = tal_arr(tmpctx, struct route_info, 0);
+	struct route_info *public = tal_arr(tmpctx, struct route_info, 0);
+	struct route_info *private = tal_arr(tmpctx, struct route_info, 0);
 
 	if (!fromwire_gossip_get_incoming_channels(msg))
 		master_badmsg(WIRE_GOSSIP_GET_INCOMING_CHANNELS, msg);
@@ -2126,10 +2127,6 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 			const struct half_chan *hc;
 			struct route_info ri;
 
-			/* Don't leak private channels. */
-			if (!is_chan_public(c))
-				continue;
-
 			hc = &c->half[half_chan_to(node, c)];
 
 			if (!is_halfchan_enabled(hc))
@@ -2140,11 +2137,19 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 			ri.fee_base_msat = hc->base_fee;
 			ri.fee_proportional_millionths = hc->proportional_fee;
 			ri.cltv_expiry_delta = hc->delay;
-			tal_arr_expand(&r, ri);
+
+			if (is_chan_public(c))
+				tal_arr_expand(&public, ri);
+			else
+				tal_arr_expand(&private, ri);
 		}
 	}
 
-	msg = towire_gossip_get_incoming_channels_reply(NULL, r);
+	/* If no public channels, share private ones. */
+	if (tal_count(public) == 0)
+		msg = towire_gossip_get_incoming_channels_reply(NULL, private);
+	else
+		msg = towire_gossip_get_incoming_channels_reply(NULL, public);
 	daemon_conn_send(daemon->master, take(msg));
 
 	return daemon_conn_read_next(conn, daemon->master);
