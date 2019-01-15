@@ -11,10 +11,50 @@
 /* Public key of this node. */
 static struct pubkey my_id;
 static unsigned int maxdelay_default;
+static LIST_HEAD(pay_status);
 
 struct pay_attempt {
+	/* Time we started & finished attempt */
+	struct timeabs start, end;
+	/* Route hint we were using (if any) */
+	struct route_info *routehint;
+	/* Channels we excluded when doing route lookup. */
+	const char **excludes;
+	/* Route we got (NULL == route lookup fail). */
 	const char *route;
+	/* The failure result (NULL on success) */
 	const char *failure;
+	/* The non-failure result (NULL on failure) */
+	const char *result;
+};
+
+struct pay_status {
+	/* Destination, as text */
+	const char *dest;
+
+	/* We're in 'pay_status' global list. */
+	struct list_node list;
+
+	/* Description user provided (if any) */
+	const char *desc;
+	/* Amount they wanted to pay. */
+	u64 msatoshi;
+	/* CLTV delay required by destination. */
+	u32 final_cltv;
+	/* Bolt11 invoice. */
+	const char *bolt11;
+
+	/* What we did about routehints (if anything) */
+	const char *routehint_modifications;
+
+	/* Details of shadow route we chose (if any) */
+	char *shadow;
+
+	/* Details of initial exclusions (if any) */
+	const char *exclusions;
+
+	/* Array of payment attempts. */
+	struct pay_attempt *attempts;
 };
 
 struct pay_command {
@@ -38,7 +78,7 @@ struct pay_command {
 	const char *desc;
 
 	/* Chatty description of attempts. */
-	struct pay_attempt *attempts;
+	struct pay_status *ps;
 
 	/* Time to stop retrying. */
 	struct timeabs stoptime;
@@ -52,6 +92,29 @@ struct pay_command {
 	/* Current node during shadow route calculation. */
 	const char *shadow;
 };
+
+static struct pay_attempt *current_attempt(struct pay_command *pc)
+{
+	return &pc->ps->attempts[tal_count(pc->ps->attempts)-1];
+}
+
+PRINTF_FMT(2,3) static void attempt_failed_fmt(struct pay_command *pc, const char *fmt, ...)
+{
+	struct pay_attempt *attempt = current_attempt(pc);
+	va_list ap;
+
+	va_start(ap,fmt);
+	attempt->failure = tal_vfmt(pc->ps->attempts, fmt, ap);
+	attempt->end = time_now();
+	va_end(ap);
+}
+
+static void attempt_failed_tok(struct pay_command *pc, const char *method,
+			       const char *buf, const jsmntok_t *tok)
+{
+	attempt_failed_fmt(pc, "Call to %s gave error %.*s",
+			   method, tok->end - tok->start, buf + tok->start);
+}
 
 static struct command_result *start_pay_attempt(struct command *cmd,
 						struct pay_command *pc);
@@ -79,13 +142,19 @@ static struct command_result *waitsendpay_expired(struct command *cmd,
 	char *errmsg, *data;
 
 	errmsg = tal_fmt(pc, "Gave up after %zu attempts",
-			 tal_count(pc->attempts));
+			 tal_count(pc->ps->attempts));
 	data = tal_strdup(pc, "'attempts': [ ");
-	for (size_t i = 0; i < tal_count(pc->attempts); i++)
-		tal_append_fmt(&data, "%s { 'route': %s,\n 'failure': '%s'\n }",
-			       i == 0 ? "" : ",",
-			       pc->attempts[i].route,
-			       pc->attempts[i].failure);
+	for (size_t i = 0; i < tal_count(pc->ps->attempts); i++) {
+		if (pc->ps->attempts[i].route)
+			tal_append_fmt(&data, "%s { 'route': %s,\n 'failure': '%s'\n }",
+				       i == 0 ? "" : ",",
+				       pc->ps->attempts[i].route,
+				       pc->ps->attempts[i].failure);
+		else
+			tal_append_fmt(&data, "%s { 'failure': '%s'\n }",
+				       i == 0 ? "" : ",",
+				       pc->ps->attempts[i].failure);
+	}
 	tal_append_fmt(&data, "]");
 	return command_done_err(cmd, PAY_STOPPED_RETRYING, errmsg, data);
 }
@@ -95,9 +164,10 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 						const jsmntok_t *error,
 						struct pay_command *pc)
 {
-	struct pay_attempt *attempt;
 	const jsmntok_t *codetok, *scidtok, *dirtok;
 	int code;
+
+	attempt_failed_tok(pc, "waitsendpay", buf, error);
 
 	codetok = json_get_member(buf, error, "code");
 	if (!json_to_int(buf, codetok, &code))
@@ -120,9 +190,6 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 		plugin_err("waitsendpay error no erring_direction '%.*s'",
 			   error->end - error->start, buf + error->start);
 
-	attempt = &pc->attempts[tal_count(pc->attempts)-1];
-	attempt->failure = json_strdup(pc->attempts, buf, error);
-
 	/* If failure is in routehint part, eliminate that */
 	if (tal_count(pc->routehints) != 0
 	    && channel_in_routehint(pc->routehints[0], buf, scidtok)) {
@@ -144,13 +211,26 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 	return start_pay_attempt(cmd, pc);
 }
 
+static struct command_result *waitsendpay_done(struct command *cmd,
+					       const char *buf,
+					       const jsmntok_t *result,
+					       struct pay_command *pc)
+{
+	struct pay_attempt *attempt = current_attempt(pc);
+
+	attempt->result = json_strdup(pc->ps->attempts, buf, result);
+	attempt->end = time_now();
+
+	return forward_result(cmd, buf, result, pc);
+}
+
 static struct command_result *sendpay_done(struct command *cmd,
 					   const char *buf,
 					   const jsmntok_t *result,
 					   struct pay_command *pc)
 {
 	return send_outreq(cmd, "waitsendpay",
-			   forward_result, waitsendpay_error, pc,
+			   waitsendpay_done, waitsendpay_error, pc,
 			   "'payment_hash': '%s', 'timeout': 60",
 			   pc->payment_hash);
 }
@@ -222,6 +302,16 @@ static const char *join_routehint(const tal_t *ctx,
 	return ret;
 }
 
+static struct command_result *sendpay_error(struct command *cmd,
+					    const char *buf,
+					    const jsmntok_t *error,
+					    struct pay_command *pc)
+{
+	attempt_failed_tok(pc, "sendpay", buf, error);
+
+	return forward_error(cmd, buf, error, pc);
+}
+
 /* Try again with the next routehint (or none if that was the last) */
 static struct command_result *next_routehint(struct command *cmd,
 					     struct pay_command *pc)
@@ -235,7 +325,7 @@ static struct command_result *getroute_done(struct command *cmd,
 					    const jsmntok_t *result,
 					    struct pay_command *pc)
 {
-	struct pay_attempt attempt;
+	struct pay_attempt *attempt = current_attempt(pc);
 	const jsmntok_t *t = json_get_member(buf, result, "route");
 	char *json_desc;
 	u64 fee;
@@ -245,6 +335,12 @@ static struct command_result *getroute_done(struct command *cmd,
 	if (!t)
 		plugin_err("getroute gave no 'route'? '%.*s'",
 			   result->end - result->start, buf);
+
+	if (tal_count(pc->routehints))
+		attempt->route = join_routehint(pc->ps->attempts, buf, t,
+						pc, pc->routehints[0]);
+	else
+		attempt->route = json_strdup(pc->ps->attempts, buf, t);
 
 	if (!json_to_u64(buf, json_delve(buf, t, "[0].msatoshi"), &fee))
 		plugin_err("getroute with invalid msatoshi? '%.*s'",
@@ -262,6 +358,8 @@ static struct command_result *getroute_done(struct command *cmd,
 	feepercent = ((double)fee) * 100.0 / ((double) pc->msatoshi);
 
 	if (fee > pc->exemptfee && feepercent > pc->maxfeepercent) {
+		attempt_failed_fmt(pc, "Route wanted fee of %"PRIu64" msatoshis", fee);
+
 		if (tal_count(pc->routehints) != 0)
 			return next_routehint(cmd, pc);
 
@@ -271,6 +369,8 @@ static struct command_result *getroute_done(struct command *cmd,
 	}
 
 	if (delay > pc->maxdelay) {
+		attempt_failed_fmt(pc, "Route wanted delay %u blocks", delay);
+
 		if (tal_count(pc->routehints) != 0)
 			return next_routehint(cmd, pc);
 
@@ -278,21 +378,14 @@ static struct command_result *getroute_done(struct command *cmd,
 				    "Route wanted delay of %u blocks", delay);
 	}
 
-	if (tal_count(pc->routehints))
-		attempt.route = join_routehint(pc->attempts, buf, t,
-					       pc, pc->routehints[0]);
-	else
-		attempt.route = json_strdup(pc->attempts, buf, t);
-	tal_arr_expand(&pc->attempts, attempt);
-
 	if (pc->desc)
 		json_desc = tal_fmt(pc, ", 'description': '%s'", pc->desc);
 	else
 		json_desc = "";
 
-	return send_outreq(cmd, "sendpay", sendpay_done, forward_error, pc,
+	return send_outreq(cmd, "sendpay", sendpay_done, sendpay_error, pc,
 			   "'route': %s, 'payment_hash': '%s'%s",
-			   attempt.route,
+			   attempt->route,
 			   pc->payment_hash,
 			   json_desc);
 
@@ -300,14 +393,26 @@ static struct command_result *getroute_done(struct command *cmd,
 
 static struct command_result *getroute_error(struct command *cmd,
 					     const char *buf,
-					     const jsmntok_t *result,
+					     const jsmntok_t *error,
 					     struct pay_command *pc)
 {
+	attempt_failed_tok(pc, "getroute", buf, error);
+
 	/* If we were trying to use a routehint, remove and try again. */
 	if (tal_count(pc->routehints) != 0)
 		return next_routehint(cmd, pc);
 
-	return forward_error(cmd, buf, result, pc);
+	return forward_error(cmd, buf, error, pc);
+}
+
+/* Deep copy of excludes array. */
+static const char **dup_excludes(const tal_t *ctx, const char **excludes)
+{
+	const char **ret = tal_dup_arr(ctx, const char *,
+				       excludes, tal_count(excludes), 0);
+	for (size_t i = 0; i < tal_count(ret); i++)
+		ret[i] = tal_strdup(ret, excludes[i]);
+	return ret;
 }
 
 static struct command_result *start_pay_attempt(struct command *cmd,
@@ -318,6 +423,16 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 	const char *dest;
 	size_t max_hops = ROUTING_MAX_HOPS;
 	u32 cltv;
+	struct pay_attempt attempt;
+
+	attempt.start = time_now();
+	/* Mark it unfinished */
+	attempt.end.ts.tv_sec = -1;
+	attempt.excludes = dup_excludes(pc->ps, pc->excludes);
+	attempt.route = NULL;
+	attempt.failure = NULL;
+	attempt.result = NULL;
+	/* routehint set below. */
 
 	if (tal_count(pc->excludes) != 0) {
 		exclude = tal_strdup(tmpctx, ",'exclude': [");
@@ -342,11 +457,15 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 		cltv = route_cltv(pc->final_cltv,
 				  pc->routehints[0],
 				  tal_count(pc->routehints[0]));
+		attempt.routehint = tal_steal(pc->ps, pc->routehints[0]);
 	} else {
 		amount = pc->msatoshi;
 		dest = pc->dest;
 		cltv = pc->final_cltv;
+		attempt.routehint = NULL;
 	}
+
+	tal_arr_expand(&pc->ps->attempts, attempt);
 
 	/* OK, ask for route to destination */
 	return send_outreq(cmd, "getroute", getroute_done, getroute_error, pc,
@@ -410,12 +529,18 @@ static struct command_result *add_shadow_route(struct command *cmd,
 		}
 	}
 
-	if (!best)
+	if (!best) {
+		tal_append_fmt(&pc->ps->shadow,
+			       "No suitable channels found to %s. ",
+			       pc->shadow);
 		return start_pay_attempt(cmd, pc);
+	}
 
 	pc->final_cltv += best_cltv;
 	pc->shadow = json_strdup(pc, buf,
 				 json_get_member(buf, best, "destination"));
+	tal_append_fmt(&pc->ps->shadow,
+		       "Added %u cltv delay for shadow to %s. ", best_cltv, pc->shadow);
 	return shadow_route(cmd, pc);
 }
 
@@ -439,6 +564,7 @@ static struct command_result *listpeers_done(struct command *cmd,
 					     struct pay_command *pc)
 {
 	const jsmntok_t *peer, *peers_end;
+	char *mods = tal_strdup(tmpctx, "");
 
 	peer = json_get_member(buf, result, "peers");
 	if (!peer)
@@ -479,9 +605,19 @@ static struct command_result *listpeers_done(struct command *cmd,
 					       scid->end - scid->start,
 					       buf + scid->start,
 					       buf[dir->start]));
+
+			tal_append_fmt(&mods,
+				       "Excluded channel %s (%"PRIu64" msat, %s). ",
+				       pc->excludes[tal_count(pc->excludes)-1],
+				       capacity,
+				       connected ? "connected" : "disconnected");
 		}
 	}
 
+	if (!streq(mods, ""))
+		pc->ps->exclusions = tal_steal(pc->ps, mods);
+
+	pc->ps->shadow = tal_strdup(pc->ps, "");
 	return shadow_route(cmd, pc);
 }
 
@@ -499,24 +635,60 @@ static void trim_route(struct route_info **route, size_t n)
 static struct route_info **filter_routehints(struct pay_command *pc,
 					     struct route_info **hints)
 {
+	char *mods = tal_strdup(tmpctx, "");
+
 	for (size_t i = 0; i < tal_count(hints); i++) {
 		/* Trim any routehint > 10 hops */
 		size_t max_hops = ROUTING_MAX_HOPS / 2;
-		if (tal_count(hints[i]) > max_hops)
+		if (tal_count(hints[i]) > max_hops) {
+			tal_append_fmt(&mods,
+				       "Trimmed routehint %zu (%zu hops) to %zu. ",
+				       i, tal_count(hints[i]), max_hops);
 			trim_route(&hints[i], max_hops);
+		}
 
 		/* If we are first hop, trim. */
 		if (tal_count(hints[i]) > 0
-		    && pubkey_eq(&hints[i][0].pubkey, &my_id))
+		    && pubkey_eq(&hints[i][0].pubkey, &my_id)) {
+			tal_append_fmt(&mods,
+				       "Removed ourselves from routehint %zu. ",
+				       i);
 			trim_route(&hints[i], tal_count(hints[i])-1);
+		}
 
 		/* If route is empty, remove altogether. */
 		if (tal_count(hints[i]) == 0) {
+			tal_append_fmt(&mods,
+				       "Removed empty routehint %zu. ", i);
 			tal_arr_remove(&hints, i);
 			i--;
 		}
 	}
+
+	if (!streq(mods, ""))
+		pc->ps->routehint_modifications = tal_steal(pc->ps, mods);
+
 	return tal_steal(pc, hints);
+}
+
+static struct pay_status *add_pay_status(struct pay_command *pc,
+					   const char *b11str)
+{
+	struct pay_status *ps = tal(NULL, struct pay_status);
+
+	/* The pay_status outlives the pc, so it simply takes field ownership */
+	ps->dest = tal_steal(ps, pc->dest);
+	ps->desc = tal_steal(ps, pc->desc);
+	ps->msatoshi = pc->msatoshi;
+	ps->final_cltv = pc->final_cltv;
+	ps->bolt11 = tal_steal(ps, b11str);
+	ps->routehint_modifications = NULL;
+	ps->shadow = NULL;
+	ps->exclusions = NULL;
+	ps->attempts = tal_arr(ps, struct pay_attempt, 0);
+
+	list_add_tail(&pay_status, &ps->list);
+	return ps;
 }
 
 static struct command_result *handle_pay(struct command *cmd,
@@ -573,7 +745,6 @@ static struct command_result *handle_pay(struct command *cmd,
 		pc->msatoshi = *msatoshi;
 	}
 
-	pc->routehints = filter_routehints(pc, b11->routes);
 	pc->maxfeepercent = *maxfeepercent;
 	pc->maxdelay = *maxdelay;
 	pc->exemptfee = *exemptfee;
@@ -584,8 +755,9 @@ static struct command_result *handle_pay(struct command *cmd,
 	pc->payment_hash = type_to_string(pc, struct sha256,
 					  &b11->payment_hash);
 	pc->stoptime = timeabs_add(time_now(), time_from_sec(*retryfor));
-	pc->attempts = tal_arr(cmd, struct pay_attempt, 0);
 	pc->excludes = tal_arr(cmd, const char *, 0);
+	pc->ps = add_pay_status(pc, b11str);
+	pc->routehints = filter_routehints(pc, b11->routes);
 
 	/* Get capacities of local channels. */
 	return send_outreq(cmd, "listpeers", listpeers_done, forward_error, pc,
