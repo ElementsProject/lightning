@@ -308,6 +308,7 @@ static struct command_result *json_invoice(struct command *cmd,
 	const u8 **fallback_scripts = NULL;
 	u64 *expiry;
 	struct sha256 rhash;
+	bool *exposeprivate;
 
 	info = tal(cmd, struct invoice_info);
 	info->cmd = cmd;
@@ -319,6 +320,7 @@ static struct command_result *json_invoice(struct command *cmd,
 		   p_opt_def("expiry", param_u64, &expiry, 3600),
 		   p_opt("fallbacks", param_array, &fallbacks),
 		   p_opt("preimage", param_tok, &preimagetok),
+		   p_opt("exposeprivatechannels", param_bool, &exposeprivate),
 		   NULL))
 		return command_param_failed();
 
@@ -381,8 +383,10 @@ static struct command_result *json_invoice(struct command *cmd,
 	if (fallback_scripts)
 		info->b11->fallbacks = tal_steal(info->b11, fallback_scripts);
 
+	log_debug(cmd->ld->log, "exposeprivate = %s",
+		  exposeprivate ? (*exposeprivate ? "TRUE" : "FALSE") : "NULL");
 	subd_req(cmd, cmd->ld->gossip,
-		 take(towire_gossip_get_incoming_channels(NULL)),
+		 take(towire_gossip_get_incoming_channels(NULL, exposeprivate)),
 		 -1, 0, gossipd_incoming_channels_reply, info);
 
 	return command_still_pending(cmd);

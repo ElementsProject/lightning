@@ -397,7 +397,7 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
 /* Generated stub for towire_gossip_get_incoming_channels */
-u8 *towire_gossip_get_incoming_channels(const tal_t *ctx UNNEEDED)
+u8 *towire_gossip_get_incoming_channels(const tal_t *ctx UNNEEDED, const bool *private_too UNNEEDED)
 { fprintf(stderr, "towire_gossip_get_incoming_channels called!\n"); abort(); }
 /* Generated stub for towire_hsm_get_channel_basepoints */
 u8 *towire_hsm_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct pubkey *peerid UNNEEDED, u64 dbid UNNEEDED)

@@ -144,6 +144,7 @@ gossip_dev_memleak_reply,,leak,bool
 
 # master -> gossipd: get route_info for our incoming channels
 gossip_get_incoming_channels,3025
+gossip_get_incoming_channels,,private_too,?bool
 
 # gossipd -> master: here they are.
 gossip_get_incoming_channels_reply,3125

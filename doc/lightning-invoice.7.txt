@@ -8,13 +8,15 @@ lightning-invoice - Command for accepting payments.
 
 SYNOPSIS
 --------
-*invoice* 'msatoshi' 'label' 'description' ['expiry'] ['fallbacks'] ['preimage']
+*invoice* 'msatoshi' 'label' 'description' ['expiry'] ['fallbacks'] ['preimage'] ['exposeprivatechannels']
 
 DESCRIPTION
 -----------
 The *invoice* RPC command creates the expectation of a payment of a
 given amount of milli-satoshi: it returns a unique token which another
-lightning daemon can use to pay this invoice.
+lightning daemon can use to pay this invoice.  This token includes a
+'route hint' description of an incoming channel with capacity to pay
+the invoice, if any exists.
 
 The 'msatoshi' can be the string "any", which creates an invoice
 that can be paid with any amount.
@@ -47,6 +49,11 @@ generator seeded with sufficient entropy, and keeping the preimage
 secret.
 This parameter is an advanced feature intended for use with cutting-edge
 cryptographic protocols and should not be used unless explicitly needed.
+
+If specified, 'exposeprivatechannels' overrides the default route hint
+logic, which will use unpublished channels only if there are no
+published channels.  If 'true' unpublished channels are always
+considered as a route hint candidate; if 'false', never.
 
 RETURN VALUE
 ------------
