@@ -558,6 +558,7 @@ def test_routing_gossip(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@pytest.mark.xfail(strict=True)
 def test_gossip_query_channel_range(node_factory, bitcoind):
     l1, l2, l3, l4 = node_factory.line_graph(4, opts={'log-level': 'io'},
                                              fundchannel=False)
@@ -681,6 +682,16 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     assert ret['short_channel_ids'][0] == scid12
     assert ret['short_channel_ids'][1] == scid23
     l2.daemon.wait_for_log('queue_channel_ranges full: splitting')
+
+    # Test overflow case doesn't split forever; should only get 32 for this.
+    ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
+                                         first=1,
+                                         num=429496000)
+    l1.daemon.wait_for_logs([r'\[IN\] 0108'] * 32)
+
+    # And no more!
+    time.sleep(1)
+    assert not l1.daemon.is_in_log(r'\[IN\] 0108', start=l1.daemon.logsearch_start)
 
     # This should actually be large enough for zlib to kick in!
     l3.fund_channel(l4, 10**5)
