@@ -1004,13 +1004,14 @@ static struct command_result *json_sendpay(struct command *cmd,
 		u64 *amount;
 		struct pubkey *id;
 		struct short_channel_id *channel;
-		unsigned *delay;
+		unsigned *delay, *direction;
 
 		if (!param(cmd, buffer, t,
 			   p_req("msatoshi", param_u64, &amount),
 			   p_req("id", param_pubkey, &id),
 			   p_req("delay", param_number, &delay),
 			   p_req("channel", param_short_channel_id, &channel),
+			   p_opt("direction", param_number, &direction),
 			   NULL))
 			return command_param_failed();
 
@@ -1020,6 +1021,8 @@ static struct command_result *json_sendpay(struct command *cmd,
 		route[n_hops].nodeid = *id;
 		route[n_hops].delay = *delay;
 		route[n_hops].channel_id = *channel;
+		/* FIXME: Actually ignored by sending code! */
+		route[n_hops].direction = direction ? *direction : 0;
 		n_hops++;
 	}
 

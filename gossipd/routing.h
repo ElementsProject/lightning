@@ -207,6 +207,7 @@ get_channel(const struct routing_state *rstate,
 
 struct route_hop {
 	struct short_channel_id channel_id;
+	int direction;
 	struct pubkey nodeid;
 	u64 amount;
 	u32 delay;

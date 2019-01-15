@@ -30,6 +30,7 @@ json_add_route_hop(struct json_stream *r, char const *n,
 	json_add_pubkey(r, "id", &h->nodeid);
 	json_add_short_channel_id(r, "channel",
 				  &h->channel_id);
+	json_add_num(r, "direction", h->direction);
 	json_add_u64(r, "msatoshi", h->amount);
 	json_add_num(r, "delay", h->delay);
 	json_object_end(r);
