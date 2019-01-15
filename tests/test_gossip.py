@@ -562,16 +562,33 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     l1, l2, l3, l4 = node_factory.line_graph(4, opts={'log-level': 'io'},
                                              fundchannel=False)
 
-    # Make public channels.
-    scid12 = l1.fund_channel(l2, 10**5)
-    block12 = int(scid12.split('x')[0])
-    scid23 = l2.fund_channel(l3, 10**5)
-    block23 = int(scid23.split('x')[0])
+    # Make public channels on consecutive blocks
+    l1.fundwallet(10**6)
+    l2.fundwallet(10**6)
+
+    num_tx = len(bitcoind.rpc.getrawmempool())
+    l1.rpc.fundchannel(l2.info['id'], 10**5)['tx']
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == num_tx + 1)
+    bitcoind.generate_block(1)
+
+    num_tx = len(bitcoind.rpc.getrawmempool())
+    l2.rpc.fundchannel(l3.info['id'], 10**5)['tx']
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == num_tx + 1)
+    bitcoind.generate_block(1)
+
+    # Get them both to gossip depth.
     bitcoind.generate_block(5)
 
     # Make sure l2 has received all the gossip.
     l2.daemon.wait_for_logs(['Received node_announcement for node ' + l1.info['id'],
                              'Received node_announcement for node ' + l3.info['id']])
+
+    scid12 = only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'][0]['short_channel_id']
+    scid23 = only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['channels'][0]['short_channel_id']
+    block12 = int(scid12.split('x')[0])
+    block23 = int(scid23.split('x')[0])
+
+    assert block23 == block12 + 1
 
     # l1 asks for all channels, gets both.
     ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
@@ -644,12 +661,18 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     assert ret['final_complete']
     assert len(ret['short_channel_ids']) == 0
 
+    # Turn on IO logging in l1 channeld.
+    subprocess.run(['kill', '-USR1', l1.subd_pid('channeld')])
+
     # Make l2 split reply into two (technically async)
     l2.rpc.dev_set_max_scids_encode_size(max=9)
     l2.daemon.wait_for_log('Set max_scids_encode_bytes to 9')
     ret = l1.rpc.dev_query_channel_range(id=l2.info['id'],
                                          first=0,
                                          num=1000000)
+
+    # Turns out it sends huge number of empty replies here.
+    l1.daemon.wait_for_logs([r'\[IN\] 0108'] * 21)
 
     # It should definitely have split
     assert ret['final_first_block'] != 0 or ret['final_num_blocks'] != 1000000
@@ -663,9 +686,6 @@ def test_gossip_query_channel_range(node_factory, bitcoind):
     l3.fund_channel(l4, 10**5)
     bitcoind.generate_block(5)
     l2.daemon.wait_for_log('Received node_announcement for node ' + l4.info['id'])
-
-    # Turn on IO logging in l1 channeld.
-    subprocess.run(['kill', '-USR1', l1.subd_pid('channeld')])
 
     # Restore infinite encode size.
     l2.rpc.dev_set_max_scids_encode_size(max=(2**32 - 1))
