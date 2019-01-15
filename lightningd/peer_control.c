@@ -703,10 +703,13 @@ static void json_add_peer(struct lightningd *ld,
 		if (channel->owner)
 			json_add_string(response, "owner",
 					channel->owner->name);
-		if (channel->scid)
+		if (channel->scid) {
 			json_add_short_channel_id(response,
 						  "short_channel_id",
 						  channel->scid);
+			json_add_num(response, "channel_direction",
+				     pubkey_idx(&ld->id, &p->id));
+		}
 		derive_channel_id(&cid,
 				  &channel->funding_txid,
 				  channel->funding_outnum);

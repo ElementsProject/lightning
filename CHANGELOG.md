@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - plugins: fully enabled, and ready for you to write some!
 - lightning-cli: `help <cmd>` finds man pages even if `make install` not run.
 - JSON API: `waitsendpay` now has an `erring_channel_direction` field.
+- JSON API: `listpeers` now has a `channel_direction` field in `channels`.
 
 ### Changed
 
