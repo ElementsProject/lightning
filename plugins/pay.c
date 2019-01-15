@@ -3,6 +3,7 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/bolt11.h>
+#include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <gossipd/gossip_constants.h>
 #include <plugins/libplugin.h>
@@ -47,6 +48,9 @@ struct pay_command {
 
 	/* Any routehints to use. */
 	struct route_info **routehints;
+
+	/* Current node during shadow route calculation. */
+	const char *shadow;
 };
 
 static struct command_result *start_pay_attempt(struct command *cmd,
@@ -354,6 +358,78 @@ static struct command_result *start_pay_attempt(struct command *cmd,
 			   dest, amount, cltv, max_hops, pc->riskfactor, exclude);
 }
 
+/* BOLT #7:
+ *
+ * If a route is computed by simply routing to the intended recipient and
+ * summing the `cltv_expiry_delta`s, then it's possible for intermediate nodes
+ * to guess their position in the route. Knowing the CLTV of the HTLC, the
+ * surrounding network topology, and the `cltv_expiry_delta`s gives an
+ * attacker a way to guess the intended recipient. Therefore, it's highly
+ * desirable to add a random offset to the CLTV that the intended recipient
+ * will receive, which bumps all CLTVs along the route.
+ *
+ * In order to create a plausible offset, the origin node MAY start a limited
+ * random walk on the graph, starting from the intended recipient and summing
+ * the `cltv_expiry_delta`s, and use the resulting sum as the offset.  This
+ * effectively creates a _shadow route extension_ to the actual route and
+ * provides better protection against this attack vector than simply picking a
+ * random offset would.
+ */
+static struct command_result *shadow_route(struct command *cmd,
+					   struct pay_command *pc);
+
+static struct command_result *add_shadow_route(struct command *cmd,
+					       const char *buf,
+					       const jsmntok_t *result,
+					       struct pay_command *pc)
+{
+	/* Use reservoir sampling across the capable channels. */
+	const jsmntok_t *channels = json_get_member(buf, result, "channels");
+	const jsmntok_t *chan, *end, *best = NULL;
+	u64 sample;
+	u32 cltv, best_cltv;
+
+	end = json_next(channels);
+	for (chan = channels + 1; chan < end; chan = json_next(chan)) {
+		u64 sats, v;
+
+		json_to_u64(buf, json_get_member(buf, chan, "satoshis"), &sats);
+		if (sats * 1000 < pc->msatoshi)
+			continue;
+
+		/* Don't use if total would exceed 1/4 of our time allowance. */
+		json_to_number(buf, json_get_member(buf, chan, "delay"), &cltv);
+		if ((pc->final_cltv + cltv) * 4 > pc->maxdelay)
+			continue;
+
+		v = pseudorand(UINT64_MAX);
+		if (!best || v > sample) {
+			best = chan;
+			best_cltv = cltv;
+			sample = v;
+		}
+	}
+
+	if (!best)
+		return start_pay_attempt(cmd, pc);
+
+	pc->final_cltv += best_cltv;
+	pc->shadow = json_strdup(pc, buf,
+				 json_get_member(buf, best, "destination"));
+	return shadow_route(cmd, pc);
+}
+
+static struct command_result *shadow_route(struct command *cmd,
+					   struct pay_command *pc)
+{
+	if (pseudorand(2) == 0)
+		return start_pay_attempt(cmd, pc);
+
+	return send_outreq(cmd, "listchannels",
+			   add_shadow_route, forward_error, pc,
+			   "'source' : '%s'", pc->shadow);
+}
+
 /* gossipd doesn't know much about the current state of channels; here we
  * manually exclude peers which are disconnected and channels which lack
  * current capacity (it will eliminate those without total capacity). */
@@ -406,7 +482,7 @@ static struct command_result *listpeers_done(struct command *cmd,
 		}
 	}
 
-	return start_pay_attempt(cmd, pc);
+	return shadow_route(cmd, pc);
 }
 
 /* Trim route to this length by taking from the *front* of route
@@ -504,6 +580,7 @@ static struct command_result *handle_pay(struct command *cmd,
 	pc->riskfactor = *riskfactor;
 	pc->final_cltv = b11->min_final_cltv_expiry;
 	pc->dest = type_to_string(cmd, struct pubkey, &b11->receiver_id);
+	pc->shadow = tal_strdup(pc, pc->dest);
 	pc->payment_hash = type_to_string(pc, struct sha256,
 					  &b11->payment_hash);
 	pc->stoptime = timeabs_add(time_now(), time_from_sec(*retryfor));
