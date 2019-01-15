@@ -300,7 +300,6 @@ static struct command_result *json_getroute(struct command *cmd,
 	struct lightningd *ld = cmd->ld;
 	struct pubkey *destination;
 	struct pubkey *source;
-	const jsmntok_t *seedtok;
 	u64 *msatoshi;
 	unsigned *cltv;
 	double *riskfactor;
@@ -310,7 +309,6 @@ static struct command_result *json_getroute(struct command *cmd,
 	 * be selected) at the cost of increasing the probability of
 	 * selecting the higher-fee paths. */
 	double *fuzz;
-	struct siphash_seed seed;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_pubkey, &destination),
@@ -318,29 +316,16 @@ static struct command_result *json_getroute(struct command *cmd,
 		   p_req("riskfactor", param_double, &riskfactor),
 		   p_opt_def("cltv", param_number, &cltv, 9),
 		   p_opt_def("fromid", param_pubkey, &source, ld->id),
-		   p_opt("seed", param_tok, &seedtok),
-		   p_opt_def("fuzzpercent", param_percent, &fuzz, 75.0),
+		   p_opt_def("fuzzpercent", param_percent, &fuzz, 5.0),
 		   NULL))
 		return command_param_failed();
 
 	/* Convert from percentage */
 	*fuzz = *fuzz / 100.0;
 
-	if (seedtok) {
-		if (seedtok->end - seedtok->start > sizeof(seed))
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "seed must be < %zu bytes",
-					    sizeof(seed));
-
-		memset(&seed, 0, sizeof(seed));
-		memcpy(&seed, buffer + seedtok->start,
-		       seedtok->end - seedtok->start);
-	} else
-		randombytes_buf(&seed, sizeof(seed));
-
 	u8 *req = towire_gossip_getroute_request(cmd, source, destination,
 						 *msatoshi, *riskfactor * 1000,
-						 *cltv, fuzz, &seed);
+						 *cltv, fuzz);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 	return command_still_pending(cmd);
 }

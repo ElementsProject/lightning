@@ -32,7 +32,6 @@ gossip_getroute_request,,msatoshi,u64
 gossip_getroute_request,,riskfactor,u16
 gossip_getroute_request,,final_cltv,u32
 gossip_getroute_request,,fuzz,double
-gossip_getroute_request,,seed,struct siphash_seed
 
 gossip_getroute_reply,3106
 gossip_getroute_reply,,num_hops,u16
