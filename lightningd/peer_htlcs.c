@@ -581,6 +581,7 @@ static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
 
 	if (!peer_id) {
 		local_fail_htlc(gr->hin, WIRE_UNKNOWN_NEXT_PEER, NULL);
+		tal_free(gr);
 		return;
 	}
 
