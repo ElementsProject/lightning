@@ -698,6 +698,7 @@ class NodeFactory(object):
             'may_reconnect',
             'random_hsm',
             'log_all_io',
+            'feerates',
         ]
         node_opts = {k: v for k, v in opts.items() if k in node_opt_keys}
         cli_opts = {k: v for k, v in opts.items() if k not in node_opt_keys}

@@ -1119,3 +1119,59 @@ def test_pay_variants(node_factory):
     b11 = 'LIGHTNING:' + l2.rpc.invoice(123000, 'test_pay_variants upper with prefix', 'description')['bolt11'].upper()
     l1.rpc.decodepay(b11)
     l1.rpc.pay(b11)
+
+
+def test_pay_retry(node_factory, bitcoind):
+    """Make sure pay command retries properly. """
+    def exhaust_channel(funder, fundee, scid, already_spent=0):
+        """Spend all available capacity (10^6 - 1%) of channel"""
+        maxpay = (10**6 - 10**6 // 100 - 13440) * 1000 - already_spent
+        inv = fundee.rpc.invoice(maxpay,
+                                 ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20)),
+                                 "exhaust_channel")
+        routestep = {
+            'msatoshi': maxpay,
+            'id': fundee.info['id'],
+            'delay': 10,
+            'channel': scid
+        }
+        funder.rpc.sendpay([routestep], inv['payment_hash'])
+        funder.rpc.waitsendpay(inv['payment_hash'])
+
+    # We connect every node to l5; in a line and individually.
+    # Keep fixed fees so we can easily calculate exhaustion
+    l1, l2, l3, l4, l5 = node_factory.line_graph(5, fundchannel=False,
+                                                 opts={'feerates': (7500, 7500, 7500)})
+
+    # scid12
+    l1.fund_channel(l2, 10**6, wait_for_active=False)
+    # scid23
+    l2.fund_channel(l3, 10**6, wait_for_active=False)
+    # scid34
+    l3.fund_channel(l4, 10**6, wait_for_active=False)
+    scid45 = l4.fund_channel(l5, 10**6, wait_for_active=False)
+
+    l1.rpc.connect(l5.info['id'], 'localhost', l5.port)
+    scid15 = l1.fund_channel(l5, 10**6, wait_for_active=False)
+    l2.rpc.connect(l5.info['id'], 'localhost', l5.port)
+    scid25 = l2.fund_channel(l5, 10**6, wait_for_active=False)
+    l3.rpc.connect(l5.info['id'], 'localhost', l5.port)
+    scid35 = l3.fund_channel(l5, 10**6, wait_for_active=False)
+
+    # Make sure l1 sees all 7 channels
+    bitcoind.generate_block(5)
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 14)
+
+    # Exhaust shortcut channels one at a time, to force retries.
+    exhaust_channel(l1, l5, scid15)
+    exhaust_channel(l2, l5, scid25)
+    exhaust_channel(l3, l5, scid35)
+
+    # Pay l1->l5 should succeed via straight line (eventually)
+    l1.rpc.pay(l5.rpc.invoice(10**8, 'test_retry', 'test_retry')['bolt11'])
+
+    # This should make it fail.
+    exhaust_channel(l4, l5, scid45, 10**8)
+
+    with pytest.raises(RpcError):
+        l1.rpc.pay(l5.rpc.invoice(10**8, 'test_retry2', 'test_retry2')['bolt11'])
