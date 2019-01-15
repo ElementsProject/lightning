@@ -905,12 +905,11 @@ def test_htlc_send_timeout(node_factory, bitcoind):
     with pytest.raises(RpcError) as excinfo:
         l1.rpc.pay(inv['bolt11'])
 
-    # FIXME: this error should be correct
-    # err = excinfo.value
+    err = excinfo.value
     # Complaints it couldn't find route.
     # FIXME: include in pylightning
-    # PAY_ROUTE_NOT_FOUND = 205
-    # assert err.error['code'] == PAY_ROUTE_NOT_FOUND
+    PAY_ROUTE_NOT_FOUND = 205
+    assert err.error['code'] == PAY_ROUTE_NOT_FOUND
 
     # FIXME: get payment status.
     # Temporary channel failure
