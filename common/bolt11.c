@@ -843,7 +843,7 @@ static void encode_r(u5 **data, const struct route_info *r)
         u8 *rinfo = tal_arr(NULL, u8, 0);
 
         for (size_t i = 0; i < tal_count(r); i++)
-                towire_route_info(&rinfo, r);
+                towire_route_info(&rinfo, &r[i]);
 
         push_field(data, 'r', rinfo, tal_count(rinfo) * CHAR_BIT);
         tal_free(rinfo);
