@@ -883,7 +883,8 @@ void wallet_payment_set_status(struct wallet *wallet,
  * wallet_payment_get_failinfo - Get failure information for a given
  * `payment_hash`.
  *
- * Data is allocated as children of the given context.
+ * Data is allocated as children of the given context. *faildirection
+ * is only set if *failchannel is set non-NULL.
  */
 void wallet_payment_get_failinfo(const tal_t *ctx,
 				 struct wallet *wallet,
@@ -896,7 +897,8 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 				 struct pubkey **failnode,
 				 struct short_channel_id **failchannel,
 				 u8 **failupdate,
-				 char **faildetail);
+				 char **faildetail,
+				 int *faildirection);
 /**
  * wallet_payment_set_failinfo - Set failure information for a given
  * `payment_hash`.
@@ -910,7 +912,8 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 				 const struct pubkey *failnode,
 				 const struct short_channel_id *failchannel,
 				 const u8 *failupdate,
-				 const char *faildetail);
+				 const char *faildetail,
+				 int faildirection);
 
 /**
  * wallet_payment_list - Retrieve a list of payments

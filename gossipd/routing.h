@@ -136,12 +136,6 @@ HTABLE_DEFINE_TYPE(struct node, node_map_keyof_node, node_map_hash_key, node_map
 struct pending_node_map;
 struct pending_cannouncement;
 
-/* If the two nodes[] are id1 and id2, which index would id1 be? */
-static inline int pubkey_idx(const struct pubkey *id1, const struct pubkey *id2)
-{
-	return pubkey_cmp(id1, id2) > 0;
-}
-
 /* Fast versions: if you know n is one end of the channel */
 static inline struct node *other_node(const struct node *n,
 				      const struct chan *chan)

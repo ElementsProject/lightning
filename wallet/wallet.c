@@ -1838,7 +1838,8 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 				 struct pubkey **failnode,
 				 struct short_channel_id **failchannel,
 				 u8 **failupdate,
-				 char **faildetail)
+				 char **faildetail,
+				 int *faildirection)
 {
 	sqlite3_stmt *stmt;
 	int res;
@@ -1849,7 +1850,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 			  "SELECT failonionreply, faildestperm"
 			  "     , failindex, failcode"
 			  "     , failnode, failchannel"
-			  "     , failupdate, faildetail"
+			  "     , failupdate, faildetail, faildirection"
 			  "  FROM payments"
 			  " WHERE payment_hash=?;");
 	sqlite3_bind_sha256(stmt, 1, payment_hash);
@@ -1878,6 +1879,9 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 		*failchannel = tal(ctx, struct short_channel_id);
 		resb = sqlite3_column_short_channel_id(stmt, 5, *failchannel);
 		assert(resb);
+
+		/* For pre-0.6.2 dbs, direction will be 0 */
+		*faildirection = sqlite3_column_int(stmt, 8);
 	}
 	if (sqlite3_column_type(stmt, 6) == SQLITE_NULL)
 		*failupdate = NULL;
@@ -1901,7 +1905,8 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 				 const struct pubkey *failnode,
 				 const struct short_channel_id *failchannel,
 				 const u8 *failupdate /*tal_arr*/,
-				 const char *faildetail)
+				 const char *faildetail,
+				 int faildirection)
 {
 	sqlite3_stmt *stmt;
 
@@ -1915,6 +1920,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 			  "     , failchannel=?"
 			  "     , failupdate=?"
 			  "     , faildetail=?"
+			  "     , faildirection=?"
 			  " WHERE payment_hash=?;");
 	if (failonionreply)
 		sqlite3_bind_blob(stmt, 1,
@@ -1935,8 +1941,11 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 		struct short_channel_id *scid = tal(tmpctx, struct short_channel_id);
 		*scid = *failchannel;
 		sqlite3_bind_short_channel_id(stmt, 6, scid);
-	} else
+		sqlite3_bind_int(stmt, 9, faildirection);
+	} else {
 		sqlite3_bind_null(stmt, 6);
+		sqlite3_bind_null(stmt, 9);
+	}
 	if (failupdate)
 		sqlite3_bind_blob(stmt, 7,
 				  failupdate, tal_count(failupdate),
@@ -1947,7 +1956,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 			  faildetail, strlen(faildetail),
 			  SQLITE_TRANSIENT);
 
-	sqlite3_bind_sha256(stmt, 9, payment_hash);
+	sqlite3_bind_sha256(stmt, 10, payment_hash);
 
 	db_exec_prepared(wallet->db, stmt);
 }
