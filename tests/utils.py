@@ -83,6 +83,18 @@ def wait_channel_quiescent(n1, n2):
     wait_for(lambda: only_one(only_one(n2.rpc.listpeers(n1.info['id'])['peers'])['channels'])['htlcs'] == [])
 
 
+def get_tx_p2wsh_outnum(bitcoind, tx, amount):
+    """Get output number of this tx which is p2wsh of amount"""
+    decoded = bitcoind.rpc.decoderawtransaction(tx, True)
+
+    for out in decoded['vout']:
+        if out['scriptPubKey']['type'] == 'witness_v0_scripthash':
+            if out['value'] == Decimal(amount) / 10**8:
+                    return out['n']
+
+    return None
+
+
 class TailableProc(object):
     """A monitorable process that we can start, stop and tail.
 
@@ -519,19 +531,8 @@ class LightningNode(object):
         self.bitcoin.generate_block(1)
 
         # Hacky way to find our output.
-        scid = None
-        decoded = self.bitcoin.rpc.decoderawtransaction(tx, True)
-
-        for out in decoded['vout']:
-            if out['scriptPubKey']['type'] == 'witness_v0_scripthash':
-                if out['value'] == Decimal(amount) / 10**8:
-                    scid = "{}x1x{}".format(self.bitcoin.rpc.getblockcount(), out['n'])
-                    break
-
-        if not scid:
-            # Intermittent decoding failure.  See if it decodes badly twice?
-            decoded2 = self.bitcoin.rpc.decoderawtransaction(tx)
-            raise ValueError("Can't find {} payment in {} (1={} 2={})".format(amount, tx, decoded, decoded2))
+        scid = "{}x1x{}".format(self.bitcoin.rpc.getblockcount(),
+                                get_tx_p2wsh_outnum(self.bitcoin, tx, amount))
 
         if wait_for_active:
             # We wait until gossipd sees both local updates, as well as status NORMAL,
