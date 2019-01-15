@@ -234,12 +234,17 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log('dev_disconnect: @WIRE_REVOKE_AND_ACK')
 
     # Takes 6 blocks to timeout (cltv-final + 1), but we also give grace period of 1 block.
-    # FIXME: shadow route can add extra blocks! 50% chance of adding 6...
-    bitcoind.generate_block(5 + 1 + 60 + 1)
-    # bitcoind.generate_block(5 + 1)
-    # time.sleep(3)
-    # assert not l1.daemon.is_in_log('hit deadline')
-    # bitcoind.generate_block(1)
+    # shadow route can add extra blocks!
+    status = only_one(l1.rpc.call('paystatus')['pay'])
+    if 'shadow' in status:
+        shadowlen = 6 * status['shadow'].count('Added 6 cltv delay for shadow')
+    else:
+        shadowlen = 0
+
+    bitcoind.generate_block(5 + 1 + shadowlen)
+    time.sleep(3)
+    assert not l1.daemon.is_in_log('hit deadline')
+    bitcoind.generate_block(1)
 
     l1.daemon.wait_for_log('Offered HTLC 0 SENT_ADD_ACK_REVOCATION cltv .* hit deadline')
     l1.daemon.wait_for_log('sendrawtx exit 0')
@@ -296,12 +301,15 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log('dev_disconnect: -WIRE_REVOKE_AND_ACK')
 
     # Deadline HTLC expiry minus 1/2 cltv-expiry delta (rounded up) (== cltv - 3).  cltv is 5+1.
-    # FIXME: shadow route can add extra blocks! 50% chance of adding 6...
-    shadowlen = 60
-    bitcoind.generate_block(2 + shadowlen + 1)
-    #bitcoind.generate_block(2)
-    #assert not l2.daemon.is_in_log('hit deadline')
-    #bitcoind.generate_block(1)
+    # shadow route can add extra blocks!
+    status = only_one(l1.rpc.call('paystatus')['pay'])
+    if 'shadow' in status:
+        shadowlen = 6 * status['shadow'].count('Added 6 cltv delay for shadow')
+    else:
+        shadowlen = 0
+    bitcoind.generate_block(2 + shadowlen)
+    assert not l2.daemon.is_in_log('hit deadline')
+    bitcoind.generate_block(1)
 
     l2.daemon.wait_for_log('Fulfilled HTLC 0 SENT_REMOVE_COMMIT cltv .* hit deadline')
     l2.daemon.wait_for_log('sendrawtx exit 0')
@@ -310,14 +318,13 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log(' to ONCHAIN')
 
     # L2 will collect HTLC (iff no shadow route)
-    if shadowlen == 0:
-        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* after 0 blocks')
-        l2.daemon.wait_for_log('sendrawtx exit 0')
-        bitcoind.generate_block(1)
-        l2.daemon.wait_for_log('Propose handling OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks')
-        bitcoind.generate_block(4)
-        l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET')
-        l2.daemon.wait_for_log('sendrawtx exit 0')
+    l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* after 0 blocks')
+    l2.daemon.wait_for_log('sendrawtx exit 0')
+    bitcoind.generate_block(1)
+    l2.daemon.wait_for_log('Propose handling OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks')
+    bitcoind.generate_block(4)
+    l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET')
+    l2.daemon.wait_for_log('sendrawtx exit 0')
 
     # Now, 100 blocks it should be both done.
     bitcoind.generate_block(100)
@@ -916,11 +923,12 @@ def test_htlc_send_timeout(node_factory, bitcoind):
     PAY_ROUTE_NOT_FOUND = 205
     assert err.error['code'] == PAY_ROUTE_NOT_FOUND
 
-    # FIXME: get payment status.
+    status = only_one(l1.rpc.call('paystatus')['pay'])
+
     # Temporary channel failure
-    # assert only_one(err.error['data']['failures'])['failcode'] == 0x1007
-    # assert only_one(err.error['data']['failures'])['erring_node'] == l2.info['id']
-    # assert only_one(err.error['data']['failures'])['erring_channel'] == chanid2
+    assert status['attempts'][0]['failure']['data']['failcode'] == 0x1007
+    assert status['attempts'][0]['failure']['data']['erring_node'] == l2.info['id']
+    assert status['attempts'][0]['failure']['data']['erring_channel'] == chanid2
 
     # L2 should send ping, but never receive pong so never send commitment.
     l2.daemon.wait_for_log(r'channeld.*:\[OUT\] 0012')

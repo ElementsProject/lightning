@@ -1231,7 +1231,25 @@ def test_pay_routeboost(node_factory, bitcoind):
     assert only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
 
     # Now we should be able to pay it.
+    start = time.time()
     l1.rpc.pay(inv['bolt11'])
+    end = time.time()
+
+    # Status should show all the gory details.
+    status = l1.rpc.call('paystatus', [inv['bolt11']])
+    assert only_one(status['pay'])['bolt11'] == inv['bolt11']
+    assert only_one(status['pay'])['msatoshi'] == 10**5
+    assert only_one(status['pay'])['destination'] == l4.info['id']
+    assert 'description' not in only_one(status['pay'])
+    assert 'routehint_modifications' not in only_one(status['pay'])
+    assert 'local_exclusions' not in only_one(status['pay'])
+    attempt = only_one(only_one(status['pay'])['attempts'])
+    assert attempt['age_in_seconds'] <= time.time() - start
+    assert attempt['duration_in_seconds'] <= end - start
+    assert only_one(attempt['routehint'])
+    assert only_one(attempt['routehint'])['id'] == l3.info['id']
+    assert only_one(attempt['routehint'])['msatoshi'] == 10**5 + 1 + 10**5 // 100000
+    assert only_one(attempt['routehint'])['delay'] == 5 + 6
 
     # With dev-route option we can test longer routehints.
     if DEVELOPER:
@@ -1252,6 +1270,10 @@ def test_pay_routeboost(node_factory, bitcoind):
                                       'description': 'test_pay_routeboost2',
                                       'dev-routes': [routel3l4l5]})
         l1.rpc.pay(inv['bolt11'])
+        status = l1.rpc.call('paystatus', [inv['bolt11']])
+        assert len(only_one(status['pay'])['attempts']) == 1
+        assert 'failure' not in only_one(status['pay'])['attempts'][0]
+        assert 'success' in only_one(status['pay'])['attempts'][0]
 
         # Now test that it falls back correctly to not using routeboost
         # if it can't route to the node mentioned
@@ -1265,6 +1287,15 @@ def test_pay_routeboost(node_factory, bitcoind):
                                       'description': 'test_pay_routeboost3',
                                       'dev-routes': [routel4l3]})
         l1.rpc.pay(inv['bolt11'])
+        status = l1.rpc.call('paystatus', [inv['bolt11']])
+        assert len(only_one(status['pay'])['attempts']) == 2
+        assert 'failure' in only_one(status['pay'])['attempts'][0]
+        assert 'success' not in only_one(status['pay'])['attempts'][0]
+        routehint = only_one(status['pay'])['attempts'][0]['routehint']
+        assert [h['channel'] for h in routehint] == [r['short_channel_id'] for r in routel4l3]
+        assert 'failure' not in only_one(status['pay'])['attempts'][1]
+        assert 'success' in only_one(status['pay'])['attempts'][1]
+        assert 'routehint' not in only_one(status['pay'])['attempts'][1]
 
         # Similarly if it can route, but payment fails.
         routel2bad = [{'id': l2.info['id'],
@@ -1282,6 +1313,7 @@ def test_pay_routeboost(node_factory, bitcoind):
         # (Note, this is not public because it's not 6 deep)
         l3.rpc.connect(l5.info['id'], 'localhost', l5.port)
         scid35 = l3.fund_channel(l5, 10**6)
+        l4.stop()
         routel3l5 = [{'id': l3.info['id'],
                       'short_channel_id': scid35,
                       'fee_base_msat': 1000,
@@ -1291,4 +1323,21 @@ def test_pay_routeboost(node_factory, bitcoind):
                                       'label': 'test_pay_routeboost5',
                                       'description': 'test_pay_routeboost5',
                                       'dev-routes': [routel3l4l5, routel3l5]})
-        l1.rpc.pay(inv['bolt11'])
+        l1.rpc.pay(inv['bolt11'], description="paying test_pay_routeboost5")
+
+        status = l1.rpc.call('paystatus', [inv['bolt11']])
+        assert only_one(status['pay'])['bolt11'] == inv['bolt11']
+        assert only_one(status['pay'])['msatoshi'] == 10**5
+        assert only_one(status['pay'])['destination'] == l5.info['id']
+        assert only_one(status['pay'])['description'] == "paying test_pay_routeboost5"
+        assert 'routehint_modifications' not in only_one(status['pay'])
+        assert 'local_exclusions' not in only_one(status['pay'])
+        attempts = only_one(status['pay'])['attempts']
+
+        # First failed, second succeeded.
+        assert len(attempts) == 2
+        assert 'success' not in attempts[0]
+        assert 'success' in attempts[1]
+
+        assert [h['channel'] for h in attempts[0]['routehint']] == [r['short_channel_id'] for r in routel3l4l5]
+        assert [h['channel'] for h in attempts[1]['routehint']] == [r['short_channel_id'] for r in routel3l5]
