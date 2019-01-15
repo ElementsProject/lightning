@@ -659,9 +659,14 @@ static void reply_channel_range(struct peer *peer,
 /*~ When we need to send an array of channels, it might go over our 64k packet
  * size.  If it doesn't, we recurse, splitting in two, etc.  Each message
  * indicates what blocks it contains, so the recipient knows when we're
- * finished. */
+ * finished.
+ *
+ * tail_blocks is the empty blocks at the end, in case they asked for all
+ * blocks to 4 billion.
+ */
 static void queue_channel_ranges(struct peer *peer,
-				 u32 first_blocknum, u32 number_of_blocks)
+				 u32 first_blocknum, u32 number_of_blocks,
+				 u32 tail_blocks)
 {
 	struct routing_state *rstate = peer->daemon->rstate;
 	u8 *encoded = encode_short_channel_ids_start(tmpctx);
@@ -704,7 +709,8 @@ static void queue_channel_ranges(struct peer *peer,
 
 	/* If we can encode that, fine: send it */
 	if (encode_short_channel_ids_end(&encoded, max_encoded_bytes)) {
-		reply_channel_range(peer, first_blocknum, number_of_blocks,
+		reply_channel_range(peer, first_blocknum,
+				    number_of_blocks + tail_blocks,
 				    encoded);
 		return;
 	}
@@ -717,22 +723,26 @@ static void queue_channel_ranges(struct peer *peer,
 			      first_blocknum);
 		return;
 	}
-	status_debug("queue_channel_ranges full: splitting %u+%u and %u+%u",
+	status_debug("queue_channel_ranges full: splitting %u+%u and %u+%u(+%u)",
 		     first_blocknum,
 		     number_of_blocks / 2,
 		     first_blocknum + number_of_blocks / 2,
-		     number_of_blocks - number_of_blocks / 2);
-	queue_channel_ranges(peer, first_blocknum, number_of_blocks / 2);
+		     number_of_blocks - number_of_blocks / 2,
+		     tail_blocks);
+	queue_channel_ranges(peer, first_blocknum, number_of_blocks / 2, 0);
 	queue_channel_ranges(peer, first_blocknum + number_of_blocks / 2,
-			     number_of_blocks - number_of_blocks / 2);
+			     number_of_blocks - number_of_blocks / 2,
+			     tail_blocks);
 }
 
 /*~ The peer can ask for all channels is a series of blocks.  We reply with one
  * or more messages containing the short_channel_ids. */
 static u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 {
+	struct routing_state *rstate = peer->daemon->rstate;
 	struct bitcoin_blkid chain_hash;
-	u32 first_blocknum, number_of_blocks;
+	u32 first_blocknum, number_of_blocks, tail_blocks;
+	struct short_channel_id last_scid;
 
 	if (!fromwire_query_channel_range(msg, &chain_hash,
 					  &first_blocknum, &number_of_blocks)) {
@@ -751,14 +761,25 @@ static u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 		return NULL;
 	}
 
-	/* This checks for 32-bit overflow! */
-	if (first_blocknum + number_of_blocks < first_blocknum) {
-		return towire_errorfmt(peer, NULL,
-				       "query_channel_range overflow %u+%u",
-				       first_blocknum, number_of_blocks);
-	}
+	/* If they ask for number_of_blocks UINTMAX, and we have to divide
+	 * and conquer, we'll do a lot of unnecessary work.  Cap it at the
+	 * last value we have, then send an empty reply. */
+	if (uintmap_last(&rstate->chanmap, &last_scid.u64)) {
+		u32 last_block = short_channel_id_blocknum(&last_scid);
 
-	queue_channel_ranges(peer, first_blocknum, number_of_blocks);
+		/* u64 here avoids overflow on number_of_blocks
+		   UINTMAX for example */
+		if ((u64)first_blocknum + number_of_blocks > last_block) {
+			tail_blocks = first_blocknum + number_of_blocks
+				- last_block - 1;
+			number_of_blocks -= tail_blocks;
+		} else
+			tail_blocks = 0;
+	} else
+		tail_blocks = 0;
+
+	queue_channel_ranges(peer, first_blocknum, number_of_blocks,
+			     tail_blocks);
 	return NULL;
 }
 
@@ -2349,6 +2370,13 @@ static struct io_plan *query_channel_range(struct io_conn *conn,
 
 	if (peer->query_channel_blocks) {
 		status_broken("query_channel_range: previous query active");
+		goto fail;
+	}
+
+	/* Check for overflow on 32-bit machines! */
+	if (BITMAP_NWORDS(number_of_blocks) < number_of_blocks / BITMAP_WORD_BITS) {
+		status_broken("query_channel_range: huge number_of_blocks (%u) not supported",
+			number_of_blocks);
 		goto fail;
 	}
 

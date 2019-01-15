@@ -28,6 +28,8 @@ changes.
 
 ### Fixed
 
+- Protocol: handling `query_channel_range` for large numbers of blocks
+  (eg. 4 billion) was slow due to a bug.
 
 ### Security
 
