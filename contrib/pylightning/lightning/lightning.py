@@ -167,12 +167,13 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("getroute", payload)
 
-    def listchannels(self, short_channel_id=None):
+    def listchannels(self, short_channel_id=None, source=None):
         """
-        Show all known channels, accept optional {short_channel_id}
+        Show all known channels, accept optional {short_channel_id} or {source}
         """
         payload = {
-            "short_channel_id": short_channel_id
+            "short_channel_id": short_channel_id,
+            "source": source
         }
         return self.call("listchannels", payload)
 
