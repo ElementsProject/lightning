@@ -707,7 +707,7 @@ static void json_add_peer(struct lightningd *ld,
 			json_add_short_channel_id(response,
 						  "short_channel_id",
 						  channel->scid);
-			json_add_num(response, "channel_direction",
+			json_add_num(response, "direction",
 				     pubkey_idx(&ld->id, &p->id));
 		}
 		derive_channel_id(&cid,
