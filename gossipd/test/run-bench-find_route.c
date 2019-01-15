@@ -12,6 +12,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "../routing.c"
+#include "../gossip_store.c"
+
 void status_fmt(enum log_level level UNUSED, const char *fmt, ...)
 {
 	va_list ap;
@@ -21,34 +24,6 @@ void status_fmt(enum log_level level UNUSED, const char *fmt, ...)
 	printf("\n");
 	va_end(ap);
 }
-
-static bool in_bench = 0;
-
-/* We use made-up pubkeys, so don't try to format them. */
-static char *fake_type_to_string_(const tal_t *ctx, const char *typename,
-				  union printable_types u)
-{
-	/* We *do* call this at end of route setup. */
-	if (streq(typename, "struct pubkey")) {
-		size_t n;
-		memcpy(&n, u.pubkey, sizeof(n));
-		return tal_fmt(ctx, "pubkey-#%zu", n);
-	}
-	return type_to_string_(ctx, typename, u);
-}
-
-/* Only used on setup: if it was in benchmark run, we'd need the real one */
-static int fake_pubkey_cmp(const struct pubkey *a, const struct pubkey *b)
-{
-	assert(!in_bench);
-	return memcmp(a, b, sizeof(*a));
-}
-
-#define pubkey_cmp fake_pubkey_cmp
-#define type_to_string_ fake_type_to_string_
-#include "../routing.c"
-#include "../gossip_store.c"
-#undef type_to_string_
 
 struct broadcast_state *new_broadcast_state(tal_t *ctx UNNEEDED)
 {
@@ -151,52 +126,63 @@ void memleak_remove_intmap_(struct htable *memtable UNNEEDED, const struct intma
 
 /* Updates existing route if required. */
 static void add_connection(struct routing_state *rstate,
-					const struct pubkey *from,
-					const struct pubkey *to,
-					u32 base_fee, s32 proportional_fee,
-					u32 delay)
+			   const struct pubkey *nodes,
+			   u32 from, u32 to,
+			   u32 base_fee, s32 proportional_fee,
+			   u32 delay)
 {
 	struct short_channel_id scid;
 	struct half_chan *c;
 	struct chan *chan;
+	int idx = pubkey_idx(&nodes[from], &nodes[to]);
 
-	memset(&scid, 0, sizeof(scid));
+	/* Encode src and dst in scid. */
+	memcpy((char *)&scid + idx * sizeof(from), &from, sizeof(from));
+	memcpy((char *)&scid + (!idx) * sizeof(to), &to, sizeof(to));
+
 	chan = get_channel(rstate, &scid);
 	if (!chan)
-		chan = new_chan(rstate, &scid, from, to, 1000000);
+		chan = new_chan(rstate, &scid, &nodes[from], &nodes[to],
+				1000000);
 
-	c = &chan->half[pubkey_idx(from, to)];
+	c = &chan->half[idx];
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
-	c->channel_flags = get_channel_direction(from, to);
+	c->channel_flags = get_channel_direction(&nodes[from], &nodes[to]);
+	/* This must be non-NULL, otherwise we consider it disabled! */
+	c->channel_update = tal(chan, u8);
+	c->htlc_maximum_msat = -1ULL;
+	c->htlc_minimum_msat = 0;
 }
 
 static struct pubkey nodeid(size_t n)
 {
 	struct pubkey id;
+	struct secret s;
 
-	memset(&id, 0, sizeof(id));
-	memcpy(&id, &n, sizeof(n));
+	memset(&s, 0xFF, sizeof(s));
+	memcpy(&s, &n, sizeof(s) / sizeof(n));
+	pubkey_from_secret(&s, &id);
 	return id;
 }
 
-static void populate_random_node(struct routing_state *rstate, u64 n)
+static void populate_random_node(struct routing_state *rstate,
+				 const struct pubkey *nodes,
+				 u32 n)
 {
-	struct pubkey id = nodeid(n);
-
 	/* Create 2 random channels. */
 	if (n < 1)
 		return;
 
 	for (size_t i = 0; i < 2; i++) {
-		struct pubkey randnode = nodeid(pseudorand(n));
+		u32 randnode = pseudorand(n);
 
-		add_connection(rstate, &id, &randnode,
+		add_connection(rstate, nodes, n, randnode,
 			       pseudorand(100),
 			       pseudorand(100),
 			       pseudorand(144));
-		add_connection(rstate, &randnode, &id,
+		add_connection(rstate, nodes, randnode, n,
 			       pseudorand(100),
 			       pseudorand(100),
 			       pseudorand(144));
@@ -228,7 +214,8 @@ int main(int argc, char *argv[])
 	size_t num_nodes = 100, num_runs = 1;
 	struct timemono start, end;
 	size_t num_success;
-	struct pubkey me = nodeid(0);
+	struct pubkey me;
+	struct pubkey *nodes;
 	bool perfme = false;
 	const double riskfactor = 0.01 / BLOCKS_PER_YEAR / 10000;
 	struct siphash_seed base_seed;
@@ -237,6 +224,7 @@ int main(int argc, char *argv[])
 						 | SECP256K1_CONTEXT_SIGN);
 	setup_tmpctx();
 
+	me = nodeid(0);
 	rstate = new_routing_state(tmpctx, NULL, &me, 0);
 	opt_register_noarg("--perfme", opt_set_bool, &perfme,
 			   "Run perfme-start and perfme-stop around benchmark");
@@ -250,23 +238,26 @@ int main(int argc, char *argv[])
 	if (argc > 3)
 		opt_usage_and_exit("[num_nodes [num_runs]]");
 
+	nodes = tal_arr(rstate, struct pubkey, num_nodes);
+	for (size_t i = 0; i < num_nodes; i++)
+		nodes[i] = nodeid(i);
+
 	memset(&base_seed, 0, sizeof(base_seed));
 	for (size_t i = 0; i < num_nodes; i++)
-		populate_random_node(rstate, i);
+		populate_random_node(rstate, nodes, i);
 
-	in_bench = true;
 	if (perfme)
 		run("perfme-start");
 
 	start = time_mono();
 	num_success = 0;
 	for (size_t i = 0; i < num_runs; i++) {
-		struct pubkey from = nodeid(pseudorand(num_nodes));
-		struct pubkey to = nodeid(pseudorand(num_nodes));
+		const struct pubkey *from = &nodes[pseudorand(num_nodes)];
+		const struct pubkey *to = &nodes[pseudorand(num_nodes)];
 		u64 fee;
 		struct chan **route;
 
-		route = find_route(tmpctx, rstate, &from, &to,
+		route = find_route(tmpctx, rstate, from, to,
 				  pseudorand(100000),
 				  riskfactor,
 				  0.75, &base_seed,
