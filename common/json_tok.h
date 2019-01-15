@@ -2,10 +2,13 @@
 #ifndef LIGHTNING_COMMON_JSON_TOK_H
 #define LIGHTNING_COMMON_JSON_TOK_H
 #include "config.h"
+#include <ccan/short_types/short_types.h>
 #include <common/json.h>
 
 struct command;
 struct command_result;
+struct json_escaped;
+struct sha256;
 
 /* Extract json array token */
 struct command_result *param_array(struct command *cmd, const char *name,

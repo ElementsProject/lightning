@@ -1,3 +1,4 @@
+#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>

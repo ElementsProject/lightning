@@ -47,17 +47,9 @@ void json_add_pubkey(struct json_stream *response,
 void json_add_txid(struct json_stream *result, const char *fieldname,
 		   const struct bitcoin_txid *txid);
 
-/* Extract a pubkey from this */
-bool json_to_pubkey(const char *buffer, const jsmntok_t *tok,
-		    struct pubkey *pubkey);
-
 struct command_result *param_pubkey(struct command *cmd, const char *name,
 				    const char *buffer, const jsmntok_t *tok,
 				    struct pubkey **pubkey);
-
-/* Extract a short_channel_id from this */
-bool json_to_short_channel_id(const char *buffer, const jsmntok_t *tok,
-			      struct short_channel_id *scid);
 
 struct command_result *param_short_channel_id(struct command *cmd,
 					      const char *name,

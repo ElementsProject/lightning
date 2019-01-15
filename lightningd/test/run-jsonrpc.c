@@ -21,6 +21,14 @@ const char *feerate_name(enum feerate feerate UNNEEDED)
 /* Generated stub for fmt_wireaddr_without_port */
 char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
 { fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
+/* Generated stub for json_to_pubkey */
+bool json_to_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		    struct pubkey *pubkey UNNEEDED)
+{ fprintf(stderr, "json_to_pubkey called!\n"); abort(); }
+/* Generated stub for json_to_short_channel_id */
+bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+			      struct short_channel_id *scid UNNEEDED)
+{ fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
 /* Generated stub for log_ */
 void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED, const char *fmt UNNEEDED, ...)
 

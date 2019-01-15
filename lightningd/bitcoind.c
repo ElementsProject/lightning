@@ -14,7 +14,7 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
-#include <common/json.h>
+#include <common/json_helpers.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/utils.h>

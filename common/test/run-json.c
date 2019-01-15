@@ -1,4 +1,5 @@
 #include "../json.c"
+#include "../json_helpers.c"
 #include <ccan/mem/mem.h>
 #include <common/utils.h>
 #include <stdio.h>

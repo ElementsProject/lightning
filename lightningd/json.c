@@ -5,6 +5,7 @@
 #include <common/json.h>
 #include <common/json_command.h>
 #include <common/json_escaped.h>
+#include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/param.h>
@@ -97,13 +98,6 @@ void json_add_txid(struct json_stream *result, const char *fieldname,
 	json_add_string(result, fieldname, hex);
 }
 
-bool json_to_pubkey(const char *buffer, const jsmntok_t *tok,
-		    struct pubkey *pubkey)
-{
-	return pubkey_from_hexstr(buffer + tok->start,
-				  tok->end - tok->start, pubkey);
-}
-
 struct command_result *param_pubkey(struct command *cmd, const char *name,
 				    const char *buffer, const jsmntok_t *tok,
 				    struct pubkey **pubkey)
@@ -124,13 +118,6 @@ void json_add_short_channel_id(struct json_stream *response,
 {
 	json_add_string(response, fieldname,
 			type_to_string(response, struct short_channel_id, id));
-}
-
-bool json_to_short_channel_id(const char *buffer, const jsmntok_t *tok,
-			      struct short_channel_id *scid)
-{
-	return (short_channel_id_from_str(buffer + tok->start,
-					  tok->end - tok->start, scid));
 }
 
 struct command_result *param_short_channel_id(struct command *cmd,
