@@ -8,7 +8,7 @@ lightning-listchannels - Command to query active lightning channels in the entir
 
 SYNOPSIS
 --------
-*listchannels* ['short_channel_id']
+*listchannels* ['short_channel_id'] ['source']
 
 DESCRIPTION
 -----------
@@ -16,12 +16,15 @@ The *listchannels* RPC command returns data on channels that are known to the
 node.  Because channels may be bidirectional, up to 2 objects will be returned
 for each channel (one for each direction).
 
-If no 'short_channel_id' is supplied, then data on all lightning channels known
-to this node, are returned.  These can be local channels or public channels
-broadcast on the gossip network.
+If 'short_channel_id' is supplied, then only known channels with a
+matching 'short_channel_id' are returned.
 
-Supplying 'short_channel_id' will filter the results to only return data for 
-known channels with a matching 'short_channel_id'.
+If 'source' is supplied, then only channels leading from that node id
+are returned.
+
+If neither is supplied, data on all lightning channels known to this
+node, are returned.  These can be local channels or public channels
+broadcast on the gossip network.
 
 RETURN VALUE
 ------------
@@ -56,8 +59,8 @@ transferred satoshi (BOLT #2).
 - 'delay' : The number of blocks delay required to wait for on-chain settlement
 when unilaterally closing the channel (BOLT #2).
 
-If 'short_channel_id' is supplied and no matching channels are found, a
-"channels" object with an empty list is returned.
+If 'short_channel_id' or 'source' is supplied and no matching channels
+are found, a "channels" object with an empty list is returned.
 
 ERRORS
 ------
@@ -69,13 +72,15 @@ returned:
   "message" : "'short_channel_id' should be a short channel id, not '...'" }
 ----
 
+Similarly if 'source' is not a valid pubkey.
+
 AUTHOR
 ------
 Michael Hawkins <michael.hawkins@protonmail.com>.
 
 SEE ALSO
 --------
-lightning-fundchannel(7)
+lightning-fundchannel(7), lightning-listnodes(7)
 
 RESOURCES
 ---------

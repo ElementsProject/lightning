@@ -453,12 +453,18 @@ static struct command_result *json_listchannels(struct command *cmd,
 {
 	u8 *req;
 	struct short_channel_id *id;
+	struct pubkey *source;
+
 	if (!param(cmd, buffer, params,
 		   p_opt("short_channel_id", param_short_channel_id, &id),
+		   p_opt("source", param_pubkey, &source),
 		   NULL))
 		return command_param_failed();
 
-	req = towire_gossip_getchannels_request(cmd, id);
+	if (id && source)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Cannot specify both source and short_channel_id");
+	req = towire_gossip_getchannels_request(cmd, id, source);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
 		 req, -1, 0, json_listchannels_reply, cmd);
 	return command_still_pending(cmd);
@@ -467,7 +473,7 @@ static struct command_result *json_listchannels(struct command *cmd,
 static const struct json_command listchannels_command = {
 	"listchannels",
 	json_listchannels,
-	"Show channel {short_channel_id} (or all known channels, if no {short_channel_id})"
+	"Show channel {short_channel_id} or {source} (or all known channels, if not specified)"
 };
 AUTODATA(json_command, &listchannels_command);
 

@@ -43,6 +43,7 @@ gossip_getroute_reply,,hops,num_hops*struct route_hop
 
 gossip_getchannels_request,3007
 gossip_getchannels_request,,short_channel_id,?struct short_channel_id
+gossip_getchannels_request,,source,?struct pubkey
 
 gossip_getchannels_reply,3107
 gossip_getchannels_reply,,num_channels,u16

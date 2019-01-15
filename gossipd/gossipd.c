@@ -1971,9 +1971,10 @@ static struct io_plan *getchannels_req(struct io_conn *conn,
 	struct gossip_getchannels_entry *entries;
 	struct chan *chan;
 	struct short_channel_id *scid;
+	struct pubkey *source;
 
 	/* Note: scid is marked optional in gossip_wire.csv */
-	if (!fromwire_gossip_getchannels_request(msg, msg, &scid))
+	if (!fromwire_gossip_getchannels_request(msg, msg, &scid, &source))
 		master_badmsg(WIRE_GOSSIP_GETCHANNELS_REQUEST, msg);
 
 	entries = tal_arr(tmpctx, struct gossip_getchannels_entry, 0);
@@ -1982,6 +1983,15 @@ static struct io_plan *getchannels_req(struct io_conn *conn,
 		chan = get_channel(daemon->rstate, scid);
 		if (chan)
 			append_channel(&entries, chan);
+	} else if (source) {
+		struct node *s = get_node(daemon->rstate, source);
+		if (s) {
+			for (size_t i = 0; i < tal_count(s->chans); i++)
+				append_half_channel(&entries,
+						    s->chans[i],
+						    !half_chan_to(s,
+								  s->chans[i]));
+		}
 	} else {
 		u64 idx;
 

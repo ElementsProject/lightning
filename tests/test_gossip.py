@@ -277,6 +277,15 @@ def test_gossip_jsonrpc(node_factory):
     assert len([c for c in channels1 if not c['public']]) == 2
     assert len([c for c in channels2 if not c['public']]) == 2
 
+    # Test listchannels-by-source
+    channels1 = l1.rpc.listchannels(source=l1.info['id'])['channels']
+    channels2 = l2.rpc.listchannels(source=l1.info['id'])['channels']
+    assert only_one(channels1)['source'] == l1.info['id']
+    assert only_one(channels1)['destination'] == l2.info['id']
+    assert channels1 == channels2
+
+    channels2 = l2.rpc.listchannels()['channels']
+
     # Now proceed to funding-depth and do a full gossip round
     l1.bitcoin.generate_block(5)
     # Could happen in either order.
