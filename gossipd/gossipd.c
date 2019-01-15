@@ -1867,6 +1867,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	u64 msatoshi;
 	u32 final_cltv;
 	u16 riskfactor;
+	u32 max_hops;
 	u8 *out;
 	struct route_hop *hops;
 	double fuzz;
@@ -1883,7 +1884,8 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 					      &source, &destination,
 					      &msatoshi, &riskfactor,
 					      &final_cltv, &fuzz,
-					      &excluded, &excluded_dir))
+					      &excluded, &excluded_dir,
+					      &max_hops))
 		master_badmsg(WIRE_GOSSIP_GETROUTE_REQUEST, msg);
 
 	status_trace("Trying to find a route from %s to %s for %"PRIu64" msatoshi",
@@ -1893,7 +1895,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	/* routing.c does all the hard work; can return NULL. */
 	hops = get_route(tmpctx, daemon->rstate, &source, &destination,
 			 msatoshi, riskfactor, final_cltv,
-			 fuzz, siphash_seed(), excluded, excluded_dir);
+			 fuzz, siphash_seed(), excluded, excluded_dir, max_hops);
 
 	out = towire_gossip_getroute_reply(NULL, hops);
 	daemon_conn_send(daemon->master, take(out));

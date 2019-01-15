@@ -269,7 +269,8 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    double fuzz,
 			    const struct siphash_seed *base_seed,
 			    const struct short_channel_id *excluded,
-			    const bool *excluded_dir);
+			    const bool *excluded_dir,
+			    size_t max_hops);
 /* Disable channel(s) based on the given routing failure. */
 void routing_failure(struct routing_state *rstate,
 		     const struct pubkey *erring_node,

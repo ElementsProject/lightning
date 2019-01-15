@@ -377,7 +377,8 @@ static bool hc_can_carry(const struct half_chan *hc, u64 requiredcap)
 static void bfg_one_edge(struct node *node,
 			 struct chan *chan, int idx,
 			 double riskfactor,
-			 double fuzz, const struct siphash_seed *base_seed)
+			 double fuzz, const struct siphash_seed *base_seed,
+			 size_t max_hops)
 {
 	size_t h;
 	double fee_scale = 1.0;
@@ -394,7 +395,7 @@ static void bfg_one_edge(struct node *node,
 		fee_scale = 1.0 + (2.0 * fuzz * h / UINT64_MAX) - fuzz;
 	}
 
-	for (h = 0; h < ROUTING_MAX_HOPS; h++) {
+	for (h = 0; h < max_hops; h++) {
 		struct node *src;
 		/* FIXME: Bias against smaller channels. */
 		u64 fee;
@@ -450,6 +451,7 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	   const struct pubkey *from, const struct pubkey *to, u64 msatoshi,
 	   double riskfactor,
 	   double fuzz, const struct siphash_seed *base_seed,
+	   size_t max_hops,
 	   u64 *fee)
 {
 	struct chan **route;
@@ -486,6 +488,11 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 		return NULL;
 	}
 
+	if (max_hops > ROUTING_MAX_HOPS) {
+		status_info("find_route: max_hops huge amount %zu", max_hops);
+		return NULL;
+	}
+
 	/* Reset all the information. */
 	clear_bfg(rstate->nodes);
 
@@ -494,7 +501,7 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	src->bfg[0].total = msatoshi;
 	src->bfg[0].risk = 0;
 
-	for (runs = 0; runs < ROUTING_MAX_HOPS; runs++) {
+	for (runs = 0; runs < max_hops; runs++) {
 		SUPERVERBOSE("Run %i", runs);
 		/* Run through every edge. */
 		for (n = node_map_first(rstate->nodes, &it);
@@ -518,14 +525,15 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 					continue;
 				}
 				bfg_one_edge(n, chan, idx,
-					     riskfactor, fuzz, base_seed);
+					     riskfactor, fuzz, base_seed,
+					     max_hops);
 				SUPERVERBOSE("...done");
 			}
 		}
 	}
 
 	best = 0;
-	for (i = 1; i <= ROUTING_MAX_HOPS; i++) {
+	for (i = 1; i <= max_hops; i++) {
 		if (dst->bfg[i].total < dst->bfg[best].total)
 			best = i;
 	}
@@ -1498,7 +1506,8 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    u32 final_cltv,
 			    double fuzz, const struct siphash_seed *base_seed,
 			    const struct short_channel_id *excluded,
-			    const bool *excluded_dir)
+			    const bool *excluded_dir,
+			    size_t max_hops)
 {
 	struct chan **route;
 	u64 total_amount;
@@ -1523,7 +1532,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 
 	route = find_route(ctx, rstate, source, destination, msatoshi,
 			   riskfactor / BLOCKS_PER_YEAR / 10000,
-			   fuzz, base_seed, &fee);
+			   fuzz, base_seed, max_hops, &fee);
 
 	/* Now restore the capacity. */
 	for (size_t i = 0; i < tal_count(excluded); i++) {
