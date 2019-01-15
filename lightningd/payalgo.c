@@ -508,7 +508,6 @@ static struct command_result *json_pay_try(struct pay *pay)
 	u8 *req;
 	struct command *cmd = pay->cmd;
 	struct timeabs now = time_now();
-	struct siphash_seed seed;
 	u64 maxoverpayment;
 	u64 overpayment;
 
@@ -534,9 +533,6 @@ static struct command_result *json_pay_try(struct pay *pay)
 	/* Clear route */
 	pay->route = tal_free(pay->route);
 
-	/* Generate random seed */
-	randombytes_buf(&seed, sizeof(seed));
-
 	/* Generate an overpayment, from fuzz * maxfee. */
 	/* Now normally the use of double for money is very bad.
 	 * Note however that a later stage will ensure that
@@ -561,8 +557,7 @@ static struct command_result *json_pay_try(struct pay *pay)
 					     pay->msatoshi + overpayment,
 					     pay->riskfactor,
 					     pay->min_final_cltv_expiry,
-					     &pay->fuzz,
-					     &seed);
+					     &pay->fuzz);
 	subd_req(pay->try_parent, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
 
 	return NULL;

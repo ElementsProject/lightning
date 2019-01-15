@@ -109,6 +109,8 @@ changes.
 
 ### Removed
 
+- JSON API: the optional 'seed' parameter to `getroute` was removed.
+
 ### Fixed
 
 - Startup: more coherent complaint if daemon already running.

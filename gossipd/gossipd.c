@@ -1870,7 +1870,6 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	u8 *out;
 	struct route_hop *hops;
 	double fuzz;
-	struct siphash_seed seed;
 
 	/* To choose between variations, we need to know how much we're
 	 * sending (eliminates too-small channels, and also effects the fees
@@ -1881,7 +1880,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	if (!fromwire_gossip_getroute_request(msg,
 					      &source, &destination,
 					      &msatoshi, &riskfactor,
-					      &final_cltv, &fuzz, &seed))
+					      &final_cltv, &fuzz))
 		master_badmsg(WIRE_GOSSIP_GETROUTE_REQUEST, msg);
 
 	status_trace("Trying to find a route from %s to %s for %"PRIu64" msatoshi",
@@ -1891,7 +1890,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	/* routing.c does all the hard work; can return NULL. */
 	hops = get_route(tmpctx, daemon->rstate, &source, &destination,
 			 msatoshi, riskfactor, final_cltv,
-			 fuzz, &seed);
+			 fuzz, siphash_seed());
 
 	out = towire_gossip_getroute_reply(NULL, hops);
 	daemon_conn_send(daemon->master, take(out));
