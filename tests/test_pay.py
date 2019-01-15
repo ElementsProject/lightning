@@ -1207,7 +1207,7 @@ def test_pay_routeboost(node_factory, bitcoind):
     """Make sure we can use routeboost information. """
     # l1->l2->l3--private-->l4
     l1, l2 = node_factory.line_graph(2, announce_channels=True, wait_for_announce=True)
-    l3, l4 = node_factory.line_graph(2, announce_channels=False, wait_for_announce=False)
+    l3, l4, l5 = node_factory.line_graph(3, announce_channels=False, wait_for_announce=False)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     scidl2l3 = l2.fund_channel(l3, 10**6)
 
@@ -1232,3 +1232,23 @@ def test_pay_routeboost(node_factory, bitcoind):
 
     # Now we should be able to pay it.
     l1.rpc.pay(inv['bolt11'])
+
+    # With dev-route option we can test longer routehints.
+    if DEVELOPER:
+        scid34 = only_one(l3.rpc.listpeers(l4.info['id'])['peers'])['channels'][0]['short_channel_id']
+        scid45 = only_one(l4.rpc.listpeers(l5.info['id'])['peers'])['channels'][0]['short_channel_id']
+        route = [{'id': l3.info['id'],
+                  'short_channel_id': scid34,
+                  'fee_base_msat': 1000,
+                  'fee_proportional_millionths': 10,
+                  'cltv_expiry_delta': 6},
+                 {'id': l4.info['id'],
+                  'short_channel_id': scid45,
+                  'fee_base_msat': 1000,
+                  'fee_proportional_millionths': 10,
+                  'cltv_expiry_delta': 6}]
+        inv = l5.rpc.call('invoice', {'msatoshi': 10**5,
+                                      'label': 'test_pay_routeboost2',
+                                      'description': 'test_pay_routeboost2',
+                                      'dev-routes': [route]})
+        l1.rpc.pay(inv['bolt11'])
