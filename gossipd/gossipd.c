@@ -2105,6 +2105,20 @@ out:
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
+/*~ If a node has no public channels (other than the one to us), it's not
+ * a very useful route to tell anyone about. */
+static bool node_has_public_channels(const struct node *peer,
+				     const struct chan *exclude)
+{
+	for (size_t i = 0; i < tal_count(peer->chans); i++) {
+		if (peer->chans[i] == exclude)
+			continue;
+		if (is_chan_public(peer->chans[i]))
+			return true;
+	}
+	return false;
+}
+
 /*~ For routeboost, we offer payers a hint of what incoming channels might
  * have capacity for their payment.  To do this, lightningd asks for the
  * information about all channels to this node; but gossipd doesn't know about
@@ -2116,6 +2130,7 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 	struct node *node;
 	struct route_info *public = tal_arr(tmpctx, struct route_info, 0);
 	struct route_info *private = tal_arr(tmpctx, struct route_info, 0);
+	bool has_public = false;
 
 	if (!fromwire_gossip_get_incoming_channels(msg))
 		master_badmsg(WIRE_GOSSIP_GET_INCOMING_CHANNELS, msg);
@@ -2138,6 +2153,13 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 			ri.fee_proportional_millionths = hc->proportional_fee;
 			ri.cltv_expiry_delta = hc->delay;
 
+			has_public |= is_chan_public(c);
+
+			/* If peer doesn't have other public channels,
+			 * no point giving route */
+			if (!node_has_public_channels(other_node(node, c), c))
+				continue;
+
 			if (is_chan_public(c))
 				tal_arr_expand(&public, ri);
 			else
@@ -2145,8 +2167,8 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 		}
 	}
 
-	/* If no public channels, share private ones. */
-	if (tal_count(public) == 0)
+	/* If no public channels (even deadend ones!), share private ones. */
+	if (!has_public)
 		msg = towire_gossip_get_incoming_channels_reply(NULL, private);
 	else
 		msg = towire_gossip_get_incoming_channels_reply(NULL, public);
