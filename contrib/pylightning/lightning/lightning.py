@@ -153,7 +153,7 @@ class LightningRpc(UnixDomainSocketRpc):
         {cltv} (default 9). If specified search from {fromid} otherwise use
         this node as source. Randomize the route with up to {fuzzpercent}
         (0.0 -> 100.0, default 5.0) using {seed} as an arbitrary-size string
-        seed. {exclude} is an optional array of scids[xDirection] to exclude.
+        seed. {exclude} is an optional array of scid/direction to exclude.
         """
         payload = {
             "id": peer_id,

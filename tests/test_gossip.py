@@ -284,7 +284,7 @@ def test_gossip_jsonrpc(node_factory):
     assert only_one(channels1)['destination'] == l2.info['id']
     assert channels1 == channels2
 
-    channels2 = l2.rpc.listchannels()['channels']
+    l2.rpc.listchannels()['channels']
 
     # Now proceed to funding-depth and do a full gossip round
     l1.bitcoin.generate_block(5)
