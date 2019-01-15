@@ -1,8 +1,6 @@
 #ifndef LIGHTNING_COMMON_JSON_H
 #define LIGHTNING_COMMON_JSON_H
 #include "config.h"
-#include <bitcoin/pubkey.h>
-#include <ccan/take/take.h>
 #include <ccan/tal/tal.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -10,9 +8,6 @@
 
 #define JSMN_STRICT 1
 # include <external/jsmn/jsmn.h>
-
-struct json_escaped;
-struct short_channel_id;
 
 /* Include " if it's a string. */
 const char *json_tok_full(const char *buffer, const jsmntok_t *t);
@@ -42,10 +37,6 @@ bool json_to_int(const char *buffer, const jsmntok_t *tok, int *num);
 
 /* Extract boolean from this */
 bool json_to_bool(const char *buffer, const jsmntok_t *tok, bool *b);
-
-/* Extract satoshis from this (may be a string, or a decimal number literal) */
-bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
-			    uint64_t *satoshi);
 
 /* Is this a number? [0..9]+ */
 bool json_tok_is_num(const char *buffer, const jsmntok_t *tok);

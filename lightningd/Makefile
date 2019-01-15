@@ -35,6 +35,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/io_lock.o			\
 	common/json.o				\
 	common/json_escaped.o			\
+	common/json_helpers.o			\
 	common/json_tok.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\

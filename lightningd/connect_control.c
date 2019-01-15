@@ -5,6 +5,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/features.h>
 #include <common/json_command.h>
+#include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/param.h>
