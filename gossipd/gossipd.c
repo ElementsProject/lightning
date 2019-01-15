@@ -1870,6 +1870,8 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	u8 *out;
 	struct route_hop *hops;
 	double fuzz;
+	struct short_channel_id *excluded;
+	bool *excluded_dir;
 
 	/* To choose between variations, we need to know how much we're
 	 * sending (eliminates too-small channels, and also effects the fees
@@ -1877,10 +1879,11 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	 * much cltv we need a the final node to give exact values for each
 	 * intermediate hop, as well as how much random fuzz to inject to
 	 * avoid being too predictable. */
-	if (!fromwire_gossip_getroute_request(msg,
+	if (!fromwire_gossip_getroute_request(msg, msg,
 					      &source, &destination,
 					      &msatoshi, &riskfactor,
-					      &final_cltv, &fuzz))
+					      &final_cltv, &fuzz,
+					      &excluded, &excluded_dir))
 		master_badmsg(WIRE_GOSSIP_GETROUTE_REQUEST, msg);
 
 	status_trace("Trying to find a route from %s to %s for %"PRIu64" msatoshi",
@@ -1890,7 +1893,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	/* routing.c does all the hard work; can return NULL. */
 	hops = get_route(tmpctx, daemon->rstate, &source, &destination,
 			 msatoshi, riskfactor, final_cltv,
-			 fuzz, siphash_seed());
+			 fuzz, siphash_seed(), excluded, excluded_dir);
 
 	out = towire_gossip_getroute_reply(NULL, hops);
 	daemon_conn_send(daemon->master, take(out));

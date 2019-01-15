@@ -325,7 +325,8 @@ static struct command_result *json_getroute(struct command *cmd,
 
 	u8 *req = towire_gossip_getroute_request(cmd, source, destination,
 						 *msatoshi, *riskfactor * 1000,
-						 *cltv, fuzz);
+						 *cltv, fuzz,
+						 NULL, NULL);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 	return command_still_pending(cmd);
 }

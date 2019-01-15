@@ -1496,19 +1496,43 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 			    const struct pubkey *destination,
 			    const u64 msatoshi, double riskfactor,
 			    u32 final_cltv,
-			    double fuzz, const struct siphash_seed *base_seed)
+			    double fuzz, const struct siphash_seed *base_seed,
+			    const struct short_channel_id *excluded,
+			    const bool *excluded_dir)
 {
 	struct chan **route;
 	u64 total_amount;
 	unsigned int total_delay;
 	u64 fee;
 	struct route_hop *hops;
-	int i;
 	struct node *n;
+	u64 *saved_capacity;
+
+	assert(tal_count(excluded) == tal_count(excluded_dir));
+	saved_capacity = tal_arr(tmpctx, u64, tal_count(excluded));
+
+	/* Temporarily set excluded channels' capacity to zero. */
+	for (size_t i = 0; i < tal_count(excluded); i++) {
+		struct chan *chan = get_channel(rstate, &excluded[i]);
+		if (!chan)
+			continue;
+		saved_capacity[i]
+			= chan->half[excluded_dir[i]].htlc_maximum_msat;
+		chan->half[excluded_dir[i]].htlc_maximum_msat = 0;
+	}
 
 	route = find_route(ctx, rstate, source, destination, msatoshi,
 			   riskfactor / BLOCKS_PER_YEAR / 10000,
 			   fuzz, base_seed, &fee);
+
+	/* Now restore the capacity. */
+	for (size_t i = 0; i < tal_count(excluded); i++) {
+		struct chan *chan = get_channel(rstate, &excluded[i]);
+		if (!chan)
+			continue;
+		chan->half[excluded_dir[i]].htlc_maximum_msat
+			= saved_capacity[i];
+	}
 
 	if (!route) {
 		return NULL;
@@ -1521,7 +1545,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 
 	/* Start at destination node. */
 	n = get_node(rstate, destination);
-	for (i = tal_count(route) - 1; i >= 0; i--) {
+	for (int i = tal_count(route) - 1; i >= 0; i--) {
 		const struct half_chan *c;
 		int idx = half_chan_to(n, route[i]);
 		c = &route[i]->half[idx];
