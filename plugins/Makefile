@@ -22,6 +22,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/hash_u5.o			\
 	common/json.o				\
 	common/json_escaped.o			\
+	common/json_helpers.o			\
 	common/json_tok.o			\
 	common/memleak.o			\
 	common/param.o				\
