@@ -103,6 +103,7 @@ int main(int argc, char *argv[])
 	       type_to_string(ctx, struct pubkey, &b11->receiver_id));
 	printf("payment_hash: %s\n",
 	       tal_hexstr(ctx, &b11->payment_hash, sizeof(b11->payment_hash)));
+	printf("min_final_cltv_expiry: %u\n", b11->min_final_cltv_expiry);
         if (b11->msatoshi)
 		printf("msatoshi: %"PRIu64"\n", *b11->msatoshi);
         if (b11->description)
