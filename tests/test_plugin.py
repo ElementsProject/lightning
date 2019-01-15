@@ -108,3 +108,11 @@ def test_failing_plugins():
                 '--plugin={}'.format(p),
                 '--help',
             ])
+
+
+def test_pay_plugin(node_factory):
+    l1, l2 = node_factory.line_graph(2)
+    inv = l2.rpc.invoice(123000, 'label', 'description', 3700)
+
+    res = l1.rpc.pay2(bolt11=inv['bolt11'])
+    assert res['status'] == 'complete'
