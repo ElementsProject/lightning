@@ -120,7 +120,7 @@ def test_invoice_preimage(node_factory):
 def test_invoice_routeboost(node_factory, bitcoind):
     """Test routeboost 'r' hint in bolt11 invoice.
     """
-    l1, l2 = node_factory.line_graph(2, fundamount=2 * (10**4), wait_for_announce=True)
+    l0, l1, l2 = node_factory.line_graph(3, fundamount=2 * (10**4), wait_for_announce=True)
 
     # Check routeboost.
     # Make invoice and pay it
@@ -131,7 +131,7 @@ def test_invoice_routeboost(node_factory, bitcoind):
     # Route array has single route with single element.
     r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
     assert r['pubkey'] == l1.info['id']
-    assert r['short_channel_id'] == l1.rpc.listchannels()['channels'][0]['short_channel_id']
+    assert r['short_channel_id'] == l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['short_channel_id']
     assert r['fee_base_msat'] == 1
     assert r['fee_proportional_millionths'] == 10
     assert r['cltv_expiry_delta'] == 6
@@ -146,7 +146,7 @@ def test_invoice_routeboost(node_factory, bitcoind):
     assert 'warning_capacity' in inv
     assert 'warning_offline' not in inv
 
-    l1.stop()
+    l1.rpc.disconnect(l2.info['id'], True)
     wait_for(lambda: not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
 
     inv = l2.rpc.invoice(123456, label="inv3", description="?")
@@ -154,11 +154,32 @@ def test_invoice_routeboost(node_factory, bitcoind):
     assert 'warning_capacity' not in inv
     assert 'warning_offline' in inv
 
+    # Close l0, l2 will not use l1 at all.
+    l0.rpc.close(l1.info['id'])
+    l0.wait_for_channel_onchain(l1.info['id'])
+    bitcoind.generate_block(100)
+
+    # l2 has to notice channel is gone.
+    wait_for(lambda: len(l2.rpc.listchannels()['channels']) == 2)
+    inv = l2.rpc.invoice(123456, label="inv4", description="?")
+    # Check warning.
+    assert 'warning_capacity' in inv
+    assert 'warning_offline' not in inv
+
 
 def test_invoice_routeboost_private(node_factory, bitcoind):
     """Test routeboost 'r' hint in bolt11 invoice for private channels
     """
     l1, l2 = node_factory.line_graph(2, fundamount=10**6, announce_channels=False)
+
+    # Attach public channel to l1 so it doesn't look like a dead-end.
+    l0 = node_factory.get_node()
+    l0.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    scid = l0.fund_channel(l1, 2 * (10**4))
+    bitcoind.generate_block(5)
+
+    # Make sure channel is totally public.
+    wait_for(lambda: [c['public'] for c in l2.rpc.listchannels(scid)['channels']] == [True, True])
 
     # Since there's only one route, it will reluctantly hint that even
     # though it's private
@@ -177,13 +198,13 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     # the exposure of private channels.
     l3 = node_factory.get_node()
     l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    scid = l3.fund_channel(l2, 2 * (10**4))
+    scid = l3.fund_channel(l2, (10**4))
     bitcoind.generate_block(5)
 
     # Make sure channel is totally public.
     wait_for(lambda: [c['public'] for c in l3.rpc.listchannels(scid)['channels']] == [True, True])
 
-    inv = l2.rpc.invoice(msatoshi=123456000, label="inv1", description="?")
+    inv = l2.rpc.invoice(msatoshi=10**7, label="inv1", description="?")
     assert 'warning_capacity' in inv
 
 
