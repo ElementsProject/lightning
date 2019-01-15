@@ -152,10 +152,10 @@ void daemon_shutdown(void)
 	wally_cleanup(0);
 }
 
-void daemon_maybe_debug(int argc, char *argv[])
+void daemon_maybe_debug(char *argv[])
 {
 #if DEVELOPER
-	for (int i = 1; i < argc; i++) {
+	for (int i = 1; argv[i]; i++) {
 		if (!streq(argv[i], "--debugger"))
 			continue;
 

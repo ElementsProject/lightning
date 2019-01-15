@@ -37,7 +37,7 @@ void subdaemon_setup(int argc, char *argv[])
 			logging_io = true;
 	}
 
-	daemon_maybe_debug(argc, argv);
+	daemon_maybe_debug(argv);
 
 #if DEVELOPER
 	for (int i = 1; i < argc; i++) {
