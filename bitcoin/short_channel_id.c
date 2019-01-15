@@ -61,3 +61,29 @@ char *short_channel_id_to_str(const tal_t *ctx, const struct short_channel_id *s
 		       short_channel_id_txnum(scid),
 		       short_channel_id_outnum(scid));
 }
+
+bool short_channel_id_dir_from_str(const char *str, size_t strlen,
+				   struct short_channel_id_dir *scidd)
+{
+	const char *slash = memchr(str, '/', strlen);
+	if (!slash || slash + 2 != str + strlen)
+		return false;
+	if (!short_channel_id_from_str(str, slash - str, &scidd->scid))
+		return false;
+	if (slash[1] == '0')
+		scidd->dir = 0;
+	else if (slash[1] == '1')
+		scidd->dir = 1;
+	else
+		return false;
+	return true;
+}
+
+char *short_channel_id_dir_to_str(const tal_t *ctx,
+				  const struct short_channel_id_dir *scidd)
+{
+	char *str, *scidstr = short_channel_id_to_str(NULL, &scidd->scid);
+	str = tal_fmt(ctx, "%s/%u", scidstr, scidd->dir);
+	tal_free(scidstr);
+	return str;
+}

@@ -536,14 +536,14 @@ class LightningNode(object):
         if wait_for_active:
             # We wait until gossipd sees both local updates, as well as status NORMAL,
             # so it can definitely route through.
-            self.daemon.wait_for_logs([r'update for channel {}\(0\) now ACTIVE'
+            self.daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
                                        .format(scid),
-                                       r'update for channel {}\(1\) now ACTIVE'
+                                       r'update for channel {}/1 now ACTIVE'
                                        .format(scid),
                                        'to CHANNELD_NORMAL'])
-            l2.daemon.wait_for_logs([r'update for channel {}\(0\) now ACTIVE'
+            l2.daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
                                      .format(scid),
-                                     r'update for channel {}\(1\) now ACTIVE'
+                                     r'update for channel {}/1 now ACTIVE'
                                      .format(scid),
                                      'to CHANNELD_NORMAL'])
         return scid
@@ -596,9 +596,9 @@ class LightningNode(object):
     # (or for local channels, at least a local announcement)
     def wait_for_routes(self, channel_ids):
         # Could happen in any order...
-        self.daemon.wait_for_logs(['Received channel_update for channel {}\\(0\\)'.format(c)
+        self.daemon.wait_for_logs(['Received channel_update for channel {}/0'.format(c)
                                    for c in channel_ids]
-                                  + ['Received channel_update for channel {}\\(1\\)'.format(c)
+                                  + ['Received channel_update for channel {}/1'.format(c)
                                      for c in channel_ids])
 
     def pay(self, dst, amt, label=None):
@@ -829,7 +829,7 @@ class NodeFactory(object):
         for src, dst in connections:
             wait_for(lambda: src.channel_state(dst) == 'CHANNELD_NORMAL')
             scid = src.get_channel_scid(dst)
-            src.daemon.wait_for_log(r'Received channel_update for channel {scid}\(.\) now ACTIVE'.format(scid=scid))
+            src.daemon.wait_for_log(r'Received channel_update for channel {scid}/. now ACTIVE'.format(scid=scid))
             scids.append(scid)
 
         if not wait_for_announce:

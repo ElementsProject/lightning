@@ -557,7 +557,7 @@ static struct command_result *json_pay_try(struct pay *pay)
 					     pay->msatoshi + overpayment,
 					     pay->riskfactor,
 					     pay->min_final_cltv_expiry,
-					     &pay->fuzz, NULL, NULL,
+					     &pay->fuzz, NULL,
 					     ROUTING_MAX_HOPS);
 	subd_req(pay->try_parent, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
 

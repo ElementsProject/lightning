@@ -1871,8 +1871,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	u8 *out;
 	struct route_hop *hops;
 	double fuzz;
-	struct short_channel_id *excluded;
-	bool *excluded_dir;
+	struct short_channel_id_dir *excluded;
 
 	/* To choose between variations, we need to know how much we're
 	 * sending (eliminates too-small channels, and also effects the fees
@@ -1884,7 +1883,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 					      &source, &destination,
 					      &msatoshi, &riskfactor,
 					      &final_cltv, &fuzz,
-					      &excluded, &excluded_dir,
+					      &excluded,
 					      &max_hops))
 		master_badmsg(WIRE_GOSSIP_GETROUTE_REQUEST, msg);
 
@@ -1895,7 +1894,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	/* routing.c does all the hard work; can return NULL. */
 	hops = get_route(tmpctx, daemon->rstate, &source, &destination,
 			 msatoshi, riskfactor, final_cltv,
-			 fuzz, siphash_seed(), excluded, excluded_dir, max_hops);
+			 fuzz, siphash_seed(), excluded, max_hops);
 
 	out = towire_gossip_getroute_reply(NULL, hops);
 	daemon_conn_send(daemon->master, take(out));

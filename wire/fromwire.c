@@ -161,6 +161,13 @@ void fromwire_short_channel_id(const u8 **cursor, size_t *max,
 	short_channel_id->u64 = fromwire_u64(cursor, max);
 }
 
+void fromwire_short_channel_id_dir(const u8 **cursor, size_t *max,
+				   struct short_channel_id_dir *scidd)
+{
+	fromwire_short_channel_id(cursor, max, &scidd->scid);
+	scidd->dir = fromwire_bool(cursor, max);
+}
+
 void fromwire_sha256(const u8 **cursor, size_t *max, struct sha256 *sha256)
 {
 	fromwire(cursor, max, sha256, sizeof(*sha256));
@@ -235,6 +242,7 @@ char *fromwire_wirestring(const tal_t *ctx, const u8 **cursor, size_t *max)
 }
 
 REGISTER_TYPE_TO_STRING(short_channel_id, short_channel_id_to_str);
+REGISTER_TYPE_TO_STRING(short_channel_id_dir, short_channel_id_dir_to_str);
 REGISTER_TYPE_TO_HEXSTR(channel_id);
 
 /* BOLT #2:

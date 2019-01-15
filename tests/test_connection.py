@@ -1446,23 +1446,23 @@ def test_restart_many_payments(node_factory):
     l1_logs = []
     for i in range(len(innodes)):
         scid = inchans[i]
-        l1_logs += [r'update for channel {}\(0\) now ACTIVE'.format(scid),
-                    r'update for channel {}\(1\) now ACTIVE'.format(scid),
+        l1_logs += [r'update for channel {}/0 now ACTIVE'.format(scid),
+                    r'update for channel {}/1 now ACTIVE'.format(scid),
                     'to CHANNELD_NORMAL']
-        innodes[i].daemon.wait_for_logs([r'update for channel {}\(0\) now ACTIVE'
+        innodes[i].daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
                                          .format(scid),
-                                         r'update for channel {}\(1\) now ACTIVE'
+                                         r'update for channel {}/1 now ACTIVE'
                                          .format(scid),
                                          'to CHANNELD_NORMAL'])
 
     for i in range(len(outnodes)):
         scid = outchans[i]
-        l1_logs += [r'update for channel {}\(0\) now ACTIVE'.format(scid),
-                    r'update for channel {}\(1\) now ACTIVE'.format(scid),
+        l1_logs += [r'update for channel {}/0 now ACTIVE'.format(scid),
+                    r'update for channel {}/1 now ACTIVE'.format(scid),
                     'to CHANNELD_NORMAL']
-        outnodes[i].daemon.wait_for_logs([r'update for channel {}\(0\) now ACTIVE'
+        outnodes[i].daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
                                           .format(scid),
-                                          r'update for channel {}\(1\) now ACTIVE'
+                                          r'update for channel {}/1 now ACTIVE'
                                           .format(scid),
                                           'to CHANNELD_NORMAL'])
 

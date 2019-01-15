@@ -15,6 +15,23 @@ struct short_channel_id {
 /* Define short_channel_id_eq (no padding) */
 STRUCTEQ_DEF(short_channel_id, 0, u64);
 
+/* BOLT #7:
+ *
+ * - MUST set `node_id_1` and `node_id_2` to the public keys of the two nodes
+ * operating the channel, such that `node_id_1` is the numerically-lesser of the
+ * two DER-encoded keys sorted in ascending numerical order.
+ *...
+ *   - if the origin node is `node_id_1` in the message:
+ *     - MUST set the `direction` bit of `channel_flags` to 0.
+ *   - otherwise:
+ *     - MUST set the `direction` bit of `channel_flags` to 1.
+ */
+struct short_channel_id_dir {
+	struct short_channel_id scid;
+	/* 0 == from lesser id node, 1 == to lesser id node */
+	int dir;
+};
+
 static inline u32 short_channel_id_blocknum(const struct short_channel_id *scid)
 {
 	return scid->u64 >> 40;
@@ -37,5 +54,11 @@ bool short_channel_id_from_str(const char *str, size_t strlen,
 			       struct short_channel_id *dst);
 
 char *short_channel_id_to_str(const tal_t *ctx, const struct short_channel_id *scid);
+
+bool short_channel_id_dir_from_str(const char *str, size_t strlen,
+				   struct short_channel_id_dir *scidd);
+
+char *short_channel_id_dir_to_str(const tal_t *ctx,
+				  const struct short_channel_id_dir *scidd);
 
 #endif /* LIGHTNING_BITCOIN_SHORT_CHANNEL_ID_H */
