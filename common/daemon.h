@@ -15,7 +15,7 @@ int daemon_poll(struct pollfd *fds, nfds_t nfds, int timeout);
 void daemon_shutdown(void);
 
 /* Kick in a debugger if they set --debugger */
-void daemon_maybe_debug(int argc, char *argv[]);
+void daemon_maybe_debug(char *argv[]);
 
 struct backtrace_state *backtrace_state;
 
