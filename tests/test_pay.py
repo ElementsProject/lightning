@@ -59,6 +59,31 @@ def test_pay(node_factory):
     assert len(payments) == 1 and payments[0]['payment_preimage'] == preimage
 
 
+def test_pay_limits(node_factory):
+    """Test that we enforce fee max percentage and max delay"""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    # FIXME: pylightning should define these!
+    PAY_ROUTE_TOO_EXPENSIVE = 206
+
+    inv = l3.rpc.invoice("any", "any", 'description')
+
+    # Fee too high.
+    with pytest.raises(RpcError, match=r'Route wanted fee of .* msatoshis') as err:
+        l1.rpc.call('pay2', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxfeepercent': 0.0001, 'exemptfee': 0})
+
+    assert err.value.error['code'] == PAY_ROUTE_TOO_EXPENSIVE
+
+    # Delay too high.
+    with pytest.raises(RpcError, match=r'Route wanted delay of .* blocks') as err:
+        l1.rpc.call('pay2', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxdelay': 0})
+
+    assert err.value.error['code'] == PAY_ROUTE_TOO_EXPENSIVE
+
+    # This works, because fee is less than exemptfee.
+    l1.rpc.call('pay2', {'bolt11': inv['bolt11'], 'msatoshi': 100000, 'maxfeepercent': 0.0001, 'exemptfee': 2000})
+
+
 def test_pay0(node_factory):
     """Test paying 0 amount
     """
