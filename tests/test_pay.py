@@ -1200,3 +1200,35 @@ def test_pay_retry(node_factory, bitcoind):
 
     with pytest.raises(RpcError):
         l1.rpc.pay(l5.rpc.invoice(10**8, 'test_retry2', 'test_retry2')['bolt11'])
+
+
+@pytest.mark.xfail(strict=True)
+def test_pay_routeboost(node_factory, bitcoind):
+    """Make sure we can use routeboost information. """
+    # l1->l2->l3--private-->l4
+    l1, l2 = node_factory.line_graph(2, announce_channels=True, wait_for_announce=True)
+    l3, l4 = node_factory.line_graph(2, announce_channels=False, wait_for_announce=False)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    scidl2l3 = l2.fund_channel(l3, 10**6)
+
+    # Make sure l1 knows about the 2->3 channel.
+    bitcoind.generate_block(5)
+    l1.daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
+                             .format(scidl2l3),
+                             r'update for channel {}/1 now ACTIVE'
+                             .format(scidl2l3)])
+    # Make sure l4 knows about 2->3 channel too so it's not a dead-end.
+    l4.daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
+                             .format(scidl2l3),
+                             r'update for channel {}/1 now ACTIVE'
+                             .format(scidl2l3)])
+
+    # Get an l4 invoice; it should put the private channel in routeboost.
+    inv = l4.rpc.invoice(10**5, 'test_pay_routeboost', 'test_pay_routeboost',
+                         exposeprivatechannels=True)
+    assert 'warning_capacity' not in inv
+    assert 'warning_offline' not in inv
+    assert only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
+
+    # Now we should be able to pay it.
+    l1.rpc.pay(inv['bolt11'])
