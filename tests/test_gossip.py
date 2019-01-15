@@ -1,9 +1,11 @@
 from fixtures import *  # noqa: F401,F403
+from lightning import RpcError
 from utils import wait_for, TIMEOUT, only_one
 
 import json
 import logging
 import os
+import pytest
 import struct
 import subprocess
 import time
@@ -941,3 +943,51 @@ def test_gossip_notices_close(node_factory, bitcoind):
     l1.start()
     assert(l1.rpc.listchannels()['channels'] == [])
     assert(l1.rpc.listnodes()['nodes'] == [])
+
+
+def test_getroute_exclude(node_factory, bitcoind):
+    """Test getroute's exclude argument"""
+    l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
+
+    # This should work
+    route = l1.rpc.getroute(l4.info['id'], 1, 1)['route']
+
+    # l1 id is > l2 id, so 1 means l1->l2
+    chan_l1l2 = route[0]['channel'] + '/1'
+    chan_l2l1 = route[0]['channel'] + '/0'
+
+    # This should not
+    with pytest.raises(RpcError):
+        l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l1l2])
+
+    # Blocking the wrong way should be fine.
+    l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l2l1])
+
+    # Now, create an alternate (better) route.
+    l2.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    scid = l2.fund_channel(l4, 1000000, wait_for_active=False)
+    bitcoind.generate_block(5)
+
+    # We don't wait above, because we care about it hitting l1.
+    l1.daemon.wait_for_logs([r'update for channel {}\(0\) now ACTIVE'
+                             .format(scid),
+                             r'update for channel {}\(1\) now ACTIVE'
+                             .format(scid)])
+
+    # l3 id is > l2 id, so 1 means l3->l2
+    # chan_l3l2 = route[1]['channel'] + '/1'
+    chan_l2l3 = route[1]['channel'] + '/0'
+
+    # l4 is > l2
+    # chan_l4l2 = scid + '/1'
+    chan_l2l4 = scid + '/0'
+
+    # This works
+    l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l2l3])
+
+    # This works
+    l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l2l4])
+
+    # This doesn't
+    with pytest.raises(RpcError):
+        l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l2l3, chan_l2l4])
