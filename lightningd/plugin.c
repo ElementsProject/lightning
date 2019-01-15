@@ -884,6 +884,12 @@ static const char *plugin_fullpath(const tal_t *ctx, const char *dir,
 	/* Must be executable by someone. */
 	if (!(st.st_mode & (S_IXUSR|S_IXGRP|S_IXOTH)))
 		return tal_free(fullname);
+
+	/* Someone actually runs this on NTFS, where everything apparently is
+	 * executable!  This prevents the most obvious damage. */
+	if (streq(basename, "README.md"))
+		return tal_free(fullname);
+
 	return fullname;
 }
 
