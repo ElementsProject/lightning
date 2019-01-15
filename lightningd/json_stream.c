@@ -204,7 +204,7 @@ static void json_start_member(struct json_stream *js, const char *fieldname)
 static void js_indent(struct json_stream *js, jsmntype_t type)
 {
 #if DEVELOPER
-	*tal_arr_expand(&js->wrapping) = type;
+	tal_arr_expand(&js->wrapping, type);
 #endif
 	js->empty = true;
 	js->indent++;

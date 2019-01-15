@@ -167,7 +167,7 @@ static void rebroadcast_txs(struct chain_topology *topo, struct command *cmd)
 		if (wallet_transaction_height(topo->ld->wallet, &otx->txid))
 			continue;
 
-		*tal_arr_expand(&txs->txs) = tal_strdup(txs, otx->hextx);
+		tal_arr_expand(&txs->txs, tal_strdup(txs, otx->hextx));
 	}
 
 	/* Let this do the dirty work. */

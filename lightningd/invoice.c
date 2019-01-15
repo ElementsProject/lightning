@@ -343,10 +343,11 @@ static struct command_result *json_invoice(struct command *cmd,
 		fallback_scripts = tal_arr(cmd, const u8 *, 0);
 		for (i = fallbacks + 1; i < end; i = json_next(i)) {
 			struct command_result *r;
-			r = parse_fallback(cmd, buffer, i,
-					   tal_arr_expand(&fallback_scripts));
+			const u8 *fs;
+			r = parse_fallback(cmd, buffer, i, &fs);
 			if (r)
 				return r;
+			tal_arr_expand(&fallback_scripts, fs);
 		}
 	}
 

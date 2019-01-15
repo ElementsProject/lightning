@@ -129,17 +129,18 @@ static char *opt_add_addr_withtype(const char *arg,
 				   bool wildcard_ok)
 {
 	char const *err_msg;
+	struct wireaddr_internal wi;
 
 	assert(arg != NULL);
 
-	*tal_arr_expand(&ld->proposed_listen_announce) = ala;
-	if (!parse_wireaddr_internal(arg, tal_arr_expand(&ld->proposed_wireaddr),
+	tal_arr_expand(&ld->proposed_listen_announce, ala);
+	if (!parse_wireaddr_internal(arg, &wi,
 				     ld->portnum,
 				     wildcard_ok, !ld->use_proxy_always, false,
 				     &err_msg)) {
 		return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
 	}
-
+	tal_arr_expand(&ld->proposed_wireaddr, wi);
 	return NULL;
 
 }

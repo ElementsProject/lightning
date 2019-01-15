@@ -65,7 +65,7 @@ static void htlc_arr_append(const struct htlc ***arr, const struct htlc *htlc)
 {
 	if (!arr)
 		return;
-	*tal_arr_expand(arr) = htlc;
+	tal_arr_expand(arr, htlc);
 }
 
 /* What does adding the HTLC do to the balance for this side */
@@ -227,8 +227,8 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 		/* Append to array. */
 		assert(tal_count(*txs) == tal_count(*wscripts));
 
-		*tal_arr_expand(wscripts) = wscript;
-		*tal_arr_expand(txs) = tx;
+		tal_arr_expand(wscripts, wscript);
+		tal_arr_expand(txs, tx);
 	}
 }
 

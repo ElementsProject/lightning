@@ -114,11 +114,14 @@ static struct json_stream *jcon_new_json_stream(const tal_t *ctx,
 						struct json_connection *jcon,
 						struct command *writer)
 {
+	struct json_stream *js = new_json_stream(ctx, writer);
+
 	/* Wake writer to start streaming, in case it's not already. */
 	io_wake(jcon);
 
 	/* FIXME: Keep streams around for recycling. */
-	return *tal_arr_expand(&jcon->js_arr) = new_json_stream(ctx, writer);
+	tal_arr_expand(&jcon->js_arr, js);
+	return js;
 }
 
 static void jcon_remove_json_stream(struct json_connection *jcon,
@@ -768,7 +771,7 @@ bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command)
 		if (streq(rpc->commands[i]->name, command->name))
 			return false;
 
-	*tal_arr_expand(&rpc->commands) = command;
+	tal_arr_expand(&rpc->commands, command);
 	return true;
 }
 

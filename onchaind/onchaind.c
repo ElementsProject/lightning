@@ -410,7 +410,7 @@ static struct tracked_output *
 	} else
 		out->remote_htlc_sig = NULL;
 
-	*tal_arr_expand(outs) = out;
+	tal_arr_expand(outs, out);
 
 	return out;
 }
@@ -1521,7 +1521,7 @@ static const size_t *match_htlc_output(const tal_t *ctx,
 		if (memeq(tx->output[outnum].script + 2,
 			  tal_count(tx->output[outnum].script) - 2,
 			  &sha, sizeof(sha)))
-			*tal_arr_expand(&matches) = i;
+			tal_arr_expand(&matches, i);
 	}
 	return matches;
 }
@@ -1560,7 +1560,7 @@ static void note_missing_htlcs(u8 **htlc_scripts,
 		if (tell_immediately[i])
 			wire_sync_write(REQ_FD, take(msg));
 		else
-			*tal_arr_expand(&missing_htlc_msgs) = msg;
+			tal_arr_expand(&missing_htlc_msgs, msg);
 	}
 }
 

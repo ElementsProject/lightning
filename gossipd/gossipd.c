@@ -1022,8 +1022,8 @@ static void maybe_create_next_scid_reply(struct peer *peer)
 			queue_peer_msg(peer, chan->half[1].channel_update);
 
 		/* Record node ids for later transmission of node_announcement */
-		*tal_arr_expand(&peer->scid_query_nodes) = chan->nodes[0]->id;
-		*tal_arr_expand(&peer->scid_query_nodes) = chan->nodes[1]->id;
+		tal_arr_expand(&peer->scid_query_nodes, chan->nodes[0]->id);
+		tal_arr_expand(&peer->scid_query_nodes, chan->nodes[1]->id);
 		sent = true;
 	}
 
@@ -1919,13 +1919,11 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 				int idx)
 {
 	const struct half_chan *c = &chan->half[idx];
-	struct gossip_getchannels_entry *e;
+	struct gossip_getchannels_entry e;
 
 	/* If we've never seen a channel_update for this direction... */
 	if (!is_halfchan_defined(c))
 		return;
-
-	e = tal_arr_expand(entries);
 
 	/* Our 'struct chan' contains two nodes: they are in pubkey_cmp order
 	 * (ie. chan->nodes[0] is the lesser pubkey) and this is the same as
@@ -1936,18 +1934,20 @@ static void append_half_channel(struct gossip_getchannels_entry **entries,
 	 * pubkeys to DER and back: that proves quite expensive, and we assume
 	 * we're on the same architecture as lightningd, so we just send them
 	 * raw in this case. */
-	raw_pubkey(e->source, &chan->nodes[idx]->id);
-	raw_pubkey(e->destination, &chan->nodes[!idx]->id);
-	e->satoshis = chan->satoshis;
-	e->channel_flags = c->channel_flags;
-	e->message_flags = c->message_flags;
-	e->local_disabled = chan->local_disabled;
-	e->public = is_chan_public(chan);
-	e->short_channel_id = chan->scid;
-	e->last_update_timestamp = c->last_timestamp;
-	e->base_fee_msat = c->base_fee;
-	e->fee_per_millionth = c->proportional_fee;
-	e->delay = c->delay;
+	raw_pubkey(e.source, &chan->nodes[idx]->id);
+	raw_pubkey(e.destination, &chan->nodes[!idx]->id);
+	e.satoshis = chan->satoshis;
+	e.channel_flags = c->channel_flags;
+	e.message_flags = c->message_flags;
+	e.local_disabled = chan->local_disabled;
+	e.public = is_chan_public(chan);
+	e.short_channel_id = chan->scid;
+	e.last_update_timestamp = c->last_timestamp;
+	e.base_fee_msat = c->base_fee;
+	e.fee_per_millionth = c->proportional_fee;
+	e.delay = c->delay;
+
+	tal_arr_expand(entries, e);
 }
 
 /*~ Marshal (possibly) both channel directions into entries */
@@ -2002,21 +2002,21 @@ static void append_node(const struct gossip_getnodes_entry ***entries,
 {
 	struct gossip_getnodes_entry *e;
 
-	*tal_arr_expand(entries) = e
-		= tal(*entries, struct gossip_getnodes_entry);
+	e = tal(*entries, struct gossip_getnodes_entry);
 	raw_pubkey(e->nodeid, &n->id);
 	e->last_timestamp = n->last_timestamp;
 	/* Timestamp on wire is an unsigned 32 bit: we use a 64-bit signed, so
 	 * -1 means "we never received a channel_update". */
-	if (e->last_timestamp < 0)
-		return;
+	if (e->last_timestamp >= 0) {
+		e->globalfeatures = n->globalfeatures;
+		e->addresses = n->addresses;
+		BUILD_ASSERT(ARRAY_SIZE(e->alias) == ARRAY_SIZE(n->alias));
+		BUILD_ASSERT(ARRAY_SIZE(e->color) == ARRAY_SIZE(n->rgb_color));
+		memcpy(e->alias, n->alias, ARRAY_SIZE(e->alias));
+		memcpy(e->color, n->rgb_color, ARRAY_SIZE(e->color));
+	}
 
-	e->globalfeatures = n->globalfeatures;
-	e->addresses = n->addresses;
-	BUILD_ASSERT(ARRAY_SIZE(e->alias) == ARRAY_SIZE(n->alias));
-	BUILD_ASSERT(ARRAY_SIZE(e->color) == ARRAY_SIZE(n->rgb_color));
-	memcpy(e->alias, n->alias, ARRAY_SIZE(e->alias));
-	memcpy(e->color, n->rgb_color, ARRAY_SIZE(e->color));
+	tal_arr_expand(entries, e);
 }
 
 /* Simply routine when they ask for `listnodes` */
@@ -2125,7 +2125,7 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 		for (size_t i = 0; i < tal_count(node->chans); i++) {
 			const struct chan *c = node->chans[i];
 			const struct half_chan *hc;
-			struct route_info *ri;
+			struct route_info ri;
 
 			/* Don't leak private channels. */
 			if (!is_chan_public(c))
@@ -2136,12 +2136,12 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 			if (!is_halfchan_enabled(hc))
 				continue;
 
-			ri = tal_arr_expand(&r);
-			ri->pubkey = other_node(node, c)->id;
-			ri->short_channel_id = c->scid;
-			ri->fee_base_msat = hc->base_fee;
-			ri->fee_proportional_millionths = hc->proportional_fee;
-			ri->cltv_expiry_delta = hc->delay;
+			ri.pubkey = other_node(node, c)->id;
+			ri.short_channel_id = c->scid;
+			ri.fee_base_msat = hc->base_fee;
+			ri.fee_proportional_millionths = hc->proportional_fee;
+			ri.cltv_expiry_delta = hc->delay;
+			tal_arr_expand(&r, ri);
 		}
 	}
 

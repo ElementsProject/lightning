@@ -54,7 +54,7 @@ static bool get_files(const char *dir, const char *subdir,
 
 	while ((e = readdir(d)) != NULL) {
 		int preflen;
-		struct bolt_file *bf;
+		struct bolt_file bf;
 
 		/* Must end in .md */
 		if (!strends(e->d_name, ".md"))
@@ -74,12 +74,12 @@ static bool get_files(const char *dir, const char *subdir,
 		if (verbose)
 			printf("Found bolt %.*s\n", preflen, e->d_name);
 
-		bf = tal_arr_expand(files);
-		bf->prefix = tal_strndup(*files, e->d_name, preflen);
-		bf->contents
+		bf.prefix = tal_strndup(*files, e->d_name, preflen);
+		bf.contents
 			= canonicalize(grab_file(*files,
 						 path_join(path, path,
 							   e->d_name)));
+		tal_arr_expand(files, bf);
 	}
 	return true;
 }
