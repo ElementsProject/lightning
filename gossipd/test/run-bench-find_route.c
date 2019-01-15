@@ -258,10 +258,11 @@ int main(int argc, char *argv[])
 		struct chan **route;
 
 		route = find_route(tmpctx, rstate, from, to,
-				  pseudorand(100000),
-				  riskfactor,
-				  0.75, &base_seed,
-				  &fee);
+				   pseudorand(100000),
+				   riskfactor,
+				   0.75, &base_seed,
+				   ROUTING_MAX_HOPS,
+				   &fee);
 		num_success += (route != NULL);
 		tal_free(route);
 	}

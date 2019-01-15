@@ -222,7 +222,8 @@ int main(void)
 	/* A<->B */
 	add_connection(rstate, &a, &b, 1, 1, 1);
 
-	route = find_route(tmpctx, rstate, &a, &b, 1000, riskfactor, 0.0, NULL, &fee);
+	route = find_route(tmpctx, rstate, &a, &b, 1000, riskfactor, 0.0, NULL,
+			   ROUTING_MAX_HOPS, &fee);
 	assert(route);
 	assert(tal_count(route) == 1);
 	assert(fee == 0);
@@ -237,7 +238,8 @@ int main(void)
 	status_trace("C = %s", type_to_string(tmpctx, struct pubkey, &c));
 	add_connection(rstate, &b, &c, 1, 1, 1);
 
-	route = find_route(tmpctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL, &fee);
+	route = find_route(tmpctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL,
+			   ROUTING_MAX_HOPS, &fee);
 	assert(route);
 	assert(tal_count(route) == 2);
 	assert(fee == 1);
@@ -252,7 +254,8 @@ int main(void)
 	add_connection(rstate, &d, &c, 0, 2, 1);
 
 	/* Will go via D for small amounts. */
-	route = find_route(tmpctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL, &fee);
+	route = find_route(tmpctx, rstate, &a, &c, 1000, riskfactor, 0.0, NULL,
+			   ROUTING_MAX_HOPS, &fee);
 	assert(route);
 	assert(tal_count(route) == 2);
 	assert(channel_is_between(route[0], &a, &d));
@@ -260,7 +263,8 @@ int main(void)
 	assert(fee == 0);
 
 	/* Will go via B for large amounts. */
-	route = find_route(tmpctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL, &fee);
+	route = find_route(tmpctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL,
+			   ROUTING_MAX_HOPS, &fee);
 	assert(route);
 	assert(tal_count(route) == 2);
 	assert(channel_is_between(route[0], &a, &b));
@@ -269,7 +273,8 @@ int main(void)
 
 	/* Make B->C inactive, force it back via D */
 	get_connection(rstate, &b, &c)->channel_flags |= ROUTING_FLAGS_DISABLED;
-	route = find_route(tmpctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL, &fee);
+	route = find_route(tmpctx, rstate, &a, &c, 3000000, riskfactor, 0.0, NULL,
+			   ROUTING_MAX_HOPS, &fee);
 	assert(route);
 	assert(tal_count(route) == 2);
 	assert(channel_is_between(route[0], &a, &d));

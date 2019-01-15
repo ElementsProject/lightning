@@ -327,6 +327,7 @@ static struct command_result *json_getroute(struct command *cmd,
 	double *riskfactor;
 	struct short_channel_id *excluded;
 	bool *excluded_dir;
+	u32 *max_hops;
 
 	/* Higher fuzz means that some high-fee paths can be discounted
 	 * for an even larger value, increasing the scope for route
@@ -343,6 +344,8 @@ static struct command_result *json_getroute(struct command *cmd,
 		   p_opt_def("fromid", param_pubkey, &source, ld->id),
 		   p_opt_def("fuzzpercent", param_percent, &fuzz, 5.0),
 		   p_opt("exclude", param_array, &excludetok),
+		   p_opt_def("maxhops", param_number, &max_hops,
+			     ROUTING_MAX_HOPS),
 		   NULL))
 		return command_param_failed();
 
@@ -378,7 +381,8 @@ static struct command_result *json_getroute(struct command *cmd,
 	u8 *req = towire_gossip_getroute_request(cmd, source, destination,
 						 *msatoshi, *riskfactor * 1000,
 						 *cltv, fuzz,
-						 excluded, excluded_dir);
+						 excluded, excluded_dir,
+						 *max_hops);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 	return command_still_pending(cmd);
 }
