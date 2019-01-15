@@ -6,6 +6,9 @@
 #include <common/type_to_string.h>
 #include <plugins/libplugin.h>
 
+/* Public key of this node. */
+static struct pubkey my_id;
+
 struct pay_attempt {
 	const char *route;
 	const char *failure;
@@ -325,6 +328,15 @@ static struct command_result *handle_pay(struct command *cmd,
 			   " ");
 }
 
+static void init(struct plugin_conn *rpc)
+{
+	const char *field;
+
+	field = rpc_delve(tmpctx, "getinfo", "", rpc, ".id");
+	if (!pubkey_from_hexstr(field, strlen(field), &my_id))
+		plugin_err("getinfo didn't contain valid id: '%s'", field);
+}
+
 static const struct plugin_command commands[] = { {
 		"pay2",
 		"Send payment specified by {bolt11} with {msatoshi}",
@@ -335,5 +347,5 @@ static const struct plugin_command commands[] = { {
 
 int main(int argc, char *argv[])
 {
-	plugin_main(argv, NULL, commands, ARRAY_SIZE(commands));
+	plugin_main(argv, init, commands, ARRAY_SIZE(commands));
 }
