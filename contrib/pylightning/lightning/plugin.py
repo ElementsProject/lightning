@@ -37,7 +37,6 @@ class Plugin(object):
         self.rpc_filename = None
         self.lightning_dir = None
         self.rpc = None
-        self.init = None
 
     def add_method(self, name, func):
         """Add a plugin method to the dispatch table.
@@ -244,7 +243,7 @@ class Plugin(object):
         # then unstash this and call it.
         if 'init' in self.methods:
             self.init = self.methods['init']
-            self.methods['init'] = self._init
+        self.methods['init'] = self._init
 
         partial = ""
         for l in self.stdin:
@@ -292,11 +291,13 @@ class Plugin(object):
 
         # Swap the registered `init` method handler back in and
         # re-dispatch
-        if self.init:
-            self.methods['init'] = self.init
-            self.init = None
-            return self._exec_func(self.methods['init'], request)
+        self.methods['init'] = self.init
+        return self._exec_func(self.methods['init'], request)
         return None
+
+    # default init method does nothing
+    def init(self, options, configuration, plugin):
+        self.log("Plugin initialized")
 
 
 class PluginStream(object):
