@@ -300,7 +300,7 @@ static const jsmntok_t *read_rpc_reply(const tal_t *ctx,
 		*contents = json_get_member(membuf_elems(&rpc->mb), toks,
 					    "result");
 		if (!*contents)
-			plugin_err("JSON reply with no 'result'? '%.*s'",
+			plugin_err("JSON reply with no 'result' nor 'error'? '%.*s'",
 				   *reqlen, membuf_elems(&rpc->mb));
 		*error = false;
 	}
