@@ -876,6 +876,7 @@ static struct command_result *handle_pay(struct command *cmd,
 
 	/* Get capacities of local channels. */
 	return send_outreq(cmd, "listpeers", listpeers_done, forward_error, pc,
+			   /* gcc doesn't like zero-length format strings! */
 			   " ");
 }
 
