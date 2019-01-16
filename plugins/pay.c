@@ -96,7 +96,7 @@ struct pay_command {
 	struct route_info **routehints;
 
 	/* Current node during shadow route calculation. */
-	const char *shadow;
+	const char *shadow_dest;
 };
 
 static struct pay_attempt *current_attempt(struct pay_command *pc)
@@ -644,15 +644,16 @@ static struct command_result *add_shadow_route(struct command *cmd,
 	if (!best) {
 		tal_append_fmt(&pc->ps->shadow,
 			       "No suitable channels found to %s. ",
-			       pc->shadow);
+			       pc->shadow_dest);
 		return start_pay_attempt(cmd, pc, "Initial attempt");
 	}
 
 	pc->final_cltv += best_cltv;
-	pc->shadow = json_strdup(pc, buf,
-				 json_get_member(buf, best, "destination"));
+	pc->shadow_dest = json_strdup(pc, buf,
+				      json_get_member(buf, best, "destination"));
 	tal_append_fmt(&pc->ps->shadow,
-		       "Added %u cltv delay for shadow to %s. ", best_cltv, pc->shadow);
+		       "Added %u cltv delay for shadow to %s. ",
+		       best_cltv, pc->shadow_dest);
 	return shadow_route(cmd, pc);
 }
 
@@ -664,7 +665,7 @@ static struct command_result *shadow_route(struct command *cmd,
 
 	return send_outreq(cmd, "listchannels",
 			   add_shadow_route, forward_error, pc,
-			   "'source' : '%s'", pc->shadow);
+			   "'source' : '%s'", pc->shadow_dest);
 }
 
 /* gossipd doesn't know much about the current state of channels; here we
@@ -863,7 +864,7 @@ static struct command_result *handle_pay(struct command *cmd,
 	pc->riskfactor = *riskfactor;
 	pc->final_cltv = b11->min_final_cltv_expiry;
 	pc->dest = type_to_string(cmd, struct pubkey, &b11->receiver_id);
-	pc->shadow = tal_strdup(pc, pc->dest);
+	pc->shadow_dest = tal_strdup(pc, pc->dest);
 	pc->payment_hash = type_to_string(pc, struct sha256,
 					  &b11->payment_hash);
 	pc->stoptime = timeabs_add(time_now(), time_from_sec(*retryfor));
