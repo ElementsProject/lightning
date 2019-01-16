@@ -694,8 +694,8 @@ static struct command_result *listpeers_done(struct command *cmd,
 		chan = json_get_member(buf, peer, "channels");
 		chans_end = json_next(chan);
 		for (chan = chan + 1; chan < chans_end; chan = json_next(chan)) {
-			const jsmntok_t *state, *spendable, *scid, *dir;
-			u64 capacity;
+			const jsmntok_t *state, *scid, *dir;
+			u64 spendable;
 
 			/* gossipd will only consider things in state NORMAL
 			 * anyway; we don't need to exclude others. */
@@ -703,11 +703,12 @@ static struct command_result *listpeers_done(struct command *cmd,
 			if (!json_tok_streq(buf, state, "CHANNELD_NORMAL"))
 				continue;
 
-			spendable = json_get_member(buf, chan,
-						    "spendable_msatoshi");
-			json_to_u64(buf, spendable, &capacity);
+			json_to_u64(buf,
+				    json_get_member(buf, chan,
+						    "spendable_msatoshi"),
+				    &spendable);
 
-			if (connected && capacity >= pc->msatoshi)
+			if (connected && spendable >= pc->msatoshi)
 				continue;
 
 			/* Exclude this disconnected or low-capacity channel */
@@ -722,7 +723,7 @@ static struct command_result *listpeers_done(struct command *cmd,
 			tal_append_fmt(&mods,
 				       "Excluded channel %s (%"PRIu64" msat, %s). ",
 				       pc->excludes[tal_count(pc->excludes)-1],
-				       capacity,
+				       spendable,
 				       connected ? "connected" : "disconnected");
 		}
 	}
