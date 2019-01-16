@@ -53,6 +53,8 @@ The following error codes may occur:
 * 301. There are not enough funds in the internal wallet (including fees) to
        create the transaction.
 * 302. The output amount is too small, and would be considered dust.
+* 303. Broadcasting of the funding transaction failed, the internal call to
+       bitcoin-cli returned with an error.
 
 Failure may also occur if *lightningd* and the peer cannot agree on channel
 parameters (funding limits, channel reserves, fees, etc.).
