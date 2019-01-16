@@ -37,7 +37,7 @@ struct outgoing_tx {
 	struct channel *channel;
 	const char *hextx;
 	struct bitcoin_txid txid;
-	void (*failed)(struct channel *channel, int exitstatus, const char *err);
+	void (*failed_or_success)(struct channel *channel, int exitstatus, const char *err);
 };
 
 struct block {

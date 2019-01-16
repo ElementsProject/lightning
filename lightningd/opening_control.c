@@ -66,15 +66,20 @@ struct uncommitted_channel {
 
 
 struct funding_channel {
-	struct command *cmd; /* Which also owns us. */
+	struct command *cmd; /* Which initially owns us until openingd request */
+
 	struct wallet_tx wtx;
 	u64 push_msat;
 	u8 channel_flags;
 
+	/* Variables we need to compose fields in cmd's response */
+	u8 *linear;
+	struct channel_id cid;
+
 	/* Peer we're trying to reach. */
 	struct pubkey peerid;
 
-	/* Channel. */
+	/* Channel, subsequent owner of us */
 	struct uncommitted_channel *uc;
 };
 
@@ -216,18 +221,56 @@ wallet_commit_channel(struct lightningd *ld,
 }
 
 static void funding_broadcast_failed(struct channel *channel,
-				     int exitstatus, const char *err)
+				     int exitstatus, const char *msg)
 {
-	channel_internal_error(channel,
-			       "Funding broadcast exited with %i: %s",
-			       exitstatus, err);
+	struct funding_channel *fc = channel->peer->uncommitted_channel->fc;
+	struct command *cmd = fc->cmd;
+
+	/* Massage output into shape so it doesn't kill the JSON serialization */
+	char *output = tal_strjoin(cmd, tal_strsplit(cmd, msg, "\n", STR_NO_EMPTY), " ", STR_NO_TRAIL);
+	was_pending(command_fail(cmd, FUNDING_BROADCAST_FAIL,
+			"Error broadcasting funding transaction: %s", output));
+
+	/* Frees fc too */
+	tal_free(fc->uc);
+
+	/* Keep in state CHANNELD_AWAITING_LOCKIN until (manual) broadcast */
+}
+
+static void funding_broadcast_success(struct channel *channel)
+{
+	struct json_stream *response;
+	struct funding_channel *fc = channel->peer->uncommitted_channel->fc;
+	struct command *cmd = fc->cmd;
+
+	response = json_stream_success(cmd);
+	json_object_start(response, NULL);
+	json_add_hex_talarr(response, "tx", fc->linear);
+	json_add_txid(response, "txid", &channel->funding_txid);
+	json_add_string(response, "channel_id",
+					type_to_string(tmpctx, struct channel_id, &fc->cid));
+	json_object_end(response);
+	was_pending(command_success(cmd, response));
+
+	/* Frees fc too */
+	tal_free(fc->uc);
+}
+
+static void funding_broadcast_failed_or_success(struct channel *channel,
+				     int exitstatus, const char *msg)
+{
+	if (exitstatus == 0) {
+		funding_broadcast_success(channel);
+	} else {
+		funding_broadcast_failed(channel, exitstatus, msg);
+	}
 }
 
 static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 				    const int *fds,
 				    struct funding_channel *fc)
 {
-	u8 *msg, *linear;
+	u8 *msg;
 	struct channel_info channel_info;
 	struct bitcoin_tx *fundingtx;
 	struct bitcoin_txid funding_txid, expected_txid;
@@ -239,9 +282,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	u32 feerate;
 	u64 change_satoshi;
 	struct channel *channel;
-	struct json_stream *response;
 	struct lightningd *ld = openingd->ld;
-	struct channel_id cid;
 
 	assert(tal_count(fds) == 2);
 
@@ -372,32 +413,23 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	if (tal_count(fundingtx->output) == 2)
 		txfilter_add_scriptpubkey(ld->owned_txfilter, fundingtx->output[!funding_outnum].script);
 
-	/* Send it out and watch for confirms. */
-	broadcast_tx(ld->topology, channel, fundingtx, funding_broadcast_failed);
+	/* We need these to compose cmd's response in funding_broadcast_success */
+	fc->linear = linearize_tx(fc->cmd, fundingtx);
+	derive_channel_id(&fc->cid, &channel->funding_txid, funding_outnum);
 
+	/* Send it out and watch for confirms. */
+	broadcast_tx(ld->topology, channel, fundingtx, funding_broadcast_failed_or_success);
 	channel_watch_funding(ld, channel);
+
+	/* Mark consumed outputs as spent */
+	wallet_confirm_utxos(ld->wallet, fc->wtx.utxos);
 
 	/* Start normal channel daemon. */
 	peer_start_channeld(channel, &cs, fds[0], fds[1], NULL, false);
 
-	wallet_confirm_utxos(ld->wallet, fc->wtx.utxos);
-
-	response = json_stream_success(fc->cmd);
-	json_object_start(response, NULL);
-	linear = linearize_tx(response, fundingtx);
-	json_add_hex_talarr(response, "tx", linear);
-	json_add_txid(response, "txid", &channel->funding_txid);
-	derive_channel_id(&cid, &channel->funding_txid, funding_outnum);
-	json_add_string(response, "channel_id",
-			type_to_string(tmpctx, struct channel_id, &cid));
-	json_object_end(response);
-	was_pending(command_success(fc->cmd, response));
-
 	subd_release_channel(openingd, fc->uc);
 	fc->uc->openingd = NULL;
 
-	/* Frees fc too, and tmpctx */
-	tal_free(fc->uc);
 	return;
 
 failed:
