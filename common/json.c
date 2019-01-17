@@ -180,13 +180,13 @@ const jsmntok_t *json_next(const jsmntok_t *tok)
 const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 				 const char *label)
 {
-	const jsmntok_t *t, *end;
+	const jsmntok_t *t;
+	size_t i;
 
 	if (tok->type != JSMN_OBJECT)
 		return NULL;
 
-	end = json_next(tok);
-	for (t = tok + 1; t < end; t = json_next(t+1))
+	json_for_each_obj(i, t, tok)
 		if (json_tok_streq(buffer, t, label))
 			return t + 1;
 
@@ -195,13 +195,13 @@ const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 
 const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index)
 {
-	const jsmntok_t *t, *end;
+	const jsmntok_t *t;
+	size_t i;
 
 	if (tok->type != JSMN_ARRAY)
 		return NULL;
 
-	end = json_next(tok);
-	for (t = tok + 1; t < end; t = json_next(t)) {
+	json_for_each_arr(i, t, tok) {
 		if (index == 0)
 			return t;
 		index--;

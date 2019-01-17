@@ -331,15 +331,13 @@ static struct command_result *json_getroute(struct command *cmd,
 	*fuzz = *fuzz / 100.0;
 
 	if (excludetok) {
-		const jsmntok_t *t, *end = json_next(excludetok);
+		const jsmntok_t *t;
 		size_t i;
 
 		excluded = tal_arr(cmd, struct short_channel_id_dir,
 				   excludetok->size);
 
-		for (i = 0, t = excludetok + 1;
-		     t < end;
-		     t = json_next(t), i++) {
+		json_for_each_arr(i, t, excludetok) {
 			if (!short_channel_id_dir_from_str(buffer + t->start,
 							   t->end - t->start,
 							   &excluded[i])) {
@@ -486,7 +484,7 @@ static struct command_result *json_dev_query_scids(struct command *cmd,
 {
 	u8 *msg;
 	const jsmntok_t *scidstok;
-	const jsmntok_t *t, *end;
+	const jsmntok_t *t;
 	struct pubkey *id;
 	struct short_channel_id *scids;
 	size_t i;
@@ -498,8 +496,7 @@ static struct command_result *json_dev_query_scids(struct command *cmd,
 		return command_param_failed();
 
 	scids = tal_arr(cmd, struct short_channel_id, scidstok->size);
-	end = json_next(scidstok);
-	for (i = 0, t = scidstok + 1; t < end; t = json_next(t), i++) {
+	json_for_each_arr(i, t, scidstok) {
 		if (!json_to_short_channel_id(buffer, t, &scids[i])) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "scid %zu '%.*s' is not an scid",
